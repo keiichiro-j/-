@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <?!= include('html/Stylesheet'); ?>
+</head>
+<body>
+  <div id="app" class="app">
+
+    <header class="topbar">
+      <div class="topbar__brand">車両在庫管理</div>
+
+      <nav class="topbar__scope" id="scopeTabs" role="tablist" aria-label="拠点切替">
+        <!-- JS が会社タブ + 横断表示タブを描画 -->
+      </nav>
+
+      <div class="topbar__actions">
+        <button class="btn btn--primary" id="btnNewVehicle">＋ 新規登録</button>
+        <span class="topbar__user" id="currentUser"></span>
+      </div>
+    </header>
+
+    <div class="toolbar">
+      <div class="toolbar__tabs" id="tabNames" role="tablist" aria-label="車両区分">
+        <!-- 輸入車/国産車/(販売済) タブ -->
+      </div>
+
+      <input type="search" id="keywordInput" class="input input--search"
+             placeholder="車種・車台番号・OCN・登録番号などで検索">
+
+      <select id="filterCarType" class="input"><option value="">車種すべて</option></select>
+      <select id="filterStatus" class="input"><option value="">ステータスすべて</option></select>
+      <select id="filterStaff" class="input"><option value="">担当者すべて</option></select>
+
+      <button class="btn" id="btnExportCsv">CSV出力</button>
+      <button class="btn" id="btnSyncPdf">車検証PDF同期</button>
+    </div>
+
+    <div id="dashboard" class="dashboard hidden"></div>
+
+    <main class="listWrap">
+      <table class="vehicleTable" id="vehicleTable">
+        <thead id="vehicleTableHead"></thead>
+        <tbody id="vehicleTableBody"></tbody>
+      </table>
+      <div id="emptyState" class="emptyState hidden">該当する車両がありません</div>
+    </main>
+  </div>
+
+  <!-- 車両詳細/編集 モーダル -->
+  <div id="detailModal" class="modal hidden">
+    <div class="modal__panel modal__panel--wide">
+      <div class="modal__header">
+        <h2 id="detailTitle">車両詳細</h2>
+        <button class="btn btn--icon" data-close-modal>×</button>
+      </div>
+      <div class="modal__body" id="detailBody"></div>
+      <div class="modal__footer">
+        <div class="statusActions" id="statusActions"></div>
+        <div class="modal__footerRight">
+          <button class="btn" data-close-modal>閉じる</button>
+          <button class="btn btn--primary" id="btnSaveDetail">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 新規登録 ウィザード モーダル -->
+  <div id="registerModal" class="modal hidden">
+    <div class="modal__panel modal__panel--wide">
+      <div class="modal__header">
+        <h2>新規仕入登録</h2>
+        <button class="btn btn--icon" data-close-modal>×</button>
+      </div>
+      <div class="wizard__steps" id="wizardSteps">
+        <span class="wizard__step is-active" data-step="1">① 査定書</span>
+        <span class="wizard__step" data-step="2">② 車検証</span>
+        <span class="wizard__step" data-step="3">③ 確認・登録</span>
+      </div>
+      <div class="modal__body" id="registerBody"></div>
+      <div class="modal__footer">
+        <div></div>
+        <div class="modal__footerRight">
+          <button class="btn hidden" id="btnWizardBack">戻る</button>
+          <button class="btn btn--primary" id="btnWizardNext">次へ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <?!= include('html/JavaScript'); ?>
+</body>
+</html>

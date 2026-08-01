@@ -1,0 +1,209 @@
+<style>
+  :root {
+    --color-bg: #f4f5f7;
+    --color-surface: #ffffff;
+    --color-border: #dfe3e8;
+    --color-primary: #1a56db;
+    --color-primary-dark: #123f9e;
+    --color-text: #1f2937;
+    --color-text-muted: #6b7280;
+    --color-danger: #dc2626;
+    --color-warn: #b45309;
+    --color-warn-bg: #fef3c7;
+    --radius: 6px;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--font);
+    color: var(--color-text);
+    background: var(--color-bg);
+    font-size: 13px;
+  }
+  .hidden { display: none !important; }
+
+  .app { display: flex; flex-direction: column; height: 100vh; }
+
+  /* ===== Topbar ===== */
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 12px;
+    background: var(--color-primary);
+    color: #fff;
+    flex-wrap: wrap;
+  }
+  .topbar__brand { font-weight: 700; font-size: 15px; white-space: nowrap; }
+  .topbar__scope { display: flex; gap: 4px; flex: 1; flex-wrap: wrap; }
+  .topbar__scope button {
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: #fff;
+    border-radius: var(--radius);
+    padding: 4px 10px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .topbar__scope button.is-active { background: #fff; color: var(--color-primary); font-weight: 700; }
+  .topbar__actions { display: flex; align-items: center; gap: 8px; }
+  .topbar__user { font-size: 11px; opacity: 0.85; }
+
+  /* ===== Toolbar ===== */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+    flex-wrap: wrap;
+  }
+  .toolbar__tabs { display: flex; gap: 4px; margin-right: 8px; }
+  .toolbar__tabs button {
+    border: 1px solid var(--color-border);
+    background: #f0f2f5;
+    border-radius: var(--radius);
+    padding: 5px 12px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .toolbar__tabs button.is-active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+
+  .input {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 5px 8px;
+    font-size: 12px;
+    background: #fff;
+  }
+  .input--search { min-width: 220px; flex: 1; }
+
+  .btn {
+    border: 1px solid var(--color-border);
+    background: #fff;
+    border-radius: var(--radius);
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn:hover { background: #f0f2f5; }
+  .btn--primary { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+  .btn--primary:hover { background: var(--color-primary-dark); }
+  .btn--danger { background: var(--color-danger); border-color: var(--color-danger); color: #fff; }
+  .btn--icon { padding: 4px 8px; font-size: 16px; line-height: 1; }
+  .btn--sm { padding: 3px 8px; font-size: 11px; }
+
+  /* ===== Dashboard ===== */
+  .dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .dashboard__tile {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 8px 10px;
+    background: #fafbfc;
+  }
+  .dashboard__tile .num { font-size: 20px; font-weight: 700; }
+  .dashboard__tile .label { font-size: 11px; color: var(--color-text-muted); }
+  .dashboard__tile.is-warn { background: var(--color-warn-bg); }
+  .dashboard__tile.is-warn .num { color: var(--color-warn); }
+
+  /* ===== Table ===== */
+  .listWrap { flex: 1; overflow: auto; padding: 0 4px; }
+  .vehicleTable { width: 100%; border-collapse: collapse; font-size: 12px; background: #fff; }
+  .vehicleTable thead th {
+    position: sticky; top: 0;
+    background: #eef1f5;
+    border-bottom: 2px solid var(--color-border);
+    text-align: left;
+    padding: 6px 8px;
+    white-space: nowrap;
+    z-index: 1;
+  }
+  .vehicleTable tbody td {
+    padding: 4px 8px;
+    border-bottom: 1px solid #eef0f2;
+    white-space: nowrap;
+  }
+  .vehicleTable tbody tr { cursor: pointer; }
+  .vehicleTable tbody tr:hover { background: #f5f8ff; }
+  .vehicleTable tbody tr.is-expiring td { background: var(--color-warn-bg); }
+  .badge { display: inline-block; padding: 2px 6px; border-radius: 10px; font-size: 10px; background: #e5e7eb; }
+  .badge--sold { background: #d1fae5; color: #065f46; }
+  .emptyState { text-align: center; padding: 40px; color: var(--color-text-muted); }
+
+  /* ===== Modal ===== */
+  .modal {
+    position: fixed; inset: 0; background: rgba(15,23,42,0.5);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 50; padding: 12px;
+  }
+  .modal__panel {
+    background: #fff; border-radius: 8px; width: 100%; max-width: 480px;
+    max-height: 92vh; display: flex; flex-direction: column; overflow: hidden;
+  }
+  .modal__panel--wide { max-width: 780px; }
+  .modal__header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 14px; border-bottom: 1px solid var(--color-border);
+  }
+  .modal__header h2 { font-size: 14px; margin: 0; }
+  .modal__body { padding: 12px 14px; overflow-y: auto; flex: 1; }
+  .modal__footer {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 14px; border-top: 1px solid var(--color-border); gap: 8px; flex-wrap: wrap;
+  }
+  .modal__footerRight { display: flex; gap: 8px; margin-left: auto; }
+  .statusActions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  .formGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px 12px; }
+  .formField { display: flex; flex-direction: column; gap: 2px; }
+  .formField label { font-size: 11px; color: var(--color-text-muted); }
+  .formField input, .formField select {
+    border: 1px solid var(--color-border); border-radius: var(--radius); padding: 6px 8px; font-size: 13px;
+  }
+  .formField.formField--required label::after { content: ' *'; color: var(--color-danger); }
+  .errorBox { background: #fef2f2; border: 1px solid #fecaca; color: var(--color-danger);
+    border-radius: var(--radius); padding: 8px 10px; margin-bottom: 10px; font-size: 12px; white-space: pre-line; }
+
+  .wizard__steps { display: flex; gap: 4px; padding: 8px 14px 0; }
+  .wizard__step { font-size: 11px; padding: 4px 10px; border-radius: 12px; background: #eef1f5; color: var(--color-text-muted); }
+  .wizard__step.is-active { background: var(--color-primary); color: #fff; }
+  .dropzone {
+    border: 2px dashed var(--color-border); border-radius: var(--radius);
+    padding: 24px; text-align: center; color: var(--color-text-muted); cursor: pointer;
+  }
+  .dropzone:hover { border-color: var(--color-primary); color: var(--color-primary); }
+
+  .toast {
+    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    background: #111827; color: #fff; padding: 8px 16px; border-radius: 20px; font-size: 12px; z-index: 100;
+  }
+  .toast.is-error { background: var(--color-danger); }
+
+  /* ===== Responsive: tablet/phone ===== */
+  @media (max-width: 860px) {
+    body { font-size: 14px; }
+    .topbar { flex-direction: column; align-items: stretch; }
+    .toolbar { flex-direction: column; align-items: stretch; }
+    .input--search { min-width: 0; }
+    .vehicleTable thead { display: none; }
+    .vehicleTable, .vehicleTable tbody, .vehicleTable tbody tr, .vehicleTable tbody td { display: block; width: 100%; }
+    .vehicleTable tbody tr { border: 1px solid var(--color-border); border-radius: 6px; margin: 8px 4px; padding: 6px; }
+    .vehicleTable tbody td {
+      white-space: normal; border-bottom: none; padding: 3px 4px;
+      display: flex; justify-content: space-between; gap: 8px;
+    }
+    .vehicleTable tbody td::before { content: attr(data-label); color: var(--color-text-muted); font-size: 11px; }
+    .formGrid { grid-template-columns: 1fr; }
+  }
+</style>

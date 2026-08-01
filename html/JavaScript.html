@@ -1,0 +1,522 @@
+<script>
+(function () {
+  'use strict';
+
+  // ===== google.script.run を Promise化する薄いラッパー =====
+  function gsRun(fnName) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return new Promise(function (resolve, reject) {
+      google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(function (err) { reject(err); })
+        [fnName].apply(null, args);
+    });
+  }
+
+  var VIEW_TABS = ['すべて(在庫)', '輸入車', '国産車', '販売済'];
+
+  var state = {
+    boot: null,
+    scope: { mode: 'single', companyId: null, tabName: null }, // tabName: 表示中のツールバータブ
+    vehicles: [],
+    selectedVehicle: null,
+    wizard: null
+  };
+
+  // ===== 起動 =====
+  document.addEventListener('DOMContentLoaded', function () {
+    gsRun('api_getBootstrapData').then(function (boot) {
+      state.boot = boot;
+      state.scope.companyId = boot.companies[0] && boot.companies[0].id;
+      state.scope.tabName = VIEW_TABS[0];
+      document.getElementById('currentUser').textContent = boot.currentUserEmail || '';
+      renderScopeTabs();
+      renderToolbarTabs();
+      bindGlobalEvents();
+      reloadList();
+    }).catch(showError);
+  });
+
+  // ===== 拠点タブ（会社別 + 横断） =====
+  function renderScopeTabs() {
+    var nav = document.getElementById('scopeTabs');
+    nav.innerHTML = '';
+    state.boot.companies.forEach(function (c) {
+      var btn = document.createElement('button');
+      btn.textContent = c.name;
+      btn.className = (state.scope.mode === 'single' && state.scope.companyId === c.id) ? 'is-active' : '';
+      btn.onclick = function () {
+        state.scope.mode = 'single';
+        state.scope.companyId = c.id;
+        renderScopeTabs();
+        reloadList();
+      };
+      nav.appendChild(btn);
+    });
+    var crossBtn = document.createElement('button');
+    crossBtn.textContent = '3拠点横断';
+    crossBtn.className = state.scope.mode === 'cross' ? 'is-active' : '';
+    crossBtn.onclick = function () {
+      state.scope.mode = 'cross';
+      renderScopeTabs();
+      reloadList();
+    };
+    nav.appendChild(crossBtn);
+  }
+
+  function renderToolbarTabs() {
+    var wrap = document.getElementById('tabNames');
+    wrap.innerHTML = '';
+    VIEW_TABS.forEach(function (tab) {
+      var btn = document.createElement('button');
+      btn.textContent = tab;
+      btn.className = state.scope.tabName === tab ? 'is-active' : '';
+      btn.onclick = function () {
+        state.scope.tabName = tab;
+        renderToolbarTabs();
+        reloadList();
+      };
+      wrap.appendChild(btn);
+    });
+  }
+
+  function currentTabNames() {
+    if (state.scope.tabName === 'すべて(在庫)') return state.boot.stockTabNames;
+    return [state.scope.tabName];
+  }
+
+  // ===== 一覧読み込み =====
+  function reloadList() {
+    var tabNames = currentTabNames();
+    var promise;
+    if (state.scope.mode === 'cross') {
+      document.getElementById('dashboard').classList.remove('hidden');
+      loadDashboard();
+      promise = gsRun('api_listVehiclesAcross', tabNames);
+    } else {
+      document.getElementById('dashboard').classList.add('hidden');
+      promise = Promise.all(tabNames.map(function (t) {
+        return gsRun('api_listVehicles', state.scope.companyId, t);
+      })).then(function (lists) { return [].concat.apply([], lists); });
+    }
+    promise.then(function (vehicles) {
+      state.vehicles = vehicles;
+      populateFilterOptions(vehicles);
+      applyFiltersAndRender();
+    }).catch(showError);
+  }
+
+  function loadDashboard() {
+    gsRun('api_getDashboardSummary').then(function (summary) {
+      var el = document.getElementById('dashboard');
+      var html = summary.byCompany.map(function (s) {
+        return '<div class="dashboard__tile"><div class="num">' + s.stockCount + '</div>' +
+          '<div class="label">' + s.companyName + ' 在庫台数（輸入' + s.importedCount + ' / 国産' + s.domesticCount + '）</div></div>' +
+          '<div class="dashboard__tile' + (s.expiringSoonCount > 0 ? ' is-warn' : '') + '"><div class="num">' + s.expiringSoonCount + '</div>' +
+          '<div class="label">' + s.companyName + ' 車検満了間近（30日以内）</div></div>';
+      }).join('');
+      html += '<div class="dashboard__tile"><div class="num">' + summary.totalStock + '</div><div class="label">合計在庫台数</div></div>';
+      html += '<div class="dashboard__tile' + (summary.totalExpiringSoon > 0 ? ' is-warn' : '') + '"><div class="num">' + summary.totalExpiringSoon + '</div><div class="label">合計 車検満了間近</div></div>';
+      el.innerHTML = html;
+    }).catch(showError);
+  }
+
+  // ===== 検索・絞り込み（10.2） =====
+  function populateFilterOptions(vehicles) {
+    fillSelect('filterCarType', uniqueValues(vehicles, 'carType'), '車種すべて');
+    fillSelect('filterStaff', uniqueValues(vehicles, 'staff'), '担当者すべて');
+    fillSelect('filterStatus', state.boot.statusOptions, 'ステータスすべて', true);
+  }
+  function uniqueValues(list, key) {
+    var set = {};
+    list.forEach(function (v) { if (v[key]) set[v[key]] = true; });
+    return Object.keys(set).sort();
+  }
+  function fillSelect(id, values, placeholder, keepIfSet) {
+    var el = document.getElementById(id);
+    var current = el.value;
+    el.innerHTML = '<option value="">' + placeholder + '</option>' +
+      values.map(function (v) { return '<option value="' + escapeAttr(v) + '">' + escapeHtml(v) + '</option>'; }).join('');
+    if (keepIfSet !== undefined || values.indexOf(current) !== -1) el.value = current;
+  }
+
+  function currentFilters() {
+    return {
+      keyword: document.getElementById('keywordInput').value,
+      carType: document.getElementById('filterCarType').value,
+      status: document.getElementById('filterStatus').value,
+      staff: document.getElementById('filterStaff').value
+    };
+  }
+
+  function applyFiltersAndRender() {
+    // クライアント側で軽量フィルタ（サーバー側 searchVehicles と同一ロジックの簡易版）
+    var f = currentFilters();
+    var kw = (f.keyword || '').trim();
+    var filtered = state.vehicles.filter(function (v) {
+      if (f.carType && v.carType !== f.carType) return false;
+      if (f.status && v.status !== f.status) return false;
+      if (f.staff && v.staff !== f.staff) return false;
+      if (kw) {
+        var hay = [v.carType, v.model, v.chassisNumber, v.ocn, v.supplier,
+          v.plateRegion, v.plateClass, v.plateKana, v.plateNumber].join(' ');
+        if (hay.indexOf(kw) === -1) return false;
+      }
+      return true;
+    });
+    renderTable(filtered);
+  }
+
+  // ===== 一覧テーブル描画 =====
+  var LIST_COLUMNS = ['ocn', 'carType', 'model', 'chassisNumber', 'inspectionExpiryDate', 'status', 'staff', 'plateFull'];
+  var LIST_LABELS = { ocn: 'OCN', carType: '車種', model: 'モデル', chassisNumber: '車台番号', inspectionExpiryDate: '車検満了日', status: 'ステータス', staff: '担当者', plateFull: '登録番号' };
+
+  function renderTable(vehicles) {
+    var head = document.getElementById('vehicleTableHead');
+    head.innerHTML = '<tr>' + (state.scope.mode === 'cross' ? '<th>拠点</th>' : '') +
+      LIST_COLUMNS.map(function (k) { return '<th>' + LIST_LABELS[k] + '</th>'; }).join('') + '</tr>';
+
+    var body = document.getElementById('vehicleTableBody');
+    var today = new Date().toISOString().slice(0, 10);
+    var soon = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+    body.innerHTML = '';
+    vehicles.forEach(function (v) {
+      var tr = document.createElement('tr');
+      var expiring = v.inspectionExpiryDate && v.inspectionExpiryDate >= today && v.inspectionExpiryDate <= soon;
+      if (expiring) tr.classList.add('is-expiring');
+      var cells = '';
+      if (state.scope.mode === 'cross') {
+        cells += '<td data-label="拠点">' + companyName(v.companyId) + '</td>';
+      }
+      LIST_COLUMNS.forEach(function (k) {
+        var val = k === 'plateFull' ? plateFull(v) : (v[k] || '');
+        if (k === 'status') val = '<span class="badge' + (val === '販売済み' ? ' badge--sold' : '') + '">' + escapeHtml(val) + '</span>';
+        else val = escapeHtml(val);
+        cells += '<td data-label="' + LIST_LABELS[k] + '">' + val + '</td>';
+      });
+      tr.innerHTML = cells;
+      tr.onclick = function () { openDetail(v); };
+      body.appendChild(tr);
+    });
+
+    document.getElementById('emptyState').classList.toggle('hidden', vehicles.length > 0);
+    document.getElementById('vehicleTable').classList.toggle('hidden', vehicles.length === 0);
+  }
+
+  function plateFull(v) {
+    return [v.plateRegion, v.plateClass, v.plateKana, v.plateNumber].filter(Boolean).join(' ');
+  }
+  function companyName(id) {
+    var c = state.boot.companies.filter(function (x) { return x.id === id; })[0];
+    return c ? c.name : id;
+  }
+
+  // ===== 詳細/編集モーダル =====
+  function openDetail(vehicle) {
+    state.selectedVehicle = vehicle;
+    document.getElementById('detailTitle').textContent = 'OCN ' + vehicle.ocn + ' 車両詳細';
+    document.getElementById('detailBody').innerHTML = buildFormGrid(vehicle, false);
+    renderStatusActions(vehicle);
+    document.getElementById('detailModal').classList.remove('hidden');
+  }
+
+  function buildFormGrid(vehicle, isNew) {
+    var readonlyKeys = { ocn: 1, tradeInLoss: 1, inspectionCertLink: 1, ownCertLink: 1, soldMonth: 1, soldTo: 1 };
+    var html = '<div class="formGrid">';
+    state.boot.columns.forEach(function (col) {
+      if (isNew && (col.key === 'ocn' || col.key === 'inspectionCertLink' || col.key === 'ownCertLink' ||
+        col.key === 'soldMonth' || col.key === 'soldTo' || col.key === 'tradeInLoss')) return;
+      var val = vehicle[col.key] != null ? vehicle[col.key] : '';
+      var readonly = readonlyKeys[col.key];
+      html += '<div class="formField' + (col.required ? ' formField--required' : '') + '">';
+      html += '<label>' + col.label + '</label>';
+      if (col.type === 'link') {
+        html += val ? '<a href="' + escapeAttr(val) + '" target="_blank">確認する</a>' : '<span>未登録</span>';
+      } else if (col.type === 'select') {
+        html += '<select data-key="' + col.key + '"' + (readonly ? ' disabled' : '') + '>' +
+          col.options.map(function (o) { return '<option value="' + o + '"' + (o === val ? ' selected' : '') + '>' + o + '</option>'; }).join('') + '</select>';
+      } else {
+        html += '<input data-key="' + col.key + '" type="' + (col.type === 'date' ? 'date' : (col.type === 'number' ? 'number' : 'text')) +
+          '" value="' + escapeAttr(val) + '"' + (readonly ? ' readonly' : '') + '>';
+      }
+      html += '</div>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  function collectFormValues(container) {
+    var patch = {};
+    container.querySelectorAll('[data-key]').forEach(function (el) {
+      patch[el.dataset.key] = el.value;
+    });
+    return patch;
+  }
+
+  function renderStatusActions(vehicle) {
+    var wrap = document.getElementById('statusActions');
+    wrap.innerHTML = '';
+    if (vehicle.tabName === state.boot.tabNames.SOLD) return;
+    state.boot.statusOptions.forEach(function (status) {
+      if (status === vehicle.status) return;
+      var btn = document.createElement('button');
+      btn.className = 'btn btn--sm';
+      btn.textContent = status + 'にする';
+      btn.onclick = function () { handleStatusChange(vehicle, status); };
+      wrap.appendChild(btn);
+    });
+  }
+
+  function handleStatusChange(vehicle, newStatus) {
+    var extra = {};
+    if (newStatus === '販売済み') {
+      extra.soldMonth = prompt('販売年月を入力してください（例: 2026-08）', '');
+      if (extra.soldMonth === null) return;
+      extra.soldTo = prompt('販売先を入力してください', '');
+      if (extra.soldTo === null) return;
+    }
+    gsRun('api_changeStatus', vehicle.companyId, vehicle.tabName, vehicle.ocn, newStatus, extra)
+      .then(function (res) {
+        showToast('ステータスを更新しました');
+        closeModals();
+        reloadList();
+        if (res.requiresOwnCertUpload) {
+          setTimeout(function () { promptOwnCertUpload(vehicle); }, 300);
+        }
+      }).catch(showError);
+  }
+
+  function promptOwnCertUpload(vehicle) {
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/pdf,image/*';
+    input.onchange = function () {
+      if (!input.files[0]) return;
+      fileToBase64(input.files[0]).then(function (b64) {
+        return gsRun('api_uploadOwnCertPdf', vehicle.companyId, vehicle.ocn, b64.data, b64.mimeType, input.files[0].name);
+      }).then(function () {
+        showToast('自社名義車検証を登録しました');
+      }).catch(showError);
+    };
+    if (confirm('名義変更が完了しました。自社名義の車検証PDFをアップロードしますか？')) {
+      input.click();
+    }
+  }
+
+  document.getElementById('btnSaveDetail').addEventListener('click', function () {
+    var patch = collectFormValues(document.getElementById('detailBody'));
+    var v = state.selectedVehicle;
+    gsRun('api_updateVehicle', v.companyId, v.tabName, v.ocn, patch).then(function () {
+      showToast('保存しました');
+      closeModals();
+      reloadList();
+    }).catch(showError);
+  });
+
+  // ===== 新規登録ウィザード（4.5 → 4.6 → 確認） =====
+  function openWizard() {
+    state.wizard = {
+      step: 1,
+      companyId: state.scope.mode === 'single' ? state.scope.companyId : state.boot.companies[0].id,
+      tabName: (state.scope.tabName && state.scope.tabName !== 'すべて(在庫)' && state.scope.tabName !== '販売済') ? state.scope.tabName : '輸入車',
+      draft: {}
+    };
+    renderWizard();
+    document.getElementById('registerModal').classList.remove('hidden');
+  }
+
+  function renderWizard() {
+    document.querySelectorAll('.wizard__step').forEach(function (el) {
+      el.classList.toggle('is-active', Number(el.dataset.step) === state.wizard.step);
+    });
+    document.getElementById('btnWizardBack').classList.toggle('hidden', state.wizard.step === 1);
+    document.getElementById('btnWizardNext').textContent = state.wizard.step === 3 ? '登録する' : '次へ';
+
+    var body = document.getElementById('registerBody');
+    if (state.wizard.step === 1) {
+      body.innerHTML = wizardTargetSelectHtml() +
+        '<p>査定書PDFをアップロードすると、車種・モデル・車台番号・査定額等を自動読み取りします（任意）。</p>' +
+        '<div class="dropzone" id="dz1">クリックしてPDFを選択</div>' +
+        '<div id="dz1status"></div>';
+      bindDropzone('dz1', function (b64, file) {
+        document.getElementById('dz1status').textContent = '読み取り中...';
+        gsRun('api_uploadAppraisalPdf', state.wizard.companyId, b64.data, b64.mimeType, file.name).then(function (draft) {
+          Object.assign(state.wizard.draft, draft);
+          document.getElementById('dz1status').textContent = '読み取り完了: ' + file.name;
+        }).catch(showError);
+      });
+    } else if (state.wizard.step === 2) {
+      body.innerHTML = '<p>購入時（前所有者名義）の車検証PDFをアップロードすると、仕入先（顧客名）・住所を自動反映します（任意）。</p>' +
+        '<div class="dropzone" id="dz2">クリックしてPDFを選択</div>' +
+        '<div id="dz2status"></div>';
+      bindDropzone('dz2', function (b64, file) {
+        document.getElementById('dz2status').textContent = '読み取り中...';
+        gsRun('api_uploadInspectionCertPdf', state.wizard.companyId, b64.data, b64.mimeType, file.name).then(function (draft) {
+          state.wizard.draft.inspectionTempFileId = draft.tempFileId;
+          if (draft.supplier) state.wizard.draft.supplier = draft.supplier;
+          if (draft.address) state.wizard.draft.address = draft.address;
+          document.getElementById('dz2status').textContent = '読み取り完了: ' + file.name;
+        }).catch(showError);
+      });
+    } else {
+      body.innerHTML = '<div id="wizardError"></div>' + buildFormGrid(state.wizard.draft, true);
+    }
+  }
+
+  function wizardTargetSelectHtml() {
+    var companyOptions = state.boot.companies.map(function (c) {
+      return '<option value="' + c.id + '"' + (c.id === state.wizard.companyId ? ' selected' : '') + '>' + c.name + '</option>';
+    }).join('');
+    var tabOptions = ['輸入車', '国産車'].map(function (t) {
+      return '<option value="' + t + '"' + (t === state.wizard.tabName ? ' selected' : '') + '>' + t + '</option>';
+    }).join('');
+    return '<div class="formGrid" style="margin-bottom:12px;">' +
+      '<div class="formField"><label>拠点</label><select id="wzCompany">' + companyOptions + '</select></div>' +
+      '<div class="formField"><label>区分</label><select id="wzTab">' + tabOptions + '</select></div>' +
+      '</div>';
+  }
+
+  function bindDropzone(id, onFile) {
+    var el = document.getElementById(id);
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/pdf,image/*';
+    input.style.display = 'none';
+    input.onchange = function () {
+      if (!input.files[0]) return;
+      fileToBase64(input.files[0]).then(function (b64) { onFile(b64, input.files[0]); }).catch(showError);
+    };
+    el.appendChild(input);
+    el.onclick = function () { input.click(); };
+  }
+
+  document.getElementById('btnWizardNext').addEventListener('click', function () {
+    if (state.wizard.step === 1) {
+      var wzCompany = document.getElementById('wzCompany');
+      var wzTab = document.getElementById('wzTab');
+      if (wzCompany) state.wizard.companyId = wzCompany.value;
+      if (wzTab) state.wizard.tabName = wzTab.value;
+      state.wizard.step = 2;
+      renderWizard();
+    } else if (state.wizard.step === 2) {
+      state.wizard.step = 3;
+      renderWizard();
+    } else {
+      var patch = collectFormValues(document.getElementById('registerBody'));
+      Object.assign(state.wizard.draft, patch);
+      gsRun('api_registerVehicle', state.wizard.companyId, state.wizard.tabName, state.wizard.draft)
+        .then(function (created) {
+          showToast('OCN ' + created.ocn + ' を登録しました');
+          closeModals();
+          reloadList();
+        }).catch(function (err) {
+          var box = document.getElementById('wizardError');
+          if (box) { box.innerHTML = '<div class="errorBox">' + escapeHtml(err.message || String(err)) + '</div>'; }
+          else showError(err);
+        });
+    }
+  });
+
+  document.getElementById('btnWizardBack').addEventListener('click', function () {
+    state.wizard.step = Math.max(1, state.wizard.step - 1);
+    renderWizard();
+  });
+
+  // ===== CSV出力（10.4） =====
+  document.getElementById('btnExportCsv').addEventListener('click', function () {
+    var from = prompt('仕入日の開始日（例: 2026-04-01、省略可）', '');
+    if (from === null) return;
+    var to = prompt('仕入日の終了日（例: 2026-04-30、省略可）', '');
+    if (to === null) return;
+    var scope = state.scope.mode === 'cross'
+      ? { mode: 'cross', tabNames: currentTabNames() }
+      : { mode: 'single', companyId: state.scope.companyId, tabName: currentTabNames()[0] };
+    gsRun('api_exportCsv', scope, from, to).then(function (csv) {
+      downloadCsv(csv);
+    }).catch(showError);
+  });
+
+  function downloadCsv(csv) {
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'vehicles_' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+  }
+
+  // ===== PDF手動同期（4.1） =====
+  document.getElementById('btnSyncPdf').addEventListener('click', function () {
+    var companyId = state.scope.mode === 'single' ? state.scope.companyId : null;
+    showToast('車検証PDFを同期しています...');
+    gsRun('api_syncPdfLinksNow', companyId).then(function () {
+      showToast('PDF同期が完了しました');
+      reloadList();
+    }).catch(showError);
+  });
+
+  // ===== 共通イベント =====
+  function bindGlobalEvents() {
+    document.getElementById('btnNewVehicle').addEventListener('click', openWizard);
+    document.querySelectorAll('[data-close-modal]').forEach(function (el) {
+      el.addEventListener('click', closeModals);
+    });
+    document.getElementById('keywordInput').addEventListener('input', debounce(applyFiltersAndRender, 200));
+    document.getElementById('filterCarType').addEventListener('change', applyFiltersAndRender);
+    document.getElementById('filterStatus').addEventListener('change', applyFiltersAndRender);
+    document.getElementById('filterStaff').addEventListener('change', applyFiltersAndRender);
+  }
+
+  function closeModals() {
+    document.getElementById('detailModal').classList.add('hidden');
+    document.getElementById('registerModal').classList.add('hidden');
+  }
+
+  // ===== ユーティリティ =====
+  function fileToBase64(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        var result = reader.result; // "data:<mime>;base64,xxxx"
+        var comma = result.indexOf(',');
+        resolve({ data: result.slice(comma + 1), mimeType: file.type || 'application/pdf' });
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function debounce(fn, wait) {
+    var t;
+    return function () {
+      clearTimeout(t);
+      var args = arguments;
+      t = setTimeout(function () { fn.apply(null, args); }, wait);
+    };
+  }
+
+  function showToast(msg, isError) {
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.toggle('is-error', !!isError);
+    el.classList.remove('hidden');
+    setTimeout(function () { el.classList.add('hidden'); }, 3000);
+  }
+
+  function showError(err) {
+    console.error(err);
+    showToast((err && err.message) || String(err), true);
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function escapeAttr(s) { return escapeHtml(s); }
+})();
+</script>
