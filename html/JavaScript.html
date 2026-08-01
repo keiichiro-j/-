@@ -422,8 +422,8 @@
     renderWizard();
   });
 
-  // ===== CSV出力（10.4） =====
-  document.getElementById('btnExportCsv').addEventListener('click', function () {
+  // ===== PDF帳票出力（10.4） =====
+  document.getElementById('btnExportPdf').addEventListener('click', function () {
     var from = prompt('仕入日の開始日（例: 2026-04-01、省略可）', '');
     if (from === null) return;
     var to = prompt('仕入日の終了日（例: 2026-04-30、省略可）', '');
@@ -431,17 +431,21 @@
     var scope = state.scope.mode === 'cross'
       ? { mode: 'cross', tabNames: currentTabNames() }
       : { mode: 'single', companyId: state.scope.companyId, tabName: currentTabNames()[0] };
-    gsRun('api_exportCsv', scope, from, to).then(function (csv) {
-      downloadCsv(csv);
+    showToast('PDFを作成しています...');
+    gsRun('api_exportPdf', scope, from, to).then(function (result) {
+      downloadPdf(result.base64, result.fileName);
     }).catch(showError);
   });
 
-  function downloadCsv(csv) {
-    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  function downloadPdf(base64, fileName) {
+    var byteChars = atob(base64);
+    var byteNumbers = new Array(byteChars.length);
+    for (var i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
+    var blob = new Blob([new Uint8Array(byteNumbers)], { type: 'application/pdf' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
-    a.download = 'vehicles_' + new Date().toISOString().slice(0, 10) + '.csv';
+    a.download = fileName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

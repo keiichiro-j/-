@@ -19,7 +19,7 @@ Google スプレッドシートをDBとし、GASの HTML Service で Webアプ�
 | `AppraisalExtractionService.gs` | 4.5 査定書からの仕入情報自動抽出・下取損計算 |
 | `InspectionExtractionService.gs` | 4.6 車検証からの顧客名・住所自動抽出 |
 | `SearchService.gs` | 10.2 検索・絞り込み強化（登録番号4分割検索を含む） |
-| `CsvExportService.gs` | 10.4 期間指定CSV出力 |
+| `PdfReportService.gs` | 10.4 期間指定PDF帳票出力（A4横・複数ページ対応） |
 | `Api.gs` | クライアント（HTML）から呼び出すユースケース単位API |
 | `Triggers.gs` | 時間主導型トリガー（PDF監視・車検満了チェック）のセットアップ |
 | `Code.gs` | `doGet` エントリポイント |
@@ -54,7 +54,8 @@ Google スプレッドシートをDBとし、GASの HTML Service で Webアプ�
 ## テスト
 
 外部サービス（Spreadsheet/Drive/Vision等）に依存しない純粋ロジック（OCN採番の連番解析、PDFファイル名パース、
-査定書テンプレート抽出・下取損計算、登録番号の複合検索、CSV生成）を Node.js の `vm` サンドボックスで検証します。
+査定書テンプレート抽出・下取損計算、登録番号の複合検索）を Node.js の `vm` サンドボックスで検証します。
+PDF帳票生成（`PdfReportService.gs`）はスプレッドシート/Driveに依存するためNode側のテスト対象外です。
 
 ```bash
 npm test

@@ -155,12 +155,18 @@ function api_changeStatus(companyId, tabName, ocn, newStatus, extra) {
   return changeVehicleStatus(companyId, tabName, ocn, newStatus, extra);
 }
 
-// ===== CSV出力（10.4） =====
-function api_exportCsv(scope, dateFrom, dateTo) {
+// ===== PDF帳票出力（10.4） =====
+function api_exportPdf(scope, dateFrom, dateTo) {
   var vehicles = scope.mode === 'cross'
     ? listVehiclesAcrossCompanies(scope.tabNames)
     : listVehicles(scope.companyId, scope.tabName);
-  return exportVehiclesToCsv(vehicles, dateFrom, dateTo);
+  return exportVehiclesToPdf(vehicles, dateFrom, dateTo, buildReportTitle_(scope));
+}
+
+function buildReportTitle_(scope) {
+  if (scope.mode === 'cross') return '車両在庫データ（3拠点横断）';
+  var company = getCompanyById(scope.companyId);
+  return '車両在庫データ（' + company.name + '）';
 }
 
 // ===== PDF自動反映の手動実行（4.1） =====

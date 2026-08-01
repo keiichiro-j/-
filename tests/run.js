@@ -21,7 +21,6 @@ const FILES = [
   'PdfLinkService.gs',
   'AppraisalExtractionService.gs',
   'SearchService.gs',
-  'CsvExportService.gs',
   'OcrService.gs'
 ];
 
@@ -112,20 +111,6 @@ test('登録番号の結合表記（スペース無し）でヒット', () => as
 test('登録番号の結合表記（スペース有り）でヒット', () => assert.strictEqual(sandbox.matchesRegistrationNumber(sampleVehicle, '岐阜 301 は 2000'), true));
 test('登録番号の一部分（分類番号のみ）でもヒット', () => assert.strictEqual(sandbox.matchesRegistrationNumber(sampleVehicle, '301'), true));
 test('無関係な文字列はヒットしない', () => assert.strictEqual(sandbox.matchesKeyword(sampleVehicle, '横浜'), false));
-
-console.log('== CsvExportService: buildCsv_ / csvEscape_ ==');
-test('カンマ・改行を含む値はダブルクォートでエスケープされる', () => {
-  assert.strictEqual(sandbox.csvEscape_('a,b'), '"a,b"');
-  assert.strictEqual(sandbox.csvEscape_('a"b'), '"a""b"');
-  assert.strictEqual(sandbox.csvEscape_('plain'), 'plain');
-});
-test('buildCsv_ はヘッダー行＋会社/タブ列を含む', () => {
-  const csv = sandbox.buildCsv_([{ companyId: 'A', tabName: '輸入車', ocn: 'OCN00001', carType: 'プリウス' }]);
-  const lines = csv.replace('﻿', '').split('\r\n');
-  assert.ok(lines[0].startsWith('拠点,タブ,OCN'));
-  // 列順は 拠点,タブ,OCN,仕入日(空欄),車種... のため、仕入日の空欄を挟む
-  assert.ok(lines[1].startsWith('A,輸入車,OCN00001,,プリウス'));
-});
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 if (fail > 0) process.exit(1);
