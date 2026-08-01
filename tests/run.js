@@ -45,26 +45,25 @@ function test(name, fn) {
 }
 
 console.log('== OcnService: parseOcnSequence ==');
-test('OCN12345 -> 12345', () => assert.strictEqual(sandbox.parseOcnSequence('OCN12345'), 12345));
-test('OCN00042 -> 42（ゼロパディング）', () => assert.strictEqual(sandbox.parseOcnSequence('OCN00042'), 42));
-test('小文字 ocn7 -> 7', () => assert.strictEqual(sandbox.parseOcnSequence('ocn7'), 7));
-test('不正形式は null', () => assert.strictEqual(sandbox.parseOcnSequence('ABC123'), null));
+test('12345 -> 12345', () => assert.strictEqual(sandbox.parseOcnSequence('12345'), 12345));
+test('00042 -> 42（ゼロパディング）', () => assert.strictEqual(sandbox.parseOcnSequence('00042'), 42));
+test('不正形式（英字混在）は null', () => assert.strictEqual(sandbox.parseOcnSequence('OCN123'), null));
 test('空値は null', () => assert.strictEqual(sandbox.parseOcnSequence(''), null));
 
 console.log('== PdfLinkService: parseInspectionCertFileName ==');
 test('前所有者名義PDF', () => {
-  const r = sandbox.parseInspectionCertFileName('OCN12345.pdf');
-  assert.strictEqual(r.ocn, 'OCN12345');
+  const r = sandbox.parseInspectionCertFileName('12345.pdf');
+  assert.strictEqual(r.ocn, '12345');
   assert.strictEqual(r.kind, 'prev');
 });
 test('自社名義PDF', () => {
-  const r = sandbox.parseInspectionCertFileName('OCN12345_自社名義.pdf');
-  assert.strictEqual(r.ocn, 'OCN12345');
+  const r = sandbox.parseInspectionCertFileName('12345_自社名義.pdf');
+  assert.strictEqual(r.ocn, '12345');
   assert.strictEqual(r.kind, 'own');
 });
-test('ゼロパディングされたファイル名も正規化される', () => {
-  const r = sandbox.parseInspectionCertFileName('OCN00099.pdf');
-  assert.strictEqual(r.ocn, 'OCN00099');
+test('ゼロパディングされたファイル名は先頭ゼロを除去して正規化される', () => {
+  const r = sandbox.parseInspectionCertFileName('00099.pdf');
+  assert.strictEqual(r.ocn, '99');
 });
 test('OCN形式でないファイル名は null', () => {
   assert.strictEqual(sandbox.parseInspectionCertFileName('random.pdf'), null);

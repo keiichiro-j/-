@@ -3,9 +3,9 @@
  * 4.1 車検証証PDFリンク自動反映機能
  * 4.7 自社名義変更後の車検証リンク機能（同じ仕組みを拡張して対応）
  *
- * ファイル名規則:
- *   前所有者名義（購入時）: "OCN12345.pdf"          -> inspectionCertLink 列
- *   自社名義（名義変更後）: "OCN12345_自社名義.pdf" -> ownCertLink 列
+ * ファイル名規則（OCNは数字のみ）:
+ *   前所有者名義（購入時）: "12345.pdf"          -> inspectionCertLink 列
+ *   自社名義（名義変更後）: "12345_自社名義.pdf" -> ownCertLink 列
  */
 
 var OWN_NAME_SUFFIX = '_自社名義';
@@ -16,11 +16,11 @@ var OWN_NAME_SUFFIX = '_自社名義';
  */
 function parseInspectionCertFileName(fileName) {
   var base = String(fileName).replace(/\.[^.]+$/, ''); // 拡張子除去
-  var ownMatch = base.match(/^(OCN0*[0-9]+)_自社名義$/i);
+  var ownMatch = base.match(/^([0-9]+)_自社名義$/);
   if (ownMatch) {
     return { ocn: normalizeOcn_(ownMatch[1]), kind: 'own' };
   }
-  var normalMatch = base.match(/^(OCN0*[0-9]+)$/i);
+  var normalMatch = base.match(/^([0-9]+)$/);
   if (normalMatch) {
     return { ocn: normalizeOcn_(normalMatch[1]), kind: 'prev' };
   }
@@ -28,9 +28,9 @@ function parseInspectionCertFileName(fileName) {
 }
 
 function normalizeOcn_(raw) {
-  var m = String(raw).match(/^OCN0*([0-9]+)$/i);
+  var m = String(raw).match(/^([0-9]+)$/);
   if (!m) return raw;
-  return OCN_PREFIX + String(parseInt(m[1], 10)).padStart(5, '0');
+  return String(parseInt(m[1], 10)); // 先頭ゼロを除去し、シートの採番値と同じ形式に揃える
 }
 
 /**
