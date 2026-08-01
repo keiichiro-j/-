@@ -115,7 +115,10 @@ function createVehicle(companyId, tabName, vehicle) {
   var sheet = getOrCreateSheet(companyId, tabName);
   var row = objectToRow_(vehicle);
   sheet.appendRow(row);
-  return findVehicle(companyId, tabName, vehicle.ocn);
+  var result = Object.assign({}, vehicle);
+  result.companyId = companyId;
+  result.tabName = tabName;
+  return result;
 }
 
 /**
