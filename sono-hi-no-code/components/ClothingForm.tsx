@@ -56,12 +56,18 @@ export default function ClothingForm({
     setTpoTags((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
   };
 
+  const [error, setError] = useState<string | null>(null);
+
   const handleImage = async (file: File | null) => {
     if (!file) return;
+    setError(null);
     setImgLoading(true);
     try {
       const dataUrl = await fileToResizedDataUrl(file);
       setImageDataUrl(dataUrl);
+    } catch (err) {
+      console.error(err);
+      setError('画像の読み込みに失敗しました。別の写真でお試しください。');
     } finally {
       setImgLoading(false);
     }
@@ -70,6 +76,7 @@ export default function ClothingForm({
   const handleSubmit = async () => {
     if (!name.trim() || !color.trim()) return;
     setSaving(true);
+    setError(null);
     try {
       await db.saveClothingItem({
         id: initial?.id,
@@ -90,6 +97,9 @@ export default function ClothingForm({
         lastWornAt: initial?.lastWornAt,
       });
       onSaved();
+    } catch (err) {
+      console.error(err);
+      setError('保存に失敗しました。もう一度お試しください。');
     } finally {
       setSaving(false);
     }
@@ -117,11 +127,14 @@ export default function ClothingForm({
         <input
           type="file"
           accept="image/*"
-          capture="environment"
           className="hidden"
           onChange={(e) => handleImage(e.target.files?.[0] ?? null)}
         />
       </label>
+
+      {error && (
+        <p className="rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</p>
+      )}
 
       <Field label="アイテム名">
         <input

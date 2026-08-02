@@ -25,6 +25,8 @@ export default function ProfilePage() {
   const [personalColor, setPersonalColor] = useState<PersonalColorSeason | undefined>(undefined);
   const [colorNote, setColorNote] = useState<string | undefined>(undefined);
   const [hydrated, setHydrated] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
 
   if (!hydrated && profile) {
     setHeightCm(profile.heightCm ? String(profile.heightCm) : '');
@@ -46,18 +48,25 @@ export default function ProfilePage() {
 
   const handleFaceImage = async (file: File | null) => {
     if (!file) return;
-    const dataUrl = await fileToResizedDataUrl(file, 600);
-    setFaceImageDataUrl(dataUrl);
+    setError(null);
     setAnalyzing(true);
     try {
+      const dataUrl = await fileToResizedDataUrl(file, 600);
+      setFaceImageDataUrl(dataUrl);
       const res = await fetch('/api/analyze-face', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ imageDataUrl: dataUrl }),
       });
+      if (!res.ok) throw new Error(`analyze-face failed: ${res.status}`);
       const data = (await res.json()) as { personalColor: PersonalColorSeason; note: string };
       setPersonalColor(data.personalColor);
       setColorNote(data.note);
+    } catch (err) {
+      console.error(err);
+      setError(
+        '写真の読み込みに失敗しました。HEIC形式など一部の画像形式は対応していない場合があります。別の写真でお試しください。'
+      );
     } finally {
       setAnalyzing(false);
     }
@@ -65,6 +74,8 @@ export default function ProfilePage() {
 
   const handleSave = async () => {
     setSaving(true);
+    setError(null);
+    setSaved(false);
     try {
       await db.saveProfile({
         ...profile,
@@ -75,6 +86,10 @@ export default function ProfilePage() {
         silhouetteNote: colorNote,
       });
       await refresh();
+      setSaved(true);
+    } catch (err) {
+      console.error(err);
+      setError('保存に失敗しました。もう一度お試しください。');
     } finally {
       setSaving(false);
     }
@@ -103,11 +118,16 @@ export default function ProfilePage() {
             <input
               type="file"
               accept="image/*"
-              capture="user"
               className="hidden"
               onChange={(e) => handleFaceImage(e.target.files?.[0] ?? null)}
             />
           </label>
+
+          {error && (
+            <p className="w-full rounded-xl bg-red-500/10 px-3 py-2 text-center text-xs text-red-300">
+              {error}
+            </p>
+          )}
 
           {personalColor && (
             <div className="w-full rounded-xl bg-white/5 p-3 text-center">
@@ -152,6 +172,11 @@ export default function ProfilePage() {
           >
             {saving ? '保存中…' : '保存する'}
           </button>
+          {saved && (
+            <p className="text-center text-xs font-semibold text-emerald-400">
+              保存しました ✓
+            </p>
+          )}
         </section>
 
         <section className="glass-card rounded-2xl p-5">
