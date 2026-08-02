@@ -85,6 +85,7 @@ function colIndex1(key) {
 // ===== Script Properties キー =====
 var PROP_KEYS = {
   COMPANIES: 'COMPANIES_CONFIG', // JSON文字列: [{id,name,sheetId,pdfFolderId,appraisalFolderId}, ...]
+  OCR_SPACE_API_KEY: 'OCR_SPACE_API_KEY',
   VISION_API_KEY: 'VISION_API_KEY',
   SLACK_WEBHOOK_URL: 'SLACK_WEBHOOK_URL',
   NOTIFY_MAIL_TO: 'NOTIFY_MAIL_TO',

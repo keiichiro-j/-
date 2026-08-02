@@ -42,12 +42,11 @@ Google スプレッドシートをDBとし、GASの HTML Service で Webアプ�
    - `CompanyConfig.gs` の `setupCompanies_()` 内のIDを実際のスプレッドシートID／フォルダIDに書き換えて、GASエディタから一度だけ実行
 4. **拡張サービスの有効化**
    - GASエディタの「サービス」から **Drive API（v2）** を追加（アップロード時の自動ドキュメント変換防止で使用）
-5. **Cloud Vision API の有効化とAPIキー発行（査定書・車検証OCRに必須）**
-   - GASエディタ「プロジェクトの設定」で、紐づいているGoogle CloudプロジェクトをGoogle Cloud Consoleで開く
-   - 「APIとサービス」→「ライブラリ」から **Cloud Vision API** を有効化
-   - 「APIとサービス」→「認証情報」→「認証情報を作成」→「APIキー」でキーを発行（悪用防止のため、キーの制限で「Cloud Vision API」のみに絞ることを推奨）
+5. **OCR.space APIキーの取得（査定書・車検証OCRに必須・無料・カード登録不要）**
+   - https://ocr.space/ocrapi にアクセスし、メールアドレスを入力してAPIキーを取得（月25,000件まで無料、クレジットカード不要）
+   - GCPの課金設定が可能であれば、代わりにCloud Vision API（より高精度・要課金設定）へ切り替えることも可能（`OcrService.gs` の `ocrFileToTextViaVisionApi_` を参照）
 6. **Script Properties の設定**（GASエディタ「プロジェクトの設定」）
-   - `VISION_API_KEY`: 手順5で発行したAPIキー（**必須**。査定書・車検証のOCR読み取りに使用）
+   - `OCR_SPACE_API_KEY`: 手順5で取得したAPIキー（**必須**。査定書・車検証のOCR読み取りに使用）
    - `NOTIFY_MAIL_TO`: 車検満了通知の送信先メールアドレス
    - `SLACK_WEBHOOK_URL`: Slack等のIncoming Webhook URL（10.3、未設定なら通知はスキップ）
 7. **トリガー設定**

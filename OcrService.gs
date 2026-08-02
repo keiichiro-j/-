@@ -2,16 +2,13 @@
  * OcrService.gs
  * PDF/画像ファイルからのテキスト抽出（OCR）共通処理。
  *
- * 実装は Cloud Vision API（files:annotate エンドポイント）を使用する。
- * このエンドポイントはPDF（先頭5ページまで）・画像のどちらも直接渡せるため、
- * Drive側の「アップロード時OCR変換」の裏技（環境によって失敗することがある）には
- * 依存しない。
+ * 既定実装は OCR.space の無料API（クレジットカード登録不要、月25,000件まで無料）。
+ * PDF・画像のどちらも直接渡せる。GCPの課金設定が可能であれば、より高精度な
+ * Cloud Vision API（ocrFileToTextViaVisionApi_）へ切り替えることもできる。
  *
- * 事前準備:
- *  - GASエディタの「プロジェクトの設定」からGCPプロジェクト番号を確認（無ければ既定のものでよい）
- *  - Google Cloud Console で対象GCPプロジェクトの「Cloud Vision API」を有効化する
- *  - 同コンソールの「APIとサービス」→「認証情報」でAPIキーを発行する
- *  - GASエディタの「スクリプト プロパティ」に VISION_API_KEY として登録する
+ * 事前準備（OCR.space）:
+ *  - https://ocr.space/ocrapi でメールアドレス登録し、無料APIキーを取得（カード不要）
+ *  - GASエディタの「スクリプト プロパティ」に OCR_SPACE_API_KEY として登録する
  */
 
 /**
@@ -29,15 +26,50 @@ function createDriveFileNoConvert_(folder, blob, fileName) {
 }
 
 /**
- * ファイルIDからOCRテキストを取得する（Cloud Vision API使用）
+ * ファイルIDからOCRテキストを取得する（既定: OCR.space使用）
  */
 function ocrFileToText_(fileId) {
-  return ocrFileToTextViaVisionApi_(fileId);
+  return ocrFileToTextViaOcrSpace_(fileId);
 }
 
 /**
- * Cloud Vision API の files:annotate エンドポイントでOCRを行う。
- * PDF（先頭5ページまで）・画像のどちらもそのまま渡せる。
+ * OCR.space の無料APIでOCRを行う。PDF・画像のどちらもそのまま渡せる。
+ */
+function ocrFileToTextViaOcrSpace_(fileId) {
+  var apiKey = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.OCR_SPACE_API_KEY);
+  if (!apiKey) throw new Error('OCR_SPACE_API_KEY が Script Properties に設定されていません');
+
+  var blob = DriveApp.getFileById(fileId).getBlob();
+  var mimeType = blob.getContentType() || 'application/pdf';
+  var base64 = Utilities.base64Encode(blob.getBytes());
+
+  var payload = {
+    apikey: apiKey,
+    language: 'jpn',
+    OCREngine: '2',
+    isOverlayRequired: 'false',
+    base64Image: 'data:' + mimeType + ';base64,' + base64
+  };
+  if (mimeType.indexOf('pdf') !== -1) payload.filetype = 'PDF';
+
+  var response = UrlFetchApp.fetch('https://api.ocr.space/parse/image', {
+    method: 'post',
+    payload: payload,
+    muteHttpExceptions: true
+  });
+  var json = JSON.parse(response.getContentText());
+  if (json.IsErroredOnProcessing) {
+    var message = Array.isArray(json.ErrorMessage) ? json.ErrorMessage.join(', ') : json.ErrorMessage;
+    throw new Error('OCR.space エラー: ' + (message || '不明なエラー'));
+  }
+  var results = json.ParsedResults || [];
+  return results.map(function (r) { return r.ParsedText || ''; }).join('\n');
+}
+
+/**
+ * Cloud Vision API の files:annotate エンドポイントでOCRを行う（代替実装）。
+ * GCPプロジェクトに課金設定が可能な場合、より高精度なこちらへ切り替えられる。
+ * 切り替えるには ocrFileToText_ の中身をこの関数の呼び出しに変更する。
  */
 function ocrFileToTextViaVisionApi_(fileId) {
   var apiKey = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.VISION_API_KEY);
