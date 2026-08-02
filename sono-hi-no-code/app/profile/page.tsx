@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
+import AssetItemList from '@/components/AssetItemList';
+import ListingModal from '@/components/ListingModal';
 import { useClothingItems, useProfile } from '@/lib/hooks';
 import * as db from '@/lib/db';
 import { fileToResizedDataUrl } from '@/lib/image';
@@ -10,6 +12,7 @@ import {
   CATEGORY_LABEL,
   PERSONAL_COLOR_LABEL,
   STATUS_LABEL,
+  type ClothingItem,
   type PersonalColorSeason,
 } from '@/lib/types';
 
@@ -27,6 +30,7 @@ export default function ProfilePage() {
   const [hydrated, setHydrated] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [listingItem, setListingItem] = useState<ClothingItem | null>(null);
 
   if (!hydrated && profile) {
     setHeightCm(profile.heightCm ? String(profile.heightCm) : '');
@@ -201,9 +205,12 @@ export default function ProfilePage() {
               <p className="text-xs text-text-faint">アイテムを登録すると資産額が表示されます</p>
             )}
           </div>
-          <p className="mt-4 text-[10px] leading-relaxed text-text-faint">
+          <p className="mb-3 mt-4 text-[10px] leading-relaxed text-text-faint">
             ※実際のフリマ相場APIには接続していないため、あくまで概算値です。実売価格とは差が生じる場合があります。
           </p>
+
+          <p className="mb-2 text-xs font-semibold text-text-muted">アイテム別一覧</p>
+          <AssetItemList items={items} onCreateListing={setListingItem} />
         </section>
 
         <section className="glass-card rounded-lg p-5">
@@ -219,6 +226,8 @@ export default function ProfilePage() {
           </div>
         </section>
       </div>
+
+      <ListingModal item={listingItem} onClose={() => setListingItem(null)} />
     </div>
   );
 }

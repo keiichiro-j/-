@@ -40,14 +40,16 @@ async function suggestWithClaude(
     const compactItems = active.map((i) => ({
       id: i.id,
       name: i.name,
+      brand: i.brand,
       category: i.category,
       color: i.color,
+      material: i.material,
       season: i.season,
       tpoTags: i.tpoTags ?? [],
       recentlyWorn: recentIds.has(i.id),
     }));
 
-    const prompt = `あなたはプロのファッションコーディネーターです。以下のJSON情報を踏まえて、今日着るコーデを${
+    const prompt = `あなたは経験豊富なプロのファッションコーディネーターです。ファッション誌やスタイリング記事で得られるような一般的なトレンド・着こなしの知見も踏まえながら、以下のJSON情報をもとに今日着るコーデを${
       body.patternCount ?? 3
     }パターン提案してください。
 
@@ -67,7 +69,9 @@ ${JSON.stringify(body.profile ?? {})}
 - 各パターンは最低でもトップスとボトムスのカテゴリを1つずつ含めること
 - recentlyWorn: true のアイテムはできるだけ避け、在庫が無い場合のみ使用する
 - 天候（気温・降水確率）に応じてアウターや靴を必要に応じて追加する
-- reasonには「なぜこの組み合わせなのか」を日本語で具体的かつ簡潔に（80文字以内目安）記載する
+- reasonには「なぜこの組み合わせなのか」を、アイテムの色・素材・ブランドなど個々の特徴に触れながら日本語で具体的に記載する（100文字程度）
+- ${body.patternCount ?? 3}パターンそれぞれで言い回し・文体・切り口を変え、同じような文章構成の繰り返しを避けること（例：気温の話から入るもの、色の相性から入るもの、シーンから入るものなど）
+- ファッション誌のスタイリングコラムのような、説得力があり読んでいて楽しい文章にする
 - 必ず次のJSON形式のみを出力すること。前後に説明文やコードブロック記法は付けない。
 
 {"patterns": [{"itemIds": ["id1", "id2"], "reason": "..."}]}`;

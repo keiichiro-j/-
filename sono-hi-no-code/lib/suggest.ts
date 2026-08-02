@@ -58,6 +58,10 @@ function recentlyWornSet(history: Outfit[], withinDays: number): Set<string> {
   return set;
 }
 
+function itemSeasons(item: ClothingItem): Season[] {
+  return item.season && item.season.length > 0 ? item.season : ['all'];
+}
+
 function scoreItem(
   item: ClothingItem,
   ctx: {
@@ -70,7 +74,7 @@ function scoreItem(
 ): number {
   let score = 10;
 
-  if (!ctx.okSeasons.includes(item.season)) score -= 6;
+  if (!itemSeasons(item).some((s) => ctx.okSeasons.includes(s))) score -= 6;
   else score += 3;
 
   if (item.tpoTags && item.tpoTags.length > 0) {
@@ -98,6 +102,99 @@ function pickTop(
 ): ClothingItem[] {
   return items.filter((i) => !used.has(i.id)).slice(0, n);
 }
+
+function shuffle<T>(arr: T[]): T[] {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+function matPrefix(item: ClothingItem): string {
+  return item.material ? `${item.material}素材の` : '';
+}
+
+function brandPrefix(item: ClothingItem): string {
+  return item.brand ? `${item.brand}の` : '';
+}
+
+function round(n: number): number {
+  return Math.round(n);
+}
+
+type IntroTemplate = (top: ClothingItem, bottom: ClothingItem, weather: WeatherInfo) => string;
+
+const INTRO_TEMPLATES: IntroTemplate[] = [
+  (top, bottom, w) =>
+    `気温${round(w.minTemp)}〜${round(w.maxTemp)}℃・${w.description}の予報。${matPrefix(
+      top
+    )}「${top.name}」に「${bottom.name}」を合わせた、季節感のある組み合わせです。`,
+  (top, bottom, w) =>
+    `${w.description}で過ごしやすい一日。${top.color}の「${top.name}」を主役に、「${bottom.name}」で全体のバランスを整えました。`,
+  (top, bottom, w) =>
+    `最高${round(w.maxTemp)}℃予想のため、${brandPrefix(
+      top
+    )}「${top.name}」×「${bottom.name}」で体温調整しやすいレイヤードに。`,
+  (top, bottom, w) =>
+    `${w.description}の日は、${matPrefix(bottom)}「${bottom.name}」に「${top.name}」を合わせて、動きやすさと見た目のバランスを両立させました。`,
+  (top, bottom, w) =>
+    `気温${round(w.minTemp)}〜${round(w.maxTemp)}℃想定。${top.color}×${bottom.color}の配色で「${top.name}」「${bottom.name}」を組み合わせました。`,
+  (top, bottom, w) =>
+    `${w.description}予報を踏まえ、${brandPrefix(bottom)}「${bottom.name}」に「${top.name}」を添えた、こなれた雰囲気の一着です。`,
+];
+
+const OUTER_RAIN_TEMPLATES: ((outer: ClothingItem, prob: number) => string)[] = [
+  (outer, prob) => `降水確率${prob}%のため、「${outer.name}」で雨対策を万全に。`,
+  (outer) => `雨予報なので「${outer.name}」を羽織って、足元や裾の跳ね返りにも配慮しました。`,
+  (outer, prob) => `${prob}%の降水確率を踏まえ、${matPrefix(outer)}「${outer.name}」でしっかりガードします。`,
+];
+
+const OUTER_COLD_TEMPLATES: ((outer: ClothingItem) => string)[] = [
+  (outer) => `気温が下がる予報のため「${outer.name}」で防寒しました。`,
+  (outer) => `肌寒くなりそうなので、${matPrefix(outer)}「${outer.name}」をプラスして体温調整しやすく。`,
+  (outer) => `冷え込み対策として${brandPrefix(outer)}「${outer.name}」を投入しています。`,
+];
+
+const SHOE_TEMPLATES: ((shoe: ClothingItem) => string)[] = [
+  (shoe) => `足元は「${shoe.name}」でシーンに合わせて調整しました。`,
+  (shoe) => `「${shoe.name}」で全体の印象を引き締めています。`,
+  (shoe) => `歩きやすさも考慮して「${shoe.name}」をセレクトしました。`,
+];
+
+const ACCESSORY_TEMPLATES: ((acc: ClothingItem) => string)[] = [
+  (acc) => `差し色に「${acc.name}」をプラスしました。`,
+  (acc) => `「${acc.name}」で装いにアクセントを加えています。`,
+  (acc) => `小物は「${acc.name}」でこなれ感を演出しました。`,
+];
+
+const TPO_TEMPLATES: ((label: string) => string)[] = [
+  (label) => `シーンは「${label}」を想定した着こなしです。`,
+  (label) => `「${label}」の場面にふさわしいバランスに整えました。`,
+  (label) => `「${label}」でも浮かない、ちょうど良い塩梅を意識しています。`,
+];
+
+const RECENT_TEMPLATES: string[] = [
+  '直近で着用済みのアイテムを含みますが、在庫の都合で再提案しています。',
+  'ここ数日と近い組み合わせですが、他に候補が少ないため再度ご提案しています。',
+];
+
+const FRESH_TEMPLATES: string[] = [
+  '直近3日の着用履歴とは重ならないよう選定しました。',
+  'ここ数日着ていないアイテムを優先してピックアップしています。',
+  '着用ローテーションを意識し、しばらく着ていない一着を選びました。',
+];
+
+const PERSONAL_COLOR_TEMPLATES: string[] = [
+  'パーソナルカラー診断（簡易推定）に近い色味を優先しています。',
+  '診断結果の色味との相性を考慮しました。',
+];
+
+const HEIGHT_TEMPLATES: ((h: number) => string)[] = [
+  (h) => `身長${h}cmのバランスを踏まえた着丈感を意識しました。`,
+  (h) => `身長${h}cmに合う着丈・シルエットを意識しています。`,
+];
 
 export interface SuggestParams {
   items: ClothingItem[];
@@ -141,6 +238,13 @@ export function generateSuggestions(params: SuggestParams): OutfitSuggestion[] {
   const usedBottoms = new Set<string>();
   const results: OutfitSuggestion[] = [];
 
+  const intros = shuffle(INTRO_TEMPLATES);
+  const outerTemplates = shuffle(weather.isRain ? OUTER_RAIN_TEMPLATES : OUTER_COLD_TEMPLATES);
+  const shoeTemplates = shuffle(SHOE_TEMPLATES);
+  const accTemplates = shuffle(ACCESSORY_TEMPLATES);
+  const tpoTemplates = shuffle(TPO_TEMPLATES);
+  const heightTemplates = shuffle(HEIGHT_TEMPLATES);
+
   for (let p = 0; p < patternCount; p++) {
     const topChoice = pickTop(tops, 1, usedTops)[0] ?? tops[p % tops.length];
     const bottomChoice =
@@ -151,57 +255,51 @@ export function generateSuggestions(params: SuggestParams): OutfitSuggestion[] {
     const itemIds = [topChoice.id, bottomChoice.id];
     const reasonParts: string[] = [];
 
-    reasonParts.push(
-      `気温${Math.round(weather.minTemp)}〜${Math.round(weather.maxTemp)}℃・${weather.description}のため「${topChoice.name}」×「${bottomChoice.name}」を選択`
-    );
+    reasonParts.push(intros[p % intros.length](topChoice, bottomChoice, weather));
 
     if (needsOuter && outers[p % Math.max(outers.length, 1)]) {
       const outer = outers[p % outers.length];
       itemIds.push(outer.id);
       reasonParts.push(
-        weather.isRain
-          ? `降水確率${weather.precipitationProbability}%のため「${outer.name}」で雨対策`
-          : `気温が下がるため「${outer.name}」で防寒`
+        (outerTemplates[p % outerTemplates.length] as (o: ClothingItem, prob: number) => string)(
+          outer,
+          weather.precipitationProbability
+        )
       );
     }
 
     if (shoes[p % Math.max(shoes.length, 1)]) {
       const shoe = shoes[p % shoes.length];
       itemIds.push(shoe.id);
-      reasonParts.push(`足元は「${shoe.name}」でTPOに合わせて調整`);
+      reasonParts.push(shoeTemplates[p % shoeTemplates.length](shoe));
     }
 
     if (accessories.length > 0 && p < accessories.length) {
       const acc = accessories[p];
       itemIds.push(acc.id);
-      reasonParts.push(`差し色に「${acc.name}」をプラス`);
+      reasonParts.push(accTemplates[p % accTemplates.length](acc));
     }
 
-    reasonParts.push(`シーンは「${TPO_LABEL[tpo]}」を想定`);
+    reasonParts.push(tpoTemplates[p % tpoTemplates.length](TPO_LABEL[tpo]));
 
     if (recentlyWorn.has(topChoice.id) || recentlyWorn.has(bottomChoice.id)) {
-      reasonParts.push('直近で着用済みのアイテムを含みますが在庫の都合で再提案しています');
+      reasonParts.push(RECENT_TEMPLATES[p % RECENT_TEMPLATES.length]);
     } else {
-      reasonParts.push('直近3日の着用履歴と重複しないよう調整');
+      reasonParts.push(FRESH_TEMPLATES[p % FRESH_TEMPLATES.length]);
     }
 
     if (profile?.personalColor) {
-      reasonParts.push(
-        `パーソナルカラー診断（簡易推定）を考慮した色味を優先`
-      );
+      reasonParts.push(PERSONAL_COLOR_TEMPLATES[p % PERSONAL_COLOR_TEMPLATES.length]);
     }
     if (profile?.heightCm) {
-      reasonParts.push(
-        `身長${profile.heightCm}cmに合わせた着丈・シルエットバランスを意識`
-      );
+      reasonParts.push(heightTemplates[p % heightTemplates.length](profile.heightCm));
     }
 
-    const avgScore =
-      scoreItem(topChoice, ctx) + scoreItem(bottomChoice, ctx);
+    const avgScore = scoreItem(topChoice, ctx) + scoreItem(bottomChoice, ctx);
 
     results.push({
       itemIds,
-      reason: reasonParts.join('。') + '。',
+      reason: reasonParts.join(' '),
       score: avgScore,
     });
   }

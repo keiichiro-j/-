@@ -43,6 +43,7 @@ export default function ClothingCard({
       <div className="flex flex-col gap-0.5 p-2.5">
         <p className="truncate text-xs font-semibold text-text">{item.name}</p>
         <p className="truncate text-[11px] text-text-faint">
+          {item.brand ? `${item.brand} ・ ` : ''}
           {CATEGORY_LABEL[item.category]} ・ {item.color}
         </p>
         <div className="mt-1 flex items-center justify-between">

@@ -68,9 +68,10 @@ export const TPO_LABEL: Record<Tpo, string> = {
 export interface ClothingItem {
   id: string;
   name: string;
+  brand?: string;
   category: ClothingCategory;
   color: string;
-  season: Season;
+  season: Season[];
   material?: string;
   purchasedAt?: string;
   status: ClothingStatus;
@@ -132,4 +133,10 @@ export interface OutfitSuggestion {
   itemIds: string[];
   reason: string;
   score: number;
+}
+
+export interface ListingCopy {
+  title: string;
+  body: string;
+  suggestedPrice: number;
 }

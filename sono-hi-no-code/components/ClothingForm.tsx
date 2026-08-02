@@ -31,15 +31,20 @@ export default function ClothingForm({
   initial,
   onSaved,
   onDelete,
+  onCreateListing,
 }: {
   initial?: ClothingItem;
   onSaved: () => void;
   onDelete?: () => void;
+  onCreateListing?: () => void;
 }) {
   const [name, setName] = useState(initial?.name ?? '');
+  const [brand, setBrand] = useState(initial?.brand ?? '');
   const [category, setCategory] = useState<ClothingCategory>(initial?.category ?? 'tops');
   const [color, setColor] = useState(initial?.color ?? '');
-  const [season, setSeason] = useState<Season>(initial?.season ?? 'all');
+  const [season, setSeason] = useState<Season[]>(
+    initial?.season && initial.season.length > 0 ? initial.season : ['all']
+  );
   const [status, setStatus] = useState<ClothingStatus>(initial?.status ?? 'active');
   const [material, setMaterial] = useState(initial?.material ?? '');
   const [brandTier, setBrandTier] = useState<BrandTier>(initial?.brandTier ?? 'mid');
@@ -54,6 +59,17 @@ export default function ClothingForm({
 
   const toggleTpo = (t: Tpo) => {
     setTpoTags((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+  };
+
+  const toggleSeason = (s: Season) => {
+    setSeason((prev) => {
+      if (s === 'all') return ['all'];
+      const withoutAll = prev.filter((x) => x !== 'all');
+      const next = withoutAll.includes(s)
+        ? withoutAll.filter((x) => x !== s)
+        : [...withoutAll, s];
+      return next.length > 0 ? next : ['all'];
+    });
   };
 
   const [error, setError] = useState<string | null>(null);
@@ -81,6 +97,7 @@ export default function ClothingForm({
       await db.saveClothingItem({
         id: initial?.id,
         name: name.trim(),
+        brand: brand.trim() || undefined,
         category,
         color: color.trim(),
         season,
@@ -147,6 +164,15 @@ export default function ClothingForm({
         />
       </Field>
 
+      <Field label="ブランド名（任意）">
+        <input
+          value={brand}
+          onChange={(e) => setBrand(e.target.value)}
+          placeholder="例：UNIQLO"
+          className="input"
+        />
+      </Field>
+
       <Field label="カテゴリ">
         <div className="flex flex-wrap gap-2">
           {CATEGORIES.map((c) => (
@@ -166,10 +192,10 @@ export default function ClothingForm({
         />
       </Field>
 
-      <Field label="季節">
+      <Field label="季節（複数選択可）">
         <div className="flex flex-wrap gap-2">
           {SEASONS.map((s) => (
-            <Chip key={s} active={season === s} onClick={() => setSeason(s)}>
+            <Chip key={s} active={season.includes(s)} onClick={() => toggleSeason(s)}>
               {SEASON_LABEL[s]}
             </Chip>
           ))}
@@ -236,6 +262,15 @@ export default function ClothingForm({
           ))}
         </div>
       </Field>
+
+      {initial && onCreateListing && (
+        <button
+          onClick={onCreateListing}
+          className="rounded-xl border border-black/10 px-4 py-3 text-sm font-semibold text-text"
+        >
+          この服の出品文を作成する ✍️
+        </button>
+      )}
 
       <div className="mt-2 flex gap-2">
         {initial && onDelete && (

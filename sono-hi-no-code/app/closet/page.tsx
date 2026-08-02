@@ -5,6 +5,7 @@ import PageHeader from '@/components/PageHeader';
 import Modal from '@/components/Modal';
 import ClothingForm from '@/components/ClothingForm';
 import ClothingCard from '@/components/ClothingCard';
+import ListingModal from '@/components/ListingModal';
 import { useClothingItems } from '@/lib/hooks';
 import * as db from '@/lib/db';
 import { totalAssetValue } from '@/lib/resale';
@@ -25,6 +26,7 @@ export default function ClosetPage() {
   const [filter, setFilter] = useState<ClothingCategory | 'all'>('all');
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<ClothingItem | null>(null);
+  const [listingItem, setListingItem] = useState<ClothingItem | null>(null);
 
   const filtered = useMemo(
     () => (filter === 'all' ? items : items.filter((i) => i.category === filter)),
@@ -106,9 +108,15 @@ export default function ClosetPage() {
               refresh();
             }}
             onDelete={handleDelete}
+            onCreateListing={() => {
+              setListingItem(editing);
+              setEditing(null);
+            }}
           />
         )}
       </Modal>
+
+      <ListingModal item={listingItem} onClose={() => setListingItem(null)} />
     </div>
   );
 }
