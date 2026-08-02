@@ -2,13 +2,13 @@
  * OcrService.gs
  * PDF/画像ファイルからのテキスト抽出（OCR）共通処理。
  *
- * 既定実装は Drive の高度なサービス（Advanced Drive Service / Drive API v2）による
+ * 既定実装は Drive の高度なサービス（Advanced Drive Service / Drive API v3）による
  * OCR変換（追加のAPIキー・課金設定なしでGASから利用可能）。
  * より高い読み取り精度が必要な場合は ocrFileToTextViaVisionApi_() へ切り替え可能
  * （要 Script Properties への VISION_API_KEY 設定、Cloud Vision API 有効化）。
  *
  * 事前準備:
- *  - GASエディタの「サービス」から Drive API（v2）を追加する
+ *  - GASエディタの「サービス」から Drive API（v3）を追加する
  *  - GCP側で Drive API を有効化する
  */
 
@@ -18,10 +18,10 @@
 function ocrFileToText_(fileId) {
   var blob = DriveApp.getFileById(fileId).getBlob();
   var resource = {
-    title: 'ocr_tmp_' + fileId + '_' + new Date().getTime(),
+    name: 'ocr_tmp_' + fileId + '_' + new Date().getTime(),
     mimeType: MimeType.GOOGLE_DOCS
   };
-  var tempFile = Drive.Files.insert(resource, blob, { ocr: true, ocrLanguage: 'ja' });
+  var tempFile = Drive.Files.create(resource, blob, { ocrLanguage: 'ja' });
   try {
     var doc = DocumentApp.openById(tempFile.id);
     return doc.getBody().getText();

@@ -41,7 +41,7 @@ Google スプレッドシートをDBとし、GASの HTML Service で Webアプ�
 3. **会社設定の登録**
    - `CompanyConfig.gs` の `setupCompanies_()` 内のIDを実際のスプレッドシートID／フォルダIDに書き換えて、GASエディタから一度だけ実行
 4. **拡張サービスの有効化**
-   - GASエディタの「サービス」から **Drive API（v2）** を追加（`OcrService.gs` のOCR変換で使用）
+   - GASエディタの「サービス」から **Drive API（v3）** を追加（`OcrService.gs` のOCR変換で使用）
 5. **Script Properties の設定**（GASエディタ「プロジェクトの設定」）
    - `NOTIFY_MAIL_TO`: 車検満了通知の送信先メールアドレス
    - `SLACK_WEBHOOK_URL`: Slack等のIncoming Webhook URL（10.3、未設定なら通知はスキップ）
