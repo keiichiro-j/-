@@ -36,21 +36,38 @@ function buildPdfReport_(vehicles, reportTitle) {
 
 function writeReportContent_(sheet, vehicles, reportTitle) {
   var header = ['拠点', 'タブ'].concat(HEADER_ROW);
+  var colCount = header.length;
   var generatedAt = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
-  var titleText = reportTitle + '　（出力日時: ' + generatedAt + '　件数: ' + vehicles.length + '件）';
+  var subtitleText = '出力日時: ' + generatedAt + '　件数: ' + vehicles.length + '件';
 
-  sheet.getRange(1, 1, 1, header.length).merge()
-    .setValue(titleText)
+  // タイトル行（帳票名。下に太いブランドカラーの罫線を引いて見出しを強調）
+  sheet.getRange(1, 1, 1, colCount).merge()
+    .setValue(reportTitle)
     .setFontWeight('bold')
-    .setFontSize(12)
-    .setHorizontalAlignment('left');
+    .setFontSize(14)
+    .setFontColor('#1a56db')
+    .setHorizontalAlignment('left')
+    .setBorder(false, false, true, false, false, false, '#1a56db', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+  sheet.setRowHeight(1, 26);
 
-  sheet.getRange(2, 1, 1, header.length)
+  // サブタイトル行（出力日時・件数）
+  sheet.getRange(2, 1, 1, colCount).merge()
+    .setValue(subtitleText)
+    .setFontSize(9)
+    .setFontColor('#6b7280')
+    .setHorizontalAlignment('left');
+  sheet.setRowHeight(2, 16);
+
+  // ヘッダー行（ブランドカラー背景に白文字）
+  sheet.getRange(3, 1, 1, colCount)
     .setValues([header])
     .setFontWeight('bold')
-    .setBackground('#eef1f5')
+    .setFontColor('#ffffff')
+    .setBackground('#1a56db')
     .setFontSize(8)
-    .setBorder(true, true, true, true, true, true);
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle')
+    .setBorder(true, true, true, true, true, true, '#ffffff', SpreadsheetApp.BorderStyle.SOLID);
 
   if (vehicles.length > 0) {
     var rows = vehicles.map(function (v) {
@@ -61,14 +78,24 @@ function writeReportContent_(sheet, vehicles, reportTitle) {
         })
       );
     });
-    var dataRange = sheet.getRange(3, 1, rows.length, header.length);
+    var dataRange = sheet.getRange(4, 1, rows.length, colCount);
     dataRange.setValues(rows);
     dataRange.setFontSize(8);
-    dataRange.setBorder(true, true, true, true, true, true);
+    dataRange.setVerticalAlignment('middle');
+    dataRange.setBorder(true, true, true, true, true, true, '#e2e8f0', SpreadsheetApp.BorderStyle.SOLID);
+
+    // 1行おきに薄い縞模様を付け、横に長い表でも視線が追いやすいようにする
+    var backgrounds = rows.map(function (_, i) {
+      var color = (i % 2 === 0) ? '#ffffff' : '#f5f7fb';
+      var rowColors = [];
+      for (var c = 0; c < colCount; c++) rowColors.push(color);
+      return rowColors;
+    });
+    dataRange.setBackgrounds(backgrounds);
   }
 
-  sheet.setFrozenRows(2); // 印刷時、タイトル・ヘッダー行をページ毎に繰り返す(fzr=true)
-  sheet.autoResizeColumns(1, header.length);
+  sheet.setFrozenRows(3); // 印刷時、タイトル・サブタイトル・ヘッダー行をページ毎に繰り返す(fzr=true)
+  sheet.autoResizeColumns(1, colCount);
 }
 
 /**

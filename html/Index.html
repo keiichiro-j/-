@@ -54,7 +54,10 @@
         <h2 id="detailTitle">車両詳細</h2>
         <button class="btn btn--icon" data-close-modal>×</button>
       </div>
-      <div class="modal__body" id="detailBody"></div>
+      <div class="modal__body">
+        <div id="detailError"></div>
+        <div id="detailBody"></div>
+      </div>
       <div class="modal__footer">
         <div class="statusActions" id="statusActions"></div>
         <div class="modal__footerRight">
@@ -83,6 +86,36 @@
         <div class="modal__footerRight">
           <button class="btn hidden" id="btnWizardBack">戻る</button>
           <button class="btn btn--primary" id="btnWizardNext">次へ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 販売確定 モーダル -->
+  <div id="saleModal" class="modal hidden">
+    <div class="modal__panel modal__panel--sm">
+      <div class="modal__header">
+        <h2>販売確定</h2>
+        <button class="btn btn--icon" id="btnCloseSale">×</button>
+      </div>
+      <div class="modal__body">
+        <div id="saleError"></div>
+        <div class="formGrid">
+          <div class="formField formField--required">
+            <label>販売年月</label>
+            <input type="month" id="saleMonth">
+          </div>
+          <div class="formField formField--required">
+            <label>販売先</label>
+            <input type="text" id="saleTo" placeholder="例: 株式会社◯◯商会">
+          </div>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <div></div>
+        <div class="modal__footerRight">
+          <button class="btn" id="btnCancelSale">キャンセル</button>
+          <button class="btn btn--primary" id="btnConfirmSale">販売確定する</button>
         </div>
       </div>
     </div>

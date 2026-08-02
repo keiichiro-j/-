@@ -20,7 +20,9 @@
     scope: { mode: 'single', companyId: null, tabName: null }, // tabName: 表示中のツールバータブ
     vehicles: [],
     selectedVehicle: null,
-    wizard: null
+    wizard: null,
+    saleContext: null,
+    flashOcn: null // 直前に登録/更新した車両のOCN。一覧再描画時に該当行を一瞬ハイライトする
   };
 
   // ===== 起動 =====
@@ -184,23 +186,33 @@
       var tr = document.createElement('tr');
       var expiring = v.inspectionExpiryDate && v.inspectionExpiryDate >= today && v.inspectionExpiryDate <= soon;
       if (expiring) tr.classList.add('is-expiring');
+      if (state.flashOcn && String(v.ocn) === String(state.flashOcn)) tr.classList.add('row-flash');
       var cells = '';
       if (state.scope.mode === 'cross') {
         cells += '<td data-label="拠点">' + companyName(v.companyId) + '</td>';
       }
       LIST_COLUMNS.forEach(function (k) {
         var val = k === 'plateFull' ? plateFull(v) : (v[k] || '');
-        if (k === 'status') val = '<span class="badge' + (val === '販売済み' ? ' badge--sold' : '') + '">' + escapeHtml(val) + '</span>';
-        else val = escapeHtml(val);
+        if (k === 'status') {
+          val = '<span class="badge ' + statusBadgeClass(val) + '">' + escapeHtml(val) + '</span>';
+        } else {
+          val = escapeHtml(val);
+        }
         cells += '<td data-label="' + LIST_LABELS[k] + '">' + val + '</td>';
       });
       tr.innerHTML = cells;
       tr.onclick = function () { openDetail(v); };
       body.appendChild(tr);
     });
+    state.flashOcn = null; // 一度使ったらクリア
 
     document.getElementById('emptyState').classList.toggle('hidden', vehicles.length > 0);
     document.getElementById('vehicleTable').classList.toggle('hidden', vehicles.length === 0);
+  }
+
+  function statusBadgeClass(status) {
+    var idx = state.boot.statusOptions.indexOf(status);
+    return idx >= 0 ? 'badge--status-' + idx : '';
   }
 
   function plateFull(v) {
@@ -214,6 +226,7 @@
   // ===== 詳細/編集モーダル =====
   function openDetail(vehicle) {
     state.selectedVehicle = vehicle;
+    document.getElementById('detailError').innerHTML = '';
     document.getElementById('detailTitle').textContent = 'OCN ' + vehicle.ocn + ' 車両詳細';
     document.getElementById('detailBody').innerHTML = buildFormGrid(vehicle, false);
     renderStatusActions(vehicle);
@@ -259,32 +272,64 @@
     if (vehicle.tabName === state.boot.tabNames.SOLD) return;
     state.boot.statusOptions.forEach(function (status) {
       if (status === vehicle.status) return;
+      var isSold = status === '販売済み';
       var btn = document.createElement('button');
-      btn.className = 'btn btn--sm';
-      btn.textContent = status + 'にする';
+      btn.className = 'btn btn--sm' + (isSold ? ' is-sold' : '');
+      btn.textContent = (isSold ? '💰 ' : '') + status + 'にする';
       btn.onclick = function () { handleStatusChange(vehicle, status); };
       wrap.appendChild(btn);
     });
   }
 
   function handleStatusChange(vehicle, newStatus) {
-    var extra = {};
     if (newStatus === '販売済み') {
-      extra.soldMonth = prompt('販売年月を入力してください（例: 2026-08）', '');
-      if (extra.soldMonth === null) return;
-      extra.soldTo = prompt('販売先を入力してください', '');
-      if (extra.soldTo === null) return;
+      openSaleModal(vehicle);
+      return;
     }
+    if (!confirm('ステータスを「' + newStatus + '」に変更しますか？')) return;
+    applyStatusChange(vehicle, newStatus, {});
+  }
+
+  function applyStatusChange(vehicle, newStatus, extra) {
     gsRun('api_changeStatus', vehicle.companyId, vehicle.tabName, vehicle.ocn, newStatus, extra)
       .then(function (res) {
-        showToast('ステータスを更新しました');
+        showToast('ステータスを「' + newStatus + '」に更新しました', 'success');
         closeModals();
+        state.flashOcn = vehicle.ocn;
         reloadList();
         if (res.requiresOwnCertUpload) {
           setTimeout(function () { promptOwnCertUpload(vehicle); }, 300);
         }
       }).catch(showError);
   }
+
+  // ===== 販売確定モーダル =====
+  function openSaleModal(vehicle) {
+    state.saleContext = vehicle;
+    document.getElementById('saleError').innerHTML = '';
+    document.getElementById('saleMonth').value = new Date().toISOString().slice(0, 7);
+    document.getElementById('saleTo').value = '';
+    document.getElementById('saleModal').classList.remove('hidden');
+    document.getElementById('saleTo').focus();
+  }
+
+  function closeSaleModal() {
+    document.getElementById('saleModal').classList.add('hidden');
+  }
+
+  document.getElementById('btnConfirmSale').addEventListener('click', function () {
+    var month = document.getElementById('saleMonth').value;
+    var to = document.getElementById('saleTo').value.trim();
+    var errBox = document.getElementById('saleError');
+    errBox.innerHTML = '';
+    if (!month || !to) {
+      errBox.innerHTML = '<div class="errorBox">販売年月・販売先はどちらも入力してください</div>';
+      return;
+    }
+    applyStatusChange(state.saleContext, '販売済み', { soldMonth: month, soldTo: to });
+  });
+  document.getElementById('btnCloseSale').addEventListener('click', closeSaleModal);
+  document.getElementById('btnCancelSale').addEventListener('click', closeSaleModal);
 
   function promptOwnCertUpload(vehicle) {
     var input = document.createElement('input');
@@ -295,7 +340,7 @@
       fileToBase64(input.files[0]).then(function (b64) {
         return gsRun('api_uploadOwnCertPdf', vehicle.companyId, vehicle.ocn, b64.data, b64.mimeType, input.files[0].name);
       }).then(function () {
-        showToast('自社名義車検証を登録しました');
+        showToast('自社名義車検証を登録しました', 'success');
       }).catch(showError);
     };
     if (confirm('名義変更が完了しました。自社名義の車検証PDFをアップロードしますか？')) {
@@ -306,11 +351,16 @@
   document.getElementById('btnSaveDetail').addEventListener('click', function () {
     var patch = collectFormValues(document.getElementById('detailBody'));
     var v = state.selectedVehicle;
+    var errBox = document.getElementById('detailError');
+    errBox.innerHTML = '';
     gsRun('api_updateVehicle', v.companyId, v.tabName, v.ocn, patch).then(function () {
-      showToast('保存しました');
+      showToast('保存しました', 'success');
       closeModals();
+      state.flashOcn = v.ocn;
       reloadList();
-    }).catch(showError);
+    }).catch(function (err) {
+      errBox.innerHTML = '<div class="errorBox">' + escapeHtml(err.message || String(err)) + '</div>';
+    });
   });
 
   // ===== 新規登録ウィザード（4.5 → 4.6 → 確認） =====
@@ -335,32 +385,84 @@
     var body = document.getElementById('registerBody');
     if (state.wizard.step === 1) {
       body.innerHTML = wizardTargetSelectHtml() +
-        '<p>査定書PDFをアップロードすると、車種・モデル・車台番号・査定額等を自動読み取りします（任意）。</p>' +
-        '<div class="dropzone" id="dz1">クリックしてPDFを選択</div>' +
+        '<p>査定書PDFをアップロードすると、車種・モデル・車台番号・査定額等を自動読み取りします（任意・スキップ可）。</p>' +
+        '<div class="dropzone" id="dz1">📄 クリックしてPDFを選択</div>' +
         '<div id="dz1status"></div>';
       bindDropzone('dz1', function (b64, file) {
-        document.getElementById('dz1status').textContent = '読み取り中...';
+        var dz = document.getElementById('dz1');
+        var statusEl = document.getElementById('dz1status');
+        dz.classList.add('is-busy');
+        statusEl.innerHTML = '<span class="spinner"></span>読み取り中: ' + escapeHtml(file.name);
         gsRun('api_uploadAppraisalPdf', state.wizard.companyId, b64.data, b64.mimeType, file.name).then(function (draft) {
           Object.assign(state.wizard.draft, draft);
-          document.getElementById('dz1status').textContent = '読み取り完了: ' + file.name;
-        }).catch(showError);
+          dz.classList.remove('is-busy');
+          statusEl.innerHTML = '✅ 読み取り完了: ' + escapeHtml(file.name);
+          renderOcrSummary(statusEl, [
+            { label: '車種', value: draft.carType },
+            { label: 'モデル', value: draft.model },
+            { label: '車台番号', value: draft.chassisNumber },
+            { label: '初年度登録', value: draft.firstRegistrationDate },
+            { label: 'カラー', value: draft.color },
+            { label: '走行距離', value: draft.mileage },
+            { label: '査定額', value: draft.appraisalAmount },
+            { label: '買取金額', value: draft.purchaseAmount },
+            { label: 'リサイクル金額', value: draft.recycleFee }
+          ]);
+        }).catch(function (err) {
+          dz.classList.remove('is-busy');
+          statusEl.innerHTML = '<div class="errorBox">読み取りに失敗しました: ' + escapeHtml(err.message || String(err)) +
+            '<br>もう一度アップロードするか、次の画面に進んで手入力してください。</div>';
+        });
       });
     } else if (state.wizard.step === 2) {
-      body.innerHTML = '<p>購入時（前所有者名義）の車検証PDFをアップロードすると、仕入先（顧客名）・住所を自動反映します（任意）。</p>' +
-        '<div class="dropzone" id="dz2">クリックしてPDFを選択</div>' +
+      body.innerHTML = '<p>購入時（前所有者名義）の車検証PDFをアップロードすると、仕入先（顧客名）・住所を自動反映します（任意・スキップ可）。</p>' +
+        '<div class="dropzone" id="dz2">📄 クリックしてPDFを選択</div>' +
         '<div id="dz2status"></div>';
       bindDropzone('dz2', function (b64, file) {
-        document.getElementById('dz2status').textContent = '読み取り中...';
+        var dz = document.getElementById('dz2');
+        var statusEl = document.getElementById('dz2status');
+        dz.classList.add('is-busy');
+        statusEl.innerHTML = '<span class="spinner"></span>読み取り中: ' + escapeHtml(file.name);
         gsRun('api_uploadInspectionCertPdf', state.wizard.companyId, b64.data, b64.mimeType, file.name).then(function (draft) {
           state.wizard.draft.inspectionTempFileId = draft.tempFileId;
           if (draft.supplier) state.wizard.draft.supplier = draft.supplier;
           if (draft.address) state.wizard.draft.address = draft.address;
-          document.getElementById('dz2status').textContent = '読み取り完了: ' + file.name;
-        }).catch(showError);
+          dz.classList.remove('is-busy');
+          statusEl.innerHTML = '✅ 読み取り完了: ' + escapeHtml(file.name);
+          renderOcrSummary(statusEl, [
+            { label: '仕入先（顧客名）', value: draft.supplier },
+            { label: '住所', value: draft.address }
+          ]);
+        }).catch(function (err) {
+          dz.classList.remove('is-busy');
+          statusEl.innerHTML = '<div class="errorBox">読み取りに失敗しました: ' + escapeHtml(err.message || String(err)) +
+            '<br>もう一度アップロードするか、次の画面に進んで手入力してください。</div>';
+        });
       });
     } else {
       body.innerHTML = '<div id="wizardError"></div>' + buildFormGrid(state.wizard.draft, true);
     }
+  }
+
+  /**
+   * OCR抽出結果のプレビューカードを、指定コンテナの末尾に追記する。
+   * 値が1つも取れなかった場合は「抽出できませんでした」という注意書きを表示する。
+   */
+  function renderOcrSummary(container, fields) {
+    var entries = fields.filter(function (f) {
+      return f.value !== undefined && f.value !== null && f.value !== '';
+    });
+    var html;
+    if (entries.length === 0) {
+      html = '<div class="ocrSummary"><div class="ocrSummary__empty">⚠ 項目を自動抽出できませんでした。次の画面で手入力してください。</div></div>';
+    } else {
+      html = '<div class="ocrSummary">' +
+        '<div class="ocrSummary__title">読み取り結果（次の確認画面で修正できます）</div>' +
+        '<div class="ocrSummary__grid">' +
+        entries.map(function (f) { return '<div class="ocrSummary__item"><span>' + escapeHtml(f.label) + '</span>' + escapeHtml(f.value) + '</div>'; }).join('') +
+        '</div></div>';
+    }
+    container.insertAdjacentHTML('beforeend', html);
   }
 
   function wizardTargetSelectHtml() {
@@ -406,8 +508,9 @@
       Object.assign(state.wizard.draft, patch);
       gsRun('api_registerVehicle', state.wizard.companyId, state.wizard.tabName, state.wizard.draft)
         .then(function (created) {
-          showToast('OCN ' + created.ocn + ' を登録しました');
+          showToast('OCN ' + created.ocn + ' を登録しました', 'success');
           closeModals();
+          state.flashOcn = created.ocn;
           reloadList();
         }).catch(function (err) {
           var box = document.getElementById('wizardError');
@@ -433,6 +536,7 @@
       : { mode: 'single', companyId: state.scope.companyId, tabName: currentTabNames()[0] };
     showToast('PDFを作成しています...');
     gsRun('api_exportPdf', scope, from, to).then(function (result) {
+      showToast('PDFを作成しました', 'success');
       downloadPdf(result.base64, result.fileName);
     }).catch(showError);
   });
@@ -457,7 +561,7 @@
     var companyId = state.scope.mode === 'single' ? state.scope.companyId : null;
     showToast('車検証PDFを同期しています...');
     gsRun('api_syncPdfLinksNow', companyId).then(function () {
-      showToast('PDF同期が完了しました');
+      showToast('PDF同期が完了しました', 'success');
       reloadList();
     }).catch(showError);
   });
@@ -502,17 +606,19 @@
     };
   }
 
-  function showToast(msg, isError) {
+  function showToast(msg, type) {
     var el = document.getElementById('toast');
     el.textContent = msg;
-    el.classList.toggle('is-error', !!isError);
+    el.classList.remove('is-error', 'is-success');
+    if (type === 'error') el.classList.add('is-error');
+    if (type === 'success') el.classList.add('is-success');
     el.classList.remove('hidden');
     setTimeout(function () { el.classList.add('hidden'); }, 3000);
   }
 
   function showError(err) {
     console.error(err);
-    showToast((err && err.message) || String(err), true);
+    showToast((err && err.message) || String(err), 'error');
   }
 
   function escapeHtml(s) {
