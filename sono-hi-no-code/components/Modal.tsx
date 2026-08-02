@@ -31,13 +31,13 @@ export default function Modal({
         onClick={onClose}
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
       />
-      <div className="animate-fade-up relative z-10 max-h-[88vh] w-full max-w-md overflow-y-auto rounded-t-3xl border border-white/10 bg-bg-elevated p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-3xl">
+      <div className="animate-fade-up relative z-10 max-h-[88vh] w-full max-w-md overflow-y-auto rounded-t-xl border border-black/10 bg-bg-elevated p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-xl">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-display text-lg font-bold text-text">{title}</h2>
+          <h2 className="font-display text-lg font-medium text-text">{title}</h2>
           <button
             onClick={onClose}
             aria-label="閉じる"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 text-text-muted"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-black/5 text-text-muted"
           >
             ✕
           </button>

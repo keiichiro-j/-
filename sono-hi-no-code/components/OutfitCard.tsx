@@ -22,7 +22,7 @@ export default function OutfitCard({
 }) {
   return (
     <div
-      className={`glass-card animate-pop-in flex flex-col gap-3 rounded-2xl p-4 ${
+      className={`glass-card animate-pop-in flex flex-col gap-3 rounded-lg p-4 ${
         highlight ? 'ring-1 ring-brand-pink/50' : ''
       }`}
     >
@@ -32,7 +32,7 @@ export default function OutfitCard({
             key={item.id}
             className="flex w-20 shrink-0 flex-col items-center gap-1"
           >
-            <div className="h-20 w-20 overflow-hidden rounded-xl bg-white/5">
+            <div className="h-20 w-20 overflow-hidden rounded-xl bg-black/5">
               {item.imageDataUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img

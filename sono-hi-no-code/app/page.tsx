@@ -172,7 +172,7 @@ export default function HomePage() {
                 'shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold disabled:opacity-60',
                 tpo === t
                   ? 'border-transparent brand-gradient text-white'
-                  : 'border-white/10 bg-white/5 text-text-muted'
+                  : 'border-black/10 bg-black/5 text-text-muted'
               )}
             >
               {TPO_LABEL[t]}
@@ -181,7 +181,7 @@ export default function HomePage() {
         </div>
 
         {!hasCore ? (
-          <div className="glass-card flex flex-col items-center gap-3 rounded-2xl px-6 py-10 text-center">
+          <div className="glass-card flex flex-col items-center gap-3 rounded-lg px-6 py-10 text-center">
             <span className="text-4xl">🧺</span>
             <p className="text-sm font-semibold text-text">
               トップスとボトムスを1着ずつ登録すると提案が始まります
@@ -206,8 +206,8 @@ export default function HomePage() {
                     className={clsx(
                       'flex-1 rounded-xl py-2.5 text-xs font-bold transition-colors',
                       todaysOutfit.feedback === 'good'
-                        ? 'bg-emerald-400 text-emerald-950'
-                        : 'border border-white/10 bg-white/5 text-text-muted'
+                        ? 'bg-[var(--success)] text-white'
+                        : 'border border-black/10 bg-black/5 text-text-muted'
                     )}
                   >
                     良い 👍
@@ -217,8 +217,8 @@ export default function HomePage() {
                     className={clsx(
                       'flex-1 rounded-xl py-2.5 text-xs font-bold transition-colors',
                       todaysOutfit.feedback === 'meh'
-                        ? 'bg-amber-400 text-amber-950'
-                        : 'border border-white/10 bg-white/5 text-text-muted'
+                        ? 'bg-[var(--warn)] text-white'
+                        : 'border border-black/10 bg-black/5 text-text-muted'
                     )}
                   >
                     微妙 🤔
@@ -230,7 +230,7 @@ export default function HomePage() {
                       'flex h-9 w-9 items-center justify-center rounded-xl border text-base',
                       todaysOutfit.isFavorite
                         ? 'border-transparent brand-gradient'
-                        : 'border-white/10 bg-white/5'
+                        : 'border-black/10 bg-black/5'
                     )}
                   >
                     {todaysOutfit.isFavorite ? '★' : '☆'}
@@ -248,7 +248,7 @@ export default function HomePage() {
         ) : (
           <div className="flex flex-col gap-4">
             {suggestLoading ? (
-              <div className="glass-card flex flex-col items-center gap-2 rounded-2xl py-10">
+              <div className="glass-card flex flex-col items-center gap-2 rounded-lg py-10">
                 <span className="animate-pulse text-3xl">✨</span>
                 <p className="text-xs text-text-muted">コーディネーターが提案を考え中…</p>
               </div>
@@ -277,7 +277,7 @@ export default function HomePage() {
             {!suggestLoading && suggestions.length > 0 && (
               <button
                 onClick={fetchSuggestions}
-                className="rounded-xl border border-white/10 bg-white/5 py-2.5 text-xs font-semibold text-text-muted"
+                className="rounded-xl border border-black/10 bg-black/5 py-2.5 text-xs font-semibold text-text-muted"
               >
                 他の提案を見る 🔄
               </button>

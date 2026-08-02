@@ -49,7 +49,7 @@ export default function ClosetPage() {
         action={
           <button
             onClick={() => setAddOpen(true)}
-            className="brand-gradient flex h-10 w-10 items-center justify-center rounded-full text-xl font-bold text-white shadow-lg shadow-fuchsia-900/30"
+            className="brand-gradient flex h-10 w-10 items-center justify-center rounded-full text-xl font-normal text-white shadow-sm"
             aria-label="服を追加"
           >
             ＋
@@ -66,7 +66,7 @@ export default function ClosetPage() {
               'shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold',
               filter === c
                 ? 'border-transparent brand-gradient text-white'
-                : 'border-white/10 bg-white/5 text-text-muted'
+                : 'border-black/10 bg-black/5 text-text-muted'
             )}
           >
             {c === 'all' ? 'すべて' : CATEGORY_LABEL[c]}
@@ -115,7 +115,7 @@ export default function ClosetPage() {
 
 function EmptyState({ onAdd, hasAny }: { onAdd: () => void; hasAny: boolean }) {
   return (
-    <div className="glass-card flex flex-col items-center gap-3 rounded-2xl px-6 py-12 text-center">
+    <div className="glass-card flex flex-col items-center gap-3 rounded-lg px-6 py-12 text-center">
       <span className="text-4xl">👗</span>
       <p className="text-sm font-semibold text-text">
         {hasAny ? 'このカテゴリのアイテムはありません' : 'まだ服が登録されていません'}

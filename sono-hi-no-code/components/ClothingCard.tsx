@@ -3,9 +3,9 @@ import { estimateResaleValue } from '@/lib/resale';
 import clsx from 'clsx';
 
 const STATUS_DOT: Record<ClothingItem['status'], string> = {
-  active: 'bg-emerald-400',
-  cleaning: 'bg-amber-400',
-  retired: 'bg-white/30',
+  active: 'bg-[var(--success)]',
+  cleaning: 'bg-[var(--warn)]',
+  retired: 'bg-black/25',
 };
 
 export default function ClothingCard({
@@ -18,9 +18,9 @@ export default function ClothingCard({
   return (
     <button
       onClick={onClick}
-      className="glass-card group flex flex-col overflow-hidden rounded-2xl text-left transition-transform active:scale-[0.98]"
+      className="glass-card group flex flex-col overflow-hidden rounded-lg text-left transition-transform active:scale-[0.98]"
     >
-      <div className="relative aspect-square w-full overflow-hidden bg-white/5">
+      <div className="relative aspect-square w-full overflow-hidden bg-black/5">
         {item.imageDataUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -35,7 +35,7 @@ export default function ClothingCard({
         )}
         <span
           className={clsx(
-            'absolute right-2 top-2 h-2.5 w-2.5 rounded-full ring-2 ring-black/30',
+            'absolute right-2 top-2 h-2.5 w-2.5 rounded-full ring-2 ring-white',
             STATUS_DOT[item.status]
           )}
         />

@@ -50,7 +50,7 @@ export default function HistoryPage() {
             onClick={() => setTab(t)}
             className={clsx(
               'flex-1 rounded-xl py-2 text-xs font-bold',
-              tab === t ? 'brand-gradient text-white' : 'border border-white/10 bg-white/5 text-text-muted'
+              tab === t ? 'brand-gradient text-white' : 'border border-black/10 bg-black/5 text-text-muted'
             )}
           >
             {t === 'calendar' ? 'カレンダー' : `お気に入り (${favorites.length})`}
@@ -82,14 +82,14 @@ export default function HistoryPage() {
                   }
                 />
               ) : (
-                <p className="glass-card rounded-2xl px-4 py-8 text-center text-xs text-text-faint">
+                <p className="glass-card rounded-lg px-4 py-8 text-center text-xs text-text-faint">
                   この日のコーデ記録はありません
                 </p>
               )}
             </div>
           </>
         ) : favorites.length === 0 ? (
-          <p className="glass-card rounded-2xl px-4 py-10 text-center text-xs text-text-faint">
+          <p className="glass-card rounded-lg px-4 py-10 text-center text-xs text-text-faint">
             ホーム画面で ☆ を押すとお気に入りに追加されます
           </p>
         ) : (

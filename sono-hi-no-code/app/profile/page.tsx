@@ -100,9 +100,9 @@ export default function ProfilePage() {
       <PageHeader eyebrow="Profile" title="プロフィール" subtitle="体型・顔立ちの情報を提案に反映します" />
 
       <div className="flex flex-col gap-4 px-5 pb-8">
-        <section className="glass-card flex flex-col items-center gap-3 rounded-2xl p-5">
+        <section className="glass-card flex flex-col items-center gap-3 rounded-lg p-5">
           <label className="flex flex-col items-center gap-2">
-            <div className="h-24 w-24 overflow-hidden rounded-full bg-white/5">
+            <div className="h-24 w-24 overflow-hidden rounded-full bg-black/5">
               {faceImageDataUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={faceImageDataUrl} alt="" className="h-full w-full object-cover" />
@@ -124,13 +124,13 @@ export default function ProfilePage() {
           </label>
 
           {error && (
-            <p className="w-full rounded-xl bg-red-500/10 px-3 py-2 text-center text-xs text-red-300">
+            <p className="w-full rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-center text-xs text-red-800">
               {error}
             </p>
           )}
 
           {personalColor && (
-            <div className="w-full rounded-xl bg-white/5 p-3 text-center">
+            <div className="w-full rounded-xl bg-black/5 p-3 text-center">
               <p className="text-xs font-bold text-text">{PERSONAL_COLOR_LABEL[personalColor]}</p>
               {colorNote && <p className="mt-1 text-[11px] leading-relaxed text-text-faint">{colorNote}</p>}
             </div>
@@ -173,15 +173,15 @@ export default function ProfilePage() {
             {saving ? '保存中…' : '保存する'}
           </button>
           {saved && (
-            <p className="text-center text-xs font-semibold text-emerald-400">
+            <p className="text-center text-xs font-semibold text-[var(--success)]">
               保存しました ✓
             </p>
           )}
         </section>
 
-        <section className="glass-card rounded-2xl p-5">
+        <section className="glass-card rounded-lg p-5">
           <p className="mb-3 text-sm font-bold text-text">クローゼット資産（概算）</p>
-          <p className="font-display brand-gradient-text text-3xl font-extrabold">
+          <p className="font-display text-3xl font-medium text-text">
             ¥{total.toLocaleString()}
           </p>
           <p className="mb-4 mt-1 text-[11px] text-text-faint">
@@ -206,14 +206,14 @@ export default function ProfilePage() {
           </p>
         </section>
 
-        <section className="glass-card rounded-2xl p-5">
+        <section className="glass-card rounded-lg p-5">
           <p className="mb-3 text-sm font-bold text-text">クローゼット統計</p>
           <div className="grid grid-cols-3 gap-2 text-center">
             <StatBlock label={STATUS_LABEL.active} value={statusCounts.active} />
             <StatBlock label={STATUS_LABEL.cleaning} value={statusCounts.cleaning} />
             <StatBlock label={STATUS_LABEL.retired} value={statusCounts.retired} />
           </div>
-          <div className="mt-3 flex items-center justify-between rounded-xl bg-white/5 px-3 py-2.5 text-xs">
+          <div className="mt-3 flex items-center justify-between rounded-xl bg-black/5 px-3 py-2.5 text-xs">
             <span className="text-text-muted">これまでの総着用回数</span>
             <span className="font-bold text-text">{totalWearCount}回</span>
           </div>
@@ -225,8 +225,8 @@ export default function ProfilePage() {
 
 function StatBlock({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl bg-white/5 py-3">
-      <p className="text-lg font-extrabold text-text">{value}</p>
+    <div className="rounded-xl bg-black/5 py-3">
+      <p className="text-lg font-semibold text-text">{value}</p>
       <p className="text-[10px] text-text-faint">{label}</p>
     </div>
   );

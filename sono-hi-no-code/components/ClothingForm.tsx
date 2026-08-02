@@ -108,7 +108,7 @@ export default function ClothingForm({
   return (
     <div className="flex flex-col gap-4">
       <label className="flex flex-col items-center gap-2">
-        <div className="relative h-28 w-28 overflow-hidden rounded-2xl bg-white/5">
+        <div className="relative h-28 w-28 overflow-hidden rounded-lg bg-black/5">
           {imageDataUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={imageDataUrl} alt="" className="h-full w-full object-cover" />
@@ -133,7 +133,9 @@ export default function ClothingForm({
       </label>
 
       {error && (
-        <p className="rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</p>
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+          {error}
+        </p>
       )}
 
       <Field label="アイテム名">
@@ -239,7 +241,7 @@ export default function ClothingForm({
         {initial && onDelete && (
           <button
             onClick={onDelete}
-            className="rounded-xl border border-white/10 px-4 py-3 text-sm font-semibold text-red-300"
+            className="rounded-xl border border-black/10 px-4 py-3 text-sm font-semibold text-red-800"
           >
             削除
           </button>
@@ -247,7 +249,7 @@ export default function ClothingForm({
         <button
           onClick={handleSubmit}
           disabled={saving || !name.trim() || !color.trim()}
-          className="brand-gradient flex-1 rounded-xl py-3 text-sm font-bold text-white shadow-lg shadow-fuchsia-900/30 disabled:opacity-50"
+          className="brand-gradient flex-1 rounded-xl py-3 text-sm font-semibold text-white disabled:opacity-50"
         >
           {saving ? '保存中…' : initial ? '更新する' : 'クローゼットに追加'}
         </button>
@@ -282,7 +284,7 @@ function Chip({
         'rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors',
         active
           ? 'border-transparent brand-gradient text-white'
-          : 'border-white/10 bg-white/5 text-text-muted'
+          : 'border-black/10 bg-black/5 text-text-muted'
       )}
     >
       {children}

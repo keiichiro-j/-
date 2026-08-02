@@ -2,16 +2,16 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'その日のコーデ',
-    short_name: 'その日のコーデ',
+    name: 'コーディネーター',
+    short_name: 'コーディネーター',
     description:
       '天気・予定・手持ちの服からAIが今日のベストな一着を提案するパーソナルコーディネートアプリ',
     start_url: '/',
     scope: '/',
     display: 'standalone',
     orientation: 'portrait',
-    background_color: '#12081f',
-    theme_color: '#7C3AED',
+    background_color: '#f7f5f0',
+    theme_color: '#1c1b17',
     lang: 'ja',
     categories: ['lifestyle', 'shopping', 'productivity'],
     icons: [

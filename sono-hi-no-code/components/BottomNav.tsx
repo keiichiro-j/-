@@ -16,7 +16,7 @@ export default function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-1/2 z-40 w-full max-w-md -translate-x-1/2 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-      <div className="glass-card flex items-center justify-around rounded-2xl px-1.5 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.35)]">
+      <div className="glass-card flex items-center justify-around rounded-lg px-1.5 py-2 shadow-[0_4px_20px_rgba(28,27,23,0.12)]">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const active = href === '/' ? pathname === '/' : pathname.startsWith(href);
           return (

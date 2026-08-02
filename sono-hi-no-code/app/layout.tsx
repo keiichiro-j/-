@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Noto_Sans_JP, Plus_Jakarta_Sans } from 'next/font/google';
+import { Noto_Sans_JP, Noto_Serif_JP } from 'next/font/google';
 import BottomNav from '@/components/BottomNav';
 import PwaRegister from '@/components/PwaRegister';
 import './globals.css';
@@ -7,26 +7,26 @@ import './globals.css';
 const notoJp = Noto_Sans_JP({
   variable: '--font-noto-jp',
   subsets: ['latin'],
-  weight: ['400', '500', '700', '900'],
+  weight: ['400', '500', '700'],
   display: 'swap',
 });
 
-const jakarta = Plus_Jakarta_Sans({
-  variable: '--font-jakarta',
+const notoSerifJp = Noto_Serif_JP({
+  variable: '--font-serif-jp',
   subsets: ['latin'],
-  weight: ['500', '600', '700', '800'],
+  weight: ['400', '500', '600'],
   display: 'swap',
 });
 
 export const metadata: Metadata = {
-  title: 'その日のコーデ',
+  title: 'コーディネーター',
   description:
     '天気・予定・手持ちの服からAIが今日のベストな一着を提案するパーソナルコーディネートアプリ',
-  applicationName: 'その日のコーデ',
+  applicationName: 'コーディネーター',
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'black-translucent',
-    title: 'その日のコーデ',
+    statusBarStyle: 'default',
+    title: 'コーディネーター',
   },
   formatDetection: { telephone: false },
 };
@@ -36,8 +36,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: 'cover',
-  themeColor: '#12081f',
-  colorScheme: 'dark',
+  themeColor: '#f7f5f0',
+  colorScheme: 'light',
 };
 
 export default function RootLayout({
@@ -46,7 +46,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ja" className={`${notoJp.variable} ${jakarta.variable} h-full`}>
+    <html lang="ja" className={`${notoJp.variable} ${notoSerifJp.variable} h-full`}>
       <body className="min-h-full font-sans antialiased">
         <PwaRegister />
         <div className="mx-auto min-h-full w-full max-w-md pb-28">{children}</div>

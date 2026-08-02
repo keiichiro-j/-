@@ -9,9 +9,9 @@ const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
 
 function feedbackDot(outfit?: Outfit) {
   if (!outfit) return null;
-  if (outfit.feedback === 'good') return 'bg-emerald-400';
-  if (outfit.feedback === 'meh') return 'bg-amber-400';
-  return 'bg-white/40';
+  if (outfit.feedback === 'good') return 'bg-[var(--success)]';
+  if (outfit.feedback === 'meh') return 'bg-[var(--warn)]';
+  return 'bg-black/25';
 }
 
 export default function Calendar({
@@ -49,11 +49,11 @@ export default function Calendar({
   const todayKeyStr = toDateKey(new Date());
 
   return (
-    <div className="glass-card rounded-2xl p-4">
+    <div className="glass-card rounded-lg p-4">
       <div className="mb-3 flex items-center justify-between">
         <button
           onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}
-          className="flex h-7 w-7 items-center justify-center rounded-full bg-white/5 text-sm text-text-muted"
+          className="flex h-7 w-7 items-center justify-center rounded-full bg-black/5 text-sm text-text-muted"
         >
           ‹
         </button>
@@ -62,7 +62,7 @@ export default function Calendar({
         </p>
         <button
           onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}
-          className="flex h-7 w-7 items-center justify-center rounded-full bg-white/5 text-sm text-text-muted"
+          className="flex h-7 w-7 items-center justify-center rounded-full bg-black/5 text-sm text-text-muted"
         >
           ›
         </button>
