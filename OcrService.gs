@@ -2,21 +2,21 @@
  * OcrService.gs
  * PDF/画像ファイルからのテキスト抽出（OCR）共通処理。
  *
- * 既定実装は Drive の高度なサービス（Advanced Drive Service / Drive API v2）による
- * OCR変換（追加のAPIキー・課金設定なしでGASから利用可能）。
- * より高い読み取り精度が必要な場合は ocrFileToTextViaVisionApi_() へ切り替え可能
- * （要 Script Properties への VISION_API_KEY 設定、Cloud Vision API 有効化）。
+ * 実装は Cloud Vision API（files:annotate エンドポイント）を使用する。
+ * このエンドポイントはPDF（先頭5ページまで）・画像のどちらも直接渡せるため、
+ * Drive側の「アップロード時OCR変換」の裏技（環境によって失敗することがある）には
+ * 依存しない。
  *
  * 事前準備:
- *  - GASエディタの「サービス」から Drive API（v2）を追加する
- *  - GCP側で Drive API を有効化する
+ *  - GASエディタの「プロジェクトの設定」からGCPプロジェクト番号を確認（無ければ既定のものでよい）
+ *  - Google Cloud Console で対象GCPプロジェクトの「Cloud Vision API」を有効化する
+ *  - 同コンソールの「APIとサービス」→「認証情報」でAPIキーを発行する
+ *  - GASエディタの「スクリプト プロパティ」に VISION_API_KEY として登録する
  */
 
 /**
  * アップロード時にPDF/画像が自動でGoogleドキュメント等へ変換されないよう、
  * convert:false を明示してDriveにファイルを作成する。
- * （既定の folder.createFile(blob) だと、状況によりアップロード時点で
- *   自動変換され、その後のOCR変換が失敗することがあるための対策）
  */
 function createDriveFileNoConvert_(folder, blob, fileName) {
   var resource = {
@@ -29,26 +29,15 @@ function createDriveFileNoConvert_(folder, blob, fileName) {
 }
 
 /**
- * ファイルIDからOCRテキストを取得する（既定: Drive OCR変換方式）
+ * ファイルIDからOCRテキストを取得する（Cloud Vision API使用）
  */
 function ocrFileToText_(fileId) {
-  var blob = DriveApp.getFileById(fileId).getBlob();
-  var resource = {
-    title: 'ocr_tmp_' + fileId + '_' + new Date().getTime(),
-    mimeType: MimeType.GOOGLE_DOCS
-  };
-  var tempFile = Drive.Files.insert(resource, blob, { ocr: true, ocrLanguage: 'ja' });
-  try {
-    var doc = DocumentApp.openById(tempFile.id);
-    return doc.getBody().getText();
-  } finally {
-    DriveApp.getFileById(tempFile.id).setTrashed(true);
-  }
+  return ocrFileToTextViaVisionApi_(fileId);
 }
 
 /**
- * Cloud Vision API（DOCUMENT_TEXT_DETECTION）を使ったOCR代替実装。
- * 画像（JPEG/PNG）向け。PDFを直接渡す場合は事前にページを画像化する必要がある点に注意。
+ * Cloud Vision API の files:annotate エンドポイントでOCRを行う。
+ * PDF（先頭5ページまで）・画像のどちらもそのまま渡せる。
  */
 function ocrFileToTextViaVisionApi_(fileId) {
   var apiKey = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.VISION_API_KEY);
@@ -56,15 +45,18 @@ function ocrFileToTextViaVisionApi_(fileId) {
 
   var blob = DriveApp.getFileById(fileId).getBlob();
   var base64 = Utilities.base64Encode(blob.getBytes());
+  var mimeType = blob.getContentType() || 'application/pdf';
+
   var payload = {
     requests: [{
-      image: { content: base64 },
+      inputConfig: { content: base64, mimeType: mimeType },
       features: [{ type: 'DOCUMENT_TEXT_DETECTION' }],
+      pages: [1, 2, 3, 4, 5],
       imageContext: { languageHints: ['ja'] }
     }]
   };
   var response = UrlFetchApp.fetch(
-    'https://vision.googleapis.com/v1/images:annotate?key=' + apiKey,
+    'https://vision.googleapis.com/v1/files:annotate?key=' + apiKey,
     {
       method: 'post',
       contentType: 'application/json',
@@ -73,8 +65,15 @@ function ocrFileToTextViaVisionApi_(fileId) {
     }
   );
   var json = JSON.parse(response.getContentText());
-  var annotation = json.responses && json.responses[0] && json.responses[0].fullTextAnnotation;
-  return annotation ? annotation.text : '';
+  if (json.error) {
+    throw new Error('Vision API エラー: ' + json.error.message);
+  }
+  var pageResponses = json.responses && json.responses[0] && json.responses[0].responses;
+  if (!pageResponses || pageResponses.length === 0) return '';
+  return pageResponses
+    .map(function (r) { return r.fullTextAnnotation ? r.fullTextAnnotation.text : ''; })
+    .filter(Boolean)
+    .join('\n');
 }
 
 /**

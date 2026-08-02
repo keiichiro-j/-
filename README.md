@@ -41,14 +41,18 @@ Google スプレッドシートをDBとし、GASの HTML Service で Webアプ�
 3. **会社設定の登録**
    - `CompanyConfig.gs` の `setupCompanies_()` 内のIDを実際のスプレッドシートID／フォルダIDに書き換えて、GASエディタから一度だけ実行
 4. **拡張サービスの有効化**
-   - GASエディタの「サービス」から **Drive API（v2）** を追加（`OcrService.gs` のOCR変換で使用）
-5. **Script Properties の設定**（GASエディタ「プロジェクトの設定」）
+   - GASエディタの「サービス」から **Drive API（v2）** を追加（アップロード時の自動ドキュメント変換防止で使用）
+5. **Cloud Vision API の有効化とAPIキー発行（査定書・車検証OCRに必須）**
+   - GASエディタ「プロジェクトの設定」で、紐づいているGoogle CloudプロジェクトをGoogle Cloud Consoleで開く
+   - 「APIとサービス」→「ライブラリ」から **Cloud Vision API** を有効化
+   - 「APIとサービス」→「認証情報」→「認証情報を作成」→「APIキー」でキーを発行（悪用防止のため、キーの制限で「Cloud Vision API」のみに絞ることを推奨）
+6. **Script Properties の設定**（GASエディタ「プロジェクトの設定」）
+   - `VISION_API_KEY`: 手順5で発行したAPIキー（**必須**。査定書・車検証のOCR読み取りに使用）
    - `NOTIFY_MAIL_TO`: 車検満了通知の送信先メールアドレス
    - `SLACK_WEBHOOK_URL`: Slack等のIncoming Webhook URL（10.3、未設定なら通知はスキップ）
-   - `VISION_API_KEY`: Cloud Vision API を使う場合のみ（`OcrService.gs` の代替実装で使用）
-6. **トリガー設定**
+7. **トリガー設定**
    - GASエディタから `setupTimeDrivenTriggers_()` を一度だけ実行（PDF監視30分毎・車検満了チェック毎日8時）
-7. **Webアプリとして公開**
+8. **Webアプリとして公開**
    - `clasp deploy` または GASエディタの「デプロイ」→「ウェブアプリ」
 
 ## テスト
