@@ -70,7 +70,7 @@ function api_uploadAppraisalPdf(companyId, base64Data, mimeType, fileName) {
   var company = getCompanyById(companyId);
   var folder = DriveApp.getFolderById(company.appraisalFolderId);
   var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, fileName);
-  var file = folder.createFile(blob).setName('_tmp_appraisal_' + new Date().getTime());
+  var file = createDriveFileNoConvert_(folder, blob, '_tmp_appraisal_' + new Date().getTime());
   var draft = extractAppraisalDraft(file.getId());
   draft.tempFileId = file.getId();
   return draft;
@@ -81,7 +81,7 @@ function api_uploadInspectionCertPdf(companyId, base64Data, mimeType, fileName) 
   var company = getCompanyById(companyId);
   var folder = DriveApp.getFolderById(company.pdfFolderId);
   var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, fileName);
-  var file = folder.createFile(blob).setName('_tmp_inspection_' + new Date().getTime());
+  var file = createDriveFileNoConvert_(folder, blob, '_tmp_inspection_' + new Date().getTime());
   var draft = extractInspectionCertDraft(file.getId());
   draft.tempFileId = file.getId();
   return draft;
@@ -92,7 +92,7 @@ function api_uploadOwnCertPdf(companyId, ocn, base64Data, mimeType, fileName) {
   var company = getCompanyById(companyId);
   var folder = DriveApp.getFolderById(company.pdfFolderId);
   var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, fileName);
-  var file = folder.createFile(blob).setName(ocn + OWN_NAME_SUFFIX);
+  var file = createDriveFileNoConvert_(folder, blob, ocn + OWN_NAME_SUFFIX);
 
   var target = locateVehicleByOcn_(ocn);
   if (!target) throw new Error('該当車両が見つかりません（OCN: ' + ocn + '）');
