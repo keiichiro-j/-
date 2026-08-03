@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import PageHeader from '@/components/PageHeader';
 import AssetItemList from '@/components/AssetItemList';
 import ListingModal from '@/components/ListingModal';
@@ -101,7 +102,20 @@ export default function ProfilePage() {
 
   return (
     <div>
-      <PageHeader eyebrow="Profile" title="プロフィール" subtitle="体型・顔立ちの情報を提案に反映します" />
+      <PageHeader
+        eyebrow="Profile"
+        title="プロフィール"
+        subtitle="体型・顔立ちの情報を提案に反映します"
+        action={
+          <Link
+            href="/settings"
+            aria-label="設定"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-black/10 bg-black/5 text-lg text-text"
+          >
+            ⚙️
+          </Link>
+        }
+      />
 
       <div className="flex flex-col gap-4 px-5 pb-8">
         <section className="glass-card flex flex-col items-center gap-3 rounded-lg p-5">
@@ -184,7 +198,7 @@ export default function ProfilePage() {
         </section>
 
         <section className="glass-card rounded-lg p-5">
-          <p className="mb-3 text-sm font-bold text-text">クローゼット資産（概算）</p>
+          <p className="mb-3 text-sm font-bold text-text">ワードローブ資産（概算）</p>
           <p className="font-display text-3xl font-medium text-text">
             ¥{total.toLocaleString()}
           </p>
@@ -214,7 +228,7 @@ export default function ProfilePage() {
         </section>
 
         <section className="glass-card rounded-lg p-5">
-          <p className="mb-3 text-sm font-bold text-text">クローゼット統計</p>
+          <p className="mb-3 text-sm font-bold text-text">ワードローブ統計</p>
           <div className="grid grid-cols-3 gap-2 text-center">
             <StatBlock label={STATUS_LABEL.active} value={statusCounts.active} />
             <StatBlock label={STATUS_LABEL.cleaning} value={statusCounts.cleaning} />

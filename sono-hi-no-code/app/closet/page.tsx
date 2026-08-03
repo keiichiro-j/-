@@ -22,7 +22,7 @@ const CATEGORY_FILTERS: (ClothingCategory | 'all')[] = [
 ];
 
 export default function ClosetPage() {
-  const { items, loading, refresh } = useClothingItems();
+  const { items, loading, error, refresh } = useClothingItems();
   const [filter, setFilter] = useState<ClothingCategory | 'all'>('all');
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<ClothingItem | null>(null);
@@ -45,8 +45,8 @@ export default function ClosetPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Closet DB"
-        title="クローゼット"
+        eyebrow="Wardrobe"
+        title="ワードローブ"
         subtitle={`${items.length}点 ・ 概算資産額 ¥${total.toLocaleString()}`}
         action={
           <button
@@ -75,6 +75,12 @@ export default function ClosetPage() {
           </button>
         ))}
       </div>
+
+      {error && (
+        <div className="mx-5 mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-800">
+          {error}
+        </div>
+      )}
 
       <div className="px-5 pb-6">
         {loading ? (

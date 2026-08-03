@@ -7,7 +7,7 @@ import type {
   WeatherInfo,
   OutfitSuggestion,
 } from './types';
-import { TPO_LABEL } from './types';
+import { STYLE_VIBE_LABEL, TPO_LABEL } from './types';
 
 function seasonsForTemp(maxTemp: number): Season[] {
   if (maxTemp >= 27) return ['summer', 'all'];
@@ -196,6 +196,11 @@ const HEIGHT_TEMPLATES: ((h: number) => string)[] = [
   (h) => `身長${h}cmに合う着丈・シルエットを意識しています。`,
 ];
 
+const STYLE_VIBE_TEMPLATES: ((label: string) => string)[] = [
+  (label) => `設定中の世界観「${label}」の雰囲気に寄せた組み合わせです。`,
+  (label) => `「${label}」らしさが出るよう、アイテムの選び方に反映しています。`,
+];
+
 export interface SuggestParams {
   items: ClothingItem[];
   weather: WeatherInfo;
@@ -244,6 +249,7 @@ export function generateSuggestions(params: SuggestParams): OutfitSuggestion[] {
   const accTemplates = shuffle(ACCESSORY_TEMPLATES);
   const tpoTemplates = shuffle(TPO_TEMPLATES);
   const heightTemplates = shuffle(HEIGHT_TEMPLATES);
+  const vibeTemplates = shuffle(STYLE_VIBE_TEMPLATES);
 
   for (let p = 0; p < patternCount; p++) {
     const topChoice = pickTop(tops, 1, usedTops)[0] ?? tops[p % tops.length];
@@ -293,6 +299,10 @@ export function generateSuggestions(params: SuggestParams): OutfitSuggestion[] {
     }
     if (profile?.heightCm) {
       reasonParts.push(heightTemplates[p % heightTemplates.length](profile.heightCm));
+    }
+    if (profile?.styleVibes && profile.styleVibes.length > 0) {
+      const vibeLabel = profile.styleVibes.map((v) => STYLE_VIBE_LABEL[v]).join('・');
+      reasonParts.push(vibeTemplates[p % vibeTemplates.length](vibeLabel));
     }
 
     const avgScore = scoreItem(topChoice, ctx) + scoreItem(bottomChoice, ctx);

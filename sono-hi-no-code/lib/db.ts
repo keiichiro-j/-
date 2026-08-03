@@ -1,4 +1,4 @@
-import { createStore, get, set, del, keys } from 'idb-keyval';
+import { createStore, get, set, del, keys, clear } from 'idb-keyval';
 import type { ClothingItem, Outfit, UserProfile } from './types';
 
 // Each store gets its own database: idb-keyval's createStore() only creates
@@ -22,6 +22,19 @@ function genId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+// Items saved before `season` became a multi-select array stored a single
+// string value (e.g. "spring"). Normalize on read so old data keeps working
+// instead of crashing array methods called on a string downstream.
+function normalizeClothingItem(item: ClothingItem): ClothingItem {
+  const rawSeason = item.season as unknown;
+  const season = Array.isArray(rawSeason)
+    ? rawSeason
+    : rawSeason
+      ? [rawSeason as ClothingItem['season'][number]]
+      : ['all' as const];
+  return { ...item, season };
+}
+
 export async function listClothingItems(): Promise<ClothingItem[]> {
   if (!closetStore) return [];
   const ks = await keys(closetStore);
@@ -30,6 +43,7 @@ export async function listClothingItems(): Promise<ClothingItem[]> {
   );
   return items
     .filter((i): i is ClothingItem => Boolean(i))
+    .map(normalizeClothingItem)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
@@ -38,12 +52,12 @@ export async function saveClothingItem(
     Partial<Pick<ClothingItem, 'id' | 'createdAt' | 'wearCount'>>
 ): Promise<ClothingItem> {
   if (!closetStore) throw new Error('storage unavailable');
-  const full: ClothingItem = {
+  const full: ClothingItem = normalizeClothingItem({
     ...item,
     id: item.id ?? genId(),
     createdAt: item.createdAt ?? new Date().toISOString(),
     wearCount: item.wearCount ?? 0,
-  };
+  });
   await set(full.id, full, closetStore);
   return full;
 }
@@ -95,4 +109,12 @@ export async function saveProfile(profile: UserProfile): Promise<UserProfile> {
   const full: UserProfile = { ...profile, updatedAt: new Date().toISOString() };
   await set(PROFILE_KEY, full, profileStore);
   return full;
+}
+
+export async function clearAllData(): Promise<void> {
+  await Promise.all(
+    [closetStore, outfitStore, profileStore]
+      .filter((store): store is NonNullable<typeof store> => Boolean(store))
+      .map((store) => clear(store))
+  );
 }

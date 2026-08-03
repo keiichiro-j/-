@@ -41,7 +41,7 @@ export default function HistoryPage() {
 
   return (
     <div>
-      <PageHeader eyebrow="History" title="履歴・お気に入り" subtitle={`累計 ${outfits.length}コーデ`} />
+      <PageHeader eyebrow="Archive" title="アーカイブ" subtitle={`累計 ${outfits.length}コーデ`} />
 
       <div className="flex gap-2 px-5 pb-4">
         {(['calendar', 'favorites'] as const).map((t) => (

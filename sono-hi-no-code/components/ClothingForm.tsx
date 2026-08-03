@@ -8,6 +8,7 @@ import {
   CATEGORY_LABEL,
   CONDITION_LABEL,
   SEASON_LABEL,
+  SIZE_OPTIONS,
   STATUS_LABEL,
   TPO_LABEL,
   type BrandTier,
@@ -38,9 +39,10 @@ export default function ClothingForm({
   onDelete?: () => void;
   onCreateListing?: () => void;
 }) {
-  const [name, setName] = useState(initial?.name ?? '');
   const [brand, setBrand] = useState(initial?.brand ?? '');
+  const [name, setName] = useState(initial?.name ?? '');
   const [category, setCategory] = useState<ClothingCategory>(initial?.category ?? 'tops');
+  const [size, setSize] = useState(initial?.size ?? '');
   const [color, setColor] = useState(initial?.color ?? '');
   const [season, setSeason] = useState<Season[]>(
     initial?.season && initial.season.length > 0 ? initial.season : ['all']
@@ -56,6 +58,11 @@ export default function ClothingForm({
   const [imageDataUrl, setImageDataUrl] = useState<string | undefined>(initial?.imageDataUrl);
   const [saving, setSaving] = useState(false);
   const [imgLoading, setImgLoading] = useState(false);
+
+  const handleCategoryChange = (c: ClothingCategory) => {
+    setCategory(c);
+    setSize((prev) => (SIZE_OPTIONS[c].includes(prev) ? prev : ''));
+  };
 
   const toggleTpo = (t: Tpo) => {
     setTpoTags((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
@@ -99,6 +106,7 @@ export default function ClothingForm({
         name: name.trim(),
         brand: brand.trim() || undefined,
         category,
+        size: size || undefined,
         color: color.trim(),
         season,
         status,
@@ -155,15 +163,6 @@ export default function ClothingForm({
         </p>
       )}
 
-      <Field label="アイテム名">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="例：ネイビーのウールコート"
-          className="input"
-        />
-      </Field>
-
       <Field label="ブランド名（任意）">
         <input
           value={brand}
@@ -173,14 +172,38 @@ export default function ClothingForm({
         />
       </Field>
 
+      <Field label="アイテム名">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="例：ネイビーのウールコート"
+          className="input"
+        />
+      </Field>
+
       <Field label="カテゴリ">
         <div className="flex flex-wrap gap-2">
           {CATEGORIES.map((c) => (
-            <Chip key={c} active={category === c} onClick={() => setCategory(c)}>
+            <Chip key={c} active={category === c} onClick={() => handleCategoryChange(c)}>
               {CATEGORY_LABEL[c]}
             </Chip>
           ))}
         </div>
+      </Field>
+
+      <Field label="サイズ（任意）">
+        <select
+          value={size}
+          onChange={(e) => setSize(e.target.value)}
+          className="input"
+        >
+          <option value="">選択してください</option>
+          {SIZE_OPTIONS[category].map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
       </Field>
 
       <Field label="色">
@@ -286,7 +309,7 @@ export default function ClothingForm({
           disabled={saving || !name.trim() || !color.trim()}
           className="brand-gradient flex-1 rounded-xl py-3 text-sm font-semibold text-white disabled:opacity-50"
         >
-          {saving ? '保存中…' : initial ? '更新する' : 'クローゼットに追加'}
+          {saving ? '保存中…' : initial ? '更新する' : 'ワードローブに追加'}
         </button>
       </div>
     </div>

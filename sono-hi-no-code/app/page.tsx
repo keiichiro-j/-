@@ -20,7 +20,7 @@ import clsx from 'clsx';
 const TPOS = Object.keys(TPO_LABEL) as Tpo[];
 
 export default function HomePage() {
-  const { items, refresh: refreshItems } = useClothingItems();
+  const { items, error: itemsError, refresh: refreshItems } = useClothingItems();
   const { outfits, refresh: refreshOutfits } = useOutfits();
   const { profile } = useProfile();
 
@@ -160,6 +160,11 @@ export default function HomePage() {
       />
 
       <div className="flex flex-col gap-4 px-5 pb-8">
+        {itemsError && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-800">
+            {itemsError}
+          </div>
+        )}
         <WeatherCard weather={weather} locationLabel={locationLabel} />
 
         <div className="scrollbar-none flex gap-2 overflow-x-auto">
@@ -190,7 +195,7 @@ export default function HomePage() {
               href="/closet"
               className="brand-gradient mt-1 rounded-full px-5 py-2 text-xs font-bold text-white"
             >
-              クローゼットに追加する
+              ワードローブに追加する
             </Link>
           </div>
         ) : todaysOutfit ? (
@@ -254,7 +259,7 @@ export default function HomePage() {
               </div>
             ) : suggestions.length === 0 ? (
               <p className="py-6 text-center text-xs text-text-faint">
-                提案を作成できませんでした。クローゼットのアイテムを増やしてみてください。
+                提案を作成できませんでした。ワードローブのアイテムを増やしてみてください。
               </p>
             ) : (
               suggestions.map((s, i) => (

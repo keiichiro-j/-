@@ -62,6 +62,10 @@ export default function ListingModal({
         </div>
       ) : listing && item ? (
         <div className="flex flex-col gap-4">
+          <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-900">
+            ⚠️ 出品前に必ず、実物の状態・サイズ・傷や汚れの有無などをご自身の目でご確認のうえ、内容を修正してからご利用ください。
+          </div>
+
           <div>
             <div className="mb-1 flex items-center justify-between">
               <span className="text-xs font-semibold text-text-muted">タイトル</span>
@@ -92,18 +96,11 @@ export default function ListingModal({
             </p>
           </div>
 
-          <div className="flex items-center justify-between rounded-lg bg-black/5 px-3 py-2.5">
-            <span className="text-xs font-semibold text-text-muted">出品価格の目安</span>
-            <span className="text-sm font-semibold text-text">
-              ¥{listing.suggestedPrice.toLocaleString()}
-            </span>
-          </div>
-
           <p className="text-[10px] leading-relaxed text-text-faint">
             {source === 'rule-based'
               ? 'ルールベースで作成した文章です（ANTHROPIC_API_KEY未設定）。'
               : 'AIが作成した文章です。'}
-            実際の出品前に内容をご確認・修正の上ご利用ください。価格は概算のため、フリマアプリ内の相場もあわせてご確認ください。
+            価格は含まれていないため、出品時にご自身で設定してください。
           </p>
         </div>
       ) : (

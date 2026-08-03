@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { generateListingCopy } from '@/lib/listing';
-import { estimateResaleValue } from '@/lib/resale';
 import {
   BRAND_TIER_LABEL,
   CATEGORY_LABEL,
@@ -16,37 +15,60 @@ export const dynamic = 'force-dynamic';
 async function listingWithClaude(item: ClothingItem, apiKey: string): Promise<ListingCopy | null> {
   try {
     const client = new Anthropic({ apiKey });
-    const price = estimateResaleValue(item);
     const seasons =
       item.season && item.season.length > 0
         ? item.season.map((s) => SEASON_LABEL[s]).join('・')
         : '通年';
 
-    const prompt = `あなたはフリマアプリ（メルカリ等）の出品文作成が得意なライターです。以下のアイテム情報から、購入意欲を引き出す魅力的な出品文を作成してください。
+    const imageMatch = item.imageDataUrl?.match(/^data:(image\/\w+);base64,(.+)$/);
+
+    const promptText = `あなたはフリマアプリ（メルカリ等）の出品文作成が得意なライターです。以下のアイテム情報${
+      imageMatch ? 'と実際の商品写真' : ''
+    }から、購入意欲を引き出す魅力的で説得力のある出品文を作成してください。
 
 # アイテム情報
 - 名前: ${item.name}
 - ブランド: ${item.brand ?? '不明'}（価格帯: ${BRAND_TIER_LABEL[item.brandTier]}）
 - カテゴリ: ${CATEGORY_LABEL[item.category]}
 - 色: ${item.color}
+- サイズ: ${item.size ?? '不明'}
 - 素材: ${item.material ?? '不明'}
 - 季節: ${seasons}
 - 状態: ${CONDITION_LABEL[item.condition]}
-- 参考価格（リセール概算）: ¥${price}
 
 # 出力ルール
 - title: 40文字以内。ブランド名・アイテム名・特徴を含め、検索に引っかかりやすいタイトルにする
-- body: 300〜500文字程度。冒頭の一言→状態→アイテム詳細（色・素材・季節等）→発送についての一言→ハッシュタグ、の構成で、実際にフリマアプリに貼り付けてすぐ使える体裁にする（見出しには■を使う）
-- suggestedPrice: 参考価格を踏まえた妥当な出品価格（円・整数）
+- body: 300〜500文字程度。冒頭の一言→状態→アイテム詳細（色・サイズ・素材・季節等）→発送についての一言→ハッシュタグ、の構成で、実際にフリマアプリに貼り付けてすぐ使える体裁にする（見出しには■を使う）
+${
+  imageMatch
+    ? '- 添付した商品写真を実際によく観察し、デザインのディテール（シルエット、襟・袖の形、装飾、質感、色味の見え方など）を具体的に描写に盛り込むこと。写真から読み取れない情報は憶測で断定しない'
+    : ''
+}
+- ブランドが分かる場合は、そのブランドが持つ一般的なイメージ・特徴（分かる範囲で）を自然に触れる。ただし憶測で誇張した事実を書かない
+- 価格・金額には一切言及しないこと（価格はユーザー自身が別途設定するため）
 - 誇張しすぎず、事実に基づいた誠実な文章にする
 - 必ず次のJSON形式のみを出力すること。前後に説明文やコードブロック記法は付けない。
 
-{"title": "...", "body": "...", "suggestedPrice": 0}`;
+{"title": "...", "body": "..."}`;
+
+    const content: Anthropic.MessageParam['content'] = imageMatch
+      ? [
+          {
+            type: 'image',
+            source: {
+              type: 'base64',
+              media_type: imageMatch[1] as 'image/jpeg' | 'image/png' | 'image/webp',
+              data: imageMatch[2],
+            },
+          },
+          { type: 'text', text: promptText },
+        ]
+      : promptText;
 
     const msg = await client.messages.create({
       model: 'claude-sonnet-5',
       max_tokens: 1200,
-      messages: [{ role: 'user', content: prompt }],
+      messages: [{ role: 'user', content }],
     });
 
     const textBlock = msg.content.find((c) => c.type === 'text');
@@ -56,11 +78,7 @@ async function listingWithClaude(item: ClothingItem, apiKey: string): Promise<Li
     if (!jsonMatch) return null;
     const parsed = JSON.parse(jsonMatch[0]) as ListingCopy;
     if (!parsed.title || !parsed.body) return null;
-    return {
-      title: parsed.title,
-      body: parsed.body,
-      suggestedPrice: parsed.suggestedPrice || price,
-    };
+    return { title: parsed.title, body: parsed.body };
   } catch (err) {
     console.error('Claude listing generation failed, falling back', err);
     return null;

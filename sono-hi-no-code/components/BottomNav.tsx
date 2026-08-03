@@ -6,8 +6,8 @@ import clsx from 'clsx';
 
 const NAV_ITEMS = [
   { href: '/', label: 'ホーム', icon: HomeIcon },
-  { href: '/closet', label: 'クローゼット', icon: ClosetIcon },
-  { href: '/history', label: '履歴', icon: HistoryIcon },
+  { href: '/closet', label: 'ワードローブ', icon: ClosetIcon },
+  { href: '/history', label: 'アーカイブ', icon: HistoryIcon },
   { href: '/profile', label: 'プロフィール', icon: ProfileIcon },
 ] as const;
 
@@ -25,23 +25,28 @@ export default function BottomNav() {
               href={href}
               className="relative flex flex-1 flex-col items-center gap-1 rounded-xl py-1.5 transition-colors"
             >
-              {active && (
-                <span className="absolute inset-x-2 -top-0.5 bottom-0 -z-10 rounded-xl brand-gradient opacity-90" />
-              )}
               <Icon
                 className={clsx(
-                  'h-5 w-5 transition-transform',
-                  active ? 'scale-105 text-white' : 'text-text-faint'
+                  'h-5 w-5 transition-all',
+                  active
+                    ? 'scale-110 text-[var(--brand-orange)] drop-shadow-[0_0_6px_rgba(166,119,61,0.35)]'
+                    : 'text-text-faint'
                 )}
               />
               <span
                 className={clsx(
-                  'text-[10px] font-medium tracking-tight',
-                  active ? 'text-white' : 'text-text-faint'
+                  'text-[10px] tracking-tight transition-colors',
+                  active ? 'font-semibold text-[var(--brand-orange)]' : 'font-medium text-text-faint'
                 )}
               >
                 {label}
               </span>
+              <span
+                className={clsx(
+                  'absolute -bottom-0.5 h-0.5 w-5 rounded-full bg-[var(--brand-orange)] transition-opacity',
+                  active ? 'opacity-100' : 'opacity-0'
+                )}
+              />
             </Link>
           );
         })}
