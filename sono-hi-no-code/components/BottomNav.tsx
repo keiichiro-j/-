@@ -6,7 +6,6 @@ import clsx from 'clsx';
 
 const NAV_ITEMS = [
   { href: '/', label: 'ホーム', icon: HomeIcon },
-  { href: '/dressup', label: '試着室', icon: DressUpIcon },
   { href: '/closet', label: 'ワードローブ', icon: ClosetIcon },
   { href: '/history', label: 'アーカイブ', icon: HistoryIcon },
   { href: '/profile', label: 'プロフィール', icon: ProfileIcon },
@@ -64,20 +63,6 @@ function HomeIcon({ className }: { className?: string }) {
         stroke="currentColor"
         strokeWidth={1.8}
         strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function DressUpIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={className}>
-      <circle cx={12} cy={5.2} r={2.4} stroke="currentColor" strokeWidth={1.8} />
-      <path
-        d="M8 10.2 12 8l4 2.2v3.3l-2-1v7.5h-4v-7.5l-2 1Z"
-        stroke="currentColor"
-        strokeWidth={1.8}
         strokeLinejoin="round"
       />
     </svg>

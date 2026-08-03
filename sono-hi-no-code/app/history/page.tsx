@@ -12,7 +12,7 @@ import clsx from 'clsx';
 
 export default function HistoryPage() {
   const { outfits, refresh } = useOutfits();
-  const { items } = useClothingItems();
+  const { items, refresh: refreshItems } = useClothingItems();
   const [selected, setSelected] = useState(todayKey());
   const [tab, setTab] = useState<'calendar' | 'favorites'>('calendar');
 
@@ -26,17 +26,26 @@ export default function HistoryPage() {
 
   const applyFavoriteToToday = async (favorite: (typeof outfits)[number]) => {
     if (hasTodaysOutfit) return;
+    const today = todayKey();
     await db.saveOutfit({
-      date: todayKey(),
+      date: today,
       itemIds: favorite.itemIds,
       tpo: favorite.tpo,
       reason: `お気に入りから再提案：${favorite.reason}`,
       feedback: null,
       isFavorite: false,
     });
+    await Promise.all(
+      favorite.itemIds.map((id) => {
+        const item = itemsById.get(id);
+        if (!item) return Promise.resolve();
+        return db.saveClothingItem({ ...item, lastWornAt: today, wearCount: item.wearCount + 1 });
+      })
+    );
     await refresh();
+    await refreshItems();
     setTab('calendar');
-    setSelected(todayKey());
+    setSelected(today);
   };
 
   return (

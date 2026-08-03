@@ -5,7 +5,7 @@ import Link from 'next/link';
 import PageHeader from '@/components/PageHeader';
 import { useProfile } from '@/lib/hooks';
 import * as db from '@/lib/db';
-import { STYLE_VIBE_LABEL, type StyleVibe } from '@/lib/types';
+import { STYLE_VIBE_LABEL, type BackupData, type StyleVibe } from '@/lib/types';
 import clsx from 'clsx';
 
 const STYLE_VIBES = Object.keys(STYLE_VIBE_LABEL) as StyleVibe[];
@@ -24,6 +24,9 @@ export default function SettingsPage() {
   const [diagError, setDiagError] = useState<string | null>(null);
   const [openRow, setOpenRow] = useState<string | null>(null);
   const [clearing, setClearing] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
 
   if (!hydrated && profile) {
     setStyleVibes(profile.styleVibes ?? []);
@@ -80,6 +83,52 @@ export default function SettingsPage() {
       window.location.href = '/';
     } finally {
       setClearing(false);
+    }
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const data = await db.exportAllData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const dateStr = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `coordinator-backup-${dateStr}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleImportFile = async (file: File | null) => {
+    if (!file) return;
+    setImportError(null);
+    if (
+      !window.confirm(
+        'このファイルの内容で、現在端末に保存されているすべてのデータを上書きします。よろしいですか？'
+      )
+    ) {
+      return;
+    }
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text) as BackupData;
+      if (!data.closet || !data.outfits) {
+        throw new Error('invalid backup file');
+      }
+      await db.importAllData(data);
+      window.location.href = '/';
+    } catch (err) {
+      console.error(err);
+      setImportError('読み込みに失敗しました。正しいバックアップファイルかご確認ください。');
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -210,6 +259,37 @@ export default function SettingsPage() {
               準備中です。お問い合わせ先メールアドレスは後日こちらに掲載予定です。
             </SettingsRow>
           </div>
+        </section>
+
+        <section className="glass-card rounded-lg p-5">
+          <p className="mb-1 text-sm font-bold text-text">バックアップ</p>
+          <p className="mb-3 text-xs leading-relaxed text-text-muted">
+            データは端末内にのみ保存されており、機種変更やブラウザのデータ削除で失われます。定期的にエクスポートしておくことをおすすめします。
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              className="brand-gradient flex-1 rounded-xl py-3 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {exporting ? '書き出し中…' : 'データをエクスポート'}
+            </button>
+            <label className="flex flex-1 cursor-pointer items-center justify-center rounded-xl border border-black/10 px-4 py-3 text-sm font-semibold text-text">
+              {importing ? '読み込み中…' : 'インポート'}
+              <input
+                type="file"
+                accept="application/json"
+                className="hidden"
+                disabled={importing}
+                onChange={(e) => handleImportFile(e.target.files?.[0] ?? null)}
+              />
+            </label>
+          </div>
+          {importError && (
+            <p className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+              {importError}
+            </p>
+          )}
         </section>
 
         <section className="glass-card rounded-lg p-5">

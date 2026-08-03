@@ -17,7 +17,7 @@ export default function AssetItemList({
   }
 
   return (
-    <div className="flex max-h-80 flex-col divide-y divide-black/10 overflow-y-auto rounded-lg border border-black/10">
+    <div className="flex max-h-80 flex-col divide-y divide-black/10 overflow-y-auto overscroll-contain rounded-lg border border-black/10 [-webkit-overflow-scrolling:touch]">
       {sorted.map((item) => (
         <div key={item.id} className="flex items-center gap-3 p-2.5">
           <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-black/5">

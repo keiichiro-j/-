@@ -191,3 +191,11 @@ export interface ListingCopy {
   title: string;
   body: string;
 }
+
+export interface BackupData {
+  formatVersion: 1;
+  exportedAt: string;
+  closet: ClothingItem[];
+  outfits: Outfit[];
+  profile?: UserProfile;
+}

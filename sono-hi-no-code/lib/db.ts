@@ -1,5 +1,5 @@
 import { createStore, get, set, del, keys, clear } from 'idb-keyval';
-import type { ClothingItem, Outfit, UserProfile } from './types';
+import type { BackupData, ClothingItem, Outfit, UserProfile } from './types';
 
 // Each store gets its own database: idb-keyval's createStore() only creates
 // the single object store it's given during that database's upgrade, so
@@ -117,4 +117,33 @@ export async function clearAllData(): Promise<void> {
       .filter((store): store is NonNullable<typeof store> => Boolean(store))
       .map((store) => clear(store))
   );
+}
+
+export async function exportAllData(): Promise<BackupData> {
+  const [closet, outfits, profile] = await Promise.all([
+    listClothingItems(),
+    listOutfits(),
+    getProfile(),
+  ]);
+  return {
+    formatVersion: 1,
+    exportedAt: new Date().toISOString(),
+    closet,
+    outfits,
+    profile,
+  };
+}
+
+// Restores a previously exported backup, replacing all existing local data.
+export async function importAllData(data: BackupData): Promise<void> {
+  await clearAllData();
+  for (const item of data.closet ?? []) {
+    if (closetStore) await set(item.id, normalizeClothingItem(item), closetStore);
+  }
+  for (const outfit of data.outfits ?? []) {
+    if (outfitStore) await set(outfit.id, outfit, outfitStore);
+  }
+  if (data.profile && profileStore) {
+    await set(PROFILE_KEY, data.profile, profileStore);
+  }
 }

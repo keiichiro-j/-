@@ -25,10 +25,12 @@ export default function HomePage() {
   const { outfits, refresh: refreshOutfits } = useOutfits();
   const { profile } = useProfile();
 
-  const [weather, setWeather] = useState<WeatherInfo | null>(() => readWeatherCache()?.weather ?? null);
-  const [locationLabel, setLocationLabel] = useState<string | undefined>(
-    () => readWeatherCache()?.locationLabel
-  );
+  // Starts null (matching the server-rendered skeleton) and is filled from
+  // cache inside the effect below, since reading localStorage during the
+  // lazy useState initializer would make the client's first render diverge
+  // from the server's and trigger a hydration mismatch.
+  const [weather, setWeather] = useState<WeatherInfo | null>(null);
+  const [locationLabel, setLocationLabel] = useState<string | undefined>();
   const [tpo, setTpo] = useState<Tpo>('work');
   const [suggestions, setSuggestions] = useState<OutfitSuggestion[]>([]);
   const [suggestLoading, setSuggestLoading] = useState(false);
@@ -59,6 +61,12 @@ export default function HomePage() {
   }
 
   useEffect(() => {
+    const cached = readWeatherCache();
+    if (cached) {
+      setWeather(cached.weather);
+      setLocationLabel(cached.locationLabel);
+    }
+
     if (!navigator.geolocation) {
       fetchWeather();
       return;
@@ -150,7 +158,21 @@ export default function HomePage() {
 
   const chooseAgain = async () => {
     if (!todaysOutfit) return;
+    // Reverse the wear-count bump applied when this outfit was chosen, so
+    // re-picking doesn't double-count wear stats for the same items.
+    await Promise.all(
+      todaysOutfit.itemIds.map((id) => {
+        const item = itemsById.get(id);
+        if (!item) return Promise.resolve();
+        return db.saveClothingItem({
+          ...item,
+          wearCount: Math.max(0, item.wearCount - 1),
+          lastWornAt: item.lastWornAt === today ? undefined : item.lastWornAt,
+        });
+      })
+    );
     await db.deleteOutfit(todaysOutfit.id);
+    await refreshItems();
     await refreshOutfits();
   };
 
