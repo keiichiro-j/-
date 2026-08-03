@@ -1,5 +1,4 @@
 import {
-  BRAND_TIER_LABEL,
   CATEGORY_LABEL,
   SEASON_LABEL,
   type ClothingItem,
@@ -39,7 +38,7 @@ export function generateListingCopy(item: ClothingItem): ListingCopy {
     `■アイテム詳細\nカテゴリ：${CATEGORY_LABEL[item.category]}\n色：${item.color}${
       item.size ? `\nサイズ：${item.size}` : ''
     }${item.material ? `\n素材：${item.material}` : ''}${
-      item.brand ? `\nブランド：${item.brand}（${BRAND_TIER_LABEL[item.brandTier]}）` : ''
+      item.brand ? `\nブランド：${item.brand}` : ''
     }\n季節：${seasonText(item)}`
   );
   lines.push(

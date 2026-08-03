@@ -9,6 +9,7 @@ import { useClothingItems, useProfile } from '@/lib/hooks';
 import * as db from '@/lib/db';
 import { fileToResizedDataUrl } from '@/lib/image';
 import { assetBreakdownByCategory, totalAssetValue } from '@/lib/resale';
+import { generatePurchaseRecommendations } from '@/lib/recommend';
 import {
   CATEGORY_LABEL,
   PERSONAL_COLOR_LABEL,
@@ -44,6 +45,7 @@ export default function ProfilePage() {
 
   const total = useMemo(() => totalAssetValue(items), [items]);
   const breakdown = useMemo(() => assetBreakdownByCategory(items), [items]);
+  const purchaseRecommendations = useMemo(() => generatePurchaseRecommendations(items), [items]);
   const statusCounts = useMemo(() => {
     const counts = { active: 0, cleaning: 0, retired: 0 };
     items.forEach((i) => counts[i.status]++);
@@ -239,6 +241,30 @@ export default function ProfilePage() {
             <span className="font-bold text-text">{totalWearCount}回</span>
           </div>
         </section>
+
+        {purchaseRecommendations.length > 0 && (
+          <section className="glass-card rounded-lg p-5">
+            <p className="mb-1 text-sm font-bold text-text">次に買うべきアイテム</p>
+            <p className="mb-3 text-xs text-text-muted">
+              手持ちのアイテムの偏りから、優先度の高い順に提案しています。
+            </p>
+            <div className="flex flex-col gap-2">
+              {purchaseRecommendations.map((rec, i) => (
+                <div key={rec.title} className="flex gap-3 rounded-xl bg-black/5 p-3">
+                  <span className="font-display text-lg font-medium text-text-faint">
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-text">{rec.title}</p>
+                    <p className="mt-0.5 text-[11px] leading-relaxed text-text-muted">
+                      {rec.reason}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
 
       <ListingModal item={listingItem} onClose={() => setListingItem(null)} />

@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { useClothingItems, useOutfits, useProfile } from '@/lib/hooks';
 import * as db from '@/lib/db';
 import { todayKey, formatDateJa } from '@/lib/date';
+import { readWeatherCache, writeWeatherCache } from '@/lib/weatherCache';
 import {
   TPO_LABEL,
   type ClothingItem,
@@ -24,8 +25,10 @@ export default function HomePage() {
   const { outfits, refresh: refreshOutfits } = useOutfits();
   const { profile } = useProfile();
 
-  const [weather, setWeather] = useState<WeatherInfo | null>(null);
-  const [locationLabel, setLocationLabel] = useState<string>();
+  const [weather, setWeather] = useState<WeatherInfo | null>(() => readWeatherCache()?.weather ?? null);
+  const [locationLabel, setLocationLabel] = useState<string | undefined>(
+    () => readWeatherCache()?.locationLabel
+  );
   const [tpo, setTpo] = useState<Tpo>('work');
   const [suggestions, setSuggestions] = useState<OutfitSuggestion[]>([]);
   const [suggestLoading, setSuggestLoading] = useState(false);
@@ -42,17 +45,17 @@ export default function HomePage() {
     ids.map((id) => itemsById.get(id)).filter((i): i is ClothingItem => Boolean(i));
 
   async function fetchWeather(lat?: number, lon?: number) {
+    const label = lat != null && lon != null ? '現在地' : profile?.homeLabel ?? '東京（デフォルト）';
     const params = new URLSearchParams();
     if (lat != null && lon != null) {
       params.set('lat', String(lat));
       params.set('lon', String(lon));
-      setLocationLabel('現在地');
-    } else {
-      setLocationLabel(profile?.homeLabel ?? '東京（デフォルト）');
     }
+    setLocationLabel(label);
     const res = await fetch(`/api/weather?${params.toString()}`);
     const data = (await res.json()) as WeatherInfo;
     setWeather(data);
+    writeWeatherCache(data, label);
   }
 
   useEffect(() => {

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { generateListingCopy } from '@/lib/listing';
 import {
-  BRAND_TIER_LABEL,
   CATEGORY_LABEL,
   CONDITION_LABEL,
   SEASON_LABEL,
@@ -28,7 +27,7 @@ async function listingWithClaude(item: ClothingItem, apiKey: string): Promise<Li
 
 # アイテム情報
 - 名前: ${item.name}
-- ブランド: ${item.brand ?? '不明'}（価格帯: ${BRAND_TIER_LABEL[item.brandTier]}）
+- ブランド: ${item.brand ?? '不明'}
 - カテゴリ: ${CATEGORY_LABEL[item.category]}
 - 色: ${item.color}
 - サイズ: ${item.size ?? '不明'}
@@ -45,6 +44,7 @@ ${
     : ''
 }
 - ブランドが分かる場合は、そのブランドが持つ一般的なイメージ・特徴（分かる範囲で）を自然に触れる。ただし憶測で誇張した事実を書かない
+- 「ハイブランド」「中価格帯ブランド」「ファストファッション」のような価格帯・ブランドランクを示す表現は一切書かないこと
 - 価格・金額には一切言及しないこと（価格はユーザー自身が別途設定するため）
 - 誇張しすぎず、事実に基づいた誠実な文章にする
 - 必ず次のJSON形式のみを出力すること。前後に説明文やコードブロック記法は付けない。

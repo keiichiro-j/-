@@ -31,7 +31,7 @@ export default function Modal({
         onClick={onClose}
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
       />
-      <div className="animate-fade-up relative z-10 max-h-[88vh] w-full max-w-md overflow-y-auto rounded-t-xl border border-black/10 bg-bg-elevated p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-xl">
+      <div className="animate-fade-up relative z-10 max-h-[88vh] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-xl border border-black/10 bg-bg-elevated p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-xl [-webkit-overflow-scrolling:touch]">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-lg font-medium text-text">{title}</h2>
           <button
