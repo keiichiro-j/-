@@ -35,7 +35,6 @@ export default function PageHeader({
             {title}
           </h1>
         </div>
-        {emphasize && <div className="mt-2 h-px w-10 bg-text/25" />}
         {subtitle && <p className="mt-2 text-sm text-text-muted">{subtitle}</p>}
       </div>
       {action && <div className="shrink-0">{action}</div>}
