@@ -76,7 +76,7 @@ export default function ListingModal({
                 {copied === 'title' ? 'コピーしました ✓' : 'コピー'}
               </button>
             </div>
-            <p className="rounded-lg border border-black/10 bg-black/5 px-3 py-2 text-sm text-text">
+            <p className="rounded-lg border border-text/10 bg-text/5 px-3 py-2 text-sm text-text">
               {listing.title}
             </p>
           </div>
@@ -91,7 +91,7 @@ export default function ListingModal({
                 {copied === 'body' ? 'コピーしました ✓' : 'コピー'}
               </button>
             </div>
-            <p className="whitespace-pre-wrap rounded-lg border border-black/10 bg-black/5 px-3 py-2.5 text-xs leading-relaxed text-text">
+            <p className="whitespace-pre-wrap rounded-lg border border-text/10 bg-text/5 px-3 py-2.5 text-xs leading-relaxed text-text">
               {listing.body}
             </p>
           </div>

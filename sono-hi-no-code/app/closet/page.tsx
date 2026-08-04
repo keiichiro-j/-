@@ -90,7 +90,7 @@ function ClosetPageContent() {
               'shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold',
               filter === c
                 ? 'border-transparent brand-gradient text-white'
-                : 'border-black/10 bg-black/5 text-text-muted'
+                : 'border-text/10 bg-text/5 text-text-muted'
             )}
           >
             {c === 'all' ? 'すべて' : CATEGORY_LABEL[c]}
@@ -99,7 +99,7 @@ function ClosetPageContent() {
       </div>
 
       {error && (
-        <div className="mx-5 mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-800">
+        <div className="mx-5 mb-3 rounded-lg border border-danger-border bg-danger-bg px-3 py-2.5 text-xs text-danger-text">
           {error}
         </div>
       )}

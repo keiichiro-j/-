@@ -11,10 +11,10 @@ export default function WeatherCard({
   if (!weather) {
     return (
       <div className="glass-card flex items-center gap-3 rounded-lg px-4 py-3.5">
-        <div className="h-9 w-9 animate-pulse rounded-full bg-black/10" />
+        <div className="h-9 w-9 animate-pulse rounded-full bg-text/10" />
         <div className="flex-1">
-          <div className="mb-1.5 h-3 w-24 animate-pulse rounded bg-black/10" />
-          <div className="h-2.5 w-32 animate-pulse rounded bg-black/10" />
+          <div className="mb-1.5 h-3 w-24 animate-pulse rounded bg-text/10" />
+          <div className="h-2.5 w-32 animate-pulse rounded bg-text/10" />
         </div>
       </div>
     );

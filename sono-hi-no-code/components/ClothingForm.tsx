@@ -133,7 +133,7 @@ export default function ClothingForm({
   return (
     <div className="flex flex-col gap-4">
       <label className="flex flex-col items-center gap-2">
-        <div className="relative h-28 w-28 overflow-hidden rounded-lg bg-black/5">
+        <div className="relative h-28 w-28 overflow-hidden rounded-lg bg-text/5">
           {imageDataUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={imageDataUrl} alt="" className="h-full w-full object-cover" />
@@ -143,7 +143,7 @@ export default function ClothingForm({
             </div>
           )}
           {imgLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-xs text-white">
+            <div className="absolute inset-0 flex items-center justify-center bg-[var(--scrim)] text-xs text-white">
               処理中…
             </div>
           )}
@@ -158,7 +158,7 @@ export default function ClothingForm({
       </label>
 
       {error && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+        <p className="rounded-lg border border-danger-border bg-danger-bg px-3 py-2 text-xs text-danger-text">
           {error}
         </p>
       )}
@@ -289,7 +289,7 @@ export default function ClothingForm({
       {initial && onCreateListing && (
         <button
           onClick={onCreateListing}
-          className="rounded-xl border border-black/10 px-4 py-3 text-sm font-semibold text-text"
+          className="rounded-xl border border-text/10 px-4 py-3 text-sm font-semibold text-text"
         >
           この服の出品文を作成する ✍️
         </button>
@@ -299,7 +299,7 @@ export default function ClothingForm({
         {initial && onDelete && (
           <button
             onClick={onDelete}
-            className="rounded-xl border border-black/10 px-4 py-3 text-sm font-semibold text-red-800"
+            className="rounded-xl border border-text/10 px-4 py-3 text-sm font-semibold text-danger-text"
           >
             削除
           </button>
@@ -342,7 +342,7 @@ function Chip({
         'rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors',
         active
           ? 'border-transparent brand-gradient text-white'
-          : 'border-black/10 bg-black/5 text-text-muted'
+          : 'border-text/10 bg-text/5 text-text-muted'
       )}
     >
       {children}

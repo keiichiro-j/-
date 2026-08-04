@@ -13,8 +13,75 @@
   --brand-pink: #8a7355;
   --brand-orange: #a6773d;
   --brand-gradient: #1c1b17;
+  --on-brand: #ffffff;
   --success: #5b6f52;
   --warn: #96702f;
+  --danger-bg: #fef2f2;
+  --danger-border: #fecaca;
+  --danger-text: #991b1b;
+  --shadow-card: 0 1px 2px rgba(28, 27, 23, 0.04);
+  --shadow-nav: 0 4px 20px rgba(28, 27, 23, 0.12);
+  --ambient: rgba(28, 27, 23, 0.045);
+  --scrim: rgba(11, 10, 8, 0.6);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #17160f;
+    --bg-elevated: #211f18;
+    --card: #211f18;
+    --card-strong: #292620;
+    --border: rgba(247, 245, 240, 0.12);
+    --text: #f7f5f0;
+    --text-muted: #b6afa0;
+    --text-faint: #837c6c;
+    --brand-violet: #f7f5f0;
+    --brand-pink: #cfa06a;
+    --brand-orange: #d3a262;
+    --brand-gradient: #f7f5f0;
+    --on-brand: #1c1b17;
+    --success: #8ba57d;
+    --warn: #d3a262;
+    --danger-bg: rgba(248, 113, 113, 0.14);
+    --danger-border: rgba(248, 113, 113, 0.35);
+    --danger-text: #fca5a5;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-nav: 0 4px 20px rgba(0, 0, 0, 0.4);
+    --ambient: rgba(247, 245, 240, 0.05);
+    --scrim: rgba(0, 0, 0, 0.7);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #17160f;
+  --bg-elevated: #211f18;
+  --card: #211f18;
+  --card-strong: #292620;
+  --border: rgba(247, 245, 240, 0.12);
+  --text: #f7f5f0;
+  --text-muted: #b6afa0;
+  --text-faint: #837c6c;
+  --brand-violet: #f7f5f0;
+  --brand-pink: #cfa06a;
+  --brand-orange: #d3a262;
+  --brand-gradient: #f7f5f0;
+  --on-brand: #1c1b17;
+  --success: #8ba57d;
+  --warn: #d3a262;
+  --danger-bg: rgba(248, 113, 113, 0.14);
+  --danger-border: rgba(248, 113, 113, 0.35);
+  --danger-text: #fca5a5;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-nav: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --ambient: rgba(247, 245, 240, 0.05);
+  --scrim: rgba(0, 0, 0, 0.7);
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
 }
 
 @theme inline {
@@ -28,6 +95,9 @@
   --color-brand-violet: var(--brand-violet);
   --color-brand-pink: var(--brand-pink);
   --color-brand-orange: var(--brand-orange);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-border: var(--danger-border);
+  --color-danger-text: var(--danger-text);
   --font-display: var(--font-serif-jp);
   --font-sans: var(--font-noto-jp);
 }
@@ -47,6 +117,7 @@ body {
   font-family: var(--font-noto-jp), var(--font-serif-jp), sans-serif;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 body::before {
@@ -54,8 +125,8 @@ body::before {
   position: fixed;
   inset: 0;
   z-index: -1;
-  background: radial-gradient(120% 60% at 50% -10%, rgba(28, 27, 23, 0.045), transparent 60%),
-    var(--bg);
+  background: radial-gradient(120% 60% at 50% -10%, var(--ambient), transparent 60%), var(--bg);
+  transition: background-color 0.25s ease;
 }
 
 ::selection {
@@ -63,14 +134,29 @@ body::before {
   color: var(--bg);
 }
 
+:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
 .glass-card {
   background: var(--card);
   border: 1px solid var(--border);
-  box-shadow: 0 1px 2px rgba(28, 27, 23, 0.04);
+  box-shadow: var(--shadow-card);
+  transition: background-color 0.25s ease, border-color 0.25s ease;
+}
+
+.nav-surface {
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-nav);
+  transition: background-color 0.25s ease, border-color 0.25s ease;
 }
 
 .brand-gradient {
   background: var(--brand-gradient);
+  color: var(--on-brand);
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 .brand-gradient-text {
@@ -84,12 +170,12 @@ body::before {
   width: 100%;
   border-radius: 0.5rem;
   border: 1px solid var(--border);
-  background: #ffffff;
+  background: var(--bg-elevated);
   padding: 0.7rem 0.9rem;
   font-size: 0.875rem;
   color: var(--text);
   outline: none;
-  transition: border-color 0.15s ease;
+  transition: border-color 0.15s ease, background-color 0.25s ease;
 }
 .input::placeholder {
   color: var(--text-faint);
@@ -104,6 +190,21 @@ body::before {
 .scrollbar-none {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body,
+  body::before,
+  .glass-card,
+  .brand-gradient,
+  .input {
+    transition: none;
+  }
+  .animate-fade-up,
+  .animate-pop-in,
+  .animate-pulse {
+    animation: none;
+  }
 }
 
 @keyframes fade-up {

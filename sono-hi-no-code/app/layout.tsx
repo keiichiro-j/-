@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Noto_Sans_JP, Noto_Serif_JP } from 'next/font/google';
 import BottomNav from '@/components/BottomNav';
 import PwaRegister from '@/components/PwaRegister';
+import { THEME_INIT_SCRIPT } from '@/lib/theme';
 import './globals.css';
 
 const notoJp = Noto_Sans_JP({
@@ -36,8 +37,11 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: 'cover',
-  themeColor: '#f7f5f0',
-  colorScheme: 'light',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#f7f5f0' },
+    { media: '(prefers-color-scheme: dark)', color: '#17160f' },
+  ],
+  colorScheme: 'light dark',
 };
 
 export default function RootLayout({
@@ -46,8 +50,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ja" className={`${notoJp.variable} ${notoSerifJp.variable} h-full`}>
+    <html lang="ja" className={`${notoJp.variable} ${notoSerifJp.variable} h-full`} suppressHydrationWarning>
       <body className="min-h-full font-sans antialiased">
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <PwaRegister />
         <div className="mx-auto min-h-full w-full max-w-md pb-28">{children}</div>
         <BottomNav />

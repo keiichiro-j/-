@@ -11,7 +11,7 @@ function feedbackDot(outfit?: Outfit) {
   if (!outfit) return null;
   if (outfit.feedback === 'good') return 'bg-[var(--success)]';
   if (outfit.feedback === 'meh') return 'bg-[var(--warn)]';
-  return 'bg-black/25';
+  return 'bg-text/25';
 }
 
 export default function Calendar({
@@ -53,7 +53,7 @@ export default function Calendar({
       <div className="mb-3 flex items-center justify-between">
         <button
           onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}
-          className="flex h-7 w-7 items-center justify-center rounded-full bg-black/5 text-sm text-text-muted"
+          className="flex h-7 w-7 items-center justify-center rounded-full bg-text/5 text-sm text-text-muted"
         >
           ‹
         </button>
@@ -62,7 +62,7 @@ export default function Calendar({
         </p>
         <button
           onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}
-          className="flex h-7 w-7 items-center justify-center rounded-full bg-black/5 text-sm text-text-muted"
+          className="flex h-7 w-7 items-center justify-center rounded-full bg-text/5 text-sm text-text-muted"
         >
           ›
         </button>

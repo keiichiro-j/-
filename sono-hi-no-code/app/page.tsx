@@ -182,11 +182,13 @@ export default function HomePage() {
         eyebrow={formatDateJa(today)}
         title="今日のコーデ"
         subtitle="AIがベストな一着を提案します"
+        emphasize
+        mark={<TodayMark />}
       />
 
       <div className="flex flex-col gap-4 px-5 pb-8">
         {itemsError && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-800">
+          <div className="rounded-lg border border-danger-border bg-danger-bg px-3 py-2.5 text-xs text-danger-text">
             {itemsError}
           </div>
         )}
@@ -202,7 +204,7 @@ export default function HomePage() {
                 'shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold disabled:opacity-60',
                 tpo === t
                   ? 'border-transparent brand-gradient text-white'
-                  : 'border-black/10 bg-black/5 text-text-muted'
+                  : 'border-text/10 bg-text/5 text-text-muted'
               )}
             >
               {TPO_LABEL[t]}
@@ -237,7 +239,7 @@ export default function HomePage() {
                       'flex-1 rounded-xl py-2.5 text-xs font-bold transition-colors',
                       todaysOutfit.feedback === 'good'
                         ? 'bg-[var(--success)] text-white'
-                        : 'border border-black/10 bg-black/5 text-text-muted'
+                        : 'border border-text/10 bg-text/5 text-text-muted'
                     )}
                   >
                     良い 👍
@@ -248,7 +250,7 @@ export default function HomePage() {
                       'flex-1 rounded-xl py-2.5 text-xs font-bold transition-colors',
                       todaysOutfit.feedback === 'meh'
                         ? 'bg-[var(--warn)] text-white'
-                        : 'border border-black/10 bg-black/5 text-text-muted'
+                        : 'border border-text/10 bg-text/5 text-text-muted'
                     )}
                   >
                     微妙 🤔
@@ -260,7 +262,7 @@ export default function HomePage() {
                       'flex h-9 w-9 items-center justify-center rounded-xl border text-base',
                       todaysOutfit.isFavorite
                         ? 'border-transparent brand-gradient text-white'
-                        : 'border-black/10 bg-black/5'
+                        : 'border-text/10 bg-text/5'
                     )}
                   >
                     {todaysOutfit.isFavorite ? '★' : '☆'}
@@ -307,7 +309,7 @@ export default function HomePage() {
             {!suggestLoading && suggestions.length > 0 && (
               <button
                 onClick={fetchSuggestions}
-                className="rounded-xl border border-black/10 bg-black/5 py-2.5 text-xs font-semibold text-text-muted"
+                className="rounded-xl border border-text/10 bg-text/5 py-2.5 text-xs font-semibold text-text-muted"
               >
                 他の提案を見る 🔄
               </button>
@@ -322,5 +324,23 @@ export default function HomePage() {
         )}
       </div>
     </div>
+  );
+}
+
+function TodayMark() {
+  return (
+    <svg viewBox="0 0 32 32" className="h-6 w-6 shrink-0 text-text" aria-hidden="true">
+      <circle
+        cx={16}
+        cy={16}
+        r={9.5}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={4}
+        strokeLinecap="round"
+        strokeDasharray="47 12"
+        strokeDashoffset={-4}
+      />
+    </svg>
   );
 }

@@ -5,7 +5,7 @@ import clsx from 'clsx';
 const STATUS_DOT: Record<ClothingItem['status'], string> = {
   active: 'bg-[var(--success)]',
   cleaning: 'bg-[var(--warn)]',
-  retired: 'bg-black/25',
+  retired: 'bg-text/25',
 };
 
 export default function ClothingCard({
@@ -20,7 +20,7 @@ export default function ClothingCard({
       onClick={onClick}
       className="glass-card group flex flex-col overflow-hidden rounded-lg text-left transition-transform active:scale-[0.98]"
     >
-      <div className="relative aspect-square w-full overflow-hidden bg-black/5">
+      <div className="relative aspect-square w-full overflow-hidden bg-text/5">
         {item.imageDataUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

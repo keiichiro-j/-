@@ -59,7 +59,7 @@ export default function HistoryPage() {
             onClick={() => setTab(t)}
             className={clsx(
               'flex-1 rounded-xl py-2 text-xs font-bold',
-              tab === t ? 'brand-gradient text-white' : 'border border-black/10 bg-black/5 text-text-muted'
+              tab === t ? 'brand-gradient text-white' : 'border border-text/10 bg-text/5 text-text-muted'
             )}
           >
             {t === 'calendar' ? 'カレンダー' : `お気に入り (${favorites.length})`}

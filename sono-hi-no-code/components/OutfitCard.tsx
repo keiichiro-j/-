@@ -34,7 +34,7 @@ export default function OutfitCard({
             href={`/closet?item=${item.id}`}
             className="flex w-20 shrink-0 flex-col items-center gap-1 transition-transform active:scale-[0.96]"
           >
-            <div className="h-20 w-20 overflow-hidden rounded-xl bg-black/5">
+            <div className="h-20 w-20 overflow-hidden rounded-xl bg-text/5">
               {item.imageDataUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img

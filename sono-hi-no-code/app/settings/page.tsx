@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import PageHeader from '@/components/PageHeader';
 import { useProfile } from '@/lib/hooks';
+import { useTheme, type ThemePreference } from '@/lib/theme';
 import * as db from '@/lib/db';
 import { STYLE_VIBE_LABEL, type BackupData, type StyleVibe } from '@/lib/types';
 import clsx from 'clsx';
@@ -12,8 +13,15 @@ const STYLE_VIBES = Object.keys(STYLE_VIBE_LABEL) as StyleVibe[];
 
 const APP_VERSION = '1.0.0';
 
+const THEME_OPTIONS: { value: ThemePreference; label: string; icon: (p: { className?: string }) => React.JSX.Element }[] = [
+  { value: 'light', label: 'ライト', icon: SunIcon },
+  { value: 'dark', label: 'ダーク', icon: MoonIcon },
+  { value: 'system', label: 'システム', icon: AutoIcon },
+];
+
 export default function SettingsPage() {
   const { profile, refresh } = useProfile();
+  const { theme, setTheme } = useTheme();
 
   const [styleVibes, setStyleVibes] = useState<StyleVibe[]>([]);
   const [hairstyleNote, setHairstyleNote] = useState<string | undefined>(undefined);
@@ -139,6 +147,33 @@ export default function SettingsPage() {
       <div className="flex flex-col gap-4 px-5 pb-8">
         <section className="glass-card rounded-lg p-5">
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-faint">
+            Appearance
+          </p>
+          <p className="mb-3 text-sm font-bold text-text">カラーモード</p>
+          <div className="grid grid-cols-3 gap-2">
+            {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
+              <button
+                key={value}
+                onClick={() => setTheme(value)}
+                className={clsx(
+                  'flex flex-col items-center gap-1.5 rounded-xl border py-3 transition-colors',
+                  theme === value
+                    ? 'border-transparent brand-gradient'
+                    : 'border-text/10 bg-text/5 text-text-muted'
+                )}
+              >
+                <Icon className="h-5 w-5" />
+                <span className="text-[11px] font-semibold">{label}</span>
+              </button>
+            ))}
+          </div>
+          <p className="mt-3 text-[10px] leading-relaxed text-text-faint">
+            「システム」を選ぶと、端末の設定に合わせて自動的に切り替わります。
+          </p>
+        </section>
+
+        <section className="glass-card rounded-lg p-5">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-faint">
             Original
           </p>
           <p className="mb-3 text-sm font-bold text-text">世界観設定</p>
@@ -154,7 +189,7 @@ export default function SettingsPage() {
                   'rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors',
                   styleVibes.includes(v)
                     ? 'border-transparent brand-gradient text-white'
-                    : 'border-black/10 bg-black/5 text-text-muted'
+                    : 'border-text/10 bg-text/5 text-text-muted'
                 )}
               >
                 {STYLE_VIBE_LABEL[v]}
@@ -175,12 +210,12 @@ export default function SettingsPage() {
             </p>
           )}
 
-          <div className="mt-5 border-t border-black/10 pt-4">
+          <div className="mt-5 border-t border-text/10 pt-4">
             <p className="mb-2 text-xs font-semibold text-text">髪型診断（顔写真ベース）</p>
             {profile?.faceImageDataUrl ? (
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-3">
-                  <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full bg-black/5">
+                  <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full bg-text/5">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={profile.faceImageDataUrl}
@@ -191,18 +226,18 @@ export default function SettingsPage() {
                   <button
                     onClick={handleDiagnoseHairstyle}
                     disabled={diagnosing}
-                    className="flex-1 rounded-xl border border-black/10 px-4 py-2.5 text-xs font-semibold text-text disabled:opacity-50"
+                    className="flex-1 rounded-xl border border-text/10 px-4 py-2.5 text-xs font-semibold text-text disabled:opacity-50"
                   >
                     {diagnosing ? '診断中…' : '登録済みの顔写真から診断する'}
                   </button>
                 </div>
                 {diagError && (
-                  <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+                  <p className="rounded-lg border border-danger-border bg-danger-bg px-3 py-2 text-xs text-danger-text">
                     {diagError}
                   </p>
                 )}
                 {hairstyleNote && (
-                  <p className="rounded-lg bg-black/5 px-3 py-2.5 text-xs leading-relaxed text-text">
+                  <p className="rounded-lg bg-text/5 px-3 py-2.5 text-xs leading-relaxed text-text">
                     {hairstyleNote}
                   </p>
                 )}
@@ -223,7 +258,7 @@ export default function SettingsPage() {
 
         <section className="glass-card rounded-lg p-5">
           <p className="mb-3 text-sm font-bold text-text">一般</p>
-          <div className="flex flex-col divide-y divide-black/10">
+          <div className="flex flex-col divide-y divide-text/10">
             <SettingsRow
               title="このアプリについて"
               open={openRow === 'about'}
@@ -261,21 +296,48 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        <section className="glass-card rounded-lg p-5">
-          <p className="mb-1 text-sm font-bold text-text">バックアップ</p>
-          <p className="mb-3 text-xs leading-relaxed text-text-muted">
-            データは端末内にのみ保存されており、機種変更やブラウザのデータ削除で失われます。定期的にエクスポートしておくことをおすすめします。
-          </p>
-          <div className="flex gap-2">
+        <section className="glass-card overflow-hidden rounded-lg">
+          <div className="p-5 pb-4">
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-faint">
+              Backup
+            </p>
+            <p className="text-sm font-bold text-text">バックアップ</p>
+            <p className="mt-1 text-xs leading-relaxed text-text-muted">
+              データは端末内にのみ保存されており、機種変更やブラウザのデータ削除で失われます。定期的な書き出しをおすすめします。
+            </p>
+          </div>
+          <div className="flex flex-col divide-y divide-text/10 border-t border-text/10">
             <button
               onClick={handleExport}
               disabled={exporting}
-              className="brand-gradient flex-1 rounded-xl py-3 text-sm font-semibold text-white disabled:opacity-50"
+              className="flex w-full items-center gap-3 px-5 py-3.5 text-left disabled:opacity-50"
             >
-              {exporting ? '書き出し中…' : 'データをエクスポート'}
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-text/5 text-text">
+                <ExportIcon className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs font-semibold text-text">
+                  {exporting ? '書き出し中…' : 'データをエクスポート'}
+                </span>
+                <span className="block text-[10px] text-text-faint">
+                  JSONファイルとして端末に保存します
+                </span>
+              </span>
+              <span className="shrink-0 text-text-faint">›</span>
             </button>
-            <label className="flex flex-1 cursor-pointer items-center justify-center rounded-xl border border-black/10 px-4 py-3 text-sm font-semibold text-text">
-              {importing ? '読み込み中…' : 'インポート'}
+            <label className="flex w-full cursor-pointer items-center gap-3 px-5 py-3.5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-text/5 text-text">
+                <ImportIcon className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs font-semibold text-text">
+                  {importing ? '読み込み中…' : 'バックアップから復元'}
+                </span>
+                <span className="block text-[10px] text-text-faint">
+                  JSONファイルを選んで現在のデータを上書きします
+                </span>
+              </span>
+              <span className="shrink-0 text-text-faint">›</span>
               <input
                 type="file"
                 accept="application/json"
@@ -286,7 +348,7 @@ export default function SettingsPage() {
             </label>
           </div>
           {importError && (
-            <p className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+            <p className="mx-5 mb-4 rounded-lg border border-danger-border bg-danger-bg px-3 py-2 text-xs text-danger-text">
               {importError}
             </p>
           )}
@@ -300,7 +362,7 @@ export default function SettingsPage() {
           <button
             onClick={handleClearData}
             disabled={clearing}
-            className="w-full rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800 disabled:opacity-50"
+            className="w-full rounded-xl border border-danger-border bg-danger-bg px-4 py-3 text-sm font-semibold text-danger-text disabled:opacity-50"
           >
             {clearing ? '削除中…' : 'ローカルデータを削除する'}
           </button>
@@ -334,5 +396,83 @@ function SettingsRow({
       </button>
       {open && <p className="mt-2 text-[11px] leading-relaxed text-text-muted">{children}</p>}
     </div>
+  );
+}
+
+function SunIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <circle cx={12} cy={12} r={4} stroke="currentColor" strokeWidth={1.8} />
+      <path
+        d="M12 2.5v2M12 19.5v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2.5 12h2M19.5 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"
+        stroke="currentColor"
+        strokeWidth={1.8}
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function MoonIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path
+        d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z"
+        stroke="currentColor"
+        strokeWidth={1.8}
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function AutoIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <circle cx={12} cy={12} r={8} stroke="currentColor" strokeWidth={1.8} />
+      <path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" />
+    </svg>
+  );
+}
+
+function ExportIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path
+        d="M12 15V4M12 4 8.5 7.5M12 4l3.5 3.5"
+        stroke="currentColor"
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"
+        stroke="currentColor"
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ImportIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path
+        d="M12 4v11M12 15l-3.5-3.5M12 15l3.5-3.5"
+        stroke="currentColor"
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"
+        stroke="currentColor"
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

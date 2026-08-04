@@ -17,10 +17,10 @@ export default function AssetItemList({
   }
 
   return (
-    <div className="flex max-h-80 flex-col divide-y divide-black/10 overflow-y-auto overscroll-contain rounded-lg border border-black/10 [-webkit-overflow-scrolling:touch]">
+    <div className="flex max-h-80 flex-col divide-y divide-text/10 overflow-y-auto overscroll-contain rounded-lg border border-text/10 [-webkit-overflow-scrolling:touch]">
       {sorted.map((item) => (
         <div key={item.id} className="flex items-center gap-3 p-2.5">
-          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-black/5">
+          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-text/5">
             {item.imageDataUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={item.imageDataUrl} alt={item.name} className="h-full w-full object-cover" />

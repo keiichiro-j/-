@@ -43,7 +43,7 @@ export default function PwaRegister() {
 
   return (
     <div className="fixed inset-x-0 top-0 z-50 flex justify-center px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
-      <div className="glass-card animate-fade-up flex w-full max-w-md items-center gap-3 rounded-lg border-black/10 px-3.5 py-2.5 shadow-lg">
+      <div className="glass-card animate-fade-up flex w-full max-w-md items-center gap-3 rounded-lg border-text/10 px-3.5 py-2.5 shadow-lg">
         <div className="brand-gradient flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-base">
           ✨
         </div>
