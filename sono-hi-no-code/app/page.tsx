@@ -183,7 +183,6 @@ export default function HomePage() {
         title="今日のおすすめ"
         subtitle="AIがベストな一着を提案します"
         emphasize
-        mark={<TodayMark />}
       />
 
       <div className="flex flex-col gap-4 px-5 pb-8">
@@ -324,23 +323,5 @@ export default function HomePage() {
         )}
       </div>
     </div>
-  );
-}
-
-function TodayMark() {
-  return (
-    <svg viewBox="0 0 32 32" className="h-6 w-6 shrink-0 text-text" aria-hidden="true">
-      <circle
-        cx={16}
-        cy={16}
-        r={9.5}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={4}
-        strokeLinecap="round"
-        strokeDasharray="47 12"
-        strokeDashoffset={-4}
-      />
-    </svg>
   );
 }
