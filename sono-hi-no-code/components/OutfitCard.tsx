@@ -12,23 +12,34 @@ const CATEGORY_EMOJI: Record<ClothingItem['category'], string> = {
 
 const TILE_ROTATIONS = [-4, 3, -2.5];
 
+function lookLabel(n: number) {
+  return `LOOK ${String(n).padStart(2, '0')}`;
+}
+
 export default function OutfitCard({
   items,
   reason,
   footer,
   highlight,
+  lookNumber,
 }: {
   items: ClothingItem[];
   reason: string;
   footer?: ReactNode;
   highlight?: boolean;
+  lookNumber?: number;
 }) {
   if (highlight) {
-    return <OutfitHero items={items} reason={reason} footer={footer} />;
+    return <OutfitHero items={items} reason={reason} footer={footer} lookNumber={lookNumber} />;
   }
 
   return (
     <div className="glass-card animate-pop-in flex flex-col gap-3 rounded-lg p-4">
+      {lookNumber != null && (
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-faint">
+          {lookLabel(lookNumber)}
+        </p>
+      )}
       <div className="flex gap-2.5 overflow-x-auto">
         {items.map((item) => (
           <Link
@@ -66,10 +77,12 @@ function OutfitHero({
   items,
   reason,
   footer,
+  lookNumber,
 }: {
   items: ClothingItem[];
   reason: string;
   footer?: ReactNode;
+  lookNumber?: number;
 }) {
   const [primary, ...rest] = items;
   if (!primary) return null;
@@ -95,6 +108,11 @@ function OutfitHero({
             </div>
           )}
         </Link>
+        {lookNumber != null && (
+          <span className="pointer-events-none absolute left-4 top-4 z-10 rounded-full bg-[var(--scrim)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white backdrop-blur-sm">
+            {lookLabel(lookNumber)}
+          </span>
+        )}
         {supporting.length > 0 && (
           <div className="absolute -bottom-8 right-9 z-10 flex">
             {supporting.map((item, i) => (

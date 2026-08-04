@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import PageHeader from '@/components/PageHeader';
 import WeatherCard from '@/components/WeatherCard';
 import OutfitCard from '@/components/OutfitCard';
 import Link from 'next/link';
@@ -178,13 +177,11 @@ export default function HomePage() {
 
   return (
     <div>
-      <PageHeader
-        eyebrow={formatDateJa(today)}
-        title="今日のコーデ"
-        subtitle="AIがベストな一着を提案します"
-        emphasize
-        mark={<TodayMark />}
-      />
+      <div className="px-5 pb-3 pt-[max(1.25rem,env(safe-area-inset-top))]">
+        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-text-faint">
+          {formatDateJa(today)}
+        </p>
+      </div>
 
       <div className="flex flex-col gap-4 px-5 pb-8">
         {itemsError && (
@@ -196,6 +193,7 @@ export default function HomePage() {
         {hasCore && todaysOutfit && (
           <OutfitCard
             highlight
+            lookNumber={1}
             items={resolveItems(todaysOutfit.itemIds)}
             reason={todaysOutfit.reason}
             footer={
@@ -295,6 +293,7 @@ export default function HomePage() {
               suggestions.map((s, i) => (
                 <OutfitCard
                   key={i}
+                  lookNumber={i + 1}
                   items={resolveItems(s.itemIds)}
                   reason={s.reason}
                   footer={
@@ -327,23 +326,5 @@ export default function HomePage() {
         ) : null}
       </div>
     </div>
-  );
-}
-
-function TodayMark() {
-  return (
-    <svg viewBox="0 0 32 32" className="h-6 w-6 shrink-0 text-text" aria-hidden="true">
-      <circle
-        cx={16}
-        cy={16}
-        r={9.5}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={4}
-        strokeLinecap="round"
-        strokeDasharray="47 12"
-        strokeDashoffset={-4}
-      />
-    </svg>
   );
 }
