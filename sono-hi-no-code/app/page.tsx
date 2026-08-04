@@ -192,40 +192,8 @@ export default function HomePage() {
             {itemsError}
           </div>
         )}
-        <WeatherCard weather={weather} locationLabel={locationLabel} />
 
-        <div className="scrollbar-none flex gap-2 overflow-x-auto">
-          {TPOS.map((t) => (
-            <button
-              key={t}
-              onClick={() => setTpo(t)}
-              disabled={!!todaysOutfit}
-              className={clsx(
-                'shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold disabled:opacity-60',
-                tpo === t
-                  ? 'border-transparent brand-gradient text-white'
-                  : 'border-text/10 bg-text/5 text-text-muted'
-              )}
-            >
-              {TPO_LABEL[t]}
-            </button>
-          ))}
-        </div>
-
-        {!hasCore ? (
-          <div className="glass-card flex flex-col items-center gap-3 rounded-lg px-6 py-10 text-center">
-            <span className="text-4xl">🧺</span>
-            <p className="text-sm font-semibold text-text">
-              トップスとボトムスを1着ずつ登録すると提案が始まります
-            </p>
-            <Link
-              href="/closet"
-              className="brand-gradient mt-1 rounded-full px-5 py-2 text-xs font-bold text-white"
-            >
-              ワードローブに追加する
-            </Link>
-          </div>
-        ) : todaysOutfit ? (
+        {hasCore && todaysOutfit && (
           <OutfitCard
             highlight
             items={resolveItems(todaysOutfit.itemIds)}
@@ -277,7 +245,42 @@ export default function HomePage() {
               </div>
             }
           />
-        ) : (
+        )}
+
+        <WeatherCard weather={weather} locationLabel={locationLabel} />
+
+        <div className="scrollbar-none flex gap-2 overflow-x-auto">
+          {TPOS.map((t) => (
+            <button
+              key={t}
+              onClick={() => setTpo(t)}
+              disabled={!!todaysOutfit}
+              className={clsx(
+                'shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold disabled:opacity-60',
+                tpo === t
+                  ? 'border-transparent brand-gradient text-white'
+                  : 'border-text/10 bg-text/5 text-text-muted'
+              )}
+            >
+              {TPO_LABEL[t]}
+            </button>
+          ))}
+        </div>
+
+        {!hasCore ? (
+          <div className="glass-card flex flex-col items-center gap-3 rounded-lg px-6 py-10 text-center">
+            <span className="text-4xl">🧺</span>
+            <p className="text-sm font-semibold text-text">
+              トップスとボトムスを1着ずつ登録すると提案が始まります
+            </p>
+            <Link
+              href="/closet"
+              className="brand-gradient mt-1 rounded-full px-5 py-2 text-xs font-bold text-white"
+            >
+              ワードローブに追加する
+            </Link>
+          </div>
+        ) : !todaysOutfit ? (
           <div className="flex flex-col gap-4">
             {suggestLoading ? (
               <div className="glass-card flex flex-col items-center gap-2 rounded-lg py-10">
@@ -321,7 +324,7 @@ export default function HomePage() {
               </p>
             )}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
