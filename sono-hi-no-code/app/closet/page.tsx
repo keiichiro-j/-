@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import PageHeader from '@/components/PageHeader';
 import Modal from '@/components/Modal';
 import ClothingForm from '@/components/ClothingForm';
@@ -22,11 +23,32 @@ const CATEGORY_FILTERS: (ClothingCategory | 'all')[] = [
 ];
 
 export default function ClosetPage() {
+  return (
+    <Suspense fallback={null}>
+      <ClosetPageContent />
+    </Suspense>
+  );
+}
+
+function ClosetPageContent() {
   const { items, loading, error, refresh } = useClothingItems();
   const [filter, setFilter] = useState<ClothingCategory | 'all'>('all');
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<ClothingItem | null>(null);
   const [listingItem, setListingItem] = useState<ClothingItem | null>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const itemId = searchParams.get('item');
+    if (!itemId || loading) return;
+    const target = items.find((i) => i.id === itemId);
+    if (target) {
+      setEditing(target);
+    }
+    router.replace('/closet');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, loading]);
 
   const filtered = useMemo(
     () => (filter === 'all' ? items : items.filter((i) => i.category === filter)),

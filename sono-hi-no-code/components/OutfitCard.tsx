@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import type { ClothingItem } from '@/lib/types';
 
 const CATEGORY_EMOJI: Record<ClothingItem['category'], string> = {
@@ -28,9 +29,10 @@ export default function OutfitCard({
     >
       <div className="flex gap-2.5 overflow-x-auto">
         {items.map((item) => (
-          <div
+          <Link
             key={item.id}
-            className="flex w-20 shrink-0 flex-col items-center gap-1"
+            href={`/closet?item=${item.id}`}
+            className="flex w-20 shrink-0 flex-col items-center gap-1 transition-transform active:scale-[0.96]"
           >
             <div className="h-20 w-20 overflow-hidden rounded-xl bg-black/5">
               {item.imageDataUrl ? (
@@ -49,7 +51,7 @@ export default function OutfitCard({
             <p className="w-full truncate text-center text-[10px] text-text-muted">
               {item.name}
             </p>
-          </div>
+          </Link>
         ))}
       </div>
       <p className="text-xs leading-relaxed text-text-muted">{reason}</p>

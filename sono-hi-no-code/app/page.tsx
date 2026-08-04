@@ -259,7 +259,7 @@ export default function HomePage() {
                     className={clsx(
                       'flex h-9 w-9 items-center justify-center rounded-xl border text-base',
                       todaysOutfit.isFavorite
-                        ? 'border-transparent brand-gradient'
+                        ? 'border-transparent brand-gradient text-white'
                         : 'border-black/10 bg-black/5'
                     )}
                   >
