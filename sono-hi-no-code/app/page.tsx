@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import PageHeader from '@/components/PageHeader';
 import WeatherCard from '@/components/WeatherCard';
 import OutfitCard from '@/components/OutfitCard';
 import Link from 'next/link';
@@ -177,11 +178,13 @@ export default function HomePage() {
 
   return (
     <div>
-      <div className="px-5 pb-3 pt-[max(1.25rem,env(safe-area-inset-top))]">
-        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-text-faint">
-          {formatDateJa(today)}
-        </p>
-      </div>
+      <PageHeader
+        eyebrow={formatDateJa(today)}
+        title="今日のおすすめ"
+        subtitle="AIがベストな一着を提案します"
+        emphasize
+        mark={<TodayMark />}
+      />
 
       <div className="flex flex-col gap-4 px-5 pb-8">
         {itemsError && (
@@ -189,11 +192,42 @@ export default function HomePage() {
             {itemsError}
           </div>
         )}
+        <WeatherCard weather={weather} locationLabel={locationLabel} />
 
-        {hasCore && todaysOutfit && (
+        <div className="scrollbar-none flex gap-2 overflow-x-auto">
+          {TPOS.map((t) => (
+            <button
+              key={t}
+              onClick={() => setTpo(t)}
+              disabled={!!todaysOutfit}
+              className={clsx(
+                'shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold disabled:opacity-60',
+                tpo === t
+                  ? 'border-transparent brand-gradient text-white'
+                  : 'border-text/10 bg-text/5 text-text-muted'
+              )}
+            >
+              {TPO_LABEL[t]}
+            </button>
+          ))}
+        </div>
+
+        {!hasCore ? (
+          <div className="glass-card flex flex-col items-center gap-3 rounded-lg px-6 py-10 text-center">
+            <span className="text-4xl">🧺</span>
+            <p className="text-sm font-semibold text-text">
+              トップスとボトムスを1着ずつ登録すると提案が始まります
+            </p>
+            <Link
+              href="/closet"
+              className="brand-gradient mt-1 rounded-full px-5 py-2 text-xs font-bold text-white"
+            >
+              ワードローブに追加する
+            </Link>
+          </div>
+        ) : todaysOutfit ? (
           <OutfitCard
             highlight
-            lookNumber={1}
             items={resolveItems(todaysOutfit.itemIds)}
             reason={todaysOutfit.reason}
             footer={
@@ -243,42 +277,7 @@ export default function HomePage() {
               </div>
             }
           />
-        )}
-
-        <WeatherCard weather={weather} locationLabel={locationLabel} />
-
-        <div className="scrollbar-none flex gap-2 overflow-x-auto">
-          {TPOS.map((t) => (
-            <button
-              key={t}
-              onClick={() => setTpo(t)}
-              disabled={!!todaysOutfit}
-              className={clsx(
-                'shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold disabled:opacity-60',
-                tpo === t
-                  ? 'border-transparent brand-gradient text-white'
-                  : 'border-text/10 bg-text/5 text-text-muted'
-              )}
-            >
-              {TPO_LABEL[t]}
-            </button>
-          ))}
-        </div>
-
-        {!hasCore ? (
-          <div className="glass-card flex flex-col items-center gap-3 rounded-lg px-6 py-10 text-center">
-            <span className="text-4xl">🧺</span>
-            <p className="text-sm font-semibold text-text">
-              トップスとボトムスを1着ずつ登録すると提案が始まります
-            </p>
-            <Link
-              href="/closet"
-              className="brand-gradient mt-1 rounded-full px-5 py-2 text-xs font-bold text-white"
-            >
-              ワードローブに追加する
-            </Link>
-          </div>
-        ) : !todaysOutfit ? (
+        ) : (
           <div className="flex flex-col gap-4">
             {suggestLoading ? (
               <div className="glass-card flex flex-col items-center gap-2 rounded-lg py-10">
@@ -293,7 +292,6 @@ export default function HomePage() {
               suggestions.map((s, i) => (
                 <OutfitCard
                   key={i}
-                  lookNumber={i + 1}
                   items={resolveItems(s.itemIds)}
                   reason={s.reason}
                   footer={
@@ -323,8 +321,26 @@ export default function HomePage() {
               </p>
             )}
           </div>
-        ) : null}
+        )}
       </div>
     </div>
+  );
+}
+
+function TodayMark() {
+  return (
+    <svg viewBox="0 0 32 32" className="h-6 w-6 shrink-0 text-text" aria-hidden="true">
+      <circle
+        cx={16}
+        cy={16}
+        r={9.5}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={4}
+        strokeLinecap="round"
+        strokeDasharray="47 12"
+        strokeDashoffset={-4}
+      />
+    </svg>
   );
 }

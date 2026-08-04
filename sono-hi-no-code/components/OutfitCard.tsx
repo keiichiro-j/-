@@ -10,36 +10,23 @@ const CATEGORY_EMOJI: Record<ClothingItem['category'], string> = {
   accessory: '🧣',
 };
 
-const TILE_ROTATIONS = [-4, 3, -2.5];
-
-function lookLabel(n: number) {
-  return `LOOK ${String(n).padStart(2, '0')}`;
-}
-
 export default function OutfitCard({
   items,
   reason,
   footer,
   highlight,
-  lookNumber,
 }: {
   items: ClothingItem[];
   reason: string;
   footer?: ReactNode;
   highlight?: boolean;
-  lookNumber?: number;
 }) {
-  if (highlight) {
-    return <OutfitHero items={items} reason={reason} footer={footer} lookNumber={lookNumber} />;
-  }
-
   return (
-    <div className="glass-card animate-pop-in flex flex-col gap-3 rounded-lg p-4">
-      {lookNumber != null && (
-        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-text-faint">
-          {lookLabel(lookNumber)}
-        </p>
-      )}
+    <div
+      className={`glass-card animate-pop-in flex flex-col gap-3 rounded-lg p-4 ${
+        highlight ? 'ring-1 ring-brand-pink/50' : ''
+      }`}
+    >
       <div className="flex gap-2.5 overflow-x-auto">
         {items.map((item) => (
           <Link
@@ -69,80 +56,6 @@ export default function OutfitCard({
       </div>
       <p className="text-xs leading-relaxed text-text-muted">{reason}</p>
       {footer}
-    </div>
-  );
-}
-
-function OutfitHero({
-  items,
-  reason,
-  footer,
-  lookNumber,
-}: {
-  items: ClothingItem[];
-  reason: string;
-  footer?: ReactNode;
-  lookNumber?: number;
-}) {
-  const [primary, ...rest] = items;
-  if (!primary) return null;
-  const supporting = rest.slice(0, 3);
-
-  return (
-    <div className="animate-pop-in flex flex-col gap-3">
-      <div className="relative -mx-5 mb-9">
-        <Link
-          href={`/closet?item=${primary.id}`}
-          className="block aspect-[4/5] w-full overflow-hidden bg-text/5"
-        >
-          {primary.imageDataUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={primary.imageDataUrl}
-              alt={primary.name}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-7xl opacity-30">
-              {CATEGORY_EMOJI[primary.category]}
-            </div>
-          )}
-        </Link>
-        {lookNumber != null && (
-          <span className="pointer-events-none absolute left-4 top-4 z-10 rounded-full bg-[var(--scrim)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white backdrop-blur-sm">
-            {lookLabel(lookNumber)}
-          </span>
-        )}
-        {supporting.length > 0 && (
-          <div className="absolute -bottom-8 right-9 z-10 flex">
-            {supporting.map((item, i) => (
-              <Link
-                key={item.id}
-                href={`/closet?item=${item.id}`}
-                style={{ transform: `rotate(${TILE_ROTATIONS[i % TILE_ROTATIONS.length]}deg)`, zIndex: i }}
-                className="-ml-4 h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 border-[var(--bg)] bg-card shadow-[var(--shadow-nav)] transition-transform first:ml-0 hover:z-20 hover:scale-110"
-              >
-                {item.imageDataUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={item.imageDataUrl}
-                    alt={item.name}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-text/5 text-xl opacity-50">
-                    {CATEGORY_EMOJI[item.category]}
-                  </div>
-                )}
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
-      <div className="glass-card flex flex-col gap-3 rounded-lg p-4">
-        <p className="text-xs leading-relaxed text-text-muted">{reason}</p>
-        {footer}
-      </div>
     </div>
   );
 }
