@@ -39,28 +39,30 @@ interface LeafSpec {
 }
 
 function Leaf({ x, y, rotate, scale = 1, colorIndex = 0 }: LeafSpec) {
-  const fill = GREENS[colorIndex % GREENS.length];
+  const gradId = `leaf-grad-${colorIndex}`;
   return (
     <g transform={`translate(${x},${y}) rotate(${rotate}) scale(${scale})`}>
       <path
-        d="M0,0 C-16,-5 -23,-21 -10,-35 C-5,-41 5,-41 10,-35 C23,-21 16,-5 0,0 Z"
-        fill={fill}
+        d="M0,0 C-17,-4 -25,-19 -13,-33 C-8,-40 -3,-42 0,-41 C3,-42 10,-39 13,-32 C24,-18 16,-4 0,0 Z"
+        fill={`url(#${gradId})`}
       />
       <path
-        d="M0,-2 C-1,-14 -1,-27 0,-37"
-        stroke="var(--bg)"
-        strokeOpacity={0.28}
-        strokeWidth={1.4}
+        d="M-3,-5 C-6,-15 -5,-26 -2,-36"
+        stroke="#ffffff"
+        strokeOpacity={0.16}
+        strokeWidth={2.4}
+        strokeLinecap="round"
         fill="none"
       />
+      <path d="M0,-2 C-1,-14 -1,-27 0,-38" stroke="#2f5330" strokeOpacity={0.42} strokeWidth={1.1} fill="none" />
       <path
-        d="M0,-11 C-5,-15 -8,-18 -11,-21 M0,-20 C-4,-23 -6,-25 -9,-27 M0,-11 C5,-15 8,-18 11,-21 M0,-20 C4,-23 6,-25 9,-27"
-        stroke="var(--bg)"
-        strokeOpacity={0.2}
-        strokeWidth={1}
+        d="M0,-11 C-5,-15 -8,-18 -11,-21 M0,-19 C-4,-22 -6,-24 -9,-26 M0,-27 C-3,-29 -5,-31 -7,-32 M0,-11 C5,-15 8,-18 11,-21 M0,-19 C4,-22 6,-24 9,-26"
+        stroke="#2f5330"
+        strokeOpacity={0.32}
+        strokeWidth={0.9}
         fill="none"
       />
-      <circle cx={0} cy={2} r={2.6} fill="#3f6b42" />
+      <circle cx={0} cy={1.5} r={2.2} fill="#3f6b42" />
     </g>
   );
 }
@@ -70,6 +72,7 @@ function Flower({ x, y, bud = false }: { x: number; y: number; bud?: boolean }) 
     return (
       <g transform={`translate(${x},${y})`}>
         <path d="M0,10 C-7,2 -5,-11 0,-15 C5,-11 7,2 0,10 Z" fill="var(--tag-lunch-bg)" />
+        <path d="M0,8 C-3,2 -2,-8 0,-12" stroke="#ffffff" strokeOpacity={0.2} strokeWidth={1.4} fill="none" />
       </g>
     );
   }
@@ -77,9 +80,10 @@ function Flower({ x, y, bud = false }: { x: number; y: number; bud?: boolean }) 
   return (
     <g transform={`translate(${x},${y})`}>
       {petals.map((deg) => (
-        <ellipse key={deg} cx={0} cy={-10} rx={6.5} ry={9.5} fill="#f4d35e" transform={`rotate(${deg})`} />
+        <ellipse key={deg} cx={0} cy={-10} rx={6.5} ry={9.5} fill="url(#petal-grad)" transform={`rotate(${deg})`} />
       ))}
       <circle r={6.5} fill="#e8a33d" />
+      <circle r={6.5} fill="url(#pollen-grad)" />
     </g>
   );
 }
@@ -142,67 +146,54 @@ const PLANT: Record<MascotVariant, PlantConfig> = {
   },
 };
 
-function Props({ variant, color }: { variant: MascotVariant; color: string }) {
-  if (variant === 'noData') {
-    return <ellipse cx={100} cy={160} rx={5} ry={3.5} fill="#6b4a2f" />;
-  }
-  if (variant === 'low') {
-    return (
-      <g transform="translate(58,84)">
-        <path d="M0,-14 C7,-4 7,6 0,12 C-7,6 -7,-4 0,-14 Z" fill="#5aa7d6" opacity={0.85} />
-      </g>
-    );
-  }
-  if (variant === 'obese1') {
-    return (
-      <g>
-        <rect x={122} y={92} width={4} height={126} rx={2} fill="#a9784f" />
-        <ellipse cx={100} cy={126} rx={16} ry={7} fill="none" stroke="#a9784f" strokeWidth={2.5} />
-        <g transform="translate(148,50)" stroke={color} strokeWidth={3} strokeLinecap="round">
-          <circle r={8} fill={color} stroke="none" />
-          <path d="M0,-14 v6 M0,8 v6 M-14,0 h6 M8,0 h6 M-10,-10 l4,4 M6,6 l4,4 M-10,10 l4,-4 M6,-6 l4,-4" />
-        </g>
-      </g>
-    );
-  }
-  if (variant === 'obese2') {
-    return (
-      <g transform="translate(160,198)">
-        <rect x={-14} y={-14} width={28} height={22} rx={5} fill={color} />
-        <path d="M12,-8 L28,-16 L26,-9 L14,-2 Z" fill={color} />
-        <path d="M-14,-16 Q-2,-24 10,-16" stroke={color} strokeWidth={4} fill="none" strokeLinecap="round" />
-      </g>
-    );
-  }
-  return null;
-}
-
 export default function Mascot({ variant, size = 100 }: { variant: MascotVariant; size?: number }) {
   const color = MASCOT_META[variant].color;
   const plant = PLANT[variant];
   const potGradId = `pot-grad-${variant}`;
-  const glossId = `pot-gloss-${variant}`;
+  const soilGradId = `soil-grad-${variant}`;
   const height = Math.round(size * 1.2);
 
   return (
     <svg width={size} height={height} viewBox="0 0 200 240" role="img" aria-label={MASCOT_META[variant].title}>
       <defs>
+        <filter id="mascot-soft-blur" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="3" />
+        </filter>
         <linearGradient id={potGradId} x1="60" y1="164" x2="140" y2="230" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor={`color-mix(in srgb, ${color}, white 30%)`} />
-          <stop offset="1" stopColor={`color-mix(in srgb, ${color}, black 20%)`} />
+          <stop offset="0" stopColor={`color-mix(in srgb, ${color}, white 26%)`} />
+          <stop offset="0.55" stopColor={color} />
+          <stop offset="1" stopColor={`color-mix(in srgb, ${color}, black 24%)`} />
         </linearGradient>
-        <radialGradient id={glossId} cx="0.32" cy="0.25" r="0.7">
-          <stop offset="0" stopColor="#ffffff" stopOpacity={0.4} />
+        <radialGradient id={soilGradId} cx="0.4" cy="0.35" r="0.75">
+          <stop offset="0" stopColor="#5a4530" />
+          <stop offset="1" stopColor="#2f2115" />
+        </radialGradient>
+        <linearGradient id="stem-grad" x1="0" y1="164" x2="0" y2="40" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#5f6b34" />
+          <stop offset="1" stopColor="#6fb56f" />
+        </linearGradient>
+        <linearGradient id="petal-grad" x1="0" y1="1" x2="0.4" y2="0">
+          <stop offset="0" stopColor="#e8b93f" />
+          <stop offset="1" stopColor="#f8de7c" />
+        </linearGradient>
+        <radialGradient id="pollen-grad" cx="0.35" cy="0.3" r="0.7">
+          <stop offset="0" stopColor="#ffffff" stopOpacity={0.35} />
           <stop offset="1" stopColor="#ffffff" stopOpacity={0} />
         </radialGradient>
+        {GREENS.map((c, i) => (
+          <linearGradient key={i} id={`leaf-grad-${i}`} x1="0.1" y1="0" x2="0.6" y2="1">
+            <stop offset="0" stopColor={`color-mix(in srgb, ${c}, white 28%)`} />
+            <stop offset="1" stopColor={`color-mix(in srgb, ${c}, black 20%)`} />
+          </linearGradient>
+        ))}
       </defs>
 
       {/* ground shadow */}
-      <ellipse cx={100} cy={234} rx={54} ry={8} fill="var(--text)" opacity={0.14} />
+      <ellipse cx={100} cy={233} rx={50} ry={7} fill="var(--text)" opacity={0.18} filter="url(#mascot-soft-blur)" />
 
       {/* stem */}
       {plant.stemPath && (
-        <path d={plant.stemPath} stroke="#437a46" strokeWidth={5.5} strokeLinecap="round" fill="none" />
+        <path d={plant.stemPath} stroke="url(#stem-grad)" strokeWidth={5.5} strokeLinecap="round" fill="none" />
       )}
       {plant.leaves.map((leaf, i) => (
         <Leaf key={i} {...leaf} />
@@ -210,24 +201,27 @@ export default function Mascot({ variant, size = 100 }: { variant: MascotVariant
       {plant.flower === 'bloom' && <Flower x={100} y={plant.topY} />}
       {plant.flower === 'bud' && <Flower x={98} y={plant.topY} bud />}
 
-      <Props variant={variant} color={color} />
-
       {/* pot */}
       <path d="M62,166 L138,166 L126,224 Q100,232 74,224 Z" fill={`url(#${potGradId})`} />
+      {/* subtle ceramic ridge shading */}
+      <g stroke="var(--text)" strokeOpacity={0.06} strokeWidth={1.4} fill="none">
+        <path d="M78,170 C76,190 77,208 80,222" />
+        <path d="M100,170 C99,192 100,210 100,224" />
+        <path d="M122,170 C124,190 123,208 120,222" />
+      </g>
+      <g stroke="#ffffff" strokeOpacity={0.14} strokeWidth={1.2} fill="none">
+        <path d="M70,172 C68,192 69,208 72,220" />
+      </g>
+      {/* rim */}
       <ellipse cx={100} cy={166} rx={38} ry={7} fill={`url(#${potGradId})`} />
-      <ellipse cx={100} cy={166} rx={32} ry={5} fill="#4a3626" opacity={0.9} />
-      <circle cx={92} cy={165} r={1.6} fill="#2f2115" opacity={0.6} />
-      <circle cx={108} cy={167} r={1.3} fill="#2f2115" opacity={0.5} />
-      <ellipse cx={80} cy={190} rx={22} ry={30} fill={`url(#${glossId})`} />
-
-      {variant === 'obese2' && (
-        <g>
-          <rect x={64} y={184} width={72} height={20} rx={5} fill="var(--card-strong)" />
-          <g stroke="var(--border)" strokeWidth={1} opacity={0.6}>
-            <path d="M76,184 v20 M88,184 v20 M100,184 v20 M112,184 v20 M124,184 v20" />
-          </g>
-        </g>
-      )}
+      <path d="M66,163 A34,6 0 0 1 96,159.5" stroke="#ffffff" strokeOpacity={0.4} strokeWidth={2} strokeLinecap="round" fill="none" />
+      {/* soil */}
+      <ellipse cx={100} cy={166} rx={32} ry={5} fill={`url(#${soilGradId})`} />
+      <circle cx={92} cy={165} r={1.6} fill="#1f160e" opacity={0.7} />
+      <circle cx={110} cy={167} r={1.3} fill="#1f160e" opacity={0.6} />
+      <circle cx={85} cy={168} r={1} fill="#1f160e" opacity={0.5} />
+      {/* specular highlight on the shoulder */}
+      <ellipse cx={78} cy={182} rx={11} ry={17} fill="#ffffff" opacity={0.16} />
     </svg>
   );
 }
