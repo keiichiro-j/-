@@ -44,13 +44,13 @@ function ColumnCactus() {
   const ribXs = [94, 100, 106];
   return (
     <g>
-      <rect x={90} y={112} width={20} height={54} rx={10} fill="url(#cactus-grad)" />
+      <rect x={90} y={136} width={20} height={54} rx={10} fill="url(#cactus-grad)" />
       <g stroke="#2f5330" strokeOpacity={0.4} strokeWidth={1.3}>
         {ribXs.map((x) => (
-          <line key={x} x1={x} y1={114} x2={x} y2={164} />
+          <line key={x} x1={x} y1={138} x2={x} y2={188} />
         ))}
       </g>
-      <Spines points={[[93, 122], [107, 128], [93, 140], [107, 148], [100, 116], [100, 158]]} />
+      <Spines points={[[93, 146], [107, 152], [93, 164], [107, 172], [100, 140], [100, 182]]} />
     </g>
   );
 }
@@ -58,17 +58,17 @@ function ColumnCactus() {
 /** 標準体重: まるい玉サボテン + 花 */
 function BallCactus() {
   const ribs: { x: number; y1: number; y2: number }[] = [
-    { x: 70, y1: 118, y2: 152 },
-    { x: 80, y1: 106, y2: 164 },
-    { x: 90, y1: 101, y2: 169 },
-    { x: 100, y1: 99, y2: 171 },
-    { x: 110, y1: 101, y2: 169 },
-    { x: 120, y1: 106, y2: 164 },
-    { x: 130, y1: 118, y2: 152 },
+    { x: 70, y1: 142, y2: 176 },
+    { x: 80, y1: 130, y2: 188 },
+    { x: 90, y1: 125, y2: 193 },
+    { x: 100, y1: 123, y2: 195 },
+    { x: 110, y1: 125, y2: 193 },
+    { x: 120, y1: 130, y2: 188 },
+    { x: 130, y1: 142, y2: 176 },
   ];
   return (
     <g>
-      <ellipse cx={100} cy={135} rx={34} ry={36} fill="url(#cactus-grad)" />
+      <ellipse cx={100} cy={159} rx={34} ry={36} fill="url(#cactus-grad)" />
       <g stroke="#2f5330" strokeOpacity={0.35} strokeWidth={1.3}>
         {ribs.map((r) => (
           <line key={r.x} x1={r.x} y1={r.y1} x2={r.x} y2={r.y2} />
@@ -76,7 +76,7 @@ function BallCactus() {
       </g>
       <Spines
         points={[
-          [80, 118], [80, 148], [90, 110], [90, 158], [100, 106], [100, 162], [110, 110], [110, 158], [120, 118], [120, 148],
+          [80, 142], [80, 172], [90, 134], [90, 182], [100, 130], [100, 186], [110, 134], [110, 182], [120, 142], [120, 172],
         ]}
       />
     </g>
@@ -89,20 +89,20 @@ function ArmCactus() {
   const armRibs = [122, 126, 130];
   return (
     <g>
-      <rect x={104} y={90} width={30} height={15} rx={7.5} fill="url(#cactus-grad)" />
-      <rect x={118} y={48} width={17} height={50} rx={8.5} fill="url(#cactus-grad)" />
-      <rect x={85} y={56} width={26} height={110} rx={13} fill="url(#cactus-grad)" />
+      <rect x={104} y={114} width={30} height={15} rx={7.5} fill="url(#cactus-grad)" />
+      <rect x={118} y={72} width={17} height={50} rx={8.5} fill="url(#cactus-grad)" />
+      <rect x={85} y={80} width={26} height={110} rx={13} fill="url(#cactus-grad)" />
       <g stroke="#2f5330" strokeOpacity={0.38} strokeWidth={1.3}>
         {trunkRibs.map((x) => (
-          <line key={x} x1={x} y1={58} x2={x} y2={164} />
+          <line key={x} x1={x} y1={82} x2={x} y2={188} />
         ))}
         {armRibs.map((x) => (
-          <line key={x} x1={x} y1={51} x2={x} y2={96} />
+          <line key={x} x1={x} y1={75} x2={x} y2={120} />
         ))}
       </g>
       <Spines
         points={[
-          [88, 80], [112, 90], [88, 110], [112, 130], [88, 140], [121, 60], [131, 70], [121, 85],
+          [88, 104], [112, 114], [88, 134], [112, 154], [88, 164], [121, 84], [131, 94], [121, 109],
         ]}
       />
     </g>
@@ -113,12 +113,12 @@ function ArmCactus() {
 function PricklyPear() {
   return (
     <g>
-      <ellipse cx={100} cy={150} rx={30} ry={34} fill="url(#cactus-grad)" />
-      <ellipse cx={77} cy={99} rx={22} ry={28} fill="url(#cactus-grad)" transform="rotate(-14 77 99)" />
-      <ellipse cx={119} cy={103} rx={20} ry={26} fill="url(#cactus-grad)" transform="rotate(13 119 103)" />
+      <ellipse cx={100} cy={174} rx={30} ry={34} fill="url(#cactus-grad)" />
+      <ellipse cx={77} cy={123} rx={22} ry={28} fill="url(#cactus-grad)" transform="rotate(-14 77 123)" />
+      <ellipse cx={119} cy={127} rx={20} ry={26} fill="url(#cactus-grad)" transform="rotate(13 119 127)" />
       <Spines
         points={[
-          [88, 140], [112, 155], [95, 168], [70, 95], [82, 110], [66, 105], [113, 96], [125, 112], [110, 118],
+          [88, 164], [112, 179], [95, 192], [70, 119], [82, 134], [66, 129], [113, 120], [125, 136], [110, 142],
         ]}
       />
     </g>
@@ -134,9 +134,6 @@ const CACTUS: Record<MascotVariant, ComponentType | null> = {
 };
 
 export default function Mascot({ variant, size = 100 }: { variant: MascotVariant; size?: number }) {
-  const color = MASCOT_META[variant].color;
-  const potGradId = `pot-grad-${variant}`;
-  const soilGradId = `soil-grad-${variant}`;
   const height = Math.round(size * 1.2);
   const CactusBody = CACTUS[variant];
 
@@ -146,15 +143,6 @@ export default function Mascot({ variant, size = 100 }: { variant: MascotVariant
         <filter id="mascot-soft-blur" x="-60%" y="-60%" width="220%" height="220%">
           <feGaussianBlur stdDeviation="3" />
         </filter>
-        <linearGradient id={potGradId} x1="60" y1="164" x2="140" y2="230" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor={`color-mix(in srgb, ${color}, white 26%)`} />
-          <stop offset="0.55" stopColor={color} />
-          <stop offset="1" stopColor={`color-mix(in srgb, ${color}, black 24%)`} />
-        </linearGradient>
-        <radialGradient id={soilGradId} cx="0.4" cy="0.35" r="0.75">
-          <stop offset="0" stopColor="#5a4530" />
-          <stop offset="1" stopColor="#2f2115" />
-        </radialGradient>
         <linearGradient id="cactus-grad" x1="0.15" y1="0" x2="0.65" y2="1">
           <stop offset="0" stopColor="#7ec37e" />
           <stop offset="1" stopColor="#3d7a40" />
@@ -163,40 +151,32 @@ export default function Mascot({ variant, size = 100 }: { variant: MascotVariant
           <stop offset="0" stopColor="#f8de7c" />
           <stop offset="1" stopColor="#e8b93f" />
         </radialGradient>
+        <linearGradient id="sand-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#d9c49a" />
+          <stop offset="1" stopColor="#b89a68" />
+        </linearGradient>
       </defs>
 
       {/* ground shadow */}
-      <ellipse cx={100} cy={233} rx={50} ry={7} fill="var(--text)" opacity={0.18} filter="url(#mascot-soft-blur)" />
+      <ellipse cx={100} cy={214} rx={54} ry={8} fill="var(--text)" opacity={0.16} filter="url(#mascot-soft-blur)" />
 
-      {/* cactus body (drawn behind the pot rim/soil so its base tucks under the soil line) */}
+      {/* sandy ground */}
+      <ellipse cx={100} cy={206} rx={62} ry={15} fill="url(#sand-grad)" />
+      <ellipse cx={72} cy={210} rx={7} ry={4} fill="#8a7350" opacity={0.5} />
+      <ellipse cx={128} cy={208} rx={5.5} ry={3.5} fill="#8a7350" opacity={0.45} />
+      <ellipse cx={100} cy={213} rx={6} ry={3} fill="#8a7350" opacity={0.4} />
+
+      {/* cactus body */}
       {CactusBody && <CactusBody />}
       {variant === 'normal' && (
-        <g transform="translate(100,97)">
+        <g transform="translate(100,121)">
           {[0, 72, 144, 216, 288].map((deg) => (
             <ellipse key={deg} cx={0} cy={-9} rx={6} ry={8.5} fill="url(#petal-grad)" transform={`rotate(${deg})`} />
           ))}
           <circle r={5.5} fill="#e8933d" />
         </g>
       )}
-
-      {/* pot */}
-      <path d="M62,166 L138,166 L126,224 Q100,232 74,224 Z" fill={`url(#${potGradId})`} />
-      <g stroke="var(--text)" strokeOpacity={0.06} strokeWidth={1.4} fill="none">
-        <path d="M78,170 C76,190 77,208 80,222" />
-        <path d="M100,170 C99,192 100,210 100,224" />
-        <path d="M122,170 C124,190 123,208 120,222" />
-      </g>
-      <g stroke="#ffffff" strokeOpacity={0.14} strokeWidth={1.2} fill="none">
-        <path d="M70,172 C68,192 69,208 72,220" />
-      </g>
-      <ellipse cx={100} cy={166} rx={38} ry={7} fill={`url(#${potGradId})`} />
-      <path d="M66,163 A34,6 0 0 1 96,159.5" stroke="#ffffff" strokeOpacity={0.4} strokeWidth={2} strokeLinecap="round" fill="none" />
-      <ellipse cx={100} cy={166} rx={32} ry={5} fill={`url(#${soilGradId})`} />
-      <circle cx={92} cy={165} r={1.6} fill="#1f160e" opacity={0.7} />
-      <circle cx={110} cy={167} r={1.3} fill="#1f160e" opacity={0.6} />
-      <circle cx={85} cy={168} r={1} fill="#1f160e" opacity={0.5} />
-      {variant === 'noData' && <ellipse cx={100} cy={164} rx={5} ry={3.5} fill="#6b4a2f" />}
-      <ellipse cx={78} cy={182} rx={11} ry={17} fill="#ffffff" opacity={0.16} />
+      {variant === 'noData' && <ellipse cx={100} cy={202} rx={5} ry={3.5} fill="#6b4a2f" />}
     </svg>
   );
 }
