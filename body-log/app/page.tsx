@@ -1,14 +1,17 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import clsx from 'clsx';
 import PageHeader from '@/components/PageHeader';
 import Modal from '@/components/Modal';
 import MealForm from '@/components/MealForm';
 import PfcBar from '@/components/PfcBar';
-import { useMeals, useSettings } from '@/lib/hooks';
+import Mascot, { MASCOT_META } from '@/components/Mascot';
+import { useMeals, useSettings, useWeights } from '@/lib/hooks';
 import * as db from '@/lib/db';
 import { formatDateJa, todayKey } from '@/lib/date';
+import { bmiCategory, computeBmi, mascotVariant } from '@/lib/health';
 import {
   MEAL_ICON,
   MEAL_LABEL,
@@ -22,10 +25,18 @@ import {
 export default function HomePage() {
   const { meals, loading, error, refresh } = useMeals();
   const { settings } = useSettings();
+  const { weights } = useWeights();
   const [formState, setFormState] = useState<{ mealType: MealType; entry?: MealEntry } | null>(null);
 
   const today = todayKey();
   const todaysMeals = useMemo(() => meals.filter((m) => m.date === today), [meals, today]);
+
+  const latestWeight = weights[0];
+  const bmi = useMemo(
+    () => (latestWeight && settings.heightCm ? computeBmi(latestWeight.weightKg, settings.heightCm) : null),
+    [latestWeight, settings.heightCm]
+  );
+  const variant = mascotVariant(bmi);
 
   const entriesByType = useMemo(() => {
     const map = new Map<MealType, MealEntry[]>();
@@ -48,6 +59,25 @@ export default function HomePage() {
   return (
     <div>
       <PageHeader eyebrow="Today" title={formatDateJa(today)} subtitle="今日の食事を記録しましょう" />
+
+      <div className="px-5 pb-4">
+        <Link href="/settings" className="glass-card animate-fade-up flex items-center gap-4 rounded-xl p-4">
+          <Mascot variant={variant} size={84} />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-text">{MASCOT_META[variant].title}</p>
+            <p className="mt-0.5 text-xs leading-relaxed text-text-muted">{MASCOT_META[variant].message}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-text-faint">
+              {latestWeight && <span>体重 {latestWeight.weightKg}kg</span>}
+              {settings.heightCm && <span>身長 {settings.heightCm}cm</span>}
+              {bmi !== null && (
+                <span className="tag-chip" style={{ background: bmiCategory(bmi).colorVar, color: bmiCategory(bmi).textVar }}>
+                  BMI {bmi.toFixed(1)}
+                </span>
+              )}
+            </div>
+          </div>
+        </Link>
+      </div>
 
       <div className="px-5 pb-4">
         <div className="glass-card animate-fade-up rounded-xl p-4">

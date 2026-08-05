@@ -59,6 +59,7 @@ export interface Settings {
   targetFat: number;
   targetCarbs: number;
   targetWeightKg?: number;
+  heightCm?: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {

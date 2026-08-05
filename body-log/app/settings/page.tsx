@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import PageHeader from '@/components/PageHeader';
+import BmiGauge from '@/components/BmiGauge';
 import { useSettings, useWeights } from '@/lib/hooks';
 import * as db from '@/lib/db';
 import { formatDateJa, todayKey } from '@/lib/date';
 import { useTheme, type ThemePreference } from '@/lib/theme';
+import { bmiCategory, computeBmi, idealWeightRange } from '@/lib/health';
 import type { Settings } from '@/lib/types';
 
 const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
@@ -35,6 +37,13 @@ export default function SettingsPage() {
   useEffect(() => {
     setForm(settings);
   }, [settings]);
+
+  const latestWeight = weights[0];
+  const bmi = useMemo(
+    () => (latestWeight && form.heightCm ? computeBmi(latestWeight.weightKg, form.heightCm) : null),
+    [latestWeight, form.heightCm]
+  );
+  const ideal = useMemo(() => (form.heightCm ? idealWeightRange(form.heightCm) : null), [form.heightCm]);
 
   const handleFormChange = (patch: Partial<Settings>) => {
     setForm((prev) => ({ ...prev, ...patch }));
@@ -154,6 +163,60 @@ export default function SettingsPage() {
               {savedFlash ? '保存しました ✓' : '保存する'}
             </button>
           </div>
+        </section>
+
+        <section className="glass-card rounded-xl p-4">
+          <p className="mb-3 text-sm font-bold text-text">身長・健康状態</p>
+          <label className="mb-3 block text-xs font-semibold text-text-muted">
+            身長(cm)
+            <input
+              type="number"
+              inputMode="decimal"
+              step="0.1"
+              min={0}
+              placeholder="例: 165"
+              value={form.heightCm ?? ''}
+              onChange={(e) => handleFormChange({ heightCm: e.target.value ? Number(e.target.value) : undefined })}
+              className="input mt-1"
+            />
+          </label>
+          <button onClick={handleSaveTargets} className="brand-fill mb-4 w-full rounded-full py-2.5 text-sm font-semibold">
+            {savedFlash ? '保存しました ✓' : '保存する'}
+          </button>
+
+          {!form.heightCm ? (
+            <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-xs text-text-faint">
+              身長を登録するとBMI・理想体重の目安が表示されます
+            </p>
+          ) : !latestWeight ? (
+            <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-xs text-text-faint">
+              体重を記録するとBMIが計算されます
+            </p>
+          ) : (
+            bmi !== null && (
+              <div>
+                <div className="mb-3 flex items-end justify-between">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-text-faint">BMI</p>
+                    <p className="font-display text-3xl font-bold text-text">{bmi.toFixed(1)}</p>
+                  </div>
+                  <span
+                    className="tag-chip"
+                    style={{ background: bmiCategory(bmi).colorVar, color: bmiCategory(bmi).textVar }}
+                  >
+                    {bmiCategory(bmi).label}
+                  </span>
+                </div>
+                <BmiGauge bmi={bmi} />
+                {ideal && (
+                  <p className="mt-3 text-xs text-text-muted">
+                    標準体重の目安: <span className="font-semibold text-text">{ideal.min}〜{ideal.max}kg</span>
+                    (標準 {ideal.standard}kg)
+                  </p>
+                )}
+              </div>
+            )
+          )}
         </section>
 
         <section className="glass-card rounded-xl p-4">
