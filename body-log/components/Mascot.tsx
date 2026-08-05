@@ -28,73 +28,35 @@ export const MASCOT_META: Record<MascotVariant, { color: string; title: string; 
   },
 };
 
-const HEAD_BLOB_PATH =
-  'M100,24 C138,22 172,52 176,90 C180,130 152,170 110,176 C68,182 26,158 20,116 C14,72 40,30 82,24 C88,23 94,23 100,24 Z';
+type EyeStyle = 'sleepy' | 'round' | 'sparkle' | 'sporty' | 'calm';
+type MouthStyle = 'soft' | 'smile' | 'big' | 'grin';
 
-interface Pose {
-  leftArm: { cx: number; cy: number; rotate: number };
-  rightArm: { cx: number; cy: number; rotate: number };
-  eyes: 'sleepy' | 'round' | 'sparkle' | 'sporty' | 'calm';
-  mouth: 'soft' | 'smile' | 'big' | 'grin';
-}
-
-const POSES: Record<MascotVariant, Pose> = {
-  noData: {
-    leftArm: { cx: 39, cy: 160, rotate: -10 },
-    rightArm: { cx: 161, cy: 160, rotate: 10 },
-    eyes: 'sleepy',
-    mouth: 'soft',
-  },
-  low: {
-    leftArm: { cx: 42, cy: 163, rotate: -5 },
-    rightArm: { cx: 158, cy: 163, rotate: 5 },
-    eyes: 'round',
-    mouth: 'soft',
-  },
-  normal: {
-    leftArm: { cx: 27, cy: 128, rotate: -78 },
-    rightArm: { cx: 173, cy: 128, rotate: 78 },
-    eyes: 'sparkle',
-    mouth: 'big',
-  },
-  obese1: {
-    leftArm: { cx: 24, cy: 138, rotate: -58 },
-    rightArm: { cx: 170, cy: 172, rotate: 32 },
-    eyes: 'sporty',
-    mouth: 'grin',
-  },
-  obese2: {
-    leftArm: { cx: 68, cy: 168, rotate: 48 },
-    rightArm: { cx: 132, cy: 168, rotate: -48 },
-    eyes: 'calm',
-    mouth: 'soft',
-  },
-};
-
-function Eyes({ style }: { style: Pose['eyes'] }) {
+function Eyes({ style, cx = 100 }: { style: EyeStyle; cx?: number }) {
+  const l = cx - 15;
+  const r = cx + 15;
   if (style === 'sleepy') {
     return (
-      <g stroke="var(--bg)" strokeWidth={5} strokeLinecap="round" fill="none">
-        <path d="M70,92 q8,8 16,0" />
-        <path d="M114,92 q8,8 16,0" />
+      <g stroke="var(--bg)" strokeWidth={4.5} strokeLinecap="round" fill="none">
+        <path d={`M${l - 7},${192} q7,7 14,0`} />
+        <path d={`M${r - 7},${192} q7,7 14,0`} />
       </g>
     );
   }
   if (style === 'calm') {
     return (
-      <g stroke="var(--bg)" strokeWidth={5} strokeLinecap="round" fill="none">
-        <path d="M70,90 q8,4 16,0" />
-        <path d="M114,90 q8,4 16,0" />
+      <g stroke="var(--bg)" strokeWidth={4.5} strokeLinecap="round" fill="none">
+        <path d={`M${l - 7},${190} q7,3.5 14,0`} />
+        <path d={`M${r - 7},${190} q7,3.5 14,0`} />
       </g>
     );
   }
   if (style === 'sparkle') {
     return (
       <g fill="var(--bg)">
-        <circle cx={78} cy={92} r={8.5} />
-        <circle cx={122} cy={92} r={8.5} />
-        <circle cx={81} cy={88.5} r={2.2} fill="#ffffff" />
-        <circle cx={125} cy={88.5} r={2.2} fill="#ffffff" />
+        <circle cx={l} cy={192} r={7.5} />
+        <circle cx={r} cy={192} r={7.5} />
+        <circle cx={l + 2.5} cy={189} r={2} fill="#ffffff" />
+        <circle cx={r + 2.5} cy={189} r={2} fill="#ffffff" />
       </g>
     );
   }
@@ -102,133 +64,171 @@ function Eyes({ style }: { style: Pose['eyes'] }) {
     return (
       <g>
         <g fill="var(--bg)">
-          <ellipse cx={78} cy={93} rx={6.5} ry={7.5} />
-          <ellipse cx={122} cy={93} rx={6.5} ry={7.5} />
+          <ellipse cx={l} cy={193} rx={6} ry={7} />
+          <ellipse cx={r} cy={193} rx={6} ry={7} />
         </g>
-        <g stroke="var(--bg)" strokeWidth={3.5} strokeLinecap="round">
-          <path d="M69,80 q9,-5 17,-1" />
-          <path d="M114,79 q9,-4 17,1" />
+        <g stroke="var(--bg)" strokeWidth={3} strokeLinecap="round">
+          <path d={`M${l - 8},${181} q8,-4 15,-1`} />
+          <path d={`M${r - 7},${180} q8,-3 15,1`} />
         </g>
       </g>
     );
   }
   return (
     <g fill="var(--bg)">
-      <circle cx={78} cy={92} r={6.2} />
-      <circle cx={122} cy={92} r={6.2} />
+      <circle cx={l} cy={192} r={5.8} />
+      <circle cx={r} cy={192} r={5.8} />
     </g>
   );
 }
 
-function Mouth({ style }: { style: Pose['mouth'] }) {
-  if (style === 'big') {
-    return <path d="M76,120 Q100,148 124,120" stroke="var(--bg)" strokeWidth={5.5} strokeLinecap="round" fill="none" />;
-  }
-  if (style === 'grin') {
-    return <path d="M78,120 Q100,142 122,120 Q100,132 78,120 Z" fill="var(--bg)" />;
-  }
-  if (style === 'soft') {
-    return <path d="M84,123 Q100,133 116,123" stroke="var(--bg)" strokeWidth={5} strokeLinecap="round" fill="none" />;
-  }
-  return <path d="M80,122 Q100,140 120,122" stroke="var(--bg)" strokeWidth={5.5} strokeLinecap="round" fill="none" />;
+function Mouth({ style, cx = 100 }: { style: MouthStyle; cx?: number }) {
+  if (style === 'big') return <path d={`M${cx - 16},${206} Q${cx},${222} ${cx + 16},${206}`} stroke="var(--bg)" strokeWidth={4.5} strokeLinecap="round" fill="none" />;
+  if (style === 'grin')
+    return <path d={`M${cx - 15},${206} Q${cx},${220} ${cx + 15},${206} Q${cx},${216} ${cx - 15},${206} Z`} fill="var(--bg)" />;
+  if (style === 'soft') return <path d={`M${cx - 11},${208} Q${cx},${216} ${cx + 11},${208}`} stroke="var(--bg)" strokeWidth={4} strokeLinecap="round" fill="none" />;
+  return <path d={`M${cx - 14},${207} Q${cx},${220} ${cx + 14},${207}`} stroke="var(--bg)" strokeWidth={4.5} strokeLinecap="round" fill="none" />;
 }
 
-/** Costume pieces worn on the head — the primary silhouette read for each persona. */
-function Headwear({ variant }: { variant: MascotVariant }) {
-  if (variant === 'normal') {
-    return (
-      <g>
-        <rect x={68} y={18} width={64} height={12} rx={6} fill="var(--brand)" />
-        <path d="M76,20 L88,-6 L94,10 L100,-16 L106,10 L112,-6 L124,20 Z" fill="var(--brand)" />
-        <circle cx={100} cy={-12} r={5} fill="#ffd94a" />
-        <circle cx={84} cy={24} r={2.8} fill="#ffffff" opacity={0.85} />
-        <circle cx={100} cy={24} r={2.8} fill="#ffffff" opacity={0.85} />
-        <circle cx={116} cy={24} r={2.8} fill="#ffffff" opacity={0.85} />
-      </g>
-    );
-  }
-  if (variant === 'low') {
-    return (
-      <g fill="#5fae5f">
-        <path d="M100,22 C88,10 86,-6 100,4 C102,-8 116,-4 108,10 C118,8 112,22 100,22 Z" />
-        <path d="M100,22 V8" stroke="#3f7d3f" strokeWidth={2} strokeLinecap="round" fill="none" />
-      </g>
-    );
-  }
-  if (variant === 'obese1') {
-    return (
-      <g>
-        <rect x={54} y={52} width={92} height={13} rx={6.5} fill="var(--brand)" transform="rotate(-2 100 58)" />
-        <circle cx={146} cy={57} r={7.5} fill="var(--brand-strong)" />
-        <path d="M92,18 L100,-6 L108,18 Z" fill="color-mix(in srgb, var(--tag-lunch-bg), white 25%)" />
-      </g>
-    );
-  }
-  if (variant === 'obese2') {
-    const beanie = 'var(--card-strong)';
-    return (
-      <g>
-        <path d="M48,52 A52,48 0 0 1 152,52 Z" fill={beanie} />
-        <rect x={46} y={44} width={108} height={13} rx={6.5} fill={beanie} />
-        <circle cx={100} cy={4} r={9} fill={beanie} />
-        <rect x={62} y={166} width={76} height={16} rx={8} fill={beanie} transform="rotate(4 100 174)" />
-        <path d="M126,172 L146,198 L116,182 Z" fill={beanie} />
-      </g>
-    );
-  }
-  // noData: soft drooping sleep cap
+function Leaf({
+  x,
+  y,
+  rotate,
+  scale = 1,
+  color,
+}: {
+  x: number;
+  y: number;
+  rotate: number;
+  scale?: number;
+  color: string;
+}) {
   return (
-    <g fill="color-mix(in srgb, #9a9284, white 15%)">
-      <path d="M65,26 C65,-6 128,-10 118,22 C112,10 78,8 65,26 Z" />
-      <circle cx={116} cy={20} r={6} fill="color-mix(in srgb, #9a9284, white 35%)" />
+    <g transform={`translate(${x},${y}) rotate(${rotate}) scale(${scale})`}>
+      <path d="M0,0 C11,-15 28,-15 32,0 C28,15 11,15 0,0 Z" fill={color} />
+      <path d="M2,0 C12,0 22,0 30,0" stroke="var(--bg)" strokeOpacity={0.25} strokeWidth={1.5} fill="none" />
     </g>
   );
 }
 
-/** Held prop / chest emblem — the secondary read, distinct per persona. */
-function Emblem({ variant }: { variant: MascotVariant }) {
-  if (variant === 'normal') {
-    const cx = 100;
-    const cy = 168;
+function Flower({ x, y, petal, bud = false }: { x: number; y: number; petal: string; bud?: boolean }) {
+  if (bud) {
     return (
-      <path
-        d={`M${cx},${cy - 15} L${cx + 4.6},${cy - 4.6} L${cx + 15},${cy} L${cx + 4.6},${cy + 4.6} L${cx},${cy + 15} L${cx - 4.6},${cy + 4.6} L${cx - 15},${cy} L${cx - 4.6},${cy - 4.6} Z`}
-        fill="#ffffff"
-        opacity={0.9}
-      />
+      <g transform={`translate(${x},${y})`}>
+        <path d="M0,10 C-8,2 -6,-10 0,-14 C6,-10 8,2 0,10 Z" fill={petal} />
+      </g>
+    );
+  }
+  const petals = [0, 72, 144, 216, 288];
+  return (
+    <g transform={`translate(${x},${y})`}>
+      {petals.map((deg) => (
+        <ellipse key={deg} cx={0} cy={-11} rx={7} ry={10} fill={petal} transform={`rotate(${deg})`} />
+      ))}
+      <circle r={7} fill="#ffd94a" />
+    </g>
+  );
+}
+
+interface PlantConfig {
+  stemPath: string | null;
+  leaves: { x: number; y: number; rotate: number; scale?: number }[];
+  topY: number;
+  flower: 'bloom' | 'bud' | 'none';
+}
+
+const LEAF_GREEN = '#5fa85f';
+const LEAF_GREEN_DARK = '#4a8f4a';
+
+const PLANT: Record<MascotVariant, PlantConfig> = {
+  noData: { stemPath: null, leaves: [], topY: 160, flower: 'none' },
+  low: {
+    stemPath: 'M100,164 C97,144 103,126 100,112',
+    leaves: [{ x: 100, y: 122, rotate: -20, scale: 0.7 }],
+    topY: 112,
+    flower: 'none',
+  },
+  normal: {
+    stemPath: 'M100,164 C93,124 107,80 100,46',
+    leaves: [
+      { x: 100, y: 135, rotate: 20 },
+      { x: 100, y: 135, rotate: 200 },
+      { x: 100, y: 95, rotate: -25 },
+      { x: 100, y: 95, rotate: 155 },
+    ],
+    topY: 44,
+    flower: 'bloom',
+  },
+  obese1: {
+    stemPath: 'M100,164 C95,132 106,98 98,70',
+    leaves: [
+      { x: 100, y: 140, rotate: 25 },
+      { x: 100, y: 140, rotate: 205 },
+      { x: 99, y: 108, rotate: -20 },
+      { x: 99, y: 108, rotate: 160 },
+      { x: 98, y: 82, rotate: 30 },
+    ],
+    topY: 68,
+    flower: 'bud',
+  },
+  obese2: {
+    stemPath: 'M100,164 C105,138 94,112 103,86',
+    leaves: [
+      { x: 100, y: 138, rotate: -30, scale: 1.15 },
+      { x: 101, y: 138, rotate: 195, scale: 1.15 },
+      { x: 102, y: 104, rotate: 20, scale: 1.1 },
+    ],
+    topY: 86,
+    flower: 'none',
+  },
+};
+
+/** Extras that give each state a distinct read beyond leaf count. */
+function Props({ variant, color }: { variant: MascotVariant; color: string }) {
+  if (variant === 'noData') {
+    return (
+      <g>
+        <ellipse cx={100} cy={160} rx={5} ry={3.5} fill="#6b4a2f" />
+        <circle cx={152} cy={48} r={17} fill="var(--bg-elevated)" stroke="var(--border)" strokeWidth={1.5} />
+        <path d="M146,48 h12 M152,42 v12" stroke="var(--text-faint)" strokeWidth={3} strokeLinecap="round" />
+      </g>
     );
   }
   if (variant === 'low') {
     return (
-      <g transform="translate(100,170)">
-        <circle r={11} fill="#c0392b" opacity={0.85} />
-        <path d="M0,-11 q6,-8 12,-5" stroke="#3f7d3f" strokeWidth={2.4} fill="none" strokeLinecap="round" />
+      <g transform="translate(52,90)">
+        <path d="M0,-14 C7,-4 7,6 0,12 C-7,6 -7,-4 0,-14 Z" fill="#5aa7d6" opacity={0.85} />
       </g>
     );
   }
   if (variant === 'obese1') {
     return (
       <g>
-        <path
-          d="M104,150 L86,172 H98 L92,192 L114,166 H102 Z"
-          fill="#ffffff"
-          opacity={0.92}
-        />
-        <g stroke="#ffffff" strokeWidth={3} strokeLinecap="round" opacity={0.55}>
-          <path d="M18,145 h14" />
-          <path d="M14,155 h16" />
-          <path d="M20,165 h12" />
+        <rect x={122} y={96} width={4} height={122} rx={2} fill="#a9784f" />
+        <ellipse cx={100} cy={130} rx={16} ry={7} fill="none" stroke="#a9784f" strokeWidth={2.5} />
+        <g transform="translate(148,54)" stroke={color} strokeWidth={3} strokeLinecap="round">
+          <circle r={8} fill={color} stroke="none" />
+          <path d="M0,-14 v6 M0,8 v6 M-14,0 h6 M8,0 h6 M-10,-10 l4,4 M6,6 l4,4 M-10,10 l4,-4 M6,-6 l4,-4" />
         </g>
       </g>
     );
   }
   if (variant === 'obese2') {
     return (
-      <path
-        d="M100,178 C82,164 90,146 100,156 C110,146 118,164 100,178 Z"
-        fill="#ffffff"
-        opacity={0.92}
-      />
+      <g transform="translate(158,196)">
+        <rect x={-14} y={-14} width={28} height={22} rx={5} fill={color} />
+        <path d="M12,-8 L28,-16 L26,-9 L14,-2 Z" fill={color} />
+        <path d="M-14,-16 Q-2,-24 10,-16" stroke={color} strokeWidth={4} fill="none" strokeLinecap="round" />
+      </g>
+    );
+  }
+  if (variant === 'normal') {
+    return (
+      <g fill="#ffd94a">
+        <circle cx={70} cy={55} r={3} />
+        <circle cx={135} cy={70} r={2.4} />
+        <circle cx={122} cy={40} r={2} />
+      </g>
     );
   }
   return null;
@@ -236,82 +236,59 @@ function Emblem({ variant }: { variant: MascotVariant }) {
 
 export default function Mascot({ variant, size = 100 }: { variant: MascotVariant; size?: number }) {
   const color = MASCOT_META[variant].color;
-  const pose = POSES[variant];
-  const gradId = `mascot-grad-${variant}`;
-  const glossId = `mascot-gloss-${variant}`;
-  const height = Math.round(size * 1.28);
+  const plant = PLANT[variant];
+  const potGradId = `pot-grad-${variant}`;
+  const glossId = `pot-gloss-${variant}`;
+  const eyeStyle: EyeStyle = variant === 'noData' ? 'sleepy' : variant === 'normal' ? 'sparkle' : variant === 'obese1' ? 'sporty' : variant === 'obese2' ? 'calm' : 'round';
+  const mouthStyle: MouthStyle = variant === 'normal' ? 'big' : variant === 'obese1' ? 'grin' : variant === 'obese2' ? 'soft' : variant === 'low' ? 'soft' : 'soft';
+  const height = Math.round(size * 1.2);
 
   return (
-    <svg width={size} height={height} viewBox="0 0 200 272" role="img" aria-label={MASCOT_META[variant].title}>
+    <svg width={size} height={height} viewBox="0 0 200 240" role="img" aria-label={MASCOT_META[variant].title}>
       <defs>
-        <linearGradient id={gradId} x1="45" y1="10" x2="155" y2="250" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor={`color-mix(in srgb, ${color}, white 32%)`} />
-          <stop offset="1" stopColor={`color-mix(in srgb, ${color}, black 22%)`} />
+        <linearGradient id={potGradId} x1="60" y1="164" x2="140" y2="230" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor={`color-mix(in srgb, ${color}, white 30%)`} />
+          <stop offset="1" stopColor={`color-mix(in srgb, ${color}, black 20%)`} />
         </linearGradient>
-        <radialGradient id={glossId} cx="0.35" cy="0.3" r="0.65">
-          <stop offset="0" stopColor="#ffffff" stopOpacity={0.55} />
+        <radialGradient id={glossId} cx="0.32" cy="0.25" r="0.7">
+          <stop offset="0" stopColor="#ffffff" stopOpacity={0.4} />
           <stop offset="1" stopColor="#ffffff" stopOpacity={0} />
         </radialGradient>
       </defs>
 
-      <g transform="translate(0,12)">
-        {/* ground shadow */}
-        <ellipse cx={100} cy={250} rx={50} ry={9} fill="var(--text)" opacity={0.14} />
+      {/* ground shadow */}
+      <ellipse cx={100} cy={234} rx={54} ry={8} fill="var(--text)" opacity={0.14} />
 
-        {/* feet */}
-        <ellipse cx={78} cy={236} rx={17} ry={11} fill={`url(#${gradId})`} />
-        <ellipse cx={122} cy={236} rx={17} ry={11} fill={`url(#${gradId})`} />
+      {/* stem (behind pot rim, in front of shadow) */}
+      {plant.stemPath && (
+        <path d={plant.stemPath} stroke={LEAF_GREEN_DARK} strokeWidth={6} strokeLinecap="round" fill="none" />
+      )}
+      {plant.leaves.map((leaf, i) => (
+        <Leaf key={i} x={leaf.x} y={leaf.y} rotate={leaf.rotate} scale={leaf.scale} color={i % 2 === 0 ? LEAF_GREEN : LEAF_GREEN_DARK} />
+      ))}
+      {plant.flower === 'bloom' && <Flower x={100} y={plant.topY} petal="#ffd94a" />}
+      {plant.flower === 'bud' && <Flower x={98} y={plant.topY} petal={color} bud />}
 
-        {/* legs */}
-        <rect x={67} y={202} width={19} height={32} rx={9.5} fill={`url(#${gradId})`} />
-        <rect x={114} y={202} width={19} height={32} rx={9.5} fill={`url(#${gradId})`} />
-        {/* ambient occlusion where legs meet torso */}
-        <ellipse cx={100} cy={207} rx={34} ry={7} fill="var(--text)" opacity={0.08} />
+      <Props variant={variant} color={color} />
 
-        {/* arms (pose varies per variant) */}
-        <ellipse
-          cx={pose.leftArm.cx}
-          cy={pose.leftArm.cy}
-          rx={16}
-          ry={26}
-          fill={`url(#${gradId})`}
-          transform={`rotate(${pose.leftArm.rotate} ${pose.leftArm.cx} ${pose.leftArm.cy})`}
-        />
-        <ellipse
-          cx={pose.rightArm.cx}
-          cy={pose.rightArm.cy}
-          rx={16}
-          ry={26}
-          fill={`url(#${gradId})`}
-          transform={`rotate(${pose.rightArm.rotate} ${pose.rightArm.cx} ${pose.rightArm.cy})`}
-        />
+      {/* pot */}
+      <path d="M62,166 L138,166 L126,224 Q100,232 74,224 Z" fill={`url(#${potGradId})`} />
+      <ellipse cx={100} cy={166} rx={38} ry={7} fill={`url(#${potGradId})`} />
+      <ellipse cx={100} cy={166} rx={32} ry={5} fill="#4a3626" opacity={0.9} />
+      <ellipse cx={80} cy={190} rx={22} ry={30} fill={`url(#${glossId})`} />
 
-        {/* torso */}
-        <rect x={50} y={116} width={100} height={102} rx={48} fill={`url(#${gradId})`} />
-        <Emblem variant={variant} />
-
-        {/* head + face (shares the original 0-200 face coordinate space) */}
-        <g transform="translate(26,-1) scale(0.76)">
-          <ellipse cx={100} cy={118} rx={30} ry={8} fill="var(--text)" opacity={0.06} />
-          <path d={HEAD_BLOB_PATH} fill={`url(#${gradId})`} />
-          <ellipse cx={64} cy={110} rx={10} ry={7} fill="#ffffff" opacity={0.22} />
-          <ellipse cx={136} cy={110} rx={10} ry={7} fill="#ffffff" opacity={0.22} />
-          <Eyes style={pose.eyes} />
-          <Mouth style={pose.mouth} />
-          <Headwear variant={variant} />
-        </g>
-
-        {/* glossy 3D highlight across head + torso */}
-        <ellipse cx={78} cy={70} rx={40} ry={34} fill={`url(#${glossId})`} />
-        <ellipse cx={80} cy={150} rx={26} ry={30} fill={`url(#${glossId})`} opacity={0.7} />
-
-        {variant === 'noData' && (
-          <g>
-            <circle cx={150} cy={22} r={17} fill="var(--bg-elevated)" stroke="var(--border)" strokeWidth={1.5} />
-            <path d="M144,22 h12 M150,16 v12" stroke="var(--text-faint)" strokeWidth={3} strokeLinecap="round" />
+      {variant === 'obese2' && (
+        <g>
+          <rect x={64} y={184} width={72} height={20} rx={5} fill="var(--card-strong)" />
+          <g stroke="var(--border)" strokeWidth={1} opacity={0.6}>
+            <path d="M76,184 v20 M88,184 v20 M100,184 v20 M112,184 v20 M124,184 v20" />
           </g>
-        )}
-      </g>
+        </g>
+      )}
+
+      {/* face on the pot */}
+      <Eyes style={eyeStyle} />
+      <Mouth style={mouthStyle} />
     </svg>
   );
 }
