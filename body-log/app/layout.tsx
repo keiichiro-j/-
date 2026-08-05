@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Noto_Sans_JP } from 'next/font/google';
+import { Noto_Sans_JP, Zen_Old_Mincho } from 'next/font/google';
 import BottomNav from '@/components/BottomNav';
 import PwaRegister from '@/components/PwaRegister';
 import { THEME_INIT_SCRIPT } from '@/lib/theme';
@@ -9,6 +9,13 @@ const notoJp = Noto_Sans_JP({
   variable: '--font-noto-jp',
   subsets: ['latin'],
   weight: ['400', '500', '700'],
+  display: 'swap',
+});
+
+const zenOldMincho = Zen_Old_Mincho({
+  variable: '--font-serif-jp',
+  subsets: ['latin'],
+  weight: ['400', '600', '900'],
   display: 'swap',
 });
 
@@ -30,8 +37,8 @@ export const viewport: Viewport = {
   maximumScale: 1,
   viewportFit: 'cover',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f6f5f0' },
-    { media: '(prefers-color-scheme: dark)', color: '#10160f' },
+    { media: '(prefers-color-scheme: light)', color: '#f2ebdc' },
+    { media: '(prefers-color-scheme: dark)', color: '#15111a' },
   ],
   colorScheme: 'light dark',
 };
@@ -42,7 +49,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ja" className={`${notoJp.variable} h-full`} suppressHydrationWarning>
+    <html lang="ja" className={`${notoJp.variable} ${zenOldMincho.variable} h-full`} suppressHydrationWarning>
       <body className="min-h-full font-sans antialiased">
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <PwaRegister />

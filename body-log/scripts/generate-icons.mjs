@@ -29,7 +29,7 @@ async function main() {
 
   await sharp(svgBuffer, { density: 384 })
     .resize(180, 180)
-    .flatten({ background: '#14261c' })
+    .flatten({ background: '#15111a' })
     .png()
     .toFile(path.join(root, 'app', 'apple-icon.png'));
 

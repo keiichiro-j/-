@@ -9,7 +9,7 @@ import { useMeals, useSettings } from '@/lib/hooks';
 import * as db from '@/lib/db';
 import { formatDateJa, todayKey } from '@/lib/date';
 import { totalsByDay } from '@/lib/nutrition';
-import { MEAL_ICON, MEAL_LABEL, mealTotals, type MealEntry, type MealType } from '@/lib/types';
+import { MEAL_ICON, MEAL_LABEL, MEAL_TAG_VARS, mealTotals, type MealEntry, type MealType } from '@/lib/types';
 
 export default function HistoryPage() {
   const { meals, loading, error, refresh } = useMeals();
@@ -66,6 +66,7 @@ export default function HistoryPage() {
                 <div className="flex flex-col gap-2">
                   {selectedMeals.map((meal) => {
                     const t = mealTotals(meal.items);
+                    const tag = MEAL_TAG_VARS[meal.mealType];
                     return (
                       <button
                         key={meal.id}
@@ -80,12 +81,17 @@ export default function HistoryPage() {
                             className="h-12 w-12 shrink-0 rounded-lg object-cover"
                           />
                         ) : (
-                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-text/5 text-lg">
+                          <div
+                            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-lg"
+                            style={{ background: tag.bg, color: tag.text }}
+                          >
                             {MEAL_ICON[meal.mealType]}
                           </div>
                         )}
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-semibold text-text-muted">{MEAL_LABEL[meal.mealType]}</p>
+                          <span className="tag-chip mb-1" style={{ background: tag.bg, color: tag.text }}>
+                            {MEAL_LABEL[meal.mealType]}
+                          </span>
                           <p className="truncate text-sm font-semibold text-text">
                             {meal.items.map((i) => i.name).join('・') || '(品目未入力)'}
                           </p>

@@ -1,35 +1,45 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #f6f5f0;
-  --bg-elevated: #ffffff;
-  --card: #ffffff;
-  --card-strong: #fbfaf5;
-  --border: rgba(20, 34, 26, 0.1);
-  --text: #14261c;
-  --text-muted: #5f6b60;
-  --text-faint: #949a8f;
-  --brand: #2f6f52;
-  --brand-strong: #245940;
-  --brand-soft: #dff0e6;
-  --on-brand: #ffffff;
+  --bg: #f2ebdc;
+  --bg-elevated: #fffbf3;
+  --card: #fffbf3;
+  --card-strong: #ece1cb;
+  --border: rgba(21, 19, 15, 0.14);
+  --text: #15130f;
+  --text-muted: #5a5347;
+  --text-faint: #948c78;
+  --brand: #e2136e;
+  --brand-strong: #b80f59;
+  --brand-soft: #fbdcea;
+  --on-brand: #fffbf3;
   --success: #0f8a34;
   --warn: #b1750f;
   --danger-bg: #fef2f2;
   --danger-border: #fecaca;
   --danger-text: #991b1b;
-  --shadow-card: 0 1px 2px rgba(20, 34, 26, 0.05);
-  --shadow-nav: 0 4px 20px rgba(20, 34, 26, 0.12);
-  --ambient: rgba(47, 111, 82, 0.06);
-  --scrim: rgba(10, 16, 12, 0.6);
+  --shadow-card: 0 1px 2px rgba(21, 19, 15, 0.06);
+  --shadow-nav: 0 8px 24px rgba(21, 19, 15, 0.16);
+  --ambient: rgba(226, 19, 110, 0.07);
+  --scrim: rgba(15, 11, 9, 0.62);
+
+  /* MARNI風カラーブロッキング: 区分ごとのタグ色(ライト/ダーク共通の固定ブランドカラー) */
+  --tag-breakfast-bg: #e5a91f;
+  --tag-breakfast-text: #211804;
+  --tag-lunch-bg: #ef5f22;
+  --tag-lunch-text: #2a0e02;
+  --tag-dinner-bg: #201c6b;
+  --tag-dinner-text: #f3f1ff;
+  --tag-snack-bg: #e2136e;
+  --tag-snack-text: #ffffff;
 
   /* dataviz roles */
   --viz-surface: var(--card);
   --viz-ink-primary: var(--text);
   --viz-ink-secondary: var(--text-muted);
   --viz-ink-muted: var(--text-faint);
-  --viz-grid: rgba(20, 34, 26, 0.08);
-  --viz-baseline: rgba(20, 34, 26, 0.18);
+  --viz-grid: rgba(21, 19, 15, 0.08);
+  --viz-baseline: rgba(21, 19, 15, 0.2);
   --viz-protein: #2a78d6;
   --viz-fat: #eb6834;
   --viz-carbs: #1baf7a;
@@ -41,29 +51,29 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #10160f;
-    --bg-elevated: #171f18;
-    --card: #171f18;
-    --card-strong: #1d261e;
-    --border: rgba(236, 242, 236, 0.12);
-    --text: #eef2ee;
-    --text-muted: #aab3ac;
-    --text-faint: #778077;
-    --brand: #5fae86;
-    --brand-strong: #7ec39e;
-    --brand-soft: rgba(95, 174, 134, 0.16);
-    --on-brand: #0c130e;
+    --bg: #15111a;
+    --bg-elevated: #201a26;
+    --card: #201a26;
+    --card-strong: #2a2230;
+    --border: rgba(245, 240, 232, 0.14);
+    --text: #f6f0e6;
+    --text-muted: #bcb2a3;
+    --text-faint: #837a72;
+    --brand: #ff5fa8;
+    --brand-strong: #ff8ac0;
+    --brand-soft: rgba(255, 95, 168, 0.18);
+    --on-brand: #1c0714;
     --success: #4ec87a;
     --warn: #e0a752;
     --danger-bg: rgba(248, 113, 113, 0.14);
     --danger-border: rgba(248, 113, 113, 0.35);
     --danger-text: #fca5a5;
-    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-nav: 0 4px 20px rgba(0, 0, 0, 0.4);
-    --ambient: rgba(95, 174, 134, 0.06);
-    --scrim: rgba(0, 0, 0, 0.7);
-    --viz-grid: rgba(236, 242, 236, 0.1);
-    --viz-baseline: rgba(236, 242, 236, 0.22);
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow-nav: 0 8px 24px rgba(0, 0, 0, 0.5);
+    --ambient: rgba(255, 95, 168, 0.08);
+    --scrim: rgba(0, 0, 0, 0.72);
+    --viz-grid: rgba(245, 240, 232, 0.1);
+    --viz-baseline: rgba(245, 240, 232, 0.24);
     --viz-protein: #3987e5;
     --viz-fat: #d95926;
     --viz-carbs: #199e70;
@@ -72,29 +82,29 @@
 }
 
 :root[data-theme="dark"] {
-  --bg: #10160f;
-  --bg-elevated: #171f18;
-  --card: #171f18;
-  --card-strong: #1d261e;
-  --border: rgba(236, 242, 236, 0.12);
-  --text: #eef2ee;
-  --text-muted: #aab3ac;
-  --text-faint: #778077;
-  --brand: #5fae86;
-  --brand-strong: #7ec39e;
-  --brand-soft: rgba(95, 174, 134, 0.16);
-  --on-brand: #0c130e;
+  --bg: #15111a;
+  --bg-elevated: #201a26;
+  --card: #201a26;
+  --card-strong: #2a2230;
+  --border: rgba(245, 240, 232, 0.14);
+  --text: #f6f0e6;
+  --text-muted: #bcb2a3;
+  --text-faint: #837a72;
+  --brand: #ff5fa8;
+  --brand-strong: #ff8ac0;
+  --brand-soft: rgba(255, 95, 168, 0.18);
+  --on-brand: #1c0714;
   --success: #4ec87a;
   --warn: #e0a752;
   --danger-bg: rgba(248, 113, 113, 0.14);
   --danger-border: rgba(248, 113, 113, 0.35);
   --danger-text: #fca5a5;
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-nav: 0 4px 20px rgba(0, 0, 0, 0.4);
-  --ambient: rgba(95, 174, 134, 0.06);
-  --scrim: rgba(0, 0, 0, 0.7);
-  --viz-grid: rgba(236, 242, 236, 0.1);
-  --viz-baseline: rgba(236, 242, 236, 0.22);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-nav: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --ambient: rgba(255, 95, 168, 0.08);
+  --scrim: rgba(0, 0, 0, 0.72);
+  --viz-grid: rgba(245, 240, 232, 0.1);
+  --viz-baseline: rgba(245, 240, 232, 0.24);
   --viz-protein: #3987e5;
   --viz-fat: #d95926;
   --viz-carbs: #199e70;
@@ -119,6 +129,7 @@
   --color-danger-border: var(--danger-border);
   --color-danger-text: var(--danger-text);
   --font-sans: var(--font-noto-jp);
+  --font-display: var(--font-serif-jp);
 }
 
 * {
@@ -144,7 +155,7 @@ body::before {
   position: fixed;
   inset: 0;
   z-index: -1;
-  background: radial-gradient(120% 60% at 50% -10%, var(--ambient), transparent 60%), var(--bg);
+  background: radial-gradient(130% 55% at 8% -8%, var(--ambient), transparent 55%), var(--bg);
   transition: background-color 0.25s ease;
 }
 
@@ -158,6 +169,10 @@ body::before {
   outline-offset: 2px;
 }
 
+.font-display {
+  font-family: var(--font-serif-jp), serif;
+}
+
 .glass-card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -166,7 +181,7 @@ body::before {
 }
 
 .nav-surface {
-  background: color-mix(in srgb, var(--card) 88%, transparent);
+  background: color-mix(in srgb, var(--card) 90%, transparent);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-nav);
   transition: background-color 0.25s ease, border-color 0.25s ease;
@@ -181,6 +196,17 @@ body::before {
 .brand-soft {
   background: var(--brand-soft);
   color: var(--brand-strong);
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .input {

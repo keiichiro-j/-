@@ -23,25 +23,24 @@ export default function BottomNav() {
             <Link
               key={href}
               href={href}
-              className="relative flex flex-1 flex-col items-center gap-1 rounded-xl py-1.5 transition-colors"
+              className="relative flex flex-1 flex-col items-center gap-1 rounded-2xl py-1.5 transition-colors"
             >
-              <Icon
-                className={clsx('h-5 w-5 transition-all', active ? 'scale-110 text-brand' : 'text-text-faint')}
-              />
+              <span
+                className={clsx(
+                  'flex h-8 w-8 items-center justify-center rounded-full transition-all',
+                  active ? 'brand-fill scale-105' : ''
+                )}
+              >
+                <Icon className={clsx('h-[18px] w-[18px] transition-all', active ? '' : 'text-text-faint')} />
+              </span>
               <span
                 className={clsx(
                   'text-[10px] tracking-tight transition-colors',
-                  active ? 'font-semibold text-brand' : 'font-medium text-text-faint'
+                  active ? 'font-bold text-brand' : 'font-medium text-text-faint'
                 )}
               >
                 {label}
               </span>
-              <span
-                className={clsx(
-                  'absolute -bottom-0.5 h-0.5 w-5 rounded-full bg-brand transition-opacity',
-                  active ? 'opacity-100' : 'opacity-0'
-                )}
-              />
             </Link>
           );
         })}

@@ -8,6 +8,7 @@ import { todayKey } from '@/lib/date';
 import {
   MEAL_ICON,
   MEAL_LABEL,
+  MEAL_TAG_VARS,
   MEAL_TYPES,
   mealTotals,
   type FoodItem,
@@ -154,20 +155,25 @@ export default function MealForm({
       <div>
         <p className="mb-1.5 text-xs font-semibold text-text-muted">区分</p>
         <div className="grid grid-cols-4 gap-2">
-          {MEAL_TYPES.map((mt) => (
-            <button
-              key={mt}
-              type="button"
-              onClick={() => setMealType(mt)}
-              className={clsx(
-                'flex flex-col items-center gap-1 rounded-xl border py-2.5 text-xs font-semibold',
-                mealType === mt ? 'border-transparent brand-fill' : 'border-border bg-text/5 text-text-muted'
-              )}
-            >
-              <span className="text-base">{MEAL_ICON[mt]}</span>
-              {MEAL_LABEL[mt]}
-            </button>
-          ))}
+          {MEAL_TYPES.map((mt) => {
+            const tag = MEAL_TAG_VARS[mt];
+            const selected = mealType === mt;
+            return (
+              <button
+                key={mt}
+                type="button"
+                onClick={() => setMealType(mt)}
+                className={clsx(
+                  'flex flex-col items-center gap-1 rounded-xl border py-2.5 text-xs font-bold transition-all',
+                  selected ? 'scale-[1.03] border-transparent' : 'border-border bg-text/5 text-text-muted'
+                )}
+                style={selected ? { background: tag.bg, color: tag.text } : undefined}
+              >
+                <span className="text-base">{MEAL_ICON[mt]}</span>
+                {MEAL_LABEL[mt]}
+              </button>
+            );
+          })}
         </div>
       </div>
 

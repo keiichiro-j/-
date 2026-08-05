@@ -16,6 +16,13 @@ export const MEAL_ICON: Record<MealType, string> = {
   snack: '🍪',
 };
 
+export const MEAL_TAG_VARS: Record<MealType, { bg: string; text: string }> = {
+  breakfast: { bg: 'var(--tag-breakfast-bg)', text: 'var(--tag-breakfast-text)' },
+  lunch: { bg: 'var(--tag-lunch-bg)', text: 'var(--tag-lunch-text)' },
+  dinner: { bg: 'var(--tag-dinner-bg)', text: 'var(--tag-dinner-text)' },
+  snack: { bg: 'var(--tag-snack-bg)', text: 'var(--tag-snack-text)' },
+};
+
 export interface FoodItem {
   id: string;
   name: string;

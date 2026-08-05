@@ -9,7 +9,15 @@ import PfcBar from '@/components/PfcBar';
 import { useMeals, useSettings } from '@/lib/hooks';
 import * as db from '@/lib/db';
 import { formatDateJa, todayKey } from '@/lib/date';
-import { MEAL_ICON, MEAL_LABEL, MEAL_TYPES, mealTotals, type MealEntry, type MealType } from '@/lib/types';
+import {
+  MEAL_ICON,
+  MEAL_LABEL,
+  MEAL_TAG_VARS,
+  MEAL_TYPES,
+  mealTotals,
+  type MealEntry,
+  type MealType,
+} from '@/lib/types';
 
 export default function HomePage() {
   const { meals, loading, error, refresh } = useMeals();
@@ -46,9 +54,11 @@ export default function HomePage() {
           <div className="mb-2 flex items-end justify-between">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wide text-text-faint">摂取カロリー</p>
-              <p className="text-3xl font-bold text-text">
+              <p className="font-display text-4xl font-bold text-text">
                 {totals.calories}
-                <span className="ml-1 text-sm font-medium text-text-faint">/ {settings.targetCalories} kcal</span>
+                <span className="ml-1 font-sans text-sm font-medium text-text-faint">
+                  / {settings.targetCalories} kcal
+                </span>
               </p>
             </div>
             <p className={clsx('text-xs font-semibold', over ? 'text-danger-text' : 'text-brand')}>
@@ -85,22 +95,33 @@ export default function HomePage() {
               const entries = entriesByType.get(mt) ?? [];
               const slotTotals = mealTotals(entries.flatMap((e) => e.items));
               const primary = entries[0];
+              const tag = MEAL_TAG_VARS[mt];
               return (
                 <button
                   key={mt}
                   onClick={() => setFormState({ mealType: mt, entry: primary })}
                   className="glass-card animate-pop-in flex flex-col overflow-hidden rounded-xl text-left"
                 >
-                  {primary?.photoDataUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={primary.photoDataUrl} alt={MEAL_LABEL[mt]} className="h-20 w-full object-cover" />
-                  ) : (
-                    <div className="flex h-20 w-full items-center justify-center bg-text/5 text-2xl">
-                      {MEAL_ICON[mt]}
-                    </div>
-                  )}
+                  <div className="relative h-20 w-full">
+                    {primary?.photoDataUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={primary.photoDataUrl} alt={MEAL_LABEL[mt]} className="h-full w-full object-cover" />
+                    ) : (
+                      <div
+                        className="flex h-full w-full items-center justify-center text-2xl"
+                        style={{ background: tag.bg, color: tag.text }}
+                      >
+                        {MEAL_ICON[mt]}
+                      </div>
+                    )}
+                    <span
+                      className="tag-chip absolute left-2 top-2"
+                      style={{ background: tag.bg, color: tag.text }}
+                    >
+                      {MEAL_LABEL[mt]}
+                    </span>
+                  </div>
                   <div className="p-2.5">
-                    <p className="text-xs font-semibold text-text-muted">{MEAL_LABEL[mt]}</p>
                     {entries.length > 0 ? (
                       <p className="text-sm font-bold text-text">
                         {slotTotals.calories} kcal
