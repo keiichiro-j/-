@@ -6,7 +6,6 @@ import clsx from 'clsx';
 import PageHeader from '@/components/PageHeader';
 import Modal from '@/components/Modal';
 import MealForm from '@/components/MealForm';
-import PfcBar from '@/components/PfcBar';
 import Mascot, { MASCOT_META } from '@/components/Mascot';
 import { useMeals, useSettings, useWeights } from '@/lib/hooks';
 import * as db from '@/lib/db';
@@ -58,46 +57,46 @@ export default function HomePage() {
 
   return (
     <div>
-      <PageHeader eyebrow="Today" title={formatDateJa(today)} subtitle="今日の食事を記録しましょう" />
+      <PageHeader eyebrow="Today" title={formatDateJa(today)} />
 
-      <div className="px-5 pb-4">
-        <Link href="/settings" className="glass-card animate-fade-up flex items-center gap-3 overflow-hidden rounded-xl p-4">
-          <div className="shrink-0">
-            <Mascot variant={variant} size={104} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-text">{MASCOT_META[variant].title}</p>
-            <p className="mt-0.5 text-xs leading-relaxed text-text-muted">{MASCOT_META[variant].message}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-text-faint">
-              {latestWeight && <span>体重 {latestWeight.weightKg}kg</span>}
-              {settings.heightCm && <span>身長 {settings.heightCm}cm</span>}
-              {bmi !== null && (
-                <span className="tag-chip" style={{ background: bmiCategory(bmi).colorVar, color: bmiCategory(bmi).textVar }}>
-                  BMI {bmi.toFixed(1)}
-                </span>
-              )}
-            </div>
+      <div className="px-5 pb-3">
+        <Link
+          href="/settings"
+          className="glass-card animate-fade-up flex flex-col items-center overflow-hidden rounded-2xl px-4 pb-4 pt-2 text-center"
+        >
+          <Mascot variant={variant} size={148} />
+          <p className="font-display -mt-1 text-lg font-bold text-text">{MASCOT_META[variant].title}</p>
+          <p className="mt-1 max-w-[260px] text-xs leading-relaxed text-text-muted">
+            {MASCOT_META[variant].message}
+          </p>
+          <div className="mt-2.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-text-faint">
+            {latestWeight && <span>体重 {latestWeight.weightKg}kg</span>}
+            {settings.heightCm && <span>身長 {settings.heightCm}cm</span>}
+            {bmi !== null && (
+              <span
+                className="tag-chip"
+                style={{ background: bmiCategory(bmi).colorVar, color: bmiCategory(bmi).textVar }}
+              >
+                BMI {bmi.toFixed(1)}
+              </span>
+            )}
           </div>
         </Link>
       </div>
 
-      <div className="px-5 pb-4">
-        <div className="glass-card animate-fade-up rounded-xl p-4">
-          <div className="mb-2 flex items-end justify-between">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-text-faint">摂取カロリー</p>
-              <p className="font-display text-4xl font-bold text-text">
-                {totals.calories}
-                <span className="ml-1 font-sans text-sm font-medium text-text-faint">
-                  / {settings.targetCalories} kcal
-                </span>
-              </p>
-            </div>
-            <p className={clsx('text-xs font-semibold', over ? 'text-danger-text' : 'text-brand')}>
+      <div className="px-5 pb-3">
+        <div className="glass-card animate-fade-up rounded-xl p-3">
+          <div className="mb-1.5 flex items-center justify-between">
+            <p className="text-xs font-semibold text-text-muted">
+              摂取カロリー
+              <span className="ml-1.5 font-display text-base font-bold text-text">{totals.calories}</span>
+              <span className="ml-0.5 text-[11px] text-text-faint">/ {settings.targetCalories} kcal</span>
+            </p>
+            <p className={clsx('text-[11px] font-semibold', over ? 'text-danger-text' : 'text-brand')}>
               {over ? `+${-diff} kcal 超過` : `残り ${diff} kcal`}
             </p>
           </div>
-          <div className="h-2.5 w-full overflow-hidden rounded-full bg-text/5">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-text/5">
             <div
               className="h-full rounded-full transition-all"
               style={{
@@ -105,9 +104,6 @@ export default function HomePage() {
                 background: over ? 'var(--viz-critical)' : 'var(--brand)',
               }}
             />
-          </div>
-          <div className="mt-4 border-t border-border pt-3">
-            <PfcBar protein={totals.protein} fat={totals.fat} carbs={totals.carbs} />
           </div>
         </div>
       </div>
@@ -118,11 +114,9 @@ export default function HomePage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 px-5 pb-8">
+      <div className="grid grid-cols-4 gap-2 px-5 pb-6">
         {loading
-          ? MEAL_TYPES.map((mt) => (
-              <div key={mt} className="glass-card h-32 animate-pulse rounded-xl" />
-            ))
+          ? MEAL_TYPES.map((mt) => <div key={mt} className="glass-card h-24 animate-pulse rounded-xl" />)
           : MEAL_TYPES.map((mt) => {
               const entries = entriesByType.get(mt) ?? [];
               const slotTotals = mealTotals(entries.flatMap((e) => e.items));
@@ -134,35 +128,25 @@ export default function HomePage() {
                   onClick={() => setFormState({ mealType: mt, entry: primary })}
                   className="glass-card animate-pop-in flex flex-col overflow-hidden rounded-xl text-left"
                 >
-                  <div className="relative h-20 w-full">
+                  <div className="relative h-12 w-full">
                     {primary?.photoDataUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={primary.photoDataUrl} alt={MEAL_LABEL[mt]} className="h-full w-full object-cover" />
                     ) : (
                       <div
-                        className="flex h-full w-full items-center justify-center text-2xl"
+                        className="flex h-full w-full items-center justify-center text-base"
                         style={{ background: tag.bg, color: tag.text }}
                       >
                         {MEAL_ICON[mt]}
                       </div>
                     )}
-                    <span
-                      className="tag-chip absolute left-2 top-2"
-                      style={{ background: tag.bg, color: tag.text }}
-                    >
-                      {MEAL_LABEL[mt]}
-                    </span>
                   </div>
-                  <div className="p-2.5">
+                  <div className="px-1.5 py-1.5 text-center">
+                    <p className="truncate text-[10px] font-semibold text-text-muted">{MEAL_LABEL[mt]}</p>
                     {entries.length > 0 ? (
-                      <p className="text-sm font-bold text-text">
-                        {slotTotals.calories} kcal
-                        {entries.length > 1 && (
-                          <span className="ml-1 text-[10px] font-medium text-text-faint">{entries.length}件</span>
-                        )}
-                      </p>
+                      <p className="text-[11px] font-bold text-text">{slotTotals.calories}kcal</p>
                     ) : (
-                      <p className="text-sm font-semibold text-brand">＋ 記録する</p>
+                      <p className="text-[11px] font-semibold text-brand">＋記録</p>
                     )}
                   </div>
                 </button>
