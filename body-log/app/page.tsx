@@ -61,8 +61,10 @@ export default function HomePage() {
       <PageHeader eyebrow="Today" title={formatDateJa(today)} subtitle="今日の食事を記録しましょう" />
 
       <div className="px-5 pb-4">
-        <Link href="/settings" className="glass-card animate-fade-up flex items-center gap-4 rounded-xl p-4">
-          <Mascot variant={variant} size={84} />
+        <Link href="/settings" className="glass-card animate-fade-up flex items-center gap-3 overflow-hidden rounded-xl p-4">
+          <div className="shrink-0">
+            <Mascot variant={variant} size={104} />
+          </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-bold text-text">{MASCOT_META[variant].title}</p>
             <p className="mt-0.5 text-xs leading-relaxed text-text-muted">{MASCOT_META[variant].message}</p>
