@@ -1,3 +1,4 @@
+import type { ComponentType } from 'react';
 import type { MascotVariant } from '@/lib/health';
 
 export const MASCOT_META: Record<MascotVariant, { color: string; title: string; message: string }> = {
@@ -28,130 +29,116 @@ export const MASCOT_META: Record<MascotVariant, { color: string; title: string; 
   },
 };
 
-const GREENS = ['#4f8f52', '#5fa85f', '#437a46', '#6bb56b'];
-
-interface LeafSpec {
-  x: number;
-  y: number;
-  rotate: number;
-  scale?: number;
-  colorIndex?: number;
-}
-
-function Leaf({ x, y, rotate, scale = 1, colorIndex = 0 }: LeafSpec) {
-  const gradId = `leaf-grad-${colorIndex}`;
+function Spines({ points }: { points: [number, number][] }) {
   return (
-    <g transform={`translate(${x},${y}) rotate(${rotate}) scale(${scale})`}>
-      <path
-        d="M0,0 C-17,-4 -25,-19 -13,-33 C-8,-40 -3,-42 0,-41 C3,-42 10,-39 13,-32 C24,-18 16,-4 0,0 Z"
-        fill={`url(#${gradId})`}
-      />
-      <path
-        d="M-3,-5 C-6,-15 -5,-26 -2,-36"
-        stroke="#ffffff"
-        strokeOpacity={0.16}
-        strokeWidth={2.4}
-        strokeLinecap="round"
-        fill="none"
-      />
-      <path d="M0,-2 C-1,-14 -1,-27 0,-38" stroke="#2f5330" strokeOpacity={0.42} strokeWidth={1.1} fill="none" />
-      <path
-        d="M0,-11 C-5,-15 -8,-18 -11,-21 M0,-19 C-4,-22 -6,-24 -9,-26 M0,-27 C-3,-29 -5,-31 -7,-32 M0,-11 C5,-15 8,-18 11,-21 M0,-19 C4,-22 6,-24 9,-26"
-        stroke="#2f5330"
-        strokeOpacity={0.32}
-        strokeWidth={0.9}
-        fill="none"
-      />
-      <circle cx={0} cy={1.5} r={2.2} fill="#3f6b42" />
-    </g>
-  );
-}
-
-function Flower({ x, y, bud = false }: { x: number; y: number; bud?: boolean }) {
-  if (bud) {
-    return (
-      <g transform={`translate(${x},${y})`}>
-        <path d="M0,10 C-7,2 -5,-11 0,-15 C5,-11 7,2 0,10 Z" fill="var(--tag-lunch-bg)" />
-        <path d="M0,8 C-3,2 -2,-8 0,-12" stroke="#ffffff" strokeOpacity={0.2} strokeWidth={1.4} fill="none" />
-      </g>
-    );
-  }
-  const petals = [0, 72, 144, 216, 288];
-  return (
-    <g transform={`translate(${x},${y})`}>
-      {petals.map((deg) => (
-        <ellipse key={deg} cx={0} cy={-10} rx={6.5} ry={9.5} fill="url(#petal-grad)" transform={`rotate(${deg})`} />
+    <g fill="#f5f0e6" opacity={0.8}>
+      {points.map(([x, y], i) => (
+        <circle key={i} cx={x} cy={y} r={1.1} />
       ))}
-      <circle r={6.5} fill="#e8a33d" />
-      <circle r={6.5} fill="url(#pollen-grad)" />
     </g>
   );
 }
 
-interface PlantConfig {
-  stemPath: string | null;
-  leaves: LeafSpec[];
-  topY: number;
-  flower: 'bloom' | 'bud' | 'none';
+/** 低体重: 一本の細い柱サボテン(まだ小さく発育途上) */
+function ColumnCactus() {
+  const ribXs = [94, 100, 106];
+  return (
+    <g>
+      <rect x={90} y={112} width={20} height={54} rx={10} fill="url(#cactus-grad)" />
+      <g stroke="#2f5330" strokeOpacity={0.4} strokeWidth={1.3}>
+        {ribXs.map((x) => (
+          <line key={x} x1={x} y1={114} x2={x} y2={164} />
+        ))}
+      </g>
+      <Spines points={[[93, 122], [107, 128], [93, 140], [107, 148], [100, 116], [100, 158]]} />
+    </g>
+  );
 }
 
-const PLANT: Record<MascotVariant, PlantConfig> = {
-  noData: { stemPath: null, leaves: [], topY: 160, flower: 'none' },
-  low: {
-    stemPath: 'M100,164 C99,148 103,132 109,120',
-    leaves: [
-      { x: 109, y: 121, rotate: 195, scale: 0.5, colorIndex: 2 },
-      { x: 102, y: 142, rotate: 30, scale: 0.42, colorIndex: 0 },
-    ],
-    topY: 118,
-    flower: 'none',
-  },
-  normal: {
-    stemPath: 'M100,164 C94,132 106,96 100,50',
-    leaves: [
-      { x: 100, y: 148, rotate: 25, scale: 0.95, colorIndex: 0 },
-      { x: 100, y: 148, rotate: 202, scale: 0.9, colorIndex: 1 },
-      { x: 99, y: 118, rotate: -22, scale: 1.0, colorIndex: 1 },
-      { x: 99, y: 118, rotate: 158, scale: 0.95, colorIndex: 2 },
-      { x: 100, y: 86, rotate: 20, scale: 0.85, colorIndex: 0 },
-      { x: 100, y: 86, rotate: 195, scale: 0.8, colorIndex: 3 },
-    ],
-    topY: 48,
-    flower: 'bloom',
-  },
-  obese1: {
-    stemPath: 'M100,164 C95,136 106,104 98,72',
-    leaves: [
-      { x: 100, y: 150, rotate: 28, scale: 1.05, colorIndex: 0 },
-      { x: 100, y: 150, rotate: 208, scale: 1.0, colorIndex: 1 },
-      { x: 100, y: 128, rotate: -18, scale: 1.1, colorIndex: 2 },
-      { x: 100, y: 122, rotate: 165, scale: 1.0, colorIndex: 0 },
-      { x: 98, y: 98, rotate: -30, scale: 1.05, colorIndex: 3 },
-      { x: 98, y: 96, rotate: 150, scale: 0.95, colorIndex: 1 },
-      { x: 98, y: 78, rotate: 15, scale: 0.85, colorIndex: 2 },
-    ],
-    topY: 70,
-    flower: 'bud',
-  },
-  obese2: {
-    stemPath: 'M100,164 C105,138 96,116 108,96',
-    leaves: [
-      { x: 100, y: 150, rotate: 100, scale: 1.35, colorIndex: 1 },
-      { x: 101, y: 150, rotate: 250, scale: 1.3, colorIndex: 0 },
-      { x: 104, y: 122, rotate: 80, scale: 1.4, colorIndex: 2 },
-      { x: 107, y: 100, rotate: 260, scale: 1.25, colorIndex: 3 },
-    ],
-    topY: 96,
-    flower: 'none',
-  },
+/** 標準体重: まるい玉サボテン + 花 */
+function BallCactus() {
+  const ribs: { x: number; y1: number; y2: number }[] = [
+    { x: 70, y1: 118, y2: 152 },
+    { x: 80, y1: 106, y2: 164 },
+    { x: 90, y1: 101, y2: 169 },
+    { x: 100, y1: 99, y2: 171 },
+    { x: 110, y1: 101, y2: 169 },
+    { x: 120, y1: 106, y2: 164 },
+    { x: 130, y1: 118, y2: 152 },
+  ];
+  return (
+    <g>
+      <ellipse cx={100} cy={135} rx={34} ry={36} fill="url(#cactus-grad)" />
+      <g stroke="#2f5330" strokeOpacity={0.35} strokeWidth={1.3}>
+        {ribs.map((r) => (
+          <line key={r.x} x1={r.x} y1={r.y1} x2={r.x} y2={r.y2} />
+        ))}
+      </g>
+      <Spines
+        points={[
+          [80, 118], [80, 148], [90, 110], [90, 158], [100, 106], [100, 162], [110, 110], [110, 158], [120, 118], [120, 148],
+        ]}
+      />
+    </g>
+  );
+}
+
+/** 肥満(1度): 腕の生えたサボテン(すくすく育っている途中) */
+function ArmCactus() {
+  const trunkRibs = [90, 96, 102, 108];
+  const armRibs = [122, 126, 130];
+  return (
+    <g>
+      <rect x={104} y={90} width={30} height={15} rx={7.5} fill="url(#cactus-grad)" />
+      <rect x={118} y={48} width={17} height={50} rx={8.5} fill="url(#cactus-grad)" />
+      <rect x={85} y={56} width={26} height={110} rx={13} fill="url(#cactus-grad)" />
+      <g stroke="#2f5330" strokeOpacity={0.38} strokeWidth={1.3}>
+        {trunkRibs.map((x) => (
+          <line key={x} x1={x} y1={58} x2={x} y2={164} />
+        ))}
+        {armRibs.map((x) => (
+          <line key={x} x1={x} y1={51} x2={x} y2={96} />
+        ))}
+      </g>
+      <Spines
+        points={[
+          [88, 80], [112, 90], [88, 110], [112, 130], [88, 140], [121, 60], [131, 70], [121, 85],
+        ]}
+      />
+    </g>
+  );
+}
+
+/** 肥満(2度以上): うちわサボテン(バニーカクタス、ふっくらと丸い) */
+function PricklyPear() {
+  return (
+    <g>
+      <ellipse cx={100} cy={150} rx={30} ry={34} fill="url(#cactus-grad)" />
+      <ellipse cx={77} cy={99} rx={22} ry={28} fill="url(#cactus-grad)" transform="rotate(-14 77 99)" />
+      <ellipse cx={119} cy={103} rx={20} ry={26} fill="url(#cactus-grad)" transform="rotate(13 119 103)" />
+      <Spines
+        points={[
+          [88, 140], [112, 155], [95, 168], [70, 95], [82, 110], [66, 105], [113, 96], [125, 112], [110, 118],
+        ]}
+      />
+    </g>
+  );
+}
+
+const CACTUS: Record<MascotVariant, ComponentType | null> = {
+  noData: null,
+  low: ColumnCactus,
+  normal: BallCactus,
+  obese1: ArmCactus,
+  obese2: PricklyPear,
 };
 
 export default function Mascot({ variant, size = 100 }: { variant: MascotVariant; size?: number }) {
   const color = MASCOT_META[variant].color;
-  const plant = PLANT[variant];
   const potGradId = `pot-grad-${variant}`;
   const soilGradId = `soil-grad-${variant}`;
   const height = Math.round(size * 1.2);
+  const CactusBody = CACTUS[variant];
 
   return (
     <svg width={size} height={height} viewBox="0 0 200 240" role="img" aria-label={MASCOT_META[variant].title}>
@@ -168,42 +155,32 @@ export default function Mascot({ variant, size = 100 }: { variant: MascotVariant
           <stop offset="0" stopColor="#5a4530" />
           <stop offset="1" stopColor="#2f2115" />
         </radialGradient>
-        <linearGradient id="stem-grad" x1="0" y1="164" x2="0" y2="40" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#5f6b34" />
-          <stop offset="1" stopColor="#6fb56f" />
+        <linearGradient id="cactus-grad" x1="0.15" y1="0" x2="0.65" y2="1">
+          <stop offset="0" stopColor="#7ec37e" />
+          <stop offset="1" stopColor="#3d7a40" />
         </linearGradient>
-        <linearGradient id="petal-grad" x1="0" y1="1" x2="0.4" y2="0">
-          <stop offset="0" stopColor="#e8b93f" />
-          <stop offset="1" stopColor="#f8de7c" />
-        </linearGradient>
-        <radialGradient id="pollen-grad" cx="0.35" cy="0.3" r="0.7">
-          <stop offset="0" stopColor="#ffffff" stopOpacity={0.35} />
-          <stop offset="1" stopColor="#ffffff" stopOpacity={0} />
+        <radialGradient id="petal-grad" cx="0.35" cy="0.25" r="0.8">
+          <stop offset="0" stopColor="#f8de7c" />
+          <stop offset="1" stopColor="#e8b93f" />
         </radialGradient>
-        {GREENS.map((c, i) => (
-          <linearGradient key={i} id={`leaf-grad-${i}`} x1="0.1" y1="0" x2="0.6" y2="1">
-            <stop offset="0" stopColor={`color-mix(in srgb, ${c}, white 28%)`} />
-            <stop offset="1" stopColor={`color-mix(in srgb, ${c}, black 20%)`} />
-          </linearGradient>
-        ))}
       </defs>
 
       {/* ground shadow */}
       <ellipse cx={100} cy={233} rx={50} ry={7} fill="var(--text)" opacity={0.18} filter="url(#mascot-soft-blur)" />
 
-      {/* stem */}
-      {plant.stemPath && (
-        <path d={plant.stemPath} stroke="url(#stem-grad)" strokeWidth={5.5} strokeLinecap="round" fill="none" />
+      {/* cactus body (drawn behind the pot rim/soil so its base tucks under the soil line) */}
+      {CactusBody && <CactusBody />}
+      {variant === 'normal' && (
+        <g transform="translate(100,97)">
+          {[0, 72, 144, 216, 288].map((deg) => (
+            <ellipse key={deg} cx={0} cy={-9} rx={6} ry={8.5} fill="url(#petal-grad)" transform={`rotate(${deg})`} />
+          ))}
+          <circle r={5.5} fill="#e8933d" />
+        </g>
       )}
-      {plant.leaves.map((leaf, i) => (
-        <Leaf key={i} {...leaf} />
-      ))}
-      {plant.flower === 'bloom' && <Flower x={100} y={plant.topY} />}
-      {plant.flower === 'bud' && <Flower x={98} y={plant.topY} bud />}
 
       {/* pot */}
       <path d="M62,166 L138,166 L126,224 Q100,232 74,224 Z" fill={`url(#${potGradId})`} />
-      {/* subtle ceramic ridge shading */}
       <g stroke="var(--text)" strokeOpacity={0.06} strokeWidth={1.4} fill="none">
         <path d="M78,170 C76,190 77,208 80,222" />
         <path d="M100,170 C99,192 100,210 100,224" />
@@ -212,15 +189,13 @@ export default function Mascot({ variant, size = 100 }: { variant: MascotVariant
       <g stroke="#ffffff" strokeOpacity={0.14} strokeWidth={1.2} fill="none">
         <path d="M70,172 C68,192 69,208 72,220" />
       </g>
-      {/* rim */}
       <ellipse cx={100} cy={166} rx={38} ry={7} fill={`url(#${potGradId})`} />
       <path d="M66,163 A34,6 0 0 1 96,159.5" stroke="#ffffff" strokeOpacity={0.4} strokeWidth={2} strokeLinecap="round" fill="none" />
-      {/* soil */}
       <ellipse cx={100} cy={166} rx={32} ry={5} fill={`url(#${soilGradId})`} />
       <circle cx={92} cy={165} r={1.6} fill="#1f160e" opacity={0.7} />
       <circle cx={110} cy={167} r={1.3} fill="#1f160e" opacity={0.6} />
       <circle cx={85} cy={168} r={1} fill="#1f160e" opacity={0.5} />
-      {/* specular highlight on the shoulder */}
+      {variant === 'noData' && <ellipse cx={100} cy={164} rx={5} ry={3.5} fill="#6b4a2f" />}
       <ellipse cx={78} cy={182} rx={11} ry={17} fill="#ffffff" opacity={0.16} />
     </svg>
   );
