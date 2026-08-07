@@ -1,0 +1,164 @@
+<style>
+  :root {
+    --paper: #F1F3F4;
+    --surface: #FFFFFF;
+    --surface-alt: #EEF1F2;
+    --ink: #16212B;
+    --ink-soft: #57646F;
+    --line: #DBE1E4;
+    --indigo: #2B4A73;
+    --indigo-soft: #E4EAF1;
+    --shu: #B23B2A;
+    --radius: 10px;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN",
+      "Yu Gothic Medium", "Yu Gothic", "Noto Sans JP", "Meiryo", sans-serif;
+    line-height: 1.7;
+  }
+
+  .page {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  .page__head { margin-bottom: 28px; }
+  .eyebrow {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 8px;
+  }
+  h1 { font-size: 24px; margin: 0 0 8px; letter-spacing: -0.01em; }
+  .lead { margin: 0; color: var(--ink-soft); font-size: 14.5px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .card__head { margin-bottom: 16px; }
+  .card__head h2 { font-size: 17px; margin: 0 0 4px; }
+  .muted { color: var(--ink-soft); font-size: 12.5px; margin: 0; }
+
+  .fieldRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 4px;
+  }
+  .field { flex: 1; min-width: 200px; }
+  .field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .field .req { color: var(--shu); font-weight: 500; font-size: 11px; }
+
+  input, select {
+    width: 100%;
+    padding: 9px 10px;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+  }
+  input:focus, select:focus {
+    outline: 2px solid var(--indigo);
+    outline-offset: 1px;
+    border-color: var(--indigo);
+  }
+  input.is-invalid { border-color: var(--shu); background: #FBEDEA; }
+
+  .tableScroll { overflow-x: auto; margin-bottom: 14px; }
+  table { width: 100%; border-collapse: collapse; min-width: 1280px; }
+  th, td {
+    border-bottom: 1px solid var(--line);
+    padding: 6px;
+    text-align: center;
+    font-size: 12.5px;
+  }
+  thead th {
+    background: var(--surface-alt);
+    color: var(--ink-soft);
+    font-weight: 600;
+    font-size: 11.5px;
+    white-space: nowrap;
+    border-top: 1px solid var(--line);
+  }
+  thead th:first-child { border-top-left-radius: 6px; }
+  thead th:last-child { border-top-right-radius: 6px; }
+  td input, td select { padding: 6px; font-size: 12.5px; text-align: center; }
+  .colNo { width: 28px; }
+  .colWide { min-width: 140px; }
+  .colRegDate { min-width: 110px; }
+  .colDel { width: 32px; }
+  .colRegDate.is-hidden, td.cell-regdate.is-hidden { display: none; }
+
+  .btnRemoveRow {
+    border: none;
+    background: transparent;
+    color: var(--ink-soft);
+    font-size: 16px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 4px;
+  }
+  .btnRemoveRow:hover { color: var(--shu); }
+
+  .btn {
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 18px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    cursor: pointer;
+  }
+  .btn--ghost {
+    background: var(--surface);
+    border-color: var(--line);
+    color: var(--indigo);
+  }
+  .btn--ghost:hover { background: var(--indigo-soft); }
+  .btn--primary {
+    background: var(--indigo);
+    color: #fff;
+    width: 100%;
+    padding: 15px 20px;
+    font-size: 16px;
+    border-radius: var(--radius);
+  }
+  .btn--primary:disabled { background: #9DB0C6; cursor: not-allowed; }
+
+  .submitBar { margin-top: 8px; }
+  .result {
+    margin-top: 14px;
+    font-size: 14px;
+    text-align: center;
+  }
+  .result.-pending { color: var(--indigo); }
+  .result.-success { color: #1E7A46; }
+  .result.-error { color: var(--shu); white-space: pre-line; }
+  .result a { color: var(--indigo); }
+
+  @media (max-width: 700px) {
+    .page { padding: 24px 16px 60px; }
+    .card { padding: 18px; }
+  }
+</style>

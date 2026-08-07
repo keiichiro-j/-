@@ -1,0 +1,196 @@
+<script>
+  var MAX_VEHICLES = 10;
+  var INITIAL_VEHICLE_ROWS = 3;
+  var rowSeq = 0;
+
+  function createVehicleRow() {
+    rowSeq++;
+    var tr = document.createElement('tr');
+    tr.className = 'vehicleRow';
+    tr.innerHTML =
+      '<td class="cell-no"></td>' +
+      '<td class="cell-regdate"><input type="date" class="v-indivRegDate"></td>' +
+      '<td><input type="text" class="v-userName" list="dl-usernames" autocomplete="off" placeholder="例: 岐阜 太郎"></td>' +
+      '<td><input type="text" class="v-chassis" placeholder="1234" maxlength="4" inputmode="numeric"></td>' +
+      '<td><input type="text" class="v-model" placeholder="DBA-123"></td>' +
+      '<td><input type="text" class="v-classNum" placeholder="12345-0001"></td>' +
+      '<td><input type="number" class="v-autoTax" min="0" step="1" placeholder="0"></td>' +
+      '<td><input type="number" class="v-envTax" min="0" step="1" placeholder="0"></td>' +
+      '<td><input type="number" class="v-weightTax" min="0" step="1" placeholder="0"></td>' +
+      selectCell_('v-hopeNum') +
+      selectCell_('v-yobi') +
+      selectCell_('v-honken') +
+      selectCell_('v-shinsho') +
+      '<td><input type="text" class="v-person" list="dl-persons" autocomplete="off" placeholder="山田"></td>' +
+      '<td><button type="button" class="btnRemoveRow" title="この行を削除" aria-label="この行を削除">&times;</button></td>';
+    return tr;
+  }
+
+  function selectCell_(cls) {
+    return '<td><select class="' + cls + '"><option value=""></option><option value="〇">〇</option></select></td>';
+  }
+
+  function renumberRows() {
+    var rows = document.querySelectorAll('#vehicleTableBody .vehicleRow');
+    rows.forEach(function (tr, i) {
+      tr.querySelector('.cell-no').textContent = i + 1;
+    });
+  }
+
+  function addVehicleRow() {
+    var body = document.getElementById('vehicleTableBody');
+    if (body.querySelectorAll('.vehicleRow').length >= MAX_VEHICLES) return;
+    body.appendChild(createVehicleRow());
+    renumberRows();
+    updateAddRowButtonState();
+  }
+
+  function updateAddRowButtonState() {
+    var count = document.querySelectorAll('#vehicleTableBody .vehicleRow').length;
+    var btn = document.getElementById('btnAddRow');
+    btn.disabled = count >= MAX_VEHICLES;
+    btn.textContent = count >= MAX_VEHICLES ? '最大' + MAX_VEHICLES + '台まで入力できます' : '＋ 行を追加';
+  }
+
+  document.getElementById('vehicleTableBody').addEventListener('click', function (e) {
+    if (e.target.classList.contains('btnRemoveRow')) {
+      var body = document.getElementById('vehicleTableBody');
+      if (body.querySelectorAll('.vehicleRow').length <= 1) return;
+      e.target.closest('tr').remove();
+      renumberRows();
+      updateAddRowButtonState();
+    }
+  });
+
+  document.getElementById('btnAddRow').addEventListener('click', addVehicleRow);
+
+  // OSSと紙で「登録日」の入力方法を切り替える
+  function toggleRegDateMode() {
+    var type = document.getElementById('type').value;
+    var isOss = type === 'OSS';
+
+    document.getElementById('commonRegDateField').style.display = isOss ? 'none' : '';
+    document.getElementById('regDateCommon').required = !isOss;
+
+    document.querySelectorAll('.colRegDate, .cell-regdate').forEach(function (el) {
+      el.classList.toggle('is-hidden', !isOss);
+    });
+  }
+  document.getElementById('type').addEventListener('change', toggleRegDateMode);
+
+  function populateSuggestions(data) {
+    fillDatalist_('dl-companies', data.companies);
+    fillDatalist_('dl-managers', data.managers);
+    fillDatalist_('dl-usernames', data.userNames);
+    fillDatalist_('dl-persons', data.persons);
+  }
+
+  function fillDatalist_(id, values) {
+    var dl = document.getElementById(id);
+    dl.innerHTML = '';
+    (values || []).forEach(function (v) {
+      var opt = document.createElement('option');
+      opt.value = v;
+      dl.appendChild(opt);
+    });
+  }
+
+  function collectVehicles_() {
+    var rows = document.querySelectorAll('#vehicleTableBody .vehicleRow');
+    var vehicles = [];
+    rows.forEach(function (row) {
+      vehicles.push({
+        indivRegDate: row.querySelector('.v-indivRegDate').value,
+        userName: row.querySelector('.v-userName').value.trim(),
+        chassis: row.querySelector('.v-chassis').value.trim(),
+        model: row.querySelector('.v-model').value.trim(),
+        classNum: row.querySelector('.v-classNum').value.trim(),
+        autoTax: row.querySelector('.v-autoTax').value,
+        envTax: row.querySelector('.v-envTax').value,
+        weightTax: row.querySelector('.v-weightTax').value,
+        hopeNum: row.querySelector('.v-hopeNum').value,
+        yobi: row.querySelector('.v-yobi').value,
+        honken: row.querySelector('.v-honken').value,
+        shinsho: row.querySelector('.v-shinsho').value,
+        person: row.querySelector('.v-person').value.trim()
+      });
+    });
+    return vehicles;
+  }
+
+  function clearInvalid_() {
+    document.querySelectorAll('.is-invalid').forEach(function (el) { el.classList.remove('is-invalid'); });
+  }
+
+  function highlightRequired_() {
+    var ok = true;
+    ['company', 'manager', 'sendDate'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (!el.value.trim()) { el.classList.add('is-invalid'); ok = false; }
+    });
+    var regDateCommon = document.getElementById('regDateCommon');
+    if (document.getElementById('type').value === '紙' && !regDateCommon.value) {
+      regDateCommon.classList.add('is-invalid');
+      ok = false;
+    }
+    return ok;
+  }
+
+  function setResult_(text, kind) {
+    var el = document.getElementById('result');
+    el.className = 'result' + (kind ? ' -' + kind : '');
+    el.innerHTML = text;
+  }
+
+  function submitForm(e) {
+    e.preventDefault();
+    clearInvalid_();
+
+    var hasActiveVehicle = collectVehicles_().some(function (v) { return v.userName !== ''; });
+    var requiredOk = highlightRequired_();
+    if (!requiredOk) {
+      setResult_('必須項目が未入力です（赤枠の項目を確認してください）', 'error');
+      return;
+    }
+    if (!hasActiveVehicle) {
+      setResult_('車両データを1台以上入力してください（使用車名が必須です）', 'error');
+      return;
+    }
+
+    var formData = {
+      type: document.getElementById('type').value,
+      company: document.getElementById('company').value.trim(),
+      manager: document.getElementById('manager').value.trim(),
+      sendDate: document.getElementById('sendDate').value,
+      regDateCommon: document.getElementById('regDateCommon').value,
+      vehicles: collectVehicles_()
+    };
+
+    var btn = document.getElementById('btnSubmit');
+    btn.disabled = true;
+    setResult_('処理中です。履歴に記録し、PDFを作成しています…', 'pending');
+
+    google.script.run
+      .withSuccessHandler(function (pdfUrl) {
+        btn.disabled = false;
+        setResult_(
+          '完了しました。PDFを自動で開きます。<br>開かない場合は <a href="' + pdfUrl + '" target="_blank">こちら</a> をクリックしてください。',
+          'success'
+        );
+        window.open(pdfUrl, '_blank');
+      })
+      .withFailureHandler(function (error) {
+        btn.disabled = false;
+        setResult_('エラーが発生しました:\n' + error.message, 'error');
+      })
+      .processFormData(formData);
+  }
+
+  document.getElementById('mainForm').addEventListener('submit', submitForm);
+
+  window.onload = function () {
+    for (var i = 0; i < INITIAL_VEHICLE_ROWS; i++) addVehicleRow();
+    toggleRegDateMode();
+    google.script.run.withSuccessHandler(populateSuggestions).getSuggestions();
+  };
+</script>
