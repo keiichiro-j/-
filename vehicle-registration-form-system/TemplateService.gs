@@ -25,16 +25,20 @@ function duplicateTemplateSheet_(ss, type, submissionId) {
 function writeCommonFields_(sheet, type, formData) {
   sheet.getRange(COMMON_CELLS.company).setValue(formData.company);
   sheet.getRange(COMMON_CELLS.manager).setValue(formData.manager);
-
-  var sendDate = parseDateOnly_(formData.sendDate);
-  sheet.getRange(COMMON_CELLS.sendDateMonth).setValue(sendDate.getMonth() + 1);
-  sheet.getRange(COMMON_CELLS.sendDateDay).setValue(sendDate.getDate());
+  sheet.getRange(COMMON_CELLS.sendDate).setValue(formatMonthDay_(formData.sendDate));
 
   if (type === TYPE_PAPER && isValidDateStr_(formData.regDateCommon)) {
-    var regDate = parseDateOnly_(formData.regDateCommon);
-    sheet.getRange(COMMON_CELLS.regDateCommonMonth).setValue(regDate.getMonth() + 1);
-    sheet.getRange(COMMON_CELLS.regDateCommonDay).setValue(regDate.getDate());
+    sheet.getRange(COMMON_CELLS.regDateCommon).setValue(formatMonthDay_(formData.regDateCommon));
   }
+}
+
+/**
+ * "YYYY-MM-DD" を「M/D」形式の表示用文字列にする。不正/空なら空文字。
+ */
+function formatMonthDay_(dateStr) {
+  if (!isValidDateStr_(dateStr)) return '';
+  var d = parseDateOnly_(dateStr);
+  return (d.getMonth() + 1) + '/' + d.getDate();
 }
 
 function writeVehicleRows_(sheet, type, vehicles) {
@@ -43,12 +47,7 @@ function writeVehicleRows_(sheet, type, vehicles) {
 
   vehicles.forEach(function (car) {
     if (type === TYPE_OSS) {
-      var formatted = '';
-      if (isValidDateStr_(car.indivRegDate)) {
-        var d = parseDateOnly_(car.indivRegDate);
-        formatted = (d.getMonth() + 1) + '/' + d.getDate();
-      }
-      sheet.getRange(row, columns.indivRegDate).setValue(formatted);
+      sheet.getRange(row, columns.indivRegDate).setValue(formatMonthDay_(car.indivRegDate));
     }
     sheet.getRange(row, columns.userName).setValue(car.userName);
     sheet.getRange(row, columns.chassis).setValue(car.chassis);
@@ -67,14 +66,14 @@ function writeVehicleRows_(sheet, type, vehicles) {
 }
 
 /**
- * 対象シートのみをA4縦・グリッド線なしでPDF化してBlobを返す。
+ * 対象シートのみをA4横・グリッド線なしでPDF化してBlobを返す。
  */
 function exportSheetAsPdfBlob_(ss, sheet) {
   SpreadsheetApp.flush();
 
   var url = 'https://docs.google.com/spreadsheets/d/' + ss.getId() + '/export' +
     '?exportFormat=pdf&format=pdf' +
-    '&size=A4&portrait=true&fitw=true' +
+    '&size=A4&portrait=false&fitw=true' +
     '&sheetnames=false&printtitle=false&pagenumbers=false' +
     '&gridlines=false&fzr=false&gid=' + sheet.getSheetId();
 

@@ -23,47 +23,63 @@ var SHEET_NAMES = {
   PAPER_TEMPLATE: '新車新規登録依頼書（書類送付書）紙'
 };
 
-// 共通項目のセル位置
+// 共通項目のセル位置（会社名・担当責任者は横幅いっぱいの結合セル、日付は「M/D」形式の単一セル）
 var COMMON_CELLS = {
-  company: 'AE2',
-  manager: 'AE3',
-  sendDateMonth: 'AD5',
-  sendDateDay: 'AE5',
-  regDateCommonMonth: 'Q4',
-  regDateCommonDay: 'V4'
+  company: 'E2',
+  manager: 'E3',
+  sendDate: 'E4',
+  regDateCommon: 'E5' // 紙登録のみ使用
 };
 
 // 車両1台分のフィールド -> 列番号（テンプレートのセル位置。OSS/紙でずれる）
+// 旧実装は実物の紙の依頼書に合わせて歯抜けの列番号だったが、実物が無いため連番に詰めている。
 var VEHICLE_COLUMNS = {
   OSS: {
     indivRegDate: 3,  // C: 登録日
     userName: 4,      // D: 使用車名
     chassis: 5,       // E: 車台番号
-    model: 9,         // I: 型式
-    classNum: 14,      // N: 類別番号
-    autoTax: 18,       // R: 自動車税
-    envTax: 22,        // V: 環境性能割
-    weightTax: 27,     // AA: 重量税
-    hopeNum: 31,       // AE: 希望ナンバー
-    yobi: 32,          // AF: 予備検登録車
-    honken: 33,        // AG: 本検登録車
-    shinsho: 34,       // AH: 身障者減免車
-    person: 35         // AI: 担当者
+    model: 6,         // F: 型式
+    classNum: 7,       // G: 類別番号
+    autoTax: 8,        // H: 自動車税
+    envTax: 9,         // I: 環境性能割
+    weightTax: 10,     // J: 重量税
+    hopeNum: 11,       // K: 希望ナンバー
+    yobi: 12,          // L: 予備検登録車
+    honken: 13,        // M: 本検登録車
+    shinsho: 14,       // N: 身障者減免車
+    person: 15         // O: 担当者
   },
   PAPER: {
     userName: 3,       // C: 使用車名
     chassis: 4,        // D: 車台番号
-    model: 8,          // H: 型式
-    classNum: 13,       // M: 類別番号
-    autoTax: 17,        // Q: 自動車税
-    envTax: 21,         // U: 環境性能割
-    weightTax: 26,      // Z: 重量税
-    hopeNum: 30,        // AD: 希望ナンバー
-    yobi: 31,           // AE: 予備検登録車
-    honken: 32,         // AF: 本検登録車
-    shinsho: 33,        // AG: 身障者減免車
-    person: 34          // AH: 担当者
+    model: 5,          // E: 型式
+    classNum: 6,        // F: 類別番号
+    autoTax: 7,          // G: 自動車税
+    envTax: 8,           // H: 環境性能割
+    weightTax: 9,        // I: 重量税
+    hopeNum: 10,         // J: 希望ナンバー
+    yobi: 11,            // K: 予備検登録車
+    honken: 12,          // L: 本検登録車
+    shinsho: 13,         // M: 身障者減免車
+    person: 14           // N: 担当者
   }
+};
+
+// 車両欄の列ごとの推奨幅(px)。SetupService.gs のテンプレート生成で使用する。
+var FIELD_WIDTHS = {
+  indivRegDate: 58,
+  userName: 130,
+  chassis: 72,
+  model: 100,
+  classNum: 100,
+  autoTax: 68,
+  envTax: 72,
+  weightTax: 68,
+  hopeNum: 56,
+  yobi: 56,
+  honken: 56,
+  shinsho: 56,
+  person: 74
 };
 
 var TAX_LABELS = {
