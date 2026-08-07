@@ -2,7 +2,7 @@
  * SetupService.gs
  * 実物のテンプレートシートが手元にない場合に、Constants.gs のセル位置定義から
  * 逆算して雛形シート(OSS用/紙用)を自動生成する。GASエディタから
- * setupTemplateSheets_() を一度だけ手動実行する。
+ * setupTemplateSheets() を一度だけ手動実行する。
  *
  * 生成されるのはあくまで「動作する最低限のレイアウト」。罫線の太さ・結合セル・
  * 印刷範囲などは、生成後に見た目を見ながら手で調整してよい(Constants.gs の
@@ -56,7 +56,7 @@ var PAPER_FIELD_LABELS = {
  * GASエディタの関数選択プルダウンからこれを選んで実行する(初回セットアップ用、1回だけでよい)。
  * 再実行すると両方のシートを作り直す(既存の内容は消える)ので、運用開始後は実行しないこと。
  */
-function setupTemplateSheets_() {
+function setupTemplateSheets() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
 
   buildOssTemplateSheet_(getOrCreateSheetForSetup_(ss, SHEET_NAMES.OSS_TEMPLATE));
