@@ -13,16 +13,16 @@
  * セル位置さえ変えなければ、処理には影響しない)。
  *
  * デザインは「1システム・2フォーマット」として、両シートで同じ配色
- * (アクセントカラー1色)を使い、右上のバッジ文字(OSS / 紙)だけで見分ける。
+ * (チャコール+アクセントブルー1色)を使い、右上のバッジ文字(OSS / 紙)だけで見分ける。
  */
 
 var THEME = {
-  primary: '#2B4A73',       // バナー・見出し・アクセント
-  primaryDark: '#1D3555',   // バッジ(タイプ表示)の濃色
-  primaryTint: '#E4EAF1',   // ラベルセルの薄色背景
-  gridLine: '#C9D2D8',      // 表の罫線(黒より柔らかい色)
-  zebra: '#F5F7F9',         // データ行の交互背景
-  ink: '#16212B'
+  charcoal: '#14161A',      // バナー・表見出しの濃色地
+  accent: '#2F6FED',        // バッジ・記入欄の下線・バナー下の帯(差し色)
+  labelBg: '#EEF0F3',       // ラベルセルの薄色背景(ニュートラルなグレー)
+  gridLine: '#C7CBD1',      // 表の罫線
+  zebra: '#F5F6F8',         // データ行の交互背景
+  ink: '#14161A'
 };
 
 var DISPLAY_TITLE = '新車新規登録依頼書';
@@ -125,6 +125,8 @@ function ensureColumns_(sheet, minCols) {
 
 /**
  * タイトルバー(左: タイトル文字、右: OSS/紙のバッジ)を1行目に描画する。
+ * チャコール地に白文字、バッジだけをアクセントブルーで抜いて目を引かせる。
+ * 下端にアクセントブルーの帯を1本通し、バナー自体をロゴマーク的に見せる。
  * 車両データ欄の幅(maxCol)いっぱいに合わせる(縦向きより横に長いA4横印刷を想定)。
  */
 function setBanner_(sheet, maxCol, badgeText) {
@@ -135,22 +137,24 @@ function setBanner_(sheet, maxCol, badgeText) {
   var titleRange = sheet.getRange(1, 1, 1, titleEnd);
   titleRange.merge();
   titleRange.setValue('  ' + DISPLAY_TITLE);
-  titleRange.setBackground(THEME.primary);
+  titleRange.setBackground(THEME.charcoal);
   titleRange.setFontColor('#FFFFFF');
   titleRange.setFontWeight('bold');
   titleRange.setFontSize(16);
   titleRange.setHorizontalAlignment('left');
   titleRange.setVerticalAlignment('middle');
+  titleRange.setBorder(false, false, true, false, false, false, THEME.accent, SpreadsheetApp.BorderStyle.SOLID_THICK);
 
   var badgeRange = sheet.getRange(1, titleEnd + 1, 1, badgeWidth);
   badgeRange.merge();
   badgeRange.setValue(badgeText);
-  badgeRange.setBackground(THEME.primaryDark);
+  badgeRange.setBackground(THEME.accent);
   badgeRange.setFontColor('#FFFFFF');
   badgeRange.setFontWeight('bold');
   badgeRange.setFontSize(13);
   badgeRange.setHorizontalAlignment('center');
   badgeRange.setVerticalAlignment('middle');
+  badgeRange.setBorder(false, false, true, false, false, false, THEME.accent, SpreadsheetApp.BorderStyle.SOLID_THICK);
 
   sheet.setRowHeight(1, 32);
 }
@@ -188,10 +192,10 @@ function setFieldLabel_(sheet, row, text) {
   var range = sheet.getRange(row, 3, 1, 2); // C:D
   range.merge();
   range.setValue(text);
-  range.setBackground(THEME.primaryTint);
-  range.setFontColor(THEME.primary);
+  range.setBackground(THEME.labelBg);
+  range.setFontColor(THEME.ink);
   range.setFontWeight('bold');
-  range.setFontSize(10.5);
+  range.setFontSize(10);
   range.setHorizontalAlignment('right');
   range.setVerticalAlignment('middle');
 }
@@ -208,7 +212,7 @@ function setDateValueCell_(sheet, a1) {
 }
 
 function styleValueCell_(range) {
-  range.setBorder(false, false, true, false, false, false, THEME.primary, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+  range.setBorder(false, false, true, false, false, false, THEME.accent, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
   range.setFontColor(THEME.ink);
   range.setFontWeight('bold');
   range.setFontSize(11);
@@ -224,7 +228,7 @@ function buildVehicleTableHeader_(sheet, columns, labels) {
     var col = columns[key];
     var cell = sheet.getRange(7, col);
     cell.setValue(labels[key] || key);
-    cell.setBackground(THEME.primary);
+    cell.setBackground(THEME.charcoal);
     cell.setFontColor('#FFFFFF');
     cell.setFontWeight('bold');
     cell.setFontSize(10.5);

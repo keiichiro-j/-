@@ -1,15 +1,17 @@
 <style>
   :root {
-    --paper: #F1F3F4;
+    --charcoal: #14161A;
+    --charcoal-soft: #22252B;
+    --paper: #F4F5F7;
     --surface: #FFFFFF;
-    --surface-alt: #EEF1F2;
-    --ink: #16212B;
-    --ink-soft: #57646F;
-    --line: #DBE1E4;
-    --indigo: #2B4A73;
-    --indigo-soft: #E4EAF1;
-    --shu: #B23B2A;
-    --radius: 10px;
+    --surface-alt: #ECEEF1;
+    --ink: #14161A;
+    --ink-soft: #5B6169;
+    --line: #DADDE2;
+    --accent: #2F6FED;
+    --accent-soft: #E7EEFD;
+    --shu: #D0332B;
+    --radius: 4px;
   }
 
   * { box-sizing: border-box; }
@@ -23,23 +25,46 @@
     line-height: 1.7;
   }
 
+  /* ---------- masthead ---------- */
+
+  .masthead {
+    background: var(--charcoal);
+    border-bottom: 3px solid var(--accent);
+  }
+  .masthead__inner {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 44px 24px 30px;
+  }
+  .eyebrow {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 10px;
+  }
+  h1 {
+    font-size: 25px;
+    font-weight: 800;
+    color: #FFFFFF;
+    margin: 0 0 8px;
+    letter-spacing: -0.01em;
+  }
+  .lead {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.68);
+    font-size: 14px;
+    max-width: 56ch;
+  }
+
+  /* ---------- layout ---------- */
+
   .page {
     max-width: 1080px;
     margin: 0 auto;
-    padding: 40px 24px 80px;
+    padding: 32px 24px 80px;
   }
-
-  .page__head { margin-bottom: 28px; }
-  .eyebrow {
-    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    font-size: 12px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-    margin: 0 0 8px;
-  }
-  h1 { font-size: 24px; margin: 0 0 8px; letter-spacing: -0.01em; }
-  .lead { margin: 0; color: var(--ink-soft); font-size: 14.5px; }
 
   .card {
     background: var(--surface);
@@ -49,7 +74,14 @@
     margin-bottom: 20px;
   }
   .card__head { margin-bottom: 16px; }
-  .card__head h2 { font-size: 17px; margin: 0 0 4px; }
+  .card__head h2 {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin: 0 0 4px;
+    color: var(--ink);
+  }
   .muted { color: var(--ink-soft); font-size: 12.5px; margin: 0; }
 
   .fieldRow {
@@ -61,12 +93,14 @@
   .field { flex: 1; min-width: 200px; }
   .field label {
     display: block;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--ink);
-    margin-bottom: 6px;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 7px;
   }
-  .field .req { color: var(--shu); font-weight: 500; font-size: 11px; }
+  .field .req { color: var(--shu); font-weight: 700; font-size: 10.5px; letter-spacing: 0; text-transform: none; }
 
   input, select {
     width: 100%;
@@ -76,33 +110,34 @@
     color: var(--ink);
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: 6px;
+    border-radius: 3px;
   }
   input:focus, select:focus {
-    outline: 2px solid var(--indigo);
-    outline-offset: 1px;
-    border-color: var(--indigo);
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
   }
-  input.is-invalid { border-color: var(--shu); background: #FBEDEA; }
+  input.is-invalid { border-color: var(--shu); background: #FBECEA; }
 
-  .tableScroll { overflow-x: auto; margin-bottom: 14px; }
+  .tableScroll { overflow-x: auto; margin-bottom: 14px; border: 1px solid var(--line); border-radius: 3px; }
   table { width: 100%; border-collapse: collapse; min-width: 1280px; }
   th, td {
     border-bottom: 1px solid var(--line);
-    padding: 6px;
+    padding: 7px 6px;
     text-align: center;
     font-size: 12.5px;
   }
   thead th {
-    background: var(--surface-alt);
-    color: var(--ink-soft);
-    font-weight: 600;
-    font-size: 11.5px;
+    background: var(--charcoal);
+    color: #FFFFFF;
+    font-weight: 700;
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
     white-space: nowrap;
-    border-top: 1px solid var(--line);
   }
-  thead th:first-child { border-top-left-radius: 6px; }
-  thead th:last-child { border-top-right-radius: 6px; }
+  thead th .muted { color: rgba(255, 255, 255, 0.55); }
+  tbody tr:hover td { background: var(--accent-soft); }
   td input, td select { padding: 6px; font-size: 12.5px; text-align: center; }
   .colNo { width: 28px; }
   .colWide { min-width: 140px; }
@@ -123,41 +158,46 @@
 
   .btn {
     font-family: inherit;
-    font-size: 14px;
-    font-weight: 600;
-    padding: 10px 18px;
-    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 11px 18px;
+    border-radius: 3px;
     border: 1px solid transparent;
     cursor: pointer;
   }
   .btn--ghost {
     background: var(--surface);
-    border-color: var(--line);
-    color: var(--indigo);
+    border-color: var(--charcoal);
+    color: var(--charcoal);
   }
-  .btn--ghost:hover { background: var(--indigo-soft); }
+  .btn--ghost:hover { background: var(--charcoal); color: #FFFFFF; }
   .btn--primary {
-    background: var(--indigo);
-    color: #fff;
+    background: var(--charcoal);
+    color: #FFFFFF;
     width: 100%;
-    padding: 15px 20px;
-    font-size: 16px;
+    padding: 16px 20px;
+    font-size: 14.5px;
     border-radius: var(--radius);
+    border-bottom: 3px solid var(--accent);
   }
-  .btn--primary:disabled { background: #9DB0C6; cursor: not-allowed; }
+  .btn--primary:hover { background: var(--charcoal-soft); }
+  .btn--primary:disabled { background: #9AA1AC; border-bottom-color: transparent; cursor: not-allowed; }
 
   .submitBar { margin-top: 8px; }
   .result {
     margin-top: 14px;
-    font-size: 14px;
+    font-size: 13.5px;
     text-align: center;
   }
-  .result.-pending { color: var(--indigo); }
-  .result.-success { color: #1E7A46; }
+  .result.-pending { color: var(--accent); }
+  .result.-success { color: #157A4A; }
   .result.-error { color: var(--shu); white-space: pre-line; }
-  .result a { color: var(--indigo); }
+  .result a { color: var(--accent); }
 
   @media (max-width: 700px) {
+    .masthead__inner { padding: 32px 16px 24px; }
     .page { padding: 24px 16px 60px; }
     .card { padding: 18px; }
   }
