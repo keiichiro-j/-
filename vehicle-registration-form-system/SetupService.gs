@@ -12,17 +12,26 @@
  * 印刷範囲などは、生成後に見た目を見ながら手で調整してよい(Constants.gs の
  * セル位置さえ変えなければ、処理には影響しない)。
  *
- * デザインは「1システム・2フォーマット」として、両シートで同じ配色
- * (チャコール+アクセントブルー1色)を使い、右上のバッジ文字(OSS / 紙)だけで見分ける。
+ * 【ニューモーフィズムについての注記】
+ * Googleスプレッドシートのセル装飾は「背景色・罫線・文字装飾」のみで、
+ * box-shadowやグラデーション、角丸に相当する機能が無いため、CSSで作る
+ * ニューモーフィズム(柔らかい二重シャドウで凹凸を表現する手法)をそのまま
+ * 再現することはできない。ここでは代わりに、濃い色の塗りつぶしブロックを
+ * やめて低コントラストのトーン階調(白に近い数段階のグレー)だけで面を
+ * 区切る、という「できる範囲での近い表現」に留めている。
+ *
+ * デザインは「1システム・2フォーマット」として、両シートで同じ配色を使い、
+ * 右上のバッジ文字(OSS / 紙)だけで見分ける。
  */
 
 var THEME = {
-  charcoal: '#14161A',      // バナー・表見出しの濃色地
-  accent: '#2F6FED',        // バッジ・記入欄の下線・バナー下の帯(差し色)
-  labelBg: '#EEF0F3',       // ラベルセルの薄色背景(ニュートラルなグレー)
-  gridLine: '#C7CBD1',      // 表の罫線
-  zebra: '#F5F6F8',         // データ行の交互背景
-  ink: '#14161A'
+  ink: '#22262C',
+  inkSoft: '#6B7280',
+  panelSoft: '#EEF0F4',     // バナー・ラベルセルの背景(低コントラストなトーン)
+  panelSofter: '#F6F7FA',   // 表見出し行の背景(バナーよりさらに一段階明るいトーン)
+  hairline: '#E4E7EC',      // 罫線(黒に近い色を避け、ほぼ気づかない濃さにする)
+  accent: '#4C86FF',        // バッジ・記入欄の下線だけに使う差し色
+  zebra: '#FAFBFC'
 };
 
 var DISPLAY_TITLE = '新車新規登録依頼書';
@@ -125,8 +134,9 @@ function ensureColumns_(sheet, minCols) {
 
 /**
  * タイトルバー(左: タイトル文字、右: OSS/紙のバッジ)を1行目に描画する。
- * チャコール地に白文字、バッジだけをアクセントブルーで抜いて目を引かせる。
- * 下端にアクセントブルーの帯を1本通し、バナー自体をロゴマーク的に見せる。
+ * 濃い塗りつぶしのブロックはやめ、低コントラストな薄いトーンの上に
+ * ダークな文字を乗せる(ニューモーフィズムの「面を色でなく階調で区切る」
+ * 考え方に寄せた表現)。バッジのみアクセントブルーで抜いて視線を集める。
  * 車両データ欄の幅(maxCol)いっぱいに合わせる(縦向きより横に長いA4横印刷を想定)。
  */
 function setBanner_(sheet, maxCol, badgeText) {
@@ -137,13 +147,13 @@ function setBanner_(sheet, maxCol, badgeText) {
   var titleRange = sheet.getRange(1, 1, 1, titleEnd);
   titleRange.merge();
   titleRange.setValue('  ' + DISPLAY_TITLE);
-  titleRange.setBackground(THEME.charcoal);
-  titleRange.setFontColor('#FFFFFF');
+  titleRange.setBackground(THEME.panelSoft);
+  titleRange.setFontColor(THEME.ink);
   titleRange.setFontWeight('bold');
   titleRange.setFontSize(16);
   titleRange.setHorizontalAlignment('left');
   titleRange.setVerticalAlignment('middle');
-  titleRange.setBorder(false, false, true, false, false, false, THEME.accent, SpreadsheetApp.BorderStyle.SOLID_THICK);
+  titleRange.setBorder(false, false, true, false, false, false, THEME.accent, SpreadsheetApp.BorderStyle.SOLID);
 
   var badgeRange = sheet.getRange(1, titleEnd + 1, 1, badgeWidth);
   badgeRange.merge();
@@ -154,7 +164,6 @@ function setBanner_(sheet, maxCol, badgeText) {
   badgeRange.setFontSize(13);
   badgeRange.setHorizontalAlignment('center');
   badgeRange.setVerticalAlignment('middle');
-  badgeRange.setBorder(false, false, true, false, false, false, THEME.accent, SpreadsheetApp.BorderStyle.SOLID_THICK);
 
   sheet.setRowHeight(1, 32);
 }
@@ -192,7 +201,7 @@ function setFieldLabel_(sheet, row, text) {
   var range = sheet.getRange(row, 3, 1, 2); // C:D
   range.merge();
   range.setValue(text);
-  range.setBackground(THEME.labelBg);
+  range.setBackground(THEME.panelSoft);
   range.setFontColor(THEME.ink);
   range.setFontWeight('bold');
   range.setFontSize(10);
@@ -228,8 +237,8 @@ function buildVehicleTableHeader_(sheet, columns, labels) {
     var col = columns[key];
     var cell = sheet.getRange(7, col);
     cell.setValue(labels[key] || key);
-    cell.setBackground(THEME.charcoal);
-    cell.setFontColor('#FFFFFF');
+    cell.setBackground(THEME.panelSofter);
+    cell.setFontColor(THEME.ink);
     cell.setFontWeight('bold');
     cell.setFontSize(10.5);
     cell.setHorizontalAlignment('center');
@@ -253,7 +262,8 @@ function applyZebraAndBorders_(sheet, columns) {
   }
 
   var range = sheet.getRange(VEHICLE_START_ROW, 3, MAX_VEHICLES, width);
-  range.setBorder(true, true, true, true, true, true, THEME.gridLine, SpreadsheetApp.BorderStyle.SOLID);
+  range.setBorder(true, true, true, true, true, true, THEME.hairline, SpreadsheetApp.BorderStyle.SOLID);
+  range.setFontColor(THEME.ink);
   range.setFontSize(10.5);
   range.setHorizontalAlignment('center');
   range.setVerticalAlignment('middle');

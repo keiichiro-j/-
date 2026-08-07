@@ -1,41 +1,56 @@
 <style>
   :root {
-    --charcoal: #14161A;
-    --charcoal-soft: #22252B;
-    --paper: #F4F5F7;
-    --surface: #FFFFFF;
-    --surface-alt: #ECEEF1;
-    --ink: #14161A;
-    --ink-soft: #5B6169;
-    --line: #DADDE2;
-    --accent: #2F6FED;
-    --accent-soft: #E7EEFD;
-    --shu: #D0332B;
-    --radius: 4px;
+    --surface: #1C1F24;       /* ページ全体・カード・入力欄すべて同じ地色(モノクロマティックが原則) */
+    --surface-alt: #20232B;   /* テーブル内などごく僅かな階調差が欲しい箇所だけに使う */
+    --shadow-dark: #101216;   /* 凹凸の暗い側 */
+    --shadow-light: #262A32;  /* 凹凸の明るい側 */
+    --ink: #ECEEF1;
+    --ink-soft: #8B93A1;
+    --accent: #4C86FF;
+    --accent-soft: rgba(76, 134, 255, 0.18);
+    --shu: #FF6B63;
+    --success: #35C488;
+    --r-lg: 22px;
+    --r-md: 14px;
+    --r-sm: 10px;
   }
 
   * { box-sizing: border-box; }
 
   body {
     margin: 0;
-    background: var(--paper);
+    background: var(--surface);
     color: var(--ink);
     font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN",
       "Yu Gothic Medium", "Yu Gothic", "Noto Sans JP", "Meiryo", sans-serif;
     line-height: 1.7;
   }
 
+  /* ---------- 共通: 浮き出た面 / 沈み込んだ面 ---------- */
+
+  .masthead,
+  .card,
+  .btn--ghost {
+    background: var(--surface);
+    border: none;
+    box-shadow: 9px 9px 18px var(--shadow-dark), -9px -9px 18px var(--shadow-light);
+  }
+
+  input, select, .tableScroll {
+    background: var(--surface);
+    border: none;
+    box-shadow: inset 6px 6px 12px var(--shadow-dark), inset -6px -6px 12px var(--shadow-light);
+  }
+
   /* ---------- masthead ---------- */
 
   .masthead {
-    background: var(--charcoal);
-    border-bottom: 3px solid var(--accent);
-  }
-  .masthead__inner {
     max-width: 1080px;
-    margin: 0 auto;
-    padding: 44px 24px 30px;
+    margin: 36px auto 24px;
+    border-radius: var(--r-lg);
   }
+  .masthead__inner { padding: 38px 40px 34px; }
+
   .eyebrow {
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     font-size: 11.5px;
@@ -47,13 +62,13 @@
   h1 {
     font-size: 25px;
     font-weight: 800;
-    color: #FFFFFF;
+    color: var(--ink);
     margin: 0 0 8px;
     letter-spacing: -0.01em;
   }
   .lead {
     margin: 0;
-    color: rgba(255, 255, 255, 0.68);
+    color: var(--ink-soft);
     font-size: 14px;
     max-width: 56ch;
   }
@@ -63,17 +78,15 @@
   .page {
     max-width: 1080px;
     margin: 0 auto;
-    padding: 32px 24px 80px;
+    padding: 0 24px 80px;
   }
 
   .card {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    padding: 24px;
-    margin-bottom: 20px;
+    border-radius: var(--r-lg);
+    padding: 26px;
+    margin-bottom: 22px;
   }
-  .card__head { margin-bottom: 16px; }
+  .card__head { margin-bottom: 18px; }
   .card__head h2 {
     font-size: 13px;
     font-weight: 700;
@@ -87,7 +100,7 @@
   .fieldRow {
     display: flex;
     flex-wrap: wrap;
-    gap: 16px;
+    gap: 18px;
     margin-bottom: 4px;
   }
   .field { flex: 1; min-width: 200px; }
@@ -98,48 +111,67 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--ink-soft);
-    margin-bottom: 7px;
+    margin-bottom: 9px;
   }
   .field .req { color: var(--shu); font-weight: 700; font-size: 10.5px; letter-spacing: 0; text-transform: none; }
 
+  /* ---------- 入力欄(沈み込んだ「くぼみ」として表現) ---------- */
+
   input, select {
     width: 100%;
-    padding: 9px 10px;
+    padding: 11px 12px;
     font-size: 14px;
     font-family: inherit;
     color: var(--ink);
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 3px;
+    border-radius: var(--r-sm);
   }
+  input::placeholder { color: var(--ink-soft); opacity: 0.7; }
   input:focus, select:focus {
     outline: none;
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
+    box-shadow: inset 6px 6px 12px var(--shadow-dark), inset -6px -6px 12px var(--shadow-light),
+      0 0 0 3px var(--accent-soft);
   }
-  input.is-invalid { border-color: var(--shu); background: #FBECEA; }
+  input.is-invalid {
+    box-shadow: inset 6px 6px 12px var(--shadow-dark), inset -6px -6px 12px var(--shadow-light),
+      0 0 0 3px rgba(255, 107, 99, 0.25);
+  }
 
-  .tableScroll { overflow-x: auto; margin-bottom: 14px; border: 1px solid var(--line); border-radius: 3px; }
+  /* ---------- 車両テーブル: 全体を1つの「くぼみ」で囲み、内側は控えめなフラット表示 ---------- */
+
+  .tableScroll {
+    overflow-x: auto;
+    margin-bottom: 16px;
+    border-radius: var(--r-md);
+    padding: 4px;
+  }
   table { width: 100%; border-collapse: collapse; min-width: 1280px; }
   th, td {
-    border-bottom: 1px solid var(--line);
-    padding: 7px 6px;
+    padding: 8px 6px;
     text-align: center;
     font-size: 12.5px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   }
   thead th {
-    background: var(--charcoal);
-    color: #FFFFFF;
+    background: var(--surface-alt);
+    color: var(--ink-soft);
     font-weight: 700;
-    font-size: 10.5px;
-    letter-spacing: 0.04em;
+    font-size: 10px;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
     white-space: nowrap;
+    border-radius: 8px;
   }
-  thead th .muted { color: rgba(255, 255, 255, 0.55); }
   tbody tr:hover td { background: var(--accent-soft); }
-  td input, td select { padding: 6px; font-size: 12.5px; text-align: center; }
-  .colNo { width: 28px; }
+  td input, td select {
+    padding: 6px;
+    font-size: 12.5px;
+    text-align: center;
+    background: transparent;
+    box-shadow: none;
+    border-radius: 6px;
+  }
+  td input:focus, td select:focus { box-shadow: 0 0 0 2px var(--accent-soft); }
+  .colNo { width: 28px; color: var(--ink-soft); }
   .colWide { min-width: 140px; }
   .colRegDate { min-width: 110px; }
   .colDel { width: 32px; }
@@ -156,49 +188,58 @@
   }
   .btnRemoveRow:hover { color: var(--shu); }
 
+  /* ---------- ボタン: 通常は浮き出て、押すと沈み込む ---------- */
+
   .btn {
     font-family: inherit;
     font-size: 12.5px;
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    padding: 11px 18px;
-    border-radius: 3px;
-    border: 1px solid transparent;
+    padding: 12px 20px;
+    border-radius: var(--r-md);
     cursor: pointer;
   }
-  .btn--ghost {
-    background: var(--surface);
-    border-color: var(--charcoal);
-    color: var(--charcoal);
+  .btn--ghost { color: var(--ink-soft); }
+  .btn--ghost:hover { color: var(--accent); }
+  .btn--ghost:active {
+    box-shadow: inset 5px 5px 10px var(--shadow-dark), inset -5px -5px 10px var(--shadow-light);
   }
-  .btn--ghost:hover { background: var(--charcoal); color: #FFFFFF; }
+
   .btn--primary {
-    background: var(--charcoal);
+    background: var(--accent);
     color: #FFFFFF;
     width: 100%;
-    padding: 16px 20px;
+    padding: 17px 20px;
     font-size: 14.5px;
-    border-radius: var(--radius);
-    border-bottom: 3px solid var(--accent);
+    border-radius: var(--r-lg);
+    box-shadow: 9px 9px 18px var(--shadow-dark), -9px -9px 18px var(--shadow-light);
   }
-  .btn--primary:hover { background: var(--charcoal-soft); }
-  .btn--primary:disabled { background: #9AA1AC; border-bottom-color: transparent; cursor: not-allowed; }
+  .btn--primary:active {
+    box-shadow: inset 5px 5px 10px rgba(0, 0, 0, 0.35), inset -5px -5px 10px rgba(255, 255, 255, 0.12);
+  }
+  .btn--primary:disabled {
+    background: var(--surface-alt);
+    color: var(--ink-soft);
+    box-shadow: none;
+    cursor: not-allowed;
+  }
 
-  .submitBar { margin-top: 8px; }
+  .submitBar { margin-top: 4px; }
   .result {
-    margin-top: 14px;
+    margin-top: 16px;
     font-size: 13.5px;
     text-align: center;
   }
   .result.-pending { color: var(--accent); }
-  .result.-success { color: #157A4A; }
+  .result.-success { color: var(--success); }
   .result.-error { color: var(--shu); white-space: pre-line; }
   .result a { color: var(--accent); }
 
   @media (max-width: 700px) {
-    .masthead__inner { padding: 32px 16px 24px; }
-    .page { padding: 24px 16px 60px; }
-    .card { padding: 18px; }
+    .masthead { margin: 20px auto 16px; }
+    .masthead__inner { padding: 28px 24px 24px; }
+    .page { padding: 0 16px 60px; }
+    .card { padding: 20px; }
   }
 </style>
