@@ -10,18 +10,18 @@
     tr.innerHTML =
       '<td class="cell-no"></td>' +
       '<td class="cell-regdate"><input type="date" class="v-indivRegDate"></td>' +
-      '<td><input type="text" class="v-userName" list="dl-usernames" autocomplete="off" placeholder="例: 岐阜 太郎"></td>' +
-      '<td><input type="text" class="v-chassis" placeholder="1234" maxlength="4" inputmode="numeric"></td>' +
-      '<td><input type="text" class="v-model" placeholder="DBA-123"></td>' +
-      '<td><input type="text" class="v-classNum" placeholder="12345-0001"></td>' +
-      '<td><input type="number" class="v-autoTax" min="0" step="1" placeholder="0"></td>' +
-      '<td><input type="number" class="v-envTax" min="0" step="1" placeholder="0"></td>' +
-      '<td><input type="number" class="v-weightTax" min="0" step="1" placeholder="0"></td>' +
+      '<td><input type="text" class="v-userName" list="dl-usernames" autocomplete="off"></td>' +
+      '<td><input type="text" class="v-chassis" maxlength="4" inputmode="numeric"></td>' +
+      '<td><input type="text" class="v-model"></td>' +
+      '<td><input type="text" class="v-classNum"></td>' +
+      '<td><input type="number" class="v-autoTax" min="0" step="1"></td>' +
+      '<td><input type="number" class="v-envTax" min="0" step="1"></td>' +
+      '<td><input type="number" class="v-weightTax" min="0" step="1"></td>' +
       selectCell_('v-hopeNum') +
       selectCell_('v-yobi') +
       selectCell_('v-honken') +
       selectCell_('v-shinsho') +
-      '<td><input type="text" class="v-person" list="dl-persons" autocomplete="off" placeholder="山田"></td>' +
+      '<td><input type="text" class="v-person" list="dl-persons" autocomplete="off"></td>' +
       '<td><button type="button" class="btnRemoveRow" title="この行を削除" aria-label="この行を削除">&times;</button></td>';
     return tr;
   }
@@ -35,6 +35,13 @@
     rows.forEach(function (tr, i) {
       tr.querySelector('.cell-no').textContent = i + 1;
     });
+    updateVehicleCountBadge_();
+  }
+
+  function updateVehicleCountBadge_() {
+    var count = document.querySelectorAll('#vehicleTableBody .vehicleRow').length;
+    var badge = document.getElementById('vehicleCountBadge');
+    if (badge) badge.textContent = count + ' / ' + MAX_VEHICLES + ' 台';
   }
 
   function addVehicleRow() {
@@ -76,7 +83,18 @@
       el.classList.toggle('is-hidden', !isOss);
     });
   }
-  document.getElementById('type').addEventListener('change', toggleRegDateMode);
+
+  // 出力フォーマットのセグメントボタン(OSS/紙)を切り替える
+  function setType(value) {
+    document.getElementById('type').value = value;
+    document.getElementById('segOss').classList.toggle('is-active', value === 'OSS');
+    document.getElementById('segOss').setAttribute('aria-selected', value === 'OSS');
+    document.getElementById('segPaper').classList.toggle('is-active', value === '紙');
+    document.getElementById('segPaper').setAttribute('aria-selected', value === '紙');
+    toggleRegDateMode();
+  }
+  document.getElementById('segOss').addEventListener('click', function () { setType('OSS'); });
+  document.getElementById('segPaper').addEventListener('click', function () { setType('紙'); });
 
   function populateSuggestions(data) {
     fillDatalist_('dl-companies', data.companies);

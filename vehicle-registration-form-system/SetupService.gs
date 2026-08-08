@@ -12,28 +12,28 @@
  * 印刷範囲などは、生成後に見た目を見ながら手で調整してよい(Constants.gs の
  * セル位置さえ変えなければ、処理には影響しない)。
  *
- * 【ニューモーフィズムについての注記】
- * Googleスプレッドシートのセル装飾は「背景色・罫線・文字装飾」のみで、
- * box-shadowやグラデーション、角丸に相当する機能が無いため、CSSで作る
- * ニューモーフィズム(柔らかい二重シャドウで凹凸を表現する手法)をそのまま
- * 再現することはできない。ここでは代わりに、濃い色の塗りつぶしブロックを
- * やめて低コントラストのトーン階調(白に近い数段階のグレー)だけで面を
- * 区切る、という「できる範囲での近い表現」に留めている。
- *
- * デザインは「1システム・2フォーマット」として、両シートで同じ配色を使い、
- * 右上のバッジ文字(OSS / 紙)だけで見分ける。
+ * 【デザイン方針】SaaS Dashboard風。
+ * - タイトルセルはリッチテキストで「小さい英字のオーバーライン + 大きい和文タイトル」の
+ *   2段組みにし、アプリ側のマストヘッド(eyebrow + h1)と見た目の言語を揃えている
+ * - ラベルは控えめなグレー、値は濃色+太字というダッシュボードのフォームでよくある
+ *   「キャプション/値」のコントラストにしている
+ * - 税額など数値項目はヘッダー・データともに右寄せ(データテーブルの慣習)
+ * - フォントはアプリ側と合わせて Inter を指定(和文はGoogleスプレッドシート側が
+ *   自動的にフォールバックする)
  */
 
 var THEME = {
-  ink: '#22262C',
+  ink: '#1B222C',
   inkSoft: '#6B7280',
-  panelSoft: '#EEF0F4',     // バナー・ラベルセルの背景(低コントラストなトーン)
-  panelSofter: '#F6F7FA',   // 表見出し行の背景(バナーよりさらに一段階明るいトーン)
+  panelSoft: '#F4F6F9',     // バナー・ラベルセルの背景(低コントラストなトーン)
+  panelSofter: '#F8F9FB',   // 表見出し行の背景(バナーよりさらに一段階明るいトーン)
   hairline: '#E4E7EC',      // 罫線(黒に近い色を避け、ほぼ気づかない濃さにする)
-  accent: '#4C86FF',        // バッジ・記入欄の下線だけに使う差し色
+  accent: '#2F6FED',        // バッジ・記入欄の下線・オーバーラインだけに使う差し色
   zebra: '#FAFBFC'
 };
 
+var FONT_FAMILY = 'Inter';
+var DISPLAY_EYEBROW = 'VEHICLE REGISTRATION';
 var DISPLAY_TITLE = '新車新規登録依頼書';
 
 var OSS_FIELD_LABELS = {
@@ -100,6 +100,7 @@ function buildOssTemplateSheet_(sheet) {
   buildCommonFields_(sheet, TYPE_OSS, maxCol);
   buildVehicleTableHeader_(sheet, VEHICLE_COLUMNS.OSS, OSS_FIELD_LABELS);
   applyZebraAndBorders_(sheet, VEHICLE_COLUMNS.OSS);
+  applyNumericAlignment_(sheet, VEHICLE_COLUMNS.OSS);
   applyFieldWidths_(sheet, VEHICLE_COLUMNS.OSS);
 
   finishSheetStyle_(sheet, maxCol);
@@ -113,6 +114,7 @@ function buildPaperTemplateSheet_(sheet) {
   buildCommonFields_(sheet, TYPE_PAPER, maxCol);
   buildVehicleTableHeader_(sheet, VEHICLE_COLUMNS.PAPER, PAPER_FIELD_LABELS);
   applyZebraAndBorders_(sheet, VEHICLE_COLUMNS.PAPER);
+  applyNumericAlignment_(sheet, VEHICLE_COLUMNS.PAPER);
   applyFieldWidths_(sheet, VEHICLE_COLUMNS.PAPER);
 
   finishSheetStyle_(sheet, maxCol);
@@ -133,10 +135,8 @@ function ensureColumns_(sheet, minCols) {
 }
 
 /**
- * タイトルバー(左: タイトル文字、右: OSS/紙のバッジ)を1行目に描画する。
- * 濃い塗りつぶしのブロックはやめ、低コントラストな薄いトーンの上に
- * ダークな文字を乗せる(ニューモーフィズムの「面を色でなく階調で区切る」
- * 考え方に寄せた表現)。バッジのみアクセントブルーで抜いて視線を集める。
+ * タイトルバー(左: オーバーライン+タイトルの2段リッチテキスト、右: OSS/紙のバッジ)を
+ * 1行目に描画する。アプリ側マストヘッドの「eyebrow + h1」と同じ見た目の言語にしている。
  * 車両データ欄の幅(maxCol)いっぱいに合わせる(縦向きより横に長いA4横印刷を想定)。
  */
 function setBanner_(sheet, maxCol, badgeText) {
@@ -146,13 +146,32 @@ function setBanner_(sheet, maxCol, badgeText) {
 
   var titleRange = sheet.getRange(1, 1, 1, titleEnd);
   titleRange.merge();
-  titleRange.setValue('  ' + DISPLAY_TITLE);
+
+  var fullText = '  ' + DISPLAY_EYEBROW + '\n  ' + DISPLAY_TITLE;
+  var eyebrowEnd = 2 + DISPLAY_EYEBROW.length;
+  var titleStart = eyebrowEnd + 1; // 改行(\n)の次の文字から
+
+  var richText = SpreadsheetApp.newRichTextValue()
+    .setText(fullText)
+    .setTextStyle(0, eyebrowEnd, SpreadsheetApp.newTextStyle()
+      .setFontFamily(FONT_FAMILY)
+      .setFontSize(8)
+      .setForegroundColor(THEME.accent)
+      .setBold(true)
+      .build())
+    .setTextStyle(titleStart, fullText.length, SpreadsheetApp.newTextStyle()
+      .setFontFamily(FONT_FAMILY)
+      .setFontSize(16)
+      .setForegroundColor(THEME.ink)
+      .setBold(true)
+      .build())
+    .build();
+
+  titleRange.setRichTextValue(richText);
   titleRange.setBackground(THEME.panelSoft);
-  titleRange.setFontColor(THEME.ink);
-  titleRange.setFontWeight('bold');
-  titleRange.setFontSize(16);
   titleRange.setHorizontalAlignment('left');
   titleRange.setVerticalAlignment('middle');
+  titleRange.setWrap(true);
   titleRange.setBorder(false, false, true, false, false, false, THEME.accent, SpreadsheetApp.BorderStyle.SOLID);
 
   var badgeRange = sheet.getRange(1, titleEnd + 1, 1, badgeWidth);
@@ -165,7 +184,7 @@ function setBanner_(sheet, maxCol, badgeText) {
   badgeRange.setHorizontalAlignment('center');
   badgeRange.setVerticalAlignment('middle');
 
-  sheet.setRowHeight(1, 32);
+  sheet.setRowHeight(1, 48);
 }
 
 /**
@@ -197,14 +216,18 @@ function buildCommonFields_(sheet, type, maxCol) {
   sheet.setRowHeight(6, 10);
 }
 
+/**
+ * ラベルは控えめなグレー・通常ウェイト、値は濃色・太字にして、
+ * ダッシュボードのフォームでよくある「キャプション/値」のコントラストを付ける。
+ */
 function setFieldLabel_(sheet, row, text) {
   var range = sheet.getRange(row, 3, 1, 2); // C:D
   range.merge();
   range.setValue(text);
   range.setBackground(THEME.panelSoft);
-  range.setFontColor(THEME.ink);
-  range.setFontWeight('bold');
-  range.setFontSize(10);
+  range.setFontColor(THEME.inkSoft);
+  range.setFontWeight('normal');
+  range.setFontSize(9.5);
   range.setHorizontalAlignment('right');
   range.setVerticalAlignment('middle');
 }
@@ -238,9 +261,9 @@ function buildVehicleTableHeader_(sheet, columns, labels) {
     var cell = sheet.getRange(7, col);
     cell.setValue(labels[key] || key);
     cell.setBackground(THEME.panelSofter);
-    cell.setFontColor(THEME.ink);
+    cell.setFontColor(THEME.inkSoft);
     cell.setFontWeight('bold');
-    cell.setFontSize(10.5);
+    cell.setFontSize(9.5);
     cell.setHorizontalAlignment('center');
     cell.setVerticalAlignment('middle');
     cell.setWrap(true);
@@ -270,6 +293,19 @@ function applyZebraAndBorders_(sheet, columns) {
 }
 
 /**
+ * 金額系の列(Constants.gs の NUMERIC_FIELD_KEYS)は、見出し・データともに
+ * 右寄せにする(データテーブルで数値を右寄せする一般的な慣習に合わせる)。
+ */
+function applyNumericAlignment_(sheet, columns) {
+  NUMERIC_FIELD_KEYS.forEach(function (key) {
+    var col = columns[key];
+    if (!col) return;
+    sheet.getRange(7, col).setHorizontalAlignment('right');
+    sheet.getRange(VEHICLE_START_ROW, col, MAX_VEHICLES, 1).setHorizontalAlignment('right');
+  });
+}
+
+/**
  * 車両欄の各列を、フィールドごとの推奨幅(Constants.gs の FIELD_WIDTHS)に設定する。
  * 列の隙間をなくして詰めているため、内容に応じた幅の出し分けが必要。
  */
@@ -281,9 +317,11 @@ function applyFieldWidths_(sheet, columns) {
 
 /**
  * フォント統一・余白列の縮小・見出し行の固定など、シート全体の仕上げ。
+ * フォントはアプリ側のCSSと合わせて Inter を指定する(和文グリフは
+ * スプレッドシート側が自動的に代替フォントへフォールバックする)。
  */
 function finishSheetStyle_(sheet, maxCol) {
-  sheet.getRange(1, 1, 17, maxCol).setFontFamily('Noto Sans JP');
+  sheet.getRange(1, 1, 17, maxCol).setFontFamily(FONT_FAMILY);
   sheet.setColumnWidth(1, 12);
   sheet.setColumnWidth(2, 12);
   sheet.setFrozenRows(7);

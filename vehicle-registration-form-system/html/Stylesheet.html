@@ -1,18 +1,18 @@
 <style>
   :root {
     color-scheme: light; /* Chromeの「Webコンテンツの自動ダークモード」による強制変換を無効化する */
-    --page-bg: #EEF1F5;
+    --page-bg: #F3F5F8;
     --surface: #FFFFFF;
-    --surface-alt: #F4F6F9;
-    --line: #DFE3E9;
-    --ink: #1B222C;
-    --ink-soft: #626C7A;
+    --surface-alt: #F5F7FA;
+    --line: #E3E7EC;
+    --ink: #171B22;
+    --ink-soft: #667085;
     --accent: #2F6FED;
-    --accent-soft: #DCE7FF;
+    --accent-soft: #E1EAFE;
     --shu: #D0332B;
     --success: #1E7A46;
-    --r-lg: 18px;
-    --r-md: 12px;
+    --r-lg: 14px;
+    --r-md: 10px;
     --r-sm: 8px;
   }
 
@@ -22,9 +22,11 @@
     margin: 0;
     background: var(--page-bg);
     color: var(--ink);
-    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN",
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN",
       "Yu Gothic Medium", "Yu Gothic", "Noto Sans JP", "Meiryo", sans-serif;
     line-height: 1.7;
+    font-feature-settings: "tnum" 1;
+    font-variant-numeric: tabular-nums;
   }
 
   /* ---------- 共通のカード面(通常の影1つだけの、単純で確実なスタイル) ---------- */
@@ -41,20 +43,20 @@
 
   .masthead {
     max-width: 1080px;
-    margin: 36px auto 24px;
+    margin: 32px auto 20px;
   }
-  .masthead__inner { padding: 38px 40px 34px; }
+  .masthead__inner { padding: 32px 36px 28px; }
 
   .eyebrow {
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    font-size: 11.5px;
+    font-size: 11px;
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--accent);
     margin: 0 0 10px;
   }
   h1 {
-    font-size: 25px;
+    font-size: 23px;
     font-weight: 800;
     color: var(--ink);
     margin: 0 0 8px;
@@ -63,7 +65,7 @@
   .lead {
     margin: 0;
     color: var(--ink-soft);
-    font-size: 14px;
+    font-size: 13.5px;
     max-width: 56ch;
   }
 
@@ -76,44 +78,86 @@
   }
 
   .card {
-    padding: 26px;
-    margin-bottom: 22px;
+    padding: 24px;
+    margin-bottom: 18px;
   }
   .card__head { margin-bottom: 18px; }
+  .card__head--split { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
   .card__head h2 {
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: 700;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.07em;
     text-transform: uppercase;
     margin: 0 0 4px;
     color: var(--ink);
   }
-  .muted { color: var(--ink-soft); font-size: 12.5px; margin: 0; }
+  .muted { color: var(--ink-soft); font-size: 12px; margin: 0; }
+
+  .badge {
+    flex: none;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
 
   .fieldRow {
     display: flex;
     flex-wrap: wrap;
-    gap: 18px;
+    gap: 16px;
     margin-bottom: 4px;
   }
   .field { flex: 1; min-width: 200px; }
   .field label {
     display: block;
-    font-size: 11.5px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
     color: var(--ink-soft);
-    margin-bottom: 9px;
+    margin-bottom: 8px;
   }
-  .field .req { color: var(--shu); font-weight: 700; font-size: 10.5px; letter-spacing: 0; text-transform: none; }
+  .field .req { color: var(--shu); font-weight: 700; font-size: 10px; letter-spacing: 0; text-transform: none; }
+
+  /* ---------- セグメントコントロール(出力フォーマット選択) ---------- */
+
+  .segmented {
+    display: inline-flex;
+    background: var(--surface-alt);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    padding: 3px;
+    gap: 2px;
+    width: 100%;
+  }
+  .segBtn {
+    flex: 1;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 10px;
+    cursor: pointer;
+  }
+  .segBtn.is-active {
+    background: var(--surface);
+    color: var(--accent);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
+  }
 
   /* ---------- 入力欄(白地+ボーダーのみ。影は使わない) ---------- */
 
   input, select {
     width: 100%;
-    padding: 11px 12px;
-    font-size: 14px;
+    padding: 10px 12px;
+    font-size: 13.5px;
     font-family: inherit;
     color: var(--ink);
     background: var(--surface);
@@ -149,7 +193,7 @@
   thead th {
     background: var(--surface-alt);
     color: var(--ink-soft);
-    font-weight: 700;
+    font-weight: 600;
     font-size: 10px;
     letter-spacing: 0.05em;
     text-transform: uppercase;
@@ -164,6 +208,7 @@
     border-radius: 6px;
   }
   td input:focus, td select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  .v-autoTax, .v-envTax, .v-weightTax { text-align: right; }
   .colNo { width: 28px; color: var(--ink-soft); }
   .colWide { min-width: 140px; }
   .colRegDate { min-width: 110px; }
@@ -186,10 +231,9 @@
   .btn {
     font-family: inherit;
     font-size: 12.5px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    padding: 12px 20px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    padding: 11px 18px;
     border-radius: var(--r-md);
     cursor: pointer;
   }
@@ -204,8 +248,9 @@
     background: var(--accent);
     color: #FFFFFF;
     width: 100%;
-    padding: 17px 20px;
-    font-size: 14.5px;
+    padding: 15px 20px;
+    font-size: 14px;
+    font-weight: 700;
     border-radius: var(--r-lg);
     border: 1px solid var(--accent);
     box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 20px rgba(47, 111, 237, 0.25);
@@ -222,7 +267,7 @@
   .submitBar { margin-top: 4px; }
   .result {
     margin-top: 16px;
-    font-size: 13.5px;
+    font-size: 13px;
     text-align: center;
   }
   .result.-pending { color: var(--accent); }
@@ -232,8 +277,8 @@
 
   @media (max-width: 700px) {
     .masthead { margin: 20px auto 16px; }
-    .masthead__inner { padding: 28px 24px 24px; }
+    .masthead__inner { padding: 26px 22px 22px; }
     .page { padding: 0 16px 60px; }
-    .card { padding: 20px; }
+    .card { padding: 18px; }
   }
 </style>

@@ -4,6 +4,9 @@
   <base target="_top">
   <meta charset="utf-8">
   <meta name="color-scheme" content="light">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <?!= include('html/Stylesheet'); ?>
 </head>
 <body>
@@ -18,13 +21,19 @@
   <div class="page">
     <form id="mainForm" novalidate>
       <section class="card">
+        <div class="card__head">
+          <h2>基本情報</h2>
+          <p class="muted">依頼の基本情報を入力してください。</p>
+        </div>
+
         <div class="fieldRow">
           <div class="field">
-            <label for="type">出力フォーマット</label>
-            <select id="type">
-              <option value="OSS">OSS（電子申請）</option>
-              <option value="紙">紙（従来申請）</option>
-            </select>
+            <label>出力フォーマット</label>
+            <div class="segmented" role="tablist" aria-label="出力フォーマット">
+              <button type="button" class="segBtn is-active" id="segOss" role="tab" aria-selected="true">OSS（電子申請）</button>
+              <button type="button" class="segBtn" id="segPaper" role="tab" aria-selected="false">紙（従来申請）</button>
+            </div>
+            <input type="hidden" id="type" value="OSS">
           </div>
           <div class="field">
             <label for="company">依頼会社名 <span class="req">必須</span></label>
@@ -33,7 +42,7 @@
           </div>
           <div class="field">
             <label for="manager">担当責任者 <span class="req">必須</span></label>
-            <input type="text" id="manager" list="dl-managers" autocomplete="off" placeholder="例: 戸田 圭市朗" required>
+            <input type="text" id="manager" list="dl-managers" autocomplete="off" required>
             <datalist id="dl-managers"></datalist>
           </div>
         </div>
@@ -51,9 +60,12 @@
       </section>
 
       <section class="card">
-        <div class="card__head">
-          <h2>車両データ</h2>
-          <p class="muted">最大10台まで。1行につき1台。使用車名が未入力の行は無視されます。</p>
+        <div class="card__head card__head--split">
+          <div>
+            <h2>車両データ</h2>
+            <p class="muted">最大10台まで。1行につき1台。使用車名が未入力の行は無視されます。</p>
+          </div>
+          <span class="badge" id="vehicleCountBadge">0 / 10 台</span>
         </div>
 
         <div class="tableScroll">

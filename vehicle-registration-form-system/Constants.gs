@@ -88,6 +88,9 @@ var TAX_LABELS = {
   weightTax: '重量税'
 };
 
+// 数値項目のキー(ダッシュボード風に金額を右寄せするため、SetupService.gs で使用)
+var NUMERIC_FIELD_KEYS = ['autoTax', 'envTax', 'weightTax'];
+
 // 履歴タブ（月次）のヘッダー行。A〜T の20列。
 var HISTORY_HEADER_ROW = [
   '送信日時', 'submissionId', '種別', '依頼会社名', '担当責任者',
