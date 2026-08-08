@@ -198,6 +198,7 @@
     google.script.run
       .withSuccessHandler(function (pdfUrl) {
         btn.disabled = false;
+        historyHeader_ = []; // 次に履歴確認画面を開いたとき、今回の登録を含めて再取得させる
         setResult_(
           '完了しました。PDFを自動で開きます。<br>開かない場合は <a href="' + pdfUrl + '" target="_blank">こちら</a> をクリックしてください。',
           'success'
@@ -227,12 +228,17 @@
   window.onload = function () {
     for (var i = 0; i < INITIAL_VEHICLE_ROWS; i++) addVehicleRow();
     toggleRegDateMode();
+    initHistoryDefaultRange_();
     google.script.run.withSuccessHandler(populateSuggestions).getSuggestions();
   };
 
   // ---------- 申請 / 履歴確認 画面切り替え ----------
 
   var HISTORY_NUMERIC_COLUMNS = ['車両No.', '自動車税', '環境性能割', '重量税'];
+  var HISTORY_SEARCH_COLUMN = '使用車名';
+  var HISTORY_BRAND_COLUMN = 'ブランド';
+  var historyHeader_ = [];
+  var historyAllRows_ = [];
 
   function setView_(view) {
     var isForm = view === 'form';
@@ -242,91 +248,71 @@
     document.getElementById('navForm').setAttribute('aria-selected', isForm);
     document.getElementById('navHistory').classList.toggle('is-active', !isForm);
     document.getElementById('navHistory').setAttribute('aria-selected', !isForm);
-    if (!isForm) loadHistoryTabs_();
+    // 初回表示時、または新しい申請でデータが増えた後(historyHeader_をクリア済み)だけ取得し直す
+    if (!isForm && historyHeader_.length === 0) loadHistoryData_();
   }
   document.getElementById('navForm').addEventListener('click', function () { setView_('form'); });
   document.getElementById('navHistory').addEventListener('click', function () { setView_('history'); });
-  document.getElementById('btnHistoryRefresh').addEventListener('click', function () { loadHistoryTabs_(); });
-  document.getElementById('historyMonth').addEventListener('change', function () {
-    document.getElementById('historySearch').value = '';
-    loadHistoryEntries_(this.value);
-  });
+  document.getElementById('btnHistoryRefresh').addEventListener('click', function () { loadHistoryData_(); });
   document.getElementById('historySearch').addEventListener('input', applyHistoryFilter_);
+  document.getElementById('historyBrand').addEventListener('change', applyHistoryFilter_);
 
-  // "YYYY-MM" は "YYYY年MM月" に、それ以外(「登録日未定」)はそのまま表示する
-  function formatHistoryMonthLabel_(name) {
-    var m = /^(\d{4})-(\d{2})$/.exec(name);
-    return m ? (m[1] + '年' + m[2] + '月') : name;
+  function formatDateInput_(d) {
+    var mm = String(d.getMonth() + 1).padStart(2, '0');
+    var dd = String(d.getDate()).padStart(2, '0');
+    return d.getFullYear() + '-' + mm + '-' + dd;
   }
 
-  var HISTORY_SEARCH_COLUMN = '使用車名';
-  var historyHeader_ = [];
-  var historyAllRows_ = [];
-
-  function loadHistoryTabs_() {
-    var sel = document.getElementById('historyMonth');
-    sel.disabled = true;
-    google.script.run
-      .withSuccessHandler(function (tabNames) {
-        sel.disabled = false;
-        sel.innerHTML = '';
-        if (!tabNames || tabNames.length === 0) {
-          historyHeader_ = [];
-          historyAllRows_ = [];
-          renderHistoryTable_([], [], '履歴データはまだありません。');
-          return;
-        }
-        tabNames.forEach(function (name) {
-          var opt = document.createElement('option');
-          opt.value = name;
-          opt.textContent = formatHistoryMonthLabel_(name);
-          sel.appendChild(opt);
-        });
-        loadHistoryEntries_(sel.value);
-      })
-      .withFailureHandler(function (error) {
-        sel.disabled = false;
-        alert('対象月の取得に失敗しました:\n' + error.message);
-      })
-      .getHistoryTabNames();
+  // 履歴確認画面の初期表示期間(今月1日〜今日)を設定する
+  function initHistoryDefaultRange_() {
+    var now = new Date();
+    document.getElementById('historyFrom').value = formatDateInput_(new Date(now.getFullYear(), now.getMonth(), 1));
+    document.getElementById('historyTo').value = formatDateInput_(now);
   }
 
-  function loadHistoryEntries_(tabName) {
-    if (!tabName) {
-      historyHeader_ = [];
-      historyAllRows_ = [];
-      renderHistoryTable_([], [], 'この月の履歴データはまだありません。');
-      return;
-    }
+  function loadHistoryData_() {
+    var from = document.getElementById('historyFrom').value;
+    var to = document.getElementById('historyTo').value;
+    var includePending = document.getElementById('historyIncludePending').checked;
+
+    var btn = document.getElementById('btnHistoryRefresh');
+    btn.disabled = true;
+
     google.script.run
       .withSuccessHandler(function (result) {
+        btn.disabled = false;
         historyHeader_ = result.header;
         historyAllRows_ = result.rows;
         applyHistoryFilter_();
       })
       .withFailureHandler(function (error) {
+        btn.disabled = false;
         historyHeader_ = [];
         historyAllRows_ = [];
-        renderHistoryTable_([], [], 'この月の履歴データはまだありません。');
+        renderHistoryTable_([], [], 'この期間の履歴データはまだありません。');
         alert('履歴の取得に失敗しました:\n' + error.message);
       })
-      .getHistoryEntries(tabName);
+      .getHistoryEntriesByDateRange(from, to, includePending);
   }
 
-  // 「使用者名で検索」欄の入力値で historyAllRows_ を絞り込んで再描画する
+  // 「使用者名で検索」「ブランド」の指定で historyAllRows_ を絞り込んで再描画する(クライアント側、再取得なし)
   function applyHistoryFilter_() {
     var rawKeyword = document.getElementById('historySearch').value.trim();
-    if (!rawKeyword) {
-      renderHistoryTable_(historyHeader_, historyAllRows_, 'この月の履歴データはまだありません。');
-      return;
-    }
-
+    var brand = document.getElementById('historyBrand').value;
     var keyword = rawKeyword.toLowerCase();
-    var colIndex = historyHeader_.indexOf(HISTORY_SEARCH_COLUMN);
+    var nameColIndex = historyHeader_.indexOf(HISTORY_SEARCH_COLUMN);
+    var brandColIndex = historyHeader_.indexOf(HISTORY_BRAND_COLUMN);
+
     var filtered = historyAllRows_.filter(function (row) {
-      return colIndex !== -1 && String(row[colIndex]).toLowerCase().indexOf(keyword) !== -1;
+      if (brand && (brandColIndex === -1 || row[brandColIndex] !== brand)) return false;
+      if (rawKeyword && (nameColIndex === -1 || String(row[nameColIndex]).toLowerCase().indexOf(keyword) === -1)) return false;
+      return true;
     });
-    renderHistoryTable_(historyHeader_, filtered, '「' + rawKeyword + '」に一致する履歴が見つかりませんでした。');
+
+    var emptyMessage = (rawKeyword || brand)
+      ? '条件に一致する履歴が見つかりませんでした。'
+      : 'この期間の履歴データはまだありません。';
+    renderHistoryTable_(historyHeader_, filtered, emptyMessage);
   }
 
   function renderHistoryTable_(header, rows, emptyMessage) {
@@ -354,7 +340,7 @@
     });
 
     document.getElementById('historyCountBadge').textContent = rows.length + ' 件';
-    document.getElementById('historyEmptyMsg').textContent = emptyMessage || 'この月の履歴データはまだありません。';
+    document.getElementById('historyEmptyMsg').textContent = emptyMessage || 'この期間の履歴データはまだありません。';
     document.getElementById('historyEmptyMsg').style.display = rows.length === 0 ? '' : 'none';
   }
 </script>

@@ -177,6 +177,81 @@ test('Date以外の値はそのまま返す', () => {
   assert.strictEqual(sandbox.formatHistoryCell_('自動車税', 12000), 12000);
 });
 
+console.log('== HistoryService: getHistoryEntriesByDateRange_ ==');
+
+// Spreadsheet/Sheetの最小限のフェイク実装(getSheets/getSheetByName/getLastRow/getRange().getValues()のみ)
+function makeFakeSheet(name, dataRows) {
+  return {
+    getName: () => name,
+    getLastRow: () => dataRows.length + 1,
+    getRange: (r, c, numRows, numCols) => ({ getValues: () => dataRows })
+  };
+}
+function makeFakeSpreadsheet(sheets) {
+  const byName = {};
+  sheets.forEach((s) => { byName[s.getName()] = s; });
+  return {
+    getSheets: () => sheets,
+    getSheetByName: (name) => byName[name] || null
+  };
+}
+// HISTORY_HEADER_ROWの列順に合わせた1行分のテストデータを作る(登録日はcolsで上書き)
+function makeHistoryRow(sentAt, regDate, userName, brand) {
+  return [
+    sentAt, 'uuid-' + userName, 'OSS', '岐阜ヤナセ株式会社', '戸田 圭市朗',
+    regDate, sentAt, '第１便', 1, userName, brand, '1234', 'W205', '000-1',
+    10000, 0, 5000, '', '', '', '', '担当A'
+  ];
+}
+
+test('月をまたぐ期間指定で、範囲内の登録日の行だけを新しい順に集める', () => {
+  const ss = makeFakeSpreadsheet([
+    makeFakeSheet('2026-07', [
+      makeHistoryRow(new Date(2026, 6, 10, 9, 0), new Date(2026, 6, 10), '範囲外(7/10)', 'MB'),
+      makeHistoryRow(new Date(2026, 6, 25, 9, 0), new Date(2026, 6, 25), '範囲内(7/25)', 'MB')
+    ]),
+    makeFakeSheet('2026-08', [
+      makeHistoryRow(new Date(2026, 7, 5, 9, 0), new Date(2026, 7, 5), '範囲内(8/05)', 'AU')
+    ]),
+    makeFakeSheet(sandbox.HISTORY_PENDING_TAB_NAME, [])
+  ]);
+
+  const result = sandbox.getHistoryEntriesByDateRange_(ss, '2026-07-20', '2026-08-10', false);
+  // result.rows はvmサンドボックス内で生成された配列(別Realm)のため、
+  // Array.from で現在のRealmの配列に変換してから比較する(でないとdeepStrictEqualが
+  // プロトタイプ差分を理由に失敗する)。
+  const names = Array.from(result.rows, (r) => r[9]);
+  assert.deepStrictEqual(names, ['範囲内(8/05)', '範囲内(7/25)']);
+});
+
+test('登録日未定を含める指定で、範囲を問わず登録日未定タブの行も追加される', () => {
+  const ss = makeFakeSpreadsheet([
+    makeFakeSheet('2026-08', [
+      makeHistoryRow(new Date(2026, 7, 5, 9, 0), new Date(2026, 7, 5), '確定分', 'MB')
+    ]),
+    makeFakeSheet(sandbox.HISTORY_PENDING_TAB_NAME, [
+      makeHistoryRow(new Date(2026, 7, 6, 9, 0), '', '未定分', 'AU')
+    ])
+  ]);
+
+  const withoutPending = sandbox.getHistoryEntriesByDateRange_(ss, '2026-08-01', '2026-08-31', false);
+  assert.strictEqual(withoutPending.rows.length, 1);
+
+  const withPending = sandbox.getHistoryEntriesByDateRange_(ss, '2026-08-01', '2026-08-31', true);
+  assert.strictEqual(withPending.rows.length, 2);
+  assert.ok(withPending.rows.some((r) => r[9] === '未定分'));
+});
+
+test('開始日・終了日とも空なら全期間の行を対象にする', () => {
+  const ss = makeFakeSpreadsheet([
+    makeFakeSheet('2026-01', [makeHistoryRow(new Date(2026, 0, 1, 9, 0), new Date(2026, 0, 1), '1月分', 'MB')]),
+    makeFakeSheet('2026-08', [makeHistoryRow(new Date(2026, 7, 1, 9, 0), new Date(2026, 7, 1), '8月分', 'AU')])
+  ]);
+
+  const result = sandbox.getHistoryEntriesByDateRange_(ss, '', '', false);
+  assert.strictEqual(result.rows.length, 2);
+});
+
 console.log('== TemplateService: buildPdfFileName_ ==');
 test('ファイル名にタイムスタンプと種別・会社名を含む', () => {
   const name = sandbox.buildPdfFileName_('OSS', '岐阜ヤナセ株式会社', new Date(2026, 7, 7, 9, 30, 0));

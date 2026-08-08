@@ -12,20 +12,14 @@ function getSuggestions() {
 }
 
 /**
- * 履歴確認画面の対象月プルダウンを埋めるため、存在する月次履歴タブ名を新しい順に返す。
+ * 履歴確認画面用に、指定期間（登録日ベース）に該当する履歴データをヘッダー付きで返す。
+ * @param {string} fromDate "YYYY-MM-DD"（省略/空文字なら下限なし）
+ * @param {string} toDate "YYYY-MM-DD"（省略/空文字なら上限なし）
+ * @param {boolean} includePending 登録日未定の行も範囲を問わず含めるか
  */
-function getHistoryTabNames() {
+function getHistoryEntriesByDateRange(fromDate, toDate, includePending) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  return getAllHistoryTabNames_(ss);
-}
-
-/**
- * 履歴確認画面用に、指定タブの履歴データをヘッダー付きで返す。
- * @param {string} tabName getHistoryTabNames() が返す値のいずれか
- */
-function getHistoryEntries(tabName) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  return getHistoryEntries_(ss, tabName);
+  return getHistoryEntriesByDateRange_(ss, fromDate, toDate, !!includePending);
 }
 
 /**

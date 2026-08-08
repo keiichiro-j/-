@@ -135,33 +135,50 @@
         <div class="card__head card__head--split">
           <div>
             <h2>申請履歴</h2>
-            <p class="muted">対象月を選択すると、その月に登録された依頼履歴を表示します。</p>
+            <p class="muted">期間・ブランド・使用者名で絞り込んで、登録済みの依頼履歴を確認できます。</p>
           </div>
           <span class="badge" id="historyCountBadge">0 件</span>
         </div>
 
-        <div class="fieldRow">
-          <div class="field">
-            <label for="historyMonth">対象月</label>
-            <select id="historyMonth"></select>
+        <div class="filterBar">
+          <div class="filterGroup">
+            <label class="filterGroup__label">期間（登録日）</label>
+            <div class="filterGroup__row">
+              <input type="date" id="historyFrom" aria-label="開始日">
+              <span class="filterBar__sep">〜</span>
+              <input type="date" id="historyTo" aria-label="終了日">
+            </div>
           </div>
-          <div class="field">
-            <label for="historySearch">使用者名で検索</label>
+
+          <div class="filterGroup">
+            <label class="filterGroup__label" for="historyBrand">ブランド</label>
+            <select id="historyBrand">
+              <option value="">すべて</option>
+              <option value="MB">MB</option>
+              <option value="AU">AU</option>
+            </select>
+          </div>
+
+          <div class="filterGroup filterGroup--grow">
+            <label class="filterGroup__label" for="historySearch">使用者名で検索</label>
             <input type="text" id="historySearch" autocomplete="off">
           </div>
-          <div class="field historyRefreshField">
-            <label>&nbsp;</label>
-            <button type="button" id="btnHistoryRefresh" class="btn btn--ghost">更新</button>
-          </div>
+
+          <label class="filterCheck">
+            <input type="checkbox" id="historyIncludePending">
+            <span>登録日未定も含める</span>
+          </label>
+
+          <button type="button" id="btnHistoryRefresh" class="btn btn--ghost filterBar__submit">検索</button>
         </div>
 
-        <div class="tableScroll">
+        <div class="tableScroll tableScroll--history">
           <table id="historyTable">
             <thead><tr id="historyTableHead"></tr></thead>
             <tbody id="historyTableBody"></tbody>
           </table>
         </div>
-        <p class="muted historyEmptyMsg" id="historyEmptyMsg">この月の履歴データはまだありません。</p>
+        <p class="muted historyEmptyMsg" id="historyEmptyMsg">この期間の履歴データはまだありません。</p>
       </section>
     </div>
   </div>

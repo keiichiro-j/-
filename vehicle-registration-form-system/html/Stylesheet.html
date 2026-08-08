@@ -104,6 +104,7 @@
     border-radius: var(--r-pill);
     padding: 10px 24px;
     cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
   }
   .viewSwitchBtn.is-active {
     background: var(--accent);
@@ -118,6 +119,10 @@
     box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 20px rgba(16, 24, 40, 0.05);
     padding: 26px;
     margin-bottom: 20px;
+    transition: box-shadow 0.2s ease;
+  }
+  .card:hover {
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 12px 28px rgba(16, 24, 40, 0.08);
   }
   .card__head { margin-bottom: 18px; }
   .card__head--split { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
@@ -201,6 +206,7 @@
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--r-sm);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
   input::placeholder { color: var(--ink-soft); opacity: 0.8; }
   input:focus, select:focus {
@@ -236,6 +242,10 @@
     letter-spacing: 0.05em;
     text-transform: uppercase;
     white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    box-shadow: inset 0 -1px 0 var(--line);
   }
   tbody tr:hover td { background: var(--accent-soft); }
   td input, td select {
@@ -253,14 +263,60 @@
   .colDel { width: 32px; }
   .colRegDate.is-hidden, td.cell-regdate.is-hidden { display: none; }
 
+  /* ---------- 履歴確認: フィルターツールバー ---------- */
+
+  .filterBar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 18px;
+    background: var(--surface-alt);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    padding: 16px 18px;
+    margin-bottom: 16px;
+  }
+  .filterGroup { display: flex; flex-direction: column; gap: 7px; }
+  .filterGroup--grow { flex: 1; min-width: 180px; }
+  .filterGroup__label {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .filterGroup__row { display: flex; align-items: center; gap: 8px; }
+  .filterGroup__row input[type="date"] { width: 150px; background: var(--surface); }
+  .filterBar__sep { color: var(--ink-soft); font-size: 12px; }
+  .filterBar select { background: var(--surface); }
+  .filterCheck {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    cursor: pointer;
+    padding-bottom: 11px;
+    white-space: nowrap;
+  }
+  .filterCheck input { width: auto; accent-color: var(--accent); cursor: pointer; }
+  .filterBar__submit { flex: none; padding: 10px 26px; }
+
   /* ---------- 履歴確認テーブル ---------- */
 
-  #historyTable { min-width: 1600px; }
+  .tableScroll--history { max-height: 560px; overflow-y: auto; }
+  #historyTable { min-width: 1700px; }
   #historyTable .numCol { text-align: right; }
   #historyTable td { color: var(--ink); }
-  .historyRefreshField { flex: none; display: flex; flex-direction: column; justify-content: flex-end; }
-  .historyRefreshField .btn { width: 100%; }
+  #historyTable tbody tr:nth-child(even) td { background: var(--surface-alt); }
+  #historyTable tbody tr:hover td { background: var(--accent-soft); }
   .historyEmptyMsg { text-align: center; padding: 20px 0 4px; }
+
+  @media (max-width: 700px) {
+    .filterBar { flex-direction: column; align-items: stretch; }
+    .filterBar__submit { width: 100%; }
+  }
 
   .btnRemoveRow {
     border: none;
@@ -283,7 +339,9 @@
     padding: 11px 22px;
     border-radius: var(--r-pill);
     cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
   }
+  .btn:active { transform: scale(0.98); }
   .btn--ghost {
     background: var(--surface);
     border: 1px solid var(--line);

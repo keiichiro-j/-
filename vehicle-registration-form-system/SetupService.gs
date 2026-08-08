@@ -107,6 +107,7 @@ function buildOssTemplateSheet_(sheet) {
   applyZebraAndBorders_(sheet, VEHICLE_COLUMNS.OSS);
   applyNumericAlignment_(sheet, VEHICLE_COLUMNS.OSS);
   applyFieldWidths_(sheet, VEHICLE_COLUMNS.OSS);
+  applyBrandEmphasis_(sheet, VEHICLE_COLUMNS.OSS);
 
   finishSheetStyle_(sheet, maxCol);
 }
@@ -121,6 +122,7 @@ function buildPaperTemplateSheet_(sheet) {
   applyZebraAndBorders_(sheet, VEHICLE_COLUMNS.PAPER);
   applyNumericAlignment_(sheet, VEHICLE_COLUMNS.PAPER);
   applyFieldWidths_(sheet, VEHICLE_COLUMNS.PAPER);
+  applyBrandEmphasis_(sheet, VEHICLE_COLUMNS.PAPER);
 
   finishSheetStyle_(sheet, maxCol);
 }
@@ -188,6 +190,10 @@ function setBanner_(sheet, maxCol, badgeText) {
   badgeRange.setFontSize(14);
   badgeRange.setHorizontalAlignment('center');
   badgeRange.setVerticalAlignment('middle');
+
+  // バナー下に太めのアクセント罫線を引き、本文との境目をくっきりさせる(モダンな二段ヘッダー風)
+  sheet.getRange(1, 1, 1, maxCol)
+    .setBorder(false, false, true, false, false, false, '#0B57D0', SpreadsheetApp.BorderStyle.SOLID_THICK);
 
   sheet.setRowHeight(1, 56);
 }
@@ -270,6 +276,7 @@ function styleValueCell_(range) {
  * 2行のラベル(例:「車台番号」+「(下4桁)」)が印刷時に見切れないよう行高に余裕を持たせる。
  */
 function buildVehicleTableHeader_(sheet, columns, labels) {
+  var maxCol = maxColumnOf_(columns);
   Object.keys(columns).forEach(function (key) {
     var col = columns[key];
     var cell = sheet.getRange(7, col);
@@ -282,6 +289,9 @@ function buildVehicleTableHeader_(sheet, columns, labels) {
     cell.setVerticalAlignment('middle');
     cell.setWrap(true);
   });
+  // 見出し行の下にアクセント罫線を引き、データ行との境目をくっきりさせる
+  sheet.getRange(7, 1, 1, maxCol)
+    .setBorder(false, false, true, false, false, false, THEME.accent, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
   sheet.setRowHeight(7, 46);
 }
 
@@ -304,6 +314,21 @@ function applyZebraAndBorders_(sheet, columns) {
   range.setFontSize(11);
   range.setHorizontalAlignment('center');
   range.setVerticalAlignment('middle');
+
+  // データ欄の左端にアクセントの縦罫線を引き、表全体の輪郭を引き締める
+  sheet.getRange(VEHICLE_START_ROW, 1, MAX_VEHICLES, 1)
+    .setBorder(null, true, null, null, null, null, THEME.accent, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+}
+
+/**
+ * ブランド(MB/AU)列は新しく追加した絞り込み観点のため、太字・アクセントカラーで強調して目立たせる。
+ */
+function applyBrandEmphasis_(sheet, columns) {
+  var col = columns.brand;
+  if (!col) return;
+  var range = sheet.getRange(VEHICLE_START_ROW, col, MAX_VEHICLES, 1);
+  range.setFontWeight('bold');
+  range.setFontColor(THEME.bannerBg);
 }
 
 /**

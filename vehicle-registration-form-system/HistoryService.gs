@@ -103,8 +103,8 @@ function getRecentHistoryTabNames_(ss, monthsBack) {
 
 /**
  * 存在する全ての月次履歴タブ名(YYYY-MM)を新しい順に返す（「登録日未定」タブはデータがあれば末尾に追加）。
- * 履歴確認画面の対象月プルダウン用。サジェスト収集用の getRecentHistoryTabNames_ とは
- * 「直近何ヶ月分だけに絞るか」が異なるため、別関数にしている。
+ * getHistoryEntriesByDateRange_ が対象タブを絞り込む際に使う。サジェスト収集用の
+ * getRecentHistoryTabNames_ とは「直近何ヶ月分だけに絞るか」が異なるため、別関数にしている。
  */
 function getAllHistoryTabNames_(ss) {
   var monthTabs = ss.getSheets()
@@ -154,6 +154,54 @@ function formatHistoryCell_(label, value) {
       : Utilities.formatDate(value, TIMEZONE, 'yyyy-MM-dd');
   }
   return value;
+}
+
+/**
+ * 「登録日」が fromDate〜toDate（いずれも "YYYY-MM-DD"。空/不正なら片側無制限）の範囲に
+ * 入る履歴行を、該当する月次タブすべてを横断して集める（履歴確認画面の期間検索用）。
+ * includePendingがtrueなら、登録日が未確定な「登録日未定」タブの行も範囲を問わず含める。
+ * 全件を対象の月タブ分だけ読み込むため、範囲が絞られているほど読み込むシート数も少なくなる。
+ * @return {{header: Array<string>, rows: Array<Array<string>>}}
+ */
+function getHistoryEntriesByDateRange_(ss, fromDate, toDate, includePending) {
+  var header = HISTORY_HEADER_ROW;
+  var regDateColIndex = header.indexOf('登録日');
+
+  var fromD = isValidDateStr_(fromDate) ? parseDateOnly_(fromDate) : null;
+  var toD = isValidDateStr_(toDate) ? parseDateOnly_(toDate) : null;
+  var fromMonth = fromD ? formatYearMonth_(fromD) : null;
+  var toMonth = toD ? formatYearMonth_(toD) : null;
+
+  var monthTabNames = getAllHistoryTabNames_(ss).filter(function (name) {
+    if (!/^\d{4}-\d{2}$/.test(name)) return false;
+    if (fromMonth && name < fromMonth) return false;
+    if (toMonth && name > toMonth) return false;
+    return true;
+  });
+
+  var rows = [];
+  monthTabNames.forEach(function (name) {
+    getHistoryEntries_(ss, name).rows.forEach(function (row) {
+      var regDateStr = row[regDateColIndex];
+      if (!isValidDateStr_(regDateStr)) return;
+      var d = parseDateOnly_(regDateStr);
+      if (fromD && d < fromD) return;
+      if (toD && d > toD) return;
+      rows.push(row);
+    });
+  });
+
+  if (includePending) {
+    rows = rows.concat(getHistoryEntries_(ss, HISTORY_PENDING_TAB_NAME).rows);
+  }
+
+  // 複数タブをまたいで集めた行を、送信日時(降順)で並べ直す
+  rows.sort(function (a, b) {
+    if (a[0] === b[0]) return 0;
+    return a[0] < b[0] ? 1 : -1;
+  });
+
+  return { header: header, rows: rows };
 }
 
 /**
