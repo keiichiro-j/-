@@ -166,6 +166,17 @@
     el.innerHTML = text;
   }
 
+  // 飛騨登録トグル: ONのときだけPDFの飛騨登録バッジが印字される(TemplateService.gs参照)
+  var hidaOn = false;
+  function setHidaFlag_(on) {
+    hidaOn = on;
+    var btn = document.getElementById('hidaToggle');
+    btn.classList.toggle('is-active', on);
+    btn.setAttribute('aria-pressed', on);
+    btn.textContent = on ? '飛騨登録：対象' : '飛騨登録：対象外';
+  }
+  document.getElementById('hidaToggle').addEventListener('click', function () { setHidaFlag_(!hidaOn); });
+
   function submitForm(e) {
     e.preventDefault();
     clearInvalid_();
@@ -188,6 +199,7 @@
       sendDate: document.getElementById('sendDate').value,
       sendBatch: document.getElementById('sendBatch').value,
       regDateCommon: document.getElementById('regDateCommon').value,
+      hidaRegistration: hidaOn,
       vehicles: collectVehicles_()
     };
 
@@ -219,6 +231,7 @@
     clearInvalid_();
     document.getElementById('mainForm').reset();
     setType('OSS');
+    setHidaFlag_(false);
     document.getElementById('vehicleTableBody').innerHTML = '';
     for (var i = 0; i < INITIAL_VEHICLE_ROWS; i++) addVehicleRow();
     setResult_('', '');

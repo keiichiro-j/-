@@ -19,7 +19,9 @@ function getSuggestions() {
  */
 function getHistoryEntriesByDateRange(fromDate, toDate, includePending) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  return getHistoryEntriesByDateRange_(ss, fromDate, toDate, !!includePending);
+  var result = getHistoryEntriesByDateRange_(ss, fromDate, toDate, !!includePending);
+  // submissionIdは内部管理用のUUIDで、画面に出しても読み手の役に立たないため表示からは省く。
+  return omitHistoryColumn_(result, 'submissionId');
 }
 
 /**

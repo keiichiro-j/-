@@ -23,15 +23,30 @@ var SHEET_NAMES = {
   PAPER_TEMPLATE: '新車新規登録依頼書（書類送付書）紙'
 };
 
-// 共通項目のセル位置（会社名・担当責任者は横幅いっぱいの結合セル、日付は「M/D」形式の単一セル）
-// A列・B列を空白マージンとして予約するのをやめ、A列から詰めて配置している。
+// 共通項目のセル位置。送付日・便(・紙のみ登録日)は左側に大きく強調したタイルとして、
+// 会社名・担当責任者は右側に配置する(SetupService.gs の buildOssCommonFields_ /
+// buildPaperCommonFields_ が描画するレイアウトと必ず一致させること)。
+// OSS/紙で列数(maxCol)が異なるため、セル位置も種別ごとに分けている。
 var COMMON_CELLS = {
-  company: 'C2',
-  manager: 'C3',
-  sendDate: 'C4',
-  sendBatch: 'F4',
-  regDateCommon: 'C5' // 紙登録のみ使用
+  OSS: {
+    sendDate: 'A3',
+    sendBatch: 'E3',
+    company: 'K2',
+    manager: 'K3',
+    hidaBadge: 'K1' // 飛騨登録バッジ(banner内、通常は空欄)
+  },
+  PAPER: {
+    sendDate: 'A3',
+    sendBatch: 'D3',
+    regDateCommon: 'G3',
+    company: 'K2',
+    manager: 'K3',
+    hidaBadge: 'J1' // 飛騨登録バッジ(banner内、通常は空欄)
+  }
 };
+
+// 飛騨登録バッジの配色(通常は非表示。該当申請のときだけ目立つ色で塗る)
+var HIDA_BADGE_COLOR = { bg: '#F9AB00', text: '#202124' }; // Google Yellow
 
 // 送付便の選択肢（ドロップダウン）
 var SEND_BATCH_OPTIONS = ['第１便', '第２便', '第３便'];
@@ -104,10 +119,11 @@ var TAX_LABELS = {
 // 数値項目のキー(ダッシュボード風に金額を右寄せするため、SetupService.gs で使用)
 var NUMERIC_FIELD_KEYS = ['autoTax', 'envTax', 'weightTax'];
 
-// 履歴タブ（月次）のヘッダー行。A〜V の22列。
+// 履歴タブ（月次）のヘッダー行。A〜W の23列。
+// 「飛騨登録」は末尾に追記(既存タブの列インデックスをずらさないため)。
 var HISTORY_HEADER_ROW = [
   '送信日時', 'submissionId', '種別', '依頼会社名', '担当責任者',
   '登録日', '送付日', '送付便', '車両No.', '使用車名', 'ブランド', '車台番号',
   '型式', '類別番号', '自動車税', '環境性能割', '重量税',
-  '希望ナンバー', '予備検登録車', '本検登録車', '身障者減免車', '担当者'
+  '希望ナンバー', '予備検登録車', '本検登録車', '身障者減免車', '担当者', '飛騨登録'
 ];

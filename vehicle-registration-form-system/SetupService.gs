@@ -32,6 +32,7 @@ var THEME = {
   panelSofter: '#F8F9FA',// Googleの最も薄いグレー
   hairline: '#DADCE0',   // Googleの標準的な境界線グレー
   accent: '#1A73E8',     // Google Blue(記入欄の下線など)
+  tileBg: '#E8F0FE',     // 強調タイル(送付日・便・登録日)の背景
   zebra: '#F8F9FA'
 };
 
@@ -102,7 +103,7 @@ function buildOssTemplateSheet_(sheet) {
   sheet.clear();
 
   setBanner_(sheet, maxCol, 'OSS');
-  buildCommonFields_(sheet, TYPE_OSS, maxCol);
+  buildOssCommonFields_(sheet);
   buildVehicleTableHeader_(sheet, VEHICLE_COLUMNS.OSS, OSS_FIELD_LABELS);
   applyZebraAndBorders_(sheet, VEHICLE_COLUMNS.OSS);
   applyNumericAlignment_(sheet, VEHICLE_COLUMNS.OSS);
@@ -117,7 +118,7 @@ function buildPaperTemplateSheet_(sheet) {
   sheet.clear();
 
   setBanner_(sheet, maxCol, '紙');
-  buildCommonFields_(sheet, TYPE_PAPER, maxCol);
+  buildPaperCommonFields_(sheet);
   buildVehicleTableHeader_(sheet, VEHICLE_COLUMNS.PAPER, PAPER_FIELD_LABELS);
   applyZebraAndBorders_(sheet, VEHICLE_COLUMNS.PAPER);
   applyNumericAlignment_(sheet, VEHICLE_COLUMNS.PAPER);
@@ -142,14 +143,19 @@ function ensureColumns_(sheet, minCols) {
 }
 
 /**
- * タイトルバー(左: オーバーライン+タイトルの2段リッチテキスト、右: OSS/紙のバッジ)を
+ * タイトルバー(左: オーバーライン+タイトルの2段リッチテキスト、右: 飛騨登録バッジ+OSS/紙のバッジ)を
  * 1行目に描画する。Google BlueのApp Bar風の塗りつぶし地に白文字。
  * 車両データ欄の幅(maxCol)いっぱいに合わせる(縦向きより横に長いA4横印刷を想定)。
+ *
+ * 飛騨登録バッジは通常バナーに同化させて空欄のまま置いておき(このシートは全申請共通の
+ * テンプレートのため)、TemplateService.gsが「飛騨登録」該当時のみ目立つ色で上書きする。
+ * このバッジの列位置は Constants.gs の COMMON_CELLS.OSS/PAPER.hidaBadge と必ず一致させること。
  */
 function setBanner_(sheet, maxCol, badgeText) {
   ensureColumns_(sheet, maxCol);
-  var badgeWidth = 2;
-  var titleEnd = maxCol - badgeWidth;
+  var hidaBadgeWidth = 2;
+  var typeBadgeWidth = 2;
+  var titleEnd = maxCol - hidaBadgeWidth - typeBadgeWidth;
 
   var titleRange = sheet.getRange(1, 1, 1, titleEnd);
   titleRange.merge();
@@ -180,16 +186,25 @@ function setBanner_(sheet, maxCol, badgeText) {
   titleRange.setVerticalAlignment('middle');
   titleRange.setWrap(true);
 
-  var badgeRange = sheet.getRange(1, titleEnd + 1, 1, badgeWidth);
-  badgeRange.merge();
-  badgeRange.setValue(badgeText);
-  badgeRange.setBackground('#174EA6'); // Google Blueより一段濃いトーンで面を分ける
-  badgeRange.setFontColor('#FFFFFF');
-  badgeRange.setFontFamily(FONT_FAMILY);
-  badgeRange.setFontWeight('bold');
-  badgeRange.setFontSize(14);
-  badgeRange.setHorizontalAlignment('center');
-  badgeRange.setVerticalAlignment('middle');
+  var hidaBadgeRange = sheet.getRange(1, titleEnd + 1, 1, hidaBadgeWidth);
+  hidaBadgeRange.merge();
+  hidaBadgeRange.setBackground(THEME.bannerBg); // 通常時はバナーと同化させ、空欄のまま目立たせない
+  hidaBadgeRange.setFontFamily(FONT_FAMILY);
+  hidaBadgeRange.setFontWeight('bold');
+  hidaBadgeRange.setFontSize(11);
+  hidaBadgeRange.setHorizontalAlignment('center');
+  hidaBadgeRange.setVerticalAlignment('middle');
+
+  var typeBadgeRange = sheet.getRange(1, titleEnd + hidaBadgeWidth + 1, 1, typeBadgeWidth);
+  typeBadgeRange.merge();
+  typeBadgeRange.setValue(badgeText);
+  typeBadgeRange.setBackground('#174EA6'); // Google Blueより一段濃いトーンで面を分ける
+  typeBadgeRange.setFontColor('#FFFFFF');
+  typeBadgeRange.setFontFamily(FONT_FAMILY);
+  typeBadgeRange.setFontWeight('bold');
+  typeBadgeRange.setFontSize(14);
+  typeBadgeRange.setHorizontalAlignment('center');
+  typeBadgeRange.setVerticalAlignment('middle');
 
   // バナー下に太めのアクセント罫線を引き、本文との境目をくっきりさせる(モダンな二段ヘッダー風)
   sheet.getRange(1, 1, 1, maxCol)
@@ -199,36 +214,77 @@ function setBanner_(sheet, maxCol, badgeText) {
 }
 
 /**
- * 会社名・担当責任者・送付日+便(・紙のみ登録日)の共通項目欄を描画する。
- * ラベルはA:B列、値はC列から表幅いっぱいに使う。
- * 送付日の右に送付便(第１便〜第３便)を並べる。
- * 日付は「M/D」形式の単一セルにして、月と日の間に隙間を作らない。
+ * OSS用の共通項目欄。送付日・便を大きく強調したタイルを左側に、会社名・担当責任者を
+ * 右側に配置する(受け取り手が送付日/便を一目で確認できるようにするため)。
+ * 列位置は Constants.gs の COMMON_CELLS.OSS と必ず一致させること
+ * (TemplateService.gs がその定数の位置に値を書き込むため)。
  */
-function buildCommonFields_(sheet, type, maxCol) {
-  setFieldLabel_(sheet, 2, 1, 2, '会社名');
-  setFullWidthValueCell_(sheet, 2, maxCol);
-  sheet.setRowHeight(2, 28);
+function buildOssCommonFields_(sheet) {
+  buildEmphasisTile_(sheet, 1, 4, '送付日'); // A-D → 値の左上セル = A3
+  buildEmphasisTile_(sheet, 5, 4, '便');     // E-H → 値の左上セル = E3
 
-  setFieldLabel_(sheet, 3, 1, 2, '担当責任者');
-  setFullWidthValueCell_(sheet, 3, maxCol);
-  sheet.setRowHeight(3, 28);
+  setFieldLabel_(sheet, 2, 9, 2, '会社名');
+  mergeValueCell_(sheet, 2, 11, 4, 'left');   // K-N → 値の左上セル = K2
+  setFieldLabel_(sheet, 3, 9, 2, '担当責任者');
+  mergeValueCell_(sheet, 3, 11, 4, 'left');   // K-N → 値の左上セル = K3
 
-  setFieldLabel_(sheet, 4, 1, 2, '送付日');
-  setDateValueCell_(sheet, COMMON_CELLS.sendDate);
+  applyCommonRowHeights_(sheet);
+}
 
-  setFieldLabel_(sheet, 4, 4, 2, '便');
-  mergeValueCell_(sheet, 4, 6, 2, 'center');
-  sheet.setRowHeight(4, 26);
+/**
+ * 紙用の共通項目欄。送付日・便・登録日を大きく強調したタイルを左側に、会社名・担当責任者を
+ * 右側に配置する。列位置は Constants.gs の COMMON_CELLS.PAPER と必ず一致させること。
+ */
+function buildPaperCommonFields_(sheet) {
+  buildEmphasisTile_(sheet, 1, 3, '送付日'); // A-C → 値の左上セル = A3
+  buildEmphasisTile_(sheet, 4, 3, '便');     // D-F → 値の左上セル = D3
+  buildEmphasisTile_(sheet, 7, 2, '登録日'); // G-H → 値の左上セル = G3
 
-  if (type === TYPE_PAPER) {
-    setFieldLabel_(sheet, 5, 1, 2, '登録日(全体)');
-    setDateValueCell_(sheet, COMMON_CELLS.regDateCommon);
-    sheet.setRowHeight(5, 26);
-  } else {
-    sheet.setRowHeight(5, 10);
-  }
+  setFieldLabel_(sheet, 2, 9, 2, '会社名');
+  mergeValueCell_(sheet, 2, 11, 3, 'left');   // K-M → 値の左上セル = K2
+  setFieldLabel_(sheet, 3, 9, 2, '担当責任者');
+  mergeValueCell_(sheet, 3, 11, 3, 'left');   // K-M → 値の左上セル = K3
 
-  sheet.setRowHeight(6, 10);
+  applyCommonRowHeights_(sheet);
+}
+
+/**
+ * 送付日・便(・登録日)を大きく目立たせる「タイル」を1つ描画する。
+ * 2行目に小さめのキャプション、3〜6行目を結合した大きな太字の値欄という構成。
+ * 値の書き込み先(左上セル)は必ず row3, colStart になる
+ * (Constants.gs の COMMON_CELLS と対応させること)。
+ */
+function buildEmphasisTile_(sheet, colStart, colSpan, captionText) {
+  var captionRange = sheet.getRange(2, colStart, 1, colSpan);
+  captionRange.merge();
+  captionRange.setValue(captionText);
+  captionRange.setBackground(THEME.panelSoft);
+  captionRange.setFontColor(THEME.inkSoft);
+  captionRange.setFontWeight('bold');
+  captionRange.setFontSize(10);
+  captionRange.setHorizontalAlignment('center');
+  captionRange.setVerticalAlignment('middle');
+
+  var valueRange = sheet.getRange(3, colStart, 4, colSpan);
+  valueRange.merge();
+  valueRange.setBackground(THEME.tileBg);
+  valueRange.setFontColor(THEME.bannerBg);
+  valueRange.setFontWeight('bold');
+  valueRange.setFontSize(30);
+  valueRange.setHorizontalAlignment('center');
+  valueRange.setVerticalAlignment('middle');
+  valueRange.setBorder(true, true, true, true, false, false, THEME.accent, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+}
+
+/**
+ * 共通項目欄(2〜6行目)の行の高さをまとめて設定する。
+ */
+function applyCommonRowHeights_(sheet) {
+  sheet.setRowHeight(2, 26);
+  sheet.setRowHeight(3, 24);
+  sheet.setRowHeight(4, 24);
+  sheet.setRowHeight(5, 24);
+  sheet.setRowHeight(6, 24);
 }
 
 /**
@@ -247,19 +303,11 @@ function setFieldLabel_(sheet, row, colStart, colSpan, text) {
   range.setVerticalAlignment('middle');
 }
 
-function setFullWidthValueCell_(sheet, row, maxCol) {
-  mergeValueCell_(sheet, row, 3, maxCol - 3 + 1, 'left'); // C列〜表幅いっぱい
-}
-
 function mergeValueCell_(sheet, row, colStart, colSpan, align) {
   var range = sheet.getRange(row, colStart, 1, colSpan);
   range.merge();
   styleValueCell_(range);
   range.setHorizontalAlignment(align || 'center');
-}
-
-function setDateValueCell_(sheet, a1) {
-  styleValueCell_(sheet.getRange(a1));
 }
 
 function styleValueCell_(range) {

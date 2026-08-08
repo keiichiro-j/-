@@ -23,13 +23,23 @@ function duplicateTemplateSheet_(ss, type, submissionId) {
 }
 
 function writeCommonFields_(sheet, type, formData) {
-  sheet.getRange(COMMON_CELLS.company).setValue(formData.company);
-  sheet.getRange(COMMON_CELLS.manager).setValue(formData.manager);
-  sheet.getRange(COMMON_CELLS.sendDate).setValue(formatMonthDay_(formData.sendDate));
-  sheet.getRange(COMMON_CELLS.sendBatch).setValue(formData.sendBatch || '');
+  var cells = (type === TYPE_PAPER) ? COMMON_CELLS.PAPER : COMMON_CELLS.OSS;
+
+  sheet.getRange(cells.company).setValue(formData.company);
+  sheet.getRange(cells.manager).setValue(formData.manager);
+  sheet.getRange(cells.sendDate).setValue(formatMonthDay_(formData.sendDate));
+  sheet.getRange(cells.sendBatch).setValue(formData.sendBatch || '');
 
   if (type === TYPE_PAPER && isValidDateStr_(formData.regDateCommon)) {
-    sheet.getRange(COMMON_CELLS.regDateCommon).setValue(formatMonthDay_(formData.regDateCommon));
+    sheet.getRange(cells.regDateCommon).setValue(formatMonthDay_(formData.regDateCommon));
+  }
+
+  // 飛騨登録のときだけ、通常はバナーに同化して見えないバッジを目立つ色に上書きして印字する。
+  if (formData.hidaRegistration) {
+    var hidaRange = sheet.getRange(cells.hidaBadge);
+    hidaRange.setValue('飛騨登録');
+    hidaRange.setBackground(HIDA_BADGE_COLOR.bg);
+    hidaRange.setFontColor(HIDA_BADGE_COLOR.text);
   }
 }
 

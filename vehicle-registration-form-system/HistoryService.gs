@@ -75,7 +75,8 @@ function appendHistoryRow_(ss, type, car, formData, submissionId, vehicleNo, tim
     car.yobi,
     car.honken,
     car.shinsho,
-    car.person
+    car.person,
+    formData.hidaRegistration ? '対象' : ''
   ]);
 
   return tabName;
@@ -201,6 +202,22 @@ function getHistoryEntriesByDateRange_(ss, fromDate, toDate, includePending) {
     return a[0] < b[0] ? 1 : -1;
   });
 
+  return { header: header, rows: rows };
+}
+
+/**
+ * 履歴確認画面での表示用に、指定したラベルの列を header/rows から取り除いた
+ * 新しいオブジェクトを返す(submissionIdなど、内部管理用でエンドユーザー表示には
+ * 不要な列を落とす用途)。スプレッドシート側のスキーマ(HISTORY_HEADER_ROW)自体は変えない。
+ */
+function omitHistoryColumn_(entries, label) {
+  var idx = entries.header.indexOf(label);
+  if (idx === -1) return entries;
+
+  var header = entries.header.filter(function (_, i) { return i !== idx; });
+  var rows = entries.rows.map(function (row) {
+    return row.filter(function (_, i) { return i !== idx; });
+  });
   return { header: header, rows: rows };
 }
 

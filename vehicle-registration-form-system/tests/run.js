@@ -177,6 +177,23 @@ test('Date以外の値はそのまま返す', () => {
   assert.strictEqual(sandbox.formatHistoryCell_('自動車税', 12000), 12000);
 });
 
+console.log('== HistoryService: omitHistoryColumn_ ==');
+test('指定ラベルの列をheader/rowsの両方から取り除く', () => {
+  const entries = {
+    header: ['送信日時', 'submissionId', '使用車名'],
+    rows: [['2026-08-08 09:00', 'uuid-1', '岐阜 太郎'], ['2026-08-08 10:00', 'uuid-2', '岐阜 花子']]
+  };
+  const result = sandbox.omitHistoryColumn_(entries, 'submissionId');
+  assert.deepStrictEqual(Array.from(result.header), ['送信日時', '使用車名']);
+  assert.deepStrictEqual(Array.from(result.rows[0]), ['2026-08-08 09:00', '岐阜 太郎']);
+  assert.deepStrictEqual(Array.from(result.rows[1]), ['2026-08-08 10:00', '岐阜 花子']);
+});
+test('存在しないラベルを指定した場合は元のオブジェクトをそのまま返す', () => {
+  const entries = { header: ['送信日時'], rows: [['2026-08-08 09:00']] };
+  const result = sandbox.omitHistoryColumn_(entries, '存在しない列');
+  assert.strictEqual(result, entries);
+});
+
 console.log('== HistoryService: getHistoryEntriesByDateRange_ ==');
 
 // Spreadsheet/Sheetの最小限のフェイク実装(getSheets/getSheetByName/getLastRow/getRange().getValues()のみ)
