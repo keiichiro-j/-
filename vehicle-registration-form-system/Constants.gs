@@ -24,12 +24,13 @@ var SHEET_NAMES = {
 };
 
 // 共通項目のセル位置（会社名・担当責任者は横幅いっぱいの結合セル、日付は「M/D」形式の単一セル）
+// A列・B列を空白マージンとして予約するのをやめ、A列から詰めて配置している。
 var COMMON_CELLS = {
-  company: 'E2',
-  manager: 'E3',
-  sendDate: 'E4',
-  sendBatch: 'H4',
-  regDateCommon: 'E5' // 紙登録のみ使用
+  company: 'C2',
+  manager: 'C3',
+  sendDate: 'C4',
+  sendBatch: 'F4',
+  regDateCommon: 'C5' // 紙登録のみ使用
 };
 
 // 送付便の選択肢（ドロップダウン）
@@ -37,53 +38,55 @@ var SEND_BATCH_OPTIONS = ['第１便', '第２便', '第３便'];
 
 // 車両1台分のフィールド -> 列番号（テンプレートのセル位置。OSS/紙でずれる）
 // 旧実装は実物の紙の依頼書に合わせて歯抜けの列番号だったが、実物が無いため連番に詰めている。
+// A列から詰めており、余白マージン列は設けていない。
 var VEHICLE_COLUMNS = {
   OSS: {
-    indivRegDate: 3,  // C: 登録日
-    userName: 4,      // D: 使用車名
-    chassis: 5,       // E: 車台番号
-    model: 6,         // F: 型式
-    classNum: 7,       // G: 類別番号
-    autoTax: 8,        // H: 自動車税
-    envTax: 9,         // I: 環境性能割
-    weightTax: 10,     // J: 重量税
-    hopeNum: 11,       // K: 希望ナンバー
-    yobi: 12,          // L: 予備検登録車
-    honken: 13,        // M: 本検登録車
-    shinsho: 14,       // N: 身障者減免車
-    person: 15         // O: 担当者
+    indivRegDate: 1,  // A: 登録日
+    userName: 2,      // B: 使用車名
+    chassis: 3,       // C: 車台番号
+    model: 4,         // D: 型式
+    classNum: 5,       // E: 類別番号
+    autoTax: 6,        // F: 自動車税
+    envTax: 7,         // G: 環境性能割
+    weightTax: 8,      // H: 重量税
+    hopeNum: 9,        // I: 希望ナンバー
+    yobi: 10,          // J: 予備検登録車
+    honken: 11,        // K: 本検登録車
+    shinsho: 12,       // L: 身障者減免車
+    person: 13         // M: 担当者
   },
   PAPER: {
-    userName: 3,       // C: 使用車名
-    chassis: 4,        // D: 車台番号
-    model: 5,          // E: 型式
-    classNum: 6,        // F: 類別番号
-    autoTax: 7,          // G: 自動車税
-    envTax: 8,           // H: 環境性能割
-    weightTax: 9,        // I: 重量税
-    hopeNum: 10,         // J: 希望ナンバー
-    yobi: 11,            // K: 予備検登録車
-    honken: 12,          // L: 本検登録車
-    shinsho: 13,         // M: 身障者減免車
-    person: 14           // N: 担当者
+    userName: 1,       // A: 使用車名
+    chassis: 2,        // B: 車台番号
+    model: 3,          // C: 型式
+    classNum: 4,        // D: 類別番号
+    autoTax: 5,          // E: 自動車税
+    envTax: 6,           // F: 環境性能割
+    weightTax: 7,        // G: 重量税
+    hopeNum: 8,          // H: 希望ナンバー
+    yobi: 9,             // I: 予備検登録車
+    honken: 10,          // J: 本検登録車
+    shinsho: 11,         // K: 身障者減免車
+    person: 12           // L: 担当者
   }
 };
 
 // 車両欄の列ごとの推奨幅(px)。SetupService.gs のテンプレート生成で使用する。
+// 印刷時の見切れを避けるため、2列分の見出しラベルが入る列は少し広めに取っている。
 var FIELD_WIDTHS = {
-  indivRegDate: 58,
-  userName: 130,
-  chassis: 72,
-  model: 100,
-  classNum: 100,
-  autoTax: 68,
-  envTax: 72,
-  weightTax: 68,
-  hopeNum: 56,
-  yobi: 56,
-  honken: 56,
-  shinsho: 56,
-  person: 74
+  indivRegDate: 62,
+  userName: 132,
+  chassis: 76,
+  model: 102,
+  classNum: 104,
+  autoTax: 72,
+  envTax: 76,
+  weightTax: 72,
+  hopeNum: 62,
+  yobi: 62,
+  honken: 62,
+  shinsho: 62,
+  person: 78
 };
 
 var TAX_LABELS = {

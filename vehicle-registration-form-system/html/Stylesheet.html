@@ -1,19 +1,22 @@
 <style>
   :root {
     color-scheme: light; /* Chromeの「Webコンテンツの自動ダークモード」による強制変換を無効化する */
-    --page-bg: #F3F5F8;
+    /* 配色はGoogleの実際のデザイントークン値を採用(Google Blue等) */
+    --page-bg: #F1F3F4;
     --surface: #FFFFFF;
-    --surface-alt: #F5F7FA;
-    --line: #E3E7EC;
-    --ink: #171B22;
-    --ink-soft: #667085;
-    --accent: #2F6FED;
-    --accent-soft: #E1EAFE;
-    --shu: #D0332B;
-    --success: #1E7A46;
-    --r-lg: 14px;
-    --r-md: 10px;
-    --r-sm: 8px;
+    --surface-alt: #F1F3F4;
+    --line: #DADCE0;
+    --ink: #202124;
+    --ink-soft: #5F6368;
+    --accent: #1A73E8;
+    --accent-dark: #174EA6;
+    --accent-soft: #E8F0FE;
+    --shu: #D93025;
+    --success: #188038;
+    --r-lg: 24px;
+    --r-md: 12px;
+    --r-sm: 4px;
+    --r-pill: 999px;
   }
 
   * { box-sizing: border-box; }
@@ -22,65 +25,49 @@
     margin: 0;
     background: var(--page-bg);
     color: var(--ink);
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN",
+    font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN",
       "Yu Gothic Medium", "Yu Gothic", "Noto Sans JP", "Meiryo", sans-serif;
     line-height: 1.7;
     font-feature-settings: "tnum" 1;
     font-variant-numeric: tabular-nums;
   }
 
-  /* ---------- 共通のカード面(通常の影1つだけの、単純で確実なスタイル) ---------- */
-
-  .masthead,
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: var(--r-lg);
-    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 20px rgba(16, 24, 40, 0.05);
-  }
-
-  /* ---------- masthead ---------- */
+  /* ---------- masthead(Google BlueのApp Bar風) ---------- */
 
   .masthead {
     max-width: 1080px;
     margin: 32px auto 20px;
-  }
-  .masthead__inner { padding: 32px 36px 28px; }
-  .masthead__inner--withMark { display: flex; align-items: center; gap: 20px; }
-
-  .logoMark {
-    flex: none;
-    width: 52px;
-    height: 52px;
-    border-radius: var(--r-md);
     background: var(--accent);
-    color: #FFFFFF;
-    font-size: 22px;
-    font-weight: 800;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 8px 16px rgba(47, 111, 237, 0.3);
+    border-radius: var(--r-lg);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08), 0 12px 28px rgba(26, 115, 232, 0.28);
   }
+  .masthead__inner { padding: 34px 36px 30px; }
+
+  .dotRow { display: flex; gap: 7px; margin-bottom: 14px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .dot--blue { background: #4285F4; }
+  .dot--red { background: #EA4335; }
+  .dot--yellow { background: #FBBC04; }
+  .dot--green { background: #34A853; }
 
   .eyebrow {
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     font-size: 11px;
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: var(--accent);
+    color: #D2E3FC;
     margin: 0 0 10px;
   }
   h1 {
-    font-size: 23px;
-    font-weight: 800;
-    color: var(--ink);
+    font-size: 25px;
+    font-weight: 700;
+    color: #FFFFFF;
     margin: 0 0 8px;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.005em;
   }
   .lead {
     margin: 0;
-    color: var(--ink-soft);
+    color: #E8F0FE;
     font-size: 13.5px;
     max-width: 56ch;
   }
@@ -94,8 +81,12 @@
   }
 
   .card {
-    padding: 24px;
-    margin-bottom: 18px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 20px rgba(16, 24, 40, 0.05);
+    padding: 26px;
+    margin-bottom: 20px;
   }
   .card__head { margin-bottom: 18px; }
   .card__head--split { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
@@ -105,7 +96,7 @@
     letter-spacing: 0.07em;
     text-transform: uppercase;
     margin: 0 0 4px;
-    color: var(--ink);
+    color: var(--accent);
   }
   .muted { color: var(--ink-soft); font-size: 12px; margin: 0; }
 
@@ -113,11 +104,11 @@
     flex: none;
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
     color: var(--accent);
     background: var(--accent-soft);
-    padding: 4px 10px;
-    border-radius: 999px;
+    padding: 4px 12px;
+    border-radius: var(--r-pill);
     white-space: nowrap;
   }
 
@@ -139,13 +130,13 @@
   }
   .field .req { color: var(--shu); font-weight: 700; font-size: 10px; letter-spacing: 0; text-transform: none; }
 
-  /* ---------- セグメントコントロール(出力フォーマット選択) ---------- */
+  /* ---------- セグメントコントロール(出力フォーマット選択、Materialの"Segmented Buttons"風) ---------- */
 
   .segmented {
     display: inline-flex;
     background: var(--surface-alt);
     border: 1px solid var(--line);
-    border-radius: var(--r-sm);
+    border-radius: var(--r-pill);
     padding: 3px;
     gap: 2px;
     width: 100%;
@@ -158,17 +149,17 @@
     color: var(--ink-soft);
     background: transparent;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--r-pill);
     padding: 9px 10px;
     cursor: pointer;
   }
   .segBtn.is-active {
     background: var(--surface);
     color: var(--accent);
-    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.12);
   }
 
-  /* ---------- 入力欄(白地+ボーダーのみ。影は使わない) ---------- */
+  /* ---------- 入力欄(Materialのoutlined text field風。角丸は小さめ) ---------- */
 
   input, select {
     width: 100%;
@@ -188,7 +179,7 @@
   }
   input.is-invalid, select.is-invalid {
     border-color: var(--shu);
-    box-shadow: 0 0 0 3px rgba(208, 51, 43, 0.15);
+    box-shadow: 0 0 0 3px rgba(217, 48, 37, 0.15);
   }
 
   /* ---------- 車両テーブル ---------- */
@@ -242,35 +233,34 @@
   }
   .btnRemoveRow:hover { color: var(--shu); }
 
-  /* ---------- ボタン ---------- */
+  /* ---------- ボタン(Materialのpill形ボタン) ---------- */
 
   .btn {
     font-family: inherit;
-    font-size: 12.5px;
+    font-size: 13px;
     font-weight: 600;
-    letter-spacing: 0.03em;
-    padding: 11px 18px;
-    border-radius: var(--r-md);
+    letter-spacing: 0.02em;
+    padding: 11px 22px;
+    border-radius: var(--r-pill);
     cursor: pointer;
   }
   .btn--ghost {
     background: var(--surface);
     border: 1px solid var(--line);
-    color: var(--ink-soft);
+    color: var(--accent);
   }
-  .btn--ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .btn--ghost:hover { background: var(--accent-soft); border-color: var(--accent); }
 
   .btn--primary {
     background: var(--accent);
     color: #FFFFFF;
-    padding: 15px 20px;
+    padding: 15px 24px;
     font-size: 14px;
     font-weight: 700;
-    border-radius: var(--r-lg);
     border: 1px solid var(--accent);
-    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 20px rgba(47, 111, 237, 0.25);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 20px rgba(26, 115, 232, 0.28);
   }
-  .btn--primary:hover { background: #2A63D9; }
+  .btn--primary:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
   .btn--primary:disabled {
     background: var(--surface-alt);
     color: var(--ink-soft);
@@ -282,7 +272,7 @@
   .submitBar { margin-top: 4px; }
   .submitBar__row { display: flex; gap: 12px; }
   .submitBar__row .btn--primary { flex: 1; }
-  .submitBar__row .btn--ghost { flex: none; padding: 15px 22px; border-radius: var(--r-lg); }
+  .submitBar__row .btn--ghost { flex: none; padding: 15px 24px; }
   .result {
     margin-top: 16px;
     font-size: 13px;
@@ -296,7 +286,6 @@
   @media (max-width: 700px) {
     .masthead { margin: 20px auto 16px; }
     .masthead__inner { padding: 26px 22px 22px; }
-    .logoMark { width: 42px; height: 42px; font-size: 18px; }
     .page { padding: 0 16px 60px; }
     .card { padding: 18px; }
     .submitBar__row { flex-direction: column-reverse; }

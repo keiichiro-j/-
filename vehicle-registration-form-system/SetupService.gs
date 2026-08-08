@@ -7,32 +7,35 @@
  * 印刷はA4横向き(TemplateService.gs#exportSheetAsPdfBlob_)を前提に、
  * 車両データ欄は列の隙間を空けず詰めたレイアウトにしている
  * (Constants.gs の VEHICLE_COLUMNS が連番になっている理由もこれに合わせたため)。
+ * A列・B列を空白マージンとして予約するのもやめ、A列から詰めて配置している。
  *
  * 生成されるのはあくまで「動作する最低限のレイアウト」。罫線の太さ・結合セル・
  * 印刷範囲などは、生成後に見た目を見ながら手で調整してよい(Constants.gs の
  * セル位置さえ変えなければ、処理には影響しない)。
  *
- * 【デザイン方針】SaaS Dashboard風。
- * - タイトルセルはリッチテキストで「小さい英字のオーバーライン + 大きい和文タイトル」の
- *   2段組みにし、アプリ側のマストヘッド(eyebrow + h1)と見た目の言語を揃えている
- * - ラベルは控えめなグレー、値は濃色+太字というダッシュボードのフォームでよくある
- *   「キャプション/値」のコントラストにしている
+ * 【デザイン方針】"Googleが作ったら" を意識したMaterial Designベース。
+ * - 配色はGoogleの実際のトークン値(Google Blue #1A73E8、テキストグレー #202124、
+ *   境界線グレー #DADCE0 等)を使用
+ * - フォントはGoogle製の Roboto を指定(和文はGoogleスプレッドシート側が自動的に
+ *   代替フォントへフォールバックする)
+ * - タイトルバーはGoogle Blueの塗りつぶし地に白文字(Material の App Bar 相当)
  * - 税額など数値項目はヘッダー・データともに右寄せ(データテーブルの慣習)
- * - フォントはアプリ側と合わせて Inter を指定(和文はGoogleスプレッドシート側が
- *   自動的にフォールバックする)
+ * - 印刷時の見切れを避けるため、行の高さ・列幅・文字サイズにゆとりを持たせている
  */
 
 var THEME = {
-  ink: '#1B222C',
-  inkSoft: '#6B7280',
-  panelSoft: '#F4F6F9',     // バナー・ラベルセルの背景(低コントラストなトーン)
-  panelSofter: '#F8F9FB',   // 表見出し行の背景(バナーよりさらに一段階明るいトーン)
-  hairline: '#E4E7EC',      // 罫線(黒に近い色を避け、ほぼ気づかない濃さにする)
-  accent: '#2F6FED',        // バッジ・記入欄の下線・オーバーラインだけに使う差し色
-  zebra: '#FAFBFC'
+  ink: '#202124',        // Googleのテキストグレー(ほぼ黒)
+  inkSoft: '#5F6368',    // Googleの補助テキストグレー
+  bannerBg: '#1A73E8',   // Google Blue
+  bannerText: '#FFFFFF',
+  panelSoft: '#F1F3F4',  // Googleのニュートラルなライトグレー(入力欄背景等で使われる色)
+  panelSofter: '#F8F9FA',// Googleの最も薄いグレー
+  hairline: '#DADCE0',   // Googleの標準的な境界線グレー
+  accent: '#1A73E8',     // Google Blue(記入欄の下線など)
+  zebra: '#F8F9FA'
 };
 
-var FONT_FAMILY = 'Inter';
+var FONT_FAMILY = 'Roboto';
 var DISPLAY_EYEBROW = 'VEHICLE REGISTRATION';
 var DISPLAY_TITLE = '新車新規登録依頼書';
 
@@ -136,7 +139,7 @@ function ensureColumns_(sheet, minCols) {
 
 /**
  * タイトルバー(左: オーバーライン+タイトルの2段リッチテキスト、右: OSS/紙のバッジ)を
- * 1行目に描画する。アプリ側マストヘッドの「eyebrow + h1」と同じ見た目の言語にしている。
+ * 1行目に描画する。Google BlueのApp Bar風の塗りつぶし地に白文字。
  * 車両データ欄の幅(maxCol)いっぱいに合わせる(縦向きより横に長いA4横印刷を想定)。
  */
 function setBanner_(sheet, maxCol, badgeText) {
@@ -155,64 +158,64 @@ function setBanner_(sheet, maxCol, badgeText) {
     .setText(fullText)
     .setTextStyle(0, eyebrowEnd, SpreadsheetApp.newTextStyle()
       .setFontFamily(FONT_FAMILY)
-      .setFontSize(8)
-      .setForegroundColor(THEME.accent)
+      .setFontSize(9)
+      .setForegroundColor('#D2E3FC')
       .setBold(true)
       .build())
     .setTextStyle(titleStart, fullText.length, SpreadsheetApp.newTextStyle()
       .setFontFamily(FONT_FAMILY)
-      .setFontSize(16)
-      .setForegroundColor(THEME.ink)
+      .setFontSize(18)
+      .setForegroundColor(THEME.bannerText)
       .setBold(true)
       .build())
     .build();
 
   titleRange.setRichTextValue(richText);
-  titleRange.setBackground(THEME.panelSoft);
+  titleRange.setBackground(THEME.bannerBg);
   titleRange.setHorizontalAlignment('left');
   titleRange.setVerticalAlignment('middle');
   titleRange.setWrap(true);
-  titleRange.setBorder(false, false, true, false, false, false, THEME.accent, SpreadsheetApp.BorderStyle.SOLID);
 
   var badgeRange = sheet.getRange(1, titleEnd + 1, 1, badgeWidth);
   badgeRange.merge();
   badgeRange.setValue(badgeText);
-  badgeRange.setBackground(THEME.accent);
+  badgeRange.setBackground('#174EA6'); // Google Blueより一段濃いトーンで面を分ける
   badgeRange.setFontColor('#FFFFFF');
+  badgeRange.setFontFamily(FONT_FAMILY);
   badgeRange.setFontWeight('bold');
-  badgeRange.setFontSize(13);
+  badgeRange.setFontSize(14);
   badgeRange.setHorizontalAlignment('center');
   badgeRange.setVerticalAlignment('middle');
 
-  sheet.setRowHeight(1, 48);
+  sheet.setRowHeight(1, 56);
 }
 
 /**
  * 会社名・担当責任者・送付日+便(・紙のみ登録日)の共通項目欄を描画する。
- * ラベルは3〜4列目(C:D)、値は5列目(E)から表幅いっぱいに使う。
+ * ラベルはA:B列、値はC列から表幅いっぱいに使う。
  * 送付日の右に送付便(第１便〜第３便)を並べる。
  * 日付は「M/D」形式の単一セルにして、月と日の間に隙間を作らない。
  */
 function buildCommonFields_(sheet, type, maxCol) {
-  setFieldLabel_(sheet, 2, 3, 2, '会社名');
+  setFieldLabel_(sheet, 2, 1, 2, '会社名');
   setFullWidthValueCell_(sheet, 2, maxCol);
-  sheet.setRowHeight(2, 26);
+  sheet.setRowHeight(2, 28);
 
-  setFieldLabel_(sheet, 3, 3, 2, '担当責任者');
+  setFieldLabel_(sheet, 3, 1, 2, '担当責任者');
   setFullWidthValueCell_(sheet, 3, maxCol);
-  sheet.setRowHeight(3, 26);
+  sheet.setRowHeight(3, 28);
 
-  setFieldLabel_(sheet, 4, 3, 2, '送付日');
+  setFieldLabel_(sheet, 4, 1, 2, '送付日');
   setDateValueCell_(sheet, COMMON_CELLS.sendDate);
 
-  setFieldLabel_(sheet, 4, 6, 2, '便');
-  mergeValueCell_(sheet, 4, 8, 2, 'center');
-  sheet.setRowHeight(4, 24);
+  setFieldLabel_(sheet, 4, 4, 2, '便');
+  mergeValueCell_(sheet, 4, 6, 2, 'center');
+  sheet.setRowHeight(4, 26);
 
   if (type === TYPE_PAPER) {
-    setFieldLabel_(sheet, 5, 3, 2, '登録日(全体)');
+    setFieldLabel_(sheet, 5, 1, 2, '登録日(全体)');
     setDateValueCell_(sheet, COMMON_CELLS.regDateCommon);
-    sheet.setRowHeight(5, 24);
+    sheet.setRowHeight(5, 26);
   } else {
     sheet.setRowHeight(5, 10);
   }
@@ -231,13 +234,13 @@ function setFieldLabel_(sheet, row, colStart, colSpan, text) {
   range.setBackground(THEME.panelSoft);
   range.setFontColor(THEME.inkSoft);
   range.setFontWeight('normal');
-  range.setFontSize(9.5);
+  range.setFontSize(10);
   range.setHorizontalAlignment('right');
   range.setVerticalAlignment('middle');
 }
 
 function setFullWidthValueCell_(sheet, row, maxCol) {
-  mergeValueCell_(sheet, row, 5, maxCol - 5 + 1, 'left'); // E列〜表幅いっぱい
+  mergeValueCell_(sheet, row, 3, maxCol - 3 + 1, 'left'); // C列〜表幅いっぱい
 }
 
 function mergeValueCell_(sheet, row, colStart, colSpan, align) {
@@ -255,13 +258,14 @@ function styleValueCell_(range) {
   range.setBorder(false, false, true, false, false, false, THEME.accent, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
   range.setFontColor(THEME.ink);
   range.setFontWeight('bold');
-  range.setFontSize(11);
+  range.setFontSize(12);
   range.setHorizontalAlignment('center');
   range.setVerticalAlignment('middle');
 }
 
 /**
  * 車両データ欄(7行目)の見出しを、Constants.gs の列マッピング通りに配置する。
+ * 2行のラベル(例:「車台番号」+「(下4桁)」)が印刷時に見切れないよう行高に余裕を持たせる。
  */
 function buildVehicleTableHeader_(sheet, columns, labels) {
   Object.keys(columns).forEach(function (key) {
@@ -271,12 +275,12 @@ function buildVehicleTableHeader_(sheet, columns, labels) {
     cell.setBackground(THEME.panelSofter);
     cell.setFontColor(THEME.inkSoft);
     cell.setFontWeight('bold');
-    cell.setFontSize(9.5);
+    cell.setFontSize(10);
     cell.setHorizontalAlignment('center');
     cell.setVerticalAlignment('middle');
     cell.setWrap(true);
   });
-  sheet.setRowHeight(7, 40);
+  sheet.setRowHeight(7, 46);
 }
 
 /**
@@ -284,18 +288,18 @@ function buildVehicleTableHeader_(sheet, columns, labels) {
  */
 function applyZebraAndBorders_(sheet, columns) {
   var maxCol = maxColumnOf_(columns);
-  var width = maxCol - 3 + 1;
+  var width = maxCol - 1 + 1;
 
   for (var i = 0; i < MAX_VEHICLES; i++) {
     var row = VEHICLE_START_ROW + i;
-    sheet.getRange(row, 3, 1, width).setBackground(i % 2 === 0 ? '#FFFFFF' : THEME.zebra);
-    sheet.setRowHeight(row, 26);
+    sheet.getRange(row, 1, 1, width).setBackground(i % 2 === 0 ? '#FFFFFF' : THEME.zebra);
+    sheet.setRowHeight(row, 28);
   }
 
-  var range = sheet.getRange(VEHICLE_START_ROW, 3, MAX_VEHICLES, width);
+  var range = sheet.getRange(VEHICLE_START_ROW, 1, MAX_VEHICLES, width);
   range.setBorder(true, true, true, true, true, true, THEME.hairline, SpreadsheetApp.BorderStyle.SOLID);
   range.setFontColor(THEME.ink);
-  range.setFontSize(10.5);
+  range.setFontSize(11);
   range.setHorizontalAlignment('center');
   range.setVerticalAlignment('middle');
 }
@@ -324,14 +328,13 @@ function applyFieldWidths_(sheet, columns) {
 }
 
 /**
- * フォント統一・余白列の縮小・見出し行の固定など、シート全体の仕上げ。
- * フォントはアプリ側のCSSと合わせて Inter を指定する(和文グリフは
+ * フォント統一・見出し行の固定など、シート全体の仕上げ。
+ * フォントはアプリ側と合わせて Roboto を指定する(和文グリフは
  * スプレッドシート側が自動的に代替フォントへフォールバックする)。
+ * A列・B列を余白マージンとして縮小する処理は行わない(空白除去のため)。
  */
 function finishSheetStyle_(sheet, maxCol) {
   sheet.getRange(1, 1, 17, maxCol).setFontFamily(FONT_FAMILY);
-  sheet.setColumnWidth(1, 12);
-  sheet.setColumnWidth(2, 12);
   sheet.setFrozenRows(7);
   sheet.setHiddenGridlines(true);
 }
