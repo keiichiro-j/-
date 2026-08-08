@@ -26,6 +26,7 @@ function writeCommonFields_(sheet, type, formData) {
   sheet.getRange(COMMON_CELLS.company).setValue(formData.company);
   sheet.getRange(COMMON_CELLS.manager).setValue(formData.manager);
   sheet.getRange(COMMON_CELLS.sendDate).setValue(formatMonthDay_(formData.sendDate));
+  sheet.getRange(COMMON_CELLS.sendBatch).setValue(formData.sendBatch || '');
 
   if (type === TYPE_PAPER && isValidDateStr_(formData.regDateCommon)) {
     sheet.getRange(COMMON_CELLS.regDateCommon).setValue(formatMonthDay_(formData.regDateCommon));

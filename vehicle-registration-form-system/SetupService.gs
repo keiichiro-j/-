@@ -188,25 +188,29 @@ function setBanner_(sheet, maxCol, badgeText) {
 }
 
 /**
- * 会社名・担当責任者・送付日(・紙のみ登録日)の共通項目欄を描画する。
+ * 会社名・担当責任者・送付日+便(・紙のみ登録日)の共通項目欄を描画する。
  * ラベルは3〜4列目(C:D)、値は5列目(E)から表幅いっぱいに使う。
+ * 送付日の右に送付便(第１便〜第３便)を並べる。
  * 日付は「M/D」形式の単一セルにして、月と日の間に隙間を作らない。
  */
 function buildCommonFields_(sheet, type, maxCol) {
-  setFieldLabel_(sheet, 2, '会社名');
+  setFieldLabel_(sheet, 2, 3, 2, '会社名');
   setFullWidthValueCell_(sheet, 2, maxCol);
   sheet.setRowHeight(2, 26);
 
-  setFieldLabel_(sheet, 3, '担当責任者');
+  setFieldLabel_(sheet, 3, 3, 2, '担当責任者');
   setFullWidthValueCell_(sheet, 3, maxCol);
   sheet.setRowHeight(3, 26);
 
-  setFieldLabel_(sheet, 4, '送付日');
+  setFieldLabel_(sheet, 4, 3, 2, '送付日');
   setDateValueCell_(sheet, COMMON_CELLS.sendDate);
+
+  setFieldLabel_(sheet, 4, 6, 2, '便');
+  mergeValueCell_(sheet, 4, 8, 2, 'center');
   sheet.setRowHeight(4, 24);
 
   if (type === TYPE_PAPER) {
-    setFieldLabel_(sheet, 5, '登録日(全体)');
+    setFieldLabel_(sheet, 5, 3, 2, '登録日(全体)');
     setDateValueCell_(sheet, COMMON_CELLS.regDateCommon);
     sheet.setRowHeight(5, 24);
   } else {
@@ -220,8 +224,8 @@ function buildCommonFields_(sheet, type, maxCol) {
  * ラベルは控えめなグレー・通常ウェイト、値は濃色・太字にして、
  * ダッシュボードのフォームでよくある「キャプション/値」のコントラストを付ける。
  */
-function setFieldLabel_(sheet, row, text) {
-  var range = sheet.getRange(row, 3, 1, 2); // C:D
+function setFieldLabel_(sheet, row, colStart, colSpan, text) {
+  var range = sheet.getRange(row, colStart, 1, colSpan);
   range.merge();
   range.setValue(text);
   range.setBackground(THEME.panelSoft);
@@ -233,10 +237,14 @@ function setFieldLabel_(sheet, row, text) {
 }
 
 function setFullWidthValueCell_(sheet, row, maxCol) {
-  var range = sheet.getRange(row, 5, 1, maxCol - 5 + 1); // E列〜表幅いっぱい
+  mergeValueCell_(sheet, row, 5, maxCol - 5 + 1, 'left'); // E列〜表幅いっぱい
+}
+
+function mergeValueCell_(sheet, row, colStart, colSpan, align) {
+  var range = sheet.getRange(row, colStart, 1, colSpan);
   range.merge();
   styleValueCell_(range);
-  range.setHorizontalAlignment('left');
+  range.setHorizontalAlignment(align || 'center');
 }
 
 function setDateValueCell_(sheet, a1) {

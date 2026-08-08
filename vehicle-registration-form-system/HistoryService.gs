@@ -49,6 +49,7 @@ function appendHistoryRow_(ss, type, car, formData, submissionId, vehicleNo, tim
     formData.manager,
     isValidDateStr_(regDateStr) ? parseDateOnly_(regDateStr) : '',
     parseDateOnly_(formData.sendDate),
+    formData.sendBatch || '',
     vehicleNo,
     car.userName,
     car.chassis,
@@ -105,8 +106,8 @@ function collectSuggestions_(ss) {
     values.forEach(function (row) {
       if (row[3]) companies[row[3]] = true;
       if (row[4]) managers[row[4]] = true;
-      if (row[8]) userNames[row[8]] = true;
-      if (row[19]) persons[row[19]] = true;
+      if (row[9]) userNames[row[9]] = true;
+      if (row[20]) persons[row[20]] = true;
     });
   });
 

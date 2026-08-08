@@ -57,6 +57,7 @@ function baseFormData(overrides) {
     company: '岐阜ヤナセ株式会社',
     manager: '戸田 圭市朗',
     sendDate: '2026-08-10',
+    sendBatch: '第１便',
     regDateCommon: '',
     vehicles: [{ userName: '岐阜 太郎', chassis: '1234', indivRegDate: '2026-08-15' }]
   }, overrides || {});
@@ -101,6 +102,15 @@ test('11台以上入力するとエラー', () => {
   for (let i = 0; i < 11; i++) vehicles.push({ userName: '車' + i, chassis: '1234' });
   const errors = sandbox.validateFormData_(baseFormData({ vehicles }));
   assert.ok(errors.some((e) => e.includes('10台以内')));
+});
+test('送付便が選択肢外(空欄含む)ならエラー', () => {
+  const errors = sandbox.validateFormData_(baseFormData({ sendBatch: '' }));
+  assert.ok(errors.some((e) => e.includes('送付便')));
+});
+test('送付便が第１〜第３便のいずれかならエラーなし', () => {
+  ['第１便', '第２便', '第３便'].forEach((batch) => {
+    assert.strictEqual(sandbox.validateFormData_(baseFormData({ sendBatch: batch })).length, 0);
+  });
 });
 
 console.log('== ValidationService: parseDateOnly_ / isValidDateStr_ ==');

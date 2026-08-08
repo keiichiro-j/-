@@ -142,7 +142,7 @@
 
   function highlightRequired_() {
     var ok = true;
-    ['company', 'manager', 'sendDate'].forEach(function (id) {
+    ['company', 'manager', 'sendDate', 'sendBatch'].forEach(function (id) {
       var el = document.getElementById(id);
       if (!el.value.trim()) { el.classList.add('is-invalid'); ok = false; }
     });
@@ -180,6 +180,7 @@
       company: document.getElementById('company').value.trim(),
       manager: document.getElementById('manager').value.trim(),
       sendDate: document.getElementById('sendDate').value,
+      sendBatch: document.getElementById('sendBatch').value,
       regDateCommon: document.getElementById('regDateCommon').value,
       vehicles: collectVehicles_()
     };
@@ -205,6 +206,17 @@
   }
 
   document.getElementById('mainForm').addEventListener('submit', submitForm);
+
+  // フォームを初期状態に戻す(車両行も INITIAL_VEHICLE_ROWS 件まで作り直す)
+  function resetForm() {
+    clearInvalid_();
+    document.getElementById('mainForm').reset();
+    setType('OSS');
+    document.getElementById('vehicleTableBody').innerHTML = '';
+    for (var i = 0; i < INITIAL_VEHICLE_ROWS; i++) addVehicleRow();
+    setResult_('', '');
+  }
+  document.getElementById('btnClear').addEventListener('click', resetForm);
 
   window.onload = function () {
     for (var i = 0; i < INITIAL_VEHICLE_ROWS; i++) addVehicleRow();

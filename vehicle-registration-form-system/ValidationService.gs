@@ -28,6 +28,9 @@ function validateFormData_(formData) {
   if (!isValidDateStr_(formData.sendDate)) {
     errors.push('送付日を正しく入力してください');
   }
+  if (SEND_BATCH_OPTIONS.indexOf(formData.sendBatch) === -1) {
+    errors.push('送付便を選択してください');
+  }
   if (formData.type === TYPE_PAPER && !isValidDateStr_(formData.regDateCommon)) {
     errors.push('登録日（全体）を正しく入力してください（紙登録では必須です）');
   }

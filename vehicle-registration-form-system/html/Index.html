@@ -11,10 +11,13 @@
 </head>
 <body>
   <header class="masthead">
-    <div class="masthead__inner">
-      <p class="eyebrow">Vehicle Registration Request</p>
-      <h1>新車新規登録依頼書 発行システム</h1>
-      <p class="lead">紙登録・OSS登録の依頼内容を入力すると、履歴に記録した上でPDFを発行します。</p>
+    <div class="masthead__inner masthead__inner--withMark">
+      <div class="logoMark" aria-hidden="true">車</div>
+      <div>
+        <p class="eyebrow">Vehicle Registration Request</p>
+        <h1>新車新規登録依頼書 発行システム</h1>
+        <p class="lead">紙登録・OSS登録の依頼内容を入力すると、履歴に記録した上でPDFを発行します。</p>
+      </div>
     </div>
   </header>
 
@@ -51,6 +54,15 @@
           <div class="field">
             <label for="sendDate">送付日 <span class="req">必須</span></label>
             <input type="date" id="sendDate" required>
+          </div>
+          <div class="field">
+            <label for="sendBatch">送付便 <span class="req">必須</span></label>
+            <select id="sendBatch" required>
+              <option value="">選択してください</option>
+              <option value="第１便">第１便</option>
+              <option value="第２便">第２便</option>
+              <option value="第３便">第３便</option>
+            </select>
           </div>
           <div class="field" id="commonRegDateField">
             <label for="regDateCommon">登録日（全体） <span class="req">必須</span></label>
@@ -99,7 +111,10 @@
       </section>
 
       <div class="submitBar">
-        <button type="submit" id="btnSubmit" class="btn btn--primary">登録してPDFを発行する</button>
+        <div class="submitBar__row">
+          <button type="button" id="btnClear" class="btn btn--ghost">クリア</button>
+          <button type="submit" id="btnSubmit" class="btn btn--primary">登録してPDFを発行する</button>
+        </div>
         <div id="result" class="result" role="status" aria-live="polite"></div>
       </div>
     </form>

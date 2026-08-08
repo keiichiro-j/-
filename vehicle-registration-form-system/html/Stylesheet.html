@@ -46,6 +46,22 @@
     margin: 32px auto 20px;
   }
   .masthead__inner { padding: 32px 36px 28px; }
+  .masthead__inner--withMark { display: flex; align-items: center; gap: 20px; }
+
+  .logoMark {
+    flex: none;
+    width: 52px;
+    height: 52px;
+    border-radius: var(--r-md);
+    background: var(--accent);
+    color: #FFFFFF;
+    font-size: 22px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 16px rgba(47, 111, 237, 0.3);
+  }
 
   .eyebrow {
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -170,7 +186,7 @@
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-soft);
   }
-  input.is-invalid {
+  input.is-invalid, select.is-invalid {
     border-color: var(--shu);
     box-shadow: 0 0 0 3px rgba(208, 51, 43, 0.15);
   }
@@ -247,7 +263,6 @@
   .btn--primary {
     background: var(--accent);
     color: #FFFFFF;
-    width: 100%;
     padding: 15px 20px;
     font-size: 14px;
     font-weight: 700;
@@ -265,6 +280,9 @@
   }
 
   .submitBar { margin-top: 4px; }
+  .submitBar__row { display: flex; gap: 12px; }
+  .submitBar__row .btn--primary { flex: 1; }
+  .submitBar__row .btn--ghost { flex: none; padding: 15px 22px; border-radius: var(--r-lg); }
   .result {
     margin-top: 16px;
     font-size: 13px;
@@ -278,7 +296,10 @@
   @media (max-width: 700px) {
     .masthead { margin: 20px auto 16px; }
     .masthead__inner { padding: 26px 22px 22px; }
+    .logoMark { width: 42px; height: 42px; font-size: 18px; }
     .page { padding: 0 16px 60px; }
     .card { padding: 18px; }
+    .submitBar__row { flex-direction: column-reverse; }
+    .submitBar__row .btn--ghost { width: 100%; }
   }
 </style>
