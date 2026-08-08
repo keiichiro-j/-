@@ -178,6 +178,11 @@ function setBanner_(sheet, maxCol, badgeText) {
   typeBadgeRange.setHorizontalAlignment('center');
   typeBadgeRange.setVerticalAlignment('middle');
 
+  // バナー行だけを対象に枠線を引く(2行目以降の余白行には線を引かない)。
+  // verticalをtrueにして、タイトル/飛騨バッジ/種別バッジの3ブロックの境目にも線を入れる。
+  sheet.getRange(1, 1, 1, maxCol)
+    .setBorder(true, true, true, true, true, null, THEME.ink, SpreadsheetApp.BorderStyle.SOLID);
+
   sheet.setRowHeight(1, 46);
 }
 
@@ -231,6 +236,8 @@ function buildBigLabelBlock_(sheet, colStart, colSpan, text) {
   range.setFontColor(THEME.ink);
   range.setHorizontalAlignment('center');
   range.setVerticalAlignment('middle');
+  // このブロック自体にだけ枠線を引く(4行目のごく短い区切り行や、隣接する未使用列には線を引かない)。
+  range.setBorder(true, true, true, true, false, false, THEME.ink, SpreadsheetApp.BorderStyle.SOLID);
 }
 
 /**
@@ -247,6 +254,8 @@ function buildLabelValueRow_(sheet, row, colStart, colSpan, text) {
   range.setFontColor(THEME.ink);
   range.setHorizontalAlignment('left');
   range.setVerticalAlignment('middle');
+  // 下線だけを引く(サンプルの「記入欄」らしい見た目に合わせる。他の行には線を引かない)。
+  range.setBorder(false, false, true, false, false, false, THEME.ink, SpreadsheetApp.BorderStyle.SOLID);
 }
 
 /**
@@ -379,14 +388,20 @@ function columnToLetter_(col) {
 }
 
 /**
- * フォント統一・見出し行の固定・全体の罫線など、シート全体の仕上げ。
- * ユーザー提供のサンプルに合わせ、バナーから合計行まで全域に黒の格子罫線を引く
- * (Sheetsのデフォルトの薄いグリッド線は非表示にし、明示的な罫線に置き換える)。
+ * フォント統一・見出し行の固定・罫線など、シート全体の仕上げ。
+ * 罫線は「車両データの表」として一体になっている7行目(見出し)〜合計行にだけ
+ * 格子状に引く。1〜6行目(バナー・共通項目欄)は各ブロックが個別に罫線を持って
+ * いる(setBanner_ / buildBigLabelBlock_ / buildLabelValueRow_ 参照)ため、
+ * ここでまとめて線を引くと余白行や未使用列にまで線が入ってしまい、サンプルの
+ * 見た目と合わなくなる。
  */
 function finishSheetStyle_(sheet, maxCol) {
-  var wholeRange = sheet.getRange(1, 1, TOTAL_ROW, maxCol);
-  wholeRange.setFontFamily(FONT_FAMILY);
-  wholeRange.setBorder(true, true, true, true, true, true, THEME.ink, SpreadsheetApp.BorderStyle.SOLID);
+  sheet.getRange(1, 1, TOTAL_ROW, maxCol).setFontFamily(FONT_FAMILY);
+
+  var tableRows = TOTAL_ROW - 7 + 1; // 見出し行(7)〜合計行(TOTAL_ROW)
+  sheet.getRange(7, 1, tableRows, maxCol)
+    .setBorder(true, true, true, true, true, true, THEME.ink, SpreadsheetApp.BorderStyle.SOLID);
+
   sheet.setFrozenRows(7);
   sheet.setHiddenGridlines(true);
 }
