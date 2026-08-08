@@ -51,6 +51,7 @@ function writeVehicleRows_(sheet, type, vehicles) {
       sheet.getRange(row, columns.indivRegDate).setValue(formatMonthDay_(car.indivRegDate));
     }
     sheet.getRange(row, columns.userName).setValue(car.userName);
+    sheet.getRange(row, columns.brand).setValue(car.brand || '');
     sheet.getRange(row, columns.chassis).setValue(car.chassis);
     sheet.getRange(row, columns.model).setValue(car.model);
     sheet.getRange(row, columns.classNum).setValue(car.classNum);

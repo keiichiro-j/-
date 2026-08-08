@@ -11,6 +11,7 @@
       '<td class="cell-no"></td>' +
       '<td class="cell-regdate"><input type="date" class="v-indivRegDate"></td>' +
       '<td><input type="text" class="v-userName" list="dl-usernames" autocomplete="off"></td>' +
+      brandCell_() +
       '<td><input type="text" class="v-chassis" maxlength="4" inputmode="numeric"></td>' +
       '<td><input type="text" class="v-model"></td>' +
       '<td><input type="text" class="v-classNum"></td>' +
@@ -28,6 +29,10 @@
 
   function selectCell_(cls) {
     return '<td><select class="' + cls + '"><option value=""></option><option value="〇">〇</option></select></td>';
+  }
+
+  function brandCell_() {
+    return '<td><select class="v-brand"><option value=""></option><option value="MB">MB</option><option value="AU">AU</option></select></td>';
   }
 
   function renumberRows() {
@@ -120,6 +125,7 @@
       vehicles.push({
         indivRegDate: row.querySelector('.v-indivRegDate').value,
         userName: row.querySelector('.v-userName').value.trim(),
+        brand: row.querySelector('.v-brand').value,
         chassis: row.querySelector('.v-chassis').value.trim(),
         model: row.querySelector('.v-model').value.trim(),
         classNum: row.querySelector('.v-classNum').value.trim(),

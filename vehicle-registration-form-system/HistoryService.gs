@@ -64,6 +64,7 @@ function appendHistoryRow_(ss, type, car, formData, submissionId, vehicleNo, tim
     formData.sendBatch || '',
     vehicleNo,
     car.userName,
+    car.brand || '',
     car.chassis,
     car.model,
     car.classNum,
@@ -119,7 +120,7 @@ function collectSuggestions_(ss) {
       if (row[3]) companies[row[3]] = true;
       if (row[4]) managers[row[4]] = true;
       if (row[9]) userNames[row[9]] = true;
-      if (row[20]) persons[row[20]] = true;
+      if (row[21]) persons[row[21]] = true;
     });
   });
 

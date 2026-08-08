@@ -42,6 +42,7 @@ var DISPLAY_TITLE = '新車新規登録依頼書';
 var OSS_FIELD_LABELS = {
   indivRegDate: '登録日',
   userName: '使用車名',
+  brand: 'ブランド',
   chassis: '車台番号\n(下4桁)',
   model: '型式',
   classNum: '類別番号',
@@ -57,6 +58,7 @@ var OSS_FIELD_LABELS = {
 
 var PAPER_FIELD_LABELS = {
   userName: '使用車名',
+  brand: 'ブランド',
   chassis: '車台番号\n(下4桁)',
   model: '型式',
   classNum: '類別番号',

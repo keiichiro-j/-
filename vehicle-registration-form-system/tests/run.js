@@ -93,6 +93,18 @@ test('税額が負の数ならエラー', () => {
   }));
   assert.ok(errors.some((e) => e.includes('自動車税')));
 });
+test('ブランドが空欄ならエラーにならない(任意項目)', () => {
+  const errors = sandbox.validateFormData_(baseFormData({
+    vehicles: [{ userName: '岐阜 太郎', chassis: '1234', brand: '' }]
+  }));
+  assert.strictEqual(errors.length, 0);
+});
+test('ブランドがMB/AU以外ならエラー', () => {
+  const errors = sandbox.validateFormData_(baseFormData({
+    vehicles: [{ userName: '岐阜 太郎', chassis: '1234', brand: 'BMW' }]
+  }));
+  assert.ok(errors.some((e) => e.includes('ブランド')));
+});
 test('使用車名が入力された行が0台ならエラー', () => {
   const errors = sandbox.validateFormData_(baseFormData({ vehicles: [{ userName: '' }] }));
   assert.ok(errors.some((e) => e.includes('1台以上')));

@@ -36,6 +36,9 @@ var COMMON_CELLS = {
 // 送付便の選択肢（ドロップダウン）
 var SEND_BATCH_OPTIONS = ['第１便', '第２便', '第３便'];
 
+// 車両のブランド区分の選択肢（ドロップダウン。任意項目、未選択も許容する）
+var BRAND_OPTIONS = ['MB', 'AU'];
+
 // 車両1台分のフィールド -> 列番号（テンプレートのセル位置。OSS/紙でずれる）
 // 旧実装は実物の紙の依頼書に合わせて歯抜けの列番号だったが、実物が無いため連番に詰めている。
 // A列から詰めており、余白マージン列は設けていない。
@@ -43,31 +46,33 @@ var VEHICLE_COLUMNS = {
   OSS: {
     indivRegDate: 1,  // A: 登録日
     userName: 2,      // B: 使用車名
-    chassis: 3,       // C: 車台番号
-    model: 4,         // D: 型式
-    classNum: 5,       // E: 類別番号
-    autoTax: 6,        // F: 自動車税
-    envTax: 7,         // G: 環境性能割
-    weightTax: 8,      // H: 重量税
-    hopeNum: 9,        // I: 希望ナンバー
-    yobi: 10,          // J: 予備検登録車
-    honken: 11,        // K: 本検登録車
-    shinsho: 12,       // L: 身障者減免車
-    person: 13         // M: 担当者
+    brand: 3,          // C: ブランド(MB/AU)
+    chassis: 4,        // D: 車台番号
+    model: 5,          // E: 型式
+    classNum: 6,        // F: 類別番号
+    autoTax: 7,          // G: 自動車税
+    envTax: 8,           // H: 環境性能割
+    weightTax: 9,        // I: 重量税
+    hopeNum: 10,         // J: 希望ナンバー
+    yobi: 11,            // K: 予備検登録車
+    honken: 12,          // L: 本検登録車
+    shinsho: 13,         // M: 身障者減免車
+    person: 14           // N: 担当者
   },
   PAPER: {
     userName: 1,       // A: 使用車名
-    chassis: 2,        // B: 車台番号
-    model: 3,          // C: 型式
-    classNum: 4,        // D: 類別番号
-    autoTax: 5,          // E: 自動車税
-    envTax: 6,           // F: 環境性能割
-    weightTax: 7,        // G: 重量税
-    hopeNum: 8,          // H: 希望ナンバー
-    yobi: 9,             // I: 予備検登録車
-    honken: 10,          // J: 本検登録車
-    shinsho: 11,         // K: 身障者減免車
-    person: 12           // L: 担当者
+    brand: 2,           // B: ブランド(MB/AU)
+    chassis: 3,          // C: 車台番号
+    model: 4,             // D: 型式
+    classNum: 5,           // E: 類別番号
+    autoTax: 6,             // F: 自動車税
+    envTax: 7,               // G: 環境性能割
+    weightTax: 8,             // H: 重量税
+    hopeNum: 9,               // I: 希望ナンバー
+    yobi: 10,                 // J: 予備検登録車
+    honken: 11,               // K: 本検登録車
+    shinsho: 12,              // L: 身障者減免車
+    person: 13                // M: 担当者
   }
 };
 
@@ -76,6 +81,7 @@ var VEHICLE_COLUMNS = {
 var FIELD_WIDTHS = {
   indivRegDate: 62,
   userName: 132,
+  brand: 56,
   chassis: 76,
   model: 102,
   classNum: 104,
@@ -98,10 +104,10 @@ var TAX_LABELS = {
 // 数値項目のキー(ダッシュボード風に金額を右寄せするため、SetupService.gs で使用)
 var NUMERIC_FIELD_KEYS = ['autoTax', 'envTax', 'weightTax'];
 
-// 履歴タブ（月次）のヘッダー行。A〜U の21列。
+// 履歴タブ（月次）のヘッダー行。A〜V の22列。
 var HISTORY_HEADER_ROW = [
   '送信日時', 'submissionId', '種別', '依頼会社名', '担当責任者',
-  '登録日', '送付日', '送付便', '車両No.', '使用車名', '車台番号',
+  '登録日', '送付日', '送付便', '車両No.', '使用車名', 'ブランド', '車台番号',
   '型式', '類別番号', '自動車税', '環境性能割', '重量税',
   '希望ナンバー', '予備検登録車', '本検登録車', '身障者減免車', '担当者'
 ];
