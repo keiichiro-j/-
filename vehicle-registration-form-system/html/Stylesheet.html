@@ -1,47 +1,39 @@
 <style>
   :root {
-    --surface: #E9EDF2;       /* ページ全体・カード・入力欄すべて同じ地色(モノクロマティックが原則) */
-    --surface-alt: #E1E6ED;   /* テーブル内などごく僅かな階調差が欲しい箇所だけに使う */
-    --shadow-dark: #B7C0CC;   /* 凹凸の暗い側 */
-    --shadow-light: #FFFFFF;  /* 凹凸の明るい側 */
-    --hairline: rgba(20, 30, 45, 0.07); /* シャドウが見えない環境でも輪郭が分かるよう保険で敷く薄い線 */
+    --page-bg: #EEF1F5;
+    --surface: #FFFFFF;
+    --surface-alt: #F4F6F9;
+    --line: #DFE3E9;
     --ink: #1B222C;
     --ink-soft: #626C7A;
     --accent: #2F6FED;
     --accent-soft: #DCE7FF;
     --shu: #D0332B;
     --success: #1E7A46;
-    --r-lg: 22px;
-    --r-md: 14px;
-    --r-sm: 10px;
+    --r-lg: 18px;
+    --r-md: 12px;
+    --r-sm: 8px;
   }
 
   * { box-sizing: border-box; }
 
   body {
     margin: 0;
-    background: var(--surface);
+    background: var(--page-bg);
     color: var(--ink);
     font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN",
       "Yu Gothic Medium", "Yu Gothic", "Noto Sans JP", "Meiryo", sans-serif;
     line-height: 1.7;
   }
 
-  /* ---------- 共通: 浮き出た面 / 沈み込んだ面 ---------- */
-  /* シャドウが弱く見える環境でも輪郭が分かるよう、薄いborderを保険で常に敷く */
+  /* ---------- 共通のカード面(通常の影1つだけの、単純で確実なスタイル) ---------- */
 
   .masthead,
-  .card,
-  .btn--ghost {
+  .card {
     background: var(--surface);
-    border: 1px solid var(--hairline);
-    box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
-  }
-
-  input, select, .tableScroll {
-    background: var(--surface);
-    border: 1px solid var(--hairline);
-    box-shadow: inset 4px 4px 8px var(--shadow-dark), inset -4px -4px 8px var(--shadow-light);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 20px rgba(16, 24, 40, 0.05);
   }
 
   /* ---------- masthead ---------- */
@@ -49,7 +41,6 @@
   .masthead {
     max-width: 1080px;
     margin: 36px auto 24px;
-    border-radius: var(--r-lg);
   }
   .masthead__inner { padding: 38px 40px 34px; }
 
@@ -84,7 +75,6 @@
   }
 
   .card {
-    border-radius: var(--r-lg);
     padding: 26px;
     margin-bottom: 22px;
   }
@@ -117,7 +107,7 @@
   }
   .field .req { color: var(--shu); font-weight: 700; font-size: 10.5px; letter-spacing: 0; text-transform: none; }
 
-  /* ---------- 入力欄(沈み込んだ「くぼみ」として表現) ---------- */
+  /* ---------- 入力欄(白地+ボーダーのみ。影は使わない) ---------- */
 
   input, select {
     width: 100%;
@@ -125,33 +115,35 @@
     font-size: 14px;
     font-family: inherit;
     color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line);
     border-radius: var(--r-sm);
   }
   input::placeholder { color: var(--ink-soft); opacity: 0.8; }
   input:focus, select:focus {
     outline: none;
-    box-shadow: inset 4px 4px 8px var(--shadow-dark), inset -4px -4px 8px var(--shadow-light),
-      0 0 0 3px var(--accent-soft);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
   }
   input.is-invalid {
-    box-shadow: inset 4px 4px 8px var(--shadow-dark), inset -4px -4px 8px var(--shadow-light),
-      0 0 0 3px rgba(208, 51, 43, 0.2);
+    border-color: var(--shu);
+    box-shadow: 0 0 0 3px rgba(208, 51, 43, 0.15);
   }
 
-  /* ---------- 車両テーブル: 全体を1つの「くぼみ」で囲み、内側は控えめなフラット表示 ---------- */
+  /* ---------- 車両テーブル ---------- */
 
   .tableScroll {
     overflow-x: auto;
     margin-bottom: 16px;
+    border: 1px solid var(--line);
     border-radius: var(--r-md);
-    padding: 4px;
   }
   table { width: 100%; border-collapse: collapse; min-width: 1280px; }
   th, td {
     padding: 8px 6px;
     text-align: center;
     font-size: 12.5px;
-    border-bottom: 1px solid var(--hairline);
+    border-bottom: 1px solid var(--line);
   }
   thead th {
     background: var(--surface-alt);
@@ -161,19 +153,16 @@
     letter-spacing: 0.05em;
     text-transform: uppercase;
     white-space: nowrap;
-    border-radius: 8px;
   }
   tbody tr:hover td { background: var(--accent-soft); }
   td input, td select {
     padding: 6px;
     font-size: 12.5px;
     text-align: center;
-    background: transparent;
-    box-shadow: none;
-    border: none;
+    border: 1px solid transparent;
     border-radius: 6px;
   }
-  td input:focus, td select:focus { box-shadow: 0 0 0 2px var(--accent-soft); }
+  td input:focus, td select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
   .colNo { width: 28px; color: var(--ink-soft); }
   .colWide { min-width: 140px; }
   .colRegDate { min-width: 110px; }
@@ -191,7 +180,7 @@
   }
   .btnRemoveRow:hover { color: var(--shu); }
 
-  /* ---------- ボタン: 通常は浮き出て、押すと沈み込む ---------- */
+  /* ---------- ボタン ---------- */
 
   .btn {
     font-family: inherit;
@@ -203,11 +192,12 @@
     border-radius: var(--r-md);
     cursor: pointer;
   }
-  .btn--ghost { color: var(--ink-soft); }
-  .btn--ghost:hover { color: var(--accent); }
-  .btn--ghost:active {
-    box-shadow: inset 4px 4px 8px var(--shadow-dark), inset -4px -4px 8px var(--shadow-light);
+  .btn--ghost {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
   }
+  .btn--ghost:hover { border-color: var(--accent); color: var(--accent); }
 
   .btn--primary {
     background: var(--accent);
@@ -217,15 +207,13 @@
     font-size: 14.5px;
     border-radius: var(--r-lg);
     border: 1px solid var(--accent);
-    box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 20px rgba(47, 111, 237, 0.25);
   }
-  .btn--primary:active {
-    box-shadow: inset 4px 4px 8px rgba(0, 0, 0, 0.25), inset -4px -4px 8px rgba(255, 255, 255, 0.25);
-  }
+  .btn--primary:hover { background: #2A63D9; }
   .btn--primary:disabled {
     background: var(--surface-alt);
     color: var(--ink-soft);
-    border-color: var(--hairline);
+    border-color: var(--line);
     box-shadow: none;
     cursor: not-allowed;
   }
