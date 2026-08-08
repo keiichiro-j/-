@@ -193,8 +193,7 @@ function setBanner_(sheet, maxCol, badgeText) {
  */
 function buildOssCommonFields_(sheet) {
   buildBigLabelBlock_(sheet, 4, 3, '送付日'); // D-F → 値の左上セル = D3
-  buildBigLabelBlock_(sheet, 7, 2, '第');     // G-H(固定文字、コードからは書き込まない)
-  buildBigLabelBlock_(sheet, 9, 2, '便');     // I-J → 値の左上セル = I3
+  buildBigLabelBlock_(sheet, 7, 4, '送付便'); // G-J → 値の左上セル = G3(「第１便」のように完全な文字列で上書きする)
 
   buildLabelValueRow_(sheet, 3, 11, 4, '会社名');     // K-N → 値の左上セル = K3
   buildLabelValueRow_(sheet, 5, 11, 4, '担当責任者'); // K-N → 値の左上セル = K5
@@ -210,8 +209,7 @@ function buildOssCommonFields_(sheet) {
 function buildPaperCommonFields_(sheet) {
   buildBigLabelBlock_(sheet, 1, 2, '送付日'); // A-B → 値の左上セル = A3
   buildBigLabelBlock_(sheet, 3, 3, '登録日'); // C-E → 値の左上セル = C3
-  buildBigLabelBlock_(sheet, 6, 2, '第');     // F-G(固定文字、コードからは書き込まない)
-  buildBigLabelBlock_(sheet, 8, 2, '便');     // H-I → 値の左上セル = H3
+  buildBigLabelBlock_(sheet, 6, 4, '送付便'); // F-I → 値の左上セル = F3(「第１便」のように完全な文字列で上書きする)
 
   buildLabelValueRow_(sheet, 3, 10, 4, '会社名');     // J-M → 値の左上セル = J3
   buildLabelValueRow_(sheet, 5, 10, 4, '担当責任者'); // J-M → 値の左上セル = J5
@@ -220,10 +218,11 @@ function buildPaperCommonFields_(sheet) {
 }
 
 /**
- * 送付日・便(・登録日)・「第」を大きく表示するブロックを1つ描画する(3〜5行目を結合)。
- * 送付日・便・登録日は、ここで表示するプレースホルダー文字列(自分自身のラベル名)を
- * TemplateService.gs が同じセルへ実際の値で上書きする想定。「第」のような固定文字は
- * コードから一切書き込まれない(常にこの文字のまま)。
+ * 送付日・送付便(・登録日)を大きく表示するブロックを1つ描画する(3〜5行目を結合)。
+ * ここで表示するプレースホルダー文字列(自分自身のラベル名)を、TemplateService.gs が
+ * 同じセルへ実際の値("8/10"や"第１便"など)で丸ごと上書きする想定。
+ * 送付便は「第」とその番号を別々のセルに分けず、1つのセルに完全な文字列で
+ * 書き込む(セルを分けると印刷時に「第」が二重に見えるなど、見た目が崩れるため)。
  * 値の書き込み先(左上セル)は必ず row3, colStart になる(Constants.gs の COMMON_CELLS と対応させること)。
  */
 function buildBigLabelBlock_(sheet, colStart, colSpan, text) {
