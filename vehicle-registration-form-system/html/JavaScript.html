@@ -1,5 +1,5 @@
 <script>
-  var MAX_VEHICLES = 10;
+  var MAX_VEHICLES = 20;
   var INITIAL_VEHICLE_ROWS = 3;
   var rowSeq = 0;
 
@@ -229,4 +229,98 @@
     toggleRegDateMode();
     google.script.run.withSuccessHandler(populateSuggestions).getSuggestions();
   };
+
+  // ---------- 申請 / 履歴確認 画面切り替え ----------
+
+  var HISTORY_NUMERIC_COLUMNS = ['車両No.', '自動車税', '環境性能割', '重量税'];
+
+  function setView_(view) {
+    var isForm = view === 'form';
+    document.getElementById('viewForm').classList.toggle('is-hidden', !isForm);
+    document.getElementById('viewHistory').classList.toggle('is-hidden', isForm);
+    document.getElementById('navForm').classList.toggle('is-active', isForm);
+    document.getElementById('navForm').setAttribute('aria-selected', isForm);
+    document.getElementById('navHistory').classList.toggle('is-active', !isForm);
+    document.getElementById('navHistory').setAttribute('aria-selected', !isForm);
+    if (!isForm) loadHistoryTabs_();
+  }
+  document.getElementById('navForm').addEventListener('click', function () { setView_('form'); });
+  document.getElementById('navHistory').addEventListener('click', function () { setView_('history'); });
+  document.getElementById('btnHistoryRefresh').addEventListener('click', function () { loadHistoryTabs_(); });
+  document.getElementById('historyMonth').addEventListener('change', function () {
+    loadHistoryEntries_(this.value);
+  });
+
+  // "YYYY-MM" は "YYYY年MM月" に、それ以外(「登録日未定」)はそのまま表示する
+  function formatHistoryMonthLabel_(name) {
+    var m = /^(\d{4})-(\d{2})$/.exec(name);
+    return m ? (m[1] + '年' + m[2] + '月') : name;
+  }
+
+  function loadHistoryTabs_() {
+    var sel = document.getElementById('historyMonth');
+    sel.disabled = true;
+    google.script.run
+      .withSuccessHandler(function (tabNames) {
+        sel.disabled = false;
+        sel.innerHTML = '';
+        if (!tabNames || tabNames.length === 0) {
+          renderHistoryTable_([], []);
+          return;
+        }
+        tabNames.forEach(function (name) {
+          var opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = formatHistoryMonthLabel_(name);
+          sel.appendChild(opt);
+        });
+        loadHistoryEntries_(sel.value);
+      })
+      .withFailureHandler(function (error) {
+        sel.disabled = false;
+        alert('対象月の取得に失敗しました:\n' + error.message);
+      })
+      .getHistoryTabNames();
+  }
+
+  function loadHistoryEntries_(tabName) {
+    if (!tabName) { renderHistoryTable_([], []); return; }
+    google.script.run
+      .withSuccessHandler(function (result) {
+        renderHistoryTable_(result.header, result.rows);
+      })
+      .withFailureHandler(function (error) {
+        renderHistoryTable_([], []);
+        alert('履歴の取得に失敗しました:\n' + error.message);
+      })
+      .getHistoryEntries(tabName);
+  }
+
+  function renderHistoryTable_(header, rows) {
+    var head = document.getElementById('historyTableHead');
+    var body = document.getElementById('historyTableBody');
+    head.innerHTML = '';
+    body.innerHTML = '';
+
+    header.forEach(function (label) {
+      var th = document.createElement('th');
+      th.textContent = label;
+      if (HISTORY_NUMERIC_COLUMNS.indexOf(label) !== -1) th.classList.add('numCol');
+      head.appendChild(th);
+    });
+
+    rows.forEach(function (row) {
+      var tr = document.createElement('tr');
+      row.forEach(function (cell, i) {
+        var td = document.createElement('td');
+        td.textContent = cell;
+        if (HISTORY_NUMERIC_COLUMNS.indexOf(header[i]) !== -1) td.classList.add('numCol');
+        tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+
+    document.getElementById('historyCountBadge').textContent = rows.length + ' 件';
+    document.getElementById('historyEmptyMsg').style.display = rows.length === 0 ? '' : 'none';
+  }
 </script>

@@ -25,6 +25,12 @@
   </header>
 
   <div class="page">
+    <nav class="viewSwitch" role="tablist" aria-label="画面切り替え">
+      <button type="button" class="viewSwitchBtn is-active" id="navForm" role="tab" aria-selected="true">申請</button>
+      <button type="button" class="viewSwitchBtn" id="navHistory" role="tab" aria-selected="false">履歴確認</button>
+    </nav>
+
+    <div id="viewForm">
     <form id="mainForm" novalidate>
       <section class="card">
         <div class="card__head">
@@ -122,6 +128,38 @@
         <div id="result" class="result" role="status" aria-live="polite"></div>
       </div>
     </form>
+    </div>
+
+    <div id="viewHistory" class="is-hidden">
+      <section class="card">
+        <div class="card__head card__head--split">
+          <div>
+            <h2>申請履歴</h2>
+            <p class="muted">対象月を選択すると、その月に登録された依頼履歴を表示します。</p>
+          </div>
+          <span class="badge" id="historyCountBadge">0 件</span>
+        </div>
+
+        <div class="fieldRow">
+          <div class="field">
+            <label for="historyMonth">対象月</label>
+            <select id="historyMonth"></select>
+          </div>
+          <div class="field historyRefreshField">
+            <label>&nbsp;</label>
+            <button type="button" id="btnHistoryRefresh" class="btn btn--ghost">更新</button>
+          </div>
+        </div>
+
+        <div class="tableScroll">
+          <table id="historyTable">
+            <thead><tr id="historyTableHead"></tr></thead>
+            <tbody id="historyTableBody"></tbody>
+          </table>
+        </div>
+        <p class="muted historyEmptyMsg" id="historyEmptyMsg">この月の履歴データはまだありません。</p>
+      </section>
+    </div>
   </div>
 
   <?!= include('html/JavaScript'); ?>

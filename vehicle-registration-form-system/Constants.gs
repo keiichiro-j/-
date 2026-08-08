@@ -8,7 +8,7 @@ var TIMEZONE = 'Asia/Tokyo';
 var TYPE_OSS = 'OSS';
 var TYPE_PAPER = '紙';
 
-var MAX_VEHICLES = 10;
+var MAX_VEHICLES = 20;
 var VEHICLE_START_ROW = 8;
 
 // SPEC.md 8章「未確定事項」のうち、実装のために暫定で決めた値。

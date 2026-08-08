@@ -102,6 +102,61 @@ function getRecentHistoryTabNames_(ss, monthsBack) {
 }
 
 /**
+ * 存在する全ての月次履歴タブ名(YYYY-MM)を新しい順に返す（「登録日未定」タブはデータがあれば末尾に追加）。
+ * 履歴確認画面の対象月プルダウン用。サジェスト収集用の getRecentHistoryTabNames_ とは
+ * 「直近何ヶ月分だけに絞るか」が異なるため、別関数にしている。
+ */
+function getAllHistoryTabNames_(ss) {
+  var monthTabs = ss.getSheets()
+    .map(function (s) { return s.getName(); })
+    .filter(function (name) { return /^\d{4}-\d{2}$/.test(name); })
+    .sort()
+    .reverse();
+
+  var pendingSheet = ss.getSheetByName(HISTORY_PENDING_TAB_NAME);
+  if (pendingSheet && pendingSheet.getLastRow() >= 2) {
+    monthTabs.push(HISTORY_PENDING_TAB_NAME);
+  }
+  return monthTabs;
+}
+
+/**
+ * 指定タブのデータ行を、ヘッダー(HISTORY_HEADER_ROW)の列順のまま配列の配列として返す。
+ * 新しい登録が先頭に来るよう並び替える。日付/日時セルは表示用の文字列に整形する
+ * （google.script.run はDateオブジェクトをそのまま安全に返せないため）。
+ * @return {{header: Array<string>, rows: Array<Array<string>>}}
+ */
+function getHistoryEntries_(ss, tabName) {
+  var sheet = ss.getSheetByName(tabName);
+  if (!sheet || sheet.getLastRow() < 2) {
+    return { header: HISTORY_HEADER_ROW, rows: [] };
+  }
+
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, HISTORY_HEADER_ROW.length).getValues();
+  var rows = values
+    .filter(function (row) { return row[1]; }) // submissionIdが無い行(空行)は除外
+    .map(function (row) {
+      return row.map(function (cell, i) { return formatHistoryCell_(HISTORY_HEADER_ROW[i], cell); });
+    })
+    .reverse();
+
+  return { header: HISTORY_HEADER_ROW, rows: rows };
+}
+
+/**
+ * 履歴確認画面での表示用に、日時/日付セルを整形する。
+ * 「送信日時」列だけ時刻まで、それ以外の日付列は日付のみを表示する。
+ */
+function formatHistoryCell_(label, value) {
+  if (Object.prototype.toString.call(value) === '[object Date]') {
+    return (label === '送信日時')
+      ? Utilities.formatDate(value, TIMEZONE, 'yyyy-MM-dd HH:mm')
+      : Utilities.formatDate(value, TIMEZONE, 'yyyy-MM-dd');
+  }
+  return value;
+}
+
+/**
  * 直近 SUGGESTION_MONTHS_BACK ヶ月分の履歴タブを横断して、
  * 依頼会社名・担当責任者・使用車名・担当者のサジェスト候補を収集する。
  */

@@ -12,6 +12,23 @@ function getSuggestions() {
 }
 
 /**
+ * 履歴確認画面の対象月プルダウンを埋めるため、存在する月次履歴タブ名を新しい順に返す。
+ */
+function getHistoryTabNames() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  return getAllHistoryTabNames_(ss);
+}
+
+/**
+ * 履歴確認画面用に、指定タブの履歴データをヘッダー付きで返す。
+ * @param {string} tabName getHistoryTabNames() が返す値のいずれか
+ */
+function getHistoryEntries(tabName) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  return getHistoryEntries_(ss, tabName);
+}
+
+/**
  * フォーム送信のメイン処理（SPEC.md 4.2 送信処理）。
  * 1. サーバー側検証（NGならシートへの書き込みを一切行わずエラーを返す）
  * 2. LockServiceでテンプレート複製のみを保護

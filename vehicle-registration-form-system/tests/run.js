@@ -109,11 +109,11 @@ test('使用車名が入力された行が0台ならエラー', () => {
   const errors = sandbox.validateFormData_(baseFormData({ vehicles: [{ userName: '' }] }));
   assert.ok(errors.some((e) => e.includes('1台以上')));
 });
-test('11台以上入力するとエラー', () => {
+test('MAX_VEHICLESを超えて入力するとエラー', () => {
   const vehicles = [];
-  for (let i = 0; i < 11; i++) vehicles.push({ userName: '車' + i, chassis: '1234' });
+  for (let i = 0; i < sandbox.MAX_VEHICLES + 1; i++) vehicles.push({ userName: '車' + i, chassis: '1234' });
   const errors = sandbox.validateFormData_(baseFormData({ vehicles }));
-  assert.ok(errors.some((e) => e.includes('10台以内')));
+  assert.ok(errors.some((e) => e.includes(sandbox.MAX_VEHICLES + '台以内')));
 });
 test('送付便が選択肢外(空欄含む)ならエラー', () => {
   const errors = sandbox.validateFormData_(baseFormData({ sendBatch: '' }));
@@ -161,6 +161,20 @@ test('使用車名が空の行はアクティブな車両とみなさない', ()
     { userName: '岐阜 太郎' }, { userName: '' }, { userName: '  ' }, { userName: '岐阜 花子' }
   ]);
   assert.strictEqual(active.length, 2);
+});
+
+console.log('== HistoryService: formatHistoryCell_ ==');
+test('送信日時はyyyy-MM-dd HH:mmに整形される', () => {
+  const v = sandbox.formatHistoryCell_('送信日時', new Date(2026, 7, 8, 9, 5, 0));
+  assert.strictEqual(v, '2026-08-08 09:05');
+});
+test('送信日時以外の日付セルはyyyy-MM-ddに整形される', () => {
+  const v = sandbox.formatHistoryCell_('登録日', new Date(2026, 7, 8, 0, 0, 0));
+  assert.strictEqual(v, '2026-08-08');
+});
+test('Date以外の値はそのまま返す', () => {
+  assert.strictEqual(sandbox.formatHistoryCell_('依頼会社名', '岐阜ヤナセ株式会社'), '岐阜ヤナセ株式会社');
+  assert.strictEqual(sandbox.formatHistoryCell_('自動車税', 12000), 12000);
 });
 
 console.log('== TemplateService: buildPdfFileName_ ==');

@@ -80,6 +80,37 @@
     padding: 0 24px 80px;
   }
 
+  .is-hidden { display: none !important; }
+
+  /* ---------- 画面切り替え(申請 / 履歴確認) ---------- */
+
+  .viewSwitch {
+    display: inline-flex;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    padding: 3px;
+    gap: 2px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  }
+  .viewSwitchBtn {
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    background: transparent;
+    border: none;
+    border-radius: var(--r-pill);
+    padding: 10px 24px;
+    cursor: pointer;
+  }
+  .viewSwitchBtn.is-active {
+    background: var(--accent);
+    color: #FFFFFF;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08), 0 6px 14px rgba(26, 115, 232, 0.25);
+  }
+
   .card {
     background: var(--surface);
     border: 1px solid var(--line);
@@ -221,6 +252,15 @@
   .colRegDate { min-width: 110px; }
   .colDel { width: 32px; }
   .colRegDate.is-hidden, td.cell-regdate.is-hidden { display: none; }
+
+  /* ---------- 履歴確認テーブル ---------- */
+
+  #historyTable { min-width: 1600px; }
+  #historyTable .numCol { text-align: right; }
+  #historyTable td { color: var(--ink); }
+  .historyRefreshField { flex: none; display: flex; flex-direction: column; justify-content: flex-end; }
+  .historyRefreshField .btn { width: 100%; }
+  .historyEmptyMsg { text-align: center; padding: 20px 0 4px; }
 
   .btnRemoveRow {
     border: none;
