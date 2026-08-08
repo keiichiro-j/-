@@ -44,7 +44,7 @@
    - 特別な拡張サービスの追加は不要（`SpreadsheetApp` `DriveApp` `UrlFetchApp` `LockService`は標準）
 4. **Webアプリとして公開**
    - `clasp deploy` または GASエディタの「デプロイ」→「ウェブアプリ」
-   - アクセス範囲は`appsscript.json`の`webapp.access`で管理（デフォルト`DOMAIN`＝組織内のみ）
+   - アクセス範囲は`appsscript.json`の`webapp.access`で管理（デフォルト`ANYONE`＝リンクを知っていてGoogleアカウントでログインしていれば利用可。Google Workspace組織のドメインに属するアカウントなら`DOMAIN`＝組織内のみに変更できるが、個人のGoogleアカウントでは`DOMAIN`は成立しないので使わないこと）
 
 ## テスト
 
@@ -60,7 +60,7 @@ npm test
 |---|---|
 | サジェスト候補の収集元 | 固定マスタは使わず、履歴タブの過去入力から自動収集（`HistoryService.gs#collectSuggestions_`） |
 | サジェスト収集の対象範囲 | 直近6ヶ月分のタブ（`Constants.gs`の`SUGGESTION_MONTHS_BACK`で変更可） |
-| Web Appのアクセス範囲 | `appsscript.json`で`DOMAIN`（組織内のみ）に設定。特定ユーザーのみに絞る場合は要変更 |
+| Web Appのアクセス範囲 | `appsscript.json`で`ANYONE`（リンクを知るGoogleアカウント利用者なら誰でも）に設定。特定ユーザーのみに絞る場合は要変更 |
 | PDFの保存期間 | 無期限保存（自動削除は未実装） |
 | 「登録日未定」タブの移動運用 | 手動移動を前提とし、移動用のUI・自動化機能は未実装（スコープ外） |
 
