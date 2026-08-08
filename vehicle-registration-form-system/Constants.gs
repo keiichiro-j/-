@@ -25,27 +25,26 @@ var SHEET_NAMES = {
   PAPER_TEMPLATE: '新車新規登録依頼書（書類送付書）紙'
 };
 
-// 共通項目のセル位置。ユーザー提供のサンプルデザインに合わせた「ラベルがそのまま値欄になる」
-// 方式(空欄時はラベル文字列を表示し、送信時にその同じセルへ実際の値を上書きする)。
-// sendBatchには「第１便」のように完全な文字列をそのまま書き込む(「第」と番号を別セルに
-// 分けると、印刷時に「第」が二重に見えるなど見た目が崩れるため、1セルにまとめている)。
+// 共通項目のセル位置。ユーザー提供のサンプルデザイン(Numbersファイル)に合わせた
+// 「固定ラベル(左)+空欄の値欄(右)」方式。sendBatchには「第」を除いた数字部分だけを
+// 書き込む(隣の固定「第」ラベル・固定「便」ラベルと並べて「第１便」に見えるようにする)。
 // OSS/紙で列数(maxCol)が異なるため、セル位置は種別ごとに分けている。
 // SetupService.gs の buildOssCommonFields_ / buildPaperCommonFields_ と必ず一致させること。
 var COMMON_CELLS = {
   OSS: {
-    sendDate: 'D3',
-    sendBatch: 'G3',
-    company: 'K3',
-    manager: 'K5',
-    hidaBadge: 'K1' // 飛騨登録バッジ(banner内、通常は空欄)
+    sendDate: 'E3',
+    sendBatch: 'H3', // 「第」の値欄(数字のみ)。隣の固定「第」「便」と並べて「第１便」に見える
+    company: 'L3',
+    manager: 'L5',
+    hidaBadge: 'A1' // 飛騨登録バッジ(banner左上、通常は空欄)
   },
   PAPER: {
-    sendDate: 'A3',
-    regDateCommon: 'C3',
-    sendBatch: 'F3',
-    company: 'J3',
-    manager: 'J5',
-    hidaBadge: 'J1' // 飛騨登録バッジ(banner内、通常は空欄)
+    sendDate: 'B3',
+    regDateCommon: 'E3',
+    sendBatch: 'H3', // 「第」の値欄(数字のみ)。隣の固定「第」「便」と並べて「第１便」に見える
+    company: 'L3',
+    manager: 'L5',
+    hidaBadge: 'A1' // 飛騨登録バッジ(banner左上、通常は空欄)
   }
 };
 
