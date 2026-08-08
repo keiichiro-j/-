@@ -223,7 +223,7 @@ function omitHistoryColumn_(entries, label) {
 
 /**
  * 直近 SUGGESTION_MONTHS_BACK ヶ月分の履歴タブを横断して、
- * 依頼会社名・担当責任者・使用車名・担当者のサジェスト候補を収集する。
+ * 依頼会社名・担当責任者・使用者名・担当者のサジェスト候補を収集する。
  */
 function collectSuggestions_(ss) {
   var tabNames = getRecentHistoryTabNames_(ss, SUGGESTION_MONTHS_BACK);

@@ -8,8 +8,10 @@ var TIMEZONE = 'Asia/Tokyo';
 var TYPE_OSS = 'OSS';
 var TYPE_PAPER = '紙';
 
-var MAX_VEHICLES = 20;
+// 8〜26行目の19台分 + 27行目の合計行、という実物サンプルのレイアウトに合わせている。
+var MAX_VEHICLES = 19;
 var VEHICLE_START_ROW = 8;
+var TOTAL_ROW = 27; // 合計行(自動車税・環境性能割・重量税をSUMする)
 
 // SPEC.md 8章「未確定事項」のうち、実装のために暫定で決めた値。
 // 運用が固まったら見直す。
@@ -23,24 +25,26 @@ var SHEET_NAMES = {
   PAPER_TEMPLATE: '新車新規登録依頼書（書類送付書）紙'
 };
 
-// 共通項目のセル位置。送付日・便(・紙のみ登録日)は左側に大きく強調したタイルとして、
-// 会社名・担当責任者は右側に配置する(SetupService.gs の buildOssCommonFields_ /
-// buildPaperCommonFields_ が描画するレイアウトと必ず一致させること)。
-// OSS/紙で列数(maxCol)が異なるため、セル位置も種別ごとに分けている。
+// 共通項目のセル位置。ユーザー提供のサンプルデザインに合わせた「ラベルがそのまま値欄になる」
+// 方式(空欄時はラベル文字列を表示し、送信時にその同じセルへ実際の値を上書きする)。
+// 「第」は固定の文字(便の番号を挟む前後の飾り文字)のためコードからは一切書き込まない。
+// sendBatchには「第」を除いた残り("１便"等)だけを書き込み、隣の固定「第」と並べて
+// 「第１便」に見えるようにする。OSS/紙で列数(maxCol)が異なるため種別ごとに分けている。
+// SetupService.gs の buildOssCommonFields_ / buildPaperCommonFields_ と必ず一致させること。
 var COMMON_CELLS = {
   OSS: {
-    sendDate: 'A3',
-    sendBatch: 'E3',
-    company: 'K2',
-    manager: 'K3',
+    sendDate: 'D3',
+    sendBatch: 'I3',
+    company: 'K3',
+    manager: 'K5',
     hidaBadge: 'K1' // 飛騨登録バッジ(banner内、通常は空欄)
   },
   PAPER: {
     sendDate: 'A3',
-    sendBatch: 'D3',
-    regDateCommon: 'G3',
-    company: 'K2',
-    manager: 'K3',
+    regDateCommon: 'C3',
+    sendBatch: 'H3',
+    company: 'J3',
+    manager: 'J5',
     hidaBadge: 'J1' // 飛騨登録バッジ(banner内、通常は空欄)
   }
 };
@@ -60,7 +64,7 @@ var BRAND_OPTIONS = ['MB', 'AU'];
 var VEHICLE_COLUMNS = {
   OSS: {
     indivRegDate: 1,  // A: 登録日
-    userName: 2,      // B: 使用車名
+    userName: 2,      // B: 使用者名
     brand: 3,          // C: ブランド(MB/AU)
     chassis: 4,        // D: 車台番号
     model: 5,          // E: 型式
@@ -75,7 +79,7 @@ var VEHICLE_COLUMNS = {
     person: 14           // N: 担当者
   },
   PAPER: {
-    userName: 1,       // A: 使用車名
+    userName: 1,       // A: 使用者名
     brand: 2,           // B: ブランド(MB/AU)
     chassis: 3,          // C: 車台番号
     model: 4,             // D: 型式
@@ -123,7 +127,7 @@ var NUMERIC_FIELD_KEYS = ['autoTax', 'envTax', 'weightTax'];
 // 「飛騨登録」は末尾に追記(既存タブの列インデックスをずらさないため)。
 var HISTORY_HEADER_ROW = [
   '送信日時', 'submissionId', '種別', '依頼会社名', '担当責任者',
-  '登録日', '送付日', '送付便', '車両No.', '使用車名', 'ブランド', '車台番号',
+  '登録日', '送付日', '送付便', '車両No.', '使用者名', 'ブランド', '車台番号',
   '型式', '類別番号', '自動車税', '環境性能割', '重量税',
   '希望ナンバー', '予備検登録車', '本検登録車', '身障者減免車', '担当者', '飛騨登録'
 ];

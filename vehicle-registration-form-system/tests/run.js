@@ -105,7 +105,7 @@ test('ブランドがMB/AU以外ならエラー', () => {
   }));
   assert.ok(errors.some((e) => e.includes('ブランド')));
 });
-test('使用車名が入力された行が0台ならエラー', () => {
+test('使用者名が入力された行が0台ならエラー', () => {
   const errors = sandbox.validateFormData_(baseFormData({ vehicles: [{ userName: '' }] }));
   assert.ok(errors.some((e) => e.includes('1台以上')));
 });
@@ -156,7 +156,7 @@ test('紙登録は共通登録日から年月タブ名を決める', () => {
     '2026-09'
   );
 });
-test('使用車名が空の行はアクティブな車両とみなさない', () => {
+test('使用者名が空の行はアクティブな車両とみなさない', () => {
   const active = sandbox.getActiveVehicles_([
     { userName: '岐阜 太郎' }, { userName: '' }, { userName: '  ' }, { userName: '岐阜 花子' }
   ]);

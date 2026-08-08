@@ -7,42 +7,33 @@
  * 印刷はA4横向き(TemplateService.gs#exportSheetAsPdfBlob_)を前提に、
  * 車両データ欄は列の隙間を空けず詰めたレイアウトにしている
  * (Constants.gs の VEHICLE_COLUMNS が連番になっている理由もこれに合わせたため)。
- * A列・B列を空白マージンとして予約するのもやめ、A列から詰めて配置している。
  *
  * 生成されるのはあくまで「動作する最低限のレイアウト」。罫線の太さ・結合セル・
  * 印刷範囲などは、生成後に見た目を見ながら手で調整してよい(Constants.gs の
  * セル位置さえ変えなければ、処理には影響しない)。
  *
- * 【デザイン方針】"Googleが作ったら" を意識したMaterial Designベース。
- * - 配色はGoogleの実際のトークン値(Google Blue #1A73E8、テキストグレー #202124、
- *   境界線グレー #DADCE0 等)を使用
- * - フォントはGoogle製の Roboto を指定(和文はGoogleスプレッドシート側が自動的に
- *   代替フォントへフォールバックする)
- * - タイトルバーはGoogle Blueの塗りつぶし地に白文字(Material の App Bar 相当)
- * - 税額など数値項目はヘッダー・データともに右寄せ(データテーブルの慣習)
- * - 印刷時の見切れを避けるため、行の高さ・列幅・文字サイズにゆとりを持たせている
+ * 【デザイン方針】ユーザー提供のサンプルデザインに準拠。
+ * - 白背景・黒文字・黒の格子罫線を基調にした、印刷物らしいクラシックな配色
+ * - 送付日・便(・紙のみ登録日)は「ラベル文字列がそのまま値欄になる」方式。
+ *   空欄時はラベル("送付日"等)を表示し、TemplateService.gs が同じセルへ
+ *   実際の値を上書きする。「第」だけは固定の飾り文字で、コードからは書き込まない。
+ * - 会社名・担当責任者は右側に、送付日・便より小さめの文字で配置
+ * - 車両データ欄の下に「合計」行を設け、自動車税・環境性能割・重量税をSUM関数で集計
+ * - 飛騨登録バッジは通常空欄にしておき、該当申請のときだけ目立つ色で上書きする
  */
 
 var THEME = {
-  ink: '#202124',        // Googleのテキストグレー(ほぼ黒)
-  inkSoft: '#5F6368',    // Googleの補助テキストグレー
-  bannerBg: '#1A73E8',   // Google Blue
-  bannerText: '#FFFFFF',
-  panelSoft: '#F1F3F4',  // Googleのニュートラルなライトグレー(入力欄背景等で使われる色)
-  panelSofter: '#F8F9FA',// Googleの最も薄いグレー
-  hairline: '#DADCE0',   // Googleの標準的な境界線グレー
-  accent: '#1A73E8',     // Google Blue(記入欄の下線など)
-  tileBg: '#E8F0FE',     // 強調タイル(送付日・便・登録日)の背景
-  zebra: '#F8F9FA'
+  ink: '#000000',
+  headerFill: '#F1F1F1',  // 車両データ見出し行・合計行の薄いグレー
+  badgeFill: '#D9D9D9'    // OSS登録/紙登録バッジの薄いグレー
 };
 
 var FONT_FAMILY = 'Roboto';
-var DISPLAY_EYEBROW = 'VEHICLE REGISTRATION';
 var DISPLAY_TITLE = '新車新規登録依頼書';
 
 var OSS_FIELD_LABELS = {
   indivRegDate: '登録日',
-  userName: '使用車名',
+  userName: '使用者名',
   brand: 'ブランド',
   chassis: '車台番号\n(下4桁)',
   model: '型式',
@@ -50,15 +41,15 @@ var OSS_FIELD_LABELS = {
   autoTax: '自動車税',
   envTax: '環境性能割',
   weightTax: '重量税',
-  hopeNum: '希望\nナンバー',
-  yobi: '予備検\n登録車',
-  honken: '本検\n登録車',
-  shinsho: '身障者\n減免車',
+  hopeNum: '希望ナンバー',
+  yobi: '予備検登録車',
+  honken: '本検登録車',
+  shinsho: '身障者減免車',
   person: '担当者'
 };
 
 var PAPER_FIELD_LABELS = {
-  userName: '使用車名',
+  userName: '使用者名',
   brand: 'ブランド',
   chassis: '車台番号\n(下4桁)',
   model: '型式',
@@ -66,10 +57,10 @@ var PAPER_FIELD_LABELS = {
   autoTax: '自動車税',
   envTax: '環境性能割',
   weightTax: '重量税',
-  hopeNum: '希望\nナンバー',
-  yobi: '予備検\n登録車',
-  honken: '本検\n登録車',
-  shinsho: '身障者\n減免車',
+  hopeNum: '希望ナンバー',
+  yobi: '予備検登録車',
+  honken: '本検登録車',
+  shinsho: '身障者減免車',
   person: '担当者'
 };
 
@@ -102,13 +93,14 @@ function buildOssTemplateSheet_(sheet) {
   var maxCol = maxColumnOf_(VEHICLE_COLUMNS.OSS);
   sheet.clear();
 
-  setBanner_(sheet, maxCol, 'OSS');
+  setBanner_(sheet, maxCol, 'OSS登録');
   buildOssCommonFields_(sheet);
   buildVehicleTableHeader_(sheet, VEHICLE_COLUMNS.OSS, OSS_FIELD_LABELS);
-  applyZebraAndBorders_(sheet, VEHICLE_COLUMNS.OSS);
+  applyVehicleDataStyle_(sheet, VEHICLE_COLUMNS.OSS);
   applyNumericAlignment_(sheet, VEHICLE_COLUMNS.OSS);
   applyFieldWidths_(sheet, VEHICLE_COLUMNS.OSS);
   applyBrandEmphasis_(sheet, VEHICLE_COLUMNS.OSS);
+  buildTotalRow_(sheet, VEHICLE_COLUMNS.OSS, maxCol, 6); // A:F(登録日〜類別番号)を「合計」ラベルに使う
 
   finishSheetStyle_(sheet, maxCol);
 }
@@ -117,13 +109,14 @@ function buildPaperTemplateSheet_(sheet) {
   var maxCol = maxColumnOf_(VEHICLE_COLUMNS.PAPER);
   sheet.clear();
 
-  setBanner_(sheet, maxCol, '紙');
+  setBanner_(sheet, maxCol, '紙登録');
   buildPaperCommonFields_(sheet);
   buildVehicleTableHeader_(sheet, VEHICLE_COLUMNS.PAPER, PAPER_FIELD_LABELS);
-  applyZebraAndBorders_(sheet, VEHICLE_COLUMNS.PAPER);
+  applyVehicleDataStyle_(sheet, VEHICLE_COLUMNS.PAPER);
   applyNumericAlignment_(sheet, VEHICLE_COLUMNS.PAPER);
   applyFieldWidths_(sheet, VEHICLE_COLUMNS.PAPER);
   applyBrandEmphasis_(sheet, VEHICLE_COLUMNS.PAPER);
+  buildTotalRow_(sheet, VEHICLE_COLUMNS.PAPER, maxCol, 5); // A:E(使用者名〜類別番号)を「合計」ラベルに使う
 
   finishSheetStyle_(sheet, maxCol);
 }
@@ -143,13 +136,12 @@ function ensureColumns_(sheet, minCols) {
 }
 
 /**
- * タイトルバー(左: オーバーライン+タイトルの2段リッチテキスト、右: 飛騨登録バッジ+OSS/紙のバッジ)を
- * 1行目に描画する。Google BlueのApp Bar風の塗りつぶし地に白文字。
- * 車両データ欄の幅(maxCol)いっぱいに合わせる(縦向きより横に長いA4横印刷を想定)。
+ * タイトルバー(1行目)。白背景に黒太字中央寄せのタイトル、右端に飛騨登録バッジ+
+ * 種別バッジ(OSS登録/紙登録)を配置する。
  *
- * 飛騨登録バッジは通常バナーに同化させて空欄のまま置いておき(このシートは全申請共通の
- * テンプレートのため)、TemplateService.gsが「飛騨登録」該当時のみ目立つ色で上書きする。
- * このバッジの列位置は Constants.gs の COMMON_CELLS.OSS/PAPER.hidaBadge と必ず一致させること。
+ * 飛騨登録バッジは通常空欄のまま置いておき(このシートは全申請共通のテンプレートのため)、
+ * TemplateService.gsが「飛騨登録」該当時のみ目立つ色で上書きする。このバッジの列位置は
+ * Constants.gs の COMMON_CELLS.OSS/PAPER.hidaBadge と必ず一致させること。
  */
 function setBanner_(sheet, maxCol, badgeText) {
   ensureColumns_(sheet, maxCol);
@@ -159,164 +151,113 @@ function setBanner_(sheet, maxCol, badgeText) {
 
   var titleRange = sheet.getRange(1, 1, 1, titleEnd);
   titleRange.merge();
-
-  var fullText = '  ' + DISPLAY_EYEBROW + '\n  ' + DISPLAY_TITLE;
-  var eyebrowEnd = 2 + DISPLAY_EYEBROW.length;
-  var titleStart = eyebrowEnd + 1; // 改行(\n)の次の文字から
-
-  var richText = SpreadsheetApp.newRichTextValue()
-    .setText(fullText)
-    .setTextStyle(0, eyebrowEnd, SpreadsheetApp.newTextStyle()
-      .setFontFamily(FONT_FAMILY)
-      .setFontSize(9)
-      .setForegroundColor('#D2E3FC')
-      .setBold(true)
-      .build())
-    .setTextStyle(titleStart, fullText.length, SpreadsheetApp.newTextStyle()
-      .setFontFamily(FONT_FAMILY)
-      .setFontSize(18)
-      .setForegroundColor(THEME.bannerText)
-      .setBold(true)
-      .build())
-    .build();
-
-  titleRange.setRichTextValue(richText);
-  titleRange.setBackground(THEME.bannerBg);
-  titleRange.setHorizontalAlignment('left');
+  titleRange.setValue(DISPLAY_TITLE);
+  titleRange.setFontFamily(FONT_FAMILY);
+  titleRange.setFontSize(22);
+  titleRange.setFontWeight('bold');
+  titleRange.setFontColor(THEME.ink);
+  titleRange.setHorizontalAlignment('center');
   titleRange.setVerticalAlignment('middle');
-  titleRange.setWrap(true);
 
   var hidaBadgeRange = sheet.getRange(1, titleEnd + 1, 1, hidaBadgeWidth);
   hidaBadgeRange.merge();
-  hidaBadgeRange.setBackground(THEME.bannerBg); // 通常時はバナーと同化させ、空欄のまま目立たせない
   hidaBadgeRange.setFontFamily(FONT_FAMILY);
   hidaBadgeRange.setFontWeight('bold');
-  hidaBadgeRange.setFontSize(11);
+  hidaBadgeRange.setFontSize(12);
   hidaBadgeRange.setHorizontalAlignment('center');
   hidaBadgeRange.setVerticalAlignment('middle');
 
   var typeBadgeRange = sheet.getRange(1, titleEnd + hidaBadgeWidth + 1, 1, typeBadgeWidth);
   typeBadgeRange.merge();
   typeBadgeRange.setValue(badgeText);
-  typeBadgeRange.setBackground('#174EA6'); // Google Blueより一段濃いトーンで面を分ける
-  typeBadgeRange.setFontColor('#FFFFFF');
+  typeBadgeRange.setBackground(THEME.badgeFill);
+  typeBadgeRange.setFontColor(THEME.ink);
   typeBadgeRange.setFontFamily(FONT_FAMILY);
   typeBadgeRange.setFontWeight('bold');
-  typeBadgeRange.setFontSize(14);
+  typeBadgeRange.setFontSize(16);
   typeBadgeRange.setHorizontalAlignment('center');
   typeBadgeRange.setVerticalAlignment('middle');
 
-  // バナー下に太めのアクセント罫線を引き、本文との境目をくっきりさせる(モダンな二段ヘッダー風)
-  sheet.getRange(1, 1, 1, maxCol)
-    .setBorder(false, false, true, false, false, false, '#0B57D0', SpreadsheetApp.BorderStyle.SOLID_THICK);
-
-  sheet.setRowHeight(1, 56);
+  sheet.setRowHeight(1, 46);
 }
 
 /**
- * OSS用の共通項目欄。送付日・便を大きく強調したタイルを左側に、会社名・担当責任者を
- * 右側に配置する(受け取り手が送付日/便を一目で確認できるようにするため)。
- * 列位置は Constants.gs の COMMON_CELLS.OSS と必ず一致させること
- * (TemplateService.gs がその定数の位置に値を書き込むため)。
+ * OSS用の共通項目欄。送付日・便を大きく強調したブロックを左側(D〜J列)に、
+ * 会社名・担当責任者を右側(K〜N列)に配置する。列位置は Constants.gs の
+ * COMMON_CELLS.OSS と必ず一致させること(TemplateService.gs がその位置に値を書き込む)。
  */
 function buildOssCommonFields_(sheet) {
-  buildEmphasisTile_(sheet, 1, 4, '送付日'); // A-D → 値の左上セル = A3
-  buildEmphasisTile_(sheet, 5, 4, '便');     // E-H → 値の左上セル = E3
+  buildBigLabelBlock_(sheet, 4, 3, '送付日'); // D-F → 値の左上セル = D3
+  buildBigLabelBlock_(sheet, 7, 2, '第');     // G-H(固定文字、コードからは書き込まない)
+  buildBigLabelBlock_(sheet, 9, 2, '便');     // I-J → 値の左上セル = I3
 
-  setFieldLabel_(sheet, 2, 9, 2, '会社名');
-  mergeValueCell_(sheet, 2, 11, 4, 'left');   // K-N → 値の左上セル = K2
-  setFieldLabel_(sheet, 3, 9, 2, '担当責任者');
-  mergeValueCell_(sheet, 3, 11, 4, 'left');   // K-N → 値の左上セル = K3
+  buildLabelValueRow_(sheet, 3, 11, 4, '会社名');     // K-N → 値の左上セル = K3
+  buildLabelValueRow_(sheet, 5, 11, 4, '担当責任者'); // K-N → 値の左上セル = K5
 
   applyCommonRowHeights_(sheet);
 }
 
 /**
- * 紙用の共通項目欄。送付日・便・登録日を大きく強調したタイルを左側に、会社名・担当責任者を
- * 右側に配置する。列位置は Constants.gs の COMMON_CELLS.PAPER と必ず一致させること。
+ * 紙用の共通項目欄。送付日・便・登録日を大きく強調したブロックを左側(A〜I列)に、
+ * 会社名・担当責任者を右側(J〜M列)に配置する。列位置は Constants.gs の
+ * COMMON_CELLS.PAPER と必ず一致させること。
  */
 function buildPaperCommonFields_(sheet) {
-  buildEmphasisTile_(sheet, 1, 3, '送付日'); // A-C → 値の左上セル = A3
-  buildEmphasisTile_(sheet, 4, 3, '便');     // D-F → 値の左上セル = D3
-  buildEmphasisTile_(sheet, 7, 2, '登録日'); // G-H → 値の左上セル = G3
+  buildBigLabelBlock_(sheet, 1, 2, '送付日'); // A-B → 値の左上セル = A3
+  buildBigLabelBlock_(sheet, 3, 3, '登録日'); // C-E → 値の左上セル = C3
+  buildBigLabelBlock_(sheet, 6, 2, '第');     // F-G(固定文字、コードからは書き込まない)
+  buildBigLabelBlock_(sheet, 8, 2, '便');     // H-I → 値の左上セル = H3
 
-  setFieldLabel_(sheet, 2, 9, 2, '会社名');
-  mergeValueCell_(sheet, 2, 11, 3, 'left');   // K-M → 値の左上セル = K2
-  setFieldLabel_(sheet, 3, 9, 2, '担当責任者');
-  mergeValueCell_(sheet, 3, 11, 3, 'left');   // K-M → 値の左上セル = K3
+  buildLabelValueRow_(sheet, 3, 10, 4, '会社名');     // J-M → 値の左上セル = J3
+  buildLabelValueRow_(sheet, 5, 10, 4, '担当責任者'); // J-M → 値の左上セル = J5
 
   applyCommonRowHeights_(sheet);
 }
 
 /**
- * 送付日・便(・登録日)を大きく目立たせる「タイル」を1つ描画する。
- * 2行目に小さめのキャプション、3〜6行目を結合した大きな太字の値欄という構成。
- * 値の書き込み先(左上セル)は必ず row3, colStart になる
- * (Constants.gs の COMMON_CELLS と対応させること)。
+ * 送付日・便(・登録日)・「第」を大きく表示するブロックを1つ描画する(3〜5行目を結合)。
+ * 送付日・便・登録日は、ここで表示するプレースホルダー文字列(自分自身のラベル名)を
+ * TemplateService.gs が同じセルへ実際の値で上書きする想定。「第」のような固定文字は
+ * コードから一切書き込まれない(常にこの文字のまま)。
+ * 値の書き込み先(左上セル)は必ず row3, colStart になる(Constants.gs の COMMON_CELLS と対応させること)。
  */
-function buildEmphasisTile_(sheet, colStart, colSpan, captionText) {
-  var captionRange = sheet.getRange(2, colStart, 1, colSpan);
-  captionRange.merge();
-  captionRange.setValue(captionText);
-  captionRange.setBackground(THEME.panelSoft);
-  captionRange.setFontColor(THEME.inkSoft);
-  captionRange.setFontWeight('bold');
-  captionRange.setFontSize(10);
-  captionRange.setHorizontalAlignment('center');
-  captionRange.setVerticalAlignment('middle');
-
-  var valueRange = sheet.getRange(3, colStart, 4, colSpan);
-  valueRange.merge();
-  valueRange.setBackground(THEME.tileBg);
-  valueRange.setFontColor(THEME.bannerBg);
-  valueRange.setFontWeight('bold');
-  valueRange.setFontSize(30);
-  valueRange.setHorizontalAlignment('center');
-  valueRange.setVerticalAlignment('middle');
-  valueRange.setBorder(true, true, true, true, false, false, THEME.accent, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+function buildBigLabelBlock_(sheet, colStart, colSpan, text) {
+  var range = sheet.getRange(3, colStart, 3, colSpan);
+  range.merge();
+  range.setValue(text);
+  range.setFontFamily(FONT_FAMILY);
+  range.setFontSize(26);
+  range.setFontWeight('bold');
+  range.setFontColor(THEME.ink);
+  range.setHorizontalAlignment('center');
+  range.setVerticalAlignment('middle');
 }
 
 /**
- * 共通項目欄(2〜6行目)の行の高さをまとめて設定する。
+ * 会社名・担当責任者のように、1行だけの「ラベルがそのまま値欄になる」セルを描画する。
+ * 左寄せにすることで、空欄時はラベルが左端に見え、値が入ると同じ位置から書き換わる。
  */
-function applyCommonRowHeights_(sheet) {
-  sheet.setRowHeight(2, 26);
-  sheet.setRowHeight(3, 24);
-  sheet.setRowHeight(4, 24);
-  sheet.setRowHeight(5, 24);
-  sheet.setRowHeight(6, 24);
-}
-
-/**
- * ラベルは控えめなグレー・通常ウェイト、値は濃色・太字にして、
- * ダッシュボードのフォームでよくある「キャプション/値」のコントラストを付ける。
- */
-function setFieldLabel_(sheet, row, colStart, colSpan, text) {
+function buildLabelValueRow_(sheet, row, colStart, colSpan, text) {
   var range = sheet.getRange(row, colStart, 1, colSpan);
   range.merge();
   range.setValue(text);
-  range.setBackground(THEME.panelSoft);
-  range.setFontColor(THEME.inkSoft);
-  range.setFontWeight('normal');
-  range.setFontSize(10);
-  range.setHorizontalAlignment('right');
-  range.setVerticalAlignment('middle');
-}
-
-function mergeValueCell_(sheet, row, colStart, colSpan, align) {
-  var range = sheet.getRange(row, colStart, 1, colSpan);
-  range.merge();
-  styleValueCell_(range);
-  range.setHorizontalAlignment(align || 'center');
-}
-
-function styleValueCell_(range) {
-  range.setBorder(false, false, true, false, false, false, THEME.accent, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
-  range.setFontColor(THEME.ink);
+  range.setFontFamily(FONT_FAMILY);
+  range.setFontSize(13);
   range.setFontWeight('bold');
-  range.setFontSize(12);
-  range.setHorizontalAlignment('center');
+  range.setFontColor(THEME.ink);
+  range.setHorizontalAlignment('left');
   range.setVerticalAlignment('middle');
+}
+
+/**
+ * 共通項目欄(2〜6行目)の行の高さをまとめて設定する。4行目はごく短い区切り行。
+ */
+function applyCommonRowHeights_(sheet) {
+  sheet.setRowHeight(2, 6);
+  sheet.setRowHeight(3, 30);
+  sheet.setRowHeight(4, 6);
+  sheet.setRowHeight(5, 30);
+  sheet.setRowHeight(6, 8);
 }
 
 /**
@@ -324,59 +265,47 @@ function styleValueCell_(range) {
  * 2行のラベル(例:「車台番号」+「(下4桁)」)が印刷時に見切れないよう行高に余裕を持たせる。
  */
 function buildVehicleTableHeader_(sheet, columns, labels) {
-  var maxCol = maxColumnOf_(columns);
   Object.keys(columns).forEach(function (key) {
     var col = columns[key];
     var cell = sheet.getRange(7, col);
     cell.setValue(labels[key] || key);
-    cell.setBackground(THEME.panelSofter);
-    cell.setFontColor(THEME.inkSoft);
+    cell.setBackground(THEME.headerFill);
+    cell.setFontColor(THEME.ink);
+    cell.setFontFamily(FONT_FAMILY);
     cell.setFontWeight('bold');
     cell.setFontSize(10);
     cell.setHorizontalAlignment('center');
     cell.setVerticalAlignment('middle');
     cell.setWrap(true);
   });
-  // 見出し行の下にアクセント罫線を引き、データ行との境目をくっきりさせる
-  sheet.getRange(7, 1, 1, maxCol)
-    .setBorder(false, false, true, false, false, false, THEME.accent, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
-  sheet.setRowHeight(7, 46);
+  sheet.setRowHeight(7, 40);
 }
 
 /**
- * 車両データ欄(8行目〜MAX_VEHICLES分)に、交互の背景色と柔らかい罫線を付ける。
+ * 車両データ欄(8行目〜MAX_VEHICLES分)の文字スタイル・行高を設定する。
+ * 罫線はシート全体をまとめて finishSheetStyle_ で引くため、ここでは扱わない。
  */
-function applyZebraAndBorders_(sheet, columns) {
+function applyVehicleDataStyle_(sheet, columns) {
   var maxCol = maxColumnOf_(columns);
-  var width = maxCol - 1 + 1;
-
-  for (var i = 0; i < MAX_VEHICLES; i++) {
-    var row = VEHICLE_START_ROW + i;
-    sheet.getRange(row, 1, 1, width).setBackground(i % 2 === 0 ? '#FFFFFF' : THEME.zebra);
-    sheet.setRowHeight(row, 28);
-  }
-
-  var range = sheet.getRange(VEHICLE_START_ROW, 1, MAX_VEHICLES, width);
-  range.setBorder(true, true, true, true, true, true, THEME.hairline, SpreadsheetApp.BorderStyle.SOLID);
+  var range = sheet.getRange(VEHICLE_START_ROW, 1, MAX_VEHICLES, maxCol);
   range.setFontColor(THEME.ink);
+  range.setFontFamily(FONT_FAMILY);
   range.setFontSize(11);
   range.setHorizontalAlignment('center');
   range.setVerticalAlignment('middle');
 
-  // データ欄の左端にアクセントの縦罫線を引き、表全体の輪郭を引き締める
-  sheet.getRange(VEHICLE_START_ROW, 1, MAX_VEHICLES, 1)
-    .setBorder(null, true, null, null, null, null, THEME.accent, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+  for (var i = 0; i < MAX_VEHICLES; i++) {
+    sheet.setRowHeight(VEHICLE_START_ROW + i, 26);
+  }
 }
 
 /**
- * ブランド(MB/AU)列は新しく追加した絞り込み観点のため、太字・アクセントカラーで強調して目立たせる。
+ * ブランド(MB/AU)列は絞り込みの観点として使う項目のため、太字にして目立たせる。
  */
 function applyBrandEmphasis_(sheet, columns) {
   var col = columns.brand;
   if (!col) return;
-  var range = sheet.getRange(VEHICLE_START_ROW, col, MAX_VEHICLES, 1);
-  range.setFontWeight('bold');
-  range.setFontColor(THEME.bannerBg);
+  sheet.getRange(VEHICLE_START_ROW, col, MAX_VEHICLES, 1).setFontWeight('bold');
 }
 
 /**
@@ -403,13 +332,61 @@ function applyFieldWidths_(sheet, columns) {
 }
 
 /**
- * フォント統一・見出し行の固定など、シート全体の仕上げ。
- * フォントはアプリ側と合わせて Roboto を指定する(和文グリフは
- * スプレッドシート側が自動的に代替フォントへフォールバックする)。
- * A列・B列を余白マージンとして縮小する処理は行わない(空白除去のため)。
+ * 合計行(Constants.gs の TOTAL_ROW)。自動車税・環境性能割・重量税をSUM関数で集計する。
+ * このテンプレートを複製して送信ごとの一時シートを作るため(TemplateService.gs)、
+ * SUM式もそのまま複製され、各申請の実際のデータに応じて自動的に再計算される。
+ * @param {number} labelSpan 「合計」ラベルに使う先頭列数(数値項目より左側の列数)
+ */
+function buildTotalRow_(sheet, columns, maxCol, labelSpan) {
+  var fillRange = sheet.getRange(TOTAL_ROW, 1, 1, maxCol);
+  fillRange.setBackground(THEME.headerFill);
+  fillRange.setFontFamily(FONT_FAMILY);
+  fillRange.setFontWeight('bold');
+  fillRange.setFontSize(11);
+  fillRange.setFontColor(THEME.ink);
+
+  var labelRange = sheet.getRange(TOTAL_ROW, 1, 1, labelSpan);
+  labelRange.merge();
+  labelRange.setValue('合計');
+  labelRange.setHorizontalAlignment('right');
+  labelRange.setVerticalAlignment('middle');
+
+  NUMERIC_FIELD_KEYS.forEach(function (key) {
+    var col = columns[key];
+    if (!col) return;
+    var colLetter = columnToLetter_(col);
+    var lastVehicleRow = VEHICLE_START_ROW + MAX_VEHICLES - 1;
+    sheet.getRange(TOTAL_ROW, col)
+      .setFormula('=SUM(' + colLetter + VEHICLE_START_ROW + ':' + colLetter + lastVehicleRow + ')')
+      .setHorizontalAlignment('right')
+      .setVerticalAlignment('middle');
+  });
+
+  sheet.setRowHeight(TOTAL_ROW, 26);
+}
+
+/**
+ * 列番号(1始まり)をA1形式の列名("A","B",...,"AA"等)に変換する。
+ */
+function columnToLetter_(col) {
+  var letter = '';
+  while (col > 0) {
+    var rem = (col - 1) % 26;
+    letter = String.fromCharCode(65 + rem) + letter;
+    col = Math.floor((col - 1) / 26);
+  }
+  return letter;
+}
+
+/**
+ * フォント統一・見出し行の固定・全体の罫線など、シート全体の仕上げ。
+ * ユーザー提供のサンプルに合わせ、バナーから合計行まで全域に黒の格子罫線を引く
+ * (Sheetsのデフォルトの薄いグリッド線は非表示にし、明示的な罫線に置き換える)。
  */
 function finishSheetStyle_(sheet, maxCol) {
-  sheet.getRange(1, 1, 17, maxCol).setFontFamily(FONT_FAMILY);
+  var wholeRange = sheet.getRange(1, 1, TOTAL_ROW, maxCol);
+  wholeRange.setFontFamily(FONT_FAMILY);
+  wholeRange.setBorder(true, true, true, true, true, true, THEME.ink, SpreadsheetApp.BorderStyle.SOLID);
   sheet.setFrozenRows(7);
   sheet.setHiddenGridlines(true);
 }

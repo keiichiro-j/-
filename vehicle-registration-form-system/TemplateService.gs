@@ -28,7 +28,9 @@ function writeCommonFields_(sheet, type, formData) {
   sheet.getRange(cells.company).setValue(formData.company);
   sheet.getRange(cells.manager).setValue(formData.manager);
   sheet.getRange(cells.sendDate).setValue(formatMonthDay_(formData.sendDate));
-  sheet.getRange(cells.sendBatch).setValue(formData.sendBatch || '');
+  // テンプレート側に固定文字の「第」が隣接しているため、ここでは「第」を除いた
+  // 残り("１便"等)だけを書き込む。並べて表示すると「第１便」に見える。
+  sheet.getRange(cells.sendBatch).setValue((formData.sendBatch || '').replace('第', ''));
 
   if (type === TYPE_PAPER && isValidDateStr_(formData.regDateCommon)) {
     sheet.getRange(cells.regDateCommon).setValue(formatMonthDay_(formData.regDateCommon));
