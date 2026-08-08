@@ -22,12 +22,24 @@ function formatYearMonth_(date) {
 
 /**
  * 指定タブを取得。存在しなければヘッダー行付きで新規作成する。
+ * 既存タブでも、ヘッダーが現在の HISTORY_HEADER_ROW と一致しなければ
+ * (列追加などスキーマ変更前に作られたタブの場合)ヘッダー行だけ上書きして揃える。
+ * 既存のデータ行そのものは書き換えない(古いスキーマの行は列がずれたまま残る)。
  */
 function getOrCreateHistoryTab_(ss, tabName) {
   var sheet = ss.getSheetByName(tabName);
   if (!sheet) {
     sheet = ss.insertSheet(tabName);
     sheet.getRange(1, 1, 1, HISTORY_HEADER_ROW.length).setValues([HISTORY_HEADER_ROW]);
+    sheet.setFrozenRows(1);
+    return sheet;
+  }
+
+  var headerRange = sheet.getRange(1, 1, 1, HISTORY_HEADER_ROW.length);
+  var currentHeader = headerRange.getValues()[0];
+  var isUpToDate = HISTORY_HEADER_ROW.every(function (label, i) { return currentHeader[i] === label; });
+  if (!isUpToDate) {
+    headerRange.setValues([HISTORY_HEADER_ROW]);
     sheet.setFrozenRows(1);
   }
   return sheet;
