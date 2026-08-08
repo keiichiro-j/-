@@ -1,15 +1,16 @@
 <style>
   :root {
-    --surface: #1C1F24;       /* ページ全体・カード・入力欄すべて同じ地色(モノクロマティックが原則) */
-    --surface-alt: #20232B;   /* テーブル内などごく僅かな階調差が欲しい箇所だけに使う */
-    --shadow-dark: #101216;   /* 凹凸の暗い側 */
-    --shadow-light: #262A32;  /* 凹凸の明るい側 */
-    --ink: #ECEEF1;
-    --ink-soft: #8B93A1;
-    --accent: #4C86FF;
-    --accent-soft: rgba(76, 134, 255, 0.18);
-    --shu: #FF6B63;
-    --success: #35C488;
+    --surface: #E9EDF2;       /* ページ全体・カード・入力欄すべて同じ地色(モノクロマティックが原則) */
+    --surface-alt: #E1E6ED;   /* テーブル内などごく僅かな階調差が欲しい箇所だけに使う */
+    --shadow-dark: #B7C0CC;   /* 凹凸の暗い側 */
+    --shadow-light: #FFFFFF;  /* 凹凸の明るい側 */
+    --hairline: rgba(20, 30, 45, 0.07); /* シャドウが見えない環境でも輪郭が分かるよう保険で敷く薄い線 */
+    --ink: #1B222C;
+    --ink-soft: #626C7A;
+    --accent: #2F6FED;
+    --accent-soft: #DCE7FF;
+    --shu: #D0332B;
+    --success: #1E7A46;
     --r-lg: 22px;
     --r-md: 14px;
     --r-sm: 10px;
@@ -27,19 +28,20 @@
   }
 
   /* ---------- 共通: 浮き出た面 / 沈み込んだ面 ---------- */
+  /* シャドウが弱く見える環境でも輪郭が分かるよう、薄いborderを保険で常に敷く */
 
   .masthead,
   .card,
   .btn--ghost {
     background: var(--surface);
-    border: none;
-    box-shadow: 9px 9px 18px var(--shadow-dark), -9px -9px 18px var(--shadow-light);
+    border: 1px solid var(--hairline);
+    box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
   }
 
   input, select, .tableScroll {
     background: var(--surface);
-    border: none;
-    box-shadow: inset 6px 6px 12px var(--shadow-dark), inset -6px -6px 12px var(--shadow-light);
+    border: 1px solid var(--hairline);
+    box-shadow: inset 4px 4px 8px var(--shadow-dark), inset -4px -4px 8px var(--shadow-light);
   }
 
   /* ---------- masthead ---------- */
@@ -125,15 +127,15 @@
     color: var(--ink);
     border-radius: var(--r-sm);
   }
-  input::placeholder { color: var(--ink-soft); opacity: 0.7; }
+  input::placeholder { color: var(--ink-soft); opacity: 0.8; }
   input:focus, select:focus {
     outline: none;
-    box-shadow: inset 6px 6px 12px var(--shadow-dark), inset -6px -6px 12px var(--shadow-light),
+    box-shadow: inset 4px 4px 8px var(--shadow-dark), inset -4px -4px 8px var(--shadow-light),
       0 0 0 3px var(--accent-soft);
   }
   input.is-invalid {
-    box-shadow: inset 6px 6px 12px var(--shadow-dark), inset -6px -6px 12px var(--shadow-light),
-      0 0 0 3px rgba(255, 107, 99, 0.25);
+    box-shadow: inset 4px 4px 8px var(--shadow-dark), inset -4px -4px 8px var(--shadow-light),
+      0 0 0 3px rgba(208, 51, 43, 0.2);
   }
 
   /* ---------- 車両テーブル: 全体を1つの「くぼみ」で囲み、内側は控えめなフラット表示 ---------- */
@@ -149,7 +151,7 @@
     padding: 8px 6px;
     text-align: center;
     font-size: 12.5px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid var(--hairline);
   }
   thead th {
     background: var(--surface-alt);
@@ -168,6 +170,7 @@
     text-align: center;
     background: transparent;
     box-shadow: none;
+    border: none;
     border-radius: 6px;
   }
   td input:focus, td select:focus { box-shadow: 0 0 0 2px var(--accent-soft); }
@@ -203,7 +206,7 @@
   .btn--ghost { color: var(--ink-soft); }
   .btn--ghost:hover { color: var(--accent); }
   .btn--ghost:active {
-    box-shadow: inset 5px 5px 10px var(--shadow-dark), inset -5px -5px 10px var(--shadow-light);
+    box-shadow: inset 4px 4px 8px var(--shadow-dark), inset -4px -4px 8px var(--shadow-light);
   }
 
   .btn--primary {
@@ -213,14 +216,16 @@
     padding: 17px 20px;
     font-size: 14.5px;
     border-radius: var(--r-lg);
-    box-shadow: 9px 9px 18px var(--shadow-dark), -9px -9px 18px var(--shadow-light);
+    border: 1px solid var(--accent);
+    box-shadow: 8px 8px 16px var(--shadow-dark), -8px -8px 16px var(--shadow-light);
   }
   .btn--primary:active {
-    box-shadow: inset 5px 5px 10px rgba(0, 0, 0, 0.35), inset -5px -5px 10px rgba(255, 255, 255, 0.12);
+    box-shadow: inset 4px 4px 8px rgba(0, 0, 0, 0.25), inset -4px -4px 8px rgba(255, 255, 255, 0.25);
   }
   .btn--primary:disabled {
     background: var(--surface-alt);
     color: var(--ink-soft);
+    border-color: var(--hairline);
     box-shadow: none;
     cursor: not-allowed;
   }
