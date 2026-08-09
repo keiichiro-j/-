@@ -789,6 +789,7 @@
     ]);
     renderDashboardMatrix_(data);
     renderDashboardTrend_(data);
+    renderDashboardEntries_(data);
   }
 
   function renderDashboardStats_(data) {
@@ -908,6 +909,51 @@
 
     container.innerHTML =
       '<svg viewBox="0 0 ' + width + ' ' + height + '" class="trendSvg" role="img" aria-label="日別車両台数推移">' +
+      '<defs><linearGradient id="dashTrendGradient" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0%" style="stop-color:var(--accent)"/>' +
+      '<stop offset="100%" style="stop-color:var(--accent-dark)"/>' +
+      '</linearGradient></defs>' +
       parts.join('') + '</svg>';
+  }
+
+  // 当月(選択中の月)の登録者一覧(使用者名・登録日)を描画する
+  function renderDashboardEntries_(data) {
+    var body = document.getElementById('dashEntriesBody');
+    var emptyMsg = document.getElementById('dashEntriesEmptyMsg');
+    var scrollWrap = document.getElementById('dashEntriesTable').closest('.tableScroll');
+    body.innerHTML = '';
+
+    var entries = data.entries || [];
+    document.getElementById('dashEntriesCountBadge').textContent = entries.length + ' 件';
+
+    if (entries.length === 0) {
+      scrollWrap.classList.add('is-hidden');
+      emptyMsg.style.display = '';
+      return;
+    }
+    scrollWrap.classList.remove('is-hidden');
+    emptyMsg.style.display = 'none';
+
+    entries.forEach(function (e) {
+      var tr = document.createElement('tr');
+      if (e.status === SUBMISSION_STATUS_CANCELLED_) tr.classList.add('is-cancelled');
+      tr.innerHTML =
+        '<td>' + escapeHtml_(e.regDate || '未定') + '</td>' +
+        '<td>' + escapeHtml_(e.userName) + '</td>' +
+        '<td>' + brandPillHtml_(e.brand) + '</td>' +
+        '<td>' + typePillHtml_(e.type) + '</td>' +
+        '<td>' + escapeHtml_(e.company) + '</td>';
+      body.appendChild(tr);
+    });
+  }
+
+  function brandPillHtml_(brand) {
+    var cls = brand === 'MB' ? 'pill--mb' : (brand === 'AU' ? 'pill--au' : 'pill--muted');
+    return '<span class="pill ' + cls + '">' + escapeHtml_(brand) + '</span>';
+  }
+
+  function typePillHtml_(type) {
+    var cls = type === 'OSS' ? 'pill--oss' : 'pill--paper';
+    return '<span class="pill ' + cls + '">' + escapeHtml_(type) + '</span>';
   }
 </script>

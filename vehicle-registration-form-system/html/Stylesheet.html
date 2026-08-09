@@ -629,9 +629,32 @@
 
   .trendChart { margin-top: 4px; }
   .trendSvg { width: 100%; height: auto; display: block; }
-  .trendBar { fill: var(--accent); }
+  .trendBar { fill: url(#dashTrendGradient); transition: opacity 0.15s ease; }
   .trendBar--empty { fill: var(--surface-alt); }
+  .trendBar:hover { opacity: 0.75; }
   .trendLabel { font-size: 9px; fill: var(--ink-soft); }
+
+  /* ---------- ダッシュボード: 登録者一覧 ---------- */
+
+  .tableScroll--dashEntries { max-height: 460px; overflow-y: auto; }
+  #dashEntriesTable { min-width: 0; width: 100%; }
+  #dashEntriesTable tbody tr:nth-child(even) td { background: var(--surface-alt); }
+  #dashEntriesTable tbody tr.is-cancelled td { color: var(--ink-soft); text-decoration: line-through; }
+
+  .pill {
+    display: inline-block;
+    padding: 3px 11px;
+    border-radius: var(--r-pill);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #FFFFFF;
+  }
+  .pill--mb { background: var(--accent); }
+  .pill--au { background: var(--au-color); }
+  .pill--oss { background: var(--success); }
+  .pill--paper { background: var(--paper-color); color: var(--ink); }
+  .pill--muted { background: var(--line); color: var(--ink-soft); }
 
   @media (max-width: 900px) {
     .dashGrid { grid-template-columns: 1fr; }

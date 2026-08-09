@@ -596,6 +596,30 @@ test('日別の車両台数を登録日ベースで集計する', () => {
     { date: '2026-08-03', count: 1 }
   ]);
 });
+test('登録者一覧(使用者名・登録日)を登録日の新しい順に返す(登録日未定は末尾)', () => {
+  const header = sandbox.HISTORY_HEADER_ROW;
+  const rows = [
+    makeHistoryFullRow({ submissionId: 'uuid-1', userName: '岐阜 太郎', type: 'OSS', brand: 'MB', regDate: new Date(2026, 7, 1) }),
+    makeHistoryFullRow({ submissionId: 'uuid-2', userName: '岐阜 花子', type: '紙', brand: 'AU', regDate: new Date(2026, 7, 10) }),
+    makeHistoryFullRow({ submissionId: 'uuid-3', userName: '岐阜 次郎', type: 'OSS', brand: '', regDate: '' })
+  ];
+  const sheet = makeMutableSheet('2026-08', header, rows);
+  const ss = makeFakeSpreadsheet([sheet]);
+
+  const result = sandbox.getDashboardData_(ss, '2026-08', {});
+  const names = Array.from(result.entries, (e) => e.userName);
+  assert.deepStrictEqual(names, ['岐阜 花子', '岐阜 太郎', '岐阜 次郎']); // 新しい順、登録日未定は末尾
+
+  const first = result.entries[0];
+  assert.strictEqual(first.regDate, '2026-08-10');
+  assert.strictEqual(first.brand, 'AU');
+  assert.strictEqual(first.type, '紙');
+  assert.strictEqual(first.company, '岐阜ヤナセ株式会社');
+
+  const pending = result.entries[2];
+  assert.strictEqual(pending.regDate, '');
+  assert.strictEqual(pending.brand, '未設定');
+});
 test('対象月の形式が不正ならエラー', () => {
   const ss = makeFakeSpreadsheet([]);
   assert.throws(() => sandbox.getDashboardData_(ss, '2026/08', {}), /対象月/);

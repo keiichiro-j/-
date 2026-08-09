@@ -26,7 +26,9 @@ function getDashboardData_(ss, month, filters) {
     submissionId: header.indexOf('submissionId'),
     type: header.indexOf('種別'),
     regDate: header.indexOf('登録日'),
+    userName: header.indexOf('使用者名'),
     brand: header.indexOf('ブランド'),
+    company: header.indexOf('依頼会社名'),
     status: header.indexOf('状態')
   };
 
@@ -74,6 +76,25 @@ function getDashboardData_(ss, month, filters) {
     return { date: d, count: dailyCountsMap[d] };
   });
 
+  // 登録者一覧(使用者名・登録日)。登録日が新しい順、登録日未定は末尾にまとめる。
+  var entries = rows.map(function (row) {
+    var regDateStr = row[idx.regDate];
+    return {
+      regDate: isValidDateStr_(regDateStr) ? regDateStr : '',
+      userName: row[idx.userName] || '',
+      brand: row[idx.brand] || '未設定',
+      type: (row[idx.type] === TYPE_PAPER) ? TYPE_PAPER : TYPE_OSS,
+      company: row[idx.company] || '',
+      status: row[idx.status] || SUBMISSION_STATUS_ACTIVE
+    };
+  }).sort(function (a, b) {
+    if (!a.regDate && !b.regDate) return a.userName < b.userName ? -1 : (a.userName > b.userName ? 1 : 0);
+    if (!a.regDate) return 1;
+    if (!b.regDate) return -1;
+    if (a.regDate !== b.regDate) return a.regDate > b.regDate ? -1 : 1;
+    return a.userName < b.userName ? -1 : (a.userName > b.userName ? 1 : 0);
+  });
+
   return {
     month: month,
     totalVehicles: rows.length,
@@ -82,6 +103,7 @@ function getDashboardData_(ss, month, filters) {
     byBrand: byBrand,
     byType: byType,
     matrix: matrix,
-    dailyCounts: dailyCounts
+    dailyCounts: dailyCounts,
+    entries: entries
   };
 }
