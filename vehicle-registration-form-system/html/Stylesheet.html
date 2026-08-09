@@ -1,77 +1,92 @@
 <style>
   :root {
     color-scheme: light; /* Chromeの「Webコンテンツの自動ダークモード」による強制変換を無効化する */
-    /* 配色はGoogleの実際のデザイントークン値を採用(Google Blue等) */
-    --page-bg: #F1F3F4;
+
+    /* ---------- Design tokens: "Quiet Intelligence" ---------- */
+    --bg: #F8F9FB;
     --surface: #FFFFFF;
-    --surface-alt: #F1F3F4;
-    --line: #DADCE0;
-    --ink: #202124;
-    --ink-soft: #5F6368;
-    --accent: #1A73E8;
-    --accent-dark: #174EA6;
-    --accent-soft: #E8F0FE;
-    --shu: #D93025;
-    --success: #188038;
-    --r-lg: 24px;
+    --surface-alt: #F1F3F5;
+
+    --ink: #17181A;
+    --ink-soft: #6B7280;
+    --muted: #9CA3AF;
+
+    --accent: #4F6BFF;
+    --accent-dark: #3B4FDB;
+    --accent-soft: #EEF1FF;
+
+    --success: #22A06B;
+    --success-soft: #E7F6EF;
+    --warning: #D99A24;
+    --warning-soft: #FBF2DF;
+    --shu: #E05252;
+    --shu-soft: #FCEAEA;
+
+    --au-color: #6E56CF;
+    --paper-color: #C98A1E;
+
+    --line: #E6E8EC;
+    --line-soft: #EFF1F4;
+
+    --r-xs: 6px;
+    --r-sm: 8px;
     --r-md: 12px;
-    --r-sm: 4px;
+    --r-lg: 16px;
     --r-pill: 999px;
-    --au-color: #673AB7;
-    --paper-color: #F9AB00;
+
+    --ease: cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   * { box-sizing: border-box; }
 
+  ::selection { background: var(--accent-soft); color: var(--ink); }
+
   body {
     margin: 0;
-    background: var(--page-bg);
+    background: var(--bg);
     color: var(--ink);
-    font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN",
-      "Yu Gothic Medium", "Yu Gothic", "Noto Sans JP", "Meiryo", sans-serif;
+    font-family: "Inter", "Noto Sans JP", -apple-system, BlinkMacSystemFont, "Hiragino Sans",
+      "Hiragino Kaku Gothic ProN", "Yu Gothic Medium", "Yu Gothic", "Meiryo", sans-serif;
     line-height: 1.7;
     font-feature-settings: "tnum" 1;
     font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
   }
 
-  /* ---------- masthead(Google BlueのApp Bar風) ---------- */
+  /* ---------- masthead(白基調・控えめなアクセントラインのみ) ---------- */
 
   .masthead {
     max-width: 1080px;
-    margin: 32px auto 20px;
-    background: var(--accent);
+    margin: 40px auto 32px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--accent);
     border-radius: var(--r-lg);
-    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08), 0 12px 28px rgba(26, 115, 232, 0.28);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03), 0 6px 16px rgba(16, 24, 40, 0.04);
   }
-  .masthead__inner { padding: 34px 36px 30px; }
-
-  .dotRow { display: flex; gap: 7px; margin-bottom: 14px; }
-  .dot { width: 9px; height: 9px; border-radius: 50%; }
-  .dot--blue { background: #4285F4; }
-  .dot--red { background: #EA4335; }
-  .dot--yellow { background: #FBBC04; }
-  .dot--green { background: #34A853; }
+  .masthead__inner { padding: 40px 44px; }
 
   .eyebrow {
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     font-size: 11px;
-    letter-spacing: 0.16em;
+    font-weight: 600;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: #D2E3FC;
-    margin: 0 0 10px;
+    color: var(--muted);
+    margin: 0 0 12px;
   }
   h1 {
-    font-size: 25px;
+    font-size: 26px;
     font-weight: 700;
-    color: #FFFFFF;
-    margin: 0 0 8px;
-    letter-spacing: -0.005em;
+    color: var(--ink);
+    margin: 0 0 10px;
+    letter-spacing: -0.015em;
   }
   .lead {
     margin: 0;
-    color: #E8F0FE;
+    color: var(--ink-soft);
     font-size: 13.5px;
-    max-width: 56ch;
+    max-width: 58ch;
   }
 
   /* ---------- layout ---------- */
@@ -79,7 +94,7 @@
   .page {
     max-width: 1080px;
     margin: 0 auto;
-    padding: 0 24px 80px;
+    padding: 0 24px 88px;
   }
 
   .is-hidden { display: none !important; }
@@ -88,31 +103,32 @@
 
   .viewSwitch {
     display: inline-flex;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: var(--r-pill);
-    padding: 3px;
+    background: var(--surface-alt);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    padding: 4px;
     gap: 2px;
-    margin-bottom: 20px;
-    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+    margin-bottom: 24px;
   }
   .viewSwitchBtn {
     font-family: inherit;
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 600;
     color: var(--ink-soft);
     background: transparent;
     border: none;
-    border-radius: var(--r-pill);
-    padding: 10px 24px;
+    border-radius: var(--r-sm);
+    padding: 9px 22px;
     cursor: pointer;
-    transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+    transition: background-color 0.15s var(--ease), color 0.15s var(--ease), box-shadow 0.15s var(--ease);
   }
+  .viewSwitchBtn:hover:not(.is-active) { color: var(--ink); background: rgba(23, 24, 26, 0.04); }
   .viewSwitchBtn.is-active {
-    background: var(--accent);
-    color: #FFFFFF;
-    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08), 0 6px 14px rgba(26, 115, 232, 0.25);
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 1px rgba(16, 24, 40, 0.04);
   }
+  .viewSwitchBtn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
   @media (max-width: 560px) {
     .viewSwitchBtn { padding: 9px 14px; font-size: 12px; }
   }
@@ -120,24 +136,24 @@
   .card {
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: var(--r-lg);
-    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 20px rgba(16, 24, 40, 0.05);
-    padding: 26px;
-    margin-bottom: 20px;
-    transition: box-shadow 0.2s ease;
+    border-radius: var(--r-md);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03), 0 4px 12px rgba(16, 24, 40, 0.04);
+    padding: 32px;
+    margin-bottom: 24px;
+    transition: box-shadow 0.2s var(--ease);
   }
   .card:hover {
-    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 12px 28px rgba(16, 24, 40, 0.08);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 20px rgba(16, 24, 40, 0.06);
   }
-  .card__head { margin-bottom: 18px; }
+  .card__head { margin-bottom: 22px; }
   .card__head--split { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
   .card__head h2 {
     font-size: 12.5px;
     font-weight: 700;
-    letter-spacing: 0.07em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    margin: 0 0 4px;
-    color: var(--accent);
+    margin: 0 0 6px;
+    color: var(--ink);
   }
   .muted { color: var(--ink-soft); font-size: 12px; margin: 0; }
 
@@ -166,7 +182,7 @@
     font-weight: 600;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: var(--ink-soft);
+    color: var(--muted);
     margin-bottom: 8px;
   }
   .field .req { color: var(--shu); font-weight: 700; font-size: 10px; letter-spacing: 0; text-transform: none; }
@@ -189,17 +205,18 @@
     letter-spacing: 0;
     cursor: help;
     vertical-align: middle;
+    transition: background-color 0.15s var(--ease);
   }
   .hintIcon:hover { background: var(--accent); }
 
-  /* ---------- セグメントコントロール(出力フォーマット選択、Materialの"Segmented Buttons"風) ---------- */
+  /* ---------- セグメントコントロール(出力フォーマット選択) ---------- */
 
   .segmented {
     display: inline-flex;
     background: var(--surface-alt);
-    border: 1px solid var(--line);
-    border-radius: var(--r-pill);
-    padding: 3px;
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    padding: 4px;
     gap: 2px;
     width: 100%;
   }
@@ -211,17 +228,20 @@
     color: var(--ink-soft);
     background: transparent;
     border: none;
-    border-radius: var(--r-pill);
+    border-radius: var(--r-sm);
     padding: 9px 10px;
     cursor: pointer;
+    transition: background-color 0.15s var(--ease), color 0.15s var(--ease), box-shadow 0.15s var(--ease);
   }
+  .segBtn:hover:not(.is-active) { color: var(--ink); }
   .segBtn.is-active {
     background: var(--surface);
     color: var(--accent);
-    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.12);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
   }
+  .segBtn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
 
-  /* ---------- 入力欄(Materialのoutlined text field風。角丸は小さめ) ---------- */
+  /* ---------- 入力欄 ---------- */
 
   input, select {
     width: 100%;
@@ -232,9 +252,9 @@
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--r-sm);
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
   }
-  input::placeholder { color: var(--ink-soft); opacity: 0.8; }
+  input::placeholder { color: var(--muted); opacity: 1; }
   input:focus, select:focus {
     outline: none;
     border-color: var(--accent);
@@ -242,10 +262,10 @@
   }
   input.is-invalid, select.is-invalid {
     border-color: var(--shu);
-    box-shadow: 0 0 0 3px rgba(217, 48, 37, 0.15);
+    box-shadow: 0 0 0 3px var(--shu-soft);
   }
 
-  /* ---------- 飛騨登録トグルボタン(オンのとき、印字されるバッジと同系色にして予告する) ---------- */
+  /* ---------- 飛騨登録トグルボタン ---------- */
 
   .toggleBtn {
     width: 100%;
@@ -258,12 +278,13 @@
     background: var(--surface);
     color: var(--ink-soft);
     cursor: pointer;
-    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    transition: background-color 0.15s var(--ease), border-color 0.15s var(--ease), color 0.15s var(--ease);
   }
+  .toggleBtn:hover { border-color: var(--muted); color: var(--ink); }
   .toggleBtn.is-active {
-    background: #FEF7E0;
-    border-color: #F9AB00;
-    color: #7A5B00;
+    background: var(--warning-soft);
+    border-color: var(--warning);
+    color: #7A5B12;
   }
 
   /* ---------- 車両テーブル ---------- */
@@ -276,10 +297,10 @@
   }
   table { width: 100%; border-collapse: collapse; min-width: 1280px; }
   th, td {
-    padding: 8px 6px;
+    padding: 10px 6px;
     text-align: center;
     font-size: 12.5px;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--line-soft);
   }
   thead th {
     background: var(--surface-alt);
@@ -294,17 +315,18 @@
     z-index: 1;
     box-shadow: inset 0 -1px 0 var(--line);
   }
-  tbody tr:hover td { background: var(--accent-soft); }
+  tbody tr { transition: background-color 0.12s var(--ease); }
+  tbody tr:hover td { background: rgba(79, 107, 255, 0.035); }
   td input, td select {
     padding: 6px;
     font-size: 12.5px;
     text-align: center;
     border: 1px solid transparent;
-    border-radius: 6px;
+    border-radius: var(--r-xs);
   }
   td input:focus, td select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
   .v-autoTax, .v-envTax, .v-weightTax { text-align: right; }
-  .colNo { width: 28px; color: var(--ink-soft); }
+  .colNo { width: 28px; color: var(--muted); }
   .colWide { min-width: 140px; }
   .colRegDate { min-width: 110px; }
   .colBrand { min-width: 76px; }
@@ -318,7 +340,7 @@
 
   /* 横スクロールできる余地がまだ右にあることを示す影(スマホでの見切れ対策) */
   .tableScroll { position: relative; }
-  .tableScroll.has-overflow-right { box-shadow: inset -14px 0 10px -10px rgba(16, 24, 40, 0.18); }
+  .tableScroll.has-overflow-right { box-shadow: inset -14px 0 10px -10px rgba(16, 24, 40, 0.14); }
 
   /* スマホ幅では「No.」「使用者名」列を横スクロール時も画面に固定表示する */
   @media (max-width: 900px) {
@@ -333,9 +355,9 @@
       left: var(--sticky-username-left, 28px);
       z-index: 2;
       background: var(--surface);
-      box-shadow: 2px 0 4px rgba(16, 24, 40, 0.1);
+      box-shadow: 2px 0 4px rgba(16, 24, 40, 0.08);
     }
-    tbody tr:hover .cell-no, tbody tr:hover .cell-username { background: var(--accent-soft); }
+    tbody tr:hover .cell-no, tbody tr:hover .cell-username { background: rgba(79, 107, 255, 0.035); }
   }
 
   /* ---------- 履歴確認: フィルターツールバー ---------- */
@@ -346,10 +368,10 @@
     align-items: flex-end;
     gap: 18px;
     background: var(--surface-alt);
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-soft);
     border-radius: var(--r-md);
-    padding: 16px 18px;
-    margin-bottom: 16px;
+    padding: 18px 20px;
+    margin-bottom: 20px;
   }
   .filterGroup { display: flex; flex-direction: column; gap: 7px; }
   .filterGroup--grow { flex: 1; min-width: 180px; }
@@ -362,7 +384,7 @@
   }
   .filterGroup__row { display: flex; align-items: center; gap: 8px; }
   .filterGroup__row input[type="date"] { width: 150px; background: var(--surface); }
-  .filterBar__sep { color: var(--ink-soft); font-size: 12px; }
+  .filterBar__sep { color: var(--muted); font-size: 12px; }
   .filterBar select { background: var(--surface); }
   .filterCheck {
     display: flex;
@@ -385,11 +407,11 @@
   #historyTable .numCol { text-align: right; }
   #historyTable td { color: var(--ink); }
   #historyTable tbody tr:nth-child(even) td { background: var(--surface-alt); }
-  #historyTable tbody tr:hover td { background: var(--accent-soft); }
+  #historyTable tbody tr:hover td { background: rgba(79, 107, 255, 0.045); }
   .historyEmptyMsg { text-align: center; padding: 20px 0 4px; }
 
   /* 取消済みの申請は打ち消し線+ミュートカラーで一目でわかるようにする */
-  #historyTable tbody tr.is-cancelled td { color: var(--ink-soft); text-decoration: line-through; }
+  #historyTable tbody tr.is-cancelled td { color: var(--muted); text-decoration: line-through; }
   #historyTable tbody tr.is-cancelled td a.pdfLink { text-decoration: line-through; }
 
   .pdfLink {
@@ -409,47 +431,49 @@
   .btnRemoveRow {
     border: none;
     background: transparent;
-    color: var(--ink-soft);
+    color: var(--muted);
     font-size: 16px;
     cursor: pointer;
     line-height: 1;
     padding: 4px;
+    transition: color 0.15s var(--ease);
   }
   .btnRemoveRow:hover { color: var(--shu); }
 
-  /* ---------- ボタン(Materialのpill形ボタン) ---------- */
+  /* ---------- ボタン ---------- */
 
   .btn {
     font-family: inherit;
     font-size: 13px;
     font-weight: 600;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.01em;
     padding: 11px 22px;
-    border-radius: var(--r-pill);
+    border-radius: var(--r-sm);
     cursor: pointer;
-    transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+    transition: background-color 0.15s var(--ease), border-color 0.15s var(--ease), box-shadow 0.15s var(--ease), transform 0.1s var(--ease);
   }
   .btn:active { transform: scale(0.98); }
+  .btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
   .btn--ghost {
     background: var(--surface);
     border: 1px solid var(--line);
-    color: var(--accent);
+    color: var(--ink);
   }
-  .btn--ghost:hover { background: var(--accent-soft); border-color: var(--accent); }
+  .btn--ghost:hover { background: var(--surface-alt); border-color: var(--muted); }
 
   .btn--primary {
     background: var(--accent);
     color: #FFFFFF;
-    padding: 15px 24px;
+    padding: 14px 24px;
     font-size: 14px;
-    font-weight: 700;
+    font-weight: 600;
     border: 1px solid var(--accent);
-    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 20px rgba(26, 115, 232, 0.28);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 10px rgba(79, 107, 255, 0.18);
   }
-  .btn--primary:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+  .btn--primary:hover { background: var(--accent-dark); border-color: var(--accent-dark); box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 6px 14px rgba(79, 107, 255, 0.24); }
   .btn--primary:disabled {
     background: var(--surface-alt);
-    color: var(--ink-soft);
+    color: var(--muted);
     border-color: var(--line);
     box-shadow: none;
     cursor: not-allowed;
@@ -458,7 +482,7 @@
   .submitBar { margin-top: 4px; }
   .submitBar__row { display: flex; gap: 12px; }
   .submitBar__row .btn--primary { flex: 1; }
-  .submitBar__row .btn--ghost { flex: none; padding: 15px 24px; }
+  .submitBar__row .btn--ghost { flex: none; padding: 14px 24px; }
   .result {
     margin-top: 16px;
     font-size: 13px;
@@ -521,10 +545,12 @@
     justify-content: space-between;
     gap: 12px;
     padding: 14px 16px;
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-soft);
     border-radius: var(--r-md);
     background: var(--surface-alt);
+    transition: border-color 0.15s var(--ease);
   }
+  .pdfRow:hover { border-color: var(--line); }
   .pdfRow.is-cancelled { opacity: 0.6; }
   .pdfRow__main { display: flex; flex-direction: column; gap: 4px; min-width: 220px; }
   .pdfRow__company { font-size: 14px; font-weight: 700; color: var(--ink); }
@@ -550,19 +576,19 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
     gap: 12px;
-    margin-top: 20px;
+    margin-top: 24px;
   }
   .statTile {
     background: var(--surface-alt);
-    border: 1px solid var(--line);
-    border-left: 4px solid var(--ink-soft);
+    border: 1px solid var(--line-soft);
+    border-left: 3px solid var(--muted);
     border-radius: var(--r-md);
     padding: 14px 16px;
     display: flex;
     flex-direction: column;
     gap: 4px;
   }
-  .statTile__value { font-size: 26px; font-weight: 700; color: var(--ink); }
+  .statTile__value { font-size: 25px; font-weight: 700; color: var(--ink); letter-spacing: -0.01em; }
   .statTile__label {
     font-size: 11px;
     font-weight: 600;
@@ -580,17 +606,17 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 20px;
-    margin-bottom: 20px;
+    margin-bottom: 24px;
   }
-  .dashChartCard { margin-bottom: 20px; }
+  .dashChartCard { margin-bottom: 24px; }
   .dashGrid .dashChartCard { margin-bottom: 0; }
   .dashChartCard__title {
     font-size: 12.5px;
     font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: var(--accent);
-    margin: 0 0 16px;
+    color: var(--ink);
+    margin: 0 0 18px;
   }
 
   .barChart { display: flex; flex-direction: column; gap: 14px; }
@@ -599,15 +625,15 @@
   .barRow__track {
     background: var(--surface-alt);
     border-radius: var(--r-pill);
-    height: 12px;
+    height: 10px;
     overflow: hidden;
   }
   .barRow__fill {
     display: block;
     height: 100%;
     border-radius: var(--r-pill);
-    background: var(--ink-soft);
-    transition: width 0.4s ease;
+    background: var(--muted);
+    transition: width 0.4s var(--ease);
   }
   .barRow__fill--mb { background: var(--accent); }
   .barRow__fill--au { background: var(--au-color); }
@@ -629,17 +655,17 @@
 
   .trendChart { margin-top: 4px; }
   .trendSvg { width: 100%; height: auto; display: block; }
-  .trendBar { fill: url(#dashTrendGradient); transition: opacity 0.15s ease; }
+  .trendBar { fill: url(#dashTrendGradient); transition: opacity 0.15s var(--ease); }
   .trendBar--empty { fill: var(--surface-alt); }
   .trendBar:hover { opacity: 0.75; }
-  .trendLabel { font-size: 9px; fill: var(--ink-soft); }
+  .trendLabel { font-size: 9px; fill: var(--muted); }
 
   /* ---------- ダッシュボード: 登録者一覧 ---------- */
 
   .tableScroll--dashEntries { max-height: 460px; overflow-y: auto; }
   #dashEntriesTable { min-width: 0; width: 100%; }
   #dashEntriesTable tbody tr:nth-child(even) td { background: var(--surface-alt); }
-  #dashEntriesTable tbody tr.is-cancelled td { color: var(--ink-soft); text-decoration: line-through; }
+  #dashEntriesTable tbody tr.is-cancelled td { color: var(--muted); text-decoration: line-through; }
 
   .pill {
     display: inline-block;
@@ -653,7 +679,7 @@
   .pill--mb { background: var(--accent); }
   .pill--au { background: var(--au-color); }
   .pill--oss { background: var(--success); }
-  .pill--paper { background: var(--paper-color); color: var(--ink); }
+  .pill--paper { background: var(--paper-color); }
   .pill--muted { background: var(--line); color: var(--ink-soft); }
 
   @media (max-width: 900px) {
@@ -661,10 +687,10 @@
   }
 
   @media (max-width: 700px) {
-    .masthead { margin: 20px auto 16px; }
-    .masthead__inner { padding: 26px 22px 22px; }
-    .page { padding: 0 16px 60px; }
-    .card { padding: 18px; }
+    .masthead { margin: 24px auto 20px; }
+    .masthead__inner { padding: 28px 24px; }
+    .page { padding: 0 16px 64px; }
+    .card { padding: 20px; }
     .submitBar__row { flex-direction: column-reverse; }
     .submitBar__row .btn--ghost { width: 100%; }
     .pdfRow { flex-direction: column; align-items: stretch; }
