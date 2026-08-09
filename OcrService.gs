@@ -2,18 +2,22 @@
  * OcrService.gs
  * PDF/画像ファイルからのテキスト抽出（OCR）共通処理。
  *
- * 既定実装は OCR.space の無料API（クレジットカード登録不要、月25,000件まで無料）。
- * PDF・画像のどちらも直接渡せる。GCPの課金設定が可能であれば、より高精度な
- * Cloud Vision API（ocrFileToTextViaVisionApi_）へ切り替えることもできる。
+ * 既定実装は Drive の高度なサービス（Advanced Drive Service / Drive API v2）による
+ * OCR変換（追加のAPIキー登録・課金設定不要、Google Workspaceアカウントでの利用を想定）。
+ * このアカウントでOCR変換が使えない場合（個人Gmailアカウント等でのDrive側の制限で
+ * 「OCR is not supported for files of type ...」エラーが出るケース）は、
+ * ocrFileToTextViaOcrSpace_() または ocrFileToTextViaVisionApi_() へ切り替え可能。
  *
- * 事前準備（OCR.space）:
- *  - https://ocr.space/ocrapi でメールアドレス登録し、無料APIキーを取得（カード不要）
- *  - GASエディタの「スクリプト プロパティ」に OCR_SPACE_API_KEY として登録する
+ * 事前準備（既定のDrive OCR方式）:
+ *  - GASエディタの「サービス」から Drive API（v2）を追加する
+ *  - GCP側で Drive API を有効化する
  */
 
 /**
  * アップロード時にPDF/画像が自動でGoogleドキュメント等へ変換されないよう、
  * convert:false を明示してDriveにファイルを作成する。
+ * （既定の folder.createFile(blob) だと、状況によりアップロード時点で
+ *   自動変換され、その後のOCR変換が失敗することがあるための対策）
  */
 function createDriveFileNoConvert_(folder, blob, fileName) {
   var resource = {
@@ -26,14 +30,38 @@ function createDriveFileNoConvert_(folder, blob, fileName) {
 }
 
 /**
- * ファイルIDからOCRテキストを取得する（既定: OCR.space使用）
+ * ファイルIDからOCRテキストを取得する（既定: Drive OCR変換方式）
  */
 function ocrFileToText_(fileId) {
-  return ocrFileToTextViaOcrSpace_(fileId);
+  return ocrFileToTextViaDrive_(fileId);
 }
 
 /**
- * OCR.space の無料APIでOCRを行う。PDF・画像のどちらもそのまま渡せる。
+ * Drive APIの「PDF/画像 → Googleドキュメント変換（OCR付き）」機能でOCRを行う。
+ * 変換用の一時ドキュメントを作成し、テキストを取り出した後は削除する。
+ * Google Workspaceアカウントでの利用を想定（個人Gmailアカウントでは
+ * 「OCR is not supported for files of type ...」エラーで失敗する場合がある）。
+ */
+function ocrFileToTextViaDrive_(fileId) {
+  var blob = DriveApp.getFileById(fileId).getBlob();
+  var resource = {
+    title: 'ocr_tmp_' + fileId + '_' + new Date().getTime(),
+    mimeType: MimeType.GOOGLE_DOCS
+  };
+  var tempFile = Drive.Files.insert(resource, blob, { ocr: true, ocrLanguage: 'ja' });
+  try {
+    var doc = DocumentApp.openById(tempFile.id);
+    return doc.getBody().getText();
+  } finally {
+    DriveApp.getFileById(tempFile.id).setTrashed(true);
+  }
+}
+
+/**
+ * OCR.space の無料APIでOCRを行う（代替実装）。PDF・画像のどちらもそのまま渡せる。
+ * 切り替えるには ocrFileToText_ の中身をこの関数の呼び出しに変更する。
+ * 事前準備: https://ocr.space/ocrapi で無料APIキーを取得し、Script Propertiesに
+ * OCR_SPACE_API_KEY として登録する。
  */
 function ocrFileToTextViaOcrSpace_(fileId) {
   var apiKey = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.OCR_SPACE_API_KEY);

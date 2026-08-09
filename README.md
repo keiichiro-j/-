@@ -41,12 +41,15 @@ Google スプレッドシートをDBとし、GASの HTML Service で Webアプ�
 3. **会社設定の登録**
    - `CompanyConfig.gs` の `setupCompanies_()` 内のIDを実際のスプレッドシートID／フォルダIDに書き換えて、GASエディタから一度だけ実行
 4. **拡張サービスの有効化**
-   - GASエディタの「サービス」から **Drive API（v2）** を追加（アップロード時の自動ドキュメント変換防止で使用）
-5. **OCR.space APIキーの取得（査定書・車検証OCRに必須・無料・カード登録不要）**
-   - https://ocr.space/ocrapi にアクセスし、メールアドレスを入力してAPIキーを取得（月25,000件まで無料、クレジットカード不要）
-   - GCPの課金設定が可能であれば、代わりにCloud Vision API（より高精度・要課金設定）へ切り替えることも可能（`OcrService.gs` の `ocrFileToTextViaVisionApi_` を参照）
+   - GASエディタの「サービス」から **Drive API（v2）** を追加
+     - アップロード時の自動ドキュメント変換防止（`convert:false`）に加えて、既定のOCR実装（PDF/画像→Googleドキュメント変換によるOCR）でも使用する
+     - **Google Workspace（ビジネス）アカウントでの利用を想定**。個人のGmailアカウントではこの変換機能がAPI経由で使えず「OCR is not supported for files of type ...」エラーになる場合がある（その場合は下記の代替方式へ切り替える）
+5. **（代替）OCRを切り替えたい場合**
+   - Drive OCR変換がエラーになる／精度に不満がある場合、`OcrService.gs` の `ocrFileToText_` の中身を以下のいずれかに差し替える
+     - **OCR.space**（無料・カード登録不要）: https://ocr.space/ocrapi でメールアドレス登録しAPIキーを取得（月25,000件まで無料）→ Script Propertiesに `OCR_SPACE_API_KEY` を設定 → `ocrFileToTextViaOcrSpace_` を呼ぶよう変更
+     - **Cloud Vision API**（より高精度・要課金設定）: Script Propertiesに `VISION_API_KEY` を設定 → `ocrFileToTextViaVisionApi_` を呼ぶよう変更
 6. **Script Properties の設定**（GASエディタ「プロジェクトの設定」）
-   - `OCR_SPACE_API_KEY`: 手順5で取得したAPIキー（**必須**。査定書・車検証のOCR読み取りに使用）
+   - 既定のDrive OCR方式を使う場合、OCR用の追加キー設定は不要
    - `NOTIFY_MAIL_TO`: 車検満了通知の送信先メールアドレス
    - `SLACK_WEBHOOK_URL`: Slack等のIncoming Webhook URL（10.3、未設定なら通知はスキップ）
 7. **トリガー設定**
