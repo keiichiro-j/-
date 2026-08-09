@@ -741,19 +741,22 @@
 
   document.getElementById('btnDashRefresh').addEventListener('click', loadDashboardData_);
 
-  // ダッシュボードの初期表示月(今月)を設定する
-  function initDashboardDefaultMonth_() {
+  // ダッシュボードの対象月(YYYY-MM)、今月を表す文字列を返す
+  function currentMonthStr_() {
     var now = new Date();
     var mm = String(now.getMonth() + 1).padStart(2, '0');
-    document.getElementById('dashMonth').value = now.getFullYear() + '-' + mm;
+    return now.getFullYear() + '-' + mm;
+  }
+
+  // ダッシュボードの初期表示月(今月)を設定する
+  function initDashboardDefaultMonth_() {
+    document.getElementById('dashMonth').value = currentMonthStr_();
   }
 
   function loadDashboardData_() {
-    var month = document.getElementById('dashMonth').value;
-    if (!month) {
-      alert('対象月を指定してください');
-      return;
-    }
+    var monthEl = document.getElementById('dashMonth');
+    if (!monthEl.value) monthEl.value = currentMonthStr_(); // 未設定なら当月にフォールバックし、常にデータが表示されるようにする
+    var month = monthEl.value;
     var filters = {
       brand: document.getElementById('dashBrand').value,
       type: document.getElementById('dashType').value,
