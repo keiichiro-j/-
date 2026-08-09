@@ -600,13 +600,14 @@ test('登録者一覧(使用者名・登録日)を登録日の新しい順に返
   const header = sandbox.HISTORY_HEADER_ROW;
   const rows = [
     makeHistoryFullRow({ submissionId: 'uuid-1', userName: '岐阜 太郎', type: 'OSS', brand: 'MB', regDate: new Date(2026, 7, 1) }),
-    makeHistoryFullRow({ submissionId: 'uuid-2', userName: '岐阜 花子', type: '紙', brand: 'AU', regDate: new Date(2026, 7, 10) }),
-    makeHistoryFullRow({ submissionId: 'uuid-3', userName: '岐阜 次郎', type: 'OSS', brand: '', regDate: '' })
+    makeHistoryFullRow({ submissionId: 'uuid-2', userName: '岐阜 花子', type: '紙', brand: 'AU', regDate: new Date(2026, 7, 10) })
   ];
+  const pendingRow = makeHistoryFullRow({ submissionId: 'uuid-3', userName: '岐阜 次郎', type: 'OSS', brand: '', regDate: '' });
   const sheet = makeMutableSheet('2026-08', header, rows);
-  const ss = makeFakeSpreadsheet([sheet]);
+  const pendingSheet = makeMutableSheet(sandbox.HISTORY_PENDING_TAB_NAME, header, [pendingRow]);
+  const ss = makeFakeSpreadsheet([sheet, pendingSheet]);
 
-  const result = sandbox.getDashboardData_(ss, '2026-08', {});
+  const result = sandbox.getDashboardData_(ss, '2026-08', { includePending: true });
   const names = Array.from(result.entries, (e) => e.userName);
   assert.deepStrictEqual(names, ['岐阜 花子', '岐阜 太郎', '岐阜 次郎']); // 新しい順、登録日未定は末尾
 

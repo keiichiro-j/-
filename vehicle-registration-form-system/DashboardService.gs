@@ -32,10 +32,13 @@ function getDashboardData_(ss, month, filters) {
     status: header.indexOf('状態')
   };
 
-  var rows = getHistoryEntries_(ss, month).rows;
-  if (filters.includePending) {
-    rows = rows.concat(getHistoryEntries_(ss, HISTORY_PENDING_TAB_NAME).rows);
-  }
+  // 月次タブを名前で直接引くのではなく、履歴確認画面と同じロジック(登録日の実際の値で
+  // 全タブを横断して絞り込む getHistoryEntriesByDateRange_)を使う。こうすることで、
+  // 履歴確認画面に表示される内容と常に一致し、タブ名の想定外のずれの影響も受けない。
+  var monthStart = month + '-01';
+  var daysInMonth = new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).getDate();
+  var monthEnd = month + '-' + String(daysInMonth).padStart(2, '0');
+  var rows = getHistoryEntriesByDateRange_(ss, monthStart, monthEnd, filters.includePending).rows;
 
   rows = rows.filter(function (row) {
     if (!filters.includeCancelled && row[idx.status] === SUBMISSION_STATUS_CANCELLED) return false;
