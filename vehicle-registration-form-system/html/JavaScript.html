@@ -798,6 +798,16 @@
   function renderDashboardStats_(data) {
     var container = document.getElementById('dashStats');
     container.innerHTML = '';
+
+    var zeroHint = document.getElementById('dashZeroHint');
+    var pendingChecked = document.getElementById('dashIncludePending').checked;
+    if (data.totalVehicles === 0 && !pendingChecked) {
+      zeroHint.textContent = '対象月のデータが0件です。登録日を確定していない申請がある場合は「登録日未定も含める」にチェックを入れてから「表示」を押すと表示されることがあります。';
+      zeroHint.classList.remove('is-hidden');
+    } else {
+      zeroHint.classList.add('is-hidden');
+    }
+
     var tiles = [
       { label: '総申請件数', value: data.totalSubmissions, cls: '' },
       { label: '総車両台数', value: data.totalVehicles, cls: '' },

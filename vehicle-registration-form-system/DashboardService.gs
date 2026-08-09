@@ -32,13 +32,26 @@ function getDashboardData_(ss, month, filters) {
     status: header.indexOf('状態')
   };
 
-  // 月次タブを名前で直接引くのではなく、履歴確認画面と同じロジック(登録日の実際の値で
-  // 全タブを横断して絞り込む getHistoryEntriesByDateRange_)を使う。こうすることで、
-  // 履歴確認画面に表示される内容と常に一致し、タブ名の想定外のずれの影響も受けない。
+  // 月次タブを名前で直接引くのではなく、実在する全ての月次タブを横断して、
+  // 各行の「登録日」の実際の値が対象月に入っているかどうかで判定する
+  // (タブ名と実際の登録日がずれていても、履歴確認画面と同じ結果になるようにするため)。
   var monthStart = month + '-01';
   var daysInMonth = new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).getDate();
   var monthEnd = month + '-' + String(daysInMonth).padStart(2, '0');
-  var rows = getHistoryEntriesByDateRange_(ss, monthStart, monthEnd, filters.includePending).rows;
+
+  var rows = [];
+  getAllHistoryTabNames_(ss).forEach(function (name) {
+    if (name === HISTORY_PENDING_TAB_NAME) return; // 登録日未定タブは下でfilters.includePending時のみ追加する
+    getHistoryEntries_(ss, name).rows.forEach(function (row) {
+      var regDateStr = row[idx.regDate];
+      if (!isValidDateStr_(regDateStr)) return;
+      if (regDateStr < monthStart || regDateStr > monthEnd) return;
+      rows.push(row);
+    });
+  });
+  if (filters.includePending) {
+    rows = rows.concat(getHistoryEntries_(ss, HISTORY_PENDING_TAB_NAME).rows);
+  }
 
   rows = rows.filter(function (row) {
     if (!filters.includeCancelled && row[idx.status] === SUBMISSION_STATUS_CANCELLED) return false;
@@ -109,4 +122,21 @@ function getDashboardData_(ss, month, filters) {
     dailyCounts: dailyCounts,
     entries: entries
   };
+}
+
+/**
+ * 動作確認用。Apps Scriptエディタの関数選択で"debugDashboardData_"を選び「実行」を押すと、
+ * 今月分の集計結果と、スプレッドシート内の実際のタブ名一覧を実行ログ(表示 > ログ)に出力する。
+ * ダッシュボード画面に表示されない場合の原因切り分け用で、通常の動作では使わない。
+ */
+function debugDashboardData_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var month = Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM');
+  var sheetNames = ss.getSheets().map(function (s) { return s.getName(); });
+  var data = getDashboardData_(ss, month, { includePending: true });
+
+  Logger.log('対象月: ' + month);
+  Logger.log('スプレッドシート内の全タブ名: ' + sheetNames.join(', '));
+  Logger.log('登録日未定も含めた総車両台数: ' + data.totalVehicles + ' / 総申請件数: ' + data.totalSubmissions);
+  Logger.log('登録者一覧: ' + JSON.stringify(data.entries));
 }
