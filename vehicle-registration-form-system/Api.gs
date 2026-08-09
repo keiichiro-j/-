@@ -34,11 +34,11 @@ function cancelSubmission(submissionId) {
 }
 
 /**
- * 「送付書PDF」画面用。指定した送付日(・送付便)に発行済みのPDFを申請単位で返す。
+ * 「送付書PDF」画面用。指定した送付日の範囲(・送付便)に発行済みのPDFを申請単位で返す。
  */
-function getPdfsBySendDate(sendDate, sendBatch) {
+function getPdfsBySendDate(fromDate, toDate, sendBatch) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  return getPdfsBySendDate_(ss, sendDate, sendBatch);
+  return getPdfsBySendDateRange_(ss, fromDate, toDate, sendBatch);
 }
 
 // 二重送信防止用トークンのキャッシュ保持時間(秒)。ボタン連打やネットワーク遅延による

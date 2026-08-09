@@ -240,15 +240,18 @@ function cancelSubmission_(ss, submissionId) {
 }
 
 /**
- * 指定した送付日(・送付便)に該当する履歴行を全タブから集め、submissionIdごとに
+ * 指定した送付日の範囲(・送付便)に該当する履歴行を全タブから集め、submissionIdごとに
  * 1件へ集約して返す(1申請=1PDFのため、車両ごとに分かれた行を申請単位にまとめる)。
+ * 使用者名はsubmissionId内の全車両分を配列で持たせ、クライアント側の使用者名検索に使う。
  * 送付日は登録日と異なりタブの月で絞り込めないため、存在する全タブを走査する。
- * @param {string} sendDate "YYYY-MM-DD"
+ * @param {string} fromDate "YYYY-MM-DD"（空/不正なら下限なし）
+ * @param {string} toDate "YYYY-MM-DD"（空/不正なら上限なし）
  * @param {string} sendBatch 例:"第１便"。空文字ならすべての便を対象にする
  * @return {Array<Object>} 送信日時の新しい順
  */
-function getPdfsBySendDate_(ss, sendDate, sendBatch) {
-  if (!isValidDateStr_(sendDate)) return [];
+function getPdfsBySendDateRange_(ss, fromDate, toDate, sendBatch) {
+  var fromD = isValidDateStr_(fromDate) ? parseDateOnly_(fromDate) : null;
+  var toD = isValidDateStr_(toDate) ? parseDateOnly_(toDate) : null;
 
   var header = HISTORY_HEADER_ROW;
   var idx = {
@@ -259,6 +262,7 @@ function getPdfsBySendDate_(ss, sendDate, sendBatch) {
     manager: header.indexOf('担当責任者'),
     sendDate: header.indexOf('送付日'),
     sendBatch: header.indexOf('送付便'),
+    userName: header.indexOf('使用者名'),
     pdfUrl: header.indexOf('送付書PDF'),
     status: header.indexOf('状態')
   };
@@ -266,7 +270,11 @@ function getPdfsBySendDate_(ss, sendDate, sendBatch) {
   var bySubmission = {};
   getAllHistoryTabNames_(ss).forEach(function (name) {
     getHistoryEntries_(ss, name).rows.forEach(function (row) {
-      if (row[idx.sendDate] !== sendDate) return;
+      var sendDateStr = row[idx.sendDate];
+      if (!isValidDateStr_(sendDateStr)) return;
+      var d = parseDateOnly_(sendDateStr);
+      if (fromD && d < fromD) return;
+      if (toD && d > toD) return;
       if (sendBatch && row[idx.sendBatch] !== sendBatch) return;
 
       var id = row[idx.submissionId];
@@ -279,11 +287,13 @@ function getPdfsBySendDate_(ss, sendDate, sendBatch) {
           manager: row[idx.manager],
           sendBatch: row[idx.sendBatch],
           vehicleCount: 0,
+          userNames: [],
           pdfUrl: row[idx.pdfUrl] || '',
           status: row[idx.status] || SUBMISSION_STATUS_ACTIVE
         };
       }
       bySubmission[id].vehicleCount++;
+      if (row[idx.userName]) bySubmission[id].userNames.push(row[idx.userName]);
     });
   });
 

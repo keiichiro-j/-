@@ -314,7 +314,7 @@
     for (var i = 0; i < INITIAL_VEHICLE_ROWS; i++) addVehicleRow();
     toggleRegDateMode();
     initHistoryDefaultRange_();
-    document.getElementById('pdfSendDate').value = formatDateInput_(new Date());
+    initPdfDefaultRange_();
     document.querySelectorAll('.tableScroll').forEach(function (el) {
       updateScrollShadow_(el);
       el.addEventListener('scroll', function () { updateScrollShadow_(el); });
@@ -554,18 +554,25 @@
 
   // ---------- 送付書PDF画面 ----------
 
-  document.getElementById('btnPdfRefresh').addEventListener('click', loadPdfsBySendDate_);
+  var pdfAllList_ = [];
+
+  document.getElementById('btnPdfRefresh').addEventListener('click', loadPdfList_);
+  document.getElementById('pdfSearch').addEventListener('input', applyPdfFilter_);
   document.getElementById('btnClosePdfPreview').addEventListener('click', function () {
     hidePdfPreview_(document.getElementById('pdfPreviewPane'), document.getElementById('pdfPreviewFrame'));
   });
 
-  function loadPdfsBySendDate_() {
-    var sendDate = document.getElementById('pdfSendDate').value;
+  // PDF確認画面の初期表示期間(今月1日〜今日)を設定する
+  function initPdfDefaultRange_() {
+    var now = new Date();
+    document.getElementById('pdfFrom').value = formatDateInput_(new Date(now.getFullYear(), now.getMonth(), 1));
+    document.getElementById('pdfTo').value = formatDateInput_(now);
+  }
+
+  function loadPdfList_() {
+    var from = document.getElementById('pdfFrom').value;
+    var to = document.getElementById('pdfTo').value;
     var sendBatch = document.getElementById('pdfSendBatch').value;
-    if (!sendDate) {
-      alert('送付日を指定してください');
-      return;
-    }
 
     var btn = document.getElementById('btnPdfRefresh');
     btn.disabled = true;
@@ -573,21 +580,39 @@
     google.script.run
       .withSuccessHandler(function (list) {
         btn.disabled = false;
-        renderPdfList_(list);
+        pdfAllList_ = list;
+        applyPdfFilter_();
       })
       .withFailureHandler(function (error) {
         btn.disabled = false;
-        renderPdfList_([]);
+        pdfAllList_ = [];
+        renderPdfList_([], '送付書PDFの取得に失敗しました。');
         alert('送付書PDFの取得に失敗しました:\n' + error.message);
       })
-      .getPdfsBySendDate(sendDate, sendBatch);
+      .getPdfsBySendDate(from, to, sendBatch);
   }
 
-  function renderPdfList_(list) {
+  // 「使用者名で検索」の指定で pdfAllList_ を絞り込んで再描画する(クライアント側、再取得なし)
+  function applyPdfFilter_() {
+    var rawKeyword = document.getElementById('pdfSearch').value.trim();
+    var keyword = rawKeyword.toLowerCase();
+
+    var filtered = pdfAllList_.filter(function (item) {
+      if (!rawKeyword) return true;
+      return (item.userNames || []).some(function (n) { return String(n).toLowerCase().indexOf(keyword) !== -1; });
+    });
+
+    var emptyMessage = rawKeyword
+      ? '条件に一致する送付書PDFが見つかりませんでした。'
+      : '該当する送付書PDFが見つかりませんでした。';
+    renderPdfList_(filtered, emptyMessage);
+  }
+
+  function renderPdfList_(list, emptyMessage) {
     var container = document.getElementById('pdfList');
     container.innerHTML = '';
     document.getElementById('pdfCountBadge').textContent = list.length + ' 件';
-    document.getElementById('pdfEmptyMsg').textContent = '該当する送付書PDFが見つかりませんでした。';
+    document.getElementById('pdfEmptyMsg').textContent = emptyMessage || '該当する送付書PDFが見つかりませんでした。';
     document.getElementById('pdfEmptyMsg').style.display = list.length === 0 ? '' : 'none';
 
     list.forEach(function (item) {
@@ -596,11 +621,13 @@
 
       var main = document.createElement('div');
       main.className = 'pdfRow__main';
+      var userNamesText = (item.userNames || []).join('、');
       var metaParts = [escapeHtml_(item.type), escapeHtml_(item.sendBatch || ''), item.vehicleCount + '台', escapeHtml_(item.manager)];
       if (item.status === SUBMISSION_STATUS_CANCELLED_) metaParts.push('<span class="pdfRow__cancelled">取消済み</span>');
       main.innerHTML =
         '<span class="pdfRow__company">' + escapeHtml_(item.company) + '</span>' +
-        '<span class="pdfRow__meta">' + metaParts.join(' ・ ') + '</span>';
+        '<span class="pdfRow__meta">' + metaParts.join(' ・ ') + '</span>' +
+        '<span class="pdfRow__users">使用者名: ' + escapeHtml_(userNamesText || '-') + '</span>';
       row.appendChild(main);
 
       var actions = document.createElement('div');

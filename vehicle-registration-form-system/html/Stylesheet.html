@@ -310,6 +310,10 @@
   .v-brand { min-width: 60px; padding: 6px 4px; font-size: 11px; }
   .colRegDate.is-hidden, td.cell-regdate.is-hidden { display: none; }
 
+  /* 「〇」選択欄(希望ナンバー・予備検登録車・本検登録車・身障者減免車)は
+     選択後の文字+プルダウン矢印が見切れないよう最低幅を確保する */
+  .v-hopeNum, .v-yobi, .v-honken, .v-shinsho { min-width: 58px; padding: 6px 20px 6px 8px; }
+
   /* 横スクロールできる余地がまだ右にあることを示す影(スマホでの見切れ対策) */
   .tableScroll { position: relative; }
   .tableScroll.has-overflow-right { box-shadow: inset -14px 0 10px -10px rgba(16, 24, 40, 0.18); }
@@ -523,6 +527,7 @@
   .pdfRow__main { display: flex; flex-direction: column; gap: 4px; min-width: 220px; }
   .pdfRow__company { font-size: 14px; font-weight: 700; color: var(--ink); }
   .pdfRow__meta { font-size: 12px; color: var(--ink-soft); }
+  .pdfRow__users { font-size: 12px; color: var(--ink-soft); }
   .pdfRow__cancelled { color: var(--shu); font-weight: 700; }
   .pdfRow__actions { display: flex; gap: 8px; flex: none; }
 

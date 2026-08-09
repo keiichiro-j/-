@@ -209,8 +209,12 @@
 
         <div class="filterBar">
           <div class="filterGroup">
-            <label class="filterGroup__label" for="pdfSendDate">送付日 <span class="req">必須</span></label>
-            <input type="date" id="pdfSendDate">
+            <label class="filterGroup__label">期間（送付日）</label>
+            <div class="filterGroup__row">
+              <input type="date" id="pdfFrom" aria-label="開始日">
+              <span class="filterBar__sep">〜</span>
+              <input type="date" id="pdfTo" aria-label="終了日">
+            </div>
           </div>
           <div class="filterGroup">
             <label class="filterGroup__label" for="pdfSendBatch">送付便</label>
@@ -221,11 +225,15 @@
               <option value="第３便">第３便</option>
             </select>
           </div>
+          <div class="filterGroup filterGroup--grow">
+            <label class="filterGroup__label" for="pdfSearch">使用者名で検索</label>
+            <input type="text" id="pdfSearch" autocomplete="off">
+          </div>
           <button type="button" id="btnPdfRefresh" class="btn btn--ghost filterBar__submit">検索</button>
         </div>
 
         <div id="pdfList" class="pdfList"></div>
-        <p class="muted historyEmptyMsg" id="pdfEmptyMsg">送付日を指定して検索してください。</p>
+        <p class="muted historyEmptyMsg" id="pdfEmptyMsg">期間を指定して検索してください。</p>
       </section>
 
       <div class="pdfPreviewPane is-hidden" id="pdfPreviewPane">

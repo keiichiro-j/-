@@ -345,44 +345,52 @@ test('存在しないsubmissionIdを指定すると0件更新', () => {
   assert.strictEqual(sandbox.cancelSubmission_(ss, 'uuid-not-exist'), 0);
 });
 
-console.log('== HistoryService: getPdfsBySendDate_ ==');
-test('指定した送付日・送付便に一致する行を申請単位(submissionId)にまとめて返す', () => {
+console.log('== HistoryService: getPdfsBySendDateRange_ ==');
+test('指定した送付日の範囲・送付便に一致する行を申請単位(submissionId)にまとめ、使用者名一覧も持たせる', () => {
   const header = sandbox.HISTORY_HEADER_ROW;
-  const sendDateStr = '2026-08-10';
-  const sendDateObj = new Date(2026, 7, 10);
-  const otherDateObj = new Date(2026, 7, 11);
+  const day1 = new Date(2026, 7, 10);
+  const day2 = new Date(2026, 7, 11);
+  const dayOutside = new Date(2026, 7, 20);
 
-  const rowA1 = makeHistoryFullRow({ submissionId: 'uuid-A', userName: '岐阜 太郎', sendDate: sendDateObj, sendBatch: '第１便' });
-  const rowA2 = makeHistoryFullRow({ submissionId: 'uuid-A', userName: '岐阜 次郎', sendDate: sendDateObj, sendBatch: '第１便' });
-  const rowB = makeHistoryFullRow({ submissionId: 'uuid-B', userName: '岐阜 花子', sendDate: sendDateObj, sendBatch: '第２便' });
-  const rowC = makeHistoryFullRow({ submissionId: 'uuid-C', userName: '他日分', sendDate: otherDateObj, sendBatch: '第１便' });
+  const rowA1 = makeHistoryFullRow({ submissionId: 'uuid-A', userName: '岐阜 太郎', sendDate: day1, sendBatch: '第１便' });
+  const rowA2 = makeHistoryFullRow({ submissionId: 'uuid-A', userName: '岐阜 次郎', sendDate: day1, sendBatch: '第１便' });
+  const rowB = makeHistoryFullRow({ submissionId: 'uuid-B', userName: '岐阜 花子', sendDate: day2, sendBatch: '第２便' });
+  const rowC = makeHistoryFullRow({ submissionId: 'uuid-C', userName: '範囲外太郎', sendDate: dayOutside, sendBatch: '第１便' });
 
   const sheet = makeMutableSheet('2026-08', header, [rowA1, rowA2, rowB, rowC]);
   const ss = makeFakeSpreadsheet([sheet]);
 
-  const all = sandbox.getPdfsBySendDate_(ss, sendDateStr, '');
-  assert.strictEqual(all.length, 2); // uuid-A, uuid-B (uuid-Cは別日なので対象外)
+  const all = sandbox.getPdfsBySendDateRange_(ss, '2026-08-10', '2026-08-12', '');
+  assert.strictEqual(all.length, 2); // uuid-A, uuid-B (uuid-Cは範囲外の8/20なので対象外)
 
   const submissionA = all.find((x) => x.submissionId === 'uuid-A');
   assert.strictEqual(submissionA.vehicleCount, 2);
+  // getHistoryEntries_は新しい順(appendRowと逆順)に並べ替えるため、使用者名の並び順は問わない
+  assert.deepStrictEqual(Array.from(submissionA.userNames).sort(), ['岐阜 太郎', '岐阜 次郎'].sort());
   assert.strictEqual(submissionA.pdfUrl, 'https://drive.google.com/file/d/FAKE_ID/view');
   assert.strictEqual(submissionA.status, sandbox.SUBMISSION_STATUS_ACTIVE);
 
-  const onlyBatch1 = sandbox.getPdfsBySendDate_(ss, sendDateStr, '第１便');
+  const onlyBatch1 = sandbox.getPdfsBySendDateRange_(ss, '2026-08-10', '2026-08-12', '第１便');
   assert.strictEqual(onlyBatch1.length, 1);
   assert.strictEqual(onlyBatch1[0].submissionId, 'uuid-A');
 });
-test('該当する送付日がなければ空配列を返す', () => {
+test('開始日・終了日とも空なら全期間の行を対象にする', () => {
   const header = sandbox.HISTORY_HEADER_ROW;
-  const sheet = makeMutableSheet('2026-08', header, [makeHistoryFullRow({})]);
+  const sheet = makeMutableSheet('2026-08', header, [
+    makeHistoryFullRow({ submissionId: 'uuid-A', sendDate: new Date(2020, 0, 1) }),
+    makeHistoryFullRow({ submissionId: 'uuid-B', sendDate: new Date(2030, 0, 1) })
+  ]);
   const ss = makeFakeSpreadsheet([sheet]);
-  const result = sandbox.getPdfsBySendDate_(ss, '2099-01-01', '');
-  assert.strictEqual(result.length, 0);
+  const result = sandbox.getPdfsBySendDateRange_(ss, '', '', '');
+  assert.strictEqual(result.length, 2);
 });
-test('送付日の形式が不正なら空配列を返す', () => {
-  const ss = makeFakeSpreadsheet([]);
-  assert.strictEqual(sandbox.getPdfsBySendDate_(ss, '', '').length, 0);
-  assert.strictEqual(sandbox.getPdfsBySendDate_(ss, '2026/08/10', '').length, 0);
+test('送付日が空/不正な行は対象外', () => {
+  const header = sandbox.HISTORY_HEADER_ROW;
+  const rowNoDate = makeHistoryFullRow({ submissionId: 'uuid-X', sendDate: '' });
+  const sheet = makeMutableSheet('2026-08', header, [rowNoDate]);
+  const ss = makeFakeSpreadsheet([sheet]);
+  const result = sandbox.getPdfsBySendDateRange_(ss, '2026-01-01', '2026-12-31', '');
+  assert.strictEqual(result.length, 0);
 });
 
 console.log('== TemplateService: buildPdfFileName_ ==');
