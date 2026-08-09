@@ -29,6 +29,7 @@
       <button type="button" class="viewSwitchBtn is-active" id="navForm" role="tab" aria-selected="true">申請</button>
       <button type="button" class="viewSwitchBtn" id="navHistory" role="tab" aria-selected="false">履歴確認</button>
       <button type="button" class="viewSwitchBtn" id="navPdf" role="tab" aria-selected="false">送付書PDF</button>
+      <button type="button" class="viewSwitchBtn" id="navDashboard" role="tab" aria-selected="false">ダッシュボード</button>
     </nav>
 
     <div id="viewForm">
@@ -273,6 +274,84 @@
         </div>
         <iframe id="pdfPreviewFrame" class="pdfPreviewFrame" title="PDFプレビュー"></iframe>
       </div>
+    </div>
+
+    <div id="viewDashboard" class="is-hidden">
+      <section class="card">
+        <div class="card__head">
+          <h2>申請ダッシュボード</h2>
+          <p class="muted">月ごとの申請状況を、ブランド（MB/AU）・種別（OSS/紙）別に一目で確認できます。</p>
+        </div>
+
+        <div class="filterBar">
+          <div class="filterGroup">
+            <label class="filterGroup__label" for="dashMonth">対象月</label>
+            <input type="month" id="dashMonth">
+          </div>
+          <div class="filterGroup">
+            <label class="filterGroup__label" for="dashBrand">ブランド</label>
+            <select id="dashBrand">
+              <option value="">すべて</option>
+              <option value="MB">MB</option>
+              <option value="AU">AU</option>
+            </select>
+          </div>
+          <div class="filterGroup">
+            <label class="filterGroup__label" for="dashType">種別</label>
+            <select id="dashType">
+              <option value="">すべて</option>
+              <option value="OSS">OSS</option>
+              <option value="紙">紙</option>
+            </select>
+          </div>
+          <label class="filterCheck">
+            <input type="checkbox" id="dashIncludeCancelled">
+            <span>取消分も含める</span>
+          </label>
+          <label class="filterCheck">
+            <input type="checkbox" id="dashIncludePending">
+            <span>登録日未定も含める</span>
+          </label>
+          <button type="button" id="btnDashRefresh" class="btn btn--ghost filterBar__submit">表示</button>
+        </div>
+
+        <div class="dashStats" id="dashStats"></div>
+      </section>
+
+      <div class="dashGrid">
+        <section class="card dashChartCard">
+          <h3 class="dashChartCard__title">ブランド内訳</h3>
+          <div id="dashBrandChart" class="barChart"></div>
+        </section>
+        <section class="card dashChartCard">
+          <h3 class="dashChartCard__title">種別内訳</h3>
+          <div id="dashTypeChart" class="barChart"></div>
+        </section>
+      </div>
+
+      <section class="card dashChartCard">
+        <h3 class="dashChartCard__title">種別 × ブランド マトリクス</h3>
+        <div class="tableScroll">
+          <table id="dashMatrixTable">
+            <thead>
+              <tr>
+                <th></th>
+                <th>MB</th>
+                <th>AU</th>
+                <th>未設定</th>
+                <th>合計</th>
+              </tr>
+            </thead>
+            <tbody id="dashMatrixBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card dashChartCard">
+        <h3 class="dashChartCard__title">日別 車両台数推移（登録日ベース）</h3>
+        <div id="dashTrendChart" class="trendChart"></div>
+        <p class="muted historyEmptyMsg" id="dashEmptyMsg">この月のデータはまだありません。</p>
+      </section>
     </div>
   </div>
 

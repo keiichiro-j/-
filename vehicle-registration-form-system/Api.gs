@@ -58,6 +58,17 @@ function getMailRecipients() {
   return getSavedMailRecipients_();
 }
 
+/**
+ * 「ダッシュボード」画面用。指定した月のブランド(MB/AU)・種別(OSS/紙)別集計と
+ * 日別の車両台数推移を返す。
+ * @param {string} month "YYYY-MM"
+ * @param {Object} filters { brand, type, includeCancelled, includePending }
+ */
+function getDashboardData(month, filters) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  return getDashboardData_(ss, month, filters || {});
+}
+
 // 二重送信防止用トークンのキャッシュ保持時間(秒)。ボタン連打やネットワーク遅延による
 // 再送はほぼ数秒以内に発生するため、余裕をみて5分にしている。
 var SUBMISSION_TOKEN_TTL_SEC = 300;

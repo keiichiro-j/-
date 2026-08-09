@@ -317,6 +317,7 @@
     initPdfDefaultRange_();
     document.getElementById('mailSendDate').value = formatDateInput_(new Date());
     loadMailRecipients_();
+    initDashboardDefaultMonth_();
     document.querySelectorAll('.tableScroll').forEach(function (el) {
       updateScrollShadow_(el);
       el.addEventListener('scroll', function () { updateScrollShadow_(el); });
@@ -379,22 +380,32 @@
   var historyHeader_ = [];
   var historyAllRows_ = [];
 
+  var dashboardLoaded_ = false;
+
   function setView_(view) {
     document.getElementById('viewForm').classList.toggle('is-hidden', view !== 'form');
     document.getElementById('viewHistory').classList.toggle('is-hidden', view !== 'history');
     document.getElementById('viewPdf').classList.toggle('is-hidden', view !== 'pdf');
+    document.getElementById('viewDashboard').classList.toggle('is-hidden', view !== 'dashboard');
     document.getElementById('navForm').classList.toggle('is-active', view === 'form');
     document.getElementById('navForm').setAttribute('aria-selected', view === 'form');
     document.getElementById('navHistory').classList.toggle('is-active', view === 'history');
     document.getElementById('navHistory').setAttribute('aria-selected', view === 'history');
     document.getElementById('navPdf').classList.toggle('is-active', view === 'pdf');
     document.getElementById('navPdf').setAttribute('aria-selected', view === 'pdf');
+    document.getElementById('navDashboard').classList.toggle('is-active', view === 'dashboard');
+    document.getElementById('navDashboard').setAttribute('aria-selected', view === 'dashboard');
     // 初回表示時、または新しい申請でデータが増えた後(historyHeader_をクリア済み)だけ取得し直す
     if (view === 'history' && historyHeader_.length === 0) loadHistoryData_();
+    if (view === 'dashboard' && !dashboardLoaded_) {
+      dashboardLoaded_ = true;
+      loadDashboardData_();
+    }
   }
   document.getElementById('navForm').addEventListener('click', function () { setView_('form'); });
   document.getElementById('navHistory').addEventListener('click', function () { setView_('history'); });
   document.getElementById('navPdf').addEventListener('click', function () { setView_('pdf'); });
+  document.getElementById('navDashboard').addEventListener('click', function () { setView_('dashboard'); });
   document.getElementById('btnHistoryRefresh').addEventListener('click', function () { loadHistoryData_(); });
   document.getElementById('historySearch').addEventListener('input', applyHistoryFilter_);
   document.getElementById('historyBrand').addEventListener('change', applyHistoryFilter_);
@@ -725,4 +736,178 @@
       })
       .sendPdfsByEmail(sendDate, recipients);
   });
+
+  // ---------- ダッシュボード画面 ----------
+
+  document.getElementById('btnDashRefresh').addEventListener('click', loadDashboardData_);
+
+  // ダッシュボードの初期表示月(今月)を設定する
+  function initDashboardDefaultMonth_() {
+    var now = new Date();
+    var mm = String(now.getMonth() + 1).padStart(2, '0');
+    document.getElementById('dashMonth').value = now.getFullYear() + '-' + mm;
+  }
+
+  function loadDashboardData_() {
+    var month = document.getElementById('dashMonth').value;
+    if (!month) {
+      alert('対象月を指定してください');
+      return;
+    }
+    var filters = {
+      brand: document.getElementById('dashBrand').value,
+      type: document.getElementById('dashType').value,
+      includeCancelled: document.getElementById('dashIncludeCancelled').checked,
+      includePending: document.getElementById('dashIncludePending').checked
+    };
+
+    var btn = document.getElementById('btnDashRefresh');
+    btn.disabled = true;
+
+    google.script.run
+      .withSuccessHandler(function (data) {
+        btn.disabled = false;
+        renderDashboard_(data);
+      })
+      .withFailureHandler(function (error) {
+        btn.disabled = false;
+        alert('ダッシュボードの取得に失敗しました:\n' + error.message);
+      })
+      .getDashboardData(month, filters);
+  }
+
+  function renderDashboard_(data) {
+    renderDashboardStats_(data);
+    renderBarChart_('dashBrandChart', [
+      { label: 'MB', value: data.byBrand.MB || 0, cls: 'barRow__fill--mb' },
+      { label: 'AU', value: data.byBrand.AU || 0, cls: 'barRow__fill--au' },
+      { label: '未設定', value: data.byBrand['未設定'] || 0, cls: 'barRow__fill--muted' }
+    ]);
+    renderBarChart_('dashTypeChart', [
+      { label: 'OSS', value: data.byType.OSS || 0, cls: 'barRow__fill--oss' },
+      { label: '紙', value: data.byType['紙'] || 0, cls: 'barRow__fill--paper' }
+    ]);
+    renderDashboardMatrix_(data);
+    renderDashboardTrend_(data);
+  }
+
+  function renderDashboardStats_(data) {
+    var container = document.getElementById('dashStats');
+    container.innerHTML = '';
+    var tiles = [
+      { label: '総申請件数', value: data.totalSubmissions, cls: '' },
+      { label: '総車両台数', value: data.totalVehicles, cls: '' },
+      { label: 'MB', value: data.byBrand.MB || 0, cls: 'statTile--mb' },
+      { label: 'AU', value: data.byBrand.AU || 0, cls: 'statTile--au' },
+      { label: 'OSS', value: data.byType.OSS || 0, cls: 'statTile--oss' },
+      { label: '紙', value: data.byType['紙'] || 0, cls: 'statTile--paper' }
+    ];
+    if (document.getElementById('dashIncludeCancelled').checked) {
+      tiles.push({ label: '取消台数', value: data.cancelledVehicles || 0, cls: 'statTile--cancelled' });
+    }
+    tiles.forEach(function (t) {
+      var tile = document.createElement('div');
+      tile.className = 'statTile ' + t.cls;
+      tile.innerHTML =
+        '<span class="statTile__value">' + t.value + '</span>' +
+        '<span class="statTile__label">' + escapeHtml_(t.label) + '</span>';
+      container.appendChild(tile);
+    });
+  }
+
+  // ブランド内訳・種別内訳の横棒グラフを描画する共通関数
+  function renderBarChart_(containerId, entries) {
+    var container = document.getElementById(containerId);
+    container.innerHTML = '';
+    var max = entries.reduce(function (m, e) { return Math.max(m, e.value); }, 0) || 1;
+    entries.forEach(function (e) {
+      var pct = Math.round((e.value / max) * 100);
+      var row = document.createElement('div');
+      row.className = 'barRow';
+      row.innerHTML =
+        '<span class="barRow__label">' + escapeHtml_(e.label) + '</span>' +
+        '<span class="barRow__track"><span class="barRow__fill ' + (e.cls || '') + '" style="width:' + pct + '%"></span></span>' +
+        '<span class="barRow__value">' + e.value + '</span>';
+      container.appendChild(row);
+    });
+  }
+
+  function renderDashboardMatrix_(data) {
+    var body = document.getElementById('dashMatrixBody');
+    body.innerHTML = '';
+
+    ['OSS', '紙'].forEach(function (type) {
+      var m = data.matrix[type] || { MB: 0, AU: 0, '未設定': 0 };
+      var total = (m.MB || 0) + (m.AU || 0) + (m['未設定'] || 0);
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<th>' + type + '</th>' +
+        '<td class="numCol">' + (m.MB || 0) + '</td>' +
+        '<td class="numCol">' + (m.AU || 0) + '</td>' +
+        '<td class="numCol">' + (m['未設定'] || 0) + '</td>' +
+        '<td class="numCol dashMatrixTotal">' + total + '</td>';
+      body.appendChild(tr);
+    });
+
+    var totalTr = document.createElement('tr');
+    totalTr.className = 'dashMatrixTotalRow';
+    totalTr.innerHTML =
+      '<th>合計</th>' +
+      '<td class="numCol">' + (data.byBrand.MB || 0) + '</td>' +
+      '<td class="numCol">' + (data.byBrand.AU || 0) + '</td>' +
+      '<td class="numCol">' + (data.byBrand['未設定'] || 0) + '</td>' +
+      '<td class="numCol dashMatrixTotal">' + data.totalVehicles + '</td>';
+    body.appendChild(totalTr);
+  }
+
+  // 月内の日別車両台数(登録日ベース)をSVGの横棒グラフで描画する
+  function renderDashboardTrend_(data) {
+    var container = document.getElementById('dashTrendChart');
+    var emptyMsg = document.getElementById('dashEmptyMsg');
+    container.innerHTML = '';
+
+    var daily = data.dailyCounts || [];
+    if (daily.length === 0) {
+      container.classList.add('is-hidden');
+      emptyMsg.style.display = '';
+      return;
+    }
+    container.classList.remove('is-hidden');
+    emptyMsg.style.display = 'none';
+
+    var year = Number(data.month.slice(0, 4));
+    var monthNum = Number(data.month.slice(5, 7));
+    var daysInMonth = new Date(year, monthNum, 0).getDate();
+
+    var countByDate = {};
+    daily.forEach(function (d) { countByDate[d.date] = d.count; });
+    var max = daily.reduce(function (m, d) { return Math.max(m, d.count); }, 0) || 1;
+
+    var width = 720, height = 160, padding = 22, barGap = 2;
+    var barWidth = (width - padding * 2) / daysInMonth - barGap;
+
+    var parts = [];
+    for (var day = 1; day <= daysInMonth; day++) {
+      var dateStr = data.month + '-' + String(day).padStart(2, '0');
+      var count = countByDate[dateStr] || 0;
+      var barHeight = count === 0 ? 0 : Math.max(3, (count / max) * (height - padding * 2));
+      var x = padding + (day - 1) * (barWidth + barGap);
+      var y = height - padding - barHeight;
+      parts.push(
+        '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + Math.max(0, barWidth).toFixed(1) +
+        '" height="' + barHeight.toFixed(1) + '" rx="2" class="trendBar' + (count > 0 ? '' : ' trendBar--empty') + '">' +
+        '<title>' + dateStr + ': ' + count + '台</title></rect>'
+      );
+      if (day === 1 || day % 5 === 0 || day === daysInMonth) {
+        parts.push(
+          '<text x="' + (x + barWidth / 2).toFixed(1) + '" y="' + (height - 6) +
+          '" class="trendLabel" text-anchor="middle">' + day + '</text>'
+        );
+      }
+    }
+
+    container.innerHTML =
+      '<svg viewBox="0 0 ' + width + ' ' + height + '" class="trendSvg" role="img" aria-label="日別車両台数推移">' +
+      parts.join('') + '</svg>';
+  }
 </script>

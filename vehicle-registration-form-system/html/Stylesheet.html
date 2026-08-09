@@ -17,6 +17,8 @@
     --r-md: 12px;
     --r-sm: 4px;
     --r-pill: 999px;
+    --au-color: #673AB7;
+    --paper-color: #F9AB00;
   }
 
   * { box-sizing: border-box; }
@@ -542,6 +544,99 @@
   }
   .mailSendBtn { width: 100%; }
 
+  /* ---------- ダッシュボード画面 ---------- */
+
+  .dashStats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+    margin-top: 20px;
+  }
+  .statTile {
+    background: var(--surface-alt);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--ink-soft);
+    border-radius: var(--r-md);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .statTile__value { font-size: 26px; font-weight: 700; color: var(--ink); }
+  .statTile__label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .statTile--mb { border-left-color: var(--accent); }
+  .statTile--au { border-left-color: var(--au-color); }
+  .statTile--oss { border-left-color: var(--success); }
+  .statTile--paper { border-left-color: var(--paper-color); }
+  .statTile--cancelled { border-left-color: var(--shu); }
+
+  .dashGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+  .dashChartCard { margin-bottom: 20px; }
+  .dashGrid .dashChartCard { margin-bottom: 0; }
+  .dashChartCard__title {
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 16px;
+  }
+
+  .barChart { display: flex; flex-direction: column; gap: 14px; }
+  .barRow { display: grid; grid-template-columns: 56px 1fr 40px; align-items: center; gap: 10px; }
+  .barRow__label { font-size: 12.5px; font-weight: 600; color: var(--ink-soft); }
+  .barRow__track {
+    background: var(--surface-alt);
+    border-radius: var(--r-pill);
+    height: 12px;
+    overflow: hidden;
+  }
+  .barRow__fill {
+    display: block;
+    height: 100%;
+    border-radius: var(--r-pill);
+    background: var(--ink-soft);
+    transition: width 0.4s ease;
+  }
+  .barRow__fill--mb { background: var(--accent); }
+  .barRow__fill--au { background: var(--au-color); }
+  .barRow__fill--oss { background: var(--success); }
+  .barRow__fill--paper { background: var(--paper-color); }
+  .barRow__fill--muted { background: var(--line); }
+  .barRow__value { font-size: 13px; font-weight: 700; text-align: right; color: var(--ink); }
+
+  #dashMatrixTable { min-width: 0; width: 100%; }
+  #dashMatrixBody th {
+    text-align: left;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink);
+    background: transparent;
+  }
+  .dashMatrixTotal { font-weight: 700; }
+  .dashMatrixTotalRow td, .dashMatrixTotalRow th { background: var(--surface-alt); font-weight: 700; }
+
+  .trendChart { margin-top: 4px; }
+  .trendSvg { width: 100%; height: auto; display: block; }
+  .trendBar { fill: var(--accent); }
+  .trendBar--empty { fill: var(--surface-alt); }
+  .trendLabel { font-size: 9px; fill: var(--ink-soft); }
+
+  @media (max-width: 900px) {
+    .dashGrid { grid-template-columns: 1fr; }
+  }
+
   @media (max-width: 700px) {
     .masthead { margin: 20px auto 16px; }
     .masthead__inner { padding: 26px 22px 22px; }
@@ -554,5 +649,6 @@
     .pdfRow__actions .btn { flex: 1; text-align: center; }
     .pdfPreviewFrame { height: 60vh; min-height: 320px; }
     .mailRecipients__grid { grid-template-columns: 1fr; }
+    .dashStats { grid-template-columns: repeat(2, 1fr); }
   }
 </style>

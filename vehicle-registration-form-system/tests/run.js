@@ -53,7 +53,7 @@ const sandbox = {
 };
 vm.createContext(sandbox);
 
-const FILES = ['Constants.gs', 'ValidationService.gs', 'HistoryService.gs', 'TemplateService.gs', 'EmailService.gs'];
+const FILES = ['Constants.gs', 'ValidationService.gs', 'HistoryService.gs', 'TemplateService.gs', 'EmailService.gs', 'DashboardService.gs'];
 FILES.forEach((file) => {
   const code = fs.readFileSync(path.join(ROOT, file), 'utf8');
   vm.runInContext(code, sandbox, { filename: file });
@@ -314,6 +314,9 @@ function makeHistoryFullRow(overrides) {
   const o = Object.assign({
     submissionId: 'uuid-x',
     userName: '岐阜 太郎',
+    type: 'OSS',
+    brand: 'MB',
+    regDate: new Date(2026, 7, 10),
     sendDate: new Date(2026, 7, 10),
     sendBatch: '第１便',
     pdfUrl: 'https://drive.google.com/file/d/FAKE_ID/view',
@@ -324,15 +327,15 @@ function makeHistoryFullRow(overrides) {
   const row = new Array(h.length).fill('');
   row[h.indexOf('送信日時')] = new Date(2026, 7, 10, 9, 0);
   row[h.indexOf('submissionId')] = o.submissionId;
-  row[h.indexOf('種別')] = 'OSS';
+  row[h.indexOf('種別')] = o.type;
   row[h.indexOf('依頼会社名')] = '岐阜ヤナセ株式会社';
   row[h.indexOf('担当責任者')] = '戸田 圭市朗';
-  row[h.indexOf('登録日')] = new Date(2026, 7, 10);
+  row[h.indexOf('登録日')] = o.regDate;
   row[h.indexOf('送付日')] = o.sendDate;
   row[h.indexOf('送付便')] = o.sendBatch;
   row[h.indexOf('車両No.')] = 1;
   row[h.indexOf('使用者名')] = o.userName;
-  row[h.indexOf('ブランド')] = 'MB';
+  row[h.indexOf('ブランド')] = o.brand;
   row[h.indexOf('車台番号')] = '1234';
   row[h.indexOf('送付書PDF')] = o.pdfUrl;
   row[h.indexOf('状態')] = o.status;
@@ -514,6 +517,94 @@ test('保存済みの宛先へ、指定日のPDFを送信する', () => {
   assert.strictEqual(capturedMails.length, 1);
   assert.strictEqual(capturedMails[0].to, 'a@example.com,b@example.com');
   assert.strictEqual(capturedMails[0].attachments.length, 1);
+});
+
+console.log('== DashboardService: getDashboardData_ ==');
+test('月内の車両行をブランド・種別ごとに集計する(取消は既定で除外)', () => {
+  const header = sandbox.HISTORY_HEADER_ROW;
+  const rows = [
+    makeHistoryFullRow({ submissionId: 'uuid-1', type: 'OSS', brand: 'MB', regDate: new Date(2026, 7, 1) }),
+    makeHistoryFullRow({ submissionId: 'uuid-1', type: 'OSS', brand: 'MB', regDate: new Date(2026, 7, 1) }), // 同一申請の2台目
+    makeHistoryFullRow({ submissionId: 'uuid-2', type: 'OSS', brand: 'AU', regDate: new Date(2026, 7, 2) }),
+    makeHistoryFullRow({ submissionId: 'uuid-3', type: '紙', brand: 'MB', regDate: new Date(2026, 7, 3) }),
+    makeHistoryFullRow({ submissionId: 'uuid-4', type: '紙', brand: '', regDate: new Date(2026, 7, 4) }),
+    makeHistoryFullRow({ submissionId: 'uuid-5', type: 'OSS', brand: 'MB', regDate: new Date(2026, 7, 5), status: sandbox.SUBMISSION_STATUS_CANCELLED })
+  ];
+  const sheet = makeMutableSheet('2026-08', header, rows);
+  const ss = makeFakeSpreadsheet([sheet]);
+
+  const result = sandbox.getDashboardData_(ss, '2026-08', {});
+
+  assert.strictEqual(result.totalVehicles, 5); // 取消の1台は除外
+  assert.strictEqual(result.totalSubmissions, 4); // uuid-1〜4(uuid-5は取消で除外)
+  assert.strictEqual(result.cancelledVehicles, 0); // includeCancelled=falseなので既に除外済み
+  assert.strictEqual(result.byBrand.MB, 3);
+  assert.strictEqual(result.byBrand.AU, 1);
+  assert.strictEqual(result.byBrand['未設定'], 1);
+  assert.strictEqual(result.byType.OSS, 3);
+  assert.strictEqual(result.byType['紙'], 2);
+  assert.strictEqual(result.matrix.OSS.MB, 2);
+  assert.strictEqual(result.matrix.OSS.AU, 1);
+  assert.strictEqual(result.matrix['紙'].MB, 1);
+  assert.strictEqual(result.matrix['紙']['未設定'], 1);
+});
+test('includeCancelled指定で取消分も件数に含める', () => {
+  const header = sandbox.HISTORY_HEADER_ROW;
+  const rows = [
+    makeHistoryFullRow({ submissionId: 'uuid-1', type: 'OSS', brand: 'MB', regDate: new Date(2026, 7, 1) }),
+    makeHistoryFullRow({ submissionId: 'uuid-2', type: 'OSS', brand: 'MB', regDate: new Date(2026, 7, 2), status: sandbox.SUBMISSION_STATUS_CANCELLED })
+  ];
+  const sheet = makeMutableSheet('2026-08', header, rows);
+  const ss = makeFakeSpreadsheet([sheet]);
+
+  const result = sandbox.getDashboardData_(ss, '2026-08', { includeCancelled: true });
+  assert.strictEqual(result.totalVehicles, 2);
+  assert.strictEqual(result.cancelledVehicles, 1);
+});
+test('ブランド・種別で絞り込める', () => {
+  const header = sandbox.HISTORY_HEADER_ROW;
+  const rows = [
+    makeHistoryFullRow({ submissionId: 'uuid-1', type: 'OSS', brand: 'MB', regDate: new Date(2026, 7, 1) }),
+    makeHistoryFullRow({ submissionId: 'uuid-2', type: '紙', brand: 'AU', regDate: new Date(2026, 7, 2) })
+  ];
+  const sheet = makeMutableSheet('2026-08', header, rows);
+  const ss = makeFakeSpreadsheet([sheet]);
+
+  const onlyMb = sandbox.getDashboardData_(ss, '2026-08', { brand: 'MB' });
+  assert.strictEqual(onlyMb.totalVehicles, 1);
+  assert.strictEqual(onlyMb.byBrand.MB, 1);
+
+  const onlyPaper = sandbox.getDashboardData_(ss, '2026-08', { type: '紙' });
+  assert.strictEqual(onlyPaper.totalVehicles, 1);
+  assert.strictEqual(onlyPaper.byType['紙'], 1);
+});
+test('日別の車両台数を登録日ベースで集計する', () => {
+  const header = sandbox.HISTORY_HEADER_ROW;
+  const rows = [
+    makeHistoryFullRow({ submissionId: 'uuid-1', regDate: new Date(2026, 7, 1) }),
+    makeHistoryFullRow({ submissionId: 'uuid-2', regDate: new Date(2026, 7, 1) }),
+    makeHistoryFullRow({ submissionId: 'uuid-3', regDate: new Date(2026, 7, 3) })
+  ];
+  const sheet = makeMutableSheet('2026-08', header, rows);
+  const ss = makeFakeSpreadsheet([sheet]);
+
+  const result = sandbox.getDashboardData_(ss, '2026-08', {});
+  // 別Realmのオブジェクト配列をホスト側realmの単純オブジェクトへ詰め替えてから比較する
+  const dailyCounts = Array.from(result.dailyCounts, (d) => ({ date: d.date, count: d.count }));
+  assert.deepStrictEqual(dailyCounts, [
+    { date: '2026-08-01', count: 2 },
+    { date: '2026-08-03', count: 1 }
+  ]);
+});
+test('対象月の形式が不正ならエラー', () => {
+  const ss = makeFakeSpreadsheet([]);
+  assert.throws(() => sandbox.getDashboardData_(ss, '2026/08', {}), /対象月/);
+});
+test('存在しない月を指定すると全て0件で返る(エラーにならない)', () => {
+  const ss = makeFakeSpreadsheet([]);
+  const result = sandbox.getDashboardData_(ss, '2099-01', {});
+  assert.strictEqual(result.totalVehicles, 0);
+  assert.strictEqual(result.totalSubmissions, 0);
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
