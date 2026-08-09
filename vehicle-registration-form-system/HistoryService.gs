@@ -47,8 +47,9 @@ function getOrCreateHistoryTab_(ss, tabName) {
 
 /**
  * 車両1台分を、登録日が属する年月のタブへ1行追記する。
+ * @param {string} pdfUrl この申請で発行されたPDFのURL(送付書PDF一覧・再確認用)
  */
-function appendHistoryRow_(ss, type, car, formData, submissionId, vehicleNo, timestamp) {
+function appendHistoryRow_(ss, type, car, formData, submissionId, vehicleNo, timestamp, pdfUrl) {
   var regDateStr = (type === TYPE_OSS) ? car.indivRegDate : formData.regDateCommon;
   var tabName = resolveHistoryTabName_(type, car, formData.regDateCommon);
   var sheet = getOrCreateHistoryTab_(ss, tabName);
@@ -76,7 +77,10 @@ function appendHistoryRow_(ss, type, car, formData, submissionId, vehicleNo, tim
     car.honken,
     car.shinsho,
     car.person,
-    formData.hidaRegistration ? '対象' : ''
+    formData.hidaRegistration ? '対象' : '',
+    pdfUrl || '',
+    SUBMISSION_STATUS_ACTIVE,
+    ''
   ]);
 
   return tabName;
@@ -206,19 +210,89 @@ function getHistoryEntriesByDateRange_(ss, fromDate, toDate, includePending) {
 }
 
 /**
- * 履歴確認画面での表示用に、指定したラベルの列を header/rows から取り除いた
- * 新しいオブジェクトを返す(submissionIdなど、内部管理用でエンドユーザー表示には
- * 不要な列を落とす用途)。スプレッドシート側のスキーマ(HISTORY_HEADER_ROW)自体は変えない。
+ * 指定した submissionId を持つ全ての履歴行(複数車両・複数タブにまたがる場合を含む)を
+ * 「取消」状態にする。既存のデータ行そのものは消さず、状態列・取消日時列だけを更新する
+ * (OSSは車両ごとに登録日が異なり得るため、1申請の行が複数タブに分かれることがある)。
+ * @return {number} 更新した行数(0なら該当するsubmissionIdが見つからなかった)
  */
-function omitHistoryColumn_(entries, label) {
-  var idx = entries.header.indexOf(label);
-  if (idx === -1) return entries;
+function cancelSubmission_(ss, submissionId) {
+  var submissionIdCol = HISTORY_HEADER_ROW.indexOf('submissionId') + 1;
+  var statusCol = HISTORY_HEADER_ROW.indexOf('状態') + 1;
+  var cancelledAtCol = HISTORY_HEADER_ROW.indexOf('取消日時') + 1;
+  var now = new Date();
+  var updatedCount = 0;
 
-  var header = entries.header.filter(function (_, i) { return i !== idx; });
-  var rows = entries.rows.map(function (row) {
-    return row.filter(function (_, i) { return i !== idx; });
+  getAllHistoryTabNames_(ss).forEach(function (name) {
+    var sheet = ss.getSheetByName(name);
+    if (!sheet || sheet.getLastRow() < 2) return;
+
+    var ids = sheet.getRange(2, submissionIdCol, sheet.getLastRow() - 1, 1).getValues();
+    ids.forEach(function (row, i) {
+      if (row[0] !== submissionId) return;
+      var sheetRow = i + 2;
+      sheet.getRange(sheetRow, statusCol).setValue(SUBMISSION_STATUS_CANCELLED);
+      sheet.getRange(sheetRow, cancelledAtCol).setValue(now);
+      updatedCount++;
+    });
   });
-  return { header: header, rows: rows };
+
+  return updatedCount;
+}
+
+/**
+ * 指定した送付日(・送付便)に該当する履歴行を全タブから集め、submissionIdごとに
+ * 1件へ集約して返す(1申請=1PDFのため、車両ごとに分かれた行を申請単位にまとめる)。
+ * 送付日は登録日と異なりタブの月で絞り込めないため、存在する全タブを走査する。
+ * @param {string} sendDate "YYYY-MM-DD"
+ * @param {string} sendBatch 例:"第１便"。空文字ならすべての便を対象にする
+ * @return {Array<Object>} 送信日時の新しい順
+ */
+function getPdfsBySendDate_(ss, sendDate, sendBatch) {
+  if (!isValidDateStr_(sendDate)) return [];
+
+  var header = HISTORY_HEADER_ROW;
+  var idx = {
+    sentAt: header.indexOf('送信日時'),
+    submissionId: header.indexOf('submissionId'),
+    type: header.indexOf('種別'),
+    company: header.indexOf('依頼会社名'),
+    manager: header.indexOf('担当責任者'),
+    sendDate: header.indexOf('送付日'),
+    sendBatch: header.indexOf('送付便'),
+    pdfUrl: header.indexOf('送付書PDF'),
+    status: header.indexOf('状態')
+  };
+
+  var bySubmission = {};
+  getAllHistoryTabNames_(ss).forEach(function (name) {
+    getHistoryEntries_(ss, name).rows.forEach(function (row) {
+      if (row[idx.sendDate] !== sendDate) return;
+      if (sendBatch && row[idx.sendBatch] !== sendBatch) return;
+
+      var id = row[idx.submissionId];
+      if (!bySubmission[id]) {
+        bySubmission[id] = {
+          submissionId: id,
+          sentAt: row[idx.sentAt],
+          type: row[idx.type],
+          company: row[idx.company],
+          manager: row[idx.manager],
+          sendBatch: row[idx.sendBatch],
+          vehicleCount: 0,
+          pdfUrl: row[idx.pdfUrl] || '',
+          status: row[idx.status] || SUBMISSION_STATUS_ACTIVE
+        };
+      }
+      bySubmission[id].vehicleCount++;
+    });
+  });
+
+  return Object.keys(bySubmission)
+    .map(function (id) { return bySubmission[id]; })
+    .sort(function (a, b) {
+      if (a.sentAt === b.sentAt) return 0;
+      return a.sentAt < b.sentAt ? 1 : -1;
+    });
 }
 
 /**

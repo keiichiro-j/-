@@ -3,6 +3,9 @@
   var INITIAL_VEHICLE_ROWS = 3;
   var rowSeq = 0;
 
+  // サーバー側 Constants.gs の値と合わせる(クライアントは google.script.run を介さずこの値を直接使う)
+  var SUBMISSION_STATUS_CANCELLED_ = '取消';
+
   function createVehicleRow() {
     rowSeq++;
     var tr = document.createElement('tr');
@@ -10,14 +13,14 @@
     tr.innerHTML =
       '<td class="cell-no"></td>' +
       '<td class="cell-regdate"><input type="date" class="v-indivRegDate"></td>' +
-      '<td><input type="text" class="v-userName" list="dl-usernames" autocomplete="off"></td>' +
+      '<td class="cell-username"><input type="text" class="v-userName" list="dl-usernames" autocomplete="off"></td>' +
       brandCell_() +
-      '<td><input type="text" class="v-chassis" maxlength="4" inputmode="numeric"></td>' +
+      '<td><input type="text" class="v-chassis" maxlength="4" inputmode="numeric" title="半角数字4桁で入力してください"></td>' +
       '<td><input type="text" class="v-model"></td>' +
       '<td><input type="text" class="v-classNum"></td>' +
-      '<td><input type="number" class="v-autoTax" min="0" step="1"></td>' +
-      '<td><input type="number" class="v-envTax" min="0" step="1"></td>' +
-      '<td><input type="number" class="v-weightTax" min="0" step="1"></td>' +
+      '<td><input type="number" class="v-autoTax" min="0" step="1" title="0以上の整数で入力してください（空欄可）"></td>' +
+      '<td><input type="number" class="v-envTax" min="0" step="1" title="0以上の整数で入力してください（空欄可）"></td>' +
+      '<td><input type="number" class="v-weightTax" min="0" step="1" title="0以上の整数で入力してください（空欄可）"></td>' +
       selectCell_('v-hopeNum') +
       selectCell_('v-yobi') +
       selectCell_('v-honken') +
@@ -41,6 +44,7 @@
       tr.querySelector('.cell-no').textContent = i + 1;
     });
     updateVehicleCountBadge_();
+    updateScrollShadow_(document.querySelector('#vehicleTable').closest('.tableScroll'));
   }
 
   function updateVehicleCountBadge_() {
@@ -87,6 +91,8 @@
     document.querySelectorAll('.colRegDate, .cell-regdate').forEach(function (el) {
       el.classList.toggle('is-hidden', !isOss);
     });
+
+    updateStickyOffsets_();
   }
 
   // 出力フォーマットのセグメントボタン(OSS/紙)を切り替える
@@ -160,10 +166,42 @@
     return ok;
   }
 
+  // 車台番号(数字4桁)・税額(0以上の整数)の形式エラーを、該当セルそのものをハイライトして知らせる。
+  // サーバー側 ValidationService.gs の validateVehicle_ と同じルールをミラーしている。
+  // 使用者名が空の行はサーバー側でも無視される(getActiveVehicles_)ため検証しない。
+  function highlightVehicleErrors_(vehicles) {
+    var ok = true;
+    var rows = document.querySelectorAll('#vehicleTableBody .vehicleRow');
+    rows.forEach(function (tr, i) {
+      var car = vehicles[i];
+      if (!car || car.userName === '') return;
+
+      if (!/^\d{4}$/.test(car.chassis || '')) {
+        tr.querySelector('.v-chassis').classList.add('is-invalid');
+        ok = false;
+      }
+
+      ['autoTax', 'envTax', 'weightTax'].forEach(function (key) {
+        var raw = car[key];
+        if (raw === '' || raw === undefined || raw === null) return;
+        var n = Number(raw);
+        if (isNaN(n) || n < 0 || Math.floor(n) !== n) {
+          tr.querySelector('.v-' + key).classList.add('is-invalid');
+          ok = false;
+        }
+      });
+    });
+    return ok;
+  }
+
   function setResult_(text, kind) {
     var el = document.getElementById('result');
     el.className = 'result' + (kind ? ' -' + kind : '');
-    el.innerHTML = text;
+    document.getElementById('resultText').innerHTML = text;
+  }
+
+  function setProcessing_(on) {
+    document.getElementById('submitSpinner').classList.toggle('is-hidden', !on);
   }
 
   // 飛騨登録トグル: ONのときだけPDFの飛騨登録バッジが印字される(TemplateService.gs参照)
@@ -177,18 +215,36 @@
   }
   document.getElementById('hidaToggle').addEventListener('click', function () { setHidaFlag_(!hidaOn); });
 
+  // ---------- 二重送信防止 ----------
+  // ボタン連打やネットワーク遅延時の再送を防ぐため、送信ごとに使い捨てのトークンを発行し
+  // サーバー側(Api.gs processFormData)で CacheService により同一トークンの再処理を弾く。
+  // isSubmitting はボタン無効化がまだ反映されない一瞬の二重クリックを防ぐ、より即時のガード。
+  var isSubmitting = false;
+  function generateSubmissionToken_() {
+    return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+  }
+  var submissionToken_ = generateSubmissionToken_();
+
   function submitForm(e) {
     e.preventDefault();
+    if (isSubmitting) return;
     clearInvalid_();
 
-    var hasActiveVehicle = collectVehicles_().some(function (v) { return v.userName !== ''; });
+    var vehicles = collectVehicles_();
+    var hasActiveVehicle = vehicles.some(function (v) { return v.userName !== ''; });
     var requiredOk = highlightRequired_();
+    var vehiclesOk = highlightVehicleErrors_(vehicles);
+
     if (!requiredOk) {
       setResult_('必須項目が未入力です（赤枠の項目を確認してください）', 'error');
       return;
     }
     if (!hasActiveVehicle) {
       setResult_('車両データを1台以上入力してください（使用者名が必須です）', 'error');
+      return;
+    }
+    if (!vehiclesOk) {
+      setResult_('車両データにエラーがあります（赤枠のセルを確認してください）', 'error');
       return;
     }
 
@@ -200,31 +256,46 @@
       sendBatch: document.getElementById('sendBatch').value,
       regDateCommon: document.getElementById('regDateCommon').value,
       hidaRegistration: hidaOn,
-      vehicles: collectVehicles_()
+      submissionToken: submissionToken_,
+      vehicles: vehicles
     };
 
+    isSubmitting = true;
     var btn = document.getElementById('btnSubmit');
     btn.disabled = true;
+    hidePdfPreview_(document.getElementById('resultPdfPreview'), document.getElementById('resultPdfPreviewFrame'));
+    setProcessing_(true);
     setResult_('処理中です。履歴に記録し、PDFを作成しています…', 'pending');
 
     google.script.run
       .withSuccessHandler(function (pdfUrl) {
+        isSubmitting = false;
         btn.disabled = false;
+        setProcessing_(false);
         historyHeader_ = []; // 次に履歴確認画面を開いたとき、今回の登録を含めて再取得させる
+        submissionToken_ = generateSubmissionToken_(); // 次回送信用のトークンを発行し直す
         setResult_(
           '完了しました。PDFを自動で開きます。<br>開かない場合は <a href="' + pdfUrl + '" target="_blank">こちら</a> をクリックしてください。',
           'success'
         );
+        document.getElementById('resultPdfPreviewFrame').src = buildPdfPreviewUrl_(pdfUrl);
+        document.getElementById('resultPdfPreview').classList.remove('is-hidden');
         window.open(pdfUrl, '_blank');
       })
       .withFailureHandler(function (error) {
+        isSubmitting = false;
         btn.disabled = false;
+        setProcessing_(false);
         setResult_('エラーが発生しました:\n' + error.message, 'error');
       })
       .processFormData(formData);
   }
 
   document.getElementById('mainForm').addEventListener('submit', submitForm);
+
+  document.getElementById('btnCloseResultPreview').addEventListener('click', function () {
+    hidePdfPreview_(document.getElementById('resultPdfPreview'), document.getElementById('resultPdfPreviewFrame'));
+  });
 
   // フォームを初期状態に戻す(車両行も INITIAL_VEHICLE_ROWS 件まで作り直す)
   function resetForm() {
@@ -235,6 +306,7 @@
     document.getElementById('vehicleTableBody').innerHTML = '';
     for (var i = 0; i < INITIAL_VEHICLE_ROWS; i++) addVehicleRow();
     setResult_('', '');
+    hidePdfPreview_(document.getElementById('resultPdfPreview'), document.getElementById('resultPdfPreviewFrame'));
   }
   document.getElementById('btnClear').addEventListener('click', resetForm);
 
@@ -242,30 +314,85 @@
     for (var i = 0; i < INITIAL_VEHICLE_ROWS; i++) addVehicleRow();
     toggleRegDateMode();
     initHistoryDefaultRange_();
+    document.getElementById('pdfSendDate').value = formatDateInput_(new Date());
+    document.querySelectorAll('.tableScroll').forEach(function (el) {
+      updateScrollShadow_(el);
+      el.addEventListener('scroll', function () { updateScrollShadow_(el); });
+    });
+    window.addEventListener('resize', function () {
+      updateStickyOffsets_();
+      document.querySelectorAll('.tableScroll').forEach(updateScrollShadow_);
+    });
     google.script.run.withSuccessHandler(populateSuggestions).getSuggestions();
   };
 
-  // ---------- 申請 / 履歴確認 画面切り替え ----------
+  // ---------- スマホ対応: 横スクロールする車両テーブルの操作性補助 ----------
+
+  // 「No.」「使用者名」列を横スクロール時も画面に固定表示する(狭い画面向け、Stylesheet.htmlのメディアクエリで有効化)。
+  // OSSのときだけ「登録日」列が表示されるため、その分「使用者名」列の左端位置(sticky left)がずれる。
+  // 実際のレンダリング幅から動的に算出する。
+  function updateStickyOffsets_() {
+    var noEl = document.querySelector('#vehicleTable thead .colNo');
+    var width = noEl ? noEl.getBoundingClientRect().width : 0;
+    document.documentElement.style.setProperty('--sticky-username-left', width + 'px');
+  }
+
+  // 横スクロールできる余地がまだ右側にあるとき、その旨をうっすらとした影で示す(スマホでの見切れ対策)。
+  function updateScrollShadow_(el) {
+    if (!el) return;
+    var hasMoreRight = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+    el.classList.toggle('has-overflow-right', hasMoreRight);
+  }
+
+  // ---------- PDFプレビュー共通ヘルパー ----------
+
+  // file.getUrl() が返す "https://drive.google.com/file/d/<ID>/view?..." からファイルIDを取り出す。
+  function driveFileIdFromUrl_(url) {
+    var m = /\/d\/([^\/]+)/.exec(url || '');
+    return m ? m[1] : null;
+  }
+
+  function buildPdfPreviewUrl_(url) {
+    var id = driveFileIdFromUrl_(url);
+    return id ? 'https://drive.google.com/file/d/' + id + '/preview' : url;
+  }
+
+  function hidePdfPreview_(pane, frame) {
+    pane.classList.add('is-hidden');
+    frame.src = '';
+  }
+
+  function escapeHtml_(s) {
+    return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  // ---------- 申請 / 履歴確認 / 送付書PDF 画面切り替え ----------
 
   var HISTORY_NUMERIC_COLUMNS = ['車両No.', '自動車税', '環境性能割', '重量税'];
+  var HISTORY_HIDDEN_COLUMNS = ['submissionId']; // 内部管理用のUUIDは列としては表示しない(取消操作には使う)
   var HISTORY_SEARCH_COLUMN = '使用者名';
   var HISTORY_BRAND_COLUMN = 'ブランド';
   var historyHeader_ = [];
   var historyAllRows_ = [];
 
   function setView_(view) {
-    var isForm = view === 'form';
-    document.getElementById('viewForm').classList.toggle('is-hidden', !isForm);
-    document.getElementById('viewHistory').classList.toggle('is-hidden', isForm);
-    document.getElementById('navForm').classList.toggle('is-active', isForm);
-    document.getElementById('navForm').setAttribute('aria-selected', isForm);
-    document.getElementById('navHistory').classList.toggle('is-active', !isForm);
-    document.getElementById('navHistory').setAttribute('aria-selected', !isForm);
+    document.getElementById('viewForm').classList.toggle('is-hidden', view !== 'form');
+    document.getElementById('viewHistory').classList.toggle('is-hidden', view !== 'history');
+    document.getElementById('viewPdf').classList.toggle('is-hidden', view !== 'pdf');
+    document.getElementById('navForm').classList.toggle('is-active', view === 'form');
+    document.getElementById('navForm').setAttribute('aria-selected', view === 'form');
+    document.getElementById('navHistory').classList.toggle('is-active', view === 'history');
+    document.getElementById('navHistory').setAttribute('aria-selected', view === 'history');
+    document.getElementById('navPdf').classList.toggle('is-active', view === 'pdf');
+    document.getElementById('navPdf').setAttribute('aria-selected', view === 'pdf');
     // 初回表示時、または新しい申請でデータが増えた後(historyHeader_をクリア済み)だけ取得し直す
-    if (!isForm && historyHeader_.length === 0) loadHistoryData_();
+    if (view === 'history' && historyHeader_.length === 0) loadHistoryData_();
   }
   document.getElementById('navForm').addEventListener('click', function () { setView_('form'); });
   document.getElementById('navHistory').addEventListener('click', function () { setView_('history'); });
+  document.getElementById('navPdf').addEventListener('click', function () { setView_('pdf'); });
   document.getElementById('btnHistoryRefresh').addEventListener('click', function () { loadHistoryData_(); });
   document.getElementById('historySearch').addEventListener('input', applyHistoryFilter_);
   document.getElementById('historyBrand').addEventListener('change', applyHistoryFilter_);
@@ -334,26 +461,176 @@
     head.innerHTML = '';
     body.innerHTML = '';
 
-    header.forEach(function (label) {
+    var submissionIdCol = header.indexOf('submissionId');
+    var pdfUrlCol = header.indexOf('送付書PDF');
+    var statusCol = header.indexOf('状態');
+    var visibleCols = [];
+
+    header.forEach(function (label, i) {
+      if (HISTORY_HIDDEN_COLUMNS.indexOf(label) !== -1) return;
+      visibleCols.push(i);
       var th = document.createElement('th');
       th.textContent = label;
       if (HISTORY_NUMERIC_COLUMNS.indexOf(label) !== -1) th.classList.add('numCol');
       head.appendChild(th);
     });
+    if (submissionIdCol !== -1) {
+      var thAction = document.createElement('th');
+      thAction.textContent = '操作';
+      head.appendChild(thAction);
+    }
 
     rows.forEach(function (row) {
       var tr = document.createElement('tr');
-      row.forEach(function (cell, i) {
+      var status = statusCol !== -1 ? row[statusCol] : '';
+      if (status === SUBMISSION_STATUS_CANCELLED_) tr.classList.add('is-cancelled');
+
+      visibleCols.forEach(function (i) {
         var td = document.createElement('td');
-        td.textContent = cell;
-        if (HISTORY_NUMERIC_COLUMNS.indexOf(header[i]) !== -1) td.classList.add('numCol');
+        var label = header[i];
+        if (i === pdfUrlCol) {
+          if (row[i]) {
+            var a = document.createElement('a');
+            a.href = row[i];
+            a.target = '_blank';
+            a.rel = 'noopener';
+            a.className = 'pdfLink';
+            a.textContent = '開く';
+            td.appendChild(a);
+          } else {
+            td.textContent = '-';
+          }
+        } else {
+          td.textContent = row[i];
+          if (HISTORY_NUMERIC_COLUMNS.indexOf(label) !== -1) td.classList.add('numCol');
+        }
         tr.appendChild(td);
       });
+
+      if (submissionIdCol !== -1) {
+        var tdAction = document.createElement('td');
+        var id = row[submissionIdCol];
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn--ghost btn--sm';
+        if (status === SUBMISSION_STATUS_CANCELLED_) {
+          btn.textContent = '取消済み';
+          btn.disabled = true;
+        } else {
+          btn.textContent = '取消';
+          btn.addEventListener('click', function () { cancelSubmissionRow_(id, btn); });
+        }
+        tdAction.appendChild(btn);
+        tr.appendChild(tdAction);
+      }
+
       body.appendChild(tr);
     });
 
     document.getElementById('historyCountBadge').textContent = rows.length + ' 件';
     document.getElementById('historyEmptyMsg').textContent = emptyMessage || 'この期間の履歴データはまだありません。';
     document.getElementById('historyEmptyMsg').style.display = rows.length === 0 ? '' : 'none';
+  }
+
+  // 誤入力の修正・取消: 該当submissionIdの全行(複数車両・複数タブにまたがる場合を含む)を取消状態にする。
+  // 訂正が必要な場合は、この取消操作の後、フォームから改めて正しい内容で再送信してもらう運用とする。
+  function cancelSubmissionRow_(submissionId, btn) {
+    if (!confirm('この申請を取消しますか？\n(複数台の申請の場合、含まれる車両すべてが取消対象になります)')) return;
+    btn.disabled = true;
+    btn.textContent = '処理中…';
+
+    google.script.run
+      .withSuccessHandler(function () {
+        historyHeader_ = []; // 最新状態を反映するため再取得させる
+        loadHistoryData_();
+      })
+      .withFailureHandler(function (error) {
+        btn.disabled = false;
+        btn.textContent = '取消';
+        alert('取消処理に失敗しました:\n' + error.message);
+      })
+      .cancelSubmission(submissionId);
+  }
+
+  // ---------- 送付書PDF画面 ----------
+
+  document.getElementById('btnPdfRefresh').addEventListener('click', loadPdfsBySendDate_);
+  document.getElementById('btnClosePdfPreview').addEventListener('click', function () {
+    hidePdfPreview_(document.getElementById('pdfPreviewPane'), document.getElementById('pdfPreviewFrame'));
+  });
+
+  function loadPdfsBySendDate_() {
+    var sendDate = document.getElementById('pdfSendDate').value;
+    var sendBatch = document.getElementById('pdfSendBatch').value;
+    if (!sendDate) {
+      alert('送付日を指定してください');
+      return;
+    }
+
+    var btn = document.getElementById('btnPdfRefresh');
+    btn.disabled = true;
+
+    google.script.run
+      .withSuccessHandler(function (list) {
+        btn.disabled = false;
+        renderPdfList_(list);
+      })
+      .withFailureHandler(function (error) {
+        btn.disabled = false;
+        renderPdfList_([]);
+        alert('送付書PDFの取得に失敗しました:\n' + error.message);
+      })
+      .getPdfsBySendDate(sendDate, sendBatch);
+  }
+
+  function renderPdfList_(list) {
+    var container = document.getElementById('pdfList');
+    container.innerHTML = '';
+    document.getElementById('pdfCountBadge').textContent = list.length + ' 件';
+    document.getElementById('pdfEmptyMsg').textContent = '該当する送付書PDFが見つかりませんでした。';
+    document.getElementById('pdfEmptyMsg').style.display = list.length === 0 ? '' : 'none';
+
+    list.forEach(function (item) {
+      var row = document.createElement('div');
+      row.className = 'pdfRow' + (item.status === SUBMISSION_STATUS_CANCELLED_ ? ' is-cancelled' : '');
+
+      var main = document.createElement('div');
+      main.className = 'pdfRow__main';
+      var metaParts = [escapeHtml_(item.type), escapeHtml_(item.sendBatch || ''), item.vehicleCount + '台', escapeHtml_(item.manager)];
+      if (item.status === SUBMISSION_STATUS_CANCELLED_) metaParts.push('<span class="pdfRow__cancelled">取消済み</span>');
+      main.innerHTML =
+        '<span class="pdfRow__company">' + escapeHtml_(item.company) + '</span>' +
+        '<span class="pdfRow__meta">' + metaParts.join(' ・ ') + '</span>';
+      row.appendChild(main);
+
+      var actions = document.createElement('div');
+      actions.className = 'pdfRow__actions';
+      if (item.pdfUrl) {
+        var btnView = document.createElement('button');
+        btnView.type = 'button';
+        btnView.className = 'btn btn--ghost btn--sm';
+        btnView.textContent = 'プレビュー';
+        btnView.addEventListener('click', function () { openPdfPreview_(item.pdfUrl, item.company); });
+        actions.appendChild(btnView);
+
+        var a = document.createElement('a');
+        a.href = item.pdfUrl;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.className = 'btn btn--ghost btn--sm';
+        a.textContent = '新しいタブで開く';
+        actions.appendChild(a);
+      }
+      row.appendChild(actions);
+      container.appendChild(row);
+    });
+  }
+
+  function openPdfPreview_(url, label) {
+    var pane = document.getElementById('pdfPreviewPane');
+    document.getElementById('pdfPreviewTitle').textContent = label || '';
+    document.getElementById('pdfPreviewFrame').src = buildPdfPreviewUrl_(url);
+    pane.classList.remove('is-hidden');
+    pane.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 </script>

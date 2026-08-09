@@ -19,13 +19,35 @@ function getSuggestions() {
  */
 function getHistoryEntriesByDateRange(fromDate, toDate, includePending) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var result = getHistoryEntriesByDateRange_(ss, fromDate, toDate, !!includePending);
-  // submissionIdは内部管理用のUUIDで、画面に出しても読み手の役に立たないため表示からは省く。
-  return omitHistoryColumn_(result, 'submissionId');
+  // submissionIdは「訂正・取消」操作に必要なため、そのままクライアントへ返す。
+  // 表示から隠す処理はクライアント側(JavaScript.html)の描画時に行う。
+  return getHistoryEntriesByDateRange_(ss, fromDate, toDate, !!includePending);
 }
 
 /**
+ * 指定した申請(submissionId)を「取消」状態にする。履歴確認画面の取消ボタンから呼ばれる。
+ * @return {number} 更新した行数
+ */
+function cancelSubmission(submissionId) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  return cancelSubmission_(ss, submissionId);
+}
+
+/**
+ * 「送付書PDF」画面用。指定した送付日(・送付便)に発行済みのPDFを申請単位で返す。
+ */
+function getPdfsBySendDate(sendDate, sendBatch) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  return getPdfsBySendDate_(ss, sendDate, sendBatch);
+}
+
+// 二重送信防止用トークンのキャッシュ保持時間(秒)。ボタン連打やネットワーク遅延による
+// 再送はほぼ数秒以内に発生するため、余裕をみて5分にしている。
+var SUBMISSION_TOKEN_TTL_SEC = 300;
+
+/**
  * フォーム送信のメイン処理（SPEC.md 4.2 送信処理）。
+ * 0. submissionToken を CacheService でチェックし、同一トークンでの再処理を防ぐ
  * 1. サーバー側検証（NGならシートへの書き込みを一切行わずエラーを返す）
  * 2. LockServiceでテンプレート複製のみを保護
  * 3. 複製先へ値を書き込み → PDFエクスポート → Drive月別フォルダへ保存 → 一時シート削除
@@ -33,6 +55,15 @@ function getHistoryEntriesByDateRange(fromDate, toDate, includePending) {
  * @return {string} 発行されたPDFのURL
  */
 function processFormData(formData) {
+  var cache = CacheService.getScriptCache();
+  var token = formData.submissionToken;
+  if (token) {
+    if (cache.get('submission_' + token)) {
+      throw new Error('この内容は送信処理中、または送信済みです。しばらく待ってから履歴をご確認ください。');
+    }
+    cache.put('submission_' + token, '1', SUBMISSION_TOKEN_TTL_SEC);
+  }
+
   var errors = validateFormData_(formData);
   if (errors.length > 0) {
     throw new Error(errors.join('\n'));
@@ -64,9 +95,10 @@ function processFormData(formData) {
     ss.deleteSheet(tempSheet);
   }
 
+  var pdfUrl = file.getUrl();
   activeVehicles.forEach(function (car, i) {
-    appendHistoryRow_(ss, formData.type, car, formData, submissionId, i + 1, timestamp);
+    appendHistoryRow_(ss, formData.type, car, formData, submissionId, i + 1, timestamp, pdfUrl);
   });
 
-  return file.getUrl();
+  return pdfUrl;
 }

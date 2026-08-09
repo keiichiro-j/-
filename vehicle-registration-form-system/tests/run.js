@@ -177,23 +177,6 @@ test('Date以外の値はそのまま返す', () => {
   assert.strictEqual(sandbox.formatHistoryCell_('自動車税', 12000), 12000);
 });
 
-console.log('== HistoryService: omitHistoryColumn_ ==');
-test('指定ラベルの列をheader/rowsの両方から取り除く', () => {
-  const entries = {
-    header: ['送信日時', 'submissionId', '使用車名'],
-    rows: [['2026-08-08 09:00', 'uuid-1', '岐阜 太郎'], ['2026-08-08 10:00', 'uuid-2', '岐阜 花子']]
-  };
-  const result = sandbox.omitHistoryColumn_(entries, 'submissionId');
-  assert.deepStrictEqual(Array.from(result.header), ['送信日時', '使用車名']);
-  assert.deepStrictEqual(Array.from(result.rows[0]), ['2026-08-08 09:00', '岐阜 太郎']);
-  assert.deepStrictEqual(Array.from(result.rows[1]), ['2026-08-08 10:00', '岐阜 花子']);
-});
-test('存在しないラベルを指定した場合は元のオブジェクトをそのまま返す', () => {
-  const entries = { header: ['送信日時'], rows: [['2026-08-08 09:00']] };
-  const result = sandbox.omitHistoryColumn_(entries, '存在しない列');
-  assert.strictEqual(result, entries);
-});
-
 console.log('== HistoryService: getHistoryEntriesByDateRange_ ==');
 
 // Spreadsheet/Sheetの最小限のフェイク実装(getSheets/getSheetByName/getLastRow/getRange().getValues()のみ)
@@ -267,6 +250,139 @@ test('開始日・終了日とも空なら全期間の行を対象にする', ()
 
   const result = sandbox.getHistoryEntriesByDateRange_(ss, '', '', false);
   assert.strictEqual(result.rows.length, 2);
+});
+
+// cancelSubmission_ / getPdfsBySendDate_ のテスト用に、setValue/setValues にも対応した
+// (書き込み可能な)フェイクシートを用意する。既存の makeFakeSheet は読み取り専用のため、
+// 混同を避けて別名にしている。
+function makeMutableSheet(name, headerRow, dataRows) {
+  const rows = [headerRow].concat(dataRows.map((r) => r.slice()));
+  return {
+    getName: () => name,
+    getLastRow: () => rows.length,
+    getRange: (r, c, numRows, numCols) => {
+      numRows = numRows || 1;
+      numCols = numCols || 1;
+      return {
+        getValues: () => {
+          const out = [];
+          for (let i = 0; i < numRows; i++) {
+            const rowOut = [];
+            for (let j = 0; j < numCols; j++) {
+              rowOut.push(rows[r - 1 + i][c - 1 + j]);
+            }
+            out.push(rowOut);
+          }
+          return out;
+        },
+        setValue: (v) => { rows[r - 1][c - 1] = v; },
+        setValues: (vals) => {
+          vals.forEach((rowVals, i) => {
+            rowVals.forEach((v, j) => { rows[r - 1 + i][c - 1 + j] = v; });
+          });
+        }
+      };
+    },
+    _rows: rows // テストからの直接検証用
+  };
+}
+
+// HISTORY_HEADER_ROW の列順に合わせた1行分のテストデータを作る(overridesで一部だけ上書き)
+function makeHistoryFullRow(overrides) {
+  const o = Object.assign({
+    submissionId: 'uuid-x',
+    userName: '岐阜 太郎',
+    sendDate: new Date(2026, 7, 10),
+    sendBatch: '第１便',
+    pdfUrl: 'https://drive.google.com/file/d/FAKE_ID/view',
+    status: sandbox.SUBMISSION_STATUS_ACTIVE
+  }, overrides || {});
+
+  const h = sandbox.HISTORY_HEADER_ROW;
+  const row = new Array(h.length).fill('');
+  row[h.indexOf('送信日時')] = new Date(2026, 7, 10, 9, 0);
+  row[h.indexOf('submissionId')] = o.submissionId;
+  row[h.indexOf('種別')] = 'OSS';
+  row[h.indexOf('依頼会社名')] = '岐阜ヤナセ株式会社';
+  row[h.indexOf('担当責任者')] = '戸田 圭市朗';
+  row[h.indexOf('登録日')] = new Date(2026, 7, 10);
+  row[h.indexOf('送付日')] = o.sendDate;
+  row[h.indexOf('送付便')] = o.sendBatch;
+  row[h.indexOf('車両No.')] = 1;
+  row[h.indexOf('使用者名')] = o.userName;
+  row[h.indexOf('ブランド')] = 'MB';
+  row[h.indexOf('車台番号')] = '1234';
+  row[h.indexOf('送付書PDF')] = o.pdfUrl;
+  row[h.indexOf('状態')] = o.status;
+  return row;
+}
+
+console.log('== HistoryService: cancelSubmission_ ==');
+test('指定したsubmissionIdの行を状態=取消・取消日時ありに更新する(複数タブにまたがる場合も)', () => {
+  const header = sandbox.HISTORY_HEADER_ROW;
+  const row1 = makeHistoryFullRow({ submissionId: 'uuid-A', userName: '岐阜 太郎' });
+  const row2 = makeHistoryFullRow({ submissionId: 'uuid-B', userName: '岐阜 花子' });
+  const row3 = makeHistoryFullRow({ submissionId: 'uuid-A', userName: '岐阜 次郎' }); // 同じ申請の別車両、別タブ
+
+  const sheet1 = makeMutableSheet('2026-08', header, [row1, row2]);
+  const sheet2 = makeMutableSheet('2026-09', header, [row3]);
+  const ss = makeFakeSpreadsheet([sheet1, sheet2]);
+
+  const updated = sandbox.cancelSubmission_(ss, 'uuid-A');
+  assert.strictEqual(updated, 2);
+
+  const statusCol = header.indexOf('状態');
+  const cancelledAtCol = header.indexOf('取消日時');
+  assert.strictEqual(sheet1._rows[1][statusCol], sandbox.SUBMISSION_STATUS_CANCELLED);
+  assert.strictEqual(Object.prototype.toString.call(sheet1._rows[1][cancelledAtCol]), '[object Date]');
+  assert.strictEqual(sheet1._rows[2][statusCol], sandbox.SUBMISSION_STATUS_ACTIVE); // uuid-Bは変更されない
+  assert.strictEqual(sheet2._rows[1][statusCol], sandbox.SUBMISSION_STATUS_CANCELLED);
+});
+test('存在しないsubmissionIdを指定すると0件更新', () => {
+  const header = sandbox.HISTORY_HEADER_ROW;
+  const sheet = makeMutableSheet('2026-08', header, [makeHistoryFullRow({ submissionId: 'uuid-A' })]);
+  const ss = makeFakeSpreadsheet([sheet]);
+  assert.strictEqual(sandbox.cancelSubmission_(ss, 'uuid-not-exist'), 0);
+});
+
+console.log('== HistoryService: getPdfsBySendDate_ ==');
+test('指定した送付日・送付便に一致する行を申請単位(submissionId)にまとめて返す', () => {
+  const header = sandbox.HISTORY_HEADER_ROW;
+  const sendDateStr = '2026-08-10';
+  const sendDateObj = new Date(2026, 7, 10);
+  const otherDateObj = new Date(2026, 7, 11);
+
+  const rowA1 = makeHistoryFullRow({ submissionId: 'uuid-A', userName: '岐阜 太郎', sendDate: sendDateObj, sendBatch: '第１便' });
+  const rowA2 = makeHistoryFullRow({ submissionId: 'uuid-A', userName: '岐阜 次郎', sendDate: sendDateObj, sendBatch: '第１便' });
+  const rowB = makeHistoryFullRow({ submissionId: 'uuid-B', userName: '岐阜 花子', sendDate: sendDateObj, sendBatch: '第２便' });
+  const rowC = makeHistoryFullRow({ submissionId: 'uuid-C', userName: '他日分', sendDate: otherDateObj, sendBatch: '第１便' });
+
+  const sheet = makeMutableSheet('2026-08', header, [rowA1, rowA2, rowB, rowC]);
+  const ss = makeFakeSpreadsheet([sheet]);
+
+  const all = sandbox.getPdfsBySendDate_(ss, sendDateStr, '');
+  assert.strictEqual(all.length, 2); // uuid-A, uuid-B (uuid-Cは別日なので対象外)
+
+  const submissionA = all.find((x) => x.submissionId === 'uuid-A');
+  assert.strictEqual(submissionA.vehicleCount, 2);
+  assert.strictEqual(submissionA.pdfUrl, 'https://drive.google.com/file/d/FAKE_ID/view');
+  assert.strictEqual(submissionA.status, sandbox.SUBMISSION_STATUS_ACTIVE);
+
+  const onlyBatch1 = sandbox.getPdfsBySendDate_(ss, sendDateStr, '第１便');
+  assert.strictEqual(onlyBatch1.length, 1);
+  assert.strictEqual(onlyBatch1[0].submissionId, 'uuid-A');
+});
+test('該当する送付日がなければ空配列を返す', () => {
+  const header = sandbox.HISTORY_HEADER_ROW;
+  const sheet = makeMutableSheet('2026-08', header, [makeHistoryFullRow({})]);
+  const ss = makeFakeSpreadsheet([sheet]);
+  const result = sandbox.getPdfsBySendDate_(ss, '2099-01-01', '');
+  assert.strictEqual(result.length, 0);
+});
+test('送付日の形式が不正なら空配列を返す', () => {
+  const ss = makeFakeSpreadsheet([]);
+  assert.strictEqual(sandbox.getPdfsBySendDate_(ss, '', '').length, 0);
+  assert.strictEqual(sandbox.getPdfsBySendDate_(ss, '2026/08/10', '').length, 0);
 });
 
 console.log('== TemplateService: buildPdfFileName_ ==');

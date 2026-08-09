@@ -28,6 +28,7 @@
     <nav class="viewSwitch" role="tablist" aria-label="画面切り替え">
       <button type="button" class="viewSwitchBtn is-active" id="navForm" role="tab" aria-selected="true">申請</button>
       <button type="button" class="viewSwitchBtn" id="navHistory" role="tab" aria-selected="false">履歴確認</button>
+      <button type="button" class="viewSwitchBtn" id="navPdf" role="tab" aria-selected="false">送付書PDF</button>
     </nav>
 
     <div id="viewForm">
@@ -101,12 +102,12 @@
                 <th class="colRegDate">登録日<br><span class="muted">(OSS用)</span></th>
                 <th class="colWide">使用者名</th>
                 <th class="colBrand">ブランド</th>
-                <th>車台番号<br><span class="muted">(下4桁)</span></th>
+                <th>車台番号<br><span class="muted">(下4桁)</span> <span class="hintIcon" title="半角数字4桁で入力してください">?</span></th>
                 <th>型式</th>
                 <th>類別番号</th>
-                <th>自動車税</th>
-                <th>環境性能割</th>
-                <th>重量税</th>
+                <th>自動車税 <span class="hintIcon" title="0以上の整数で入力してください（空欄可）">?</span></th>
+                <th>環境性能割 <span class="hintIcon" title="0以上の整数で入力してください（空欄可）">?</span></th>
+                <th>重量税 <span class="hintIcon" title="0以上の整数で入力してください（空欄可）">?</span></th>
                 <th>希望<br>ナンバー</th>
                 <th>予備検<br>登録車</th>
                 <th>本検<br>登録車</th>
@@ -129,7 +130,17 @@
           <button type="button" id="btnClear" class="btn btn--ghost">クリア</button>
           <button type="submit" id="btnSubmit" class="btn btn--primary">登録してPDFを発行する</button>
         </div>
-        <div id="result" class="result" role="status" aria-live="polite"></div>
+        <div id="result" class="result" role="status" aria-live="polite">
+          <span id="submitSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+          <span id="resultText"></span>
+        </div>
+        <div id="resultPdfPreview" class="pdfPreviewPane is-hidden">
+          <div class="pdfPreviewPane__head">
+            <span class="muted">発行されたPDFのプレビュー</span>
+            <button type="button" class="btn btn--ghost btn--sm" id="btnCloseResultPreview">閉じる</button>
+          </div>
+          <iframe id="resultPdfPreviewFrame" class="pdfPreviewFrame" title="発行されたPDFのプレビュー"></iframe>
+        </div>
       </div>
     </form>
     </div>
@@ -139,7 +150,7 @@
         <div class="card__head card__head--split">
           <div>
             <h2>申請履歴</h2>
-            <p class="muted">期間・ブランド・使用者名で絞り込んで、登録済みの依頼履歴を確認できます。</p>
+            <p class="muted">期間・ブランド・使用者名で絞り込んで、登録済みの依頼履歴を確認できます。誤入力があった申請は「取消」できます。</p>
           </div>
           <span class="badge" id="historyCountBadge">0 件</span>
         </div>
@@ -184,6 +195,46 @@
         </div>
         <p class="muted historyEmptyMsg" id="historyEmptyMsg">この期間の履歴データはまだありません。</p>
       </section>
+    </div>
+
+    <div id="viewPdf" class="is-hidden">
+      <section class="card">
+        <div class="card__head card__head--split">
+          <div>
+            <h2>送付書PDF</h2>
+            <p class="muted">送付日・送付便を指定して、その便でまとめて発行した送付書PDFを申請単位で確認できます。</p>
+          </div>
+          <span class="badge" id="pdfCountBadge">0 件</span>
+        </div>
+
+        <div class="filterBar">
+          <div class="filterGroup">
+            <label class="filterGroup__label" for="pdfSendDate">送付日 <span class="req">必須</span></label>
+            <input type="date" id="pdfSendDate">
+          </div>
+          <div class="filterGroup">
+            <label class="filterGroup__label" for="pdfSendBatch">送付便</label>
+            <select id="pdfSendBatch">
+              <option value="">すべて</option>
+              <option value="第１便">第１便</option>
+              <option value="第２便">第２便</option>
+              <option value="第３便">第３便</option>
+            </select>
+          </div>
+          <button type="button" id="btnPdfRefresh" class="btn btn--ghost filterBar__submit">検索</button>
+        </div>
+
+        <div id="pdfList" class="pdfList"></div>
+        <p class="muted historyEmptyMsg" id="pdfEmptyMsg">送付日を指定して検索してください。</p>
+      </section>
+
+      <div class="pdfPreviewPane is-hidden" id="pdfPreviewPane">
+        <div class="pdfPreviewPane__head">
+          <span id="pdfPreviewTitle" class="muted"></span>
+          <button type="button" class="btn btn--ghost btn--sm" id="btnClosePdfPreview">閉じる</button>
+        </div>
+        <iframe id="pdfPreviewFrame" class="pdfPreviewFrame" title="PDFプレビュー"></iframe>
+      </div>
     </div>
   </div>
 

@@ -111,6 +111,9 @@
     color: #FFFFFF;
     box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08), 0 6px 14px rgba(26, 115, 232, 0.25);
   }
+  @media (max-width: 560px) {
+    .viewSwitchBtn { padding: 9px 14px; font-size: 12px; }
+  }
 
   .card {
     background: var(--surface);
@@ -165,6 +168,27 @@
     margin-bottom: 8px;
   }
   .field .req { color: var(--shu); font-weight: 700; font-size: 10px; letter-spacing: 0; text-transform: none; }
+
+  /* ---------- 入力ヒントアイコン(車台番号・税額欄の見出しに付ける軽いツールチップ) ---------- */
+
+  .hintIcon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: var(--line);
+    color: var(--surface);
+    font-size: 9px;
+    font-weight: 700;
+    font-style: normal;
+    text-transform: none;
+    letter-spacing: 0;
+    cursor: help;
+    vertical-align: middle;
+  }
+  .hintIcon:hover { background: var(--accent); }
 
   /* ---------- セグメントコントロール(出力フォーマット選択、Materialの"Segmented Buttons"風) ---------- */
 
@@ -286,6 +310,28 @@
   .v-brand { min-width: 60px; padding: 6px 4px; font-size: 11px; }
   .colRegDate.is-hidden, td.cell-regdate.is-hidden { display: none; }
 
+  /* 横スクロールできる余地がまだ右にあることを示す影(スマホでの見切れ対策) */
+  .tableScroll { position: relative; }
+  .tableScroll.has-overflow-right { box-shadow: inset -14px 0 10px -10px rgba(16, 24, 40, 0.18); }
+
+  /* スマホ幅では「No.」「使用者名」列を横スクロール時も画面に固定表示する */
+  @media (max-width: 900px) {
+    thead .colNo, tbody .cell-no {
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      background: var(--surface-alt);
+    }
+    thead .colWide, tbody .cell-username {
+      position: sticky;
+      left: var(--sticky-username-left, 28px);
+      z-index: 2;
+      background: var(--surface);
+      box-shadow: 2px 0 4px rgba(16, 24, 40, 0.1);
+    }
+    tbody tr:hover .cell-no, tbody tr:hover .cell-username { background: var(--accent-soft); }
+  }
+
   /* ---------- 履歴確認: フィルターツールバー ---------- */
 
   .filterBar {
@@ -335,6 +381,19 @@
   #historyTable tbody tr:nth-child(even) td { background: var(--surface-alt); }
   #historyTable tbody tr:hover td { background: var(--accent-soft); }
   .historyEmptyMsg { text-align: center; padding: 20px 0 4px; }
+
+  /* 取消済みの申請は打ち消し線+ミュートカラーで一目でわかるようにする */
+  #historyTable tbody tr.is-cancelled td { color: var(--ink-soft); text-decoration: line-through; }
+  #historyTable tbody tr.is-cancelled td a.pdfLink { text-decoration: line-through; }
+
+  .pdfLink {
+    color: var(--accent);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .pdfLink:hover { text-decoration: underline; }
+
+  .btn--sm { padding: 6px 14px; font-size: 12px; }
 
   @media (max-width: 700px) {
     .filterBar { flex-direction: column; align-items: stretch; }
@@ -404,6 +463,69 @@
   .result.-error { color: var(--shu); white-space: pre-line; }
   .result a { color: var(--accent); }
 
+  /* ---------- 処理中インジケーター(送信ボタン押下後) ---------- */
+
+  .spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    margin-right: 8px;
+    vertical-align: -2px;
+    border: 2px solid var(--accent-soft);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---------- PDFプレビュー(発行直後 / 履歴確認・送付書PDF画面共通) ---------- */
+
+  .pdfPreviewPane {
+    margin-top: 18px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    background: var(--surface-alt);
+  }
+  .pdfPreviewPane__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+  }
+  .pdfPreviewFrame {
+    display: block;
+    width: 100%;
+    height: 70vh;
+    min-height: 420px;
+    border: none;
+    background: var(--surface);
+  }
+
+  /* ---------- 送付書PDF画面: 申請単位の一覧 ---------- */
+
+  .pdfList { display: flex; flex-direction: column; gap: 10px; margin-bottom: 4px; }
+  .pdfRow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    background: var(--surface-alt);
+  }
+  .pdfRow.is-cancelled { opacity: 0.6; }
+  .pdfRow__main { display: flex; flex-direction: column; gap: 4px; min-width: 220px; }
+  .pdfRow__company { font-size: 14px; font-weight: 700; color: var(--ink); }
+  .pdfRow__meta { font-size: 12px; color: var(--ink-soft); }
+  .pdfRow__cancelled { color: var(--shu); font-weight: 700; }
+  .pdfRow__actions { display: flex; gap: 8px; flex: none; }
+
   @media (max-width: 700px) {
     .masthead { margin: 20px auto 16px; }
     .masthead__inner { padding: 26px 22px 22px; }
@@ -411,5 +533,9 @@
     .card { padding: 18px; }
     .submitBar__row { flex-direction: column-reverse; }
     .submitBar__row .btn--ghost { width: 100%; }
+    .pdfRow { flex-direction: column; align-items: stretch; }
+    .pdfRow__actions { width: 100%; }
+    .pdfRow__actions .btn { flex: 1; text-align: center; }
+    .pdfPreviewFrame { height: 60vh; min-height: 320px; }
   }
 </style>
