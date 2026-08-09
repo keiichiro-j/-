@@ -121,3 +121,61 @@ function sendPdfsByEmail_(ss, sendDate, recipients) {
 
   return { sentCount: attachments.length, recipientCount: validRecipients.length };
 }
+
+/**
+ * 保存済みの宛先へ、指定した送付日のPDFを自動送信する（トリガー本体から日付部分を
+ * 切り出したテスト可能な内部関数）。手動送信と違い、次のケースはエラーにせず
+ * 何もせず終了する(トリガー実行時に例外を投げるとGoogleからオーナーへエラー通知
+ * メールが届いてしまうため、日常的に起こりうるケースはここで吸収する)。
+ * ・宛先が1件も保存されていない(まだ手動送信を一度も行っていない)
+ * ・指定日に発行済みの送付書PDFが1件もない(その日は送付が無かった)
+ */
+function sendSavedRecipientsPdfsForDate_(ss, dateStr) {
+  var recipients = getSavedMailRecipients_();
+  if (recipients.length === 0) return;
+
+  try {
+    sendPdfsByEmail_(ss, dateStr, recipients);
+  } catch (e) {
+    if (!/見つかりませんでした/.test(e.message)) {
+      Logger.log('自動メール送信でエラー: ' + e.message);
+    }
+  }
+}
+
+/**
+ * setupDailyMailTrigger で設定した時刻に毎日自動実行される関数。
+ * 本日を送付日として発行された第１便〜第３便の送付書PDFを、保存済みの宛先へ送信する。
+ */
+function sendTodaysPdfsByEmailAutomatically() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var today = Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM-dd');
+  sendSavedRecipientsPdfsForDate_(ss, today);
+}
+
+/**
+ * 毎日17時台に sendTodaysPdfsByEmailAutomatically を自動実行するトリガーを設定する。
+ * GASエディタ上部の関数選択で "setupDailyMailTrigger" を選び、実行ボタンを1回押すだけでよい
+ * (以後は自動で毎日動く)。何度実行しても重複登録されないよう、実行のたびに同名トリガーを
+ * 一旦削除してから登録し直す。
+ */
+function setupDailyMailTrigger() {
+  removeDailyMailTrigger();
+  ScriptApp.newTrigger('sendTodaysPdfsByEmailAutomatically')
+    .timeBased()
+    .atHour(17)
+    .everyDays(1)
+    .inTimezone(TIMEZONE)
+    .create();
+}
+
+/**
+ * setupDailyMailTrigger で設定した自動送信トリガーを削除する(自動送信を止めたいときに実行する)。
+ */
+function removeDailyMailTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'sendTodaysPdfsByEmailAutomatically') {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+}

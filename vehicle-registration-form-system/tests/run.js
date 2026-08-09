@@ -48,7 +48,8 @@ const sandbox = {
       getProperty: (key) => (key in fakeScriptProperties ? fakeScriptProperties[key] : null),
       setProperty: (key, value) => { fakeScriptProperties[key] = value; }
     })
-  }
+  },
+  Logger: { log: () => {} }
 };
 vm.createContext(sandbox);
 
@@ -479,6 +480,40 @@ test('該当する送付書PDFが無ければエラーになりメールは送�
 test('送付日の形式が不正ならエラー', () => {
   const ss = makeFakeSpreadsheet([]);
   assert.throws(() => sandbox.sendPdfsByEmail_(ss, '2026/08/10', ['a@example.com']), /送付日/);
+});
+
+console.log('== EmailService: sendSavedRecipientsPdfsForDate_ (自動送信トリガー本体) ==');
+test('宛先が保存されていなければ何もしない(例外を投げない)', () => {
+  sandbox.saveMailRecipients_([]);
+  capturedMails.length = 0;
+  const ss = makeFakeSpreadsheet([]);
+  assert.doesNotThrow(() => sandbox.sendSavedRecipientsPdfsForDate_(ss, '2026-08-10'));
+  assert.strictEqual(capturedMails.length, 0);
+});
+test('該当する送付書PDFが無い日は例外を投げずに何もしない', () => {
+  sandbox.saveMailRecipients_(['a@example.com']);
+  capturedMails.length = 0;
+  const ss = makeFakeSpreadsheet([]);
+  assert.doesNotThrow(() => sandbox.sendSavedRecipientsPdfsForDate_(ss, '2099-01-01'));
+  assert.strictEqual(capturedMails.length, 0);
+});
+test('保存済みの宛先へ、指定日のPDFを送信する', () => {
+  const header = sandbox.HISTORY_HEADER_ROW;
+  const day = new Date(2026, 7, 12);
+  const row = makeHistoryFullRow({
+    submissionId: 'uuid-auto', sendDate: day, sendBatch: '第１便',
+    pdfUrl: 'https://drive.google.com/file/d/FILE_AUTO/view', status: sandbox.SUBMISSION_STATUS_ACTIVE
+  });
+  const sheet = makeMutableSheet('2026-08', header, [row]);
+  const ss = makeFakeSpreadsheet([sheet]);
+
+  sandbox.saveMailRecipients_(['a@example.com', 'b@example.com']);
+  capturedMails.length = 0;
+  sandbox.sendSavedRecipientsPdfsForDate_(ss, '2026-08-12');
+
+  assert.strictEqual(capturedMails.length, 1);
+  assert.strictEqual(capturedMails[0].to, 'a@example.com,b@example.com');
+  assert.strictEqual(capturedMails[0].attachments.length, 1);
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
