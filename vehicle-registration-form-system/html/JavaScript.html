@@ -315,6 +315,8 @@
     toggleRegDateMode();
     initHistoryDefaultRange_();
     initPdfDefaultRange_();
+    document.getElementById('mailSendDate').value = formatDateInput_(new Date());
+    loadMailRecipients_();
     document.querySelectorAll('.tableScroll').forEach(function (el) {
       updateScrollShadow_(el);
       el.addEventListener('scroll', function () { updateScrollShadow_(el); });
@@ -660,4 +662,67 @@
     pane.classList.remove('is-hidden');
     pane.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
+
+  // ---------- 送付書PDF: メール送信 ----------
+
+  var MAIL_RECIPIENT_IDS = ['mailTo1', 'mailTo2', 'mailTo3', 'mailTo4'];
+
+  function collectMailRecipients_() {
+    return MAIL_RECIPIENT_IDS
+      .map(function (id) { return document.getElementById(id).value.trim(); })
+      .filter(function (v) { return v !== ''; });
+  }
+
+  // 前回送信時の宛先を読み込んで、4つの入力欄にあらかじめ入れておく(毎回の入力の手間を減らす)
+  function loadMailRecipients_() {
+    google.script.run
+      .withSuccessHandler(function (recipients) {
+        (recipients || []).forEach(function (addr, i) {
+          var id = MAIL_RECIPIENT_IDS[i];
+          if (id) document.getElementById(id).value = addr;
+        });
+      })
+      .getMailRecipients();
+  }
+
+  function setMailResult_(text, kind) {
+    var el = document.getElementById('mailResult');
+    el.className = 'result' + (kind ? ' -' + kind : '');
+    document.getElementById('mailResultText').innerHTML = text;
+  }
+
+  function setMailProcessing_(on) {
+    document.getElementById('mailSpinner').classList.toggle('is-hidden', !on);
+  }
+
+  document.getElementById('btnSendMail').addEventListener('click', function () {
+    var sendDate = document.getElementById('mailSendDate').value;
+    if (!sendDate) {
+      setMailResult_('送付日を指定してください', 'error');
+      return;
+    }
+    var recipients = collectMailRecipients_();
+    if (recipients.length === 0) {
+      setMailResult_('送信先メールアドレスを1件以上入力してください', 'error');
+      return;
+    }
+
+    var btn = document.getElementById('btnSendMail');
+    btn.disabled = true;
+    setMailProcessing_(true);
+    setMailResult_('送信しています…', 'pending');
+
+    google.script.run
+      .withSuccessHandler(function (result) {
+        btn.disabled = false;
+        setMailProcessing_(false);
+        setMailResult_('送信しました（PDF ' + result.sentCount + '件 / 宛先 ' + result.recipientCount + '件）', 'success');
+      })
+      .withFailureHandler(function (error) {
+        btn.disabled = false;
+        setMailProcessing_(false);
+        setMailResult_('送信に失敗しました:\n' + error.message, 'error');
+      })
+      .sendPdfsByEmail(sendDate, recipients);
+  });
 </script>

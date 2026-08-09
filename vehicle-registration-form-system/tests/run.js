@@ -26,12 +26,33 @@ function formatDateStub(date, tz, pattern) {
   return pattern.replace(/yyyy|MM|dd|HH|mm|ss/g, (token) => map[token]);
 }
 
+// EmailService.gs用の最小フェイク。MailAppは送信内容を capturedMails に積むだけ、
+// DriveAppはファイルIDから固定のフェイクBlobを返すだけ、PropertiesServiceはメモリ上の
+// オブジェクトで代用する。
+const capturedMails = [];
+const fakeScriptProperties = {};
+
 const sandbox = {
-  Utilities: { formatDate: formatDateStub }
+  Utilities: { formatDate: formatDateStub },
+  MailApp: {
+    sendEmail: (opts) => { capturedMails.push(opts); }
+  },
+  DriveApp: {
+    getFileById: (id) => {
+      if (id === 'MISSING_ID') throw new Error('ファイルが見つかりません');
+      return { getBlob: () => ({ fileId: id, isFakeBlob: true }) };
+    }
+  },
+  PropertiesService: {
+    getScriptProperties: () => ({
+      getProperty: (key) => (key in fakeScriptProperties ? fakeScriptProperties[key] : null),
+      setProperty: (key, value) => { fakeScriptProperties[key] = value; }
+    })
+  }
 };
 vm.createContext(sandbox);
 
-const FILES = ['Constants.gs', 'ValidationService.gs', 'HistoryService.gs', 'TemplateService.gs'];
+const FILES = ['Constants.gs', 'ValidationService.gs', 'HistoryService.gs', 'TemplateService.gs', 'EmailService.gs'];
 FILES.forEach((file) => {
   const code = fs.readFileSync(path.join(ROOT, file), 'utf8');
   vm.runInContext(code, sandbox, { filename: file });
@@ -402,6 +423,62 @@ test('ファイル名にタイムスタンプと種別・会社名を含む', ()
 test('会社名にファイル名として使えない文字が含まれていても安全化する', () => {
   const name = sandbox.buildPdfFileName_('紙', 'A/B:C', new Date(2026, 7, 7, 9, 30, 0));
   assert.ok(!/[\/:]/.test(name.replace('.pdf', '')));
+});
+
+console.log('== EmailService: validateMailRecipients_ ==');
+test('空欄を除いた有効なメールアドレスの配列を返す', () => {
+  const result = sandbox.validateMailRecipients_(['a@example.com', '', '  b@example.com  ', undefined]);
+  assert.deepStrictEqual(Array.from(result), ['a@example.com', 'b@example.com']);
+});
+test('メールアドレスが1件も無ければエラー', () => {
+  assert.throws(() => sandbox.validateMailRecipients_(['', '   ']), /1件以上/);
+});
+test('形式が不正なメールアドレスがあればエラー', () => {
+  assert.throws(() => sandbox.validateMailRecipients_(['a@example.com', 'invalid']), /形式/);
+});
+
+console.log('== EmailService: sendPdfsByEmail_ ==');
+test('指定した送付日の全便(取消済みを除く)のPDFを添付してメール送信し、宛先を保存する', () => {
+  const header = sandbox.HISTORY_HEADER_ROW;
+  const day = new Date(2026, 7, 10);
+  const row1 = makeHistoryFullRow({
+    submissionId: 'uuid-1', sendDate: day, sendBatch: '第１便',
+    pdfUrl: 'https://drive.google.com/file/d/FILE_1/view', status: sandbox.SUBMISSION_STATUS_ACTIVE
+  });
+  const row2 = makeHistoryFullRow({
+    submissionId: 'uuid-2', sendDate: day, sendBatch: '第２便',
+    pdfUrl: 'https://drive.google.com/file/d/FILE_2/view', status: sandbox.SUBMISSION_STATUS_ACTIVE
+  });
+  const row3Cancelled = makeHistoryFullRow({
+    submissionId: 'uuid-3', sendDate: day, sendBatch: '第３便',
+    pdfUrl: 'https://drive.google.com/file/d/FILE_3/view', status: sandbox.SUBMISSION_STATUS_CANCELLED
+  });
+
+  const sheet = makeMutableSheet('2026-08', header, [row1, row2, row3Cancelled]);
+  const ss = makeFakeSpreadsheet([sheet]);
+
+  capturedMails.length = 0;
+  const result = sandbox.sendPdfsByEmail_(ss, '2026-08-10', ['a@example.com', 'b@example.com']);
+
+  assert.strictEqual(result.sentCount, 2); // 取消済みの第３便分は除外される
+  assert.strictEqual(result.recipientCount, 2);
+  assert.strictEqual(capturedMails.length, 1);
+  assert.strictEqual(capturedMails[0].to, 'a@example.com,b@example.com');
+  assert.strictEqual(capturedMails[0].attachments.length, 2);
+  assert.ok(capturedMails[0].subject.includes('2026/08/10'));
+
+  // 送信成功後、次回のために宛先が保存されている
+  assert.deepStrictEqual(Array.from(sandbox.getSavedMailRecipients_()), ['a@example.com', 'b@example.com']);
+});
+test('該当する送付書PDFが無ければエラーになりメールは送信されない', () => {
+  const ss = makeFakeSpreadsheet([]);
+  capturedMails.length = 0;
+  assert.throws(() => sandbox.sendPdfsByEmail_(ss, '2099-01-01', ['a@example.com']), /見つかりませんでした/);
+  assert.strictEqual(capturedMails.length, 0);
+});
+test('送付日の形式が不正ならエラー', () => {
+  const ss = makeFakeSpreadsheet([]);
+  assert.throws(() => sandbox.sendPdfsByEmail_(ss, '2026/08/10', ['a@example.com']), /送付日/);
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

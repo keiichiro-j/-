@@ -531,6 +531,17 @@
   .pdfRow__cancelled { color: var(--shu); font-weight: 700; }
   .pdfRow__actions { display: flex; gap: 8px; flex: none; }
 
+  /* ---------- 送付書PDF画面: メール送信 ---------- */
+
+  .mailRecipients { margin: 4px 0 18px; }
+  .mailRecipients__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(200px, 1fr));
+    gap: 12px;
+    margin-top: 8px;
+  }
+  .mailSendBtn { width: 100%; }
+
   @media (max-width: 700px) {
     .masthead { margin: 20px auto 16px; }
     .masthead__inner { padding: 26px 22px 22px; }
@@ -542,5 +553,6 @@
     .pdfRow__actions { width: 100%; }
     .pdfRow__actions .btn { flex: 1; text-align: center; }
     .pdfPreviewFrame { height: 60vh; min-height: 320px; }
+    .mailRecipients__grid { grid-template-columns: 1fr; }
   }
 </style>

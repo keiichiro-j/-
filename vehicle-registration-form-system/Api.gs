@@ -41,6 +41,23 @@ function getPdfsBySendDate(fromDate, toDate, sendBatch) {
   return getPdfsBySendDateRange_(ss, fromDate, toDate, sendBatch);
 }
 
+/**
+ * 「送付書PDF」画面のメール送信ボタン用。指定した送付日の全便(第１便〜第３便、取消済みを除く)
+ * 分のPDFをまとめて宛先へメール送信する。
+ * @return {{sentCount: number, recipientCount: number}}
+ */
+function sendPdfsByEmail(sendDate, recipients) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  return sendPdfsByEmail_(ss, sendDate, recipients);
+}
+
+/**
+ * メール送信フォームの初期表示用。前回送信時に使った宛先を返す(入力の手間を減らすため)。
+ */
+function getMailRecipients() {
+  return getSavedMailRecipients_();
+}
+
 // 二重送信防止用トークンのキャッシュ保持時間(秒)。ボタン連打やネットワーク遅延による
 // 再送はほぼ数秒以内に発生するため、余裕をみて5分にしている。
 var SUBMISSION_TOKEN_TTL_SEC = 300;

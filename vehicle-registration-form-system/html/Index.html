@@ -236,6 +236,36 @@
         <p class="muted historyEmptyMsg" id="pdfEmptyMsg">期間を指定して検索してください。</p>
       </section>
 
+      <section class="card" id="mailCard">
+        <div class="card__head">
+          <h2>送付書PDFをメール送信</h2>
+          <p class="muted">指定した送付日に発行された第１便〜第３便の送付書PDF（取消済みを除く）をまとめて、下の宛先へメール送信します。</p>
+        </div>
+
+        <div class="fieldRow">
+          <div class="field" style="max-width:220px">
+            <label for="mailSendDate">送付日 <span class="req">必須</span></label>
+            <input type="date" id="mailSendDate">
+          </div>
+        </div>
+
+        <div class="mailRecipients">
+          <label class="filterGroup__label">送信先メールアドレス（最大4件・1件以上必須）</label>
+          <div class="mailRecipients__grid">
+            <input type="email" class="mailRecipientInput" id="mailTo1" placeholder="宛先1（例: you@example.com）" autocomplete="off">
+            <input type="email" class="mailRecipientInput" id="mailTo2" placeholder="宛先2" autocomplete="off">
+            <input type="email" class="mailRecipientInput" id="mailTo3" placeholder="宛先3" autocomplete="off">
+            <input type="email" class="mailRecipientInput" id="mailTo4" placeholder="宛先4" autocomplete="off">
+          </div>
+        </div>
+
+        <button type="button" id="btnSendMail" class="btn btn--primary mailSendBtn">この日の送付書PDFをメール送信する</button>
+        <div id="mailResult" class="result" role="status" aria-live="polite">
+          <span id="mailSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+          <span id="mailResultText"></span>
+        </div>
+      </section>
+
       <div class="pdfPreviewPane is-hidden" id="pdfPreviewPane">
         <div class="pdfPreviewPane__head">
           <span id="pdfPreviewTitle" class="muted"></span>
