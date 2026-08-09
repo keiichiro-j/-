@@ -24,6 +24,7 @@ var STATUS_OPTIONS = [
   '名義変更中',
   '名義変更済み',
   '抹消登録済み',
+  '保留',
   '販売済み'
 ];
 var STATUS_SOLD = '販売済み';
@@ -50,7 +51,7 @@ var COLUMNS = [
   { key: 'firstRegistrationDate', label: '初年度登録', type: 'date' },
   { key: 'inspectionExpiryDate', label: '車検満了日', type: 'date' },
   { key: 'color', label: 'カラー', type: 'text' },
-  { key: 'mileage', label: '走行距離', type: 'number' },
+  { key: 'mileage', label: '走行距離', type: 'text' }, // 表示形式「00,000km」で保持するため text 型（4.5 OCR仕様）
   { key: 'purchaseType', label: '仕入区分', type: 'select', options: PURCHASE_TYPE_OPTIONS },
   { key: 'staff', label: '担当者', type: 'text' },
   { key: 'supplier', label: '仕入先', type: 'text' },

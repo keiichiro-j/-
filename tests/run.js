@@ -69,7 +69,7 @@ test('OCN形式でないファイル名は null', () => {
 });
 
 console.log('== AppraisalExtractionService: calcTradeInLoss / normalizeAppraisalDraft_ ==');
-test('下取損 = 査定額 - 買取金額', () => assert.strictEqual(sandbox.calcTradeInLoss(500000, 450000), 50000));
+test('下取損 = 買取金額 - 査定額', () => assert.strictEqual(sandbox.calcTradeInLoss(450000, 500000), 50000));
 test('査定額・買取金額が欠けている場合は null', () => assert.strictEqual(sandbox.calcTradeInLoss(500000, null), null));
 test('OCRテキストからの数値抽出（カンマ・円混在）', () => {
   assert.strictEqual(sandbox.toNumber_('¥1,234,000'), 1234000);
@@ -78,10 +78,40 @@ test('OCRテキストからの数値抽出（カンマ・円混在）', () => {
 });
 test('normalizeAppraisalDraft_ が下取損まで一括計算する', () => {
   const draft = sandbox.normalizeAppraisalDraft_({
-    carType: 'プリウス', mileage: '32,000km', appraisalAmount: '600,000円', purchaseAmount: '550,000円'
+    carType: 'トヨタ', mileage: '32,000km', appraisalAmount: '600,000円', purchaseAmount: '650,000円'
   });
-  assert.strictEqual(draft.mileage, 32000);
+  assert.strictEqual(draft.carType, 'ﾄﾖﾀ');
+  assert.strictEqual(draft.mileage, '32,000km');
   assert.strictEqual(draft.tradeInLoss, 50000);
+  assert.strictEqual(draft.purchaseType, '下取');
+});
+
+console.log('== AppraisalExtractionService: 車種/モデル/カラー/走行距離の正規化 ==');
+test('メーカー名を半角カタカナに変換', () => assert.strictEqual(sandbox.normalizeCarType_('トヨタ'), 'ﾄﾖﾀ'));
+test('独系メーカーはMB/AU/VWへ省略', () => {
+  assert.strictEqual(sandbox.normalizeCarType_('メルセデス・ベンツ'), 'MB');
+  assert.strictEqual(sandbox.normalizeCarType_('アウディ'), 'AU');
+  assert.strictEqual(sandbox.normalizeCarType_('フォルクスワーゲン'), 'VW');
+});
+test('独系モデルは「Aクラス180」→「A18」に短縮', () => assert.strictEqual(sandbox.normalizeModel_('MB', 'Aクラス 180'), 'A18'));
+test('独系以外のモデルはそのまま', () => assert.strictEqual(sandbox.normalizeModel_('ﾄﾖﾀ', 'アルファード'), 'アルファード'));
+test('カラーは漢字一文字に正規化', () => {
+  assert.strictEqual(sandbox.normalizeColor_('ブラックマイカ'), '黒');
+  assert.strictEqual(sandbox.normalizeColor_('パールホワイト'), '白');
+});
+test('走行距離は「00,000km」形式に整形', () => assert.strictEqual(sandbox.formatMileage_('62345'), '62,345km'));
+
+console.log('== OcrService: 日付・登録番号の正規化 ==');
+test('元号表記(令和)をyyyy/MM/ddへ変換', () => assert.strictEqual(sandbox.formatYearMonthDay_('令和7年5月31日'), '2025/05/31'));
+test('元号表記(令和)をyyyy/MMへ変換（日省略）', () => assert.strictEqual(sandbox.formatYearMonth_('令和7年5月'), '2025/05'));
+test('西暦表記をyyyy/MMへ変換', () => assert.strictEqual(sandbox.formatYearMonth_('2025年5月'), '2025/05'));
+test('西暦スラッシュ表記をyyyy/MM/ddへ変換', () => assert.strictEqual(sandbox.formatYearMonthDay_('2025/05/31'), '2025/05/31'));
+test('登録番号を4分割で抽出', () => {
+  const r = sandbox.extractRegistrationPlate_('自動車登録番号又は車両番号　岐阜330あ1234\n車台番号：ABC-1');
+  assert.strictEqual(r.plateRegion, '岐阜');
+  assert.strictEqual(r.plateClass, '330');
+  assert.strictEqual(r.plateKana, 'あ');
+  assert.strictEqual(r.plateNumber, '1234');
 });
 
 console.log('== OcrService: extractByLabels_（テンプレート抽出） ==');

@@ -395,6 +395,7 @@
         statusEl.innerHTML = '<span class="spinner"></span>読み取り中: ' + escapeHtml(file.name);
         gsRun('api_uploadAppraisalPdf', state.wizard.companyId, b64.data, b64.mimeType, file.name).then(function (draft) {
           Object.assign(state.wizard.draft, draft);
+          state.wizard.draft.appraisalTempFileId = draft.tempFileId;
           dz.classList.remove('is-busy');
           statusEl.innerHTML = '✅ 読み取り完了: ' + escapeHtml(file.name);
           renderOcrSummary(statusEl, [
@@ -404,6 +405,8 @@
             { label: '初年度登録', value: draft.firstRegistrationDate },
             { label: 'カラー', value: draft.color },
             { label: '走行距離', value: draft.mileage },
+            { label: '仕入区分', value: draft.purchaseType },
+            { label: '担当者', value: draft.staff },
             { label: '査定額', value: draft.appraisalAmount },
             { label: '買取金額', value: draft.purchaseAmount },
             { label: 'リサイクル金額', value: draft.recycleFee }
@@ -427,11 +430,18 @@
           state.wizard.draft.inspectionTempFileId = draft.tempFileId;
           if (draft.supplier) state.wizard.draft.supplier = draft.supplier;
           if (draft.address) state.wizard.draft.address = draft.address;
+          if (draft.inspectionExpiryDate) state.wizard.draft.inspectionExpiryDate = draft.inspectionExpiryDate;
+          if (draft.plateRegion) state.wizard.draft.plateRegion = draft.plateRegion;
+          if (draft.plateClass) state.wizard.draft.plateClass = draft.plateClass;
+          if (draft.plateKana) state.wizard.draft.plateKana = draft.plateKana;
+          if (draft.plateNumber) state.wizard.draft.plateNumber = draft.plateNumber;
           dz.classList.remove('is-busy');
           statusEl.innerHTML = '✅ 読み取り完了: ' + escapeHtml(file.name);
           renderOcrSummary(statusEl, [
             { label: '仕入先（顧客名）', value: draft.supplier },
-            { label: '住所', value: draft.address }
+            { label: '住所', value: draft.address },
+            { label: '車検満了日', value: draft.inspectionExpiryDate },
+            { label: '登録番号', value: [draft.plateRegion, draft.plateClass, draft.plateKana, draft.plateNumber].filter(Boolean).join(' ') }
           ]);
         }).catch(function (err) {
           dz.classList.remove('is-busy');

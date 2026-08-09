@@ -136,6 +136,69 @@ function ocrFileToTextViaVisionApi_(fileId) {
     .join('\n');
 }
 
+// ===== 日付表記の正規化（元号／西暦 → yyyy/MM, yyyy/MM/dd） =====
+var JP_ERA_START_YEAR_ = { '令和': 2018, '平成': 1988, '昭和': 1925, 'R': 2018, 'H': 1988, 'S': 1925 };
+
+/**
+ * 「令和7年5月31日」「R7.5.31」「2025年5月」「2025/05/31」等の表記から
+ * {year, month, day} を抽出する（純粋関数）。dayが無い表記の場合 day は null。
+ */
+function parseJapaneseDate_(raw) {
+  if (!raw) return null;
+  var text = String(raw).trim();
+
+  var eraMatch = text.match(/(令和|平成|昭和|[RHS])\s*([0-9]+)\s*[年.\/]\s*([0-9]+)\s*(?:[月.\/]\s*([0-9]+)\s*日?)?/);
+  if (eraMatch) {
+    var eraStart = JP_ERA_START_YEAR_[eraMatch[1]];
+    return {
+      year: eraStart + parseInt(eraMatch[2], 10),
+      month: parseInt(eraMatch[3], 10),
+      day: eraMatch[4] ? parseInt(eraMatch[4], 10) : null
+    };
+  }
+
+  var western = text.match(/([0-9]{4})\s*[年.\/-]\s*([0-9]{1,2})\s*(?:[月.\/-]\s*([0-9]{1,2})\s*日?)?/);
+  if (western) {
+    return {
+      year: parseInt(western[1], 10),
+      month: parseInt(western[2], 10),
+      day: western[3] ? parseInt(western[3], 10) : null
+    };
+  }
+
+  return null;
+}
+
+function pad2_(n) {
+  return (n < 10 ? '0' : '') + n;
+}
+
+function formatYearMonth_(raw) {
+  var d = parseJapaneseDate_(raw);
+  return d ? d.year + '/' + pad2_(d.month) : '';
+}
+
+function formatYearMonthDay_(raw) {
+  var d = parseJapaneseDate_(raw);
+  if (!d) return '';
+  return d.day ? (d.year + '/' + pad2_(d.month) + '/' + pad2_(d.day)) : (d.year + '/' + pad2_(d.month));
+}
+
+// ===== ナンバープレート（登録番号）抽出 =====
+/**
+ * 「品川330あ1234」のような登録番号表記を 地域／分類番号／ひらがな／一連番号 に分割する。
+ * 「登録番号」ラベル付近を優先的に探索し、無ければ全文から探索する（純粋関数）。
+ */
+function extractRegistrationPlate_(text) {
+  if (!text) return null;
+  var normalized = String(text).replace(/\r\n/g, '\n');
+  var labelIdx = normalized.search(/(自動車登録番号又は車両番号|登録番号)/);
+  var searchText = labelIdx !== -1 ? normalized.substr(labelIdx, 80) : normalized;
+  var m = searchText.match(/([一-龠]{1,4})\s*([0-9]{1,3})\s*([あ-んア-ン])\s*([0-9]{1,4}(?:-[0-9]{1,2})?)/);
+  if (!m) return null;
+  return { plateRegion: m[1], plateClass: m[2], plateKana: m[3], plateNumber: m[4] };
+}
+
 /**
  * OCRテキストからラベル文字列を目印に値を抽出する汎用テンプレート抽出関数（純粋関数）。
  *
