@@ -11,6 +11,14 @@
   <?!= include('html/Stylesheet'); ?>
 </head>
 <body>
+  <div id="loadingOverlay" class="loadingOverlay">
+    <? if (loadingImageUrl) { ?>
+      <img class="loadingOverlay__img" src="<?= loadingImageUrl ?>" alt="">
+    <? } ?>
+    <span class="loadingOverlay__spinner" aria-hidden="true"></span>
+    <p class="loadingOverlay__text">Now Loading</p>
+  </div>
+
   <div id="confettiLayer" class="confettiLayer" aria-hidden="true"></div>
 
   <div id="cmdkOverlay" class="cmdkOverlay is-hidden" aria-hidden="true">
@@ -415,6 +423,34 @@
           <div id="logoResult" class="result" role="status" aria-live="polite">
             <span id="logoSpinner" class="spinner is-hidden" aria-hidden="true"></span>
             <span id="logoResultText"></span>
+          </div>
+        </section>
+
+        <section class="card bento--span-12">
+          <div class="card__head">
+            <h2>起動画面（ローディング画面）</h2>
+            <p class="muted">
+              アプリを開いたときに一瞬表示される画面に、お好きな画像を表示できます。お使いの端末から画像ファイルを選ぶと自動的にGoogleドライブへ保存され、次回以降の起動時から表示されます。
+            </p>
+          </div>
+
+          <div class="field">
+            <label for="loadingImageInput">画像を選択</label>
+            <input type="file" id="loadingImageInput" accept="image/*">
+          </div>
+
+          <div class="logoPreview" id="loadingImagePreviewWrap">
+            <img id="loadingImagePreviewImg" class="logoPreview__img is-hidden" alt="プレビュー" onerror="this.classList.add('is-hidden')">
+            <span class="muted" id="loadingImagePreviewEmpty">プレビュー: 画像を選択すると表示されます</span>
+          </div>
+
+          <div class="submitBar__row">
+            <button type="button" id="btnClearLoadingImage" class="btn btn--ghost">画像を削除する</button>
+            <button type="button" id="btnSaveLoadingImage" class="btn btn--primary">この画像を保存する</button>
+          </div>
+          <div id="loadingImageResult" class="result" role="status" aria-live="polite">
+            <span id="loadingImageSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+            <span id="loadingImageResultText"></span>
           </div>
         </section>
       </div>

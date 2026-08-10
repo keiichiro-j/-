@@ -127,6 +127,32 @@ function saveLogoUrl(url) {
   return saveLogoUrl_(url);
 }
 
+/**
+ * 起動画面(ローディング画面)表示用。設定済みの画像URLを返す。
+ * @return {string}
+ */
+function getLoadingImageUrl() {
+  return getLoadingImageUrl_();
+}
+
+/**
+ * 「設定」画面の起動画面(ローディング画面)画像アップロード用。
+ * @param {string} base64Data
+ * @param {string} mimeType
+ * @param {string} fileName
+ * @return {string} 保存後の表示用URL
+ */
+function saveLoadingImage(base64Data, mimeType, fileName) {
+  return saveLoadingImage_(base64Data, mimeType, fileName);
+}
+
+/**
+ * 「設定」画面の起動画面(ローディング画面)画像削除ボタン用。
+ */
+function clearLoadingImage() {
+  clearLoadingImage_();
+}
+
 // 二重送信防止用トークンのキャッシュ保持時間(秒)。ボタン連打やネットワーク遅延による
 // 再送はほぼ数秒以内に発生するため、余裕をみて5分にしている。
 var SUBMISSION_TOKEN_TTL_SEC = 300;

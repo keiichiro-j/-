@@ -32,22 +32,44 @@ function formatDateStub(date, tz, pattern) {
 const capturedMails = [];
 const fakeScriptProperties = {};
 const fakeTriggers = [];
+const fakeDriveFiles = {}; // createFileで作られたファイルをid別に保持(トラッシュ状態・共有設定を含む)
+let fakeDriveFileSeq = 0;
 
 const sandbox = {
-  Utilities: { formatDate: formatDateStub },
+  Utilities: {
+    formatDate: formatDateStub,
+    base64Decode: (s) => Buffer.from(s, 'base64'),
+    newBlob: (bytes, mimeType, name) => ({ bytes: bytes, mimeType: mimeType, name: name, isFakeBlob: true })
+  },
   MailApp: {
     sendEmail: (opts) => { capturedMails.push(opts); }
   },
   DriveApp: {
     getFileById: (id) => {
-      if (id === 'MISSING_ID') throw new Error('ファイルが見つかりません');
-      return { getBlob: () => ({ fileId: id, isFakeBlob: true }) };
-    }
+      if (id === 'MISSING_ID' || (fakeDriveFiles[id] && fakeDriveFiles[id].trashed)) {
+        throw new Error('ファイルが見つかりません');
+      }
+      return {
+        getBlob: () => ({ fileId: id, isFakeBlob: true }),
+        setTrashed: (v) => { if (fakeDriveFiles[id]) fakeDriveFiles[id].trashed = v; }
+      };
+    },
+    createFile: (blob) => {
+      const id = 'FAKE_DRIVE_FILE_' + (++fakeDriveFileSeq);
+      fakeDriveFiles[id] = { blob: blob, sharing: null, trashed: false };
+      return {
+        getId: () => id,
+        setSharing: (access, permission) => { fakeDriveFiles[id].sharing = { access: access, permission: permission }; }
+      };
+    },
+    Access: { ANYONE_WITH_LINK: 'ANYONE_WITH_LINK' },
+    Permission: { VIEW: 'VIEW' }
   },
   PropertiesService: {
     getScriptProperties: () => ({
       getProperty: (key) => (key in fakeScriptProperties ? fakeScriptProperties[key] : null),
-      setProperty: (key, value) => { fakeScriptProperties[key] = value; }
+      setProperty: (key, value) => { fakeScriptProperties[key] = value; },
+      deleteProperty: (key) => { delete fakeScriptProperties[key]; }
     })
   },
   ScriptApp: {
@@ -661,6 +683,43 @@ test('Googleドライブの共有リンク(open?id=<ID>)も表示用サムネイ
 test('ドライブ共有リンク以外の直接画像URLはそのまま保存される', () => {
   const saved = sandbox.saveLogoUrl_('https://drive.google.com/thumbnail?id=XYZ&sz=w500');
   assert.strictEqual(saved, 'https://drive.google.com/thumbnail?id=XYZ&sz=w500');
+});
+
+console.log('== SettingsService: 起動画面(ローディング画面)の画像アップロード ==');
+test('未設定なら空文字を返す(画像なし)', () => {
+  delete fakeScriptProperties[sandbox.LOADING_IMAGE_URL_PROP_KEY];
+  assert.strictEqual(sandbox.getLoadingImageUrl_(), '');
+});
+test('画像(base64)をアップロードすると、ドライブのサムネイルURL形式で保存・取得できる', () => {
+  const saved = sandbox.saveLoadingImage_(Buffer.from('fake-image-bytes').toString('base64'), 'image/png', 'loading.png');
+  assert.ok(/^https:\/\/drive\.google\.com\/thumbnail\?id=FAKE_DRIVE_FILE_\d+&sz=w1000$/.test(saved));
+  assert.strictEqual(sandbox.getLoadingImageUrl_(), saved);
+});
+test('画像以外のMIMEタイプはエラーになり保存されない', () => {
+  delete fakeScriptProperties[sandbox.LOADING_IMAGE_URL_PROP_KEY];
+  assert.throws(() => sandbox.saveLoadingImage_(Buffer.from('x').toString('base64'), 'application/pdf', 'a.pdf'), /画像ファイル/);
+  assert.strictEqual(sandbox.getLoadingImageUrl_(), '');
+});
+test('base64データが空ならエラーになる', () => {
+  assert.throws(() => sandbox.saveLoadingImage_('', 'image/png', 'a.png'), /画像を選択/);
+});
+test('差し替えアップロード時、以前のドライブファイルはゴミ箱へ移動される', () => {
+  const first = sandbox.saveLoadingImage_(Buffer.from('one').toString('base64'), 'image/png', 'one.png');
+  const firstId = first.match(/id=([^&]+)/)[1];
+  sandbox.saveLoadingImage_(Buffer.from('two').toString('base64'), 'image/png', 'two.png');
+  assert.throws(() => sandbox.DriveApp.getFileById(firstId), /見つかりません/);
+});
+test('削除すると空文字に戻り、ドライブファイルもゴミ箱へ移動される', () => {
+  const saved = sandbox.saveLoadingImage_(Buffer.from('three').toString('base64'), 'image/png', 'three.png');
+  const savedId = saved.match(/id=([^&]+)/)[1];
+  sandbox.clearLoadingImage_();
+  assert.strictEqual(sandbox.getLoadingImageUrl_(), '');
+  assert.throws(() => sandbox.DriveApp.getFileById(savedId), /見つかりません/);
+});
+test('未設定の状態で削除してもエラーにならない', () => {
+  delete fakeScriptProperties[sandbox.LOADING_IMAGE_URL_PROP_KEY];
+  delete fakeScriptProperties[sandbox.LOADING_IMAGE_FILE_ID_PROP_KEY];
+  assert.doesNotThrow(() => sandbox.clearLoadingImage_());
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

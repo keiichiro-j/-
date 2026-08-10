@@ -76,3 +76,71 @@ function saveLogoUrl_(url) {
   PropertiesService.getScriptProperties().setProperty(LOGO_URL_PROP_KEY, trimmed);
   return trimmed;
 }
+
+var LOADING_IMAGE_URL_PROP_KEY = 'loadingImageUrl';
+var LOADING_IMAGE_FILE_ID_PROP_KEY = 'loadingImageFileId';
+var LOADING_IMAGE_MAX_BYTES_ = 5 * 1024 * 1024;
+
+/**
+ * 起動画面(ローディング画面)に表示する画像のURLを返す。未設定なら空文字(画像なし)。
+ * @return {string}
+ */
+function getLoadingImageUrl_() {
+  return PropertiesService.getScriptProperties().getProperty(LOADING_IMAGE_URL_PROP_KEY) || '';
+}
+
+/**
+ * 設定画面から選択された画像ファイル(base64)をGoogleドライブへアップロードし、
+ * 起動画面用の表示URLとして保存する。以前アップロードした画像があればゴミ箱へ移動する。
+ * @param {string} base64Data 画像データ(data:URLのヘッダー部分を除いたbase64文字列)
+ * @param {string} mimeType 画像のMIMEタイプ(例: image/png)
+ * @param {string} fileName 元のファイル名
+ * @return {string} 保存後の表示用URL
+ */
+function saveLoadingImage_(base64Data, mimeType, fileName) {
+  if (!base64Data) {
+    throw new Error('画像を選択してください');
+  }
+  if (!/^image\//i.test(mimeType || '')) {
+    throw new Error('画像ファイルを選択してください');
+  }
+
+  var bytes = Utilities.base64Decode(base64Data);
+  if (bytes.length > LOADING_IMAGE_MAX_BYTES_) {
+    throw new Error('画像サイズが大きすぎます(5MB以内にしてください)');
+  }
+
+  var blob = Utilities.newBlob(bytes, mimeType, fileName || 'loading-image');
+  var file = DriveApp.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  var url = 'https://drive.google.com/thumbnail?id=' + file.getId() + '&sz=w1000';
+
+  var props = PropertiesService.getScriptProperties();
+  var prevFileId = props.getProperty(LOADING_IMAGE_FILE_ID_PROP_KEY);
+  props.setProperty(LOADING_IMAGE_URL_PROP_KEY, url);
+  props.setProperty(LOADING_IMAGE_FILE_ID_PROP_KEY, file.getId());
+  removeLoadingImageFile_(prevFileId);
+
+  return url;
+}
+
+/**
+ * 起動画面用に設定されている画像を削除し、「画像なし」の状態に戻す。
+ */
+function clearLoadingImage_() {
+  var props = PropertiesService.getScriptProperties();
+  var prevFileId = props.getProperty(LOADING_IMAGE_FILE_ID_PROP_KEY);
+  removeLoadingImageFile_(prevFileId);
+  props.deleteProperty(LOADING_IMAGE_URL_PROP_KEY);
+  props.deleteProperty(LOADING_IMAGE_FILE_ID_PROP_KEY);
+}
+
+// 差し替え・削除時に以前のドライブファイルをゴミ箱へ移動する(既に削除済みなどのエラーは無視する)。
+function removeLoadingImageFile_(fileId) {
+  if (!fileId) return;
+  try {
+    DriveApp.getFileById(fileId).setTrashed(true);
+  } catch (e) {
+    // 既に手動で削除されている場合などは無視する
+  }
+}

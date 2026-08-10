@@ -330,7 +330,16 @@
   }
   document.getElementById('btnClear').addEventListener('click', resetForm);
 
+  // ---------- 起動画面(ローディング画面) ----------
+  // 画像・「Now Loading」表示はIndex.html側でページ生成時から表示済み。
+  // window.onload(＝ページの初期描画が整ったタイミング)でフェードアウトさせる。
+  function hideLoadingOverlay_() {
+    var overlay = document.getElementById('loadingOverlay');
+    if (overlay) overlay.classList.add('is-hidden');
+  }
+
   window.onload = function () {
+    hideLoadingOverlay_();
     for (var i = 0; i < INITIAL_VEHICLE_ROWS; i++) addVehicleRow();
     toggleRegDateMode();
     initHistoryDefaultRange_();
@@ -349,6 +358,7 @@
     });
     google.script.run.withSuccessHandler(populateSuggestions).getSuggestions();
     loadLogoUrl_();
+    loadLoadingImagePreview_();
 
     // ---------- 画期的ビジュアル: ライブ演出の初期化 ----------
     initLiveClock_();
@@ -1187,6 +1197,126 @@
         setLogoResult_('保存に失敗しました:\n' + error.message, 'error');
       })
       .saveLogoUrl(url);
+  });
+
+  // ---------- 設定画面: 起動画面(ローディング画面)の画像 ----------
+
+  var LOADING_IMAGE_MAX_BYTES_ = 5 * 1024 * 1024;
+  var loadingImageBase64_ = '';
+  var loadingImageMimeType_ = '';
+  var loadingImageFileName_ = '';
+
+  function updateLoadingImagePreview_(url) {
+    var img = document.getElementById('loadingImagePreviewImg');
+    var empty = document.getElementById('loadingImagePreviewEmpty');
+    if (!img || !empty) return;
+    if (url) {
+      img.src = url;
+      img.classList.remove('is-hidden');
+      empty.classList.add('is-hidden');
+    } else {
+      img.removeAttribute('src');
+      img.classList.add('is-hidden');
+      empty.classList.remove('is-hidden');
+    }
+  }
+
+  function loadLoadingImagePreview_() {
+    google.script.run
+      .withSuccessHandler(function (url) { updateLoadingImagePreview_(url); })
+      .getLoadingImageUrl();
+  }
+
+  function setLoadingImageResult_(text, kind) {
+    var el = document.getElementById('loadingImageResult');
+    el.className = 'result' + (kind ? ' -' + kind : '');
+    document.getElementById('loadingImageResultText').innerHTML = text;
+  }
+
+  function setLoadingImageProcessing_(on) {
+    document.getElementById('loadingImageSpinner').classList.toggle('is-hidden', !on);
+  }
+
+  // 選択直後にブラウザ側でプレビューを表示する(アップロード完了を待たなくても見た目を確認できるように)。
+  document.getElementById('loadingImageInput').addEventListener('change', function (e) {
+    var file = e.target.files && e.target.files[0];
+    loadingImageBase64_ = '';
+    loadingImageMimeType_ = '';
+    loadingImageFileName_ = '';
+    if (!file) return;
+
+    if (!/^image\//.test(file.type)) {
+      setLoadingImageResult_('画像ファイルを選択してください', 'error');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > LOADING_IMAGE_MAX_BYTES_) {
+      setLoadingImageResult_('画像サイズが大きすぎます（5MB以内にしてください）', 'error');
+      e.target.value = '';
+      return;
+    }
+
+    setLoadingImageResult_('', '');
+    var reader = new FileReader();
+    reader.onload = function () {
+      var dataUrl = String(reader.result);
+      loadingImageBase64_ = dataUrl.split(',')[1] || '';
+      loadingImageMimeType_ = file.type;
+      loadingImageFileName_ = file.name;
+      updateLoadingImagePreview_(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  });
+
+  document.getElementById('btnSaveLoadingImage').addEventListener('click', function () {
+    if (!loadingImageBase64_) {
+      setLoadingImageResult_('画像を選択してください', 'error');
+      return;
+    }
+    var btn = document.getElementById('btnSaveLoadingImage');
+    btn.disabled = true;
+    setLoadingImageProcessing_(true);
+    setLoadingImageResult_('アップロードしています…', 'pending');
+
+    google.script.run
+      .withSuccessHandler(function (url) {
+        btn.disabled = false;
+        setLoadingImageProcessing_(false);
+        document.getElementById('loadingImageInput').value = '';
+        loadingImageBase64_ = '';
+        updateLoadingImagePreview_(url);
+        setLoadingImageResult_('保存しました（次回の起動時から表示されます）', 'success');
+      })
+      .withFailureHandler(function (error) {
+        btn.disabled = false;
+        setLoadingImageProcessing_(false);
+        setLoadingImageResult_('保存に失敗しました:\n' + error.message, 'error');
+      })
+      .saveLoadingImage(loadingImageBase64_, loadingImageMimeType_, loadingImageFileName_);
+  });
+
+  document.getElementById('btnClearLoadingImage').addEventListener('click', function () {
+    if (!confirm('現在設定されている起動画面の画像を削除しますか？')) return;
+    var btn = document.getElementById('btnClearLoadingImage');
+    btn.disabled = true;
+    setLoadingImageProcessing_(true);
+    setLoadingImageResult_('削除しています…', 'pending');
+
+    google.script.run
+      .withSuccessHandler(function () {
+        btn.disabled = false;
+        setLoadingImageProcessing_(false);
+        document.getElementById('loadingImageInput').value = '';
+        loadingImageBase64_ = '';
+        updateLoadingImagePreview_('');
+        setLoadingImageResult_('削除しました', 'success');
+      })
+      .withFailureHandler(function (error) {
+        btn.disabled = false;
+        setLoadingImageProcessing_(false);
+        setLoadingImageResult_('削除に失敗しました:\n' + error.message, 'error');
+      })
+      .clearLoadingImage();
   });
 
   // ---------- 設定画面: テーマ(ライト/ダーク/自動) ----------
