@@ -67,6 +67,40 @@ function saveMailRecipients(recipients) {
   return saveMailRecipientsOnly_(recipients);
 }
 
+/**
+ * 「設定」画面の自動送信トグル用。現在の設定状態(ON/OFF)を返す。
+ * @return {boolean}
+ */
+function getDailyMailTriggerStatus() {
+  return isDailyMailTriggerEnabled_();
+}
+
+/**
+ * 「設定」画面の自動送信トグル用。トリガーの作成/削除を行い、切り替え後の状態を返す。
+ * @param {boolean} enabled
+ * @return {boolean}
+ */
+function setDailyMailTriggerEnabled(enabled) {
+  return setDailyMailTriggerEnabled_(!!enabled);
+}
+
+/**
+ * 「設定」画面・申請フォーム双方から呼ばれる。申請フォームの既定値(依頼会社名・担当責任者)を返す。
+ * @return {{company: string, manager: string}}
+ */
+function getDefaultFormValues() {
+  return getDefaultFormValues_();
+}
+
+/**
+ * 「設定」画面の既定値保存ボタン用。
+ * @param {{company: string, manager: string}} values
+ * @return {{company: string, manager: string}}
+ */
+function saveDefaultFormValues(values) {
+  return saveDefaultFormValues_(values);
+}
+
 // 二重送信防止用トークンのキャッシュ保持時間(秒)。ボタン連打やネットワーク遅延による
 // 再送はほぼ数秒以内に発生するため、余裕をみて5分にしている。
 var SUBMISSION_TOKEN_TTL_SEC = 300;

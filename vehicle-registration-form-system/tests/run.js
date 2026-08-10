@@ -28,9 +28,10 @@ function formatDateStub(date, tz, pattern) {
 
 // EmailService.gs用の最小フェイク。MailAppは送信内容を capturedMails に積むだけ、
 // DriveAppはファイルIDから固定のフェイクBlobを返すだけ、PropertiesServiceはメモリ上の
-// オブジェクトで代用する。
+// オブジェクトで代用する。ScriptAppはメモリ上のトリガー一覧を操作する最小実装。
 const capturedMails = [];
 const fakeScriptProperties = {};
+const fakeTriggers = [];
 
 const sandbox = {
   Utilities: { formatDate: formatDateStub },
@@ -49,11 +50,32 @@ const sandbox = {
       setProperty: (key, value) => { fakeScriptProperties[key] = value; }
     })
   },
+  ScriptApp: {
+    getProjectTriggers: () => fakeTriggers,
+    newTrigger: (handlerFunction) => {
+      const builder = {
+        timeBased: () => builder,
+        atHour: () => builder,
+        everyDays: () => builder,
+        inTimezone: () => builder,
+        create: () => {
+          const trigger = { getHandlerFunction: () => handlerFunction };
+          fakeTriggers.push(trigger);
+          return trigger;
+        }
+      };
+      return builder;
+    },
+    deleteTrigger: (trigger) => {
+      const idx = fakeTriggers.indexOf(trigger);
+      if (idx !== -1) fakeTriggers.splice(idx, 1);
+    }
+  },
   Logger: { log: () => {} }
 };
 vm.createContext(sandbox);
 
-const FILES = ['Constants.gs', 'ValidationService.gs', 'HistoryService.gs', 'TemplateService.gs', 'EmailService.gs'];
+const FILES = ['Constants.gs', 'ValidationService.gs', 'HistoryService.gs', 'TemplateService.gs', 'EmailService.gs', 'SettingsService.gs'];
 FILES.forEach((file) => {
   const code = fs.readFileSync(path.join(ROOT, file), 'utf8');
   vm.runInContext(code, sandbox, { filename: file });
@@ -533,6 +555,42 @@ test('不正なメールアドレスがあればエラーになり保存され�
   sandbox.saveMailRecipients_(['old@example.com']);
   assert.throws(() => sandbox.saveMailRecipientsOnly_(['not-an-email']), /メールアドレスの形式/);
   assert.deepStrictEqual(Array.from(sandbox.getSavedMailRecipients_()), ['old@example.com']); // 変更されない
+});
+
+console.log('== EmailService: 自動送信トリガーのON/OFF切り替え ==');
+test('初期状態はOFF(トリガー未設定)', () => {
+  fakeTriggers.length = 0;
+  assert.strictEqual(sandbox.isDailyMailTriggerEnabled_(), false);
+});
+test('ONにするとトリガーが1件作成される。何度ONにしても重複しない', () => {
+  fakeTriggers.length = 0;
+  assert.strictEqual(sandbox.setDailyMailTriggerEnabled_(true), true);
+  assert.strictEqual(sandbox.setDailyMailTriggerEnabled_(true), true);
+  assert.strictEqual(fakeTriggers.length, 1);
+});
+test('OFFにするとトリガーが削除される', () => {
+  fakeTriggers.length = 0;
+  sandbox.setDailyMailTriggerEnabled_(true);
+  assert.strictEqual(sandbox.setDailyMailTriggerEnabled_(false), false);
+  assert.strictEqual(fakeTriggers.length, 0);
+});
+
+console.log('== SettingsService: 申請フォームの既定値 ==');
+test('未設定なら空文字を返す', () => {
+  delete fakeScriptProperties[sandbox.DEFAULT_FORM_VALUES_PROP_KEY];
+  const result = sandbox.getDefaultFormValues_();
+  assert.deepStrictEqual({ company: result.company, manager: result.manager }, { company: '', manager: '' });
+});
+test('前後の空白を除いて保存し、取得できる', () => {
+  const saved = sandbox.saveDefaultFormValues_({ company: ' 岐阜ヤナセ株式会社 ', manager: ' 戸田 圭市朗 ' });
+  assert.deepStrictEqual({ company: saved.company, manager: saved.manager }, { company: '岐阜ヤナセ株式会社', manager: '戸田 圭市朗' });
+
+  const loaded = sandbox.getDefaultFormValues_();
+  assert.deepStrictEqual({ company: loaded.company, manager: loaded.manager }, { company: '岐阜ヤナセ株式会社', manager: '戸田 圭市朗' });
+});
+test('片方だけ空欄でも保存できる', () => {
+  const saved = sandbox.saveDefaultFormValues_({ company: '岐阜ヤナセ株式会社', manager: '' });
+  assert.deepStrictEqual({ company: saved.company, manager: saved.manager }, { company: '岐阜ヤナセ株式会社', manager: '' });
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

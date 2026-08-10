@@ -617,6 +617,34 @@
   }
   .mailSendBtn { width: 100%; }
 
+  /* ---------- 申請完了時の紙吹雪演出 ---------- */
+
+  .confettiLayer {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 999;
+  }
+  .confettiPiece {
+    position: absolute;
+    top: -12px;
+    width: 8px;
+    height: 14px;
+    border-radius: 2px;
+    opacity: 0.9;
+    animation-name: confettiFall;
+    animation-timing-function: cubic-bezier(0.35, 0, 0.65, 1);
+    animation-fill-mode: forwards;
+  }
+  @keyframes confettiFall {
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(80vh) rotate(560deg); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .confettiPiece { display: none; }
+  }
+
   @media (max-width: 700px) {
     .masthead { margin: 24px auto 20px; }
     .masthead__inner { padding: 28px 24px; }

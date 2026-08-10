@@ -10,6 +10,8 @@
   <?!= include('html/Stylesheet'); ?>
 </head>
 <body>
+  <div id="confettiLayer" class="confettiLayer" aria-hidden="true"></div>
+
   <header class="masthead">
     <div class="masthead__inner">
       <p class="eyebrow">Vehicle Registration Request</p>
@@ -283,6 +285,38 @@
         <div id="mailSettingsResult" class="result" role="status" aria-live="polite">
           <span id="mailSettingsSpinner" class="spinner is-hidden" aria-hidden="true"></span>
           <span id="mailSettingsResultText"></span>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card__head">
+          <h2>自動メール送信</h2>
+          <p class="muted">毎日17時台に、その日が送付日の送付書PDFを上の宛先へ自動でメール送信します。</p>
+        </div>
+        <button type="button" id="autoMailToggle" class="toggleBtn" aria-pressed="false">自動送信：OFF</button>
+      </section>
+
+      <section class="card">
+        <div class="card__head">
+          <h2>申請フォームの既定値</h2>
+          <p class="muted">よく使う依頼会社名・担当責任者を登録しておくと、申請フォームを開いたときに自動で入力されます（空欄の項目は自動入力しません）。</p>
+        </div>
+
+        <div class="fieldRow">
+          <div class="field">
+            <label for="defaultCompany">依頼会社名</label>
+            <input type="text" id="defaultCompany" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="defaultManager">担当責任者</label>
+            <input type="text" id="defaultManager" autocomplete="off">
+          </div>
+        </div>
+
+        <button type="button" id="btnSaveDefaults" class="btn btn--primary">既定値を保存する</button>
+        <div id="defaultsResult" class="result" role="status" aria-live="polite">
+          <span id="defaultsSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+          <span id="defaultsResultText"></span>
         </div>
       </section>
 

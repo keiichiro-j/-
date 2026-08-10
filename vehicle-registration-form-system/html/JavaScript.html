@@ -281,6 +281,7 @@
         document.getElementById('resultPdfPreviewFrame').src = buildPdfPreviewUrl_(pdfUrl);
         document.getElementById('resultPdfPreview').classList.remove('is-hidden');
         window.open(pdfUrl, '_blank');
+        celebrateSubmission_();
       })
       .withFailureHandler(function (error) {
         isSubmitting = false;
@@ -289,6 +290,23 @@
         setResult_('エラーが発生しました:\n' + error.message, 'error');
       })
       .processFormData(formData);
+  }
+
+  // 登録完了のお祝い演出。画面に一瞬だけ紙吹雪を降らせて自動的に消える。
+  var CONFETTI_COLORS = ['var(--accent)', 'var(--success)', 'var(--warning)', 'var(--shu)', 'var(--accent-dark)'];
+  function celebrateSubmission_() {
+    var layer = document.getElementById('confettiLayer');
+    if (!layer) return;
+    for (var i = 0; i < 60; i++) {
+      var piece = document.createElement('span');
+      piece.className = 'confettiPiece';
+      piece.style.left = (Math.random() * 100) + 'vw';
+      piece.style.background = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
+      piece.style.animationDelay = (Math.random() * 0.3) + 's';
+      piece.style.animationDuration = (1.1 + Math.random() * 0.6) + 's';
+      layer.appendChild(piece);
+    }
+    setTimeout(function () { layer.innerHTML = ''; }, 2200);
   }
 
   document.getElementById('mainForm').addEventListener('submit', submitForm);
@@ -307,6 +325,7 @@
     for (var i = 0; i < INITIAL_VEHICLE_ROWS; i++) addVehicleRow();
     setResult_('', '');
     hidePdfPreview_(document.getElementById('resultPdfPreview'), document.getElementById('resultPdfPreviewFrame'));
+    applyDefaultFormValues_();
   }
   document.getElementById('btnClear').addEventListener('click', resetForm);
 
@@ -317,6 +336,8 @@
     initPdfDefaultRange_();
     document.getElementById('mailSendDate').value = formatDateInput_(new Date());
     loadMailRecipients_();
+    loadDefaultFormValues_();
+    loadAutoMailStatus_();
     document.querySelectorAll('.tableScroll').forEach(function (el) {
       updateScrollShadow_(el);
       el.addEventListener('scroll', function () { updateScrollShadow_(el); });
@@ -762,6 +783,96 @@
         setMailSettingsResult_('保存に失敗しました:\n' + error.message, 'error');
       })
       .saveMailRecipients(recipients);
+  });
+
+  // ---------- 設定画面: 自動メール送信のON/OFF ----------
+
+  function setAutoMailToggle_(on) {
+    var btn = document.getElementById('autoMailToggle');
+    btn.classList.toggle('is-active', on);
+    btn.setAttribute('aria-pressed', on);
+    btn.textContent = on ? '自動送信：ON' : '自動送信：OFF';
+  }
+
+  function loadAutoMailStatus_() {
+    google.script.run
+      .withSuccessHandler(function (enabled) { setAutoMailToggle_(!!enabled); })
+      .withFailureHandler(function () { setAutoMailToggle_(false); })
+      .getDailyMailTriggerStatus();
+  }
+
+  document.getElementById('autoMailToggle').addEventListener('click', function () {
+    var btn = document.getElementById('autoMailToggle');
+    var next = !btn.classList.contains('is-active');
+    btn.disabled = true;
+    google.script.run
+      .withSuccessHandler(function (enabled) {
+        btn.disabled = false;
+        setAutoMailToggle_(enabled);
+      })
+      .withFailureHandler(function (error) {
+        btn.disabled = false;
+        alert('切り替えに失敗しました:\n' + error.message);
+      })
+      .setDailyMailTriggerEnabled(next);
+  });
+
+  // ---------- 設定画面: 申請フォームの既定値 ----------
+
+  var defaultFormValues_ = { company: '', manager: '' };
+
+  // 申請フォームの依頼会社名・担当責任者が空欄のときだけ、既定値を差し込む(既存の入力を上書きしない)
+  function applyDefaultFormValues_() {
+    var companyEl = document.getElementById('company');
+    var managerEl = document.getElementById('manager');
+    if (defaultFormValues_.company && !companyEl.value) companyEl.value = defaultFormValues_.company;
+    if (defaultFormValues_.manager && !managerEl.value) managerEl.value = defaultFormValues_.manager;
+  }
+
+  function loadDefaultFormValues_() {
+    google.script.run
+      .withSuccessHandler(function (values) {
+        defaultFormValues_ = values || { company: '', manager: '' };
+        document.getElementById('defaultCompany').value = defaultFormValues_.company;
+        document.getElementById('defaultManager').value = defaultFormValues_.manager;
+        applyDefaultFormValues_();
+      })
+      .getDefaultFormValues();
+  }
+
+  function setDefaultsResult_(text, kind) {
+    var el = document.getElementById('defaultsResult');
+    el.className = 'result' + (kind ? ' -' + kind : '');
+    document.getElementById('defaultsResultText').innerHTML = text;
+  }
+
+  function setDefaultsProcessing_(on) {
+    document.getElementById('defaultsSpinner').classList.toggle('is-hidden', !on);
+  }
+
+  document.getElementById('btnSaveDefaults').addEventListener('click', function () {
+    var values = {
+      company: document.getElementById('defaultCompany').value.trim(),
+      manager: document.getElementById('defaultManager').value.trim()
+    };
+    var btn = document.getElementById('btnSaveDefaults');
+    btn.disabled = true;
+    setDefaultsProcessing_(true);
+    setDefaultsResult_('保存しています…', 'pending');
+
+    google.script.run
+      .withSuccessHandler(function (saved) {
+        btn.disabled = false;
+        setDefaultsProcessing_(false);
+        defaultFormValues_ = saved;
+        setDefaultsResult_('保存しました', 'success');
+      })
+      .withFailureHandler(function (error) {
+        btn.disabled = false;
+        setDefaultsProcessing_(false);
+        setDefaultsResult_('保存に失敗しました:\n' + error.message, 'error');
+      })
+      .saveDefaultFormValues(values);
   });
 
   // ---------- 設定画面: テーマ(ライト/ダーク/自動) ----------

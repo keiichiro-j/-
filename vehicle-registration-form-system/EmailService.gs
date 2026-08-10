@@ -190,3 +190,27 @@ function removeDailyMailTrigger() {
     }
   });
 }
+
+/**
+ * 毎日自動送信トリガーが現在設定されているかどうかを返す(「設定」画面のトグル表示用)。
+ * @return {boolean}
+ */
+function isDailyMailTriggerEnabled_() {
+  return ScriptApp.getProjectTriggers().some(function (t) {
+    return t.getHandlerFunction() === 'sendTodaysPdfsByEmailAutomatically';
+  });
+}
+
+/**
+ * 「設定」画面のトグル操作から呼ばれる。enabledに応じてトリガーを作成/削除する。
+ * @param {boolean} enabled
+ * @return {boolean} 切り替え後の状態
+ */
+function setDailyMailTriggerEnabled_(enabled) {
+  if (enabled) {
+    setupDailyMailTrigger();
+  } else {
+    removeDailyMailTrigger();
+  }
+  return isDailyMailTriggerEnabled_();
+}
