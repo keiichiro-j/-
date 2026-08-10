@@ -357,6 +357,7 @@
     initCardGlow_();
     initCardTilt_();
     initRipple_();
+    scheduleShootingStars_();
   };
 
   // ---------- スマホ対応: 横スクロールする車両テーブルの操作性補助 ----------
@@ -474,6 +475,36 @@
       btn.appendChild(span);
       setTimeout(function () { span.remove(); }, 650);
     });
+  }
+
+  // オーロラ背景を時々横切る流れ星を1つ生成する(.auroraLayer内に追加し、
+  // アニメーション終了後は自動的にDOMから取り除く)。
+  function spawnShootingStar_() {
+    var layer = document.querySelector('.auroraLayer');
+    if (!layer) return;
+    var star = document.createElement('span');
+    star.className = 'shootingStar';
+    var startTop = 5 + Math.random() * 40; // 画面上部寄りから流れ始める
+    var startLeft = Math.random() * 60;
+    var angle = 12 + Math.random() * 16; // 右斜め下方向へ
+    var dx = 55 + Math.random() * 30;
+    var dy = 25 + Math.random() * 20;
+    star.style.top = startTop + 'vh';
+    star.style.left = startLeft + 'vw';
+    star.style.setProperty('--star-angle', angle + 'deg');
+    star.style.setProperty('--star-dx', dx + 'vw');
+    star.style.setProperty('--star-dy', dy + 'vh');
+    layer.appendChild(star);
+    setTimeout(function () { star.remove(); }, 1700);
+  }
+
+  // 4〜11秒のランダムな間隔で流れ星を生成し続ける(prefers-reduced-motionが有効な環境では発生させない)。
+  function scheduleShootingStars_() {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    setTimeout(function () {
+      spawnShootingStar_();
+      scheduleShootingStars_();
+    }, 4000 + Math.random() * 7000);
   }
 
   // ---------- 画期的ビジュアル: 生きた時計 / 常時アクティビティ表示 ----------

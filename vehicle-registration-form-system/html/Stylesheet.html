@@ -141,19 +141,49 @@
     border-radius: 50%;
     filter: blur(90px);
     opacity: var(--aurora-opacity);
-    animation: auroraDrift 26s ease-in-out infinite alternate;
+    animation: auroraDrift 46s linear infinite;
   }
   .auroraBlob--1 { top: -12%; left: -10%; background: var(--aurora-1); animation-delay: 0s; }
-  .auroraBlob--2 { top: 6%; right: -14%; background: var(--aurora-2); animation-delay: -7s; }
-  .auroraBlob--3 { bottom: -16%; left: 18%; background: var(--aurora-3); animation-delay: -14s; }
-  .auroraBlob--4 { bottom: 4%; right: 8%; width: 32vw; height: 32vw; max-width: 400px; max-height: 400px; background: var(--aurora-4); animation-delay: -20s; }
+  .auroraBlob--2 { top: 6%; right: -14%; background: var(--aurora-2); animation-delay: -12s; animation-direction: reverse; }
+  .auroraBlob--3 { bottom: -16%; left: 18%; background: var(--aurora-3); animation-delay: -24s; }
+  .auroraBlob--4 { bottom: 4%; right: 8%; width: 32vw; height: 32vw; max-width: 400px; max-height: 400px; background: var(--aurora-4); animation-delay: -34s; animation-direction: reverse; }
   @keyframes auroraDrift {
     0% { transform: translate(0, 0) scale(1); }
-    50% { transform: translate(4%, 6%) scale(1.08); }
-    100% { transform: translate(-3%, -4%) scale(0.95); }
+    20% { transform: translate(5%, 7%) scale(1.1); }
+    40% { transform: translate(9%, -3%) scale(0.95); }
+    60% { transform: translate(2%, -8%) scale(1.05); }
+    80% { transform: translate(-6%, -2%) scale(0.92); }
+    100% { transform: translate(0, 0) scale(1); }
   }
   @media (prefers-reduced-motion: reduce) {
     .auroraBlob { animation: none; }
+  }
+
+  /* ---------- 流れ星(オーロラ背景を時々横切る演出) ---------- */
+
+  .shootingStar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 160px;
+    height: 2px;
+    z-index: -1;
+    pointer-events: none;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0));
+    border-radius: 999px;
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.8));
+    opacity: 0;
+    will-change: transform, opacity;
+    animation: shootingStarFly 1.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  }
+  @keyframes shootingStarFly {
+    0% { opacity: 0; transform: translate(0, 0) rotate(var(--star-angle, 18deg)) scaleX(0.3); }
+    8% { opacity: 1; transform: translate(6vw, 3vh) rotate(var(--star-angle, 18deg)) scaleX(1); }
+    80% { opacity: 1; }
+    100% { opacity: 0; transform: translate(var(--star-dx, 70vw), var(--star-dy, 34vh)) rotate(var(--star-angle, 18deg)) scaleX(1); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .shootingStar { display: none; }
   }
 
   /* ---------- masthead(ガラス質、控えめなアクセントラインのみ) ---------- */
