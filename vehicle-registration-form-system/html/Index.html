@@ -272,9 +272,12 @@
 
     <div id="viewDashboard" class="is-hidden">
       <section class="card">
-        <div class="card__head">
-          <h2>申請ダッシュボード</h2>
-          <p class="muted">月ごとの申請状況を、ブランド（MB/AU）・種別（OSS/紙）別に一目で確認できます。</p>
+        <div class="card__head card__head--split">
+          <div>
+            <h2>申請ダッシュボード</h2>
+            <p class="muted">対象月に送付した送付書PDFを、使用者名とあわせて一覧で確認できます。</p>
+          </div>
+          <span class="badge" id="dashEntriesCountBadge">0 件</span>
         </div>
 
         <div class="filterBar">
@@ -290,87 +293,26 @@
               <option value="AU">AU</option>
             </select>
           </div>
-          <div class="filterGroup">
-            <label class="filterGroup__label" for="dashType">種別</label>
-            <select id="dashType">
-              <option value="">すべて</option>
-              <option value="OSS">OSS</option>
-              <option value="紙">紙</option>
-            </select>
-          </div>
-          <label class="filterCheck">
-            <input type="checkbox" id="dashIncludeCancelled">
-            <span>取消分も含める</span>
-          </label>
-          <label class="filterCheck">
-            <input type="checkbox" id="dashIncludePending">
-            <span>登録日未定も含める</span>
-          </label>
           <button type="button" id="btnDashRefresh" class="btn btn--ghost filterBar__submit">表示</button>
         </div>
 
-        <div class="dashStats" id="dashStats"></div>
-        <p class="muted is-hidden" id="dashZeroHint" style="margin-top:12px;"></p>
-      </section>
-
-      <div class="dashGrid">
-        <section class="card dashChartCard">
-          <h3 class="dashChartCard__title">ブランド内訳</h3>
-          <div id="dashBrandChart" class="barChart"></div>
-        </section>
-        <section class="card dashChartCard">
-          <h3 class="dashChartCard__title">種別内訳</h3>
-          <div id="dashTypeChart" class="barChart"></div>
-        </section>
-      </div>
-
-      <section class="card dashChartCard">
-        <h3 class="dashChartCard__title">種別 × ブランド マトリクス</h3>
-        <div class="tableScroll">
-          <table id="dashMatrixTable">
-            <thead>
-              <tr>
-                <th></th>
-                <th>MB</th>
-                <th>AU</th>
-                <th>未設定</th>
-                <th>合計</th>
-              </tr>
-            </thead>
-            <tbody id="dashMatrixBody"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="card dashChartCard">
-        <h3 class="dashChartCard__title">日別 車両台数推移（登録日ベース）</h3>
-        <div id="dashTrendChart" class="trendChart"></div>
-        <p class="muted historyEmptyMsg" id="dashEmptyMsg">この月の登録日が確定しているデータはまだありません（「登録日未定も含める」もお試しください）。</p>
-      </section>
-
-      <section class="card dashChartCard">
-        <div class="card__head card__head--split">
-          <div>
-            <h3 class="dashChartCard__title">登録者一覧（使用者名・登録日）</h3>
-            <p class="muted">上の絞り込み条件に該当する使用者名と登録日の一覧です（登録日の新しい順）。</p>
-          </div>
-          <span class="badge" id="dashEntriesCountBadge">0 件</span>
-        </div>
         <div class="tableScroll tableScroll--dashEntries">
           <table id="dashEntriesTable">
             <thead>
               <tr>
-                <th>登録日</th>
+                <th>送付日</th>
+                <th>送付便</th>
                 <th class="colWide">使用者名</th>
                 <th>ブランド</th>
                 <th>種別</th>
                 <th class="colWide">依頼会社名</th>
+                <th>PDF</th>
               </tr>
             </thead>
             <tbody id="dashEntriesBody"></tbody>
           </table>
         </div>
-        <p class="muted historyEmptyMsg" id="dashEntriesEmptyMsg">該当する登録がありません（「登録日未定も含める」もお試しください）。</p>
+        <p class="muted historyEmptyMsg" id="dashEntriesEmptyMsg">該当するデータがありません。</p>
       </section>
     </div>
   </div>

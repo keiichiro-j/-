@@ -520,116 +520,101 @@ test('保存済みの宛先へ、指定日のPDFを送信する', () => {
 });
 
 console.log('== DashboardService: getDashboardData_ ==');
-test('月内の車両行をブランド・種別ごとに集計する(取消は既定で除外)', () => {
+test('送付日が対象月の申請を、申請単位(使用者名の配列)でまとめて返す', () => {
   const header = sandbox.HISTORY_HEADER_ROW;
   const rows = [
-    makeHistoryFullRow({ submissionId: 'uuid-1', type: 'OSS', brand: 'MB', regDate: new Date(2026, 7, 1) }),
-    makeHistoryFullRow({ submissionId: 'uuid-1', type: 'OSS', brand: 'MB', regDate: new Date(2026, 7, 1) }), // 同一申請の2台目
-    makeHistoryFullRow({ submissionId: 'uuid-2', type: 'OSS', brand: 'AU', regDate: new Date(2026, 7, 2) }),
-    makeHistoryFullRow({ submissionId: 'uuid-3', type: '紙', brand: 'MB', regDate: new Date(2026, 7, 3) }),
-    makeHistoryFullRow({ submissionId: 'uuid-4', type: '紙', brand: '', regDate: new Date(2026, 7, 4) }),
-    makeHistoryFullRow({ submissionId: 'uuid-5', type: 'OSS', brand: 'MB', regDate: new Date(2026, 7, 5), status: sandbox.SUBMISSION_STATUS_CANCELLED })
+    makeHistoryFullRow({ submissionId: 'uuid-1', userName: '岐阜 太郎', brand: 'MB', sendDate: new Date(2026, 7, 5) }),
+    makeHistoryFullRow({ submissionId: 'uuid-1', userName: '岐阜 次郎', brand: 'MB', sendDate: new Date(2026, 7, 5) }), // 同一申請の2台目
+    makeHistoryFullRow({ submissionId: 'uuid-2', userName: '岐阜 花子', brand: 'AU', sendDate: new Date(2026, 7, 10) })
   ];
   const sheet = makeMutableSheet('2026-08', header, rows);
   const ss = makeFakeSpreadsheet([sheet]);
 
   const result = sandbox.getDashboardData_(ss, '2026-08', {});
+  assert.strictEqual(result.totalSubmissions, 2);
 
-  assert.strictEqual(result.totalVehicles, 5); // 取消の1台は除外
-  assert.strictEqual(result.totalSubmissions, 4); // uuid-1〜4(uuid-5は取消で除外)
-  assert.strictEqual(result.cancelledVehicles, 0); // includeCancelled=falseなので既に除外済み
-  assert.strictEqual(result.byBrand.MB, 3);
-  assert.strictEqual(result.byBrand.AU, 1);
-  assert.strictEqual(result.byBrand['未設定'], 1);
-  assert.strictEqual(result.byType.OSS, 3);
-  assert.strictEqual(result.byType['紙'], 2);
-  assert.strictEqual(result.matrix.OSS.MB, 2);
-  assert.strictEqual(result.matrix.OSS.AU, 1);
-  assert.strictEqual(result.matrix['紙'].MB, 1);
-  assert.strictEqual(result.matrix['紙']['未設定'], 1);
-});
-test('includeCancelled指定で取消分も件数に含める', () => {
-  const header = sandbox.HISTORY_HEADER_ROW;
-  const rows = [
-    makeHistoryFullRow({ submissionId: 'uuid-1', type: 'OSS', brand: 'MB', regDate: new Date(2026, 7, 1) }),
-    makeHistoryFullRow({ submissionId: 'uuid-2', type: 'OSS', brand: 'MB', regDate: new Date(2026, 7, 2), status: sandbox.SUBMISSION_STATUS_CANCELLED })
-  ];
-  const sheet = makeMutableSheet('2026-08', header, rows);
-  const ss = makeFakeSpreadsheet([sheet]);
-
-  const result = sandbox.getDashboardData_(ss, '2026-08', { includeCancelled: true });
-  assert.strictEqual(result.totalVehicles, 2);
-  assert.strictEqual(result.cancelledVehicles, 1);
-});
-test('ブランド・種別で絞り込める', () => {
-  const header = sandbox.HISTORY_HEADER_ROW;
-  const rows = [
-    makeHistoryFullRow({ submissionId: 'uuid-1', type: 'OSS', brand: 'MB', regDate: new Date(2026, 7, 1) }),
-    makeHistoryFullRow({ submissionId: 'uuid-2', type: '紙', brand: 'AU', regDate: new Date(2026, 7, 2) })
-  ];
-  const sheet = makeMutableSheet('2026-08', header, rows);
-  const ss = makeFakeSpreadsheet([sheet]);
-
-  const onlyMb = sandbox.getDashboardData_(ss, '2026-08', { brand: 'MB' });
-  assert.strictEqual(onlyMb.totalVehicles, 1);
-  assert.strictEqual(onlyMb.byBrand.MB, 1);
-
-  const onlyPaper = sandbox.getDashboardData_(ss, '2026-08', { type: '紙' });
-  assert.strictEqual(onlyPaper.totalVehicles, 1);
-  assert.strictEqual(onlyPaper.byType['紙'], 1);
-});
-test('日別の車両台数を登録日ベースで集計する', () => {
-  const header = sandbox.HISTORY_HEADER_ROW;
-  const rows = [
-    makeHistoryFullRow({ submissionId: 'uuid-1', regDate: new Date(2026, 7, 1) }),
-    makeHistoryFullRow({ submissionId: 'uuid-2', regDate: new Date(2026, 7, 1) }),
-    makeHistoryFullRow({ submissionId: 'uuid-3', regDate: new Date(2026, 7, 3) })
-  ];
-  const sheet = makeMutableSheet('2026-08', header, rows);
-  const ss = makeFakeSpreadsheet([sheet]);
-
-  const result = sandbox.getDashboardData_(ss, '2026-08', {});
-  // 別Realmのオブジェクト配列をホスト側realmの単純オブジェクトへ詰め替えてから比較する
-  const dailyCounts = Array.from(result.dailyCounts, (d) => ({ date: d.date, count: d.count }));
-  assert.deepStrictEqual(dailyCounts, [
-    { date: '2026-08-01', count: 2 },
-    { date: '2026-08-03', count: 1 }
-  ]);
-});
-test('登録者一覧(使用者名・登録日)を登録日の新しい順に返す(登録日未定は末尾)', () => {
-  const header = sandbox.HISTORY_HEADER_ROW;
-  const rows = [
-    makeHistoryFullRow({ submissionId: 'uuid-1', userName: '岐阜 太郎', type: 'OSS', brand: 'MB', regDate: new Date(2026, 7, 1) }),
-    makeHistoryFullRow({ submissionId: 'uuid-2', userName: '岐阜 花子', type: '紙', brand: 'AU', regDate: new Date(2026, 7, 10) })
-  ];
-  const pendingRow = makeHistoryFullRow({ submissionId: 'uuid-3', userName: '岐阜 次郎', type: 'OSS', brand: '', regDate: '' });
-  const sheet = makeMutableSheet('2026-08', header, rows);
-  const pendingSheet = makeMutableSheet(sandbox.HISTORY_PENDING_TAB_NAME, header, [pendingRow]);
-  const ss = makeFakeSpreadsheet([sheet, pendingSheet]);
-
-  const result = sandbox.getDashboardData_(ss, '2026-08', { includePending: true });
-  const names = Array.from(result.entries, (e) => e.userName);
-  assert.deepStrictEqual(names, ['岐阜 花子', '岐阜 太郎', '岐阜 次郎']); // 新しい順、登録日未定は末尾
-
-  const first = result.entries[0];
-  assert.strictEqual(first.regDate, '2026-08-10');
-  assert.strictEqual(first.brand, 'AU');
-  assert.strictEqual(first.type, '紙');
+  // getHistoryEntries_はタブ内の行を新しい順(追記の逆順)に返すため、使用者名もその順になる
+  const first = result.entries.find((e) => e.submissionId === 'uuid-1');
+  assert.deepStrictEqual(Array.from(first.userNames), ['岐阜 次郎', '岐阜 太郎']);
+  assert.deepStrictEqual(Array.from(first.brandList), ['MB']);
+  assert.strictEqual(first.sendDate, '2026-08-05');
   assert.strictEqual(first.company, '岐阜ヤナセ株式会社');
+  assert.strictEqual(first.pdfUrl, 'https://drive.google.com/file/d/FAKE_ID/view');
+});
+test('送付日の新しい順に並ぶ', () => {
+  const header = sandbox.HISTORY_HEADER_ROW;
+  const rows = [
+    makeHistoryFullRow({ submissionId: 'uuid-1', sendDate: new Date(2026, 7, 3) }),
+    makeHistoryFullRow({ submissionId: 'uuid-2', sendDate: new Date(2026, 7, 20) })
+  ];
+  const sheet = makeMutableSheet('2026-08', header, rows);
+  const ss = makeFakeSpreadsheet([sheet]);
 
-  const pending = result.entries[2];
-  assert.strictEqual(pending.regDate, '');
-  assert.strictEqual(pending.brand, '未設定');
+  const result = sandbox.getDashboardData_(ss, '2026-08', {});
+  const ids = Array.from(result.entries, (e) => e.submissionId);
+  assert.deepStrictEqual(ids, ['uuid-2', 'uuid-1']);
+});
+test('取消済みの申請も一覧には残る(statusで判別できる)', () => {
+  const header = sandbox.HISTORY_HEADER_ROW;
+  const rows = [
+    makeHistoryFullRow({ submissionId: 'uuid-1', sendDate: new Date(2026, 7, 5), status: sandbox.SUBMISSION_STATUS_CANCELLED })
+  ];
+  const sheet = makeMutableSheet('2026-08', header, rows);
+  const ss = makeFakeSpreadsheet([sheet]);
+
+  const result = sandbox.getDashboardData_(ss, '2026-08', {});
+  assert.strictEqual(result.totalSubmissions, 1);
+  assert.strictEqual(result.entries[0].status, sandbox.SUBMISSION_STATUS_CANCELLED);
+});
+test('ブランドで絞り込める(申請内のいずれかの車両が該当ブランドなら含める)', () => {
+  const header = sandbox.HISTORY_HEADER_ROW;
+  const rows = [
+    makeHistoryFullRow({ submissionId: 'uuid-1', brand: 'MB', sendDate: new Date(2026, 7, 5) }),
+    makeHistoryFullRow({ submissionId: 'uuid-1', brand: 'AU', sendDate: new Date(2026, 7, 5) }), // 同一申請内に混在
+    makeHistoryFullRow({ submissionId: 'uuid-2', brand: 'MB', sendDate: new Date(2026, 7, 6) })
+  ];
+  const sheet = makeMutableSheet('2026-08', header, rows);
+  const ss = makeFakeSpreadsheet([sheet]);
+
+  const onlyAu = sandbox.getDashboardData_(ss, '2026-08', { brand: 'AU' });
+  assert.strictEqual(onlyAu.totalSubmissions, 1); // AUを含むのはuuid-1のみ
+  assert.strictEqual(onlyAu.entries[0].submissionId, 'uuid-1');
+
+  const all = sandbox.getDashboardData_(ss, '2026-08', {});
+  assert.strictEqual(all.totalSubmissions, 2);
+});
+test('送付日が対象月外の申請は含まれない', () => {
+  const header = sandbox.HISTORY_HEADER_ROW;
+  const rows = [
+    makeHistoryFullRow({ submissionId: 'uuid-in', sendDate: new Date(2026, 7, 1) }),
+    makeHistoryFullRow({ submissionId: 'uuid-out', sendDate: new Date(2026, 8, 1) })
+  ];
+  const sheet = makeMutableSheet('2026-08', header, rows);
+  const ss = makeFakeSpreadsheet([sheet]);
+
+  const result = sandbox.getDashboardData_(ss, '2026-08', {});
+  assert.strictEqual(result.totalSubmissions, 1);
+  assert.strictEqual(result.entries[0].submissionId, 'uuid-in');
+});
+test('登録日未定タブの申請も、送付日が対象月なら含まれる(送付日は必須項目のため)', () => {
+  const header = sandbox.HISTORY_HEADER_ROW;
+  const pendingRow = makeHistoryFullRow({ submissionId: 'uuid-pending', userName: '岐阜 次郎', regDate: '', sendDate: new Date(2026, 7, 8) });
+  const pendingSheet = makeMutableSheet(sandbox.HISTORY_PENDING_TAB_NAME, header, [pendingRow]);
+  const ss = makeFakeSpreadsheet([pendingSheet]);
+
+  const result = sandbox.getDashboardData_(ss, '2026-08', {});
+  assert.strictEqual(result.totalSubmissions, 1);
+  assert.strictEqual(result.entries[0].submissionId, 'uuid-pending');
 });
 test('対象月の形式が不正ならエラー', () => {
   const ss = makeFakeSpreadsheet([]);
   assert.throws(() => sandbox.getDashboardData_(ss, '2026/08', {}), /対象月/);
 });
-test('存在しない月を指定すると全て0件で返る(エラーにならない)', () => {
+test('存在しない月を指定すると0件で返る(エラーにならない)', () => {
   const ss = makeFakeSpreadsheet([]);
   const result = sandbox.getDashboardData_(ss, '2099-01', {});
-  assert.strictEqual(result.totalVehicles, 0);
   assert.strictEqual(result.totalSubmissions, 0);
+  assert.deepStrictEqual(Array.from(result.entries), []);
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

@@ -1,19 +1,16 @@
 /**
  * DashboardService.gs
- * 月次ダッシュボード集計。指定した月(登録日ベース)の車両行を、
- * ブランド(MB/AU)・種別(OSS/紙)別に集計し、日別の推移も返す。
+ * 申請ダッシュボード。指定した月に「送付」した送付書PDFを、使用者名とあわせて一覧で返す。
+ * 送付日はフォームの必須項目のため（登録日と違い未確定になり得ない）、この一覧には
+ * その月に送付した申請が漏れなく含まれる。
  */
 
 /**
- * 指定した月の履歴タブ(+任意で「登録日未定」タブ)を対象に集計する。
  * @param {Spreadsheet} ss
  * @param {string} month "YYYY-MM"
  * @param {Object} filters
- *   @param {string} [filters.brand] "MB"|"AU"|"未設定" を指定すると絞り込む(空文字ならすべて)
- *   @param {string} [filters.type] "OSS"|"紙" を指定すると絞り込む(空文字ならすべて)
- *   @param {boolean} [filters.includeCancelled] 取消済みの行も集計に含めるか(既定false)
- *   @param {boolean} [filters.includePending] 「登録日未定」タブの行も含めるか(既定false)
- * @return {Object} 集計結果
+ *   @param {string} [filters.brand] "MB"|"AU" を指定すると、該当ブランドの車両を含む申請だけに絞り込む(空文字ならすべて)
+ * @return {Object} { month, totalSubmissions, entries }
  */
 function getDashboardData_(ss, month, filters) {
   filters = filters || {};
@@ -21,122 +18,71 @@ function getDashboardData_(ss, month, filters) {
     throw new Error('対象月を正しく指定してください');
   }
 
-  var header = HISTORY_HEADER_ROW;
-  var idx = {
-    submissionId: header.indexOf('submissionId'),
-    type: header.indexOf('種別'),
-    regDate: header.indexOf('登録日'),
-    userName: header.indexOf('使用者名'),
-    brand: header.indexOf('ブランド'),
-    company: header.indexOf('依頼会社名'),
-    status: header.indexOf('状態')
-  };
-
-  // 月次タブを名前で直接引くのではなく、実在する全ての月次タブを横断して、
-  // 各行の「登録日」の実際の値が対象月に入っているかどうかで判定する
-  // (タブ名と実際の登録日がずれていても、履歴確認画面と同じ結果になるようにするため)。
   var monthStart = month + '-01';
   var daysInMonth = new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).getDate();
   var monthEnd = month + '-' + String(daysInMonth).padStart(2, '0');
 
-  var rows = [];
+  var header = HISTORY_HEADER_ROW;
+  var idx = {
+    submissionId: header.indexOf('submissionId'),
+    type: header.indexOf('種別'),
+    company: header.indexOf('依頼会社名'),
+    sendDate: header.indexOf('送付日'),
+    sendBatch: header.indexOf('送付便'),
+    userName: header.indexOf('使用者名'),
+    brand: header.indexOf('ブランド'),
+    pdfUrl: header.indexOf('送付書PDF'),
+    status: header.indexOf('状態')
+  };
+
+  // 送付日が対象月に入っている行を、全ての履歴タブ(登録日未定タブを含む)から集め、
+  // 申請(submissionId)単位にまとめる。送付日は必須項目のため、登録日と違って
+  // 「登録日未定」タブの行もここでは漏れなく拾える。
+  var bySubmission = {};
   getAllHistoryTabNames_(ss).forEach(function (name) {
-    if (name === HISTORY_PENDING_TAB_NAME) return; // 登録日未定タブは下でfilters.includePending時のみ追加する
     getHistoryEntries_(ss, name).rows.forEach(function (row) {
-      var regDateStr = row[idx.regDate];
-      if (!isValidDateStr_(regDateStr)) return;
-      if (regDateStr < monthStart || regDateStr > monthEnd) return;
-      rows.push(row);
+      var sendDateStr = row[idx.sendDate];
+      if (!isValidDateStr_(sendDateStr)) return;
+      if (sendDateStr < monthStart || sendDateStr > monthEnd) return;
+
+      var id = row[idx.submissionId];
+      if (!bySubmission[id]) {
+        bySubmission[id] = {
+          submissionId: id,
+          sendDate: sendDateStr,
+          sendBatch: row[idx.sendBatch] || '',
+          type: row[idx.type] || '',
+          company: row[idx.company] || '',
+          userNames: [],
+          brands: {},
+          pdfUrl: row[idx.pdfUrl] || '',
+          status: row[idx.status] || SUBMISSION_STATUS_ACTIVE
+        };
+      }
+      if (row[idx.userName]) bySubmission[id].userNames.push(row[idx.userName]);
+      bySubmission[id].brands[row[idx.brand] || '未設定'] = true;
     });
   });
-  if (filters.includePending) {
-    rows = rows.concat(getHistoryEntries_(ss, HISTORY_PENDING_TAB_NAME).rows);
+
+  var entries = Object.keys(bySubmission).map(function (id) { return bySubmission[id]; });
+
+  if (filters.brand) {
+    entries = entries.filter(function (e) { return !!e.brands[filters.brand]; });
   }
 
-  rows = rows.filter(function (row) {
-    if (!filters.includeCancelled && row[idx.status] === SUBMISSION_STATUS_CANCELLED) return false;
-    var brand = row[idx.brand] || '未設定';
-    if (filters.brand && brand !== filters.brand) return false;
-    if (filters.type && row[idx.type] !== filters.type) return false;
-    return true;
+  entries.forEach(function (e) {
+    e.brandList = Object.keys(e.brands);
+    delete e.brands;
   });
 
-  var byBrand = { MB: 0, AU: 0, '未設定': 0 };
-  var byType = { OSS: 0, '紙': 0 };
-  var matrix = {
-    OSS: { MB: 0, AU: 0, '未設定': 0 },
-    '紙': { MB: 0, AU: 0, '未設定': 0 }
-  };
-  var submissionIds = {};
-  var cancelledVehicles = 0;
-  var dailyCountsMap = {};
-
-  rows.forEach(function (row) {
-    var brand = row[idx.brand] || '未設定';
-    var type = (row[idx.type] === TYPE_PAPER) ? TYPE_PAPER : TYPE_OSS;
-
-    byBrand[brand] = (byBrand[brand] || 0) + 1;
-    byType[type] = (byType[type] || 0) + 1;
-    matrix[type][brand] = (matrix[type][brand] || 0) + 1;
-
-    if (row[idx.submissionId]) submissionIds[row[idx.submissionId]] = true;
-    if (row[idx.status] === SUBMISSION_STATUS_CANCELLED) cancelledVehicles++;
-
-    var regDateStr = row[idx.regDate];
-    if (isValidDateStr_(regDateStr)) {
-      dailyCountsMap[regDateStr] = (dailyCountsMap[regDateStr] || 0) + 1;
-    }
-  });
-
-  var dailyCounts = Object.keys(dailyCountsMap).sort().map(function (d) {
-    return { date: d, count: dailyCountsMap[d] };
-  });
-
-  // 登録者一覧(使用者名・登録日)。登録日が新しい順、登録日未定は末尾にまとめる。
-  var entries = rows.map(function (row) {
-    var regDateStr = row[idx.regDate];
-    return {
-      regDate: isValidDateStr_(regDateStr) ? regDateStr : '',
-      userName: row[idx.userName] || '',
-      brand: row[idx.brand] || '未設定',
-      type: (row[idx.type] === TYPE_PAPER) ? TYPE_PAPER : TYPE_OSS,
-      company: row[idx.company] || '',
-      status: row[idx.status] || SUBMISSION_STATUS_ACTIVE
-    };
-  }).sort(function (a, b) {
-    if (!a.regDate && !b.regDate) return a.userName < b.userName ? -1 : (a.userName > b.userName ? 1 : 0);
-    if (!a.regDate) return 1;
-    if (!b.regDate) return -1;
-    if (a.regDate !== b.regDate) return a.regDate > b.regDate ? -1 : 1;
-    return a.userName < b.userName ? -1 : (a.userName > b.userName ? 1 : 0);
+  entries.sort(function (a, b) {
+    if (a.sendDate !== b.sendDate) return a.sendDate > b.sendDate ? -1 : 1; // 送付日の新しい順
+    return a.submissionId < b.submissionId ? -1 : (a.submissionId > b.submissionId ? 1 : 0);
   });
 
   return {
     month: month,
-    totalVehicles: rows.length,
-    totalSubmissions: Object.keys(submissionIds).length,
-    cancelledVehicles: cancelledVehicles,
-    byBrand: byBrand,
-    byType: byType,
-    matrix: matrix,
-    dailyCounts: dailyCounts,
+    totalSubmissions: entries.length,
     entries: entries
   };
-}
-
-/**
- * 動作確認用。Apps Scriptエディタの関数選択で"debugDashboardData_"を選び「実行」を押すと、
- * 今月分の集計結果と、スプレッドシート内の実際のタブ名一覧を実行ログ(表示 > ログ)に出力する。
- * ダッシュボード画面に表示されない場合の原因切り分け用で、通常の動作では使わない。
- */
-function debugDashboardData_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var month = Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM');
-  var sheetNames = ss.getSheets().map(function (s) { return s.getName(); });
-  var data = getDashboardData_(ss, month, { includePending: true });
-
-  Logger.log('対象月: ' + month);
-  Logger.log('スプレッドシート内の全タブ名: ' + sheetNames.join(', '));
-  Logger.log('登録日未定も含めた総車両台数: ' + data.totalVehicles + ' / 総申請件数: ' + data.totalSubmissions);
-  Logger.log('登録者一覧: ' + JSON.stringify(data.entries));
 }

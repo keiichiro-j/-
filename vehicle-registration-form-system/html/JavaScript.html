@@ -757,12 +757,7 @@
     var monthEl = document.getElementById('dashMonth');
     if (!monthEl.value) monthEl.value = currentMonthStr_(); // 未設定なら当月にフォールバックし、常にデータが表示されるようにする
     var month = monthEl.value;
-    var filters = {
-      brand: document.getElementById('dashBrand').value,
-      type: document.getElementById('dashType').value,
-      includeCancelled: document.getElementById('dashIncludeCancelled').checked,
-      includePending: document.getElementById('dashIncludePending').checked
-    };
+    var filters = { brand: document.getElementById('dashBrand').value };
 
     var btn = document.getElementById('btnDashRefresh');
     btn.disabled = true;
@@ -770,7 +765,7 @@
     google.script.run
       .withSuccessHandler(function (data) {
         btn.disabled = false;
-        renderDashboard_(data);
+        renderDashboardEntries_(data);
       })
       .withFailureHandler(function (error) {
         btn.disabled = false;
@@ -779,157 +774,7 @@
       .getDashboardData(month, filters);
   }
 
-  function renderDashboard_(data) {
-    renderDashboardStats_(data);
-    renderBarChart_('dashBrandChart', [
-      { label: 'MB', value: data.byBrand.MB || 0, cls: 'barRow__fill--mb' },
-      { label: 'AU', value: data.byBrand.AU || 0, cls: 'barRow__fill--au' },
-      { label: '未設定', value: data.byBrand['未設定'] || 0, cls: 'barRow__fill--muted' }
-    ]);
-    renderBarChart_('dashTypeChart', [
-      { label: 'OSS', value: data.byType.OSS || 0, cls: 'barRow__fill--oss' },
-      { label: '紙', value: data.byType['紙'] || 0, cls: 'barRow__fill--paper' }
-    ]);
-    renderDashboardMatrix_(data);
-    renderDashboardTrend_(data);
-    renderDashboardEntries_(data);
-  }
-
-  function renderDashboardStats_(data) {
-    var container = document.getElementById('dashStats');
-    container.innerHTML = '';
-
-    var zeroHint = document.getElementById('dashZeroHint');
-    var pendingChecked = document.getElementById('dashIncludePending').checked;
-    if (data.totalVehicles === 0 && !pendingChecked) {
-      zeroHint.textContent = '対象月のデータが0件です。登録日を確定していない申請がある場合は「登録日未定も含める」にチェックを入れてから「表示」を押すと表示されることがあります。';
-      zeroHint.classList.remove('is-hidden');
-    } else {
-      zeroHint.classList.add('is-hidden');
-    }
-
-    var tiles = [
-      { label: '総申請件数', value: data.totalSubmissions, cls: '' },
-      { label: '総車両台数', value: data.totalVehicles, cls: '' },
-      { label: 'MB', value: data.byBrand.MB || 0, cls: 'statTile--mb' },
-      { label: 'AU', value: data.byBrand.AU || 0, cls: 'statTile--au' },
-      { label: 'OSS', value: data.byType.OSS || 0, cls: 'statTile--oss' },
-      { label: '紙', value: data.byType['紙'] || 0, cls: 'statTile--paper' }
-    ];
-    if (document.getElementById('dashIncludeCancelled').checked) {
-      tiles.push({ label: '取消台数', value: data.cancelledVehicles || 0, cls: 'statTile--cancelled' });
-    }
-    tiles.forEach(function (t) {
-      var tile = document.createElement('div');
-      tile.className = 'statTile ' + t.cls;
-      tile.innerHTML =
-        '<span class="statTile__value">' + t.value + '</span>' +
-        '<span class="statTile__label">' + escapeHtml_(t.label) + '</span>';
-      container.appendChild(tile);
-    });
-  }
-
-  // ブランド内訳・種別内訳の横棒グラフを描画する共通関数
-  function renderBarChart_(containerId, entries) {
-    var container = document.getElementById(containerId);
-    container.innerHTML = '';
-    var max = entries.reduce(function (m, e) { return Math.max(m, e.value); }, 0) || 1;
-    entries.forEach(function (e) {
-      var pct = Math.round((e.value / max) * 100);
-      var row = document.createElement('div');
-      row.className = 'barRow';
-      row.innerHTML =
-        '<span class="barRow__label">' + escapeHtml_(e.label) + '</span>' +
-        '<span class="barRow__track"><span class="barRow__fill ' + (e.cls || '') + '" style="width:' + pct + '%"></span></span>' +
-        '<span class="barRow__value">' + e.value + '</span>';
-      container.appendChild(row);
-    });
-  }
-
-  function renderDashboardMatrix_(data) {
-    var body = document.getElementById('dashMatrixBody');
-    body.innerHTML = '';
-
-    ['OSS', '紙'].forEach(function (type) {
-      var m = data.matrix[type] || { MB: 0, AU: 0, '未設定': 0 };
-      var total = (m.MB || 0) + (m.AU || 0) + (m['未設定'] || 0);
-      var tr = document.createElement('tr');
-      tr.innerHTML =
-        '<th>' + type + '</th>' +
-        '<td class="numCol">' + (m.MB || 0) + '</td>' +
-        '<td class="numCol">' + (m.AU || 0) + '</td>' +
-        '<td class="numCol">' + (m['未設定'] || 0) + '</td>' +
-        '<td class="numCol dashMatrixTotal">' + total + '</td>';
-      body.appendChild(tr);
-    });
-
-    var totalTr = document.createElement('tr');
-    totalTr.className = 'dashMatrixTotalRow';
-    totalTr.innerHTML =
-      '<th>合計</th>' +
-      '<td class="numCol">' + (data.byBrand.MB || 0) + '</td>' +
-      '<td class="numCol">' + (data.byBrand.AU || 0) + '</td>' +
-      '<td class="numCol">' + (data.byBrand['未設定'] || 0) + '</td>' +
-      '<td class="numCol dashMatrixTotal">' + data.totalVehicles + '</td>';
-    body.appendChild(totalTr);
-  }
-
-  // 月内の日別車両台数(登録日ベース)をSVGの横棒グラフで描画する
-  function renderDashboardTrend_(data) {
-    var container = document.getElementById('dashTrendChart');
-    var emptyMsg = document.getElementById('dashEmptyMsg');
-    container.innerHTML = '';
-
-    var daily = data.dailyCounts || [];
-    if (daily.length === 0) {
-      container.classList.add('is-hidden');
-      emptyMsg.style.display = '';
-      return;
-    }
-    container.classList.remove('is-hidden');
-    emptyMsg.style.display = 'none';
-
-    var year = Number(data.month.slice(0, 4));
-    var monthNum = Number(data.month.slice(5, 7));
-    var daysInMonth = new Date(year, monthNum, 0).getDate();
-
-    var countByDate = {};
-    daily.forEach(function (d) { countByDate[d.date] = d.count; });
-    var max = daily.reduce(function (m, d) { return Math.max(m, d.count); }, 0) || 1;
-
-    var width = 720, height = 160, padding = 22, barGap = 2;
-    var barWidth = (width - padding * 2) / daysInMonth - barGap;
-
-    var parts = [];
-    for (var day = 1; day <= daysInMonth; day++) {
-      var dateStr = data.month + '-' + String(day).padStart(2, '0');
-      var count = countByDate[dateStr] || 0;
-      var barHeight = count === 0 ? 0 : Math.max(3, (count / max) * (height - padding * 2));
-      var x = padding + (day - 1) * (barWidth + barGap);
-      var y = height - padding - barHeight;
-      parts.push(
-        '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + Math.max(0, barWidth).toFixed(1) +
-        '" height="' + barHeight.toFixed(1) + '" rx="2" class="trendBar' + (count > 0 ? '' : ' trendBar--empty') + '">' +
-        '<title>' + dateStr + ': ' + count + '台</title></rect>'
-      );
-      if (day === 1 || day % 5 === 0 || day === daysInMonth) {
-        parts.push(
-          '<text x="' + (x + barWidth / 2).toFixed(1) + '" y="' + (height - 6) +
-          '" class="trendLabel" text-anchor="middle">' + day + '</text>'
-        );
-      }
-    }
-
-    container.innerHTML =
-      '<svg viewBox="0 0 ' + width + ' ' + height + '" class="trendSvg" role="img" aria-label="日別車両台数推移">' +
-      '<defs><linearGradient id="dashTrendGradient" x1="0" y1="0" x2="0" y2="1">' +
-      '<stop offset="0%" style="stop-color:var(--accent)"/>' +
-      '<stop offset="100%" style="stop-color:var(--accent-dark)"/>' +
-      '</linearGradient></defs>' +
-      parts.join('') + '</svg>';
-  }
-
-  // 当月(選択中の月)の登録者一覧(使用者名・登録日)を描画する
+  // 対象月に送付した送付書PDFの一覧(使用者名・ブランド・PDFリンク)を描画する
   function renderDashboardEntries_(data) {
     var body = document.getElementById('dashEntriesBody');
     var emptyMsg = document.getElementById('dashEntriesEmptyMsg');
@@ -950,12 +795,20 @@
     entries.forEach(function (e) {
       var tr = document.createElement('tr');
       if (e.status === SUBMISSION_STATUS_CANCELLED_) tr.classList.add('is-cancelled');
+      var brandHtml = (e.brandList && e.brandList.length)
+        ? e.brandList.map(brandPillHtml_).join(' ')
+        : brandPillHtml_('未設定');
+      var pdfHtml = e.pdfUrl
+        ? '<a href="' + e.pdfUrl + '" target="_blank" rel="noopener" class="pdfLink">開く</a>'
+        : '-';
       tr.innerHTML =
-        '<td>' + escapeHtml_(e.regDate || '未定') + '</td>' +
-        '<td>' + escapeHtml_(e.userName) + '</td>' +
-        '<td>' + brandPillHtml_(e.brand) + '</td>' +
-        '<td>' + typePillHtml_(e.type) + '</td>' +
-        '<td>' + escapeHtml_(e.company) + '</td>';
+        '<td>' + escapeHtml_(e.sendDate) + '</td>' +
+        '<td>' + escapeHtml_(e.sendBatch || '-') + '</td>' +
+        '<td>' + escapeHtml_((e.userNames || []).join('、')) + '</td>' +
+        '<td>' + brandHtml + '</td>' +
+        '<td>' + (e.type ? typePillHtml_(e.type) : '-') + '</td>' +
+        '<td>' + escapeHtml_(e.company) + '</td>' +
+        '<td>' + pdfHtml + '</td>';
       body.appendChild(tr);
     });
   }
