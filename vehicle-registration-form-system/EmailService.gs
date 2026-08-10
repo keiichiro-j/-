@@ -59,12 +59,32 @@ function validateMailRecipients_(recipients) {
 }
 
 /**
+ * 空欄を除去し、簡易的な形式チェックを行った上でメールアドレスの配列を返す。
+ * validateMailRecipients_と異なり、1件も無い(=すべて削除して保存する)ことは許可する
+ * （「設定」画面の宛先保存は、送信とは違い空にすることも正当な操作のため）。
+ * @return {Array<string>}
+ */
+function sanitizeMailRecipientsForSave_(recipients) {
+  var trimmed = (recipients || [])
+    .map(function (r) { return String(r || '').trim(); })
+    .filter(function (r) { return r !== ''; });
+
+  var invalid = trimmed.filter(function (r) { return !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r); });
+  if (invalid.length > 0) {
+    throw new Error('メールアドレスの形式が正しくありません: ' + invalid.join(', '));
+  }
+
+  return trimmed;
+}
+
+/**
  * 「設定」画面の宛先保存ボタン用。送信は行わず、検証して保存するだけ。
+ * 全欄を空にして保存する(宛先を無くす)ことも許可する。
  * @param {Array<string>} recipients
  * @return {{recipientCount: number}}
  */
 function saveMailRecipientsOnly_(recipients) {
-  var validRecipients = validateMailRecipients_(recipients);
+  var validRecipients = sanitizeMailRecipientsForSave_(recipients);
   saveMailRecipients_(validRecipients);
   return { recipientCount: validRecipients.length };
 }
@@ -203,11 +223,16 @@ function isDailyMailTriggerEnabled_() {
 
 /**
  * 「設定」画面のトグル操作から呼ばれる。enabledに応じてトリガーを作成/削除する。
+ * ONにする際、宛先が1件も保存されていなければ(自動送信しても何も送られないため)
+ * エラーを投げてトリガーを作成しない。クライアント側でこのメッセージをポップアップ表示する。
  * @param {boolean} enabled
  * @return {boolean} 切り替え後の状態
  */
 function setDailyMailTriggerEnabled_(enabled) {
   if (enabled) {
+    if (getSavedMailRecipients_().length === 0) {
+      throw new Error('自動送信をONにするには、メール送信先を1件以上登録してください');
+    }
     setupDailyMailTrigger();
   } else {
     removeDailyMailTrigger();

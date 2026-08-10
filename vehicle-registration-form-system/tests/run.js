@@ -577,6 +577,12 @@ test('不正なメールアドレスがあればエラーになり保存され�
   assert.throws(() => sandbox.saveMailRecipientsOnly_(['not-an-email']), /メールアドレスの形式/);
   assert.deepStrictEqual(Array.from(sandbox.getSavedMailRecipients_()), ['old@example.com']); // 変更されない
 });
+test('全欄を空にして0件で保存できる(宛先を無くす操作を許可する)', () => {
+  sandbox.saveMailRecipients_(['old@example.com']);
+  const result = sandbox.saveMailRecipientsOnly_(['', '  ', '', '']);
+  assert.strictEqual(result.recipientCount, 0);
+  assert.deepStrictEqual(Array.from(sandbox.getSavedMailRecipients_()), []);
+});
 
 console.log('== EmailService: 自動送信トリガーのON/OFF切り替え ==');
 test('初期状態はOFF(トリガー未設定)', () => {
@@ -585,14 +591,22 @@ test('初期状態はOFF(トリガー未設定)', () => {
 });
 test('ONにするとトリガーが1件作成される。何度ONにしても重複しない', () => {
   fakeTriggers.length = 0;
+  sandbox.saveMailRecipients_(['a@example.com']);
   assert.strictEqual(sandbox.setDailyMailTriggerEnabled_(true), true);
   assert.strictEqual(sandbox.setDailyMailTriggerEnabled_(true), true);
   assert.strictEqual(fakeTriggers.length, 1);
 });
 test('OFFにするとトリガーが削除される', () => {
   fakeTriggers.length = 0;
+  sandbox.saveMailRecipients_(['a@example.com']);
   sandbox.setDailyMailTriggerEnabled_(true);
   assert.strictEqual(sandbox.setDailyMailTriggerEnabled_(false), false);
+  assert.strictEqual(fakeTriggers.length, 0);
+});
+test('宛先が1件も保存されていない状態でONにしようとするとエラーになり、トリガーは作成されない', () => {
+  fakeTriggers.length = 0;
+  sandbox.saveMailRecipients_([]);
+  assert.throws(() => sandbox.setDailyMailTriggerEnabled_(true), /メール送信先を1件以上登録/);
   assert.strictEqual(fakeTriggers.length, 0);
 });
 
