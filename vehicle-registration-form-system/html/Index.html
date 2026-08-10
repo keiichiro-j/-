@@ -12,6 +12,25 @@
 <body>
   <div id="confettiLayer" class="confettiLayer" aria-hidden="true"></div>
 
+  <div class="auroraLayer" aria-hidden="true">
+    <span class="auroraBlob auroraBlob--1"></span>
+    <span class="auroraBlob auroraBlob--2"></span>
+    <span class="auroraBlob auroraBlob--3"></span>
+    <span class="auroraBlob auroraBlob--4"></span>
+  </div>
+
+  <div id="cmdkOverlay" class="cmdkOverlay is-hidden" aria-hidden="true">
+    <div class="cmdk" role="dialog" aria-modal="true" aria-label="コマンドパレット">
+      <div class="cmdk__inputRow">
+        <span class="cmdk__icon">⌘</span>
+        <input type="text" id="cmdkInput" class="cmdk__input" placeholder="操作を検索…（例: 設定、ダーク、履歴、クリア）" autocomplete="off">
+        <kbd class="cmdk__esc">Esc</kbd>
+      </div>
+      <div id="cmdkList" class="cmdk__list" role="listbox"></div>
+      <p class="cmdk__empty is-hidden" id="cmdkEmpty">一致する操作が見つかりません</p>
+    </div>
+  </div>
+
   <header class="masthead">
     <div class="masthead__inner">
       <p class="eyebrow">Vehicle Registration Request</p>
@@ -21,6 +40,18 @@
   </header>
 
   <div class="page">
+    <div class="statusBar" id="statusBar">
+      <span class="statusBar__item"><span class="liveDot" aria-hidden="true"></span>ライブ</span>
+      <span class="statusBar__item statusBar__clock" id="statusClock">--:--:--</span>
+      <span class="statusBar__sep">・</span>
+      <span class="statusBar__item">本日の送付 <strong id="statusTodayCount">-</strong> 件</span>
+      <span class="statusBar__sep">・</span>
+      <span class="statusBar__item" id="statusLatest">最新の状況を取得しています…</span>
+      <button type="button" class="statusBar__cmdk" id="btnOpenCmdk" title="コマンドパレットを開く">
+        <span class="statusBar__cmdkLabel">クイック操作</span><kbd>⌘K</kbd>
+      </button>
+    </div>
+
     <nav class="viewSwitch" role="tablist" aria-label="画面切り替え">
       <button type="button" class="viewSwitchBtn is-active" id="navForm" role="tab" aria-selected="true">申請</button>
       <button type="button" class="viewSwitchBtn" id="navHistory" role="tab" aria-selected="false">履歴確認</button>
@@ -30,57 +61,74 @@
 
     <div id="viewForm">
     <form id="mainForm" novalidate>
-      <section class="card">
-        <div class="card__head">
-          <h2>基本情報</h2>
-          <p class="muted">依頼の基本情報を入力してください。</p>
-        </div>
+      <div class="bento">
+        <section class="card bento--span-8">
+          <div class="card__head">
+            <h2>基本情報</h2>
+            <p class="muted">依頼の基本情報を入力してください。</p>
+          </div>
 
-        <div class="fieldRow">
-          <div class="field">
-            <label>出力フォーマット</label>
-            <div class="segmented" role="tablist" aria-label="出力フォーマット">
-              <button type="button" class="segBtn is-active" id="segOss" role="tab" aria-selected="true">OSS（電子申請）</button>
-              <button type="button" class="segBtn" id="segPaper" role="tab" aria-selected="false">紙（従来申請）</button>
+          <div class="fieldRow">
+            <div class="field">
+              <label>出力フォーマット</label>
+              <div class="segmented" role="tablist" aria-label="出力フォーマット">
+                <button type="button" class="segBtn is-active" id="segOss" role="tab" aria-selected="true">OSS（電子申請）</button>
+                <button type="button" class="segBtn" id="segPaper" role="tab" aria-selected="false">紙（従来申請）</button>
+              </div>
+              <input type="hidden" id="type" value="OSS">
             </div>
-            <input type="hidden" id="type" value="OSS">
+            <div class="field">
+              <label for="company">依頼会社名 <span class="req">必須</span></label>
+              <input type="text" id="company" list="dl-companies" autocomplete="off" required>
+              <datalist id="dl-companies"></datalist>
+            </div>
+            <div class="field">
+              <label for="manager">担当責任者 <span class="req">必須</span></label>
+              <input type="text" id="manager" list="dl-managers" autocomplete="off" required>
+              <datalist id="dl-managers"></datalist>
+            </div>
           </div>
-          <div class="field">
-            <label for="company">依頼会社名 <span class="req">必須</span></label>
-            <input type="text" id="company" list="dl-companies" autocomplete="off" required>
-            <datalist id="dl-companies"></datalist>
-          </div>
-          <div class="field">
-            <label for="manager">担当責任者 <span class="req">必須</span></label>
-            <input type="text" id="manager" list="dl-managers" autocomplete="off" required>
-            <datalist id="dl-managers"></datalist>
-          </div>
-        </div>
 
-        <div class="fieldRow">
-          <div class="field">
-            <label for="sendDate">送付日 <span class="req">必須</span></label>
-            <input type="date" id="sendDate" required>
+          <div class="fieldRow">
+            <div class="field">
+              <label for="sendDate">送付日 <span class="req">必須</span></label>
+              <input type="date" id="sendDate" required>
+            </div>
+            <div class="field">
+              <label for="sendBatch">送付便 <span class="req">必須</span></label>
+              <select id="sendBatch" required>
+                <option value="">選択してください</option>
+                <option value="第１便">第１便</option>
+                <option value="第２便">第２便</option>
+                <option value="第３便">第３便</option>
+              </select>
+            </div>
+            <div class="field" id="commonRegDateField">
+              <label for="regDateCommon">登録日（全体） <span class="req">必須</span></label>
+              <input type="date" id="regDateCommon">
+            </div>
+            <div class="field">
+              <label>&nbsp;</label>
+              <button type="button" id="hidaToggle" class="toggleBtn" aria-pressed="false">飛騨登録：対象外</button>
+            </div>
           </div>
-          <div class="field">
-            <label for="sendBatch">送付便 <span class="req">必須</span></label>
-            <select id="sendBatch" required>
-              <option value="">選択してください</option>
-              <option value="第１便">第１便</option>
-              <option value="第２便">第２便</option>
-              <option value="第３便">第３便</option>
-            </select>
+        </section>
+
+        <section class="card bento--span-4 card--tilt" id="activityCard">
+          <div class="activityCard">
+            <div>
+              <span class="activityCard__label">現在時刻</span>
+              <div class="activityCard__clock" id="activityClock">--:--:--</div>
+            </div>
+            <div class="activityCard__row">
+              <span class="activityCard__label">本日の送付件数</span>
+              <span class="activityCard__value" id="activityTodayCount">0</span>
+            </div>
+            <div class="activityCard__latest" id="activityLatest">最新の状況を取得しています…</div>
+            <div class="activityCard__foot"><span class="liveDot" aria-hidden="true"></span>システム稼働中</div>
           </div>
-          <div class="field" id="commonRegDateField">
-            <label for="regDateCommon">登録日（全体） <span class="req">必須</span></label>
-            <input type="date" id="regDateCommon">
-          </div>
-          <div class="field">
-            <label>&nbsp;</label>
-            <button type="button" id="hidaToggle" class="toggleBtn" aria-pressed="false">飛騨登録：対象外</button>
-          </div>
-        </div>
-      </section>
+        </section>
+      </div>
 
       <section class="card">
         <div class="card__head card__head--split">
@@ -266,84 +314,86 @@
     </div>
 
     <div id="viewSettings" class="is-hidden">
-      <section class="card">
-        <div class="card__head">
-          <h2>メール送信先</h2>
-          <p class="muted">「送付書PDF」画面でメール送信する際の宛先です（最大4件・1件以上必須）。ここで保存した内容が送信時に使用されます。</p>
-        </div>
-
-        <div class="mailRecipients">
-          <div class="mailRecipients__grid">
-            <input type="email" class="mailRecipientInput" id="mailTo1" placeholder="宛先1（例: you@example.com）" autocomplete="off">
-            <input type="email" class="mailRecipientInput" id="mailTo2" placeholder="宛先2" autocomplete="off">
-            <input type="email" class="mailRecipientInput" id="mailTo3" placeholder="宛先3" autocomplete="off">
-            <input type="email" class="mailRecipientInput" id="mailTo4" placeholder="宛先4" autocomplete="off">
+      <div class="bento">
+        <section class="card bento--span-6">
+          <div class="card__head">
+            <h2>メール送信先</h2>
+            <p class="muted">「送付書PDF」画面でメール送信する際の宛先です（最大4件・1件以上必須）。ここで保存した内容が送信時に使用されます。</p>
           </div>
-        </div>
 
-        <button type="button" id="btnSaveMailRecipients" class="btn btn--primary">宛先を保存する</button>
-        <div id="mailSettingsResult" class="result" role="status" aria-live="polite">
-          <span id="mailSettingsSpinner" class="spinner is-hidden" aria-hidden="true"></span>
-          <span id="mailSettingsResultText"></span>
-        </div>
-      </section>
-
-      <section class="card">
-        <div class="card__head">
-          <h2>自動メール送信</h2>
-          <p class="muted">毎日17時台に、その日が送付日の送付書PDFを上の宛先へ自動でメール送信します。</p>
-        </div>
-        <div class="switchRow">
-          <button type="button" id="autoMailToggle" class="switch" role="switch" aria-checked="false">
-            <span class="switch__track"><span class="switch__knob"></span></span>
-          </button>
-          <span class="switchRow__label is-off" id="autoMailStatusLabel">
-            <span class="switchRow__dot"></span>
-            <span id="autoMailStatusText">OFF（自動送信は停止中）</span>
-          </span>
-        </div>
-        <div id="autoMailResult" class="result" role="status" aria-live="polite">
-          <span id="autoMailSpinner" class="spinner is-hidden" aria-hidden="true"></span>
-          <span id="autoMailResultText"></span>
-        </div>
-      </section>
-
-      <section class="card">
-        <div class="card__head">
-          <h2>申請フォームの既定値</h2>
-          <p class="muted">よく使う依頼会社名・担当責任者を登録しておくと、申請フォームを開いたときに自動で入力されます（空欄の項目は自動入力しません）。</p>
-        </div>
-
-        <div class="fieldRow">
-          <div class="field">
-            <label for="defaultCompany">依頼会社名</label>
-            <input type="text" id="defaultCompany" autocomplete="off">
+          <div class="mailRecipients">
+            <div class="mailRecipients__grid">
+              <input type="email" class="mailRecipientInput" id="mailTo1" placeholder="宛先1（例: you@example.com）" autocomplete="off">
+              <input type="email" class="mailRecipientInput" id="mailTo2" placeholder="宛先2" autocomplete="off">
+              <input type="email" class="mailRecipientInput" id="mailTo3" placeholder="宛先3" autocomplete="off">
+              <input type="email" class="mailRecipientInput" id="mailTo4" placeholder="宛先4" autocomplete="off">
+            </div>
           </div>
-          <div class="field">
-            <label for="defaultManager">担当責任者</label>
-            <input type="text" id="defaultManager" autocomplete="off">
+
+          <button type="button" id="btnSaveMailRecipients" class="btn btn--primary">宛先を保存する</button>
+          <div id="mailSettingsResult" class="result" role="status" aria-live="polite">
+            <span id="mailSettingsSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+            <span id="mailSettingsResultText"></span>
           </div>
-        </div>
+        </section>
 
-        <button type="button" id="btnSaveDefaults" class="btn btn--primary">既定値を保存する</button>
-        <div id="defaultsResult" class="result" role="status" aria-live="polite">
-          <span id="defaultsSpinner" class="spinner is-hidden" aria-hidden="true"></span>
-          <span id="defaultsResultText"></span>
-        </div>
-      </section>
+        <section class="card bento--span-6">
+          <div class="card__head">
+            <h2>自動メール送信</h2>
+            <p class="muted">毎日17時台に、その日が送付日の送付書PDFを上の宛先へ自動でメール送信します。</p>
+          </div>
+          <div class="switchRow">
+            <button type="button" id="autoMailToggle" class="switch" role="switch" aria-checked="false">
+              <span class="switch__track"><span class="switch__knob"></span></span>
+            </button>
+            <span class="switchRow__label is-off" id="autoMailStatusLabel">
+              <span class="switchRow__dot"></span>
+              <span id="autoMailStatusText">OFF（自動送信は停止中）</span>
+            </span>
+          </div>
+          <div id="autoMailResult" class="result" role="status" aria-live="polite">
+            <span id="autoMailSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+            <span id="autoMailResultText"></span>
+          </div>
+        </section>
 
-      <section class="card">
-        <div class="card__head">
-          <h2>テーマ</h2>
-          <p class="muted">画面の配色を選べます。「自動」を選ぶとお使いの端末の設定に従います。</p>
-        </div>
+        <section class="card bento--span-6">
+          <div class="card__head">
+            <h2>申請フォームの既定値</h2>
+            <p class="muted">よく使う依頼会社名・担当責任者を登録しておくと、申請フォームを開いたときに自動で入力されます（空欄の項目は自動入力しません）。</p>
+          </div>
 
-        <div class="segmented" role="tablist" aria-label="テーマ設定">
-          <button type="button" class="segBtn" id="themeLight" role="tab" data-theme-value="light">ライト</button>
-          <button type="button" class="segBtn" id="themeDark" role="tab" data-theme-value="dark">ダーク</button>
-          <button type="button" class="segBtn" id="themeSystem" role="tab" data-theme-value="system">自動</button>
-        </div>
-      </section>
+          <div class="fieldRow">
+            <div class="field">
+              <label for="defaultCompany">依頼会社名</label>
+              <input type="text" id="defaultCompany" autocomplete="off">
+            </div>
+            <div class="field">
+              <label for="defaultManager">担当責任者</label>
+              <input type="text" id="defaultManager" autocomplete="off">
+            </div>
+          </div>
+
+          <button type="button" id="btnSaveDefaults" class="btn btn--primary">既定値を保存する</button>
+          <div id="defaultsResult" class="result" role="status" aria-live="polite">
+            <span id="defaultsSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+            <span id="defaultsResultText"></span>
+          </div>
+        </section>
+
+        <section class="card bento--span-6">
+          <div class="card__head">
+            <h2>テーマ</h2>
+            <p class="muted">画面の配色を選べます。「自動」を選ぶとお使いの端末の設定に従います。</p>
+          </div>
+
+          <div class="segmented" role="tablist" aria-label="テーマ設定">
+            <button type="button" class="segBtn" id="themeLight" role="tab" data-theme-value="light">ライト</button>
+            <button type="button" class="segBtn" id="themeDark" role="tab" data-theme-value="dark">ダーク</button>
+            <button type="button" class="segBtn" id="themeSystem" role="tab" data-theme-value="system">自動</button>
+          </div>
+        </section>
+      </div>
     </div>
   </div>
 

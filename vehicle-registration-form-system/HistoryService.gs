@@ -335,3 +335,20 @@ function collectSuggestions_(ss) {
     persons: Object.keys(persons)
   };
 }
+
+/**
+ * 画面上部の常時アクティビティ表示用。本日を送付日とする申請件数と、
+ * 直近1件の依頼会社名・送信時刻を返す(取消済みも件数に含める。あくまで
+ * 「動いている感」の演出用の軽量スナップショットであり、集計・分析用途ではない)。
+ * @return {{todayCount: number, latestCompany: string, latestSentAt: string}}
+ */
+function getActivitySnapshot_(ss) {
+  var today = Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM-dd');
+  var submissions = getPdfsBySendDateRange_(ss, today, today, '');
+  var latest = submissions[0];
+  return {
+    todayCount: submissions.length,
+    latestCompany: latest ? latest.company : '',
+    latestSentAt: latest ? String(latest.sentAt) : ''
+  };
+}

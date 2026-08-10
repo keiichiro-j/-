@@ -101,6 +101,15 @@ function saveDefaultFormValues(values) {
   return saveDefaultFormValues_(values);
 }
 
+/**
+ * 画面上部の常時アクティビティ表示用。本日の送付件数・直近の申請情報を返す。
+ * @return {{todayCount: number, latestCompany: string, latestSentAt: string}}
+ */
+function getActivitySnapshot() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  return getActivitySnapshot_(ss);
+}
+
 // 二重送信防止用トークンのキャッシュ保持時間(秒)。ボタン連打やネットワーク遅延による
 // 再送はほぼ数秒以内に発生するため、余裕をみて5分にしている。
 var SUBMISSION_TOKEN_TTL_SEC = 300;

@@ -440,6 +440,27 @@ test('送付日が空/不正な行は対象外', () => {
   assert.strictEqual(result.length, 0);
 });
 
+console.log('== HistoryService: getActivitySnapshot_ (常時アクティビティ表示) ==');
+test('本日送付分が無ければ0件・空文字を返す', () => {
+  const ss = makeFakeSpreadsheet([]);
+  const snap = sandbox.getActivitySnapshot_(ss);
+  assert.deepStrictEqual({ todayCount: snap.todayCount, latestCompany: snap.latestCompany, latestSentAt: snap.latestSentAt }, { todayCount: 0, latestCompany: '', latestSentAt: '' });
+});
+test('本日送付分の件数と最新1件の会社名・送信時刻を返す', () => {
+  const header = sandbox.HISTORY_HEADER_ROW;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const row1 = makeHistoryFullRow({ submissionId: 'uuid-1', sendDate: today, sendBatch: '第１便' });
+  const row2 = makeHistoryFullRow({ submissionId: 'uuid-2', sendDate: today, sendBatch: '第２便' });
+  const sheet = makeMutableSheet(sandbox.formatYearMonth_(today), header, [row1, row2]);
+  const ss = makeFakeSpreadsheet([sheet]);
+
+  const snap = sandbox.getActivitySnapshot_(ss);
+  assert.strictEqual(snap.todayCount, 2);
+  assert.strictEqual(snap.latestCompany, '岐阜ヤナセ株式会社');
+  assert.ok(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(snap.latestSentAt));
+});
+
 console.log('== TemplateService: buildPdfFileName_ ==');
 test('ファイル名にタイムスタンプと種別・会社名を含む', () => {
   const name = sandbox.buildPdfFileName_('OSS', '岐阜ヤナセ株式会社', new Date(2026, 7, 7, 9, 30, 0));

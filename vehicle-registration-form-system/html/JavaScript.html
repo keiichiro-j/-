@@ -50,7 +50,7 @@
   function updateVehicleCountBadge_() {
     var count = document.querySelectorAll('#vehicleTableBody .vehicleRow').length;
     var badge = document.getElementById('vehicleCountBadge');
-    if (badge) badge.textContent = count + ' / ' + MAX_VEHICLES + ' 台';
+    if (badge) setCountBadge_(badge, count, ' / ' + MAX_VEHICLES + ' 台');
   }
 
   function addVehicleRow() {
@@ -282,6 +282,7 @@
         document.getElementById('resultPdfPreview').classList.remove('is-hidden');
         window.open(pdfUrl, '_blank');
         celebrateSubmission_();
+        loadActivitySnapshot_(); // 送付が増えた直後の状況をすぐにライブ表示へ反映する
       })
       .withFailureHandler(function (error) {
         isSubmitting = false;
@@ -347,6 +348,14 @@
       document.querySelectorAll('.tableScroll').forEach(updateScrollShadow_);
     });
     google.script.run.withSuccessHandler(populateSuggestions).getSuggestions();
+
+    // ---------- 画期的ビジュアル: ライブ演出の初期化 ----------
+    initLiveClock_();
+    loadActivitySnapshot_();
+    setInterval(loadActivitySnapshot_, 3 * 60 * 1000); // 3分ごとに本日の送付状況を更新
+    initCardGlow_();
+    initCardTilt_();
+    initRipple_();
   };
 
   // ---------- スマホ対応: 横スクロールする車両テーブルの操作性補助 ----------
@@ -390,6 +399,220 @@
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
+
+  // ---------- 画期的ビジュアル: 数値カウントアップ演出 ----------
+
+  // バッジの数値が変わるとき、現在値から新しい値へ滑らかにカウントアップさせる。
+  function animateCount_(el, to, formatter, duration) {
+    if (!el) return;
+    var from = parseInt(String(el.textContent).replace(/[^\d-]/g, ''), 10);
+    if (isNaN(from)) from = to;
+    if (from === to) { el.textContent = formatter(to); return; }
+    duration = duration || 420;
+    var start = (window.performance && performance.now) ? performance.now() : Date.now();
+
+    function step(now) {
+      var elapsed = ((window.performance && performance.now) ? performance.now() : Date.now()) - start;
+      var t = Math.min(1, elapsed / duration);
+      var eased = 1 - Math.pow(1 - t, 3);
+      var val = Math.round(from + (to - from) * eased);
+      el.textContent = formatter(val);
+      if (t < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function setCountBadge_(el, count, suffix) {
+    animateCount_(el, count, function (v) { return v + suffix; });
+  }
+
+  // ---------- 画期的ビジュアル: カーソル追従グロー / 3Dチルト / リップル ----------
+
+  // カード内でのマウス位置をCSS変数(--mx, --my)へ反映し、Stylesheet.htmlの
+  // .card::before(カーソル追従の光沢)がその位置を中心に光るようにする。
+  function initCardGlow_() {
+    document.querySelectorAll('.card').forEach(function (card) {
+      card.addEventListener('pointermove', function (e) {
+        var rect = card.getBoundingClientRect();
+        card.style.setProperty('--mx', (e.clientX - rect.left) + 'px');
+        card.style.setProperty('--my', (e.clientY - rect.top) + 'px');
+      });
+    });
+  }
+
+  // .card--tilt が付いたカード(申請画面のアクティビティカードなど、演出用の一部)だけ、
+  // マウス位置に応じてごく軽く3D傾斜させる(入力欄が並ぶカードには適用しない)。
+  function initCardTilt_() {
+    document.querySelectorAll('.card--tilt').forEach(function (card) {
+      card.addEventListener('pointermove', function (e) {
+        var rect = card.getBoundingClientRect();
+        var px = (e.clientX - rect.left) / rect.width - 0.5;
+        var py = (e.clientY - rect.top) / rect.height - 0.5;
+        card.style.setProperty('--rx', (px * 6) + 'deg');
+        card.style.setProperty('--ry', (-py * 6) + 'deg');
+      });
+      card.addEventListener('pointerleave', function () {
+        card.style.setProperty('--rx', '0deg');
+        card.style.setProperty('--ry', '0deg');
+      });
+    });
+  }
+
+  // ボタン押下位置を起点に波紋が広がる演出(.btnクラスすべてに共通、イベント委譲で1リスナーのみ)。
+  function initRipple_() {
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.btn');
+      if (!btn || btn.disabled) return;
+      var rect = btn.getBoundingClientRect();
+      var size = Math.max(rect.width, rect.height);
+      var span = document.createElement('span');
+      span.className = 'ripple';
+      span.style.width = span.style.height = size + 'px';
+      span.style.left = (e.clientX - rect.left - size / 2) + 'px';
+      span.style.top = (e.clientY - rect.top - size / 2) + 'px';
+      btn.appendChild(span);
+      setTimeout(function () { span.remove(); }, 650);
+    });
+  }
+
+  // ---------- 画期的ビジュアル: 生きた時計 / 常時アクティビティ表示 ----------
+
+  function initLiveClock_() {
+    var statusClock = document.getElementById('statusClock');
+    var activityClock = document.getElementById('activityClock');
+    function tick() {
+      var d = new Date();
+      var text = String(d.getHours()).padStart(2, '0') + ':' +
+        String(d.getMinutes()).padStart(2, '0') + ':' +
+        String(d.getSeconds()).padStart(2, '0');
+      if (statusClock) statusClock.textContent = text;
+      if (activityClock) activityClock.textContent = text;
+    }
+    tick();
+    setInterval(tick, 1000);
+  }
+
+  // 画面上部のステータスバー・申請画面のアクティビティカードへ、本日の送付件数と
+  // 直近の申請情報を反映する(HistoryService.gs の getActivitySnapshot_ 参照。
+  // ダッシュボードのような集計画面ではなく、あくまで「動いている感」を出す軽量表示)。
+  function loadActivitySnapshot_() {
+    google.script.run
+      .withSuccessHandler(function (snap) {
+        var statusCountEl = document.getElementById('statusTodayCount');
+        var activityCountEl = document.getElementById('activityTodayCount');
+        if (statusCountEl) setCountBadge_(statusCountEl, snap.todayCount, '');
+        if (activityCountEl) setCountBadge_(activityCountEl, snap.todayCount, '');
+
+        var latestText = snap.latestCompany
+          ? '最新: ' + snap.latestCompany + '（' + String(snap.latestSentAt).slice(11) + '）'
+          : '本日はまだ送付がありません';
+        var statusLatestEl = document.getElementById('statusLatest');
+        var activityLatestEl = document.getElementById('activityLatest');
+        if (statusLatestEl) statusLatestEl.textContent = latestText;
+        if (activityLatestEl) activityLatestEl.textContent = latestText;
+      })
+      .withFailureHandler(function () {
+        var statusLatestEl = document.getElementById('statusLatest');
+        var activityLatestEl = document.getElementById('activityLatest');
+        if (statusLatestEl) statusLatestEl.textContent = '状況を取得できませんでした';
+        if (activityLatestEl) activityLatestEl.textContent = '状況を取得できませんでした';
+      })
+      .getActivitySnapshot();
+  }
+
+  // ---------- 画期的ビジュアル: コマンドパレット(Ctrl/Cmd + K) ----------
+
+  var COMMANDS_ = [
+    { label: '申請画面へ移動', hint: '新規に申請を作成', run: function () { document.getElementById('navForm').click(); } },
+    { label: '履歴確認へ移動', hint: '過去の申請を検索・取消', run: function () { document.getElementById('navHistory').click(); } },
+    { label: '送付書PDFへ移動', hint: '発行済みPDFの確認・メール送信', run: function () { document.getElementById('navPdf').click(); } },
+    { label: '設定へ移動', hint: 'メール宛先・自動送信・テーマなど', run: function () { document.getElementById('navSettings').click(); } },
+    { label: '車両の行を追加', hint: '申請フォームに1行追加する', run: function () { document.getElementById('navForm').click(); document.getElementById('btnAddRow').click(); } },
+    { label: 'フォームをクリア', hint: '申請フォームを初期状態に戻す', run: function () { document.getElementById('navForm').click(); document.getElementById('btnClear').click(); } },
+    { label: '送付日を今日にする', hint: '申請フォームの送付日欄に反映', run: function () { document.getElementById('navForm').click(); document.getElementById('sendDate').value = formatDateInput_(new Date()); } },
+    { label: 'テーマ: ライト', hint: '画面を明るい配色にする', run: function () { document.getElementById('themeLight').click(); } },
+    { label: 'テーマ: ダーク', hint: '画面を暗い配色にする', run: function () { document.getElementById('themeDark').click(); } },
+    { label: 'テーマ: 自動', hint: '端末の設定に合わせる', run: function () { document.getElementById('themeSystem').click(); } },
+    { label: '自動メール送信を切り替える', hint: '毎日17時台の自動送信ON/OFF', run: function () { document.getElementById('navSettings').click(); document.getElementById('autoMailToggle').click(); } },
+    { label: 'メール送信先を確認・編集', hint: '設定画面の宛先入力欄を開く', run: function () { document.getElementById('navSettings').click(); document.getElementById('mailTo1').focus(); } }
+  ];
+  var cmdkFiltered_ = COMMANDS_;
+  var cmdkSelectedIndex_ = 0;
+
+  function openCmdk_() {
+    var overlay = document.getElementById('cmdkOverlay');
+    overlay.classList.remove('is-hidden');
+    overlay.setAttribute('aria-hidden', 'false');
+    var input = document.getElementById('cmdkInput');
+    input.value = '';
+    renderCmdkList_('');
+    setTimeout(function () { input.focus(); }, 10);
+  }
+
+  function closeCmdk_() {
+    var overlay = document.getElementById('cmdkOverlay');
+    overlay.classList.add('is-hidden');
+    overlay.setAttribute('aria-hidden', 'true');
+  }
+
+  function renderCmdkList_(query) {
+    var q = query.trim().toLowerCase();
+    cmdkFiltered_ = COMMANDS_.filter(function (c) {
+      return !q || (c.label + c.hint).toLowerCase().indexOf(q) !== -1;
+    });
+    cmdkSelectedIndex_ = 0;
+
+    var list = document.getElementById('cmdkList');
+    list.innerHTML = '';
+    cmdkFiltered_.forEach(function (c, i) {
+      var item = document.createElement('div');
+      item.className = 'cmdk__item' + (i === 0 ? ' is-selected' : '');
+      item.setAttribute('role', 'option');
+      item.innerHTML =
+        '<span class="cmdk__itemLabel">' + escapeHtml_(c.label) + '</span>' +
+        '<span class="cmdk__itemHint">' + escapeHtml_(c.hint) + '</span>';
+      item.addEventListener('click', function () { runCmdkItem_(i); });
+      list.appendChild(item);
+    });
+
+    document.getElementById('cmdkEmpty').classList.toggle('is-hidden', cmdkFiltered_.length > 0);
+  }
+
+  function runCmdkItem_(i) {
+    var cmd = cmdkFiltered_[i];
+    if (!cmd) return;
+    closeCmdk_();
+    cmd.run();
+  }
+
+  function moveCmdkSelection_(delta) {
+    if (cmdkFiltered_.length === 0) return;
+    cmdkSelectedIndex_ = (cmdkSelectedIndex_ + delta + cmdkFiltered_.length) % cmdkFiltered_.length;
+    var items = document.querySelectorAll('#cmdkList .cmdk__item');
+    items.forEach(function (el, i) { el.classList.toggle('is-selected', i === cmdkSelectedIndex_); });
+    var sel = items[cmdkSelectedIndex_];
+    if (sel) sel.scrollIntoView({ block: 'nearest' });
+  }
+
+  document.getElementById('btnOpenCmdk').addEventListener('click', openCmdk_);
+  document.getElementById('cmdkOverlay').addEventListener('click', function (e) {
+    if (e.target.id === 'cmdkOverlay') closeCmdk_();
+  });
+  document.getElementById('cmdkInput').addEventListener('input', function (e) { renderCmdkList_(e.target.value); });
+  document.getElementById('cmdkInput').addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); moveCmdkSelection_(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); moveCmdkSelection_(-1); }
+    else if (e.key === 'Enter') { e.preventDefault(); runCmdkItem_(cmdkSelectedIndex_); }
+    else if (e.key === 'Escape') { closeCmdk_(); }
+  });
+  document.addEventListener('keydown', function (e) {
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+      e.preventDefault();
+      openCmdk_();
+    } else if (e.key === 'Escape' && !document.getElementById('cmdkOverlay').classList.contains('is-hidden')) {
+      closeCmdk_();
+    }
+  });
 
   // ---------- 申請 / 履歴確認 / 送付書PDF 画面切り替え ----------
 
@@ -555,7 +778,7 @@
       body.appendChild(tr);
     });
 
-    document.getElementById('historyCountBadge').textContent = rows.length + ' 件';
+    setCountBadge_(document.getElementById('historyCountBadge'), rows.length, ' 件');
     document.getElementById('historyEmptyMsg').textContent = emptyMessage || 'この期間の履歴データはまだありません。';
     document.getElementById('historyEmptyMsg').style.display = rows.length === 0 ? '' : 'none';
   }
@@ -639,7 +862,7 @@
   function renderPdfList_(list, emptyMessage) {
     var container = document.getElementById('pdfList');
     container.innerHTML = '';
-    document.getElementById('pdfCountBadge').textContent = list.length + ' 件';
+    setCountBadge_(document.getElementById('pdfCountBadge'), list.length, ' 件');
     document.getElementById('pdfEmptyMsg').textContent = emptyMessage || '該当する送付書PDFが見つかりませんでした。';
     document.getElementById('pdfEmptyMsg').style.display = list.length === 0 ? '' : 'none';
 
