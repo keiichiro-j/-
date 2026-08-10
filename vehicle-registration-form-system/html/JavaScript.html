@@ -332,10 +332,17 @@
 
   // ---------- 起動画面(ローディング画面) ----------
   // 画像・「Now Loading」表示はIndex.html側でページ生成時から表示済み。
-  // window.onload(＝ページの初期描画が整ったタイミング)でフェードアウトさせる。
+  // window.onload(＝ページの初期描画が整ったタイミング)でフェードアウトさせるが、
+  // 読み込みが速すぎると一瞬で消えてしまうため、最低でもLOADING_MIN_DISPLAY_MS_は表示し続ける。
+  var LOADING_MIN_DISPLAY_MS_ = 2400;
+  var loadingOverlayShownAt_ = (window.performance && performance.now) ? performance.now() : Date.now();
+
   function hideLoadingOverlay_() {
     var overlay = document.getElementById('loadingOverlay');
-    if (overlay) overlay.classList.add('is-hidden');
+    if (!overlay) return;
+    var now = (window.performance && performance.now) ? performance.now() : Date.now();
+    var remaining = Math.max(0, LOADING_MIN_DISPLAY_MS_ - (now - loadingOverlayShownAt_));
+    setTimeout(function () { overlay.classList.add('is-hidden'); }, remaining);
   }
 
   window.onload = function () {

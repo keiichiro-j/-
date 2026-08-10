@@ -150,14 +150,20 @@
     pointer-events: none;
   }
   .loadingOverlay__img {
-    max-width: min(240px, 70vw);
-    max-height: 120px;
+    max-width: min(360px, 80vw);
+    max-height: 220px;
     object-fit: contain;
+    animation: loadingImageFlash 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  @keyframes loadingImageFlash {
+    0% { opacity: 0; transform: scale(0.72); filter: brightness(1.7); }
+    55% { opacity: 1; transform: scale(1.08); filter: brightness(1.3); }
+    100% { opacity: 1; transform: scale(1); filter: brightness(1); }
   }
   .loadingOverlay__spinner {
     display: block;
-    width: 30px;
-    height: 30px;
+    width: 34px;
+    height: 34px;
     border: 3px solid var(--line);
     border-top-color: var(--accent);
     border-radius: 50%;
@@ -166,15 +172,16 @@
   .loadingOverlay__text {
     margin: 0;
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    font-size: 12px;
+    font-size: 17px;
     font-weight: 700;
-    letter-spacing: 0.16em;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
     color: var(--ink-soft);
   }
   @media (prefers-reduced-motion: reduce) {
     .loadingOverlay { transition: none; }
     .loadingOverlay__spinner { animation: none; }
+    .loadingOverlay__img { animation: none; opacity: 1; transform: none; filter: none; }
   }
 
   /* ---------- masthead(白地・太字ロゴタイプ・下線アクセント。YANASE公式サイトのヘッダーを参考) ---------- */
