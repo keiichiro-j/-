@@ -963,7 +963,7 @@
   .calendarGrid__weekday.is-sat { color: var(--accent); }
 
   .calDay {
-    min-height: 132px;
+    height: 150px;
     padding: 8px;
     display: flex;
     flex-direction: column;
@@ -975,13 +975,14 @@
   .calDay.is-otherMonth { background: var(--surface-alt); }
   .calDay.is-otherMonth .calDay__num { color: var(--muted); }
   .calDay.is-today { background: var(--accent-soft); }
-  .calDay__num { font-size: 12px; font-weight: 700; color: var(--ink); }
+  .calDay__num { flex: none; font-size: 12px; font-weight: 700; color: var(--ink); }
   .calDay__list {
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 4px;
     overflow-y: auto;
-    max-height: 150px;
   }
 
   .calEntry {
@@ -995,8 +996,18 @@
     border-radius: var(--r-xs);
     background: var(--surface-alt);
     border: 1px solid var(--line-soft);
+    flex: none;
   }
   .calEntry.is-cancelled { opacity: 0.55; text-decoration: line-through; }
+  .calEntry--link {
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.15s var(--ease), background-color 0.15s var(--ease);
+  }
+  .calEntry--link:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .calEntry--link:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--accent-soft); }
+  .calEntry--link .calEntry__name { color: var(--accent); }
   .calEntry__type {
     flex: none;
     font-size: 9px;

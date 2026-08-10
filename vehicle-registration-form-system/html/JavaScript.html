@@ -874,7 +874,8 @@
       userName: header.indexOf('使用者名'),
       brand: header.indexOf('ブランド'),
       person: header.indexOf('担当者'),
-      status: header.indexOf('状態')
+      status: header.indexOf('状態'),
+      pdfUrl: header.indexOf('送付書PDF')
     };
 
     var byDate = {};
@@ -887,7 +888,8 @@
         userName: row[idx.userName],
         brand: row[idx.brand],
         person: row[idx.person],
-        cancelled: row[idx.status] === SUBMISSION_STATUS_CANCELLED_
+        cancelled: row[idx.status] === SUBMISSION_STATUS_CANCELLED_,
+        pdfUrl: row[idx.pdfUrl] || ''
       });
     });
 
@@ -926,11 +928,18 @@
         listEl.className = 'calDay__list';
         byDate[dateStr].forEach(function (entry) {
           totalCount++;
-          var entryEl = document.createElement('div');
-          entryEl.className = 'calEntry' + (entry.cancelled ? ' is-cancelled' : '');
+          var hasPdf = !!entry.pdfUrl;
+          var entryEl = document.createElement(hasPdf ? 'a' : 'div');
+          entryEl.className = 'calEntry' + (hasPdf ? ' calEntry--link' : '') + (entry.cancelled ? ' is-cancelled' : '');
+          if (hasPdf) {
+            entryEl.href = entry.pdfUrl;
+            entryEl.target = '_blank';
+            entryEl.rel = 'noopener';
+          }
           entryEl.title = (entry.type || '') + ' / ' + (entry.brand || 'ブランド未設定') +
             ' / 使用者名: ' + (entry.userName || '-') + ' / 担当者: ' + (entry.person || '-') +
-            (entry.cancelled ? '（取消済み）' : '');
+            (entry.cancelled ? '（取消済み）' : '') +
+            (hasPdf ? ' — クリックで送付書PDFを開く' : '');
 
           var typeEl = document.createElement('span');
           typeEl.className = 'calEntry__type' + (entry.type === 'OSS' ? ' is-oss' : ' is-paper');
