@@ -64,6 +64,7 @@
     <nav class="viewSwitch" role="tablist" aria-label="画面切り替え">
       <button type="button" class="viewSwitchBtn is-active" id="navForm" role="tab" aria-selected="true">申請</button>
       <button type="button" class="viewSwitchBtn" id="navHistory" role="tab" aria-selected="false">履歴確認</button>
+      <button type="button" class="viewSwitchBtn" id="navCalendar" role="tab" aria-selected="false">カレンダー</button>
       <button type="button" class="viewSwitchBtn" id="navPdf" role="tab" aria-selected="false">送付書PDF</button>
       <button type="button" class="viewSwitchBtn" id="navSettings" role="tab" aria-selected="false">設定</button>
     </nav>
@@ -248,6 +249,38 @@
           </table>
         </div>
         <p class="muted historyEmptyMsg" id="historyEmptyMsg">この期間の履歴データはまだありません。</p>
+      </section>
+    </div>
+
+    <div id="viewCalendar" class="is-hidden">
+      <section class="card">
+        <div class="card__head card__head--split">
+          <div>
+            <h2>登録日カレンダー</h2>
+            <p class="muted">車両の「登録日」を月別カレンダーで確認できます。OSSは車両ごとの登録日、紙登録は共通の登録日を表示します。</p>
+          </div>
+          <span class="badge" id="calendarCountBadge">0 件</span>
+        </div>
+
+        <div class="calendarToolbar">
+          <div class="calendarToolbar__nav">
+            <button type="button" id="btnCalPrev" class="btn btn--ghost btn--sm">＜ 前月</button>
+            <button type="button" id="btnCalToday" class="btn btn--ghost btn--sm">今月</button>
+            <button type="button" id="btnCalNext" class="btn btn--ghost btn--sm">次月 ＞</button>
+          </div>
+          <span class="calendarToolbar__title" id="calendarTitle">----年--月</span>
+        </div>
+
+        <div class="calendarLegend">
+          <span class="calendarLegend__item"><span class="calEntry__type is-oss">OSS</span> 電子申請</span>
+          <span class="calendarLegend__item"><span class="calEntry__type is-paper">紙</span> 従来申請</span>
+          <span class="calendarLegend__item"><span class="calEntry__brand">MB / AU</span> ブランド</span>
+        </div>
+
+        <div class="tableScroll">
+          <div class="calendarGrid" id="calendarGrid"></div>
+        </div>
+        <p class="muted historyEmptyMsg" id="calendarEmptyMsg">この月の登録日データはまだありません。</p>
       </section>
     </div>
 

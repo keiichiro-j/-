@@ -524,6 +524,7 @@
   var COMMANDS_ = [
     { label: '申請画面へ移動', hint: '新規に申請を作成', run: function () { document.getElementById('navForm').click(); } },
     { label: '履歴確認へ移動', hint: '過去の申請を検索・取消', run: function () { document.getElementById('navHistory').click(); } },
+    { label: 'カレンダーへ移動', hint: '登録日を月別カレンダーで確認', run: function () { document.getElementById('navCalendar').click(); } },
     { label: '送付書PDFへ移動', hint: '発行済みPDFの確認・メール送信', run: function () { document.getElementById('navPdf').click(); } },
     { label: '設定へ移動', hint: 'メール宛先・自動送信・テーマなど', run: function () { document.getElementById('navSettings').click(); } },
     { label: '車両の行を追加', hint: '申請フォームに1行追加する', run: function () { document.getElementById('navForm').click(); document.getElementById('btnAddRow').click(); } },
@@ -641,21 +642,27 @@
   function setView_(view) {
     document.getElementById('viewForm').classList.toggle('is-hidden', view !== 'form');
     document.getElementById('viewHistory').classList.toggle('is-hidden', view !== 'history');
+    document.getElementById('viewCalendar').classList.toggle('is-hidden', view !== 'calendar');
     document.getElementById('viewPdf').classList.toggle('is-hidden', view !== 'pdf');
     document.getElementById('viewSettings').classList.toggle('is-hidden', view !== 'settings');
     document.getElementById('navForm').classList.toggle('is-active', view === 'form');
     document.getElementById('navForm').setAttribute('aria-selected', view === 'form');
     document.getElementById('navHistory').classList.toggle('is-active', view === 'history');
     document.getElementById('navHistory').setAttribute('aria-selected', view === 'history');
+    document.getElementById('navCalendar').classList.toggle('is-active', view === 'calendar');
+    document.getElementById('navCalendar').setAttribute('aria-selected', view === 'calendar');
     document.getElementById('navPdf').classList.toggle('is-active', view === 'pdf');
     document.getElementById('navPdf').setAttribute('aria-selected', view === 'pdf');
     document.getElementById('navSettings').classList.toggle('is-active', view === 'settings');
     document.getElementById('navSettings').setAttribute('aria-selected', view === 'settings');
     // 初回表示時、または新しい申請でデータが増えた後(historyHeader_をクリア済み)だけ取得し直す
     if (view === 'history' && historyHeader_.length === 0) loadHistoryData_();
+    // カレンダーは月ごとの軽量な問い合わせのため、開くたびに最新状態を取得し直す
+    if (view === 'calendar') loadCalendarMonth_();
   }
   document.getElementById('navForm').addEventListener('click', function () { setView_('form'); });
   document.getElementById('navHistory').addEventListener('click', function () { setView_('history'); });
+  document.getElementById('navCalendar').addEventListener('click', function () { setView_('calendar'); });
   document.getElementById('navPdf').addEventListener('click', function () { setView_('pdf'); });
   document.getElementById('navSettings').addEventListener('click', function () { setView_('settings'); });
   document.getElementById('btnGoMailSettings').addEventListener('click', function () { setView_('settings'); });
@@ -816,6 +823,150 @@
         alert('取消処理に失敗しました:\n' + error.message);
       })
       .cancelSubmission(submissionId);
+  }
+
+  // ---------- カレンダー画面(登録日ベース) ----------
+  // 履歴確認画面と同じ getHistoryEntriesByDateRange を月初〜月末の範囲で呼び出して流用する
+  // (「登録日」列はOSSなら車両ごとの登録日、紙なら共通の登録日がすでに正しく入っている)。
+  // 履歴確認と違い直近状態を優先したい画面のため、キャッシュはせずタブを開くたびに取得し直す。
+
+  var CALENDAR_WEEKDAY_LABELS_ = ['日', '月', '火', '水', '木', '金', '土'];
+  var calendarYear_ = null;
+  var calendarMonth_ = null; // 0-11
+
+  function initCalendarState_() {
+    var now = new Date();
+    calendarYear_ = now.getFullYear();
+    calendarMonth_ = now.getMonth();
+  }
+  initCalendarState_();
+
+  function shiftCalendarMonth_(delta) {
+    var d = new Date(calendarYear_, calendarMonth_ + delta, 1);
+    calendarYear_ = d.getFullYear();
+    calendarMonth_ = d.getMonth();
+    loadCalendarMonth_();
+  }
+  document.getElementById('btnCalPrev').addEventListener('click', function () { shiftCalendarMonth_(-1); });
+  document.getElementById('btnCalNext').addEventListener('click', function () { shiftCalendarMonth_(1); });
+  document.getElementById('btnCalToday').addEventListener('click', function () { initCalendarState_(); loadCalendarMonth_(); });
+
+  function loadCalendarMonth_() {
+    document.getElementById('calendarTitle').textContent = calendarYear_ + '年' + (calendarMonth_ + 1) + '月';
+    var monthStart = formatDateInput_(new Date(calendarYear_, calendarMonth_, 1));
+    var monthEnd = formatDateInput_(new Date(calendarYear_, calendarMonth_ + 1, 0));
+
+    google.script.run
+      .withSuccessHandler(function (result) {
+        renderCalendar_(result.header, result.rows);
+      })
+      .withFailureHandler(function (error) {
+        renderCalendar_([], []);
+        alert('カレンダーの取得に失敗しました:\n' + error.message);
+      })
+      .getHistoryEntriesByDateRange(monthStart, monthEnd, false);
+  }
+
+  function renderCalendar_(header, rows) {
+    var idx = {
+      regDate: header.indexOf('登録日'),
+      type: header.indexOf('種別'),
+      userName: header.indexOf('使用者名'),
+      brand: header.indexOf('ブランド'),
+      person: header.indexOf('担当者'),
+      status: header.indexOf('状態')
+    };
+
+    var byDate = {};
+    rows.forEach(function (row) {
+      var dateStr = row[idx.regDate];
+      if (!dateStr) return;
+      if (!byDate[dateStr]) byDate[dateStr] = [];
+      byDate[dateStr].push({
+        type: row[idx.type],
+        userName: row[idx.userName],
+        brand: row[idx.brand],
+        person: row[idx.person],
+        cancelled: row[idx.status] === SUBMISSION_STATUS_CANCELLED_
+      });
+    });
+
+    var grid = document.getElementById('calendarGrid');
+    grid.innerHTML = '';
+
+    CALENDAR_WEEKDAY_LABELS_.forEach(function (label, i) {
+      var el = document.createElement('div');
+      el.className = 'calendarGrid__weekday' + (i === 0 ? ' is-sun' : i === 6 ? ' is-sat' : '');
+      el.textContent = label;
+      grid.appendChild(el);
+    });
+
+    var firstOfMonth = new Date(calendarYear_, calendarMonth_, 1);
+    var daysInMonth = new Date(calendarYear_, calendarMonth_ + 1, 0).getDate();
+    var startWeekday = firstOfMonth.getDay(); // 0=日曜
+    var totalCells = Math.ceil((startWeekday + daysInMonth) / 7) * 7;
+    var todayStr = formatDateInput_(new Date());
+    var totalCount = 0;
+
+    for (var cellIndex = 0; cellIndex < totalCells; cellIndex++) {
+      var dayNum = cellIndex - startWeekday + 1;
+      var inMonth = dayNum >= 1 && dayNum <= daysInMonth;
+      var dateStr = inMonth ? formatDateInput_(new Date(calendarYear_, calendarMonth_, dayNum)) : '';
+
+      var cell = document.createElement('div');
+      cell.className = 'calDay' + (inMonth ? '' : ' is-otherMonth') + (dateStr && dateStr === todayStr ? ' is-today' : '');
+
+      var numEl = document.createElement('div');
+      numEl.className = 'calDay__num';
+      numEl.textContent = inMonth ? String(dayNum) : '';
+      cell.appendChild(numEl);
+
+      if (inMonth && byDate[dateStr]) {
+        var listEl = document.createElement('div');
+        listEl.className = 'calDay__list';
+        byDate[dateStr].forEach(function (entry) {
+          totalCount++;
+          var entryEl = document.createElement('div');
+          entryEl.className = 'calEntry' + (entry.cancelled ? ' is-cancelled' : '');
+          entryEl.title = (entry.type || '') + ' / ' + (entry.brand || 'ブランド未設定') +
+            ' / 使用者名: ' + (entry.userName || '-') + ' / 担当者: ' + (entry.person || '-') +
+            (entry.cancelled ? '（取消済み）' : '');
+
+          var typeEl = document.createElement('span');
+          typeEl.className = 'calEntry__type' + (entry.type === 'OSS' ? ' is-oss' : ' is-paper');
+          typeEl.textContent = entry.type || '';
+          entryEl.appendChild(typeEl);
+
+          if (entry.brand) {
+            var brandEl = document.createElement('span');
+            brandEl.className = 'calEntry__brand';
+            brandEl.textContent = entry.brand;
+            entryEl.appendChild(brandEl);
+          }
+
+          var nameEl = document.createElement('span');
+          nameEl.className = 'calEntry__name';
+          nameEl.textContent = entry.userName || '-';
+          entryEl.appendChild(nameEl);
+
+          if (entry.person) {
+            var personEl = document.createElement('span');
+            personEl.className = 'calEntry__person';
+            personEl.textContent = '（' + entry.person + '）';
+            entryEl.appendChild(personEl);
+          }
+
+          listEl.appendChild(entryEl);
+        });
+        cell.appendChild(listEl);
+      }
+
+      grid.appendChild(cell);
+    }
+
+    setCountBadge_(document.getElementById('calendarCountBadge'), totalCount, ' 件');
+    document.getElementById('calendarEmptyMsg').style.display = totalCount === 0 ? '' : 'none';
+    updateScrollShadow_(grid.closest('.tableScroll'));
   }
 
   // ---------- 送付書PDF画面 ----------

@@ -919,6 +919,106 @@
   .pdfRow__cancelled { color: var(--shu); font-weight: 700; }
   .pdfRow__actions { display: flex; flex-wrap: wrap; gap: 8px; flex: none; }
 
+  /* ---------- カレンダー画面(登録日ベース) ---------- */
+
+  .calendarToolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .calendarToolbar__nav { display: flex; align-items: center; gap: 8px; }
+  .calendarToolbar__title { font-size: 16px; font-weight: 800; color: var(--ink); min-width: 130px; text-align: center; }
+
+  .calendarLegend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    margin-bottom: 16px;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+  }
+  .calendarLegend__item { display: inline-flex; align-items: center; gap: 6px; }
+
+  .calendarGrid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(128px, 1fr));
+    min-width: 900px;
+  }
+  .calendarGrid__weekday {
+    padding: 10px 8px;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    background: var(--surface-alt);
+    border-bottom: 1px solid var(--line);
+  }
+  .calendarGrid__weekday.is-sun { color: var(--shu); }
+  .calendarGrid__weekday.is-sat { color: var(--accent); }
+
+  .calDay {
+    min-height: 132px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: var(--surface);
+    border-right: 1px solid var(--line-soft);
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .calDay.is-otherMonth { background: var(--surface-alt); }
+  .calDay.is-otherMonth .calDay__num { color: var(--muted); }
+  .calDay.is-today { background: var(--accent-soft); }
+  .calDay__num { font-size: 12px; font-weight: 700; color: var(--ink); }
+  .calDay__list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+    max-height: 150px;
+  }
+
+  .calEntry {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    font-size: 10.5px;
+    line-height: 1.4;
+    padding: 4px 6px;
+    border-radius: var(--r-xs);
+    background: var(--surface-alt);
+    border: 1px solid var(--line-soft);
+  }
+  .calEntry.is-cancelled { opacity: 0.55; text-decoration: line-through; }
+  .calEntry__type {
+    flex: none;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: var(--r-xs);
+  }
+  .calEntry__type.is-oss { background: var(--solid-bg); color: var(--solid-ink); }
+  .calEntry__type.is-paper { background: transparent; border: 1px solid var(--ink); color: var(--ink); }
+  .calEntry__brand {
+    flex: none;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    padding: 1px 5px;
+    border-radius: var(--r-xs);
+  }
+  .calEntry__name { font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+  .calEntry__person { color: var(--ink-soft); overflow-wrap: anywhere; }
+
   /* ---------- 設定画面: ロゴ画像プレビュー ---------- */
 
   .logoPreview {
