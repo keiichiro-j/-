@@ -1134,6 +1134,16 @@
 
   // ---------- 設定画面: ロゴ画像 ----------
 
+  // Googleドライブの「共有」リンク(.../file/d/<ID>/view?... や .../open?id=<ID>)は画像そのものではなく
+  // ビューアー画面のURLのため<img>タグでは表示できない。ファイルIDを取り出し、画像として直接表示できる
+  // サムネイルURLに変換する(サーバー側 SettingsService.gs の同名関数と同じロジック。保存前のプレビュー用)。
+  function normalizeDriveImageUrl_(url) {
+    var trimmed = String(url || '').trim();
+    var m = /^https?:\/\/drive\.google\.com\/file\/d\/([^\/]+)/i.exec(trimmed) ||
+      /^https?:\/\/drive\.google\.com\/open\?id=([^&]+)/i.exec(trimmed);
+    return m ? 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w1000' : trimmed;
+  }
+
   // ヘッダー(masthead)のロゴを表示/非表示にする。urlが空ならロゴなしの状態に戻す。
   function applyMastheadLogo_(url) {
     var img = document.getElementById('mastheadLogo');
@@ -1174,7 +1184,7 @@
   }
 
   document.getElementById('logoUrlInput').addEventListener('input', function (e) {
-    updateLogoPreview_(e.target.value.trim());
+    updateLogoPreview_(normalizeDriveImageUrl_(e.target.value.trim()));
   });
 
   function setLogoResult_(text, kind) {
@@ -1198,6 +1208,7 @@
       .withSuccessHandler(function (saved) {
         btn.disabled = false;
         setLogoProcessing_(false);
+        document.getElementById('logoUrlInput').value = saved || '';
         applyMastheadLogo_(saved);
         updateLogoPreview_(saved);
         setLogoResult_(saved ? '保存しました（ロゴを表示します）' : '保存しました（ロゴを非表示にしました）', 'success');

@@ -40,6 +40,21 @@ function saveDefaultFormValues_(values) {
 var LOGO_URL_PROP_KEY = 'logoUrl';
 
 /**
+ * Googleドライブの「共有」から取得した閲覧用URL(.../file/d/<ID>/view?... や
+ * .../open?id=<ID>)は画像そのものではなくビューアー画面のURLのため、<img>タグでは表示できない。
+ * ファイルIDを取り出し、画像として直接表示できるサムネイルURLに変換する。
+ * 該当しないURL(既に直接画像URLの場合や他サービスのURL)はそのまま返す。
+ * @param {string} url
+ * @return {string}
+ */
+function normalizeDriveImageUrl_(url) {
+  var trimmed = String(url || '').trim();
+  var m = /^https?:\/\/drive\.google\.com\/file\/d\/([^\/]+)/i.exec(trimmed)
+    || /^https?:\/\/drive\.google\.com\/open\?id=([^&]+)/i.exec(trimmed);
+  return m ? 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w1000' : trimmed;
+}
+
+/**
  * ヘッダー(masthead)に表示するロゴ画像のURLを返す。未設定なら空文字(ロゴ非表示)。
  * @return {string}
  */
@@ -48,13 +63,13 @@ function getLogoUrl_() {
 }
 
 /**
- * 「設定」画面のロゴ画像URL保存用。http(s)で始まる形式のみ許可する。
- * 空欄での保存は「ロゴを表示しない」設定として許可する。
+ * 「設定」画面のロゴ画像URL保存用。Googleドライブの共有リンクは表示用URLへ自動変換した上で、
+ * http(s)で始まる形式のみ許可する。空欄での保存は「ロゴを表示しない」設定として許可する。
  * @param {string} url
- * @return {string} 保存後のURL(トリム済み)
+ * @return {string} 保存後のURL(変換・トリム済み)
  */
 function saveLogoUrl_(url) {
-  var trimmed = String(url || '').trim();
+  var trimmed = normalizeDriveImageUrl_(url);
   if (trimmed && !/^https?:\/\//i.test(trimmed)) {
     throw new Error('ロゴ画像URLは http:// または https:// で始まる形式で入力してください');
   }

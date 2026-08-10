@@ -649,6 +649,19 @@ test('http(s)以外の形式はエラーになり保存されない', () => {
   assert.throws(() => sandbox.saveLogoUrl_('javascript:alert(1)'), /http:\/\/ または https:\/\//);
   assert.strictEqual(sandbox.getLogoUrl_(), 'https://example.com/old.png'); // 変更されない
 });
+test('Googleドライブの共有リンク(file/d/<ID>/view)は表示用サムネイルURLに自動変換される', () => {
+  const saved = sandbox.saveLogoUrl_('https://drive.google.com/file/d/1J3LS5DH8lutX3nUwb0UpuutXb01gWLk8/view?usp=drive_link');
+  assert.strictEqual(saved, 'https://drive.google.com/thumbnail?id=1J3LS5DH8lutX3nUwb0UpuutXb01gWLk8&sz=w1000');
+  assert.strictEqual(sandbox.getLogoUrl_(), saved);
+});
+test('Googleドライブの共有リンク(open?id=<ID>)も表示用サムネイルURLに自動変換される', () => {
+  const saved = sandbox.saveLogoUrl_('https://drive.google.com/open?id=ABC123XYZ');
+  assert.strictEqual(saved, 'https://drive.google.com/thumbnail?id=ABC123XYZ&sz=w1000');
+});
+test('ドライブ共有リンク以外の直接画像URLはそのまま保存される', () => {
+  const saved = sandbox.saveLogoUrl_('https://drive.google.com/thumbnail?id=XYZ&sz=w500');
+  assert.strictEqual(saved, 'https://drive.google.com/thumbnail?id=XYZ&sz=w500');
+});
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail > 0 ? 1 : 0);
