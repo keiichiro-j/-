@@ -348,6 +348,7 @@
       document.querySelectorAll('.tableScroll').forEach(updateScrollShadow_);
     });
     google.script.run.withSuccessHandler(populateSuggestions).getSuggestions();
+    loadLogoUrl_();
 
     // ---------- 画期的ビジュアル: ライブ演出の初期化 ----------
     initLiveClock_();
@@ -1129,6 +1130,84 @@
         setDefaultsResult_('保存に失敗しました:\n' + error.message, 'error');
       })
       .saveDefaultFormValues(values);
+  });
+
+  // ---------- 設定画面: ロゴ画像 ----------
+
+  // ヘッダー(masthead)のロゴを表示/非表示にする。urlが空ならロゴなしの状態に戻す。
+  function applyMastheadLogo_(url) {
+    var img = document.getElementById('mastheadLogo');
+    if (!img) return;
+    if (url) {
+      img.src = url;
+      img.classList.remove('is-hidden');
+    } else {
+      img.removeAttribute('src');
+      img.classList.add('is-hidden');
+    }
+  }
+
+  // 設定画面内のプレビュー欄を更新する(保存前でも入力中の見た目を確認できるように)。
+  function updateLogoPreview_(url) {
+    var img = document.getElementById('logoPreviewImg');
+    var empty = document.getElementById('logoPreviewEmpty');
+    if (!img || !empty) return;
+    if (url) {
+      img.src = url;
+      img.classList.remove('is-hidden');
+      empty.classList.add('is-hidden');
+    } else {
+      img.removeAttribute('src');
+      img.classList.add('is-hidden');
+      empty.classList.remove('is-hidden');
+    }
+  }
+
+  function loadLogoUrl_() {
+    google.script.run
+      .withSuccessHandler(function (url) {
+        document.getElementById('logoUrlInput').value = url || '';
+        updateLogoPreview_(url);
+        applyMastheadLogo_(url);
+      })
+      .getLogoUrl();
+  }
+
+  document.getElementById('logoUrlInput').addEventListener('input', function (e) {
+    updateLogoPreview_(e.target.value.trim());
+  });
+
+  function setLogoResult_(text, kind) {
+    var el = document.getElementById('logoResult');
+    el.className = 'result' + (kind ? ' -' + kind : '');
+    document.getElementById('logoResultText').innerHTML = text;
+  }
+
+  function setLogoProcessing_(on) {
+    document.getElementById('logoSpinner').classList.toggle('is-hidden', !on);
+  }
+
+  document.getElementById('btnSaveLogo').addEventListener('click', function () {
+    var url = document.getElementById('logoUrlInput').value.trim();
+    var btn = document.getElementById('btnSaveLogo');
+    btn.disabled = true;
+    setLogoProcessing_(true);
+    setLogoResult_('保存しています…', 'pending');
+
+    google.script.run
+      .withSuccessHandler(function (saved) {
+        btn.disabled = false;
+        setLogoProcessing_(false);
+        applyMastheadLogo_(saved);
+        updateLogoPreview_(saved);
+        setLogoResult_(saved ? '保存しました（ロゴを表示します）' : '保存しました（ロゴを非表示にしました）', 'success');
+      })
+      .withFailureHandler(function (error) {
+        btn.disabled = false;
+        setLogoProcessing_(false);
+        setLogoResult_('保存に失敗しました:\n' + error.message, 'error');
+      })
+      .saveLogoUrl(url);
   });
 
   // ---------- 設定画面: テーマ(ライト/ダーク/自動) ----------

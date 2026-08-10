@@ -36,3 +36,28 @@ function saveDefaultFormValues_(values) {
   PropertiesService.getScriptProperties().setProperty(DEFAULT_FORM_VALUES_PROP_KEY, JSON.stringify(trimmed));
   return trimmed;
 }
+
+var LOGO_URL_PROP_KEY = 'logoUrl';
+
+/**
+ * ヘッダー(masthead)に表示するロゴ画像のURLを返す。未設定なら空文字(ロゴ非表示)。
+ * @return {string}
+ */
+function getLogoUrl_() {
+  return PropertiesService.getScriptProperties().getProperty(LOGO_URL_PROP_KEY) || '';
+}
+
+/**
+ * 「設定」画面のロゴ画像URL保存用。http(s)で始まる形式のみ許可する。
+ * 空欄での保存は「ロゴを表示しない」設定として許可する。
+ * @param {string} url
+ * @return {string} 保存後のURL(トリム済み)
+ */
+function saveLogoUrl_(url) {
+  var trimmed = String(url || '').trim();
+  if (trimmed && !/^https?:\/\//i.test(trimmed)) {
+    throw new Error('ロゴ画像URLは http:// または https:// で始まる形式で入力してください');
+  }
+  PropertiesService.getScriptProperties().setProperty(LOGO_URL_PROP_KEY, trimmed);
+  return trimmed;
+}

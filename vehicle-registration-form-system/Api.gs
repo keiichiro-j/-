@@ -110,6 +110,23 @@ function getActivitySnapshot() {
   return getActivitySnapshot_(ss);
 }
 
+/**
+ * ヘッダー(masthead)のロゴ画像表示用。設定済みの画像URLを返す。
+ * @return {string}
+ */
+function getLogoUrl() {
+  return getLogoUrl_();
+}
+
+/**
+ * 「設定」画面のロゴ画像URL保存ボタン用。
+ * @param {string} url
+ * @return {string}
+ */
+function saveLogoUrl(url) {
+  return saveLogoUrl_(url);
+}
+
 // 二重送信防止用トークンのキャッシュ保持時間(秒)。ボタン連打やネットワーク遅延による
 // 再送はほぼ数秒以内に発生するため、余裕をみて5分にしている。
 var SUBMISSION_TOKEN_TTL_SEC = 300;

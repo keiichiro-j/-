@@ -628,5 +628,27 @@ test('片方だけ空欄でも保存できる', () => {
   assert.deepStrictEqual({ company: saved.company, manager: saved.manager }, { company: '岐阜ヤナセ株式会社', manager: '' });
 });
 
+console.log('== SettingsService: ヘッダーのロゴ画像URL ==');
+test('未設定なら空文字を返す(ロゴ非表示)', () => {
+  delete fakeScriptProperties[sandbox.LOGO_URL_PROP_KEY];
+  assert.strictEqual(sandbox.getLogoUrl_(), '');
+});
+test('http(s)のURLを保存・取得できる', () => {
+  const saved = sandbox.saveLogoUrl_('  https://example.com/logo.png  ');
+  assert.strictEqual(saved, 'https://example.com/logo.png');
+  assert.strictEqual(sandbox.getLogoUrl_(), 'https://example.com/logo.png');
+});
+test('空欄で保存するとロゴなしに戻せる', () => {
+  sandbox.saveLogoUrl_('https://example.com/logo.png');
+  const saved = sandbox.saveLogoUrl_('   ');
+  assert.strictEqual(saved, '');
+  assert.strictEqual(sandbox.getLogoUrl_(), '');
+});
+test('http(s)以外の形式はエラーになり保存されない', () => {
+  sandbox.saveLogoUrl_('https://example.com/old.png');
+  assert.throws(() => sandbox.saveLogoUrl_('javascript:alert(1)'), /http:\/\/ または https:\/\//);
+  assert.strictEqual(sandbox.getLogoUrl_(), 'https://example.com/old.png'); // 変更されない
+});
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail > 0 ? 1 : 0);
