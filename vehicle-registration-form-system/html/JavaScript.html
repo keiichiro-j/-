@@ -294,7 +294,7 @@
   }
 
   // 登録完了のお祝い演出。画面に一瞬だけ紙吹雪を降らせて自動的に消える。
-  var CONFETTI_COLORS = ['var(--accent)', 'var(--success)', 'var(--warning)', 'var(--shu)', 'var(--accent-dark)'];
+  var CONFETTI_COLORS = ['var(--ink)', 'var(--accent)', 'var(--accent-dark)', 'var(--muted)'];
   function celebrateSubmission_() {
     var layer = document.getElementById('confettiLayer');
     if (!layer) return;
@@ -354,10 +354,7 @@
     initLiveClock_();
     loadActivitySnapshot_();
     setInterval(loadActivitySnapshot_, 3 * 60 * 1000); // 3分ごとに本日の送付状況を更新
-    initCardGlow_();
-    initCardTilt_();
     initRipple_();
-    scheduleShootingStars_();
   };
 
   // ---------- スマホ対応: 横スクロールする車両テーブルの操作性補助 ----------
@@ -428,37 +425,7 @@
     animateCount_(el, count, function (v) { return v + suffix; });
   }
 
-  // ---------- 画期的ビジュアル: カーソル追従グロー / 3Dチルト / リップル ----------
-
-  // カード内でのマウス位置をCSS変数(--mx, --my)へ反映し、Stylesheet.htmlの
-  // .card::before(カーソル追従の光沢)がその位置を中心に光るようにする。
-  function initCardGlow_() {
-    document.querySelectorAll('.card').forEach(function (card) {
-      card.addEventListener('pointermove', function (e) {
-        var rect = card.getBoundingClientRect();
-        card.style.setProperty('--mx', (e.clientX - rect.left) + 'px');
-        card.style.setProperty('--my', (e.clientY - rect.top) + 'px');
-      });
-    });
-  }
-
-  // .card--tilt が付いたカード(申請画面のアクティビティカードなど、演出用の一部)だけ、
-  // マウス位置に応じてごく軽く3D傾斜させる(入力欄が並ぶカードには適用しない)。
-  function initCardTilt_() {
-    document.querySelectorAll('.card--tilt').forEach(function (card) {
-      card.addEventListener('pointermove', function (e) {
-        var rect = card.getBoundingClientRect();
-        var px = (e.clientX - rect.left) / rect.width - 0.5;
-        var py = (e.clientY - rect.top) / rect.height - 0.5;
-        card.style.setProperty('--rx', (px * 6) + 'deg');
-        card.style.setProperty('--ry', (-py * 6) + 'deg');
-      });
-      card.addEventListener('pointerleave', function () {
-        card.style.setProperty('--rx', '0deg');
-        card.style.setProperty('--ry', '0deg');
-      });
-    });
-  }
+  // ---------- ボタンのリップル演出 ----------
 
   // ボタン押下位置を起点に波紋が広がる演出(.btnクラスすべてに共通、イベント委譲で1リスナーのみ)。
   function initRipple_() {
@@ -475,36 +442,6 @@
       btn.appendChild(span);
       setTimeout(function () { span.remove(); }, 650);
     });
-  }
-
-  // オーロラ背景を時々横切る流れ星を1つ生成する(.auroraLayer内に追加し、
-  // アニメーション終了後は自動的にDOMから取り除く)。
-  function spawnShootingStar_() {
-    var layer = document.querySelector('.auroraLayer');
-    if (!layer) return;
-    var star = document.createElement('span');
-    star.className = 'shootingStar';
-    var startTop = 5 + Math.random() * 40; // 画面上部寄りから流れ始める
-    var startLeft = Math.random() * 60;
-    var angle = 12 + Math.random() * 16; // 右斜め下方向へ
-    var dx = 55 + Math.random() * 30;
-    var dy = 25 + Math.random() * 20;
-    star.style.top = startTop + 'vh';
-    star.style.left = startLeft + 'vw';
-    star.style.setProperty('--star-angle', angle + 'deg');
-    star.style.setProperty('--star-dx', dx + 'vw');
-    star.style.setProperty('--star-dy', dy + 'vh');
-    layer.appendChild(star);
-    setTimeout(function () { star.remove(); }, 1700);
-  }
-
-  // 4〜11秒のランダムな間隔で流れ星を生成し続ける(prefers-reduced-motionが有効な環境では発生させない)。
-  function scheduleShootingStars_() {
-    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    setTimeout(function () {
-      spawnShootingStar_();
-      scheduleShootingStars_();
-    }, 4000 + Math.random() * 7000);
   }
 
   // ---------- 画期的ビジュアル: 生きた時計 / 常時アクティビティ表示 ----------
