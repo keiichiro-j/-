@@ -334,6 +334,58 @@
     color: var(--warning-ink);
   }
 
+  /* ---------- ON/OFFスイッチ(自動メール送信など) ---------- */
+
+  .switchRow { display: flex; align-items: center; gap: 12px; }
+  .switch {
+    flex: none;
+    width: 44px;
+    height: 26px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+  }
+  .switch:disabled { cursor: not-allowed; opacity: 0.6; }
+  .switch__track {
+    display: block;
+    width: 44px;
+    height: 26px;
+    border-radius: var(--r-pill);
+    background: var(--line);
+    border: 1px solid var(--line);
+    position: relative;
+    transition: background-color 0.15s var(--ease), border-color 0.15s var(--ease);
+  }
+  .switch__knob {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--surface);
+    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.25);
+    transition: transform 0.15s var(--ease);
+  }
+  .switch.is-active .switch__track { background: var(--success); border-color: var(--success); }
+  .switch.is-active .switch__knob { transform: translateX(18px); }
+  .switch:focus-visible .switch__track { box-shadow: 0 0 0 3px var(--accent-soft); }
+
+  .switchRow__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .switchRow__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+  .switchRow__label.is-on { color: var(--success); }
+  .switchRow__label.is-on .switchRow__dot { background: var(--success); }
+  .switchRow__label.is-off { color: var(--ink-soft); }
+  .switchRow__label.is-off .switchRow__dot { background: var(--muted); }
+
   /* ---------- 車両テーブル ---------- */
 
   .tableScroll {
@@ -535,9 +587,14 @@
     font-size: 13px;
     text-align: center;
   }
-  .result.-pending { color: var(--accent); }
-  .result.-success { color: var(--success); }
-  .result.-error { color: var(--shu); white-space: pre-line; }
+  .result.-pending, .result.-success, .result.-error {
+    padding: 10px 14px;
+    border-radius: var(--r-sm);
+    font-weight: 700;
+  }
+  .result.-pending { color: var(--accent); background: var(--accent-soft); }
+  .result.-success { color: var(--success); background: var(--success-soft); }
+  .result.-error { color: var(--shu); background: var(--shu-soft); white-space: pre-line; }
   .result a { color: var(--accent); }
 
   /* ---------- 処理中インジケーター(送信ボタン押下後) ---------- */

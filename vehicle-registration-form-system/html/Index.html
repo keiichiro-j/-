@@ -293,7 +293,19 @@
           <h2>自動メール送信</h2>
           <p class="muted">毎日17時台に、その日が送付日の送付書PDFを上の宛先へ自動でメール送信します。</p>
         </div>
-        <button type="button" id="autoMailToggle" class="toggleBtn" aria-pressed="false">自動送信：OFF</button>
+        <div class="switchRow">
+          <button type="button" id="autoMailToggle" class="switch" role="switch" aria-checked="false">
+            <span class="switch__track"><span class="switch__knob"></span></span>
+          </button>
+          <span class="switchRow__label is-off" id="autoMailStatusLabel">
+            <span class="switchRow__dot"></span>
+            <span id="autoMailStatusText">OFF（自動送信は停止中）</span>
+          </span>
+        </div>
+        <div id="autoMailResult" class="result" role="status" aria-live="polite">
+          <span id="autoMailSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+          <span id="autoMailResultText"></span>
+        </div>
       </section>
 
       <section class="card">

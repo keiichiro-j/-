@@ -789,9 +789,22 @@
 
   function setAutoMailToggle_(on) {
     var btn = document.getElementById('autoMailToggle');
+    var label = document.getElementById('autoMailStatusLabel');
     btn.classList.toggle('is-active', on);
-    btn.setAttribute('aria-pressed', on);
-    btn.textContent = on ? '自動送信：ON' : '自動送信：OFF';
+    btn.setAttribute('aria-checked', on);
+    label.classList.toggle('is-on', on);
+    label.classList.toggle('is-off', !on);
+    document.getElementById('autoMailStatusText').textContent = on ? 'ON（毎日17時台に自動送信）' : 'OFF（自動送信は停止中）';
+  }
+
+  function setAutoMailResult_(text, kind) {
+    var el = document.getElementById('autoMailResult');
+    el.className = 'result' + (kind ? ' -' + kind : '');
+    document.getElementById('autoMailResultText').innerHTML = text;
+  }
+
+  function setAutoMailProcessing_(on) {
+    document.getElementById('autoMailSpinner').classList.toggle('is-hidden', !on);
   }
 
   function loadAutoMailStatus_() {
@@ -805,14 +818,20 @@
     var btn = document.getElementById('autoMailToggle');
     var next = !btn.classList.contains('is-active');
     btn.disabled = true;
+    setAutoMailProcessing_(true);
+    setAutoMailResult_('切り替えています…', 'pending');
+
     google.script.run
       .withSuccessHandler(function (enabled) {
         btn.disabled = false;
+        setAutoMailProcessing_(false);
         setAutoMailToggle_(enabled);
+        setAutoMailResult_(enabled ? '保存しました（自動送信：ON）' : '保存しました（自動送信：OFF）', 'success');
       })
       .withFailureHandler(function (error) {
         btn.disabled = false;
-        alert('切り替えに失敗しました:\n' + error.message);
+        setAutoMailProcessing_(false);
+        setAutoMailResult_('切り替えに失敗しました:\n' + error.message, 'error');
       })
       .setDailyMailTriggerEnabled(next);
   });
