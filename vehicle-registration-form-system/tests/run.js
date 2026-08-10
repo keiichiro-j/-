@@ -53,7 +53,7 @@ const sandbox = {
 };
 vm.createContext(sandbox);
 
-const FILES = ['Constants.gs', 'ValidationService.gs', 'HistoryService.gs', 'TemplateService.gs', 'EmailService.gs', 'DashboardService.gs'];
+const FILES = ['Constants.gs', 'ValidationService.gs', 'HistoryService.gs', 'TemplateService.gs', 'EmailService.gs'];
 FILES.forEach((file) => {
   const code = fs.readFileSync(path.join(ROOT, file), 'utf8');
   vm.runInContext(code, sandbox, { filename: file });
@@ -519,102 +519,20 @@ test('保存済みの宛先へ、指定日のPDFを送信する', () => {
   assert.strictEqual(capturedMails[0].attachments.length, 1);
 });
 
-console.log('== DashboardService: getDashboardData_ ==');
-test('送付日が対象月の申請を、申請単位(使用者名の配列)でまとめて返す', () => {
-  const header = sandbox.HISTORY_HEADER_ROW;
-  const rows = [
-    makeHistoryFullRow({ submissionId: 'uuid-1', userName: '岐阜 太郎', brand: 'MB', sendDate: new Date(2026, 7, 5) }),
-    makeHistoryFullRow({ submissionId: 'uuid-1', userName: '岐阜 次郎', brand: 'MB', sendDate: new Date(2026, 7, 5) }), // 同一申請の2台目
-    makeHistoryFullRow({ submissionId: 'uuid-2', userName: '岐阜 花子', brand: 'AU', sendDate: new Date(2026, 7, 10) })
-  ];
-  const sheet = makeMutableSheet('2026-08', header, rows);
-  const ss = makeFakeSpreadsheet([sheet]);
+console.log('== EmailService: saveMailRecipientsOnly_ (設定画面の宛先保存) ==');
+test('検証した上で宛先を保存し、送信は行わない', () => {
+  sandbox.saveMailRecipients_([]);
+  capturedMails.length = 0;
+  const result = sandbox.saveMailRecipientsOnly_([' a@example.com ', 'b@example.com', '']);
 
-  const result = sandbox.getDashboardData_(ss, '2026-08', {});
-  assert.strictEqual(result.totalSubmissions, 2);
-
-  // getHistoryEntries_はタブ内の行を新しい順(追記の逆順)に返すため、使用者名もその順になる
-  const first = result.entries.find((e) => e.submissionId === 'uuid-1');
-  assert.deepStrictEqual(Array.from(first.userNames), ['岐阜 次郎', '岐阜 太郎']);
-  assert.deepStrictEqual(Array.from(first.brandList), ['MB']);
-  assert.strictEqual(first.sendDate, '2026-08-05');
-  assert.strictEqual(first.company, '岐阜ヤナセ株式会社');
-  assert.strictEqual(first.pdfUrl, 'https://drive.google.com/file/d/FAKE_ID/view');
+  assert.strictEqual(result.recipientCount, 2);
+  assert.strictEqual(capturedMails.length, 0); // メールは送信されない
+  assert.deepStrictEqual(Array.from(sandbox.getSavedMailRecipients_()), ['a@example.com', 'b@example.com']);
 });
-test('送付日の新しい順に並ぶ', () => {
-  const header = sandbox.HISTORY_HEADER_ROW;
-  const rows = [
-    makeHistoryFullRow({ submissionId: 'uuid-1', sendDate: new Date(2026, 7, 3) }),
-    makeHistoryFullRow({ submissionId: 'uuid-2', sendDate: new Date(2026, 7, 20) })
-  ];
-  const sheet = makeMutableSheet('2026-08', header, rows);
-  const ss = makeFakeSpreadsheet([sheet]);
-
-  const result = sandbox.getDashboardData_(ss, '2026-08', {});
-  const ids = Array.from(result.entries, (e) => e.submissionId);
-  assert.deepStrictEqual(ids, ['uuid-2', 'uuid-1']);
-});
-test('取消済みの申請も一覧には残る(statusで判別できる)', () => {
-  const header = sandbox.HISTORY_HEADER_ROW;
-  const rows = [
-    makeHistoryFullRow({ submissionId: 'uuid-1', sendDate: new Date(2026, 7, 5), status: sandbox.SUBMISSION_STATUS_CANCELLED })
-  ];
-  const sheet = makeMutableSheet('2026-08', header, rows);
-  const ss = makeFakeSpreadsheet([sheet]);
-
-  const result = sandbox.getDashboardData_(ss, '2026-08', {});
-  assert.strictEqual(result.totalSubmissions, 1);
-  assert.strictEqual(result.entries[0].status, sandbox.SUBMISSION_STATUS_CANCELLED);
-});
-test('ブランドで絞り込める(申請内のいずれかの車両が該当ブランドなら含める)', () => {
-  const header = sandbox.HISTORY_HEADER_ROW;
-  const rows = [
-    makeHistoryFullRow({ submissionId: 'uuid-1', brand: 'MB', sendDate: new Date(2026, 7, 5) }),
-    makeHistoryFullRow({ submissionId: 'uuid-1', brand: 'AU', sendDate: new Date(2026, 7, 5) }), // 同一申請内に混在
-    makeHistoryFullRow({ submissionId: 'uuid-2', brand: 'MB', sendDate: new Date(2026, 7, 6) })
-  ];
-  const sheet = makeMutableSheet('2026-08', header, rows);
-  const ss = makeFakeSpreadsheet([sheet]);
-
-  const onlyAu = sandbox.getDashboardData_(ss, '2026-08', { brand: 'AU' });
-  assert.strictEqual(onlyAu.totalSubmissions, 1); // AUを含むのはuuid-1のみ
-  assert.strictEqual(onlyAu.entries[0].submissionId, 'uuid-1');
-
-  const all = sandbox.getDashboardData_(ss, '2026-08', {});
-  assert.strictEqual(all.totalSubmissions, 2);
-});
-test('送付日が対象月外の申請は含まれない', () => {
-  const header = sandbox.HISTORY_HEADER_ROW;
-  const rows = [
-    makeHistoryFullRow({ submissionId: 'uuid-in', sendDate: new Date(2026, 7, 1) }),
-    makeHistoryFullRow({ submissionId: 'uuid-out', sendDate: new Date(2026, 8, 1) })
-  ];
-  const sheet = makeMutableSheet('2026-08', header, rows);
-  const ss = makeFakeSpreadsheet([sheet]);
-
-  const result = sandbox.getDashboardData_(ss, '2026-08', {});
-  assert.strictEqual(result.totalSubmissions, 1);
-  assert.strictEqual(result.entries[0].submissionId, 'uuid-in');
-});
-test('登録日未定タブの申請も、送付日が対象月なら含まれる(送付日は必須項目のため)', () => {
-  const header = sandbox.HISTORY_HEADER_ROW;
-  const pendingRow = makeHistoryFullRow({ submissionId: 'uuid-pending', userName: '岐阜 次郎', regDate: '', sendDate: new Date(2026, 7, 8) });
-  const pendingSheet = makeMutableSheet(sandbox.HISTORY_PENDING_TAB_NAME, header, [pendingRow]);
-  const ss = makeFakeSpreadsheet([pendingSheet]);
-
-  const result = sandbox.getDashboardData_(ss, '2026-08', {});
-  assert.strictEqual(result.totalSubmissions, 1);
-  assert.strictEqual(result.entries[0].submissionId, 'uuid-pending');
-});
-test('対象月の形式が不正ならエラー', () => {
-  const ss = makeFakeSpreadsheet([]);
-  assert.throws(() => sandbox.getDashboardData_(ss, '2026/08', {}), /対象月/);
-});
-test('存在しない月を指定すると0件で返る(エラーにならない)', () => {
-  const ss = makeFakeSpreadsheet([]);
-  const result = sandbox.getDashboardData_(ss, '2099-01', {});
-  assert.strictEqual(result.totalSubmissions, 0);
-  assert.deepStrictEqual(Array.from(result.entries), []);
+test('不正なメールアドレスがあればエラーになり保存されない', () => {
+  sandbox.saveMailRecipients_(['old@example.com']);
+  assert.throws(() => sandbox.saveMailRecipientsOnly_(['not-an-email']), /メールアドレスの形式/);
+  assert.deepStrictEqual(Array.from(sandbox.getSavedMailRecipients_()), ['old@example.com']); // 変更されない
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

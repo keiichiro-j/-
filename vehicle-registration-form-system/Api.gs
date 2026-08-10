@@ -59,14 +59,12 @@ function getMailRecipients() {
 }
 
 /**
- * 「ダッシュボード」画面用。指定した月のブランド(MB/AU)・種別(OSS/紙)別集計と
- * 日別の車両台数推移を返す。
- * @param {string} month "YYYY-MM"
- * @param {Object} filters { brand, type, includeCancelled, includePending }
+ * 「設定」画面のメール送信先保存ボタン用。送信は行わず、宛先の検証と保存だけを行う。
+ * @param {Array<string>} recipients
+ * @return {{recipientCount: number}}
  */
-function getDashboardData(month, filters) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  return getDashboardData_(ss, month, filters || {});
+function saveMailRecipients(recipients) {
+  return saveMailRecipientsOnly_(recipients);
 }
 
 // 二重送信防止用トークンのキャッシュ保持時間(秒)。ボタン連打やネットワーク遅延による

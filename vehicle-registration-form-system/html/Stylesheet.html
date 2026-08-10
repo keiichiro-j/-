@@ -1,8 +1,8 @@
 <style>
   :root {
-    color-scheme: light; /* Chromeの「Webコンテンツの自動ダークモード」による強制変換を無効化する */
+    color-scheme: light;
 
-    /* ---------- Design tokens: "Quiet Intelligence" ---------- */
+    /* ---------- Design tokens: "Quiet Intelligence" (ライト、既定) ---------- */
     --bg: #F8F9FB;
     --surface: #FFFFFF;
     --surface-alt: #F1F3F5;
@@ -19,11 +19,9 @@
     --success-soft: #E7F6EF;
     --warning: #D99A24;
     --warning-soft: #FBF2DF;
+    --warning-ink: #7A5B12;
     --shu: #E05252;
     --shu-soft: #FCEAEA;
-
-    --au-color: #6E56CF;
-    --paper-color: #C98A1E;
 
     --line: #E6E8EC;
     --line-soft: #EFF1F4;
@@ -35,6 +33,55 @@
     --r-pill: 999px;
 
     --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* ---------- ダークテーマ(設定画面から切り替え。html/JavaScript.htmlのapplyTheme_参照) ---------- */
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0E1015;
+    --surface: #16181F;
+    --surface-alt: #1D2029;
+    --ink: #EDEEF1;
+    --ink-soft: #9AA1AF;
+    --muted: #6B7280;
+    --accent: #5E76F0;
+    --accent-dark: #7C90F5;
+    --accent-soft: rgba(94, 118, 240, 0.2);
+    --success: #34C98C;
+    --success-soft: rgba(52, 201, 140, 0.16);
+    --warning: #E3AC4C;
+    --warning-soft: rgba(227, 172, 76, 0.16);
+    --warning-ink: #FFD98A;
+    --shu: #F17272;
+    --shu-soft: rgba(241, 114, 114, 0.16);
+    --line: #2A2D36;
+    --line-soft: #23262E;
+  }
+
+  /* 「自動」選択時(data-theme属性なし)は端末のダークモード設定に従う */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) {
+      color-scheme: dark;
+      --bg: #0E1015;
+      --surface: #16181F;
+      --surface-alt: #1D2029;
+      --ink: #EDEEF1;
+      --ink-soft: #9AA1AF;
+      --muted: #6B7280;
+      --accent: #5E76F0;
+      --accent-dark: #7C90F5;
+      --accent-soft: rgba(94, 118, 240, 0.2);
+      --success: #34C98C;
+      --success-soft: rgba(52, 201, 140, 0.16);
+      --warning: #E3AC4C;
+      --warning-soft: rgba(227, 172, 76, 0.16);
+      --warning-ink: #FFD98A;
+      --shu: #F17272;
+      --shu-soft: rgba(241, 114, 114, 0.16);
+      --line: #2A2D36;
+      --line-soft: #23262E;
+    }
   }
 
   * { box-sizing: border-box; }
@@ -284,7 +331,7 @@
   .toggleBtn.is-active {
     background: var(--warning-soft);
     border-color: var(--warning);
-    color: #7A5B12;
+    color: var(--warning-ink);
   }
 
   /* ---------- 車両テーブル ---------- */
@@ -569,28 +616,6 @@
     margin-top: 8px;
   }
   .mailSendBtn { width: 100%; }
-
-  /* ---------- ダッシュボード画面: 送付書PDF一覧 ---------- */
-
-  .tableScroll--dashEntries { max-height: 460px; overflow-y: auto; }
-  #dashEntriesTable { min-width: 0; width: 100%; }
-  #dashEntriesTable tbody tr:nth-child(even) td { background: var(--surface-alt); }
-  #dashEntriesTable tbody tr.is-cancelled td { color: var(--muted); text-decoration: line-through; }
-
-  .pill {
-    display: inline-block;
-    padding: 3px 11px;
-    border-radius: var(--r-pill);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    color: #FFFFFF;
-  }
-  .pill--mb { background: var(--accent); }
-  .pill--au { background: var(--au-color); }
-  .pill--oss { background: var(--success); }
-  .pill--paper { background: var(--paper-color); }
-  .pill--muted { background: var(--line); color: var(--ink-soft); }
 
   @media (max-width: 700px) {
     .masthead { margin: 24px auto 20px; }

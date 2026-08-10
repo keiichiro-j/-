@@ -317,7 +317,6 @@
     initPdfDefaultRange_();
     document.getElementById('mailSendDate').value = formatDateInput_(new Date());
     loadMailRecipients_();
-    initDashboardDefaultMonth_();
     document.querySelectorAll('.tableScroll').forEach(function (el) {
       updateScrollShadow_(el);
       el.addEventListener('scroll', function () { updateScrollShadow_(el); });
@@ -380,32 +379,27 @@
   var historyHeader_ = [];
   var historyAllRows_ = [];
 
-  var dashboardLoaded_ = false;
-
   function setView_(view) {
     document.getElementById('viewForm').classList.toggle('is-hidden', view !== 'form');
     document.getElementById('viewHistory').classList.toggle('is-hidden', view !== 'history');
     document.getElementById('viewPdf').classList.toggle('is-hidden', view !== 'pdf');
-    document.getElementById('viewDashboard').classList.toggle('is-hidden', view !== 'dashboard');
+    document.getElementById('viewSettings').classList.toggle('is-hidden', view !== 'settings');
     document.getElementById('navForm').classList.toggle('is-active', view === 'form');
     document.getElementById('navForm').setAttribute('aria-selected', view === 'form');
     document.getElementById('navHistory').classList.toggle('is-active', view === 'history');
     document.getElementById('navHistory').setAttribute('aria-selected', view === 'history');
     document.getElementById('navPdf').classList.toggle('is-active', view === 'pdf');
     document.getElementById('navPdf').setAttribute('aria-selected', view === 'pdf');
-    document.getElementById('navDashboard').classList.toggle('is-active', view === 'dashboard');
-    document.getElementById('navDashboard').setAttribute('aria-selected', view === 'dashboard');
+    document.getElementById('navSettings').classList.toggle('is-active', view === 'settings');
+    document.getElementById('navSettings').setAttribute('aria-selected', view === 'settings');
     // 初回表示時、または新しい申請でデータが増えた後(historyHeader_をクリア済み)だけ取得し直す
     if (view === 'history' && historyHeader_.length === 0) loadHistoryData_();
-    if (view === 'dashboard' && !dashboardLoaded_) {
-      dashboardLoaded_ = true;
-      loadDashboardData_();
-    }
   }
   document.getElementById('navForm').addEventListener('click', function () { setView_('form'); });
   document.getElementById('navHistory').addEventListener('click', function () { setView_('history'); });
   document.getElementById('navPdf').addEventListener('click', function () { setView_('pdf'); });
-  document.getElementById('navDashboard').addEventListener('click', function () { setView_('dashboard'); });
+  document.getElementById('navSettings').addEventListener('click', function () { setView_('settings'); });
+  document.getElementById('btnGoMailSettings').addEventListener('click', function () { setView_('settings'); });
   document.getElementById('btnHistoryRefresh').addEventListener('click', function () { loadHistoryData_(); });
   document.getElementById('historySearch').addEventListener('input', applyHistoryFilter_);
   document.getElementById('historyBrand').addEventListener('change', applyHistoryFilter_);
@@ -714,7 +708,7 @@
     }
     var recipients = collectMailRecipients_();
     if (recipients.length === 0) {
-      setMailResult_('送信先メールアドレスを1件以上入力してください', 'error');
+      setMailResult_('送信先メールアドレスが未設定です。「設定」タブで宛先を保存してください。', 'error');
       return;
     }
 
@@ -737,89 +731,74 @@
       .sendPdfsByEmail(sendDate, recipients);
   });
 
-  // ---------- ダッシュボード画面 ----------
+  // ---------- 設定画面: メール送信先の保存 ----------
 
-  document.getElementById('btnDashRefresh').addEventListener('click', loadDashboardData_);
-
-  // ダッシュボードの対象月(YYYY-MM)、今月を表す文字列を返す
-  function currentMonthStr_() {
-    var now = new Date();
-    var mm = String(now.getMonth() + 1).padStart(2, '0');
-    return now.getFullYear() + '-' + mm;
+  function setMailSettingsResult_(text, kind) {
+    var el = document.getElementById('mailSettingsResult');
+    el.className = 'result' + (kind ? ' -' + kind : '');
+    document.getElementById('mailSettingsResultText').innerHTML = text;
   }
 
-  // ダッシュボードの初期表示月(今月)を設定する
-  function initDashboardDefaultMonth_() {
-    document.getElementById('dashMonth').value = currentMonthStr_();
+  function setMailSettingsProcessing_(on) {
+    document.getElementById('mailSettingsSpinner').classList.toggle('is-hidden', !on);
   }
 
-  function loadDashboardData_() {
-    var monthEl = document.getElementById('dashMonth');
-    if (!monthEl.value) monthEl.value = currentMonthStr_(); // 未設定なら当月にフォールバックし、常にデータが表示されるようにする
-    var month = monthEl.value;
-    var filters = { brand: document.getElementById('dashBrand').value };
-
-    var btn = document.getElementById('btnDashRefresh');
+  document.getElementById('btnSaveMailRecipients').addEventListener('click', function () {
+    var recipients = collectMailRecipients_();
+    var btn = document.getElementById('btnSaveMailRecipients');
     btn.disabled = true;
+    setMailSettingsProcessing_(true);
+    setMailSettingsResult_('保存しています…', 'pending');
 
     google.script.run
-      .withSuccessHandler(function (data) {
+      .withSuccessHandler(function (result) {
         btn.disabled = false;
-        renderDashboardEntries_(data);
+        setMailSettingsProcessing_(false);
+        setMailSettingsResult_('保存しました（' + result.recipientCount + '件）', 'success');
       })
       .withFailureHandler(function (error) {
         btn.disabled = false;
-        alert('ダッシュボードの取得に失敗しました:\n' + error.message);
+        setMailSettingsProcessing_(false);
+        setMailSettingsResult_('保存に失敗しました:\n' + error.message, 'error');
       })
-      .getDashboardData(month, filters);
-  }
+      .saveMailRecipients(recipients);
+  });
 
-  // 対象月に送付した送付書PDFの一覧(使用者名・ブランド・PDFリンク)を描画する
-  function renderDashboardEntries_(data) {
-    var body = document.getElementById('dashEntriesBody');
-    var emptyMsg = document.getElementById('dashEntriesEmptyMsg');
-    var scrollWrap = document.getElementById('dashEntriesTable').closest('.tableScroll');
-    body.innerHTML = '';
+  // ---------- 設定画面: テーマ(ライト/ダーク/自動) ----------
 
-    var entries = data.entries || [];
-    document.getElementById('dashEntriesCountBadge').textContent = entries.length + ' 件';
+  var THEME_STORAGE_KEY = 'vrfsThemePreference';
+  var THEME_BUTTON_IDS = ['themeLight', 'themeDark', 'themeSystem'];
 
-    if (entries.length === 0) {
-      scrollWrap.classList.add('is-hidden');
-      emptyMsg.style.display = '';
-      return;
+  function applyTheme_(theme) {
+    var root = document.documentElement;
+    if (theme === 'light' || theme === 'dark') {
+      root.setAttribute('data-theme', theme);
+    } else {
+      root.removeAttribute('data-theme');
+      theme = 'system';
     }
-    scrollWrap.classList.remove('is-hidden');
-    emptyMsg.style.display = 'none';
-
-    entries.forEach(function (e) {
-      var tr = document.createElement('tr');
-      if (e.status === SUBMISSION_STATUS_CANCELLED_) tr.classList.add('is-cancelled');
-      var brandHtml = (e.brandList && e.brandList.length)
-        ? e.brandList.map(brandPillHtml_).join(' ')
-        : brandPillHtml_('未設定');
-      var pdfHtml = e.pdfUrl
-        ? '<a href="' + e.pdfUrl + '" target="_blank" rel="noopener" class="pdfLink">開く</a>'
-        : '-';
-      tr.innerHTML =
-        '<td>' + escapeHtml_(e.sendDate) + '</td>' +
-        '<td>' + escapeHtml_(e.sendBatch || '-') + '</td>' +
-        '<td>' + escapeHtml_((e.userNames || []).join('、')) + '</td>' +
-        '<td>' + brandHtml + '</td>' +
-        '<td>' + (e.type ? typePillHtml_(e.type) : '-') + '</td>' +
-        '<td>' + escapeHtml_(e.company) + '</td>' +
-        '<td>' + pdfHtml + '</td>';
-      body.appendChild(tr);
+    THEME_BUTTON_IDS.forEach(function (id) {
+      var btn = document.getElementById(id);
+      var isActive = btn.dataset.themeValue === theme;
+      btn.classList.toggle('is-active', isActive);
+      btn.setAttribute('aria-selected', isActive);
     });
   }
 
-  function brandPillHtml_(brand) {
-    var cls = brand === 'MB' ? 'pill--mb' : (brand === 'AU' ? 'pill--au' : 'pill--muted');
-    return '<span class="pill ' + cls + '">' + escapeHtml_(brand) + '</span>';
+  function setTheme_(theme) {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+    applyTheme_(theme);
   }
 
-  function typePillHtml_(type) {
-    var cls = type === 'OSS' ? 'pill--oss' : 'pill--paper';
-    return '<span class="pill ' + cls + '">' + escapeHtml_(type) + '</span>';
+  function initTheme_() {
+    var saved = localStorage.getItem(THEME_STORAGE_KEY) || 'light';
+    applyTheme_(saved);
   }
+
+  THEME_BUTTON_IDS.forEach(function (id) {
+    document.getElementById(id).addEventListener('click', function () {
+      setTheme_(document.getElementById(id).dataset.themeValue);
+    });
+  });
+  initTheme_(); // ページ読み込み直後(window.onloadを待たず)に適用し、ちらつきを抑える
 </script>

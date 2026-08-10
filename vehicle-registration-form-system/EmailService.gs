@@ -59,6 +59,17 @@ function validateMailRecipients_(recipients) {
 }
 
 /**
+ * 「設定」画面の宛先保存ボタン用。送信は行わず、検証して保存するだけ。
+ * @param {Array<string>} recipients
+ * @return {{recipientCount: number}}
+ */
+function saveMailRecipientsOnly_(recipients) {
+  var validRecipients = validateMailRecipients_(recipients);
+  saveMailRecipients_(validRecipients);
+  return { recipientCount: validRecipients.length };
+}
+
+/**
  * 指定した送付日に発行された全便(第１便〜第３便、取消済みは除く)の送付書PDFを
  * 添付ファイルとしてまとめ、指定した宛先へメール送信する。
  * @param {Spreadsheet} ss

@@ -3,7 +3,7 @@
 <head>
   <base target="_top">
   <meta charset="utf-8">
-  <meta name="color-scheme" content="light">
+  <meta name="color-scheme" content="light dark">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
@@ -23,7 +23,7 @@
       <button type="button" class="viewSwitchBtn is-active" id="navForm" role="tab" aria-selected="true">申請</button>
       <button type="button" class="viewSwitchBtn" id="navHistory" role="tab" aria-selected="false">履歴確認</button>
       <button type="button" class="viewSwitchBtn" id="navPdf" role="tab" aria-selected="false">送付書PDF</button>
-      <button type="button" class="viewSwitchBtn" id="navDashboard" role="tab" aria-selected="false">ダッシュボード</button>
+      <button type="button" class="viewSwitchBtn" id="navSettings" role="tab" aria-selected="false">設定</button>
     </nav>
 
     <div id="viewForm">
@@ -232,25 +232,18 @@
       </section>
 
       <section class="card" id="mailCard">
-        <div class="card__head">
-          <h2>送付書PDFをメール送信</h2>
-          <p class="muted">指定した送付日に発行された第１便〜第３便の送付書PDF（取消済みを除く）をまとめて、下の宛先へメール送信します。</p>
+        <div class="card__head card__head--split">
+          <div>
+            <h2>送付書PDFをメール送信</h2>
+            <p class="muted">指定した送付日に発行された第１便〜第３便の送付書PDF（取消済みを除く）をまとめて、設定済みの宛先へメール送信します。</p>
+          </div>
+          <button type="button" id="btnGoMailSettings" class="btn btn--ghost btn--sm">宛先を設定で確認・変更</button>
         </div>
 
         <div class="fieldRow">
           <div class="field" style="max-width:220px">
             <label for="mailSendDate">送付日 <span class="req">必須</span></label>
             <input type="date" id="mailSendDate">
-          </div>
-        </div>
-
-        <div class="mailRecipients">
-          <label class="filterGroup__label">送信先メールアドレス（最大4件・1件以上必須）</label>
-          <div class="mailRecipients__grid">
-            <input type="email" class="mailRecipientInput" id="mailTo1" placeholder="宛先1（例: you@example.com）" autocomplete="off">
-            <input type="email" class="mailRecipientInput" id="mailTo2" placeholder="宛先2" autocomplete="off">
-            <input type="email" class="mailRecipientInput" id="mailTo3" placeholder="宛先3" autocomplete="off">
-            <input type="email" class="mailRecipientInput" id="mailTo4" placeholder="宛先4" autocomplete="off">
           </div>
         </div>
 
@@ -270,49 +263,40 @@
       </div>
     </div>
 
-    <div id="viewDashboard" class="is-hidden">
+    <div id="viewSettings" class="is-hidden">
       <section class="card">
-        <div class="card__head card__head--split">
-          <div>
-            <h2>申請ダッシュボード</h2>
-            <p class="muted">対象月に送付した送付書PDFを、使用者名とあわせて一覧で確認できます。</p>
-          </div>
-          <span class="badge" id="dashEntriesCountBadge">0 件</span>
+        <div class="card__head">
+          <h2>メール送信先</h2>
+          <p class="muted">「送付書PDF」画面でメール送信する際の宛先です（最大4件・1件以上必須）。ここで保存した内容が送信時に使用されます。</p>
         </div>
 
-        <div class="filterBar">
-          <div class="filterGroup">
-            <label class="filterGroup__label" for="dashMonth">対象月</label>
-            <input type="month" id="dashMonth">
+        <div class="mailRecipients">
+          <div class="mailRecipients__grid">
+            <input type="email" class="mailRecipientInput" id="mailTo1" placeholder="宛先1（例: you@example.com）" autocomplete="off">
+            <input type="email" class="mailRecipientInput" id="mailTo2" placeholder="宛先2" autocomplete="off">
+            <input type="email" class="mailRecipientInput" id="mailTo3" placeholder="宛先3" autocomplete="off">
+            <input type="email" class="mailRecipientInput" id="mailTo4" placeholder="宛先4" autocomplete="off">
           </div>
-          <div class="filterGroup">
-            <label class="filterGroup__label" for="dashBrand">ブランド</label>
-            <select id="dashBrand">
-              <option value="">すべて</option>
-              <option value="MB">MB</option>
-              <option value="AU">AU</option>
-            </select>
-          </div>
-          <button type="button" id="btnDashRefresh" class="btn btn--ghost filterBar__submit">表示</button>
         </div>
 
-        <div class="tableScroll tableScroll--dashEntries">
-          <table id="dashEntriesTable">
-            <thead>
-              <tr>
-                <th>送付日</th>
-                <th>送付便</th>
-                <th class="colWide">使用者名</th>
-                <th>ブランド</th>
-                <th>種別</th>
-                <th class="colWide">依頼会社名</th>
-                <th>PDF</th>
-              </tr>
-            </thead>
-            <tbody id="dashEntriesBody"></tbody>
-          </table>
+        <button type="button" id="btnSaveMailRecipients" class="btn btn--primary">宛先を保存する</button>
+        <div id="mailSettingsResult" class="result" role="status" aria-live="polite">
+          <span id="mailSettingsSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+          <span id="mailSettingsResultText"></span>
         </div>
-        <p class="muted historyEmptyMsg" id="dashEntriesEmptyMsg">該当するデータがありません。</p>
+      </section>
+
+      <section class="card">
+        <div class="card__head">
+          <h2>テーマ</h2>
+          <p class="muted">画面の配色を選べます。「自動」を選ぶとお使いの端末の設定に従います。</p>
+        </div>
+
+        <div class="segmented" role="tablist" aria-label="テーマ設定">
+          <button type="button" class="segBtn" id="themeLight" role="tab" data-theme-value="light">ライト</button>
+          <button type="button" class="segBtn" id="themeDark" role="tab" data-theme-value="dark">ダーク</button>
+          <button type="button" class="segBtn" id="themeSystem" role="tab" data-theme-value="system">自動</button>
+        </div>
       </section>
     </div>
   </div>
