@@ -48,6 +48,8 @@
 
   <div class="page">
     <div class="statusBar" id="statusBar">
+      <span class="statusBar__item" id="statusGreeting"></span>
+      <span class="statusBar__sep">・</span>
       <span class="statusBar__item"><span class="liveDot" aria-hidden="true"></span>ライブ</span>
       <span class="statusBar__item statusBar__clock" id="statusClock">--:--:--</span>
       <span class="statusBar__sep">・</span>
@@ -391,13 +393,26 @@
         <section class="card bento--span-6">
           <div class="card__head">
             <h2>テーマ</h2>
-            <p class="muted">画面の配色を選べます。「自動」を選ぶとお使いの端末の設定に従います。</p>
+            <p class="muted">画面の配色を選べます。「自動」を選ぶとお使いの端末の設定に従います。季節のテーマでアクセントカラーだけ変えられます。</p>
           </div>
 
-          <div class="segmented" role="tablist" aria-label="テーマ設定">
-            <button type="button" class="segBtn" id="themeLight" role="tab" data-theme-value="light">ライト</button>
-            <button type="button" class="segBtn" id="themeDark" role="tab" data-theme-value="dark">ダーク</button>
-            <button type="button" class="segBtn" id="themeSystem" role="tab" data-theme-value="system">自動</button>
+          <div class="field">
+            <label>配色モード</label>
+            <div class="segmented" role="tablist" aria-label="テーマ設定">
+              <button type="button" class="segBtn" id="themeLight" role="tab" data-theme-value="light">ライト</button>
+              <button type="button" class="segBtn" id="themeDark" role="tab" data-theme-value="dark">ダーク</button>
+              <button type="button" class="segBtn" id="themeSystem" role="tab" data-theme-value="system">自動</button>
+            </div>
+          </div>
+
+          <div class="field" style="margin-top:20px">
+            <label>季節のテーマ</label>
+            <div class="segmented" role="tablist" aria-label="季節のテーマ設定">
+              <button type="button" class="segBtn" id="themeSpring" role="tab" data-theme-value="spring">春</button>
+              <button type="button" class="segBtn" id="themeSummer" role="tab" data-theme-value="summer">夏</button>
+              <button type="button" class="segBtn" id="themeAutumn" role="tab" data-theme-value="autumn">秋</button>
+              <button type="button" class="segBtn" id="themeWinter" role="tab" data-theme-value="winter">冬</button>
+            </div>
           </div>
         </section>
 

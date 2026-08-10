@@ -463,9 +463,18 @@
 
   // ---------- 画期的ビジュアル: 生きた時計 / 常時アクティビティ表示 ----------
 
+  // 時刻に応じたあいさつ文を返す(5-9時:朝、10-17時:日中、それ以外:夕方以降・早朝)。
+  function getGreetingText_(hour) {
+    if (hour >= 5 && hour < 10) return 'おはようございます';
+    if (hour >= 10 && hour < 18) return '本日もよろしくお願いします';
+    return 'お疲れ様です';
+  }
+
   function initLiveClock_() {
     var statusClock = document.getElementById('statusClock');
     var activityClock = document.getElementById('activityClock');
+    var statusGreeting = document.getElementById('statusGreeting');
+    var lastGreetingHour_ = -1;
     function tick() {
       var d = new Date();
       var text = String(d.getHours()).padStart(2, '0') + ':' +
@@ -473,6 +482,10 @@
         String(d.getSeconds()).padStart(2, '0');
       if (statusClock) statusClock.textContent = text;
       if (activityClock) activityClock.textContent = text;
+      if (statusGreeting && d.getHours() !== lastGreetingHour_) {
+        lastGreetingHour_ = d.getHours();
+        statusGreeting.textContent = getGreetingText_(lastGreetingHour_);
+      }
     }
     tick();
     setInterval(tick, 1000);
@@ -519,6 +532,10 @@
     { label: 'テーマ: ライト', hint: '画面を明るい配色にする', run: function () { document.getElementById('themeLight').click(); } },
     { label: 'テーマ: ダーク', hint: '画面を暗い配色にする', run: function () { document.getElementById('themeDark').click(); } },
     { label: 'テーマ: 自動', hint: '端末の設定に合わせる', run: function () { document.getElementById('themeSystem').click(); } },
+    { label: 'テーマ: 春', hint: 'アクセントカラーを桜色にする', run: function () { document.getElementById('themeSpring').click(); } },
+    { label: 'テーマ: 夏', hint: 'アクセントカラーを青緑にする', run: function () { document.getElementById('themeSummer').click(); } },
+    { label: 'テーマ: 秋', hint: 'アクセントカラーを紅葉色にする', run: function () { document.getElementById('themeAutumn').click(); } },
+    { label: 'テーマ: 冬', hint: 'アクセントカラーを鋼色にする', run: function () { document.getElementById('themeWinter').click(); } },
     { label: '自動メール送信を切り替える', hint: '毎日17時台の自動送信ON/OFF', run: function () { document.getElementById('navSettings').click(); document.getElementById('autoMailToggle').click(); } },
     { label: 'メール送信先を確認・編集', hint: '設定画面の宛先入力欄を開く', run: function () { document.getElementById('navSettings').click(); document.getElementById('mailTo1').focus(); } }
   ];
@@ -1326,14 +1343,16 @@
       .clearLoadingImage();
   });
 
-  // ---------- 設定画面: テーマ(ライト/ダーク/自動) ----------
+  // ---------- 設定画面: テーマ(ライト/ダーク/自動 + 春夏秋冬) ----------
 
   var THEME_STORAGE_KEY = 'vrfsThemePreference';
-  var THEME_BUTTON_IDS = ['themeLight', 'themeDark', 'themeSystem'];
+  var THEME_BUTTON_IDS = ['themeLight', 'themeDark', 'themeSystem', 'themeSpring', 'themeSummer', 'themeAutumn', 'themeWinter'];
+  // data-theme属性として実際に設定する値(「自動」はdata-theme属性なしでOS設定に従うため含まない)。
+  var THEME_DATA_VALUES_ = ['light', 'dark', 'spring', 'summer', 'autumn', 'winter'];
 
   function applyTheme_(theme) {
     var root = document.documentElement;
-    if (theme === 'light' || theme === 'dark') {
+    if (THEME_DATA_VALUES_.indexOf(theme) !== -1) {
       root.setAttribute('data-theme', theme);
     } else {
       root.removeAttribute('data-theme');
