@@ -46,6 +46,7 @@
 
     <nav class="mainNav" id="mainNav">
       <button class="mainNav__tab is-active" data-view="inventory">在庫一覧</button>
+      <button class="mainNav__tab" data-view="history">履歴</button>
       <button class="mainNav__tab" data-view="settings">設定</button>
     </nav>
 
@@ -81,6 +82,24 @@
       </main>
     </div>
 
+    <div id="historyView" class="viewBody hidden">
+      <div class="toolbar">
+        <select id="historyCompany" class="input"></select>
+        <button class="btn" id="btnRefreshHistory">更新</button>
+      </div>
+      <main class="listWrap">
+        <table class="vehicleTable" id="historyTable">
+          <thead>
+            <tr>
+              <th>日時</th><th>操作者</th><th>種別</th><th>タブ</th><th>OCN</th><th>内容</th><th>備考</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="historyTableBody"></tbody>
+        </table>
+        <div id="historyEmptyState" class="emptyState hidden">変更履歴がありません</div>
+      </main>
+    </div>
+
     <div id="settingsView" class="viewBody hidden">
       <div class="settingsGrid" id="settingsGrid">
         <!-- JS が拠点/通知/OCRラベル/選択肢/テーマ の各設定カードを描画 -->
@@ -102,6 +121,7 @@
       <div class="modal__footer">
         <div class="statusActions" id="statusActions"></div>
         <div class="modal__footerRight">
+          <button class="btn btn--danger" id="btnDeleteVehicle">削除</button>
           <button class="btn" data-close-modal>閉じる</button>
           <button class="btn btn--primary" id="btnSaveDetail">保存</button>
         </div>

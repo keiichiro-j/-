@@ -90,7 +90,7 @@
     }).catch(function () { /* ステータス表示のみのため失敗時は無視 */ });
   }
 
-  // ===== メインナビ（在庫一覧／設定） =====
+  // ===== メインナビ（在庫一覧／履歴／設定） =====
   function bindMainNav() {
     document.querySelectorAll('.mainNav__tab').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -98,10 +98,93 @@
         btn.classList.add('is-active');
         var view = btn.dataset.view;
         document.getElementById('inventoryView').classList.toggle('hidden', view !== 'inventory');
+        document.getElementById('historyView').classList.toggle('hidden', view !== 'history');
         document.getElementById('settingsView').classList.toggle('hidden', view !== 'settings');
         if (view === 'settings' && !state.settingsLoaded) loadSettings();
+        if (view === 'history') { populateHistoryCompanySelect(); loadHistory(); }
       });
     });
+  }
+
+  // ===== 変更履歴（監査ログ） =====
+  function populateHistoryCompanySelect() {
+    var sel = document.getElementById('historyCompany');
+    if (sel.options.length) return;
+    sel.innerHTML = state.boot.companies.map(function (c) {
+      return '<option value="' + c.id + '">' + escapeHtml(c.name) + '</option>';
+    }).join('');
+    sel.value = state.scope.companyId;
+    sel.addEventListener('change', loadHistory);
+  }
+
+  var ACTION_LABELS_ = { '登録': '登録', '編集': '編集', 'ステータス変更': 'ステータス変更', '削除': '削除', '取消': '取消（元に戻す）' };
+  var UNDOABLE_ACTIONS_ = { '編集': 1, 'ステータス変更': 1, '削除': 1 };
+
+  function loadHistory() {
+    var companyId = document.getElementById('historyCompany').value;
+    gsRun('api_listAuditLog', companyId, 100).then(function (entries) {
+      renderHistoryTable(companyId, entries);
+    }).catch(showError);
+  }
+
+  function renderHistoryTable(companyId, entries) {
+    var body = document.getElementById('historyTableBody');
+    body.innerHTML = '';
+    entries.forEach(function (entry) {
+      var tr = document.createElement('tr');
+      var canUndo = UNDOABLE_ACTIONS_[entry.action] && !entry.undone;
+      var summary = summarizeHistoryEntry_(entry);
+      tr.innerHTML =
+        '<td data-label="日時">' + escapeHtml(formatHistoryTimestamp_(entry.timestamp)) + '</td>' +
+        '<td data-label="操作者">' + escapeHtml(entry.user) + '</td>' +
+        '<td data-label="種別">' + escapeHtml(ACTION_LABELS_[entry.action] || entry.action) + (entry.undone ? '<span class="badge" style="margin-left:6px;">取消済</span>' : '') + '</td>' +
+        '<td data-label="タブ">' + escapeHtml(entry.tabName) + '</td>' +
+        '<td data-label="OCN">' + escapeHtml(entry.ocn) + '</td>' +
+        '<td data-label="内容">' + escapeHtml(summary) + '</td>' +
+        '<td data-label="備考">' + escapeHtml(entry.note || '') + '</td>' +
+        '<td data-label="操作"></td>';
+      if (canUndo) {
+        var btn = document.createElement('button');
+        btn.className = 'btn btn--sm';
+        btn.textContent = '元に戻す';
+        btn.onclick = function () {
+          if (!confirm('この変更（' + (ACTION_LABELS_[entry.action] || entry.action) + '）を取り消して、ひとつ前の状態に戻しますか？')) return;
+          gsRun('api_undoAuditLogEntry', companyId, entry.rowNumber).then(function () {
+            showToast('変更を取り消しました', 'success');
+            loadHistory();
+            reloadList();
+            refreshTodayStats();
+          }).catch(showError);
+        };
+        tr.lastElementChild.appendChild(btn);
+      }
+      body.appendChild(tr);
+    });
+    document.getElementById('historyEmptyState').classList.toggle('hidden', entries.length > 0);
+    document.getElementById('historyTable').classList.toggle('hidden', entries.length === 0);
+  }
+
+  function formatHistoryTimestamp_(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return String(iso);
+    var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+
+  function summarizeHistoryEntry_(entry) {
+    if (entry.action === '登録') return [entry.after.carType, entry.after.model].filter(Boolean).join(' ') + ' を登録';
+    if (entry.action === '削除') return [entry.before.carType, entry.before.model].filter(Boolean).join(' ') + ' を削除';
+    if (entry.action === 'ステータス変更') return (entry.before.status || '') + ' → ' + (entry.after.status || '');
+    if (entry.action === '取消') return '直前の変更を取り消し';
+    // 編集: 値が変わった項目だけを抜き出して表示
+    var changed = [];
+    if (entry.before && entry.after) {
+      Object.keys(entry.after).forEach(function (key) {
+        if (key === 'rowNumber' || key === 'companyId' || key === 'tabName') return;
+        if (String(entry.before[key] || '') !== String(entry.after[key] || '')) changed.push(key);
+      });
+    }
+    return changed.length ? changed.length + '項目を変更（' + changed.slice(0, 3).join('、') + (changed.length > 3 ? ' 他' : '') + '）' : '変更あり';
   }
 
   // ===== 拠点タブ（会社別 + 横断） =====
@@ -426,6 +509,20 @@
       reloadList();
     }).catch(function (err) {
       errBox.innerHTML = '<div class="errorBox">' + escapeHtml(err.message || String(err)) + '</div>';
+    });
+  });
+
+  document.getElementById('btnDeleteVehicle').addEventListener('click', function () {
+    var v = state.selectedVehicle;
+    if (!confirm('OCN ' + v.ocn + '（' + (v.carType || '') + ' ' + (v.model || '') + '）を削除しますか？\nこの操作は「履歴」タブから直後であれば元に戻せます。')) return;
+    var reason = prompt('削除理由（任意・履歴に記録されます）', '') || '';
+    gsRun('api_deleteVehicle', v.companyId, v.tabName, v.ocn, reason).then(function () {
+      showToast('削除しました', 'success');
+      closeModals();
+      reloadList();
+      refreshTodayStats();
+    }).catch(function (err) {
+      document.getElementById('detailError').innerHTML = '<div class="errorBox">' + escapeHtml(err.message || String(err)) + '</div>';
     });
   });
 

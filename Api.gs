@@ -173,20 +173,45 @@ function api_registerVehicle(companyId, tabName, draft) {
   delete vehicle.sourceFileId;
 
   var created = createVehicle(companyId, tabName, vehicle);
+  appendAuditLog_(companyId, { action: '登録', tabName: tabName, ocn: created.ocn, before: null, after: created });
   notifySlackVehicleRegistered(created, companyId);
   return created;
 }
 
-// ===== 更新・ステータス変更 =====
+// ===== 更新・ステータス変更・削除 =====
 function api_updateVehicle(companyId, tabName, ocn, patch) {
+  var before = findVehicle(companyId, tabName, ocn);
   if (patch.appraisalAmount != null && patch.purchaseAmount != null) {
     patch.tradeInLoss = calcTradeInLoss(Number(patch.appraisalAmount), Number(patch.purchaseAmount));
   }
-  return updateVehicle(companyId, tabName, ocn, patch);
+  var updated = updateVehicle(companyId, tabName, ocn, patch);
+  appendAuditLog_(companyId, { action: '編集', tabName: tabName, ocn: ocn, before: before, after: updated });
+  return updated;
 }
 
 function api_changeStatus(companyId, tabName, ocn, newStatus, extra) {
-  return changeVehicleStatus(companyId, tabName, ocn, newStatus, extra);
+  var before = findVehicle(companyId, tabName, ocn);
+  var result = changeVehicleStatus(companyId, tabName, ocn, newStatus, extra);
+  appendAuditLog_(companyId, { action: 'ステータス変更', tabName: tabName, ocn: ocn, before: before, after: result.vehicle });
+  return result;
+}
+
+/**
+ * 車両の削除（誤登録の取消用）。削除内容は変更履歴に記録され、直後であれば「元に戻す」で復元できる。
+ */
+function api_deleteVehicle(companyId, tabName, ocn, reason) {
+  var before = deleteVehicleRow_(companyId, tabName, ocn);
+  appendAuditLog_(companyId, { action: '削除', tabName: tabName, ocn: ocn, before: before, after: null, note: reason || '' });
+  return { deleted: true };
+}
+
+// ===== 変更履歴（監査ログ） =====
+function api_listAuditLog(companyId, limit) {
+  return listAuditLog(companyId, limit);
+}
+
+function api_undoAuditLogEntry(companyId, rowNumber) {
+  return undoAuditLogEntry(companyId, rowNumber);
 }
 
 // ===== PDF帳票出力（10.4） =====

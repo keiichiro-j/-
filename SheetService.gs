@@ -156,3 +156,26 @@ function findVehicle(companyId, tabName, ocn) {
 function setCellValue_(sheet, rowNumber, key, value) {
   sheet.getRange(rowNumber, colIndex1(key)).setValue(value);
 }
+
+/**
+ * 車両の削除。削除前のスナップショットを返す（変更履歴・取消機能で使用）。
+ */
+function deleteVehicleRow_(companyId, tabName, ocn) {
+  var sheet = getOrCreateSheet(companyId, tabName);
+  var rowNumber = findRowByOcn_(sheet, ocn);
+  if (!rowNumber) throw new Error('該当車両が見つかりません（OCN: ' + ocn + '）');
+  var vehicle = rowToObject_(sheet.getRange(rowNumber, 1, 1, COLUMNS.length).getValues()[0], rowNumber);
+  vehicle.companyId = companyId;
+  vehicle.tabName = tabName;
+  sheet.deleteRow(rowNumber);
+  return vehicle;
+}
+
+/**
+ * 削除の取り消し用に、以前のスナップショットをそのままの内容で1行追加する
+ * （新規登録と異なり重複チェックは行わない）。
+ */
+function restoreVehicleRow_(companyId, tabName, vehicleData) {
+  var sheet = getOrCreateSheet(companyId, tabName);
+  sheet.appendRow(objectToRow_(vehicleData));
+}
