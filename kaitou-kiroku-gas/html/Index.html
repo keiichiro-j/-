@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <?!= include('html/Stylesheet'); ?>
+</head>
+<body>
+  <div id="app" class="app">
+
+    <header class="appHeader">
+      <button id="headerLeft" class="btn btn-sm hidden"></button>
+      <h1 id="headerTitle">解答記録</h1>
+      <button id="headerRight" class="btn btn-sm hidden"></button>
+    </header>
+
+    <main id="screens" class="screens">
+
+      <!-- ①セット一覧画面 -->
+      <section id="screen-home" class="screen">
+        <button id="btnNewSet" class="btn btn-primary btn-block homeActions">＋ 新しい解答セットを作成</button>
+        <div class="sectionLabel">過去のセット</div>
+        <div id="setList" class="cardList"></div>
+        <div id="emptyState" class="emptyState hidden">まだ解答セットがありません。<br>「＋ 新しい解答セットを作成」から始めましょう。</div>
+      </section>
+
+      <!-- ②設定画面（新規セット作成） -->
+      <section id="screen-setup" class="screen">
+        <div class="field">
+          <label for="inputExamName">資格名・試験名</label>
+          <input id="inputExamName" type="text" placeholder="例：ITパスポート 令和7年 秋期" maxlength="100">
+        </div>
+        <div class="field">
+          <label for="inputQuestionCount">問題数（1〜100問）</label>
+          <input id="inputQuestionCount" type="number" inputmode="numeric" min="1" max="100" value="100">
+        </div>
+
+        <div class="sectionLabel">出題形式の一括設定</div>
+        <div class="row bulkRow">
+          <select id="bulkChoiceCount" class="input-sm"></select>
+          <button id="btnApplyBulkChoice" class="btn btn-sm">全問 選択式にする</button>
+          <button id="btnApplyBulkText" class="btn btn-sm">全問 記述式にする</button>
+        </div>
+
+        <div class="sectionLabel">問題ごとの個別設定（必要な範囲だけ上書き）</div>
+        <div class="overrideAdd">
+          <div class="row">
+            <input id="ovFrom" type="number" inputmode="numeric" min="1" placeholder="問" class="input-xs">
+            <span class="note">〜</span>
+            <input id="ovTo" type="number" inputmode="numeric" min="1" placeholder="問" class="input-xs">
+            <select id="ovType" class="input-sm">
+              <option value="choice">選択式</option>
+              <option value="text">記述式</option>
+            </select>
+            <select id="ovChoiceCount" class="input-sm"></select>
+          </div>
+          <button id="btnAddOverride" class="btn btn-sm btn-block">この範囲を上書き設定に追加</button>
+        </div>
+        <div id="overrideList" class="overrideList"></div>
+
+        <div class="sectionLabel">出題形式プレビュー</div>
+        <div id="configPreview" class="configPreview"></div>
+
+        <div class="stickyBottom">
+          <div id="setupError" class="errorText hidden"></div>
+          <button id="btnCreateSet" class="btn btn-primary btn-block">解答入力へ進む</button>
+        </div>
+      </section>
+
+      <!-- ③解答入力画面 -->
+      <section id="screen-answer" class="screen">
+        <div class="progressBar"><div id="answerProgressFill" class="progressBar__fill"></div></div>
+        <div id="answerSaveState" class="note saveState"></div>
+        <div id="answerList" class="answerList"></div>
+        <div class="stickyBottom">
+          <button id="btnGoResult" class="btn btn-primary btn-block">採点画面へ進む</button>
+        </div>
+      </section>
+
+      <!-- ④採点・結果画面 -->
+      <section id="screen-result" class="screen">
+        <div class="resultScore">
+          <div id="resultScoreNum" class="resultScore__num">--<span class="unit">点</span></div>
+          <div id="resultScoreLabel" class="resultScore__label"></div>
+        </div>
+        <div class="filterChips" id="filterChips">
+          <span class="chip active" data-filter="all">すべて</span>
+          <span class="chip" data-filter="wrong">不正解のみ</span>
+          <span class="chip" data-filter="memo">備考ありのみ</span>
+          <span class="chip" data-filter="ungraded">未採点のみ</span>
+        </div>
+        <div id="resultList" class="resultList"></div>
+      </section>
+
+      <!-- ⑤アプリ設定画面 -->
+      <section id="screen-settings" class="screen">
+        <div class="sectionLabel">テーマ</div>
+        <div id="themeOptions" class="cardList"></div>
+        <div class="note settingsFooter">今後、他のアプリ設定もこの画面に追加していきます</div>
+      </section>
+
+    </main>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <?!= include('html/JavaScript'); ?>
+</body>
+</html>

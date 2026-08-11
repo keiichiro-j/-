@@ -1,0 +1,612 @@
+<script>
+(function () {
+  'use strict';
+
+  // ===== クライアント側定数（Constants.gs / ScoringService.gs のUI表示用ミラー） =====
+  var MIN_QUESTION_COUNT = 1;
+  var MAX_QUESTION_COUNT = 100;
+  var MIN_CHOICE_COUNT = 2;
+  var MAX_CHOICE_COUNT = 10;
+  var DEFAULT_CHOICE_COUNT = 4;
+  var JUDGMENTS = { CORRECT: '○', PARTIAL: '△', WRONG: '✕', NONE: '' };
+
+  // ===== google.script.run を Promise 化。GAS外（プレビュー等）では失敗として扱う =====
+  function callApi(fnName) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return new Promise(function (resolve, reject) {
+      if (window.google && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(function (err) { reject(err); })[fnName].apply(null, args);
+      } else {
+        reject(new Error('このプレビューはGoogle Apps Script上でのみ動作します'));
+      }
+    });
+  }
+
+  function debounce(fn, wait) {
+    var t = null;
+    return function () {
+      var args = arguments;
+      clearTimeout(t);
+      t = setTimeout(function () { fn.apply(null, args); }, wait);
+    };
+  }
+
+  function choiceLetters(count) {
+    var letters = [];
+    for (var i = 0; i < count; i++) letters.push(String.fromCharCode(97 + i));
+    return letters;
+  }
+
+  function typeLabel(qType, choiceCount) {
+    return qType === 'text' ? '記述式' : (choiceCount + '択（' + choiceLetters(choiceCount).join(',') + '）');
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function normText(s) { return String(s == null ? '' : s).trim(); }
+
+  function judgeChoiceClient(userAnswer, correctAnswer) {
+    var c = normText(correctAnswer).toLowerCase();
+    if (!c) return JUDGMENTS.NONE;
+    var u = normText(userAnswer).toLowerCase();
+    if (!u) return JUDGMENTS.WRONG;
+    return u === c ? JUDGMENTS.CORRECT : JUDGMENTS.WRONG;
+  }
+
+  function effectiveJudgmentClient(row) {
+    if (row.qType === 'choice') return judgeChoiceClient(row.userAnswer, row.correctAnswer);
+    return (row.judgment === JUDGMENTS.CORRECT || row.judgment === JUDGMENTS.PARTIAL || row.judgment === JUDGMENTS.WRONG) ? row.judgment : JUDGMENTS.NONE;
+  }
+
+  function computeStatsClient(rows) {
+    var total = rows.length, graded = 0, correctCount = 0;
+    rows.forEach(function (row) {
+      var j = effectiveJudgmentClient(row);
+      if (j !== JUDGMENTS.NONE) {
+        graded++;
+        if (j === JUDGMENTS.CORRECT) correctCount++;
+      }
+    });
+    var percentage = graded > 0 ? Math.round((correctCount / graded) * 1000) / 10 : null;
+    return { total: total, graded: graded, correctCount: correctCount, percentage: percentage };
+  }
+
+  function buildQuestionConfigsClient(questionCount, bulkConfig, overrides) {
+    var configs = [];
+    for (var no = 1; no <= questionCount; no++) {
+      configs.push({ no: no, qType: bulkConfig.qType, choiceCount: bulkConfig.choiceCount });
+    }
+    overrides.forEach(function (ov) {
+      var from = Math.max(1, Number(ov.from) || 1);
+      var to = Math.min(questionCount, Number(ov.to) || from);
+      for (var no = from; no <= to; no++) {
+        configs[no - 1].qType = ov.qType;
+        configs[no - 1].choiceCount = ov.choiceCount;
+      }
+    });
+    return configs;
+  }
+
+  function groupConsecutive(configs) {
+    var groups = [];
+    configs.forEach(function (c) {
+      var last = groups[groups.length - 1];
+      if (last && last.qType === c.qType && last.choiceCount === c.choiceCount && last.to === c.no - 1) {
+        last.to = c.no;
+      } else {
+        groups.push({ from: c.no, to: c.no, qType: c.qType, choiceCount: c.choiceCount });
+      }
+    });
+    return groups;
+  }
+
+  // ===== アプリ状態 =====
+  var state = {
+    theme: localStorage.getItem('theme') || 'system',
+    sets: [],
+    currentSetId: null,
+    currentSet: null,
+    answers: [],
+    resultFilter: 'all',
+    setup: { bulkConfig: { qType: 'choice', choiceCount: DEFAULT_CHOICE_COUNT }, overrides: [] },
+    pendingAnswerUpdates: {}
+  };
+
+  applyTheme(state.theme);
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+
+  // ===== 画面遷移 =====
+  var HEADERS = {
+    home: { title: '📘 解答記録', left: null, right: { label: '⚙ 設定', action: function () { showScreen('settings'); } } },
+    setup: { title: '新規セット設定', left: { label: '← 戻る', action: function () { showScreen('home'); } }, right: null },
+    answer: { title: '解答入力', left: { label: '← 一覧', action: goHomeFromAnswer }, right: null },
+    result: { title: '採点結果', left: { label: '← 一覧', action: function () { showScreen('home'); } }, right: null },
+    settings: { title: 'アプリ設定', left: { label: '← 戻る', action: function () { showScreen('home'); } }, right: null }
+  };
+
+  function goHomeFromAnswer() {
+    flushPendingAnswers(true).then(function () { showScreen('home'); });
+  }
+
+  function showScreen(name) {
+    document.querySelectorAll('.screen').forEach(function (el) {
+      el.classList.toggle('active', el.id === 'screen-' + name);
+    });
+    var h = HEADERS[name];
+    var left = document.getElementById('headerLeft');
+    var right = document.getElementById('headerRight');
+    document.getElementById('headerTitle').textContent = h.title;
+    setHeaderButton(left, h.left);
+    setHeaderButton(right, h.right);
+
+    if (name === 'home') loadHome();
+    if (name === 'setup') loadSetup();
+    if (name === 'answer') loadAnswer();
+    if (name === 'result') loadResult();
+    if (name === 'settings') loadSettings();
+  }
+
+  function setHeaderButton(el, def) {
+    if (!def) { el.classList.add('hidden'); el.onclick = null; return; }
+    el.classList.remove('hidden');
+    el.textContent = def.label;
+    el.onclick = def.action;
+  }
+
+  function showToast(msg) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.remove('hidden');
+    clearTimeout(showToast._timer);
+    showToast._timer = setTimeout(function () { t.classList.add('hidden'); }, 2200);
+  }
+
+  // ============ ①セット一覧画面 ============
+  function loadHome() {
+    var listEl = document.getElementById('setList');
+    var emptyEl = document.getElementById('emptyState');
+    listEl.innerHTML = '<div class="note">読み込み中…</div>';
+    callApi('apiGetHome').then(function (data) {
+      state.sets = data.sets;
+      state.theme = data.theme;
+      localStorage.setItem('theme', data.theme);
+      applyTheme(data.theme);
+      renderSetList();
+    }).catch(function (err) { listEl.innerHTML = ''; showToast('読み込みに失敗しました: ' + err.message); });
+
+    function renderSetList() {
+      listEl.innerHTML = '';
+      if (state.sets.length === 0) { emptyEl.classList.remove('hidden'); return; }
+      emptyEl.classList.add('hidden');
+      state.sets.forEach(function (set) {
+        var card = document.createElement('div');
+        card.className = 'card';
+        var badgeHtml;
+        if (set.status === 'graded') {
+          var cls = set.score >= 70 ? 'score-high' : (set.score < 50 ? 'score-low' : '');
+          badgeHtml = '<span class="badge ' + cls + '">' + set.score + '点</span>';
+        } else {
+          badgeHtml = '<span class="badge">' + (set.gradedCount > 0 ? '採点中' : '未採点') + '</span>';
+        }
+        card.innerHTML =
+          '<div>' +
+            '<div class="title">' + escapeHtml(set.examName) + '</div>' +
+            '<div class="meta">全' + set.questionCount + '問・' + formatDate(set.createdAt) + '</div>' +
+          '</div>' + badgeHtml;
+        card.onclick = function () {
+          state.currentSetId = set.id;
+          var fullyAnswered = set.answeredCount >= set.questionCount;
+          showScreen(fullyAnswered ? 'result' : 'answer');
+        };
+        listEl.appendChild(card);
+      });
+    }
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return d.getFullYear() + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0');
+  }
+
+  document.getElementById('btnNewSet').onclick = function () {
+    state.setup = { bulkConfig: { qType: 'choice', choiceCount: DEFAULT_CHOICE_COUNT }, overrides: [] };
+    document.getElementById('inputExamName').value = '';
+    document.getElementById('inputQuestionCount').value = 100;
+    showScreen('setup');
+  };
+
+  // ============ ②設定画面（新規セット作成） ============
+  function loadSetup() {
+    var bulkSelect = document.getElementById('bulkChoiceCount');
+    var ovChoiceSelect = document.getElementById('ovChoiceCount');
+    fillChoiceCountOptions(bulkSelect);
+    fillChoiceCountOptions(ovChoiceSelect);
+    bulkSelect.value = String(state.setup.bulkConfig.choiceCount);
+    document.getElementById('setupError').classList.add('hidden');
+    renderOverrideList();
+    renderConfigPreview();
+  }
+
+  function fillChoiceCountOptions(selectEl) {
+    if (selectEl.dataset.filled) return;
+    for (var n = MIN_CHOICE_COUNT; n <= MAX_CHOICE_COUNT; n++) {
+      var opt = document.createElement('option');
+      opt.value = String(n);
+      opt.textContent = typeLabel('choice', n);
+      if (n === DEFAULT_CHOICE_COUNT) opt.selected = true;
+      selectEl.appendChild(opt);
+    }
+    selectEl.dataset.filled = '1';
+  }
+
+  document.getElementById('btnApplyBulkChoice').onclick = function () {
+    state.setup.bulkConfig = { qType: 'choice', choiceCount: Number(document.getElementById('bulkChoiceCount').value) };
+    renderConfigPreview();
+  };
+  document.getElementById('btnApplyBulkText').onclick = function () {
+    state.setup.bulkConfig = { qType: 'text', choiceCount: DEFAULT_CHOICE_COUNT };
+    renderConfigPreview();
+  };
+  document.getElementById('ovType').onchange = function () {
+    document.getElementById('ovChoiceCount').style.display = this.value === 'choice' ? '' : 'none';
+  };
+
+  document.getElementById('btnAddOverride').onclick = function () {
+    var from = Number(document.getElementById('ovFrom').value);
+    var to = Number(document.getElementById('ovTo').value) || from;
+    var qType = document.getElementById('ovType').value;
+    var choiceCount = Number(document.getElementById('ovChoiceCount').value);
+    if (!from || from < 1) { showToast('開始の問題番号を入力してください'); return; }
+    if (to < from) to = from;
+    state.setup.overrides.push({ from: from, to: to, qType: qType, choiceCount: choiceCount });
+    document.getElementById('ovFrom').value = '';
+    document.getElementById('ovTo').value = '';
+    renderOverrideList();
+    renderConfigPreview();
+  };
+
+  function renderOverrideList() {
+    var el = document.getElementById('overrideList');
+    el.innerHTML = '';
+    state.setup.overrides.forEach(function (ov, i) {
+      var item = document.createElement('div');
+      item.className = 'overrideItem';
+      var range = ov.from === ov.to ? ('問' + ov.from) : ('問' + ov.from + '〜' + ov.to);
+      item.innerHTML = '<span>' + range + '： ' + typeLabel(ov.qType, ov.choiceCount) + '</span>';
+      var delBtn = document.createElement('button');
+      delBtn.textContent = '削除';
+      delBtn.onclick = function () { state.setup.overrides.splice(i, 1); renderOverrideList(); renderConfigPreview(); };
+      item.appendChild(delBtn);
+      el.appendChild(item);
+    });
+  }
+
+  function renderConfigPreview() {
+    var el = document.getElementById('configPreview');
+    var count = Number(document.getElementById('inputQuestionCount').value) || 0;
+    count = Math.min(MAX_QUESTION_COUNT, Math.max(0, count));
+    if (count === 0) { el.innerHTML = '<div class="note">問題数を入力してください</div>'; return; }
+    var configs = buildQuestionConfigsClient(count, state.setup.bulkConfig, state.setup.overrides);
+    var groups = groupConsecutive(configs);
+    el.innerHTML = '';
+    groups.forEach(function (g) {
+      var row = document.createElement('div');
+      row.className = 'configPreviewRow';
+      var range = g.from === g.to ? ('問' + g.from) : ('問' + g.from + '〜' + g.to);
+      row.innerHTML = '<span>' + range + '</span><span class="t">' + typeLabel(g.qType, g.choiceCount) + '</span>';
+      el.appendChild(row);
+    });
+  }
+
+  document.getElementById('inputQuestionCount').addEventListener('input', renderConfigPreview);
+
+  document.getElementById('btnCreateSet').onclick = function () {
+    var examName = document.getElementById('inputExamName').value.trim();
+    var questionCount = Number(document.getElementById('inputQuestionCount').value);
+    var errEl = document.getElementById('setupError');
+    errEl.classList.add('hidden');
+    if (!examName) { errEl.textContent = '資格名・試験名を入力してください'; errEl.classList.remove('hidden'); return; }
+    if (!Number.isInteger(questionCount) || questionCount < MIN_QUESTION_COUNT || questionCount > MAX_QUESTION_COUNT) {
+      errEl.textContent = '問題数は' + MIN_QUESTION_COUNT + '〜' + MAX_QUESTION_COUNT + 'の範囲で入力してください';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    var btn = document.getElementById('btnCreateSet');
+    btn.textContent = '作成中…';
+    callApi('apiCreateSet', examName, questionCount, state.setup.bulkConfig, state.setup.overrides).then(function (setId) {
+      btn.textContent = '解答入力へ進む';
+      state.currentSetId = setId;
+      showScreen('answer');
+    }).catch(function (err) {
+      btn.textContent = '解答入力へ進む';
+      errEl.textContent = '作成に失敗しました: ' + err.message;
+      errEl.classList.remove('hidden');
+    });
+  };
+
+  // ============ ③解答入力画面 ============
+  var flushPendingAnswersDebounced = debounce(function () { flushPendingAnswers(false); }, 700);
+
+  function loadAnswer() {
+    var listEl = document.getElementById('answerList');
+    listEl.innerHTML = '<div class="note">読み込み中…</div>';
+    callApi('apiGetSetDetail', state.currentSetId).then(function (data) {
+      state.currentSet = data.set;
+      state.answers = data.answers;
+      state.pendingAnswerUpdates = {};
+      renderAnswerList();
+      updateAnswerProgress();
+    }).catch(function (err) { listEl.innerHTML = ''; showToast('読み込みに失敗しました: ' + err.message); });
+  }
+
+  function renderAnswerList() {
+    var listEl = document.getElementById('answerList');
+    listEl.innerHTML = '';
+    state.answers.forEach(function (row) {
+      var card = document.createElement('div');
+      card.className = 'answerCard';
+      var head = document.createElement('div');
+      head.className = 'qnum';
+      head.innerHTML = '<span>問' + row.no + '</span><span class="qtype-tag">' + (row.qType === 'text' ? '記述式' : row.choiceCount + '択') + '</span>';
+      card.appendChild(head);
+
+      if (row.qType === 'choice') {
+        var choiceRow = document.createElement('div');
+        choiceRow.className = 'choiceRow';
+        choiceLetters(row.choiceCount).forEach(function (letter) {
+          var b = document.createElement('div');
+          b.className = 'choiceBtn' + (row.userAnswer === letter ? ' selected' : '');
+          b.textContent = letter;
+          b.onclick = function () {
+            row.userAnswer = (row.userAnswer === letter) ? '' : letter;
+            renderAnswerList();
+            updateAnswerProgress();
+            queueAnswerUpdate(row.no, { userAnswer: row.userAnswer });
+            flushPendingAnswers(false);
+          };
+          choiceRow.appendChild(b);
+        });
+        card.appendChild(choiceRow);
+      } else {
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'textInput';
+        input.placeholder = '解答を入力';
+        input.value = row.userAnswer || '';
+        input.addEventListener('input', function () {
+          row.userAnswer = input.value;
+          updateAnswerProgress();
+          queueAnswerUpdate(row.no, { userAnswer: row.userAnswer });
+          flushPendingAnswersDebounced();
+        });
+        input.addEventListener('blur', function () { flushPendingAnswers(false); });
+        card.appendChild(input);
+      }
+
+      var memo = document.createElement('textarea');
+      memo.className = 'memoInput';
+      memo.placeholder = '備考（気づき・メモがあれば入力）';
+      memo.value = row.memo || '';
+      memo.rows = 1;
+      memo.addEventListener('input', function () {
+        row.memo = memo.value;
+        queueAnswerUpdate(row.no, { memo: row.memo });
+        flushPendingAnswersDebounced();
+      });
+      memo.addEventListener('blur', function () { flushPendingAnswers(false); });
+      card.appendChild(memo);
+
+      listEl.appendChild(card);
+    });
+  }
+
+  function queueAnswerUpdate(no, partial) {
+    var u = state.pendingAnswerUpdates[no] || { no: no };
+    Object.assign(u, partial);
+    state.pendingAnswerUpdates[no] = u;
+  }
+
+  function updateAnswerProgress() {
+    var total = state.answers.length;
+    var answered = state.answers.filter(function (r) { return normText(r.userAnswer); }).length;
+    document.getElementById('answerProgressFill').style.width = (total > 0 ? (answered / total * 100) : 0) + '%';
+    document.getElementById('headerTitle').textContent = '解答入力';
+    var saveState = document.getElementById('answerSaveState');
+    if (!saveState.dataset.saving) saveState.textContent = answered + ' / ' + total + '問 回答済み';
+  }
+
+  function flushPendingAnswers(force) {
+    var updates = Object.keys(state.pendingAnswerUpdates).map(function (no) { return state.pendingAnswerUpdates[no]; });
+    if (updates.length === 0) return Promise.resolve();
+    state.pendingAnswerUpdates = {};
+    var saveState = document.getElementById('answerSaveState');
+    saveState.dataset.saving = '1';
+    saveState.textContent = '保存中…';
+    return callApi('apiSaveAnswers', state.currentSetId, updates).then(function () {
+      saveState.dataset.saving = '';
+      updateAnswerProgress();
+    }).catch(function (err) {
+      saveState.dataset.saving = '';
+      saveState.textContent = '保存に失敗しました（電波状況をご確認ください）';
+      if (!force) showToast('自動保存に失敗しました: ' + err.message);
+    });
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden' && state.currentSetId) flushPendingAnswers(true);
+  });
+
+  document.getElementById('btnGoResult').onclick = function () {
+    flushPendingAnswers(true).then(function () { showScreen('result'); });
+  };
+
+  // ============ ④採点・結果画面 ============
+  function loadResult() {
+    var listEl = document.getElementById('resultList');
+    listEl.innerHTML = '<div class="note">読み込み中…</div>';
+    callApi('apiGetSetDetail', state.currentSetId).then(function (data) {
+      state.currentSet = data.set;
+      state.answers = data.answers;
+      renderResultScore();
+      renderResultList();
+    }).catch(function (err) { listEl.innerHTML = ''; showToast('読み込みに失敗しました: ' + err.message); });
+
+    document.querySelectorAll('#filterChips .chip').forEach(function (chip) {
+      chip.onclick = function () {
+        state.resultFilter = chip.dataset.filter;
+        document.querySelectorAll('#filterChips .chip').forEach(function (c) { c.classList.toggle('active', c === chip); });
+        renderResultList();
+      };
+    });
+  }
+
+  function renderResultScore() {
+    var stats = computeStatsClient(state.answers);
+    var numEl = document.getElementById('resultScoreNum');
+    var labelEl = document.getElementById('resultScoreLabel');
+    numEl.innerHTML = (stats.percentage === null ? '--' : stats.percentage) + '<span class="unit">点</span>';
+    labelEl.textContent = '正答 ' + stats.correctCount + ' / 採点済み ' + stats.graded + '問（全' + stats.total + '問）';
+  }
+
+  function renderResultList() {
+    var listEl = document.getElementById('resultList');
+    listEl.innerHTML = '';
+    var rows = state.answers.filter(function (row) {
+      var j = effectiveJudgmentClient(row);
+      if (state.resultFilter === 'wrong') return j === JUDGMENTS.WRONG || j === JUDGMENTS.PARTIAL;
+      if (state.resultFilter === 'memo') return normText(row.memo);
+      if (state.resultFilter === 'ungraded') return j === JUDGMENTS.NONE;
+      return true;
+    });
+    if (rows.length === 0) { listEl.innerHTML = '<div class="note" style="text-align:center;padding:24px 0;">該当する問題がありません</div>'; return; }
+
+    rows.forEach(function (row) {
+      var card = document.createElement('div');
+      card.className = 'resultCard';
+      var j = effectiveJudgmentClient(row);
+      var markClass = j === JUDGMENTS.CORRECT ? 'mark-correct' : j === JUDGMENTS.PARTIAL ? 'mark-partial' : j === JUDGMENTS.WRONG ? 'mark-wrong' : 'mark-none';
+      var markText = j || '未';
+
+      var head = document.createElement('div');
+      head.className = 'head';
+      head.innerHTML = '<span class="qn">問' + row.no + '</span><span class="mark ' + markClass + '">' + markText + '</span>';
+      card.appendChild(head);
+
+      var ans = document.createElement('div');
+      ans.className = 'ansLine';
+      ans.textContent = 'あなたの解答: ' + (normText(row.userAnswer) || '（未回答）');
+      card.appendChild(ans);
+
+      if (row.qType === 'choice') {
+        var choiceRow = document.createElement('div');
+        choiceRow.className = 'gradeRow';
+        var label = document.createElement('span');
+        label.className = 'gradeLabel';
+        label.textContent = '正解:';
+        choiceRow.appendChild(label);
+        choiceLetters(row.choiceCount).forEach(function (letter) {
+          var b = document.createElement('div');
+          b.className = 'choiceBtn' + (row.correctAnswer === letter ? ' selected' : '');
+          b.style.flex = '0 0 34px';
+          b.style.padding = '5px 0';
+          b.style.fontSize = '12.5px';
+          b.textContent = letter;
+          b.onclick = function () {
+            var next = row.correctAnswer === letter ? '' : letter;
+            row.correctAnswer = next;
+            saveGrading(row.no, { correctAnswer: next });
+            renderResultScore();
+            renderResultList();
+          };
+          choiceRow.appendChild(b);
+        });
+        card.appendChild(choiceRow);
+      } else {
+        var judgeRow = document.createElement('div');
+        judgeRow.className = 'gradeRow';
+        var jlabel = document.createElement('span');
+        jlabel.className = 'gradeLabel';
+        jlabel.textContent = '自己採点:';
+        judgeRow.appendChild(jlabel);
+        [JUDGMENTS.CORRECT, JUDGMENTS.PARTIAL, JUDGMENTS.WRONG].forEach(function (mark) {
+          var b = document.createElement('button');
+          var selClass = mark === JUDGMENTS.CORRECT ? 'selected-correct' : mark === JUDGMENTS.PARTIAL ? 'selected-partial' : 'selected-wrong';
+          b.className = 'judgeBtn' + (row.judgment === mark ? ' ' + selClass : '');
+          b.textContent = mark;
+          b.onclick = function () {
+            var next = row.judgment === mark ? '' : mark;
+            row.judgment = next;
+            saveGrading(row.no, { judgment: next });
+            renderResultScore();
+            renderResultList();
+          };
+          judgeRow.appendChild(b);
+        });
+        card.appendChild(judgeRow);
+      }
+
+      if (normText(row.memo)) {
+        var memoLine = document.createElement('div');
+        memoLine.className = 'memoLine';
+        memoLine.textContent = '備考: ' + row.memo;
+        card.appendChild(memoLine);
+      }
+
+      listEl.appendChild(card);
+    });
+  }
+
+  function saveGrading(no, partial) {
+    var update = Object.assign({ no: no }, partial);
+    callApi('apiSaveGrading', state.currentSetId, [update]).catch(function (err) {
+      showToast('保存に失敗しました: ' + err.message);
+    });
+  }
+
+  // ============ ⑤アプリ設定画面 ============
+  var THEME_OPTIONS = [
+    { value: 'light', title: 'ライトモード', desc: '明るい配色で表示します' },
+    { value: 'dark', title: 'ダークモード', desc: '暗い配色で表示します（夜間の学習向け）' },
+    { value: 'system', title: '端末の設定に合わせる', desc: 'iPhone/PCのシステム設定に自動追従します' }
+  ];
+
+  function loadSettings() {
+    renderThemeOptions();
+  }
+
+  function renderThemeOptions() {
+    var el = document.getElementById('themeOptions');
+    el.innerHTML = '';
+    THEME_OPTIONS.forEach(function (opt) {
+      var card = document.createElement('div');
+      card.className = 'card';
+      var selected = state.theme === opt.value;
+      card.innerHTML =
+        '<div><div class="title">' + opt.title + '</div><div class="meta">' + opt.desc + '</div></div>' +
+        (selected ? '<span class="badge score-high">選択中</span>' : '<span class="btn btn-sm">選択</span>');
+      card.onclick = function () {
+        state.theme = opt.value;
+        localStorage.setItem('theme', opt.value);
+        applyTheme(opt.value);
+        renderThemeOptions();
+        callApi('apiSaveSettings', opt.value).catch(function (err) { showToast('保存に失敗しました: ' + err.message); });
+      };
+      el.appendChild(card);
+    });
+  }
+
+  // ===== 起動 =====
+  showScreen('home');
+})();
+</script>
