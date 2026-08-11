@@ -33,7 +33,7 @@ var APPRAISAL_LABEL_MAP = {
  */
 function extractAppraisalDraft(fileId) {
   var text = ocrFileToText_(fileId);
-  var raw = extractByLabels_(text, APPRAISAL_LABEL_MAP);
+  var raw = extractByLabels_(text, getEffectiveAppraisalLabelMap_());
   return normalizeAppraisalDraft_(raw, fileId, text);
 }
 

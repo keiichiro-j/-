@@ -18,7 +18,7 @@
  * @return {{vehicle:Object, moved:boolean, requiresOwnCertUpload:boolean}}
  */
 function changeVehicleStatus(companyId, tabName, ocn, newStatus, extra) {
-  if (STATUS_OPTIONS.indexOf(newStatus) === -1) {
+  if (getEffectiveStatusOptions().indexOf(newStatus) === -1) {
     throw new Error('不正なステータスです: ' + newStatus);
   }
   if (tabName === TAB_NAMES.SOLD) {

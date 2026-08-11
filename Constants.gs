@@ -85,10 +85,14 @@ function colIndex1(key) {
 
 // ===== Script Properties キー =====
 var PROP_KEYS = {
-  COMPANIES: 'COMPANIES_CONFIG', // JSON文字列: [{id,name,sheetId,pdfFolderId,appraisalFolderId}, ...]
+  COMPANIES: 'COMPANIES_CONFIG', // JSON文字列: [{id,name,sheetId,pdfFolderId,appraisalFolderId,orderFormFolderId}, ...]
   OCR_SPACE_API_KEY: 'OCR_SPACE_API_KEY',
   VISION_API_KEY: 'VISION_API_KEY',
   SLACK_WEBHOOK_URL: 'SLACK_WEBHOOK_URL',
   NOTIFY_MAIL_TO: 'NOTIFY_MAIL_TO',
-  PROCESSED_PDF_IDS: 'PROCESSED_PDF_IDS_' // + companyId
+  PROCESSED_PDF_IDS: 'PROCESSED_PDF_IDS_', // + companyId
+  STATUS_OPTIONS_OVERRIDE: 'STATUS_OPTIONS_OVERRIDE', // 設定画面から編集（未設定時はSTATUS_OPTIONSを使用）
+  PURCHASE_TYPE_OPTIONS_OVERRIDE: 'PURCHASE_TYPE_OPTIONS_OVERRIDE', // 設定画面から編集（未設定時はPURCHASE_TYPE_OPTIONSを使用）
+  OCR_LABEL_OVERRIDE: 'OCR_LABEL_OVERRIDE', // 設定画面から編集するOCRラベル候補（JSON）
+  THEME_CONFIG: 'THEME_CONFIG' // 設定画面から編集するテーマ（アクセントカラー・ロゴ等、JSON）
 };

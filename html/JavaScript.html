@@ -22,7 +22,9 @@
     selectedVehicle: null,
     wizard: null,
     saleContext: null,
-    flashOcn: null // 直前に登録/更新した車両のOCN。一覧再描画時に該当行を一瞬ハイライトする
+    flashOcn: null, // 直前に登録/更新した車両のOCN。一覧再描画時に該当行を一瞬ハイライトする
+    settings: null,
+    settingsLoaded: false
   };
 
   // ===== 起動 =====
@@ -31,12 +33,66 @@
       state.boot = boot;
       state.scope.companyId = boot.companies[0] && boot.companies[0].id;
       state.scope.tabName = VIEW_TABS[0];
+      applyTheme(boot.theme);
+      startLiveClock();
+      refreshTodayStats();
       renderScopeTabs();
       renderToolbarTabs();
       bindGlobalEvents();
+      bindMainNav();
       reloadList();
     }).catch(showError);
   });
+
+  // ===== テーマ（アクセントカラー・ロゴ・アプリ名） =====
+  function applyTheme(theme) {
+    if (!theme) return;
+    if (theme.accentColor) {
+      document.documentElement.style.setProperty('--color-primary', theme.accentColor);
+      document.documentElement.style.setProperty('--color-primary-hover', theme.accentColor);
+    }
+    if (theme.appTitle) document.getElementById('appTitleText').textContent = theme.appTitle;
+    document.getElementById('appSubtitleText').textContent = theme.appSubtitle || '';
+    var logo = document.getElementById('brandLogo');
+    if (theme.logoUrl) {
+      logo.src = theme.logoUrl;
+      logo.classList.remove('hidden');
+    } else {
+      logo.classList.add('hidden');
+    }
+  }
+
+  // ===== ライブ時計・本日の件数 =====
+  function startLiveClock() {
+    function tick() {
+      var now = new Date();
+      var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+      document.getElementById('liveClock').textContent =
+        pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+    }
+    tick();
+    setInterval(tick, 1000);
+  }
+
+  function refreshTodayStats() {
+    gsRun('api_getTodayStats').then(function (stats) {
+      document.getElementById('todayCount').textContent = stats.todayRegisteredCount;
+    }).catch(function () { /* ステータス表示のみのため失敗時は無視 */ });
+  }
+
+  // ===== メインナビ（在庫一覧／設定） =====
+  function bindMainNav() {
+    document.querySelectorAll('.mainNav__tab').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('.mainNav__tab').forEach(function (b) { b.classList.remove('is-active'); });
+        btn.classList.add('is-active');
+        var view = btn.dataset.view;
+        document.getElementById('inventoryView').classList.toggle('hidden', view !== 'inventory');
+        document.getElementById('settingsView').classList.toggle('hidden', view !== 'settings');
+        if (view === 'settings' && !state.settingsLoaded) loadSettings();
+      });
+    });
+  }
 
   // ===== 拠点タブ（会社別 + 横断） =====
   function renderScopeTabs() {
@@ -545,6 +601,7 @@
           closeModals();
           state.flashOcn = created.ocn;
           reloadList();
+          refreshTodayStats();
         }).catch(function (err) {
           var box = document.getElementById('wizardError');
           if (box) { box.innerHTML = '<div class="errorBox">' + escapeHtml(err.message || String(err)) + '</div>'; }
@@ -660,5 +717,237 @@
     });
   }
   function escapeAttr(s) { return escapeHtml(s); }
+
+  // ===================================================================
+  // ===== 設定画面 =====
+  // ===================================================================
+  var COMPANY_FIELD_LABELS = {
+    id: '拠点ID', name: '拠点名', sheetId: 'スプレッドシートID',
+    pdfFolderId: '車検証PDFフォルダID', appraisalFolderId: '査定書PDFフォルダID', orderFormFolderId: '注文書PDFフォルダID'
+  };
+  var OCR_DOC_LABELS = { orderForm: '注文書', appraisal: '査定書', inspection: '車検証' };
+  var OCR_FIELD_LABELS = {
+    appraisalAmount: '査定金額', supplier: '使用者名', address: '使用者住所',
+    carType: '車種', model: 'モデル', chassisNumber: '車台番号', firstRegistrationDate: '初年度登録',
+    color: 'カラー', mileage: '走行距離', purchaseAmount: '買取金額', recycleFee: 'リサイクル金額', staff: '担当者',
+    inspectionExpiryDateRaw: '車検満了日'
+  };
+
+  function loadSettings() {
+    var grid = document.getElementById('settingsGrid');
+    grid.innerHTML = '<div class="settingsCard">読み込み中...</div>';
+    gsRun('api_getSettings').then(function (settings) {
+      state.settings = settings;
+      state.settingsLoaded = true;
+      renderSettings();
+    }).catch(function (err) {
+      grid.innerHTML = '<div class="settingsCard"><div class="errorBox">' + escapeHtml(err.message || String(err)) + '</div></div>';
+    });
+  }
+
+  function renderSettings() {
+    var grid = document.getElementById('settingsGrid');
+    grid.innerHTML =
+      settingsCardShell('themeCard', 'テーマ', 'アプリ名・ロゴ・アクセントカラーを設定します。') +
+      settingsCardShell('companyCard', '拠点（会社）設定', '3社分のスプレッドシートID・各種PDF保管フォルダIDを設定します。') +
+      settingsCardShell('notificationCard', '通知設定', 'Slack通知（10.3）・車検満了メール通知（4.4）の宛先を設定します。') +
+      settingsCardShell('optionCard', '選択肢（ステータス・仕入区分）設定', 'ステータス・仕入区分のプルダウン選択肢を編集します。') +
+      settingsCardShell('ocrLabelCard', 'OCRラベル設定', '注文書・査定書・車検証のOCR抽出で目印にするラベル文字列の候補を編集します。カンマ区切りで複数指定できます。');
+
+    renderThemeCard();
+    renderCompanyCard();
+    renderNotificationCard();
+    renderOptionCard();
+    renderOcrLabelCard();
+  }
+
+  function settingsCardShell(id, title, desc) {
+    return '<div class="settingsCard" id="' + id + '">' +
+      '<div class="settingsCard__title">' + escapeHtml(title) + '</div>' +
+      '<div class="settingsCard__rule"></div>' +
+      '<div class="settingsCard__desc">' + escapeHtml(desc) + '</div>' +
+      '<div class="settingsCard__body"></div>' +
+      '</div>';
+  }
+
+  function cardBody(cardId) { return document.querySelector('#' + cardId + ' .settingsCard__body'); }
+
+  // ----- テーマ -----
+  function renderThemeCard() {
+    var theme = state.settings.theme;
+    var body = cardBody('themeCard');
+    body.innerHTML =
+      '<div class="settingsFieldList">' +
+      '<div class="formField"><label>アプリ名</label><input id="themeAppTitle" type="text" value="' + escapeAttr(theme.appTitle) + '"></div>' +
+      '<div class="formField"><label>サブタイトル</label><input id="themeAppSubtitle" type="text" value="' + escapeAttr(theme.appSubtitle) + '"></div>' +
+      '<div class="formField"><label>アクセントカラー</label><input id="themeAccentColor" type="color" value="' + escapeAttr(theme.accentColor) + '" style="height:36px;padding:2px;"></div>' +
+      '<div class="formField"><label>ロゴ画像URL（Googleドライブ共有リンク）</label><input id="themeLogoUrl" type="text" placeholder="https://drive.google.com/file/d/xxxx/view?usp=..." value="' + escapeAttr(theme.logoUrl) + '"></div>' +
+      '</div>' +
+      '<div class="settingsPreview" id="themeLogoPreview">' + (theme.logoUrl ? '<img src="' + escapeAttr(theme.logoUrl) + '">' : 'ロゴ未設定') + '</div>' +
+      '<div class="settingsCard__footer"><button class="btn btn--primary" id="btnSaveTheme">テーマを保存する</button></div>';
+
+    document.getElementById('btnSaveTheme').addEventListener('click', function () {
+      var payload = {
+        appTitle: document.getElementById('themeAppTitle').value.trim(),
+        appSubtitle: document.getElementById('themeAppSubtitle').value.trim(),
+        accentColor: document.getElementById('themeAccentColor').value,
+        logoUrl: document.getElementById('themeLogoUrl').value.trim()
+      };
+      gsRun('api_saveThemeSettings', payload).then(function (res) {
+        state.settings.theme = res.theme;
+        applyTheme(res.theme);
+        showToast('テーマを保存しました', 'success');
+        renderThemeCard();
+      }).catch(showError);
+    });
+  }
+
+  // ----- 拠点（会社）設定 -----
+  function renderCompanyCard() {
+    var companies = state.settings.companies;
+    var body = cardBody('companyCard');
+    body.innerHTML = companies.map(function (c, idx) {
+      return '<div class="companyCard" data-idx="' + idx + '">' +
+        '<div class="companyCard__title">拠点 ' + (idx + 1) + '</div>' +
+        '<div class="settingsFieldList--grid">' +
+        Object.keys(COMPANY_FIELD_LABELS).map(function (key) {
+          return '<div class="formField"><label>' + COMPANY_FIELD_LABELS[key] + '</label>' +
+            '<input data-company-idx="' + idx + '" data-company-key="' + key + '" type="text" value="' + escapeAttr(c[key] || '') + '"></div>';
+        }).join('') +
+        '</div></div>';
+    }).join('') +
+      '<div class="settingsCard__footer"><button class="btn btn--primary" id="btnSaveCompanies">拠点設定を保存する</button></div>';
+
+    document.getElementById('btnSaveCompanies').addEventListener('click', function () {
+      var companiesPatch = companies.map(function (c) { return Object.assign({}, c); });
+      body.querySelectorAll('[data-company-idx]').forEach(function (el) {
+        companiesPatch[Number(el.dataset.companyIdx)][el.dataset.companyKey] = el.value.trim();
+      });
+      gsRun('api_saveCompanySettings', companiesPatch).then(function () {
+        state.settings.companies = companiesPatch;
+        showToast('拠点設定を保存しました。反映には再読み込みが必要な場合があります', 'success');
+      }).catch(showError);
+    });
+  }
+
+  // ----- 通知設定 -----
+  function renderNotificationCard() {
+    var n = state.settings.notification;
+    var body = cardBody('notificationCard');
+    body.innerHTML =
+      '<div class="settingsFieldList">' +
+      '<div class="formField"><label>Slack Webhook URL</label><input id="notifySlackUrl" type="text" placeholder="https://hooks.slack.com/services/..." value="' + escapeAttr(n.slackWebhookUrl) + '"></div>' +
+      '<div class="formField"><label>車検満了通知メール宛先</label><input id="notifyMailTo" type="text" placeholder="you@example.com" value="' + escapeAttr(n.notifyMailTo) + '"></div>' +
+      '</div>' +
+      '<div class="settingsCard__footer"><button class="btn btn--primary" id="btnSaveNotification">通知設定を保存する</button></div>';
+
+    document.getElementById('btnSaveNotification').addEventListener('click', function () {
+      var payload = {
+        slackWebhookUrl: document.getElementById('notifySlackUrl').value.trim(),
+        notifyMailTo: document.getElementById('notifyMailTo').value.trim()
+      };
+      gsRun('api_saveNotificationSettings', payload).then(function () {
+        state.settings.notification = payload;
+        showToast('通知設定を保存しました', 'success');
+      }).catch(showError);
+    });
+  }
+
+  // ----- 選択肢（ステータス・仕入区分）設定 -----
+  function renderOptionCard() {
+    var body = cardBody('optionCard');
+    body.innerHTML =
+      '<div class="settingsLabelRow"><span class="label">ステータス</span></div>' +
+      '<div class="tagList" id="statusOptionTags"></div>' +
+      '<div class="formGrid" style="margin-bottom:10px;"><div class="formField"><input id="statusOptionInput" type="text" placeholder="選択肢を入力してEnterで追加"></div></div>' +
+      '<div class="settingsLabelRow"><span class="label">仕入区分</span></div>' +
+      '<div class="tagList" id="purchaseTypeOptionTags"></div>' +
+      '<div class="formGrid"><div class="formField"><input id="purchaseTypeOptionInput" type="text" placeholder="選択肢を入力してEnterで追加"></div></div>' +
+      '<div class="settingsCard__footer"><button class="btn btn--primary" id="btnSaveOptions">選択肢を保存する</button></div>';
+
+    renderTagList('statusOptionTags', state.settings.statusOptions.slice());
+    renderTagList('purchaseTypeOptionTags', state.settings.purchaseTypeOptions.slice());
+
+    bindTagInput('statusOptionInput', 'statusOptionTags');
+    bindTagInput('purchaseTypeOptionInput', 'purchaseTypeOptionTags');
+
+    document.getElementById('btnSaveOptions').addEventListener('click', function () {
+      var payload = {
+        statusOptions: readTagList('statusOptionTags'),
+        purchaseTypeOptions: readTagList('purchaseTypeOptionTags')
+      };
+      gsRun('api_saveOptionSettings', payload).then(function () {
+        state.settings.statusOptions = payload.statusOptions;
+        state.settings.purchaseTypeOptions = payload.purchaseTypeOptions;
+        showToast('選択肢を保存しました。反映には再読み込みが必要です', 'success');
+      }).catch(showError);
+    });
+  }
+
+  function renderTagList(containerId, values) {
+    var el = document.getElementById(containerId);
+    el.innerHTML = values.map(function (v, i) {
+      return '<span class="tagChip" data-value="' + escapeAttr(v) + '">' + escapeHtml(v) +
+        '<button type="button" data-remove-idx="' + i + '">×</button></span>';
+    }).join('');
+    el.querySelectorAll('[data-remove-idx]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var next = values.slice();
+        next.splice(Number(btn.dataset.removeIdx), 1);
+        renderTagList(containerId, next);
+      });
+    });
+  }
+
+  function bindTagInput(inputId, containerId) {
+    document.getElementById(inputId).addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      var val = e.target.value.trim();
+      if (!val) return;
+      var current = readTagList(containerId);
+      if (current.indexOf(val) === -1) current.push(val);
+      renderTagList(containerId, current);
+      e.target.value = '';
+    });
+  }
+
+  function readTagList(containerId) {
+    return Array.prototype.map.call(
+      document.getElementById(containerId).querySelectorAll('.tagChip'),
+      function (chip) { return chip.dataset.value; }
+    );
+  }
+
+  // ----- OCRラベル設定 -----
+  function renderOcrLabelCard() {
+    var labels = state.settings.ocrLabels;
+    var body = cardBody('ocrLabelCard');
+    body.innerHTML = Object.keys(OCR_DOC_LABELS).map(function (docKey) {
+      var fieldMap = labels[docKey] || {};
+      return '<div class="companyCard">' +
+        '<div class="companyCard__title">' + OCR_DOC_LABELS[docKey] + '</div>' +
+        Object.keys(fieldMap).map(function (fieldKey) {
+          var fieldLabel = OCR_FIELD_LABELS[fieldKey] || fieldKey;
+          return '<div class="formField" style="margin-bottom:8px;"><label>' + escapeHtml(fieldLabel) + '</label>' +
+            '<input data-ocr-doc="' + docKey + '" data-ocr-field="' + fieldKey + '" type="text" value="' + escapeAttr(fieldMap[fieldKey].join(', ')) + '"></div>';
+        }).join('') +
+        '</div>';
+    }).join('') +
+      '<div class="settingsCard__footer"><button class="btn btn--primary" id="btnSaveOcrLabels">OCRラベルを保存する</button></div>';
+
+    document.getElementById('btnSaveOcrLabels').addEventListener('click', function () {
+      var overrideMaps = {};
+      body.querySelectorAll('[data-ocr-doc]').forEach(function (el) {
+        var doc = el.dataset.ocrDoc;
+        var field = el.dataset.ocrField;
+        overrideMaps[doc] = overrideMaps[doc] || {};
+        overrideMaps[doc][field] = el.value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+      });
+      gsRun('api_saveOcrLabelSettings', overrideMaps).then(function () {
+        showToast('OCRラベル設定を保存しました', 'success');
+      }).catch(showError);
+    });
+  }
 })();
 </script>

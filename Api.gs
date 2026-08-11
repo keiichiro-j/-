@@ -7,15 +7,33 @@
 
 // ===== 初期化 =====
 function api_getBootstrapData() {
+  var statusOptions = getEffectiveStatusOptions();
+  var purchaseTypeOptions = getEffectivePurchaseTypeOptions();
+  var columns = COLUMNS.map(function (col) {
+    if (col.key === 'status') return Object.assign({}, col, { options: statusOptions });
+    if (col.key === 'purchaseType') return Object.assign({}, col, { options: purchaseTypeOptions });
+    return col;
+  });
   return {
     companies: getCompanies().map(function (c) { return { id: c.id, name: c.name }; }),
-    columns: COLUMNS,
-    statusOptions: STATUS_OPTIONS,
-    purchaseTypeOptions: PURCHASE_TYPE_OPTIONS,
+    columns: columns,
+    statusOptions: statusOptions,
+    purchaseTypeOptions: purchaseTypeOptions,
     tabNames: TAB_NAMES,
     stockTabNames: STOCK_TAB_NAMES,
-    currentUserEmail: Session.getActiveUser().getEmail()
+    currentUserEmail: Session.getActiveUser().getEmail(),
+    theme: getThemeSettings()
   };
+}
+
+/**
+ * 本日の登録台数（ヘッダーのライブステータス表示用）
+ */
+function api_getTodayStats() {
+  var today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  var all = listVehiclesAcrossCompanies(ALL_TAB_NAMES);
+  var todayCount = all.filter(function (v) { return v.purchaseDate === today; }).length;
+  return { todayRegisteredCount: todayCount };
 }
 
 // ===== 一覧 =====
@@ -188,4 +206,40 @@ function buildReportTitle_(scope) {
 // ===== PDF自動反映の手動実行（4.1） =====
 function api_syncPdfLinksNow(companyId) {
   return companyId ? syncInspectionCertLinks(companyId) : syncInspectionCertLinksAllCompanies();
+}
+
+// ===== 設定画面 =====
+function api_getSettings() {
+  return getAppSettings();
+}
+
+function api_saveCompanySettings(companies) {
+  if (!companies || !companies.length) throw new Error('拠点設定が1件もありません');
+  companies.forEach(function (c) {
+    if (!c.id || !c.name || !c.sheetId) {
+      throw new Error('拠点ID・拠点名・スプレッドシートIDは必須です（' + (c.name || c.id || '未入力の拠点') + '）');
+    }
+  });
+  saveCompanies(companies);
+  return { saved: true };
+}
+
+function api_saveNotificationSettings(settings) {
+  saveNotificationSettings(settings);
+  return { saved: true };
+}
+
+function api_saveOcrLabelSettings(overrideMaps) {
+  saveOcrLabelOverrides(overrideMaps);
+  return { saved: true };
+}
+
+function api_saveOptionSettings(settings) {
+  saveOptionSettings(settings);
+  return { saved: true };
+}
+
+function api_saveThemeSettings(theme) {
+  saveThemeSettings(theme);
+  return { saved: true, theme: getThemeSettings() };
 }

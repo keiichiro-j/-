@@ -17,7 +17,7 @@ var ORDER_FORM_LABEL_MAP = {
  */
 function extractOrderFormDraft(fileId) {
   var text = ocrFileToText_(fileId);
-  var raw = extractByLabels_(text, ORDER_FORM_LABEL_MAP);
+  var raw = extractByLabels_(text, getEffectiveOrderFormLabelMap_());
   return {
     appraisalAmount: toNumber_(raw.appraisalAmount),
     supplier: raw.supplier || '',

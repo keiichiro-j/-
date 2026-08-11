@@ -16,7 +16,7 @@ var INSPECTION_LABEL_MAP = {
  */
 function extractInspectionCertDraft(fileId) {
   var text = ocrFileToText_(fileId);
-  var raw = extractByLabels_(text, INSPECTION_LABEL_MAP);
+  var raw = extractByLabels_(text, getEffectiveInspectionLabelMap_());
   var plate = extractRegistrationPlate_(text);
 
   var draft = {

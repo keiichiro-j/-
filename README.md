@@ -21,6 +21,7 @@ Google スプレッドシートをDBとし、GASの HTML Service で Webアプ�
 | `InspectionExtractionService.gs` | 4.6 車検証からの車検満了日・登録番号自動抽出（任意ステップ） |
 | `SearchService.gs` | 10.2 検索・絞り込み強化（登録番号4分割検索を含む） |
 | `PdfReportService.gs` | 10.4 期間指定PDF帳票出力（A4横・複数ページ対応） |
+| `SettingsService.gs` | 「設定」画面：拠点／通知／OCRラベル／選択肢／テーマの読み書き（Script Properties） |
 | `Api.gs` | クライアント（HTML）から呼び出すユースケース単位API |
 | `Triggers.gs` | 時間主導型トリガー（PDF監視・車検満了チェック）のセットアップ |
 | `Code.gs` | `doGet` エントリポイント |
@@ -98,6 +99,29 @@ npm test
 
 ラベル文字列・書式は注文書／査定書／車検証の実物サンプルに応じて `ORDER_FORM_LABEL_MAP` /
 `APPRAISAL_LABEL_MAP` / `INSPECTION_LABEL_MAP`（各Extractionサービスファイル冒頭）を調整してください。
+「設定」画面からもラベル候補を上書き編集できます（下記）。
+
+## ビジュアル・設定画面
+
+社内の別システム（新車新規登録依頼書 発行システム）と共通のデザイン言語（モノクロ基調、アイキャッチラベル＋タイトル下線、
+ライブ時計付きステータスバー、黒背景のアクティブタブ、角丸カード＋黒背景ボタン）で画面を統一しています。
+
+- ヘッダー：小さな英字ラベル＋タイトル＋下線＋サブタイトル（`html/Index.html` `.pageHeader`）
+- ステータスバー：ライブ時計・本日の登録件数・新規登録ボタン（`.statusBar`、`html/JavaScript.html` の `startLiveClock` / `refreshTodayStats`）
+- メインナビ：「在庫一覧」「設定」の2タブ（`.mainNav`）
+
+「設定」タブでは以下を画面から編集できます（Script Propertiesに保存、コード変更不要）。
+
+| 設定カード | 内容 | 保存先 |
+|---|---|---|
+| テーマ | アプリ名・サブタイトル・アクセントカラー・ロゴ画像URL（Googleドライブ共有リンク） | `THEME_CONFIG` |
+| 拠点（会社）設定 | 3社分のスプレッドシートID・車検証／査定書／注文書PDFフォルダID | `COMPANIES_CONFIG` |
+| 通知設定 | Slack Webhook URL・車検満了通知メール宛先 | `SLACK_WEBHOOK_URL` / `NOTIFY_MAIL_TO` |
+| 選択肢設定 | ステータス・仕入区分のプルダウン選択肢 | `STATUS_OPTIONS_OVERRIDE` / `PURCHASE_TYPE_OPTIONS_OVERRIDE` |
+| OCRラベル設定 | 注文書／査定書／車検証の抽出ラベル候補（カンマ区切り） | `OCR_LABEL_OVERRIDE` |
+
+注意: ステータスの選択肢には「名義変更済み」「販売済み」を必ず含めてください（4.3 自動移動・4.7 自社名義車検証連携が
+この2値を参照しているため、削除すると保存時にエラーになります）。
 
 ## 未実装・今回スコープ外（ビジョン 11. 今後の検討事項）
 

@@ -8,43 +8,72 @@
 <body>
   <div id="app" class="app">
 
-    <header class="topbar">
-      <div class="topbar__brand">車両在庫管理</div>
+    <header class="pageHeader">
+      <div class="eyebrow">VEHICLE INVENTORY MANAGEMENT</div>
+      <div class="pageHeader__titleRow">
+        <img id="brandLogo" class="pageHeader__logo hidden" alt="ロゴ">
+        <h1 class="pageHeader__title" id="appTitleText">車両在庫管理</h1>
+      </div>
+      <div class="pageHeader__rule"></div>
+      <p class="pageHeader__subtitle" id="appSubtitleText">拠点切替・横断在庫管理、OCRによる入庫データ自動反映</p>
+    </header>
 
+    <div class="statusBar">
+      <div class="statusBar__left">
+        <span>本日もよろしくお願いします</span>
+        <span class="statusBar__dot">・</span>
+        <span class="liveDot"></span><span>ライブ</span>
+        <span id="liveClock" class="statusBar__clock">--:--:--</span>
+        <span class="statusBar__dot">・</span>
+        <span>本日の登録 <strong id="todayCount">0</strong> 件</span>
+      </div>
+      <div class="statusBar__right">
+        <button class="btn btn--primary" id="btnNewVehicle">＋ 新規登録</button>
+      </div>
+    </div>
+
+    <nav class="mainNav" id="mainNav">
+      <button class="mainNav__tab is-active" data-view="inventory">在庫一覧</button>
+      <button class="mainNav__tab" data-view="settings">設定</button>
+    </nav>
+
+    <div id="inventoryView" class="viewBody">
       <nav class="topbar__scope" id="scopeTabs" role="tablist" aria-label="拠点切替">
         <!-- JS が会社タブ + 横断表示タブを描画 -->
       </nav>
 
-      <div class="topbar__actions">
-        <button class="btn btn--primary" id="btnNewVehicle">＋ 新規登録</button>
+      <div class="toolbar">
+        <div class="toolbar__tabs" id="tabNames" role="tablist" aria-label="車両区分">
+          <!-- 輸入車/国産車/(販売済) タブ -->
+        </div>
+
+        <input type="search" id="keywordInput" class="input input--search"
+               placeholder="車種・車台番号・OCN・登録番号などで検索">
+
+        <select id="filterCarType" class="input"><option value="">車種すべて</option></select>
+        <select id="filterStatus" class="input"><option value="">ステータスすべて</option></select>
+        <select id="filterStaff" class="input"><option value="">担当者すべて</option></select>
+
+        <button class="btn" id="btnExportPdf">帳票出力（PDF）</button>
+        <button class="btn" id="btnSyncPdf">車検証PDF同期</button>
       </div>
-    </header>
 
-    <div class="toolbar">
-      <div class="toolbar__tabs" id="tabNames" role="tablist" aria-label="車両区分">
-        <!-- 輸入車/国産車/(販売済) タブ -->
-      </div>
+      <div id="dashboard" class="dashboard hidden"></div>
 
-      <input type="search" id="keywordInput" class="input input--search"
-             placeholder="車種・車台番号・OCN・登録番号などで検索">
-
-      <select id="filterCarType" class="input"><option value="">車種すべて</option></select>
-      <select id="filterStatus" class="input"><option value="">ステータスすべて</option></select>
-      <select id="filterStaff" class="input"><option value="">担当者すべて</option></select>
-
-      <button class="btn" id="btnExportPdf">帳票出力（PDF）</button>
-      <button class="btn" id="btnSyncPdf">車検証PDF同期</button>
+      <main class="listWrap">
+        <table class="vehicleTable" id="vehicleTable">
+          <thead id="vehicleTableHead"></thead>
+          <tbody id="vehicleTableBody"></tbody>
+        </table>
+        <div id="emptyState" class="emptyState hidden">該当する車両がありません</div>
+      </main>
     </div>
 
-    <div id="dashboard" class="dashboard hidden"></div>
-
-    <main class="listWrap">
-      <table class="vehicleTable" id="vehicleTable">
-        <thead id="vehicleTableHead"></thead>
-        <tbody id="vehicleTableBody"></tbody>
-      </table>
-      <div id="emptyState" class="emptyState hidden">該当する車両がありません</div>
-    </main>
+    <div id="settingsView" class="viewBody hidden">
+      <div class="settingsGrid" id="settingsGrid">
+        <!-- JS が拠点/通知/OCRラベル/選択肢/テーマ の各設定カードを描画 -->
+      </div>
+    </div>
   </div>
 
   <!-- 車両詳細/編集 モーダル -->

@@ -22,7 +22,8 @@ const FILES = [
   'AppraisalExtractionService.gs',
   'OrderFormExtractionService.gs',
   'SearchService.gs',
-  'OcrService.gs'
+  'OcrService.gs',
+  'SettingsService.gs'
 ];
 
 FILES.forEach((file) => {
@@ -140,6 +141,26 @@ test('候補ラベルのうち先にヒットしたものを採用', () => {
 test('該当ラベルが無ければキー自体が生成されない', () => {
   const r = sandbox.extractByLabels_('無関係なテキスト', { supplier: ['所有者'] });
   assert.strictEqual('supplier' in r, false);
+});
+
+console.log('== SettingsService: mergeLabelMap_ / normalizeDriveImageUrl_ ==');
+test('override配列があればそちらを優先し、無ければ既定値を使う', () => {
+  const defaults = { a: ['x', 'y'], b: ['z'] };
+  const merged = sandbox.mergeLabelMap_(defaults, { a: ['custom'] });
+  assert.deepStrictEqual(merged.a, ['custom']);
+  assert.deepStrictEqual(merged.b, ['z']);
+});
+test('overrideが未指定なら既定値をそのまま返す', () => {
+  const defaults = { a: ['x'] };
+  assert.deepStrictEqual(sandbox.mergeLabelMap_(defaults, undefined), defaults);
+});
+test('Googleドライブ共有リンクをthumbnail形式に変換', () => {
+  const url = sandbox.normalizeDriveImageUrl_('https://drive.google.com/file/d/1AbC-23_xyz/view?usp=sharing');
+  assert.strictEqual(url, 'https://drive.google.com/thumbnail?id=1AbC-23_xyz&sz=w1000');
+});
+test('既にthumbnail形式等の場合はそのまま返す', () => {
+  const url = 'https://drive.google.com/thumbnail?id=abc&sz=w1000';
+  assert.strictEqual(sandbox.normalizeDriveImageUrl_(url), url);
 });
 
 console.log('== SearchService: matchesKeyword / matchesRegistrationNumber ==');
