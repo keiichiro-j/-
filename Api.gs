@@ -65,7 +65,18 @@ function api_getDashboardSummary() {
   };
 }
 
-// ===== 査定書アップロード（4.5） =====
+// ===== 注文書アップロード（4.5・査定金額と購入者情報） =====
+function api_uploadOrderFormPdf(companyId, base64Data, mimeType, fileName) {
+  var company = getCompanyById(companyId);
+  var folder = DriveApp.getFolderById(company.orderFormFolderId);
+  var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, fileName);
+  var file = createDriveFileNoConvert_(folder, blob, '_tmp_orderform_' + new Date().getTime());
+  var draft = extractOrderFormDraft(file.getId());
+  draft.tempFileId = file.getId();
+  return draft;
+}
+
+// ===== 査定書アップロード（4.5・買取金額と車両情報） =====
 function api_uploadAppraisalPdf(companyId, base64Data, mimeType, fileName) {
   var company = getCompanyById(companyId);
   var folder = DriveApp.getFolderById(company.appraisalFolderId);
@@ -106,12 +117,12 @@ function api_uploadOwnCertPdf(companyId, ocn, base64Data, mimeType, fileName) {
   return { ownCertLink: file.getUrl() };
 }
 
-// ===== 新規登録（4.5〜4.6 の一連の確認登録フロー） =====
+// ===== 新規登録（4.5 注文書/査定書 〜 4.6 車検証 の一連の確認登録フロー） =====
 /**
  * @param {string} companyId
  * @param {string} tabName '輸入車' or '国産車'
  * @param {Object} draft 確認画面で担当者が確定した入力値一式
- *   （appraisalTempFileId / inspectionTempFileId を含む場合、確定時にOCN名でリネームする）
+ *   （orderFormTempFileId / appraisalTempFileId / inspectionTempFileId を含む場合、確定時にOCN名でリネームする）
  */
 function api_registerVehicle(companyId, tabName, draft) {
   var vehicle = Object.assign({}, draft);
@@ -123,6 +134,9 @@ function api_registerVehicle(companyId, tabName, draft) {
     vehicle.tradeInLoss = calcTradeInLoss(Number(vehicle.appraisalAmount), Number(vehicle.purchaseAmount));
   }
 
+  if (draft.orderFormTempFileId) {
+    DriveApp.getFileById(draft.orderFormTempFileId).setName(vehicle.ocn + '.pdf');
+  }
   if (draft.appraisalTempFileId) {
     DriveApp.getFileById(draft.appraisalTempFileId).setName(vehicle.ocn + '.pdf');
   }
@@ -133,8 +147,10 @@ function api_registerVehicle(companyId, tabName, draft) {
     processed[draft.inspectionTempFileId] = true;
     saveProcessedPdfIds_(companyId, processed);
   }
+  delete vehicle.orderFormTempFileId;
   delete vehicle.appraisalTempFileId;
   delete vehicle.inspectionTempFileId;
+  delete vehicle.tempFileId;
   delete vehicle.rawText;
   delete vehicle.sourceFileId;
 

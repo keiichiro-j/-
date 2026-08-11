@@ -1,15 +1,18 @@
 /**
  * AppraisalExtractionService.gs
- * 4.5 査定書連携による仕入情報取り込み機能
+ * 4.5 査定書連携による買取金額・車両情報の取り込み機能
  *
- * 査定書OCRテキストから各項目を抽出したのち、以下の業務ルールで正規化する。
+ * 査定額・購入者情報（使用者名・住所）は注文書（OrderFormExtractionService.gs）から取得するため、
+ * 査定書からは「買取金額」と「車両情報」のみを抽出する。抽出後は以下の業務ルールで正規化する。
  *  - 車種: メーカー名を半角カタカナに変換。独系（メルセデス・ベンツ/アウディ/フォルクスワーゲン）は MB/AU/VW と表記。
  *  - モデル: 独系の場合「Aクラス180」→「A18」のようにクラス名+先頭2桁に短縮。
  *  - 初年度登録: 元号表記・西暦表記いずれも「yyyy/MM」形式に正規化。
  *  - カラー: 色名を漢字一文字に正規化（例: ブラック→黒）。
  *  - 走行距離: 「00,000km」形式の文字列に整形。
  *  - 仕入区分: 査定書から取り込んだ場合は既定値「下取」とする（担当者が確認画面で変更可）。
- *  - 下取損: 買取金額 － 査定額。
+ *
+ * 下取損（買取金額－査定額）は、注文書（査定額）と査定書（買取金額）の両方が
+ * 確認画面に揃った時点で計算する（Api.gs の api_registerVehicle / api_updateVehicle 参照）。
  */
 
 var APPRAISAL_LABEL_MAP = {
@@ -19,7 +22,6 @@ var APPRAISAL_LABEL_MAP = {
   firstRegistrationDate: ['初年度登録', '初度登録年月', '初度登録'],
   color: ['カラー', '色'],
   mileage: ['走行距離', '走行'],
-  appraisalAmount: ['査定額', '査定金額'],
   purchaseAmount: ['買取金額', '買取価格'],
   recycleFee: ['リサイクル金額', 'リサイクル料金', 'リサイクル預託金'],
   staff: ['査定担当者', '担当者', '鑑定士', '査定士']
@@ -36,7 +38,7 @@ function extractAppraisalDraft(fileId) {
 }
 
 /**
- * OCR生テキストから抽出した文字列を、業務ルールに沿った表記へ正規化し、下取損を自動計算する（純粋関数）。
+ * OCR生テキストから抽出した文字列を、業務ルールに沿った表記へ正規化する（純粋関数）。
  */
 function normalizeAppraisalDraft_(raw, fileId, rawText) {
   var carType = normalizeCarType_(raw.carType);
@@ -47,13 +49,11 @@ function normalizeAppraisalDraft_(raw, fileId, rawText) {
     firstRegistrationDate: formatYearMonth_(raw.firstRegistrationDate),
     color: normalizeColor_(raw.color),
     mileage: formatMileage_(raw.mileage),
-    appraisalAmount: toNumber_(raw.appraisalAmount),
     purchaseAmount: toNumber_(raw.purchaseAmount),
     recycleFee: toNumber_(raw.recycleFee),
     purchaseType: '下取', // 査定書から取り込んだ場合の既定値（確認画面で変更可）
     staff: raw.staff || ''
   };
-  draft.tradeInLoss = calcTradeInLoss(draft.appraisalAmount, draft.purchaseAmount);
   if (fileId !== undefined) draft.sourceFileId = fileId;
   if (rawText !== undefined) draft.rawText = rawText;
   return draft;

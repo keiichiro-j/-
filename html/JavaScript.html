@@ -380,17 +380,42 @@
       el.classList.toggle('is-active', Number(el.dataset.step) === state.wizard.step);
     });
     document.getElementById('btnWizardBack').classList.toggle('hidden', state.wizard.step === 1);
-    document.getElementById('btnWizardNext').textContent = state.wizard.step === 3 ? '登録する' : '次へ';
+    document.getElementById('btnWizardNext').textContent = state.wizard.step === 4 ? '登録する' : '次へ';
 
     var body = document.getElementById('registerBody');
     if (state.wizard.step === 1) {
       body.innerHTML = wizardTargetSelectHtml() +
-        '<p>査定書PDFをアップロードすると、車種・モデル・車台番号・査定額等を自動読み取りします（任意・スキップ可）。</p>' +
+        '<p>注文書PDFをアップロードすると、査定金額・購入者情報（使用者名・住所）を自動読み取りします（任意・スキップ可）。</p>' +
         '<div class="dropzone" id="dz1">📄 クリックしてPDFを選択</div>' +
         '<div id="dz1status"></div>';
       bindDropzone('dz1', function (b64, file) {
         var dz = document.getElementById('dz1');
         var statusEl = document.getElementById('dz1status');
+        dz.classList.add('is-busy');
+        statusEl.innerHTML = '<span class="spinner"></span>読み取り中: ' + escapeHtml(file.name);
+        gsRun('api_uploadOrderFormPdf', state.wizard.companyId, b64.data, b64.mimeType, file.name).then(function (draft) {
+          Object.assign(state.wizard.draft, draft);
+          state.wizard.draft.orderFormTempFileId = draft.tempFileId;
+          dz.classList.remove('is-busy');
+          statusEl.innerHTML = '✅ 読み取り完了: ' + escapeHtml(file.name);
+          renderOcrSummary(statusEl, [
+            { label: '査定金額', value: draft.appraisalAmount },
+            { label: '仕入先（使用者名）', value: draft.supplier },
+            { label: '住所（使用者住所）', value: draft.address }
+          ]);
+        }).catch(function (err) {
+          dz.classList.remove('is-busy');
+          statusEl.innerHTML = '<div class="errorBox">読み取りに失敗しました: ' + escapeHtml(err.message || String(err)) +
+            '<br>もう一度アップロードするか、次の画面に進んで手入力してください。</div>';
+        });
+      });
+    } else if (state.wizard.step === 2) {
+      body.innerHTML = '<p>査定書PDFをアップロードすると、買取金額・車種・モデル・車台番号等の車両情報を自動読み取りします（任意・スキップ可）。</p>' +
+        '<div class="dropzone" id="dz2">📄 クリックしてPDFを選択</div>' +
+        '<div id="dz2status"></div>';
+      bindDropzone('dz2', function (b64, file) {
+        var dz = document.getElementById('dz2');
+        var statusEl = document.getElementById('dz2status');
         dz.classList.add('is-busy');
         statusEl.innerHTML = '<span class="spinner"></span>読み取り中: ' + escapeHtml(file.name);
         gsRun('api_uploadAppraisalPdf', state.wizard.companyId, b64.data, b64.mimeType, file.name).then(function (draft) {
@@ -407,7 +432,6 @@
             { label: '走行距離', value: draft.mileage },
             { label: '仕入区分', value: draft.purchaseType },
             { label: '担当者', value: draft.staff },
-            { label: '査定額', value: draft.appraisalAmount },
             { label: '買取金額', value: draft.purchaseAmount },
             { label: 'リサイクル金額', value: draft.recycleFee }
           ]);
@@ -417,19 +441,17 @@
             '<br>もう一度アップロードするか、次の画面に進んで手入力してください。</div>';
         });
       });
-    } else if (state.wizard.step === 2) {
-      body.innerHTML = '<p>購入時（前所有者名義）の車検証PDFをアップロードすると、仕入先（顧客名）・住所を自動反映します（任意・スキップ可）。</p>' +
-        '<div class="dropzone" id="dz2">📄 クリックしてPDFを選択</div>' +
-        '<div id="dz2status"></div>';
-      bindDropzone('dz2', function (b64, file) {
-        var dz = document.getElementById('dz2');
-        var statusEl = document.getElementById('dz2status');
+    } else if (state.wizard.step === 3) {
+      body.innerHTML = '<p>購入時（前所有者名義）の車検証PDFをアップロードすると、車検満了日・登録番号を自動反映します（任意・スキップ可）。</p>' +
+        '<div class="dropzone" id="dz3">📄 クリックしてPDFを選択</div>' +
+        '<div id="dz3status"></div>';
+      bindDropzone('dz3', function (b64, file) {
+        var dz = document.getElementById('dz3');
+        var statusEl = document.getElementById('dz3status');
         dz.classList.add('is-busy');
         statusEl.innerHTML = '<span class="spinner"></span>読み取り中: ' + escapeHtml(file.name);
         gsRun('api_uploadInspectionCertPdf', state.wizard.companyId, b64.data, b64.mimeType, file.name).then(function (draft) {
           state.wizard.draft.inspectionTempFileId = draft.tempFileId;
-          if (draft.supplier) state.wizard.draft.supplier = draft.supplier;
-          if (draft.address) state.wizard.draft.address = draft.address;
           if (draft.inspectionExpiryDate) state.wizard.draft.inspectionExpiryDate = draft.inspectionExpiryDate;
           if (draft.plateRegion) state.wizard.draft.plateRegion = draft.plateRegion;
           if (draft.plateClass) state.wizard.draft.plateClass = draft.plateClass;
@@ -438,8 +460,6 @@
           dz.classList.remove('is-busy');
           statusEl.innerHTML = '✅ 読み取り完了: ' + escapeHtml(file.name);
           renderOcrSummary(statusEl, [
-            { label: '仕入先（顧客名）', value: draft.supplier },
-            { label: '住所', value: draft.address },
             { label: '車検満了日', value: draft.inspectionExpiryDate },
             { label: '登録番号', value: [draft.plateRegion, draft.plateClass, draft.plateKana, draft.plateNumber].filter(Boolean).join(' ') }
           ]);
@@ -512,6 +532,9 @@
       renderWizard();
     } else if (state.wizard.step === 2) {
       state.wizard.step = 3;
+      renderWizard();
+    } else if (state.wizard.step === 3) {
+      state.wizard.step = 4;
       renderWizard();
     } else {
       var patch = collectFormValues(document.getElementById('registerBody'));

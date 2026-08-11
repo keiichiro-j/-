@@ -20,6 +20,7 @@ const FILES = [
   'OcnService.gs',
   'PdfLinkService.gs',
   'AppraisalExtractionService.gs',
+  'OrderFormExtractionService.gs',
   'SearchService.gs',
   'OcrService.gs'
 ];
@@ -76,14 +77,24 @@ test('OCRテキストからの数値抽出（カンマ・円混在）', () => {
   assert.strictEqual(sandbox.toNumber_('123km'), 123);
   assert.strictEqual(sandbox.toNumber_(''), null);
 });
-test('normalizeAppraisalDraft_ が下取損まで一括計算する', () => {
+test('normalizeAppraisalDraft_ は査定書由来の項目（買取金額・車両情報）のみを正規化する', () => {
   const draft = sandbox.normalizeAppraisalDraft_({
-    carType: 'トヨタ', mileage: '32,000km', appraisalAmount: '600,000円', purchaseAmount: '650,000円'
+    carType: 'トヨタ', mileage: '32,000km', purchaseAmount: '650,000円'
   });
   assert.strictEqual(draft.carType, 'ﾄﾖﾀ');
   assert.strictEqual(draft.mileage, '32,000km');
-  assert.strictEqual(draft.tradeInLoss, 50000);
+  assert.strictEqual(draft.purchaseAmount, 650000);
+  assert.strictEqual(draft.appraisalAmount, undefined); // 査定額は注文書側で取得するため含まない
   assert.strictEqual(draft.purchaseType, '下取');
+});
+
+console.log('== OrderFormExtractionService: ORDER_FORM_LABEL_MAP ==');
+test('注文書テキストから査定金額・使用者名・住所を抽出', () => {
+  const text = '査定金額：500,000円\n使用者の氏名又は名称：山田太郎\n使用者の住所：東京都千代田区1-1-1';
+  const raw = sandbox.extractByLabels_(text, sandbox.ORDER_FORM_LABEL_MAP);
+  assert.strictEqual(raw.appraisalAmount, '500,000円');
+  assert.strictEqual(raw.supplier, '山田太郎');
+  assert.strictEqual(raw.address, '東京都千代田区1-1-1');
 });
 
 console.log('== AppraisalExtractionService: 車種/モデル/カラー/走行距離の正規化 ==');

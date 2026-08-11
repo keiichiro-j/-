@@ -8,7 +8,7 @@
 
 /**
  * 会社設定の取得
- * @return {Array<{id:string,name:string,sheetId:string,pdfFolderId:string,appraisalFolderId:string}>}
+ * @return {Array<{id:string,name:string,sheetId:string,pdfFolderId:string,appraisalFolderId:string,orderFormFolderId:string}>}
  */
 function getCompanies() {
   var json = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.COMPANIES);
@@ -37,21 +37,24 @@ function setupCompanies_() {
       name: 'A社',
       sheetId: 'REPLACE_WITH_A社_SPREADSHEET_ID',
       pdfFolderId: 'REPLACE_WITH_A社_車検証PDFフォルダID',
-      appraisalFolderId: 'REPLACE_WITH_A社_査定書PDFフォルダID'
+      appraisalFolderId: 'REPLACE_WITH_A社_査定書PDFフォルダID',
+      orderFormFolderId: 'REPLACE_WITH_A社_注文書PDFフォルダID'
     },
     {
       id: 'B',
       name: 'B社',
       sheetId: 'REPLACE_WITH_B社_SPREADSHEET_ID',
       pdfFolderId: 'REPLACE_WITH_B社_車検証PDFフォルダID',
-      appraisalFolderId: 'REPLACE_WITH_B社_査定書PDFフォルダID'
+      appraisalFolderId: 'REPLACE_WITH_B社_査定書PDFフォルダID',
+      orderFormFolderId: 'REPLACE_WITH_B社_注文書PDFフォルダID'
     },
     {
       id: 'C',
       name: 'C社',
       sheetId: 'REPLACE_WITH_C社_SPREADSHEET_ID',
       pdfFolderId: 'REPLACE_WITH_C社_車検証PDFフォルダID',
-      appraisalFolderId: 'REPLACE_WITH_C社_査定書PDFフォルダID'
+      appraisalFolderId: 'REPLACE_WITH_C社_査定書PDFフォルダID',
+      orderFormFolderId: 'REPLACE_WITH_C社_注文書PDFフォルダID'
     }
   ];
   saveCompanies(companies);
