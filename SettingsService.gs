@@ -85,6 +85,7 @@ function getThemeSettings() {
   return {
     accentColor: theme.accentColor || '#111827',
     logoUrl: theme.logoUrl || '',
+    loadingImageUrl: theme.loadingImageUrl || '',
     appTitle: theme.appTitle || '車両在庫管理',
     appSubtitle: theme.appSubtitle || '拠点切替・横断在庫管理、OCRによる入庫データ自動反映'
   };
@@ -95,6 +96,7 @@ function saveThemeSettings(theme) {
   PropertiesService.getScriptProperties().setProperty(PROP_KEYS.THEME_CONFIG, JSON.stringify({
     accentColor: theme.accentColor || '#111827',
     logoUrl: normalizeDriveImageUrl_(theme.logoUrl || ''),
+    loadingImageUrl: normalizeDriveImageUrl_(theme.loadingImageUrl || ''),
     appTitle: theme.appTitle || '車両在庫管理',
     appSubtitle: theme.appSubtitle || ''
   }));

@@ -35,6 +35,24 @@
 
   .app { display: flex; flex-direction: column; min-height: 100vh; }
 
+  /* ===== 起動画面（ローディング画面） ===== */
+  .loadingScreen {
+    position: fixed; inset: 0; background: #ffffff; z-index: 200;
+    display: flex; align-items: center; justify-content: center;
+    transition: opacity 0.25s ease, visibility 0.25s ease;
+  }
+  .loadingScreen.is-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+  .loadingScreen__inner { display: flex; flex-direction: column; align-items: center; gap: 26px; }
+  .loadingScreen__logo { max-height: 90px; max-width: min(70vw, 340px); object-fit: contain; }
+  .loadingScreen__logoPlaceholder {
+    border: 2px solid var(--color-primary); background: #fef9c3; color: var(--color-primary);
+    font-weight: 800; font-size: 26px; letter-spacing: 0.04em; padding: 14px 30px;
+  }
+  .loadingScreen__text {
+    font-family: var(--font-mono); letter-spacing: 0.3em; font-size: 12px; font-weight: 700; color: var(--color-text-muted);
+  }
+  .spinner--lg { width: 34px; height: 34px; border-width: 3px; margin-right: 0; }
+
   /* ===== ページヘッダー（アイキャッチラベル＋タイトル＋下線＋サブタイトル） ===== */
   .pageHeader {
     background: var(--color-surface);
@@ -320,23 +338,32 @@
   .toast.is-error { background: var(--color-danger); }
   .toast.is-success { background: #15803d; }
 
-  /* ===== 設定画面 ===== */
+  /* ===== 設定画面（同サイズカードの横スクロール） ===== */
   .settingsGrid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    display: flex;
     gap: 16px;
-    padding-top: 16px;
+    padding: 16px 4px 20px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scroll-padding-left: 4px;
   }
   .settingsCard {
+    flex: 0 0 360px;
+    width: 360px;
+    height: 480px;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    scroll-snap-align: start;
   }
   .settingsCard__title { font-size: 14px; font-weight: 800; margin: 0 0 8px; }
-  .settingsCard__rule { width: 28px; height: 2px; background: var(--color-primary); margin-bottom: 10px; border-radius: 1px; }
-  .settingsCard__desc { font-size: 12px; color: var(--color-text-muted); line-height: 1.7; margin: 0 0 14px; }
-  .settingsCard__footer { margin-top: 14px; }
+  .settingsCard__rule { width: 28px; height: 2px; background: var(--color-primary); margin-bottom: 10px; border-radius: 1px; flex-shrink: 0; }
+  .settingsCard__desc { font-size: 12px; color: var(--color-text-muted); line-height: 1.7; margin: 0 0 14px; flex-shrink: 0; }
+  .settingsCard__body { flex: 1; overflow-y: auto; min-height: 0; }
+  .settingsCard__footer { margin-top: 14px; flex-shrink: 0; }
   .settingsFieldList { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
   .settingsFieldList--grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
   .settingsLabelRow { display: flex; align-items: center; gap: 8px; }

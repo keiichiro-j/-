@@ -41,8 +41,18 @@
       bindGlobalEvents();
       bindMainNav();
       reloadList();
-    }).catch(showError);
+      hideLoadingScreen();
+    }).catch(function (err) {
+      hideLoadingScreen();
+      showError(err);
+    });
   });
+
+  // ===== 起動画面（ローディング画面） =====
+  function hideLoadingScreen() {
+    var el = document.getElementById('loadingScreen');
+    if (el) el.classList.add('is-hidden');
+  }
 
   // ===== テーマ（アクセントカラー・ロゴ・アプリ名） =====
   function applyTheme(theme) {
@@ -782,8 +792,10 @@
       '<div class="formField"><label>サブタイトル</label><input id="themeAppSubtitle" type="text" value="' + escapeAttr(theme.appSubtitle) + '"></div>' +
       '<div class="formField"><label>アクセントカラー</label><input id="themeAccentColor" type="color" value="' + escapeAttr(theme.accentColor) + '" style="height:36px;padding:2px;"></div>' +
       '<div class="formField"><label>ロゴ画像URL（Googleドライブ共有リンク）</label><input id="themeLogoUrl" type="text" placeholder="https://drive.google.com/file/d/xxxx/view?usp=..." value="' + escapeAttr(theme.logoUrl) + '"></div>' +
+      '<div class="formField"><label>起動画面（ローディング画面）画像URL（Googleドライブ共有リンク）</label><input id="themeLoadingImageUrl" type="text" placeholder="https://drive.google.com/file/d/xxxx/view?usp=..." value="' + escapeAttr(theme.loadingImageUrl) + '"></div>' +
       '</div>' +
       '<div class="settingsPreview" id="themeLogoPreview">' + (theme.logoUrl ? '<img src="' + escapeAttr(theme.logoUrl) + '">' : 'ロゴ未設定') + '</div>' +
+      '<div class="settingsPreview" id="themeLoadingPreview" style="margin-top:6px;">' + (theme.loadingImageUrl ? '<img src="' + escapeAttr(theme.loadingImageUrl) + '">' : '起動画面画像未設定（次回アクセス時のみ反映されます）') + '</div>' +
       '<div class="settingsCard__footer"><button class="btn btn--primary" id="btnSaveTheme">テーマを保存する</button></div>';
 
     document.getElementById('btnSaveTheme').addEventListener('click', function () {
@@ -791,7 +803,8 @@
         appTitle: document.getElementById('themeAppTitle').value.trim(),
         appSubtitle: document.getElementById('themeAppSubtitle').value.trim(),
         accentColor: document.getElementById('themeAccentColor').value,
-        logoUrl: document.getElementById('themeLogoUrl').value.trim()
+        logoUrl: document.getElementById('themeLogoUrl').value.trim(),
+        loadingImageUrl: document.getElementById('themeLoadingImageUrl').value.trim()
       };
       gsRun('api_saveThemeSettings', payload).then(function (res) {
         state.settings.theme = res.theme;

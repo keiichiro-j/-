@@ -6,6 +6,18 @@
   <?!= include('html/Stylesheet'); ?>
 </head>
 <body>
+  <div id="loadingScreen" class="loadingScreen">
+    <div class="loadingScreen__inner">
+      <? if (theme.loadingImageUrl) { ?>
+        <img class="loadingScreen__logo" src="<?= theme.loadingImageUrl ?>" alt="">
+      <? } else { ?>
+        <div class="loadingScreen__logoPlaceholder"><?= theme.appTitle ?></div>
+      <? } ?>
+      <div class="spinner spinner--lg"></div>
+      <div class="loadingScreen__text">NOW LOADING</div>
+    </div>
+  </div>
+
   <div id="app" class="app">
 
     <header class="pageHeader">

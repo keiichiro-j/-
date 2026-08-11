@@ -109,12 +109,13 @@ npm test
 - ヘッダー：小さな英字ラベル＋タイトル＋下線＋サブタイトル（`html/Index.html` `.pageHeader`）
 - ステータスバー：ライブ時計・本日の登録件数・新規登録ボタン（`.statusBar`、`html/JavaScript.html` の `startLiveClock` / `refreshTodayStats`）
 - メインナビ：「在庫一覧」「設定」の2タブ（`.mainNav`）
+- 起動画面（ローディング画面）：アプリを開いた際に一瞬表示される画面（`#loadingScreen`）。画像は `Code.gs` の `doGet` がテンプレート変数 `theme` としてサーバー側で埋め込むため、初回表示から画像が反映される（クライアント側の再読み込みを待たない）
 
-「設定」タブでは以下を画面から編集できます（Script Propertiesに保存、コード変更不要）。
+「設定」タブでは以下を同サイズカードの横スクロール形式（`.settingsGrid`）で編集できます（Script Propertiesに保存、コード変更不要）。
 
 | 設定カード | 内容 | 保存先 |
 |---|---|---|
-| テーマ | アプリ名・サブタイトル・アクセントカラー・ロゴ画像URL（Googleドライブ共有リンク） | `THEME_CONFIG` |
+| テーマ | アプリ名・サブタイトル・アクセントカラー・ロゴ画像URL・起動画面画像URL（いずれもGoogleドライブ共有リンクを貼り付け） | `THEME_CONFIG` |
 | 拠点（会社）設定 | 3社分のスプレッドシートID・車検証／査定書／注文書PDFフォルダID | `COMPANIES_CONFIG` |
 | 通知設定 | Slack Webhook URL・車検満了通知メール宛先 | `SLACK_WEBHOOK_URL` / `NOTIFY_MAIL_TO` |
 | 選択肢設定 | ステータス・仕入区分のプルダウン選択肢 | `STATUS_OPTIONS_OVERRIDE` / `PURCHASE_TYPE_OPTIONS_OVERRIDE` |
