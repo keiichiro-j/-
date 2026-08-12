@@ -1,0 +1,359 @@
+<script>
+(function () {
+  'use strict';
+
+  var WEEKDAY_KANJI = ['日', '月', '火', '水', '木', '金', '土'];
+  var MAX_TAGS_PER_CELL = 3;
+
+  // ===== google.script.run を Promise化する薄いラッパー =====
+  function gsRun(fnName) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return new Promise(function (resolve, reject) {
+      google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(function (err) { reject(err); })
+        [fnName].apply(null, args);
+    });
+  }
+
+  var state = {
+    boot: null,
+    year: null,
+    month: null,
+    officeFilter: '',
+    typeVisible: {},
+    monthView: null,
+    selectedDate: null,
+    selectedDateEvents: [],
+    editingEventId: null,
+    addingNew: false
+  };
+
+  document.addEventListener('DOMContentLoaded', function () {
+    gsRun('schedApi_getBootstrap').then(function (boot) {
+      state.boot = boot;
+      boot.typeOrder.forEach(function (type) { state.typeVisible[type] = true; });
+      var today = parseDateStr(boot.today);
+      state.year = today.getFullYear();
+      state.month = today.getMonth() + 1;
+
+      renderOfficeSelect();
+      renderTypeFilters();
+      bindGlobalEvents();
+      loadMonthView();
+    }).catch(showError);
+  });
+
+  // ===== 支局セレクト =====
+  function renderOfficeSelect() {
+    var sel = document.getElementById('officeSelect');
+    var current = sel.value;
+    sel.innerHTML = '<option value="">全支局</option>' +
+      state.boot.offices.map(function (o) {
+        return '<option value="' + escapeAttr(o) + '">' + escapeHtml(o) + '</option>';
+      }).join('');
+    if (current && state.boot.offices.indexOf(current) !== -1) sel.value = current;
+    document.getElementById('btnAddOffice').classList.toggle('hidden', !state.boot.canEdit);
+  }
+
+  // ===== 種別フィルタ（凡例兼ON/OFF切替） =====
+  function renderTypeFilters() {
+    var wrap = document.getElementById('typeFilters');
+    wrap.innerHTML = '';
+    state.boot.typeOrder.forEach(function (type) {
+      var meta = state.boot.typeMeta[type];
+      var chip = document.createElement('label');
+      chip.className = 'filterChip' + (state.typeVisible[type] ? '' : ' is-off');
+      chip.innerHTML =
+        '<input type="checkbox" ' + (state.typeVisible[type] ? 'checked' : '') + '>' +
+        '<span class="dot tag--' + type + '"></span>' + escapeHtml(meta.label);
+      chip.querySelector('input').addEventListener('change', function (e) {
+        state.typeVisible[type] = e.target.checked;
+        chip.classList.toggle('is-off', !e.target.checked);
+        renderCalendar();
+      });
+      wrap.appendChild(chip);
+    });
+  }
+
+  // ===== 月表示 =====
+  function loadMonthView() {
+    gsRun('schedApi_getMonthView', state.year, state.month, state.officeFilter)
+      .then(function (view) {
+        state.monthView = view;
+        renderCalendar();
+      }).catch(showError);
+  }
+
+  function renderCalendar() {
+    document.getElementById('monthLabel').textContent = state.year + '年 ' + state.month + '月';
+    var cellsWrap = document.getElementById('calendarCells');
+    cellsWrap.innerHTML = '';
+    if (!state.monthView) return;
+
+    state.monthView.grid.forEach(function (cell) {
+      var events = (state.monthView.eventsByDate[cell.date] || []).filter(function (e) {
+        return state.typeVisible[e.type] !== false;
+      });
+      var div = document.createElement('div');
+      div.className = 'calendar__cell' + (cell.inMonth ? '' : ' is-out') + (cell.isToday ? ' is-today' : '');
+      var html = '<div class="datenum">' + cell.day + '</div>';
+      var shown = events.slice(0, MAX_TAGS_PER_CELL);
+      var overflow = events.length - shown.length;
+      shown.forEach(function (e) {
+        html += '<span class="tag tag--' + e.type + '">' + escapeHtml(eventLabel(e)) + '</span>';
+      });
+      if (overflow > 0) html += '<span class="tag tag--overflow">+' + overflow + '件</span>';
+      div.innerHTML = html;
+      div.addEventListener('click', function () { openDateModal(cell.date); });
+      cellsWrap.appendChild(div);
+    });
+  }
+
+  function eventLabel(e) {
+    var meta = state.boot.typeMeta[e.type];
+    return e.office ? (meta.label + '（' + e.office + '）') : meta.label;
+  }
+
+  // ===== 日付詳細ポップアップ =====
+  function openDateModal(dateStr) {
+    state.selectedDate = dateStr;
+    state.editingEventId = null;
+    state.addingNew = false;
+    document.getElementById('dateModalError').innerHTML = '';
+    document.getElementById('dateModalTitle').textContent = formatDateJp(dateStr) + 'の予定';
+    document.getElementById('dateModal').classList.remove('hidden');
+    reloadDateEvents();
+  }
+
+  function reloadDateEvents() {
+    gsRun('schedApi_getEventsForDate', state.selectedDate, state.officeFilter)
+      .then(function (events) {
+        state.selectedDateEvents = events;
+        renderDateModal();
+      }).catch(showError);
+  }
+
+  function renderDateModal() {
+    var listEl = document.getElementById('eventList');
+    if (!state.selectedDateEvents.length) {
+      listEl.innerHTML = '<div class="emptyState">この日の予定はありません</div>';
+    } else {
+      listEl.innerHTML = '';
+      state.selectedDateEvents.forEach(function (e) {
+        if (state.editingEventId === e.id) {
+          listEl.appendChild(buildEventForm('edit', e));
+        } else {
+          listEl.appendChild(buildEventItem(e));
+        }
+      });
+    }
+
+    var addArea = document.getElementById('addEventArea');
+    addArea.innerHTML = '';
+    if (!state.boot.canEdit) return;
+
+    if (state.addingNew) {
+      addArea.appendChild(buildEventForm('create', null));
+    } else {
+      var btn = document.createElement('button');
+      btn.className = 'btn addEventTrigger';
+      btn.textContent = '＋ 予定を追加';
+      btn.onclick = function () {
+        state.addingNew = true;
+        state.editingEventId = null;
+        renderDateModal();
+      };
+      addArea.appendChild(btn);
+    }
+  }
+
+  function buildEventItem(e) {
+    var meta = state.boot.typeMeta[e.type];
+    var div = document.createElement('div');
+    div.className = 'eventItem';
+    var html =
+      '<div class="eventItem__head">' +
+        '<span class="eventItem__label"><span class="tag tag--' + e.type + '">' + escapeHtml(meta.label) + '</span></span>' +
+      '</div>';
+    if (e.office) html += '<div class="eventItem__office">対象支局：' + escapeHtml(e.office) + '</div>';
+    if (e.memo) html += '<div class="eventItem__memo">' + escapeHtml(e.memo) + '</div>';
+    if (state.boot.canEdit) {
+      html += '<div class="eventItem__actions">' +
+        '<button class="btn btn--sm" data-act="edit">編集</button>' +
+        '<button class="btn btn--sm btn--danger" data-act="del">削除</button>' +
+        '</div>';
+    }
+    div.innerHTML = html;
+    if (state.boot.canEdit) {
+      div.querySelector('[data-act="edit"]').onclick = function () {
+        state.editingEventId = e.id;
+        state.addingNew = false;
+        renderDateModal();
+      };
+      div.querySelector('[data-act="del"]').onclick = function () { deleteEvent(e.id); };
+    }
+    return div;
+  }
+
+  function buildEventForm(mode, existing) {
+    var wrap = document.createElement('div');
+    wrap.className = 'eventItem';
+
+    var typeOptions = state.boot.typeOrder.map(function (t) {
+      var sel = existing && existing.type === t ? ' selected' : '';
+      return '<option value="' + t + '"' + sel + '>' + escapeHtml(state.boot.typeMeta[t].label) + '</option>';
+    }).join('');
+    var officeOptions = '<option value="">（支局指定なし）</option>' + state.boot.offices.map(function (o) {
+      var sel = existing && existing.office === o ? ' selected' : '';
+      return '<option value="' + escapeAttr(o) + '"' + sel + '>' + escapeHtml(o) + '</option>';
+    }).join('');
+
+    wrap.innerHTML =
+      '<div class="formGrid">' +
+        '<div class="formField"><label>種別</label><select class="f-type">' + typeOptions + '</select></div>' +
+        '<div class="formField"><label>対象支局</label><select class="f-office">' + officeOptions + '</select></div>' +
+        '<div class="formField"><label>メモ</label><textarea class="f-memo" rows="2">' + (existing ? escapeHtml(existing.memo) : '') + '</textarea></div>' +
+      '</div>' +
+      '<div class="eventItem__actions">' +
+        '<button class="btn btn--primary btn--sm" data-act="save">保存</button>' +
+        '<button class="btn btn--sm" data-act="cancel">キャンセル</button>' +
+      '</div>';
+
+    var typeSel = wrap.querySelector('.f-type');
+    var officeSel = wrap.querySelector('.f-office');
+    if (existing) typeSel.value = existing.type;
+
+    wrap.querySelector('[data-act="save"]').onclick = function () {
+      var payload = {
+        date: state.selectedDate,
+        type: typeSel.value,
+        office: officeSel.value,
+        memo: wrap.querySelector('.f-memo').value
+      };
+      if (mode === 'edit') {
+        updateEvent(existing.id, payload);
+      } else {
+        createEvent(payload);
+      }
+    };
+    wrap.querySelector('[data-act="cancel"]').onclick = function () {
+      state.editingEventId = null;
+      state.addingNew = false;
+      renderDateModal();
+    };
+    return wrap;
+  }
+
+  function createEvent(payload) {
+    gsRun('schedApi_createEvent', payload).then(function () {
+      state.addingNew = false;
+      showToast('予定を追加しました', 'success');
+      reloadDateEvents();
+      loadMonthView();
+    }).catch(showModalError);
+  }
+
+  function updateEvent(id, patch) {
+    gsRun('schedApi_updateEvent', id, patch).then(function () {
+      state.editingEventId = null;
+      showToast('予定を更新しました', 'success');
+      reloadDateEvents();
+      loadMonthView();
+    }).catch(showModalError);
+  }
+
+  function deleteEvent(id) {
+    if (!window.confirm('この予定を削除しますか？')) return;
+    gsRun('schedApi_deleteEvent', id).then(function () {
+      showToast('予定を削除しました', 'success');
+      reloadDateEvents();
+      loadMonthView();
+    }).catch(showModalError);
+  }
+
+  function closeDateModal() {
+    document.getElementById('dateModal').classList.add('hidden');
+  }
+
+  // ===== グローバルイベント =====
+  function bindGlobalEvents() {
+    document.getElementById('btnPrevMonth').addEventListener('click', function () { shiftMonth(-1); });
+    document.getElementById('btnNextMonth').addEventListener('click', function () { shiftMonth(1); });
+    document.getElementById('btnToday').addEventListener('click', function () {
+      var today = parseDateStr(state.boot.today);
+      state.year = today.getFullYear();
+      state.month = today.getMonth() + 1;
+      loadMonthView();
+    });
+    document.getElementById('officeSelect').addEventListener('change', function (e) {
+      state.officeFilter = e.target.value;
+      loadMonthView();
+    });
+    document.getElementById('btnAddOffice').addEventListener('click', function () {
+      var name = window.prompt('追加する支局名を入力してください（例：〇〇陸運支局）');
+      if (!name) return;
+      gsRun('schedApi_addOffice', name).then(function (offices) {
+        state.boot.offices = offices;
+        renderOfficeSelect();
+        showToast('支局を追加しました', 'success');
+      }).catch(showError);
+    });
+    document.querySelectorAll('[data-close-modal]').forEach(function (btn) {
+      btn.addEventListener('click', closeDateModal);
+    });
+    document.getElementById('dateModal').addEventListener('click', function (e) {
+      if (e.target.id === 'dateModal') closeDateModal();
+    });
+  }
+
+  function shiftMonth(delta) {
+    var m = state.month + delta;
+    var y = state.year;
+    if (m < 1) { m = 12; y -= 1; }
+    if (m > 12) { m = 1; y += 1; }
+    state.year = y;
+    state.month = m;
+    loadMonthView();
+  }
+
+  // ===== ユーティリティ =====
+  function parseDateStr(dateStr) {
+    var p = dateStr.split('-').map(Number);
+    return new Date(p[0], p[1] - 1, p[2]);
+  }
+
+  function formatDateJp(dateStr) {
+    var d = parseDateStr(dateStr);
+    return (d.getMonth() + 1) + '月' + d.getDate() + '日（' + WEEKDAY_KANJI[d.getDay()] + '）';
+  }
+
+  function showToast(msg, type) {
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.remove('is-error', 'is-success');
+    if (type === 'error') el.classList.add('is-error');
+    if (type === 'success') el.classList.add('is-success');
+    el.classList.remove('hidden');
+    setTimeout(function () { el.classList.add('hidden'); }, 3000);
+  }
+
+  function showError(err) {
+    console.error(err);
+    showToast((err && err.message) || String(err), 'error');
+  }
+
+  function showModalError(err) {
+    console.error(err);
+    document.getElementById('dateModalError').innerHTML =
+      '<div class="errorBox">' + escapeHtml((err && err.message) || String(err)) + '</div>';
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function escapeAttr(s) { return escapeHtml(s); }
+})();
+</script>

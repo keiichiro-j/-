@@ -21,7 +21,9 @@ const FILES = [
   'PdfLinkService.gs',
   'AppraisalExtractionService.gs',
   'SearchService.gs',
-  'OcrService.gs'
+  'OcrService.gs',
+  'ScheduleConstants.gs',
+  'ScheduleCalendar.gs'
 ];
 
 FILES.forEach((file) => {
@@ -111,6 +113,61 @@ test('登録番号の結合表記（スペース無し）でヒット', () => as
 test('登録番号の結合表記（スペース有り）でヒット', () => assert.strictEqual(sandbox.matchesRegistrationNumber(sampleVehicle, '岐阜 301 は 2000'), true));
 test('登録番号の一部分（分類番号のみ）でもヒット', () => assert.strictEqual(sandbox.matchesRegistrationNumber(sampleVehicle, '301'), true));
 test('無関係な文字列はヒットしない', () => assert.strictEqual(sandbox.matchesKeyword(sampleVehicle, '横浜'), false));
+
+console.log('== ScheduleCalendar: buildCalendarGrid_ ==');
+test('2026年8月は日曜始まりで7/26～9/5の42マス', () => {
+  const grid = sandbox.buildCalendarGrid_(2026, 8, '2026-08-27');
+  assert.strictEqual(grid.length, 42);
+  assert.strictEqual(grid[0].date, '2026-07-26');
+  assert.strictEqual(grid[grid.length - 1].date, '2026-09-05');
+});
+test('月内の日は inMonth: true、前後月は false', () => {
+  const grid = sandbox.buildCalendarGrid_(2026, 8, '2026-08-27');
+  assert.strictEqual(grid.find((c) => c.date === '2026-08-01').inMonth, true);
+  assert.strictEqual(grid.find((c) => c.date === '2026-07-26').inMonth, false);
+});
+test('todayStr と一致する日のみ isToday: true', () => {
+  const grid = sandbox.buildCalendarGrid_(2026, 8, '2026-08-27');
+  assert.strictEqual(grid.find((c) => c.date === '2026-08-27').isToday, true);
+  assert.strictEqual(grid.find((c) => c.date === '2026-08-26').isToday, false);
+});
+
+console.log('== ScheduleCalendar: filterEventsByOffice_ ==');
+const sampleEvents = [
+  { date: '2026-08-27', type: 'deadline_plate', office: 'A支局', memo: '' },
+  { date: '2026-08-27', type: 'deadline_paper', office: 'B支局', memo: '' },
+  { date: '2026-08-31', type: 'holiday_own', office: '', memo: '' }
+];
+test('office指定なしは全件そのまま', () => {
+  assert.strictEqual(sandbox.filterEventsByOffice_(sampleEvents, '').length, 3);
+});
+test('office指定時は一致する支局＋office無し（弊社休日等）のみ残る', () => {
+  const filtered = sandbox.filterEventsByOffice_(sampleEvents, 'A支局');
+  assert.strictEqual(filtered.length, 2);
+  assert.deepStrictEqual(filtered.map((e) => e.type), ['deadline_plate', 'holiday_own']);
+});
+
+console.log('== ScheduleCalendar: groupEventsByDate_ ==');
+test('日付ごとにグルーピングし、種別優先度順（希望番号締切が先頭）にソートする', () => {
+  const grouped = sandbox.groupEventsByDate_(sampleEvents);
+  assert.strictEqual(grouped['2026-08-27'].length, 2);
+  assert.strictEqual(grouped['2026-08-27'][0].type, 'deadline_plate');
+  assert.strictEqual(grouped['2026-08-27'][1].type, 'deadline_paper');
+  assert.strictEqual(grouped['2026-08-31'][0].type, 'holiday_own');
+});
+
+console.log('== ScheduleCalendar: limitCellTags_ ==');
+test('上限以下なら全件表示・overflow 0', () => {
+  const r = sandbox.limitCellTags_(sampleEvents.slice(0, 2), 3);
+  assert.strictEqual(r.shown.length, 2);
+  assert.strictEqual(r.overflow, 0);
+});
+test('上限超過分は overflow 件数として畳まれる', () => {
+  const many = [1, 2, 3, 4, 5].map((n) => ({ date: '2026-08-27', type: 'holiday_own', office: '', memo: String(n) }));
+  const r = sandbox.limitCellTags_(many, 3);
+  assert.strictEqual(r.shown.length, 3);
+  assert.strictEqual(r.overflow, 2);
+});
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 if (fail > 0) process.exit(1);
