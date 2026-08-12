@@ -265,7 +265,7 @@
 
   function deleteEvent(id) {
     if (!window.confirm('この予定を削除しますか？')) return;
-    gsRun('schedApi_deleteEvent', id).then(function () {
+    gsRun('schedApi_deleteEvent', id, state.selectedDate).then(function () {
       showToast('予定を削除しました', 'success');
       reloadDateEvents();
       loadMonthView();

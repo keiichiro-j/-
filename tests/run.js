@@ -169,5 +169,30 @@ test('上限超過分は overflow 件数として畳まれる', () => {
   assert.strictEqual(r.overflow, 2);
 });
 
+console.log('== ScheduleCalendar: monthKeyOfDate_（月次シートタブ名の算出） ==');
+test('yyyy-MM-dd から yyyy-MM を取り出す', () => {
+  assert.strictEqual(sandbox.monthKeyOfDate_('2026-08-27'), '2026-08');
+  assert.strictEqual(sandbox.monthKeyOfDate_('2026-01-01'), '2026-01');
+});
+
+console.log('== ScheduleCalendar: enumerateMonthKeys_（期間にまたがる月次シート列挙） ==');
+// sandbox（vmコンテキスト）内で生成された配列は Node 側の Array と realm が異なるため、
+// Array.from() で Node 側の配列に変換してから比較する。
+test('同一月内なら1件のみ', () => {
+  assert.deepStrictEqual(Array.from(sandbox.enumerateMonthKeys_('2026-08-01', '2026-08-31')), ['2026-08']);
+});
+test('カレンダーグリッドのように前後月にまたがる場合は該当月をすべて列挙する', () => {
+  assert.deepStrictEqual(
+    Array.from(sandbox.enumerateMonthKeys_('2026-07-26', '2026-09-05')),
+    ['2026-07', '2026-08', '2026-09']
+  );
+});
+test('年をまたぐ期間（12月→1月）も正しく列挙する', () => {
+  assert.deepStrictEqual(
+    Array.from(sandbox.enumerateMonthKeys_('2026-12-27', '2027-01-05')),
+    ['2026-12', '2027-01']
+  );
+});
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 if (fail > 0) process.exit(1);

@@ -28,8 +28,8 @@ Webアプリの `?page=schedule` でアクセスできます（未指定時は�
 | `Code.gs` | `doGet` エントリポイント（`?page=schedule` で登録スケジュール管理画面を出し分け） |
 | `html/Index.html` `html/Stylesheet.html` `html/JavaScript.html` | Webアプリ画面（一覧／詳細／新規登録ウィザード／ダッシュボード） |
 | `ScheduleConstants.gs` | 登録スケジュール管理：イベント種別（休日／締切）・Script Propertiesキー定義 |
-| `ScheduleCalendar.gs` | 登録スケジュール管理：カレンダーグリッド生成・イベント集計（外部サービス非依存の純粋関数） |
-| `ScheduleService.gs` | 登録スケジュール管理：予定データのシートCRUD、編集権限・支局マスタ管理 |
+| `ScheduleCalendar.gs` | 登録スケジュール管理：カレンダーグリッド生成・イベント集計・月次シートタブ名の算出（外部サービス非依存の純粋関数） |
+| `ScheduleService.gs` | 登録スケジュール管理：予定データの月次シート（`yyyy-MM`）CRUD、編集権限・支局マスタ管理 |
 | `ScheduleApi.gs` | 登録スケジュール管理：クライアントから呼び出すAPI |
 | `html/ScheduleIndex.html` `html/ScheduleStylesheet.html` `html/ScheduleJavaScript.html` | 登録スケジュール管理 画面（月表示カレンダー・日付詳細ポップアップ、レスポンシブ対応） |
 | `tests/run.js` | 外部サービス非依存の純粋関数に対する単体テスト（Node.js, 追加依存なし） |
@@ -69,7 +69,8 @@ Webアプリの `?page=schedule` でアクセスできます（未指定時は�
 （例：`https://script.google.com/macros/s/【デプロイID】/exec?page=schedule`）。
 
 1. **予定データ用スプレッドシートの準備**
-   - 予定（休日・締切）を保存するスプレッドシートを1つ作成する（`Events` シートは初回アクセス時に自動生成されます）
+   - 予定（休日・締切）を保存するスプレッドシートを1つ作成する
+   - シートタブは **月ごと**（`2026-08` のような `yyyy-MM` 形式）に自動生成・自動振り分けされる（その月の予定が最初に登録されたタイミングで作成され、既存タブと時系列順に並ぶ）。事前に手動でタブを作る必要はない
 2. **Script Properties の設定**（GASエディタ「プロジェクトの設定」、車両在庫管理と共通のプロジェクトに追加）
    - `SCHEDULE_SHEET_ID`: 手順1で作成したスプレッドシートのID（**必須**。`ScheduleService.gs` の `setupScheduleSpreadsheet_()` を書き換えて一度だけ実行しても登録できます）
    - `SCHEDULE_EDITORS`: 編集権限を持つユーザーのメールアドレスをJSON配列で指定（例：`["a@example.com","b@example.com"]`）。**未設定の場合は全員が編集可**（閲覧専用に制限したい場合は設定してください）

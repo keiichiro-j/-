@@ -9,8 +9,6 @@ var SCHEDULE_PROP_KEYS = {
   OFFICES: 'SCHEDULE_OFFICES'     // JSON配列: 陸運支局名一覧
 };
 
-var SCHEDULE_SHEET_NAME = 'Events';
-
 var SCHEDULE_EVENT_TYPES = {
   HOLIDAY_OWN: 'holiday_own',
   HOLIDAY_OFFICE: 'holiday_office',

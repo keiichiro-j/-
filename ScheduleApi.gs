@@ -40,8 +40,8 @@ function schedApi_updateEvent(id, patch) {
   return updateScheduleEvent(id, patch);
 }
 
-function schedApi_deleteEvent(id) {
-  deleteScheduleEvent(id);
+function schedApi_deleteEvent(id, hintDate) {
+  deleteScheduleEvent(id, hintDate);
   return { ok: true };
 }
 

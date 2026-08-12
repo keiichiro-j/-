@@ -78,3 +78,31 @@ function limitCellTags_(events, maxTags) {
   if (events.length <= max) return { shown: events, overflow: 0 };
   return { shown: events.slice(0, max), overflow: events.length - max };
 }
+
+/**
+ * 'yyyy-MM-dd' から、月次シートタブ名として使う 'yyyy-MM' を取り出す。
+ */
+function monthKeyOfDate_(dateStr) {
+  return dateStr.slice(0, 7);
+}
+
+/**
+ * startDate〜endDate（'yyyy-MM-dd'、両端含む）にまたがる月を 'yyyy-MM' の配列で列挙する。
+ * 年をまたぐ期間（例: 2026-12 〜 2027-01）にも対応する。
+ */
+function enumerateMonthKeys_(startDate, endDate) {
+  var start = parseDateStr_(startDate);
+  var end = parseDateStr_(endDate);
+  var y = start.getFullYear();
+  var m = start.getMonth(); // 0-indexed
+  var endY = end.getFullYear();
+  var endM = end.getMonth();
+
+  var keys = [];
+  while (y < endY || (y === endY && m <= endM)) {
+    keys.push(y + '-' + String(m + 1).padStart(2, '0'));
+    m++;
+    if (m > 11) { m = 0; y++; }
+  }
+  return keys;
+}
