@@ -38,6 +38,20 @@ http://localhost:3000 をブラウザで開いてください。カメラ機能�
 6. QRコードから `/verify/[id]` を開くと第三者が検証可能
 7. 検証ページでは署名の正当性チェックに加え、画像ファイルをアップロードしてハッシュ値と完全一致するかを確認できます（`components/VerifyUploadCheck.tsx`）
 
+## Vercelへのデプロイ
+
+このリポジトリはモノレポ構成で、本アプリはサブディレクトリ `mukakou-shomei-shashin/` にあります。Vercelでプロジェクトを作成する際は、**Project Settings → General → Root Directory** を `mukakou-shomei-shashin` に設定してください（Framework Preset は Next.js のまま自動検出されます）。
+
+### 永続ストレージ（Redis/KV）の接続（推奨・必須に近い）
+
+サーバーは署名鍵と証明レコード（ID・ハッシュ・署名・撮影日時）を保存する必要がありますが、Vercelのサーバーレス関数はローカルディスクへの永続書き込みができません。**Redis/KVストアを接続しない場合、`/tmp` への一時保存にフォールバックしますが、インスタンスの入れ替わり（コールドスタート）のたびに署名鍵が再生成され、それ以前に発行したQRコードの検証が失敗するようになります。** 動作確認用途でも、QRコードを別デバイスでスキャンして検証する、という中心的な機能を試すには接続を強く推奨します。
+
+1. Vercelダッシュボードのプロジェクト → **Storage** タブ → **Marketplace Database Providers** から Upstash（Redis）などのRedis互換ストアを追加
+2. 追加すると環境変数が自動的にプロジェクトへ注入されます（`KV_REST_API_URL` / `KV_REST_API_TOKEN`、または `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` のいずれか）
+3. 再デプロイすれば `lib/server/kv.ts` がこれらの環境変数を自動検出し、署名鍵・証明レコードの両方がRedis側に永続化されます（初回アクセス時に署名鍵を1つ自動生成し、以後使い回します）
+
+環境変数を何も設定しない場合でも一応デプロイ・起動はできますが、上記の理由でQR検証が不安定になる点にご注意ください。ローカルの `npm run dev` ではこれまで通り `data/` ディレクトリへのファイル保存のみで動作します（Redis設定は不要）。
+
 ## Xcode（ネイティブ）移行時の対応表
 
 | Web版で使用 | iOS版での対応 |
@@ -48,7 +62,7 @@ http://localhost:3000 をブラウザで開いてください。カメラ機能�
 | Next.js API Routes（署名・検証API） | 企画書7章のバックエンド（証明ID発行・検証サーバー） |
 | Canvas合成（QR＋透かし） | Core Graphics / Core Image でのピクセル合成 |
 
-サーバー側の署名鍵・証明レコードは `data/`（gitignore 対象）にローカル保存される簡易実装です。本番運用では鍵管理（Secure Enclave / KMS 等）とDBへの置き換えが必要です。
+ローカル開発では署名鍵・証明レコードは `data/`（gitignore 対象）にファイル保存されます。デプロイ時はRedis/KVへ保存されます（上記「Vercelへのデプロイ」参照）。本番運用ではさらに鍵管理（Secure Enclave / KMS 等）への置き換えが望ましいです。
 
 ## 動作確認済みの項目
 

@@ -7,11 +7,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const record = getRecord(id);
+  const record = await getRecord(id);
   if (!record) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
-  const signatureValid = verifyRecordSignature(
+  const signatureValid = await verifyRecordSignature(
     record.id,
     record.hash,
     record.capturedAt,

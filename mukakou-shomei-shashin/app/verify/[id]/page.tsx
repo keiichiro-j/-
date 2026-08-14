@@ -14,7 +14,7 @@ export default async function VerifyPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const record = getRecord(id);
+  const record = await getRecord(id);
 
   if (!record) {
     return (
@@ -31,7 +31,7 @@ export default async function VerifyPage({
     );
   }
 
-  const signatureValid = verifyRecordSignature(record.id, record.hash, record.capturedAt, record.signature);
+  const signatureValid = await verifyRecordSignature(record.id, record.hash, record.capturedAt, record.signature);
 
   return (
     <Card>

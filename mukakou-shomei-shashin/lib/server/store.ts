@@ -1,14 +1,17 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import path from "path";
+import { getRedis } from "./kv";
+import { DATA_DIR } from "./paths";
 
 // Server-side proof ledger. By design it stores only the ID, hash, capture
 // timestamp and signature for each photo — never the image itself
 // ("画像本体はサーバーに保存せず、ID・ハッシュ値・署名・撮影時刻のみを保存する").
-// A JSON file is enough for local functional testing; a real deployment
-// would swap this for a database.
+//
+// Persistence: Redis/KV when attached (required once deployed — see kv.ts),
+// otherwise a local JSON file (fine for `next dev`).
 
-const DATA_DIR = path.join(process.cwd(), "data");
 const STORE_FILE = path.join(DATA_DIR, "records.json");
+const redisKey = (id: string) => `mukakou-shomei-shashin:record:${id}`;
 
 export interface ProofRecord {
   id: string;
@@ -18,7 +21,7 @@ export interface ProofRecord {
   registeredAt: string;
 }
 
-function readAll(): Record<string, ProofRecord> {
+function readAllFromFile(): Record<string, ProofRecord> {
   if (!existsSync(STORE_FILE)) return {};
   try {
     return JSON.parse(readFileSync(STORE_FILE, "utf-8"));
@@ -27,18 +30,27 @@ function readAll(): Record<string, ProofRecord> {
   }
 }
 
-function writeAll(records: Record<string, ProofRecord>) {
+function writeAllToFile(records: Record<string, ProofRecord>) {
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
   writeFileSync(STORE_FILE, JSON.stringify(records, null, 2), "utf-8");
 }
 
-export function saveRecord(record: ProofRecord) {
-  const all = readAll();
+export async function saveRecord(record: ProofRecord): Promise<void> {
+  const redis = getRedis();
+  if (redis) {
+    await redis.set(redisKey(record.id), record);
+    return;
+  }
+  const all = readAllFromFile();
   all[record.id] = record;
-  writeAll(all);
+  writeAllToFile(all);
 }
 
-export function getRecord(id: string): ProofRecord | null {
-  const all = readAll();
+export async function getRecord(id: string): Promise<ProofRecord | null> {
+  const redis = getRedis();
+  if (redis) {
+    return (await redis.get<ProofRecord>(redisKey(id))) ?? null;
+  }
+  const all = readAllFromFile();
   return all[id] ?? null;
 }

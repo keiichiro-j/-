@@ -24,14 +24,14 @@ export async function POST(req: NextRequest) {
   if (typeof capturedAt !== "string" || Number.isNaN(Date.parse(capturedAt))) {
     return NextResponse.json({ error: "invalid_capturedAt" }, { status: 400 });
   }
-  if (getRecord(id)) {
+  if (await getRecord(id)) {
     return NextResponse.json({ error: "id_already_registered" }, { status: 409 });
   }
 
-  const signature = signRecord(id, hash, capturedAt);
+  const signature = await signRecord(id, hash, capturedAt);
   const registeredAt = new Date().toISOString();
 
-  saveRecord({ id, hash, capturedAt, signature, registeredAt });
+  await saveRecord({ id, hash, capturedAt, signature, registeredAt });
 
   return NextResponse.json({ id, signature, registeredAt }, { status: 201 });
 }
