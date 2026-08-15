@@ -32,24 +32,6 @@ export function SettingsIcon({ className }: IconProps) {
   );
 }
 
-export function CheckBadgeIcon({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={className} strokeWidth={1.8} stroke="currentColor">
-      <circle cx="12" cy="12" r="9" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 12.3l2.4 2.4 4.6-5.2" />
-    </svg>
-  );
-}
-
-export function XBadgeIcon({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={className} strokeWidth={1.8} stroke="currentColor">
-      <circle cx="12" cy="12" r="9" />
-      <path strokeLinecap="round" d="M9 9l6 6M15 9l-6 6" />
-    </svg>
-  );
-}
-
 export function StarIcon({ className, filled }: IconProps & { filled?: boolean }) {
   return (
     <svg viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} className={className} strokeWidth={1.8} stroke="currentColor">

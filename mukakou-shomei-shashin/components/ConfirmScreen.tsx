@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { CheckBadgeIcon } from "./icons";
+import BrandMark from "./BrandMark";
 
 export default function ConfirmScreen({
   canvas,
@@ -26,7 +26,7 @@ export default function ConfirmScreen({
           <img src={dataUrl} alt="撮影した写真" className="h-full w-full object-cover" />
         )}
         <div className="absolute bottom-3 left-3 flex items-center gap-1 rounded-full border border-zinc-800 bg-white px-2.5 py-1 text-[10px] font-bold">
-          <CheckBadgeIcon className="h-3.5 w-3.5" />
+          <BrandMark className="h-3.5 w-3.5" />
           VERIFIED
         </div>
       </div>

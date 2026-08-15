@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { listHistoryEntries, deleteHistoryEntry } from "@/lib/history";
+import BrandLogo from "./BrandLogo";
 
 const FLOW_STEPS = [
   "① アプリ内カメラで撮影",
@@ -29,11 +31,27 @@ export default function SettingsScreen() {
     <div className="flex flex-1 flex-col overflow-y-auto bg-white px-4 py-3 text-[12px]">
       <h2 className="mb-3 text-[13px] font-bold">設定</h2>
 
+      <BrandLogo className="mb-4" />
+
       <section className="mb-5">
         <h3 className="mb-1 text-[11px] font-bold text-zinc-500">無加工証明写真について</h3>
         <p className="leading-relaxed text-zinc-700">
           SNS・マッチングアプリ・ECサイトで広がる写真の加工・AI編集に対し、「加工していない」という宣言を第三者自身が検証できるようにするカメラアプリです（Web版・動作確認用）。
         </p>
+      </section>
+
+      <section className="mb-5">
+        <h3 className="mb-1 text-[11px] font-bold text-zinc-500">証明情報を確認する</h3>
+        <p className="mb-2 text-zinc-500">
+          QRコードを読み取れない場合も、写真に印字された証明IDを直接入力して確認できます。
+        </p>
+        <Link
+          href="/verify"
+          target="_blank"
+          className="block rounded-md border border-zinc-800 px-3 py-2 text-center text-[11px] font-bold"
+        >
+          IDで証明情報を確認する
+        </Link>
       </section>
 
       <section className="mb-5">
