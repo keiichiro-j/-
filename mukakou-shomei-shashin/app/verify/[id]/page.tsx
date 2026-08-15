@@ -71,7 +71,7 @@ export default async function VerifyPage({
         <VerifyRow label="署名検証" value={signatureValid ? "✓ 一致" : "✗ 不一致"} />
       </dl>
 
-      <VerifyUploadCheck expectedHash={record.hash} />
+      <VerifyUploadCheck expectedId={record.id} expectedHash={record.hash} />
 
       <Link href="/verify" className="mt-4 block text-center text-[11px] text-zinc-500 underline">
         別のIDを確認する

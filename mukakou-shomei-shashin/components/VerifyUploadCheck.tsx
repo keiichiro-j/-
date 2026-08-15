@@ -2,17 +2,32 @@
 
 import { useState } from "react";
 import { sha256Hex } from "@/lib/hash";
+import { readEmbeddedProofMetadata } from "@/lib/pngMetadata";
 
-type Result = "idle" | "checking" | "match" | "mismatch";
+type HashResult = "idle" | "checking" | "match" | "mismatch";
+type MetadataResult = "not_found" | "id_match" | "id_mismatch";
 
-export default function VerifyUploadCheck({ expectedHash }: { expectedHash: string }) {
-  const [result, setResult] = useState<Result>("idle");
+export default function VerifyUploadCheck({
+  expectedId,
+  expectedHash,
+}: {
+  expectedId: string;
+  expectedHash: string;
+}) {
+  const [hashResult, setHashResult] = useState<HashResult>("idle");
+  const [metadataResult, setMetadataResult] = useState<MetadataResult | null>(null);
 
   async function handleFile(file: File | undefined) {
     if (!file) return;
-    setResult("checking");
-    const hash = await sha256Hex(file);
-    setResult(hash === expectedHash ? "match" : "mismatch");
+    setHashResult("checking");
+    setMetadataResult(null);
+    const [hash, metadata] = await Promise.all([sha256Hex(file), readEmbeddedProofMetadata(file)]);
+    setHashResult(hash === expectedHash ? "match" : "mismatch");
+    if (!metadata) {
+      setMetadataResult("not_found");
+    } else {
+      setMetadataResult(metadata.id === expectedId ? "id_match" : "id_mismatch");
+    }
   }
 
   return (
@@ -29,12 +44,32 @@ export default function VerifyUploadCheck({ expectedHash }: { expectedHash: stri
           onChange={(e) => handleFile(e.target.files?.[0])}
         />
       </label>
-      {result === "checking" && <p className="mt-2 text-center text-zinc-500">照合中…</p>}
-      {result === "match" && (
+      {hashResult === "checking" && <p className="mt-2 text-center text-zinc-500">照合中…</p>}
+      {hashResult === "match" && (
         <p className="mt-2 text-center font-bold text-emerald-600">✓ 画像は完全に一致しました</p>
       )}
-      {result === "mismatch" && (
+      {hashResult === "mismatch" && (
         <p className="mt-2 text-center font-bold text-red-600">✗ 一致しません（改変されているか、別の画像です）</p>
+      )}
+
+      {metadataResult && (
+        <div className="mt-2 border-t border-zinc-200 pt-2">
+          {metadataResult === "id_match" && (
+            <p className="text-center text-zinc-600">
+              埋め込みメタデータ: <span className="font-bold text-emerald-600">この証明IDと一致</span>
+            </p>
+          )}
+          {metadataResult === "id_mismatch" && (
+            <p className="text-center text-zinc-600">
+              埋め込みメタデータ: <span className="font-bold text-red-600">別の証明IDが検出されました</span>
+            </p>
+          )}
+          {metadataResult === "not_found" && (
+            <p className="text-center text-zinc-500">
+              埋め込みメタデータ: 検出されませんでした（別形式への再保存等で失われた可能性があります）
+            </p>
+          )}
+        </div>
       )}
     </div>
   );

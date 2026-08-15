@@ -1,21 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function ExportScreen({
-  dataUrl,
   blob,
   proofId,
   onOpenDetail,
   onDone,
 }: {
-  dataUrl: string;
   blob: Blob;
   proofId: string;
   onOpenDetail: () => void;
   onDone: () => void;
 }) {
   const [shareState, setShareState] = useState<"idle" | "done" | "error">("idle");
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const url = URL.createObjectURL(blob);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing an object URL (external resource) with blob
+    setObjectUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [blob]);
 
   async function handleSaveOrShare() {
     setShareState("idle");
@@ -29,8 +35,9 @@ export default function ExportScreen({
     } catch {
       // user cancelled the share sheet, or share failed — fall back to download below
     }
+    if (!objectUrl) return;
     const a = document.createElement("a");
-    a.href = dataUrl;
+    a.href = objectUrl;
     a.download = `${proofId}.png`;
     document.body.appendChild(a);
     a.click();
@@ -44,8 +51,10 @@ export default function ExportScreen({
         <span className="absolute top-2 left-2 z-10 rounded bg-zinc-900 px-2 py-1 text-[9px] font-bold text-white">
           書き出しファイル
         </span>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={dataUrl} alt="書き出し用の画像" className="h-full w-full object-contain" />
+        {objectUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={objectUrl} alt="書き出し用の画像" className="h-full w-full object-contain" />
+        )}
       </div>
       <div className="px-4 py-3">
         <p className="text-center text-[10px] leading-relaxed text-zinc-500">

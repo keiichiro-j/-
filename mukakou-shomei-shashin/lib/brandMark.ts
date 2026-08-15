@@ -38,8 +38,10 @@ export function computeApertureTicks(): TickLine[] {
   });
 }
 
-/** The mark's shapes only (no <svg> wrapper) — for embedding inline. */
-export function brandMarkInnerSvg(color: string): string {
+/** The mark's shapes only (no <svg> wrapper) — for embedding inline.
+ * `checkColor` defaults to `color` but can be set separately (used by the
+ * app icon's accent checkmark). */
+export function brandMarkInnerSvg(color: string, checkColor: string = color): string {
   const { center: cx, ringRadius, ringStrokeWidth, tickStrokeWidth, checkPath, checkStrokeWidth } =
     BRAND_MARK_GEOMETRY;
   const ticks = computeApertureTicks()
@@ -48,25 +50,44 @@ export function brandMarkInnerSvg(color: string): string {
         `<line x1="${t.x1.toFixed(2)}" y1="${t.y1.toFixed(2)}" x2="${t.x2.toFixed(2)}" y2="${t.y2.toFixed(2)}" stroke="${color}" stroke-width="${tickStrokeWidth}" stroke-linecap="round"/>`
     )
     .join("");
-  return `<circle cx="${cx}" cy="${cx}" r="${ringRadius}" fill="none" stroke="${color}" stroke-width="${ringStrokeWidth}"/>${ticks}<path d="${checkPath}" fill="none" stroke="${color}" stroke-width="${checkStrokeWidth}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  return `<circle cx="${cx}" cy="${cx}" r="${ringRadius}" fill="none" stroke="${color}" stroke-width="${ringStrokeWidth}"/>${ticks}<path d="${checkPath}" fill="none" stroke="${checkColor}" stroke-width="${checkStrokeWidth}" stroke-linecap="round" stroke-linejoin="round"/>`;
 }
 
-/** A full standalone `<svg>` markup string — for use as an `Image` src (canvas, <img>) via a data URI. */
-export function brandMarkSvgMarkup(params: {
-  size?: number;
-  color?: string;
-  background?: string;
-  backgroundRadius?: number;
-} = {}): string {
-  const { size = 100, color = "#18181b", background, backgroundRadius = 0 } = params;
-  const bg = background
-    ? `<rect width="100" height="100" rx="${backgroundRadius}" fill="${background}"/>`
-    : "";
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 100 100">${bg}${brandMarkInnerSvg(color)}</svg>`;
-}
-
-/** Works in both the browser and Node (unlike btoa/Buffer, needs neither). */
-export function brandMarkDataUrl(params: Parameters<typeof brandMarkSvgMarkup>[0] = {}): string {
-  const svg = brandMarkSvgMarkup(params);
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+/**
+ * The polished, colored "app icon" treatment: a rounded-square gradient
+ * background with the mark inset (padded, like Apple's own app icons —
+ * the glyph never touches the corner curvature) and an accent-colored
+ * checkmark. Used for the favicon/app icon; NOT used inline in the UI,
+ * where the plain single-color `BrandMark` is used instead so it can
+ * adapt to any surface via `currentColor`.
+ */
+export function appIconSvgMarkup(
+  params: {
+    size?: number;
+    gradientFrom?: string;
+    gradientTo?: string;
+    ringColor?: string;
+    checkColor?: string;
+    cornerRadius?: number;
+    padScale?: number;
+  } = {}
+): string {
+  const {
+    size = 512,
+    gradientFrom = "#3d3d40",
+    gradientTo = "#050505",
+    ringColor = "#ffffff",
+    checkColor = "#30d97e",
+    cornerRadius = 22,
+    padScale = 0.78,
+  } = params;
+  const gradientId = "unedited-app-icon-gradient";
+  const glyph = brandMarkInnerSvg(ringColor, checkColor);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 100 100">
+<defs><linearGradient id="${gradientId}" x1="0" y1="0" x2="0.25" y2="1">
+<stop offset="0" stop-color="${gradientFrom}"/><stop offset="1" stop-color="${gradientTo}"/>
+</linearGradient></defs>
+<rect width="100" height="100" rx="${cornerRadius}" fill="url(#${gradientId})"/>
+<g transform="translate(50 50) scale(${padScale}) translate(-50 -50)">${glyph}</g>
+</svg>`;
 }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CapturedPhoto } from "@/lib/types";
 import { composeWatermarkedPhoto } from "@/lib/watermark";
+import { embedProofMetadata } from "@/lib/pngMetadata";
 import { sha256Hex } from "@/lib/hash";
 import { saveHistoryEntry } from "@/lib/history";
 import CameraScreen from "./CameraScreen";
@@ -13,7 +14,7 @@ type Step =
   | { kind: "camera" }
   | { kind: "confirm"; photo: CapturedPhoto }
   | { kind: "saving"; photo: CapturedPhoto }
-  | { kind: "export"; photo: CapturedPhoto; dataUrl: string; blob: Blob }
+  | { kind: "export"; photo: CapturedPhoto; blob: Blob }
   | { kind: "error"; photo: CapturedPhoto; message: string };
 
 export default function CaptureFlow({
@@ -36,10 +37,18 @@ export default function CaptureFlow({
     setStep({ kind: "saving", photo });
     try {
       const verifyUrl = `${window.location.origin}/verify/${photo.proofId}`;
-      const { blob, dataUrl } = await composeWatermarkedPhoto({
+      const watermarked = await composeWatermarkedPhoto({
         sourceCanvas: photo.canvas,
         proofId: photo.proofId,
         verifyUrl,
+      });
+      // Metadata is embedded before hashing so the hash covers the exact
+      // bytes that get shared — embedding it afterwards would change the
+      // file and invalidate the hash the server just signed.
+      const blob = await embedProofMetadata(watermarked, {
+        id: photo.proofId,
+        verifyUrl,
+        app: "unedited-camera",
       });
       const hash = await sha256Hex(blob);
 
@@ -64,7 +73,7 @@ export default function CaptureFlow({
         imageBlob: blob,
       });
 
-      setStep({ kind: "export", photo, dataUrl, blob });
+      setStep({ kind: "export", photo, blob });
     } catch (e) {
       setStep({
         kind: "error",
@@ -133,7 +142,6 @@ export default function CaptureFlow({
 
   return (
     <ExportScreen
-      dataUrl={step.dataUrl}
       blob={step.blob}
       proofId={step.photo.proofId}
       onOpenDetail={() => onOpenDetail(step.photo.proofId)}

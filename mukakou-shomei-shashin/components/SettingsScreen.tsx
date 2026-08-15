@@ -4,6 +4,15 @@ import { useState } from "react";
 import Link from "next/link";
 import { listHistoryEntries, deleteHistoryEntry } from "@/lib/history";
 import BrandLogo from "./BrandLogo";
+import AppIconPreview from "./AppIconPreview";
+
+const APP_VERSION = "0.1.0";
+
+const GENERAL_LINKS = [
+  { href: "/contact", label: "お問い合わせ" },
+  { href: "/terms", label: "利用規約" },
+  { href: "/privacy", label: "プライバシーポリシー" },
+] as const;
 
 const FLOW_STEPS = [
   "① アプリ内カメラで撮影",
@@ -31,7 +40,10 @@ export default function SettingsScreen() {
     <div className="flex flex-1 flex-col overflow-y-auto bg-white px-4 py-3 text-[12px]">
       <h2 className="mb-3 text-[13px] font-bold">設定</h2>
 
-      <BrandLogo className="mb-4" />
+      <div className="mb-4 flex items-center gap-3">
+        <AppIconPreview className="h-14 w-14 shrink-0" />
+        <BrandLogo />
+      </div>
 
       <section className="mb-5">
         <h3 className="mb-1 text-[11px] font-bold text-zinc-500">無加工証明写真について</h3>
@@ -83,6 +95,29 @@ export default function SettingsScreen() {
           {clearing ? "削除中…" : "ローカル履歴をすべて削除"}
         </button>
         {cleared && <p className="mt-1 text-[10px] text-emerald-600">削除しました</p>}
+      </section>
+
+      <section className="mb-5">
+        <h3 className="mb-1 text-[11px] font-bold text-zinc-500">一般</h3>
+        <div className="overflow-hidden rounded-md border border-zinc-300">
+          {GENERAL_LINKS.map((item, i) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              target="_blank"
+              className={`flex items-center justify-between px-3 py-2.5 text-[12px] text-zinc-800 ${
+                i > 0 ? "border-t border-zinc-200" : ""
+              }`}
+            >
+              {item.label}
+              <span className="text-zinc-400">›</span>
+            </Link>
+          ))}
+          <div className="flex items-center justify-between border-t border-zinc-200 px-3 py-2.5 text-[12px] text-zinc-800">
+            バージョン情報
+            <span className="text-zinc-400">v{APP_VERSION}</span>
+          </div>
+        </div>
       </section>
 
       <p className="mt-auto pt-4 text-center text-[10px] text-zinc-300">無加工証明写真（Web版 動作確認用）</p>
