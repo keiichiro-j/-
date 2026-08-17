@@ -478,24 +478,21 @@
           <div class="card__head">
             <h2>起動画面（ローディング画面）</h2>
             <p class="muted">
-              アプリを開いたときに一瞬表示される画面に、お好きな画像を表示できます。お使いの端末から画像ファイルを選ぶと自動的にGoogleドライブへ保存され、次回以降の起動時から表示されます。
+              アプリを開いたときに一瞬表示される画面に、お好きな画像を表示できます。Googleドライブに画像をアップロードし、共有設定を「リンクを知っている全員」に変更した上で、共有リンクのURL（例: https://drive.google.com/file/d/.../view?usp=... の形式）をそのまま貼り付けてください。表示用の形式に自動で変換されます。空欄のまま保存すると、画像を表示しない状態に戻せます。
             </p>
           </div>
 
           <div class="field">
-            <label for="loadingImageInput">画像を選択</label>
-            <input type="file" id="loadingImageInput" accept="image/*">
+            <label for="loadingImageUrlInput">起動画面の画像URL</label>
+            <input type="url" id="loadingImageUrlInput" placeholder="https://..." autocomplete="off">
           </div>
 
           <div class="logoPreview" id="loadingImagePreviewWrap">
             <img id="loadingImagePreviewImg" class="logoPreview__img is-hidden" alt="プレビュー" onerror="this.classList.add('is-hidden')">
-            <span class="muted" id="loadingImagePreviewEmpty">プレビュー: 画像を選択すると表示されます</span>
+            <span class="muted" id="loadingImagePreviewEmpty">プレビュー: 画像URLを入力すると表示されます</span>
           </div>
 
-          <div class="submitBar__row">
-            <button type="button" id="btnClearLoadingImage" class="btn btn--ghost">画像を削除する</button>
-            <button type="button" id="btnSaveLoadingImage" class="btn btn--primary">この画像を保存する</button>
-          </div>
+          <button type="button" id="btnSaveLoadingImage" class="btn btn--primary">この画像を保存する</button>
           <div id="loadingImageResult" class="result" role="status" aria-live="polite">
             <span id="loadingImageSpinner" class="spinner is-hidden" aria-hidden="true"></span>
             <span id="loadingImageResultText"></span>

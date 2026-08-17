@@ -136,21 +136,13 @@ function getLoadingImageUrl() {
 }
 
 /**
- * 「設定」画面の起動画面(ローディング画面)画像アップロード用。
- * @param {string} base64Data
- * @param {string} mimeType
- * @param {string} fileName
- * @return {string} 保存後の表示用URL
+ * 「設定」画面の起動画面(ローディング画面)画像URL保存用。ロゴ画像URLと同じく
+ * Googleドライブの共有リンクを表示用URLへ自動変換する。空欄で保存すると画像なしに戻せる。
+ * @param {string} url
+ * @return {string} 保存後のURL(変換・トリム済み)
  */
-function saveLoadingImage(base64Data, mimeType, fileName) {
-  return saveLoadingImage_(base64Data, mimeType, fileName);
-}
-
-/**
- * 「設定」画面の起動画面(ローディング画面)画像削除ボタン用。
- */
-function clearLoadingImage() {
-  clearLoadingImage_();
+function saveLoadingImageUrl(url) {
+  return saveLoadingImageUrl_(url);
 }
 
 // 二重送信防止用トークンのキャッシュ保持時間(秒)。ボタン連打やネットワーク遅延による

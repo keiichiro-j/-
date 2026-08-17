@@ -1384,11 +1384,8 @@
   });
 
   // ---------- 設定画面: 起動画面(ローディング画面)の画像 ----------
-
-  var LOADING_IMAGE_MAX_BYTES_ = 5 * 1024 * 1024;
-  var loadingImageBase64_ = '';
-  var loadingImageMimeType_ = '';
-  var loadingImageFileName_ = '';
+  // ロゴ画像と同じく、ドライブの共有リンクURLを貼り付ける方式(アプリ内から直接アップロードする
+  // 方式は、組織のドライブ共有ポリシーによって保存に失敗することがあったため廃止した)。
 
   function updateLoadingImagePreview_(url) {
     var img = document.getElementById('loadingImagePreviewImg');
@@ -1407,9 +1404,16 @@
 
   function loadLoadingImagePreview_() {
     google.script.run
-      .withSuccessHandler(function (url) { updateLoadingImagePreview_(url); })
+      .withSuccessHandler(function (url) {
+        document.getElementById('loadingImageUrlInput').value = url || '';
+        updateLoadingImagePreview_(url);
+      })
       .getLoadingImageUrl();
   }
+
+  document.getElementById('loadingImageUrlInput').addEventListener('input', function (e) {
+    updateLoadingImagePreview_(normalizeDriveImageUrl_(e.target.value.trim()));
+  });
 
   function setLoadingImageResult_(text, kind) {
     var el = document.getElementById('loadingImageResult');
@@ -1421,86 +1425,27 @@
     document.getElementById('loadingImageSpinner').classList.toggle('is-hidden', !on);
   }
 
-  // 選択直後にブラウザ側でプレビューを表示する(アップロード完了を待たなくても見た目を確認できるように)。
-  document.getElementById('loadingImageInput').addEventListener('change', function (e) {
-    var file = e.target.files && e.target.files[0];
-    loadingImageBase64_ = '';
-    loadingImageMimeType_ = '';
-    loadingImageFileName_ = '';
-    if (!file) return;
-
-    if (!/^image\//.test(file.type)) {
-      setLoadingImageResult_('画像ファイルを選択してください', 'error');
-      e.target.value = '';
-      return;
-    }
-    if (file.size > LOADING_IMAGE_MAX_BYTES_) {
-      setLoadingImageResult_('画像サイズが大きすぎます（5MB以内にしてください）', 'error');
-      e.target.value = '';
-      return;
-    }
-
-    setLoadingImageResult_('', '');
-    var reader = new FileReader();
-    reader.onload = function () {
-      var dataUrl = String(reader.result);
-      loadingImageBase64_ = dataUrl.split(',')[1] || '';
-      loadingImageMimeType_ = file.type;
-      loadingImageFileName_ = file.name;
-      updateLoadingImagePreview_(dataUrl);
-    };
-    reader.readAsDataURL(file);
-  });
-
   document.getElementById('btnSaveLoadingImage').addEventListener('click', function () {
-    if (!loadingImageBase64_) {
-      setLoadingImageResult_('画像を選択してください', 'error');
-      return;
-    }
+    var url = document.getElementById('loadingImageUrlInput').value.trim();
     var btn = document.getElementById('btnSaveLoadingImage');
     btn.disabled = true;
     setLoadingImageProcessing_(true);
-    setLoadingImageResult_('アップロードしています…', 'pending');
+    setLoadingImageResult_('保存しています…', 'pending');
 
     google.script.run
-      .withSuccessHandler(function (url) {
+      .withSuccessHandler(function (saved) {
         btn.disabled = false;
         setLoadingImageProcessing_(false);
-        document.getElementById('loadingImageInput').value = '';
-        loadingImageBase64_ = '';
-        updateLoadingImagePreview_(url);
-        setLoadingImageResult_('保存しました（次回の起動時から表示されます）', 'success');
+        document.getElementById('loadingImageUrlInput').value = saved || '';
+        updateLoadingImagePreview_(saved);
+        setLoadingImageResult_(saved ? '保存しました（次回の起動時から表示されます）' : '保存しました（画像を表示しない設定にしました）', 'success');
       })
       .withFailureHandler(function (error) {
         btn.disabled = false;
         setLoadingImageProcessing_(false);
         setLoadingImageResult_('保存に失敗しました:\n' + error.message, 'error');
       })
-      .saveLoadingImage(loadingImageBase64_, loadingImageMimeType_, loadingImageFileName_);
-  });
-
-  document.getElementById('btnClearLoadingImage').addEventListener('click', function () {
-    if (!confirm('現在設定されている起動画面の画像を削除しますか？')) return;
-    var btn = document.getElementById('btnClearLoadingImage');
-    btn.disabled = true;
-    setLoadingImageProcessing_(true);
-    setLoadingImageResult_('削除しています…', 'pending');
-
-    google.script.run
-      .withSuccessHandler(function () {
-        btn.disabled = false;
-        setLoadingImageProcessing_(false);
-        document.getElementById('loadingImageInput').value = '';
-        loadingImageBase64_ = '';
-        updateLoadingImagePreview_('');
-        setLoadingImageResult_('削除しました', 'success');
-      })
-      .withFailureHandler(function (error) {
-        btn.disabled = false;
-        setLoadingImageProcessing_(false);
-        setLoadingImageResult_('削除に失敗しました:\n' + error.message, 'error');
-      })
-      .clearLoadingImage();
+      .saveLoadingImageUrl(url);
   });
 
   // ---------- 設定画面: テーマ(ライト/ダーク/自動 + 春夏秋冬) ----------

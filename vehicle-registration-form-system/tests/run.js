@@ -32,8 +32,6 @@ function formatDateStub(date, tz, pattern) {
 const capturedMails = [];
 const fakeScriptProperties = {};
 const fakeTriggers = [];
-const fakeDriveFiles = {}; // createFileで作られたファイルをid別に保持(トラッシュ状態・共有設定を含む)
-let fakeDriveFileSeq = 0;
 
 const sandbox = {
   Utilities: {
@@ -46,32 +44,14 @@ const sandbox = {
   },
   DriveApp: {
     getFileById: (id) => {
-      if (id === 'MISSING_ID' || (fakeDriveFiles[id] && fakeDriveFiles[id].trashed)) {
+      if (id === 'MISSING_ID') {
         throw new Error('ファイルが見つかりません');
       }
       return {
         getBlob: () => ({ fileId: id, isFakeBlob: true }),
-        setTrashed: (v) => { if (fakeDriveFiles[id]) fakeDriveFiles[id].trashed = v; }
+        setTrashed: () => {}
       };
-    },
-    createFile: (blob) => {
-      const id = 'FAKE_DRIVE_FILE_' + (++fakeDriveFileSeq);
-      fakeDriveFiles[id] = { blob: blob, sharing: null, trashed: false };
-      return {
-        getId: () => id,
-        setTrashed: (v) => { fakeDriveFiles[id].trashed = v; },
-        setSharing: (access, permission) => {
-          // テストから sandbox.__blockAnyoneWithLink = true にすると、組織のポリシーで
-          // 「リンクを知っている全員」への共有が禁止されているケースを再現できる。
-          if (access === 'ANYONE_WITH_LINK' && sandbox.__blockAnyoneWithLink) {
-            throw new Error('組織のポリシーにより、このアイテムの共有設定は制限されています。');
-          }
-          fakeDriveFiles[id].sharing = { access: access, permission: permission };
-        }
-      };
-    },
-    Access: { ANYONE_WITH_LINK: 'ANYONE_WITH_LINK', DOMAIN_WITH_LINK: 'DOMAIN_WITH_LINK' },
-    Permission: { VIEW: 'VIEW' }
+    }
   },
   PropertiesService: {
     getScriptProperties: () => ({
@@ -693,62 +673,39 @@ test('ドライブ共有リンク以外の直接画像URLはそのまま保存�
   assert.strictEqual(saved, 'https://drive.google.com/thumbnail?id=XYZ&sz=w500');
 });
 
-console.log('== SettingsService: 起動画面(ローディング画面)の画像アップロード ==');
+console.log('== SettingsService: 起動画面(ローディング画面)の画像URL ==');
 test('未設定なら空文字を返す(画像なし)', () => {
   delete fakeScriptProperties[sandbox.LOADING_IMAGE_URL_PROP_KEY];
   assert.strictEqual(sandbox.getLoadingImageUrl_(), '');
 });
-test('画像(base64)をアップロードすると、ドライブのサムネイルURL形式で保存・取得できる', () => {
-  const saved = sandbox.saveLoadingImage_(Buffer.from('fake-image-bytes').toString('base64'), 'image/png', 'loading.png');
-  assert.ok(/^https:\/\/drive\.google\.com\/thumbnail\?id=FAKE_DRIVE_FILE_\d+&sz=w1000$/.test(saved));
+test('http(s)のURLを保存・取得できる', () => {
+  const saved = sandbox.saveLoadingImageUrl_('  https://example.com/loading.png  ');
+  assert.strictEqual(saved, 'https://example.com/loading.png');
+  assert.strictEqual(sandbox.getLoadingImageUrl_(), 'https://example.com/loading.png');
+});
+test('空欄で保存すると画像なしに戻せる', () => {
+  sandbox.saveLoadingImageUrl_('https://example.com/loading.png');
+  const saved = sandbox.saveLoadingImageUrl_('   ');
+  assert.strictEqual(saved, '');
+  assert.strictEqual(sandbox.getLoadingImageUrl_(), '');
+});
+test('http(s)以外の形式はエラーになり保存されない', () => {
+  sandbox.saveLoadingImageUrl_('https://example.com/old.png');
+  assert.throws(() => sandbox.saveLoadingImageUrl_('javascript:alert(1)'), /http:\/\/ または https:\/\//);
+  assert.strictEqual(sandbox.getLoadingImageUrl_(), 'https://example.com/old.png'); // 変更されない
+});
+test('Googleドライブの共有リンク(file/d/<ID>/view)は表示用サムネイルURLに自動変換される', () => {
+  const saved = sandbox.saveLoadingImageUrl_('https://drive.google.com/file/d/1J3LS5DH8lutX3nUwb0UpuutXb01gWLk8/view?usp=drive_link');
+  assert.strictEqual(saved, 'https://drive.google.com/thumbnail?id=1J3LS5DH8lutX3nUwb0UpuutXb01gWLk8&sz=w1000');
   assert.strictEqual(sandbox.getLoadingImageUrl_(), saved);
 });
-test('画像以外のMIMEタイプはエラーになり保存されない', () => {
-  delete fakeScriptProperties[sandbox.LOADING_IMAGE_URL_PROP_KEY];
-  assert.throws(() => sandbox.saveLoadingImage_(Buffer.from('x').toString('base64'), 'application/pdf', 'a.pdf'), /画像ファイル/);
-  assert.strictEqual(sandbox.getLoadingImageUrl_(), '');
+test('Googleドライブの共有リンク(open?id=<ID>)も表示用サムネイルURLに自動変換される', () => {
+  const saved = sandbox.saveLoadingImageUrl_('https://drive.google.com/open?id=ABC123XYZ');
+  assert.strictEqual(saved, 'https://drive.google.com/thumbnail?id=ABC123XYZ&sz=w1000');
 });
-test('base64データが空ならエラーになる', () => {
-  assert.throws(() => sandbox.saveLoadingImage_('', 'image/png', 'a.png'), /画像を選択/);
-});
-test('差し替えアップロード時、以前のドライブファイルはゴミ箱へ移動される', () => {
-  const first = sandbox.saveLoadingImage_(Buffer.from('one').toString('base64'), 'image/png', 'one.png');
-  const firstId = first.match(/id=([^&]+)/)[1];
-  sandbox.saveLoadingImage_(Buffer.from('two').toString('base64'), 'image/png', 'two.png');
-  assert.throws(() => sandbox.DriveApp.getFileById(firstId), /見つかりません/);
-});
-test('削除すると空文字に戻り、ドライブファイルもゴミ箱へ移動される', () => {
-  const saved = sandbox.saveLoadingImage_(Buffer.from('three').toString('base64'), 'image/png', 'three.png');
-  const savedId = saved.match(/id=([^&]+)/)[1];
-  sandbox.clearLoadingImage_();
-  assert.strictEqual(sandbox.getLoadingImageUrl_(), '');
-  assert.throws(() => sandbox.DriveApp.getFileById(savedId), /見つかりません/);
-});
-test('未設定の状態で削除してもエラーにならない', () => {
-  delete fakeScriptProperties[sandbox.LOADING_IMAGE_URL_PROP_KEY];
-  delete fakeScriptProperties[sandbox.LOADING_IMAGE_FILE_ID_PROP_KEY];
-  assert.doesNotThrow(() => sandbox.clearLoadingImage_());
-});
-test('data:URLのヘッダー部分が紛れ込んでいても取り除いて保存できる', () => {
-  delete fakeScriptProperties[sandbox.LOADING_IMAGE_URL_PROP_KEY];
-  const raw = 'data:image/png;base64,' + Buffer.from('four').toString('base64');
-  const saved = sandbox.saveLoadingImage_(raw, 'image/png', 'four.png');
-  assert.ok(/^https:\/\/drive\.google\.com\/thumbnail\?id=FAKE_DRIVE_FILE_\d+&sz=w1000$/.test(saved));
-});
-test('ファイル名に改行が含まれていてもエラーにならず保存できる', () => {
-  delete fakeScriptProperties[sandbox.LOADING_IMAGE_URL_PROP_KEY];
-  const saved = sandbox.saveLoadingImage_(Buffer.from('five').toString('base64'), 'image/png', 'five\n.png');
-  assert.ok(/^https:\/\/drive\.google\.com\/thumbnail\?id=FAKE_DRIVE_FILE_\d+&sz=w1000$/.test(saved));
-});
-test('組織のポリシーでANYONE_WITH_LINK共有が禁止されている場合、DOMAIN_WITH_LINKへ自動的に切り替えて保存できる', () => {
-  delete fakeScriptProperties[sandbox.LOADING_IMAGE_URL_PROP_KEY];
-  sandbox.__blockAnyoneWithLink = true;
-  try {
-    const saved = sandbox.saveLoadingImage_(Buffer.from('six').toString('base64'), 'image/png', 'six.png');
-    assert.ok(/^https:\/\/drive\.google\.com\/thumbnail\?id=FAKE_DRIVE_FILE_\d+&sz=w1000$/.test(saved));
-  } finally {
-    sandbox.__blockAnyoneWithLink = false;
-  }
+test('ドライブ共有リンク以外の直接画像URLはそのまま保存される', () => {
+  const saved = sandbox.saveLoadingImageUrl_('https://drive.google.com/thumbnail?id=XYZ&sz=w500');
+  assert.strictEqual(saved, 'https://drive.google.com/thumbnail?id=XYZ&sz=w500');
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
