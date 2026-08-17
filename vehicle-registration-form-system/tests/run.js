@@ -721,6 +721,17 @@ test('未設定の状態で削除してもエラーにならない', () => {
   delete fakeScriptProperties[sandbox.LOADING_IMAGE_FILE_ID_PROP_KEY];
   assert.doesNotThrow(() => sandbox.clearLoadingImage_());
 });
+test('data:URLのヘッダー部分が紛れ込んでいても取り除いて保存できる', () => {
+  delete fakeScriptProperties[sandbox.LOADING_IMAGE_URL_PROP_KEY];
+  const raw = 'data:image/png;base64,' + Buffer.from('four').toString('base64');
+  const saved = sandbox.saveLoadingImage_(raw, 'image/png', 'four.png');
+  assert.ok(/^https:\/\/drive\.google\.com\/thumbnail\?id=FAKE_DRIVE_FILE_\d+&sz=w1000$/.test(saved));
+});
+test('ファイル名に改行が含まれていてもエラーにならず保存できる', () => {
+  delete fakeScriptProperties[sandbox.LOADING_IMAGE_URL_PROP_KEY];
+  const saved = sandbox.saveLoadingImage_(Buffer.from('five').toString('base64'), 'image/png', 'five\n.png');
+  assert.ok(/^https:\/\/drive\.google\.com\/thumbnail\?id=FAKE_DRIVE_FILE_\d+&sz=w1000$/.test(saved));
+});
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail > 0 ? 1 : 0);

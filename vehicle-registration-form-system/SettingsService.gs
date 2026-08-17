@@ -105,15 +105,34 @@ function saveLoadingImage_(base64Data, mimeType, fileName) {
     throw new Error('画像ファイルを選択してください');
   }
 
-  var bytes = Utilities.base64Decode(base64Data);
+  // data:URLのbase64部分以外(改行・空白・"data:...;base64,"の取り残しなど)が
+  // 紛れ込んでいると Utilities.base64Decode がGASの汎用エラー(「引数が無効です」)を
+  // 投げ、原因が分かりにくいため、ここで取り除いてから渡す。
+  var cleanedBase64 = String(base64Data).replace(/^data:[^,]*,/, '').replace(/\s+/g, '');
+
+  var bytes;
+  try {
+    bytes = Utilities.base64Decode(cleanedBase64);
+  } catch (e) {
+    throw new Error('画像データを読み取れませんでした。別の画像でお試しください。(' + e.message + ')');
+  }
+
   if (bytes.length > LOADING_IMAGE_MAX_BYTES_) {
     throw new Error('画像サイズが大きすぎます(5MB以内にしてください)');
   }
 
-  var blob = Utilities.newBlob(bytes, mimeType, fileName || 'loading-image');
-  var file = DriveApp.createFile(blob);
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  var url = 'https://drive.google.com/thumbnail?id=' + file.getId() + '&sz=w1000';
+  var url;
+  var file;
+  try {
+    // ファイル名に改行や制御文字が含まれると newBlob が失敗することがあるため、安全な文字だけに絞る。
+    var safeName = String(fileName || 'loading-image').replace(/[\r\n\t]/g, ' ').trim() || 'loading-image';
+    var blob = Utilities.newBlob(bytes, mimeType, safeName);
+    file = DriveApp.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    url = 'https://drive.google.com/thumbnail?id=' + file.getId() + '&sz=w1000';
+  } catch (e) {
+    throw new Error('Googleドライブへの保存に失敗しました。(' + e.message + ')');
+  }
 
   var props = PropertiesService.getScriptProperties();
   var prevFileId = props.getProperty(LOADING_IMAGE_FILE_ID_PROP_KEY);
