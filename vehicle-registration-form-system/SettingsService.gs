@@ -121,18 +121,31 @@ function saveLoadingImage_(base64Data, mimeType, fileName) {
     throw new Error('画像サイズが大きすぎます(5MB以内にしてください)');
   }
 
-  var url;
   var file;
   try {
     // ファイル名に改行や制御文字が含まれると newBlob が失敗することがあるため、安全な文字だけに絞る。
     var safeName = String(fileName || 'loading-image').replace(/[\r\n\t]/g, ' ').trim() || 'loading-image';
     var blob = Utilities.newBlob(bytes, mimeType, safeName);
     file = DriveApp.createFile(blob);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    url = 'https://drive.google.com/thumbnail?id=' + file.getId() + '&sz=w1000';
   } catch (e) {
-    throw new Error('Googleドライブへの保存に失敗しました。(' + e.message + ')');
+    throw new Error('Googleドライブへのファイル作成に失敗しました。保存容量の空き状況をご確認ください。(' + e.message + ')');
   }
+
+  try {
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch (e) {
+    // 組織のポリシーで「リンクを知っている全員」への共有が禁止されている場合はここで失敗する。
+    // その場合は「ドメイン内でリンクを知っている全員」に範囲を狭めて再試行する
+    // (社内アプリとしての利用であれば、これでも起動画面の画像は表示できる)。
+    try {
+      file.setSharing(DriveApp.Access.DOMAIN_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (e2) {
+      file.setTrashed(true); // 共有設定に失敗した中途半端なファイルを残さない
+      throw new Error('Googleドライブでの共有設定に失敗しました。組織の共有ポリシーをご確認いただくか、管理者にご相談ください。(' + e2.message + ')');
+    }
+  }
+
+  var url = 'https://drive.google.com/thumbnail?id=' + file.getId() + '&sz=w1000';
 
   var props = PropertiesService.getScriptProperties();
   var prevFileId = props.getProperty(LOADING_IMAGE_FILE_ID_PROP_KEY);

@@ -59,10 +59,18 @@ const sandbox = {
       fakeDriveFiles[id] = { blob: blob, sharing: null, trashed: false };
       return {
         getId: () => id,
-        setSharing: (access, permission) => { fakeDriveFiles[id].sharing = { access: access, permission: permission }; }
+        setTrashed: (v) => { fakeDriveFiles[id].trashed = v; },
+        setSharing: (access, permission) => {
+          // テストから sandbox.__blockAnyoneWithLink = true にすると、組織のポリシーで
+          // 「リンクを知っている全員」への共有が禁止されているケースを再現できる。
+          if (access === 'ANYONE_WITH_LINK' && sandbox.__blockAnyoneWithLink) {
+            throw new Error('組織のポリシーにより、このアイテムの共有設定は制限されています。');
+          }
+          fakeDriveFiles[id].sharing = { access: access, permission: permission };
+        }
       };
     },
-    Access: { ANYONE_WITH_LINK: 'ANYONE_WITH_LINK' },
+    Access: { ANYONE_WITH_LINK: 'ANYONE_WITH_LINK', DOMAIN_WITH_LINK: 'DOMAIN_WITH_LINK' },
     Permission: { VIEW: 'VIEW' }
   },
   PropertiesService: {
@@ -731,6 +739,16 @@ test('ファイル名に改行が含まれていてもエラーにならず保�
   delete fakeScriptProperties[sandbox.LOADING_IMAGE_URL_PROP_KEY];
   const saved = sandbox.saveLoadingImage_(Buffer.from('five').toString('base64'), 'image/png', 'five\n.png');
   assert.ok(/^https:\/\/drive\.google\.com\/thumbnail\?id=FAKE_DRIVE_FILE_\d+&sz=w1000$/.test(saved));
+});
+test('組織のポリシーでANYONE_WITH_LINK共有が禁止されている場合、DOMAIN_WITH_LINKへ自動的に切り替えて保存できる', () => {
+  delete fakeScriptProperties[sandbox.LOADING_IMAGE_URL_PROP_KEY];
+  sandbox.__blockAnyoneWithLink = true;
+  try {
+    const saved = sandbox.saveLoadingImage_(Buffer.from('six').toString('base64'), 'image/png', 'six.png');
+    assert.ok(/^https:\/\/drive\.google\.com\/thumbnail\?id=FAKE_DRIVE_FILE_\d+&sz=w1000$/.test(saved));
+  } finally {
+    sandbox.__blockAnyoneWithLink = false;
+  }
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
