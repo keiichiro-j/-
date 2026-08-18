@@ -127,6 +127,24 @@ function saveLogoUrl(url) {
   return saveLogoUrl_(url);
 }
 
+/**
+ * 起動画面(ローディング画面)表示用。設定済みの画像URLを返す。
+ * @return {string}
+ */
+function getLoadingImageUrl() {
+  return getLoadingImageUrl_();
+}
+
+/**
+ * 「設定」画面の起動画面(ローディング画面)画像URL保存用。ロゴ画像URLと同じく
+ * Googleドライブの共有リンクを表示用URLへ自動変換する。空欄で保存すると画像なしに戻せる。
+ * @param {string} url
+ * @return {string} 保存後のURL(変換・トリム済み)
+ */
+function saveLoadingImageUrl(url) {
+  return saveLoadingImageUrl_(url);
+}
+
 // 二重送信防止用トークンのキャッシュ保持時間(秒)。ボタン連打やネットワーク遅延による
 // 再送はほぼ数秒以内に発生するため、余裕をみて5分にしている。
 var SUBMISSION_TOKEN_TTL_SEC = 300;

@@ -5,6 +5,9 @@
 
 function doGet() {
   var template = HtmlService.createTemplateFromFile('html/Index');
+  // 起動画面(ローディング画面)の画像URLはページ生成時に埋め込む(google.script.runの
+  // 往復を待たず、初回表示の瞬間から正しい画像を出すため)。
+  template.loadingImageUrl = getLoadingImageUrl_();
   return template.evaluate()
     .setTitle('中間登録書類送付書 発行システム')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')

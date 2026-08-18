@@ -486,6 +486,20 @@ test('空欄はロゴなし設定として保存できる', () => {
   assert.strictEqual(sandbox.getLogoUrl_(), '');
 });
 
+console.log('== SettingsService: 起動画面(ローディング画面)の画像URL ==');
+test('Googleドライブの共有リンクはサムネイルURLに変換されて保存・取得できる', () => {
+  const saved = sandbox.saveLoadingImageUrl_('https://drive.google.com/file/d/XYZ999/view?usp=sharing');
+  assert.strictEqual(saved, 'https://drive.google.com/thumbnail?id=XYZ999&sz=w1000');
+  assert.strictEqual(sandbox.getLoadingImageUrl_(), saved);
+});
+test('http(s)以外のURLはsaveLoadingImageUrl_でエラーになる', () => {
+  assert.throws(() => sandbox.saveLoadingImageUrl_('javascript:alert(1)'));
+});
+test('空欄は起動画面画像なし設定として保存できる', () => {
+  assert.strictEqual(sandbox.saveLoadingImageUrl_(''), '');
+  assert.strictEqual(sandbox.getLoadingImageUrl_(), '');
+});
+
 console.log('== SettingsService: 既定値の保存/取得 ==');
 test('保存した既定値がトリムされて取得できる', () => {
   sandbox.saveDefaultFormValues_({ company: '  岐阜ヤナセ株式会社  ', manager: ' 戸田 ' });

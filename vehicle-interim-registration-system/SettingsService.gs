@@ -76,3 +76,28 @@ function saveLogoUrl_(url) {
   PropertiesService.getScriptProperties().setProperty(LOGO_URL_PROP_KEY, trimmed);
   return trimmed;
 }
+
+var LOADING_IMAGE_URL_PROP_KEY = 'loadingImageUrl';
+
+/**
+ * 起動画面(ローディング画面)に表示する画像のURLを返す。未設定なら空文字(画像なし)。
+ * @return {string}
+ */
+function getLoadingImageUrl_() {
+  return PropertiesService.getScriptProperties().getProperty(LOADING_IMAGE_URL_PROP_KEY) || '';
+}
+
+/**
+ * 「設定」画面の起動画面(ローディング画面)画像URL保存用。ロゴ画像URLと同じく
+ * Googleドライブの共有リンクを表示用URLへ自動変換する。空欄で保存すると画像なしに戻せる。
+ * @param {string} url
+ * @return {string} 保存後のURL(変換・トリム済み)
+ */
+function saveLoadingImageUrl_(url) {
+  var trimmed = normalizeDriveImageUrl_(url);
+  if (trimmed && !/^https?:\/\//i.test(trimmed)) {
+    throw new Error('起動画面の画像URLは http:// または https:// で始まる形式で入力してください');
+  }
+  PropertiesService.getScriptProperties().setProperty(LOADING_IMAGE_URL_PROP_KEY, trimmed);
+  return trimmed;
+}

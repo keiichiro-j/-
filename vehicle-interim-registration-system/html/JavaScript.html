@@ -428,6 +428,7 @@
     });
     google.script.run.withSuccessHandler(populateSuggestions).getSuggestions();
     loadLogoUrl_();
+    loadLoadingImagePreview_();
     loadActivitySnapshot_();
     setInterval(loadActivitySnapshot_, 3 * 60 * 1000); // 3分ごとに本日の送付状況を更新
     initRipple_();
@@ -1115,5 +1116,66 @@
         setLogoResult_('保存に失敗しました:\n' + error.message, 'error');
       })
       .saveLogoUrl(url);
+  });
+
+  // ---------- 設定画面: 起動画面(ローディング画面) ----------
+
+  function updateLoadingImagePreview_(url) {
+    var img = document.getElementById('loadingImagePreviewImg');
+    var empty = document.getElementById('loadingImagePreviewEmpty');
+    if (url) {
+      img.src = url;
+      img.classList.remove('is-hidden');
+      empty.classList.add('is-hidden');
+    } else {
+      img.classList.add('is-hidden');
+      empty.classList.remove('is-hidden');
+    }
+  }
+
+  function loadLoadingImagePreview_() {
+    google.script.run
+      .withSuccessHandler(function (url) {
+        document.getElementById('loadingImageUrlInput').value = url || '';
+        updateLoadingImagePreview_(url);
+      })
+      .getLoadingImageUrl();
+  }
+
+  document.getElementById('loadingImageUrlInput').addEventListener('input', function (e) {
+    updateLoadingImagePreview_(e.target.value.trim());
+  });
+
+  function setLoadingImageResult_(text, kind) {
+    var el = document.getElementById('loadingImageResult');
+    el.className = 'result' + (kind ? ' -' + kind : '');
+    document.getElementById('loadingImageResultText').innerHTML = text;
+  }
+
+  function setLoadingImageProcessing_(on) {
+    document.getElementById('loadingImageSpinner').classList.toggle('is-hidden', !on);
+  }
+
+  document.getElementById('btnSaveLoadingImage').addEventListener('click', function () {
+    var url = document.getElementById('loadingImageUrlInput').value.trim();
+    var btn = document.getElementById('btnSaveLoadingImage');
+    btn.disabled = true;
+    setLoadingImageProcessing_(true);
+    setLoadingImageResult_('保存しています…', 'pending');
+
+    google.script.run
+      .withSuccessHandler(function (savedUrl) {
+        btn.disabled = false;
+        setLoadingImageProcessing_(false);
+        setLoadingImageResult_('保存しました', 'success');
+        document.getElementById('loadingImageUrlInput').value = savedUrl;
+        updateLoadingImagePreview_(savedUrl);
+      })
+      .withFailureHandler(function (error) {
+        btn.disabled = false;
+        setLoadingImageProcessing_(false);
+        setLoadingImageResult_('保存に失敗しました:\n' + error.message, 'error');
+      })
+      .saveLoadingImageUrl(url);
   });
 </script>
