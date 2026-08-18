@@ -13,10 +13,13 @@
  *   複合抹消 / 単純抹消 / 抹消 軽          → DOC_TYPE_CANCELLATION (cancelKind / isKei フラグ)
  *   番号変更                             → DOC_TYPE_PLATE_CHANGE
  *
- * テンプレートシートの物理的な列位置(VEHICLE_COLUMNS 等)は、SetupService.gs で
- * テンプレートシートを自動生成するタイミングで、このファイルに追記する
- * (新車新規登録依頼書システムと同じく、実物のテンプレートが手元にないため
- * セル位置は生成時に決め、生成後に見た目を見ながら調整する方針)。
+ * 送付日・送付便・登録日は(新車システムのOSSと異なり)申請共通の1項目として扱う
+ * (ユーザー指示: 「送付日、登録日、便の設定です」)。飛騨登録は新車システムと同じ
+ * トグルスイッチとして扱い、名義変更のときのバリエーション表示に反映する。
+ *
+ * 登録区分(T移転/W移転/移転/変更/選択 など)は、元データでは選択肢ごとに別列だったが、
+ * 本システムではデジタル入力に合わせて単一の選択欄(セグメント/プルダウン)にまとめている
+ * (新車システムのOSS/紙セグメントと同じ考え方)。
  */
 
 var TIMEZONE = 'Asia/Tokyo';
@@ -45,6 +48,14 @@ var DOC_TYPE_TITLES = {
   plateChange: '中間登録　番号変更のみ（移転、変更なし）登録依頼書'
 };
 
+// テンプレートシート名
+var SHEET_NAMES = {
+  certificate: '中間登録書類送付書（登録証明・その他）',
+  transfer: '中間登録書類送付書（名義変更）',
+  cancellation: '中間登録書類送付書（抹消）',
+  plateChange: '中間登録書類送付書（番号変更）'
+};
+
 // 発行元(元データのヘッダーにある固定文言)
 var ISSUER_NAME = '岐阜県自動車登録代行センター';
 
@@ -63,22 +74,46 @@ var CANCELLATION_KIND_LABELS = {
   simple: '単純抹消'
 };
 
-// ---------- 登録区分の選択肢(1台につき1つ選ぶ、既存システムの希望ナンバー等と同じ択一形式) ----------
+// ---------- 登録区分などの選択肢(1台につき1つ選ぶ、択一形式) ----------
 
-// 名義変更の登録区分(元データ 名義変更シート 11行目)
+// 名義変更の登録区分(元データ 名義変更シート)
 var TRANSFER_CLASS_OPTIONS = ['T移転', 'W移転', '移転', '変更', '選択'];
 
-// 名義変更の「記載変更・更正」(元データの注記:「どちらかを〇で囲って下さい」= 択一)
+// 名義変更の「記載変更・更正」(元データの注記:「どちらかを〇で囲って下さい」。任意項目)
 var TRANSFER_CORRECTION_OPTIONS = ['記載変更', '更正'];
 
 // 抹消の登録区分(元データ 複合抹消/単純抹消シート、共通)
 var CANCELLATION_CLASS_OPTIONS = ['T移転抹消', 'W移転抹消', '移転抹消', '変更抹消', '抹消', '永久抹消', '届け出', '払出', '先方'];
 
-// 登録証明・その他の登録区分(元データ 8行目、3択)
+// 登録証明・その他の登録区分(元データ、3択)
 var CERTIFICATE_CLASS_OPTIONS = ['登録証明', '詳細証明', '再交付'];
 
-// ---------- 車両欄の最大行数(元データの通し番号の上限に合わせる) ----------
+// ---------- 送付便の選択肢(既存システムと共通) ----------
 
+var SEND_BATCH_OPTIONS = ['第１便', '第２便', '第３便'];
+
+// ---------- 飛騨登録バッジの配色(新車システムと同じ考え方) ----------
+
+var HIDA_BADGE_COLOR = { bg: '#F9AB00', text: '#202124' };
+
+// ==================== テンプレートシートの物理レイアウト ====================
+// 4ファミリーすべて同じ行番号構成の「共通項目バナー」を使う(幅が異なっても崩れないよう、
+// ラベル(A列)+値(B列〜最終列を結合)の縦積みレイアウトに統一している)。
+
+var COMMON_CELLS = {
+  variantBadgeRow: 2,   // 飛騨/軽自動車/複合抹消/単純抹消などのバリエーション表示(右端セル)
+  titleRow: 1,          // 依頼書タイトル
+  issuerRow: 2,          // 発行元(岐阜県自動車登録代行センター)
+  sendDateRow: 4,         // 送付日
+  sendBatchRow: 5,          // 送付便
+  regDateRow: 6,              // 登録日
+  companyRow: 7,                // 依頼会社名
+  managerRow: 8,                  // 担当者名
+  tableHeaderRow: 10,                // 車両明細の見出し行
+  vehicleStartRow: 11                  // 車両明細の1行目
+};
+
+// 車両欄の最大行数(元データの通し番号の上限に合わせる)
 var MAX_ROWS = {
   certificate: 15,
   transfer: 20,
@@ -86,9 +121,101 @@ var MAX_ROWS = {
   plateChange: 5
 };
 
-// ---------- 送付便の選択肢(既存システムと共通) ----------
+// 合計行を持つファミリー(手数料を SUM する。元データで「合計」行があるのは名義変更・抹消のみ)
+var HAS_TOTAL_ROW = {
+  certificate: false,
+  transfer: true,
+  cancellation: true,
+  plateChange: false
+};
 
-var SEND_BATCH_OPTIONS = ['第１便', '第２便', '第３便'];
+// 合計行の行番号(vehicleStartRow + MAX_ROWS[type])
+function totalRowOf_(docType) {
+  return COMMON_CELLS.vehicleStartRow + MAX_ROWS[docType];
+}
+
+// 車両(明細行)1件分のフィールド → 列番号。1列目は全ファミリー共通で「番号」(自動連番)。
+var VEHICLE_COLUMNS = {
+  certificate: {
+    regNumber: 2,   // 登録番号
+    regClass: 3,     // 登録区分(登録証明/詳細証明/再交付)
+    remarks: 4         // 備考
+  },
+  transfer: {
+    regNumber: 2,
+    chassis: 3,        // 車台番号(下4桁)
+    transferClass: 4,   // 登録区分(T移転/W移転/移転/変更/選択)
+    correction: 5,        // 記載変更・更正(任意)
+    stamp: 6,               // 印紙
+    plateFee: 7,              // ナンバー代
+    agencyFee: 8,               // 代書料
+    envTax: 9,                    // 環境性能割
+    keiFee: 10,                     // 軽手数料
+    remarks: 11
+  },
+  cancellation: {
+    regNumber: 2,
+    chassis: 3,
+    cancelClass: 4,   // 登録区分(9択)
+    stamp: 5,
+    agencyFee: 6,
+    keiFee: 7,
+    remarks: 8          // 備考(移動報告番号を含む)
+  },
+  plateChange: {
+    oldRegNumber: 2,  // 旧登録番号
+    chassis: 3,        // 下4桁
+    newRegNumber: 4,     // 新登録番号
+    agencyFee: 5,          // 代行料(既定 550円)
+    stamp: 6                 // 印紙(既定 無料)
+  }
+};
+
+// 手数料など、合計行でSUMする数値項目(HAS_TOTAL_ROWがtrueのファミリーのみ使う)
+var NUMERIC_FIELD_KEYS = {
+  transfer: ['stamp', 'plateFee', 'agencyFee', 'envTax', 'keiFee'],
+  cancellation: ['stamp', 'agencyFee', 'keiFee']
+};
+
+// 車両明細見出しラベル(テンプレート生成・PDF印字用)
+var FIELD_LABELS = {
+  certificate: { regNumber: '登録番号', regClass: '登録区分', remarks: '備考' },
+  transfer: {
+    regNumber: '登録番号', chassis: '車台番号\n(下4桁)', transferClass: '登録区分',
+    correction: '記載変更\n・更正', stamp: '印紙', plateFee: 'ナンバー代', agencyFee: '代書料',
+    envTax: '環境性能割', keiFee: '軽手数料', remarks: '備考'
+  },
+  cancellation: {
+    regNumber: '登録番号', chassis: '車台番号\n(下4桁)', cancelClass: '登録区分',
+    stamp: '印紙', agencyFee: '代書料', keiFee: '軽手数料', remarks: '備考\n(移動報告番号)'
+  },
+  plateChange: {
+    oldRegNumber: '旧登録番号', chassis: '下4桁', newRegNumber: '新登録番号',
+    agencyFee: '代行料', stamp: '印紙'
+  }
+};
+
+// 車両明細の列幅(px、SetupService.gsのテンプレート生成で使用)
+var FIELD_WIDTHS = {
+  regNumber: 100, chassis: 76, regClass: 90, transferClass: 90, cancelClass: 100,
+  correction: 90, stamp: 70, plateFee: 80, agencyFee: 80, envTax: 90, keiFee: 80,
+  remarks: 160, oldRegNumber: 100, newRegNumber: 100
+};
+
+// 番号変更のみ、代行料・印紙に既定値がある(元データ: 550円 / 無料)
+var PLATE_CHANGE_DEFAULT_AGENCY_FEE = '550円';
+var PLATE_CHANGE_DEFAULT_STAMP = '無料';
+
+// 番号変更の必要書類(元データの注記。PDF下部に印字する固定テキスト)
+var PLATE_CHANGE_REQUIRED_DOCS = [
+  '必要書類',
+  'ナンバー、車検証、所有者委任状、希望番号予約証（希望番号のみ）',
+  '※ナンバー盗難の場合別途書類必要'
+];
+
+// 名義変更・抹消の注記(元データの脚注)
+var TRANSFER_NOTES = ['（注）車台番号の下4桁は必ず記入して下さい。', '記載変更・更正の欄はどちらかを〇で囲って下さい。'];
+var CANCELLATION_NOTES = ['（注）車台番号の下4桁は必ず記入して下さい。'];
 
 // ---------- 履歴タブ(月次)のヘッダー行 ----------
 // 4ファミリーぶんの項目を1つの表にまとめる(既存システムのHISTORY_HEADER_ROWと同じ考え方)。
@@ -97,11 +224,11 @@ var SEND_BATCH_OPTIONS = ['第１便', '第２便', '第３便'];
 // ずれないようにする。
 var HISTORY_HEADER_ROW = [
   '送信日時', 'submissionId', '書類種別', 'バリエーション', '依頼会社名', '担当責任者',
-  '登録日', '送付日', '送付便', '車両No.',
+  '登録日', '送付日', '送付便', '明細No.',
   '登録番号', '車台番号', '旧登録番号', '新登録番号',
   '登録区分', '記載変更・更正',
   '印紙', 'ナンバー代', '代書料', '環境性能割', '軽手数料', '代行料',
-  '備考',
+  '備考', '飛騨登録',
   '送付書PDF', '状態', '取消日時'
 ];
 

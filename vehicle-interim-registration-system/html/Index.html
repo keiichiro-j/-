@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <?!= include('html/Stylesheet'); ?>
+</head>
+<body>
+  <div id="loadingOverlay" class="loadingOverlay">
+    <span class="loadingOverlay__spinner" aria-hidden="true"></span>
+    <p class="loadingOverlay__text">Now Loading</p>
+  </div>
+
+  <header class="masthead">
+    <div class="masthead__inner">
+      <div class="masthead__row">
+        <img id="mastheadLogo" class="masthead__logo is-hidden" alt="ロゴ" onerror="this.classList.add('is-hidden')">
+        <div class="masthead__text">
+          <p class="eyebrow">Interim Registration Request</p>
+          <h1>中間登録書類送付書 発行システム</h1>
+          <p class="lead">登録証明・名義変更・抹消・番号変更の依頼内容を入力すると、履歴に記録した上でPDFを発行します。</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="page">
+    <div class="statusBar" id="statusBar">
+      <span class="statusBar__item"><span class="liveDot" aria-hidden="true"></span>本日の送付 <strong id="statusTodayCount">-</strong> 件</span>
+      <span class="statusBar__sep">・</span>
+      <span class="statusBar__item" id="statusLatest">最新の状況を取得しています…</span>
+    </div>
+
+    <nav class="viewSwitch" role="tablist" aria-label="画面切り替え">
+      <button type="button" class="viewSwitchBtn is-active" id="navForm" role="tab" aria-selected="true">申請</button>
+      <button type="button" class="viewSwitchBtn" id="navHistory" role="tab" aria-selected="false">履歴確認</button>
+      <button type="button" class="viewSwitchBtn" id="navPdf" role="tab" aria-selected="false">送付書PDF</button>
+      <button type="button" class="viewSwitchBtn" id="navSettings" role="tab" aria-selected="false">設定</button>
+    </nav>
+
+    <div id="viewForm">
+    <form id="mainForm" novalidate>
+      <div class="bento">
+        <section class="card bento--span-8">
+          <div class="card__head">
+            <h2>基本情報</h2>
+            <p class="muted">依頼の基本情報を入力してください。</p>
+          </div>
+
+          <div class="field" style="margin-bottom:16px">
+            <label>書類種別</label>
+            <div class="segmented" role="tablist" aria-label="書類種別" id="docTypeSeg">
+              <button type="button" class="segBtn is-active" data-doc-type="certificate" role="tab" aria-selected="true">登録証明・その他</button>
+              <button type="button" class="segBtn" data-doc-type="transfer" role="tab" aria-selected="false">名義変更</button>
+              <button type="button" class="segBtn" data-doc-type="cancellation" role="tab" aria-selected="false">抹消</button>
+              <button type="button" class="segBtn" data-doc-type="plateChange" role="tab" aria-selected="false">番号変更</button>
+            </div>
+            <input type="hidden" id="docType" value="certificate">
+          </div>
+
+          <div class="fieldRow">
+            <div class="field">
+              <label for="company">依頼会社名 <span class="req">必須</span></label>
+              <input type="text" id="company" list="dl-companies" autocomplete="off" required>
+              <datalist id="dl-companies"></datalist>
+            </div>
+            <div class="field">
+              <label for="manager">担当者名 <span class="req">必須</span></label>
+              <input type="text" id="manager" list="dl-managers" autocomplete="off" required>
+              <datalist id="dl-managers"></datalist>
+            </div>
+          </div>
+
+          <div class="fieldRow">
+            <div class="field">
+              <label for="sendDate">送付日 <span class="req">必須</span></label>
+              <input type="date" id="sendDate" required>
+            </div>
+            <div class="field">
+              <label for="sendBatch">送付便 <span class="req">必須</span></label>
+              <select id="sendBatch" required>
+                <option value="">選択してください</option>
+                <option value="第１便">第１便</option>
+                <option value="第２便">第２便</option>
+                <option value="第３便">第３便</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="regDate">登録日 <span class="req">必須</span></label>
+              <input type="date" id="regDate" required>
+            </div>
+          </div>
+
+          <div class="fieldRow" id="variantTransfer">
+            <div class="field">
+              <label>&nbsp;</label>
+              <button type="button" id="hidaToggle" class="toggleBtn" aria-pressed="false">飛騨登録：対象外</button>
+            </div>
+            <div class="field">
+              <label>&nbsp;</label>
+              <label class="filterCheck"><input type="checkbox" id="isKeiTransfer"><span>軽自動車</span></label>
+            </div>
+          </div>
+
+          <div class="fieldRow" id="variantCancellation">
+            <div class="field" style="min-width:220px">
+              <label>抹消区分</label>
+              <div class="segmented" role="tablist" aria-label="抹消区分" id="cancelKindSeg">
+                <button type="button" class="segBtn is-active" data-cancel-kind="compound" role="tab" aria-selected="true">複合抹消</button>
+                <button type="button" class="segBtn" data-cancel-kind="simple" role="tab" aria-selected="false">単純抹消</button>
+              </div>
+              <input type="hidden" id="cancelKind" value="compound">
+            </div>
+            <div class="field">
+              <label>&nbsp;</label>
+              <label class="filterCheck"><input type="checkbox" id="isKeiCancellation"><span>軽自動車</span></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="card bento--span-4" id="activityCard">
+          <div class="activityCard">
+            <div class="activityCard__row">
+              <span class="activityCard__label">本日の送付件数</span>
+              <span class="activityCard__value" id="activityTodayCount">0</span>
+            </div>
+            <div class="activityCard__latest" id="activityLatest">最新の状況を取得しています…</div>
+            <div class="activityCard__foot"><span class="liveDot" aria-hidden="true"></span>システム稼働中</div>
+          </div>
+        </section>
+      </div>
+
+      <section class="card">
+        <div class="card__head card__head--split">
+          <div>
+            <h2 id="itemTableTitle">明細データ</h2>
+            <p class="muted" id="itemTableHint">1行につき1件。登録番号が未入力の行は無視されます。</p>
+          </div>
+          <span class="badge" id="itemCountBadge">0 件</span>
+        </div>
+
+        <div class="tableScroll">
+          <table id="itemTable">
+            <thead id="itemTableHead"></thead>
+            <tbody id="itemTableBody"></tbody>
+          </table>
+        </div>
+
+        <button type="button" id="btnAddRow" class="btn btn--ghost">＋ 行を追加</button>
+      </section>
+
+      <div class="submitBar">
+        <div class="submitBar__row">
+          <button type="button" id="btnClear" class="btn btn--ghost">クリア</button>
+          <button type="submit" id="btnSubmit" class="btn btn--primary">登録してPDFを発行する</button>
+        </div>
+        <div id="result" class="result" role="status" aria-live="polite">
+          <span id="submitSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+          <span id="resultText"></span>
+        </div>
+        <div id="resultPdfPreview" class="pdfPreviewPane is-hidden">
+          <div class="pdfPreviewPane__head">
+            <span class="muted">発行されたPDFのプレビュー</span>
+            <button type="button" class="btn btn--ghost btn--sm" id="btnCloseResultPreview">閉じる</button>
+          </div>
+          <iframe id="resultPdfPreviewFrame" class="pdfPreviewFrame" title="発行されたPDFのプレビュー"></iframe>
+        </div>
+      </div>
+    </form>
+    </div>
+
+    <div id="viewHistory" class="is-hidden">
+      <section class="card">
+        <div class="card__head card__head--split">
+          <div>
+            <h2>申請履歴</h2>
+            <p class="muted">期間・依頼会社名で絞り込んで、登録済みの依頼履歴を確認できます。誤入力があった申請は「取消」できます。</p>
+          </div>
+          <span class="badge" id="historyCountBadge">0 件</span>
+        </div>
+
+        <div class="filterBar">
+          <div class="filterGroup">
+            <label class="filterGroup__label">期間（登録日）</label>
+            <div class="filterGroup__row">
+              <input type="date" id="historyFrom" aria-label="開始日">
+              <span class="filterBar__sep">〜</span>
+              <input type="date" id="historyTo" aria-label="終了日">
+            </div>
+          </div>
+
+          <div class="filterGroup filterGroup--grow">
+            <label class="filterGroup__label" for="historySearch">依頼会社名で検索</label>
+            <input type="text" id="historySearch" autocomplete="off">
+          </div>
+
+          <label class="filterCheck">
+            <input type="checkbox" id="historyIncludePending">
+            <span>登録日未定も含める</span>
+          </label>
+
+          <button type="button" id="btnHistoryRefresh" class="btn btn--ghost filterBar__submit">検索</button>
+        </div>
+
+        <div class="tableScroll tableScroll--history">
+          <table id="historyTable">
+            <thead><tr id="historyTableHead"></tr></thead>
+            <tbody id="historyTableBody"></tbody>
+          </table>
+        </div>
+        <p class="muted historyEmptyMsg" id="historyEmptyMsg">この期間の履歴データはまだありません。</p>
+      </section>
+    </div>
+
+    <div id="viewPdf" class="is-hidden">
+      <section class="card">
+        <div class="card__head card__head--split">
+          <div>
+            <h2>送付書PDF</h2>
+            <p class="muted">送付日・送付便を指定して、その便でまとめて発行した送付書PDFを申請単位で確認できます。</p>
+          </div>
+          <span class="badge" id="pdfCountBadge">0 件</span>
+        </div>
+
+        <div class="filterBar">
+          <div class="filterGroup">
+            <label class="filterGroup__label">期間（送付日）</label>
+            <div class="filterGroup__row">
+              <input type="date" id="pdfFrom" aria-label="開始日">
+              <span class="filterBar__sep">〜</span>
+              <input type="date" id="pdfTo" aria-label="終了日">
+            </div>
+          </div>
+          <div class="filterGroup">
+            <label class="filterGroup__label" for="pdfSendBatch">送付便</label>
+            <select id="pdfSendBatch">
+              <option value="">すべて</option>
+              <option value="第１便">第１便</option>
+              <option value="第２便">第２便</option>
+              <option value="第３便">第３便</option>
+            </select>
+          </div>
+          <div class="filterGroup filterGroup--grow">
+            <label class="filterGroup__label" for="pdfSearch">依頼会社名で検索</label>
+            <input type="text" id="pdfSearch" autocomplete="off">
+          </div>
+          <button type="button" id="btnPdfRefresh" class="btn btn--ghost filterBar__submit">検索</button>
+        </div>
+
+        <div id="pdfList" class="pdfList"></div>
+        <p class="muted historyEmptyMsg" id="pdfEmptyMsg">期間を指定して検索してください。</p>
+      </section>
+
+      <section class="card" id="mailCard">
+        <div class="card__head card__head--split">
+          <div>
+            <h2>送付書PDFをメール送信</h2>
+            <p class="muted">指定した送付日に発行された第１便〜第３便の送付書PDF（取消済みを除く）をまとめて、設定済みの宛先へメール送信します。</p>
+          </div>
+          <button type="button" id="btnGoMailSettings" class="btn btn--ghost btn--sm">宛先を設定で確認・変更</button>
+        </div>
+
+        <div class="fieldRow">
+          <div class="field" style="max-width:220px">
+            <label for="mailSendDate">送付日 <span class="req">必須</span></label>
+            <input type="date" id="mailSendDate">
+          </div>
+        </div>
+
+        <button type="button" id="btnSendMail" class="btn btn--primary mailSendBtn">この日の送付書PDFをメール送信する</button>
+        <div id="mailResult" class="result" role="status" aria-live="polite">
+          <span id="mailSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+          <span id="mailResultText"></span>
+        </div>
+      </section>
+
+      <div class="pdfPreviewPane is-hidden" id="pdfPreviewPane">
+        <div class="pdfPreviewPane__head">
+          <span id="pdfPreviewTitle" class="muted"></span>
+          <button type="button" class="btn btn--ghost btn--sm" id="btnClosePdfPreview">閉じる</button>
+        </div>
+        <iframe id="pdfPreviewFrame" class="pdfPreviewFrame" title="PDFプレビュー"></iframe>
+      </div>
+    </div>
+
+    <div id="viewSettings" class="is-hidden">
+      <div class="bento">
+        <section class="card bento--span-6">
+          <div class="card__head">
+            <h2>メール送信先</h2>
+            <p class="muted">「送付書PDF」画面でメール送信する際の宛先です（最大4件・1件以上必須）。ここで保存した内容が送信時に使用されます。</p>
+          </div>
+
+          <div class="mailRecipients">
+            <div class="mailRecipients__grid">
+              <input type="email" class="mailRecipientInput" id="mailTo1" placeholder="宛先1（例: you@example.com）" autocomplete="off">
+              <input type="email" class="mailRecipientInput" id="mailTo2" placeholder="宛先2" autocomplete="off">
+              <input type="email" class="mailRecipientInput" id="mailTo3" placeholder="宛先3" autocomplete="off">
+              <input type="email" class="mailRecipientInput" id="mailTo4" placeholder="宛先4" autocomplete="off">
+            </div>
+          </div>
+
+          <button type="button" id="btnSaveMailRecipients" class="btn btn--primary">宛先を保存する</button>
+          <div id="mailSettingsResult" class="result" role="status" aria-live="polite">
+            <span id="mailSettingsSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+            <span id="mailSettingsResultText"></span>
+          </div>
+        </section>
+
+        <section class="card bento--span-6">
+          <div class="card__head">
+            <h2>自動メール送信</h2>
+            <p class="muted">毎日17時台に、その日が送付日の送付書PDFを上の宛先へ自動でメール送信します。</p>
+          </div>
+          <div class="switchRow">
+            <button type="button" id="autoMailToggle" class="switch" role="switch" aria-checked="false">
+              <span class="switch__track"><span class="switch__knob"></span></span>
+            </button>
+            <span class="switchRow__label is-off" id="autoMailStatusLabel">
+              <span class="switchRow__dot"></span>
+              <span id="autoMailStatusText">OFF（自動送信は停止中）</span>
+            </span>
+          </div>
+          <div id="autoMailResult" class="result" role="status" aria-live="polite">
+            <span id="autoMailSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+            <span id="autoMailResultText"></span>
+          </div>
+        </section>
+
+        <section class="card bento--span-6">
+          <div class="card__head">
+            <h2>申請フォームの既定値</h2>
+            <p class="muted">よく使う依頼会社名・担当者名を登録しておくと、申請フォームを開いたときに自動で入力されます（空欄の項目は自動入力しません）。</p>
+          </div>
+
+          <div class="fieldRow">
+            <div class="field">
+              <label for="defaultCompany">依頼会社名</label>
+              <input type="text" id="defaultCompany" autocomplete="off">
+            </div>
+            <div class="field">
+              <label for="defaultManager">担当者名</label>
+              <input type="text" id="defaultManager" autocomplete="off">
+            </div>
+          </div>
+
+          <button type="button" id="btnSaveDefaults" class="btn btn--primary">既定値を保存する</button>
+          <div id="defaultsResult" class="result" role="status" aria-live="polite">
+            <span id="defaultsSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+            <span id="defaultsResultText"></span>
+          </div>
+        </section>
+
+        <section class="card bento--span-6">
+          <div class="card__head">
+            <h2>テーマ</h2>
+            <p class="muted">画面の配色を選べます。「自動」を選ぶとお使いの端末の設定に従います。</p>
+          </div>
+
+          <div class="field">
+            <label>配色モード</label>
+            <div class="segmented" role="tablist" aria-label="テーマ設定">
+              <button type="button" class="segBtn" id="themeLight" role="tab" data-theme-value="light">ライト</button>
+              <button type="button" class="segBtn" id="themeDark" role="tab" data-theme-value="dark">ダーク</button>
+              <button type="button" class="segBtn" id="themeSystem" role="tab" data-theme-value="system">自動</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card bento--span-12">
+          <div class="card__head">
+            <h2>ロゴ画像</h2>
+            <p class="muted">
+              ヘッダーに表示するロゴ画像のURLを設定できます。Googleドライブに画像をアップロードし、共有設定を「リンクを知っている全員」に変更した上で、共有リンクのURL（例: https://drive.google.com/file/d/.../view?usp=... の形式）をそのまま貼り付けてください。表示用の形式に自動で変換されます。空欄のまま保存すると、ロゴを表示しない状態に戻せます。
+            </p>
+          </div>
+
+          <div class="field">
+            <label for="logoUrlInput">ロゴ画像URL</label>
+            <input type="url" id="logoUrlInput" placeholder="https://..." autocomplete="off">
+          </div>
+
+          <div class="logoPreview" id="logoPreviewWrap">
+            <img id="logoPreviewImg" class="logoPreview__img is-hidden" alt="プレビュー" onerror="this.classList.add('is-hidden')">
+            <span class="muted" id="logoPreviewEmpty">プレビュー: 画像URLを入力すると表示されます</span>
+          </div>
+
+          <button type="button" id="btnSaveLogo" class="btn btn--primary">ロゴを保存する</button>
+          <div id="logoResult" class="result" role="status" aria-live="polite">
+            <span id="logoSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+            <span id="logoResultText"></span>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <?!= include('html/JavaScript'); ?>
+</body>
+</html>
