@@ -22,8 +22,13 @@ var THEME = {
 
 var FONT_FAMILY = 'Roboto';
 
-// チェックボックス項目(登録区分など)の1列あたりの幅(px)。文字項目より狭くしてよい。
-var CHECKBOX_COL_WIDTH = 46;
+// チェックボックス項目(登録区分など)の1列あたりの幅(px)。
+// 「T移転抹消」等5文字の選択肢見出しが折り返しても2行に収まる幅を確保する。
+var CHECKBOX_COL_WIDTH = 58;
+
+// 明細欄1列目(番号)の幅(px)。共通項目バナーの左ラベル("送付日・送付便"等)も
+// 同じ1列目を使うため、番号だけなら十分すぎる幅だが、ラベルが折り返して収まるように広めにとる。
+var NO_COLUMN_WIDTH = 54;
 
 /**
  * GASエディタの関数選択プルダウンからこれを選んで実行する(初回セットアップ用、1回だけでよい)。
@@ -142,27 +147,30 @@ function buildBannerRow_(sheet, row, split, leftLabel, rightLabel) {
   var lastCol = split.rightValueCol + split.rightValueSpan - 1;
   sheet.getRange(row, 1, 1, lastCol)
     .setBorder(true, true, true, true, true, false, THEME.ink, SpreadsheetApp.BorderStyle.SOLID);
-  sheet.setRowHeight(row, 22);
+  // ラベル("送付日・送付便"等)は1列(NO_COLUMN_WIDTH)に収めるため折り返す。2行分の高さを確保する。
+  sheet.setRowHeight(row, 40);
 }
 
 function styleLabelCell_(cell, text) {
   cell.setValue(text);
   cell.setBackground(THEME.headerFill);
   cell.setFontFamily(FONT_FAMILY);
-  cell.setFontSize(11);
+  cell.setFontSize(10);
   cell.setFontWeight('bold');
   cell.setFontColor(THEME.ink);
   cell.setHorizontalAlignment('center');
   cell.setVerticalAlignment('middle');
+  cell.setWrap(true);
 }
 
 function styleValueRange_(range) {
   if (range.getNumColumns() > 1) range.merge();
   range.setFontFamily(FONT_FAMILY);
-  range.setFontSize(12);
+  range.setFontSize(11);
   range.setFontColor(THEME.ink);
   range.setHorizontalAlignment('left');
   range.setVerticalAlignment('middle');
+  range.setWrap(true); // 送付日+送付便を1つの欄にまとめて印字するため、狭いファミリーでも折り返して収める
 }
 
 /**
@@ -198,8 +206,10 @@ function buildVehicleTableHeader_(sheet, docType, columns, spans, labels) {
     }
   });
 
-  sheet.setRowHeight(COMMON_CELLS.tableHeaderRow, 26);
-  sheet.setRowHeight(COMMON_CELLS.checkboxOptionRow, 30);
+  // 見出しは「車台番号\n(下4桁)」のように2行の項目があり、選択肢見出しも折り返すことが
+  // あるため、どちらも2行ぶんの高さを確保する。
+  sheet.setRowHeight(COMMON_CELLS.tableHeaderRow, 42);
+  sheet.setRowHeight(COMMON_CELLS.checkboxOptionRow, 40);
 }
 
 function styleHeaderCell_(cell) {
@@ -227,14 +237,15 @@ function applyVehicleDataStyle_(sheet, docType, maxCol) {
   range.setFontSize(10);
   range.setHorizontalAlignment('center');
   range.setVerticalAlignment('middle');
+  range.setWrap(true); // 登録番号や備考など、列幅に対して長い文字列が入っても切れずに折り返す
 
   for (var i = 0; i < maxRows; i++) {
-    sheet.setRowHeight(COMMON_CELLS.vehicleStartRow + i, 22);
+    sheet.setRowHeight(COMMON_CELLS.vehicleStartRow + i, 26);
   }
 }
 
 function applyFieldWidths_(sheet, docType) {
-  sheet.setColumnWidth(1, 40); // 番号列
+  sheet.setColumnWidth(1, NO_COLUMN_WIDTH); // 番号列(共通項目バナーの左ラベルもこの列を使う)
   var columns = VEHICLE_COLUMNS[docType];
   var spans = FIELD_SPANS[docType];
   FIELD_ORDER[docType].forEach(function (key) {
@@ -312,6 +323,8 @@ function buildNotesFooter_(sheet, docType, maxCol) {
     cell.setFontColor(THEME.ink);
     cell.setHorizontalAlignment('left');
     cell.setVerticalAlignment('middle');
+    cell.setWrap(true);
+    sheet.setRowHeight(startRow + i, 20);
   });
 }
 
