@@ -7,7 +7,7 @@
 function doGet(e) {
   return HtmlService.createTemplateFromFile('html/Index')
     .evaluate()
-    .setTitle('車両在庫管理')
+    .setTitle('車両台帳')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }

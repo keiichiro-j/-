@@ -1,21 +1,35 @@
 <style>
   :root {
-    --color-bg: #f4f5f7;
-    --color-surface: #ffffff;
-    --color-border: #dfe3e8;
-    --color-primary: #1a56db;
-    --color-primary-dark: #123f9e;
-    --color-text: #1f2937;
-    --color-text-muted: #6b7280;
-    --color-danger: #dc2626;
-    --color-warn: #b45309;
-    --color-warn-bg: #fef3c7;
-    --color-success: #059669;
-    --color-success-bg: #d1fae5;
-    --radius: 6px;
-    --shadow-sm: 0 1px 2px rgba(15,23,42,0.06);
-    --shadow-md: 0 8px 24px rgba(15,23,42,0.18);
-    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+    --color-bg: #F3F5F6;
+    --color-bg-grid: rgba(23, 57, 92, 0.05);
+    --color-surface: #FFFFFF;
+    --color-surface-alt: #F7F8F9;
+    --color-border: #DBE1E5;
+    --color-border-strong: #B9C3CB;
+    --color-ink: #16202B;
+    --color-primary: #16202B;      /* 罫線・タブの「濃色」として使用（旧: 青） */
+    --color-primary-dark: #0D141C;
+    --color-text: #16202B;
+    --color-text-muted: #5C6773;
+    --color-accent: #B3352C;       /* 朱色（ハンコ）：主要アクション・完了状態のみに使用 */
+    --color-accent-dark: #8F2A23;
+    --color-accent-ink: #FFF7F2;
+    --color-accent-soft: #F6E4DF;
+    --color-accent-soft-border: #E4B6AC;
+    --color-danger: #B3352C;
+    --color-warn: #A6650A;
+    --color-warn-bg: #F6E9D3;
+    --color-warn-border: #E4C079;
+    --color-success: #3F6B57;
+    --color-success-bg: #E4E9E5;
+    --color-progress: #3E5C76;
+    --color-progress-bg: #E4EAF0;
+    --radius: 4px;
+    --shadow-sm: 0 1px 2px rgba(22,32,43,0.06), 0 8px 20px -14px rgba(22,32,43,0.3);
+    --shadow-md: 0 24px 64px -16px rgba(16,21,27,0.45);
+    --font: 'Zen Kaku Gothic New', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
+    --font-display: 'Shippori Mincho', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+    --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
   }
 
   * { box-sizing: border-box; }
@@ -23,40 +37,64 @@
   body {
     font-family: var(--font);
     color: var(--color-text);
-    background: var(--color-bg);
+    background:
+      linear-gradient(var(--color-bg-grid) 1px, transparent 1px) 0 0 / 100% 34px,
+      linear-gradient(90deg, var(--color-bg-grid) 1px, transparent 1px) 0 0 / 34px 100%,
+      var(--color-bg);
     font-size: 13px;
+    -webkit-font-smoothing: antialiased;
   }
+  ::selection { background: var(--color-accent-soft); color: var(--color-ink); }
   .hidden { display: none !important; }
 
   .app { display: flex; flex-direction: column; height: 100vh; }
 
-  /* ===== Topbar ===== */
+  /* ===== Topbar（台帳の見出し） ===== */
   .topbar {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 8px 14px;
-    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
-    color: #fff;
+    gap: 16px;
+    padding: 10px 16px;
+    background: var(--color-surface);
+    color: var(--color-ink);
     flex-wrap: wrap;
-    box-shadow: var(--shadow-sm);
+    border-bottom: 2px solid var(--color-ink);
     position: relative;
     z-index: 5;
   }
-  .topbar__brand { font-weight: 700; font-size: 15px; white-space: nowrap; letter-spacing: 0.02em; }
-  .topbar__scope { display: flex; gap: 4px; flex: 1; flex-wrap: wrap; }
+  .topbar__brand {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+    white-space: nowrap;
+  }
+  .topbar__brandMark {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: 0.04em;
+  }
+  .topbar__brandSub {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: var(--color-text-muted);
+    margin-top: 2px;
+  }
+  .topbar__scope { display: flex; gap: 6px; flex: 1; flex-wrap: wrap; }
   .topbar__scope button {
-    background: rgba(255,255,255,0.12);
-    border: 1px solid rgba(255,255,255,0.3);
-    color: #fff;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    color: var(--color-text-muted);
     border-radius: var(--radius);
-    padding: 4px 10px;
+    padding: 5px 12px;
     cursor: pointer;
     font-size: 12px;
-    transition: background 0.15s ease;
+    font-weight: 500;
+    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
   }
-  .topbar__scope button:hover { background: rgba(255,255,255,0.22); }
-  .topbar__scope button.is-active { background: #fff; color: var(--color-primary); font-weight: 700; }
+  .topbar__scope button:hover { border-color: var(--color-ink); color: var(--color-ink); }
+  .topbar__scope button.is-active { background: var(--color-ink); border-color: var(--color-ink); color: var(--color-bg); font-weight: 700; }
   .topbar__actions { display: flex; align-items: center; gap: 8px; }
 
   /* ===== Toolbar ===== */
@@ -64,199 +102,228 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 8px 14px;
+    padding: 8px 16px;
     background: var(--color-surface);
     border-bottom: 1px solid var(--color-border);
     flex-wrap: wrap;
-    box-shadow: var(--shadow-sm);
     position: relative;
     z-index: 4;
   }
-  .toolbar__tabs { display: flex; gap: 4px; margin-right: 8px; }
+  .toolbar__tabs { display: flex; gap: 4px; margin-right: 8px; padding-right: 10px; border-right: 1px solid var(--color-border); }
   .toolbar__tabs button {
-    border: 1px solid var(--color-border);
-    background: #f0f2f5;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--color-text-muted);
     border-radius: var(--radius);
-    padding: 5px 12px;
+    padding: 5px 11px;
     cursor: pointer;
     font-size: 12px;
     transition: background 0.15s ease, color 0.15s ease;
   }
-  .toolbar__tabs button:hover { background: #e4e8ee; }
-  .toolbar__tabs button.is-active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+  .toolbar__tabs button:hover { background: var(--color-surface-alt); }
+  .toolbar__tabs button.is-active { background: var(--color-surface); border-color: var(--color-border-strong); color: var(--color-ink); font-weight: 700; box-shadow: var(--shadow-sm); }
 
   .input {
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-border-strong);
     border-radius: var(--radius);
-    padding: 5px 8px;
+    padding: 6px 9px;
     font-size: 12px;
-    background: #fff;
+    background: var(--color-surface);
+    color: var(--color-text);
   }
   .input--search { min-width: 220px; flex: 1; }
 
   .btn {
-    border: 1px solid var(--color-border);
-    background: #fff;
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-surface);
+    color: var(--color-ink);
     border-radius: var(--radius);
-    padding: 6px 12px;
+    padding: 6px 13px;
     font-size: 12px;
+    font-weight: 500;
     cursor: pointer;
     white-space: nowrap;
-    transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
+    transition: border-color 0.15s ease, transform 0.05s ease, filter 0.15s ease;
   }
-  .btn:hover { background: #f0f2f5; }
+  .btn:hover { border-color: var(--color-ink); }
   .btn:active { transform: translateY(1px); }
-  .btn--primary { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
-  .btn--primary:hover { background: var(--color-primary-dark); }
-  .btn--danger { background: var(--color-danger); border-color: var(--color-danger); color: #fff; }
+  .btn--primary { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-accent-ink); font-weight: 700; }
+  .btn--primary:hover { filter: brightness(1.08); border-color: var(--color-accent); }
+  .btn--danger { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-accent-ink); }
   .btn--icon { padding: 4px 8px; font-size: 16px; line-height: 1; }
-  .btn--sm { padding: 3px 8px; font-size: 11px; }
+  .btn--sm { padding: 3px 9px; font-size: 11px; }
   .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  /* ===== Dashboard ===== */
+  /* ===== Dashboard（銘板） ===== */
   .dashboard {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 8px;
-    padding: 10px 14px;
+    gap: 10px;
+    padding: 12px 16px;
     background: var(--color-surface);
     border-bottom: 1px solid var(--color-border);
   }
   .dashboard__tile {
+    position: relative;
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
-    padding: 8px 10px;
-    background: #fafbfc;
+    padding: 10px 12px;
+    background: var(--color-surface);
     box-shadow: var(--shadow-sm);
   }
-  .dashboard__tile .num { font-size: 22px; font-weight: 700; line-height: 1.2; }
-  .dashboard__tile .label { font-size: 11px; color: var(--color-text-muted); }
-  .dashboard__tile.is-warn { background: var(--color-warn-bg); border-color: #fde68a; }
+  .dashboard__tile::before {
+    content: '';
+    position: absolute; inset: 3px;
+    border: 1px solid var(--color-border);
+    border-radius: 2px;
+    pointer-events: none;
+  }
+  .dashboard__tile .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 22px; font-weight: 600; line-height: 1.2; }
+  .dashboard__tile .label { font-size: 11px; color: var(--color-text-muted); margin-top: 2px; }
+  .dashboard__tile.is-warn { border-color: var(--color-warn-border); }
+  .dashboard__tile.is-warn::before { border-color: var(--color-warn-border); }
   .dashboard__tile.is-warn .num { color: var(--color-warn); }
 
-  /* ===== Table ===== */
-  .listWrap { flex: 1; overflow: auto; padding: 4px 8px; }
-  .vehicleTable { width: 100%; border-collapse: collapse; font-size: 12px; background: #fff; box-shadow: var(--shadow-sm); border-radius: var(--radius); overflow: hidden; }
+  /* ===== Table（台帳） ===== */
+  .listWrap { flex: 1; overflow: auto; padding: 6px 10px; }
+  .vehicleTable { width: 100%; border-collapse: collapse; font-size: 12px; background: var(--color-surface); box-shadow: var(--shadow-sm); border-radius: var(--radius); overflow: hidden; }
   .vehicleTable thead th {
     position: sticky; top: 0;
-    background: #eef1f5;
-    border-bottom: 2px solid var(--color-border);
+    background: var(--color-surface);
+    border-bottom: 2px solid var(--color-ink);
     text-align: left;
-    padding: 8px 10px;
+    padding: 9px 12px;
     white-space: nowrap;
     z-index: 1;
     font-weight: 700;
-    color: #334155;
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
   }
   .vehicleTable tbody td {
-    padding: 6px 10px;
-    border-bottom: 1px solid #eef0f2;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--color-border);
     white-space: nowrap;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
   }
   .vehicleTable tbody tr { cursor: pointer; transition: background 0.1s ease; }
-  .vehicleTable tbody tr:nth-child(even) td { background: #fafbfc; }
-  .vehicleTable tbody tr:hover td { background: #eef4ff; }
+  .vehicleTable tbody tr:hover td { background: var(--color-surface-alt); }
   .vehicleTable tbody tr.is-expiring td { background: var(--color-warn-bg); }
-  .vehicleTable tbody tr.is-expiring:hover td { background: #fde9ae; }
+  .vehicleTable tbody tr.is-expiring:hover td { background: #F0DBAF; }
   .vehicleTable tbody tr.row-flash td { animation: rowFlash 1.6s ease; }
   @keyframes rowFlash {
-    0% { background: #fef08a; }
+    0% { background: var(--color-accent-soft); }
     100% { background: transparent; }
   }
 
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; background: #e5e7eb; color: #374151; }
-  .badge--status-0 { background: #e5e7eb; color: #374151; }  /* 書類待ち */
-  .badge--status-1 { background: #dbeafe; color: #1d4ed8; }  /* 車庫証明申請中 */
-  .badge--status-2 { background: #ede9fe; color: #6d28d9; }  /* 名義変更中 */
-  .badge--status-3 { background: #cffafe; color: #0e7490; }  /* 名義変更済み */
-  .badge--status-4 { background: #fee2e2; color: #b91c1c; }  /* 抹消登録済み */
-  .badge--status-5 { background: var(--color-success-bg); color: #065f46; } /* 販売済み */
-  .badge--sold { background: var(--color-success-bg); color: #065f46; }
+  .badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 3px; font-size: 11px; font-weight: 600; border: 1px solid transparent; background: var(--color-progress-bg); color: var(--color-progress); font-family: var(--font); }
+  .badge--status-0 { background: var(--color-progress-bg); color: var(--color-progress); }  /* 書類待ち */
+  .badge--status-1 { background: var(--color-progress-bg); color: var(--color-progress); }  /* 車庫証明申請中 */
+  .badge--status-2 { background: var(--color-progress-bg); color: var(--color-progress); }  /* 名義変更中 */
+  .badge--status-3 { background: var(--color-success-bg); color: var(--color-success); }    /* 名義変更済み */
+  .badge--status-4 { background: var(--color-success-bg); color: var(--color-success); }    /* 抹消登録済み */
+  .badge--status-5,
+  .badge--sold {
+    /* 販売済み：唯一「朱印」で表現する完了状態 */
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+    border: 1px solid var(--color-accent-soft-border);
+    font-family: var(--font-mono);
+    transform: rotate(-2deg);
+    box-shadow: inset 0 0 0 1px var(--color-accent-soft-border);
+  }
 
   .emptyState { text-align: center; padding: 40px; color: var(--color-text-muted); }
 
-  /* ===== Modal ===== */
+  /* ===== Modal（証書カード） ===== */
   .modal {
-    position: fixed; inset: 0; background: rgba(15,23,42,0.55);
+    position: fixed; inset: 0; background: rgba(16,21,27,0.55);
     display: flex; align-items: center; justify-content: center;
     z-index: 50; padding: 12px;
     animation: modalFadeIn 0.15s ease;
   }
   @keyframes modalFadeIn { from { opacity: 0; } to { opacity: 1; } }
   .modal__panel {
-    background: #fff; border-radius: 10px; width: 100%; max-width: 480px;
+    background: var(--color-surface); border-radius: 6px; width: 100%; max-width: 480px;
     max-height: 92vh; display: flex; flex-direction: column; overflow: hidden;
     box-shadow: var(--shadow-md);
+    border: 1px solid var(--color-border);
   }
   .modal__panel--wide { max-width: 820px; }
   .modal__panel--sm { max-width: 380px; }
   .modal__header {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 12px 16px; border-bottom: 1px solid var(--color-border);
+    padding: 14px 18px; border-bottom: 1px solid var(--color-border);
   }
-  .modal__header h2 { font-size: 15px; margin: 0; font-weight: 700; }
-  .modal__body { padding: 14px 16px; overflow-y: auto; flex: 1; }
+  .modal__header h2 { font-family: var(--font-display); font-size: 17px; margin: 0; font-weight: 700; }
+  .modal__body { padding: 16px 18px; overflow-y: auto; flex: 1; }
   .modal__footer {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 12px 16px; border-top: 1px solid var(--color-border); gap: 8px; flex-wrap: wrap;
-    background: #fafbfc;
+    padding: 12px 18px; border-top: 1px solid var(--color-border); gap: 8px; flex-wrap: wrap;
+    background: var(--color-surface-alt);
   }
   .modal__footerRight { display: flex; gap: 8px; margin-left: auto; }
   .statusActions { display: flex; gap: 6px; flex-wrap: wrap; }
-  .statusActions .btn--sm.is-sold { border-color: var(--color-success); color: var(--color-success); font-weight: 700; }
+  .statusActions .btn--sm.is-sold { border-color: var(--color-accent); color: var(--color-accent); font-weight: 700; }
 
-  .formGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px 12px; }
-  .formField { display: flex; flex-direction: column; gap: 3px; }
-  .formField label { font-size: 11px; color: var(--color-text-muted); font-weight: 600; }
+  .formGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px 18px; }
+  .formField { display: flex; flex-direction: column; gap: 5px; }
+  .formField label { font-size: 10.5px; color: var(--color-text-muted); font-weight: 600; letter-spacing: 0.02em; }
   .formField input, .formField select {
-    border: 1px solid var(--color-border); border-radius: var(--radius); padding: 7px 8px; font-size: 13px;
+    border: none; border-bottom: 1px solid var(--color-border-strong); border-radius: 0;
+    background: transparent; padding: 5px 2px 8px; font-size: 13px; font-family: var(--font-mono); color: var(--color-ink);
     transition: border-color 0.15s ease;
   }
+  .formField select { font-family: var(--font); }
   .formField input:focus, .formField select:focus {
-    outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(26,86,219,0.12);
+    outline: none; border-bottom-color: var(--color-accent);
   }
-  .formField.formField--required label::after { content: ' *'; color: var(--color-danger); }
-  .errorBox { background: #fef2f2; border: 1px solid #fecaca; color: var(--color-danger);
+  .formField input[readonly] { color: var(--color-text-muted); border-bottom-style: dotted; }
+  .formField.formField--required label::after { content: ' *'; color: var(--color-accent); }
+  .errorBox { background: var(--color-accent-soft); border: 1px solid var(--color-accent-soft-border); color: var(--color-accent-dark);
     border-radius: var(--radius); padding: 10px 12px; margin-bottom: 12px; font-size: 12px; white-space: pre-line;
     line-height: 1.6; }
-  .successBox { background: var(--color-success-bg); border: 1px solid #a7f3d0; color: #065f46;
+  .successBox { background: var(--color-success-bg); border: 1px solid var(--color-success); color: var(--color-success);
     border-radius: var(--radius); padding: 10px 12px; margin-bottom: 12px; font-size: 12px; }
 
-  .wizard__steps { display: flex; gap: 4px; padding: 10px 16px 0; }
-  .wizard__step { font-size: 11px; padding: 5px 12px; border-radius: 12px; background: #eef1f5; color: var(--color-text-muted); font-weight: 600; }
-  .wizard__step.is-active { background: var(--color-primary); color: #fff; }
+  .wizard__steps { display: flex; gap: 4px; padding: 10px 18px 0; }
+  .wizard__step { font-family: var(--font-mono); font-size: 10.5px; padding: 5px 12px; border-radius: 12px; background: var(--color-surface-alt); color: var(--color-text-muted); font-weight: 600; border: 1px solid var(--color-border); }
+  .wizard__step.is-active { background: var(--color-ink); border-color: var(--color-ink); color: var(--color-bg); }
   .dropzone {
-    border: 2px dashed var(--color-border); border-radius: var(--radius);
+    border: 1px dashed var(--color-border-strong); border-radius: var(--radius);
     padding: 24px; text-align: center; color: var(--color-text-muted); cursor: pointer;
     transition: border-color 0.15s ease, background 0.15s ease;
   }
-  .dropzone:hover { border-color: var(--color-primary); color: var(--color-primary); background: #f5f8ff; }
-  .dropzone.is-busy { border-color: var(--color-primary); background: #f5f8ff; cursor: wait; }
+  .dropzone:hover { border-color: var(--color-accent); color: var(--color-accent); background: var(--color-accent-soft); }
+  .dropzone.is-busy { border-color: var(--color-accent); background: var(--color-accent-soft); cursor: wait; }
 
   .spinner {
-    display: inline-block; width: 14px; height: 14px; border: 2px solid #c7d2fe;
-    border-top-color: var(--color-primary); border-radius: 50%; animation: spin 0.7s linear infinite;
+    display: inline-block; width: 14px; height: 14px; border: 2px solid var(--color-accent-soft-border);
+    border-top-color: var(--color-accent); border-radius: 50%; animation: spin 0.7s linear infinite;
     vertical-align: middle; margin-right: 6px;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
   .ocrSummary {
-    margin-top: 10px; padding: 10px 12px; background: #f5f8ff; border: 1px solid #c7d2fe;
+    margin-top: 10px; padding: 10px 12px; background: var(--color-surface-alt); border: 1px solid var(--color-border);
     border-radius: var(--radius); font-size: 12px;
   }
-  .ocrSummary__title { font-weight: 700; color: var(--color-primary); margin-bottom: 6px; }
+  .ocrSummary__title { font-weight: 700; color: var(--color-ink); margin-bottom: 6px; }
   .ocrSummary__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px 12px; }
-  .ocrSummary__item span { color: var(--color-text-muted); margin-right: 4px; }
-  .ocrSummary__empty { color: var(--color-warn); }
+  .ocrSummary__item { font-family: var(--font-mono); }
+  .ocrSummary__item span { color: var(--color-text-muted); margin-right: 4px; font-family: var(--font); }
+  .ocrSummary__empty { color: var(--color-warn); font-family: var(--font); }
 
   .toast {
     position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
-    background: #111827; color: #fff; padding: 10px 18px; border-radius: 10px; font-size: 12px; z-index: 100;
+    background: var(--color-ink); color: var(--color-bg); padding: 10px 18px; border-radius: 6px; font-size: 12px; z-index: 100;
     white-space: pre-line; max-width: min(90vw, 420px); text-align: left; line-height: 1.6;
     box-shadow: var(--shadow-md);
   }
-  .toast.is-error { background: var(--color-danger); }
-  .toast.is-success { background: var(--color-success); }
+  .toast.is-error { background: var(--color-accent); color: var(--color-accent-ink); }
+  .toast.is-success { background: var(--color-success); color: #fff; }
 
   /* ===== Responsive: tablet/phone ===== */
   @media (max-width: 860px) {
@@ -266,13 +333,13 @@
     .input--search { min-width: 0; }
     .vehicleTable thead { display: none; }
     .vehicleTable, .vehicleTable tbody, .vehicleTable tbody tr, .vehicleTable tbody td { display: block; width: 100%; }
-    .vehicleTable tbody tr { border: 1px solid var(--color-border); border-radius: 8px; margin: 8px 4px; padding: 6px; box-shadow: var(--shadow-sm); }
+    .vehicleTable tbody tr { border: 1px solid var(--color-border); border-radius: 6px; margin: 8px 4px; padding: 6px; box-shadow: var(--shadow-sm); }
     .vehicleTable tbody tr td { background: transparent !important; }
     .vehicleTable tbody td {
       white-space: normal; border-bottom: none; padding: 4px 6px;
       display: flex; justify-content: space-between; gap: 8px;
     }
-    .vehicleTable tbody td::before { content: attr(data-label); color: var(--color-text-muted); font-size: 11px; }
+    .vehicleTable tbody td::before { content: attr(data-label); color: var(--color-text-muted); font-size: 11px; font-family: var(--font); }
     .formGrid { grid-template-columns: 1fr; }
   }
 </style>
