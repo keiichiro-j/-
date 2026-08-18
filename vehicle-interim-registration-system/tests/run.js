@@ -71,7 +71,8 @@ const sandbox = {
       if (idx !== -1) fakeTriggers.splice(idx, 1);
     }
   },
-  Logger: { log: () => {} }
+  Logger: { log: () => {} },
+  SpreadsheetApp: { BorderStyle: { SOLID: 'SOLID' } }
 };
 vm.createContext(sandbox);
 
@@ -616,6 +617,62 @@ test('writeVariantBadge_は飛騨登録ONのときだけHIDA_BADGE_COLORで塗�
   assert.strictEqual(sheet.cellValue(sandbox.COMMON_CELLS.variantBadgeRow, maxCol), '飛騨');
   assert.strictEqual(sheet.cellBg(sandbox.COMMON_CELLS.variantBadgeRow, maxCol), sandbox.HIDA_BADGE_COLOR.bg);
 });
+
+console.log('== SetupService: buildTemplateSheet_ (フェイクシート、実際の生成処理を一通り流す) ==');
+
+// SetupService.gs のスタイル系メソッド(merge/setFontFamily/setBorder等)を全て no-op で
+// 受け止められる、書き込み値だけをセルごとに記録するフェイクシート。
+// 以前、buildTitleBanner_ がスタイルは設定するのに setValue を呼び忘れて
+// タイトル/発行元が空欄のまま印刷される不具合があったため、この一連の処理を
+// 実際に最後まで実行して検証できるようにしてある。
+function makeStyleableSheet() {
+  const cells = {};
+  let maxColumns = 26;
+  const chain = (extra) => Object.assign({
+    setValue(v) { extra.value = v; return this; },
+    getValue() { return extra.value; },
+    merge() { return this; },
+    setBackground() { return this; },
+    setFontColor() { return this; },
+    setFontFamily() { return this; },
+    setFontSize() { return this; },
+    setFontWeight() { return this; },
+    setHorizontalAlignment() { return this; },
+    setVerticalAlignment() { return this; },
+    setWrap() { return this; },
+    setBorder() { return this; },
+    setFormula() { return this; },
+    getNumColumns() { return extra.numColumns || 1; }
+  }, extra);
+  return {
+    clear() {},
+    getMaxColumns: () => maxColumns,
+    insertColumnsAfter: (after, count) => { maxColumns = after + count; },
+    getRange(r, c, numRows, numCols) {
+      const key = r + ',' + c;
+      if (!cells[key]) cells[key] = { value: '', numColumns: numCols || 1 };
+      return chain(cells[key]);
+    },
+    setRowHeight() {},
+    setColumnWidth() {},
+    setFrozenRows() {},
+    setHiddenGridlines() {},
+    cellValue: (r, c) => (cells[r + ',' + c] || {}).value
+  };
+}
+
+DOC_TYPE_OPTIONS_FOR_TEST().forEach((docType) => {
+  test('buildTemplateSheet_(' + docType + ')はタイトル・発行元を書き込む(例外を投げず最後まで実行できる)', () => {
+    const sheet = makeStyleableSheet();
+    sandbox.buildTemplateSheet_(sheet, docType);
+    assert.strictEqual(sheet.cellValue(sandbox.COMMON_CELLS.titleRow, 1), sandbox.DOC_TYPE_TITLES[docType]);
+    assert.strictEqual(sheet.cellValue(sandbox.COMMON_CELLS.issuerRow, 1), sandbox.ISSUER_NAME);
+  });
+});
+
+function DOC_TYPE_OPTIONS_FOR_TEST() {
+  return Array.from(sandbox.DOC_TYPE_OPTIONS);
+}
 
 test('writeVariantBadge_は飛騨登録OFFなら背景をリセットする', () => {
   const sheet = makeCellSheet();

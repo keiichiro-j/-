@@ -230,10 +230,11 @@ var FIELD_LABELS = {
 
 // 車両明細の列幅(px、SetupService.gsのテンプレート生成で使用。チェックボックス項目は
 // SetupService.gsのCHECKBOX_COL_WIDTHで別途一律の幅を設定するためここには含めない)
-// 見出し文字(折り返しあり)・データとも入りきるよう、実際の文字数より少し余裕を持たせてある。
+// 見出し・データとも折り返しで収まる最小限の幅にとどめ、A4横1枚(fitw=true)に収まる
+// ようにしてある(名義変更・抹消は登録区分のチェックボックス列数が多く、幅が最も厳しい)。
 var FIELD_WIDTHS = {
-  regNumber: 118, chassis: 90, stamp: 74, plateFee: 88, agencyFee: 88, envTax: 96, keiFee: 88,
-  remarks: 176, oldRegNumber: 118, newRegNumber: 118
+  regNumber: 100, chassis: 78, stamp: 62, plateFee: 74, agencyFee: 74, envTax: 80, keiFee: 74,
+  remarks: 150, oldRegNumber: 100, newRegNumber: 100
 };
 
 // 番号変更のみ、代行料・印紙に既定値がある(元データ: 550円 / 無料)

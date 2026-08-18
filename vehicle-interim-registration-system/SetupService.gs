@@ -22,13 +22,14 @@ var THEME = {
 
 var FONT_FAMILY = 'Roboto';
 
-// チェックボックス項目(登録区分など)の1列あたりの幅(px)。
-// 「T移転抹消」等5文字の選択肢見出しが折り返しても2行に収まる幅を確保する。
-var CHECKBOX_COL_WIDTH = 58;
+// チェックボックス項目(登録区分など)の1列あたりの幅(px)。名義変更は登録区分(7択)+
+// 記載変更・更正(2択)、抹消は登録区分(9択)と列数が多いため、A4横1枚に収まるよう
+// 「T移転抹消」等の選択肢見出しは2行に折り返す前提の最小限の幅にしてある。
+var CHECKBOX_COL_WIDTH = 42;
 
 // 明細欄1列目(番号)の幅(px)。共通項目バナーの左ラベル("送付日・送付便"等)も
 // 同じ1列目を使うため、番号だけなら十分すぎる幅だが、ラベルが折り返して収まるように広めにとる。
-var NO_COLUMN_WIDTH = 54;
+var NO_COLUMN_WIDTH = 46;
 
 /**
  * GASエディタの関数選択プルダウンからこれを選んで実行する(初回セットアップ用、1回だけでよい)。
@@ -62,7 +63,7 @@ function buildTemplateSheet_(sheet, docType) {
   var maxCol = VEHICLE_MAX_COL[docType];
   sheet.clear();
 
-  buildTitleBanner_(sheet, maxCol);
+  buildTitleBanner_(sheet, docType, maxCol);
   buildCommonFieldsBanner_(sheet, maxCol);
   buildVehicleTableHeader_(sheet, docType, columns, spans, FIELD_LABELS[docType]);
   applyVehicleDataStyle_(sheet, docType, maxCol);
@@ -94,25 +95,28 @@ function ensureColumns_(sheet, minCols) {
 }
 
 /**
- * 1行目: 依頼書タイトル。2行目: 発行元(左)+バリエーション表示(右端セル、Constants.gsの
- * COMMON_CELLS.variantBadgeRowと対応)。バリエーション表示の実際の値(飛騨/軽自動車/
- * 複合抹消/単純抹消)は申請ごとにTemplateService.gsが書き込むため、テンプレート生成時は空欄。
+ * 1行目: 依頼書タイトル(DOC_TYPE_TITLES)。2行目: 発行元(ISSUER_NAME、左)+バリエーション
+ * 表示(右端セル、Constants.gsのCOMMON_CELLS.variantBadgeRowと対応)。バリエーション表示の
+ * 実際の値(飛騨/軽自動車/複合抹消/単純抹消)は申請ごとにTemplateService.gsが書き込むため、
+ * テンプレート生成時は空欄のままにする。
  */
-function buildTitleBanner_(sheet, maxCol) {
+function buildTitleBanner_(sheet, docType, maxCol) {
   ensureColumns_(sheet, maxCol);
 
   var titleRange = sheet.getRange(COMMON_CELLS.titleRow, 1, 1, maxCol);
   titleRange.merge();
+  titleRange.setValue(DOC_TYPE_TITLES[docType]);
   titleRange.setFontFamily(FONT_FAMILY);
-  titleRange.setFontSize(15);
+  titleRange.setFontSize(14);
   titleRange.setFontWeight('bold');
   titleRange.setFontColor(THEME.ink);
   titleRange.setHorizontalAlignment('center');
   titleRange.setVerticalAlignment('middle');
-  sheet.setRowHeight(COMMON_CELLS.titleRow, 34);
+  sheet.setRowHeight(COMMON_CELLS.titleRow, 32);
 
   var issuerRange = sheet.getRange(COMMON_CELLS.issuerRow, 1, 1, Math.max(1, maxCol - 1));
   if (maxCol > 1) issuerRange.merge();
+  issuerRange.setValue(ISSUER_NAME);
   issuerRange.setFontFamily(FONT_FAMILY);
   issuerRange.setFontSize(10);
   issuerRange.setHorizontalAlignment('left');
@@ -120,12 +124,12 @@ function buildTitleBanner_(sheet, maxCol) {
 
   var badgeCell = sheet.getRange(COMMON_CELLS.variantBadgeRow, maxCol);
   badgeCell.setFontFamily(FONT_FAMILY);
-  badgeCell.setFontSize(11);
+  badgeCell.setFontSize(10);
   badgeCell.setFontWeight('bold');
   badgeCell.setHorizontalAlignment('center');
   badgeCell.setVerticalAlignment('middle');
 
-  sheet.setRowHeight(COMMON_CELLS.issuerRow, 20);
+  sheet.setRowHeight(COMMON_CELLS.issuerRow, 18);
 }
 
 /**
@@ -148,7 +152,7 @@ function buildBannerRow_(sheet, row, split, leftLabel, rightLabel) {
   sheet.getRange(row, 1, 1, lastCol)
     .setBorder(true, true, true, true, true, false, THEME.ink, SpreadsheetApp.BorderStyle.SOLID);
   // ラベル("送付日・送付便"等)は1列(NO_COLUMN_WIDTH)に収めるため折り返す。2行分の高さを確保する。
-  sheet.setRowHeight(row, 40);
+  sheet.setRowHeight(row, 32);
 }
 
 function styleLabelCell_(cell, text) {
@@ -207,9 +211,9 @@ function buildVehicleTableHeader_(sheet, docType, columns, spans, labels) {
   });
 
   // 見出しは「車台番号\n(下4桁)」のように2行の項目があり、選択肢見出しも折り返すことが
-  // あるため、どちらも2行ぶんの高さを確保する。
-  sheet.setRowHeight(COMMON_CELLS.tableHeaderRow, 42);
-  sheet.setRowHeight(COMMON_CELLS.checkboxOptionRow, 40);
+  // あるため、どちらも2行ぶんの高さを確保する(A4横1枚に収まるよう最小限の高さにとどめる)。
+  sheet.setRowHeight(COMMON_CELLS.tableHeaderRow, 34);
+  sheet.setRowHeight(COMMON_CELLS.checkboxOptionRow, 30);
 }
 
 function styleHeaderCell_(cell) {
@@ -239,8 +243,9 @@ function applyVehicleDataStyle_(sheet, docType, maxCol) {
   range.setVerticalAlignment('middle');
   range.setWrap(true); // 登録番号や備考など、列幅に対して長い文字列が入っても切れずに折り返す
 
+  // A4横1枚(fitw=true)に収まるよう、明細行の高さは最小限にとどめる(最大20行×このファミリー)。
   for (var i = 0; i < maxRows; i++) {
-    sheet.setRowHeight(COMMON_CELLS.vehicleStartRow + i, 26);
+    sheet.setRowHeight(COMMON_CELLS.vehicleStartRow + i, 21);
   }
 }
 
