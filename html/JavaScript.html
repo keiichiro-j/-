@@ -15,14 +15,35 @@
 
   var VIEW_TABS = ['すべて(在庫)', '輸入車', '国産車', '販売済'];
 
+  // ===== 3社統合ビュー（AU/C7/MB 実運用スプレッドシート横断）用の定数 =====
+  var INTEGRATED_VIEW_TABS = ['すべて', '輸入車マスタ', '国産車マスタ', '販売済み'];
+  var INTEGRATED_FILE_KEYS = ['AU', 'C7', 'MB'];
+  var INTEGRATED_LIST_COLUMNS = ['fileKey', 'sheet', 'ocn', 'make', 'model', 'vin', 'expiry', 'type', 'supplier', 'status'];
+  var INTEGRATED_LIST_LABELS = {
+    fileKey: '拠点', sheet: '区分', ocn: 'OCN', make: 'メーカー', model: 'モデル',
+    vin: '車台番号', expiry: '車検満了日', type: '仕入区分', supplier: '仕入先', status: 'ステータス'
+  };
+  var INTEGRATED_FIELDS = [
+    { key: 'make', label: 'メーカー', required: true },
+    { key: 'model', label: 'モデル', required: true },
+    { key: 'vin', label: '車台番号', required: true },
+    { key: 'expiry', label: '車検満了日', type: 'date' },
+    { key: 'type', label: '仕入区分' },
+    { key: 'supplier', label: '仕入先' },
+    { key: 'status', label: 'ステータス' }
+  ];
+
   var state = {
     boot: null,
     scope: { mode: 'single', companyId: null, tabName: null }, // tabName: 表示中のツールバータブ
     vehicles: [],
+    integratedVehicles: [],
     selectedVehicle: null,
+    selectedIntegrated: null,
     wizard: null,
     saleContext: null,
-    flashOcn: null // 直前に登録/更新した車両のOCN。一覧再描画時に該当行を一瞬ハイライトする
+    flashOcn: null, // 直前に登録/更新した車両のOCN。一覧再描画時に該当行を一瞬ハイライトする
+    flashFileKey: null // 3社統合ビューでのフラッシュ対象を拠点キーまで絞り込むため
   };
 
   // ===== 起動 =====
@@ -33,12 +54,13 @@
       state.scope.tabName = VIEW_TABS[0];
       renderScopeTabs();
       renderToolbarTabs();
+      updateToolbarForMode();
       bindGlobalEvents();
       reloadList();
     }).catch(showError);
   });
 
-  // ===== 拠点タブ（会社別 + 横断） =====
+  // ===== 拠点タブ（会社別 + 横断 + 3社統合ビュー） =====
   function renderScopeTabs() {
     var nav = document.getElementById('scopeTabs');
     nav.innerHTML = '';
@@ -49,7 +71,10 @@
       btn.onclick = function () {
         state.scope.mode = 'single';
         state.scope.companyId = c.id;
+        state.scope.tabName = VIEW_TABS[0];
         renderScopeTabs();
+        renderToolbarTabs();
+        updateToolbarForMode();
         reloadList();
       };
       nav.appendChild(btn);
@@ -59,26 +84,54 @@
     crossBtn.className = state.scope.mode === 'cross' ? 'is-active' : '';
     crossBtn.onclick = function () {
       state.scope.mode = 'cross';
+      state.scope.tabName = VIEW_TABS[0];
       renderScopeTabs();
+      renderToolbarTabs();
+      updateToolbarForMode();
       reloadList();
     };
     nav.appendChild(crossBtn);
+
+    var integratedBtn = document.createElement('button');
+    integratedBtn.textContent = '3社統合ビュー（実データ）';
+    integratedBtn.className = state.scope.mode === 'integrated' ? 'is-active' : '';
+    integratedBtn.onclick = function () {
+      state.scope.mode = 'integrated';
+      state.scope.tabName = INTEGRATED_VIEW_TABS[0];
+      renderScopeTabs();
+      renderToolbarTabs();
+      updateToolbarForMode();
+      reloadList();
+    };
+    nav.appendChild(integratedBtn);
   }
 
   function renderToolbarTabs() {
     var wrap = document.getElementById('tabNames');
     wrap.innerHTML = '';
-    VIEW_TABS.forEach(function (tab) {
+    var tabs = state.scope.mode === 'integrated' ? INTEGRATED_VIEW_TABS : VIEW_TABS;
+    tabs.forEach(function (tab) {
       var btn = document.createElement('button');
       btn.textContent = tab;
       btn.className = state.scope.tabName === tab ? 'is-active' : '';
       btn.onclick = function () {
         state.scope.tabName = tab;
         renderToolbarTabs();
-        reloadList();
+        if (state.scope.mode === 'integrated') {
+          applyIntegratedFiltersAndRender();
+        } else {
+          reloadList();
+        }
       };
       wrap.appendChild(btn);
     });
+  }
+
+  // 3社統合ビューでは PDF帳票出力／PDF同期は対象外（データモデルが異なるため非表示にする）
+  function updateToolbarForMode() {
+    var isIntegrated = state.scope.mode === 'integrated';
+    document.getElementById('btnExportPdf').classList.toggle('hidden', isIntegrated);
+    document.getElementById('btnSyncPdf').classList.toggle('hidden', isIntegrated);
   }
 
   function currentTabNames() {
@@ -88,6 +141,19 @@
 
   // ===== 一覧読み込み =====
   function reloadList() {
+    if (state.scope.mode === 'integrated') {
+      document.getElementById('dashboard').classList.add('hidden');
+      gsRun('api_listIntegratedVehicles').then(function (result) {
+        if (result.errors && result.errors.length > 0) {
+          showToast('一部データの取得に失敗しました（' + result.errors.map(function (e) { return e.fileKey; }).join(', ') + '）', 'error');
+        }
+        state.integratedVehicles = result.vehicles;
+        populateIntegratedFilterOptions(result.vehicles);
+        applyIntegratedFiltersAndRender();
+      }).catch(showError);
+      return;
+    }
+
     var tabNames = currentTabNames();
     var promise;
     if (state.scope.mode === 'cross') {
@@ -150,7 +216,132 @@
     };
   }
 
+  // ===== 3社統合ビュー：絞り込み・一覧描画・編集/新規登録モーダル =====
+  function populateIntegratedFilterOptions(vehicles) {
+    fillSelect('filterCarType', uniqueValues(vehicles, 'make'), 'メーカーすべて');
+    fillSelect('filterStaff', INTEGRATED_FILE_KEYS, '拠点すべて');
+    fillSelect('filterStatus', uniqueValues(vehicles, 'status'), 'ステータスすべて', true);
+  }
+
+  function applyIntegratedFiltersAndRender() {
+    var kw = (document.getElementById('keywordInput').value || '').trim();
+    var make = document.getElementById('filterCarType').value;
+    var fileKey = document.getElementById('filterStaff').value;
+    var status = document.getElementById('filterStatus').value;
+    var sheetFilter = state.scope.tabName;
+
+    var filtered = (state.integratedVehicles || []).filter(function (v) {
+      if (sheetFilter && sheetFilter !== 'すべて' && v.sheet !== sheetFilter) return false;
+      if (make && v.make !== make) return false;
+      if (fileKey && v.fileKey !== fileKey) return false;
+      if (status && v.status !== status) return false;
+      if (kw) {
+        var hay = [v.ocn, v.make, v.model, v.vin, v.supplier, v.fileKey].join(' ');
+        if (hay.indexOf(kw) === -1) return false;
+      }
+      return true;
+    });
+    renderIntegratedTable(filtered);
+  }
+
+  function renderIntegratedTable(vehicles) {
+    var head = document.getElementById('vehicleTableHead');
+    head.innerHTML = '<tr>' + INTEGRATED_LIST_COLUMNS.map(function (k) {
+      return '<th>' + INTEGRATED_LIST_LABELS[k] + '</th>';
+    }).join('') + '</tr>';
+
+    var body = document.getElementById('vehicleTableBody');
+    body.innerHTML = '';
+    vehicles.forEach(function (v) {
+      var tr = document.createElement('tr');
+      if (state.flashOcn && String(v.ocn) === String(state.flashOcn) && v.fileKey === state.flashFileKey) {
+        tr.classList.add('row-flash');
+      }
+      var cells = '';
+      INTEGRATED_LIST_COLUMNS.forEach(function (k) {
+        var val = k === 'status' ? '<span class="badge">' + escapeHtml(v[k] || '') + '</span>' : escapeHtml(v[k] || '');
+        cells += '<td data-label="' + INTEGRATED_LIST_LABELS[k] + '">' + val + '</td>';
+      });
+      tr.innerHTML = cells;
+      tr.onclick = function () { openIntegratedDetail(v); };
+      body.appendChild(tr);
+    });
+    state.flashOcn = null;
+
+    document.getElementById('emptyState').classList.toggle('hidden', vehicles.length > 0);
+    document.getElementById('vehicleTable').classList.toggle('hidden', vehicles.length === 0);
+  }
+
+  function buildIntegratedFormGrid(v, isNew) {
+    var html = '<div class="formGrid">';
+    if (!isNew) {
+      html += '<div class="formField"><label>OCN</label><input value="' + escapeAttr(v.ocn) + '" readonly></div>';
+      html += '<div class="formField"><label>拠点</label><input value="' + escapeAttr(v.fileKey) + '" readonly></div>';
+      html += '<div class="formField"><label>区分</label><input value="' + escapeAttr(v.sheet) + '" readonly></div>';
+    } else {
+      var fileOptions = INTEGRATED_FILE_KEYS.map(function (f) { return '<option value="' + f + '">' + f + '</option>'; }).join('');
+      var sheetOptions = ['輸入車マスタ', '国産車マスタ'].map(function (s) {
+        return '<option value="' + s + '">' + s + '</option>';
+      }).join('');
+      html += '<div class="formField formField--required"><label>拠点</label><select id="newIntegratedFileKey">' + fileOptions + '</select></div>';
+      html += '<div class="formField formField--required"><label>区分</label><select id="newIntegratedSheet">' + sheetOptions + '</select></div>';
+    }
+    INTEGRATED_FIELDS.forEach(function (f) {
+      var val = v[f.key] != null ? v[f.key] : '';
+      html += '<div class="formField' + (f.required ? ' formField--required' : '') + '">';
+      html += '<label>' + f.label + '</label>';
+      html += '<input data-key="' + f.key + '" type="' + (f.type === 'date' ? 'date' : 'text') + '" value="' + escapeAttr(val) + '">';
+      html += '</div>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  function openIntegratedDetail(v) {
+    state.selectedIntegrated = v;
+    document.getElementById('integratedError').innerHTML = '';
+    document.getElementById('integratedModalTitle').textContent = 'OCN ' + v.ocn + ' 車両詳細（3社統合ビュー）';
+    document.getElementById('integratedBody').innerHTML = buildIntegratedFormGrid(v, false);
+    document.getElementById('integratedModal').classList.remove('hidden');
+  }
+
+  function openIntegratedNew() {
+    state.selectedIntegrated = null;
+    document.getElementById('integratedError').innerHTML = '';
+    document.getElementById('integratedModalTitle').textContent = '新規車両登録（3社統合ビュー）';
+    document.getElementById('integratedBody').innerHTML = buildIntegratedFormGrid({}, true);
+    document.getElementById('integratedModal').classList.remove('hidden');
+  }
+
+  document.getElementById('btnSaveIntegrated').addEventListener('click', function () {
+    var body = document.getElementById('integratedBody');
+    var patch = collectFormValues(body);
+    var errBox = document.getElementById('integratedError');
+    errBox.innerHTML = '';
+    var payload;
+    if (state.selectedIntegrated) {
+      payload = Object.assign({}, state.selectedIntegrated, patch);
+    } else {
+      var fileKeyEl = document.getElementById('newIntegratedFileKey');
+      var sheetEl = document.getElementById('newIntegratedSheet');
+      payload = Object.assign({ fileKey: fileKeyEl.value, sheet: sheetEl.value }, patch);
+    }
+    gsRun('api_saveIntegratedVehicle', payload).then(function (res) {
+      showToast('保存しました（OCN ' + res.ocn + '）', 'success');
+      document.getElementById('integratedModal').classList.add('hidden');
+      state.flashOcn = res.ocn;
+      state.flashFileKey = payload.fileKey;
+      reloadList();
+    }).catch(function (err) {
+      errBox.innerHTML = '<div class="errorBox">' + escapeHtml(err.message || String(err)) + '</div>';
+    });
+  });
+
   function applyFiltersAndRender() {
+    if (state.scope.mode === 'integrated') {
+      applyIntegratedFiltersAndRender();
+      return;
+    }
     // クライアント側で軽量フィルタ（サーバー側 searchVehicles と同一ロジックの簡易版）
     var f = currentFilters();
     var kw = (f.keyword || '').trim();
@@ -568,7 +759,10 @@
 
   // ===== 共通イベント =====
   function bindGlobalEvents() {
-    document.getElementById('btnNewVehicle').addEventListener('click', openWizard);
+    document.getElementById('btnNewVehicle').addEventListener('click', function () {
+      if (state.scope.mode === 'integrated') { openIntegratedNew(); return; }
+      openWizard();
+    });
     document.querySelectorAll('[data-close-modal]').forEach(function (el) {
       el.addEventListener('click', closeModals);
     });
@@ -581,6 +775,7 @@
   function closeModals() {
     document.getElementById('detailModal').classList.add('hidden');
     document.getElementById('registerModal').classList.add('hidden');
+    document.getElementById('integratedModal').classList.add('hidden');
   }
 
   // ===== ユーティリティ =====

@@ -173,3 +173,12 @@ function buildReportTitle_(scope) {
 function api_syncPdfLinksNow(companyId) {
   return companyId ? syncInspectionCertLinks(companyId) : syncInspectionCertLinksAllCompanies();
 }
+
+// ===== 3社統合ビュー（AU/C7/MB 実運用スプレッドシート横断） =====
+function api_listIntegratedVehicles() {
+  return listIntegratedVehicles();
+}
+
+function api_saveIntegratedVehicle(data) {
+  return saveIntegratedVehicle(data);
+}

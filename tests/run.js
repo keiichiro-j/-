@@ -21,7 +21,8 @@ const FILES = [
   'PdfLinkService.gs',
   'AppraisalExtractionService.gs',
   'SearchService.gs',
-  'OcrService.gs'
+  'OcrService.gs',
+  'IntegratedViewService.gs'
 ];
 
 FILES.forEach((file) => {
@@ -111,6 +112,34 @@ test('登録番号の結合表記（スペース無し）でヒット', () => as
 test('登録番号の結合表記（スペース有り）でヒット', () => assert.strictEqual(sandbox.matchesRegistrationNumber(sampleVehicle, '岐阜 301 は 2000'), true));
 test('登録番号の一部分（分類番号のみ）でもヒット', () => assert.strictEqual(sandbox.matchesRegistrationNumber(sampleVehicle, '301'), true));
 test('無関係な文字列はヒットしない', () => assert.strictEqual(sandbox.matchesKeyword(sampleVehicle, '横浜'), false));
+
+console.log('== IntegratedViewService: integratedColMap_ / integratedRequiredFieldErrors_ ==');
+test('輸入車マスタの列マップ（メーカー・車台番号・ステータス位置）', () => {
+  const col = sandbox.integratedColMap_('輸入車マスタ');
+  assert.strictEqual(col.ocn, 2);
+  assert.strictEqual(col.vin, 5);
+  assert.strictEqual(col.expiry, 7);
+  assert.strictEqual(col.status, 20);
+});
+test('販売済みシートは車台番号・車検満了日・ステータスの列位置がずれる', () => {
+  const col = sandbox.integratedColMap_('販売済み');
+  assert.strictEqual(col.vin, 6);
+  assert.strictEqual(col.expiry, 8);
+  assert.strictEqual(col.status, 18);
+  assert.strictEqual(col.ocn, 2); // OCN・メーカー・モデル等は共通位置
+});
+test('未対応のシート種別は例外', () => {
+  assert.throws(() => sandbox.integratedColMap_('不明シート'));
+});
+test('必須項目（メーカー・モデル・車台番号）が揃っていればエラーなし', () => {
+  const errors = sandbox.integratedRequiredFieldErrors_({ make: 'トヨタ', model: 'プリウス', vin: 'ZVW30-1234567' });
+  assert.strictEqual(errors.length, 0);
+});
+test('車台番号が空ならエラー', () => {
+  const errors = sandbox.integratedRequiredFieldErrors_({ make: 'トヨタ', model: 'プリウス', vin: '' });
+  assert.strictEqual(errors.length, 1);
+  assert.ok(errors[0].indexOf('車台番号') !== -1);
+});
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 if (fail > 0) process.exit(1);
