@@ -158,6 +158,13 @@ test('手数料が負の数ならエラー', () => {
   }));
   assert.ok(errors.some((e) => e.includes('印紙')));
 });
+test('登録区分は元データ通り「払出」「先方」も選択できる(7択)', () => {
+  const formData = baseFormData('transfer', {
+    items: [{ regNumber: '1234', chassis: '5678', transferClass: '払出' }]
+  });
+  assert.strictEqual(sandbox.validateFormData_(formData).length, 0);
+  assert.deepStrictEqual(Array.from(sandbox.TRANSFER_CLASS_OPTIONS), ['T移転', 'W移転', '移転', '変更', '選択', '払出', '先方']);
+});
 test('登録番号が空の行は無視される(未入力行はエラー対象外)', () => {
   const formData = baseFormData('transfer', {
     items: [
@@ -211,6 +218,47 @@ test('getActiveItems_はplateChangeのときoldRegNumberキーで判定する', 
 test('toNonNegativeInt_は空欄なら空文字を返す(0ではない)', () => {
   assert.strictEqual(sandbox.toNonNegativeInt_(''), '');
   assert.strictEqual(sandbox.toNonNegativeInt_('1500'), 1500);
+});
+
+console.log('== Constants: buildVehicleColumnLayout_ / bannerSplit_ (印刷レイアウト) ==');
+test('チェックボックス項目は選択肢の数だけ列を使う(certificate: 登録区分3択)', () => {
+  const columns = sandbox.VEHICLE_COLUMNS.certificate;
+  const spans = sandbox.FIELD_SPANS.certificate;
+  // regNumber(1列) → regClass(3列) → remarks(1列)
+  assert.strictEqual(columns.regNumber, 2);
+  assert.strictEqual(columns.regClass, 3);
+  assert.strictEqual(spans.regClass, 3);
+  assert.strictEqual(columns.remarks, 6);
+  assert.strictEqual(sandbox.VEHICLE_MAX_COL.certificate, 6);
+});
+test('チェックボックス項目は選択肢の数だけ列を使う(transfer: 登録区分7択+記載変更・更正2択)', () => {
+  const columns = sandbox.VEHICLE_COLUMNS.transfer;
+  const spans = sandbox.FIELD_SPANS.transfer;
+  assert.strictEqual(spans.transferClass, 7);
+  assert.strictEqual(spans.correction, 2);
+  assert.strictEqual(columns.correction, columns.transferClass + 7);
+  assert.strictEqual(columns.stamp, columns.correction + 2);
+});
+test('チェックボックスを持たないファミリー(番号変更)は列を追加しない', () => {
+  const columns = sandbox.VEHICLE_COLUMNS.plateChange;
+  assert.strictEqual(columns.oldRegNumber, 2);
+  assert.strictEqual(columns.chassis, 3);
+  assert.strictEqual(columns.newRegNumber, 4);
+  assert.strictEqual(columns.agencyFee, 5);
+  assert.strictEqual(columns.stamp, 6);
+  assert.strictEqual(sandbox.VEHICLE_MAX_COL.plateChange, 6);
+});
+test('bannerSplit_は左右をできるだけ均等に割り付ける(狭い明細欄でも1列以上を確保する)', () => {
+  const split = sandbox.bannerSplit_(6);
+  assert.strictEqual(split.leftValueCol, 2);
+  assert.ok(split.leftValueSpan >= 1);
+  assert.ok(split.rightLabelCol > split.leftValueCol);
+  assert.strictEqual(split.rightValueCol + split.rightValueSpan - 1, 6);
+});
+test('bannerSplit_は明細欄が広いファミリーでも右端に収まる', () => {
+  const maxCol = sandbox.VEHICLE_MAX_COL.transfer;
+  const split = sandbox.bannerSplit_(maxCol);
+  assert.strictEqual(split.rightValueCol + split.rightValueSpan - 1, maxCol);
 });
 
 console.log('== HistoryService: resolveHistoryTabName_ ==');
@@ -528,9 +576,42 @@ test('writeItemRows_(transfer)は手数料欄を数値として書き込む', ()
   assert.strictEqual(sheet.cellValue(row, columns.plateFee), '');
 });
 
+test('writeItemRows_(transfer)は登録区分をチェックボックス形式で書く(選択した列だけ〇)', () => {
+  const sheet = makeCellSheet();
+  sandbox.writeItemRows_(sheet, 'transfer', [{ regNumber: '1234', chassis: '5678', transferClass: '払出' }]);
+  const columns = sandbox.VEHICLE_COLUMNS.transfer;
+  const row = sandbox.COMMON_CELLS.vehicleStartRow;
+  const optionIndex = sandbox.TRANSFER_CLASS_OPTIONS.indexOf('払出');
+  sandbox.TRANSFER_CLASS_OPTIONS.forEach((opt, i) => {
+    const expected = i === optionIndex ? sandbox.CHECKBOX_MARK : '';
+    assert.strictEqual(sheet.cellValue(row, columns.transferClass + i), expected, opt + '列');
+  });
+});
+
+test('writeItemRows_(cancellation)は登録区分・記載変更どちらも未選択なら全列が空欄', () => {
+  const sheet = makeCellSheet();
+  sandbox.writeItemRows_(sheet, 'cancellation', [{ regNumber: '1234', chassis: '5678', cancelClass: '' }]);
+  const columns = sandbox.VEHICLE_COLUMNS.cancellation;
+  const row = sandbox.COMMON_CELLS.vehicleStartRow;
+  sandbox.CANCELLATION_CLASS_OPTIONS.forEach((opt, i) => {
+    assert.strictEqual(sheet.cellValue(row, columns.cancelClass + i), '');
+  });
+});
+
+test('writeCommonFields_は送付日・送付便を1つの欄にまとめて印字する', () => {
+  const sheet = makeCellSheet();
+  const formData = { sendDate: '2026-08-20', sendBatch: '第２便', regDate: '2026-08-25', company: '岐阜ヤナセ株式会社', manager: '戸田', hidaRegistration: false, isKei: false };
+  sandbox.writeCommonFields_(sheet, 'transfer', formData);
+  const split = sandbox.bannerSplit_(sandbox.VEHICLE_MAX_COL.transfer);
+  assert.strictEqual(sheet.cellValue(sandbox.COMMON_CELLS.sendRow, split.leftValueCol), '2026年08月20日　第２便');
+  assert.strictEqual(sheet.cellValue(sandbox.COMMON_CELLS.sendRow, split.rightValueCol), '岐阜ヤナセ株式会社');
+  assert.strictEqual(sheet.cellValue(sandbox.COMMON_CELLS.regRow, split.leftValueCol), '2026年08月25日');
+  assert.strictEqual(sheet.cellValue(sandbox.COMMON_CELLS.regRow, split.rightValueCol), '戸田');
+});
+
 test('writeVariantBadge_は飛騨登録ONのときだけHIDA_BADGE_COLORで塗る', () => {
   const sheet = makeCellSheet();
-  const maxCol = sandbox.maxColumnOf_(sandbox.VEHICLE_COLUMNS.transfer);
+  const maxCol = sandbox.maxColumnOf_('transfer');
   sandbox.writeVariantBadge_(sheet, 'transfer', { hidaRegistration: true, isKei: false }, maxCol);
   assert.strictEqual(sheet.cellValue(sandbox.COMMON_CELLS.variantBadgeRow, maxCol), '飛騨');
   assert.strictEqual(sheet.cellBg(sandbox.COMMON_CELLS.variantBadgeRow, maxCol), sandbox.HIDA_BADGE_COLOR.bg);
@@ -538,7 +619,7 @@ test('writeVariantBadge_は飛騨登録ONのときだけHIDA_BADGE_COLORで塗�
 
 test('writeVariantBadge_は飛騨登録OFFなら背景をリセットする', () => {
   const sheet = makeCellSheet();
-  const maxCol = sandbox.maxColumnOf_(sandbox.VEHICLE_COLUMNS.transfer);
+  const maxCol = sandbox.maxColumnOf_('transfer');
   sandbox.writeVariantBadge_(sheet, 'transfer', { hidaRegistration: false, isKei: true }, maxCol);
   assert.strictEqual(sheet.cellValue(sandbox.COMMON_CELLS.variantBadgeRow, maxCol), '軽自動車');
   assert.strictEqual(sheet.cellBg(sandbox.COMMON_CELLS.variantBadgeRow, maxCol), null);

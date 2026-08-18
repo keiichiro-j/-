@@ -4,12 +4,14 @@
  * 逆算して4ファミリー分の雛形シートを自動生成する。GASエディタから
  * setupTemplateSheets() を一度だけ手動実行する。
  *
- * 生成されるのはあくまで「動作する最低限のレイアウト」。罫線の太さ・結合セル・
- * 印刷範囲などは、生成後に見た目を見ながら手で調整してよい(Constants.gs の
- * セル位置さえ変えなければ、処理には影響しない)。
+ * 生成されるのはあくまで「動作する最低限のレイアウト」。罫線の太さや微調整などは、
+ * 生成後に見た目を見ながら手で調整してよい(Constants.gs のセル位置さえ変えなければ、
+ * 処理には影響しない)。
  *
- * 4ファミリーとも「ラベル(A列)+値(B列〜最終列を結合)」の縦積み共通項目バナーで統一しており、
- * 幅が異なる(登録証明4列〜名義変更11列)テンプレート間でもレイアウトが崩れない。
+ * 元の中間登録書類送付書(Numbersファイル)の構成にできるだけ近づけてあり、
+ * ・登録区分などは選択肢の数だけ列を用意するチェックボックス形式(該当列に〇を印字)
+ * ・「送付日・送付便」と「依頼会社名」、「登録日」と「担当者名」を横並び1行にまとめる
+ * という2点を再現している(buildVehicleColumnLayout_ / bannerSplit_ は Constants.gs 参照)。
  */
 
 var THEME = {
@@ -19,6 +21,9 @@ var THEME = {
 };
 
 var FONT_FAMILY = 'Roboto';
+
+// チェックボックス項目(登録区分など)の1列あたりの幅(px)。文字項目より狭くしてよい。
+var CHECKBOX_COL_WIDTH = 46;
 
 /**
  * GASエディタの関数選択プルダウンからこれを選んで実行する(初回セットアップ用、1回だけでよい)。
@@ -48,14 +53,15 @@ function getOrCreateSheetForSetup_(ss, name) {
 
 function buildTemplateSheet_(sheet, docType) {
   var columns = VEHICLE_COLUMNS[docType];
-  var maxCol = maxColumnOf_(columns);
+  var spans = FIELD_SPANS[docType];
+  var maxCol = VEHICLE_MAX_COL[docType];
   sheet.clear();
 
   buildTitleBanner_(sheet, maxCol);
   buildCommonFieldsBanner_(sheet, maxCol);
-  buildVehicleTableHeader_(sheet, columns, FIELD_LABELS[docType]);
-  applyVehicleDataStyle_(sheet, columns, docType);
-  applyFieldWidths_(sheet, columns);
+  buildVehicleTableHeader_(sheet, docType, columns, spans, FIELD_LABELS[docType]);
+  applyVehicleDataStyle_(sheet, docType, maxCol);
+  applyFieldWidths_(sheet, docType);
 
   if (HAS_TOTAL_ROW[docType]) {
     buildTotalRow_(sheet, columns, maxCol, docType);
@@ -65,8 +71,11 @@ function buildTemplateSheet_(sheet, docType) {
   finishSheetStyle_(sheet, maxCol, docType);
 }
 
-function maxColumnOf_(columns) {
-  return Math.max.apply(null, Object.keys(columns).map(function (k) { return columns[k]; }));
+/**
+ * ファミリーの明細欄の最終列を返す(Constants.gs の VEHICLE_MAX_COL を引くだけの薄いラッパー)。
+ */
+function maxColumnOf_(docType) {
+  return VEHICLE_MAX_COL[docType];
 }
 
 /**
@@ -115,56 +124,82 @@ function buildTitleBanner_(sheet, maxCol) {
 }
 
 /**
- * 送付日・送付便・登録日・依頼会社名・担当者名。ラベル(A列)+値(B列〜最終列を結合)の
- * 縦積みで統一する(名義変更11列/登録証明4列など幅が違っても崩れないようにするため)。
+ * 送付日・送付便+依頼会社名、登録日+担当者名。元データと同じく、それぞれ横並びで
+ * 同じ行にまとめる(bannerSplit_ で明細欄の幅に応じて左右の割り付け列を計算する)。
  */
 function buildCommonFieldsBanner_(sheet, maxCol) {
-  buildLabelValueRow_(sheet, COMMON_CELLS.sendDateRow, maxCol, '送付日');
-  buildLabelValueRow_(sheet, COMMON_CELLS.sendBatchRow, maxCol, '送付便');
-  buildLabelValueRow_(sheet, COMMON_CELLS.regDateRow, maxCol, '登録日');
-  buildLabelValueRow_(sheet, COMMON_CELLS.companyRow, maxCol, '依頼会社名');
-  buildLabelValueRow_(sheet, COMMON_CELLS.managerRow, maxCol, '担当者名');
+  var split = bannerSplit_(maxCol);
+  buildBannerRow_(sheet, COMMON_CELLS.sendRow, split, '送付日・送付便', '依頼会社名');
+  buildBannerRow_(sheet, COMMON_CELLS.regRow, split, '登録日', '担当者名');
 }
 
-function buildLabelValueRow_(sheet, row, maxCol, labelText) {
-  var labelCell = sheet.getRange(row, 1);
-  labelCell.setValue(labelText);
-  labelCell.setBackground(THEME.headerFill);
-  labelCell.setFontFamily(FONT_FAMILY);
-  labelCell.setFontSize(11);
-  labelCell.setFontWeight('bold');
-  labelCell.setFontColor(THEME.ink);
-  labelCell.setHorizontalAlignment('center');
-  labelCell.setVerticalAlignment('middle');
+function buildBannerRow_(sheet, row, split, leftLabel, rightLabel) {
+  styleLabelCell_(sheet.getRange(row, 1), leftLabel);
+  styleValueRange_(sheet.getRange(row, split.leftValueCol, 1, split.leftValueSpan));
+  styleLabelCell_(sheet.getRange(row, split.rightLabelCol), rightLabel);
+  styleValueRange_(sheet.getRange(row, split.rightValueCol, 1, split.rightValueSpan));
 
-  var valueRange = sheet.getRange(row, 2, 1, Math.max(1, maxCol - 1));
-  if (maxCol > 1) valueRange.merge();
-  valueRange.setFontFamily(FONT_FAMILY);
-  valueRange.setFontSize(12);
-  valueRange.setFontColor(THEME.ink);
-  valueRange.setHorizontalAlignment('left');
-  valueRange.setVerticalAlignment('middle');
-
-  sheet.getRange(row, 1, 1, maxCol)
+  var lastCol = split.rightValueCol + split.rightValueSpan - 1;
+  sheet.getRange(row, 1, 1, lastCol)
     .setBorder(true, true, true, true, true, false, THEME.ink, SpreadsheetApp.BorderStyle.SOLID);
   sheet.setRowHeight(row, 22);
 }
 
+function styleLabelCell_(cell, text) {
+  cell.setValue(text);
+  cell.setBackground(THEME.headerFill);
+  cell.setFontFamily(FONT_FAMILY);
+  cell.setFontSize(11);
+  cell.setFontWeight('bold');
+  cell.setFontColor(THEME.ink);
+  cell.setHorizontalAlignment('center');
+  cell.setVerticalAlignment('middle');
+}
+
+function styleValueRange_(range) {
+  if (range.getNumColumns() > 1) range.merge();
+  range.setFontFamily(FONT_FAMILY);
+  range.setFontSize(12);
+  range.setFontColor(THEME.ink);
+  range.setHorizontalAlignment('left');
+  range.setVerticalAlignment('middle');
+}
+
 /**
- * 車両(明細)欄の見出し行。1列目は全ファミリー共通で「番号」(連番、TemplateService.gsが
- * 申請ごとに書き込む)。
+ * 車両(明細)欄の見出し。1列目は全ファミリー共通で「番号」(連番、TemplateService.gsが
+ * 申請ごとに書き込む。見出し行2行ぶんを縦結合)。チェックボックス項目(登録区分など)は
+ * 見出し行にグループ名(例: 登録区分)を横結合で表示し、その下の行に選択肢を1列ずつ並べる。
+ * それ以外の項目は見出し行2行ぶんを縦結合して1つの見出しにする。
  */
-function buildVehicleTableHeader_(sheet, columns, labels) {
+function buildVehicleTableHeader_(sheet, docType, columns, spans, labels) {
   var noCell = sheet.getRange(COMMON_CELLS.tableHeaderRow, 1);
   noCell.setValue('番号');
   styleHeaderCell_(noCell);
+  sheet.getRange(COMMON_CELLS.tableHeaderRow, 1, 2, 1).merge();
 
-  Object.keys(columns).forEach(function (key) {
-    var cell = sheet.getRange(COMMON_CELLS.tableHeaderRow, columns[key]);
-    cell.setValue(labels[key] || key);
-    styleHeaderCell_(cell);
+  FIELD_ORDER[docType].forEach(function (key) {
+    var span = spans[key];
+    var startCol = columns[key];
+    var options = CHECKBOX_OPTIONS[key];
+
+    var headerCell = sheet.getRange(COMMON_CELLS.tableHeaderRow, startCol, 1, span);
+    if (span > 1) headerCell.merge();
+    headerCell.setValue(labels[key] || key);
+    styleHeaderCell_(headerCell);
+
+    if (options) {
+      options.forEach(function (opt, i) {
+        var optCell = sheet.getRange(COMMON_CELLS.checkboxOptionRow, startCol + i);
+        optCell.setValue(opt);
+        styleHeaderCell_(optCell);
+      });
+    } else {
+      sheet.getRange(COMMON_CELLS.tableHeaderRow, startCol, 2, 1).merge();
+    }
   });
-  sheet.setRowHeight(COMMON_CELLS.tableHeaderRow, 40);
+
+  sheet.setRowHeight(COMMON_CELLS.tableHeaderRow, 26);
+  sheet.setRowHeight(COMMON_CELLS.checkboxOptionRow, 30);
 }
 
 function styleHeaderCell_(cell) {
@@ -184,8 +219,7 @@ function styleHeaderCell_(cell) {
  * 「番号」列は空欄のままにしておき(TemplateService.gsが申請ごとに書き込む)、
  * 未使用行を空のまま複製しても不自然な連番が印字されないようにする。
  */
-function applyVehicleDataStyle_(sheet, columns, docType) {
-  var maxCol = maxColumnOf_(columns);
+function applyVehicleDataStyle_(sheet, docType, maxCol) {
   var maxRows = MAX_ROWS[docType];
   var range = sheet.getRange(COMMON_CELLS.vehicleStartRow, 1, maxRows, maxCol);
   range.setFontColor(THEME.ink);
@@ -199,10 +233,20 @@ function applyVehicleDataStyle_(sheet, columns, docType) {
   }
 }
 
-function applyFieldWidths_(sheet, columns) {
+function applyFieldWidths_(sheet, docType) {
   sheet.setColumnWidth(1, 40); // 番号列
-  Object.keys(columns).forEach(function (key) {
-    sheet.setColumnWidth(columns[key], FIELD_WIDTHS[key] || 80);
+  var columns = VEHICLE_COLUMNS[docType];
+  var spans = FIELD_SPANS[docType];
+  FIELD_ORDER[docType].forEach(function (key) {
+    var startCol = columns[key];
+    var span = spans[key];
+    if (CHECKBOX_OPTIONS[key]) {
+      for (var i = 0; i < span; i++) {
+        sheet.setColumnWidth(startCol + i, CHECKBOX_COL_WIDTH);
+      }
+    } else {
+      sheet.setColumnWidth(startCol, FIELD_WIDTHS[key] || 80);
+    }
   });
 }
 
@@ -273,8 +317,8 @@ function buildNotesFooter_(sheet, docType, maxCol) {
 
 /**
  * フォント統一・見出し行の固定・罫線など、シート全体の仕上げ。
- * 罫線は「明細の表」として一体になっている見出し行〜最終データ行(合計行があればそこまで)
- * にだけ格子状に引く。
+ * 罫線は「明細の表」として一体になっている見出し行(2行ぶん)〜最終データ行(合計行があれば
+ * そこまで)にだけ格子状に引く。見出しは2行ぶん(項目名+チェックボックス選択肢)を固定する。
  */
 function finishSheetStyle_(sheet, maxCol, docType) {
   var lastRow = HAS_TOTAL_ROW[docType]
@@ -287,7 +331,7 @@ function finishSheetStyle_(sheet, maxCol, docType) {
   sheet.getRange(COMMON_CELLS.tableHeaderRow, 1, tableRows, maxCol)
     .setBorder(true, true, true, true, true, true, THEME.ink, SpreadsheetApp.BorderStyle.SOLID);
 
-  sheet.setFrozenRows(COMMON_CELLS.tableHeaderRow);
+  sheet.setFrozenRows(COMMON_CELLS.checkboxOptionRow);
   sheet.setHiddenGridlines(true);
 }
 

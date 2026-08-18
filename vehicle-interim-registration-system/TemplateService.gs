@@ -20,15 +20,18 @@ function duplicateTemplateSheet_(ss, docType, submissionId) {
 
 /**
  * 共通項目(送付日・送付便・登録日・依頼会社名・担当者名・バリエーション表示)を書き込む。
+ * 元データと同じく、送付日と送付便は1つの欄にまとめて印字する(例: "2026年08月20日　第２便")。
  */
 function writeCommonFields_(sheet, docType, formData) {
-  var maxCol = maxColumnOf_(VEHICLE_COLUMNS[docType]);
+  var maxCol = VEHICLE_MAX_COL[docType];
+  var split = bannerSplit_(maxCol);
 
-  sheet.getRange(COMMON_CELLS.sendDateRow, 2).setValue(formatDateJp_(formData.sendDate));
-  sheet.getRange(COMMON_CELLS.sendBatchRow, 2).setValue(formData.sendBatch);
-  sheet.getRange(COMMON_CELLS.regDateRow, 2).setValue(formatDateJp_(formData.regDate));
-  sheet.getRange(COMMON_CELLS.companyRow, 2).setValue(formData.company);
-  sheet.getRange(COMMON_CELLS.managerRow, 2).setValue(formData.manager);
+  var sendValue = formatDateJp_(formData.sendDate) + (formData.sendBatch ? '　' + formData.sendBatch : '');
+  sheet.getRange(COMMON_CELLS.sendRow, split.leftValueCol).setValue(sendValue);
+  sheet.getRange(COMMON_CELLS.sendRow, split.rightValueCol).setValue(formData.company);
+
+  sheet.getRange(COMMON_CELLS.regRow, split.leftValueCol).setValue(formatDateJp_(formData.regDate));
+  sheet.getRange(COMMON_CELLS.regRow, split.rightValueCol).setValue(formData.manager);
 
   writeVariantBadge_(sheet, docType, formData, maxCol);
 }
@@ -68,21 +71,29 @@ function writeVariantBadge_(sheet, docType, formData, maxCol) {
 /**
  * 明細行(1台/1件ぶん)を書き込む。番号列(1列目)はここで連番を書く
  * (テンプレート側は空欄のままにしてあるため、未使用行に不自然な番号が印字されない)。
+ * 登録区分などのチェックボックス項目は、選択された選択肢の列にだけ CHECKBOX_MARK(〇)を書く
+ * (元データの「該当する欄に〇を記入する」形式を再現する)。
  */
 function writeItemRows_(sheet, docType, items) {
   var columns = VEHICLE_COLUMNS[docType];
+  var order = FIELD_ORDER[docType];
+  var numericKeys = NUMERIC_FIELD_KEYS[docType] || [];
+
   items.forEach(function (item, i) {
     var row = COMMON_CELLS.vehicleStartRow + i;
     sheet.getRange(row, 1).setValue(i + 1);
-    Object.keys(columns).forEach(function (key) {
-      var value = item[key];
-      if (key === 'stamp' || key === 'plateFee' || key === 'agencyFee' || (key === 'envTax') || key === 'keiFee') {
-        if (docType !== DOC_TYPE_PLATE_CHANGE) {
-          sheet.getRange(row, columns[key]).setValue(toNonNegativeInt_(value));
-          return;
-        }
+
+    order.forEach(function (key) {
+      var options = CHECKBOX_OPTIONS[key];
+      if (options) {
+        writeCheckboxField_(sheet, row, columns[key], options, item[key]);
+        return;
       }
-      sheet.getRange(row, columns[key]).setValue(value || '');
+      if (docType !== DOC_TYPE_PLATE_CHANGE && numericKeys.indexOf(key) !== -1) {
+        sheet.getRange(row, columns[key]).setValue(toNonNegativeInt_(item[key]));
+        return;
+      }
+      sheet.getRange(row, columns[key]).setValue(item[key] || '');
     });
   });
 
@@ -98,6 +109,16 @@ function writeItemRows_(sheet, docType, items) {
       }
     });
   }
+}
+
+/**
+ * 選択肢(options)のうち selectedValue に一致する列だけ CHECKBOX_MARK を書き、
+ * それ以外の列は空欄にする(未使用行を複製しても前回値が残らないようにするため)。
+ */
+function writeCheckboxField_(sheet, row, startCol, options, selectedValue) {
+  options.forEach(function (opt, i) {
+    sheet.getRange(row, startCol + i).setValue(opt === selectedValue ? CHECKBOX_MARK : '');
+  });
 }
 
 /**
