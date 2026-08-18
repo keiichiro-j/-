@@ -1,0 +1,2442 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+  :root {
+    color-scheme: light;
+
+    /* ---------- Design tokens: "Editorial Monochrome"(新車新規登録依頼書 発行システムと共通) ---------- */
+    --bg: #FFFFFF;
+    --surface: #FFFFFF;
+    --surface-alt: #F4F4F5;
+
+    --ink: #1A1A1A;
+    --ink-soft: #55565B;
+    --muted: #8B8C92;
+
+    --accent: #1A56DB;
+    --accent-dark: #123F9E;
+    --accent-soft: #EAF1FE;
+
+    --success: #22A06B;
+    --success-soft: #E7F6EF;
+    --warning: #B5790A;
+    --warning-soft: #FBF2DF;
+    --warning-ink: #7A5B12;
+    --shu: #D0342C;
+    --shu-soft: #FCEAEA;
+
+    --line: #E3E4E7;
+    --line-soft: #EFEFF1;
+
+    --r-xs: 4px;
+    --r-sm: 6px;
+    --r-md: 8px;
+    --r-lg: 10px;
+    --r-pill: 999px;
+
+    --ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+    --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+    --shadow-md: 0 4px 16px rgba(16, 24, 40, 0.08);
+
+    --solid-bg: #1A1A1A;
+    --solid-bg-hover: #000000;
+    --solid-ink: #FFFFFF;
+    --solid-ripple: rgba(255, 255, 255, 0.35);
+  }
+
+  /* ---------- ダークテーマ(設定画面から切り替え。html/JavaScript.htmlのapplyTheme_参照) ---------- */
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #121214;
+    --surface: #1C1C1F;
+    --surface-alt: #242427;
+    --ink: #F2F2F3;
+    --ink-soft: #B4B5BA;
+    --muted: #797A80;
+    --accent: #5B8DF7;
+    --accent-dark: #82ABFA;
+    --accent-soft: rgba(91, 141, 247, 0.18);
+    --success: #34C98C;
+    --success-soft: rgba(52, 201, 140, 0.16);
+    --warning: #E3AC4C;
+    --warning-soft: rgba(227, 172, 76, 0.16);
+    --warning-ink: #FFD98A;
+    --shu: #F17272;
+    --shu-soft: rgba(241, 114, 114, 0.16);
+    --line: #303034;
+    --line-soft: #28282B;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
+
+    --solid-bg: #F2F2F3;
+    --solid-bg-hover: #FFFFFF;
+    --solid-ink: #121214;
+    --solid-ripple: rgba(0, 0, 0, 0.18);
+  }
+
+  /* 「自動」選択時(data-theme属性なし)は端末のダークモード設定に従う */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) {
+      color-scheme: dark;
+      --bg: #121214;
+      --surface: #1C1C1F;
+      --surface-alt: #242427;
+      --ink: #F2F2F3;
+      --ink-soft: #B4B5BA;
+      --muted: #797A80;
+      --accent: #5B8DF7;
+      --accent-dark: #82ABFA;
+      --accent-soft: rgba(91, 141, 247, 0.18);
+      --success: #34C98C;
+      --success-soft: rgba(52, 201, 140, 0.16);
+      --warning: #E3AC4C;
+      --warning-soft: rgba(227, 172, 76, 0.16);
+      --warning-ink: #FFD98A;
+      --shu: #F17272;
+      --shu-soft: rgba(241, 114, 114, 0.16);
+      --line: #303034;
+      --line-soft: #28282B;
+
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+      --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
+
+      --solid-bg: #F2F2F3;
+      --solid-bg-hover: #FFFFFF;
+      --solid-ink: #121214;
+      --solid-ripple: rgba(0, 0, 0, 0.18);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+
+  ::selection { background: var(--accent-soft); color: var(--ink); }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Inter", "Noto Sans JP", -apple-system, BlinkMacSystemFont, "Hiragino Sans",
+      "Hiragino Kaku Gothic ProN", "Yu Gothic Medium", "Yu Gothic", "Meiryo", sans-serif;
+    line-height: 1.7;
+    font-feature-settings: "tnum" 1;
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  img { max-width: 100%; height: auto; }
+
+  /* ---------- 起動画面(ローディング画面) ---------- */
+
+  .loadingOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    padding: 24px;
+    background: var(--bg);
+    transition: opacity 0.4s var(--ease), visibility 0.4s var(--ease);
+  }
+  .loadingOverlay.is-hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .loadingOverlay__spinner {
+    display: block;
+    width: 34px;
+    height: 34px;
+    border: 3px solid var(--line);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  .loadingOverlay__text {
+    margin: 0;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .loadingOverlay { transition: none; }
+    .loadingOverlay__spinner { animation: none; }
+  }
+
+  /* ---------- masthead ---------- */
+
+  .masthead {
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+  .masthead__inner { max-width: 1120px; margin: 0 auto; padding: 34px 24px; }
+  .masthead__row { display: flex; align-items: center; gap: 22px; }
+  .masthead__logo { flex: none; height: 48px; width: auto; max-width: 180px; object-fit: contain; border-radius: var(--r-xs); }
+  .masthead__text { flex: 1; min-width: 0; }
+  @media (max-width: 700px) {
+    .masthead__logo { height: 36px; max-width: 120px; }
+  }
+
+  .eyebrow {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 10px;
+  }
+  h1 {
+    font-size: clamp(19px, 4.6vw, 25px);
+    font-weight: 800;
+    color: var(--ink);
+    margin: 0 0 12px;
+    letter-spacing: -0.01em;
+    overflow-wrap: break-word;
+  }
+  h1::after {
+    content: "";
+    display: block;
+    width: 44px;
+    height: 3px;
+    background: var(--ink);
+    margin-top: 12px;
+  }
+  .lead {
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 13.5px;
+    overflow-wrap: break-word;
+  }
+
+  /* ---------- layout ---------- */
+
+  .page {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 0 24px 88px;
+  }
+
+  .is-hidden { display: none !important; }
+
+  /* ---------- 常時アクティビティ表示バー ---------- */
+
+  .statusBar {
+    position: sticky;
+    top: 10px;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    padding: 9px 10px 9px 18px;
+    margin: 20px 0;
+    font-size: 12px;
+    color: var(--ink-soft);
+    box-shadow: var(--shadow-sm);
+    min-width: 0;
+  }
+  .statusBar__item { display: inline-flex; align-items: center; gap: 6px; overflow-wrap: anywhere; }
+  .statusBar__item strong { color: var(--ink); font-weight: 700; }
+  .statusBar__sep { color: var(--line); }
+  .liveDot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--success);
+    flex: none;
+    animation: liveDotPulse 2s infinite;
+  }
+  @keyframes liveDotPulse {
+    0% { box-shadow: 0 0 0 0 rgba(34, 160, 107, 0.5); }
+    70% { box-shadow: 0 0 0 6px rgba(34, 160, 107, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(34, 160, 107, 0); }
+  }
+  @media (max-width: 700px) {
+    .statusBar { font-size: 11px; padding: 8px 8px 8px 14px; }
+  }
+
+  /* ---------- 画面切り替え(申請 / 履歴確認 / 送付書PDF / 設定) ---------- */
+
+  .viewSwitch {
+    display: flex;
+    flex-wrap: wrap;
+    border-bottom: 2px solid var(--ink);
+    gap: 2px;
+    margin-bottom: 24px;
+  }
+  .viewSwitchBtn {
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    background: transparent;
+    border: none;
+    border-radius: var(--r-sm) var(--r-sm) 0 0;
+    padding: 11px 22px;
+    cursor: pointer;
+    transition: background-color 0.15s var(--ease), color 0.15s var(--ease);
+  }
+  .viewSwitchBtn:hover:not(.is-active) { color: var(--ink); background: var(--surface-alt); }
+  .viewSwitchBtn.is-active {
+    background: var(--solid-bg);
+    color: var(--solid-ink);
+  }
+  .viewSwitchBtn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+  @media (max-width: 560px) {
+    .viewSwitchBtn { padding: 10px 14px; font-size: 12px; }
+  }
+
+  /* ---------- ベントグリッド ---------- */
+
+  .bento {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+  .bento > .card { margin-bottom: 0; }
+  .bento--span-12 { grid-column: span 12; }
+  .bento--span-8 { grid-column: span 8; }
+  .bento--span-6 { grid-column: span 6; }
+  .bento--span-4 { grid-column: span 4; }
+  @media (max-width: 860px) {
+    .bento > * { grid-column: span 12 !important; }
+  }
+
+  /* ---------- カード ---------- */
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-sm);
+    padding: 32px;
+    margin-bottom: 20px;
+    position: relative;
+    min-width: 0;
+    transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+  }
+  .card:hover {
+    border-color: var(--muted);
+    box-shadow: var(--shadow-md);
+  }
+
+  .card__head { margin-bottom: 22px; }
+  .card__head--split { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .card__head h2 {
+    display: inline-block;
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin: 0 0 8px;
+    padding-bottom: 8px;
+    color: var(--ink);
+    border-bottom: 2px solid var(--ink);
+  }
+  .muted { color: var(--ink-soft); font-size: 12px; margin: 0; overflow-wrap: break-word; }
+
+  .badge {
+    flex: none;
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink);
+    background: var(--surface-alt);
+    border: 1px solid var(--line);
+    padding: 4px 12px;
+    border-radius: var(--r-pill);
+    white-space: nowrap;
+  }
+
+  /* ---------- アクティビティカード(申請画面のベントレイアウト右側) ---------- */
+
+  .activityCard { display: flex; flex-direction: column; gap: 16px; height: 100%; }
+  .activityCard__row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .activityCard__label { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+  .activityCard__value { font-size: 28px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .activityCard__latest { font-size: 12.5px; color: var(--ink-soft); line-height: 1.6; padding-top: 8px; border-top: 1px dashed var(--line); overflow-wrap: anywhere; }
+  .activityCard__foot { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--success); font-weight: 700; margin-top: auto; }
+
+  .fieldRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 4px;
+  }
+  .field { flex: 1; min-width: 200px; }
+  .field label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .field .req { color: var(--shu); font-weight: 700; font-size: 10px; letter-spacing: 0; text-transform: none; }
+
+  /* ---------- セグメントコントロール(書類種別・抹消区分選択) ---------- */
+
+  .segmented {
+    display: inline-flex;
+    flex-wrap: wrap;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    padding: 4px;
+    gap: 2px;
+    width: 100%;
+  }
+  .segBtn {
+    flex: 1;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    background: transparent;
+    border: none;
+    border-radius: var(--r-sm);
+    padding: 9px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.15s var(--ease), color 0.15s var(--ease);
+  }
+  .segBtn:hover:not(.is-active) { color: var(--ink); background: var(--surface-alt); }
+  .segBtn.is-active {
+    background: var(--solid-bg);
+    color: var(--solid-ink);
+    font-weight: 700;
+  }
+  .segBtn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+
+  /* ---------- 入力欄 ---------- */
+
+  input, select {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 13.5px;
+    font-family: inherit;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+  }
+  input::placeholder { color: var(--muted); opacity: 1; }
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  input.is-invalid, select.is-invalid {
+    border-color: var(--shu);
+    box-shadow: 0 0 0 3px var(--shu-soft);
+  }
+
+  /* ---------- 飛騨登録トグルボタン ---------- */
+
+  .toggleBtn {
+    width: 100%;
+    padding: 10px 12px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: background-color 0.15s var(--ease), border-color 0.15s var(--ease), color 0.15s var(--ease);
+  }
+  .toggleBtn:hover { border-color: var(--muted); color: var(--ink); }
+  .toggleBtn.is-active {
+    background: var(--warning-soft);
+    border-color: var(--warning);
+    color: var(--warning-ink);
+  }
+
+  /* ---------- ON/OFFスイッチ(自動メール送信) ---------- */
+
+  .switchRow { display: flex; align-items: center; gap: 12px; }
+  .switch {
+    flex: none;
+    width: 44px;
+    height: 26px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+  }
+  .switch:disabled { cursor: not-allowed; opacity: 0.6; }
+  .switch__track {
+    display: block;
+    width: 44px;
+    height: 26px;
+    border-radius: var(--r-pill);
+    background: var(--line);
+    border: 1px solid var(--line);
+    position: relative;
+    transition: background-color 0.15s var(--ease), border-color 0.15s var(--ease);
+  }
+  .switch__knob {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--surface);
+    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.25);
+    transition: transform 0.15s var(--ease);
+  }
+  .switch.is-active .switch__track { background: var(--success); border-color: var(--success); }
+  .switch.is-active .switch__knob { transform: translateX(18px); }
+  .switch:focus-visible .switch__track { box-shadow: 0 0 0 3px var(--accent-soft); }
+
+  .switchRow__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .switchRow__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+  .switchRow__label.is-on { color: var(--success); }
+  .switchRow__label.is-on .switchRow__dot { background: var(--success); }
+  .switchRow__label.is-off { color: var(--ink-soft); }
+  .switchRow__label.is-off .switchRow__dot { background: var(--muted); }
+
+  /* ---------- チェックボックス付きラベル(軽自動車・登録日未定を含める等) ---------- */
+
+  .filterCheck {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .filterCheck input { width: auto; accent-color: var(--accent); cursor: pointer; }
+
+  /* ---------- 明細テーブル ---------- */
+
+  .tableScroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    position: relative;
+  }
+  table { width: 100%; border-collapse: collapse; min-width: 640px; }
+  th, td {
+    padding: 10px 6px;
+    text-align: center;
+    font-size: 12.5px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  thead th {
+    background: var(--surface-alt);
+    color: var(--ink-soft);
+    font-weight: 600;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: pre-line;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    box-shadow: inset 0 -1px 0 var(--line);
+  }
+  tbody tr { transition: background-color 0.12s var(--ease); }
+  tbody tr:hover td { background: var(--surface-alt); }
+  td input, td select {
+    padding: 6px;
+    font-size: 12.5px;
+    text-align: center;
+    border: 1px solid transparent;
+    border-radius: var(--r-xs);
+    min-width: 76px;
+  }
+  td input:focus, td select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  td.is-numericCell input { text-align: right; }
+  .colNo { width: 28px; color: var(--muted); }
+  .colDel { width: 32px; }
+  .cell-no { color: var(--muted); }
+
+  .tableScroll.has-overflow-right { box-shadow: inset -14px 0 10px -10px rgba(16, 24, 40, 0.14); }
+
+  /* ---------- 履歴確認: フィルターツールバー ---------- */
+
+  .filterBar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 18px;
+    background: var(--surface-alt);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    padding: 18px 20px;
+    margin-bottom: 20px;
+  }
+  .filterGroup { display: flex; flex-direction: column; gap: 7px; }
+  .filterGroup--grow { flex: 1; min-width: 180px; }
+  .filterGroup__label {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .filterGroup__row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .filterGroup__row input[type="date"] { width: 150px; max-width: 100%; background: var(--surface); }
+  .filterBar__sep { color: var(--muted); font-size: 12px; }
+  .filterBar select { background: var(--surface); }
+  .filterBar .filterCheck { padding-bottom: 11px; }
+  .filterBar__submit { flex: none; padding: 10px 26px; }
+
+  /* ---------- 履歴確認テーブル ---------- */
+
+  .tableScroll--history { max-height: 560px; overflow-y: auto; }
+  #historyTable { min-width: 1700px; }
+  #historyTable .numCol { text-align: right; }
+  #historyTable td { color: var(--ink); }
+  #historyTable tbody tr:nth-child(even) td { background: var(--surface-alt); }
+  #historyTable tbody tr:hover td { background: var(--line-soft); }
+  .historyEmptyMsg { text-align: center; padding: 20px 0 4px; }
+
+  #historyTable tbody tr.is-cancelled td { color: var(--muted); text-decoration: line-through; }
+  #historyTable tbody tr.is-cancelled td a.pdfLink { text-decoration: line-through; }
+
+  .pdfLink {
+    color: var(--accent);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .pdfLink:hover { text-decoration: underline; }
+
+  .btn--sm { padding: 6px 14px; font-size: 12px; }
+
+  @media (max-width: 700px) {
+    .filterBar { flex-direction: column; align-items: stretch; }
+    .filterBar__submit { width: 100%; }
+  }
+
+  .btnRemoveRow {
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-size: 16px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 4px;
+    transition: color 0.15s var(--ease);
+  }
+  .btnRemoveRow:hover { color: var(--shu); }
+
+  /* ---------- ボタン ---------- */
+
+  .btn {
+    position: relative;
+    overflow: hidden;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    padding: 11px 22px;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    transition: background-color 0.15s var(--ease), border-color 0.15s var(--ease), box-shadow 0.15s var(--ease), transform 0.1s var(--ease);
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+  .btn--ghost {
+    background: var(--surface);
+    border: 1px solid var(--ink);
+    color: var(--ink);
+  }
+  .btn--ghost:hover { background: var(--surface-alt); }
+
+  .btn--primary {
+    background: var(--solid-bg);
+    color: var(--solid-ink);
+    padding: 14px 24px;
+    font-size: 14px;
+    font-weight: 700;
+    border: 1px solid var(--solid-bg);
+    box-shadow: var(--shadow-sm);
+  }
+  .btn--primary:hover { background: var(--solid-bg-hover); border-color: var(--solid-bg-hover); }
+  .btn--primary:disabled {
+    background: var(--surface-alt);
+    color: var(--muted);
+    border-color: var(--line);
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+
+  .ripple {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.12);
+    transform: scale(0);
+    animation: rippleAnim 0.6s var(--ease);
+    pointer-events: none;
+  }
+  .btn--primary .ripple { background: var(--solid-ripple); }
+  @keyframes rippleAnim {
+    to { transform: scale(2.6); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ripple { display: none; }
+  }
+
+  .submitBar { margin-top: 4px; }
+  .submitBar__row { display: flex; gap: 12px; }
+  .submitBar__row .btn--primary { flex: 1; }
+  .submitBar__row .btn--ghost { flex: none; padding: 14px 24px; }
+  .result {
+    margin-top: 16px;
+    font-size: 13px;
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+  .result.-pending, .result.-success, .result.-error {
+    padding: 10px 14px;
+    border-radius: var(--r-sm);
+    font-weight: 700;
+  }
+  .result.-pending { color: var(--accent); background: var(--accent-soft); }
+  .result.-success { color: var(--success); background: var(--success-soft); }
+  .result.-error { color: var(--shu); background: var(--shu-soft); white-space: pre-line; }
+  .result a { color: var(--accent); }
+
+  /* ---------- 処理中インジケーター ---------- */
+
+  .spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    margin-right: 8px;
+    vertical-align: -2px;
+    border: 2px solid var(--accent-soft);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---------- PDFプレビュー ---------- */
+
+  .pdfPreviewPane {
+    margin-top: 18px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    background: var(--surface-alt);
+  }
+  .pdfPreviewPane__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+  }
+  .pdfPreviewFrame {
+    display: block;
+    width: 100%;
+    height: 70vh;
+    min-height: 420px;
+    border: none;
+    background: var(--surface);
+  }
+
+  /* ---------- 送付書PDF画面: 申請単位の一覧 ---------- */
+
+  .pdfList { display: flex; flex-direction: column; gap: 10px; margin-bottom: 4px; }
+  .pdfRow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    background: var(--surface-alt);
+    transition: border-color 0.15s var(--ease);
+  }
+  .pdfRow:hover { border-color: var(--muted); }
+  .pdfRow.is-cancelled { opacity: 0.6; }
+  .pdfRow__main { display: flex; flex-direction: column; gap: 4px; min-width: 220px; flex: 1; }
+  .pdfRow__company { font-size: 14px; font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
+  .pdfRow__meta { font-size: 12px; color: var(--ink-soft); overflow-wrap: anywhere; }
+  .pdfRow__items { font-size: 12px; color: var(--ink-soft); overflow-wrap: anywhere; }
+  .pdfRow__cancelled { color: var(--shu); font-weight: 700; }
+  .pdfRow__actions { display: flex; flex-wrap: wrap; gap: 8px; flex: none; }
+
+  /* ---------- 設定画面: ロゴ画像プレビュー ---------- */
+
+  .logoPreview {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 4px 0 18px;
+    padding: 12px 14px;
+    border: 1px dashed var(--line);
+    border-radius: var(--r-sm);
+    background: var(--surface-alt);
+    min-height: 56px;
+  }
+  .logoPreview__img { height: 48px; width: auto; max-width: 220px; object-fit: contain; border-radius: var(--r-xs); }
+
+  /* ---------- 送付書PDF画面: メール送信 ---------- */
+
+  .mailRecipients { margin: 4px 0 18px; }
+  .mailRecipients__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(200px, 1fr));
+    gap: 12px;
+    margin-top: 8px;
+  }
+  .mailSendBtn { width: 100%; }
+
+  @media (max-width: 700px) {
+    .masthead__inner { padding: 24px; }
+    .page { padding: 0 16px 64px; }
+    .card { padding: 20px; }
+    .submitBar__row { flex-direction: column-reverse; }
+    .submitBar__row .btn--ghost { width: 100%; }
+    .pdfRow { flex-direction: column; align-items: stretch; }
+    .pdfRow__actions { width: 100%; }
+    .pdfRow__actions .btn { flex: 1; text-align: center; }
+    .pdfPreviewFrame { height: 60vh; min-height: 320px; }
+    .mailRecipients__grid { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 400px) {
+    .masthead__inner { padding: 18px 16px; }
+    .page { padding: 0 12px 56px; }
+    .card { padding: 16px; }
+  }
+</style>
+
+</head>
+<body>
+  <div id="loadingOverlay" class="loadingOverlay">
+    <span class="loadingOverlay__spinner" aria-hidden="true"></span>
+    <p class="loadingOverlay__text">Now Loading</p>
+  </div>
+
+  <header class="masthead">
+    <div class="masthead__inner">
+      <div class="masthead__row">
+        <img id="mastheadLogo" class="masthead__logo is-hidden" alt="ロゴ" onerror="this.classList.add('is-hidden')">
+        <div class="masthead__text">
+          <p class="eyebrow">Interim Registration Request</p>
+          <h1>中間登録書類送付書 発行システム</h1>
+          <p class="lead">登録証明・名義変更・抹消・番号変更の依頼内容を入力すると、履歴に記録した上でPDFを発行します。</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="page">
+    <div class="statusBar" id="statusBar">
+      <span class="statusBar__item"><span class="liveDot" aria-hidden="true"></span>本日の送付 <strong id="statusTodayCount">-</strong> 件</span>
+      <span class="statusBar__sep">・</span>
+      <span class="statusBar__item" id="statusLatest">最新の状況を取得しています…</span>
+    </div>
+
+    <nav class="viewSwitch" role="tablist" aria-label="画面切り替え">
+      <button type="button" class="viewSwitchBtn is-active" id="navForm" role="tab" aria-selected="true">申請</button>
+      <button type="button" class="viewSwitchBtn" id="navHistory" role="tab" aria-selected="false">履歴確認</button>
+      <button type="button" class="viewSwitchBtn" id="navPdf" role="tab" aria-selected="false">送付書PDF</button>
+      <button type="button" class="viewSwitchBtn" id="navSettings" role="tab" aria-selected="false">設定</button>
+    </nav>
+
+    <div id="viewForm">
+    <form id="mainForm" novalidate>
+      <div class="bento">
+        <section class="card bento--span-8">
+          <div class="card__head">
+            <h2>基本情報</h2>
+            <p class="muted">依頼の基本情報を入力してください。</p>
+          </div>
+
+          <div class="field" style="margin-bottom:16px">
+            <label>書類種別</label>
+            <div class="segmented" role="tablist" aria-label="書類種別" id="docTypeSeg">
+              <button type="button" class="segBtn is-active" data-doc-type="certificate" role="tab" aria-selected="true">登録証明・その他</button>
+              <button type="button" class="segBtn" data-doc-type="transfer" role="tab" aria-selected="false">名義変更</button>
+              <button type="button" class="segBtn" data-doc-type="cancellation" role="tab" aria-selected="false">抹消</button>
+              <button type="button" class="segBtn" data-doc-type="plateChange" role="tab" aria-selected="false">番号変更</button>
+            </div>
+            <input type="hidden" id="docType" value="certificate">
+          </div>
+
+          <div class="fieldRow">
+            <div class="field">
+              <label for="company">依頼会社名 <span class="req">必須</span></label>
+              <input type="text" id="company" list="dl-companies" autocomplete="off" required>
+              <datalist id="dl-companies"></datalist>
+            </div>
+            <div class="field">
+              <label for="manager">担当者名 <span class="req">必須</span></label>
+              <input type="text" id="manager" list="dl-managers" autocomplete="off" required>
+              <datalist id="dl-managers"></datalist>
+            </div>
+          </div>
+
+          <div class="fieldRow">
+            <div class="field">
+              <label for="sendDate">送付日 <span class="req">必須</span></label>
+              <input type="date" id="sendDate" required>
+            </div>
+            <div class="field">
+              <label for="sendBatch">送付便 <span class="req">必須</span></label>
+              <select id="sendBatch" required>
+                <option value="">選択してください</option>
+                <option value="第１便">第１便</option>
+                <option value="第２便">第２便</option>
+                <option value="第３便">第３便</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="regDate">登録日 <span class="req">必須</span></label>
+              <input type="date" id="regDate" required>
+            </div>
+          </div>
+
+          <div class="fieldRow" id="variantTransfer">
+            <div class="field">
+              <label>&nbsp;</label>
+              <button type="button" id="hidaToggle" class="toggleBtn" aria-pressed="false">飛騨登録：対象外</button>
+            </div>
+            <div class="field">
+              <label>&nbsp;</label>
+              <label class="filterCheck"><input type="checkbox" id="isKeiTransfer"><span>軽自動車</span></label>
+            </div>
+          </div>
+
+          <div class="fieldRow" id="variantCancellation">
+            <div class="field" style="min-width:220px">
+              <label>抹消区分</label>
+              <div class="segmented" role="tablist" aria-label="抹消区分" id="cancelKindSeg">
+                <button type="button" class="segBtn is-active" data-cancel-kind="compound" role="tab" aria-selected="true">複合抹消</button>
+                <button type="button" class="segBtn" data-cancel-kind="simple" role="tab" aria-selected="false">単純抹消</button>
+              </div>
+              <input type="hidden" id="cancelKind" value="compound">
+            </div>
+            <div class="field">
+              <label>&nbsp;</label>
+              <label class="filterCheck"><input type="checkbox" id="isKeiCancellation"><span>軽自動車</span></label>
+            </div>
+          </div>
+        </section>
+
+        <section class="card bento--span-4" id="activityCard">
+          <div class="activityCard">
+            <div class="activityCard__row">
+              <span class="activityCard__label">本日の送付件数</span>
+              <span class="activityCard__value" id="activityTodayCount">0</span>
+            </div>
+            <div class="activityCard__latest" id="activityLatest">最新の状況を取得しています…</div>
+            <div class="activityCard__foot"><span class="liveDot" aria-hidden="true"></span>システム稼働中</div>
+          </div>
+        </section>
+      </div>
+
+      <section class="card">
+        <div class="card__head card__head--split">
+          <div>
+            <h2 id="itemTableTitle">明細データ</h2>
+            <p class="muted" id="itemTableHint">1行につき1件。登録番号が未入力の行は無視されます。</p>
+          </div>
+          <span class="badge" id="itemCountBadge">0 件</span>
+        </div>
+
+        <div class="tableScroll">
+          <table id="itemTable">
+            <thead id="itemTableHead"></thead>
+            <tbody id="itemTableBody"></tbody>
+          </table>
+        </div>
+
+        <button type="button" id="btnAddRow" class="btn btn--ghost">＋ 行を追加</button>
+      </section>
+
+      <div class="submitBar">
+        <div class="submitBar__row">
+          <button type="button" id="btnClear" class="btn btn--ghost">クリア</button>
+          <button type="submit" id="btnSubmit" class="btn btn--primary">登録してPDFを発行する</button>
+        </div>
+        <div id="result" class="result" role="status" aria-live="polite">
+          <span id="submitSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+          <span id="resultText"></span>
+        </div>
+        <div id="resultPdfPreview" class="pdfPreviewPane is-hidden">
+          <div class="pdfPreviewPane__head">
+            <span class="muted">発行されたPDFのプレビュー</span>
+            <button type="button" class="btn btn--ghost btn--sm" id="btnCloseResultPreview">閉じる</button>
+          </div>
+          <iframe id="resultPdfPreviewFrame" class="pdfPreviewFrame" title="発行されたPDFのプレビュー"></iframe>
+        </div>
+      </div>
+    </form>
+    </div>
+
+    <div id="viewHistory" class="is-hidden">
+      <section class="card">
+        <div class="card__head card__head--split">
+          <div>
+            <h2>申請履歴</h2>
+            <p class="muted">期間・依頼会社名で絞り込んで、登録済みの依頼履歴を確認できます。誤入力があった申請は「取消」できます。</p>
+          </div>
+          <span class="badge" id="historyCountBadge">0 件</span>
+        </div>
+
+        <div class="filterBar">
+          <div class="filterGroup">
+            <label class="filterGroup__label">期間（登録日）</label>
+            <div class="filterGroup__row">
+              <input type="date" id="historyFrom" aria-label="開始日">
+              <span class="filterBar__sep">〜</span>
+              <input type="date" id="historyTo" aria-label="終了日">
+            </div>
+          </div>
+
+          <div class="filterGroup filterGroup--grow">
+            <label class="filterGroup__label" for="historySearch">依頼会社名で検索</label>
+            <input type="text" id="historySearch" autocomplete="off">
+          </div>
+
+          <label class="filterCheck">
+            <input type="checkbox" id="historyIncludePending">
+            <span>登録日未定も含める</span>
+          </label>
+
+          <button type="button" id="btnHistoryRefresh" class="btn btn--ghost filterBar__submit">検索</button>
+        </div>
+
+        <div class="tableScroll tableScroll--history">
+          <table id="historyTable">
+            <thead><tr id="historyTableHead"></tr></thead>
+            <tbody id="historyTableBody"></tbody>
+          </table>
+        </div>
+        <p class="muted historyEmptyMsg" id="historyEmptyMsg">この期間の履歴データはまだありません。</p>
+      </section>
+    </div>
+
+    <div id="viewPdf" class="is-hidden">
+      <section class="card">
+        <div class="card__head card__head--split">
+          <div>
+            <h2>送付書PDF</h2>
+            <p class="muted">送付日・送付便を指定して、その便でまとめて発行した送付書PDFを申請単位で確認できます。</p>
+          </div>
+          <span class="badge" id="pdfCountBadge">0 件</span>
+        </div>
+
+        <div class="filterBar">
+          <div class="filterGroup">
+            <label class="filterGroup__label">期間（送付日）</label>
+            <div class="filterGroup__row">
+              <input type="date" id="pdfFrom" aria-label="開始日">
+              <span class="filterBar__sep">〜</span>
+              <input type="date" id="pdfTo" aria-label="終了日">
+            </div>
+          </div>
+          <div class="filterGroup">
+            <label class="filterGroup__label" for="pdfSendBatch">送付便</label>
+            <select id="pdfSendBatch">
+              <option value="">すべて</option>
+              <option value="第１便">第１便</option>
+              <option value="第２便">第２便</option>
+              <option value="第３便">第３便</option>
+            </select>
+          </div>
+          <div class="filterGroup filterGroup--grow">
+            <label class="filterGroup__label" for="pdfSearch">依頼会社名で検索</label>
+            <input type="text" id="pdfSearch" autocomplete="off">
+          </div>
+          <button type="button" id="btnPdfRefresh" class="btn btn--ghost filterBar__submit">検索</button>
+        </div>
+
+        <div id="pdfList" class="pdfList"></div>
+        <p class="muted historyEmptyMsg" id="pdfEmptyMsg">期間を指定して検索してください。</p>
+      </section>
+
+      <section class="card" id="mailCard">
+        <div class="card__head card__head--split">
+          <div>
+            <h2>送付書PDFをメール送信</h2>
+            <p class="muted">指定した送付日に発行された第１便〜第３便の送付書PDF（取消済みを除く）をまとめて、設定済みの宛先へメール送信します。</p>
+          </div>
+          <button type="button" id="btnGoMailSettings" class="btn btn--ghost btn--sm">宛先を設定で確認・変更</button>
+        </div>
+
+        <div class="fieldRow">
+          <div class="field" style="max-width:220px">
+            <label for="mailSendDate">送付日 <span class="req">必須</span></label>
+            <input type="date" id="mailSendDate">
+          </div>
+        </div>
+
+        <button type="button" id="btnSendMail" class="btn btn--primary mailSendBtn">この日の送付書PDFをメール送信する</button>
+        <div id="mailResult" class="result" role="status" aria-live="polite">
+          <span id="mailSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+          <span id="mailResultText"></span>
+        </div>
+      </section>
+
+      <div class="pdfPreviewPane is-hidden" id="pdfPreviewPane">
+        <div class="pdfPreviewPane__head">
+          <span id="pdfPreviewTitle" class="muted"></span>
+          <button type="button" class="btn btn--ghost btn--sm" id="btnClosePdfPreview">閉じる</button>
+        </div>
+        <iframe id="pdfPreviewFrame" class="pdfPreviewFrame" title="PDFプレビュー"></iframe>
+      </div>
+    </div>
+
+    <div id="viewSettings" class="is-hidden">
+      <div class="bento">
+        <section class="card bento--span-6">
+          <div class="card__head">
+            <h2>メール送信先</h2>
+            <p class="muted">「送付書PDF」画面でメール送信する際の宛先です（最大4件・1件以上必須）。ここで保存した内容が送信時に使用されます。</p>
+          </div>
+
+          <div class="mailRecipients">
+            <div class="mailRecipients__grid">
+              <input type="email" class="mailRecipientInput" id="mailTo1" placeholder="宛先1（例: you@example.com）" autocomplete="off">
+              <input type="email" class="mailRecipientInput" id="mailTo2" placeholder="宛先2" autocomplete="off">
+              <input type="email" class="mailRecipientInput" id="mailTo3" placeholder="宛先3" autocomplete="off">
+              <input type="email" class="mailRecipientInput" id="mailTo4" placeholder="宛先4" autocomplete="off">
+            </div>
+          </div>
+
+          <button type="button" id="btnSaveMailRecipients" class="btn btn--primary">宛先を保存する</button>
+          <div id="mailSettingsResult" class="result" role="status" aria-live="polite">
+            <span id="mailSettingsSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+            <span id="mailSettingsResultText"></span>
+          </div>
+        </section>
+
+        <section class="card bento--span-6">
+          <div class="card__head">
+            <h2>自動メール送信</h2>
+            <p class="muted">毎日17時台に、その日が送付日の送付書PDFを上の宛先へ自動でメール送信します。</p>
+          </div>
+          <div class="switchRow">
+            <button type="button" id="autoMailToggle" class="switch" role="switch" aria-checked="false">
+              <span class="switch__track"><span class="switch__knob"></span></span>
+            </button>
+            <span class="switchRow__label is-off" id="autoMailStatusLabel">
+              <span class="switchRow__dot"></span>
+              <span id="autoMailStatusText">OFF（自動送信は停止中）</span>
+            </span>
+          </div>
+          <div id="autoMailResult" class="result" role="status" aria-live="polite">
+            <span id="autoMailSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+            <span id="autoMailResultText"></span>
+          </div>
+        </section>
+
+        <section class="card bento--span-6">
+          <div class="card__head">
+            <h2>申請フォームの既定値</h2>
+            <p class="muted">よく使う依頼会社名・担当者名を登録しておくと、申請フォームを開いたときに自動で入力されます（空欄の項目は自動入力しません）。</p>
+          </div>
+
+          <div class="fieldRow">
+            <div class="field">
+              <label for="defaultCompany">依頼会社名</label>
+              <input type="text" id="defaultCompany" autocomplete="off">
+            </div>
+            <div class="field">
+              <label for="defaultManager">担当者名</label>
+              <input type="text" id="defaultManager" autocomplete="off">
+            </div>
+          </div>
+
+          <button type="button" id="btnSaveDefaults" class="btn btn--primary">既定値を保存する</button>
+          <div id="defaultsResult" class="result" role="status" aria-live="polite">
+            <span id="defaultsSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+            <span id="defaultsResultText"></span>
+          </div>
+        </section>
+
+        <section class="card bento--span-6">
+          <div class="card__head">
+            <h2>テーマ</h2>
+            <p class="muted">画面の配色を選べます。「自動」を選ぶとお使いの端末の設定に従います。</p>
+          </div>
+
+          <div class="field">
+            <label>配色モード</label>
+            <div class="segmented" role="tablist" aria-label="テーマ設定">
+              <button type="button" class="segBtn" id="themeLight" role="tab" data-theme-value="light">ライト</button>
+              <button type="button" class="segBtn" id="themeDark" role="tab" data-theme-value="dark">ダーク</button>
+              <button type="button" class="segBtn" id="themeSystem" role="tab" data-theme-value="system">自動</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card bento--span-12">
+          <div class="card__head">
+            <h2>ロゴ画像</h2>
+            <p class="muted">
+              ヘッダーに表示するロゴ画像のURLを設定できます。Googleドライブに画像をアップロードし、共有設定を「リンクを知っている全員」に変更した上で、共有リンクのURL（例: https://drive.google.com/file/d/.../view?usp=... の形式）をそのまま貼り付けてください。表示用の形式に自動で変換されます。空欄のまま保存すると、ロゴを表示しない状態に戻せます。
+            </p>
+          </div>
+
+          <div class="field">
+            <label for="logoUrlInput">ロゴ画像URL</label>
+            <input type="url" id="logoUrlInput" placeholder="https://..." autocomplete="off">
+          </div>
+
+          <div class="logoPreview" id="logoPreviewWrap">
+            <img id="logoPreviewImg" class="logoPreview__img is-hidden" alt="プレビュー" onerror="this.classList.add('is-hidden')">
+            <span class="muted" id="logoPreviewEmpty">プレビュー: 画像URLを入力すると表示されます</span>
+          </div>
+
+          <button type="button" id="btnSaveLogo" class="btn btn--primary">ロゴを保存する</button>
+          <div id="logoResult" class="result" role="status" aria-live="polite">
+            <span id="logoSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+            <span id="logoResultText"></span>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  
+<script>
+  // ---- Stub google.script.run for standalone browser preview ----
+  (function () {
+    function mockData(name, args) {
+      switch (name) {
+        case 'getSuggestions':
+          return { companies: ['サンプル運送株式会社', 'テスト商会'], managers: ['山田太郎', '鈴木花子'] };
+        case 'getHistoryEntriesByDateRange':
+          return { header: ['submissionId', '登録日', '依頼会社名', '担当者名', '状態', '送付書PDF'], rows: [] };
+        case 'getPdfsBySendDate':
+          return [];
+        case 'getMailRecipients':
+          return [];
+        case 'getDailyMailTriggerStatus':
+          return false;
+        case 'getDefaultFormValues':
+          return { company: '', manager: '' };
+        case 'getActivitySnapshot':
+          return { todayCount: 0, latestCompany: '', latestSentAt: '' };
+        case 'getLogoUrl':
+          return '';
+        case 'cancelSubmission':
+          return {};
+        case 'sendPdfsByEmail':
+          return { sentCount: 0, recipientCount: 0 };
+        case 'saveMailRecipients':
+          return { recipientCount: 0 };
+        case 'setDailyMailTriggerEnabled':
+          return !!(args && args[0]);
+        case 'saveDefaultFormValues':
+          return {};
+        case 'saveLogoUrl':
+          return (args && args[0]) || '';
+        case 'processFormData':
+          return 'https://example.com/mock.pdf';
+        default:
+          return {};
+      }
+    }
+
+    function makeRunner(successHandler, failureHandler) {
+      var handler = {};
+      var proxy = new Proxy(handler, {
+        get: function (target, prop) {
+          if (prop === 'withSuccessHandler') {
+            return function (fn) { return makeRunner(fn, failureHandler); };
+          }
+          if (prop === 'withFailureHandler') {
+            return function (fn) { return makeRunner(successHandler, fn); };
+          }
+          if (prop === 'withUserObject') {
+            return function () { return proxy; };
+          }
+          // Any other property access is treated as the GAS server-side function name.
+          return function () {
+            var args = Array.prototype.slice.call(arguments);
+            setTimeout(function () {
+              try {
+                var result = mockData(prop, args);
+                if (successHandler) successHandler(result);
+              } catch (e) {
+                if (failureHandler) failureHandler(e);
+              }
+            }, 0);
+            return proxy;
+          };
+        }
+      });
+      return proxy;
+    }
+
+    window.google = window.google || {};
+    window.google.script = window.google.script || {};
+    window.google.script.run = makeRunner(null, null);
+  })();
+</script>
+
+<script>
+  // ---------- 書類種別ごとの明細フィールド定義 ----------
+  // サーバー側 Constants.gs / ValidationService.gs の値と合わせてある。
+
+  var SUBMISSION_STATUS_CANCELLED_ = '取消';
+  var MAX_ROWS_ = { certificate: 15, transfer: 20, cancellation: 20, plateChange: 5 };
+  var INITIAL_ROWS_ = { certificate: 3, transfer: 3, cancellation: 3, plateChange: 3 };
+  var DOC_TYPE_LABELS_ = { certificate: '登録証明・その他', transfer: '名義変更', cancellation: '抹消', plateChange: '番号変更' };
+  var ACTIVE_KEY_ = { certificate: 'regNumber', transfer: 'regNumber', cancellation: 'regNumber', plateChange: 'oldRegNumber' };
+
+  var CERTIFICATE_CLASS_OPTIONS_ = ['登録証明', '詳細証明', '再交付'];
+  var TRANSFER_CLASS_OPTIONS_ = ['T移転', 'W移転', '移転', '変更', '選択'];
+  var TRANSFER_CORRECTION_OPTIONS_ = ['記載変更', '更正'];
+  var CANCELLATION_CLASS_OPTIONS_ = ['T移転抹消', 'W移転抹消', '移転抹消', '変更抹消', '抹消', '永久抹消', '届け出', '払出', '先方'];
+
+  var ITEM_FIELDS_ = {
+    certificate: [
+      { key: 'regNumber', label: '登録番号', type: 'text', required: true },
+      { key: 'regClass', label: '登録区分', type: 'select', options: CERTIFICATE_CLASS_OPTIONS_, required: true },
+      { key: 'remarks', label: '備考', type: 'text' }
+    ],
+    transfer: [
+      { key: 'regNumber', label: '登録番号', type: 'text', required: true },
+      { key: 'chassis', label: '車台番号\n(下4桁)', type: 'text', maxlength: 4, digits4: true, required: true },
+      { key: 'transferClass', label: '登録区分', type: 'select', options: TRANSFER_CLASS_OPTIONS_, required: true },
+      { key: 'correction', label: '記載変更\n・更正', type: 'select', options: TRANSFER_CORRECTION_OPTIONS_ },
+      { key: 'stamp', label: '印紙', type: 'number' },
+      { key: 'plateFee', label: 'ナンバー代', type: 'number' },
+      { key: 'agencyFee', label: '代書料', type: 'number' },
+      { key: 'envTax', label: '環境性能割', type: 'number' },
+      { key: 'keiFee', label: '軽手数料', type: 'number' },
+      { key: 'remarks', label: '備考', type: 'text' }
+    ],
+    cancellation: [
+      { key: 'regNumber', label: '登録番号', type: 'text', required: true },
+      { key: 'chassis', label: '車台番号\n(下4桁)', type: 'text', maxlength: 4, digits4: true, required: true },
+      { key: 'cancelClass', label: '登録区分', type: 'select', options: CANCELLATION_CLASS_OPTIONS_, required: true },
+      { key: 'stamp', label: '印紙', type: 'number' },
+      { key: 'agencyFee', label: '代書料', type: 'number' },
+      { key: 'keiFee', label: '軽手数料', type: 'number' },
+      { key: 'remarks', label: '備考\n(移動報告番号)', type: 'text' }
+    ],
+    plateChange: [
+      { key: 'oldRegNumber', label: '旧登録番号', type: 'text', required: true },
+      { key: 'chassis', label: '下4桁', type: 'text', maxlength: 4, digits4: true, required: true },
+      { key: 'newRegNumber', label: '新登録番号', type: 'text', required: true },
+      { key: 'agencyFee', label: '代行料', type: 'text', placeholder: '550円' },
+      { key: 'stamp', label: '印紙', type: 'text', placeholder: '無料' }
+    ]
+  };
+
+  var currentDocType_ = 'certificate';
+
+  function fieldsFor_(docType) { return ITEM_FIELDS_[docType]; }
+
+  // ---------- 明細テーブルの動的生成(書類種別ごとに列構成が変わる) ----------
+
+  function buildItemTableHead_(docType) {
+    var head = document.getElementById('itemTableHead');
+    var tr = document.createElement('tr');
+    var thNo = document.createElement('th');
+    thNo.className = 'colNo';
+    thNo.textContent = 'No.';
+    tr.appendChild(thNo);
+    fieldsFor_(docType).forEach(function (f) {
+      var th = document.createElement('th');
+      th.textContent = f.label;
+      tr.appendChild(th);
+    });
+    var thDel = document.createElement('th');
+    thDel.className = 'colDel';
+    tr.appendChild(thDel);
+    head.innerHTML = '';
+    head.appendChild(tr);
+  }
+
+  function createItemRow_(docType) {
+    var tr = document.createElement('tr');
+    tr.className = 'itemRow';
+    var tdNo = document.createElement('td');
+    tdNo.className = 'cell-no';
+    tr.appendChild(tdNo);
+
+    fieldsFor_(docType).forEach(function (f) {
+      var td = document.createElement('td');
+      if (f.type === 'number') td.classList.add('is-numericCell');
+      var el;
+      if (f.type === 'select') {
+        el = document.createElement('select');
+        el.appendChild(new Option('', ''));
+        f.options.forEach(function (opt) { el.appendChild(new Option(opt, opt)); });
+      } else {
+        el = document.createElement('input');
+        el.type = f.type === 'number' ? 'number' : 'text';
+        if (f.type === 'number') {
+          el.min = '0';
+          el.step = '1';
+          el.title = '0以上の整数で入力してください（空欄可）';
+        }
+        if (f.maxlength) el.maxLength = f.maxlength;
+        if (f.digits4) {
+          el.inputMode = 'numeric';
+          el.title = '半角数字4桁で入力してください';
+        }
+        if (f.placeholder) el.placeholder = f.placeholder;
+      }
+      el.className = 'item-' + f.key;
+      td.appendChild(el);
+      tr.appendChild(td);
+    });
+
+    var tdDel = document.createElement('td');
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btnRemoveRow';
+    btn.title = 'この行を削除';
+    btn.setAttribute('aria-label', 'この行を削除');
+    btn.innerHTML = '&times;';
+    tdDel.appendChild(btn);
+    tr.appendChild(tdDel);
+
+    return tr;
+  }
+
+  function renumberItemRows_() {
+    var rows = document.querySelectorAll('#itemTableBody .itemRow');
+    rows.forEach(function (tr, i) { tr.querySelector('.cell-no').textContent = i + 1; });
+    updateItemCountBadge_();
+    updateAddRowButtonState_();
+    updateScrollShadow_(document.querySelector('#itemTable').closest('.tableScroll'));
+  }
+
+  function updateItemCountBadge_() {
+    var count = document.querySelectorAll('#itemTableBody .itemRow').length;
+    setCountBadge_(document.getElementById('itemCountBadge'), count, ' 件');
+  }
+
+  function addItemRow_() {
+    var body = document.getElementById('itemTableBody');
+    var max = MAX_ROWS_[currentDocType_];
+    if (body.querySelectorAll('.itemRow').length >= max) return;
+    body.appendChild(createItemRow_(currentDocType_));
+    renumberItemRows_();
+  }
+
+  function updateAddRowButtonState_() {
+    var count = document.querySelectorAll('#itemTableBody .itemRow').length;
+    var max = MAX_ROWS_[currentDocType_];
+    var btn = document.getElementById('btnAddRow');
+    btn.disabled = count >= max;
+    btn.textContent = count >= max ? '最大' + max + '件まで入力できます' : '＋ 行を追加';
+  }
+
+  document.getElementById('itemTableBody').addEventListener('click', function (e) {
+    var removeBtn = e.target.closest('.btnRemoveRow');
+    if (!removeBtn) return;
+    var body = document.getElementById('itemTableBody');
+    if (body.querySelectorAll('.itemRow').length <= 1) return;
+    removeBtn.closest('tr').remove();
+    renumberItemRows_();
+  });
+
+  document.getElementById('btnAddRow').addEventListener('click', addItemRow_);
+
+  function rebuildItemTable_(docType) {
+    buildItemTableHead_(docType);
+    var body = document.getElementById('itemTableBody');
+    body.innerHTML = '';
+    var initial = Math.min(INITIAL_ROWS_[docType] || 3, MAX_ROWS_[docType]);
+    for (var i = 0; i < initial; i++) body.appendChild(createItemRow_(docType));
+    renumberItemRows_();
+  }
+
+  function collectItems_() {
+    var rows = document.querySelectorAll('#itemTableBody .itemRow');
+    var items = [];
+    rows.forEach(function (tr) {
+      var item = {};
+      fieldsFor_(currentDocType_).forEach(function (f) {
+        var el = tr.querySelector('.item-' + f.key);
+        item[f.key] = el.value.trim ? el.value.trim() : el.value;
+      });
+      items.push(item);
+    });
+    return items;
+  }
+
+  // ---------- 書類種別セグメント / バリエーションフラグ ----------
+
+  function setDocType_(docType) {
+    currentDocType_ = docType;
+    document.getElementById('docType').value = docType;
+    document.querySelectorAll('#docTypeSeg .segBtn').forEach(function (btn) {
+      var active = btn.getAttribute('data-doc-type') === docType;
+      btn.classList.toggle('is-active', active);
+      btn.setAttribute('aria-selected', active);
+    });
+    document.getElementById('variantTransfer').classList.toggle('is-hidden', docType !== 'transfer');
+    document.getElementById('variantCancellation').classList.toggle('is-hidden', docType !== 'cancellation');
+    document.getElementById('itemTableTitle').textContent = DOC_TYPE_LABELS_[docType] + ' 明細データ';
+    document.getElementById('itemTableHint').textContent =
+      '最大' + MAX_ROWS_[docType] + '件まで。1行につき1件。' +
+      (docType === 'plateChange' ? '旧登録番号' : '登録番号') + 'が未入力の行は無視されます。';
+    rebuildItemTable_(docType);
+  }
+
+  document.querySelectorAll('#docTypeSeg .segBtn').forEach(function (btn) {
+    btn.addEventListener('click', function () { setDocType_(btn.getAttribute('data-doc-type')); });
+  });
+
+  function setCancelKind_(value) {
+    document.getElementById('cancelKind').value = value;
+    document.querySelectorAll('#cancelKindSeg .segBtn').forEach(function (btn) {
+      var active = btn.getAttribute('data-cancel-kind') === value;
+      btn.classList.toggle('is-active', active);
+      btn.setAttribute('aria-selected', active);
+    });
+  }
+  document.querySelectorAll('#cancelKindSeg .segBtn').forEach(function (btn) {
+    btn.addEventListener('click', function () { setCancelKind_(btn.getAttribute('data-cancel-kind')); });
+  });
+
+  // 飛騨登録トグル: ONのときだけPDFの飛騨登録バッジが印字される(TemplateService.gs参照)
+  var hidaOn_ = false;
+  function setHidaFlag_(on) {
+    hidaOn_ = on;
+    var btn = document.getElementById('hidaToggle');
+    btn.classList.toggle('is-active', on);
+    btn.setAttribute('aria-pressed', on);
+    btn.textContent = on ? '飛騨登録：対象' : '飛騨登録：対象外';
+  }
+  document.getElementById('hidaToggle').addEventListener('click', function () { setHidaFlag_(!hidaOn_); });
+
+  function populateSuggestions(data) {
+    fillDatalist_('dl-companies', data.companies);
+    fillDatalist_('dl-managers', data.managers);
+  }
+
+  function fillDatalist_(id, values) {
+    var dl = document.getElementById(id);
+    dl.innerHTML = '';
+    (values || []).forEach(function (v) {
+      var opt = document.createElement('option');
+      opt.value = v;
+      dl.appendChild(opt);
+    });
+  }
+
+  // ---------- 送信フォームの検証・送信 ----------
+
+  function clearInvalid_() {
+    document.querySelectorAll('.is-invalid').forEach(function (el) { el.classList.remove('is-invalid'); });
+  }
+
+  function highlightRequired_() {
+    var ok = true;
+    ['company', 'manager', 'sendDate', 'sendBatch', 'regDate'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (!el.value.trim()) { el.classList.add('is-invalid'); ok = false; }
+    });
+    return ok;
+  }
+
+  // 車台番号(数字4桁)・手数料(0以上の整数)の形式エラーを、該当セルそのものをハイライトして知らせる。
+  // サーバー側 ValidationService.gs の validateItem_ と同じルールをミラーしている。
+  // 行を代表するキー(登録番号 or 旧登録番号)が空の行はサーバー側でも無視される(getActiveItems_)ため検証しない。
+  function highlightItemErrors_(items) {
+    var ok = true;
+    var rows = document.querySelectorAll('#itemTableBody .itemRow');
+    var activeKey = ACTIVE_KEY_[currentDocType_];
+    var fields = fieldsFor_(currentDocType_);
+
+    rows.forEach(function (tr, i) {
+      var item = items[i];
+      if (!item || String(item[activeKey] || '').trim() === '') return;
+
+      fields.forEach(function (f) {
+        var val = item[f.key];
+        var invalid = false;
+
+        if (f.required && String(val || '').trim() === '') {
+          invalid = true;
+        } else if (f.digits4 && String(val || '').trim() !== '' && !/^\d{4}$/.test(val)) {
+          invalid = true;
+        } else if (f.type === 'number' && val !== '' && val !== undefined && val !== null) {
+          var n = Number(val);
+          if (isNaN(n) || n < 0 || Math.floor(n) !== n) invalid = true;
+        }
+
+        if (invalid) {
+          tr.querySelector('.item-' + f.key).classList.add('is-invalid');
+          ok = false;
+        }
+      });
+    });
+    return ok;
+  }
+
+  function setResult_(text, kind) {
+    var el = document.getElementById('result');
+    el.className = 'result' + (kind ? ' -' + kind : '');
+    document.getElementById('resultText').innerHTML = text;
+  }
+
+  function setProcessing_(on) {
+    document.getElementById('submitSpinner').classList.toggle('is-hidden', !on);
+  }
+
+  // ---------- 二重送信防止 ----------
+  var isSubmitting_ = false;
+  function generateSubmissionToken_() {
+    return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+  }
+  var submissionToken_ = generateSubmissionToken_();
+
+  function submitForm(e) {
+    e.preventDefault();
+    if (isSubmitting_) return;
+    clearInvalid_();
+
+    var items = collectItems_();
+    var activeKey = ACTIVE_KEY_[currentDocType_];
+    var hasActiveItem = items.some(function (it) { return String(it[activeKey] || '').trim() !== ''; });
+    var requiredOk = highlightRequired_();
+    var itemsOk = highlightItemErrors_(items);
+
+    if (!requiredOk) {
+      setResult_('必須項目が未入力です（赤枠の項目を確認してください）', 'error');
+      return;
+    }
+    if (!hasActiveItem) {
+      setResult_('明細を1件以上入力してください', 'error');
+      return;
+    }
+    if (!itemsOk) {
+      setResult_('明細データにエラーがあります（赤枠のセルを確認してください）', 'error');
+      return;
+    }
+
+    var formData = {
+      docType: currentDocType_,
+      company: document.getElementById('company').value.trim(),
+      manager: document.getElementById('manager').value.trim(),
+      sendDate: document.getElementById('sendDate').value,
+      sendBatch: document.getElementById('sendBatch').value,
+      regDate: document.getElementById('regDate').value,
+      hidaRegistration: currentDocType_ === 'transfer' && hidaOn_,
+      isKei: currentDocType_ === 'transfer' ? document.getElementById('isKeiTransfer').checked
+        : currentDocType_ === 'cancellation' ? document.getElementById('isKeiCancellation').checked : false,
+      cancelKind: document.getElementById('cancelKind').value,
+      submissionToken: submissionToken_,
+      items: items
+    };
+
+    isSubmitting_ = true;
+    var btn = document.getElementById('btnSubmit');
+    btn.disabled = true;
+    hidePdfPreview_(document.getElementById('resultPdfPreview'), document.getElementById('resultPdfPreviewFrame'));
+    setProcessing_(true);
+    setResult_('処理中です。履歴に記録し、PDFを作成しています…', 'pending');
+
+    google.script.run
+      .withSuccessHandler(function (pdfUrl) {
+        isSubmitting_ = false;
+        btn.disabled = false;
+        setProcessing_(false);
+        historyHeader_ = []; // 次に履歴確認画面を開いたとき、今回の登録を含めて再取得させる
+        submissionToken_ = generateSubmissionToken_();
+        setResult_(
+          '完了しました。PDFを自動で開きます。<br>開かない場合は <a href="' + pdfUrl + '" target="_blank">こちら</a> をクリックしてください。',
+          'success'
+        );
+        document.getElementById('resultPdfPreviewFrame').src = buildPdfPreviewUrl_(pdfUrl);
+        document.getElementById('resultPdfPreview').classList.remove('is-hidden');
+        window.open(pdfUrl, '_blank');
+        loadActivitySnapshot_();
+      })
+      .withFailureHandler(function (error) {
+        isSubmitting_ = false;
+        btn.disabled = false;
+        setProcessing_(false);
+        setResult_('エラーが発生しました:\n' + error.message, 'error');
+      })
+      .processFormData(formData);
+  }
+  document.getElementById('mainForm').addEventListener('submit', submitForm);
+
+  document.getElementById('btnCloseResultPreview').addEventListener('click', function () {
+    hidePdfPreview_(document.getElementById('resultPdfPreview'), document.getElementById('resultPdfPreviewFrame'));
+  });
+
+  function resetForm() {
+    clearInvalid_();
+    document.getElementById('mainForm').reset();
+    setDocType_('certificate');
+    setCancelKind_('compound');
+    setHidaFlag_(false);
+    document.getElementById('isKeiTransfer').checked = false;
+    document.getElementById('isKeiCancellation').checked = false;
+    setResult_('', '');
+    hidePdfPreview_(document.getElementById('resultPdfPreview'), document.getElementById('resultPdfPreviewFrame'));
+    applyDefaultFormValues_();
+  }
+  document.getElementById('btnClear').addEventListener('click', resetForm);
+
+  // ---------- 起動画面(ローディング画面) ----------
+
+  function hideLoadingOverlay_() {
+    var overlay = document.getElementById('loadingOverlay');
+    if (overlay) overlay.classList.add('is-hidden');
+  }
+
+  window.onload = function () {
+    hideLoadingOverlay_();
+    setDocType_('certificate');
+    initHistoryDefaultRange_();
+    initPdfDefaultRange_();
+    document.getElementById('mailSendDate').value = formatDateInput_(new Date());
+    loadMailRecipients_();
+    loadDefaultFormValues_();
+    loadAutoMailStatus_();
+    document.querySelectorAll('.tableScroll').forEach(function (el) {
+      updateScrollShadow_(el);
+      el.addEventListener('scroll', function () { updateScrollShadow_(el); });
+    });
+    window.addEventListener('resize', function () {
+      document.querySelectorAll('.tableScroll').forEach(updateScrollShadow_);
+    });
+    google.script.run.withSuccessHandler(populateSuggestions).getSuggestions();
+    loadLogoUrl_();
+    loadActivitySnapshot_();
+    setInterval(loadActivitySnapshot_, 3 * 60 * 1000); // 3分ごとに本日の送付状況を更新
+    initRipple_();
+  };
+
+  // 横スクロールできる余地がまだ右側にあるとき、その旨をうっすらとした影で示す(スマホでの見切れ対策)
+  function updateScrollShadow_(el) {
+    if (!el) return;
+    var hasMoreRight = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+    el.classList.toggle('has-overflow-right', hasMoreRight);
+  }
+
+  // ---------- PDFプレビュー共通ヘルパー ----------
+
+  function driveFileIdFromUrl_(url) {
+    var m = /\/d\/([^\/]+)/.exec(url || '');
+    return m ? m[1] : null;
+  }
+
+  function buildPdfPreviewUrl_(url) {
+    var id = driveFileIdFromUrl_(url);
+    return id ? 'https://drive.google.com/file/d/' + id + '/preview' : url;
+  }
+
+  function hidePdfPreview_(pane, frame) {
+    pane.classList.add('is-hidden');
+    frame.src = '';
+  }
+
+  function escapeHtml_(s) {
+    return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function formatDateInput_(d) {
+    var mm = String(d.getMonth() + 1).padStart(2, '0');
+    var dd = String(d.getDate()).padStart(2, '0');
+    return d.getFullYear() + '-' + mm + '-' + dd;
+  }
+
+  // ---------- バッジの数値カウントアップ演出 ----------
+
+  function animateCount_(el, to, formatter, duration) {
+    if (!el) return;
+    var from = parseInt(String(el.textContent).replace(/[^\d-]/g, ''), 10);
+    if (isNaN(from)) from = to;
+    if (from === to) { el.textContent = formatter(to); return; }
+    duration = duration || 420;
+    var start = (window.performance && performance.now) ? performance.now() : Date.now();
+
+    function step(now) {
+      var elapsed = ((window.performance && performance.now) ? performance.now() : Date.now()) - start;
+      var t = Math.min(1, elapsed / duration);
+      var eased = 1 - Math.pow(1 - t, 3);
+      var val = Math.round(from + (to - from) * eased);
+      el.textContent = formatter(val);
+      if (t < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function setCountBadge_(el, count, suffix) {
+    animateCount_(el, count, function (v) { return v + suffix; });
+  }
+
+  // ---------- ボタンのリップル演出 ----------
+
+  function initRipple_() {
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.btn');
+      if (!btn || btn.disabled) return;
+      var rect = btn.getBoundingClientRect();
+      var size = Math.max(rect.width, rect.height);
+      var span = document.createElement('span');
+      span.className = 'ripple';
+      span.style.width = span.style.height = size + 'px';
+      span.style.left = (e.clientX - rect.left - size / 2) + 'px';
+      span.style.top = (e.clientY - rect.top - size / 2) + 'px';
+      btn.appendChild(span);
+      setTimeout(function () { span.remove(); }, 650);
+    });
+  }
+
+  // ---------- 常時アクティビティ表示 ----------
+
+  function loadActivitySnapshot_() {
+    google.script.run
+      .withSuccessHandler(function (snap) {
+        var statusCountEl = document.getElementById('statusTodayCount');
+        var activityCountEl = document.getElementById('activityTodayCount');
+        if (statusCountEl) setCountBadge_(statusCountEl, snap.todayCount, '');
+        if (activityCountEl) setCountBadge_(activityCountEl, snap.todayCount, '');
+
+        var latestText = snap.latestCompany
+          ? '最新: ' + snap.latestCompany + '（' + String(snap.latestSentAt).slice(11) + '）'
+          : '本日はまだ送付がありません';
+        var statusLatestEl = document.getElementById('statusLatest');
+        var activityLatestEl = document.getElementById('activityLatest');
+        if (statusLatestEl) statusLatestEl.textContent = latestText;
+        if (activityLatestEl) activityLatestEl.textContent = latestText;
+      })
+      .withFailureHandler(function () {
+        var statusLatestEl = document.getElementById('statusLatest');
+        var activityLatestEl = document.getElementById('activityLatest');
+        if (statusLatestEl) statusLatestEl.textContent = '状況を取得できませんでした';
+        if (activityLatestEl) activityLatestEl.textContent = '状況を取得できませんでした';
+      })
+      .getActivitySnapshot();
+  }
+
+  // ---------- 申請 / 履歴確認 / 送付書PDF / 設定 画面切り替え ----------
+
+  var HISTORY_NUMERIC_COLUMNS_ = ['明細No.', '印紙', 'ナンバー代', '代書料', '環境性能割', '軽手数料', '代行料'];
+  var HISTORY_HIDDEN_COLUMNS_ = ['submissionId'];
+  var HISTORY_SEARCH_COLUMN_ = '依頼会社名';
+  var historyHeader_ = [];
+  var historyAllRows_ = [];
+
+  function setView_(view) {
+    document.getElementById('viewForm').classList.toggle('is-hidden', view !== 'form');
+    document.getElementById('viewHistory').classList.toggle('is-hidden', view !== 'history');
+    document.getElementById('viewPdf').classList.toggle('is-hidden', view !== 'pdf');
+    document.getElementById('viewSettings').classList.toggle('is-hidden', view !== 'settings');
+    document.getElementById('navForm').classList.toggle('is-active', view === 'form');
+    document.getElementById('navForm').setAttribute('aria-selected', view === 'form');
+    document.getElementById('navHistory').classList.toggle('is-active', view === 'history');
+    document.getElementById('navHistory').setAttribute('aria-selected', view === 'history');
+    document.getElementById('navPdf').classList.toggle('is-active', view === 'pdf');
+    document.getElementById('navPdf').setAttribute('aria-selected', view === 'pdf');
+    document.getElementById('navSettings').classList.toggle('is-active', view === 'settings');
+    document.getElementById('navSettings').setAttribute('aria-selected', view === 'settings');
+    if (view === 'history' && historyHeader_.length === 0) loadHistoryData_();
+  }
+  document.getElementById('navForm').addEventListener('click', function () { setView_('form'); });
+  document.getElementById('navHistory').addEventListener('click', function () { setView_('history'); });
+  document.getElementById('navPdf').addEventListener('click', function () { setView_('pdf'); });
+  document.getElementById('navSettings').addEventListener('click', function () { setView_('settings'); });
+  document.getElementById('btnGoMailSettings').addEventListener('click', function () { setView_('settings'); });
+  document.getElementById('btnHistoryRefresh').addEventListener('click', function () { loadHistoryData_(); });
+  document.getElementById('historySearch').addEventListener('input', applyHistoryFilter_);
+
+  function initHistoryDefaultRange_() {
+    var now = new Date();
+    document.getElementById('historyFrom').value = formatDateInput_(new Date(now.getFullYear(), now.getMonth(), 1));
+    document.getElementById('historyTo').value = formatDateInput_(now);
+  }
+
+  function loadHistoryData_() {
+    var from = document.getElementById('historyFrom').value;
+    var to = document.getElementById('historyTo').value;
+    var includePending = document.getElementById('historyIncludePending').checked;
+
+    var btn = document.getElementById('btnHistoryRefresh');
+    btn.disabled = true;
+
+    google.script.run
+      .withSuccessHandler(function (result) {
+        btn.disabled = false;
+        historyHeader_ = result.header;
+        historyAllRows_ = result.rows;
+        applyHistoryFilter_();
+      })
+      .withFailureHandler(function (error) {
+        btn.disabled = false;
+        historyHeader_ = [];
+        historyAllRows_ = [];
+        renderHistoryTable_([], [], 'この期間の履歴データはまだありません。');
+        alert('履歴の取得に失敗しました:\n' + error.message);
+      })
+      .getHistoryEntriesByDateRange(from, to, includePending);
+  }
+
+  function applyHistoryFilter_() {
+    var rawKeyword = document.getElementById('historySearch').value.trim();
+    var keyword = rawKeyword.toLowerCase();
+    var nameColIndex = historyHeader_.indexOf(HISTORY_SEARCH_COLUMN_);
+
+    var filtered = historyAllRows_.filter(function (row) {
+      if (rawKeyword && (nameColIndex === -1 || String(row[nameColIndex]).toLowerCase().indexOf(keyword) === -1)) return false;
+      return true;
+    });
+
+    var emptyMessage = rawKeyword
+      ? '条件に一致する履歴が見つかりませんでした。'
+      : 'この期間の履歴データはまだありません。';
+    renderHistoryTable_(historyHeader_, filtered, emptyMessage);
+  }
+
+  function renderHistoryTable_(header, rows, emptyMessage) {
+    var head = document.getElementById('historyTableHead');
+    var body = document.getElementById('historyTableBody');
+    head.innerHTML = '';
+    body.innerHTML = '';
+
+    var submissionIdCol = header.indexOf('submissionId');
+    var pdfUrlCol = header.indexOf('送付書PDF');
+    var statusCol = header.indexOf('状態');
+    var visibleCols = [];
+
+    header.forEach(function (label, i) {
+      if (HISTORY_HIDDEN_COLUMNS_.indexOf(label) !== -1) return;
+      visibleCols.push(i);
+      var th = document.createElement('th');
+      th.textContent = label;
+      if (HISTORY_NUMERIC_COLUMNS_.indexOf(label) !== -1) th.classList.add('numCol');
+      head.appendChild(th);
+    });
+    if (submissionIdCol !== -1) {
+      var thAction = document.createElement('th');
+      thAction.textContent = '操作';
+      head.appendChild(thAction);
+    }
+
+    rows.forEach(function (row) {
+      var tr = document.createElement('tr');
+      var status = statusCol !== -1 ? row[statusCol] : '';
+      if (status === SUBMISSION_STATUS_CANCELLED_) tr.classList.add('is-cancelled');
+
+      visibleCols.forEach(function (i) {
+        var td = document.createElement('td');
+        var label = header[i];
+        if (i === pdfUrlCol) {
+          if (row[i]) {
+            var a = document.createElement('a');
+            a.href = row[i];
+            a.target = '_blank';
+            a.rel = 'noopener';
+            a.className = 'pdfLink';
+            a.textContent = '開く';
+            td.appendChild(a);
+          } else {
+            td.textContent = '-';
+          }
+        } else {
+          td.textContent = row[i];
+          if (HISTORY_NUMERIC_COLUMNS_.indexOf(label) !== -1) td.classList.add('numCol');
+        }
+        tr.appendChild(td);
+      });
+
+      if (submissionIdCol !== -1) {
+        var tdAction = document.createElement('td');
+        var id = row[submissionIdCol];
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn--ghost btn--sm';
+        if (status === SUBMISSION_STATUS_CANCELLED_) {
+          btn.textContent = '取消済み';
+          btn.disabled = true;
+        } else {
+          btn.textContent = '取消';
+          btn.addEventListener('click', function () { cancelSubmissionRow_(id, btn); });
+        }
+        tdAction.appendChild(btn);
+        tr.appendChild(tdAction);
+      }
+
+      body.appendChild(tr);
+    });
+
+    setCountBadge_(document.getElementById('historyCountBadge'), rows.length, ' 件');
+    document.getElementById('historyEmptyMsg').textContent = emptyMessage || 'この期間の履歴データはまだありません。';
+    document.getElementById('historyEmptyMsg').style.display = rows.length === 0 ? '' : 'none';
+  }
+
+  // 誤入力の修正・取消: 該当submissionIdの全行(複数明細・複数タブにまたがる場合を含む)を取消状態にする。
+  function cancelSubmissionRow_(submissionId, btn) {
+    if (!confirm('この申請を取消しますか？\n(複数件の申請の場合、含まれる明細すべてが取消対象になります)')) return;
+    btn.disabled = true;
+    btn.textContent = '処理中…';
+
+    google.script.run
+      .withSuccessHandler(function () {
+        historyHeader_ = [];
+        loadHistoryData_();
+      })
+      .withFailureHandler(function (error) {
+        btn.disabled = false;
+        btn.textContent = '取消';
+        alert('取消処理に失敗しました:\n' + error.message);
+      })
+      .cancelSubmission(submissionId);
+  }
+
+  // ---------- 送付書PDF画面 ----------
+
+  var pdfAllList_ = [];
+
+  document.getElementById('btnPdfRefresh').addEventListener('click', loadPdfList_);
+  document.getElementById('pdfSearch').addEventListener('input', applyPdfFilter_);
+  document.getElementById('btnClosePdfPreview').addEventListener('click', function () {
+    hidePdfPreview_(document.getElementById('pdfPreviewPane'), document.getElementById('pdfPreviewFrame'));
+  });
+
+  function initPdfDefaultRange_() {
+    var now = new Date();
+    document.getElementById('pdfFrom').value = formatDateInput_(new Date(now.getFullYear(), now.getMonth(), 1));
+    document.getElementById('pdfTo').value = formatDateInput_(now);
+  }
+
+  function loadPdfList_() {
+    var from = document.getElementById('pdfFrom').value;
+    var to = document.getElementById('pdfTo').value;
+    var sendBatch = document.getElementById('pdfSendBatch').value;
+
+    var btn = document.getElementById('btnPdfRefresh');
+    btn.disabled = true;
+
+    google.script.run
+      .withSuccessHandler(function (list) {
+        btn.disabled = false;
+        pdfAllList_ = list;
+        applyPdfFilter_();
+      })
+      .withFailureHandler(function (error) {
+        btn.disabled = false;
+        pdfAllList_ = [];
+        renderPdfList_([], '送付書PDFの取得に失敗しました。');
+        alert('送付書PDFの取得に失敗しました:\n' + error.message);
+      })
+      .getPdfsBySendDate(from, to, sendBatch);
+  }
+
+  function applyPdfFilter_() {
+    var rawKeyword = document.getElementById('pdfSearch').value.trim();
+    var keyword = rawKeyword.toLowerCase();
+
+    var filtered = pdfAllList_.filter(function (item) {
+      if (!rawKeyword) return true;
+      return String(item.company || '').toLowerCase().indexOf(keyword) !== -1;
+    });
+
+    var emptyMessage = rawKeyword
+      ? '条件に一致する送付書PDFが見つかりませんでした。'
+      : '該当する送付書PDFが見つかりませんでした。';
+    renderPdfList_(filtered, emptyMessage);
+  }
+
+  function renderPdfList_(list, emptyMessage) {
+    var container = document.getElementById('pdfList');
+    container.innerHTML = '';
+    setCountBadge_(document.getElementById('pdfCountBadge'), list.length, ' 件');
+    document.getElementById('pdfEmptyMsg').textContent = emptyMessage || '該当する送付書PDFが見つかりませんでした。';
+    document.getElementById('pdfEmptyMsg').style.display = list.length === 0 ? '' : 'none';
+
+    list.forEach(function (item) {
+      var row = document.createElement('div');
+      row.className = 'pdfRow' + (item.status === SUBMISSION_STATUS_CANCELLED_ ? ' is-cancelled' : '');
+
+      var main = document.createElement('div');
+      main.className = 'pdfRow__main';
+      var regNumbersText = (item.regNumbers || []).join('、');
+      var metaParts = [escapeHtml_(item.docType), escapeHtml_(item.variant || ''), escapeHtml_(item.sendBatch || ''), item.itemCount + '件', escapeHtml_(item.manager)];
+      if (item.status === SUBMISSION_STATUS_CANCELLED_) metaParts.push('<span class="pdfRow__cancelled">取消済み</span>');
+      main.innerHTML =
+        '<span class="pdfRow__company">' + escapeHtml_(item.company) + '</span>' +
+        '<span class="pdfRow__meta">' + metaParts.filter(function (p) { return p; }).join(' ・ ') + '</span>' +
+        '<span class="pdfRow__items">登録番号: ' + escapeHtml_(regNumbersText || '-') + '</span>';
+      row.appendChild(main);
+
+      var actions = document.createElement('div');
+      actions.className = 'pdfRow__actions';
+      if (item.pdfUrl) {
+        var btnView = document.createElement('button');
+        btnView.type = 'button';
+        btnView.className = 'btn btn--ghost btn--sm';
+        btnView.textContent = 'プレビュー';
+        btnView.addEventListener('click', function () { openPdfPreview_(item.pdfUrl, item.company); });
+        actions.appendChild(btnView);
+
+        var a = document.createElement('a');
+        a.href = item.pdfUrl;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.className = 'btn btn--ghost btn--sm';
+        a.textContent = '新しいタブで開く';
+        actions.appendChild(a);
+      }
+      row.appendChild(actions);
+      container.appendChild(row);
+    });
+  }
+
+  function openPdfPreview_(url, label) {
+    var pane = document.getElementById('pdfPreviewPane');
+    document.getElementById('pdfPreviewTitle').textContent = label || '';
+    document.getElementById('pdfPreviewFrame').src = buildPdfPreviewUrl_(url);
+    pane.classList.remove('is-hidden');
+    pane.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // ---------- 送付書PDF: メール送信 ----------
+
+  var MAIL_RECIPIENT_IDS_ = ['mailTo1', 'mailTo2', 'mailTo3', 'mailTo4'];
+
+  function collectMailRecipients_() {
+    return MAIL_RECIPIENT_IDS_
+      .map(function (id) { return document.getElementById(id).value.trim(); })
+      .filter(function (v) { return v !== ''; });
+  }
+
+  function loadMailRecipients_() {
+    google.script.run
+      .withSuccessHandler(function (recipients) {
+        (recipients || []).forEach(function (addr, i) {
+          var id = MAIL_RECIPIENT_IDS_[i];
+          if (id) document.getElementById(id).value = addr;
+        });
+      })
+      .getMailRecipients();
+  }
+
+  function setMailResult_(text, kind) {
+    var el = document.getElementById('mailResult');
+    el.className = 'result' + (kind ? ' -' + kind : '');
+    document.getElementById('mailResultText').innerHTML = text;
+  }
+
+  function setMailProcessing_(on) {
+    document.getElementById('mailSpinner').classList.toggle('is-hidden', !on);
+  }
+
+  document.getElementById('btnSendMail').addEventListener('click', function () {
+    var sendDate = document.getElementById('mailSendDate').value;
+    if (!sendDate) {
+      setMailResult_('送付日を指定してください', 'error');
+      return;
+    }
+    var recipients = collectMailRecipients_();
+    if (recipients.length === 0) {
+      setMailResult_('送信先メールアドレスが未設定です。「設定」タブで宛先を保存してください。', 'error');
+      return;
+    }
+
+    var btn = document.getElementById('btnSendMail');
+    btn.disabled = true;
+    setMailProcessing_(true);
+    setMailResult_('送信しています…', 'pending');
+
+    google.script.run
+      .withSuccessHandler(function (result) {
+        btn.disabled = false;
+        setMailProcessing_(false);
+        setMailResult_('送信しました（PDF ' + result.sentCount + '件 / 宛先 ' + result.recipientCount + '件）', 'success');
+      })
+      .withFailureHandler(function (error) {
+        btn.disabled = false;
+        setMailProcessing_(false);
+        setMailResult_('送信に失敗しました:\n' + error.message, 'error');
+      })
+      .sendPdfsByEmail(sendDate, recipients);
+  });
+
+  // ---------- 設定画面: メール送信先の保存 ----------
+
+  function setMailSettingsResult_(text, kind) {
+    var el = document.getElementById('mailSettingsResult');
+    el.className = 'result' + (kind ? ' -' + kind : '');
+    document.getElementById('mailSettingsResultText').innerHTML = text;
+  }
+
+  function setMailSettingsProcessing_(on) {
+    document.getElementById('mailSettingsSpinner').classList.toggle('is-hidden', !on);
+  }
+
+  document.getElementById('btnSaveMailRecipients').addEventListener('click', function () {
+    var recipients = collectMailRecipients_();
+    var btn = document.getElementById('btnSaveMailRecipients');
+    btn.disabled = true;
+    setMailSettingsProcessing_(true);
+    setMailSettingsResult_('保存しています…', 'pending');
+
+    google.script.run
+      .withSuccessHandler(function (result) {
+        btn.disabled = false;
+        setMailSettingsProcessing_(false);
+        setMailSettingsResult_('保存しました（' + result.recipientCount + '件）', 'success');
+      })
+      .withFailureHandler(function (error) {
+        btn.disabled = false;
+        setMailSettingsProcessing_(false);
+        setMailSettingsResult_('保存に失敗しました:\n' + error.message, 'error');
+      })
+      .saveMailRecipients(recipients);
+  });
+
+  // ---------- 設定画面: 自動メール送信トグル ----------
+
+  function setAutoMailResult_(text, kind) {
+    var el = document.getElementById('autoMailResult');
+    el.className = 'result' + (kind ? ' -' + kind : '');
+    document.getElementById('autoMailResultText').innerHTML = text;
+  }
+
+  function setAutoMailProcessing_(on) {
+    document.getElementById('autoMailSpinner').classList.toggle('is-hidden', !on);
+  }
+
+  function renderAutoMailStatus_(enabled) {
+    var toggle = document.getElementById('autoMailToggle');
+    var label = document.getElementById('autoMailStatusLabel');
+    var text = document.getElementById('autoMailStatusText');
+    toggle.classList.toggle('is-active', enabled);
+    toggle.setAttribute('aria-checked', enabled);
+    label.classList.toggle('is-on', enabled);
+    label.classList.toggle('is-off', !enabled);
+    text.textContent = enabled ? 'ON（毎日17時台に自動送信）' : 'OFF（自動送信は停止中）';
+  }
+
+  function loadAutoMailStatus_() {
+    google.script.run
+      .withSuccessHandler(renderAutoMailStatus_)
+      .getDailyMailTriggerStatus();
+  }
+
+  document.getElementById('autoMailToggle').addEventListener('click', function () {
+    var toggle = document.getElementById('autoMailToggle');
+    var nextValue = !toggle.classList.contains('is-active');
+    toggle.disabled = true;
+    setAutoMailProcessing_(true);
+    setAutoMailResult_('', '');
+
+    google.script.run
+      .withSuccessHandler(function (enabled) {
+        toggle.disabled = false;
+        setAutoMailProcessing_(false);
+        renderAutoMailStatus_(enabled);
+        setAutoMailResult_(enabled ? '自動送信をONにしました' : '自動送信をOFFにしました', 'success');
+      })
+      .withFailureHandler(function (error) {
+        toggle.disabled = false;
+        setAutoMailProcessing_(false);
+        setAutoMailResult_(error.message, 'error');
+      })
+      .setDailyMailTriggerEnabled(nextValue);
+  });
+
+  // ---------- 設定画面: 申請フォームの既定値 ----------
+
+  function applyDefaultFormValues_() {
+    google.script.run
+      .withSuccessHandler(function (values) {
+        if (values.company) document.getElementById('company').value = values.company;
+        if (values.manager) document.getElementById('manager').value = values.manager;
+      })
+      .getDefaultFormValues();
+  }
+
+  function loadDefaultFormValues_() {
+    google.script.run
+      .withSuccessHandler(function (values) {
+        document.getElementById('defaultCompany').value = values.company || '';
+        document.getElementById('defaultManager').value = values.manager || '';
+      })
+      .getDefaultFormValues();
+    applyDefaultFormValues_();
+  }
+
+  function setDefaultsResult_(text, kind) {
+    var el = document.getElementById('defaultsResult');
+    el.className = 'result' + (kind ? ' -' + kind : '');
+    document.getElementById('defaultsResultText').innerHTML = text;
+  }
+
+  function setDefaultsProcessing_(on) {
+    document.getElementById('defaultsSpinner').classList.toggle('is-hidden', !on);
+  }
+
+  document.getElementById('btnSaveDefaults').addEventListener('click', function () {
+    var values = {
+      company: document.getElementById('defaultCompany').value.trim(),
+      manager: document.getElementById('defaultManager').value.trim()
+    };
+    var btn = document.getElementById('btnSaveDefaults');
+    btn.disabled = true;
+    setDefaultsProcessing_(true);
+    setDefaultsResult_('保存しています…', 'pending');
+
+    google.script.run
+      .withSuccessHandler(function () {
+        btn.disabled = false;
+        setDefaultsProcessing_(false);
+        setDefaultsResult_('保存しました', 'success');
+      })
+      .withFailureHandler(function (error) {
+        btn.disabled = false;
+        setDefaultsProcessing_(false);
+        setDefaultsResult_('保存に失敗しました:\n' + error.message, 'error');
+      })
+      .saveDefaultFormValues(values);
+  });
+
+  // ---------- 設定画面: テーマ(ライト/ダーク/自動) ----------
+
+  var THEME_STORAGE_KEY_ = 'interimRegistrationThemePref';
+
+  function applyTheme_(value) {
+    if (value === 'light' || value === 'dark') {
+      document.documentElement.setAttribute('data-theme', value);
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+      value = 'system';
+    }
+    localStorage.setItem(THEME_STORAGE_KEY_, value);
+    document.querySelectorAll('#viewSettings .segmented .segBtn[data-theme-value]').forEach(function (btn) {
+      var active = btn.getAttribute('data-theme-value') === value;
+      btn.classList.toggle('is-active', active);
+      btn.setAttribute('aria-selected', active);
+    });
+  }
+  document.getElementById('themeLight').addEventListener('click', function () { applyTheme_('light'); });
+  document.getElementById('themeDark').addEventListener('click', function () { applyTheme_('dark'); });
+  document.getElementById('themeSystem').addEventListener('click', function () { applyTheme_('system'); });
+  applyTheme_(localStorage.getItem(THEME_STORAGE_KEY_) || 'system');
+
+  // ---------- 設定画面: ロゴ画像 ----------
+
+  function updateLogoPreview_(url) {
+    var img = document.getElementById('logoPreviewImg');
+    var empty = document.getElementById('logoPreviewEmpty');
+    if (url) {
+      img.src = url;
+      img.classList.remove('is-hidden');
+      empty.classList.add('is-hidden');
+    } else {
+      img.classList.add('is-hidden');
+      empty.classList.remove('is-hidden');
+    }
+  }
+
+  function applyMastheadLogo_(url) {
+    var mastheadLogo = document.getElementById('mastheadLogo');
+    if (url) {
+      mastheadLogo.src = url;
+      mastheadLogo.classList.remove('is-hidden');
+    } else {
+      mastheadLogo.classList.add('is-hidden');
+    }
+  }
+
+  function loadLogoUrl_() {
+    google.script.run
+      .withSuccessHandler(function (url) {
+        document.getElementById('logoUrlInput').value = url || '';
+        updateLogoPreview_(url);
+        applyMastheadLogo_(url);
+      })
+      .getLogoUrl();
+  }
+
+  document.getElementById('logoUrlInput').addEventListener('input', function (e) {
+    updateLogoPreview_(e.target.value.trim());
+  });
+
+  function setLogoResult_(text, kind) {
+    var el = document.getElementById('logoResult');
+    el.className = 'result' + (kind ? ' -' + kind : '');
+    document.getElementById('logoResultText').innerHTML = text;
+  }
+
+  function setLogoProcessing_(on) {
+    document.getElementById('logoSpinner').classList.toggle('is-hidden', !on);
+  }
+
+  document.getElementById('btnSaveLogo').addEventListener('click', function () {
+    var url = document.getElementById('logoUrlInput').value.trim();
+    var btn = document.getElementById('btnSaveLogo');
+    btn.disabled = true;
+    setLogoProcessing_(true);
+    setLogoResult_('保存しています…', 'pending');
+
+    google.script.run
+      .withSuccessHandler(function (savedUrl) {
+        btn.disabled = false;
+        setLogoProcessing_(false);
+        setLogoResult_('保存しました', 'success');
+        document.getElementById('logoUrlInput').value = savedUrl;
+        updateLogoPreview_(savedUrl);
+        applyMastheadLogo_(savedUrl);
+      })
+      .withFailureHandler(function (error) {
+        btn.disabled = false;
+        setLogoProcessing_(false);
+        setLogoResult_('保存に失敗しました:\n' + error.message, 'error');
+      })
+      .saveLogoUrl(url);
+  });
+</script>
+
+</body>
+</html>
