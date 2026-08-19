@@ -14,7 +14,6 @@ function duplicateTemplateSheet_(ss, docType, submissionId) {
   }
   var tempSheet = template.copyTo(ss);
   tempSheet.setName('__tmp_' + docType + '_' + submissionId);
-  tempSheet.hideSheet();
   return tempSheet;
 }
 
@@ -126,6 +125,10 @@ function writeCheckboxField_(sheet, row, startCol, options, selectedValue) {
  * 対象シート1枚だけをエクスポートするため、Sheets の gid 付きエクスポートURLを使う)。
  */
 function exportSheetAsPdfBlob_(ss, sheet) {
+  // 直前の書き込みがまだ確定していないと、エクスポートが空白ページを返すことがあるため、
+  // Sheetsへの反映を確実に待ってからPDF化する。
+  SpreadsheetApp.flush();
+
   var url = 'https://docs.google.com/spreadsheets/d/' + ss.getId() + '/export'
     + '?format=pdf'
     + '&gid=' + sheet.getSheetId()
