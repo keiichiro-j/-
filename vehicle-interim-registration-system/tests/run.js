@@ -562,11 +562,15 @@ function makeCellSheet() {
   return {
     getRange: (row, col) => {
       const key = row + ',' + col;
-      return {
-        setValue: (v) => { cells[key] = { value: v, bg: (cells[key] || {}).bg, color: (cells[key] || {}).color }; },
-        setBackground: (bg) => { cells[key] = Object.assign(cells[key] || {}, { bg: bg }); },
-        setFontColor: (c) => { cells[key] = Object.assign(cells[key] || {}, { color: c }); }
+      const self = {
+        setValue: (v) => { cells[key] = Object.assign(cells[key] || {}, { value: v }); return self; },
+        setBackground: (bg) => { cells[key] = Object.assign(cells[key] || {}, { bg: bg }); return self; },
+        setFontColor: (c) => { cells[key] = Object.assign(cells[key] || {}, { color: c }); return self; },
+        setFontSize: () => self,
+        setFontWeight: () => self,
+        setWrap: () => self
       };
+      return self;
     },
     cellValue: (row, col) => (cells[row + ',' + col] || {}).value,
     cellBg: (row, col) => (cells[row + ',' + col] || {}).bg
@@ -688,11 +692,35 @@ function DOC_TYPE_OPTIONS_FOR_TEST() {
   return Array.from(sandbox.DOC_TYPE_OPTIONS);
 }
 
-test('writeVariantBadge_は飛騨登録OFFなら背景をリセットする', () => {
+test('writeVariantBadge_は軽自動車のときKEI_BADGE_COLOR(ナンバープレートと同じ黄色)で塗る', () => {
   const sheet = makeCellSheet();
   const maxCol = sandbox.maxColumnOf_('transfer');
   sandbox.writeVariantBadge_(sheet, 'transfer', { hidaRegistration: false, isKei: true }, maxCol);
   assert.strictEqual(sheet.cellValue(sandbox.COMMON_CELLS.variantBadgeRow, maxCol), '軽自動車');
+  assert.strictEqual(sheet.cellBg(sandbox.COMMON_CELLS.variantBadgeRow, maxCol), sandbox.KEI_BADGE_COLOR.bg);
+});
+
+test('writeVariantBadge_は抹消でも軽自動車ならKEI_BADGE_COLORで塗る', () => {
+  const sheet = makeCellSheet();
+  const maxCol = sandbox.maxColumnOf_('cancellation');
+  sandbox.writeVariantBadge_(sheet, 'cancellation', { cancelKind: 'simple', isKei: true }, maxCol);
+  assert.strictEqual(sheet.cellValue(sandbox.COMMON_CELLS.variantBadgeRow, maxCol), '単純抹消　軽自動車');
+  assert.strictEqual(sheet.cellBg(sandbox.COMMON_CELLS.variantBadgeRow, maxCol), sandbox.KEI_BADGE_COLOR.bg);
+});
+
+test('writeVariantBadge_は飛騨登録・軽自動車どちらもONなら飛騨登録の色を優先する', () => {
+  const sheet = makeCellSheet();
+  const maxCol = sandbox.maxColumnOf_('transfer');
+  sandbox.writeVariantBadge_(sheet, 'transfer', { hidaRegistration: true, isKei: true }, maxCol);
+  assert.strictEqual(sheet.cellValue(sandbox.COMMON_CELLS.variantBadgeRow, maxCol), '飛騨　軽自動車');
+  assert.strictEqual(sheet.cellBg(sandbox.COMMON_CELLS.variantBadgeRow, maxCol), sandbox.HIDA_BADGE_COLOR.bg);
+});
+
+test('writeVariantBadge_はどちらもOFFなら背景をリセットする', () => {
+  const sheet = makeCellSheet();
+  const maxCol = sandbox.maxColumnOf_('transfer');
+  sandbox.writeVariantBadge_(sheet, 'transfer', { hidaRegistration: false, isKei: false }, maxCol);
+  assert.strictEqual(sheet.cellValue(sandbox.COMMON_CELLS.variantBadgeRow, maxCol), '');
   assert.strictEqual(sheet.cellBg(sandbox.COMMON_CELLS.variantBadgeRow, maxCol), null);
 });
 

@@ -42,25 +42,35 @@ function formatDateJp_(dateStr) {
 
 /**
  * バリエーション表示(飛騨/軽自動車/複合抹消/単純抹消)をバナー右端セルに書き込む。
- * 飛騨登録がONのときだけ、新車新規登録依頼書システムと同じ配色(HIDA_BADGE_COLOR)で強調する。
+ * 飛騨登録がONのとき(HIDA_BADGE_COLOR)・軽自動車のとき(KEI_BADGE_COLOR、実物のナンバー
+ * プレートと同じ黄色)は、それぞれ色付きバッジで大きく強調して一目でわかるようにする
+ * (両方ONの場合は飛騨登録の色を優先する)。
  */
 function writeVariantBadge_(sheet, docType, formData, maxCol) {
   var cell = sheet.getRange(COMMON_CELLS.variantBadgeRow, maxCol);
   var labelParts = [];
   var isHida = docType === DOC_TYPE_TRANSFER && !!formData.hidaRegistration;
+  var isKei = !!formData.isKei;
 
   if (docType === DOC_TYPE_TRANSFER) {
     if (isHida) labelParts.push('飛騨');
-    if (formData.isKei) labelParts.push('軽自動車');
+    if (isKei) labelParts.push('軽自動車');
   } else if (docType === DOC_TYPE_CANCELLATION) {
     labelParts.push(CANCELLATION_KIND_LABELS[formData.cancelKind] || CANCELLATION_KIND_LABELS[CANCELLATION_KIND_SIMPLE]);
-    if (formData.isKei) labelParts.push('軽自動車');
+    if (isKei) labelParts.push('軽自動車');
   }
 
   cell.setValue(labelParts.join('　'));
+  cell.setFontSize(13);
+  cell.setFontWeight('bold');
+  cell.setWrap(true);
+
   if (isHida) {
     cell.setBackground(HIDA_BADGE_COLOR.bg);
     cell.setFontColor(HIDA_BADGE_COLOR.text);
+  } else if (isKei) {
+    cell.setBackground(KEI_BADGE_COLOR.bg);
+    cell.setFontColor(KEI_BADGE_COLOR.text);
   } else {
     cell.setBackground(null);
     cell.setFontColor(THEME.ink);

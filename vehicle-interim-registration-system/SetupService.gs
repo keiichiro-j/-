@@ -122,14 +122,18 @@ function buildTitleBanner_(sheet, docType, maxCol) {
   issuerRange.setHorizontalAlignment('left');
   issuerRange.setVerticalAlignment('middle');
 
+  // 飛騨登録・軽自動車のバッジ(実際の文字・配色はTemplateService.gsのwriteVariantBadge_が
+  // 申請ごとに書き込む)。ひと目でわかるよう、発行元より大きめの太字にしておく。
   var badgeCell = sheet.getRange(COMMON_CELLS.variantBadgeRow, maxCol);
   badgeCell.setFontFamily(FONT_FAMILY);
-  badgeCell.setFontSize(10);
+  badgeCell.setFontSize(13);
   badgeCell.setFontWeight('bold');
   badgeCell.setHorizontalAlignment('center');
   badgeCell.setVerticalAlignment('middle');
+  badgeCell.setWrap(true);
 
-  sheet.setRowHeight(COMMON_CELLS.issuerRow, 18);
+  // バッジの文字が大きくなった分、発行元の行(バッジと同じ行)も高さに余裕を持たせる。
+  sheet.setRowHeight(COMMON_CELLS.issuerRow, 26);
 }
 
 /**
