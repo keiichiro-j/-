@@ -720,6 +720,7 @@
 
   document.getElementById('btnPdfRefresh').addEventListener('click', loadPdfList_);
   document.getElementById('pdfSearch').addEventListener('input', applyPdfFilter_);
+  document.getElementById('pdfDocType').addEventListener('change', applyPdfFilter_);
   document.getElementById('btnClosePdfPreview').addEventListener('click', function () {
     hidePdfPreview_(document.getElementById('pdfPreviewPane'), document.getElementById('pdfPreviewFrame'));
   });
@@ -756,13 +757,15 @@
   function applyPdfFilter_() {
     var rawKeyword = document.getElementById('pdfSearch').value.trim();
     var keyword = rawKeyword.toLowerCase();
+    var docType = document.getElementById('pdfDocType').value;
 
     var filtered = pdfAllList_.filter(function (item) {
+      if (docType && item.docType !== docType) return false;
       if (!rawKeyword) return true;
       return String(item.company || '').toLowerCase().indexOf(keyword) !== -1;
     });
 
-    var emptyMessage = rawKeyword
+    var emptyMessage = (rawKeyword || docType)
       ? '条件に一致する送付書PDFが見つかりませんでした。'
       : '該当する送付書PDFが見つかりませんでした。';
     renderPdfList_(filtered, emptyMessage);
