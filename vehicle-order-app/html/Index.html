@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <?!= include('html/Stylesheet'); ?>
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="topbar__brand">車両受注アプリ</div>
+      <nav class="tabs" id="mainTabs" role="tablist" aria-label="画面切替">
+        <button class="tabs__item is-active" data-tab="inventory">在庫一覧</button>
+        <button class="tabs__item" data-tab="orders">受注リスト</button>
+        <button class="tabs__item" data-tab="settings">設定</button>
+      </nav>
+    </header>
+
+    <!-- 在庫一覧（3.1〜3.2・4.） -->
+    <main class="view is-active" id="view-inventory">
+      <div class="toolbar">
+        <input type="search" id="inventoryKeyword" class="input input--search" placeholder="モデル・コミッションで検索">
+        <select id="inventoryGroupBy" class="input">
+          <option value="">グループ表示なし</option>
+          <option value="arrivalMonth">販売可能月（入港月）ごと</option>
+          <option value="model">モデルごと</option>
+        </select>
+        <label class="checkboxField">
+          <input type="checkbox" id="inventoryIncludeHold" checked> Hold済みを含む
+        </label>
+        <div class="toolbar__spacer"></div>
+        <button class="btn" id="btnAddInventory">＋ 在庫追加</button>
+      </div>
+      <div id="inventoryGroups"></div>
+      <div class="emptyState hidden" id="inventoryEmpty">該当する在庫がありません</div>
+    </main>
+
+    <!-- 受注リスト（3.3・4.） -->
+    <main class="view" id="view-orders">
+      <div class="toolbar">
+        <input type="search" id="ordersKeyword" class="input input--search" placeholder="モデル・顧客・担当者で検索">
+        <select id="ordersGroupBy" class="input">
+          <option value="">グループ表示なし</option>
+          <option value="orderRegisteredMonth">登録月ごと</option>
+          <option value="model">モデルごと</option>
+        </select>
+      </div>
+      <div id="ordersGroups"></div>
+      <div class="emptyState hidden" id="ordersEmpty">該当する受注がありません</div>
+    </main>
+
+    <!-- 設定（3.6） -->
+    <main class="view" id="view-settings">
+      <div class="settingsCard">
+        <div class="formField">
+          <label>テーマ（配色）</label>
+          <div class="colorField">
+            <input type="color" id="settingsThemeColor">
+            <span id="settingsThemeColorLabel"></span>
+          </div>
+        </div>
+        <div class="formField">
+          <label>Hold登録時のメール通知先</label>
+          <input type="text" id="settingsHoldMailTo" class="input" placeholder="例: staff@example.com, staff2@example.com">
+        </div>
+        <div class="formField">
+          <label>受注確定時のメール通知先</label>
+          <input type="text" id="settingsOrderMailTo" class="input" placeholder="例: sales@example.com">
+        </div>
+        <div id="settingsError" class="modal__error"></div>
+        <button class="btn btn--primary" id="btnSaveSettings">保存</button>
+      </div>
+    </main>
+  </div>
+
+  <!-- Hold / 2nd Hold / 受注 共通入力モーダル -->
+  <div class="modal hidden" id="actionModal">
+    <div class="modal__panel">
+      <div class="modal__header">
+        <h2 id="actionModalTitle">Hold登録</h2>
+        <button class="btn--icon" data-close-modal>&times;</button>
+      </div>
+      <div class="modal__body">
+        <div class="modal__error hidden" id="actionModalError"></div>
+        <div class="formField">
+          <label>登録月</label>
+          <input type="month" id="actionRegisteredMonth" class="input">
+        </div>
+        <div class="formField">
+          <label>担当者</label>
+          <input type="text" id="actionStaff" class="input">
+        </div>
+        <div class="formField">
+          <label>顧客</label>
+          <input type="text" id="actionCustomer" class="input">
+        </div>
+        <div class="formField">
+          <label>下取車の有無</label>
+          <select id="actionTradeIn" class="input"></select>
+        </div>
+        <div class="formField">
+          <label>OSS登録の可否</label>
+          <select id="actionOss" class="input"></select>
+        </div>
+        <div class="formField">
+          <label>保険加入の有無</label>
+          <select id="actionInsurance" class="input"></select>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn" data-close-modal>キャンセル</button>
+        <button class="btn btn--primary" id="btnActionSubmit">登録</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 在庫追加モーダル -->
+  <div class="modal hidden" id="inventoryModal">
+    <div class="modal__panel">
+      <div class="modal__header">
+        <h2>在庫追加</h2>
+        <button class="btn--icon" data-close-modal>&times;</button>
+      </div>
+      <div class="modal__body">
+        <div class="modal__error hidden" id="inventoryModalError"></div>
+        <div class="formField">
+          <label>コミッション（車両特定番号）</label>
+          <input type="text" id="invCommission" class="input">
+        </div>
+        <div class="formField">
+          <label>モデル</label>
+          <input type="text" id="invModel" class="input">
+        </div>
+        <div class="formField">
+          <label>販売可能月（入港月）</label>
+          <input type="month" id="invArrivalMonth" class="input">
+        </div>
+        <div class="formField">
+          <label>カラー（外装）</label>
+          <input type="text" id="invExteriorColor" class="input">
+        </div>
+        <div class="formField">
+          <label>カラー（内装）</label>
+          <input type="text" id="invInteriorColor" class="input">
+        </div>
+        <div class="formField">
+          <label>ハンドル位置</label>
+          <select id="invSteeringPosition" class="input"></select>
+        </div>
+        <div class="formField">
+          <label>オプション</label>
+          <input type="text" id="invOptions" class="input">
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn" data-close-modal>キャンセル</button>
+        <button class="btn btn--primary" id="btnInventorySubmit">登録</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <?!= include('html/JavaScript'); ?>
+</body>
+</html>

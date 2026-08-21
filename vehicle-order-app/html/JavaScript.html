@@ -1,0 +1,354 @@
+<script>
+(function () {
+  'use strict';
+
+  var state = {
+    bootstrap: null,
+    inventoryGroups: [],
+    ordersGroups: [],
+    action: null // { type: 'hold' | 'secondHold' | 'order', commission }
+  };
+
+  // ===== google.script.run を Promise 化するヘルパー =====
+  function gasRun(fnName) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return new Promise(function (resolve, reject) {
+      google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(function (err) { reject(new Error(err && err.message ? err.message : String(err))); })
+        [fnName].apply(null, args);
+    });
+  }
+
+  function $(id) { return document.getElementById(id); }
+
+  function showToast(message, isError) {
+    var toast = $('toast');
+    toast.textContent = message;
+    toast.className = 'toast' + (isError ? ' toast--error' : '');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function () { toast.classList.add('hidden'); }, 3200);
+  }
+
+  function fillOptions(select, options, includeBlank) {
+    select.innerHTML = '';
+    if (includeBlank) select.appendChild(new Option('', ''));
+    options.forEach(function (o) { select.appendChild(new Option(o, o)); });
+  }
+
+  function currentYearMonth() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+
+  function formatDateTime(epochMs) {
+    if (!epochMs) return '-';
+    var d = new Date(epochMs);
+    return d.getFullYear() + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0') +
+      ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  }
+
+  // ===== タブ切替 =====
+  document.getElementById('mainTabs').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-tab]');
+    if (!btn) return;
+    document.querySelectorAll('.tabs__item').forEach(function (t) { t.classList.toggle('is-active', t === btn); });
+    document.querySelectorAll('main.view').forEach(function (v) { v.classList.remove('is-active'); });
+    $('view-' + btn.dataset.tab).classList.add('is-active');
+  });
+
+  // ===== モーダル共通 =====
+  document.querySelectorAll('[data-close-modal]').forEach(function (btn) {
+    btn.addEventListener('click', function () { closeModal(btn.closest('.modal')); });
+  });
+  document.querySelectorAll('.modal').forEach(function (modal) {
+    modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(modal); });
+  });
+  function openModal(modal) { modal.classList.remove('hidden'); }
+  function closeModal(modal) { modal.classList.add('hidden'); }
+
+  // ===== 在庫一覧（3.1） =====
+  function loadInventory() {
+    var filters = {
+      keyword: $('inventoryKeyword').value,
+      includeHold: $('inventoryIncludeHold').checked
+    };
+    var groupBy = $('inventoryGroupBy').value;
+    return gasRun('api_listInventory', filters, groupBy).then(function (groups) {
+      state.inventoryGroups = groups;
+      renderInventory();
+    }).catch(function (err) { showToast(err.message, true); });
+  }
+
+  function vehicleCardHtml(v) {
+    var isHold = v.holdStatus === 'hold';
+    var badge = isHold
+      ? '<span class="badge badge--hold">Hold中</span>'
+      : '<span class="badge badge--available">在庫あり</span>';
+
+    var meta = [
+      '販売可能月: <strong>' + escapeHtml(v.arrivalMonth || '-') + '</strong>',
+      'カラー: <strong>' + escapeHtml(v.exteriorColor || '-') + ' / ' + escapeHtml(v.interiorColor || '-') + '</strong>',
+      'ハンドル位置: <strong>' + escapeHtml(v.steeringPosition || '-') + '</strong>',
+      'オプション: <strong>' + escapeHtml(v.options || '-') + '</strong>'
+    ].join('<br>');
+
+    var holdInfoHtml = '';
+    if (isHold) {
+      holdInfoHtml += '<div class="card__holdInfo">Hold: <b>' + escapeHtml(v.holdCustomer || '-') + '</b>' +
+        '（担当 ' + escapeHtml(v.holdStaff || '-') + '） / 期限 ' + formatDateTime(v.holdExpiresAt) + '</div>';
+      if (v.secondHoldCustomer) {
+        holdInfoHtml += '<div class="card__holdInfo">2nd Hold: <b>' + escapeHtml(v.secondHoldCustomer) + '</b>' +
+          '（担当 ' + escapeHtml(v.secondHoldStaff || '-') + '） / 期限 ' + formatDateTime(v.secondHoldExpiresAt) + '</div>';
+      }
+    }
+
+    var actionsHtml = '<div class="card__actions">';
+    if (!isHold) {
+      actionsHtml += '<button class="btn" data-hold="' + escapeHtml(v.commission) + '">Hold</button>';
+      actionsHtml += '<button class="btn btn--primary" data-order="' + escapeHtml(v.commission) + '">受注</button>';
+    } else {
+      if (!v.secondHoldCustomer) {
+        actionsHtml += '<button class="btn" data-second-hold="' + escapeHtml(v.commission) + '">2nd Hold</button>';
+      }
+      actionsHtml += '<button class="btn btn--primary" data-order-from-hold="' + escapeHtml(v.commission) + '">受注確定</button>';
+    }
+    actionsHtml += '</div>';
+
+    return '<div class="card">' +
+      '<div class="card__top"><div><div class="card__model">' + escapeHtml(v.model) + '</div>' +
+      '<div class="card__commission">' + escapeHtml(v.commission) + '</div></div>' + badge + '</div>' +
+      '<div class="card__meta">' + meta + '</div>' +
+      holdInfoHtml +
+      actionsHtml +
+      '</div>';
+  }
+
+  function renderInventory() {
+    var container = $('inventoryGroups');
+    var totalItems = state.inventoryGroups.reduce(function (n, g) { return n + g.items.length; }, 0);
+    $('inventoryEmpty').classList.toggle('hidden', totalItems > 0);
+    container.innerHTML = state.inventoryGroups.map(function (g) {
+      var heading = g.key ? '<h3 class="group__title">' + escapeHtml(g.key) + '</h3>' : '';
+      return '<div class="group">' + heading +
+        '<div class="cardGrid">' + g.items.map(vehicleCardHtml).join('') + '</div></div>';
+    }).join('');
+  }
+
+  document.getElementById('inventoryGroups').addEventListener('click', function (e) {
+    var target = e.target;
+    if (target.dataset.hold) openActionModal('hold', target.dataset.hold);
+    else if (target.dataset.secondHold) openActionModal('secondHold', target.dataset.secondHold);
+    else if (target.dataset.order) openActionModal('order', target.dataset.order);
+    else if (target.dataset.orderFromHold) openActionModal('orderFromHold', target.dataset.orderFromHold);
+  });
+
+  ['inventoryKeyword', 'inventoryGroupBy', 'inventoryIncludeHold'].forEach(function (id) {
+    $(id).addEventListener('input', debounce(loadInventory, 250));
+    $(id).addEventListener('change', loadInventory);
+  });
+
+  $('btnAddInventory').addEventListener('click', function () {
+    $('invCommission').value = '';
+    $('invModel').value = '';
+    $('invArrivalMonth').value = '';
+    $('invExteriorColor').value = '';
+    $('invInteriorColor').value = '';
+    $('invOptions').value = '';
+    $('inventoryModalError').classList.add('hidden');
+    openModal($('inventoryModal'));
+  });
+
+  $('btnInventorySubmit').addEventListener('click', function () {
+    var vehicle = {
+      commission: $('invCommission').value.trim(),
+      model: $('invModel').value.trim(),
+      arrivalMonth: $('invArrivalMonth').value,
+      exteriorColor: $('invExteriorColor').value.trim(),
+      interiorColor: $('invInteriorColor').value.trim(),
+      steeringPosition: $('invSteeringPosition').value,
+      options: $('invOptions').value.trim()
+    };
+    gasRun('api_createInventoryVehicle', vehicle).then(function () {
+      closeModal($('inventoryModal'));
+      showToast('在庫を登録しました');
+      loadInventory();
+    }).catch(function (err) {
+      var el = $('inventoryModalError');
+      el.textContent = err.message;
+      el.classList.remove('hidden');
+    });
+  });
+
+  // ===== Hold / 2nd Hold / 受注 共通モーダル（3.2・3.3） =====
+  var ACTION_LABELS = {
+    hold: { title: 'Hold登録', button: 'Holdする' },
+    secondHold: { title: '2nd Hold登録', button: '2nd Holdする' },
+    order: { title: '受注確定', button: '受注確定する' },
+    orderFromHold: { title: '受注確定', button: '受注確定する' }
+  };
+
+  function openActionModal(type, commission) {
+    state.action = { type: type, commission: commission };
+    $('actionModalTitle').textContent = ACTION_LABELS[type].title;
+    $('btnActionSubmit').textContent = ACTION_LABELS[type].button;
+    $('actionModalError').classList.add('hidden');
+
+    var vehicle = findVehicleByCommission(commission);
+    var prefill = (type === 'orderFromHold' && vehicle) ? {
+      registeredMonth: vehicle.holdRegisteredMonth,
+      staff: vehicle.holdStaff,
+      customer: vehicle.holdCustomer,
+      tradeIn: vehicle.holdTradeIn,
+      oss: vehicle.holdOss,
+      insurance: vehicle.holdInsurance
+    } : { registeredMonth: currentYearMonth(), staff: '', customer: '', tradeIn: '', oss: '', insurance: '' };
+
+    $('actionRegisteredMonth').value = prefill.registeredMonth || currentYearMonth();
+    $('actionStaff').value = prefill.staff || '';
+    $('actionCustomer').value = prefill.customer || '';
+    $('actionTradeIn').value = prefill.tradeIn || '';
+    $('actionOss').value = prefill.oss || '';
+    $('actionInsurance').value = prefill.insurance || '';
+
+    openModal($('actionModal'));
+  }
+
+  function findVehicleByCommission(commission) {
+    for (var i = 0; i < state.inventoryGroups.length; i++) {
+      var found = state.inventoryGroups[i].items.find(function (v) { return v.commission === commission; });
+      if (found) return found;
+    }
+    return null;
+  }
+
+  $('btnActionSubmit').addEventListener('click', function () {
+    var info = {
+      registeredMonth: $('actionRegisteredMonth').value,
+      staff: $('actionStaff').value.trim(),
+      customer: $('actionCustomer').value.trim(),
+      tradeIn: $('actionTradeIn').value,
+      oss: $('actionOss').value,
+      insurance: $('actionInsurance').value
+    };
+    var action = state.action;
+    var apiCall;
+    if (action.type === 'hold') apiCall = gasRun('api_registerHold', action.commission, info);
+    else if (action.type === 'secondHold') apiCall = gasRun('api_registerSecondHold', action.commission, info);
+    else apiCall = gasRun('api_confirmOrder', action.commission, info);
+
+    apiCall.then(function () {
+      closeModal($('actionModal'));
+      showToast(ACTION_LABELS[action.type].title + 'が完了しました');
+      loadInventory();
+      if (action.type === 'order' || action.type === 'orderFromHold') loadOrders();
+    }).catch(function (err) {
+      var el = $('actionModalError');
+      el.textContent = err.message;
+      el.classList.remove('hidden');
+    });
+  });
+
+  // ===== 受注リスト（3.3） =====
+  function loadOrders() {
+    var filters = { keyword: $('ordersKeyword').value };
+    var groupBy = $('ordersGroupBy').value;
+    return gasRun('api_listOrders', filters, groupBy).then(function (groups) {
+      state.ordersGroups = groups;
+      renderOrders();
+    }).catch(function (err) { showToast(err.message, true); });
+  }
+
+  function orderCardHtml(o) {
+    return '<div class="orderCard"><dl class="orderCard__grid">' +
+      '<div><dt>モデル</dt><dd>' + escapeHtml(o.model) + '</dd></div>' +
+      '<div><dt>コミッション</dt><dd>' + escapeHtml(o.commission) + '</dd></div>' +
+      '<div><dt>顧客</dt><dd>' + escapeHtml(o.customer || '-') + '</dd></div>' +
+      '<div><dt>担当者</dt><dd>' + escapeHtml(o.staff || '-') + '</dd></div>' +
+      '<div><dt>登録月</dt><dd>' + escapeHtml(o.orderRegisteredMonth || '-') + '</dd></div>' +
+      '<div><dt>下取車</dt><dd>' + escapeHtml(o.tradeIn || '-') + '</dd></div>' +
+      '<div><dt>OSS登録</dt><dd>' + escapeHtml(o.oss || '-') + '</dd></div>' +
+      '<div><dt>保険加入</dt><dd>' + escapeHtml(o.insurance || '-') + '</dd></div>' +
+      '<div><dt>受注確定日時</dt><dd>' + formatDateTime(o.orderedAt) + '</dd></div>' +
+      '</dl></div>';
+  }
+
+  function renderOrders() {
+    var container = $('ordersGroups');
+    var totalItems = state.ordersGroups.reduce(function (n, g) { return n + g.items.length; }, 0);
+    $('ordersEmpty').classList.toggle('hidden', totalItems > 0);
+    container.innerHTML = state.ordersGroups.map(function (g) {
+      var heading = g.key ? '<h3 class="group__title">' + escapeHtml(g.key) + '</h3>' : '';
+      return '<div class="group">' + heading + g.items.map(orderCardHtml).join('') + '</div>';
+    }).join('');
+  }
+
+  ['ordersKeyword', 'ordersGroupBy'].forEach(function (id) {
+    $(id).addEventListener('input', debounce(loadOrders, 250));
+    $(id).addEventListener('change', loadOrders);
+  });
+
+  // ===== 設定（3.6） =====
+  function renderSettings(settings) {
+    $('settingsThemeColor').value = settings.themeColor;
+    $('settingsThemeColorLabel').textContent = settings.themeColor;
+    $('settingsHoldMailTo').value = settings.notifyHoldMailTo;
+    $('settingsOrderMailTo').value = settings.notifyOrderMailTo;
+    applyTheme(settings.themeColor);
+  }
+
+  $('settingsThemeColor').addEventListener('input', function () {
+    $('settingsThemeColorLabel').textContent = this.value;
+    applyTheme(this.value);
+  });
+
+  function applyTheme(color) {
+    document.documentElement.style.setProperty('--primary', color);
+  }
+
+  $('btnSaveSettings').addEventListener('click', function () {
+    var settings = {
+      themeColor: $('settingsThemeColor').value,
+      notifyHoldMailTo: $('settingsHoldMailTo').value.trim(),
+      notifyOrderMailTo: $('settingsOrderMailTo').value.trim()
+    };
+    gasRun('api_saveSettings', settings).then(function () {
+      showToast('設定を保存しました');
+    }).catch(function (err) {
+      $('settingsError').textContent = err.message;
+    });
+  });
+
+  // ===== ユーティリティ =====
+  function debounce(fn, wait) {
+    var timer = null;
+    return function () {
+      clearTimeout(timer);
+      var args = arguments;
+      timer = setTimeout(function () { fn.apply(null, args); }, wait);
+    };
+  }
+
+  function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  // ===== 初期化 =====
+  function init() {
+    gasRun('api_getBootstrapData').then(function (bootstrap) {
+      state.bootstrap = bootstrap;
+      fillOptions($('actionTradeIn'), bootstrap.yesNoOptions, true);
+      fillOptions($('actionOss'), bootstrap.ossOptions, true);
+      fillOptions($('actionInsurance'), bootstrap.yesNoOptions, true);
+      fillOptions($('invSteeringPosition'), bootstrap.steeringPositionOptions, true);
+      renderSettings(bootstrap.settings);
+      return Promise.all([loadInventory(), loadOrders()]);
+    }).catch(function (err) { showToast(err.message, true); });
+  }
+
+  init();
+})();
+</script>
