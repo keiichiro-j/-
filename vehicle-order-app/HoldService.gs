@@ -1,12 +1,12 @@
 /**
  * HoldService.gs
- * 3.2 Hold（商談確保）機能
+ * Hold（商談確保）機能
  *
  * Hold期間は72時間。Hold中に別の申込みがあれば「2nd Hold」として保持し、
  * 3人目以降のHoldは不可とする。72時間経過時に2nd Holdが存在すれば、
  * 商談者を自動的に2nd Hold申込者へ切り替える（processExpiredHolds）。
  *
- * 複数人による同時Hold操作に備え、LockService による排他制御を行う（企画書 8.）。
+ * 複数人による同時Hold操作に備え、LockService による排他制御を行う。
  */
 
 /**
@@ -48,20 +48,12 @@ function decideExpiryAction_(vehicle, now) {
  */
 function buildPromotedHoldPatch_(vehicle, now) {
   return {
-    holdRegisteredMonth: vehicle.secondHoldRegisteredMonth,
     holdStaff: vehicle.secondHoldStaff,
     holdCustomer: vehicle.secondHoldCustomer,
-    holdTradeIn: vehicle.secondHoldTradeIn,
-    holdOss: vehicle.secondHoldOss,
-    holdInsurance: vehicle.secondHoldInsurance,
     holdCreatedAt: now,
     holdExpiresAt: now + HOLD_DURATION_MS,
-    secondHoldRegisteredMonth: null,
     secondHoldStaff: null,
     secondHoldCustomer: null,
-    secondHoldTradeIn: null,
-    secondHoldOss: null,
-    secondHoldInsurance: null,
     secondHoldCreatedAt: null,
     secondHoldExpiresAt: null
   };
@@ -73,12 +65,8 @@ function buildPromotedHoldPatch_(vehicle, now) {
 function buildReleasedHoldPatch_() {
   return {
     holdStatus: HOLD_STATUS.AVAILABLE,
-    holdRegisteredMonth: null,
     holdStaff: null,
     holdCustomer: null,
-    holdTradeIn: null,
-    holdOss: null,
-    holdInsurance: null,
     holdCreatedAt: null,
     holdExpiresAt: null
   };
@@ -87,7 +75,7 @@ function buildReleasedHoldPatch_() {
 /**
  * 1st Hold を登録する。
  * @param {string} commission
- * @param {Object} info { registeredMonth, staff, customer, tradeIn, oss, insurance }
+ * @param {Object} info { staff, customer }
  */
 function registerHold(commission, info) {
   var lock = LockService.getScriptLock();
@@ -107,12 +95,8 @@ function registerHold(commission, info) {
     var now = new Date().getTime();
     var patch = {
       holdStatus: HOLD_STATUS.HOLD,
-      holdRegisteredMonth: info.registeredMonth,
       holdStaff: info.staff,
       holdCustomer: info.customer,
-      holdTradeIn: info.tradeIn,
-      holdOss: info.oss,
-      holdInsurance: info.insurance,
       holdCreatedAt: now,
       holdExpiresAt: now + HOLD_DURATION_MS
     };
@@ -127,7 +111,7 @@ function registerHold(commission, info) {
 /**
  * 2nd Hold を登録する。
  * @param {string} commission
- * @param {Object} info { registeredMonth, staff, customer, tradeIn, oss, insurance }
+ * @param {Object} info { staff, customer }
  */
 function registerSecondHold(commission, info) {
   var lock = LockService.getScriptLock();
@@ -146,12 +130,8 @@ function registerSecondHold(commission, info) {
 
     var now = new Date().getTime();
     var patch = {
-      secondHoldRegisteredMonth: info.registeredMonth,
       secondHoldStaff: info.staff,
       secondHoldCustomer: info.customer,
-      secondHoldTradeIn: info.tradeIn,
-      secondHoldOss: info.oss,
-      secondHoldInsurance: info.insurance,
       secondHoldCreatedAt: now,
       secondHoldExpiresAt: now + HOLD_DURATION_MS
     };

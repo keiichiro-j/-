@@ -8,31 +8,31 @@
 // ===== 初期化 =====
 function api_getBootstrapData() {
   return {
-    steeringPositionOptions: STEERING_POSITION_OPTIONS,
-    yesNoOptions: YES_NO_OPTIONS,
-    ossOptions: OSS_OPTIONS,
+    steeringOptions: STEERING_OPTIONS,
+    stockDisclosureOptions: STOCK_DISCLOSURE_OPTIONS,
+    paidOptionKeys: PAID_OPTION_KEYS,
     settings: getSettings(),
     currentUserEmail: Session.getActiveUser().getEmail()
   };
 }
 
-// ===== 在庫一覧（3.1） =====
+// ===== 販売リスト（在庫）一覧 =====
 function api_listInventory(filters, groupBy) {
   var vehicles = searchInventory(listInventory(), filters);
   return groupBy ? groupByField_(vehicles, groupBy) : [{ key: '', items: vehicles }];
 }
 
 /**
- * 3.1 のスコープ外だが、独立システムとして最低限の在庫データ投入手段を提供する。
- * 本来は企画書 5. のとおり既存の新車売上在庫スプレッドシートと連携する想定（README参照）。
+ * 販売リストへの車両登録。通常は既存の販売リスト用スプレッドシートへ直接データを
+ * 貼り付ける運用を想定しているが、個別追加の手段としても提供する（README参照）。
  */
 function api_createInventoryVehicle(vehicle) {
-  if (!vehicle.commission) throw new Error('コミッション（車両特定番号）は必須です');
+  if (!vehicle.commission) throw new Error('コミッションは必須です');
   if (!vehicle.model) throw new Error('モデルは必須です');
   return createInventoryVehicle(vehicle);
 }
 
-// ===== Hold機能（3.2） =====
+// ===== Hold機能 =====
 function api_registerHold(commission, info) {
   return registerHold(commission, info);
 }
@@ -41,7 +41,7 @@ function api_registerSecondHold(commission, info) {
   return registerSecondHold(commission, info);
 }
 
-// ===== 受注機能（3.3） =====
+// ===== 受注機能 =====
 function api_confirmOrder(commission, info) {
   return confirmOrder(commission, info);
 }

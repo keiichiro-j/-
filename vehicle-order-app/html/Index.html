@@ -10,19 +10,19 @@
     <header class="topbar">
       <div class="topbar__brand">車両受注アプリ</div>
       <nav class="tabs" id="mainTabs" role="tablist" aria-label="画面切替">
-        <button class="tabs__item is-active" data-tab="inventory">在庫一覧</button>
+        <button class="tabs__item is-active" data-tab="inventory">販売リスト</button>
         <button class="tabs__item" data-tab="orders">受注リスト</button>
         <button class="tabs__item" data-tab="settings">設定</button>
       </nav>
     </header>
 
-    <!-- 在庫一覧（3.1〜3.2・4.） -->
+    <!-- 販売リスト（在庫）-->
     <main class="view is-active" id="view-inventory">
       <div class="toolbar">
-        <input type="search" id="inventoryKeyword" class="input input--search" placeholder="モデル・コミッションで検索">
+        <input type="search" id="inventoryKeyword" class="input input--search" placeholder="車種・モデル・コミッションで検索">
         <select id="inventoryGroupBy" class="input">
           <option value="">グループ表示なし</option>
-          <option value="arrivalMonth">販売可能月（入港月）ごと</option>
+          <option value="arrivalExpectedDate">入港予定日ごと</option>
           <option value="model">モデルごと</option>
         </select>
         <label class="checkboxField">
@@ -35,13 +35,13 @@
       <div class="emptyState hidden" id="inventoryEmpty">該当する在庫がありません</div>
     </main>
 
-    <!-- 受注リスト（3.3・4.） -->
+    <!-- 受注リスト -->
     <main class="view" id="view-orders">
       <div class="toolbar">
-        <input type="search" id="ordersKeyword" class="input input--search" placeholder="モデル・顧客・担当者で検索">
+        <input type="search" id="ordersKeyword" class="input input--search" placeholder="車種・モデル・顧客名・担当で検索">
         <select id="ordersGroupBy" class="input">
           <option value="">グループ表示なし</option>
-          <option value="orderRegisteredMonth">登録月ごと</option>
+          <option value="salesLocation">販売拠点ごと</option>
           <option value="model">モデルごと</option>
         </select>
       </div>
@@ -49,7 +49,7 @@
       <div class="emptyState hidden" id="ordersEmpty">該当する受注がありません</div>
     </main>
 
-    <!-- 設定（3.6） -->
+    <!-- 設定 -->
     <main class="view" id="view-settings">
       <div class="settingsCard">
         <div class="formField">
@@ -82,29 +82,17 @@
       </div>
       <div class="modal__body">
         <div class="modal__error hidden" id="actionModalError"></div>
-        <div class="formField">
-          <label>登録月</label>
-          <input type="month" id="actionRegisteredMonth" class="input">
+        <div class="formField" id="actionSalesLocationField">
+          <label>販売拠点</label>
+          <input type="text" id="actionSalesLocation" class="input">
         </div>
         <div class="formField">
-          <label>担当者</label>
+          <label>担当</label>
           <input type="text" id="actionStaff" class="input">
         </div>
         <div class="formField">
-          <label>顧客</label>
+          <label>顧客名</label>
           <input type="text" id="actionCustomer" class="input">
-        </div>
-        <div class="formField">
-          <label>下取車の有無</label>
-          <select id="actionTradeIn" class="input"></select>
-        </div>
-        <div class="formField">
-          <label>OSS登録の可否</label>
-          <select id="actionOss" class="input"></select>
-        </div>
-        <div class="formField">
-          <label>保険加入の有無</label>
-          <select id="actionInsurance" class="input"></select>
         </div>
       </div>
       <div class="modal__footer">
@@ -124,32 +112,54 @@
       <div class="modal__body">
         <div class="modal__error hidden" id="inventoryModalError"></div>
         <div class="formField">
-          <label>コミッション（車両特定番号）</label>
-          <input type="text" id="invCommission" class="input">
+          <label>車種</label>
+          <input type="text" id="invCarType" class="input">
         </div>
         <div class="formField">
           <label>モデル</label>
           <input type="text" id="invModel" class="input">
         </div>
         <div class="formField">
-          <label>販売可能月（入港月）</label>
-          <input type="month" id="invArrivalMonth" class="input">
+          <label>MP</label>
+          <input type="text" id="invMp" class="input">
         </div>
         <div class="formField">
-          <label>カラー（外装）</label>
+          <label>ステア</label>
+          <select id="invSteering" class="input"></select>
+        </div>
+        <div class="formField">
+          <label>外装</label>
           <input type="text" id="invExteriorColor" class="input">
         </div>
         <div class="formField">
-          <label>カラー（内装）</label>
+          <label>内装</label>
           <input type="text" id="invInteriorColor" class="input">
         </div>
         <div class="formField">
-          <label>ハンドル位置</label>
-          <select id="invSteeringPosition" class="input"></select>
+          <label>有償オプション</label>
+          <div class="optionSlots" id="invPaidOptions">
+            <input type="text" class="input" data-paid-option="1" placeholder="1">
+            <input type="text" class="input" data-paid-option="2" placeholder="2">
+            <input type="text" class="input" data-paid-option="3" placeholder="3">
+            <input type="text" class="input" data-paid-option="4" placeholder="4">
+            <input type="text" class="input" data-paid-option="5" placeholder="5">
+          </div>
         </div>
         <div class="formField">
-          <label>オプション</label>
-          <input type="text" id="invOptions" class="input">
+          <label>コミッション</label>
+          <input type="text" id="invCommission" class="input">
+        </div>
+        <div class="formField">
+          <label>入港予定日</label>
+          <input type="date" id="invArrivalExpectedDate" class="input">
+        </div>
+        <div class="formField">
+          <label>VPC</label>
+          <input type="text" id="invVpc" class="input">
+        </div>
+        <div class="formField">
+          <label>在庫開示</label>
+          <select id="invStockDisclosure" class="input"></select>
         </div>
       </div>
       <div class="modal__footer">

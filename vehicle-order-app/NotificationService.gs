@@ -20,9 +20,9 @@ function notifyHoldRegistered(vehicle, isSecondHold) {
       label + 'が登録されました。',
       '',
       'コミッション: ' + vehicle.commission,
-      'モデル: ' + vehicle.model,
-      '担当者: ' + staff,
-      '顧客: ' + customer,
+      '車種/モデル: ' + vehicle.carType + ' ' + vehicle.model,
+      '担当: ' + staff,
+      '顧客名: ' + customer,
       'Hold期限: ' + formatDateTime_(expiresAt)
     ].join('\n')
   });
@@ -40,9 +40,10 @@ function notifyOrderConfirmed(order) {
       '受注が確定しました。',
       '',
       'コミッション: ' + order.commission,
-      'モデル: ' + order.model,
-      '担当者: ' + order.staff,
-      '顧客: ' + order.customer,
+      '車種/モデル: ' + order.carType + ' ' + order.model,
+      '販売拠点: ' + order.salesLocation,
+      '担当: ' + order.staff,
+      '顧客名: ' + order.customer,
       '受注確定日時: ' + formatDateTime_(order.orderedAt)
     ].join('\n')
   });

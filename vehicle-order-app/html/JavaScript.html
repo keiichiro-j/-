@@ -6,7 +6,7 @@
     bootstrap: null,
     inventoryGroups: [],
     ordersGroups: [],
-    action: null // { type: 'hold' | 'secondHold' | 'order', commission }
+    action: null // { type: 'hold' | 'secondHold' | 'order' | 'orderFromHold', commission }
   };
 
   // ===== google.script.run を Promise 化するヘルパー =====
@@ -36,16 +36,17 @@
     options.forEach(function (o) { select.appendChild(new Option(o, o)); });
   }
 
-  function currentYearMonth() {
-    var d = new Date();
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-  }
-
   function formatDateTime(epochMs) {
     if (!epochMs) return '-';
     var d = new Date(epochMs);
     return d.getFullYear() + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0') +
       ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  }
+
+  function paidOptionsText(item) {
+    var keys = (state.bootstrap && state.bootstrap.paidOptionKeys) || ['paidOption1', 'paidOption2', 'paidOption3', 'paidOption4', 'paidOption5'];
+    var values = keys.map(function (k) { return item[k]; }).filter(function (v) { return v; });
+    return values.length ? values.join('、') : '-';
   }
 
   // ===== タブ切替 =====
@@ -67,7 +68,7 @@
   function openModal(modal) { modal.classList.remove('hidden'); }
   function closeModal(modal) { modal.classList.add('hidden'); }
 
-  // ===== 在庫一覧（3.1） =====
+  // ===== 販売リスト（在庫） =====
   function loadInventory() {
     var filters = {
       keyword: $('inventoryKeyword').value,
@@ -82,15 +83,20 @@
 
   function vehicleCardHtml(v) {
     var isHold = v.holdStatus === 'hold';
-    var badge = isHold
+    var badges = isHold
       ? '<span class="badge badge--hold">Hold中</span>'
       : '<span class="badge badge--available">在庫あり</span>';
+    badges += v.stockDisclosure === '非開示'
+      ? '<span class="badge badge--undisclosed">非開示</span>'
+      : '<span class="badge badge--disclosed">開示</span>';
 
     var meta = [
-      '販売可能月: <strong>' + escapeHtml(v.arrivalMonth || '-') + '</strong>',
+      'MP: <strong>' + escapeHtml(v.mp || '-') + '</strong>',
+      'ステア: <strong>' + escapeHtml(v.steering || '-') + '</strong>',
       'カラー: <strong>' + escapeHtml(v.exteriorColor || '-') + ' / ' + escapeHtml(v.interiorColor || '-') + '</strong>',
-      'ハンドル位置: <strong>' + escapeHtml(v.steeringPosition || '-') + '</strong>',
-      'オプション: <strong>' + escapeHtml(v.options || '-') + '</strong>'
+      '有償オプション: <strong>' + escapeHtml(paidOptionsText(v)) + '</strong>',
+      '入港予定日: <strong>' + escapeHtml(v.arrivalExpectedDate || '-') + '</strong>',
+      'VPC: <strong>' + escapeHtml(v.vpc || '-') + '</strong>'
     ].join('<br>');
 
     var holdInfoHtml = '';
@@ -116,8 +122,9 @@
     actionsHtml += '</div>';
 
     return '<div class="card">' +
-      '<div class="card__top"><div><div class="card__model">' + escapeHtml(v.model) + '</div>' +
-      '<div class="card__commission">' + escapeHtml(v.commission) + '</div></div>' + badge + '</div>' +
+      '<div class="card__top"><div><div class="card__model">' + escapeHtml(v.carType) + ' ' + escapeHtml(v.model) + '</div>' +
+      '<div class="card__commission">' + escapeHtml(v.commission) + '</div></div>' +
+      '<div class="card__badges">' + badges + '</div></div>' +
       '<div class="card__meta">' + meta + '</div>' +
       holdInfoHtml +
       actionsHtml +
@@ -149,26 +156,35 @@
   });
 
   $('btnAddInventory').addEventListener('click', function () {
-    $('invCommission').value = '';
+    $('invCarType').value = '';
     $('invModel').value = '';
-    $('invArrivalMonth').value = '';
+    $('invMp').value = '';
     $('invExteriorColor').value = '';
     $('invInteriorColor').value = '';
-    $('invOptions').value = '';
+    document.querySelectorAll('#invPaidOptions [data-paid-option]').forEach(function (input) { input.value = ''; });
+    $('invCommission').value = '';
+    $('invArrivalExpectedDate').value = '';
+    $('invVpc').value = '';
     $('inventoryModalError').classList.add('hidden');
     openModal($('inventoryModal'));
   });
 
   $('btnInventorySubmit').addEventListener('click', function () {
     var vehicle = {
-      commission: $('invCommission').value.trim(),
+      carType: $('invCarType').value.trim(),
       model: $('invModel').value.trim(),
-      arrivalMonth: $('invArrivalMonth').value,
+      mp: $('invMp').value.trim(),
+      steering: $('invSteering').value,
       exteriorColor: $('invExteriorColor').value.trim(),
       interiorColor: $('invInteriorColor').value.trim(),
-      steeringPosition: $('invSteeringPosition').value,
-      options: $('invOptions').value.trim()
+      commission: $('invCommission').value.trim(),
+      arrivalExpectedDate: $('invArrivalExpectedDate').value,
+      vpc: $('invVpc').value.trim(),
+      stockDisclosure: $('invStockDisclosure').value
     };
+    document.querySelectorAll('#invPaidOptions [data-paid-option]').forEach(function (input) {
+      vehicle['paidOption' + input.dataset.paidOption] = input.value.trim();
+    });
     gasRun('api_createInventoryVehicle', vehicle).then(function () {
       closeModal($('inventoryModal'));
       showToast('在庫を登録しました');
@@ -180,36 +196,30 @@
     });
   });
 
-  // ===== Hold / 2nd Hold / 受注 共通モーダル（3.2・3.3） =====
+  // ===== Hold / 2nd Hold / 受注 共通モーダル =====
   var ACTION_LABELS = {
     hold: { title: 'Hold登録', button: 'Holdする' },
     secondHold: { title: '2nd Hold登録', button: '2nd Holdする' },
     order: { title: '受注確定', button: '受注確定する' },
     orderFromHold: { title: '受注確定', button: '受注確定する' }
   };
+  var ORDER_TYPES = ['order', 'orderFromHold'];
 
   function openActionModal(type, commission) {
     state.action = { type: type, commission: commission };
     $('actionModalTitle').textContent = ACTION_LABELS[type].title;
     $('btnActionSubmit').textContent = ACTION_LABELS[type].button;
     $('actionModalError').classList.add('hidden');
+    $('actionSalesLocationField').classList.toggle('hidden', ORDER_TYPES.indexOf(type) === -1);
 
     var vehicle = findVehicleByCommission(commission);
-    var prefill = (type === 'orderFromHold' && vehicle) ? {
-      registeredMonth: vehicle.holdRegisteredMonth,
-      staff: vehicle.holdStaff,
-      customer: vehicle.holdCustomer,
-      tradeIn: vehicle.holdTradeIn,
-      oss: vehicle.holdOss,
-      insurance: vehicle.holdInsurance
-    } : { registeredMonth: currentYearMonth(), staff: '', customer: '', tradeIn: '', oss: '', insurance: '' };
+    var prefill = (type === 'orderFromHold' && vehicle)
+      ? { staff: vehicle.holdStaff, customer: vehicle.holdCustomer }
+      : { staff: '', customer: '' };
 
-    $('actionRegisteredMonth').value = prefill.registeredMonth || currentYearMonth();
+    $('actionSalesLocation').value = '';
     $('actionStaff').value = prefill.staff || '';
     $('actionCustomer').value = prefill.customer || '';
-    $('actionTradeIn').value = prefill.tradeIn || '';
-    $('actionOss').value = prefill.oss || '';
-    $('actionInsurance').value = prefill.insurance || '';
 
     openModal($('actionModal'));
   }
@@ -224,12 +234,9 @@
 
   $('btnActionSubmit').addEventListener('click', function () {
     var info = {
-      registeredMonth: $('actionRegisteredMonth').value,
+      salesLocation: $('actionSalesLocation').value.trim(),
       staff: $('actionStaff').value.trim(),
-      customer: $('actionCustomer').value.trim(),
-      tradeIn: $('actionTradeIn').value,
-      oss: $('actionOss').value,
-      insurance: $('actionInsurance').value
+      customer: $('actionCustomer').value.trim()
     };
     var action = state.action;
     var apiCall;
@@ -241,7 +248,7 @@
       closeModal($('actionModal'));
       showToast(ACTION_LABELS[action.type].title + 'が完了しました');
       loadInventory();
-      if (action.type === 'order' || action.type === 'orderFromHold') loadOrders();
+      if (ORDER_TYPES.indexOf(action.type) !== -1) loadOrders();
     }).catch(function (err) {
       var el = $('actionModalError');
       el.textContent = err.message;
@@ -249,7 +256,7 @@
     });
   });
 
-  // ===== 受注リスト（3.3） =====
+  // ===== 受注リスト =====
   function loadOrders() {
     var filters = { keyword: $('ordersKeyword').value };
     var groupBy = $('ordersGroupBy').value;
@@ -261,14 +268,14 @@
 
   function orderCardHtml(o) {
     return '<div class="orderCard"><dl class="orderCard__grid">' +
-      '<div><dt>モデル</dt><dd>' + escapeHtml(o.model) + '</dd></div>' +
+      '<div><dt>車種/モデル</dt><dd>' + escapeHtml(o.carType) + ' ' + escapeHtml(o.model) + '</dd></div>' +
       '<div><dt>コミッション</dt><dd>' + escapeHtml(o.commission) + '</dd></div>' +
-      '<div><dt>顧客</dt><dd>' + escapeHtml(o.customer || '-') + '</dd></div>' +
-      '<div><dt>担当者</dt><dd>' + escapeHtml(o.staff || '-') + '</dd></div>' +
-      '<div><dt>登録月</dt><dd>' + escapeHtml(o.orderRegisteredMonth || '-') + '</dd></div>' +
-      '<div><dt>下取車</dt><dd>' + escapeHtml(o.tradeIn || '-') + '</dd></div>' +
-      '<div><dt>OSS登録</dt><dd>' + escapeHtml(o.oss || '-') + '</dd></div>' +
-      '<div><dt>保険加入</dt><dd>' + escapeHtml(o.insurance || '-') + '</dd></div>' +
+      '<div><dt>MP</dt><dd>' + escapeHtml(o.mp || '-') + '</dd></div>' +
+      '<div><dt>VPC</dt><dd>' + escapeHtml(o.vpc || '-') + '</dd></div>' +
+      '<div><dt>有償オプション</dt><dd>' + escapeHtml(paidOptionsText(o)) + '</dd></div>' +
+      '<div><dt>販売拠点</dt><dd>' + escapeHtml(o.salesLocation || '-') + '</dd></div>' +
+      '<div><dt>担当</dt><dd>' + escapeHtml(o.staff || '-') + '</dd></div>' +
+      '<div><dt>顧客名</dt><dd>' + escapeHtml(o.customer || '-') + '</dd></div>' +
       '<div><dt>受注確定日時</dt><dd>' + formatDateTime(o.orderedAt) + '</dd></div>' +
       '</dl></div>';
   }
@@ -288,7 +295,7 @@
     $(id).addEventListener('change', loadOrders);
   });
 
-  // ===== 設定（3.6） =====
+  // ===== 設定 =====
   function renderSettings(settings) {
     $('settingsThemeColor').value = settings.themeColor;
     $('settingsThemeColorLabel').textContent = settings.themeColor;
@@ -340,10 +347,8 @@
   function init() {
     gasRun('api_getBootstrapData').then(function (bootstrap) {
       state.bootstrap = bootstrap;
-      fillOptions($('actionTradeIn'), bootstrap.yesNoOptions, true);
-      fillOptions($('actionOss'), bootstrap.ossOptions, true);
-      fillOptions($('actionInsurance'), bootstrap.yesNoOptions, true);
-      fillOptions($('invSteeringPosition'), bootstrap.steeringPositionOptions, true);
+      fillOptions($('invSteering'), bootstrap.steeringOptions, true);
+      fillOptions($('invStockDisclosure'), bootstrap.stockDisclosureOptions, true);
       renderSettings(bootstrap.settings);
       return Promise.all([loadInventory(), loadOrders()]);
     }).catch(function (err) { showToast(err.message, true); });

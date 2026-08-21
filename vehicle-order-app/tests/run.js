@@ -79,10 +79,7 @@ test('Hold期限経過・2nd Holdありは昇格', () => {
 console.log('== HoldService: buildPromotedHoldPatch_ / buildReleasedHoldPatch_ ==');
 test('2nd Holdの内容が1st Holdへ昇格し、新たな72時間が付与される', () => {
   const now = 10_000;
-  const vehicle = {
-    secondHoldRegisteredMonth: '2026-08', secondHoldStaff: '鈴木', secondHoldCustomer: '顧客B',
-    secondHoldTradeIn: 'あり', secondHoldOss: '可', secondHoldInsurance: 'なし'
-  };
+  const vehicle = { secondHoldStaff: '鈴木', secondHoldCustomer: '顧客B' };
   const patch = sandbox.buildPromotedHoldPatch_(vehicle, now);
   assert.strictEqual(patch.holdCustomer, '顧客B');
   assert.strictEqual(patch.holdStaff, '鈴木');
@@ -98,14 +95,17 @@ test('解放時はステータスがavailableに戻り、Hold項目がクリア�
 
 console.log('== SearchService: searchInventory / searchOrders ==');
 const vehicles = [
-  { commission: 'C001', model: 'モデルA', holdStatus: 'available' },
-  { commission: 'C002', model: 'モデルB', holdStatus: 'hold' }
+  { commission: 'C001', carType: '車種X', model: 'モデルA', holdStatus: 'available' },
+  { commission: 'C002', carType: '車種Y', model: 'モデルB', holdStatus: 'hold' }
 ];
 test('キーワードでモデル検索がヒットする', () => {
   assert.strictEqual(sandbox.searchInventory(vehicles, { keyword: 'モデルA' }).length, 1);
 });
 test('キーワードでコミッション検索がヒットする', () => {
   assert.strictEqual(sandbox.searchInventory(vehicles, { keyword: 'C002' }).length, 1);
+});
+test('キーワードで車種検索がヒットする', () => {
+  assert.strictEqual(sandbox.searchInventory(vehicles, { keyword: '車種X' }).length, 1);
 });
 test('includeHold=falseでHold済み車両が除外される', () => {
   const result = sandbox.searchInventory(vehicles, { includeHold: false });
@@ -134,7 +134,10 @@ test('モデルごとにグループ化される', () => {
   assert.strictEqual(groups[0].items.length, 1);
 });
 test('未設定の項目は「未設定」グループの末尾へ回る', () => {
-  const groups = sandbox.groupByField_([{ arrivalMonth: '2026-09' }, { arrivalMonth: '' }], 'arrivalMonth');
+  const groups = sandbox.groupByField_(
+    [{ arrivalExpectedDate: '2026-09-01' }, { arrivalExpectedDate: '' }],
+    'arrivalExpectedDate'
+  );
   assert.strictEqual(groups[groups.length - 1].key, '未設定');
 });
 
