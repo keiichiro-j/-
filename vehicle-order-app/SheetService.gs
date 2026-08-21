@@ -44,12 +44,22 @@ function readAllRows_(sheet, columns, keyField) {
   return rows;
 }
 
+/**
+ * シートのセル値をクライアントへ返せる形（プリミティブ）に変換する。
+ * スプレッドシートは「入港予定日」等の date 型セルや、日付らしい文字列を
+ * 貼り付けた text 列も自動的に Date 型として保持することがある。
+ * Date のまま google.script.run で返すとシリアライズに失敗し、クライアント側の
+ * 成功ハンドラに null が渡ってしまう（在庫一覧が読み込めなくなる不具合の原因）ため、
+ * 宣言された type に関わらず Date 値は必ずプリミティブへ変換する。
+ */
 function rowToObject_(rowValues, columns, rowNumber) {
   var obj = { rowNumber: rowNumber };
   columns.forEach(function (col, i) {
     var v = rowValues[i];
-    if (col.type === 'datetime' && v instanceof Date) {
-      obj[col.key] = v.getTime();
+    if (v instanceof Date) {
+      obj[col.key] = col.type === 'datetime'
+        ? v.getTime()
+        : Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
     } else {
       obj[col.key] = v === '' ? null : v;
     }
@@ -61,8 +71,8 @@ function objectToRow_(obj, columns) {
   return columns.map(function (col) {
     var v = obj[col.key];
     if (v === undefined || v === null || v === '') return '';
-    if (col.type === 'datetime') {
-      return typeof v === 'number' ? new Date(v) : v;
+    if (col.type === 'datetime' && typeof v === 'number') {
+      return new Date(v);
     }
     return v;
   });

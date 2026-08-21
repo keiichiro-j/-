@@ -11,16 +11,33 @@ const vm = require('vm');
 const assert = require('assert');
 
 const ROOT = path.join(__dirname, '..');
-const sandbox = {};
+const sandbox = {
+  // SheetService.gs の rowToObject_ が日時変換に使うGASサービスの最小スタブ
+  Utilities: {
+    formatDate: (date) => {
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    }
+  },
+  Session: { getScriptTimeZone: () => 'Asia/Tokyo' }
+};
 vm.createContext(sandbox);
 
-// Constants.gs -> HoldService.gs / SearchService.gs の順で依存関係あり
-const FILES = ['Constants.gs', 'HoldService.gs', 'SearchService.gs'];
+// Constants.gs -> HoldService.gs / SearchService.gs / SheetService.gs の順で依存関係あり
+const FILES = ['Constants.gs', 'HoldService.gs', 'SearchService.gs', 'SheetService.gs'];
 
 FILES.forEach((file) => {
   const code = fs.readFileSync(path.join(ROOT, file), 'utf8');
   vm.runInContext(code, sandbox, { filename: file });
 });
+
+// vm のサンドボックスは独立したレルムを持つため、テスト側（外のNode）で作った
+// `new Date(...)` はサンドボックス内の `instanceof Date` では別物と判定されてしまう。
+// サンドボックス自身のDateで生成するヘルパーをサンドボックス内に定義しておく。
+vm.runInContext(
+  'function makeTestDate(y, mo, d, h, mi, s) { return new Date(y, mo, d, h || 0, mi || 0, s || 0); }',
+  sandbox
+);
 
 let pass = 0;
 let fail = 0;
@@ -151,6 +168,38 @@ test('未設定の項目は「未設定」グループの末尾へ回る', () =>
     'arrivalExpectedDate'
   );
   assert.strictEqual(groups[groups.length - 1].key, '未設定');
+});
+
+console.log('== SheetService: rowToObject_ / objectToRow_（Date値の安全な変換） ==');
+test('date型セルが実際にはDateで返ってきても yyyy-MM-dd 文字列に変換される', () => {
+  const columns = [{ key: 'commission', label: 'コミッション', type: 'text' }, { key: 'arrivalExpectedDate', label: '入港予定日', type: 'date' }];
+  const row = ['C-9001', sandbox.makeTestDate(2026, 8, 15)]; // 2026-09-15（Google Sheetsが自動でDate化した想定）
+  const obj = sandbox.rowToObject_(row, columns, 2);
+  assert.strictEqual(obj.arrivalExpectedDate, '2026-09-15');
+});
+test('datetime型セルのDateはこれまで通りエポックミリ秒に変換される', () => {
+  const columns = [{ key: 'holdExpiresAt', label: 'Hold期限', type: 'datetime' }];
+  const d = sandbox.makeTestDate(2026, 7, 24, 10, 0, 0);
+  const obj = sandbox.rowToObject_([d], columns, 2);
+  assert.strictEqual(obj.holdExpiresAt, d.getTime());
+});
+test('文字列やnullはそのまま（Dateでなければ変換しない）', () => {
+  const columns = [{ key: 'model', label: 'モデル', type: 'text' }, { key: 'vpc', label: 'VPC', type: 'text' }];
+  const obj = sandbox.rowToObject_(['Cクラス', ''], columns, 2);
+  assert.strictEqual(obj.model, 'Cクラス');
+  assert.strictEqual(obj.vpc, null);
+});
+test('objectToRow_はdatetime型の数値をDateへ戻すが、date型の文字列はそのまま書き込む', () => {
+  const columns = [
+    { key: 'arrivalExpectedDate', label: '入港予定日', type: 'date' },
+    { key: 'holdExpiresAt', label: 'Hold期限', type: 'datetime' }
+  ];
+  const now = Date.now();
+  const row = sandbox.objectToRow_({ arrivalExpectedDate: '2026-09-15', holdExpiresAt: now }, columns);
+  assert.strictEqual(row[0], '2026-09-15');
+  // vm サンドボックスは別レルムのため instanceof Date は使えない（Object.prototype.toString で判定）
+  assert.strictEqual(Object.prototype.toString.call(row[1]), '[object Date]');
+  assert.strictEqual(row[1].getTime(), now);
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

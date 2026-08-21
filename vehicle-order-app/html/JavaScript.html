@@ -114,7 +114,7 @@
     };
     var groupBy = $('inventoryGroupBy').value;
     return gasRun('api_listInventory', filters, groupBy).then(function (groups) {
-      state.inventoryGroups = groups;
+      state.inventoryGroups = groups || [];
       renderInventory();
     }).catch(function (err) { showToast(err.message, true); });
   }
@@ -244,9 +244,10 @@
 
   function renderInventory() {
     var container = $('inventoryGroups');
-    var totalItems = state.inventoryGroups.reduce(function (n, g) { return n + g.items.length; }, 0);
+    var groups = state.inventoryGroups || [];
+    var totalItems = groups.reduce(function (n, g) { return n + g.items.length; }, 0);
     $('inventoryEmpty').classList.toggle('hidden', totalItems > 0);
-    container.innerHTML = state.inventoryGroups.map(function (g) {
+    container.innerHTML = groups.map(function (g) {
       var heading = g.key ? '<h3 class="group__title">' + escapeHtml(g.key) + '</h3>' : '';
       return '<div class="group">' + heading +
         '<div class="cardGrid">' + g.items.map(vehicleCardHtml).join('') + '</div></div>';
@@ -402,7 +403,7 @@
     var filters = { keyword: $('ordersKeyword').value };
     var groupBy = $('ordersGroupBy').value;
     return gasRun('api_listOrders', filters, groupBy).then(function (groups) {
-      state.ordersGroups = groups;
+      state.ordersGroups = groups || [];
       renderOrders();
     }).catch(function (err) { showToast(err.message, true); });
   }
@@ -427,9 +428,10 @@
 
   function renderOrders() {
     var container = $('ordersGroups');
-    var totalItems = state.ordersGroups.reduce(function (n, g) { return n + g.items.length; }, 0);
+    var groups = state.ordersGroups || [];
+    var totalItems = groups.reduce(function (n, g) { return n + g.items.length; }, 0);
     $('ordersEmpty').classList.toggle('hidden', totalItems > 0);
-    container.innerHTML = state.ordersGroups.map(function (g) {
+    container.innerHTML = groups.map(function (g) {
       var heading = g.key ? '<h3 class="group__title">' + escapeHtml(g.key) + '</h3>' : '';
       return '<div class="group">' + heading + g.items.map(orderCardHtml).join('') + '</div>';
     }).join('');
