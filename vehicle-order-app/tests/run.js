@@ -72,46 +72,46 @@ test('在庫あり車両には2nd Hold登録不可', () => {
 test('2nd Hold登録済みなら3人目のHoldは不可', () => {
   assert.strictEqual(sandbox.canRegisterSecondHold_({ holdStatus: 'hold' }, true).ok, false);
 });
-test('1st Holdと異なる担当者なら2nd Hold登録可', () => {
-  const result = sandbox.canRegisterSecondHold_({ holdStatus: 'hold' }, false, '佐藤', '鈴木');
+test('1st Holdと異なる担当者（メールアドレスが異なる）なら2nd Hold登録可', () => {
+  const result = sandbox.canRegisterSecondHold_({ holdStatus: 'hold' }, false, 'sato@example.com', 'suzuki@example.com');
   assert.strictEqual(result.ok, true);
 });
-test('1st Holdと同じ担当者は2nd Hold登録不可', () => {
-  const result = sandbox.canRegisterSecondHold_({ holdStatus: 'hold' }, false, '佐藤', '佐藤');
+test('1st Holdと同じ担当者（メールアドレスが同じ）は2nd Hold登録不可', () => {
+  const result = sandbox.canRegisterSecondHold_({ holdStatus: 'hold' }, false, 'sato@example.com', 'sato@example.com');
   assert.strictEqual(result.ok, false);
   assert.ok(result.reason.includes('同じ担当者'));
 });
 
-console.log('== HoldService: canConfirmOrder_（Hold担当者のみ受注確定可） ==');
+console.log('== HoldService: canConfirmOrder_（Hold担当者のみ受注確定可・メールアドレスで判定） ==');
 test('Holdが入っていない車両は誰でも受注確定できる', () => {
-  const result = sandbox.canConfirmOrder_({ holdStatus: 'available' }, null, '佐藤');
+  const result = sandbox.canConfirmOrder_({ holdStatus: 'available' }, null, 'sato@example.com');
   assert.strictEqual(result.ok, true);
 });
-test('Hold中の車両はHold担当者本人なら受注確定できる', () => {
-  const result = sandbox.canConfirmOrder_({ holdStatus: 'hold' }, { staff: '佐藤' }, '佐藤');
+test('Hold中の車両はHold担当者本人（同じメールアドレス）なら受注確定できる', () => {
+  const result = sandbox.canConfirmOrder_({ holdStatus: 'hold' }, { staff: '佐藤', staffEmail: 'sato@example.com' }, 'sato@example.com');
   assert.strictEqual(result.ok, true);
 });
-test('Hold中の車両はHold担当者以外だと受注確定できない', () => {
-  const result = sandbox.canConfirmOrder_({ holdStatus: 'hold' }, { staff: '佐藤' }, '鈴木');
+test('Hold中の車両はHold担当者以外（メールアドレスが異なる）だと受注確定できない', () => {
+  const result = sandbox.canConfirmOrder_({ holdStatus: 'hold' }, { staff: '佐藤', staffEmail: 'sato@example.com' }, 'suzuki@example.com');
   assert.strictEqual(result.ok, false);
 });
 test('Hold中なのにHold情報が取得できない場合は安全側に倒して受注確定できない（データ不整合対策）', () => {
-  const result = sandbox.canConfirmOrder_({ holdStatus: 'hold' }, null, '佐藤');
+  const result = sandbox.canConfirmOrder_({ holdStatus: 'hold' }, null, 'sato@example.com');
   assert.strictEqual(result.ok, false);
 });
 
-console.log('== HoldService: canCancelHold_ / decideCancelAction_（Hold解除） ==');
-test('Holdを行った本人なら解除できる', () => {
-  const result = sandbox.canCancelHold_({ staff: '佐藤' }, '佐藤');
+console.log('== HoldService: canCancelHold_ / decideCancelAction_（Hold解除・メールアドレスで判定） ==');
+test('Holdを行った本人（同じメールアドレス）なら解除できる。表示名が異なっていても影響しない', () => {
+  const result = sandbox.canCancelHold_({ staff: '佐藤（旧姓）', staffEmail: 'sato@example.com' }, 'sato@example.com');
   assert.strictEqual(result.ok, true);
 });
-test('Holdを行った本人以外は解除できない', () => {
-  const result = sandbox.canCancelHold_({ staff: '佐藤' }, '鈴木');
+test('Holdを行った本人以外（メールアドレスが異なる）は解除できない', () => {
+  const result = sandbox.canCancelHold_({ staff: '佐藤', staffEmail: 'sato@example.com' }, 'suzuki@example.com');
   assert.strictEqual(result.ok, false);
   assert.ok(result.reason.includes('佐藤'));
 });
 test('該当のHold行がなければ解除できない', () => {
-  const result = sandbox.canCancelHold_(null, '佐藤');
+  const result = sandbox.canCancelHold_(null, 'sato@example.com');
   assert.strictEqual(result.ok, false);
 });
 test('2nd Holdを解除する場合はremoveSecond', () => {
@@ -125,7 +125,7 @@ test('1st Holdを解除する場合、2nd Holdがあれば繰り上げ(promote)�
 
 console.log('== HoldService: validateRequiredInfo_（全項目入力チェック） ==');
 const fullInfo = {
-  leadNumber: 'L-001', registeredMonth: '2026-08', staff: '佐藤', customer: '山田太郎',
+  leadNumber: 'L-001', registeredMonth: '2026-08', staff: '佐藤', staffEmail: 'sato@example.com', customer: '山田太郎',
   tradeIn: 'あり', oss: '可', insurance: 'あり'
 };
 test('全項目入力済みならOK', () => {
@@ -165,11 +165,12 @@ test('Hold期限経過・2nd Holdありは昇格', () => {
 });
 
 console.log('== HoldService: buildHoldRecord_ / attachHoldInfo_（2nd Holdは1st Hold終了時から起算） ==');
-test('buildHoldRecord_ が入力項目一式を1行分のレコードに詰める', () => {
+test('buildHoldRecord_ が入力項目一式を1行分のレコードに詰める（担当者メールも含む）', () => {
   const record = sandbox.buildHoldRecord_('C-001', sandbox.HOLD_RANK.FIRST, fullInfo, 1000, 1000 + sandbox.HOLD_DURATION_MS);
   assert.strictEqual(record.commission, 'C-001');
   assert.strictEqual(record.rank, '1st');
   assert.strictEqual(record.leadNumber, 'L-001');
+  assert.strictEqual(record.staffEmail, 'sato@example.com');
   assert.strictEqual(record.createdAt, 1000);
   assert.strictEqual(record.expiresAt, 1000 + sandbox.HOLD_DURATION_MS);
 });
@@ -186,14 +187,16 @@ test('applyHoldFieldsToVehicle_ はHold行がない場合すべてnullを設定�
   const vehicle = { commission: 'C-999' };
   sandbox.applyHoldFieldsToVehicle_(vehicle, null, 'hold');
   assert.strictEqual(vehicle.holdStaff, null);
+  assert.strictEqual(vehicle.holdStaffEmail, null);
   assert.strictEqual(vehicle.holdLeadNumber, null);
   assert.strictEqual(vehicle.holdCreatedAt, null);
 });
-test('applyHoldFieldsToVehicle_ はHold行があればプレフィックス付きで値を反映する', () => {
+test('applyHoldFieldsToVehicle_ はHold行があればプレフィックス付きで値を反映する（担当者メールも含む）', () => {
   const vehicle = { commission: 'C-998' };
   const holdRow = Object.assign({ createdAt: 1000, expiresAt: 2000 }, fullInfo);
   sandbox.applyHoldFieldsToVehicle_(vehicle, holdRow, 'hold');
   assert.strictEqual(vehicle.holdStaff, '佐藤');
+  assert.strictEqual(vehicle.holdStaffEmail, 'sato@example.com');
   assert.strictEqual(vehicle.holdLeadNumber, 'L-001');
   assert.strictEqual(vehicle.holdExpiresAt, 2000);
 });

@@ -101,18 +101,25 @@ function getCurrentStaffName_() {
 }
 
 /**
- * getCurrentStaffName_() の結果が null の場合にエラーを投げる版。
- * Hold登録・2nd Hold登録・受注確定・Hold解除の入口で使い、担当者を
- * サーバー側で確定させる（クライアントからの担当者入力は信用しない）。
+ * ログイン中のGoogleアカウントに対応する担当者を { name, email } で返す。
+ * 見つからなければエラーを投げる。Hold登録・2nd Hold登録・受注確定・Hold解除の
+ * 入口で使い、担当者をサーバー側で確定させる（クライアントからの担当者入力は
+ * 信用しない）。
+ *
+ * 権限判定（本人確認）には、必ず email を使うこと。name はあくまで表示用のラベルで、
+ * 担当者マスタ側で後から書き換えられる可能性があるため、name同士の比較で本人確認を
+ * 行うと、表示名を変更しただけで自分自身のHoldを解除・受注確定できなくなる
+ * （もしくは意図せず他人の権限と一致してしまう）不具合の原因になる。
  */
 function requireCurrentStaff_() {
-  var staff = getCurrentStaffName_();
-  if (!staff) {
+  var email = Session.getActiveUser().getEmail();
+  var name = resolveStaffNameByEmail_(getStaffList_(), email);
+  if (!name) {
     throw new Error(
       '担当者情報を取得できません。ログイン中のGoogleアカウント（' +
-      (Session.getActiveUser().getEmail() || '不明') +
+      (email || '不明') +
       '）が担当者マスタに登録されているか、設定タブでご確認ください。'
     );
   }
-  return staff;
+  return { name: name, email: String(email).trim().toLowerCase() };
 }

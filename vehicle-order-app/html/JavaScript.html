@@ -385,6 +385,14 @@
     return (state.bootstrap && state.bootstrap.currentUserEmail) || '';
   }
 
+  // 本人確認は表示名ではなく必ずメールアドレスで行う（担当者マスタの表示名は
+  // 後から変更され得るため、名前同士の比較だと表示名を変えただけで自分自身の
+  // Holdを解除・受注確定できなくなる不具合の原因になる。サーバー側 canCancelHold_ /
+  // canConfirmOrder_ も同様にメールアドレスで判定する）。
+  function emailsMatch_(a, b) {
+    return !!a && !!b && String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+  }
+
   function staffDisplayHtml_() {
     var name = currentStaffName_();
     var email = currentUserEmail_();
@@ -435,10 +443,11 @@
 
     $('actionStaffDisplay').innerHTML = staffDisplayHtml_();
 
-    // Hold中の車両は、Holdを行った担当者のみ受注確定できる。ログイン中の担当者が
-    // Hold担当者と異なる場合は、送信前に気づけるようここで警告し送信をブロックする
-    // （最終判定はサーバー側 canConfirmOrder_ で行う）。
-    var staffMismatch = isOrderFromHold && vehicle.holdStaff && vehicle.holdStaff !== currentStaff;
+    // Hold中の車両は、Holdを行った担当者のみ受注確定できる。ログイン中のメールアドレスが
+    // Hold担当者のメールアドレスと異なる場合は、送信前に気づけるようここで警告し送信を
+    // ブロックする（最終判定はサーバー側 canConfirmOrder_ で行う。表示名ではなく
+    // メールアドレスで比較する — emailsMatch_ 参照）。
+    var staffMismatch = isOrderFromHold && vehicle.holdStaffEmail && !emailsMatch_(vehicle.holdStaffEmail, currentUserEmail_());
     if (staffMismatch) {
       var errEl = $('actionModalError');
       errEl.textContent = 'このHoldの担当者は「' + vehicle.holdStaff + '」です。ログイン中の担当者（' + currentStaff + '）では受注確定できません。';
@@ -466,8 +475,8 @@
   }
 
   // ===== Hold解除 =====
-  // 「解除しようとしているのは誰か」は、ログイン中のGoogleアカウントから解決した
-  // 担当者名（currentStaffName_）と、Hold登録時の担当者が一致するかで判定する。
+  // 「解除しようとしているのは誰か」は、ログイン中のGoogleアカウントのメールアドレスと、
+  // Hold登録時の担当者のメールアドレスが一致するかで判定する（表示名の比較ではない）。
   var cancelHoldState = null; // { commission, rank }
 
   function openCancelHoldModal(commission, rank) {
@@ -480,6 +489,7 @@
     if (!vehicle) return;
     var prefix = rank === '2nd' ? 'secondHold' : 'hold';
     var holdStaff = vehicle[prefix + 'Staff'];
+    var holdStaffEmail = vehicle[prefix + 'StaffEmail'];
     var holdCustomer = vehicle[prefix + 'Customer'];
 
     cancelHoldState = { commission: commission, rank: rank };
@@ -492,7 +502,7 @@
 
     var submitBtn = $('btnCancelHoldSubmit');
     delete submitBtn.dataset.originalLabel;
-    var staffMismatch = holdStaff && holdStaff !== currentStaff;
+    var staffMismatch = holdStaffEmail && !emailsMatch_(holdStaffEmail, currentUserEmail_());
     if (staffMismatch) {
       var errEl = $('cancelHoldModalError');
       errEl.textContent = 'このHoldの担当者は「' + holdStaff + '」です。ログイン中の担当者（' + currentStaff + '）では解除できません。';
@@ -554,13 +564,12 @@
     }
 
     // 1st Holdと同じ担当者は2nd Holdを登録できない（サーバー側でも検証するが、
-    // 送信前に気づけるようここでも確認する）。
+    // 送信前に気づけるようここでも確認する）。メールアドレスで同一人物かどうかを判定する。
     if (action.type === 'secondHold') {
       var vehicleForCheck = findVehicleByCommission(action.commission);
-      var currentStaffForCheck = currentStaffName_();
-      if (vehicleForCheck && vehicleForCheck.holdStaff && currentStaffForCheck === vehicleForCheck.holdStaff) {
+      if (vehicleForCheck && vehicleForCheck.holdStaffEmail && emailsMatch_(vehicleForCheck.holdStaffEmail, currentUserEmail_())) {
         var staffErrEl = $('actionModalError');
-        staffErrEl.textContent = '1st Holdと同じ担当者（' + currentStaffForCheck + '）は2nd Holdを登録できません';
+        staffErrEl.textContent = '1st Holdと同じ担当者（' + vehicleForCheck.holdStaff + '）は2nd Holdを登録できません';
         staffErrEl.classList.remove('hidden');
         return;
       }

@@ -13,7 +13,10 @@
  * Holdの解除（顧客都合等での取り下げ）も、Holdを行った担当者のみ可能（canCancelHold_）。
  * 担当者は、クライアントからの入力ではなく、ログイン中のGoogleアカウントから
  * 担当者マスタ（メールアドレス）を突き合わせてサーバー側で確定させる
- * （requireCurrentStaff_、SettingsService.gs参照）。
+ * （requireCurrentStaff_、SettingsService.gs参照）。本人確認は必ずメールアドレス
+ * （staffEmail）で行い、表示名（staff）は使わない。表示名は担当者マスタで後から
+ * 変更され得るため、名前同士の比較だと表示名を変えただけで本人が自分のHoldを
+ * 解除・受注確定できなくなる不具合の原因になる。
  * Hold登録・受注確定では共通の入力項目（リード番号／登録月／顧客／
  * 下取車の有無／OSS登録の可否／保険加入の有無）をすべて入力する必要がある
  * （担当者はログインアカウントから自動設定されるため入力不要）。
@@ -38,12 +41,13 @@ function canRegisterHold_(vehicle) {
  * 2nd Hold 登録が可能かどうかを判定する（純粋関数）。
  * 3人目以降のHoldは不可（Holdボタンを非表示／無効化）。
  * また、1st Holdと同じ担当者は2nd Holdを登録できない（同一担当者による二重確保の防止）。
+ * 同一人物かどうかはメールアドレスで判定する（表示名の変更・表記ゆれに影響されないため）。
  */
-function canRegisterSecondHold_(vehicle, hasSecondHold, firstHoldStaff, newStaff) {
+function canRegisterSecondHold_(vehicle, hasSecondHold, firstHoldEmail, newEmail) {
   if (!vehicle) return { ok: false, reason: '該当車両が見つかりません' };
   if (vehicle.holdStatus !== HOLD_STATUS.HOLD) return { ok: false, reason: 'Hold中の車両ではありません' };
   if (hasSecondHold) return { ok: false, reason: '2nd Holdまで登録済みのため、これ以上のHoldはできません' };
-  if (firstHoldStaff && newStaff && firstHoldStaff === newStaff) {
+  if (firstHoldEmail && newEmail && firstHoldEmail === newEmail) {
     return { ok: false, reason: '1st Holdと同じ担当者は2nd Holdを登録できません' };
   }
   return { ok: true, reason: '' };
@@ -55,17 +59,18 @@ function canRegisterSecondHold_(vehicle, hasSecondHold, firstHoldStaff, newStaff
  * Holdが入っていない車両は誰でも受注確定できる。
  * holdStatusがHoldなのにfirstHoldが取得できない場合（データ不整合）は、
  * 安全側に倒して受注確定を拒否する（誰でも通ってしまう抜け道を作らない）。
+ * 同一人物かどうかはメールアドレスで判定する（表示名の変更・表記ゆれに影響されないため）。
  * @param {Object} vehicle
  * @param {Object|null} firstHold 現在の1st Hold行（Holdなしなら null）
- * @param {string} staff 受注確定を行おうとしている担当者
+ * @param {string} staffEmail 受注確定を行おうとしている担当者のメールアドレス
  */
-function canConfirmOrder_(vehicle, firstHold, staff) {
+function canConfirmOrder_(vehicle, firstHold, staffEmail) {
   if (!vehicle) return { ok: false, reason: '該当車両が見つかりません' };
   if (vehicle.holdStatus === HOLD_STATUS.HOLD) {
     if (!firstHold) {
       return { ok: false, reason: 'Hold情報が確認できないため受注確定できません。時間をおいて再度お試しください' };
     }
-    if (firstHold.staff !== staff) {
+    if (firstHold.staffEmail !== staffEmail) {
       return { ok: false, reason: 'Hold中の車両は、Holdを行った担当者（' + firstHold.staff + '）のみ受注確定できます' };
     }
   }
@@ -100,10 +105,13 @@ function decideExpiryAction_(info, now) {
 
 /**
  * Hold入力情報から Holdリストの1行分のレコードを組み立てる（純粋関数）。
+ * staffEmail は HOLD_ORDER_INPUT_COLUMNS には含まれない（クライアント入力ではなく
+ * サーバー側で確定させるため）ため、別途 info.staffEmail から詰める。
  */
 function buildHoldRecord_(commission, rank, info, createdAt, expiresAt) {
   var record = { commission: commission, rank: rank, createdAt: createdAt, expiresAt: expiresAt };
   HOLD_ORDER_INPUT_COLUMNS.forEach(function (c) { record[c.key] = info[c.key]; });
+  record.staffEmail = info.staffEmail;
   return record;
 }
 
@@ -130,6 +138,7 @@ function applyHoldFieldsToVehicle_(vehicle, holdRow, prefix) {
     var key = prefix + c.key.charAt(0).toUpperCase() + c.key.slice(1);
     vehicle[key] = holdRow ? holdRow[c.key] : null;
   });
+  vehicle[prefix + 'StaffEmail'] = holdRow ? holdRow.staffEmail : null;
   vehicle[prefix + 'CreatedAt'] = holdRow ? holdRow.createdAt : null;
   vehicle[prefix + 'ExpiresAt'] = holdRow ? holdRow.expiresAt : null;
 }
@@ -146,7 +155,8 @@ function findInventoryVehicleWithHolds_(commission) {
  * @param {Object} info { leadNumber, registeredMonth, staff, customer, tradeIn, oss, insurance }
  */
 function registerHold(commission, info) {
-  info = Object.assign({}, info, { staff: requireCurrentStaff_() });
+  var currentStaff = requireCurrentStaff_();
+  info = Object.assign({}, info, { staff: currentStaff.name, staffEmail: currentStaff.email });
   var inputCheck = validateRequiredInfo_(HOLD_ORDER_INPUT_COLUMNS, info);
   if (!inputCheck.ok) throw new Error(inputCheck.reason);
 
@@ -182,7 +192,8 @@ function registerHold(commission, info) {
  * @param {Object} info { leadNumber, registeredMonth, staff, customer, tradeIn, oss, insurance }
  */
 function registerSecondHold(commission, info) {
-  info = Object.assign({}, info, { staff: requireCurrentStaff_() });
+  var currentStaff = requireCurrentStaff_();
+  info = Object.assign({}, info, { staff: currentStaff.name, staffEmail: currentStaff.email });
   var inputCheck = validateRequiredInfo_(HOLD_ORDER_INPUT_COLUMNS, info);
   if (!inputCheck.ok) throw new Error(inputCheck.reason);
 
@@ -199,7 +210,7 @@ function registerSecondHold(commission, info) {
     );
     var holds = getHoldsForCommission_(commission);
     if (!holds.first) throw new Error('Hold情報が見つかりません（コミッション: ' + commission + '）');
-    var check = canRegisterSecondHold_(vehicle, !!holds.second, holds.first.staff, info.staff);
+    var check = canRegisterSecondHold_(vehicle, !!holds.second, holds.first.staffEmail, currentStaff.email);
     if (!check.ok) throw new Error(check.reason);
 
     // 1st Holdの72時間が終了した時点を起点に、2nd Hold自身の72時間を与える
@@ -217,12 +228,14 @@ function registerSecondHold(commission, info) {
 
 /**
  * Hold解除が可能かどうかを判定する（純粋関数）。
- * ログイン中のGoogleアカウントから解決した担当者名（requireCurrentStaff_）と、
- * そのHoldの登録担当者が一致するかで判定する。
+ * ログイン中のGoogleアカウントのメールアドレス（requireCurrentStaff_）と、
+ * そのHoldの登録担当者のメールアドレスが一致するかで判定する
+ * （表示名同士の比較ではない。担当者マスタの表示名を後から変更しても、
+ * 本人がHoldを解除できなくなることはない）。
  */
-function canCancelHold_(holdRow, staff) {
+function canCancelHold_(holdRow, staffEmail) {
   if (!holdRow) return { ok: false, reason: '該当のHoldが見つかりません' };
-  if (holdRow.staff !== staff) {
+  if (holdRow.staffEmail !== staffEmail) {
     return { ok: false, reason: 'Holdを行った担当者（' + holdRow.staff + '）のみ解除できます' };
   }
   return { ok: true, reason: '' };
@@ -246,13 +259,13 @@ function decideCancelAction_(rank, hasSecondHold) {
  * @param {string} rank HOLD_RANK.FIRST または HOLD_RANK.SECOND
  */
 function cancelHold(commission, rank) {
-  var staff = requireCurrentStaff_();
+  var currentStaff = requireCurrentStaff_();
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
     var holds = getHoldsForCommission_(commission);
     var target = rank === HOLD_RANK.SECOND ? holds.second : holds.first;
-    var check = canCancelHold_(target, staff);
+    var check = canCancelHold_(target, currentStaff.email);
     if (!check.ok) throw new Error(check.reason);
 
     var holdsSheet = getHoldsSheet_();

@@ -97,6 +97,11 @@ var HOLD_COLUMNS = [
   { key: 'commission', label: 'コミッション', type: 'text', required: true },
   { key: 'rank', label: '順番', type: 'select', options: [HOLD_RANK.FIRST, HOLD_RANK.SECOND], required: true }
 ].concat(HOLD_ORDER_INPUT_COLUMNS).concat([
+  // 担当者メール（staffEmail）は表示名「担当者」ではなく、ログイン中のGoogleアカウントの
+  // メールアドレスで本人確認を行うための識別キー（canConfirmOrder_ / canCancelHold_ /
+  // canRegisterSecondHold_ 参照）。「担当者」名は表示用の別名に過ぎず編集され得るため、
+  // 権限判定には必ずこちらを使う。
+  { key: 'staffEmail', label: '担当者メール', type: 'text' },
   { key: 'createdAt', label: '開始日時', type: 'datetime' },
   { key: 'expiresAt', label: '期限', type: 'datetime' }
 ]);
@@ -107,6 +112,7 @@ var HOLD_COLUMNS = [
 var ORDER_COLUMNS = VEHICLE_COLUMNS.concat([
   { key: 'salesLocation', label: '販売拠点', type: 'text', required: true }
 ]).concat(HOLD_ORDER_INPUT_COLUMNS).concat([
+  { key: 'staffEmail', label: '担当者メール', type: 'text' },
   { key: 'orderedAt', label: '受注確定日時', type: 'datetime' }
 ]);
 

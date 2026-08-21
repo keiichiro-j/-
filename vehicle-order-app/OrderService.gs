@@ -15,7 +15,8 @@
  * @param {Object} info { salesLocation, leadNumber, registeredMonth, customer, tradeIn, oss, insurance }
  */
 function confirmOrder(commission, info) {
-  info = Object.assign({}, info, { staff: requireCurrentStaff_() });
+  var currentStaff = requireCurrentStaff_();
+  info = Object.assign({}, info, { staff: currentStaff.name, staffEmail: currentStaff.email });
   var inputCheck = validateRequiredInfo_(HOLD_ORDER_INPUT_COLUMNS, info);
   if (!inputCheck.ok) throw new Error(inputCheck.reason);
   if (!info.salesLocation || !String(info.salesLocation).trim()) {
@@ -34,11 +35,12 @@ function confirmOrder(commission, info) {
       rowNumber
     );
     var holds = getHoldsForCommission_(commission);
-    var check = canConfirmOrder_(vehicle, holds.first, info.staff);
+    var check = canConfirmOrder_(vehicle, holds.first, currentStaff.email);
     if (!check.ok) throw new Error(check.reason);
 
     var order = { salesLocation: info.salesLocation, orderedAt: new Date().getTime() };
     HOLD_ORDER_INPUT_COLUMNS.forEach(function (c) { order[c.key] = info[c.key]; });
+    order.staffEmail = info.staffEmail;
     VEHICLE_COLUMNS.forEach(function (col) { order[col.key] = vehicle[col.key]; });
 
     appendOrder_(order);
