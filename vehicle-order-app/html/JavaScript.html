@@ -10,14 +10,47 @@
   };
 
   // ===== google.script.run を Promise 化するヘルパー =====
+  // サーバー側が応答しない場合にボタンやモーダルが固まって見えないよう、
+  // 一定時間で必ずエラーとして解決させるタイムアウトを設ける。
+  var GAS_CALL_TIMEOUT_MS = 25000;
+
   function gasRun(fnName) {
     var args = Array.prototype.slice.call(arguments, 1);
     return new Promise(function (resolve, reject) {
+      var settled = false;
+      var timer = setTimeout(function () {
+        if (settled) return;
+        settled = true;
+        reject(new Error('サーバーからの応答がありません。通信環境をご確認のうえ、もう一度お試しください。'));
+      }, GAS_CALL_TIMEOUT_MS);
+
       google.script.run
-        .withSuccessHandler(resolve)
-        .withFailureHandler(function (err) { reject(new Error(err && err.message ? err.message : String(err))); })
+        .withSuccessHandler(function (result) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          resolve(result);
+        })
+        .withFailureHandler(function (err) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          reject(new Error(err && err.message ? err.message : String(err)));
+        })
         [fnName].apply(null, args);
     });
+  }
+
+  // ===== ボタンの多重送信防止（処理中はラベルを差し替えて無効化） =====
+  function setButtonBusy(btn, busy, busyLabel) {
+    if (busy) {
+      if (btn.dataset.originalLabel === undefined) btn.dataset.originalLabel = btn.textContent;
+      btn.textContent = busyLabel || '処理中...';
+      btn.disabled = true;
+    } else {
+      if (btn.dataset.originalLabel !== undefined) btn.textContent = btn.dataset.originalLabel;
+      btn.disabled = false;
+    }
   }
 
   function $(id) { return document.getElementById(id); }
@@ -141,12 +174,73 @@
     var tradeIn = v[prefix + 'TradeIn'];
     var oss = v[prefix + 'Oss'];
     var insurance = v[prefix + 'Insurance'];
+    var createdAt = v[prefix + 'CreatedAt'];
     var expiresAt = v[prefix + 'ExpiresAt'];
-    return '<div class="card__holdInfo">' + label + ': <b>' + escapeHtml(customer || '-') + '</b>' +
+    return '<div class="card__holdInfo">' +
+      '<div class="card__holdInfo__row">' + label + ': <b>' + escapeHtml(customer || '-') + '</b>' +
       '（担当者 ' + escapeHtml(staff || '-') + '） / 登録月 ' + escapeHtml(registeredMonth || '-') +
       ' / 下取車 ' + escapeHtml(tradeIn || '-') + ' / OSS ' + escapeHtml(oss || '-') +
-      ' / 保険 ' + escapeHtml(insurance || '-') + ' / 期限 ' + formatDateTime(expiresAt) + '</div>';
+      ' / 保険 ' + escapeHtml(insurance || '-') + '</div>' +
+      holdTimerHtml_(createdAt, expiresAt) +
+      '</div>';
   }
+
+  // ===== Hold 72時間タイマー（視覚的なカウントダウン・進捗バー） =====
+  function holdTimerHtml_(createdAt, expiresAt) {
+    return '<div class="holdTimer" data-created-at="' + (createdAt || '') + '" data-expires-at="' + (expiresAt || '') + '">' +
+      '<div class="holdTimer__bar"><div class="holdTimer__barFill"></div></div>' +
+      '<div class="holdTimer__text">-</div>' +
+      '</div>';
+  }
+
+  function formatDuration_(ms) {
+    var totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    var hours = Math.floor(totalSeconds / 3600);
+    var minutes = Math.floor((totalSeconds % 3600) / 60);
+    var seconds = totalSeconds % 60;
+    return String(hours).padStart(2, '0') + ':' + String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+  }
+
+  var HOLD_DURATION_MS_CLIENT = 72 * 60 * 60 * 1000; // サーバー側 HOLD_DURATION_MS と同じ値（表示用フォールバック）
+
+  var expiredRefreshTimer = null;
+  function scheduleExpiredRefresh_() {
+    if (expiredRefreshTimer) return;
+    expiredRefreshTimer = setTimeout(function () {
+      expiredRefreshTimer = null;
+      loadInventory();
+    }, 15000);
+  }
+
+  function updateHoldTimers() {
+    var now = Date.now();
+    var anyExpired = false;
+    document.querySelectorAll('.holdTimer').forEach(function (el) {
+      var expiresAt = Number(el.dataset.expiresAt);
+      if (!expiresAt) return;
+      var createdAt = Number(el.dataset.createdAt) || expiresAt - HOLD_DURATION_MS_CLIENT;
+      var total = expiresAt - createdAt;
+      var remaining = expiresAt - now;
+      var fill = el.querySelector('.holdTimer__barFill');
+      var text = el.querySelector('.holdTimer__text');
+      if (remaining <= 0) {
+        anyExpired = true;
+        el.classList.add('holdTimer--expired');
+        el.classList.remove('holdTimer--warning');
+        fill.style.width = '0%';
+        text.textContent = '期限切れ（まもなく自動更新されます）';
+      } else {
+        var pct = total > 0 ? Math.max(0, Math.min(100, (remaining / total) * 100)) : 0;
+        fill.style.width = pct + '%';
+        el.classList.toggle('holdTimer--warning', remaining < 6 * 60 * 60 * 1000);
+        el.classList.remove('holdTimer--expired');
+        text.textContent = '残り ' + formatDuration_(remaining);
+      }
+    });
+    if (anyExpired) scheduleExpiredRefresh_();
+  }
+
+  setInterval(updateHoldTimers, 1000);
 
   function renderInventory() {
     var container = $('inventoryGroups');
@@ -183,10 +277,13 @@
     $('invArrivalExpectedDate').value = '';
     $('invVpc').value = '';
     $('inventoryModalError').classList.add('hidden');
+    setButtonBusy($('btnInventorySubmit'), false);
     openModal($('inventoryModal'));
   });
 
   $('btnInventorySubmit').addEventListener('click', function () {
+    if (this.disabled) return;
+    var btn = this;
     var vehicle = {
       carType: $('invCarType').value.trim(),
       model: $('invModel').value.trim(),
@@ -202,11 +299,15 @@
     document.querySelectorAll('#invPaidOptions [data-paid-option]').forEach(function (input) {
       vehicle['paidOption' + input.dataset.paidOption] = input.value.trim();
     });
+    $('inventoryModalError').classList.add('hidden');
+    setButtonBusy(btn, true, '登録中...');
     gasRun('api_createInventoryVehicle', vehicle).then(function () {
+      setButtonBusy(btn, false);
       closeModal($('inventoryModal'));
       showToast('在庫を登録しました');
       loadInventory();
     }).catch(function (err) {
+      setButtonBusy(btn, false);
       var el = $('inventoryModalError');
       el.textContent = err.message;
       el.classList.remove('hidden');
@@ -215,17 +316,20 @@
 
   // ===== Hold / 2nd Hold / 受注 共通モーダル =====
   var ACTION_LABELS = {
-    hold: { title: 'Hold登録', button: 'Holdする' },
-    secondHold: { title: '2nd Hold登録', button: '2nd Holdする' },
-    order: { title: '受注確定', button: '受注確定する' },
-    orderFromHold: { title: '受注確定', button: '受注確定する' }
+    hold: { title: 'Hold登録', button: 'Holdする', busyLabel: 'Hold登録中...' },
+    secondHold: { title: '2nd Hold登録', button: '2nd Holdする', busyLabel: '登録中...' },
+    order: { title: '受注確定', button: '受注確定する', busyLabel: '受注確定中...' },
+    orderFromHold: { title: '受注確定', button: '受注確定する', busyLabel: '受注確定中...' }
   };
   var ORDER_TYPES = ['order', 'orderFromHold'];
 
   function openActionModal(type, commission) {
     state.action = { type: type, commission: commission };
     $('actionModalTitle').textContent = ACTION_LABELS[type].title;
-    $('btnActionSubmit').textContent = ACTION_LABELS[type].button;
+    var submitBtn = $('btnActionSubmit');
+    submitBtn.textContent = ACTION_LABELS[type].button;
+    delete submitBtn.dataset.originalLabel;
+    submitBtn.disabled = false;
     $('actionModalError').classList.add('hidden');
     $('actionSalesLocationField').classList.toggle('hidden', ORDER_TYPES.indexOf(type) === -1);
 
@@ -259,6 +363,8 @@
   }
 
   $('btnActionSubmit').addEventListener('click', function () {
+    if (this.disabled) return;
+    var btn = this;
     var info = {
       salesLocation: $('actionSalesLocation').value.trim(),
       registeredMonth: $('actionRegisteredMonth').value,
@@ -274,12 +380,17 @@
     else if (action.type === 'secondHold') apiCall = gasRun('api_registerSecondHold', action.commission, info);
     else apiCall = gasRun('api_confirmOrder', action.commission, info);
 
+    $('actionModalError').classList.add('hidden');
+    setButtonBusy(btn, true, ACTION_LABELS[action.type].busyLabel);
+
     apiCall.then(function () {
+      setButtonBusy(btn, false);
       closeModal($('actionModal'));
       showToast(ACTION_LABELS[action.type].title + 'が完了しました');
       loadInventory();
       if (ORDER_TYPES.indexOf(action.type) !== -1) loadOrders();
     }).catch(function (err) {
+      setButtonBusy(btn, false);
       var el = $('actionModalError');
       el.textContent = err.message;
       el.classList.remove('hidden');
@@ -348,14 +459,20 @@
   }
 
   $('btnSaveSettings').addEventListener('click', function () {
+    if (this.disabled) return;
+    var btn = this;
     var settings = {
       themeColor: $('settingsThemeColor').value,
       notifyHoldMailTo: $('settingsHoldMailTo').value.trim(),
       notifyOrderMailTo: $('settingsOrderMailTo').value.trim()
     };
+    $('settingsError').textContent = '';
+    setButtonBusy(btn, true, '保存中...');
     gasRun('api_saveSettings', settings).then(function () {
+      setButtonBusy(btn, false);
       showToast('設定を保存しました');
     }).catch(function (err) {
+      setButtonBusy(btn, false);
       $('settingsError').textContent = err.message;
     });
   });

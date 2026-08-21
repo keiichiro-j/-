@@ -170,6 +170,33 @@
     line-height: 1.6;
   }
   .card__holdInfo b { color: var(--on-surface); }
+  .card__holdInfo__row { margin-bottom: 6px; }
+
+  /* ===== Hold 72時間タイマー ===== */
+  .holdTimer__bar {
+    height: 5px;
+    border-radius: 999px;
+    background: var(--outline);
+    overflow: hidden;
+  }
+  .holdTimer__barFill {
+    height: 100%;
+    width: 100%;
+    border-radius: 999px;
+    background: var(--primary);
+    transition: width 1s linear;
+  }
+  .holdTimer--warning .holdTimer__barFill { background: var(--warning); }
+  .holdTimer--expired .holdTimer__barFill { background: var(--danger); width: 0% !important; }
+  .holdTimer__text {
+    margin-top: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--on-surface-variant);
+  }
+  .holdTimer--warning .holdTimer__text { color: var(--warning); }
+  .holdTimer--expired .holdTimer__text { color: var(--danger); }
 
   .card__actions { display: flex; gap: 8px; margin-top: auto; padding-top: 4px; flex-wrap: wrap; }
   .card__actions .btn { flex: 1; }
@@ -242,5 +269,9 @@
     main.view { padding: 10px; }
     .toolbar { padding: 10px; }
     .cardGrid { grid-template-columns: 1fr; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .holdTimer__barFill { transition: none; }
   }
 </style>
