@@ -147,10 +147,23 @@ function deleteInventoryRow_(sheet, rowNumber) {
 
 // ===== Holdリスト =====
 
+/**
+ * Holdリストの1行が指定コミッションのものかどうかを判定する（純粋関数）。
+ * スプレッドシートの「コミッション」列は、数字のみの値を貼り付けると自動的に
+ * Number型として保持されることがある。呼び出し元（在庫リスト側）から渡される
+ * commission は常に文字列のため、厳密等価（===）で比較すると型不一致で
+ * 一致しない行が見つからない扱いになってしまう（Hold中のはずなのに受注確定の
+ * 担当者チェックが素通りしてしまう不具合・2nd Hold登録時に「Hold情報が
+ * 見つかりません」と誤ってエラーになる不具合の原因）。文字列化して比較する。
+ */
+function holdMatchesCommission_(hold, commission) {
+  return String(hold.commission) === String(commission);
+}
+
 function listHoldsForCommission_(commission) {
   var sheet = getHoldsSheet_();
   return readAllRows_(sheet, HOLD_COLUMNS, 'commission').filter(function (h) {
-    return h.commission === commission;
+    return holdMatchesCommission_(h, commission);
   });
 }
 

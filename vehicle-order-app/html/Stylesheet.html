@@ -137,26 +137,32 @@
     background: var(--surface);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
+    border-left: 4px solid transparent;
     padding: 16px;
     display: flex;
     flex-direction: column;
     gap: 8px;
   }
+  .card--available { border-left-color: var(--success); }
+  .card--hold { border-left-color: var(--warning); }
   .card__top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
   .card__model { font-size: 17px; font-weight: 500; }
   .card__commission { font-size: 12px; color: var(--on-surface-variant); }
   .badge {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
     font-size: 12px;
-    font-weight: 500;
-    padding: 3px 10px;
+    font-weight: 700;
+    padding: 4px 11px;
     border-radius: 999px;
     white-space: nowrap;
   }
+  .badge__dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
   .badge--available { background: var(--success-bg); color: var(--success); }
   .badge--hold { background: var(--warning-bg); color: var(--warning); }
-  .badge--disclosed { background: var(--success-bg); color: var(--success); }
-  .badge--undisclosed { background: rgba(95, 99, 104, .12); color: var(--on-surface-variant); }
+  .badge--disclosed { background: var(--success-bg); color: var(--success); font-weight: 500; }
+  .badge--undisclosed { background: rgba(95, 99, 104, .12); color: var(--on-surface-variant); font-weight: 500; }
   .card__badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 
   .card__meta { font-size: 13px; color: var(--on-surface-variant); line-height: 1.6; }
@@ -165,12 +171,24 @@
   .card__holdInfo {
     background: var(--background);
     border-radius: 8px;
+    border-left: 3px solid var(--outline);
     padding: 8px 10px;
     font-size: 12.5px;
     color: var(--on-surface-variant);
     line-height: 1.6;
   }
   .card__holdInfo b { color: var(--on-surface); }
+  .card__holdInfo__label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .card__holdInfo--first { border-left-color: var(--warning); }
+  .card__holdInfo--first .card__holdInfo__label { color: var(--warning); }
+  .card__holdInfo--second { border-left-color: var(--primary); background: #eef4fd; }
+  .card__holdInfo--second .card__holdInfo__label { color: var(--primary); }
   .card__holdInfo__row { margin-bottom: 6px; }
 
   /* ===== Hold 72時間タイマー ===== */
@@ -222,16 +240,38 @@
   .orderCard__grid dd { margin: 0; font-weight: 500; }
 
   /* ===== 設定画面 ===== */
+  .settingsWrap {
+    max-width: 680px;
+    margin: 0 auto;
+  }
   .settingsCard {
     background: var(--surface);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
-    padding: 20px;
-    max-width: 520px;
+    padding: 28px 32px;
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 8px;
   }
+  .settingsSection { padding: 18px 0; }
+  .settingsSection + .settingsSection { border-top: 1px solid var(--outline); }
+  .settingsSection:first-child { padding-top: 4px; }
+  .settingsSection:last-child { padding-bottom: 4px; }
+  .settingsSection__title {
+    font-size: 15px;
+    font-weight: 700;
+    margin: 0 0 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .settingsSection__desc {
+    font-size: 12.5px;
+    color: var(--on-surface-variant);
+    margin: 0 0 14px;
+    line-height: 1.6;
+  }
+  .settingsSection .formField + .formField { margin-top: 14px; }
   .formField { display: flex; flex-direction: column; gap: 6px; }
   .formField label { font-size: 13px; font-weight: 500; color: var(--on-surface-variant); }
   .formField .input { width: 100%; }
@@ -276,6 +316,7 @@
     main.view { padding: 10px; }
     .toolbar { padding: 10px; }
     .cardGrid { grid-template-columns: 1fr; }
+    .settingsCard { padding: 18px 16px; }
   }
 
   @media (prefers-reduced-motion: reduce) {

@@ -9,6 +9,7 @@
  * 切り替える（processExpiredHolds）。
  *
  * Hold中の車両の受注確定は、Holdを行った担当者のみ可能（canConfirmOrder_）。
+ * 2nd Holdは、1st Holdと同じ担当者は登録できない（canRegisterSecondHold_）。
  * Hold登録・受注確定では共通の入力項目（リード番号／登録月／担当者／顧客／
  * 下取車の有無／OSS登録の可否／保険加入の有無）をすべて入力する必要がある。
  *
@@ -31,11 +32,15 @@ function canRegisterHold_(vehicle) {
 /**
  * 2nd Hold 登録が可能かどうかを判定する（純粋関数）。
  * 3人目以降のHoldは不可（Holdボタンを非表示／無効化）。
+ * また、1st Holdと同じ担当者は2nd Holdを登録できない（同一担当者による二重確保の防止）。
  */
-function canRegisterSecondHold_(vehicle, hasSecondHold) {
+function canRegisterSecondHold_(vehicle, hasSecondHold, firstHoldStaff, newStaff) {
   if (!vehicle) return { ok: false, reason: '該当車両が見つかりません' };
   if (vehicle.holdStatus !== HOLD_STATUS.HOLD) return { ok: false, reason: 'Hold中の車両ではありません' };
   if (hasSecondHold) return { ok: false, reason: '2nd Holdまで登録済みのため、これ以上のHoldはできません' };
+  if (firstHoldStaff && newStaff && firstHoldStaff === newStaff) {
+    return { ok: false, reason: '1st Holdと同じ担当者は2nd Holdを登録できません' };
+  }
   return { ok: true, reason: '' };
 }
 
@@ -43,14 +48,21 @@ function canRegisterSecondHold_(vehicle, hasSecondHold) {
  * 受注確定が可能かどうかを判定する（純粋関数）。
  * Hold中の車両は、Holdを行った担当者（現在の1st Hold担当者）のみ受注確定できる。
  * Holdが入っていない車両は誰でも受注確定できる。
+ * holdStatusがHoldなのにfirstHoldが取得できない場合（データ不整合）は、
+ * 安全側に倒して受注確定を拒否する（誰でも通ってしまう抜け道を作らない）。
  * @param {Object} vehicle
  * @param {Object|null} firstHold 現在の1st Hold行（Holdなしなら null）
  * @param {string} staff 受注確定を行おうとしている担当者
  */
 function canConfirmOrder_(vehicle, firstHold, staff) {
   if (!vehicle) return { ok: false, reason: '該当車両が見つかりません' };
-  if (vehicle.holdStatus === HOLD_STATUS.HOLD && firstHold && firstHold.staff !== staff) {
-    return { ok: false, reason: 'Hold中の車両は、Holdを行った担当者（' + firstHold.staff + '）のみ受注確定できます' };
+  if (vehicle.holdStatus === HOLD_STATUS.HOLD) {
+    if (!firstHold) {
+      return { ok: false, reason: 'Hold情報が確認できないため受注確定できません。時間をおいて再度お試しください' };
+    }
+    if (firstHold.staff !== staff) {
+      return { ok: false, reason: 'Hold中の車両は、Holdを行った担当者（' + firstHold.staff + '）のみ受注確定できます' };
+    }
   }
   return { ok: true, reason: '' };
 }
@@ -179,9 +191,9 @@ function registerSecondHold(commission, info) {
       rowNumber
     );
     var holds = getHoldsForCommission_(commission);
-    var check = canRegisterSecondHold_(vehicle, !!holds.second);
-    if (!check.ok) throw new Error(check.reason);
     if (!holds.first) throw new Error('Hold情報が見つかりません（コミッション: ' + commission + '）');
+    var check = canRegisterSecondHold_(vehicle, !!holds.second, holds.first.staff, info.staff);
+    if (!check.ok) throw new Error(check.reason);
 
     // 1st Holdの72時間が終了した時点を起点に、2nd Hold自身の72時間を与える
     var createdAt = holds.first.expiresAt;

@@ -72,6 +72,15 @@ test('在庫あり車両には2nd Hold登録不可', () => {
 test('2nd Hold登録済みなら3人目のHoldは不可', () => {
   assert.strictEqual(sandbox.canRegisterSecondHold_({ holdStatus: 'hold' }, true).ok, false);
 });
+test('1st Holdと異なる担当者なら2nd Hold登録可', () => {
+  const result = sandbox.canRegisterSecondHold_({ holdStatus: 'hold' }, false, '佐藤', '鈴木');
+  assert.strictEqual(result.ok, true);
+});
+test('1st Holdと同じ担当者は2nd Hold登録不可', () => {
+  const result = sandbox.canRegisterSecondHold_({ holdStatus: 'hold' }, false, '佐藤', '佐藤');
+  assert.strictEqual(result.ok, false);
+  assert.ok(result.reason.includes('同じ担当者'));
+});
 
 console.log('== HoldService: canConfirmOrder_（Hold担当者のみ受注確定可） ==');
 test('Holdが入っていない車両は誰でも受注確定できる', () => {
@@ -84,6 +93,10 @@ test('Hold中の車両はHold担当者本人なら受注確定できる', () => 
 });
 test('Hold中の車両はHold担当者以外だと受注確定できない', () => {
   const result = sandbox.canConfirmOrder_({ holdStatus: 'hold' }, { staff: '佐藤' }, '鈴木');
+  assert.strictEqual(result.ok, false);
+});
+test('Hold中なのにHold情報が取得できない場合は安全側に倒して受注確定できない（データ不整合対策）', () => {
+  const result = sandbox.canConfirmOrder_({ holdStatus: 'hold' }, null, '佐藤');
   assert.strictEqual(result.ok, false);
 });
 
@@ -208,6 +221,24 @@ test('未設定の項目は「未設定」グループの末尾へ回る', () =>
     'arrivalExpectedDate'
   );
   assert.strictEqual(groups[groups.length - 1].key, '未設定');
+});
+
+console.log('== SheetService: holdMatchesCommission_（コミッションの型不一致対策） ==');
+test('文字列同士なら一致する', () => {
+  assert.strictEqual(sandbox.holdMatchesCommission_({ commission: 'C-2001' }, 'C-2001'), true);
+});
+test('スプレッドシートが数値として保持したコミッションでも一致する（受注確定・2nd Holdの不具合の原因だった箇所）', () => {
+  // 数字のみのコミッション（例: "2001"）はGoogleスプレッドシートに貼り付けると
+  // 自動的にNumber型のセルになることがある。Holdリスト側がNumber、
+  // 呼び出し元（在庫リスト）から渡ってくる commission がStringだと、
+  // 厳密等価（===）ではHold行が見つからず、受注確定の担当者チェックが
+  // 素通りしてしまったり、2nd Hold登録が「Hold情報が見つかりません」と
+  // 誤ってエラーになっていた。
+  assert.strictEqual(sandbox.holdMatchesCommission_({ commission: 2001 }, '2001'), true);
+  assert.strictEqual(sandbox.holdMatchesCommission_({ commission: '2001' }, 2001), true);
+});
+test('本当に異なるコミッションは一致しない', () => {
+  assert.strictEqual(sandbox.holdMatchesCommission_({ commission: 'C-2001' }, 'C-2002'), false);
 });
 
 console.log('== SheetService: rowToObject_ / objectToRow_（Date値の安全な変換） ==');

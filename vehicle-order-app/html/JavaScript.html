@@ -124,8 +124,8 @@
   function vehicleCardHtml(v) {
     var isHold = v.holdStatus === 'hold';
     var badges = isHold
-      ? '<span class="badge badge--hold">Hold中</span>'
-      : '<span class="badge badge--available">在庫あり</span>';
+      ? '<span class="badge badge--hold"><span class="badge__dot"></span>Hold中</span>'
+      : '<span class="badge badge--available"><span class="badge__dot"></span>在庫あり</span>';
     badges += v.stockDisclosure === '非開示'
       ? '<span class="badge badge--undisclosed">非開示</span>'
       : '<span class="badge badge--disclosed">開示</span>';
@@ -141,9 +141,9 @@
 
     var holdInfoHtml = '';
     if (isHold) {
-      holdInfoHtml += holdInfoBlockHtml_('Hold', v, 'hold');
+      holdInfoHtml += holdInfoBlockHtml_('1st Hold', v, 'hold', 'first');
       if (v.secondHoldCustomer) {
-        holdInfoHtml += holdInfoBlockHtml_('2nd Hold', v, 'secondHold');
+        holdInfoHtml += holdInfoBlockHtml_('2nd Hold', v, 'secondHold', 'second');
       }
     }
 
@@ -159,7 +159,7 @@
     }
     actionsHtml += '</div>';
 
-    return '<div class="card">' +
+    return '<div class="card ' + (isHold ? 'card--hold' : 'card--available') + '">' +
       '<div class="card__top"><div><div class="card__model">' + escapeHtml(v.carType) + ' ' + escapeHtml(v.model) + '</div>' +
       '<div class="card__commission">' + escapeHtml(v.commission) + '</div></div>' +
       '<div class="card__badges">' + badges + '</div></div>' +
@@ -169,7 +169,7 @@
       '</div>';
   }
 
-  function holdInfoBlockHtml_(label, v, prefix) {
+  function holdInfoBlockHtml_(label, v, prefix, rank) {
     var leadNumber = v[prefix + 'LeadNumber'];
     var staff = v[prefix + 'Staff'];
     var customer = v[prefix + 'Customer'];
@@ -179,8 +179,9 @@
     var insurance = v[prefix + 'Insurance'];
     var createdAt = v[prefix + 'CreatedAt'];
     var expiresAt = v[prefix + 'ExpiresAt'];
-    return '<div class="card__holdInfo">' +
-      '<div class="card__holdInfo__row">' + label + ': <b>' + escapeHtml(customer || '-') + '</b>' +
+    return '<div class="card__holdInfo card__holdInfo--' + rank + '">' +
+      '<div class="card__holdInfo__label">' + label + '</div>' +
+      '<div class="card__holdInfo__row"><b>' + escapeHtml(customer || '-') + '</b>' +
       '（担当者 ' + escapeHtml(staff || '-') + '） / リード番号 ' + escapeHtml(leadNumber || '-') +
       ' / 登録月 ' + escapeHtml(registeredMonth || '-') +
       ' / 下取車 ' + escapeHtml(tradeIn || '-') + ' / OSS ' + escapeHtml(oss || '-') +
@@ -421,6 +422,19 @@
       errEl.textContent = '次の項目を入力してください: ' + missing.join('、');
       errEl.classList.remove('hidden');
       return;
+    }
+
+    // 1st Holdと同じ担当者は2nd Holdを登録できない（サーバー側でも検証するが、
+    // 送信前に気づけるようここでも確認する）。
+    if (action.type === 'secondHold') {
+      var vehicleForCheck = findVehicleByCommission(action.commission);
+      var chosenStaff = $('actionStaff').value.trim();
+      if (vehicleForCheck && vehicleForCheck.holdStaff && chosenStaff === vehicleForCheck.holdStaff) {
+        var staffErrEl = $('actionModalError');
+        staffErrEl.textContent = '1st Holdと同じ担当者（' + chosenStaff + '）は2nd Holdを登録できません';
+        staffErrEl.classList.remove('hidden');
+        return;
+      }
     }
 
     var info = {

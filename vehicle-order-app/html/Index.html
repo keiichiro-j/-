@@ -51,29 +51,45 @@
 
     <!-- 設定 -->
     <main class="view" id="view-settings">
-      <div class="settingsCard">
-        <div class="formField">
-          <label>テーマ（配色）</label>
-          <div class="colorField">
-            <input type="color" id="settingsThemeColor">
-            <span id="settingsThemeColorLabel"></span>
+      <div class="settingsWrap">
+        <div class="settingsCard">
+          <div class="settingsSection">
+            <h2 class="settingsSection__title">🎨 表示設定</h2>
+            <p class="settingsSection__desc">アプリ全体のテーマカラーを変更できます。</p>
+            <div class="formField">
+              <label>テーマ（配色）</label>
+              <div class="colorField">
+                <input type="color" id="settingsThemeColor">
+                <span id="settingsThemeColorLabel"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="settingsSection">
+            <h2 class="settingsSection__title">✉️ メール通知</h2>
+            <p class="settingsSection__desc">Hold登録・受注確定があったときに通知するメールアドレスです。複数指定する場合はカンマ区切りで入力してください。未設定の場合は通知をスキップします。</p>
+            <div class="formField">
+              <label>Hold登録時のメール通知先</label>
+              <input type="text" id="settingsHoldMailTo" class="input" placeholder="例: staff@example.com, staff2@example.com">
+            </div>
+            <div class="formField">
+              <label>受注確定時のメール通知先</label>
+              <input type="text" id="settingsOrderMailTo" class="input" placeholder="例: sales@example.com">
+            </div>
+          </div>
+
+          <div class="settingsSection">
+            <h2 class="settingsSection__title">👥 担当者マスタ</h2>
+            <p class="settingsSection__desc">Hold登録・2nd Hold登録・受注確定の「担当者」欄は、ここに登録した担当者からのみ選択できます（最大<span id="staffListMax"></span>人・現在<span id="staffListCount">0</span>人登録中）。</p>
+            <div class="staffList" id="staffList"></div>
+            <button class="btn" id="btnAddStaff" type="button">＋ 担当者を追加</button>
+          </div>
+
+          <div class="settingsSection">
+            <div id="settingsError" class="modal__error"></div>
+            <button class="btn btn--primary btn--block" id="btnSaveSettings">保存</button>
           </div>
         </div>
-        <div class="formField">
-          <label>Hold登録時のメール通知先</label>
-          <input type="text" id="settingsHoldMailTo" class="input" placeholder="例: staff@example.com, staff2@example.com">
-        </div>
-        <div class="formField">
-          <label>受注確定時のメール通知先</label>
-          <input type="text" id="settingsOrderMailTo" class="input" placeholder="例: sales@example.com">
-        </div>
-        <div class="formField">
-          <label>担当者マスタ（最大<span id="staffListMax"></span>人・<span id="staffListCount">0</span>人登録中）</label>
-          <div class="staffList" id="staffList"></div>
-          <button class="btn" id="btnAddStaff" type="button">＋ 担当者を追加</button>
-        </div>
-        <div id="settingsError" class="modal__error"></div>
-        <button class="btn btn--primary" id="btnSaveSettings">保存</button>
       </div>
     </main>
   </div>
