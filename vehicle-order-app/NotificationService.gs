@@ -9,8 +9,12 @@ function notifyHoldRegistered(vehicle, isSecondHold) {
   if (!to) return false;
 
   var label = isSecondHold ? '2nd Hold' : 'Hold';
-  var staff = isSecondHold ? vehicle.secondHoldStaff : vehicle.holdStaff;
-  var customer = isSecondHold ? vehicle.secondHoldCustomer : vehicle.holdCustomer;
+  var prefix = isSecondHold ? 'secondHold' : 'hold';
+  var input = {};
+  HOLD_ORDER_INPUT_COLUMNS.forEach(function (c) {
+    var key = prefix + c.key.charAt(0).toUpperCase() + c.key.slice(1);
+    input[c.key] = vehicle[key];
+  });
   var expiresAt = isSecondHold ? vehicle.secondHoldExpiresAt : vehicle.holdExpiresAt;
 
   MailApp.sendEmail({
@@ -21,8 +25,12 @@ function notifyHoldRegistered(vehicle, isSecondHold) {
       '',
       'コミッション: ' + vehicle.commission,
       '車種/モデル: ' + vehicle.carType + ' ' + vehicle.model,
-      '担当: ' + staff,
-      '顧客名: ' + customer,
+      '登録月: ' + input.registeredMonth,
+      '担当者: ' + input.staff,
+      '顧客: ' + input.customer,
+      '下取車の有無: ' + input.tradeIn,
+      'OSS登録の可否: ' + input.oss,
+      '保険加入の有無: ' + input.insurance,
       'Hold期限: ' + formatDateTime_(expiresAt)
     ].join('\n')
   });
@@ -42,8 +50,12 @@ function notifyOrderConfirmed(order) {
       'コミッション: ' + order.commission,
       '車種/モデル: ' + order.carType + ' ' + order.model,
       '販売拠点: ' + order.salesLocation,
-      '担当: ' + order.staff,
-      '顧客名: ' + order.customer,
+      '登録月: ' + order.registeredMonth,
+      '担当者: ' + order.staff,
+      '顧客: ' + order.customer,
+      '下取車の有無: ' + order.tradeIn,
+      'OSS登録の可否: ' + order.oss,
+      '保険加入の有無: ' + order.insurance,
       '受注確定日時: ' + formatDateTime_(order.orderedAt)
     ].join('\n')
   });

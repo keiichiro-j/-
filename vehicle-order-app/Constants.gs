@@ -23,6 +23,8 @@ var HOLD_STATUS = {
 // ===== 選択肢 =====
 var STEERING_OPTIONS = ['右', '左'];
 var STOCK_DISCLOSURE_OPTIONS = ['開示', '非開示'];
+var YES_NO_OPTIONS = ['あり', 'なし'];
+var OSS_OPTIONS = ['可', '不可'];
 var PAID_OPTION_SLOT_COUNT = 5; // 有償オプション（5マス分確保）
 
 /**
@@ -53,32 +55,47 @@ var PAID_OPTION_KEYS = VEHICLE_COLUMNS
   .map(function (c) { return c.key; });
 
 /**
+ * Hold（予約）・受注確定の共通入力項目。
+ * 登録月／担当者／顧客／下取車の有無／OSS登録の可否／保険加入の有無。
+ */
+var HOLD_ORDER_INPUT_COLUMNS = [
+  { key: 'registeredMonth', label: '登録月', type: 'text' },
+  { key: 'staff', label: '担当者', type: 'text' },
+  { key: 'customer', label: '顧客', type: 'text' },
+  { key: 'tradeIn', label: '下取車の有無', type: 'select', options: YES_NO_OPTIONS },
+  { key: 'oss', label: 'OSS登録の可否', type: 'select', options: OSS_OPTIONS },
+  { key: 'insurance', label: '保険加入の有無', type: 'select', options: YES_NO_OPTIONS }
+];
+
+function prefixColumns_(columns, prefix, labelPrefix) {
+  return columns.map(function (c) {
+    var key = prefix + c.key.charAt(0).toUpperCase() + c.key.slice(1);
+    var separator = /^[A-Za-z]/.test(c.label) ? ' ' : '';
+    return Object.assign({}, c, { key: key, label: labelPrefix + separator + c.label });
+  });
+}
+
+/**
  * 販売リスト（在庫）列定義（順序 = スプレッドシートの列順）。
- * 車両情報に加え、3.2 Hold（1st/2nd）管理項目を含む。
+ * 車両情報に加え、Hold（1st/2nd）の入力項目・登録日時・期限を含む。
  */
 var INVENTORY_COLUMNS = VEHICLE_COLUMNS.concat([
-  { key: 'holdStatus', label: 'Holdステータス', type: 'select', options: [HOLD_STATUS.AVAILABLE, HOLD_STATUS.HOLD] },
-
-  // Hold（1st）
-  { key: 'holdStaff', label: 'Hold担当', type: 'text' },
-  { key: 'holdCustomer', label: 'Hold顧客名', type: 'text' },
+  { key: 'holdStatus', label: 'Holdステータス', type: 'select', options: [HOLD_STATUS.AVAILABLE, HOLD_STATUS.HOLD] }
+]).concat(prefixColumns_(HOLD_ORDER_INPUT_COLUMNS, 'hold', 'Hold')).concat([
   { key: 'holdCreatedAt', label: 'Hold登録日時', type: 'datetime' },
-  { key: 'holdExpiresAt', label: 'Hold期限', type: 'datetime' },
-
-  // 2nd Hold
-  { key: 'secondHoldStaff', label: '2nd Hold担当', type: 'text' },
-  { key: 'secondHoldCustomer', label: '2nd Hold顧客名', type: 'text' },
+  { key: 'holdExpiresAt', label: 'Hold期限', type: 'datetime' }
+]).concat(prefixColumns_(HOLD_ORDER_INPUT_COLUMNS, 'secondHold', '2nd Hold')).concat([
   { key: 'secondHoldCreatedAt', label: '2nd Hold登録日時', type: 'datetime' },
   { key: 'secondHoldExpiresAt', label: '2nd Hold期限', type: 'datetime' }
 ]);
 
 /**
- * 受注リスト列定義。車両情報に加え、販売拠点／担当／顧客名を保持する。
+ * 受注リスト列定義。車両情報に加え、販売拠点と Hold・受注共通入力項目、
+ * 受注確定日時を保持する。
  */
 var ORDER_COLUMNS = VEHICLE_COLUMNS.concat([
-  { key: 'salesLocation', label: '販売拠点', type: 'text' },
-  { key: 'staff', label: '担当', type: 'text' },
-  { key: 'customer', label: '顧客名', type: 'text' },
+  { key: 'salesLocation', label: '販売拠点', type: 'text' }
+]).concat(HOLD_ORDER_INPUT_COLUMNS).concat([
   { key: 'orderedAt', label: '受注確定日時', type: 'datetime' }
 ]);
 

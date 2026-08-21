@@ -9,7 +9,7 @@
 /**
  * 受注を確定し、販売リストの行を受注リストへ移行する。
  * @param {string} commission
- * @param {Object} info { salesLocation, staff, customer }
+ * @param {Object} info { salesLocation, registeredMonth, staff, customer, tradeIn, oss, insurance }
  */
 function confirmOrder(commission, info) {
   var lock = LockService.getScriptLock();
@@ -24,7 +24,8 @@ function confirmOrder(commission, info) {
       rowNumber
     );
 
-    var order = { salesLocation: info.salesLocation, staff: info.staff, customer: info.customer, orderedAt: new Date().getTime() };
+    var order = { salesLocation: info.salesLocation, orderedAt: new Date().getTime() };
+    HOLD_ORDER_INPUT_COLUMNS.forEach(function (c) { order[c.key] = info[c.key]; });
     VEHICLE_COLUMNS.forEach(function (col) { order[col.key] = vehicle[col.key]; });
 
     appendOrder_(order);

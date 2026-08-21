@@ -36,6 +36,11 @@
     options.forEach(function (o) { select.appendChild(new Option(o, o)); });
   }
 
+  function currentYearMonth() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+
   function formatDateTime(epochMs) {
     if (!epochMs) return '-';
     var d = new Date(epochMs);
@@ -101,11 +106,9 @@
 
     var holdInfoHtml = '';
     if (isHold) {
-      holdInfoHtml += '<div class="card__holdInfo">Hold: <b>' + escapeHtml(v.holdCustomer || '-') + '</b>' +
-        '（担当 ' + escapeHtml(v.holdStaff || '-') + '） / 期限 ' + formatDateTime(v.holdExpiresAt) + '</div>';
+      holdInfoHtml += holdInfoBlockHtml_('Hold', v, 'hold');
       if (v.secondHoldCustomer) {
-        holdInfoHtml += '<div class="card__holdInfo">2nd Hold: <b>' + escapeHtml(v.secondHoldCustomer) + '</b>' +
-          '（担当 ' + escapeHtml(v.secondHoldStaff || '-') + '） / 期限 ' + formatDateTime(v.secondHoldExpiresAt) + '</div>';
+        holdInfoHtml += holdInfoBlockHtml_('2nd Hold', v, 'secondHold');
       }
     }
 
@@ -129,6 +132,20 @@
       holdInfoHtml +
       actionsHtml +
       '</div>';
+  }
+
+  function holdInfoBlockHtml_(label, v, prefix) {
+    var staff = v[prefix + 'Staff'];
+    var customer = v[prefix + 'Customer'];
+    var registeredMonth = v[prefix + 'RegisteredMonth'];
+    var tradeIn = v[prefix + 'TradeIn'];
+    var oss = v[prefix + 'Oss'];
+    var insurance = v[prefix + 'Insurance'];
+    var expiresAt = v[prefix + 'ExpiresAt'];
+    return '<div class="card__holdInfo">' + label + ': <b>' + escapeHtml(customer || '-') + '</b>' +
+      '（担当者 ' + escapeHtml(staff || '-') + '） / 登録月 ' + escapeHtml(registeredMonth || '-') +
+      ' / 下取車 ' + escapeHtml(tradeIn || '-') + ' / OSS ' + escapeHtml(oss || '-') +
+      ' / 保険 ' + escapeHtml(insurance || '-') + ' / 期限 ' + formatDateTime(expiresAt) + '</div>';
   }
 
   function renderInventory() {
@@ -213,13 +230,22 @@
     $('actionSalesLocationField').classList.toggle('hidden', ORDER_TYPES.indexOf(type) === -1);
 
     var vehicle = findVehicleByCommission(commission);
-    var prefill = (type === 'orderFromHold' && vehicle)
-      ? { staff: vehicle.holdStaff, customer: vehicle.holdCustomer }
-      : { staff: '', customer: '' };
+    var prefill = (type === 'orderFromHold' && vehicle) ? {
+      registeredMonth: vehicle.holdRegisteredMonth,
+      staff: vehicle.holdStaff,
+      customer: vehicle.holdCustomer,
+      tradeIn: vehicle.holdTradeIn,
+      oss: vehicle.holdOss,
+      insurance: vehicle.holdInsurance
+    } : { registeredMonth: currentYearMonth(), staff: '', customer: '', tradeIn: '', oss: '', insurance: '' };
 
     $('actionSalesLocation').value = '';
+    $('actionRegisteredMonth').value = prefill.registeredMonth || currentYearMonth();
     $('actionStaff').value = prefill.staff || '';
     $('actionCustomer').value = prefill.customer || '';
+    $('actionTradeIn').value = prefill.tradeIn || '';
+    $('actionOss').value = prefill.oss || '';
+    $('actionInsurance').value = prefill.insurance || '';
 
     openModal($('actionModal'));
   }
@@ -235,8 +261,12 @@
   $('btnActionSubmit').addEventListener('click', function () {
     var info = {
       salesLocation: $('actionSalesLocation').value.trim(),
+      registeredMonth: $('actionRegisteredMonth').value,
       staff: $('actionStaff').value.trim(),
-      customer: $('actionCustomer').value.trim()
+      customer: $('actionCustomer').value.trim(),
+      tradeIn: $('actionTradeIn').value,
+      oss: $('actionOss').value,
+      insurance: $('actionInsurance').value
     };
     var action = state.action;
     var apiCall;
@@ -274,8 +304,12 @@
       '<div><dt>VPC</dt><dd>' + escapeHtml(o.vpc || '-') + '</dd></div>' +
       '<div><dt>有償オプション</dt><dd>' + escapeHtml(paidOptionsText(o)) + '</dd></div>' +
       '<div><dt>販売拠点</dt><dd>' + escapeHtml(o.salesLocation || '-') + '</dd></div>' +
-      '<div><dt>担当</dt><dd>' + escapeHtml(o.staff || '-') + '</dd></div>' +
-      '<div><dt>顧客名</dt><dd>' + escapeHtml(o.customer || '-') + '</dd></div>' +
+      '<div><dt>登録月</dt><dd>' + escapeHtml(o.registeredMonth || '-') + '</dd></div>' +
+      '<div><dt>担当者</dt><dd>' + escapeHtml(o.staff || '-') + '</dd></div>' +
+      '<div><dt>顧客</dt><dd>' + escapeHtml(o.customer || '-') + '</dd></div>' +
+      '<div><dt>下取車の有無</dt><dd>' + escapeHtml(o.tradeIn || '-') + '</dd></div>' +
+      '<div><dt>OSS登録の可否</dt><dd>' + escapeHtml(o.oss || '-') + '</dd></div>' +
+      '<div><dt>保険加入の有無</dt><dd>' + escapeHtml(o.insurance || '-') + '</dd></div>' +
       '<div><dt>受注確定日時</dt><dd>' + formatDateTime(o.orderedAt) + '</dd></div>' +
       '</dl></div>';
   }
@@ -349,6 +383,9 @@
       state.bootstrap = bootstrap;
       fillOptions($('invSteering'), bootstrap.steeringOptions, true);
       fillOptions($('invStockDisclosure'), bootstrap.stockDisclosureOptions, true);
+      fillOptions($('actionTradeIn'), bootstrap.yesNoOptions, true);
+      fillOptions($('actionOss'), bootstrap.ossOptions, true);
+      fillOptions($('actionInsurance'), bootstrap.yesNoOptions, true);
       renderSettings(bootstrap.settings);
       return Promise.all([loadInventory(), loadOrders()]);
     }).catch(function (err) { showToast(err.message, true); });

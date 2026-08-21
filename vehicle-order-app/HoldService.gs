@@ -6,8 +6,36 @@
  * 3人目以降のHoldは不可とする。72時間経過時に2nd Holdが存在すれば、
  * 商談者を自動的に2nd Hold申込者へ切り替える（processExpiredHolds）。
  *
+ * Hold登録・受注確定では共通の入力項目（登録月／担当者／顧客／下取車の有無／
+ * OSS登録の可否／保険加入の有無）を受け付ける（HOLD_ORDER_INPUT_COLUMNS）。
+ *
  * 複数人による同時Hold操作に備え、LockService による排他制御を行う。
  */
+
+/**
+ * HOLD_ORDER_INPUT_COLUMNS のキーを prefix 付きキーへ変換したオブジェクトを組み立てる。
+ * 例: buildPrefixedInput_('hold', info) -> { holdRegisteredMonth, holdStaff, ... }
+ */
+function buildPrefixedInput_(prefix, info) {
+  var patch = {};
+  HOLD_ORDER_INPUT_COLUMNS.forEach(function (c) {
+    var key = prefix + c.key.charAt(0).toUpperCase() + c.key.slice(1);
+    patch[key] = info[c.key];
+  });
+  return patch;
+}
+
+/**
+ * prefix 付きの Hold 入力項目をすべて null にクリアしたオブジェクトを組み立てる。
+ */
+function clearPrefixedInput_(prefix) {
+  var patch = {};
+  HOLD_ORDER_INPUT_COLUMNS.forEach(function (c) {
+    var key = prefix + c.key.charAt(0).toUpperCase() + c.key.slice(1);
+    patch[key] = null;
+  });
+  return patch;
+}
 
 /**
  * 現在の在庫データに対して Hold 登録が可能かどうかを判定する（純粋関数）。
@@ -47,35 +75,35 @@ function decideExpiryAction_(vehicle, now) {
  * 昇格した申込者には新規に72時間のHold期間を与える。
  */
 function buildPromotedHoldPatch_(vehicle, now) {
-  return {
-    holdStaff: vehicle.secondHoldStaff,
-    holdCustomer: vehicle.secondHoldCustomer,
-    holdCreatedAt: now,
-    holdExpiresAt: now + HOLD_DURATION_MS,
-    secondHoldStaff: null,
-    secondHoldCustomer: null,
-    secondHoldCreatedAt: null,
-    secondHoldExpiresAt: null
-  };
+  var secondHoldInfo = {};
+  HOLD_ORDER_INPUT_COLUMNS.forEach(function (c) {
+    var secondKey = 'secondHold' + c.key.charAt(0).toUpperCase() + c.key.slice(1);
+    secondHoldInfo[c.key] = vehicle[secondKey];
+  });
+  var patch = buildPrefixedInput_('hold', secondHoldInfo);
+  patch.holdCreatedAt = now;
+  patch.holdExpiresAt = now + HOLD_DURATION_MS;
+  Object.assign(patch, clearPrefixedInput_('secondHold'));
+  patch.secondHoldCreatedAt = null;
+  patch.secondHoldExpiresAt = null;
+  return patch;
 }
 
 /**
  * Hold解除（在庫へ戻す）オブジェクトを組み立てる（純粋関数）。
  */
 function buildReleasedHoldPatch_() {
-  return {
-    holdStatus: HOLD_STATUS.AVAILABLE,
-    holdStaff: null,
-    holdCustomer: null,
-    holdCreatedAt: null,
-    holdExpiresAt: null
-  };
+  var patch = clearPrefixedInput_('hold');
+  patch.holdStatus = HOLD_STATUS.AVAILABLE;
+  patch.holdCreatedAt = null;
+  patch.holdExpiresAt = null;
+  return patch;
 }
 
 /**
  * 1st Hold を登録する。
  * @param {string} commission
- * @param {Object} info { staff, customer }
+ * @param {Object} info { registeredMonth, staff, customer, tradeIn, oss, insurance }
  */
 function registerHold(commission, info) {
   var lock = LockService.getScriptLock();
@@ -93,13 +121,10 @@ function registerHold(commission, info) {
     if (!check.ok) throw new Error(check.reason);
 
     var now = new Date().getTime();
-    var patch = {
-      holdStatus: HOLD_STATUS.HOLD,
-      holdStaff: info.staff,
-      holdCustomer: info.customer,
-      holdCreatedAt: now,
-      holdExpiresAt: now + HOLD_DURATION_MS
-    };
+    var patch = buildPrefixedInput_('hold', info);
+    patch.holdStatus = HOLD_STATUS.HOLD;
+    patch.holdCreatedAt = now;
+    patch.holdExpiresAt = now + HOLD_DURATION_MS;
     var updated = updateInventoryVehicle_(sheet, rowNumber, patch);
     notifyHoldRegistered(updated, false);
     return updated;
@@ -111,7 +136,7 @@ function registerHold(commission, info) {
 /**
  * 2nd Hold を登録する。
  * @param {string} commission
- * @param {Object} info { staff, customer }
+ * @param {Object} info { registeredMonth, staff, customer, tradeIn, oss, insurance }
  */
 function registerSecondHold(commission, info) {
   var lock = LockService.getScriptLock();
@@ -129,12 +154,9 @@ function registerSecondHold(commission, info) {
     if (!check.ok) throw new Error(check.reason);
 
     var now = new Date().getTime();
-    var patch = {
-      secondHoldStaff: info.staff,
-      secondHoldCustomer: info.customer,
-      secondHoldCreatedAt: now,
-      secondHoldExpiresAt: now + HOLD_DURATION_MS
-    };
+    var patch = buildPrefixedInput_('secondHold', info);
+    patch.secondHoldCreatedAt = now;
+    patch.secondHoldExpiresAt = now + HOLD_DURATION_MS;
     var updated = updateInventoryVehicle_(sheet, rowNumber, patch);
     notifyHoldRegistered(updated, true);
     return updated;

@@ -77,20 +77,32 @@ test('Hold期限経過・2nd Holdありは昇格', () => {
 });
 
 console.log('== HoldService: buildPromotedHoldPatch_ / buildReleasedHoldPatch_ ==');
-test('2nd Holdの内容が1st Holdへ昇格し、新たな72時間が付与される', () => {
+test('2nd Holdの入力項目一式が1st Holdへ昇格し、新たな72時間が付与される', () => {
   const now = 10_000;
-  const vehicle = { secondHoldStaff: '鈴木', secondHoldCustomer: '顧客B' };
+  const vehicle = {
+    secondHoldRegisteredMonth: '2026-08', secondHoldStaff: '鈴木', secondHoldCustomer: '顧客B',
+    secondHoldTradeIn: 'あり', secondHoldOss: '可', secondHoldInsurance: 'なし'
+  };
   const patch = sandbox.buildPromotedHoldPatch_(vehicle, now);
+  assert.strictEqual(patch.holdRegisteredMonth, '2026-08');
   assert.strictEqual(patch.holdCustomer, '顧客B');
   assert.strictEqual(patch.holdStaff, '鈴木');
+  assert.strictEqual(patch.holdTradeIn, 'あり');
+  assert.strictEqual(patch.holdOss, '可');
+  assert.strictEqual(patch.holdInsurance, 'なし');
   assert.strictEqual(patch.holdCreatedAt, now);
   assert.strictEqual(patch.holdExpiresAt, now + sandbox.HOLD_DURATION_MS);
   assert.strictEqual(patch.secondHoldCustomer, null);
+  assert.strictEqual(patch.secondHoldTradeIn, null);
 });
-test('解放時はステータスがavailableに戻り、Hold項目がクリアされる', () => {
+test('解放時はステータスがavailableに戻り、Hold入力項目一式がクリアされる', () => {
   const patch = sandbox.buildReleasedHoldPatch_();
   assert.strictEqual(patch.holdStatus, 'available');
   assert.strictEqual(patch.holdCustomer, null);
+  assert.strictEqual(patch.holdRegisteredMonth, null);
+  assert.strictEqual(patch.holdTradeIn, null);
+  assert.strictEqual(patch.holdOss, null);
+  assert.strictEqual(patch.holdInsurance, null);
 });
 
 console.log('== SearchService: searchInventory / searchOrders ==');

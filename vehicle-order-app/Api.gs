@@ -10,6 +10,8 @@ function api_getBootstrapData() {
   return {
     steeringOptions: STEERING_OPTIONS,
     stockDisclosureOptions: STOCK_DISCLOSURE_OPTIONS,
+    yesNoOptions: YES_NO_OPTIONS,
+    ossOptions: OSS_OPTIONS,
     paidOptionKeys: PAID_OPTION_KEYS,
     settings: getSettings(),
     currentUserEmail: Session.getActiveUser().getEmail()
