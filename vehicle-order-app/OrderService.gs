@@ -2,16 +2,24 @@
  * OrderService.gs
  * 受注機能
  *
- * 受注確定時、販売リストから「受注リスト」へ自動移行する。
- * Hold中の車両を受注確定する場合、2nd Holdが存在しても不成立として破棄する。
+ * 受注確定時、在庫リストから「受注リスト」へ自動移行する。
+ * Hold中の車両は、Holdを行った担当者のみ受注確定できる（canConfirmOrder_）。
+ * Holdが入っていない車両は誰でも受注確定できる。
+ * 受注確定時も、Hold登録時と同じ入力項目をすべて入力する必要がある。
  */
 
 /**
- * 受注を確定し、販売リストの行を受注リストへ移行する。
+ * 受注を確定し、在庫リストの行を受注リストへ移行する。
  * @param {string} commission
- * @param {Object} info { salesLocation, registeredMonth, staff, customer, tradeIn, oss, insurance }
+ * @param {Object} info { salesLocation, leadNumber, registeredMonth, staff, customer, tradeIn, oss, insurance }
  */
 function confirmOrder(commission, info) {
+  var inputCheck = validateRequiredInfo_(HOLD_ORDER_INPUT_COLUMNS, info);
+  if (!inputCheck.ok) throw new Error(inputCheck.reason);
+  if (!info.salesLocation || !String(info.salesLocation).trim()) {
+    throw new Error('販売拠点を入力してください');
+  }
+
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
@@ -23,6 +31,9 @@ function confirmOrder(commission, info) {
       INVENTORY_COLUMNS,
       rowNumber
     );
+    var holds = getHoldsForCommission_(commission);
+    var check = canConfirmOrder_(vehicle, holds.first, info.staff);
+    if (!check.ok) throw new Error(check.reason);
 
     var order = { salesLocation: info.salesLocation, orderedAt: new Date().getTime() };
     HOLD_ORDER_INPUT_COLUMNS.forEach(function (c) { order[c.key] = info[c.key]; });
@@ -30,6 +41,7 @@ function confirmOrder(commission, info) {
 
     appendOrder_(order);
     deleteInventoryRow_(sheet, rowNumber);
+    deleteAllHoldRowsForCommission_(commission);
     notifyOrderConfirmed(order);
     return order;
   } finally {

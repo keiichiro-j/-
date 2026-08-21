@@ -1,10 +1,10 @@
 /**
  * SearchService.gs
- * 販売リスト・受注リストの検索・グループ表示ロジック（純粋関数）。
+ * 在庫リスト・受注リストの検索・グループ表示ロジック（純粋関数）。
  */
 
 /**
- * 販売リストの検索・絞り込み。
+ * 在庫リストの検索・絞り込み。
  * @param {Array<Object>} vehicles
  * @param {Object} filters {
  *   keyword: string,       // 車種・モデル・コミッションに部分一致

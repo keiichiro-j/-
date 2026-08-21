@@ -6,7 +6,8 @@
     bootstrap: null,
     inventoryGroups: [],
     ordersGroups: [],
-    action: null // { type: 'hold' | 'secondHold' | 'order' | 'orderFromHold', commission }
+    action: null, // { type: 'hold' | 'secondHold' | 'order' | 'orderFromHold', commission }
+    staffList: [] // 設定タブで編集中の担当者マスタ（作業用コピー）
   };
 
   // ===== google.script.run を Promise 化するヘルパー =====
@@ -82,7 +83,8 @@
   }
 
   function paidOptionsText(item) {
-    var keys = (state.bootstrap && state.bootstrap.paidOptionKeys) || ['paidOption1', 'paidOption2', 'paidOption3', 'paidOption4', 'paidOption5'];
+    var keys = (state.bootstrap && state.bootstrap.paidOptionKeys) ||
+      ['paidOption1', 'paidOption2', 'paidOption3', 'paidOption4', 'paidOption5', 'paidOption6', 'paidOption7'];
     var values = keys.map(function (k) { return item[k]; }).filter(function (v) { return v; });
     return values.length ? values.join('、') : '-';
   }
@@ -106,7 +108,7 @@
   function openModal(modal) { modal.classList.remove('hidden'); }
   function closeModal(modal) { modal.classList.add('hidden'); }
 
-  // ===== 販売リスト（在庫） =====
+  // ===== 在庫リスト =====
   function loadInventory() {
     var filters = {
       keyword: $('inventoryKeyword').value,
@@ -168,6 +170,7 @@
   }
 
   function holdInfoBlockHtml_(label, v, prefix) {
+    var leadNumber = v[prefix + 'LeadNumber'];
     var staff = v[prefix + 'Staff'];
     var customer = v[prefix + 'Customer'];
     var registeredMonth = v[prefix + 'RegisteredMonth'];
@@ -178,7 +181,8 @@
     var expiresAt = v[prefix + 'ExpiresAt'];
     return '<div class="card__holdInfo">' +
       '<div class="card__holdInfo__row">' + label + ': <b>' + escapeHtml(customer || '-') + '</b>' +
-      '（担当者 ' + escapeHtml(staff || '-') + '） / 登録月 ' + escapeHtml(registeredMonth || '-') +
+      '（担当者 ' + escapeHtml(staff || '-') + '） / リード番号 ' + escapeHtml(leadNumber || '-') +
+      ' / 登録月 ' + escapeHtml(registeredMonth || '-') +
       ' / 下取車 ' + escapeHtml(tradeIn || '-') + ' / OSS ' + escapeHtml(oss || '-') +
       ' / 保険 ' + escapeHtml(insurance || '-') + '</div>' +
       holdTimerHtml_(createdAt, expiresAt) +
@@ -219,10 +223,20 @@
       var expiresAt = Number(el.dataset.expiresAt);
       if (!expiresAt) return;
       var createdAt = Number(el.dataset.createdAt) || expiresAt - HOLD_DURATION_MS_CLIENT;
-      var total = expiresAt - createdAt;
-      var remaining = expiresAt - now;
       var fill = el.querySelector('.holdTimer__barFill');
       var text = el.querySelector('.holdTimer__text');
+
+      if (now < createdAt) {
+        // 2nd Hold: 1st Holdの期間が終わるまでは、まだ自身の72時間は始まっていない
+        el.classList.remove('holdTimer--expired');
+        el.classList.remove('holdTimer--warning');
+        fill.style.width = '0%';
+        text.textContent = '1st Hold終了後に開始（あと ' + formatDuration_(createdAt - now) + '）';
+        return;
+      }
+
+      var total = expiresAt - createdAt;
+      var remaining = expiresAt - now;
       if (remaining <= 0) {
         anyExpired = true;
         el.classList.add('holdTimer--expired');
@@ -324,6 +338,14 @@
   };
   var ORDER_TYPES = ['order', 'orderFromHold'];
 
+  function actionFieldId_(key) {
+    return 'action' + key.charAt(0).toUpperCase() + key.slice(1);
+  }
+
+  function staffOptions_() {
+    return (state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.staffList) || [];
+  }
+
   function openActionModal(type, commission) {
     state.action = { type: type, commission: commission };
     $('actionModalTitle').textContent = ACTION_LABELS[type].title;
@@ -335,16 +357,23 @@
     $('actionSalesLocationField').classList.toggle('hidden', ORDER_TYPES.indexOf(type) === -1);
 
     var vehicle = findVehicleByCommission(commission);
-    var prefill = (type === 'orderFromHold' && vehicle) ? {
+    var isOrderFromHold = type === 'orderFromHold' && vehicle;
+    var prefill = isOrderFromHold ? {
+      leadNumber: vehicle.holdLeadNumber,
       registeredMonth: vehicle.holdRegisteredMonth,
       staff: vehicle.holdStaff,
       customer: vehicle.holdCustomer,
       tradeIn: vehicle.holdTradeIn,
       oss: vehicle.holdOss,
       insurance: vehicle.holdInsurance
-    } : { registeredMonth: currentYearMonth(), staff: '', customer: '', tradeIn: '', oss: '', insurance: '' };
+    } : { leadNumber: '', registeredMonth: currentYearMonth(), staff: '', customer: '', tradeIn: '', oss: '', insurance: '' };
+
+    // Hold中の車両は、Holdを行った担当者のみ受注確定できる。担当者欄をその担当者に固定する。
+    fillOptions($('actionStaff'), staffOptions_(), true);
+    $('actionStaff').disabled = isOrderFromHold;
 
     $('actionSalesLocation').value = '';
+    $('actionLeadNumber').value = prefill.leadNumber || '';
     $('actionRegisteredMonth').value = prefill.registeredMonth || currentYearMonth();
     $('actionStaff').value = prefill.staff || '';
     $('actionCustomer').value = prefill.customer || '';
@@ -363,11 +392,40 @@
     return null;
   }
 
+  /**
+   * Hold登録・受注確定は全項目の入力が必須。未入力の項目があればラベルを列挙して返す。
+   */
+  function validateActionForm_(action) {
+    var missing = [];
+    var columns = (state.bootstrap && state.bootstrap.holdOrderInputColumns) || [];
+    columns.forEach(function (c) {
+      if (!c.required) return;
+      var field = $(actionFieldId_(c.key));
+      if (!field || !field.value || !String(field.value).trim()) missing.push(c.label);
+    });
+    if (ORDER_TYPES.indexOf(action.type) !== -1) {
+      var slCol = (state.bootstrap && state.bootstrap.salesLocationColumn) || { label: '販売拠点' };
+      if (!$('actionSalesLocation').value.trim()) missing.push(slCol.label);
+    }
+    return missing;
+  }
+
   $('btnActionSubmit').addEventListener('click', function () {
     if (this.disabled) return;
     var btn = this;
+    var action = state.action;
+
+    var missing = validateActionForm_(action);
+    if (missing.length) {
+      var errEl = $('actionModalError');
+      errEl.textContent = '次の項目を入力してください: ' + missing.join('、');
+      errEl.classList.remove('hidden');
+      return;
+    }
+
     var info = {
       salesLocation: $('actionSalesLocation').value.trim(),
+      leadNumber: $('actionLeadNumber').value.trim(),
       registeredMonth: $('actionRegisteredMonth').value,
       staff: $('actionStaff').value.trim(),
       customer: $('actionCustomer').value.trim(),
@@ -375,7 +433,6 @@
       oss: $('actionOss').value,
       insurance: $('actionInsurance').value
     };
-    var action = state.action;
     var apiCall;
     if (action.type === 'hold') apiCall = gasRun('api_registerHold', action.commission, info);
     else if (action.type === 'secondHold') apiCall = gasRun('api_registerSecondHold', action.commission, info);
@@ -416,6 +473,7 @@
       '<div><dt>VPC</dt><dd>' + escapeHtml(o.vpc || '-') + '</dd></div>' +
       '<div><dt>有償オプション</dt><dd>' + escapeHtml(paidOptionsText(o)) + '</dd></div>' +
       '<div><dt>販売拠点</dt><dd>' + escapeHtml(o.salesLocation || '-') + '</dd></div>' +
+      '<div><dt>リード番号</dt><dd>' + escapeHtml(o.leadNumber || '-') + '</dd></div>' +
       '<div><dt>登録月</dt><dd>' + escapeHtml(o.registeredMonth || '-') + '</dd></div>' +
       '<div><dt>担当者</dt><dd>' + escapeHtml(o.staff || '-') + '</dd></div>' +
       '<div><dt>顧客</dt><dd>' + escapeHtml(o.customer || '-') + '</dd></div>' +
@@ -449,6 +507,10 @@
     $('settingsHoldMailTo').value = settings.notifyHoldMailTo;
     $('settingsOrderMailTo').value = settings.notifyOrderMailTo;
     applyTheme(settings.themeColor);
+
+    state.staffList = (settings.staffList || []).slice();
+    $('staffListMax').textContent = (state.bootstrap && state.bootstrap.staffListMax) || 30;
+    renderStaffList();
   }
 
   $('settingsThemeColor').addEventListener('input', function () {
@@ -460,18 +522,70 @@
     document.documentElement.style.setProperty('--primary', color);
   }
 
+  // ----- 担当者マスタ -----
+  function renderStaffList() {
+    var container = $('staffList');
+    $('staffListCount').textContent = state.staffList.length;
+    if (!state.staffList.length) {
+      container.innerHTML = '<div class="staffList__empty">担当者が登録されていません</div>';
+    } else {
+      container.innerHTML = state.staffList.map(function (name, i) {
+        return '<div class="staffList__row">' +
+          '<input type="text" class="input" data-staff-index="' + i + '" value="' + escapeHtml(name) + '">' +
+          '<button class="btn btn--icon" data-remove-staff="' + i + '" type="button" aria-label="削除">&times;</button>' +
+          '</div>';
+      }).join('');
+    }
+    var max = (state.bootstrap && state.bootstrap.staffListMax) || 30;
+    $('btnAddStaff').disabled = state.staffList.length >= max;
+  }
+
+  $('staffList').addEventListener('input', function (e) {
+    var index = e.target.dataset.staffIndex;
+    if (index === undefined) return;
+    state.staffList[Number(index)] = e.target.value;
+  });
+
+  $('staffList').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-remove-staff]');
+    if (!btn) return;
+    state.staffList.splice(Number(btn.dataset.removeStaff), 1);
+    renderStaffList();
+  });
+
+  $('btnAddStaff').addEventListener('click', function () {
+    var max = (state.bootstrap && state.bootstrap.staffListMax) || 30;
+    if (state.staffList.length >= max) return;
+    state.staffList.push('');
+    renderStaffList();
+    var inputs = document.querySelectorAll('#staffList [data-staff-index]');
+    if (inputs.length) inputs[inputs.length - 1].focus();
+  });
+
   $('btnSaveSettings').addEventListener('click', function () {
     if (this.disabled) return;
     var btn = this;
+    var max = (state.bootstrap && state.bootstrap.staffListMax) || 30;
+    var staffList = state.staffList.map(function (s) { return String(s || '').trim(); }).filter(function (s) { return s; });
+    var uniqueStaffList = staffList.filter(function (name, i) { return staffList.indexOf(name) === i; });
+
+    $('settingsError').textContent = '';
+    if (uniqueStaffList.length > max) {
+      $('settingsError').textContent = '担当者マスタは最大' + max + '人までです（現在' + uniqueStaffList.length + '人）';
+      return;
+    }
+
     var settings = {
       themeColor: $('settingsThemeColor').value,
       notifyHoldMailTo: $('settingsHoldMailTo').value.trim(),
-      notifyOrderMailTo: $('settingsOrderMailTo').value.trim()
+      notifyOrderMailTo: $('settingsOrderMailTo').value.trim(),
+      staffList: uniqueStaffList
     };
-    $('settingsError').textContent = '';
     setButtonBusy(btn, true, '保存中...');
-    gasRun('api_saveSettings', settings).then(function () {
+    gasRun('api_saveSettings', settings).then(function (saved) {
       setButtonBusy(btn, false);
+      state.bootstrap.settings = saved;
+      renderSettings(saved);
       showToast('設定を保存しました');
     }).catch(function (err) {
       setButtonBusy(btn, false);

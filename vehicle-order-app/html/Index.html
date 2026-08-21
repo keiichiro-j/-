@@ -10,13 +10,13 @@
     <header class="topbar">
       <div class="topbar__brand">車両受注アプリ</div>
       <nav class="tabs" id="mainTabs" role="tablist" aria-label="画面切替">
-        <button class="tabs__item is-active" data-tab="inventory">販売リスト</button>
+        <button class="tabs__item is-active" data-tab="inventory">在庫リスト</button>
         <button class="tabs__item" data-tab="orders">受注リスト</button>
         <button class="tabs__item" data-tab="settings">設定</button>
       </nav>
     </header>
 
-    <!-- 販売リスト（在庫）-->
+    <!-- 在庫リスト -->
     <main class="view is-active" id="view-inventory">
       <div class="toolbar">
         <input type="search" id="inventoryKeyword" class="input input--search" placeholder="車種・モデル・コミッションで検索">
@@ -67,6 +67,11 @@
           <label>受注確定時のメール通知先</label>
           <input type="text" id="settingsOrderMailTo" class="input" placeholder="例: sales@example.com">
         </div>
+        <div class="formField">
+          <label>担当者マスタ（最大<span id="staffListMax"></span>人・<span id="staffListCount">0</span>人登録中）</label>
+          <div class="staffList" id="staffList"></div>
+          <button class="btn" id="btnAddStaff" type="button">＋ 担当者を追加</button>
+        </div>
         <div id="settingsError" class="modal__error"></div>
         <button class="btn btn--primary" id="btnSaveSettings">保存</button>
       </div>
@@ -87,12 +92,16 @@
           <input type="text" id="actionSalesLocation" class="input">
         </div>
         <div class="formField">
+          <label>リード番号</label>
+          <input type="text" id="actionLeadNumber" class="input">
+        </div>
+        <div class="formField">
           <label>登録月</label>
           <input type="month" id="actionRegisteredMonth" class="input">
         </div>
         <div class="formField">
           <label>担当者</label>
-          <input type="text" id="actionStaff" class="input">
+          <select id="actionStaff" class="input"></select>
         </div>
         <div class="formField">
           <label>顧客</label>
@@ -159,6 +168,8 @@
             <input type="text" class="input" data-paid-option="3" placeholder="3">
             <input type="text" class="input" data-paid-option="4" placeholder="4">
             <input type="text" class="input" data-paid-option="5" placeholder="5">
+            <input type="text" class="input" data-paid-option="6" placeholder="6">
+            <input type="text" class="input" data-paid-option="7" placeholder="7">
           </div>
         </div>
         <div class="formField">

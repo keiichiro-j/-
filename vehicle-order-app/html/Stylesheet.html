@@ -91,6 +91,7 @@
   }
   .input:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
   .input--search { min-width: 220px; flex: 1 1 220px; }
+  .input:disabled { background: var(--background); color: var(--on-surface-variant); cursor: not-allowed; }
 
   .checkboxField { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--on-surface-variant); }
 
@@ -237,8 +238,14 @@
   .formField.hidden { display: none; }
   .colorField { display: flex; align-items: center; gap: 10px; }
   .colorField input[type=color] { width: 44px; height: 36px; border: 1px solid var(--outline); border-radius: 8px; padding: 2px; }
-  .optionSlots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .optionSlots { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 6px; }
   .optionSlots .input { padding: 8px 6px; text-align: center; }
+
+  /* ===== 担当者マスタ ===== */
+  .staffList { display: flex; flex-direction: column; gap: 6px; }
+  .staffList__row { display: flex; gap: 8px; align-items: center; }
+  .staffList__row .input { flex: 1; }
+  .staffList__empty { font-size: 13px; color: var(--on-surface-variant); }
 
   /* ===== モーダル ===== */
   .modal {

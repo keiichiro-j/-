@@ -13,19 +13,22 @@ function api_getBootstrapData() {
     yesNoOptions: YES_NO_OPTIONS,
     ossOptions: OSS_OPTIONS,
     paidOptionKeys: PAID_OPTION_KEYS,
+    holdOrderInputColumns: HOLD_ORDER_INPUT_COLUMNS,
+    salesLocationColumn: { key: 'salesLocation', label: '販売拠点', required: true },
+    staffListMax: STAFF_LIST_MAX,
     settings: getSettings(),
     currentUserEmail: Session.getActiveUser().getEmail()
   };
 }
 
-// ===== 販売リスト（在庫）一覧 =====
+// ===== 在庫リスト一覧 =====
 function api_listInventory(filters, groupBy) {
   var vehicles = searchInventory(listInventory(), filters);
   return groupBy ? groupByField_(vehicles, groupBy) : [{ key: '', items: vehicles }];
 }
 
 /**
- * 販売リストへの車両登録。通常は既存の販売リスト用スプレッドシートへ直接データを
+ * 在庫リストへの車両登録。通常は既存の在庫リスト用スプレッドシートへ直接データを
  * 貼り付ける運用を想定しているが、個別追加の手段としても提供する（README参照）。
  */
 function api_createInventoryVehicle(vehicle) {

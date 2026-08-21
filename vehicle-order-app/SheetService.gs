@@ -1,6 +1,6 @@
 /**
  * SheetService.gs
- * スプレッドシートの行 ⇔ オブジェクトの相互変換と、在庫・受注リストの基本 CRUD 操作。
+ * スプレッドシートの行 ⇔ オブジェクトの相互変換と、在庫・Hold・受注リストの基本 CRUD 操作。
  */
 
 function getSpreadsheet_() {
@@ -20,6 +20,10 @@ function getOrCreateSheet_(sheetName, headerRow) {
 
 function getInventorySheet_() {
   return getOrCreateSheet_(SHEET_NAMES.INVENTORY, INVENTORY_HEADER_ROW);
+}
+
+function getHoldsSheet_() {
+  return getOrCreateSheet_(SHEET_NAMES.HOLDS, HOLD_HEADER_ROW);
 }
 
 function getOrderSheet_() {
@@ -94,10 +98,11 @@ function findRowByKey_(sheet, columns, keyField, keyValue) {
   return null;
 }
 
-// ===== 在庫 =====
+// ===== 在庫リスト =====
 
 function listInventory() {
-  return readAllRows_(getInventorySheet_(), INVENTORY_COLUMNS, 'commission');
+  var vehicles = readAllRows_(getInventorySheet_(), INVENTORY_COLUMNS, 'commission');
+  return attachHoldInfo_(vehicles);
 }
 
 function findInventoryRowNumber_(sheet, commission) {
@@ -138,6 +143,73 @@ function updateInventoryVehicle_(sheet, rowNumber, patch) {
 
 function deleteInventoryRow_(sheet, rowNumber) {
   sheet.deleteRow(rowNumber);
+}
+
+// ===== Holdリスト =====
+
+function listHoldsForCommission_(commission) {
+  var sheet = getHoldsSheet_();
+  return readAllRows_(sheet, HOLD_COLUMNS, 'commission').filter(function (h) {
+    return h.commission === commission;
+  });
+}
+
+/**
+ * 指定コミッションの Hold行を { first, second } の形で返す（見つからなければ null）。
+ */
+function getHoldsForCommission_(commission) {
+  var rows = listHoldsForCommission_(commission);
+  return {
+    first: rows.find(function (h) { return h.rank === HOLD_RANK.FIRST; }) || null,
+    second: rows.find(function (h) { return h.rank === HOLD_RANK.SECOND; }) || null
+  };
+}
+
+function findHoldRowNumber_(sheet, commission, rank) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return null;
+  var values = sheet.getRange(2, 1, lastRow - 1, 2).getValues(); // commission, rank は先頭2列
+  for (var i = 0; i < values.length; i++) {
+    if (String(values[i][0]) === String(commission) && values[i][1] === rank) {
+      return i + 2;
+    }
+  }
+  return null;
+}
+
+function createHoldRow_(holdRecord) {
+  var sheet = getHoldsSheet_();
+  sheet.appendRow(objectToRow_(holdRecord, HOLD_COLUMNS));
+  return holdRecord;
+}
+
+function updateHoldRow_(sheet, rowNumber, patch) {
+  var current = rowToObject_(
+    sheet.getRange(rowNumber, 1, 1, HOLD_COLUMNS.length).getValues()[0],
+    HOLD_COLUMNS,
+    rowNumber
+  );
+  var merged = Object.assign({}, current, patch);
+  sheet.getRange(rowNumber, 1, 1, HOLD_COLUMNS.length).setValues([objectToRow_(merged, HOLD_COLUMNS)]);
+  return merged;
+}
+
+function deleteHoldRow_(sheet, rowNumber) {
+  sheet.deleteRow(rowNumber);
+}
+
+/**
+ * 指定コミッションのHold行（1st・2ndとも存在すれば両方）をすべて削除する。
+ * 受注確定時に、成立しなかった2nd Holdも含めて後始末するために使う。
+ */
+function deleteAllHoldRowsForCommission_(commission) {
+  var sheet = getHoldsSheet_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+  var values = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (var i = values.length - 1; i >= 0; i--) {
+    if (String(values[i][0]) === String(commission)) sheet.deleteRow(i + 2);
+  }
 }
 
 // ===== 受注リスト =====

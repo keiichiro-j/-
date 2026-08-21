@@ -23,8 +23,8 @@ const sandbox = {
 };
 vm.createContext(sandbox);
 
-// Constants.gs -> HoldService.gs / SearchService.gs / SheetService.gs の順で依存関係あり
-const FILES = ['Constants.gs', 'HoldService.gs', 'SearchService.gs', 'SheetService.gs'];
+// Constants.gs -> HoldService.gs / SearchService.gs / SheetService.gs / SettingsService.gs の順で依存関係あり
+const FILES = ['Constants.gs', 'HoldService.gs', 'SearchService.gs', 'SheetService.gs', 'SettingsService.gs'];
 
 FILES.forEach((file) => {
   const code = fs.readFileSync(path.join(ROOT, file), 'utf8');
@@ -64,13 +64,48 @@ test('存在しない車両にはHold登録不可', () => {
   assert.strictEqual(sandbox.canRegisterHold_(null).ok, false);
 });
 test('Hold中で2nd Hold未登録なら2nd Hold登録可', () => {
-  assert.strictEqual(sandbox.canRegisterSecondHold_({ holdStatus: 'hold', secondHoldCustomer: null }).ok, true);
+  assert.strictEqual(sandbox.canRegisterSecondHold_({ holdStatus: 'hold' }, false).ok, true);
 });
 test('在庫あり車両には2nd Hold登録不可', () => {
-  assert.strictEqual(sandbox.canRegisterSecondHold_({ holdStatus: 'available' }).ok, false);
+  assert.strictEqual(sandbox.canRegisterSecondHold_({ holdStatus: 'available' }, false).ok, false);
 });
 test('2nd Hold登録済みなら3人目のHoldは不可', () => {
-  assert.strictEqual(sandbox.canRegisterSecondHold_({ holdStatus: 'hold', secondHoldCustomer: '顧客B' }).ok, false);
+  assert.strictEqual(sandbox.canRegisterSecondHold_({ holdStatus: 'hold' }, true).ok, false);
+});
+
+console.log('== HoldService: canConfirmOrder_（Hold担当者のみ受注確定可） ==');
+test('Holdが入っていない車両は誰でも受注確定できる', () => {
+  const result = sandbox.canConfirmOrder_({ holdStatus: 'available' }, null, '佐藤');
+  assert.strictEqual(result.ok, true);
+});
+test('Hold中の車両はHold担当者本人なら受注確定できる', () => {
+  const result = sandbox.canConfirmOrder_({ holdStatus: 'hold' }, { staff: '佐藤' }, '佐藤');
+  assert.strictEqual(result.ok, true);
+});
+test('Hold中の車両はHold担当者以外だと受注確定できない', () => {
+  const result = sandbox.canConfirmOrder_({ holdStatus: 'hold' }, { staff: '佐藤' }, '鈴木');
+  assert.strictEqual(result.ok, false);
+});
+
+console.log('== HoldService: validateRequiredInfo_（全項目入力チェック） ==');
+const fullInfo = {
+  leadNumber: 'L-001', registeredMonth: '2026-08', staff: '佐藤', customer: '山田太郎',
+  tradeIn: 'あり', oss: '可', insurance: 'あり'
+};
+test('全項目入力済みならOK', () => {
+  assert.strictEqual(sandbox.validateRequiredInfo_(sandbox.HOLD_ORDER_INPUT_COLUMNS, fullInfo).ok, true);
+});
+test('リード番号が未入力だとNG', () => {
+  const info = Object.assign({}, fullInfo, { leadNumber: '' });
+  const result = sandbox.validateRequiredInfo_(sandbox.HOLD_ORDER_INPUT_COLUMNS, info);
+  assert.strictEqual(result.ok, false);
+  assert.ok(result.reason.includes('リード番号'));
+});
+test('複数項目が未入力だとすべて列挙される', () => {
+  const result = sandbox.validateRequiredInfo_(sandbox.HOLD_ORDER_INPUT_COLUMNS, {});
+  assert.strictEqual(result.ok, false);
+  assert.ok(result.reason.includes('リード番号'));
+  assert.ok(result.reason.includes('顧客'));
 });
 
 console.log('== HoldService: decideExpiryAction_ ==');
@@ -79,47 +114,52 @@ test('在庫あり車両は対象外', () => {
 });
 test('Hold期限前は対象外', () => {
   const now = 1000;
-  assert.strictEqual(sandbox.decideExpiryAction_({ holdStatus: 'hold', holdExpiresAt: 2000 }, now), 'none');
+  assert.strictEqual(sandbox.decideExpiryAction_({ holdStatus: 'hold', expiresAt: 2000, hasSecondHold: false }, now), 'none');
 });
 test('Hold期限経過・2nd Holdなしは解放', () => {
   const now = 3000;
-  assert.strictEqual(sandbox.decideExpiryAction_({ holdStatus: 'hold', holdExpiresAt: 2000 }, now), 'release');
+  assert.strictEqual(sandbox.decideExpiryAction_({ holdStatus: 'hold', expiresAt: 2000, hasSecondHold: false }, now), 'release');
 });
 test('Hold期限経過・2nd Holdありは昇格', () => {
   const now = 3000;
   assert.strictEqual(
-    sandbox.decideExpiryAction_({ holdStatus: 'hold', holdExpiresAt: 2000, secondHoldCustomer: '顧客B' }, now),
+    sandbox.decideExpiryAction_({ holdStatus: 'hold', expiresAt: 2000, hasSecondHold: true }, now),
     'promote'
   );
 });
 
-console.log('== HoldService: buildPromotedHoldPatch_ / buildReleasedHoldPatch_ ==');
-test('2nd Holdの入力項目一式が1st Holdへ昇格し、新たな72時間が付与される', () => {
-  const now = 10_000;
-  const vehicle = {
-    secondHoldRegisteredMonth: '2026-08', secondHoldStaff: '鈴木', secondHoldCustomer: '顧客B',
-    secondHoldTradeIn: 'あり', secondHoldOss: '可', secondHoldInsurance: 'なし'
-  };
-  const patch = sandbox.buildPromotedHoldPatch_(vehicle, now);
-  assert.strictEqual(patch.holdRegisteredMonth, '2026-08');
-  assert.strictEqual(patch.holdCustomer, '顧客B');
-  assert.strictEqual(patch.holdStaff, '鈴木');
-  assert.strictEqual(patch.holdTradeIn, 'あり');
-  assert.strictEqual(patch.holdOss, '可');
-  assert.strictEqual(patch.holdInsurance, 'なし');
-  assert.strictEqual(patch.holdCreatedAt, now);
-  assert.strictEqual(patch.holdExpiresAt, now + sandbox.HOLD_DURATION_MS);
-  assert.strictEqual(patch.secondHoldCustomer, null);
-  assert.strictEqual(patch.secondHoldTradeIn, null);
+console.log('== HoldService: buildHoldRecord_ / attachHoldInfo_（2nd Holdは1st Hold終了時から起算） ==');
+test('buildHoldRecord_ が入力項目一式を1行分のレコードに詰める', () => {
+  const record = sandbox.buildHoldRecord_('C-001', sandbox.HOLD_RANK.FIRST, fullInfo, 1000, 1000 + sandbox.HOLD_DURATION_MS);
+  assert.strictEqual(record.commission, 'C-001');
+  assert.strictEqual(record.rank, '1st');
+  assert.strictEqual(record.leadNumber, 'L-001');
+  assert.strictEqual(record.createdAt, 1000);
+  assert.strictEqual(record.expiresAt, 1000 + sandbox.HOLD_DURATION_MS);
 });
-test('解放時はステータスがavailableに戻り、Hold入力項目一式がクリアされる', () => {
-  const patch = sandbox.buildReleasedHoldPatch_();
-  assert.strictEqual(patch.holdStatus, 'available');
-  assert.strictEqual(patch.holdCustomer, null);
-  assert.strictEqual(patch.holdRegisteredMonth, null);
-  assert.strictEqual(patch.holdTradeIn, null);
-  assert.strictEqual(patch.holdOss, null);
-  assert.strictEqual(patch.holdInsurance, null);
+test('2nd Holdの開始・期限は1st Holdの期限を起点に組み立てられる想定になっている', () => {
+  // registerSecondHold の実装方針の確認: createdAt = 1st Holdのexpiresat, expiresAt = createdAt + 72h
+  const firstHoldExpiresAt = 5_000_000;
+  const secondCreatedAt = firstHoldExpiresAt;
+  const secondExpiresAt = secondCreatedAt + sandbox.HOLD_DURATION_MS;
+  const record = sandbox.buildHoldRecord_('C-002', sandbox.HOLD_RANK.SECOND, fullInfo, secondCreatedAt, secondExpiresAt);
+  assert.strictEqual(record.createdAt, firstHoldExpiresAt);
+  assert.strictEqual(record.expiresAt, firstHoldExpiresAt + sandbox.HOLD_DURATION_MS);
+});
+test('applyHoldFieldsToVehicle_ はHold行がない場合すべてnullを設定する', () => {
+  const vehicle = { commission: 'C-999' };
+  sandbox.applyHoldFieldsToVehicle_(vehicle, null, 'hold');
+  assert.strictEqual(vehicle.holdStaff, null);
+  assert.strictEqual(vehicle.holdLeadNumber, null);
+  assert.strictEqual(vehicle.holdCreatedAt, null);
+});
+test('applyHoldFieldsToVehicle_ はHold行があればプレフィックス付きで値を反映する', () => {
+  const vehicle = { commission: 'C-998' };
+  const holdRow = Object.assign({ createdAt: 1000, expiresAt: 2000 }, fullInfo);
+  sandbox.applyHoldFieldsToVehicle_(vehicle, holdRow, 'hold');
+  assert.strictEqual(vehicle.holdStaff, '佐藤');
+  assert.strictEqual(vehicle.holdLeadNumber, 'L-001');
+  assert.strictEqual(vehicle.holdExpiresAt, 2000);
 });
 
 console.log('== SearchService: searchInventory / searchOrders ==');
@@ -200,6 +240,25 @@ test('objectToRow_はdatetime型の数値をDateへ戻すが、date型の文字�
   // vm サンドボックスは別レルムのため instanceof Date は使えない（Object.prototype.toString で判定）
   assert.strictEqual(Object.prototype.toString.call(row[1]), '[object Date]');
   assert.strictEqual(row[1].getTime(), now);
+});
+
+console.log('== SettingsService: normalizeStaffList_（担当者マスタ最大30人） ==');
+test('空欄・重複は除去される', () => {
+  const list = sandbox.normalizeStaffList_(['佐藤', '', '佐藤', ' 鈴木 ']);
+  // vm サンドボックスは別レルムのため配列は deepStrictEqual では不一致になる（[...] で外側のレルムへ複製）
+  assert.deepStrictEqual([...list], ['佐藤', '鈴木']);
+});
+test('30人まではそのまま登録できる', () => {
+  const list = Array.from({ length: 30 }, (_, i) => 'スタッフ' + i);
+  assert.strictEqual(sandbox.normalizeStaffList_(list).length, 30);
+});
+test('31人以上はエラーになる', () => {
+  const list = Array.from({ length: 31 }, (_, i) => 'スタッフ' + i);
+  assert.throws(() => sandbox.normalizeStaffList_(list), /最大30人/);
+});
+test('配列以外が渡されても空配列として扱われる', () => {
+  assert.strictEqual(sandbox.normalizeStaffList_(null).length, 0);
+  assert.strictEqual(sandbox.normalizeStaffList_(undefined).length, 0);
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

@@ -2,13 +2,16 @@
  * Constants.gs
  * 車両受注アプリ 共通定数定義
  *
- * 既存の車両在庫管理アプリ・新車売上在庫管理システムとは独立したシステムとして構築する
- * （スプレッドシートも別建て）。列構成は実際の販売リスト／受注リストの項目に合わせている。
+ * スプレッドシートは3タブ構成：
+ *   在庫リスト … 車両情報＋Holdステータスのみ
+ *   Holdリスト … Hold（1st/2nd）の入力項目・開始日時・期限（車両情報とは別テーブル）
+ *   受注リスト … 受注確定時に転記される車両情報＋入力項目
  */
 
 // ===== シート名 =====
 var SHEET_NAMES = {
-  INVENTORY: '販売リスト',
+  INVENTORY: '在庫リスト',
+  HOLDS: 'Holdリスト',
   ORDERS: '受注リスト'
 };
 
@@ -20,15 +23,21 @@ var HOLD_STATUS = {
   HOLD: 'hold'
 };
 
+var HOLD_RANK = {
+  FIRST: '1st',
+  SECOND: '2nd'
+};
+
 // ===== 選択肢 =====
 var STEERING_OPTIONS = ['右', '左'];
 var STOCK_DISCLOSURE_OPTIONS = ['開示', '非開示'];
 var YES_NO_OPTIONS = ['あり', 'なし'];
 var OSS_OPTIONS = ['可', '不可'];
-var PAID_OPTION_SLOT_COUNT = 5; // 有償オプション（5マス分確保）
+var PAID_OPTION_SLOT_COUNT = 7; // 有償オプション（7マス分確保）
+var STAFF_LIST_MAX = 30; // 担当者マスタの最大登録人数
 
 /**
- * 車両情報（販売リスト・受注リストで共通）の列定義。
+ * 車両情報（在庫リスト・受注リストで共通）の列定義。
  */
 var VEHICLE_COLUMNS = [
   { key: 'carType', label: '車種', type: 'text', required: true },
@@ -56,53 +65,54 @@ var PAID_OPTION_KEYS = VEHICLE_COLUMNS
 
 /**
  * Hold（予約）・受注確定の共通入力項目。
- * 登録月／担当者／顧客／下取車の有無／OSS登録の可否／保険加入の有無。
+ * リード番号／登録月／担当者／顧客／下取車の有無／OSS登録の可否／保険加入の有無。
+ * すべて必須（Hold登録・受注確定は全項目入力しないと進められない）。
  */
 var HOLD_ORDER_INPUT_COLUMNS = [
-  { key: 'registeredMonth', label: '登録月', type: 'text' },
-  { key: 'staff', label: '担当者', type: 'text' },
-  { key: 'customer', label: '顧客', type: 'text' },
-  { key: 'tradeIn', label: '下取車の有無', type: 'select', options: YES_NO_OPTIONS },
-  { key: 'oss', label: 'OSS登録の可否', type: 'select', options: OSS_OPTIONS },
-  { key: 'insurance', label: '保険加入の有無', type: 'select', options: YES_NO_OPTIONS }
+  { key: 'leadNumber', label: 'リード番号', type: 'text', required: true },
+  { key: 'registeredMonth', label: '登録月', type: 'text', required: true },
+  { key: 'staff', label: '担当者', type: 'text', required: true }, // 担当者マスタから選択（SettingsService参照）
+  { key: 'customer', label: '顧客', type: 'text', required: true },
+  { key: 'tradeIn', label: '下取車の有無', type: 'select', options: YES_NO_OPTIONS, required: true },
+  { key: 'oss', label: 'OSS登録の可否', type: 'select', options: OSS_OPTIONS, required: true },
+  { key: 'insurance', label: '保険加入の有無', type: 'select', options: YES_NO_OPTIONS, required: true }
 ];
 
-function prefixColumns_(columns, prefix, labelPrefix) {
-  return columns.map(function (c) {
-    var key = prefix + c.key.charAt(0).toUpperCase() + c.key.slice(1);
-    var separator = /^[A-Za-z]/.test(c.label) ? ' ' : '';
-    return Object.assign({}, c, { key: key, label: labelPrefix + separator + c.label });
-  });
-}
-
 /**
- * 販売リスト（在庫）列定義（順序 = スプレッドシートの列順）。
- * 車両情報に加え、Hold（1st/2nd）の入力項目・登録日時・期限を含む。
+ * 在庫リスト列定義（順序 = スプレッドシートの列順）。
+ * 車両情報＋Holdステータスのみ。Holdの詳細はHoldリストで別管理する。
  */
 var INVENTORY_COLUMNS = VEHICLE_COLUMNS.concat([
   { key: 'holdStatus', label: 'Holdステータス', type: 'select', options: [HOLD_STATUS.AVAILABLE, HOLD_STATUS.HOLD] }
-]).concat(prefixColumns_(HOLD_ORDER_INPUT_COLUMNS, 'hold', 'Hold')).concat([
-  { key: 'holdCreatedAt', label: 'Hold登録日時', type: 'datetime' },
-  { key: 'holdExpiresAt', label: 'Hold期限', type: 'datetime' }
-]).concat(prefixColumns_(HOLD_ORDER_INPUT_COLUMNS, 'secondHold', '2nd Hold')).concat([
-  { key: 'secondHoldCreatedAt', label: '2nd Hold登録日時', type: 'datetime' },
-  { key: 'secondHoldExpiresAt', label: '2nd Hold期限', type: 'datetime' }
 ]);
 
 /**
- * 受注リスト列定義。車両情報に加え、販売拠点と Hold・受注共通入力項目、
- * 受注確定日時を保持する。
+ * Holdリスト列定義。1台の車両につき 1st Hold・2nd Hold それぞれ1行（最大2行）。
+ * commission + rank で一意に特定する。
+ */
+var HOLD_COLUMNS = [
+  { key: 'commission', label: 'コミッション', type: 'text', required: true },
+  { key: 'rank', label: '順番', type: 'select', options: [HOLD_RANK.FIRST, HOLD_RANK.SECOND], required: true }
+].concat(HOLD_ORDER_INPUT_COLUMNS).concat([
+  { key: 'createdAt', label: '開始日時', type: 'datetime' },
+  { key: 'expiresAt', label: '期限', type: 'datetime' }
+]);
+
+/**
+ * 受注リスト列定義。車両情報＋販売拠点＋Hold・受注共通入力項目＋受注確定日時。
  */
 var ORDER_COLUMNS = VEHICLE_COLUMNS.concat([
-  { key: 'salesLocation', label: '販売拠点', type: 'text' }
+  { key: 'salesLocation', label: '販売拠点', type: 'text', required: true }
 ]).concat(HOLD_ORDER_INPUT_COLUMNS).concat([
   { key: 'orderedAt', label: '受注確定日時', type: 'datetime' }
 ]);
 
 var INVENTORY_HEADER_ROW = INVENTORY_COLUMNS.map(function (c) { return c.label; });
+var HOLD_HEADER_ROW = HOLD_COLUMNS.map(function (c) { return c.label; });
 var ORDER_HEADER_ROW = ORDER_COLUMNS.map(function (c) { return c.label; });
 
 var INVENTORY_COL_INDEX = buildColIndex_(INVENTORY_COLUMNS);
+var HOLD_COL_INDEX = buildColIndex_(HOLD_COLUMNS);
 var ORDER_COL_INDEX = buildColIndex_(ORDER_COLUMNS);
 
 function buildColIndex_(columns) {
@@ -115,6 +125,10 @@ function inventoryColIndex1(key) {
   return INVENTORY_COL_INDEX[key] + 1; // 1-indexed（Range操作用）
 }
 
+function holdColIndex1(key) {
+  return HOLD_COL_INDEX[key] + 1;
+}
+
 function orderColIndex1(key) {
   return ORDER_COL_INDEX[key] + 1;
 }
@@ -123,7 +137,8 @@ function orderColIndex1(key) {
 var PROP_KEYS = {
   THEME_COLOR: 'THEME_COLOR',
   NOTIFY_HOLD_MAIL_TO: 'NOTIFY_HOLD_MAIL_TO',
-  NOTIFY_ORDER_MAIL_TO: 'NOTIFY_ORDER_MAIL_TO'
+  NOTIFY_ORDER_MAIL_TO: 'NOTIFY_ORDER_MAIL_TO',
+  STAFF_LIST: 'STAFF_LIST'
 };
 
 var DEFAULT_THEME_COLOR = '#1a73e8'; // Material Design Blue 600
