@@ -100,6 +100,29 @@ test('Hold中なのにHold情報が取得できない場合は安全側に倒し
   assert.strictEqual(result.ok, false);
 });
 
+console.log('== HoldService: canCancelHold_ / decideCancelAction_（Hold解除） ==');
+test('Holdを行った本人なら解除できる', () => {
+  const result = sandbox.canCancelHold_({ staff: '佐藤' }, '佐藤');
+  assert.strictEqual(result.ok, true);
+});
+test('Holdを行った本人以外は解除できない', () => {
+  const result = sandbox.canCancelHold_({ staff: '佐藤' }, '鈴木');
+  assert.strictEqual(result.ok, false);
+  assert.ok(result.reason.includes('佐藤'));
+});
+test('該当のHold行がなければ解除できない', () => {
+  const result = sandbox.canCancelHold_(null, '佐藤');
+  assert.strictEqual(result.ok, false);
+});
+test('2nd Holdを解除する場合はremoveSecond', () => {
+  assert.strictEqual(sandbox.decideCancelAction_(sandbox.HOLD_RANK.SECOND, true), 'removeSecond');
+  assert.strictEqual(sandbox.decideCancelAction_(sandbox.HOLD_RANK.SECOND, false), 'removeSecond');
+});
+test('1st Holdを解除する場合、2nd Holdがあれば繰り上げ(promote)、なければ解放(release)', () => {
+  assert.strictEqual(sandbox.decideCancelAction_(sandbox.HOLD_RANK.FIRST, true), 'promote');
+  assert.strictEqual(sandbox.decideCancelAction_(sandbox.HOLD_RANK.FIRST, false), 'release');
+});
+
 console.log('== HoldService: validateRequiredInfo_（全項目入力チェック） ==');
 const fullInfo = {
   leadNumber: 'L-001', registeredMonth: '2026-08', staff: '佐藤', customer: '山田太郎',

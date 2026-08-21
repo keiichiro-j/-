@@ -13,6 +13,7 @@
     --warning: #b06000;
     --warning-bg: #fef7e0;
     --danger: #d93025;
+    --primary-bg: #e8f0fe;
     --shadow: 0 1px 2px rgba(60, 64, 67, .3), 0 1px 3px 1px rgba(60, 64, 67, .15);
     --shadow-elevated: 0 2px 6px rgba(60, 64, 67, .3), 0 4px 12px 2px rgba(60, 64, 67, .15);
     --radius: 12px;
@@ -109,7 +110,8 @@
   .btn--primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
   .btn--primary:hover { background: var(--primary-dark); }
   .btn--text { border: none; background: none; color: var(--primary); padding: 8px 10px; }
-  .btn--danger { color: var(--danger); }
+  .btn--danger { color: var(--danger); border-color: var(--danger); }
+  .btn--danger:hover { background: var(--danger); color: #fff; }
   .btn--block { width: 100%; }
   .btn:disabled { opacity: .4; cursor: not-allowed; }
   .btn--icon {
@@ -163,6 +165,8 @@
   .badge--hold { background: var(--warning-bg); color: var(--warning); }
   .badge--disclosed { background: var(--success-bg); color: var(--success); font-weight: 500; }
   .badge--undisclosed { background: rgba(95, 99, 104, .12); color: var(--on-surface-variant); font-weight: 500; }
+  .badge--thisMonth { background: var(--primary-bg); color: var(--primary); font-weight: 500; }
+  .badge--location { background: var(--primary-bg); color: var(--primary); font-weight: 500; }
   .card__badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 
   .card__meta { font-size: 13px; color: var(--on-surface-variant); line-height: 1.6; }
@@ -178,18 +182,54 @@
     line-height: 1.6;
   }
   .card__holdInfo b { color: var(--on-surface); }
+  .card__holdInfo__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
   .card__holdInfo__label {
     font-size: 11px;
     font-weight: 700;
     letter-spacing: .02em;
     text-transform: uppercase;
-    margin-bottom: 4px;
   }
   .card__holdInfo--first { border-left-color: var(--warning); }
   .card__holdInfo--first .card__holdInfo__label { color: var(--warning); }
   .card__holdInfo--second { border-left-color: var(--primary); background: #eef4fd; }
   .card__holdInfo--second .card__holdInfo__label { color: var(--primary); }
   .card__holdInfo__row { margin-bottom: 6px; }
+  .card__holdInfo__cancel {
+    border: none;
+    background: none;
+    color: var(--danger);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    flex: none;
+  }
+  .card__holdInfo__cancel:hover { background: rgba(217, 48, 37, .1); }
+
+  /* 詳細（リード番号・登録月・下取車等）は折りたたみ、カードの縦幅を一定に保つ */
+  .card__holdInfo__details { margin-top: 4px; }
+  .card__holdInfo__details summary {
+    cursor: pointer;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--primary);
+    list-style: none;
+  }
+  .card__holdInfo__details summary::-webkit-details-marker { display: none; }
+  .card__holdInfo__details summary::before { content: '▸ '; }
+  .card__holdInfo__details[open] summary::before { content: '▾ '; }
+  .card__holdInfo__detailsBody {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed var(--outline);
+  }
 
   /* ===== Hold 72時間タイマー ===== */
   .holdTimer__bar {
@@ -227,14 +267,25 @@
     font-size: 14px;
   }
 
-  /* ===== 受注リスト（テーブル寄りのカード） ===== */
-  .orderCard { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; }
+  /* ===== 受注リスト ===== */
+  .orderCard {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border-left: 4px solid var(--primary);
+    padding: 16px;
+  }
   .orderCard + .orderCard { margin-top: 10px; }
+  .orderCard__top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 10px; }
+  .orderCard__model { font-size: 16px; font-weight: 500; }
+  .orderCard__commission { font-size: 12px; color: var(--on-surface-variant); }
   .orderCard__grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 6px 16px;
+    gap: 8px 16px;
     font-size: 13.5px;
+    padding-top: 10px;
+    border-top: 1px solid var(--outline);
   }
   .orderCard__grid dt { color: var(--on-surface-variant); font-size: 12px; margin-bottom: 2px; }
   .orderCard__grid dd { margin: 0; font-weight: 500; }
@@ -301,6 +352,7 @@
   .modal__body { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
   .modal__footer { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--outline); }
   .modal__error { color: var(--danger); font-size: 13px; }
+  .modal__desc { margin: 0; font-size: 13px; color: var(--on-surface-variant); line-height: 1.6; }
 
   /* ===== トースト ===== */
   .toast {
@@ -310,13 +362,30 @@
   }
   .toast--error { background: var(--danger); }
 
+  /* ===== タブレット ===== */
+  @media (max-width: 900px) {
+    main.view { padding: 14px; }
+    .cardGrid { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+    .settingsWrap { max-width: 100%; }
+    .orderCard__grid { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+  }
+
+  /* ===== スマートフォン ===== */
   @media (max-width: 600px) {
     .topbar { padding: 10px 12px; gap: 10px; }
     .topbar__brand { font-size: 16px; }
     main.view { padding: 10px; }
     .toolbar { padding: 10px; }
-    .cardGrid { grid-template-columns: 1fr; }
+    .toolbar .input, .toolbar .checkboxField { flex: 1 1 auto; }
+    .cardGrid { grid-template-columns: 1fr; gap: 10px; }
     .settingsCard { padding: 18px 16px; }
+    .card { padding: 14px; }
+    .card__actions .btn { min-height: 42px; }
+    .modal { padding: 0; align-items: flex-end; }
+    .modal__panel { max-width: 100%; width: 100%; max-height: 92vh; border-radius: var(--radius) var(--radius) 0 0; }
+    .modal__footer .btn { flex: 1; min-height: 44px; }
+    .orderCard { padding: 14px; }
+    .orderCard__grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
   }
 
   @media (prefers-reduced-motion: reduce) {

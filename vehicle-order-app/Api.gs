@@ -46,6 +46,10 @@ function api_registerSecondHold(commission, info) {
   return registerSecondHold(commission, info);
 }
 
+function api_cancelHold(commission, rank, staff) {
+  return cancelHold(commission, rank, staff);
+}
+
 // ===== 受注機能 =====
 function api_confirmOrder(commission, info) {
   return confirmOrder(commission, info);

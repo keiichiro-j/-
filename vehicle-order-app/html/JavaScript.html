@@ -115,10 +115,21 @@
       includeHold: $('inventoryIncludeHold').checked
     };
     var groupBy = $('inventoryGroupBy').value;
+    var thisMonthOnly = $('inventoryThisMonthOnly').checked;
     return gasRun('api_listInventory', filters, groupBy).then(function (groups) {
-      state.inventoryGroups = groups || [];
+      groups = groups || [];
+      if (thisMonthOnly) {
+        groups = groups
+          .map(function (g) { return { key: g.key, items: g.items.filter(isRegistrableThisMonth_) }; })
+          .filter(function (g) { return g.items.length > 0; });
+      }
+      state.inventoryGroups = groups;
       renderInventory();
     }).catch(function (err) { showToast(err.message, true); });
+  }
+
+  function isRegistrableThisMonth_(v) {
+    return !!v.registrableMonth && v.registrableMonth === currentYearMonth();
   }
 
   function vehicleCardHtml(v) {
@@ -129,6 +140,9 @@
     badges += v.stockDisclosure === '非開示'
       ? '<span class="badge badge--undisclosed">非開示</span>'
       : '<span class="badge badge--disclosed">開示</span>';
+    if (isRegistrableThisMonth_(v)) {
+      badges += '<span class="badge badge--thisMonth">当月登録可能</span>';
+    }
 
     var meta = [
       'MP: <strong>' + escapeHtml(v.mp || '-') + '</strong>',
@@ -136,6 +150,7 @@
       'カラー: <strong>' + escapeHtml(v.exteriorColor || '-') + ' / ' + escapeHtml(v.interiorColor || '-') + '</strong>',
       '有償オプション: <strong>' + escapeHtml(paidOptionsText(v)) + '</strong>',
       '入港予定日: <strong>' + escapeHtml(v.arrivalExpectedDate || '-') + '</strong>',
+      '登録可能月: <strong>' + escapeHtml(v.registrableMonth || '-') + '</strong>',
       'VPC: <strong>' + escapeHtml(v.vpc || '-') + '</strong>'
     ].join('<br>');
 
@@ -169,6 +184,9 @@
       '</div>';
   }
 
+  // Hold詳細ブロックは、常に見えている要約行（顧客・担当者・タイマー）と、
+  // 折りたたみ式の詳細（リード番号・登録月・下取車・OSS・保険）に分ける。
+  // これにより、2nd Holdが追加されてもカードが縦に伸びすぎず、サイズが揃う。
   function holdInfoBlockHtml_(label, v, prefix, rank) {
     var leadNumber = v[prefix + 'LeadNumber'];
     var staff = v[prefix + 'Staff'];
@@ -179,14 +197,23 @@
     var insurance = v[prefix + 'Insurance'];
     var createdAt = v[prefix + 'CreatedAt'];
     var expiresAt = v[prefix + 'ExpiresAt'];
+    var cancelRank = rank === 'first' ? '1st' : '2nd';
     return '<div class="card__holdInfo card__holdInfo--' + rank + '">' +
-      '<div class="card__holdInfo__label">' + label + '</div>' +
-      '<div class="card__holdInfo__row"><b>' + escapeHtml(customer || '-') + '</b>' +
-      '（担当者 ' + escapeHtml(staff || '-') + '） / リード番号 ' + escapeHtml(leadNumber || '-') +
+      '<div class="card__holdInfo__head">' +
+      '<span class="card__holdInfo__label">' + label + '</span>' +
+      '<button class="card__holdInfo__cancel" type="button" data-cancel-hold="' + escapeHtml(v.commission) + '" data-cancel-rank="' + cancelRank + '">解除</button>' +
+      '</div>' +
+      '<div class="card__holdInfo__row"><b>' + escapeHtml(customer || '-') + '</b>（担当者 ' + escapeHtml(staff || '-') + '）</div>' +
+      holdTimerHtml_(createdAt, expiresAt) +
+      '<details class="card__holdInfo__details">' +
+      '<summary>詳細</summary>' +
+      '<div class="card__holdInfo__detailsBody">' +
+      'リード番号 ' + escapeHtml(leadNumber || '-') +
       ' / 登録月 ' + escapeHtml(registeredMonth || '-') +
       ' / 下取車 ' + escapeHtml(tradeIn || '-') + ' / OSS ' + escapeHtml(oss || '-') +
-      ' / 保険 ' + escapeHtml(insurance || '-') + '</div>' +
-      holdTimerHtml_(createdAt, expiresAt) +
+      ' / 保険 ' + escapeHtml(insurance || '-') +
+      '</div>' +
+      '</details>' +
       '</div>';
   }
 
@@ -275,9 +302,10 @@
     else if (target.dataset.secondHold) openActionModal('secondHold', target.dataset.secondHold);
     else if (target.dataset.order) openActionModal('order', target.dataset.order);
     else if (target.dataset.orderFromHold) openActionModal('orderFromHold', target.dataset.orderFromHold);
+    else if (target.dataset.cancelHold) openCancelHoldModal(target.dataset.cancelHold, target.dataset.cancelRank);
   });
 
-  ['inventoryKeyword', 'inventoryGroupBy', 'inventoryIncludeHold'].forEach(function (id) {
+  ['inventoryKeyword', 'inventoryGroupBy', 'inventoryIncludeHold', 'inventoryThisMonthOnly'].forEach(function (id) {
     $(id).addEventListener('input', debounce(loadInventory, 250));
     $(id).addEventListener('change', loadInventory);
   });
@@ -291,6 +319,7 @@
     document.querySelectorAll('#invPaidOptions [data-paid-option]').forEach(function (input) { input.value = ''; });
     $('invCommission').value = '';
     $('invArrivalExpectedDate').value = '';
+    $('invRegistrableMonth').value = '';
     $('invVpc').value = '';
     $('inventoryModalError').classList.add('hidden');
     setButtonBusy($('btnInventorySubmit'), false);
@@ -309,6 +338,7 @@
       interiorColor: $('invInteriorColor').value.trim(),
       commission: $('invCommission').value.trim(),
       arrivalExpectedDate: $('invArrivalExpectedDate').value,
+      registrableMonth: $('invRegistrableMonth').value,
       vpc: $('invVpc').value.trim(),
       stockDisclosure: $('invStockDisclosure').value
     };
@@ -392,6 +422,57 @@
     }
     return null;
   }
+
+  // ===== Hold解除 =====
+  // ログイン認証がないため、「解除しようとしているのは誰か」は、担当者マスタから
+  // 自分の名前を選んでもらい、Hold登録時の担当者と一致するかで判定する
+  // （受注確定でHold担当者に担当者欄を固定する仕組みと同じ考え方）。
+  var cancelHoldState = null; // { commission, rank }
+
+  function openCancelHoldModal(commission, rank) {
+    var vehicle = findVehicleByCommission(commission);
+    if (!vehicle) return;
+    var prefix = rank === '2nd' ? 'secondHold' : 'hold';
+    var holdStaff = vehicle[prefix + 'Staff'];
+    var holdCustomer = vehicle[prefix + 'Customer'];
+
+    cancelHoldState = { commission: commission, rank: rank };
+    $('cancelHoldModalTitle').textContent = (rank === '2nd' ? '2nd Hold' : '1st Hold') + 'の解除';
+    $('cancelHoldModalDesc').textContent =
+      'この' + (rank === '2nd' ? '2nd Hold' : '1st Hold') + '（顧客: ' + (holdCustomer || '-') + '）を登録した担当者「' +
+      (holdStaff || '-') + '」のみ解除できます。ご自身の担当者名を選択してください。';
+    $('cancelHoldModalError').classList.add('hidden');
+    fillOptions($('cancelHoldStaff'), staffOptions_(), true);
+    $('cancelHoldStaff').value = '';
+    var submitBtn = $('btnCancelHoldSubmit');
+    delete submitBtn.dataset.originalLabel;
+    submitBtn.disabled = false;
+    openModal($('cancelHoldModal'));
+  }
+
+  $('btnCancelHoldSubmit').addEventListener('click', function () {
+    if (this.disabled || !cancelHoldState) return;
+    var btn = this;
+    var staff = $('cancelHoldStaff').value.trim();
+    var errEl = $('cancelHoldModalError');
+    if (!staff) {
+      errEl.textContent = '担当者を選択してください';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    errEl.classList.add('hidden');
+    setButtonBusy(btn, true, '解除中...');
+    gasRun('api_cancelHold', cancelHoldState.commission, cancelHoldState.rank, staff).then(function () {
+      setButtonBusy(btn, false);
+      closeModal($('cancelHoldModal'));
+      showToast('Holdを解除しました');
+      loadInventory();
+    }).catch(function (err) {
+      setButtonBusy(btn, false);
+      errEl.textContent = err.message;
+      errEl.classList.remove('hidden');
+    });
+  });
 
   /**
    * Hold登録・受注確定は全項目の入力が必須。未入力の項目があればラベルを列挙して返す。
@@ -480,13 +561,16 @@
   }
 
   function orderCardHtml(o) {
-    return '<div class="orderCard"><dl class="orderCard__grid">' +
-      '<div><dt>車種/モデル</dt><dd>' + escapeHtml(o.carType) + ' ' + escapeHtml(o.model) + '</dd></div>' +
-      '<div><dt>コミッション</dt><dd>' + escapeHtml(o.commission) + '</dd></div>' +
+    return '<div class="orderCard">' +
+      '<div class="orderCard__top">' +
+      '<div><div class="orderCard__model">' + escapeHtml(o.carType) + ' ' + escapeHtml(o.model) + '</div>' +
+      '<div class="orderCard__commission">' + escapeHtml(o.commission) + '</div></div>' +
+      '<span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span>' +
+      '</div>' +
+      '<dl class="orderCard__grid">' +
       '<div><dt>MP</dt><dd>' + escapeHtml(o.mp || '-') + '</dd></div>' +
       '<div><dt>VPC</dt><dd>' + escapeHtml(o.vpc || '-') + '</dd></div>' +
       '<div><dt>有償オプション</dt><dd>' + escapeHtml(paidOptionsText(o)) + '</dd></div>' +
-      '<div><dt>販売拠点</dt><dd>' + escapeHtml(o.salesLocation || '-') + '</dd></div>' +
       '<div><dt>リード番号</dt><dd>' + escapeHtml(o.leadNumber || '-') + '</dd></div>' +
       '<div><dt>登録月</dt><dd>' + escapeHtml(o.registeredMonth || '-') + '</dd></div>' +
       '<div><dt>担当者</dt><dd>' + escapeHtml(o.staff || '-') + '</dd></div>' +

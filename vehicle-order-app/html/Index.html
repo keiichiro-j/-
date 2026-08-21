@@ -23,10 +23,14 @@
         <select id="inventoryGroupBy" class="input">
           <option value="">グループ表示なし</option>
           <option value="arrivalExpectedDate">入港予定日ごと</option>
+          <option value="registrableMonth">登録可能月ごと</option>
           <option value="model">モデルごと</option>
         </select>
         <label class="checkboxField">
           <input type="checkbox" id="inventoryIncludeHold" checked> Hold済みを含む
+        </label>
+        <label class="checkboxField">
+          <input type="checkbox" id="inventoryThisMonthOnly"> 当月登録可能のみ
         </label>
         <div class="toolbar__spacer"></div>
         <button class="btn" id="btnAddInventory">＋ 在庫追加</button>
@@ -143,6 +147,28 @@
     </div>
   </div>
 
+  <!-- Hold解除モーダル -->
+  <div class="modal hidden" id="cancelHoldModal">
+    <div class="modal__panel">
+      <div class="modal__header">
+        <h2 id="cancelHoldModalTitle">Holdの解除</h2>
+        <button class="btn--icon" data-close-modal>&times;</button>
+      </div>
+      <div class="modal__body">
+        <p class="modal__desc" id="cancelHoldModalDesc"></p>
+        <div class="modal__error hidden" id="cancelHoldModalError"></div>
+        <div class="formField">
+          <label>担当者（ご自身の名前を選択）</label>
+          <select id="cancelHoldStaff" class="input"></select>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn" data-close-modal>キャンセル</button>
+        <button class="btn btn--danger" id="btnCancelHoldSubmit">解除する</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 在庫追加モーダル -->
   <div class="modal hidden" id="inventoryModal">
     <div class="modal__panel">
@@ -190,11 +216,15 @@
         </div>
         <div class="formField">
           <label>コミッション</label>
-          <input type="text" id="invCommission" class="input">
+          <input type="text" id="invCommission" class="input" placeholder="例: 0583911111">
         </div>
         <div class="formField">
           <label>入港予定日</label>
           <input type="date" id="invArrivalExpectedDate" class="input">
+        </div>
+        <div class="formField">
+          <label>登録可能月</label>
+          <input type="month" id="invRegistrableMonth" class="input">
         </div>
         <div class="formField">
           <label>VPC</label>

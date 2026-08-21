@@ -38,6 +38,8 @@ var STAFF_LIST_MAX = 30; // 担当者マスタの最大登録人数
 
 /**
  * 車両情報（在庫リスト・受注リストで共通）の列定義。
+ * 「登録可能月」（入港予定日とVPCの間）は、当月と一致する車両を
+ * 「当月登録可能車両」として画面上で強調表示するために使う（JavaScript.html参照）。
  */
 var VEHICLE_COLUMNS = [
   { key: 'carType', label: '車種', type: 'text', required: true },
@@ -55,6 +57,7 @@ var VEHICLE_COLUMNS = [
 })()).concat([
   { key: 'commission', label: 'コミッション', type: 'text', required: true },
   { key: 'arrivalExpectedDate', label: '入港予定日', type: 'date' },
+  { key: 'registrableMonth', label: '登録可能月', type: 'text' }, // 例: 2026-08（月の書式で入力）
   { key: 'vpc', label: 'VPC', type: 'text' },
   { key: 'stockDisclosure', label: '在庫開示', type: 'select', options: STOCK_DISCLOSURE_OPTIONS }
 ]);

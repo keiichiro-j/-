@@ -7,27 +7,56 @@ function getSpreadsheet_() {
   return SpreadsheetApp.getActiveSpreadsheet();
 }
 
-function getOrCreateSheet_(sheetName, headerRow) {
+function getOrCreateSheet_(sheetName, headerRow, textColumnIndexes1) {
   var ss = getSpreadsheet_();
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet) {
     sheet = ss.insertSheet(sheetName);
     sheet.getRange(1, 1, 1, headerRow.length).setValues([headerRow]);
     sheet.setFrozenRows(1);
+    applyTextColumnFormat_(sheet, textColumnIndexes1);
   }
   return sheet;
 }
 
+/**
+ * 指定した列を「書式なしテキスト」に設定する。
+ * コミッション（車両特定番号）は数字のみの値（例: 0583911111）だと、
+ * 何も設定しない場合Googleスプレッドシートが自動でNumber型に変換し、
+ * 先頭の0が消えてしまう。列の書式をあらかじめテキストにしておくことで、
+ * 貼り付け・入力時にこの自動変換が起きないようにする。
+ */
+function applyTextColumnFormat_(sheet, columnIndexes1) {
+  if (!columnIndexes1 || !columnIndexes1.length) return;
+  var numRows = Math.max(sheet.getMaxRows() - 1, 1000);
+  columnIndexes1.forEach(function (col1) {
+    sheet.getRange(2, col1, numRows, 1).setNumberFormat('@');
+  });
+}
+
 function getInventorySheet_() {
-  return getOrCreateSheet_(SHEET_NAMES.INVENTORY, INVENTORY_HEADER_ROW);
+  return getOrCreateSheet_(SHEET_NAMES.INVENTORY, INVENTORY_HEADER_ROW, [inventoryColIndex1('commission')]);
 }
 
 function getHoldsSheet_() {
-  return getOrCreateSheet_(SHEET_NAMES.HOLDS, HOLD_HEADER_ROW);
+  return getOrCreateSheet_(SHEET_NAMES.HOLDS, HOLD_HEADER_ROW, [holdColIndex1('commission')]);
 }
 
 function getOrderSheet_() {
-  return getOrCreateSheet_(SHEET_NAMES.ORDERS, ORDER_HEADER_ROW);
+  return getOrCreateSheet_(SHEET_NAMES.ORDERS, ORDER_HEADER_ROW, [orderColIndex1('commission')]);
+}
+
+/**
+ * 既存のスプレッドシートに対して、コミッション列を書式なしテキストへ設定し直す
+ * 一回限りのメンテナンス関数。スクリプトエディタから手動で一度だけ実行する
+ * （README参照）。既にNumber型に変換され先頭の0が消えてしまった値は、
+ * このスクリプトを実行しても自動では復元されないため、該当セルは
+ * 手動で正しい値を入力し直す必要がある。
+ */
+function formatCommissionColumnsAsText_() {
+  applyTextColumnFormat_(getInventorySheet_(), [inventoryColIndex1('commission')]);
+  applyTextColumnFormat_(getHoldsSheet_(), [holdColIndex1('commission')]);
+  applyTextColumnFormat_(getOrderSheet_(), [orderColIndex1('commission')]);
 }
 
 /**
