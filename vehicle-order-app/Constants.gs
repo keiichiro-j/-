@@ -1,6 +1,6 @@
 /**
  * Constants.gs
- * 車両受注アプリ 共通定数定義
+ * MB 販売可能リスト 共通定数定義
  *
  * スプレッドシートは3タブ構成：
  *   在庫リスト … 車両情報＋Holdステータスのみ
@@ -144,9 +144,15 @@ function orderColIndex1(key) {
 // ===== Script Properties キー（設定機能） =====
 var PROP_KEYS = {
   THEME_COLOR: 'THEME_COLOR',
+  LOGO_URL: 'LOGO_URL',
   NOTIFY_HOLD_MAIL_TO: 'NOTIFY_HOLD_MAIL_TO',
   NOTIFY_ORDER_MAIL_TO: 'NOTIFY_ORDER_MAIL_TO',
   STAFF_LIST: 'STAFF_LIST'
 };
 
-var DEFAULT_THEME_COLOR = '#1a73e8'; // Material Design Blue 600
+var DEFAULT_THEME_COLOR = '#0a0a0a'; // メルセデス・ベンツ風の落ち着いたブラックを既定色に
+
+// ロゴ（画像URL、またはアップロード時のdata URL）の最大文字数。
+// Script Propertiesは1プロパティあたり9KB（=9216文字程度）が上限のため、
+// 余裕を持ってこの文字数を超える場合は保存時にエラーにする（SettingsService.gs参照）。
+var LOGO_URL_MAX_LENGTH = 9000;

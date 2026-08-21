@@ -6,7 +6,7 @@
 function doGet(e) {
   return HtmlService.createTemplateFromFile('html/Index')
     .evaluate()
-    .setTitle('車両受注アプリ')
+    .setTitle('MB 販売可能リスト')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }

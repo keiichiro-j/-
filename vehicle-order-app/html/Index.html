@@ -8,7 +8,10 @@
 <body>
   <div id="app">
     <header class="topbar">
-      <div class="topbar__brand">車両受注アプリ</div>
+      <div class="topbar__brand">
+        <img id="topbarLogo" class="topbar__logo hidden" alt="ロゴ">
+        <span class="topbar__brandText">MB <em>販売可能リスト</em></span>
+      </div>
       <nav class="tabs" id="mainTabs" role="tablist" aria-label="画面切替">
         <button class="tabs__item is-active" data-tab="inventory">在庫リスト</button>
         <button class="tabs__item" data-tab="orders">受注リスト</button>
@@ -68,6 +71,34 @@
                 <span id="settingsThemeColorLabel"></span>
               </div>
             </div>
+          </div>
+
+          <div class="settingsSection">
+            <h2 class="settingsSection__title">🏷️ ロゴ</h2>
+            <p class="settingsSection__desc">画面上部に表示するロゴ画像です。画像ファイルをアップロードするか、画像のURLを直接指定してください。アップロードした画像はこの設定項目内にそのまま保存されるため、なるべく小さいサイズ（数十KB程度まで）の画像をお使いください。大きな画像を使いたい場合は、外部（Googleドライブの共有リンク等）にアップロードしたうえでURLを指定してください。</p>
+            <div class="formField">
+              <label>ロゴ画像</label>
+              <div class="logoField">
+                <div class="logoPreview" id="settingsLogoPreview">
+                  <span class="logoPreview__placeholder">ロゴなし</span>
+                </div>
+                <div class="logoField__controls">
+                  <input type="file" id="settingsLogoFile" accept="image/*">
+                  <button class="btn btn--text" type="button" id="btnClearLogo">ロゴを削除</button>
+                </div>
+              </div>
+            </div>
+            <div class="formField">
+              <label>ロゴ画像URL</label>
+              <input type="text" id="settingsLogoUrl" class="input" placeholder="https://... または、上のアップロード欄から選択">
+            </div>
+            <div class="modal__error hidden" id="settingsLogoError"></div>
+          </div>
+
+          <div class="settingsSection">
+            <h2 class="settingsSection__title">📥 在庫データの一括取り込み</h2>
+            <p class="settingsSection__desc">Excelファイル（CSV形式）やGoogleスプレッドシートのデータを、在庫リストへまとめて取り込めます。既に在庫リストに存在するコミッションの車両は、二重仕入れ防止のため取り込まれません。</p>
+            <button class="btn" type="button" id="btnOpenImport">在庫データを取り込む</button>
           </div>
 
           <div class="settingsSection">
@@ -235,6 +266,37 @@
       <div class="modal__footer">
         <button class="btn" data-close-modal>キャンセル</button>
         <button class="btn btn--primary" id="btnInventorySubmit">登録</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 在庫データ一括インポートモーダル -->
+  <div class="modal hidden" id="importModal">
+    <div class="modal__panel modal__panel--wide">
+      <div class="modal__header">
+        <h2>在庫データの取り込み</h2>
+        <button class="btn--icon" data-close-modal>&times;</button>
+      </div>
+      <div class="modal__body">
+        <p class="modal__desc">
+          Excelファイルは「CSV形式で保存」してからファイルを選択するか、Excel／Googleスプレッドシート上で対象範囲をコピーして下の欄に貼り付けてください。
+          1行目は見出し行（モデル・コミッション等の列名）にしてください。列の並び順は自由で、在庫リストに存在しない列は無視されます。
+          既に在庫リストにあるコミッションの行は、二重仕入れ防止のため取り込まれません。
+        </p>
+        <div class="modal__error hidden" id="importModalError"></div>
+        <div class="formField">
+          <label>ファイルを選択（CSV）</label>
+          <input type="file" id="importFile" accept=".csv,.tsv,.txt">
+        </div>
+        <div class="formField">
+          <label>取り込むデータ（貼り付け、または上でファイルを選択）</label>
+          <textarea id="importText" class="input importTextarea" rows="10" placeholder="モデル&#9;MP&#9;ステア&#9;…&#9;コミッション&#9;…&#10;Cクラス&#9;MP-101&#9;右&#9;…&#9;C-2001&#9;…"></textarea>
+        </div>
+        <div class="importResult hidden" id="importResult"></div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn" data-close-modal>閉じる</button>
+        <button class="btn btn--primary" id="btnImportSubmit">取り込む</button>
       </div>
     </div>
   </div>

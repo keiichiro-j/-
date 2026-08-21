@@ -697,9 +697,12 @@
   function renderSettings(settings) {
     $('settingsThemeColor').value = settings.themeColor;
     $('settingsThemeColorLabel').textContent = settings.themeColor;
+    $('settingsLogoUrl').value = settings.logoUrl || '';
     $('settingsHoldMailTo').value = settings.notifyHoldMailTo;
     $('settingsOrderMailTo').value = settings.notifyOrderMailTo;
     applyTheme(settings.themeColor);
+    applyLogo(settings.logoUrl);
+    renderLogoPreview_(settings.logoUrl);
 
     state.staffList = (settings.staffList || []).map(function (s) { return { name: s.name || '', email: s.email || '' }; });
     $('staffListMax').textContent = (state.bootstrap && state.bootstrap.staffListMax) || 30;
@@ -714,6 +717,131 @@
 
   function applyTheme(color) {
     document.documentElement.style.setProperty('--primary', color);
+  }
+
+  // ----- ロゴ設定（画面上部に表示する画像。URLを直接指定するか、小さい画像を
+  //       アップロードしてdata URLとして保存する。サーバー側の上限と合わせている） -----
+  var LOGO_URL_MAX_LENGTH_CLIENT = 9000;
+
+  function applyLogo(logoUrl) {
+    var img = $('topbarLogo');
+    if (logoUrl) {
+      img.src = logoUrl;
+      img.classList.remove('hidden');
+    } else {
+      img.removeAttribute('src');
+      img.classList.add('hidden');
+    }
+  }
+
+  function renderLogoPreview_(url) {
+    var el = $('settingsLogoPreview');
+    el.innerHTML = url
+      ? '<img src="' + escapeHtml(url) + '" alt="ロゴプレビュー">'
+      : '<span class="logoPreview__placeholder">ロゴなし</span>';
+  }
+
+  $('settingsLogoFile').addEventListener('change', function () {
+    var file = this.files && this.files[0];
+    if (!file) return;
+    $('settingsLogoError').classList.add('hidden');
+    var reader = new FileReader();
+    reader.onload = function () {
+      var dataUrl = String(reader.result || '');
+      if (dataUrl.length > LOGO_URL_MAX_LENGTH_CLIENT) {
+        $('settingsLogoError').textContent = '画像のデータが大きすぎます（' + dataUrl.length + '文字）。もっと小さい画像を使うか、外部にアップロードしてURLを指定してください。';
+        $('settingsLogoError').classList.remove('hidden');
+        return;
+      }
+      $('settingsLogoUrl').value = dataUrl;
+      renderLogoPreview_(dataUrl);
+    };
+    reader.onerror = function () {
+      $('settingsLogoError').textContent = '画像の読み込みに失敗しました。';
+      $('settingsLogoError').classList.remove('hidden');
+    };
+    reader.readAsDataURL(file);
+  });
+
+  $('settingsLogoUrl').addEventListener('input', function () {
+    renderLogoPreview_(this.value.trim());
+  });
+
+  $('btnClearLogo').addEventListener('click', function () {
+    $('settingsLogoUrl').value = '';
+    $('settingsLogoFile').value = '';
+    renderLogoPreview_('');
+    $('settingsLogoError').classList.add('hidden');
+  });
+
+  // ----- 在庫データの一括インポート（設定タブ） -----
+  $('btnOpenImport').addEventListener('click', function () {
+    $('importFile').value = '';
+    $('importText').value = '';
+    $('importModalError').classList.add('hidden');
+    $('importResult').classList.add('hidden');
+    $('importResult').innerHTML = '';
+    setButtonBusy($('btnImportSubmit'), false);
+    openModal($('importModal'));
+  });
+
+  $('importFile').addEventListener('change', function () {
+    var file = this.files && this.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () { $('importText').value = String(reader.result || ''); };
+    reader.onerror = function () {
+      $('importModalError').textContent = 'ファイルの読み込みに失敗しました。';
+      $('importModalError').classList.remove('hidden');
+    };
+    reader.readAsText(file, 'UTF-8');
+  });
+
+  $('btnImportSubmit').addEventListener('click', function () {
+    if (this.disabled) return;
+    var text = $('importText').value;
+    if (!text.trim()) {
+      $('importModalError').textContent = '取り込むデータを入力してください。';
+      $('importModalError').classList.remove('hidden');
+      return;
+    }
+    var btn = this;
+    $('importModalError').classList.add('hidden');
+    $('importResult').classList.add('hidden');
+    setButtonBusy(btn, true, '取り込み中...');
+    gasRun('api_importInventory', text).then(function (result) {
+      setButtonBusy(btn, false);
+      renderImportResult_(result);
+      if (result.importedCount > 0) {
+        loadInventory();
+        showToast(result.importedCount + '台の在庫を取り込みました');
+      }
+    }).catch(function (err) {
+      setButtonBusy(btn, false);
+      $('importModalError').textContent = err.message;
+      $('importModalError').classList.remove('hidden');
+    });
+  });
+
+  function renderImportResult_(result) {
+    var parts = [];
+    parts.push('<div class="importResult__summary">取り込み ' + result.importedCount + '台 ／ 重複でスキップ ' +
+      result.duplicateCount + '台 ／ 不正データでスキップ ' + result.invalidCount + '台</div>');
+    if (result.duplicates && result.duplicates.length) {
+      parts.push('<div class="importResult__detailTitle">重複（既に在庫リストにあるコミッション）</div>');
+      parts.push('<ul class="importResult__list">' + result.duplicates.map(function (d) {
+        return '<li>' + d.row + '行目: ' + escapeHtml(d.commission) + '</li>';
+      }).join('') + '</ul>');
+    }
+    if (result.invalids && result.invalids.length) {
+      parts.push('<div class="importResult__detailTitle">不正データ</div>');
+      parts.push('<ul class="importResult__list">' + result.invalids.map(function (d) {
+        return '<li>' + d.row + '行目: ' + escapeHtml(d.reason) + '</li>';
+      }).join('') + '</ul>');
+    }
+    var el = $('importResult');
+    el.innerHTML = parts.join('');
+    el.classList.remove('hidden');
   }
 
   // ----- 担当者マスタ（名前・メールアドレスの組。メールアドレスでログイン中の
@@ -783,6 +911,7 @@
 
     var settings = {
       themeColor: $('settingsThemeColor').value,
+      logoUrl: $('settingsLogoUrl').value.trim(),
       notifyHoldMailTo: $('settingsHoldMailTo').value.trim(),
       notifyOrderMailTo: $('settingsOrderMailTo').value.trim(),
       staffList: uniqueStaffList

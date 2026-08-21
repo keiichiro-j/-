@@ -19,7 +19,7 @@ function notifyHoldRegistered(vehicle, isSecondHold) {
 
   MailApp.sendEmail({
     to: to,
-    subject: '【車両受注アプリ】' + label + '登録のお知らせ',
+    subject: '【MB 販売可能リスト】' + label + '登録のお知らせ',
     body: [
       label + 'が登録されました。',
       '',
@@ -44,7 +44,7 @@ function notifyOrderConfirmed(order) {
 
   MailApp.sendEmail({
     to: to,
-    subject: '【車両受注アプリ】受注確定のお知らせ',
+    subject: '【MB 販売可能リスト】受注確定のお知らせ',
     body: [
       '受注が確定しました。',
       '',

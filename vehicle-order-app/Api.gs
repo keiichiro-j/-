@@ -42,6 +42,14 @@ function api_createInventoryVehicle(vehicle) {
   return createInventoryVehicle(vehicle);
 }
 
+/**
+ * Excel／Googleスプレッドシートからのデータを在庫リストへ一括取り込みする
+ * （設定タブ参照）。取り込み結果（件数・重複・不正行）を返す。
+ */
+function api_importInventory(text) {
+  return importInventoryFromText_(text);
+}
+
 // ===== Hold機能 =====
 function api_registerHold(commission, info) {
   return registerHold(commission, info);

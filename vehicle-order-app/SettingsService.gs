@@ -13,6 +13,7 @@ function getSettings() {
   var props = PropertiesService.getScriptProperties();
   return {
     themeColor: props.getProperty(PROP_KEYS.THEME_COLOR) || DEFAULT_THEME_COLOR,
+    logoUrl: props.getProperty(PROP_KEYS.LOGO_URL) || '',
     notifyHoldMailTo: props.getProperty(PROP_KEYS.NOTIFY_HOLD_MAIL_TO) || '',
     notifyOrderMailTo: props.getProperty(PROP_KEYS.NOTIFY_ORDER_MAIL_TO) || '',
     staffList: getStaffList_()
@@ -20,12 +21,30 @@ function getSettings() {
 }
 
 function saveSettings(settings) {
+  var logoUrl = validateLogoUrl_(settings && settings.logoUrl);
   var props = PropertiesService.getScriptProperties();
   props.setProperty(PROP_KEYS.THEME_COLOR, settings.themeColor || DEFAULT_THEME_COLOR);
+  props.setProperty(PROP_KEYS.LOGO_URL, logoUrl);
   props.setProperty(PROP_KEYS.NOTIFY_HOLD_MAIL_TO, settings.notifyHoldMailTo || '');
   props.setProperty(PROP_KEYS.NOTIFY_ORDER_MAIL_TO, settings.notifyOrderMailTo || '');
   props.setProperty(PROP_KEYS.STAFF_LIST, JSON.stringify(normalizeStaffList_(settings.staffList)));
   return getSettings();
+}
+
+/**
+ * ロゴ設定値（純粋関数）。画像URL、またはアップロード時に変換されたdata URLの
+ * どちらかを想定している。Script Propertiesの1プロパティあたりの上限（9KB）を
+ * 超える場合はエラーにする（大きな画像は外部にアップロードしてURLで指定してもらう）。
+ */
+function validateLogoUrl_(logoUrl) {
+  var value = String(logoUrl || '').trim();
+  if (value.length > LOGO_URL_MAX_LENGTH) {
+    throw new Error(
+      'ロゴ画像のデータが大きすぎます（' + value.length + '文字）。' +
+      'もっと小さい画像を使うか、画像を外部にアップロードしてそのURLを指定してください。'
+    );
+  }
+  return value;
 }
 
 /**
