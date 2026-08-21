@@ -64,6 +64,17 @@
   }
   .tabs__item.is-active { opacity: 1; background: rgba(255, 255, 255, .18); }
 
+  .topbar__user {
+    flex: none;
+    text-align: right;
+    font-size: 12.5px;
+    line-height: 1.5;
+    white-space: nowrap;
+  }
+  .topbar__userName { display: block; font-weight: 500; }
+  .topbar__userEmail { display: block; opacity: .8; font-size: 11.5px; }
+  .topbar__userWarn { display: block; color: #fff; background: rgba(0, 0, 0, .18); padding: 4px 10px; border-radius: 999px; font-size: 11.5px; }
+
   main.view { max-width: 1200px; margin: 0 auto; padding: 16px; }
   .view { display: none; }
   .view.is-active { display: block; }
@@ -335,8 +346,22 @@
   /* ===== 担当者マスタ ===== */
   .staffList { display: flex; flex-direction: column; gap: 6px; }
   .staffList__row { display: flex; gap: 8px; align-items: center; }
-  .staffList__row .input { flex: 1; }
+  .staffList__row .input[data-staff-field="name"] { flex: 0 0 34%; min-width: 90px; }
+  .staffList__row .input[data-staff-field="email"] { flex: 1; min-width: 0; }
   .staffList__empty { font-size: 13px; color: var(--on-surface-variant); }
+
+  /* ===== 担当者表示（ログイン中のアカウントから自動判定・読み取り専用） ===== */
+  .staffDisplay {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    background: var(--background);
+    font-size: 14px;
+  }
+  .staffDisplay__email { font-size: 12px; color: var(--on-surface-variant); }
+  .staffDisplay__warn { font-size: 13px; color: var(--danger); }
 
   /* ===== モーダル ===== */
   .modal {
@@ -374,6 +399,10 @@
   @media (max-width: 600px) {
     .topbar { padding: 10px 12px; gap: 10px; }
     .topbar__brand { font-size: 16px; }
+    .topbar__user { display: none; }
+    .staffList__row { flex-wrap: wrap; }
+    .staffList__row .input[data-staff-field="name"],
+    .staffList__row .input[data-staff-field="email"] { flex: 1 1 100%; }
     main.view { padding: 10px; }
     .toolbar { padding: 10px; }
     .toolbar .input, .toolbar .checkboxField { flex: 1 1 auto; }

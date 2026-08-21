@@ -11,10 +11,12 @@
  * Hold中の車両の受注確定は、Holdを行った担当者のみ可能（canConfirmOrder_）。
  * 2nd Holdは、1st Holdと同じ担当者は登録できない（canRegisterSecondHold_）。
  * Holdの解除（顧客都合等での取り下げ）も、Holdを行った担当者のみ可能（canCancelHold_）。
- * ログイン認証がないため、解除操作者の担当者マスタからの自己申告と、Hold登録時の
- * 担当者が一致するかで本人確認を行う。
- * Hold登録・受注確定では共通の入力項目（リード番号／登録月／担当者／顧客／
- * 下取車の有無／OSS登録の可否／保険加入の有無）をすべて入力する必要がある。
+ * 担当者は、クライアントからの入力ではなく、ログイン中のGoogleアカウントから
+ * 担当者マスタ（メールアドレス）を突き合わせてサーバー側で確定させる
+ * （requireCurrentStaff_、SettingsService.gs参照）。
+ * Hold登録・受注確定では共通の入力項目（リード番号／登録月／顧客／
+ * 下取車の有無／OSS登録の可否／保険加入の有無）をすべて入力する必要がある
+ * （担当者はログインアカウントから自動設定されるため入力不要）。
  *
  * 車両情報（在庫リスト）とHold詳細（Holdリスト）は別シートで管理し、
  * 一覧取得時に commission をキーに結合する（attachHoldInfo_）。
@@ -144,6 +146,7 @@ function findInventoryVehicleWithHolds_(commission) {
  * @param {Object} info { leadNumber, registeredMonth, staff, customer, tradeIn, oss, insurance }
  */
 function registerHold(commission, info) {
+  info = Object.assign({}, info, { staff: requireCurrentStaff_() });
   var inputCheck = validateRequiredInfo_(HOLD_ORDER_INPUT_COLUMNS, info);
   if (!inputCheck.ok) throw new Error(inputCheck.reason);
 
@@ -179,6 +182,7 @@ function registerHold(commission, info) {
  * @param {Object} info { leadNumber, registeredMonth, staff, customer, tradeIn, oss, insurance }
  */
 function registerSecondHold(commission, info) {
+  info = Object.assign({}, info, { staff: requireCurrentStaff_() });
   var inputCheck = validateRequiredInfo_(HOLD_ORDER_INPUT_COLUMNS, info);
   if (!inputCheck.ok) throw new Error(inputCheck.reason);
 
@@ -213,9 +217,8 @@ function registerSecondHold(commission, info) {
 
 /**
  * Hold解除が可能かどうかを判定する（純粋関数）。
- * Holdアプリにはログイン認証がないため、解除操作を行おうとしている本人であるかは、
- * 担当者マスタから自分の名前を選んでもらい、そのHoldの登録担当者と一致するかで判定する
- * （受注確定時にHold担当者へ担当者欄を固定する仕組みと同じ考え方）。
+ * ログイン中のGoogleアカウントから解決した担当者名（requireCurrentStaff_）と、
+ * そのHoldの登録担当者が一致するかで判定する。
  */
 function canCancelHold_(holdRow, staff) {
   if (!holdRow) return { ok: false, reason: '該当のHoldが見つかりません' };
@@ -241,9 +244,9 @@ function decideCancelAction_(rank, hasSecondHold) {
  * Holdを手動で解除する（顧客都合等での取り下げ）。
  * @param {string} commission
  * @param {string} rank HOLD_RANK.FIRST または HOLD_RANK.SECOND
- * @param {string} staff 解除操作を行おうとしている担当者（担当者マスタから選択）
  */
-function cancelHold(commission, rank, staff) {
+function cancelHold(commission, rank) {
+  var staff = requireCurrentStaff_();
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {

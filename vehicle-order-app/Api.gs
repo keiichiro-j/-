@@ -7,6 +7,8 @@
 
 // ===== 初期化 =====
 function api_getBootstrapData() {
+  var email = Session.getActiveUser().getEmail();
+  var settings = getSettings();
   return {
     steeringOptions: STEERING_OPTIONS,
     stockDisclosureOptions: STOCK_DISCLOSURE_OPTIONS,
@@ -16,8 +18,11 @@ function api_getBootstrapData() {
     holdOrderInputColumns: HOLD_ORDER_INPUT_COLUMNS,
     salesLocationColumn: { key: 'salesLocation', label: '販売拠点', required: true },
     staffListMax: STAFF_LIST_MAX,
-    settings: getSettings(),
-    currentUserEmail: Session.getActiveUser().getEmail()
+    settings: settings,
+    currentUserEmail: email,
+    // ログイン中のGoogleアカウントに対応する担当者名（未登録なら null）。
+    // Hold登録・2nd Hold登録・受注確定・Hold解除の担当者欄はこれを自動的に使う。
+    currentStaffName: resolveStaffNameByEmail_(settings.staffList, email)
   };
 }
 
@@ -46,8 +51,8 @@ function api_registerSecondHold(commission, info) {
   return registerSecondHold(commission, info);
 }
 
-function api_cancelHold(commission, rank, staff) {
-  return cancelHold(commission, rank, staff);
+function api_cancelHold(commission, rank) {
+  return cancelHold(commission, rank);
 }
 
 // ===== 受注機能 =====

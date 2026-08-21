@@ -373,11 +373,46 @@
     return 'action' + key.charAt(0).toUpperCase() + key.slice(1);
   }
 
-  function staffOptions_() {
-    return (state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.staffList) || [];
+  // ===== ログイン中のGoogleアカウントに紐づく担当者 =====
+  // 担当者マスタ（設定タブ）にメールアドレスを登録しておくと、ログイン中のGoogleアカウントの
+  // メールアドレスから自動的に担当者名が解決される（サーバー側 resolveStaffNameByEmail_ と
+  // 同じ照合をAPI側で行い、bootstrap.currentStaffName として渡ってくる）。
+  function currentStaffName_() {
+    return state.bootstrap && state.bootstrap.currentStaffName;
+  }
+
+  function currentUserEmail_() {
+    return (state.bootstrap && state.bootstrap.currentUserEmail) || '';
+  }
+
+  function staffDisplayHtml_() {
+    var name = currentStaffName_();
+    var email = currentUserEmail_();
+    if (name) {
+      return '<b>' + escapeHtml(name) + '</b><span class="staffDisplay__email">' + escapeHtml(email) + '</span>';
+    }
+    return '<span class="staffDisplay__warn">担当者マスタ未登録（' + escapeHtml(email || '不明') + '）</span>';
+  }
+
+  function renderTopbarUser() {
+    var name = currentStaffName_();
+    var email = currentUserEmail_();
+    var el = $('topbarUser');
+    if (name) {
+      el.innerHTML = '<span class="topbar__userName">' + escapeHtml(name) + '</span>' +
+        '<span class="topbar__userEmail">' + escapeHtml(email) + '</span>';
+    } else {
+      el.innerHTML = '<span class="topbar__userWarn">担当者未登録: ' + escapeHtml(email || '不明') + '</span>';
+    }
   }
 
   function openActionModal(type, commission) {
+    var currentStaff = currentStaffName_();
+    if (!currentStaff) {
+      showToast('担当者マスタに登録されていないため操作できません。設定タブでご自身のメールアドレスを登録してください（' + (currentUserEmail_() || '不明') + '）', true);
+      return;
+    }
+
     state.action = { type: type, commission: commission };
     $('actionModalTitle').textContent = ACTION_LABELS[type].title;
     var submitBtn = $('btnActionSubmit');
@@ -392,21 +427,28 @@
     var prefill = isOrderFromHold ? {
       leadNumber: vehicle.holdLeadNumber,
       registeredMonth: vehicle.holdRegisteredMonth,
-      staff: vehicle.holdStaff,
       customer: vehicle.holdCustomer,
       tradeIn: vehicle.holdTradeIn,
       oss: vehicle.holdOss,
       insurance: vehicle.holdInsurance
-    } : { leadNumber: '', registeredMonth: currentYearMonth(), staff: '', customer: '', tradeIn: '', oss: '', insurance: '' };
+    } : { leadNumber: '', registeredMonth: currentYearMonth(), customer: '', tradeIn: '', oss: '', insurance: '' };
 
-    // Hold中の車両は、Holdを行った担当者のみ受注確定できる。担当者欄をその担当者に固定する。
-    fillOptions($('actionStaff'), staffOptions_(), true);
-    $('actionStaff').disabled = isOrderFromHold;
+    $('actionStaffDisplay').innerHTML = staffDisplayHtml_();
+
+    // Hold中の車両は、Holdを行った担当者のみ受注確定できる。ログイン中の担当者が
+    // Hold担当者と異なる場合は、送信前に気づけるようここで警告し送信をブロックする
+    // （最終判定はサーバー側 canConfirmOrder_ で行う）。
+    var staffMismatch = isOrderFromHold && vehicle.holdStaff && vehicle.holdStaff !== currentStaff;
+    if (staffMismatch) {
+      var errEl = $('actionModalError');
+      errEl.textContent = 'このHoldの担当者は「' + vehicle.holdStaff + '」です。ログイン中の担当者（' + currentStaff + '）では受注確定できません。';
+      errEl.classList.remove('hidden');
+    }
+    submitBtn.disabled = !!staffMismatch;
 
     $('actionSalesLocation').value = '';
     $('actionLeadNumber').value = prefill.leadNumber || '';
     $('actionRegisteredMonth').value = prefill.registeredMonth || currentYearMonth();
-    $('actionStaff').value = prefill.staff || '';
     $('actionCustomer').value = prefill.customer || '';
     $('actionTradeIn').value = prefill.tradeIn || '';
     $('actionOss').value = prefill.oss || '';
@@ -424,12 +466,16 @@
   }
 
   // ===== Hold解除 =====
-  // ログイン認証がないため、「解除しようとしているのは誰か」は、担当者マスタから
-  // 自分の名前を選んでもらい、Hold登録時の担当者と一致するかで判定する
-  // （受注確定でHold担当者に担当者欄を固定する仕組みと同じ考え方）。
+  // 「解除しようとしているのは誰か」は、ログイン中のGoogleアカウントから解決した
+  // 担当者名（currentStaffName_）と、Hold登録時の担当者が一致するかで判定する。
   var cancelHoldState = null; // { commission, rank }
 
   function openCancelHoldModal(commission, rank) {
+    var currentStaff = currentStaffName_();
+    if (!currentStaff) {
+      showToast('担当者マスタに登録されていないため操作できません。設定タブでご自身のメールアドレスを登録してください（' + (currentUserEmail_() || '不明') + '）', true);
+      return;
+    }
     var vehicle = findVehicleByCommission(commission);
     if (!vehicle) return;
     var prefix = rank === '2nd' ? 'secondHold' : 'hold';
@@ -440,29 +486,29 @@
     $('cancelHoldModalTitle').textContent = (rank === '2nd' ? '2nd Hold' : '1st Hold') + 'の解除';
     $('cancelHoldModalDesc').textContent =
       'この' + (rank === '2nd' ? '2nd Hold' : '1st Hold') + '（顧客: ' + (holdCustomer || '-') + '）を登録した担当者「' +
-      (holdStaff || '-') + '」のみ解除できます。ご自身の担当者名を選択してください。';
+      (holdStaff || '-') + '」のみ解除できます。';
+    $('cancelHoldStaffDisplay').innerHTML = staffDisplayHtml_();
     $('cancelHoldModalError').classList.add('hidden');
-    fillOptions($('cancelHoldStaff'), staffOptions_(), true);
-    $('cancelHoldStaff').value = '';
+
     var submitBtn = $('btnCancelHoldSubmit');
     delete submitBtn.dataset.originalLabel;
-    submitBtn.disabled = false;
+    var staffMismatch = holdStaff && holdStaff !== currentStaff;
+    if (staffMismatch) {
+      var errEl = $('cancelHoldModalError');
+      errEl.textContent = 'このHoldの担当者は「' + holdStaff + '」です。ログイン中の担当者（' + currentStaff + '）では解除できません。';
+      errEl.classList.remove('hidden');
+    }
+    submitBtn.disabled = !!staffMismatch;
     openModal($('cancelHoldModal'));
   }
 
   $('btnCancelHoldSubmit').addEventListener('click', function () {
     if (this.disabled || !cancelHoldState) return;
     var btn = this;
-    var staff = $('cancelHoldStaff').value.trim();
     var errEl = $('cancelHoldModalError');
-    if (!staff) {
-      errEl.textContent = '担当者を選択してください';
-      errEl.classList.remove('hidden');
-      return;
-    }
     errEl.classList.add('hidden');
     setButtonBusy(btn, true, '解除中...');
-    gasRun('api_cancelHold', cancelHoldState.commission, cancelHoldState.rank, staff).then(function () {
+    gasRun('api_cancelHold', cancelHoldState.commission, cancelHoldState.rank).then(function () {
       setButtonBusy(btn, false);
       closeModal($('cancelHoldModal'));
       showToast('Holdを解除しました');
@@ -476,12 +522,14 @@
 
   /**
    * Hold登録・受注確定は全項目の入力が必須。未入力の項目があればラベルを列挙して返す。
+   * 担当者（staff）はログイン中のGoogleアカウントから自動設定されるため、
+   * ここでの入力必須チェックからは除外する（openActionModalで別途チェック済み）。
    */
   function validateActionForm_(action) {
     var missing = [];
     var columns = (state.bootstrap && state.bootstrap.holdOrderInputColumns) || [];
     columns.forEach(function (c) {
-      if (!c.required) return;
+      if (!c.required || c.key === 'staff') return;
       var field = $(actionFieldId_(c.key));
       if (!field || !field.value || !String(field.value).trim()) missing.push(c.label);
     });
@@ -509,10 +557,10 @@
     // 送信前に気づけるようここでも確認する）。
     if (action.type === 'secondHold') {
       var vehicleForCheck = findVehicleByCommission(action.commission);
-      var chosenStaff = $('actionStaff').value.trim();
-      if (vehicleForCheck && vehicleForCheck.holdStaff && chosenStaff === vehicleForCheck.holdStaff) {
+      var currentStaffForCheck = currentStaffName_();
+      if (vehicleForCheck && vehicleForCheck.holdStaff && currentStaffForCheck === vehicleForCheck.holdStaff) {
         var staffErrEl = $('actionModalError');
-        staffErrEl.textContent = '1st Holdと同じ担当者（' + chosenStaff + '）は2nd Holdを登録できません';
+        staffErrEl.textContent = '1st Holdと同じ担当者（' + currentStaffForCheck + '）は2nd Holdを登録できません';
         staffErrEl.classList.remove('hidden');
         return;
       }
@@ -522,7 +570,6 @@
       salesLocation: $('actionSalesLocation').value.trim(),
       leadNumber: $('actionLeadNumber').value.trim(),
       registeredMonth: $('actionRegisteredMonth').value,
-      staff: $('actionStaff').value.trim(),
       customer: $('actionCustomer').value.trim(),
       tradeIn: $('actionTradeIn').value,
       oss: $('actionOss').value,
@@ -606,7 +653,7 @@
     $('settingsOrderMailTo').value = settings.notifyOrderMailTo;
     applyTheme(settings.themeColor);
 
-    state.staffList = (settings.staffList || []).slice();
+    state.staffList = (settings.staffList || []).map(function (s) { return { name: s.name || '', email: s.email || '' }; });
     $('staffListMax').textContent = (state.bootstrap && state.bootstrap.staffListMax) || 30;
     renderStaffList();
   }
@@ -620,16 +667,18 @@
     document.documentElement.style.setProperty('--primary', color);
   }
 
-  // ----- 担当者マスタ -----
+  // ----- 担当者マスタ（名前・メールアドレスの組。メールアドレスでログイン中の
+  //       Googleアカウントと突き合わせ、担当者を自動判定する） -----
   function renderStaffList() {
     var container = $('staffList');
     $('staffListCount').textContent = state.staffList.length;
     if (!state.staffList.length) {
       container.innerHTML = '<div class="staffList__empty">担当者が登録されていません</div>';
     } else {
-      container.innerHTML = state.staffList.map(function (name, i) {
+      container.innerHTML = state.staffList.map(function (entry, i) {
         return '<div class="staffList__row">' +
-          '<input type="text" class="input" data-staff-index="' + i + '" value="' + escapeHtml(name) + '">' +
+          '<input type="text" class="input" data-staff-index="' + i + '" data-staff-field="name" placeholder="名前" value="' + escapeHtml(entry.name || '') + '">' +
+          '<input type="email" class="input" data-staff-index="' + i + '" data-staff-field="email" placeholder="メールアドレス" value="' + escapeHtml(entry.email || '') + '">' +
           '<button class="btn btn--icon" data-remove-staff="' + i + '" type="button" aria-label="削除">&times;</button>' +
           '</div>';
       }).join('');
@@ -640,8 +689,9 @@
 
   $('staffList').addEventListener('input', function (e) {
     var index = e.target.dataset.staffIndex;
-    if (index === undefined) return;
-    state.staffList[Number(index)] = e.target.value;
+    var field = e.target.dataset.staffField;
+    if (index === undefined || !field) return;
+    state.staffList[Number(index)][field] = e.target.value;
   });
 
   $('staffList').addEventListener('click', function (e) {
@@ -654,9 +704,9 @@
   $('btnAddStaff').addEventListener('click', function () {
     var max = (state.bootstrap && state.bootstrap.staffListMax) || 30;
     if (state.staffList.length >= max) return;
-    state.staffList.push('');
+    state.staffList.push({ name: '', email: '' });
     renderStaffList();
-    var inputs = document.querySelectorAll('#staffList [data-staff-index]');
+    var inputs = document.querySelectorAll('#staffList [data-staff-field="name"]');
     if (inputs.length) inputs[inputs.length - 1].focus();
   });
 
@@ -664,8 +714,17 @@
     if (this.disabled) return;
     var btn = this;
     var max = (state.bootstrap && state.bootstrap.staffListMax) || 30;
-    var staffList = state.staffList.map(function (s) { return String(s || '').trim(); }).filter(function (s) { return s; });
-    var uniqueStaffList = staffList.filter(function (name, i) { return staffList.indexOf(name) === i; });
+    var cleaned = state.staffList
+      .map(function (s) {
+        return { name: String((s && s.name) || '').trim(), email: String((s && s.email) || '').trim().toLowerCase() };
+      })
+      .filter(function (s) { return s.name && s.email; });
+    var seenEmails = {};
+    var uniqueStaffList = cleaned.filter(function (s) {
+      if (seenEmails[s.email]) return false;
+      seenEmails[s.email] = true;
+      return true;
+    });
 
     $('settingsError').textContent = '';
     if (uniqueStaffList.length > max) {
@@ -681,9 +740,15 @@
     };
     setButtonBusy(btn, true, '保存中...');
     gasRun('api_saveSettings', settings).then(function (saved) {
-      setButtonBusy(btn, false);
       state.bootstrap.settings = saved;
-      renderSettings(saved);
+      // 担当者マスタが変わった可能性があるため、ログイン中のアカウントに対応する
+      // 担当者名（currentStaffName）を再取得してトップバー表示等に反映する。
+      return gasRun('api_getBootstrapData');
+    }).then(function (bootstrap) {
+      setButtonBusy(btn, false);
+      state.bootstrap = bootstrap;
+      renderSettings(bootstrap.settings);
+      renderTopbarUser();
       showToast('設定を保存しました');
     }).catch(function (err) {
       setButtonBusy(btn, false);
@@ -718,6 +783,7 @@
       fillOptions($('actionOss'), bootstrap.ossOptions, true);
       fillOptions($('actionInsurance'), bootstrap.yesNoOptions, true);
       renderSettings(bootstrap.settings);
+      renderTopbarUser();
       return Promise.all([loadInventory(), loadOrders()]);
     }).catch(function (err) { showToast(err.message, true); });
   }

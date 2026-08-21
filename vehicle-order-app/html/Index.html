@@ -14,6 +14,7 @@
         <button class="tabs__item" data-tab="orders">受注リスト</button>
         <button class="tabs__item" data-tab="settings">設定</button>
       </nav>
+      <div class="topbar__user" id="topbarUser"></div>
     </header>
 
     <!-- 在庫リスト -->
@@ -84,7 +85,7 @@
 
           <div class="settingsSection">
             <h2 class="settingsSection__title">👥 担当者マスタ</h2>
-            <p class="settingsSection__desc">Hold登録・2nd Hold登録・受注確定の「担当者」欄は、ここに登録した担当者からのみ選択できます（最大<span id="staffListMax"></span>人・現在<span id="staffListCount">0</span>人登録中）。</p>
+            <p class="settingsSection__desc">名前とGoogleアカウントのメールアドレスを登録してください（最大<span id="staffListMax"></span>人・現在<span id="staffListCount">0</span>人登録中）。Hold登録・2nd Hold登録・受注確定・Hold解除の「担当者」は、ログイン中のGoogleアカウントのメールアドレスからここで自動的に判定されるため、操作のたびに担当者を選ぶ必要はありません。</p>
             <div class="staffList" id="staffList"></div>
             <button class="btn" id="btnAddStaff" type="button">＋ 担当者を追加</button>
           </div>
@@ -121,7 +122,7 @@
         </div>
         <div class="formField">
           <label>担当者</label>
-          <select id="actionStaff" class="input"></select>
+          <div class="staffDisplay" id="actionStaffDisplay"></div>
         </div>
         <div class="formField">
           <label>顧客</label>
@@ -158,8 +159,8 @@
         <p class="modal__desc" id="cancelHoldModalDesc"></p>
         <div class="modal__error hidden" id="cancelHoldModalError"></div>
         <div class="formField">
-          <label>担当者（ご自身の名前を選択）</label>
-          <select id="cancelHoldStaff" class="input"></select>
+          <label>解除操作者（ログイン中のアカウント）</label>
+          <div class="staffDisplay" id="cancelHoldStaffDisplay"></div>
         </div>
       </div>
       <div class="modal__footer">

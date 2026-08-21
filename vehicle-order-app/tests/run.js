@@ -296,23 +296,51 @@ test('objectToRow_はdatetime型の数値をDateへ戻すが、date型の文字�
   assert.strictEqual(row[1].getTime(), now);
 });
 
-console.log('== SettingsService: normalizeStaffList_（担当者マスタ最大30人） ==');
-test('空欄・重複は除去される', () => {
-  const list = sandbox.normalizeStaffList_(['佐藤', '', '佐藤', ' 鈴木 ']);
-  // vm サンドボックスは別レルムのため配列は deepStrictEqual では不一致になる（[...] で外側のレルムへ複製）
-  assert.deepStrictEqual([...list], ['佐藤', '鈴木']);
+console.log('== SettingsService: normalizeStaffList_（担当者マスタ最大30人・{name,email}形式） ==');
+test('名前・メールがともに空、メール重複は除去される', () => {
+  const list = sandbox.normalizeStaffList_([
+    { name: '佐藤', email: 'sato@example.com' },
+    { name: '', email: '' },
+    { name: '佐藤(重複)', email: 'Sato@Example.com' }, // 大文字小文字違いも同一メールとして扱う
+    { name: '鈴木', email: '' }, // メール未入力は除去
+    { name: ' 伊藤 ', email: ' ito@example.com ' }
+  ]);
+  assert.strictEqual(list.length, 2);
+  assert.strictEqual(list[0].name, '佐藤');
+  assert.strictEqual(list[0].email, 'sato@example.com');
+  assert.strictEqual(list[1].name, '伊藤');
+  assert.strictEqual(list[1].email, 'ito@example.com');
 });
 test('30人まではそのまま登録できる', () => {
-  const list = Array.from({ length: 30 }, (_, i) => 'スタッフ' + i);
+  const list = Array.from({ length: 30 }, (_, i) => ({ name: 'スタッフ' + i, email: 'staff' + i + '@example.com' }));
   assert.strictEqual(sandbox.normalizeStaffList_(list).length, 30);
 });
 test('31人以上はエラーになる', () => {
-  const list = Array.from({ length: 31 }, (_, i) => 'スタッフ' + i);
+  const list = Array.from({ length: 31 }, (_, i) => ({ name: 'スタッフ' + i, email: 'staff' + i + '@example.com' }));
   assert.throws(() => sandbox.normalizeStaffList_(list), /最大30人/);
 });
 test('配列以外が渡されても空配列として扱われる', () => {
   assert.strictEqual(sandbox.normalizeStaffList_(null).length, 0);
   assert.strictEqual(sandbox.normalizeStaffList_(undefined).length, 0);
+});
+
+console.log('== SettingsService: resolveStaffNameByEmail_（ログインメールから担当者名を解決） ==');
+const staffListWithEmails = [
+  { name: '佐藤', email: 'sato@example.com' },
+  { name: '鈴木', email: 'suzuki@example.com' }
+];
+test('メールアドレスが一致する担当者名を返す', () => {
+  assert.strictEqual(sandbox.resolveStaffNameByEmail_(staffListWithEmails, 'sato@example.com'), '佐藤');
+});
+test('大文字小文字を無視して一致する', () => {
+  assert.strictEqual(sandbox.resolveStaffNameByEmail_(staffListWithEmails, 'SATO@EXAMPLE.COM'), '佐藤');
+});
+test('一致する担当者がいなければnull', () => {
+  assert.strictEqual(sandbox.resolveStaffNameByEmail_(staffListWithEmails, 'unknown@example.com'), null);
+});
+test('メールアドレスが空ならnull', () => {
+  assert.strictEqual(sandbox.resolveStaffNameByEmail_(staffListWithEmails, ''), null);
+  assert.strictEqual(sandbox.resolveStaffNameByEmail_(staffListWithEmails, null), null);
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
