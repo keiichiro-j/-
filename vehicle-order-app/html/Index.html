@@ -20,11 +20,11 @@
     <!-- 在庫リスト -->
     <main class="view is-active" id="view-inventory">
       <div class="toolbar">
-        <input type="search" id="inventoryKeyword" class="input input--search" placeholder="車種・モデル・コミッションで検索">
+        <input type="search" id="inventoryKeyword" class="input input--search" placeholder="モデル・コミッションで検索">
         <select id="inventoryGroupBy" class="input">
           <option value="">グループ表示なし</option>
           <option value="arrivalExpectedDate">入港予定日ごと</option>
-          <option value="registrableMonth">登録可能月ごと</option>
+          <option value="registrableMonth">可能月ごと</option>
           <option value="model">モデルごと</option>
         </select>
         <label class="checkboxField">
@@ -43,12 +43,17 @@
     <!-- 受注リスト -->
     <main class="view" id="view-orders">
       <div class="toolbar">
-        <input type="search" id="ordersKeyword" class="input input--search" placeholder="車種・モデル・顧客名・担当で検索">
+        <input type="search" id="ordersKeyword" class="input input--search" placeholder="自由検索（モデル・コミッション・顧客名・担当・拠点）">
+        <input type="text" id="ordersLocationFilter" class="input" placeholder="拠点で絞り込み">
+        <select id="ordersStaffFilter" class="input"></select>
         <select id="ordersGroupBy" class="input">
           <option value="">グループ表示なし</option>
+          <option value="orderedMonth">月ごと</option>
           <option value="salesLocation">販売拠点ごと</option>
           <option value="model">モデルごと</option>
         </select>
+        <div class="toolbar__spacer"></div>
+        <span class="toolbar__count" id="ordersTotalCount"></span>
       </div>
       <div id="ordersGroups"></div>
       <div class="emptyState hidden" id="ordersEmpty">該当する受注がありません</div>
@@ -180,10 +185,6 @@
       <div class="modal__body">
         <div class="modal__error hidden" id="inventoryModalError"></div>
         <div class="formField">
-          <label>車種</label>
-          <input type="text" id="invCarType" class="input">
-        </div>
-        <div class="formField">
           <label>モデル</label>
           <input type="text" id="invModel" class="input">
         </div>
@@ -204,7 +205,7 @@
           <input type="text" id="invInteriorColor" class="input">
         </div>
         <div class="formField">
-          <label>有償オプション</label>
+          <label>有償OP</label>
           <div class="optionSlots" id="invPaidOptions">
             <input type="text" class="input" data-paid-option="1" placeholder="1">
             <input type="text" class="input" data-paid-option="2" placeholder="2">

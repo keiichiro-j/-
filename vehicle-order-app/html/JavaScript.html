@@ -132,6 +132,10 @@
     return !!v.registrableMonth && v.registrableMonth === currentYearMonth();
   }
 
+  function metaRow_(label, value) {
+    return '<div><dt>' + label + '</dt><dd>' + escapeHtml(value || '-') + '</dd></div>';
+  }
+
   function vehicleCardHtml(v) {
     var isHold = v.holdStatus === 'hold';
     var badges = isHold
@@ -144,15 +148,17 @@
       badges += '<span class="badge badge--thisMonth">当月登録可能</span>';
     }
 
-    var meta = [
-      'MP: <strong>' + escapeHtml(v.mp || '-') + '</strong>',
-      'ステア: <strong>' + escapeHtml(v.steering || '-') + '</strong>',
-      'カラー: <strong>' + escapeHtml(v.exteriorColor || '-') + ' / ' + escapeHtml(v.interiorColor || '-') + '</strong>',
-      '有償オプション: <strong>' + escapeHtml(paidOptionsText(v)) + '</strong>',
-      '入港予定日: <strong>' + escapeHtml(v.arrivalExpectedDate || '-') + '</strong>',
-      '登録可能月: <strong>' + escapeHtml(v.registrableMonth || '-') + '</strong>',
-      'VPC: <strong>' + escapeHtml(v.vpc || '-') + '</strong>'
-    ].join('<br>');
+    // 横長カードでも読みやすいよう、メタ情報は2列のミニグリッドで表示する
+    // （1列の縦積みだとカードが縦に伸びてしまい、3列レイアウトに向かないため）。
+    var meta = '<dl class="card__metaGrid">' +
+      metaRow_('MP', v.mp) +
+      metaRow_('ステア', v.steering) +
+      metaRow_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
+      metaRow_('有償OP', paidOptionsText(v)) +
+      metaRow_('入港予定日', v.arrivalExpectedDate) +
+      metaRow_('可能月', v.registrableMonth) +
+      metaRow_('VPC', v.vpc) +
+      '</dl>';
 
     var holdInfoHtml = '';
     if (isHold) {
@@ -175,7 +181,7 @@
     actionsHtml += '</div>';
 
     return '<div class="card ' + (isHold ? 'card--hold' : 'card--available') + '">' +
-      '<div class="card__top"><div><div class="card__model">' + escapeHtml(v.carType) + ' ' + escapeHtml(v.model) + '</div>' +
+      '<div class="card__top"><div><div class="card__model">' + escapeHtml(v.model) + '</div>' +
       '<div class="card__commission">' + escapeHtml(v.commission) + '</div></div>' +
       '<div class="card__badges">' + badges + '</div></div>' +
       '<div class="card__meta">' + meta + '</div>' +
@@ -311,7 +317,6 @@
   });
 
   $('btnAddInventory').addEventListener('click', function () {
-    $('invCarType').value = '';
     $('invModel').value = '';
     $('invMp').value = '';
     $('invExteriorColor').value = '';
@@ -330,7 +335,6 @@
     if (this.disabled) return;
     var btn = this;
     var vehicle = {
-      carType: $('invCarType').value.trim(),
       model: $('invModel').value.trim(),
       mp: $('invMp').value.trim(),
       steering: $('invSteering').value,
@@ -608,7 +612,11 @@
 
   // ===== 受注リスト =====
   function loadOrders() {
-    var filters = { keyword: $('ordersKeyword').value };
+    var filters = {
+      keyword: $('ordersKeyword').value,
+      salesLocation: $('ordersLocationFilter').value,
+      staff: $('ordersStaffFilter').value
+    };
     var groupBy = $('ordersGroupBy').value;
     return gasRun('api_listOrders', filters, groupBy).then(function (groups) {
       state.ordersGroups = groups || [];
@@ -619,14 +627,14 @@
   function orderCardHtml(o) {
     return '<div class="orderCard">' +
       '<div class="orderCard__top">' +
-      '<div><div class="orderCard__model">' + escapeHtml(o.carType) + ' ' + escapeHtml(o.model) + '</div>' +
+      '<div><div class="orderCard__model">' + escapeHtml(o.model) + '</div>' +
       '<div class="orderCard__commission">' + escapeHtml(o.commission) + '</div></div>' +
       '<span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span>' +
       '</div>' +
       '<dl class="orderCard__grid">' +
       '<div><dt>MP</dt><dd>' + escapeHtml(o.mp || '-') + '</dd></div>' +
       '<div><dt>VPC</dt><dd>' + escapeHtml(o.vpc || '-') + '</dd></div>' +
-      '<div><dt>有償オプション</dt><dd>' + escapeHtml(paidOptionsText(o)) + '</dd></div>' +
+      '<div><dt>有償OP</dt><dd>' + escapeHtml(paidOptionsText(o)) + '</dd></div>' +
       '<div><dt>リード番号</dt><dd>' + escapeHtml(o.leadNumber || '-') + '</dd></div>' +
       '<div><dt>登録月</dt><dd>' + escapeHtml(o.registeredMonth || '-') + '</dd></div>' +
       '<div><dt>担当者</dt><dd>' + escapeHtml(o.staff || '-') + '</dd></div>' +
@@ -643,13 +651,28 @@
     var groups = state.ordersGroups || [];
     var totalItems = groups.reduce(function (n, g) { return n + g.items.length; }, 0);
     $('ordersEmpty').classList.toggle('hidden', totalItems > 0);
+    $('ordersTotalCount').textContent = '該当 ' + totalItems + ' 台';
     container.innerHTML = groups.map(function (g) {
-      var heading = g.key ? '<h3 class="group__title">' + escapeHtml(g.key) + '</h3>' : '';
-      return '<div class="group">' + heading + g.items.map(orderCardHtml).join('') + '</div>';
+      var heading = g.key
+        ? '<h3 class="group__title">' + escapeHtml(g.key) + '<span class="group__count">' + g.items.length + '台</span></h3>'
+        : '';
+      return '<div class="group">' + heading + '<div class="orderList">' + g.items.map(orderCardHtml).join('') + '</div></div>';
     }).join('');
   }
 
-  ['ordersKeyword', 'ordersGroupBy'].forEach(function (id) {
+  function populateOrdersStaffFilter_() {
+    var select = $('ordersStaffFilter');
+    var current = select.value;
+    var names = ((state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.staffList) || [])
+      .map(function (s) { return s.name; })
+      .filter(function (n) { return n; });
+    select.innerHTML = '';
+    select.appendChild(new Option('担当者：すべて', ''));
+    names.forEach(function (n) { select.appendChild(new Option(n, n)); });
+    if (names.indexOf(current) !== -1) select.value = current;
+  }
+
+  ['ordersKeyword', 'ordersGroupBy', 'ordersLocationFilter', 'ordersStaffFilter'].forEach(function (id) {
     $(id).addEventListener('input', debounce(loadOrders, 250));
     $(id).addEventListener('change', loadOrders);
   });
@@ -665,6 +688,7 @@
     state.staffList = (settings.staffList || []).map(function (s) { return { name: s.name || '', email: s.email || '' }; });
     $('staffListMax').textContent = (state.bootstrap && state.bootstrap.staffListMax) || 30;
     renderStaffList();
+    populateOrdersStaffFilter_();
   }
 
   $('settingsThemeColor').addEventListener('input', function () {

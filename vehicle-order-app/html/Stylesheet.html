@@ -139,23 +139,32 @@
     color: var(--on-surface-variant);
     margin: 0 0 10px 4px;
   }
+  .group__count {
+    margin-left: 8px;
+    font-weight: 400;
+    font-size: 12.5px;
+    color: var(--on-surface-variant);
+  }
+  .toolbar__count { font-size: 13px; color: var(--on-surface-variant); font-weight: 500; white-space: nowrap; }
 
-  /* ===== カードグリッド（3.1 6.） ===== */
+  /* ===== カードグリッド（PCビューで3列固定、横長でスタイリッシュに） ===== */
   .cardGrid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 14px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
   }
   .card {
     background: var(--surface);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     border-left: 4px solid transparent;
-    padding: 16px;
+    padding: 16px 18px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
+    transition: box-shadow .15s ease, transform .15s ease;
   }
+  .card:hover { box-shadow: var(--shadow-elevated); transform: translateY(-2px); }
   .card--available { border-left-color: var(--success); }
   .card--hold { border-left-color: var(--warning); }
   .card__top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
@@ -180,8 +189,16 @@
   .badge--location { background: var(--primary-bg); color: var(--primary); font-weight: 500; }
   .card__badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 
-  .card__meta { font-size: 13px; color: var(--on-surface-variant); line-height: 1.6; }
-  .card__meta strong { color: var(--on-surface); font-weight: 500; }
+  /* メタ情報は2列のミニグリッドで表示（横長カードの幅を活かし、縦幅を抑える） */
+  .card__metaGrid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 5px 12px;
+    margin: 0;
+    font-size: 12.5px;
+  }
+  .card__metaGrid dt { color: var(--on-surface-variant); font-size: 11px; margin-bottom: 1px; }
+  .card__metaGrid dd { margin: 0; font-weight: 500; color: var(--on-surface); }
 
   .card__holdInfo {
     background: var(--background);
@@ -285,8 +302,10 @@
     box-shadow: var(--shadow);
     border-left: 4px solid var(--primary);
     padding: 16px;
+    transition: box-shadow .15s ease, transform .15s ease;
   }
-  .orderCard + .orderCard { margin-top: 10px; }
+  .orderCard:hover { box-shadow: var(--shadow-elevated); transform: translateY(-2px); }
+  .orderList { display: flex; flex-direction: column; gap: 10px; }
   .orderCard__top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 10px; }
   .orderCard__model { font-size: 16px; font-weight: 500; }
   .orderCard__commission { font-size: 12px; color: var(--on-surface-variant); }

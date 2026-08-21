@@ -60,9 +60,19 @@ function api_confirmOrder(commission, info) {
   return confirmOrder(commission, info);
 }
 
+/**
+ * 受注リスト一覧。受注確定日時（orderedAt）から「2026-08」形式の orderedMonth を
+ * 付与し、月ごとのグループ表示・トータル台数の把握に使えるようにする。
+ */
 function api_listOrders(filters, groupBy) {
-  var orders = searchOrders(listOrders(), filters);
-  return groupBy ? groupByField_(orders, groupBy) : [{ key: '', items: orders }];
+  var orders = listOrders().map(function (o) {
+    o.orderedMonth = o.orderedAt
+      ? Utilities.formatDate(new Date(o.orderedAt), Session.getScriptTimeZone(), 'yyyy-MM')
+      : '';
+    return o;
+  });
+  var result = searchOrders(orders, filters);
+  return groupBy ? groupByField_(result, groupBy) : [{ key: '', items: result }];
 }
 
 // ===== 設定機能（3.6） =====

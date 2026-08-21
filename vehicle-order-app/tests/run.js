@@ -203,17 +203,14 @@ test('applyHoldFieldsToVehicle_ はHold行があればプレフィックス付�
 
 console.log('== SearchService: searchInventory / searchOrders ==');
 const vehicles = [
-  { commission: 'C001', carType: '車種X', model: 'モデルA', holdStatus: 'available' },
-  { commission: 'C002', carType: '車種Y', model: 'モデルB', holdStatus: 'hold' }
+  { commission: 'C001', model: 'モデルA', holdStatus: 'available' },
+  { commission: 'C002', model: 'モデルB', holdStatus: 'hold' }
 ];
 test('キーワードでモデル検索がヒットする', () => {
   assert.strictEqual(sandbox.searchInventory(vehicles, { keyword: 'モデルA' }).length, 1);
 });
 test('キーワードでコミッション検索がヒットする', () => {
   assert.strictEqual(sandbox.searchInventory(vehicles, { keyword: 'C002' }).length, 1);
-});
-test('キーワードで車種検索がヒットする', () => {
-  assert.strictEqual(sandbox.searchInventory(vehicles, { keyword: '車種X' }).length, 1);
 });
 test('includeHold=falseでHold済み車両が除外される', () => {
   const result = sandbox.searchInventory(vehicles, { includeHold: false });
@@ -225,14 +222,31 @@ test('無関係なキーワードはヒットしない', () => {
 });
 
 const orders = [
-  { commission: 'C001', model: 'モデルA', customer: '山田太郎', staff: '佐藤' },
-  { commission: 'C002', model: 'モデルB', customer: '田中花子', staff: '鈴木' }
+  { commission: 'C001', model: 'モデルA', customer: '山田太郎', staff: '佐藤', salesLocation: '東京本店' },
+  { commission: 'C002', model: 'モデルB', customer: '田中花子', staff: '鈴木', salesLocation: '大阪支店' }
 ];
-test('顧客名で受注検索がヒットする', () => {
+test('自由検索（キーワード）で顧客名がヒットする', () => {
   assert.strictEqual(sandbox.searchOrders(orders, { keyword: '山田太郎' }).length, 1);
 });
-test('担当者名で受注検索がヒットする', () => {
+test('自由検索（キーワード）で担当者名がヒットする', () => {
   assert.strictEqual(sandbox.searchOrders(orders, { keyword: '鈴木' }).length, 1);
+});
+test('自由検索（キーワード）で販売拠点もヒットする', () => {
+  assert.strictEqual(sandbox.searchOrders(orders, { keyword: '大阪' }).length, 1);
+});
+test('拠点ごとの検索（部分一致）で絞り込める', () => {
+  const result = sandbox.searchOrders(orders, { salesLocation: '東京' });
+  assert.strictEqual(result.length, 1);
+  assert.strictEqual(result[0].commission, 'C001');
+});
+test('担当者ごとの検索（完全一致）で絞り込める', () => {
+  const result = sandbox.searchOrders(orders, { staff: '鈴木' });
+  assert.strictEqual(result.length, 1);
+  assert.strictEqual(result[0].commission, 'C002');
+});
+test('拠点・担当者の検索は組み合わせて絞り込める（両方一致する行のみ）', () => {
+  assert.strictEqual(sandbox.searchOrders(orders, { salesLocation: '東京', staff: '鈴木' }).length, 0);
+  assert.strictEqual(sandbox.searchOrders(orders, { salesLocation: '東京', staff: '佐藤' }).length, 1);
 });
 
 console.log('== SearchService: groupByField_ ==');
