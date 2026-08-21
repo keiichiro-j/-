@@ -21,22 +21,17 @@
     <main class="view is-active" id="view-inventory">
       <div class="toolbar">
         <input type="search" id="inventoryKeyword" class="input input--search" placeholder="モデル・コミッションで検索">
-        <select id="inventoryGroupBy" class="input">
-          <option value="">グループ表示なし</option>
-          <option value="arrivalExpectedDate">入港予定日ごと</option>
-          <option value="registrableMonth">可能月ごと</option>
-          <option value="model">モデルごと</option>
+        <select id="inventoryMonthFilter" class="input">
+          <option value="">可能月：すべて</option>
         </select>
         <label class="checkboxField">
           <input type="checkbox" id="inventoryIncludeHold" checked> Hold済みを含む
         </label>
-        <label class="checkboxField">
-          <input type="checkbox" id="inventoryThisMonthOnly"> 当月登録可能のみ
-        </label>
         <div class="toolbar__spacer"></div>
+        <span class="toolbar__count" id="inventoryTotalCount"></span>
         <button class="btn" id="btnAddInventory">＋ 在庫追加</button>
       </div>
-      <div id="inventoryGroups"></div>
+      <div id="inventoryList"></div>
       <div class="emptyState hidden" id="inventoryEmpty">該当する在庫がありません</div>
     </main>
 

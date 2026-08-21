@@ -4,7 +4,7 @@
 
   var state = {
     bootstrap: null,
-    inventoryGroups: [],
+    inventoryItems: [],
     ordersGroups: [],
     action: null, // { type: 'hold' | 'secondHold' | 'order' | 'orderFromHold', commission }
     staffList: [] // 設定タブで編集中の担当者マスタ（作業用コピー）
@@ -114,18 +114,36 @@
       keyword: $('inventoryKeyword').value,
       includeHold: $('inventoryIncludeHold').checked
     };
-    var groupBy = $('inventoryGroupBy').value;
-    var thisMonthOnly = $('inventoryThisMonthOnly').checked;
-    return gasRun('api_listInventory', filters, groupBy).then(function (groups) {
-      groups = groups || [];
-      if (thisMonthOnly) {
-        groups = groups
-          .map(function (g) { return { key: g.key, items: g.items.filter(isRegistrableThisMonth_) }; })
-          .filter(function (g) { return g.items.length > 0; });
+    return gasRun('api_listInventory', filters).then(function (groups) {
+      var items = (groups && groups[0] && groups[0].items) || [];
+      populateInventoryMonthFilter_(items);
+      var month = $('inventoryMonthFilter').value;
+      if (month) {
+        items = items.filter(function (v) { return v.registrableMonth === month; });
       }
-      state.inventoryGroups = groups;
+      state.inventoryItems = items;
       renderInventory();
     }).catch(function (err) { showToast(err.message, true); });
+  }
+
+  // 可能月フィルタの選択肢は、現在の検索条件に該当する在庫の可能月から動的に作る
+  // （当月は在庫がなくても常に選べるようにする）。
+  function populateInventoryMonthFilter_(items) {
+    var select = $('inventoryMonthFilter');
+    var current = select.value;
+    var thisMonth = currentYearMonth();
+    var months = [];
+    items.forEach(function (v) {
+      if (v.registrableMonth && months.indexOf(v.registrableMonth) === -1) months.push(v.registrableMonth);
+    });
+    if (months.indexOf(thisMonth) === -1) months.push(thisMonth);
+    months.sort();
+    var options = ['<option value="">可能月：すべて</option>'].concat(months.map(function (m) {
+      var label = m + (m === thisMonth ? '（今月）' : '');
+      return '<option value="' + escapeHtml(m) + '">' + escapeHtml(label) + '</option>';
+    }));
+    select.innerHTML = options.join('');
+    select.value = months.indexOf(current) !== -1 ? current : '';
   }
 
   function isRegistrableThisMonth_(v) {
@@ -160,12 +178,18 @@
       metaRow_('VPC', v.vpc) +
       '</dl>';
 
-    var holdInfoHtml = '';
+    // Hold状況の表示エリアは高さ固定（.card__holdArea）。Hold・2nd Holdが増えても
+    // エリア内でスクロールするだけで、カード自体の高さは常に一定に保たれる。
+    var holdInfoHtml;
     if (isHold) {
-      holdInfoHtml += holdInfoBlockHtml_('1st Hold', v, 'hold', 'first');
-      if (v.secondHoldCustomer) {
-        holdInfoHtml += holdInfoBlockHtml_('2nd Hold', v, 'secondHold', 'second');
-      }
+      holdInfoHtml = '<div class="card__holdArea">' +
+        holdInfoBlockHtml_('1st Hold', v, 'hold', 'first') +
+        (v.secondHoldCustomer ? holdInfoBlockHtml_('2nd Hold', v, 'secondHold', 'second') : '') +
+        '</div>';
+    } else {
+      holdInfoHtml = '<div class="card__holdArea card__holdArea--empty">' +
+        '<span class="card__holdArea__placeholder">現在Hold登録なし</span>' +
+        '</div>';
     }
 
     var actionsHtml = '<div class="card__actions">';
@@ -291,18 +315,14 @@
   setInterval(updateHoldTimers, 1000);
 
   function renderInventory() {
-    var container = $('inventoryGroups');
-    var groups = state.inventoryGroups || [];
-    var totalItems = groups.reduce(function (n, g) { return n + g.items.length; }, 0);
-    $('inventoryEmpty').classList.toggle('hidden', totalItems > 0);
-    container.innerHTML = groups.map(function (g) {
-      var heading = g.key ? '<h3 class="group__title">' + escapeHtml(g.key) + '</h3>' : '';
-      return '<div class="group">' + heading +
-        '<div class="cardGrid">' + g.items.map(vehicleCardHtml).join('') + '</div></div>';
-    }).join('');
+    var container = $('inventoryList');
+    var items = state.inventoryItems || [];
+    $('inventoryEmpty').classList.toggle('hidden', items.length > 0);
+    $('inventoryTotalCount').textContent = items.length ? '該当 ' + items.length + ' 台' : '';
+    container.innerHTML = '<div class="cardGrid">' + items.map(vehicleCardHtml).join('') + '</div>';
   }
 
-  document.getElementById('inventoryGroups').addEventListener('click', function (e) {
+  document.getElementById('inventoryList').addEventListener('click', function (e) {
     var target = e.target;
     if (target.dataset.hold) openActionModal('hold', target.dataset.hold);
     else if (target.dataset.secondHold) openActionModal('secondHold', target.dataset.secondHold);
@@ -311,7 +331,7 @@
     else if (target.dataset.cancelHold) openCancelHoldModal(target.dataset.cancelHold, target.dataset.cancelRank);
   });
 
-  ['inventoryKeyword', 'inventoryGroupBy', 'inventoryIncludeHold', 'inventoryThisMonthOnly'].forEach(function (id) {
+  ['inventoryKeyword', 'inventoryMonthFilter', 'inventoryIncludeHold'].forEach(function (id) {
     $(id).addEventListener('input', debounce(loadInventory, 250));
     $(id).addEventListener('change', loadInventory);
   });
@@ -471,11 +491,7 @@
   }
 
   function findVehicleByCommission(commission) {
-    for (var i = 0; i < state.inventoryGroups.length; i++) {
-      var found = state.inventoryGroups[i].items.find(function (v) { return v.commission === commission; });
-      if (found) return found;
-    }
-    return null;
+    return (state.inventoryItems || []).find(function (v) { return v.commission === commission; }) || null;
   }
 
   // ===== Hold解除 =====

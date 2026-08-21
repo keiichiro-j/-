@@ -200,7 +200,26 @@
   .card__metaGrid dt { color: var(--on-surface-variant); font-size: 11px; margin-bottom: 1px; }
   .card__metaGrid dd { margin: 0; font-weight: 500; color: var(--on-surface); }
 
+  /* Hold状況エリアは高さ固定・内部スクロール。Hold/2nd Holdが増えてもここで吸収し、
+     カード自体の高さは在庫あり／Hold／2nd Holdのどの状態でも常に一定に保たれる。 */
+  .card__holdArea {
+    height: 124px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+  }
+  .card__holdArea--empty {
+    align-items: center;
+    justify-content: center;
+  }
+  .card__holdArea__placeholder {
+    font-size: 12.5px;
+    color: var(--on-surface-variant);
+    opacity: .7;
+  }
   .card__holdInfo {
+    flex: none;
     background: var(--background);
     border-radius: 8px;
     border-left: 3px solid var(--outline);
