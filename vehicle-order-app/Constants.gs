@@ -190,7 +190,14 @@ var DEFAULT_TEXT_COLOR = '#202124'; // 基本の文字色（Google Material Desi
 // 余裕を持ってこの文字数を超える場合は保存時にエラーにする（SettingsService.gs参照）。
 var LOGO_URL_MAX_LENGTH = 9000;
 
-// モデル写真1件あたりのURLの最大文字数。最大MODEL_PHOTOS_MAX件をまとめて
-// 1つのScript Propertyへ保存するため、ロゴ1枚分よりずっと小さい上限にしている
-// （data URLではなく外部URLの利用を前提とする。SettingsService.gs参照）。
-var MODEL_PHOTO_URL_MAX_LENGTH = 500;
+// モデル写真1件あたりのURLの最大文字数（署名付きURL等、長めの共有リンクにも
+// 対応できるようある程度余裕を持たせている。data URLではなく外部URLの利用を
+// 前提とする。SettingsService.gs参照）。
+var MODEL_PHOTO_URL_MAX_LENGTH = 1500;
+
+// モデル写真設定全体（JSON化した状態）の最大文字数。最大MODEL_PHOTOS_MAX件分の
+// URLをまとめて1つのScript Propertyへ保存するため、1件あたりの上限だけでは
+// 「件数×上限文字数」が実際の保存上限（1プロパティあたり9KB＝9216文字程度）を
+// 超えてしまう可能性がある。そのため合計文字数についても余裕を持った上限で
+// 別途チェックする（SettingsService.gs参照）。
+var MODEL_PHOTOS_TOTAL_MAX_LENGTH = 8000;

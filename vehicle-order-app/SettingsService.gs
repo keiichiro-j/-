@@ -128,9 +128,10 @@ function getModelPhotos_() {
  * モデル写真設定の正規化（純粋関数）。モデル名・写真URLがともに入力されている行のみ残し、
  * モデル名で重複除去したうえ、最大件数（MODEL_PHOTOS_MAX）を超えていればエラー。
  * 写真URLが長すぎる場合（data URLを直接貼り付けた場合等）もエラーにする
- * （Script Propertiesの1プロパティあたりの上限に対し、最大30件分をまとめて
- * 保存するため、ロゴ1枚分より小さい上限にしている。大きな画像は外部にアップロードして
- * URLを指定する）。
+ * （大きな画像は外部にアップロードしてURLを指定する）。
+ * さらに、1件あたりの上限内でも件数が多いと合計文字数がScript Propertiesの
+ * 実際の保存上限を超えうるため、JSON化した全体の文字数（MODEL_PHOTOS_TOTAL_MAX_LENGTH）
+ * も別途チェックする。
  */
 function normalizeModelPhotos_(list) {
   list = Array.isArray(list) ? list : [];
@@ -152,6 +153,13 @@ function normalizeModelPhotos_(list) {
   });
   if (result.length > MODEL_PHOTOS_MAX) {
     throw new Error('モデル写真は最大' + MODEL_PHOTOS_MAX + '件までです（現在' + result.length + '件）');
+  }
+  var totalLength = JSON.stringify(result).length;
+  if (totalLength > MODEL_PHOTOS_TOTAL_MAX_LENGTH) {
+    throw new Error(
+      'モデル写真の登録内容が大きすぎて保存できません（合計' + totalLength + '文字）。' +
+      '件数を減らすか、写真URLをより短いもの（短縮URL等）に変更してください。'
+    );
   }
   return result;
 }

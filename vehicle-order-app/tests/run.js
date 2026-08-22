@@ -412,8 +412,17 @@ test('31件以上はエラーになる', () => {
   assert.throws(() => sandbox.normalizeModelPhotos_(list), /最大30件/);
 });
 test('写真URLが長すぎる場合はエラーになる（data URL直接貼り付け対策）', () => {
-  const list = [{ model: 'Cクラス', photoUrl: 'x'.repeat(501) }];
+  const list = [{ model: 'Cクラス', photoUrl: 'x'.repeat(1501) }];
   assert.throws(() => sandbox.normalizeModelPhotos_(list), /長すぎます/);
+});
+test('1件あたりは上限内でも、合計文字数が大きすぎる場合はエラーになる', () => {
+  // 30件 × 1500文字（1件あたりの上限ぎりぎり）はいずれも単体では通るが、
+  // 合計するとScript Propertiesの実際の保存上限を超えるため弾かれる
+  const list = Array.from({ length: 30 }, (_, i) => ({
+    model: 'モデル' + i,
+    photoUrl: 'https://example.com/' + 'a'.repeat(1450) + i
+  }));
+  assert.throws(() => sandbox.normalizeModelPhotos_(list), /大きすぎて保存できません/);
 });
 test('配列以外が渡されても空配列として扱われる', () => {
   assert.strictEqual(sandbox.normalizeModelPhotos_(null).length, 0);

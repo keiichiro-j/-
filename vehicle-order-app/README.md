@@ -281,8 +281,12 @@ Hold期限チェック（`processExpiredHolds`）は5分おきの時間主導ト
 - 設定タブの「モデル写真（ホーム画面）」から、モデル名と写真URLの組を登録します
   （最大30件、`MODEL_PHOTOS_MAX`）。ロゴ設定と異なり、モデル写真は複数枚をまとめて
   1つのScript Property（`MODEL_PHOTOS`）に保存するため、写真は**外部URL指定のみ**に
-  対応しています（1件あたり500文字まで、`MODEL_PHOTO_URL_MAX_LENGTH`）。data URLを
-  直接貼り付けるような長すぎるURLは保存時にエラーになります（`normalizeModelPhotos_`）。
+  対応しています（1件あたり1,500文字まで、`MODEL_PHOTO_URL_MAX_LENGTH`。署名付きURL等の
+  長めの共有リンクにも対応できる余裕を持たせています）。data URLを直接貼り付けるような
+  長すぎるURLは保存時にエラーになります（`normalizeModelPhotos_`）。また、1件あたりの
+  上限内でも登録件数が多いと合計文字数がScript Propertiesの実際の保存上限（1プロパティ
+  あたり9KB程度）を超えるおそれがあるため、JSON化した全体の文字数についても上限
+  （`MODEL_PHOTOS_TOTAL_MAX_LENGTH`）を設けてチェックしています。
   画像はGoogleドライブの共有リンクなど、外部にアップロードしたうえでURLを指定して
   ください。
 - モデル名・写真URLのどちらかが未入力の行は保存時に除去され、モデル名が重複する場合は
