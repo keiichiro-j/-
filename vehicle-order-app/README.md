@@ -162,6 +162,14 @@ Workspace無しでの利用を想定している場合はこの仕組みが使�
   自動的にNumber型のセルとして保持されることがあります。Holdリストとの結合・検索は
   `holdMatchesCommission_`（文字列化して比較）で行うため、型が揃っていなくても
   正しくHold情報が結合されます。
+  - **不具合修正（クライアント側の比較機能でも同じ型不一致が起きていた）**: 車両比較機能
+    （`toggleCompare_` / `isComparingCommission_` / `findVehicleByCommission`）は、
+    サーバーから届いた車両データの `commission`（Number型になっていることがある）と、
+    HTML要素の`data-compare`属性値（常に文字列）を`===`で直接比較していたため、型が
+    一致せず「この車両の情報が見つからないため比較に追加できません」というエラーになる
+    不具合があった。クライアント側にも`commissionEquals_`（文字列化してから比較する
+    ヘルパー）を追加し、`holdMatchesCommission_`と同じ考え方で型の違いに影響されない
+    ようにした。
 
 ## Hold解除
 

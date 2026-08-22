@@ -124,6 +124,20 @@
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
   }
 
+  /**
+   * コミッションの比較は必ずこの関数を通す（=== での直接比較は禁止）。
+   * サーバー側から届く車両データの commission は、スプレッドシートのコミッション
+   * セルがまだ「書式なしテキスト」になっていない場合、文字列ではなく数値（例: 2004）に
+   * なっていることがある（holdMatchesCommission_ 参照。同じ問題のクライアント版）。
+   * 一方、HTML要素の data-compare 等の属性値は常に文字列になるため、===で比較すると
+   * 型が一致せず「一致しないはずなのに一致しない」不具合になる（比較機能で
+   * 「この車両の情報が見つからない」と表示されてしまっていた不具合の原因）。
+   * 必ず文字列化してから比較することで、型の違いに影響されないようにする。
+   */
+  function commissionEquals_(a, b) {
+    return String(a) === String(b);
+  }
+
   function formatDateTime(epochMs) {
     if (!epochMs) return '-';
     var d = new Date(epochMs);
@@ -284,7 +298,7 @@
   // ===== 車両比較（在庫リストのカード・表それぞれのピンから最大COMPARE_MAX台まで選び、
   // スペックを並べて見比べる。商談中に似た条件の車両を比較する場面を想定した機能）。 =====
   function isComparingCommission_(commission) {
-    return state.compareItems.some(function (v) { return v.commission === commission; });
+    return state.compareItems.some(function (v) { return commissionEquals_(v.commission, commission); });
   }
 
   function toggleCompare_(commission, checked) {
@@ -295,7 +309,7 @@
           document.querySelectorAll('[data-compare="' + commission + '"]').forEach(function (el) { el.checked = false; });
           return;
         }
-        var vehicle = state.inventoryItems.filter(function (v) { return v.commission === commission; })[0];
+        var vehicle = state.inventoryItems.filter(function (v) { return commissionEquals_(v.commission, commission); })[0];
         if (!vehicle) {
           showToast('この車両の情報が見つからないため比較に追加できません。検索条件を変えている場合は解除してからお試しください。', true);
           document.querySelectorAll('[data-compare="' + commission + '"]').forEach(function (el) { el.checked = false; });
@@ -303,7 +317,7 @@
         }
         state.compareItems.push(vehicle);
       } else {
-        state.compareItems = state.compareItems.filter(function (v) { return v.commission !== commission; });
+        state.compareItems = state.compareItems.filter(function (v) { return !commissionEquals_(v.commission, commission); });
       }
       syncComparePins_();
       renderCompareBar_();
@@ -815,7 +829,7 @@
   });
 
   function findVehicleByCommission(commission) {
-    return (state.inventoryItems || []).find(function (v) { return v.commission === commission; }) || null;
+    return (state.inventoryItems || []).find(function (v) { return commissionEquals_(v.commission, commission); }) || null;
   }
 
   // ===== Hold解除 =====
