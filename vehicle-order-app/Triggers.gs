@@ -22,6 +22,23 @@ function deleteAllTriggers_() {
   });
 }
 
+/**
+ * processExpiredHolds() は5分おきに繰り返し実行される冪等な処理のため、
+ * 一時的なエラー（スプレッドシートAPIの瞬断等）であれば次回の実行が
+ * 自動的に埋め合わせる。ただし失敗に誰も気づけないままだと、期限切れの
+ * 車両がいつまでも解放されない事態になり得るため、1回だけ即時リトライし、
+ * それでも失敗した場合は管理者へメール通知する（検知漏れの防止）。
+ */
 function triggerHoldExpiryCheck() {
-  processExpiredHolds();
+  try {
+    processExpiredHolds();
+    return;
+  } catch (e) {
+    Utilities.sleep(2000);
+  }
+  try {
+    processExpiredHolds();
+  } catch (e2) {
+    notifySystemError_('Hold期限切れ処理', e2);
+  }
 }

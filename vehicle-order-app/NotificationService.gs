@@ -64,6 +64,28 @@ function notifyOrderConfirmed(order) {
   return true;
 }
 
+/**
+ * システムエラー通知。時間主導トリガー（Hold期限切れ処理）がリトライしても
+ * 失敗し続けた場合など、運用担当者が気づけないまま放置されることを防ぐために使う。
+ * 設定タブで「システムエラー通知先」が未設定の場合は何もしない。
+ */
+function notifySystemError_(context, error) {
+  var to = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.NOTIFY_ERROR_MAIL_TO);
+  if (!to) return false;
+
+  MailApp.sendEmail({
+    to: to,
+    subject: '【販売可能リスト】エラー通知: ' + context,
+    body: [
+      context + ' の処理でエラーが発生し、リトライしても解消しませんでした。',
+      '',
+      'エラー内容: ' + (error && error.message ? error.message : String(error)),
+      '発生日時: ' + formatDateTime_(new Date().getTime())
+    ].join('\n')
+  });
+  return true;
+}
+
 function formatDateTime_(epochMs) {
   if (!epochMs) return '-';
   return Utilities.formatDate(new Date(epochMs), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');

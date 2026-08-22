@@ -17,6 +17,7 @@ function getSettings() {
     logoUrl: props.getProperty(PROP_KEYS.LOGO_URL) || '',
     notifyHoldMailTo: props.getProperty(PROP_KEYS.NOTIFY_HOLD_MAIL_TO) || '',
     notifyOrderMailTo: props.getProperty(PROP_KEYS.NOTIFY_ORDER_MAIL_TO) || '',
+    notifyErrorMailTo: props.getProperty(PROP_KEYS.NOTIFY_ERROR_MAIL_TO) || '',
     staffList: getStaffList_()
   };
 }
@@ -29,6 +30,7 @@ function saveSettings(settings) {
   props.setProperty(PROP_KEYS.LOGO_URL, logoUrl);
   props.setProperty(PROP_KEYS.NOTIFY_HOLD_MAIL_TO, settings.notifyHoldMailTo || '');
   props.setProperty(PROP_KEYS.NOTIFY_ORDER_MAIL_TO, settings.notifyOrderMailTo || '');
+  props.setProperty(PROP_KEYS.NOTIFY_ERROR_MAIL_TO, settings.notifyErrorMailTo || '');
   props.setProperty(PROP_KEYS.STAFF_LIST, JSON.stringify(normalizeStaffList_(settings.staffList)));
   return getSettings();
 }

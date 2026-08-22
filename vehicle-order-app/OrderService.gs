@@ -45,6 +45,7 @@ function confirmOrder(commission, info) {
     deleteInventoryRow_(sheet, rowNumber);
     deleteAllHoldRowsForCommission_(commission);
     notifyOrderConfirmed(order);
+    appendAuditLog_(buildAuditLogEntry_('受注確定', commission, vehicle.model, currentStaff, '顧客: ' + info.customer, order.orderedAt));
     return order;
   } finally {
     lock.releaseLock();

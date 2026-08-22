@@ -196,6 +196,7 @@ function registerHold(commission, info) {
 
     var updated = findInventoryVehicleWithHolds_(commission);
     notifyHoldRegistered(updated, false);
+    appendAuditLog_(buildAuditLogEntry_('Hold登録', commission, vehicle.model, currentStaff, 'リード番号 ' + info.leadNumber, now));
     return updated;
   } finally {
     lock.releaseLock();
@@ -237,6 +238,7 @@ function registerSecondHold(commission, info) {
 
     var updated = findInventoryVehicleWithHolds_(commission);
     notifyHoldRegistered(updated, true);
+    appendAuditLog_(buildAuditLogEntry_('2nd Hold登録', commission, vehicle.model, currentStaff, 'リード番号 ' + info.leadNumber, new Date().getTime()));
     return updated;
   } finally {
     lock.releaseLock();
@@ -287,6 +289,7 @@ function cancelHold(commission, rank) {
 
     var holdsSheet = getHoldsSheet_();
     var action = decideCancelAction_(rank, !!holds.second);
+    var vehicleBefore = findInventoryVehicle(commission);
 
     if (action === 'promote') {
       var secondRowNumber = findHoldRowNumber_(holdsSheet, commission, HOLD_RANK.SECOND);
@@ -305,6 +308,11 @@ function cancelHold(commission, rank) {
       deleteHoldRow_(holdsSheet, secondOnlyRowNumber);
     }
 
+    var rankLabel = rank === HOLD_RANK.SECOND ? '2nd Hold' : '1st Hold';
+    appendAuditLog_(buildAuditLogEntry_(
+      'Hold解除', commission, vehicleBefore ? vehicleBefore.model : '', currentStaff,
+      rankLabel + 'を解除（' + action + '）', new Date().getTime()
+    ));
     return findInventoryVehicleWithHolds_(commission);
   } finally {
     lock.releaseLock();
@@ -342,11 +350,13 @@ function processExpiredHolds() {
         updateHoldRow_(holdsSheet, secondRowNumber, { rank: HOLD_RANK.FIRST });
         deleteHoldRow_(holdsSheet, firstRowNumber);
         notifyHoldRegistered(findInventoryVehicleWithHolds_(vehicle.commission), false);
+        appendAuditLog_(buildAuditLogEntry_('Hold自動昇格', vehicle.commission, vehicle.model, null, '2nd Holdが1st Holdへ繰り上がりました', now));
       } else {
         var onlyRowNumber = findHoldRowNumber_(holdsSheet, vehicle.commission, HOLD_RANK.FIRST);
         deleteHoldRow_(holdsSheet, onlyRowNumber);
         var invRowNumber = findInventoryRowNumber_(invSheet, vehicle.commission);
         updateInventoryVehicle_(invSheet, invRowNumber, { holdStatus: HOLD_STATUS.AVAILABLE });
+        appendAuditLog_(buildAuditLogEntry_('Hold自動解放', vehicle.commission, vehicle.model, null, 'Hold期限切れのため在庫ありに戻りました', now));
       }
       processed.push({ commission: vehicle.commission, action: action });
     });

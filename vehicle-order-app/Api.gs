@@ -33,6 +33,15 @@ function api_listInventory(filters, groupBy) {
   return groupBy ? groupByField_(vehicles, groupBy) : [{ key: '', items: vehicles }];
 }
 
+/**
+ * 在庫データの整合性チェック（コミッション重複・モデル名欠落・Holdステータス不正値）。
+ * アプリ起動時にクライアントから一度だけ呼び出し、問題があれば画面上部に警告表示する
+ * （在庫の追加・編集はスプレッドシートへ直接行う運用のため、手作業のミスを早期発見する）。
+ */
+function api_checkInventoryIntegrity() {
+  return checkInventoryIntegrity_(listInventory());
+}
+
 // ===== Hold機能 =====
 function api_registerHold(commission, info) {
   return registerHold(commission, info);

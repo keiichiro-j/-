@@ -12,17 +12,18 @@
  */
 
 /**
- * 在庫リスト・Holdリスト・受注リストを作成し、Hold期限チェックの時間主導トリガーを
- * セットアップする。GASエディタから手動実行するか、スプレッドシートのメニュー
+ * 在庫リスト・Holdリスト・受注リスト・変更履歴を作成し、Hold期限チェックの時間主導
+ * トリガーをセットアップする。GASエディタから手動実行するか、スプレッドシートのメニュー
  * 「販売可能リスト」→「初期セットアップ」からも実行できる（onOpen参照）。
  */
 function setupSpreadsheet_() {
   getInventorySheet_();
   getHoldsSheet_();
   getOrderSheet_();
+  getAuditLogSheet_();
   setupTimeDrivenTriggers_();
 
-  var message = '在庫リスト・Holdリスト・受注リストの3タブを準備しました' +
+  var message = '在庫リスト・Holdリスト・受注リスト・変更履歴の4タブを準備しました' +
     '（既存のシートがあればそのまま利用し、上書きはしていません）。' +
     'Hold期限チェックの時間主導トリガーも設定済みです。';
   Logger.log(message);

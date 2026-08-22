@@ -55,16 +55,20 @@
   .topbar {
     background: var(--primary);
     color: var(--on-primary);
-    padding: 14px 20px;
     display: flex;
-    align-items: center;
-    gap: 20px;
+    flex-direction: column;
     box-shadow: var(--shadow);
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     z-index: 30;
+  }
+  .topbar__row {
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
   }
   .topbar__brand {
     display: flex;
@@ -104,6 +108,41 @@
   .topbar__userName { display: block; font-weight: 500; }
   .topbar__userEmail { display: block; opacity: .8; font-size: 11.5px; }
   .topbar__userWarn { display: block; color: #fff; background: rgba(0, 0, 0, .18); padding: 4px 10px; border-radius: 999px; font-size: 11.5px; }
+
+  /* ===== 在庫データ整合性チェックの警告バナー（アプリ起動時、問題があれば表示） =====
+     トップバーの子要素として置くことで、表示・非表示による高さの変化を
+     syncFixedBars_ の --topbar-h 実測にそのまま反映させる（ツールバーの
+     固定位置がずれないようにするため）。 */
+  .integrityBanner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--warning);
+    color: #fff;
+    padding: 9px 20px;
+    font-size: 13.5px;
+    font-weight: 500;
+  }
+  .integrityBanner__toggle, .integrityBanner__close {
+    background: rgba(255, 255, 255, .18);
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .integrityBanner__toggle { padding: 4px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 500; flex: none; }
+  .integrityBanner__toggle:hover { background: rgba(255, 255, 255, .3); }
+  .integrityBanner__close { width: 26px; height: 26px; border-radius: 50%; font-size: 16px; line-height: 1; flex: none; }
+  .integrityBanner__close:hover { background: rgba(255, 255, 255, .3); }
+  .integrityBanner__list {
+    list-style: none;
+    margin: 0;
+    padding: 10px 20px 12px;
+    background: rgba(0, 0, 0, .1);
+    color: #fff;
+    font-size: 13px;
+  }
+  .integrityBanner__list li { padding: 3px 0; }
 
   main.view { max-width: 1680px; margin: 0 auto; padding: 16px; }
   .view { display: none; }
@@ -575,6 +614,7 @@
   .formField { display: flex; flex-direction: column; gap: 6px; }
   .formField label { font-size: 13px; font-weight: 500; color: var(--on-surface-variant); }
   .formField .input { width: 100%; }
+  .formField__hint { margin: 0; font-size: 12px; color: var(--on-surface-variant); }
   .formField.hidden { display: none; }
   .colorField { display: flex; align-items: center; gap: 10px; }
   .colorField input[type=color] { width: 44px; height: 36px; border: 1px solid var(--outline); border-radius: 8px; padding: 2px; }
@@ -720,7 +760,9 @@
 
   /* ===== スマートフォン ===== */
   @media (max-width: 600px) {
-    .topbar { padding: 10px 12px; gap: 10px; }
+    .topbar__row { padding: 10px 12px; gap: 10px; }
+    .integrityBanner { padding: 8px 12px; font-size: 12.5px; flex-wrap: wrap; }
+    .integrityBanner__list { padding: 8px 12px 10px; }
     .topbar__brandText { font-size: 16px; }
     .topbar__user { display: none; }
     .staffList__row { flex-wrap: wrap; }

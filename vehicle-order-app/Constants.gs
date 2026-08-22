@@ -12,7 +12,8 @@
 var SHEET_NAMES = {
   INVENTORY: '在庫リスト',
   HOLDS: 'Holdリスト',
-  ORDERS: '受注リスト'
+  ORDERS: '受注リスト',
+  AUDIT_LOG: '変更履歴'
 };
 
 // ===== Hold 関連 =====
@@ -118,13 +119,30 @@ var ORDER_COLUMNS = VEHICLE_COLUMNS.concat(HOLD_ORDER_INPUT_COLUMNS).concat([
   { key: 'orderedAt', label: '受注確定日時', type: 'datetime' }
 ]);
 
+/**
+ * 変更履歴（監査ログ）列定義。Hold登録・2nd Hold登録・Hold解除（手動・自動）・
+ * 受注確定のたびに1行追記する。「誰が・いつ・何を」の記録専用で、更新・削除は行わない
+ * （AuditLogService.gs参照）。
+ */
+var AUDIT_LOG_COLUMNS = [
+  { key: 'timestamp', label: '日時', type: 'datetime' },
+  { key: 'action', label: '操作', type: 'text' },
+  { key: 'commission', label: 'コミッション', type: 'text' },
+  { key: 'model', label: 'モデル', type: 'text' },
+  { key: 'staffName', label: '担当者', type: 'text' },
+  { key: 'staffEmail', label: '担当者メール', type: 'text' },
+  { key: 'detail', label: '詳細', type: 'text' }
+];
+
 var INVENTORY_HEADER_ROW = INVENTORY_COLUMNS.map(function (c) { return c.label; });
 var HOLD_HEADER_ROW = HOLD_COLUMNS.map(function (c) { return c.label; });
 var ORDER_HEADER_ROW = ORDER_COLUMNS.map(function (c) { return c.label; });
+var AUDIT_LOG_HEADER_ROW = AUDIT_LOG_COLUMNS.map(function (c) { return c.label; });
 
 var INVENTORY_COL_INDEX = buildColIndex_(INVENTORY_COLUMNS);
 var HOLD_COL_INDEX = buildColIndex_(HOLD_COLUMNS);
 var ORDER_COL_INDEX = buildColIndex_(ORDER_COLUMNS);
+var AUDIT_LOG_COL_INDEX = buildColIndex_(AUDIT_LOG_COLUMNS);
 
 function buildColIndex_(columns) {
   var map = {};
@@ -144,6 +162,10 @@ function orderColIndex1(key) {
   return ORDER_COL_INDEX[key] + 1;
 }
 
+function auditLogColIndex1(key) {
+  return AUDIT_LOG_COL_INDEX[key] + 1;
+}
+
 // ===== Script Properties キー（設定機能） =====
 var PROP_KEYS = {
   THEME_COLOR: 'THEME_COLOR',
@@ -151,6 +173,7 @@ var PROP_KEYS = {
   LOGO_URL: 'LOGO_URL',
   NOTIFY_HOLD_MAIL_TO: 'NOTIFY_HOLD_MAIL_TO',
   NOTIFY_ORDER_MAIL_TO: 'NOTIFY_ORDER_MAIL_TO',
+  NOTIFY_ERROR_MAIL_TO: 'NOTIFY_ERROR_MAIL_TO',
   STAFF_LIST: 'STAFF_LIST'
 };
 

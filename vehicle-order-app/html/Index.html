@@ -45,21 +45,36 @@
         <line x1="4" y1="14.5" x2="20" y2="14.5"/>
         <line x1="10.5" y1="5" x2="10.5" y2="19"/>
       </symbol>
+      <symbol id="icon-alert" viewBox="0 0 24 24">
+        <path d="M12 4.2L21 19.5H3L12 4.2z" stroke-linejoin="round"/>
+        <line x1="12" y1="10.3" x2="12" y2="14.3"/>
+        <circle cx="12" cy="16.8" r="1" fill="currentColor" stroke="none"/>
+      </symbol>
     </defs>
   </svg>
 
   <div id="app">
     <header class="topbar" id="topbar">
-      <div class="topbar__brand">
-        <img id="topbarLogo" class="topbar__logo hidden" alt="ロゴ">
-        <span class="topbar__brandText">販売可能リスト</span>
+      <div class="topbar__row">
+        <div class="topbar__brand">
+          <img id="topbarLogo" class="topbar__logo hidden" alt="ロゴ">
+          <span class="topbar__brandText">販売可能リスト</span>
+        </div>
+        <nav class="tabs" id="mainTabs" role="tablist" aria-label="画面切替">
+          <button class="tabs__item is-active" data-tab="inventory">在庫リスト</button>
+          <button class="tabs__item" data-tab="orders">受注リスト</button>
+          <button class="tabs__item" data-tab="settings">設定</button>
+        </nav>
+        <div class="topbar__user" id="topbarUser"></div>
       </div>
-      <nav class="tabs" id="mainTabs" role="tablist" aria-label="画面切替">
-        <button class="tabs__item is-active" data-tab="inventory">在庫リスト</button>
-        <button class="tabs__item" data-tab="orders">受注リスト</button>
-        <button class="tabs__item" data-tab="settings">設定</button>
-      </nav>
-      <div class="topbar__user" id="topbarUser"></div>
+      <div class="integrityBanner hidden" id="integrityBanner">
+        <svg class="icon icon--inline"><use href="#icon-alert"></use></svg>
+        <span id="integrityBannerSummary"></span>
+        <button type="button" class="integrityBanner__toggle" id="btnIntegrityDetail">詳細を見る</button>
+        <div class="toolbar__spacer"></div>
+        <button type="button" class="integrityBanner__close" id="btnIntegrityClose" aria-label="閉じる">&times;</button>
+      </div>
+      <ul class="integrityBanner__list hidden" id="integrityBannerList"></ul>
     </header>
 
     <!-- 在庫リスト -->
@@ -159,6 +174,11 @@
             <div class="formField">
               <label>受注確定時のメール通知先</label>
               <input type="text" id="settingsOrderMailTo" class="input" placeholder="例: sales@example.com">
+            </div>
+            <div class="formField">
+              <label>システムエラー通知先</label>
+              <input type="text" id="settingsErrorMailTo" class="input" placeholder="例: admin@example.com">
+              <p class="formField__hint">Hold期限切れ処理が失敗し続けた場合など、システム側のエラーを知らせます。未設定の場合は通知しません。</p>
             </div>
           </div>
 

@@ -601,6 +601,45 @@
     }
   }
 
+  // ===== 在庫データ整合性チェック（アプリ起動時に1回だけ実行） =====
+  // 在庫の追加・編集はスプレッドシートへ直接行う運用のため、コミッションの重複貼り付けや
+  // モデル名の記入漏れ等、手作業ならではのミスが紛れ込むことがある。操作をブロックはせず、
+  // 画面上部のバナーで気づけるようにするだけにとどめる。
+  function checkIntegrity_() {
+    gasRun('api_checkInventoryIntegrity').then(function (issues) {
+      renderIntegrityBanner_(issues || []);
+    }).catch(function () {
+      // 整合性チェック自体の失敗は、通常の利用を妨げるべきではないため静かに無視する。
+    });
+  }
+
+  function renderIntegrityBanner_(issues) {
+    var banner = $('integrityBanner');
+    if (!issues.length) {
+      banner.classList.add('hidden');
+      $('integrityBannerList').classList.add('hidden');
+      syncFixedBars_();
+      return;
+    }
+    $('integrityBannerSummary').textContent = '在庫データに' + issues.length + '件の問題があります（スプレッドシートをご確認ください）';
+    $('integrityBannerList').innerHTML = issues.map(function (issue) {
+      return '<li>' + escapeHtml(issue.message) + '</li>';
+    }).join('');
+    banner.classList.remove('hidden');
+    syncFixedBars_();
+  }
+
+  $('btnIntegrityDetail').addEventListener('click', function () {
+    $('integrityBannerList').classList.toggle('hidden');
+    syncFixedBars_();
+  });
+
+  $('btnIntegrityClose').addEventListener('click', function () {
+    $('integrityBanner').classList.add('hidden');
+    $('integrityBannerList').classList.add('hidden');
+    syncFixedBars_();
+  });
+
   function openActionModal(type, commission) {
     var currentStaff = currentStaffName_();
     if (!currentStaff) {
@@ -897,6 +936,7 @@
     $('settingsLogoUrl').value = settings.logoUrl || '';
     $('settingsHoldMailTo').value = settings.notifyHoldMailTo;
     $('settingsOrderMailTo').value = settings.notifyOrderMailTo;
+    $('settingsErrorMailTo').value = settings.notifyErrorMailTo;
     applyTheme(settings.themeColor);
     applyTextColor(settings.textColor);
     applyLogo(settings.logoUrl);
@@ -1059,6 +1099,7 @@
       logoUrl: $('settingsLogoUrl').value.trim(),
       notifyHoldMailTo: $('settingsHoldMailTo').value.trim(),
       notifyOrderMailTo: $('settingsOrderMailTo').value.trim(),
+      notifyErrorMailTo: $('settingsErrorMailTo').value.trim(),
       staffList: uniqueStaffList
     };
     setButtonBusy(btn, true, '保存中...');
@@ -1128,6 +1169,7 @@
       fillOptions($('actionPaymentMethod'), bootstrap.paymentMethodOptions, true);
       renderSettings(bootstrap.settings);
       renderTopbarUser();
+      checkIntegrity_();
       return Promise.all([loadInventory(), loadOrders()]);
     }).catch(function (err) { showToast(err.message, true); });
   }

@@ -23,8 +23,12 @@ const sandbox = {
 };
 vm.createContext(sandbox);
 
-// Constants.gs -> HoldService.gs / SearchService.gs / SheetService.gs / SettingsService.gs の順で依存関係あり
-const FILES = ['Constants.gs', 'HoldService.gs', 'SearchService.gs', 'SheetService.gs', 'SettingsService.gs'];
+// Constants.gs -> HoldService.gs / SearchService.gs / SheetService.gs / SettingsService.gs /
+// AuditLogService.gs / IntegrityService.gs の順で依存関係あり
+const FILES = [
+  'Constants.gs', 'HoldService.gs', 'SearchService.gs', 'SheetService.gs', 'SettingsService.gs',
+  'AuditLogService.gs', 'IntegrityService.gs'
+];
 
 FILES.forEach((file) => {
   const code = fs.readFileSync(path.join(ROOT, file), 'utf8');
@@ -435,6 +439,81 @@ test('空文字・未指定は空文字のまま', () => {
 test('上限文字数を超えるとエラー', () => {
   const tooLong = 'data:image/png;base64,' + 'A'.repeat(9000);
   assert.throws(() => sandbox.validateLogoUrl_(tooLong), /大きすぎます/);
+});
+
+console.log('== AuditLogService: buildAuditLogEntry_（変更履歴1行分の組み立て） ==');
+test('通常操作は担当者名・メールがそのまま記録される', () => {
+  const staff = { name: '佐藤', email: 'sato@example.com' };
+  const entry = sandbox.buildAuditLogEntry_('Hold登録', 'C-001', 'A4', staff, 'リード番号 L-0001', 1700000000000);
+  assert.strictEqual(entry.timestamp, 1700000000000);
+  assert.strictEqual(entry.action, 'Hold登録');
+  assert.strictEqual(entry.commission, 'C-001');
+  assert.strictEqual(entry.model, 'A4');
+  assert.strictEqual(entry.staffName, '佐藤');
+  assert.strictEqual(entry.staffEmail, 'sato@example.com');
+  assert.strictEqual(entry.detail, 'リード番号 L-0001');
+});
+test('staffがnull（時間主導トリガーによる自動処理）の場合はシステム表記になる', () => {
+  const entry = sandbox.buildAuditLogEntry_('Hold自動解放', 'C-002', 'A6', null, '期限切れ', 1700000000000);
+  assert.strictEqual(entry.staffName, 'システム（自動処理）');
+  assert.strictEqual(entry.staffEmail, '');
+});
+test('commission・detailが未指定でも空文字で埋まる', () => {
+  const entry = sandbox.buildAuditLogEntry_('受注確定', undefined, 'Q5', { name: '鈴木', email: 'suzuki@example.com' }, undefined, 1700000000000);
+  assert.strictEqual(entry.commission, '');
+  assert.strictEqual(entry.detail, '');
+});
+
+console.log('== IntegrityService: checkInventoryIntegrity_（在庫データの整合性チェック） ==');
+test('問題のないデータは空配列を返す', () => {
+  const vehicles = [
+    { commission: 'C-001', model: 'A4', holdStatus: 'available' },
+    { commission: 'C-002', model: 'A6', holdStatus: 'hold' },
+    { commission: 'C-003', model: 'Q5', holdStatus: '' }
+  ];
+  assert.strictEqual(sandbox.checkInventoryIntegrity_(vehicles).length, 0);
+});
+test('コミッションが重複している行を検出する', () => {
+  const vehicles = [
+    { commission: 'C-001', model: 'A4', holdStatus: 'available' },
+    { commission: 'C-001', model: 'A4 (別グレード)', holdStatus: 'available' }
+  ];
+  const issues = sandbox.checkInventoryIntegrity_(vehicles);
+  assert.strictEqual(issues.length, 1);
+  assert.strictEqual(issues[0].type, 'duplicateCommission');
+  assert.strictEqual(issues[0].commission, 'C-001');
+});
+test('モデル名が空欄の行を検出する', () => {
+  const vehicles = [{ commission: 'C-001', model: '', holdStatus: 'available' }];
+  const issues = sandbox.checkInventoryIntegrity_(vehicles);
+  assert.strictEqual(issues.length, 1);
+  assert.strictEqual(issues[0].type, 'missingModel');
+});
+test('不明なHoldステータスの行を検出する（例: 削除済みのdemo_reservedが残った行）', () => {
+  const vehicles = [{ commission: 'C-001', model: 'A4', holdStatus: 'demo_reserved' }];
+  const issues = sandbox.checkInventoryIntegrity_(vehicles);
+  assert.strictEqual(issues.length, 1);
+  assert.strictEqual(issues[0].type, 'unknownHoldStatus');
+});
+test('holdStatusが空欄・未設定は不整合として扱わない', () => {
+  const vehicles = [
+    { commission: 'C-001', model: 'A4', holdStatus: '' },
+    { commission: 'C-002', model: 'A6', holdStatus: null },
+    { commission: 'C-003', model: 'Q5' }
+  ];
+  assert.strictEqual(sandbox.checkInventoryIntegrity_(vehicles).length, 0);
+});
+test('複数の問題は種類ごとにすべて列挙される', () => {
+  const vehicles = [
+    { commission: 'C-001', model: 'A4', holdStatus: 'available' },
+    { commission: 'C-001', model: 'A4', holdStatus: 'available' },
+    { commission: 'C-002', model: '', holdStatus: 'unknown_status' }
+  ];
+  const issues = sandbox.checkInventoryIntegrity_(vehicles);
+  assert.strictEqual(issues.length, 3);
+  const types = [];
+  for (let i = 0; i < issues.length; i++) types.push(issues[i].type);
+  assert.strictEqual(types.sort().join(','), 'duplicateCommission,missingModel,unknownHoldStatus');
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
