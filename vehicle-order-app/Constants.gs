@@ -71,10 +71,13 @@ var PAID_OPTION_KEYS = VEHICLE_COLUMNS
 
 /**
  * Hold（予約）・受注確定の共通入力項目。
- * リード番号／登録月／担当者／顧客／下取車の有無／OSS登録の可否／保険加入の有無。
+ * 販売拠点／リード番号／登録月／担当者／顧客／下取車の有無／OSS登録の可否／保険加入の有無。
  * すべて必須（Hold登録・受注確定は全項目入力しないと進められない）。
+ * 販売拠点はHold登録時、担当者マスタに登録された担当者本人の拠点名から自動的に
+ * 入力される（編集可。JavaScript.html の currentStaffLocation_ 参照）。
  */
 var HOLD_ORDER_INPUT_COLUMNS = [
+  { key: 'salesLocation', label: '販売拠点', type: 'text', required: true },
   { key: 'leadNumber', label: 'リード番号', type: 'text', required: true },
   { key: 'registeredMonth', label: '登録月', type: 'text', required: true },
   { key: 'staff', label: '担当者', type: 'text', required: true }, // 担当者マスタから選択（SettingsService参照）
@@ -111,11 +114,9 @@ var HOLD_COLUMNS = [
 ]);
 
 /**
- * 受注リスト列定義。車両情報＋販売拠点＋Hold・受注共通入力項目＋受注確定日時。
+ * 受注リスト列定義。車両情報＋Hold・受注共通入力項目（販売拠点を含む）＋受注確定日時。
  */
-var ORDER_COLUMNS = VEHICLE_COLUMNS.concat([
-  { key: 'salesLocation', label: '販売拠点', type: 'text', required: true }
-]).concat(HOLD_ORDER_INPUT_COLUMNS).concat([
+var ORDER_COLUMNS = VEHICLE_COLUMNS.concat(HOLD_ORDER_INPUT_COLUMNS).concat([
   { key: 'staffEmail', label: '担当者メール', type: 'text' },
   { key: 'orderedAt', label: '受注確定日時', type: 'datetime' },
   // デモカー確定（設定タブのデモカー予約から確定した受注）かどうか。
@@ -155,6 +156,7 @@ function orderColIndex1(key) {
 // ===== Script Properties キー（設定機能） =====
 var PROP_KEYS = {
   THEME_COLOR: 'THEME_COLOR',
+  TEXT_COLOR: 'TEXT_COLOR',
   LOGO_URL: 'LOGO_URL',
   NOTIFY_HOLD_MAIL_TO: 'NOTIFY_HOLD_MAIL_TO',
   NOTIFY_ORDER_MAIL_TO: 'NOTIFY_ORDER_MAIL_TO',
@@ -162,6 +164,7 @@ var PROP_KEYS = {
 };
 
 var DEFAULT_THEME_COLOR = '#1a73e8'; // Google Material Design Blue 600
+var DEFAULT_TEXT_COLOR = '#202124'; // 基本の文字色（Google Material Design相当のダークグレー）
 
 // ロゴ（画像URL、またはアップロード時のdata URL）の最大文字数。
 // Script Propertiesは1プロパティあたり9KB（=9216文字程度）が上限のため、

@@ -267,6 +267,7 @@
     var leadNumber = v[prefix + 'LeadNumber'];
     var staff = v[prefix + 'Staff'];
     var customer = v[prefix + 'Customer'];
+    var salesLocation = v[prefix + 'SalesLocation'];
     var registeredMonth = v[prefix + 'RegisteredMonth'];
     var tradeIn = v[prefix + 'TradeIn'];
     var oss = v[prefix + 'Oss'];
@@ -280,7 +281,7 @@
       '<span class="card__holdInfo__label">' + label + '</span>' +
       '<button class="card__holdInfo__cancel" type="button" data-cancel-hold="' + escapeHtml(v.commission) + '" data-cancel-rank="' + cancelRank + '">解除</button>' +
       '</div>' +
-      '<div class="card__holdInfo__row"><b>' + escapeHtml(customer || '-') + '</b>（担当者 ' + escapeHtml(staff || '-') + '）</div>' +
+      '<div class="card__holdInfo__row"><b>' + escapeHtml(customer || '-') + '</b>（担当者 ' + escapeHtml(staff || '-') + '・' + escapeHtml(salesLocation || '-') + '）</div>' +
       holdTimerHtml_(createdAt, expiresAt) +
       '<details class="card__holdInfo__details">' +
       '<summary>詳細</summary>' +
@@ -454,6 +455,12 @@
     return state.bootstrap && state.bootstrap.currentStaffName;
   }
 
+  // ログイン中の担当者が担当者マスタに登録している拠点名（未登録ならnull）。
+  // Hold登録・2nd Hold登録・受注確定モーダルの「販売拠点」欄の初期値に使う。
+  function currentStaffLocation_() {
+    return (state.bootstrap && state.bootstrap.currentStaffLocation) || '';
+  }
+
   function currentUserEmail_() {
     return (state.bootstrap && state.bootstrap.currentUserEmail) || '';
   }
@@ -506,7 +513,6 @@
     panel.classList.add('modal__panel--' + ACTION_LABELS[type].tone);
     submitBtn.disabled = false;
     $('actionModalError').classList.add('hidden');
-    $('actionSalesLocationField').classList.toggle('hidden', ORDER_TYPES.indexOf(type) === -1);
 
     var vehicle = findVehicleByCommission(commission);
     var isOrderFromHold = type === 'orderFromHold' && vehicle;
@@ -515,8 +521,11 @@
       prefill = {
         // 入力欄には数字部分のみを表示する（「L-」は固定接頭辞として画面側に表示済み）
         leadNumber: String(vehicle.holdLeadNumber || '').replace(/^L-/i, ''),
-        registeredMonth: vehicle.holdRegisteredMonth,
+        // 登録月はHold登録時点の月ではなく、受注確定を行う「今月」を既定値にする
+        // （Holdからしばらく経ってから受注確定するケースがあるため）。
+        registeredMonth: currentYearMonth(),
         customer: vehicle.holdCustomer,
+        salesLocation: vehicle.holdSalesLocation,
         tradeIn: vehicle.holdTradeIn,
         oss: vehicle.holdOss,
         insurance: vehicle.holdInsurance,
@@ -524,9 +533,17 @@
       };
     } else if (type === 'demoOrder') {
       // デモカー確定は入力の手間を減らすため、よくある値をあらかじめ入れておく（編集可）
-      prefill = { leadNumber: '', registeredMonth: currentYearMonth(), customer: 'デモカー', tradeIn: 'なし', oss: '不可', insurance: 'なし', paymentMethod: '現金' };
+      prefill = {
+        leadNumber: '', registeredMonth: currentYearMonth(), customer: 'デモカー',
+        salesLocation: currentStaffLocation_(), tradeIn: 'なし', oss: '不可', insurance: 'なし', paymentMethod: '現金'
+      };
     } else {
-      prefill = { leadNumber: '', registeredMonth: currentYearMonth(), customer: '', tradeIn: '', oss: '', insurance: '', paymentMethod: '' };
+      // Hold登録・2nd Hold登録・新規の受注確定は、担当者マスタに登録された
+      // ログイン中の担当者本人の拠点名を販売拠点欄の初期値にする（編集可）。
+      prefill = {
+        leadNumber: '', registeredMonth: currentYearMonth(), customer: '',
+        salesLocation: currentStaffLocation_(), tradeIn: '', oss: '', insurance: '', paymentMethod: ''
+      };
     }
 
     $('actionStaffDisplay').innerHTML = staffDisplayHtml_();
@@ -543,7 +560,7 @@
     }
     submitBtn.disabled = !!staffMismatch;
 
-    $('actionSalesLocation').value = '';
+    $('actionSalesLocation').value = prefill.salesLocation || '';
     $('actionLeadNumber').value = prefill.leadNumber || '';
     $('actionRegisteredMonth').value = prefill.registeredMonth || currentYearMonth();
     $('actionCustomer').value = prefill.customer || '';
@@ -623,11 +640,12 @@
   });
 
   /**
-   * Hold登録・受注確定は全項目の入力が必須。未入力の項目があればラベルを列挙して返す。
-   * 担当者（staff）はログイン中のGoogleアカウントから自動設定されるため、
-   * ここでの入力必須チェックからは除外する（openActionModalで別途チェック済み）。
+   * Hold登録・受注確定は全項目（販売拠点を含む）の入力が必須。
+   * 未入力の項目があればラベルを列挙して返す。担当者（staff）はログイン中の
+   * Googleアカウントから自動設定されるため、ここでの入力必須チェックからは除外する
+   * （openActionModalで別途チェック済み）。
    */
-  function validateActionForm_(action) {
+  function validateActionForm_() {
     var missing = [];
     var columns = (state.bootstrap && state.bootstrap.holdOrderInputColumns) || [];
     columns.forEach(function (c) {
@@ -635,10 +653,6 @@
       var field = $(actionFieldId_(c.key));
       if (!field || !field.value || !String(field.value).trim()) missing.push(c.label);
     });
-    if (ORDER_TYPES.indexOf(action.type) !== -1) {
-      var slCol = (state.bootstrap && state.bootstrap.salesLocationColumn) || { label: '販売拠点' };
-      if (!$('actionSalesLocation').value.trim()) missing.push(slCol.label);
-    }
     return missing;
   }
 
@@ -647,7 +661,7 @@
     var btn = this;
     var action = state.action;
 
-    var missing = validateActionForm_(action);
+    var missing = validateActionForm_();
     if (missing.length) {
       var errEl = $('actionModalError');
       errEl.textContent = '次の項目を入力してください: ' + missing.join('、');
@@ -793,14 +807,17 @@
   function renderSettings(settings) {
     $('settingsThemeColor').value = settings.themeColor;
     $('settingsThemeColorLabel').textContent = settings.themeColor;
+    $('settingsTextColor').value = settings.textColor;
+    $('settingsTextColorLabel').textContent = settings.textColor;
     $('settingsLogoUrl').value = settings.logoUrl || '';
     $('settingsHoldMailTo').value = settings.notifyHoldMailTo;
     $('settingsOrderMailTo').value = settings.notifyOrderMailTo;
     applyTheme(settings.themeColor);
+    applyTextColor(settings.textColor);
     applyLogo(settings.logoUrl);
     renderLogoPreview_(settings.logoUrl);
 
-    state.staffList = (settings.staffList || []).map(function (s) { return { name: s.name || '', email: s.email || '' }; });
+    state.staffList = (settings.staffList || []).map(function (s) { return { name: s.name || '', email: s.email || '', location: s.location || '' }; });
     $('staffListMax').textContent = (state.bootstrap && state.bootstrap.staffListMax) || 30;
     renderStaffList();
     populateOrdersStaffFilter_();
@@ -901,6 +918,15 @@
 
   function applyTheme(color) {
     document.documentElement.style.setProperty('--primary', color);
+  }
+
+  $('settingsTextColor').addEventListener('input', function () {
+    $('settingsTextColorLabel').textContent = this.value;
+    applyTextColor(this.value);
+  });
+
+  function applyTextColor(color) {
+    document.documentElement.style.setProperty('--on-surface', color);
   }
 
   // ----- ロゴ設定（画面上部に表示する画像。URLを直接指定するか、小さい画像を
@@ -1264,6 +1290,7 @@
         return '<div class="staffList__row">' +
           '<input type="text" class="input" data-staff-index="' + i + '" data-staff-field="name" placeholder="名前" value="' + escapeHtml(entry.name || '') + '">' +
           '<input type="email" class="input" data-staff-index="' + i + '" data-staff-field="email" placeholder="メールアドレス" value="' + escapeHtml(entry.email || '') + '">' +
+          '<input type="text" class="input" data-staff-index="' + i + '" data-staff-field="location" placeholder="拠点名" value="' + escapeHtml(entry.location || '') + '">' +
           '<button class="btn btn--icon" data-remove-staff="' + i + '" type="button" aria-label="削除">&times;</button>' +
           '</div>';
       }).join('');
@@ -1289,7 +1316,7 @@
   $('btnAddStaff').addEventListener('click', function () {
     var max = (state.bootstrap && state.bootstrap.staffListMax) || 30;
     if (state.staffList.length >= max) return;
-    state.staffList.push({ name: '', email: '' });
+    state.staffList.push({ name: '', email: '', location: '' });
     renderStaffList();
     var inputs = document.querySelectorAll('#staffList [data-staff-field="name"]');
     if (inputs.length) inputs[inputs.length - 1].focus();
@@ -1301,7 +1328,11 @@
     var max = (state.bootstrap && state.bootstrap.staffListMax) || 30;
     var cleaned = state.staffList
       .map(function (s) {
-        return { name: String((s && s.name) || '').trim(), email: String((s && s.email) || '').trim().toLowerCase() };
+        return {
+          name: String((s && s.name) || '').trim(),
+          email: String((s && s.email) || '').trim().toLowerCase(),
+          location: String((s && s.location) || '').trim()
+        };
       })
       .filter(function (s) { return s.name && s.email; });
     var seenEmails = {};
@@ -1319,6 +1350,7 @@
 
     var settings = {
       themeColor: $('settingsThemeColor').value,
+      textColor: $('settingsTextColor').value,
       logoUrl: $('settingsLogoUrl').value.trim(),
       notifyHoldMailTo: $('settingsHoldMailTo').value.trim(),
       notifyOrderMailTo: $('settingsOrderMailTo').value.trim(),

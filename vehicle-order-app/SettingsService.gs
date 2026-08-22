@@ -13,6 +13,7 @@ function getSettings() {
   var props = PropertiesService.getScriptProperties();
   return {
     themeColor: props.getProperty(PROP_KEYS.THEME_COLOR) || DEFAULT_THEME_COLOR,
+    textColor: props.getProperty(PROP_KEYS.TEXT_COLOR) || DEFAULT_TEXT_COLOR,
     logoUrl: props.getProperty(PROP_KEYS.LOGO_URL) || '',
     notifyHoldMailTo: props.getProperty(PROP_KEYS.NOTIFY_HOLD_MAIL_TO) || '',
     notifyOrderMailTo: props.getProperty(PROP_KEYS.NOTIFY_ORDER_MAIL_TO) || '',
@@ -24,6 +25,7 @@ function saveSettings(settings) {
   var logoUrl = validateLogoUrl_(settings && settings.logoUrl);
   var props = PropertiesService.getScriptProperties();
   props.setProperty(PROP_KEYS.THEME_COLOR, settings.themeColor || DEFAULT_THEME_COLOR);
+  props.setProperty(PROP_KEYS.TEXT_COLOR, settings.textColor || DEFAULT_TEXT_COLOR);
   props.setProperty(PROP_KEYS.LOGO_URL, logoUrl);
   props.setProperty(PROP_KEYS.NOTIFY_HOLD_MAIL_TO, settings.notifyHoldMailTo || '');
   props.setProperty(PROP_KEYS.NOTIFY_ORDER_MAIL_TO, settings.notifyOrderMailTo || '');
@@ -48,10 +50,9 @@ function validateLogoUrl_(logoUrl) {
 }
 
 /**
- * 担当者マスタを { name, email } の配列で返す。
- * 旧形式（名前の文字列だけの配列）が保存されている場合も読み取れるようにしておく
- * （email は空文字になるため、その担当者はログイン紐付けが効くよう設定画面で
- * メールアドレスを再登録する必要がある）。
+ * 担当者マスタを { name, email, location } の配列で返す。
+ * 旧形式（名前の文字列だけの配列、またはlocationを持たない { name, email }）が
+ * 保存されている場合も読み取れるようにしておく（email/locationは空文字になる）。
  */
 function getStaffList_() {
   var raw = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.STAFF_LIST);
@@ -64,15 +65,19 @@ function getStaffList_() {
   }
   if (!Array.isArray(list)) return [];
   return list.map(function (entry) {
-    if (typeof entry === 'string') return { name: entry, email: '' };
-    return { name: (entry && entry.name) || '', email: (entry && entry.email) || '' };
+    if (typeof entry === 'string') return { name: entry, email: '', location: '' };
+    return {
+      name: (entry && entry.name) || '',
+      email: (entry && entry.email) || '',
+      location: (entry && entry.location) || ''
+    };
   });
 }
 
 /**
  * 担当者マスタの正規化（純粋関数）。
  * 名前・メールアドレスがともに空の行は除去し、メールアドレス（大文字小文字を無視）で
- * 重複除去したうえ、最大人数（STAFF_LIST_MAX）を超えていればエラー。
+ * 重複除去したうえ、最大人数（STAFF_LIST_MAX）を超えていればエラー。拠点名は未入力でもよい。
  */
 function normalizeStaffList_(list) {
   list = Array.isArray(list) ? list : [];
@@ -81,10 +86,11 @@ function normalizeStaffList_(list) {
   list.forEach(function (entry) {
     var name = String((entry && entry.name) || '').trim();
     var email = String((entry && entry.email) || '').trim().toLowerCase();
+    var location = String((entry && entry.location) || '').trim();
     if (!name || !email) return;
     if (seenEmails[email]) return;
     seenEmails[email] = true;
-    result.push({ name: name, email: email });
+    result.push({ name: name, email: email, location: location });
   });
   if (result.length > STAFF_LIST_MAX) {
     throw new Error('担当者マスタは最大' + STAFF_LIST_MAX + '人までです（現在' + result.length + '人）');
@@ -93,15 +99,22 @@ function normalizeStaffList_(list) {
 }
 
 /**
- * 担当者マスタからメールアドレス（大文字小文字を無視）で担当者名を検索する（純粋関数）。
- * 見つからない場合は null。
+ * 担当者マスタからメールアドレス（大文字小文字を無視）で担当者（{name, email, location}）を
+ * 検索する（純粋関数）。見つからない場合は null。
  */
-function resolveStaffNameByEmail_(staffList, email) {
+function findStaffByEmail_(staffList, email) {
   if (!email) return null;
   var normalized = String(email).trim().toLowerCase();
-  var match = (staffList || []).find(function (s) {
+  return (staffList || []).find(function (s) {
     return s && s.email && String(s.email).trim().toLowerCase() === normalized;
-  });
+  }) || null;
+}
+
+/**
+ * 担当者マスタからメールアドレスで担当者名を検索する（純粋関数）。見つからない場合は null。
+ */
+function resolveStaffNameByEmail_(staffList, email) {
+  var match = findStaffByEmail_(staffList, email);
   return match ? match.name : null;
 }
 

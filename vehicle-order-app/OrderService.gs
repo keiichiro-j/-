@@ -12,16 +12,13 @@
 /**
  * 受注を確定し、在庫リストの行を受注リストへ移行する。
  * @param {string} commission
- * @param {Object} info { salesLocation, leadNumber, registeredMonth, customer, tradeIn, oss, insurance }
+ * @param {Object} info { salesLocation, leadNumber, registeredMonth, customer, tradeIn, oss, insurance, paymentMethod }
  */
 function confirmOrder(commission, info) {
   var currentStaff = requireCurrentStaff_();
   info = Object.assign({}, info, { staff: currentStaff.name, staffEmail: currentStaff.email });
   var inputCheck = validateRequiredInfo_(HOLD_ORDER_INPUT_COLUMNS, info);
   if (!inputCheck.ok) throw new Error(inputCheck.reason);
-  if (!info.salesLocation || !String(info.salesLocation).trim()) {
-    throw new Error('販売拠点を入力してください');
-  }
   info.leadNumber = normalizeLeadNumber_(info.leadNumber);
 
   var lock = LockService.getScriptLock();
@@ -39,7 +36,7 @@ function confirmOrder(commission, info) {
     var check = canConfirmOrder_(vehicle, holds.first, currentStaff.email);
     if (!check.ok) throw new Error(check.reason);
 
-    var order = { salesLocation: info.salesLocation, orderedAt: new Date().getTime() };
+    var order = { orderedAt: new Date().getTime() };
     HOLD_ORDER_INPUT_COLUMNS.forEach(function (c) { order[c.key] = info[c.key]; });
     order.staffEmail = info.staffEmail;
     order.isDemo = deriveOrderIsDemo_(vehicle);

@@ -9,6 +9,7 @@
 function api_getBootstrapData() {
   var email = Session.getActiveUser().getEmail();
   var settings = getSettings();
+  var staffMatch = findStaffByEmail_(settings.staffList, email);
   return {
     steeringOptions: STEERING_OPTIONS,
     stockDisclosureOptions: STOCK_DISCLOSURE_OPTIONS,
@@ -17,13 +18,14 @@ function api_getBootstrapData() {
     paymentMethodOptions: PAYMENT_METHOD_OPTIONS,
     paidOptionKeys: PAID_OPTION_KEYS,
     holdOrderInputColumns: HOLD_ORDER_INPUT_COLUMNS,
-    salesLocationColumn: { key: 'salesLocation', label: '販売拠点', required: true },
     staffListMax: STAFF_LIST_MAX,
     settings: settings,
     currentUserEmail: email,
-    // ログイン中のGoogleアカウントに対応する担当者名（未登録なら null）。
-    // Hold登録・2nd Hold登録・受注確定・Hold解除の担当者欄はこれを自動的に使う。
-    currentStaffName: resolveStaffNameByEmail_(settings.staffList, email)
+    // ログイン中のGoogleアカウントに対応する担当者名・登録拠点（未登録ならどちらもnull）。
+    // Hold登録・2nd Hold登録・受注確定・Hold解除の担当者欄、および販売拠点欄の初期値は
+    // これらを自動的に使う。
+    currentStaffName: staffMatch ? staffMatch.name : null,
+    currentStaffLocation: staffMatch ? (staffMatch.location || '') : null
   };
 }
 

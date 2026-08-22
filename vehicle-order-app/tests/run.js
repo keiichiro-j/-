@@ -180,7 +180,7 @@ test('1st Holdを解除する場合、2nd Holdがあれば繰り上げ(promote)�
 
 console.log('== HoldService: validateRequiredInfo_（全項目入力チェック） ==');
 const fullInfo = {
-  leadNumber: 'L-001', registeredMonth: '2026-08', staff: '佐藤', staffEmail: 'sato@example.com', customer: '山田太郎',
+  salesLocation: '東京本店', leadNumber: 'L-001', registeredMonth: '2026-08', staff: '佐藤', staffEmail: 'sato@example.com', customer: '山田太郎',
   tradeIn: 'あり', oss: '可', insurance: 'あり', paymentMethod: '現金'
 };
 test('全項目入力済みならOK', () => {
@@ -197,6 +197,12 @@ test('支払方法が未入力だとNG', () => {
   const result = sandbox.validateRequiredInfo_(sandbox.HOLD_ORDER_INPUT_COLUMNS, info);
   assert.strictEqual(result.ok, false);
   assert.ok(result.reason.includes('支払方法'));
+});
+test('販売拠点が未入力だとNG（Hold登録時にも必須）', () => {
+  const info = Object.assign({}, fullInfo, { salesLocation: '' });
+  const result = sandbox.validateRequiredInfo_(sandbox.HOLD_ORDER_INPUT_COLUMNS, info);
+  assert.strictEqual(result.ok, false);
+  assert.ok(result.reason.includes('販売拠点'));
 });
 test('複数項目が未入力だとすべて列挙される', () => {
   const result = sandbox.validateRequiredInfo_(sandbox.HOLD_ORDER_INPUT_COLUMNS, {});
@@ -249,6 +255,7 @@ test('buildHoldRecord_ が入力項目一式を1行分のレコードに詰め�
   const record = sandbox.buildHoldRecord_('C-001', sandbox.HOLD_RANK.FIRST, fullInfo, 1000, 1000 + sandbox.HOLD_DURATION_MS);
   assert.strictEqual(record.commission, 'C-001');
   assert.strictEqual(record.rank, '1st');
+  assert.strictEqual(record.salesLocation, '東京本店');
   assert.strictEqual(record.leadNumber, 'L-001');
   assert.strictEqual(record.staffEmail, 'sato@example.com');
   assert.strictEqual(record.createdAt, 1000);
@@ -415,20 +422,26 @@ test('objectToRow_はdatetime型の数値をDateへ戻すが、date型の文字�
   assert.strictEqual(row[1].getTime(), now);
 });
 
-console.log('== SettingsService: normalizeStaffList_（担当者マスタ最大30人・{name,email}形式） ==');
+console.log('== SettingsService: normalizeStaffList_（担当者マスタ最大30人・{name,email,location}形式） ==');
 test('名前・メールがともに空、メール重複は除去される', () => {
   const list = sandbox.normalizeStaffList_([
-    { name: '佐藤', email: 'sato@example.com' },
+    { name: '佐藤', email: 'sato@example.com', location: '東京本店' },
     { name: '', email: '' },
     { name: '佐藤(重複)', email: 'Sato@Example.com' }, // 大文字小文字違いも同一メールとして扱う
     { name: '鈴木', email: '' }, // メール未入力は除去
-    { name: ' 伊藤 ', email: ' ito@example.com ' }
+    { name: ' 伊藤 ', email: ' ito@example.com ', location: ' 大阪支店 ' }
   ]);
   assert.strictEqual(list.length, 2);
   assert.strictEqual(list[0].name, '佐藤');
   assert.strictEqual(list[0].email, 'sato@example.com');
+  assert.strictEqual(list[0].location, '東京本店');
   assert.strictEqual(list[1].name, '伊藤');
   assert.strictEqual(list[1].email, 'ito@example.com');
+  assert.strictEqual(list[1].location, '大阪支店');
+});
+test('拠点名は未入力でも登録できる（空文字のまま保持）', () => {
+  const list = sandbox.normalizeStaffList_([{ name: '高橋', email: 'takahashi@example.com' }]);
+  assert.strictEqual(list[0].location, '');
 });
 test('30人まではそのまま登録できる', () => {
   const list = Array.from({ length: 30 }, (_, i) => ({ name: 'スタッフ' + i, email: 'staff' + i + '@example.com' }));
@@ -460,6 +473,24 @@ test('一致する担当者がいなければnull', () => {
 test('メールアドレスが空ならnull', () => {
   assert.strictEqual(sandbox.resolveStaffNameByEmail_(staffListWithEmails, ''), null);
   assert.strictEqual(sandbox.resolveStaffNameByEmail_(staffListWithEmails, null), null);
+});
+
+console.log('== SettingsService: findStaffByEmail_（担当者本体を検索。拠点名の自動反映に使う） ==');
+const staffListWithLocations = [
+  { name: '佐藤', email: 'sato@example.com', location: '東京本店' },
+  { name: '鈴木', email: 'suzuki@example.com', location: '' }
+];
+test('メールアドレスが一致する担当者（拠点名を含む）を返す', () => {
+  const match = sandbox.findStaffByEmail_(staffListWithLocations, 'sato@example.com');
+  assert.strictEqual(match.name, '佐藤');
+  assert.strictEqual(match.location, '東京本店');
+});
+test('拠点名が未登録の担当者は空文字のまま返る', () => {
+  const match = sandbox.findStaffByEmail_(staffListWithLocations, 'suzuki@example.com');
+  assert.strictEqual(match.location, '');
+});
+test('一致する担当者がいなければnull', () => {
+  assert.strictEqual(sandbox.findStaffByEmail_(staffListWithLocations, 'unknown@example.com'), null);
 });
 
 console.log('== SettingsService: validateLogoUrl_（ロゴ設定値の検証） ==');
