@@ -198,60 +198,74 @@
     </main>
   </div>
 
-  <!-- Hold / 2nd Hold / 受注 共通入力モーダル -->
+  <!-- Hold / 2nd Hold / 受注 共通入力モーダル（顧客情報→契約条件の2ステップ） -->
   <div class="modal hidden" id="actionModal">
     <div class="modal__panel modal__panel--wide">
       <div class="modal__header">
         <h2 id="actionModalTitle">Hold登録</h2>
         <button class="btn--icon" data-close-modal>&times;</button>
       </div>
+      <div class="modal__stepBar">
+        <div class="modal__stepBar__track"><div class="modal__stepBar__fill" id="actionStepFill"></div></div>
+        <div class="modal__stepBar__label" id="actionStepLabel">ステップ 1/2　顧客情報</div>
+      </div>
       <div class="modal__body">
         <div class="modal__error hidden" id="actionModalError"></div>
-        <div class="modal__grid">
-          <div class="formField formField--span2" id="actionSalesLocationField">
-            <label>販売拠点</label>
-            <input type="text" id="actionSalesLocation" class="input">
-          </div>
-          <div class="formField">
-            <label>リード番号</label>
-            <div class="leadNumberField">
-              <span class="leadNumberField__prefix">L-</span>
-              <input type="text" id="actionLeadNumber" class="input leadNumberField__input" inputmode="numeric" pattern="[0-9]*" maxlength="14">
+
+        <div class="modal__step" id="actionStep1">
+          <div class="modal__grid">
+            <div class="formField formField--span2" id="actionSalesLocationField">
+              <label>販売拠点</label>
+              <input type="text" id="actionSalesLocation" class="input">
+            </div>
+            <div class="formField">
+              <label>リード番号</label>
+              <div class="leadNumberField">
+                <span class="leadNumberField__prefix">L-</span>
+                <input type="text" id="actionLeadNumber" class="input leadNumberField__input" inputmode="numeric" pattern="[0-9]*" maxlength="14">
+              </div>
+            </div>
+            <div class="formField">
+              <label>顧客</label>
+              <input type="text" id="actionCustomer" class="input">
+            </div>
+            <div class="formField formField--span2">
+              <label>担当者（自動設定）</label>
+              <div class="staffDisplay" id="actionStaffDisplay"></div>
             </div>
           </div>
-          <div class="formField">
-            <label>登録月</label>
-            <input type="month" id="actionRegisteredMonth" class="input">
-          </div>
-          <div class="formField">
-            <label>顧客</label>
-            <input type="text" id="actionCustomer" class="input">
-          </div>
-          <div class="formField">
-            <label>担当者（自動設定）</label>
-            <div class="staffDisplay" id="actionStaffDisplay"></div>
-          </div>
-          <div class="formField">
-            <label>下取車の有無</label>
-            <select id="actionTradeIn" class="input"></select>
-          </div>
-          <div class="formField">
-            <label>OSS登録の可否</label>
-            <select id="actionOss" class="input"></select>
-          </div>
-          <div class="formField">
-            <label>保険加入の有無</label>
-            <select id="actionInsurance" class="input"></select>
-          </div>
-          <div class="formField">
-            <label>支払方法</label>
-            <select id="actionPaymentMethod" class="input"></select>
+        </div>
+
+        <div class="modal__step hidden" id="actionStep2">
+          <div class="modal__grid">
+            <div class="formField">
+              <label>登録月</label>
+              <input type="month" id="actionRegisteredMonth" class="input">
+            </div>
+            <div class="formField">
+              <label>下取車の有無</label>
+              <select id="actionTradeIn" class="input"></select>
+            </div>
+            <div class="formField">
+              <label>OSS登録の可否</label>
+              <select id="actionOss" class="input"></select>
+            </div>
+            <div class="formField">
+              <label>保険加入の有無</label>
+              <select id="actionInsurance" class="input"></select>
+            </div>
+            <div class="formField">
+              <label>支払方法</label>
+              <select id="actionPaymentMethod" class="input"></select>
+            </div>
           </div>
         </div>
       </div>
       <div class="modal__footer">
-        <button class="btn" data-close-modal>キャンセル</button>
-        <button class="btn btn--primary" id="btnActionSubmit">登録</button>
+        <button class="btn" data-close-modal id="btnActionCancel">キャンセル</button>
+        <button class="btn hidden" type="button" id="btnActionBack">戻る</button>
+        <button class="btn btn--primary" type="button" id="btnActionNext">次へ</button>
+        <button class="btn btn--primary hidden" id="btnActionSubmit">登録</button>
       </div>
     </div>
   </div>

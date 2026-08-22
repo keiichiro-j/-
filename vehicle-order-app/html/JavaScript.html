@@ -217,9 +217,12 @@
       badges += '<span class="badge badge--thisMonth">当月登録可能</span>';
     }
 
-    // 横長カードでも読みやすいよう、メタ情報は2列のミニグリッドで表示する
-    // （1列の縦積みだとカードが縦に伸びてしまい、3列レイアウトに向かないため）。
-    var meta = '<dl class="card__metaGrid">' +
+    // 商談中に「対象の1台」をスクロールしながら探す動線では、一次情報を
+    // モデル・コミッション・ステータス（card__top）に絞り、残りのスペックは
+    // Hold情報の詳細（card__holdInfo__details）と同じ折りたたみパターンに揃える。
+    var meta = '<details class="card__specDetails">' +
+      '<summary>車両スペックを見る</summary>' +
+      '<dl class="card__metaGrid">' +
       metaRow_('MP', v.mp) +
       metaRow_('ステア', v.steering) +
       metaRow_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
@@ -227,7 +230,7 @@
       metaRow_('入港予定日', v.arrivalExpectedDate) +
       metaRow_('可能月', v.registrableMonth) +
       metaRow_('VPC', v.vpc) +
-      '</dl>';
+      '</dl></details>';
 
     // Hold状況の表示エリアは高さ固定（.card__holdArea）。Hold・2nd Holdが増えても
     // エリア内でスクロールするだけで、カード自体の高さは常に一定に保たれる。
@@ -375,39 +378,47 @@
     renderInventory();
   });
 
-  // 表形式表示: 多台数を一覧で見比べたい商談向けの高密度ビュー。
+  // 表示形式「表」: 多台数を一覧で見比べたい商談向けの高密度ビュー。
+  // 素のtableではなく、カードグリッドと同じ「カードタイプUI」の見た目（角丸・影・
+  // ホバーで浮き上がる）を保ったまま、1台=横1行に並べる。
   // Hold詳細（顧客・タイマー等）はカード表示に譲り、こちらはスペック比較の速さを優先する。
-  function vehicleTableHtml(items) {
-    var rows = items.map(function (v) {
-      var isHold = v.holdStatus === 'hold';
-      var isComparing = isComparingCommission_(v.commission);
-      var actions = isHold
-        ? ('<button class="btn btn--small btn--primary" data-order-from-hold="' + escapeHtml(v.commission) + '">受注確定</button>' +
-           (!v.secondHoldCustomer ? '<button class="btn btn--small" data-second-hold="' + escapeHtml(v.commission) + '">2nd Hold</button>' : ''))
-        : ('<button class="btn btn--small" data-hold="' + escapeHtml(v.commission) + '">Hold</button>' +
-           '<button class="btn btn--small btn--primary" data-order="' + escapeHtml(v.commission) + '">受注</button>');
-      var statusBadge = isHold
-        ? '<span class="badge badge--hold"><span class="badge__dot"></span>Hold中</span>'
-        : '<span class="badge badge--available"><span class="badge__dot"></span>在庫あり</span>';
-      return '<tr>' +
-        '<td><label class="tableComparePin"><input type="checkbox" data-compare="' + escapeHtml(v.commission) + '"' + (isComparing ? ' checked' : '') + '></label></td>' +
-        '<td>' + escapeHtml(v.model) + '</td>' +
-        '<td class="mono">' + escapeHtml(v.commission) + '</td>' +
-        '<td>' + escapeHtml(v.mp) + '</td>' +
-        '<td>' + escapeHtml(v.steering) + '</td>' +
-        '<td>' + escapeHtml(v.exteriorColor) + ' / ' + escapeHtml(v.interiorColor) + '</td>' +
-        '<td>' + escapeHtml(paidOptionsText(v)) + '</td>' +
-        '<td class="mono">' + escapeHtml(v.arrivalExpectedDate) + '</td>' +
-        '<td class="mono">' + escapeHtml(v.registrableMonth) + '</td>' +
-        '<td class="mono">' + escapeHtml(v.vpc) + '</td>' +
-        '<td>' + statusBadge + '</td>' +
-        '<td class="tableActions">' + actions + '</td>' +
-        '</tr>';
-    }).join('');
-    return '<div class="tableScroll"><table class="inventoryTable">' +
-      '<thead><tr><th></th><th>モデル</th><th>コミッション</th><th>MP</th><th>ステア</th><th>カラー</th><th>有償OP</th>' +
-      '<th>入港予定日</th><th>可能月</th><th>VPC</th><th>状態</th><th></th></tr></thead>' +
-      '<tbody>' + rows + '</tbody></table></div>';
+  function rowField_(label, value) {
+    return '<div class="rowCard__field"><span class="rowCard__label">' + label + '</span>' +
+      '<span class="rowCard__value">' + escapeHtml(value || '-') + '</span></div>';
+  }
+
+  function vehicleRowCardHtml(v) {
+    var isHold = v.holdStatus === 'hold';
+    var isComparing = isComparingCommission_(v.commission);
+    var actions = isHold
+      ? ('<button class="btn btn--small btn--primary" data-order-from-hold="' + escapeHtml(v.commission) + '">受注確定</button>' +
+         (!v.secondHoldCustomer ? '<button class="btn btn--small" data-second-hold="' + escapeHtml(v.commission) + '">2nd Hold</button>' : ''))
+      : ('<button class="btn btn--small" data-hold="' + escapeHtml(v.commission) + '">Hold</button>' +
+         '<button class="btn btn--small btn--primary" data-order="' + escapeHtml(v.commission) + '">受注</button>');
+    var statusBadge = isHold
+      ? '<span class="badge badge--hold"><span class="badge__dot"></span>Hold中</span>'
+      : '<span class="badge badge--available"><span class="badge__dot"></span>在庫あり</span>';
+
+    return '<div class="rowCard ' + (isHold ? 'rowCard--hold' : 'rowCard--available') + '">' +
+      '<label class="rowCard__pin"><input type="checkbox" data-compare="' + escapeHtml(v.commission) + '"' + (isComparing ? ' checked' : '') + '></label>' +
+      '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(v.model) + '</span>' +
+      '<span class="rowCard__commission">' + escapeHtml(v.commission) + '</span></div>' +
+      rowField_('MP', v.mp) +
+      rowField_('ステア', v.steering) +
+      rowField_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
+      rowField_('有償OP', paidOptionsText(v)) +
+      rowField_('入港予定日', v.arrivalExpectedDate) +
+      rowField_('可能月', v.registrableMonth) +
+      rowField_('VPC', v.vpc) +
+      '<div class="rowCard__status">' + statusBadge + '</div>' +
+      '<div class="rowCard__actions">' + actions + '</div>' +
+      '</div>';
+  }
+
+  function vehicleRowsHtml(items) {
+    return '<div class="tableScroll"><div class="rowCardList">' +
+      items.map(vehicleRowCardHtml).join('') +
+      '</div></div>';
   }
 
   // Hold詳細ブロックは、常に見えている要約行（顧客・担当者・タイマー）と、
@@ -518,7 +529,7 @@
     $('inventoryEmpty').classList.toggle('hidden', items.length > 0);
     $('inventoryTotalCount').textContent = items.length ? '該当 ' + items.length + ' 台' : '';
     container.innerHTML = state.inventoryViewMode === 'table'
-      ? vehicleTableHtml(items)
+      ? vehicleRowsHtml(items)
       : '<div class="cardGrid">' + items.map(vehicleCardHtml).join('') + '</div>';
     syncComparePins_();
     syncFixedBars_();
@@ -640,6 +651,37 @@
     syncFixedBars_();
   });
 
+  // ===== 予約モーダルのステップ進捗（顧客情報→契約条件） =====
+  // スマホでの誤タップ・誤入力を減らすため、8項目を一度に出さず2ステップに分ける。
+  var ACTION_STEP1_KEYS = ['salesLocation', 'leadNumber', 'customer'];
+
+  function goToActionStep_(step) {
+    state.actionStep = step;
+    $('actionStep1').classList.toggle('hidden', step !== 1);
+    $('actionStep2').classList.toggle('hidden', step !== 2);
+    $('actionStepFill').style.width = step === 1 ? '50%' : '100%';
+    $('actionStepLabel').textContent = step === 1 ? 'ステップ 1/2　顧客情報' : 'ステップ 2/2　契約条件';
+    $('btnActionBack').classList.toggle('hidden', step !== 2);
+    $('btnActionNext').classList.toggle('hidden', step !== 1);
+    $('btnActionSubmit').classList.toggle('hidden', step !== 2);
+    $('actionModalError').classList.add('hidden');
+  }
+
+  $('btnActionNext').addEventListener('click', function () {
+    var missing = missingRequiredFieldLabels_(ACTION_STEP1_KEYS);
+    if (missing.length) {
+      var errEl = $('actionModalError');
+      errEl.textContent = '次の項目を入力してください: ' + missing.join('、');
+      errEl.classList.remove('hidden');
+      return;
+    }
+    goToActionStep_(2);
+  });
+
+  $('btnActionBack').addEventListener('click', function () {
+    goToActionStep_(1);
+  });
+
   function openActionModal(type, commission) {
     var currentStaff = currentStaffName_();
     if (!currentStaff) {
@@ -659,6 +701,7 @@
     panel.classList.add('modal__panel--' + ACTION_LABELS[type].tone);
     submitBtn.disabled = false;
     $('actionModalError').classList.add('hidden');
+    goToActionStep_(1);
 
     var vehicle = findVehicleByCommission(commission);
     var isOrderFromHold = type === 'orderFromHold' && vehicle;
@@ -785,15 +828,20 @@
    * Googleアカウントから自動設定されるため、ここでの入力必須チェックからは除外する
    * （openActionModalで別途チェック済み）。
    */
-  function validateActionForm_() {
+  function missingRequiredFieldLabels_(filterKeys) {
     var missing = [];
     var columns = (state.bootstrap && state.bootstrap.holdOrderInputColumns) || [];
     columns.forEach(function (c) {
       if (!c.required || c.key === 'staff') return;
+      if (filterKeys && filterKeys.indexOf(c.key) === -1) return;
       var field = $(actionFieldId_(c.key));
       if (!field || !field.value || !String(field.value).trim()) missing.push(c.label);
     });
     return missing;
+  }
+
+  function validateActionForm_() {
+    return missingRequiredFieldLabels_(null);
   }
 
   $('btnActionSubmit').addEventListener('click', function () {

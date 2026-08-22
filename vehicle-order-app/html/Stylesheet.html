@@ -312,14 +312,39 @@
   .compareTable__sub { font-size: 11px; font-weight: 500; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; margin-top: 2px; }
   .compareTable tr.is-diff td { background: var(--primary-bg); }
 
-  /* ===== 在庫リストの表形式表示（多台数を一覧で見比べる商談向けビュー） ===== */
-  .inventoryTable { width: 100%; border-collapse: collapse; font-size: 13.5px; background: var(--surface); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
-  .inventoryTable th, .inventoryTable td { padding: 12px 14px; border-bottom: 1px solid var(--outline); text-align: left; white-space: nowrap; }
-  .inventoryTable thead th { color: var(--on-surface-variant); font-size: 11.5px; font-weight: 700; letter-spacing: .03em; background: var(--background); }
-  .inventoryTable tbody tr:hover td { background: var(--background); }
-  .inventoryTable tbody tr:last-child td { border-bottom: none; }
-  .inventoryTable .mono { font-variant-numeric: tabular-nums; color: var(--on-surface-variant); }
-  .inventoryTable .tableActions { display: flex; gap: 8px; }
+  /* ===== 在庫リストの表示形式「表」（多台数を一覧で見比べる商談向けビュー） =====
+     素のtableではなく、カードグリッドと同じ「カードタイプUI」（角丸・影・ホバーで
+     浮き上がる）を保ったまま、1台=横1行のカードとして並べる。列位置はCSS Gridで
+     全行そろえ、表形式ならではの一覧性はそのまま保つ。 */
+  .rowCardList { display: flex; flex-direction: column; gap: 10px; min-width: 1080px; }
+  .rowCard {
+    display: grid;
+    grid-template-columns: 30px 1.5fr 68px 46px 1.2fr 1.1fr 96px 84px 88px 108px auto;
+    align-items: center;
+    gap: 16px;
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-left: 4px solid transparent;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 14px 20px;
+    transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
+  }
+  .rowCard:hover { box-shadow: var(--shadow-elevated); transform: translateY(-2px); border-color: transparent; }
+  .rowCard--available { border-left-color: var(--success); }
+  .rowCard--hold { border-left-color: var(--warning); }
+  .rowCard__pin { display: flex; justify-content: center; }
+  .rowCard__field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .rowCard__label { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--on-surface-variant); }
+  .rowCard__value {
+    font-size: 13.5px; font-weight: 600; color: var(--on-surface);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .rowCard__model { font-size: 15px; font-weight: 700; letter-spacing: -.005em; }
+  .rowCard__commission { font-size: 11px; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; margin-top: 1px; }
+  .rowCard__status { display: flex; }
+  .rowCard__actions { display: flex; gap: 8px; justify-self: end; }
   .btn--small { padding: 6px 12px; font-size: 12.5px; }
 
   /* ===== カードグリッド（PCビューで3列固定。Google Material×Teslaの余白多め・
@@ -376,6 +401,24 @@
   .badge--location { background: var(--primary-bg); color: var(--primary); font-weight: 500; }
   .card__badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
 
+  /* 車両スペックは折りたたみ式にし、一次情報（モデル・コミッション・ステータス）だけで
+     対象車両を判断できるようにする（Hold情報の card__holdInfo__details と同じパターン）。 */
+  .card__specDetails {
+    margin: 0;
+    padding-top: 12px;
+    border-top: 1px solid var(--outline);
+  }
+  .card__specDetails summary {
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--primary);
+    list-style: none;
+  }
+  .card__specDetails summary::-webkit-details-marker { display: none; }
+  .card__specDetails summary::before { content: '▸ '; }
+  .card__specDetails[open] summary::before { content: '▾ '; }
+
   /* メタ情報は2列のミニグリッドで表示。ラベルは小さく大文字寄り・トラッキング広め、
      値は大きく太くというメリハリのある「テスラ風」の見出し表現で視認性を高める。 */
   .card__metaGrid {
@@ -383,9 +426,7 @@
     grid-template-columns: repeat(2, 1fr);
     gap: 12px 16px;
     margin: 0;
-    padding: 14px 0;
-    border-top: 1px solid var(--outline);
-    border-bottom: 1px solid var(--outline);
+    padding: 12px 0 0;
   }
   .card__metaGrid dt {
     color: var(--on-surface-variant);
@@ -717,6 +758,16 @@
      スクロールなしで全項目を入力できるようにする。 */
   .modal__grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 20px; }
   .formField--span2 { grid-column: 1 / -1; }
+
+  /* ===== 予約モーダルのステップ進捗（顧客情報→契約条件の2ステップ）=====
+     スマホでの入力ミスを減らすため、8項目を一度に出さず2ステップに分ける。
+     担当者はログインアカウントから自動判定済みのため、ステップが増えても
+     入力の手間自体は増えない。 */
+  .modal__stepBar { padding: 12px 20px 0; }
+  .modal__stepBar__track { height: 4px; border-radius: 999px; background: var(--outline); overflow: hidden; }
+  .modal__stepBar__fill { height: 100%; width: 50%; background: var(--primary); border-radius: 999px; transition: width .2s ease; }
+  .modal__panel--hold .modal__stepBar__fill { background: var(--warning); }
+  .modal__stepBar__label { margin-top: 6px; font-size: 12px; font-weight: 600; color: var(--on-surface-variant); }
   .modal__footer { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--outline); }
   .modal__error { color: var(--danger); font-size: 13px; }
   .modal__desc { margin: 0; font-size: 13px; color: var(--on-surface-variant); line-height: 1.6; }
