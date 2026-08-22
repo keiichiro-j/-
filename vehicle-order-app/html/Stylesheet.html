@@ -132,30 +132,6 @@
   }
   .toolbar__spacer { flex: 1; }
 
-  /* ===== 受注リストの「すべて／デモカーのみ」タブ =====
-     ツールバー内の先頭に幅いっぱいの行として置く（ツールバー自体は
-     syncFixedBars_ で高さを実測済みのため、ここに含めるだけで
-     固定表示・スペーサーの仕組みをそのまま利用できる）。 */
-  .subTabs { display: flex; gap: 6px; flex-basis: 100%; }
-  .subTabs__item {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    border: 1px solid var(--outline);
-    background: var(--surface);
-    color: var(--on-surface-variant);
-    padding: 7px 16px;
-    border-radius: 999px;
-    font-size: 13.5px;
-    font-weight: 500;
-    cursor: pointer;
-  }
-  .subTabs__item.is-active {
-    background: var(--primary-bg);
-    border-color: var(--primary);
-    color: var(--primary);
-  }
-
   .input {
     border: 1px solid var(--outline);
     border-radius: 8px;
@@ -423,7 +399,6 @@
   .orderCard__top { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 10px; }
   .orderCard__top .card__badges { margin-left: auto; }
   .orderCard__top .card__badges .badge { margin-left: 0; }
-  .badge--demo { background: var(--primary-bg); color: var(--primary); font-weight: 700; }
   .orderCard__model { font-size: 21px; font-weight: 700; letter-spacing: -.01em; line-height: 1.25; }
   .orderCard__staff { font-size: 13.5px; font-weight: 600; color: var(--on-surface-variant); margin-top: 3px; }
   .orderCard__leadNumber {
@@ -528,26 +503,6 @@
   .staffList__row .input[data-staff-field="email"] { flex: 1 1 40%; min-width: 0; }
   .staffList__row .input[data-staff-field="location"] { flex: 0 0 22%; min-width: 90px; }
   .staffList__empty { font-size: 13px; color: var(--on-surface-variant); }
-
-  /* ===== デモカー予約 ===== */
-  .demoReserveField { display: flex; gap: 10px; }
-  .demoReserveField select { flex: 1; min-width: 0; }
-  .demoReservedList { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
-  .demoReservedList__empty { font-size: 13px; color: var(--on-surface-variant); }
-  .demoReservedList__row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 14px;
-    border: 1px solid var(--outline);
-    border-radius: 10px;
-    background: var(--background);
-  }
-  .demoReservedList__info { flex: 1; min-width: 0; }
-  .demoReservedList__model { font-weight: 700; font-size: 14.5px; }
-  .demoReservedList__meta { font-size: 12px; color: var(--on-surface-variant); margin-top: 1px; }
-  .demoReservedList__actions { display: flex; gap: 8px; flex: none; }
-  .demoReservedList__actions .btn { padding: 8px 14px; font-size: 13px; }
 
   /* ===== リード番号入力（「L-」固定接頭辞＋数字。Google×Tesla風の見出し扱いにする） ===== */
   .leadNumberField {

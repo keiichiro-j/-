@@ -14,9 +14,6 @@
 function searchInventory(vehicles, filters) {
   filters = filters || {};
   return vehicles.filter(function (v) {
-    // デモカー予約中の車両は、販売リストには表示しない
-    // （設定タブの「デモカー予約」一覧からのみ確認・操作する）。
-    if (v.holdStatus === HOLD_STATUS.DEMO_RESERVED) return false;
     if (filters.includeHold === false && v.holdStatus === HOLD_STATUS.HOLD) return false;
     if (filters.keyword && !matchesAnyField_(v, filters.keyword, ['model', 'commission'])) return false;
     return true;
@@ -29,14 +26,12 @@ function searchInventory(vehicles, filters) {
  * @param {Object} filters {
  *   keyword: string,        // モデル・コミッション・顧客名・担当・販売拠点に部分一致（自由検索）
  *   salesLocation: string,  // 販売拠点に部分一致（拠点ごとの検索）
- *   staff: string,          // 担当者に完全一致（担当者マスタから選択。担当者ごとの検索）
- *   demoOnly: boolean       // true の場合、デモカー確定（isDemo==='あり'）のみに絞り込む
+ *   staff: string           // 担当者に完全一致（担当者マスタから選択。担当者ごとの検索）
  * }
  */
 function searchOrders(orders, filters) {
   filters = filters || {};
   return orders.filter(function (o) {
-    if (filters.demoOnly && o.isDemo !== 'あり') return false;
     if (filters.keyword && !matchesAnyField_(o, filters.keyword, ['model', 'commission', 'customer', 'staff', 'salesLocation'])) return false;
     if (filters.salesLocation && !fieldContains_(o.salesLocation, filters.salesLocation)) return false;
     if (filters.staff && o.staff !== filters.staff) return false;

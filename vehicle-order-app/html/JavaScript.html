@@ -6,8 +6,7 @@
     bootstrap: null,
     inventoryItems: [],
     ordersGroups: [],
-    ordersDemoFilter: 'all', // 受注リストの「すべて／デモカーのみ」タブ
-    action: null, // { type: 'hold' | 'secondHold' | 'order' | 'orderFromHold' | 'demoOrder', commission }
+    action: null, // { type: 'hold' | 'secondHold' | 'order' | 'orderFromHold', commission }
     staffList: [] // 設定タブで編集中の担当者マスタ（作業用コピー）
   };
 
@@ -65,10 +64,10 @@
     showToast._t = setTimeout(function () { toast.classList.add('hidden'); }, 3200);
   }
 
-  // ===== 受注確定（デモカー確定を含む）時の紙吹雪演出 =====
+  // ===== 受注確定時の紙吹雪演出 =====
   // Hold登録・2nd Hold登録では何も表示しない。受注確定では文字・カードは出さず、
   // 盛大な紙吹雪だけを画面いっぱいに降らせる。
-  var CONFETTI_ACTION_TYPES = ['order', 'orderFromHold', 'demoOrder'];
+  var CONFETTI_ACTION_TYPES = ['order', 'orderFromHold'];
 
   function showCelebration_(actionType) {
     if (CONFETTI_ACTION_TYPES.indexOf(actionType) !== -1) triggerConfetti_();
@@ -138,10 +137,6 @@
     // 非表示（display: none）だった間はツールバーの実測高さが0になっているため、
     // 表示状態に切り替わった直後に再計測してスペーサーの高さを補正する。
     syncFixedBars_();
-    if (btn.dataset.tab === 'settings') {
-      loadDemoAvailableOptions_();
-      loadDemoReservedList_();
-    }
   });
 
   // ===== モーダル共通 =====
@@ -390,10 +385,9 @@
     hold: { title: 'Hold登録', button: 'Holdする', busyLabel: 'Hold登録中...', tone: 'hold' },
     secondHold: { title: '2nd Hold登録', button: '2nd Holdする', busyLabel: '登録中...', tone: 'hold' },
     order: { title: '受注確定', button: '受注確定する', busyLabel: '受注確定中...', tone: 'order' },
-    orderFromHold: { title: '受注確定', button: '受注確定する', busyLabel: '受注確定中...', tone: 'order' },
-    demoOrder: { title: 'デモカー確定', button: 'デモカー確定する', busyLabel: '確定中...', tone: 'order' }
+    orderFromHold: { title: '受注確定', button: '受注確定する', busyLabel: '受注確定中...', tone: 'order' }
   };
-  var ORDER_TYPES = ['order', 'orderFromHold', 'demoOrder'];
+  var ORDER_TYPES = ['order', 'orderFromHold'];
 
   function actionFieldId_(key) {
     return 'action' + key.charAt(0).toUpperCase() + key.slice(1);
@@ -482,12 +476,6 @@
         oss: vehicle.holdOss,
         insurance: vehicle.holdInsurance,
         paymentMethod: vehicle.holdPaymentMethod
-      };
-    } else if (type === 'demoOrder') {
-      // デモカー確定は入力の手間を減らすため、よくある値をあらかじめ入れておく（編集可）
-      prefill = {
-        leadNumber: '', registeredMonth: currentYearMonth(), customer: 'デモカー',
-        salesLocation: currentStaffLocation_(), tradeIn: 'なし', oss: '不可', insurance: 'なし', paymentMethod: '現金'
       };
     } else {
       // Hold登録・2nd Hold登録・新規の受注確定は、担当者マスタに登録された
@@ -658,10 +646,6 @@
       showCelebration_(action.type);
       loadInventory();
       if (ORDER_TYPES.indexOf(action.type) !== -1) loadOrders();
-      if (action.type === 'demoOrder') {
-        loadDemoReservedList_();
-        loadDemoAvailableOptions_();
-      }
     }).catch(function (err) {
       setButtonBusy(btn, false);
       var el = $('actionModalError');
@@ -675,8 +659,7 @@
     var filters = {
       keyword: $('ordersKeyword').value,
       salesLocation: $('ordersLocationFilter').value,
-      staff: $('ordersStaffFilter').value,
-      demoOnly: state.ordersDemoFilter === 'demo'
+      staff: $('ordersStaffFilter').value
     };
     var groupBy = $('ordersGroupBy').value;
     return gasRun('api_listOrders', filters, groupBy).then(function (groups) {
@@ -684,16 +667,6 @@
       renderOrders();
     }).catch(function (err) { showToast(err.message, true); });
   }
-
-  $('ordersSubTabs').addEventListener('click', function (e) {
-    var btn = e.target.closest('[data-orders-filter]');
-    if (!btn) return;
-    state.ordersDemoFilter = btn.dataset.ordersFilter;
-    document.querySelectorAll('#ordersSubTabs .subTabs__item').forEach(function (t) {
-      t.classList.toggle('is-active', t === btn);
-    });
-    loadOrders();
-  });
 
   function orderCardHtml(o) {
     // 受注リストは「誰が買ったか」がひと目でわかるよう、顧客名を大きな見出しにし、
@@ -704,7 +677,6 @@
       '<div class="orderCard__staff">担当者: ' + escapeHtml(o.staff || '-') + '</div>' +
       '<div class="orderCard__leadNumber">リード番号: ' + escapeHtml(o.leadNumber || '-') + '</div></div>' +
       '<div class="card__badges">' +
-      (o.isDemo === 'あり' ? '<span class="badge badge--demo"><svg class="icon icon--inline"><use href="#icon-car"></use></svg>デモカー</span>' : '') +
       '<span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span>' +
       '</div>' +
       '</div>' +
@@ -774,94 +746,6 @@
     renderStaffList();
     populateOrdersStaffFilter_();
   }
-
-  // ===== デモカー予約（設定タブ） =====
-  // 在庫あり車両を選んで一時的に販売リストから外す（Hold・担当者ロックは発生しない）。
-  // 予約済みの一覧から「デモカー確定」（受注リストへ計上）または「予約解除」ができる。
-  function loadDemoAvailableOptions_() {
-    return gasRun('api_listAvailableForDemo').then(function (vehicles) {
-      vehicles = vehicles || [];
-      var select = $('demoReserveSelect');
-      var current = select.value;
-      select.innerHTML = '';
-      if (!vehicles.length) {
-        select.appendChild(new Option('予約可能な在庫あり車両がありません', ''));
-        select.disabled = true;
-        $('btnReserveDemo').disabled = true;
-        return;
-      }
-      select.disabled = false;
-      $('btnReserveDemo').disabled = false;
-      vehicles.forEach(function (v) {
-        select.appendChild(new Option(v.model + '（' + v.commission + '）', v.commission));
-      });
-      if (vehicles.some(function (v) { return v.commission === current; })) select.value = current;
-    }).catch(function (err) { showToast(err.message, true); });
-  }
-
-  function loadDemoReservedList_() {
-    return gasRun('api_listDemoReservedVehicles').then(function (vehicles) {
-      renderDemoReservedList_(vehicles || []);
-    }).catch(function (err) { showToast(err.message, true); });
-  }
-
-  function renderDemoReservedList_(vehicles) {
-    var container = $('demoReservedList');
-    if (!vehicles.length) {
-      container.innerHTML = '<div class="demoReservedList__empty">現在デモカー予約中の車両はありません</div>';
-      return;
-    }
-    container.innerHTML = vehicles.map(function (v) {
-      return '<div class="demoReservedList__row">' +
-        '<div class="demoReservedList__info">' +
-        '<div class="demoReservedList__model">' + escapeHtml(v.model) + '</div>' +
-        '<div class="demoReservedList__meta">' + escapeHtml(v.commission) + (v.mp ? ' ・ ' + escapeHtml(v.mp) : '') + '</div>' +
-        '</div>' +
-        '<div class="demoReservedList__actions">' +
-        '<button class="btn btn--primary" data-demo-confirm="' + escapeHtml(v.commission) + '">デモカー確定</button>' +
-        '<button class="btn" data-demo-release="' + escapeHtml(v.commission) + '">予約解除</button>' +
-        '</div></div>';
-    }).join('');
-  }
-
-  $('demoReservedList').addEventListener('click', function (e) {
-    var confirmBtn = e.target.closest('[data-demo-confirm]');
-    var releaseBtn = e.target.closest('[data-demo-release]');
-    if (confirmBtn) {
-      openActionModal('demoOrder', confirmBtn.dataset.demoConfirm);
-    } else if (releaseBtn && !releaseBtn.disabled) {
-      setButtonBusy(releaseBtn, true, '解除中...');
-      gasRun('api_releaseDemoReservation', releaseBtn.dataset.demoRelease).then(function () {
-        showToast('デモカー予約を解除しました');
-        loadDemoReservedList_();
-        loadDemoAvailableOptions_();
-        loadInventory();
-      }).catch(function (err) {
-        setButtonBusy(releaseBtn, false);
-        showToast(err.message, true);
-      });
-    }
-  });
-
-  $('btnReserveDemo').addEventListener('click', function () {
-    if (this.disabled) return;
-    var btn = this;
-    var commission = $('demoReserveSelect').value;
-    if (!commission) return;
-    $('demoReserveError').classList.add('hidden');
-    setButtonBusy(btn, true, '予約中...');
-    gasRun('api_reserveDemoCar', commission).then(function () {
-      setButtonBusy(btn, false);
-      showToast('デモカーとして予約しました');
-      loadDemoAvailableOptions_();
-      loadDemoReservedList_();
-      loadInventory();
-    }).catch(function (err) {
-      setButtonBusy(btn, false);
-      $('demoReserveError').textContent = err.message;
-      $('demoReserveError').classList.remove('hidden');
-    });
-  });
 
   $('settingsThemeColor').addEventListener('input', function () {
     $('settingsThemeColorLabel').textContent = this.value;

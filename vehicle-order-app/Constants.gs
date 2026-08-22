@@ -20,10 +20,7 @@ var HOLD_DURATION_MS = 72 * 60 * 60 * 1000; // Hold期間 72時間
 
 var HOLD_STATUS = {
   AVAILABLE: 'available',
-  HOLD: 'hold',
-  // デモカーとして確保され、一時的に販売リストの対象から外れている状態。
-  // Holdとは異なり、Hold期限・担当者の概念を持たない（デモカー予約機能）。
-  DEMO_RESERVED: 'demo_reserved'
+  HOLD: 'hold'
 };
 
 var HOLD_RANK = {
@@ -93,7 +90,7 @@ var HOLD_ORDER_INPUT_COLUMNS = [
  * 車両情報＋Holdステータスのみ。Holdの詳細はHoldリストで別管理する。
  */
 var INVENTORY_COLUMNS = VEHICLE_COLUMNS.concat([
-  { key: 'holdStatus', label: 'Holdステータス', type: 'select', options: [HOLD_STATUS.AVAILABLE, HOLD_STATUS.HOLD, HOLD_STATUS.DEMO_RESERVED] }
+  { key: 'holdStatus', label: 'Holdステータス', type: 'select', options: [HOLD_STATUS.AVAILABLE, HOLD_STATUS.HOLD] }
 ]);
 
 /**
@@ -118,13 +115,7 @@ var HOLD_COLUMNS = [
  */
 var ORDER_COLUMNS = VEHICLE_COLUMNS.concat(HOLD_ORDER_INPUT_COLUMNS).concat([
   { key: 'staffEmail', label: '担当者メール', type: 'text' },
-  { key: 'orderedAt', label: '受注確定日時', type: 'datetime' },
-  // デモカー確定（設定タブのデモカー予約から確定した受注）かどうか。
-  // クライアントからの入力ではなく、受注確定時点の車両のHoldステータスから
-  // サーバー側で自動的に決まる（deriveOrderIsDemo_）。受注リストの
-  // 「デモカーのみ」タブでの絞り込みに使う。既存の受注リストシートには
-  // 末尾に列を1つ追加する必要がある（README参照）。
-  { key: 'isDemo', label: 'デモカー', type: 'select', options: YES_NO_OPTIONS }
+  { key: 'orderedAt', label: '受注確定日時', type: 'datetime' }
 ]);
 
 var INVENTORY_HEADER_ROW = INVENTORY_COLUMNS.map(function (c) { return c.label; });

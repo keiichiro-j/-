@@ -74,20 +74,3 @@ function api_getSettings() {
 function api_saveSettings(settings) {
   return saveSettings(settings);
 }
-
-// ===== デモカー予約機能（設定タブ） =====
-function api_listAvailableForDemo() {
-  return listAvailableForDemo();
-}
-
-function api_listDemoReservedVehicles() {
-  return listDemoReservedVehicles();
-}
-
-function api_reserveDemoCar(commission) {
-  return reserveDemoCar(commission);
-}
-
-function api_releaseDemoReservation(commission) {
-  return releaseDemoReservation(commission);
-}

@@ -34,9 +34,6 @@
 function canRegisterHold_(vehicle) {
   if (!vehicle) return { ok: false, reason: '該当車両が見つかりません' };
   if (vehicle.holdStatus === HOLD_STATUS.HOLD) return { ok: false, reason: 'この車両は既にHold中です' };
-  if (vehicle.holdStatus === HOLD_STATUS.DEMO_RESERVED) {
-    return { ok: false, reason: 'この車両はデモカーとして確保されているためHoldできません' };
-  }
   // holdStatusが空欄（スプレッドシートへ直接貼り付けた行など）の場合も在庫あり扱いとする。
   return { ok: true, reason: '' };
 }
@@ -360,86 +357,3 @@ function processExpiredHolds() {
   }
 }
 
-/**
- * ===== デモカー予約機能（設定タブ） =====
- * 在庫あり（available）の車両を一時的に「デモカー予約」状態にし、販売リスト
- * （在庫リストのカード表示）の対象から外す。Hold期限・担当者ロックの概念は
- * 持たない（Holdリストには一切書き込まない）。
- * デモカーとして確定する場合は、通常の受注確定（confirmOrder）をそのまま使う
- * （canConfirmOrder_ はHold中の車両以外は誰でも受注確定できる設計のため、
- * デモカー予約中の車両もそのまま受注確定できる）。
- */
-function reserveDemoCar(commission) {
-  requireCurrentStaff_();
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
-  try {
-    var sheet = getInventorySheet_();
-    var rowNumber = findInventoryRowNumber_(sheet, commission);
-    if (!rowNumber) throw new Error('該当車両が見つかりません（コミッション: ' + commission + '）');
-    var vehicle = rowToObject_(
-      sheet.getRange(rowNumber, 1, 1, INVENTORY_COLUMNS.length).getValues()[0],
-      INVENTORY_COLUMNS,
-      rowNumber
-    );
-    if (vehicle.holdStatus === HOLD_STATUS.HOLD || vehicle.holdStatus === HOLD_STATUS.DEMO_RESERVED) {
-      throw new Error('在庫あり（Hold・デモカー予約のいずれでもない）車両のみデモカー予約できます');
-    }
-    return updateInventoryVehicle_(sheet, rowNumber, { holdStatus: HOLD_STATUS.DEMO_RESERVED });
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-/**
- * デモカー予約を解除し、在庫あり状態へ戻す。
- */
-function releaseDemoReservation(commission) {
-  requireCurrentStaff_();
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
-  try {
-    var sheet = getInventorySheet_();
-    var rowNumber = findInventoryRowNumber_(sheet, commission);
-    if (!rowNumber) throw new Error('該当車両が見つかりません（コミッション: ' + commission + '）');
-    var vehicle = rowToObject_(
-      sheet.getRange(rowNumber, 1, 1, INVENTORY_COLUMNS.length).getValues()[0],
-      INVENTORY_COLUMNS,
-      rowNumber
-    );
-    if (vehicle.holdStatus !== HOLD_STATUS.DEMO_RESERVED) {
-      throw new Error('デモカー予約中の車両ではありません');
-    }
-    return updateInventoryVehicle_(sheet, rowNumber, { holdStatus: HOLD_STATUS.AVAILABLE });
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-/**
- * デモカー予約中の車両一覧（設定タブのデモカー予約リスト表示用）。
- */
-function listDemoReservedVehicles() {
-  return listInventory().filter(function (v) { return v.holdStatus === HOLD_STATUS.DEMO_RESERVED; });
-}
-
-/**
- * デモカー予約可能な車両一覧（在庫あり状態のみ。設定タブの予約先選択用）。
- * holdStatusが空欄（スプレッドシートへ直接貼り付けた行など）の車両も
- * 在庫あり扱いとする（canRegisterHold_と同じ判定基準）。
- */
-function listAvailableForDemo() {
-  return listInventory().filter(function (v) {
-    return v.holdStatus !== HOLD_STATUS.HOLD && v.holdStatus !== HOLD_STATUS.DEMO_RESERVED;
-  });
-}
-
-/**
- * 受注確定時、その受注が「デモカー確定」によるものかどうかを判定する（純粋関数）。
- * クライアントが送るaction種別（demoOrder）は信用せず、受注確定の対象となった
- * 車両が確定直前にデモカー予約状態だったかどうかから、サーバー側で機械的に決める
- * （受注リストの isDemo 列。「デモカーのみ」タブでの絞り込みに使う）。
- */
-function deriveOrderIsDemo_(vehicle) {
-  return vehicle && vehicle.holdStatus === HOLD_STATUS.DEMO_RESERVED ? 'あり' : 'なし';
-}

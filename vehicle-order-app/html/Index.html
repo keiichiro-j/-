@@ -23,12 +23,6 @@
         <circle cx="9" cy="10.5" r="1.6"/>
         <path d="M4 16.5l4.3-4.3a1.5 1.5 0 012.1 0l1.4 1.4 3.4-3.4a1.5 1.5 0 012.1 0L20 13"/>
       </symbol>
-      <symbol id="icon-car" viewBox="0 0 24 24">
-        <path d="M5 15.5l1.3-4.6A2 2 0 018.2 9.4h7.6a2 2 0 011.9 1.5l1.3 4.6"/>
-        <path d="M4 15.5h16v2.7a1 1 0 01-1 1h-1a1 1 0 01-1-1v-.7H7v.7a1 1 0 01-1 1H5a1 1 0 01-1-1v-2.7z"/>
-        <circle cx="8" cy="16.3" r="1.3" fill="currentColor" stroke="none"/>
-        <circle cx="16" cy="16.3" r="1.3" fill="currentColor" stroke="none"/>
-      </symbol>
       <symbol id="icon-mail" viewBox="0 0 24 24">
         <rect x="3.5" y="5.5" width="17" height="13" rx="2"/>
         <path d="M4 7l8 6 8-6"/>
@@ -77,10 +71,6 @@
     <!-- 受注リスト -->
     <main class="view" id="view-orders">
       <div class="toolbar" id="ordersToolbar">
-        <div class="subTabs" id="ordersSubTabs">
-          <button type="button" class="subTabs__item is-active" data-orders-filter="all">すべて</button>
-          <button type="button" class="subTabs__item" data-orders-filter="demo"><svg class="icon icon--inline"><use href="#icon-car"></use></svg>デモカーのみ</button>
-        </div>
         <input type="search" id="ordersKeyword" class="input input--search" placeholder="自由検索（モデル・コミッション・顧客名・担当・拠点）">
         <input type="text" id="ordersLocationFilter" class="input" placeholder="拠点で絞り込み">
         <select id="ordersStaffFilter" class="input"></select>
@@ -154,20 +144,6 @@
               <label>受注確定時のメール通知先</label>
               <input type="text" id="settingsOrderMailTo" class="input" placeholder="例: sales@example.com">
             </div>
-          </div>
-
-          <div class="settingsCard">
-            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-car"></use></svg>デモカー予約</h2>
-            <p class="settingsSection__desc">デモカーとして確保したい車両を選ぶと、Holdを発生させずに一時的に販売リストの対象から外せます。予約中の車両は下の一覧から「デモカー確定」（受注リストへ計上）または「予約解除」（販売リストへ戻す）ができます。</p>
-            <div class="formField">
-              <label>デモカーとして予約する車両（在庫あり車両のみ選択できます）</label>
-              <div class="demoReserveField">
-                <select id="demoReserveSelect" class="input"></select>
-                <button class="btn" type="button" id="btnReserveDemo">予約する</button>
-              </div>
-            </div>
-            <div class="modal__error hidden" id="demoReserveError"></div>
-            <div class="demoReservedList" id="demoReservedList"></div>
           </div>
 
           <div class="settingsCard">
