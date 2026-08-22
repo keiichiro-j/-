@@ -317,15 +317,17 @@
      素のtableではなく、カードグリッドと同じ「カードタイプUI」（角丸・影・ホバーで
      浮き上がる）を保ったまま、1台=横1行のカードとして並べる。列位置はCSS Gridで
      全行そろえ、表形式ならではの一覧性はそのまま保つ。 */
-  .rowCardList { display: flex; flex-direction: column; gap: 10px; min-width: 1080px; }
+  .rowCardList { display: flex; flex-direction: column; gap: 10px; min-width: 1160px; }
   .rowCard {
     display: grid;
     /* 最後の操作列は auto ではなく固定幅にする。auto だとHold中（ボタン2つ）と
        在庫あり（ボタン2つだが文言が違う）・2nd Hold登録済み（ボタン1つ）で
        操作列の内容幅が行ごとに変わり、他の列がそのぶん伸縮して行同士の列位置が
        ずれてしまっていたため（現場からの指摘で判明）。固定幅にすることで
-       在庫あり／Hold中のどちらの行でも同じ列位置に揃う。 */
-    grid-template-columns: 30px 1.5fr 68px 46px 1.2fr 1.1fr 96px 84px 88px 108px 210px;
+       在庫あり／Hold中のどちらの行でも同じ列位置に揃う。状態列も「Hold中（2nd有）」
+       バッジが収まる幅（150px）を確保し、隣の操作列と重ならないようにする
+       （以前は108pxで文字がはみ出し、受注確定ボタンと重なって見えていた）。 */
+    grid-template-columns: 30px 1.5fr 68px 46px 1.2fr 1.1fr 96px 84px 88px 150px 210px;
     align-items: center;
     gap: 16px;
     background: var(--surface);
@@ -350,7 +352,12 @@
   }
   .rowCard__model { font-size: 15px; font-weight: 700; letter-spacing: -.005em; }
   .rowCard__commission { font-size: 11px; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; margin-top: 1px; }
-  .rowCard__status { display: flex; }
+  .rowCard__status { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+  .rowCard__cancelLink {
+    border: none; background: none; color: var(--danger); font-size: 11px; font-weight: 700;
+    cursor: pointer; padding: 0; text-align: left;
+  }
+  .rowCard__cancelLink:hover { text-decoration: underline; }
   /* justify-self: stretch + flex-start にすることで、ボタンが1つ（2nd Hold登録済み）
      でも2つ（Hold+受注 等）でも、先頭ボタンの開始位置は常にこの列の左端で揃う。
      justify-self: end だとボタン数で箱の幅が変わり、右端は揃っても開始位置が

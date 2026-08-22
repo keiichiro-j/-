@@ -288,20 +288,28 @@
   }
 
   function toggleCompare_(commission, checked) {
-    if (checked) {
-      if (state.compareItems.length >= COMPARE_MAX) {
-        showToast('比較は最大' + COMPARE_MAX + '台までです', true);
-        document.querySelectorAll('[data-compare="' + commission + '"]').forEach(function (el) { el.checked = false; });
-        return;
+    try {
+      if (checked) {
+        if (state.compareItems.length >= COMPARE_MAX) {
+          showToast('比較は最大' + COMPARE_MAX + '台までです', true);
+          document.querySelectorAll('[data-compare="' + commission + '"]').forEach(function (el) { el.checked = false; });
+          return;
+        }
+        var vehicle = state.inventoryItems.filter(function (v) { return v.commission === commission; })[0];
+        if (!vehicle) {
+          showToast('この車両の情報が見つからないため比較に追加できません。検索条件を変えている場合は解除してからお試しください。', true);
+          document.querySelectorAll('[data-compare="' + commission + '"]').forEach(function (el) { el.checked = false; });
+          return;
+        }
+        state.compareItems.push(vehicle);
+      } else {
+        state.compareItems = state.compareItems.filter(function (v) { return v.commission !== commission; });
       }
-      var vehicle = state.inventoryItems.filter(function (v) { return v.commission === commission; })[0];
-      if (!vehicle) return;
-      state.compareItems.push(vehicle);
-    } else {
-      state.compareItems = state.compareItems.filter(function (v) { return v.commission !== commission; });
+      syncComparePins_();
+      renderCompareBar_();
+    } catch (e) {
+      showToast('比較の切り替えに失敗しました: ' + e.message, true);
     }
-    syncComparePins_();
-    renderCompareBar_();
   }
 
   function syncComparePins_() {
@@ -367,8 +375,13 @@
 
   $('btnCompareShow').addEventListener('click', function () {
     if (state.compareItems.length < 2) return;
-    renderCompareTable_();
-    openModal($('compareModal'));
+    try {
+      renderCompareTable_();
+      openModal($('compareModal'));
+    } catch (e) {
+      // 比較表の描画に失敗しても無反応にはせず、必ずトーストで知らせる。
+      showToast('比較表の表示に失敗しました: ' + e.message, true);
+    }
   });
 
   // ===== 在庫リストの表示形式切替（カード／表） =====
@@ -427,6 +440,16 @@
       : '<span class="badge badge--available"><span class="badge__dot"></span>在庫あり</span>';
     var rowTone = hasSecondHold ? 'rowCard--hold2' : (isHold ? 'rowCard--hold' : 'rowCard--available');
 
+    // 表示形式「表」にもHold解除の導線を用意する（カード表示の「解除」ボタンと同じ
+    // data-cancel-hold / data-cancel-rank を使い、既存のクリック委譲・モーダルをそのまま使う）。
+    var cancelLinks = '';
+    if (isHold) {
+      cancelLinks += '<button type="button" class="rowCard__cancelLink" data-cancel-hold="' + escapeHtml(v.commission) + '" data-cancel-rank="1st">1st Hold解除</button>';
+      if (hasSecondHold) {
+        cancelLinks += '<button type="button" class="rowCard__cancelLink" data-cancel-hold="' + escapeHtml(v.commission) + '" data-cancel-rank="2nd">2nd Hold解除</button>';
+      }
+    }
+
     return '<div class="rowCard ' + rowTone + '">' +
       '<label class="rowCard__pin"><input type="checkbox" data-compare="' + escapeHtml(v.commission) + '"' + (isComparing ? ' checked' : '') + '></label>' +
       '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(v.model) + '</span>' +
@@ -438,7 +461,7 @@
       rowField_('入港予定日', v.arrivalExpectedDate) +
       rowField_('可能月', v.registrableMonth) +
       rowField_('VPC', v.vpc) +
-      '<div class="rowCard__status">' + statusBadge + '</div>' +
+      '<div class="rowCard__status">' + statusBadge + cancelLinks + '</div>' +
       '<div class="rowCard__actions">' + actions + '</div>' +
       '</div>';
   }

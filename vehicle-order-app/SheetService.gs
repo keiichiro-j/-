@@ -156,6 +156,12 @@ function updateInventoryVehicle_(sheet, rowNumber, patch) {
     rowNumber
   );
   var merged = Object.assign({}, current, patch, { commission: current.commission });
+  // Hold登録時など、この行全体を書き直すたびにコミッション欄の書式を明示的に
+  // 「書式なしテキスト」へ再設定してから書き込む。これを省くと、その行のコミッション
+  // セルがまだテキスト書式になっていない場合（列全体への一括書式設定を実行していない
+  // 既存シート等）、数字のみのコミッション（例: 0583911111）の先頭0が、Hold登録の
+  // たびに消えてしまう（createHoldRow_・appendOrder_と同じ対策をここにも適用する）。
+  sheet.getRange(rowNumber, inventoryColIndex1('commission'), 1, 1).setNumberFormat('@');
   sheet.getRange(rowNumber, 1, 1, INVENTORY_COLUMNS.length).setValues([objectToRow_(merged, INVENTORY_COLUMNS)]);
   return merged;
 }
@@ -228,6 +234,9 @@ function updateHoldRow_(sheet, rowNumber, patch) {
     rowNumber
   );
   var merged = Object.assign({}, current, patch);
+  // updateInventoryVehicle_ と同様、行全体を書き直す前にコミッション欄の書式を
+  // 明示的にテキストへ再設定する（2nd Hold昇格・Hold解除時などにも先頭0を消さない）。
+  sheet.getRange(rowNumber, holdColIndex1('commission'), 1, 1).setNumberFormat('@');
   sheet.getRange(rowNumber, 1, 1, HOLD_COLUMNS.length).setValues([objectToRow_(merged, HOLD_COLUMNS)]);
   return merged;
 }
