@@ -711,6 +711,47 @@
   .staffList__row .input[data-staff-field="location"] { flex: 0 0 22%; min-width: 90px; }
   .staffList__empty { font-size: 13px; color: var(--on-surface-variant); }
 
+  /* ===== モデル写真（ホーム画面） ===== */
+  .modelPhotoList { display: flex; flex-direction: column; gap: 8px; }
+  .modelPhotoList__row { display: flex; gap: 10px; align-items: center; }
+  .modelPhotoList__preview {
+    width: 44px; height: 44px; flex: none;
+    border: 1px solid var(--outline); border-radius: 8px;
+    background: var(--background);
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+  }
+  .modelPhotoList__preview img { width: 100%; height: 100%; object-fit: cover; }
+  .modelPhotoList__row .input[data-photo-field="model"] { flex: 0 0 26%; min-width: 90px; }
+  .modelPhotoList__row .input[data-photo-field="photoUrl"] { flex: 1 1 auto; min-width: 0; }
+  .modelPhotoList__empty { font-size: 13px; color: var(--on-surface-variant); }
+
+  /* ===== ホーム画面 ===== */
+  .homeIntro { margin-bottom: 24px; }
+  .homeIntro__title { font-size: 26px; font-weight: 700; letter-spacing: -.01em; margin: 0 0 6px; }
+  .homeIntro__desc { font-size: 14px; color: var(--on-surface-variant); margin: 0; }
+  .homeGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+  }
+  .homeTile {
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    cursor: pointer;
+    text-align: left;
+    padding: 0;
+    transition: box-shadow .18s ease, transform .18s ease;
+  }
+  .homeTile:hover { box-shadow: var(--shadow-elevated); transform: translateY(-3px); }
+  .homeTile__photo { width: 100%; height: 160px; background: var(--background); overflow: hidden; }
+  .homeTile__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .homeTile__caption { padding: 14px 16px; font-size: 16px; font-weight: 700; letter-spacing: -.005em; }
+
   /* ===== リード番号入力（「L-」固定接頭辞＋数字。Google×Tesla風の見出し扱いにする） ===== */
   .leadNumberField {
     display: flex;
@@ -829,12 +870,14 @@
   @media (max-width: 1400px) {
     .cardGrid { grid-template-columns: repeat(3, 1fr); }
     .orderList { grid-template-columns: repeat(2, 1fr); }
+    .homeGrid { grid-template-columns: repeat(3, 1fr); }
   }
 
   /* ===== タブレット ===== */
   @media (max-width: 900px) {
     main.view { padding: 14px; }
     .cardGrid { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+    .homeGrid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
     .settingsWrap { max-width: 100%; }
     /* 受注カードは項目数が多いため、タブレット幅では1列にして読みやすさを優先する */
     .orderList { grid-template-columns: 1fr; }
@@ -851,10 +894,14 @@
     .staffList__row .input[data-staff-field="name"],
     .staffList__row .input[data-staff-field="email"],
     .staffList__row .input[data-staff-field="location"] { flex: 1 1 100%; }
+    .modelPhotoList__row { flex-wrap: wrap; }
+    .modelPhotoList__row .input[data-photo-field="model"],
+    .modelPhotoList__row .input[data-photo-field="photoUrl"] { flex: 1 1 100%; }
     main.view { padding: 10px; }
     .toolbar { padding: 10px; width: calc(100% - 20px); }
     .toolbar .input, .toolbar .checkboxField { flex: 1 1 auto; }
     .cardGrid { grid-template-columns: 1fr; gap: 12px; }
+    .homeGrid { grid-template-columns: 1fr; gap: 12px; }
     .settingsCard, .settingsActions { padding: 18px 16px; }
     .card { padding: 16px 18px; }
     .modal { padding: 0; align-items: flex-end; }

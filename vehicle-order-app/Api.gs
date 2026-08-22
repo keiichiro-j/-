@@ -17,6 +17,7 @@ function api_getBootstrapData() {
     paidOptionKeys: PAID_OPTION_KEYS,
     holdOrderInputColumns: HOLD_ORDER_INPUT_COLUMNS,
     staffListMax: STAFF_LIST_MAX,
+    modelPhotosMax: MODEL_PHOTOS_MAX,
     settings: settings,
     currentUserEmail: email,
     // ログイン中のGoogleアカウントに対応する担当者名・登録拠点（未登録ならどちらもnull）。

@@ -18,7 +18,8 @@ function getSettings() {
     notifyHoldMailTo: props.getProperty(PROP_KEYS.NOTIFY_HOLD_MAIL_TO) || '',
     notifyOrderMailTo: props.getProperty(PROP_KEYS.NOTIFY_ORDER_MAIL_TO) || '',
     notifyErrorMailTo: props.getProperty(PROP_KEYS.NOTIFY_ERROR_MAIL_TO) || '',
-    staffList: getStaffList_()
+    staffList: getStaffList_(),
+    modelPhotos: getModelPhotos_()
   };
 }
 
@@ -32,6 +33,7 @@ function saveSettings(settings) {
   props.setProperty(PROP_KEYS.NOTIFY_ORDER_MAIL_TO, settings.notifyOrderMailTo || '');
   props.setProperty(PROP_KEYS.NOTIFY_ERROR_MAIL_TO, settings.notifyErrorMailTo || '');
   props.setProperty(PROP_KEYS.STAFF_LIST, JSON.stringify(normalizeStaffList_(settings.staffList)));
+  props.setProperty(PROP_KEYS.MODEL_PHOTOS, JSON.stringify(normalizeModelPhotos_(settings.modelPhotos)));
   return getSettings();
 }
 
@@ -96,6 +98,60 @@ function normalizeStaffList_(list) {
   });
   if (result.length > STAFF_LIST_MAX) {
     throw new Error('担当者マスタは最大' + STAFF_LIST_MAX + '人までです（現在' + result.length + '人）');
+  }
+  return result;
+}
+
+/**
+ * ホーム画面のモデル写真設定を { model, photoUrl } の配列で返す。
+ * モデル名ごとに代表写真を1枚登録し、ホーム画面でクリックすると在庫リストが
+ * そのモデル名で絞り込まれる（車両1台ごとではなくモデル単位で管理する。
+ * 個々の車両は在庫の入れ替わりが頻繁なため、車両ごとに写真を管理すると
+ * 都度アップロード・削除が必要になり運用の手間が大きくなるため）。
+ */
+function getModelPhotos_() {
+  var raw = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.MODEL_PHOTOS);
+  if (!raw) return [];
+  var list;
+  try {
+    list = JSON.parse(raw);
+  } catch (e) {
+    return [];
+  }
+  if (!Array.isArray(list)) return [];
+  return list.map(function (entry) {
+    return { model: (entry && entry.model) || '', photoUrl: (entry && entry.photoUrl) || '' };
+  });
+}
+
+/**
+ * モデル写真設定の正規化（純粋関数）。モデル名・写真URLがともに入力されている行のみ残し、
+ * モデル名で重複除去したうえ、最大件数（MODEL_PHOTOS_MAX）を超えていればエラー。
+ * 写真URLが長すぎる場合（data URLを直接貼り付けた場合等）もエラーにする
+ * （Script Propertiesの1プロパティあたりの上限に対し、最大30件分をまとめて
+ * 保存するため、ロゴ1枚分より小さい上限にしている。大きな画像は外部にアップロードして
+ * URLを指定する）。
+ */
+function normalizeModelPhotos_(list) {
+  list = Array.isArray(list) ? list : [];
+  var seenModels = {};
+  var result = [];
+  list.forEach(function (entry) {
+    var model = String((entry && entry.model) || '').trim();
+    var photoUrl = String((entry && entry.photoUrl) || '').trim();
+    if (!model || !photoUrl) return;
+    if (seenModels[model]) return;
+    seenModels[model] = true;
+    if (photoUrl.length > MODEL_PHOTO_URL_MAX_LENGTH) {
+      throw new Error(
+        'モデル「' + model + '」の写真URLが長すぎます（' + photoUrl.length + '文字）。' +
+        '画像を外部（Googleドライブの共有リンク等）にアップロードしたうえでURLを指定してください。'
+      );
+    }
+    result.push({ model: model, photoUrl: photoUrl });
+  });
+  if (result.length > MODEL_PHOTOS_MAX) {
+    throw new Error('モデル写真は最大' + MODEL_PHOTOS_MAX + '件までです（現在' + result.length + '件）');
   }
   return result;
 }

@@ -388,6 +388,38 @@ test('配列以外が渡されても空配列として扱われる', () => {
   assert.strictEqual(sandbox.normalizeStaffList_(undefined).length, 0);
 });
 
+console.log('== SettingsService: normalizeModelPhotos_（ホーム画面のモデル写真最大30件・{model,photoUrl}形式） ==');
+test('モデル名・写真URLがともに入力されている行のみ残り、モデル名重複は除去される', () => {
+  const list = sandbox.normalizeModelPhotos_([
+    { model: 'Cクラス', photoUrl: 'https://example.com/c.jpg' },
+    { model: '', photoUrl: 'https://example.com/empty-model.jpg' }, // モデル名未入力は除去
+    { model: 'Eクラス', photoUrl: '' }, // 写真URL未入力は除去
+    { model: 'Cクラス', photoUrl: 'https://example.com/c-dup.jpg' }, // モデル名重複は除去（先勝ち）
+    { model: ' 3シリーズ ', photoUrl: ' https://example.com/3.jpg ' }
+  ]);
+  assert.strictEqual(list.length, 2);
+  assert.strictEqual(list[0].model, 'Cクラス');
+  assert.strictEqual(list[0].photoUrl, 'https://example.com/c.jpg');
+  assert.strictEqual(list[1].model, '3シリーズ');
+  assert.strictEqual(list[1].photoUrl, 'https://example.com/3.jpg');
+});
+test('30件まではそのまま登録できる', () => {
+  const list = Array.from({ length: 30 }, (_, i) => ({ model: 'モデル' + i, photoUrl: 'https://example.com/' + i + '.jpg' }));
+  assert.strictEqual(sandbox.normalizeModelPhotos_(list).length, 30);
+});
+test('31件以上はエラーになる', () => {
+  const list = Array.from({ length: 31 }, (_, i) => ({ model: 'モデル' + i, photoUrl: 'https://example.com/' + i + '.jpg' }));
+  assert.throws(() => sandbox.normalizeModelPhotos_(list), /最大30件/);
+});
+test('写真URLが長すぎる場合はエラーになる（data URL直接貼り付け対策）', () => {
+  const list = [{ model: 'Cクラス', photoUrl: 'x'.repeat(501) }];
+  assert.throws(() => sandbox.normalizeModelPhotos_(list), /長すぎます/);
+});
+test('配列以外が渡されても空配列として扱われる', () => {
+  assert.strictEqual(sandbox.normalizeModelPhotos_(null).length, 0);
+  assert.strictEqual(sandbox.normalizeModelPhotos_(undefined).length, 0);
+});
+
 console.log('== SettingsService: resolveStaffNameByEmail_（ログインメールから担当者名を解決） ==');
 const staffListWithEmails = [
   { name: '佐藤', email: 'sato@example.com' },

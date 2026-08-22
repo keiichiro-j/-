@@ -50,6 +50,11 @@
         <line x1="12" y1="10.3" x2="12" y2="14.3"/>
         <circle cx="12" cy="16.8" r="1" fill="currentColor" stroke="none"/>
       </symbol>
+      <symbol id="icon-home" viewBox="0 0 24 24">
+        <path d="M4 11.5L12 4.5l8 7" stroke-linejoin="round"/>
+        <path d="M5.5 10v9h13v-9" stroke-linejoin="round"/>
+        <path d="M10 19v-5.5h4V19"/>
+      </symbol>
     </defs>
   </svg>
 
@@ -61,7 +66,8 @@
           <span class="topbar__brandText">販売可能リスト</span>
         </div>
         <nav class="tabs" id="mainTabs" role="tablist" aria-label="画面切替">
-          <button class="tabs__item is-active" data-tab="inventory">在庫リスト</button>
+          <button class="tabs__item is-active" data-tab="home">ホーム</button>
+          <button class="tabs__item" data-tab="inventory">在庫リスト</button>
           <button class="tabs__item" data-tab="orders">受注リスト</button>
           <button class="tabs__item" data-tab="settings">設定</button>
         </nav>
@@ -77,8 +83,20 @@
       <ul class="integrityBanner__list hidden" id="integrityBannerList"></ul>
     </header>
 
+    <!-- ホーム -->
+    <main class="view is-active" id="view-home">
+      <div class="homeIntro">
+        <h1 class="homeIntro__title">販売可能リスト</h1>
+        <p class="homeIntro__desc">モデルの写真をクリックすると、そのモデルの在庫リストに移動します。</p>
+      </div>
+      <div class="homeGrid" id="homeGrid"></div>
+      <div class="emptyState hidden" id="homeEmpty">
+        モデル写真がまだ登録されていません。設定タブの「モデル写真」から登録できます。
+      </div>
+    </main>
+
     <!-- 在庫リスト -->
-    <main class="view is-active" id="view-inventory">
+    <main class="view" id="view-inventory">
       <div class="toolbar" id="inventoryToolbar">
         <input type="search" id="inventoryKeyword" class="input input--search" placeholder="モデル・コミッションで検索">
         <select id="inventoryMonthFilter" class="input">
@@ -191,6 +209,13 @@
             <p class="settingsSection__desc">名前・Googleアカウントのメールアドレス・拠点名を登録してください（最大<span id="staffListMax"></span>人・現在<span id="staffListCount">0</span>人登録中）。Hold登録・2nd Hold登録・受注確定・Hold解除の「担当者」は、ログイン中のGoogleアカウントのメールアドレスからここで自動的に判定されるため、操作のたびに担当者を選ぶ必要はありません。拠点名も同様に、Hold登録・受注確定の「販売拠点」欄へ自動的に入力されます（編集可）。</p>
             <div class="staffList" id="staffList"></div>
             <button class="btn" id="btnAddStaff" type="button">＋ 担当者を追加</button>
+          </div>
+
+          <div class="settingsCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-image"></use></svg>モデル写真（ホーム画面）</h2>
+            <p class="settingsSection__desc">ホーム画面に並べるモデルの代表写真です（最大<span id="modelPhotosMax"></span>件・現在<span id="modelPhotosCount">0</span>件登録中）。1台ごとではなく、モデル単位で1枚登録してください。画像は外部（Googleドライブの共有リンク等）にアップロードしたうえでURLを指定してください。ホーム画面で写真をクリックすると、そのモデル名で在庫リストが絞り込まれます。</p>
+            <div class="modelPhotoList" id="modelPhotoList"></div>
+            <button class="btn" id="btnAddModelPhoto" type="button">＋ モデル写真を追加</button>
           </div>
         </div>
 

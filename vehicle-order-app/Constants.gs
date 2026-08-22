@@ -37,6 +37,7 @@ var OSS_OPTIONS = ['可', '不可'];
 var PAYMENT_METHOD_OPTIONS = ['現金', 'ローン'];
 var PAID_OPTION_SLOT_COUNT = 7; // 有償オプション（7マス分確保）
 var STAFF_LIST_MAX = 30; // 担当者マスタの最大登録人数
+var MODEL_PHOTOS_MAX = 30; // ホーム画面のモデル写真の最大登録数
 
 /**
  * 車両情報（在庫リスト・受注リストで共通）の列定義。
@@ -177,7 +178,8 @@ var PROP_KEYS = {
   NOTIFY_HOLD_MAIL_TO: 'NOTIFY_HOLD_MAIL_TO',
   NOTIFY_ORDER_MAIL_TO: 'NOTIFY_ORDER_MAIL_TO',
   NOTIFY_ERROR_MAIL_TO: 'NOTIFY_ERROR_MAIL_TO',
-  STAFF_LIST: 'STAFF_LIST'
+  STAFF_LIST: 'STAFF_LIST',
+  MODEL_PHOTOS: 'MODEL_PHOTOS'
 };
 
 var DEFAULT_THEME_COLOR = '#1a73e8'; // Google Material Design Blue 600
@@ -187,3 +189,8 @@ var DEFAULT_TEXT_COLOR = '#202124'; // 基本の文字色（Google Material Desi
 // Script Propertiesは1プロパティあたり9KB（=9216文字程度）が上限のため、
 // 余裕を持ってこの文字数を超える場合は保存時にエラーにする（SettingsService.gs参照）。
 var LOGO_URL_MAX_LENGTH = 9000;
+
+// モデル写真1件あたりのURLの最大文字数。最大MODEL_PHOTOS_MAX件をまとめて
+// 1つのScript Propertyへ保存するため、ロゴ1枚分よりずっと小さい上限にしている
+// （data URLではなく外部URLの利用を前提とする。SettingsService.gs参照）。
+var MODEL_PHOTO_URL_MAX_LENGTH = 500;

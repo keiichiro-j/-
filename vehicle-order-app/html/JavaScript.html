@@ -17,7 +17,8 @@
     ordersViewMode: safeLocalStorageGet_('ordersViewMode') || 'card', // 'card' | 'table'（受注リストの表示形式）
     ordersGroups: [],
     action: null, // { type: 'hold' | 'secondHold' | 'order' | 'orderFromHold', commission }
-    staffList: [] // 設定タブで編集中の担当者マスタ（作業用コピー）
+    staffList: [], // 設定タブで編集中の担当者マスタ（作業用コピー）
+    modelPhotos: [] // 設定タブで編集中のモデル写真（作業用コピー）
   };
   var COMPARE_MAX = 3;
 
@@ -153,15 +154,21 @@
   }
 
   // ===== タブ切替 =====
-  document.getElementById('mainTabs').addEventListener('click', function (e) {
-    var btn = e.target.closest('[data-tab]');
-    if (!btn) return;
-    document.querySelectorAll('.tabs__item').forEach(function (t) { t.classList.toggle('is-active', t === btn); });
+  // ホーム画面のモデル写真クリック（在庫リストへの遷移）からも同じ処理を使えるよう、
+  // ナビのクリックハンドラとは独立した関数にしておく。
+  function switchToTab_(tabName) {
+    document.querySelectorAll('.tabs__item').forEach(function (t) { t.classList.toggle('is-active', t.dataset.tab === tabName); });
     document.querySelectorAll('main.view').forEach(function (v) { v.classList.remove('is-active'); });
-    $('view-' + btn.dataset.tab).classList.add('is-active');
+    $('view-' + tabName).classList.add('is-active');
     // 非表示（display: none）だった間はツールバーの実測高さが0になっているため、
     // 表示状態に切り替わった直後に再計測してスペーサーの高さを補正する。
     syncFixedBars_();
+  }
+
+  document.getElementById('mainTabs').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-tab]');
+    if (!btn) return;
+    switchToTab_(btn.dataset.tab);
   });
 
   // ===== モーダル共通 =====
@@ -1084,6 +1091,11 @@
     $('staffListMax').textContent = (state.bootstrap && state.bootstrap.staffListMax) || 30;
     renderStaffList();
     populateOrdersStaffFilter_();
+
+    state.modelPhotos = (settings.modelPhotos || []).map(function (p) { return { model: p.model || '', photoUrl: p.photoUrl || '' }; });
+    $('modelPhotosMax').textContent = (state.bootstrap && state.bootstrap.modelPhotosMax) || 30;
+    renderModelPhotoList_();
+    renderHomeGallery_(settings.modelPhotos || []);
   }
 
   $('settingsThemeColor').addEventListener('input', function () {
@@ -1205,6 +1217,85 @@
     if (inputs.length) inputs[inputs.length - 1].focus();
   });
 
+  // ===== モデル写真（ホーム画面） =====
+  function renderModelPhotoList_() {
+    var container = $('modelPhotoList');
+    $('modelPhotosCount').textContent = state.modelPhotos.length;
+    if (!state.modelPhotos.length) {
+      container.innerHTML = '<div class="modelPhotoList__empty">モデル写真が登録されていません</div>';
+    } else {
+      container.innerHTML = state.modelPhotos.map(function (entry, i) {
+        var preview = entry.photoUrl
+          ? '<img src="' + escapeHtml(entry.photoUrl) + '" alt="">'
+          : '<span class="logoPreview__placeholder">写真</span>';
+        return '<div class="modelPhotoList__row">' +
+          '<div class="modelPhotoList__preview">' + preview + '</div>' +
+          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="model" placeholder="モデル名（例: Cクラス）" value="' + escapeHtml(entry.model || '') + '">' +
+          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="photoUrl" placeholder="写真URL" value="' + escapeHtml(entry.photoUrl || '') + '">' +
+          '<button class="btn btn--icon" data-remove-photo="' + i + '" type="button" aria-label="削除">&times;</button>' +
+          '</div>';
+      }).join('');
+    }
+    var max = (state.bootstrap && state.bootstrap.modelPhotosMax) || 30;
+    $('btnAddModelPhoto').disabled = state.modelPhotos.length >= max;
+  }
+
+  $('modelPhotoList').addEventListener('input', function (e) {
+    var index = e.target.dataset.photoIndex;
+    var field = e.target.dataset.photoField;
+    if (index === undefined || !field) return;
+    state.modelPhotos[Number(index)][field] = e.target.value;
+    if (field === 'photoUrl') {
+      // プレビュー画像はURL入力のたびに更新する（1文字ごとに全体を再描画すると
+      // 入力中のフォーカスが失われるため、対象行のプレビューだけ差し替える）。
+      var row = e.target.closest('.modelPhotoList__row');
+      var preview = row.querySelector('.modelPhotoList__preview');
+      var url = e.target.value.trim();
+      preview.innerHTML = url
+        ? '<img src="' + escapeHtml(url) + '" alt="">'
+        : '<span class="logoPreview__placeholder">写真</span>';
+    }
+  });
+
+  $('modelPhotoList').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-remove-photo]');
+    if (!btn) return;
+    state.modelPhotos.splice(Number(btn.dataset.removePhoto), 1);
+    renderModelPhotoList_();
+  });
+
+  $('btnAddModelPhoto').addEventListener('click', function () {
+    var max = (state.bootstrap && state.bootstrap.modelPhotosMax) || 30;
+    if (state.modelPhotos.length >= max) return;
+    state.modelPhotos.push({ model: '', photoUrl: '' });
+    renderModelPhotoList_();
+    var inputs = document.querySelectorAll('#modelPhotoList [data-photo-field="model"]');
+    if (inputs.length) inputs[inputs.length - 1].focus();
+  });
+
+  // ===== ホーム画面 =====
+  // モデル写真をクリックすると、在庫リストへ切り替えたうえで、そのモデル名を
+  // キーワード検索欄に入れて再検索する（searchInventory はモデル名の部分一致に
+  // 対応済みのため、サーバー側の変更は不要）。
+  function renderHomeGallery_(modelPhotos) {
+    modelPhotos = modelPhotos || [];
+    $('homeEmpty').classList.toggle('hidden', modelPhotos.length > 0);
+    $('homeGrid').innerHTML = modelPhotos.map(function (p) {
+      return '<button type="button" class="homeTile" data-home-model="' + escapeHtml(p.model) + '">' +
+        '<div class="homeTile__photo"><img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '"></div>' +
+        '<div class="homeTile__caption">' + escapeHtml(p.model) + '</div>' +
+        '</button>';
+    }).join('');
+  }
+
+  $('homeGrid').addEventListener('click', function (e) {
+    var tile = e.target.closest('[data-home-model]');
+    if (!tile) return;
+    switchToTab_('inventory');
+    $('inventoryKeyword').value = tile.dataset.homeModel;
+    loadInventory();
+  });
+
   $('btnSaveSettings').addEventListener('click', function () {
     if (this.disabled) return;
     var btn = this;
@@ -1231,6 +1322,23 @@
       return;
     }
 
+    var maxPhotos = (state.bootstrap && state.bootstrap.modelPhotosMax) || 30;
+    var cleanedPhotos = state.modelPhotos
+      .map(function (p) {
+        return { model: String((p && p.model) || '').trim(), photoUrl: String((p && p.photoUrl) || '').trim() };
+      })
+      .filter(function (p) { return p.model && p.photoUrl; });
+    var seenModels = {};
+    var uniqueModelPhotos = cleanedPhotos.filter(function (p) {
+      if (seenModels[p.model]) return false;
+      seenModels[p.model] = true;
+      return true;
+    });
+    if (uniqueModelPhotos.length > maxPhotos) {
+      $('settingsError').textContent = 'モデル写真は最大' + maxPhotos + '件までです（現在' + uniqueModelPhotos.length + '件）';
+      return;
+    }
+
     var settings = {
       themeColor: $('settingsThemeColor').value,
       textColor: $('settingsTextColor').value,
@@ -1238,7 +1346,8 @@
       notifyHoldMailTo: $('settingsHoldMailTo').value.trim(),
       notifyOrderMailTo: $('settingsOrderMailTo').value.trim(),
       notifyErrorMailTo: $('settingsErrorMailTo').value.trim(),
-      staffList: uniqueStaffList
+      staffList: uniqueStaffList,
+      modelPhotos: uniqueModelPhotos
     };
     setButtonBusy(btn, true, '保存中...');
     gasRun('api_saveSettings', settings).then(function (saved) {
