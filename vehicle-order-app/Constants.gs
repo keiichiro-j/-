@@ -20,7 +20,10 @@ var HOLD_DURATION_MS = 72 * 60 * 60 * 1000; // Hold期間 72時間
 
 var HOLD_STATUS = {
   AVAILABLE: 'available',
-  HOLD: 'hold'
+  HOLD: 'hold',
+  // デモカーとして確保され、一時的に販売リストの対象から外れている状態。
+  // Holdとは異なり、Hold期限・担当者の概念を持たない（デモカー予約機能）。
+  DEMO_RESERVED: 'demo_reserved'
 };
 
 var HOLD_RANK = {
@@ -85,7 +88,7 @@ var HOLD_ORDER_INPUT_COLUMNS = [
  * 車両情報＋Holdステータスのみ。Holdの詳細はHoldリストで別管理する。
  */
 var INVENTORY_COLUMNS = VEHICLE_COLUMNS.concat([
-  { key: 'holdStatus', label: 'Holdステータス', type: 'select', options: [HOLD_STATUS.AVAILABLE, HOLD_STATUS.HOLD] }
+  { key: 'holdStatus', label: 'Holdステータス', type: 'select', options: [HOLD_STATUS.AVAILABLE, HOLD_STATUS.HOLD, HOLD_STATUS.DEMO_RESERVED] }
 ]);
 
 /**

@@ -96,6 +96,11 @@ test('Hold中の車両には1st Hold登録不可', () => {
 test('存在しない車両にはHold登録不可', () => {
   assert.strictEqual(sandbox.canRegisterHold_(null).ok, false);
 });
+test('デモカー予約中の車両にはHold登録不可', () => {
+  const result = sandbox.canRegisterHold_({ holdStatus: 'demo_reserved' });
+  assert.strictEqual(result.ok, false);
+  assert.ok(result.reason.includes('デモカー'));
+});
 test('Hold中で2nd Hold未登録なら2nd Hold登録可', () => {
   assert.strictEqual(sandbox.canRegisterSecondHold_({ holdStatus: 'hold' }, false).ok, true);
 });
@@ -177,6 +182,25 @@ test('複数項目が未入力だとすべて列挙される', () => {
   assert.ok(result.reason.includes('顧客'));
 });
 
+console.log('== HoldService: normalizeLeadNumber_（リード番号は「L-」＋数字で固定） ==');
+test('数字のみ入力すると「L-」が付与される', () => {
+  assert.strictEqual(sandbox.normalizeLeadNumber_('12345678'), 'L-12345678');
+});
+test('すでに「L-」が付いていればそのまま（二重に付与されない）', () => {
+  assert.strictEqual(sandbox.normalizeLeadNumber_('L-12345678'), 'L-12345678');
+});
+test('先頭0を含む数字でも保持される', () => {
+  assert.strictEqual(sandbox.normalizeLeadNumber_('00012345'), 'L-00012345');
+});
+test('数字以外の文字は取り除かれる', () => {
+  assert.strictEqual(sandbox.normalizeLeadNumber_('l-123-456'), 'L-123456');
+});
+test('数字が1つも無ければエラー', () => {
+  assert.throws(() => sandbox.normalizeLeadNumber_('L-'), /数字/);
+  assert.throws(() => sandbox.normalizeLeadNumber_(''), /数字/);
+  assert.throws(() => sandbox.normalizeLeadNumber_(null), /数字/);
+});
+
 console.log('== HoldService: decideExpiryAction_ ==');
 test('在庫あり車両は対象外', () => {
   assert.strictEqual(sandbox.decideExpiryAction_({ holdStatus: 'available' }, Date.now()), 'none');
@@ -252,6 +276,12 @@ test('includeHold=falseでHold済み車両が除外される', () => {
 });
 test('無関係なキーワードはヒットしない', () => {
   assert.strictEqual(sandbox.searchInventory(vehicles, { keyword: '該当なし' }).length, 0);
+});
+test('デモカー予約中の車両は販売リストの検索結果から常に除外される', () => {
+  const withDemo = vehicles.concat([{ commission: 'C003', model: 'モデルC', holdStatus: 'demo_reserved' }]);
+  const result = sandbox.searchInventory(withDemo, { includeHold: true });
+  assert.strictEqual(result.some((v) => v.commission === 'C003'), false);
+  assert.strictEqual(result.length, 2);
 });
 
 const orders = [

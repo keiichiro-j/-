@@ -64,6 +64,59 @@
     showToast._t = setTimeout(function () { toast.classList.add('hidden'); }, 3200);
   }
 
+  // ===== Hold登録・2nd Hold登録・受注確定の応援／お祝いポップアップ =====
+  var CELEBRATION_CONFIG = {
+    hold: { emoji: '🥺', message: '頑張って', tone: 'hold' },
+    secondHold: { emoji: '⏳', message: 'もう少し待ってね', tone: 'hold' },
+    order: { emoji: '🎈㊗️🎉', message: 'おめでとう', tone: 'order', confetti: true },
+    orderFromHold: { emoji: '🎈㊗️🎉', message: 'おめでとう', tone: 'order', confetti: true },
+    demoOrder: { emoji: '🎈㊗️🎉', message: 'おめでとう', tone: 'order', confetti: true }
+  };
+
+  function showCelebration_(actionType) {
+    var config = CELEBRATION_CONFIG[actionType];
+    if (!config) return;
+    var overlay = $('celebrationOverlay');
+    $('celebrationCard').className = 'celebrationCard celebrationCard--' + config.tone;
+    $('celebrationEmoji').textContent = config.emoji;
+    $('celebrationMessage').textContent = config.message;
+    overlay.classList.remove('hidden');
+    if (config.confetti) triggerConfetti_();
+    clearTimeout(showCelebration_._timer);
+    showCelebration_._timer = setTimeout(function () {
+      overlay.classList.add('hidden');
+    }, config.confetti ? 2800 : 1800);
+  }
+
+  $('celebrationOverlay').addEventListener('click', function () {
+    clearTimeout(showCelebration_._timer);
+    this.classList.add('hidden');
+  });
+
+  var CONFETTI_COLORS = ['#1a73e8', '#34a853', '#fbbc05', '#ea4335', '#a142f4', '#00bcd4'];
+
+  function triggerConfetti_() {
+    var layer = $('confettiLayer');
+    var pieces = [];
+    var count = 90;
+    for (var i = 0; i < count; i++) {
+      var el = document.createElement('div');
+      el.className = 'confettiPiece';
+      el.style.left = (Math.random() * 100) + 'vw';
+      el.style.background = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
+      el.style.width = (6 + Math.random() * 6) + 'px';
+      el.style.height = (10 + Math.random() * 8) + 'px';
+      el.style.borderRadius = Math.random() < .5 ? '50%' : '2px';
+      el.style.animationDuration = (2 + Math.random() * 1.5) + 's';
+      el.style.animationDelay = (Math.random() * .4) + 's';
+      layer.appendChild(el);
+      pieces.push(el);
+    }
+    setTimeout(function () {
+      pieces.forEach(function (el) { el.remove(); });
+    }, 4200);
+  }
+
   function fillOptions(select, options, includeBlank) {
     select.innerHTML = '';
     if (includeBlank) select.appendChild(new Option('', ''));
@@ -99,6 +152,10 @@
     // 非表示（display: none）だった間はツールバーの実測高さが0になっているため、
     // 表示状態に切り替わった直後に再計測してスペーサーの高さを補正する。
     syncFixedBars_();
+    if (btn.dataset.tab === 'settings') {
+      loadDemoAvailableOptions_();
+      loadDemoReservedList_();
+    }
   });
 
   // ===== モーダル共通 =====
@@ -393,9 +450,10 @@
     hold: { title: 'Hold登録', button: 'Holdする', busyLabel: 'Hold登録中...', tone: 'hold' },
     secondHold: { title: '2nd Hold登録', button: '2nd Holdする', busyLabel: '登録中...', tone: 'hold' },
     order: { title: '受注確定', button: '受注確定する', busyLabel: '受注確定中...', tone: 'order' },
-    orderFromHold: { title: '受注確定', button: '受注確定する', busyLabel: '受注確定中...', tone: 'order' }
+    orderFromHold: { title: '受注確定', button: '受注確定する', busyLabel: '受注確定中...', tone: 'order' },
+    demoOrder: { title: 'デモカー確定', button: 'デモカー確定する', busyLabel: '確定中...', tone: 'order' }
   };
-  var ORDER_TYPES = ['order', 'orderFromHold'];
+  var ORDER_TYPES = ['order', 'orderFromHold', 'demoOrder'];
 
   function actionFieldId_(key) {
     return 'action' + key.charAt(0).toUpperCase() + key.slice(1);
@@ -465,14 +523,23 @@
 
     var vehicle = findVehicleByCommission(commission);
     var isOrderFromHold = type === 'orderFromHold' && vehicle;
-    var prefill = isOrderFromHold ? {
-      leadNumber: vehicle.holdLeadNumber,
-      registeredMonth: vehicle.holdRegisteredMonth,
-      customer: vehicle.holdCustomer,
-      tradeIn: vehicle.holdTradeIn,
-      oss: vehicle.holdOss,
-      insurance: vehicle.holdInsurance
-    } : { leadNumber: '', registeredMonth: currentYearMonth(), customer: '', tradeIn: '', oss: '', insurance: '' };
+    var prefill;
+    if (isOrderFromHold) {
+      prefill = {
+        // 入力欄には数字部分のみを表示する（「L-」は固定接頭辞として画面側に表示済み）
+        leadNumber: String(vehicle.holdLeadNumber || '').replace(/^L-/i, ''),
+        registeredMonth: vehicle.holdRegisteredMonth,
+        customer: vehicle.holdCustomer,
+        tradeIn: vehicle.holdTradeIn,
+        oss: vehicle.holdOss,
+        insurance: vehicle.holdInsurance
+      };
+    } else if (type === 'demoOrder') {
+      // デモカー確定は入力の手間を減らすため、よくある値をあらかじめ入れておく（編集可）
+      prefill = { leadNumber: '', registeredMonth: currentYearMonth(), customer: 'デモカー', tradeIn: 'なし', oss: '不可', insurance: 'なし' };
+    } else {
+      prefill = { leadNumber: '', registeredMonth: currentYearMonth(), customer: '', tradeIn: '', oss: '', insurance: '' };
+    }
 
     $('actionStaffDisplay').innerHTML = staffDisplayHtml_();
 
@@ -498,6 +565,13 @@
 
     openModal($('actionModal'));
   }
+
+  // リード番号は「L-」固定接頭辞＋数字のみで扱う。入力欄には数字部分のみを
+  // 持たせ、数字以外が入力されてもその場で取り除く。
+  $('actionLeadNumber').addEventListener('input', function () {
+    var digits = this.value.replace(/[^0-9]/g, '');
+    if (this.value !== digits) this.value = digits;
+  });
 
   function findVehicleByCommission(commission) {
     return (state.inventoryItems || []).find(function (v) { return v.commission === commission; }) || null;
@@ -606,7 +680,8 @@
 
     var info = {
       salesLocation: $('actionSalesLocation').value.trim(),
-      leadNumber: $('actionLeadNumber').value.trim(),
+      // リード番号は「L-」固定接頭辞＋数字（入力欄には数字のみを持たせている）
+      leadNumber: 'L-' + $('actionLeadNumber').value.trim().replace(/[^0-9]/g, ''),
       registeredMonth: $('actionRegisteredMonth').value,
       customer: $('actionCustomer').value.trim(),
       tradeIn: $('actionTradeIn').value,
@@ -624,9 +699,13 @@
     apiCall.then(function () {
       setButtonBusy(btn, false);
       closeModal($('actionModal'));
-      showToast(ACTION_LABELS[action.type].title + 'が完了しました');
+      showCelebration_(action.type);
       loadInventory();
       if (ORDER_TYPES.indexOf(action.type) !== -1) loadOrders();
+      if (action.type === 'demoOrder') {
+        loadDemoReservedList_();
+        loadDemoAvailableOptions_();
+      }
     }).catch(function (err) {
       setButtonBusy(btn, false);
       var el = $('actionModalError');
@@ -650,20 +729,22 @@
   }
 
   function orderCardHtml(o) {
+    // 受注リストは「誰が買ったか」がひと目でわかるよう、顧客名を大きな見出しにし、
+    // その下に担当者を表示する（モデル名はメタ情報側へ移動）。
     return '<div class="orderCard">' +
       '<div class="orderCard__top">' +
-      '<div><div class="orderCard__model">' + escapeHtml(o.model) + '</div>' +
+      '<div><div class="orderCard__model">' + escapeHtml(o.customer || '-') + '</div>' +
+      '<div class="orderCard__staff">担当者: ' + escapeHtml(o.staff || '-') + '</div>' +
       '<div class="orderCard__commission">' + escapeHtml(o.commission) + '</div></div>' +
       '<span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span>' +
       '</div>' +
       '<dl class="orderCard__grid">' +
+      '<div><dt>モデル</dt><dd>' + escapeHtml(o.model) + '</dd></div>' +
       '<div><dt>MP</dt><dd>' + escapeHtml(o.mp || '-') + '</dd></div>' +
       '<div><dt>VPC</dt><dd>' + escapeHtml(o.vpc || '-') + '</dd></div>' +
       '<div><dt>有償OP</dt><dd>' + escapeHtml(paidOptionsText(o)) + '</dd></div>' +
       '<div><dt>リード番号</dt><dd>' + escapeHtml(o.leadNumber || '-') + '</dd></div>' +
       '<div><dt>登録月</dt><dd>' + escapeHtml(o.registeredMonth || '-') + '</dd></div>' +
-      '<div><dt>担当者</dt><dd>' + escapeHtml(o.staff || '-') + '</dd></div>' +
-      '<div><dt>顧客</dt><dd>' + escapeHtml(o.customer || '-') + '</dd></div>' +
       '<div><dt>下取車の有無</dt><dd>' + escapeHtml(o.tradeIn || '-') + '</dd></div>' +
       '<div><dt>OSS登録の可否</dt><dd>' + escapeHtml(o.oss || '-') + '</dd></div>' +
       '<div><dt>保険加入の有無</dt><dd>' + escapeHtml(o.insurance || '-') + '</dd></div>' +
@@ -719,6 +800,94 @@
     renderStaffList();
     populateOrdersStaffFilter_();
   }
+
+  // ===== デモカー予約（設定タブ） =====
+  // 在庫あり車両を選んで一時的に販売リストから外す（Hold・担当者ロックは発生しない）。
+  // 予約済みの一覧から「デモカー確定」（受注リストへ計上）または「予約解除」ができる。
+  function loadDemoAvailableOptions_() {
+    return gasRun('api_listAvailableForDemo').then(function (vehicles) {
+      vehicles = vehicles || [];
+      var select = $('demoReserveSelect');
+      var current = select.value;
+      select.innerHTML = '';
+      if (!vehicles.length) {
+        select.appendChild(new Option('予約可能な在庫あり車両がありません', ''));
+        select.disabled = true;
+        $('btnReserveDemo').disabled = true;
+        return;
+      }
+      select.disabled = false;
+      $('btnReserveDemo').disabled = false;
+      vehicles.forEach(function (v) {
+        select.appendChild(new Option(v.model + '（' + v.commission + '）', v.commission));
+      });
+      if (vehicles.some(function (v) { return v.commission === current; })) select.value = current;
+    }).catch(function (err) { showToast(err.message, true); });
+  }
+
+  function loadDemoReservedList_() {
+    return gasRun('api_listDemoReservedVehicles').then(function (vehicles) {
+      renderDemoReservedList_(vehicles || []);
+    }).catch(function (err) { showToast(err.message, true); });
+  }
+
+  function renderDemoReservedList_(vehicles) {
+    var container = $('demoReservedList');
+    if (!vehicles.length) {
+      container.innerHTML = '<div class="demoReservedList__empty">現在デモカー予約中の車両はありません</div>';
+      return;
+    }
+    container.innerHTML = vehicles.map(function (v) {
+      return '<div class="demoReservedList__row">' +
+        '<div class="demoReservedList__info">' +
+        '<div class="demoReservedList__model">' + escapeHtml(v.model) + '</div>' +
+        '<div class="demoReservedList__meta">' + escapeHtml(v.commission) + (v.mp ? ' ・ ' + escapeHtml(v.mp) : '') + '</div>' +
+        '</div>' +
+        '<div class="demoReservedList__actions">' +
+        '<button class="btn btn--primary" data-demo-confirm="' + escapeHtml(v.commission) + '">デモカー確定</button>' +
+        '<button class="btn" data-demo-release="' + escapeHtml(v.commission) + '">予約解除</button>' +
+        '</div></div>';
+    }).join('');
+  }
+
+  $('demoReservedList').addEventListener('click', function (e) {
+    var confirmBtn = e.target.closest('[data-demo-confirm]');
+    var releaseBtn = e.target.closest('[data-demo-release]');
+    if (confirmBtn) {
+      openActionModal('demoOrder', confirmBtn.dataset.demoConfirm);
+    } else if (releaseBtn && !releaseBtn.disabled) {
+      setButtonBusy(releaseBtn, true, '解除中...');
+      gasRun('api_releaseDemoReservation', releaseBtn.dataset.demoRelease).then(function () {
+        showToast('デモカー予約を解除しました');
+        loadDemoReservedList_();
+        loadDemoAvailableOptions_();
+        loadInventory();
+      }).catch(function (err) {
+        setButtonBusy(releaseBtn, false);
+        showToast(err.message, true);
+      });
+    }
+  });
+
+  $('btnReserveDemo').addEventListener('click', function () {
+    if (this.disabled) return;
+    var btn = this;
+    var commission = $('demoReserveSelect').value;
+    if (!commission) return;
+    $('demoReserveError').classList.add('hidden');
+    setButtonBusy(btn, true, '予約中...');
+    gasRun('api_reserveDemoCar', commission).then(function () {
+      setButtonBusy(btn, false);
+      showToast('デモカーとして予約しました');
+      loadDemoAvailableOptions_();
+      loadDemoReservedList_();
+      loadInventory();
+    }).catch(function (err) {
+      setButtonBusy(btn, false);
+      $('demoReserveError').textContent = err.message;
+      $('demoReserveError').classList.remove('hidden');
+    });
+  });
 
   $('settingsThemeColor').addEventListener('input', function () {
     $('settingsThemeColorLabel').textContent = this.value;

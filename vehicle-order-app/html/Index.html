@@ -104,6 +104,20 @@
           </div>
 
           <div class="settingsSection">
+            <h2 class="settingsSection__title">🚗 デモカー予約</h2>
+            <p class="settingsSection__desc">デモカーとして確保したい車両を選ぶと、Holdを発生させずに一時的に販売リストの対象から外せます。予約中の車両は下の一覧から「デモカー確定」（受注リストへ計上）または「予約解除」（販売リストへ戻す）ができます。</p>
+            <div class="formField">
+              <label>デモカーとして予約する車両（在庫あり車両のみ選択できます）</label>
+              <div class="demoReserveField">
+                <select id="demoReserveSelect" class="input"></select>
+                <button class="btn" type="button" id="btnReserveDemo">予約する</button>
+              </div>
+            </div>
+            <div class="modal__error hidden" id="demoReserveError"></div>
+            <div class="demoReservedList" id="demoReservedList"></div>
+          </div>
+
+          <div class="settingsSection">
             <h2 class="settingsSection__title">✉️ メール通知</h2>
             <p class="settingsSection__desc">Hold登録・受注確定があったときに通知するメールアドレスです。複数指定する場合はカンマ区切りで入力してください。未設定の場合は通知をスキップします。</p>
             <div class="formField">
@@ -148,7 +162,10 @@
           </div>
           <div class="formField">
             <label>リード番号</label>
-            <input type="text" id="actionLeadNumber" class="input">
+            <div class="leadNumberField">
+              <span class="leadNumberField__prefix">L-</span>
+              <input type="text" id="actionLeadNumber" class="input leadNumberField__input" inputmode="numeric" pattern="[0-9]*" maxlength="14" placeholder="12345678">
+            </div>
           </div>
           <div class="formField">
             <label>登録月</label>
@@ -306,6 +323,15 @@
   </div>
 
   <div id="toast" class="toast hidden"></div>
+
+  <!-- Hold登録・2nd Hold登録・受注確定の完了時に表示するお祝い／応援ポップアップ -->
+  <div class="celebrationOverlay hidden" id="celebrationOverlay">
+    <div class="celebrationCard" id="celebrationCard">
+      <div class="celebrationCard__emoji" id="celebrationEmoji"></div>
+      <div class="celebrationCard__message" id="celebrationMessage"></div>
+    </div>
+  </div>
+  <div class="confettiLayer" id="confettiLayer"></div>
 
   <?!= include('html/JavaScript'); ?>
 </body>

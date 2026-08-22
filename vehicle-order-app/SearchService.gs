@@ -14,6 +14,9 @@
 function searchInventory(vehicles, filters) {
   filters = filters || {};
   return vehicles.filter(function (v) {
+    // デモカー予約中の車両は、販売リストには表示しない
+    // （設定タブの「デモカー予約」一覧からのみ確認・操作する）。
+    if (v.holdStatus === HOLD_STATUS.DEMO_RESERVED) return false;
     if (filters.includeHold === false && v.holdStatus === HOLD_STATUS.HOLD) return false;
     if (filters.keyword && !matchesAnyField_(v, filters.keyword, ['model', 'commission'])) return false;
     return true;

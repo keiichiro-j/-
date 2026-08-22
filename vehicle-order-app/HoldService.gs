@@ -33,8 +33,25 @@
  */
 function canRegisterHold_(vehicle) {
   if (!vehicle) return { ok: false, reason: '該当車両が見つかりません' };
-  if (vehicle.holdStatus !== HOLD_STATUS.HOLD) return { ok: true, reason: '' };
+  if (vehicle.holdStatus === HOLD_STATUS.AVAILABLE) return { ok: true, reason: '' };
+  if (vehicle.holdStatus === HOLD_STATUS.DEMO_RESERVED) {
+    return { ok: false, reason: 'この車両はデモカーとして確保されているためHoldできません' };
+  }
   return { ok: false, reason: 'この車両は既にHold中です' };
+}
+
+/**
+ * リード番号は「L-」固定接頭辞＋数字のみで扱う（スプレッドシート上も
+ * 「L-11111111」のような表記で保存する）。クライアント側でも数字のみ入力できる
+ * UIにしているが、サーバー側でも必ず正規化・検証する（本人以外の経路からの
+ * 入力や、将来的なクライアント実装の抜けに備えるため）。
+ * @param {string} value 「L-」付き、または数字のみのリード番号
+ * @return {string} 正規化された「L-」付きリード番号
+ */
+function normalizeLeadNumber_(value) {
+  var digits = String(value || '').replace(/^L-/i, '').replace(/[^0-9]/g, '');
+  if (!digits) throw new Error('リード番号は数字で入力してください');
+  return 'L-' + digits;
 }
 
 /**
@@ -159,6 +176,7 @@ function registerHold(commission, info) {
   info = Object.assign({}, info, { staff: currentStaff.name, staffEmail: currentStaff.email });
   var inputCheck = validateRequiredInfo_(HOLD_ORDER_INPUT_COLUMNS, info);
   if (!inputCheck.ok) throw new Error(inputCheck.reason);
+  info.leadNumber = normalizeLeadNumber_(info.leadNumber);
 
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
@@ -196,6 +214,7 @@ function registerSecondHold(commission, info) {
   info = Object.assign({}, info, { staff: currentStaff.name, staffEmail: currentStaff.email });
   var inputCheck = validateRequiredInfo_(HOLD_ORDER_INPUT_COLUMNS, info);
   if (!inputCheck.ok) throw new Error(inputCheck.reason);
+  info.leadNumber = normalizeLeadNumber_(info.leadNumber);
 
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
@@ -338,4 +357,74 @@ function processExpiredHolds() {
   } finally {
     lock.releaseLock();
   }
+}
+
+/**
+ * ===== デモカー予約機能（設定タブ） =====
+ * 在庫あり（available）の車両を一時的に「デモカー予約」状態にし、販売リスト
+ * （在庫リストのカード表示）の対象から外す。Hold期限・担当者ロックの概念は
+ * 持たない（Holdリストには一切書き込まない）。
+ * デモカーとして確定する場合は、通常の受注確定（confirmOrder）をそのまま使う
+ * （canConfirmOrder_ はHold中の車両以外は誰でも受注確定できる設計のため、
+ * デモカー予約中の車両もそのまま受注確定できる）。
+ */
+function reserveDemoCar(commission) {
+  requireCurrentStaff_();
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var sheet = getInventorySheet_();
+    var rowNumber = findInventoryRowNumber_(sheet, commission);
+    if (!rowNumber) throw new Error('該当車両が見つかりません（コミッション: ' + commission + '）');
+    var vehicle = rowToObject_(
+      sheet.getRange(rowNumber, 1, 1, INVENTORY_COLUMNS.length).getValues()[0],
+      INVENTORY_COLUMNS,
+      rowNumber
+    );
+    if (vehicle.holdStatus !== HOLD_STATUS.AVAILABLE) {
+      throw new Error('在庫あり（Hold・デモカー予約のいずれでもない）車両のみデモカー予約できます');
+    }
+    return updateInventoryVehicle_(sheet, rowNumber, { holdStatus: HOLD_STATUS.DEMO_RESERVED });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * デモカー予約を解除し、在庫あり状態へ戻す。
+ */
+function releaseDemoReservation(commission) {
+  requireCurrentStaff_();
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var sheet = getInventorySheet_();
+    var rowNumber = findInventoryRowNumber_(sheet, commission);
+    if (!rowNumber) throw new Error('該当車両が見つかりません（コミッション: ' + commission + '）');
+    var vehicle = rowToObject_(
+      sheet.getRange(rowNumber, 1, 1, INVENTORY_COLUMNS.length).getValues()[0],
+      INVENTORY_COLUMNS,
+      rowNumber
+    );
+    if (vehicle.holdStatus !== HOLD_STATUS.DEMO_RESERVED) {
+      throw new Error('デモカー予約中の車両ではありません');
+    }
+    return updateInventoryVehicle_(sheet, rowNumber, { holdStatus: HOLD_STATUS.AVAILABLE });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * デモカー予約中の車両一覧（設定タブのデモカー予約リスト表示用）。
+ */
+function listDemoReservedVehicles() {
+  return listInventory().filter(function (v) { return v.holdStatus === HOLD_STATUS.DEMO_RESERVED; });
+}
+
+/**
+ * デモカー予約可能な車両一覧（在庫あり状態のみ。設定タブの予約先選択用）。
+ */
+function listAvailableForDemo() {
+  return listInventory().filter(function (v) { return v.holdStatus === HOLD_STATUS.AVAILABLE; });
 }

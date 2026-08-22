@@ -22,6 +22,7 @@ function confirmOrder(commission, info) {
   if (!info.salesLocation || !String(info.salesLocation).trim()) {
     throw new Error('販売拠点を入力してください');
   }
+  info.leadNumber = normalizeLeadNumber_(info.leadNumber);
 
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
