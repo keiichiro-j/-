@@ -459,11 +459,14 @@
     max-width: 1160px;
     margin: 0 auto;
   }
+  /* 2列の段組み（columns）でカードを敷き詰める「マソンリー」レイアウト。
+     grid だと同じ行のカードの高さが最も高いカードに揃ってしまい、内容量の
+     少ないカードの下に不揃いな余白ができてしまう。段組みなら各カードの
+     実際の高さぶんだけ詰めて配置されるため、カード同士の間隔が常に一定になる
+     （column-gapは列の左右の隙間、各カードのmargin-bottomが縦方向の隙間）。 */
   .settingsGrid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
-    align-items: start;
+    columns: 2;
+    column-gap: 20px;
   }
   .settingsCard {
     background: var(--surface);
@@ -474,8 +477,11 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    break-inside: avoid;
+    margin-bottom: 20px;
   }
-  .settingsCard--wide { grid-column: 1 / -1; }
+  /* デモカー予約・担当者マスタは内容量が多いため、段組みを中断して全幅で表示する。 */
+  .settingsCard--wide { column-span: all; }
   .settingsSection__title {
     font-size: 15.5px;
     font-weight: 700;
@@ -494,7 +500,6 @@
   }
   .settingsCard .formField + .formField { margin-top: 14px; }
   .settingsActions {
-    margin-top: 20px;
     background: var(--surface);
     border-radius: 20px;
     box-shadow: var(--shadow);
@@ -672,7 +677,7 @@
     main.view { padding: 14px; }
     .cardGrid { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
     .settingsWrap { max-width: 100%; }
-    .settingsGrid { grid-template-columns: 1fr; }
+    .settingsGrid { columns: 1; }
     /* 受注カードは項目数が多いため、タブレット幅では1列にして読みやすさを優先する */
     .orderList { grid-template-columns: 1fr; }
   }
