@@ -95,6 +95,20 @@ function api_saveSettings(settings) {
   return saveSettings(settings);
 }
 
+/**
+ * 設定タブの「登録状況サマリー」用の集計値。在庫・Hold・デモカー予約・受注の
+ * 台数をひと目で確認できるようにする（読み取り専用。書き込みは一切行わない）。
+ */
+function api_getSummaryStats() {
+  var vehicles = listInventory();
+  return {
+    inventoryTotal: vehicles.length,
+    holdCount: vehicles.filter(function (v) { return v.holdStatus === HOLD_STATUS.HOLD; }).length,
+    demoReservedCount: vehicles.filter(function (v) { return v.holdStatus === HOLD_STATUS.DEMO_RESERVED; }).length,
+    orderTotal: listOrders().length
+  };
+}
+
 // ===== デモカー予約機能（設定タブ） =====
 function api_listAvailableForDemo() {
   return listAvailableForDemo();

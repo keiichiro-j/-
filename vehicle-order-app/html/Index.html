@@ -44,6 +44,12 @@
         <circle cx="17" cy="9" r="2.1"/>
         <path d="M14.7 19c.3-2.2 1.6-3.7 3.1-4.3"/>
       </symbol>
+      <symbol id="icon-chart" viewBox="0 0 24 24">
+        <line x1="5" y1="19" x2="5" y2="11"/>
+        <line x1="12" y1="19" x2="12" y2="6"/>
+        <line x1="19" y1="19" x2="19" y2="14"/>
+        <line x1="3" y1="19.5" x2="21" y2="19.5"/>
+      </symbol>
     </defs>
   </svg>
 
@@ -168,7 +174,30 @@
             </div>
           </div>
 
-          <div class="settingsCard settingsCard--wide">
+          <div class="settingsCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-chart"></use></svg>登録状況サマリー</h2>
+            <p class="settingsSection__desc">在庫・Hold・デモカー予約・受注の現在の登録状況をひと目で確認できます。</p>
+            <div class="statGrid">
+              <div class="statGrid__item">
+                <span class="statGrid__value" id="statInventoryTotal">-</span>
+                <span class="statGrid__label">在庫車両数</span>
+              </div>
+              <div class="statGrid__item">
+                <span class="statGrid__value" id="statHoldCount">-</span>
+                <span class="statGrid__label">Hold中</span>
+              </div>
+              <div class="statGrid__item">
+                <span class="statGrid__value" id="statDemoReservedCount">-</span>
+                <span class="statGrid__label">デモカー予約中</span>
+              </div>
+              <div class="statGrid__item">
+                <span class="statGrid__value" id="statOrderTotal">-</span>
+                <span class="statGrid__label">受注台数（累計）</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="settingsCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-car"></use></svg>デモカー予約</h2>
             <p class="settingsSection__desc">デモカーとして確保したい車両を選ぶと、Holdを発生させずに一時的に販売リストの対象から外せます。予約中の車両は下の一覧から「デモカー確定」（受注リストへ計上）または「予約解除」（販売リストへ戻す）ができます。</p>
             <div class="formField">
@@ -182,7 +211,7 @@
             <div class="demoReservedList" id="demoReservedList"></div>
           </div>
 
-          <div class="settingsCard settingsCard--wide">
+          <div class="settingsCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-people"></use></svg>担当者マスタ</h2>
             <p class="settingsSection__desc">名前・Googleアカウントのメールアドレス・拠点名を登録してください（最大<span id="staffListMax"></span>人・現在<span id="staffListCount">0</span>人登録中）。Hold登録・2nd Hold登録・受注確定・Hold解除の「担当者」は、ログイン中のGoogleアカウントのメールアドレスからここで自動的に判定されるため、操作のたびに担当者を選ぶ必要はありません。拠点名も同様に、Hold登録・受注確定の「販売拠点」欄へ自動的に入力されます（編集可）。</p>
             <div class="staffList" id="staffList"></div>

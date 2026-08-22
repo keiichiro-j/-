@@ -141,6 +141,7 @@
     if (btn.dataset.tab === 'settings') {
       loadDemoAvailableOptions_();
       loadDemoReservedList_();
+      loadSummaryStats_();
     }
   });
 
@@ -710,6 +711,7 @@
         loadDemoReservedList_();
         loadDemoAvailableOptions_();
       }
+      if ($('view-settings').classList.contains('is-active')) loadSummaryStats_();
     }).catch(function (err) {
       setButtonBusy(btn, false);
       var el = $('actionModalError');
@@ -853,6 +855,16 @@
     }).catch(function (err) { showToast(err.message, true); });
   }
 
+  // ===== 登録状況サマリー（設定タブ） =====
+  function loadSummaryStats_() {
+    return gasRun('api_getSummaryStats').then(function (stats) {
+      $('statInventoryTotal').textContent = stats.inventoryTotal;
+      $('statHoldCount').textContent = stats.holdCount;
+      $('statDemoReservedCount').textContent = stats.demoReservedCount;
+      $('statOrderTotal').textContent = stats.orderTotal;
+    }).catch(function (err) { showToast(err.message, true); });
+  }
+
   function renderDemoReservedList_(vehicles) {
     var container = $('demoReservedList');
     if (!vehicles.length) {
@@ -884,6 +896,7 @@
         loadDemoReservedList_();
         loadDemoAvailableOptions_();
         loadInventory();
+        loadSummaryStats_();
       }).catch(function (err) {
         setButtonBusy(releaseBtn, false);
         showToast(err.message, true);
@@ -904,6 +917,7 @@
       loadDemoAvailableOptions_();
       loadDemoReservedList_();
       loadInventory();
+      loadSummaryStats_();
     }).catch(function (err) {
       setButtonBusy(btn, false);
       $('demoReserveError').textContent = err.message;

@@ -454,19 +454,19 @@
 
   /* ===== 設定画面 =====
      項目ごとに独立したカード（島）に分け、Google/Teslaのカードデザインに寄せる
-     （角丸・影・余白多め。1つの大きなカードに全項目を詰め込まない）。 */
+     （角丸・影・余白多め。1つの大きなカードに全項目を詰め込まない）。
+     2列の段組み（masonry）レイアウトも試したが、カードの高さがまちまちだと
+     列の合計高さがずれてしまい、次のカードとの間隔だけ広がって不揃いに見える
+     問題が残るため、確実に隙間が一定になる1列の縦積みに統一している
+     （Google/Teslaの設定画面も同様に1列でカードを並べるスタイル）。 */
   .settingsWrap {
-    max-width: 1160px;
+    max-width: 760px;
     margin: 0 auto;
   }
-  /* 2列の段組み（columns）でカードを敷き詰める「マソンリー」レイアウト。
-     grid だと同じ行のカードの高さが最も高いカードに揃ってしまい、内容量の
-     少ないカードの下に不揃いな余白ができてしまう。段組みなら各カードの
-     実際の高さぶんだけ詰めて配置されるため、カード同士の間隔が常に一定になる
-     （column-gapは列の左右の隙間、各カードのmargin-bottomが縦方向の隙間）。 */
   .settingsGrid {
-    columns: 2;
-    column-gap: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
   }
   .settingsCard {
     background: var(--surface);
@@ -477,11 +477,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    break-inside: avoid;
-    margin-bottom: 20px;
   }
-  /* デモカー予約・担当者マスタは内容量が多いため、段組みを中断して全幅で表示する。 */
-  .settingsCard--wide { column-span: all; }
   .settingsSection__title {
     font-size: 15.5px;
     font-weight: 700;
@@ -499,6 +495,18 @@
     line-height: 1.6;
   }
   .settingsCard .formField + .formField { margin-top: 14px; }
+
+  /* ===== 登録状況サマリー（設定タブ） ===== */
+  .statGrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 2px; }
+  .statGrid__item {
+    background: var(--background);
+    border-radius: 12px;
+    padding: 14px 16px;
+    text-align: center;
+  }
+  .statGrid__value { display: block; font-size: 26px; font-weight: 700; color: var(--primary); line-height: 1.2; }
+  .statGrid__label { display: block; font-size: 12px; color: var(--on-surface-variant); margin-top: 4px; }
+
   .settingsActions {
     background: var(--surface);
     border-radius: 20px;
@@ -677,7 +685,6 @@
     main.view { padding: 14px; }
     .cardGrid { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
     .settingsWrap { max-width: 100%; }
-    .settingsGrid { columns: 1; }
     /* 受注カードは項目数が多いため、タブレット幅では1列にして読みやすさを優先する */
     .orderList { grid-template-columns: 1fr; }
   }
