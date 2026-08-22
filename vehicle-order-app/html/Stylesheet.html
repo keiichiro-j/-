@@ -14,9 +14,9 @@
     --warning-bg: #fef7e0;
     --danger: #d93025;
     --primary-bg: #e8f0fe;
-    --shadow: 0 1px 2px rgba(60, 64, 67, .3), 0 1px 3px 1px rgba(60, 64, 67, .15);
-    --shadow-elevated: 0 2px 6px rgba(60, 64, 67, .3), 0 4px 12px 2px rgba(60, 64, 67, .15);
-    --radius: 12px;
+    --shadow: 0 1px 2px rgba(32, 33, 36, .06);
+    --shadow-elevated: 0 8px 24px rgba(32, 33, 36, .12);
+    --radius: 14px;
     /* トップバーの実高さ。JS（syncFixedBars_）が実測して上書きする。初期値は
        JS実行前のレイアウトずれを防ぐための目安値。 */
     --topbar-h: 60px;
@@ -136,11 +136,12 @@
     border: 1px solid var(--outline);
     background: var(--surface);
     color: var(--on-surface);
-    border-radius: 8px;
-    padding: 9px 16px;
+    border-radius: 10px;
+    padding: 11px 18px;
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
+    transition: background-color .15s ease, border-color .15s ease;
   }
   .btn:hover { background: #f8f9fa; }
   .btn--primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
@@ -157,51 +158,64 @@
   .btn--icon:hover { background: #f1f3f4; }
 
   /* ===== グループ見出し ===== */
-  .group { margin-bottom: 24px; }
+  .group { margin-bottom: 28px; }
   .group__title {
-    font-size: 15px;
-    font-weight: 500;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .04em;
     color: var(--on-surface-variant);
-    margin: 0 0 10px 4px;
+    margin: 0 0 14px 2px;
   }
   .group__count {
     margin-left: 8px;
-    font-weight: 400;
+    font-weight: 600;
     font-size: 12.5px;
-    color: var(--on-surface-variant);
+    color: var(--primary);
   }
-  .toolbar__count { font-size: 13px; color: var(--on-surface-variant); font-weight: 500; white-space: nowrap; }
+  .toolbar__count { font-size: 13.5px; color: var(--on-surface-variant); font-weight: 600; white-space: nowrap; }
 
-  /* ===== カードグリッド（PCビューで3列固定、横長でスタイリッシュに） ===== */
+  /* ===== カードグリッド（PCビューで3列固定。Google Material×Teslaの余白多め・
+     高コントラストな見出しでの「カードタイプUI」） ===== */
   .cardGrid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
+    gap: 20px;
   }
   .card {
     background: var(--surface);
+    border: 1px solid var(--outline);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     border-left: 4px solid transparent;
-    padding: 16px 18px;
+    padding: 22px 24px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    transition: box-shadow .15s ease, transform .15s ease;
+    gap: 14px;
+    transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
   }
-  .card:hover { box-shadow: var(--shadow-elevated); transform: translateY(-2px); }
+  .card:hover { box-shadow: var(--shadow-elevated); transform: translateY(-3px); border-color: transparent; }
   .card--available { border-left-color: var(--success); }
   .card--hold { border-left-color: var(--warning); }
-  .card__top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-  .card__model { font-size: 17px; font-weight: 500; }
-  .card__commission { font-size: 12px; color: var(--on-surface-variant); }
+  /* バッジが多い場合はタイトルを縮めず、バッジ側を折り返して2行目に逃がす
+     （margin-left:autoで、同じ行でも折り返し後の行でも常に右寄せになる）。 */
+  .card__top { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 10px; }
+  .card__model { font-size: 21px; font-weight: 700; letter-spacing: -.01em; line-height: 1.25; }
+  .card__commission {
+    font-size: 12.5px;
+    font-weight: 500;
+    letter-spacing: .03em;
+    color: var(--on-surface-variant);
+    font-variant-numeric: tabular-nums;
+    margin-top: 2px;
+  }
   .badge {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
     font-size: 12px;
     font-weight: 700;
-    padding: 4px 11px;
+    letter-spacing: .01em;
+    padding: 5px 12px;
     border-radius: 999px;
     white-space: nowrap;
   }
@@ -212,18 +226,28 @@
   .badge--undisclosed { background: rgba(95, 99, 104, .12); color: var(--on-surface-variant); font-weight: 500; }
   .badge--thisMonth { background: var(--primary-bg); color: var(--primary); font-weight: 500; }
   .badge--location { background: var(--primary-bg); color: var(--primary); font-weight: 500; }
-  .card__badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .card__badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
 
-  /* メタ情報は2列のミニグリッドで表示（横長カードの幅を活かし、縦幅を抑える） */
+  /* メタ情報は2列のミニグリッドで表示。ラベルは小さく大文字寄り・トラッキング広め、
+     値は大きく太くというメリハリのある「テスラ風」の見出し表現で視認性を高める。 */
   .card__metaGrid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 5px 12px;
+    gap: 12px 16px;
     margin: 0;
-    font-size: 12.5px;
+    padding: 14px 0;
+    border-top: 1px solid var(--outline);
+    border-bottom: 1px solid var(--outline);
   }
-  .card__metaGrid dt { color: var(--on-surface-variant); font-size: 11px; margin-bottom: 1px; }
-  .card__metaGrid dd { margin: 0; font-weight: 500; color: var(--on-surface); }
+  .card__metaGrid dt {
+    color: var(--on-surface-variant);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+  .card__metaGrid dd { margin: 0; font-size: 14.5px; font-weight: 600; color: var(--on-surface); line-height: 1.3; }
 
   /* Hold状況エリアは高さ固定・内部スクロール。Hold/2nd Holdが増えてもここで吸収し、
      カード自体の高さは在庫あり／Hold／2nd Holdのどの状態でも常に一定に保たれる。 */
@@ -246,10 +270,10 @@
   .card__holdInfo {
     flex: none;
     background: var(--background);
-    border-radius: 8px;
+    border-radius: 10px;
     border-left: 3px solid var(--outline);
-    padding: 8px 10px;
-    font-size: 12.5px;
+    padding: 10px 12px;
+    font-size: 13.5px;
     color: var(--on-surface-variant);
     line-height: 1.6;
   }
@@ -321,16 +345,16 @@
   .holdTimer--expired .holdTimer__barFill { background: var(--danger); width: 0% !important; }
   .holdTimer__text {
     margin-top: 4px;
-    font-size: 12px;
-    font-weight: 500;
+    font-size: 12.5px;
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
     color: var(--on-surface-variant);
   }
   .holdTimer--warning .holdTimer__text { color: var(--warning); }
   .holdTimer--expired .holdTimer__text { color: var(--danger); }
 
-  .card__actions { display: flex; gap: 8px; margin-top: auto; padding-top: 4px; flex-wrap: wrap; }
-  .card__actions .btn { flex: 1; }
+  .card__actions { display: flex; gap: 10px; margin-top: auto; padding-top: 4px; flex-wrap: wrap; }
+  .card__actions .btn { flex: 1; min-height: 44px; }
 
   .emptyState {
     text-align: center;
@@ -339,30 +363,53 @@
     font-size: 14px;
   }
 
-  /* ===== 受注リスト ===== */
+  /* ===== 受注リスト（在庫リストと揃えたカードタイプUI。PCビューで1列2枚） ===== */
+  .orderList {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
   .orderCard {
     background: var(--surface);
+    border: 1px solid var(--outline);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     border-left: 4px solid var(--primary);
-    padding: 16px;
-    transition: box-shadow .15s ease, transform .15s ease;
+    padding: 22px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
   }
-  .orderCard:hover { box-shadow: var(--shadow-elevated); transform: translateY(-2px); }
-  .orderList { display: flex; flex-direction: column; gap: 10px; }
-  .orderCard__top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 10px; }
-  .orderCard__model { font-size: 16px; font-weight: 500; }
-  .orderCard__commission { font-size: 12px; color: var(--on-surface-variant); }
+  .orderCard:hover { box-shadow: var(--shadow-elevated); transform: translateY(-3px); border-color: transparent; }
+  .orderCard__top { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 10px; }
+  .orderCard__top .badge { margin-left: auto; }
+  .orderCard__model { font-size: 21px; font-weight: 700; letter-spacing: -.01em; line-height: 1.25; }
+  .orderCard__commission {
+    font-size: 12.5px;
+    font-weight: 500;
+    letter-spacing: .03em;
+    color: var(--on-surface-variant);
+    font-variant-numeric: tabular-nums;
+    margin-top: 2px;
+  }
   .orderCard__grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 8px 16px;
-    font-size: 13.5px;
-    padding-top: 10px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px 16px;
+    margin: 0;
+    padding: 14px 0 0;
     border-top: 1px solid var(--outline);
   }
-  .orderCard__grid dt { color: var(--on-surface-variant); font-size: 12px; margin-bottom: 2px; }
-  .orderCard__grid dd { margin: 0; font-weight: 500; }
+  .orderCard__grid dt {
+    color: var(--on-surface-variant);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+  .orderCard__grid dd { margin: 0; font-size: 14.5px; font-weight: 600; color: var(--on-surface); line-height: 1.3; }
 
   /* ===== 設定画面 ===== */
   .settingsWrap {
@@ -502,7 +549,8 @@
     main.view { padding: 14px; }
     .cardGrid { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
     .settingsWrap { max-width: 100%; }
-    .orderCard__grid { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+    /* 受注カードは項目数が多いため、タブレット幅では1列にして読みやすさを優先する */
+    .orderList { grid-template-columns: 1fr; }
   }
 
   /* ===== スマートフォン ===== */
@@ -516,17 +564,16 @@
     main.view { padding: 10px; }
     .toolbar { padding: 10px; width: calc(100% - 20px); }
     .toolbar .input, .toolbar .checkboxField { flex: 1 1 auto; }
-    .cardGrid { grid-template-columns: 1fr; gap: 10px; }
+    .cardGrid { grid-template-columns: 1fr; gap: 12px; }
     .settingsCard { padding: 18px 16px; }
-    .card { padding: 14px; }
-    .card__actions .btn { min-height: 42px; }
+    .card { padding: 16px 18px; }
     .modal { padding: 0; align-items: flex-end; }
     .modal__panel { max-width: 100%; width: 100%; max-height: 92vh; border-radius: var(--radius) var(--radius) 0 0; }
     .modal__grid { grid-template-columns: 1fr; }
     .formField--span2 { grid-column: auto; }
     .modal__footer .btn { flex: 1; min-height: 44px; }
-    .orderCard { padding: 14px; }
-    .orderCard__grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+    .orderList { gap: 12px; }
+    .orderCard { padding: 16px 18px; }
   }
 
   @media (prefers-reduced-motion: reduce) {
