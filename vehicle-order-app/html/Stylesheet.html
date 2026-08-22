@@ -114,7 +114,7 @@
   .view { display: none; }
   .view.is-active { display: block; }
 
-  /* ===== ツールバー ===== */
+  /* ===== ツールバー（検索欄を含む。スクロールしても隠れないよう上部に固定表示する） ===== */
   .toolbar {
     display: flex;
     flex-wrap: wrap;
@@ -125,6 +125,9 @@
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     margin-bottom: 16px;
+    position: sticky;
+    top: 60px; /* トップバーの高さ分だけ下にずらして固定する */
+    z-index: 15;
   }
   .toolbar__spacer { flex: 1; }
 
