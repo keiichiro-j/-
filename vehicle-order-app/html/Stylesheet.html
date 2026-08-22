@@ -1,38 +1,31 @@
 <style>
   :root {
-    --primary: #0a0a0a;
-    --primary-dark: #000000;
+    --primary: #1a73e8;
+    --primary-dark: #0b57bf;
     --on-primary: #ffffff;
     --surface: #ffffff;
-    --background: #f4f4f5;
-    --on-surface: #161616;
-    --on-surface-variant: #6b6e73;
-    --outline: #dcdde0;
-    --success: #1c7a3c;
-    --success-bg: #e7f3ec;
-    --warning: #a15c00;
-    --warning-bg: #fbf1e0;
-    --danger: #b3261e;
-    --primary-bg: #ececed;
-    --shadow: 0 1px 2px rgba(20, 20, 22, .08), 0 1px 3px rgba(20, 20, 22, .06);
-    --shadow-elevated: 0 4px 10px rgba(20, 20, 22, .12), 0 2px 4px rgba(20, 20, 22, .08);
-    --radius: 8px;
-
-    /* ===== ブランドカラー（メルセデス・ベンツ風：漆黒のヘッダーにシルバーの差し色） =====
-       トップバーの見た目は、ユーザーが変更できる「テーマ（配色）」（--primary）とは
-       独立して常に一定にすることで、公式アプリのような統一感を保つ。 */
-    --brand-bg: #0a0a0a;
-    --brand-bg-gradient: linear-gradient(135deg, #161616 0%, #0a0a0a 55%, #000000 100%);
-    --brand-fg: #ffffff;
-    --brand-silver: #c9cbce;
-    --brand-hairline: rgba(255, 255, 255, .14);
-    --brand-accent: #00adef;
+    --background: #f1f3f4;
+    --on-surface: #202124;
+    --on-surface-variant: #5f6368;
+    --outline: #dadce0;
+    --success: #188038;
+    --success-bg: #e6f4ea;
+    --warning: #b06000;
+    --warning-bg: #fef7e0;
+    --danger: #d93025;
+    --primary-bg: #e8f0fe;
+    --shadow: 0 1px 2px rgba(60, 64, 67, .3), 0 1px 3px 1px rgba(60, 64, 67, .15);
+    --shadow-elevated: 0 2px 6px rgba(60, 64, 67, .3), 0 4px 12px 2px rgba(60, 64, 67, .15);
+    --radius: 12px;
+    /* トップバーの実高さ。JS（syncFixedBars_）が実測して上書きする。初期値は
+       JS実行前のレイアウトずれを防ぐための目安値。 */
+    --topbar-h: 60px;
   }
 
   * { box-sizing: border-box; }
   html, body {
     margin: 0;
-    font-family: 'Helvetica Neue', 'Segoe UI', Roboto, Arial, 'Hiragino Sans', 'Yu Gothic', sans-serif;
+    font-family: 'Roboto', 'Helvetica Neue', Arial, 'Hiragino Sans', 'Yu Gothic', sans-serif;
     background: var(--background);
     color: var(--on-surface);
     -webkit-font-smoothing: antialiased;
@@ -40,20 +33,24 @@
   button { font-family: inherit; }
   .hidden { display: none !important; }
 
-  /* ===== ヘッダー / タブ（メルセデス・ベンツ公式アプリ風：漆黒＋シルバーの差し色） ===== */
+  /* ===== ヘッダー / タブ =====
+     position: fixed で画面上部に完全固定する（position: stickyだとスクロール中に
+     わずかに追従が遅れて見えることがあるため、実測値ベースで確実に固定する。
+     JavaScript.html の syncFixedBars_ 参照）。 */
+  #app { padding-top: var(--topbar-h); }
   .topbar {
-    background: var(--brand-bg-gradient);
-    color: var(--brand-fg);
-    padding: 0 24px;
-    height: 60px;
+    background: var(--primary);
+    color: var(--on-primary);
+    padding: 14px 20px;
     display: flex;
     align-items: center;
-    gap: 24px;
-    box-shadow: var(--shadow-elevated);
-    border-bottom: 1px solid var(--brand-hairline);
-    position: sticky;
+    gap: 20px;
+    box-shadow: var(--shadow);
+    position: fixed;
     top: 0;
-    z-index: 20;
+    left: 0;
+    right: 0;
+    z-index: 30;
   }
   .topbar__brand {
     display: flex;
@@ -62,42 +59,26 @@
     white-space: nowrap;
   }
   .topbar__logo { height: 30px; width: auto; max-width: 120px; object-fit: contain; }
-  .topbar__brandText {
-    font-size: 16px;
-    font-weight: 700;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-  }
-  .topbar__brandText em {
-    font-style: normal;
-    font-weight: 300;
-    letter-spacing: .06em;
-    color: var(--brand-silver);
-    margin-left: 2px;
-  }
+  .topbar__brandText { font-size: 20px; font-weight: 500; white-space: nowrap; }
   .tabs {
     display: flex;
-    gap: 6px;
+    gap: 4px;
     flex: 1;
-    height: 100%;
     overflow-x: auto;
   }
   .tabs__item {
     background: transparent;
     border: none;
-    border-bottom: 2px solid transparent;
-    color: var(--brand-silver);
-    padding: 0 16px;
-    height: 100%;
-    font-size: 13px;
+    color: var(--on-primary);
+    opacity: .75;
+    padding: 10px 16px;
+    border-radius: 999px;
+    font-size: 14px;
     font-weight: 500;
-    letter-spacing: .04em;
     cursor: pointer;
     white-space: nowrap;
-    transition: color .15s ease, border-color .15s ease;
   }
-  .tabs__item:hover { color: var(--brand-fg); }
-  .tabs__item.is-active { color: var(--brand-fg); border-bottom-color: var(--brand-accent); }
+  .tabs__item.is-active { opacity: 1; background: rgba(255, 255, 255, .18); }
 
   .topbar__user {
     flex: none;
@@ -107,14 +88,17 @@
     white-space: nowrap;
   }
   .topbar__userName { display: block; font-weight: 500; }
-  .topbar__userEmail { display: block; color: var(--brand-silver); font-size: 11.5px; }
-  .topbar__userWarn { display: block; color: #fff; background: rgba(255, 255, 255, .12); padding: 4px 10px; border-radius: 999px; font-size: 11.5px; }
+  .topbar__userEmail { display: block; opacity: .8; font-size: 11.5px; }
+  .topbar__userWarn { display: block; color: #fff; background: rgba(0, 0, 0, .18); padding: 4px 10px; border-radius: 999px; font-size: 11.5px; }
 
   main.view { max-width: 1200px; margin: 0 auto; padding: 16px; }
   .view { display: none; }
   .view.is-active { display: block; }
 
-  /* ===== ツールバー（検索欄を含む。スクロールしても隠れないよう上部に固定表示する） ===== */
+  /* ===== ツールバー（検索欄を含む） =====
+     トップバーと同様に position: fixed で完全固定する。折り返しで高さが変わるため、
+     すぐ下に高さ実測済みのスペーサー（.toolbarSpacer）を置いて、後続コンテンツが
+     隠れないようにする（JavaScript.html の syncFixedBars_ 参照）。 */
   .toolbar {
     display: flex;
     flex-wrap: wrap;
@@ -124,10 +108,13 @@
     padding: 12px 16px;
     border-radius: var(--radius);
     box-shadow: var(--shadow);
-    margin-bottom: 16px;
-    position: sticky;
-    top: 60px; /* トップバーの高さ分だけ下にずらして固定する */
-    z-index: 15;
+    position: fixed;
+    top: var(--topbar-h);
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 32px);
+    max-width: 1168px; /* main.view の max-width(1200px) から左右padding(32px)を引いた値 */
+    z-index: 25;
   }
   .toolbar__spacer { flex: 1; }
 
@@ -471,6 +458,10 @@
   .modal__header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--outline); }
   .modal__header h2 { font-size: 17px; font-weight: 500; margin: 0; }
   .modal__body { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+  /* 予約（Hold/2nd Hold/受注）入力モーダルは2列グリッドにして、デスクトップでは
+     スクロールなしで全項目を入力できるようにする。 */
+  .modal__grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 20px; }
+  .formField--span2 { grid-column: 1 / -1; }
   .modal__footer { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--outline); }
   .modal__error { color: var(--danger); font-size: 13px; }
   .modal__desc { margin: 0; font-size: 13px; color: var(--on-surface-variant); line-height: 1.6; }
@@ -494,13 +485,13 @@
   /* ===== スマートフォン ===== */
   @media (max-width: 600px) {
     .topbar { padding: 10px 12px; gap: 10px; }
-    .topbar__brand { font-size: 16px; }
+    .topbar__brandText { font-size: 16px; }
     .topbar__user { display: none; }
     .staffList__row { flex-wrap: wrap; }
     .staffList__row .input[data-staff-field="name"],
     .staffList__row .input[data-staff-field="email"] { flex: 1 1 100%; }
     main.view { padding: 10px; }
-    .toolbar { padding: 10px; }
+    .toolbar { padding: 10px; width: calc(100% - 20px); }
     .toolbar .input, .toolbar .checkboxField { flex: 1 1 auto; }
     .cardGrid { grid-template-columns: 1fr; gap: 10px; }
     .settingsCard { padding: 18px 16px; }
@@ -508,6 +499,8 @@
     .card__actions .btn { min-height: 42px; }
     .modal { padding: 0; align-items: flex-end; }
     .modal__panel { max-width: 100%; width: 100%; max-height: 92vh; border-radius: var(--radius) var(--radius) 0 0; }
+    .modal__grid { grid-template-columns: 1fr; }
+    .formField--span2 { grid-column: auto; }
     .modal__footer .btn { flex: 1; min-height: 44px; }
     .orderCard { padding: 14px; }
     .orderCard__grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }

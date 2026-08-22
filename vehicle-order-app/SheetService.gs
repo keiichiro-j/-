@@ -155,7 +155,11 @@ function createInventoryVehicle(vehicle) {
     throw new Error('同一のコミッションが既に登録されています: ' + vehicle.commission);
   }
   var data = Object.assign({ holdStatus: HOLD_STATUS.AVAILABLE }, vehicle);
-  sheet.appendRow(objectToRow_(data, INVENTORY_COLUMNS));
+  var newRow = sheet.getLastRow() + 1;
+  // 追記先の行がシート全体への書式設定（getOrCreateSheet_時）の範囲を超えていても、
+  // 数字のみのコミッションの先頭0が消えないよう、書き込み前に明示しておく。
+  sheet.getRange(newRow, inventoryColIndex1('commission'), 1, 1).setNumberFormat('@');
+  sheet.getRange(newRow, 1, 1, INVENTORY_COLUMNS.length).setValues([objectToRow_(data, INVENTORY_COLUMNS)]);
   return data;
 }
 

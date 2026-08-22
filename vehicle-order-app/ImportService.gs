@@ -102,6 +102,11 @@ function importInventoryFromText_(text) {
   if (plan.toInsert.length) {
     var startRow = sheet.getLastRow() + 1;
     var values = plan.toInsert.map(function (v) { return objectToRow_(v, INVENTORY_COLUMNS); });
+    // コミッション列は、書き込む前に「書式なしテキスト」を明示しておく。シート全体への
+    // 書式設定（getOrCreateSheet_時）が及んでいない行（既存シートの拡張分など）に
+    // 追記される場合でも、数字のみのコミッション（例: 0583911111）の先頭0が
+    // 自動変換で消えないようにするため。
+    sheet.getRange(startRow, inventoryColIndex1('commission'), values.length, 1).setNumberFormat('@');
     sheet.getRange(startRow, 1, values.length, INVENTORY_COLUMNS.length).setValues(values);
   }
 

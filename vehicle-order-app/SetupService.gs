@@ -14,7 +14,7 @@
 /**
  * 在庫リスト・Holdリスト・受注リストを作成し、Hold期限チェックの時間主導トリガーを
  * セットアップする。GASエディタから手動実行するか、スプレッドシートのメニュー
- * 「MB 販売可能リスト」→「初期セットアップ」からも実行できる（onOpen参照）。
+ * 「販売可能リスト」→「初期セットアップ」からも実行できる（onOpen参照）。
  */
 function setupSpreadsheet_() {
   getInventorySheet_();
@@ -36,7 +36,7 @@ function setupSpreadsheet_() {
  */
 function onOpen() {
   SpreadsheetApp.getUi()
-    .createMenu('MB 販売可能リスト')
+    .createMenu('販売可能リスト')
     .addItem('初期セットアップ（3タブを作成）', 'setupSpreadsheet_')
     .addItem('コミッション列を書式なしテキストに再設定', 'formatCommissionColumnsAsText_')
     .addToUi();

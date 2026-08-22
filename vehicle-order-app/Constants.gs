@@ -1,6 +1,6 @@
 /**
  * Constants.gs
- * MB 販売可能リスト 共通定数定義
+ * 販売可能リスト 共通定数定義
  *
  * スプレッドシートは3タブ構成：
  *   在庫リスト … 車両情報＋Holdステータスのみ
@@ -150,7 +150,7 @@ var PROP_KEYS = {
   STAFF_LIST: 'STAFF_LIST'
 };
 
-var DEFAULT_THEME_COLOR = '#0a0a0a'; // メルセデス・ベンツ風の落ち着いたブラックを既定色に
+var DEFAULT_THEME_COLOR = '#1a73e8'; // Google Material Design Blue 600
 
 // ロゴ（画像URL、またはアップロード時のdata URL）の最大文字数。
 // Script Propertiesは1プロパティあたり9KB（=9216文字程度）が上限のため、

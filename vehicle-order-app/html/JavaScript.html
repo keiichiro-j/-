@@ -320,6 +320,7 @@
     $('inventoryEmpty').classList.toggle('hidden', items.length > 0);
     $('inventoryTotalCount').textContent = items.length ? '該当 ' + items.length + ' 台' : '';
     container.innerHTML = '<div class="cardGrid">' + items.map(vehicleCardHtml).join('') + '</div>';
+    syncFixedBars_();
   }
 
   document.getElementById('inventoryList').addEventListener('click', function (e) {
@@ -674,6 +675,7 @@
         : '';
       return '<div class="group">' + heading + '<div class="orderList">' + g.items.map(orderCardHtml).join('') + '</div></div>';
     }).join('');
+    syncFixedBars_();
   }
 
   function populateOrdersStaffFilter_() {
@@ -726,12 +728,14 @@
   function applyLogo(logoUrl) {
     var img = $('topbarLogo');
     if (logoUrl) {
+      img.onload = syncFixedBars_;
       img.src = logoUrl;
       img.classList.remove('hidden');
     } else {
       img.removeAttribute('src');
       img.classList.add('hidden');
     }
+    syncFixedBars_();
   }
 
   function renderLogoPreview_(url) {
@@ -943,6 +947,25 @@
       timer = setTimeout(function () { fn.apply(null, args); }, wait);
     };
   }
+
+  // ===== ヘッダー・ツールバーの完全固定表示 =====
+  // トップバー・ツールバー（検索欄）はどちらも position: fixed で画面上部に固定する
+  // （position: stickyだとブラウザによってスクロール中にわずかに追従が遅れる/ずれる
+  // ことがあるため、位置計算をブラウザ任せにせず実測値で完全に固定する）。
+  // ツールバーは折り返しで高さが変わるため、実測してスペーサー（本来ツールバーが
+  // 占めていた場所を確保するダミー要素）の高さをその都度更新する。
+  function syncFixedBars_() {
+    var topbar = $('topbar');
+    if (topbar) {
+      document.documentElement.style.setProperty('--topbar-h', topbar.offsetHeight + 'px');
+    }
+    [['inventoryToolbar', 'inventoryToolbarSpacer'], ['ordersToolbar', 'ordersToolbarSpacer']].forEach(function (pair) {
+      var toolbar = $(pair[0]);
+      var spacer = $(pair[1]);
+      if (toolbar && spacer) spacer.style.height = (toolbar.offsetHeight + 16) + 'px';
+    });
+  }
+  window.addEventListener('resize', debounce(syncFixedBars_, 100));
 
   function escapeHtml(value) {
     if (value === null || value === undefined) return '';
