@@ -6,6 +6,47 @@
   <?!= include('html/Stylesheet'); ?>
 </head>
 <body>
+  <!-- Google/Teslaのようなミニマルな線画アイコン一式（外部アイコンライブラリ非依存。
+       個々の絵文字アイコンの代わりに使う。<use>で参照する）。 -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="icon-tune" viewBox="0 0 24 24">
+        <line x1="4" y1="7" x2="20" y2="7"/>
+        <line x1="4" y1="12" x2="20" y2="12"/>
+        <line x1="4" y1="17" x2="20" y2="17"/>
+        <circle cx="15" cy="7" r="1.8" fill="currentColor" stroke="none"/>
+        <circle cx="9" cy="12" r="1.8" fill="currentColor" stroke="none"/>
+        <circle cx="13" cy="17" r="1.8" fill="currentColor" stroke="none"/>
+      </symbol>
+      <symbol id="icon-image" viewBox="0 0 24 24">
+        <rect x="3.5" y="5" width="17" height="14" rx="2.5"/>
+        <circle cx="9" cy="10.5" r="1.6"/>
+        <path d="M4 16.5l4.3-4.3a1.5 1.5 0 012.1 0l1.4 1.4 3.4-3.4a1.5 1.5 0 012.1 0L20 13"/>
+      </symbol>
+      <symbol id="icon-upload" viewBox="0 0 24 24">
+        <path d="M12 4.5v10.5"/>
+        <path d="M8 8.5l4-4 4 4"/>
+        <path d="M4.5 16v2.5a2 2 0 002 2h11a2 2 0 002-2V16"/>
+      </symbol>
+      <symbol id="icon-car" viewBox="0 0 24 24">
+        <path d="M5 15.5l1.3-4.6A2 2 0 018.2 9.4h7.6a2 2 0 011.9 1.5l1.3 4.6"/>
+        <path d="M4 15.5h16v2.7a1 1 0 01-1 1h-1a1 1 0 01-1-1v-.7H7v.7a1 1 0 01-1 1H5a1 1 0 01-1-1v-2.7z"/>
+        <circle cx="8" cy="16.3" r="1.3" fill="currentColor" stroke="none"/>
+        <circle cx="16" cy="16.3" r="1.3" fill="currentColor" stroke="none"/>
+      </symbol>
+      <symbol id="icon-mail" viewBox="0 0 24 24">
+        <rect x="3.5" y="5.5" width="17" height="13" rx="2"/>
+        <path d="M4 7l8 6 8-6"/>
+      </symbol>
+      <symbol id="icon-people" viewBox="0 0 24 24">
+        <circle cx="9" cy="8.2" r="2.7"/>
+        <path d="M4 19c0-3 2.3-5 5-5s5 2 5 5"/>
+        <circle cx="17" cy="9" r="2.1"/>
+        <path d="M14.7 19c.3-2.2 1.6-3.7 3.1-4.3"/>
+      </symbol>
+    </defs>
+  </svg>
+
   <div id="app">
     <header class="topbar" id="topbar">
       <div class="topbar__brand">
@@ -44,7 +85,7 @@
       <div class="toolbar" id="ordersToolbar">
         <div class="subTabs" id="ordersSubTabs">
           <button type="button" class="subTabs__item is-active" data-orders-filter="all">すべて</button>
-          <button type="button" class="subTabs__item" data-orders-filter="demo">🚗 デモカーのみ</button>
+          <button type="button" class="subTabs__item" data-orders-filter="demo"><svg class="icon icon--inline"><use href="#icon-car"></use></svg>デモカーのみ</button>
         </div>
         <input type="search" id="ordersKeyword" class="input input--search" placeholder="自由検索（モデル・コミッション・顧客名・担当・拠点）">
         <input type="text" id="ordersLocationFilter" class="input" placeholder="拠点で絞り込み">
@@ -66,9 +107,9 @@
     <!-- 設定 -->
     <main class="view" id="view-settings">
       <div class="settingsWrap">
-        <div class="settingsCard">
-          <div class="settingsSection">
-            <h2 class="settingsSection__title">🎨 表示設定</h2>
+        <div class="settingsGrid">
+          <div class="settingsCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>表示設定</h2>
             <p class="settingsSection__desc">アプリ全体のテーマカラーを変更できます。</p>
             <div class="formField">
               <label>テーマ（配色）</label>
@@ -79,8 +120,8 @@
             </div>
           </div>
 
-          <div class="settingsSection">
-            <h2 class="settingsSection__title">🏷️ ロゴ</h2>
+          <div class="settingsCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-image"></use></svg>ロゴ</h2>
             <p class="settingsSection__desc">画面上部に表示するロゴ画像です。画像ファイルをアップロードするか、画像のURLを直接指定してください。アップロードした画像はこの設定項目内にそのまま保存されるため、なるべく小さいサイズ（数十KB程度まで）の画像をお使いください。大きな画像を使いたい場合は、外部（Googleドライブの共有リンク等）にアップロードしたうえでURLを指定してください。</p>
             <div class="formField">
               <label>ロゴ画像</label>
@@ -101,14 +142,27 @@
             <div class="modal__error hidden" id="settingsLogoError"></div>
           </div>
 
-          <div class="settingsSection">
-            <h2 class="settingsSection__title">📥 在庫データの一括取り込み</h2>
+          <div class="settingsCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-upload"></use></svg>在庫データの一括取り込み</h2>
             <p class="settingsSection__desc">Excelファイル（.xlsx）やGoogleスプレッドシートのデータを、在庫リストへまとめて取り込めます。既に在庫リストに存在するコミッションの車両は、二重仕入れ防止のため取り込まれません。</p>
             <button class="btn" type="button" id="btnOpenImport">在庫データを取り込む</button>
           </div>
 
-          <div class="settingsSection">
-            <h2 class="settingsSection__title">🚗 デモカー予約</h2>
+          <div class="settingsCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-mail"></use></svg>メール通知</h2>
+            <p class="settingsSection__desc">Hold登録・受注確定があったときに通知するメールアドレスです。複数指定する場合はカンマ区切りで入力してください。未設定の場合は通知をスキップします。</p>
+            <div class="formField">
+              <label>Hold登録時のメール通知先</label>
+              <input type="text" id="settingsHoldMailTo" class="input" placeholder="例: staff@example.com, staff2@example.com">
+            </div>
+            <div class="formField">
+              <label>受注確定時のメール通知先</label>
+              <input type="text" id="settingsOrderMailTo" class="input" placeholder="例: sales@example.com">
+            </div>
+          </div>
+
+          <div class="settingsCard settingsCard--wide">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-car"></use></svg>デモカー予約</h2>
             <p class="settingsSection__desc">デモカーとして確保したい車両を選ぶと、Holdを発生させずに一時的に販売リストの対象から外せます。予約中の車両は下の一覧から「デモカー確定」（受注リストへ計上）または「予約解除」（販売リストへ戻す）ができます。</p>
             <div class="formField">
               <label>デモカーとして予約する車両（在庫あり車両のみ選択できます）</label>
@@ -121,30 +175,17 @@
             <div class="demoReservedList" id="demoReservedList"></div>
           </div>
 
-          <div class="settingsSection">
-            <h2 class="settingsSection__title">✉️ メール通知</h2>
-            <p class="settingsSection__desc">Hold登録・受注確定があったときに通知するメールアドレスです。複数指定する場合はカンマ区切りで入力してください。未設定の場合は通知をスキップします。</p>
-            <div class="formField">
-              <label>Hold登録時のメール通知先</label>
-              <input type="text" id="settingsHoldMailTo" class="input" placeholder="例: staff@example.com, staff2@example.com">
-            </div>
-            <div class="formField">
-              <label>受注確定時のメール通知先</label>
-              <input type="text" id="settingsOrderMailTo" class="input" placeholder="例: sales@example.com">
-            </div>
-          </div>
-
-          <div class="settingsSection">
-            <h2 class="settingsSection__title">👥 担当者マスタ</h2>
+          <div class="settingsCard settingsCard--wide">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-people"></use></svg>担当者マスタ</h2>
             <p class="settingsSection__desc">名前とGoogleアカウントのメールアドレスを登録してください（最大<span id="staffListMax"></span>人・現在<span id="staffListCount">0</span>人登録中）。Hold登録・2nd Hold登録・受注確定・Hold解除の「担当者」は、ログイン中のGoogleアカウントのメールアドレスからここで自動的に判定されるため、操作のたびに担当者を選ぶ必要はありません。</p>
             <div class="staffList" id="staffList"></div>
             <button class="btn" id="btnAddStaff" type="button">＋ 担当者を追加</button>
           </div>
+        </div>
 
-          <div class="settingsSection">
-            <div id="settingsError" class="modal__error"></div>
-            <button class="btn btn--primary btn--block" id="btnSaveSettings">保存</button>
-          </div>
+        <div class="settingsActions">
+          <div id="settingsError" class="modal__error"></div>
+          <button class="btn btn--primary btn--block" id="btnSaveSettings">保存</button>
         </div>
       </div>
     </main>
@@ -194,6 +235,10 @@
           <div class="formField">
             <label>保険加入の有無</label>
             <select id="actionInsurance" class="input"></select>
+          </div>
+          <div class="formField">
+            <label>支払方法</label>
+            <select id="actionPaymentMethod" class="input"></select>
           </div>
         </div>
       </div>
@@ -328,13 +373,7 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <!-- Hold登録・2nd Hold登録・受注確定の完了時に表示するお祝い／応援ポップアップ -->
-  <div class="celebrationOverlay hidden" id="celebrationOverlay">
-    <div class="celebrationCard" id="celebrationCard">
-      <div class="celebrationCard__emoji" id="celebrationEmoji"></div>
-      <div class="celebrationCard__message" id="celebrationMessage"></div>
-    </div>
-  </div>
+  <!-- 受注確定時の紙吹雪演出（文字・カードなし。confettiLayerに紙吹雪だけを降らせる） -->
   <div class="confettiLayer" id="confettiLayer"></div>
 
   <?!= include('html/JavaScript'); ?>

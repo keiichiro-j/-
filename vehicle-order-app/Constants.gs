@@ -36,6 +36,7 @@ var STEERING_OPTIONS = ['右', '左'];
 var STOCK_DISCLOSURE_OPTIONS = ['開示', '非開示'];
 var YES_NO_OPTIONS = ['あり', 'なし'];
 var OSS_OPTIONS = ['可', '不可'];
+var PAYMENT_METHOD_OPTIONS = ['現金', 'ローン'];
 var PAID_OPTION_SLOT_COUNT = 7; // 有償オプション（7マス分確保）
 var STAFF_LIST_MAX = 30; // 担当者マスタの最大登録人数
 
@@ -80,7 +81,8 @@ var HOLD_ORDER_INPUT_COLUMNS = [
   { key: 'customer', label: '顧客', type: 'text', required: true },
   { key: 'tradeIn', label: '下取車の有無', type: 'select', options: YES_NO_OPTIONS, required: true },
   { key: 'oss', label: 'OSS登録の可否', type: 'select', options: OSS_OPTIONS, required: true },
-  { key: 'insurance', label: '保険加入の有無', type: 'select', options: YES_NO_OPTIONS, required: true }
+  { key: 'insurance', label: '保険加入の有無', type: 'select', options: YES_NO_OPTIONS, required: true },
+  { key: 'paymentMethod', label: '支払方法', type: 'select', options: PAYMENT_METHOD_OPTIONS, required: true }
 ];
 
 /**

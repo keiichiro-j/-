@@ -65,57 +65,42 @@
     showToast._t = setTimeout(function () { toast.classList.add('hidden'); }, 3200);
   }
 
-  // ===== Hold登録・2nd Hold登録・受注確定の応援／お祝いポップアップ =====
-  var CELEBRATION_CONFIG = {
-    hold: { emoji: '🥺', message: '頑張って', tone: 'hold' },
-    secondHold: { emoji: '⏳', message: 'もう少し待ってね', tone: 'hold' },
-    order: { emoji: '🎈㊗️🎉', message: 'おめでとう', tone: 'order', confetti: true },
-    orderFromHold: { emoji: '🎈㊗️🎉', message: 'おめでとう', tone: 'order', confetti: true },
-    demoOrder: { emoji: '🎈㊗️🎉', message: 'おめでとう', tone: 'order', confetti: true }
-  };
+  // ===== 受注確定（デモカー確定を含む）時の紙吹雪演出 =====
+  // Hold登録・2nd Hold登録では何も表示しない。受注確定では文字・カードは出さず、
+  // 盛大な紙吹雪だけを画面いっぱいに降らせる。
+  var CONFETTI_ACTION_TYPES = ['order', 'orderFromHold', 'demoOrder'];
 
   function showCelebration_(actionType) {
-    var config = CELEBRATION_CONFIG[actionType];
-    if (!config) return;
-    var overlay = $('celebrationOverlay');
-    $('celebrationCard').className = 'celebrationCard celebrationCard--' + config.tone;
-    $('celebrationEmoji').textContent = config.emoji;
-    $('celebrationMessage').textContent = config.message;
-    overlay.classList.remove('hidden');
-    if (config.confetti) triggerConfetti_();
-    clearTimeout(showCelebration_._timer);
-    showCelebration_._timer = setTimeout(function () {
-      overlay.classList.add('hidden');
-    }, config.confetti ? 2800 : 1800);
+    if (CONFETTI_ACTION_TYPES.indexOf(actionType) !== -1) triggerConfetti_();
   }
-
-  $('celebrationOverlay').addEventListener('click', function () {
-    clearTimeout(showCelebration_._timer);
-    this.classList.add('hidden');
-  });
 
   var CONFETTI_COLORS = ['#1a73e8', '#34a853', '#fbbc05', '#ea4335', '#a142f4', '#00bcd4'];
 
-  function triggerConfetti_() {
-    var layer = $('confettiLayer');
-    var pieces = [];
-    var count = 90;
+  function spawnConfettiBatch_(layer, pieces, count) {
     for (var i = 0; i < count; i++) {
       var el = document.createElement('div');
       el.className = 'confettiPiece';
       el.style.left = (Math.random() * 100) + 'vw';
       el.style.background = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
-      el.style.width = (6 + Math.random() * 6) + 'px';
-      el.style.height = (10 + Math.random() * 8) + 'px';
+      el.style.width = (6 + Math.random() * 8) + 'px';
+      el.style.height = (10 + Math.random() * 10) + 'px';
       el.style.borderRadius = Math.random() < .5 ? '50%' : '2px';
-      el.style.animationDuration = (2 + Math.random() * 1.5) + 's';
-      el.style.animationDelay = (Math.random() * .4) + 's';
+      el.style.animationDuration = (2.2 + Math.random() * 2) + 's';
+      el.style.animationDelay = (Math.random() * .5) + 's';
       layer.appendChild(el);
       pieces.push(el);
     }
+  }
+
+  // ド派手に：紙吹雪を2波に分けて、画面いっぱいに大量発生させる。
+  function triggerConfetti_() {
+    var layer = $('confettiLayer');
+    var pieces = [];
+    spawnConfettiBatch_(layer, pieces, 180);
+    setTimeout(function () { spawnConfettiBatch_(layer, pieces, 140); }, 300);
     setTimeout(function () {
       pieces.forEach(function (el) { el.remove(); });
-    }, 4200);
+    }, 5200);
   }
 
   function fillOptions(select, options, includeBlank) {
@@ -286,6 +271,7 @@
     var tradeIn = v[prefix + 'TradeIn'];
     var oss = v[prefix + 'Oss'];
     var insurance = v[prefix + 'Insurance'];
+    var paymentMethod = v[prefix + 'PaymentMethod'];
     var createdAt = v[prefix + 'CreatedAt'];
     var expiresAt = v[prefix + 'ExpiresAt'];
     var cancelRank = rank === 'first' ? '1st' : '2nd';
@@ -302,7 +288,7 @@
       'リード番号 ' + escapeHtml(leadNumber || '-') +
       ' / 登録月 ' + escapeHtml(registeredMonth || '-') +
       ' / 下取車 ' + escapeHtml(tradeIn || '-') + ' / OSS ' + escapeHtml(oss || '-') +
-      ' / 保険 ' + escapeHtml(insurance || '-') +
+      ' / 保険 ' + escapeHtml(insurance || '-') + ' / 支払方法 ' + escapeHtml(paymentMethod || '-') +
       '</div>' +
       '</details>' +
       '</div>';
@@ -533,13 +519,14 @@
         customer: vehicle.holdCustomer,
         tradeIn: vehicle.holdTradeIn,
         oss: vehicle.holdOss,
-        insurance: vehicle.holdInsurance
+        insurance: vehicle.holdInsurance,
+        paymentMethod: vehicle.holdPaymentMethod
       };
     } else if (type === 'demoOrder') {
       // デモカー確定は入力の手間を減らすため、よくある値をあらかじめ入れておく（編集可）
-      prefill = { leadNumber: '', registeredMonth: currentYearMonth(), customer: 'デモカー', tradeIn: 'なし', oss: '不可', insurance: 'なし' };
+      prefill = { leadNumber: '', registeredMonth: currentYearMonth(), customer: 'デモカー', tradeIn: 'なし', oss: '不可', insurance: 'なし', paymentMethod: '現金' };
     } else {
-      prefill = { leadNumber: '', registeredMonth: currentYearMonth(), customer: '', tradeIn: '', oss: '', insurance: '' };
+      prefill = { leadNumber: '', registeredMonth: currentYearMonth(), customer: '', tradeIn: '', oss: '', insurance: '', paymentMethod: '' };
     }
 
     $('actionStaffDisplay').innerHTML = staffDisplayHtml_();
@@ -563,6 +550,7 @@
     $('actionTradeIn').value = prefill.tradeIn || '';
     $('actionOss').value = prefill.oss || '';
     $('actionInsurance').value = prefill.insurance || '';
+    $('actionPaymentMethod').value = prefill.paymentMethod || '';
 
     openModal($('actionModal'));
   }
@@ -687,7 +675,8 @@
       customer: $('actionCustomer').value.trim(),
       tradeIn: $('actionTradeIn').value,
       oss: $('actionOss').value,
-      insurance: $('actionInsurance').value
+      insurance: $('actionInsurance').value,
+      paymentMethod: $('actionPaymentMethod').value
     };
     var apiCall;
     if (action.type === 'hold') apiCall = gasRun('api_registerHold', action.commission, info);
@@ -749,7 +738,7 @@
       '<div class="orderCard__staff">担当者: ' + escapeHtml(o.staff || '-') + '</div>' +
       '<div class="orderCard__commission">' + escapeHtml(o.commission) + '</div></div>' +
       '<div class="card__badges">' +
-      (o.isDemo === 'あり' ? '<span class="badge badge--demo">🚗 デモカー</span>' : '') +
+      (o.isDemo === 'あり' ? '<span class="badge badge--demo"><svg class="icon icon--inline"><use href="#icon-car"></use></svg>デモカー</span>' : '') +
       '<span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span>' +
       '</div>' +
       '</div>' +
@@ -763,6 +752,7 @@
       '<div><dt>下取車の有無</dt><dd>' + escapeHtml(o.tradeIn || '-') + '</dd></div>' +
       '<div><dt>OSS登録の可否</dt><dd>' + escapeHtml(o.oss || '-') + '</dd></div>' +
       '<div><dt>保険加入の有無</dt><dd>' + escapeHtml(o.insurance || '-') + '</dd></div>' +
+      '<div><dt>支払方法</dt><dd>' + escapeHtml(o.paymentMethod || '-') + '</dd></div>' +
       '<div><dt>受注確定日時</dt><dd>' + formatDateTime(o.orderedAt) + '</dd></div>' +
       '</dl></div>';
   }
@@ -1400,6 +1390,7 @@
       fillOptions($('actionTradeIn'), bootstrap.yesNoOptions, true);
       fillOptions($('actionOss'), bootstrap.ossOptions, true);
       fillOptions($('actionInsurance'), bootstrap.yesNoOptions, true);
+      fillOptions($('actionPaymentMethod'), bootstrap.paymentMethodOptions, true);
       renderSettings(bootstrap.settings);
       renderTopbarUser();
       return Promise.all([loadInventory(), loadOrders()]);

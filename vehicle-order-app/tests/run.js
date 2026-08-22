@@ -181,7 +181,7 @@ test('1st Holdを解除する場合、2nd Holdがあれば繰り上げ(promote)�
 console.log('== HoldService: validateRequiredInfo_（全項目入力チェック） ==');
 const fullInfo = {
   leadNumber: 'L-001', registeredMonth: '2026-08', staff: '佐藤', staffEmail: 'sato@example.com', customer: '山田太郎',
-  tradeIn: 'あり', oss: '可', insurance: 'あり'
+  tradeIn: 'あり', oss: '可', insurance: 'あり', paymentMethod: '現金'
 };
 test('全項目入力済みならOK', () => {
   assert.strictEqual(sandbox.validateRequiredInfo_(sandbox.HOLD_ORDER_INPUT_COLUMNS, fullInfo).ok, true);
@@ -191,6 +191,12 @@ test('リード番号が未入力だとNG', () => {
   const result = sandbox.validateRequiredInfo_(sandbox.HOLD_ORDER_INPUT_COLUMNS, info);
   assert.strictEqual(result.ok, false);
   assert.ok(result.reason.includes('リード番号'));
+});
+test('支払方法が未入力だとNG', () => {
+  const info = Object.assign({}, fullInfo, { paymentMethod: '' });
+  const result = sandbox.validateRequiredInfo_(sandbox.HOLD_ORDER_INPUT_COLUMNS, info);
+  assert.strictEqual(result.ok, false);
+  assert.ok(result.reason.includes('支払方法'));
 });
 test('複数項目が未入力だとすべて列挙される', () => {
   const result = sandbox.validateRequiredInfo_(sandbox.HOLD_ORDER_INPUT_COLUMNS, {});

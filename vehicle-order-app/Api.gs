@@ -14,6 +14,7 @@ function api_getBootstrapData() {
     stockDisclosureOptions: STOCK_DISCLOSURE_OPTIONS,
     yesNoOptions: YES_NO_OPTIONS,
     ossOptions: OSS_OPTIONS,
+    paymentMethodOptions: PAYMENT_METHOD_OPTIONS,
     paidOptionKeys: PAID_OPTION_KEYS,
     holdOrderInputColumns: HOLD_ORDER_INPUT_COLUMNS,
     salesLocationColumn: { key: 'salesLocation', label: '販売拠点', required: true },
