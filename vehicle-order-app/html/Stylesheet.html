@@ -188,6 +188,101 @@
   }
   .toolbar__count { font-size: 13.5px; color: var(--on-surface-variant); font-weight: 600; white-space: nowrap; }
 
+  /* ===== 表示形式切替（カード／表）・在庫リストのツールバーに置くセグメントコントロール ===== */
+  .viewToggle { display: flex; gap: 4px; background: var(--background); border-radius: 999px; padding: 3px; flex: none; }
+  .viewToggle__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: none;
+    background: transparent;
+    color: var(--on-surface-variant);
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .viewToggle__item.is-active { background: var(--surface); color: var(--primary); box-shadow: var(--shadow); }
+
+  /* ===== 車両比較（カード・表それぞれに置くピン、下部固定バー、比較モーダル） ===== */
+  .card__comparePin {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--on-surface-variant);
+    cursor: pointer;
+    margin-left: auto;
+  }
+  .card__top .card__comparePin { flex: none; }
+  .tableComparePin { display: flex; }
+
+  .compareBar {
+    position: fixed;
+    left: 50%;
+    bottom: 20px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--on-surface);
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 999px;
+    box-shadow: var(--shadow-elevated);
+    z-index: 40;
+    max-width: calc(100% - 32px);
+  }
+  .compareBar__label { font-size: 13px; font-weight: 700; flex: none; }
+  .compareBar__chips { display: flex; gap: 6px; flex-wrap: wrap; overflow-x: auto; max-width: 46vw; }
+  .compareBar__spacer { flex: 1; min-width: 8px; }
+  .compareChip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, .16);
+    padding: 4px 6px 4px 12px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    white-space: nowrap;
+  }
+  .compareChip button {
+    border: none;
+    background: rgba(255, 255, 255, .2);
+    color: #fff;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+  }
+  .compareBar .btn { padding: 7px 14px; font-size: 13px; flex: none; }
+  .compareBar .btn:not(.btn--primary) { background: rgba(255, 255, 255, .12); border-color: rgba(255, 255, 255, .3); color: #fff; }
+  .compareBar .btn:not(.btn--primary):hover { background: rgba(255, 255, 255, .2); }
+
+  .modal__panel.modal__panel--compare { max-width: 900px; }
+  .tableScroll { overflow-x: auto; }
+  .compareTable { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .compareTable th, .compareTable td { padding: 10px 14px; border-bottom: 1px solid var(--outline); text-align: left; white-space: nowrap; }
+  .compareTable thead th { color: var(--on-surface-variant); font-size: 12px; font-weight: 700; }
+  .compareTable thead th:first-child { background: var(--surface); }
+  .compareTable tbody th { font-size: 12.5px; font-weight: 700; color: var(--on-surface-variant); background: var(--background); }
+  .compareTable__sub { font-size: 11px; font-weight: 500; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .compareTable tr.is-diff td { background: var(--primary-bg); }
+
+  /* ===== 在庫リストの表形式表示（多台数を一覧で見比べる商談向けビュー） ===== */
+  .inventoryTable { width: 100%; border-collapse: collapse; font-size: 13.5px; background: var(--surface); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+  .inventoryTable th, .inventoryTable td { padding: 12px 14px; border-bottom: 1px solid var(--outline); text-align: left; white-space: nowrap; }
+  .inventoryTable thead th { color: var(--on-surface-variant); font-size: 11.5px; font-weight: 700; letter-spacing: .03em; background: var(--background); }
+  .inventoryTable tbody tr:hover td { background: var(--background); }
+  .inventoryTable tbody tr:last-child td { border-bottom: none; }
+  .inventoryTable .mono { font-variant-numeric: tabular-nums; color: var(--on-surface-variant); }
+  .inventoryTable .tableActions { display: flex; gap: 8px; }
+  .btn--small { padding: 6px 12px; font-size: 12.5px; }
+
   /* ===== カードグリッド（PCビューで3列固定。Google Material×Teslaの余白多め・
      高コントラストな見出しでの「カードタイプUI」） ===== */
   .cardGrid {
@@ -645,6 +740,8 @@
     .modal__footer .btn { flex: 1; min-height: 44px; }
     .orderList { gap: 12px; }
     .orderCard { padding: 16px 18px; }
+    .compareBar { left: 10px; right: 10px; bottom: 10px; transform: none; max-width: none; flex-wrap: wrap; }
+    .compareBar__chips { max-width: 100%; }
   }
 
   @media (prefers-reduced-motion: reduce) {

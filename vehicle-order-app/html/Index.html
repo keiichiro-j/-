@@ -33,6 +33,18 @@
         <circle cx="17" cy="9" r="2.1"/>
         <path d="M14.7 19c.3-2.2 1.6-3.7 3.1-4.3"/>
       </symbol>
+      <symbol id="icon-grid" viewBox="0 0 24 24">
+        <rect x="4" y="4" width="7" height="7" rx="1.3"/>
+        <rect x="13" y="4" width="7" height="7" rx="1.3"/>
+        <rect x="4" y="13" width="7" height="7" rx="1.3"/>
+        <rect x="13" y="13" width="7" height="7" rx="1.3"/>
+      </symbol>
+      <symbol id="icon-table" viewBox="0 0 24 24">
+        <rect x="4" y="5" width="16" height="14" rx="1.5"/>
+        <line x1="4" y1="10" x2="20" y2="10"/>
+        <line x1="4" y1="14.5" x2="20" y2="14.5"/>
+        <line x1="10.5" y1="5" x2="10.5" y2="19"/>
+      </symbol>
     </defs>
   </svg>
 
@@ -61,6 +73,10 @@
           <input type="checkbox" id="inventoryIncludeHold" checked> Hold済みを含む
         </label>
         <div class="toolbar__spacer"></div>
+        <div class="viewToggle" id="inventoryViewToggle">
+          <button type="button" class="viewToggle__item" data-view="card"><svg class="icon icon--inline"><use href="#icon-grid"></use></svg>カード</button>
+          <button type="button" class="viewToggle__item" data-view="table"><svg class="icon icon--inline"><use href="#icon-table"></use></svg>表</button>
+        </div>
         <span class="toolbar__count" id="inventoryTotalCount"></span>
       </div>
       <div class="toolbarSpacer" id="inventoryToolbarSpacer"></div>
@@ -242,6 +258,31 @@
     </div>
   </div>
 
+
+  <!-- 車両比較モーダル -->
+  <div class="modal hidden" id="compareModal">
+    <div class="modal__panel modal__panel--wide modal__panel--compare">
+      <div class="modal__header">
+        <h2>車両を比較</h2>
+        <button class="btn--icon" data-close-modal>&times;</button>
+      </div>
+      <div class="modal__body">
+        <div class="tableScroll"><table class="compareTable" id="compareTable"></table></div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn" data-close-modal>閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 比較中の車両を表示する固定バー（在庫リストでカードのチェックを入れると表示される） -->
+  <div class="compareBar hidden" id="compareBar">
+    <span class="compareBar__label">比較</span>
+    <div class="compareBar__chips" id="compareBarChips"></div>
+    <div class="compareBar__spacer"></div>
+    <button class="btn" type="button" id="btnCompareClear">クリア</button>
+    <button class="btn btn--primary" type="button" id="btnCompareShow">比較を表示</button>
+  </div>
 
   <div id="toast" class="toast hidden"></div>
 

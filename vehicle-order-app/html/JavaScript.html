@@ -2,13 +2,23 @@
 (function () {
   'use strict';
 
+  function safeLocalStorageGet_(key) {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  }
+  function safeLocalStorageSet_(key, value) {
+    try { localStorage.setItem(key, value); } catch (e) { /* 保存できない環境では無視する */ }
+  }
+
   var state = {
     bootstrap: null,
     inventoryItems: [],
+    inventoryViewMode: safeLocalStorageGet_('inventoryViewMode') || 'card', // 'card' | 'table'（在庫リストの表示形式。端末ごとにlocalStorageへ保存）
+    compareItems: [], // 比較中の車両（在庫リストのピンで選択。最大COMPARE_MAX台）
     ordersGroups: [],
     action: null, // { type: 'hold' | 'secondHold' | 'order' | 'orderFromHold', commission }
     staffList: [] // 設定タブで編集中の担当者マスタ（作業用コピー）
   };
+  var COMPARE_MAX = 3;
 
   // ===== google.script.run を Promise 化するヘルパー =====
   // サーバー側が応答しない場合にボタンやモーダルが固まって見えないよう、
@@ -245,14 +255,159 @@
     }
     actionsHtml += '</div>';
 
+    var isComparing = isComparingCommission_(v.commission);
+    var comparePinHtml = '<label class="card__comparePin">' +
+      '<input type="checkbox" data-compare="' + escapeHtml(v.commission) + '"' + (isComparing ? ' checked' : '') + '>比較</label>';
+
     return '<div class="card ' + (isHold ? 'card--hold' : 'card--available') + '">' +
       '<div class="card__top"><div><div class="card__model">' + escapeHtml(v.model) + '</div>' +
       '<div class="card__commission">' + escapeHtml(v.commission) + '</div></div>' +
-      '<div class="card__badges">' + badges + '</div></div>' +
+      '<div class="card__badges">' + badges + '</div>' + comparePinHtml + '</div>' +
       '<div class="card__meta">' + meta + '</div>' +
       holdInfoHtml +
       actionsHtml +
       '</div>';
+  }
+
+  // ===== 車両比較（在庫リストのカード・表それぞれのピンから最大COMPARE_MAX台まで選び、
+  // スペックを並べて見比べる。商談中に似た条件の車両を比較する場面を想定した機能）。 =====
+  function isComparingCommission_(commission) {
+    return state.compareItems.some(function (v) { return v.commission === commission; });
+  }
+
+  function toggleCompare_(commission, checked) {
+    if (checked) {
+      if (state.compareItems.length >= COMPARE_MAX) {
+        showToast('比較は最大' + COMPARE_MAX + '台までです', true);
+        document.querySelectorAll('[data-compare="' + commission + '"]').forEach(function (el) { el.checked = false; });
+        return;
+      }
+      var vehicle = state.inventoryItems.filter(function (v) { return v.commission === commission; })[0];
+      if (!vehicle) return;
+      state.compareItems.push(vehicle);
+    } else {
+      state.compareItems = state.compareItems.filter(function (v) { return v.commission !== commission; });
+    }
+    syncComparePins_();
+    renderCompareBar_();
+  }
+
+  function syncComparePins_() {
+    var activeSet = {};
+    state.compareItems.forEach(function (v) { activeSet[v.commission] = true; });
+    document.querySelectorAll('#inventoryList [data-compare]').forEach(function (el) {
+      el.checked = !!activeSet[el.dataset.compare];
+    });
+  }
+
+  function renderCompareBar_() {
+    var items = state.compareItems;
+    $('compareBar').classList.toggle('hidden', items.length === 0);
+    $('compareBarChips').innerHTML = items.map(function (v) {
+      return '<span class="compareChip">' + escapeHtml(v.model) +
+        '<button type="button" data-compare-remove="' + escapeHtml(v.commission) + '" aria-label="比較から外す">&times;</button></span>';
+    }).join('');
+    $('btnCompareShow').disabled = items.length < 2;
+  }
+
+  var COMPARE_FIELDS = [
+    { label: 'モデル', get: function (v) { return v.model; } },
+    { label: 'コミッション', get: function (v) { return v.commission; } },
+    { label: '状態', get: function (v) { return v.holdStatus === 'hold' ? 'Hold中' : '在庫あり'; } },
+    { label: 'MP', get: function (v) { return v.mp; } },
+    { label: 'ステア', get: function (v) { return v.steering; } },
+    { label: '外装', get: function (v) { return v.exteriorColor; } },
+    { label: '内装', get: function (v) { return v.interiorColor; } },
+    { label: '有償OP', get: function (v) { return paidOptionsText(v); } },
+    { label: '入港予定日', get: function (v) { return v.arrivalExpectedDate; } },
+    { label: '可能月', get: function (v) { return v.registrableMonth; } },
+    { label: 'VPC', get: function (v) { return v.vpc; } },
+    { label: '在庫開示', get: function (v) { return v.stockDisclosure; } }
+  ];
+
+  function renderCompareTable_() {
+    var items = state.compareItems;
+    var table = $('compareTable');
+    if (!items.length) { table.innerHTML = ''; return; }
+    var headerCells = '<th></th>' + items.map(function (v) {
+      return '<th>' + escapeHtml(v.model) + '<div class="compareTable__sub">' + escapeHtml(v.commission) + '</div></th>';
+    }).join('');
+    var bodyRows = COMPARE_FIELDS.map(function (f) {
+      var values = items.map(function (v) { return f.get(v) || '-'; });
+      var isDiff = values.some(function (val) { return val !== values[0]; });
+      var cells = values.map(function (val) { return '<td>' + escapeHtml(val) + '</td>'; }).join('');
+      return '<tr class="' + (isDiff ? 'is-diff' : '') + '"><th>' + escapeHtml(f.label) + '</th>' + cells + '</tr>';
+    }).join('');
+    table.innerHTML = '<thead><tr>' + headerCells + '</tr></thead><tbody>' + bodyRows + '</tbody>';
+  }
+
+  $('compareBarChips').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-compare-remove]');
+    if (!btn) return;
+    toggleCompare_(btn.dataset.compareRemove, false);
+  });
+
+  $('btnCompareClear').addEventListener('click', function () {
+    state.compareItems = [];
+    syncComparePins_();
+    renderCompareBar_();
+  });
+
+  $('btnCompareShow').addEventListener('click', function () {
+    if (state.compareItems.length < 2) return;
+    renderCompareTable_();
+    openModal($('compareModal'));
+  });
+
+  // ===== 在庫リストの表示形式切替（カード／表） =====
+  function syncViewToggle_() {
+    document.querySelectorAll('#inventoryViewToggle .viewToggle__item').forEach(function (btn) {
+      btn.classList.toggle('is-active', btn.dataset.view === state.inventoryViewMode);
+    });
+  }
+
+  $('inventoryViewToggle').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-view]');
+    if (!btn) return;
+    state.inventoryViewMode = btn.dataset.view;
+    safeLocalStorageSet_('inventoryViewMode', state.inventoryViewMode);
+    syncViewToggle_();
+    renderInventory();
+  });
+
+  // 表形式表示: 多台数を一覧で見比べたい商談向けの高密度ビュー。
+  // Hold詳細（顧客・タイマー等）はカード表示に譲り、こちらはスペック比較の速さを優先する。
+  function vehicleTableHtml(items) {
+    var rows = items.map(function (v) {
+      var isHold = v.holdStatus === 'hold';
+      var isComparing = isComparingCommission_(v.commission);
+      var actions = isHold
+        ? ('<button class="btn btn--small btn--primary" data-order-from-hold="' + escapeHtml(v.commission) + '">受注確定</button>' +
+           (!v.secondHoldCustomer ? '<button class="btn btn--small" data-second-hold="' + escapeHtml(v.commission) + '">2nd Hold</button>' : ''))
+        : ('<button class="btn btn--small" data-hold="' + escapeHtml(v.commission) + '">Hold</button>' +
+           '<button class="btn btn--small btn--primary" data-order="' + escapeHtml(v.commission) + '">受注</button>');
+      var statusBadge = isHold
+        ? '<span class="badge badge--hold"><span class="badge__dot"></span>Hold中</span>'
+        : '<span class="badge badge--available"><span class="badge__dot"></span>在庫あり</span>';
+      return '<tr>' +
+        '<td><label class="tableComparePin"><input type="checkbox" data-compare="' + escapeHtml(v.commission) + '"' + (isComparing ? ' checked' : '') + '></label></td>' +
+        '<td>' + escapeHtml(v.model) + '</td>' +
+        '<td class="mono">' + escapeHtml(v.commission) + '</td>' +
+        '<td>' + escapeHtml(v.mp) + '</td>' +
+        '<td>' + escapeHtml(v.steering) + '</td>' +
+        '<td>' + escapeHtml(v.exteriorColor) + ' / ' + escapeHtml(v.interiorColor) + '</td>' +
+        '<td>' + escapeHtml(paidOptionsText(v)) + '</td>' +
+        '<td class="mono">' + escapeHtml(v.arrivalExpectedDate) + '</td>' +
+        '<td class="mono">' + escapeHtml(v.registrableMonth) + '</td>' +
+        '<td class="mono">' + escapeHtml(v.vpc) + '</td>' +
+        '<td>' + statusBadge + '</td>' +
+        '<td class="tableActions">' + actions + '</td>' +
+        '</tr>';
+    }).join('');
+    return '<div class="tableScroll"><table class="inventoryTable">' +
+      '<thead><tr><th></th><th>モデル</th><th>コミッション</th><th>MP</th><th>ステア</th><th>カラー</th><th>有償OP</th>' +
+      '<th>入港予定日</th><th>可能月</th><th>VPC</th><th>状態</th><th></th></tr></thead>' +
+      '<tbody>' + rows + '</tbody></table></div>';
   }
 
   // Hold詳細ブロックは、常に見えている要約行（顧客・担当者・タイマー）と、
@@ -362,9 +517,14 @@
     var items = state.inventoryItems || [];
     $('inventoryEmpty').classList.toggle('hidden', items.length > 0);
     $('inventoryTotalCount').textContent = items.length ? '該当 ' + items.length + ' 台' : '';
-    container.innerHTML = '<div class="cardGrid">' + items.map(vehicleCardHtml).join('') + '</div>';
+    container.innerHTML = state.inventoryViewMode === 'table'
+      ? vehicleTableHtml(items)
+      : '<div class="cardGrid">' + items.map(vehicleCardHtml).join('') + '</div>';
+    syncComparePins_();
     syncFixedBars_();
   }
+
+  syncViewToggle_();
 
   document.getElementById('inventoryList').addEventListener('click', function (e) {
     var target = e.target;
@@ -373,6 +533,7 @@
     else if (target.dataset.order) openActionModal('order', target.dataset.order);
     else if (target.dataset.orderFromHold) openActionModal('orderFromHold', target.dataset.orderFromHold);
     else if (target.dataset.cancelHold) openCancelHoldModal(target.dataset.cancelHold, target.dataset.cancelRank);
+    else if (target.dataset.compare) toggleCompare_(target.dataset.compare, target.checked);
   });
 
   ['inventoryKeyword', 'inventoryMonthFilter', 'inventoryIncludeHold'].forEach(function (id) {
