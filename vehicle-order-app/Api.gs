@@ -11,8 +11,6 @@ function api_getBootstrapData() {
   var settings = getSettings();
   var staffMatch = findStaffByEmail_(settings.staffList, email);
   return {
-    steeringOptions: STEERING_OPTIONS,
-    stockDisclosureOptions: STOCK_DISCLOSURE_OPTIONS,
     yesNoOptions: YES_NO_OPTIONS,
     ossOptions: OSS_OPTIONS,
     paymentMethodOptions: PAYMENT_METHOD_OPTIONS,
@@ -33,16 +31,6 @@ function api_getBootstrapData() {
 function api_listInventory(filters, groupBy) {
   var vehicles = searchInventory(listInventory(), filters);
   return groupBy ? groupByField_(vehicles, groupBy) : [{ key: '', items: vehicles }];
-}
-
-/**
- * 在庫リストへの車両登録。通常は既存の在庫リスト用スプレッドシートへ直接データを
- * 貼り付ける運用を想定しているが、個別追加の手段としても提供する（README参照）。
- */
-function api_createInventoryVehicle(vehicle) {
-  if (!vehicle.commission) throw new Error('コミッションは必須です');
-  if (!vehicle.model) throw new Error('モデルは必須です');
-  return createInventoryVehicle(vehicle);
 }
 
 // ===== Hold機能 =====

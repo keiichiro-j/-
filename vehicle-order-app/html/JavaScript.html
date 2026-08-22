@@ -385,54 +385,6 @@
     $(id).addEventListener('change', loadInventory);
   });
 
-  $('btnAddInventory').addEventListener('click', function () {
-    $('invModel').value = '';
-    $('invMp').value = '';
-    $('invExteriorColor').value = '';
-    $('invInteriorColor').value = '';
-    document.querySelectorAll('#invPaidOptions [data-paid-option]').forEach(function (input) { input.value = ''; });
-    $('invCommission').value = '';
-    $('invArrivalExpectedDate').value = '';
-    $('invRegistrableMonth').value = '';
-    $('invVpc').value = '';
-    $('inventoryModalError').classList.add('hidden');
-    setButtonBusy($('btnInventorySubmit'), false);
-    openModal($('inventoryModal'));
-  });
-
-  $('btnInventorySubmit').addEventListener('click', function () {
-    if (this.disabled) return;
-    var btn = this;
-    var vehicle = {
-      model: $('invModel').value.trim(),
-      mp: $('invMp').value.trim(),
-      steering: $('invSteering').value,
-      exteriorColor: $('invExteriorColor').value.trim(),
-      interiorColor: $('invInteriorColor').value.trim(),
-      commission: $('invCommission').value.trim(),
-      arrivalExpectedDate: $('invArrivalExpectedDate').value,
-      registrableMonth: $('invRegistrableMonth').value,
-      vpc: $('invVpc').value.trim(),
-      stockDisclosure: $('invStockDisclosure').value
-    };
-    document.querySelectorAll('#invPaidOptions [data-paid-option]').forEach(function (input) {
-      vehicle['paidOption' + input.dataset.paidOption] = input.value.trim();
-    });
-    $('inventoryModalError').classList.add('hidden');
-    setButtonBusy(btn, true, '登録中...');
-    gasRun('api_createInventoryVehicle', vehicle).then(function () {
-      setButtonBusy(btn, false);
-      closeModal($('inventoryModal'));
-      showToast('在庫を登録しました');
-      loadInventory();
-    }).catch(function (err) {
-      setButtonBusy(btn, false);
-      var el = $('inventoryModalError');
-      el.textContent = err.message;
-      el.classList.remove('hidden');
-    });
-  });
-
   // ===== Hold / 2nd Hold / 受注 共通モーダル =====
   var ACTION_LABELS = {
     hold: { title: 'Hold登録', button: 'Holdする', busyLabel: 'Hold登録中...', tone: 'hold' },
@@ -1125,8 +1077,6 @@
   function init() {
     gasRun('api_getBootstrapData').then(function (bootstrap) {
       state.bootstrap = bootstrap;
-      fillOptions($('invSteering'), bootstrap.steeringOptions, true);
-      fillOptions($('invStockDisclosure'), bootstrap.stockDisclosureOptions, true);
       fillOptions($('actionTradeIn'), bootstrap.yesNoOptions, true);
       fillOptions($('actionOss'), bootstrap.ossOptions, true);
       fillOptions($('actionInsurance'), bootstrap.yesNoOptions, true);
