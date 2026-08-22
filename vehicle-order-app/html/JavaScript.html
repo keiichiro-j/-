@@ -96,6 +96,9 @@
     document.querySelectorAll('.tabs__item').forEach(function (t) { t.classList.toggle('is-active', t === btn); });
     document.querySelectorAll('main.view').forEach(function (v) { v.classList.remove('is-active'); });
     $('view-' + btn.dataset.tab).classList.add('is-active');
+    // 非表示（display: none）だった間はツールバーの実測高さが0になっているため、
+    // 表示状態に切り替わった直後に再計測してスペーサーの高さを補正する。
+    syncFixedBars_();
   });
 
   // ===== モーダル共通 =====
@@ -387,10 +390,10 @@
 
   // ===== Hold / 2nd Hold / 受注 共通モーダル =====
   var ACTION_LABELS = {
-    hold: { title: 'Hold登録', button: 'Holdする', busyLabel: 'Hold登録中...' },
-    secondHold: { title: '2nd Hold登録', button: '2nd Holdする', busyLabel: '登録中...' },
-    order: { title: '受注確定', button: '受注確定する', busyLabel: '受注確定中...' },
-    orderFromHold: { title: '受注確定', button: '受注確定する', busyLabel: '受注確定中...' }
+    hold: { title: 'Hold登録', button: 'Holdする', busyLabel: 'Hold登録中...', tone: 'hold' },
+    secondHold: { title: '2nd Hold登録', button: '2nd Holdする', busyLabel: '登録中...', tone: 'hold' },
+    order: { title: '受注確定', button: '受注確定する', busyLabel: '受注確定中...', tone: 'order' },
+    orderFromHold: { title: '受注確定', button: '受注確定する', busyLabel: '受注確定中...', tone: 'order' }
   };
   var ORDER_TYPES = ['order', 'orderFromHold'];
 
@@ -451,6 +454,11 @@
     var submitBtn = $('btnActionSubmit');
     submitBtn.textContent = ACTION_LABELS[type].button;
     delete submitBtn.dataset.originalLabel;
+    // Hold系（hold/secondHold）はオレンジ、受注系（order/orderFromHold）は青、と
+    // 一目で操作の種類が分かるようモーダル全体の差し色を切り替える。
+    var panel = document.querySelector('#actionModal .modal__panel');
+    panel.classList.remove('modal__panel--hold', 'modal__panel--order');
+    panel.classList.add('modal__panel--' + ACTION_LABELS[type].tone);
     submitBtn.disabled = false;
     $('actionModalError').classList.add('hidden');
     $('actionSalesLocationField').classList.toggle('hidden', ORDER_TYPES.indexOf(type) === -1);
@@ -778,6 +786,216 @@
     $('settingsLogoError').classList.add('hidden');
   });
 
+  // ----- 簡易XLSXパーサー（ブラウザ標準API・外部ライブラリ非依存） -----
+  // .xlsx の実体はZIP。ブラウザ標準の DecompressionStream('deflate-raw') でZIP内の
+  // DEFLATE圧縮を展開し、DOMParserで xl/workbook.xml・xl/worksheets/*.xml・
+  // xl/sharedStrings.xml を読み取る。ブック内で最初のシート（表示順1番目）の
+  // 1行目を見出し行として扱い、取り込みテキストエリアへタブ区切りで流し込む。
+  function isXlsxFile_(file) {
+    var name = (file && file.name || '').toLowerCase();
+    return name.endsWith('.xlsx') ||
+      file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  }
+
+  function readFileAsArrayBuffer_(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () { resolve(reader.result); };
+      reader.onerror = function () { reject(new Error('ファイルの読み込みに失敗しました。')); };
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  // ZIP中央ディレクトリを解析し、{ パス: {圧縮方式, 圧縮後/展開後サイズ, ローカルヘッダー位置} }を返す。
+  function parseZipEntries_(buffer) {
+    var view = new DataView(buffer);
+    var bytes = new Uint8Array(buffer);
+    var len = bytes.length;
+
+    // End Of Central Directory（EOCD）シグネチャ 0x06054b50 をファイル末尾側から探す
+    // （コメントが付与されたZIPでも見つけられるよう、末尾の一定範囲を後方から探索する）。
+    var eocdOffset = -1;
+    var searchStart = Math.max(0, len - 65557);
+    for (var i = len - 22; i >= searchStart; i--) {
+      if (view.getUint32(i, true) === 0x06054b50) { eocdOffset = i; break; }
+    }
+    if (eocdOffset === -1) {
+      throw new Error('ZIP形式として認識できませんでした。.xlsxファイルを選択してください。');
+    }
+
+    var entryCount = view.getUint16(eocdOffset + 10, true);
+    var centralDirOffset = view.getUint32(eocdOffset + 16, true);
+
+    var entries = {};
+    var offset = centralDirOffset;
+    var decoder = new TextDecoder('utf-8');
+    for (var e = 0; e < entryCount; e++) {
+      if (view.getUint32(offset, true) !== 0x02014b50) break;
+      var method = view.getUint16(offset + 10, true);
+      var compressedSize = view.getUint32(offset + 20, true);
+      var nameLen = view.getUint16(offset + 28, true);
+      var extraLen = view.getUint16(offset + 30, true);
+      var commentLen = view.getUint16(offset + 32, true);
+      var localHeaderOffset = view.getUint32(offset + 42, true);
+      var name = decoder.decode(bytes.subarray(offset + 46, offset + 46 + nameLen));
+      entries[name] = { method: method, compressedSize: compressedSize, localHeaderOffset: localHeaderOffset };
+      offset += 46 + nameLen + extraLen + commentLen;
+    }
+    return entries;
+  }
+
+  // 指定パスのZIPエントリを展開してテキストとして返す（見つからない場合はnull）。
+  function extractZipEntryText_(buffer, entries, path) {
+    var info = entries[path];
+    if (!info) return Promise.resolve(null);
+    var view = new DataView(buffer);
+    var bytes = new Uint8Array(buffer);
+    var lho = info.localHeaderOffset;
+    if (view.getUint32(lho, true) !== 0x04034b50) {
+      return Promise.reject(new Error('ZIP内部データの読み取りに失敗しました。'));
+    }
+    var nameLen = view.getUint16(lho + 26, true);
+    var extraLen = view.getUint16(lho + 28, true);
+    var dataStart = lho + 30 + nameLen + extraLen;
+    var compressed = bytes.slice(dataStart, dataStart + info.compressedSize);
+
+    if (info.method === 0) {
+      return Promise.resolve(new TextDecoder('utf-8').decode(compressed));
+    }
+    if (info.method !== 8) {
+      return Promise.reject(new Error('未対応の圧縮形式のxlsxファイルです。'));
+    }
+    if (typeof DecompressionStream === 'undefined') {
+      return Promise.reject(new Error('ご利用のブラウザはxlsxファイルの読み込みに対応していません。CSVとして保存するか、貼り付け欄をご利用ください。'));
+    }
+    var stream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    return new Response(stream).arrayBuffer().then(function (arrayBuf) {
+      return new TextDecoder('utf-8').decode(new Uint8Array(arrayBuf));
+    });
+  }
+
+  function parseXml_(text) {
+    return new DOMParser().parseFromString(text, 'application/xml');
+  }
+
+  // <si>や<c>から表示テキストを取り出す（<t>が複数（リッチテキストの<r>単位）ある場合は連結する）。
+  function xmlTextContent_(el) {
+    var texts = [];
+    var tEls = el.getElementsByTagName('t');
+    for (var i = 0; i < tEls.length; i++) texts.push(tEls[i].textContent);
+    return texts.join('');
+  }
+
+  function parseSharedStrings_(xml) {
+    if (!xml) return [];
+    var siEls = parseXml_(xml).getElementsByTagName('si');
+    var strings = [];
+    for (var i = 0; i < siEls.length; i++) strings.push(xmlTextContent_(siEls[i]));
+    return strings;
+  }
+
+  function colLettersToIndex_(letters) {
+    var idx = 0;
+    for (var i = 0; i < letters.length; i++) idx = idx * 26 + (letters.charCodeAt(i) - 64);
+    return idx - 1;
+  }
+
+  // ブック内で表示順1番目のシートの実ファイルパス（例: xl/worksheets/sheet2.xml）を、
+  // xl/workbook.xml（シート一覧・並び順）と xl/_rels/workbook.xml.rels（rId→実パス）
+  // を突き合わせて解決する。シートの削除・並べ替え・リネームがあっても正しく先頭
+  // シートを特定するため（単純に sheet1.xml を仮定すると、それらの操作をした
+  // ブックで誤ったシートを読んでしまう）。
+  function resolveFirstSheetPath_(buffer, entries) {
+    return Promise.all([
+      extractZipEntryText_(buffer, entries, 'xl/workbook.xml'),
+      extractZipEntryText_(buffer, entries, 'xl/_rels/workbook.xml.rels')
+    ]).then(function (results) {
+      var workbookXml = results[0];
+      var relsXml = results[1];
+      if (!workbookXml) throw new Error('ブックの構成を読み取れませんでした。');
+
+      var firstSheetEl = parseXml_(workbookXml).getElementsByTagName('sheet')[0];
+      if (!firstSheetEl) throw new Error('シートが見つかりませんでした。');
+      var rId = firstSheetEl.getAttribute('r:id');
+
+      if (relsXml && rId) {
+        var rels = parseXml_(relsXml).getElementsByTagName('Relationship');
+        for (var i = 0; i < rels.length; i++) {
+          if (rels[i].getAttribute('Id') === rId) {
+            var target = rels[i].getAttribute('Target').replace(/^\/?/, '');
+            return target.indexOf('xl/') === 0 ? target : 'xl/' + target;
+          }
+        }
+      }
+      return 'xl/worksheets/sheet1.xml'; // rels解決に失敗した場合のフォールバック
+    });
+  }
+
+  function parseWorksheetRows_(sheetXml, sharedStrings) {
+    var rowEls = parseXml_(sheetXml).getElementsByTagName('row');
+    var rows = [];
+    for (var r = 0; r < rowEls.length; r++) {
+      var rowEl = rowEls[r];
+      var rowIndex = parseInt(rowEl.getAttribute('r'), 10) - 1;
+      if (isNaN(rowIndex) || rowIndex < 0) continue;
+      var rowArr = rows[rowIndex] || [];
+      var cellEls = rowEl.getElementsByTagName('c');
+      for (var c = 0; c < cellEls.length; c++) {
+        var cellEl = cellEls[c];
+        var ref = cellEl.getAttribute('r');
+        if (!ref) continue;
+        var colIndex = colLettersToIndex_(ref.replace(/[0-9]/g, ''));
+        var type = cellEl.getAttribute('t');
+        var value = '';
+        if (type === 's') {
+          var vEl = cellEl.getElementsByTagName('v')[0];
+          var idx = vEl ? parseInt(vEl.textContent, 10) : -1;
+          value = (idx >= 0 && sharedStrings[idx] !== undefined) ? sharedStrings[idx] : '';
+        } else if (type === 'inlineStr') {
+          value = xmlTextContent_(cellEl);
+        } else {
+          var vEl2 = cellEl.getElementsByTagName('v')[0];
+          value = vEl2 ? vEl2.textContent : '';
+        }
+        rowArr[colIndex] = value;
+      }
+      rows[rowIndex] = rowArr;
+    }
+    for (var i = 0; i < rows.length; i++) {
+      if (!rows[i]) { rows[i] = []; continue; }
+      for (var j = 0; j < rows[i].length; j++) {
+        if (rows[i][j] === undefined) rows[i][j] = '';
+      }
+    }
+    return rows;
+  }
+
+  // xlsxファイル(File)を読み込み、先頭シートの内容を行×列の配列（文字列）で返す。
+  function parseXlsxFile_(file) {
+    return readFileAsArrayBuffer_(file).then(function (buffer) {
+      var entries = parseZipEntries_(buffer);
+      return resolveFirstSheetPath_(buffer, entries).then(function (sheetPath) {
+        return Promise.all([
+          extractZipEntryText_(buffer, entries, sheetPath),
+          extractZipEntryText_(buffer, entries, 'xl/sharedStrings.xml')
+        ]);
+      }).then(function (results) {
+        var sheetXml = results[0];
+        var sharedStringsXml = results[1];
+        if (!sheetXml) throw new Error('シートのデータを読み取れませんでした。');
+        return parseWorksheetRows_(sheetXml, parseSharedStrings_(sharedStringsXml));
+      });
+    });
+  }
+
+  // 取り込み欄（タブ区切りテキスト）へ変換する。セルの値にタブ・改行が含まれる
+  // ケースは稀なため、単純にタブ区切り・改行区切りで組み立てる。
+  function rowsToTsv_(rows) {
+    return rows.map(function (row) {
+      return row.map(function (cell) { return String(cell == null ? '' : cell).replace(/\t/g, ' '); }).join('\t');
+    }).join('\n');
+  }
+
   // ----- 在庫データの一括インポート（設定タブ） -----
   $('btnOpenImport').addEventListener('click', function () {
     $('importFile').value = '';
@@ -792,6 +1010,18 @@
   $('importFile').addEventListener('change', function () {
     var file = this.files && this.files[0];
     if (!file) return;
+    $('importModalError').classList.add('hidden');
+
+    if (isXlsxFile_(file)) {
+      parseXlsxFile_(file).then(function (rows) {
+        $('importText').value = rowsToTsv_(rows);
+      }).catch(function (err) {
+        $('importModalError').textContent = 'xlsxファイルの読み込みに失敗しました: ' + err.message;
+        $('importModalError').classList.remove('hidden');
+      });
+      return;
+    }
+
     var reader = new FileReader();
     reader.onload = function () { $('importText').value = String(reader.result || ''); };
     reader.onerror = function () {
@@ -962,6 +1192,9 @@
     [['inventoryToolbar', 'inventoryToolbarSpacer'], ['ordersToolbar', 'ordersToolbarSpacer']].forEach(function (pair) {
       var toolbar = $(pair[0]);
       var spacer = $(pair[1]);
+      // main.view自身の上余白（16px）が「ヘッダー〜ツールバー間の余白」と同じ幅を
+      // 既に確保しているため、スペーサーは「ツールバー自身の高さ＋ツールバー〜
+      // カード間の余白（16px）」分だけ確保すればよい（上下の余白が揃う）。
       if (toolbar && spacer) spacer.style.height = (toolbar.offsetHeight + 16) + 'px';
     });
   }
