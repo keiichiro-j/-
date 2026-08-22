@@ -35,11 +35,22 @@ function buildAuditLogEntry_(action, commission, model, staff, detail, now) {
   };
 }
 
+/**
+ * 変更履歴への記録はあくまで補助的な機能であり、これが失敗したせいでHold登録・
+ * Hold解除・受注確定などの本体処理まで失敗扱いになってはならない（本体の
+ * シート更新は既に完了した後にこれを呼ぶため、ここで例外を投げると「実際には
+ * 処理が成功しているのにエラーが表示される」という紛らわしい不具合になる）。
+ * そのため記録に失敗しても静かに無視する。
+ */
 function appendAuditLog_(entry) {
-  var sheet = getAuditLogSheet_();
-  var newRow = sheet.getLastRow() + 1;
-  // 他シートのappendRow系書き込みと同様、コミッションの先頭0が消えないよう
-  // 書き込み直前に対象セルの書式をテキストへ明示的に設定する。
-  sheet.getRange(newRow, auditLogColIndex1('commission'), 1, 1).setNumberFormat('@');
-  sheet.getRange(newRow, 1, 1, AUDIT_LOG_COLUMNS.length).setValues([objectToRow_(entry, AUDIT_LOG_COLUMNS)]);
+  try {
+    var sheet = getAuditLogSheet_();
+    var newRow = sheet.getLastRow() + 1;
+    // 他シートのappendRow系書き込みと同様、コミッションの先頭0が消えないよう
+    // 書き込み直前に対象セルの書式をテキストへ明示的に設定する。
+    sheet.getRange(newRow, auditLogColIndex1('commission'), 1, 1).setNumberFormat('@');
+    sheet.getRange(newRow, 1, 1, AUDIT_LOG_COLUMNS.length).setValues([objectToRow_(entry, AUDIT_LOG_COLUMNS)]);
+  } catch (e) {
+    // 変更履歴への記録失敗は無視する（本体の処理結果を優先する）。
+  }
 }

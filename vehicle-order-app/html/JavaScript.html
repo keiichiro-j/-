@@ -14,6 +14,7 @@
     inventoryItems: [],
     inventoryViewMode: safeLocalStorageGet_('inventoryViewMode') || 'card', // 'card' | 'table'（在庫リストの表示形式。端末ごとにlocalStorageへ保存）
     compareItems: [], // 比較中の車両（在庫リストのピンで選択。最大COMPARE_MAX台）
+    ordersViewMode: safeLocalStorageGet_('ordersViewMode') || 'card', // 'card' | 'table'（受注リストの表示形式）
     ordersGroups: [],
     action: null, // { type: 'hold' | 'secondHold' | 'order' | 'orderFromHold', commission }
     staffList: [] // 設定タブで編集中の担当者マスタ（作業用コピー）
@@ -207,8 +208,11 @@
 
   function vehicleCardHtml(v) {
     var isHold = v.holdStatus === 'hold';
+    var hasSecondHold = isHold && !!v.secondHoldCustomer;
     var badges = isHold
-      ? '<span class="badge badge--hold"><span class="badge__dot"></span>Hold中</span>'
+      ? (hasSecondHold
+          ? '<span class="badge badge--hold2"><span class="badge__dot"></span>Hold中（2nd有）</span>'
+          : '<span class="badge badge--hold"><span class="badge__dot"></span>Hold中</span>')
       : '<span class="badge badge--available"><span class="badge__dot"></span>在庫あり</span>';
     badges += v.stockDisclosure === '非開示'
       ? '<span class="badge badge--undisclosed">非開示</span>'
@@ -217,15 +221,18 @@
       badges += '<span class="badge badge--thisMonth">当月登録可能</span>';
     }
 
-    // 商談中に「対象の1台」をスクロールしながら探す動線では、一次情報を
-    // モデル・コミッション・ステータス（card__top）に絞り、残りのスペックは
-    // Hold情報の詳細（card__holdInfo__details）と同じ折りたたみパターンに揃える。
+    // 商談中に「対象の1台」をスクロールしながら探す動線では、モデル・コミッション・
+    // ステータスに加え、MP・カラーまでは常に表示する（現場の声を踏まえ、隠しすぎない）。
+    // 残りのスペック（ステア・有償OP・入港予定日・可能月・VPC）はHold情報の詳細
+    // （card__holdInfo__details）と同じ折りたたみパターンにまとめる。
+    var quickMeta = '<dl class="card__metaGrid card__metaGrid--quick">' +
+      metaRow_('MP', v.mp) +
+      metaRow_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
+      '</dl>';
     var meta = '<details class="card__specDetails">' +
       '<summary>車両スペックを見る</summary>' +
       '<dl class="card__metaGrid">' +
-      metaRow_('MP', v.mp) +
       metaRow_('ステア', v.steering) +
-      metaRow_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
       metaRow_('有償OP', paidOptionsText(v)) +
       metaRow_('入港予定日', v.arrivalExpectedDate) +
       metaRow_('可能月', v.registrableMonth) +
@@ -262,10 +269,12 @@
     var comparePinHtml = '<label class="card__comparePin">' +
       '<input type="checkbox" data-compare="' + escapeHtml(v.commission) + '"' + (isComparing ? ' checked' : '') + '>比較</label>';
 
-    return '<div class="card ' + (isHold ? 'card--hold' : 'card--available') + '">' +
+    var cardTone = hasSecondHold ? 'card--hold2' : (isHold ? 'card--hold' : 'card--available');
+    return '<div class="card ' + cardTone + '">' +
       '<div class="card__top"><div><div class="card__model">' + escapeHtml(v.model) + '</div>' +
       '<div class="card__commission">' + escapeHtml(v.commission) + '</div></div>' +
       '<div class="card__badges">' + badges + '</div>' + comparePinHtml + '</div>' +
+      quickMeta +
       '<div class="card__meta">' + meta + '</div>' +
       holdInfoHtml +
       actionsHtml +
@@ -378,6 +387,21 @@
     renderInventory();
   });
 
+  function syncOrdersViewToggle_() {
+    document.querySelectorAll('#ordersViewToggle .viewToggle__item').forEach(function (btn) {
+      btn.classList.toggle('is-active', btn.dataset.view === state.ordersViewMode);
+    });
+  }
+
+  $('ordersViewToggle').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-view]');
+    if (!btn) return;
+    state.ordersViewMode = btn.dataset.view;
+    safeLocalStorageSet_('ordersViewMode', state.ordersViewMode);
+    syncOrdersViewToggle_();
+    renderOrders();
+  });
+
   // 表示形式「表」: 多台数を一覧で見比べたい商談向けの高密度ビュー。
   // 素のtableではなく、カードグリッドと同じ「カードタイプUI」の見た目（角丸・影・
   // ホバーで浮き上がる）を保ったまま、1台=横1行に並べる。
@@ -389,6 +413,7 @@
 
   function vehicleRowCardHtml(v) {
     var isHold = v.holdStatus === 'hold';
+    var hasSecondHold = isHold && !!v.secondHoldCustomer;
     var isComparing = isComparingCommission_(v.commission);
     var actions = isHold
       ? ('<button class="btn btn--small btn--primary" data-order-from-hold="' + escapeHtml(v.commission) + '">受注確定</button>' +
@@ -396,10 +421,13 @@
       : ('<button class="btn btn--small" data-hold="' + escapeHtml(v.commission) + '">Hold</button>' +
          '<button class="btn btn--small btn--primary" data-order="' + escapeHtml(v.commission) + '">受注</button>');
     var statusBadge = isHold
-      ? '<span class="badge badge--hold"><span class="badge__dot"></span>Hold中</span>'
+      ? (hasSecondHold
+          ? '<span class="badge badge--hold2"><span class="badge__dot"></span>Hold中（2nd有）</span>'
+          : '<span class="badge badge--hold"><span class="badge__dot"></span>Hold中</span>')
       : '<span class="badge badge--available"><span class="badge__dot"></span>在庫あり</span>';
+    var rowTone = hasSecondHold ? 'rowCard--hold2' : (isHold ? 'rowCard--hold' : 'rowCard--available');
 
-    return '<div class="rowCard ' + (isHold ? 'rowCard--hold' : 'rowCard--available') + '">' +
+    return '<div class="rowCard ' + rowTone + '">' +
       '<label class="rowCard__pin"><input type="checkbox" data-compare="' + escapeHtml(v.commission) + '"' + (isComparing ? ' checked' : '') + '></label>' +
       '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(v.model) + '</span>' +
       '<span class="rowCard__commission">' + escapeHtml(v.commission) + '</span></div>' +
@@ -536,6 +564,7 @@
   }
 
   syncViewToggle_();
+  syncOrdersViewToggle_();
 
   document.getElementById('inventoryList').addEventListener('click', function (e) {
     var target = e.target;
@@ -943,6 +972,27 @@
       '</dl></div>';
   }
 
+  // 受注リストの表示形式「表」: 在庫と同じ「行カード」パターンで、成約済みの案件を
+  // 一覧で見比べやすくする。比較ピン・操作ボタンは受注リストには不要なため専用の列構成にする。
+  function orderRowCardHtml(o) {
+    return '<div class="rowCard rowCard--order">' +
+      '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(o.customer || '-') + '</span>' +
+      '<span class="rowCard__commission">' + escapeHtml(o.commission) + '</span></div>' +
+      rowField_('モデル', o.model) +
+      rowField_('担当者', o.staff) +
+      rowField_('リード番号', o.leadNumber) +
+      rowField_('登録月', o.registeredMonth) +
+      rowField_('受注確定日時', formatDateTime(o.orderedAt)) +
+      '<div class="rowCard__status"><span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span></div>' +
+      '</div>';
+  }
+
+  function orderRowsHtml(items) {
+    return '<div class="tableScroll"><div class="rowCardList">' +
+      items.map(orderRowCardHtml).join('') +
+      '</div></div>';
+  }
+
   function renderOrders() {
     var container = $('ordersGroups');
     var groups = state.ordersGroups || [];
@@ -953,7 +1003,10 @@
       var heading = g.key
         ? '<h3 class="group__title">' + escapeHtml(g.key) + '<span class="group__count">' + g.items.length + '台</span></h3>'
         : '';
-      return '<div class="group">' + heading + '<div class="orderList">' + g.items.map(orderCardHtml).join('') + '</div></div>';
+      var body = state.ordersViewMode === 'table'
+        ? orderRowsHtml(g.items)
+        : '<div class="orderList">' + g.items.map(orderCardHtml).join('') + '</div>';
+      return '<div class="group">' + heading + body + '</div>';
     }).join('');
     syncFixedBars_();
   }
