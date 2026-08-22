@@ -225,7 +225,13 @@ function findHoldRowNumber_(sheet, commission, rank) {
 
 function createHoldRow_(holdRecord) {
   var sheet = getHoldsSheet_();
-  sheet.appendRow(objectToRow_(holdRecord, HOLD_COLUMNS));
+  var newRow = sheet.getLastRow() + 1;
+  // appendRow経由の書き込みは、シート作成時に設定した「書式なしテキスト」が
+  // 効かず数字のみのコミッション（例: 0583911111）の先頭0が消えてしまうことが
+  // あるため、書き込み先の行を明示的に確保して直前に書式を再設定する
+  // （createInventoryVehicle / importInventoryFromText_ と同じ対策）。
+  sheet.getRange(newRow, holdColIndex1('commission'), 1, 1).setNumberFormat('@');
+  sheet.getRange(newRow, 1, 1, HOLD_COLUMNS.length).setValues([objectToRow_(holdRecord, HOLD_COLUMNS)]);
   return holdRecord;
 }
 
@@ -266,6 +272,10 @@ function listOrders() {
 
 function appendOrder_(order) {
   var sheet = getOrderSheet_();
-  sheet.appendRow(objectToRow_(order, ORDER_COLUMNS));
+  var newRow = sheet.getLastRow() + 1;
+  // createHoldRow_と同様、appendRowだけに頼ると数字のみのコミッションの先頭0が
+  // 消えることがあるため、書き込み直前に対象セルの書式を明示的に設定する。
+  sheet.getRange(newRow, orderColIndex1('commission'), 1, 1).setNumberFormat('@');
+  sheet.getRange(newRow, 1, 1, ORDER_COLUMNS.length).setValues([objectToRow_(order, ORDER_COLUMNS)]);
   return order;
 }
