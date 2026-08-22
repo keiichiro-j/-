@@ -101,6 +101,23 @@ test('デモカー予約中の車両にはHold登録不可', () => {
   assert.strictEqual(result.ok, false);
   assert.ok(result.reason.includes('デモカー'));
 });
+test('holdStatusが空欄（スプレッドシートへ直接貼り付けた行）でもHold登録可', () => {
+  assert.strictEqual(sandbox.canRegisterHold_({ holdStatus: '' }).ok, true);
+  assert.strictEqual(sandbox.canRegisterHold_({ holdStatus: undefined }).ok, true);
+});
+
+console.log('== HoldService: deriveOrderIsDemo_（受注確定時のデモカー判定） ==');
+test('デモカー予約中の車両からの受注確定は「あり」になる', () => {
+  assert.strictEqual(sandbox.deriveOrderIsDemo_({ holdStatus: 'demo_reserved' }), 'あり');
+});
+test('通常の車両からの受注確定は「なし」になる', () => {
+  assert.strictEqual(sandbox.deriveOrderIsDemo_({ holdStatus: 'hold' }), 'なし');
+  assert.strictEqual(sandbox.deriveOrderIsDemo_({ holdStatus: 'available' }), 'なし');
+  assert.strictEqual(sandbox.deriveOrderIsDemo_({ holdStatus: '' }), 'なし');
+});
+test('車両が見つからない場合も安全側（なし）になる', () => {
+  assert.strictEqual(sandbox.deriveOrderIsDemo_(null), 'なし');
+});
 test('Hold中で2nd Hold未登録なら2nd Hold登録可', () => {
   assert.strictEqual(sandbox.canRegisterSecondHold_({ holdStatus: 'hold' }, false).ok, true);
 });
@@ -310,6 +327,22 @@ test('担当者ごとの検索（完全一致）で絞り込める', () => {
 test('拠点・担当者の検索は組み合わせて絞り込める（両方一致する行のみ）', () => {
   assert.strictEqual(sandbox.searchOrders(orders, { salesLocation: '東京', staff: '鈴木' }).length, 0);
   assert.strictEqual(sandbox.searchOrders(orders, { salesLocation: '東京', staff: '佐藤' }).length, 1);
+});
+
+const ordersWithDemo = orders.concat([
+  { commission: 'C003', model: 'クラウン', customer: 'デモカー', staff: '佐藤', salesLocation: '東京本店', isDemo: 'あり' }
+]);
+test('デモカーのみタブ（demoOnly）でデモカー確定分だけに絞り込める', () => {
+  const result = sandbox.searchOrders(ordersWithDemo, { demoOnly: true });
+  assert.strictEqual(result.length, 1);
+  assert.strictEqual(result[0].commission, 'C003');
+});
+test('demoOnlyを指定しなければ通常の受注も含めて全件返る', () => {
+  assert.strictEqual(sandbox.searchOrders(ordersWithDemo, {}).length, 3);
+});
+test('demoOnlyと他の条件（拠点など）は組み合わせて絞り込める', () => {
+  const result = sandbox.searchOrders(ordersWithDemo, { demoOnly: true, salesLocation: '大阪' });
+  assert.strictEqual(result.length, 0);
 });
 
 console.log('== SearchService: groupByField_ ==');

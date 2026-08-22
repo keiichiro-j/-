@@ -118,6 +118,27 @@
   }
   .toolbar__spacer { flex: 1; }
 
+  /* ===== 受注リストの「すべて／デモカーのみ」タブ =====
+     ツールバー内の先頭に幅いっぱいの行として置く（ツールバー自体は
+     syncFixedBars_ で高さを実測済みのため、ここに含めるだけで
+     固定表示・スペーサーの仕組みをそのまま利用できる）。 */
+  .subTabs { display: flex; gap: 6px; flex-basis: 100%; }
+  .subTabs__item {
+    border: 1px solid var(--outline);
+    background: var(--surface);
+    color: var(--on-surface-variant);
+    padding: 7px 16px;
+    border-radius: 999px;
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .subTabs__item.is-active {
+    background: var(--primary-bg);
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+
   .input {
     border: 1px solid var(--outline);
     border-radius: 8px;
@@ -383,7 +404,9 @@
   }
   .orderCard:hover { box-shadow: var(--shadow-elevated); transform: translateY(-3px); border-color: transparent; }
   .orderCard__top { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 10px; }
-  .orderCard__top .badge { margin-left: auto; }
+  .orderCard__top .card__badges { margin-left: auto; }
+  .orderCard__top .card__badges .badge { margin-left: 0; }
+  .badge--demo { background: var(--primary-bg); color: var(--primary); font-weight: 700; }
   .orderCard__model { font-size: 21px; font-weight: 700; letter-spacing: -.01em; line-height: 1.25; }
   .orderCard__staff { font-size: 13.5px; font-weight: 600; color: var(--on-surface-variant); margin-top: 3px; }
   .orderCard__commission {

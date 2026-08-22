@@ -42,6 +42,7 @@ function confirmOrder(commission, info) {
     var order = { salesLocation: info.salesLocation, orderedAt: new Date().getTime() };
     HOLD_ORDER_INPUT_COLUMNS.forEach(function (c) { order[c.key] = info[c.key]; });
     order.staffEmail = info.staffEmail;
+    order.isDemo = deriveOrderIsDemo_(vehicle);
     VEHICLE_COLUMNS.forEach(function (col) { order[col.key] = vehicle[col.key]; });
 
     appendOrder_(order);

@@ -6,7 +6,8 @@
     bootstrap: null,
     inventoryItems: [],
     ordersGroups: [],
-    action: null, // { type: 'hold' | 'secondHold' | 'order' | 'orderFromHold', commission }
+    ordersDemoFilter: 'all', // 受注リストの「すべて／デモカーのみ」タブ
+    action: null, // { type: 'hold' | 'secondHold' | 'order' | 'orderFromHold' | 'demoOrder', commission }
     staffList: [] // 設定タブで編集中の担当者マスタ（作業用コピー）
   };
 
@@ -719,7 +720,8 @@
     var filters = {
       keyword: $('ordersKeyword').value,
       salesLocation: $('ordersLocationFilter').value,
-      staff: $('ordersStaffFilter').value
+      staff: $('ordersStaffFilter').value,
+      demoOnly: state.ordersDemoFilter === 'demo'
     };
     var groupBy = $('ordersGroupBy').value;
     return gasRun('api_listOrders', filters, groupBy).then(function (groups) {
@@ -727,6 +729,16 @@
       renderOrders();
     }).catch(function (err) { showToast(err.message, true); });
   }
+
+  $('ordersSubTabs').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-orders-filter]');
+    if (!btn) return;
+    state.ordersDemoFilter = btn.dataset.ordersFilter;
+    document.querySelectorAll('#ordersSubTabs .subTabs__item').forEach(function (t) {
+      t.classList.toggle('is-active', t === btn);
+    });
+    loadOrders();
+  });
 
   function orderCardHtml(o) {
     // 受注リストは「誰が買ったか」がひと目でわかるよう、顧客名を大きな見出しにし、
@@ -736,7 +748,10 @@
       '<div><div class="orderCard__model">' + escapeHtml(o.customer || '-') + '</div>' +
       '<div class="orderCard__staff">担当者: ' + escapeHtml(o.staff || '-') + '</div>' +
       '<div class="orderCard__commission">' + escapeHtml(o.commission) + '</div></div>' +
+      '<div class="card__badges">' +
+      (o.isDemo === 'あり' ? '<span class="badge badge--demo">🚗 デモカー</span>' : '') +
       '<span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span>' +
+      '</div>' +
       '</div>' +
       '<dl class="orderCard__grid">' +
       '<div><dt>モデル</dt><dd>' + escapeHtml(o.model) + '</dd></div>' +

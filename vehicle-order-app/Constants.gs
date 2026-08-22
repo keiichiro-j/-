@@ -115,7 +115,13 @@ var ORDER_COLUMNS = VEHICLE_COLUMNS.concat([
   { key: 'salesLocation', label: '販売拠点', type: 'text', required: true }
 ]).concat(HOLD_ORDER_INPUT_COLUMNS).concat([
   { key: 'staffEmail', label: '担当者メール', type: 'text' },
-  { key: 'orderedAt', label: '受注確定日時', type: 'datetime' }
+  { key: 'orderedAt', label: '受注確定日時', type: 'datetime' },
+  // デモカー確定（設定タブのデモカー予約から確定した受注）かどうか。
+  // クライアントからの入力ではなく、受注確定時点の車両のHoldステータスから
+  // サーバー側で自動的に決まる（deriveOrderIsDemo_）。受注リストの
+  // 「デモカーのみ」タブでの絞り込みに使う。既存の受注リストシートには
+  // 末尾に列を1つ追加する必要がある（README参照）。
+  { key: 'isDemo', label: 'デモカー', type: 'select', options: YES_NO_OPTIONS }
 ]);
 
 var INVENTORY_HEADER_ROW = INVENTORY_COLUMNS.map(function (c) { return c.label; });

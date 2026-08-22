@@ -33,11 +33,12 @@
  */
 function canRegisterHold_(vehicle) {
   if (!vehicle) return { ok: false, reason: '該当車両が見つかりません' };
-  if (vehicle.holdStatus === HOLD_STATUS.AVAILABLE) return { ok: true, reason: '' };
+  if (vehicle.holdStatus === HOLD_STATUS.HOLD) return { ok: false, reason: 'この車両は既にHold中です' };
   if (vehicle.holdStatus === HOLD_STATUS.DEMO_RESERVED) {
     return { ok: false, reason: 'この車両はデモカーとして確保されているためHoldできません' };
   }
-  return { ok: false, reason: 'この車両は既にHold中です' };
+  // holdStatusが空欄（スプレッドシートへ直接貼り付けた行など）の場合も在庫あり扱いとする。
+  return { ok: true, reason: '' };
 }
 
 /**
@@ -381,7 +382,7 @@ function reserveDemoCar(commission) {
       INVENTORY_COLUMNS,
       rowNumber
     );
-    if (vehicle.holdStatus !== HOLD_STATUS.AVAILABLE) {
+    if (vehicle.holdStatus === HOLD_STATUS.HOLD || vehicle.holdStatus === HOLD_STATUS.DEMO_RESERVED) {
       throw new Error('在庫あり（Hold・デモカー予約のいずれでもない）車両のみデモカー予約できます');
     }
     return updateInventoryVehicle_(sheet, rowNumber, { holdStatus: HOLD_STATUS.DEMO_RESERVED });
@@ -424,7 +425,21 @@ function listDemoReservedVehicles() {
 
 /**
  * デモカー予約可能な車両一覧（在庫あり状態のみ。設定タブの予約先選択用）。
+ * holdStatusが空欄（スプレッドシートへ直接貼り付けた行など）の車両も
+ * 在庫あり扱いとする（canRegisterHold_と同じ判定基準）。
  */
 function listAvailableForDemo() {
-  return listInventory().filter(function (v) { return v.holdStatus === HOLD_STATUS.AVAILABLE; });
+  return listInventory().filter(function (v) {
+    return v.holdStatus !== HOLD_STATUS.HOLD && v.holdStatus !== HOLD_STATUS.DEMO_RESERVED;
+  });
+}
+
+/**
+ * 受注確定時、その受注が「デモカー確定」によるものかどうかを判定する（純粋関数）。
+ * クライアントが送るaction種別（demoOrder）は信用せず、受注確定の対象となった
+ * 車両が確定直前にデモカー予約状態だったかどうかから、サーバー側で機械的に決める
+ * （受注リストの isDemo 列。「デモカーのみ」タブでの絞り込みに使う）。
+ */
+function deriveOrderIsDemo_(vehicle) {
+  return vehicle && vehicle.holdStatus === HOLD_STATUS.DEMO_RESERVED ? 'あり' : 'なし';
 }
