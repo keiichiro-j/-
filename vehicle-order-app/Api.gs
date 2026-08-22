@@ -45,14 +45,6 @@ function api_createInventoryVehicle(vehicle) {
   return createInventoryVehicle(vehicle);
 }
 
-/**
- * Excel／Googleスプレッドシートからのデータを在庫リストへ一括取り込みする
- * （設定タブ参照）。取り込み結果（件数・重複・不正行）を返す。
- */
-function api_importInventory(text) {
-  return importInventoryFromText_(text);
-}
-
 // ===== Hold機能 =====
 function api_registerHold(commission, info) {
   return registerHold(commission, info);
@@ -93,20 +85,6 @@ function api_getSettings() {
 
 function api_saveSettings(settings) {
   return saveSettings(settings);
-}
-
-/**
- * 設定タブの「登録状況サマリー」用の集計値。在庫・Hold・デモカー予約・受注の
- * 台数をひと目で確認できるようにする（読み取り専用。書き込みは一切行わない）。
- */
-function api_getSummaryStats() {
-  var vehicles = listInventory();
-  return {
-    inventoryTotal: vehicles.length,
-    holdCount: vehicles.filter(function (v) { return v.holdStatus === HOLD_STATUS.HOLD; }).length,
-    demoReservedCount: vehicles.filter(function (v) { return v.holdStatus === HOLD_STATUS.DEMO_RESERVED; }).length,
-    orderTotal: listOrders().length
-  };
 }
 
 // ===== デモカー予約機能（設定タブ） =====

@@ -229,7 +229,7 @@ function createHoldRow_(holdRecord) {
   // appendRow経由の書き込みは、シート作成時に設定した「書式なしテキスト」が
   // 効かず数字のみのコミッション（例: 0583911111）の先頭0が消えてしまうことが
   // あるため、書き込み先の行を明示的に確保して直前に書式を再設定する
-  // （createInventoryVehicle / importInventoryFromText_ と同じ対策）。
+  // （createInventoryVehicle と同じ対策）。
   sheet.getRange(newRow, holdColIndex1('commission'), 1, 1).setNumberFormat('@');
   sheet.getRange(newRow, 1, 1, HOLD_COLUMNS.length).setValues([objectToRow_(holdRecord, HOLD_COLUMNS)]);
   return holdRecord;

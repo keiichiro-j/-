@@ -10,38 +10,6 @@ const path = require('path');
 const vm = require('vm');
 const assert = require('assert');
 
-// Utilities.parseCsv の簡易互換実装（テスト用スタブ）。
-// ダブルクォートで囲まれたフィールド（カンマ・改行・""によるエスケープを含む）に対応する。
-function parseCsvStub(text) {
-  const rows = [];
-  let row = [];
-  let field = '';
-  let inQuotes = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (inQuotes) {
-      if (c === '"') {
-        if (text[i + 1] === '"') { field += '"'; i++; } else { inQuotes = false; }
-      } else {
-        field += c;
-      }
-    } else if (c === '"') {
-      inQuotes = true;
-    } else if (c === ',') {
-      row.push(field); field = '';
-    } else if (c === '\n') {
-      row.push(field); rows.push(row); row = []; field = '';
-    } else if (c === '\r') {
-      // 無視（\r\nは呼び出し元で\nに正規化される想定だが、念のため）
-    } else {
-      field += c;
-    }
-  }
-  row.push(field);
-  if (row.length > 1 || row[0] !== '') rows.push(row);
-  return rows;
-}
-
 const ROOT = path.join(__dirname, '..');
 const sandbox = {
   // SheetService.gs の rowToObject_ が日時変換に使うGASサービスの最小スタブ
@@ -49,15 +17,14 @@ const sandbox = {
     formatDate: (date) => {
       const pad = (n) => String(n).padStart(2, '0');
       return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-    },
-    parseCsv: parseCsvStub
+    }
   },
   Session: { getScriptTimeZone: () => 'Asia/Tokyo' }
 };
 vm.createContext(sandbox);
 
-// Constants.gs -> HoldService.gs / SearchService.gs / SheetService.gs / SettingsService.gs / ImportService.gs の順で依存関係あり
-const FILES = ['Constants.gs', 'HoldService.gs', 'SearchService.gs', 'SheetService.gs', 'SettingsService.gs', 'ImportService.gs'];
+// Constants.gs -> HoldService.gs / SearchService.gs / SheetService.gs / SettingsService.gs の順で依存関係あり
+const FILES = ['Constants.gs', 'HoldService.gs', 'SearchService.gs', 'SheetService.gs', 'SettingsService.gs'];
 
 FILES.forEach((file) => {
   const code = fs.readFileSync(path.join(ROOT, file), 'utf8');
@@ -507,98 +474,6 @@ test('空文字・未指定は空文字のまま', () => {
 test('上限文字数を超えるとエラー', () => {
   const tooLong = 'data:image/png;base64,' + 'A'.repeat(9000);
   assert.throws(() => sandbox.validateLogoUrl_(tooLong), /大きすぎます/);
-});
-
-console.log('== ImportService: parseImportText_（CSV／タブ区切りテキストの解析） ==');
-test('カンマ区切り（CSV）を解析できる', () => {
-  const rows = sandbox.parseImportText_('モデル,コミッション\nCクラス,C-2001');
-  assert.deepStrictEqual(rows, [['モデル', 'コミッション'], ['Cクラス', 'C-2001']]);
-});
-test('タブ区切り（スプレッドシートからのコピー＆ペースト）を解析できる', () => {
-  const rows = sandbox.parseImportText_('モデル\tコミッション\nCクラス\tC-2001');
-  assert.strictEqual(JSON.stringify(rows), JSON.stringify([['モデル', 'コミッション'], ['Cクラス', 'C-2001']]));
-});
-test('空文字は空配列になる', () => {
-  assert.strictEqual(sandbox.parseImportText_('').length, 0);
-  assert.strictEqual(sandbox.parseImportText_('   ').length, 0);
-});
-
-console.log('== ImportService: mapImportColumns_（見出し行から在庫リストの列だけを抽出） ==');
-test('在庫リストの列名に一致する列だけをマッピングする（不要な列・車種などは無視）', () => {
-  const colMap = sandbox.mapImportColumns_(['車種', 'モデル', '仕入先', 'コミッション', '備考']);
-  assert.strictEqual(colMap.model, 1);
-  assert.strictEqual(colMap.commission, 3);
-  assert.strictEqual(Object.keys(colMap).length, 2);
-});
-test('列の並び順が違っても正しくマッピングされる', () => {
-  const colMap = sandbox.mapImportColumns_(['コミッション', 'MP', 'モデル']);
-  assert.strictEqual(colMap.commission, 0);
-  assert.strictEqual(colMap.mp, 1);
-  assert.strictEqual(colMap.model, 2);
-});
-
-console.log('== ImportService: buildImportPlan_（二重仕入れ防止・不正行の仕分け） ==');
-test('ヘッダー行にモデル・コミッション列がなければエラー', () => {
-  assert.throws(
-    () => sandbox.buildImportPlan_([['車種', '仕入先'], ['ベンツ', 'あり']], []),
-    /モデル」「コミッション」の列が見つかりません/
-  );
-});
-test('データ行が無ければエラー', () => {
-  assert.throws(() => sandbox.buildImportPlan_([['モデル', 'コミッション']], []), /見つかりません/);
-});
-test('新規車両は取り込み対象になる（不要な列は無視される）', () => {
-  const rows = [
-    ['車種', 'モデル', 'コミッション', '備考'],
-    ['ベンツ', 'Cクラス', 'C-9001', '不要な情報']
-  ];
-  const plan = sandbox.buildImportPlan_(rows, []);
-  assert.strictEqual(plan.toInsert.length, 1);
-  assert.strictEqual(plan.toInsert[0].model, 'Cクラス');
-  assert.strictEqual(plan.toInsert[0].commission, 'C-9001');
-  assert.strictEqual(plan.toInsert[0].carType, undefined);
-  assert.strictEqual(plan.toInsert[0].holdStatus, 'available');
-});
-test('既に在庫リストにあるコミッションは重複として取り込まれない（二重仕入れ防止）', () => {
-  const rows = [
-    ['モデル', 'コミッション'],
-    ['Cクラス', 'C-9001']
-  ];
-  const plan = sandbox.buildImportPlan_(rows, ['C-9001']);
-  assert.strictEqual(plan.toInsert.length, 0);
-  assert.strictEqual(plan.duplicates.length, 1);
-  assert.strictEqual(plan.duplicates[0].commission, 'C-9001');
-});
-test('取り込みデータ内で同じコミッションが重複していれば2件目以降はスキップされる', () => {
-  const rows = [
-    ['モデル', 'コミッション'],
-    ['Cクラス', 'C-9002'],
-    ['Eクラス', 'C-9002']
-  ];
-  const plan = sandbox.buildImportPlan_(rows, []);
-  assert.strictEqual(plan.toInsert.length, 1);
-  assert.strictEqual(plan.toInsert[0].model, 'Cクラス');
-  assert.strictEqual(plan.duplicates.length, 1);
-});
-test('モデルまたはコミッションが空の行は不正データとしてスキップされる', () => {
-  const rows = [
-    ['モデル', 'コミッション'],
-    ['', 'C-9003'],
-    ['Sクラス', '']
-  ];
-  const plan = sandbox.buildImportPlan_(rows, []);
-  assert.strictEqual(plan.toInsert.length, 0);
-  assert.strictEqual(plan.invalids.length, 2);
-});
-test('完全に空の行は無視される（不正データにはカウントしない）', () => {
-  const rows = [
-    ['モデル', 'コミッション'],
-    ['', ''],
-    ['Cクラス', 'C-9004']
-  ];
-  const plan = sandbox.buildImportPlan_(rows, []);
-  assert.strictEqual(plan.toInsert.length, 1);
-  assert.strictEqual(plan.invalids.length, 0);
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
