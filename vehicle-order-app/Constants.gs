@@ -108,7 +108,10 @@ var HOLD_COLUMNS = [
   // 権限判定には必ずこちらを使う。
   { key: 'staffEmail', label: '担当者メール', type: 'text' },
   { key: 'createdAt', label: '開始日時', type: 'datetime' },
-  { key: 'expiresAt', label: '期限', type: 'datetime' }
+  { key: 'expiresAt', label: '期限', type: 'datetime' },
+  // Hold登録者本人のGoogleカレンダーに作成した期限リマインドイベントのID。
+  // Hold解除・受注確定時に、このIDを使って該当イベントを削除する（CalendarService.gs参照）。
+  { key: 'calendarEventId', label: 'カレンダーイベントID', type: 'text' }
 ]);
 
 /**

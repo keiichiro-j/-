@@ -191,7 +191,10 @@ function registerHold(commission, info) {
     if (!check.ok) throw new Error(check.reason);
 
     var now = new Date().getTime();
-    createHoldRow_(buildHoldRecord_(commission, HOLD_RANK.FIRST, info, now, now + HOLD_DURATION_MS));
+    var expiresAt = now + HOLD_DURATION_MS;
+    var record = buildHoldRecord_(commission, HOLD_RANK.FIRST, info, now, expiresAt);
+    record.calendarEventId = createHoldCalendarEvent_(commission, vehicle.model, expiresAt);
+    createHoldRow_(record);
     updateInventoryVehicle_(sheet, rowNumber, { holdStatus: HOLD_STATUS.HOLD });
 
     var updated = findInventoryVehicleWithHolds_(commission);
@@ -234,7 +237,9 @@ function registerSecondHold(commission, info) {
     // 1st Holdの72時間が終了した時点を起点に、2nd Hold自身の72時間を与える
     var createdAt = holds.first.expiresAt;
     var expiresAt = createdAt + HOLD_DURATION_MS;
-    createHoldRow_(buildHoldRecord_(commission, HOLD_RANK.SECOND, info, createdAt, expiresAt));
+    var record = buildHoldRecord_(commission, HOLD_RANK.SECOND, info, createdAt, expiresAt);
+    record.calendarEventId = createHoldCalendarEvent_(commission, vehicle.model, expiresAt);
+    createHoldRow_(record);
 
     var updated = findInventoryVehicleWithHolds_(commission);
     notifyHoldRegistered(updated, true);
@@ -290,6 +295,9 @@ function cancelHold(commission, rank) {
     var holdsSheet = getHoldsSheet_();
     var action = decideCancelAction_(rank, !!holds.second);
     var vehicleBefore = findInventoryVehicle(commission);
+    // 解除するHold（target）は、解除操作を行った本人（canCancelHold_により本人のみ解除可）が
+    // 登録したものなので、そのカレンダーイベントも本人の実行コンテキストから削除できる。
+    deleteHoldCalendarEvent_(target.calendarEventId);
 
     if (action === 'promote') {
       var secondRowNumber = findHoldRowNumber_(holdsSheet, commission, HOLD_RANK.SECOND);

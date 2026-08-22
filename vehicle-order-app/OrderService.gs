@@ -41,6 +41,12 @@ function confirmOrder(commission, info) {
     order.staffEmail = info.staffEmail;
     VEHICLE_COLUMNS.forEach(function (col) { order[col.key] = vehicle[col.key]; });
 
+    // Hold中だった場合、1st Holdは受注確定を行った本人（＝canConfirmOrder_により
+    // 1st Hold担当者のみ受注確定できる）が登録したものなので、そのカレンダーイベントは
+    // ここで削除できる。2nd Holdが同時に存在した場合、その担当者のイベントは別人の
+    // カレンダーにあるため、この実行コンテキストからは削除できない（CalendarService.gs参照）。
+    if (holds.first) deleteHoldCalendarEvent_(holds.first.calendarEventId);
+
     appendOrder_(order);
     deleteInventoryRow_(sheet, rowNumber);
     deleteAllHoldRowsForCommission_(commission);
