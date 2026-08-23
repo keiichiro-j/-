@@ -53,6 +53,9 @@
   }
   button { font-family: inherit; }
   .hidden { display: none !important; }
+  /* モーダル表示中は背景（在庫リスト・受注リスト等）がスクロールされないようにする
+   （openModal/closeModal、JavaScript.html参照）。 */
+  body.modal-open { overflow: hidden; }
 
   /* ===== ミニマルな線画アイコン（Google/Tesla調。絵文字アイコンの代わりに使う） ===== */
   .icon {
@@ -409,6 +412,7 @@
      全行そろえ、表形式ならではの一覧性はそのまま保つ。 */
   .rowCardList { display: flex; flex-direction: column; gap: 10px; min-width: 1160px; }
   .rowCard {
+    position: relative;
     display: grid;
     /* 最後の操作列は auto ではなく固定幅にする。auto だとHold中（ボタン2つ）と
        在庫あり（ボタン2つだが文言が違う）・2nd Hold登録済み（ボタン1つ）で
@@ -450,6 +454,9 @@
   .rowCard--hold .rowCard__statusDot { background: var(--warning); }
   .rowCard--hold2 .rowCard__statusDot { background: var(--danger); }
   .rowCard__field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  /* AMGラベルは、横に長い行全体ではなくモデル名のセルの上端中央に重ねたほうが
+     視覚的にモデル名と結びつくため、rowCard自体ではなくこのセルを基準にする。 */
+  .rowCard__field--model { position: relative; }
   .rowCard__label { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--on-surface-variant); }
   .rowCard__value {
     font-size: 13.5px; font-weight: 600; color: var(--on-surface);
@@ -492,6 +499,7 @@
     align-items: start;
   }
   .card {
+    position: relative;
     background: var(--surface);
     border: 1px solid var(--outline);
     border-radius: var(--radius);
@@ -703,6 +711,7 @@
     align-items: start;
   }
   .orderCard {
+    position: relative;
     background: var(--surface);
     border: 1px solid var(--outline);
     border-radius: var(--radius);
@@ -1039,18 +1048,24 @@
   /* 在庫0台のグレードは、Hold中も無くまとまった在庫の当てがないことがひと目で
      わかるよう、件数を赤文字にする。 */
   .homeGradeTab__count--zero { color: var(--danger); font-weight: 700; }
-  /* AMG系グレード（モデル名に35・45・43・63・53・AMGを含む）のタブ左上に添える
-     小さな文字ラベル（囲み・背景なし）。メルセデス-AMGの公式サイトのロゴタイプを
-     踏襲し、AMGのブランドカラーであるレッドの文字のみで表示する。 */
-  .homeGradeTab__amgBadge {
+  /* AMG系（モデル名に35・45・43・63・53・AMGを含む）の車両・グレードに共通で
+     使う、囲み・背景なしの小さな「AMG」ラベル（isAmgGrade_）。付ける相手
+     （ホームのグレードタブ、在庫リストのカード・行、受注リストのカード）の
+     囲い（枠）の上端中央に少し重ねて表示する。メルセデス-AMGの公式サイトの
+     ロゴタイプを踏襲し、ブランドカラーであるレッドの文字のみで表示する。
+     付ける相手の要素には position: relative が必要。 */
+  .amgBadge {
     position: absolute;
-    top: -8px;
-    left: -6px;
+    top: -9px;
+    left: 50%;
+    transform: translateX(-50%);
     color: #e1000f;
     font-size: 9px;
     font-weight: 800;
     letter-spacing: .07em;
     line-height: 1;
+    white-space: nowrap;
+    pointer-events: none;
   }
 
   /* ===== リード番号入力（「L-」固定接頭辞＋数字。Google×Tesla風の見出し扱いにする） ===== */
@@ -1096,12 +1111,18 @@
     position: fixed; inset: 0; background: rgba(32, 33, 36, .5);
     display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px;
   }
+  /* ヘッダー・ステップ進捗・フッターは固定し、modal__bodyだけをスクロール
+     させる（display: flex; flex-direction: columnで、modal__bodyのみ
+     flex: 1 1 auto; overflow-y: autoにする）。以前はmodal__panel自体を
+     スクロールさせていたため、内容が長いモーダルではタイトルや「Hold登録」
+     等の見出しごとスクロールして見えなくなっていた。 */
   .modal__panel {
     background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-elevated);
-    width: 100%; max-width: 460px; max-height: 90vh; overflow-y: auto;
+    width: 100%; max-width: 460px; max-height: 90vh;
+    display: flex; flex-direction: column; overflow: hidden;
   }
   .modal__panel--wide { max-width: 640px; }
-  .modal__header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--outline); }
+  .modal__header { flex: none; display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--outline); }
   .modal__header h2 { font-size: 17px; font-weight: 500; margin: 0; display: flex; align-items: center; }
 
   /* Hold登録・2nd Hold登録はオレンジ、受注確定はブルーで、操作の種類が一目で
@@ -1126,7 +1147,7 @@
     margin-right: 9px;
     flex: none;
   }
-  .modal__body { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+  .modal__body { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
   /* 予約（Hold/2nd Hold/受注）入力モーダルは2列グリッドにして、デスクトップでは
      スクロールなしで全項目を入力できるようにする。 */
   .modal__grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 20px; }
@@ -1136,12 +1157,29 @@
      スマホでの入力ミスを減らすため、8項目を一度に出さず2ステップに分ける。
      担当者はログインアカウントから自動判定済みのため、ステップが増えても
      入力の手間自体は増えない。 */
-  .modal__stepBar { padding: 12px 20px 0; }
+  .modal__stepBar { flex: none; padding: 12px 20px 0; }
   .modal__stepBar__track { height: 4px; border-radius: 999px; background: var(--outline); overflow: hidden; }
   .modal__stepBar__fill { height: 100%; width: 50%; background: var(--primary); border-radius: 999px; transition: width .2s ease; }
   .modal__panel--hold .modal__stepBar__fill { background: var(--warning); }
   .modal__stepBar__label { margin-top: 6px; font-size: 12px; font-weight: 600; color: var(--on-surface-variant); }
-  .modal__footer { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--outline); }
+  .modal__footer { flex: none; display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--outline); }
+
+  /* 在庫リスト・受注リストの詳細モーダルは、車両情報の文字（モデル・
+     コミッション・比較ピン、または顧客名・担当者・車種）をmodal__body内で
+     スクロールしても常に見えるよう上端に固定し、車両スペック・Hold詳細・
+     契約条件などの残りの情報だけがその下でスクロールするようにする。
+     margin/paddingで modal__body 自身の余白ぶんを打ち消し、固定時に
+     隙間なく端まで届くようにしている。 */
+  #inventoryDetailBody .card__top,
+  #orderDetailBody .orderCard__top {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    margin: -16px -20px 0;
+    padding: 16px 20px 12px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--outline);
+  }
   .modal__error { color: var(--danger); font-size: 13px; }
   .modal__desc { margin: 0; font-size: 13px; color: var(--on-surface-variant); line-height: 1.6; }
 
