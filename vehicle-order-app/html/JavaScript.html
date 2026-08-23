@@ -888,6 +888,7 @@
       closeModal($('cancelHoldModal'));
       showToast('Holdを解除しました');
       loadInventory();
+      loadHomeModelCounts_();
     }).catch(function (err) {
       setButtonBusy(btn, false);
       errEl.textContent = err.message;
@@ -966,6 +967,7 @@
       closeModal($('actionModal'));
       showCelebration_(action.type);
       loadInventory();
+      loadHomeModelCounts_();
       if (ORDER_TYPES.indexOf(action.type) !== -1) loadOrders();
     }).catch(function (err) {
       setButtonBusy(btn, false);
@@ -1098,7 +1100,7 @@
     state.modelPhotos = (settings.modelPhotos || []).map(function (p) { return { model: p.model || '', photoUrl: p.photoUrl || '' }; });
     $('modelPhotosMax').textContent = (state.bootstrap && state.bootstrap.modelPhotosMax) || 30;
     renderModelPhotoList_();
-    renderHomeGallery_(settings.modelPhotos || []);
+    renderHomeGallery_();
   }
 
   $('settingsThemeColor').addEventListener('input', function () {
@@ -1304,19 +1306,47 @@
     if (inputs.length) inputs[inputs.length - 1].focus();
   });
 
-  // ===== ホーム画面 =====
+  // ===== ホーム画面（実務重視リスト型） =====
   // モデル写真をクリックすると、在庫リストへ切り替えたうえで、そのモデル名を
   // キーワード検索欄に入れて再検索する（searchInventory はモデル名の部分一致に
-  // 対応済みのため、サーバー側の変更は不要）。
-  function renderHomeGallery_(modelPhotos) {
-    modelPhotos = modelPhotos || [];
+  // 対応済みのため、サーバー側の変更は不要）。写真は小さめのサムネイルにとどめ、
+  // モデル名と在庫台数を横一列で見せることで、日常的に使う社内ツールとしての
+  // 情報密度を優先する（見た目の華やかさより、パッと見て台数がわかることを重視）。
+  function renderHomeGallery_() {
+    var modelPhotos = state.modelPhotos || [];
     $('homeEmpty').classList.toggle('hidden', modelPhotos.length > 0);
+    var counts = modelInventoryCounts_();
     $('homeGrid').innerHTML = modelPhotos.map(function (p) {
-      return '<button type="button" class="homeTile" data-home-model="' + escapeHtml(p.model) + '">' +
-        '<div class="homeTile__photo"><img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '"></div>' +
-        '<div class="homeTile__caption">' + escapeHtml(p.model) + '</div>' +
+      var count = counts[p.model] || 0;
+      return '<button type="button" class="homeRow" data-home-model="' + escapeHtml(p.model) + '">' +
+        '<div class="homeRow__photo"><img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '"></div>' +
+        '<div class="homeRow__model">' + escapeHtml(p.model) + '</div>' +
+        '<span class="badge badge--count">在庫' + count + '台</span>' +
         '</button>';
     }).join('');
+  }
+
+  /** モデル名ごとの在庫台数（Hold中も含む、現在の在庫リストの全件）を集計する（純粋関数）。 */
+  function modelInventoryCounts_() {
+    var counts = {};
+    (state.allInventoryItems || []).forEach(function (v) {
+      var model = v.model || '';
+      counts[model] = (counts[model] || 0) + 1;
+    });
+    return counts;
+  }
+
+  /**
+   * ホーム画面の在庫台数表示専用に、フィルタ無しで在庫リストを取得する。
+   * 在庫リストのツールバー（検索キーワード等）の状態に関わらず、常に全件の台数を
+   * 表示するため、state.inventoryItems（ツールバーの検索条件に連動）とは別に保持する。
+   * 補助的な表示のため、取得に失敗してもトースト等では知らせず、件数表示を省略するに留める。
+   */
+  function loadHomeModelCounts_() {
+    return gasRun('api_listInventory', { keyword: '', includeHold: true }).then(function (groups) {
+      state.allInventoryItems = (groups && groups[0] && groups[0].items) || [];
+      renderHomeGallery_();
+    }).catch(function () {});
   }
 
   $('homeGrid').addEventListener('click', function (e) {
@@ -1448,7 +1478,7 @@
       renderSettings(bootstrap.settings);
       renderTopbarUser();
       checkIntegrity_();
-      return Promise.all([loadInventory(), loadOrders()]);
+      return Promise.all([loadInventory(), loadOrders(), loadHomeModelCounts_()]);
     }).catch(function (err) { showToast(err.message, true); });
   }
 

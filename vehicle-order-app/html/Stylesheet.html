@@ -264,7 +264,7 @@
   .btn:focus-visible,
   .tabs__item:focus-visible,
   .viewToggle__item:focus-visible,
-  .homeTile:focus-visible {
+  .homeRow:focus-visible {
     outline: 2px solid var(--primary-text);
     outline-offset: 2px;
   }
@@ -804,65 +804,50 @@
   .modelPhotoList__row .input[data-photo-field="photoUrl"] { flex: 1 1 auto; min-width: 0; }
   .modelPhotoList__empty { font-size: 13px; color: var(--on-surface-variant); }
 
-  /* ===== ホーム画面 =====
-     公式サイトのモデルラインアップページのような、大きな見出し＋余白の広い
-     ヒーロー導入部と、フラットで写真を主役にしたタイルグリッドにする
-     （角丸・影で「カード」を強調するのではなく、写真そのものと細い罫線・
-     余白で見せる編集ページ的なレイアウト）。 */
+  /* ===== ホーム画面（実務重視リスト型） =====
+     写真を大きく見せる「ギャラリー」ではなく、モデル名と在庫台数を横一列で
+     一覧できる「リスト」にする。毎日使う社内ツールとして、華やかさよりも
+     パッと見て在庫状況がわかる情報密度を優先した（現場の声を踏まえた変更）。
+     設定画面（.settingsWrap）と同じ考え方で、読みやすい幅に収める。 */
   .homeIntro {
-    margin-bottom: 28px;
-    padding-bottom: 20px;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
     border-bottom: 1px solid var(--outline);
   }
-  /* ページ見出しは「ヒーロー」ではなく、他タブと釣り合う控えめなページタイトル
-     として扱う（現場の声を踏まえ、42px/font-weight:300から縮小）。 */
-  .homeIntro__title { font-size: 23px; font-weight: 600; letter-spacing: -.005em; margin: 0 0 6px; }
+  .homeIntro__title { font-size: 20px; font-weight: 600; letter-spacing: -.005em; margin: 0 0 6px; }
   .homeIntro__desc { font-size: 13.5px; letter-spacing: .01em; color: var(--on-surface-variant); margin: 0; }
-  .homeGrid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 28px 24px;
-  }
-  .homeTile {
+  .homeList {
     display: flex;
     flex-direction: column;
+    max-width: 640px;
+  }
+  .homeRow {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    padding: 12px 6px;
     background: none;
     border: none;
+    border-bottom: 1px solid var(--outline);
     color: var(--on-surface);
     cursor: pointer;
     text-align: left;
-    padding: 0;
+    transition: background-color .15s ease;
   }
-  /* 枠・背景を持たせず、写真そのものを黒地の上に浮かせるフルブリード表示にする
-     （公式サイトのモデルギャラリーのような、写真が主役の見せ方）。 */
-  .homeTile__photo {
-    width: 100%;
-    height: 200px;
+  .homeRow:first-child { border-top: 1px solid var(--outline); }
+  .homeRow:hover { background: rgba(255, 255, 255, .04); }
+  .homeRow__photo {
+    width: 56px;
+    height: 56px;
+    flex: none;
+    border-radius: 8px;
     overflow: hidden;
+    background: var(--surface);
   }
-  .homeTile__photo img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    object-position: center;
-    display: block;
-    transition: transform .5s ease;
-  }
-  .homeTile:hover .homeTile__photo img { transform: scale(1.05); }
-  /* キャプションは写真の邪魔をしないよう控えめなグレー・広めのトラッキングにし、
-     細い罫線で写真と区切る（編集ページのフォトキャプションのような扱い）。 */
-  .homeTile__caption {
-    margin-top: 18px;
-    padding: 16px 0 0;
-    border-top: 1px solid var(--outline);
-    font-size: 12px;
-    font-weight: 500;
-    letter-spacing: .14em;
-    text-transform: uppercase;
-    color: var(--on-surface-variant);
-    transition: color .15s ease;
-  }
-  .homeTile:hover .homeTile__caption { color: var(--on-surface); }
+  .homeRow__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .homeRow__model { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; letter-spacing: -.005em; }
+  .badge--count { background: var(--primary-bg); color: var(--primary-text); font-weight: 600; flex: none; }
 
   /* ===== リード番号入力（「L-」固定接頭辞＋数字。Google×Tesla風の見出し扱いにする） ===== */
   .leadNumberField {
@@ -982,16 +967,14 @@
   @media (max-width: 1400px) {
     .cardGrid { grid-template-columns: repeat(3, 1fr); }
     .orderList { grid-template-columns: repeat(2, 1fr); }
-    .homeGrid { grid-template-columns: repeat(3, 1fr); }
   }
 
   /* ===== タブレット ===== */
   @media (max-width: 900px) {
     main.view { padding: 14px; }
     .cardGrid { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
-    .homeGrid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 24px 12px; }
-    .homeTile__photo { height: 180px; }
     .settingsWrap { max-width: 100%; }
+    .homeList { max-width: 100%; }
     /* 受注カードは項目数が多いため、タブレット幅では1列にして読みやすさを優先する */
     .orderList { grid-template-columns: 1fr; }
   }
@@ -1014,8 +997,7 @@
     .toolbar { padding: 10px; width: calc(100% - 20px); }
     .toolbar .input, .toolbar .checkboxField { flex: 1 1 auto; }
     .cardGrid { grid-template-columns: 1fr; gap: 12px; }
-    .homeGrid { grid-template-columns: repeat(2, 1fr); gap: 20px 12px; }
-    .homeTile__photo { height: 140px; }
+    .homeRow__photo { width: 44px; height: 44px; }
     .settingsCard, .settingsActions { padding: 18px 16px; }
     .card { padding: 16px 18px; }
     .modal { padding: 0; align-items: flex-end; }
@@ -1032,7 +1014,6 @@
   @media (prefers-reduced-motion: reduce) {
     .holdTimer__barFill { transition: none; }
     .confettiPiece { display: none; }
-    .homeTile__photo img, .homeTile:hover .homeTile__photo img { transition: none; transform: none; }
-    .card, .orderCard, .homeTile { transition: none; }
+    .card, .orderCard { transition: none; }
   }
 </style>
