@@ -414,7 +414,6 @@
 
     var cardTone = hasSecondHold ? 'card--hold2' : (isHold ? 'card--hold' : 'card--available');
     return '<div class="card ' + cardTone + '">' +
-      amgBadgeHtml_(v.model) +
       vehicleTopHtml_(v, comparePinHtml) +
       vehicleQuickMetaHtml_(v) +
       '<button type="button" class="card__detailLink" data-detail="' + escapeHtml(v.commission) + '">▸ 詳細を見る</button>' +
@@ -446,7 +445,6 @@
 
     var cardTone = hasSecondHold ? 'card--hold2' : (isHold ? 'card--hold' : 'card--available');
     return '<div class="card ' + cardTone + '">' +
-      amgBadgeHtml_(v.model) +
       vehicleTopHtml_(v, '') +
       vehicleQuickMetaHtml_(v) +
       vehicleSpecFieldsHtml_(v) +
@@ -638,8 +636,7 @@
       '<label class="rowCard__pinCheckbox"><input type="checkbox" data-compare="' + escapeHtml(v.commission) + '"' + (isComparing ? ' checked' : '') + '></label>' +
       statusDot +
       '</div>' +
-      '<div class="rowCard__field rowCard__field--model">' + amgBadgeHtml_(v.model) +
-      '<span class="rowCard__model">' + escapeHtml(v.model) + '</span>' +
+      '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(v.model) + '</span>' +
       '<span class="rowCard__commission">' + escapeHtml(v.commission) + '</span></div>' +
       rowField_('MP', v.mp) +
       rowField_('ステア', v.steering) +
@@ -1206,7 +1203,6 @@
    */
   function orderCardHtml(o) {
     return '<div class="orderCard">' +
-      amgBadgeHtml_(o.model) +
       '<div class="orderCard__top">' +
       '<div><div class="orderCard__model">' + escapeHtml(o.customer || '-') + '</div>' +
       '<div class="orderCard__staff">担当者: ' + escapeHtml(o.staff || '-') + '</div>' +
@@ -1237,7 +1233,6 @@
 
   function orderDetailHtml_(o) {
     return '<div class="orderCard">' +
-      amgBadgeHtml_(o.model) +
       '<div class="orderCard__top">' +
       '<div><div class="orderCard__model">' + escapeHtml(o.customer || '-') + '</div>' +
       '<div class="orderCard__staff">担当者: ' + escapeHtml(o.staff || '-') + '</div>' +
@@ -1605,20 +1600,6 @@
     return list.map(function (g) { return String(g || '').trim(); }).filter(Boolean);
   }
 
-  // AMG系グレード（例: A35, C43, E53, C63, GLE63、または"AMG"の記載）かどうかを、
-  // グレード名に35・45・43・63・53・AMGのいずれかが含まれるかで判定する（純粋関数）。
-  // ホームのグレードタブに小さなAMGバッジを表示するために使う。
-  var AMG_GRADE_PATTERN = /35|45|43|63|53|AMG/i;
-  function isAmgGrade_(grade) {
-    return AMG_GRADE_PATTERN.test(String(grade || ''));
-  }
-
-  // 在庫リスト（カード・行）・受注リストのカードに共通で使う、AMG系モデルの
-  // 囲い上端中央に重ねる小さな「AMG」ラベル（isAmgGrade_・.amgBadge参照）。
-  function amgBadgeHtml_(model) {
-    return isAmgGrade_(model) ? '<span class="amgBadge">AMG</span>' : '';
-  }
-
   /**
    * ベースモデル1件分の在庫台数を集計する（純粋関数）。在庫リストの「モデル」列には
    * グレード名のみが入力される運用のため、グレード一覧（entry.grades）が設定されている
@@ -1675,10 +1656,8 @@
           '<div class="homeGradeTabs__label">' + escapeHtml(p.model) + 'のグレード</div>' +
           '<div class="homeGradeTabs__list">' +
           result.byGrade.map(function (g) {
-            var amgBadge = isAmgGrade_(g.grade) ? '<span class="amgBadge">AMG</span>' : '';
             var countClass = 'homeGradeTab__count' + (g.count === 0 ? ' homeGradeTab__count--zero' : '');
             return '<button type="button" class="homeGradeTab" data-home-model="' + escapeHtml(p.model) + '" data-home-grade="' + escapeHtml(g.grade) + '">' +
-              amgBadge +
               '<span class="homeGradeTab__name">' + escapeHtml(g.grade) + '</span>' +
               '<span class="' + countClass + '">' + g.count + '台</span>' +
               '</button>';
