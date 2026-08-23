@@ -66,13 +66,27 @@
         <path d="M8 11V8a4 4 0 018 0v3"/>
         <circle cx="12" cy="15.2" r="1.2" fill="currentColor" stroke="none"/>
       </symbol>
+      <symbol id="icon-back" viewBox="0 0 24 24">
+        <path d="M14.5 5L7 12l7.5 7" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-refresh" viewBox="0 0 24 24">
+        <path d="M5.5 8a7.5 7.5 0 0112.7-3.8M19 3.6v4.4h-4.4"/>
+        <path d="M18.5 16a7.5 7.5 0 01-12.7 3.8M5 20.4V16h4.4"/>
+      </symbol>
     </defs>
   </svg>
 
   <div id="app">
     <header class="topbar" id="topbar">
       <div class="topbar__brandRow">
-        <div class="topbar__brandRow__spacer" aria-hidden="true"></div>
+        <div class="topbar__brandRow__spacer">
+          <button type="button" class="topbar__navBtn" id="btnNavBack" title="戻る" aria-label="1つ前の画面に戻る" disabled>
+            <svg class="icon"><use href="#icon-back"></use></svg>
+          </button>
+          <button type="button" class="topbar__navBtn" id="btnRefresh" title="更新" aria-label="最新の情報に更新">
+            <svg class="icon"><use href="#icon-refresh"></use></svg>
+          </button>
+        </div>
         <div class="topbar__brand">
           <img id="topbarLogo" class="topbar__logo hidden" alt="ロゴ">
           <span class="topbar__brandText">販売可能リスト</span>
@@ -351,8 +365,9 @@
     </div>
   </div>
 
-  <!-- 在庫リストの表示形式「表」で行（カード）をタップした際、横スクロールで見切れがちな
-       車両情報を、画面中央にカードタイプ（既存の.cardと同じ見た目）で表示するモーダル。 -->
+  <!-- 在庫リストで「詳細を見る」タップ・表示形式「表」で行（カード）をタップした際、
+       車両情報を画面中央にカードタイプ（既存の.cardと同じ見た目）で表示するモーダル。
+       カード自体は伸ばさず、他のカードとサイズを揃えたままにする。 -->
   <div class="modal hidden" id="inventoryDetailModal">
     <div class="modal__panel">
       <div class="modal__header">
@@ -360,6 +375,18 @@
         <button class="btn--icon" data-close-modal>&times;</button>
       </div>
       <div class="modal__body" id="inventoryDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- 受注リストで「詳細を見る」タップした際、契約条件を画面中央に表示するモーダル
+       （inventoryDetailModalと同じパターン）。 -->
+  <div class="modal hidden" id="orderDetailModal">
+    <div class="modal__panel">
+      <div class="modal__header">
+        <h2>受注情報</h2>
+        <button class="btn--icon" data-close-modal>&times;</button>
+      </div>
+      <div class="modal__body" id="orderDetailBody"></div>
     </div>
   </div>
 

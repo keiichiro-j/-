@@ -105,6 +105,19 @@
     gap: 10px;
     white-space: nowrap;
   }
+  /* 「戻る」「更新」ボタン。左側の余白（.topbar__brandRow__spacerと右側の
+     .topbar__user）を1frずつの等幅にしているため、ここに実要素を置いても
+     中央のブランド表記の位置には影響しない（両者は常に同じ幅になるため）。 */
+  .topbar__brandRow__spacer { display: flex; align-items: center; gap: 6px; justify-self: start; }
+  .topbar__navBtn {
+    display: flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px; padding: 0; flex: none;
+    background: transparent; border: 1px solid var(--outline); border-radius: 50%;
+    color: var(--on-surface); cursor: pointer;
+  }
+  .topbar__navBtn:hover { background: rgba(255, 255, 255, .08); }
+  .topbar__navBtn:disabled { opacity: .3; cursor: default; }
+  .topbar__navBtn:disabled:hover { background: transparent; }
   .topbar__logo { height: 26px; width: auto; max-width: 120px; object-fit: contain; }
   /* メルセデス・ベンツ公式サイトのワードマークのような、控えめな大文字＋広めの
      トラッキングのブランド表記にする（太字で目立たせるのではなく、余白と
@@ -493,9 +506,13 @@
   /* 1st・2nd Holdの両方が埋まっている車両は、これ以上の受け皿がない分、他より
      目立たせる（現場の声を踏まえ、Hold1件のみとは別の色にする）。 */
   .card--hold2 { border-left-color: var(--danger); }
-  /* バッジが多い場合はタイトルを縮めず、バッジ側を折り返して2行目に逃がす
-     （margin-left:autoで、同じ行でも折り返し後の行でも常に右寄せになる）。 */
-  .card__top { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 10px; }
+  /* モデル・コミッション・比較ピンの行と、バッジの行を常に別々の固定行にする。
+     以前は1つのflex-wrapコンテナに全部まとめていたため、バッジの個数
+     （2個／3個）やモデル名・コミッションの文字数の組み合わせによって折り返し方
+     が変わり、在庫あり／Hold中／Hold中（2nd有）でカードの高さが揃わなかった。
+     2行に固定することで、組み合わせに関わらず常に同じ高さになる。 */
+  .card__top { display: flex; flex-direction: column; gap: 8px; }
+  .card__topRow { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
   .card__model { font-size: 21px; font-weight: 500; letter-spacing: -.01em; line-height: 1.25; }
   .card__commission {
     font-size: 12.5px;
@@ -524,25 +541,27 @@
   .badge--undisclosed { background: rgba(255, 255, 255, .08); color: var(--on-surface-variant); font-weight: 500; }
   .badge--thisMonth { background: var(--primary-bg); color: var(--primary-text); font-weight: 500; }
   .badge--location { background: var(--primary-bg); color: var(--primary-text); font-weight: 500; }
-  .card__badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
+  .card__badges { display: flex; gap: 6px; flex-wrap: wrap; }
 
-  /* 車両スペックは折りたたみ式にし、一次情報（モデル・コミッション・ステータス）だけで
-     対象車両を判断できるようにする（Hold情報の card__holdInfo__details と同じパターン）。 */
-  .card__specDetails {
+  /* 車両スペック・Hold詳細はカード内に表示せず、「詳細を見る」タップで画面中央の
+     モーダル（vehicleDetailHtml_）にまとめて表示する。以前はカード内の折りたたみ
+     （<details>）だったが、開閉のたびにカードが伸び縮みし、在庫あり／Hold中／
+     Hold中（2nd有）で高さが揃わなくなっていたため。 */
+  .card__detailLink {
     margin: 0;
-    padding-top: 12px;
+    width: 100%;
+    padding: 12px 0 0;
+    border: none;
     border-top: 1px solid var(--outline);
-  }
-  .card__specDetails summary {
+    border-radius: 0;
+    background: none;
+    text-align: left;
     cursor: pointer;
     font-size: 12.5px;
     font-weight: 600;
     color: var(--primary-text);
-    list-style: none;
   }
-  .card__specDetails summary::-webkit-details-marker { display: none; }
-  .card__specDetails summary::before { content: '▸ '; }
-  .card__specDetails[open] summary::before { content: '▾ '; }
+  .card__detailLink:hover { color: var(--primary); }
 
   /* メタ情報は2列のミニグリッドで表示。ラベルは小さく大文字寄り・トラッキング広め、
      値は大きく太くというメリハリのある「テスラ風」の見出し表現で視認性を高める。 */
@@ -574,6 +593,9 @@
     gap: 8px;
     overflow-y: auto;
   }
+  /* 詳細モーダル（vehicleDetailHtml_）は、カードグリッドの行の高さを揃える
+     必要が無いため、高さ固定・内部スクロールにせず内容ぶんそのまま表示する。 */
+  .card__holdArea--full { height: auto; overflow: visible; }
   .card__holdArea--empty {
     align-items: center;
     justify-content: center;
@@ -625,19 +647,9 @@
   }
   .card__holdInfo__cancel:hover { background: var(--danger-bg); }
 
-  /* 詳細（リード番号・登録月・下取車等）は折りたたみ、カードの縦幅を一定に保つ */
-  .card__holdInfo__details { margin-top: 4px; }
-  .card__holdInfo__details summary {
-    cursor: pointer;
-    font-size: 11.5px;
-    font-weight: 500;
-    color: var(--primary-text);
-    list-style: none;
-  }
-  .card__holdInfo__details summary::-webkit-details-marker { display: none; }
-  .card__holdInfo__details summary::before { content: '▸ '; }
-  .card__holdInfo__details[open] summary::before { content: '▾ '; }
-  .card__holdInfo__detailsBody {
+  /* 詳細（リード番号・登録月・下取車等）は詳細モーダル（vehicleDetailHtml_）内でのみ
+     表示する（card__holdInfo__detailsBody--flat）。カード表示側では表示しない。 */
+  .card__holdInfo__detailsBody--flat {
     margin-top: 6px;
     padding-top: 6px;
     border-top: 1px dashed var(--outline);
@@ -679,13 +691,11 @@
     font-size: 14px;
   }
 
-  /* ===== 受注リスト（在庫リストと揃えたカードタイプUI。PCビューで1列2枚） ===== */
+  /* ===== 受注リスト（在庫リストと揃えたカードタイプUI。PCビューで1行3列） ===== */
   .orderList {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 20px;
-    /* .cardGridと同じ理由。1台だけ折りたたみ（orderCard__details）を開いて
-       縦に伸びても、他の受注カードのサイズには影響しないようにする。 */
     align-items: start;
   }
   .orderCard {
@@ -716,23 +726,25 @@
     margin-top: 4px;
   }
   /* 契約条件（コミッション・MP・VPC・有償OP・登録月・下取車・OSS・保険・支払方法・
-     受注確定日時・リード番号）は折りたたみ、顧客名・担当者・車種だけで
-     対象案件を判断できるようにする（車両スペックの折りたたみと同じパターン）。 */
-  .orderCard__details {
+     受注確定日時・リード番号）はカード内に表示せず、「詳細を見る」タップで画面中央の
+     モーダル（orderDetailHtml_）にまとめて表示する。顧客名・担当者・車種だけで
+     対象案件を判断できる（以前はカード内の折りたたみだったが、開閉のたびに
+     カードが伸び縮みしていたため。card__detailLinkと同じパターン）。 */
+  .orderCard__detailLink {
     margin: 0;
-    padding-top: 12px;
+    width: 100%;
+    padding: 12px 0 0;
+    border: none;
     border-top: 1px solid var(--outline);
-  }
-  .orderCard__details summary {
+    border-radius: 0;
+    background: none;
+    text-align: left;
     cursor: pointer;
     font-size: 12.5px;
     font-weight: 600;
     color: var(--primary-text);
-    list-style: none;
   }
-  .orderCard__details summary::-webkit-details-marker { display: none; }
-  .orderCard__details summary::before { content: '▸ '; }
-  .orderCard__details[open] summary::before { content: '▾ '; }
+  .orderCard__detailLink:hover { color: var(--primary); }
   .orderCard__grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -914,6 +926,7 @@
     gap: 20px;
   }
   .homeRow {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 14px;
@@ -928,7 +941,17 @@
     transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease, background-color .15s ease;
   }
   .homeRow:hover { box-shadow: var(--shadow-elevated); transform: translateY(-3px); border-color: transparent; }
-  .homeRow.is-expanded { background: rgba(255, 255, 255, .04); border-color: var(--primary); }
+  /* 展開中のタイルは、カードの枠（背景・境界線・余白）を外し、写真を
+     タイルいっぱいに大きく見せる「クローズアップ」表示にする。モデル名は
+     写真の上に重ねた左上のラベルとして表示し、在庫台数バッジは（下の
+     グレードタブで内訳が見えるため）非表示にする。 */
+  .homeRow.is-expanded {
+    padding: 0;
+    background: none;
+    border-color: transparent;
+    overflow: hidden;
+  }
+  .homeRow.is-expanded:hover { box-shadow: none; transform: none; }
   .homeRow__photo {
     width: 100%;
     aspect-ratio: 4 / 3;
@@ -936,8 +959,18 @@
     overflow: hidden;
     background: var(--background);
   }
+  .homeRow.is-expanded .homeRow__photo { aspect-ratio: 1 / 1; border-radius: var(--radius); }
   .homeRow__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .homeRow__meta { display: flex; align-items: center; gap: 8px; }
+  .homeRow.is-expanded .homeRow__meta {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: rgba(0, 0, 0, .6);
+    padding: 6px 12px;
+    border-radius: 999px;
+  }
+  .homeRow.is-expanded .badge--count { display: none; }
   .homeRow__model {
     flex: 1; min-width: 0; font-size: 16px; font-weight: 600; letter-spacing: -.005em;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -1098,10 +1131,10 @@
     100% { transform: translateY(110vh) rotate(720deg); opacity: .85; }
   }
 
-  /* ===== ノートPC幅（4列だとカードが窮屈になるため3列/2列に落とす） ===== */
+  /* ===== ノートPC幅（在庫リストは4列だとカードが窮屈になるため3列に落とす。
+     受注リストはもともと1行3列のため、このブレークポイントでは変更しない） ===== */
   @media (max-width: 1400px) {
     .cardGrid { grid-template-columns: repeat(3, 1fr); }
-    .orderList { grid-template-columns: repeat(2, 1fr); }
   }
 
   /* ===== タブレット ===== */
@@ -1128,9 +1161,20 @@
     }
     .homeRow:first-child { border-top: 1px solid var(--outline); }
     .homeRow:hover { background: rgba(255, 255, 255, .04); box-shadow: none; transform: none; }
-    .homeRow.is-expanded { border-color: transparent; border-bottom-color: transparent; }
+    /* PC専用の「クローズアップ」展開表示（.homeRow.is-expanded、上部参照）を
+       打ち消し、タブレット・スマホ幅では従来の横一列リストのままにする。 */
+    .homeRow.is-expanded {
+      padding: 14px 6px;
+      background: rgba(255, 255, 255, .04);
+      border-color: transparent;
+      border-bottom-color: transparent;
+      overflow: visible;
+    }
     .homeRow__photo { width: 76px; height: 76px; aspect-ratio: auto; flex: none; }
+    .homeRow.is-expanded .homeRow__photo { border-radius: 8px; }
     .homeRow__meta { flex: 1; min-width: 0; gap: 18px; }
+    .homeRow.is-expanded .homeRow__meta { position: static; background: none; padding: 0; border-radius: 0; }
+    .homeRow.is-expanded .badge--count { display: inline-flex; }
     .homeGradeTabs {
       grid-column: auto;
       margin: 0 0 0 94px;

@@ -20,6 +20,7 @@
     staffList: [], // 設定タブで編集中の担当者マスタ（作業用コピー）
     modelPhotos: [], // 設定タブで編集中のモデル写真（作業用コピー）
     themeKey: null, // 設定タブで選択中のテーマ（着せ替え）プリセットキー
+    navHistory: [], // 「戻る」ボタン用の画面履歴（タブ名のスタック）
     allInventoryItems: [], // ホーム画面の在庫台数集計専用（ツールバーの検索条件に左右されない全件）
     homeGradeFilter: null, // ホームのグレードタブクリックで設定される、絞り込み対象グレード名の配列
     homeExpandedModel: null // ホームで現在グレードタブを展開中のベースモデル名（1つのみ展開可能）
@@ -160,7 +161,23 @@
   // ===== タブ切替 =====
   // ホーム画面のモデル写真クリック（在庫リストへの遷移）からも同じ処理を使えるよう、
   // ナビのクリックハンドラとは独立した関数にしておく。
-  function switchToTab_(tabName) {
+  function currentActiveTab_() {
+    var el = document.querySelector('.tabs__item.is-active');
+    return el ? el.dataset.tab : 'home';
+  }
+
+  // 「戻る」ボタン用の画面履歴（タブ名のみのスタック）。ホームのモデル/グレード
+  // クリックによる在庫リストへの遷移・メインタブのクリックなど、switchToTab_を
+  // 経由するすべての画面遷移で自動的に記録される。opts.skipHistoryは「戻る」
+  // ボタン自身がswitchToTab_を呼ぶ際に、戻った先をさらに履歴に積んでしまわない
+  // ようにするためのフラグ。
+  function switchToTab_(tabName, opts) {
+    opts = opts || {};
+    var current = currentActiveTab_();
+    if (!opts.skipHistory && current && current !== tabName) {
+      state.navHistory.push(current);
+      syncNavButtons_();
+    }
     document.querySelectorAll('.tabs__item').forEach(function (t) { t.classList.toggle('is-active', t.dataset.tab === tabName); });
     document.querySelectorAll('main.view').forEach(function (v) { v.classList.remove('is-active'); });
     $('view-' + tabName).classList.add('is-active');
@@ -173,6 +190,27 @@
     var btn = e.target.closest('[data-tab]');
     if (!btn) return;
     switchToTab_(btn.dataset.tab);
+  });
+
+  function syncNavButtons_() {
+    $('btnNavBack').disabled = state.navHistory.length === 0;
+  }
+
+  $('btnNavBack').addEventListener('click', function () {
+    var prev = state.navHistory.pop();
+    if (!prev) return;
+    switchToTab_(prev, { skipHistory: true });
+    syncNavButtons_();
+  });
+
+  $('btnRefresh').addEventListener('click', function () {
+    var btn = this;
+    btn.disabled = true;
+    reloadAll_().then(function () {
+      showToast('最新の情報に更新しました');
+    }).catch(function (err) {
+      showToast(err.message, true);
+    }).then(function () { btn.disabled = false; });
   });
 
   // ===== モーダル共通 =====
@@ -240,7 +278,7 @@
     return '<div><dt>' + label + '</dt><dd>' + escapeHtml(value || '-') + '</dd></div>';
   }
 
-  function vehicleCardHtml(v) {
+  function vehicleBadgesHtml_(v) {
     var isHold = v.holdStatus === 'hold';
     var hasSecondHold = isHold && !!v.secondHoldCustomer;
     var badges = isHold
@@ -254,32 +292,83 @@
     if (isRegistrableThisMonth_(v)) {
       badges += '<span class="badge badge--thisMonth">当月登録可能</span>';
     }
+    return badges;
+  }
 
-    // 商談中に「対象の1台」をスクロールしながら探す動線では、モデル・コミッション・
-    // ステータスに加え、MP・カラーまでは常に表示する（現場の声を踏まえ、隠しすぎない）。
-    // 残りのスペック（ステア・有償OP・入港予定日・可能月・VPC）はHold情報の詳細
-    // （card__holdInfo__details）と同じ折りたたみパターンにまとめる。
-    var quickMeta = '<dl class="card__metaGrid card__metaGrid--quick">' +
+  /**
+   * カード上部（モデル・コミッション・比較ピンの行＋バッジの行）。2行に分けて
+   * 固定することで、バッジの個数（2個／3個）やモデル名・コミッションの文字数に
+   * よって折り返し方が変わり、カードごとに高さがバラつく問題を避ける（以前は
+   * 1つのflex-wrapコンテナに全部まとめていたため、組み合わせによって1行に
+   * 収まったり2行・3行になったりし、在庫あり／Hold中／Hold中（2nd有）で
+   * カードの高さが揃わなかった）。
+   */
+  function vehicleTopHtml_(v, comparePinHtml) {
+    return '<div class="card__top">' +
+      '<div class="card__topRow">' +
+      '<div><div class="card__model">' + escapeHtml(v.model) + '</div>' +
+      '<div class="card__commission">' + escapeHtml(v.commission) + '</div></div>' +
+      (comparePinHtml || '') +
+      '</div>' +
+      '<div class="card__badges">' + vehicleBadgesHtml_(v) + '</div>' +
+      '</div>';
+  }
+
+  // MP・カラーは折りたたまず常に表示する（現場の声を踏まえ、隠しすぎない）。
+  function vehicleQuickMetaHtml_(v) {
+    return '<dl class="card__metaGrid card__metaGrid--quick">' +
       metaRow_('MP', v.mp) +
       metaRow_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
       '</dl>';
-    var meta = '<details class="card__specDetails">' +
-      '<summary>車両スペックを見る</summary>' +
-      '<dl class="card__metaGrid">' +
+  }
+
+  function vehicleSpecFieldsHtml_(v) {
+    return '<dl class="card__metaGrid">' +
       metaRow_('ステア', v.steering) +
       metaRow_('有償OP', paidOptionsText(v)) +
       metaRow_('入港予定日', v.arrivalExpectedDate) +
       metaRow_('可能月', v.registrableMonth) +
       metaRow_('VPC', v.vpc) +
-      '</dl></details>';
+      '</dl>';
+  }
+
+  function vehicleActionsHtml_(v) {
+    var isHold = v.holdStatus === 'hold';
+    var html = '<div class="card__actions">';
+    if (!isHold) {
+      html += '<button class="btn" data-hold="' + escapeHtml(v.commission) + '">Hold</button>';
+      html += '<button class="btn btn--primary" data-order="' + escapeHtml(v.commission) + '">受注</button>';
+    } else {
+      if (!v.secondHoldCustomer) {
+        html += '<button class="btn" data-second-hold="' + escapeHtml(v.commission) + '">2nd Hold</button>';
+      }
+      html += '<button class="btn btn--primary" data-order-from-hold="' + escapeHtml(v.commission) + '">受注確定</button>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  /**
+   * 表示形式「カード」用のコンパクト版。モデル・コミッション・ステータス・MP・
+   * カラー・Hold要約（顧客名・タイマー）・操作ボタンだけを表示し、車両スペック
+   * （ステア・有償OP等）やHoldの詳細（リード番号等）はカード内では表示しない
+   * （「詳細を見る」から画面中央のモーダル・vehicleDetailHtml_で確認する）。
+   * これにより、在庫あり／Hold中／Hold中（2nd有）のどの状態でもカードの高さが
+   * 揃う（以前は車両スペックの折りたたみ・Hold詳細の折りたたみをカード内に
+   * 直接置いていたため、開閉のたびにカードが伸び縮みし、他のカードとサイズが
+   * 揃わなくなる不具合があった）。
+   */
+  function vehicleCardHtml(v) {
+    var hasSecondHold = v.holdStatus === 'hold' && !!v.secondHoldCustomer;
+    var isHold = v.holdStatus === 'hold';
 
     // Hold状況の表示エリアは高さ固定（.card__holdArea）。Hold・2nd Holdが増えても
     // エリア内でスクロールするだけで、カード自体の高さは常に一定に保たれる。
     var holdInfoHtml;
     if (isHold) {
       holdInfoHtml = '<div class="card__holdArea">' +
-        holdInfoBlockHtml_('1st Hold', v, 'hold', 'first') +
-        (v.secondHoldCustomer ? holdInfoBlockHtml_('2nd Hold', v, 'secondHold', 'second') : '') +
+        holdInfoBlockHtml_('1st Hold', v, 'hold', 'first', false) +
+        (v.secondHoldCustomer ? holdInfoBlockHtml_('2nd Hold', v, 'secondHold', 'second', false) : '') +
         '</div>';
     } else {
       holdInfoHtml = '<div class="card__holdArea card__holdArea--empty">' +
@@ -287,31 +376,48 @@
         '</div>';
     }
 
-    var actionsHtml = '<div class="card__actions">';
-    if (!isHold) {
-      actionsHtml += '<button class="btn" data-hold="' + escapeHtml(v.commission) + '">Hold</button>';
-      actionsHtml += '<button class="btn btn--primary" data-order="' + escapeHtml(v.commission) + '">受注</button>';
-    } else {
-      if (!v.secondHoldCustomer) {
-        actionsHtml += '<button class="btn" data-second-hold="' + escapeHtml(v.commission) + '">2nd Hold</button>';
-      }
-      actionsHtml += '<button class="btn btn--primary" data-order-from-hold="' + escapeHtml(v.commission) + '">受注確定</button>';
-    }
-    actionsHtml += '</div>';
-
     var isComparing = isComparingCommission_(v.commission);
     var comparePinHtml = '<label class="card__comparePin">' +
       '<input type="checkbox" data-compare="' + escapeHtml(v.commission) + '"' + (isComparing ? ' checked' : '') + '>比較</label>';
 
     var cardTone = hasSecondHold ? 'card--hold2' : (isHold ? 'card--hold' : 'card--available');
     return '<div class="card ' + cardTone + '">' +
-      '<div class="card__top"><div><div class="card__model">' + escapeHtml(v.model) + '</div>' +
-      '<div class="card__commission">' + escapeHtml(v.commission) + '</div></div>' +
-      '<div class="card__badges">' + badges + '</div>' + comparePinHtml + '</div>' +
-      quickMeta +
-      '<div class="card__meta">' + meta + '</div>' +
+      vehicleTopHtml_(v, comparePinHtml) +
+      vehicleQuickMetaHtml_(v) +
+      '<button type="button" class="card__detailLink" data-detail="' + escapeHtml(v.commission) + '">▸ 詳細を見る</button>' +
       holdInfoHtml +
-      actionsHtml +
+      vehicleActionsHtml_(v) +
+      '</div>';
+  }
+
+  /**
+   * 「詳細を見る」タップ・表示形式「表」の行タップで開く、画面中央のモーダル
+   * （#inventoryDetailModal）用のフル版。車両スペック・Holdの詳細（リード番号等）
+   * も省略せずすべて表示する（openInventoryDetailModal_参照）。
+   */
+  function vehicleDetailHtml_(v) {
+    var hasSecondHold = v.holdStatus === 'hold' && !!v.secondHoldCustomer;
+    var isHold = v.holdStatus === 'hold';
+
+    var holdInfoHtml;
+    if (isHold) {
+      holdInfoHtml = '<div class="card__holdArea card__holdArea--full">' +
+        holdInfoBlockHtml_('1st Hold', v, 'hold', 'first', true) +
+        (v.secondHoldCustomer ? holdInfoBlockHtml_('2nd Hold', v, 'secondHold', 'second', true) : '') +
+        '</div>';
+    } else {
+      holdInfoHtml = '<div class="card__holdArea card__holdArea--empty card__holdArea--full">' +
+        '<span class="card__holdArea__placeholder">現在Hold登録なし</span>' +
+        '</div>';
+    }
+
+    var cardTone = hasSecondHold ? 'card--hold2' : (isHold ? 'card--hold' : 'card--available');
+    return '<div class="card ' + cardTone + '">' +
+      vehicleTopHtml_(v, '') +
+      vehicleQuickMetaHtml_(v) +
+      vehicleSpecFieldsHtml_(v) +
+      holdInfoHtml +
+      vehicleActionsHtml_(v) +
       '</div>';
   }
 
@@ -517,7 +623,7 @@
   function openInventoryDetailModal_(commission) {
     var vehicle = (state.inventoryItems || []).filter(function (v) { return commissionEquals_(v.commission, commission); })[0];
     if (!vehicle) return;
-    $('inventoryDetailBody').innerHTML = vehicleCardHtml(vehicle);
+    $('inventoryDetailBody').innerHTML = vehicleDetailHtml_(vehicle);
     openModal($('inventoryDetailModal'));
   }
 
@@ -530,7 +636,11 @@
   // Hold詳細ブロックは、常に見えている要約行（顧客・担当者・タイマー）と、
   // 折りたたみ式の詳細（リード番号・登録月・下取車・OSS・保険）に分ける。
   // これにより、2nd Holdが追加されてもカードが縦に伸びすぎず、サイズが揃う。
-  function holdInfoBlockHtml_(label, v, prefix, rank) {
+  /**
+   * full=false（表示形式「カード」のコンパクト版）ではリード番号等の詳細を省略し、
+   * full=true（詳細モーダル・vehicleDetailHtml_）では折りたたまず常に表示する。
+   */
+  function holdInfoBlockHtml_(label, v, prefix, rank, full) {
     var leadNumber = v[prefix + 'LeadNumber'];
     var staff = v[prefix + 'Staff'];
     var customer = v[prefix + 'Customer'];
@@ -543,6 +653,14 @@
     var createdAt = v[prefix + 'CreatedAt'];
     var expiresAt = v[prefix + 'ExpiresAt'];
     var cancelRank = rank === 'first' ? '1st' : '2nd';
+    var detailsHtml = full
+      ? '<div class="card__holdInfo__detailsBody card__holdInfo__detailsBody--flat">' +
+        'リード番号 ' + escapeHtml(leadNumber || '-') +
+        ' / 登録月 ' + escapeHtml(registeredMonth || '-') +
+        ' / 下取車 ' + escapeHtml(tradeIn || '-') + ' / OSS ' + escapeHtml(oss || '-') +
+        ' / 保険 ' + escapeHtml(insurance || '-') + ' / 支払方法 ' + escapeHtml(paymentMethod || '-') +
+        '</div>'
+      : '';
     return '<div class="card__holdInfo card__holdInfo--' + rank + '">' +
       '<div class="card__holdInfo__head">' +
       '<span class="card__holdInfo__label">' + label + '</span>' +
@@ -550,15 +668,7 @@
       '</div>' +
       '<div class="card__holdInfo__row"><b>' + escapeHtml(customer || '-') + '</b>（担当者 ' + escapeHtml(staff || '-') + '・' + escapeHtml(salesLocation || '-') + '）</div>' +
       holdTimerHtml_(createdAt, expiresAt) +
-      '<details class="card__holdInfo__details">' +
-      '<summary>詳細</summary>' +
-      '<div class="card__holdInfo__detailsBody">' +
-      'リード番号 ' + escapeHtml(leadNumber || '-') +
-      ' / 登録月 ' + escapeHtml(registeredMonth || '-') +
-      ' / 下取車 ' + escapeHtml(tradeIn || '-') + ' / OSS ' + escapeHtml(oss || '-') +
-      ' / 保険 ' + escapeHtml(insurance || '-') + ' / 支払方法 ' + escapeHtml(paymentMethod || '-') +
-      '</div>' +
-      '</details>' +
+      detailsHtml +
       '</div>';
   }
 
@@ -652,7 +762,11 @@
     else if (target.dataset.orderFromHold) openActionModal('orderFromHold', target.dataset.orderFromHold);
     else if (target.dataset.cancelHold) openCancelHoldModal(target.dataset.cancelHold, target.dataset.cancelRank);
     else if (target.dataset.compare) toggleCompare_(target.dataset.compare, target.checked);
-    else {
+    else if (target.dataset.detail) {
+      // 表示形式「カード」の「詳細を見る」タップで、車両情報の詳細モーダルを開く
+      // （カード自体は伸ばさず、他のカードとサイズを揃えたままにする）。
+      openInventoryDetailModal_(target.dataset.detail);
+    } else {
       // 表示形式「表」の行タップ（チェックボックス・ボタン以外の箇所）で
       // 車両情報の詳細モーダルを開く。
       var rowEl = target.closest('.rowCard[data-commission]');
@@ -1046,10 +1160,16 @@
     }).catch(function (err) { showToast(err.message, true); });
   }
 
+  /**
+   * 受注リストは「誰が・どの車種を買ったか」がひと目でわかればよく、それ以外の
+   * 契約条件（コミッション・MP・VPC・有償OP・登録月・下取車・OSS・保険・支払方法・
+   * 受注確定日時・リード番号）はカード内に表示せず、「詳細を見る」タップで画面中央の
+   * モーダル（#orderDetailModal・orderDetailHtml_）にまとめて表示する（在庫リストの
+   * vehicleCardHtml／vehicleDetailHtml_と同じパターン。以前はカード内の折りたたみ
+   * だったため、開閉のたびにカードが伸び縮みし、他のカードとサイズが揃わなくなる
+   * 不具合があった）。
+   */
   function orderCardHtml(o) {
-    // 受注リストは「誰が・どの車種を買ったか」がひと目でわかればよく、それ以外の
-    // 契約条件（コミッション・MP・VPC・有償OP・登録月・下取車・OSS・保険・支払方法・
-    // 受注確定日時・リード番号）は折りたたむ（車両スペックの折りたたみと同じパターン）。
     return '<div class="orderCard">' +
       '<div class="orderCard__top">' +
       '<div><div class="orderCard__model">' + escapeHtml(o.customer || '-') + '</div>' +
@@ -1059,9 +1179,12 @@
       '<span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span>' +
       '</div>' +
       '</div>' +
-      '<details class="orderCard__details">' +
-      '<summary>詳細を見る</summary>' +
-      '<dl class="orderCard__grid">' +
+      '<button type="button" class="orderCard__detailLink" data-order-detail="' + escapeHtml(o.commission) + '">▸ 詳細を見る</button>' +
+      '</div>';
+  }
+
+  function orderDetailGridHtml_(o) {
+    return '<dl class="orderCard__grid">' +
       '<div><dt>リード番号</dt><dd>' + escapeHtml(o.leadNumber || '-') + '</dd></div>' +
       '<div><dt>コミッション</dt><dd>' + escapeHtml(o.commission) + '</dd></div>' +
       '<div><dt>MP</dt><dd>' + escapeHtml(o.mp || '-') + '</dd></div>' +
@@ -1073,7 +1196,39 @@
       '<div><dt>保険加入の有無</dt><dd>' + escapeHtml(o.insurance || '-') + '</dd></div>' +
       '<div><dt>支払方法</dt><dd>' + escapeHtml(o.paymentMethod || '-') + '</dd></div>' +
       '<div><dt>受注確定日時</dt><dd>' + formatDateTime(o.orderedAt) + '</dd></div>' +
-      '</dl></details></div>';
+      '</dl>';
+  }
+
+  function orderDetailHtml_(o) {
+    return '<div class="orderCard">' +
+      '<div class="orderCard__top">' +
+      '<div><div class="orderCard__model">' + escapeHtml(o.customer || '-') + '</div>' +
+      '<div class="orderCard__staff">担当者: ' + escapeHtml(o.staff || '-') + '</div>' +
+      '<div class="orderCard__vehicle">' + escapeHtml(o.model) + '</div></div>' +
+      '<div class="card__badges">' +
+      '<span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span>' +
+      '</div>' +
+      '</div>' +
+      orderDetailGridHtml_(o) +
+      '</div>';
+  }
+
+  function findOrderByCommission_(commission) {
+    var groups = state.ordersGroups || [];
+    for (var i = 0; i < groups.length; i++) {
+      var items = groups[i].items || [];
+      for (var j = 0; j < items.length; j++) {
+        if (commissionEquals_(items[j].commission, commission)) return items[j];
+      }
+    }
+    return null;
+  }
+
+  function openOrderDetailModal_(commission) {
+    var order = findOrderByCommission_(commission);
+    if (!order) return;
+    $('orderDetailBody').innerHTML = orderDetailHtml_(order);
+    openModal($('orderDetailModal'));
   }
 
   // 受注リストの表示形式「表」: 在庫と同じ「行カード」パターンで、成約済みの案件を
@@ -1114,6 +1269,11 @@
     }).join('');
     syncFixedBars_();
   }
+
+  $('ordersGroups').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-order-detail]');
+    if (btn) openOrderDetailModal_(btn.dataset.orderDetail);
+  });
 
   function populateOrdersStaffFilter_() {
     var select = $('ordersStaffFilter');
@@ -1628,9 +1788,12 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
-  // ===== 初期化 =====
-  function init() {
-    gasRun('api_getBootstrapData').then(function (bootstrap) {
+  // ===== 初期化・更新 =====
+  // 起動時の読み込みと、「更新」ボタン（btnRefresh）による再読み込みの両方から呼ぶ
+  // 共通処理。設定・担当者判定・整合性チェック・在庫/受注/ホームの一覧をすべて
+  // サーバーから最新の状態に取り直す。
+  function reloadAll_() {
+    return gasRun('api_getBootstrapData').then(function (bootstrap) {
       state.bootstrap = bootstrap;
       fillOptions($('actionTradeIn'), bootstrap.yesNoOptions, true);
       fillOptions($('actionOss'), bootstrap.ossOptions, true);
@@ -1640,7 +1803,12 @@
       renderTopbarUser();
       checkIntegrity_();
       return Promise.all([loadInventory(), loadOrders(), loadHomeModelCounts_()]);
-    }).catch(function (err) { showToast(err.message, true); });
+    });
+  }
+
+  function init() {
+    syncNavButtons_();
+    reloadAll_().catch(function (err) { showToast(err.message, true); });
   }
 
   init();
