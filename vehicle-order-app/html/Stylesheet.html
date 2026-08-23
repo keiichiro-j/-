@@ -275,7 +275,6 @@
   .viewToggle__item:focus-visible,
   .homeRow:focus-visible,
   .homeGradeTab:focus-visible,
-  .rowCard__statusToggle:focus-visible,
   .themePreset:focus-visible {
     outline: 2px solid var(--primary-text);
     outline-offset: 2px;
@@ -416,60 +415,19 @@
   .rowCard--available { border-left-color: var(--success); }
   .rowCard--hold { border-left-color: var(--warning); }
   .rowCard--hold2 { border-left-color: var(--danger); }
-  .rowCard { position: relative; }
+  /* 横スクロールが必要な列（有償OP等の車両情報・rowCard__status）は画面幅によっては
+     スクロールしないと見えないため、行（カード）自体をタップすると、既存のカード表示と
+     同じ見た目で車両情報すべてを画面中央のモーダルに表示する
+     （openInventoryDetailModal_、JavaScript.html参照）。チェックボックス・操作ボタン
+     自体は個別にクリックできるよう、cursor はタップ可能であることを示すのみに留める。 */
+  .rowCard { cursor: pointer; }
   .rowCard__pin { display: flex; flex-direction: column; align-items: center; gap: 8px; }
   .rowCard__pinCheckbox { display: flex; justify-content: center; }
-
-  /* ===== 表示形式「表」の車両情報タップボタン =====
-     横スクロールが必要な列（有償OP等の車両情報・rowCard__status）は画面幅によっては
-     スクロールしないと見えないため、必ず見える左端（ピンの列）に色つきのタップボタンを
-     置き、タップすると車両情報すべてをポップアップで確認できるようにする（横スクロール
-     自体は既存のまま変更しない。あくまで「見えなくてもタップで確認できる」導線を追加する）。 */
-  .rowCard__statusToggle {
-    display: flex; align-items: center; justify-content: center;
-    width: 32px; height: 32px; padding: 0;
-    background: var(--background); border: 1px solid var(--outline); border-radius: 50%;
-    cursor: pointer;
-  }
-  .rowCard__statusToggle:hover { border-color: var(--primary-text); }
-  .rowCard__statusToggle__dot { width: 10px; height: 10px; border-radius: 50%; background: var(--success); }
-  .rowCard--hold .rowCard__statusToggle__dot { background: var(--warning); }
-  .rowCard--hold2 .rowCard__statusToggle__dot { background: var(--danger); }
-  .rowCard__statusPopover {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 20px;
-    z-index: 5;
-    margin-top: 6px;
-    width: 280px;
-    max-width: calc(100vw - 40px);
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-    background: var(--surface);
-    border: 1px solid var(--outline);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-elevated);
-    padding: 14px;
-  }
-  .rowCard.is-statusOpen .rowCard__statusPopover { display: flex; }
-  .rowCard__popoverFields {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px 16px;
-    width: 100%;
-    margin-top: 2px;
-    padding-top: 10px;
-    border-top: 1px solid var(--outline);
-  }
-  .rowCard__popoverField { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-  .rowCard__popoverField__label { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--on-surface-variant); }
-  .rowCard__popoverField__value { font-size: 13px; font-weight: 600; color: var(--on-surface); word-break: break-word; }
-  /* ポップアップを開いている行を、下に続く他の行より前面に表示する
-     （position:relativeだけではスタッキングコンテキストが生まれず、
-     DOM順で後にある次の行のカード背景に隠れてしまうため）。 */
-  .rowCard.is-statusOpen { z-index: 10; }
+  /* 色つきの状態ドット: スクロール不要な左端（ピン列）に常時表示し、横スクロールしなくても
+     色でHold状況（在庫あり＝緑／Hold中＝黄／Hold中（2nd有）＝赤）が分かるようにする。 */
+  .rowCard__statusDot { display: block; width: 10px; height: 10px; border-radius: 50%; background: var(--success); }
+  .rowCard--hold .rowCard__statusDot { background: var(--warning); }
+  .rowCard--hold2 .rowCard__statusDot { background: var(--danger); }
   .rowCard__field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .rowCard__label { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--on-surface-variant); }
   .rowCard__value {
