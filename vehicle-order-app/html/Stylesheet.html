@@ -467,6 +467,12 @@
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 20px;
+    /* align-items: stretch（デフォルト）だと、1台だけ「車両スペックを見る」等の
+       詳細を開いて縦に伸びたときに、同じグリッド行の他のカードまで背が
+       伸びてしまう（グリッド行の高さは行内で最も高いカードに揃うため）。
+       start にすることで、各カードは自分自身の内容量ぶんの高さのみを取り、
+       他のカードのサイズには影響しないようにする。 */
+    align-items: start;
   }
   .card {
     background: var(--surface);
@@ -678,6 +684,9 @@
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 20px;
+    /* .cardGridと同じ理由。1台だけ折りたたみ（orderCard__details）を開いて
+       縦に伸びても、他の受注カードのサイズには影響しないようにする。 */
+    align-items: start;
   }
   .orderCard {
     background: var(--surface);
@@ -894,56 +903,60 @@
   .modelPhotoList__row .input[data-photo-field="photoUrl"] { flex: 1 1 auto; min-width: 0; }
   .modelPhotoList__empty { font-size: 13px; color: var(--on-surface-variant); }
 
-  /* ===== ホーム画面（実務重視リスト型） =====
-     写真を大きく見せる「ギャラリー」ではなく、モデル名と在庫台数を横一列で
-     一覧できる「リスト」にする。毎日使う社内ツールとして、華やかさよりも
-     パッと見て在庫状況がわかる情報密度を優先した（現場の声を踏まえた変更）。
-     設定画面（.settingsWrap）と同じ考え方で、読みやすい幅に収める。 */
+  /* ===== ホーム画面 =====
+     PC（901px以上）はモデル写真を大きく見せる4列グリッドにする。タブレット・
+     スマホ幅（900px以下）では、パッと見て在庫状況がわかる情報密度を優先した
+     横一列の「リスト」型のままにする（@media (max-width: 900px)で上書き。
+     現場の声を踏まえて選んだ元のレイアウトのため、狭い画面では変更しない）。 */
   .homeList {
-    display: flex;
-    flex-direction: column;
-    max-width: 640px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
   }
   .homeRow {
     display: flex;
-    align-items: center;
-    gap: 18px;
+    flex-direction: column;
+    gap: 14px;
     width: 100%;
-    padding: 14px 6px;
-    background: none;
-    border: none;
-    border-bottom: 1px solid var(--outline);
+    padding: 16px;
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-radius: var(--radius);
     color: var(--on-surface);
     cursor: pointer;
     text-align: left;
-    transition: background-color .15s ease;
+    transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease, background-color .15s ease;
   }
-  .homeRow:first-child { border-top: 1px solid var(--outline); }
-  .homeRow:hover { background: rgba(255, 255, 255, .04); }
+  .homeRow:hover { box-shadow: var(--shadow-elevated); transform: translateY(-3px); border-color: transparent; }
+  .homeRow.is-expanded { background: rgba(255, 255, 255, .04); border-color: var(--primary); }
   .homeRow__photo {
-    width: 76px;
-    height: 76px;
-    flex: none;
+    width: 100%;
+    aspect-ratio: 4 / 3;
     border-radius: 8px;
     overflow: hidden;
-    background: var(--surface);
+    background: var(--background);
   }
   .homeRow__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .homeRow__model { flex: 1; min-width: 0; font-size: 16px; font-weight: 600; letter-spacing: -.005em; }
+  .homeRow__meta { display: flex; align-items: center; gap: 8px; }
+  .homeRow__model {
+    flex: 1; min-width: 0; font-size: 16px; font-weight: 600; letter-spacing: -.005em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
   .badge--count { background: var(--primary-bg); color: var(--primary-text); font-weight: 600; flex: none; }
-  .homeRow__chevron { flex: none; margin-left: 4px; font-size: 13px; color: var(--on-surface-variant); }
-  /* 展開中の行は下線をタブ群（.homeGradeTabs）側に譲り、視覚的に地続きにする。 */
-  .homeRow.is-expanded { background: rgba(255, 255, 255, .04); border-bottom-color: transparent; }
+  .homeRow__chevron { flex: none; font-size: 13px; color: var(--on-surface-variant); }
 
   /* ===== ホームのグレードタブ（グレードが設定されたモデル行を展開すると現れる） =====
-     写真幅ぶんインデントし、左に細い罫線を添えることで「ベースモデル行から
-     派生したタブである」ことを視覚的に示す（車両スペック折りたたみ等と同じ、
-     階層関係を罫線で示す考え方）。 */
+     PCの4列グリッドでは、展開したタイルの直下に全列ぶんの幅で表示する
+     （grid-column: 1 / -1）。900px以下（リスト型）では、写真幅ぶんインデントし
+     左に細い罫線を添えることで「ベースモデル行から派生したタブである」ことを
+     視覚的に示す（車両スペック折りたたみ等と同じ、階層関係を罫線で示す考え方。
+     @media (max-width: 900px)で上書き）。 */
   .homeGradeTabs {
-    margin: 0 0 0 94px;
-    padding: 4px 0 16px 16px;
-    border-left: 2px solid var(--outline);
-    border-bottom: 1px solid var(--outline);
+    grid-column: 1 / -1;
+    padding: 16px;
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-radius: var(--radius);
   }
   .homeGradeTabs__label {
     font-size: 11px;
@@ -1096,9 +1109,38 @@
     main.view { padding: 14px; }
     .cardGrid { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
     .settingsWrap { max-width: 100%; }
-    .homeList { max-width: 100%; }
     /* 受注カードは項目数が多いため、タブレット幅では1列にして読みやすさを優先する */
     .orderList { grid-template-columns: 1fr; }
+
+    /* ホーム画面: PCの4列グリッド（写真を大きく見せるタイル型）ではなく、
+       元の「実務重視リスト型」（横一列・小さめの写真）に戻す。タブレット・
+       スマホ幅では情報密度を優先するため（現場の声を踏まえた元のレイアウト）。 */
+    .homeList { display: flex; flex-direction: column; max-width: 100%; }
+    .homeRow {
+      flex-direction: row;
+      align-items: center;
+      gap: 18px;
+      padding: 14px 6px;
+      background: none;
+      border: none;
+      border-bottom: 1px solid var(--outline);
+      border-radius: 0;
+    }
+    .homeRow:first-child { border-top: 1px solid var(--outline); }
+    .homeRow:hover { background: rgba(255, 255, 255, .04); box-shadow: none; transform: none; }
+    .homeRow.is-expanded { border-color: transparent; border-bottom-color: transparent; }
+    .homeRow__photo { width: 76px; height: 76px; aspect-ratio: auto; flex: none; }
+    .homeRow__meta { flex: 1; min-width: 0; gap: 18px; }
+    .homeGradeTabs {
+      grid-column: auto;
+      margin: 0 0 0 94px;
+      padding: 4px 0 16px 16px;
+      background: none;
+      border: none;
+      border-left: 2px solid var(--outline);
+      border-bottom: 1px solid var(--outline);
+      border-radius: 0;
+    }
   }
 
   /* ===== スマートフォン ===== */
@@ -1125,6 +1167,7 @@
     .cardGrid { grid-template-columns: 1fr; gap: 12px; }
     .homeRow { gap: 12px; }
     .homeRow__photo { width: 60px; height: 60px; }
+    .homeRow__meta { gap: 12px; }
     .homeGradeTabs { margin-left: 72px; padding-left: 12px; }
     .settingsCard, .settingsActions { padding: 18px 16px; }
     .card { padding: 16px 18px; }
