@@ -182,8 +182,8 @@ var PROP_KEYS = {
   MODEL_PHOTOS: 'MODEL_PHOTOS'
 };
 
-var DEFAULT_THEME_COLOR = '#1a73e8'; // Google Material Design Blue 600
-var DEFAULT_TEXT_COLOR = '#202124'; // 基本の文字色（Google Material Design相当のダークグレー）
+var DEFAULT_THEME_COLOR = '#3e7cc4'; // ラグジュアリーブラック配色のスチールブルーアクセント
+var DEFAULT_TEXT_COLOR = '#f2f1ed'; // 基本の文字色（黒基調の背景に合わせた明るいオフホワイト）
 
 // ロゴ（画像URL、またはアップロード時のdata URL）の最大文字数。
 // Script Propertiesは1プロパティあたり9KB（=9216文字程度）が上限のため、

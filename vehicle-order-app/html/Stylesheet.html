@@ -1,23 +1,35 @@
 <style>
+  /* ===== カラーパレット：ラグジュアリーブラック =====
+     黒・ダークグレーを基調に、メタリックシルバー（--outline / --on-surface-variant）と
+     スチールブルーのアクセント（--primary）を組み合わせた、高級輸入車ディーラーサイト風の
+     重厚な配色。--primary / --on-surface はテーマ設定（設定タブ）でユーザーが上書きできる
+     ため、実際の値はJS（applyTheme / applyTextColor、JavaScript.html参照）が
+     document.documentElement.style.setProperty で書き換える。ここでの値は
+     未設定時の初期表示・DEFAULT_THEME_COLOR / DEFAULT_TEXT_COLOR（Constants.gs）と
+     揃えてある。 */
   :root {
-    --primary: #1a73e8;
-    --primary-dark: #0b57bf;
+    --primary: #3e7cc4;
+    --primary-dark: #2c5c93;
     --on-primary: #ffffff;
-    --surface: #ffffff;
-    --background: #f1f3f4;
-    --on-surface: #202124;
-    --on-surface-variant: #5f6368;
-    --outline: #dadce0;
-    --success: #188038;
-    --success-bg: #e6f4ea;
-    --warning: #b06000;
-    --warning-bg: #fef7e0;
-    --danger: #d93025;
-    --danger-bg: #fce8e6;
-    --primary-bg: #e8f0fe;
-    --shadow: 0 1px 2px rgba(32, 33, 36, .06);
-    --shadow-elevated: 0 8px 24px rgba(32, 33, 36, .12);
+    --surface: #1b1c20;
+    --background: #0c0c0e;
+    --on-surface: #f2f1ed;
+    --on-surface-variant: #9a9ca3;
+    --outline: rgba(255, 255, 255, .14);
+    --success: #3ddc84;
+    --success-bg: rgba(61, 220, 132, .16);
+    --warning: #f2a93c;
+    --warning-bg: rgba(242, 169, 60, .16);
+    --danger: #ff6b6b;
+    --danger-bg: rgba(255, 107, 107, .16);
+    --primary-bg: rgba(62, 124, 196, .18);
+    --shadow: 0 1px 2px rgba(0, 0, 0, .55);
+    --shadow-elevated: 0 16px 40px rgba(0, 0, 0, .55);
     --radius: 14px;
+    /* トップバー・比較バーは、テーマ設定のテーマカラー／文字色に関わらず
+       常に黒基調で統一する（ブランドカラーを載せる帯ではなく、アプリの「額縁」として
+       固定の黒にすることで、どのテーマカラーを選んでも重厚な黒基調の外観が崩れない）。 */
+    --topbar-bg: #000000;
     /* トップバーの実高さ。JS（syncFixedBars_）が実測して上書きする。初期値は
        JS実行前のレイアウトずれを防ぐための目安値。 */
     --topbar-h: 60px;
@@ -54,10 +66,11 @@
      JavaScript.html の syncFixedBars_ 参照）。 */
   #app { padding-top: var(--topbar-h); }
   .topbar {
-    background: var(--primary);
-    color: var(--on-primary);
+    background: var(--topbar-bg);
+    color: var(--on-surface);
     display: flex;
     flex-direction: column;
+    border-bottom: 1px solid var(--outline);
     box-shadow: var(--shadow);
     position: fixed;
     top: 0;
@@ -88,7 +101,7 @@
   .tabs__item {
     background: transparent;
     border: none;
-    color: var(--on-primary);
+    color: var(--on-surface);
     opacity: .75;
     padding: 10px 16px;
     border-radius: 999px;
@@ -108,7 +121,7 @@
   }
   .topbar__userName { display: block; font-weight: 500; }
   .topbar__userEmail { display: block; opacity: .8; font-size: 11.5px; }
-  .topbar__userWarn { display: block; color: #fff; background: rgba(0, 0, 0, .18); padding: 4px 10px; border-radius: 999px; font-size: 11.5px; }
+  .topbar__userWarn { display: block; color: var(--warning); background: rgba(242, 169, 60, .16); padding: 4px 10px; border-radius: 999px; font-size: 11.5px; }
 
   /* ===== 在庫データ整合性チェックの警告バナー（アプリ起動時、問題があれば表示） =====
      トップバーの子要素として置くことで、表示・非表示による高さの変化を
@@ -197,7 +210,7 @@
     cursor: pointer;
     transition: background-color .15s ease, border-color .15s ease;
   }
-  .btn:hover { background: #f8f9fa; }
+  .btn:hover { background: #232428; }
   .btn--primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
   .btn--primary:hover { background: var(--primary-dark); }
   .btn--text { border: none; background: none; color: var(--primary); padding: 8px 10px; }
@@ -209,7 +222,7 @@
     border: none; background: transparent; font-size: 20px; line-height: 1;
     width: 32px; height: 32px; border-radius: 50%; cursor: pointer; color: var(--on-surface-variant);
   }
-  .btn--icon:hover { background: #f1f3f4; }
+  .btn--icon:hover { background: rgba(255, 255, 255, .08); }
 
   /* ===== グループ見出し ===== */
   .group { margin-bottom: 28px; }
@@ -267,7 +280,11 @@
     display: flex;
     align-items: center;
     gap: 14px;
-    background: var(--on-surface);
+    /* テーマ設定の文字色（--on-surface）に関わらず、常に黒基調の浮遊バーにする
+       （--on-surfaceを背景に使うと、ラグジュアリーブラック配色では文字色が
+       明るい色になるため、白文字と衝突して見えなくなってしまうため）。 */
+    background: #1a1a1d;
+    border: 1px solid var(--outline);
     color: #fff;
     padding: 10px 16px;
     border-radius: 999px;
@@ -425,7 +442,7 @@
   .badge--hold { background: var(--warning-bg); color: var(--warning); }
   .badge--hold2 { background: var(--danger-bg); color: var(--danger); }
   .badge--disclosed { background: var(--success-bg); color: var(--success); font-weight: 500; }
-  .badge--undisclosed { background: rgba(95, 99, 104, .12); color: var(--on-surface-variant); font-weight: 500; }
+  .badge--undisclosed { background: rgba(255, 255, 255, .08); color: var(--on-surface-variant); font-weight: 500; }
   .badge--thisMonth { background: var(--primary-bg); color: var(--primary); font-weight: 500; }
   .badge--location { background: var(--primary-bg); color: var(--primary); font-weight: 500; }
   .card__badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
@@ -513,7 +530,7 @@
   }
   .card__holdInfo--first { border-left-color: var(--warning); }
   .card__holdInfo--first .card__holdInfo__label { color: var(--warning); }
-  .card__holdInfo--second { border-left-color: var(--primary); background: #eef4fd; }
+  .card__holdInfo--second { border-left-color: var(--primary); background: var(--primary-bg); }
   .card__holdInfo--second .card__holdInfo__label { color: var(--primary); }
   .card__holdInfo__row { margin-bottom: 6px; }
   .card__holdInfo__cancel {
@@ -527,7 +544,7 @@
     border-radius: 4px;
     flex: none;
   }
-  .card__holdInfo__cancel:hover { background: rgba(217, 48, 37, .1); }
+  .card__holdInfo__cancel:hover { background: var(--danger-bg); }
 
   /* 詳細（リード番号・登録月・下取車等）は折りたたみ、カードの縦幅を一定に保つ */
   .card__holdInfo__details { margin-top: 4px; }
@@ -810,7 +827,7 @@
   .modal__panel--hold .modal__header { background: var(--warning-bg); }
   .modal__panel--hold .modal__header h2::before { background: var(--warning); }
   .modal__panel--hold #btnActionSubmit { background: var(--warning); border-color: var(--warning); }
-  .modal__panel--hold #btnActionSubmit:hover { background: #8a5000; border-color: #8a5000; }
+  .modal__panel--hold #btnActionSubmit:hover { background: #c98423; border-color: #c98423; }
 
   .modal__panel--order { border-top: 4px solid var(--primary); }
   .modal__panel--order .modal__header { background: var(--primary-bg); }
@@ -847,7 +864,7 @@
   /* ===== トースト ===== */
   .toast {
     position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
-    background: #323232; color: #fff; padding: 12px 20px; border-radius: 8px;
+    background: #2a2a2e; border: 1px solid var(--outline); color: #fff; padding: 12px 20px; border-radius: 8px;
     font-size: 14px; box-shadow: var(--shadow-elevated); z-index: 200;
   }
   .toast--error { background: var(--danger); }
