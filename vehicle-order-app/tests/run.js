@@ -388,7 +388,7 @@ test('配列以外が渡されても空配列として扱われる', () => {
   assert.strictEqual(sandbox.normalizeStaffList_(undefined).length, 0);
 });
 
-console.log('== SettingsService: normalizeModelPhotos_（ホーム画面のモデル写真最大30件・{model,photoUrl}形式） ==');
+console.log('== SettingsService: normalizeModelPhotos_（ホーム画面のモデル写真最大30件・{model,photoUrl,grades}形式） ==');
 test('モデル名・写真URLがともに入力されている行のみ残り、モデル名重複は除去される', () => {
   const list = sandbox.normalizeModelPhotos_([
     { model: 'Cクラス', photoUrl: 'https://example.com/c.jpg' },
@@ -427,6 +427,29 @@ test('1件あたりは上限内でも、合計文字数が大きすぎる場合�
 test('配列以外が渡されても空配列として扱われる', () => {
   assert.strictEqual(sandbox.normalizeModelPhotos_(null).length, 0);
   assert.strictEqual(sandbox.normalizeModelPhotos_(undefined).length, 0);
+});
+test('グレード一覧は空文字除去・重複除去のうえ配列で返る（在庫リストのモデル列と一致させる用途）', () => {
+  const list = sandbox.normalizeModelPhotos_([
+    { model: 'Aクラス', photoUrl: 'https://example.com/a.jpg', grades: ['A180', ' A200 ', '', 'A180', 'A35'] }
+  ]);
+  assert.strictEqual(list.length, 1);
+  assert.strictEqual(list[0].grades.length, 3);
+  assert.strictEqual(list[0].grades[0], 'A180');
+  assert.strictEqual(list[0].grades[1], 'A200');
+  assert.strictEqual(list[0].grades[2], 'A35');
+});
+test('グレード未設定の場合は空配列になる（従来のモデル名直接照合にフォールバック）', () => {
+  const list = sandbox.normalizeModelPhotos_([{ model: 'クラウン', photoUrl: 'https://example.com/crown.jpg' }]);
+  assert.strictEqual(list[0].grades.length, 0);
+});
+test('グレードが21件以上はエラーになる', () => {
+  const grades = Array.from({ length: 21 }, (_, i) => 'G' + i);
+  const list = [{ model: 'Aクラス', photoUrl: 'https://example.com/a.jpg', grades: grades }];
+  assert.throws(() => sandbox.normalizeModelPhotos_(list), /グレードは最大20件/);
+});
+test('グレード名が長すぎる場合はエラーになる', () => {
+  const list = [{ model: 'Aクラス', photoUrl: 'https://example.com/a.jpg', grades: ['x'.repeat(31)] }];
+  assert.throws(() => sandbox.normalizeModelPhotos_(list), /長すぎます/);
 });
 
 console.log('== SettingsService: resolveStaffNameByEmail_（ログインメールから担当者名を解決） ==');

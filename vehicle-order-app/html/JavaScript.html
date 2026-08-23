@@ -18,7 +18,9 @@
     ordersGroups: [],
     action: null, // { type: 'hold' | 'secondHold' | 'order' | 'orderFromHold', commission }
     staffList: [], // 設定タブで編集中の担当者マスタ（作業用コピー）
-    modelPhotos: [] // 設定タブで編集中のモデル写真（作業用コピー）
+    modelPhotos: [], // 設定タブで編集中のモデル写真（作業用コピー）
+    allInventoryItems: [], // ホーム画面の在庫台数集計専用（ツールバーの検索条件に左右されない全件）
+    homeGradeFilter: null // ホームのベースモデル行クリックで設定される、絞り込み対象グレード名の配列
   };
   var COMPARE_MAX = 3;
 
@@ -187,8 +189,17 @@
       keyword: $('inventoryKeyword').value,
       includeHold: $('inventoryIncludeHold').checked
     };
+    // ホームのベースモデル行クリックによるグレード絞り込み（state.homeGradeFilter）は、
+    // 利用者が検索キーワードを自分で入力した時点で解除する（意図しない絞り込みが
+    // 残り続けないようにするため）。
+    if (filters.keyword && filters.keyword.trim()) {
+      state.homeGradeFilter = null;
+    }
     return gasRun('api_listInventory', filters).then(function (groups) {
       var items = (groups && groups[0] && groups[0].items) || [];
+      if (state.homeGradeFilter) {
+        items = items.filter(function (v) { return state.homeGradeFilter.indexOf(v.model) !== -1; });
+      }
       populateInventoryMonthFilter_(items);
       var month = $('inventoryMonthFilter').value;
       if (month) {
@@ -1097,7 +1108,9 @@
     renderStaffList();
     populateOrdersStaffFilter_();
 
-    state.modelPhotos = (settings.modelPhotos || []).map(function (p) { return { model: p.model || '', photoUrl: p.photoUrl || '' }; });
+    state.modelPhotos = (settings.modelPhotos || []).map(function (p) {
+      return { model: p.model || '', photoUrl: p.photoUrl || '', grades: (p.grades || []).join(', ') };
+    });
     $('modelPhotosMax').textContent = (state.bootstrap && state.bootstrap.modelPhotosMax) || 30;
     renderModelPhotoList_();
     renderHomeGallery_();
@@ -1263,8 +1276,9 @@
           : '<span class="logoPreview__placeholder">写真</span>';
         return '<div class="modelPhotoList__row">' +
           '<div class="modelPhotoList__preview">' + preview + '</div>' +
-          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="model" placeholder="モデル名（例: Cクラス）" value="' + escapeHtml(entry.model || '') + '">' +
+          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="model" placeholder="モデル名（例: Aクラス）" value="' + escapeHtml(entry.model || '') + '">' +
           '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="photoUrl" placeholder="写真URL" value="' + escapeHtml(entry.photoUrl || '') + '">' +
+          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="grades" placeholder="グレード（カンマ区切り。例: A180, A200, A35, A45）" value="' + escapeHtml(entry.grades || '') + '">' +
           '<button class="btn btn--icon" data-remove-photo="' + i + '" type="button" aria-label="削除">&times;</button>' +
           '</div>';
       }).join('');
@@ -1300,7 +1314,7 @@
   $('btnAddModelPhoto').addEventListener('click', function () {
     var max = (state.bootstrap && state.bootstrap.modelPhotosMax) || 30;
     if (state.modelPhotos.length >= max) return;
-    state.modelPhotos.push({ model: '', photoUrl: '' });
+    state.modelPhotos.push({ model: '', photoUrl: '', grades: '' });
     renderModelPhotoList_();
     var inputs = document.querySelectorAll('#modelPhotoList [data-photo-field="model"]');
     if (inputs.length) inputs[inputs.length - 1].focus();
@@ -1312,28 +1326,57 @@
   // 対応済みのため、サーバー側の変更は不要）。写真は小さめのサムネイルにとどめ、
   // モデル名と在庫台数を横一列で見せることで、日常的に使う社内ツールとしての
   // 情報密度を優先する（見た目の華やかさより、パッと見て台数がわかることを重視）。
+  /**
+   * グレード一覧（配列、またはカンマ区切り文字列のどちらでも受け付ける）を、
+   * 空要素を除いたトリム済み配列に正規化する（純粋関数）。設定タブの編集中は
+   * カンマ区切り文字列、サーバーから読み込んだ直後は配列と、状態によって型が
+   * 揺れうるため、参照する側でこの関数を通して統一的に扱う。
+   */
+  function parseGrades_(raw) {
+    var list = Array.isArray(raw) ? raw : String(raw || '').split(',');
+    return list.map(function (g) { return String(g || '').trim(); }).filter(Boolean);
+  }
+
+  /**
+   * ベースモデル1件分の在庫台数を集計する（純粋関数）。在庫リストの「モデル」列には
+   * グレード名のみが入力される運用のため、グレード一覧（entry.grades）が設定されている
+   * 場合はグレードごとに在庫リストのモデル列と一致する台数を集計する。グレード一覧が
+   * 未設定の場合は、モデル名そのものを在庫リストのモデル列と直接照合する（グレードの
+   * 概念を使わない、単一モデルの車種向けのフォールバック）。
+   */
+  function gradeCountsForEntry_(entry, allItems) {
+    var grades = parseGrades_(entry.grades);
+    if (!grades.length) {
+      var total = allItems.filter(function (v) { return v.model === entry.model; }).length;
+      return { total: total, byGrade: [] };
+    }
+    var byGrade = grades.map(function (grade) {
+      return { grade: grade, count: allItems.filter(function (v) { return v.model === grade; }).length };
+    });
+    var total = byGrade.reduce(function (sum, g) { return sum + g.count; }, 0);
+    return { total: total, byGrade: byGrade };
+  }
+
   function renderHomeGallery_() {
     var modelPhotos = state.modelPhotos || [];
     $('homeEmpty').classList.toggle('hidden', modelPhotos.length > 0);
-    var counts = modelInventoryCounts_();
+    var allItems = state.allInventoryItems || [];
     $('homeGrid').innerHTML = modelPhotos.map(function (p) {
-      var count = counts[p.model] || 0;
+      var result = gradeCountsForEntry_(p, allItems);
+      // グレード内訳が複数ある場合のみ、折り返し用の.homeRow__badges（幅を多めに
+      // 確保）で包む。単一バッジの場合はそのまま小さな内容量サイズで表示し、
+      // モデル名側の表示幅を必要以上に圧迫しないようにする。
+      var badgesHtml = result.byGrade.length
+        ? '<div class="homeRow__badges">' + result.byGrade.map(function (g) {
+            return '<span class="badge badge--count">' + escapeHtml(g.grade) + ' ' + g.count + '台</span>';
+          }).join('') + '</div>'
+        : '<span class="badge badge--count">在庫' + result.total + '台</span>';
       return '<button type="button" class="homeRow" data-home-model="' + escapeHtml(p.model) + '">' +
         '<div class="homeRow__photo"><img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '"></div>' +
         '<div class="homeRow__model">' + escapeHtml(p.model) + '</div>' +
-        '<span class="badge badge--count">在庫' + count + '台</span>' +
+        badgesHtml +
         '</button>';
     }).join('');
-  }
-
-  /** モデル名ごとの在庫台数（Hold中も含む、現在の在庫リストの全件）を集計する（純粋関数）。 */
-  function modelInventoryCounts_() {
-    var counts = {};
-    (state.allInventoryItems || []).forEach(function (v) {
-      var model = v.model || '';
-      counts[model] = (counts[model] || 0) + 1;
-    });
-    return counts;
   }
 
   /**
@@ -1349,11 +1392,23 @@
     }).catch(function () {});
   }
 
+  // ベースモデル行をクリックすると、在庫リストへ切り替えたうえで絞り込む。
+  // グレード一覧が設定されている場合はそのグレード群に一致する車両をまとめて
+  // 絞り込み（state.homeGradeFilter）、未設定の場合は従来通りモデル名をキーワード
+  // 検索欄に入れて再検索する。
   $('homeGrid').addEventListener('click', function (e) {
     var tile = e.target.closest('[data-home-model]');
     if (!tile) return;
     switchToTab_('inventory');
-    $('inventoryKeyword').value = tile.dataset.homeModel;
+    var entry = (state.modelPhotos || []).filter(function (p) { return p.model === tile.dataset.homeModel; })[0];
+    var grades = entry ? parseGrades_(entry.grades) : [];
+    if (grades.length) {
+      state.homeGradeFilter = grades;
+      $('inventoryKeyword').value = '';
+    } else {
+      state.homeGradeFilter = null;
+      $('inventoryKeyword').value = tile.dataset.homeModel;
+    }
     loadInventory();
   });
 
@@ -1386,7 +1441,11 @@
     var maxPhotos = (state.bootstrap && state.bootstrap.modelPhotosMax) || 30;
     var cleanedPhotos = state.modelPhotos
       .map(function (p) {
-        return { model: String((p && p.model) || '').trim(), photoUrl: String((p && p.photoUrl) || '').trim() };
+        return {
+          model: String((p && p.model) || '').trim(),
+          photoUrl: String((p && p.photoUrl) || '').trim(),
+          grades: parseGrades_(p && p.grades)
+        };
       })
       .filter(function (p) { return p.model && p.photoUrl; });
     var seenModels = {};

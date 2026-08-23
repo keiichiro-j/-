@@ -103,11 +103,19 @@ function normalizeStaffList_(list) {
 }
 
 /**
- * ホーム画面のモデル写真設定を { model, photoUrl } の配列で返す。
- * モデル名ごとに代表写真を1枚登録し、ホーム画面でクリックすると在庫リストが
- * そのモデル名で絞り込まれる（車両1台ごとではなくモデル単位で管理する。
- * 個々の車両は在庫の入れ替わりが頻繁なため、車両ごとに写真を管理すると
- * 都度アップロード・削除が必要になり運用の手間が大きくなるため）。
+ * ホーム画面のモデル写真設定を { model, photoUrl, grades } の配列で返す。
+ * モデル名（例: 「Aクラス」）ごとに代表写真を1枚登録し、ホーム画面でクリックすると
+ * 在庫リストが絞り込まれる（車両1台ごとではなくモデル単位で管理する。個々の車両は
+ * 在庫の入れ替わりが頻繁なため、車両ごとに写真を管理すると都度アップロード・削除が
+ * 必要になり運用の手間が大きくなるため）。
+ *
+ * grades は、在庫リストの「モデル」列に実際に入力される値（例: 「A180」「A35」「A45」。
+ * 在庫リストのモデル列にはグレード名のみが入力され、「Aクラス」のようなベース名は
+ * 入力されない運用のため）の一覧。ホーム画面ではこれをもとに、ベースモデル1行の中で
+ * グレードごとの在庫台数を内訳表示し、クリック時もこのグレード一覧に一致する車両を
+ * まとめて絞り込む（JavaScript.htmlのgradeCountsForEntry_ / homeGradeFilter参照）。
+ * 未設定（空配列）の場合は、モデル名そのものを在庫リストのモデル列と直接照合する
+ * 従来の挙動にフォールバックする。
  */
 function getModelPhotos_() {
   var raw = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.MODEL_PHOTOS);
@@ -120,7 +128,11 @@ function getModelPhotos_() {
   }
   if (!Array.isArray(list)) return [];
   return list.map(function (entry) {
-    return { model: (entry && entry.model) || '', photoUrl: (entry && entry.photoUrl) || '' };
+    return {
+      model: (entry && entry.model) || '',
+      photoUrl: (entry && entry.photoUrl) || '',
+      grades: Array.isArray(entry && entry.grades) ? entry.grades : []
+    };
   });
 }
 
@@ -128,7 +140,9 @@ function getModelPhotos_() {
  * モデル写真設定の正規化（純粋関数）。モデル名・写真URLがともに入力されている行のみ残し、
  * モデル名で重複除去したうえ、最大件数（MODEL_PHOTOS_MAX）を超えていればエラー。
  * 写真URLが長すぎる場合（data URLを直接貼り付けた場合等）もエラーにする
- * （大きな画像は外部にアップロードしてURLを指定する）。
+ * （大きな画像は外部にアップロードしてURLを指定する）。グレード一覧（grades）も
+ * 同様に、空文字除去・重複除去・最大件数（MODEL_PHOTO_GRADES_MAX）・1件あたりの
+ * 最大文字数（MODEL_PHOTO_GRADE_MAX_LENGTH）をチェックする。
  * さらに、1件あたりの上限内でも件数が多いと合計文字数がScript Propertiesの
  * 実際の保存上限を超えうるため、JSON化した全体の文字数（MODEL_PHOTOS_TOTAL_MAX_LENGTH）
  * も別途チェックする。
@@ -149,7 +163,26 @@ function normalizeModelPhotos_(list) {
         '画像を外部（Googleドライブの共有リンク等）にアップロードしたうえでURLを指定してください。'
       );
     }
-    result.push({ model: model, photoUrl: photoUrl });
+    var rawGrades = Array.isArray(entry && entry.grades) ? entry.grades : [];
+    var seenGrades = {};
+    var grades = [];
+    rawGrades.forEach(function (g) {
+      var grade = String(g || '').trim();
+      if (!grade || seenGrades[grade]) return;
+      seenGrades[grade] = true;
+      if (grade.length > MODEL_PHOTO_GRADE_MAX_LENGTH) {
+        throw new Error(
+          'モデル「' + model + '」のグレード「' + grade + '」が長すぎます（' + grade.length + '文字）。'
+        );
+      }
+      grades.push(grade);
+    });
+    if (grades.length > MODEL_PHOTO_GRADES_MAX) {
+      throw new Error(
+        'モデル「' + model + '」のグレードは最大' + MODEL_PHOTO_GRADES_MAX + '件までです（現在' + grades.length + '件）'
+      );
+    }
+    result.push({ model: model, photoUrl: photoUrl, grades: grades });
   });
   if (result.length > MODEL_PHOTOS_MAX) {
     throw new Error('モデル写真は最大' + MODEL_PHOTOS_MAX + '件までです（現在' + result.length + '件）');

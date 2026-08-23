@@ -814,7 +814,6 @@
     padding-bottom: 16px;
     border-bottom: 1px solid var(--outline);
   }
-  .homeIntro__title { font-size: 20px; font-weight: 600; letter-spacing: -.005em; margin: 0 0 6px; }
   .homeIntro__desc { font-size: 13.5px; letter-spacing: .01em; color: var(--on-surface-variant); margin: 0; }
   .homeList {
     display: flex;
@@ -824,9 +823,9 @@
   .homeRow {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 18px;
     width: 100%;
-    padding: 12px 6px;
+    padding: 14px 6px;
     background: none;
     border: none;
     border-bottom: 1px solid var(--outline);
@@ -838,15 +837,23 @@
   .homeRow:first-child { border-top: 1px solid var(--outline); }
   .homeRow:hover { background: rgba(255, 255, 255, .04); }
   .homeRow__photo {
-    width: 56px;
-    height: 56px;
+    width: 76px;
+    height: 76px;
     flex: none;
     border-radius: 8px;
     overflow: hidden;
     background: var(--surface);
   }
   .homeRow__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .homeRow__model { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; letter-spacing: -.005em; }
+  .homeRow__model { flex: 1; min-width: 0; font-size: 16px; font-weight: 600; letter-spacing: -.005em; }
+  /* グレード内訳を複数バッジで表示する場合、行の右端で折り返す
+     （ベースモデル名・写真の縦位置はalign-items:centerで自然に釣り合う）。 */
+  /* flex-basis: auto（初期値）のままだと、内部でflex-wrapする要素は「折り返さない
+     場合の最大幅」を基準にサイズ計算されてしまい、行の余白次第ではモデル名側
+     （flex-grow:1）にほぼ幅が残らず、日本語が1文字ずつ改行されてしまう。
+     flex-basisを内容量に依存しないパーセンテージ指定にすることで、この計算に
+     頼らずモデル名の表示幅を確実に確保する。 */
+  .homeRow__badges { display: flex; flex: 0 1 55%; min-width: 0; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
   .badge--count { background: var(--primary-bg); color: var(--primary-text); font-weight: 600; flex: none; }
 
   /* ===== リード番号入力（「L-」固定接頭辞＋数字。Google×Tesla風の見出し扱いにする） ===== */
@@ -992,12 +999,15 @@
     .staffList__row .input[data-staff-field="location"] { flex: 1 1 100%; }
     .modelPhotoList__row { flex-wrap: wrap; }
     .modelPhotoList__row .input[data-photo-field="model"],
-    .modelPhotoList__row .input[data-photo-field="photoUrl"] { flex: 1 1 100%; }
+    .modelPhotoList__row .input[data-photo-field="photoUrl"],
+    .modelPhotoList__row .input[data-photo-field="grades"] { flex: 1 1 100%; }
     main.view { padding: 10px; }
     .toolbar { padding: 10px; width: calc(100% - 20px); }
     .toolbar .input, .toolbar .checkboxField { flex: 1 1 auto; }
     .cardGrid { grid-template-columns: 1fr; gap: 12px; }
-    .homeRow__photo { width: 44px; height: 44px; }
+    .homeRow { gap: 12px; }
+    .homeRow__photo { width: 60px; height: 60px; }
+    .homeRow__badges { flex-basis: 62%; }
     .settingsCard, .settingsActions { padding: 18px 16px; }
     .card { padding: 16px 18px; }
     .modal { padding: 0; align-items: flex-end; }
