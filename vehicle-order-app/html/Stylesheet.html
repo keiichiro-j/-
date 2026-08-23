@@ -8,8 +8,14 @@
      未設定時の初期表示・DEFAULT_THEME_COLOR / DEFAULT_TEXT_COLOR（Constants.gs）と
      揃えてある。 */
   :root {
-    --primary: #3e7cc4;
-    --primary-dark: #2c5c93;
+    /* --primary はボタン塗り・境界線・アクセント用（白文字とのコントラスト比
+       ≒5.1:1を確保できる明度に調整済み）。リンクやアイコンなど、暗い背景の
+       上に「文字として」使う場合は、より明るい --primary-text
+       （背景とのコントラスト比≒4.9:1）を使うこと（WCAG AA対応。
+       purpose別に分けている理由はJavaScript.htmlのapplyTheme参照）。 */
+    --primary: #3870b0;
+    --primary-dark: #2c5789;
+    --primary-text: #468cdc;
     --on-primary: #ffffff;
     --surface: #1b1c20;
     --background: #0c0c0e;
@@ -22,7 +28,7 @@
     --warning-bg: rgba(242, 169, 60, .16);
     --danger: #ff6b6b;
     --danger-bg: rgba(255, 107, 107, .16);
-    --primary-bg: rgba(62, 124, 196, .18);
+    --primary-bg: rgba(56, 112, 176, .18);
     --shadow: 0 1px 2px rgba(0, 0, 0, .55);
     --shadow-elevated: 0 16px 40px rgba(0, 0, 0, .55);
     /* 公式サイトはカードの角丸をあまり強調しないフラットな見た目のため、
@@ -238,17 +244,30 @@
   .btn--primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
   .btn--primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); color: var(--on-primary); }
   /* ロゴ削除等の添え書きリンクは、CTAボタンと区別できるよう大文字化・反転させない */
-  .btn--text { border: none; background: none; color: var(--primary); padding: 8px 10px; text-transform: none; letter-spacing: normal; }
-  .btn--text:hover { background: none; color: var(--primary-dark); text-decoration: underline; }
+  .btn--text { border: none; background: none; color: var(--primary-text); padding: 8px 10px; text-transform: none; letter-spacing: normal; }
+  .btn--text:hover { background: none; color: var(--primary-text); text-decoration: underline; }
   .btn--danger { color: var(--danger); border-color: var(--danger); }
   .btn--danger:hover { background: var(--danger); border-color: var(--danger); color: #fff; }
   .btn--block { width: 100%; }
   .btn:disabled { opacity: .4; cursor: not-allowed; }
+  /* タップ領域は44x44px（モバイルの推奨最小タップサイズ）を確保しつつ、
+     見た目上のアイコン自体は従来通り20pxのまま据え置く。 */
   .btn--icon {
     border: none; background: transparent; font-size: 20px; line-height: 1;
-    width: 32px; height: 32px; border-radius: 50%; cursor: pointer; color: var(--on-surface-variant);
+    width: 44px; height: 44px; border-radius: 50%; cursor: pointer; color: var(--on-surface-variant);
   }
   .btn--icon:hover { background: rgba(255, 255, 255, .08); }
+
+  /* ===== フォーカスリング（キーボード操作時の視認性確保） =====
+     マウス操作時には表示されず、キーボードでのTab移動時のみ表示される
+     :focus-visible を使う。ブランドカラー（--primary-text）で統一する。 */
+  .btn:focus-visible,
+  .tabs__item:focus-visible,
+  .viewToggle__item:focus-visible,
+  .homeTile:focus-visible {
+    outline: 2px solid var(--primary-text);
+    outline-offset: 2px;
+  }
 
   /* ===== グループ見出し ===== */
   .group { margin-bottom: 28px; }
@@ -263,7 +282,7 @@
     margin-left: 8px;
     font-weight: 600;
     font-size: 12.5px;
-    color: var(--primary);
+    color: var(--primary-text);
   }
   .toolbar__count { font-size: 13.5px; color: var(--on-surface-variant); font-weight: 600; white-space: nowrap; }
 
@@ -282,7 +301,7 @@
     cursor: pointer;
   }
   .viewToggle__item .icon--inline { margin: 0; }
-  .viewToggle__item.is-active { background: var(--surface); color: var(--primary); box-shadow: var(--shadow); }
+  .viewToggle__item.is-active { background: var(--surface); color: var(--primary-text); box-shadow: var(--shadow); }
 
   /* ===== 車両比較（カード・表それぞれに置くピン、下部固定バー、比較モーダル） ===== */
   .card__comparePin {
@@ -469,8 +488,8 @@
   .badge--hold2 { background: var(--danger-bg); color: var(--danger); }
   .badge--disclosed { background: var(--success-bg); color: var(--success); font-weight: 500; }
   .badge--undisclosed { background: rgba(255, 255, 255, .08); color: var(--on-surface-variant); font-weight: 500; }
-  .badge--thisMonth { background: var(--primary-bg); color: var(--primary); font-weight: 500; }
-  .badge--location { background: var(--primary-bg); color: var(--primary); font-weight: 500; }
+  .badge--thisMonth { background: var(--primary-bg); color: var(--primary-text); font-weight: 500; }
+  .badge--location { background: var(--primary-bg); color: var(--primary-text); font-weight: 500; }
   .card__badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
 
   /* 車両スペックは折りたたみ式にし、一次情報（モデル・コミッション・ステータス）だけで
@@ -484,7 +503,7 @@
     cursor: pointer;
     font-size: 12.5px;
     font-weight: 600;
-    color: var(--primary);
+    color: var(--primary-text);
     list-style: none;
   }
   .card__specDetails summary::-webkit-details-marker { display: none; }
@@ -557,7 +576,7 @@
   .card__holdInfo--first { border-left-color: var(--warning); }
   .card__holdInfo--first .card__holdInfo__label { color: var(--warning); }
   .card__holdInfo--second { border-left-color: var(--primary); background: var(--primary-bg); }
-  .card__holdInfo--second .card__holdInfo__label { color: var(--primary); }
+  .card__holdInfo--second .card__holdInfo__label { color: var(--primary-text); }
   .card__holdInfo__row { margin-bottom: 6px; }
   .card__holdInfo__cancel {
     border: none;
@@ -578,7 +597,7 @@
     cursor: pointer;
     font-size: 11.5px;
     font-weight: 500;
-    color: var(--primary);
+    color: var(--primary-text);
     list-style: none;
   }
   .card__holdInfo__details summary::-webkit-details-marker { display: none; }
@@ -711,7 +730,7 @@
     gap: 10px;
     color: var(--on-surface);
   }
-  .settingsSection__title .icon { color: var(--primary); }
+  .settingsSection__title .icon { color: var(--primary-text); }
   .settingsSection__desc {
     font-size: 12.5px;
     color: var(--on-surface-variant);
@@ -842,7 +861,7 @@
     align-items: center;
     padding: 0 14px;
     background: var(--primary-bg);
-    color: var(--primary);
+    color: var(--primary-text);
     font-weight: 700;
     font-size: 15px;
     letter-spacing: .03em;
@@ -994,5 +1013,7 @@
   @media (prefers-reduced-motion: reduce) {
     .holdTimer__barFill { transition: none; }
     .confettiPiece { display: none; }
+    .homeTile__photo img, .homeTile:hover .homeTile__photo img { transition: none; transform: none; }
+    .card, .orderCard, .homeTile { transition: none; }
   }
 </style>

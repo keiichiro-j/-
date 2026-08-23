@@ -1103,8 +1103,36 @@
     applyTheme(this.value);
   });
 
+  /**
+   * テーマカラー（--primary）と、それに連動する派生トークン
+   * （--primary-dark: ホバー用の暗い色, --primary-text: 暗い背景の上で文字色
+   * として使う明るい色, --primary-bg: バッジ等の薄い塗り）を一括で設定する。
+   * ユーザーが設定タブで選んだ1色から全て導出することで、以前と同様
+   * 「テーマカラーを変えるとボタン・バッジ・リンクの色がまとめて変わる」
+   * 挙動を保ちつつ、ボタン塗り用の--primaryとリンク文字色用の--primary-text
+   * を別トーンにしてコントラスト比を確保している（Stylesheet.html参照）。
+   */
   function applyTheme(color) {
-    document.documentElement.style.setProperty('--primary', color);
+    var root = document.documentElement.style;
+    root.setProperty('--primary', color);
+    root.setProperty('--primary-dark', shadeColor_(color, .78));
+    root.setProperty('--primary-text', shadeColor_(color, 1.25));
+    var rgb = hexToRgb_(color);
+    root.setProperty('--primary-bg', rgb ? 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',.18)' : color);
+  }
+
+  function hexToRgb_(hex) {
+    var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '');
+    return m ? { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) } : null;
+  }
+
+  /** 16進カラーの各チャンネルにfactorを掛けて明暗を調整する（1未満で暗く、1超で明るく）。 */
+  function shadeColor_(hex, factor) {
+    var rgb = hexToRgb_(hex);
+    if (!rgb) return hex;
+    var clamp = function (v) { return Math.max(0, Math.min(255, Math.round(v * factor))); };
+    var toHex = function (v) { return v.toString(16).padStart(2, '0'); };
+    return '#' + toHex(clamp(rgb.r)) + toHex(clamp(rgb.g)) + toHex(clamp(rgb.b));
   }
 
   $('settingsTextColor').addEventListener('input', function () {

@@ -182,7 +182,7 @@ var PROP_KEYS = {
   MODEL_PHOTOS: 'MODEL_PHOTOS'
 };
 
-var DEFAULT_THEME_COLOR = '#3e7cc4'; // ラグジュアリーブラック配色のスチールブルーアクセント
+var DEFAULT_THEME_COLOR = '#3870b0'; // ラグジュアリーブラック配色のスチールブルーアクセント（白文字とのコントラスト比4.5:1以上を確保）
 var DEFAULT_TEXT_COLOR = '#f2f1ed'; // 基本の文字色（黒基調の背景に合わせた明るいオフホワイト）
 
 // ロゴ（画像URL、またはアップロード時のdata URL）の最大文字数。
