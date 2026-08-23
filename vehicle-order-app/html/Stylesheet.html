@@ -118,6 +118,15 @@
   .topbar__navBtn:hover { background: rgba(255, 255, 255, .08); }
   .topbar__navBtn:disabled { opacity: .3; cursor: default; }
   .topbar__navBtn:disabled:hover { background: transparent; }
+  /* 「更新」ボタンは、単なる画面遷移の「戻る」と区別できるよう、テーマカラーで
+     塗りつぶした見た目にする（操作＝サーバーから最新データを取りに行く、
+     という能動的なアクションであることを伝える）。読み込み中はアイコンを
+     回転させてフィードバックする。 */
+  .topbar__navBtn--refresh { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+  .topbar__navBtn--refresh:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
+  .topbar__navBtn--refresh:disabled { background: var(--primary); border-color: var(--primary); opacity: .6; }
+  .topbar__navBtn--refresh.is-spinning .icon { animation: navRefreshSpin .8s linear infinite; }
+  @keyframes navRefreshSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   .topbar__logo { height: 26px; width: auto; max-width: 120px; object-fit: contain; }
   /* メルセデス・ベンツ公式サイトのワードマークのような、控えめな大文字＋広めの
      トラッキングのブランド表記にする（太字で目立たせるのではなく、余白と
@@ -941,15 +950,21 @@
     transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease, background-color .15s ease;
   }
   .homeRow:hover { box-shadow: var(--shadow-elevated); transform: translateY(-3px); border-color: transparent; }
-  /* 展開中のタイルは、カードの枠（背景・境界線・余白）を外し、写真を
-     タイルいっぱいに大きく見せる「クローズアップ」表示にする。モデル名は
-     写真の上に重ねた左上のラベルとして表示し、在庫台数バッジは（下の
-     グレードタブで内訳が見えるため）非表示にする。 */
+  /* 展開中のタイルは、グリッドの全列ぶんの幅（grid-column: 1 / -1）を使い、
+     カードの枠（背景・境界線・余白）を外して、写真を画面中央に大きく
+     クローズアップ表示する。写真とモデル名ラベルを同じグリッドセル
+     （grid-area: 1 / 1）に重ねて配置することで、写真の実際の表示位置に
+     関わらず、ラベルが常に写真の左上にぴったり重なるようにしている
+     （position:absoluteで.homeRowを基準にすると、写真が中央寄せで
+     ずれた分だけラベルの位置もずれてしまうため）。在庫台数バッジは
+     （下のグレードタブで内訳が見えるため）非表示にする。 */
   .homeRow.is-expanded {
+    grid-column: 1 / -1;
+    display: grid;
+    justify-content: center;
     padding: 0;
     background: none;
     border-color: transparent;
-    overflow: hidden;
   }
   .homeRow.is-expanded:hover { box-shadow: none; transform: none; }
   .homeRow__photo {
@@ -959,13 +974,19 @@
     overflow: hidden;
     background: var(--background);
   }
-  .homeRow.is-expanded .homeRow__photo { aspect-ratio: 1 / 1; border-radius: var(--radius); }
+  .homeRow.is-expanded .homeRow__photo {
+    grid-area: 1 / 1;
+    width: min(480px, 100%);
+    aspect-ratio: 1 / 1;
+    border-radius: var(--radius);
+  }
   .homeRow__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .homeRow__meta { display: flex; align-items: center; gap: 8px; }
   .homeRow.is-expanded .homeRow__meta {
-    position: absolute;
-    top: 12px;
-    left: 12px;
+    grid-area: 1 / 1;
+    align-self: start;
+    justify-self: start;
+    margin: 12px;
     background: rgba(0, 0, 0, .6);
     padding: 6px 12px;
     border-radius: 999px;
@@ -999,8 +1020,12 @@
     color: var(--on-surface-variant);
     margin: 0 0 10px;
   }
-  .homeGradeTabs__list { display: flex; flex-wrap: wrap; gap: 8px; }
+  /* row-gapを広めにするのは、AMGバッジ（homeGradeTab__amgBadge）がタブの左上に
+     少しはみ出す形で重なるため、折り返して2行になった際に上の行のタブと
+     視覚的に衝突しないようにするため。 */
+  .homeGradeTabs__list { display: flex; flex-wrap: wrap; gap: 14px 8px; }
   .homeGradeTab {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 7px;
@@ -1016,6 +1041,27 @@
   }
   .homeGradeTab:hover { background: rgba(255, 255, 255, .06); border-color: var(--primary); }
   .homeGradeTab__count { color: var(--on-surface-variant); font-weight: 500; font-variant-numeric: tabular-nums; }
+  /* 在庫0台のグレードは、Hold中も無くまとまった在庫の当てがないことがひと目で
+     わかるよう、件数を赤文字にする。 */
+  .homeGradeTab__count--zero { color: var(--danger); font-weight: 700; }
+  /* AMG系グレード（モデル名に35・45・43・63・53・AMGを含む）のタブ左上に添える
+     小さなバッジ。メルセデス-AMGの公式サイトで使われる、黒地に銀灰色の
+     「AMG」ロゴタイプと下のレッドのアクセントラインを踏襲した配色にしている。 */
+  .homeGradeTab__amgBadge {
+    position: absolute;
+    top: -8px;
+    left: -6px;
+    background: #0a0a0a;
+    color: #c7c9cc;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    padding: 1.5px 5px 2.5px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, .22);
+    border-bottom: 2px solid #e1000f;
+    line-height: 1.3;
+  }
 
   /* ===== リード番号入力（「L-」固定接頭辞＋数字。Google×Tesla風の見出し扱いにする） ===== */
   .leadNumberField {
@@ -1164,15 +1210,25 @@
     /* PC専用の「クローズアップ」展開表示（.homeRow.is-expanded、上部参照）を
        打ち消し、タブレット・スマホ幅では従来の横一列リストのままにする。 */
     .homeRow.is-expanded {
+      grid-column: auto;
+      display: flex;
+      justify-content: normal;
       padding: 14px 6px;
       background: rgba(255, 255, 255, .04);
       border-color: transparent;
       border-bottom-color: transparent;
-      overflow: visible;
     }
     .homeRow__photo { width: 76px; height: 76px; aspect-ratio: auto; flex: none; }
-    .homeRow.is-expanded .homeRow__photo { border-radius: 8px; }
+    .homeRow.is-expanded .homeRow__photo { width: 76px; border-radius: 8px; }
     .homeRow__meta { flex: 1; min-width: 0; gap: 18px; }
+    .homeRow.is-expanded .homeRow__meta {
+      align-self: auto;
+      justify-self: auto;
+      margin: 0;
+      background: none;
+      padding: 0;
+      border-radius: 0;
+    }
     .homeRow.is-expanded .homeRow__meta { position: static; background: none; padding: 0; border-radius: 0; }
     .homeRow.is-expanded .badge--count { display: inline-flex; }
     .homeGradeTabs {
@@ -1230,5 +1286,6 @@
     .holdTimer__barFill { transition: none; }
     .confettiPiece { display: none; }
     .card, .orderCard { transition: none; }
+    .topbar__navBtn--refresh.is-spinning .icon { animation: none; }
   }
 </style>

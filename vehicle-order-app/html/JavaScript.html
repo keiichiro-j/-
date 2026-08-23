@@ -178,12 +178,27 @@
       state.navHistory.push(current);
       syncNavButtons_();
     }
+    // ホームに戻ったら、在庫リストの検索条件を毎回リセットして「全在庫表示」の
+    // 状態に戻す。在庫リストで検索・絞り込みをしたまま他の画面へ移動すると、
+    // 次に在庫リストを開いたときに検索前のことを忘れて古い絞り込み条件のまま
+    // 表示されてしまう混乱を防ぐため。
+    if (tabName === 'home' && current !== 'home') {
+      resetInventoryFilters_();
+    }
     document.querySelectorAll('.tabs__item').forEach(function (t) { t.classList.toggle('is-active', t.dataset.tab === tabName); });
     document.querySelectorAll('main.view').forEach(function (v) { v.classList.remove('is-active'); });
     $('view-' + tabName).classList.add('is-active');
     // 非表示（display: none）だった間はツールバーの実測高さが0になっているため、
     // 表示状態に切り替わった直後に再計測してスペーサーの高さを補正する。
     syncFixedBars_();
+  }
+
+  function resetInventoryFilters_() {
+    $('inventoryKeyword').value = '';
+    $('inventoryMonthFilter').value = '';
+    $('inventoryIncludeHold').checked = true;
+    state.homeGradeFilter = null;
+    loadInventory();
   }
 
   document.getElementById('mainTabs').addEventListener('click', function (e) {
@@ -206,11 +221,15 @@
   $('btnRefresh').addEventListener('click', function () {
     var btn = this;
     btn.disabled = true;
+    btn.classList.add('is-spinning');
     reloadAll_().then(function () {
       showToast('最新の情報に更新しました');
     }).catch(function (err) {
       showToast(err.message, true);
-    }).then(function () { btn.disabled = false; });
+    }).then(function () {
+      btn.disabled = false;
+      btn.classList.remove('is-spinning');
+    });
   });
 
   // ===== モーダル共通 =====
@@ -1568,6 +1587,14 @@
     return list.map(function (g) { return String(g || '').trim(); }).filter(Boolean);
   }
 
+  // AMG系グレード（例: A35, C43, E53, C63, GLE63、または"AMG"の記載）かどうかを、
+  // グレード名に35・45・43・63・53・AMGのいずれかが含まれるかで判定する（純粋関数）。
+  // ホームのグレードタブに小さなAMGバッジを表示するために使う。
+  var AMG_GRADE_PATTERN = /35|45|43|63|53|AMG/i;
+  function isAmgGrade_(grade) {
+    return AMG_GRADE_PATTERN.test(String(grade || ''));
+  }
+
   /**
    * ベースモデル1件分の在庫台数を集計する（純粋関数）。在庫リストの「モデル」列には
    * グレード名のみが入力される運用のため、グレード一覧（entry.grades）が設定されている
@@ -1624,9 +1651,12 @@
           '<div class="homeGradeTabs__label">' + escapeHtml(p.model) + 'のグレード</div>' +
           '<div class="homeGradeTabs__list">' +
           result.byGrade.map(function (g) {
+            var amgBadge = isAmgGrade_(g.grade) ? '<span class="homeGradeTab__amgBadge">AMG</span>' : '';
+            var countClass = 'homeGradeTab__count' + (g.count === 0 ? ' homeGradeTab__count--zero' : '');
             return '<button type="button" class="homeGradeTab" data-home-model="' + escapeHtml(p.model) + '" data-home-grade="' + escapeHtml(g.grade) + '">' +
+              amgBadge +
               '<span class="homeGradeTab__name">' + escapeHtml(g.grade) + '</span>' +
-              '<span class="homeGradeTab__count">' + g.count + '台</span>' +
+              '<span class="' + countClass + '">' + g.count + '台</span>' +
               '</button>';
           }).join('') +
           '</div></div>';
