@@ -25,7 +25,9 @@
     --primary-bg: rgba(62, 124, 196, .18);
     --shadow: 0 1px 2px rgba(0, 0, 0, .55);
     --shadow-elevated: 0 16px 40px rgba(0, 0, 0, .55);
-    --radius: 14px;
+    /* 公式サイトはカードの角丸をあまり強調しないフラットな見た目のため、
+       従来の14pxより控えめな角丸にして「エンジニアリングされた精密さ」を出す。 */
+    --radius: 8px;
     /* トップバー・比較バーは、テーマ設定のテーマカラー／文字色に関わらず
        常に黒基調で統一する（ブランドカラーを載せる帯ではなく、アプリの「額縁」として
        固定の黒にすることで、どのテーマカラーを選んでも重厚な黒基調の外観が崩れない）。 */
@@ -38,7 +40,7 @@
   * { box-sizing: border-box; }
   html, body {
     margin: 0;
-    font-family: 'Roboto', 'Helvetica Neue', Arial, 'Hiragino Sans', 'Yu Gothic', sans-serif;
+    font-family: 'Barlow', 'Roboto', 'Helvetica Neue', Arial, 'Hiragino Sans', 'Yu Gothic', sans-serif;
     background: var(--background);
     color: var(--on-surface);
     -webkit-font-smoothing: antialiased;
@@ -230,13 +232,16 @@
     cursor: pointer;
     transition: background-color .15s ease, border-color .15s ease;
   }
-  .btn:hover { background: #232428; }
+  /* アウトラインボタンは、公式サイトのCTAによくある「ホバーで反転（塗りつぶし）」
+     の挙動にする。 */
+  .btn:hover { background: var(--on-surface); border-color: var(--on-surface); color: var(--background); }
   .btn--primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
-  .btn--primary:hover { background: var(--primary-dark); }
-  /* ロゴ削除等の添え書きリンクは、CTAボタンと区別できるよう大文字化しない */
+  .btn--primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); color: var(--on-primary); }
+  /* ロゴ削除等の添え書きリンクは、CTAボタンと区別できるよう大文字化・反転させない */
   .btn--text { border: none; background: none; color: var(--primary); padding: 8px 10px; text-transform: none; letter-spacing: normal; }
+  .btn--text:hover { background: none; color: var(--primary-dark); text-decoration: underline; }
   .btn--danger { color: var(--danger); border-color: var(--danger); }
-  .btn--danger:hover { background: var(--danger); color: #fff; }
+  .btn--danger:hover { background: var(--danger); border-color: var(--danger); color: #fff; }
   .btn--block { width: 100%; }
   .btn:disabled { opacity: .4; cursor: not-allowed; }
   .btn--icon {
@@ -438,7 +443,7 @@
   /* バッジが多い場合はタイトルを縮めず、バッジ側を折り返して2行目に逃がす
      （margin-left:autoで、同じ行でも折り返し後の行でも常に右寄せになる）。 */
   .card__top { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 10px; }
-  .card__model { font-size: 21px; font-weight: 700; letter-spacing: -.01em; line-height: 1.25; }
+  .card__model { font-size: 21px; font-weight: 500; letter-spacing: -.01em; line-height: 1.25; }
   .card__commission {
     font-size: 12.5px;
     font-weight: 500;
@@ -643,7 +648,7 @@
   .orderCard__top { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 10px; }
   .orderCard__top .card__badges { margin-left: auto; }
   .orderCard__top .card__badges .badge { margin-left: 0; }
-  .orderCard__model { font-size: 21px; font-weight: 700; letter-spacing: -.01em; line-height: 1.25; }
+  .orderCard__model { font-size: 21px; font-weight: 500; letter-spacing: -.01em; line-height: 1.25; }
   .orderCard__staff { font-size: 13.5px; font-weight: 600; color: var(--on-surface-variant); margin-top: 3px; }
   .orderCard__leadNumber {
     font-size: 12.5px;
@@ -689,7 +694,7 @@
   }
   .settingsCard {
     background: var(--surface);
-    border-radius: 20px;
+    border-radius: 10px;
     box-shadow: var(--shadow);
     border: 1px solid var(--outline);
     padding: 26px 28px;
@@ -716,7 +721,7 @@
   .settingsCard .formField + .formField { margin-top: 14px; }
   .settingsActions {
     background: var(--surface);
-    border-radius: 20px;
+    border-radius: 10px;
     box-shadow: var(--shadow);
     border: 1px solid var(--outline);
     padding: 20px 28px;
@@ -773,7 +778,7 @@
     padding-bottom: 28px;
     border-bottom: 1px solid var(--outline);
   }
-  .homeIntro__title { font-size: 34px; font-weight: 600; letter-spacing: -.01em; margin: 0 0 10px; }
+  .homeIntro__title { font-size: 42px; font-weight: 300; letter-spacing: -.01em; margin: 0 0 10px; }
   .homeIntro__desc { font-size: 14px; letter-spacing: .01em; color: var(--on-surface-variant); margin: 0; }
   .homeGrid {
     display: grid;
@@ -790,14 +795,12 @@
     text-align: left;
     padding: 0;
   }
+  /* 枠・背景を持たせず、写真そのものを黒地の上に浮かせるフルブリード表示にする
+     （公式サイトのモデルギャラリーのような、写真が主役の見せ方）。 */
   .homeTile__photo {
     width: 100%;
-    height: 220px;
-    padding: 20px;
-    background: var(--surface);
-    border: 1px solid var(--outline);
+    height: 240px;
     overflow: hidden;
-    box-sizing: border-box;
   }
   .homeTile__photo img {
     width: 100%;
@@ -805,16 +808,23 @@
     object-fit: contain;
     object-position: center;
     display: block;
-    transition: transform .35s ease;
+    transition: transform .5s ease;
   }
-  .homeTile:hover .homeTile__photo img { transform: scale(1.04); }
+  .homeTile:hover .homeTile__photo img { transform: scale(1.05); }
+  /* キャプションは写真の邪魔をしないよう控えめなグレー・広めのトラッキングにし、
+     細い罫線で写真と区切る（編集ページのフォトキャプションのような扱い）。 */
   .homeTile__caption {
+    margin-top: 18px;
     padding: 16px 0 0;
-    font-size: 12.5px;
-    font-weight: 600;
-    letter-spacing: .1em;
+    border-top: 1px solid var(--outline);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: .14em;
     text-transform: uppercase;
+    color: var(--on-surface-variant);
+    transition: color .15s ease;
   }
+  .homeTile:hover .homeTile__caption { color: var(--on-surface); }
 
   /* ===== リード番号入力（「L-」固定接頭辞＋数字。Google×Tesla風の見出し扱いにする） ===== */
   .leadNumberField {
@@ -941,7 +951,8 @@
   @media (max-width: 900px) {
     main.view { padding: 14px; }
     .cardGrid { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
-    .homeGrid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+    .homeGrid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 24px 12px; }
+    .homeTile__photo { height: 180px; }
     .settingsWrap { max-width: 100%; }
     /* 受注カードは項目数が多いため、タブレット幅では1列にして読みやすさを優先する */
     .orderList { grid-template-columns: 1fr; }
@@ -965,7 +976,8 @@
     .toolbar { padding: 10px; width: calc(100% - 20px); }
     .toolbar .input, .toolbar .checkboxField { flex: 1 1 auto; }
     .cardGrid { grid-template-columns: 1fr; gap: 12px; }
-    .homeGrid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .homeGrid { grid-template-columns: repeat(2, 1fr); gap: 20px 12px; }
+    .homeTile__photo { height: 140px; }
     .settingsCard, .settingsActions { padding: 18px 16px; }
     .card { padding: 16px 18px; }
     .modal { padding: 0; align-items: flex-end; }
