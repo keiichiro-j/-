@@ -421,7 +421,13 @@
        バッジが収まる幅（150px）を確保し、隣の操作列と重ならないようにする
        （以前は108pxで文字がはみ出し、受注確定ボタンと重なって見えていた）。 */
     grid-template-columns: 30px 1.5fr 68px 46px 1.2fr 1.1fr 96px 84px 88px 150px 210px;
-    align-items: center;
+    /* center ではなく start にする。center だと「Hold中（2nd有）」で解除リンクが
+       2本に増えて状態列が縦に伸びた分だけ、1本しか無い操作ボタン（受注確定）が
+       行の中央へ引っ張られて下にずれ、状態バッジの高さと揃わなくなっていたため
+       （現場からの指摘で判明）。start にして全列を行の上端に揃えることで、
+       状態列の行数（解除リンクの本数）に関係なく、バッジ・操作ボタン・他の項目が
+       常に同じ高さで揃う。 */
+    align-items: start;
     gap: 16px;
     background: var(--surface);
     border: 1px solid var(--outline);
