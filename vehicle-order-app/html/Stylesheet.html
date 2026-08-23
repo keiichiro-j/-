@@ -420,11 +420,11 @@
   .rowCard__pin { display: flex; flex-direction: column; align-items: center; gap: 8px; }
   .rowCard__pinCheckbox { display: flex; justify-content: center; }
 
-  /* ===== 表示形式「表」の在庫状況タップボタン =====
-     横スクロールが必要な列（rowCard__status）は画面幅によってはスクロールしないと
-     見えないため、必ず見える左端（ピンの列）に色つきのタップボタンを置き、
-     タップすると同じ内容をポップアップで確認できるようにする（横スクロール自体は
-     既存のまま変更しない。あくまで「見えなくてもタップで確認できる」導線を追加する）。 */
+  /* ===== 表示形式「表」の車両情報タップボタン =====
+     横スクロールが必要な列（有償OP等の車両情報・rowCard__status）は画面幅によっては
+     スクロールしないと見えないため、必ず見える左端（ピンの列）に色つきのタップボタンを
+     置き、タップすると車両情報すべてをポップアップで確認できるようにする（横スクロール
+     自体は既存のまま変更しない。あくまで「見えなくてもタップで確認できる」導線を追加する）。 */
   .rowCard__statusToggle {
     display: flex; align-items: center; justify-content: center;
     width: 32px; height: 32px; padding: 0;
@@ -442,7 +442,8 @@
     left: 20px;
     z-index: 5;
     margin-top: 6px;
-    min-width: 190px;
+    width: 280px;
+    max-width: calc(100vw - 40px);
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
@@ -453,6 +454,18 @@
     padding: 14px;
   }
   .rowCard.is-statusOpen .rowCard__statusPopover { display: flex; }
+  .rowCard__popoverFields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 16px;
+    width: 100%;
+    margin-top: 2px;
+    padding-top: 10px;
+    border-top: 1px solid var(--outline);
+  }
+  .rowCard__popoverField { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .rowCard__popoverField__label { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--on-surface-variant); }
+  .rowCard__popoverField__value { font-size: 13px; font-weight: 600; color: var(--on-surface); word-break: break-word; }
   /* ポップアップを開いている行を、下に続く他の行より前面に表示する
      （position:relativeだけではスタッキングコンテキストが生まれず、
      DOM順で後にある次の行のカード背景に隠れてしまうため）。 */
@@ -922,12 +935,6 @@
      一覧できる「リスト」にする。毎日使う社内ツールとして、華やかさよりも
      パッと見て在庫状況がわかる情報密度を優先した（現場の声を踏まえた変更）。
      設定画面（.settingsWrap）と同じ考え方で、読みやすい幅に収める。 */
-  .homeIntro {
-    margin-bottom: 16px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid var(--outline);
-  }
-  .homeIntro__desc { font-size: 13.5px; letter-spacing: .01em; color: var(--on-surface-variant); margin: 0; }
   .homeList {
     display: flex;
     flex-direction: column;

@@ -97,9 +97,6 @@
 
     <!-- ホーム -->
     <main class="view is-active" id="view-home">
-      <div class="homeIntro">
-        <p class="homeIntro__desc">モデルの写真をクリックすると、そのモデルの在庫リストに移動します。</p>
-      </div>
       <div class="homeList" id="homeGrid"></div>
       <div class="emptyState hidden" id="homeEmpty">
         モデル写真がまだ登録されていません。設定タブの「モデル写真」から登録できます。
@@ -132,7 +129,13 @@
     <main class="view" id="view-orders">
       <div class="toolbar" id="ordersToolbar">
         <input type="search" id="ordersKeyword" class="input input--search" placeholder="自由検索（モデル・コミッション・顧客名・担当・拠点）">
-        <input type="text" id="ordersLocationFilter" class="input" placeholder="拠点で絞り込み">
+        <select id="ordersLocationFilter" class="input">
+          <option value="">拠点：すべて</option>
+          <option value="岐阜">岐阜</option>
+          <option value="大垣">大垣</option>
+          <option value="多治見">多治見</option>
+          <option value="高山">高山</option>
+        </select>
         <select id="ordersStaffFilter" class="input"></select>
         <select id="ordersGroupBy" class="input">
           <option value="">グループ表示なし</option>

@@ -458,6 +458,14 @@
       '<span class="rowCard__value">' + escapeHtml(value || '-') + '</span></div>';
   }
 
+  // rowField_ は横一列のグリッド列用（省略記号つき・折り返しなし）だが、タップで開く
+  // ポップアップの中では省略せず全文を確認できるようにしたいため、折り返しありの
+  // 別バリアントを用意する（rowCard__statusPopover参照）。
+  function popoverField_(label, value) {
+    return '<div class="rowCard__popoverField"><span class="rowCard__popoverField__label">' + label + '</span>' +
+      '<span class="rowCard__popoverField__value">' + escapeHtml(value || '-') + '</span></div>';
+  }
+
   /**
    * 表示形式「表」の在庫状況タップボタン（rowCard__statusToggle）の開閉。
    * 一度に1件だけ開く（他の行で開いていたポップアップは閉じる）。
@@ -512,16 +520,28 @@
       }
     }
 
-    // 表示形式「表」は横スクロールで多くの項目を並べるため、右側にあるHold状態
-    // （rowCard__status）は画面幅によってはスクロールしないと見えない。そこで、
-    // スクロールしなくても必ず見える左端（ピンの直後）に色つきの状態タップボタンを
-    // 置き、タップすると同じ内容をポップアップ（rowCard__statusPopover）で
-    // その場で確認できるようにする（横スクロール自体は既存のまま維持）。
+    // 表示形式「表」は横スクロールで多くの項目を並べるため、車両情報（有償OP等）や
+    // 右側のHold状態は画面幅によってはスクロールしないと見えない。そこで、
+    // スクロールしなくても必ず見える左端（ピンの直後）に色つきのタップボタンを
+    // 置き、タップすると車両情報すべて（状態・MP・ステア・カラー・有償OP・
+    // 入港予定日・可能月・VPC）をポップアップ（rowCard__statusPopover）でその場で
+    // 確認できるようにする（横スクロール自体は既存のまま維持）。
     var statusToneLabel = hasSecondHold ? 'Hold中（2nd有）' : (isHold ? 'Hold中' : '在庫あり');
-    var statusToggle = '<button type="button" class="rowCard__statusToggle" data-status-toggle="' + escapeHtml(v.commission) + '" aria-expanded="false" aria-label="在庫状況（' + statusToneLabel + '）を確認">' +
+    var statusToggle = '<button type="button" class="rowCard__statusToggle" data-status-toggle="' + escapeHtml(v.commission) + '" aria-expanded="false" aria-label="車両情報（' + statusToneLabel + '）を確認">' +
       '<span class="rowCard__statusToggle__dot"></span>' +
       '</button>';
-    var statusPopover = '<div class="rowCard__statusPopover">' + statusBadge + cancelLinks + '</div>';
+    var statusPopover = '<div class="rowCard__statusPopover">' +
+      '<div class="rowCard__status">' + statusBadge + cancelLinks + '</div>' +
+      '<div class="rowCard__popoverFields">' +
+      popoverField_('MP', v.mp) +
+      popoverField_('ステア', v.steering) +
+      popoverField_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
+      popoverField_('有償OP', paidOptionsText(v)) +
+      popoverField_('入港予定日', v.arrivalExpectedDate) +
+      popoverField_('可能月', v.registrableMonth) +
+      popoverField_('VPC', v.vpc) +
+      '</div>' +
+      '</div>';
 
     return '<div class="rowCard ' + rowTone + '">' +
       '<div class="rowCard__pin">' +
@@ -1182,14 +1202,14 @@
    * 文字用途で背景とのコントラスト比4.6:1以上）を確認済み。
    */
   var THEME_PRESETS = [
-    { key: 'steel', name: 'スチールブルー', primary: '#3870b0', primaryDark: '#2c5789', primaryText: '#4489d7' },
-    { key: 'graphite', name: 'グラファイト', primary: '#55606b', primaryDark: '#424b53', primaryText: '#798898' },
-    { key: 'wine', name: 'ワインレッド', primary: '#8c2f39', primaryDark: '#6d252c', primaryText: '#e84e5f' },
-    { key: 'green', name: 'ブリティッシュグリーン', primary: '#1f6f4a', primaryDark: '#18573a', primaryText: '#2a9765' },
-    { key: 'amber', name: 'アンバーゴールド', primary: '#a06a1f', primaryDark: '#7d5318', primaryText: '#b67923' },
-    { key: 'purple', name: 'ロイヤルパープル', primary: '#5b3a8c', primaryDark: '#472d6d', primaryText: '#a066f6' },
-    { key: 'petrol', name: 'ペトロールブルー', primary: '#1f6f78', primaryDark: '#18575e', primaryText: '#29939e' },
-    { key: 'mono', name: 'モノクローム', primary: '#4a4e55', primaryDark: '#3a3d42', primaryText: '#7f8692' }
+    { key: 'steel', name: 'ブリリアントブルー', primary: '#3870b0', primaryDark: '#2c5789', primaryText: '#4489d7' },
+    { key: 'graphite', name: 'グラファイトグレー', primary: '#55606b', primaryDark: '#424b53', primaryText: '#798898' },
+    { key: 'wine', name: 'ヒヤシンスレッド', primary: '#8c2f39', primaryDark: '#6d252c', primaryText: '#e84e5f' },
+    { key: 'green', name: 'エメラルドグリーン', primary: '#1f6f4a', primaryDark: '#18573a', primaryText: '#2a9765' },
+    { key: 'amber', name: 'カラハリゴールド', primary: '#a06a1f', primaryDark: '#7d5318', primaryText: '#b67923' },
+    { key: 'purple', name: 'アメジスト', primary: '#5b3a8c', primaryDark: '#472d6d', primaryText: '#a066f6' },
+    { key: 'petrol', name: 'カヴァンサイトブルー', primary: '#1f6f78', primaryDark: '#18575e', primaryText: '#29939e' },
+    { key: 'mono', name: 'セレナイトグレー', primary: '#4a4e55', primaryDark: '#3a3d42', primaryText: '#7f8692' }
   ];
   var DEFAULT_THEME_KEY = 'steel';
 
