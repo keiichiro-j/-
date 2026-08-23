@@ -20,7 +20,8 @@
     staffList: [], // 設定タブで編集中の担当者マスタ（作業用コピー）
     modelPhotos: [], // 設定タブで編集中のモデル写真（作業用コピー）
     allInventoryItems: [], // ホーム画面の在庫台数集計専用（ツールバーの検索条件に左右されない全件）
-    homeGradeFilter: null // ホームのベースモデル行クリックで設定される、絞り込み対象グレード名の配列
+    homeGradeFilter: null, // ホームのグレードタブクリックで設定される、絞り込み対象グレード名の配列
+    homeExpandedModel: null // ホームで現在グレードタブを展開中のベースモデル名（1つのみ展開可能）
   };
   var COMPARE_MAX = 3;
 
@@ -1090,6 +1091,15 @@
 
   // ===== 設定 =====
   function renderSettings(settings) {
+    // システムマスタ（メール通知設定・担当者）は、コード上のSYSTEM_ADMIN_EMAILS
+    // （Constants.gs）に登録された利用者のみに表示する。サーバー側（Api.gs）でも
+    // 非管理者の設定値は既に空にリダクトされているため、ここではUI上の表示・
+    // 非表示のみを制御する（実データの保護自体はサーバー側で行っている）。
+    var isAdmin = !!(state.bootstrap && state.bootstrap.isSystemAdmin);
+    $('systemMasterGroupTitle').classList.toggle('hidden', !isAdmin);
+    $('systemMasterNotifyCard').classList.toggle('hidden', !isAdmin);
+    $('systemMasterStaffCard').classList.toggle('hidden', !isAdmin);
+
     $('settingsThemeColor').value = settings.themeColor;
     $('settingsThemeColorLabel').textContent = settings.themeColor;
     $('settingsTextColor').value = settings.textColor;
@@ -1357,25 +1367,48 @@
     return { total: total, byGrade: byGrade };
   }
 
+  /**
+   * グレードが設定されているモデルは、行をクリックすると即座に在庫リストへ
+   * 遷移するのではなく、その場でグレードタブ（A180・A200・A35・A45等）を
+   * 展開する。タブはベースモデル行の直下に、写真幅ぶんインデントし左に
+   * 罫線を添えて表示することで、「Aクラスの行から派生したタブである」ことが
+   * 視覚的にわかるようにしている。グレードタブ自体をクリックすると、その
+   * グレード1件に絞り込んだ在庫リストへ遷移する。グレード未設定のモデルは、
+   * 従来通り行クリックで直接在庫リストへ遷移する（展開の必要がないため）。
+   */
   function renderHomeGallery_() {
     var modelPhotos = state.modelPhotos || [];
     $('homeEmpty').classList.toggle('hidden', modelPhotos.length > 0);
     var allItems = state.allInventoryItems || [];
     $('homeGrid').innerHTML = modelPhotos.map(function (p) {
       var result = gradeCountsForEntry_(p, allItems);
-      // グレード内訳が複数ある場合のみ、折り返し用の.homeRow__badges（幅を多めに
-      // 確保）で包む。単一バッジの場合はそのまま小さな内容量サイズで表示し、
-      // モデル名側の表示幅を必要以上に圧迫しないようにする。
-      var badgesHtml = result.byGrade.length
-        ? '<div class="homeRow__badges">' + result.byGrade.map(function (g) {
-            return '<span class="badge badge--count">' + escapeHtml(g.grade) + ' ' + g.count + '台</span>';
-          }).join('') + '</div>'
-        : '<span class="badge badge--count">在庫' + result.total + '台</span>';
-      return '<button type="button" class="homeRow" data-home-model="' + escapeHtml(p.model) + '">' +
+      var hasGrades = result.byGrade.length > 0;
+      var isExpanded = hasGrades && state.homeExpandedModel === p.model;
+      var chevronHtml = hasGrades
+        ? '<span class="homeRow__chevron">' + (isExpanded ? '▾' : '▸') + '</span>'
+        : '';
+      var rowHtml = '<button type="button" class="homeRow' + (isExpanded ? ' is-expanded' : '') + '"' +
+        ' data-home-model="' + escapeHtml(p.model) + '"' +
+        (hasGrades ? ' data-has-grades="true"' : '') + '>' +
         '<div class="homeRow__photo"><img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '"></div>' +
         '<div class="homeRow__model">' + escapeHtml(p.model) + '</div>' +
-        badgesHtml +
+        '<span class="badge badge--count">在庫' + result.total + '台</span>' +
+        chevronHtml +
         '</button>';
+      var tabsHtml = '';
+      if (isExpanded) {
+        tabsHtml = '<div class="homeGradeTabs">' +
+          '<div class="homeGradeTabs__label">' + escapeHtml(p.model) + 'のグレード</div>' +
+          '<div class="homeGradeTabs__list">' +
+          result.byGrade.map(function (g) {
+            return '<button type="button" class="homeGradeTab" data-home-model="' + escapeHtml(p.model) + '" data-home-grade="' + escapeHtml(g.grade) + '">' +
+              '<span class="homeGradeTab__name">' + escapeHtml(g.grade) + '</span>' +
+              '<span class="homeGradeTab__count">' + g.count + '台</span>' +
+              '</button>';
+          }).join('') +
+          '</div></div>';
+      }
+      return rowHtml + tabsHtml;
     }).join('');
   }
 
@@ -1392,23 +1425,30 @@
     }).catch(function () {});
   }
 
-  // ベースモデル行をクリックすると、在庫リストへ切り替えたうえで絞り込む。
-  // グレード一覧が設定されている場合はそのグレード群に一致する車両をまとめて
-  // 絞り込み（state.homeGradeFilter）、未設定の場合は従来通りモデル名をキーワード
-  // 検索欄に入れて再検索する。
+  // グレードタブ（Aクラス行の展開で現れるA180・A200等）をクリックすると、
+  // そのグレード1件だけに絞り込んだ在庫リストへ遷移する。
+  // ベースモデル行は、グレードが設定されていれば展開／折りたたみのトグルのみ行い
+  // （在庫リストへは遷移しない）、未設定であれば従来通りモデル名をキーワード
+  // 検索欄に入れて在庫リストへ遷移する。
   $('homeGrid').addEventListener('click', function (e) {
+    var gradeTab = e.target.closest('[data-home-grade]');
+    if (gradeTab) {
+      switchToTab_('inventory');
+      state.homeGradeFilter = [gradeTab.dataset.homeGrade];
+      $('inventoryKeyword').value = '';
+      loadInventory();
+      return;
+    }
     var tile = e.target.closest('[data-home-model]');
     if (!tile) return;
-    switchToTab_('inventory');
-    var entry = (state.modelPhotos || []).filter(function (p) { return p.model === tile.dataset.homeModel; })[0];
-    var grades = entry ? parseGrades_(entry.grades) : [];
-    if (grades.length) {
-      state.homeGradeFilter = grades;
-      $('inventoryKeyword').value = '';
-    } else {
-      state.homeGradeFilter = null;
-      $('inventoryKeyword').value = tile.dataset.homeModel;
+    if (tile.dataset.hasGrades === 'true') {
+      state.homeExpandedModel = state.homeExpandedModel === tile.dataset.homeModel ? null : tile.dataset.homeModel;
+      renderHomeGallery_();
+      return;
     }
+    switchToTab_('inventory');
+    state.homeGradeFilter = null;
+    $('inventoryKeyword').value = tile.dataset.homeModel;
     loadInventory();
   });
 

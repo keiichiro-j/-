@@ -8,7 +8,11 @@
 // ===== 初期化 =====
 function api_getBootstrapData() {
   var email = Session.getActiveUser().getEmail();
+  var isAdmin = isSystemAdmin_(email);
   var settings = getSettings();
+  // 担当者名・拠点の自動判定は管理者かどうかに関わらず全員に必要なため、
+  // 必ず（画面には出さない）実データのstaffListを使って判定してから
+  // クライアントへ返す設定値をリダクトする。
   var staffMatch = findStaffByEmail_(settings.staffList, email);
   return {
     yesNoOptions: YES_NO_OPTIONS,
@@ -18,7 +22,10 @@ function api_getBootstrapData() {
     holdOrderInputColumns: HOLD_ORDER_INPUT_COLUMNS,
     staffListMax: STAFF_LIST_MAX,
     modelPhotosMax: MODEL_PHOTOS_MAX,
-    settings: settings,
+    // 設定タブの「システムマスタ」（メール通知設定・担当者）を表示・操作できるか。
+    // コード上のSYSTEM_ADMIN_EMAILS（Constants.gs）のみで判定する。
+    isSystemAdmin: isAdmin,
+    settings: redactSystemMasterSettings_(settings, isAdmin),
     currentUserEmail: email,
     // ログイン中のGoogleアカウントに対応する担当者名・登録拠点（未登録ならどちらもnull）。
     // Hold登録・2nd Hold登録・受注確定・Hold解除の担当者欄、および販売拠点欄の初期値は
@@ -78,9 +85,21 @@ function api_listOrders(filters, groupBy) {
 
 // ===== 設定機能（3.6） =====
 function api_getSettings() {
-  return getSettings();
+  var email = Session.getActiveUser().getEmail();
+  return redactSystemMasterSettings_(getSettings(), isSystemAdmin_(email));
 }
 
+/**
+ * システムマスタ（メール通知設定・担当者）は、コード上のSYSTEM_ADMIN_EMAILS
+ * （Constants.gs）に登録されたメールアドレスの利用者のみ変更できる。
+ * 管理者以外からの保存リクエストに含まれるこれらの項目は、既存の保存値を
+ * そのまま維持し（applySystemMasterGuard_）、無視する。
+ */
 function api_saveSettings(settings) {
-  return saveSettings(settings);
+  var email = Session.getActiveUser().getEmail();
+  var isAdmin = isSystemAdmin_(email);
+  var current = getSettings();
+  var guarded = applySystemMasterGuard_(settings, current, isAdmin);
+  var saved = saveSettings(guarded);
+  return redactSystemMasterSettings_(saved, isAdmin);
 }

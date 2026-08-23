@@ -254,3 +254,60 @@ function requireCurrentStaff_() {
   }
   return { name: name, email: String(email).trim().toLowerCase() };
 }
+
+/**
+ * 設定タブの「システムマスタ」（メール通知設定・担当者）にアクセスできる
+ * 管理者かどうかを、メールアドレスがSYSTEM_ADMIN_EMAILS（Constants.gs）に
+ * 含まれているかで判定する（純粋関数、大文字小文字を無視）。担当者マスタとは
+ * 異なり、スプレッドシートや画面からは変更できない、コード上のみの権限管理。
+ */
+function isSystemAdmin_(email) {
+  if (!email) return false;
+  var normalized = String(email).trim().toLowerCase();
+  return SYSTEM_ADMIN_EMAILS.some(function (adminEmail) {
+    return String(adminEmail || '').trim().toLowerCase() === normalized;
+  });
+}
+
+/**
+ * システムマスタ（メール通知設定・担当者）を、管理者以外のブラウザには
+ * 送らないようにする（純粋関数）。UI上でカードを隠すだけでなく、非管理者の
+ * 端末にそもそもメールアドレス等のデータ自体を渡さないための処理
+ * （Api.gs参照）。
+ */
+function redactSystemMasterSettings_(settings, isAdmin) {
+  settings = settings || {};
+  if (isAdmin) return settings;
+  return {
+    themeColor: settings.themeColor,
+    textColor: settings.textColor,
+    logoUrl: settings.logoUrl,
+    notifyHoldMailTo: '',
+    notifyOrderMailTo: '',
+    notifyErrorMailTo: '',
+    staffList: [],
+    modelPhotos: settings.modelPhotos
+  };
+}
+
+/**
+ * 保存時、システムマスタ（メール通知設定・担当者）は管理者以外からの変更を
+ * 無視し、既存の保存値（current）をそのまま維持する（純粋関数）。管理者判定は
+ * コード上のSYSTEM_ADMIN_EMAILSのみで行うため、非管理者のクライアントから
+ * 送られてきた値は信用しない（Api.gs参照）。
+ */
+function applySystemMasterGuard_(incoming, current, isAdmin) {
+  incoming = incoming || {};
+  current = current || {};
+  if (isAdmin) return incoming;
+  return {
+    themeColor: incoming.themeColor,
+    textColor: incoming.textColor,
+    logoUrl: incoming.logoUrl,
+    notifyHoldMailTo: current.notifyHoldMailTo,
+    notifyOrderMailTo: current.notifyOrderMailTo,
+    notifyErrorMailTo: current.notifyErrorMailTo,
+    staffList: current.staffList,
+    modelPhotos: incoming.modelPhotos
+  };
+}

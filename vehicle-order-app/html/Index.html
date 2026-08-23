@@ -61,24 +61,30 @@
         <path d="M5.5 10v9h13v-9" stroke-linejoin="round"/>
         <path d="M10 19v-5.5h4V19"/>
       </symbol>
+      <symbol id="icon-lock" viewBox="0 0 24 24">
+        <rect x="5" y="11" width="14" height="9" rx="2"/>
+        <path d="M8 11V8a4 4 0 018 0v3"/>
+        <circle cx="12" cy="15.2" r="1.2" fill="currentColor" stroke="none"/>
+      </symbol>
     </defs>
   </svg>
 
   <div id="app">
     <header class="topbar" id="topbar">
-      <div class="topbar__row">
+      <div class="topbar__brandRow">
+        <div class="topbar__brandRow__spacer" aria-hidden="true"></div>
         <div class="topbar__brand">
           <img id="topbarLogo" class="topbar__logo hidden" alt="ロゴ">
           <span class="topbar__brandText">販売可能リスト</span>
         </div>
-        <nav class="tabs" id="mainTabs" role="tablist" aria-label="画面切替">
-          <button class="tabs__item is-active" data-tab="home">ホーム</button>
-          <button class="tabs__item" data-tab="inventory">在庫リスト</button>
-          <button class="tabs__item" data-tab="orders">受注リスト</button>
-          <button class="tabs__item" data-tab="settings">設定</button>
-        </nav>
         <div class="topbar__user" id="topbarUser"></div>
       </div>
+      <nav class="tabs" id="mainTabs" role="tablist" aria-label="画面切替">
+        <button class="tabs__item is-active" data-tab="home">ホーム</button>
+        <button class="tabs__item" data-tab="inventory">在庫リスト</button>
+        <button class="tabs__item" data-tab="orders">受注リスト</button>
+        <button class="tabs__item" data-tab="settings">設定</button>
+      </nav>
       <div class="integrityBanner hidden" id="integrityBanner">
         <svg class="icon icon--inline"><use href="#icon-alert"></use></svg>
         <span id="integrityBannerSummary"></span>
@@ -150,6 +156,7 @@
     <main class="view" id="view-settings">
       <div class="settingsWrap">
         <div class="settingsGrid">
+          <div class="settingsGroupTitle">テーマ</div>
           <div class="settingsCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>表示設定</h2>
             <p class="settingsSection__desc">アプリ全体のテーマカラーと文字の色を変更できます。</p>
@@ -192,14 +199,30 @@
           </div>
 
           <div class="settingsCard">
-            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-mail"></use></svg>メール通知</h2>
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-image"></use></svg>モデル写真（ホーム画面）</h2>
+            <p class="settingsSection__desc">ホーム画面に並べるモデルの代表写真です（最大<span id="modelPhotosMax"></span>件・現在<span id="modelPhotosCount">0</span>件登録中）。1台ごとではなく、モデル単位で1枚登録してください。画像は外部（Googleドライブの共有リンク等）にアップロードしたうえでURLを指定してください。ホーム画面で写真をクリックすると、そのモデル名で在庫リストが絞り込まれます。</p>
+            <div class="modelPhotoList" id="modelPhotoList"></div>
+            <button class="btn" id="btnAddModelPhoto" type="button">＋ モデル写真を追加</button>
+          </div>
+
+          <!-- システムマスタ: ログイン中のGoogleアカウントがSYSTEM_ADMIN_EMAILS（Constants.gs）に
+               登録されている場合のみ表示する（renderSettings参照）。保存処理も、この一覧を
+               表示できない利用者からの変更は常にサーバー側で無視される（Api.gs参照）。 -->
+          <div class="settingsGroupTitle settingsGroupTitle--admin hidden" id="systemMasterGroupTitle">
+            <svg class="icon icon--inline"><use href="#icon-lock"></use></svg>
+            システムマスタ
+            <span class="settingsGroupTitle__badge">管理者限定</span>
+          </div>
+
+          <div class="settingsCard hidden" id="systemMasterNotifyCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-mail"></use></svg>メール通知設定</h2>
             <p class="settingsSection__desc">Hold登録・受注確定があったときに通知するメールアドレスです。複数指定する場合はカンマ区切りで入力してください。未設定の場合は通知をスキップします。</p>
             <div class="formField">
-              <label>Hold登録時のメール通知先</label>
+              <label>Hold時</label>
               <input type="text" id="settingsHoldMailTo" class="input" placeholder="例: staff@example.com, staff2@example.com">
             </div>
             <div class="formField">
-              <label>受注確定時のメール通知先</label>
+              <label>受注確定時</label>
               <input type="text" id="settingsOrderMailTo" class="input" placeholder="例: sales@example.com">
             </div>
             <div class="formField">
@@ -209,18 +232,11 @@
             </div>
           </div>
 
-          <div class="settingsCard">
-            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-people"></use></svg>担当者マスタ</h2>
-            <p class="settingsSection__desc">名前・Googleアカウントのメールアドレス・拠点名を登録してください（最大<span id="staffListMax"></span>人・現在<span id="staffListCount">0</span>人登録中）。Hold登録・2nd Hold登録・受注確定・Hold解除の「担当者」は、ログイン中のGoogleアカウントのメールアドレスからここで自動的に判定されるため、操作のたびに担当者を選ぶ必要はありません。拠点名も同様に、Hold登録・受注確定の「販売拠点」欄へ自動的に入力されます（編集可）。</p>
+          <div class="settingsCard hidden" id="systemMasterStaffCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-people"></use></svg>担当者</h2>
+            <p class="settingsSection__desc">拠点・名前・Googleアカウントのメールアドレスを登録してください（最大<span id="staffListMax"></span>人・現在<span id="staffListCount">0</span>人登録中）。Hold登録・2nd Hold登録・受注確定・Hold解除の「担当者」は、ログイン中のGoogleアカウントのメールアドレスからここで自動的に判定されるため、操作のたびに担当者を選ぶ必要はありません。拠点名も同様に、Hold登録・受注確定の「販売拠点」欄へ自動的に入力されます（編集可）。</p>
             <div class="staffList" id="staffList"></div>
             <button class="btn" id="btnAddStaff" type="button">＋ 担当者を追加</button>
-          </div>
-
-          <div class="settingsCard">
-            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-image"></use></svg>モデル写真（ホーム画面）</h2>
-            <p class="settingsSection__desc">ホーム画面に並べるモデルの代表写真です（最大<span id="modelPhotosMax"></span>件・現在<span id="modelPhotosCount">0</span>件登録中）。1台ごとではなく、モデル単位で1枚登録してください。画像は外部（Googleドライブの共有リンク等）にアップロードしたうえでURLを指定してください。ホーム画面で写真をクリックすると、そのモデル名で在庫リストが絞り込まれます。</p>
-            <div class="modelPhotoList" id="modelPhotoList"></div>
-            <button class="btn" id="btnAddModelPhoto" type="button">＋ モデル写真を追加</button>
           </div>
         </div>
 

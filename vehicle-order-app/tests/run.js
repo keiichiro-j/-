@@ -505,6 +505,69 @@ test('上限文字数を超えるとエラー', () => {
   assert.throws(() => sandbox.validateLogoUrl_(tooLong), /大きすぎます/);
 });
 
+console.log('== SettingsService: isSystemAdmin_（システムマスタへのアクセス可否。SYSTEM_ADMIN_EMAILSのみで判定） ==');
+test('SYSTEM_ADMIN_EMAILSに含まれるメールアドレスはtrue（大文字小文字を無視）', () => {
+  assert.strictEqual(sandbox.isSystemAdmin_('jimny.girl.2000@gmail.com'), true);
+  assert.strictEqual(sandbox.isSystemAdmin_('Jimny.Girl.2000@Gmail.com'), true);
+});
+test('含まれないメールアドレス・空はfalse', () => {
+  assert.strictEqual(sandbox.isSystemAdmin_('other@example.com'), false);
+  assert.strictEqual(sandbox.isSystemAdmin_(''), false);
+  assert.strictEqual(sandbox.isSystemAdmin_(null), false);
+});
+
+console.log('== SettingsService: redactSystemMasterSettings_（非管理者にはメール通知・担当者を送らない） ==');
+test('管理者にはそのまま返る', () => {
+  const settings = { themeColor: '#111', notifyHoldMailTo: 'a@example.com', staffList: [{ name: '佐藤' }] };
+  const result = sandbox.redactSystemMasterSettings_(settings, true);
+  assert.strictEqual(result.notifyHoldMailTo, 'a@example.com');
+  assert.strictEqual(result.staffList.length, 1);
+});
+test('非管理者には通知先・担当者が空になる（テーマ・ロゴ・モデル写真はそのまま）', () => {
+  const settings = {
+    themeColor: '#111', textColor: '#eee', logoUrl: 'https://logo.png',
+    notifyHoldMailTo: 'a@example.com', notifyOrderMailTo: 'b@example.com', notifyErrorMailTo: 'c@example.com',
+    staffList: [{ name: '佐藤' }], modelPhotos: [{ model: 'Cクラス' }]
+  };
+  const result = sandbox.redactSystemMasterSettings_(settings, false);
+  assert.strictEqual(result.themeColor, '#111');
+  assert.strictEqual(result.logoUrl, 'https://logo.png');
+  assert.strictEqual(result.modelPhotos.length, 1);
+  assert.strictEqual(result.notifyHoldMailTo, '');
+  assert.strictEqual(result.notifyOrderMailTo, '');
+  assert.strictEqual(result.notifyErrorMailTo, '');
+  assert.strictEqual(result.staffList.length, 0);
+});
+
+console.log('== SettingsService: applySystemMasterGuard_（非管理者による保存時、通知先・担当者は既存値を維持） ==');
+test('管理者からの保存はそのまま反映される', () => {
+  const incoming = { themeColor: '#222', notifyHoldMailTo: 'new@example.com', staffList: [{ name: '新規' }], modelPhotos: [] };
+  const current = { notifyHoldMailTo: 'old@example.com', staffList: [{ name: '旧' }] };
+  const result = sandbox.applySystemMasterGuard_(incoming, current, true);
+  assert.strictEqual(result.notifyHoldMailTo, 'new@example.com');
+  assert.strictEqual(result.staffList[0].name, '新規');
+});
+test('非管理者からの保存は、通知先・担当者が既存値のまま維持される（テーマ等は反映される）', () => {
+  const incoming = {
+    themeColor: '#222', textColor: '#fff', logoUrl: 'https://new-logo.png',
+    notifyHoldMailTo: 'tampered@example.com', notifyOrderMailTo: '', notifyErrorMailTo: '',
+    staffList: [], modelPhotos: [{ model: 'Eクラス' }]
+  };
+  const current = {
+    notifyHoldMailTo: 'real@example.com', notifyOrderMailTo: 'real2@example.com', notifyErrorMailTo: 'real3@example.com',
+    staffList: [{ name: '本物の担当者', email: 'staff@example.com' }]
+  };
+  const result = sandbox.applySystemMasterGuard_(incoming, current, false);
+  assert.strictEqual(result.themeColor, '#222');
+  assert.strictEqual(result.logoUrl, 'https://new-logo.png');
+  assert.strictEqual(result.modelPhotos.length, 1);
+  assert.strictEqual(result.notifyHoldMailTo, 'real@example.com');
+  assert.strictEqual(result.notifyOrderMailTo, 'real2@example.com');
+  assert.strictEqual(result.notifyErrorMailTo, 'real3@example.com');
+  assert.strictEqual(result.staffList.length, 1);
+  assert.strictEqual(result.staffList[0].name, '本物の担当者');
+});
+
 console.log('== AuditLogService: buildAuditLogEntry_（変更履歴1行分の組み立て） ==');
 test('通常操作は担当者名・メールがそのまま記録される', () => {
   const staff = { name: '佐藤', email: 'sato@example.com' };

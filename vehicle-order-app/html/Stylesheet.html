@@ -40,7 +40,7 @@
     --topbar-bg: #000000;
     /* トップバーの実高さ。JS（syncFixedBars_）が実測して上書きする。初期値は
        JS実行前のレイアウトずれを防ぐための目安値。 */
-    --topbar-h: 68px;
+    --topbar-h: 108px;
   }
 
   * { box-sizing: border-box; }
@@ -86,15 +86,22 @@
     right: 0;
     z-index: 30;
   }
-  .topbar__row {
-    padding: 20px 28px;
-    display: flex;
+  /* ===== ブランド表記の行 =====
+     ロゴ・アプリ名を常に画面中央に配置する。左右の余白（.topbar__brandRow__spacer
+     と .topbar__user）を1frずつの等幅にすることで、右側のユーザー情報の有無・幅に
+     関わらずブランド表記が常に画面の真ん中に来るようにしている（flexboxの
+     margin:auto中央寄せだと、右側の要素の幅の分だけ中心がずれてしまうため）。 */
+  .topbar__brandRow {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    gap: 40px;
+    gap: 16px;
+    padding: 16px 28px 12px;
   }
   .topbar__brand {
     display: flex;
     align-items: center;
+    justify-self: center;
     gap: 10px;
     white-space: nowrap;
   }
@@ -103,19 +110,21 @@
      トラッキングのブランド表記にする（太字で目立たせるのではなく、余白と
      レタースペーシングで高級感を出す）。 */
   .topbar__brandText {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
-    letter-spacing: .16em;
+    letter-spacing: .18em;
     text-transform: uppercase;
     white-space: nowrap;
   }
   /* ===== ナビゲーション =====
-     塗りつぶしのピル型タブではなく、公式サイトのグローバルナビのような
-     「テキスト＋アクティブ時の下線」のミニマルな水平ナビにする。 */
+     ブランド行の下に、独立した行として中央寄せで配置する。塗りつぶしの
+     ピル型タブではなく、公式サイトのグローバルナビのような「テキスト＋
+     アクティブ時の下線」のミニマルな水平ナビにする。 */
   .tabs {
     display: flex;
+    justify-content: center;
     gap: 32px;
-    flex: 1;
+    padding: 0 28px 14px;
     overflow-x: auto;
   }
   .tabs__item {
@@ -137,7 +146,7 @@
   .tabs__item.is-active { opacity: 1; border-bottom-color: var(--primary); }
 
   .topbar__user {
-    flex: none;
+    justify-self: end;
     text-align: right;
     font-size: 12.5px;
     line-height: 1.5;
@@ -264,7 +273,8 @@
   .btn:focus-visible,
   .tabs__item:focus-visible,
   .viewToggle__item:focus-visible,
-  .homeRow:focus-visible {
+  .homeRow:focus-visible,
+  .homeGradeTab:focus-visible {
     outline: 2px solid var(--primary-text);
     outline-offset: 2px;
   }
@@ -728,6 +738,30 @@
     flex-direction: column;
     gap: 20px;
   }
+  /* テーマ・システムマスタ等、設定タブ内の大分類見出し。カードの外側、
+     グループの先頭に置く（カード自体の見出し＝settingsSection__titleとは別）。 */
+  .settingsGroupTitle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--on-surface-variant);
+    margin: 8px 2px -6px;
+  }
+  .settingsGroupTitle--admin { color: var(--on-surface); }
+  .settingsGroupTitle__badge {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: none;
+    background: var(--warning-bg);
+    color: var(--warning);
+    padding: 3px 10px;
+    border-radius: 999px;
+  }
   .settingsCard {
     background: var(--surface);
     border-radius: 10px;
@@ -846,15 +880,46 @@
   }
   .homeRow__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .homeRow__model { flex: 1; min-width: 0; font-size: 16px; font-weight: 600; letter-spacing: -.005em; }
-  /* グレード内訳を複数バッジで表示する場合、行の右端で折り返す
-     （ベースモデル名・写真の縦位置はalign-items:centerで自然に釣り合う）。 */
-  /* flex-basis: auto（初期値）のままだと、内部でflex-wrapする要素は「折り返さない
-     場合の最大幅」を基準にサイズ計算されてしまい、行の余白次第ではモデル名側
-     （flex-grow:1）にほぼ幅が残らず、日本語が1文字ずつ改行されてしまう。
-     flex-basisを内容量に依存しないパーセンテージ指定にすることで、この計算に
-     頼らずモデル名の表示幅を確実に確保する。 */
-  .homeRow__badges { display: flex; flex: 0 1 55%; min-width: 0; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
   .badge--count { background: var(--primary-bg); color: var(--primary-text); font-weight: 600; flex: none; }
+  .homeRow__chevron { flex: none; margin-left: 4px; font-size: 13px; color: var(--on-surface-variant); }
+  /* 展開中の行は下線をタブ群（.homeGradeTabs）側に譲り、視覚的に地続きにする。 */
+  .homeRow.is-expanded { background: rgba(255, 255, 255, .04); border-bottom-color: transparent; }
+
+  /* ===== ホームのグレードタブ（グレードが設定されたモデル行を展開すると現れる） =====
+     写真幅ぶんインデントし、左に細い罫線を添えることで「ベースモデル行から
+     派生したタブである」ことを視覚的に示す（車両スペック折りたたみ等と同じ、
+     階層関係を罫線で示す考え方）。 */
+  .homeGradeTabs {
+    margin: 0 0 0 94px;
+    padding: 4px 0 16px 16px;
+    border-left: 2px solid var(--outline);
+    border-bottom: 1px solid var(--outline);
+  }
+  .homeGradeTabs__label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--on-surface-variant);
+    margin: 0 0 10px;
+  }
+  .homeGradeTabs__list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .homeGradeTab {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--outline);
+    background: var(--surface);
+    color: var(--on-surface);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: background-color .15s ease, border-color .15s ease;
+  }
+  .homeGradeTab:hover { background: rgba(255, 255, 255, .06); border-color: var(--primary); }
+  .homeGradeTab__count { color: var(--on-surface-variant); font-weight: 500; font-variant-numeric: tabular-nums; }
 
   /* ===== リード番号入力（「L-」固定接頭辞＋数字。Google×Tesla風の見出し扱いにする） ===== */
   .leadNumberField {
@@ -988,11 +1053,14 @@
 
   /* ===== スマートフォン ===== */
   @media (max-width: 600px) {
-    .topbar__row { padding: 10px 12px; gap: 10px; }
+    .topbar__brandRow { padding: 12px 12px 10px; gap: 8px; }
+    .tabs { padding: 0 12px 10px; gap: 20px; }
     .integrityBanner { padding: 8px 12px; font-size: 12.5px; flex-wrap: wrap; }
     .integrityBanner__list { padding: 8px 12px 10px; }
-    .topbar__brandText { font-size: 16px; }
-    .topbar__user { display: none; }
+    .topbar__brandText { font-size: 15px; }
+    /* display:none にすると要素がグリッドから外れ、左右の余白が非対称になって
+       ブランド表記の中央寄せが崩れるため、visibility:hiddenで場所だけ確保する。 */
+    .topbar__user { visibility: hidden; }
     .staffList__row { flex-wrap: wrap; }
     .staffList__row .input[data-staff-field="name"],
     .staffList__row .input[data-staff-field="email"],
@@ -1007,7 +1075,7 @@
     .cardGrid { grid-template-columns: 1fr; gap: 12px; }
     .homeRow { gap: 12px; }
     .homeRow__photo { width: 60px; height: 60px; }
-    .homeRow__badges { flex-basis: 62%; }
+    .homeGradeTabs { margin-left: 72px; padding-left: 12px; }
     .settingsCard, .settingsActions { padding: 18px 16px; }
     .card { padding: 16px 18px; }
     .modal { padding: 0; align-items: flex-end; }
