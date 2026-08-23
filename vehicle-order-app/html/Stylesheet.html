@@ -118,13 +118,8 @@
   .topbar__navBtn:hover { background: rgba(255, 255, 255, .08); }
   .topbar__navBtn:disabled { opacity: .3; cursor: default; }
   .topbar__navBtn:disabled:hover { background: transparent; }
-  /* 「更新」ボタンは、単なる画面遷移の「戻る」と区別できるよう、テーマカラーで
-     塗りつぶした見た目にする（操作＝サーバーから最新データを取りに行く、
-     という能動的なアクションであることを伝える）。読み込み中はアイコンを
-     回転させてフィードバックする。 */
-  .topbar__navBtn--refresh { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
-  .topbar__navBtn--refresh:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
-  .topbar__navBtn--refresh:disabled { background: var(--primary); border-color: var(--primary); opacity: .6; }
+  /* 「更新」ボタンは「戻る」ボタンと見た目を統一し（同じアウトライン円形）、
+     読み込み中はアイコンを回転させることだけでフィードバックする。 */
   .topbar__navBtn--refresh.is-spinning .icon { animation: navRefreshSpin .8s linear infinite; }
   @keyframes navRefreshSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   .topbar__logo { height: 26px; width: auto; max-width: 120px; object-fit: contain; }
@@ -1020,7 +1015,7 @@
     color: var(--on-surface-variant);
     margin: 0 0 10px;
   }
-  /* row-gapを広めにするのは、AMGバッジ（homeGradeTab__amgBadge）がタブの左上に
+  /* row-gapを広めにするのは、AMGラベル（homeGradeTab__amgBadge）がタブの左上に
      少しはみ出す形で重なるため、折り返して2行になった際に上の行のタブと
      視覚的に衝突しないようにするため。 */
   .homeGradeTabs__list { display: flex; flex-wrap: wrap; gap: 14px 8px; }
@@ -1045,22 +1040,17 @@
      わかるよう、件数を赤文字にする。 */
   .homeGradeTab__count--zero { color: var(--danger); font-weight: 700; }
   /* AMG系グレード（モデル名に35・45・43・63・53・AMGを含む）のタブ左上に添える
-     小さなバッジ。メルセデス-AMGの公式サイトで使われる、黒地に銀灰色の
-     「AMG」ロゴタイプと下のレッドのアクセントラインを踏襲した配色にしている。 */
+     小さな文字ラベル（囲み・背景なし）。メルセデス-AMGの公式サイトのロゴタイプを
+     踏襲し、AMGのブランドカラーであるレッドの文字のみで表示する。 */
   .homeGradeTab__amgBadge {
     position: absolute;
     top: -8px;
     left: -6px;
-    background: #0a0a0a;
-    color: #c7c9cc;
-    font-size: 8px;
-    font-weight: 700;
-    letter-spacing: .06em;
-    padding: 1.5px 5px 2.5px;
-    border-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, .22);
-    border-bottom: 2px solid #e1000f;
-    line-height: 1.3;
+    color: #e1000f;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .07em;
+    line-height: 1;
   }
 
   /* ===== リード番号入力（「L-」固定接頭辞＋数字。Google×Tesla風の見出し扱いにする） ===== */
