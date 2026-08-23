@@ -990,20 +990,23 @@
   }
 
   function orderCardHtml(o) {
-    // 受注リストは「誰が買ったか」がひと目でわかるよう、顧客名を大きな見出しにし、
-    // その下に担当者・リード番号を表示する（モデル・コミッションはメタ情報側へ移動）。
+    // 受注リストは「誰が・どの車種を買ったか」がひと目でわかればよく、それ以外の
+    // 契約条件（コミッション・MP・VPC・有償OP・登録月・下取車・OSS・保険・支払方法・
+    // 受注確定日時・リード番号）は折りたたむ（車両スペックの折りたたみと同じパターン）。
     return '<div class="orderCard">' +
       '<div class="orderCard__top">' +
       '<div><div class="orderCard__model">' + escapeHtml(o.customer || '-') + '</div>' +
       '<div class="orderCard__staff">担当者: ' + escapeHtml(o.staff || '-') + '</div>' +
-      '<div class="orderCard__leadNumber">リード番号: ' + escapeHtml(o.leadNumber || '-') + '</div></div>' +
+      '<div class="orderCard__vehicle">' + escapeHtml(o.model) + '</div></div>' +
       '<div class="card__badges">' +
       '<span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span>' +
       '</div>' +
       '</div>' +
+      '<details class="orderCard__details">' +
+      '<summary>詳細を見る</summary>' +
       '<dl class="orderCard__grid">' +
+      '<div><dt>リード番号</dt><dd>' + escapeHtml(o.leadNumber || '-') + '</dd></div>' +
       '<div><dt>コミッション</dt><dd>' + escapeHtml(o.commission) + '</dd></div>' +
-      '<div><dt>モデル</dt><dd>' + escapeHtml(o.model) + '</dd></div>' +
       '<div><dt>MP</dt><dd>' + escapeHtml(o.mp || '-') + '</dd></div>' +
       '<div><dt>VPC</dt><dd>' + escapeHtml(o.vpc || '-') + '</dd></div>' +
       '<div><dt>有償OP</dt><dd>' + escapeHtml(paidOptionsText(o)) + '</dd></div>' +
@@ -1013,7 +1016,7 @@
       '<div><dt>保険加入の有無</dt><dd>' + escapeHtml(o.insurance || '-') + '</dd></div>' +
       '<div><dt>支払方法</dt><dd>' + escapeHtml(o.paymentMethod || '-') + '</dd></div>' +
       '<div><dt>受注確定日時</dt><dd>' + formatDateTime(o.orderedAt) + '</dd></div>' +
-      '</dl></div>';
+      '</dl></details></div>';
   }
 
   // 受注リストの表示形式「表」: 在庫と同じ「行カード」パターンで、成約済みの案件を

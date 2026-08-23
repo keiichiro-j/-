@@ -669,21 +669,38 @@
   .orderCard__top .card__badges .badge { margin-left: 0; }
   .orderCard__model { font-size: 21px; font-weight: 500; letter-spacing: -.01em; line-height: 1.25; }
   .orderCard__staff { font-size: 13.5px; font-weight: 600; color: var(--on-surface-variant); margin-top: 3px; }
-  .orderCard__leadNumber {
-    font-size: 12.5px;
-    font-weight: 500;
-    letter-spacing: .03em;
-    color: var(--on-surface-variant);
-    font-variant-numeric: tabular-nums;
-    margin-top: 2px;
+  /* 車種は「誰が・何を買ったか」をひと目で確認できるよう、常に表示する
+     （契約条件の詳細は下の折りたたみへ）。 */
+  .orderCard__vehicle {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--on-surface);
+    margin-top: 4px;
   }
+  /* 契約条件（コミッション・MP・VPC・有償OP・登録月・下取車・OSS・保険・支払方法・
+     受注確定日時・リード番号）は折りたたみ、顧客名・担当者・車種だけで
+     対象案件を判断できるようにする（車両スペックの折りたたみと同じパターン）。 */
+  .orderCard__details {
+    margin: 0;
+    padding-top: 12px;
+    border-top: 1px solid var(--outline);
+  }
+  .orderCard__details summary {
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--primary-text);
+    list-style: none;
+  }
+  .orderCard__details summary::-webkit-details-marker { display: none; }
+  .orderCard__details summary::before { content: '▸ '; }
+  .orderCard__details[open] summary::before { content: '▾ '; }
   .orderCard__grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 12px 16px;
     margin: 0;
-    padding: 14px 0 0;
-    border-top: 1px solid var(--outline);
+    padding: 12px 0 0;
   }
   .orderCard__grid dt {
     color: var(--on-surface-variant);
@@ -793,16 +810,18 @@
      （角丸・影で「カード」を強調するのではなく、写真そのものと細い罫線・
      余白で見せる編集ページ的なレイアウト）。 */
   .homeIntro {
-    margin-bottom: 40px;
-    padding-bottom: 28px;
+    margin-bottom: 28px;
+    padding-bottom: 20px;
     border-bottom: 1px solid var(--outline);
   }
-  .homeIntro__title { font-size: 42px; font-weight: 300; letter-spacing: -.01em; margin: 0 0 10px; }
-  .homeIntro__desc { font-size: 14px; letter-spacing: .01em; color: var(--on-surface-variant); margin: 0; }
+  /* ページ見出しは「ヒーロー」ではなく、他タブと釣り合う控えめなページタイトル
+     として扱う（現場の声を踏まえ、42px/font-weight:300から縮小）。 */
+  .homeIntro__title { font-size: 23px; font-weight: 600; letter-spacing: -.005em; margin: 0 0 6px; }
+  .homeIntro__desc { font-size: 13.5px; letter-spacing: .01em; color: var(--on-surface-variant); margin: 0; }
   .homeGrid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 36px 28px;
+    gap: 28px 24px;
   }
   .homeTile {
     display: flex;
@@ -818,7 +837,7 @@
      （公式サイトのモデルギャラリーのような、写真が主役の見せ方）。 */
   .homeTile__photo {
     width: 100%;
-    height: 240px;
+    height: 200px;
     overflow: hidden;
   }
   .homeTile__photo img {
