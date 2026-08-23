@@ -12,8 +12,7 @@
 function getSettings() {
   var props = PropertiesService.getScriptProperties();
   return {
-    themeColor: props.getProperty(PROP_KEYS.THEME_COLOR) || DEFAULT_THEME_COLOR,
-    textColor: props.getProperty(PROP_KEYS.TEXT_COLOR) || DEFAULT_TEXT_COLOR,
+    themeKey: normalizeThemeKey_(props.getProperty(PROP_KEYS.THEME_KEY)),
     logoUrl: props.getProperty(PROP_KEYS.LOGO_URL) || '',
     notifyHoldMailTo: props.getProperty(PROP_KEYS.NOTIFY_HOLD_MAIL_TO) || '',
     notifyOrderMailTo: props.getProperty(PROP_KEYS.NOTIFY_ORDER_MAIL_TO) || '',
@@ -26,8 +25,7 @@ function getSettings() {
 function saveSettings(settings) {
   var logoUrl = validateLogoUrl_(settings && settings.logoUrl);
   var props = PropertiesService.getScriptProperties();
-  props.setProperty(PROP_KEYS.THEME_COLOR, settings.themeColor || DEFAULT_THEME_COLOR);
-  props.setProperty(PROP_KEYS.TEXT_COLOR, settings.textColor || DEFAULT_TEXT_COLOR);
+  props.setProperty(PROP_KEYS.THEME_KEY, normalizeThemeKey_(settings && settings.themeKey));
   props.setProperty(PROP_KEYS.LOGO_URL, logoUrl);
   props.setProperty(PROP_KEYS.NOTIFY_HOLD_MAIL_TO, settings.notifyHoldMailTo || '');
   props.setProperty(PROP_KEYS.NOTIFY_ORDER_MAIL_TO, settings.notifyOrderMailTo || '');
@@ -35,6 +33,16 @@ function saveSettings(settings) {
   props.setProperty(PROP_KEYS.STAFF_LIST, JSON.stringify(normalizeStaffList_(settings.staffList)));
   props.setProperty(PROP_KEYS.MODEL_PHOTOS, JSON.stringify(normalizeModelPhotos_(settings.modelPhotos)));
   return getSettings();
+}
+
+/**
+ * テーマの着せ替えプリセットキー（純粋関数）。THEME_PRESETS（Constants.gs）に
+ * 存在しないキー（未設定・改ざん・過去バージョンで保存された値など）は、
+ * すべて初期プリセット（DEFAULT_THEME_KEY）にフォールバックする。
+ */
+function normalizeThemeKey_(key) {
+  var found = THEME_PRESETS.some(function (p) { return p.key === key; });
+  return found ? key : DEFAULT_THEME_KEY;
 }
 
 /**
@@ -256,10 +264,11 @@ function requireCurrentStaff_() {
 }
 
 /**
- * 設定タブの「システムマスタ」（メール通知設定・担当者）にアクセスできる
- * 管理者かどうかを、メールアドレスがSYSTEM_ADMIN_EMAILS（Constants.gs）に
- * 含まれているかで判定する（純粋関数、大文字小文字を無視）。担当者マスタとは
- * 異なり、スプレッドシートや画面からは変更できない、コード上のみの権限管理。
+ * 設定タブの「システムマスタ」（ロゴ・モデル写真・メール通知設定・担当者）に
+ * アクセスできる管理者かどうかを、メールアドレスがSYSTEM_ADMIN_EMAILS
+ * （Constants.gs）に含まれているかで判定する（純粋関数、大文字小文字を無視）。
+ * 担当者マスタとは異なり、スプレッドシートや画面からは変更できない、
+ * コード上のみの権限管理。
  */
 function isSystemAdmin_(email) {
   if (!email) return false;
@@ -270,8 +279,12 @@ function isSystemAdmin_(email) {
 }
 
 /**
- * システムマスタ（メール通知設定・担当者）を、管理者以外のブラウザには
- * 送らないようにする（純粋関数）。UI上でカードを隠すだけでなく、非管理者の
+ * システムマスタ（ロゴ・モデル写真・メール通知設定・担当者）を、管理者以外の
+ * ブラウザには送らないようにする（純粋関数）……という処理だが、ロゴ・モデル写真は
+ * 例外で、非管理者にも実際の値をそのまま渡す。ロゴはトップバー、モデル写真は
+ * ホーム画面のギャラリーとして「全利用者に表示される」データであり、編集画面を
+ * 管理者限定にしても表示自体は全員に必要なため（メール通知先・担当者一覧のような
+ * 非公開データとは性質が異なる）。UI上でカードを隠すだけでなく、非管理者の
  * 端末にそもそもメールアドレス等のデータ自体を渡さないための処理
  * （Api.gs参照）。
  */
@@ -279,8 +292,7 @@ function redactSystemMasterSettings_(settings, isAdmin) {
   settings = settings || {};
   if (isAdmin) return settings;
   return {
-    themeColor: settings.themeColor,
-    textColor: settings.textColor,
+    themeKey: settings.themeKey,
     logoUrl: settings.logoUrl,
     notifyHoldMailTo: '',
     notifyOrderMailTo: '',
@@ -291,23 +303,24 @@ function redactSystemMasterSettings_(settings, isAdmin) {
 }
 
 /**
- * 保存時、システムマスタ（メール通知設定・担当者）は管理者以外からの変更を
- * 無視し、既存の保存値（current）をそのまま維持する（純粋関数）。管理者判定は
- * コード上のSYSTEM_ADMIN_EMAILSのみで行うため、非管理者のクライアントから
- * 送られてきた値は信用しない（Api.gs参照）。
+ * 保存時、システムマスタ（ロゴ・モデル写真・メール通知設定・担当者）は管理者以外
+ * からの変更を無視し、既存の保存値（current）をそのまま維持する（純粋関数）。
+ * テーマ（着せ替えプリセット）は管理者限定にしていないため、非管理者からの
+ * 変更もそのまま反映する。管理者判定はコード上のSYSTEM_ADMIN_EMAILSのみで
+ * 行うため、非管理者のクライアントから送られてきたシステムマスタ項目は
+ * 信用しない（Api.gs参照）。
  */
 function applySystemMasterGuard_(incoming, current, isAdmin) {
   incoming = incoming || {};
   current = current || {};
   if (isAdmin) return incoming;
   return {
-    themeColor: incoming.themeColor,
-    textColor: incoming.textColor,
-    logoUrl: incoming.logoUrl,
+    themeKey: incoming.themeKey,
+    logoUrl: current.logoUrl,
     notifyHoldMailTo: current.notifyHoldMailTo,
     notifyOrderMailTo: current.notifyOrderMailTo,
     notifyErrorMailTo: current.notifyErrorMailTo,
     staffList: current.staffList,
-    modelPhotos: incoming.modelPhotos
+    modelPhotos: current.modelPhotos
   };
 }

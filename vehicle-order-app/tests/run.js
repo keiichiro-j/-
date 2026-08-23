@@ -516,21 +516,31 @@ test('含まれないメールアドレス・空はfalse', () => {
   assert.strictEqual(sandbox.isSystemAdmin_(null), false);
 });
 
+console.log('== SettingsService: normalizeThemeKey_（着せ替えプリセットキーの検証） ==');
+test('THEME_PRESETSに存在するキーはそのまま返る', () => {
+  assert.strictEqual(sandbox.normalizeThemeKey_('wine'), 'wine');
+});
+test('存在しないキー・未指定はDEFAULT_THEME_KEYにフォールバックする', () => {
+  assert.strictEqual(sandbox.normalizeThemeKey_('no-such-key'), sandbox.DEFAULT_THEME_KEY);
+  assert.strictEqual(sandbox.normalizeThemeKey_(undefined), sandbox.DEFAULT_THEME_KEY);
+  assert.strictEqual(sandbox.normalizeThemeKey_('#3870b0'), sandbox.DEFAULT_THEME_KEY);
+});
+
 console.log('== SettingsService: redactSystemMasterSettings_（非管理者にはメール通知・担当者を送らない） ==');
 test('管理者にはそのまま返る', () => {
-  const settings = { themeColor: '#111', notifyHoldMailTo: 'a@example.com', staffList: [{ name: '佐藤' }] };
+  const settings = { themeKey: 'steel', notifyHoldMailTo: 'a@example.com', staffList: [{ name: '佐藤' }] };
   const result = sandbox.redactSystemMasterSettings_(settings, true);
   assert.strictEqual(result.notifyHoldMailTo, 'a@example.com');
   assert.strictEqual(result.staffList.length, 1);
 });
 test('非管理者には通知先・担当者が空になる（テーマ・ロゴ・モデル写真はそのまま）', () => {
   const settings = {
-    themeColor: '#111', textColor: '#eee', logoUrl: 'https://logo.png',
+    themeKey: 'wine', logoUrl: 'https://logo.png',
     notifyHoldMailTo: 'a@example.com', notifyOrderMailTo: 'b@example.com', notifyErrorMailTo: 'c@example.com',
     staffList: [{ name: '佐藤' }], modelPhotos: [{ model: 'Cクラス' }]
   };
   const result = sandbox.redactSystemMasterSettings_(settings, false);
-  assert.strictEqual(result.themeColor, '#111');
+  assert.strictEqual(result.themeKey, 'wine');
   assert.strictEqual(result.logoUrl, 'https://logo.png');
   assert.strictEqual(result.modelPhotos.length, 1);
   assert.strictEqual(result.notifyHoldMailTo, '');
@@ -539,28 +549,32 @@ test('非管理者には通知先・担当者が空になる（テーマ・ロ�
   assert.strictEqual(result.staffList.length, 0);
 });
 
-console.log('== SettingsService: applySystemMasterGuard_（非管理者による保存時、通知先・担当者は既存値を維持） ==');
+console.log('== SettingsService: applySystemMasterGuard_（非管理者による保存時、ロゴ・モデル写真・通知先・担当者は既存値を維持） ==');
 test('管理者からの保存はそのまま反映される', () => {
-  const incoming = { themeColor: '#222', notifyHoldMailTo: 'new@example.com', staffList: [{ name: '新規' }], modelPhotos: [] };
+  const incoming = { themeKey: 'petrol', logoUrl: 'https://new-logo.png', notifyHoldMailTo: 'new@example.com', staffList: [{ name: '新規' }], modelPhotos: [{ model: '新モデル' }] };
   const current = { notifyHoldMailTo: 'old@example.com', staffList: [{ name: '旧' }] };
   const result = sandbox.applySystemMasterGuard_(incoming, current, true);
   assert.strictEqual(result.notifyHoldMailTo, 'new@example.com');
   assert.strictEqual(result.staffList[0].name, '新規');
+  assert.strictEqual(result.logoUrl, 'https://new-logo.png');
 });
-test('非管理者からの保存は、通知先・担当者が既存値のまま維持される（テーマ等は反映される）', () => {
+test('非管理者からの保存は、ロゴ・モデル写真・通知先・担当者が既存値のまま維持される（テーマは反映される）', () => {
   const incoming = {
-    themeColor: '#222', textColor: '#fff', logoUrl: 'https://new-logo.png',
+    themeKey: 'amber', logoUrl: 'https://tampered-logo.png',
     notifyHoldMailTo: 'tampered@example.com', notifyOrderMailTo: '', notifyErrorMailTo: '',
     staffList: [], modelPhotos: [{ model: 'Eクラス' }]
   };
   const current = {
+    logoUrl: 'https://real-logo.png',
     notifyHoldMailTo: 'real@example.com', notifyOrderMailTo: 'real2@example.com', notifyErrorMailTo: 'real3@example.com',
-    staffList: [{ name: '本物の担当者', email: 'staff@example.com' }]
+    staffList: [{ name: '本物の担当者', email: 'staff@example.com' }],
+    modelPhotos: [{ model: '本物のモデル' }]
   };
   const result = sandbox.applySystemMasterGuard_(incoming, current, false);
-  assert.strictEqual(result.themeColor, '#222');
-  assert.strictEqual(result.logoUrl, 'https://new-logo.png');
+  assert.strictEqual(result.themeKey, 'amber');
+  assert.strictEqual(result.logoUrl, 'https://real-logo.png');
   assert.strictEqual(result.modelPhotos.length, 1);
+  assert.strictEqual(result.modelPhotos[0].model, '本物のモデル');
   assert.strictEqual(result.notifyHoldMailTo, 'real@example.com');
   assert.strictEqual(result.notifyOrderMailTo, 'real2@example.com');
   assert.strictEqual(result.notifyErrorMailTo, 'real3@example.com');

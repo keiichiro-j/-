@@ -19,6 +19,7 @@
     action: null, // { type: 'hold' | 'secondHold' | 'order' | 'orderFromHold', commission }
     staffList: [], // 設定タブで編集中の担当者マスタ（作業用コピー）
     modelPhotos: [], // 設定タブで編集中のモデル写真（作業用コピー）
+    themeKey: null, // 設定タブで選択中のテーマ（着せ替え）プリセットキー
     allInventoryItems: [], // ホーム画面の在庫台数集計専用（ツールバーの検索条件に左右されない全件）
     homeGradeFilter: null, // ホームのグレードタブクリックで設定される、絞り込み対象グレード名の配列
     homeExpandedModel: null // ホームで現在グレードタブを展開中のベースモデル名（1つのみ展開可能）
@@ -457,6 +458,34 @@
       '<span class="rowCard__value">' + escapeHtml(value || '-') + '</span></div>';
   }
 
+  /**
+   * 表示形式「表」の在庫状況タップボタン（rowCard__statusToggle）の開閉。
+   * 一度に1件だけ開く（他の行で開いていたポップアップは閉じる）。
+   */
+  function toggleRowStatusPopover_(rowEl) {
+    if (!rowEl) return;
+    var willOpen = !rowEl.classList.contains('is-statusOpen');
+    document.querySelectorAll('.rowCard.is-statusOpen').forEach(function (el) {
+      el.classList.remove('is-statusOpen');
+      var btn = el.querySelector('[data-status-toggle]');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    });
+    if (willOpen) {
+      rowEl.classList.add('is-statusOpen');
+      var btn = rowEl.querySelector('[data-status-toggle]');
+      if (btn) btn.setAttribute('aria-expanded', 'true');
+    }
+  }
+
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('.rowCard__statusToggle, .rowCard__statusPopover')) return;
+    document.querySelectorAll('.rowCard.is-statusOpen').forEach(function (el) {
+      el.classList.remove('is-statusOpen');
+      var btn = el.querySelector('[data-status-toggle]');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    });
+  });
+
   function vehicleRowCardHtml(v) {
     var isHold = v.holdStatus === 'hold';
     var hasSecondHold = isHold && !!v.secondHoldCustomer;
@@ -483,8 +512,23 @@
       }
     }
 
+    // 表示形式「表」は横スクロールで多くの項目を並べるため、右側にあるHold状態
+    // （rowCard__status）は画面幅によってはスクロールしないと見えない。そこで、
+    // スクロールしなくても必ず見える左端（ピンの直後）に色つきの状態タップボタンを
+    // 置き、タップすると同じ内容をポップアップ（rowCard__statusPopover）で
+    // その場で確認できるようにする（横スクロール自体は既存のまま維持）。
+    var statusToneLabel = hasSecondHold ? 'Hold中（2nd有）' : (isHold ? 'Hold中' : '在庫あり');
+    var statusToggle = '<button type="button" class="rowCard__statusToggle" data-status-toggle="' + escapeHtml(v.commission) + '" aria-expanded="false" aria-label="在庫状況（' + statusToneLabel + '）を確認">' +
+      '<span class="rowCard__statusToggle__dot"></span>' +
+      '</button>';
+    var statusPopover = '<div class="rowCard__statusPopover">' + statusBadge + cancelLinks + '</div>';
+
     return '<div class="rowCard ' + rowTone + '">' +
-      '<label class="rowCard__pin"><input type="checkbox" data-compare="' + escapeHtml(v.commission) + '"' + (isComparing ? ' checked' : '') + '></label>' +
+      '<div class="rowCard__pin">' +
+      '<label class="rowCard__pinCheckbox"><input type="checkbox" data-compare="' + escapeHtml(v.commission) + '"' + (isComparing ? ' checked' : '') + '></label>' +
+      statusToggle +
+      '</div>' +
+      statusPopover +
       '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(v.model) + '</span>' +
       '<span class="rowCard__commission">' + escapeHtml(v.commission) + '</span></div>' +
       rowField_('MP', v.mp) +
@@ -624,6 +668,11 @@
 
   document.getElementById('inventoryList').addEventListener('click', function (e) {
     var target = e.target;
+    var statusToggleBtn = target.closest('[data-status-toggle]');
+    if (statusToggleBtn) {
+      toggleRowStatusPopover_(statusToggleBtn.closest('.rowCard'));
+      return;
+    }
     if (target.dataset.hold) openActionModal('hold', target.dataset.hold);
     else if (target.dataset.secondHold) openActionModal('secondHold', target.dataset.secondHold);
     else if (target.dataset.order) openActionModal('order', target.dataset.order);
@@ -1091,25 +1140,25 @@
 
   // ===== 設定 =====
   function renderSettings(settings) {
-    // システムマスタ（メール通知設定・担当者）は、コード上のSYSTEM_ADMIN_EMAILS
-    // （Constants.gs）に登録された利用者のみに表示する。サーバー側（Api.gs）でも
-    // 非管理者の設定値は既に空にリダクトされているため、ここではUI上の表示・
-    // 非表示のみを制御する（実データの保護自体はサーバー側で行っている）。
+    // システムマスタ（ロゴ・モデル写真・メール通知設定・担当者）は、コード上の
+    // SYSTEM_ADMIN_EMAILS（Constants.gs）に登録された利用者のみに表示する。
+    // サーバー側（Api.gs）でも非管理者の設定値は既に空にリダクトされているため
+    // （ロゴ・モデル写真は全利用者に表示する必要があるデータのため例外）、
+    // ここではUI上の表示・非表示のみを制御する（実データの保護自体はサーバー側で行っている）。
     var isAdmin = !!(state.bootstrap && state.bootstrap.isSystemAdmin);
     $('systemMasterGroupTitle').classList.toggle('hidden', !isAdmin);
+    $('systemMasterLogoCard').classList.toggle('hidden', !isAdmin);
+    $('systemMasterModelPhotosCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterNotifyCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterStaffCard').classList.toggle('hidden', !isAdmin);
 
-    $('settingsThemeColor').value = settings.themeColor;
-    $('settingsThemeColorLabel').textContent = settings.themeColor;
-    $('settingsTextColor').value = settings.textColor;
-    $('settingsTextColorLabel').textContent = settings.textColor;
+    state.themeKey = settings.themeKey;
+    renderThemePresets_();
     $('settingsLogoUrl').value = settings.logoUrl || '';
     $('settingsHoldMailTo').value = settings.notifyHoldMailTo;
     $('settingsOrderMailTo').value = settings.notifyOrderMailTo;
     $('settingsErrorMailTo').value = settings.notifyErrorMailTo;
-    applyTheme(settings.themeColor);
-    applyTextColor(settings.textColor);
+    applyTheme(settings.themeKey);
     applyLogo(settings.logoUrl);
     renderLogoPreview_(settings.logoUrl);
 
@@ -1126,50 +1175,68 @@
     renderHomeGallery_();
   }
 
-  $('settingsThemeColor').addEventListener('input', function () {
-    $('settingsThemeColorLabel').textContent = this.value;
-    applyTheme(this.value);
+  /**
+   * テーマ（着せ替え）プリセット一覧。Constants.gsのTHEME_PRESETSと同じ内容を
+   * クライアント側にも持ち、選択UIの描画とプレビュー適用（保存前のリアルタイム反映）に使う。
+   * いずれもWCAG AA基準（ボタン塗り用途で白文字とのコントラスト比4.5:1以上、
+   * 文字用途で背景とのコントラスト比4.6:1以上）を確認済み。
+   */
+  var THEME_PRESETS = [
+    { key: 'steel', name: 'スチールブルー', primary: '#3870b0', primaryDark: '#2c5789', primaryText: '#4489d7' },
+    { key: 'graphite', name: 'グラファイト', primary: '#55606b', primaryDark: '#424b53', primaryText: '#798898' },
+    { key: 'wine', name: 'ワインレッド', primary: '#8c2f39', primaryDark: '#6d252c', primaryText: '#e84e5f' },
+    { key: 'green', name: 'ブリティッシュグリーン', primary: '#1f6f4a', primaryDark: '#18573a', primaryText: '#2a9765' },
+    { key: 'amber', name: 'アンバーゴールド', primary: '#a06a1f', primaryDark: '#7d5318', primaryText: '#b67923' },
+    { key: 'purple', name: 'ロイヤルパープル', primary: '#5b3a8c', primaryDark: '#472d6d', primaryText: '#a066f6' },
+    { key: 'petrol', name: 'ペトロールブルー', primary: '#1f6f78', primaryDark: '#18575e', primaryText: '#29939e' },
+    { key: 'mono', name: 'モノクローム', primary: '#4a4e55', primaryDark: '#3a3d42', primaryText: '#7f8692' }
+  ];
+  var DEFAULT_THEME_KEY = 'steel';
+
+  function themePresetByKey_(key) {
+    return THEME_PRESETS.find(function (p) { return p.key === key; })
+      || THEME_PRESETS.find(function (p) { return p.key === DEFAULT_THEME_KEY; });
+  }
+
+  function renderThemePresets_() {
+    var container = $('themePresetGrid');
+    var current = state.themeKey || DEFAULT_THEME_KEY;
+    container.innerHTML = THEME_PRESETS.map(function (p) {
+      return '<button type="button" class="themePreset' + (p.key === current ? ' is-selected' : '') +
+        '" data-theme-key="' + p.key + '" style="--swatch:' + p.primary + '" aria-pressed="' + (p.key === current) + '">' +
+        '<span class="themePreset__swatch"></span>' +
+        '<span class="themePreset__name">' + escapeHtml(p.name) + '</span>' +
+        '</button>';
+    }).join('');
+  }
+
+  $('themePresetGrid').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-theme-key]');
+    if (!btn) return;
+    state.themeKey = btn.dataset.themeKey;
+    renderThemePresets_();
+    applyTheme(state.themeKey);
   });
 
   /**
-   * テーマカラー（--primary）と、それに連動する派生トークン
-   * （--primary-dark: ホバー用の暗い色, --primary-text: 暗い背景の上で文字色
-   * として使う明るい色, --primary-bg: バッジ等の薄い塗り）を一括で設定する。
-   * ユーザーが設定タブで選んだ1色から全て導出することで、以前と同様
-   * 「テーマカラーを変えるとボタン・バッジ・リンクの色がまとめて変わる」
-   * 挙動を保ちつつ、ボタン塗り用の--primaryとリンク文字色用の--primary-text
-   * を別トーンにしてコントラスト比を確保している（Stylesheet.html参照）。
+   * テーマプリセット（--primary / --primary-dark / --primary-text / --primary-bg）を
+   * 一括で適用する。以前は1色から比率計算で派生色を導出していたが、色相・彩度によって
+   * 必要な明暗の差が異なりコントラスト比を一定に保てなかったため、8プリセットそれぞれに
+   * ついて個別にコントラスト比を検証済みの色を直接使う（Constants.gsのTHEME_PRESETS参照）。
    */
-  function applyTheme(color) {
+  function applyTheme(key) {
+    var preset = themePresetByKey_(key);
     var root = document.documentElement.style;
-    root.setProperty('--primary', color);
-    root.setProperty('--primary-dark', shadeColor_(color, .78));
-    root.setProperty('--primary-text', shadeColor_(color, 1.25));
-    var rgb = hexToRgb_(color);
-    root.setProperty('--primary-bg', rgb ? 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',.18)' : color);
+    root.setProperty('--primary', preset.primary);
+    root.setProperty('--primary-dark', preset.primaryDark);
+    root.setProperty('--primary-text', preset.primaryText);
+    var rgb = hexToRgb_(preset.primary);
+    root.setProperty('--primary-bg', rgb ? 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',.18)' : preset.primary);
   }
 
   function hexToRgb_(hex) {
     var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '');
     return m ? { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) } : null;
-  }
-
-  /** 16進カラーの各チャンネルにfactorを掛けて明暗を調整する（1未満で暗く、1超で明るく）。 */
-  function shadeColor_(hex, factor) {
-    var rgb = hexToRgb_(hex);
-    if (!rgb) return hex;
-    var clamp = function (v) { return Math.max(0, Math.min(255, Math.round(v * factor))); };
-    var toHex = function (v) { return v.toString(16).padStart(2, '0'); };
-    return '#' + toHex(clamp(rgb.r)) + toHex(clamp(rgb.g)) + toHex(clamp(rgb.b));
-  }
-
-  $('settingsTextColor').addEventListener('input', function () {
-    $('settingsTextColorLabel').textContent = this.value;
-    applyTextColor(this.value);
-  });
-
-  function applyTextColor(color) {
-    document.documentElement.style.setProperty('--on-surface', color);
   }
 
   // ----- ロゴ設定（画面上部に表示する画像。URLを直接指定するか、小さい画像を
@@ -1500,8 +1567,7 @@
     }
 
     var settings = {
-      themeColor: $('settingsThemeColor').value,
-      textColor: $('settingsTextColor').value,
+      themeKey: state.themeKey || DEFAULT_THEME_KEY,
       logoUrl: $('settingsLogoUrl').value.trim(),
       notifyHoldMailTo: $('settingsHoldMailTo').value.trim(),
       notifyOrderMailTo: $('settingsOrderMailTo').value.trim(),

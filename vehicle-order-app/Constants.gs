@@ -172,8 +172,7 @@ function auditLogColIndex1(key) {
 
 // ===== Script Properties キー（設定機能） =====
 var PROP_KEYS = {
-  THEME_COLOR: 'THEME_COLOR',
-  TEXT_COLOR: 'TEXT_COLOR',
+  THEME_KEY: 'THEME_KEY',
   LOGO_URL: 'LOGO_URL',
   NOTIFY_HOLD_MAIL_TO: 'NOTIFY_HOLD_MAIL_TO',
   NOTIFY_ORDER_MAIL_TO: 'NOTIFY_ORDER_MAIL_TO',
@@ -182,8 +181,28 @@ var PROP_KEYS = {
   MODEL_PHOTOS: 'MODEL_PHOTOS'
 };
 
-var DEFAULT_THEME_COLOR = '#3870b0'; // ラグジュアリーブラック配色のスチールブルーアクセント（白文字とのコントラスト比4.5:1以上を確保）
-var DEFAULT_TEXT_COLOR = '#f2f1ed'; // 基本の文字色（黒基調の背景に合わせた明るいオフホワイト）
+/**
+ * テーマ（配色）の「着せ替え」プリセット一覧。以前は配色を自由な色指定（カラーピッカー）で
+ * 選ばせていたが、組み合わせによってはコントラスト比が不足し文字が読みにくくなる懸念が
+ * あったため、あらかじめWCAG AA基準（ボタン塗り用途で白文字とのコントラスト比4.5:1以上、
+ * 文字用途で背景（--surface）とのコントラスト比4.6:1以上）を満たすことを確認済みの
+ * 8色から選択する方式にしている（JavaScript.htmlのapplyTheme参照）。
+ *   primary     … ボタン塗り・境界線・アクセント用
+ *   primaryDark … ホバー時などに使う、primaryを少し暗くした色
+ *   primaryText … 暗い背景の上に「文字として」使う、primaryより明るい色
+ */
+var THEME_PRESETS = [
+  { key: 'steel', name: 'スチールブルー', primary: '#3870b0', primaryDark: '#2c5789', primaryText: '#4489d7' },
+  { key: 'graphite', name: 'グラファイト', primary: '#55606b', primaryDark: '#424b53', primaryText: '#798898' },
+  { key: 'wine', name: 'ワインレッド', primary: '#8c2f39', primaryDark: '#6d252c', primaryText: '#e84e5f' },
+  { key: 'green', name: 'ブリティッシュグリーン', primary: '#1f6f4a', primaryDark: '#18573a', primaryText: '#2a9765' },
+  { key: 'amber', name: 'アンバーゴールド', primary: '#a06a1f', primaryDark: '#7d5318', primaryText: '#b67923' },
+  { key: 'purple', name: 'ロイヤルパープル', primary: '#5b3a8c', primaryDark: '#472d6d', primaryText: '#a066f6' },
+  { key: 'petrol', name: 'ペトロールブルー', primary: '#1f6f78', primaryDark: '#18575e', primaryText: '#29939e' },
+  { key: 'mono', name: 'モノクローム', primary: '#4a4e55', primaryDark: '#3a3d42', primaryText: '#7f8692' }
+];
+
+var DEFAULT_THEME_KEY = 'steel';
 
 // 設定タブの「システムマスタ」（メール通知設定・担当者）にアクセスできる
 // Googleアカウントのメールアドレス一覧（大文字小文字は区別しない）。

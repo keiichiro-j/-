@@ -274,7 +274,9 @@
   .tabs__item:focus-visible,
   .viewToggle__item:focus-visible,
   .homeRow:focus-visible,
-  .homeGradeTab:focus-visible {
+  .homeGradeTab:focus-visible,
+  .rowCard__statusToggle:focus-visible,
+  .themePreset:focus-visible {
     outline: 2px solid var(--primary-text);
     outline-offset: 2px;
   }
@@ -414,7 +416,47 @@
   .rowCard--available { border-left-color: var(--success); }
   .rowCard--hold { border-left-color: var(--warning); }
   .rowCard--hold2 { border-left-color: var(--danger); }
-  .rowCard__pin { display: flex; justify-content: center; }
+  .rowCard { position: relative; }
+  .rowCard__pin { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .rowCard__pinCheckbox { display: flex; justify-content: center; }
+
+  /* ===== 表示形式「表」の在庫状況タップボタン =====
+     横スクロールが必要な列（rowCard__status）は画面幅によってはスクロールしないと
+     見えないため、必ず見える左端（ピンの列）に色つきのタップボタンを置き、
+     タップすると同じ内容をポップアップで確認できるようにする（横スクロール自体は
+     既存のまま変更しない。あくまで「見えなくてもタップで確認できる」導線を追加する）。 */
+  .rowCard__statusToggle {
+    display: flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; padding: 0;
+    background: var(--background); border: 1px solid var(--outline); border-radius: 50%;
+    cursor: pointer;
+  }
+  .rowCard__statusToggle:hover { border-color: var(--primary-text); }
+  .rowCard__statusToggle__dot { width: 10px; height: 10px; border-radius: 50%; background: var(--success); }
+  .rowCard--hold .rowCard__statusToggle__dot { background: var(--warning); }
+  .rowCard--hold2 .rowCard__statusToggle__dot { background: var(--danger); }
+  .rowCard__statusPopover {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 20px;
+    z-index: 5;
+    margin-top: 6px;
+    min-width: 190px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-elevated);
+    padding: 14px;
+  }
+  .rowCard.is-statusOpen .rowCard__statusPopover { display: flex; }
+  /* ポップアップを開いている行を、下に続く他の行より前面に表示する
+     （position:relativeだけではスタッキングコンテキストが生まれず、
+     DOM順で後にある次の行のカード背景に隠れてしまうため）。 */
+  .rowCard.is-statusOpen { z-index: 10; }
   .rowCard__field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .rowCard__label { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--on-surface-variant); }
   .rowCard__value {
@@ -801,8 +843,45 @@
   .formField .input { width: 100%; }
   .formField__hint { margin: 0; font-size: 12px; color: var(--on-surface-variant); }
   .formField.hidden { display: none; }
-  .colorField { display: flex; align-items: center; gap: 10px; }
-  .colorField input[type=color] { width: 44px; height: 36px; border: 1px solid var(--outline); border-radius: 8px; padding: 2px; }
+
+  /* ===== テーマ（着せ替え）プリセット選択 =====
+     以前はカラーピッカーで自由に配色を指定できたが、組み合わせによって
+     コントラスト比が不足する懸念があったため、視覚的に確認済みの8色から
+     選ぶスウォッチ形式に変更した（洋服・スマホケースの色を選ぶイメージ）。 */
+  .themePresetGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  .themePreset {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 8px;
+    background: var(--background);
+    border: 1px solid var(--outline);
+    border-radius: var(--radius);
+    cursor: pointer;
+    color: var(--on-surface-variant);
+    font-size: 12px;
+  }
+  .themePreset:hover { border-color: var(--swatch); }
+  .themePreset.is-selected { border-color: var(--swatch); background: rgba(255, 255, 255, .04); color: var(--on-surface); }
+  .themePreset__swatch {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--swatch);
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .15);
+  }
+  .themePreset.is-selected .themePreset__swatch {
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .15), 0 0 0 3px var(--surface), 0 0 0 5px var(--swatch);
+  }
+  .themePreset__name { text-align: center; line-height: 1.3; }
+  @media (max-width: 480px) {
+    .themePresetGrid { grid-template-columns: repeat(3, 1fr); }
+  }
 
   /* ===== ロゴ設定 ===== */
   .logoField { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
