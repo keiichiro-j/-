@@ -191,17 +191,20 @@ var PROP_KEYS = {
  * カラーとして視認性調整した近似色）。
  *   primary     … ボタン塗り・境界線・アクセント用
  *   primaryDark … ホバー時などに使う、primaryを少し暗くした色
- *   primaryText … 暗い背景の上に「文字として」使う、primaryより明るい色
+ *   primaryText … 背景の上に「文字として」使う色。ベース配色がウォームアイボリー
+ *                 （白系、Stylesheet.html参照）になったため、primaryよりも
+ *                 濃くしてコントラスト比4.6:1以上を確保している（以前の暗い背景
+ *                 向け配色では逆にprimaryより明るい色にしていた）。
  */
 var THEME_PRESETS = [
-  { key: 'steel', name: 'ブリリアントブルー', primary: '#3870b0', primaryDark: '#2c5789', primaryText: '#4489d7' },
-  { key: 'graphite', name: 'グラファイトグレー', primary: '#55606b', primaryDark: '#424b53', primaryText: '#798898' },
-  { key: 'wine', name: 'ヒヤシンスレッド', primary: '#8c2f39', primaryDark: '#6d252c', primaryText: '#e84e5f' },
-  { key: 'green', name: 'エメラルドグリーン', primary: '#1f6f4a', primaryDark: '#18573a', primaryText: '#2a9765' },
-  { key: 'amber', name: 'カラハリゴールド', primary: '#a06a1f', primaryDark: '#7d5318', primaryText: '#b67923' },
-  { key: 'purple', name: 'アメジスト', primary: '#5b3a8c', primaryDark: '#472d6d', primaryText: '#a066f6' },
-  { key: 'petrol', name: 'カヴァンサイトブルー', primary: '#1f6f78', primaryDark: '#18575e', primaryText: '#29939e' },
-  { key: 'mono', name: 'セレナイトグレー', primary: '#4a4e55', primaryDark: '#3a3d42', primaryText: '#7f8692' }
+  { key: 'steel', name: 'ブリリアントブルー', primary: '#3870b0', primaryDark: '#2c5789', primaryText: '#2b76cb' },
+  { key: 'graphite', name: 'グラファイトグレー', primary: '#55606b', primaryDark: '#424b53', primaryText: '#687787' },
+  { key: 'wine', name: 'ヒヤシンスレッド', primary: '#8c2f39', primaryDark: '#6d252c', primaryText: '#e32439' },
+  { key: 'green', name: 'エメラルドグリーン', primary: '#1f6f4a', primaryDark: '#18573a', primaryText: '#258559' },
+  { key: 'amber', name: 'カラハリゴールド', primary: '#a06a1f', primaryDark: '#7d5318', primaryText: '#9f6a1f' },
+  { key: 'purple', name: 'アメジスト', primary: '#5b3a8c', primaryDark: '#472d6d', primaryText: '#904df5' },
+  { key: 'petrol', name: 'カヴァンサイトブルー', primary: '#1f6f78', primaryDark: '#18575e', primaryText: '#24818a' },
+  { key: 'mono', name: 'セレナイトグレー', primary: '#4a4e55', primaryDark: '#3a3d42', primaryText: '#6f7682' }
 ];
 
 var DEFAULT_THEME_KEY = 'steel';

@@ -1,43 +1,56 @@
 <style>
-  /* ===== カラーパレット：ラグジュアリーブラック =====
-     黒・ダークグレーを基調に、メタリックシルバー（--outline / --on-surface-variant）と
-     スチールブルーのアクセント（--primary）を組み合わせた、高級輸入車ディーラーサイト風の
-     重厚な配色。--primary / --on-surface はテーマ設定（設定タブ）でユーザーが上書きできる
-     ため、実際の値はJS（applyTheme / applyTextColor、JavaScript.html参照）が
+  /* ===== カラーパレット：ウォームアイボリー =====
+     少し黄みがかった白（アイボリー）を基調に、スチールブルーのアクセント
+     （--primary）を組み合わせた、明るく上質な配色（旧「ラグジュアリーブラック」
+     から変更）。--primary / --on-surface はテーマ設定（設定タブ）でユーザーが
+     上書きできるため、実際の値はJS（applyTheme、JavaScript.html参照）が
      document.documentElement.style.setProperty で書き換える。ここでの値は
-     未設定時の初期表示・DEFAULT_THEME_COLOR / DEFAULT_TEXT_COLOR（Constants.gs）と
-     揃えてある。 */
+     未設定時の初期表示・THEME_PRESETSのDEFAULT_THEME_KEY（Constants.gs）と
+     揃えてある。
+     --success / --warning / --danger、8種のテーマプリセットの primaryText
+     （Constants.gs）は、白背景に対してWCAG AA（コントラスト比4.5:1以上）を
+     確保できる明度まで暗く調整し直している（旧配色は暗い背景向けに明るく
+     調整されていたため、そのままでは白背景で読みにくくなるため）。各色の
+     背景ウォッシュ（--success-bg 等）は元の明るい色調のまま、文字色
+     （--success 等）だけを暗くすることで、淡い背景色＋読みやすい濃い文字の
+     組み合わせにしている。 */
   :root {
     /* --primary はボタン塗り・境界線・アクセント用（白文字とのコントラスト比
-       ≒5.1:1を確保できる明度に調整済み）。リンクやアイコンなど、暗い背景の
-       上に「文字として」使う場合は、より明るい --primary-text
-       （背景とのコントラスト比≒4.9:1）を使うこと（WCAG AA対応。
+       ≒5.1:1を確保できる明度に調整済み、変更なし）。リンクやアイコンなど、
+       背景の上に「文字として」使う場合は --primary-text
+       （白背景とのコントラスト比≒4.6:1以上）を使うこと（WCAG AA対応。
        purpose別に分けている理由はJavaScript.htmlのapplyTheme参照）。 */
     --primary: #3870b0;
     --primary-dark: #2c5789;
-    --primary-text: #468cdc;
+    --primary-text: #2b76cb;
     --on-primary: #ffffff;
-    --surface: #1b1c20;
-    --background: #0c0c0e;
-    --on-surface: #f2f1ed;
-    --on-surface-variant: #9a9ca3;
-    --outline: rgba(255, 255, 255, .14);
-    --success: #3ddc84;
+    --surface: #ffffff;
+    --background: #f5f1e6;
+    --on-surface: #262319;
+    --on-surface-variant: #72757e;
+    --outline: rgba(30, 26, 15, .14);
+    --success: #188649;
     --success-bg: rgba(61, 220, 132, .16);
-    --warning: #f2a93c;
+    --warning: #a5670b;
     --warning-bg: rgba(242, 169, 60, .16);
-    --danger: #ff6b6b;
+    --danger: #ec0000;
     --danger-bg: rgba(255, 107, 107, .16);
     --primary-bg: rgba(56, 112, 176, .18);
-    --shadow: 0 1px 2px rgba(0, 0, 0, .55);
-    --shadow-elevated: 0 16px 40px rgba(0, 0, 0, .55);
+    --shadow: 0 1px 2px rgba(20, 16, 8, .10);
+    --shadow-elevated: 0 16px 40px rgba(20, 16, 8, .16);
     /* 公式サイトはカードの角丸をあまり強調しないフラットな見た目のため、
        従来の14pxより控えめな角丸にして「エンジニアリングされた精密さ」を出す。 */
     --radius: 8px;
-    /* トップバー・比較バーは、テーマ設定のテーマカラー／文字色に関わらず
-       常に黒基調で統一する（ブランドカラーを載せる帯ではなく、アプリの「額縁」として
-       固定の黒にすることで、どのテーマカラーを選んでも重厚な黒基調の外観が崩れない）。 */
+    /* トップバー・比較バー・トーストは、テーマ設定のテーマカラー／文字色や
+       ベース背景色（--background/--surface）に関わらず、常に黒基調で統一する
+       （ブランドカラーやページのベース色を載せる帯ではなく、アプリの「額縁」として
+       固定の黒にすることで、どのテーマカラー・ベース配色を選んでも重厚な黒基調の
+       外観が崩れない）。この黒基調のUI自体の文字色・枠線色は、ベース配色が
+       白系になっても白文字のまま保てるよう、--on-surface / --outline とは別に
+       --on-topbar / --dark-ui-outline を用意している。 */
     --topbar-bg: #000000;
+    --on-topbar: #f2f1ed;
+    --dark-ui-outline: rgba(255, 255, 255, .14);
     /* トップバーの実高さ。JS（syncFixedBars_）が実測して上書きする。初期値は
        JS実行前のレイアウトずれを防ぐための目安値。 */
     --topbar-h: 108px;
@@ -78,10 +91,10 @@
   #app { padding-top: var(--topbar-h); }
   .topbar {
     background: var(--topbar-bg);
-    color: var(--on-surface);
+    color: var(--on-topbar);
     display: flex;
     flex-direction: column;
-    border-bottom: 1px solid var(--outline);
+    border-bottom: 1px solid var(--dark-ui-outline);
     box-shadow: var(--shadow);
     position: fixed;
     top: 0;
@@ -115,8 +128,8 @@
   .topbar__navBtn {
     display: flex; align-items: center; justify-content: center;
     width: 36px; height: 36px; padding: 0; flex: none;
-    background: transparent; border: 1px solid var(--outline); border-radius: 50%;
-    color: var(--on-surface); cursor: pointer;
+    background: transparent; border: 1px solid var(--dark-ui-outline); border-radius: 50%;
+    color: var(--on-topbar); cursor: pointer;
   }
   .topbar__navBtn:hover { background: rgba(255, 255, 255, .08); }
   .topbar__navBtn:disabled { opacity: .3; cursor: default; }
@@ -151,7 +164,7 @@
     background: transparent;
     border: none;
     border-bottom: 2px solid transparent;
-    color: var(--on-surface);
+    color: var(--on-topbar);
     opacity: .6;
     padding: 6px 1px;
     font-size: 12.5px;
@@ -285,7 +298,7 @@
     border: none; background: transparent; font-size: 20px; line-height: 1;
     width: 44px; height: 44px; border-radius: 50%; cursor: pointer; color: var(--on-surface-variant);
   }
-  .btn--icon:hover { background: rgba(255, 255, 255, .08); }
+  .btn--icon:hover { background: rgba(20, 16, 8, .06); }
 
   /* ===== フォーカスリング（キーボード操作時の視認性確保） =====
      マウス操作時には表示されず、キーボードでのTab移動時のみ表示される
@@ -356,11 +369,11 @@
     display: flex;
     align-items: center;
     gap: 14px;
-    /* テーマ設定の文字色（--on-surface）に関わらず、常に黒基調の浮遊バーにする
-       （--on-surfaceを背景に使うと、ラグジュアリーブラック配色では文字色が
-       明るい色になるため、白文字と衝突して見えなくなってしまうため）。 */
+    /* テーマ設定の文字色やベース背景色（--on-surface/--background/--surface）に
+       関わらず、常に黒基調の浮遊バーにする（枠線も--outlineではなく、黒背景
+       でも見える--dark-ui-outlineを使う）。 */
     background: #1a1a1d;
-    border: 1px solid var(--outline);
+    border: 1px solid var(--dark-ui-outline);
     color: #fff;
     padding: 10px 16px;
     border-radius: 999px;
@@ -420,7 +433,7 @@
        在庫あり／Hold中のどちらの行でも同じ列位置に揃う。状態列も「Hold中（2nd有）」
        バッジが収まる幅（150px）を確保し、隣の操作列と重ならないようにする
        （以前は108pxで文字がはみ出し、受注確定ボタンと重なって見えていた）。 */
-    grid-template-columns: 30px 1.5fr 68px 46px 1.2fr 1.1fr 96px 84px 88px 150px 210px;
+    grid-template-columns: 1.5fr 68px 46px 1.2fr 1.1fr 96px 84px 88px 150px 210px;
     /* center ではなく start にする。center だと「Hold中（2nd有）」で解除リンクが
        2本に増えて状態列が縦に伸びた分だけ、1本しか無い操作ボタン（受注確定）が
        行の中央へ引っ張られて下にずれ、状態バッジの高さと揃わなくなっていたため
@@ -451,19 +464,38 @@
      （openInventoryDetailModal_、JavaScript.html参照）。チェックボックス・操作ボタン
      自体は個別にクリックできるよう、cursor はタップ可能であることを示すのみに留める。 */
   .rowCard { cursor: pointer; }
-  .rowCard__pin { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-  .rowCard__pinCheckbox { display: flex; justify-content: center; }
-  /* 色つきの状態ドット: スクロール不要な左端（ピン列）に常時表示し、横スクロールしなくても
-     色でHold状況（在庫あり＝緑／Hold中＝黄／Hold中（2nd有）＝赤）が分かるようにする。 */
-  .rowCard__statusDot { display: block; width: 10px; height: 10px; border-radius: 50%; background: var(--success); }
-  .rowCard--hold .rowCard__statusDot { background: var(--warning); }
-  .rowCard--hold2 .rowCard__statusDot { background: var(--danger); }
+  /* 比較チェックボックスは、以前は左端の専用列（ピン列）に置いていたが、
+     モデル名とコミッションの間に移動した（現場からの指摘で判明）。
+     .card__comparePin（カード表示側）と同じ「チェックボックス＋『比較』文字」の
+     見た目だが、margin-left: auto は付けず、モデル名の下にそのまま左揃えで置く。 */
+  .rowCard__comparePin {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--on-surface-variant);
+    cursor: pointer;
+  }
   .rowCard__field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-  .rowCard__label { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--on-surface-variant); }
+  /* MP・VPC等の英数字（Latin書体）とステア・カラー等の日本語（CJK書体）を
+     同じ.rowCard__valueで混在表示すると、フォントのフォールバック先が異なり
+     行の高さ（line-height）がブラウザの自動計算でわずかに変わってしまい、
+     値の上下位置が項目によって数px揃わなくなっていた（現場からの指摘で判明）。
+     line-heightを明示的に固定することで、どちらの書体でも同じ高さになる。 */
+  .rowCard__label { font-size: 9.5px; line-height: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--on-surface-variant); }
   .rowCard__value {
-    font-size: 13.5px; font-weight: 600; color: var(--on-surface);
+    font-size: 13.5px; line-height: 17px; font-weight: 600; color: var(--on-surface);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     font-variant-numeric: tabular-nums;
+  }
+  /* 在庫リストの車両情報（MP・ステア・カラー・有償OP・入港予定日・可能月・VPC）は
+     モデル名・コミッションの列（左端の識別列）や状態・操作ボタンの列（右端）とは
+     区別して、カード中央の列としてラベル・値ともに中央揃えにする（現場からの
+     指摘で判明）。 */
+  .rowCard__field--center .rowCard__label,
+  .rowCard__field--center .rowCard__value {
+    text-align: center;
   }
   .rowCard__model { font-size: 15px; font-weight: 700; letter-spacing: -.005em; }
   .rowCard__commission { font-size: 11px; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; margin-top: 1px; }
@@ -555,7 +587,7 @@
   .badge--hold { background: var(--warning-bg); color: var(--warning); }
   .badge--hold2 { background: var(--danger-bg); color: var(--danger); }
   .badge--disclosed { background: var(--success-bg); color: var(--success); font-weight: 500; }
-  .badge--undisclosed { background: rgba(255, 255, 255, .08); color: var(--on-surface-variant); font-weight: 500; }
+  .badge--undisclosed { background: rgba(20, 16, 8, .06); color: var(--on-surface-variant); font-weight: 500; }
   .badge--thisMonth { background: var(--primary-bg); color: var(--primary-text); font-weight: 500; }
   .badge--location { background: var(--primary-bg); color: var(--primary-text); font-weight: 500; }
   .card__badges { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -882,7 +914,7 @@
     font-size: 12px;
   }
   .themePreset:hover { border-color: var(--swatch); }
-  .themePreset.is-selected { border-color: var(--swatch); background: rgba(255, 255, 255, .04); color: var(--on-surface); }
+  .themePreset.is-selected { border-color: var(--swatch); background: rgba(20, 16, 8, .04); color: var(--on-surface); }
   .themePreset__swatch {
     width: 32px;
     height: 32px;
@@ -1043,7 +1075,7 @@
     font-weight: 600;
     transition: background-color .15s ease, border-color .15s ease;
   }
-  .homeGradeTab:hover { background: rgba(255, 255, 255, .06); border-color: var(--primary); }
+  .homeGradeTab:hover { background: rgba(20, 16, 8, .05); border-color: var(--primary); }
   .homeGradeTab__count { color: var(--on-surface-variant); font-weight: 500; font-variant-numeric: tabular-nums; }
   /* 在庫0台のグレードは、Hold中も無くまとまった在庫の当てがないことがひと目で
      わかるよう、件数を赤文字にする。 */
@@ -1150,7 +1182,7 @@
   /* ===== トースト ===== */
   .toast {
     position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
-    background: #2a2a2e; border: 1px solid var(--outline); color: #fff; padding: 12px 20px; border-radius: 8px;
+    background: #2a2a2e; border: 1px solid var(--dark-ui-outline); color: #fff; padding: 12px 20px; border-radius: 8px;
     font-size: 14px; box-shadow: var(--shadow-elevated); z-index: 200;
   }
   .toast--error { background: var(--danger); }
@@ -1198,7 +1230,7 @@
       border-radius: 0;
     }
     .homeRow:first-child { border-top: 1px solid var(--outline); }
-    .homeRow:hover { background: rgba(255, 255, 255, .04); box-shadow: none; transform: none; }
+    .homeRow:hover { background: rgba(20, 16, 8, .04); box-shadow: none; transform: none; }
     /* PC専用の「クローズアップ」展開表示（.homeRow.is-expanded、上部参照）を
        打ち消し、タブレット・スマホ幅では従来の横一列リストのままにする。 */
     .homeRow.is-expanded {

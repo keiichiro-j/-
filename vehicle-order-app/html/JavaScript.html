@@ -592,7 +592,7 @@
   // ホバーで浮き上がる）を保ったまま、1台=横1行に並べる。
   // Hold詳細（顧客・タイマー等）はカード表示に譲り、こちらはスペック比較の速さを優先する。
   function rowField_(label, value) {
-    return '<div class="rowCard__field"><span class="rowCard__label">' + label + '</span>' +
+    return '<div class="rowCard__field rowCard__field--center"><span class="rowCard__label">' + label + '</span>' +
       '<span class="rowCard__value">' + escapeHtml(value || '-') + '</span></div>';
   }
 
@@ -623,21 +623,18 @@
     }
 
     // 表示形式「表」は横スクロールで多くの項目を並べるため、車両情報（有償OP等）や
-    // 右側のHold状態は画面幅によってはスクロールしないと見えない。色つきの状態ドット
-    // （左端のピン列。常にスクロール不要で見える）で状態だけは常時確認できるように
-    // しつつ、行（カード）自体をタップすると、既存のカード表示と同じ見た目で車両情報
-    // すべてを画面中央のモーダルに表示する（openInventoryDetailModal_）。横スクロール
-    // 自体は既存のまま維持する。
-    var statusToneLabel = hasSecondHold ? 'Hold中（2nd有）' : (isHold ? 'Hold中' : '在庫あり');
-    var statusDot = '<span class="rowCard__statusDot" title="' + escapeHtml(statusToneLabel) + '" aria-hidden="true"></span>';
+    // 右側のHold状態は画面幅によってはスクロールしないと見えない。行（カード）自体を
+    // タップすると、既存のカード表示と同じ見た目で車両情報すべてを画面中央のモーダルに
+    // 表示する（openInventoryDetailModal_）。横スクロール自体は既存のまま維持する。
+    // 状態は在庫状況の色つき左罫線（.rowCard--available 等）と右側のバッジで
+    // 分かるため、以前あった左端の状態ドットは廃止した（現場からの指摘で判明）。
 
     return '<div class="rowCard ' + rowTone + '" data-commission="' + escapeHtml(v.commission) + '">' +
-      '<div class="rowCard__pin">' +
-      '<label class="rowCard__pinCheckbox"><input type="checkbox" data-compare="' + escapeHtml(v.commission) + '"' + (isComparing ? ' checked' : '') + '></label>' +
-      statusDot +
+      '<div class="rowCard__field">' +
+      '<span class="rowCard__model">' + escapeHtml(v.model) + '</span>' +
+      '<label class="rowCard__comparePin"><input type="checkbox" data-compare="' + escapeHtml(v.commission) + '"' + (isComparing ? ' checked' : '') + '>比較</label>' +
+      '<span class="rowCard__commission">' + escapeHtml(v.commission) + '</span>' +
       '</div>' +
-      '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(v.model) + '</span>' +
-      '<span class="rowCard__commission">' + escapeHtml(v.commission) + '</span></div>' +
       rowField_('MP', v.mp) +
       rowField_('ステア', v.steering) +
       rowField_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
@@ -1368,14 +1365,14 @@
    * 文字用途で背景とのコントラスト比4.6:1以上）を確認済み。
    */
   var THEME_PRESETS = [
-    { key: 'steel', name: 'ブリリアントブルー', primary: '#3870b0', primaryDark: '#2c5789', primaryText: '#4489d7' },
-    { key: 'graphite', name: 'グラファイトグレー', primary: '#55606b', primaryDark: '#424b53', primaryText: '#798898' },
-    { key: 'wine', name: 'ヒヤシンスレッド', primary: '#8c2f39', primaryDark: '#6d252c', primaryText: '#e84e5f' },
-    { key: 'green', name: 'エメラルドグリーン', primary: '#1f6f4a', primaryDark: '#18573a', primaryText: '#2a9765' },
-    { key: 'amber', name: 'カラハリゴールド', primary: '#a06a1f', primaryDark: '#7d5318', primaryText: '#b67923' },
-    { key: 'purple', name: 'アメジスト', primary: '#5b3a8c', primaryDark: '#472d6d', primaryText: '#a066f6' },
-    { key: 'petrol', name: 'カヴァンサイトブルー', primary: '#1f6f78', primaryDark: '#18575e', primaryText: '#29939e' },
-    { key: 'mono', name: 'セレナイトグレー', primary: '#4a4e55', primaryDark: '#3a3d42', primaryText: '#7f8692' }
+    { key: 'steel', name: 'ブリリアントブルー', primary: '#3870b0', primaryDark: '#2c5789', primaryText: '#2b76cb' },
+    { key: 'graphite', name: 'グラファイトグレー', primary: '#55606b', primaryDark: '#424b53', primaryText: '#687787' },
+    { key: 'wine', name: 'ヒヤシンスレッド', primary: '#8c2f39', primaryDark: '#6d252c', primaryText: '#e32439' },
+    { key: 'green', name: 'エメラルドグリーン', primary: '#1f6f4a', primaryDark: '#18573a', primaryText: '#258559' },
+    { key: 'amber', name: 'カラハリゴールド', primary: '#a06a1f', primaryDark: '#7d5318', primaryText: '#9f6a1f' },
+    { key: 'purple', name: 'アメジスト', primary: '#5b3a8c', primaryDark: '#472d6d', primaryText: '#904df5' },
+    { key: 'petrol', name: 'カヴァンサイトブルー', primary: '#1f6f78', primaryDark: '#18575e', primaryText: '#24818a' },
+    { key: 'mono', name: 'セレナイトグレー', primary: '#4a4e55', primaryDark: '#3a3d42', primaryText: '#6f7682' }
   ];
   var DEFAULT_THEME_KEY = 'steel';
 
