@@ -9,10 +9,11 @@
 function api_getBootstrapData() {
   var email = Session.getActiveUser().getEmail();
   var isAdmin = isSystemAdmin_(email);
-  var settings = getSettings();
   // 担当者名・拠点の自動判定は管理者かどうかに関わらず全員に必要なため、
   // 必ず（画面には出さない）実データのstaffListを使って判定してから
-  // クライアントへ返す設定値をリダクトする。
+  // クライアントへ返す設定値をリダクトする（getSettings()は既にリダクト済みの
+  // ものを返すため、ここではgetRawSettings_()で未リダクトの生データを使う）。
+  var settings = getRawSettings_();
   var staffMatch = findStaffByEmail_(settings.staffList, email);
   return {
     yesNoOptions: YES_NO_OPTIONS,
@@ -84,22 +85,13 @@ function api_listOrders(filters, groupBy) {
 }
 
 // ===== 設定機能（3.6） =====
+// 管理者判定・リダクト・システムマスタ項目のガードは、いずれも
+// SettingsService.gsのgetSettings()/saveSettings()自体の中で完結しているため、
+// ここではそのまま呼び出すだけでよい（詳細はSettingsService.gs参照）。
 function api_getSettings() {
-  var email = Session.getActiveUser().getEmail();
-  return redactSystemMasterSettings_(getSettings(), isSystemAdmin_(email));
+  return getSettings();
 }
 
-/**
- * システムマスタ（メール通知設定・担当者）は、コード上のSYSTEM_ADMIN_EMAILS
- * （Constants.gs）に登録されたメールアドレスの利用者のみ変更できる。
- * 管理者以外からの保存リクエストに含まれるこれらの項目は、既存の保存値を
- * そのまま維持し（applySystemMasterGuard_）、無視する。
- */
 function api_saveSettings(settings) {
-  var email = Session.getActiveUser().getEmail();
-  var isAdmin = isSystemAdmin_(email);
-  var current = getSettings();
-  var guarded = applySystemMasterGuard_(settings, current, isAdmin);
-  var saved = saveSettings(guarded);
-  return redactSystemMasterSettings_(saved, isAdmin);
+  return saveSettings(settings);
 }

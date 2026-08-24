@@ -267,15 +267,23 @@ Hold期限チェック（`processExpiredHolds`）は5分おきの時間主導ト
 `Constants.gs` の `SYSTEM_ADMIN_EMAILS`（配列）に登録されたGoogleアカウントの
 メールアドレスでログインしている場合のみ表示・変更でき、担当者マスタのように
 スプレッドシートや画面から追加できる項目ではありません（コードを直接編集する
-必要があります）。
+必要があります）。**管理者は複数人登録できます**（例:
+`['admin1@example.com', 'admin2@example.com']`。`isSystemAdmin_` が配列内の
+いずれかと完全一致するかで判定するため、人数の制限はありません）。
 
-- **UIの非表示だけでなく、サーバー側でもデータを保護**しています。管理者以外が
-  `api_getBootstrapData` / `api_getSettings` を呼び出した場合、メール通知先・
-  担当者一覧はサーバー側で空にリダクトされた状態で返されます
-  （`redactSystemMasterSettings_`）。また `api_saveSettings` も、管理者以外からの
-  保存リクエストに含まれるこれらの項目（ロゴ・モデル写真・通知先・担当者）は無視し、
-  既存の保存値をそのまま維持します（`applySystemMasterGuard_`）。管理者以外は
-  テーマの変更のみ行えます。
+- **UIの非表示だけでなく、サーバー側でもデータを保護**しています。管理者判定
+  （`isSystemAdmin_`）とそれに基づくリダクト（`redactSystemMasterSettings_`）・
+  保存時のガード（`applySystemMasterGuard_`）は、`Api.gs`の`api_getSettings`/
+  `api_saveSettings`だけでなく、呼び出される側の`SettingsService.gs`の
+  `getSettings()`/`saveSettings()`自体の中で完結させています。Apps Scriptは
+  トップレベル関数である以上、名前の末尾に`_`を付けてもクライアントの
+  `google.script.run`から直接呼び出せてしまう（命名規則であって実行時の制限では
+  ない）ため、権限チェックを`Api.gs`側だけに置くと、`google.script.run.getSettings()`
+  のように生の関数を直接呼ばれた場合にリダクト・ガードが素通りしてしまいます。
+  そのため関数自体に権限チェックを持たせ、どちらから呼ばれても安全にしています。
+  管理者以外はテーマの変更のみ行えます。
+  （未リダクトの生データが必要な内部処理――`api_getBootstrapData`の担当者メール
+  突き合わせなど――は、専用の`getRawSettings_()`を使います。）
 - **ロゴ・モデル写真は例外的に「値」自体は全利用者に届きます**。編集はシステムマスタに
   集約し管理者限定にしていますが、ロゴはトップバー、モデル写真はホーム画面のギャラリーとして
   全利用者の画面に表示する必要があるデータのため、`redactSystemMasterSettings_` では
@@ -283,6 +291,11 @@ Hold期限チェック（`processExpiredHolds`）は5分おきの時間主導ト
   変更を試みても、`applySystemMasterGuard_` が既存の保存値へ差し戻すため、表示専用の
   データとして安全に配れます。
 - 管理者判定は `isSystemAdmin_(email)`（大文字小文字を区別しない完全一致）で行います。
+- **`doGet`（`Code.gs`）のiframe埋め込み設定はDEFAULT（同一オリジンのみ許可）のまま
+  にしています**。ALLOWALLにすると他サイトのiframeにこのWebアプリを埋め込めてしまい、
+  ログイン中の担当者に対するクリックジャッキング（Hold登録・解除・受注確定ボタンを
+  透明なiframe越しに誤クリックさせる攻撃）の踏み台になり得るため、埋め込みが必要な
+  理由がない限り変更しないでください。
 
 ## 担当者マスタ
 

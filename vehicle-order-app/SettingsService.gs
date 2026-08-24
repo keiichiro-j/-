@@ -9,7 +9,16 @@
  * 必要がなくなる（Api.gs, HoldService.gs, OrderService.gs参照）。
  */
 
-function getSettings() {
+/**
+ * 設定値をScript Propertiesから読み出す（内部用・未リダクト）。Apps Scriptは
+ * トップレベル関数である以上、名前の末尾に`_`を付けても google.script.run から
+ * クライアントが直接呼び出せてしまう（命名規則であって実行時の制限ではない）。
+ * そのため、この関数自体は権限チェックを行わない「生データ取得」に留め、
+ * クライアントに公開してよい形（管理者判定・リダクト込み）は下のgetSettings()が
+ * 別途担う。api_getBootstrapData（Api.gs）など、担当者メール突き合わせのために
+ * 非リダクトの全データが必要なサーバー内部処理はこちらを使う。
+ */
+function getRawSettings_() {
   var props = PropertiesService.getScriptProperties();
   return {
     themeKey: normalizeThemeKey_(props.getProperty(PROP_KEYS.THEME_KEY)),
@@ -22,7 +31,22 @@ function getSettings() {
   };
 }
 
-function saveSettings(settings) {
+/**
+ * クライアントから google.script.run.getSettings() のように直接呼び出されても
+ * 安全なように、この関数自体の中で管理者判定・リダクトまで完結させる
+ * （Api.gsのapi_getSettingsだけに権限チェックを任せない。理由は上のgetRawSettings_
+ * のコメント参照）。
+ */
+function getSettings() {
+  var email = Session.getActiveUser().getEmail();
+  return redactSystemMasterSettings_(getRawSettings_(), isSystemAdmin_(email));
+}
+
+/**
+ * 設定値をScript Propertiesへ書き込む（内部用・権限チェックなし）。呼び出し側で
+ * 権限チェック・システムマスタ項目のガードを済ませたデータを渡すこと。
+ */
+function saveRawSettings_(settings) {
   var logoUrl = validateLogoUrl_(settings && settings.logoUrl);
   var props = PropertiesService.getScriptProperties();
   props.setProperty(PROP_KEYS.THEME_KEY, normalizeThemeKey_(settings && settings.themeKey));
@@ -32,7 +56,21 @@ function saveSettings(settings) {
   props.setProperty(PROP_KEYS.NOTIFY_ERROR_MAIL_TO, settings.notifyErrorMailTo || '');
   props.setProperty(PROP_KEYS.STAFF_LIST, JSON.stringify(normalizeStaffList_(settings.staffList)));
   props.setProperty(PROP_KEYS.MODEL_PHOTOS, JSON.stringify(normalizeModelPhotos_(settings.modelPhotos)));
-  return getSettings();
+  return getRawSettings_();
+}
+
+/**
+ * クライアントから google.script.run.saveSettings(...) のように直接呼び出されても
+ * 安全なように、この関数自体の中で管理者判定・システムマスタ項目のガードまで
+ * 完結させる（Api.gsのapi_saveSettingsだけに権限チェックを任せない。理由は
+ * getRawSettings_のコメント参照）。
+ */
+function saveSettings(settings) {
+  var email = Session.getActiveUser().getEmail();
+  var isAdmin = isSystemAdmin_(email);
+  var guarded = applySystemMasterGuard_(settings, getRawSettings_(), isAdmin);
+  saveRawSettings_(guarded);
+  return redactSystemMasterSettings_(getRawSettings_(), isAdmin);
 }
 
 /**

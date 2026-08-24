@@ -8,7 +8,9 @@ function doGet(e) {
     .evaluate()
     .setTitle('販売可能リスト')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    // 他サイトのiframeにこのアプリを埋め込まれてクリックジャッキングの
+    // 踏み台にされないよう、既定のDEFAULT（同一オリジンのみiframe許可）のままにする。
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.DEFAULT);
 }
 
 /**

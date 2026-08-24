@@ -209,7 +209,8 @@ var DEFAULT_THEME_KEY = 'steel';
 // 設定タブの「システムマスタ」（メール通知設定・担当者）にアクセスできる
 // Googleアカウントのメールアドレス一覧（大文字小文字は区別しない）。
 // 担当者マスタのようにスプレッドシート/画面から編集できる項目ではなく、
-// 意図的にコードにのみ記述する（Api.gs参照）。
+// 意図的にコードにのみ記述する（Api.gs参照）。管理者は複数人登録できる。
+// 例: ['admin1@example.com', 'admin2@example.com']
 // TODO: 実際のシステム管理者のメールアドレスに差し替えてください。
 var SYSTEM_ADMIN_EMAILS = ['jimny.girl.2000@gmail.com'];
 
