@@ -21,7 +21,11 @@
 function getRawSettings_() {
   var props = PropertiesService.getScriptProperties();
   return {
-    themeKey: normalizeThemeKey_(props.getProperty(PROP_KEYS.THEME_KEY)),
+    // テーマのみ、ログイン中のGoogleアカウントごとに独立させるため
+    // getUserProperties()（アカウント単位）から読む。それ以外は全利用者共通の
+    // システムマスタのため、従来どおりgetScriptProperties()（スクリプト単位）
+    // から読む（getCurrentUserThemeKey_参照）。
+    themeKey: getCurrentUserThemeKey_(),
     logoUrl: props.getProperty(PROP_KEYS.LOGO_URL) || '',
     notifyHoldMailTo: getMailList_(PROP_KEYS.NOTIFY_HOLD_MAIL_TO),
     notifyOrderMailTo: getMailList_(PROP_KEYS.NOTIFY_ORDER_MAIL_TO),
@@ -72,7 +76,10 @@ function getSettings() {
 function saveRawSettings_(settings) {
   var logoUrl = validateLogoUrl_(settings && settings.logoUrl);
   var props = PropertiesService.getScriptProperties();
-  props.setProperty(PROP_KEYS.THEME_KEY, normalizeThemeKey_(settings && settings.themeKey));
+  // テーマのみ、ログイン中のGoogleアカウントごとに独立して保存する
+  // （setCurrentUserThemeKey_参照）。それ以外は全利用者共通のシステムマスタの
+  // ため、従来どおりScript Propertiesに保存する。
+  setCurrentUserThemeKey_(settings && settings.themeKey);
   props.setProperty(PROP_KEYS.LOGO_URL, logoUrl);
   props.setProperty(PROP_KEYS.NOTIFY_HOLD_MAIL_TO, JSON.stringify(normalizeMailList_(settings.notifyHoldMailTo)));
   props.setProperty(PROP_KEYS.NOTIFY_ORDER_MAIL_TO, JSON.stringify(normalizeMailList_(settings.notifyOrderMailTo)));
@@ -104,6 +111,28 @@ function saveSettings(settings) {
 function normalizeThemeKey_(key) {
   var found = THEME_PRESETS.some(function (p) { return p.key === key; });
   return found ? key : DEFAULT_THEME_KEY;
+}
+
+/**
+ * ログイン中のGoogleアカウントに対応するテーマ設定を読み書きする。
+ * PropertiesService.getUserProperties() は「このスクリプト × ログイン中の
+ * Googleアカウント」単位で独立した保存領域のため、同じアプリを開いていても
+ * 利用者ごとに異なるテーマを保存・復元できる（ロゴ・メール通知先・担当者マスタ・
+ * モデル写真のような全利用者共通のシステムマスタとは異なり、Script Propertiesは
+ * 使わない）。
+ *
+ * 動作条件: getCurrentStaffName_ 等と同様、Webアプリのデプロイ設定が
+ * 「実行するユーザー: アプリにアクセスするユーザー」になっている必要がある。
+ * 「自分」のまま・「全員（匿名可）」のままだと、全利用者が同じUser Properties
+ * （デプロイしたアカウントのもの）を共有してしまい、実質的に従来と同じ
+ * 「全員共通のテーマ」に戻ってしまう点に注意。
+ */
+function getCurrentUserThemeKey_() {
+  return normalizeThemeKey_(PropertiesService.getUserProperties().getProperty(PROP_KEYS.THEME_KEY));
+}
+
+function setCurrentUserThemeKey_(themeKey) {
+  PropertiesService.getUserProperties().setProperty(PROP_KEYS.THEME_KEY, normalizeThemeKey_(themeKey));
 }
 
 /**

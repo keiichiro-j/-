@@ -202,7 +202,13 @@ function auditLogColIndex1(key) {
   return AUDIT_LOG_COL_INDEX[key] + 1;
 }
 
-// ===== Script Properties キー（設定機能） =====
+// ===== 設定機能のプロパティキー =====
+// THEME_KEYのみ、ログイン中のGoogleアカウントごとに独立して保存したいため
+// PropertiesService.getUserProperties()（アカウント単位）に、それ以外
+// （ロゴ・メール通知先・担当者マスタ・モデル写真）は全利用者共通の
+// システムマスタとしてPropertiesService.getScriptProperties()（スクリプト単位）
+// に保存する（SettingsService.gs参照）。保存先のストアが異なるだけで、
+// キー名（文字列）自体は同じ命名で問題ない。
 var PROP_KEYS = {
   THEME_KEY: 'THEME_KEY',
   LOGO_URL: 'LOGO_URL',
