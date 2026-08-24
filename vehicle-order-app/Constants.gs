@@ -197,7 +197,7 @@ var PROP_KEYS = {
  *                 向け配色では逆にprimaryより明るい色にしていた）。
  */
 var THEME_PRESETS = [
-  { key: 'steel', name: 'ブリリアントブルー', primary: '#3870b0', primaryDark: '#2c5789', primaryText: '#2b76cb' },
+  { key: 'steel', name: 'ブリリアントブルー', primary: '#2f6fae', primaryDark: '#102a43', primaryText: '#2f6fae' },
   { key: 'graphite', name: 'グラファイトグレー', primary: '#55606b', primaryDark: '#424b53', primaryText: '#687787' },
   { key: 'wine', name: 'ヒヤシンスレッド', primary: '#8c2f39', primaryDark: '#6d252c', primaryText: '#e32439' },
   { key: 'green', name: 'エメラルドグリーン', primary: '#1f6f4a', primaryDark: '#18573a', primaryText: '#258559' },

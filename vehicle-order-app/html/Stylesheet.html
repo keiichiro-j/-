@@ -1,12 +1,14 @@
 <style>
-  /* ===== カラーパレット：ウォームアイボリー =====
-     少し黄みがかった白（アイボリー）を基調に、スチールブルーのアクセント
-     （--primary）を組み合わせた、明るく上質な配色（旧「ラグジュアリーブラック」
-     から変更）。--primary / --on-surface はテーマ設定（設定タブ）でユーザーが
-     上書きできるため、実際の値はJS（applyTheme、JavaScript.html参照）が
-     document.documentElement.style.setProperty で書き換える。ここでの値は
-     未設定時の初期表示・THEME_PRESETSのDEFAULT_THEME_KEY（Constants.gs）と
-     揃えてある。
+  /* ===== カラーパレット：コーポレートネイビー =====
+     指定されたカラーパレット（メインネイビー#102A43／ダークネイビー#0B1F33／
+     ネイビーサブ#243B53／ブランドブルー#2F6FAE／ライトブルー#DCEAF7／ページ背景
+     #F4F7FA／カード#FFFFFF／ボーダー#D8E1E8／メイン文字#1F2933／サブ文字#6B7785）
+     に基づく配色（旧「ウォームアイボリー」から変更）。--primary / --on-surface は
+     テーマ設定（設定タブ）でユーザーが上書きできるため、実際の値はJS
+     （applyTheme、JavaScript.html参照）が document.documentElement.style.setProperty
+     で書き換える。ここでの値は未設定時の初期表示・THEME_PRESETSのDEFAULT_THEME_KEY
+     （Constants.gs、'steel'プリセットをこのパレットのブランドブルーに合わせている）
+     と揃えてある。
      --success / --warning / --danger、8種のテーマプリセットの primaryText
      （Constants.gs）は、白背景に対してWCAG AA（コントラスト比4.5:1以上）を
      確保できる明度まで暗く調整し直している（旧配色は暗い背景向けに明るく
@@ -16,40 +18,43 @@
      組み合わせにしている。 */
   :root {
     /* --primary はボタン塗り・境界線・アクセント用（白文字とのコントラスト比
-       ≒5.1:1を確保できる明度に調整済み、変更なし）。リンクやアイコンなど、
-       背景の上に「文字として」使う場合は --primary-text
-       （白背景とのコントラスト比≒4.6:1以上）を使うこと（WCAG AA対応。
-       purpose別に分けている理由はJavaScript.htmlのapplyTheme参照）。 */
-    --primary: #3870b0;
-    --primary-dark: #2c5789;
-    --primary-text: #2b76cb;
+       ≒5.2:1を確保できる明度に調整済み）。リンクやアイコンなど、背景の上に
+       「文字として」使う場合は --primary-text（白背景とのコントラスト比≒5.2:1）
+       を使うこと（purpose別に分けている理由はJavaScript.htmlのapplyTheme参照）。
+       --primary-dark（ホバー時等）はメインネイビー#102A43をそのまま使う。 */
+    --primary: #2f6fae;
+    --primary-dark: #102a43;
+    --primary-text: #2f6fae;
     --on-primary: #ffffff;
     --surface: #ffffff;
-    --background: #f5f1e6;
-    --on-surface: #262319;
-    --on-surface-variant: #72757e;
-    --outline: rgba(30, 26, 15, .14);
+    --background: #f4f7fa;
+    --on-surface: #1f2933;
+    --on-surface-variant: #6b7785;
+    --outline: #d8e1e8;
     --success: #188649;
     --success-bg: rgba(61, 220, 132, .16);
     --warning: #a5670b;
     --warning-bg: rgba(242, 169, 60, .16);
     --danger: #ec0000;
     --danger-bg: rgba(255, 107, 107, .16);
-    --primary-bg: rgba(56, 112, 176, .18);
-    --shadow: 0 1px 2px rgba(20, 16, 8, .10);
-    --shadow-elevated: 0 16px 40px rgba(20, 16, 8, .16);
+    --primary-bg: #dceaf7;
+    --shadow: 0 1px 2px rgba(16, 31, 51, .10);
+    --shadow-elevated: 0 16px 40px rgba(16, 31, 51, .16);
     /* 公式サイトはカードの角丸をあまり強調しないフラットな見た目のため、
        従来の14pxより控えめな角丸にして「エンジニアリングされた精密さ」を出す。 */
     --radius: 8px;
     /* トップバー・比較バー・トーストは、テーマ設定のテーマカラー／文字色や
-       ベース背景色（--background/--surface）に関わらず、常に黒基調で統一する
-       （ブランドカラーやページのベース色を載せる帯ではなく、アプリの「額縁」として
-       固定の黒にすることで、どのテーマカラー・ベース配色を選んでも重厚な黒基調の
-       外観が崩れない）。この黒基調のUI自体の文字色・枠線色は、ベース配色が
+       ベース背景色（--background/--surface）に関わらず、常にネイビー基調で
+       統一する（ブランドカラーやページのベース色を載せる帯ではなく、アプリの
+       「額縁」として固定のネイビーにすることで、どのテーマカラー・ベース配色を
+       選んでも重厚なネイビー基調の外観が崩れない）。ダークネイビー（最も暗い＝
+       ヘッダー）／メインネイビー（比較バー）／ネイビーサブ（トースト）の順で
+       少しずつ明るくし、旧配色（黒／#1a1a1d／#2a2a2e）と同じ奥行きの付け方を
+       踏襲している。このネイビー基調のUI自体の文字色・枠線色は、ベース配色が
        白系になっても白文字のまま保てるよう、--on-surface / --outline とは別に
        --on-topbar / --dark-ui-outline を用意している。 */
-    --topbar-bg: #000000;
-    --on-topbar: #f2f1ed;
+    --topbar-bg: #0b1f33;
+    --on-topbar: #ffffff;
     --dark-ui-outline: rgba(255, 255, 255, .14);
     /* トップバーの実高さ。JS（syncFixedBars_）が実測して上書きする。初期値は
        JS実行前のレイアウトずれを防ぐための目安値。 */
@@ -298,7 +303,7 @@
     border: none; background: transparent; font-size: 20px; line-height: 1;
     width: 44px; height: 44px; border-radius: 50%; cursor: pointer; color: var(--on-surface-variant);
   }
-  .btn--icon:hover { background: rgba(20, 16, 8, .06); }
+  .btn--icon:hover { background: rgba(31, 41, 51, .06); }
 
   /* ===== フォーカスリング（キーボード操作時の視認性確保） =====
      マウス操作時には表示されず、キーボードでのTab移動時のみ表示される
@@ -370,9 +375,9 @@
     align-items: center;
     gap: 14px;
     /* テーマ設定の文字色やベース背景色（--on-surface/--background/--surface）に
-       関わらず、常に黒基調の浮遊バーにする（枠線も--outlineではなく、黒背景
-       でも見える--dark-ui-outlineを使う）。 */
-    background: #1a1a1d;
+       関わらず、常にネイビー基調の浮遊バーにする（メインネイビー。枠線も
+       --outlineではなく、ネイビー背景でも見える--dark-ui-outlineを使う）。 */
+    background: #102a43;
     border: 1px solid var(--dark-ui-outline);
     color: #fff;
     padding: 10px 16px;
@@ -432,8 +437,15 @@
        ずれてしまっていたため（現場からの指摘で判明）。固定幅にすることで
        在庫あり／Hold中のどちらの行でも同じ列位置に揃う。状態列も「Hold中（2nd有）」
        バッジが収まる幅（150px）を確保し、隣の操作列と重ならないようにする
-       （以前は108pxで文字がはみ出し、受注確定ボタンと重なって見えていた）。 */
-    grid-template-columns: 1.5fr 68px 46px 1.2fr 1.1fr 96px 84px 88px 150px 210px;
+       （以前は108pxで文字がはみ出し、受注確定ボタンと重なって見えていた）。
+       モデル名・車両情報（MP〜VPC）・状態・操作ボタンをすべて固定幅にし、
+       モデル列と車両情報の間・車両情報と状態列の間にそれぞれ1frの空白列
+       （.rowCard__spacer、中身は空のプレースホルダー）を置くことで、余った
+       横幅が車両情報ブロックの左右に均等に配分され、車両情報がカードの
+       水平方向でより中央寄りに来るようにしている（現場からの指摘で判明。
+       以前はモデル列だけがflexで伸びて余白を独占し、車両情報が状態列側に
+       偏って見えていた）。 */
+    grid-template-columns: 210px 1fr 68px 46px 150px 170px 96px 84px 88px 1fr 150px 210px;
     /* center ではなく start にする。center だと「Hold中（2nd有）」で解除リンクが
        2本に増えて状態列が縦に伸びた分だけ、1本しか無い操作ボタン（受注確定）が
        行の中央へ引っ張られて下にずれ、状態バッジの高さと揃わなくなっていたため
@@ -587,7 +599,7 @@
   .badge--hold { background: var(--warning-bg); color: var(--warning); }
   .badge--hold2 { background: var(--danger-bg); color: var(--danger); }
   .badge--disclosed { background: var(--success-bg); color: var(--success); font-weight: 500; }
-  .badge--undisclosed { background: rgba(20, 16, 8, .06); color: var(--on-surface-variant); font-weight: 500; }
+  .badge--undisclosed { background: rgba(31, 41, 51, .06); color: var(--on-surface-variant); font-weight: 500; }
   .badge--thisMonth { background: var(--primary-bg); color: var(--primary-text); font-weight: 500; }
   .badge--location { background: var(--primary-bg); color: var(--primary-text); font-weight: 500; }
   .card__badges { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -914,7 +926,7 @@
     font-size: 12px;
   }
   .themePreset:hover { border-color: var(--swatch); }
-  .themePreset.is-selected { border-color: var(--swatch); background: rgba(20, 16, 8, .04); color: var(--on-surface); }
+  .themePreset.is-selected { border-color: var(--swatch); background: rgba(31, 41, 51, .04); color: var(--on-surface); }
   .themePreset__swatch {
     width: 32px;
     height: 32px;
@@ -1075,7 +1087,7 @@
     font-weight: 600;
     transition: background-color .15s ease, border-color .15s ease;
   }
-  .homeGradeTab:hover { background: rgba(20, 16, 8, .05); border-color: var(--primary); }
+  .homeGradeTab:hover { background: rgba(31, 41, 51, .05); border-color: var(--primary); }
   .homeGradeTab__count { color: var(--on-surface-variant); font-weight: 500; font-variant-numeric: tabular-nums; }
   /* 在庫0台のグレードは、Hold中も無くまとまった在庫の当てがないことがひと目で
      わかるよう、件数を赤文字にする。 */
@@ -1182,7 +1194,8 @@
   /* ===== トースト ===== */
   .toast {
     position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
-    background: #2a2a2e; border: 1px solid var(--dark-ui-outline); color: #fff; padding: 12px 20px; border-radius: 8px;
+    /* ネイビーサブ（比較バーのメインネイビーより少し明るく、奥行きを付ける）。 */
+    background: #243b53; border: 1px solid var(--dark-ui-outline); color: #fff; padding: 12px 20px; border-radius: 8px;
     font-size: 14px; box-shadow: var(--shadow-elevated); z-index: 200;
   }
   .toast--error { background: var(--danger); }
@@ -1230,7 +1243,7 @@
       border-radius: 0;
     }
     .homeRow:first-child { border-top: 1px solid var(--outline); }
-    .homeRow:hover { background: rgba(20, 16, 8, .04); box-shadow: none; transform: none; }
+    .homeRow:hover { background: rgba(31, 41, 51, .04); box-shadow: none; transform: none; }
     /* PC専用の「クローズアップ」展開表示（.homeRow.is-expanded、上部参照）を
        打ち消し、タブレット・スマホ幅では従来の横一列リストのままにする。 */
     .homeRow.is-expanded {
