@@ -108,7 +108,13 @@
           <button type="button" class="topbar__navBtn topbar__navBtn--refresh" id="btnRefresh" title="更新" aria-label="最新の情報に更新">
             <svg class="icon"><use href="#icon-refresh"></use></svg>
           </button>
+        </div>
+        <!-- アプリ名表記。左右のボタン・ユーザー情報の幅に関わらず画面中央に来るよう、
+             .topbar__brandRow(position: relative)を基準にposition: absoluteで
+             中央配置する（Stylesheet.html参照）。 -->
+        <div class="topbar__brand">
           <img id="topbarLogo" class="topbar__logo hidden" alt="ロゴ">
+          <span class="topbar__brandText">販売可能リスト</span>
         </div>
         <div class="topbar__user" id="topbarUser"></div>
       </div>

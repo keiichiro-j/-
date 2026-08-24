@@ -139,13 +139,15 @@
   @media (prefers-reduced-motion: reduce) { .appLoading__spinner { animation: none; } }
 
   /* ===== ブランド表記の行 =====
-     アプリ名（旧「販売可能リスト」の文字表記）は表示せず、左側は「戻る」「更新」
-     ボタン＋ロゴ（設定時のみ）、右側はログイン中のユーザー情報という、シンプルな
-     2ブロック構成にしている（以前はアプリ名を画面中央に厳密配置するため
-     grid-template-columns: 1fr auto 1frの3分割にしていたが、中央に置く文字要素
-     自体が無くなったため、単純にjustify-content: space-betweenで両端揃えにできる。
-     スマホ幅でのユーザー情報の表示可否も参照）。 */
+     左側は「戻る」「更新」ボタン、右側はログイン中のユーザー情報。アプリ名
+     「販売可能リスト」＋ロゴは、左右のブロックの幅に関わらず常に画面中央に
+     来るよう、.topbar__brandRow を position: relative にし、.topbar__brand を
+     position: absolute + left: 50% / transform: translate(-50%, -50%) で
+     中央配置している（左右を1fr auto 1frのグリッドで揃える方式だと、左右の
+     内容量が変わるたびに調整が必要になるため、中央配置専用の要素を絶対配置
+     する方式に変更した）。 */
   .topbar__brandRow {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -153,6 +155,27 @@
     padding: 14px 28px;
   }
   .topbar__left { display: flex; align-items: center; gap: 10px; }
+  .topbar__brand {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+  }
+  /* ロゴとテキストが干渉しないよう、テキストのサイズをロゴの高さに近い
+     スケールに揃える（PCビュー・タブレット/スマホビューそれぞれの
+     .topbar__logoの高さに合わせて、下のmin-width: 901pxブロック内でも
+     調整している）。 */
+  .topbar__brandText {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    color: var(--on-topbar);
+    white-space: nowrap;
+  }
   .topbar__navBtn {
     display: flex; align-items: center; justify-content: center;
     width: 36px; height: 36px; padding: 0; flex: none;
@@ -177,6 +200,7 @@
     .topbar__navBtn { width: 44px; height: 44px; }
     .topbar__navBtn .icon { width: 22px; height: 22px; }
     .topbar__logo { height: 34px; max-width: 160px; }
+    .topbar__brandText { font-size: 18px; }
     .topbar__user { font-size: 14px; }
     .topbar__userEmail { font-size: 12.5px; }
   }
@@ -295,7 +319,11 @@
     border: 1px solid var(--outline);
     border-radius: 8px;
     padding: 9px 12px;
-    font-size: 14px;
+    /* 16px未満だとiOS Safari等がフォーカス時に自動でページ全体を拡大表示して
+       しまう（入力欄だけでなく画面全体がズームされたように見える不具合の原因）。
+       Hold登録・受注確定モーダルに限らず、すべての.input（検索欄・設定画面の
+       各種入力欄を含む）が対象になるよう、基準値として16pxにしている。 */
+    font-size: 16px;
     background: var(--surface);
     color: var(--on-surface);
   }
@@ -1581,10 +1609,9 @@
     .integrityBanner { padding: 8px 12px; font-size: 12.5px; flex-wrap: wrap; }
     .integrityBanner__list { padding: 8px 12px 10px; }
     /* メールアドレスの長さ次第では折り返し等で崩れやすいため、ユーザー情報は
-       スマホ幅では非表示にする（「戻る」「更新」ボタン＋ロゴだけの左ブロックのみ
-       表示。以前はアプリ名を画面中央に厳密配置するためvisibility: hiddenで
-       場所だけ確保する必要があったが、単純な両端揃えレイアウトになったため
-       display: noneで問題ない）。 */
+       スマホ幅では非表示にする（中央のアプリ名表記はposition: absoluteで
+       独立して中央配置されているため、ユーザー情報の表示可否からは影響を
+       受けない）。 */
     .topbar__user { display: none; }
     .staffList__row { flex-wrap: wrap; }
     .staffList__row .input[data-staff-field="name"],
