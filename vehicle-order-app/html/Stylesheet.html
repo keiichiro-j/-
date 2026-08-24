@@ -428,9 +428,16 @@
      素のtableではなく、カードグリッドと同じ「カードタイプUI」（角丸・影・ホバーで
      浮き上がる）を保ったまま、1台=横1行のカードとして並べる。列位置はCSS Gridで
      全行そろえ、表形式ならではの一覧性はそのまま保つ。 */
-  .rowCardList { display: flex; flex-direction: column; gap: 10px; min-width: 1160px; }
+  .rowCardList { display: flex; flex-direction: column; gap: 10px; min-width: 1490px; }
   .rowCard {
     display: grid;
+    /* .rowCardは.rowCardList（display:flex; flex-direction:column;）の子要素で
+       あり、既定では横幅（クロス軸）が親の幅にstretchされる。grid-template-columns
+       の固定幅列＋gapの合計（1490px）が親の幅より広い場合、明示的にmin-widthを
+       指定しないと、グリッドの列（特に最後の状態・操作ボタン列）がカード自身の
+       枠（border/background）からはみ出して表示されてしまっていたため
+       （現場からの指摘で判明）、列の合計幅と同じ値をmin-widthとして固定する。 */
+    min-width: 1490px;
     /* 最後の操作列は auto ではなく固定幅にする。auto だとHold中（ボタン2つ）と
        在庫あり（ボタン2つだが文言が違う）・2nd Hold登録済み（ボタン1つ）で
        操作列の内容幅が行ごとに変わり、他の列がそのぶん伸縮して行同士の列位置が
