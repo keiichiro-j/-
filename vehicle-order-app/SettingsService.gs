@@ -233,7 +233,10 @@ function getModelPhotos_() {
       // 以外の値には何もしない純粋関数のため、既に直接画像URLの場合や他の
       // ホスティングサービスのURLの場合はそのまま返る）。
       photoUrl: normalizeModelPhotoUrl_((entry && entry.photoUrl) || ''),
-      grades: Array.isArray(entry && entry.grades) ? entry.grades : []
+      grades: Array.isArray(entry && entry.grades) ? entry.grades : [],
+      // ボディタイプ（Sedan/SUV/Station Wagon/Compact/Coupeのいずれか）。ホーム画面で
+      // 型ごとにグループ表示するために使う（未設定可。normalizeModelPhotos_参照）。
+      bodyType: (entry && entry.bodyType) || ''
     };
   });
 }
@@ -308,7 +311,13 @@ function normalizeModelPhotos_(list) {
         'モデル「' + model + '」のグレードは最大' + MODEL_PHOTO_GRADES_MAX + '件までです（現在' + grades.length + '件）'
       );
     }
-    result.push({ model: model, photoUrl: photoUrl, grades: grades });
+    // ボディタイプは選択式（MODEL_BODY_TYPE_OPTIONS）のプルダウンからの入力を想定して
+    // いるため、未知の値（改ざん・過去バージョンで保存された値等）は例外にせず、
+    // 単に未設定（空文字）として扱う（normalizeThemeKey_と同じ「不正な値は
+    // フォールバックする」考え方。型を割り当てていないモデルは、ホーム画面では
+    // 「未設定」グループにまとめて表示される）。
+    var bodyType = MODEL_BODY_TYPE_OPTIONS.indexOf((entry && entry.bodyType) || '') !== -1 ? entry.bodyType : '';
+    result.push({ model: model, photoUrl: photoUrl, grades: grades, bodyType: bodyType });
   });
   if (result.length > MODEL_PHOTOS_MAX) {
     throw new Error('モデル写真は最大' + MODEL_PHOTOS_MAX + '件までです（現在' + result.length + '件）');

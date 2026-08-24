@@ -1036,8 +1036,15 @@
     display: flex; align-items: center; justify-content: center; overflow: hidden;
   }
   .modelPhotoList__preview img { width: 100%; height: 100%; object-fit: cover; }
-  .modelPhotoList__row .input[data-photo-field="model"] { flex: 0 0 26%; min-width: 90px; }
-  .modelPhotoList__row .input[data-photo-field="photoUrl"] { flex: 1 1 auto; min-width: 0; }
+  .modelPhotoList__row .input[data-photo-field="model"] { flex: 0 0 16%; min-width: 70px; }
+  .modelPhotoList__row .input[data-photo-field="bodyType"] { flex: 0 0 120px; }
+  /* 写真URL・グレードは、片方だけ（特にphotoUrlのように長い値が入る欄）が
+     もう片方を圧迫して極端に潰れないよう、同じ比率・同じ最小幅で分け合う
+     （どちらもデフォルトのflex: 0 1 auto・min-width: autoのままだと、実際に
+     入っている値の長さによってブラウザごとの基準サイズがばらつき、
+     片方だけが数文字ぶんの幅まで潰れてしまうことがあったため）。 */
+  .modelPhotoList__row .input[data-photo-field="photoUrl"],
+  .modelPhotoList__row .input[data-photo-field="grades"] { flex: 1 1 0; min-width: 110px; }
   .modelPhotoList__empty { font-size: 13px; color: var(--on-surface-variant); }
 
   /* ===== メール通知先（Hold時／受注確定時／システムエラー通知） =====
@@ -1047,6 +1054,52 @@
   .mailList__row { display: flex; gap: 8px; align-items: center; }
   .mailList__row .input { flex: 1 1 auto; min-width: 0; }
   .mailList__empty { font-size: 13px; color: var(--on-surface-variant); margin-bottom: 4px; }
+
+  /* ===== ホーム画面: ボディタイプ（型）のクイックナビ =====
+     モデル一覧の上に、設定タブで登録できるボディタイプ（Sedan/SUV/Station Wagon/
+     Compact/Coupe）をひと並びのボタンで表示し、押すとその型だけに絞り込む
+     （どの型が何台あるか、目当ての型のモデルを探しやすくするため）。
+     PCは折り返し無しの1行、スマホ幅は横スクロールにする（JavaScript.htmlの
+     renderHomeTypeNav_参照）。 */
+  .homeTypeNav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .homeTypeNav__item {
+    flex: none;
+    padding: 8px 16px;
+    border: 1px solid var(--outline);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--on-surface-variant);
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .homeTypeNav__item:hover { border-color: var(--primary); color: var(--on-surface); }
+  .homeTypeNav__item.is-active { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+
+  /* ===== ホーム画面: 型ごとのグループ見出し =====
+     モデル一覧を、設定タブで割り当てたボディタイプごとにグループ化して表示する際、
+     各グループの先頭（そのタイプの最初のモデルタイルの直前）に挟む見出し。
+     PCの4列グリッドでは全列ぶんの幅（grid-column: 1 / -1）を使い、見出しの直後の
+     アイテムから自動的に新しい行に折り返される（.homeRow.is-expandedと同じ
+     grid-column: 1 / -1の仕組み）。1台もモデル写真にボディタイプが割り当てられて
+     いない場合はグループ化自体を行わず、この見出しも表示しない（renderHomeGallery_
+     のgroupModelPhotosByBodyType_参照。運用を始めたばかりでまだ型を割り振って
+     いない状態でも、従来どおりの見た目のまま使える）。 */
+  .homeTypeHeader {
+    grid-column: 1 / -1;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--on-surface);
+    margin: 4px 2px;
+  }
+  .homeTypeHeader:first-child { margin-top: 0; }
 
   /* ===== ホーム画面 =====
      PC（901px以上）はモデル写真を大きく見せる4列グリッドにする。タブレット・
@@ -1350,6 +1403,13 @@
     /* 受注カードは項目数が多いため、タブレット幅では1列にして読みやすさを優先する */
     .orderList { grid-template-columns: 1fr; }
 
+    /* 型のクイックナビ: タブレット・スマホ幅では5種類＋「すべて」を折り返し無しで
+       並べると窮屈なため、横スクロールにする（よくあるカテゴリ絞り込みチップの
+       パターン。折り返して縦に伸びると、その分モデル一覧が下に押し出されて
+       しまうのを避けるため）。 */
+    .homeTypeNav { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+    .homeTypeHeader { margin: 10px 2px 6px; font-size: 14px; }
+
     /* ホーム画面: PCの4列グリッド（写真を大きく見せるタイル型）ではなく、
        元の「実務重視リスト型」（横一列・小さめの写真）に戻す。タブレット・
        スマホ幅では情報密度を優先するため（現場の声を踏まえた元のレイアウト）。 */
@@ -1437,6 +1497,7 @@
     .staffList__row .input[data-staff-field="location"] { flex: 1 1 100%; }
     .modelPhotoList__row { flex-wrap: wrap; }
     .modelPhotoList__row .input[data-photo-field="model"],
+    .modelPhotoList__row .input[data-photo-field="bodyType"],
     .modelPhotoList__row .input[data-photo-field="photoUrl"],
     .modelPhotoList__row .input[data-photo-field="grades"] { flex: 1 1 100%; }
     main.view { padding: 10px; }

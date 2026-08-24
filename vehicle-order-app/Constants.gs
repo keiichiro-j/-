@@ -35,6 +35,10 @@ var STOCK_DISCLOSURE_OPTIONS = ['開示', '非開示'];
 var YES_NO_OPTIONS = ['あり', 'なし'];
 var OSS_OPTIONS = ['可', '不可'];
 var PAYMENT_METHOD_OPTIONS = ['現金', 'ローン'];
+// ホーム画面のモデル写真に割り当てるボディタイプ（車の型）。この配列の並び順が、
+// ホーム画面での型ごとのグループ表示順（Sedan→SUV→Station Wagon→Compact→Coupe）
+// にそのまま使われる（JavaScript.htmlのrenderHomeGallery_参照）。
+var MODEL_BODY_TYPE_OPTIONS = ['Sedan', 'SUV', 'Station Wagon', 'Compact', 'Coupe'];
 var PAID_OPTION_SLOT_COUNT = 7; // 有償オプション（7マス分確保）
 var STAFF_LIST_MAX = 30; // 担当者マスタの最大登録人数
 var MODEL_PHOTOS_MAX = 30; // ホーム画面のモデル写真の最大登録数

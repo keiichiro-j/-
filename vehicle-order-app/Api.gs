@@ -24,6 +24,7 @@ function api_getBootstrapData() {
     staffListMax: STAFF_LIST_MAX,
     modelPhotosMax: MODEL_PHOTOS_MAX,
     notifyMailListMax: NOTIFY_MAIL_LIST_MAX,
+    modelBodyTypeOptions: MODEL_BODY_TYPE_OPTIONS,
     // 設定タブの「システムマスタ」（メール通知設定・担当者）を表示・操作できるか。
     // コード上のSYSTEM_ADMIN_EMAILS（Constants.gs）のみで判定する。
     isSystemAdmin: isAdmin,

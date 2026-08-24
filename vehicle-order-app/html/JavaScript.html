@@ -27,6 +27,7 @@
     allInventoryItems: [], // ホーム画面の在庫台数集計専用（ツールバーの検索条件に左右されない全件）
     homeGradeFilter: null, // ホームのグレードタブクリックで設定される、絞り込み対象グレード名の配列
     homeExpandedModel: null, // ホームで現在グレードタブを展開中のベースモデル名（1つのみ展開可能）
+    homeTypeFilter: null, // ホーム上部のボディタイプ絞り込み（未選択＝「すべて」はnull）
     allOrders: [] // マイページ集計専用（受注リストの検索・絞り込み条件に左右されない全件）
   };
   var COMPARE_MAX = 3;
@@ -1378,7 +1379,7 @@
     populateOrdersStaffFilter_();
 
     state.modelPhotos = (settings.modelPhotos || []).map(function (p) {
-      return { model: p.model || '', photoUrl: p.photoUrl || '', grades: (p.grades || []).join(', ') };
+      return { model: p.model || '', photoUrl: p.photoUrl || '', grades: (p.grades || []).join(', '), bodyType: p.bodyType || '' };
     });
     $('modelPhotosMax').textContent = (state.bootstrap && state.bootstrap.modelPhotosMax) || 30;
     renderModelPhotoList_();
@@ -1624,14 +1625,22 @@
     if (!state.modelPhotos.length) {
       container.innerHTML = '<div class="modelPhotoList__empty">モデル写真が登録されていません</div>';
     } else {
+      var bodyTypeOptions = (state.bootstrap && state.bootstrap.modelBodyTypeOptions) || [];
       container.innerHTML = state.modelPhotos.map(function (entry, i) {
         var preview = entry.photoUrl
           ? '<img src="' + escapeHtml(normalizeModelPhotoUrl_(entry.photoUrl)) + '" alt="">'
           : '<span class="logoPreview__placeholder">写真</span>';
+        var bodyTypeSelectHtml = '<select class="input" data-photo-index="' + i + '" data-photo-field="bodyType">' +
+          '<option value="">型：未設定</option>' +
+          bodyTypeOptions.map(function (t) {
+            return '<option value="' + escapeHtml(t) + '"' + (entry.bodyType === t ? ' selected' : '') + '>' + escapeHtml(t) + '</option>';
+          }).join('') +
+          '</select>';
         return '<div class="modelPhotoList__row" data-drag-index="' + i + '">' +
           '<span class="dragHandle" draggable="true" aria-label="ドラッグして並び替え">⠿</span>' +
           '<div class="modelPhotoList__preview">' + preview + '</div>' +
           '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="model" placeholder="モデル名（例: Aクラス）" value="' + escapeHtml(entry.model || '') + '">' +
+          bodyTypeSelectHtml +
           '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="photoUrl" placeholder="写真URL" value="' + escapeHtml(entry.photoUrl || '') + '">' +
           '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="grades" placeholder="グレード（カンマ区切り。例: A180, A200, A35, A45）" value="' + escapeHtml(entry.grades || '') + '">' +
           '<button class="btn btn--icon" data-remove-photo="' + i + '" type="button" aria-label="削除">&times;</button>' +
@@ -1669,7 +1678,7 @@
   $('btnAddModelPhoto').addEventListener('click', function () {
     var max = (state.bootstrap && state.bootstrap.modelPhotosMax) || 30;
     if (state.modelPhotos.length >= max) return;
-    state.modelPhotos.push({ model: '', photoUrl: '', grades: '' });
+    state.modelPhotos.push({ model: '', photoUrl: '', grades: '', bodyType: '' });
     renderModelPhotoList_();
     var inputs = document.querySelectorAll('#modelPhotoList [data-photo-field="model"]');
     if (inputs.length) inputs[inputs.length - 1].focus();
@@ -1791,57 +1800,144 @@
    * グレード1件に絞り込んだ在庫リストへ遷移する。グレード未設定のモデルは、
    * 従来通り行クリックで直接在庫リストへ遷移する（展開の必要がないため）。
    */
+  /**
+   * モデル1件分のタイル（+展開時のグレードタブ）のHTML。renderHomeGallery_から
+   * 型ごとにグループ化して呼び出す（元は1つの関数の中でmodelPhotosを直接map
+   * していたが、グループ化に伴い「1件分の描画」を切り出した）。
+   */
+  function homeModelTileHtml_(p, allItems) {
+    var result = gradeCountsForEntry_(p, allItems);
+    var hasGrades = result.byGrade.length > 0;
+    var isExpanded = hasGrades && state.homeExpandedModel === p.model;
+    var chevronHtml = hasGrades
+      ? '<span class="homeRow__chevron">' + (isExpanded ? '▾' : '▸') + '</span>'
+      : '';
+    // 展開中のタイルには「他のモデルを見る」ボタン（.homeRow__backBtn）を
+    // 内側に持たせるため、<button>ではなく<div role="button">にする
+    // （<button>の中に<button>をネストするのはHTML仕様違反になるため）。
+    // キーボード操作（Enter/Space）は#homeGridのkeydown委譲で補っている。
+    var tag = isExpanded ? 'div' : 'button';
+    var tileAttrs = isExpanded
+      ? ' role="button" tabindex="0"'
+      : ' type="button"';
+    var backBtnHtml = isExpanded
+      ? '<button type="button" class="homeRow__backBtn">◂ 他のモデルを見る</button>'
+      : '';
+    var rowHtml = '<' + tag + ' class="homeRow' + (isExpanded ? ' is-expanded' : '') + '"' +
+      tileAttrs +
+      ' data-home-model="' + escapeHtml(p.model) + '"' +
+      (hasGrades ? ' data-has-grades="true"' : '') + '>' +
+      backBtnHtml +
+      '<div class="homeRow__photo"><img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '"></div>' +
+      '<div class="homeRow__meta">' +
+      '<div class="homeRow__model">' + escapeHtml(p.model) + '</div>' +
+      '<span class="badge badge--count">在庫' + result.total + '台</span>' +
+      chevronHtml +
+      '</div>' +
+      '</' + tag + '>';
+    var tabsHtml = '';
+    if (isExpanded) {
+      tabsHtml = '<div class="homeGradeTabs">' +
+        '<div class="homeGradeTabs__label">' + escapeHtml(p.model) + 'のグレード</div>' +
+        '<div class="homeGradeTabs__list">' +
+        result.byGrade.map(function (g) {
+          var countClass = 'homeGradeTab__count' + (g.count === 0 ? ' homeGradeTab__count--zero' : '');
+          return '<button type="button" class="homeGradeTab" data-home-model="' + escapeHtml(p.model) + '" data-home-grade="' + escapeHtml(g.grade) + '">' +
+            '<span class="homeGradeTab__name">' + escapeHtml(g.grade) + '</span>' +
+            '<span class="' + countClass + '">' + g.count + '台</span>' +
+            '</button>';
+        }).join('') +
+        '</div></div>';
+    }
+    return rowHtml + tabsHtml;
+  }
+
+  /**
+   * モデル写真一覧を、設定タブで割り当てたボディタイプ（型）ごとにグループ化する
+   * （純粋関数）。グループの並び順はMODEL_BODY_TYPE_OPTIONS（bootstrap経由）の
+   * 定義順（Sedan→SUV→Station Wagon→Compact→Coupe）に固定し、型を割り当てて
+   * いないモデルは最後に「未設定」グループとしてまとめる。
+   * 1台もボディタイプが割り当てられていない場合は、そもそもグループ化を行わず
+   * （groupのlabelを空文字にし、見出しを表示しない）、機能追加前と同じ見た目に
+   * フォールバックする（運用を始めたばかりでまだ型を割り振っていない状態でも、
+   * 全モデルに「未設定」という見出しだけが表示される間延びした見た目にしないため）。
+   */
+  function groupModelPhotosByBodyType_(modelPhotos) {
+    var typeOrder = (state.bootstrap && state.bootstrap.modelBodyTypeOptions) || [];
+    var hasAnyType = modelPhotos.some(function (p) { return p.bodyType; });
+    if (!hasAnyType) {
+      return [{ type: '', label: '', items: modelPhotos }];
+    }
+    var byType = {};
+    typeOrder.forEach(function (t) { byType[t] = []; });
+    var untyped = [];
+    modelPhotos.forEach(function (p) {
+      if (p.bodyType && byType[p.bodyType]) byType[p.bodyType].push(p);
+      else untyped.push(p);
+    });
+    var groups = typeOrder
+      .map(function (t) { return { type: t, label: t, items: byType[t] }; })
+      .filter(function (g) { return g.items.length > 0; });
+    if (untyped.length) groups.push({ type: '', label: '未設定', items: untyped });
+    return groups;
+  }
+
+  /**
+   * グレードが設定されているモデルは、行をクリックすると即座に在庫リストへ
+   * 遷移するのではなく、その場でグレードタブ（A180・A200・A35・A45等）を
+   * 展開する。タブはベースモデル行の直下に、写真幅ぶんインデントし左に
+   * 罫線を添えて表示することで、「Aクラスの行から派生したタブである」ことが
+   * 視覚的にわかるようにしている。グレードタブ自体をクリックすると、その
+   * グレード1件に絞り込んだ在庫リストへ遷移する。グレード未設定のモデルは、
+   * 従来通り行クリックで直接在庫リストへ遷移する（展開の必要がないため）。
+   */
   function renderHomeGallery_() {
     var modelPhotos = state.modelPhotos || [];
     $('homeEmpty').classList.toggle('hidden', modelPhotos.length > 0);
+    $('homeTypeNav').classList.toggle('hidden', modelPhotos.length === 0);
     var allItems = state.allInventoryItems || [];
-    $('homeGrid').innerHTML = modelPhotos.map(function (p) {
-      var result = gradeCountsForEntry_(p, allItems);
-      var hasGrades = result.byGrade.length > 0;
-      var isExpanded = hasGrades && state.homeExpandedModel === p.model;
-      var chevronHtml = hasGrades
-        ? '<span class="homeRow__chevron">' + (isExpanded ? '▾' : '▸') + '</span>'
-        : '';
-      // 展開中のタイルには「他のモデルを見る」ボタン（.homeRow__backBtn）を
-      // 内側に持たせるため、<button>ではなく<div role="button">にする
-      // （<button>の中に<button>をネストするのはHTML仕様違反になるため）。
-      // キーボード操作（Enter/Space）は#homeGridのkeydown委譲で補っている。
-      var tag = isExpanded ? 'div' : 'button';
-      var tileAttrs = isExpanded
-        ? ' role="button" tabindex="0"'
-        : ' type="button"';
-      var backBtnHtml = isExpanded
-        ? '<button type="button" class="homeRow__backBtn">◂ 他のモデルを見る</button>'
-        : '';
-      var rowHtml = '<' + tag + ' class="homeRow' + (isExpanded ? ' is-expanded' : '') + '"' +
-        tileAttrs +
-        ' data-home-model="' + escapeHtml(p.model) + '"' +
-        (hasGrades ? ' data-has-grades="true"' : '') + '>' +
-        backBtnHtml +
-        '<div class="homeRow__photo"><img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '"></div>' +
-        '<div class="homeRow__meta">' +
-        '<div class="homeRow__model">' + escapeHtml(p.model) + '</div>' +
-        '<span class="badge badge--count">在庫' + result.total + '台</span>' +
-        chevronHtml +
-        '</div>' +
-        '</' + tag + '>';
-      var tabsHtml = '';
-      if (isExpanded) {
-        tabsHtml = '<div class="homeGradeTabs">' +
-          '<div class="homeGradeTabs__label">' + escapeHtml(p.model) + 'のグレード</div>' +
-          '<div class="homeGradeTabs__list">' +
-          result.byGrade.map(function (g) {
-            var countClass = 'homeGradeTab__count' + (g.count === 0 ? ' homeGradeTab__count--zero' : '');
-            return '<button type="button" class="homeGradeTab" data-home-model="' + escapeHtml(p.model) + '" data-home-grade="' + escapeHtml(g.grade) + '">' +
-              '<span class="homeGradeTab__name">' + escapeHtml(g.grade) + '</span>' +
-              '<span class="' + countClass + '">' + g.count + '台</span>' +
-              '</button>';
-          }).join('') +
-          '</div></div>';
-      }
-      return rowHtml + tabsHtml;
+    var groups = groupModelPhotosByBodyType_(modelPhotos);
+    if (state.homeTypeFilter) {
+      groups = groups.filter(function (g) { return g.type === state.homeTypeFilter; });
+    }
+    // 型で絞り込んだ結果、該当モデルが1件も無い場合は空のグリッドのまま放置せず、
+    // その旨をわかるようにする（モデル写真自体が0件の#homeEmptyとは別の状態）。
+    $('homeTypeEmpty').classList.toggle('hidden', !(modelPhotos.length > 0 && groups.length === 0));
+    $('homeGrid').innerHTML = groups.map(function (g) {
+      var headerHtml = g.label ? '<div class="homeTypeHeader">' + escapeHtml(g.label) + '</div>' : '';
+      return headerHtml + g.items.map(function (p) { return homeModelTileHtml_(p, allItems); }).join('');
     }).join('');
+    renderHomeTypeNav_();
   }
+
+  /**
+   * ホーム上部の、ボディタイプで絞り込むクイックナビ（型の名称を一列に並べた
+   * ボタン列）。「すべて」＋MODEL_BODY_TYPE_OPTIONSの5種類を常に表示する
+   * （実際にモデルが登録されているかどうかに関わらず。0件の型を押しても
+   * 単に「該当モデルがありません」の状態になるだけで、押せなくする必要は
+   * ないため）。押すとその型だけに絞り込んだ表示に切り替える。
+   */
+  function renderHomeTypeNav_() {
+    var nav = $('homeTypeNav');
+    var types = (state.bootstrap && state.bootstrap.modelBodyTypeOptions) || [];
+    if (!types.length) { nav.innerHTML = ''; return; }
+    var current = state.homeTypeFilter;
+    var allBtn = '<button type="button" class="homeTypeNav__item' + (!current ? ' is-active' : '') + '" data-home-type="">すべて</button>';
+    var typeBtns = types.map(function (t) {
+      return '<button type="button" class="homeTypeNav__item' + (current === t ? ' is-active' : '') + '" data-home-type="' + escapeHtml(t) + '">' + escapeHtml(t) + '</button>';
+    }).join('');
+    nav.innerHTML = allBtn + typeBtns;
+  }
+
+  $('homeTypeNav').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-home-type]');
+    if (!btn) return;
+    state.homeTypeFilter = btn.dataset.homeType || null;
+    // 型を切り替えたのに、別の型で展開していたグレードタブだけが残っていると
+    // 混乱の元になるため、絞り込みを変えたら展開状態はリセットする。
+    state.homeExpandedModel = null;
+    renderHomeGallery_();
+  });
 
   /**
    * ホーム画面の在庫台数表示専用に、フィルタ無しで在庫リストを取得する。
@@ -1993,7 +2089,8 @@
         return {
           model: String((p && p.model) || '').trim(),
           photoUrl: String((p && p.photoUrl) || '').trim(),
-          grades: parseGrades_(p && p.grades)
+          grades: parseGrades_(p && p.grades),
+          bodyType: String((p && p.bodyType) || '').trim()
         };
       })
       .filter(function (p) { return p.model && p.photoUrl; });

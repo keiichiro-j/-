@@ -521,6 +521,20 @@ test('グレード名が長すぎる場合はエラーになる', () => {
   const list = [{ model: 'Aクラス', photoUrl: 'https://example.com/a.jpg', grades: ['x'.repeat(31)] }];
   assert.throws(() => sandbox.normalizeModelPhotos_(list), /長すぎます/);
 });
+test('ボディタイプはMODEL_BODY_TYPE_OPTIONSに含まれる値ならそのまま保持される', () => {
+  const list = sandbox.normalizeModelPhotos_([{ model: 'Cクラス', photoUrl: 'https://example.com/c.jpg', bodyType: 'Sedan' }]);
+  assert.strictEqual(list[0].bodyType, 'Sedan');
+});
+test('ボディタイプが未設定・不正な値の場合は空文字にフォールバックする（エラーにはしない）', () => {
+  const list = sandbox.normalizeModelPhotos_([
+    { model: 'Cクラス', photoUrl: 'https://example.com/c.jpg' },
+    { model: 'Eクラス', photoUrl: 'https://example.com/e.jpg', bodyType: '' },
+    { model: 'Aクラス', photoUrl: 'https://example.com/a.jpg', bodyType: 'ハッチバック' } // 選択肢に無い値
+  ]);
+  assert.strictEqual(list[0].bodyType, '');
+  assert.strictEqual(list[1].bodyType, '');
+  assert.strictEqual(list[2].bodyType, '');
+});
 
 console.log('== SettingsService: resolveStaffNameByEmail_（ログインメールから担当者名を解決） ==');
 const staffListWithEmails = [
