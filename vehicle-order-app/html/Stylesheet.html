@@ -1059,13 +1059,16 @@
      モデル一覧の上に、設定タブで登録できるボディタイプ（Sedan/SUV/Station Wagon/
      Compact/Coupe）をひと並びのボタンで表示し、押すとその型だけに絞り込む
      （どの型が何台あるか、目当ての型のモデルを探しやすくするため）。
-     PCは折り返し無しの1行、スマホ幅は横スクロールにする（JavaScript.htmlの
-     renderHomeTypeNav_参照）。 */
+     スマホ幅を含め、横スクロール（スワイプでスライド）はさせず、折り返して
+     常にすべてのボタンが見える状態で固定表示する（JavaScript.htmlの
+     renderHomeTypeNav_参照）。margin-bottomは、直後に続く.homeTypeHeader
+     （型ごとの見出し）とのバランスを.homeListのgrid gapに合わせているため、
+     変更する場合は.homeTypeHeaderのコメントもあわせて参照。 */
   .homeTypeNav {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
   }
   .homeTypeNav__item {
     flex: none;
@@ -1091,15 +1094,27 @@
      grid-column: 1 / -1の仕組み）。1台もモデル写真にボディタイプが割り当てられて
      いない場合はグループ化自体を行わず、この見出しも表示しない（renderHomeGallery_
      のgroupModelPhotosByBodyType_参照。運用を始めたばかりでまだ型を割り振って
-     いない状態でも、従来どおりの見た目のまま使える）。 */
+     いない状態でも、従来どおりの見た目のまま使える）。
+     文字サイズは、カード内のモデル名（.homeRow__model、16px）より一段階
+     大きくし、個々のモデルより上位の「見出し」であることが一目でわかる
+     ようにしている。
+     margin-topは、あえて先頭の見出し（1グループ目、直前は型のクイックナビ）
+     だけ特別扱いにしない（以前は:first-childでmargin-topを0にしていたが、
+     その結果「見出しの上（クイックナビとの間）」だけ他の見出しより詰まって
+     見え、見出しがカードより型選択ボタン側に寄って見える不具合になって
+     いた）。見出しの上下の余白が常に同じになるよう、直前が型のクイック
+     ナビ（.homeTypeNav、margin-bottom: 20px）でも直前が別グループの
+     モデルタイル（.homeListのgrid gap: 20px）でも、見出し自身のmargin-top
+     （4px）と合わせて常に24px（=20px+4px）になるようにしている（見出し
+     自身のmargin-bottomも4px＋grid gap 20pxで同じく24pxのため、結果的に
+     見出しが上下ちょうど中央に来る）。 */
   .homeTypeHeader {
     grid-column: 1 / -1;
-    font-size: 15px;
+    font-size: 19px;
     font-weight: 700;
     color: var(--on-surface);
     margin: 4px 2px;
   }
-  .homeTypeHeader:first-child { margin-top: 0; }
 
   /* ===== ホーム画面 =====
      PC（901px以上）はモデル写真を大きく見せる4列グリッドにする。タブレット・
@@ -1403,12 +1418,11 @@
     /* 受注カードは項目数が多いため、タブレット幅では1列にして読みやすさを優先する */
     .orderList { grid-template-columns: 1fr; }
 
-    /* 型のクイックナビ: タブレット・スマホ幅では5種類＋「すべて」を折り返し無しで
-       並べると窮屈なため、横スクロールにする（よくあるカテゴリ絞り込みチップの
-       パターン。折り返して縦に伸びると、その分モデル一覧が下に押し出されて
-       しまうのを避けるため）。 */
-    .homeTypeNav { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
-    .homeTypeHeader { margin: 10px 2px 6px; font-size: 14px; }
+    /* 型のクイックナビ: タブレット・スマホ幅でも、PCと同じくスワイプで横スクロール
+       させず、折り返して常にすべてのボタンが見える固定表示にする（現場からの
+       指摘で判明。当初は横スクロールにしていたが、スライドしないと次のボタンが
+       見えないのは使いにくいとのことだった）。 */
+    .homeTypeHeader { margin: 10px 2px 6px; font-size: 17px; }
 
     /* ホーム画面: PCの4列グリッド（写真を大きく見せるタイル型）ではなく、
        元の「実務重視リスト型」（横一列・小さめの写真）に戻す。タブレット・
