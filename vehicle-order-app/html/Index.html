@@ -215,32 +215,35 @@
 
           <div class="settingsCard hidden" id="systemMasterModelPhotosCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-image"></use></svg>モデル写真（ホーム画面）</h2>
-            <p class="settingsSection__desc">ホーム画面に並べるモデルの代表写真です（最大<span id="modelPhotosMax"></span>件・現在<span id="modelPhotosCount">0</span>件登録中）。1台ごとではなく、モデル単位で1枚登録してください。画像は外部（Googleドライブの共有リンク等）にアップロードしたうえでURLを指定してください。ホーム画面で写真をクリックすると、そのモデル名で在庫リストが絞り込まれます。</p>
+            <p class="settingsSection__desc">ホーム画面に並べるモデルの代表写真です（最大<span id="modelPhotosMax"></span>件・現在<span id="modelPhotosCount">0</span>件登録中）。1台ごとではなく、モデル単位で1枚登録してください。画像は外部（Googleドライブの共有リンク等）にアップロードしたうえでURLを指定してください。ホーム画面で写真をクリックすると、そのモデル名で在庫リストが絞り込まれます。ドラッグハンドル（⠿）でホーム画面での表示順を並び替えできます。</p>
             <div class="modelPhotoList" id="modelPhotoList"></div>
             <button class="btn" id="btnAddModelPhoto" type="button">＋ モデル写真を追加</button>
           </div>
 
           <div class="settingsCard hidden" id="systemMasterNotifyCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-mail"></use></svg>メール通知設定</h2>
-            <p class="settingsSection__desc">Hold登録・受注確定があったときに通知するメールアドレスです。複数指定する場合はカンマ区切りで入力してください。未設定の場合は通知をスキップします。</p>
+            <p class="settingsSection__desc">Hold登録・受注確定があったときに通知するメールアドレスです。複数指定する場合は「＋ 追加」で行を増やし、ドラッグハンドル（⠿）で並び替えできます。未設定の場合は通知をスキップします。</p>
             <div class="formField">
-              <label>Hold時</label>
-              <input type="text" id="settingsHoldMailTo" class="input" placeholder="例: staff@example.com, staff2@example.com">
+              <label>Hold時（現在<span id="notifyHoldMailCount">0</span>件）</label>
+              <div class="mailList" id="notifyHoldMailList" data-mail-field="notifyHoldMailTo"></div>
+              <button class="btn" id="btnAddHoldMail" data-mail-field="notifyHoldMailTo" type="button">＋ 宛先を追加</button>
             </div>
             <div class="formField">
-              <label>受注確定時</label>
-              <input type="text" id="settingsOrderMailTo" class="input" placeholder="例: sales@example.com">
+              <label>受注確定時（現在<span id="notifyOrderMailCount">0</span>件）</label>
+              <div class="mailList" id="notifyOrderMailList" data-mail-field="notifyOrderMailTo"></div>
+              <button class="btn" id="btnAddOrderMail" data-mail-field="notifyOrderMailTo" type="button">＋ 宛先を追加</button>
             </div>
             <div class="formField">
-              <label>システムエラー通知先</label>
-              <input type="text" id="settingsErrorMailTo" class="input" placeholder="例: admin@example.com">
+              <label>システムエラー通知先（現在<span id="notifyErrorMailCount">0</span>件）</label>
+              <div class="mailList" id="notifyErrorMailList" data-mail-field="notifyErrorMailTo"></div>
+              <button class="btn" id="btnAddErrorMail" data-mail-field="notifyErrorMailTo" type="button">＋ 宛先を追加</button>
               <p class="formField__hint">Hold期限切れ処理が失敗し続けた場合など、システム側のエラーを知らせます。未設定の場合は通知しません。</p>
             </div>
           </div>
 
           <div class="settingsCard hidden" id="systemMasterStaffCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-people"></use></svg>担当者</h2>
-            <p class="settingsSection__desc">拠点・名前・Googleアカウントのメールアドレスを登録してください（最大<span id="staffListMax"></span>人・現在<span id="staffListCount">0</span>人登録中）。Hold登録・2ND HOLD登録・受注確定・Hold解除の「担当者」は、ログイン中のGoogleアカウントのメールアドレスからここで自動的に判定されるため、操作のたびに担当者を選ぶ必要はありません。拠点名も同様に、Hold登録・受注確定の「販売拠点」欄へ自動的に入力されます（編集可）。</p>
+            <p class="settingsSection__desc">拠点・名前・Googleアカウントのメールアドレスを登録してください（最大<span id="staffListMax"></span>人・現在<span id="staffListCount">0</span>人登録中）。Hold登録・2ND HOLD登録・受注確定・Hold解除の「担当者」は、ログイン中のGoogleアカウントのメールアドレスからここで自動的に判定されるため、操作のたびに担当者を選ぶ必要はありません。拠点名も同様に、Hold登録・受注確定の「販売拠点」欄へ自動的に入力されます（編集可）。ドラッグハンドル（⠿）で表示順を並び替えできます。</p>
             <div class="staffList" id="staffList"></div>
             <button class="btn" id="btnAddStaff" type="button">＋ 担当者を追加</button>
           </div>

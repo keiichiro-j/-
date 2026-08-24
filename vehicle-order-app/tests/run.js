@@ -388,6 +388,36 @@ test('配列以外が渡されても空配列として扱われる', () => {
   assert.strictEqual(sandbox.normalizeStaffList_(undefined).length, 0);
 });
 
+console.log('== SettingsService: normalizeMailList_（メール通知先1項目分・最大20件、順序を保った配列） ==');
+test('空文字・重複（大文字小文字違い含む）は除去され、順序は保たれる', () => {
+  const list = sandbox.normalizeMailList_([
+    ' sato@example.com ',
+    '',
+    'Sato@Example.com', // 大文字小文字違いも同一とみなし除去
+    'ito@example.com',
+    null
+  ]);
+  assert.strictEqual(list.length, 2);
+  assert.strictEqual(list[0], 'sato@example.com');
+  assert.strictEqual(list[1], 'ito@example.com');
+});
+test('20件まではそのまま登録できる', () => {
+  const list = Array.from({ length: 20 }, (_, i) => 'staff' + i + '@example.com');
+  assert.strictEqual(sandbox.normalizeMailList_(list).length, 20);
+});
+test('21件以上はエラーになる', () => {
+  const list = Array.from({ length: 21 }, (_, i) => 'staff' + i + '@example.com');
+  assert.throws(() => sandbox.normalizeMailList_(list), /最大20件/);
+});
+test('254文字を超えるメールアドレスはエラーになる', () => {
+  const longEmail = 'a'.repeat(250) + '@example.com';
+  assert.throws(() => sandbox.normalizeMailList_([longEmail]), /長すぎます/);
+});
+test('配列以外が渡されても空配列として扱われる', () => {
+  assert.strictEqual(sandbox.normalizeMailList_(null).length, 0);
+  assert.strictEqual(sandbox.normalizeMailList_(undefined).length, 0);
+});
+
 console.log('== SettingsService: normalizeModelPhotoUrl_（Googleドライブの共有リンク→直接画像URLへの変換） ==');
 test('/file/d/{ID}/view形式の共有リンクを直接画像URLに変換する', () => {
   const url = sandbox.normalizeModelPhotoUrl_('https://drive.google.com/file/d/1AbC-xyz_123/view?usp=sharing');
@@ -576,16 +606,16 @@ test('管理者にはそのまま返る', () => {
 test('非管理者には通知先・担当者が空になる（テーマ・ロゴ・モデル写真はそのまま）', () => {
   const settings = {
     themeKey: 'wine', logoUrl: 'https://logo.png',
-    notifyHoldMailTo: 'a@example.com', notifyOrderMailTo: 'b@example.com', notifyErrorMailTo: 'c@example.com',
+    notifyHoldMailTo: ['a@example.com'], notifyOrderMailTo: ['b@example.com'], notifyErrorMailTo: ['c@example.com'],
     staffList: [{ name: '佐藤' }], modelPhotos: [{ model: 'Cクラス' }]
   };
   const result = sandbox.redactSystemMasterSettings_(settings, false);
   assert.strictEqual(result.themeKey, 'wine');
   assert.strictEqual(result.logoUrl, 'https://logo.png');
   assert.strictEqual(result.modelPhotos.length, 1);
-  assert.strictEqual(result.notifyHoldMailTo, '');
-  assert.strictEqual(result.notifyOrderMailTo, '');
-  assert.strictEqual(result.notifyErrorMailTo, '');
+  assert.strictEqual(result.notifyHoldMailTo.length, 0);
+  assert.strictEqual(result.notifyOrderMailTo.length, 0);
+  assert.strictEqual(result.notifyErrorMailTo.length, 0);
   assert.strictEqual(result.staffList.length, 0);
 });
 

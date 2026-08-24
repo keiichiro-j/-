@@ -19,6 +19,9 @@
     action: null, // { type: 'hold' | 'secondHold' | 'order' | 'orderFromHold', commission }
     staffList: [], // 設定タブで編集中の担当者マスタ（作業用コピー）
     modelPhotos: [], // 設定タブで編集中のモデル写真（作業用コピー）
+    notifyHoldMailTo: [], // 設定タブで編集中のメール通知先（Hold時、作業用コピー）
+    notifyOrderMailTo: [], // 設定タブで編集中のメール通知先（受注確定時、作業用コピー）
+    notifyErrorMailTo: [], // 設定タブで編集中のメール通知先（システムエラー通知、作業用コピー）
     themeKey: null, // 設定タブで選択中のテーマ（着せ替え）プリセットキー
     navHistory: [], // 「戻る」ボタン用の画面履歴（タブ名のスタック）
     allInventoryItems: [], // ホーム画面の在庫台数集計専用（ツールバーの検索条件に左右されない全件）
@@ -1345,9 +1348,10 @@
     state.themeKey = settings.themeKey;
     renderThemePresets_();
     $('settingsLogoUrl').value = settings.logoUrl || '';
-    $('settingsHoldMailTo').value = settings.notifyHoldMailTo;
-    $('settingsOrderMailTo').value = settings.notifyOrderMailTo;
-    $('settingsErrorMailTo').value = settings.notifyErrorMailTo;
+    state.notifyHoldMailTo = (settings.notifyHoldMailTo || []).slice();
+    state.notifyOrderMailTo = (settings.notifyOrderMailTo || []).slice();
+    state.notifyErrorMailTo = (settings.notifyErrorMailTo || []).slice();
+    renderAllMailLists_();
     applyTheme(settings.themeKey);
     applyLogo(settings.logoUrl);
     renderLogoPreview_(settings.logoUrl);
@@ -1486,6 +1490,52 @@
     $('settingsLogoError').classList.add('hidden');
   });
 
+  // ----- 設定タブの各種リスト（担当者・モデル写真・メール通知先）共通のドラッグ
+  //       ハンドルによる並び替え。行のドラッグハンドル（⠿、data-drag-index="i"を持つ
+  //       行の中にdraggable="true"で置く）を掴んでドロップすると、onReorder(from, to)を
+  //       呼び出す。掴む対象をハンドルだけに絞ることで、行内の<input>でのテキスト選択・
+  //       クリック操作とドラッグ操作が競合しないようにしている。 -----
+  function makeReorderable_(containerEl, onReorder) {
+    var dragIndex = null;
+    function clearDragOver() {
+      containerEl.querySelectorAll('.is-drag-over').forEach(function (el) { el.classList.remove('is-drag-over'); });
+    }
+    containerEl.addEventListener('dragstart', function (e) {
+      var row = e.target.closest('[data-drag-index]');
+      if (!row) return;
+      dragIndex = Number(row.dataset.dragIndex);
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', String(dragIndex)); } catch (err) { /* Safari等での互換用、失敗しても無視 */ }
+      row.classList.add('is-dragging');
+    });
+    containerEl.addEventListener('dragend', function (e) {
+      var row = e.target.closest('[data-drag-index]');
+      if (row) row.classList.remove('is-dragging');
+      dragIndex = null;
+      clearDragOver();
+    });
+    containerEl.addEventListener('dragover', function (e) {
+      var row = e.target.closest('[data-drag-index]');
+      if (!row || dragIndex === null) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (!row.classList.contains('is-drag-over')) {
+        clearDragOver();
+        row.classList.add('is-drag-over');
+      }
+    });
+    containerEl.addEventListener('drop', function (e) {
+      var row = e.target.closest('[data-drag-index]');
+      if (!row || dragIndex === null) return;
+      e.preventDefault();
+      var dropIndex = Number(row.dataset.dragIndex);
+      clearDragOver();
+      var from = dragIndex;
+      dragIndex = null;
+      if (dropIndex !== from) onReorder(from, dropIndex);
+    });
+  }
+
   // ----- 担当者マスタ（名前・メールアドレスの組。メールアドレスでログイン中の
   //       Googleアカウントと突き合わせ、担当者を自動判定する） -----
   function renderStaffList() {
@@ -1495,7 +1545,8 @@
       container.innerHTML = '<div class="staffList__empty">担当者が登録されていません</div>';
     } else {
       container.innerHTML = state.staffList.map(function (entry, i) {
-        return '<div class="staffList__row">' +
+        return '<div class="staffList__row" data-drag-index="' + i + '">' +
+          '<span class="dragHandle" draggable="true" aria-label="ドラッグして並び替え">⠿</span>' +
           '<input type="text" class="input" data-staff-index="' + i + '" data-staff-field="name" placeholder="名前" value="' + escapeHtml(entry.name || '') + '">' +
           '<input type="email" class="input" data-staff-index="' + i + '" data-staff-field="email" placeholder="メールアドレス" value="' + escapeHtml(entry.email || '') + '">' +
           '<input type="text" class="input" data-staff-index="' + i + '" data-staff-field="location" placeholder="拠点名" value="' + escapeHtml(entry.location || '') + '">' +
@@ -1530,6 +1581,12 @@
     if (inputs.length) inputs[inputs.length - 1].focus();
   });
 
+  makeReorderable_($('staffList'), function (from, to) {
+    var moved = state.staffList.splice(from, 1)[0];
+    state.staffList.splice(to, 0, moved);
+    renderStaffList();
+  });
+
   // ===== モデル写真（ホーム画面） =====
   /**
    * Googleドライブの共有リンクを直接画像URLに変換する（純粋関数）。
@@ -1555,7 +1612,8 @@
         var preview = entry.photoUrl
           ? '<img src="' + escapeHtml(normalizeModelPhotoUrl_(entry.photoUrl)) + '" alt="">'
           : '<span class="logoPreview__placeholder">写真</span>';
-        return '<div class="modelPhotoList__row">' +
+        return '<div class="modelPhotoList__row" data-drag-index="' + i + '">' +
+          '<span class="dragHandle" draggable="true" aria-label="ドラッグして並び替え">⠿</span>' +
           '<div class="modelPhotoList__preview">' + preview + '</div>' +
           '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="model" placeholder="モデル名（例: Aクラス）" value="' + escapeHtml(entry.model || '') + '">' +
           '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="photoUrl" placeholder="写真URL" value="' + escapeHtml(entry.photoUrl || '') + '">' +
@@ -1600,6 +1658,76 @@
     var inputs = document.querySelectorAll('#modelPhotoList [data-photo-field="model"]');
     if (inputs.length) inputs[inputs.length - 1].focus();
   });
+
+  makeReorderable_($('modelPhotoList'), function (from, to) {
+    var moved = state.modelPhotos.splice(from, 1)[0];
+    state.modelPhotos.splice(to, 0, moved);
+    renderModelPhotoList_();
+  });
+
+  // ----- メール通知先（Hold時／受注確定時／システムエラー通知の3項目）。
+  //       以前は「,区切りの1つのテキスト欄」だったが、担当者マスタ・モデル写真と
+  //       同じ「1行1件のリスト形式（追加・削除・ドラッグでの並び替え）」に統一した。
+  //       3項目とも見た目・挙動が同じため、フィールド名とDOM要素IDの組だけを
+  //       MAIL_FIELDSに列挙し、共通の関数で描画・イベント登録する。 -----
+  var MAIL_FIELDS = [
+    { key: 'notifyHoldMailTo', listId: 'notifyHoldMailList', countId: 'notifyHoldMailCount', addBtnId: 'btnAddHoldMail' },
+    { key: 'notifyOrderMailTo', listId: 'notifyOrderMailList', countId: 'notifyOrderMailCount', addBtnId: 'btnAddOrderMail' },
+    { key: 'notifyErrorMailTo', listId: 'notifyErrorMailList', countId: 'notifyErrorMailCount', addBtnId: 'btnAddErrorMail' }
+  ];
+
+  function notifyMailListMax_() {
+    return (state.bootstrap && state.bootstrap.notifyMailListMax) || 20;
+  }
+
+  function renderMailList_(field) {
+    var container = $(field.listId);
+    var list = state[field.key] || [];
+    $(field.countId).textContent = list.length;
+    if (!list.length) {
+      container.innerHTML = '<div class="mailList__empty">宛先が登録されていません</div>';
+    } else {
+      container.innerHTML = list.map(function (email, i) {
+        return '<div class="mailList__row" data-drag-index="' + i + '">' +
+          '<span class="dragHandle" draggable="true" aria-label="ドラッグして並び替え">⠿</span>' +
+          '<input type="email" class="input" data-mail-index="' + i + '" placeholder="例: staff@example.com" value="' + escapeHtml(email || '') + '">' +
+          '<button class="btn btn--icon" data-remove-mail="' + i + '" type="button" aria-label="削除">&times;</button>' +
+          '</div>';
+      }).join('');
+    }
+    $(field.addBtnId).disabled = list.length >= notifyMailListMax_();
+  }
+
+  MAIL_FIELDS.forEach(function (field) {
+    var container = $(field.listId);
+    container.addEventListener('input', function (e) {
+      var index = e.target.dataset.mailIndex;
+      if (index === undefined) return;
+      state[field.key][Number(index)] = e.target.value;
+    });
+    container.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-remove-mail]');
+      if (!btn) return;
+      state[field.key].splice(Number(btn.dataset.removeMail), 1);
+      renderMailList_(field);
+    });
+    makeReorderable_(container, function (from, to) {
+      var moved = state[field.key].splice(from, 1)[0];
+      state[field.key].splice(to, 0, moved);
+      renderMailList_(field);
+    });
+    $(field.addBtnId).addEventListener('click', function () {
+      if (state[field.key].length >= notifyMailListMax_()) return;
+      state[field.key].push('');
+      renderMailList_(field);
+      var inputs = container.querySelectorAll('[data-mail-index]');
+      if (inputs.length) inputs[inputs.length - 1].focus();
+    });
+  });
+
+  function renderAllMailLists_() {
+    MAIL_FIELDS.forEach(renderMailList_);
+  }
 
   // ===== ホーム画面（実務重視リスト型） =====
   // モデル写真をクリックすると、在庫リストへ切り替えたうえで、そのモデル名を
@@ -1798,12 +1926,37 @@
       return;
     }
 
+    // メール通知先3項目も、担当者マスタ・モデル写真と同様に空欄除去・大文字小文字を
+    // 無視した重複除去・最大件数チェックをクライアント側でも行う（サーバー側の
+    // normalizeMailList_と同じ規則。保存前にエラーメッセージで気づけるようにするため）。
+    var maxMails = notifyMailListMax_();
+    var mailFieldLabels = { notifyHoldMailTo: 'Hold時', notifyOrderMailTo: '受注確定時', notifyErrorMailTo: 'システムエラー通知先' };
+    var cleanedMailLists = {};
+    for (var mi = 0; mi < MAIL_FIELDS.length; mi++) {
+      var mailKey = MAIL_FIELDS[mi].key;
+      var seenMails = {};
+      var uniqueMails = (state[mailKey] || [])
+        .map(function (m) { return String(m || '').trim(); })
+        .filter(function (m) { return m; })
+        .filter(function (m) {
+          var lower = m.toLowerCase();
+          if (seenMails[lower]) return false;
+          seenMails[lower] = true;
+          return true;
+        });
+      if (uniqueMails.length > maxMails) {
+        $('settingsError').textContent = 'メール通知先（' + mailFieldLabels[mailKey] + '）は最大' + maxMails + '件までです（現在' + uniqueMails.length + '件）';
+        return;
+      }
+      cleanedMailLists[mailKey] = uniqueMails;
+    }
+
     var settings = {
       themeKey: state.themeKey || DEFAULT_THEME_KEY,
       logoUrl: $('settingsLogoUrl').value.trim(),
-      notifyHoldMailTo: $('settingsHoldMailTo').value.trim(),
-      notifyOrderMailTo: $('settingsOrderMailTo').value.trim(),
-      notifyErrorMailTo: $('settingsErrorMailTo').value.trim(),
+      notifyHoldMailTo: cleanedMailLists.notifyHoldMailTo,
+      notifyOrderMailTo: cleanedMailLists.notifyOrderMailTo,
+      notifyErrorMailTo: cleanedMailLists.notifyErrorMailTo,
       staffList: uniqueStaffList,
       modelPhotos: uniqueModelPhotos
     };

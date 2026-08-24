@@ -23,12 +23,35 @@ function getRawSettings_() {
   return {
     themeKey: normalizeThemeKey_(props.getProperty(PROP_KEYS.THEME_KEY)),
     logoUrl: props.getProperty(PROP_KEYS.LOGO_URL) || '',
-    notifyHoldMailTo: props.getProperty(PROP_KEYS.NOTIFY_HOLD_MAIL_TO) || '',
-    notifyOrderMailTo: props.getProperty(PROP_KEYS.NOTIFY_ORDER_MAIL_TO) || '',
-    notifyErrorMailTo: props.getProperty(PROP_KEYS.NOTIFY_ERROR_MAIL_TO) || '',
+    notifyHoldMailTo: getMailList_(PROP_KEYS.NOTIFY_HOLD_MAIL_TO),
+    notifyOrderMailTo: getMailList_(PROP_KEYS.NOTIFY_ORDER_MAIL_TO),
+    notifyErrorMailTo: getMailList_(PROP_KEYS.NOTIFY_ERROR_MAIL_TO),
     staffList: getStaffList_(),
     modelPhotos: getModelPhotos_()
   };
+}
+
+/**
+ * メール通知先1項目分（Hold時／受注確定時／システムエラー通知）を、順序を保った
+ * メールアドレスの配列で返す。担当者マスタ・モデル写真と同様に、順序変更（ドラッグ
+ * &ドロップ）に対応させるため、以前のような「,区切りの1文字列」ではなくJSON化した
+ * 配列として保存する。この関数は移行も兼ねており、この変更より前に保存された
+ * 「,区切りの1文字列」形式の値（JSON.parseできない、または配列でない）が残っていても、
+ * カンマ区切りとして分割して読み取れるようにしている（保存し直さなくても引き続き使える）。
+ */
+function getMailList_(propKey) {
+  var raw = PropertiesService.getScriptProperties().getProperty(propKey);
+  if (!raw) return [];
+  var list;
+  try {
+    list = JSON.parse(raw);
+  } catch (e) {
+    list = null;
+  }
+  if (!Array.isArray(list)) {
+    list = String(raw).split(',');
+  }
+  return list.map(function (entry) { return String(entry || '').trim(); }).filter(Boolean);
 }
 
 /**
@@ -51,9 +74,9 @@ function saveRawSettings_(settings) {
   var props = PropertiesService.getScriptProperties();
   props.setProperty(PROP_KEYS.THEME_KEY, normalizeThemeKey_(settings && settings.themeKey));
   props.setProperty(PROP_KEYS.LOGO_URL, logoUrl);
-  props.setProperty(PROP_KEYS.NOTIFY_HOLD_MAIL_TO, settings.notifyHoldMailTo || '');
-  props.setProperty(PROP_KEYS.NOTIFY_ORDER_MAIL_TO, settings.notifyOrderMailTo || '');
-  props.setProperty(PROP_KEYS.NOTIFY_ERROR_MAIL_TO, settings.notifyErrorMailTo || '');
+  props.setProperty(PROP_KEYS.NOTIFY_HOLD_MAIL_TO, JSON.stringify(normalizeMailList_(settings.notifyHoldMailTo)));
+  props.setProperty(PROP_KEYS.NOTIFY_ORDER_MAIL_TO, JSON.stringify(normalizeMailList_(settings.notifyOrderMailTo)));
+  props.setProperty(PROP_KEYS.NOTIFY_ERROR_MAIL_TO, JSON.stringify(normalizeMailList_(settings.notifyErrorMailTo)));
   props.setProperty(PROP_KEYS.STAFF_LIST, JSON.stringify(normalizeStaffList_(settings.staffList)));
   props.setProperty(PROP_KEYS.MODEL_PHOTOS, JSON.stringify(normalizeModelPhotos_(settings.modelPhotos)));
   return getRawSettings_();
@@ -144,6 +167,34 @@ function normalizeStaffList_(list) {
   });
   if (result.length > STAFF_LIST_MAX) {
     throw new Error('担当者マスタは最大' + STAFF_LIST_MAX + '人までです（現在' + result.length + '人）');
+  }
+  return result;
+}
+
+/**
+ * メール通知先1項目分（Hold時／受注確定時／システムエラー通知のいずれか）の正規化
+ * （純粋関数）。空文字は除去し、大文字小文字を無視して重複除去したうえ、最大件数
+ * （NOTIFY_MAIL_LIST_MAX）・1件あたりの最大文字数（NOTIFY_MAIL_MAX_LENGTH）を超えて
+ * いればエラー。担当者マスタ・モデル写真と同じ「配列（順序を保つ）」形式で扱うことで、
+ * 設定画面側でリスト形式の追加・削除・ドラッグによる並び替えに対応できるようにしている。
+ */
+function normalizeMailList_(list) {
+  list = Array.isArray(list) ? list : [];
+  var seen = {};
+  var result = [];
+  list.forEach(function (entry) {
+    var email = String(entry || '').trim();
+    if (!email) return;
+    var key = email.toLowerCase();
+    if (seen[key]) return;
+    seen[key] = true;
+    if (email.length > NOTIFY_MAIL_MAX_LENGTH) {
+      throw new Error('メールアドレスが長すぎます（' + email.length + '文字）: ' + email);
+    }
+    result.push(email);
+  });
+  if (result.length > NOTIFY_MAIL_LIST_MAX) {
+    throw new Error('メール通知先は最大' + NOTIFY_MAIL_LIST_MAX + '件までです（現在' + result.length + '件）');
   }
   return result;
 }
@@ -361,9 +412,9 @@ function redactSystemMasterSettings_(settings, isAdmin) {
   return {
     themeKey: settings.themeKey,
     logoUrl: settings.logoUrl,
-    notifyHoldMailTo: '',
-    notifyOrderMailTo: '',
-    notifyErrorMailTo: '',
+    notifyHoldMailTo: [],
+    notifyOrderMailTo: [],
+    notifyErrorMailTo: [],
     staffList: [],
     modelPhotos: settings.modelPhotos
   };

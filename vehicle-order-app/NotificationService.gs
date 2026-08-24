@@ -5,7 +5,7 @@
  */
 
 function notifyHoldRegistered(vehicle, isSecondHold) {
-  var to = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.NOTIFY_HOLD_MAIL_TO);
+  var to = getMailList_(PROP_KEYS.NOTIFY_HOLD_MAIL_TO).join(',');
   if (!to) return false;
 
   var label = isSecondHold ? '2nd Hold' : 'Hold';
@@ -39,7 +39,7 @@ function notifyHoldRegistered(vehicle, isSecondHold) {
 }
 
 function notifyOrderConfirmed(order) {
-  var to = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.NOTIFY_ORDER_MAIL_TO);
+  var to = getMailList_(PROP_KEYS.NOTIFY_ORDER_MAIL_TO).join(',');
   if (!to) return false;
 
   MailApp.sendEmail({
@@ -70,7 +70,7 @@ function notifyOrderConfirmed(order) {
  * 設定タブで「システムエラー通知先」が未設定の場合は何もしない。
  */
 function notifySystemError_(context, error) {
-  var to = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.NOTIFY_ERROR_MAIL_TO);
+  var to = getMailList_(PROP_KEYS.NOTIFY_ERROR_MAIL_TO).join(',');
   if (!to) return false;
 
   MailApp.sendEmail({

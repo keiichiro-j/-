@@ -984,6 +984,28 @@
   .logoPreview__placeholder { font-size: 11px; color: var(--on-surface-variant); text-align: center; }
   .logoField__controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
+  /* ===== 設定タブの各種リスト共通: ドラッグハンドル（担当者・モデル写真・
+     メール通知先で共通利用。JavaScript.htmlのmakeReorderable_参照） ===== */
+  .dragHandle {
+    flex: none;
+    display: flex; align-items: center; justify-content: center;
+    width: 22px; height: 32px;
+    color: var(--on-surface-variant);
+    font-size: 15px;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    border-radius: 4px;
+  }
+  .dragHandle:hover { background: var(--background); color: var(--on-surface); }
+  .dragHandle:active { cursor: grabbing; }
+  [data-drag-index].is-dragging { opacity: .4; }
+  [data-drag-index].is-drag-over {
+    outline: 2px dashed var(--primary);
+    outline-offset: 2px;
+    border-radius: 8px;
+  }
+
   /* ===== 担当者マスタ ===== */
   .staffList { display: flex; flex-direction: column; gap: 6px; }
   .staffList__row { display: flex; gap: 8px; align-items: center; }
@@ -1005,6 +1027,14 @@
   .modelPhotoList__row .input[data-photo-field="model"] { flex: 0 0 26%; min-width: 90px; }
   .modelPhotoList__row .input[data-photo-field="photoUrl"] { flex: 1 1 auto; min-width: 0; }
   .modelPhotoList__empty { font-size: 13px; color: var(--on-surface-variant); }
+
+  /* ===== メール通知先（Hold時／受注確定時／システムエラー通知） =====
+     以前は「,区切りの1テキスト欄」だったが、担当者マスタ・モデル写真と統一した
+     「1行1件・追加/削除/ドラッグ並び替え」のリスト形式に変更した。 */
+  .mailList { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+  .mailList__row { display: flex; gap: 8px; align-items: center; }
+  .mailList__row .input { flex: 1 1 auto; min-width: 0; }
+  .mailList__empty { font-size: 13px; color: var(--on-surface-variant); margin-bottom: 4px; }
 
   /* ===== ホーム画面 =====
      PC（901px以上）はモデル写真を大きく見せる4列グリッドにする。タブレット・
@@ -1134,6 +1164,11 @@
      @media (max-width: 900px)で上書き）。 */
   .homeGradeTabs {
     grid-column: 1 / -1;
+    /* 展開中タイル（.homeRow.is-expanded、order:-1）の直下・他のモデルカードより
+       上に表示されるよう、こちらもorder:-1にする（展開タイルとグレードタブは
+       常にペアでDOM上に連続して出力されるため、同じorder値でもDOM順で
+       タイル→タブの並びが保たれる）。 */
+    order: -1;
     padding: 16px;
     background: var(--surface);
     border: 1px solid var(--outline);
@@ -1355,6 +1390,7 @@
     .homeRow.is-expanded .homeRow__backBtn { display: none; }
     .homeGradeTabs {
       grid-column: auto;
+      order: 0;
       margin: 0 0 0 94px;
       padding: 4px 0 16px 16px;
       background: none;
@@ -1373,8 +1409,16 @@
     .integrityBanner__list { padding: 8px 12px 10px; }
     .topbar__brandText { font-size: 15px; }
     /* display:none にすると要素がグリッドから外れ、左右の余白が非対称になって
-       ブランド表記の中央寄せが崩れるため、visibility:hiddenで場所だけ確保する。 */
-    .topbar__user { visibility: hidden; }
+       ブランド表記の中央寄せが崩れるため、visibility:hiddenで場所だけ確保する。
+       ただし、グリッドアイテムの既定のmin-widthはauto（＝中身のmin-content幅）
+       のため、非表示のユーザー名・メールアドレス欄の文字数によって右側の余白
+       トラックの最小幅が左側（戻る・更新ボタン、常に一定幅）と食い違い、結果的に
+       中央のブランド表記が左右どちらかに寄って見える不具合があった。左右とも
+       min-width: 0にして中身の最小幅を無視させることで、1fr同士が常に同じ幅に
+       なるようにしている（画面幅に対してボタン自体の実寸は十分小さいため、
+       min-width: 0にしても実際にクリップされることはない）。 */
+    .topbar__user { visibility: hidden; min-width: 0; }
+    .topbar__brandRow__spacer { min-width: 0; }
     .staffList__row { flex-wrap: wrap; }
     .staffList__row .input[data-staff-field="name"],
     .staffList__row .input[data-staff-field="email"],
