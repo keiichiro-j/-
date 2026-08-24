@@ -1908,6 +1908,11 @@
       return headerHtml + g.items.map(function (p) { return homeModelTileHtml_(p, allItems); }).join('');
     }).join('');
     renderHomeTypeNav_();
+    // #homeTypeNavはposition: fixedのため、表示・非表示の切り替えや折り返し行数の
+    // 変化（絞り込みでボタンの活性状態が変わる、モデル写真の登録数が変わる等）で
+    // 高さが変わりうる。そのたびにスペーサー（#homeTypeNavSpacer）の高さも
+    // 実測し直さないと、後続のモデル一覧との間隔がずれてしまう。
+    syncFixedBars_();
   }
 
   /**
@@ -2178,13 +2183,21 @@
     if (topbar) {
       document.documentElement.style.setProperty('--topbar-h', topbar.offsetHeight + 'px');
     }
-    [['inventoryToolbar', 'inventoryToolbarSpacer'], ['ordersToolbar', 'ordersToolbarSpacer']].forEach(function (pair) {
+    // main.view自身の上余白（16px）が「ヘッダー〜固定バー間の余白」と同じ幅を
+    // 既に確保しているため、スペーサーは「固定バー自身の高さ＋固定バー〜
+    // 後続コンテンツ間の余白」分だけ確保すればよい（上下の余白が揃う）。
+    // ホームの型クイックナビ（#homeTypeNav）だけ後続余白を20pxにしているのは、
+    // 直後の.homeTypeHeader自身のmargin-top（4px）とあわせて24pxになるよう
+    // 揃えているため（.homeTypeHeaderのコメント参照。型ごとの見出しが無い場合
+    // でも、モデル一覧との間隔として同じ20pxがそのまま使われる）。
+    [
+      ['inventoryToolbar', 'inventoryToolbarSpacer', 16],
+      ['ordersToolbar', 'ordersToolbarSpacer', 16],
+      ['homeTypeNav', 'homeTypeNavSpacer', 20]
+    ].forEach(function (pair) {
       var toolbar = $(pair[0]);
       var spacer = $(pair[1]);
-      // main.view自身の上余白（16px）が「ヘッダー〜ツールバー間の余白」と同じ幅を
-      // 既に確保しているため、スペーサーは「ツールバー自身の高さ＋ツールバー〜
-      // カード間の余白（16px）」分だけ確保すればよい（上下の余白が揃う）。
-      if (toolbar && spacer) spacer.style.height = (toolbar.offsetHeight + 16) + 'px';
+      if (toolbar && spacer) spacer.style.height = (toolbar.offsetHeight + pair[2]) + 'px';
     });
   }
   window.addEventListener('resize', debounce(syncFixedBars_, 100));

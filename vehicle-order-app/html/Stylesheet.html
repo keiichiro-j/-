@@ -1059,16 +1059,31 @@
      モデル一覧の上に、設定タブで登録できるボディタイプ（Sedan/SUV/Station Wagon/
      Compact/Coupe）をひと並びのボタンで表示し、押すとその型だけに絞り込む
      （どの型が何台あるか、目当ての型のモデルを探しやすくするため）。
-     スマホ幅を含め、横スクロール（スワイプでスライド）はさせず、折り返して
-     常にすべてのボタンが見える状態で固定表示する（JavaScript.htmlの
-     renderHomeTypeNav_参照）。margin-bottomは、直後に続く.homeTypeHeader
-     （型ごとの見出し）とのバランスを.homeListのgrid gapに合わせているため、
-     変更する場合は.homeTypeHeaderのコメントもあわせて参照。 */
+     トップバー・ツールバー（検索欄）と同様にposition: fixedで画面上部に
+     完全固定し、上下スクロール中も常に押せる状態を保つ（現場からの指摘。
+     position: stickyだとブラウザによってスクロール中にわずかに追従が
+     遅れる/ずれることがあるため、他の固定要素と同じくJavaScript.htmlの
+     syncFixedBars_で実測値を使って完全に固定している）。すぐ下に高さ
+     実測済みのスペーサー（.homeTypeNavSpacer）を置き、後続のモデル一覧が
+     隠れないようにしている（.toolbar / .toolbarSpacerと同じ仕組み）。
+     このため、直後の.homeTypeHeader（型ごとの見出し）との間隔は、この
+     要素自身のmargin-bottomではなく、spacerの高さ（syncFixedBars_で
+     「この要素の高さ＋20px」を設定）で確保している。 */
   .homeTypeNav {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    margin-bottom: 20px;
+    position: fixed;
+    top: calc(var(--topbar-h) + 16px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 32px);
+    max-width: 1648px; /* main.view の max-width(1680px) から左右padding(32px)を引いた値。.toolbarと同じ */
+    z-index: 25;
+    background: var(--surface);
+    padding: 10px 16px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
   }
   .homeTypeNav__item {
     flex: none;
@@ -1418,10 +1433,11 @@
     /* 受注カードは項目数が多いため、タブレット幅では1列にして読みやすさを優先する */
     .orderList { grid-template-columns: 1fr; }
 
-    /* 型のクイックナビ: タブレット・スマホ幅でも、PCと同じくスワイプで横スクロール
-       させず、折り返して常にすべてのボタンが見える固定表示にする（現場からの
-       指摘で判明。当初は横スクロールにしていたが、スライドしないと次のボタンが
-       見えないのは使いにくいとのことだった）。 */
+    /* 型のクイックナビ: タブレット・スマホ幅では5種類＋「すべて」を折り返し無しで
+       並べると窮屈なため、横スクロールにする（よくあるカテゴリ絞り込みチップの
+       パターン。折り返して縦に伸びると、position: fixedで固定した高さぶんだけ
+       スペーサーも伸び、その分モデル一覧が下に押し出されてしまうのを避けるため）。 */
+    .homeTypeNav { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .homeTypeHeader { margin: 10px 2px 6px; font-size: 17px; }
 
     /* ホーム画面: PCの4列グリッド（写真を大きく見せるタイル型）ではなく、
@@ -1517,6 +1533,7 @@
     main.view { padding: 10px; }
     .toolbar { padding: 10px; width: calc(100% - 20px); }
     .toolbar .input, .toolbar .checkboxField { flex: 1 1 auto; }
+    .homeTypeNav { padding: 10px; width: calc(100% - 20px); }
     .cardGrid { grid-template-columns: 1fr; gap: 12px; }
     .homeRow { gap: 12px; }
     .homeRow__photo { width: 60px; height: 60px; }
