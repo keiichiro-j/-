@@ -176,22 +176,51 @@ function getModelPhotos_() {
   return list.map(function (entry) {
     return {
       model: (entry && entry.model) || '',
-      photoUrl: (entry && entry.photoUrl) || '',
+      // 保存済みの値がGoogleドライブの共有リンクのままだった場合（この変換機能が
+      // 無かった頃に登録されたものなど）でも、保存し直さなくても表示できるよう、
+      // 読み出し時にも変換する（normalizeModelPhotoUrl_はドライブの共有リンク
+      // 以外の値には何もしない純粋関数のため、既に直接画像URLの場合や他の
+      // ホスティングサービスのURLの場合はそのまま返る）。
+      photoUrl: normalizeModelPhotoUrl_((entry && entry.photoUrl) || ''),
       grades: Array.isArray(entry && entry.grades) ? entry.grades : []
     };
   });
 }
 
 /**
+ * Googleドライブの共有リンク（ファイルを右クリック→「リンクを取得」で得られる、
+ * ブラウザ用のHTMLビューアページのURL）を、<img>タグでそのまま表示できる直接画像
+ * URLに変換する（純粋関数）。共有リンクは以下のような形式：
+ *   https://drive.google.com/file/d/{ファイルID}/view?usp=sharing
+ *   https://drive.google.com/open?id={ファイルID}
+ * これらをそのまま<img src>に指定してもHTMLページが読み込まれるだけで画像としては
+ * 表示されないため、ファイルIDを抜き出し、Googleの画像配信ドメイン
+ * （lh3.googleusercontent.com）のURLに変換する。末尾に`=w{MODEL_PHOTO_DISPLAY_WIDTH}`
+ * を付けることで、Google側のサーバーがその幅にリサイズ済みの画像を返してくれるため、
+ * 管理者が写真を登録する際に画像のサイズ・アスペクト比を気にして事前に加工する
+ * 必要がない（ホーム画面側は`object-fit: cover`で表示するため、正方形以外の
+ * 画像でも問題なくタイルに収まる）。ドライブの共有リンクでない値（他の画像
+ * ホスティングサービスのURLや、data URL等）はそのまま返す（変換しない）。
+ */
+function normalizeModelPhotoUrl_(url) {
+  url = String(url || '').trim();
+  if (!url || !/drive\.google\.com|docs\.google\.com/.test(url)) return url;
+  var match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (!match) return url;
+  return 'https://lh3.googleusercontent.com/d/' + match[1] + '=w' + MODEL_PHOTO_DISPLAY_WIDTH;
+}
+
+/**
  * モデル写真設定の正規化（純粋関数）。モデル名・写真URLがともに入力されている行のみ残し、
  * モデル名で重複除去したうえ、最大件数（MODEL_PHOTOS_MAX）を超えていればエラー。
- * 写真URLが長すぎる場合（data URLを直接貼り付けた場合等）もエラーにする
- * （大きな画像は外部にアップロードしてURLを指定する）。グレード一覧（grades）も
- * 同様に、空文字除去・重複除去・最大件数（MODEL_PHOTO_GRADES_MAX）・1件あたりの
- * 最大文字数（MODEL_PHOTO_GRADE_MAX_LENGTH）をチェックする。
- * さらに、1件あたりの上限内でも件数が多いと合計文字数がScript Propertiesの
- * 実際の保存上限を超えうるため、JSON化した全体の文字数（MODEL_PHOTOS_TOTAL_MAX_LENGTH）
- * も別途チェックする。
+ * 写真URLはGoogleドライブの共有リンクであれば直接画像URLに変換する
+ * （normalizeModelPhotoUrl_参照）。変換後も長すぎる場合（data URLを直接貼り付けた
+ * 場合等）はエラーにする（大きな画像は外部にアップロードしてURLを指定する）。
+ * グレード一覧（grades）も同様に、空文字除去・重複除去・最大件数
+ * （MODEL_PHOTO_GRADES_MAX）・1件あたりの最大文字数（MODEL_PHOTO_GRADE_MAX_LENGTH）
+ * をチェックする。さらに、1件あたりの上限内でも件数が多いと合計文字数がScript
+ * Propertiesの実際の保存上限を超えうるため、JSON化した全体の文字数
+ * （MODEL_PHOTOS_TOTAL_MAX_LENGTH）も別途チェックする。
  */
 function normalizeModelPhotos_(list) {
   list = Array.isArray(list) ? list : [];
@@ -199,7 +228,7 @@ function normalizeModelPhotos_(list) {
   var result = [];
   list.forEach(function (entry) {
     var model = String((entry && entry.model) || '').trim();
-    var photoUrl = String((entry && entry.photoUrl) || '').trim();
+    var photoUrl = normalizeModelPhotoUrl_((entry && entry.photoUrl) || '');
     if (!model || !photoUrl) return;
     if (seenModels[model]) return;
     seenModels[model] = true;

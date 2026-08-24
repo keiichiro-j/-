@@ -1531,6 +1531,20 @@
   });
 
   // ===== モデル写真（ホーム画面） =====
+  /**
+   * Googleドライブの共有リンクを直接画像URLに変換する（純粋関数）。
+   * SettingsService.gsのnormalizeModelPhotoUrl_と同じロジックで、設定画面の
+   * プレビューを保存前から正しく表示するために使う（実際に保存される値は
+   * サーバー側のnormalizeModelPhotoUrl_で変換される）。
+   */
+  function normalizeModelPhotoUrl_(url) {
+    url = String(url || '').trim();
+    if (!url || !/drive\.google\.com|docs\.google\.com/.test(url)) return url;
+    var match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (!match) return url;
+    return 'https://lh3.googleusercontent.com/d/' + match[1] + '=w1000';
+  }
+
   function renderModelPhotoList_() {
     var container = $('modelPhotoList');
     $('modelPhotosCount').textContent = state.modelPhotos.length;
@@ -1539,7 +1553,7 @@
     } else {
       container.innerHTML = state.modelPhotos.map(function (entry, i) {
         var preview = entry.photoUrl
-          ? '<img src="' + escapeHtml(entry.photoUrl) + '" alt="">'
+          ? '<img src="' + escapeHtml(normalizeModelPhotoUrl_(entry.photoUrl)) + '" alt="">'
           : '<span class="logoPreview__placeholder">写真</span>';
         return '<div class="modelPhotoList__row">' +
           '<div class="modelPhotoList__preview">' + preview + '</div>' +
@@ -1566,7 +1580,7 @@
       var preview = row.querySelector('.modelPhotoList__preview');
       var url = e.target.value.trim();
       preview.innerHTML = url
-        ? '<img src="' + escapeHtml(url) + '" alt="">'
+        ? '<img src="' + escapeHtml(normalizeModelPhotoUrl_(url)) + '" alt="">'
         : '<span class="logoPreview__placeholder">写真</span>';
     }
   });

@@ -227,6 +227,12 @@ var LOGO_URL_MAX_LENGTH = 9000;
 // 前提とする。SettingsService.gs参照）。
 var MODEL_PHOTO_URL_MAX_LENGTH = 1500;
 
+// Googleドライブの共有リンクを直接画像URLに変換する際に指定する幅（px）。
+// ホーム画面のモデル写真タイルは最大でも480px幅（クローズアップ表示時）のため、
+// 高解像度ディスプレイ（2倍相当）でも十分な解像度になるよう余裕を持たせている
+// （normalizeModelPhotoUrl_、SettingsService.gs参照）。
+var MODEL_PHOTO_DISPLAY_WIDTH = 1000;
+
 // モデル写真設定全体（JSON化した状態）の最大文字数。最大MODEL_PHOTOS_MAX件分の
 // URLをまとめて1つのScript Propertyへ保存するため、1件あたりの上限だけでは
 // 「件数×上限文字数」が実際の保存上限（1プロパティあたり9KB＝9216文字程度）を

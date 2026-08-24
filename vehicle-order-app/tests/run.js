@@ -388,6 +388,40 @@ test('配列以外が渡されても空配列として扱われる', () => {
   assert.strictEqual(sandbox.normalizeStaffList_(undefined).length, 0);
 });
 
+console.log('== SettingsService: normalizeModelPhotoUrl_（Googleドライブの共有リンク→直接画像URLへの変換） ==');
+test('/file/d/{ID}/view形式の共有リンクを直接画像URLに変換する', () => {
+  const url = sandbox.normalizeModelPhotoUrl_('https://drive.google.com/file/d/1AbC-xyz_123/view?usp=sharing');
+  assert.strictEqual(url, 'https://lh3.googleusercontent.com/d/1AbC-xyz_123=w1000');
+});
+test('open?id={ID}形式の共有リンクを直接画像URLに変換する', () => {
+  const url = sandbox.normalizeModelPhotoUrl_('https://drive.google.com/open?id=1AbC-xyz_123');
+  assert.strictEqual(url, 'https://lh3.googleusercontent.com/d/1AbC-xyz_123=w1000');
+});
+test('uc?id={ID}&export=download形式の共有リンクも変換する', () => {
+  const url = sandbox.normalizeModelPhotoUrl_('https://drive.google.com/uc?id=1AbC-xyz_123&export=download');
+  assert.strictEqual(url, 'https://lh3.googleusercontent.com/d/1AbC-xyz_123=w1000');
+});
+test('ドライブ以外のURL（他の画像ホスティングサービス等）はそのまま返る', () => {
+  assert.strictEqual(sandbox.normalizeModelPhotoUrl_('https://example.com/c.jpg'), 'https://example.com/c.jpg');
+});
+test('既に変換済みのURL（lh3.googleusercontent.com）はそのまま返る', () => {
+  const url = 'https://lh3.googleusercontent.com/d/1AbC-xyz_123=w1000';
+  assert.strictEqual(sandbox.normalizeModelPhotoUrl_(url), url);
+});
+test('前後の空白は無視される', () => {
+  const url = sandbox.normalizeModelPhotoUrl_('  https://drive.google.com/file/d/1AbC-xyz_123/view?usp=sharing  ');
+  assert.strictEqual(url, 'https://lh3.googleusercontent.com/d/1AbC-xyz_123=w1000');
+});
+test('空文字・未指定はそのまま返る', () => {
+  assert.strictEqual(sandbox.normalizeModelPhotoUrl_(''), '');
+  assert.strictEqual(sandbox.normalizeModelPhotoUrl_(null), '');
+  assert.strictEqual(sandbox.normalizeModelPhotoUrl_(undefined), '');
+});
+test('ドライブのドメインでもファイルIDを抽出できない形式はそのまま返る', () => {
+  const url = 'https://drive.google.com/drive/folders/1AbC-xyz_123';
+  assert.strictEqual(sandbox.normalizeModelPhotoUrl_(url), url);
+});
+
 console.log('== SettingsService: normalizeModelPhotos_（ホーム画面のモデル写真最大30件・{model,photoUrl,grades}形式） ==');
 test('モデル名・写真URLがともに入力されている行のみ残り、モデル名重複は除去される', () => {
   const list = sandbox.normalizeModelPhotos_([
@@ -402,6 +436,12 @@ test('モデル名・写真URLがともに入力されている行のみ残り�
   assert.strictEqual(list[0].photoUrl, 'https://example.com/c.jpg');
   assert.strictEqual(list[1].model, '3シリーズ');
   assert.strictEqual(list[1].photoUrl, 'https://example.com/3.jpg');
+});
+test('写真URLにGoogleドライブの共有リンクを指定すると、直接画像URLに変換されて保存される', () => {
+  const list = sandbox.normalizeModelPhotos_([
+    { model: 'Aクラス', photoUrl: 'https://drive.google.com/file/d/1AbC-xyz_123/view?usp=sharing' }
+  ]);
+  assert.strictEqual(list[0].photoUrl, 'https://lh3.googleusercontent.com/d/1AbC-xyz_123=w1000');
 });
 test('30件まではそのまま登録できる', () => {
   const list = Array.from({ length: 30 }, (_, i) => ({ model: 'モデル' + i, photoUrl: 'https://example.com/' + i + '.jpg' }));
