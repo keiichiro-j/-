@@ -429,6 +429,11 @@
      浮き上がる）を保ったまま、1台=横1行のカードとして並べる。列位置はCSS Gridで
      全行そろえ、表形式ならではの一覧性はそのまま保つ。 */
   .rowCardList { display: flex; flex-direction: column; gap: 10px; min-width: 1490px; }
+  /* 受注リストの表「行カード」は在庫リストより列数・列幅が少ないため、共通の
+     min-width（1490px、在庫リスト向け）をそのまま使うと、行（.rowCard--order）が
+     不要に広くstretchされ、固定幅の列だけでは埋まらない分だけ余白が空いてしまう。
+     受注リスト自身の列合計に合わせて上書きする（.rowCard.rowCard--order参照）。 */
+  .rowCardList--order { min-width: 1030px; }
   .rowCard {
     display: grid;
     /* .rowCardは.rowCardList（display:flex; flex-direction:column;）の子要素で
@@ -535,9 +540,16 @@
   .rowCard__actions { display: flex; gap: 8px; justify-self: stretch; justify-content: flex-start; }
 
   /* 受注リストの表示形式「表」: 在庫と項目構成が異なる（比較ピン・操作ボタンが無く、
-     顧客・担当者・リード番号などを表示する）ため、専用の列構成にする。 */
+     顧客・担当者・リード番号などを表示する）ため、専用の列構成にする。顧客・モデルの
+     列を`fr`（可変幅）にしていたため、.rowCardの共通min-width（在庫リスト向けに
+     1490pxを指定、下記参照）を受け継いだ状態でこの列数の少ない構成に流用すると、
+     余った横幅を可変幅の2列だけが吸収してしまい、顧客名〜モデル・モデル〜担当者の
+     間に不要な余白が大きく空いてしまっていた（現場からの指摘で判明）。在庫リストと
+     同様にすべての列を固定幅にし、min-widthも受注リスト自身の列合計に合わせて
+     上書きすることで、余白をなくしスクロールの手間を減らしている。 */
   .rowCard.rowCard--order {
-    grid-template-columns: 1.5fr 1fr 90px 110px 80px 150px 130px;
+    grid-template-columns: 210px 120px 90px 110px 80px 150px 130px;
+    min-width: 1030px;
     border-left-color: var(--primary);
   }
   .btn--small { padding: 6px 12px; font-size: 12.5px; }
