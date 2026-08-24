@@ -370,8 +370,9 @@ Hold登録時・受注確定時・システムエラー発生時の通知先メ�
   狭い画面ではあえて変更していません）。
 
 - **ボディタイプ（型）ごとのグループ表示・絞り込み**: 設定タブのモデル写真ごとに
-  ボディタイプ（`Sedan` / `SUV` / `Station Wagon` / `Compact` / `Coupe`。
-  `MODEL_BODY_TYPE_OPTIONS`、Constants.gs）を1つ選んで割り当てられます。
+  ボディタイプ（`Sedan` / `SUV` / `Station Wagon` / `Compact` / `Coupe` /
+  `Cabriolet/Roadster` / `Mini Van`。`MODEL_BODY_TYPE_OPTIONS`、Constants.gs）を
+  1つ選んで割り当てられます。
   1台でも割り当てられていれば、ホーム画面のモデル一覧はこの5種類の順序で
   グループ化され、各グループの先頭（そのタイプの最初のモデルタイルの直前）に
   型名の見出しを表示します（`groupModelPhotosByBodyType_`）。型を割り当てて
@@ -457,8 +458,9 @@ Hold登録時・受注確定時・システムエラー発生時の通知先メ�
 - 設定タブの「システムマスタ」内「モデル写真（ホーム画面）」（管理者限定。詳細は
   「システムマスタ（管理者限定）」参照）から、モデル名・ボディタイプ（型）・写真URL・
   対象グレード（カンマ区切り、任意）の組を登録します（最大30件、`MODEL_PHOTOS_MAX`）。
-  ボディタイプは`Sedan` / `SUV` / `Station Wagon` / `Compact` / `Coupe`から選ぶ
-  プルダウンで、任意入力です（未設定のままでも保存できます。ホーム画面での
+  ボディタイプは`Sedan` / `SUV` / `Station Wagon` / `Compact` / `Coupe` /
+  `Cabriolet/Roadster` / `Mini Van`から選ぶプルダウンで、任意入力です
+  （未設定のままでも保存できます。ホーム画面での
   型ごとのグループ表示・絞り込みに使われます。「ホーム画面」の項を参照）。グレードは
   最大20件・1件あたり30文字まで（`MODEL_PHOTO_GRADES_MAX` / `MODEL_PHOTO_GRADE_MAX_LENGTH`）。
   ロゴ設定と異なり、モデル写真は複数枚をまとめて

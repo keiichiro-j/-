@@ -234,7 +234,7 @@ function getModelPhotos_() {
       // ホスティングサービスのURLの場合はそのまま返る）。
       photoUrl: normalizeModelPhotoUrl_((entry && entry.photoUrl) || ''),
       grades: Array.isArray(entry && entry.grades) ? entry.grades : [],
-      // ボディタイプ（Sedan/SUV/Station Wagon/Compact/Coupeのいずれか）。ホーム画面で
+      // ボディタイプ（MODEL_BODY_TYPE_OPTIONSのいずれか）。ホーム画面で
       // 型ごとにグループ表示するために使う（未設定可。normalizeModelPhotos_参照）。
       bodyType: (entry && entry.bodyType) || ''
     };
