@@ -860,43 +860,9 @@
      列の合計高さがずれてしまい、次のカードとの間隔だけ広がって不揃いに見える
      問題が残るため、確実に隙間が一定になる1列の縦積みに統一している
      （Google/Teslaの設定画面も同様に1列でカードを並べるスタイル）。 */
-  /* 設定タブ全体のレイアウト（ナビ＋本体の2カラム）。カード自体は変わらず1列縦積みだが、
-     広いPC画面では、760px幅のカード列だけが画面中央にぽつんと浮いて左右・下に
-     大きな余白が残り間延びして見えるため、左側にセクションへのジャンプ用ナビを添えて
-     画面をより意図的に使う（ヘッダー直下に固定されたトップバーとぶつからないよう
-     position: stickyのtopは--topbar-h＋ツールバーと同じ余白ぶんに揃えている）。
-     ナビ自体はJavaScript.htmlのrenderSettingsNav_が、実際に表示中のカード
-     （管理者以外には隠れているカードは除く）から動的に組み立てる。 */
-  .settingsLayout {
-    display: flex;
-    align-items: flex-start;
-    gap: 32px;
-    max-width: 1040px;
-    margin: 0 auto;
-  }
-  .settingsNav {
-    flex: 0 0 190px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    position: sticky;
-    top: calc(var(--topbar-h) + 16px);
-  }
-  .settingsNav__item {
-    display: block;
-    padding: 9px 12px;
-    border-radius: 8px;
-    font-size: 13.5px;
-    font-weight: 600;
-    color: var(--on-surface-variant);
-    text-decoration: none;
-    transition: background-color .15s ease, color .15s ease;
-  }
-  .settingsNav__item:hover { background: var(--surface); color: var(--on-surface); }
   .settingsWrap {
-    flex: 1 1 auto;
     max-width: 760px;
-    min-width: 0;
+    margin: 0 auto;
   }
   .settingsGrid {
     display: flex;
@@ -1069,41 +1035,6 @@
   .mailList__row { display: flex; gap: 8px; align-items: center; }
   .mailList__row .input { flex: 1 1 auto; min-width: 0; }
   .mailList__empty { font-size: 13px; color: var(--on-surface-variant); margin-bottom: 4px; }
-
-  /* ===== ホーム画面: 在庫サマリー =====
-     PC（広い画面）でモデル一覧の上に置く、在庫状況の要約4項目（在庫あり／1st Hold中／
-     2nd Hold中／総台数）。ホーム画面がモデルタイルのグリッドだけだと、モデル数が
-     少ない・画面が広い場合に上部だけタイルが並び下は余白という間延びした見た目に
-     なりやすいため、担当者が朝いちばんに気にする「今どれだけ動かせる在庫があるか」を
-     一目で把握できる要約を添えている（内訳の値は、モデルタイルの在庫台数と同じ
-     state.allInventoryItems から算出するため、二重に取得し直すことはしない）。
-     JavaScript.htmlのrenderHomeStats_参照。 */
-  .homeStats {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 14px;
-    margin-bottom: 20px;
-  }
-  .homeStats__item {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 16px 18px;
-    background: var(--surface);
-    border: 1px solid var(--outline);
-    border-left: 4px solid var(--outline);
-    border-radius: var(--radius);
-  }
-  .homeStats__value { font-size: 26px; font-weight: 700; line-height: 1.1; color: var(--on-surface); }
-  .homeStats__label { font-size: 12.5px; color: var(--on-surface-variant); }
-  .homeStats__item--available { border-left-color: var(--success); }
-  .homeStats__item--available .homeStats__value { color: var(--success); }
-  .homeStats__item--hold { border-left-color: var(--warning); }
-  .homeStats__item--hold .homeStats__value { color: var(--warning); }
-  .homeStats__item--hold2 { border-left-color: var(--danger); }
-  .homeStats__item--hold2 .homeStats__value { color: var(--danger); }
-  .homeStats__item--total { border-left-color: var(--primary); }
-  .homeStats__item--total .homeStats__value { color: var(--primary); }
 
   /* ===== ホーム画面 =====
      PC（901px以上）はモデル写真を大きく見せる4列グリッドにする。タブレット・
@@ -1403,17 +1334,9 @@
   @media (max-width: 900px) {
     main.view { padding: 14px; }
     .cardGrid { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
-    /* タブレット・スマホ幅では、ジャンプ用ナビを置くほどの余白がそもそも無いため、
-       ナビは非表示にしてカード列のみの1カラムに戻す。 */
-    .settingsNav { display: none; }
     .settingsWrap { max-width: 100%; }
     /* 受注カードは項目数が多いため、タブレット幅では1列にして読みやすさを優先する */
     .orderList { grid-template-columns: 1fr; }
-
-    /* 在庫サマリー: 4項目横並びだと1項目あたりが窮屈になるため、2列×2行にする。 */
-    .homeStats { grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
-    .homeStats__item { padding: 12px 14px; }
-    .homeStats__value { font-size: 21px; }
 
     /* ホーム画面: PCの4列グリッド（写真を大きく見せるタイル型）ではなく、
        元の「実務重視リスト型」（横一列・小さめの写真）に戻す。タブレット・

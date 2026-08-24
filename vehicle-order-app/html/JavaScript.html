@@ -1367,35 +1367,7 @@
     $('modelPhotosMax').textContent = (state.bootstrap && state.bootstrap.modelPhotosMax) || 30;
     renderModelPhotoList_();
     renderHomeGallery_();
-    renderSettingsNav_();
   }
-
-  /**
-   * 設定タブ左側の、セクションへのジャンプ用ナビ（PC専用。900px以下では非表示、
-   * .settingsNav参照）。実際に表示中のカード（管理者以外には隠れているシステム
-   * マスタのカードは除く）から動的に組み立てるため、管理者判定によるカードの
-   * 表示・非表示切り替えとナビの項目が食い違うことはない。
-   */
-  function renderSettingsNav_() {
-    var nav = $('settingsNav');
-    var cards = document.querySelectorAll('.settingsGrid .settingsCard:not(.hidden)');
-    nav.innerHTML = Array.prototype.map.call(cards, function (card) {
-      var titleEl = card.querySelector('.settingsSection__title');
-      var label = titleEl ? titleEl.textContent.trim() : '';
-      return '<a class="settingsNav__item" href="#' + card.id + '" data-settings-nav-target="' + card.id + '">' + escapeHtml(label) + '</a>';
-    }).join('');
-  }
-
-  $('settingsNav').addEventListener('click', function (e) {
-    var link = e.target.closest('[data-settings-nav-target]');
-    if (!link) return;
-    e.preventDefault();
-    var target = document.getElementById(link.dataset.settingsNavTarget);
-    if (!target) return;
-    var topbarH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--topbar-h')) || 108;
-    var y = target.getBoundingClientRect().top + window.pageYOffset - topbarH - 16;
-    window.scrollTo({ top: y, behavior: 'smooth' });
-  });
 
   /**
    * テーマ（着せ替え）プリセット一覧。Constants.gsのTHEME_PRESETSと同じ内容を
@@ -1865,44 +1837,7 @@
     return gasRun('api_listInventory', { keyword: '', includeHold: true }).then(function (groups) {
       state.allInventoryItems = (groups && groups[0] && groups[0].items) || [];
       renderHomeGallery_();
-      renderHomeStats_();
     }).catch(function () {});
-  }
-
-  /**
-   * ホーム画面上部の「在庫サマリー」（在庫あり／1st Hold中／2nd Hold中／総台数）。
-   * モデルタイルだけだとモデル数が少ない・画面が広い場合に上部だけタイルが並び
-   * 下は余白という間延びした見た目になりやすいため、担当者が最初に気にする
-   * 「今どれだけ動かせる在庫があるか」を一目で把握できる要約を添えている。
-   * loadHomeModelCounts_で取得済みのstate.allInventoryItems（登録モデルの
-   * フィルタに関わらない全件）から算出するだけで、別途データ取得はしない。
-   * 内訳の判定は在庫リストの状態バッジ（rowField_ / vehicleCardHtml等）と
-   * 同じ条件（holdStatus === 'hold' かつ secondHoldCustomer の有無）を使う。
-   */
-  function renderHomeStats_() {
-    var items = state.allInventoryItems || [];
-    var el = $('homeStats');
-    if (!items.length) { el.classList.add('hidden'); return; }
-    el.classList.remove('hidden');
-    var hold2Count = 0;
-    var holdCount = 0;
-    items.forEach(function (v) {
-      if (v.holdStatus !== 'hold') return;
-      if (v.secondHoldCustomer) hold2Count++; else holdCount++;
-    });
-    var availableCount = items.length - holdCount - hold2Count;
-    var stats = [
-      { key: 'available', label: '在庫あり', value: availableCount },
-      { key: 'hold', label: '1ST HOLD中', value: holdCount },
-      { key: 'hold2', label: '2ND HOLD中', value: hold2Count },
-      { key: 'total', label: '総台数', value: items.length }
-    ];
-    el.innerHTML = stats.map(function (s) {
-      return '<div class="homeStats__item homeStats__item--' + s.key + '">' +
-        '<div class="homeStats__value">' + s.value + '</div>' +
-        '<div class="homeStats__label">' + s.label + '</div>' +
-        '</div>';
-    }).join('');
   }
 
   // グレードタブ（Aクラス行の展開で現れるA180・A200等）をクリックすると、
