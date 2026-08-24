@@ -76,6 +76,16 @@
     </defs>
   </svg>
 
+  <!-- 起動直後、初回データ取得（reloadAll_）が終わるまで表示するローディング画面。
+       以前は何も表示せず空白のまま数秒待たせていたため、JavaScript.htmlのinit()で
+       初回のreloadAll_完了時にのみis-hiddenを付けてフェードアウトする
+       （更新ボタンからの再読み込みでは表示しない。そちらは既存のボタン自体の
+       回転アイコンで十分フィードバックできているため）。 -->
+  <div class="appLoading" id="appLoading" aria-hidden="true">
+    <div class="appLoading__spinner"></div>
+    <p class="appLoading__text">読み込み中…</p>
+  </div>
+
   <div id="app">
     <header class="topbar" id="topbar">
       <div class="topbar__brandRow">
@@ -113,10 +123,12 @@
       <div class="homeTypeNavSpacer" id="homeTypeNavSpacer"></div>
       <div class="homeList" id="homeGrid"></div>
       <div class="emptyState hidden" id="homeEmpty">
-        モデル写真がまだ登録されていません。設定タブの「モデル写真」から登録できます。
+        <svg class="icon emptyState__icon"><use href="#icon-image"></use></svg>
+        <p>モデル写真がまだ登録されていません。設定タブの「モデル写真」から登録できます。</p>
       </div>
       <div class="emptyState hidden" id="homeTypeEmpty">
-        該当するボディタイプのモデルが登録されていません。
+        <svg class="icon emptyState__icon"><use href="#icon-tune"></use></svg>
+        <p>該当するボディタイプのモデルが登録されていません。</p>
       </div>
     </main>
 
@@ -139,7 +151,10 @@
       </div>
       <div class="toolbarSpacer" id="inventoryToolbarSpacer"></div>
       <div id="inventoryList"></div>
-      <div class="emptyState hidden" id="inventoryEmpty">該当する在庫がありません</div>
+      <div class="emptyState hidden" id="inventoryEmpty">
+        <svg class="icon emptyState__icon"><use href="#icon-grid"></use></svg>
+        <p>該当する在庫がありません</p>
+      </div>
     </main>
 
     <!-- 受注リスト -->
@@ -169,7 +184,10 @@
       </div>
       <div class="toolbarSpacer" id="ordersToolbarSpacer"></div>
       <div id="ordersGroups"></div>
-      <div class="emptyState hidden" id="ordersEmpty">該当する受注がありません</div>
+      <div class="emptyState hidden" id="ordersEmpty">
+        <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
+        <p>該当する受注がありません</p>
+      </div>
     </main>
 
     <!-- マイページ: ログイン中の担当者本人がHold中の車両・受注した車両だけを
@@ -179,19 +197,26 @@
          （#myPageNoStaff、JavaScript.htmlのrenderMyPage_参照）。 -->
     <main class="view" id="view-mypage">
       <div class="emptyState hidden" id="myPageNoStaff">
-        ご利用中のGoogleアカウントが担当者マスタに登録されていないため、マイページを表示できません。
-        設定タブの「担当者」にご自身のメールアドレスを登録してください。
+        <svg class="icon emptyState__icon"><use href="#icon-people"></use></svg>
+        <p>ご利用中のGoogleアカウントが担当者マスタに登録されていないため、マイページを表示できません。
+        設定タブの「担当者」にご自身のメールアドレスを登録してください。</p>
       </div>
       <div id="myPageContent">
         <section class="myPageSection">
           <h2 class="myPageSection__title">Hold中の車両（<span id="myPageHoldCount">0</span>台）</h2>
           <div id="myPageHoldList"></div>
-          <div class="emptyState hidden" id="myPageHoldEmpty">現在Hold中の車両はありません</div>
+          <div class="emptyState hidden" id="myPageHoldEmpty">
+            <svg class="icon emptyState__icon"><use href="#icon-lock"></use></svg>
+            <p>現在Hold中の車両はありません</p>
+          </div>
         </section>
         <section class="myPageSection">
           <h2 class="myPageSection__title">受注した車両（<span id="myPageOrderCount">0</span>台）</h2>
           <div id="myPageOrderList"></div>
-          <div class="emptyState hidden" id="myPageOrderEmpty">受注した車両はありません</div>
+          <div class="emptyState hidden" id="myPageOrderEmpty">
+            <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
+            <p>受注した車両はありません</p>
+          </div>
         </section>
       </div>
     </main>
@@ -242,7 +267,7 @@
 
           <div class="settingsCard hidden" id="systemMasterModelPhotosCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-image"></use></svg>モデル写真（ホーム画面）</h2>
-            <p class="settingsSection__desc">ホーム画面に並べるモデルの代表写真です（最大<span id="modelPhotosMax"></span>件・現在<span id="modelPhotosCount">0</span>件登録中）。1台ごとではなく、モデル単位で1枚登録してください。画像は外部（Googleドライブの共有リンク等）にアップロードしたうえでURLを指定してください。ホーム画面で写真をクリックすると、そのモデル名で在庫リストが絞り込まれます。ドラッグハンドル（⠿）でホーム画面での表示順を並び替えできます。</p>
+            <p class="settingsSection__desc">ホーム画面に並べるモデルの代表写真です（最大<span id="modelPhotosMax"></span>件・現在<span id="modelPhotosCount">0</span>件登録中）。1台ごとではなく、モデル単位で1枚登録してください。画像は外部（Googleドライブの共有リンク等）にアップロードしたうえでURLを指定してください。ホーム画面で写真をクリックすると、そのモデル名で在庫リストが絞り込まれます。グレードはカンマ区切りで入力してください（例: A180, A200, A35, A45）。ドラッグハンドル（⠿）でホーム画面での表示順を並び替えできます。</p>
             <div class="modelPhotoList" id="modelPhotoList"></div>
             <button class="btn" id="btnAddModelPhoto" type="button">＋ モデル写真を追加</button>
           </div>
@@ -284,7 +309,7 @@
     </main>
   </div>
 
-  <!-- Hold / 2nd Hold / 受注 共通入力モーダル（顧客情報→契約条件の2ステップ） -->
+  <!-- Hold / 2nd Hold / 受注 共通入力モーダル（顧客情報→契約内容の2ステップ） -->
   <div class="modal hidden" id="actionModal">
     <div class="modal__panel modal__panel--wide">
       <div class="modal__header">
@@ -297,22 +322,23 @@
       </div>
       <div class="modal__body">
         <div class="modal__error hidden" id="actionModalError"></div>
+        <p class="modal__requiredNote"><span class="req">*</span> は必須項目です</p>
 
         <div class="modal__step" id="actionStep1">
           <div class="modal__grid">
             <div class="formField formField--span2" id="actionSalesLocationField">
-              <label>販売拠点</label>
+              <label>販売拠点<span class="req">*</span></label>
               <input type="text" id="actionSalesLocation" class="input">
             </div>
             <div class="formField">
-              <label>リード番号</label>
+              <label>リード番号<span class="req">*</span></label>
               <div class="leadNumberField">
                 <span class="leadNumberField__prefix">L-</span>
                 <input type="text" id="actionLeadNumber" class="input leadNumberField__input" inputmode="numeric" pattern="[0-9]*" maxlength="14">
               </div>
             </div>
             <div class="formField">
-              <label>顧客</label>
+              <label>顧客<span class="req">*</span></label>
               <input type="text" id="actionCustomer" class="input">
             </div>
             <div class="formField formField--span2">
@@ -325,23 +351,23 @@
         <div class="modal__step hidden" id="actionStep2">
           <div class="modal__grid">
             <div class="formField">
-              <label>登録月</label>
+              <label>登録月<span class="req">*</span></label>
               <input type="month" id="actionRegisteredMonth" class="input">
             </div>
             <div class="formField">
-              <label>下取車の有無</label>
+              <label>下取車の有無<span class="req">*</span></label>
               <select id="actionTradeIn" class="input"></select>
             </div>
             <div class="formField">
-              <label>OSS登録の可否</label>
+              <label>OSS登録の可否<span class="req">*</span></label>
               <select id="actionOss" class="input"></select>
             </div>
             <div class="formField">
-              <label>保険加入の有無</label>
+              <label>保険加入の有無<span class="req">*</span></label>
               <select id="actionInsurance" class="input"></select>
             </div>
             <div class="formField">
-              <label>支払方法</label>
+              <label>支払方法<span class="req">*</span></label>
               <select id="actionPaymentMethod" class="input"></select>
             </div>
           </div>
@@ -408,7 +434,7 @@
     </div>
   </div>
 
-  <!-- 受注リストで「詳細を見る」タップした際、契約条件を画面中央に表示するモーダル
+  <!-- 受注リストで「詳細を見る」タップした際、契約内容を画面中央に表示するモーダル
        （inventoryDetailModalと同じパターン）。 -->
   <div class="modal hidden" id="orderDetailModal">
     <div class="modal__panel">

@@ -259,6 +259,13 @@
     openModalCount = Math.max(0, openModalCount - 1);
     if (openModalCount === 0) document.body.classList.remove('modal-open');
   }
+  // Escapeキーで開いているモーダルを閉じる（×ボタン・背景クリックと同じ操作感を
+  // キーボードでも提供する）。同時に複数開くことは無い想定だが、念のため開いている
+  // ものをすべて閉じる。
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    document.querySelectorAll('.modal:not(.hidden)').forEach(closeModal);
+  });
 
   // ===== 在庫リスト =====
   function loadInventory() {
@@ -399,11 +406,15 @@
     var hasSecondHold = v.holdStatus === 'hold' && !!v.secondHoldCustomer;
     var isHold = v.holdStatus === 'hold';
 
-    // Hold状況の表示エリアは高さ固定（.card__holdArea）。Hold・2nd Holdが増えても
-    // エリア内でスクロールするだけで、カード自体の高さは常に一定に保たれる。
+    // Hold状況の表示エリアは、1st Holdのみの場合は高さ固定（.card__holdArea）で
+    // カードの高さを揃える。2nd Holdが追加された場合は、固定高さのままだと
+    // 2nd Holdの担当者・残り時間・解除ボタンがほぼ隠れてしまうため、
+    // card__holdArea--doubleで高さを可変にし、内容をすべて表示する
+    // （.cardGridはalign-items: startのため、このカードだけ縦に伸びても
+    // 同じ行の他カードの高さには影響しない）。
     var holdInfoHtml;
     if (isHold) {
-      holdInfoHtml = '<div class="card__holdArea">' +
+      holdInfoHtml = '<div class="card__holdArea' + (hasSecondHold ? ' card__holdArea--double' : '') + '">' +
         holdInfoBlockHtml_('1ST HOLD', v, 'hold', 'first', false) +
         (v.secondHoldCustomer ? holdInfoBlockHtml_('2ND HOLD', v, 'secondHold', 'second', false) : '') +
         '</div>';
@@ -934,7 +945,7 @@
     syncFixedBars_();
   });
 
-  // ===== 予約モーダルのステップ進捗（顧客情報→契約条件） =====
+  // ===== 予約モーダルのステップ進捗（顧客情報→契約内容） =====
   // スマホでの誤タップ・誤入力を減らすため、8項目を一度に出さず2ステップに分ける。
   var ACTION_STEP1_KEYS = ['salesLocation', 'leadNumber', 'customer'];
 
@@ -943,7 +954,7 @@
     $('actionStep1').classList.toggle('hidden', step !== 1);
     $('actionStep2').classList.toggle('hidden', step !== 2);
     $('actionStepFill').style.width = step === 1 ? '50%' : '100%';
-    $('actionStepLabel').textContent = step === 1 ? 'ステップ 1/2　顧客情報' : 'ステップ 2/2　契約条件';
+    $('actionStepLabel').textContent = step === 1 ? 'ステップ 1/2　顧客情報' : 'ステップ 2/2　契約内容';
     $('btnActionBack').classList.toggle('hidden', step !== 2);
     $('btnActionNext').classList.toggle('hidden', step !== 1);
     $('btnActionSubmit').classList.toggle('hidden', step !== 2);
@@ -1208,7 +1219,7 @@
 
   /**
    * 受注リストは「誰が・どの車種を買ったか」がひと目でわかればよく、それ以外の
-   * 契約条件（コミッション・MP・VPC・有償OP・登録月・下取車・OSS・保険・支払方法・
+   * 契約内容（コミッション・MP・VPC・有償OP・登録月・下取車・OSS・保険・支払方法・
    * 受注確定日時・リード番号）はカード内に表示せず、「詳細を見る」タップで画面中央の
    * モーダル（#orderDetailModal・orderDetailHtml_）にまとめて表示する（在庫リストの
    * vehicleCardHtml／vehicleDetailHtml_と同じパターン。以前はカード内の折りたたみ
@@ -1642,7 +1653,7 @@
           '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="model" placeholder="モデル名（例: Aクラス）" value="' + escapeHtml(entry.model || '') + '">' +
           bodyTypeSelectHtml +
           '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="photoUrl" placeholder="写真URL" value="' + escapeHtml(entry.photoUrl || '') + '">' +
-          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="grades" placeholder="グレード（カンマ区切り。例: A180, A200, A35, A45）" value="' + escapeHtml(entry.grades || '') + '">' +
+          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="grades" placeholder="グレード（カンマ区切り）" title="カンマ区切りで入力してください（例: A180, A200, A35, A45）" value="' + escapeHtml(entry.grades || '') + '">' +
           '<button class="btn btn--icon" data-remove-photo="' + i + '" type="button" aria-label="削除">&times;</button>' +
           '</div>';
       }).join('');
@@ -2229,7 +2240,13 @@
 
   function init() {
     syncNavButtons_();
-    reloadAll_().catch(function (err) { showToast(err.message, true); });
+    reloadAll_().catch(function (err) { showToast(err.message, true); }).then(function () {
+      // 起動時ローディング画面は初回の読み込み完了時のみフェードアウトする
+      // （更新ボタンからの再読み込みは、ボタン自体の回転アイコンで十分なため
+      // 全画面オーバーレイは出さない）。
+      var loading = $('appLoading');
+      if (loading) loading.classList.add('is-hidden');
+    });
   }
 
   init();

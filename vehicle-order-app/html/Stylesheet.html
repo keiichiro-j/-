@@ -107,6 +107,37 @@
     right: 0;
     z-index: 30;
   }
+
+  /* ===== 起動時ローディング画面 =====
+     初回データ取得（reloadAll_）が終わるまでの空白時間を埋める全画面オーバーレイ。
+     トップバーと同じダークネイビーで統一し、is-hiddenでフェードアウトしてから
+     pointer-events: noneにする（フェード中もクリックを奪わないよう、
+     visibility: hiddenではなくopacityのみで消す）。 */
+  .appLoading {
+    position: fixed;
+    inset: 0;
+    z-index: 400;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    background: var(--topbar-bg);
+    color: #eaf1f8;
+    transition: opacity .3s ease;
+  }
+  .appLoading.is-hidden { opacity: 0; pointer-events: none; }
+  .appLoading__spinner {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 3px solid rgba(255, 255, 255, .16);
+    border-top-color: var(--primary);
+    animation: navRefreshSpin .8s linear infinite;
+  }
+  .appLoading__text { margin: 0; font-size: 13px; letter-spacing: .04em; color: rgba(234, 241, 248, .7); }
+  @media (prefers-reduced-motion: reduce) { .appLoading__spinner { animation: none; } }
+
   /* ===== ブランド表記の行 =====
      アプリ名（旧「販売可能リスト」の文字表記）は表示せず、左側は「戻る」「更新」
      ボタン＋ロゴ（設定時のみ）、右側はログイン中のユーザー情報という、シンプルな
@@ -692,8 +723,12 @@
     overflow-y: auto;
   }
   /* 詳細モーダル（vehicleDetailHtml_）は、カードグリッドの行の高さを揃える
-     必要が無いため、高さ固定・内部スクロールにせず内容ぶんそのまま表示する。 */
-  .card__holdArea--full { height: auto; overflow: visible; }
+     必要が無いため、高さ固定・内部スクロールにせず内容ぶんそのまま表示する。
+     card__holdArea--double（カードグリッドで2nd Holdがある場合）も同様に
+     高さ可変にする。.cardGridはalign-items: startのため、このカードだけ
+     縦に伸びても同じ行の他カードの高さには影響しない（1st Holdのみの
+     カードは従来どおり高さ固定・内部スクロールのまま）。 */
+  .card__holdArea--full, .card__holdArea--double { height: auto; overflow: visible; }
   .card__holdArea--empty {
     align-items: center;
     justify-content: center;
@@ -783,10 +818,23 @@
   .card__actions .btn { flex: 1; min-height: 44px; }
 
   .emptyState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
     text-align: center;
     color: var(--on-surface-variant);
     padding: 60px 20px;
     font-size: 14px;
+  }
+  .emptyState p { margin: 0; max-width: 46ch; line-height: 1.7; }
+  /* 単なる文字だけの寂しい印象にならないよう、既存の線画アイコン一式から
+     文脈に合うものを添える（新規アイコンライブラリは追加しない）。 */
+  .emptyState__icon {
+    width: 34px;
+    height: 34px;
+    stroke-width: 1.3;
+    color: var(--outline);
   }
 
   /* ===== 受注リスト（在庫リストと揃えたカードタイプUI。PCビューで1行3列） ===== */
@@ -816,14 +864,14 @@
   .orderCard__model { font-size: 21px; font-weight: 500; letter-spacing: -.01em; line-height: 1.25; }
   .orderCard__staff { font-size: 13.5px; font-weight: 600; color: var(--on-surface-variant); margin-top: 3px; }
   /* 車種は「誰が・何を買ったか」をひと目で確認できるよう、常に表示する
-     （契約条件の詳細は下の折りたたみへ）。 */
+     （契約内容の詳細は下の折りたたみへ）。 */
   .orderCard__vehicle {
     font-size: 14px;
     font-weight: 600;
     color: var(--on-surface);
     margin-top: 4px;
   }
-  /* 契約条件（コミッション・MP・VPC・有償OP・登録月・下取車・OSS・保険・支払方法・
+  /* 契約内容（コミッション・MP・VPC・有償OP・登録月・下取車・OSS・保険・支払方法・
      受注確定日時・リード番号）はカード内に表示せず、「詳細を見る」タップで画面中央の
      モーダル（orderDetailHtml_）にまとめて表示する。顧客名・担当者・車種だけで
      対象案件を判断できる（以前はカード内の折りたたみだったが、開閉のたびに
@@ -1378,7 +1426,7 @@
   .modal__grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 20px; }
   .formField--span2 { grid-column: 1 / -1; }
 
-  /* ===== 予約モーダルのステップ進捗（顧客情報→契約条件の2ステップ）=====
+  /* ===== 予約モーダルのステップ進捗（顧客情報→契約内容の2ステップ）=====
      スマホでの入力ミスを減らすため、8項目を一度に出さず2ステップに分ける。
      担当者はログインアカウントから自動判定済みのため、ステップが増えても
      入力の手間自体は増えない。 */
@@ -1390,6 +1438,8 @@
   .modal__footer { flex: none; display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--outline); }
   .modal__error { color: var(--danger); font-size: 13px; }
   .modal__desc { margin: 0; font-size: 13px; color: var(--on-surface-variant); line-height: 1.6; }
+  .modal__requiredNote { margin: 0 0 4px; font-size: 12px; color: var(--on-surface-variant); }
+  .req { color: var(--danger); margin-left: 2px; }
 
   /* ===== トースト ===== */
   .toast {
