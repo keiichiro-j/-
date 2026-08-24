@@ -103,25 +103,35 @@
       el.className = 'confettiPiece';
       el.style.left = (Math.random() * 100) + 'vw';
       el.style.background = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
-      el.style.width = (6 + Math.random() * 8) + 'px';
-      el.style.height = (10 + Math.random() * 10) + 'px';
-      el.style.borderRadius = Math.random() < .5 ? '50%' : '2px';
-      el.style.animationDuration = (2.2 + Math.random() * 2) + 's';
-      el.style.animationDelay = (Math.random() * .5) + 's';
+      // 一部を細長い「リボン状」にすることで、丸・角の紙吹雪だけの単調さを避ける。
+      var isStreamer = Math.random() < .2;
+      el.style.width = (isStreamer ? 4 + Math.random() * 3 : 6 + Math.random() * 9) + 'px';
+      el.style.height = (isStreamer ? 22 + Math.random() * 14 : 10 + Math.random() * 10) + 'px';
+      el.style.borderRadius = isStreamer ? '2px' : (Math.random() < .5 ? '50%' : '2px');
+      // 真下に一直線に落ちるだけだと単調なので、横方向の揺れ（--drift）と
+      // 複数回転（--rot）をランダムに与え、ひらひら舞い散る動きにする。
+      el.style.setProperty('--drift', (Math.random() * 220 - 110) + 'px');
+      el.style.setProperty('--rot', (540 + Math.random() * 900) + 'deg');
+      el.style.animationDuration = (2.6 + Math.random() * 2.4) + 's';
+      el.style.animationDelay = (Math.random() * .6) + 's';
       layer.appendChild(el);
       pieces.push(el);
     }
   }
 
-  // ド派手に：紙吹雪を2波に分けて、画面いっぱいに大量発生させる。
+  // ド派手に：紙吹雪を3波に分けて、画面いっぱいに大量発生させる
+  // （受注確定時のみ。Hold登録・2nd Hold登録では従来どおり何も表示しない）。
   function triggerConfetti_() {
     var layer = $('confettiLayer');
+    layer.classList.add('is-flashing');
     var pieces = [];
-    spawnConfettiBatch_(layer, pieces, 180);
-    setTimeout(function () { spawnConfettiBatch_(layer, pieces, 140); }, 300);
+    spawnConfettiBatch_(layer, pieces, 260);
+    setTimeout(function () { spawnConfettiBatch_(layer, pieces, 220); }, 250);
+    setTimeout(function () { spawnConfettiBatch_(layer, pieces, 160); }, 550);
+    setTimeout(function () { layer.classList.remove('is-flashing'); }, 700);
     setTimeout(function () {
       pieces.forEach(function (el) { el.remove(); });
-    }, 5200);
+    }, 5800);
   }
 
   function fillOptions(select, options, includeBlank) {
@@ -411,10 +421,12 @@
     // 2nd Holdの担当者・残り時間・解除ボタンがほぼ隠れてしまうため、
     // card__holdArea--doubleで高さを可変にし、内容をすべて表示する
     // （.cardGridはalign-items: startのため、このカードだけ縦に伸びても
-    // 同じ行の他カードの高さには影響しない）。
+    // 同じ行の他カードの高さには影響しない）。あわせてcard__holdArea--splitで
+    // 1st Hold（左）・2nd Hold（右）を縦積みではなく横並びにする
+    // （詳細モーダル側・vehicleDetailHtml_と統一した見せ方）。
     var holdInfoHtml;
     if (isHold) {
-      holdInfoHtml = '<div class="card__holdArea' + (hasSecondHold ? ' card__holdArea--double' : '') + '">' +
+      holdInfoHtml = '<div class="card__holdArea' + (hasSecondHold ? ' card__holdArea--double card__holdArea--split' : '') + '">' +
         holdInfoBlockHtml_('1ST HOLD', v, 'hold', 'first', false) +
         (v.secondHoldCustomer ? holdInfoBlockHtml_('2ND HOLD', v, 'secondHold', 'second', false) : '') +
         '</div>';
@@ -449,7 +461,7 @@
 
     var holdInfoHtml;
     if (isHold) {
-      holdInfoHtml = '<div class="card__holdArea card__holdArea--full">' +
+      holdInfoHtml = '<div class="card__holdArea card__holdArea--full' + (hasSecondHold ? ' card__holdArea--split' : '') + '">' +
         holdInfoBlockHtml_('1ST HOLD', v, 'hold', 'first', true) +
         (v.secondHoldCustomer ? holdInfoBlockHtml_('2ND HOLD', v, 'secondHold', 'second', true) : '') +
         '</div>';

@@ -257,7 +257,16 @@
 
   main.view { max-width: 1680px; margin: 0 auto; padding: 16px; }
   .view { display: none; }
-  .view.is-active { display: block; }
+  /* タブ切替時、瞬間的にコンテンツが入れ替わるだけだと素っ気ないため、
+     切替後の画面にごく軽いフェードイン（+わずかな上方向スライド）を付ける。
+     display: noneからの復帰にtransitionは効かないため、animationを使う
+     （animationは要素が描画された瞬間から再生されるため、display: none明けでも
+     機能する）。 */
+  .view.is-active { display: block; animation: viewFadeIn .22s ease; }
+  @keyframes viewFadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 
   /* ===== ツールバー（検索欄を含む） =====
      トップバーと同様に position: fixed で完全固定する。折り返しで高さが変わるため、
@@ -729,6 +738,11 @@
      縦に伸びても同じ行の他カードの高さには影響しない（1st Holdのみの
      カードは従来どおり高さ固定・内部スクロールのまま）。 */
   .card__holdArea--full, .card__holdArea--double { height: auto; overflow: visible; }
+  /* 2nd Holdがある場合、1st Hold（左）・2nd Hold（右）を縦積みではなく
+     横並びにする（カード表示・詳細モーダル・マイページで共通。アプリ全体で
+     統一した見せ方にする）。 */
+  .card__holdArea--split { flex-direction: row; align-items: stretch; }
+  .card__holdArea--split .card__holdInfo { flex: 1 1 0; min-width: 0; }
   .card__holdArea--empty {
     align-items: center;
     justify-content: center;
@@ -1452,16 +1466,27 @@
 
   /* ===== 受注確定時の紙吹雪演出（文字・カードなし。紙吹雪のみ盛大に降らせる） ===== */
   .confettiLayer { position: fixed; inset: 0; z-index: 310; overflow: hidden; pointer-events: none; }
+  /* 受注確定の瞬間だけ、ごく短時間だけ画面中央を明るく光らせる「フラッシュ」を
+     重ねる（文字・カードは出さない方針は維持し、あくまで光の演出のみ）。 */
+  .confettiLayer::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 42%, rgba(255, 255, 255, .55), rgba(255, 255, 255, 0) 60%);
+    opacity: 0;
+    transition: opacity .5s ease;
+  }
+  .confettiLayer.is-flashing::before { opacity: 1; }
   .confettiPiece {
     position: absolute;
-    top: -20px;
-    opacity: .9;
+    top: -24px;
+    opacity: .95;
     will-change: transform;
     animation: confettiFall linear forwards;
   }
   @keyframes confettiFall {
-    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-    100% { transform: translateY(110vh) rotate(720deg); opacity: .85; }
+    0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+    100% { transform: translate(var(--drift, 0), 112vh) rotate(var(--rot, 720deg)); opacity: .85; }
   }
 
   /* ===== ノートPC幅（在庫リストは4列だとカードが窮屈になるため3列に落とす。
@@ -1594,7 +1619,9 @@
   @media (prefers-reduced-motion: reduce) {
     .holdTimer__barFill { transition: none; }
     .confettiPiece { display: none; }
+    .confettiLayer::before { transition: none; }
     .card, .orderCard { transition: none; }
     .topbar__navBtn--refresh.is-spinning .icon { animation: none; }
+    .view.is-active { animation: none; }
   }
 </style>
