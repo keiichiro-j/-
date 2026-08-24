@@ -4,6 +4,13 @@
  */
 
 function doGet(e) {
+  // PWA用のマニフェスト・Service Worker（?resource=manifest / ?resource=sw）は
+  // 通常のHTML表示とは別コンテンツ種別で返す必要があるため、doGetの入口で
+  // 振り分ける（PwaService.gs参照）。該当しない通常のアクセスはnullが返り、
+  // 従来どおりHTMLを返す。
+  var pwaResponse = servePwaResource_(e);
+  if (pwaResponse) return pwaResponse;
+
   return HtmlService.createTemplateFromFile('html/Index')
     .evaluate()
     .setTitle('販売可能リスト')

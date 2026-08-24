@@ -724,20 +724,21 @@
 
   /* Hold状況エリアは高さ固定・内部スクロール。Hold/2nd Holdが増えてもここで吸収し、
      カード自体の高さは在庫あり／Hold／2nd Holdのどの状態でも常に一定に保たれる。 */
+  /* 高さは在庫あり／1st Holdのみ／2nd Holdありのどの状態でも常に同じ150pxに
+     固定する（2nd Holdが横並び表示に収まる高さを基準に、在庫あり・1st Holdのみ
+     の場合も同じ高さにすることで、カードサイズがHoldの状態によって変わらない
+     ようにしている）。想定を超える長さの内容が入った場合の保険として、
+     内部スクロールも残す。 */
   .card__holdArea {
-    height: 124px;
+    height: 150px;
     display: flex;
     flex-direction: column;
     gap: 8px;
     overflow-y: auto;
   }
   /* 詳細モーダル（vehicleDetailHtml_）は、カードグリッドの行の高さを揃える
-     必要が無いため、高さ固定・内部スクロールにせず内容ぶんそのまま表示する。
-     card__holdArea--double（カードグリッドで2nd Holdがある場合）も同様に
-     高さ可変にする。.cardGridはalign-items: startのため、このカードだけ
-     縦に伸びても同じ行の他カードの高さには影響しない（1st Holdのみの
-     カードは従来どおり高さ固定・内部スクロールのまま）。 */
-  .card__holdArea--full, .card__holdArea--double { height: auto; overflow: visible; }
+     必要が無いため、高さ固定・内部スクロールにせず内容ぶんそのまま表示する。 */
+  .card__holdArea--full { height: auto; overflow: visible; }
   /* 2nd Holdがある場合、1st Hold（左）・2nd Hold（右）を縦積みではなく
      横並びにする（カード表示・詳細モーダル・マイページで共通。アプリ全体で
      統一した見せ方にする）。 */

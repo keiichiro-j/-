@@ -9,6 +9,18 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- PWA対応（ホーム画面に追加してアプリのように起動できるようにする）。
+       manifest・Service Workerの実体はPwaService.gs参照。ウェブアプリの
+       URL（.../exec）に直接アクセスした場合にのみ機能し、Googleサイトへの
+       埋め込み表示では（トップレベルのページがGoogleサイト側のため）
+       ホーム画面への追加は機能しない点に注意。 -->
+  <link rel="manifest" href="?resource=manifest">
+  <meta name="theme-color" content="#0b1f33">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="販売可能リスト">
+  <link rel="apple-touch-icon" href="<?!= appleTouchIconDataUri_() ?>">
   <?!= include('html/Stylesheet'); ?>
 </head>
 <body>
