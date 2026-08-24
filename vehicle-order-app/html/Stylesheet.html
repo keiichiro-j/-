@@ -1039,9 +1039,15 @@
      関わらず、ラベルが常に写真の左上にぴったり重なるようにしている
      （position:absoluteで.homeRowを基準にすると、写真が中央寄せで
      ずれた分だけラベルの位置もずれてしまうため）。在庫台数バッジは
-     （下のグレードタブで内訳が見えるため）非表示にする。 */
+     （下のグレードタブで内訳が見えるため）非表示にする。
+     order: -1で、どのモデルを選択してもクローズアップ表示が常にグリッドの
+     先頭（他のモデルより上）に来るようにしている（現場からの指摘で判明。
+     以前はモデル写真の登録順のままDOM順を保っていたため、先頭以外の
+     モデルを展開すると、そのモデルが元の位置に留まり、他のモデルが
+     上下に分断されて表示されてしまっていた）。 */
   .homeRow.is-expanded {
     grid-column: 1 / -1;
+    order: -1;
     display: grid;
     justify-content: center;
     padding: 0;
@@ -1061,19 +1067,58 @@
     width: min(480px, 100%);
     aspect-ratio: 1 / 1;
     border-radius: var(--radius);
+    z-index: 0;
   }
   .homeRow__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .homeRow__meta { display: flex; align-items: center; gap: 8px; }
+  /* モデル名ラベルは、写真を塗りつぶす濃い背景を敷くのではなく、白文字＋
+     テキストシャドウで写真の上に直接重ねる（現場からの指摘で判明。以前は
+     半透明の黒背景（rgba(0,0,0,.6)）を敷いていたが、ベース配色を白系
+     （コーポレートネイビー）に変えた際に文字色がvar(--on-surface)＝濃い
+     チャコールのまま残っており、黒背景にほぼ同化して読めなくなっていた）。 */
   .homeRow.is-expanded .homeRow__meta {
     grid-area: 1 / 1;
     align-self: start;
     justify-self: start;
     margin: 12px;
-    background: rgba(0, 0, 0, .6);
     padding: 6px 12px;
-    border-radius: 999px;
+    z-index: 1;
+  }
+  .homeRow.is-expanded .homeRow__meta,
+  .homeRow.is-expanded .homeRow__meta .homeRow__chevron {
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, .85), 0 1px 10px rgba(0, 0, 0, .6);
   }
   .homeRow.is-expanded .badge--count { display: none; }
+  /* 「他のモデルを見る」ボタン: モデル名ラベルとは逆の右上隅に重ねる。
+     押すと展開を解除し、他のモデルが並ぶ通常のグリッド表示に戻る
+     （#homeGridのクリック委譲で、.homeRow自体のトグル処理がそのまま効く）。
+     ラベルとは異なり操作ボタンのため、タップ可能であることが伝わるよう
+     薄い白背景のピル型にしている（写真を大きく塗りつぶすラベル背景とは
+     区別し、operationであることを示す最小限の塗りに留める）。 */
+  .homeRow__backBtn {
+    display: none;
+  }
+  .homeRow.is-expanded .homeRow__backBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    grid-area: 1 / 1;
+    align-self: start;
+    justify-self: end;
+    margin: 12px;
+    padding: 6px 14px;
+    border: none;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .92);
+    color: var(--on-surface);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    z-index: 1;
+  }
+  .homeRow__backBtn:hover { background: #fff; }
   .homeRow__model {
     flex: 1; min-width: 0; font-size: 16px; font-weight: 600; letter-spacing: -.005em;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -1275,9 +1320,13 @@
     .homeRow:first-child { border-top: 1px solid var(--outline); }
     .homeRow:hover { background: rgba(31, 41, 51, .04); box-shadow: none; transform: none; }
     /* PC専用の「クローズアップ」展開表示（.homeRow.is-expanded、上部参照）を
-       打ち消し、タブレット・スマホ幅では従来の横一列リストのままにする。 */
+       打ち消し、タブレット・スマホ幅では従来の横一列リストのままにする
+       （写真に文字を重ねるレイアウトではないため、order・白文字＋
+       テキストシャドウ・「他のモデルを見る」ボタンもすべてPC専用として
+       打ち消す）。 */
     .homeRow.is-expanded {
       grid-column: auto;
+      order: 0;
       display: flex;
       justify-content: normal;
       padding: 14px 6px;
@@ -1297,7 +1346,13 @@
       border-radius: 0;
     }
     .homeRow.is-expanded .homeRow__meta { position: static; background: none; padding: 0; border-radius: 0; }
+    .homeRow.is-expanded .homeRow__meta,
+    .homeRow.is-expanded .homeRow__meta .homeRow__chevron {
+      color: var(--on-surface);
+      text-shadow: none;
+    }
     .homeRow.is-expanded .badge--count { display: inline-flex; }
+    .homeRow.is-expanded .homeRow__backBtn { display: none; }
     .homeGradeTabs {
       grid-column: auto;
       margin: 0 0 0 94px;

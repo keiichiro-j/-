@@ -1658,16 +1658,29 @@
       var chevronHtml = hasGrades
         ? '<span class="homeRow__chevron">' + (isExpanded ? '▾' : '▸') + '</span>'
         : '';
-      var rowHtml = '<button type="button" class="homeRow' + (isExpanded ? ' is-expanded' : '') + '"' +
+      // 展開中のタイルには「他のモデルを見る」ボタン（.homeRow__backBtn）を
+      // 内側に持たせるため、<button>ではなく<div role="button">にする
+      // （<button>の中に<button>をネストするのはHTML仕様違反になるため）。
+      // キーボード操作（Enter/Space）は#homeGridのkeydown委譲で補っている。
+      var tag = isExpanded ? 'div' : 'button';
+      var tileAttrs = isExpanded
+        ? ' role="button" tabindex="0"'
+        : ' type="button"';
+      var backBtnHtml = isExpanded
+        ? '<button type="button" class="homeRow__backBtn">◂ 他のモデルを見る</button>'
+        : '';
+      var rowHtml = '<' + tag + ' class="homeRow' + (isExpanded ? ' is-expanded' : '') + '"' +
+        tileAttrs +
         ' data-home-model="' + escapeHtml(p.model) + '"' +
         (hasGrades ? ' data-has-grades="true"' : '') + '>' +
+        backBtnHtml +
         '<div class="homeRow__photo"><img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '"></div>' +
         '<div class="homeRow__meta">' +
         '<div class="homeRow__model">' + escapeHtml(p.model) + '</div>' +
         '<span class="badge badge--count">在庫' + result.total + '台</span>' +
         chevronHtml +
         '</div>' +
-        '</button>';
+        '</' + tag + '>';
       var tabsHtml = '';
       if (isExpanded) {
         tabsHtml = '<div class="homeGradeTabs">' +
@@ -1724,6 +1737,18 @@
     state.homeGradeFilter = null;
     $('inventoryKeyword').value = tile.dataset.homeModel;
     loadInventory();
+  });
+
+  // 展開中のタイルは<button>ではなく<div role="button">にしているため
+  // （renderHomeGallery_参照）、ネイティブの<button>と違ってEnter/Spaceキーでは
+  // 自動的にクリックされない。キーボード操作でも同じ挙動になるよう、
+  // Enter/Spaceキー押下時にクリックイベントを発火させる。
+  $('homeGrid').addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var target = e.target.closest('[data-home-model]');
+    if (!target) return;
+    e.preventDefault();
+    target.click();
   });
 
   $('btnSaveSettings').addEventListener('click', function () {
