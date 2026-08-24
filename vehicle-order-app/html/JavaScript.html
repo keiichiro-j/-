@@ -1267,9 +1267,16 @@
       '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(o.customer || '-') + '</span>' +
       '<span class="rowCard__commission">' + escapeHtml(o.commission) + '</span></div>' +
       rowField_('モデル', o.model) +
+      rowField_('MP', o.mp) +
+      rowField_('VPC', o.vpc) +
+      rowField_('有償OP', paidOptionsText(o)) +
       rowField_('担当者', o.staff) +
       rowField_('リード番号', o.leadNumber) +
       rowField_('登録月', o.registeredMonth) +
+      rowField_('下取車', o.tradeIn) +
+      rowField_('OSS', o.oss) +
+      rowField_('保険', o.insurance) +
+      rowField_('支払方法', o.paymentMethod) +
       rowField_('受注確定日時', formatDateTime(o.orderedAt)) +
       '<div class="rowCard__status"><span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span></div>' +
       '</div>';

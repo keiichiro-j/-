@@ -438,7 +438,7 @@
      min-width（1348px、在庫リスト向け）をそのまま使うと、行（.rowCard--order）が
      不要に広くstretchされ、固定幅の列だけでは埋まらない分だけ余白が空いてしまう。
      受注リスト自身の列合計に合わせて上書きする（.rowCard.rowCard--order参照）。 */
-  .rowCardList--order { min-width: 928px; }
+  .rowCardList--order { min-width: 1716px; }
   .rowCard {
     display: grid;
     /* .rowCardは.rowCardList（display:flex; flex-direction:column;）の子要素で
@@ -555,10 +555,12 @@
      以前210pxにしていたが、実際のコンテンツ（顧客名・コミッション）は最大でも
      60px程度しか使っておらず、左詰めの文字の右側に無駄な余白が生まれ、顧客名→モデルの
      間だけ他の列間より大きく間延びして見えていたため（現場からの指摘で判明）、
-     110pxまで縮めている。 */
+     110pxまで縮めている。以前は下取車の有無・OSS登録の可否・保険加入の有無・支払方法・
+     MP・VPC・有償OPが表示されておらず、詳細モーダル（orderDetailGridHtml_）を開かないと
+     確認できなかったため（現場からの指摘で判明）、これらも列として追加している。 */
   .rowCard.rowCard--order {
-    grid-template-columns: 110px 120px 90px 110px 80px 150px 130px;
-    min-width: 928px;
+    grid-template-columns: 110px 120px 68px 88px 170px 90px 110px 80px 90px 90px 90px 80px 150px 130px;
+    min-width: 1716px;
     border-left-color: var(--primary);
   }
   .btn--small { padding: 6px 12px; font-size: 12.5px; }
