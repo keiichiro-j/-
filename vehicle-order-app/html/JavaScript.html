@@ -372,7 +372,7 @@
       html += '<button class="btn btn--primary" data-order="' + escapeHtml(v.commission) + '">受注</button>';
     } else {
       if (!v.secondHoldCustomer) {
-        html += '<button class="btn" data-second-hold="' + escapeHtml(v.commission) + '">2nd Hold</button>';
+        html += '<button class="btn" data-second-hold="' + escapeHtml(v.commission) + '">2ND HOLD</button>';
       }
       html += '<button class="btn btn--primary" data-order-from-hold="' + escapeHtml(v.commission) + '">受注確定</button>';
     }
@@ -399,8 +399,8 @@
     var holdInfoHtml;
     if (isHold) {
       holdInfoHtml = '<div class="card__holdArea">' +
-        holdInfoBlockHtml_('1st Hold', v, 'hold', 'first', false) +
-        (v.secondHoldCustomer ? holdInfoBlockHtml_('2nd Hold', v, 'secondHold', 'second', false) : '') +
+        holdInfoBlockHtml_('1ST HOLD', v, 'hold', 'first', false) +
+        (v.secondHoldCustomer ? holdInfoBlockHtml_('2ND HOLD', v, 'secondHold', 'second', false) : '') +
         '</div>';
     } else {
       holdInfoHtml = '<div class="card__holdArea card__holdArea--empty">' +
@@ -434,8 +434,8 @@
     var holdInfoHtml;
     if (isHold) {
       holdInfoHtml = '<div class="card__holdArea card__holdArea--full">' +
-        holdInfoBlockHtml_('1st Hold', v, 'hold', 'first', true) +
-        (v.secondHoldCustomer ? holdInfoBlockHtml_('2nd Hold', v, 'secondHold', 'second', true) : '') +
+        holdInfoBlockHtml_('1ST HOLD', v, 'hold', 'first', true) +
+        (v.secondHoldCustomer ? holdInfoBlockHtml_('2ND HOLD', v, 'secondHold', 'second', true) : '') +
         '</div>';
     } else {
       holdInfoHtml = '<div class="card__holdArea card__holdArea--empty card__holdArea--full">' +
@@ -602,7 +602,7 @@
     var isComparing = isComparingCommission_(v.commission);
     var actions = isHold
       ? ('<button class="btn btn--small btn--primary" data-order-from-hold="' + escapeHtml(v.commission) + '">受注確定</button>' +
-         (!v.secondHoldCustomer ? '<button class="btn btn--small" data-second-hold="' + escapeHtml(v.commission) + '">2nd Hold</button>' : ''))
+         (!v.secondHoldCustomer ? '<button class="btn btn--small" data-second-hold="' + escapeHtml(v.commission) + '">2ND HOLD</button>' : ''))
       : ('<button class="btn btn--small" data-hold="' + escapeHtml(v.commission) + '">Hold</button>' +
          '<button class="btn btn--small btn--primary" data-order="' + escapeHtml(v.commission) + '">受注</button>');
     var statusBadge = isHold
@@ -616,9 +616,9 @@
     // data-cancel-hold / data-cancel-rank を使い、既存のクリック委譲・モーダルをそのまま使う）。
     var cancelLinks = '';
     if (isHold) {
-      cancelLinks += '<button type="button" class="rowCard__cancelLink" data-cancel-hold="' + escapeHtml(v.commission) + '" data-cancel-rank="1st">1st Hold解除</button>';
+      cancelLinks += '<button type="button" class="rowCard__cancelLink" data-cancel-hold="' + escapeHtml(v.commission) + '" data-cancel-rank="1st">1ST HOLD解除</button>';
       if (hasSecondHold) {
-        cancelLinks += '<button type="button" class="rowCard__cancelLink" data-cancel-hold="' + escapeHtml(v.commission) + '" data-cancel-rank="2nd">2nd Hold解除</button>';
+        cancelLinks += '<button type="button" class="rowCard__cancelLink" data-cancel-hold="' + escapeHtml(v.commission) + '" data-cancel-rank="2nd">2ND HOLD解除</button>';
       }
     }
 
@@ -746,7 +746,7 @@
         el.classList.remove('holdTimer--expired');
         el.classList.remove('holdTimer--warning');
         fill.style.width = '0%';
-        text.textContent = '1st Hold終了後に開始（あと ' + formatDuration_(createdAt - now) + '）';
+        text.textContent = '1ST HOLD終了後に開始（あと ' + formatDuration_(createdAt - now) + '）';
         return;
       }
 
@@ -829,7 +829,7 @@
   // ===== Hold / 2nd Hold / 受注 共通モーダル =====
   var ACTION_LABELS = {
     hold: { title: 'Hold登録', button: 'Holdする', busyLabel: 'Hold登録中...', tone: 'hold' },
-    secondHold: { title: '2nd Hold登録', button: '2nd Holdする', busyLabel: '登録中...', tone: 'hold' },
+    secondHold: { title: '2ND HOLD登録', button: '2ND HOLDする', busyLabel: '登録中...', tone: 'hold' },
     order: { title: '受注確定', button: '受注確定する', busyLabel: '受注確定中...', tone: 'order' },
     orderFromHold: { title: '受注確定', button: '受注確定する', busyLabel: '受注確定中...', tone: 'order' }
   };
@@ -1059,9 +1059,9 @@
     var holdCustomer = vehicle[prefix + 'Customer'];
 
     cancelHoldState = { commission: commission, rank: rank };
-    $('cancelHoldModalTitle').textContent = (rank === '2nd' ? '2nd Hold' : '1st Hold') + 'の解除';
+    $('cancelHoldModalTitle').textContent = (rank === '2nd' ? '2ND HOLD' : '1ST HOLD') + 'の解除';
     $('cancelHoldModalDesc').textContent =
-      'この' + (rank === '2nd' ? '2nd Hold' : '1st Hold') + '（顧客: ' + (holdCustomer || '-') + '）を登録した担当者「' +
+      'この' + (rank === '2nd' ? '2ND HOLD' : '1ST HOLD') + '（顧客: ' + (holdCustomer || '-') + '）を登録した担当者「' +
       (holdStaff || '-') + '」のみ解除できます。';
     $('cancelHoldStaffDisplay').innerHTML = staffDisplayHtml_();
     $('cancelHoldModalError').classList.add('hidden');
@@ -1138,7 +1138,7 @@
       var vehicleForCheck = findVehicleByCommission(action.commission);
       if (vehicleForCheck && vehicleForCheck.holdStaffEmail && emailsMatch_(vehicleForCheck.holdStaffEmail, currentUserEmail_())) {
         var staffErrEl = $('actionModalError');
-        staffErrEl.textContent = '1st Holdと同じ担当者（' + vehicleForCheck.holdStaff + '）は2nd Holdを登録できません';
+        staffErrEl.textContent = '1ST HOLDと同じ担当者（' + vehicleForCheck.holdStaff + '）は2ND HOLDを登録できません';
         staffErrEl.classList.remove('hidden');
         return;
       }

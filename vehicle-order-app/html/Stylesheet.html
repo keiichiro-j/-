@@ -467,10 +467,14 @@
   }
   .rowCard__model { font-size: 15px; font-weight: 700; letter-spacing: -.005em; }
   .rowCard__commission { font-size: 11px; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; margin-top: 1px; }
-  .rowCard__status { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+  /* 高さ固定・内部スクロール（.card__holdArea と同じ考え方）。Hold中はHOLD解除
+     リンクが1本、Hold中（2nd有）は2本に増えて縦に伸びる分だけ、状態列だけが
+     他の列より高くなり、行（カード）自体の高さが在庫あり／Hold中／Hold中（2nd有）で
+     バラバラになっていたため、状態列の高さを常に一定にして吸収する。 */
+  .rowCard__status { display: flex; flex-direction: column; align-items: center; gap: 6px; height: 72px; overflow-y: auto; }
   .rowCard__cancelLink {
     border: none; background: none; color: var(--danger); font-size: 11px; font-weight: 700;
-    cursor: pointer; padding: 0; text-align: left;
+    cursor: pointer; padding: 0; text-align: center; width: 100%;
   }
   .rowCard__cancelLink:hover { text-decoration: underline; }
   /* justify-self: stretch + flex-start にすることで、ボタンが1つ（2nd Hold登録済み）
