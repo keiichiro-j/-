@@ -64,9 +64,18 @@ var VEHICLE_COLUMNS = [
   }
   return slots;
 })()).concat([
-  { key: 'commission', label: 'コミッション', type: 'text', required: true },
+  {
+    key: 'commission', label: 'コミッション', type: 'text', required: true,
+    note: '車両を特定するID。先頭が0で始まる値（例: 0583911111）も保持されるよう、' +
+      'この列全体を「書式なしテキスト」に設定しています。Number型に戻すと先頭の0が' +
+      '消えてしまうため、書式は変更しないでください。'
+  },
   { key: 'arrivalExpectedDate', label: '入港予定日', type: 'date' },
-  { key: 'registrableMonth', label: '可能月', type: 'text' }, // 例: 2026-08（月の書式で入力）
+  {
+    key: 'registrableMonth', label: '可能月', type: 'text',
+    note: '「YYYY-MM」形式で入力してください（例: 2026-08）。当月と一致する車両は' +
+      'アプリ側で「当月登録可能車両」として強調表示されます。空欄も可。'
+  },
   { key: 'vpc', label: 'VPC', type: 'text' },
   { key: 'stockDisclosure', label: '在庫開示', type: 'select', options: STOCK_DISCLOSURE_OPTIONS }
 ]);
@@ -84,8 +93,15 @@ var PAID_OPTION_KEYS = VEHICLE_COLUMNS
  */
 var HOLD_ORDER_INPUT_COLUMNS = [
   { key: 'salesLocation', label: '販売拠点', type: 'text', required: true },
-  { key: 'leadNumber', label: 'リード番号', type: 'text', required: true },
-  { key: 'registeredMonth', label: '登録月', type: 'text', required: true },
+  {
+    key: 'leadNumber', label: 'リード番号', type: 'text', required: true,
+    note: '「L-」＋数字で保存されます（例: L-12345）。アプリからの入力では数字のみで' +
+      '構いません（「L-」は自動的に付与されます）。'
+  },
+  {
+    key: 'registeredMonth', label: '登録月', type: 'text', required: true,
+    note: '「YYYY-MM」形式で入力してください（例: 2026-08）。'
+  },
   { key: 'staff', label: '担当者', type: 'text', required: true }, // 担当者マスタから選択（SettingsService参照）
   { key: 'customer', label: '顧客', type: 'text', required: true },
   { key: 'tradeIn', label: '下取車の有無', type: 'select', options: YES_NO_OPTIONS, required: true },
@@ -114,20 +130,34 @@ var HOLD_COLUMNS = [
   // メールアドレスで本人確認を行うための識別キー（canConfirmOrder_ / canCancelHold_ /
   // canRegisterSecondHold_ 参照）。「担当者」名は表示用の別名に過ぎず編集され得るため、
   // 権限判定には必ずこちらを使う。
-  { key: 'staffEmail', label: '担当者メール', type: 'text' },
-  { key: 'createdAt', label: '開始日時', type: 'datetime' },
-  { key: 'expiresAt', label: '期限', type: 'datetime' },
+  {
+    key: 'staffEmail', label: '担当者メール', type: 'text',
+    note: 'Hold解除・受注確定の本人確認に使う内部用の列です（表示名ではなくこちらで' +
+      '照合します）。アプリからの操作でのみ設定されるため、通常は手動編集しないで' +
+      'ください。やむを得ず手動で修正する場合も、前後の空白を入れないでください' +
+      '（大文字小文字の違いは無視されますが、値そのものが異なると本人でも' +
+      '解除・受注確定ができなくなります）。'
+  },
+  { key: 'createdAt', label: '開始日時', type: 'datetime', note: 'アプリが自動記録する値です。手動編集しないでください。' },
+  { key: 'expiresAt', label: '期限', type: 'datetime', note: 'Hold期限（開始日時の72時間後）。アプリが自動計算する値です。手動編集しないでください。' },
   // Hold登録者本人のGoogleカレンダーに作成した期限リマインドイベントのID。
   // Hold解除・受注確定時に、このIDを使って該当イベントを削除する（CalendarService.gs参照）。
-  { key: 'calendarEventId', label: 'カレンダーイベントID', type: 'text' }
+  {
+    key: 'calendarEventId', label: 'カレンダーイベントID', type: 'text',
+    note: 'Hold登録者本人のGoogleカレンダーに作成した期限リマインドイベントのIDです。' +
+      'アプリが自動設定・削除する値のため、手動編集しないでください。'
+  }
 ]);
 
 /**
  * 受注リスト列定義。車両情報＋Hold・受注共通入力項目（販売拠点を含む）＋受注確定日時。
  */
 var ORDER_COLUMNS = VEHICLE_COLUMNS.concat(HOLD_ORDER_INPUT_COLUMNS).concat([
-  { key: 'staffEmail', label: '担当者メール', type: 'text' },
-  { key: 'orderedAt', label: '受注確定日時', type: 'datetime' }
+  {
+    key: 'staffEmail', label: '担当者メール', type: 'text',
+    note: '受注確定を行った担当者の内部識別用の列です。アプリからの操作でのみ設定されるため、通常は手動編集しないでください。'
+  },
+  { key: 'orderedAt', label: '受注確定日時', type: 'datetime', note: 'アプリが自動記録する値です。手動編集しないでください。' }
 ]);
 
 /**
@@ -144,11 +174,6 @@ var AUDIT_LOG_COLUMNS = [
   { key: 'staffEmail', label: '担当者メール', type: 'text' },
   { key: 'detail', label: '詳細', type: 'text' }
 ];
-
-var INVENTORY_HEADER_ROW = INVENTORY_COLUMNS.map(function (c) { return c.label; });
-var HOLD_HEADER_ROW = HOLD_COLUMNS.map(function (c) { return c.label; });
-var ORDER_HEADER_ROW = ORDER_COLUMNS.map(function (c) { return c.label; });
-var AUDIT_LOG_HEADER_ROW = AUDIT_LOG_COLUMNS.map(function (c) { return c.label; });
 
 var INVENTORY_COL_INDEX = buildColIndex_(INVENTORY_COLUMNS);
 var HOLD_COL_INDEX = buildColIndex_(HOLD_COLUMNS);

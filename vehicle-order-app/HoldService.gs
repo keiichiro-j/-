@@ -53,6 +53,19 @@ function normalizeLeadNumber_(value) {
 }
 
 /**
+ * 2つのメールアドレスが同一人物を指すかどうかを判定する（純粋関数）。
+ * 前後の空白・大文字小文字の違いを無視する。requireCurrentStaff_は毎回
+ * trim・小文字化した値を返すため通常は表記ゆれが生じないはずだが、Holdリストの
+ * staffEmail列はスプレッドシート側で直接編集され得る（データ移行・手動修正等）
+ * ため、読み出し側の比較でも表記ゆれを吸収できるようにしておく（読み出し専用の
+ * rowToObject_はセルの値をそのまま返すだけで、trim・小文字化は行わない）。
+ * クライアント側（JavaScript.html）の同名関数と同じロジック。
+ */
+function emailsMatch_(a, b) {
+  return !!a && !!b && String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+}
+
+/**
  * 2nd Hold 登録が可能かどうかを判定する（純粋関数）。
  * 3人目以降のHoldは不可（Holdボタンを非表示／無効化）。
  * また、1st Holdと同じ担当者は2nd Holdを登録できない（同一担当者による二重確保の防止）。
@@ -62,7 +75,7 @@ function canRegisterSecondHold_(vehicle, hasSecondHold, firstHoldEmail, newEmail
   if (!vehicle) return { ok: false, reason: '該当車両が見つかりません' };
   if (vehicle.holdStatus !== HOLD_STATUS.HOLD) return { ok: false, reason: 'Hold中の車両ではありません' };
   if (hasSecondHold) return { ok: false, reason: '2nd Holdまで登録済みのため、これ以上のHoldはできません' };
-  if (firstHoldEmail && newEmail && firstHoldEmail === newEmail) {
+  if (emailsMatch_(firstHoldEmail, newEmail)) {
     return { ok: false, reason: '1st Holdと同じ担当者は2nd Holdを登録できません' };
   }
   return { ok: true, reason: '' };
@@ -85,7 +98,7 @@ function canConfirmOrder_(vehicle, firstHold, staffEmail) {
     if (!firstHold) {
       return { ok: false, reason: 'Hold情報が確認できないため受注確定できません。時間をおいて再度お試しください' };
     }
-    if (firstHold.staffEmail !== staffEmail) {
+    if (!emailsMatch_(firstHold.staffEmail, staffEmail)) {
       return { ok: false, reason: 'Hold中の車両は、Holdを行った担当者（' + firstHold.staff + '）のみ受注確定できます' };
     }
   }
@@ -259,7 +272,7 @@ function registerSecondHold(commission, info) {
  */
 function canCancelHold_(holdRow, staffEmail) {
   if (!holdRow) return { ok: false, reason: '該当のHoldが見つかりません' };
-  if (holdRow.staffEmail !== staffEmail) {
+  if (!emailsMatch_(holdRow.staffEmail, staffEmail)) {
     return { ok: false, reason: 'Holdを行った担当者（' + holdRow.staff + '）のみ解除できます' };
   }
   return { ok: true, reason: '' };

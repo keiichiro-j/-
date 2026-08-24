@@ -9,7 +9,7 @@
  */
 
 function getAuditLogSheet_() {
-  return getOrCreateSheet_(SHEET_NAMES.AUDIT_LOG, AUDIT_LOG_HEADER_ROW, [auditLogColIndex1('commission')]);
+  return getOrCreateSheet_(SHEET_NAMES.AUDIT_LOG, AUDIT_LOG_COLUMNS, [auditLogColIndex1('commission')]);
 }
 
 /**

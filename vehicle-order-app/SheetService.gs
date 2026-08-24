@@ -7,14 +7,24 @@ function getSpreadsheet_() {
   return SpreadsheetApp.getActiveSpreadsheet();
 }
 
-function getOrCreateSheet_(sheetName, headerRow, textColumnIndexes1) {
+/**
+ * シートが無ければ、列定義（columns）から一括で作成する（ヘッダー行・入力規則
+ * （選択式の列のドロップダウン）・列ヘッダーの説明メモ・コミッション列の書式まで）。
+ * 既存のシートがある場合は何もしない（既存データ・書式を壊さないため）。
+ * 既存シートに後からこれらを反映したい場合は、SetupService.gsの
+ * applySelectValidationsAndNotes_（スプレッドシートのメニューから実行可能）を使う。
+ */
+function getOrCreateSheet_(sheetName, columns, textColumnIndexes1) {
   var ss = getSpreadsheet_();
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet) {
+    var headerRow = columns.map(function (c) { return c.label; });
     sheet = ss.insertSheet(sheetName);
     sheet.getRange(1, 1, 1, headerRow.length).setValues([headerRow]);
     sheet.setFrozenRows(1);
     applyTextColumnFormat_(sheet, textColumnIndexes1);
+    applySelectValidations_(sheet, columns);
+    applyHeaderNotes_(sheet, columns);
   }
   return sheet;
 }
@@ -34,16 +44,51 @@ function applyTextColumnFormat_(sheet, columnIndexes1) {
   });
 }
 
+/**
+ * 選択式（type: 'select'）の列に、その選択肢（options）のみを許可するデータ入力規則
+ * （プルダウン）を設定する。スプレッドシートを直接編集する運用担当者が、想定外の
+ * 値（表記ゆれ・入力ミス）を入力してしまうのを防ぐ（IntegrityService.gsの
+ * checkInventoryIntegrity_が検出する「不明なHoldステータス」等の不整合は、
+ * そもそもこの入力規則で未然に防げる）。無効な値は保存時に拒否する
+ * （setAllowInvalid(false)）。なお、この入力規則はスプレッドシートのUIから
+ * 手入力する場合にのみ働き、Apps Script側のsetValues()による書き込み
+ * （アプリ自体の動作）には影響しない。
+ */
+function applySelectValidations_(sheet, columns) {
+  var numRows = Math.max(sheet.getMaxRows() - 1, 1000);
+  columns.forEach(function (col, i) {
+    if (col.type !== 'select' || !Array.isArray(col.options) || !col.options.length) return;
+    var rule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(col.options, true)
+      .setAllowInvalid(false)
+      .build();
+    sheet.getRange(2, i + 1, numRows, 1).setDataValidation(rule);
+  });
+}
+
+/**
+ * 列定義（columns）にnoteが設定されている列について、ヘッダーセルにメモとして
+ * 表示する。コードを読まなくても、スプレッドシートを直接開いた運用担当者が
+ * 各列の入力形式・注意点（自動生成される値なので手動編集しない、等）を
+ * その場で確認できるようにするため。
+ */
+function applyHeaderNotes_(sheet, columns) {
+  columns.forEach(function (col, i) {
+    if (!col.note) return;
+    sheet.getRange(1, i + 1).setNote(col.note);
+  });
+}
+
 function getInventorySheet_() {
-  return getOrCreateSheet_(SHEET_NAMES.INVENTORY, INVENTORY_HEADER_ROW, [inventoryColIndex1('commission')]);
+  return getOrCreateSheet_(SHEET_NAMES.INVENTORY, INVENTORY_COLUMNS, [inventoryColIndex1('commission')]);
 }
 
 function getHoldsSheet_() {
-  return getOrCreateSheet_(SHEET_NAMES.HOLDS, HOLD_HEADER_ROW, [holdColIndex1('commission')]);
+  return getOrCreateSheet_(SHEET_NAMES.HOLDS, HOLD_COLUMNS, [holdColIndex1('commission')]);
 }
 
 function getOrderSheet_() {
-  return getOrCreateSheet_(SHEET_NAMES.ORDERS, ORDER_HEADER_ROW, [orderColIndex1('commission')]);
+  return getOrCreateSheet_(SHEET_NAMES.ORDERS, ORDER_COLUMNS, [orderColIndex1('commission')]);
 }
 
 /**

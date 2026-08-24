@@ -57,6 +57,22 @@ function test(name, fn) {
   }
 }
 
+console.log('== HoldService: emailsMatch_（前後の空白・大文字小文字の違いを無視して同一人物と判定） ==');
+test('大文字小文字が異なっても同一人物と判定する', () => {
+  assert.strictEqual(sandbox.emailsMatch_('Sato@Example.com', 'sato@example.com'), true);
+});
+test('前後に空白があっても同一人物と判定する（スプレッドシート側での手動編集等を想定）', () => {
+  assert.strictEqual(sandbox.emailsMatch_(' sato@example.com ', 'sato@example.com'), true);
+});
+test('実際に異なるメールアドレスは同一人物と判定しない', () => {
+  assert.strictEqual(sandbox.emailsMatch_('sato@example.com', 'suzuki@example.com'), false);
+});
+test('片方が空・未指定の場合は同一人物と判定しない', () => {
+  assert.strictEqual(sandbox.emailsMatch_('', 'sato@example.com'), false);
+  assert.strictEqual(sandbox.emailsMatch_(null, 'sato@example.com'), false);
+  assert.strictEqual(sandbox.emailsMatch_(undefined, undefined), false);
+});
+
 console.log('== HoldService: canRegisterHold_ / canRegisterSecondHold_ ==');
 test('在庫あり車両にはHold登録可', () => {
   assert.strictEqual(sandbox.canRegisterHold_({ holdStatus: 'available' }).ok, true);
@@ -90,6 +106,10 @@ test('1st Holdと同じ担当者（メールアドレスが同じ）は2nd Hold�
   assert.strictEqual(result.ok, false);
   assert.ok(result.reason.includes('同じ担当者'));
 });
+test('1st Holdの担当者メールに大文字小文字・前後の空白の違いがあっても同一人物として2nd Hold登録不可にする（スプレッドシート側での手動編集等による表記ゆれ対策）', () => {
+  const result = sandbox.canRegisterSecondHold_({ holdStatus: 'hold' }, false, ' Sato@Example.com ', 'sato@example.com');
+  assert.strictEqual(result.ok, false);
+});
 
 console.log('== HoldService: canConfirmOrder_（Hold担当者のみ受注確定可・メールアドレスで判定） ==');
 test('Holdが入っていない車両は誰でも受注確定できる', () => {
@@ -103,6 +123,10 @@ test('Hold中の車両はHold担当者本人（同じメールアドレス）な
 test('Hold中の車両はHold担当者以外（メールアドレスが異なる）だと受注確定できない', () => {
   const result = sandbox.canConfirmOrder_({ holdStatus: 'hold' }, { staff: '佐藤', staffEmail: 'sato@example.com' }, 'suzuki@example.com');
   assert.strictEqual(result.ok, false);
+});
+test('Holdリストのstaffemail列に前後の空白・大文字小文字の違いがあってもHold担当者本人なら受注確定できる（実際に報告された不具合: rowToObject_はセルの値をtrim・小文字化せずそのまま返すため、スプレッドシート側での手動編集等で表記ゆれが生じても本人が受注確定できなくなってはいけない）', () => {
+  const result = sandbox.canConfirmOrder_({ holdStatus: 'hold' }, { staff: '戸田', staffEmail: ' Toda@Example.com ' }, 'toda@example.com');
+  assert.strictEqual(result.ok, true);
 });
 test('Hold中なのにHold情報が取得できない場合は安全側に倒して受注確定できない（データ不整合対策）', () => {
   const result = sandbox.canConfirmOrder_({ holdStatus: 'hold' }, null, 'sato@example.com');
@@ -118,6 +142,10 @@ test('Holdを行った本人以外（メールアドレスが異なる）は解�
   const result = sandbox.canCancelHold_({ staff: '佐藤', staffEmail: 'sato@example.com' }, 'suzuki@example.com');
   assert.strictEqual(result.ok, false);
   assert.ok(result.reason.includes('佐藤'));
+});
+test('Holdリストのstaffemail列に前後の空白・大文字小文字の違いがあっても本人なら解除できる', () => {
+  const result = sandbox.canCancelHold_({ staff: '戸田', staffEmail: ' Toda@Example.com ' }, 'toda@example.com');
+  assert.strictEqual(result.ok, true);
 });
 test('該当のHold行がなければ解除できない', () => {
   const result = sandbox.canCancelHold_(null, 'sato@example.com');
