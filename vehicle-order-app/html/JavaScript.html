@@ -26,7 +26,8 @@
     navHistory: [], // 「戻る」ボタン用の画面履歴（タブ名のスタック）
     allInventoryItems: [], // ホーム画面の在庫台数集計専用（ツールバーの検索条件に左右されない全件）
     homeGradeFilter: null, // ホームのグレードタブクリックで設定される、絞り込み対象グレード名の配列
-    homeExpandedModel: null // ホームで現在グレードタブを展開中のベースモデル名（1つのみ展開可能）
+    homeExpandedModel: null, // ホームで現在グレードタブを展開中のベースモデル名（1つのみ展開可能）
+    allOrders: [] // マイページ集計専用（受注リストの検索・絞り込み条件に左右されない全件）
   };
   var COMPARE_MAX = 3;
 
@@ -470,7 +471,7 @@
           document.querySelectorAll('[data-compare="' + commission + '"]').forEach(function (el) { el.checked = false; });
           return;
         }
-        var vehicle = state.inventoryItems.filter(function (v) { return commissionEquals_(v.commission, commission); })[0];
+        var vehicle = findVehicleByCommission(commission);
         if (!vehicle) {
           showToast('この車両の情報が見つからないため比較に追加できません。検索条件を変えている場合は解除してからお試しください。', true);
           document.querySelectorAll('[data-compare="' + commission + '"]').forEach(function (el) { el.checked = false; });
@@ -490,7 +491,9 @@
   function syncComparePins_() {
     var activeSet = {};
     state.compareItems.forEach(function (v) { activeSet[v.commission] = true; });
-    document.querySelectorAll('#inventoryList [data-compare]').forEach(function (el) {
+    // マイページの「Hold中の車両」一覧（#myPageHoldList）も在庫リストと同じ
+    // 比較ピン（vehicleCardHtml）を再利用しているため、あわせて同期する。
+    document.querySelectorAll('#inventoryList [data-compare], #myPageHoldList [data-compare]').forEach(function (el) {
       el.checked = !!activeSet[el.dataset.compare];
     });
   }
@@ -653,7 +656,7 @@
   /** 表示形式「表」の行（カード）をタップした際、既存のカード表示と同じ見た目で
    * 車両情報すべてを画面中央のモーダルに表示する。 */
   function openInventoryDetailModal_(commission) {
-    var vehicle = (state.inventoryItems || []).filter(function (v) { return commissionEquals_(v.commission, commission); })[0];
+    var vehicle = findVehicleByCommission(commission);
     if (!vehicle) return;
     $('inventoryDetailBody').innerHTML = vehicleDetailHtml_(vehicle);
     openModal($('inventoryDetailModal'));
@@ -786,7 +789,10 @@
   syncViewToggle_();
   syncOrdersViewToggle_();
 
-  document.getElementById('inventoryList').addEventListener('click', function (e) {
+  // 在庫リストのカード/行タップ操作（Hold・受注・比較・詳細）。マイページの
+  // 「Hold中の車両」一覧（#myPageHoldList）も同じカード（vehicleCardHtml）を
+  // 再利用しているため、同じ処理を共有できるよう名前付き関数にしている。
+  function handleInventoryListClick_(e) {
     var target = e.target;
     if (target.dataset.hold) openActionModal('hold', target.dataset.hold);
     else if (target.dataset.secondHold) openActionModal('secondHold', target.dataset.secondHold);
@@ -806,7 +812,9 @@
         openInventoryDetailModal_(rowEl.dataset.commission);
       }
     }
-  });
+  }
+
+  document.getElementById('inventoryList').addEventListener('click', handleInventoryListClick_);
 
   // 詳細モーダル内のHold/受注/比較等のボタンも、在庫リストと同じ操作ができるようにする。
   // 操作系のボタン（Hold・受注・2nd Hold・受注確定・Hold解除）を押した場合は、
@@ -1037,7 +1045,12 @@
   });
 
   function findVehicleByCommission(commission) {
-    return (state.inventoryItems || []).find(function (v) { return commissionEquals_(v.commission, commission); }) || null;
+    var found = (state.inventoryItems || []).find(function (v) { return commissionEquals_(v.commission, commission); });
+    if (found) return found;
+    // 在庫リストの検索・絞り込み条件で対象外になっていても（マイページ等、
+    // 別画面のカードから操作した場合など）見つけられるよう、フィルタに
+    // 左右されない全件キャッシュ（state.allInventoryItems）も探す。
+    return (state.allInventoryItems || []).find(function (v) { return commissionEquals_(v.commission, commission); }) || null;
   }
 
   // ===== Hold解除 =====
@@ -1253,7 +1266,10 @@
         if (commissionEquals_(items[j].commission, commission)) return items[j];
       }
     }
-    return null;
+    // 受注リストの検索・絞り込み条件で対象外になっていても（マイページ等、
+    // 別画面のカードから操作した場合など）見つけられるよう、フィルタに
+    // 左右されない全件キャッシュ（state.allOrders）も探す。
+    return (state.allOrders || []).find(function (o) { return commissionEquals_(o.commission, commission); }) || null;
   }
 
   function openOrderDetailModal_(commission) {
@@ -1837,8 +1853,74 @@
     return gasRun('api_listInventory', { keyword: '', includeHold: true }).then(function (groups) {
       state.allInventoryItems = (groups && groups[0] && groups[0].items) || [];
       renderHomeGallery_();
+      renderMyPageHolds_();
     }).catch(function () {});
   }
+
+  /**
+   * マイページ用に、受注リストの検索・絞り込み条件に左右されない全件を取得する
+   * （loadHomeModelCounts_が在庫についてやっているのと同じ考え方）。
+   */
+  function loadMyPageOrders_() {
+    return gasRun('api_listOrders', {}, '').then(function (groups) {
+      state.allOrders = (groups && groups[0] && groups[0].items) || [];
+      renderMyPageOrders_();
+    }).catch(function () {});
+  }
+
+  /**
+   * マイページ: ログイン中のGoogleアカウント（担当者メールアドレス）に紐づく
+   * Hold中の車両・受注した車両だけを抜き出して表示する。担当者マスタに
+   * 未登録のアカウントの場合は、担当者を特定できずHold・受注の担当者メール
+   * とも突き合わせようがないため、案内メッセージのみ表示する。
+   */
+  function renderMyPageNoStaffState_() {
+    var hasStaff = !!currentStaffName_();
+    $('myPageNoStaff').classList.toggle('hidden', hasStaff);
+    $('myPageContent').classList.toggle('hidden', !hasStaff);
+    return hasStaff;
+  }
+
+  /**
+   * Hold中の車両カードは、在庫リストのvehicleCardHtml（比較ピン・Hold解除・
+   * 受注確定ボタン込み）をそのまま再利用する。ボタン操作（openActionModal /
+   * openCancelHoldModal / toggleCompare_ の各lookup）は在庫リストの検索・
+   * 絞り込み条件に左右されない全件キャッシュ（state.allInventoryItems）へも
+   * フォールバックするようfindVehicleByCommission側で対応済みのため、
+   * マイページのカードから操作しても在庫リスト側の絞り込み状態に関わらず
+   * 正しく動作する。
+   */
+  function renderMyPageHolds_() {
+    if (!renderMyPageNoStaffState_()) return;
+    var email = currentUserEmail_();
+    var items = (state.allInventoryItems || []).filter(function (v) {
+      if (v.holdStatus !== 'hold') return false;
+      return emailsMatch_(v.holdStaffEmail, email) || emailsMatch_(v.secondHoldStaffEmail, email);
+    });
+    $('myPageHoldCount').textContent = items.length;
+    $('myPageHoldEmpty').classList.toggle('hidden', items.length > 0);
+    $('myPageHoldList').innerHTML = items.length ? '<div class="cardGrid">' + items.map(vehicleCardHtml).join('') + '</div>' : '';
+    syncComparePins_();
+  }
+
+  /**
+   * 受注した車両カードは、受注リストのorderCardHtmlをそのまま再利用する
+   * （「詳細を見る」のlookupもfindOrderByCommission_側でフォールバック対応済み）。
+   */
+  function renderMyPageOrders_() {
+    if (!renderMyPageNoStaffState_()) return;
+    var email = currentUserEmail_();
+    var items = (state.allOrders || []).filter(function (o) { return emailsMatch_(o.staffEmail, email); });
+    $('myPageOrderCount').textContent = items.length;
+    $('myPageOrderEmpty').classList.toggle('hidden', items.length > 0);
+    $('myPageOrderList').innerHTML = items.length ? '<div class="orderList">' + items.map(orderCardHtml).join('') + '</div>' : '';
+  }
+
+  $('myPageHoldList').addEventListener('click', handleInventoryListClick_);
+  $('myPageOrderList').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-order-detail]');
+    if (btn) openOrderDetailModal_(btn.dataset.orderDetail);
+  });
 
   // グレードタブ（Aクラス行の展開で現れるA180・A200等）をクリックすると、
   // そのグレード1件だけに絞り込んだ在庫リストへ遷移する。
@@ -2031,7 +2113,7 @@
       renderSettings(bootstrap.settings);
       renderTopbarUser();
       checkIntegrity_();
-      return Promise.all([loadInventory(), loadOrders(), loadHomeModelCounts_()]);
+      return Promise.all([loadInventory(), loadOrders(), loadHomeModelCounts_(), loadMyPageOrders_()]);
     });
   }
 

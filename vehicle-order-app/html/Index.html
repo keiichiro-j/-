@@ -97,6 +97,7 @@
         <button class="tabs__item is-active" data-tab="home">ホーム</button>
         <button class="tabs__item" data-tab="inventory">在庫リスト</button>
         <button class="tabs__item" data-tab="orders">受注リスト</button>
+        <button class="tabs__item" data-tab="mypage">マイページ</button>
         <button class="tabs__item" data-tab="settings">設定</button>
       </nav>
       <div class="integrityBanner hidden" id="integrityBanner">
@@ -167,6 +168,30 @@
       <div class="toolbarSpacer" id="ordersToolbarSpacer"></div>
       <div id="ordersGroups"></div>
       <div class="emptyState hidden" id="ordersEmpty">該当する受注がありません</div>
+    </main>
+
+    <!-- マイページ: ログイン中の担当者本人がHold中の車両・受注した車両だけを
+         抜き出して表示する（在庫リスト・受注リストは全担当者ぶんが並ぶため、
+         自分の案件だけをすぐ確認したい場面向け）。担当者マスタに未登録の
+         Googleアカウントの場合は、その旨を案内するメッセージのみ表示する
+         （#myPageNoStaff、JavaScript.htmlのrenderMyPage_参照）。 -->
+    <main class="view" id="view-mypage">
+      <div class="emptyState hidden" id="myPageNoStaff">
+        ご利用中のGoogleアカウントが担当者マスタに登録されていないため、マイページを表示できません。
+        設定タブの「担当者」にご自身のメールアドレスを登録してください。
+      </div>
+      <div id="myPageContent">
+        <section class="myPageSection">
+          <h2 class="myPageSection__title">Hold中の車両（<span id="myPageHoldCount">0</span>台）</h2>
+          <div id="myPageHoldList"></div>
+          <div class="emptyState hidden" id="myPageHoldEmpty">現在Hold中の車両はありません</div>
+        </section>
+        <section class="myPageSection">
+          <h2 class="myPageSection__title">受注した車両（<span id="myPageOrderCount">0</span>台）</h2>
+          <div id="myPageOrderList"></div>
+          <div class="emptyState hidden" id="myPageOrderEmpty">受注した車両はありません</div>
+        </section>
+      </div>
     </main>
 
     <!-- 設定 -->
