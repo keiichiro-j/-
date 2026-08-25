@@ -42,7 +42,7 @@ var PAYMENT_METHOD_OPTIONS = ['現金', 'ローン'];
 var MODEL_BODY_TYPE_OPTIONS = ['Sedan', 'SUV', 'Station Wagon', 'Compact', 'Coupe', 'Cabriolet/Roadster', 'Mini Van'];
 var PAID_OPTION_SLOT_COUNT = 7; // 有償オプション（7マス分確保）
 var STAFF_LIST_MAX = 30; // 担当者マスタの最大登録人数
-var MODEL_PHOTOS_MAX = 30; // ホーム画面のモデル写真の最大登録数
+var MODEL_PHOTOS_MAX = 40; // ホーム画面のモデル写真の最大登録数
 var NOTIFY_MAIL_LIST_MAX = 20; // メール通知先（Hold時／受注確定時／エラー通知）1項目あたりの最大登録件数
 var NOTIFY_MAIL_MAX_LENGTH = 254; // メールアドレス1件あたりの最大文字数（RFC 5321の実務上の上限に合わせる）
 

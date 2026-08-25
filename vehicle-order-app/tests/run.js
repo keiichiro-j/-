@@ -480,7 +480,7 @@ test('ドライブのドメインでもファイルIDを抽出できない形式
   assert.strictEqual(sandbox.normalizeModelPhotoUrl_(url), url);
 });
 
-console.log('== SettingsService: normalizeModelPhotos_（ホーム画面のモデル写真最大30件・{model,photoUrl,grades}形式） ==');
+console.log('== SettingsService: normalizeModelPhotos_（ホーム画面のモデル写真最大40件・{model,photoUrl,grades}形式） ==');
 test('モデル名・写真URLがともに入力されている行のみ残り、モデル名重複は除去される', () => {
   const list = sandbox.normalizeModelPhotos_([
     { model: 'Cクラス', photoUrl: 'https://example.com/c.jpg' },
@@ -501,13 +501,13 @@ test('写真URLにGoogleドライブの共有リンクを指定すると、直�
   ]);
   assert.strictEqual(list[0].photoUrl, 'https://lh3.googleusercontent.com/d/1AbC-xyz_123=w1000');
 });
-test('30件まではそのまま登録できる', () => {
-  const list = Array.from({ length: 30 }, (_, i) => ({ model: 'モデル' + i, photoUrl: 'https://example.com/' + i + '.jpg' }));
-  assert.strictEqual(sandbox.normalizeModelPhotos_(list).length, 30);
+test('40件まではそのまま登録できる', () => {
+  const list = Array.from({ length: 40 }, (_, i) => ({ model: 'モデル' + i, photoUrl: 'https://example.com/' + i + '.jpg' }));
+  assert.strictEqual(sandbox.normalizeModelPhotos_(list).length, 40);
 });
-test('31件以上はエラーになる', () => {
-  const list = Array.from({ length: 31 }, (_, i) => ({ model: 'モデル' + i, photoUrl: 'https://example.com/' + i + '.jpg' }));
-  assert.throws(() => sandbox.normalizeModelPhotos_(list), /最大30件/);
+test('41件以上はエラーになる', () => {
+  const list = Array.from({ length: 41 }, (_, i) => ({ model: 'モデル' + i, photoUrl: 'https://example.com/' + i + '.jpg' }));
+  assert.throws(() => sandbox.normalizeModelPhotos_(list), /最大40件/);
 });
 test('写真URLが長すぎる場合はエラーになる（data URL直接貼り付け対策）', () => {
   const list = [{ model: 'Cクラス', photoUrl: 'x'.repeat(1501) }];

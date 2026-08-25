@@ -1409,7 +1409,7 @@
     state.modelPhotos = (settings.modelPhotos || []).map(function (p) {
       return { model: p.model || '', photoUrl: p.photoUrl || '', grades: (p.grades || []).join(', '), bodyType: p.bodyType || '' };
     });
-    $('modelPhotosMax').textContent = (state.bootstrap && state.bootstrap.modelPhotosMax) || 30;
+    $('modelPhotosMax').textContent = (state.bootstrap && state.bootstrap.modelPhotosMax) || 40;
     renderModelPhotoList_();
     renderHomeGallery_();
   }
@@ -1675,7 +1675,7 @@
           '</div>';
       }).join('');
     }
-    var max = (state.bootstrap && state.bootstrap.modelPhotosMax) || 30;
+    var max = (state.bootstrap && state.bootstrap.modelPhotosMax) || 40;
     $('btnAddModelPhoto').disabled = state.modelPhotos.length >= max;
   }
 
@@ -1704,7 +1704,7 @@
   });
 
   $('btnAddModelPhoto').addEventListener('click', function () {
-    var max = (state.bootstrap && state.bootstrap.modelPhotosMax) || 30;
+    var max = (state.bootstrap && state.bootstrap.modelPhotosMax) || 40;
     if (state.modelPhotos.length >= max) return;
     state.modelPhotos.push({ model: '', photoUrl: '', grades: '', bodyType: '' });
     renderModelPhotoList_();
@@ -2116,7 +2116,7 @@
       return;
     }
 
-    var maxPhotos = (state.bootstrap && state.bootstrap.modelPhotosMax) || 30;
+    var maxPhotos = (state.bootstrap && state.bootstrap.modelPhotosMax) || 40;
     var cleanedPhotos = state.modelPhotos
       .map(function (p) {
         return {
