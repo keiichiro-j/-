@@ -203,6 +203,13 @@
     document.querySelectorAll('.tabs__item').forEach(function (t) { t.classList.toggle('is-active', t.dataset.tab === tabName); });
     document.querySelectorAll('main.view').forEach(function (v) { v.classList.remove('is-active'); });
     $('view-' + tabName).classList.add('is-active');
+    // 全タブは同じ1つのdocument上でdisplay: none/blockを切り替えているだけの
+    // ため、スクロール位置はタブをまたいで共有されてしまう（例: ホームで
+    // スクロールした状態でモデルをクリックすると、在庫リストも同じスクロール
+    // 位置のまま表示され、ツールバー等が見えない状態で開いてしまう）。
+    // タブ切替のたびに常に一番上から表示されるよう、ページ全体を先頭へ
+    // スクロールする。
+    window.scrollTo(0, 0);
     // 非表示（display: none）だった間はツールバーの実測高さが0になっているため、
     // 表示状態に切り替わった直後に再計測してスペーサーの高さを補正する。
     syncFixedBars_();
