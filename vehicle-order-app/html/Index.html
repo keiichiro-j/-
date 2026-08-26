@@ -5,10 +5,16 @@
   <meta charset="utf-8">
   <!-- 公式サイト風の細身・ジオメトリックなサンセリフ体（Barlow）。和文はBarlowに
        グリフが無いため、自動的に既存のフォールバック（游ゴシック等）にフォントが
-       切り替わる（Stylesheet.htmlのfont-family参照）。 -->
+       切り替わる（Stylesheet.htmlのfont-family参照）。
+       アプリ名・タブ名・ホーム画面の見出し等の「タイトル」用には、和文にも
+       対応した明朝体（Zen Old Mincho）を別途読み込む（--font-display、
+       Stylesheet.html参照）。ホーム画面をショールーム風の写真主体レイアウトに
+       変更したのにあわせ、高級輸入車ディーラーの公式サイトらしい上質さを
+       見出し部分に出すための書体。データ・ボタン等の実務的な文字は引き続き
+       Barlow（--font-body）のまま変更しない。 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=Zen+Old+Mincho:wght@500;600;700;900&display=swap" rel="stylesheet">
   <!-- PWA対応（ホーム画面に追加してアプリのように起動できるようにする）。
        manifest・Service Workerの実体はPwaService.gs参照。ウェブアプリの
        URL（.../exec）に直接アクセスした場合にのみ機能し、Googleサイトへの

@@ -65,12 +65,21 @@
     /* トップバーの実高さ。JS（syncFixedBars_）が実測して上書きする。初期値は
        JS実行前のレイアウトずれを防ぐための目安値。 */
     --topbar-h: 108px;
+    /* ===== 書体 =====
+       データ・ボタン・フォーム等、実務的な文字は引き続き細身・ジオメトリックな
+       サンセリフ体（--font-body、Barlow）のまま。アプリ名（トップバー）・
+       タブ名・ホーム画面のショールーム風タイル（モデル名）・型見出し等、
+       「タイトル」にあたる部分だけ、和文にも対応した明朝体（--font-display、
+       Zen Old Mincho）に一新し、高級輸入車ディーラーの公式サイトらしい
+       上質さを見出しに出す（Index.htmlのGoogle Fonts読み込み参照）。 */
+    --font-body: 'Barlow', 'Roboto', 'Helvetica Neue', Arial, 'Hiragino Sans', 'Yu Gothic', sans-serif;
+    --font-display: 'Zen Old Mincho', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
   }
 
   * { box-sizing: border-box; }
   html, body {
     margin: 0;
-    font-family: 'Barlow', 'Roboto', 'Helvetica Neue', Arial, 'Hiragino Sans', 'Yu Gothic', sans-serif;
+    font-family: var(--font-body);
     background: var(--background);
     color: var(--on-surface);
     -webkit-font-smoothing: antialiased;
@@ -176,9 +185,10 @@
      .topbar__logoの高さに合わせて、下のmin-width: 901pxブロック内でも
      調整している）。 */
   .topbar__brandText {
-    font-size: 15px;
+    font-family: var(--font-display);
+    font-size: 16px;
     font-weight: 700;
-    letter-spacing: .1em;
+    letter-spacing: .14em;
     color: var(--on-topbar);
     white-space: nowrap;
   }
@@ -228,8 +238,9 @@
     color: var(--on-topbar);
     opacity: .6;
     padding: 6px 1px;
-    font-size: 12.5px;
-    font-weight: 600;
+    font-family: var(--font-display);
+    font-size: 13.5px;
+    font-weight: 700;
     letter-spacing: .1em;
     text-transform: uppercase;
     cursor: pointer;
@@ -1229,17 +1240,21 @@
      見出しが上下ちょうど中央に来る）。 */
   .homeTypeHeader {
     grid-column: 1 / -1;
-    font-size: 19px;
+    font-family: var(--font-display);
+    font-size: 20px;
     font-weight: 700;
     color: var(--on-surface);
     margin: 4px 2px;
   }
 
   /* ===== ホーム画面 =====
-     PC（901px以上）はモデル写真を大きく見せる4列グリッドにする。タブレット・
-     スマホ幅（900px以下）では、パッと見て在庫状況がわかる情報密度を優先した
-     横一列の「リスト」型のままにする（@media (max-width: 900px)で上書き。
-     現場の声を踏まえて選んだ元のレイアウトのため、狭い画面では変更しない）。 */
+     PC（901px以上）はモデル写真を全面に敷いた「ショールーム」風の4列グリッドに
+     する。写真の下部にグラデーションを重ね、モデル名・在庫台数を白文字で
+     直接載せる（通常表示・展開時のクローズアップ表示、どちらも同じ見せ方に
+     統一）。タブレット・スマホ幅（900px以下）では、パッと見て在庫状況が
+     わかる情報密度を優先した横一列の「リスト」型のままにする
+     （@media (max-width: 900px)で上書き。現場の声を踏まえて選んだ元の
+     レイアウトのため、狭い画面では変更しない）。 */
   .homeList {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -1249,25 +1264,25 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    gap: 14px;
     width: 100%;
-    padding: 16px;
-    background: var(--surface);
-    border: 1px solid var(--outline);
+    aspect-ratio: 4 / 3;
+    padding: 0;
+    background: var(--background);
+    border: none;
     border-radius: var(--radius);
+    overflow: hidden;
     color: var(--on-surface);
     cursor: pointer;
     text-align: left;
-    transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease, background-color .15s ease;
+    transition: box-shadow .18s ease, transform .18s ease;
   }
-  .homeRow:hover { box-shadow: var(--shadow-elevated); transform: translateY(-3px); border-color: transparent; }
+  .homeRow:hover { box-shadow: var(--shadow-elevated); transform: translateY(-3px); }
   /* 展開中のタイルは、グリッドの全列ぶんの幅（grid-column: 1 / -1）を使い、
-     カードの枠（背景・境界線・余白）を外して、写真を画面中央に大きく
-     クローズアップ表示する。写真とモデル名ラベルを同じグリッドセル
-     （grid-area: 1 / 1）に重ねて配置することで、写真の実際の表示位置に
-     関わらず、ラベルが常に写真の左上にぴったり重なるようにしている
-     （position:absoluteで.homeRowを基準にすると、写真が中央寄せで
-     ずれた分だけラベルの位置もずれてしまうため）。在庫台数バッジは
+     写真を画面中央に大きくクローズアップ表示する。写真とモデル名ラベルを
+     同じグリッドセル（grid-area: 1 / 1）に重ねて配置することで、写真の
+     実際の表示位置に関わらず、ラベルが常に写真の左上にぴったり重なる
+     ようにしている（position:absoluteで.homeRowを基準にすると、写真が
+     中央寄せでずれた分だけラベルの位置もずれてしまうため）。在庫台数バッジは
      （下のグレードタブで内訳が見えるため）非表示にする。
      order: -1で、どのモデルを選択してもクローズアップ表示が常にグリッドの
      先頭（他のモデルより上）に来るようにしている（現場からの指摘で判明。
@@ -1277,11 +1292,10 @@
   .homeRow.is-expanded {
     grid-column: 1 / -1;
     order: -1;
+    aspect-ratio: auto;
     display: grid;
     justify-content: center;
-    padding: 0;
     background: none;
-    border-color: transparent;
     /* モデルタップ時にscrollIntoView()でこのタイルまで自動スクロールする際
        （JavaScript.htmlのクリックハンドラ参照）、position: fixedのトップバー・
        型クイックナビの下に隠れてしまわないよう、その高さぶんの余白を確保する
@@ -1289,14 +1303,16 @@
     scroll-margin-top: calc(var(--home-scroll-offset, 100px) + 16px);
   }
   .homeRow.is-expanded:hover { box-shadow: none; transform: none; }
+  /* 通常表示（ショールーム風タイル）は、写真をタイル全面に敷く（position:
+     absolute; inset:0）。クローズアップ表示（.is-expanded）はgrid-areaで
+     大きく中央表示するため、grid-area指定が効くようposition:staticに戻す。 */
   .homeRow__photo {
-    width: 100%;
-    aspect-ratio: 4 / 3;
-    border-radius: 8px;
-    overflow: hidden;
+    position: absolute;
+    inset: 0;
     background: var(--background);
   }
   .homeRow.is-expanded .homeRow__photo {
+    position: static;
     grid-area: 1 / 1;
     width: min(480px, 100%);
     aspect-ratio: 1 / 1;
@@ -1304,16 +1320,52 @@
     z-index: 0;
   }
   .homeRow__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .homeRow__meta { display: flex; align-items: center; gap: 8px; }
-  /* モデル名ラベルは、写真を塗りつぶす濃い背景を敷くのではなく、白文字＋
-     テキストシャドウで写真の上に直接重ねる（現場からの指摘で判明。以前は
-     半透明の黒背景（rgba(0,0,0,.6)）を敷いていたが、ベース配色を白系
-     （コーポレートネイビー）に変えた際に文字色がvar(--on-surface)＝濃い
-     チャコールのまま残っており、黒背景にほぼ同化して読めなくなっていた）。 */
+  /* 写真の下部だけを暗くするグラデーション（スクリム）。モデル名・在庫台数の
+     白文字を、写真の明暗に関わらず常に読みやすくするために敷く。 */
+  .homeRow__scrim {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(11, 31, 51, .85) 0%, rgba(11, 31, 51, .4) 42%, rgba(11, 31, 51, 0) 72%);
+    pointer-events: none;
+  }
+  .homeRow.is-expanded .homeRow__scrim {
+    position: static;
+    grid-area: 1 / 1;
+    width: min(480px, 100%);
+    aspect-ratio: 1 / 1;
+    border-radius: var(--radius);
+  }
+  /* グレードのあるモデルは、通常表示では左上にグレード件数タグを重ねる
+     （クローズアップ表示のchevronの代わり。JavaScript.htmlのgradesTagHtml参照）。 */
+  .homeRow__gradesTag {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 1;
+    background: rgba(255, 255, 255, .92);
+    color: var(--on-surface);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 999px;
+  }
+  .homeRow__meta {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: 12px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 8px;
+    z-index: 1;
+  }
   .homeRow.is-expanded .homeRow__meta {
+    position: static;
     grid-area: 1 / 1;
     align-self: start;
     justify-self: start;
+    left: auto; right: auto; bottom: auto;
     margin: 12px;
     padding: 6px 12px;
     z-index: 1;
@@ -1354,10 +1406,21 @@
   }
   .homeRow__backBtn:hover { background: #fff; }
   .homeRow__model {
-    flex: 1; min-width: 0; font-size: 16px; font-weight: 600; letter-spacing: -.005em;
+    flex: 1; min-width: 0;
+    font-family: var(--font-display);
+    font-size: 17px; font-weight: 700; letter-spacing: .01em;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, .5), 0 1px 10px rgba(0, 0, 0, .35);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .badge--count { background: var(--primary-bg); color: var(--primary-text); font-weight: 600; flex: none; }
+  /* ショールーム風タイルは写真の上に直接載るため、常にコントラストを確保できる
+     白地の不透明ピルにする（在庫リストの--primary-bg系バッジは、写真ではなく
+     カード地の上で使う前提のため、ここでは流用しない）。 */
+  .badge--count { background: rgba(255, 255, 255, .92); color: var(--topbar-bg); font-weight: 700; flex: none; }
+  /* 通常表示ではグレード件数タグ（.homeRow__gradesTag）がその役割を担うため、
+     chevronはクローズアップ表示（.is-expanded）でのみ表示する
+     （900px以下のリスト型表示では、下のメディアクエリで再度表示する）。 */
+  .homeRow:not(.is-expanded) .homeRow__chevron { display: none; }
   .homeRow__chevron { flex: none; font-size: 13px; color: var(--on-surface-variant); }
 
   /* ===== ホームのグレードタブ（グレードが設定されたモデル行を展開すると現れる） =====
@@ -1593,7 +1656,15 @@
        元の「実務重視リスト型」（横一列・小さめの写真）に戻す。タブレット・
        スマホ幅では情報密度を優先するため（現場の声を踏まえた元のレイアウト）。 */
     .homeList { display: flex; flex-direction: column; max-width: 100%; }
+    /* PC専用の「ショールーム」風オーバーレイタイル（上部参照）を打ち消し、
+       タブレット・スマホ幅では従来どおり写真は小さめの正方形サムネイル、
+       文字は写真の隣に並べる横一列リストのままにする（写真に文字を重ねる
+       レイアウトではないため、position: absolute・グラデーション・白文字＋
+       テキストシャドウ・グレード件数タグもすべてPC専用として打ち消す）。 */
     .homeRow {
+      position: static;
+      aspect-ratio: auto;
+      overflow: visible;
       flex-direction: row;
       align-items: center;
       gap: 18px;
@@ -1613,6 +1684,7 @@
     .homeRow.is-expanded {
       grid-column: auto;
       order: 0;
+      aspect-ratio: auto;
       display: flex;
       justify-content: normal;
       padding: 14px 6px;
@@ -1620,9 +1692,14 @@
       border-color: transparent;
       border-bottom-color: transparent;
     }
-    .homeRow__photo { width: 76px; height: 76px; aspect-ratio: auto; flex: none; }
+    .homeRow__photo { position: static; width: 76px; height: 76px; aspect-ratio: auto; flex: none; }
     .homeRow.is-expanded .homeRow__photo { width: 76px; border-radius: 8px; }
-    .homeRow__meta { flex: 1; min-width: 0; gap: 18px; }
+    .homeRow__scrim { display: none; }
+    .homeRow__gradesTag { display: none; }
+    .homeRow:not(.is-expanded) .homeRow__chevron { display: inline; }
+    .homeRow__meta { position: static; flex: 1; min-width: 0; gap: 18px; }
+    .homeRow__model { color: var(--on-surface); text-shadow: none; }
+    .badge--count { background: var(--primary-bg); color: var(--primary-text); }
     .homeRow.is-expanded .homeRow__meta {
       align-self: auto;
       justify-self: auto;

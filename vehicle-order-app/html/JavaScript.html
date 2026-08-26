@@ -2090,6 +2090,15 @@
     var chevronHtml = hasGrades
       ? '<span class="homeRow__chevron">' + (isExpanded ? '▾' : '▸') + '</span>'
       : '';
+    // 「ショールーム」風タイル: 通常表示でも写真をタイル全面に敷き、下部に
+    // グラデーション＋白文字でモデル名・在庫台数を重ねる（展開時のクローズ
+    // アップ表示と同じ見せ方に統一。CSS側でPC専用・900px以下では元の見た目に
+    // 戻す。Stylesheet.htmlの.homeRow参照）。グレードのあるモデルは、通常
+    // 表示では小さなchevronの代わりに左上の件数タグでその場で分かるようにする
+    // （chevron自体は残し、900px以下のリスト表示ではそちらを使う）。
+    var gradesTagHtml = (hasGrades && !isExpanded)
+      ? '<span class="homeRow__gradesTag">' + result.byGrade.length + 'グレード</span>'
+      : '';
     // 展開中のタイルには「他のモデルを見る」ボタン（.homeRow__backBtn）を
     // 内側に持たせるため、<button>ではなく<div role="button">にする
     // （<button>の中に<button>をネストするのはHTML仕様違反になるため）。
@@ -2106,7 +2115,9 @@
       ' data-home-model="' + escapeHtml(p.model) + '"' +
       (hasGrades ? ' data-has-grades="true"' : '') + '>' +
       backBtnHtml +
+      gradesTagHtml +
       '<div class="homeRow__photo"><img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '"></div>' +
+      '<div class="homeRow__scrim"></div>' +
       '<div class="homeRow__meta">' +
       '<div class="homeRow__model">' + escapeHtml(p.model) + '</div>' +
       '<span class="badge badge--count">在庫' + result.total + '台</span>' +
