@@ -29,7 +29,9 @@
     homeExpandedModel: null, // ホームで現在グレードタブを展開中のベースモデル名（1つのみ展開可能）
     homeTypeFilter: null, // ホーム上部のボディタイプ絞り込み（未選択＝「すべて」はnull）
     allOrders: [], // マイページ集計専用（受注リストの検索・絞り込み条件に左右されない全件）
-    gclassItems: [] // Gクラス予約リスト（閲覧専用。Hold・受注操作は一切ない）
+    gclassItems: [], // Gクラス予約リスト（閲覧専用。Hold・受注操作は一切ない）
+    gclassViewMode: safeLocalStorageGet_('gclassViewMode') || 'card', // 'card' | 'table'（Gクラス予約リストの表示形式）
+    allGClassItems: [] // マイページ集計専用（Gクラス予約リストの検索条件に左右されない全件）
   };
   var COMPARE_MAX = 3;
 
@@ -881,6 +883,7 @@
 
   syncViewToggle_();
   syncOrdersViewToggle_();
+  syncGClassViewToggle_();
 
   // 在庫リストのカード/行タップ操作（Hold・受注・比較・詳細）。マイページの
   // 「Hold中の車両」一覧（#myPageHoldList）も同じカード（vehicleCardHtml）を
@@ -1540,10 +1543,11 @@
   });
 
   // ===== Gクラス予約リスト =====
-  // 通常の在庫リストにリード番号を加えただけの閲覧専用リスト（受注リストと同様、
-  // データの追加・編集はスプレッドシートへ直接行う運用）。Hold・受注確定の操作は
-  // 一切ないため、在庫リストのカードから比較ピン・バッジ・操作ボタンを取り除いた
-  // 簡易版のカードで表示する。
+  // 通常の在庫リストに担当者・顧客・リード番号を加えただけの閲覧専用リスト
+  // （受注リストと同様、データの追加・編集はスプレッドシートへ直接行う運用）。
+  // Hold・受注確定の操作は一切ないため、在庫リストのカードから比較ピン・バッジ・
+  // 操作ボタンを取り除いた簡易版のカードで表示する。表示順（顧客→担当者→モデル）・
+  // カード/表の切り替えは受注リストと揃えている。
   function loadGClassReservations() {
     var filters = { keyword: $('gclassKeyword').value };
     return gasRun('api_listGClassReservations', filters).then(function (items) {
@@ -1552,11 +1556,14 @@
     }).catch(function (err) { showToast(err.message, true); });
   }
 
+  // 受注リストのorderCardHtmlと同じ考え方で、トップに顧客名・次に担当者・
+  // 次にモデル（＋コミッション）の順で表示する。
   function gclassCardHtml_(v) {
     return '<div class="card card--available">' +
       '<div class="card__top"><div class="card__topRow">' +
-      '<div><div class="card__model">' + escapeHtml(v.model) + '</div>' +
-      '<div class="card__commission">' + escapeHtml(v.commission) + '</div></div>' +
+      '<div><div class="card__model">' + escapeHtml(v.customer || '-') + '</div>' +
+      '<div class="card__commission">担当者: ' + escapeHtml(v.staff || '-') + '</div>' +
+      '<div class="card__commission">' + escapeHtml(v.model) + '（' + escapeHtml(v.commission) + '）</div></div>' +
       '</div></div>' +
       '<dl class="card__metaGrid card__metaGrid--quick">' +
       metaRow_('MP', v.mp) +
@@ -1567,11 +1574,53 @@
       '</div>';
   }
 
+  // 表示形式「表」: 在庫リスト・受注リストと同じ「行カード」パターンで横列閲覧できるようにする。
+  function gclassRowCardHtml_(v) {
+    return '<div class="rowCard rowCard--available">' +
+      '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(v.customer || '-') + '</span>' +
+      '<span class="rowCard__commission">' + escapeHtml(v.commission) + '</span></div>' +
+      rowField_('担当者', v.staff) +
+      rowField_('モデル', v.model) +
+      rowField_('MP', v.mp) +
+      rowField_('ステア', v.steering) +
+      rowField_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
+      rowField_('有償OP', paidOptionsText(v)) +
+      rowField_('入港予定日', v.arrivalExpectedDate) +
+      rowField_('可能月', v.registrableMonth) +
+      rowField_('VPC', v.vpc) +
+      rowField_('リード番号', v.leadNumber) +
+      '<div class="rowCard__status"><span class="badge ' + (v.stockDisclosure === '非開示' ? 'badge--undisclosed' : 'badge--disclosed') + '">' + escapeHtml(v.stockDisclosure || '-') + '</span></div>' +
+      '</div>';
+  }
+
+  function gclassRowsHtml_(items) {
+    return '<div class="tableScroll"><div class="rowCardList">' +
+      items.map(gclassRowCardHtml_).join('') +
+      '</div></div>';
+  }
+
+  function syncGClassViewToggle_() {
+    document.querySelectorAll('#gclassViewToggle .viewToggle__item').forEach(function (btn) {
+      btn.classList.toggle('is-active', btn.dataset.view === state.gclassViewMode);
+    });
+  }
+
+  $('gclassViewToggle').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-view]');
+    if (!btn) return;
+    state.gclassViewMode = btn.dataset.view;
+    safeLocalStorageSet_('gclassViewMode', state.gclassViewMode);
+    syncGClassViewToggle_();
+    renderGClassList_();
+  });
+
   function renderGClassList_() {
     var items = state.gclassItems || [];
     $('gclassEmpty').classList.toggle('hidden', items.length > 0);
     $('gclassTotalCount').textContent = items.length ? '該当 ' + items.length + ' 台' : '';
-    $('gclassList').innerHTML = '<div class="cardGrid">' + items.map(gclassCardHtml_).join('') + '</div>';
+    $('gclassList').innerHTML = state.gclassViewMode === 'table'
+      ? gclassRowsHtml_(items)
+      : '<div class="cardGrid">' + items.map(gclassCardHtml_).join('') + '</div>';
     syncFixedBars_();
   }
 
@@ -2246,6 +2295,37 @@
     $('myPageOrderList').innerHTML = items.length ? '<div class="orderList">' + items.map(orderCardHtml).join('') + '</div>' : '';
   }
 
+  /**
+   * マイページ用に、Gクラス予約リストの検索条件に左右されない全件を取得する
+   * （loadMyPageOrders_と同じ考え方）。
+   */
+  function loadMyPageGClass_() {
+    return gasRun('api_listGClassReservations', {}).then(function (items) {
+      state.allGClassItems = items || [];
+      renderMyPageGClass_();
+    }).catch(function () {});
+  }
+
+  /**
+   * Gクラス予約リストには担当者メール（staffEmail）の記録がない（閲覧専用・
+   * スプレッドシートへ直接入力する運用のため）。そのため、他のマイページ集計
+   * （Hold中・受注した車両）のようなメールアドレス一致ではなく、担当者マスタから
+   * 解決したログイン中担当者の表示名と、Gクラス予約リストの「担当者」列（テキスト）
+   * を突き合わせて自分の案件を抜き出す。
+   */
+  function staffNameMatches_(a, b) {
+    return !!a && !!b && String(a).trim() === String(b).trim();
+  }
+
+  function renderMyPageGClass_() {
+    if (!renderMyPageNoStaffState_()) return;
+    var name = currentStaffName_();
+    var items = (state.allGClassItems || []).filter(function (v) { return staffNameMatches_(v.staff, name); });
+    $('myPageGClassCount').textContent = items.length;
+    $('myPageGClassEmpty').classList.toggle('hidden', items.length > 0);
+    $('myPageGClassList').innerHTML = items.length ? '<div class="cardGrid">' + items.map(gclassCardHtml_).join('') + '</div>' : '';
+  }
+
   $('myPageHoldList').addEventListener('click', handleInventoryListClick_);
   $('myPageOrderList').addEventListener('click', function (e) {
     var btn = e.target.closest('[data-order-detail]');
@@ -2472,7 +2552,7 @@
       renderSettings(bootstrap.settings);
       renderTopbarUser();
       checkIntegrity_();
-      return Promise.all([loadInventory(), loadOrders(), loadGClassReservations(), loadHomeModelCounts_(), loadMyPageOrders_()]);
+      return Promise.all([loadInventory(), loadOrders(), loadGClassReservations(), loadHomeModelCounts_(), loadMyPageOrders_(), loadMyPageGClass_()]);
     });
   }
 

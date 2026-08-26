@@ -337,14 +337,17 @@ test('holdType・salesStoreを指定すると反映される（デモカーHOLD�
 
 console.log('== SearchService: searchGClassReservations_（Gクラス予約リスト。キーワード検索のみ） ==');
 const gclassItems = [
-  { commission: 'G001', model: 'G400d', leadNumber: 'L-1001' },
-  { commission: 'G002', model: 'G63', leadNumber: 'L-1002' }
+  { commission: 'G001', model: 'G400d', leadNumber: 'L-1001', staff: '佐藤', customer: '山田太郎' },
+  { commission: 'G002', model: 'G63', leadNumber: 'L-1002', staff: '鈴木', customer: '田中花子' }
 ];
 test('キーワードでモデル検索がヒットする', () => {
   assert.strictEqual(sandbox.searchGClassReservations_(gclassItems, { keyword: 'G400d' }).length, 1);
 });
 test('キーワードでリード番号検索がヒットする', () => {
   assert.strictEqual(sandbox.searchGClassReservations_(gclassItems, { keyword: 'L-1002' }).length, 1);
+});
+test('キーワードで顧客検索がヒットする', () => {
+  assert.strictEqual(sandbox.searchGClassReservations_(gclassItems, { keyword: '山田太郎' }).length, 1);
 });
 test('キーワード未指定は全件返す', () => {
   assert.strictEqual(sandbox.searchGClassReservations_(gclassItems, {}).length, 2);

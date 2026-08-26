@@ -210,11 +210,14 @@ var AUDIT_LOG_COLUMNS = [
 ];
 
 /**
- * Gクラス予約リスト列定義。通常の在庫リスト（VEHICLE_COLUMNS）にリード番号を
- * 加えただけの表。受注リストと同様に閲覧専用（Hold不可）で、データの追加・編集は
- * スプレッドシートへ直接行う運用のため、リード番号は必須にしない。
+ * Gクラス予約リスト列定義。通常の在庫リスト（VEHICLE_COLUMNS、在庫開示列まで）に
+ * 担当者・顧客・リード番号を加えた表。受注リストと同様に閲覧専用（Hold不可）で、
+ * データの追加・編集はスプレッドシートへ直接行う運用のため、いずれも必須にしない。
+ * 列順は 在庫開示（VEHICLE_COLUMNS末尾）／担当者／顧客／リード番号。
  */
 var GCLASS_COLUMNS = VEHICLE_COLUMNS.concat([
+  { key: 'staff', label: '担当者', type: 'text' },
+  { key: 'customer', label: '顧客', type: 'text' },
   {
     key: 'leadNumber', label: 'リード番号', type: 'text',
     note: '「L-」＋数字の形式を推奨しますが、閲覧専用リストのため必須ではありません。'

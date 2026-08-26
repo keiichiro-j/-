@@ -214,8 +214,12 @@
          Hold・受注操作のボタンは一切表示しない（HOLDは不可、閲覧のみ）。 -->
     <main class="view" id="view-gclass">
       <div class="toolbar" id="gclassToolbar">
-        <input type="search" id="gclassKeyword" class="input input--search" placeholder="自由検索（モデル・コミッション・リード番号）">
+        <input type="search" id="gclassKeyword" class="input input--search" placeholder="自由検索（モデル・コミッション・リード番号・顧客）">
         <div class="toolbar__spacer"></div>
+        <div class="viewToggle" id="gclassViewToggle">
+          <button type="button" class="viewToggle__item" data-view="card" title="カード表示" aria-label="カード表示"><svg class="icon icon--inline"><use href="#icon-grid"></use></svg></button>
+          <button type="button" class="viewToggle__item" data-view="table" title="表表示" aria-label="表表示"><svg class="icon icon--inline"><use href="#icon-table"></use></svg></button>
+        </div>
         <span class="toolbar__count" id="gclassTotalCount"></span>
       </div>
       <div class="toolbarSpacer" id="gclassToolbarSpacer"></div>
@@ -252,6 +256,17 @@
           <div class="emptyState hidden" id="myPageOrderEmpty">
             <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
             <p>受注した車両はありません</p>
+          </div>
+        </section>
+        <!-- Gクラス予約リストは担当者メールの記録がない（閲覧専用・スプレッドシート
+             直接編集のため）ため、担当者マスタで解決した表示名（担当者列のテキスト）で
+             突き合わせる（renderMyPageGClass_参照）。 -->
+        <section class="myPageSection">
+          <h2 class="myPageSection__title">Gクラス予約リスト（<span id="myPageGClassCount">0</span>台）</h2>
+          <div id="myPageGClassList"></div>
+          <div class="emptyState hidden" id="myPageGClassEmpty">
+            <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
+            <p>担当者として登録されているGクラス予約はありません</p>
           </div>
         </section>
       </div>

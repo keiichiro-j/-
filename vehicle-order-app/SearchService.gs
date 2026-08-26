@@ -42,12 +42,12 @@ function searchOrders(orders, filters) {
 /**
  * Gクラス予約リストの検索・絞り込み（閲覧専用リストのため、キーワード検索のみ）。
  * @param {Array<Object>} items
- * @param {Object} filters { keyword: string } // モデル・コミッション・リード番号に部分一致
+ * @param {Object} filters { keyword: string } // モデル・コミッション・リード番号・顧客に部分一致
  */
 function searchGClassReservations_(items, filters) {
   filters = filters || {};
   return items.filter(function (v) {
-    if (filters.keyword && !matchesAnyField_(v, filters.keyword, ['model', 'commission', 'leadNumber'])) return false;
+    if (filters.keyword && !matchesAnyField_(v, filters.keyword, ['model', 'commission', 'leadNumber', 'customer'])) return false;
     return true;
   });
 }
