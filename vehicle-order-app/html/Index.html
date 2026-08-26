@@ -122,6 +122,7 @@
         <button class="tabs__item is-active" data-tab="home">ホーム</button>
         <button class="tabs__item" data-tab="inventory">在庫リスト</button>
         <button class="tabs__item" data-tab="orders">受注リスト</button>
+        <button class="tabs__item" data-tab="gclass">Gクラス予約リスト</button>
         <button class="tabs__item" data-tab="mypage">マイページ</button>
         <button class="tabs__item" data-tab="settings">設定</button>
       </nav>
@@ -205,6 +206,23 @@
       <div class="emptyState hidden" id="ordersEmpty">
         <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
         <p>該当する受注がありません</p>
+      </div>
+    </main>
+
+    <!-- Gクラス予約リスト: 通常の在庫リストにリード番号を加えた閲覧専用の一覧。
+         受注リストと同様、データの追加・編集はスプレッドシートへ直接行う運用のため、
+         Hold・受注操作のボタンは一切表示しない（HOLDは不可、閲覧のみ）。 -->
+    <main class="view" id="view-gclass">
+      <div class="toolbar" id="gclassToolbar">
+        <input type="search" id="gclassKeyword" class="input input--search" placeholder="自由検索（モデル・コミッション・リード番号）">
+        <div class="toolbar__spacer"></div>
+        <span class="toolbar__count" id="gclassTotalCount"></span>
+      </div>
+      <div class="toolbarSpacer" id="gclassToolbarSpacer"></div>
+      <div id="gclassList"></div>
+      <div class="emptyState hidden" id="gclassEmpty">
+        <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
+        <p>該当するGクラス予約がありません</p>
       </div>
     </main>
 
@@ -341,6 +359,55 @@
       <div class="modal__body">
         <div class="modal__error hidden" id="actionModalError"></div>
         <p class="modal__requiredNote"><span class="req">*</span> は必須項目です</p>
+
+        <!-- 管理者権限を持つ担当者がHoldをタップした場合のみ表示するHold種別選択
+             （通常のHold／デモカーHOLD／他店HOLD）。openActionModal参照。 -->
+        <div class="modal__step hidden" id="actionTypePickStep">
+          <p class="actionTypePick__intro">Hold種別を選択してください</p>
+          <div class="actionTypePick">
+            <button type="button" class="actionTypePick__btn" data-hold-type-pick="normal">
+              <span class="actionTypePick__btnTitle">通常のHOLD</span>
+              <span class="actionTypePick__btnDesc">顧客情報・契約内容を入力して登録します（期限72時間）</span>
+            </button>
+            <button type="button" class="actionTypePick__btn actionTypePick__btn--demo" data-hold-type-pick="demo">
+              <span class="actionTypePick__btnTitle">デモカーHOLD</span>
+              <span class="actionTypePick__btnDesc">リード番号・登録月のみ（任意入力）。期限は無期限です</span>
+            </button>
+            <button type="button" class="actionTypePick__btn actionTypePick__btn--otherStore" data-hold-type-pick="otherStore">
+              <span class="actionTypePick__btnTitle">他店HOLD</span>
+              <span class="actionTypePick__btnDesc">販売店のみ（任意入力）。期限は無期限です</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- デモカーHOLD用の簡易入力（リード番号・登録月のみ、どちらも任意入力） -->
+        <div class="modal__step hidden" id="actionStepDemo">
+          <div class="modal__grid">
+            <div class="formField">
+              <label>リード番号</label>
+              <div class="leadNumberField">
+                <span class="leadNumberField__prefix">L-</span>
+                <input type="text" id="actionDemoLeadNumber" class="input leadNumberField__input" inputmode="numeric" pattern="[0-9]*" maxlength="14">
+              </div>
+            </div>
+            <div class="formField">
+              <label>登録月</label>
+              <input type="month" id="actionDemoRegisteredMonth" class="input">
+            </div>
+          </div>
+          <p class="modal__hint">デモカーHOLDはリード番号・登録月とも未入力のまま登録できます。Hold期限は無期限です。</p>
+        </div>
+
+        <!-- 他店HOLD用の簡易入力（販売店のみ、任意入力） -->
+        <div class="modal__step hidden" id="actionStepOtherStore">
+          <div class="modal__grid">
+            <div class="formField formField--span2">
+              <label>販売店</label>
+              <input type="text" id="actionSalesStore" class="input">
+            </div>
+          </div>
+          <p class="modal__hint">他店HOLDは販売店未入力のまま登録できます。Hold期限は無期限です。</p>
+        </div>
 
         <div class="modal__step" id="actionStep1">
           <div class="modal__grid">

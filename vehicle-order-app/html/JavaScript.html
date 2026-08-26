@@ -28,7 +28,8 @@
     homeGradeFilter: null, // ホームのグレードタブクリックで設定される、絞り込み対象グレード名の配列
     homeExpandedModel: null, // ホームで現在グレードタブを展開中のベースモデル名（1つのみ展開可能）
     homeTypeFilter: null, // ホーム上部のボディタイプ絞り込み（未選択＝「すべて」はnull）
-    allOrders: [] // マイページ集計専用（受注リストの検索・絞り込み条件に左右されない全件）
+    allOrders: [], // マイページ集計専用（受注リストの検索・絞り込み条件に左右されない全件）
+    gclassItems: [] // Gクラス予約リスト（閲覧専用。Hold・受注操作は一切ない）
   };
   var COMPARE_MAX = 3;
 
@@ -339,14 +340,41 @@
     return '<div><dt>' + label + '</dt><dd>' + escapeHtml(value || '-') + '</dd></div>';
   }
 
+  // ===== Hold種別（通常／デモカーHOLD／他店HOLD）表示ヘルパー =====
+  // 管理者権限を持つ担当者のみ登録できるデモカーHOLD・他店HOLDは、通常のHold・2nd Holdとは
+  // 見分けがつくよう、バッジ・カード左罫線・Hold詳細ブロックすべてに専用の特別色
+  // （badge--holdSpecial 等）を使う（HoldService.gsのHOLD_TYPE参照）。
+  var HOLD_TYPE_LABELS_FALLBACK_ = { normal: '通常のHOLD', demo: 'デモカーHOLD', otherStore: '他店HOLD' };
+  function holdTypeLabel_(holdType) {
+    var map = (state.bootstrap && state.bootstrap.holdTypeLabels) || HOLD_TYPE_LABELS_FALLBACK_;
+    return map[holdType] || holdType;
+  }
+
+  function vehicleCardTone_(v) {
+    var isHold = v.holdStatus === 'hold';
+    var hasSecondHold = isHold && !!v.secondHoldCustomer;
+    var isSpecialHold = isHold && !!(v.holdHoldType && v.holdHoldType !== 'normal');
+    if (isSpecialHold) return 'card--holdSpecial';
+    if (hasSecondHold) return 'card--hold2';
+    if (isHold) return 'card--hold';
+    return 'card--available';
+  }
+
   function vehicleBadgesHtml_(v) {
     var isHold = v.holdStatus === 'hold';
     var hasSecondHold = isHold && !!v.secondHoldCustomer;
-    var badges = isHold
-      ? (hasSecondHold
-          ? '<span class="badge badge--hold2"><span class="badge__dot"></span>Hold中（2nd有）</span>'
-          : '<span class="badge badge--hold"><span class="badge__dot"></span>Hold中</span>')
-      : '<span class="badge badge--available"><span class="badge__dot"></span>在庫あり</span>';
+    var isSpecialHold = isHold && !!(v.holdHoldType && v.holdHoldType !== 'normal');
+    var badges;
+    if (isSpecialHold) {
+      badges = '<span class="badge badge--holdSpecial"><span class="badge__dot"></span>' +
+        escapeHtml(holdTypeLabel_(v.holdHoldType)) + '中' + (hasSecondHold ? '（2nd有）' : '') + '</span>';
+    } else if (isHold) {
+      badges = hasSecondHold
+        ? '<span class="badge badge--hold2"><span class="badge__dot"></span>Hold中（2nd有）</span>'
+        : '<span class="badge badge--hold"><span class="badge__dot"></span>Hold中</span>';
+    } else {
+      badges = '<span class="badge badge--available"><span class="badge__dot"></span>在庫あり</span>';
+    }
     badges += v.stockDisclosure === '非開示'
       ? '<span class="badge badge--undisclosed">非開示</span>'
       : '<span class="badge badge--disclosed">開示</span>';
@@ -445,7 +473,7 @@
     var comparePinHtml = '<label class="card__comparePin">' +
       '<input type="checkbox" data-compare="' + escapeHtml(v.commission) + '"' + (isComparing ? ' checked' : '') + '>比較</label>';
 
-    var cardTone = hasSecondHold ? 'card--hold2' : (isHold ? 'card--hold' : 'card--available');
+    var cardTone = vehicleCardTone_(v);
     return '<div class="card ' + cardTone + '">' +
       vehicleTopHtml_(v, comparePinHtml) +
       vehicleQuickMetaHtml_(v) +
@@ -476,7 +504,7 @@
         '</div>';
     }
 
-    var cardTone = hasSecondHold ? 'card--hold2' : (isHold ? 'card--hold' : 'card--available');
+    var cardTone = vehicleCardTone_(v);
     return '<div class="card ' + cardTone + '">' +
       vehicleTopHtml_(v, '') +
       vehicleQuickMetaHtml_(v) +
@@ -640,12 +668,16 @@
          (!v.secondHoldCustomer ? '<button class="btn btn--small" data-second-hold="' + escapeHtml(v.commission) + '">2ND HOLD</button>' : ''))
       : ('<button class="btn btn--small" data-hold="' + escapeHtml(v.commission) + '">Hold</button>' +
          '<button class="btn btn--small btn--primary" data-order="' + escapeHtml(v.commission) + '">受注</button>');
-    var statusBadge = isHold
-      ? (hasSecondHold
-          ? '<span class="badge badge--hold2"><span class="badge__dot"></span>Hold中（2nd有）</span>'
-          : '<span class="badge badge--hold"><span class="badge__dot"></span>Hold中</span>')
-      : '<span class="badge badge--available"><span class="badge__dot"></span>在庫あり</span>';
-    var rowTone = hasSecondHold ? 'rowCard--hold2' : (isHold ? 'rowCard--hold' : 'rowCard--available');
+    var isSpecialHold = isHold && !!(v.holdHoldType && v.holdHoldType !== 'normal');
+    var statusBadge = isSpecialHold
+      ? ('<span class="badge badge--holdSpecial"><span class="badge__dot"></span>' +
+          escapeHtml(holdTypeLabel_(v.holdHoldType)) + '中' + (hasSecondHold ? '（2nd有）' : '') + '</span>')
+      : (isHold
+          ? (hasSecondHold
+              ? '<span class="badge badge--hold2"><span class="badge__dot"></span>Hold中（2nd有）</span>'
+              : '<span class="badge badge--hold"><span class="badge__dot"></span>Hold中</span>')
+          : '<span class="badge badge--available"><span class="badge__dot"></span>在庫あり</span>');
+    var rowTone = isSpecialHold ? 'rowCard--holdSpecial' : (hasSecondHold ? 'rowCard--hold2' : (isHold ? 'rowCard--hold' : 'rowCard--available'));
 
     // 表示形式「表」にもHold解除の導線を用意する（カード表示の「解除」ボタンと同じ
     // data-cancel-hold / data-cancel-rank を使い、既存のクリック委譲・モーダルをそのまま使う）。
@@ -705,6 +737,8 @@
    * full=true（詳細モーダル・vehicleDetailHtml_）では折りたたまず常に表示する。
    */
   function holdInfoBlockHtml_(label, v, prefix, rank, full) {
+    var holdType = v[prefix + 'HoldType'] || 'normal';
+    var isSpecial = holdType !== 'normal';
     var leadNumber = v[prefix + 'LeadNumber'];
     var staff = v[prefix + 'Staff'];
     var customer = v[prefix + 'Customer'];
@@ -714,31 +748,61 @@
     var oss = v[prefix + 'Oss'];
     var insurance = v[prefix + 'Insurance'];
     var paymentMethod = v[prefix + 'PaymentMethod'];
+    var salesStore = v[prefix + 'SalesStore'];
     var createdAt = v[prefix + 'CreatedAt'];
     var expiresAt = v[prefix + 'ExpiresAt'];
     var cancelRank = rank === 'first' ? '1st' : '2nd';
-    var detailsHtml = full
-      ? '<div class="card__holdInfo__detailsBody card__holdInfo__detailsBody--flat">' +
-        'リード番号 ' + escapeHtml(leadNumber || '-') +
-        ' / 登録月 ' + escapeHtml(registeredMonth || '-') +
-        ' / 下取車 ' + escapeHtml(tradeIn || '-') + ' / OSS ' + escapeHtml(oss || '-') +
-        ' / 保険 ' + escapeHtml(insurance || '-') + ' / 支払方法 ' + escapeHtml(paymentMethod || '-') +
-        '</div>'
-      : '';
-    return '<div class="card__holdInfo card__holdInfo--' + rank + '">' +
+
+    var summaryHtml;
+    var detailsHtml = '';
+    if (holdType === 'demo') {
+      summaryHtml = '<div class="card__holdInfo__row"><b>デモカーHOLD</b>（担当者 ' + escapeHtml(staff || '-') + '）</div>';
+      if (full) {
+        detailsHtml = '<div class="card__holdInfo__detailsBody card__holdInfo__detailsBody--flat">' +
+          'リード番号 ' + escapeHtml(leadNumber || '-') + ' / 登録月 ' + escapeHtml(registeredMonth || '-') +
+          '</div>';
+      }
+    } else if (holdType === 'otherStore') {
+      summaryHtml = '<div class="card__holdInfo__row"><b>他店HOLD</b>（担当者 ' + escapeHtml(staff || '-') + '）</div>';
+      if (full) {
+        detailsHtml = '<div class="card__holdInfo__detailsBody card__holdInfo__detailsBody--flat">' +
+          '販売店 ' + escapeHtml(salesStore || '-') +
+          '</div>';
+      }
+    } else {
+      summaryHtml = '<div class="card__holdInfo__row"><b>' + escapeHtml(customer || '-') + '</b>（担当者 ' + escapeHtml(staff || '-') + '・' + escapeHtml(salesLocation || '-') + '）</div>';
+      detailsHtml = full
+        ? '<div class="card__holdInfo__detailsBody card__holdInfo__detailsBody--flat">' +
+          'リード番号 ' + escapeHtml(leadNumber || '-') +
+          ' / 登録月 ' + escapeHtml(registeredMonth || '-') +
+          ' / 下取車 ' + escapeHtml(tradeIn || '-') + ' / OSS ' + escapeHtml(oss || '-') +
+          ' / 保険 ' + escapeHtml(insurance || '-') + ' / 支払方法 ' + escapeHtml(paymentMethod || '-') +
+          '</div>'
+        : '';
+    }
+
+    return '<div class="card__holdInfo card__holdInfo--' + rank + (isSpecial ? ' card__holdInfo--special' : '') + '">' +
       '<div class="card__holdInfo__head">' +
-      '<span class="card__holdInfo__label">' + label + '</span>' +
+      '<span class="card__holdInfo__label">' + label + (isSpecial ? '（' + escapeHtml(holdTypeLabel_(holdType)) + '）' : '') + '</span>' +
       '<button class="card__holdInfo__cancel" type="button" data-cancel-hold="' + escapeHtml(v.commission) + '" data-cancel-rank="' + cancelRank + '">解除</button>' +
       '</div>' +
-      '<div class="card__holdInfo__row"><b>' + escapeHtml(customer || '-') + '</b>（担当者 ' + escapeHtml(staff || '-') + '・' + escapeHtml(salesLocation || '-') + '）</div>' +
+      summaryHtml +
       holdTimerHtml_(createdAt, expiresAt) +
       detailsHtml +
       '</div>';
   }
 
   // ===== Hold 72時間タイマー（視覚的なカウントダウン・進捗バー） =====
+  // デモカーHOLD・他店HOLDは期限が無期限（expiresAtがfalsy）のため、進捗バーは出さず
+  // 「無期限」の固定表示にする。updateHoldTimersは data-expires-at が空（falsy）の
+  // 要素を毎秒の更新対象から除外するため、この初期表示のまま変化しない。
   function holdTimerHtml_(createdAt, expiresAt) {
-    return '<div class="holdTimer" data-created-at="' + (createdAt || '') + '" data-expires-at="' + (expiresAt || '') + '">' +
+    if (!expiresAt) {
+      return '<div class="holdTimer holdTimer--indefinite" data-created-at="' + (createdAt || '') + '" data-expires-at="">' +
+        '<div class="holdTimer__text">無期限</div>' +
+        '</div>';
+    }
+    return '<div class="holdTimer" data-created-at="' + (createdAt || '') + '" data-expires-at="' + expiresAt + '">' +
       '<div class="holdTimer__bar"><div class="holdTimer__barFill"></div></div>' +
       '<div class="holdTimer__text">-</div>' +
       '</div>';
@@ -966,15 +1030,37 @@
   // スマホでの誤タップ・誤入力を減らすため、8項目を一度に出さず2ステップに分ける。
   var ACTION_STEP1_KEYS = ['salesLocation', 'leadNumber', 'customer'];
 
+  /**
+   * 管理者権限を持つ担当者がHoldをタップした場合、通常の顧客情報入力（step 1/2）の前に
+   * Hold種別選択（'typePick'）を挟む。デモカーHOLD（'demo'）・他店HOLD（'otherStore'）は
+   * 通常の2ステップとは別の簡易フォーム1画面のみで完結する。
+   * stepは 'typePick' | 1 | 2 | 'demo' | 'otherStore' のいずれか。
+   */
   function goToActionStep_(step) {
     state.actionStep = step;
-    $('actionStep1').classList.toggle('hidden', step !== 1);
-    $('actionStep2').classList.toggle('hidden', step !== 2);
-    $('actionStepFill').style.width = step === 1 ? '50%' : '100%';
-    $('actionStepLabel').textContent = step === 1 ? 'ステップ 1/2　顧客情報' : 'ステップ 2/2　契約内容';
-    $('btnActionBack').classList.toggle('hidden', step !== 2);
-    $('btnActionNext').classList.toggle('hidden', step !== 1);
-    $('btnActionSubmit').classList.toggle('hidden', step !== 2);
+    var showTypePick = step === 'typePick';
+    var showStep1 = step === 1;
+    var showStep2 = step === 2;
+    var showDemo = step === 'demo';
+    var showOtherStore = step === 'otherStore';
+    $('actionTypePickStep').classList.toggle('hidden', !showTypePick);
+    $('actionStep1').classList.toggle('hidden', !showStep1);
+    $('actionStep2').classList.toggle('hidden', !showStep2);
+    $('actionStepDemo').classList.toggle('hidden', !showDemo);
+    $('actionStepOtherStore').classList.toggle('hidden', !showOtherStore);
+
+    var isNormalSteps = showStep1 || showStep2;
+    $('actionStepFill').closest('.modal__stepBar').classList.toggle('hidden', !isNormalSteps);
+    if (isNormalSteps) {
+      $('actionStepFill').style.width = showStep1 ? '50%' : '100%';
+      $('actionStepLabel').textContent = showStep1 ? 'ステップ 1/2　顧客情報' : 'ステップ 2/2　契約内容';
+    }
+    // 「戻る」は、通常の2ステップ目からstep1へ、admin経由のstep1・簡易フォームからは
+    // Hold種別選択画面へ戻れるようにする（それ以外・通常ユーザーのHoldでは非表示のまま）。
+    var canGoBack = showStep2 || showDemo || showOtherStore || (showStep1 && !!(state.action && state.action.adminHoldFlow));
+    $('btnActionBack').classList.toggle('hidden', !canGoBack);
+    $('btnActionNext').classList.toggle('hidden', !showStep1);
+    $('btnActionSubmit').classList.toggle('hidden', !(showStep2 || showDemo || showOtherStore));
     $('actionModalError').classList.add('hidden');
   }
 
@@ -990,8 +1076,32 @@
   });
 
   $('btnActionBack').addEventListener('click', function () {
-    goToActionStep_(1);
+    if (state.actionStep === 2) { goToActionStep_(1); }
+    else if (state.actionStep === 1 || state.actionStep === 'demo' || state.actionStep === 'otherStore') { goToActionStep_('typePick'); }
   });
+
+  var ACTION_TYPE_PICK_TITLES = { normal: 'Hold登録', demo: 'デモカーHOLD登録', otherStore: '他店HOLD登録' };
+  var ACTION_TYPE_PICK_BUTTONS = { normal: 'Holdする', demo: 'デモカーHOLDする', otherStore: '他店HOLDする' };
+
+  $('actionModal').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-hold-type-pick]');
+    if (!btn) return;
+    var holdType = btn.dataset.holdTypePick;
+    state.action.holdType = holdType;
+    $('actionModalTitle').textContent = ACTION_TYPE_PICK_TITLES[holdType];
+    $('btnActionSubmit').textContent = ACTION_TYPE_PICK_BUTTONS[holdType];
+    if (holdType === 'normal') goToActionStep_(1);
+    else if (holdType === 'demo') goToActionStep_('demo');
+    else goToActionStep_('otherStore');
+  });
+
+  // 管理者権限を持つ担当者（SYSTEM_ADMIN_EMAILS）のみ、通常のHoldに加えてデモカーHOLD・
+  // 他店HOLDを登録できる。設定タブのシステムマスタ表示・非表示（renderSettings）と
+  // 同じ判定方法（state.bootstrap.isSystemAdmin）を使う。実際の権限チェックは
+  // サーバー側 normalizeHoldType_ で行うため、ここでの判定はUI表示の制御のみ。
+  function isSystemAdmin_() {
+    return !!(state.bootstrap && state.bootstrap.isSystemAdmin);
+  }
 
   function openActionModal(type, commission) {
     var currentStaff = currentStaffName_();
@@ -1000,7 +1110,11 @@
       return;
     }
 
-    state.action = { type: type, commission: commission };
+    // 管理者権限を持つ担当者が「Hold」（1st Hold）をタップした場合のみ、通常のHoldに
+    // 加えてデモカーHOLD・他店HOLDを選べるHold種別選択画面を挟む。2nd Hold・受注確定には
+    // この選択画面は出さない（デモカーHOLD・他店HOLDは1st Holdのみの機能のため）。
+    var isAdminHoldPick = type === 'hold' && isSystemAdmin_();
+    state.action = { type: type, commission: commission, holdType: 'normal', adminHoldFlow: isAdminHoldPick };
     $('actionModalTitle').textContent = ACTION_LABELS[type].title;
     var submitBtn = $('btnActionSubmit');
     submitBtn.textContent = ACTION_LABELS[type].button;
@@ -1012,7 +1126,10 @@
     panel.classList.add('modal__panel--' + ACTION_LABELS[type].tone);
     submitBtn.disabled = false;
     $('actionModalError').classList.add('hidden');
-    goToActionStep_(1);
+    $('actionDemoLeadNumber').value = '';
+    $('actionDemoRegisteredMonth').value = '';
+    $('actionSalesStore').value = '';
+    goToActionStep_(isAdminHoldPick ? 'typePick' : 1);
 
     var vehicle = findVehicleByCommission(commission);
     var isOrderFromHold = type === 'orderFromHold' && vehicle;
@@ -1069,6 +1186,12 @@
   // リード番号は「L-」固定接頭辞＋数字のみで扱う。入力欄には数字部分のみを
   // 持たせ、数字以外が入力されてもその場で取り除く。
   $('actionLeadNumber').addEventListener('input', function () {
+    var digits = this.value.replace(/[^0-9]/g, '');
+    if (this.value !== digits) this.value = digits;
+  });
+
+  // デモカーHOLDのリード番号欄も同様（未入力のままでもよい）。
+  $('actionDemoLeadNumber').addEventListener('input', function () {
     var digits = this.value.replace(/[^0-9]/g, '');
     if (this.value !== digits) this.value = digits;
   });
@@ -1161,10 +1284,58 @@
     return missingRequiredFieldLabels_(null);
   }
 
+  /**
+   * Hold登録・受注確定完了後の共通後処理（成功トースト代わりの演出・一覧の再読込）。
+   * デモカーHOLD・他店HOLD（簡易フォーム）と、通常のHold・2nd Hold・受注確定の
+   * どちらの完了後も同じ処理でよいため共通化している。
+   */
+  function finishActionSubmit_(btn) {
+    setButtonBusy(btn, false);
+    closeModal($('actionModal'));
+    showCelebration_(state.action.type);
+    loadInventory();
+    loadHomeModelCounts_();
+    if (ORDER_TYPES.indexOf(state.action.type) !== -1) loadOrders();
+  }
+
+  function handleActionSubmitError_(btn, err) {
+    setButtonBusy(btn, false);
+    var el = $('actionModalError');
+    el.textContent = err.message;
+    el.classList.remove('hidden');
+  }
+
   $('btnActionSubmit').addEventListener('click', function () {
     if (this.disabled) return;
     var btn = this;
     var action = state.action;
+
+    // デモカーHOLD・他店HOLDは、通常のHoldの入力項目（顧客・下取車の有無等）を
+    // 一切要求しない簡易フォームのため、通常フローの必須チェック（validateActionForm_）
+    // は行わずここで完結させる（管理者のみ到達できる。openActionModal参照）。
+    if (action.type === 'hold' && action.holdType === 'demo') {
+      var demoInfo = {
+        leadNumber: $('actionDemoLeadNumber').value.trim()
+          ? 'L-' + $('actionDemoLeadNumber').value.trim().replace(/[^0-9]/g, '')
+          : '',
+        registeredMonth: $('actionDemoRegisteredMonth').value || ''
+      };
+      $('actionModalError').classList.add('hidden');
+      setButtonBusy(btn, true, 'デモカーHOLD登録中...');
+      gasRun('api_registerHold', action.commission, demoInfo, 'demo')
+        .then(function () { finishActionSubmit_(btn); })
+        .catch(function (err) { handleActionSubmitError_(btn, err); });
+      return;
+    }
+    if (action.type === 'hold' && action.holdType === 'otherStore') {
+      var otherStoreInfo = { salesStore: $('actionSalesStore').value.trim() };
+      $('actionModalError').classList.add('hidden');
+      setButtonBusy(btn, true, '他店HOLD登録中...');
+      gasRun('api_registerHold', action.commission, otherStoreInfo, 'otherStore')
+        .then(function () { finishActionSubmit_(btn); })
+        .catch(function (err) { handleActionSubmitError_(btn, err); });
+      return;
+    }
 
     var missing = validateActionForm_();
     if (missing.length) {
@@ -1198,7 +1369,7 @@
       paymentMethod: $('actionPaymentMethod').value
     };
     var apiCall;
-    if (action.type === 'hold') apiCall = gasRun('api_registerHold', action.commission, info);
+    if (action.type === 'hold') apiCall = gasRun('api_registerHold', action.commission, info, 'normal');
     else if (action.type === 'secondHold') apiCall = gasRun('api_registerSecondHold', action.commission, info);
     else apiCall = gasRun('api_confirmOrder', action.commission, info);
 
@@ -1206,17 +1377,9 @@
     setButtonBusy(btn, true, ACTION_LABELS[action.type].busyLabel);
 
     apiCall.then(function () {
-      setButtonBusy(btn, false);
-      closeModal($('actionModal'));
-      showCelebration_(action.type);
-      loadInventory();
-      loadHomeModelCounts_();
-      if (ORDER_TYPES.indexOf(action.type) !== -1) loadOrders();
+      finishActionSubmit_(btn);
     }).catch(function (err) {
-      setButtonBusy(btn, false);
-      var el = $('actionModalError');
-      el.textContent = err.message;
-      el.classList.remove('hidden');
+      handleActionSubmitError_(btn, err);
     });
   });
 
@@ -1375,6 +1538,44 @@
     $(id).addEventListener('input', debounce(loadOrders, 250));
     $(id).addEventListener('change', loadOrders);
   });
+
+  // ===== Gクラス予約リスト =====
+  // 通常の在庫リストにリード番号を加えただけの閲覧専用リスト（受注リストと同様、
+  // データの追加・編集はスプレッドシートへ直接行う運用）。Hold・受注確定の操作は
+  // 一切ないため、在庫リストのカードから比較ピン・バッジ・操作ボタンを取り除いた
+  // 簡易版のカードで表示する。
+  function loadGClassReservations() {
+    var filters = { keyword: $('gclassKeyword').value };
+    return gasRun('api_listGClassReservations', filters).then(function (items) {
+      state.gclassItems = items || [];
+      renderGClassList_();
+    }).catch(function (err) { showToast(err.message, true); });
+  }
+
+  function gclassCardHtml_(v) {
+    return '<div class="card card--available">' +
+      '<div class="card__top"><div class="card__topRow">' +
+      '<div><div class="card__model">' + escapeHtml(v.model) + '</div>' +
+      '<div class="card__commission">' + escapeHtml(v.commission) + '</div></div>' +
+      '</div></div>' +
+      '<dl class="card__metaGrid card__metaGrid--quick">' +
+      metaRow_('MP', v.mp) +
+      metaRow_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
+      metaRow_('リード番号', v.leadNumber) +
+      '</dl>' +
+      vehicleSpecFieldsHtml_(v) +
+      '</div>';
+  }
+
+  function renderGClassList_() {
+    var items = state.gclassItems || [];
+    $('gclassEmpty').classList.toggle('hidden', items.length > 0);
+    $('gclassTotalCount').textContent = items.length ? '該当 ' + items.length + ' 台' : '';
+    $('gclassList').innerHTML = '<div class="cardGrid">' + items.map(gclassCardHtml_).join('') + '</div>';
+    syncFixedBars_();
+  }
+
+  $('gclassKeyword').addEventListener('input', debounce(loadGClassReservations, 250));
 
   // ===== 設定 =====
   function renderSettings(settings) {
@@ -2240,6 +2441,7 @@
     [
       ['inventoryToolbar', 'inventoryToolbarSpacer', 16],
       ['ordersToolbar', 'ordersToolbarSpacer', 16],
+      ['gclassToolbar', 'gclassToolbarSpacer', 16],
       ['homeTypeNav', 'homeTypeNavSpacer', 20]
     ].forEach(function (pair) {
       var toolbar = $(pair[0]);
@@ -2270,7 +2472,7 @@
       renderSettings(bootstrap.settings);
       renderTopbarUser();
       checkIntegrity_();
-      return Promise.all([loadInventory(), loadOrders(), loadHomeModelCounts_(), loadMyPageOrders_()]);
+      return Promise.all([loadInventory(), loadOrders(), loadGClassReservations(), loadHomeModelCounts_(), loadMyPageOrders_()]);
     });
   }
 

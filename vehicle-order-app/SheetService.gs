@@ -91,6 +91,17 @@ function getOrderSheet_() {
   return getOrCreateSheet_(SHEET_NAMES.ORDERS, ORDER_COLUMNS, [orderColIndex1('commission')]);
 }
 
+function getGClassReservationSheet_() {
+  return getOrCreateSheet_(SHEET_NAMES.GCLASS_RESERVATION, GCLASS_COLUMNS, [gclassColIndex1('commission')]);
+}
+
+/**
+ * Gクラス予約リストの全件を取得する（閲覧専用。追加・編集はスプレッドシートへ直接行う運用）。
+ */
+function listGClassReservations_() {
+  return readAllRows_(getGClassReservationSheet_(), GCLASS_COLUMNS, 'commission');
+}
+
 /**
  * 既存のスプレッドシートに対して、コミッション列を書式なしテキストへ設定し直す
  * 一回限りのメンテナンス関数。スクリプトエディタから手動で一度だけ実行する
@@ -102,6 +113,7 @@ function formatCommissionColumnsAsText_() {
   applyTextColumnFormat_(getInventorySheet_(), [inventoryColIndex1('commission')]);
   applyTextColumnFormat_(getHoldsSheet_(), [holdColIndex1('commission')]);
   applyTextColumnFormat_(getOrderSheet_(), [orderColIndex1('commission')]);
+  applyTextColumnFormat_(getGClassReservationSheet_(), [gclassColIndex1('commission')]);
 }
 
 /**

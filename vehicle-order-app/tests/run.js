@@ -269,6 +269,86 @@ test('applyHoldFieldsToVehicle_ はHold行があればプレフィックス付�
   assert.strictEqual(vehicle.holdLeadNumber, 'L-001');
   assert.strictEqual(vehicle.holdExpiresAt, 2000);
 });
+test('applyHoldFieldsToVehicle_ はholdType未設定のHold行を通常のHold（normal）として反映する', () => {
+  const vehicle = { commission: 'C-997' };
+  const holdRow = Object.assign({ createdAt: 1000, expiresAt: 2000 }, fullInfo);
+  sandbox.applyHoldFieldsToVehicle_(vehicle, holdRow, 'hold');
+  assert.strictEqual(vehicle.holdHoldType, 'normal');
+  assert.strictEqual(vehicle.holdSalesStore, undefined);
+});
+test('applyHoldFieldsToVehicle_ はデモカーHOLD・他店HOLDのholdType・salesStoreも反映する', () => {
+  const vehicle = { commission: 'C-996' };
+  const demoRow = Object.assign({ createdAt: 1000, expiresAt: null, holdType: 'demo' }, fullInfo);
+  sandbox.applyHoldFieldsToVehicle_(vehicle, demoRow, 'hold');
+  assert.strictEqual(vehicle.holdHoldType, 'demo');
+
+  const otherRow = Object.assign({ createdAt: 1000, expiresAt: null, holdType: 'otherStore', salesStore: '横浜店' }, fullInfo);
+  sandbox.applyHoldFieldsToVehicle_(vehicle, otherRow, 'secondHold');
+  assert.strictEqual(vehicle.secondHoldHoldType, 'otherStore');
+  assert.strictEqual(vehicle.secondHoldSalesStore, '横浜店');
+});
+
+console.log('== HoldService: normalizeLeadNumberOptional_（デモカーHOLD用。未入力はエラーにせず空文字） ==');
+test('数字のみ入力すると「L-」が付与される', () => {
+  assert.strictEqual(sandbox.normalizeLeadNumberOptional_('12345678'), 'L-12345678');
+});
+test('未入力・数字なしは空文字（エラーにしない）', () => {
+  assert.strictEqual(sandbox.normalizeLeadNumberOptional_(''), '');
+  assert.strictEqual(sandbox.normalizeLeadNumberOptional_(null), '');
+  assert.strictEqual(sandbox.normalizeLeadNumberOptional_('L-'), '');
+});
+
+console.log('== HoldService: normalizeHoldType_（デモカーHOLD・他店HOLDは管理者権限を持つ担当者のみ） ==');
+const ADMIN_EMAIL = sandbox.SYSTEM_ADMIN_EMAILS[0];
+test('未指定は通常のHold（normal）になる（誰でも可）', () => {
+  assert.strictEqual(sandbox.normalizeHoldType_(undefined, 'other@example.com'), 'normal');
+  assert.strictEqual(sandbox.normalizeHoldType_('normal', 'other@example.com'), 'normal');
+});
+test('管理者はデモカーHOLD・他店HOLDを指定できる', () => {
+  assert.strictEqual(sandbox.normalizeHoldType_('demo', ADMIN_EMAIL), 'demo');
+  assert.strictEqual(sandbox.normalizeHoldType_('otherStore', ADMIN_EMAIL), 'otherStore');
+});
+test('非管理者がデモカーHOLD・他店HOLDを指定しようとするとエラー', () => {
+  assert.throws(() => sandbox.normalizeHoldType_('demo', 'other@example.com'), /管理者権限/);
+  assert.throws(() => sandbox.normalizeHoldType_('otherStore', 'other@example.com'), /管理者権限/);
+});
+test('不正なHold種別はエラー', () => {
+  assert.throws(() => sandbox.normalizeHoldType_('bogus', ADMIN_EMAIL), /不正なHold種別/);
+});
+
+console.log('== HoldService: buildHoldRecord_（holdType・salesStore対応） ==');
+test('holdType省略時はnormalになり、salesStoreは空文字になる', () => {
+  const record = sandbox.buildHoldRecord_('C-101', sandbox.HOLD_RANK.FIRST, fullInfo, 1000, 1000 + sandbox.HOLD_DURATION_MS);
+  assert.strictEqual(record.holdType, 'normal');
+  assert.strictEqual(record.salesStore, '');
+});
+test('holdType・salesStoreを指定すると反映される（デモカーHOLD・他店HOLDは期限がnullでも組み立てられる）', () => {
+  const demoRecord = sandbox.buildHoldRecord_('C-102', sandbox.HOLD_RANK.FIRST, { staffEmail: 'admin@example.com' }, 1000, null, 'demo');
+  assert.strictEqual(demoRecord.holdType, 'demo');
+  assert.strictEqual(demoRecord.expiresAt, null);
+
+  const otherRecord = sandbox.buildHoldRecord_(
+    'C-103', sandbox.HOLD_RANK.FIRST,
+    { staffEmail: 'admin@example.com', salesStore: '横浜店' }, 1000, null, 'otherStore'
+  );
+  assert.strictEqual(otherRecord.holdType, 'otherStore');
+  assert.strictEqual(otherRecord.salesStore, '横浜店');
+});
+
+console.log('== SearchService: searchGClassReservations_（Gクラス予約リスト。キーワード検索のみ） ==');
+const gclassItems = [
+  { commission: 'G001', model: 'G400d', leadNumber: 'L-1001' },
+  { commission: 'G002', model: 'G63', leadNumber: 'L-1002' }
+];
+test('キーワードでモデル検索がヒットする', () => {
+  assert.strictEqual(sandbox.searchGClassReservations_(gclassItems, { keyword: 'G400d' }).length, 1);
+});
+test('キーワードでリード番号検索がヒットする', () => {
+  assert.strictEqual(sandbox.searchGClassReservations_(gclassItems, { keyword: 'L-1002' }).length, 1);
+});
+test('キーワード未指定は全件返す', () => {
+  assert.strictEqual(sandbox.searchGClassReservations_(gclassItems, {}).length, 2);
+});
 
 console.log('== SearchService: searchInventory / searchOrders ==');
 const vehicles = [

@@ -1,16 +1,16 @@
 /**
  * SetupService.gs
- * スプレッドシートの初期セットアップ（在庫リスト・Holdリスト・受注リスト・変更履歴の
- * 4タブを自動生成）。
+ * スプレッドシートの初期セットアップ（在庫リスト・Holdリスト・受注リスト・
+ * Gクラス予約リスト・変更履歴の5タブを自動生成）。
  *
  * 元データスプレッドシート（xlsx）を手作業でアップロード・貼り付けする代わりに、
  * 任意の空のGoogleスプレッドシートに本プロジェクトをコンテナバインドした状態で
- * setupSpreadsheet_() を一度実行するだけで、必要な4タブ・ヘッダー・入力規則
+ * setupSpreadsheet_() を一度実行するだけで、必要な5タブ・ヘッダー・入力規則
  * （選択式の列のドロップダウン）・列ヘッダーの説明メモ・コミッション列の書式
  * （先頭0保持）・時間主導トリガーまで一括で整えられる（Constants.gsの
- * INVENTORY_COLUMNS / HOLD_COLUMNS / ORDER_COLUMNS / AUDIT_LOG_COLUMNSの
- * 列定義から自動生成するため、今後アプリ側に列が追加された場合もコード変更は
- * Constants.gs側だけで済む）。
+ * INVENTORY_COLUMNS / HOLD_COLUMNS / ORDER_COLUMNS / GCLASS_COLUMNS /
+ * AUDIT_LOG_COLUMNSの列定義から自動生成するため、今後アプリ側に列が追加された
+ * 場合もコード変更はConstants.gs側だけで済む）。
  *
  * 既存のシートがある場合は作り直さない（getOrCreateSheet_ はシートが無いときだけ
  * ヘッダー・入力規則・説明メモを書き込むため、既存データ・書式はそのまま保持される）。
@@ -27,10 +27,11 @@ function setupSpreadsheet_() {
   getInventorySheet_();
   getHoldsSheet_();
   getOrderSheet_();
+  getGClassReservationSheet_();
   getAuditLogSheet_();
   setupTimeDrivenTriggers_();
 
-  var message = '在庫リスト・Holdリスト・受注リスト・変更履歴の4タブを準備しました' +
+  var message = '在庫リスト・Holdリスト・受注リスト・Gクラス予約リスト・変更履歴の5タブを準備しました' +
     '（既存のシートがあればそのまま利用し、上書きはしていません）。' +
     '選択式の列にはドロップダウンの入力規則を、列見出しには入力形式の説明メモを' +
     '設定済みです。Hold期限チェックの時間主導トリガーも設定済みです。';
@@ -52,13 +53,14 @@ function applySelectValidationsAndNotes_() {
     [getInventorySheet_(), INVENTORY_COLUMNS],
     [getHoldsSheet_(), HOLD_COLUMNS],
     [getOrderSheet_(), ORDER_COLUMNS],
+    [getGClassReservationSheet_(), GCLASS_COLUMNS],
     [getAuditLogSheet_(), AUDIT_LOG_COLUMNS]
   ].forEach(function (pair) {
     applySelectValidations_(pair[0], pair[1]);
     applyHeaderNotes_(pair[0], pair[1]);
   });
 
-  var message = '在庫リスト・Holdリスト・受注リスト・変更履歴の入力規則・列見出しの説明メモを設定しました。';
+  var message = '在庫リスト・Holdリスト・受注リスト・Gクラス予約リスト・変更履歴の入力規則・列見出しの説明メモを設定しました。';
   Logger.log(message);
   return message;
 }
@@ -71,7 +73,7 @@ function applySelectValidationsAndNotes_() {
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('販売可能リスト')
-    .addItem('初期セットアップ（4タブを作成）', 'setupSpreadsheet_')
+    .addItem('初期セットアップ（5タブを作成）', 'setupSpreadsheet_')
     .addItem('入力規則・列見出しの説明メモを再設定', 'applySelectValidationsAndNotes_')
     .addItem('コミッション列を書式なしテキストに再設定', 'formatCommissionColumnsAsText_')
     .addToUi();

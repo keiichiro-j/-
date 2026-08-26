@@ -53,6 +53,35 @@ function normalizeLeadNumber_(value) {
 }
 
 /**
+ * デモカーHOLD用のリード番号正規化。デモカーHOLDはリード番号が未入力でも
+ * 登録できるため、normalizeLeadNumber_と異なり空欄はエラーにせずそのまま
+ * 空文字を返す（純粋関数）。
+ */
+function normalizeLeadNumberOptional_(value) {
+  var digits = String(value || '').replace(/^L-/i, '').replace(/[^0-9]/g, '');
+  return digits ? 'L-' + digits : '';
+}
+
+/**
+ * Hold種別を検証・正規化する（純粋関数ではなく、SYSTEM_ADMIN_EMAILSの判定に
+ * isSystemAdmin_を使うため管理者判定に依存する）。デモカーHOLD・他店HOLDは
+ * 管理者権限を持つ担当者のみ登録できる（権限チェックはこの関数の中で行い、
+ * Api.gsやクライアント側の表示制御に頼らない）。
+ * @param {string} holdType 省略時は通常のHold（HOLD_TYPE.NORMAL）として扱う
+ * @param {string} staffEmail Hold登録を行おうとしている担当者のメールアドレス
+ */
+function normalizeHoldType_(holdType, staffEmail) {
+  var type = holdType || HOLD_TYPE.NORMAL;
+  if (!HOLD_TYPE_LABELS.hasOwnProperty(type)) {
+    throw new Error('不正なHold種別です: ' + type);
+  }
+  if (type !== HOLD_TYPE.NORMAL && !isSystemAdmin_(staffEmail)) {
+    throw new Error('デモカーHOLD・他店HOLDは管理者権限を持つ担当者のみ登録できます');
+  }
+  return type;
+}
+
+/**
  * 2つのメールアドレスが同一人物を指すかどうかを判定する（純粋関数）。
  * 前後の空白・大文字小文字の違いを無視する。requireCurrentStaff_は毎回
  * trim・小文字化した値を返すため通常は表記ゆれが生じないはずだが、Holdリストの
@@ -135,11 +164,17 @@ function decideExpiryAction_(info, now) {
  * Hold入力情報から Holdリストの1行分のレコードを組み立てる（純粋関数）。
  * staffEmail は HOLD_ORDER_INPUT_COLUMNS には含まれない（クライアント入力ではなく
  * サーバー側で確定させるため）ため、別途 info.staffEmail から詰める。
+ * holdTypeは省略時 HOLD_TYPE.NORMAL とする（2nd Hold登録は常に通常のHoldのみのため、
+ * registerSecondHold からの呼び出しでは指定しない）。salesStoreは他店HOLD専用の項目。
  */
-function buildHoldRecord_(commission, rank, info, createdAt, expiresAt) {
-  var record = { commission: commission, rank: rank, createdAt: createdAt, expiresAt: expiresAt };
+function buildHoldRecord_(commission, rank, info, createdAt, expiresAt, holdType) {
+  var record = {
+    commission: commission, rank: rank, createdAt: createdAt, expiresAt: expiresAt,
+    holdType: holdType || HOLD_TYPE.NORMAL
+  };
   HOLD_ORDER_INPUT_COLUMNS.forEach(function (c) { record[c.key] = info[c.key]; });
   record.staffEmail = info.staffEmail;
+  record.salesStore = info.salesStore || '';
   return record;
 }
 
@@ -169,6 +204,8 @@ function applyHoldFieldsToVehicle_(vehicle, holdRow, prefix) {
   vehicle[prefix + 'StaffEmail'] = holdRow ? holdRow.staffEmail : null;
   vehicle[prefix + 'CreatedAt'] = holdRow ? holdRow.createdAt : null;
   vehicle[prefix + 'ExpiresAt'] = holdRow ? holdRow.expiresAt : null;
+  vehicle[prefix + 'HoldType'] = holdRow ? (holdRow.holdType || HOLD_TYPE.NORMAL) : null;
+  vehicle[prefix + 'SalesStore'] = holdRow ? holdRow.salesStore : null;
 }
 
 function findInventoryVehicleWithHolds_(commission) {
@@ -180,14 +217,32 @@ function findInventoryVehicleWithHolds_(commission) {
 /**
  * 1st Hold を登録する。
  * @param {string} commission
- * @param {Object} info { leadNumber, registeredMonth, staff, customer, tradeIn, oss, insurance }
+ * @param {Object} info { leadNumber, registeredMonth, staff, customer, tradeIn, oss, insurance, salesStore }
+ * @param {string} [holdType] HOLD_TYPE.NORMAL(既定)／DEMO／OTHER_STORE。DEMO・OTHER_STOREは
+ *   管理者権限を持つ担当者のみ指定できる（normalizeHoldType_参照）。
  */
-function registerHold(commission, info) {
+function registerHold(commission, info, holdType) {
   var currentStaff = requireCurrentStaff_();
+  holdType = normalizeHoldType_(holdType, currentStaff.email);
   info = Object.assign({}, info, { staff: currentStaff.name, staffEmail: currentStaff.email });
-  var inputCheck = validateRequiredInfo_(HOLD_ORDER_INPUT_COLUMNS, info);
-  if (!inputCheck.ok) throw new Error(inputCheck.reason);
-  info.leadNumber = normalizeLeadNumber_(info.leadNumber);
+
+  if (holdType === HOLD_TYPE.NORMAL) {
+    var inputCheck = validateRequiredInfo_(HOLD_ORDER_INPUT_COLUMNS, info);
+    if (!inputCheck.ok) throw new Error(inputCheck.reason);
+    info.leadNumber = normalizeLeadNumber_(info.leadNumber);
+  } else {
+    // デモカーHOLD（リード番号・登録月のみ、共に任意入力）／他店HOLD（販売店のみ、任意入力）は、
+    // 通常のHoldの入力項目（顧客・下取車の有無等）を一切要求しない。
+    info.leadNumber = holdType === HOLD_TYPE.DEMO ? normalizeLeadNumberOptional_(info.leadNumber) : '';
+    info.registeredMonth = holdType === HOLD_TYPE.DEMO ? (info.registeredMonth || '') : '';
+    info.salesStore = holdType === HOLD_TYPE.OTHER_STORE ? (info.salesStore || '') : '';
+    info.salesLocation = '';
+    info.customer = '';
+    info.tradeIn = '';
+    info.oss = '';
+    info.insurance = '';
+    info.paymentMethod = '';
+  }
 
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
@@ -204,15 +259,25 @@ function registerHold(commission, info) {
     if (!check.ok) throw new Error(check.reason);
 
     var now = new Date().getTime();
-    var expiresAt = now + HOLD_DURATION_MS;
-    var record = buildHoldRecord_(commission, HOLD_RANK.FIRST, info, now, expiresAt);
-    record.calendarEventId = createHoldCalendarEvent_(commission, vehicle.model, expiresAt);
+    // デモカーHOLD・他店HOLDはHold期限が無期限（expiresAtがnull）。decideExpiryAction_は
+    // expiresAtが偽値の場合は常に'none'を返すため、期限切れ処理側の変更は不要。
+    var expiresAt = holdType === HOLD_TYPE.NORMAL ? now + HOLD_DURATION_MS : null;
+    var record = buildHoldRecord_(commission, HOLD_RANK.FIRST, info, now, expiresAt, holdType);
+    // カレンダーの期限リマインドイベントも、期限がある通常Holdのみ作成する。
+    record.calendarEventId = holdType === HOLD_TYPE.NORMAL
+      ? createHoldCalendarEvent_(commission, vehicle.model, expiresAt)
+      : '';
     createHoldRow_(record);
     updateInventoryVehicle_(sheet, rowNumber, { holdStatus: HOLD_STATUS.HOLD });
 
     var updated = findInventoryVehicleWithHolds_(commission);
     notifyHoldRegistered(updated, false);
-    appendAuditLog_(buildAuditLogEntry_('Hold登録', commission, vehicle.model, currentStaff, 'リード番号 ' + info.leadNumber, now));
+    var detail = holdType === HOLD_TYPE.NORMAL
+      ? 'リード番号 ' + info.leadNumber
+      : HOLD_TYPE_LABELS[holdType] + (holdType === HOLD_TYPE.OTHER_STORE
+        ? '（販売店: ' + (info.salesStore || '未入力') + '）'
+        : '（リード番号: ' + (info.leadNumber || '未入力') + '）');
+    appendAuditLog_(buildAuditLogEntry_('Hold登録', commission, vehicle.model, currentStaff, detail, now));
     return updated;
   } finally {
     lock.releaseLock();

@@ -21,6 +21,7 @@ function api_getBootstrapData() {
     paymentMethodOptions: PAYMENT_METHOD_OPTIONS,
     paidOptionKeys: PAID_OPTION_KEYS,
     holdOrderInputColumns: HOLD_ORDER_INPUT_COLUMNS,
+    holdTypeLabels: HOLD_TYPE_LABELS,
     staffListMax: STAFF_LIST_MAX,
     modelPhotosMax: MODEL_PHOTOS_MAX,
     notifyMailListMax: NOTIFY_MAIL_LIST_MAX,
@@ -54,8 +55,12 @@ function api_checkInventoryIntegrity() {
 }
 
 // ===== Hold機能 =====
-function api_registerHold(commission, info) {
-  return registerHold(commission, info);
+// holdTypeは省略時 HOLD_TYPE.NORMAL として扱われる（registerHold内のnormalizeHoldType_参照）。
+// デモカーHOLD・他店HOLDを指定できるのは管理者権限を持つ担当者のみで、この権限チェック自体は
+// クライアントの表示制御ではなくサーバー側のnormalizeHoldType_で行う（Api.gsは薄いレイヤーの
+// ため、ここでは権限チェックを行わない）。
+function api_registerHold(commission, info, holdType) {
+  return registerHold(commission, info, holdType);
 }
 
 function api_registerSecondHold(commission, info) {
@@ -84,6 +89,11 @@ function api_listOrders(filters, groupBy) {
   });
   var result = searchOrders(orders, filters);
   return groupBy ? groupByField_(result, groupBy) : [{ key: '', items: result }];
+}
+
+// ===== Gクラス予約リスト（閲覧専用） =====
+function api_listGClassReservations(filters) {
+  return searchGClassReservations_(listGClassReservations_(), filters);
 }
 
 // ===== 設定機能（3.6） =====

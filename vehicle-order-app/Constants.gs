@@ -2,10 +2,12 @@
  * Constants.gs
  * 販売可能リスト 共通定数定義
  *
- * スプレッドシートは3タブ構成：
+ * スプレッドシートは5タブ構成：
  *   在庫リスト … 車両情報＋Holdステータスのみ
  *   Holdリスト … Hold（1st/2nd）の入力項目・開始日時・期限（車両情報とは別テーブル）
  *   受注リスト … 受注確定時に転記される車両情報＋入力項目
+ *   Gクラス予約リスト … 在庫リストと同様の車両情報＋リード番号（閲覧専用、Hold不可）
+ *   変更履歴 … 監査ログ
  */
 
 // ===== シート名 =====
@@ -13,6 +15,7 @@ var SHEET_NAMES = {
   INVENTORY: '在庫リスト',
   HOLDS: 'Holdリスト',
   ORDERS: '受注リスト',
+  GCLASS_RESERVATION: 'Gクラス予約リスト',
   AUDIT_LOG: '変更履歴'
 };
 
@@ -27,6 +30,25 @@ var HOLD_STATUS = {
 var HOLD_RANK = {
   FIRST: '1st',
   SECOND: '2nd'
+};
+
+/**
+ * Hold種別。管理者権限を持つ担当者（SYSTEM_ADMIN_EMAILS）のみ、通常のHoldに加えて
+ * デモカーHOLD・他店HOLDを登録できる（normalizeHoldType_、HoldService.gs参照）。
+ * デモカーHOLD・他店HOLDは、通常のHold・2nd Holdと異なりHold期限が無期限（expiresAtがnull）で、
+ * カレンダーイベントも作成しない。入力項目もデモカーHOLDは「リード番号・登録月」のみ、
+ * 他店HOLDは「販売店」のみで、どちらも未入力のままHold登録できる。
+ */
+var HOLD_TYPE = {
+  NORMAL: 'normal',
+  DEMO: 'demo',
+  OTHER_STORE: 'otherStore'
+};
+
+var HOLD_TYPE_LABELS = {
+  normal: '通常のHOLD',
+  demo: 'デモカーHOLD',
+  otherStore: '他店HOLD'
 };
 
 // ===== 選択肢 =====
@@ -124,8 +146,20 @@ var INVENTORY_COLUMNS = VEHICLE_COLUMNS.concat([
  */
 var HOLD_COLUMNS = [
   { key: 'commission', label: 'コミッション', type: 'text', required: true },
-  { key: 'rank', label: '順番', type: 'select', options: [HOLD_RANK.FIRST, HOLD_RANK.SECOND], required: true }
+  { key: 'rank', label: '順番', type: 'select', options: [HOLD_RANK.FIRST, HOLD_RANK.SECOND], required: true },
+  {
+    key: 'holdType', label: 'Hold種別', type: 'select',
+    options: [HOLD_TYPE.NORMAL, HOLD_TYPE.DEMO, HOLD_TYPE.OTHER_STORE],
+    note: '管理者権限を持つ担当者が登録した「デモカーHOLD」「他店HOLD」かどうかを示します。' +
+      '空欄は通常のHold（normal）として扱われます。アプリからの操作でのみ設定されるため、' +
+      '通常は手動編集しないでください。'
+  }
 ].concat(HOLD_ORDER_INPUT_COLUMNS).concat([
+  {
+    key: 'salesStore', label: '販売店', type: 'text',
+    note: '他店HOLD（holdTypeがotherStore）の場合のみ使用する、販売先の店舗名です。' +
+      '未入力でもHold登録できます。'
+  },
   // 担当者メール（staffEmail）は表示名「担当者」ではなく、ログイン中のGoogleアカウントの
   // メールアドレスで本人確認を行うための識別キー（canConfirmOrder_ / canCancelHold_ /
   // canRegisterSecondHold_ 参照）。「担当者」名は表示用の別名に過ぎず編集され得るため、
@@ -175,10 +209,23 @@ var AUDIT_LOG_COLUMNS = [
   { key: 'detail', label: '詳細', type: 'text' }
 ];
 
+/**
+ * Gクラス予約リスト列定義。通常の在庫リスト（VEHICLE_COLUMNS）にリード番号を
+ * 加えただけの表。受注リストと同様に閲覧専用（Hold不可）で、データの追加・編集は
+ * スプレッドシートへ直接行う運用のため、リード番号は必須にしない。
+ */
+var GCLASS_COLUMNS = VEHICLE_COLUMNS.concat([
+  {
+    key: 'leadNumber', label: 'リード番号', type: 'text',
+    note: '「L-」＋数字の形式を推奨しますが、閲覧専用リストのため必須ではありません。'
+  }
+]);
+
 var INVENTORY_COL_INDEX = buildColIndex_(INVENTORY_COLUMNS);
 var HOLD_COL_INDEX = buildColIndex_(HOLD_COLUMNS);
 var ORDER_COL_INDEX = buildColIndex_(ORDER_COLUMNS);
 var AUDIT_LOG_COL_INDEX = buildColIndex_(AUDIT_LOG_COLUMNS);
+var GCLASS_COL_INDEX = buildColIndex_(GCLASS_COLUMNS);
 
 function buildColIndex_(columns) {
   var map = {};
@@ -200,6 +247,10 @@ function orderColIndex1(key) {
 
 function auditLogColIndex1(key) {
   return AUDIT_LOG_COL_INDEX[key] + 1;
+}
+
+function gclassColIndex1(key) {
+  return GCLASS_COL_INDEX[key] + 1;
 }
 
 // ===== 設定機能のプロパティキー =====

@@ -16,24 +16,37 @@ function notifyHoldRegistered(vehicle, isSecondHold) {
     input[c.key] = vehicle[key];
   });
   var expiresAt = isSecondHold ? vehicle.secondHoldExpiresAt : vehicle.holdExpiresAt;
+  // 2nd Holdは常に通常のHoldのため、holdTypeはvehicle[prefix + 'HoldType']が未設定の場合も
+  // HOLD_TYPE.NORMAL扱いにする（applyHoldFieldsToVehicle_参照）。
+  var holdType = vehicle[prefix + 'HoldType'] || HOLD_TYPE.NORMAL;
+  var salesStore = vehicle[prefix + 'SalesStore'];
+
+  var bodyLines = [
+    label + 'が登録されました。',
+    '',
+    'コミッション: ' + vehicle.commission,
+    'モデル: ' + vehicle.model,
+    'Hold種別: ' + (HOLD_TYPE_LABELS[holdType] || holdType)
+  ];
+  if (holdType === HOLD_TYPE.OTHER_STORE) {
+    bodyLines.push('販売店: ' + (salesStore || '-'));
+  } else {
+    bodyLines.push('リード番号: ' + (input.leadNumber || '-'));
+    bodyLines.push('登録月: ' + (input.registeredMonth || '-'));
+  }
+  bodyLines.push('担当者: ' + input.staff);
+  if (holdType === HOLD_TYPE.NORMAL) {
+    bodyLines.push('顧客: ' + input.customer);
+    bodyLines.push('下取車の有無: ' + input.tradeIn);
+    bodyLines.push('OSS登録の可否: ' + input.oss);
+    bodyLines.push('保険加入の有無: ' + input.insurance);
+  }
+  bodyLines.push('Hold期限: ' + (expiresAt ? formatDateTime_(expiresAt) : '無期限'));
 
   MailApp.sendEmail({
     to: to,
     subject: '【販売可能リスト】' + label + '登録のお知らせ',
-    body: [
-      label + 'が登録されました。',
-      '',
-      'コミッション: ' + vehicle.commission,
-      'モデル: ' + vehicle.model,
-      'リード番号: ' + input.leadNumber,
-      '登録月: ' + input.registeredMonth,
-      '担当者: ' + input.staff,
-      '顧客: ' + input.customer,
-      '下取車の有無: ' + input.tradeIn,
-      'OSS登録の可否: ' + input.oss,
-      '保険加入の有無: ' + input.insurance,
-      'Hold期限: ' + formatDateTime_(expiresAt)
-    ].join('\n')
+    body: bodyLines.join('\n')
   });
   return true;
 }

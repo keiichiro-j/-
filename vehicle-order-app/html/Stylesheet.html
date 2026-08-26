@@ -38,6 +38,12 @@
     --danger: #ec0000;
     --danger-bg: rgba(255, 107, 107, .16);
     --primary-bg: #dceaf7;
+    /* 管理者権限を持つ担当者のみ登録できるデモカーHOLD・他店HOLD専用の特別色。
+       通常のHold（--warning・アンバー）・2nd Hold（--danger・レッド／--primary・ブルー）
+       のどれとも重ならない紫系にし、テーマ設定（着せ替え）の影響を受けない固定色にする
+       （デモカーHOLD・他店HOLDである、という見分けやすさを最優先するため）。 */
+    --hold-special: #6d28d9;
+    --hold-special-bg: rgba(124, 58, 237, .14);
     --shadow: 0 1px 2px rgba(16, 31, 51, .10);
     --shadow-elevated: 0 16px 40px rgba(16, 31, 51, .16);
     /* 公式サイトはカードの角丸をあまり強調しないフラットな見た目のため、
@@ -562,6 +568,7 @@
   .rowCard--available { border-left-color: var(--success); }
   .rowCard--hold { border-left-color: var(--warning); }
   .rowCard--hold2 { border-left-color: var(--danger); }
+  .rowCard--holdSpecial { border-left-color: var(--hold-special); }
   /* 横スクロールが必要な列（有償OP等の車両情報・rowCard__status）は画面幅によっては
      スクロールしないと見えないため、行（カード）自体をタップすると、既存のカード表示と
      同じ見た目で車両情報すべてを画面中央のモーダルに表示する
@@ -672,6 +679,9 @@
   /* 1st・2nd Holdの両方が埋まっている車両は、これ以上の受け皿がない分、他より
      目立たせる（現場の声を踏まえ、Hold1件のみとは別の色にする）。 */
   .card--hold2 { border-left-color: var(--danger); }
+  /* デモカーHOLD・他店HOLDは、通常のHold・2nd Holdとひと目で見分けられるよう
+     専用の特別色にする（管理者権限を持つ担当者のみ登録できる。HOLD_TYPE参照）。 */
+  .card--holdSpecial { border-left-color: var(--hold-special); }
   /* モデル・コミッション・比較ピンの行と、バッジの行を常に別々の固定行にする。
      以前は1つのflex-wrapコンテナに全部まとめていたため、バッジの個数
      （2個／3個）やモデル名・コミッションの文字数の組み合わせによって折り返し方
@@ -703,6 +713,7 @@
   .badge--available { background: var(--success-bg); color: var(--success); }
   .badge--hold { background: var(--warning-bg); color: var(--warning); }
   .badge--hold2 { background: var(--danger-bg); color: var(--danger); }
+  .badge--holdSpecial { background: var(--hold-special-bg); color: var(--hold-special); }
   .badge--disclosed { background: var(--success-bg); color: var(--success); font-weight: 500; }
   .badge--undisclosed { background: rgba(31, 41, 51, .06); color: var(--on-surface-variant); font-weight: 500; }
   .badge--thisMonth { background: var(--primary-bg); color: var(--primary-text); font-weight: 500; }
@@ -809,6 +820,10 @@
   .card__holdInfo--first .card__holdInfo__label { color: var(--warning); }
   .card__holdInfo--second { border-left-color: var(--primary); background: var(--primary-bg); }
   .card__holdInfo--second .card__holdInfo__label { color: var(--primary-text); }
+  /* デモカーHOLD・他店HOLDは、順番（1st/2nd）に関わらずこの特別色で上書きする
+     （--first/--secondと同時に付与されるクラスのため、後に書くことで優先させる）。 */
+  .card__holdInfo--special { border-left-color: var(--hold-special); background: var(--hold-special-bg); }
+  .card__holdInfo--special .card__holdInfo__label { color: var(--hold-special); }
   .card__holdInfo__row { margin-bottom: 6px; }
   .card__holdInfo__cancel {
     border: none;
@@ -847,6 +862,9 @@
   }
   .holdTimer--warning .holdTimer__barFill { background: var(--warning); }
   .holdTimer--expired .holdTimer__barFill { background: var(--danger); width: 0% !important; }
+  /* デモカーHOLD・他店HOLDはHold期限が無期限のため、進捗バーは出さず「無期限」の
+     固定表示のみにする（holdTimerHtml_、JavaScript.html参照）。 */
+  .holdTimer--indefinite .holdTimer__text { margin-top: 0; color: var(--hold-special); font-weight: 700; }
   .holdTimer__text {
     margin-top: 4px;
     font-size: 12.5px;
@@ -1488,6 +1506,33 @@
   .modal__desc { margin: 0; font-size: 13px; color: var(--on-surface-variant); line-height: 1.6; }
   .modal__requiredNote { margin: 0 0 4px; font-size: 12px; color: var(--on-surface-variant); }
   .req { color: var(--danger); margin-left: 2px; }
+  .modal__hint { margin: 10px 0 0; font-size: 12.5px; color: var(--on-surface-variant); line-height: 1.6; }
+
+  /* ===== Hold種別選択（管理者権限を持つ担当者が「Hold」タップ時のみ表示）=====
+     通常のHold／デモカーHOLD／他店HOLDの3択。デモカーHOLD・他店HOLDは専用の
+     特別色（--hold-special）でボタンの左罫線を色分けし、選ぶ前から見分けやすくする。 */
+  .actionTypePick__intro { margin: 0 0 14px; font-size: 13.5px; color: var(--on-surface-variant); }
+  .actionTypePick { display: flex; flex-direction: column; gap: 10px; }
+  .actionTypePick__btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    width: 100%;
+    text-align: left;
+    padding: 14px 16px;
+    border: 1px solid var(--outline);
+    border-left: 4px solid var(--warning);
+    border-radius: var(--radius);
+    background: var(--surface);
+    cursor: pointer;
+    transition: box-shadow .15s ease, transform .15s ease;
+  }
+  .actionTypePick__btn:hover { box-shadow: var(--shadow-elevated); transform: translateY(-1px); }
+  .actionTypePick__btn--demo,
+  .actionTypePick__btn--otherStore { border-left-color: var(--hold-special); }
+  .actionTypePick__btnTitle { font-size: 15px; font-weight: 700; }
+  .actionTypePick__btnDesc { font-size: 12.5px; color: var(--on-surface-variant); }
 
   /* ===== トースト ===== */
   .toast {
