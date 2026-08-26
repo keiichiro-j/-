@@ -1264,6 +1264,11 @@
     padding: 0;
     background: none;
     border-color: transparent;
+    /* モデルタップ時にscrollIntoView()でこのタイルまで自動スクロールする際
+       （JavaScript.htmlのクリックハンドラ参照）、position: fixedのトップバー・
+       型クイックナビの下に隠れてしまわないよう、その高さぶんの余白を確保する
+       （--home-scroll-offsetはsyncFixedBars_が実測して更新する）。 */
+    scroll-margin-top: calc(var(--home-scroll-offset, 100px) + 16px);
   }
   .homeRow.is-expanded:hover { box-shadow: none; transform: none; }
   .homeRow__photo {

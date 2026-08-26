@@ -2068,8 +2068,17 @@
     var tile = e.target.closest('[data-home-model]');
     if (!tile) return;
     if (tile.dataset.hasGrades === 'true') {
-      state.homeExpandedModel = state.homeExpandedModel === tile.dataset.homeModel ? null : tile.dataset.homeModel;
+      var wasExpanding = state.homeExpandedModel !== tile.dataset.homeModel;
+      var modelName = tile.dataset.homeModel;
+      state.homeExpandedModel = wasExpanding ? modelName : null;
       renderHomeGallery_();
+      // 展開した場合のみ、その車両写真・グレードタブが一画面に収まる位置まで
+      // 自動スクロールする（トップバー・型クイックナビの下、scroll-margin-top
+      // 参照）。折りたたむ場合はスクロールしない（タップした位置のまま）。
+      if (wasExpanding) {
+        var expandedTile = document.querySelector('.homeRow.is-expanded[data-home-model="' + CSS.escape(modelName) + '"]');
+        if (expandedTile) expandedTile.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
       return;
     }
     switchToTab_('inventory');
@@ -2210,6 +2219,16 @@
     var topbar = $('topbar');
     if (topbar) {
       document.documentElement.style.setProperty('--topbar-h', topbar.offsetHeight + 'px');
+    }
+    // ホームでモデルタイルを展開した際、scrollIntoView()で「トップバー＋型クイック
+    // ナビの下」まで自動スクロールできるよう、両方の固定要素の高さの合計を
+    // CSS変数として持っておく（homeModelTileHtml_のscroll-margin-topで使う。
+    // 下のhomeTypeNavSpacerとまったく同じ考え方で、都度実測して更新する）。
+    var homeTypeNav = $('homeTypeNav');
+    var homeTypeNavSpacer = $('homeTypeNavSpacer');
+    if (topbar && homeTypeNavSpacer) {
+      var homeOffset = topbar.offsetHeight + 16 + (homeTypeNav && !homeTypeNav.classList.contains('hidden') ? homeTypeNavSpacer.offsetHeight : 0);
+      document.documentElement.style.setProperty('--home-scroll-offset', homeOffset + 'px');
     }
     // main.view自身の上余白（16px）が「ヘッダー〜固定バー間の余白」と同じ幅を
     // 既に確保しているため、スペーサーは「固定バー自身の高さ＋固定バー〜
