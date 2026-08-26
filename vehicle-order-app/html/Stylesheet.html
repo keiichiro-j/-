@@ -65,21 +65,12 @@
     /* トップバーの実高さ。JS（syncFixedBars_）が実測して上書きする。初期値は
        JS実行前のレイアウトずれを防ぐための目安値。 */
     --topbar-h: 108px;
-    /* ===== 書体 =====
-       データ・ボタン・フォーム等、実務的な文字は引き続き細身・ジオメトリックな
-       サンセリフ体（--font-body、Barlow）のまま。アプリ名（トップバー）・
-       タブ名・ホーム画面のショールーム風タイル（モデル名）・型見出し等、
-       「タイトル」にあたる部分だけ、和文にも対応した明朝体（--font-display、
-       Zen Old Mincho）に一新し、高級輸入車ディーラーの公式サイトらしい
-       上質さを見出しに出す（Index.htmlのGoogle Fonts読み込み参照）。 */
-    --font-body: 'Barlow', 'Roboto', 'Helvetica Neue', Arial, 'Hiragino Sans', 'Yu Gothic', sans-serif;
-    --font-display: 'Zen Old Mincho', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
   }
 
   * { box-sizing: border-box; }
   html, body {
     margin: 0;
-    font-family: var(--font-body);
+    font-family: 'Barlow', 'Roboto', 'Helvetica Neue', Arial, 'Hiragino Sans', 'Yu Gothic', sans-serif;
     background: var(--background);
     color: var(--on-surface);
     -webkit-font-smoothing: antialiased;
@@ -185,10 +176,9 @@
      .topbar__logoの高さに合わせて、下のmin-width: 901pxブロック内でも
      調整している）。 */
   .topbar__brandText {
-    font-family: var(--font-display);
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 700;
-    letter-spacing: .14em;
+    letter-spacing: .1em;
     color: var(--on-topbar);
     white-space: nowrap;
   }
@@ -238,9 +228,8 @@
     color: var(--on-topbar);
     opacity: .6;
     padding: 6px 1px;
-    font-family: var(--font-display);
-    font-size: 13.5px;
-    font-weight: 700;
+    font-size: 12.5px;
+    font-weight: 600;
     letter-spacing: .1em;
     text-transform: uppercase;
     cursor: pointer;
@@ -1240,8 +1229,7 @@
      見出しが上下ちょうど中央に来る）。 */
   .homeTypeHeader {
     grid-column: 1 / -1;
-    font-family: var(--font-display);
-    font-size: 20px;
+    font-size: 19px;
     font-weight: 700;
     color: var(--on-surface);
     margin: 4px 2px;
@@ -1407,8 +1395,7 @@
   .homeRow__backBtn:hover { background: #fff; }
   .homeRow__model {
     flex: 1; min-width: 0;
-    font-family: var(--font-display);
-    font-size: 17px; font-weight: 700; letter-spacing: .01em;
+    font-size: 16px; font-weight: 600; letter-spacing: -.005em;
     color: #fff;
     text-shadow: 0 1px 3px rgba(0, 0, 0, .5), 0 1px 10px rgba(0, 0, 0, .35);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
