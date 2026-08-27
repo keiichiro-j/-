@@ -1232,32 +1232,33 @@
   }
 
   /* ===== ホーム画面 =====
-     PC（901px以上）は、モデル名・ボディタイプ・在庫状況がひと目でわかる
-     「カードタイプUI」にする（写真は白背景のカード内に収め、以前のような
-     写真全面オーバーレイ＋グラデーションは使わない）。型ごとに見出し
-     （.homeTypeHeader）＋横スクロールの1行（.homeTypeRow。スクロールなしで
-     4台まで表示できる幅に固定）で並べる（型ごとに縦へ積み重ねるグリッドでは
-     なく、型ごとの「棚」を横スクロールで見せる構成）。ヘッダー行にモデル名、
-     中央に写真、フッター行（区切り線の下）に在庫台数と矢印を置き、カード
-     グリッド（.card__detailLink等）と同じ「詳細へ進めるリンク」の見せ方で
-     統一する。タブレット・スマホ幅（900px以下）では、パッと見て在庫状況が
-     わかる情報密度を優先した横一列の「リスト」型のままにする
-     （@media (max-width: 900px)で上書き。現場の声を踏まえて選んだ元の
-     レイアウトのため、狭い画面では変更しない）。 */
+     PC（901px以上）は、左に一覧（.homeSplit__list）・右に選択中モデルの詳細
+     （.homeSplit__detail、#homeDetail）を並べる2ペイン構成にする（Index.html
+     の.homeSplit、下部の@media (min-width: 901px)内の.homeSplit系ルール参照）。
+     左の一覧は型ごとに見出し（.homeTypeHeader）＋縦一列に並ぶコンパクトな
+     行カード（.homeRow）にする。行をタップすると.is-selectedになり、右の
+     詳細ペインにそのモデルの写真とグレード別在庫数を表示する
+     （JavaScript.htmlのselectHomeModel_・renderHomeDetail_参照）。
+     タブレット・スマホ幅（900px以下）では、詳細ペインは使わず、パッと見て
+     在庫状況がわかる情報密度を優先した横一列の「リスト」型のままタップした
+     行その場にグレードタブを展開する（@media (max-width: 900px)で上書き。
+     現場の声を踏まえて選んだ元のレイアウトのため、狭い画面では変更しない）。 */
   .homeList {
     display: flex;
     flex-direction: column;
+    gap: 10px;
   }
   .homeRow {
     position: relative;
     display: flex;
-    flex-direction: column;
+    align-items: center;
     width: 100%;
-    padding: 18px;
+    gap: 14px;
+    padding: 12px;
     /* 薄く色付けした背景（--card-bg）にし、ページ背景（--background）・
        カード内の写真プレースホルダーとも見分けがつくようにする。縁は
        うっすらとした薄い線に留め（区切りというより背景色の変化で
-       カード同士を見分けさせる）、カード間の余白（.homeTypeRowのgap）
+       カード同士を見分けさせる）、カード間の余白（.homeListのgap）
        自体で区切りを表現する。 */
     background: var(--card-bg);
     border: 1px solid rgba(15, 23, 42, .06);
@@ -1265,13 +1266,20 @@
     color: var(--on-surface);
     cursor: pointer;
     text-align: left;
-    transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
+    transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease, background-color .18s ease;
   }
-  .homeRow:hover { box-shadow: var(--shadow-elevated); transform: translateY(-3px); border-color: var(--primary); }
-  /* 展開中のタイルは、その型セクション内で横スクロール行（.homeTypeRow）を
-     使わず単独の全幅ブロックとして表示し（renderHomeGallery_参照）、写真を
-     大きく表示する。直後にそのモデルのグレードタブが続くため、margin-bottomで
-     間隔を確保する。 */
+  .homeRow:hover { box-shadow: var(--shadow-elevated); transform: translateY(-2px); border-color: var(--primary); }
+  /* 選択中のモデル（state.homeSelectedModel、PC専用の2ペイン構成）は、右の
+     詳細ペイン（#homeDetail）に表示中であることがひと目でわかるよう、枠と
+     背景を強調する（JavaScript.htmlのhomeModelTileHtml_・selectHomeModel_
+     参照。タブレット・スマホ幅では常にfalseのため付与されない）。 */
+  .homeRow.is-selected {
+    border-color: var(--primary);
+    background: var(--primary-bg);
+  }
+  /* タブレット・スマホ幅のインライン展開（state.homeExpandedModel）専用。
+     PCビューでは常にfalseのため付与されない（@media (max-width: 900px)で
+     display・padding・背景などを上書きする）。 */
   .homeRow.is-expanded {
     margin-bottom: 12px;
     /* モデルタップ時にscrollIntoView()でこのタイルまで自動スクロールする際
@@ -1281,14 +1289,33 @@
     scroll-margin-top: calc(var(--home-scroll-offset, 100px) + 16px);
   }
   .homeRow.is-expanded:hover { box-shadow: none; transform: none; }
-  /* ヘッダー行: モデル名（左）＋グレード件数タグ／「他のモデルを見る」ボタン（右）。 */
+  .homeRow__photo {
+    order: 1;
+    width: 64px;
+    height: 64px;
+    flex: none;
+    background: var(--background);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .homeRow__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  /* ヘッダー行: モデル名（左）＋グレード件数タグ／「他のモデルを見る」ボタン（右）。
+     写真の右に並べ、フッター行（在庫台数・矢印）と合わせて1行に収める。 */
   .homeRow__header {
+    order: 2;
+    flex: 1;
+    min-width: 0;
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 8px;
   }
   .homeRow__model {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-size: 15px;
     font-weight: 700;
     letter-spacing: -.005em;
@@ -1323,23 +1350,14 @@
     white-space: nowrap;
   }
   .homeRow__backBtn:hover { text-decoration: underline; }
-  .homeRow__photo {
-    aspect-ratio: 4 / 3;
-    background: var(--background);
-    border-radius: 8px;
-    overflow: hidden;
-    margin: 14px 0;
-  }
-  .homeRow.is-expanded .homeRow__photo { aspect-ratio: 16 / 9; }
-  .homeRow__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  /* フッター行: 在庫台数（左・アクセントカラー）＋矢印（右）。カード内で
-     区切り線は引かず、余白だけで写真から独立した行であることを示す
-     「詳細へ進めるリンク」の見せ方にする。 */
+  /* フッター行: 在庫台数（アクセントカラー）＋矢印。写真・ヘッダー行と同じ
+     1行に並べ、右端に置く。 */
   .homeRow__footer {
+    order: 3;
+    flex: none;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    margin-top: auto;
+    gap: 8px;
   }
   .homeRow__footer .badge--count {
     background: none;
@@ -1358,27 +1376,25 @@
   }
   .homeRow__chevron--nav { font-size: 16px; }
 
-  /* ===== ホームの型ごとの横スクロール行 =====
-     型ごとに縦へ積み重ねるグリッドではなく、「棚」を横スクロールで見せる
-     Netflix・ECサイトのカテゴリ棚のような構成にする。1台のカード幅は
-     「スクロールなしで4台まで表示できる」ように、行の幅から3つぶんの
-     gapを引いた残りを4等分した値に固定する（5台目以降は右にスクロールして
-     閲覧する）。タブレット・スマホ幅では横スクロール行という概念自体を
-     使わず、display: contentsでこの要素の存在を消し、中の.homeRowを
-     そのまま.homeList（横一列のリスト）の直接の子として扱わせる
-     （@media (max-width: 900px)で上書き。JavaScript.htmlのrenderHomeGallery_が
-     生成するDOM構造自体はPC・タブレット/スマホ共通のまま）。 */
-  .homeTypeRow {
-    display: flex;
-    gap: 20px;
-    overflow-x: auto;
-    margin-bottom: 28px;
-    padding-bottom: 4px; /* 横スクロールバーとカードの間に少し余白を持たせる */
-  }
-  .homeTypeRow > .homeRow {
-    flex: 0 0 calc((100% - 60px) / 4); /* 60px = gap(20px) x 3 */
-    min-width: 200px;
-  }
+  /* ===== ホームの型ごとのグループ =====
+     JavaScript.htmlのrenderHomeGallery_は型ごとに.homeTypeRowで.homeRowを
+     グループ化してDOMを生成するが、見た目上は型をまたいで縦一列の.homeList
+     （リスト）として見せるため、display: contentsでこの要素自体の存在を消し、
+     中の.homeRowをそのまま.homeList（縦一列のflexコンテナ）の直接の子として
+     扱わせる（PC・タブレット/スマホで共通）。 */
+  .homeTypeRow { display: contents; }
+
+  /* ===== ホームの2ペイン構成（左:一覧／右:選択中モデルの詳細） =====
+     PC専用（901px以上）。タブレット・スマホ幅では#homeDetailを使わず、
+     一覧（.homeSplit__list）だけを通常どおり表示するため、既定では
+     .homeSplitをブロック要素・#homeDetailを非表示にしておき、下の
+     @media (min-width: 901px)でのみ2ペインのレイアウトを組む。 */
+  .homeSplit { display: block; }
+  /* #homeDetailはIDセレクタのため、下のPC専用メディアクエリ内で単に
+     .homeSplit__detail（クラスセレクタ）に display: block を指定しても
+     詳細度で負けてしまう。ここでも同じ.homeSplit__detailクラスセレクタで
+     揃えておき、メディアクエリ側を後勝ちで上書きさせる。 */
+  .homeSplit__detail { display: none; }
 
   /* ===== ホームのグレードタブ（グレードが設定されたモデル行を展開すると現れる） =====
      PCでは、展開したタイル（そのモデルの型セクション内）の直下にそのまま表示する
@@ -1605,6 +1621,119 @@
     }
     .homeTypeNav__item:hover { background: none; color: var(--on-surface); border-color: var(--outline); }
     .homeTypeNav__item.is-active { background: none; color: var(--primary-text); border-bottom-color: var(--primary); }
+
+    /* ===== ホームの2ペイン構成（左:一覧／右:選択中モデルの詳細） =====
+       左（.homeSplit__list）にモデル一覧、右（.homeSplit__detail、#homeDetail）に
+       選択中モデルの詳細を表示する。トップバー・型クイックナビをposition: fixedで
+       固定しているため、その高さぶん（.homeTypeNavSpacer）を除いた残りの高さを
+       2ペインで使い切り、それぞれ内側だけを独立してスクロールさせる
+       （JavaScript.htmlのselectHomeModel_・renderHomeDetail_参照）。 */
+    .homeSplit {
+      display: flex;
+      align-items: flex-start;
+      gap: 24px;
+      height: calc(100vh - var(--topbar-h) - 24px - 40px);
+    }
+    .homeSplit__list {
+      flex: 0 0 380px;
+      min-width: 0;
+      height: 100%;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .homeSplit__detail {
+      display: block;
+      flex: 1;
+      min-width: 0;
+      height: 100%;
+      overflow-y: auto;
+      background: var(--surface);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius);
+      padding: 28px;
+    }
+    /* 未選択時（state.homeSelectedModel === null）は、選択を促す案内だけを
+       中央に表示する（homeDetailEmptyHtml_参照）。 */
+    .homeDetail__empty {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: var(--on-surface-variant);
+      text-align: center;
+    }
+    .homeDetail__empty .emptyState__icon { opacity: .5; }
+    /* homeDetailEmptyHtml_（未選択時）にはこのボタン自体が存在しないため、
+       表示切り替えは不要でhomeDetailHtml_内の見た目だけ整えればよい。 */
+    .homeDetail__backBtn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: none;
+      background: none;
+      color: var(--primary-text);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0 0 18px;
+    }
+    .homeDetail__backBtn:hover { text-decoration: underline; }
+    .homeDetail__headRow {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+    .homeDetail__title {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -.01em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .homeDetail__type {
+      flex: none;
+      background: var(--background);
+      color: var(--on-surface-variant);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 999px;
+    }
+    .homeDetail__count {
+      flex: none;
+      text-align: right;
+      line-height: 1.2;
+    }
+    .homeDetail__countNum {
+      display: block;
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--primary-text);
+      font-variant-numeric: tabular-nums;
+    }
+    .homeDetail__countLabel {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .06em;
+      color: var(--on-surface-variant);
+    }
+    .homeDetail__photo {
+      aspect-ratio: 16 / 9;
+      background: var(--background);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+    .homeDetail__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    /* グレード別在庫数（.homeGradeTabsを流用）は、既存のグレードタブと同じ
+       見た目・クリック挙動（在庫リストへの絞り込み遷移）にする。 */
+    .homeDetail__gradeBox { margin-bottom: 20px; }
+    .homeDetail__cta { margin-top: 4px; }
   }
 
   /* ===== リード番号入力（「L-」固定接頭辞＋数字。Google×Tesla風の見出し扱いにする） ===== */
@@ -1795,10 +1924,9 @@
        DOM構造（ヘッダー・写真・フッターの3要素）自体はPC・タブレット/スマホで
        共通のまま（JavaScript.htmlのhomeModelTileHtml_参照）、CSSのorderだけで
        横一列に組み替える。 */
-    .homeList { display: flex; flex-direction: column; max-width: 100%; }
-    /* PC専用の横スクロール行という概念を打ち消し、中の.homeRowを.homeList
-       （横一列のリスト）の直接の子として扱わせる（上部の.homeTypeRow参照）。 */
-    .homeTypeRow { display: contents; }
+    /* PC専用のカード間の余白（gap）を打ち消し、従来どおり罫線だけで隣接する
+       行を区切る密なリストに戻す。 */
+    .homeList { display: flex; flex-direction: column; max-width: 100%; gap: 0; }
     .homeRow {
       overflow: visible;
       flex-direction: row;

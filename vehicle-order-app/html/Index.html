@@ -196,14 +196,24 @@
     <main class="view is-active" id="view-home">
       <div class="homeTypeNav hidden" id="homeTypeNav" role="tablist" aria-label="ボディタイプで絞り込み"></div>
       <div class="homeTypeNavSpacer" id="homeTypeNavSpacer"></div>
-      <div class="homeList" id="homeGrid"></div>
-      <div class="emptyState hidden" id="homeEmpty">
-        <svg class="icon emptyState__icon"><use href="#icon-image"></use></svg>
-        <p>モデル写真がまだ登録されていません。設定タブの「モデル写真」から登録できます。</p>
-      </div>
-      <div class="emptyState hidden" id="homeTypeEmpty">
-        <svg class="icon emptyState__icon"><use href="#icon-tune"></use></svg>
-        <p>該当するボディタイプのモデルが登録されていません。</p>
+      <!-- PCビューのみ、モデル一覧（左）と選択中モデルの詳細（右）の2ペイン構成にする
+           （.homeSplit、Stylesheet.html参照）。タブレット・スマホ幅では
+           #homeDetailを表示せず、従来どおりモデル一覧のみ・タップでその場に
+           グレードタブを展開する動作のままにする（JavaScript.htmlの
+           isPcHomeLayout_参照）。 -->
+      <div class="homeSplit">
+        <div class="homeSplit__list">
+          <div class="homeList" id="homeGrid"></div>
+          <div class="emptyState hidden" id="homeEmpty">
+            <svg class="icon emptyState__icon"><use href="#icon-image"></use></svg>
+            <p>モデル写真がまだ登録されていません。設定タブの「モデル写真」から登録できます。</p>
+          </div>
+          <div class="emptyState hidden" id="homeTypeEmpty">
+            <svg class="icon emptyState__icon"><use href="#icon-tune"></use></svg>
+            <p>該当するボディタイプのモデルが登録されていません。</p>
+          </div>
+        </div>
+        <div class="homeSplit__detail" id="homeDetail"></div>
       </div>
     </main>
 

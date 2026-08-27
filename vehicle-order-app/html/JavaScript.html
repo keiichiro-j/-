@@ -26,7 +26,8 @@
     navHistory: [], // 「戻る」ボタン用の画面履歴（タブ名のスタック）
     allInventoryItems: [], // ホーム画面の在庫台数集計専用（ツールバーの検索条件に左右されない全件）
     homeGradeFilter: null, // ホームのグレードタブクリックで設定される、絞り込み対象グレード名の配列
-    homeExpandedModel: null, // ホームで現在グレードタブを展開中のベースモデル名（1つのみ展開可能）
+    homeExpandedModel: null, // ホームで現在グレードタブを展開中のベースモデル名（タブレット・スマホ幅のみ使用。1つのみ展開可能）
+    homeSelectedModel: null, // ホームで右ペイン（#homeDetail）に詳細表示中のモデル名（PCビューのみ使用）
     homeTypeFilter: null, // ホーム上部のボディタイプ絞り込み（未選択＝「すべて」はnull）
     allOrders: [], // マイページ集計専用（受注リストの検索・絞り込み条件に左右されない全件）
     gclassItems: [], // Gクラス予約リスト（閲覧専用。Hold・受注操作は一切ない）
@@ -2149,6 +2150,11 @@
     var result = gradeCountsForEntry_(p, allItems, allModelPhotos);
     var hasGrades = result.byGrade.length > 0;
     var isExpanded = hasGrades && state.homeExpandedModel === p.model;
+    // PCビューでは、このモデルが右ペイン（#homeDetail）に詳細表示中かどうかを
+    // 示すハイライト（.homeRow--selected）を付ける。タブレット・スマホ幅では
+    // state.homeSelectedModelは常にnullのまま（selectHomeModel_はPC専用の
+    // クリック処理からしか呼ばれないため）で、このクラスが付くことはない。
+    var isSelected = state.homeSelectedModel === p.model;
     // グレードのあるモデルは▸/▾（展開・折りたたみの状態）、無いモデルは→
     // （タップすると直接在庫リストへ絞り込み遷移する合図）を、どちらも
     // フッター行（.homeRow__footer）に常時表示する。900px以下のリスト表示
@@ -2178,7 +2184,7 @@
     // の3ブロック構成。PCビューでは縦に積んだ「カードタイプUI」（写真は白背景の
     // カード内に収める）、900px以下ではCSSのorderで横一列のリスト型に組み替える
     // （Stylesheet.html参照。どちらも同じDOM構造をCSSだけで作り分けている）。
-    var rowHtml = '<' + tag + ' class="homeRow' + (isExpanded ? ' is-expanded' : '') + '"' +
+    var rowHtml = '<' + tag + ' class="homeRow' + (isExpanded ? ' is-expanded' : '') + (isSelected ? ' is-selected' : '') + '"' +
       tileAttrs +
       ' data-home-model="' + escapeHtml(p.model) + '"' +
       (hasGrades ? ' data-has-grades="true"' : '') + '>' +
@@ -2260,6 +2266,15 @@
     // 型で絞り込んだ結果、該当モデルが1件も無い場合は空のグリッドのまま放置せず、
     // その旨をわかるようにする（モデル写真自体が0件の#homeEmptyとは別の状態）。
     $('homeTypeEmpty').classList.toggle('hidden', !(modelPhotos.length > 0 && groups.length === 0));
+    // 型の絞り込みを変えた結果、右ペイン（PCビュー）で詳細表示中だったモデルが
+    // 一覧から見えなくなった場合は、選択状態を解除する（一覧に無いモデルの
+    // 詳細だけが右に残り続けるのを防ぐため）。
+    if (state.homeSelectedModel) {
+      var stillVisible = groups.some(function (g) {
+        return g.items.some(function (p) { return p.model === state.homeSelectedModel; });
+      });
+      if (!stillVisible) state.homeSelectedModel = null;
+    }
     // 型ごとに横スクロールの1行（.homeTypeRow）で並べる。展開中のモデルが
     // このグループに含まれる場合は、その1件だけを横スクロール行の外に
     // 単独の全幅ブロックとして出し（グレードタブもその直後に続く）、
@@ -2283,12 +2298,110 @@
         '</div>';
     }).join('');
     renderHomeTypeNav_();
+    renderHomeDetail_();
     // #homeTypeNavはposition: fixedのため、表示・非表示の切り替えや折り返し行数の
     // 変化（絞り込みでボタンの活性状態が変わる、モデル写真の登録数が変わる等）で
     // 高さが変わりうる。そのたびにスペーサー（#homeTypeNavSpacer）の高さも
     // 実測し直さないと、後続のモデル一覧との間隔がずれてしまう。
     syncFixedBars_();
   }
+
+  /**
+   * PCビュー（901px以上）かどうかを判定する（純粋な画面幅の判定。サイドバー・
+   * ホーム画面の2ペイン構成はこの幅でのみ有効にしている。Stylesheet.htmlの
+   * @media (min-width: 901px)と同じブレークポイント）。
+   */
+  function isPcHomeLayout_() {
+    return window.matchMedia('(min-width: 901px)').matches;
+  }
+
+  /**
+   * PCビューのホーム画面で、モデル一覧（左）のタイルをクリックした際に呼ばれる。
+   * タブレット・スマホ幅のようにその場でグレードタブを展開する／即座に在庫リストへ
+   * 遷移するのではなく、右ペイン（#homeDetail）にそのモデルの詳細（写真・グレード別
+   * 在庫数）を表示する。
+   */
+  function selectHomeModel_(modelName) {
+    state.homeSelectedModel = modelName;
+    renderHomeGallery_();
+  }
+
+  function homeDetailEmptyHtml_() {
+    return '<div class="homeDetail__empty">' +
+      '<svg class="icon emptyState__icon"><use href="#icon-image"></use></svg>' +
+      '<p>モデルを選択すると、ここに詳細が表示されます</p>' +
+      '</div>';
+  }
+
+  /**
+   * 右ペイン（#homeDetail）: 選択中モデルの詳細（モデル名・ボディタイプ・在庫台数・
+   * 写真・グレード別在庫数）を表示する。グレードが無いモデルはグレード内訳の
+   * 代わりに「在庫リストで見る」ボタンのみを表示する。
+   */
+  function homeDetailHtml_(p, result) {
+    var hasGrades = result.byGrade.length > 0;
+    var typeHtml = p.bodyType ? '<span class="homeDetail__type">' + escapeHtml(p.bodyType) + '</span>' : '';
+    var gradeBoxHtml = hasGrades
+      ? '<div class="homeGradeTabs homeDetail__gradeBox">' +
+        '<div class="homeGradeTabs__label">グレード別在庫台数</div>' +
+        '<div class="homeGradeTabs__list">' +
+        result.byGrade.map(function (g) {
+          var countClass = 'homeGradeTab__count' + (g.count === 0 ? ' homeGradeTab__count--zero' : '');
+          return '<button type="button" class="homeGradeTab" data-home-grade="' + escapeHtml(g.grade) + '">' +
+            '<span class="homeGradeTab__name">' + escapeHtml(g.grade) + '</span>' +
+            '<span class="' + countClass + '">' + g.count + '台</span>' +
+            '</button>';
+        }).join('') +
+        '</div></div>'
+      : '';
+    return '<button type="button" class="homeDetail__backBtn" id="btnHomeDetailBack">' +
+      '<svg class="icon icon--inline"><use href="#icon-back"></use></svg>戻る</button>' +
+      '<div class="homeDetail__headRow">' +
+      '<h2 class="homeDetail__title">' + escapeHtml(p.model) + typeHtml + '</h2>' +
+      '<div class="homeDetail__count"><span class="homeDetail__countNum">' + result.total + '</span>' +
+      '<span class="homeDetail__countLabel">在庫台数</span></div>' +
+      '</div>' +
+      '<div class="homeDetail__photo"><img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '"></div>' +
+      gradeBoxHtml +
+      '<button type="button" class="btn btn--primary btn--block homeDetail__cta" data-home-detail-view="' + escapeHtml(p.model) + '">在庫リストで見る</button>';
+  }
+
+  function renderHomeDetail_() {
+    var el = $('homeDetail');
+    var modelName = state.homeSelectedModel;
+    var photo = modelName
+      ? (state.modelPhotos || []).filter(function (p) { return p.model === modelName; })[0]
+      : null;
+    if (!photo) {
+      el.innerHTML = homeDetailEmptyHtml_();
+      return;
+    }
+    var result = gradeCountsForEntry_(photo, state.allInventoryItems || [], state.modelPhotos || []);
+    el.innerHTML = homeDetailHtml_(photo, result);
+  }
+
+  $('homeDetail').addEventListener('click', function (e) {
+    if (e.target.closest('#btnHomeDetailBack')) {
+      state.homeSelectedModel = null;
+      renderHomeGallery_();
+      return;
+    }
+    var gradeTab = e.target.closest('[data-home-grade]');
+    if (gradeTab) {
+      switchToTab_('inventory');
+      state.homeGradeFilter = [gradeTab.dataset.homeGrade];
+      $('inventoryKeyword').value = '';
+      loadInventory();
+      return;
+    }
+    var ctaBtn = e.target.closest('[data-home-detail-view]');
+    if (ctaBtn) {
+      switchToTab_('inventory');
+      state.homeGradeFilter = null;
+      $('inventoryKeyword').value = ctaBtn.dataset.homeDetailView;
+      loadInventory();
+    }
+  });
 
   /**
    * ホーム上部の、ボディタイプで絞り込むクイックナビ（型の名称を一列に並べた
@@ -2430,10 +2543,14 @@
   });
 
   // グレードタブ（Aクラス行の展開で現れるA180・A200等）をクリックすると、
-  // そのグレード1件だけに絞り込んだ在庫リストへ遷移する。
-  // ベースモデル行は、グレードが設定されていれば展開／折りたたみのトグルのみ行い
-  // （在庫リストへは遷移しない）、未設定であれば従来通りモデル名をキーワード
-  // 検索欄に入れて在庫リストへ遷移する。
+  // そのグレード1件だけに絞り込んだ在庫リストへ遷移する（タブレット・スマホ幅の
+  // インライン展開でのみ発生。PCビューのグレードタブは#homeDetail側にあり、
+  // そちらの専用リスナーで処理する）。
+  // ベースモデル行は、PCビューでは常に右ペイン（#homeDetail）にそのモデルの
+  // 詳細を表示するだけで、その場での展開・在庫リストへの遷移は行わない
+  // （isPcHomeLayout_）。タブレット・スマホ幅では従来どおり、グレードが設定
+  // されていれば展開／折りたたみのトグルのみ行い（在庫リストへは遷移しない）、
+  // 未設定であれば従来通りモデル名をキーワード検索欄に入れて在庫リストへ遷移する。
   $('homeGrid').addEventListener('click', function (e) {
     var gradeTab = e.target.closest('[data-home-grade]');
     if (gradeTab) {
@@ -2445,6 +2562,10 @@
     }
     var tile = e.target.closest('[data-home-model]');
     if (!tile) return;
+    if (isPcHomeLayout_()) {
+      selectHomeModel_(tile.dataset.homeModel);
+      return;
+    }
     if (tile.dataset.hasGrades === 'true') {
       var wasExpanding = state.homeExpandedModel !== tile.dataset.homeModel;
       var modelName = tile.dataset.homeModel;
