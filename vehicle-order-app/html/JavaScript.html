@@ -2040,26 +2040,42 @@
   // モデル名と在庫台数を横一列で見せることで、日常的に使う社内ツールとしての
   // 情報密度を優先する（見た目の華やかさより、パッと見て台数がわかることを重視）。
   /**
-   * 在庫リストの「モデル」列の値（グレード名。例:「CLA18」「CLA18T」）が、指定エントリの
-   * 自動判定条件に一致するかどうかを判定する（純粋関数）。
-   * 条件は「①gradePrefixで始まる」「②gradeMarkerが設定されていれば、先頭部分を
-   * 除いた残りにgradeMarkerを含む」の2つ。gradeMarker未設定のエントリ（例:「CLA Coupe」）は
-   * gradePrefixにさえ一致すれば残り全部を拾う「受け皿」になるが、gradeMarkerを設定した
-   * 他のエントリ（例:「CLA Shooting Brake」のマーカー「T」）がより具体的な条件として
-   * 先に横取りしていないかを確認し、横取りされていなければ受け皿として拾う
-   * （CLA18TZのような限定車も、残りにTを含むため横取りされる側で自動的に拾われる）。
+   * 在庫リストの「モデル」列の値（グレード名。例:「CLA18」「CLA18T」「GLE350」）に対する、
+   * 指定エントリの自動判定条件の「具体性スコア」を計算する（純粋関数）。
+   * 条件を満たさない場合は-1（不一致）。条件を満たす場合のスコアは、
+   * gradeMarkerを設定していれば大きく加点したうえでgradePrefixの文字数を加える
+   * （gradeMarker設定済み同士・未設定同士のどちらでも、より長い＝具体的な
+   * gradePrefixほど優先される）。例えば「GLE」（3文字）は「G」（1文字）より
+   * 具体的なため、「GLE350」は先頭の文字列が短い「G」（G-Classのつもりで登録した
+   * 行）ではなく、より具体的な「GLE」の方に正しく割り当てられる。
+   */
+  function gradeRuleSpecificity_(modelValue, entry) {
+    if (!entry.gradePrefix || !modelValue) return -1;
+    if (modelValue.indexOf(entry.gradePrefix) !== 0) return -1;
+    if (entry.gradeMarker) {
+      var remainder = modelValue.slice(entry.gradePrefix.length);
+      if (remainder.indexOf(entry.gradeMarker) === -1) return -1;
+      return 10000 + entry.gradePrefix.length;
+    }
+    return entry.gradePrefix.length;
+  }
+
+  /**
+   * 在庫リストの「モデル」列の値が、指定エントリの自動判定条件に一致するかどうかを
+   * 判定する（純粋関数）。同じ値に複数のエントリの条件が一致しうる場合
+   * （例:「GLE350」はgradePrefix「G」の行にもgradePrefix「GLE」の行にも一致し、
+   * 「CLA18T」はgradePrefix「CLA」（gradeMarker無し）の行にもgradePrefix「CLA」+
+   * gradeMarker「T」の行にも一致する）、gradeRuleSpecificity_で最もスコアの高い
+   * （＝最も具体的な条件の）エントリだけがその値を拾い、他のエントリには
+   * 重複してカウントされないようにする。
    */
   function matchesGradeRule_(modelValue, entry, allEntries) {
-    if (!entry.gradePrefix || !modelValue) return false;
-    if (modelValue.indexOf(entry.gradePrefix) !== 0) return false;
-    var remainder = modelValue.slice(entry.gradePrefix.length);
-    if (entry.gradeMarker) return remainder.indexOf(entry.gradeMarker) !== -1;
-    var claimedBySibling = (allEntries || []).some(function (other) {
-      if (other === entry || !other.gradePrefix || !other.gradeMarker) return false;
-      if (modelValue.indexOf(other.gradePrefix) !== 0) return false;
-      return modelValue.slice(other.gradePrefix.length).indexOf(other.gradeMarker) !== -1;
+    var score = gradeRuleSpecificity_(modelValue, entry);
+    if (score < 0) return false;
+    var isMostSpecific = !(allEntries || []).some(function (other) {
+      return other !== entry && gradeRuleSpecificity_(modelValue, other) > score;
     });
-    return !claimedBySibling;
+    return isMostSpecific;
   }
 
   /**
