@@ -1235,15 +1235,14 @@
   }
 
   /* ===== ホーム画面 =====
-     PC（901px以上）はモデル写真を全面に敷いた「ショールーム」風の5列グリッドに
-     する。写真の下部にグラデーションを重ね、モデル名・在庫台数を載せる（通常表示・
-     展開時のクローズアップ表示、どちらも同じ見せ方に統一）。並べる車両写真は
-     ボディカラーが黒色中心のため、写真自体が暗くなりがちな分、周りのUIは
-     グラデーション・文字色とも明るい配色にして、暗い車両とのコントラストを
-     確保している（.homeRow__scrim・.homeRow__model等、下部参照）。
-     タブレット・スマホ幅（900px以下）では、パッと見て在庫状況が
-     わかる情報密度を優先した横一列の「リスト」型のままにする
-     （@media (max-width: 900px)で上書き。現場の声を踏まえて選んだ元の
+     PC（901px以上）は、モデル名・ボディタイプ・在庫状況がひと目でわかる
+     「カードタイプUI」の5列グリッドにする（写真は白背景のカード内に収め、
+     以前のような写真全面オーバーレイ＋グラデーションは使わない）。
+     ヘッダー行にモデル名、中央に写真、フッター行（区切り線の下）に在庫台数と
+     矢印を置き、カードグリッド（.card__detailLink等）と同じ「詳細へ進める
+     リンク」の見せ方で統一する。タブレット・スマホ幅（900px以下）では、
+     パッと見て在庫状況がわかる情報密度を優先した横一列の「リスト」型のままに
+     する（@media (max-width: 900px)で上書き。現場の声を踏まえて選んだ元の
      レイアウトのため、狭い画面では変更しない）。 */
   .homeList {
     display: grid;
@@ -1255,37 +1254,25 @@
     display: flex;
     flex-direction: column;
     width: 100%;
-    aspect-ratio: 4 / 3;
-    padding: 0;
-    background: var(--background);
-    border: none;
+    padding: 18px;
+    background: var(--surface);
+    border: 1px solid var(--outline);
     border-radius: var(--radius);
-    overflow: hidden;
     color: var(--on-surface);
     cursor: pointer;
     text-align: left;
-    transition: box-shadow .18s ease, transform .18s ease;
+    transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
   }
-  .homeRow:hover { box-shadow: var(--shadow-elevated); transform: translateY(-3px); }
+  .homeRow:hover { box-shadow: var(--shadow-elevated); transform: translateY(-3px); border-color: var(--primary); }
   /* 展開中のタイルは、グリッドの全列ぶんの幅（grid-column: 1 / -1）を使い、
-     写真を画面中央に大きくクローズアップ表示する。写真とモデル名ラベルを
-     同じグリッドセル（grid-area: 1 / 1）に重ねて配置することで、写真の
-     実際の表示位置に関わらず、ラベルが常に写真の左上にぴったり重なる
-     ようにしている（position:absoluteで.homeRowを基準にすると、写真が
-     中央寄せでずれた分だけラベルの位置もずれてしまうため）。在庫台数バッジは
-     （下のグレードタブで内訳が見えるため）非表示にする。
-     order: -1で、どのモデルを選択してもクローズアップ表示が常にグリッドの
-     先頭（他のモデルより上）に来るようにしている（現場からの指摘で判明。
-     以前はモデル写真の登録順のままDOM順を保っていたため、先頭以外の
-     モデルを展開すると、そのモデルが元の位置に留まり、他のモデルが
-     上下に分断されて表示されてしまっていた）。 */
+     写真を大きく表示する。order: -1で、どのモデルを選択してもクローズアップ
+     表示が常にグリッドの先頭（他のモデルより上）に来るようにしている
+     （現場からの指摘で判明。以前はモデル写真の登録順のままDOM順を保っていた
+     ため、先頭以外のモデルを展開すると、そのモデルが元の位置に留まり、他の
+     モデルが上下に分断されて表示されてしまっていた）。 */
   .homeRow.is-expanded {
     grid-column: 1 / -1;
     order: -1;
-    aspect-ratio: auto;
-    display: grid;
-    justify-content: center;
-    background: none;
     /* モデルタップ時にscrollIntoView()でこのタイルまで自動スクロールする際
        （JavaScript.htmlのクリックハンドラ参照）、position: fixedのトップバー・
        型クイックナビの下に隠れてしまわないよう、その高さぶんの余白を確保する
@@ -1293,133 +1280,85 @@
     scroll-margin-top: calc(var(--home-scroll-offset, 100px) + 16px);
   }
   .homeRow.is-expanded:hover { box-shadow: none; transform: none; }
-  /* 通常表示（ショールーム風タイル）は、写真をタイル全面に敷く（position:
-     absolute; inset:0）。クローズアップ表示（.is-expanded）はgrid-areaで
-     大きく中央表示するため、grid-area指定が効くようposition:staticに戻す。 */
-  .homeRow__photo {
-    position: absolute;
-    inset: 0;
-    background: var(--background);
-  }
-  .homeRow.is-expanded .homeRow__photo {
-    position: static;
-    grid-area: 1 / 1;
-    width: min(480px, 100%);
-    aspect-ratio: 1 / 1;
-    border-radius: var(--radius);
-    z-index: 0;
-  }
-  .homeRow__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  /* 写真の下部だけを明るくするグラデーション（スクリム）。並べる車両写真は
-     ボディカラーが黒色中心で写真自体が暗くなりがちなため、以前の暗いスクリム＋
-     白文字だと車両と背景が同化して見にくかった。明るい（白系）スクリムを敷き、
-     その上のモデル名・在庫台数は濃い文字色（.homeRow__model等）にすることで、
-     暗い車両写真に対しても常にコントラストを確保する。 */
-  .homeRow__scrim {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(to top, rgba(255, 255, 255, .92) 0%, rgba(255, 255, 255, .58) 45%, rgba(255, 255, 255, 0) 78%);
-    pointer-events: none;
-  }
-  .homeRow.is-expanded .homeRow__scrim {
-    position: static;
-    grid-area: 1 / 1;
-    width: min(480px, 100%);
-    aspect-ratio: 1 / 1;
-    border-radius: var(--radius);
-  }
-  /* グレードのあるモデルは、通常表示では左上にグレード件数タグを重ねる
-     （クローズアップ表示のchevronの代わり。JavaScript.htmlのgradesTagHtml参照）。 */
-  .homeRow__gradesTag {
-    position: absolute;
-    top: 12px;
-    left: 12px;
-    z-index: 1;
-    background: rgba(255, 255, 255, .92);
-    color: var(--on-surface);
-    font-size: 11px;
-    font-weight: 700;
-    padding: 4px 10px;
-    border-radius: 999px;
-  }
-  .homeRow__meta {
-    position: absolute;
-    left: 14px;
-    right: 14px;
-    bottom: 12px;
+  /* ヘッダー行: モデル名（左）＋グレード件数タグ／「他のモデルを見る」ボタン（右）。 */
+  .homeRow__header {
     display: flex;
-    align-items: flex-end;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 8px;
-    z-index: 1;
   }
-  .homeRow.is-expanded .homeRow__meta {
-    position: static;
-    grid-area: 1 / 1;
-    align-self: start;
-    justify-self: start;
-    left: auto; right: auto; bottom: auto;
-    /* 写真の実際の幅（min(480px, 100%)）を超えないようにする。これが無いと、
-     * 長いモデル名（例:「CLA Shooting Brake」）が写真の外まではみ出し、
-     * 右上の「他のモデルを見る」ボタンと重なってしまう不具合があった
-     * （.homeRow__modelのoverflow: hidden・text-overflow: ellipsisは、
-     * 親であるこの要素が幅を持って初めて効くため）。 */
-    max-width: calc(min(480px, 100%) - 24px);
-    overflow: hidden;
-    margin: 12px;
-    padding: 6px 12px;
-    z-index: 1;
+  .homeRow__model {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -.005em;
+    line-height: 1.3;
   }
-  .homeRow.is-expanded .homeRow__meta,
-  .homeRow.is-expanded .homeRow__meta .homeRow__chevron {
-    color: var(--on-surface);
-    text-shadow: none;
-  }
-  .homeRow.is-expanded .badge--count { display: none; }
-  /* 「他のモデルを見る」ボタン: モデル名ラベルとは逆の右上隅に重ねる。
-     押すと展開を解除し、他のモデルが並ぶ通常のグリッド表示に戻る
-     （#homeGridのクリック委譲で、.homeRow自体のトグル処理がそのまま効く）。
-     ラベルとは異なり操作ボタンのため、タップ可能であることが伝わるよう
-     薄い白背景のピル型にしている（写真を大きく塗りつぶすラベル背景とは
-     区別し、operationであることを示す最小限の塗りに留める）。 */
-  .homeRow__backBtn {
-    display: none;
-  }
-  .homeRow.is-expanded .homeRow__backBtn {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    grid-area: 1 / 1;
-    align-self: start;
-    justify-self: end;
-    margin: 12px;
-    padding: 6px 14px;
-    border: none;
+  /* グレードのあるモデルは、通常表示ではヘッダー行にグレード件数タグを添える
+     （クローズアップ表示では代わりに「他のモデルを見る」ボタンが同じ位置に入る。
+     JavaScript.htmlのgradesTagHtml参照）。 */
+  .homeRow__gradesTag {
+    flex: none;
+    background: var(--primary-bg);
+    color: var(--primary-text);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
     border-radius: 999px;
-    background: rgba(255, 255, 255, .92);
-    color: var(--on-surface);
+    white-space: nowrap;
+  }
+  /* 「他のモデルを見る」ボタン: 押すと展開を解除し、他のモデルが並ぶ通常の
+     グリッド表示に戻る（#homeGridのクリック委譲で、.homeRow自体のトグル処理が
+     そのまま効く）。ヘッダー行のグレード件数タグと同じ位置に収まる、控えめな
+     テキストリンクにする。 */
+  .homeRow__backBtn {
+    flex: none;
+    border: none;
+    background: none;
+    color: var(--primary-text);
     font-size: 12.5px;
     font-weight: 600;
     cursor: pointer;
-    box-shadow: var(--shadow);
-    z-index: 1;
+    padding: 0;
+    white-space: nowrap;
   }
-  .homeRow__backBtn:hover { background: #fff; }
-  .homeRow__model {
-    flex: 1; min-width: 0;
-    font-size: 16px; font-weight: 600; letter-spacing: -.005em;
-    color: var(--on-surface);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  .homeRow__backBtn:hover { text-decoration: underline; }
+  .homeRow__photo {
+    aspect-ratio: 4 / 3;
+    background: var(--background);
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 14px 0;
   }
-  /* ショールーム風タイルは写真の上に直接載るため、常にコントラストを確保できる
-     白地の不透明ピルにする（在庫リストの--primary-bg系バッジは、写真ではなく
-     カード地の上で使う前提のため、ここでは流用しない）。 */
-  .badge--count { background: rgba(255, 255, 255, .92); color: var(--topbar-bg); font-weight: 700; flex: none; }
-  /* 通常表示ではグレード件数タグ（.homeRow__gradesTag）がその役割を担うため、
-     chevronはクローズアップ表示（.is-expanded）でのみ表示する
-     （900px以下のリスト型表示では、下のメディアクエリで再度表示する）。 */
-  .homeRow:not(.is-expanded) .homeRow__chevron { display: none; }
-  .homeRow__chevron { flex: none; font-size: 13px; color: var(--on-surface-variant); }
+  .homeRow.is-expanded .homeRow__photo { aspect-ratio: 16 / 9; }
+  .homeRow__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  /* フッター行: 在庫台数（左・アクセントカラー）＋矢印（右）。上に区切り線を
+     引き、写真の下でひと目でわかる「詳細へ進めるリンク」の見せ方にする
+     （カードグリッドの.card__detailLink・.orderCard__detailLinkと同じ
+     デザイン言語で統一）。 */
+  .homeRow__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid var(--outline);
+    padding-top: 12px;
+    margin-top: auto;
+  }
+  .homeRow__footer .badge--count {
+    background: none;
+    color: var(--primary-text);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    padding: 0;
+  }
+  .homeRow__footer .homeRow__chevron {
+    display: inline;
+    flex: none;
+    color: var(--primary-text);
+    font-size: 15px;
+  }
+  .homeRow__chevron--nav { font-size: 16px; }
 
   /* ===== ホームのグレードタブ（グレードが設定されたモデル行を展開すると現れる） =====
      PCの5列グリッドでは、展開したタイルの直下に全列ぶんの幅で表示する
@@ -1467,6 +1406,183 @@
   /* 在庫0台のグレードは、Hold中も無くまとまった在庫の当てがないことがひと目で
      わかるよう、件数を赤文字にする。 */
   .homeGradeTab__count--zero { color: var(--danger); font-weight: 700; }
+
+  /* ===== PC専用: 左サイドバーナビゲーション =====
+     901px以上でのみ表示する（タブレット・スマホ幅では従来どおりtopbar内の
+     .tabsを使う。サイドバー方式は狭い画面では畳む必要が生じ、既存の実務向け
+     レイアウトを壊してしまうため、PCビューのみに限定した）。ナビ項目・
+     ユーザー情報の実体はIndex.html参照。ロゴ・担当者情報はJavaScript.htmlの
+     applyLogo/renderTopbarUserがtopbar側と共通の内容を反映する。
+     デフォルトでは非表示にし、下のメディアクエリでのみ表示する。 */
+  .sidebar { display: none; }
+  /* PCビューの見出し（アプリ名）。タブレット・スマホ幅では非表示にし、
+     従来どおり.topbar__brand（中央配置のロゴ＋アプリ名）を使う。 */
+  .topbar__pcTitle { display: none; }
+
+  @media (min-width: 901px) {
+    :root { --sidebar-w: 232px; }
+
+    #app { padding-left: var(--sidebar-w); }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--outline);
+      padding: 20px 0;
+      z-index: 32;
+    }
+    .sidebar__brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 20px 18px;
+      margin-bottom: 8px;
+      border-bottom: 1px solid var(--outline);
+    }
+    .sidebar__logo { height: 28px; width: auto; max-width: 100%; object-fit: contain; }
+    .sidebar__brandText {
+      font-size: 13.5px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      color: var(--on-surface);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .sidebarNav { display: flex; flex-direction: column; gap: 2px; padding: 0 12px; flex: 1; overflow-y: auto; }
+    /* .tabs__itemの大文字・トラッキング広め・下線アクティブ表示は水平タブ用の
+       スタイルのため、サイドバーの縦積みリスト用に上書きする
+       （border: noneでborder-styleをnoneにするため、.tabs__item.is-activeの
+       border-bottom-colorが後から効いても実際には描画されない）。 */
+    .sidebarNav__item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border: none;
+      border-radius: 8px;
+      background: none;
+      color: var(--on-surface-variant);
+      opacity: 1;
+      font-size: 13.5px;
+      font-weight: 600;
+      text-transform: none;
+      letter-spacing: normal;
+      text-align: left;
+      cursor: pointer;
+      transition: background-color .15s ease, color .15s ease;
+    }
+    .sidebarNav__item .icon { flex: none; }
+    .sidebarNav__item:hover { background: var(--background); color: var(--on-surface); opacity: 1; }
+    .sidebarNav__item.is-active {
+      background: var(--primary-bg);
+      color: var(--primary-text);
+      border-bottom-color: transparent;
+    }
+
+    .sidebarUser {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 16px 0;
+      margin-top: 8px;
+      border-top: 1px solid var(--outline);
+    }
+    .sidebarUser__avatar {
+      flex: none;
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: var(--primary-bg);
+      color: var(--primary-text);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700;
+    }
+    .sidebarUser__info { min-width: 0; font-size: 11.5px; line-height: 1.5; }
+    .sidebarUser__info .topbar__userName {
+      display: block; font-weight: 600; font-size: 12.5px; color: var(--on-surface);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sidebarUser__info .topbar__userEmail {
+      display: block; color: var(--on-surface-variant); font-size: 11px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sidebarUser__info .topbar__userWarn { font-size: 10.5px; padding: 3px 8px; }
+
+    /* トップバー: ロゴ・ナビ・ユーザー情報はサイドバーに移るため、
+       ページ見出し（.topbar__pcTitle）と戻る／更新ボタンだけが残る
+       スリムなヘッダーになる。左端はサイドバー幅ぶんずれる。 */
+    .topbar {
+      left: var(--sidebar-w);
+      background: var(--surface);
+      color: var(--on-surface);
+      border-bottom: 1px solid var(--outline);
+      box-shadow: none;
+    }
+    .topbar__brandRow { padding: 20px 32px; }
+    .topbar__brand, .topbar__user, .tabs { display: none; }
+    .topbar__pcTitle {
+      display: block;
+      order: 1;
+      flex: 1;
+      font-size: 21px;
+      font-weight: 700;
+      letter-spacing: -.005em;
+      color: var(--on-surface);
+    }
+    .topbar__left { order: 2; }
+    .topbar__navBtn { border-color: var(--outline); color: var(--on-surface-variant); }
+    .topbar__navBtn:hover { background: var(--background); }
+    .topbar__navBtn:disabled:hover { background: transparent; }
+
+    /* main.viewは全幅を使い、position: fixedのトップバー・ツールバー同様
+       サイドバー幅ぶんのpaddingは#app側で既に確保済みのため、ここでは
+       中央寄せ用のmax-width/marginを解除するだけでよい。 */
+    main.view { max-width: none; margin: 0; padding: 24px 32px 40px; }
+
+    /* 検索欄・ボディタイプ絞り込みナビはposition: fixedで画面上部に固定
+       しているため（left: 50% + transform: translateX(-50%)で全幅中央寄せ）、
+       サイドバーぶん左に寄せて、コンテンツ列と同じ横幅に揃える。 */
+    .toolbar, .homeTypeNav {
+      left: calc(var(--sidebar-w) + 24px);
+      right: 24px;
+      transform: none;
+      width: auto;
+      max-width: none;
+    }
+
+    /* ホームのボディタイプ絞り込みナビ: ピル型ボタンではなく、メインナビ
+       （.tabs）と同じ「テキスト＋アクティブ時の下線」のミニマルな水平タブに
+       する（見た目を統一するため）。 */
+    .homeTypeNav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 28px;
+      background: none;
+      box-shadow: none;
+      border-bottom: 1px solid var(--outline);
+      padding: 0 0 14px;
+      border-radius: 0;
+    }
+    .homeTypeNav__item {
+      padding: 4px 0 12px;
+      border: none;
+      border-bottom: 2px solid transparent;
+      border-radius: 0;
+      background: none;
+      color: var(--on-surface-variant);
+      font-size: 12.5px;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .homeTypeNav__item:hover { background: none; color: var(--on-surface); border-color: var(--outline); }
+    .homeTypeNav__item.is-active { background: none; color: var(--primary-text); border-bottom-color: var(--primary); }
+  }
 
   /* ===== リード番号入力（「L-」固定接頭辞＋数字。Google×Tesla風の見出し扱いにする） ===== */
   .leadNumberField {
@@ -1650,18 +1766,14 @@
     .homeTypeNav { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .homeTypeHeader { margin: 10px 2px 6px; font-size: 17px; }
 
-    /* ホーム画面: PCの5列グリッド（写真を大きく見せるタイル型）ではなく、
+    /* ホーム画面: PCの5列カードグリッド（写真主体のカードタイプUI）ではなく、
        元の「実務重視リスト型」（横一列・小さめの写真）に戻す。タブレット・
-       スマホ幅では情報密度を優先するため（現場の声を踏まえた元のレイアウト）。 */
+       スマホ幅では情報密度を優先するため（現場の声を踏まえた元のレイアウト）。
+       DOM構造（ヘッダー・写真・フッターの3要素）自体はPC・タブレット/スマホで
+       共通のまま（JavaScript.htmlのhomeModelTileHtml_参照）、CSSのorderだけで
+       横一列に組み替える。 */
     .homeList { display: flex; flex-direction: column; max-width: 100%; }
-    /* PC専用の「ショールーム」風オーバーレイタイル（上部参照）を打ち消し、
-       タブレット・スマホ幅では従来どおり写真は小さめの正方形サムネイル、
-       文字は写真の隣に並べる横一列リストのままにする（写真に文字を重ねる
-       レイアウトではないため、position: absolute・グラデーション・
-       グレード件数タグもすべてPC専用として打ち消す）。 */
     .homeRow {
-      position: static;
-      aspect-ratio: auto;
       overflow: visible;
       flex-direction: row;
       align-items: center;
@@ -1673,15 +1785,13 @@
       border-radius: 0;
     }
     .homeRow:first-child { border-top: 1px solid var(--outline); }
-    .homeRow:hover { background: rgba(31, 41, 51, .04); box-shadow: none; transform: none; }
+    .homeRow:hover { background: rgba(31, 41, 51, .04); box-shadow: none; transform: none; border-color: transparent; }
     /* PC専用の「クローズアップ」展開表示（.homeRow.is-expanded、上部参照）を
        打ち消し、タブレット・スマホ幅では従来の横一列リストのままにする
-       （写真に文字を重ねるレイアウトではないため、order・
-       「他のモデルを見る」ボタンもすべてPC専用として打ち消す）。 */
+       （order・「他のモデルを見る」ボタンもすべてPC専用として打ち消す）。 */
     .homeRow.is-expanded {
       grid-column: auto;
       order: 0;
-      aspect-ratio: auto;
       display: flex;
       justify-content: normal;
       padding: 14px 6px;
@@ -1689,29 +1799,29 @@
       border-color: transparent;
       border-bottom-color: transparent;
     }
-    .homeRow__photo { position: static; width: 76px; height: 76px; aspect-ratio: auto; flex: none; }
-    .homeRow.is-expanded .homeRow__photo { width: 76px; border-radius: 8px; }
-    .homeRow__scrim { display: none; }
+    .homeRow__photo { order: 1; width: 76px; height: 76px; aspect-ratio: auto; flex: none; margin: 0; }
+    .homeRow.is-expanded .homeRow__photo { width: 76px; aspect-ratio: auto; }
+    .homeRow__header { order: 2; flex: 1; min-width: 0; }
     .homeRow__gradesTag { display: none; }
-    .homeRow:not(.is-expanded) .homeRow__chevron { display: inline; }
-    .homeRow__meta { position: static; flex: 1; min-width: 0; gap: 18px; }
-    .homeRow__model { color: var(--on-surface); text-shadow: none; }
-    .badge--count { background: var(--primary-bg); color: var(--primary-text); }
-    .homeRow.is-expanded .homeRow__meta {
-      align-self: auto;
-      justify-self: auto;
-      margin: 0;
-      background: none;
-      padding: 0;
-      border-radius: 0;
+    .homeRow__model { color: var(--on-surface); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .homeRow__footer {
+      order: 3;
+      flex: none;
+      border-top: none;
+      padding-top: 0;
+      margin-top: 0;
+      gap: 10px;
     }
-    .homeRow.is-expanded .homeRow__meta { position: static; background: none; padding: 0; border-radius: 0; }
-    .homeRow.is-expanded .homeRow__meta,
-    .homeRow.is-expanded .homeRow__meta .homeRow__chevron {
-      color: var(--on-surface);
-      text-shadow: none;
+    .homeRow__footer .badge--count {
+      background: var(--primary-bg);
+      color: var(--primary-text);
+      padding: 5px 12px;
+      border-radius: 999px;
+      text-transform: none;
+      letter-spacing: normal;
+      font-size: 12px;
     }
-    .homeRow.is-expanded .badge--count { display: inline-flex; }
+    .homeRow__footer .homeRow__chevron { color: var(--on-surface-variant); font-size: 13px; }
     .homeRow.is-expanded .homeRow__backBtn { display: none; }
     .homeGradeTabs {
       grid-column: auto;
@@ -1754,7 +1864,7 @@
     .cardGrid { grid-template-columns: 1fr; gap: 12px; }
     .homeRow { gap: 12px; }
     .homeRow__photo { width: 60px; height: 60px; }
-    .homeRow__meta { gap: 12px; }
+    .homeRow__footer { gap: 8px; }
     .homeGradeTabs { margin-left: 72px; padding-left: 12px; }
     .settingsCard, .settingsActions { padding: 18px 16px; }
     .card { padding: 16px 18px; }

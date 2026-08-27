@@ -232,6 +232,17 @@
     switchToTab_(btn.dataset.tab);
   });
 
+  // 左サイドバー（PCビューのみ表示。Stylesheet.html参照）のナビ項目も、
+  // mainTabsと同じswitchToTab_をそのまま呼ぶ。ボタン自体がmainTabsの各項目と
+  // 同じ.tabs__itemクラスを共有しているため、is-active状態の同期は
+  // switchToTab_側の一括トグル（document.querySelectorAll('.tabs__item')）で
+  // 自動的に行われる。
+  document.getElementById('sidebarNav').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-tab]');
+    if (!btn) return;
+    switchToTab_(btn.dataset.tab);
+  });
+
   function syncNavButtons_() {
     $('btnNavBack').disabled = state.navHistory.length === 0;
   }
@@ -982,12 +993,19 @@
     var name = currentStaffName_();
     var email = currentUserEmail_();
     var el = $('topbarUser');
+    var infoHtml;
     if (name) {
-      el.innerHTML = '<span class="topbar__userName">' + escapeHtml(name) + '</span>' +
+      infoHtml = '<span class="topbar__userName">' + escapeHtml(name) + '</span>' +
         '<span class="topbar__userEmail">' + escapeHtml(email) + '</span>';
     } else {
-      el.innerHTML = '<span class="topbar__userWarn">担当者未登録: ' + escapeHtml(email || '不明') + '</span>';
+      infoHtml = '<span class="topbar__userWarn">担当者未登録: ' + escapeHtml(email || '不明') + '</span>';
     }
+    el.innerHTML = infoHtml;
+    // 左サイドバー（PCビューのみ）のユーザー情報にも同じ内容を反映する。
+    // アバターは担当者名の先頭1文字（未登録の場合は「?」）を表示するのみの
+    // 簡易的なもの（画像アップロード等の機能は持たない）。
+    $('sidebarUserInfo').innerHTML = infoHtml;
+    $('sidebarUserAvatar').textContent = name ? name.charAt(0) : '?';
   }
 
   // ===== 在庫データ整合性チェック（アプリ起動時に1回だけ実行） =====
@@ -1734,15 +1752,17 @@
   var LOGO_URL_MAX_LENGTH_CLIENT = 9000;
 
   function applyLogo(logoUrl) {
-    var img = $('topbarLogo');
-    if (logoUrl) {
-      img.onload = syncFixedBars_;
-      img.src = logoUrl;
-      img.classList.remove('hidden');
-    } else {
-      img.removeAttribute('src');
-      img.classList.add('hidden');
-    }
+    // 左サイドバー（PCビューのみ）のロゴにも同じ画像を反映する。
+    [$('topbarLogo'), $('sidebarLogo')].forEach(function (img) {
+      if (logoUrl) {
+        img.onload = syncFixedBars_;
+        img.src = logoUrl;
+        img.classList.remove('hidden');
+      } else {
+        img.removeAttribute('src');
+        img.classList.add('hidden');
+      }
+    });
     syncFixedBars_();
   }
 
@@ -2124,15 +2144,17 @@
     var result = gradeCountsForEntry_(p, allItems, allModelPhotos);
     var hasGrades = result.byGrade.length > 0;
     var isExpanded = hasGrades && state.homeExpandedModel === p.model;
+    // グレードのあるモデルは▸/▾（展開・折りたたみの状態）、無いモデルは→
+    // （タップすると直接在庫リストへ絞り込み遷移する合図）を、どちらも
+    // フッター行（.homeRow__footer）に常時表示する。900px以下のリスト表示
+    // では以前と同じ位置（モデル名の右）に見せるため、CSS側の
+    // .homeRow__footerがそのままメタ情報行としても機能する
+    // （Stylesheet.html参照）。
     var chevronHtml = hasGrades
       ? '<span class="homeRow__chevron">' + (isExpanded ? '▾' : '▸') + '</span>'
-      : '';
-    // 「ショールーム」風タイル: 通常表示でも写真をタイル全面に敷き、下部に
-    // グラデーション＋白文字でモデル名・在庫台数を重ねる（展開時のクローズ
-    // アップ表示と同じ見せ方に統一。CSS側でPC専用・900px以下では元の見た目に
-    // 戻す。Stylesheet.htmlの.homeRow参照）。グレードのあるモデルは、通常
-    // 表示では小さなchevronの代わりに左上の件数タグでその場で分かるようにする
-    // （chevron自体は残し、900px以下のリスト表示ではそちらを使う）。
+      : '<span class="homeRow__chevron homeRow__chevron--nav">→</span>';
+    // グレードのあるモデルは、通常表示ではヘッダー行に件数タグを添える
+    // （展開中は代わりに「他のモデルを見る」ボタンを表示する）。
     var gradesTagHtml = (hasGrades && !isExpanded)
       ? '<span class="homeRow__gradesTag">' + result.byGrade.length + 'グレード</span>'
       : '';
@@ -2147,16 +2169,20 @@
     var backBtnHtml = isExpanded
       ? '<button type="button" class="homeRow__backBtn">◂ 他のモデルを見る</button>'
       : '';
+    // ヘッダー（モデル名＋件数タグ／戻るボタン）→写真→フッター（在庫台数＋矢印）
+    // の3ブロック構成。PCビューでは縦に積んだ「カードタイプUI」（写真は白背景の
+    // カード内に収める）、900px以下ではCSSのorderで横一列のリスト型に組み替える
+    // （Stylesheet.html参照。どちらも同じDOM構造をCSSだけで作り分けている）。
     var rowHtml = '<' + tag + ' class="homeRow' + (isExpanded ? ' is-expanded' : '') + '"' +
       tileAttrs +
       ' data-home-model="' + escapeHtml(p.model) + '"' +
       (hasGrades ? ' data-has-grades="true"' : '') + '>' +
-      backBtnHtml +
-      gradesTagHtml +
-      '<div class="homeRow__photo"><img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '"></div>' +
-      '<div class="homeRow__scrim"></div>' +
-      '<div class="homeRow__meta">' +
+      '<div class="homeRow__header">' +
       '<div class="homeRow__model">' + escapeHtml(p.model) + '</div>' +
+      gradesTagHtml + backBtnHtml +
+      '</div>' +
+      '<div class="homeRow__photo"><img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '"></div>' +
+      '<div class="homeRow__footer">' +
       '<span class="badge badge--count">在庫' + result.total + '台</span>' +
       chevronHtml +
       '</div>' +
