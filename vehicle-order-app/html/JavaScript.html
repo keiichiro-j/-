@@ -207,6 +207,12 @@
     document.querySelectorAll('.tabs__item').forEach(function (t) { t.classList.toggle('is-active', t.dataset.tab === tabName); });
     document.querySelectorAll('main.view').forEach(function (v) { v.classList.remove('is-active'); });
     $('view-' + tabName).classList.add('is-active');
+    // ホームタブの間だけ、PCビューの共通トップバーを非表示にし（Stylesheet.html
+    // 参照）、代わりにホーム画面自身の2つのヘッダー（中央パネルのアプリ名見出し・
+    // 右パネルの戻る／更新ボタン）を使う。トップバーが非表示になると
+    // offsetHeightが0になるため、直後のsyncFixedBars_()が--topbar-hを自動的に
+    // 0へ更新し、#appの上余白も連動して詰まる（手動での余白調整は不要）。
+    document.body.classList.toggle('is-home-tab', tabName === 'home');
     // 全タブは同じ1つのdocument上でdisplay: none/blockを切り替えているだけの
     // ため、スクロール位置はタブをまたいで共有されてしまう（例: ホームで
     // スクロールした状態でモデルをクリックすると、在庫リストも同じスクロール
@@ -244,30 +250,40 @@
     switchToTab_(btn.dataset.tab);
   });
 
+  // 「戻る」「更新」ボタンは、共通トップバー側（#btnNavBack/#btnRefresh）と
+  // ホーム画面・右パネル自身のヘッダー側（#btnNavBackHome/#btnRefreshHome）の
+  // 2箇所に存在する（PCビューではホームタブの間だけ共通トップバーを隠し、
+  // 右パネル側のボタンに役目を譲るため。Index.html・Stylesheet.html参照）。
+  // どちらも同じ処理を呼ぶ共通ハンドラにし、有効/無効state・スピナー表示も
+  // 両方に同時に反映する。
   function syncNavButtons_() {
-    $('btnNavBack').disabled = state.navHistory.length === 0;
+    var disabled = state.navHistory.length === 0;
+    $('btnNavBack').disabled = disabled;
+    $('btnNavBackHome').disabled = disabled;
   }
 
-  $('btnNavBack').addEventListener('click', function () {
+  function handleNavBackClick_() {
     var prev = state.navHistory.pop();
     if (!prev) return;
     switchToTab_(prev, { skipHistory: true });
     syncNavButtons_();
-  });
+  }
+  $('btnNavBack').addEventListener('click', handleNavBackClick_);
+  $('btnNavBackHome').addEventListener('click', handleNavBackClick_);
 
-  $('btnRefresh').addEventListener('click', function () {
-    var btn = this;
-    btn.disabled = true;
-    btn.classList.add('is-spinning');
+  function handleRefreshClick_() {
+    var btns = [$('btnRefresh'), $('btnRefreshHome')];
+    btns.forEach(function (b) { b.disabled = true; b.classList.add('is-spinning'); });
     reloadAll_().then(function () {
       showToast('最新の情報に更新しました');
     }).catch(function (err) {
       showToast(err.message, true);
     }).then(function () {
-      btn.disabled = false;
-      btn.classList.remove('is-spinning');
+      btns.forEach(function (b) { b.disabled = false; b.classList.remove('is-spinning'); });
     });
-  });
+  }
+  $('btnRefresh').addEventListener('click', handleRefreshClick_);
+  $('btnRefreshHome').addEventListener('click', handleRefreshClick_);
 
   // ===== モーダル共通 =====
   document.querySelectorAll('[data-close-modal]').forEach(function (btn) {
@@ -2375,9 +2391,7 @@
       escapeHtml(prevModel || '') + '" aria-label="前のモデル"' + (prevModel ? '' : ' disabled') + '>&#9664;</button>' +
       '<button type="button" class="homeDetail__navBtn homeDetail__navBtn--next" data-home-detail-next="' +
       escapeHtml(nextModel || '') + '" aria-label="次のモデル"' + (nextModel ? '' : ' disabled') + '>&#9654;</button>';
-    return '<button type="button" class="homeDetail__backBtn" id="btnHomeDetailBack">' +
-      '<svg class="icon icon--inline"><use href="#icon-back"></use></svg>戻る</button>' +
-      '<div class="homeDetail__headRow">' +
+    return '<div class="homeDetail__headRow">' +
       '<h2 class="homeDetail__title">' + escapeHtml(p.model) + typeHtml + '</h2>' +
       '<div class="homeDetail__count"><span class="homeDetail__countNum">' + result.total + '</span>' +
       '<span class="homeDetail__countLabel">在庫台数</span></div>' +
@@ -2394,6 +2408,11 @@
     var photo = modelName
       ? (state.modelPhotos || []).filter(function (p) { return p.model === modelName; })[0]
       : null;
+    // 「一覧に戻る」ボタンは、右パネル自身のヘッダー（.homeSplit__detailHeader）内の
+    // 静的な要素のため（#homeDetailの外。Index.html参照）、選択解除で消える/現れる
+    // ようにここで表示・非表示だけ切り替える（クリック処理は別途addEventListener
+    // で直接このボタンに付与している）。
+    $('btnHomeDetailBack').classList.toggle('hidden', !photo);
     if (!photo) {
       el.innerHTML = homeDetailEmptyHtml_();
       return;
@@ -2406,12 +2425,12 @@
     el.innerHTML = homeDetailHtml_(photo, result, prevModel, nextModel);
   }
 
+  $('btnHomeDetailBack').addEventListener('click', function () {
+    state.homeSelectedModel = null;
+    renderHomeGallery_();
+  });
+
   $('homeDetail').addEventListener('click', function (e) {
-    if (e.target.closest('#btnHomeDetailBack')) {
-      state.homeSelectedModel = null;
-      renderHomeGallery_();
-      return;
-    }
     var gradeTab = e.target.closest('[data-home-grade]');
     if (gradeTab) {
       switchToTab_('inventory');

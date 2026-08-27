@@ -23,7 +23,7 @@
   <link rel="apple-touch-icon" href="<?!= appleTouchIconDataUri_() ?>">
   <?!= include('html/Stylesheet'); ?>
 </head>
-<body>
+<body class="is-home-tab">
   <!-- Google/Teslaのようなミニマルな線画アイコン一式（外部アイコンライブラリ非依存。
        個々の絵文字アイコンの代わりに使う。<use>で参照する）。 -->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -194,20 +194,34 @@
 
     <!-- ホーム -->
     <main class="view is-active" id="view-home">
-      <!-- PCビューのみ、モデル一覧（左）と選択中モデルの詳細（右）の2ペイン構成にする
+      <!-- PCビューのみ、モデル一覧（中央）と選択中モデルの詳細（右）の2ペイン構成にする
            （.homeSplit、Stylesheet.html参照）。タブレット・スマホ幅では
            #homeDetailを表示せず、従来どおりモデル一覧のみ・タップでその場に
            グレードタブを展開する動作のままにする（JavaScript.htmlの
-           isPcHomeLayout_参照）。型クイックナビ（#homeTypeNav）は.homeSplit__list
-           （モデル一覧パネル）の直上に置き、PCビューではそのパネル内で
-           position: stickyにしてモデルカードの上に常に表示させる
-           （タブレット・スマホ幅は従来どおりposition: fixedで画面上部に固定する。
-           Stylesheet.html参照。ネストしていてもposition: fixedは引き続き
+           isPcHomeLayout_参照）。
+           PCビューでは、共通のトップバー（戻る／更新ボタン＋アプリ名見出し）を
+           ホームタブの間だけ非表示にし（body.is-home-tab、Stylesheet.html参照）、
+           代わりにアプリ名見出しを中央パネル自身のヘッダー（.homeSplit__listHeader）、
+           戻る／更新ボタンを右パネル自身のヘッダー（.homeSplit__detailHeader）に
+           それぞれ持たせる。これにより「サイドバー／中央パネル／右パネル」の
+           3つの区画だけになる（以前は共通トップバーを含めて見た目上4区画あった）。
+           戻る／更新ボタン（#btnNavBackHome/#btnRefreshHome）は、共通トップバー側の
+           ボタン（#btnNavBack/#btnRefresh）と同じ処理を呼ぶ別要素（JavaScript.html
+           のhandleNavBackClick_/handleRefreshClick_・syncNavButtons_参照。タブレット・
+           スマホ幅では#homeSplit__detailHeader自体を非表示にするため、共通トップバーの
+           ボタンだけが使われる）。
+           型クイックナビ（#homeTypeNav）は中央パネル自身のヘッダー内に置き、
+           PCビューではヘッダーごとposition: stickyにしてモデルカードの上に常に
+           表示させる（タブレット・スマホ幅は従来どおりposition: fixedで画面上部に
+           固定する。Stylesheet.html参照。ネストしていてもposition: fixedは引き続き
            ビューポート基準で配置されるため、この入れ子は狭い画面の挙動には
            影響しない）。 -->
       <div class="homeSplit">
         <div class="homeSplit__list">
-          <div class="homeTypeNav hidden" id="homeTypeNav" role="tablist" aria-label="ボディタイプで絞り込み"></div>
+          <div class="homeSplit__listHeader">
+            <div class="homeSplit__listTitle">販売可能リスト</div>
+            <div class="homeTypeNav hidden" id="homeTypeNav" role="tablist" aria-label="ボディタイプで絞り込み"></div>
+          </div>
           <div class="homeTypeNavSpacer" id="homeTypeNavSpacer"></div>
           <div class="homeList" id="homeGrid"></div>
           <div class="emptyState hidden" id="homeEmpty">
@@ -219,7 +233,24 @@
             <p>該当するボディタイプのモデルが登録されていません。</p>
           </div>
         </div>
-        <div class="homeSplit__detail" id="homeDetail"></div>
+        <div class="homeSplit__detail">
+          <div class="homeSplit__detailHeader">
+            <button type="button" class="topbar__navBtn" id="btnNavBackHome" title="戻る" aria-label="1つ前の画面に戻る" disabled>
+              <svg class="icon"><use href="#icon-back"></use></svg>
+            </button>
+            <button type="button" class="topbar__navBtn topbar__navBtn--refresh" id="btnRefreshHome" title="更新" aria-label="最新の情報に更新">
+              <svg class="icon"><use href="#icon-refresh"></use></svg>
+            </button>
+            <!-- モデル選択中のみ表示する「一覧に戻る」（選択解除。ページ遷移ではなく
+                 state.homeSelectedModelをクリアするだけ。renderHomeDetail_参照）。
+                 左の#btnNavBackHome（タブ間の画面履歴を戻る、アイコンのみ）とは
+                 別の操作のため、テキスト付きではっきり区別する。 -->
+            <button type="button" class="homeDetail__backBtn hidden" id="btnHomeDetailBack">
+              <svg class="icon icon--inline"><use href="#icon-back"></use></svg>一覧に戻る
+            </button>
+          </div>
+          <div class="homeSplit__detailBody" id="homeDetail"></div>
+        </div>
       </div>
     </main>
 

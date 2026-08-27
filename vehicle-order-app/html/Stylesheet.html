@@ -1395,6 +1395,11 @@
      詳細度で負けてしまう。ここでも同じ.homeSplit__detailクラスセレクタで
      揃えておき、メディアクエリ側を後勝ちで上書きさせる。 */
   .homeSplit__detail { display: none; }
+  /* アプリ名見出し（.homeSplit__listTitle）は、共通トップバーの見出しを
+     ホームタブの間だけ非表示にするPC専用の構成の一部のため、タブレット・
+     スマホ幅では表示しない（それらの幅では共通トップバーが従来どおり
+     アプリ名を表示するため、二重表示を防ぐ）。 */
+  .homeSplit__listTitle { display: none; }
 
   /* ===== ホームのグレードタブ（グレードが設定されたモデル行を展開すると現れる） =====
      PCでは、展開したタイル（そのモデルの型セクション内）の直下にそのまま表示する
@@ -1577,6 +1582,14 @@
     .topbar__navBtn { border-color: var(--outline); color: var(--on-surface-variant); }
     .topbar__navBtn:hover { background: var(--background); }
     .topbar__navBtn:disabled:hover { background: transparent; }
+    /* ホームタブの間は、この共通トップバーを非表示にする。アプリ名見出しは
+       中央パネル自身のヘッダー（.homeSplit__listHeader）、戻る／更新ボタンは
+       右パネル自身のヘッダー（.homeSplit__detailHeader）にそれぞれ役目を譲るため
+       （サイドバー／中央パネル／右パネルの3区画だけにする。JavaScript.htmlの
+       switchToTab_参照）。非表示になるとoffsetHeightが0になるため、直後の
+       syncFixedBars_()が--topbar-hを自動的に0へ更新し、#appの上余白も
+       連動して詰まる。 */
+    body.is-home-tab .topbar { display: none; }
 
     /* main.viewは全幅を使い、position: fixedのトップバー・ツールバー同様
        サイドバー幅ぶんのpaddingは#app側で既に確保済みのため、ここでは
@@ -1595,30 +1608,46 @@
       max-width: none;
     }
 
-    /* ホームのボディタイプ絞り込みナビ: モデル一覧パネル（.homeSplit__list）の
-       内側、カード一覧の直上にposition: stickyで留め、スクロールしても常に
-       押せる状態を保つ（トップバーへドッキングしていた以前のバージョンから、
-       中央パネルの一部として「モデルカードの上」に置く構成に変更した）。
-       ボタンの見た目自体はタブレット・スマホ幅と共通のピル型のまま
-       （.homeTypeNav__itemを個別に上書きしない）にし、狭い画面との
-       一貫性を保つ。 */
-    .homeTypeNav {
+    /* ホーム中央パネル自身のヘッダー: アプリ名見出し＋ボディタイプ絞り込みナビを
+       まとめて、モデル一覧パネル（.homeSplit__list）の内側・カード一覧の直上に
+       position: stickyで留める（スクロールしても常に押せる状態を保つ。共通
+       トップバーへドッキングしていた以前のバージョンから、中央パネル自身の
+       ヘッダーとして「モデルカードの上」に置く構成に変更した）。 */
+    .homeSplit__listHeader {
       position: sticky;
       top: 0;
       z-index: 2;
+      background: var(--surface);
+      margin: 0 -16px 4px;
+      padding: 20px 16px 12px;
+      border-bottom: 1px solid var(--outline);
+      border-radius: var(--radius) var(--radius) 0 0;
+    }
+    .homeSplit__listTitle {
+      display: block;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: .02em;
+      color: var(--on-surface);
+      margin-bottom: 14px;
+    }
+    .homeTypeNav {
       display: flex;
       /* 折り返さず横スクロールの1行にする（タブレット・スマホ幅と同じ考え方。
          型の数が増えても縦の高さを一定に保ち、初期表示でモデルカードが
-         より多く見えるようにする）。 */
+         より多く見えるようにする）。ボタンの見た目自体はタブレット・スマホ幅と
+         共通のピル型のまま（.homeTypeNav__itemを個別に上書きしない）にし、
+         狭い画面との一貫性を保つ。 */
       flex-wrap: nowrap;
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
       gap: 8px;
-      background: var(--surface);
-      margin: 0 -16px 4px;
-      padding: 16px 16px 12px;
-      border-bottom: 1px solid var(--outline);
-      border-radius: var(--radius) var(--radius) 0 0;
+      position: static;
+      background: none;
+      margin: 0;
+      padding: 0;
+      border-bottom: none;
+      border-radius: 0;
       box-shadow: none;
       transform: none;
       width: auto;
@@ -1652,13 +1681,36 @@
       padding: 0 16px 16px;
     }
     .homeSplit__detail {
-      display: block;
+      display: flex;
+      flex-direction: column;
       flex: 1;
       min-width: 0;
-      height: 100%;
-      overflow-y: auto;
+      /* .homeSplit__listと同様、main.viewの上余白（24px）ぶん枠を上に拡張し、
+         トップバーがあった高さの真下（実質トップバー自体を非表示にしているため
+         画面最上部）までフレームを伸ばす。 */
+      margin-top: -24px;
+      height: calc(100% + 24px);
       background: var(--background);
-      padding: 28px;
+    }
+    /* 右パネル自身のヘッダー: 戻る／更新ボタンを配置する（共通トップバー側の
+       ボタンと同じ処理を呼ぶ別要素。JavaScript.htmlのhandleNavBackClick_・
+       handleRefreshClick_参照）。 */
+    .homeSplit__detailHeader {
+      flex: none;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 20px 28px 0;
+    }
+    /* パネル自体がグレー（--background）のため、ホバー時の背景（共通の
+       .topbar__navBtn:hoverが使う--background）だと同色で見分けがつかない。
+       ここだけホワイト（--surface）に上書きする。 */
+    .homeSplit__detailHeader .topbar__navBtn:hover { background: var(--surface); }
+    .homeSplit__detailBody {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 20px 28px 28px;
     }
     /* 未選択時（state.homeSelectedModel === null）は、選択を促す案内だけを
        中央に表示する（homeDetailEmptyHtml_参照）。 */
@@ -1673,19 +1725,22 @@
       text-align: center;
     }
     .homeDetail__empty .emptyState__icon { opacity: .5; }
-    /* homeDetailEmptyHtml_（未選択時）にはこのボタン自体が存在しないため、
-       表示切り替えは不要でhomeDetailHtml_内の見た目だけ整えればよい。 */
+    /* 右パネル自身のヘッダー（.homeSplit__detailHeader）内の静的なボタン
+       （Index.html参照）。左の戻る／更新ボタン（タブ間の画面履歴を戻る）とは
+       別の操作（モデルの選択解除）のため、margin-left: autoで右側に離して
+       混同を防ぐ。表示・非表示はrenderHomeDetail_が切り替える。 */
     .homeDetail__backBtn {
       display: flex;
       align-items: center;
       gap: 6px;
+      margin-left: auto;
       border: none;
       background: none;
       color: var(--primary-text);
       font-size: 13px;
       font-weight: 600;
       cursor: pointer;
-      padding: 0 0 18px;
+      padding: 0;
     }
     .homeDetail__backBtn:hover { text-decoration: underline; }
     .homeDetail__headRow {
