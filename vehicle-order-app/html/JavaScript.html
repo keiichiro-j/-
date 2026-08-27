@@ -1727,10 +1727,11 @@
   });
 
   /**
-   * テーマプリセット（--primary / --primary-dark / --primary-text / --primary-bg）を
-   * 一括で適用する。以前は1色から比率計算で派生色を導出していたが、色相・彩度によって
-   * 必要な明暗の差が異なりコントラスト比を一定に保てなかったため、8プリセットそれぞれに
-   * ついて個別にコントラスト比を検証済みの色を直接使う（Constants.gsのTHEME_PRESETS参照）。
+   * テーマプリセット（--primary / --primary-dark / --primary-text / --primary-bg /
+   * --card-bg）を一括で適用する。以前は1色から比率計算で派生色を導出していたが、
+   * 色相・彩度によって必要な明暗の差が異なりコントラスト比を一定に保てなかったため、
+   * 8プリセットそれぞれについて個別にコントラスト比を検証済みの色を直接使う
+   * （Constants.gsのTHEME_PRESETS参照）。
    */
   function applyTheme(key) {
     var preset = themePresetByKey_(key);
@@ -1740,6 +1741,10 @@
     root.setProperty('--primary-text', preset.primaryText);
     var rgb = hexToRgb_(preset.primary);
     root.setProperty('--primary-bg', rgb ? 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',.18)' : preset.primary);
+    // ホーム画面のカード背景（--card-bg、PCビューのみ・Stylesheet.html参照）は、
+    // --primary-bgよりさらに薄く（6%）テーマカラーを帯びさせ、ページ背景・
+    // 写真プレースホルダーのどちらとも見分けがつく程度に留める。
+    root.setProperty('--card-bg', rgb ? 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',.06)' : preset.primary);
   }
 
   function hexToRgb_(hex) {
@@ -2255,9 +2260,27 @@
     // 型で絞り込んだ結果、該当モデルが1件も無い場合は空のグリッドのまま放置せず、
     // その旨をわかるようにする（モデル写真自体が0件の#homeEmptyとは別の状態）。
     $('homeTypeEmpty').classList.toggle('hidden', !(modelPhotos.length > 0 && groups.length === 0));
+    // 型ごとに横スクロールの1行（.homeTypeRow）で並べる。展開中のモデルが
+    // このグループに含まれる場合は、その1件だけを横スクロール行の外に
+    // 単独の全幅ブロックとして出し（グレードタブもその直後に続く）、
+    // 残りのモデルはそのまま横スクロール行に並べる（展開中でも同じ型の
+    // 他のモデルを見失わないようにするため）。
     $('homeGrid').innerHTML = groups.map(function (g) {
       var headerHtml = g.label ? '<div class="homeTypeHeader">' + escapeHtml(g.label) + '</div>' : '';
-      return headerHtml + g.items.map(function (p) { return homeModelTileHtml_(p, allItems, modelPhotos); }).join('');
+      var expandedItem = state.homeExpandedModel
+        ? g.items.filter(function (p) { return p.model === state.homeExpandedModel; })[0]
+        : null;
+      if (expandedItem) {
+        var restItems = g.items.filter(function (p) { return p !== expandedItem; });
+        var expandedHtml = homeModelTileHtml_(expandedItem, allItems, modelPhotos);
+        var restHtml = restItems.length
+          ? '<div class="homeTypeRow">' + restItems.map(function (p) { return homeModelTileHtml_(p, allItems, modelPhotos); }).join('') + '</div>'
+          : '';
+        return headerHtml + expandedHtml + restHtml;
+      }
+      return headerHtml + '<div class="homeTypeRow">' +
+        g.items.map(function (p) { return homeModelTileHtml_(p, allItems, modelPhotos); }).join('') +
+        '</div>';
     }).join('');
     renderHomeTypeNav_();
     // #homeTypeNavはposition: fixedのため、表示・非表示の切り替えや折り返し行数の

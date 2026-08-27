@@ -38,6 +38,13 @@
     --danger: #ec0000;
     --danger-bg: rgba(255, 107, 107, .16);
     --primary-bg: #dceaf7;
+    /* ホーム画面のカード（.homeRow、PCビューのみ）専用の背景色。ページ背景
+       （--background）ともカード内の写真プレースホルダー（同じく--backgroundを
+       使う）とも見分けがつくよう、薄くテーマカラーを帯びた色にする（JavaScript.html
+       のapplyThemeが、選択中のテーマのprimaryから毎回computeし直す。初期表示・
+       JS実行前の目安値としてDEFAULT_THEME_KEY「steel」のprimary #2f6faeを
+       6%の濃さで混ぜた値をここに置いている）。 */
+    --card-bg: rgba(47, 111, 174, .06);
     /* 管理者権限を持つ担当者のみ登録できるデモカーHOLD・他店HOLD専用の特別色。
        通常のHold（--warning・アンバー）・2nd Hold（--danger・レッド／--primary・ブルー）
        のどれとも重ならない紫系にし、テーマ設定（着せ替え）の影響を受けない固定色にする
@@ -1206,48 +1213,40 @@
 
   /* ===== ホーム画面: 型ごとのグループ見出し =====
      モデル一覧を、設定タブで割り当てたボディタイプごとにグループ化して表示する際、
-     各グループの先頭（そのタイプの最初のモデルタイルの直前）に挟む見出し。
-     PCの5列グリッドでは全列ぶんの幅（grid-column: 1 / -1）を使い、見出しの直後の
-     アイテムから自動的に新しい行に折り返される（.homeRow.is-expandedと同じ
-     grid-column: 1 / -1の仕組み）。1台もモデル写真にボディタイプが割り当てられて
-     いない場合はグループ化自体を行わず、この見出しも表示しない（renderHomeGallery_
-     のgroupModelPhotosByBodyType_参照。運用を始めたばかりでまだ型を割り振って
-     いない状態でも、従来どおりの見た目のまま使える）。
+     各グループの先頭（そのタイプの最初の横スクロール行の直前）に挟む見出し。
+     1台もモデル写真にボディタイプが割り当てられていない場合はグループ化自体を
+     行わず、この見出しも表示しない（renderHomeGallery_のgroupModelPhotosByBodyType_
+     参照。運用を始めたばかりでまだ型を割り振っていない状態でも、従来どおりの
+     見た目のまま使える）。
      文字サイズは、カード内のモデル名（.homeRow__model、16px）より一段階
      大きくし、個々のモデルより上位の「見出し」であることが一目でわかる
-     ようにしている。
-     margin-topは、あえて先頭の見出し（1グループ目、直前は型のクイックナビ）
-     だけ特別扱いにしない（以前は:first-childでmargin-topを0にしていたが、
-     その結果「見出しの上（クイックナビとの間）」だけ他の見出しより詰まって
-     見え、見出しがカードより型選択ボタン側に寄って見える不具合になって
-     いた）。見出しの上下の余白が常に同じになるよう、直前が型のクイック
-     ナビ（.homeTypeNav、margin-bottom: 20px）でも直前が別グループの
-     モデルタイル（.homeListのgrid gap: 20px）でも、見出し自身のmargin-top
-     （4px）と合わせて常に24px（=20px+4px）になるようにしている（見出し
-     自身のmargin-bottomも4px＋grid gap 20pxで同じく24pxのため、結果的に
-     見出しが上下ちょうど中央に来る）。 */
+     ようにしている。見出し自身は下方向のmargin-bottomのみで、直後の
+     横スクロール行（.homeTypeRow）との間隔を確保する（次のグループとの間隔は
+     .homeTypeRow / .homeGradeTabs側のmargin-bottomで確保しているため、
+     見出し側にmargin-topは付けない）。 */
   .homeTypeHeader {
-    grid-column: 1 / -1;
     font-size: 19px;
     font-weight: 700;
     color: var(--on-surface);
-    margin: 4px 2px;
+    margin: 0 2px 14px;
   }
 
   /* ===== ホーム画面 =====
      PC（901px以上）は、モデル名・ボディタイプ・在庫状況がひと目でわかる
-     「カードタイプUI」の5列グリッドにする（写真は白背景のカード内に収め、
-     以前のような写真全面オーバーレイ＋グラデーションは使わない）。
-     ヘッダー行にモデル名、中央に写真、フッター行（区切り線の下）に在庫台数と
-     矢印を置き、カードグリッド（.card__detailLink等）と同じ「詳細へ進める
-     リンク」の見せ方で統一する。タブレット・スマホ幅（900px以下）では、
-     パッと見て在庫状況がわかる情報密度を優先した横一列の「リスト」型のままに
-     する（@media (max-width: 900px)で上書き。現場の声を踏まえて選んだ元の
+     「カードタイプUI」にする（写真は白背景のカード内に収め、以前のような
+     写真全面オーバーレイ＋グラデーションは使わない）。型ごとに見出し
+     （.homeTypeHeader）＋横スクロールの1行（.homeTypeRow。スクロールなしで
+     4台まで表示できる幅に固定）で並べる（型ごとに縦へ積み重ねるグリッドでは
+     なく、型ごとの「棚」を横スクロールで見せる構成）。ヘッダー行にモデル名、
+     中央に写真、フッター行（区切り線の下）に在庫台数と矢印を置き、カード
+     グリッド（.card__detailLink等）と同じ「詳細へ進めるリンク」の見せ方で
+     統一する。タブレット・スマホ幅（900px以下）では、パッと見て在庫状況が
+     わかる情報密度を優先した横一列の「リスト」型のままにする
+     （@media (max-width: 900px)で上書き。現場の声を踏まえて選んだ元の
      レイアウトのため、狭い画面では変更しない）。 */
   .homeList {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 20px;
+    display: flex;
+    flex-direction: column;
   }
   .homeRow {
     position: relative;
@@ -1255,8 +1254,13 @@
     flex-direction: column;
     width: 100%;
     padding: 18px;
-    background: var(--surface);
-    border: 1px solid var(--outline);
+    /* 薄く色付けした背景（--card-bg）にし、ページ背景（--background）・
+       カード内の写真プレースホルダーとも見分けがつくようにする。縁は
+       うっすらとした薄い線に留め（区切りというより背景色の変化で
+       カード同士を見分けさせる）、カード間の余白（.homeTypeRowのgap）
+       自体で区切りを表現する。 */
+    background: var(--card-bg);
+    border: 1px solid rgba(15, 23, 42, .06);
     border-radius: var(--radius);
     color: var(--on-surface);
     cursor: pointer;
@@ -1264,15 +1268,12 @@
     transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
   }
   .homeRow:hover { box-shadow: var(--shadow-elevated); transform: translateY(-3px); border-color: var(--primary); }
-  /* 展開中のタイルは、グリッドの全列ぶんの幅（grid-column: 1 / -1）を使い、
-     写真を大きく表示する。order: -1で、どのモデルを選択してもクローズアップ
-     表示が常にグリッドの先頭（他のモデルより上）に来るようにしている
-     （現場からの指摘で判明。以前はモデル写真の登録順のままDOM順を保っていた
-     ため、先頭以外のモデルを展開すると、そのモデルが元の位置に留まり、他の
-     モデルが上下に分断されて表示されてしまっていた）。 */
+  /* 展開中のタイルは、その型セクション内で横スクロール行（.homeTypeRow）を
+     使わず単独の全幅ブロックとして表示し（renderHomeGallery_参照）、写真を
+     大きく表示する。直後にそのモデルのグレードタブが続くため、margin-bottomで
+     間隔を確保する。 */
   .homeRow.is-expanded {
-    grid-column: 1 / -1;
-    order: -1;
+    margin-bottom: 12px;
     /* モデルタップ時にscrollIntoView()でこのタイルまで自動スクロールする際
        （JavaScript.htmlのクリックハンドラ参照）、position: fixedのトップバー・
        型クイックナビの下に隠れてしまわないよう、その高さぶんの余白を確保する
@@ -1331,16 +1332,13 @@
   }
   .homeRow.is-expanded .homeRow__photo { aspect-ratio: 16 / 9; }
   .homeRow__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  /* フッター行: 在庫台数（左・アクセントカラー）＋矢印（右）。上に区切り線を
-     引き、写真の下でひと目でわかる「詳細へ進めるリンク」の見せ方にする
-     （カードグリッドの.card__detailLink・.orderCard__detailLinkと同じ
-     デザイン言語で統一）。 */
+  /* フッター行: 在庫台数（左・アクセントカラー）＋矢印（右）。カード内で
+     区切り線は引かず、余白だけで写真から独立した行であることを示す
+     「詳細へ進めるリンク」の見せ方にする。 */
   .homeRow__footer {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-top: 1px solid var(--outline);
-    padding-top: 12px;
     margin-top: auto;
   }
   .homeRow__footer .badge--count {
@@ -1360,19 +1358,37 @@
   }
   .homeRow__chevron--nav { font-size: 16px; }
 
+  /* ===== ホームの型ごとの横スクロール行 =====
+     型ごとに縦へ積み重ねるグリッドではなく、「棚」を横スクロールで見せる
+     Netflix・ECサイトのカテゴリ棚のような構成にする。1台のカード幅は
+     「スクロールなしで4台まで表示できる」ように、行の幅から3つぶんの
+     gapを引いた残りを4等分した値に固定する（5台目以降は右にスクロールして
+     閲覧する）。タブレット・スマホ幅では横スクロール行という概念自体を
+     使わず、display: contentsでこの要素の存在を消し、中の.homeRowを
+     そのまま.homeList（横一列のリスト）の直接の子として扱わせる
+     （@media (max-width: 900px)で上書き。JavaScript.htmlのrenderHomeGallery_が
+     生成するDOM構造自体はPC・タブレット/スマホ共通のまま）。 */
+  .homeTypeRow {
+    display: flex;
+    gap: 20px;
+    overflow-x: auto;
+    margin-bottom: 28px;
+    padding-bottom: 4px; /* 横スクロールバーとカードの間に少し余白を持たせる */
+  }
+  .homeTypeRow > .homeRow {
+    flex: 0 0 calc((100% - 60px) / 4); /* 60px = gap(20px) x 3 */
+    min-width: 200px;
+  }
+
   /* ===== ホームのグレードタブ（グレードが設定されたモデル行を展開すると現れる） =====
-     PCの5列グリッドでは、展開したタイルの直下に全列ぶんの幅で表示する
-     （grid-column: 1 / -1）。900px以下（リスト型）では、写真幅ぶんインデントし
+     PCでは、展開したタイル（そのモデルの型セクション内）の直下にそのまま表示する
+     （renderHomeGallery_がDOM順で展開タイルの直後に並べているため、grid-column・
+     orderによる並び替えは不要）。900px以下（リスト型）では、写真幅ぶんインデントし
      左に細い罫線を添えることで「ベースモデル行から派生したタブである」ことを
      視覚的に示す（車両スペック折りたたみ等と同じ、階層関係を罫線で示す考え方。
      @media (max-width: 900px)で上書き）。 */
   .homeGradeTabs {
-    grid-column: 1 / -1;
-    /* 展開中タイル（.homeRow.is-expanded、order:-1）の直下・他のモデルカードより
-       上に表示されるよう、こちらもorder:-1にする（展開タイルとグレードタブは
-       常にペアでDOM上に連続して出力されるため、同じorder値でもDOM順で
-       タイル→タブの並びが保たれる）。 */
-    order: -1;
+    margin-bottom: 24px;
     padding: 16px;
     background: var(--surface);
     border: 1px solid var(--outline);
@@ -1415,9 +1431,6 @@
      applyLogo/renderTopbarUserがtopbar側と共通の内容を反映する。
      デフォルトでは非表示にし、下のメディアクエリでのみ表示する。 */
   .sidebar { display: none; }
-  /* PCビューの見出し（アプリ名）。タブレット・スマホ幅では非表示にし、
-     従来どおり.topbar__brand（中央配置のロゴ＋アプリ名）を使う。 */
-  .topbar__pcTitle { display: none; }
 
   @media (min-width: 901px) {
     :root { --sidebar-w: 232px; }
@@ -1514,8 +1527,10 @@
     .sidebarUser__info .topbar__userWarn { font-size: 10.5px; padding: 3px 8px; }
 
     /* トップバー: ロゴ・ナビ・ユーザー情報はサイドバーに移るため、
-       ページ見出し（.topbar__pcTitle）と戻る／更新ボタンだけが残る
-       スリムなヘッダーになる。左端はサイドバー幅ぶんずれる。 */
+       戻る／更新ボタンだけが残るスリムなヘッダーになる（見出しテキストは
+       表示しない。サイドバーの.sidebar__brandTextと重複させないため）。
+       左端はサイドバー幅ぶんずれる。ボタンは唯一の可視な子要素になるため、
+       margin-left: autoで右端に寄せる。 */
     .topbar {
       left: var(--sidebar-w);
       background: var(--surface);
@@ -1525,16 +1540,7 @@
     }
     .topbar__brandRow { padding: 20px 32px; }
     .topbar__brand, .topbar__user, .tabs { display: none; }
-    .topbar__pcTitle {
-      display: block;
-      order: 1;
-      flex: 1;
-      font-size: 21px;
-      font-weight: 700;
-      letter-spacing: -.005em;
-      color: var(--on-surface);
-    }
-    .topbar__left { order: 2; }
+    .topbar__left { margin-left: auto; }
     .topbar__navBtn { border-color: var(--outline); color: var(--on-surface-variant); }
     .topbar__navBtn:hover { background: var(--background); }
     .topbar__navBtn:disabled:hover { background: transparent; }
@@ -1544,10 +1550,11 @@
        中央寄せ用のmax-width/marginを解除するだけでよい。 */
     main.view { max-width: none; margin: 0; padding: 24px 32px 40px; }
 
-    /* 検索欄・ボディタイプ絞り込みナビはposition: fixedで画面上部に固定
-       しているため（left: 50% + transform: translateX(-50%)で全幅中央寄せ）、
-       サイドバーぶん左に寄せて、コンテンツ列と同じ横幅に揃える。 */
-    .toolbar, .homeTypeNav {
+    /* 検索欄（在庫リスト・受注リスト・Gクラス予約リストのツールバー）は
+       position: fixedで画面上部に固定しているため（left: 50% +
+       transform: translateX(-50%)で全幅中央寄せ）、サイドバーぶん左に
+       寄せて、コンテンツ列と同じ横幅に揃える。 */
+    .toolbar {
       left: calc(var(--sidebar-w) + 24px);
       right: 24px;
       transform: none;
@@ -1555,20 +1562,36 @@
       max-width: none;
     }
 
-    /* ホームのボディタイプ絞り込みナビ: ピル型ボタンではなく、メインナビ
-       （.tabs）と同じ「テキスト＋アクティブ時の下線」のミニマルな水平タブに
-       する（見た目を統一するため）。 */
+    /* ホームのボディタイプ絞り込みナビ: 見出しテキストを表示しなくなった
+       トップバーの行に重ねて表示する（ホームタブ以外ではmain#view-home自体が
+       非表示になるため、position: fixedでもこのナビは自動的に表示されない）。
+       高さをトップバーと同じ--topbar-hに揃えることで、1つの連続したヘッダーの
+       ように見せている。ピル型ボタンではなく、メインナビ（.tabs）と同じ
+       「テキスト＋アクティブ時の下線」のミニマルな水平タブにする。 */
     .homeTypeNav {
+      position: fixed;
+      top: 0;
+      left: calc(var(--sidebar-w) + 32px);
+      right: 150px;
+      height: var(--topbar-h);
+      z-index: 33;
       display: flex;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      align-items: center;
       gap: 28px;
-      background: none;
+      background: var(--surface);
       box-shadow: none;
       border-bottom: 1px solid var(--outline);
-      padding: 0 0 14px;
+      padding: 0;
       border-radius: 0;
+      transform: none;
+      width: auto;
+      max-width: none;
     }
+    .homeTypeNavSpacer { display: none; }
     .homeTypeNav__item {
+      flex: none;
       padding: 4px 0 12px;
       border: none;
       border-bottom: 2px solid transparent;
@@ -1773,6 +1796,9 @@
        共通のまま（JavaScript.htmlのhomeModelTileHtml_参照）、CSSのorderだけで
        横一列に組み替える。 */
     .homeList { display: flex; flex-direction: column; max-width: 100%; }
+    /* PC専用の横スクロール行という概念を打ち消し、中の.homeRowを.homeList
+       （横一列のリスト）の直接の子として扱わせる（上部の.homeTypeRow参照）。 */
+    .homeTypeRow { display: contents; }
     .homeRow {
       overflow: visible;
       flex-direction: row;
