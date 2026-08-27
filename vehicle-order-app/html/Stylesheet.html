@@ -1459,7 +1459,10 @@
       position: fixed;
       top: 0; left: 0; bottom: 0;
       width: var(--sidebar-w);
-      background: var(--surface);
+      /* 3列構成（左:項目タブ＝グレー／中央:モデル一覧＝ホワイト／右:車両詳細＝グレー）の
+         一番左のグレーゾーン。ページ背景と同じ--backgroundにすることで、中央の
+         ホワイトパネル（.homeSplit__list）だけが浮き上がって見える構成にする。 */
+      background: var(--background);
       border-right: 1px solid var(--outline);
       padding: 20px 0;
       z-index: 32;
@@ -1482,6 +1485,10 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    /* ロゴを設定した場合は、サイドバーの見出しはロゴ画像だけにする（アプリ名の
+       文字表記は中央ヘッダーの.topbar__brandTextに役割を譲るため、ロゴがある
+       場合にここで重複表示しない。未設定時はこれまでどおりテキストのみ表示する）。 */
+    .sidebar__logo:not(.hidden) ~ .sidebar__brandText { display: none; }
 
     .sidebarNav { display: flex; flex-direction: column; gap: 2px; padding: 0 12px; flex: 1; overflow-y: auto; }
     /* .tabs__itemの大文字・トラッキング広め・下線アクティブ表示は水平タブ用の
@@ -1507,7 +1514,10 @@
       transition: background-color .15s ease, color .15s ease;
     }
     .sidebarNav__item .icon { flex: none; }
-    .sidebarNav__item:hover { background: var(--background); color: var(--on-surface); opacity: 1; }
+    /* サイドバー自体がグレー（--background）になったため、ホバーは白（--surface）で
+       浮かせる（サイドバーが白だった頃はホバーにグレーを使っていたが、そのままだと
+       背景と同色になり見分けがつかなくなるため反転した）。 */
+    .sidebarNav__item:hover { background: var(--surface); color: var(--on-surface); opacity: 1; }
     .sidebarNav__item.is-active {
       background: var(--primary-bg);
       color: var(--primary-text);
@@ -1542,11 +1552,12 @@
     }
     .sidebarUser__info .topbar__userWarn { font-size: 10.5px; padding: 3px 8px; }
 
-    /* トップバー: ロゴ・ナビ・ユーザー情報はサイドバーに移るため、
-       戻る／更新ボタンだけが残るスリムなヘッダーになる（見出しテキストは
-       表示しない。サイドバーの.sidebar__brandTextと重複させないため）。
-       左端はサイドバー幅ぶんずれる。ボタンは唯一の可視な子要素になるため、
-       margin-left: autoで右端に寄せる。 */
+    /* トップバー: ナビ・ユーザー情報はサイドバーに移るため、「戻る／更新」ボタンと
+       中央のアプリ名見出しだけが残るスリムなヘッダーになる。3列構成の中央
+       （.homeSplit__list）・右（.homeSplit__detail）2列ぶんの「ヘッダー」に
+       あたるため、アプリ名「販売可能リスト」はここに表示する。ロゴ画像は
+       サイドバー側（.sidebar__brand）だけに表示すれば十分なため、ここでは
+       文字のみ表示し.topbar__logoは非表示にする（.topbar__brandText参照）。 */
     .topbar {
       left: var(--sidebar-w);
       background: var(--surface);
@@ -1555,8 +1566,11 @@
       box-shadow: none;
     }
     .topbar__brandRow { padding: 20px 32px; }
-    .topbar__brand, .topbar__user, .tabs { display: none; }
-    .topbar__left { margin-left: auto; }
+    .topbar__logo, .topbar__user, .tabs { display: none; }
+    /* .topbar__brandTextの文字色（--on-topbar、白）はモバイル/タブレットの
+       ネイビー地のトップバー向けのため、PCのホワイト地トップバーでは
+       --on-surface（濃色）に上書きしないと白文字のまま見えなくなる。 */
+    .topbar__brandText { color: var(--on-surface); }
     .topbar__navBtn { border-color: var(--outline); color: var(--on-surface-variant); }
     .topbar__navBtn:hover { background: var(--background); }
     .topbar__navBtn:disabled:hover { background: transparent; }
@@ -1578,56 +1592,38 @@
       max-width: none;
     }
 
-    /* ホームのボディタイプ絞り込みナビ: 見出しテキストを表示しなくなった
-       トップバーの行に重ねて表示する（ホームタブ以外ではmain#view-home自体が
-       非表示になるため、position: fixedでもこのナビは自動的に表示されない）。
-       高さをトップバーと同じ--topbar-hに揃えることで、1つの連続したヘッダーの
-       ように見せている。ピル型ボタンではなく、メインナビ（.tabs）と同じ
-       「テキスト＋アクティブ時の下線」のミニマルな水平タブにする。 */
+    /* ホームのボディタイプ絞り込みナビ: モデル一覧パネル（.homeSplit__list）の
+       内側、カード一覧の直上にposition: stickyで留め、スクロールしても常に
+       押せる状態を保つ（トップバーへドッキングしていた以前のバージョンから、
+       中央パネルの一部として「モデルカードの上」に置く構成に変更した）。
+       ボタンの見た目自体はタブレット・スマホ幅と共通のピル型のまま
+       （.homeTypeNav__itemを個別に上書きしない）にし、狭い画面との
+       一貫性を保つ。 */
     .homeTypeNav {
-      position: fixed;
+      position: sticky;
       top: 0;
-      left: calc(var(--sidebar-w) + 32px);
-      right: 150px;
-      height: var(--topbar-h);
-      z-index: 33;
+      z-index: 2;
       display: flex;
-      flex-wrap: nowrap;
-      overflow-x: auto;
-      align-items: center;
-      gap: 28px;
+      flex-wrap: wrap;
+      gap: 8px;
       background: var(--surface);
-      box-shadow: none;
+      margin: 0 -16px 4px;
+      padding: 16px 16px 12px;
       border-bottom: 1px solid var(--outline);
-      padding: 0;
-      border-radius: 0;
+      border-radius: var(--radius) var(--radius) 0 0;
+      box-shadow: none;
       transform: none;
       width: auto;
       max-width: none;
     }
     .homeTypeNavSpacer { display: none; }
-    .homeTypeNav__item {
-      flex: none;
-      padding: 4px 0 12px;
-      border: none;
-      border-bottom: 2px solid transparent;
-      border-radius: 0;
-      background: none;
-      color: var(--on-surface-variant);
-      font-size: 12.5px;
-      font-weight: 600;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-    }
-    .homeTypeNav__item:hover { background: none; color: var(--on-surface); border-color: var(--outline); }
-    .homeTypeNav__item.is-active { background: none; color: var(--primary-text); border-bottom-color: var(--primary); }
 
-    /* ===== ホームの2ペイン構成（左:一覧／右:選択中モデルの詳細） =====
-       左（.homeSplit__list）にモデル一覧、右（.homeSplit__detail、#homeDetail）に
-       選択中モデルの詳細を表示する。トップバー・型クイックナビをposition: fixedで
-       固定しているため、その高さぶん（.homeTypeNavSpacer）を除いた残りの高さを
-       2ペインで使い切り、それぞれ内側だけを独立してスクロールさせる
-       （JavaScript.htmlのselectHomeModel_・renderHomeDetail_参照）。 */
+    /* ===== ホームの3列構成 =====
+       左（サイドバー）＝項目タブ・中央（.homeSplit__list）＝型クイックナビ＋
+       モデル一覧・右（.homeSplit__detail、#homeDetail）＝選択中モデルの詳細、
+       という3列構成にする。色は左からグレー（サイドバー、--background）・
+       ホワイト（中央のモデル一覧パネル、--surface）・グレー（右の詳細パネル、
+       --background）の順にし、中央パネルだけが浮き上がって見えるようにする。 */
     .homeSplit {
       display: flex;
       align-items: flex-start;
@@ -1639,7 +1635,10 @@
       min-width: 0;
       height: 100%;
       overflow-y: auto;
-      padding-right: 4px;
+      background: var(--surface);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius);
+      padding: 0 16px 16px;
     }
     .homeSplit__detail {
       display: block;
@@ -1647,9 +1646,7 @@
       min-width: 0;
       height: 100%;
       overflow-y: auto;
-      background: var(--surface);
-      border: 1px solid var(--outline);
-      border-radius: var(--radius);
+      background: var(--background);
       padding: 28px;
     }
     /* 未選択時（state.homeSelectedModel === null）は、選択を促す案内だけを
@@ -1723,15 +1720,46 @@
       color: var(--on-surface-variant);
     }
     .homeDetail__photo {
+      position: relative;
       aspect-ratio: 16 / 9;
-      background: var(--background);
+      /* 右パネル全体がグレー（--background）になったため、写真の枠は
+         ホワイト（--surface）にして「カード」として浮き上がらせる。 */
+      background: var(--surface);
       border-radius: var(--radius);
       overflow: hidden;
       margin-bottom: 20px;
     }
     .homeDetail__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    /* 写真の左右に重ねる◀▶ナビゲーションボタン。現在表示中の型フィルタでの
+       表示順（homeVisibleModelsFlat_、JavaScript.html参照）に沿って、前後の
+       モデルへ切り替える。先頭・末尾ではdisabledにする（ループしない）。 */
+    .homeDetail__navBtn {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 40px;
+      height: 40px;
+      border: none;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, .85);
+      color: var(--on-surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      box-shadow: var(--shadow-elevated);
+      transition: background-color .15s ease;
+    }
+    .homeDetail__navBtn:hover { background: #fff; }
+    .homeDetail__navBtn:disabled { opacity: .35; cursor: default; box-shadow: none; }
+    .homeDetail__navBtn--prev { left: 12px; }
+    .homeDetail__navBtn--next { right: 12px; }
     /* グレード別在庫数（.homeGradeTabsを流用）は、既存のグレードタブと同じ
-       見た目・クリック挙動（在庫リストへの絞り込み遷移）にする。 */
+       見た目・クリック挙動（在庫リストへの絞り込み遷移）にする。パネル自体が
+       グレーになったため、ホワイトの.homeGradeTabsがその上のカードとして
+       浮き上がって見える。 */
     .homeDetail__gradeBox { margin-bottom: 20px; }
     .homeDetail__cta { margin-top: 4px; }
   }

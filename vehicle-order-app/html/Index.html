@@ -194,15 +194,21 @@
 
     <!-- ホーム -->
     <main class="view is-active" id="view-home">
-      <div class="homeTypeNav hidden" id="homeTypeNav" role="tablist" aria-label="ボディタイプで絞り込み"></div>
-      <div class="homeTypeNavSpacer" id="homeTypeNavSpacer"></div>
       <!-- PCビューのみ、モデル一覧（左）と選択中モデルの詳細（右）の2ペイン構成にする
            （.homeSplit、Stylesheet.html参照）。タブレット・スマホ幅では
            #homeDetailを表示せず、従来どおりモデル一覧のみ・タップでその場に
            グレードタブを展開する動作のままにする（JavaScript.htmlの
-           isPcHomeLayout_参照）。 -->
+           isPcHomeLayout_参照）。型クイックナビ（#homeTypeNav）は.homeSplit__list
+           （モデル一覧パネル）の直上に置き、PCビューではそのパネル内で
+           position: stickyにしてモデルカードの上に常に表示させる
+           （タブレット・スマホ幅は従来どおりposition: fixedで画面上部に固定する。
+           Stylesheet.html参照。ネストしていてもposition: fixedは引き続き
+           ビューポート基準で配置されるため、この入れ子は狭い画面の挙動には
+           影響しない）。 -->
       <div class="homeSplit">
         <div class="homeSplit__list">
+          <div class="homeTypeNav hidden" id="homeTypeNav" role="tablist" aria-label="ボディタイプで絞り込み"></div>
+          <div class="homeTypeNavSpacer" id="homeTypeNavSpacer"></div>
           <div class="homeList" id="homeGrid"></div>
           <div class="emptyState hidden" id="homeEmpty">
             <svg class="icon emptyState__icon"><use href="#icon-image"></use></svg>

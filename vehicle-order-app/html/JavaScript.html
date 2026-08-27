@@ -2326,6 +2326,20 @@
     renderHomeGallery_();
   }
 
+  /**
+   * 現在の型フィルタ（state.homeTypeFilter）を反映した、ホーム画面のモデル一覧の
+   * 表示順そのままのフラットな配列を返す（renderHomeGallery_のグループ化ロジックを
+   * 再利用する純粋関数）。右ペイン（#homeDetail）の◀▶ボタンで、一覧の並び順どおりに
+   * 前後のモデルへ切り替えるために使う（homeDetailHtml_参照）。
+   */
+  function homeVisibleModelsFlat_() {
+    var groups = groupModelPhotosByBodyType_(state.modelPhotos || []);
+    if (state.homeTypeFilter) {
+      groups = groups.filter(function (g) { return g.type === state.homeTypeFilter; });
+    }
+    return groups.reduce(function (flat, g) { return flat.concat(g.items); }, []);
+  }
+
   function homeDetailEmptyHtml_() {
     return '<div class="homeDetail__empty">' +
       '<svg class="icon emptyState__icon"><use href="#icon-image"></use></svg>' +
@@ -2336,9 +2350,11 @@
   /**
    * 右ペイン（#homeDetail）: 選択中モデルの詳細（モデル名・ボディタイプ・在庫台数・
    * 写真・グレード別在庫数）を表示する。グレードが無いモデルはグレード内訳の
-   * 代わりに「在庫リストで見る」ボタンのみを表示する。
+   * 代わりに「在庫リストで見る」ボタンのみを表示する。写真の左右には、現在の
+   * 型フィルタでの一覧の並び順（homeVisibleModelsFlat_）で前後のモデルへ
+   * 切り替える◀▶ボタンを重ねる（先頭・末尾ではdisabledにし、ループしない）。
    */
-  function homeDetailHtml_(p, result) {
+  function homeDetailHtml_(p, result, prevModel, nextModel) {
     var hasGrades = result.byGrade.length > 0;
     var typeHtml = p.bodyType ? '<span class="homeDetail__type">' + escapeHtml(p.bodyType) + '</span>' : '';
     var gradeBoxHtml = hasGrades
@@ -2354,6 +2370,11 @@
         }).join('') +
         '</div></div>'
       : '';
+    var navBtnHtml =
+      '<button type="button" class="homeDetail__navBtn homeDetail__navBtn--prev" data-home-detail-prev="' +
+      escapeHtml(prevModel || '') + '" aria-label="前のモデル"' + (prevModel ? '' : ' disabled') + '>&#9664;</button>' +
+      '<button type="button" class="homeDetail__navBtn homeDetail__navBtn--next" data-home-detail-next="' +
+      escapeHtml(nextModel || '') + '" aria-label="次のモデル"' + (nextModel ? '' : ' disabled') + '>&#9654;</button>';
     return '<button type="button" class="homeDetail__backBtn" id="btnHomeDetailBack">' +
       '<svg class="icon icon--inline"><use href="#icon-back"></use></svg>戻る</button>' +
       '<div class="homeDetail__headRow">' +
@@ -2361,7 +2382,8 @@
       '<div class="homeDetail__count"><span class="homeDetail__countNum">' + result.total + '</span>' +
       '<span class="homeDetail__countLabel">在庫台数</span></div>' +
       '</div>' +
-      '<div class="homeDetail__photo"><img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '"></div>' +
+      '<div class="homeDetail__photo"><img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '">' +
+      navBtnHtml + '</div>' +
       gradeBoxHtml +
       '<button type="button" class="btn btn--primary btn--block homeDetail__cta" data-home-detail-view="' + escapeHtml(p.model) + '">在庫リストで見る</button>';
   }
@@ -2377,7 +2399,11 @@
       return;
     }
     var result = gradeCountsForEntry_(photo, state.allInventoryItems || [], state.modelPhotos || []);
-    el.innerHTML = homeDetailHtml_(photo, result);
+    var flat = homeVisibleModelsFlat_();
+    var idx = flat.findIndex(function (m) { return m.model === modelName; });
+    var prevModel = idx > 0 ? flat[idx - 1].model : null;
+    var nextModel = idx !== -1 && idx < flat.length - 1 ? flat[idx + 1].model : null;
+    el.innerHTML = homeDetailHtml_(photo, result, prevModel, nextModel);
   }
 
   $('homeDetail').addEventListener('click', function (e) {
@@ -2392,6 +2418,16 @@
       state.homeGradeFilter = [gradeTab.dataset.homeGrade];
       $('inventoryKeyword').value = '';
       loadInventory();
+      return;
+    }
+    var prevBtn = e.target.closest('[data-home-detail-prev]');
+    if (prevBtn) {
+      if (prevBtn.dataset.homeDetailPrev) selectHomeModel_(prevBtn.dataset.homeDetailPrev);
+      return;
+    }
+    var nextBtn = e.target.closest('[data-home-detail-next]');
+    if (nextBtn) {
+      if (nextBtn.dataset.homeDetailNext) selectHomeModel_(nextBtn.dataset.homeDetailNext);
       return;
     }
     var ctaBtn = e.target.closest('[data-home-detail-view]');
