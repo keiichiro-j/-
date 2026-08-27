@@ -1822,11 +1822,44 @@
     .homeDetail__navBtn:disabled { opacity: .35; cursor: default; box-shadow: none; }
     .homeDetail__navBtn--prev { left: 12px; }
     .homeDetail__navBtn--next { right: 12px; }
-    /* グレード別在庫数（.homeGradeTabsを流用）は、既存のグレードタブと同じ
-       見た目・クリック挙動（在庫リストへの絞り込み遷移）にする。パネル自体が
-       グレーになったため、ホワイトの.homeGradeTabsがその上のカードとして
-       浮き上がって見える。 */
-    .homeDetail__gradeBox { margin-bottom: 20px; }
+    /* グレード別在庫数は、グレードごとのカードを3列×複数行（グレードが6件までは
+       2行に収まる）で並べる。カード自体をクリックすると、既存のグレードタブと
+       同じ挙動（そのグレード1件に絞り込んだ在庫リストへ遷移）になるため、
+       別途「在庫リストで見る」ボタンは表示しない（homeDetailHtml_参照）。 */
+    .homeDetail__gradeLabel {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--on-surface-variant);
+      margin: 0 0 10px;
+    }
+    .homeDetail__gradeGrid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .homeDetail__gradeCard {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 20px 10px;
+      border: 1px solid var(--outline);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--on-surface);
+      cursor: pointer;
+      text-align: center;
+      transition: box-shadow .15s ease, border-color .15s ease, transform .15s ease;
+    }
+    .homeDetail__gradeCard:hover { box-shadow: var(--shadow-elevated); border-color: var(--primary); transform: translateY(-2px); }
+    .homeDetail__gradeCardName { font-size: 15px; font-weight: 700; }
+    .homeDetail__gradeCardCount { font-size: 13px; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; }
+    /* 在庫0台のグレードは、Hold中も無くまとまった在庫の当てがないことがひと目で
+       わかるよう、件数を赤文字にする（.homeGradeTab__count--zeroと同じ考え方）。 */
+    .homeDetail__gradeCardCount--zero { color: var(--danger); font-weight: 700; }
     .homeDetail__cta { margin-top: 4px; }
   }
 

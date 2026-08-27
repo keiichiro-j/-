@@ -2373,19 +2373,27 @@
   function homeDetailHtml_(p, result, prevModel, nextModel) {
     var hasGrades = result.byGrade.length > 0;
     var typeHtml = p.bodyType ? '<span class="homeDetail__type">' + escapeHtml(p.bodyType) + '</span>' : '';
+    // グレードがあるモデルは、グレードごとのカード（3列×複数行。クリックすると
+    // そのグレード1件に絞り込んだ在庫リストへ遷移する。data-home-gradeは
+    // #homeDetailのクリック委譲で処理する既存の仕組みをそのまま使う）を並べ、
+    // カード自体が「在庫リストで見る」ボタンの役割を兼ねるため、そのボタンは
+    // 表示しない（グレードが無いモデルにはグレードカードの代わりが無いため、
+    // 引き続きボタンで在庫リストへ遷移させる）。
     var gradeBoxHtml = hasGrades
-      ? '<div class="homeGradeTabs homeDetail__gradeBox">' +
-        '<div class="homeGradeTabs__label">グレード別在庫台数</div>' +
-        '<div class="homeGradeTabs__list">' +
+      ? '<div class="homeDetail__gradeLabel">グレード別在庫台数</div>' +
+        '<div class="homeDetail__gradeGrid">' +
         result.byGrade.map(function (g) {
-          var countClass = 'homeGradeTab__count' + (g.count === 0 ? ' homeGradeTab__count--zero' : '');
-          return '<button type="button" class="homeGradeTab" data-home-grade="' + escapeHtml(g.grade) + '">' +
-            '<span class="homeGradeTab__name">' + escapeHtml(g.grade) + '</span>' +
+          var countClass = 'homeDetail__gradeCardCount' + (g.count === 0 ? ' homeDetail__gradeCardCount--zero' : '');
+          return '<button type="button" class="homeDetail__gradeCard" data-home-grade="' + escapeHtml(g.grade) + '">' +
+            '<span class="homeDetail__gradeCardName">' + escapeHtml(g.grade) + '</span>' +
             '<span class="' + countClass + '">' + g.count + '台</span>' +
             '</button>';
         }).join('') +
-        '</div></div>'
+        '</div>'
       : '';
+    var ctaHtml = hasGrades
+      ? ''
+      : '<button type="button" class="btn btn--primary btn--block homeDetail__cta" data-home-detail-view="' + escapeHtml(p.model) + '">在庫リストで見る</button>';
     var navBtnHtml =
       '<button type="button" class="homeDetail__navBtn homeDetail__navBtn--prev" data-home-detail-prev="' +
       escapeHtml(prevModel || '') + '" aria-label="前のモデル"' + (prevModel ? '' : ' disabled') + '>&#9664;</button>' +
@@ -2399,7 +2407,7 @@
       '<div class="homeDetail__photo"><img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '">' +
       navBtnHtml + '</div>' +
       gradeBoxHtml +
-      '<button type="button" class="btn btn--primary btn--block homeDetail__cta" data-home-detail-view="' + escapeHtml(p.model) + '">在庫リストで見る</button>';
+      ctaHtml;
   }
 
   function renderHomeDetail_() {
