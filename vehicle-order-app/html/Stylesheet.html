@@ -1459,11 +1459,13 @@
       position: fixed;
       top: 0; left: 0; bottom: 0;
       width: var(--sidebar-w);
-      /* 3列構成（左:項目タブ＝グレー／中央:モデル一覧＝ホワイト／右:車両詳細＝グレー）の
-         一番左のグレーゾーン。ページ背景と同じ--backgroundにすることで、中央の
-         ホワイトパネル（.homeSplit__list）だけが浮き上がって見える構成にする。 */
-      background: var(--background);
-      border-right: 1px solid var(--outline);
+      /* 3列構成（左:項目タブ＝ダークネイビー／中央:モデル一覧＝ホワイト／
+         右:車両詳細＝グレー）の一番左のゾーン。トップバー・比較バー・トーストと
+         同じ--topbar-bgを使い、テーマ設定に関わらず常にダークネイビーで
+         統一する（参照画像の濃色サイドバーに合わせた。--on-topbar・
+         --dark-ui-outlineも同じ理由でこのダーク基調UI専用のトークンを流用する）。 */
+      background: var(--topbar-bg);
+      border-right: 1px solid var(--dark-ui-outline);
       padding: 20px 0;
       z-index: 32;
     }
@@ -1473,14 +1475,14 @@
       gap: 10px;
       padding: 0 20px 18px;
       margin-bottom: 8px;
-      border-bottom: 1px solid var(--outline);
+      border-bottom: 1px solid var(--dark-ui-outline);
     }
     .sidebar__logo { height: 28px; width: auto; max-width: 100%; object-fit: contain; }
     .sidebar__brandText {
       font-size: 13.5px;
       font-weight: 700;
       letter-spacing: .06em;
-      color: var(--on-surface);
+      color: var(--on-topbar);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -1503,7 +1505,9 @@
       border: none;
       border-radius: 8px;
       background: none;
-      color: var(--on-surface-variant);
+      /* ダークネイビーの地に対して、非選択時は少し抑えた白（.icon・テキスト
+         双方に効くcurrentColor）にする。 */
+      color: rgba(255, 255, 255, .68);
       opacity: 1;
       font-size: 13.5px;
       font-weight: 600;
@@ -1514,10 +1518,9 @@
       transition: background-color .15s ease, color .15s ease;
     }
     .sidebarNav__item .icon { flex: none; }
-    /* サイドバー自体がグレー（--background）になったため、ホバーは白（--surface）で
-       浮かせる（サイドバーが白だった頃はホバーにグレーを使っていたが、そのままだと
-       背景と同色になり見分けがつかなくなるため反転した）。 */
-    .sidebarNav__item:hover { background: var(--surface); color: var(--on-surface); opacity: 1; }
+    .sidebarNav__item:hover { background: rgba(255, 255, 255, .08); color: var(--on-topbar); opacity: 1; }
+    /* 選択中の項目は、テーマカラーを帯びた明るいピル（--primary-bg/--primary-text）で
+       ダークネイビーの地から浮き上がらせる。 */
     .sidebarNav__item.is-active {
       background: var(--primary-bg);
       color: var(--primary-text);
@@ -1530,7 +1533,7 @@
       gap: 10px;
       padding: 16px 16px 0;
       margin-top: 8px;
-      border-top: 1px solid var(--outline);
+      border-top: 1px solid var(--dark-ui-outline);
     }
     .sidebarUser__avatar {
       flex: none;
@@ -1543,11 +1546,11 @@
     }
     .sidebarUser__info { min-width: 0; font-size: 11.5px; line-height: 1.5; }
     .sidebarUser__info .topbar__userName {
-      display: block; font-weight: 600; font-size: 12.5px; color: var(--on-surface);
+      display: block; font-weight: 600; font-size: 12.5px; color: var(--on-topbar);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .sidebarUser__info .topbar__userEmail {
-      display: block; color: var(--on-surface-variant); font-size: 11px;
+      display: block; color: rgba(255, 255, 255, .68); font-size: 11px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .sidebarUser__info .topbar__userWarn { font-size: 10.5px; padding: 3px 8px; }
