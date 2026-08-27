@@ -1,12 +1,14 @@
 /**
  * NotificationService.gs
- * 3.5 メール通知機能
+ * 3.5 メール通知機能／Google Chat通知機能
  * Hold発生時・受注確定時に、設定画面（3.6）で指定した宛先へ自動でメール通知する。
+ * 加えて、設定タブでGoogle ChatのWebhook URLを登録していれば、同じタイミングで
+ * Google Chatのスペースにも通知を送る（メール通知先の設定有無とは独立しており、
+ * どちらか一方だけの設定でも動作する。sendChatNotification_参照）。
  */
 
 function notifyHoldRegistered(vehicle, isSecondHold) {
-  var to = getMailList_(PROP_KEYS.NOTIFY_HOLD_MAIL_TO).join(',');
-  if (!to) return false;
+  var mailTo = getMailList_(PROP_KEYS.NOTIFY_HOLD_MAIL_TO).join(',');
 
   var label = isSecondHold ? '2nd Hold' : 'Hold';
   var prefix = isSecondHold ? 'secondHold' : 'hold';
@@ -42,39 +44,77 @@ function notifyHoldRegistered(vehicle, isSecondHold) {
     bodyLines.push('保険加入の有無: ' + input.insurance);
   }
   bodyLines.push('Hold期限: ' + (expiresAt ? formatDateTime_(expiresAt) : '無期限'));
+  var body = bodyLines.join('\n');
 
-  MailApp.sendEmail({
-    to: to,
-    subject: '【販売可能リスト】' + label + '登録のお知らせ',
-    body: bodyLines.join('\n')
-  });
-  return true;
+  var sent = false;
+  if (mailTo) {
+    MailApp.sendEmail({
+      to: mailTo,
+      subject: '【販売可能リスト】' + label + '登録のお知らせ',
+      body: body
+    });
+    sent = true;
+  }
+  if (sendChatNotification_('*【販売可能リスト】' + label + '登録のお知らせ*\n' + body)) sent = true;
+  return sent;
 }
 
 function notifyOrderConfirmed(order) {
-  var to = getMailList_(PROP_KEYS.NOTIFY_ORDER_MAIL_TO).join(',');
-  if (!to) return false;
+  var mailTo = getMailList_(PROP_KEYS.NOTIFY_ORDER_MAIL_TO).join(',');
 
-  MailApp.sendEmail({
-    to: to,
-    subject: '【販売可能リスト】受注確定のお知らせ',
-    body: [
-      '受注が確定しました。',
-      '',
-      'コミッション: ' + order.commission,
-      'モデル: ' + order.model,
-      '販売拠点: ' + order.salesLocation,
-      'リード番号: ' + order.leadNumber,
-      '登録月: ' + order.registeredMonth,
-      '担当者: ' + order.staff,
-      '顧客: ' + order.customer,
-      '下取車の有無: ' + order.tradeIn,
-      'OSS登録の可否: ' + order.oss,
-      '保険加入の有無: ' + order.insurance,
-      '受注確定日時: ' + formatDateTime_(order.orderedAt)
-    ].join('\n')
-  });
-  return true;
+  var bodyLines = [
+    '受注が確定しました。',
+    '',
+    'コミッション: ' + order.commission,
+    'モデル: ' + order.model,
+    '販売拠点: ' + order.salesLocation,
+    'リード番号: ' + order.leadNumber,
+    '登録月: ' + order.registeredMonth,
+    '担当者: ' + order.staff,
+    '顧客: ' + order.customer,
+    '下取車の有無: ' + order.tradeIn,
+    'OSS登録の可否: ' + order.oss,
+    '保険加入の有無: ' + order.insurance,
+    '受注確定日時: ' + formatDateTime_(order.orderedAt)
+  ];
+  var body = bodyLines.join('\n');
+
+  var sent = false;
+  if (mailTo) {
+    MailApp.sendEmail({
+      to: mailTo,
+      subject: '【販売可能リスト】受注確定のお知らせ',
+      body: body
+    });
+    sent = true;
+  }
+  if (sendChatNotification_('*【販売可能リスト】受注確定のお知らせ*\n' + body)) sent = true;
+  return sent;
+}
+
+/**
+ * Google Chatの受信Webhookへ通知メッセージをPOSTする。設定タブで
+ * Webhook URL（PROP_KEYS.NOTIFY_CHAT_WEBHOOK_URL）が未設定であれば何もしない
+ * （戻り値false）。Google Chat側の障害・URL誤りでHold登録／受注確定処理自体が
+ * 失敗扱いになってしまわないよう、通信エラーはここで握りつぶし、ログにのみ残す
+ * （呼び出し元はメール通知の成否と合わせて処理を続行する）。
+ * メッセージはGoogle Chatの簡易Markdown（*太字*等）に対応させている。
+ */
+function sendChatNotification_(text) {
+  var url = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.NOTIFY_CHAT_WEBHOOK_URL);
+  if (!url) return false;
+  try {
+    UrlFetchApp.fetch(url, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify({ text: text }),
+      muteHttpExceptions: true
+    });
+    return true;
+  } catch (e) {
+    console.error('Google Chat通知の送信に失敗しました: ' + (e && e.message ? e.message : e));
+    return false;
+  }
 }
 
 /**

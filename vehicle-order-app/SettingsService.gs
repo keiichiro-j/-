@@ -1,6 +1,6 @@
 /**
  * SettingsService.gs
- * 設定機能（テーマ設定、Hold時／受注時のメール通知先設定、担当者マスタ）
+ * 設定機能（テーマ設定、Hold時／受注時のメール・Google Chat通知先設定、担当者マスタ）
  *
  * 担当者マスタは { name, email } の配列。email はログイン中のGoogleアカウント
  * （Session.getActiveUser().getEmail()）と突き合わせて「今操作している担当者」を
@@ -30,6 +30,7 @@ function getRawSettings_() {
     notifyHoldMailTo: getMailList_(PROP_KEYS.NOTIFY_HOLD_MAIL_TO),
     notifyOrderMailTo: getMailList_(PROP_KEYS.NOTIFY_ORDER_MAIL_TO),
     notifyErrorMailTo: getMailList_(PROP_KEYS.NOTIFY_ERROR_MAIL_TO),
+    notifyChatWebhookUrl: props.getProperty(PROP_KEYS.NOTIFY_CHAT_WEBHOOK_URL) || '',
     staffList: getStaffList_(),
     modelPhotos: getModelPhotos_()
   };
@@ -84,6 +85,7 @@ function saveRawSettings_(settings) {
   props.setProperty(PROP_KEYS.NOTIFY_HOLD_MAIL_TO, JSON.stringify(normalizeMailList_(settings.notifyHoldMailTo)));
   props.setProperty(PROP_KEYS.NOTIFY_ORDER_MAIL_TO, JSON.stringify(normalizeMailList_(settings.notifyOrderMailTo)));
   props.setProperty(PROP_KEYS.NOTIFY_ERROR_MAIL_TO, JSON.stringify(normalizeMailList_(settings.notifyErrorMailTo)));
+  props.setProperty(PROP_KEYS.NOTIFY_CHAT_WEBHOOK_URL, validateChatWebhookUrl_(settings.notifyChatWebhookUrl));
   props.setProperty(PROP_KEYS.STAFF_LIST, JSON.stringify(normalizeStaffList_(settings.staffList)));
   props.setProperty(PROP_KEYS.MODEL_PHOTOS, JSON.stringify(normalizeModelPhotos_(settings.modelPhotos)));
   return getRawSettings_();
@@ -147,6 +149,27 @@ function validateLogoUrl_(logoUrl) {
       'ロゴ画像のデータが大きすぎます（' + value.length + '文字）。' +
       'もっと小さい画像を使うか、画像を外部にアップロードしてそのURLを指定してください。'
     );
+  }
+  return value;
+}
+
+/**
+ * Google Chatの受信Webhook URL設定値（純粋関数）。Hold登録・受注確定のたびに
+ * このURLへ通知メッセージをPOSTする（NotificationService.gsのsendChatNotification_
+ * 参照）。空文字であれば単にGoogle Chat通知をスキップする（メール通知とは独立した
+ * 任意設定）。誤ったURL（コピペミス等）をそのまま保存してしまうと通知が届かない
+ * ことに気づきにくいため、空でない場合は "https://" で始まることだけ最低限
+ * チェックする（Google ChatのWebhook URLはchat.googleapis.com配下だが、
+ * 将来的なドメイン変更・プロキシ経由等を想定し、ドメインまでは固定しない）。
+ */
+function validateChatWebhookUrl_(url) {
+  var value = String(url || '').trim();
+  if (!value) return '';
+  if (value.length > CHAT_WEBHOOK_URL_MAX_LENGTH) {
+    throw new Error('Google ChatのWebhook URLが長すぎます（' + value.length + '文字）。');
+  }
+  if (!/^https:\/\//.test(value)) {
+    throw new Error('Google ChatのWebhook URLは https:// から始まるURLを指定してください。');
   }
   return value;
 }
@@ -452,6 +475,7 @@ function redactSystemMasterSettings_(settings, isAdmin) {
     notifyHoldMailTo: [],
     notifyOrderMailTo: [],
     notifyErrorMailTo: [],
+    notifyChatWebhookUrl: '',
     staffList: [],
     modelPhotos: settings.modelPhotos
   };
@@ -475,6 +499,7 @@ function applySystemMasterGuard_(incoming, current, isAdmin) {
     notifyHoldMailTo: current.notifyHoldMailTo,
     notifyOrderMailTo: current.notifyOrderMailTo,
     notifyErrorMailTo: current.notifyErrorMailTo,
+    notifyChatWebhookUrl: current.notifyChatWebhookUrl,
     staffList: current.staffList,
     modelPhotos: current.modelPhotos
   };

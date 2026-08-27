@@ -1647,6 +1647,7 @@
     state.notifyOrderMailTo = (settings.notifyOrderMailTo || []).slice();
     state.notifyErrorMailTo = (settings.notifyErrorMailTo || []).slice();
     renderAllMailLists_();
+    $('settingsChatWebhookUrl').value = settings.notifyChatWebhookUrl || '';
     applyTheme(settings.themeKey);
     applyLogo(settings.logoUrl);
     renderLogoPreview_(settings.logoUrl);
@@ -2501,12 +2502,21 @@
       cleanedMailLists[mailKey] = uniqueMails;
     }
 
+    // Google ChatのWebhook URLも、サーバー側のvalidateChatWebhookUrl_（SettingsService.gs）
+    // と同じ規則を保存前にクライアント側でもチェックし、往復せずにエラーへ気づけるようにする。
+    var chatWebhookUrl = $('settingsChatWebhookUrl').value.trim();
+    if (chatWebhookUrl && chatWebhookUrl.indexOf('https://') !== 0) {
+      $('settingsError').textContent = 'Google ChatのWebhook URLは https:// から始まるURLを指定してください。';
+      return;
+    }
+
     var settings = {
       themeKey: state.themeKey || DEFAULT_THEME_KEY,
       logoUrl: $('settingsLogoUrl').value.trim(),
       notifyHoldMailTo: cleanedMailLists.notifyHoldMailTo,
       notifyOrderMailTo: cleanedMailLists.notifyOrderMailTo,
       notifyErrorMailTo: cleanedMailLists.notifyErrorMailTo,
+      notifyChatWebhookUrl: chatWebhookUrl,
       staffList: uniqueStaffList,
       modelPhotos: uniqueModelPhotos
     };

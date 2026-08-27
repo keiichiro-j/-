@@ -342,6 +342,11 @@
               <button class="btn" id="btnAddErrorMail" data-mail-field="notifyErrorMailTo" type="button">＋ 宛先を追加</button>
               <p class="formField__hint">Hold期限切れ処理が失敗し続けた場合など、システム側のエラーを知らせます。未設定の場合は通知しません。</p>
             </div>
+            <div class="formField">
+              <label>Google Chat通知先（Webhook URL）</label>
+              <input type="text" id="settingsChatWebhookUrl" class="input" placeholder="https://chat.googleapis.com/v1/spaces/.../messages?key=...">
+              <p class="formField__hint">Google Chatのスペースで「Webhookを管理」から発行したURLを貼り付けると、Hold登録・受注確定のたびに同じ内容をそのスペースへ通知します（メール通知先とは別に、どちらか一方だけの設定でも動作します）。未設定の場合はGoogle Chatへの通知をスキップします。</p>
+            </div>
           </div>
 
           <div class="settingsCard hidden" id="systemMasterStaffCard">

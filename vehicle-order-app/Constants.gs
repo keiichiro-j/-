@@ -269,6 +269,7 @@ var PROP_KEYS = {
   NOTIFY_HOLD_MAIL_TO: 'NOTIFY_HOLD_MAIL_TO',
   NOTIFY_ORDER_MAIL_TO: 'NOTIFY_ORDER_MAIL_TO',
   NOTIFY_ERROR_MAIL_TO: 'NOTIFY_ERROR_MAIL_TO',
+  NOTIFY_CHAT_WEBHOOK_URL: 'NOTIFY_CHAT_WEBHOOK_URL',
   STAFF_LIST: 'STAFF_LIST',
   MODEL_PHOTOS: 'MODEL_PHOTOS'
 };
@@ -313,6 +314,10 @@ var SYSTEM_ADMIN_EMAILS = ['jimny.girl.2000@gmail.com'];
 // Script Propertiesは1プロパティあたり9KB（=9216文字程度）が上限のため、
 // 余裕を持ってこの文字数を超える場合は保存時にエラーにする（SettingsService.gs参照）。
 var LOGO_URL_MAX_LENGTH = 9000;
+
+// Google ChatのWebhook URL（受信Webhook）の最大文字数。実際のURLは200文字前後だが、
+// 余裕を持った上限にしている（validateChatWebhookUrl_、SettingsService.gs参照）。
+var CHAT_WEBHOOK_URL_MAX_LENGTH = 1000;
 
 // モデル写真1件あたりのURLの最大文字数（署名付きURL等、長めの共有リンクにも
 // 対応できるようある程度余裕を持たせている。data URLではなく外部URLの利用を

@@ -1207,7 +1207,7 @@
   /* ===== ホーム画面: 型ごとのグループ見出し =====
      モデル一覧を、設定タブで割り当てたボディタイプごとにグループ化して表示する際、
      各グループの先頭（そのタイプの最初のモデルタイルの直前）に挟む見出し。
-     PCの4列グリッドでは全列ぶんの幅（grid-column: 1 / -1）を使い、見出しの直後の
+     PCの5列グリッドでは全列ぶんの幅（grid-column: 1 / -1）を使い、見出しの直後の
      アイテムから自動的に新しい行に折り返される（.homeRow.is-expandedと同じ
      grid-column: 1 / -1の仕組み）。1台もモデル写真にボディタイプが割り当てられて
      いない場合はグループ化自体を行わず、この見出しも表示しない（renderHomeGallery_
@@ -1235,16 +1235,19 @@
   }
 
   /* ===== ホーム画面 =====
-     PC（901px以上）はモデル写真を全面に敷いた「ショールーム」風の4列グリッドに
-     する。写真の下部にグラデーションを重ね、モデル名・在庫台数を白文字で
-     直接載せる（通常表示・展開時のクローズアップ表示、どちらも同じ見せ方に
-     統一）。タブレット・スマホ幅（900px以下）では、パッと見て在庫状況が
+     PC（901px以上）はモデル写真を全面に敷いた「ショールーム」風の5列グリッドに
+     する。写真の下部にグラデーションを重ね、モデル名・在庫台数を載せる（通常表示・
+     展開時のクローズアップ表示、どちらも同じ見せ方に統一）。並べる車両写真は
+     ボディカラーが黒色中心のため、写真自体が暗くなりがちな分、周りのUIは
+     グラデーション・文字色とも明るい配色にして、暗い車両とのコントラストを
+     確保している（.homeRow__scrim・.homeRow__model等、下部参照）。
+     タブレット・スマホ幅（900px以下）では、パッと見て在庫状況が
      わかる情報密度を優先した横一列の「リスト」型のままにする
      （@media (max-width: 900px)で上書き。現場の声を踏まえて選んだ元の
      レイアウトのため、狭い画面では変更しない）。 */
   .homeList {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 20px;
   }
   .homeRow {
@@ -1307,12 +1310,15 @@
     z-index: 0;
   }
   .homeRow__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  /* 写真の下部だけを暗くするグラデーション（スクリム）。モデル名・在庫台数の
-     白文字を、写真の明暗に関わらず常に読みやすくするために敷く。 */
+  /* 写真の下部だけを明るくするグラデーション（スクリム）。並べる車両写真は
+     ボディカラーが黒色中心で写真自体が暗くなりがちなため、以前の暗いスクリム＋
+     白文字だと車両と背景が同化して見にくかった。明るい（白系）スクリムを敷き、
+     その上のモデル名・在庫台数は濃い文字色（.homeRow__model等）にすることで、
+     暗い車両写真に対しても常にコントラストを確保する。 */
   .homeRow__scrim {
     position: absolute;
     inset: 0;
-    background: linear-gradient(to top, rgba(11, 31, 51, .85) 0%, rgba(11, 31, 51, .4) 42%, rgba(11, 31, 51, 0) 72%);
+    background: linear-gradient(to top, rgba(255, 255, 255, .92) 0%, rgba(255, 255, 255, .58) 45%, rgba(255, 255, 255, 0) 78%);
     pointer-events: none;
   }
   .homeRow.is-expanded .homeRow__scrim {
@@ -1366,8 +1372,8 @@
   }
   .homeRow.is-expanded .homeRow__meta,
   .homeRow.is-expanded .homeRow__meta .homeRow__chevron {
-    color: #fff;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, .85), 0 1px 10px rgba(0, 0, 0, .6);
+    color: var(--on-surface);
+    text-shadow: none;
   }
   .homeRow.is-expanded .badge--count { display: none; }
   /* 「他のモデルを見る」ボタン: モデル名ラベルとは逆の右上隅に重ねる。
@@ -1402,8 +1408,7 @@
   .homeRow__model {
     flex: 1; min-width: 0;
     font-size: 16px; font-weight: 600; letter-spacing: -.005em;
-    color: #fff;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, .5), 0 1px 10px rgba(0, 0, 0, .35);
+    color: var(--on-surface);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   /* ショールーム風タイルは写真の上に直接載るため、常にコントラストを確保できる
@@ -1417,7 +1422,7 @@
   .homeRow__chevron { flex: none; font-size: 13px; color: var(--on-surface-variant); }
 
   /* ===== ホームのグレードタブ（グレードが設定されたモデル行を展開すると現れる） =====
-     PCの4列グリッドでは、展開したタイルの直下に全列ぶんの幅で表示する
+     PCの5列グリッドでは、展開したタイルの直下に全列ぶんの幅で表示する
      （grid-column: 1 / -1）。900px以下（リスト型）では、写真幅ぶんインデントし
      左に細い罫線を添えることで「ベースモデル行から派生したタブである」ことを
      視覚的に示す（車両スペック折りたたみ等と同じ、階層関係を罫線で示す考え方。
@@ -1645,15 +1650,15 @@
     .homeTypeNav { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .homeTypeHeader { margin: 10px 2px 6px; font-size: 17px; }
 
-    /* ホーム画面: PCの4列グリッド（写真を大きく見せるタイル型）ではなく、
+    /* ホーム画面: PCの5列グリッド（写真を大きく見せるタイル型）ではなく、
        元の「実務重視リスト型」（横一列・小さめの写真）に戻す。タブレット・
        スマホ幅では情報密度を優先するため（現場の声を踏まえた元のレイアウト）。 */
     .homeList { display: flex; flex-direction: column; max-width: 100%; }
     /* PC専用の「ショールーム」風オーバーレイタイル（上部参照）を打ち消し、
        タブレット・スマホ幅では従来どおり写真は小さめの正方形サムネイル、
        文字は写真の隣に並べる横一列リストのままにする（写真に文字を重ねる
-       レイアウトではないため、position: absolute・グラデーション・白文字＋
-       テキストシャドウ・グレード件数タグもすべてPC専用として打ち消す）。 */
+       レイアウトではないため、position: absolute・グラデーション・
+       グレード件数タグもすべてPC専用として打ち消す）。 */
     .homeRow {
       position: static;
       aspect-ratio: auto;
@@ -1671,9 +1676,8 @@
     .homeRow:hover { background: rgba(31, 41, 51, .04); box-shadow: none; transform: none; }
     /* PC専用の「クローズアップ」展開表示（.homeRow.is-expanded、上部参照）を
        打ち消し、タブレット・スマホ幅では従来の横一列リストのままにする
-       （写真に文字を重ねるレイアウトではないため、order・白文字＋
-       テキストシャドウ・「他のモデルを見る」ボタンもすべてPC専用として
-       打ち消す）。 */
+       （写真に文字を重ねるレイアウトではないため、order・
+       「他のモデルを見る」ボタンもすべてPC専用として打ち消す）。 */
     .homeRow.is-expanded {
       grid-column: auto;
       order: 0;

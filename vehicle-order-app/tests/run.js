@@ -701,6 +701,30 @@ test('上限文字数を超えるとエラー', () => {
   assert.throws(() => sandbox.validateLogoUrl_(tooLong), /大きすぎます/);
 });
 
+console.log('== SettingsService: validateChatWebhookUrl_（Google Chat通知先Webhook URLの検証） ==');
+test('httpsから始まるURLはそのまま返る', () => {
+  assert.strictEqual(
+    sandbox.validateChatWebhookUrl_('https://chat.googleapis.com/v1/spaces/AAA/messages?key=xxx'),
+    'https://chat.googleapis.com/v1/spaces/AAA/messages?key=xxx'
+  );
+});
+test('前後の空白はトリムされる', () => {
+  assert.strictEqual(sandbox.validateChatWebhookUrl_('  https://example.com/webhook  '), 'https://example.com/webhook');
+});
+test('空文字・未指定は空文字のまま（Google Chat通知はスキップされる）', () => {
+  assert.strictEqual(sandbox.validateChatWebhookUrl_(''), '');
+  assert.strictEqual(sandbox.validateChatWebhookUrl_(undefined), '');
+});
+test('httpsで始まらない場合はエラー', () => {
+  assert.throws(() => sandbox.validateChatWebhookUrl_('http://example.com/webhook'), /https:\/\//);
+  assert.throws(() => sandbox.validateChatWebhookUrl_('chat.googleapis.com/xxx'), /https:\/\//);
+});
+test('上限文字数を超えるとエラー', () => {
+  const tooLong = 'https://example.com/' + 'a'.repeat(CHAT_WEBHOOK_URL_MAX_LENGTH_FOR_TEST());
+  assert.throws(() => sandbox.validateChatWebhookUrl_(tooLong), /長すぎます/);
+});
+function CHAT_WEBHOOK_URL_MAX_LENGTH_FOR_TEST() { return sandbox.CHAT_WEBHOOK_URL_MAX_LENGTH + 10; }
+
 console.log('== SettingsService: isSystemAdmin_（システムマスタへのアクセス可否。SYSTEM_ADMIN_EMAILSのみで判定） ==');
 test('SYSTEM_ADMIN_EMAILSに含まれるメールアドレスはtrue（大文字小文字を無視）', () => {
   assert.strictEqual(sandbox.isSystemAdmin_('jimny.girl.2000@gmail.com'), true);
@@ -733,6 +757,7 @@ test('非管理者には通知先・担当者が空になる（テーマ・ロ�
   const settings = {
     themeKey: 'wine', logoUrl: 'https://logo.png',
     notifyHoldMailTo: ['a@example.com'], notifyOrderMailTo: ['b@example.com'], notifyErrorMailTo: ['c@example.com'],
+    notifyChatWebhookUrl: 'https://chat.googleapis.com/v1/spaces/AAA/messages?key=xxx',
     staffList: [{ name: '佐藤' }], modelPhotos: [{ model: 'Cクラス' }]
   };
   const result = sandbox.redactSystemMasterSettings_(settings, false);
@@ -742,6 +767,7 @@ test('非管理者には通知先・担当者が空になる（テーマ・ロ�
   assert.strictEqual(result.notifyHoldMailTo.length, 0);
   assert.strictEqual(result.notifyOrderMailTo.length, 0);
   assert.strictEqual(result.notifyErrorMailTo.length, 0);
+  assert.strictEqual(result.notifyChatWebhookUrl, '');
   assert.strictEqual(result.staffList.length, 0);
 });
 
@@ -758,11 +784,13 @@ test('非管理者からの保存は、ロゴ・モデル写真・通知先・�
   const incoming = {
     themeKey: 'amber', logoUrl: 'https://tampered-logo.png',
     notifyHoldMailTo: 'tampered@example.com', notifyOrderMailTo: '', notifyErrorMailTo: '',
+    notifyChatWebhookUrl: 'https://tampered-webhook.example.com',
     staffList: [], modelPhotos: [{ model: 'Eクラス' }]
   };
   const current = {
     logoUrl: 'https://real-logo.png',
     notifyHoldMailTo: 'real@example.com', notifyOrderMailTo: 'real2@example.com', notifyErrorMailTo: 'real3@example.com',
+    notifyChatWebhookUrl: 'https://chat.googleapis.com/v1/spaces/REAL/messages?key=xxx',
     staffList: [{ name: '本物の担当者', email: 'staff@example.com' }],
     modelPhotos: [{ model: '本物のモデル' }]
   };
@@ -774,6 +802,7 @@ test('非管理者からの保存は、ロゴ・モデル写真・通知先・�
   assert.strictEqual(result.notifyHoldMailTo, 'real@example.com');
   assert.strictEqual(result.notifyOrderMailTo, 'real2@example.com');
   assert.strictEqual(result.notifyErrorMailTo, 'real3@example.com');
+  assert.strictEqual(result.notifyChatWebhookUrl, 'https://chat.googleapis.com/v1/spaces/REAL/messages?key=xxx');
   assert.strictEqual(result.staffList.length, 1);
   assert.strictEqual(result.staffList[0].name, '本物の担当者');
 });
