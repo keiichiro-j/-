@@ -1607,7 +1607,12 @@
       top: 0;
       z-index: 2;
       display: flex;
-      flex-wrap: wrap;
+      /* 折り返さず横スクロールの1行にする（タブレット・スマホ幅と同じ考え方。
+         型の数が増えても縦の高さを一定に保ち、初期表示でモデルカードが
+         より多く見えるようにする）。 */
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
       gap: 8px;
       background: var(--surface);
       margin: 0 -16px 4px;
@@ -1636,7 +1641,10 @@
     .homeSplit__list {
       flex: 0 0 380px;
       min-width: 0;
-      height: 100%;
+      /* main.viewの上余白（24px）ぶん枠を上に拡張し、トップバーの真下まで
+         フレームを伸ばす（下端の位置はheightをその分足すことで変えない）。 */
+      margin-top: -24px;
+      height: calc(100% + 24px);
       overflow-y: auto;
       background: var(--surface);
       border: 1px solid var(--outline);
