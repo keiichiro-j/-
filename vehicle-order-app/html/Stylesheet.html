@@ -1142,13 +1142,12 @@
   .modelPhotoList__preview img { width: 100%; height: 100%; object-fit: cover; }
   .modelPhotoList__row .input[data-photo-field="model"] { flex: 0 0 16%; min-width: 70px; }
   .modelPhotoList__row .input[data-photo-field="bodyType"] { flex: 0 0 120px; }
-  /* 写真URL・グレードは、片方だけ（特にphotoUrlのように長い値が入る欄）が
-     もう片方を圧迫して極端に潰れないよう、同じ比率・同じ最小幅で分け合う
-     （どちらもデフォルトのflex: 0 1 auto・min-width: autoのままだと、実際に
-     入っている値の長さによってブラウザごとの基準サイズがばらつき、
-     片方だけが数文字ぶんの幅まで潰れてしまうことがあったため）。 */
-  .modelPhotoList__row .input[data-photo-field="photoUrl"],
-  .modelPhotoList__row .input[data-photo-field="grades"] { flex: 1 1 0; min-width: 110px; }
+  /* 写真URLは長い値が入る欄のため、残り幅をすべて使う。先頭の文字列・対象の文字列は
+     「CLA」「T」のような短い文字列しか入らないため、固定幅の小さい欄にする
+     （photoUrlと同じ比率で伸縮させると、値が短いのに不自然に幅広くなってしまうため）。 */
+  .modelPhotoList__row .input[data-photo-field="photoUrl"] { flex: 1 1 0; min-width: 110px; }
+  .modelPhotoList__row .input[data-photo-field="gradePrefix"],
+  .modelPhotoList__row .input[data-photo-field="gradeMarker"] { flex: 0 0 96px; min-width: 70px; }
   .modelPhotoList__empty { font-size: 13px; color: var(--on-surface-variant); }
 
   /* ===== メール通知先（Hold時／受注確定時／システムエラー通知） =====
@@ -1354,6 +1353,13 @@
     align-self: start;
     justify-self: start;
     left: auto; right: auto; bottom: auto;
+    /* 写真の実際の幅（min(480px, 100%)）を超えないようにする。これが無いと、
+     * 長いモデル名（例:「CLA Shooting Brake」）が写真の外まではみ出し、
+     * 右上の「他のモデルを見る」ボタンと重なってしまう不具合があった
+     * （.homeRow__modelのoverflow: hidden・text-overflow: ellipsisは、
+     * 親であるこの要素が幅を持って初めて効くため）。 */
+    max-width: calc(min(480px, 100%) - 24px);
+    overflow: hidden;
     margin: 12px;
     padding: 6px 12px;
     z-index: 1;
@@ -1735,7 +1741,8 @@
     .modelPhotoList__row .input[data-photo-field="model"],
     .modelPhotoList__row .input[data-photo-field="bodyType"],
     .modelPhotoList__row .input[data-photo-field="photoUrl"],
-    .modelPhotoList__row .input[data-photo-field="grades"] { flex: 1 1 100%; }
+    .modelPhotoList__row .input[data-photo-field="gradePrefix"],
+    .modelPhotoList__row .input[data-photo-field="gradeMarker"] { flex: 1 1 100%; }
     main.view { padding: 10px; }
     .toolbar { padding: 10px; width: calc(100% - 20px); }
     .toolbar .input, .toolbar .checkboxField { flex: 1 1 auto; }

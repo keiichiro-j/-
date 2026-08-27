@@ -609,28 +609,29 @@ test('配列以外が渡されても空配列として扱われる', () => {
   assert.strictEqual(sandbox.normalizeModelPhotos_(null).length, 0);
   assert.strictEqual(sandbox.normalizeModelPhotos_(undefined).length, 0);
 });
-test('グレード一覧は空文字除去・重複除去のうえ配列で返る（在庫リストのモデル列と一致させる用途）', () => {
+test('先頭の文字列・対象の文字列はトリムされる', () => {
   const list = sandbox.normalizeModelPhotos_([
-    { model: 'Aクラス', photoUrl: 'https://example.com/a.jpg', grades: ['A180', ' A200 ', '', 'A180', 'A35'] }
+    { model: 'CLA Coupe', photoUrl: 'https://example.com/cla.jpg', gradePrefix: ' CLA ', gradeMarker: ' ' }
   ]);
-  assert.strictEqual(list.length, 1);
-  assert.strictEqual(list[0].grades.length, 3);
-  assert.strictEqual(list[0].grades[0], 'A180');
-  assert.strictEqual(list[0].grades[1], 'A200');
-  assert.strictEqual(list[0].grades[2], 'A35');
+  assert.strictEqual(list[0].gradePrefix, 'CLA');
+  assert.strictEqual(list[0].gradeMarker, '');
 });
-test('グレード未設定の場合は空配列になる（従来のモデル名直接照合にフォールバック）', () => {
+test('先頭の文字列が未設定の場合は空文字になる（従来のモデル名直接照合にフォールバック）', () => {
   const list = sandbox.normalizeModelPhotos_([{ model: 'クラウン', photoUrl: 'https://example.com/crown.jpg' }]);
-  assert.strictEqual(list[0].grades.length, 0);
+  assert.strictEqual(list[0].gradePrefix, '');
+  assert.strictEqual(list[0].gradeMarker, '');
 });
-test('グレードが21件以上はエラーになる', () => {
-  const grades = Array.from({ length: 21 }, (_, i) => 'G' + i);
-  const list = [{ model: 'Aクラス', photoUrl: 'https://example.com/a.jpg', grades: grades }];
-  assert.throws(() => sandbox.normalizeModelPhotos_(list), /グレードは最大20件/);
+test('先頭の文字列が未設定なら対象の文字列は無視される（空文字になる）', () => {
+  const list = sandbox.normalizeModelPhotos_([
+    { model: 'クラウン', photoUrl: 'https://example.com/crown.jpg', gradeMarker: 'T' }
+  ]);
+  assert.strictEqual(list[0].gradeMarker, '');
 });
-test('グレード名が長すぎる場合はエラーになる', () => {
-  const list = [{ model: 'Aクラス', photoUrl: 'https://example.com/a.jpg', grades: ['x'.repeat(31)] }];
-  assert.throws(() => sandbox.normalizeModelPhotos_(list), /長すぎます/);
+test('先頭の文字列・対象の文字列が長すぎる場合はエラーになる', () => {
+  const list1 = [{ model: 'Aクラス', photoUrl: 'https://example.com/a.jpg', gradePrefix: 'x'.repeat(31) }];
+  assert.throws(() => sandbox.normalizeModelPhotos_(list1), /先頭の文字列.*長すぎます/);
+  const list2 = [{ model: 'Aクラス', photoUrl: 'https://example.com/a.jpg', gradePrefix: 'A', gradeMarker: 'x'.repeat(31) }];
+  assert.throws(() => sandbox.normalizeModelPhotos_(list2), /対象の文字列.*長すぎます/);
 });
 test('ボディタイプはMODEL_BODY_TYPE_OPTIONSに含まれる値ならそのまま保持される', () => {
   const list = sandbox.normalizeModelPhotos_([{ model: 'Cクラス', photoUrl: 'https://example.com/c.jpg', bodyType: 'Sedan' }]);

@@ -1657,7 +1657,7 @@
     populateOrdersStaffFilter_();
 
     state.modelPhotos = (settings.modelPhotos || []).map(function (p) {
-      return { model: p.model || '', photoUrl: p.photoUrl || '', grades: (p.grades || []).join(', '), bodyType: p.bodyType || '' };
+      return { model: p.model || '', photoUrl: p.photoUrl || '', gradePrefix: p.gradePrefix || '', gradeMarker: p.gradeMarker || '', bodyType: p.bodyType || '' };
     });
     $('modelPhotosMax').textContent = (state.bootstrap && state.bootstrap.modelPhotosMax) || 40;
     renderModelPhotoList_();
@@ -1920,7 +1920,8 @@
           '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="model" placeholder="モデル名（例: Aクラス）" value="' + escapeHtml(entry.model || '') + '">' +
           bodyTypeSelectHtml +
           '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="photoUrl" placeholder="写真URL" value="' + escapeHtml(entry.photoUrl || '') + '">' +
-          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="grades" placeholder="グレード（カンマ区切り）" title="カンマ区切りで入力してください（例: A180, A200, A35, A45）" value="' + escapeHtml(entry.grades || '') + '">' +
+          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="gradePrefix" placeholder="先頭の文字列（例: CLA）" title="在庫リストの「モデル」列の値がこの文字列で始まっていれば、このモデルのグレードとして自動集計します。空欄なら従来通りモデル名で直接照合します。" value="' + escapeHtml(entry.gradePrefix || '') + '">' +
+          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="gradeMarker" placeholder="対象の文字列（任意・例: T）" title="先頭の文字列より後ろの部分にこの文字列を含む場合のみ対象にします（例: CLA Shooting Brakeの「T」）。空欄なら、他のモデルの対象の文字列に一致しない残り全部を拾います。先頭の文字列が空欄の場合は使用されません。" value="' + escapeHtml(entry.gradeMarker || '') + '">' +
           '<button class="btn btn--icon" data-remove-photo="' + i + '" type="button" aria-label="削除">&times;</button>' +
           '</div>';
       }).join('');
@@ -2039,32 +2040,51 @@
   // モデル名と在庫台数を横一列で見せることで、日常的に使う社内ツールとしての
   // 情報密度を優先する（見た目の華やかさより、パッと見て台数がわかることを重視）。
   /**
-   * グレード一覧（配列、またはカンマ区切り文字列のどちらでも受け付ける）を、
-   * 空要素を除いたトリム済み配列に正規化する（純粋関数）。設定タブの編集中は
-   * カンマ区切り文字列、サーバーから読み込んだ直後は配列と、状態によって型が
-   * 揺れうるため、参照する側でこの関数を通して統一的に扱う。
+   * 在庫リストの「モデル」列の値（グレード名。例:「CLA18」「CLA18T」）が、指定エントリの
+   * 自動判定条件に一致するかどうかを判定する（純粋関数）。
+   * 条件は「①gradePrefixで始まる」「②gradeMarkerが設定されていれば、先頭部分を
+   * 除いた残りにgradeMarkerを含む」の2つ。gradeMarker未設定のエントリ（例:「CLA Coupe」）は
+   * gradePrefixにさえ一致すれば残り全部を拾う「受け皿」になるが、gradeMarkerを設定した
+   * 他のエントリ（例:「CLA Shooting Brake」のマーカー「T」）がより具体的な条件として
+   * 先に横取りしていないかを確認し、横取りされていなければ受け皿として拾う
+   * （CLA18TZのような限定車も、残りにTを含むため横取りされる側で自動的に拾われる）。
    */
-  function parseGrades_(raw) {
-    var list = Array.isArray(raw) ? raw : String(raw || '').split(',');
-    return list.map(function (g) { return String(g || '').trim(); }).filter(Boolean);
+  function matchesGradeRule_(modelValue, entry, allEntries) {
+    if (!entry.gradePrefix || !modelValue) return false;
+    if (modelValue.indexOf(entry.gradePrefix) !== 0) return false;
+    var remainder = modelValue.slice(entry.gradePrefix.length);
+    if (entry.gradeMarker) return remainder.indexOf(entry.gradeMarker) !== -1;
+    var claimedBySibling = (allEntries || []).some(function (other) {
+      if (other === entry || !other.gradePrefix || !other.gradeMarker) return false;
+      if (modelValue.indexOf(other.gradePrefix) !== 0) return false;
+      return modelValue.slice(other.gradePrefix.length).indexOf(other.gradeMarker) !== -1;
+    });
+    return !claimedBySibling;
   }
 
   /**
-   * ベースモデル1件分の在庫台数を集計する（純粋関数）。在庫リストの「モデル」列には
-   * グレード名のみが入力される運用のため、グレード一覧（entry.grades）が設定されている
-   * 場合はグレードごとに在庫リストのモデル列と一致する台数を集計する。グレード一覧が
-   * 未設定の場合は、モデル名そのものを在庫リストのモデル列と直接照合する（グレードの
-   * 概念を使わない、単一モデルの車種向けのフォールバック）。
+   * ベースモデル1件分の在庫台数を集計する（純粋関数）。gradePrefixが設定されている
+   * 場合は、在庫リストに実際にある型番のうちmatchesGradeRule_に一致するものを
+   * 自動的に拾い集め、型番ごとの内訳を計算する（グレードを手入力で列挙する必要がない）。
+   * gradePrefixが未設定の場合は、モデル名そのものを在庫リストのモデル列と直接照合する
+   * （グレードの概念を使わない、単一モデルの車種向けのフォールバック）。
+   * 実際に在庫が1台も無い型番は一覧に出てこない点に注意（手入力の列挙とは異なり、
+   * 在庫データから動的に検出するため、在庫0台の型番はそもそも検出できない）。
    */
-  function gradeCountsForEntry_(entry, allItems) {
-    var grades = parseGrades_(entry.grades);
-    if (!grades.length) {
+  function gradeCountsForEntry_(entry, allItems, allModelPhotos) {
+    if (!entry.gradePrefix) {
       var total = allItems.filter(function (v) { return v.model === entry.model; }).length;
       return { total: total, byGrade: [] };
     }
-    var byGrade = grades.map(function (grade) {
-      return { grade: grade, count: allItems.filter(function (v) { return v.model === grade; }).length };
+    var counts = {};
+    var order = [];
+    allItems.forEach(function (v) {
+      if (!matchesGradeRule_(v.model, entry, allModelPhotos)) return;
+      if (!counts[v.model]) { counts[v.model] = 0; order.push(v.model); }
+      counts[v.model]++;
     });
+    order.sort();
+    var byGrade = order.map(function (grade) { return { grade: grade, count: counts[grade] }; });
     var total = byGrade.reduce(function (sum, g) { return sum + g.count; }, 0);
     return { total: total, byGrade: byGrade };
   }
@@ -2083,8 +2103,8 @@
    * 型ごとにグループ化して呼び出す（元は1つの関数の中でmodelPhotosを直接map
    * していたが、グループ化に伴い「1件分の描画」を切り出した）。
    */
-  function homeModelTileHtml_(p, allItems) {
-    var result = gradeCountsForEntry_(p, allItems);
+  function homeModelTileHtml_(p, allItems, allModelPhotos) {
+    var result = gradeCountsForEntry_(p, allItems, allModelPhotos);
     var hasGrades = result.byGrade.length > 0;
     var isExpanded = hasGrades && state.homeExpandedModel === p.model;
     var chevronHtml = hasGrades
@@ -2194,7 +2214,7 @@
     $('homeTypeEmpty').classList.toggle('hidden', !(modelPhotos.length > 0 && groups.length === 0));
     $('homeGrid').innerHTML = groups.map(function (g) {
       var headerHtml = g.label ? '<div class="homeTypeHeader">' + escapeHtml(g.label) + '</div>' : '';
-      return headerHtml + g.items.map(function (p) { return homeModelTileHtml_(p, allItems); }).join('');
+      return headerHtml + g.items.map(function (p) { return homeModelTileHtml_(p, allItems, modelPhotos); }).join('');
     }).join('');
     renderHomeTypeNav_();
     // #homeTypeNavはposition: fixedのため、表示・非表示の切り替えや折り返し行数の
@@ -2423,7 +2443,8 @@
         return {
           model: String((p && p.model) || '').trim(),
           photoUrl: String((p && p.photoUrl) || '').trim(),
-          grades: parseGrades_(p && p.grades),
+          gradePrefix: String((p && p.gradePrefix) || '').trim(),
+          gradeMarker: String((p && p.gradeMarker) || '').trim(),
           bodyType: String((p && p.bodyType) || '').trim()
         };
       })

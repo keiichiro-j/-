@@ -229,19 +229,24 @@ function normalizeMailList_(list) {
 }
 
 /**
- * ホーム画面のモデル写真設定を { model, photoUrl, grades } の配列で返す。
- * モデル名（例: 「Aクラス」）ごとに代表写真を1枚登録し、ホーム画面でクリックすると
- * 在庫リストが絞り込まれる（車両1台ごとではなくモデル単位で管理する。個々の車両は
- * 在庫の入れ替わりが頻繁なため、車両ごとに写真を管理すると都度アップロード・削除が
- * 必要になり運用の手間が大きくなるため）。
+ * ホーム画面のモデル写真設定を { model, photoUrl, gradePrefix, gradeMarker, bodyType }
+ * の配列で返す。モデル名（例: 「CLA Coupe」）ごとに代表写真を1枚登録し、ホーム画面で
+ * クリックすると在庫リストが絞り込まれる（車両1台ごとではなくモデル単位で管理する。
+ * 個々の車両は在庫の入れ替わりが頻繁なため、車両ごとに写真を管理すると都度
+ * アップロード・削除が必要になり運用の手間が大きくなるため）。
  *
- * grades は、在庫リストの「モデル」列に実際に入力される値（例: 「A180」「A35」「A45」。
- * 在庫リストのモデル列にはグレード名のみが入力され、「Aクラス」のようなベース名は
- * 入力されない運用のため）の一覧。ホーム画面ではこれをもとに、ベースモデル1行の中で
- * グレードごとの在庫台数を内訳表示し、クリック時もこのグレード一覧に一致する車両を
- * まとめて絞り込む（JavaScript.htmlのgradeCountsForEntry_ / homeGradeFilter参照）。
- * 未設定（空配列）の場合は、モデル名そのものを在庫リストのモデル列と直接照合する
- * 従来の挙動にフォールバックする。
+ * gradePrefix・gradeMarker は、在庫リストの「モデル」列に実際に入力される値
+ * （例: 「CLA18」「CLA18T」。在庫リストのモデル列にはグレード名のみが入力され、
+ * 「CLA Coupe」のようなベース名は入力されない運用のため）を自動判定するための条件。
+ * グレードを一件ずつ手入力で列挙する代わりに、「①gradePrefixで始まる」「②設定
+ * されていればgradeMarkerを、先頭部分を除いた残りに含む」の2条件だけで、ホーム
+ * 画面がその場で在庫リストと突き合わせてグレード内訳を計算する
+ * （JavaScript.htmlのgradeCountsForEntry_・matchesGradeRule_ / homeGradeFilter参照）。
+ * gradeMarkerが未設定の行は、gradePrefixにさえ一致すれば残り全部を拾う「受け皿」に
+ * なる（例: 「CLA Coupe」はプレフィックス「CLA」・マーカー空欄で、マーカー「T」を
+ * 設定した「CLA Shooting Brake」が横取りしなかった残りをすべて拾う）。
+ * gradePrefixが未設定（空文字）の場合は、モデル名そのものを在庫リストのモデル列と
+ * 直接照合する従来の挙動にフォールバックする。
  */
 function getModelPhotos_() {
   var raw = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.MODEL_PHOTOS);
@@ -262,7 +267,8 @@ function getModelPhotos_() {
       // 以外の値には何もしない純粋関数のため、既に直接画像URLの場合や他の
       // ホスティングサービスのURLの場合はそのまま返る）。
       photoUrl: normalizeModelPhotoUrl_((entry && entry.photoUrl) || ''),
-      grades: Array.isArray(entry && entry.grades) ? entry.grades : [],
+      gradePrefix: (entry && entry.gradePrefix) || '',
+      gradeMarker: (entry && entry.gradeMarker) || '',
       // ボディタイプ（MODEL_BODY_TYPE_OPTIONSのいずれか）。ホーム画面で
       // 型ごとにグループ表示するために使う（未設定可。normalizeModelPhotos_参照）。
       bodyType: (entry && entry.bodyType) || ''
@@ -299,10 +305,10 @@ function normalizeModelPhotoUrl_(url) {
  * 写真URLはGoogleドライブの共有リンクであれば直接画像URLに変換する
  * （normalizeModelPhotoUrl_参照）。変換後も長すぎる場合（data URLを直接貼り付けた
  * 場合等）はエラーにする（大きな画像は外部にアップロードしてURLを指定する）。
- * グレード一覧（grades）も同様に、空文字除去・重複除去・最大件数
- * （MODEL_PHOTO_GRADES_MAX）・1件あたりの最大文字数（MODEL_PHOTO_GRADE_MAX_LENGTH）
- * をチェックする。さらに、1件あたりの上限内でも件数が多いと合計文字数がScript
- * Propertiesの実際の保存上限を超えうるため、JSON化した全体の文字数
+ * gradePrefix・gradeMarkerも同様にトリムし、1件あたりの最大文字数
+ * （MODEL_PHOTO_GRADE_RULE_MAX_LENGTH）をチェックする。gradePrefixが空文字の場合は
+ * gradeMarkerも意味を持たないため空文字にそろえる。さらに、件数が多いと合計文字数が
+ * Script Propertiesの実際の保存上限を超えうるため、JSON化した全体の文字数
  * （MODEL_PHOTOS_TOTAL_MAX_LENGTH）も別途チェックする。
  */
 function normalizeModelPhotos_(list) {
@@ -321,32 +327,25 @@ function normalizeModelPhotos_(list) {
         '画像を外部（Googleドライブの共有リンク等）にアップロードしたうえでURLを指定してください。'
       );
     }
-    var rawGrades = Array.isArray(entry && entry.grades) ? entry.grades : [];
-    var seenGrades = {};
-    var grades = [];
-    rawGrades.forEach(function (g) {
-      var grade = String(g || '').trim();
-      if (!grade || seenGrades[grade]) return;
-      seenGrades[grade] = true;
-      if (grade.length > MODEL_PHOTO_GRADE_MAX_LENGTH) {
+    var gradePrefix = String((entry && entry.gradePrefix) || '').trim();
+    var gradeMarker = gradePrefix ? String((entry && entry.gradeMarker) || '').trim() : '';
+    [
+      { label: '先頭の文字列', value: gradePrefix },
+      { label: '対象の文字列', value: gradeMarker }
+    ].forEach(function (field) {
+      if (field.value.length > MODEL_PHOTO_GRADE_RULE_MAX_LENGTH) {
         throw new Error(
-          'モデル「' + model + '」のグレード「' + grade + '」が長すぎます（' + grade.length + '文字）。'
+          'モデル「' + model + '」の' + field.label + '「' + field.value + '」が長すぎます（' + field.value.length + '文字）。'
         );
       }
-      grades.push(grade);
     });
-    if (grades.length > MODEL_PHOTO_GRADES_MAX) {
-      throw new Error(
-        'モデル「' + model + '」のグレードは最大' + MODEL_PHOTO_GRADES_MAX + '件までです（現在' + grades.length + '件）'
-      );
-    }
     // ボディタイプは選択式（MODEL_BODY_TYPE_OPTIONS）のプルダウンからの入力を想定して
     // いるため、未知の値（改ざん・過去バージョンで保存された値等）は例外にせず、
     // 単に未設定（空文字）として扱う（normalizeThemeKey_と同じ「不正な値は
     // フォールバックする」考え方。型を割り当てていないモデルは、ホーム画面では
     // 「未設定」グループにまとめて表示される）。
     var bodyType = MODEL_BODY_TYPE_OPTIONS.indexOf((entry && entry.bodyType) || '') !== -1 ? entry.bodyType : '';
-    result.push({ model: model, photoUrl: photoUrl, grades: grades, bodyType: bodyType });
+    result.push({ model: model, photoUrl: photoUrl, gradePrefix: gradePrefix, gradeMarker: gradeMarker, bodyType: bodyType });
   });
   if (result.length > MODEL_PHOTOS_MAX) {
     throw new Error('モデル写真は最大' + MODEL_PHOTOS_MAX + '件までです（現在' + result.length + '件）');

@@ -332,10 +332,10 @@ var MODEL_PHOTO_DISPLAY_WIDTH = 1000;
 // 別途チェックする（SettingsService.gs参照）。
 var MODEL_PHOTOS_TOTAL_MAX_LENGTH = 8000;
 
-// モデル写真1件（ベースモデル、例: 「Aクラス」）に紐づけられる、在庫リストの
-// モデル列と一致させる「グレード」（例: A180・A35・A45）の最大件数・1件あたりの
-// 最大文字数。在庫リストの「モデル」列にはグレード名のみが入力される運用のため、
-// ホーム画面ではこのグレード一覧をもとに、ベースモデル1行の中でグレードごとの
-// 在庫台数を内訳表示する（SettingsService.gs / JavaScript.htmlのgradeCountsForEntry_参照）。
-var MODEL_PHOTO_GRADES_MAX = 20;
-var MODEL_PHOTO_GRADE_MAX_LENGTH = 30;
+// モデル写真1件（ベースモデル、例: 「CLA Coupe」）に紐づけられる、在庫リストの
+// モデル列の値（グレード名。例: 「CLA18」「CLA18T」）を自動判定するための条件
+// （gradePrefix・gradeMarker）1件あたりの最大文字数。グレードを手入力で列挙する
+// 代わりに、「①gradePrefixで始まる」「②設定されていればgradeMarkerを含む」の
+// 2条件だけで、ホーム画面がその場で在庫リストと突き合わせてグレード内訳を計算する
+// （SettingsService.gs / JavaScript.htmlのgradeCountsForEntry_・matchesGradeRule_参照）。
+var MODEL_PHOTO_GRADE_RULE_MAX_LENGTH = 30;
