@@ -2808,6 +2808,16 @@
     if (topbar) {
       document.documentElement.style.setProperty('--topbar-h', topbar.offsetHeight + 'px');
     }
+    // ホームの結合ヘッダー（#homeCombinedHeader）はPCビューでは通常のフロー要素
+    // として.homeSplitの直前に置かれ、中の型クイックナビの折り返し有無で高さが
+    // 変わりうるため、実測してCSS変数に反映し、.homeSplitの高さ計算
+    // （calc(100vh - ... - var(--home-header-h) - 20px)）に使う。タブレット・
+    // スマホ幅ではdisplay: contentsで自身の箱が無くoffsetHeightは常に0になるが、
+    // その幅では.homeSplitの高さ計算自体が使われないため問題ない。
+    var homeCombinedHeader = $('homeCombinedHeader');
+    if (homeCombinedHeader) {
+      document.documentElement.style.setProperty('--home-header-h', homeCombinedHeader.offsetHeight + 'px');
+    }
     // ホームでモデルタイルを展開した際、scrollIntoView()で「トップバー＋型クイック
     // ナビの下」まで自動スクロールできるよう、両方の固定要素の高さの合計を
     // CSS変数として持っておく（homeModelTileHtml_のscroll-margin-topで使う。

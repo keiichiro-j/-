@@ -1406,11 +1406,16 @@
      詳細度で負けてしまう。ここでも同じ.homeSplit__detailクラスセレクタで
      揃えておき、メディアクエリ側を後勝ちで上書きさせる。 */
   .homeSplit__detail { display: none; }
-  /* アプリ名見出し（.homeSplit__listTitle）は、共通トップバーの見出しを
-     ホームタブの間だけ非表示にするPC専用の構成の一部のため、タブレット・
-     スマホ幅では表示しない（それらの幅では共通トップバーが従来どおり
-     アプリ名を表示するため、二重表示を防ぐ）。 */
-  .homeSplit__listTitle { display: none; }
+  /* ===== ホームの結合ヘッダー（アプリ名見出し＋型クイックナビ＋戻る／更新／
+     一覧に戻るボタン。PC専用の3区画構成の一部） =====
+     タブレット・スマホ幅では、この要素自体をdisplay: contentsにして箱を消し、
+     中の#homeTypeNav（position: fixedの型クイックナビ、それらの幅でも従来どおり
+     画面上部に固定表示する）だけをそのまま残す。#homeCombinedHeader__topRow
+     （見出し・戻る／更新／一覧に戻るボタン）は、それらの幅では共通トップバーが
+     従来どおりアプリ名・戻る／更新ボタンを表示するため、二重表示を防ぐために
+     非表示にする。 */
+  #homeCombinedHeader { display: contents; }
+  .homeCombinedHeader__topRow { display: none; }
 
   /* ===== ホームのグレードタブ（グレードが設定されたモデル行を展開すると現れる） =====
      PCでは、展開したタイル（そのモデルの型セクション内）の直下にそのまま表示する
@@ -1593,9 +1598,9 @@
     .topbar__navBtn { border-color: var(--outline); color: var(--on-surface-variant); }
     .topbar__navBtn:hover { background: var(--background); }
     .topbar__navBtn:disabled:hover { background: transparent; }
-    /* ホームタブの間は、この共通トップバーを非表示にする。アプリ名見出しは
-       中央パネル自身のヘッダー（.homeSplit__listHeader）、戻る／更新ボタンは
-       右パネル自身のヘッダー（.homeSplit__detailHeader）にそれぞれ役目を譲るため
+    /* ホームタブの間は、この共通トップバーを非表示にする。アプリ名見出し・
+       型クイックナビ・戻る／更新／一覧に戻るボタンは、中央・右パネルの両方に
+       またがる結合ヘッダー（#homeCombinedHeader）にそれぞれ役目を譲るため
        （サイドバー／中央パネル／右パネルの3区画だけにする。JavaScript.htmlの
        switchToTab_参照）。非表示になるとoffsetHeightが0になるため、直後の
        syncFixedBars_()が--topbar-hを自動的に0へ更新し、#appの上余白も
@@ -1619,41 +1624,55 @@
       max-width: none;
     }
 
-    /* ホーム中央パネル自身のヘッダー: アプリ名見出し＋ボディタイプ絞り込みナビを
-       まとめて、モデル一覧パネル（.homeSplit__list）の内側・カード一覧の直上に
-       position: stickyで留める（スクロールしても常に押せる状態を保つ。共通
-       トップバーへドッキングしていた以前のバージョンから、中央パネル自身の
-       ヘッダーとして「モデルカードの上」に置く構成に変更した）。 */
-    .homeSplit__listHeader {
-      position: sticky;
-      top: 0;
-      z-index: 2;
+    /* ホームの結合ヘッダー: アプリ名見出し・戻る／更新／一覧に戻るボタン・
+       ボディタイプ絞り込みナビを1本にまとめ、中央パネル（.homeSplit__list）・
+       右パネル（.homeSplit__detail）2列ぶんの全幅を使う（以前は中央パネル
+       単体の幅（最大640px）に収まる数しか型タブを1行に並べられなかったが、
+       結合ヘッダーにしたことで画面幅ほぼ全体を使えるようになり、型の種類が
+       多くても横スクロール・2段折り返しなしで1行に収まりやすくなる）。
+       #homeSplitの直前に通常のフロー要素として置き、position: fixedには
+       しない（ホームタブの間はmain.view自体が縦スクロールしない構成のため、
+       固定表示にしなくても常に見える）。 */
+    #homeCombinedHeader {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
       background: var(--surface);
-      margin: 0 -16px 4px;
-      padding: 20px 16px 12px;
-      border-bottom: 1px solid var(--outline);
-      border-radius: var(--radius) var(--radius) 0 0;
+      border: 1px solid var(--outline);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      margin-bottom: 20px;
     }
-    .homeSplit__listTitle {
-      display: block;
+    .homeCombinedHeader__topRow {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .homeCombinedHeader__title {
       font-size: 18px;
       font-weight: 700;
       letter-spacing: .02em;
       color: var(--on-surface);
-      margin-bottom: 14px;
+    }
+    .homeCombinedHeader__actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: auto;
     }
     .homeTypeNav {
       display: flex;
       /* 横スクロールは使わない（PCビューでは横スクロールが必要な画面を作らない
-         方針のため）。.homeSplit__listの幅（720px）とこのブレークポイント専用の
-         コンパクトな.homeTypeNav__itemサイズを組み合わせれば、通常のPC画面幅
-         では8個（「すべて」＋MODEL_BODY_TYPE_OPTIONSの7種類）すべてが1行に
-         収まる。ただし.homeSplit__listは狭いウィンドウ幅では最小480pxまで
-         縮む（下の.homeSplit__list参照）ため、その場合に備えてflex-wrap: wrap
-         にしておく（横スクロールより、必要な時だけ2行に折り返す方を優先する）。 */
+         方針のため）。結合ヘッダーの全幅（中央・右パネル2列ぶん）とこの
+         ブレークポイント専用のコンパクトな.homeTypeNav__itemサイズを
+         組み合わせれば、PCビューの最小幅（901px）でも8個（「すべて」＋
+         MODEL_BODY_TYPE_OPTIONSの7種類）すべてが1行に収まる。それでも
+         収まらない極端に狭い状況に備えたフォールバックとしてのみ
+         flex-wrap: wrapにしておく（横スクロールより、必要な時だけ2行に
+         折り返す方を優先する）。 */
       flex-wrap: wrap;
       overflow: visible;
-      gap: 6px;
+      gap: 5px;
       position: static;
       background: none;
       margin: 0;
@@ -1666,13 +1685,12 @@
       max-width: none;
     }
     /* タブレット・スマホ幅と共通のピル型サイズ（font-size: 13.5px、
-       padding: 8px 16px）のままだと、型の種類数（最大8個＝「すべて」＋
-       MODEL_BODY_TYPE_OPTIONSの7種類）を1行に収めるには.homeSplit__listの
-       幅を非現実的に広げる必要があるため、PCビューのこのヘッダー内だけ
-       一回り小さくする。 */
+       padding: 8px 16px）よりは一回り小さくしつつ、結合ヘッダーの全幅を
+       使えるようになった分、以前の中央パネル単体幅向けの極小サイズ
+       （5px 9px／11px）よりは読みやすいサイズに戻す。 */
     .homeTypeNav__item {
-      padding: 5px 9px;
-      font-size: 11px;
+      padding: 5px 8px;
+      font-size: 10.5px;
     }
     .homeTypeNavSpacer { display: none; }
 
@@ -1692,56 +1710,37 @@
        縮められる。 */
     .homeSplit {
       display: grid;
-      /* 中央（モデル一覧）: 型クイックナビ8個を1行に収めるのに必要な幅は、
-         コンパクト化した.homeTypeNav__itemなら600px前後で足りる（以前は
-         720pxにしていたが、その分右の詳細パネル・車両画像を大きく取れる
-         よう、タブをさらに小さくして必要幅を縮めた）。上限にしつつ、
-         PCビューの最小幅（901px）でも右の詳細パネルと共存できる380pxまでは
-         縮められるようにする（縮んだ場合は型クイックナビがflex-wrapで2行に
-         折り返す。横スクロールは発生しない）。右（詳細）: 同じくPCビュー
-         最小幅でも収まる180pxを下限にし、残り幅をすべて使う。 */
+      /* 中央（モデル一覧）: 型クイックナビは結合ヘッダー（#homeCombinedHeader）
+         側に移ったため、この列の幅はもう型タブの数に左右されない。上限は
+         モデル一覧の読みやすさを優先した640px、下限はPCビューの最小幅
+         （901px）でも右の詳細パネルと共存できる380px。右（詳細）: 同じく
+         PCビュー最小幅でも収まる180pxを下限にし、残り幅をすべて使う。 */
       grid-template-columns: minmax(380px, 640px) minmax(180px, 1fr);
       align-items: start;
       gap: 24px;
-      height: calc(100vh - var(--topbar-h) - 24px - 40px);
+      /* 結合ヘッダー自身の高さ（--home-header-h、syncFixedBars_で実測）と
+         そのmargin-bottom（20px）ぶんを差し引き、ヘッダーの下にぴったり
+         収まる高さにする（ヘッダーは通常のフロー要素のため、以前のように
+         「上にはみ出させて隠れたトップバーの分を埋める」margin-top:-24pxの
+         ハックはもう不要）。 */
+      height: calc(100vh - var(--topbar-h) - 24px - 40px - var(--home-header-h, 0px) - 20px);
     }
     .homeSplit__list {
       min-width: 0;
-      /* main.viewの上余白（24px）ぶん枠を上に拡張し、トップバーの真下まで
-         フレームを伸ばす（下端の位置はheightをその分足すことで変えない）。 */
-      margin-top: -24px;
-      height: calc(100% + 24px);
+      height: 100%;
       overflow-y: auto;
       background: var(--surface);
       border: 1px solid var(--outline);
       border-radius: var(--radius);
-      padding: 0 16px 16px;
+      padding: 16px;
     }
     .homeSplit__detail {
       display: flex;
       flex-direction: column;
       min-width: 0;
-      /* .homeSplit__listと同様、main.viewの上余白（24px）ぶん枠を上に拡張し、
-         トップバーがあった高さの真下（実質トップバー自体を非表示にしているため
-         画面最上部）までフレームを伸ばす。 */
-      margin-top: -24px;
-      height: calc(100% + 24px);
+      height: 100%;
       background: var(--background);
     }
-    /* 右パネル自身のヘッダー: 戻る／更新ボタンを配置する（共通トップバー側の
-       ボタンと同じ処理を呼ぶ別要素。JavaScript.htmlのhandleNavBackClick_・
-       handleRefreshClick_参照）。 */
-    .homeSplit__detailHeader {
-      flex: none;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 20px 28px 0;
-    }
-    /* パネル自体がグレー（--background）のため、ホバー時の背景（共通の
-       .topbar__navBtn:hoverが使う--background）だと同色で見分けがつかない。
-       ここだけホワイト（--surface）に上書きする。 */
-    .homeSplit__detailHeader .topbar__navBtn:hover { background: var(--surface); }
     .homeSplit__detailBody {
       flex: 1;
       min-height: 0;
@@ -1761,15 +1760,15 @@
       text-align: center;
     }
     .homeDetail__empty .emptyState__icon { opacity: .5; }
-    /* 右パネル自身のヘッダー（.homeSplit__detailHeader）内の静的なボタン
-       （Index.html参照）。左の戻る／更新ボタン（タブ間の画面履歴を戻る）とは
-       別の操作（モデルの選択解除）のため、margin-left: autoで右側に離して
-       混同を防ぐ。表示・非表示はrenderHomeDetail_が切り替える。 */
+    /* 結合ヘッダー（#homeCombinedHeader）内の静的なボタン（Index.html参照）。
+       左の戻る／更新ボタン（タブ間の画面履歴を戻る）とは別の操作（モデルの
+       選択解除）のため、テキストラベル付きにして混同を防ぐ（.homeCombinedHeader__
+       actionsの並び順で右端に置く）。表示・非表示はrenderHomeDetail_が切り替える。 */
     .homeDetail__backBtn {
       display: flex;
       align-items: center;
       gap: 6px;
-      margin-left: auto;
+      margin-left: 8px;
       border: none;
       background: none;
       color: var(--primary-text);
