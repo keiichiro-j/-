@@ -1218,7 +1218,12 @@
 
   /* ===== モデル写真（ホーム画面） ===== */
   .modelPhotoList { display: flex; flex-direction: column; gap: 8px; }
-  .modelPhotoList__row { display: flex; gap: 10px; align-items: center; }
+  /* flex-wrap: wrapにしておく。各入力欄の最小幅（min-width）の合計が、PCビューの
+     最小幅（901px）付近では設定タブの表示幅（.settingsWrapのmax-width: 760px）に
+     収まりきらず、横スクロールが発生してしまっていたため（PCビューでは横スクロール
+     を発生させない方針。現場からの指摘で判明）。折り返しても入力欄の意味は
+     見た目から分かるため、実用上の支障はない。 */
+  .modelPhotoList__row { display: flex; flex-wrap: wrap; row-gap: 8px; gap: 10px; align-items: center; }
   .modelPhotoList__preview {
     width: 44px; height: 44px; flex: none;
     border: 1px solid var(--outline); border-radius: 8px;
