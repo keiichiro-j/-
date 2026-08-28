@@ -658,7 +658,12 @@
      高コントラストな見出しでの「カードタイプUI」） ===== */
   .cardGrid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    /* 1frだけだと各トラックの下限が「内容物のmin-content幅」になり、
+       カードの内容（コミッション番号やバッジ等）が想定より長い場合に
+       グリッド自体がコンテナ幅を超えてページ全体の横スクロールを
+       引き起こすことがある。minmax(0, 1fr)にして、必要なときはカードの
+       方が縮む（内部でテキストが折り返す）ようにする。 */
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 20px;
     /* align-items: stretch（デフォルト）だと、1台だけ「車両スペックを見る」等の
        詳細を開いて縦に伸びたときに、同じグリッド行の他のカードまで背が
@@ -908,7 +913,9 @@
   /* ===== 受注リスト（在庫リストと揃えたカードタイプUI。PCビューで1行3列） ===== */
   .orderList {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    /* minmax(0, 1fr)にする理由は.cardGridと同じ（1fr単独だと内容量が多い
+       カードがある場合にグリッド自体がコンテナ幅を超えてしまうため）。 */
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 20px;
     align-items: start;
   }
@@ -1633,15 +1640,16 @@
     }
     .homeTypeNav {
       display: flex;
-      /* 折り返さず横スクロールの1行にする（タブレット・スマホ幅と同じ考え方。
-         型の数が増えても縦の高さを一定に保ち、初期表示でモデルカードが
-         より多く見えるようにする）。ボタンの見た目自体はタブレット・スマホ幅と
-         共通のピル型のまま（.homeTypeNav__itemを個別に上書きしない）にし、
-         狭い画面との一貫性を保つ。 */
-      flex-wrap: nowrap;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      gap: 8px;
+      /* 横スクロールは使わない（PCビューでは横スクロールが必要な画面を作らない
+         方針のため）。.homeSplit__listの幅（720px）とこのブレークポイント専用の
+         コンパクトな.homeTypeNav__itemサイズを組み合わせれば、通常のPC画面幅
+         では8個（「すべて」＋MODEL_BODY_TYPE_OPTIONSの7種類）すべてが1行に
+         収まる。ただし.homeSplit__listは狭いウィンドウ幅では最小480pxまで
+         縮む（下の.homeSplit__list参照）ため、その場合に備えてflex-wrap: wrap
+         にしておく（横スクロールより、必要な時だけ2行に折り返す方を優先する）。 */
+      flex-wrap: wrap;
+      overflow: visible;
+      gap: 6px;
       position: static;
       background: none;
       margin: 0;
@@ -1653,6 +1661,15 @@
       width: auto;
       max-width: none;
     }
+    /* タブレット・スマホ幅と共通のピル型サイズ（font-size: 13.5px、
+       padding: 8px 16px）のままだと、型の種類数（最大8個＝「すべて」＋
+       MODEL_BODY_TYPE_OPTIONSの7種類）を1行に収めるには.homeSplit__listの
+       幅を非現実的に広げる必要があるため、PCビューのこのヘッダー内だけ
+       一回り小さくする。 */
+    .homeTypeNav__item {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
     .homeTypeNavSpacer { display: none; }
 
     /* ===== ホームの3列構成 =====
@@ -1661,14 +1678,28 @@
        という3列構成にする。色は左からグレー（サイドバー、--background）・
        ホワイト（中央のモデル一覧パネル、--surface）・グレー（右の詳細パネル、
        --background）の順にし、中央パネルだけが浮き上がって見えるようにする。 */
+    /* display: flexではなくgridにしているのは、flexのflex-shrink計算だと
+       .homeSplit__detail側のコンテンツ（写真・グレードカード等）の
+       最小コンテンツ幅がmin-width: 0を飛び越えてページ全体の横あふれを
+       引き起こすことがあったため（flex-basisが0の側に縮小分がすべて
+       乗ってしまい、実際のレンダリング幅0pxに対してコンテンツだけが
+       はみ出す現象）。grid-template-columnsのminmax()なら、両方の列に
+       明示的な下限・上限を持たせたうえで、ウィンドウ幅に応じてなめらかに
+       縮められる。 */
     .homeSplit {
-      display: flex;
-      align-items: flex-start;
+      display: grid;
+      /* 中央（モデル一覧）: 型クイックナビ8個を1行に収めるには720px前後
+         欲しいが、上限にすると同時に、PCビューの最小幅（901px）でも右の
+         詳細パネルと共存できる380pxまでは縮められるようにする（縮んだ場合は
+         型クイックナビがflex-wrapで2行に折り返す。横スクロールは発生しない）。
+         右（詳細）: 同じくPCビュー最小幅でも収まる180pxを下限にし、残り幅を
+         すべて使う。 */
+      grid-template-columns: minmax(380px, 720px) minmax(180px, 1fr);
+      align-items: start;
       gap: 24px;
       height: calc(100vh - var(--topbar-h) - 24px - 40px);
     }
     .homeSplit__list {
-      flex: 0 0 380px;
       min-width: 0;
       /* main.viewの上余白（24px）ぶん枠を上に拡張し、トップバーの真下まで
          フレームを伸ばす（下端の位置はheightをその分足すことで変えない）。 */
@@ -1683,7 +1714,6 @@
     .homeSplit__detail {
       display: flex;
       flex-direction: column;
-      flex: 1;
       min-width: 0;
       /* .homeSplit__listと同様、main.viewの上余白（24px）ぶん枠を上に拡張し、
          トップバーがあった高さの真下（実質トップバー自体を非表示にしているため
@@ -1787,7 +1817,9 @@
     }
     .homeDetail__photo {
       position: relative;
-      aspect-ratio: 16 / 9;
+      /* 以前は16:9だったが、モデル画像の下に並ぶグレードカード（3列×複数行）が
+         スクロールなしで全部見えるよう、写真の高さを抑えるために2:1に変更した。 */
+      aspect-ratio: 2 / 1;
       /* 右パネル全体がグレー（--background）になったため、写真の枠は
          ホワイト（--surface）にして「カード」として浮き上がらせる。 */
       background: var(--surface);
@@ -1836,7 +1868,9 @@
     }
     .homeDetail__gradeGrid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      /* minmax(0, 1fr)にする理由は.cardGridと同じ（グレード名が長い場合に
+         グリッド自体が右パネル幅を超えてしまうのを防ぐ）。 */
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 12px;
     }
     .homeDetail__gradeCard {
@@ -2027,7 +2061,7 @@
   /* ===== ノートPC幅（在庫リストは4列だとカードが窮屈になるため3列に落とす。
      受注リストはもともと1行3列のため、このブレークポイントでは変更しない） ===== */
   @media (max-width: 1400px) {
-    .cardGrid { grid-template-columns: repeat(3, 1fr); }
+    .cardGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   }
 
   /* ===== タブレット ===== */
