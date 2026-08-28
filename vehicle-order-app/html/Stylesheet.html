@@ -1667,8 +1667,8 @@
        幅を非現実的に広げる必要があるため、PCビューのこのヘッダー内だけ
        一回り小さくする。 */
     .homeTypeNav__item {
-      padding: 6px 12px;
-      font-size: 12px;
+      padding: 5px 9px;
+      font-size: 11px;
     }
     .homeTypeNavSpacer { display: none; }
 
@@ -1688,13 +1688,15 @@
        縮められる。 */
     .homeSplit {
       display: grid;
-      /* 中央（モデル一覧）: 型クイックナビ8個を1行に収めるには720px前後
-         欲しいが、上限にすると同時に、PCビューの最小幅（901px）でも右の
-         詳細パネルと共存できる380pxまでは縮められるようにする（縮んだ場合は
-         型クイックナビがflex-wrapで2行に折り返す。横スクロールは発生しない）。
-         右（詳細）: 同じくPCビュー最小幅でも収まる180pxを下限にし、残り幅を
-         すべて使う。 */
-      grid-template-columns: minmax(380px, 720px) minmax(180px, 1fr);
+      /* 中央（モデル一覧）: 型クイックナビ8個を1行に収めるのに必要な幅は、
+         コンパクト化した.homeTypeNav__itemなら600px前後で足りる（以前は
+         720pxにしていたが、その分右の詳細パネル・車両画像を大きく取れる
+         よう、タブをさらに小さくして必要幅を縮めた）。上限にしつつ、
+         PCビューの最小幅（901px）でも右の詳細パネルと共存できる380pxまでは
+         縮められるようにする（縮んだ場合は型クイックナビがflex-wrapで2行に
+         折り返す。横スクロールは発生しない）。右（詳細）: 同じくPCビュー
+         最小幅でも収まる180pxを下限にし、残り幅をすべて使う。 */
+      grid-template-columns: minmax(380px, 640px) minmax(180px, 1fr);
       align-items: start;
       gap: 24px;
       height: calc(100vh - var(--topbar-h) - 24px - 40px);
