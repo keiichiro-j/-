@@ -527,6 +527,11 @@ Hold登録時・受注確定時に、メール通知とは別にGoogle Chatの�
     （グレードカードの代わりが無いため。`homeDetailHtml_`）。まだ何も選択して
     いない場合は、選択を促す案内だけを
     中央に表示します（`homeDetailEmptyHtml_`）。
+    - **在庫が0台の場合は「在庫がありません」と表示します**（`homeStockCountText_`、
+      純粋関数）。数字の「在庫0台」だと見落としやすいため、モデル一覧の行の
+      バッジ・右ペイン合計台数・グレードカードのいずれも、対象の台数が0のときは
+      赤文字で「在庫がありません」に置き換えます（`.badge--count--zero` /
+      `.homeDetail__countZero` / `.homeDetail__gradeCardCount--zero`）。
     - **「一覧に戻る」（`#btnHomeDetailBack`）は、詳細パネル自身のヘッダーに
       常設した静的なボタンです**（モデル選択中のみ表示。`renderHomeDetail_`が
       表示・非表示を切り替えます）。左側の戻る／更新ボタン（タブ間の画面履歴を

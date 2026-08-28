@@ -2158,6 +2158,15 @@
    * 従来通り行クリックで直接在庫リストへ遷移する（展開の必要がないため）。
    */
   /**
+   * ホーム画面の在庫台数表示（純粋関数）。0台の場合は数字の「在庫0台」ではなく
+   * 「在庫がありません」という文言にし、在庫が無いことをひと目でわかるようにする
+   * （モデル一覧の行・右ペインの合計台数・グレードカードのいずれからも呼ぶ）。
+   */
+  function homeStockCountText_(total) {
+    return total === 0 ? '在庫がありません' : '在庫' + total + '台';
+  }
+
+  /**
    * モデル1件分のタイル（+展開時のグレードタブ）のHTML。renderHomeGallery_から
    * 型ごとにグループ化して呼び出す（元は1つの関数の中でmodelPhotosを直接map
    * していたが、グループ化に伴い「1件分の描画」を切り出した）。
@@ -2210,7 +2219,8 @@
       '</div>' +
       '<div class="homeRow__photo"><img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '"></div>' +
       '<div class="homeRow__footer">' +
-      '<span class="badge badge--count">在庫' + result.total + '台</span>' +
+      '<span class="badge badge--count' + (result.total === 0 ? ' badge--count--zero' : '') + '">' +
+      homeStockCountText_(result.total) + '</span>' +
       chevronHtml +
       '</div>' +
       '</' + tag + '>';
@@ -2386,7 +2396,7 @@
           var countClass = 'homeDetail__gradeCardCount' + (g.count === 0 ? ' homeDetail__gradeCardCount--zero' : '');
           return '<button type="button" class="homeDetail__gradeCard" data-home-grade="' + escapeHtml(g.grade) + '">' +
             '<span class="homeDetail__gradeCardName">' + escapeHtml(g.grade) + '</span>' +
-            '<span class="' + countClass + '">' + g.count + '台</span>' +
+            '<span class="' + countClass + '">' + homeStockCountText_(g.count) + '</span>' +
             '</button>';
         }).join('') +
         '</div>'
@@ -2399,10 +2409,16 @@
       escapeHtml(prevModel || '') + '" aria-label="前のモデル"' + (prevModel ? '' : ' disabled') + '>&#9664;</button>' +
       '<button type="button" class="homeDetail__navBtn homeDetail__navBtn--next" data-home-detail-next="' +
       escapeHtml(nextModel || '') + '" aria-label="次のモデル"' + (nextModel ? '' : ' disabled') + '>&#9654;</button>';
+    // 合計在庫台数が0台の場合は、大きな数字の代わりに「在庫がありません」の
+    // 文言をそのまま表示し、在庫が無いことがひと目でわかるようにする
+    // （homeStockCountText_、他の在庫台数表示と同じ考え方）。
+    var countHtml = result.total === 0
+      ? '<div class="homeDetail__count homeDetail__count--zero"><span class="homeDetail__countZero">在庫がありません</span></div>'
+      : '<div class="homeDetail__count"><span class="homeDetail__countNum">' + result.total + '</span>' +
+        '<span class="homeDetail__countLabel">在庫台数</span></div>';
     return '<div class="homeDetail__headRow">' +
       '<h2 class="homeDetail__title">' + escapeHtml(p.model) + typeHtml + '</h2>' +
-      '<div class="homeDetail__count"><span class="homeDetail__countNum">' + result.total + '</span>' +
-      '<span class="homeDetail__countLabel">在庫台数</span></div>' +
+      countHtml +
       '</div>' +
       '<div class="homeDetail__photo"><img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '">' +
       navBtnHtml + '</div>' +

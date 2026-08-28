@@ -1375,6 +1375,10 @@
     text-transform: uppercase;
     padding: 0;
   }
+  /* 在庫0台のモデルは「在庫0台」ではなく「在庫がありません」と表示し
+     （homeStockCountText_、JavaScript.html）、赤文字にして在庫が無いことが
+     ひと目でわかるようにする（グレード別カウントの--zeroと同じ考え方）。 */
+  .homeRow__footer .badge--count--zero { color: var(--danger); }
   .homeRow__footer .homeRow__chevron {
     display: inline;
     flex: none;
@@ -1817,6 +1821,15 @@
       letter-spacing: .06em;
       color: var(--on-surface-variant);
     }
+    /* 合計在庫台数が0台の場合は、大きな数字の代わりに「在庫がありません」を
+       表示する（homeStockCountText_、JavaScript.html参照）。赤文字で
+       在庫が無いことがひと目でわかるようにする。 */
+    .homeDetail__countZero {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--danger);
+      white-space: nowrap;
+    }
     .homeDetail__photo {
       position: relative;
       /* 以前は16:9だったが、モデル画像の下に並ぶグレードカード（3列×複数行）が
@@ -2138,6 +2151,7 @@
       letter-spacing: normal;
       font-size: 12px;
     }
+    .homeRow__footer .badge--count--zero { background: var(--danger-bg); color: var(--danger); }
     .homeRow__footer .homeRow__chevron { color: var(--on-surface-variant); font-size: 13px; }
     .homeRow.is-expanded .homeRow__backBtn { display: none; }
     .homeGradeTabs {
