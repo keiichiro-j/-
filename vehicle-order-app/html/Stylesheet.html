@@ -514,51 +514,30 @@
 
   /* ===== 在庫リストの表示形式「表」（多台数を一覧で見比べる商談向けビュー） =====
      素のtableではなく、カードグリッドと同じ「カードタイプUI」（角丸・影・ホバーで
-     浮き上がる）を保ったまま、1台=横1行のカードとして並べる。列位置はCSS Gridで
-     全行そろえ、表形式ならではの一覧性はそのまま保つ。 */
-  /* width: fit-contentにしないと、.rowCardListがブロック要素として.tableScroll
-     いっぱいに広がってしまい、列がすべて固定幅になった今は、行（.rowCard）の
-     右端（操作ボタン等）とカード自身の枠の間に、画面幅に応じて不要な余白が
-     空いてしまう（現場からの指摘「一行を通して均一の余白で」より）。
-     fit-contentにすることで、カードは常に列の合計幅ぴったりの大きさになる。 */
-  .rowCardList { display: flex; flex-direction: column; gap: 10px; width: fit-content; min-width: 1348px; }
-  /* 受注リストの表「行カード」は在庫リストより列数・列幅が少ないため、共通の
-     min-width（1348px、在庫リスト向け）をそのまま使うと、行（.rowCard--order）が
-     不要に広くstretchされ、固定幅の列だけでは埋まらない分だけ余白が空いてしまう。
-     受注リスト自身の列合計に合わせて上書きする（.rowCard.rowCard--order参照）。 */
-  .rowCardList--order { min-width: 1716px; }
+     浮き上がる）を保ったまま、1台=横1行のカードとして並べる。
+     PCビューでは横スクロールを一切発生させない方針のため、各項目（列）は
+     display: flex; flex-wrap: wrapで並べ、画面幅に収まりきらない項目は
+     横スクロールではなく次の行へ折り返す（以前はdisplay: gridで固定列幅の
+     1行に並べ、.tableScroll（overflow-x: auto）で横スクロールさせていたが、
+     現場からの「PCビューでは横スクロール自体を禁止したい」という要望を受けて
+     変更した）。各項目の横幅は以前のgrid-template-columnsと同じ値を
+     :nth-child()で個別に指定しており、広い画面では1行に、狭い画面では
+     複数行に自然に収まる（画面幅によって項目の折り返し位置は変わるが、
+     すべての行で列構成・列幅は同じため、行をまたいだ縦の位置揃えは保たれる）。 */
+  .rowCardList { display: flex; flex-direction: column; gap: 10px; width: 100%; min-width: 0; }
   .rowCard {
-    display: grid;
-    /* .rowCardは.rowCardList（display:flex; flex-direction:column;）の子要素で
-       あり、既定では横幅（クロス軸）が親の幅にstretchされる。grid-template-columns
-       の固定幅列＋gapの合計（1348px）が親の幅より広い場合、明示的にmin-widthを
-       指定しないと、グリッドの列（特に最後の状態・操作ボタン列）がカード自身の
-       枠（border/background）からはみ出して表示されてしまっていたため
-       （現場からの指摘で判明）、列の合計幅と同じ値をmin-widthとして固定する。 */
-    min-width: 1348px;
-    /* 最後の操作列は auto ではなく固定幅にする。auto だとHold中（ボタン2つ）と
-       在庫あり（ボタン2つだが文言が違う）・2nd Hold登録済み（ボタン1つ）で
-       操作列の内容幅が行ごとに変わり、他の列がそのぶん伸縮して行同士の列位置が
-       ずれてしまっていたため（現場からの指摘で判明）。固定幅にすることで
-       在庫あり／Hold中のどちらの行でも同じ列位置に揃う。状態列も「Hold中（2nd有）」
-       バッジが収まる幅（150px）を確保し、隣の操作列と重ならないようにする
-       （以前は108pxで文字がはみ出し、受注確定ボタンと重なって見えていた）。
-       モデル列は以前210px＋左右に1frの空白列（車両情報ブロックを中央寄りに
-       見せるため）を置いていたが、モデル列の実際のコンテンツ（比較チェックボックス・
-       モデル名・コミッション）は最大でも70px程度しか使っておらず、残りが左詰めの
-       文字の右側に無駄な余白として見えてしまい、モデル→MPの間だけ他の列間より
-       大きく間延びして見えていた（現場からの指摘で判明）。モデル列を実際の
-       コンテンツ幅に合わせて100pxまで縮め、左右の空白列も廃止し、他の列と同じ
-       gap（16px）だけで隣り合うようにして、行全体で余白が均一に見えるようにした。 */
-    grid-template-columns: 100px 68px 46px 150px 170px 96px 84px 88px 150px 210px;
-    /* center ではなく start にする。center だと「Hold中（2nd有）」で解除リンクが
-       2本に増えて状態列が縦に伸びた分だけ、1本しか無い操作ボタン（受注確定）が
-       行の中央へ引っ張られて下にずれ、状態バッジの高さと揃わなくなっていたため
-       （現場からの指摘で判明）。start にして全列を行の上端に揃えることで、
-       状態列の行数（解除リンクの本数）に関係なく、バッジ・操作ボタン・他の項目が
-       常に同じ高さで揃う。 */
-    align-items: start;
-    gap: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    /* 折り返した行の間隔（10px）は列間の間隔（16px）より詰め、複数行になっても
+       1枚のカードとしてのまとまりが保たれるようにする。 */
+    row-gap: 10px;
+    column-gap: 16px;
+    /* start にする。center だと「Hold中（2nd有）」で解除リンクが2本に増えて
+       状態列が縦に伸びた分だけ、1本しか無い操作ボタン（受注確定）が引っ張られて
+       ずれてしまうため（現場からの指摘で判明）。start にして全項目を上端に
+       揃えることで、状態列の行数（解除リンクの本数）に関係なく、バッジ・
+       操作ボタン・他の項目が常に同じ高さで揃う。 */
+    align-items: flex-start;
     background: var(--surface);
     border: 1px solid var(--outline);
     border-left: 4px solid transparent;
@@ -567,6 +546,33 @@
     padding: 14px 20px;
     transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
   }
+  /* 最後の操作列は auto ではなく固定幅にする。auto だとHold中（ボタン2つ）と
+     在庫あり（ボタン2つだが文言が違う）・2nd Hold登録済み（ボタン1つ）で
+     操作列の内容幅が行ごとに変わり、他の列がそのぶん伸縮して行同士の列位置が
+     ずれてしまっていたため（現場からの指摘で判明）。固定幅にすることで
+     在庫あり／Hold中のどちらの行でも同じ列位置に揃う。状態列も「Hold中（2nd有）」
+     バッジが収まる幅（150px）を確保し、隣の操作列と重ならないようにする
+     （以前は108pxで文字がはみ出し、受注確定ボタンと重なって見えていた）。
+     モデル列は以前210px＋左右に1frの空白列（車両情報ブロックを中央寄りに
+     見せるため）を置いていたが、モデル列の実際のコンテンツ（比較チェックボックス・
+     モデル名・コミッション）は最大でも70px程度しか使っておらず、残りが左詰めの
+     文字の右側に無駄な余白として見えてしまい、モデル→MPの間だけ他の列間より
+     大きく間延びして見えていた（現場からの指摘で判明）。モデル列を実際の
+     コンテンツ幅に合わせて100pxまで縮め、左右の空白列も廃止し、他の列と同じ
+     gap（16px）だけで隣り合うようにして、行全体で余白が均一に見えるようにした。
+     各項目の順序はvehicleRowCardHtml（JavaScript.html）のDOM出力順と一致させる
+     必要がある（grid-template-columnsが列位置で対応していたのと同じく、この
+     :nth-child()による横幅指定も出力順に依存するpositionalな対応関係のため）。 */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(1) { flex: 0 0 100px; }
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(2) { flex: 0 0 68px; }
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(3) { flex: 0 0 46px; }
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(4) { flex: 0 0 150px; }
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(5) { flex: 0 0 170px; }
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(6) { flex: 0 0 96px; }
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(7) { flex: 0 0 84px; }
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(8) { flex: 0 0 88px; }
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(9) { flex: 0 0 150px; }
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(10) { flex: 0 0 210px; }
   /* border-color: transparent ではなく上・右・下のみ指定する。border-color（4辺一括）だと
      border-left-color（在庫状況を示す色つきの左罫線）まで打ち消してしまい、ホバー時に
      状態の色が消えて見えてしまうため（.rowCard--available 等はこのルールより先に書かれて
@@ -621,37 +627,59 @@
      リンクが1本、Hold中（2nd有）は2本に増えて縦に伸びる分だけ、状態列だけが
      他の列より高くなり、行（カード）自体の高さが在庫あり／Hold中／Hold中（2nd有）で
      バラバラになっていたため、状態列の高さを常に一定にして吸収する。 */
-  .rowCard__status { display: flex; flex-direction: column; align-items: center; gap: 6px; height: 72px; overflow-y: auto; }
+  .rowCard__status { display: flex; flex-direction: column; align-items: center; gap: 6px; height: 72px; overflow-y: auto; min-width: 0; }
   .rowCard__cancelLink {
     border: none; background: none; color: var(--danger); font-size: 11px; font-weight: 700;
     cursor: pointer; padding: 0; text-align: center; width: 100%;
   }
   .rowCard__cancelLink:hover { text-decoration: underline; }
-  /* justify-self: stretch + flex-start にすることで、ボタンが1つ（2nd Hold登録済み）
-     でも2つ（Hold+受注 等）でも、先頭ボタンの開始位置は常にこの列の左端で揃う。
-     justify-self: end だとボタン数で箱の幅が変わり、右端は揃っても開始位置が
-     行ごとにずれてしまう。 */
-  .rowCard__actions { display: flex; gap: 8px; justify-self: stretch; justify-content: flex-start; }
+  .rowCard__actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-start; min-width: 0; }
 
   /* 受注リストの表示形式「表」: 在庫と項目構成が異なる（比較ピン・操作ボタンが無く、
-     顧客・担当者・リード番号などを表示する）ため、専用の列構成にする。顧客・モデルの
-     列を`fr`（可変幅）にしていたため、.rowCardの共通min-width（在庫リスト向けに
-     1490pxを指定、下記参照）を受け継いだ状態でこの列数の少ない構成に流用すると、
-     余った横幅を可変幅の2列だけが吸収してしまい、顧客名〜モデル・モデル〜担当者の
-     間に不要な余白が大きく空いてしまっていた（現場からの指摘で判明）。在庫リストと
-     同様にすべての列を固定幅にし、min-widthも受注リスト自身の列合計に合わせて
-     上書きすることで、余白をなくしスクロールの手間を減らしている。顧客名の列も
+     顧客・担当者・リード番号などを表示する）ため、専用の項目幅にする。顧客名の列も
      以前210pxにしていたが、実際のコンテンツ（顧客名・コミッション）は最大でも
      60px程度しか使っておらず、左詰めの文字の右側に無駄な余白が生まれ、顧客名→モデルの
      間だけ他の列間より大きく間延びして見えていたため（現場からの指摘で判明）、
      110pxまで縮めている。以前は下取車の有無・OSS登録の可否・保険加入の有無・支払方法・
      MP・VPC・有償OPが表示されておらず、詳細モーダル（orderDetailGridHtml_）を開かないと
-     確認できなかったため（現場からの指摘で判明）、これらも列として追加している。 */
-  .rowCard.rowCard--order {
-    grid-template-columns: 110px 120px 68px 88px 170px 90px 110px 80px 90px 90px 90px 80px 150px 130px;
-    min-width: 1716px;
-    border-left-color: var(--primary);
-  }
+     確認できなかったため（現場からの指摘で判明）、これらも項目として追加している。
+     在庫リストと同じくdisplay: flex; flex-wrapで並べ、画面幅に収まりきらない項目は
+     横スクロールではなく次の行へ折り返す（orderRowCardHtmlのDOM出力順に対応する
+     positionalな:nth-child()指定）。 */
+  .rowCard.rowCard--order { border-left-color: var(--primary); }
+  .rowCard.rowCard--order > *:nth-child(1) { flex: 0 0 110px; }
+  .rowCard.rowCard--order > *:nth-child(2) { flex: 0 0 120px; }
+  .rowCard.rowCard--order > *:nth-child(3) { flex: 0 0 68px; }
+  .rowCard.rowCard--order > *:nth-child(4) { flex: 0 0 88px; }
+  .rowCard.rowCard--order > *:nth-child(5) { flex: 0 0 170px; }
+  .rowCard.rowCard--order > *:nth-child(6) { flex: 0 0 90px; }
+  .rowCard.rowCard--order > *:nth-child(7) { flex: 0 0 110px; }
+  .rowCard.rowCard--order > *:nth-child(8) { flex: 0 0 80px; }
+  .rowCard.rowCard--order > *:nth-child(9) { flex: 0 0 90px; }
+  .rowCard.rowCard--order > *:nth-child(10) { flex: 0 0 90px; }
+  .rowCard.rowCard--order > *:nth-child(11) { flex: 0 0 90px; }
+  .rowCard.rowCard--order > *:nth-child(12) { flex: 0 0 80px; }
+  .rowCard.rowCard--order > *:nth-child(13) { flex: 0 0 150px; }
+  .rowCard.rowCard--order > *:nth-child(14) { flex: 0 0 130px; }
+
+  /* Gクラス予約リストの表示形式「表」: 在庫リストの項目（MP・ステア・カラー・
+     有償OP・入港予定日・可能月・VPC）に加えて担当者・モデル・リード番号も
+     並べるため、在庫リスト（10項目）・受注リスト（14項目）のどちらとも異なる
+     12項目構成になる（gclassRowCardHtml_のDOM出力順）。区別のため専用の
+     rowCard--gclassクラスを付け、共通の.rowCard:not(.rowCard--order):not(.rowCard--gclass)
+     ルールとは別に、この12項目に対応する:nth-child()を指定する。 */
+  .rowCard--gclass > *:nth-child(1) { flex: 0 0 110px; }
+  .rowCard--gclass > *:nth-child(2) { flex: 0 0 90px; }
+  .rowCard--gclass > *:nth-child(3) { flex: 0 0 120px; }
+  .rowCard--gclass > *:nth-child(4) { flex: 0 0 68px; }
+  .rowCard--gclass > *:nth-child(5) { flex: 0 0 46px; }
+  .rowCard--gclass > *:nth-child(6) { flex: 0 0 150px; }
+  .rowCard--gclass > *:nth-child(7) { flex: 0 0 170px; }
+  .rowCard--gclass > *:nth-child(8) { flex: 0 0 96px; }
+  .rowCard--gclass > *:nth-child(9) { flex: 0 0 84px; }
+  .rowCard--gclass > *:nth-child(10) { flex: 0 0 88px; }
+  .rowCard--gclass > *:nth-child(11) { flex: 0 0 110px; }
+  .rowCard--gclass > *:nth-child(12) { flex: 0 0 130px; }
   .btn--small { padding: 6px 12px; font-size: 12.5px; }
 
   /* ===== カードグリッド（PCビューで3列固定。Google Material×Teslaの余白多め・
@@ -1684,13 +1712,19 @@
       width: auto;
       max-width: none;
     }
-    /* タブレット・スマホ幅と共通のピル型サイズ（font-size: 13.5px、
-       padding: 8px 16px）よりは一回り小さくしつつ、結合ヘッダーの全幅を
-       使えるようになった分、以前の中央パネル単体幅向けの極小サイズ
-       （5px 9px／11px）よりは読みやすいサイズに戻す。 */
+    /* PCビューの最小幅（901px）で8個の型タブが1行に収まる最小サイズ
+       （padding: 5px 8px、font-size: 10.5px）を下限に、画面が広がるほど
+       結合ヘッダーの空きスペースに合わせてタブも大きくする（901pxちょうどの
+       ときに隙間なく収まっていたサイズのまま広い画面でも使うと、ヘッダー幅の
+       割にタブが小さく余白ばかり目立ってしまうため。現場からの指摘）。
+       vw（ビューポート幅）に比例して滑らかに拡大し、1440px幅でタブレット・
+       スマホ幅と共通のピル型サイズ（font-size: 13.5px、padding: 8px 16px寄り）に
+       達したところで頭打ちにする（それ以上大きくすると他の画面の文字サイズと
+       不釣り合いになるため）。901px・1440pxそれぞれのサイズから逆算した
+       一次関数をclamp()で挟んでいる。 */
     .homeTypeNav__item {
-      padding: 5px 8px;
-      font-size: 10.5px;
+      padding: clamp(5px, calc(0.3711vw + 1.657px), 7px) clamp(8px, calc(0.9276vw - 0.357px), 13px);
+      font-size: clamp(10.5px, calc(0.5566vw + 5.485px), 13.5px);
     }
     .homeTypeNavSpacer { display: none; }
 
@@ -1760,6 +1794,58 @@
       text-align: center;
     }
     .homeDetail__empty .emptyState__icon { opacity: .5; }
+    /* モデル未選択時、右ペインいっぱいに車両写真をランダムなスライドショーとして
+       表示する（advanceHomeSlideshow_、JavaScript.html参照）。2枚の<img>を
+       重ねてopacityのトランジションでクロスフェードし、表示中の写真だけ
+       ゆっくり拡大するKen Burns効果（homeSlideshowKenBurns）を添える。
+       .homeDetail__photoと違って固定のアスペクト比を持たせず、右ペイン
+       （.homeSplit__detailBody、パディング分を除く）の高さいっぱいまで
+       広げる。 */
+    .homeDetail__slideshow {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      min-height: 320px;
+      border-radius: var(--radius);
+      overflow: hidden;
+      cursor: pointer;
+      background: var(--surface);
+    }
+    .homeDetail__slideshowImg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0;
+      transition: opacity 1.2s ease;
+    }
+    /* 6.2秒 = JavaScript.htmlのHOME_SLIDESHOW_INTERVAL_MS（5000ms、切り替え間隔）＋
+       クロスフェードのtransition時間（1.2s）。両方とも変更する場合はここも
+       合わせて調整する。 */
+    .homeDetail__slideshowImg.is-active {
+      opacity: 1;
+      animation: homeSlideshowKenBurns 6.2s ease-in-out forwards;
+    }
+    @keyframes homeSlideshowKenBurns {
+      from { transform: scale(1); }
+      to { transform: scale(1.08); }
+    }
+    .homeDetail__slideshowCaption {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 18px 22px;
+      background: linear-gradient(to top, rgba(0, 0, 0, .6), rgba(0, 0, 0, 0));
+      color: #fff;
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      pointer-events: none;
+    }
+    .homeDetail__slideshowModel { font-size: 20px; font-weight: 700; }
+    .homeDetail__slideshowType { font-size: 13px; opacity: .85; }
     /* 結合ヘッダー（#homeCombinedHeader）内の静的なボタン（Index.html参照）。
        左の戻る／更新ボタン（タブ間の画面履歴を戻る）とは別の操作（モデルの
        選択解除）のため、テキストラベル付きにして混同を防ぐ（.homeCombinedHeader__
@@ -1834,9 +1920,11 @@
       /* 以前は16:9だったが、モデル画像の下に並ぶグレードカード（3列×複数行）が
          スクロールなしで全部見えるよう、写真の高さを抑えるために2:1に変更した。 */
       aspect-ratio: 2 / 1;
-      /* 右パネル全体がグレー（--background）になったため、写真の枠は
-         ホワイト（--surface）にして「カード」として浮き上がらせる。 */
-      background: var(--surface);
+      /* 背景は付けない（透過）。以前はホワイト（--surface）の「カード」として
+         浮き上がらせていたが、背景が透過のモデル写真だとその白い枠がそのまま
+         写真の外周に白い塗りつぶしとして目立ってしまうため（現場からの指摘）、
+         右パネル自体のグレー（--background）がそのまま透けるようにした。 */
+      background: none;
       border-radius: var(--radius);
       overflow: hidden;
       margin-bottom: 20px;

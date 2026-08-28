@@ -208,11 +208,16 @@
     document.querySelectorAll('main.view').forEach(function (v) { v.classList.remove('is-active'); });
     $('view-' + tabName).classList.add('is-active');
     // ホームタブの間だけ、PCビューの共通トップバーを非表示にし（Stylesheet.html
-    // 参照）、代わりにホーム画面自身の2つのヘッダー（中央パネルのアプリ名見出し・
-    // 右パネルの戻る／更新ボタン）を使う。トップバーが非表示になると
-    // offsetHeightが0になるため、直後のsyncFixedBars_()が--topbar-hを自動的に
-    // 0へ更新し、#appの上余白も連動して詰まる（手動での余白調整は不要）。
+    // 参照）、代わりにホーム画面自身の結合ヘッダー（#homeCombinedHeader、
+    // アプリ名見出し・型クイックナビ・戻る／更新／一覧に戻るボタンをまとめて
+    // 持つ）を使う。トップバーが非表示になるとoffsetHeightが0になるため、直後の
+    // syncFixedBars_()が--topbar-hを自動的に0へ更新し、#appの上余白も連動して
+    // 詰まる（手動での余白調整は不要）。
     document.body.classList.toggle('is-home-tab', tabName === 'home');
+    // ホーム以外のタブへ移動する間は、右ペインのランダムスライドショー
+    // （advanceHomeSlideshow_）を止める。ホームへ戻ればrenderHomeGallery_→
+    // renderHomeDetail_が呼ばれ、必要なら自動的に再開する。
+    if (tabName !== 'home') stopHomeSlideshow_();
     // 全タブは同じ1つのdocument上でdisplay: none/blockを切り替えているだけの
     // ため、スクロール位置はタブをまたいで共有されてしまう（例: ホームで
     // スクロールした状態でモデルをクリックすると、在庫リストも同じスクロール
@@ -1611,7 +1616,7 @@
 
   // 表示形式「表」: 在庫リスト・受注リストと同じ「行カード」パターンで横列閲覧できるようにする。
   function gclassRowCardHtml_(v) {
-    return '<div class="rowCard rowCard--available">' +
+    return '<div class="rowCard rowCard--available rowCard--gclass">' +
       '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(v.customer || '-') + '</span>' +
       '<span class="rowCard__commission">' + escapeHtml(v.commission) + '</span></div>' +
       rowField_('担当者', v.staff) +
@@ -2373,6 +2378,74 @@
       '</div>';
   }
 
+  // ===== モデル未選択時の右ペイン: ランダムスライドショー =====
+  // PCビューでモデルを選択していない間、右ペイン（#homeDetail）いっぱいに
+  // 車両写真をランダムな順で自動的に切り替えて表示する（現在の型フィルタで
+  // 絞り込んだモデルのうち、写真が登録されているものだけが対象。
+  // homeVisibleModelsFlat_、型フィルタの絞り込みを再現する純粋関数）。
+  // 「何も操作しなくても車両を眺められる」ショーケースにする狙いのため、
+  // 直前と同じモデルが連続して選ばれないようにしている。
+  var HOME_SLIDESHOW_INTERVAL_MS = 5000;
+  var homeSlideshowTimer_ = null;
+
+  function homeSlideshowCandidates_() {
+    return homeVisibleModelsFlat_().filter(function (p) { return p.photoUrl; });
+  }
+
+  function stopHomeSlideshow_() {
+    if (homeSlideshowTimer_) {
+      clearInterval(homeSlideshowTimer_);
+      homeSlideshowTimer_ = null;
+    }
+  }
+
+  function homeDetailSlideshowHtml_() {
+    return '<div class="homeDetail__slideshow" id="homeDetailSlideshow" data-home-slideshow-select title="クリックでこのモデルを選択">' +
+      '<img class="homeDetail__slideshowImg" alt="">' +
+      '<img class="homeDetail__slideshowImg" alt="">' +
+      '<div class="homeDetail__slideshowCaption">' +
+      '<span class="homeDetail__slideshowModel"></span>' +
+      '<span class="homeDetail__slideshowType"></span>' +
+      '</div>' +
+      '</div>';
+  }
+
+  function applyHomeSlideshowSlide_(imgEl, photo, root) {
+    imgEl.src = photo.photoUrl;
+    imgEl.alt = photo.model;
+    imgEl.dataset.model = photo.model;
+    root.dataset.homeSlideshowModel = photo.model;
+    root.querySelector('.homeDetail__slideshowModel').textContent = photo.model;
+    root.querySelector('.homeDetail__slideshowType').textContent = photo.bodyType || '';
+  }
+
+  /**
+   * スライドショーを次のモデルへ進める（初回呼び出し時は表示開始も兼ねる。
+   * どちらの<img>にもis-activeが付いていない状態からスタートするため）。
+   * タブレット・スマホ幅にリサイズされていたり、モデルが選択されていたり、
+   * 表示中の型フィルタに写真登録済みのモデルが1つも無くなっていた場合は、
+   * 無駄なタイマーを続けず自動的に止める。
+   */
+  function advanceHomeSlideshow_() {
+    if (!isPcHomeLayout_() || state.homeSelectedModel) { stopHomeSlideshow_(); return; }
+    var root = $('homeDetailSlideshow');
+    if (!root) { stopHomeSlideshow_(); return; }
+    var imgs = root.querySelectorAll('.homeDetail__slideshowImg');
+    if (imgs.length !== 2) return;
+    var candidates = homeSlideshowCandidates_();
+    if (!candidates.length) { stopHomeSlideshow_(); return; }
+    var current = imgs[0].classList.contains('is-active') ? imgs[0] : imgs[1];
+    var next = current === imgs[0] ? imgs[1] : imgs[0];
+    var currentModel = current.dataset.model;
+    var pool = (candidates.length > 1 && currentModel)
+      ? candidates.filter(function (p) { return p.model !== currentModel; })
+      : candidates;
+    var pick = pool[Math.floor(Math.random() * pool.length)];
+    applyHomeSlideshowSlide_(next, pick, root);
+    next.classList.add('is-active');
+    current.classList.remove('is-active');
+  }
+
   /**
    * 右ペイン（#homeDetail）: 選択中モデルの詳細（モデル名・ボディタイプ・在庫台数・
    * 写真・グレード別在庫数）を表示する。グレードが無いモデルはグレード内訳の
@@ -2432,15 +2505,25 @@
     var photo = modelName
       ? (state.modelPhotos || []).filter(function (p) { return p.model === modelName; })[0]
       : null;
-    // 「一覧に戻る」ボタンは、右パネル自身のヘッダー（.homeSplit__detailHeader）内の
-    // 静的な要素のため（#homeDetailの外。Index.html参照）、選択解除で消える/現れる
-    // ようにここで表示・非表示だけ切り替える（クリック処理は別途addEventListener
-    // で直接このボタンに付与している）。
+    // 「一覧に戻る」ボタンは、結合ヘッダー（#homeCombinedHeader）内の静的な要素の
+    // ため（#homeDetailの外。Index.html参照）、選択解除で消える/現れるように
+    // ここで表示・非表示だけ切り替える（クリック処理は別途addEventListenerで
+    // 直接このボタンに付与している）。
     $('btnHomeDetailBack').classList.toggle('hidden', !photo);
     if (!photo) {
-      el.innerHTML = homeDetailEmptyHtml_();
+      // モデル未選択時は、写真登録済みのモデルがあればランダムスライドショーを、
+      // 1件も無ければ従来どおりの案内文だけを表示する。
+      stopHomeSlideshow_();
+      if (homeSlideshowCandidates_().length && isPcHomeLayout_()) {
+        el.innerHTML = homeDetailSlideshowHtml_();
+        advanceHomeSlideshow_();
+        homeSlideshowTimer_ = setInterval(advanceHomeSlideshow_, HOME_SLIDESHOW_INTERVAL_MS);
+      } else {
+        el.innerHTML = homeDetailEmptyHtml_();
+      }
       return;
     }
+    stopHomeSlideshow_();
     var result = gradeCountsForEntry_(photo, state.allInventoryItems || [], state.modelPhotos || []);
     var flat = homeVisibleModelsFlat_();
     var idx = flat.findIndex(function (m) { return m.model === modelName; });
@@ -2455,6 +2538,13 @@
   });
 
   $('homeDetail').addEventListener('click', function (e) {
+    // スライドショー中に表示されている車両をクリックすると、そのままそのモデルを
+    // 選択したことにする（見ているだけでなく、そのまま詳細に進めるように）。
+    var slideshow = e.target.closest('[data-home-slideshow-select]');
+    if (slideshow && slideshow.dataset.homeSlideshowModel) {
+      selectHomeModel_(slideshow.dataset.homeSlideshowModel);
+      return;
+    }
     var gradeTab = e.target.closest('[data-home-grade]');
     if (gradeTab) {
       switchToTab_('inventory');
