@@ -32,7 +32,8 @@ function getRawSettings_() {
     notifyErrorMailTo: getMailList_(PROP_KEYS.NOTIFY_ERROR_MAIL_TO),
     notifyChatWebhookUrl: props.getProperty(PROP_KEYS.NOTIFY_CHAT_WEBHOOK_URL) || '',
     staffList: getStaffList_(),
-    modelPhotos: getModelPhotos_()
+    modelPhotos: getModelPhotos_(),
+    celebrationVariants: getCelebrationVariants_()
   };
 }
 
@@ -88,6 +89,7 @@ function saveRawSettings_(settings) {
   props.setProperty(PROP_KEYS.NOTIFY_CHAT_WEBHOOK_URL, validateChatWebhookUrl_(settings.notifyChatWebhookUrl));
   props.setProperty(PROP_KEYS.STAFF_LIST, JSON.stringify(normalizeStaffList_(settings.staffList)));
   props.setProperty(PROP_KEYS.MODEL_PHOTOS, JSON.stringify(normalizeModelPhotos_(settings.modelPhotos)));
+  props.setProperty(PROP_KEYS.CELEBRATION_VARIANTS, JSON.stringify(normalizeCelebrationVariants_(settings.celebrationVariants)));
   return getRawSettings_();
 }
 
@@ -384,6 +386,39 @@ function normalizeModelPhotos_(list) {
 }
 
 /**
+ * Hold登録・2nd Hold登録・受注確定それぞれの完了時に表示する演出（絵柄の
+ * アクション）の選択中バリエーション（{ hold, secondHold, order }、各値は
+ * CELEBRATION_VARIANT_OPTIONSのいずれか）を返す。未設定・改ざん・過去バージョンで
+ * 保存された値は、normalizeThemeKey_と同じ考え方ですべてDEFAULT_CELEBRATION_VARIANTS
+ * にフォールバックする。
+ */
+function getCelebrationVariants_() {
+  var raw = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.CELEBRATION_VARIANTS);
+  if (!raw) return Object.assign({}, DEFAULT_CELEBRATION_VARIANTS);
+  var parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    return Object.assign({}, DEFAULT_CELEBRATION_VARIANTS);
+  }
+  return normalizeCelebrationVariants_(parsed);
+}
+
+/**
+ * 演出バリエーション設定の正規化（純粋関数）。キーごとに
+ * CELEBRATION_VARIANT_OPTIONSに存在しない値は既定値にフォールバックする。
+ */
+function normalizeCelebrationVariants_(variants) {
+  variants = variants || {};
+  var result = {};
+  Object.keys(DEFAULT_CELEBRATION_VARIANTS).forEach(function (key) {
+    var value = variants[key];
+    result[key] = CELEBRATION_VARIANT_OPTIONS.indexOf(value) !== -1 ? value : DEFAULT_CELEBRATION_VARIANTS[key];
+  });
+  return result;
+}
+
+/**
  * 担当者マスタからメールアドレス（大文字小文字を無視）で担当者（{name, email, location}）を
  * 検索する（純粋関数）。見つからない場合は null。
  */
@@ -477,7 +512,11 @@ function redactSystemMasterSettings_(settings, isAdmin) {
     notifyErrorMailTo: [],
     notifyChatWebhookUrl: '',
     staffList: [],
-    modelPhotos: settings.modelPhotos
+    modelPhotos: settings.modelPhotos,
+    // Hold登録等の演出バリエーションは、ロゴ・モデル写真と同様に全利用者の
+    // 画面で使う（演出を実際に表示するのは操作した本人のブラウザのため）。
+    // 編集画面（設定タブ）自体は管理者限定にするが、値自体は非管理者にも渡す。
+    celebrationVariants: settings.celebrationVariants
   };
 }
 
@@ -501,6 +540,7 @@ function applySystemMasterGuard_(incoming, current, isAdmin) {
     notifyErrorMailTo: current.notifyErrorMailTo,
     notifyChatWebhookUrl: current.notifyChatWebhookUrl,
     staffList: current.staffList,
-    modelPhotos: current.modelPhotos
+    modelPhotos: current.modelPhotos,
+    celebrationVariants: current.celebrationVariants
   };
 }

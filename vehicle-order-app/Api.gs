@@ -26,6 +26,8 @@ function api_getBootstrapData() {
     modelPhotosMax: MODEL_PHOTOS_MAX,
     notifyMailListMax: NOTIFY_MAIL_LIST_MAX,
     modelBodyTypeOptions: MODEL_BODY_TYPE_OPTIONS,
+    celebrationVariantOptions: CELEBRATION_VARIANT_OPTIONS,
+    celebrationVariantLabels: CELEBRATION_VARIANT_LABELS,
     // 設定タブの「システムマスタ」（メール通知設定・担当者）を表示・操作できるか。
     // コード上のSYSTEM_ADMIN_EMAILS（Constants.gs）のみで判定する。
     isSystemAdmin: isAdmin,
@@ -94,6 +96,25 @@ function api_listOrders(filters, groupBy) {
 // ===== Gクラス予約リスト（閲覧専用） =====
 function api_listGClassReservations(filters) {
   return searchGClassReservations_(listGClassReservations_(), filters);
+}
+
+// ===== 発注リスト =====
+// 在庫リスト・受注リストのようなステータス管理・通知は持たない、
+// シンプルな登録・編集・削除ができる一覧（PurchaseOrderService.gs参照）。
+function api_listPurchaseOrders() {
+  return listPurchaseOrders();
+}
+
+function api_addPurchaseOrder(info) {
+  return addPurchaseOrder(info);
+}
+
+function api_updatePurchaseOrder(id, info) {
+  return updatePurchaseOrder(id, info);
+}
+
+function api_deletePurchaseOrder(id) {
+  return deletePurchaseOrder(id);
 }
 
 // ===== 設定機能（3.6） =====

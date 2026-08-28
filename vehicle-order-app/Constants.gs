@@ -15,6 +15,7 @@ var SHEET_NAMES = {
   INVENTORY: '在庫リスト',
   HOLDS: 'Holdリスト',
   ORDERS: '受注リスト',
+  PURCHASE_ORDERS: '発注リスト',
   GCLASS_RESERVATION: 'Gクラス予約リスト',
   AUDIT_LOG: '変更履歴'
 };
@@ -56,7 +57,7 @@ var STEERING_OPTIONS = ['右', '左'];
 var STOCK_DISCLOSURE_OPTIONS = ['開示', '非開示'];
 var YES_NO_OPTIONS = ['あり', 'なし'];
 var OSS_OPTIONS = ['可', '不可'];
-var PAYMENT_METHOD_OPTIONS = ['現金', 'ローン'];
+var PAYMENT_METHOD_OPTIONS = ['現金', 'ローン', 'リース'];
 // ホーム画面のモデル写真に割り当てるボディタイプ（車の型）。この配列の並び順が、
 // ホーム画面での型ごとのグループ表示順（Sedan→SUV→Station Wagon→Compact→Coupe→
 // Cabriolet/Roadster→Mini Van）にそのまま使われる（JavaScript.htmlの
@@ -224,11 +225,41 @@ var GCLASS_COLUMNS = VEHICLE_COLUMNS.concat([
   }
 ]);
 
+/**
+ * 発注リスト列定義。受注リストとGクラス予約リストの間に配置する、シンプルな
+ * 発注情報の登録一覧（在庫リスト・受注リストのようなHold/受注のステータス管理・
+ * 通知機能は持たない。純粋な登録・編集・削除ができる一覧）。
+ * モデル名・拠点・担当者・顧客のみ必須で、コミッション・リード番号は任意
+ * （まだ車両やリード番号が確定していない段階でも発注情報だけ先に登録できるように
+ * するため）。id はコミッション等と異なり必ず一意な値が必要なため、ユーザー入力の
+ * 項目とは別にアプリが自動採番する（addPurchaseOrder、PurchaseOrderService.gs参照）。
+ */
+var PURCHASE_ORDER_COLUMNS = [
+  {
+    key: 'id', label: 'ID', type: 'text', required: true,
+    note: 'アプリが自動採番する識別用のIDです。手動編集・削除しないでください。'
+  },
+  { key: 'model', label: 'モデル名', type: 'text', required: true },
+  { key: 'salesLocation', label: '拠点', type: 'text', required: true },
+  { key: 'staff', label: '担当者', type: 'text', required: true },
+  { key: 'customer', label: '顧客', type: 'text', required: true },
+  { key: 'commission', label: 'コミッション', type: 'text' },
+  { key: 'leadNumber', label: 'リード番号', type: 'text' },
+  { key: 'createdAt', label: '登録日時', type: 'datetime', note: 'アプリが自動記録する値です。手動編集しないでください。' }
+];
+
+// ユーザーが入力する項目のみ（id・createdAtはアプリが自動生成するため、
+// 登録・編集フォームの入力必須チェック（validateRequiredInfo_）の対象から除く）。
+var PURCHASE_ORDER_INPUT_COLUMNS = PURCHASE_ORDER_COLUMNS.filter(function (c) {
+  return c.key !== 'id' && c.key !== 'createdAt';
+});
+
 var INVENTORY_COL_INDEX = buildColIndex_(INVENTORY_COLUMNS);
 var HOLD_COL_INDEX = buildColIndex_(HOLD_COLUMNS);
 var ORDER_COL_INDEX = buildColIndex_(ORDER_COLUMNS);
 var AUDIT_LOG_COL_INDEX = buildColIndex_(AUDIT_LOG_COLUMNS);
 var GCLASS_COL_INDEX = buildColIndex_(GCLASS_COLUMNS);
+var PURCHASE_ORDER_COL_INDEX = buildColIndex_(PURCHASE_ORDER_COLUMNS);
 
 function buildColIndex_(columns) {
   var map = {};
@@ -256,6 +287,10 @@ function gclassColIndex1(key) {
   return GCLASS_COL_INDEX[key] + 1;
 }
 
+function purchaseOrderColIndex1(key) {
+  return PURCHASE_ORDER_COL_INDEX[key] + 1;
+}
+
 // ===== 設定機能のプロパティキー =====
 // THEME_KEYのみ、ログイン中のGoogleアカウントごとに独立して保存したいため
 // PropertiesService.getUserProperties()（アカウント単位）に、それ以外
@@ -271,7 +306,25 @@ var PROP_KEYS = {
   NOTIFY_ERROR_MAIL_TO: 'NOTIFY_ERROR_MAIL_TO',
   NOTIFY_CHAT_WEBHOOK_URL: 'NOTIFY_CHAT_WEBHOOK_URL',
   STAFF_LIST: 'STAFF_LIST',
-  MODEL_PHOTOS: 'MODEL_PHOTOS'
+  MODEL_PHOTOS: 'MODEL_PHOTOS',
+  CELEBRATION_VARIANTS: 'CELEBRATION_VARIANTS'
+};
+
+/**
+ * Hold登録・2nd Hold登録・受注確定それぞれの完了時に表示する演出（絵柄の
+ * アクション）の選択肢キー。管理者（SYSTEM_ADMIN_EMAILS）が設定タブから
+ * 選べるようにする（CELEBRATION_VARIANT_LABELS・SettingsService.gsの
+ * normalizeCelebrationVariants_参照。実際の演出内容自体はクライアント側
+ * （JavaScript.htmlのCELEBRATION_CONTENT）で定義する）。
+ */
+var CELEBRATION_VARIANT_OPTIONS = ['A', 'B', 'C'];
+var DEFAULT_CELEBRATION_VARIANTS = { hold: 'A', secondHold: 'A', order: 'A' };
+// 設定タブのプルダウンに表示するラベル（クライアント側のCELEBRATION_CONTENTと
+// 対応させておくこと）。
+var CELEBRATION_VARIANT_LABELS = {
+  hold: { A: 'エール（応援の掛け声）', B: '応援フラッグ', C: 'ガッツポーズ' },
+  secondHold: { A: '砂時計', B: 'コーヒーブレイク', C: '少々お待ちを' },
+  order: { A: '紙吹雪＋風船（既定）', B: '花火', C: '祝福シャワー' }
 };
 
 /**

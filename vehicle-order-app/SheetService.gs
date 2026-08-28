@@ -95,6 +95,21 @@ function getGClassReservationSheet_() {
   return getOrCreateSheet_(SHEET_NAMES.GCLASS_RESERVATION, GCLASS_COLUMNS, [gclassColIndex1('commission')]);
 }
 
+function getPurchaseOrderSheet_() {
+  return getOrCreateSheet_(SHEET_NAMES.PURCHASE_ORDERS, PURCHASE_ORDER_COLUMNS, [purchaseOrderColIndex1('id'), purchaseOrderColIndex1('commission')]);
+}
+
+/**
+ * 発注リストの全件を取得する（PurchaseOrderService.gsの追加・編集・削除と対）。
+ */
+function listPurchaseOrders_() {
+  return readAllRows_(getPurchaseOrderSheet_(), PURCHASE_ORDER_COLUMNS, 'id');
+}
+
+function findPurchaseOrderRowNumber_(sheet, id) {
+  return findRowByKey_(sheet, PURCHASE_ORDER_COLUMNS, 'id', id);
+}
+
 /**
  * Gクラス予約リストの全件を取得する（閲覧専用。追加・編集はスプレッドシートへ直接行う運用）。
  */

@@ -27,7 +27,7 @@ vm.createContext(sandbox);
 // AuditLogService.gs / IntegrityService.gs の順で依存関係あり
 const FILES = [
   'Constants.gs', 'HoldService.gs', 'SearchService.gs', 'SheetService.gs', 'SettingsService.gs',
-  'AuditLogService.gs', 'IntegrityService.gs'
+  'AuditLogService.gs', 'IntegrityService.gs', 'PurchaseOrderService.gs'
 ];
 
 FILES.forEach((file) => {
@@ -746,6 +746,39 @@ test('存在しないキー・未指定はDEFAULT_THEME_KEYにフォールバッ
   assert.strictEqual(sandbox.normalizeThemeKey_('#3870b0'), sandbox.DEFAULT_THEME_KEY);
 });
 
+console.log('== SettingsService: normalizeCelebrationVariants_（Hold/2nd Hold/受注確定の演出バリエーション検証） ==');
+test('CELEBRATION_VARIANT_OPTIONSに存在する値はそのまま返る', () => {
+  const result = sandbox.normalizeCelebrationVariants_({ hold: 'B', secondHold: 'C', order: 'A' });
+  assert.strictEqual(result.hold, 'B');
+  assert.strictEqual(result.secondHold, 'C');
+  assert.strictEqual(result.order, 'A');
+});
+test('存在しない値・未指定はDEFAULT_CELEBRATION_VARIANTSにフォールバックする', () => {
+  const result = sandbox.normalizeCelebrationVariants_({ hold: 'Z', order: undefined });
+  assert.deepStrictEqual(result, sandbox.DEFAULT_CELEBRATION_VARIANTS);
+});
+test('未指定（undefined）を渡してもエラーにならずすべて既定値になる', () => {
+  const result = sandbox.normalizeCelebrationVariants_(undefined);
+  assert.deepStrictEqual(result, sandbox.DEFAULT_CELEBRATION_VARIANTS);
+});
+
+console.log('== PurchaseOrderService: buildPurchaseOrderRecord_（発注リストの入力内容の組み立て） ==');
+test('入力項目をそのままトリムして返す（コミッション・リード番号は空でもよい）', () => {
+  const result = sandbox.buildPurchaseOrderRecord_({
+    model: ' Cクラス ', salesLocation: '東京本店', staff: '佐藤', customer: '山田太郎',
+    commission: '', leadNumber: ''
+  });
+  assert.strictEqual(result.model, 'Cクラス');
+  assert.strictEqual(result.salesLocation, '東京本店');
+  assert.strictEqual(result.commission, '');
+  assert.strictEqual(result.leadNumber, '');
+});
+test('id・createdAtは含まれない（呼び出し元が別途設定する）', () => {
+  const result = sandbox.buildPurchaseOrderRecord_({ model: 'Eクラス', salesLocation: '大阪', staff: '鈴木', customer: '田中' });
+  assert.strictEqual('id' in result, false);
+  assert.strictEqual('createdAt' in result, false);
+});
+
 console.log('== SettingsService: redactSystemMasterSettings_（非管理者にはメール通知・担当者を送らない） ==');
 test('管理者にはそのまま返る', () => {
   const settings = { themeKey: 'steel', notifyHoldMailTo: 'a@example.com', staffList: [{ name: '佐藤' }] };
@@ -753,12 +786,13 @@ test('管理者にはそのまま返る', () => {
   assert.strictEqual(result.notifyHoldMailTo, 'a@example.com');
   assert.strictEqual(result.staffList.length, 1);
 });
-test('非管理者には通知先・担当者が空になる（テーマ・ロゴ・モデル写真はそのまま）', () => {
+test('非管理者には通知先・担当者が空になる（テーマ・ロゴ・モデル写真・演出バリエーションはそのまま）', () => {
   const settings = {
     themeKey: 'wine', logoUrl: 'https://logo.png',
     notifyHoldMailTo: ['a@example.com'], notifyOrderMailTo: ['b@example.com'], notifyErrorMailTo: ['c@example.com'],
     notifyChatWebhookUrl: 'https://chat.googleapis.com/v1/spaces/AAA/messages?key=xxx',
-    staffList: [{ name: '佐藤' }], modelPhotos: [{ model: 'Cクラス' }]
+    staffList: [{ name: '佐藤' }], modelPhotos: [{ model: 'Cクラス' }],
+    celebrationVariants: { hold: 'B', secondHold: 'A', order: 'C' }
   };
   const result = sandbox.redactSystemMasterSettings_(settings, false);
   assert.strictEqual(result.themeKey, 'wine');
@@ -769,6 +803,7 @@ test('非管理者には通知先・担当者が空になる（テーマ・ロ�
   assert.strictEqual(result.notifyErrorMailTo.length, 0);
   assert.strictEqual(result.notifyChatWebhookUrl, '');
   assert.strictEqual(result.staffList.length, 0);
+  assert.deepStrictEqual(result.celebrationVariants, { hold: 'B', secondHold: 'A', order: 'C' });
 });
 
 console.log('== SettingsService: applySystemMasterGuard_（非管理者による保存時、ロゴ・モデル写真・通知先・担当者は既存値を維持） ==');
@@ -792,7 +827,8 @@ test('非管理者からの保存は、ロゴ・モデル写真・通知先・�
     notifyHoldMailTo: 'real@example.com', notifyOrderMailTo: 'real2@example.com', notifyErrorMailTo: 'real3@example.com',
     notifyChatWebhookUrl: 'https://chat.googleapis.com/v1/spaces/REAL/messages?key=xxx',
     staffList: [{ name: '本物の担当者', email: 'staff@example.com' }],
-    modelPhotos: [{ model: '本物のモデル' }]
+    modelPhotos: [{ model: '本物のモデル' }],
+    celebrationVariants: { hold: 'A', secondHold: 'A', order: 'A' }
   };
   const result = sandbox.applySystemMasterGuard_(incoming, current, false);
   assert.strictEqual(result.themeKey, 'amber');
@@ -805,6 +841,7 @@ test('非管理者からの保存は、ロゴ・モデル写真・通知先・�
   assert.strictEqual(result.notifyChatWebhookUrl, 'https://chat.googleapis.com/v1/spaces/REAL/messages?key=xxx');
   assert.strictEqual(result.staffList.length, 1);
   assert.strictEqual(result.staffList[0].name, '本物の担当者');
+  assert.deepStrictEqual(result.celebrationVariants, { hold: 'A', secondHold: 'A', order: 'A' });
 });
 
 console.log('== AuditLogService: buildAuditLogEntry_（変更履歴1行分の組み立て） ==');

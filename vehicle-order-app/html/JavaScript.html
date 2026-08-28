@@ -90,22 +90,152 @@
     showToast._t = setTimeout(function () { toast.classList.add('hidden'); }, 3200);
   }
 
-  // ===== 受注確定時の紙吹雪演出 =====
-  // Hold登録・2nd Hold登録では何も表示しない。受注確定では文字・カードは出さず、
-  // 盛大な紙吹雪だけを画面いっぱいに降らせる。
-  var CONFETTI_ACTION_TYPES = ['order', 'orderFromHold'];
+  // ===== Hold登録・2nd Hold登録・受注確定 完了時の演出 =====
+  // それぞれ固定の案内メッセージ（バナー）＋管理者が設定タブから選べる
+  // 3種類ずつの「絵柄のアクション」を表示する（現場からの要望）。
+  // メッセージ自体はどのバリエーションを選んでも変わらない（CELEBRATION_MESSAGES）。
+  // バリエーションの選択状態はサーバー側の設定（state.bootstrap.settings.
+  // celebrationVariants、SettingsService.gsのCELEBRATION_VARIANTS）から読む。
+  var CELEBRATION_MESSAGES = {
+    hold: ['頑張ってね', '1ST HOLDします。', 'HOLD状況はマイページから確認できます。'],
+    secondHold: ['もう少し待ってね', '2ND HOLDします。', 'HOLD状況はマイページから確認できます。'],
+    order: ['おめでとうございます。', '受注リスト、マイページへ情報を反映しました。']
+  };
 
+  // 各アクション×バリエーション（A/B/C）の絵柄。emojisは表示する絵文字、
+  // motionはどのアニメーション方式で動かすか（spawnCelebrationMotion_参照）。
+  var CELEBRATION_CONTENT = {
+    hold: {
+      A: { emojis: ['📣', '💪', '🔥'], motion: 'rise' }, // エール
+      B: { emojis: ['🚩', '🙌', '👏'], motion: 'fall' }, // 応援フラッグ
+      C: { emojis: ['💪', '🙌', '😤'], motion: 'burst' } // ガッツポーズ
+    },
+    secondHold: {
+      A: { emojis: ['⏳'], motion: 'spin' }, // 砂時計
+      B: { emojis: ['☕'], motion: 'bob' }, // コーヒーブレイク
+      C: { emojis: ['🙏'], motion: 'bob' } // 少々お待ちを
+    },
+    order: {
+      A: { emojis: ['🎉', '🎊'], motion: 'confettiBalloon' }, // 紙吹雪＋風船（既定）
+      B: { emojis: ['🎆', '✨'], motion: 'burst' }, // 花火
+      C: { emojis: ['🥳', '🎉', '✨'], motion: 'fall' } // 祝福シャワー
+    }
+  };
+
+  /**
+   * Hold登録・2nd Hold登録・受注確定の完了直後に呼ぶ（finishActionSubmit_参照）。
+   * actionTypeは state.action.type（'hold' | 'secondHold' | 'order' | 'orderFromHold'）。
+   * 'orderFromHold'（Hold中の車両の受注確定）も見た目上は'order'と同じ演出にする。
+   */
   function showCelebration_(actionType) {
-    if (CONFETTI_ACTION_TYPES.indexOf(actionType) !== -1) triggerConfetti_();
+    var key = actionType === 'orderFromHold' ? 'order' : actionType;
+    var messageLines = CELEBRATION_MESSAGES[key];
+    if (!messageLines) return;
+    var variants = (state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.celebrationVariants) || {};
+    var variantKey = variants[key] || 'A';
+    var content = (CELEBRATION_CONTENT[key] && CELEBRATION_CONTENT[key][variantKey]) || CELEBRATION_CONTENT[key].A;
+    showCelebrationBanner_(messageLines);
+    playCelebrationMotion_(content);
+  }
+
+  function showCelebrationBanner_(lines) {
+    var el = $('celebrationBanner');
+    el.innerHTML = lines.map(function (line) { return '<p>' + escapeHtml(line) + '</p>'; }).join('');
+    el.classList.remove('hidden');
+    // is-activeを一度外して強制的にreflowしてから付け直すことで、連続して
+    // 表示した場合でもCSSアニメーション（フェードイン→表示→フェードアウト）を
+    // 必ず最初から再生させる。
+    el.classList.remove('is-active');
+    void el.offsetWidth;
+    el.classList.add('is-active');
+    clearTimeout(showCelebrationBanner_._t);
+    showCelebrationBanner_._t = setTimeout(function () {
+      el.classList.remove('is-active');
+      setTimeout(function () { el.classList.add('hidden'); }, 400);
+    }, 3600);
+  }
+
+  function playCelebrationMotion_(content) {
+    switch (content.motion) {
+      case 'rise': spawnCelebrationEmojiWave_(content.emojis, 'rise', 26); break;
+      case 'fall': spawnCelebrationEmojiWave_(content.emojis, 'fall', 26); break;
+      case 'burst': spawnCelebrationBurst_(content.emojis, 22); break;
+      case 'spin': spawnCelebrationIcon_(content.emojis[0], 'spin'); break;
+      case 'bob': spawnCelebrationIcon_(content.emojis[0], 'bob'); break;
+      case 'confettiBalloon': triggerConfetti_(); spawnCelebrationEmojiWave_(['🎈'], 'rise', 14); break;
+      default: break;
+    }
+  }
+
+  /**
+   * 画面下（rise）または画面上（fall）から、指定した絵文字をランダムな横位置・
+   * ランダムな揺れ・回転で漂わせる（cheer演出・風船・祝福シャワー共通のエンジン）。
+   */
+  function spawnCelebrationEmojiWave_(emojis, direction, count) {
+    var layer = $('celebrationLayer');
+    var pieces = [];
+    for (var i = 0; i < count; i++) {
+      var el = document.createElement('span');
+      el.className = 'celebEmoji celebEmoji--' + direction;
+      el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+      el.style.left = (Math.random() * 94 + 2) + 'vw';
+      el.style.fontSize = (24 + Math.random() * 20) + 'px';
+      el.style.setProperty('--drift', (Math.random() * 160 - 80) + 'px');
+      el.style.setProperty('--rot', (Math.random() * 60 - 30) + 'deg');
+      el.style.animationDuration = (2.4 + Math.random() * 1.8) + 's';
+      el.style.animationDelay = (Math.random() * .7) + 's';
+      layer.appendChild(el);
+      pieces.push(el);
+    }
+    setTimeout(function () { pieces.forEach(function (el) { el.remove(); }); }, 5200);
+  }
+
+  /**
+   * 画面中央から放射状に飛び散らせる（ガッツポーズ・花火演出用）。
+   */
+  function spawnCelebrationBurst_(emojis, count) {
+    var layer = $('celebrationLayer');
+    var pieces = [];
+    for (var i = 0; i < count; i++) {
+      var el = document.createElement('span');
+      el.className = 'celebEmoji celebEmoji--burst';
+      el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+      var angle = (i / count) * Math.PI * 2 + Math.random() * .4;
+      var dist = 140 + Math.random() * 160;
+      el.style.setProperty('--tx', (Math.cos(angle) * dist) + 'px');
+      el.style.setProperty('--ty', (Math.sin(angle) * dist) + 'px');
+      el.style.fontSize = (26 + Math.random() * 18) + 'px';
+      el.style.animationDelay = (Math.random() * .25) + 's';
+      layer.appendChild(el);
+      pieces.push(el);
+    }
+    setTimeout(function () { pieces.forEach(function (el) { el.remove(); }); }, 2200);
+  }
+
+  /**
+   * 画面中央に大きなアイコン1つを表示し、spin（回転）またはbob（上下に揺れる）
+   * アニメーションを付ける（2nd Hold「お待ちください」系の演出用）。
+   */
+  function spawnCelebrationIcon_(emoji, motion) {
+    var layer = $('celebrationLayer');
+    var el = document.createElement('span');
+    el.className = 'celebIcon celebIcon--' + motion;
+    el.textContent = emoji;
+    layer.appendChild(el);
+    setTimeout(function () { el.remove(); }, 2600);
   }
 
   var CONFETTI_COLORS = ['#1a73e8', '#34a853', '#fbbc05', '#ea4335', '#a142f4', '#00bcd4'];
 
-  function spawnConfettiBatch_(layer, pieces, count) {
+  /**
+   * @param {number} minVw 出現位置の左端（vw）
+   * @param {number} maxVw 出現位置の右端（vw）
+   */
+  function spawnConfettiBatch_(layer, pieces, count, minVw, maxVw) {
     for (var i = 0; i < count; i++) {
       var el = document.createElement('div');
       el.className = 'confettiPiece';
-      el.style.left = (Math.random() * 100) + 'vw';
+      el.style.left = (minVw + Math.random() * (maxVw - minVw)) + 'vw';
       el.style.background = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
       // 一部を細長い「リボン状」にすることで、丸・角の紙吹雪だけの単調さを避ける。
       var isStreamer = Math.random() < .2;
@@ -123,15 +253,17 @@
     }
   }
 
-  // ド派手に：紙吹雪を3波に分けて、画面いっぱいに大量発生させる
-  // （受注確定時のみ。Hold登録・2nd Hold登録では従来どおり何も表示しない）。
+  // ド派手に：紙吹雪を3波に分けて、画面の左右両端から降らせる（現場からの要望
+  // 「左右からの紙吹雪」。受注確定の既定演出＝バリエーションA）。
   function triggerConfetti_() {
     var layer = $('confettiLayer');
     layer.classList.add('is-flashing');
     var pieces = [];
-    spawnConfettiBatch_(layer, pieces, 260);
-    setTimeout(function () { spawnConfettiBatch_(layer, pieces, 220); }, 250);
-    setTimeout(function () { spawnConfettiBatch_(layer, pieces, 160); }, 550);
+    [[0, 22], [78, 100]].forEach(function (range) {
+      spawnConfettiBatch_(layer, pieces, 130, range[0], range[1]);
+      setTimeout(function () { spawnConfettiBatch_(layer, pieces, 110, range[0], range[1]); }, 250);
+      setTimeout(function () { spawnConfettiBatch_(layer, pieces, 80, range[0], range[1]); }, 550);
+    });
     setTimeout(function () { layer.classList.remove('is-flashing'); }, 700);
     setTimeout(function () {
       pieces.forEach(function (el) { el.remove(); });
@@ -724,14 +856,15 @@
       }
     }
 
-    // 表示形式「表」は横スクロールで多くの項目を並べるため、車両情報（有償OP等）や
-    // 右側のHold状態は画面幅によってはスクロールしないと見えない。行（カード）自体を
-    // タップすると、既存のカード表示と同じ見た目で車両情報すべてを画面中央のモーダルに
-    // 表示する（openInventoryDetailModal_）。横スクロール自体は既存のまま維持する。
-    // 状態は在庫状況の色つき左罫線（.rowCard--available 等）と右側のバッジで
-    // 分かるため、以前あった左端の状態ドットは廃止した（現場からの指摘で判明）。
-
+    // 表示形式「表」は、ひと目で商談に必要な項目（ステータス・モデル・コミッション・
+    // MP・ステア・カラー・有償OP・操作ボタン・比較チェック）だけを横1行に並べ、
+    // それ以外の項目（入港予定日・可能月・VPC等）は行に含めない（現場からの指摘。
+    // 「横スクロールなしで確認できる項目」を絞ることで、画面幅に関わらず折り返し
+    // 無しで1行に収まりやすくする）。行に含めない項目も含め、車両情報をすべて
+    // 省略せず見たい場合は、行（チェックボックス・ボタン以外の箇所）をタップすると
+    // 開く詳細モーダル（openInventoryDetailModal_・vehicleDetailHtml_）で確認できる。
     return '<div class="rowCard ' + rowTone + '" data-commission="' + escapeHtml(v.commission) + '">' +
+      '<div class="rowCard__status">' + statusBadge + cancelLinks + '</div>' +
       '<div class="rowCard__field">' +
       '<label class="rowCard__comparePin"><input type="checkbox" data-compare="' + escapeHtml(v.commission) + '"' + (isComparing ? ' checked' : '') + '>比較</label>' +
       '<span class="rowCard__model">' + escapeHtml(v.model) + '</span>' +
@@ -741,10 +874,6 @@
       rowField_('ステア', v.steering) +
       rowField_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
       rowField_('有償OP', paidOptionsText(v)) +
-      rowField_('入港予定日', v.arrivalExpectedDate) +
-      rowField_('可能月', v.registrableMonth) +
-      rowField_('VPC', v.vpc) +
-      '<div class="rowCard__status">' + statusBadge + cancelLinks + '</div>' +
       '<div class="rowCard__actions">' + actions + '</div>' +
       '</div>';
   }
@@ -1515,23 +1644,21 @@
   }
 
   // 受注リストの表示形式「表」: 在庫と同じ「行カード」パターンで、成約済みの案件を
-  // 一覧で見比べやすくする。比較ピン・操作ボタンは受注リストには不要なため専用の列構成にする。
+  // 一覧で見比べやすくする。比較ピン・操作ボタンは受注リストには不要なため専用の
+  // 項目構成にする。行に並べる項目は「顧客・コミッション・モデル・リード番号・
+  // MP・VPC・担当者・登録月・販売拠点」だけに絞り込み（現場からの指摘）、それ以外
+  // （下取車・OSS・保険・支払方法・有償OP・受注確定日時）は行タップで開く詳細
+  // モーダル（openOrderDetailModal_・orderDetailGridHtml_）でのみ確認する。
   function orderRowCardHtml(o) {
-    return '<div class="rowCard rowCard--order">' +
+    return '<div class="rowCard rowCard--order" data-commission="' + escapeHtml(o.commission) + '">' +
       '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(o.customer || '-') + '</span>' +
       '<span class="rowCard__commission">' + escapeHtml(o.commission) + '</span></div>' +
       rowField_('モデル', o.model) +
+      rowField_('リード番号', o.leadNumber) +
       rowField_('MP', o.mp) +
       rowField_('VPC', o.vpc) +
-      rowField_('有償OP', paidOptionsText(o)) +
       rowField_('担当者', o.staff) +
-      rowField_('リード番号', o.leadNumber) +
       rowField_('登録月', o.registeredMonth) +
-      rowField_('下取車', o.tradeIn) +
-      rowField_('OSS', o.oss) +
-      rowField_('保険', o.insurance) +
-      rowField_('支払方法', o.paymentMethod) +
-      rowField_('受注確定日時', formatDateTime(o.orderedAt)) +
       '<div class="rowCard__status"><span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span></div>' +
       '</div>';
   }
@@ -1562,7 +1689,14 @@
 
   $('ordersGroups').addEventListener('click', function (e) {
     var btn = e.target.closest('[data-order-detail]');
-    if (btn) openOrderDetailModal_(btn.dataset.orderDetail);
+    if (btn) { openOrderDetailModal_(btn.dataset.orderDetail); return; }
+    // 表示形式「表」の行タップ（ボタン・入力以外の箇所）でも、カード表示の
+    // 「詳細を見る」と同じ詳細モーダルを開く（在庫リストのhandleInventoryListClick_と
+    // 同じパターン。行に表示していない項目・受注確定日時等を確認できるようにする）。
+    var rowEl = e.target.closest('.rowCard--order[data-commission]');
+    if (rowEl && !e.target.closest('button, input, label')) {
+      openOrderDetailModal_(rowEl.dataset.commission);
+    }
   });
 
   function populateOrdersStaffFilter_() {
@@ -1580,6 +1714,157 @@
   ['ordersKeyword', 'ordersGroupBy', 'ordersLocationFilter', 'ordersStaffFilter'].forEach(function (id) {
     $(id).addEventListener('input', debounce(loadOrders, 250));
     $(id).addEventListener('change', loadOrders);
+  });
+
+  // ===== 発注リスト =====
+  // 在庫リスト・受注リストのようなHold/受注のステータス管理・通知は持たない、
+  // シンプルな登録・編集・削除ができる一覧（現場からの要望で追加。受注リストと
+  // Gクラス予約リストの間に配置する）。件数が多くなりすぎない想定のため、
+  // 検索は在庫リスト・受注リストのようにサーバーへ都度問い合わせず、
+  // 一度読み込んだ全件（state.purchaseOrders）をクライアント側で絞り込む。
+  function loadPurchaseOrders() {
+    return gasRun('api_listPurchaseOrders').then(function (items) {
+      state.purchaseOrders = items || [];
+      renderPurchaseOrders_();
+    }).catch(function (err) { showToast(err.message, true); });
+  }
+
+  function purchaseOrderMatchesKeyword_(po, keyword) {
+    if (!keyword) return true;
+    var kw = keyword.trim().toLowerCase();
+    if (!kw) return true;
+    return [po.model, po.salesLocation, po.staff, po.customer, po.commission, po.leadNumber].some(function (v) {
+      return String(v || '').toLowerCase().indexOf(kw) !== -1;
+    });
+  }
+
+  function purchaseOrderCardHtml_(po) {
+    var subParts = [];
+    if (po.commission) subParts.push('コミッション: ' + escapeHtml(po.commission));
+    if (po.leadNumber) subParts.push('リード番号: ' + escapeHtml(po.leadNumber));
+    return '<div class="purchaseOrderCard">' +
+      '<div class="purchaseOrderCard__top">' +
+      '<div class="purchaseOrderCard__model">' + escapeHtml(po.model) + '</div>' +
+      '<span class="badge badge--location">' + escapeHtml(po.salesLocation || '-') + '</span>' +
+      '</div>' +
+      '<div class="purchaseOrderCard__meta">担当者: ' + escapeHtml(po.staff) + '　／　顧客: ' + escapeHtml(po.customer) + '</div>' +
+      (subParts.length ? '<div class="purchaseOrderCard__sub">' + subParts.join('　') + '</div>' : '') +
+      '<div class="purchaseOrderCard__actions">' +
+      '<button type="button" class="btn" data-edit-purchase-order="' + escapeHtml(po.id) + '">編集</button>' +
+      '<button type="button" class="btn btn--danger" data-delete-purchase-order="' + escapeHtml(po.id) + '">削除</button>' +
+      '</div>' +
+      '</div>';
+  }
+
+  function renderPurchaseOrders_() {
+    var keyword = $('purchaseOrdersKeyword').value;
+    var items = (state.purchaseOrders || []).filter(function (po) { return purchaseOrderMatchesKeyword_(po, keyword); });
+    $('purchaseOrdersEmpty').classList.toggle('hidden', items.length > 0);
+    $('purchaseOrdersTotalCount').textContent = items.length ? '該当 ' + items.length + ' 件' : '';
+    $('purchaseOrdersList').innerHTML = '<div class="purchaseOrderList">' + items.map(purchaseOrderCardHtml_).join('') + '</div>';
+    syncFixedBars_();
+  }
+
+  $('purchaseOrdersKeyword').addEventListener('input', debounce(renderPurchaseOrders_, 200));
+
+  // 新規登録時はnull、編集時は対象のid（発注情報を特定するためのアプリ内部の
+  // 一意なID。コミッションは任意項目のため一意性を前提にできない）。
+  var purchaseOrderEditingId_ = null;
+
+  function openPurchaseOrderModal_(po) {
+    purchaseOrderEditingId_ = po ? po.id : null;
+    $('purchaseOrderModalTitle').textContent = po ? '発注情報の編集' : '発注情報の登録';
+    $('purchaseOrderModel').value = po ? po.model : '';
+    $('purchaseOrderSalesLocation').value = po ? po.salesLocation : '';
+    $('purchaseOrderStaff').value = po ? po.staff : '';
+    $('purchaseOrderCustomer').value = po ? po.customer : '';
+    $('purchaseOrderCommission').value = po ? (po.commission || '') : '';
+    $('purchaseOrderLeadNumber').value = po ? (po.leadNumber || '') : '';
+    $('purchaseOrderModalError').classList.add('hidden');
+    $('btnPurchaseOrderSubmit').textContent = po ? '保存' : '登録';
+    openModal($('purchaseOrderModal'));
+  }
+
+  $('btnAddPurchaseOrder').addEventListener('click', function () { openPurchaseOrderModal_(null); });
+
+  $('purchaseOrdersList').addEventListener('click', function (e) {
+    var editBtn = e.target.closest('[data-edit-purchase-order]');
+    if (editBtn) {
+      var po = (state.purchaseOrders || []).find(function (p) { return p.id === editBtn.dataset.editPurchaseOrder; });
+      if (po) openPurchaseOrderModal_(po);
+      return;
+    }
+    var delBtn = e.target.closest('[data-delete-purchase-order]');
+    if (delBtn) openPurchaseOrderDeleteModal_(delBtn.dataset.deletePurchaseOrder);
+  });
+
+  function purchaseOrderFormValues_() {
+    return {
+      model: $('purchaseOrderModel').value.trim(),
+      salesLocation: $('purchaseOrderSalesLocation').value.trim(),
+      staff: $('purchaseOrderStaff').value.trim(),
+      customer: $('purchaseOrderCustomer').value.trim(),
+      commission: $('purchaseOrderCommission').value.trim(),
+      leadNumber: $('purchaseOrderLeadNumber').value.trim()
+    };
+  }
+
+  $('btnPurchaseOrderSubmit').addEventListener('click', function () {
+    var btn = this;
+    if (btn.disabled) return;
+    var info = purchaseOrderFormValues_();
+    var missing = [];
+    if (!info.model) missing.push('モデル名');
+    if (!info.salesLocation) missing.push('拠点');
+    if (!info.staff) missing.push('担当者');
+    if (!info.customer) missing.push('顧客');
+    if (missing.length) {
+      $('purchaseOrderModalError').textContent = '次の項目を入力してください: ' + missing.join('、');
+      $('purchaseOrderModalError').classList.remove('hidden');
+      return;
+    }
+    setButtonBusy(btn, true, '保存中...');
+    var call = purchaseOrderEditingId_
+      ? gasRun('api_updatePurchaseOrder', purchaseOrderEditingId_, info)
+      : gasRun('api_addPurchaseOrder', info);
+    call.then(function () {
+      setButtonBusy(btn, false);
+      closeModal($('purchaseOrderModal'));
+      showToast(purchaseOrderEditingId_ ? '発注情報を更新しました' : '発注情報を登録しました');
+      loadPurchaseOrders();
+    }).catch(function (err) {
+      setButtonBusy(btn, false);
+      $('purchaseOrderModalError').textContent = err.message;
+      $('purchaseOrderModalError').classList.remove('hidden');
+    });
+  });
+
+  var purchaseOrderDeletingId_ = null;
+
+  function openPurchaseOrderDeleteModal_(id) {
+    var po = (state.purchaseOrders || []).find(function (p) { return p.id === id; });
+    purchaseOrderDeletingId_ = id;
+    $('purchaseOrderDeleteDesc').textContent = po
+      ? ('「' + po.model + '」（顧客: ' + po.customer + '）の発注情報を削除します。よろしいですか？')
+      : 'この発注情報を削除します。よろしいですか？';
+    $('purchaseOrderDeleteError').classList.add('hidden');
+    openModal($('purchaseOrderDeleteModal'));
+  }
+
+  $('btnPurchaseOrderDeleteSubmit').addEventListener('click', function () {
+    var btn = this;
+    if (btn.disabled) return;
+    setButtonBusy(btn, true, '削除中...');
+    gasRun('api_deletePurchaseOrder', purchaseOrderDeletingId_).then(function () {
+      setButtonBusy(btn, false);
+      closeModal($('purchaseOrderDeleteModal'));
+      showToast('発注情報を削除しました');
+      loadPurchaseOrders();
+    }).catch(function (err) {
+      setButtonBusy(btn, false);
+      $('purchaseOrderDeleteError').textContent = err.message;
+      $('purchaseOrderDeleteError').classList.remove('hidden');
+    });
   });
 
   // ===== Gクラス予約リスト =====
@@ -1679,6 +1964,8 @@
     $('systemMasterModelPhotosCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterNotifyCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterStaffCard').classList.toggle('hidden', !isAdmin);
+    $('systemMasterCelebrationCard').classList.toggle('hidden', !isAdmin);
+    renderCelebrationVariantSelects_(settings.celebrationVariants);
 
     state.themeKey = settings.themeKey;
     renderThemePresets_();
@@ -1703,6 +1990,30 @@
     $('modelPhotosMax').textContent = (state.bootstrap && state.bootstrap.modelPhotosMax) || 40;
     renderModelPhotoList_();
     renderHomeGallery_();
+  }
+
+  /**
+   * Hold登録・2nd Hold登録・受注確定の演出バリエーション選択欄（設定タブ）を
+   * 描画する。選択肢・ラベルはサーバー側の1箇所（Constants.gsのCELEBRATION_
+   * VARIANT_OPTIONS/CELEBRATION_VARIANT_LABELS）から取得し、クライアント側では
+   * 重複定義しない。
+   */
+  function renderCelebrationVariantSelects_(celebrationVariants) {
+    var options = (state.bootstrap && state.bootstrap.celebrationVariantOptions) || ['A', 'B', 'C'];
+    var labels = (state.bootstrap && state.bootstrap.celebrationVariantLabels) || {};
+    var current = celebrationVariants || {};
+    [
+      ['celebrationVariantHold', 'hold'],
+      ['celebrationVariantSecondHold', 'secondHold'],
+      ['celebrationVariantOrder', 'order']
+    ].forEach(function (pair) {
+      var select = $(pair[0]);
+      var actionKey = pair[1];
+      var actionLabels = labels[actionKey] || {};
+      select.innerHTML = '';
+      options.forEach(function (o) { select.appendChild(new Option(actionLabels[o] || o, o)); });
+      select.value = current[actionKey] || 'A';
+    });
   }
 
   /**
@@ -2857,7 +3168,12 @@
       notifyErrorMailTo: cleanedMailLists.notifyErrorMailTo,
       notifyChatWebhookUrl: chatWebhookUrl,
       staffList: uniqueStaffList,
-      modelPhotos: uniqueModelPhotos
+      modelPhotos: uniqueModelPhotos,
+      celebrationVariants: {
+        hold: $('celebrationVariantHold').value,
+        secondHold: $('celebrationVariantSecondHold').value,
+        order: $('celebrationVariantOrder').value
+      }
     };
     setButtonBusy(btn, true, '保存中...');
     gasRun('api_saveSettings', settings).then(function (saved) {
@@ -2928,6 +3244,7 @@
     [
       ['inventoryToolbar', 'inventoryToolbarSpacer', 16],
       ['ordersToolbar', 'ordersToolbarSpacer', 16],
+      ['purchaseOrdersToolbar', 'purchaseOrdersToolbarSpacer', 16],
       ['gclassToolbar', 'gclassToolbarSpacer', 16],
       ['homeTypeNav', 'homeTypeNavSpacer', 20]
     ].forEach(function (pair) {
@@ -2959,7 +3276,7 @@
       renderSettings(bootstrap.settings);
       renderTopbarUser();
       checkIntegrity_();
-      return Promise.all([loadInventory(), loadOrders(), loadGClassReservations(), loadHomeModelCounts_(), loadMyPageOrders_(), loadMyPageGClass_()]);
+      return Promise.all([loadInventory(), loadOrders(), loadPurchaseOrders(), loadGClassReservations(), loadHomeModelCounts_(), loadMyPageOrders_(), loadMyPageGClass_()]);
     });
   }
 

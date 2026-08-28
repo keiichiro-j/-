@@ -562,17 +562,18 @@
      gap（16px）だけで隣り合うようにして、行全体で余白が均一に見えるようにした。
      各項目の順序はvehicleRowCardHtml（JavaScript.html）のDOM出力順と一致させる
      必要がある（grid-template-columnsが列位置で対応していたのと同じく、この
-     :nth-child()による横幅指定も出力順に依存するpositionalな対応関係のため）。 */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(1) { flex: 0 0 100px; }
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(2) { flex: 0 0 68px; }
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(3) { flex: 0 0 46px; }
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(4) { flex: 0 0 150px; }
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(5) { flex: 0 0 170px; }
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(6) { flex: 0 0 96px; }
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(7) { flex: 0 0 84px; }
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(8) { flex: 0 0 88px; }
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(9) { flex: 0 0 150px; }
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(10) { flex: 0 0 210px; }
+     :nth-child()による横幅指定も出力順に依存するpositionalな対応関係のため）。
+     現場からの指摘で、行に並べる項目を「ステータス・モデル・コミッション・MP・
+     ステア・カラー・有償OP・操作ボタン・比較」だけに絞り込んだ（入港予定日・
+     可能月・VPCは行タップで開く詳細モーダルのみで確認する。vehicleRowCardHtml
+     参照）。 */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(1) { flex: 0 0 150px; } /* ステータス */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(2) { flex: 0 0 100px; } /* 比較＋モデル＋コミッション */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(3) { flex: 0 0 68px; } /* MP */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(4) { flex: 0 0 46px; } /* ステア */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(5) { flex: 0 0 150px; } /* カラー */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(6) { flex: 0 0 170px; } /* 有償OP */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(7) { flex: 0 0 210px; } /* 操作ボタン */
   /* border-color: transparent ではなく上・右・下のみ指定する。border-color（4辺一括）だと
      border-left-color（在庫状況を示す色つきの左罫線）まで打ち消してしまい、ホバー時に
      状態の色が消えて見えてしまうため（.rowCard--available 等はこのルールより先に書かれて
@@ -640,27 +641,21 @@
      以前210pxにしていたが、実際のコンテンツ（顧客名・コミッション）は最大でも
      60px程度しか使っておらず、左詰めの文字の右側に無駄な余白が生まれ、顧客名→モデルの
      間だけ他の列間より大きく間延びして見えていたため（現場からの指摘で判明）、
-     110pxまで縮めている。以前は下取車の有無・OSS登録の可否・保険加入の有無・支払方法・
-     MP・VPC・有償OPが表示されておらず、詳細モーダル（orderDetailGridHtml_）を開かないと
-     確認できなかったため（現場からの指摘で判明）、これらも項目として追加している。
-     在庫リストと同じくdisplay: flex; flex-wrapで並べ、画面幅に収まりきらない項目は
-     横スクロールではなく次の行へ折り返す（orderRowCardHtmlのDOM出力順に対応する
-     positionalな:nth-child()指定）。 */
+     110pxまで縮めている。行に並べる項目は「顧客・コミッション・モデル・リード番号・
+     MP・VPC・担当者・登録月・販売拠点」だけに絞り込み（現場からの指摘）、それ以外
+     （下取車・OSS・保険・支払方法・有償OP・受注確定日時）は行タップで開く詳細モーダル
+     （orderDetailGridHtml_）でのみ確認する。在庫リストと同じくdisplay: flex;
+     flex-wrapで並べ、画面幅に収まりきらない項目は横スクロールではなく次の行へ
+     折り返す（orderRowCardHtmlのDOM出力順に対応するpositionalな:nth-child()指定）。 */
   .rowCard.rowCard--order { border-left-color: var(--primary); }
-  .rowCard.rowCard--order > *:nth-child(1) { flex: 0 0 110px; }
-  .rowCard.rowCard--order > *:nth-child(2) { flex: 0 0 120px; }
-  .rowCard.rowCard--order > *:nth-child(3) { flex: 0 0 68px; }
-  .rowCard.rowCard--order > *:nth-child(4) { flex: 0 0 88px; }
-  .rowCard.rowCard--order > *:nth-child(5) { flex: 0 0 170px; }
-  .rowCard.rowCard--order > *:nth-child(6) { flex: 0 0 90px; }
-  .rowCard.rowCard--order > *:nth-child(7) { flex: 0 0 110px; }
-  .rowCard.rowCard--order > *:nth-child(8) { flex: 0 0 80px; }
-  .rowCard.rowCard--order > *:nth-child(9) { flex: 0 0 90px; }
-  .rowCard.rowCard--order > *:nth-child(10) { flex: 0 0 90px; }
-  .rowCard.rowCard--order > *:nth-child(11) { flex: 0 0 90px; }
-  .rowCard.rowCard--order > *:nth-child(12) { flex: 0 0 80px; }
-  .rowCard.rowCard--order > *:nth-child(13) { flex: 0 0 150px; }
-  .rowCard.rowCard--order > *:nth-child(14) { flex: 0 0 130px; }
+  .rowCard.rowCard--order > *:nth-child(1) { flex: 0 0 110px; } /* 顧客＋コミッション */
+  .rowCard.rowCard--order > *:nth-child(2) { flex: 0 0 120px; } /* モデル */
+  .rowCard.rowCard--order > *:nth-child(3) { flex: 0 0 110px; } /* リード番号 */
+  .rowCard.rowCard--order > *:nth-child(4) { flex: 0 0 68px; } /* MP */
+  .rowCard.rowCard--order > *:nth-child(5) { flex: 0 0 88px; } /* VPC */
+  .rowCard.rowCard--order > *:nth-child(6) { flex: 0 0 90px; } /* 担当者 */
+  .rowCard.rowCard--order > *:nth-child(7) { flex: 0 0 80px; } /* 登録月 */
+  .rowCard.rowCard--order > *:nth-child(8) { flex: 0 0 130px; } /* 販売拠点 */
 
   /* Gクラス予約リストの表示形式「表」: 在庫リストの項目（MP・ステア・カラー・
      有償OP・入港予定日・可能月・VPC）に加えて担当者・モデル・リード番号も
@@ -1011,6 +1006,42 @@
   }
   .orderCard__grid dd { margin: 0; font-size: 14.5px; font-weight: 600; color: var(--on-surface); line-height: 1.3; }
 
+  /* ===== 発注リスト =====
+     在庫リスト・受注リストのようなHold/受注のステータス管理・通知は持たない、
+     シンプルな登録・編集・削除ができる一覧。.orderListと同じ3列グリッドの
+     カードにするが、比較・Hold等の操作が無いぶんカード自体はシンプルにし、
+     代わりに編集・削除ボタンを置く。 */
+  .purchaseOrderList {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+    align-items: start;
+  }
+  .purchaseOrderCard {
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border-left: 4px solid var(--primary);
+    padding: 22px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .purchaseOrderCard__top { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 10px; }
+  .purchaseOrderCard__top .badge { margin-left: auto; }
+  .purchaseOrderCard__model { font-size: 21px; font-weight: 500; letter-spacing: -.01em; line-height: 1.25; }
+  .purchaseOrderCard__meta { font-size: 13.5px; font-weight: 600; color: var(--on-surface-variant); margin-top: 3px; }
+  .purchaseOrderCard__sub { font-size: 12.5px; color: var(--on-surface-variant); }
+  .purchaseOrderCard__actions {
+    display: flex;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 10px;
+    border-top: 1px solid var(--outline);
+  }
+  .purchaseOrderCard__actions .btn { flex: 1; }
+
   /* ===== 設定画面 =====
      項目ごとに独立したカード（島）に分け、Google/Teslaのカードデザインに寄せる
      （角丸・影・余白多め。1つの大きなカードに全項目を詰め込まない）。
@@ -1087,6 +1118,19 @@
   }
   .formField { display: flex; flex-direction: column; gap: 6px; }
   .formField label { font-size: 13px; font-weight: 500; color: var(--on-surface-variant); }
+  /* 発注リストの登録・編集モーダルなど、任意項目が混在するフォームで
+     必須項目だけを明示するための小さなバッジ（.settingsGroupTitle__badgeと
+     同じ「警告色の薄いピル」の見た目を流用）。 */
+  .formField__required {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    background: var(--warning-bg);
+    color: var(--warning);
+    padding: 2px 7px;
+    border-radius: 999px;
+    margin-left: 4px;
+  }
   .formField .input { width: 100%; }
   .formField__hint { margin: 0; font-size: 12px; color: var(--on-surface-variant); }
   .formField.hidden { display: none; }
@@ -2160,6 +2204,91 @@
     100% { transform: translate(var(--drift, 0), 112vh) rotate(var(--rot, 720deg)); opacity: .85; }
   }
 
+  /* ===== Hold登録・2nd Hold登録・受注確定 完了時の演出 =====
+     showCelebration_（JavaScript.html）が、固定の案内メッセージ（.celebrationBanner）と
+     管理者が選んだ絵柄のアクション（.celebrationLayerに絵文字を生成）を組み合わせて
+     表示する。 */
+  .celebrationLayer { position: fixed; inset: 0; z-index: 311; overflow: hidden; pointer-events: none; }
+  .celebEmoji {
+    position: absolute;
+    bottom: -60px;
+    line-height: 1;
+    will-change: transform, opacity;
+  }
+  .celebEmoji--rise { animation: celebRise linear forwards; }
+  .celebEmoji--fall { top: -60px; bottom: auto; animation: celebFall linear forwards; }
+  .celebEmoji--burst {
+    left: 50%;
+    top: 50%;
+    bottom: auto;
+    font-size: 30px;
+    animation: celebBurst .9s cubic-bezier(.2, .8, .3, 1) forwards;
+  }
+  @keyframes celebRise {
+    0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+    12% { opacity: 1; }
+    100% { transform: translate(var(--drift, 0), -112vh) rotate(var(--rot, 0deg)); opacity: .9; }
+  }
+  @keyframes celebFall {
+    0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+    12% { opacity: 1; }
+    100% { transform: translate(var(--drift, 0), 112vh) rotate(var(--rot, 0deg)); opacity: .9; }
+  }
+  @keyframes celebBurst {
+    0% { transform: translate(-50%, -50%) scale(.4); opacity: 1; }
+    100% { transform: translate(calc(-50% + var(--tx, 0)), calc(-50% + var(--ty, 0))) scale(1); opacity: 0; }
+  }
+  /* 2nd Hold「お待ちください」系の演出: 画面中央に大きなアイコン1つを表示する。 */
+  .celebIcon {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    font-size: 96px;
+    line-height: 1;
+    transform: translate(-50%, -50%);
+    z-index: 311;
+    pointer-events: none;
+    filter: drop-shadow(0 6px 18px rgba(0, 0, 0, .25));
+  }
+  .celebIcon--spin { animation: celebIconSpin 2.4s ease-in-out; }
+  .celebIcon--bob { animation: celebIconBob 2.4s ease-in-out; }
+  @keyframes celebIconSpin {
+    0% { transform: translate(-50%, -50%) scale(.4) rotate(0deg); opacity: 0; }
+    15% { opacity: 1; }
+    70% { transform: translate(-50%, -50%) scale(1) rotate(360deg); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1) rotate(360deg); opacity: 0; }
+  }
+  @keyframes celebIconBob {
+    0% { transform: translate(-50%, -46%) scale(.4); opacity: 0; }
+    15% { opacity: 1; }
+    50% { transform: translate(-50%, -54%) scale(1); }
+    70% { transform: translate(-50%, -46%) scale(1); }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+  }
+  /* 案内メッセージのバナー。画面上部中央に大きめの文字で表示し、一定時間で
+     自動的にフェードアウトする（showCelebrationBanner_参照）。 */
+  .celebrationBanner {
+    position: fixed;
+    top: 14vh;
+    left: 50%;
+    z-index: 312;
+    transform: translate(-50%, -14px);
+    background: var(--surface);
+    color: var(--on-surface);
+    border: 1px solid var(--outline);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-elevated);
+    padding: 20px 32px;
+    text-align: center;
+    max-width: min(90vw, 480px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .35s ease, transform .35s ease;
+  }
+  .celebrationBanner.is-active { opacity: 1; transform: translate(-50%, 0); }
+  .celebrationBanner p { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.5; }
+  .celebrationBanner p:first-child { font-size: 18px; color: var(--primary-text); }
+
   /* ===== ノートPC幅（在庫リストは4列だとカードが窮屈になるため3列に落とす。
      受注リストはもともと1行3列のため、このブレークポイントでは変更しない） ===== */
   @media (max-width: 1400px) {
@@ -2173,6 +2302,7 @@
     .settingsWrap { max-width: 100%; }
     /* 受注カードは項目数が多いため、タブレット幅では1列にして読みやすさを優先する */
     .orderList { grid-template-columns: 1fr; }
+    .purchaseOrderList { grid-template-columns: 1fr; }
 
     /* 型のクイックナビ: タブレット・スマホ幅では5種類＋「すべて」を折り返し無しで
        並べると窮屈なため、横スクロールにする（よくあるカテゴリ絞り込みチップの
@@ -2293,6 +2423,8 @@
     .modal__footer .btn { flex: 1; min-height: 44px; }
     .orderList { gap: 12px; }
     .orderCard { padding: 16px 18px; }
+    .purchaseOrderList { gap: 12px; }
+    .purchaseOrderCard { padding: 16px 18px; }
     .compareBar { left: 10px; right: 10px; bottom: 10px; transform: none; max-width: none; flex-wrap: wrap; }
     .compareBar__chips { max-width: 100%; }
   }
@@ -2304,5 +2436,7 @@
     .card, .orderCard { transition: none; }
     .topbar__navBtn--refresh.is-spinning .icon { animation: none; }
     .view.is-active { animation: none; }
+    .celebEmoji, .celebIcon { display: none; }
+    .celebrationBanner { transition: none; }
   }
 </style>

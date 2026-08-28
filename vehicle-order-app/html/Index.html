@@ -94,6 +94,15 @@
         <line x1="8" y1="3.5" x2="8" y2="7"/>
         <line x1="16" y1="3.5" x2="16" y2="7"/>
       </symbol>
+      <!-- 左サイドバー（PCビューのみ）の「発注リスト」ナビ項目専用に追加。
+           クリップボード（発注書のイメージ）を、他の線画アイコンと同じ
+           描画ルール（stroke・角丸）に合わせて新規に追加した。 -->
+      <symbol id="icon-clipboard" viewBox="0 0 24 24">
+        <rect x="5.5" y="5" width="13" height="16" rx="2"/>
+        <rect x="9" y="3.3" width="6" height="3.4" rx="1.2"/>
+        <line x1="8.3" y1="12" x2="15.7" y2="12"/>
+        <line x1="8.3" y1="15.8" x2="15.7" y2="15.8"/>
+      </symbol>
     </defs>
   </svg>
 
@@ -129,6 +138,9 @@
         </button>
         <button class="tabs__item sidebarNav__item" data-tab="orders" type="button">
           <svg class="icon"><use href="#icon-table"></use></svg><span>受注リスト</span>
+        </button>
+        <button class="tabs__item sidebarNav__item" data-tab="purchaseOrders" type="button">
+          <svg class="icon"><use href="#icon-clipboard"></use></svg><span>発注リスト</span>
         </button>
         <button class="tabs__item sidebarNav__item" data-tab="gclass" type="button">
           <svg class="icon"><use href="#icon-calendar"></use></svg><span>Gクラス予約リスト</span>
@@ -178,6 +190,7 @@
         <button class="tabs__item is-active" data-tab="home">ホーム</button>
         <button class="tabs__item" data-tab="inventory">在庫リスト</button>
         <button class="tabs__item" data-tab="orders">受注リスト</button>
+        <button class="tabs__item" data-tab="purchaseOrders">発注リスト</button>
         <button class="tabs__item" data-tab="gclass">Gクラス予約リスト</button>
         <button class="tabs__item" data-tab="mypage">マイページ</button>
         <button class="tabs__item" data-tab="settings">設定</button>
@@ -313,6 +326,25 @@
       <div class="emptyState hidden" id="ordersEmpty">
         <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
         <p>該当する受注がありません</p>
+      </div>
+    </main>
+
+    <!-- 発注リスト: 在庫リスト・受注リストのようなHold/受注のステータス管理・通知は
+         持たない、シンプルな登録・編集・削除ができる一覧（現場からの要望で追加）。
+         モデル名・拠点・担当者・顧客は必須、コミッション・リード番号はまだ確定して
+         いない段階でも登録できるよう任意項目にしている（PurchaseOrderService.gs参照）。 -->
+    <main class="view" id="view-purchaseOrders">
+      <div class="toolbar" id="purchaseOrdersToolbar">
+        <input type="search" id="purchaseOrdersKeyword" class="input input--search" placeholder="自由検索（モデル・拠点・担当者・顧客・コミッション・リード番号）">
+        <div class="toolbar__spacer"></div>
+        <button type="button" class="btn btn--primary" id="btnAddPurchaseOrder">＋ 新規登録</button>
+        <span class="toolbar__count" id="purchaseOrdersTotalCount"></span>
+      </div>
+      <div class="toolbarSpacer" id="purchaseOrdersToolbarSpacer"></div>
+      <div id="purchaseOrdersList"></div>
+      <div class="emptyState hidden" id="purchaseOrdersEmpty">
+        <svg class="icon emptyState__icon"><use href="#icon-clipboard"></use></svg>
+        <p>該当する発注情報がありません</p>
       </div>
     </main>
 
@@ -461,6 +493,27 @@
             <p class="settingsSection__desc">拠点・名前・Googleアカウントのメールアドレスを登録してください（最大<span id="staffListMax"></span>人・現在<span id="staffListCount">0</span>人登録中）。Hold登録・2ND HOLD登録・受注確定・Hold解除の「担当者」は、ログイン中のGoogleアカウントのメールアドレスからここで自動的に判定されるため、操作のたびに担当者を選ぶ必要はありません。拠点名も同様に、Hold登録・受注確定の「販売拠点」欄へ自動的に入力されます（編集可）。ドラッグハンドル（⠿）で表示順を並び替えできます。</p>
             <div class="staffList" id="staffList"></div>
             <button class="btn" id="btnAddStaff" type="button">＋ 担当者を追加</button>
+          </div>
+
+          <!-- Hold登録・2nd Hold登録・受注確定 完了時の演出（絵柄のアクション）。
+               メッセージ自体は固定で、絵柄のバリエーション（3種類ずつ）だけを選べる
+               （showCelebration_、JavaScript.htmlのCELEBRATION_CONTENT参照）。
+               ロゴ・モデル写真と同様、全利用者の画面に影響する設定のため管理者限定にする。 -->
+          <div class="settingsCard hidden" id="systemMasterCelebrationCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>Hold・受注確定の演出</h2>
+            <p class="settingsSection__desc">Hold登録・2ND HOLD登録・受注確定が完了したときに表示する「絵柄のアクション」を選べます（案内メッセージ自体は固定です）。</p>
+            <div class="formField">
+              <label>Hold登録時</label>
+              <select id="celebrationVariantHold" class="input"></select>
+            </div>
+            <div class="formField">
+              <label>2ND HOLD登録時</label>
+              <select id="celebrationVariantSecondHold" class="input"></select>
+            </div>
+            <div class="formField">
+              <label>受注確定時</label>
+              <select id="celebrationVariantOrder" class="input"></select>
+            </div>
           </div>
         </div>
 
@@ -616,6 +669,65 @@
     </div>
   </div>
 
+  <!-- 発注リスト: 新規登録・編集モーダル -->
+  <div class="modal hidden" id="purchaseOrderModal">
+    <div class="modal__panel">
+      <div class="modal__header">
+        <h2 id="purchaseOrderModalTitle">発注情報の登録</h2>
+        <button class="btn--icon" data-close-modal>&times;</button>
+      </div>
+      <div class="modal__body">
+        <div class="modal__error hidden" id="purchaseOrderModalError"></div>
+        <div class="formField">
+          <label>モデル名 <span class="formField__required">必須</span></label>
+          <input type="text" id="purchaseOrderModel" class="input">
+        </div>
+        <div class="formField">
+          <label>拠点 <span class="formField__required">必須</span></label>
+          <input type="text" id="purchaseOrderSalesLocation" class="input">
+        </div>
+        <div class="formField">
+          <label>担当者 <span class="formField__required">必須</span></label>
+          <input type="text" id="purchaseOrderStaff" class="input">
+        </div>
+        <div class="formField">
+          <label>顧客 <span class="formField__required">必須</span></label>
+          <input type="text" id="purchaseOrderCustomer" class="input">
+        </div>
+        <div class="formField">
+          <label>コミッション（任意）</label>
+          <input type="text" id="purchaseOrderCommission" class="input">
+        </div>
+        <div class="formField">
+          <label>リード番号（任意）</label>
+          <input type="text" id="purchaseOrderLeadNumber" class="input">
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn" data-close-modal>キャンセル</button>
+        <button class="btn btn--primary" id="btnPurchaseOrderSubmit">登録</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 発注リスト: 削除確認モーダル -->
+  <div class="modal hidden" id="purchaseOrderDeleteModal">
+    <div class="modal__panel">
+      <div class="modal__header">
+        <h2>発注情報の削除</h2>
+        <button class="btn--icon" data-close-modal>&times;</button>
+      </div>
+      <div class="modal__body">
+        <p class="modal__desc" id="purchaseOrderDeleteDesc"></p>
+        <div class="modal__error hidden" id="purchaseOrderDeleteError"></div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn" data-close-modal>キャンセル</button>
+        <button class="btn btn--danger" id="btnPurchaseOrderDeleteSubmit">削除する</button>
+      </div>
+    </div>
+  </div>
+
 
   <!-- 車両比較モーダル -->
   <div class="modal hidden" id="compareModal">
@@ -671,6 +783,12 @@
 
   <!-- 受注確定時の紙吹雪演出（文字・カードなし。confettiLayerに紙吹雪だけを降らせる） -->
   <div class="confettiLayer" id="confettiLayer"></div>
+
+  <!-- Hold登録・2nd Hold登録・受注確定 完了時の演出（showCelebration_、JavaScript.html参照）。
+       celebrationLayerには絵文字（応援の絵柄・風船・花火等）を、celebrationBannerには
+       固定の案内メッセージを表示する。 -->
+  <div class="celebrationLayer" id="celebrationLayer"></div>
+  <div class="celebrationBanner hidden" id="celebrationBanner"></div>
 
   <?!= include('html/JavaScript'); ?>
 </body>
