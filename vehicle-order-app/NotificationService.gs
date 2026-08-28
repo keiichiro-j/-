@@ -98,18 +98,32 @@ function notifyOrderConfirmed(order) {
  * （戻り値false）。Google Chat側の障害・URL誤りでHold登録／受注確定処理自体が
  * 失敗扱いになってしまわないよう、通信エラーはここで握りつぶし、ログにのみ残す
  * （呼び出し元はメール通知の成否と合わせて処理を続行する）。
+ * muteHttpExceptions: trueにしているため、Webhook URLが無効・失効している場合
+ * （4xx/5xxが返る）でも例外は発生しない。レスポンスのステータスコードを
+ * 明示的に確認しないと「投稿は失敗しているのに戻り値はtrue（成功扱い）」と
+ * なり、Google Chat側に届いていないことに誰も気づけなくなるため、ここで
+ * 必ずステータスコードを見て判定する。
  * メッセージはGoogle Chatの簡易Markdown（*太字*等）に対応させている。
  */
 function sendChatNotification_(text) {
   var url = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.NOTIFY_CHAT_WEBHOOK_URL);
   if (!url) return false;
   try {
-    UrlFetchApp.fetch(url, {
+    var response = UrlFetchApp.fetch(url, {
       method: 'post',
       contentType: 'application/json',
       payload: JSON.stringify({ text: text }),
       muteHttpExceptions: true
     });
+    var code = response.getResponseCode();
+    if (code < 200 || code >= 300) {
+      // 実行数（Executions）ログで原因を確認できるよう、ステータスコードと
+      // レスポンス本文（Google Chat側のエラーメッセージ）を残す。よくある原因は
+      // Webhook URLの再発行・削除（Google Chat側でWebhookを再作成するとURLが
+      // 変わる）や、コピーミスによるURLの誤りなど。
+      console.error('Google Chat通知の送信に失敗しました（HTTPステータス: ' + code + '）: ' + response.getContentText());
+      return false;
+    }
     return true;
   } catch (e) {
     console.error('Google Chat通知の送信に失敗しました: ' + (e && e.message ? e.message : e));

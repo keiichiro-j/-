@@ -431,7 +431,18 @@ Hold登録時・受注確定時に、メール通知とは別にGoogle Chatの�
   でチェックし、それ以外の値はエラーになります）。
 - Google Chat側の障害やURLの設定ミスでメッセージが届かなかった場合でも、Hold登録・受注確定
   処理自体は失敗させません（`sendChatNotification_`が通信エラーを握りつぶし、ログにのみ残す
-  設計のため）。
+  設計のため）。`muteHttpExceptions: true`にしているため、Webhook URLが無効・失効している
+  場合（4xx/5xxが返る）でも例外は発生しない点に注意してください。そのため
+  `sendChatNotification_`はレスポンスのステータスコードを明示的に確認しており、
+  200番台以外の場合はGoogle Chat側からのエラー内容と合わせてApps Scriptの実行数
+  （Executions）ログに記録します（設定を保存しただけでは実際にWebhookへ届くかどうかは
+  確認していないため、「設定したのに届かない」場合はまずHoldを1件登録してみて、Apps
+  Scriptエディタの「実行数」から`sendChatNotification_`の実行ログを確認してください）。
+  - **よくある原因**: Google Chat側で該当のWebhookを削除・再作成すると、発行される
+    URLが変わります（設定タブに貼り付けたURLが古いままになっていないか確認）。また、
+    ブラウザのアドレスバーに表示されるスペースのURL（`https://mail.google.com/chat/...`等）
+    ではなく、「Webhookを管理」の画面に表示される`https://chat.googleapis.com/v1/spaces/...`
+    形式のURLを貼り付ける必要があります。
 
 ## ホーム画面（モデル別在庫リスト）
 
