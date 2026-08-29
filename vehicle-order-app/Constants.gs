@@ -319,14 +319,27 @@ var PROP_KEYS = {
  * normalizeCelebrationVariants_参照。実際の演出内容自体はクライアント側
  * （JavaScript.htmlのCELEBRATION_CONTENT）で定義する）。
  */
-var CELEBRATION_VARIANT_OPTIONS = ['A', 'B', 'C'];
+var CELEBRATION_VARIANT_OPTIONS = ['A', 'B', 'C', 'D'];
 var DEFAULT_CELEBRATION_VARIANTS = { hold: 'A', secondHold: 'A', order: 'A' };
 // 設定タブのプルダウンに表示するラベル（クライアント側のCELEBRATION_CONTENTと
-// 対応させておくこと）。
+// 対応させておくこと）。既定のA〜Cに比べて演出が控えめすぎるという現場の声を
+// 受けて、各項目に「D」（このアプリ＝GASのWebアプリ上でクライアント側の
+// CSS/JSアニメーションのみで実現できる最大級の派手さにした演出）を追加した。
+// ラベルにその位置付けを明記し、他の選択肢と混同しないようにしている
+// （JavaScript.htmlのCELEBRATION_CONTENT・triggerMegaCelebration_参照）。
 var CELEBRATION_VARIANT_LABELS = {
-  hold: { A: 'エール（応援の掛け声）', B: '応援フラッグ', C: 'ガッツポーズ' },
-  secondHold: { A: '砂時計', B: 'コーヒーブレイク', C: '少々お待ちを' },
-  order: { A: '紙吹雪＋風船（既定）', B: '花火', C: '祝福シャワー' }
+  hold: {
+    A: 'エール（応援の掛け声）', B: '応援フラッグ', C: 'ガッツポーズ',
+    D: '全力エール（GASで実現可能な最も派手な演出）'
+  },
+  secondHold: {
+    A: '砂時計', B: 'コーヒーブレイク', C: '少々お待ちを',
+    D: '大歓声で応援（GASで実現可能な最も派手な演出）'
+  },
+  order: {
+    A: '紙吹雪＋風船（既定）', B: '花火', C: '祝福シャワー',
+    D: '祝賀フィナーレ（GASで実現可能な最も派手な演出）'
+  }
 };
 
 /**

@@ -772,6 +772,18 @@ test('未指定（undefined）を渡してもエラーにならずすべて既�
   const result = sandbox.normalizeCelebrationVariants_(undefined);
   assert.deepStrictEqual(result, sandbox.DEFAULT_CELEBRATION_VARIANTS);
 });
+test('D（GASで実現可能な最も派手な演出）はhold/secondHold/orderいずれも有効な値として通る', () => {
+  const result = sandbox.normalizeCelebrationVariants_({ hold: 'D', secondHold: 'D', order: 'D' });
+  assert.strictEqual(result.hold, 'D');
+  assert.strictEqual(result.secondHold, 'D');
+  assert.strictEqual(result.order, 'D');
+});
+test('CELEBRATION_VARIANT_LABELSはhold/secondHold/orderのすべてにDのラベルを持つ', () => {
+  ['hold', 'secondHold', 'order'].forEach((key) => {
+    assert.strictEqual(typeof sandbox.CELEBRATION_VARIANT_LABELS[key].D, 'string');
+    assert.ok(sandbox.CELEBRATION_VARIANT_LABELS[key].D.length > 0);
+  });
+});
 
 console.log('== PurchaseOrderService: buildPurchaseOrderRecord_（発注リストの入力内容の組み立て） ==');
 test('入力項目をそのままトリムして返す（コミッション・リード番号は空でもよい）', () => {

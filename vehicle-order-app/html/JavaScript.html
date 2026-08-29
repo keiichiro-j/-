@@ -108,17 +108,20 @@
     hold: {
       A: { emojis: ['📣', '💪', '🔥'], motion: 'rise' }, // エール
       B: { emojis: ['🚩', '🙌', '👏'], motion: 'fall' }, // 応援フラッグ
-      C: { emojis: ['💪', '🙌', '😤'], motion: 'burst' } // ガッツポーズ
+      C: { emojis: ['💪', '🙌', '😤'], motion: 'burst' }, // ガッツポーズ
+      D: { emojis: ['📣', '💪', '🔥', '🙌', '👏'], motion: 'mega' } // 全力エール
     },
     secondHold: {
       A: { emojis: ['⏳'], motion: 'spin' }, // 砂時計
       B: { emojis: ['☕'], motion: 'bob' }, // コーヒーブレイク
-      C: { emojis: ['🙏'], motion: 'bob' } // 少々お待ちを
+      C: { emojis: ['🙏'], motion: 'bob' }, // 少々お待ちを
+      D: { emojis: ['⏳', '🙏', '✨', '💪'], motion: 'mega' } // 大歓声で応援
     },
     order: {
       A: { emojis: ['🎉', '🎊'], motion: 'confettiBalloon' }, // 紙吹雪＋風船（既定）
       B: { emojis: ['🎆', '✨'], motion: 'burst' }, // 花火
-      C: { emojis: ['🥳', '🎉', '✨'], motion: 'fall' } // 祝福シャワー
+      C: { emojis: ['🥳', '🎉', '✨'], motion: 'fall' }, // 祝福シャワー
+      D: { emojis: ['🎉', '🎊', '🥳', '🎆', '✨'], motion: 'mega' } // 祝賀フィナーレ
     }
   };
 
@@ -163,6 +166,7 @@
       case 'spin': spawnCelebrationIcon_(content.emojis[0], 'spin'); break;
       case 'bob': spawnCelebrationIcon_(content.emojis[0], 'bob'); break;
       case 'confettiBalloon': triggerConfetti_(); spawnCelebrationEmojiWave_(['🎈'], 'rise', 14); break;
+      case 'mega': triggerMegaCelebration_(content.emojis); break;
       default: break;
     }
   }
@@ -268,6 +272,59 @@
     setTimeout(function () {
       pieces.forEach(function (el) { el.remove(); });
     }, 5800);
+  }
+
+  /**
+   * 演出バリエーション「D」（GASで実現可能な最も派手な演出）専用のモーション。
+   * Hold・2nd Hold・受注確定のいずれの項目で選んでも同じエンジンを使う。
+   * 「演出が弱い」という現場の声を受け、既存の演出パーツ（画面フラッシュ＋左右からの
+   * 紙吹雪＝triggerConfetti_、中央からの放射状バースト、画面端からの上昇ウェーブ、
+   * 巨大アイコン、画面揺れ）を1回にすべて重ね掛けし、バーストを3波に分けて連続発生
+   * させることで、クライアント側のCSS/JSアニメーションのみで完結するこのアプリ
+   * （GASのWebアプリ）で実現できる最大級の派手さにしている。
+   */
+  function triggerMegaCelebration_(emojis) {
+    shakeScreen_();
+    triggerConfetti_();
+    spawnCelebrationBurst_(emojis, 40);
+    setTimeout(function () { spawnCelebrationBurst_(emojis, 36); }, 320);
+    setTimeout(function () { spawnCelebrationBurst_(emojis, 32); }, 640);
+    spawnCelebrationEmojiWave_(emojis, 'rise', 36);
+    setTimeout(function () { spawnCelebrationEmojiWave_(emojis, 'fall', 24); }, 200);
+    spawnMegaIcon_(emojis[0]);
+  }
+
+  /**
+   * #celebrationShakeStage（Index.html。confettiLayer・celebrationLayer・
+   * celebrationBannerをまとめたラッパー）に一瞬だけtransformを与え、画面を大きく
+   * 揺らす。このラッパーにtransformが付いている間だけ、中の3つのposition: fixed
+   * 要素の基準がこのラッパー自身になる（CSSの仕様上の挙動）ため、揺れる範囲を
+   * 演出レイヤーだけに限定でき、サイドバー・トップバー・モーダル等ページ全体の
+   * position: fixed要素を巻き込まずに済む。連続してDバリエーションの演出が
+   * 発生した場合でもアニメーションを必ず最初から再生させるため、showCelebrationBanner_
+   * と同様に一度クラスを外して強制リフローしてから付け直す。
+   */
+  function shakeScreen_() {
+    var stage = $('celebrationShakeStage');
+    stage.classList.remove('is-shaking');
+    void stage.offsetWidth;
+    stage.classList.add('is-shaking');
+    setTimeout(function () { stage.classList.remove('is-shaking'); }, 650);
+  }
+
+  /**
+   * 画面中央に、既存のcelebIcon（spin/bob、96px）より一回り大きい巨大アイコン
+   * （140px）を表示し、拡大・回転・発光しながら消えるアニメーションを付ける
+   * （バリエーションDの目玉演出。spawnCelebrationIcon_と同じ仕組みだが専用の
+   * 見た目にしている）。
+   */
+  function spawnMegaIcon_(emoji) {
+    var layer = $('celebrationLayer');
+    var el = document.createElement('span');
+    el.className = 'celebIcon celebIcon--mega';
+    el.textContent = emoji;
+    layer.appendChild(el);
+    setTimeout(function () { el.remove(); }, 1900);
   }
 
   function fillOptions(select, options, includeBlank) {
@@ -2046,7 +2103,7 @@
    * 重複定義しない。
    */
   function renderCelebrationVariantSelects_(celebrationVariants) {
-    var options = (state.bootstrap && state.bootstrap.celebrationVariantOptions) || ['A', 'B', 'C'];
+    var options = (state.bootstrap && state.bootstrap.celebrationVariantOptions) || ['A', 'B', 'C', 'D'];
     var labels = (state.bootstrap && state.bootstrap.celebrationVariantLabels) || {};
     var current = celebrationVariants || {};
     [

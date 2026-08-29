@@ -803,14 +803,22 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <!-- 受注確定時の紙吹雪演出（文字・カードなし。confettiLayerに紙吹雪だけを降らせる） -->
-  <div class="confettiLayer" id="confettiLayer"></div>
+  <!-- 演出バリエーション「D」（GASで実現可能な最も派手な演出）用に、この3つの演出レイヤーを
+       まとめて短時間だけ揺らす（shakeScreen_、JavaScript.html参照）ための土台。この
+       ラッパー自体にtransformを付けたときだけ、中の3つのposition: fixed要素の基準が
+       このラッパーになる（CSSの仕様上の挙動）ため、揺れる範囲を演出レイヤーだけに
+       限定でき、サイドバー・トップバー・モーダル等ページ全体のposition: fixed要素を
+       巻き込まずに済む。 -->
+  <div id="celebrationShakeStage">
+    <!-- 受注確定時の紙吹雪演出（文字・カードなし。confettiLayerに紙吹雪だけを降らせる） -->
+    <div class="confettiLayer" id="confettiLayer"></div>
 
-  <!-- Hold登録・2nd Hold登録・受注確定 完了時の演出（showCelebration_、JavaScript.html参照）。
-       celebrationLayerには絵文字（応援の絵柄・風船・花火等）を、celebrationBannerには
-       固定の案内メッセージを表示する。 -->
-  <div class="celebrationLayer" id="celebrationLayer"></div>
-  <div class="celebrationBanner hidden" id="celebrationBanner"></div>
+    <!-- Hold登録・2nd Hold登録・受注確定 完了時の演出（showCelebration_、JavaScript.html参照）。
+         celebrationLayerには絵文字（応援の絵柄・風船・花火等）を、celebrationBannerには
+         固定の案内メッセージを表示する。 -->
+    <div class="celebrationLayer" id="celebrationLayer"></div>
+    <div class="celebrationBanner hidden" id="celebrationBanner"></div>
+  </div>
 
   <?!= include('html/JavaScript'); ?>
 </body>

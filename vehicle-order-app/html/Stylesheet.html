@@ -533,7 +533,7 @@
   /* ===== 在庫リストの表示形式「表」（多台数を一覧で見比べる商談向けビュー） =====
      素のtableではなく、カードグリッドと同じ「カードタイプUI」（角丸・影・ホバーで
      浮き上がる）を保ったまま、1台=横1行のカードとして並べる。
-     PCビューでは横スクロールを一切発生させない方針のため、各項目（列）は
+     PCビュー（901px以上）では横スクロールを一切発生させない方針のため、各項目（列）は
      display: flex; flex-wrap: wrapで並べ、画面幅に収まりきらない項目は
      横スクロールではなく次の行へ折り返す（以前はdisplay: gridで固定列幅の
      1行に並べ、.tableScroll（overflow-x: auto）で横スクロールさせていたが、
@@ -541,7 +541,12 @@
      変更した）。各項目の横幅は以前のgrid-template-columnsと同じ値を
      :nth-child()で個別に指定しており、広い画面では1行に、狭い画面では
      複数行に自然に収まる（画面幅によって項目の折り返し位置は変わるが、
-     すべての行で列構成・列幅は同じため、行をまたいだ縦の位置揃えは保たれる）。 */
+     すべての行で列構成・列幅は同じため、行をまたいだ縦の位置揃えは保たれる）。
+     タブレット・スマホ幅（900px以下）ではこの折り返し方針を逆転させ、
+     flex-wrap: nowrap＋.tableScrollの横スクロールに戻す（下の
+     @media (max-width: 900px)内の.rowCardルール参照）。狭い画面でPCと同じ折り返し
+     方針のままだと1台ぶんの行が3〜4行にも縦へ間延びしてしまうため、スマホでの
+     操作に慣れた横スワイプで「表」らしい単一行の見た目を保つ狙い。 */
   .rowCardList { display: flex; flex-direction: column; gap: 10px; width: 100%; min-width: 0; }
   .rowCard {
     display: flex;
@@ -2145,6 +2150,35 @@
     70% { transform: translate(-50%, -46%) scale(1); }
     100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
   }
+  /* 演出バリエーション「D」（GASで実現可能な最も派手な演出）専用の巨大アイコン。
+     既存のcelebIcon--spin/bobより一回り大きく（140px）、拡大・回転・発光
+     （filterの二重drop-shadow）を組み合わせて目立たせる（triggerMegaCelebration_、
+     JavaScript.html参照）。 */
+  .celebIcon--mega {
+    font-size: 140px;
+    animation: celebIconMega 1.9s ease-in-out;
+    filter: drop-shadow(0 10px 30px rgba(0, 0, 0, .35)) drop-shadow(0 0 40px rgba(255, 199, 60, .65));
+  }
+  @keyframes celebIconMega {
+    0% { transform: translate(-50%, -50%) scale(.2) rotate(-24deg); opacity: 0; }
+    20% { opacity: 1; }
+    50% { transform: translate(-50%, -50%) scale(1.35) rotate(14deg); }
+    75% { transform: translate(-50%, -50%) scale(1.05) rotate(-8deg); }
+    100% { transform: translate(-50%, -50%) scale(1.15) rotate(0deg); opacity: 0; }
+  }
+  /* 演出バリエーション「D」専用の画面揺れ。#celebrationShakeStage（Index.html）に
+     一瞬だけtransformを与えることで、その中の3つの演出レイヤー（confettiLayer・
+     celebrationLayer・celebrationBanner）だけをまとめて揺らす。ページ全体の
+     position: fixed要素（サイドバー・トップバー・モーダル等）はこのラッパーの
+     外側にあるため巻き込まれない（shakeScreen_、JavaScript.html参照）。 */
+  #celebrationShakeStage.is-shaking { animation: megaScreenShake .5s cubic-bezier(.36, .07, .19, .97) both; }
+  @keyframes megaScreenShake {
+    0%, 100% { transform: translate3d(0, 0, 0); }
+    10%, 90% { transform: translate3d(-3px, 0, 0); }
+    20%, 80% { transform: translate3d(5px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-9px, 0, 0); }
+    40%, 60% { transform: translate3d(9px, 0, 0); }
+  }
   /* 案内メッセージのバナー。画面上部中央に大きめの文字で表示し、一定時間で
      自動的にフェードアウトする（showCelebrationBanner_参照）。 */
   .celebrationBanner {
@@ -2183,6 +2217,19 @@
     /* 受注カードは項目数が多いため、タブレット幅では1列にして読みやすさを優先する */
     .orderList { grid-template-columns: 1fr; }
     .purchaseOrderList { grid-template-columns: 1fr; }
+
+    /* 表示形式「表」（在庫・受注・Gクラス・マイページ）: PCビューでは横スクロールを
+       禁止し折り返す方針（.rowCardの基本ルール参照）だが、タブレット・スマホ幅では
+       逆に折り返しを禁止し、1行=横スクロール（.tableScrollのoverflow-x: auto）で
+       見せる。PCと同じ折り返し方針のままタブレット・スマホ幅に持ち込むと、狭い画面
+       幅に収まりきらない項目が3〜4行にも折り返され、1台ぶんのカードが縦に間延び
+       して「表」としての一覧性が失われてしまう（現場からの指摘で判明）。横スクロール
+       にすることで、各行は常に単一行（列位置がどの車両でも揃う本来の「表」の見た目）
+       を保ち、画面外の項目はスマホ操作で慣れた横スワイプで確認できるようにする。
+       各項目の横幅（:nth-child()、flex-shrink: 0）は変更しないため、スクロール中も
+       列幅は常に一定に保たれる。 */
+    .rowCard { flex-wrap: nowrap; }
+    .tableScroll { -webkit-overflow-scrolling: touch; }
 
     /* 型のクイックナビ: タブレット・スマホ幅では5種類＋「すべて」を折り返し無しで
        並べると窮屈なため、横スクロールにする（よくあるカテゴリ絞り込みチップの
@@ -2318,5 +2365,6 @@
     .view.is-active { animation: none; }
     .celebEmoji, .celebIcon { display: none; }
     .celebrationBanner { transition: none; }
+    #celebrationShakeStage.is-shaking { animation: none; }
   }
 </style>
