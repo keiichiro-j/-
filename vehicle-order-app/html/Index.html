@@ -357,12 +357,24 @@
       </div>
     </main>
 
-    <!-- マイページ: ログイン中の担当者本人がHold中の車両・受注した車両だけを
-         抜き出して表示する（在庫リスト・受注リストは全担当者ぶんが並ぶため、
-         自分の案件だけをすぐ確認したい場面向け）。担当者マスタに未登録の
+    <!-- マイページ: ログイン中の担当者本人がHold中の車両・受注した車両・発注リスト・
+         Gクラス予約リストだけを抜き出して表示する（在庫リスト・受注リスト等は全担当者
+         ぶんが並ぶため、自分の案件だけをすぐ確認したい場面向け）。担当者マスタに未登録の
          Googleアカウントの場合は、その旨を案内するメッセージのみ表示する
-         （#myPageNoStaff、JavaScript.htmlのrenderMyPage_参照）。 -->
+         （#myPageNoStaff、JavaScript.htmlのrenderMyPageNoStaffState_参照）。
+         在庫リスト・受注リストと同様、表示形式（カード／表）の切り替えと自由検索欄を
+         ツールバーに持たせ、マイページ全体（4セクションすべて）に一括で適用する
+         （#myPageViewToggle・#myPageKeyword、renderMyPageAll_参照）。 -->
     <main class="view" id="view-mypage">
+      <div class="toolbar" id="myPageToolbar">
+        <input type="search" id="myPageKeyword" class="input input--search" placeholder="自由検索（モデル・コミッション・顧客・リード番号等）">
+        <div class="toolbar__spacer"></div>
+        <div class="viewToggle" id="myPageViewToggle">
+          <button type="button" class="viewToggle__item" data-view="card" title="カード表示" aria-label="カード表示"><svg class="icon icon--inline"><use href="#icon-grid"></use></svg></button>
+          <button type="button" class="viewToggle__item" data-view="table" title="表表示" aria-label="表表示"><svg class="icon icon--inline"><use href="#icon-table"></use></svg></button>
+        </div>
+      </div>
+      <div class="toolbarSpacer" id="myPageToolbarSpacer"></div>
       <div class="emptyState hidden" id="myPageNoStaff">
         <svg class="icon emptyState__icon"><use href="#icon-people"></use></svg>
         <p>ご利用中のGoogleアカウントが担当者マスタに登録されていないため、マイページを表示できません。
@@ -385,6 +397,17 @@
             <p>受注した車両はありません</p>
           </div>
         </section>
+        <!-- 発注リストには担当者メールの記録がない（在庫リスト・受注リストと違い
+             手入力の台帳のため）ため、Gクラス予約リストと同じく担当者マスタで解決した
+             表示名（担当者列のテキスト）で突き合わせる（renderMyPagePurchaseOrders_参照）。 -->
+        <section class="myPageSection">
+          <h2 class="myPageSection__title">発注リスト（<span id="myPagePurchaseOrderCount">0</span>件）</h2>
+          <div id="myPagePurchaseOrderList"></div>
+          <div class="emptyState hidden" id="myPagePurchaseOrderEmpty">
+            <svg class="icon emptyState__icon"><use href="#icon-clipboard"></use></svg>
+            <p>担当者として登録されている発注情報はありません</p>
+          </div>
+        </section>
         <!-- Gクラス予約リストは担当者メールの記録がない（閲覧専用・スプレッドシート
              直接編集のため）ため、担当者マスタで解決した表示名（担当者列のテキスト）で
              突き合わせる（renderMyPageGClass_参照）。 -->
@@ -404,28 +427,20 @@
       <div class="settingsWrap">
         <div class="settingsGrid">
           <div class="settingsGroupTitle">テーマ</div>
+          <!-- 表示設定（着せ替え）: アプリ全体の配色（--primary系）とPCビュー左端の
+               サイドバーの配色（--sidebar-bg系）は、1つのプリセットでセットになって
+               切り替わる（「サイドバーの色と表示設定は別々ではなく組にしてほしい」
+               という要望を受け、以前は独立したカラーピッカーだったサイドバーの色を
+               THEME_PRESETSのsidebarColorに統合した）。サイドバーの文字色は選んだ
+               sidebarColorに対して読みやすいほう（白／濃色）へ自動的に切り替わる
+               （pickReadableSidebarTextColor_、JavaScript.html参照）ため、プリセット
+               追加時にサイドバー側の可読性を個別に検証する必要はない。11色（メルセデス・
+               ベンツのボディカラー名にちなむ）＋「ランダム（ログインのたび変化。
+               THEME_PRESETSから毎回無作為に1つ選ぶ）」の計12種類から選べる。 -->
           <div class="settingsCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>表示設定</h2>
-            <p class="settingsSection__desc">アプリ全体の配色を、視覚的に確認済みの8種類（着せ替え）から選べます。</p>
+            <p class="settingsSection__desc">アプリ全体とサイドバーの配色を、視覚的に確認済みの11種類（着せ替え）＋ランダム（ログインのたび変化）から選べます。</p>
             <div class="themePresetGrid" id="themePresetGrid"></div>
-          </div>
-
-          <!-- サイドバーの色（PCビュー901px以上でのみ表示される左の項目タブ）だけは、
-               8種類のプリセットからではなく自由な色（カラーピッカー）で指定できる
-               （--sidebar-bg、Stylesheet.html参照）。他の8プリセットのように
-               あらかじめコントラスト比を確認済みの色に限定していない代わりに、
-               文字色（--sidebar-fg等）を選んだ背景色に応じて白／濃色へ自動的に
-               切り替えることで読みやすさを確保する（pickReadableSidebarTextColor_、
-               JavaScript.html参照）。テーマ同様、ログイン中のGoogleアカウントごとに
-               個別に保存される（管理者限定ではない）。 -->
-          <div class="settingsCard">
-            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>サイドバーの色（PCビュー）</h2>
-            <p class="settingsSection__desc">PCビュー左端の項目タブ（サイドバー）の背景色を自由に指定できます。文字色は指定した背景色に対して読みやすいほう（白／濃色）へ自動的に切り替わります。</p>
-            <div class="sidebarColorField">
-              <input type="color" id="sidebarColorInput" class="sidebarColorField__input" aria-label="サイドバーの背景色">
-              <span class="sidebarColorField__value" id="sidebarColorValue"></span>
-              <button type="button" class="btn btn--small" id="btnResetSidebarColor">既定のグレーに戻す</button>
-            </div>
           </div>
 
           <!-- システムマスタ: ログイン中のGoogleアカウントがSYSTEM_ADMIN_EMAILS（Constants.gs）に

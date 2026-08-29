@@ -22,8 +22,7 @@
     notifyHoldMailTo: [], // 設定タブで編集中のメール通知先（Hold時、作業用コピー）
     notifyOrderMailTo: [], // 設定タブで編集中のメール通知先（受注確定時、作業用コピー）
     notifyErrorMailTo: [], // 設定タブで編集中のメール通知先（システムエラー通知、作業用コピー）
-    themeKey: null, // 設定タブで選択中のテーマ（着せ替え）プリセットキー
-    sidebarColor: null, // 設定タブで指定中のサイドバー背景色（#rrggbb。PCビューのみ使用）
+    themeKey: null, // 設定タブで選択中のテーマ（着せ替え）プリセットキー。サイドバーの色もこれとセットで決まる（THEME_PRESETSのsidebarColor参照）
     navHistory: [], // 「戻る」ボタン用の画面履歴（タブ名のスタック）
     allInventoryItems: [], // ホーム画面の在庫台数集計専用（ツールバーの検索条件に左右されない全件）
     homeGradeFilter: null, // ホームのグレードタブクリックで設定される、絞り込み対象グレード名の配列
@@ -32,7 +31,8 @@
     allOrders: [], // マイページ集計専用（受注リストの検索・絞り込み条件に左右されない全件）
     gclassItems: [], // Gクラス予約リスト（閲覧専用。Hold・受注操作は一切ない）
     gclassViewMode: safeLocalStorageGet_('gclassViewMode') || 'card', // 'card' | 'table'（Gクラス予約リストの表示形式）
-    allGClassItems: [] // マイページ集計専用（Gクラス予約リストの検索条件に左右されない全件）
+    allGClassItems: [], // マイページ集計専用（Gクラス予約リストの検索条件に左右されない全件）
+    myPageViewMode: safeLocalStorageGet_('myPageViewMode') || 'card' // 'card' | 'table'（マイページ全体の表示形式）
   };
   var COMPARE_MAX = 3;
 
@@ -1048,6 +1048,7 @@
   syncViewToggle_();
   syncOrdersViewToggle_();
   syncGClassViewToggle_();
+  syncMyPageViewToggle_();
 
   // 在庫リストのカード/行タップ操作（Hold・受注・比較・詳細）。マイページの
   // 「Hold中の車両」一覧（#myPageHoldList）も同じカード（vehicleCardHtml）を
@@ -1724,10 +1725,14 @@
   // Gクラス予約リストの間に配置する）。件数が多くなりすぎない想定のため、
   // 検索は在庫リスト・受注リストのようにサーバーへ都度問い合わせず、
   // 一度読み込んだ全件（state.purchaseOrders）をクライアント側で絞り込む。
+  // マイページの「発注リスト」セクション（renderMyPagePurchaseOrders_）も
+  // 同じstate.purchaseOrdersを担当者名で絞り込んで再利用するため、読み込み後は
+  // 両方の再描画を呼ぶ。
   function loadPurchaseOrders() {
     return gasRun('api_listPurchaseOrders').then(function (items) {
       state.purchaseOrders = items || [];
       renderPurchaseOrders_();
+      renderMyPagePurchaseOrders_();
     }).catch(function (err) { showToast(err.message, true); });
   }
 
@@ -1756,6 +1761,30 @@
       '<button type="button" class="btn btn--danger" data-delete-purchase-order="' + escapeHtml(po.id) + '">削除</button>' +
       '</div>' +
       '</div>';
+  }
+
+  /**
+   * 表示形式「表」用の行カード（マイページの「発注リスト」セクションのみで使う。
+   * 発注リストタブ自体にはカード/表の切り替えは無いため、この行カードは
+   * マイページ専用。読み取り専用の並びのため、編集・削除ボタンは持たせず、
+   * 行タップ（ボタン・入力以外の箇所）で編集モーダルを開く
+   * （handlePurchaseOrderListClick_参照。ボタン付きのカード表示と同じ
+   * openPurchaseOrderModal_を再利用する）。 */
+  function purchaseOrderRowCardHtml_(po) {
+    return '<div class="rowCard rowCard--purchaseOrder" data-purchase-order-id="' + escapeHtml(po.id) + '">' +
+      '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(po.customer || '-') + '</span>' +
+      '<span class="rowCard__commission">' + escapeHtml(po.commission || '-') + '</span></div>' +
+      rowField_('モデル', po.model) +
+      rowField_('拠点', po.salesLocation) +
+      rowField_('担当者', po.staff) +
+      rowField_('リード番号', po.leadNumber) +
+      '</div>';
+  }
+
+  function purchaseOrderRowsHtml_(items) {
+    return '<div class="tableScroll"><div class="rowCardList">' +
+      items.map(purchaseOrderRowCardHtml_).join('') +
+      '</div></div>';
   }
 
   function renderPurchaseOrders_() {
@@ -1788,7 +1817,14 @@
     openModal($('purchaseOrderModal'));
   }
 
-  $('purchaseOrdersList').addEventListener('click', function (e) {
+  /**
+   * 発注リストタブ・マイページの「発注リスト」セクションの両方で共有するクリック
+   * 委譲（マイページの表示形式「カード」も同じpurchaseOrderCardHtml_を使うため、
+   * 編集・削除ボタンの処理はそのまま共通化できる。在庫リストのhandleInventoryListClick_
+   * と同じ考え方）。表示形式「表」（マイページのみ。purchaseOrderRowCardHtml_）は
+   * ボタンを持たないため、行タップ（ボタン・入力以外の箇所）で編集モーダルを開く。
+   */
+  function handlePurchaseOrderListClick_(e) {
     var editBtn = e.target.closest('[data-edit-purchase-order]');
     if (editBtn) {
       var po = (state.purchaseOrders || []).find(function (p) { return p.id === editBtn.dataset.editPurchaseOrder; });
@@ -1796,8 +1832,15 @@
       return;
     }
     var delBtn = e.target.closest('[data-delete-purchase-order]');
-    if (delBtn) openPurchaseOrderDeleteModal_(delBtn.dataset.deletePurchaseOrder);
-  });
+    if (delBtn) { openPurchaseOrderDeleteModal_(delBtn.dataset.deletePurchaseOrder); return; }
+    var rowEl = e.target.closest('.rowCard--purchaseOrder[data-purchase-order-id]');
+    if (rowEl && !e.target.closest('button, input, label')) {
+      var rowPo = (state.purchaseOrders || []).find(function (p) { return p.id === rowEl.dataset.purchaseOrderId; });
+      if (rowPo) openPurchaseOrderModal_(rowPo);
+    }
+  }
+
+  $('purchaseOrdersList').addEventListener('click', handlePurchaseOrderListClick_);
 
   function purchaseOrderFormValues_() {
     return {
@@ -1965,11 +2008,14 @@
     $('systemMasterCelebrationCard').classList.toggle('hidden', !isAdmin);
     renderCelebrationVariantSelects_(settings.celebrationVariants);
 
+    // ランダムテーマの抽選結果（resolvedRandomThemePreset_）は、ここ
+    // （renderSettingsは初回起動時・設定保存後の再取得時の両方で呼ばれる）では
+    // クリアしない。「ログインのたび（＝ページを開き直すたび）に変わる」という
+    // 仕様のため、同じページを開いている間（他の設定を保存した場合を含む）は
+    // 同じ抽選結果を使い続ける必要がある（テーマを選び直した場合の再抽選は
+    // #themePresetGridのクリックハンドラ側で行う）。
     state.themeKey = settings.themeKey;
     renderThemePresets_();
-    state.sidebarColor = settings.sidebarColor;
-    renderSidebarColorSetting_(settings.sidebarColor);
-    applySidebarColor_(settings.sidebarColor);
     $('settingsLogoUrl').value = settings.logoUrl || '';
     state.notifyHoldMailTo = (settings.notifyHoldMailTo || []).slice();
     state.notifyOrderMailTo = (settings.notifyOrderMailTo || []).slice();
@@ -2020,55 +2066,104 @@
   /**
    * テーマ（着せ替え）プリセット一覧。Constants.gsのTHEME_PRESETSと同じ内容を
    * クライアント側にも持ち、選択UIの描画とプレビュー適用（保存前のリアルタイム反映）に使う。
-   * いずれもWCAG AA基準（ボタン塗り用途で白文字とのコントラスト比4.5:1以上、
-   * 文字用途で背景とのコントラスト比4.6:1以上）を確認済み。
+   * primary/primaryDark/primaryTextはいずれもWCAG AA基準（ボタン塗り用途で白文字との
+   * コントラスト比4.5:1以上、文字用途で背景とのコントラスト比4.6:1以上）を確認済み。
+   * sidebarColorはPCビュー左端のサイドバーの背景色で、「サイドバーの色と表示設定は
+   * セットにしてほしい」という要望を受け、プリセット1つでアプリ全体の配色と
+   * サイドバーの配色の両方が一括で切り替わるようにしている。サイドバーの文字色は
+   * 固定せず、sidebarColorに対してコントラスト比の高いほう（白／濃色）を
+   * pickReadableSidebarTextColor_が毎回自動計算するため、値自体は個別の
+   * コントラスト検証をしていない（十分暗い色にしてあるため常に白文字側が選ばれる）。
    */
   var THEME_PRESETS = [
-    { key: 'steel', name: 'ブリリアントブルー', primary: '#2f6fae', primaryDark: '#102a43', primaryText: '#2f6fae' },
-    { key: 'graphite', name: 'グラファイトグレー', primary: '#55606b', primaryDark: '#424b53', primaryText: '#687787' },
-    { key: 'wine', name: 'ヒヤシンスレッド', primary: '#8c2f39', primaryDark: '#6d252c', primaryText: '#e32439' },
-    { key: 'green', name: 'エメラルドグリーン', primary: '#1f6f4a', primaryDark: '#18573a', primaryText: '#258559' },
-    { key: 'amber', name: 'カラハリゴールド', primary: '#a06a1f', primaryDark: '#7d5318', primaryText: '#9f6a1f' },
-    { key: 'purple', name: 'アメジスト', primary: '#5b3a8c', primaryDark: '#472d6d', primaryText: '#904df5' },
-    { key: 'petrol', name: 'カヴァンサイトブルー', primary: '#1f6f78', primaryDark: '#18575e', primaryText: '#24818a' },
-    { key: 'mono', name: 'セレナイトグレー', primary: '#4a4e55', primaryDark: '#3a3d42', primaryText: '#6f7682' }
+    { key: 'steel', name: 'ブリリアントブルー', primary: '#2f6fae', primaryDark: '#102a43', primaryText: '#2f6fae', sidebarColor: '#1f3a5c' },
+    { key: 'graphite', name: 'グラファイトグレー', primary: '#55606b', primaryDark: '#424b53', primaryText: '#687787', sidebarColor: '#3a4149' },
+    { key: 'wine', name: 'ヒヤシンスレッド', primary: '#8c2f39', primaryDark: '#6d252c', primaryText: '#e32439', sidebarColor: '#4a1c22' },
+    { key: 'green', name: 'エメラルドグリーン', primary: '#1f6f4a', primaryDark: '#18573a', primaryText: '#258559', sidebarColor: '#163f2c' },
+    { key: 'amber', name: 'カラハリゴールド', primary: '#a06a1f', primaryDark: '#7d5318', primaryText: '#9f6a1f', sidebarColor: '#4a3413' },
+    { key: 'purple', name: 'アメジスト', primary: '#5b3a8c', primaryDark: '#472d6d', primaryText: '#904df5', sidebarColor: '#33224d' },
+    { key: 'petrol', name: 'カヴァンサイトブルー', primary: '#1f6f78', primaryDark: '#18575e', primaryText: '#24818a', sidebarColor: '#123f44' },
+    { key: 'mono', name: 'セレナイトグレー', primary: '#4a4e55', primaryDark: '#3a3d42', primaryText: '#6f7682', sidebarColor: '#2b2e33' },
+    { key: 'obsidian', name: 'オブシディアンブラック', primary: '#33383d', primaryDark: '#202327', primaryText: '#52585f', sidebarColor: '#18191b' },
+    { key: 'cardinal', name: 'カーディナルレッド', primary: '#b5222c', primaryDark: '#8c1a21', primaryText: '#b5222c', sidebarColor: '#4d1015' },
+    { key: 'denim', name: 'デニムブルー', primary: '#3d6690', primaryDark: '#2c4d70', primaryText: '#3d6690', sidebarColor: '#1c3247' }
   ];
   var DEFAULT_THEME_KEY = 'steel';
+  // 「ランダム（ログインのたび変化）」を表す特別なキー。THEME_PRESETSに実体を
+  // 持たず、選択中はページを開く（＝ログインする）たびにresolveThemePresetForSession_が
+  // THEME_PRESETSから毎回ランダムに1つ選ぶ（Constants.gsのRANDOM_THEME_KEYと同じ値）。
+  var RANDOM_THEME_KEY = 'random';
 
   function themePresetByKey_(key) {
     return THEME_PRESETS.find(function (p) { return p.key === key; })
       || THEME_PRESETS.find(function (p) { return p.key === DEFAULT_THEME_KEY; });
   }
 
+  // このページの読み込み（＝ログイン）中だけ有効なランダムテーマの抽選結果。
+  // 毎回の再描画のたびに選び直すと画面遷移のたびに配色が変わってしまうため、
+  // 1回だけ抽選してこの変数にキャッシュし、以降は同じ結果を使い続ける
+  // （次にページを開き直した＝再ログインした時だけ再抽選される）。
+  var resolvedRandomThemePreset_ = null;
+
+  /**
+   * 実際に適用するテーマプリセットを解決する（keyがRANDOM_THEME_KEYの場合は
+   * THEME_PRESETSからランダムに1つ選ぶ）。純粋関数ではない（ランダム性・
+   * セッション内キャッシュを持つ）ため、適用系（applyTheme）専用。
+   */
+  function resolveThemePresetForSession_(key) {
+    if (key !== RANDOM_THEME_KEY) return themePresetByKey_(key);
+    if (!resolvedRandomThemePreset_) {
+      resolvedRandomThemePreset_ = THEME_PRESETS[Math.floor(Math.random() * THEME_PRESETS.length)];
+    }
+    return resolvedRandomThemePreset_;
+  }
+
+  /**
+   * 設定タブのプリセット一覧（11色＋ランダム、計12マス）を描画する。ランダムの
+   * マスだけは単色のスウォッチではなく、全プリセットのprimaryを並べたグラデーション
+   * にして「毎回変わる」ことを視覚的に示す。
+   */
   function renderThemePresets_() {
     var container = $('themePresetGrid');
     var current = state.themeKey || DEFAULT_THEME_KEY;
-    container.innerHTML = THEME_PRESETS.map(function (p) {
+    var presetTiles = THEME_PRESETS.map(function (p) {
       return '<button type="button" class="themePreset' + (p.key === current ? ' is-selected' : '') +
         '" data-theme-key="' + p.key + '" style="--swatch:' + p.primary + '" aria-pressed="' + (p.key === current) + '">' +
         '<span class="themePreset__swatch"></span>' +
         '<span class="themePreset__name">' + escapeHtml(p.name) + '</span>' +
         '</button>';
     }).join('');
+    var gradient = THEME_PRESETS.map(function (p) { return p.primary; }).join(', ');
+    var isRandom = current === RANDOM_THEME_KEY;
+    var randomTile = '<button type="button" class="themePreset' + (isRandom ? ' is-selected' : '') +
+      '" data-theme-key="' + RANDOM_THEME_KEY + '" style="--swatch:' + THEME_PRESETS[0].primary + '" aria-pressed="' + isRandom + '">' +
+      '<span class="themePreset__swatch" style="background:conic-gradient(' + gradient + ')"></span>' +
+      '<span class="themePreset__name">ランダム</span>' +
+      '</button>';
+    container.innerHTML = presetTiles + randomTile;
   }
 
   $('themePresetGrid').addEventListener('click', function (e) {
     var btn = e.target.closest('[data-theme-key]');
     if (!btn) return;
     state.themeKey = btn.dataset.themeKey;
+    // テーマを選び直した場合、ランダムの抽選結果は次回ログイン時のものを
+    // 引きずらないよう都度クリアする（ランダムを選び直した場合は新しく抽選し直す）。
+    resolvedRandomThemePreset_ = null;
     renderThemePresets_();
     applyTheme(state.themeKey);
   });
 
   /**
-   * テーマプリセット（--primary / --primary-dark / --primary-text / --primary-bg /
-   * --card-bg）を一括で適用する。以前は1色から比率計算で派生色を導出していたが、
-   * 色相・彩度によって必要な明暗の差が異なりコントラスト比を一定に保てなかったため、
-   * 8プリセットそれぞれについて個別にコントラスト比を検証済みの色を直接使う
-   * （Constants.gsのTHEME_PRESETS参照）。
+   * テーマプリセット（--primary系・--card-bg・--sidebar-bg系）を一括で適用する。
+   * 以前は1色から比率計算で派生色を導出していたが、色相・彩度によって必要な
+   * 明暗の差が異なりコントラスト比を一定に保てなかったため、プリセットごとに
+   * 個別にコントラスト比を検証済みの色を直接使う（Constants.gsのTHEME_PRESETS参照）。
+   * keyがランダムの場合はresolveThemePresetForSession_が実際に使うプリセットを
+   * 解決する（このページを開いている間は同じ結果を使い続ける）。
    */
   function applyTheme(key) {
-    var preset = themePresetByKey_(key);
+    var preset = resolveThemePresetForSession_(key);
     var root = document.documentElement.style;
     root.setProperty('--primary', preset.primary);
     root.setProperty('--primary-dark', preset.primaryDark);
@@ -2079,6 +2174,7 @@
     // --primary-bgよりさらに薄く（6%）テーマカラーを帯びさせ、ページ背景・
     // 写真プレースホルダーのどちらとも見分けがつく程度に留める。
     root.setProperty('--card-bg', rgb ? 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',.06)' : preset.primary);
+    applySidebarColor_(preset.sidebarColor);
   }
 
   function hexToRgb_(hex) {
@@ -2086,24 +2182,10 @@
     return m ? { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) } : null;
   }
 
-  /**
-   * ===== サイドバーの色（PCビュー左端の項目タブの背景色。自由なカラーピッカー） =====
-   * テーマ（着せ替え）8プリセットとは異なり、あらかじめコントラスト比を確認済みの
-   * 色に限定せず自由な色を選べるようにしている。その代わり、選んだ背景色に対して
-   * 白文字・濃色文字のどちらがより読みやすいか（WCAGの相対輝度からコントラスト比を
-   * 計算し、比率が高いほうを採用）をJS側で毎回自動判定し、サイドバー専用のCSS変数
-   * （--sidebar-fg系、Stylesheet.html参照）に反映する（applySidebarColor_）。
-   * Constants.gsのDEFAULT_SIDEBAR_COLORと同じ値を初期値として持つ。
-   */
-  var DEFAULT_SIDEBAR_COLOR = '#4b5563';
   // 濃色側の文字色は、白背景に対してWCAG AA基準を満たす--on-surfaceと同じ値にし、
   // サイドバー以外の文字色（見出し・本文）とトーンを揃える。
   var SIDEBAR_TEXT_LIGHT = '#ffffff';
   var SIDEBAR_TEXT_DARK = '#1f2933';
-
-  function isValidHexColor_(value) {
-    return /^#[0-9a-f]{6}$/i.test(value || '');
-  }
 
   // sRGBの1チャンネル分をWCAGの相対輝度計算用に線形化する。
   function srgbChannelToLinear_(channel255) {
@@ -2126,16 +2208,20 @@
   /**
    * 背景色（サイドバーの色）に対して、白文字・濃色文字のうちコントラスト比が
    * 高いほう（＝より読みやすいほう）を返す（純粋関数）。同点の場合は白を優先する。
+   * プリセットのsidebarColorはあらかじめ十分暗い色にしてあるため、実際には
+   * どのプリセットでも白文字側が選ばれる（将来sidebarColorを追加・変更した際の
+   * 保険として、この判定自体は残しておく）。
    */
   function pickReadableSidebarTextColor_(bgHex) {
-    var bgRgb = hexToRgb_(bgHex) || hexToRgb_(DEFAULT_SIDEBAR_COLOR);
+    var bgRgb = hexToRgb_(bgHex) || hexToRgb_(THEME_PRESETS[0].sidebarColor);
     var contrastWithLight = contrastRatio_(bgRgb, hexToRgb_(SIDEBAR_TEXT_LIGHT));
     var contrastWithDark = contrastRatio_(bgRgb, hexToRgb_(SIDEBAR_TEXT_DARK));
     return contrastWithDark > contrastWithLight ? SIDEBAR_TEXT_DARK : SIDEBAR_TEXT_LIGHT;
   }
 
   /**
-   * サイドバーの背景色・文字色関連のCSS変数を一括で適用する。文字色
+   * サイドバーの背景色・文字色関連のCSS変数を一括で適用する（applyTheme専用の
+   * 内部処理。テーマプリセットのsidebarColorから呼ばれる）。文字色
    * （--sidebar-fg）はpickReadableSidebarTextColor_で決めた色そのものを使い、
    * 非選択ナビ項目の抑えた文字色・薄い罫線・ホバー背景（--sidebar-fg-muted /
    * --sidebar-outline / --sidebar-hover-bg）は、その文字色を異なる不透明度で
@@ -2143,7 +2229,7 @@
    * 選ばれれば濃色系の薄い重ねになり、どちらの背景色でも馴染む）。
    */
   function applySidebarColor_(hex) {
-    var color = isValidHexColor_(hex) ? hex : DEFAULT_SIDEBAR_COLOR;
+    var color = hexToRgb_(hex) ? hex : THEME_PRESETS[0].sidebarColor;
     var root = document.documentElement.style;
     root.setProperty('--sidebar-bg', color);
     var fg = pickReadableSidebarTextColor_(color);
@@ -2153,26 +2239,6 @@
     root.setProperty('--sidebar-outline', 'rgba(' + fgRgb.r + ',' + fgRgb.g + ',' + fgRgb.b + ',.14)');
     root.setProperty('--sidebar-hover-bg', 'rgba(' + fgRgb.r + ',' + fgRgb.g + ',' + fgRgb.b + ',.08)');
   }
-
-  function renderSidebarColorSetting_(hex) {
-    var color = isValidHexColor_(hex) ? hex : DEFAULT_SIDEBAR_COLOR;
-    $('sidebarColorInput').value = color;
-    $('sidebarColorValue').textContent = color.toUpperCase();
-  }
-
-  // 入力（ドラッグ中含む）のたびにリアルタイムでプレビュー反映する。保存するまでは
-  // 他の設定項目（テーマ等）と同じく「保存」ボタンを押すまでサーバーには残らない。
-  $('sidebarColorInput').addEventListener('input', function () {
-    state.sidebarColor = this.value;
-    $('sidebarColorValue').textContent = this.value.toUpperCase();
-    applySidebarColor_(state.sidebarColor);
-  });
-
-  $('btnResetSidebarColor').addEventListener('click', function () {
-    state.sidebarColor = DEFAULT_SIDEBAR_COLOR;
-    renderSidebarColorSetting_(state.sidebarColor);
-    applySidebarColor_(state.sidebarColor);
-  });
 
   // ----- ロゴ設定（画面上部に表示する画像。URLを直接指定するか、小さい画像を
   //       アップロードしてdata URLとして保存する。サーバー側の上限と合わせている） -----
@@ -2860,9 +2926,9 @@
 
   /**
    * マイページ: ログイン中のGoogleアカウント（担当者メールアドレス）に紐づく
-   * Hold中の車両・受注した車両だけを抜き出して表示する。担当者マスタに
-   * 未登録のアカウントの場合は、担当者を特定できずHold・受注の担当者メール
-   * とも突き合わせようがないため、案内メッセージのみ表示する。
+   * Hold中の車両・受注した車両・発注リスト・Gクラス予約リストだけを抜き出して
+   * 表示する。担当者マスタに未登録のアカウントの場合は、担当者を特定できず
+   * 突き合わせようがないため、案内メッセージのみ表示する。
    */
   function renderMyPageNoStaffState_() {
     var hasStaff = !!currentStaffName_();
@@ -2871,39 +2937,115 @@
     return hasStaff;
   }
 
+  // ===== マイページの表示形式（カード／表）・自由検索 =====
+  // 在庫リスト・受注リストと同じ考え方で、マイページ全体（Hold中の車両・受注した
+  // 車両・発注リスト・Gクラス予約リスト）に一括で適用する。自分の案件だけで件数が
+  // 多くなりすぎない想定のため、検索はサーバーへ都度問い合わせず、各セクションが
+  // 既に持っている全件キャッシュ（state.allInventoryItems / state.allOrders /
+  // state.purchaseOrders / state.allGClassItems）をクライアント側で絞り込む。
+  function syncMyPageViewToggle_() {
+    document.querySelectorAll('#myPageViewToggle .viewToggle__item').forEach(function (btn) {
+      btn.classList.toggle('is-active', btn.dataset.view === state.myPageViewMode);
+    });
+  }
+
+  $('myPageViewToggle').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-view]');
+    if (!btn) return;
+    state.myPageViewMode = btn.dataset.view;
+    safeLocalStorageSet_('myPageViewMode', state.myPageViewMode);
+    syncMyPageViewToggle_();
+    renderMyPageAll_();
+  });
+
+  function myPageKeyword_() {
+    return $('myPageKeyword').value;
+  }
+
+  function matchesAnyField_(values, keyword) {
+    if (!keyword) return true;
+    var kw = keyword.trim().toLowerCase();
+    if (!kw) return true;
+    return values.some(function (v) { return String(v || '').toLowerCase().indexOf(kw) !== -1; });
+  }
+
+  function myPageVehicleMatchesKeyword_(v, keyword) {
+    return matchesAnyField_([v.model, v.commission, v.holdCustomer, v.secondHoldCustomer], keyword);
+  }
+
+  function myPageOrderMatchesKeyword_(o, keyword) {
+    return matchesAnyField_([o.model, o.commission, o.customer, o.leadNumber, o.salesLocation], keyword);
+  }
+
+  function myPageGClassMatchesKeyword_(v, keyword) {
+    return matchesAnyField_([v.model, v.commission, v.customer, v.leadNumber], keyword);
+  }
+
+  $('myPageKeyword').addEventListener('input', debounce(renderMyPageAll_, 200));
+
   /**
    * Hold中の車両カードは、在庫リストのvehicleCardHtml（比較ピン・Hold解除・
-   * 受注確定ボタン込み）をそのまま再利用する。ボタン操作（openActionModal /
-   * openCancelHoldModal / toggleCompare_ の各lookup）は在庫リストの検索・
-   * 絞り込み条件に左右されない全件キャッシュ（state.allInventoryItems）へも
-   * フォールバックするようfindVehicleByCommission側で対応済みのため、
-   * マイページのカードから操作しても在庫リスト側の絞り込み状態に関わらず
-   * 正しく動作する。
+   * 受注確定ボタン込み）／表示形式「表」ではvehicleRowsHtmlをそのまま再利用する。
+   * ボタン操作（openActionModal / openCancelHoldModal / toggleCompare_ の各lookup）は
+   * 在庫リストの検索・絞り込み条件に左右されない全件キャッシュ
+   * （state.allInventoryItems）へもフォールバックするようfindVehicleByCommission側で
+   * 対応済みのため、マイページのカードから操作しても在庫リスト側の絞り込み状態に
+   * 関わらず正しく動作する。
    */
   function renderMyPageHolds_() {
     if (!renderMyPageNoStaffState_()) return;
     var email = currentUserEmail_();
+    var keyword = myPageKeyword_();
     var items = (state.allInventoryItems || []).filter(function (v) {
       if (v.holdStatus !== 'hold') return false;
-      return emailsMatch_(v.holdStaffEmail, email) || emailsMatch_(v.secondHoldStaffEmail, email);
+      if (!(emailsMatch_(v.holdStaffEmail, email) || emailsMatch_(v.secondHoldStaffEmail, email))) return false;
+      return myPageVehicleMatchesKeyword_(v, keyword);
     });
     $('myPageHoldCount').textContent = items.length;
     $('myPageHoldEmpty').classList.toggle('hidden', items.length > 0);
-    $('myPageHoldList').innerHTML = items.length ? '<div class="cardGrid">' + items.map(vehicleCardHtml).join('') + '</div>' : '';
+    $('myPageHoldList').innerHTML = !items.length ? '' :
+      (state.myPageViewMode === 'table' ? vehicleRowsHtml(items) : '<div class="cardGrid">' + items.map(vehicleCardHtml).join('') + '</div>');
     syncComparePins_();
   }
 
   /**
-   * 受注した車両カードは、受注リストのorderCardHtmlをそのまま再利用する
-   * （「詳細を見る」のlookupもfindOrderByCommission_側でフォールバック対応済み）。
+   * 受注した車両カードは、受注リストのorderCardHtml／表示形式「表」では
+   * orderRowsHtmlをそのまま再利用する（「詳細を見る」・行タップどちらの
+   * lookupもfindOrderByCommission_側でフォールバック対応済み）。
    */
   function renderMyPageOrders_() {
     if (!renderMyPageNoStaffState_()) return;
     var email = currentUserEmail_();
-    var items = (state.allOrders || []).filter(function (o) { return emailsMatch_(o.staffEmail, email); });
+    var keyword = myPageKeyword_();
+    var items = (state.allOrders || []).filter(function (o) {
+      return emailsMatch_(o.staffEmail, email) && myPageOrderMatchesKeyword_(o, keyword);
+    });
     $('myPageOrderCount').textContent = items.length;
     $('myPageOrderEmpty').classList.toggle('hidden', items.length > 0);
-    $('myPageOrderList').innerHTML = items.length ? '<div class="orderList">' + items.map(orderCardHtml).join('') + '</div>' : '';
+    $('myPageOrderList').innerHTML = !items.length ? '' :
+      (state.myPageViewMode === 'table' ? orderRowsHtml(items) : '<div class="orderList">' + items.map(orderCardHtml).join('') + '</div>');
+  }
+
+  /**
+   * マイページの「発注リスト」セクション: 発注リストタブと同じstate.purchaseOrders
+   * （検索条件に左右されない全件。loadPurchaseOrders参照）を、担当者名（staff列の
+   * テキスト）で絞り込む。発注情報には担当者メールの記録が無い（発注リスト自体が
+   * 手入力の台帳のため）ため、Gクラス予約リストと同じくstaffNameMatches_で
+   * 担当者マスタの表示名と突き合わせる。カード表示は発注リストタブと同じ
+   * purchaseOrderCardHtml_（編集・削除ボタン込み）、表示形式「表」は読み取り専用の
+   * purchaseOrderRowCardHtml_を使う（handlePurchaseOrderListClick_参照）。
+   */
+  function renderMyPagePurchaseOrders_() {
+    if (!renderMyPageNoStaffState_()) return;
+    var name = currentStaffName_();
+    var keyword = myPageKeyword_();
+    var items = (state.purchaseOrders || []).filter(function (po) {
+      return staffNameMatches_(po.staff, name) && purchaseOrderMatchesKeyword_(po, keyword);
+    });
+    $('myPagePurchaseOrderCount').textContent = items.length;
+    $('myPagePurchaseOrderEmpty').classList.toggle('hidden', items.length > 0);
+    $('myPagePurchaseOrderList').innerHTML = !items.length ? '' :
+      (state.myPageViewMode === 'table' ? purchaseOrderRowsHtml_(items) : '<div class="purchaseOrderList">' + items.map(purchaseOrderCardHtml_).join('') + '</div>');
   }
 
   /**
@@ -2922,7 +3064,7 @@
    * スプレッドシートへ直接入力する運用のため）。そのため、他のマイページ集計
    * （Hold中・受注した車両）のようなメールアドレス一致ではなく、担当者マスタから
    * 解決したログイン中担当者の表示名と、Gクラス予約リストの「担当者」列（テキスト）
-   * を突き合わせて自分の案件を抜き出す。
+   * を突き合わせて自分の案件を抜き出す（発注リストと同じ考え方）。
    */
   function staffNameMatches_(a, b) {
     return !!a && !!b && String(a).trim() === String(b).trim();
@@ -2931,17 +3073,38 @@
   function renderMyPageGClass_() {
     if (!renderMyPageNoStaffState_()) return;
     var name = currentStaffName_();
-    var items = (state.allGClassItems || []).filter(function (v) { return staffNameMatches_(v.staff, name); });
+    var keyword = myPageKeyword_();
+    var items = (state.allGClassItems || []).filter(function (v) {
+      return staffNameMatches_(v.staff, name) && myPageGClassMatchesKeyword_(v, keyword);
+    });
     $('myPageGClassCount').textContent = items.length;
     $('myPageGClassEmpty').classList.toggle('hidden', items.length > 0);
-    $('myPageGClassList').innerHTML = items.length ? '<div class="cardGrid">' + items.map(gclassCardHtml_).join('') + '</div>' : '';
+    $('myPageGClassList').innerHTML = !items.length ? '' :
+      (state.myPageViewMode === 'table' ? gclassRowsHtml_(items) : '<div class="cardGrid">' + items.map(gclassCardHtml_).join('') + '</div>');
+  }
+
+  /**
+   * マイページ全体（Hold中の車両・受注した車両・発注リスト・Gクラス予約リスト）を
+   * まとめて再描画する。表示形式（カード／表）の切り替え・自由検索キーワードの
+   * 入力のたびに呼ぶ。
+   */
+  function renderMyPageAll_() {
+    renderMyPageHolds_();
+    renderMyPageOrders_();
+    renderMyPagePurchaseOrders_();
+    renderMyPageGClass_();
   }
 
   $('myPageHoldList').addEventListener('click', handleInventoryListClick_);
   $('myPageOrderList').addEventListener('click', function (e) {
     var btn = e.target.closest('[data-order-detail]');
-    if (btn) openOrderDetailModal_(btn.dataset.orderDetail);
+    if (btn) { openOrderDetailModal_(btn.dataset.orderDetail); return; }
+    var rowEl = e.target.closest('.rowCard--order[data-commission]');
+    if (rowEl && !e.target.closest('button, input, label')) {
+      openOrderDetailModal_(rowEl.dataset.commission);
+    }
   });
+  $('myPagePurchaseOrderList').addEventListener('click', handlePurchaseOrderListClick_);
 
   // グレードタブ（Aクラス行の展開で現れるA180・A200等）をクリックすると、
   // そのグレード1件だけに絞り込んだ在庫リストへ遷移する（タブレット・スマホ幅の
@@ -3093,7 +3256,6 @@
 
     var settings = {
       themeKey: state.themeKey || DEFAULT_THEME_KEY,
-      sidebarColor: isValidHexColor_(state.sidebarColor) ? state.sidebarColor : DEFAULT_SIDEBAR_COLOR,
       logoUrl: $('settingsLogoUrl').value.trim(),
       notifyHoldMailTo: cleanedMailLists.notifyHoldMailTo,
       notifyOrderMailTo: cleanedMailLists.notifyOrderMailTo,
@@ -3168,6 +3330,7 @@
       ['ordersToolbar', 'ordersToolbarSpacer', 16],
       ['purchaseOrdersToolbar', 'purchaseOrdersToolbarSpacer', 16],
       ['gclassToolbar', 'gclassToolbarSpacer', 16],
+      ['myPageToolbar', 'myPageToolbarSpacer', 16],
       ['homeTypeNav', 'homeTypeNavSpacer', 20],
       // #homeCombinedHeaderはPCビューでのみposition: fixed（Stylesheet.html参照。
       // タブレット・スマホ幅ではdisplay: contentsのためoffsetHeightは常に0になり、

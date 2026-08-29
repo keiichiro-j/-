@@ -588,13 +588,13 @@
      ボタン数の違い（Hold中2個／在庫あり2個／2nd Hold登録済み1個）があっても
      縦の列位置がずれることはない（開始位置は固定、右端は行幅いっぱいまで伸びる
      ため）。 */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(1) { flex: 0 0 150px; } /* ステータス */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(2) { flex: 0 0 100px; } /* モデル＋コミッション */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(3) { flex: 0 0 68px; } /* MP */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(4) { flex: 0 0 46px; } /* ステア */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(5) { flex: 0 0 150px; } /* カラー */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(6) { flex: 0 0 170px; } /* 有償OP */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(7) { flex: 1 1 210px; } /* 操作ボタン＋比較チェック（行の右端に寄せる） */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > *:nth-child(1) { flex: 0 0 150px; } /* ステータス */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > *:nth-child(2) { flex: 0 0 100px; } /* モデル＋コミッション */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > *:nth-child(3) { flex: 0 0 68px; } /* MP */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > *:nth-child(4) { flex: 0 0 46px; } /* ステア */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > *:nth-child(5) { flex: 0 0 150px; } /* カラー */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > *:nth-child(6) { flex: 0 0 170px; } /* 有償OP */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > *:nth-child(7) { flex: 1 1 210px; } /* 操作ボタン＋比較チェック（行の右端に寄せる） */
   /* border-color: transparent ではなく上・右・下のみ指定する。border-color（4辺一括）だと
      border-left-color（在庫状況を示す色つきの左罫線）まで打ち消してしまい、ホバー時に
      状態の色が消えて見えてしまうため（.rowCard--available 等はこのルールより先に書かれて
@@ -700,6 +700,15 @@
   .rowCard--gclass > *:nth-child(10) { flex: 0 0 88px; }
   .rowCard--gclass > *:nth-child(11) { flex: 0 0 110px; }
   .rowCard--gclass > *:nth-child(12) { flex: 0 0 130px; }
+
+  /* マイページの「発注リスト」セクションの表示形式「表」専用（発注リストタブ自体は
+     カード表示のみで表の切り替えは無い。purchaseOrderRowCardHtml_のDOM出力順に
+     対応するpositionalな:nth-child()指定。読み取り専用のため操作ボタン列は無い）。 */
+  .rowCard--purchaseOrder > *:nth-child(1) { flex: 0 0 110px; } /* 顧客＋コミッション */
+  .rowCard--purchaseOrder > *:nth-child(2) { flex: 0 0 120px; } /* モデル */
+  .rowCard--purchaseOrder > *:nth-child(3) { flex: 0 0 130px; } /* 拠点 */
+  .rowCard--purchaseOrder > *:nth-child(4) { flex: 0 0 90px; } /* 担当者 */
+  .rowCard--purchaseOrder > *:nth-child(5) { flex: 1 1 110px; } /* リード番号 */
   .btn--small { padding: 6px 12px; font-size: 12.5px; }
 
   /* ===== カードグリッド（PCビューで3列固定。Google Material×Teslaの余白多め・
@@ -1162,8 +1171,11 @@
 
   /* ===== テーマ（着せ替え）プリセット選択 =====
      以前はカラーピッカーで自由に配色を指定できたが、組み合わせによって
-     コントラスト比が不足する懸念があったため、視覚的に確認済みの8色から
-     選ぶスウォッチ形式に変更した（洋服・スマホケースの色を選ぶイメージ）。 */
+     コントラスト比が不足する懸念があったため、視覚的に確認済みの11色＋
+     ランダム（ログインのたび変化。renderThemePresets_参照）から選ぶスウォッチ
+     形式に変更した（洋服・スマホケースの色を選ぶイメージ）。プリセット1つで
+     アプリ全体の配色とサイドバーの配色の両方がセットで切り替わる
+     （--sidebar-bg系、.sidebar参照）。 */
   .themePresetGrid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -1197,24 +1209,6 @@
   .themePreset__name { text-align: center; line-height: 1.3; }
   @media (max-width: 480px) {
     .themePresetGrid { grid-template-columns: repeat(3, 1fr); }
-  }
-
-  /* ===== サイドバーの色（PCビュー左端の項目タブの背景色。自由なカラーピッカー） =====
-     テーマの8プリセットと違い自由入力にしている理由・文字色の自動切り替えは
-     applySidebarColor_（JavaScript.html）参照。ネイティブのinput[type=color]は
-     ブラウザ既定のUI（丸型パッチ／四角のスウォッチ等）をそのまま使い、独自の
-     見た目に作り替えない（クリックすると各OS標準のカラーピッカーが開く）。 */
-  .sidebarColorField { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .sidebarColorField__input {
-    width: 44px; height: 36px; flex: none;
-    padding: 2px;
-    border: 1px solid var(--outline); border-radius: 8px;
-    background: var(--surface);
-    cursor: pointer;
-  }
-  .sidebarColorField__value {
-    font-size: 13px; font-weight: 600; color: var(--on-surface-variant);
-    font-variant-numeric: tabular-nums; text-transform: uppercase;
   }
 
   /* ===== ロゴ設定 ===== */
@@ -1583,10 +1577,11 @@
       position: fixed;
       top: 0; left: 0; bottom: 0;
       width: var(--sidebar-w);
-      /* 左の項目タブゾーン。背景は明るいまま一番左のナビだけをグレーにする
-         ため、トップバー等と共有の--topbar-bgではなく専用の--sidebar-bgを使う
-         （設定タブでユーザーが自由に指定できる。JavaScript.htmlのapplySidebarColor_
-         参照）。文字色・罫線・ホバー背景も--on-topbar・--dark-ui-outlineは使わず、
+      /* 左の項目タブゾーン。背景は明るいまま一番左のナビだけを濃色にするため、
+         トップバー等と共有の--topbar-bgではなく専用の--sidebar-bgを使う
+         （設定タブの表示設定（着せ替え）プリセットとセットで決まる。
+         THEME_PRESETSのsidebarColor・JavaScript.htmlのapplySidebarColor_参照）。
+         文字色・罫線・ホバー背景も--on-topbar・--dark-ui-outlineは使わず、
          背景色に応じて読みやすいほうへ自動的に切り替わる専用トークン
          （--sidebar-fg系）を使う。 */
       background: var(--sidebar-bg);

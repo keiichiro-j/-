@@ -740,22 +740,21 @@ console.log('== SettingsService: normalizeThemeKey_（着せ替えプリセッ�
 test('THEME_PRESETSに存在するキーはそのまま返る', () => {
   assert.strictEqual(sandbox.normalizeThemeKey_('wine'), 'wine');
 });
+test('THEME_PRESETSは11種類（メルセデス・ベンツのボディカラー名）ある', () => {
+  assert.strictEqual(sandbox.THEME_PRESETS.length, 11);
+});
+test('各プリセットはsidebarColorを持つ（サイドバーの色とセットで切り替わる）', () => {
+  sandbox.THEME_PRESETS.forEach((p) => {
+    assert.match(p.sidebarColor, /^#[0-9a-f]{6}$/i);
+  });
+});
+test('RANDOM_THEME_KEY（ランダム・ログインのたび変化）はそのまま有効なキーとして返る', () => {
+  assert.strictEqual(sandbox.normalizeThemeKey_(sandbox.RANDOM_THEME_KEY), sandbox.RANDOM_THEME_KEY);
+});
 test('存在しないキー・未指定はDEFAULT_THEME_KEYにフォールバックする', () => {
   assert.strictEqual(sandbox.normalizeThemeKey_('no-such-key'), sandbox.DEFAULT_THEME_KEY);
   assert.strictEqual(sandbox.normalizeThemeKey_(undefined), sandbox.DEFAULT_THEME_KEY);
   assert.strictEqual(sandbox.normalizeThemeKey_('#3870b0'), sandbox.DEFAULT_THEME_KEY);
-});
-
-console.log('== SettingsService: normalizeSidebarColor_（サイドバー背景色の検証。テーマと違い任意の色を許可） ==');
-test('#rrggbb形式（大文字・短縮記法も含めて）は小文字に正規化して返る', () => {
-  assert.strictEqual(sandbox.normalizeSidebarColor_('#a1b2c3'), '#a1b2c3');
-  assert.strictEqual(sandbox.normalizeSidebarColor_('#A1B2C3'), '#a1b2c3');
-});
-test('#rrggbb形式でない値・未指定はDEFAULT_SIDEBAR_COLORにフォールバックする', () => {
-  assert.strictEqual(sandbox.normalizeSidebarColor_('not-a-color'), sandbox.DEFAULT_SIDEBAR_COLOR);
-  assert.strictEqual(sandbox.normalizeSidebarColor_(undefined), sandbox.DEFAULT_SIDEBAR_COLOR);
-  assert.strictEqual(sandbox.normalizeSidebarColor_('#fff'), sandbox.DEFAULT_SIDEBAR_COLOR);
-  assert.strictEqual(sandbox.normalizeSidebarColor_('steel'), sandbox.DEFAULT_SIDEBAR_COLOR);
 });
 
 console.log('== SettingsService: normalizeCelebrationVariants_（Hold/2nd Hold/受注確定の演出バリエーション検証） ==');
@@ -798,9 +797,9 @@ test('管理者にはそのまま返る', () => {
   assert.strictEqual(result.notifyHoldMailTo, 'a@example.com');
   assert.strictEqual(result.staffList.length, 1);
 });
-test('非管理者には通知先・担当者が空になる（テーマ・サイドバーの色・ロゴ・モデル写真・演出バリエーションはそのまま）', () => {
+test('非管理者には通知先・担当者が空になる（テーマ・ロゴ・モデル写真・演出バリエーションはそのまま）', () => {
   const settings = {
-    themeKey: 'wine', sidebarColor: '#123456', logoUrl: 'https://logo.png',
+    themeKey: 'wine', logoUrl: 'https://logo.png',
     notifyHoldMailTo: ['a@example.com'], notifyOrderMailTo: ['b@example.com'], notifyErrorMailTo: ['c@example.com'],
     notifyChatWebhookUrl: 'https://chat.googleapis.com/v1/spaces/AAA/messages?key=xxx',
     staffList: [{ name: '佐藤' }], modelPhotos: [{ model: 'Cクラス' }],
@@ -808,7 +807,6 @@ test('非管理者には通知先・担当者が空になる（テーマ・サ�
   };
   const result = sandbox.redactSystemMasterSettings_(settings, false);
   assert.strictEqual(result.themeKey, 'wine');
-  assert.strictEqual(result.sidebarColor, '#123456');
   assert.strictEqual(result.logoUrl, 'https://logo.png');
   assert.strictEqual(result.modelPhotos.length, 1);
   assert.strictEqual(result.notifyHoldMailTo.length, 0);
@@ -828,9 +826,9 @@ test('管理者からの保存はそのまま反映される', () => {
   assert.strictEqual(result.staffList[0].name, '新規');
   assert.strictEqual(result.logoUrl, 'https://new-logo.png');
 });
-test('非管理者からの保存は、ロゴ・モデル写真・通知先・担当者が既存値のまま維持される（テーマ・サイドバーの色は反映される）', () => {
+test('非管理者からの保存は、ロゴ・モデル写真・通知先・担当者が既存値のまま維持される（テーマは反映される）', () => {
   const incoming = {
-    themeKey: 'amber', sidebarColor: '#654321', logoUrl: 'https://tampered-logo.png',
+    themeKey: 'amber', logoUrl: 'https://tampered-logo.png',
     notifyHoldMailTo: 'tampered@example.com', notifyOrderMailTo: '', notifyErrorMailTo: '',
     notifyChatWebhookUrl: 'https://tampered-webhook.example.com',
     staffList: [], modelPhotos: [{ model: 'Eクラス' }]
@@ -845,7 +843,6 @@ test('非管理者からの保存は、ロゴ・モデル写真・通知先・�
   };
   const result = sandbox.applySystemMasterGuard_(incoming, current, false);
   assert.strictEqual(result.themeKey, 'amber');
-  assert.strictEqual(result.sidebarColor, '#654321');
   assert.strictEqual(result.logoUrl, 'https://real-logo.png');
   assert.strictEqual(result.modelPhotos.length, 1);
   assert.strictEqual(result.modelPhotos[0].model, '本物のモデル');

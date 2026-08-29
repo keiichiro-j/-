@@ -292,15 +292,16 @@ function purchaseOrderColIndex1(key) {
 }
 
 // ===== 設定機能のプロパティキー =====
-// THEME_KEY・SIDEBAR_COLORのみ、ログイン中のGoogleアカウントごとに独立して
-// 保存したいためPropertiesService.getUserProperties()（アカウント単位）に、
-// それ以外（ロゴ・メール通知先・担当者マスタ・モデル写真）は全利用者共通の
+// THEME_KEYのみ、ログイン中のGoogleアカウントごとに独立して保存したいため
+// PropertiesService.getUserProperties()（アカウント単位）に、それ以外
+// （ロゴ・メール通知先・担当者マスタ・モデル写真）は全利用者共通の
 // システムマスタとしてPropertiesService.getScriptProperties()（スクリプト単位）
 // に保存する（SettingsService.gs参照）。保存先のストアが異なるだけで、
-// キー名（文字列）自体は同じ命名で問題ない。
+// キー名（文字列）自体は同じ命名で問題ない。サイドバーの色は表示設定
+// （THEME_PRESETSのsidebarColor）とセットになったため、独立したプロパティは
+// 持たない。
 var PROP_KEYS = {
   THEME_KEY: 'THEME_KEY',
-  SIDEBAR_COLOR: 'SIDEBAR_COLOR',
   LOGO_URL: 'LOGO_URL',
   NOTIFY_HOLD_MAIL_TO: 'NOTIFY_HOLD_MAIL_TO',
   NOTIFY_ORDER_MAIL_TO: 'NOTIFY_ORDER_MAIL_TO',
@@ -333,39 +334,48 @@ var CELEBRATION_VARIANT_LABELS = {
  * 選ばせていたが、組み合わせによってはコントラスト比が不足し文字が読みにくくなる懸念が
  * あったため、あらかじめWCAG AA基準（ボタン塗り用途で白文字とのコントラスト比4.5:1以上、
  * 文字用途で背景（--surface）とのコントラスト比4.6:1以上）を満たすことを確認済みの
- * 8色から選択する方式にしている（JavaScript.htmlのapplyTheme参照）。名称はメルセデス・
- * ベンツのカラーコード名にちなんでいる（実車の塗色そのものではなく、アプリのアクセント
+ * 11色から選択する方式にしている（JavaScript.htmlのapplyTheme参照）。名称はメルセデス・
+ * ベンツのボディカラー名にちなんでいる（実車の塗色そのものではなく、アプリのアクセント
  * カラーとして視認性調整した近似色）。
- *   primary     … ボタン塗り・境界線・アクセント用
- *   primaryDark … ホバー時などに使う、primaryを少し暗くした色
- *   primaryText … 背景の上に「文字として」使う色。ベース配色がウォームアイボリー
- *                 （白系、Stylesheet.html参照）になったため、primaryよりも
- *                 濃くしてコントラスト比4.6:1以上を確保している（以前の暗い背景
- *                 向け配色では逆にprimaryより明るい色にしていた）。
+ *   primary      … ボタン塗り・境界線・アクセント用
+ *   primaryDark  … ホバー時などに使う、primaryを少し暗くした色
+ *   primaryText  … 背景の上に「文字として」使う色。ベース配色がウォームアイボリー
+ *                  （白系、Stylesheet.html参照）になったため、primaryよりも
+ *                  濃くしてコントラスト比4.6:1以上を確保している（以前の暗い背景
+ *                  向け配色では逆にprimaryより明るい色にしていた）。
+ *   sidebarColor … PCビュー左端のサイドバー（項目タブ）の背景色。以前はサイドバーの
+ *                  色だけ独立したカラーピッカーで自由に指定できたが、「サイドバーの色と
+ *                  表示設定（着せ替え）はセットにしてほしい」という要望を受け、
+ *                  プリセット1つでアプリ全体の配色とサイドバーの配色の両方が一括で
+ *                  切り替わるようにした。サイドバーの文字色自体は固定せず、この背景色に
+ *                  対してコントラスト比が高いほう（白／濃色）をapplySidebarColor_
+ *                  （JavaScript.html）が毎回自動計算するため、いずれも十分暗い色にして
+ *                  あれば個別のコントラスト検証は不要（白文字側が常に選ばれ、かつ
+ *                  10:1以上の余裕を確保できる濃さにしてある）。
  */
 var THEME_PRESETS = [
-  { key: 'steel', name: 'ブリリアントブルー', primary: '#2f6fae', primaryDark: '#102a43', primaryText: '#2f6fae' },
-  { key: 'graphite', name: 'グラファイトグレー', primary: '#55606b', primaryDark: '#424b53', primaryText: '#687787' },
-  { key: 'wine', name: 'ヒヤシンスレッド', primary: '#8c2f39', primaryDark: '#6d252c', primaryText: '#e32439' },
-  { key: 'green', name: 'エメラルドグリーン', primary: '#1f6f4a', primaryDark: '#18573a', primaryText: '#258559' },
-  { key: 'amber', name: 'カラハリゴールド', primary: '#a06a1f', primaryDark: '#7d5318', primaryText: '#9f6a1f' },
-  { key: 'purple', name: 'アメジスト', primary: '#5b3a8c', primaryDark: '#472d6d', primaryText: '#904df5' },
-  { key: 'petrol', name: 'カヴァンサイトブルー', primary: '#1f6f78', primaryDark: '#18575e', primaryText: '#24818a' },
-  { key: 'mono', name: 'セレナイトグレー', primary: '#4a4e55', primaryDark: '#3a3d42', primaryText: '#6f7682' }
+  { key: 'steel', name: 'ブリリアントブルー', primary: '#2f6fae', primaryDark: '#102a43', primaryText: '#2f6fae', sidebarColor: '#1f3a5c' },
+  { key: 'graphite', name: 'グラファイトグレー', primary: '#55606b', primaryDark: '#424b53', primaryText: '#687787', sidebarColor: '#3a4149' },
+  { key: 'wine', name: 'ヒヤシンスレッド', primary: '#8c2f39', primaryDark: '#6d252c', primaryText: '#e32439', sidebarColor: '#4a1c22' },
+  { key: 'green', name: 'エメラルドグリーン', primary: '#1f6f4a', primaryDark: '#18573a', primaryText: '#258559', sidebarColor: '#163f2c' },
+  { key: 'amber', name: 'カラハリゴールド', primary: '#a06a1f', primaryDark: '#7d5318', primaryText: '#9f6a1f', sidebarColor: '#4a3413' },
+  { key: 'purple', name: 'アメジスト', primary: '#5b3a8c', primaryDark: '#472d6d', primaryText: '#904df5', sidebarColor: '#33224d' },
+  { key: 'petrol', name: 'カヴァンサイトブルー', primary: '#1f6f78', primaryDark: '#18575e', primaryText: '#24818a', sidebarColor: '#123f44' },
+  { key: 'mono', name: 'セレナイトグレー', primary: '#4a4e55', primaryDark: '#3a3d42', primaryText: '#6f7682', sidebarColor: '#2b2e33' },
+  { key: 'obsidian', name: 'オブシディアンブラック', primary: '#33383d', primaryDark: '#202327', primaryText: '#52585f', sidebarColor: '#18191b' },
+  { key: 'cardinal', name: 'カーディナルレッド', primary: '#b5222c', primaryDark: '#8c1a21', primaryText: '#b5222c', sidebarColor: '#4d1015' },
+  { key: 'denim', name: 'デニムブルー', primary: '#3d6690', primaryDark: '#2c4d70', primaryText: '#3d6690', sidebarColor: '#1c3247' }
 ];
 
 var DEFAULT_THEME_KEY = 'steel';
 
 /**
- * PCビュー左端のサイドバー（項目タブ）の背景色の既定値。THEME_PRESETSと違い、
- * 設定タブでユーザーが自由な色（カラーピッカー）を指定できる（保存値は
- * normalizeSidebarColor_で#rrggbb形式のみを許可し、それ以外はこの既定値に
- * フォールバックする。SettingsService.gs参照）。読みやすい文字色（白／濃色）は
- * 選んだ背景色に応じてJS側（JavaScript.htmlのpickReadableSidebarTextColor_）が
- * 自動的に判定するため、あらかじめコントラスト比を確認済みの色に限定する必要は
- * ない。
+ * 「ランダム（ログインのたび変化）」を表す特別なテーマキー。THEME_PRESETSの
+ * 実体は持たず、選択するとアプリを開く（ログインする）たびにTHEME_PRESETSから
+ * ランダムに1つ選んで適用する（JavaScript.htmlのresolveThemePresetForSession_参照）。
+ * normalizeThemeKey_はTHEME_PRESETSのキーに加えてこのキーも有効として扱う。
  */
-var DEFAULT_SIDEBAR_COLOR = '#4b5563';
+var RANDOM_THEME_KEY = 'random';
 
 // 設定タブの「システムマスタ」（メール通知設定・担当者）にアクセスできる
 // Googleアカウントのメールアドレス一覧（大文字小文字は区別しない）。

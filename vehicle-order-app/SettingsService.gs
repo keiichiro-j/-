@@ -21,12 +21,13 @@
 function getRawSettings_() {
   var props = PropertiesService.getScriptProperties();
   return {
-    // テーマ・サイドバーの色のみ、ログイン中のGoogleアカウントごとに独立させる
-    // ため getUserProperties()（アカウント単位）から読む。それ以外は全利用者共通の
-    // システムマスタのため、従来どおりgetScriptProperties()（スクリプト単位）
-    // から読む（getCurrentUserThemeKey_・getCurrentUserSidebarColor_参照）。
+    // テーマのみ、ログイン中のGoogleアカウントごとに独立させるため
+    // getUserProperties()（アカウント単位）から読む。サイドバーの色はテーマ
+    // プリセット（THEME_PRESETSのsidebarColor）とセットになったため、テーマキー
+    // 以外に個別の保存値は持たない。それ以外は全利用者共通のシステムマスタの
+    // ため、従来どおりgetScriptProperties()（スクリプト単位）から読む
+    // （getCurrentUserThemeKey_参照）。
     themeKey: getCurrentUserThemeKey_(),
-    sidebarColor: getCurrentUserSidebarColor_(),
     logoUrl: props.getProperty(PROP_KEYS.LOGO_URL) || '',
     notifyHoldMailTo: getMailList_(PROP_KEYS.NOTIFY_HOLD_MAIL_TO),
     notifyOrderMailTo: getMailList_(PROP_KEYS.NOTIFY_ORDER_MAIL_TO),
@@ -79,11 +80,10 @@ function getSettings() {
 function saveRawSettings_(settings) {
   var logoUrl = validateLogoUrl_(settings && settings.logoUrl);
   var props = PropertiesService.getScriptProperties();
-  // テーマ・サイドバーの色のみ、ログイン中のGoogleアカウントごとに独立して保存する
-  // （setCurrentUserThemeKey_・setCurrentUserSidebarColor_参照）。それ以外は
-  // 全利用者共通のシステムマスタのため、従来どおりScript Propertiesに保存する。
+  // テーマのみ、ログイン中のGoogleアカウントごとに独立して保存する
+  // （setCurrentUserThemeKey_参照）。それ以外は全利用者共通のシステムマスタの
+  // ため、従来どおりScript Propertiesに保存する。
   setCurrentUserThemeKey_(settings && settings.themeKey);
-  setCurrentUserSidebarColor_(settings && settings.sidebarColor);
   props.setProperty(PROP_KEYS.LOGO_URL, logoUrl);
   props.setProperty(PROP_KEYS.NOTIFY_HOLD_MAIL_TO, JSON.stringify(normalizeMailList_(settings.notifyHoldMailTo)));
   props.setProperty(PROP_KEYS.NOTIFY_ORDER_MAIL_TO, JSON.stringify(normalizeMailList_(settings.notifyOrderMailTo)));
@@ -110,11 +110,16 @@ function saveSettings(settings) {
 }
 
 /**
- * テーマの着せ替えプリセットキー（純粋関数）。THEME_PRESETS（Constants.gs）に
- * 存在しないキー（未設定・改ざん・過去バージョンで保存された値など）は、
- * すべて初期プリセット（DEFAULT_THEME_KEY）にフォールバックする。
+ * テーマの着せ替えプリセットキー（純粋関数）。THEME_PRESETS（Constants.gs）の
+ * いずれかのキー、または特別な「ランダム（ログインのたび変化）」を表す
+ * RANDOM_THEME_KEYのみを有効とし、それ以外（未設定・改ざん・過去バージョンで
+ * 保存された値など）は、すべて初期プリセット（DEFAULT_THEME_KEY）に
+ * フォールバックする。RANDOM_THEME_KEY自体はTHEME_PRESETSに実体を持たない
+ * （実際にどのプリセットを使うかはJS側が毎回ランダムに選ぶ。JavaScript.htmlの
+ * resolveThemePresetForSession_参照）。
  */
 function normalizeThemeKey_(key) {
+  if (key === RANDOM_THEME_KEY) return key;
   var found = THEME_PRESETS.some(function (p) { return p.key === key; });
   return found ? key : DEFAULT_THEME_KEY;
 }
@@ -139,29 +144,6 @@ function getCurrentUserThemeKey_() {
 
 function setCurrentUserThemeKey_(themeKey) {
   PropertiesService.getUserProperties().setProperty(PROP_KEYS.THEME_KEY, normalizeThemeKey_(themeKey));
-}
-
-/**
- * サイドバーの色（純粋関数）。テーマの8プリセットと違い、#rrggbb形式の任意の
- * 色を許可する（文字色はJS側で自動的に読みやすいほうへ切り替えるため、
- * あらかじめ限定された色から選ばせる必要がない）。#rrggbb形式以外（未設定・
- * 改ざん・過去バージョンには無かった項目など）は、すべてDEFAULT_SIDEBAR_COLORに
- * フォールバックする。
- */
-function normalizeSidebarColor_(color) {
-  return /^#[0-9a-f]{6}$/i.test(color || '') ? String(color).toLowerCase() : DEFAULT_SIDEBAR_COLOR;
-}
-
-/**
- * ログイン中のGoogleアカウントに対応するサイドバーの色を読み書きする。
- * テーマ（getCurrentUserThemeKey_）と同じ理由・同じ動作条件でUser Propertiesを使う。
- */
-function getCurrentUserSidebarColor_() {
-  return normalizeSidebarColor_(PropertiesService.getUserProperties().getProperty(PROP_KEYS.SIDEBAR_COLOR));
-}
-
-function setCurrentUserSidebarColor_(sidebarColor) {
-  PropertiesService.getUserProperties().setProperty(PROP_KEYS.SIDEBAR_COLOR, normalizeSidebarColor_(sidebarColor));
 }
 
 /**
@@ -531,7 +513,6 @@ function redactSystemMasterSettings_(settings, isAdmin) {
   if (isAdmin) return settings;
   return {
     themeKey: settings.themeKey,
-    sidebarColor: settings.sidebarColor,
     logoUrl: settings.logoUrl,
     notifyHoldMailTo: [],
     notifyOrderMailTo: [],
@@ -549,9 +530,9 @@ function redactSystemMasterSettings_(settings, isAdmin) {
 /**
  * 保存時、システムマスタ（ロゴ・モデル写真・メール通知設定・担当者）は管理者以外
  * からの変更を無視し、既存の保存値（current）をそのまま維持する（純粋関数）。
- * テーマ（着せ替えプリセット）・サイドバーの色は管理者限定にしていないため、
- * 非管理者からの変更もそのまま反映する。管理者判定はコード上のSYSTEM_ADMIN_EMAILS
- * のみで行うため、非管理者のクライアントから送られてきたシステムマスタ項目は
+ * テーマ（着せ替えプリセット）は管理者限定にしていないため、非管理者からの
+ * 変更もそのまま反映する。管理者判定はコード上のSYSTEM_ADMIN_EMAILSのみで
+ * 行うため、非管理者のクライアントから送られてきたシステムマスタ項目は
  * 信用しない（Api.gs参照）。
  */
 function applySystemMasterGuard_(incoming, current, isAdmin) {
@@ -560,7 +541,6 @@ function applySystemMasterGuard_(incoming, current, isAdmin) {
   if (isAdmin) return incoming;
   return {
     themeKey: incoming.themeKey,
-    sidebarColor: incoming.sidebarColor,
     logoUrl: current.logoUrl,
     notifyHoldMailTo: current.notifyHoldMailTo,
     notifyOrderMailTo: current.notifyOrderMailTo,
