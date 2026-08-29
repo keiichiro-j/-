@@ -553,16 +553,12 @@
     padding: 14px 20px;
     transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
   }
-  /* 最後の操作列は auto ではなく固定幅にする。auto だとHold中（ボタン2つ）と
-     在庫あり（ボタン2つだが文言が違う）・2nd Hold登録済み（ボタン1つ）で
-     操作列の内容幅が行ごとに変わり、他の列がそのぶん伸縮して行同士の列位置が
-     ずれてしまっていたため（現場からの指摘で判明）。固定幅にすることで
-     在庫あり／Hold中のどちらの行でも同じ列位置に揃う。状態列も「Hold中（2nd有）」
-     バッジが収まる幅（150px）を確保し、隣の操作列と重ならないようにする
-     （以前は108pxで文字がはみ出し、受注確定ボタンと重なって見えていた）。
+  /* 状態列も「Hold中（2nd有）」バッジが収まる幅（150px）を確保し、隣の操作列と
+     重ならないようにする（以前は108pxで文字がはみ出し、受注確定ボタンと
+     重なって見えていた）。
      モデル列は以前210px＋左右に1frの空白列（車両情報ブロックを中央寄りに
-     見せるため）を置いていたが、モデル列の実際のコンテンツ（比較チェックボックス・
-     モデル名・コミッション）は最大でも70px程度しか使っておらず、残りが左詰めの
+     見せるため）を置いていたが、モデル列の実際のコンテンツ（モデル名・
+     コミッション）は最大でも70px程度しか使っておらず、残りが左詰めの
      文字の右側に無駄な余白として見えてしまい、モデル→MPの間だけ他の列間より
      大きく間延びして見えていた（現場からの指摘で判明）。モデル列を実際の
      コンテンツ幅に合わせて100pxまで縮め、左右の空白列も廃止し、他の列と同じ
@@ -573,14 +569,21 @@
      現場からの指摘で、行に並べる項目を「ステータス・モデル・コミッション・MP・
      ステア・カラー・有償OP・操作ボタン・比較」だけに絞り込んだ（入港予定日・
      可能月・VPCは行タップで開く詳細モーダルのみで確認する。vehicleRowCardHtml
-     参照）。 */
+     参照）。
+     操作ボタン列（最後の項目）だけは固定幅ではなくflex-growにしている。添付の
+     参照UIに合わせ、操作ボタン（＋比較チェック）を行の右端に常に寄せて見せる
+     ため（.rowCard__actionsのjustify-content: flex-endと組み合わせる）。手前の
+     列（1〜6番目）はすべて固定幅のため、この列の開始位置はどの行でも同じになり、
+     ボタン数の違い（Hold中2個／在庫あり2個／2nd Hold登録済み1個）があっても
+     縦の列位置がずれることはない（開始位置は固定、右端は行幅いっぱいまで伸びる
+     ため）。 */
   .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(1) { flex: 0 0 150px; } /* ステータス */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(2) { flex: 0 0 100px; } /* 比較＋モデル＋コミッション */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(2) { flex: 0 0 100px; } /* モデル＋コミッション */
   .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(3) { flex: 0 0 68px; } /* MP */
   .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(4) { flex: 0 0 46px; } /* ステア */
   .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(5) { flex: 0 0 150px; } /* カラー */
   .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(6) { flex: 0 0 170px; } /* 有償OP */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(7) { flex: 0 0 210px; } /* 操作ボタン */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass) > *:nth-child(7) { flex: 1 1 210px; } /* 操作ボタン＋比較チェック（行の右端に寄せる） */
   /* border-color: transparent ではなく上・右・下のみ指定する。border-color（4辺一括）だと
      border-left-color（在庫状況を示す色つきの左罫線）まで打ち消してしまい、ホバー時に
      状態の色が消えて見えてしまうため（.rowCard--available 等はこのルールより先に書かれて
@@ -596,10 +599,11 @@
      （openInventoryDetailModal_、JavaScript.html参照）。チェックボックス・操作ボタン
      自体は個別にクリックできるよう、cursor はタップ可能であることを示すのみに留める。 */
   .rowCard { cursor: pointer; }
-  /* 比較チェックボックスは、以前は左端の専用列（ピン列）に置いていたが、
-     モデル名とコミッションの間に移動した（現場からの指摘で判明）。
-     .card__comparePin（カード表示側）と同じ「チェックボックス＋『比較』文字」の
-     見た目だが、margin-left: auto は付けず、モデル名の下にそのまま左揃えで置く。 */
+  /* 比較チェックボックスは、以前は左端の専用列（ピン列）→モデル名とコミッションの
+     間、と移動してきたが、添付の参照UIにはモデル名の並びに比較チェックの表示が
+     無く、そこに挟むと参照UIより1行分縦に間延びして見えるため、操作ボタンの
+     並びの末尾（行の右端）に移動した。.card__comparePin（カード表示側）と同じ
+     「チェックボックス＋『比較』文字」の見た目。 */
   .rowCard__comparePin {
     display: inline-flex;
     align-items: center;
@@ -641,7 +645,10 @@
     cursor: pointer; padding: 0; text-align: center; width: 100%;
   }
   .rowCard__cancelLink:hover { text-decoration: underline; }
-  .rowCard__actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-start; min-width: 0; }
+  /* justify-content: flex-endにし、比較チェック（末尾に追加。vehicleRowCardHtml
+     参照）を含めた操作ボタン一式を行の右端に寄せる（:nth-child(7)のflex-growと
+     組み合わせる。添付の参照UI参照）。 */
+  .rowCard__actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
 
   /* 受注リストの表示形式「表」: 在庫と項目構成が異なる（比較ピン・操作ボタンが無く、
      顧客・担当者・リード番号などを表示する）ため、専用の項目幅にする。顧客名の列も

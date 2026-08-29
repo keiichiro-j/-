@@ -825,6 +825,11 @@
     var isHold = v.holdStatus === 'hold';
     var hasSecondHold = isHold && !!v.secondHoldCustomer;
     var isComparing = isComparingCommission_(v.commission);
+    // 比較チェックボックスは操作ボタンの並びの末尾に置く（モデル名・コミッションは
+    // 添付の参照UIに合わせて2行だけのシンプルな見た目にするため。以前はモデル名の
+    // 上に置いていたが、参照UIには比較チェックの表示が無く、モデル名の直前に
+    // チェックボックスの行が挟まると参照UIより1行分縦に間延びして見えるため移動した）。
+    var comparePinHtml = '<label class="rowCard__comparePin"><input type="checkbox" data-compare="' + escapeHtml(v.commission) + '"' + (isComparing ? ' checked' : '') + '>比較</label>';
     var actions = isHold
       ? ('<button class="btn btn--small btn--primary" data-order-from-hold="' + escapeHtml(v.commission) + '">受注確定</button>' +
          (!v.secondHoldCustomer ? '<button class="btn btn--small" data-second-hold="' + escapeHtml(v.commission) + '">2ND HOLD</button>' : ''))
@@ -858,10 +863,11 @@
     // 無しで1行に収まりやすくする）。行に含めない項目も含め、車両情報をすべて
     // 省略せず見たい場合は、行（チェックボックス・ボタン以外の箇所）をタップすると
     // 開く詳細モーダル（openInventoryDetailModal_・vehicleDetailHtml_）で確認できる。
+    // 操作ボタン列（比較チェック含む）は、参照UIに合わせて行の右端に寄せて表示する
+    // （.rowCard__actions・Stylesheet.html参照）。
     return '<div class="rowCard ' + rowTone + '" data-commission="' + escapeHtml(v.commission) + '">' +
       '<div class="rowCard__status">' + statusBadge + cancelLinks + '</div>' +
       '<div class="rowCard__field">' +
-      '<label class="rowCard__comparePin"><input type="checkbox" data-compare="' + escapeHtml(v.commission) + '"' + (isComparing ? ' checked' : '') + '>比較</label>' +
       '<span class="rowCard__model">' + escapeHtml(v.model) + '</span>' +
       '<span class="rowCard__commission">' + escapeHtml(v.commission) + '</span>' +
       '</div>' +
@@ -869,7 +875,7 @@
       rowField_('ステア', v.steering) +
       rowField_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
       rowField_('有償OP', paidOptionsText(v)) +
-      '<div class="rowCard__actions">' + actions + '</div>' +
+      '<div class="rowCard__actions">' + actions + comparePinHtml + '</div>' +
       '</div>';
   }
 
