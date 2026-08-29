@@ -69,6 +69,13 @@
     --topbar-bg: #0b1f33;
     --on-topbar: #ffffff;
     --dark-ui-outline: rgba(255, 255, 255, .14);
+    /* PC専用の左サイドバー（.sidebar）だけに使うグレー背景。以前は--topbar-bg
+       （ダークネイビー）を流用していたが、トップバー・比較バー・トーストと違い
+       サイドバーは「常に紺色の額縁」という統一を必要としない単独のナビ帯の
+       ため、独立したトークンにして他のダークUIパーツに影響を与えずに変更できる
+       ようにした（現場の要望で、背景は明るいまま一番左のナビだけをグレーにする
+       ため）。 */
+    --sidebar-bg: #4b5563;
     /* トップバーの実高さ。JS（syncFixedBars_）が実測して上書きする。初期値は
        JS実行前のレイアウトずれを防ぐための目安値。 */
     --topbar-h: 108px;
@@ -1316,17 +1323,16 @@
   }
 
   /* ===== ホーム画面 =====
-     PC（901px以上）は、左に一覧（.homeSplit__list）・右に選択中モデルの詳細
-     （.homeSplit__detail、#homeDetail）を並べる2ペイン構成にする（Index.html
-     の.homeSplit、下部の@media (min-width: 901px)内の.homeSplit系ルール参照）。
-     左の一覧は型ごとに見出し（.homeTypeHeader）＋縦一列に並ぶコンパクトな
-     行カード（.homeRow）にする。行をタップすると.is-selectedになり、右の
-     詳細ペインにそのモデルの写真とグレード別在庫数を表示する
-     （JavaScript.htmlのselectHomeModel_・renderHomeDetail_参照）。
-     タブレット・スマホ幅（900px以下）では、詳細ペインは使わず、パッと見て
-     在庫状況がわかる情報密度を優先した横一列の「リスト」型のままタップした
-     行その場にグレードタブを展開する（@media (max-width: 900px)で上書き。
-     現場の声を踏まえて選んだ元のレイアウトのため、狭い画面では変更しない）。 */
+     PC（901px以上）は、サイドバー＋1本のカードグリッド（3枚1行、.homeList＋
+     .homeCard）というシンプルな構成にする（以前あった右側の詳細ペイン・
+     スライドショー・◀▶モデル送りは廃止し、車両写真・在庫台数・グレード内訳を
+     すべてタップ・クリックなしでカード自体に埋め込んだ。下部の
+     @media (min-width: 901px)内の.homeList・.homeCard系ルール参照）。
+     タブレット・スマホ幅（900px以下）では変更せず、従来どおり型ごとに見出し
+     （.homeTypeHeader）＋縦一列に並ぶ横長の行カード（.homeRow）にし、パッと見て
+     在庫状況がわかる情報密度を優先した「リスト」型のままタップした行その場に
+     グレードタブを展開する（@media (max-width: 900px)で上書き。現場の声を
+     踏まえて選んだ元のレイアウトのため、狭い画面では変更しない）。 */
   .homeList {
     display: flex;
     flex-direction: column;
@@ -1353,14 +1359,6 @@
     transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease, background-color .18s ease;
   }
   .homeRow:hover { box-shadow: var(--shadow-elevated); transform: translateY(-2px); border-color: var(--primary); }
-  /* 選択中のモデル（state.homeSelectedModel、PC専用の2ペイン構成）は、右の
-     詳細ペイン（#homeDetail）に表示中であることがひと目でわかるよう、枠と
-     背景を強調する（JavaScript.htmlのhomeModelTileHtml_・selectHomeModel_
-     参照。タブレット・スマホ幅では常にfalseのため付与されない）。 */
-  .homeRow.is-selected {
-    border-color: var(--primary);
-    background: var(--primary-bg);
-  }
   /* タブレット・スマホ幅のインライン展開（state.homeExpandedModel）専用。
      PCビューでは常にfalseのため付与されない（@media (max-width: 900px)で
      display・padding・背景などを上書きする）。 */
@@ -1472,27 +1470,19 @@
      扱わせる（PC・タブレット/スマホで共通）。 */
   .homeTypeRow { display: contents; }
 
-  /* ===== ホームの2ペイン構成（左:一覧／右:選択中モデルの詳細） =====
-     PC専用（901px以上）。タブレット・スマホ幅では#homeDetailを使わず、
-     一覧（.homeSplit__list）だけを通常どおり表示するため、既定では
-     .homeSplitをブロック要素・#homeDetailを非表示にしておき、下の
-     @media (min-width: 901px)でのみ2ペインのレイアウトを組む。 */
-  .homeSplit { display: block; }
-  /* #homeDetailはIDセレクタのため、下のPC専用メディアクエリ内で単に
-     .homeSplit__detail（クラスセレクタ）に display: block を指定しても
-     詳細度で負けてしまう。ここでも同じ.homeSplit__detailクラスセレクタで
-     揃えておき、メディアクエリ側を後勝ちで上書きさせる。 */
-  .homeSplit__detail { display: none; }
-  /* ===== ホームの結合ヘッダー（アプリ名見出し＋型クイックナビ＋戻る／更新／
-     一覧に戻るボタン。PC専用の3区画構成の一部） =====
+  /* ===== ホームの結合ヘッダー（アプリ名見出し＋型クイックナビ＋戻る／更新
+     ボタン。PC専用のサイドバー＋1本のカードグリッド構成の一部） =====
      タブレット・スマホ幅では、この要素自体をdisplay: contentsにして箱を消し、
      中の#homeTypeNav（position: fixedの型クイックナビ、それらの幅でも従来どおり
      画面上部に固定表示する）だけをそのまま残す。#homeCombinedHeader__topRow
-     （見出し・戻る／更新／一覧に戻るボタン）は、それらの幅では共通トップバーが
-     従来どおりアプリ名・戻る／更新ボタンを表示するため、二重表示を防ぐために
-     非表示にする。 */
+     （見出し・戻る／更新ボタン）は、それらの幅では共通トップバーが従来どおり
+     アプリ名・戻る／更新ボタンを表示するため、二重表示を防ぐために非表示にする。 */
   #homeCombinedHeader { display: contents; }
   .homeCombinedHeader__topRow { display: none; }
+  /* PCビュー専用のスペーサー（position: fixedの#homeCombinedHeaderの高さぶんの
+     余白を確保する）。タブレット・スマホ幅では#homeCombinedHeader自体が
+     display: contentsで固定表示されないため不要。 */
+  .homeCombinedHeaderSpacer { display: none; }
 
   /* ===== ホームのグレードタブ（グレードが設定されたモデル行を展開すると現れる） =====
      PCでは、展開したタイル（そのモデルの型セクション内）の直下にそのまま表示する
@@ -1557,12 +1547,12 @@
       position: fixed;
       top: 0; left: 0; bottom: 0;
       width: var(--sidebar-w);
-      /* 3列構成（左:項目タブ＝ダークネイビー／中央:モデル一覧＝ホワイト／
-         右:車両詳細＝グレー）の一番左のゾーン。トップバー・比較バー・トーストと
-         同じ--topbar-bgを使い、テーマ設定に関わらず常にダークネイビーで
-         統一する（参照画像の濃色サイドバーに合わせた。--on-topbar・
-         --dark-ui-outlineも同じ理由でこのダーク基調UI専用のトークンを流用する）。 */
-      background: var(--topbar-bg);
+      /* 左の項目タブゾーン。背景は明るいまま一番左のナビだけをグレーにする
+         ため、トップバー等と共有の--topbar-bgではなく専用の--sidebar-bgを使う
+         （テーマ設定・カラーテーマの影響を受けない固定のグレー。--on-topbar・
+         --dark-ui-outlineは、白文字・薄い罫線という濃色地向けの調整のため
+         引き続きそのまま使う）。 */
+      background: var(--sidebar-bg);
       border-right: 1px solid var(--dark-ui-outline);
       padding: 20px 0;
       z-index: 32;
@@ -1654,9 +1644,7 @@
     .sidebarUser__info .topbar__userWarn { font-size: 10.5px; padding: 3px 8px; }
 
     /* トップバー: ナビ・ユーザー情報はサイドバーに移るため、「戻る／更新」ボタンと
-       中央のアプリ名見出しだけが残るスリムなヘッダーになる。3列構成の中央
-       （.homeSplit__list）・右（.homeSplit__detail）2列ぶんの「ヘッダー」に
-       あたるため、アプリ名「販売可能リスト」はここに表示する。ロゴ画像は
+       中央のアプリ名見出しだけが残るスリムなヘッダーになる。ロゴ画像は
        サイドバー側（.sidebar__brand）だけに表示すれば十分なため、ここでは
        文字のみ表示し.topbar__logoは非表示にする（.topbar__brandText参照）。 */
     .topbar {
@@ -1676,12 +1664,11 @@
     .topbar__navBtn:hover { background: var(--background); }
     .topbar__navBtn:disabled:hover { background: transparent; }
     /* ホームタブの間は、この共通トップバーを非表示にする。アプリ名見出し・
-       型クイックナビ・戻る／更新／一覧に戻るボタンは、中央・右パネルの両方に
-       またがる結合ヘッダー（#homeCombinedHeader）にそれぞれ役目を譲るため
-       （サイドバー／中央パネル／右パネルの3区画だけにする。JavaScript.htmlの
-       switchToTab_参照）。非表示になるとoffsetHeightが0になるため、直後の
-       syncFixedBars_()が--topbar-hを自動的に0へ更新し、#appの上余白も
-       連動して詰まる。 */
+       型クイックナビ・戻る／更新ボタンは、結合ヘッダー（#homeCombinedHeader）
+       にそれぞれ役目を譲るため（サイドバー＋1本のカードグリッドという構成に
+       する。JavaScript.htmlのswitchToTab_参照）。非表示になるとoffsetHeightが
+       0になるため、直後のsyncFixedBars_()が--topbar-hを自動的に0へ更新し、
+       #appの上余白も連動して詰まる。 */
     body.is-home-tab .topbar { display: none; }
 
     /* main.viewは全幅を使い、position: fixedのトップバー・ツールバー同様
@@ -1701,15 +1688,15 @@
       max-width: none;
     }
 
-    /* ホームの結合ヘッダー: アプリ名見出し・戻る／更新／一覧に戻るボタン・
-       ボディタイプ絞り込みナビを1本にまとめ、中央パネル（.homeSplit__list）・
-       右パネル（.homeSplit__detail）2列ぶんの全幅を使う（以前は中央パネル
-       単体の幅（最大640px）に収まる数しか型タブを1行に並べられなかったが、
-       結合ヘッダーにしたことで画面幅ほぼ全体を使えるようになり、型の種類が
-       多くても横スクロール・2段折り返しなしで1行に収まりやすくなる）。
-       #homeSplitの直前に通常のフロー要素として置き、position: fixedには
-       しない（ホームタブの間はmain.view自体が縦スクロールしない構成のため、
-       固定表示にしなくても常に見える）。 */
+    /* ホームの結合ヘッダー: アプリ名見出し・戻る／更新ボタン・ボディタイプ
+       絞り込みナビを1本にまとめ、参照UIで「Car Listings」の見出し＋操作
+       ボタンがあった位置に対応させている（結合ヘッダーの全幅を使うため、
+       型の種類が多くても横スクロール・2段折り返しなしで1行に収まりやすい）。
+       カードグリッド（#homeGrid）自体は通常のページとして縦スクロールする
+       構成にしたため、ヘッダーは他のタブのツールバー（.toolbar）と同様
+       position: fixedで画面上部に固定し、後続のカードグリッドが隠れないよう
+       #homeCombinedHeaderSpacerで高さぶんの余白を確保する（syncFixedBars_が
+       実測して高さを反映する。他の.toolbar/.toolbarSpacerペアと同じ考え方）。 */
     #homeCombinedHeader {
       display: flex;
       flex-direction: column;
@@ -1718,8 +1705,14 @@
       border: 1px solid var(--outline);
       border-radius: var(--radius);
       padding: 16px 18px;
-      margin-bottom: 20px;
+      position: fixed;
+      top: calc(var(--topbar-h) + 16px);
+      left: calc(var(--sidebar-w) + 24px);
+      right: 24px;
+      z-index: 25;
+      box-shadow: var(--shadow);
     }
+    .homeCombinedHeaderSpacer { display: block; }
     .homeCombinedHeader__topRow {
       display: flex;
       align-items: center;
@@ -1777,275 +1770,124 @@
     }
     .homeTypeNavSpacer { display: none; }
 
-    /* ===== ホームの3列構成 =====
-       左（サイドバー）＝項目タブ・中央（.homeSplit__list）＝型クイックナビ＋
-       モデル一覧・右（.homeSplit__detail、#homeDetail）＝選択中モデルの詳細、
-       という3列構成にする。色は左からグレー（サイドバー、--background）・
-       ホワイト（中央のモデル一覧パネル、--surface）・グレー（右の詳細パネル、
-       --background）の順にし、中央パネルだけが浮き上がって見えるようにする。 */
-    /* display: flexではなくgridにしているのは、flexのflex-shrink計算だと
-       .homeSplit__detail側のコンテンツ（写真・グレードカード等）の
-       最小コンテンツ幅がmin-width: 0を飛び越えてページ全体の横あふれを
-       引き起こすことがあったため（flex-basisが0の側に縮小分がすべて
-       乗ってしまい、実際のレンダリング幅0pxに対してコンテンツだけが
-       はみ出す現象）。grid-template-columnsのminmax()なら、両方の列に
-       明示的な下限・上限を持たせたうえで、ウィンドウ幅に応じてなめらかに
-       縮められる。 */
-    .homeSplit {
+    /* ===== PC専用: ホームのカードグリッド（3枚1行） =====
+       参照UIの「Car Listings」パネルに合わせ、型グループの見出しは出さず
+       フラットな3列グリッドに並べる（homeVisibleModelsFlat_、JavaScript.html
+       参照）。minmax(0, 1fr)にしているのは.cardGridと同じ理由（モデル名が
+       長い場合にグリッド自体が列幅を超えてしまうのを防ぐ）。 */
+    .homeList {
       display: grid;
-      /* 中央（モデル一覧）: 型クイックナビは結合ヘッダー（#homeCombinedHeader）
-         側に移ったため、この列の幅はもう型タブの数に左右されない。上限は
-         モデル一覧の読みやすさを優先した640px、下限はPCビューの最小幅
-         （901px）でも右の詳細パネルと共存できる380px。右（詳細）: 同じく
-         PCビュー最小幅でも収まる180pxを下限にし、残り幅をすべて使う。 */
-      grid-template-columns: minmax(380px, 640px) minmax(180px, 1fr);
-      align-items: start;
-      gap: 24px;
-      /* 結合ヘッダー自身の高さ（--home-header-h、syncFixedBars_で実測）と
-         そのmargin-bottom（20px）ぶんを差し引き、ヘッダーの下にぴったり
-         収まる高さにする（ヘッダーは通常のフロー要素のため、以前のように
-         「上にはみ出させて隠れたトップバーの分を埋める」margin-top:-24pxの
-         ハックはもう不要）。 */
-      height: calc(100vh - var(--topbar-h) - 24px - 40px - var(--home-header-h, 0px) - 20px);
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 20px;
     }
-    .homeSplit__list {
-      min-width: 0;
-      height: 100%;
-      overflow-y: auto;
+    /* カード1枚分（homeModelCardHtml_参照）。車両写真・在庫台数バッジは
+       タップ・クリックなしでカード自体に表示する。上辺にテーマカラー
+       （--primary）の帯を添え、設定タブでカラーテーマを切り替えた際の
+       見た目の変化がホーム画面でも大きく感じられるようにしている
+       （グレードチップの配色とあわせて、テーマの影響範囲を広げる狙い）。 */
+    .homeCard {
+      display: block;
+      width: 100%;
       background: var(--surface);
       border: 1px solid var(--outline);
-      border-radius: var(--radius);
-      padding: 16px;
-    }
-    .homeSplit__detail {
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-      height: 100%;
-      background: var(--background);
-    }
-    .homeSplit__detailBody {
-      flex: 1;
-      min-height: 0;
-      overflow-y: auto;
-      padding: 20px 28px 28px;
-    }
-    /* 未選択時（state.homeSelectedModel === null）は、選択を促す案内だけを
-       中央に表示する（homeDetailEmptyHtml_参照）。 */
-    .homeDetail__empty {
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      color: var(--on-surface-variant);
-      text-align: center;
-    }
-    .homeDetail__empty .emptyState__icon { opacity: .5; }
-    /* モデル未選択時、右ペインいっぱいに車両写真をランダムなスライドショーとして
-       表示する（advanceHomeSlideshow_、JavaScript.html参照）。2枚の<img>を
-       重ねてopacityのトランジションでクロスフェードし、表示中の写真だけ
-       ゆっくり拡大するKen Burns効果（homeSlideshowKenBurns）を添える。
-       .homeDetail__photoと違って固定のアスペクト比を持たせず、右ペイン
-       （.homeSplit__detailBody、パディング分を除く）の高さいっぱいまで
-       広げる。 */
-    .homeDetail__slideshow {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      min-height: 320px;
+      border-top: 3px solid var(--primary);
       border-radius: var(--radius);
       overflow: hidden;
-      cursor: pointer;
-      background: var(--surface);
-    }
-    .homeDetail__slideshowImg {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      opacity: 0;
-      transition: opacity 1.2s ease;
-    }
-    /* 6.2秒 = JavaScript.htmlのHOME_SLIDESHOW_INTERVAL_MS（5000ms、切り替え間隔）＋
-       クロスフェードのtransition時間（1.2s）。両方とも変更する場合はここも
-       合わせて調整する。 */
-    .homeDetail__slideshowImg.is-active {
-      opacity: 1;
-      animation: homeSlideshowKenBurns 6.2s ease-in-out forwards;
-    }
-    @keyframes homeSlideshowKenBurns {
-      from { transform: scale(1); }
-      to { transform: scale(1.08); }
-    }
-    .homeDetail__slideshowCaption {
-      position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      padding: 18px 22px;
-      background: linear-gradient(to top, rgba(0, 0, 0, .6), rgba(0, 0, 0, 0));
-      color: #fff;
-      display: flex;
-      align-items: baseline;
-      gap: 10px;
-      pointer-events: none;
-    }
-    .homeDetail__slideshowModel { font-size: 20px; font-weight: 700; }
-    .homeDetail__slideshowType { font-size: 13px; opacity: .85; }
-    /* 結合ヘッダー（#homeCombinedHeader）内の静的なボタン（Index.html参照）。
-       左の戻る／更新ボタン（タブ間の画面履歴を戻る）とは別の操作（モデルの
-       選択解除）のため、テキストラベル付きにして混同を防ぐ（.homeCombinedHeader__
-       actionsの並び順で右端に置く）。表示・非表示はrenderHomeDetail_が切り替える。 */
-    .homeDetail__backBtn {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-left: 8px;
-      border: none;
-      background: none;
-      color: var(--primary-text);
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
+      text-align: left;
+      color: var(--on-surface);
       padding: 0;
+      transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
     }
-    .homeDetail__backBtn:hover { text-decoration: underline; }
-    .homeDetail__headRow {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 16px;
-      margin-bottom: 18px;
+    /* グレードが無いモデルはカード全体が<button>で、クリックすると在庫リストへ
+       絞り込み遷移する（グレードがあるモデルは非活性の<div>のため、この
+       ホバー演出は付けない。グレードチップ自体のホバーで代用する）。 */
+    .homeCard--clickable { cursor: pointer; }
+    .homeCard--clickable:hover {
+      box-shadow: var(--shadow-elevated);
+      transform: translateY(-3px);
+      border-color: var(--primary);
     }
-    .homeDetail__title {
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: -.01em;
+    .homeCard__photo {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      background: var(--background);
+    }
+    .homeCard__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    /* 在庫台数バッジ: タップ・クリックしなくても見える位置（写真右下）に
+       常時重ねて表示する（現場の要望「カードごとに在庫台数を表示、タップ
+       なしで」）。テーマカラーで塗りつぶし、設定タブでのテーマ変更が
+       ひと目でわかるようにする。 */
+    .badge--stock {
+      position: absolute;
+      right: 10px;
+      bottom: 10px;
+      background: var(--primary);
+      color: #fff;
+      box-shadow: var(--shadow-elevated);
+    }
+    /* 在庫0台のモデルは、テーマカラーではなく固定の警告色にし、在庫が無い
+       ことがテーマ設定に関わらず常にひと目でわかるようにする
+       （homeStockCountText_、他の在庫台数表示と同じ考え方）。 */
+    .badge--stock--zero { background: var(--danger); }
+    .homeCard__body { padding: 14px 16px 16px; }
+    .homeCard__headRow {
       display: flex;
       align-items: center;
-      gap: 10px;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 12px;
     }
-    .homeDetail__type {
+    .homeCard__model {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -.005em;
+    }
+    .homeCard__type {
       flex: none;
       background: var(--background);
       color: var(--on-surface-variant);
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
       padding: 3px 10px;
       border-radius: 999px;
     }
-    .homeDetail__count {
-      flex: none;
-      text-align: right;
-      line-height: 1.2;
-    }
-    .homeDetail__countNum {
-      display: block;
-      font-size: 26px;
-      font-weight: 700;
-      color: var(--primary-text);
-      font-variant-numeric: tabular-nums;
-    }
-    .homeDetail__countLabel {
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: .06em;
-      color: var(--on-surface-variant);
-    }
-    /* 合計在庫台数が0台の場合は、大きな数字の代わりに「在庫がありません」を
-       表示する（homeStockCountText_、JavaScript.html参照）。赤文字で
-       在庫が無いことがひと目でわかるようにする。 */
-    .homeDetail__countZero {
-      font-size: 14px;
-      font-weight: 700;
-      color: var(--danger);
-      white-space: nowrap;
-    }
-    .homeDetail__photo {
-      position: relative;
-      /* 以前は16:9だったが、モデル画像の下に並ぶグレードカード（3列×複数行）が
-         スクロールなしで全部見えるよう、写真の高さを抑えるために2:1に変更した。 */
-      aspect-ratio: 2 / 1;
-      /* 背景は付けない（透過）。以前はホワイト（--surface）の「カード」として
-         浮き上がらせていたが、背景が透過のモデル写真だとその白い枠がそのまま
-         写真の外周に白い塗りつぶしとして目立ってしまうため（現場からの指摘）、
-         右パネル自体のグレー（--background）がそのまま透けるようにした。 */
-      background: none;
-      border-radius: var(--radius);
-      overflow: hidden;
-      margin-bottom: 20px;
-    }
-    .homeDetail__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    /* 写真の左右に重ねる◀▶ナビゲーションボタン。現在表示中の型フィルタでの
-       表示順（homeVisibleModelsFlat_、JavaScript.html参照）に沿って、前後の
-       モデルへ切り替える。先頭・末尾ではdisabledにする（ループしない）。 */
-    .homeDetail__navBtn {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 40px;
-      height: 40px;
-      border: none;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, .85);
-      color: var(--on-surface);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-      line-height: 1;
-      cursor: pointer;
-      box-shadow: var(--shadow-elevated);
-      transition: background-color .15s ease;
-    }
-    .homeDetail__navBtn:hover { background: #fff; }
-    .homeDetail__navBtn:disabled { opacity: .35; cursor: default; box-shadow: none; }
-    .homeDetail__navBtn--prev { left: 12px; }
-    .homeDetail__navBtn--next { right: 12px; }
-    /* グレード別在庫数は、グレードごとのカードを3列×複数行（グレードが6件までは
-       2行に収まる）で並べる。カード自体をクリックすると、既存のグレードタブと
-       同じ挙動（そのグレード1件に絞り込んだ在庫リストへ遷移）になるため、
-       別途「在庫リストで見る」ボタンは表示しない（homeDetailHtml_参照）。 */
-    .homeDetail__gradeLabel {
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-      color: var(--on-surface-variant);
-      margin: 0 0 10px;
-    }
-    .homeDetail__gradeGrid {
+    /* グレード別在庫数は、3列×2行（グレードが6件までは2行に収まる）で
+       カード内に埋め込む（現場の要望「モデルカード内に配置するグレード
+       カードは横に3グレード×2列」）。クリックするとそのグレード1件に
+       絞り込んだ在庫リストへ遷移する（#homeGridのクリック委譲、
+       data-home-grade参照）。 */
+    .homeCard__gradeGrid {
       display: grid;
-      /* minmax(0, 1fr)にする理由は.cardGridと同じ（グレード名が長い場合に
-         グリッド自体が右パネル幅を超えてしまうのを防ぐ）。 */
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
+      gap: 8px;
     }
-    .homeDetail__gradeCard {
+    /* テーマカラーの淡い塗り（--primary-bg/--primary-text）にし、設定タブの
+       カラーテーマを切り替えるとチップの色味もはっきり変わるようにする。 */
+    .homeCard__gradeChip {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      padding: 20px 10px;
-      border: 1px solid var(--outline);
+      gap: 3px;
+      padding: 10px 6px;
+      border: 1px solid transparent;
       border-radius: var(--radius);
-      background: var(--surface);
-      color: var(--on-surface);
+      background: var(--primary-bg);
+      color: var(--primary-text);
       cursor: pointer;
       text-align: center;
       transition: box-shadow .15s ease, border-color .15s ease, transform .15s ease;
     }
-    .homeDetail__gradeCard:hover { box-shadow: var(--shadow-elevated); border-color: var(--primary); transform: translateY(-2px); }
-    .homeDetail__gradeCardName { font-size: 15px; font-weight: 700; }
-    .homeDetail__gradeCardCount { font-size: 13px; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; }
+    .homeCard__gradeChip:hover { box-shadow: var(--shadow-elevated); border-color: var(--primary); transform: translateY(-2px); }
+    .homeCard__gradeName { font-size: 13px; font-weight: 700; }
+    .homeCard__gradeCount { font-size: 11.5px; font-variant-numeric: tabular-nums; }
     /* 在庫0台のグレードは、Hold中も無くまとまった在庫の当てがないことがひと目で
        わかるよう、件数を赤文字にする（.homeGradeTab__count--zeroと同じ考え方）。 */
-    .homeDetail__gradeCardCount--zero { color: var(--danger); font-weight: 700; }
-    .homeDetail__cta { margin-top: 4px; }
+    .homeCard__gradeCount--zero { color: var(--danger); font-weight: 700; }
   }
 
   /* ===== リード番号入力（「L-」固定接頭辞＋数字。Google×Tesla風の見出し扱いにする） ===== */

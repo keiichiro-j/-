@@ -207,30 +207,29 @@
 
     <!-- ホーム -->
     <main class="view is-active" id="view-home">
-      <!-- PCビューのみ、モデル一覧（中央）と選択中モデルの詳細（右）の2ペイン構成にする
-           （.homeSplit、Stylesheet.html参照）。タブレット・スマホ幅では
-           #homeDetailを表示せず、従来どおりモデル一覧のみ・タップでその場に
-           グレードタブを展開する動作のままにする（JavaScript.htmlの
-           isPcHomeLayout_参照）。
+      <!-- PCビューは、サイドバー＋1本のカードグリッド（3枚1行）というシンプルな
+           構成にする（以前あった右側の詳細ペイン・スライドショーは廃止し、
+           車両画像・在庫台数・グレード内訳をすべてカード自体に埋め込んだ。
+           添付の参照UIに合わせた構成。Stylesheet.html参照）。タブレット・スマホ幅では
+           従来どおりモデル一覧のみ・タップでその場にグレードタブを展開する動作の
+           ままにする（JavaScript.htmlのisPcHomeLayout_参照）。
            PCビューでは、共通のトップバー（戻る／更新ボタン＋アプリ名見出し）を
            ホームタブの間だけ非表示にし（body.is-home-tab、Stylesheet.html参照）、
-           代わりに中央パネル・右パネルの両方にまたがる1本の結合ヘッダー
-           （#homeCombinedHeader）にアプリ名見出し・型クイックナビ・戻る／更新／
-           一覧に戻るボタンをまとめて持たせる。これにより「サイドバー／中央パネル／
-           右パネル」の3つの区画だけになる（以前は共通トップバーを含めて見た目上
-           4区画、直前のバージョンでは中央・右パネルがそれぞれ別のヘッダーを
-           持っていたため見た目上5つの帯があった）。型クイックナビをこの結合
-           ヘッダーに置くことで、中央パネル単体（最大640px）ではなく結合ヘッダーの
-           全幅（サイドバーを除いた画面幅ほぼ全体）を使えるようになり、型の
-           種類が多くても1行に収まりやすくなる。
+           代わりに結合ヘッダー（#homeCombinedHeader）にアプリ名見出し・型クイック
+           ナビ・戻る／更新ボタンをまとめて持たせる。参照UIで「Car Listings」の
+           見出し＋操作ボタンがあった位置に、この結合ヘッダー（型クイックナビ）を
+           対応させている。結合ヘッダーは他のタブのツールバーと同様
+           position: fixedで画面上部に固定し（#homeCombinedHeaderSpacerで
+           後続のカードグリッドが隠れないようにする）、カードグリッド自体は
+           ページとして通常どおり縦スクロールする。
            戻る／更新ボタン（#btnNavBackHome/#btnRefreshHome）は、共通トップバー側の
            ボタン（#btnNavBack/#btnRefresh）と同じ処理を呼ぶ別要素（JavaScript.html
            のhandleNavBackClick_/handleRefreshClick_・syncNavButtons_参照）。
            タブレット・スマホ幅では#homeCombinedHeader自体をdisplay: contentsにして
            自身の箱を消し、型クイックナビ（#homeTypeNav）だけを従来どおり
            position: fixedで画面上部に固定表示させる。それ以外の子要素
-           （見出し・戻る／更新／一覧に戻るボタン）はタブレット・スマホ幅では
-           非表示にし、共通トップバーのボタンだけが使われる（Stylesheet.html参照）。 -->
+           （見出し・戻る／更新ボタン）はタブレット・スマホ幅では非表示にし、
+           共通トップバーのボタンだけが使われる（Stylesheet.html参照）。 -->
       <div class="homeCombinedHeader" id="homeCombinedHeader">
         <div class="homeCombinedHeader__topRow">
           <div class="homeCombinedHeader__title">販売可能リスト</div>
@@ -241,33 +240,20 @@
             <button type="button" class="topbar__navBtn topbar__navBtn--refresh" id="btnRefreshHome" title="更新" aria-label="最新の情報に更新">
               <svg class="icon"><use href="#icon-refresh"></use></svg>
             </button>
-            <!-- モデル選択中のみ表示する「一覧に戻る」（選択解除。ページ遷移ではなく
-                 state.homeSelectedModelをクリアするだけ。renderHomeDetail_参照）。
-                 左の#btnNavBackHome（タブ間の画面履歴を戻る、アイコンのみ）とは
-                 別の操作のため、テキスト付きではっきり区別する。 -->
-            <button type="button" class="homeDetail__backBtn hidden" id="btnHomeDetailBack">
-              <svg class="icon icon--inline"><use href="#icon-back"></use></svg>一覧に戻る
-            </button>
           </div>
         </div>
         <div class="homeTypeNav hidden" id="homeTypeNav" role="tablist" aria-label="ボディタイプで絞り込み"></div>
       </div>
+      <div class="homeCombinedHeaderSpacer" id="homeCombinedHeaderSpacer"></div>
       <div class="homeTypeNavSpacer" id="homeTypeNavSpacer"></div>
-      <div class="homeSplit">
-        <div class="homeSplit__list">
-          <div class="homeList" id="homeGrid"></div>
-          <div class="emptyState hidden" id="homeEmpty">
-            <svg class="icon emptyState__icon"><use href="#icon-image"></use></svg>
-            <p>モデル写真がまだ登録されていません。設定タブの「モデル写真」から登録できます。</p>
-          </div>
-          <div class="emptyState hidden" id="homeTypeEmpty">
-            <svg class="icon emptyState__icon"><use href="#icon-tune"></use></svg>
-            <p>該当するボディタイプのモデルが登録されていません。</p>
-          </div>
-        </div>
-        <div class="homeSplit__detail">
-          <div class="homeSplit__detailBody" id="homeDetail"></div>
-        </div>
+      <div class="homeList" id="homeGrid"></div>
+      <div class="emptyState hidden" id="homeEmpty">
+        <svg class="icon emptyState__icon"><use href="#icon-image"></use></svg>
+        <p>モデル写真がまだ登録されていません。設定タブの「モデル写真」から登録できます。</p>
+      </div>
+      <div class="emptyState hidden" id="homeTypeEmpty">
+        <svg class="icon emptyState__icon"><use href="#icon-tune"></use></svg>
+        <p>該当するボディタイプのモデルが登録されていません。</p>
       </div>
     </main>
 

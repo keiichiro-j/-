@@ -27,7 +27,6 @@
     allInventoryItems: [], // ホーム画面の在庫台数集計専用（ツールバーの検索条件に左右されない全件）
     homeGradeFilter: null, // ホームのグレードタブクリックで設定される、絞り込み対象グレード名の配列
     homeExpandedModel: null, // ホームで現在グレードタブを展開中のベースモデル名（タブレット・スマホ幅のみ使用。1つのみ展開可能）
-    homeSelectedModel: null, // ホームで右ペイン（#homeDetail）に詳細表示中のモデル名（PCビューのみ使用）
     homeTypeFilter: null, // ホーム上部のボディタイプ絞り込み（未選択＝「すべて」はnull）
     allOrders: [], // マイページ集計専用（受注リストの検索・絞り込み条件に左右されない全件）
     gclassItems: [], // Gクラス予約リスト（閲覧専用。Hold・受注操作は一切ない）
@@ -341,15 +340,11 @@
     $('view-' + tabName).classList.add('is-active');
     // ホームタブの間だけ、PCビューの共通トップバーを非表示にし（Stylesheet.html
     // 参照）、代わりにホーム画面自身の結合ヘッダー（#homeCombinedHeader、
-    // アプリ名見出し・型クイックナビ・戻る／更新／一覧に戻るボタンをまとめて
-    // 持つ）を使う。トップバーが非表示になるとoffsetHeightが0になるため、直後の
+    // アプリ名見出し・型クイックナビ・戻る／更新ボタンをまとめて持つ）を使う。
+    // トップバーが非表示になるとoffsetHeightが0になるため、直後の
     // syncFixedBars_()が--topbar-hを自動的に0へ更新し、#appの上余白も連動して
     // 詰まる（手動での余白調整は不要）。
     document.body.classList.toggle('is-home-tab', tabName === 'home');
-    // ホーム以外のタブへ移動する間は、右ペインのランダムスライドショー
-    // （advanceHomeSlideshow_）を止める。ホームへ戻ればrenderHomeGallery_→
-    // renderHomeDetail_が呼ばれ、必要なら自動的に再開する。
-    if (tabName !== 'home') stopHomeSlideshow_();
     // 全タブは同じ1つのdocument上でdisplay: none/blockを切り替えているだけの
     // ため、スクロール位置はタブをまたいで共有されてしまう（例: ホームで
     // スクロールした状態でモデルをクリックすると、在庫リストも同じスクロール
@@ -2491,11 +2486,6 @@
     var result = gradeCountsForEntry_(p, allItems, allModelPhotos);
     var hasGrades = result.byGrade.length > 0;
     var isExpanded = hasGrades && state.homeExpandedModel === p.model;
-    // PCビューでは、このモデルが右ペイン（#homeDetail）に詳細表示中かどうかを
-    // 示すハイライト（.homeRow--selected）を付ける。タブレット・スマホ幅では
-    // state.homeSelectedModelは常にnullのまま（selectHomeModel_はPC専用の
-    // クリック処理からしか呼ばれないため）で、このクラスが付くことはない。
-    var isSelected = state.homeSelectedModel === p.model;
     // グレードのあるモデルは▸/▾（展開・折りたたみの状態）、無いモデルは→
     // （タップすると直接在庫リストへ絞り込み遷移する合図）を、どちらも
     // フッター行（.homeRow__footer）に常時表示する。900px以下のリスト表示
@@ -2525,7 +2515,7 @@
     // の3ブロック構成。PCビューでは縦に積んだ「カードタイプUI」（写真は白背景の
     // カード内に収める）、900px以下ではCSSのorderで横一列のリスト型に組み替える
     // （Stylesheet.html参照。どちらも同じDOM構造をCSSだけで作り分けている）。
-    var rowHtml = '<' + tag + ' class="homeRow' + (isExpanded ? ' is-expanded' : '') + (isSelected ? ' is-selected' : '') + '"' +
+    var rowHtml = '<' + tag + ' class="homeRow' + (isExpanded ? ' is-expanded' : '') + '"' +
       tileAttrs +
       ' data-home-model="' + escapeHtml(p.model) + '"' +
       (hasGrades ? ' data-has-grades="true"' : '') + '>' +
@@ -2608,49 +2598,49 @@
     // 型で絞り込んだ結果、該当モデルが1件も無い場合は空のグリッドのまま放置せず、
     // その旨をわかるようにする（モデル写真自体が0件の#homeEmptyとは別の状態）。
     $('homeTypeEmpty').classList.toggle('hidden', !(modelPhotos.length > 0 && groups.length === 0));
-    // 型の絞り込みを変えた結果、右ペイン（PCビュー）で詳細表示中だったモデルが
-    // 一覧から見えなくなった場合は、選択状態を解除する（一覧に無いモデルの
-    // 詳細だけが右に残り続けるのを防ぐため）。
-    if (state.homeSelectedModel) {
-      var stillVisible = groups.some(function (g) {
-        return g.items.some(function (p) { return p.model === state.homeSelectedModel; });
-      });
-      if (!stillVisible) state.homeSelectedModel = null;
+    if (isPcHomeLayout_()) {
+      // PCビューは、サイドバー＋1本のカードグリッド（3枚1行）というシンプルな構成
+      // にしたため（Index.html参照）、型グループの見出しは出さずフラットに並べ、
+      // 各カードに写真・在庫台数・（グレードがあれば）3列×2行のグレードカードを
+      // すべてタップ・クリックなしで見える形で埋め込む（homeModelCardHtml_参照）。
+      $('homeGrid').innerHTML = homeVisibleModelsFlat_()
+        .map(function (p) { return homeModelCardHtml_(p, allItems, modelPhotos); })
+        .join('');
+    } else {
+      // タブレット・スマホ幅は従来どおり、型ごとに横スクロールの1行
+      // （.homeTypeRow）で並べる。展開中のモデルがこのグループに含まれる場合は、
+      // その1件だけを横スクロール行の外に単独の全幅ブロックとして出し
+      // （グレードタブもその直後に続く）、残りのモデルはそのまま横スクロール行に
+      // 並べる（展開中でも同じ型の他のモデルを見失わないようにするため）。
+      $('homeGrid').innerHTML = groups.map(function (g) {
+        var headerHtml = g.label ? '<div class="homeTypeHeader">' + escapeHtml(g.label) + '</div>' : '';
+        var expandedItem = state.homeExpandedModel
+          ? g.items.filter(function (p) { return p.model === state.homeExpandedModel; })[0]
+          : null;
+        if (expandedItem) {
+          var restItems = g.items.filter(function (p) { return p !== expandedItem; });
+          var expandedHtml = homeModelTileHtml_(expandedItem, allItems, modelPhotos);
+          var restHtml = restItems.length
+            ? '<div class="homeTypeRow">' + restItems.map(function (p) { return homeModelTileHtml_(p, allItems, modelPhotos); }).join('') + '</div>'
+            : '';
+          return headerHtml + expandedHtml + restHtml;
+        }
+        return headerHtml + '<div class="homeTypeRow">' +
+          g.items.map(function (p) { return homeModelTileHtml_(p, allItems, modelPhotos); }).join('') +
+          '</div>';
+      }).join('');
     }
-    // 型ごとに横スクロールの1行（.homeTypeRow）で並べる。展開中のモデルが
-    // このグループに含まれる場合は、その1件だけを横スクロール行の外に
-    // 単独の全幅ブロックとして出し（グレードタブもその直後に続く）、
-    // 残りのモデルはそのまま横スクロール行に並べる（展開中でも同じ型の
-    // 他のモデルを見失わないようにするため）。
-    $('homeGrid').innerHTML = groups.map(function (g) {
-      var headerHtml = g.label ? '<div class="homeTypeHeader">' + escapeHtml(g.label) + '</div>' : '';
-      var expandedItem = state.homeExpandedModel
-        ? g.items.filter(function (p) { return p.model === state.homeExpandedModel; })[0]
-        : null;
-      if (expandedItem) {
-        var restItems = g.items.filter(function (p) { return p !== expandedItem; });
-        var expandedHtml = homeModelTileHtml_(expandedItem, allItems, modelPhotos);
-        var restHtml = restItems.length
-          ? '<div class="homeTypeRow">' + restItems.map(function (p) { return homeModelTileHtml_(p, allItems, modelPhotos); }).join('') + '</div>'
-          : '';
-        return headerHtml + expandedHtml + restHtml;
-      }
-      return headerHtml + '<div class="homeTypeRow">' +
-        g.items.map(function (p) { return homeModelTileHtml_(p, allItems, modelPhotos); }).join('') +
-        '</div>';
-    }).join('');
     renderHomeTypeNav_();
-    renderHomeDetail_();
-    // #homeTypeNavはposition: fixedのため、表示・非表示の切り替えや折り返し行数の
-    // 変化（絞り込みでボタンの活性状態が変わる、モデル写真の登録数が変わる等）で
-    // 高さが変わりうる。そのたびにスペーサー（#homeTypeNavSpacer）の高さも
+    // #homeCombinedHeader・#homeTypeNavはposition: fixedのため、表示・非表示の
+    // 切り替えや折り返し行数の変化（絞り込みでボタンの活性状態が変わる、モデル
+    // 写真の登録数が変わる等）で高さが変わりうる。そのたびにスペーサーの高さも
     // 実測し直さないと、後続のモデル一覧との間隔がずれてしまう。
     syncFixedBars_();
   }
 
   /**
-   * PCビュー（901px以上）かどうかを判定する（純粋な画面幅の判定。サイドバー・
-   * ホーム画面の2ペイン構成はこの幅でのみ有効にしている。Stylesheet.htmlの
+   * PCビュー（901px以上）かどうかを判定する（純粋な画面幅の判定。サイドバー＋
+   * 1本のカードグリッドという構成はこの幅でのみ有効にしている。Stylesheet.htmlの
    * @media (min-width: 901px)と同じブレークポイント）。
    */
   function isPcHomeLayout_() {
@@ -2658,21 +2648,10 @@
   }
 
   /**
-   * PCビューのホーム画面で、モデル一覧（左）のタイルをクリックした際に呼ばれる。
-   * タブレット・スマホ幅のようにその場でグレードタブを展開する／即座に在庫リストへ
-   * 遷移するのではなく、右ペイン（#homeDetail）にそのモデルの詳細（写真・グレード別
-   * 在庫数）を表示する。
-   */
-  function selectHomeModel_(modelName) {
-    state.homeSelectedModel = modelName;
-    renderHomeGallery_();
-  }
-
-  /**
    * 現在の型フィルタ（state.homeTypeFilter）を反映した、ホーム画面のモデル一覧の
    * 表示順そのままのフラットな配列を返す（renderHomeGallery_のグループ化ロジックを
-   * 再利用する純粋関数）。右ペイン（#homeDetail）の◀▶ボタンで、一覧の並び順どおりに
-   * 前後のモデルへ切り替えるために使う（homeDetailHtml_参照）。
+   * 再利用する純粋関数）。PCビューのカードグリッドは型グループの見出しを出さず
+   * フラットに並べるため、その並び順の算出に使う。
    */
   function homeVisibleModelsFlat_() {
     var groups = groupModelPhotosByBodyType_(state.modelPhotos || []);
@@ -2682,206 +2661,54 @@
     return groups.reduce(function (flat, g) { return flat.concat(g.items); }, []);
   }
 
-  function homeDetailEmptyHtml_() {
-    return '<div class="homeDetail__empty">' +
-      '<svg class="icon emptyState__icon"><use href="#icon-image"></use></svg>' +
-      '<p>モデルを選択すると、ここに詳細が表示されます</p>' +
-      '</div>';
-  }
-
-  // ===== モデル未選択時の右ペイン: ランダムスライドショー =====
-  // PCビューでモデルを選択していない間、右ペイン（#homeDetail）いっぱいに
-  // 車両写真をランダムな順で自動的に切り替えて表示する（現在の型フィルタで
-  // 絞り込んだモデルのうち、写真が登録されているものだけが対象。
-  // homeVisibleModelsFlat_、型フィルタの絞り込みを再現する純粋関数）。
-  // 「何も操作しなくても車両を眺められる」ショーケースにする狙いのため、
-  // 直前と同じモデルが連続して選ばれないようにしている。
-  var HOME_SLIDESHOW_INTERVAL_MS = 5000;
-  var homeSlideshowTimer_ = null;
-
-  function homeSlideshowCandidates_() {
-    return homeVisibleModelsFlat_().filter(function (p) { return p.photoUrl; });
-  }
-
-  function stopHomeSlideshow_() {
-    if (homeSlideshowTimer_) {
-      clearInterval(homeSlideshowTimer_);
-      homeSlideshowTimer_ = null;
-    }
-  }
-
-  function homeDetailSlideshowHtml_() {
-    return '<div class="homeDetail__slideshow" id="homeDetailSlideshow" data-home-slideshow-select title="クリックでこのモデルを選択">' +
-      '<img class="homeDetail__slideshowImg" alt="">' +
-      '<img class="homeDetail__slideshowImg" alt="">' +
-      '<div class="homeDetail__slideshowCaption">' +
-      '<span class="homeDetail__slideshowModel"></span>' +
-      '<span class="homeDetail__slideshowType"></span>' +
-      '</div>' +
-      '</div>';
-  }
-
-  function applyHomeSlideshowSlide_(imgEl, photo, root) {
-    imgEl.src = photo.photoUrl;
-    imgEl.alt = photo.model;
-    imgEl.dataset.model = photo.model;
-    root.dataset.homeSlideshowModel = photo.model;
-    root.querySelector('.homeDetail__slideshowModel').textContent = photo.model;
-    root.querySelector('.homeDetail__slideshowType').textContent = photo.bodyType || '';
-  }
-
   /**
-   * スライドショーを次のモデルへ進める（初回呼び出し時は表示開始も兼ねる。
-   * どちらの<img>にもis-activeが付いていない状態からスタートするため）。
-   * タブレット・スマホ幅にリサイズされていたり、モデルが選択されていたり、
-   * 表示中の型フィルタに写真登録済みのモデルが1つも無くなっていた場合は、
-   * 無駄なタイマーを続けず自動的に止める。
+   * PCビューのホーム画面カード1件分のHTML（renderHomeGallery_からhomeVisibleModelsFlat_
+   * の順にフラットに呼び出す）。写真・モデル名・ボディタイプ・在庫台数バッジを
+   * すべてタップ・クリックなしでカード自体に表示し、グレードが設定されている
+   * モデルはさらに3列×2行のグレードカードをカード内に埋め込む（クリックすると
+   * そのグレード1件に絞り込んだ在庫リストへ遷移する。data-home-gradeは
+   * #homeGridのクリック委譲で処理する）。グレードが無いモデルはカード全体が
+   * ボタンになっており、クリックするとそのモデルに絞り込んだ在庫リストへ
+   * 遷移する。
    */
-  function advanceHomeSlideshow_() {
-    if (!isPcHomeLayout_() || state.homeSelectedModel) { stopHomeSlideshow_(); return; }
-    var root = $('homeDetailSlideshow');
-    if (!root) { stopHomeSlideshow_(); return; }
-    var imgs = root.querySelectorAll('.homeDetail__slideshowImg');
-    if (imgs.length !== 2) return;
-    var candidates = homeSlideshowCandidates_();
-    if (!candidates.length) { stopHomeSlideshow_(); return; }
-    var current = imgs[0].classList.contains('is-active') ? imgs[0] : imgs[1];
-    var next = current === imgs[0] ? imgs[1] : imgs[0];
-    var currentModel = current.dataset.model;
-    var pool = (candidates.length > 1 && currentModel)
-      ? candidates.filter(function (p) { return p.model !== currentModel; })
-      : candidates;
-    var pick = pool[Math.floor(Math.random() * pool.length)];
-    applyHomeSlideshowSlide_(next, pick, root);
-    next.classList.add('is-active');
-    current.classList.remove('is-active');
-  }
-
-  /**
-   * 右ペイン（#homeDetail）: 選択中モデルの詳細（モデル名・ボディタイプ・在庫台数・
-   * 写真・グレード別在庫数）を表示する。グレードが無いモデルはグレード内訳の
-   * 代わりに「在庫リストで見る」ボタンのみを表示する。写真の左右には、現在の
-   * 型フィルタでの一覧の並び順（homeVisibleModelsFlat_）で前後のモデルへ
-   * 切り替える◀▶ボタンを重ねる（先頭・末尾ではdisabledにし、ループしない）。
-   */
-  function homeDetailHtml_(p, result, prevModel, nextModel) {
+  function homeModelCardHtml_(p, allItems, allModelPhotos) {
+    var result = gradeCountsForEntry_(p, allItems, allModelPhotos);
     var hasGrades = result.byGrade.length > 0;
-    var typeHtml = p.bodyType ? '<span class="homeDetail__type">' + escapeHtml(p.bodyType) + '</span>' : '';
-    // グレードがあるモデルは、グレードごとのカード（3列×複数行。クリックすると
-    // そのグレード1件に絞り込んだ在庫リストへ遷移する。data-home-gradeは
-    // #homeDetailのクリック委譲で処理する既存の仕組みをそのまま使う）を並べ、
-    // カード自体が「在庫リストで見る」ボタンの役割を兼ねるため、そのボタンは
-    // 表示しない（グレードが無いモデルにはグレードカードの代わりが無いため、
-    // 引き続きボタンで在庫リストへ遷移させる）。
-    var gradeBoxHtml = hasGrades
-      ? '<div class="homeDetail__gradeLabel">グレード別在庫台数</div>' +
-        '<div class="homeDetail__gradeGrid">' +
+    var typeHtml = p.bodyType ? '<span class="homeCard__type">' + escapeHtml(p.bodyType) + '</span>' : '';
+    var stockClass = 'badge badge--stock' + (result.total === 0 ? ' badge--stock--zero' : '');
+    var stockHtml = '<span class="' + stockClass + '">' + homeStockCountText_(result.total) + '</span>';
+    var gradeGridHtml = hasGrades
+      ? '<div class="homeCard__gradeGrid">' +
         result.byGrade.map(function (g) {
-          var countClass = 'homeDetail__gradeCardCount' + (g.count === 0 ? ' homeDetail__gradeCardCount--zero' : '');
-          return '<button type="button" class="homeDetail__gradeCard" data-home-grade="' + escapeHtml(g.grade) + '">' +
-            '<span class="homeDetail__gradeCardName">' + escapeHtml(g.grade) + '</span>' +
+          var countClass = 'homeCard__gradeCount' + (g.count === 0 ? ' homeCard__gradeCount--zero' : '');
+          return '<button type="button" class="homeCard__gradeChip" data-home-grade="' + escapeHtml(g.grade) + '">' +
+            '<span class="homeCard__gradeName">' + escapeHtml(g.grade) + '</span>' +
             '<span class="' + countClass + '">' + homeStockCountText_(g.count) + '</span>' +
             '</button>';
         }).join('') +
         '</div>'
       : '';
-    var ctaHtml = hasGrades
-      ? ''
-      : '<button type="button" class="btn btn--primary btn--block homeDetail__cta" data-home-detail-view="' + escapeHtml(p.model) + '">在庫リストで見る</button>';
-    var navBtnHtml =
-      '<button type="button" class="homeDetail__navBtn homeDetail__navBtn--prev" data-home-detail-prev="' +
-      escapeHtml(prevModel || '') + '" aria-label="前のモデル"' + (prevModel ? '' : ' disabled') + '>&#9664;</button>' +
-      '<button type="button" class="homeDetail__navBtn homeDetail__navBtn--next" data-home-detail-next="' +
-      escapeHtml(nextModel || '') + '" aria-label="次のモデル"' + (nextModel ? '' : ' disabled') + '>&#9654;</button>';
-    // 合計在庫台数が0台の場合は、大きな数字の代わりに「在庫がありません」の
-    // 文言をそのまま表示し、在庫が無いことがひと目でわかるようにする
-    // （homeStockCountText_、他の在庫台数表示と同じ考え方）。
-    var countHtml = result.total === 0
-      ? '<div class="homeDetail__count homeDetail__count--zero"><span class="homeDetail__countZero">在庫がありません</span></div>'
-      : '<div class="homeDetail__count"><span class="homeDetail__countNum">' + result.total + '</span>' +
-        '<span class="homeDetail__countLabel">在庫台数</span></div>';
-    return '<div class="homeDetail__headRow">' +
-      '<h2 class="homeDetail__title">' + escapeHtml(p.model) + typeHtml + '</h2>' +
-      countHtml +
+    // グレードが無いモデルは、カード自体をクリックすると在庫リストへ絞り込み
+    // 遷移する。グレードがあるモデルは、グレードカードの1つをクリックして
+    // 初めて遷移する構成のため、カード自体は非活性のままにする。どちらも
+    // <button>ではなく<div>で描画する（ブラウザのネイティブ<button>は
+    // padding: 0等で打ち消せない内部余白を持つため、写真をカード上端に
+    // ぴったり合わせられない。タブレット・スマホ幅の展開中タイル
+    // （.homeRow.is-expanded、homeModelTileHtml_参照）と同じ理由）。
+    // キーボード操作（Enter/Spaceキー）は#homeGridへのkeydown委譲リスナーで
+    // 別途対応する。
+    var tileAttrs = hasGrades ? '' : ' role="button" tabindex="0"';
+    return '<div class="homeCard' + (hasGrades ? '' : ' homeCard--clickable') + '"' +
+      tileAttrs +
+      ' data-home-model="' + escapeHtml(p.model) + '"' +
+      (hasGrades ? ' data-has-grades="true"' : '') + '>' +
+      '<div class="homeCard__photo"><img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '">' + stockHtml + '</div>' +
+      '<div class="homeCard__body">' +
+      '<div class="homeCard__headRow"><span class="homeCard__model">' + escapeHtml(p.model) + '</span>' + typeHtml + '</div>' +
+      gradeGridHtml +
       '</div>' +
-      '<div class="homeDetail__photo"><img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '">' +
-      navBtnHtml + '</div>' +
-      gradeBoxHtml +
-      ctaHtml;
+      '</div>';
   }
-
-  function renderHomeDetail_() {
-    var el = $('homeDetail');
-    var modelName = state.homeSelectedModel;
-    var photo = modelName
-      ? (state.modelPhotos || []).filter(function (p) { return p.model === modelName; })[0]
-      : null;
-    // 「一覧に戻る」ボタンは、結合ヘッダー（#homeCombinedHeader）内の静的な要素の
-    // ため（#homeDetailの外。Index.html参照）、選択解除で消える/現れるように
-    // ここで表示・非表示だけ切り替える（クリック処理は別途addEventListenerで
-    // 直接このボタンに付与している）。
-    $('btnHomeDetailBack').classList.toggle('hidden', !photo);
-    if (!photo) {
-      // モデル未選択時は、写真登録済みのモデルがあればランダムスライドショーを、
-      // 1件も無ければ従来どおりの案内文だけを表示する。
-      stopHomeSlideshow_();
-      if (homeSlideshowCandidates_().length && isPcHomeLayout_()) {
-        el.innerHTML = homeDetailSlideshowHtml_();
-        advanceHomeSlideshow_();
-        homeSlideshowTimer_ = setInterval(advanceHomeSlideshow_, HOME_SLIDESHOW_INTERVAL_MS);
-      } else {
-        el.innerHTML = homeDetailEmptyHtml_();
-      }
-      return;
-    }
-    stopHomeSlideshow_();
-    var result = gradeCountsForEntry_(photo, state.allInventoryItems || [], state.modelPhotos || []);
-    var flat = homeVisibleModelsFlat_();
-    var idx = flat.findIndex(function (m) { return m.model === modelName; });
-    var prevModel = idx > 0 ? flat[idx - 1].model : null;
-    var nextModel = idx !== -1 && idx < flat.length - 1 ? flat[idx + 1].model : null;
-    el.innerHTML = homeDetailHtml_(photo, result, prevModel, nextModel);
-  }
-
-  $('btnHomeDetailBack').addEventListener('click', function () {
-    state.homeSelectedModel = null;
-    renderHomeGallery_();
-  });
-
-  $('homeDetail').addEventListener('click', function (e) {
-    // スライドショー中に表示されている車両をクリックすると、そのままそのモデルを
-    // 選択したことにする（見ているだけでなく、そのまま詳細に進めるように）。
-    var slideshow = e.target.closest('[data-home-slideshow-select]');
-    if (slideshow && slideshow.dataset.homeSlideshowModel) {
-      selectHomeModel_(slideshow.dataset.homeSlideshowModel);
-      return;
-    }
-    var gradeTab = e.target.closest('[data-home-grade]');
-    if (gradeTab) {
-      switchToTab_('inventory');
-      state.homeGradeFilter = [gradeTab.dataset.homeGrade];
-      $('inventoryKeyword').value = '';
-      loadInventory();
-      return;
-    }
-    var prevBtn = e.target.closest('[data-home-detail-prev]');
-    if (prevBtn) {
-      if (prevBtn.dataset.homeDetailPrev) selectHomeModel_(prevBtn.dataset.homeDetailPrev);
-      return;
-    }
-    var nextBtn = e.target.closest('[data-home-detail-next]');
-    if (nextBtn) {
-      if (nextBtn.dataset.homeDetailNext) selectHomeModel_(nextBtn.dataset.homeDetailNext);
-      return;
-    }
-    var ctaBtn = e.target.closest('[data-home-detail-view]');
-    if (ctaBtn) {
-      switchToTab_('inventory');
-      state.homeGradeFilter = null;
-      $('inventoryKeyword').value = ctaBtn.dataset.homeDetailView;
-      loadInventory();
-    }
-  });
 
   /**
    * ホーム上部の、ボディタイプで絞り込むクイックナビ（型の名称を一列に並べた
@@ -3043,7 +2870,17 @@
     var tile = e.target.closest('[data-home-model]');
     if (!tile) return;
     if (isPcHomeLayout_()) {
-      selectHomeModel_(tile.dataset.homeModel);
+      // PCのグレード付きカードは非活性の<div>（グレードチップ以外の部分を
+      // クリックしても何も起きない。data-has-grades="true"は付けているが、
+      // タブレット・スマホ幅のようなその場での展開機能はPCには無いため）。
+      // グレード無しカードのみ<button>で、クリックするとそのモデルに
+      // 絞り込んだ在庫リストへ遷移する。
+      if (tile.dataset.hasGrades !== 'true') {
+        switchToTab_('inventory');
+        state.homeGradeFilter = null;
+        $('inventoryKeyword').value = tile.dataset.homeModel;
+        loadInventory();
+      }
       return;
     }
     if (tile.dataset.hasGrades === 'true') {
@@ -3214,16 +3051,6 @@
     if (topbar) {
       document.documentElement.style.setProperty('--topbar-h', topbar.offsetHeight + 'px');
     }
-    // ホームの結合ヘッダー（#homeCombinedHeader）はPCビューでは通常のフロー要素
-    // として.homeSplitの直前に置かれ、中の型クイックナビの折り返し有無で高さが
-    // 変わりうるため、実測してCSS変数に反映し、.homeSplitの高さ計算
-    // （calc(100vh - ... - var(--home-header-h) - 20px)）に使う。タブレット・
-    // スマホ幅ではdisplay: contentsで自身の箱が無くoffsetHeightは常に0になるが、
-    // その幅では.homeSplitの高さ計算自体が使われないため問題ない。
-    var homeCombinedHeader = $('homeCombinedHeader');
-    if (homeCombinedHeader) {
-      document.documentElement.style.setProperty('--home-header-h', homeCombinedHeader.offsetHeight + 'px');
-    }
     // ホームでモデルタイルを展開した際、scrollIntoView()で「トップバー＋型クイック
     // ナビの下」まで自動スクロールできるよう、両方の固定要素の高さの合計を
     // CSS変数として持っておく（homeModelTileHtml_のscroll-margin-topで使う。
@@ -3246,7 +3073,11 @@
       ['ordersToolbar', 'ordersToolbarSpacer', 16],
       ['purchaseOrdersToolbar', 'purchaseOrdersToolbarSpacer', 16],
       ['gclassToolbar', 'gclassToolbarSpacer', 16],
-      ['homeTypeNav', 'homeTypeNavSpacer', 20]
+      ['homeTypeNav', 'homeTypeNavSpacer', 20],
+      // #homeCombinedHeaderはPCビューでのみposition: fixed（Stylesheet.html参照。
+      // タブレット・スマホ幅ではdisplay: contentsのためoffsetHeightは常に0になり、
+      // このスペーサー自体もCSS側でdisplay: noneのため実害はない）。
+      ['homeCombinedHeader', 'homeCombinedHeaderSpacer', 20]
     ].forEach(function (pair) {
       var toolbar = $(pair[0]);
       var spacer = $(pair[1]);
