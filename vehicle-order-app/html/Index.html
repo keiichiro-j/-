@@ -315,15 +315,17 @@
       </div>
     </main>
 
-    <!-- 発注リスト: 在庫リスト・受注リストのようなHold/受注のステータス管理・通知は
-         持たない、シンプルな登録・編集・削除ができる一覧（現場からの要望で追加）。
+    <!-- 発注リスト: スプレッドシートのデータを閲覧する専用の一覧（現場からの要望で
+         新規登録はアプリ画面から行わない方針になったため、「＋ 新規登録」ボタンは
+         置かない。新規の発注情報はスプレッドシートへ直接追加する運用とし、アプリ
+         画面からは既存行の編集・削除のみできる。在庫リスト・受注リストのような
+         Hold/受注のステータス管理・通知は持たない、シンプルな一覧のまま。
          モデル名・拠点・担当者・顧客は必須、コミッション・リード番号はまだ確定して
          いない段階でも登録できるよう任意項目にしている（PurchaseOrderService.gs参照）。 -->
     <main class="view" id="view-purchaseOrders">
       <div class="toolbar" id="purchaseOrdersToolbar">
         <input type="search" id="purchaseOrdersKeyword" class="input input--search" placeholder="自由検索（モデル・拠点・担当者・顧客・コミッション・リード番号）">
         <div class="toolbar__spacer"></div>
-        <button type="button" class="btn btn--primary" id="btnAddPurchaseOrder">＋ 新規登録</button>
         <span class="toolbar__count" id="purchaseOrdersTotalCount"></span>
       </div>
       <div class="toolbarSpacer" id="purchaseOrdersToolbarSpacer"></div>
@@ -406,6 +408,24 @@
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>表示設定</h2>
             <p class="settingsSection__desc">アプリ全体の配色を、視覚的に確認済みの8種類（着せ替え）から選べます。</p>
             <div class="themePresetGrid" id="themePresetGrid"></div>
+          </div>
+
+          <!-- サイドバーの色（PCビュー901px以上でのみ表示される左の項目タブ）だけは、
+               8種類のプリセットからではなく自由な色（カラーピッカー）で指定できる
+               （--sidebar-bg、Stylesheet.html参照）。他の8プリセットのように
+               あらかじめコントラスト比を確認済みの色に限定していない代わりに、
+               文字色（--sidebar-fg等）を選んだ背景色に応じて白／濃色へ自動的に
+               切り替えることで読みやすさを確保する（pickReadableSidebarTextColor_、
+               JavaScript.html参照）。テーマ同様、ログイン中のGoogleアカウントごとに
+               個別に保存される（管理者限定ではない）。 -->
+          <div class="settingsCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>サイドバーの色（PCビュー）</h2>
+            <p class="settingsSection__desc">PCビュー左端の項目タブ（サイドバー）の背景色を自由に指定できます。文字色は指定した背景色に対して読みやすいほう（白／濃色）へ自動的に切り替わります。</p>
+            <div class="sidebarColorField">
+              <input type="color" id="sidebarColorInput" class="sidebarColorField__input" aria-label="サイドバーの背景色">
+              <span class="sidebarColorField__value" id="sidebarColorValue"></span>
+              <button type="button" class="btn btn--small" id="btnResetSidebarColor">既定のグレーに戻す</button>
+            </div>
           </div>
 
           <!-- システムマスタ: ログイン中のGoogleアカウントがSYSTEM_ADMIN_EMAILS（Constants.gs）に
@@ -655,11 +675,12 @@
     </div>
   </div>
 
-  <!-- 発注リスト: 新規登録・編集モーダル -->
+  <!-- 発注リスト: 編集モーダル（新規登録はアプリ画面からは行わない。上のview-purchaseOrders
+       のコメント参照） -->
   <div class="modal hidden" id="purchaseOrderModal">
     <div class="modal__panel">
       <div class="modal__header">
-        <h2 id="purchaseOrderModalTitle">発注情報の登録</h2>
+        <h2 id="purchaseOrderModalTitle">発注情報の編集</h2>
         <button class="btn--icon" data-close-modal>&times;</button>
       </div>
       <div class="modal__body">
@@ -691,7 +712,7 @@
       </div>
       <div class="modal__footer">
         <button class="btn" data-close-modal>キャンセル</button>
-        <button class="btn btn--primary" id="btnPurchaseOrderSubmit">登録</button>
+        <button class="btn btn--primary" id="btnPurchaseOrderSubmit">保存</button>
       </div>
     </div>
   </div>

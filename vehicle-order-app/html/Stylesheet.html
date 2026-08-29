@@ -76,6 +76,17 @@
        ようにした（現場の要望で、背景は明るいまま一番左のナビだけをグレーにする
        ため）。 */
     --sidebar-bg: #4b5563;
+    /* サイドバーの文字色・薄い罫線・ホバー背景。設定タブでサイドバーの背景色
+       （--sidebar-bg）を自由に指定できるようにしたため（他のダークUIパーツと違い
+       固定のネイビー・白文字前提にできない）、背景色に対して読みやすいほう
+       （白／濃色）をJS側で毎回計算し直す（pickReadableSidebarTextColor_・
+       applySidebarColor_、JavaScript.html参照）。ここでの値は既定のグレー背景
+       （--sidebar-bg初期値）に対する目安値で、JS実行前のレイアウトずれを防ぐ
+       ためのものに過ぎない。 */
+    --sidebar-fg: #ffffff;
+    --sidebar-fg-muted: rgba(255, 255, 255, .68);
+    --sidebar-outline: rgba(255, 255, 255, .14);
+    --sidebar-hover-bg: rgba(255, 255, 255, .08);
     /* トップバーの実高さ。JS（syncFixedBars_）が実測して上書きする。初期値は
        JS実行前のレイアウトずれを防ぐための目安値。 */
     --topbar-h: 108px;
@@ -1188,6 +1199,24 @@
     .themePresetGrid { grid-template-columns: repeat(3, 1fr); }
   }
 
+  /* ===== サイドバーの色（PCビュー左端の項目タブの背景色。自由なカラーピッカー） =====
+     テーマの8プリセットと違い自由入力にしている理由・文字色の自動切り替えは
+     applySidebarColor_（JavaScript.html）参照。ネイティブのinput[type=color]は
+     ブラウザ既定のUI（丸型パッチ／四角のスウォッチ等）をそのまま使い、独自の
+     見た目に作り替えない（クリックすると各OS標準のカラーピッカーが開く）。 */
+  .sidebarColorField { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .sidebarColorField__input {
+    width: 44px; height: 36px; flex: none;
+    padding: 2px;
+    border: 1px solid var(--outline); border-radius: 8px;
+    background: var(--surface);
+    cursor: pointer;
+  }
+  .sidebarColorField__value {
+    font-size: 13px; font-weight: 600; color: var(--on-surface-variant);
+    font-variant-numeric: tabular-nums; text-transform: uppercase;
+  }
+
   /* ===== ロゴ設定 ===== */
   .logoField { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
   .logoPreview {
@@ -1556,11 +1585,12 @@
       width: var(--sidebar-w);
       /* 左の項目タブゾーン。背景は明るいまま一番左のナビだけをグレーにする
          ため、トップバー等と共有の--topbar-bgではなく専用の--sidebar-bgを使う
-         （テーマ設定・カラーテーマの影響を受けない固定のグレー。--on-topbar・
-         --dark-ui-outlineは、白文字・薄い罫線という濃色地向けの調整のため
-         引き続きそのまま使う）。 */
+         （設定タブでユーザーが自由に指定できる。JavaScript.htmlのapplySidebarColor_
+         参照）。文字色・罫線・ホバー背景も--on-topbar・--dark-ui-outlineは使わず、
+         背景色に応じて読みやすいほうへ自動的に切り替わる専用トークン
+         （--sidebar-fg系）を使う。 */
       background: var(--sidebar-bg);
-      border-right: 1px solid var(--dark-ui-outline);
+      border-right: 1px solid var(--sidebar-outline);
       padding: 20px 0;
       z-index: 32;
     }
@@ -1570,14 +1600,14 @@
       gap: 10px;
       padding: 0 20px 18px;
       margin-bottom: 8px;
-      border-bottom: 1px solid var(--dark-ui-outline);
+      border-bottom: 1px solid var(--sidebar-outline);
     }
     .sidebar__logo { height: 28px; width: auto; max-width: 100%; object-fit: contain; }
     .sidebar__brandText {
       font-size: 13.5px;
       font-weight: 700;
       letter-spacing: .06em;
-      color: var(--on-topbar);
+      color: var(--sidebar-fg);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -1600,9 +1630,10 @@
       border: none;
       border-radius: 8px;
       background: none;
-      /* ダークネイビーの地に対して、非選択時は少し抑えた白（.icon・テキスト
-         双方に効くcurrentColor）にする。 */
-      color: rgba(255, 255, 255, .68);
+      /* 選んだサイドバー背景色に対して読みやすいほうの文字色（--sidebar-fg）を
+         少し抑えた濃さ（--sidebar-fg-muted）にする（.icon・テキスト双方に
+         効くcurrentColor）。 */
+      color: var(--sidebar-fg-muted);
       opacity: 1;
       font-size: 13.5px;
       font-weight: 600;
@@ -1613,7 +1644,7 @@
       transition: background-color .15s ease, color .15s ease;
     }
     .sidebarNav__item .icon { flex: none; }
-    .sidebarNav__item:hover { background: rgba(255, 255, 255, .08); color: var(--on-topbar); opacity: 1; }
+    .sidebarNav__item:hover { background: var(--sidebar-hover-bg); color: var(--sidebar-fg); opacity: 1; }
     /* 選択中の項目は、テーマカラーを帯びた明るいピル（--primary-bg/--primary-text）で
        ダークネイビーの地から浮き上がらせる。 */
     .sidebarNav__item.is-active {
@@ -1628,7 +1659,7 @@
       gap: 10px;
       padding: 16px 16px 0;
       margin-top: 8px;
-      border-top: 1px solid var(--dark-ui-outline);
+      border-top: 1px solid var(--sidebar-outline);
     }
     .sidebarUser__avatar {
       flex: none;
@@ -1641,11 +1672,11 @@
     }
     .sidebarUser__info { min-width: 0; font-size: 11.5px; line-height: 1.5; }
     .sidebarUser__info .topbar__userName {
-      display: block; font-weight: 600; font-size: 12.5px; color: var(--on-topbar);
+      display: block; font-weight: 600; font-size: 12.5px; color: var(--sidebar-fg);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .sidebarUser__info .topbar__userEmail {
-      display: block; color: rgba(255, 255, 255, .68); font-size: 11px;
+      display: block; color: var(--sidebar-fg-muted); font-size: 11px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .sidebarUser__info .topbar__userWarn { font-size: 10.5px; padding: 3px 8px; }

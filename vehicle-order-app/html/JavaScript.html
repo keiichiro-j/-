@@ -23,6 +23,7 @@
     notifyOrderMailTo: [], // 設定タブで編集中のメール通知先（受注確定時、作業用コピー）
     notifyErrorMailTo: [], // 設定タブで編集中のメール通知先（システムエラー通知、作業用コピー）
     themeKey: null, // 設定タブで選択中のテーマ（着せ替え）プリセットキー
+    sidebarColor: null, // 設定タブで指定中のサイドバー背景色（#rrggbb。PCビューのみ使用）
     navHistory: [], // 「戻る」ボタン用の画面履歴（タブ名のスタック）
     allInventoryItems: [], // ホーム画面の在庫台数集計専用（ツールバーの検索条件に左右されない全件）
     homeGradeFilter: null, // ホームのグレードタブクリックで設定される、絞り込み対象グレード名の配列
@@ -1768,25 +1769,24 @@
 
   $('purchaseOrdersKeyword').addEventListener('input', debounce(renderPurchaseOrders_, 200));
 
-  // 新規登録時はnull、編集時は対象のid（発注情報を特定するためのアプリ内部の
-  // 一意なID。コミッションは任意項目のため一意性を前提にできない）。
+  // 発注情報を特定するためのアプリ内部の一意なID（コミッションは任意項目のため
+  // 一意性を前提にできない）。新規登録はアプリ画面から行わない方針のため、
+  // 常に編集対象の行のidが入る（上のview-purchaseOrdersのコメント参照）。
   var purchaseOrderEditingId_ = null;
 
   function openPurchaseOrderModal_(po) {
-    purchaseOrderEditingId_ = po ? po.id : null;
-    $('purchaseOrderModalTitle').textContent = po ? '発注情報の編集' : '発注情報の登録';
-    $('purchaseOrderModel').value = po ? po.model : '';
-    $('purchaseOrderSalesLocation').value = po ? po.salesLocation : '';
-    $('purchaseOrderStaff').value = po ? po.staff : '';
-    $('purchaseOrderCustomer').value = po ? po.customer : '';
-    $('purchaseOrderCommission').value = po ? (po.commission || '') : '';
-    $('purchaseOrderLeadNumber').value = po ? (po.leadNumber || '') : '';
+    purchaseOrderEditingId_ = po.id;
+    $('purchaseOrderModalTitle').textContent = '発注情報の編集';
+    $('purchaseOrderModel').value = po.model;
+    $('purchaseOrderSalesLocation').value = po.salesLocation;
+    $('purchaseOrderStaff').value = po.staff;
+    $('purchaseOrderCustomer').value = po.customer;
+    $('purchaseOrderCommission').value = po.commission || '';
+    $('purchaseOrderLeadNumber').value = po.leadNumber || '';
     $('purchaseOrderModalError').classList.add('hidden');
-    $('btnPurchaseOrderSubmit').textContent = po ? '保存' : '登録';
+    $('btnPurchaseOrderSubmit').textContent = '保存';
     openModal($('purchaseOrderModal'));
   }
-
-  $('btnAddPurchaseOrder').addEventListener('click', function () { openPurchaseOrderModal_(null); });
 
   $('purchaseOrdersList').addEventListener('click', function (e) {
     var editBtn = e.target.closest('[data-edit-purchase-order]');
@@ -1825,13 +1825,10 @@
       return;
     }
     setButtonBusy(btn, true, '保存中...');
-    var call = purchaseOrderEditingId_
-      ? gasRun('api_updatePurchaseOrder', purchaseOrderEditingId_, info)
-      : gasRun('api_addPurchaseOrder', info);
-    call.then(function () {
+    gasRun('api_updatePurchaseOrder', purchaseOrderEditingId_, info).then(function () {
       setButtonBusy(btn, false);
       closeModal($('purchaseOrderModal'));
-      showToast(purchaseOrderEditingId_ ? '発注情報を更新しました' : '発注情報を登録しました');
+      showToast('発注情報を更新しました');
       loadPurchaseOrders();
     }).catch(function (err) {
       setButtonBusy(btn, false);
@@ -1970,6 +1967,9 @@
 
     state.themeKey = settings.themeKey;
     renderThemePresets_();
+    state.sidebarColor = settings.sidebarColor;
+    renderSidebarColorSetting_(settings.sidebarColor);
+    applySidebarColor_(settings.sidebarColor);
     $('settingsLogoUrl').value = settings.logoUrl || '';
     state.notifyHoldMailTo = (settings.notifyHoldMailTo || []).slice();
     state.notifyOrderMailTo = (settings.notifyOrderMailTo || []).slice();
@@ -2085,6 +2085,94 @@
     var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '');
     return m ? { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) } : null;
   }
+
+  /**
+   * ===== サイドバーの色（PCビュー左端の項目タブの背景色。自由なカラーピッカー） =====
+   * テーマ（着せ替え）8プリセットとは異なり、あらかじめコントラスト比を確認済みの
+   * 色に限定せず自由な色を選べるようにしている。その代わり、選んだ背景色に対して
+   * 白文字・濃色文字のどちらがより読みやすいか（WCAGの相対輝度からコントラスト比を
+   * 計算し、比率が高いほうを採用）をJS側で毎回自動判定し、サイドバー専用のCSS変数
+   * （--sidebar-fg系、Stylesheet.html参照）に反映する（applySidebarColor_）。
+   * Constants.gsのDEFAULT_SIDEBAR_COLORと同じ値を初期値として持つ。
+   */
+  var DEFAULT_SIDEBAR_COLOR = '#4b5563';
+  // 濃色側の文字色は、白背景に対してWCAG AA基準を満たす--on-surfaceと同じ値にし、
+  // サイドバー以外の文字色（見出し・本文）とトーンを揃える。
+  var SIDEBAR_TEXT_LIGHT = '#ffffff';
+  var SIDEBAR_TEXT_DARK = '#1f2933';
+
+  function isValidHexColor_(value) {
+    return /^#[0-9a-f]{6}$/i.test(value || '');
+  }
+
+  // sRGBの1チャンネル分をWCAGの相対輝度計算用に線形化する。
+  function srgbChannelToLinear_(channel255) {
+    var c = channel255 / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  }
+
+  // WCAG 2.0の相対輝度（0〜1）。
+  function relativeLuminance_(rgb) {
+    return 0.2126 * srgbChannelToLinear_(rgb.r) + 0.7152 * srgbChannelToLinear_(rgb.g) + 0.0722 * srgbChannelToLinear_(rgb.b);
+  }
+
+  // WCAG 2.0のコントラスト比（1〜21）。
+  function contrastRatio_(rgbA, rgbB) {
+    var lumA = relativeLuminance_(rgbA) + 0.05;
+    var lumB = relativeLuminance_(rgbB) + 0.05;
+    return lumA > lumB ? lumA / lumB : lumB / lumA;
+  }
+
+  /**
+   * 背景色（サイドバーの色）に対して、白文字・濃色文字のうちコントラスト比が
+   * 高いほう（＝より読みやすいほう）を返す（純粋関数）。同点の場合は白を優先する。
+   */
+  function pickReadableSidebarTextColor_(bgHex) {
+    var bgRgb = hexToRgb_(bgHex) || hexToRgb_(DEFAULT_SIDEBAR_COLOR);
+    var contrastWithLight = contrastRatio_(bgRgb, hexToRgb_(SIDEBAR_TEXT_LIGHT));
+    var contrastWithDark = contrastRatio_(bgRgb, hexToRgb_(SIDEBAR_TEXT_DARK));
+    return contrastWithDark > contrastWithLight ? SIDEBAR_TEXT_DARK : SIDEBAR_TEXT_LIGHT;
+  }
+
+  /**
+   * サイドバーの背景色・文字色関連のCSS変数を一括で適用する。文字色
+   * （--sidebar-fg）はpickReadableSidebarTextColor_で決めた色そのものを使い、
+   * 非選択ナビ項目の抑えた文字色・薄い罫線・ホバー背景（--sidebar-fg-muted /
+   * --sidebar-outline / --sidebar-hover-bg）は、その文字色を異なる不透明度で
+   * 重ねたrgba()として派生させる（白文字が選ばれれば白系の薄い重ね、濃色文字が
+   * 選ばれれば濃色系の薄い重ねになり、どちらの背景色でも馴染む）。
+   */
+  function applySidebarColor_(hex) {
+    var color = isValidHexColor_(hex) ? hex : DEFAULT_SIDEBAR_COLOR;
+    var root = document.documentElement.style;
+    root.setProperty('--sidebar-bg', color);
+    var fg = pickReadableSidebarTextColor_(color);
+    var fgRgb = hexToRgb_(fg);
+    root.setProperty('--sidebar-fg', fg);
+    root.setProperty('--sidebar-fg-muted', 'rgba(' + fgRgb.r + ',' + fgRgb.g + ',' + fgRgb.b + ',.68)');
+    root.setProperty('--sidebar-outline', 'rgba(' + fgRgb.r + ',' + fgRgb.g + ',' + fgRgb.b + ',.14)');
+    root.setProperty('--sidebar-hover-bg', 'rgba(' + fgRgb.r + ',' + fgRgb.g + ',' + fgRgb.b + ',.08)');
+  }
+
+  function renderSidebarColorSetting_(hex) {
+    var color = isValidHexColor_(hex) ? hex : DEFAULT_SIDEBAR_COLOR;
+    $('sidebarColorInput').value = color;
+    $('sidebarColorValue').textContent = color.toUpperCase();
+  }
+
+  // 入力（ドラッグ中含む）のたびにリアルタイムでプレビュー反映する。保存するまでは
+  // 他の設定項目（テーマ等）と同じく「保存」ボタンを押すまでサーバーには残らない。
+  $('sidebarColorInput').addEventListener('input', function () {
+    state.sidebarColor = this.value;
+    $('sidebarColorValue').textContent = this.value.toUpperCase();
+    applySidebarColor_(state.sidebarColor);
+  });
+
+  $('btnResetSidebarColor').addEventListener('click', function () {
+    state.sidebarColor = DEFAULT_SIDEBAR_COLOR;
+    renderSidebarColorSetting_(state.sidebarColor);
+    applySidebarColor_(state.sidebarColor);
+  });
 
   // ----- ロゴ設定（画面上部に表示する画像。URLを直接指定するか、小さい画像を
   //       アップロードしてdata URLとして保存する。サーバー側の上限と合わせている） -----
@@ -3005,6 +3093,7 @@
 
     var settings = {
       themeKey: state.themeKey || DEFAULT_THEME_KEY,
+      sidebarColor: isValidHexColor_(state.sidebarColor) ? state.sidebarColor : DEFAULT_SIDEBAR_COLOR,
       logoUrl: $('settingsLogoUrl').value.trim(),
       notifyHoldMailTo: cleanedMailLists.notifyHoldMailTo,
       notifyOrderMailTo: cleanedMailLists.notifyOrderMailTo,

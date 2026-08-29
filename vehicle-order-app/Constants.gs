@@ -292,14 +292,15 @@ function purchaseOrderColIndex1(key) {
 }
 
 // ===== 設定機能のプロパティキー =====
-// THEME_KEYのみ、ログイン中のGoogleアカウントごとに独立して保存したいため
-// PropertiesService.getUserProperties()（アカウント単位）に、それ以外
-// （ロゴ・メール通知先・担当者マスタ・モデル写真）は全利用者共通の
+// THEME_KEY・SIDEBAR_COLORのみ、ログイン中のGoogleアカウントごとに独立して
+// 保存したいためPropertiesService.getUserProperties()（アカウント単位）に、
+// それ以外（ロゴ・メール通知先・担当者マスタ・モデル写真）は全利用者共通の
 // システムマスタとしてPropertiesService.getScriptProperties()（スクリプト単位）
 // に保存する（SettingsService.gs参照）。保存先のストアが異なるだけで、
 // キー名（文字列）自体は同じ命名で問題ない。
 var PROP_KEYS = {
   THEME_KEY: 'THEME_KEY',
+  SIDEBAR_COLOR: 'SIDEBAR_COLOR',
   LOGO_URL: 'LOGO_URL',
   NOTIFY_HOLD_MAIL_TO: 'NOTIFY_HOLD_MAIL_TO',
   NOTIFY_ORDER_MAIL_TO: 'NOTIFY_ORDER_MAIL_TO',
@@ -354,6 +355,17 @@ var THEME_PRESETS = [
 ];
 
 var DEFAULT_THEME_KEY = 'steel';
+
+/**
+ * PCビュー左端のサイドバー（項目タブ）の背景色の既定値。THEME_PRESETSと違い、
+ * 設定タブでユーザーが自由な色（カラーピッカー）を指定できる（保存値は
+ * normalizeSidebarColor_で#rrggbb形式のみを許可し、それ以外はこの既定値に
+ * フォールバックする。SettingsService.gs参照）。読みやすい文字色（白／濃色）は
+ * 選んだ背景色に応じてJS側（JavaScript.htmlのpickReadableSidebarTextColor_）が
+ * 自動的に判定するため、あらかじめコントラスト比を確認済みの色に限定する必要は
+ * ない。
+ */
+var DEFAULT_SIDEBAR_COLOR = '#4b5563';
 
 // 設定タブの「システムマスタ」（メール通知設定・担当者）にアクセスできる
 // Googleアカウントのメールアドレス一覧（大文字小文字は区別しない）。
