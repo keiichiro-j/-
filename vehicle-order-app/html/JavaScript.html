@@ -102,26 +102,29 @@
     order: ['おめでとうございます。', '受注リスト、マイページへ情報を反映しました。']
   };
 
-  // 各アクション×バリエーション（A/B/C）の絵柄。emojisは表示する絵文字、
-  // motionはどのアニメーション方式で動かすか（spawnCelebrationMotion_参照）。
+  // 各アクション×バリエーション（A/B/C）の絵柄。絵文字はフォント・OS
+  // （機種依存文字）によって見た目の再現性が低いため使わず、色付きのCSS
+  // 図形（丸・四角・リボン・星＝shapes）とアニメーション方式（motion）の
+  // 組み合わせのみで演出する（spawnParticleWave_・spawnParticleBurst_・
+  // spawnLoader_参照）。
   var CELEBRATION_CONTENT = {
     hold: {
-      A: { emojis: ['📣', '💪', '🔥'], motion: 'rise' }, // エール
-      B: { emojis: ['🚩', '🙌', '👏'], motion: 'fall' }, // 応援フラッグ
-      C: { emojis: ['💪', '🙌', '😤'], motion: 'burst' }, // ガッツポーズ
-      D: { emojis: ['📣', '💪', '🔥', '🙌', '👏'], motion: 'mega' } // 全力エール
+      A: { shapes: ['circle', 'star'], motion: 'rise' }, // エール
+      B: { shapes: ['ribbon', 'square'], motion: 'fall' }, // 応援フラッグ
+      C: { shapes: ['square', 'star'], motion: 'burst' }, // ガッツポーズ
+      D: { shapes: ['star', 'circle', 'square', 'ribbon'], motion: 'mega' } // 全力エール
     },
     secondHold: {
-      A: { emojis: ['⏳'], motion: 'spin' }, // 砂時計
-      B: { emojis: ['☕'], motion: 'bob' }, // コーヒーブレイク
-      C: { emojis: ['🙏'], motion: 'bob' }, // 少々お待ちを
-      D: { emojis: ['⏳', '🙏', '✨', '💪'], motion: 'mega' } // 大歓声で応援
+      A: { motion: 'ring' }, // 砂時計
+      B: { motion: 'dots' }, // コーヒーブレイク
+      C: { motion: 'pulse' }, // 少々お待ちを
+      D: { shapes: ['star', 'circle', 'square', 'ribbon'], motion: 'mega' } // 大歓声で応援
     },
     order: {
-      A: { emojis: ['🎉', '🎊'], motion: 'confettiBalloon' }, // 紙吹雪＋風船（既定）
-      B: { emojis: ['🎆', '✨'], motion: 'burst' }, // 花火
-      C: { emojis: ['🥳', '🎉', '✨'], motion: 'fall' }, // 祝福シャワー
-      D: { emojis: ['🎉', '🎊', '🥳', '🎆', '✨'], motion: 'mega' } // 祝賀フィナーレ
+      A: { shapes: ['circle', 'ribbon'], motion: 'confettiBalloon' }, // 紙吹雪＋浮遊する丸（既定）
+      B: { shapes: ['star', 'circle'], motion: 'burst' }, // 花火
+      C: { shapes: ['square', 'circle', 'ribbon'], motion: 'fall' }, // 祝福シャワー
+      D: { shapes: ['star', 'circle', 'square', 'ribbon'], motion: 'mega' } // 祝賀フィナーレ
     }
   };
 
@@ -155,35 +158,43 @@
     showCelebrationBanner_._t = setTimeout(function () {
       el.classList.remove('is-active');
       setTimeout(function () { el.classList.add('hidden'); }, 400);
-    }, 3600);
+    }, 5000);
   }
 
   function playCelebrationMotion_(content) {
     switch (content.motion) {
-      case 'rise': spawnCelebrationEmojiWave_(content.emojis, 'rise', 26); break;
-      case 'fall': spawnCelebrationEmojiWave_(content.emojis, 'fall', 26); break;
-      case 'burst': spawnCelebrationBurst_(content.emojis, 22); break;
-      case 'spin': spawnCelebrationIcon_(content.emojis[0], 'spin'); break;
-      case 'bob': spawnCelebrationIcon_(content.emojis[0], 'bob'); break;
-      case 'confettiBalloon': triggerConfetti_(); spawnCelebrationEmojiWave_(['🎈'], 'rise', 14); break;
-      case 'mega': triggerMegaCelebration_(content.emojis); break;
+      case 'rise': spawnParticleWave_(content.shapes, 'rise', 26); break;
+      case 'fall': spawnParticleWave_(content.shapes, 'fall', 26); break;
+      case 'burst': spawnParticleBurst_(content.shapes, 22); break;
+      case 'ring': spawnLoader_('ring'); break;
+      case 'dots': spawnLoader_('dots'); break;
+      case 'pulse': spawnLoader_('pulse'); break;
+      case 'confettiBalloon': triggerConfetti_(); spawnParticleWave_(content.shapes, 'rise', 14); break;
+      case 'mega': triggerMegaCelebration_(content.shapes); break;
       default: break;
     }
   }
 
+  function randomCelebColor_() {
+    return CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
+  }
+
   /**
-   * 画面下（rise）または画面上（fall）から、指定した絵文字をランダムな横位置・
+   * 画面下（rise）または画面上（fall）から、指定した図形をランダムな横位置・
    * ランダムな揺れ・回転で漂わせる（cheer演出・風船・祝福シャワー共通のエンジン）。
    */
-  function spawnCelebrationEmojiWave_(emojis, direction, count) {
+  function spawnParticleWave_(shapes, direction, count) {
     var layer = $('celebrationLayer');
     var pieces = [];
     for (var i = 0; i < count; i++) {
+      var shape = shapes[Math.floor(Math.random() * shapes.length)];
       var el = document.createElement('span');
-      el.className = 'celebEmoji celebEmoji--' + direction;
-      el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+      el.className = 'celebParticle celebParticle--' + shape + ' celebParticle--' + direction;
       el.style.left = (Math.random() * 94 + 2) + 'vw';
-      el.style.fontSize = (24 + Math.random() * 20) + 'px';
+      var size = 14 + Math.random() * 16;
+      el.style.width = size + 'px';
+      el.style.height = size + 'px';
+      el.style.background = randomCelebColor_();
       el.style.setProperty('--drift', (Math.random() * 160 - 80) + 'px');
       el.style.setProperty('--rot', (Math.random() * 60 - 30) + 'deg');
       el.style.animationDuration = (2.4 + Math.random() * 1.8) + 's';
@@ -197,18 +208,21 @@
   /**
    * 画面中央から放射状に飛び散らせる（ガッツポーズ・花火演出用）。
    */
-  function spawnCelebrationBurst_(emojis, count) {
+  function spawnParticleBurst_(shapes, count) {
     var layer = $('celebrationLayer');
     var pieces = [];
     for (var i = 0; i < count; i++) {
+      var shape = shapes[Math.floor(Math.random() * shapes.length)];
       var el = document.createElement('span');
-      el.className = 'celebEmoji celebEmoji--burst';
-      el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+      el.className = 'celebParticle celebParticle--' + shape + ' celebParticle--burst';
       var angle = (i / count) * Math.PI * 2 + Math.random() * .4;
       var dist = 140 + Math.random() * 160;
       el.style.setProperty('--tx', (Math.cos(angle) * dist) + 'px');
       el.style.setProperty('--ty', (Math.sin(angle) * dist) + 'px');
-      el.style.fontSize = (26 + Math.random() * 18) + 'px';
+      var size = 14 + Math.random() * 14;
+      el.style.width = size + 'px';
+      el.style.height = size + 'px';
+      el.style.background = randomCelebColor_();
       el.style.animationDelay = (Math.random() * .25) + 's';
       layer.appendChild(el);
       pieces.push(el);
@@ -217,16 +231,21 @@
   }
 
   /**
-   * 画面中央に大きなアイコン1つを表示し、spin（回転）またはbob（上下に揺れる）
-   * アニメーションを付ける（2nd Hold「お待ちください」系の演出用）。
+   * 画面中央にCSSで描いたローダーを表示する（2nd Hold「お待ちください」系の
+   * 演出用）。kindは'ring'（回転するリング）・'dots'（弾む3つのドット）・
+   * 'pulse'（広がるソナー状の円）・'mega'（発光する巨大な星、バリエーションD用）。
    */
-  function spawnCelebrationIcon_(emoji, motion) {
+  function spawnLoader_(kind) {
     var layer = $('celebrationLayer');
-    var el = document.createElement('span');
-    el.className = 'celebIcon celebIcon--' + motion;
-    el.textContent = emoji;
-    layer.appendChild(el);
-    setTimeout(function () { el.remove(); }, 2600);
+    var wrap = document.createElement('div');
+    wrap.className = 'celebLoader';
+    if (kind === 'dots') {
+      wrap.innerHTML = '<div class="celebLoader--dots"><span></span><span></span><span></span></div>';
+    } else {
+      wrap.innerHTML = '<div class="celebLoader--' + kind + '"></div>';
+    }
+    layer.appendChild(wrap);
+    setTimeout(function () { wrap.remove(); }, kind === 'mega' ? 1900 : 2600);
   }
 
   var CONFETTI_COLORS = ['#1a73e8', '#34a853', '#fbbc05', '#ea4335', '#a142f4', '#00bcd4'];
@@ -283,15 +302,15 @@
    * させることで、クライアント側のCSS/JSアニメーションのみで完結するこのアプリ
    * （GASのWebアプリ）で実現できる最大級の派手さにしている。
    */
-  function triggerMegaCelebration_(emojis) {
+  function triggerMegaCelebration_(shapes) {
     shakeScreen_();
     triggerConfetti_();
-    spawnCelebrationBurst_(emojis, 40);
-    setTimeout(function () { spawnCelebrationBurst_(emojis, 36); }, 320);
-    setTimeout(function () { spawnCelebrationBurst_(emojis, 32); }, 640);
-    spawnCelebrationEmojiWave_(emojis, 'rise', 36);
-    setTimeout(function () { spawnCelebrationEmojiWave_(emojis, 'fall', 24); }, 200);
-    spawnMegaIcon_(emojis[0]);
+    spawnParticleBurst_(shapes, 40);
+    setTimeout(function () { spawnParticleBurst_(shapes, 36); }, 320);
+    setTimeout(function () { spawnParticleBurst_(shapes, 32); }, 640);
+    spawnParticleWave_(shapes, 'rise', 36);
+    setTimeout(function () { spawnParticleWave_(shapes, 'fall', 24); }, 200);
+    spawnLoader_('mega');
   }
 
   /**
@@ -310,21 +329,6 @@
     void stage.offsetWidth;
     stage.classList.add('is-shaking');
     setTimeout(function () { stage.classList.remove('is-shaking'); }, 650);
-  }
-
-  /**
-   * 画面中央に、既存のcelebIcon（spin/bob、96px）より一回り大きい巨大アイコン
-   * （140px）を表示し、拡大・回転・発光しながら消えるアニメーションを付ける
-   * （バリエーションDの目玉演出。spawnCelebrationIcon_と同じ仕組みだが専用の
-   * 見た目にしている）。
-   */
-  function spawnMegaIcon_(emoji) {
-    var layer = $('celebrationLayer');
-    var el = document.createElement('span');
-    el.className = 'celebIcon celebIcon--mega';
-    el.textContent = emoji;
-    layer.appendChild(el);
-    setTimeout(function () { el.remove(); }, 1900);
   }
 
   function fillOptions(select, options, includeBlank) {
