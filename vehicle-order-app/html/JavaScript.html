@@ -91,34 +91,21 @@
   }
 
   // ===== Hold登録・2nd Hold登録・受注確定 完了時の演出 =====
-  // いずれも固定の案内メッセージ（バナー）は表示するが、「絵柄のアクション」
-  // （視覚的な演出）はアクションごとに扱いが異なる（現場からの要望）。
-  // - Hold登録: 演出を一旦無しにする（見直し中）。
-  // - 2nd Hold登録: 管理者が設定タブから4種類（A〜D）を選べる（CELEBRATION_CONTENT）。
-  //   バリエーションの選択状態はサーバー側の設定（state.bootstrap.settings.
-  //   celebrationVariants、SettingsService.gsのCELEBRATION_VARIANTS）から読む。
-  // - 受注確定: triggerRandomBursts_（ランダムな位置・タイミングでの複数
-  //   バースト）に固定する。
-  // メッセージ自体はどのバリエーションを選んでも変わらない（CELEBRATION_MESSAGES）。
+  // いずれも固定の案内メッセージ（バナー、5秒間表示）と、文言にふさわしい
+  // 専用のド派手な演出をセットで表示する（現場からの要望）。絵文字は機種依存
+  // で見た目の再現性が低いため使わず、色付きのCSS図形・発光・ウェーブ等の
+  // アニメーションのみで演出する（GAS/HTML Serviceのみで完結する）。
+  // アクションごとに演出の中身は固定（設定タブでの選択式ではない）。
+  // - Hold登録: 中央フラッシュ＋発光する衝撃波＋左右2箇所からの打ち上げ
+  //   バースト（triggerHoldCelebration_）。
+  // - 2nd Hold登録: 画面中央で脈動する発光エネルギーコア＋立ち上る火花
+  //   （triggerSecondHoldCelebration_）。
+  // - 受注確定: 左右両半分から画面いっぱいに降らせる紙吹雪＋ランダムな
+  //   位置・タイミングでの複数バースト（triggerOrderCelebration_）。
   var CELEBRATION_MESSAGES = {
-    hold: ['頑張ってね', '1ST HOLDします。', 'HOLD状況はマイページから確認できます。'],
-    secondHold: ['もう少し待ってね', '2ND HOLDします。', 'HOLD状況はマイページから確認できます。'],
-    order: ['おめでとうございます。', '受注リスト、マイページへ情報を反映しました。']
-  };
-
-  // secondHold（2nd Hold「お待ちください」系）のみ、管理者が設定タブから
-  // 選べる4種類の演出を持つ（絵文字は機種依存で再現性が低いため使わず、
-  // CSSローダー・図形のみで演出する）。Hold登録は演出を一旦無しにし
-  // （現場からの要望を受けて見直し中）、受注確定はtriggerRandomBursts_
-  // （ランダムな位置・タイミングでの複数バースト）に固定したため、
-  // どちらもここには持たない（showCelebration_参照）。
-  var CELEBRATION_CONTENT = {
-    secondHold: {
-      A: { motion: 'ring' }, // 砂時計
-      B: { motion: 'dots' }, // コーヒーブレイク
-      C: { motion: 'pulse' }, // 少々お待ちを
-      D: { shapes: ['star', 'circle', 'square', 'ribbon'], motion: 'mega' } // 大歓声で応援
-    }
+    hold: ['1ST HOLD しました！', '頑張ってください！', 'HOLD内容はマイページで確認できます'],
+    secondHold: ['2ND HOLD しました！', 'もう少し待ってください', 'HOLD内容はマイページで確認できます'],
+    order: ['おめでとうございます！', '受注内容はマイページで確認できます']
   };
 
   /**
@@ -131,16 +118,9 @@
     var messageLines = CELEBRATION_MESSAGES[key];
     if (!messageLines) return;
     showCelebrationBanner_(messageLines);
-    // Hold登録時は演出（絵柄のアクション）を一旦無しにする（現場からの要望を
-    // 受けて見直し中）。案内メッセージのバナーだけは従来どおり表示する。
-    if (key === 'hold') return;
-    // 受注確定時は画面中央からの単発バーストではなく、ランダムな位置・
-    // タイミングで複数回バーストする演出に固定する（現場からの要望）。
-    if (key === 'order') { triggerRandomBursts_(); return; }
-    var variants = (state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.celebrationVariants) || {};
-    var variantKey = variants[key] || 'A';
-    var content = (CELEBRATION_CONTENT[key] && CELEBRATION_CONTENT[key][variantKey]) || CELEBRATION_CONTENT[key].A;
-    playCelebrationMotion_(content);
+    if (key === 'hold') triggerHoldCelebration_();
+    else if (key === 'secondHold') triggerSecondHoldCelebration_();
+    else if (key === 'order') triggerOrderCelebration_();
   }
 
   function showCelebrationBanner_(lines) {
@@ -160,14 +140,83 @@
     }, 5000);
   }
 
-  function playCelebrationMotion_(content) {
-    switch (content.motion) {
-      case 'ring': spawnLoader_('ring'); break;
-      case 'dots': spawnLoader_('dots'); break;
-      case 'pulse': spawnLoader_('pulse'); break;
-      case 'mega': triggerMegaCelebration_(content.shapes); break;
-      default: break;
-    }
+  /**
+   * Hold登録の演出。中央での閃光→発光する衝撃波（2回）→画面下の左右2箇所
+   * から打ち上がるバースト→立ち上る火花の余韻、という4段構成にすることで、
+   * 「1ST HOLDしました！頑張ってください！」という景気の良い文言にふさわしい
+   * 打ち上げ花火のような演出にしている。
+   */
+  function triggerHoldCelebration_() {
+    flashScreen_();
+    spawnShockwave_();
+    setTimeout(spawnShockwave_, 180);
+    var shapes = ['star', 'circle', 'ribbon'];
+    [24, 76].forEach(function (x, i) {
+      setTimeout(function () { spawnParticleBurst_(shapes, 26, x, 62); }, i * 140);
+    });
+    spawnParticleWave_(shapes, 'rise', 30);
+  }
+
+  /**
+   * 2nd Hold登録の演出。「もう少し待ってください」という文言に合わせ、
+   * 単純なローディングスピナーではなく、画面中央で脈動する発光エネルギー
+   * コア（回転するリング＋光る球＋広がるリップル、spawnEnergyCore_）が力を
+   * 蓄えているような、期待感のある演出にしている。
+   */
+  function triggerSecondHoldCelebration_() {
+    spawnEnergyCore_();
+    spawnParticleWave_(['star', 'circle'], 'rise', 18);
+  }
+
+  /**
+   * 受注確定の演出。「おめでとうございます！」にふさわしく、紙吹雪を画面の
+   * 左右両半分からこれまでより多く・長く降らせて画面いっぱいを埋め尽くし
+   * （triggerWideConfetti_）、さらに画面内のランダムな位置・タイミングで
+   * 複数回バーストする演出（triggerRandomBursts_）を重ね掛けする
+   * （現場からの要望）。
+   */
+  function triggerOrderCelebration_() {
+    triggerWideConfetti_();
+    triggerRandomBursts_();
+  }
+
+  /**
+   * 中央を一瞬だけ明るく光らせる「閃光」。Hold登録の演出の起点として使う。
+   */
+  function flashScreen_() {
+    var layer = $('celebrationLayer');
+    var el = document.createElement('div');
+    el.className = 'celebFlash';
+    layer.appendChild(el);
+    setTimeout(function () { el.remove(); }, 650);
+  }
+
+  /**
+   * 画面中央から発光しながら拡大して消えるリング（衝撃波）を1つ生成する。
+   */
+  function spawnShockwave_() {
+    var layer = $('celebrationLayer');
+    var el = document.createElement('div');
+    el.className = 'celebShockwave';
+    layer.appendChild(el);
+    setTimeout(function () { el.remove(); }, 1200);
+  }
+
+  /**
+   * 画面中央に、回転するリング・脈動する光る球・広がるリップルを重ねた
+   * 発光エネルギーコアを表示する（2nd Hold「お待ちください」系の演出用）。
+   */
+  function spawnEnergyCore_() {
+    var layer = $('celebrationLayer');
+    var wrap = document.createElement('div');
+    wrap.className = 'celebEnergyCore';
+    wrap.innerHTML =
+      '<div class="celebEnergyCore__ripple"></div>' +
+      '<div class="celebEnergyCore__ripple celebEnergyCore__ripple--delay"></div>' +
+      '<div class="celebEnergyCore__ring"></div>' +
+      '<div class="celebEnergyCore__orb"></div>';
+    layer.appendChild(wrap);
+    setTimeout(function () { wrap.remove(); }, 2600);
   }
 
   function randomCelebColor_() {
@@ -176,7 +225,8 @@
 
   /**
    * 画面下（rise）または画面上（fall）から、指定した図形をランダムな横位置・
-   * ランダムな揺れ・回転で漂わせる（cheer演出・風船・祝福シャワー共通のエンジン）。
+   * ランダムな揺れ・回転で漂わせる（Hold登録の火花の余韻・2nd Holdの演出の
+   * エンジン）。
    */
   function spawnParticleWave_(shapes, direction, count) {
     var layer = $('celebrationLayer');
@@ -201,8 +251,8 @@
   }
 
   /**
-   * 指定した位置（省略時は画面中央）から放射状に飛び散らせる（ガッツポーズ・
-   * 花火・受注確定のランダムバースト演出用）。
+   * 指定した位置（省略時は画面中央）から放射状に飛び散らせる（Hold登録の
+   * 打ち上げバースト・受注確定のランダムバースト演出用）。
    * @param {number} [originLeftVw] バーストの中心位置（横、vw）。省略時はCSS既定の50%（画面中央）。
    * @param {number} [originTopVh] バーストの中心位置（縦、vh）。省略時はCSS既定の50%（画面中央）。
    */
@@ -228,24 +278,6 @@
       pieces.push(el);
     }
     setTimeout(function () { pieces.forEach(function (el) { el.remove(); }); }, 2200);
-  }
-
-  /**
-   * 画面中央にCSSで描いたローダーを表示する（2nd Hold「お待ちください」系の
-   * 演出用）。kindは'ring'（回転するリング）・'dots'（弾む3つのドット）・
-   * 'pulse'（広がるソナー状の円）・'mega'（発光する巨大な星、バリエーションD用）。
-   */
-  function spawnLoader_(kind) {
-    var layer = $('celebrationLayer');
-    var wrap = document.createElement('div');
-    wrap.className = 'celebLoader';
-    if (kind === 'dots') {
-      wrap.innerHTML = '<div class="celebLoader--dots"><span></span><span></span><span></span></div>';
-    } else {
-      wrap.innerHTML = '<div class="celebLoader--' + kind + '"></div>';
-    }
-    layer.appendChild(wrap);
-    setTimeout(function () { wrap.remove(); }, kind === 'mega' ? 1900 : 2600);
   }
 
   var CONFETTI_COLORS = ['#1a73e8', '#34a853', '#fbbc05', '#ea4335', '#a142f4', '#00bcd4'];
@@ -276,21 +308,25 @@
     }
   }
 
-  // ド派手に：紙吹雪を3波に分けて、画面の左右両端から降らせる（現場からの要望
-  // 「左右からの紙吹雪」。受注確定の既定演出＝バリエーションA）。
-  function triggerConfetti_() {
+  /**
+   * 受注確定の紙吹雪。画面を左右2つの半分に分け、それぞれから4波に分けて
+   * 降らせることで、端だけでなく画面いっぱいに紙吹雪が舞う見た目にする
+   * （「受注確定はより紙吹雪を左右から画面いっぱいに」という要望に対応）。
+   */
+  function triggerWideConfetti_() {
     var layer = $('confettiLayer');
     layer.classList.add('is-flashing');
     var pieces = [];
-    [[0, 22], [78, 100]].forEach(function (range) {
-      spawnConfettiBatch_(layer, pieces, 130, range[0], range[1]);
-      setTimeout(function () { spawnConfettiBatch_(layer, pieces, 110, range[0], range[1]); }, 250);
-      setTimeout(function () { spawnConfettiBatch_(layer, pieces, 80, range[0], range[1]); }, 550);
+    [[0, 50], [50, 100]].forEach(function (range) {
+      spawnConfettiBatch_(layer, pieces, 140, range[0], range[1]);
+      setTimeout(function () { spawnConfettiBatch_(layer, pieces, 120, range[0], range[1]); }, 220);
+      setTimeout(function () { spawnConfettiBatch_(layer, pieces, 100, range[0], range[1]); }, 460);
+      setTimeout(function () { spawnConfettiBatch_(layer, pieces, 70, range[0], range[1]); }, 720);
     });
     setTimeout(function () { layer.classList.remove('is-flashing'); }, 700);
     setTimeout(function () {
       pieces.forEach(function (el) { el.remove(); });
-    }, 5800);
+    }, 6400);
   }
 
   /**
@@ -312,45 +348,6 @@
         }, delay);
       })();
     }
-  }
-
-  /**
-   * 演出バリエーション「D」（GASで実現可能な最も派手な演出）専用のモーション。
-   * 現在は2nd Hold登録でのみ選択できる（Hold登録は演出なし、受注確定は
-   * triggerRandomBursts_固定のため、CELEBRATION_CONTENTを持たない）。
-   * 「演出が弱い」という現場の声を受け、既存の演出パーツ（画面フラッシュ＋左右からの
-   * 紙吹雪＝triggerConfetti_、中央からの放射状バースト、画面端からの上昇ウェーブ、
-   * 巨大アイコン、画面揺れ）を1回にすべて重ね掛けし、バーストを3波に分けて連続発生
-   * させることで、クライアント側のCSS/JSアニメーションのみで完結するこのアプリ
-   * （GASのWebアプリ）で実現できる最大級の派手さにしている。
-   */
-  function triggerMegaCelebration_(shapes) {
-    shakeScreen_();
-    triggerConfetti_();
-    spawnParticleBurst_(shapes, 40);
-    setTimeout(function () { spawnParticleBurst_(shapes, 36); }, 320);
-    setTimeout(function () { spawnParticleBurst_(shapes, 32); }, 640);
-    spawnParticleWave_(shapes, 'rise', 36);
-    setTimeout(function () { spawnParticleWave_(shapes, 'fall', 24); }, 200);
-    spawnLoader_('mega');
-  }
-
-  /**
-   * #celebrationShakeStage（Index.html。confettiLayer・celebrationLayer・
-   * celebrationBannerをまとめたラッパー）に一瞬だけtransformを与え、画面を大きく
-   * 揺らす。このラッパーにtransformが付いている間だけ、中の3つのposition: fixed
-   * 要素の基準がこのラッパー自身になる（CSSの仕様上の挙動）ため、揺れる範囲を
-   * 演出レイヤーだけに限定でき、サイドバー・トップバー・モーダル等ページ全体の
-   * position: fixed要素を巻き込まずに済む。連続してDバリエーションの演出が
-   * 発生した場合でもアニメーションを必ず最初から再生させるため、showCelebrationBanner_
-   * と同様に一度クラスを外して強制リフローしてから付け直す。
-   */
-  function shakeScreen_() {
-    var stage = $('celebrationShakeStage');
-    stage.classList.remove('is-shaking');
-    void stage.offsetWidth;
-    stage.classList.add('is-shaking');
-    setTimeout(function () { stage.classList.remove('is-shaking'); }, 650);
   }
 
   function fillOptions(select, options, includeBlank) {

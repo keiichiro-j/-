@@ -515,10 +515,10 @@
             <button class="btn" id="btnAddStaff" type="button">＋ 担当者を追加</button>
           </div>
 
-          <!-- Hold登録・2nd Hold登録・受注確定 完了時の演出（絵柄のアクション）。
-               メッセージ自体は固定で、絵柄のバリエーション（3種類ずつ）だけを選べる
-               （showCelebration_、JavaScript.htmlのCELEBRATION_CONTENT参照）。
-               ロゴ・モデル写真と同様、全利用者の画面に影響する設定のため管理者限定にする。 -->
+          <!-- 現在は使われていない設定項目: Hold登録・2nd Hold登録・受注確定は
+               それぞれ専用の固定演出（showCelebration_、JavaScript.html参照）に
+               なっており、ここで選んだ値は反映されない。過去の「絵柄のバリエーション
+               選択式」の名残。 -->
           <div class="settingsCard hidden" id="systemMasterCelebrationCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>Hold・受注確定の演出</h2>
             <p class="settingsSection__desc">Hold登録・2ND HOLD登録・受注確定が完了したときに表示する「絵柄のアクション」を選べます（案内メッセージ自体は固定です）。</p>
@@ -741,12 +741,9 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <!-- 演出バリエーション「D」（GASで実現可能な最も派手な演出）用に、この3つの演出レイヤーを
-       まとめて短時間だけ揺らす（shakeScreen_、JavaScript.html参照）ための土台。この
-       ラッパー自体にtransformを付けたときだけ、中の3つのposition: fixed要素の基準が
-       このラッパーになる（CSSの仕様上の挙動）ため、揺れる範囲を演出レイヤーだけに
-       限定でき、サイドバー・トップバー・モーダル等ページ全体のposition: fixed要素を
-       巻き込まずに済む。 -->
+  <!-- 受注確定・Hold登録・2nd Hold登録の演出レイヤー（confettiLayer・
+       celebrationLayer・celebrationBanner）をまとめるラッパー。現在は
+       単なるグルーピング用で、このラッパー自体に演出上の効果はない。 -->
   <div id="celebrationShakeStage">
     <!-- 受注確定時の紙吹雪演出（文字・カードなし。confettiLayerに紙吹雪だけを降らせる） -->
     <div class="confettiLayer" id="confettiLayer"></div>

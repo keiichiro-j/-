@@ -2127,11 +2127,11 @@
 
   /* ===== Hold登録・2nd Hold登録・受注確定 完了時の演出 =====
      showCelebration_（JavaScript.html）が、固定の案内メッセージ（.celebrationBanner）と
-     管理者が選んだアクション（.celebrationLayerにCSSで描いた図形パーツ・ローダーを
-     生成）を組み合わせて表示する。絵文字はフォント・OSによって見た目が大きく
-     異なる（機種依存文字の再現性が低い）ため使わず、色付きの図形（丸・四角・
-     リボン・星）とCSSアニメーションのみで演出する（GAS/HTML Serviceのみで
-     完結する）。 */
+     アクションごとに専用のド派手な演出（.celebrationLayerにCSSで描いた図形
+     パーツ・発光エフェクトを生成）を組み合わせて表示する。絵文字はフォント・
+     OSによって見た目が大きく異なる（機種依存文字の再現性が低い）ため使わず、
+     色付きの図形（丸・四角・リボン・星）と発光・拡大・回転などのCSS
+     アニメーションのみで演出する（GAS/HTML Serviceのみで完結する）。 */
   .celebrationLayer { position: fixed; inset: 0; z-index: 311; overflow: hidden; pointer-events: none; }
   .celebParticle {
     position: absolute;
@@ -2169,100 +2169,96 @@
     0% { transform: translate(-50%, -50%) scale(.4); opacity: 1; }
     100% { transform: translate(calc(-50% + var(--tx, 0)), calc(-50% + var(--ty, 0))) scale(1); opacity: 0; }
   }
-  /* 2nd Hold「お待ちください」系の演出: 画面中央にCSSで描いたローダーを表示する
-     （砂時計＝リング型スピナー、コーヒーブレイク＝弾むドット、少々お待ちを＝
-     広がるソナー状のパルス）。 */
-  /* topを62%（画面中央よりやや下）にしているのは、.celebrationBanner（38%、
-     画面中央よりやや上）との重なりを避けるため。2つの要素はどちらも同時に
-     表示されうる（2nd Hold・バリエーションD）ため、画面の垂直中央を挟んで
-     上下対称に振り分けることで、単体で見ても・組み合わせて見ても「画面
-     中央」にまとまって見えるようにしている。%指定のため、スマホ・PCなど
-     ビューのサイズが変わっても自動的に追従する。 */
-  .celebLoader {
+  /* Hold登録の演出: 画面中央を一瞬だけ明るく光らせる「閃光」（打ち上げ花火の
+     起点のイメージ）。 */
+  .celebFlash {
+    position: fixed;
+    inset: 0;
+    z-index: 313;
+    pointer-events: none;
+    background: radial-gradient(circle at 50% 42%, rgba(255, 255, 255, .95), rgba(255, 199, 60, .55) 45%, rgba(255, 199, 60, 0) 72%);
+    opacity: 0;
+    animation: celebFlashPulse .6s ease-out forwards;
+  }
+  @keyframes celebFlashPulse {
+    0% { opacity: 0; }
+    18% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  /* Hold登録の演出: 画面中央から発光しながら拡大して消えるリング（衝撃波）。
+     打ち上げ花火が開いた瞬間のような「ドン」という手応えを付ける。 */
+  .celebShockwave {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    z-index: 311;
+    pointer-events: none;
+    width: 40px;
+    height: 40px;
+    margin: -20px 0 0 -20px;
+    border-radius: 50%;
+    border: 4px solid rgba(255, 199, 60, .9);
+    box-shadow: 0 0 30px 8px rgba(255, 199, 60, .5);
+    animation: celebShockwaveExpand 1.1s cubic-bezier(.2, .7, .3, 1) forwards;
+  }
+  @keyframes celebShockwaveExpand {
+    0% { transform: scale(0); opacity: 1; }
+    65% { opacity: .45; }
+    100% { transform: scale(11); opacity: 0; }
+  }
+  /* 2nd Hold登録の演出: 画面中央で脈動する発光エネルギーコア（回転するリング
+     ＋脈動する光る球＋広がるリップル2つ）。「もう少し待ってください」という
+     文言に合わせ、力を蓄えているような期待感のある見た目にしている。
+     topを62%（画面中央よりやや下）にしているのは、.celebrationBanner（38%、
+     画面中央よりやや上）との重なりを避けるため。画面の垂直中央を挟んで上下
+     対称に振り分けることで、単体で見ても・組み合わせて見ても「画面中央」に
+     まとまって見えるようにしている。%指定のため、スマホ・PCなどビューの
+     サイズが変わっても自動的に追従する。 */
+  .celebEnergyCore {
     position: fixed;
     top: 62%;
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 311;
     pointer-events: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    width: 140px;
+    height: 140px;
   }
-  .celebLoader--ring {
-    width: 84px;
-    height: 84px;
+  .celebEnergyCore__orb {
+    position: absolute;
+    inset: 32px;
     border-radius: 50%;
-    border: 8px solid rgba(26, 115, 232, .18);
-    border-top-color: var(--primary, #1a73e8);
-    animation: celebLoaderSpin 1.1s linear infinite, celebLoaderPop .3s ease-out;
+    background: radial-gradient(circle at 34% 30%, #fff, #7dd3fc 42%, #1a73e8 78%);
+    box-shadow: 0 0 44px 14px rgba(26, 115, 232, .6);
+    animation: celebOrbPulse 1.4s ease-in-out infinite;
   }
-  @keyframes celebLoaderSpin { to { transform: rotate(360deg); } }
-  @keyframes celebLoaderPop {
-    0% { transform: scale(.5); opacity: 0; }
-    100% { transform: scale(1); opacity: 1; }
+  @keyframes celebOrbPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.14); }
   }
-  .celebLoader--dots { display: flex; gap: 14px; }
-  .celebLoader--dots span {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: var(--primary, #1a73e8);
-    animation: celebLoaderBounce 1s ease-in-out infinite;
-  }
-  .celebLoader--dots span:nth-child(2) { animation-delay: .15s; background: #fbbc05; }
-  .celebLoader--dots span:nth-child(3) { animation-delay: .3s; background: #34a853; }
-  @keyframes celebLoaderBounce {
-    0%, 80%, 100% { transform: translateY(0); opacity: .6; }
-    40% { transform: translateY(-18px); opacity: 1; }
-  }
-  .celebLoader--pulse { position: relative; width: 20px; height: 20px; }
-  .celebLoader--pulse::before, .celebLoader--pulse::after {
-    content: '';
+  .celebEnergyCore__ring {
     position: absolute;
     inset: 0;
     border-radius: 50%;
-    background: var(--primary, #1a73e8);
-    animation: celebLoaderPulse 1.8s ease-out infinite;
+    border: 3px solid transparent;
+    border-top-color: #1a73e8;
+    border-right-color: #7dd3fc;
+    animation: celebSpin 1.6s linear infinite;
   }
-  .celebLoader--pulse::after { animation-delay: .6s; }
-  @keyframes celebLoaderPulse {
-    0% { transform: scale(.4); opacity: .8; }
-    100% { transform: scale(6); opacity: 0; }
+  @keyframes celebSpin { to { transform: rotate(360deg); } }
+  .celebEnergyCore__ripple {
+    position: absolute;
+    inset: 18px;
+    border-radius: 50%;
+    border: 2px solid rgba(26, 115, 232, .55);
+    animation: celebRipplePulse 1.8s ease-out infinite;
   }
-  /* 演出バリエーション「D」（GASで実現可能な最も派手な演出）専用の巨大な発光する星。
-     既存のリング・ドット・パルスより大きく（120px）、拡大・回転・発光
-     （filterの二重drop-shadow）を組み合わせて目立たせる（triggerMegaCelebration_、
-     JavaScript.html参照）。 */
-  .celebLoader--mega {
-    width: 120px;
-    height: 120px;
-    background: linear-gradient(135deg, #ffc73c, #ff9800);
-    clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
-    filter: drop-shadow(0 10px 30px rgba(0, 0, 0, .35)) drop-shadow(0 0 40px rgba(255, 199, 60, .65));
-    animation: celebLoaderMega 1.9s ease-in-out;
+  .celebEnergyCore__ripple--delay { animation-delay: .6s; }
+  @keyframes celebRipplePulse {
+    0% { transform: scale(.5); opacity: .8; }
+    100% { transform: scale(2.4); opacity: 0; }
   }
-  @keyframes celebLoaderMega {
-    0% { transform: scale(.2) rotate(-24deg); opacity: 0; }
-    20% { opacity: 1; }
-    50% { transform: scale(1.35) rotate(14deg); }
-    75% { transform: scale(1.05) rotate(-8deg); }
-    100% { transform: scale(1.15) rotate(0deg); opacity: 0; }
-  }
-  /* 演出バリエーション「D」専用の画面揺れ。#celebrationShakeStage（Index.html）に
-     一瞬だけtransformを与えることで、その中の3つの演出レイヤー（confettiLayer・
-     celebrationLayer・celebrationBanner）だけをまとめて揺らす。ページ全体の
-     position: fixed要素（サイドバー・トップバー・モーダル等）はこのラッパーの
-     外側にあるため巻き込まれない（shakeScreen_、JavaScript.html参照）。 */
-  #celebrationShakeStage.is-shaking { animation: megaScreenShake .5s cubic-bezier(.36, .07, .19, .97) both; }
-  @keyframes megaScreenShake {
-    0%, 100% { transform: translate3d(0, 0, 0); }
-    10%, 90% { transform: translate3d(-3px, 0, 0); }
-    20%, 80% { transform: translate3d(5px, 0, 0); }
-    30%, 50%, 70% { transform: translate3d(-9px, 0, 0); }
-    40%, 60% { transform: translate3d(9px, 0, 0); }
-  }
-  /* 案内メッセージのバナー。画面中央（やや上寄り、topは.celebLoader参照）に
+  /* 案内メッセージのバナー。画面中央（やや上寄り、topは.celebEnergyCore参照）に
      大きめの文字で表示し、一定時間で自動的にフェードアウトする
      （showCelebrationBanner_参照）。top・max-widthともに%・vw基準のため、
      PC・タブレット・スマホいずれの画面サイズでも自動的に追従し、中央付近に
@@ -2484,8 +2480,7 @@
     .card, .orderCard { transition: none; }
     .topbar__navBtn--refresh.is-spinning .icon { animation: none; }
     .view.is-active { animation: none; }
-    .celebParticle, .celebLoader { display: none; }
+    .celebParticle, .celebFlash, .celebShockwave, .celebEnergyCore { display: none; }
     .celebrationBanner { transition: none; }
-    #celebrationShakeStage.is-shaking { animation: none; }
   }
 </style>
