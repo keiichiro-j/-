@@ -90,6 +90,18 @@
     /* トップバーの実高さ。JS（syncFixedBars_）が実測して上書きする。初期値は
        JS実行前のレイアウトずれを防ぐための目安値。 */
     --topbar-h: 108px;
+    /* モーダル（Hold登録・受注確定等）の高さの基準にする「実際に見えている
+       ビューポート」の高さ・上端オフセット。100vh・window.innerHeightは
+       スマートフォンでソフトウェアキーボードが開いてもレイアウト上の
+       ビューポートサイズ自体は変わらない（特にiOS Safari）ため、そのまま
+       モーダルの高さに使うと、画面下端に配置したモーダル（スマホ幅のボトム
+       シート）の下側がキーボードの裏に隠れ、入力中の項目が見えなくなって
+       しまう。JS（syncAppViewportSize_）がwindow.visualViewport（対応
+       ブラウザ）でキーボード表示中の実際に見えている高さ・スクロール位置を
+       都度測り直してこの2つの変数を更新し、モーダル側はこれを基準に高さ・
+       位置を決めることで、キーボードの上に収まるようにする。 */
+    --app-100vh: 100vh;
+    --app-viewport-top: 0px;
   }
 
   * { box-sizing: border-box; }
@@ -1980,9 +1992,25 @@
   .staffDisplay__email { font-size: 12px; color: var(--on-surface-variant); }
   .staffDisplay__warn { font-size: 13px; color: var(--danger); }
 
-  /* ===== モーダル ===== */
+  /* ===== モーダル =====
+     不具合修正（スマホでHold登録・受注確定の入力中に項目がキーボードの裏に
+     隠れる問題）: position: fixed; inset: 0 だけだと、モーダルの高さは常に
+     レイアウトビューポート（ソフトウェアキーボードを考慮しない、常に一定の
+     画面サイズ）いっぱいになる。スマホ幅ではモーダルを画面下端に固定した
+     ボトムシートにしている（下の@media (max-width: 600px)参照）ため、
+     モーダルの高さがレイアウトビューポート基準のままだと、キーボードが
+     開いてもモーダル自体は動かず、画面下側（キーボードに隠れた部分）に
+     入力中の項目がある場合はそのまま見えなくなってしまう。
+     top・heightをvar(--app-viewport-top)・var(--app-100vh)（JSの
+     syncAppViewportSize_がwindow.visualViewportで実測し、キーボード表示中は
+     実際に見えている高さ・スクロール位置に更新する）にすることで、モーダル
+     自身の表示領域がキーボードの上に収まるサイズへ自動的に縮み、ボトム
+     シート（画面下端に固定）もキーボードのすぐ上に位置するようになる。 */
   .modal {
-    position: fixed; inset: 0; background: rgba(32, 33, 36, .5);
+    position: fixed; left: 0; right: 0;
+    top: var(--app-viewport-top, 0px);
+    height: var(--app-100vh, 100vh);
+    background: rgba(32, 33, 36, .5);
     display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px;
   }
   /* ヘッダー・ステップ進捗・フッターは固定し、modal__bodyだけをスクロール
@@ -1992,7 +2020,12 @@
      等の見出しごとスクロールして見えなくなっていた。 */
   .modal__panel {
     background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-elevated);
-    width: 100%; max-width: 460px; max-height: 90vh;
+    width: 100%; max-width: 460px;
+    /* .modal自身の高さ（キーボード表示中は実際に見えている高さに縮む）から
+       上下パディング（16px×2）を引いた値を上限にする（90vh固定だと、
+       キーボードで.modalの表示領域が90vhより狭くなった場合にパネルが
+       キーボードの裏まではみ出してしまうため）。 */
+    max-height: calc(var(--app-100vh, 100vh) - 32px);
     display: flex; flex-direction: column; overflow: hidden;
   }
   .modal__panel--wide { max-width: 640px; }
@@ -2391,7 +2424,11 @@
     .settingsCard, .settingsActions { padding: 18px 16px; }
     .card { padding: 16px 18px; }
     .modal { padding: 0; align-items: flex-end; }
-    .modal__panel { max-width: 100%; width: 100%; max-height: 92vh; border-radius: var(--radius) var(--radius) 0 0; }
+    /* .modalはpadding: 0のため、上のvar(--app-100vh) - 32px（.modalの上下
+       パディングぶん）ではなく、.modal自身の高さ（キーボード表示中は実際に
+       見えている高さに縮む）に対する割合で上限を決める。数値（92%）は
+       以前の92vh固定と同じ比率で、画面最上部にわずかな余白を残す狙い。 */
+    .modal__panel { max-width: 100%; width: 100%; max-height: calc(var(--app-100vh, 100vh) * 0.92); border-radius: var(--radius) var(--radius) 0 0; }
     .modal__grid { grid-template-columns: 1fr; }
     .formField--span2 { grid-column: auto; }
     .modal__footer .btn { flex: 1; min-height: 44px; }

@@ -3291,6 +3291,53 @@
   }
   window.addEventListener('resize', debounce(syncFixedBars_, 100));
 
+  // ===== モーダルの高さをソフトウェアキーボードの上に収める =====
+  // 不具合修正: スマホでHold登録・受注確定モーダルの入力欄をタップすると、
+  // ソフトウェアキーボードが開いた分だけ画面下側が隠れ、モーダル（特に画面
+  // 下端に固定したボトムシート）の下側にある入力中の項目が見えなくなって
+  // しまっていた。100vh・window.innerHeightはレイアウトビューポート基準の
+  // ため、iOS Safari等ではキーボードが開いても値が変わらず、CSS側だけでは
+  // キーボードの高さを考慮できない。window.visualViewport（対応ブラウザ）は
+  // キーボード表示中の「実際に見えている」高さ・スクロール位置を返すため、
+  // これを都度測ってCSS変数（--app-100vh・--app-viewport-top、
+  // Stylesheet.htmlの.modal参照）に反映し、モーダルの表示領域自体がキー
+  // ボードの上に収まるサイズへ自動的に縮むようにする。
+  function syncAppViewportSize_() {
+    var vv = window.visualViewport;
+    var height = vv ? vv.height : window.innerHeight;
+    var top = vv ? vv.offsetTop : 0;
+    document.documentElement.style.setProperty('--app-100vh', height + 'px');
+    document.documentElement.style.setProperty('--app-viewport-top', top + 'px');
+  }
+  syncAppViewportSize_();
+  if (window.visualViewport) {
+    // resizeはキーボードの開閉・端末回転で、scrollはキーボード表示中に
+    // ページがわずかにスクロールされた場合（visualViewportのoffsetTopが
+    // 変化する）で、それぞれ発火する。
+    window.visualViewport.addEventListener('resize', syncAppViewportSize_);
+    window.visualViewport.addEventListener('scroll', syncAppViewportSize_);
+  } else {
+    // window.visualViewport非対応の環境（古いブラウザ等）向けのフォール
+    // バック。この場合はキーボードの高さを検知できないため、モーダルの
+    // 高さは従来どおりレイアウトビューポート基準のままになる。
+    window.addEventListener('resize', debounce(syncAppViewportSize_, 100));
+  }
+
+  // モーダルの高さ自体をキーボードの上に収めても、.modal__body内部の
+  // スクロール位置までは追従しないことがあるため、モーダル内の入力欄に
+  // フォーカスが移ったら、キーボードの開閉アニメーションが落ち着く頃合いを
+  // 見て明示的にscrollIntoViewする（保険。visualViewport非対応環境でも
+  // 効果がある）。
+  document.addEventListener('focusin', function (e) {
+    var target = e.target;
+    if (!/^(INPUT|SELECT|TEXTAREA)$/.test(target.tagName)) return;
+    var modal = target.closest('.modal:not(.hidden)');
+    if (!modal) return;
+    setTimeout(function () {
+      target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 300);
+  });
+
   function escapeHtml(value) {
     if (value === null || value === undefined) return '';
     return String(value)
