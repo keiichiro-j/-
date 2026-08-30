@@ -91,40 +91,33 @@
   }
 
   // ===== Hold登録・2nd Hold登録・受注確定 完了時の演出 =====
-  // それぞれ固定の案内メッセージ（バナー）＋管理者が設定タブから選べる
-  // 3種類ずつの「絵柄のアクション」を表示する（現場からの要望）。
+  // いずれも固定の案内メッセージ（バナー）は表示するが、「絵柄のアクション」
+  // （視覚的な演出）はアクションごとに扱いが異なる（現場からの要望）。
+  // - Hold登録: 演出を一旦無しにする（見直し中）。
+  // - 2nd Hold登録: 管理者が設定タブから4種類（A〜D）を選べる（CELEBRATION_CONTENT）。
+  //   バリエーションの選択状態はサーバー側の設定（state.bootstrap.settings.
+  //   celebrationVariants、SettingsService.gsのCELEBRATION_VARIANTS）から読む。
+  // - 受注確定: triggerRandomBursts_（ランダムな位置・タイミングでの複数
+  //   バースト）に固定する。
   // メッセージ自体はどのバリエーションを選んでも変わらない（CELEBRATION_MESSAGES）。
-  // バリエーションの選択状態はサーバー側の設定（state.bootstrap.settings.
-  // celebrationVariants、SettingsService.gsのCELEBRATION_VARIANTS）から読む。
   var CELEBRATION_MESSAGES = {
     hold: ['頑張ってね', '1ST HOLDします。', 'HOLD状況はマイページから確認できます。'],
     secondHold: ['もう少し待ってね', '2ND HOLDします。', 'HOLD状況はマイページから確認できます。'],
     order: ['おめでとうございます。', '受注リスト、マイページへ情報を反映しました。']
   };
 
-  // 各アクション×バリエーション（A/B/C）の絵柄。絵文字はフォント・OS
-  // （機種依存文字）によって見た目の再現性が低いため使わず、色付きのCSS
-  // 図形（丸・四角・リボン・星＝shapes）とアニメーション方式（motion）の
-  // 組み合わせのみで演出する（spawnParticleWave_・spawnParticleBurst_・
-  // spawnLoader_参照）。
+  // secondHold（2nd Hold「お待ちください」系）のみ、管理者が設定タブから
+  // 選べる4種類の演出を持つ（絵文字は機種依存で再現性が低いため使わず、
+  // CSSローダー・図形のみで演出する）。Hold登録は演出を一旦無しにし
+  // （現場からの要望を受けて見直し中）、受注確定はtriggerRandomBursts_
+  // （ランダムな位置・タイミングでの複数バースト）に固定したため、
+  // どちらもここには持たない（showCelebration_参照）。
   var CELEBRATION_CONTENT = {
-    hold: {
-      A: { shapes: ['circle', 'star'], motion: 'rise' }, // エール
-      B: { shapes: ['ribbon', 'square'], motion: 'fall' }, // 応援フラッグ
-      C: { shapes: ['square', 'star'], motion: 'burst' }, // ガッツポーズ
-      D: { shapes: ['star', 'circle', 'square', 'ribbon'], motion: 'mega' } // 全力エール
-    },
     secondHold: {
       A: { motion: 'ring' }, // 砂時計
       B: { motion: 'dots' }, // コーヒーブレイク
       C: { motion: 'pulse' }, // 少々お待ちを
       D: { shapes: ['star', 'circle', 'square', 'ribbon'], motion: 'mega' } // 大歓声で応援
-    },
-    order: {
-      A: { shapes: ['circle', 'ribbon'], motion: 'confettiBalloon' }, // 紙吹雪＋浮遊する丸（既定）
-      B: { shapes: ['star', 'circle'], motion: 'burst' }, // 花火
-      C: { shapes: ['square', 'circle', 'ribbon'], motion: 'fall' }, // 祝福シャワー
-      D: { shapes: ['star', 'circle', 'square', 'ribbon'], motion: 'mega' } // 祝賀フィナーレ
     }
   };
 
@@ -137,10 +130,16 @@
     var key = actionType === 'orderFromHold' ? 'order' : actionType;
     var messageLines = CELEBRATION_MESSAGES[key];
     if (!messageLines) return;
+    showCelebrationBanner_(messageLines);
+    // Hold登録時は演出（絵柄のアクション）を一旦無しにする（現場からの要望を
+    // 受けて見直し中）。案内メッセージのバナーだけは従来どおり表示する。
+    if (key === 'hold') return;
+    // 受注確定時は画面中央からの単発バーストではなく、ランダムな位置・
+    // タイミングで複数回バーストする演出に固定する（現場からの要望）。
+    if (key === 'order') { triggerRandomBursts_(); return; }
     var variants = (state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.celebrationVariants) || {};
     var variantKey = variants[key] || 'A';
     var content = (CELEBRATION_CONTENT[key] && CELEBRATION_CONTENT[key][variantKey]) || CELEBRATION_CONTENT[key].A;
-    showCelebrationBanner_(messageLines);
     playCelebrationMotion_(content);
   }
 
@@ -163,13 +162,9 @@
 
   function playCelebrationMotion_(content) {
     switch (content.motion) {
-      case 'rise': spawnParticleWave_(content.shapes, 'rise', 26); break;
-      case 'fall': spawnParticleWave_(content.shapes, 'fall', 26); break;
-      case 'burst': spawnParticleBurst_(content.shapes, 22); break;
       case 'ring': spawnLoader_('ring'); break;
       case 'dots': spawnLoader_('dots'); break;
       case 'pulse': spawnLoader_('pulse'); break;
-      case 'confettiBalloon': triggerConfetti_(); spawnParticleWave_(content.shapes, 'rise', 14); break;
       case 'mega': triggerMegaCelebration_(content.shapes); break;
       default: break;
     }
@@ -206,15 +201,20 @@
   }
 
   /**
-   * 画面中央から放射状に飛び散らせる（ガッツポーズ・花火演出用）。
+   * 指定した位置（省略時は画面中央）から放射状に飛び散らせる（ガッツポーズ・
+   * 花火・受注確定のランダムバースト演出用）。
+   * @param {number} [originLeftVw] バーストの中心位置（横、vw）。省略時はCSS既定の50%（画面中央）。
+   * @param {number} [originTopVh] バーストの中心位置（縦、vh）。省略時はCSS既定の50%（画面中央）。
    */
-  function spawnParticleBurst_(shapes, count) {
+  function spawnParticleBurst_(shapes, count, originLeftVw, originTopVh) {
     var layer = $('celebrationLayer');
     var pieces = [];
     for (var i = 0; i < count; i++) {
       var shape = shapes[Math.floor(Math.random() * shapes.length)];
       var el = document.createElement('span');
       el.className = 'celebParticle celebParticle--' + shape + ' celebParticle--burst';
+      if (originLeftVw !== undefined) el.style.left = originLeftVw + 'vw';
+      if (originTopVh !== undefined) el.style.top = originTopVh + 'vh';
       var angle = (i / count) * Math.PI * 2 + Math.random() * .4;
       var dist = 140 + Math.random() * 160;
       el.style.setProperty('--tx', (Math.cos(angle) * dist) + 'px');
@@ -294,8 +294,30 @@
   }
 
   /**
+   * 受注確定の演出。画面中央からの単発バーストではなく、画面内のランダムな
+   * 位置・ランダムなタイミングで複数回（5〜7箇所）バーストを起こす
+   * （現場からの要望）。位置は画面の上端・下端（ナビ・モーダル操作の邪魔に
+   * なりやすい）を避け、上半分〜中央寄りに限定している。
+   */
+  function triggerRandomBursts_() {
+    var shapes = ['star', 'circle', 'square', 'ribbon'];
+    var burstCount = 5 + Math.floor(Math.random() * 3);
+    for (var i = 0; i < burstCount; i++) {
+      (function () {
+        var x = 12 + Math.random() * 76;
+        var y = 14 + Math.random() * 55;
+        var delay = Math.random() * 900;
+        setTimeout(function () {
+          spawnParticleBurst_(shapes, 14 + Math.floor(Math.random() * 10), x, y);
+        }, delay);
+      })();
+    }
+  }
+
+  /**
    * 演出バリエーション「D」（GASで実現可能な最も派手な演出）専用のモーション。
-   * Hold・2nd Hold・受注確定のいずれの項目で選んでも同じエンジンを使う。
+   * 現在は2nd Hold登録でのみ選択できる（Hold登録は演出なし、受注確定は
+   * triggerRandomBursts_固定のため、CELEBRATION_CONTENTを持たない）。
    * 「演出が弱い」という現場の声を受け、既存の演出パーツ（画面フラッシュ＋左右からの
    * 紙吹雪＝triggerConfetti_、中央からの放射状バースト、画面端からの上昇ウェーブ、
    * 巨大アイコン、画面揺れ）を1回にすべて重ね掛けし、バーストを3波に分けて連続発生
