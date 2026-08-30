@@ -1976,11 +1976,16 @@
     if (!keyword) return true;
     var kw = keyword.trim().toLowerCase();
     if (!kw) return true;
-    return [po.model, po.salesLocation, po.staff, po.customer, po.commission, po.leadNumber].some(function (v) {
+    return [po.model, po.salesLocation, po.staff, po.customer, po.commission, po.leadNumber, po.mp, po.exteriorColor, po.interiorColor].some(function (v) {
       return String(v || '').toLowerCase().indexOf(kw) !== -1;
     });
   }
 
+  /**
+   * MP・カラー（外装／内装）・有償OPは、在庫リストのvehicleQuickMetaHtml_ /
+   * vehicleSpecFieldsHtml_と同じ.card__metaGridを流用して表示する
+   * （スプレッドシートへ直接入力する任意項目のため、未入力なら'-'表示）。
+   */
   function purchaseOrderCardHtml_(po) {
     var subParts = [];
     if (po.commission) subParts.push('コミッション: ' + escapeHtml(po.commission));
@@ -1993,6 +1998,13 @@
       '<div class="purchaseOrderCard__vehicle">' + escapeHtml(po.model) + '</div></div>' +
       '<span class="badge badge--location">' + escapeHtml(po.salesLocation || '-') + '</span>' +
       '</div>' +
+      '<dl class="card__metaGrid card__metaGrid--quick">' +
+      metaRow_('MP', po.mp) +
+      metaRow_('カラー', (po.exteriorColor || '-') + ' / ' + (po.interiorColor || '-')) +
+      '</dl>' +
+      '<dl class="card__metaGrid">' +
+      metaRow_('有償OP', paidOptionsText(po)) +
+      '</dl>' +
       (subParts.length ? '<div class="purchaseOrderCard__sub">' + subParts.join('　') + '</div>' : '') +
       '</div>';
   }
@@ -2010,6 +2022,9 @@
       '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(po.customer || '-') + '</span>' +
       '<span class="rowCard__commission">' + escapeHtml(po.commission || '-') + '</span></div>' +
       rowField_('モデル', po.model) +
+      rowField_('MP', po.mp) +
+      rowField_('カラー', (po.exteriorColor || '-') + ' / ' + (po.interiorColor || '-')) +
+      rowField_('有償OP', paidOptionsText(po)) +
       rowField_('リード番号', po.leadNumber) +
       rowField_('担当者', po.staff) +
       rowField_('登録日時', formatDateTime(po.createdAt)) +

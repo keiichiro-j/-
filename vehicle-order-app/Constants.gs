@@ -234,6 +234,11 @@ var GCLASS_COLUMNS = VEHICLE_COLUMNS.concat([
  * するため）。id はコミッション等と異なり必ず一意な値が必要なため、ユーザー入力の
  * 項目とは別にアプリが自動採番する（addPurchaseOrder、PurchaseOrderService.gs参照）。
  */
+// MP・外装／内装カラー・有償OPは、既存のスプレッドシートを使っている利用者の
+// 列位置がずれないよう、既存の列（ID〜登録日時）の後ろに追加している（アプリは
+// 列を「見出し文字列」ではなく「並び順（列の位置）」で読み書きするため。README
+// 「発注リスト」の「既存シートへの影響」参照）。いずれも任意項目（コミッション・
+// リード番号と同様、確定していない段階でも登録できるように必須にしない）。
 var PURCHASE_ORDER_COLUMNS = [
   {
     key: 'id', label: 'ID', type: 'text', required: true,
@@ -245,8 +250,17 @@ var PURCHASE_ORDER_COLUMNS = [
   { key: 'customer', label: '顧客', type: 'text', required: true },
   { key: 'commission', label: 'コミッション', type: 'text' },
   { key: 'leadNumber', label: 'リード番号', type: 'text' },
-  { key: 'createdAt', label: '登録日時', type: 'datetime', note: 'アプリが自動記録する値です。手動編集しないでください。' }
-];
+  { key: 'createdAt', label: '登録日時', type: 'datetime', note: 'アプリが自動記録する値です。手動編集しないでください。' },
+  { key: 'mp', label: 'MP', type: 'text' },
+  { key: 'exteriorColor', label: '外装', type: 'text' },
+  { key: 'interiorColor', label: '内装', type: 'text' }
+].concat((function () {
+  var slots = [];
+  for (var i = 1; i <= PAID_OPTION_SLOT_COUNT; i++) {
+    slots.push({ key: 'paidOption' + i, label: '有償OP' + i, type: 'text' });
+  }
+  return slots;
+})());
 
 // ユーザーが入力する項目のみ（id・createdAtはアプリが自動生成するため、
 // 登録・編集フォームの入力必須チェック（validateRequiredInfo_）の対象から除く）。

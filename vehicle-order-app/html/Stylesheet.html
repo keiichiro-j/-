@@ -734,15 +734,20 @@
 
   /* 発注リストの表示形式「表」（発注リストタブ本体・マイページの「発注リスト」
      セクションの両方で使う。purchaseOrderRowCardHtml_のDOM出力順に対応する
-     positionalな:nth-child()指定。読み取り専用のため操作ボタン列は無く、
-     受注リスト（.rowCard--order）と同じく最後の列に拠点バッジを置く）。 */
+     positionalな:nth-child()指定。MP・カラー・有償OPは在庫リスト
+     （vehicleRowCardHtmlの対応列）と同じ幅にしている。読み取り専用のため
+     操作ボタン列は無く、受注リスト（.rowCard--order）と同じく最後の列に
+     拠点バッジを置く）。 */
   .rowCard.rowCard--purchaseOrder { border-left-color: var(--primary); }
   .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(1) { flex: 0 0 110px; } /* 顧客＋コミッション */
   .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(2) { flex: 0 0 120px; } /* モデル */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(3) { flex: 0 0 110px; } /* リード番号 */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(4) { flex: 0 0 90px; } /* 担当者 */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(5) { flex: 0 0 130px; } /* 登録日時 */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(6) { flex: 1 1 130px; } /* 拠点 */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(3) { flex: 0 0 68px; } /* MP */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(4) { flex: 0 0 150px; } /* カラー */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(5) { flex: 0 0 170px; } /* 有償OP */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(6) { flex: 0 0 110px; } /* リード番号 */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(7) { flex: 0 0 90px; } /* 担当者 */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(8) { flex: 0 0 130px; } /* 登録日時 */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(9) { flex: 1 1 130px; } /* 拠点 */
   .btn--small { padding: 6px 12px; font-size: 12.5px; }
 
   /* ===== カードグリッド（PCビューで3列固定。Google Material×Teslaの余白多め・
