@@ -757,6 +757,33 @@
     </div>
   </div>
 
+  <!-- 発注リストで表示形式「表」の行をタップした際、発注情報を画面中央に表示する
+       モーダル（inventoryDetailModalと同じパターン。発注リストは表示形式「カード」の
+       時点ですべての項目を省略せず表示しているため、モーダルの中身もカードと同じ
+       ものをそのまま流用する。purchaseOrderCardHtml_・openPurchaseOrderDetailModal_参照）。 -->
+  <div class="modal hidden" id="purchaseOrderDetailModal">
+    <div class="modal__panel">
+      <div class="modal__header">
+        <h2>発注情報</h2>
+        <button class="btn--icon" data-close-modal>&times;</button>
+      </div>
+      <div class="modal__body" id="purchaseOrderDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- Gクラス予約リストで表示形式「表」の行をタップした際、予約情報を画面中央に
+       表示するモーダル（purchaseOrderDetailModalと同じパターン。gclassCardHtml_・
+       openGClassDetailModal_参照）。 -->
+  <div class="modal hidden" id="gclassDetailModal">
+    <div class="modal__panel">
+      <div class="modal__header">
+        <h2>Gクラス予約情報</h2>
+        <button class="btn--icon" data-close-modal>&times;</button>
+      </div>
+      <div class="modal__body" id="gclassDetailBody"></div>
+    </div>
+  </div>
+
   <!-- 比較中の車両を表示する固定バー（在庫リストでカードのチェックを入れると表示される） -->
   <div class="compareBar hidden" id="compareBar">
     <span class="compareBar__label">比較</span>

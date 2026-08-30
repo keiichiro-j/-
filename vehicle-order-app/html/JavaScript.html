@@ -2015,6 +2015,15 @@
    * 考え方（識別列→車両・契約情報→拠点バッジを最後尾に配置）に揃えている。
    * 発注リストは閲覧専用のため、カード表示・表表示のどちらもボタン・行タップ
    * での編集導線は持たない。
+   * 行に並べる項目は在庫リストのvehicleRowCardHtmlと同じ考え方（ひと目で
+   * 必要な項目だけに絞り込み、画面幅にかかわらず折り返し無しで1行に収まる
+   * ようにする）で「識別（顧客・コミッション）・モデル・MP・カラー・有償OP・
+   * 拠点」の6項目だけに絞り込んだ（以前はリード番号・担当者・登録日時も
+   * 並べていたが、項目数が多すぎて画面幅によっては折り返して2行になり、
+   * 在庫リストの行より縦に間延びして見えていたため。現場からの指摘）。
+   * それ以外の項目（リード番号・担当者・登録日時）は、在庫リスト・受注リストと
+   * 同じく行タップで開く詳細モーダル（openPurchaseOrderDetailModal_・
+   * purchaseOrderDetailHtml_）でのみ確認する。
    */
   function purchaseOrderRowCardHtml_(po) {
     return '<div class="rowCard rowCard--purchaseOrder" data-purchase-order-id="' + escapeHtml(po.id) + '">' +
@@ -2025,9 +2034,6 @@
       rowField_('MP', po.mp) +
       rowField_('カラー', (po.exteriorColor || '-') + ' / ' + (po.interiorColor || '-')) +
       rowField_('有償OP', paidOptionsText(po)) +
-      rowField_('リード番号', po.leadNumber) +
-      rowField_('担当者', po.staff) +
-      rowField_('登録日時', formatDateTime(po.createdAt)) +
       '<div class="rowCard__status"><span class="badge badge--location">' + escapeHtml(po.salesLocation || '-') + '</span></div>' +
       '</div>' +
       '</div>';
@@ -2037,6 +2043,36 @@
     return '<div class="rowCardList">' +
       items.map(purchaseOrderRowCardHtml_).join('') +
       '</div>';
+  }
+
+  /**
+   * 表示形式「表」の行タップで開く、画面中央のモーダル（#purchaseOrderDetailModal）。
+   * 発注リストは表示形式「カード」（purchaseOrderCardHtml_）の時点で既にMP・カラー・
+   * 有償OP・リード番号・担当者・登録日時まですべて省略せず表示しているため、
+   * 詳細モーダルもカードと同じ内容をそのまま再利用する（在庫リスト・受注リストの
+   * ように「カードでは一部省略、詳細モーダルで残りを表示」という使い分けが不要）。
+   */
+  function findPurchaseOrderById_(id) {
+    return (state.purchaseOrders || []).find(function (po) { return po.id === id; }) || null;
+  }
+
+  function openPurchaseOrderDetailModal_(id) {
+    var po = findPurchaseOrderById_(id);
+    if (!po) return;
+    $('purchaseOrderDetailBody').innerHTML = purchaseOrderCardHtml_(po);
+    openModal($('purchaseOrderDetailModal'));
+  }
+
+  /**
+   * 発注リストタブ本体・マイページの「発注リスト」セクションの両方で使う、
+   * 表示形式「表」の行タップ（ボタン・入力以外の箇所）のクリック処理
+   * （在庫リストのhandleInventoryListClick_・受注リストの行タップと同じパターン）。
+   */
+  function handlePurchaseOrderListClick_(e) {
+    var rowEl = e.target.closest('.rowCard--purchaseOrder[data-purchase-order-id]');
+    if (rowEl && !e.target.closest('button, input, label')) {
+      openPurchaseOrderDetailModal_(rowEl.dataset.purchaseOrderId);
+    }
   }
 
   function syncPurchaseOrdersViewToggle_() {
@@ -2066,6 +2102,7 @@
   }
 
   $('purchaseOrdersKeyword').addEventListener('input', debounce(renderPurchaseOrders_, 200));
+  $('purchaseOrdersList').addEventListener('click', handlePurchaseOrderListClick_);
 
   // ===== Gクラス予約リスト =====
   // 通常の在庫リストに担当者・顧客・リード番号を加えただけの閲覧専用リスト
@@ -2099,22 +2136,27 @@
       '</div>';
   }
 
-  // 表示形式「表」: 在庫リスト・受注リストと同じ「行カード」パターンで横列閲覧できるようにする。
+  /**
+   * 表示形式「表」: 在庫リストのvehicleRowCardHtmlと同じ考え方（ひと目で必要な
+   * 項目だけに絞り込み、画面幅にかかわらず折り返し無しで1行に収まるようにする）で
+   * 「識別（顧客・コミッション）・モデル・MP・ステア・カラー・有償OP・開示状況」の
+   * 7項目だけに絞り込んだ（在庫リストの7項目構成に、識別列（顧客）を1つ加えた形。
+   * 以前は担当者・入港予定日・可能月・VPC・リード番号も並べていたが、項目数が
+   * 多すぎて画面幅によっては折り返して2〜3行になり、在庫リストの行より縦に
+   * 間延びして見えていたため。現場からの指摘）。それ以外の項目（担当者・入港予定日・
+   * 可能月・VPC・リード番号）は、在庫リスト・受注リストと同じく行タップで開く
+   * 詳細モーダル（openGClassDetailModal_）でのみ確認する。
+   */
   function gclassRowCardHtml_(v) {
-    return '<div class="rowCard rowCard--available rowCard--gclass">' +
+    return '<div class="rowCard rowCard--available rowCard--gclass" data-commission="' + escapeHtml(v.commission) + '">' +
       '<div class="rowCard__inner">' +
       '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(v.customer || '-') + '</span>' +
       '<span class="rowCard__commission">' + escapeHtml(v.commission) + '</span></div>' +
-      rowField_('担当者', v.staff) +
       rowField_('モデル', v.model) +
       rowField_('MP', v.mp) +
       rowField_('ステア', v.steering) +
       rowField_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
       rowField_('有償OP', paidOptionsText(v)) +
-      rowField_('入港予定日', v.arrivalExpectedDate) +
-      rowField_('可能月', v.registrableMonth) +
-      rowField_('VPC', v.vpc) +
-      rowField_('リード番号', v.leadNumber) +
       '<div class="rowCard__status"><span class="badge ' + (v.stockDisclosure === '非開示' ? 'badge--undisclosed' : 'badge--disclosed') + '">' + escapeHtml(v.stockDisclosure || '-') + '</span></div>' +
       '</div>' +
       '</div>';
@@ -2124,6 +2166,36 @@
     return '<div class="rowCardList">' +
       items.map(gclassRowCardHtml_).join('') +
       '</div>';
+  }
+
+  /**
+   * 表示形式「表」の行タップで開く、画面中央のモーダル（#gclassDetailModal）。
+   * 表示形式「カード」（gclassCardHtml_）は既にすべての項目（担当者・入港予定日・
+   * 可能月・VPC・リード番号を含む）を省略せず表示しているため、詳細モーダルも
+   * カードと同じ内容をそのまま再利用する（発注リストと同じ考え方）。
+   */
+  function findGClassByCommission_(commission) {
+    return (state.gclassItems || []).find(function (v) { return commissionEquals_(v.commission, commission); }) ||
+      (state.allGClassItems || []).find(function (v) { return commissionEquals_(v.commission, commission); }) || null;
+  }
+
+  function openGClassDetailModal_(commission) {
+    var v = findGClassByCommission_(commission);
+    if (!v) return;
+    $('gclassDetailBody').innerHTML = gclassCardHtml_(v);
+    openModal($('gclassDetailModal'));
+  }
+
+  /**
+   * Gクラス予約リストタブ本体・マイページの「Gクラス予約リスト」セクションの
+   * 両方で使う、表示形式「表」の行タップのクリック処理（発注リストの
+   * handlePurchaseOrderListClick_と同じパターン）。
+   */
+  function handleGClassListClick_(e) {
+    var rowEl = e.target.closest('.rowCard--gclass[data-commission]');
+    if (rowEl && !e.target.closest('button, input, label')) {
+      openGClassDetailModal_(rowEl.dataset.commission);
+    }
   }
 
   function syncGClassViewToggle_() {
@@ -2152,6 +2224,7 @@
   }
 
   $('gclassKeyword').addEventListener('input', debounce(loadGClassReservations, 250));
+  $('gclassList').addEventListener('click', handleGClassListClick_);
 
   // ===== 設定 =====
   function renderSettings(settings) {
@@ -3285,6 +3358,8 @@
       openOrderDetailModal_(rowEl.dataset.commission);
     }
   });
+  $('myPagePurchaseOrderList').addEventListener('click', handlePurchaseOrderListClick_);
+  $('myPageGClassList').addEventListener('click', handleGClassListClick_);
   // グレードタブ（Aクラス行の展開で現れるA180・A200等）をクリックすると、
   // そのグレード1件だけに絞り込んだ在庫リストへ遷移する（タブレット・スマホ幅の
   // インライン展開でのみ発生。PCビューのグレードタブは#homeDetail側にあり、

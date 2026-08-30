@@ -713,41 +713,41 @@
   .rowCard.rowCard--order > .rowCard__inner > *:nth-child(7) { flex: 0 0 80px; } /* 登録月 */
   .rowCard.rowCard--order > .rowCard__inner > *:nth-child(8) { flex: 0 0 130px; } /* 販売拠点 */
 
-  /* Gクラス予約リストの表示形式「表」: 在庫リストの項目（MP・ステア・カラー・
-     有償OP・入港予定日・可能月・VPC）に加えて担当者・モデル・リード番号も
-     並べるため、在庫リスト（10項目）・受注リスト（14項目）のどちらとも異なる
-     12項目構成になる（gclassRowCardHtml_のDOM出力順）。区別のため専用の
-     rowCard--gclassクラスを付け、共通の.rowCard:not(.rowCard--order):not(.rowCard--gclass)
-     ルールとは別に、この12項目に対応する:nth-child()を指定する。 */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(1) { flex: 0 0 110px; }
-  .rowCard--gclass > .rowCard__inner > *:nth-child(2) { flex: 0 0 90px; }
-  .rowCard--gclass > .rowCard__inner > *:nth-child(3) { flex: 0 0 120px; }
-  .rowCard--gclass > .rowCard__inner > *:nth-child(4) { flex: 0 0 68px; }
-  .rowCard--gclass > .rowCard__inner > *:nth-child(5) { flex: 0 0 46px; }
-  .rowCard--gclass > .rowCard__inner > *:nth-child(6) { flex: 0 0 150px; }
-  .rowCard--gclass > .rowCard__inner > *:nth-child(7) { flex: 0 0 170px; }
-  .rowCard--gclass > .rowCard__inner > *:nth-child(8) { flex: 0 0 96px; }
-  .rowCard--gclass > .rowCard__inner > *:nth-child(9) { flex: 0 0 84px; }
-  .rowCard--gclass > .rowCard__inner > *:nth-child(10) { flex: 0 0 88px; }
-  .rowCard--gclass > .rowCard__inner > *:nth-child(11) { flex: 0 0 110px; }
-  .rowCard--gclass > .rowCard__inner > *:nth-child(12) { flex: 0 0 130px; }
+  /* Gクラス予約リストの表示形式「表」: 在庫リストの行（vehicleRowCardHtml、
+     ステータス・モデル・MP・ステア・カラー・有償OPの7項目）と同じ考え方で、
+     識別列を「モデル」から「顧客＋コミッション」に差し替えた7項目構成にする
+     （gclassRowCardHtml_のDOM出力順。区別のため専用のrowCard--gclassクラスを付け、
+     共通の.rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder)
+     ルールとは別にこの7項目に対応する:nth-child()を指定する）。以前は担当者・
+     入港予定日・可能月・VPC・リード番号も加えた12項目構成にしていたが、項目数が
+     多すぎて画面幅によっては折り返して2〜3行になり、在庫リストの行より縦に
+     間延びして見えていたため絞り込んだ（現場からの指摘）。それ以外の項目は
+     行タップで開く詳細モーダル（openGClassDetailModal_）でのみ確認する。 */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(1) { flex: 0 0 110px; } /* 顧客＋コミッション */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(2) { flex: 0 0 120px; } /* モデル */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(3) { flex: 0 0 68px; } /* MP */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(4) { flex: 0 0 46px; } /* ステア */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(5) { flex: 0 0 150px; } /* カラー */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(6) { flex: 0 0 170px; } /* 有償OP */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(7) { flex: 0 0 130px; } /* 開示状況 */
 
   /* 発注リストの表示形式「表」（発注リストタブ本体・マイページの「発注リスト」
      セクションの両方で使う。purchaseOrderRowCardHtml_のDOM出力順に対応する
      positionalな:nth-child()指定。MP・カラー・有償OPは在庫リスト
      （vehicleRowCardHtmlの対応列）と同じ幅にしている。読み取り専用のため
      操作ボタン列は無く、受注リスト（.rowCard--order）と同じく最後の列に
-     拠点バッジを置く）。 */
+     拠点バッジを置く。以前はリード番号・担当者・登録日時も加えた9項目構成に
+     していたが、項目数が多すぎて画面幅によっては折り返して2行になり、在庫
+     リストの行より縦に間延びして見えていたため、識別・モデル・MP・カラー・
+     有償OP・拠点の6項目に絞り込んだ（現場からの指摘）。それ以外の項目は行タップで
+     開く詳細モーダル（openPurchaseOrderDetailModal_）でのみ確認する。 */
   .rowCard.rowCard--purchaseOrder { border-left-color: var(--primary); }
   .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(1) { flex: 0 0 110px; } /* 顧客＋コミッション */
   .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(2) { flex: 0 0 120px; } /* モデル */
   .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(3) { flex: 0 0 68px; } /* MP */
   .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(4) { flex: 0 0 150px; } /* カラー */
   .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(5) { flex: 0 0 170px; } /* 有償OP */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(6) { flex: 0 0 110px; } /* リード番号 */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(7) { flex: 0 0 90px; } /* 担当者 */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(8) { flex: 0 0 130px; } /* 登録日時 */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(9) { flex: 1 1 130px; } /* 拠点 */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(6) { flex: 0 0 130px; } /* 拠点 */
   .btn--small { padding: 6px 12px; font-size: 12.5px; }
 
   /* ===== カードグリッド（PCビューで3列固定。Google Material×Teslaの余白多め・
