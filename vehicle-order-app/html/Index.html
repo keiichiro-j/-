@@ -515,10 +515,10 @@
             <button class="btn" id="btnAddStaff" type="button">＋ 担当者を追加</button>
           </div>
 
-          <!-- 現在は使われていない設定項目: Hold登録・2nd Hold登録・受注確定は
-               それぞれ専用の固定演出（showCelebration_、JavaScript.html参照）に
-               なっており、ここで選んだ値は反映されない。過去の「絵柄のバリエーション
-               選択式」の名残。 -->
+          <!-- Hold登録・2nd Hold登録・受注確定それぞれの完了時に表示する演出
+               （絵柄のアクション）のバリエーション選択（A〜D、4種類ずつ）。
+               案内メッセージ自体は固定で、絵柄の演出だけを切り替える
+               （showCelebration_・CELEBRATION_EFFECTS、JavaScript.html参照）。 -->
           <div class="settingsCard hidden" id="systemMasterCelebrationCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>Hold・受注確定の演出</h2>
             <p class="settingsSection__desc">Hold登録・2ND HOLD登録・受注確定が完了したときに表示する「絵柄のアクション」を選べます（案内メッセージ自体は固定です）。</p>
@@ -749,8 +749,8 @@
     <div class="confettiLayer" id="confettiLayer"></div>
 
     <!-- Hold登録・2nd Hold登録・受注確定 完了時の演出（showCelebration_、JavaScript.html参照）。
-         celebrationLayerには絵文字（応援の絵柄・風船・花火等）を、celebrationBannerには
-         固定の案内メッセージを表示する。 -->
+         celebrationLayerにはCSSで描いた図形・発光エフェクト（バリエーションA〜Dで内容が
+         切り替わる）を、celebrationBannerには固定の案内メッセージを表示する。 -->
     <div class="celebrationLayer" id="celebrationLayer"></div>
     <div class="celebrationBanner hidden" id="celebrationBanner"></div>
   </div>

@@ -316,15 +316,15 @@ var PROP_KEYS = {
  * Hold登録・2nd Hold登録・受注確定それぞれの完了時に表示する演出（絵柄の
  * アクション）の選択肢キー。管理者（SYSTEM_ADMIN_EMAILS）が設定タブから
  * 選べるようにする（CELEBRATION_VARIANT_LABELS・SettingsService.gsの
- * normalizeCelebrationVariants_参照。実際の演出内容自体はクライアント側
- * （JavaScript.htmlのCELEBRATION_CONTENT）で定義する）。
+ * normalizeCelebrationVariants_参照。案内メッセージ自体は固定で、絵柄の
+ * 演出だけが切り替わる。実際の演出内容自体はクライアント側
+ * （JavaScript.htmlのCELEBRATION_EFFECTS）で定義する）。
  */
 var CELEBRATION_VARIANT_OPTIONS = ['A', 'B', 'C', 'D'];
 var DEFAULT_CELEBRATION_VARIANTS = { hold: 'A', secondHold: 'A', order: 'A' };
-// 設定タブのプルダウンに表示するラベル（クライアント側のCELEBRATION_CONTENTと
-// 対応させておくこと）。既定のA〜Cに比べて演出が控えめすぎるという現場の声を
-// 受けて、各項目に画面シェイク＋巨大アイコンを使った最も派手な演出「D」を
-// 追加した（JavaScript.htmlのCELEBRATION_CONTENT・triggerMegaCelebration_参照）。
+// 設定タブのプルダウンに表示するラベル（クライアント側のCELEBRATION_EFFECTSと
+// 対応させておくこと）。D はどのアクションでも既存の演出パーツを最も多く
+// 重ね掛けした、最も派手な演出にしている（JavaScript.htmlのCELEBRATION_EFFECTS参照）。
 var CELEBRATION_VARIANT_LABELS = {
   hold: {
     A: 'エール（応援の掛け声）', B: '応援フラッグ', C: 'ガッツポーズ',

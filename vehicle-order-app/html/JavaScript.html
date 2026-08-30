@@ -95,13 +95,9 @@
   // 専用のド派手な演出をセットで表示する（現場からの要望）。絵文字は機種依存
   // で見た目の再現性が低いため使わず、色付きのCSS図形・発光・ウェーブ等の
   // アニメーションのみで演出する（GAS/HTML Serviceのみで完結する）。
-  // アクションごとに演出の中身は固定（設定タブでの選択式ではない）。
-  // - Hold登録: 中央フラッシュ＋発光する衝撃波＋左右2箇所からの打ち上げ
-  //   バースト（triggerHoldCelebration_）。
-  // - 2nd Hold登録: 画面中央で脈動する発光エネルギーコア＋立ち上る火花
-  //   （triggerSecondHoldCelebration_）。
-  // - 受注確定: 左右両半分から画面いっぱいに降らせる紙吹雪＋ランダムな
-  //   位置・タイミングでの複数バースト（triggerOrderCelebration_）。
+  // 案内メッセージ自体は固定だが、絵柄の演出はアクションごとにA〜D
+  // 4種類ずつ用意しており、管理者は設定タブの「Hold・受注確定の演出」
+  // カードから選べる（celebrationVariants、CELEBRATION_EFFECTS参照）。
   var CELEBRATION_MESSAGES = {
     hold: ['1ST HOLD しました！', '頑張ってください！', 'HOLD内容はマイページで確認できます'],
     secondHold: ['2ND HOLD しました！', 'もう少し待ってください', 'HOLD内容はマイページで確認できます'],
@@ -109,18 +105,39 @@
   };
 
   /**
+   * アクション（hold/secondHold/order）×バリエーション（A〜D）ごとの演出関数
+   * 一覧。ラベル（Constants.gsのCELEBRATION_VARIANT_LABELSと対応）:
+   *   hold:       A=エール（既定） B=応援フラッグ C=ガッツポーズ D=全力エール
+   *   secondHold: A=砂時計（既定） B=コーヒーブレイク C=少々お待ちを D=大歓声で応援
+   *   order:      A=紙吹雪＋風船（既定） B=花火 C=祝福シャワー D=祝賀フィナーレ
+   * いずれも同じCSS図形パーツ（spawnParticleBurst_・spawnParticleWave_・
+   * spawnShockwave_・spawnEnergyCore_・triggerWideConfetti_等）の組み合わせ・
+   * 発生位置・タイミングを変えることで演出ごとの個性を出しており、D は
+   * どのアクションでも既存パーツを最も多く重ね掛けした最も派手な演出にしている。
+   */
+  var CELEBRATION_EFFECTS = {
+    hold: { A: triggerHoldCelebrationA_, B: triggerHoldCelebrationB_, C: triggerHoldCelebrationC_, D: triggerHoldCelebrationD_ },
+    secondHold: { A: triggerSecondHoldCelebrationA_, B: triggerSecondHoldCelebrationB_, C: triggerSecondHoldCelebrationC_, D: triggerSecondHoldCelebrationD_ },
+    order: { A: triggerOrderCelebrationA_, B: triggerOrderCelebrationB_, C: triggerOrderCelebrationC_, D: triggerOrderCelebrationD_ }
+  };
+
+  /**
    * Hold登録・2nd Hold登録・受注確定の完了直後に呼ぶ（finishActionSubmit_参照）。
    * actionTypeは state.action.type（'hold' | 'secondHold' | 'order' | 'orderFromHold'）。
    * 'orderFromHold'（Hold中の車両の受注確定）も見た目上は'order'と同じ演出にする。
+   * 演出は、設定タブ（管理者限定）で選んだバリエーション（state.bootstrap.settings.
+   * celebrationVariants）に応じてCELEBRATION_EFFECTSから切り替える（未選択・
+   * 不正な値はA、いずれの利用者の画面でも管理者が選んだバリエーションで統一表示される）。
    */
   function showCelebration_(actionType) {
     var key = actionType === 'orderFromHold' ? 'order' : actionType;
     var messageLines = CELEBRATION_MESSAGES[key];
     if (!messageLines) return;
     showCelebrationBanner_(messageLines);
-    if (key === 'hold') triggerHoldCelebration_();
-    else if (key === 'secondHold') triggerSecondHoldCelebration_();
-    else if (key === 'order') triggerOrderCelebration_();
+    var variants = (state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.celebrationVariants) || {};
+    var variantKey = variants[key] || 'A';
+    var effect = (CELEBRATION_EFFECTS[key] && CELEBRATION_EFFECTS[key][variantKey]) || CELEBRATION_EFFECTS[key].A;
+    effect();
   }
 
   function showCelebrationBanner_(lines) {
@@ -140,13 +157,15 @@
     }, 5000);
   }
 
+  // ----- Hold登録の演出（A=エール／B=応援フラッグ／C=ガッツポーズ／D=全力エール） -----
+
   /**
-   * Hold登録の演出。中央での閃光→発光する衝撃波（2回）→画面下の左右2箇所
+   * A（既定）: エール。中央での閃光→発光する衝撃波（2回）→画面下の左右2箇所
    * から打ち上がるバースト→立ち上る火花の余韻、という4段構成にすることで、
    * 「1ST HOLDしました！頑張ってください！」という景気の良い文言にふさわしい
    * 打ち上げ花火のような演出にしている。
    */
-  function triggerHoldCelebration_() {
+  function triggerHoldCelebrationA_() {
     flashScreen_();
     spawnShockwave_();
     setTimeout(spawnShockwave_, 180);
@@ -158,26 +177,149 @@
   }
 
   /**
-   * 2nd Hold登録の演出。「もう少し待ってください」という文言に合わせ、
+   * B: 応援フラッグ。旗を振るイメージで、リボン形の図形を中心に画面上から
+   * 2波に分けて降らせる（打ち上げ系のAとは逆に、降ってくる演出にすることで
+   * 見分けやすくしている）。
+   */
+  function triggerHoldCelebrationB_() {
+    var shapes = ['ribbon', 'star'];
+    spawnParticleWave_(shapes, 'fall', 30);
+    setTimeout(function () { spawnParticleWave_(shapes, 'fall', 22); }, 260);
+  }
+
+  /**
+   * C: ガッツポーズ。景気づけのエールというより、決めのポーズ1発という
+   * イメージで、画面中央への強い衝撃波＋大きめのバーストを1〜2回だけ
+   * 短く鋭く出す（Aのような連続演出にはしない）。
+   */
+  function triggerHoldCelebrationC_() {
+    spawnShockwave_();
+    spawnParticleBurst_(['star', 'square'], 40);
+    setTimeout(function () { spawnParticleBurst_(['star', 'square'], 20); }, 220);
+  }
+
+  /**
+   * D（最も派手な演出）: 全力エール。A（打ち上げ花火）の構成をベースに、
+   * 衝撃波を3連発・バーストを左右＋中央の3箇所・火花の余韻も増量することで、
+   * 既存パーツを最も多く重ね掛けした演出にしている。
+   */
+  function triggerHoldCelebrationD_() {
+    flashScreen_();
+    spawnShockwave_();
+    setTimeout(spawnShockwave_, 150);
+    setTimeout(spawnShockwave_, 300);
+    var shapes = ['star', 'circle', 'ribbon', 'square'];
+    [24, 76].forEach(function (x, i) {
+      setTimeout(function () { spawnParticleBurst_(shapes, 30, x, 62); }, i * 120);
+    });
+    setTimeout(function () { spawnParticleBurst_(shapes, 30); }, 200);
+    spawnParticleWave_(shapes, 'rise', 40);
+  }
+
+  // ----- 2nd Hold登録の演出（A=砂時計／B=コーヒーブレイク／C=少々お待ちを／D=大歓声で応援） -----
+
+  /**
+   * A（既定）: 砂時計。「もう少し待ってください」という文言に合わせ、
    * 単純なローディングスピナーではなく、画面中央で脈動する発光エネルギー
    * コア（回転するリング＋光る球＋広がるリップル、spawnEnergyCore_）が力を
    * 蓄えているような、期待感のある演出にしている。
    */
-  function triggerSecondHoldCelebration_() {
+  function triggerSecondHoldCelebrationA_() {
     spawnEnergyCore_();
     spawnParticleWave_(['star', 'circle'], 'rise', 18);
   }
 
   /**
-   * 受注確定の演出。「おめでとうございます！」にふさわしく、紙吹雪を画面の
-   * 左右両半分からこれまでより多く・長く降らせて画面いっぱいを埋め尽くし
-   * （triggerWideConfetti_）、さらに画面内のランダムな位置・タイミングで
+   * B: コーヒーブレイク。一息つくイメージで、エネルギーコアだけを静かに
+   * 表示し、火花の演出は付けない（A・Dより控えめで落ち着いた見た目にする）。
+   */
+  function triggerSecondHoldCelebrationB_() {
+    spawnEnergyCore_();
+  }
+
+  /**
+   * C: 少々お待ちを。エネルギーコアに、舞い上がる火花ではなく静かに舞い
+   * 落ちる火花を少数添えることで、「お待ちを」の落ち着いたトーンを出す。
+   */
+  function triggerSecondHoldCelebrationC_() {
+    spawnEnergyCore_();
+    spawnParticleWave_(['circle', 'square'], 'fall', 12);
+  }
+
+  /**
+   * D（最も派手な演出）: 大歓声で応援。エネルギーコアに衝撃波・中央バースト・
+   * 上昇する火花を重ね掛けし、既存パーツを最も多く使った演出にしている。
+   */
+  function triggerSecondHoldCelebrationD_() {
+    spawnEnergyCore_();
+    spawnShockwave_();
+    spawnParticleBurst_(['star', 'circle'], 30);
+    spawnParticleWave_(['star', 'circle', 'ribbon'], 'rise', 30);
+  }
+
+  // ----- 受注確定の演出（A=紙吹雪＋風船／B=花火／C=祝福シャワー／D=祝賀フィナーレ） -----
+
+  /**
+   * A（既定）: 紙吹雪＋風船。「おめでとうございます！」にふさわしく、紙吹雪を
+   * 画面の左右両半分からこれまでより多く・長く降らせて画面いっぱいを埋め
+   * 尽くし（triggerWideConfetti_）、さらに画面内のランダムな位置・タイミングで
    * 複数回バーストする演出（triggerRandomBursts_）を重ね掛けする
    * （現場からの要望）。
    */
-  function triggerOrderCelebration_() {
+  function triggerOrderCelebrationA_() {
     triggerWideConfetti_();
     triggerRandomBursts_();
+  }
+
+  /**
+   * B: 花火。紙吹雪は使わず、画面内のランダムな位置で衝撃波＋バーストの
+   * 「打ち上がって開く」組み合わせを時間差で連続発生させ、花火大会のような
+   * 見た目にする（spawnShockwave_の座標指定に対応）。
+   */
+  function triggerOrderCelebrationB_() {
+    flashScreen_();
+    var shapes = ['star', 'circle', 'ribbon'];
+    var launches = 4 + Math.floor(Math.random() * 3);
+    for (var i = 0; i < launches; i++) {
+      (function () {
+        var x = 14 + Math.random() * 72;
+        var y = 16 + Math.random() * 46;
+        var delay = i * 260 + Math.random() * 200;
+        setTimeout(function () {
+          spawnShockwave_(x, y);
+          spawnParticleBurst_(shapes, 22 + Math.floor(Math.random() * 10), x, y);
+        }, delay);
+      })();
+    }
+  }
+
+  /**
+   * C: 祝福シャワー。左右からの紙吹雪ではなく、画面上からCSS図形（星・丸・
+   * リボン）を全幅にわたって2波降らせ、シャワーのように浴びせる演出にする。
+   */
+  function triggerOrderCelebrationC_() {
+    flashScreen_();
+    var shapes = ['star', 'circle', 'ribbon'];
+    spawnParticleWave_(shapes, 'fall', 50);
+    setTimeout(function () { spawnParticleWave_(shapes, 'fall', 34); }, 320);
+  }
+
+  /**
+   * D（最も派手な演出）: 祝賀フィナーレ。A（紙吹雪＋ランダムバースト）に
+   * 花火演出（B）の打ち上げ花火を重ね掛けし、既存パーツを最も多く使った
+   * 演出にしている。
+   */
+  function triggerOrderCelebrationD_() {
+    flashScreen_();
+    triggerWideConfetti_();
+    triggerRandomBursts_();
+    var shapes = ['star', 'circle', 'ribbon', 'square'];
+    [[20, 22], [80, 30]].forEach(function (pos, i) {
+      setTimeout(function () {
+        spawnShockwave_(pos[0], pos[1]);
+        spawnParticleBurst_(shapes, 26, pos[0], pos[1]);
+      }, i * 240);
+    });
   }
 
   /**
@@ -192,12 +334,16 @@
   }
 
   /**
-   * 画面中央から発光しながら拡大して消えるリング（衝撃波）を1つ生成する。
+   * 発光しながら拡大して消えるリング（衝撃波）を1つ生成する。
+   * @param {number} [originLeftVw] 中心位置（横、vw）。省略時はCSS既定の50%（画面中央）。
+   * @param {number} [originTopVh] 中心位置（縦、vh）。省略時はCSS既定の50%（画面中央）。
    */
-  function spawnShockwave_() {
+  function spawnShockwave_(originLeftVw, originTopVh) {
     var layer = $('celebrationLayer');
     var el = document.createElement('div');
     el.className = 'celebShockwave';
+    if (originLeftVw !== undefined) el.style.left = originLeftVw + 'vw';
+    if (originTopVh !== undefined) el.style.top = originTopVh + 'vh';
     layer.appendChild(el);
     setTimeout(function () { el.remove(); }, 1200);
   }
