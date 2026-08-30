@@ -924,6 +924,7 @@
     // 操作ボタン列（比較チェック含む）は、参照UIに合わせて行の右端に寄せて表示する
     // （.rowCard__actions・Stylesheet.html参照）。
     return '<div class="rowCard ' + rowTone + '" data-commission="' + escapeHtml(v.commission) + '">' +
+      '<div class="rowCard__inner">' +
       '<div class="rowCard__status">' + statusBadge + cancelLinks + '</div>' +
       '<div class="rowCard__field">' +
       '<span class="rowCard__model">' + escapeHtml(v.model) + '</span>' +
@@ -934,6 +935,7 @@
       rowField_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
       rowField_('有償OP', paidOptionsText(v)) +
       '<div class="rowCard__actions">' + actions + comparePinHtml + '</div>' +
+      '</div>' +
       '</div>';
   }
 
@@ -947,9 +949,9 @@
   }
 
   function vehicleRowsHtml(items) {
-    return '<div class="tableScroll"><div class="rowCardList">' +
+    return '<div class="rowCardList">' +
       items.map(vehicleRowCardHtml).join('') +
-      '</div></div>';
+      '</div>';
   }
 
   // Hold詳細ブロックは、常に見えている要約行（顧客・担当者・タイマー）と、
@@ -1711,6 +1713,7 @@
   // モーダル（openOrderDetailModal_・orderDetailGridHtml_）でのみ確認する。
   function orderRowCardHtml(o) {
     return '<div class="rowCard rowCard--order" data-commission="' + escapeHtml(o.commission) + '">' +
+      '<div class="rowCard__inner">' +
       '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(o.customer || '-') + '</span>' +
       '<span class="rowCard__commission">' + escapeHtml(o.commission) + '</span></div>' +
       rowField_('モデル', o.model) +
@@ -1720,13 +1723,14 @@
       rowField_('担当者', o.staff) +
       rowField_('登録月', o.registeredMonth) +
       '<div class="rowCard__status"><span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span></div>' +
+      '</div>' +
       '</div>';
   }
 
   function orderRowsHtml(items) {
-    return '<div class="tableScroll"><div class="rowCardList rowCardList--order">' +
+    return '<div class="rowCardList rowCardList--order">' +
       items.map(orderRowCardHtml).join('') +
-      '</div></div>';
+      '</div>';
   }
 
   function renderOrders() {
@@ -1823,19 +1827,21 @@
    * ボタン・行タップでの編集導線は持たない。 */
   function purchaseOrderRowCardHtml_(po) {
     return '<div class="rowCard rowCard--purchaseOrder" data-purchase-order-id="' + escapeHtml(po.id) + '">' +
+      '<div class="rowCard__inner">' +
       '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(po.customer || '-') + '</span>' +
       '<span class="rowCard__commission">' + escapeHtml(po.commission || '-') + '</span></div>' +
       rowField_('モデル', po.model) +
       rowField_('拠点', po.salesLocation) +
       rowField_('担当者', po.staff) +
       rowField_('リード番号', po.leadNumber) +
+      '</div>' +
       '</div>';
   }
 
   function purchaseOrderRowsHtml_(items) {
-    return '<div class="tableScroll"><div class="rowCardList">' +
+    return '<div class="rowCardList">' +
       items.map(purchaseOrderRowCardHtml_).join('') +
-      '</div></div>';
+      '</div>';
   }
 
   function renderPurchaseOrders_() {
@@ -1884,6 +1890,7 @@
   // 表示形式「表」: 在庫リスト・受注リストと同じ「行カード」パターンで横列閲覧できるようにする。
   function gclassRowCardHtml_(v) {
     return '<div class="rowCard rowCard--available rowCard--gclass">' +
+      '<div class="rowCard__inner">' +
       '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(v.customer || '-') + '</span>' +
       '<span class="rowCard__commission">' + escapeHtml(v.commission) + '</span></div>' +
       rowField_('担当者', v.staff) +
@@ -1897,13 +1904,14 @@
       rowField_('VPC', v.vpc) +
       rowField_('リード番号', v.leadNumber) +
       '<div class="rowCard__status"><span class="badge ' + (v.stockDisclosure === '非開示' ? 'badge--undisclosed' : 'badge--disclosed') + '">' + escapeHtml(v.stockDisclosure || '-') + '</span></div>' +
+      '</div>' +
       '</div>';
   }
 
   function gclassRowsHtml_(items) {
-    return '<div class="tableScroll"><div class="rowCardList">' +
+    return '<div class="rowCardList">' +
       items.map(gclassRowCardHtml_).join('') +
-      '</div></div>';
+      '</div>';
   }
 
   function syncGClassViewToggle_() {

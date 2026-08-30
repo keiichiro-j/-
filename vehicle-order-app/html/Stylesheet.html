@@ -543,12 +543,41 @@
      複数行に自然に収まる（画面幅によって項目の折り返し位置は変わるが、
      すべての行で列構成・列幅は同じため、行をまたいだ縦の位置揃えは保たれる）。
      タブレット・スマホ幅（900px以下）ではこの折り返し方針を逆転させ、
-     flex-wrap: nowrap＋.tableScrollの横スクロールに戻す（下の
-     @media (max-width: 900px)内の.rowCardルール参照）。狭い画面でPCと同じ折り返し
-     方針のままだと1台ぶんの行が3〜4行にも縦へ間延びしてしまうため、スマホでの
-     操作に慣れた横スワイプで「表」らしい単一行の見た目を保つ狙い。 */
+     flex-wrap: nowrap＋横スクロールに戻す（下の@media (max-width: 900px)内の
+     .rowCard／.rowCard__innerルール参照。スクロールはカードの額縁である.rowCard
+     自身に持たせ、実際の項目を並べる.rowCard__innerがその中で横に広がる）。
+     狭い画面でPCと同じ折り返し方針のままだと1台ぶんの行が3〜4行にも縦へ間延び
+     してしまうため、スマホでの操作に慣れた横スワイプで「表」らしい単一行の
+     見た目を保つ狙い。 */
   .rowCardList { display: flex; flex-direction: column; gap: 10px; width: 100%; min-width: 0; }
+  /* .rowCardは「カードの額縁」（背景・罫線・角丸・影）だけを担当し、常に
+     ビューポート（.rowCardListの幅）ぴったりのまま変わらない。実際の項目
+     （ステータス・モデル……操作ボタン）の配置・折り返し・横スクロールは、
+     この中の.rowCard__inner側に切り出している。
+     不具合修正: 以前は.rowCard自身がflexコンテナも兼ねており、タブレット・
+     スマホ幅では画面に収まりきらない項目ぶんだけ.rowCard自身をalign-self:
+     flex-start + min-width: 100%でビューポート幅より広げ、.tableScroll
+     （祖先の overflow-x: auto）でスクロールさせていた。この方式は、角丸・影付きの
+     ビューポート幅を超えるボックスをスクロールコンテナ内でスクロールさせる形に
+     なるため、iOS Safariでスクロール中に背景・罫線の再描画がレイアウトに
+     追従せず、操作ボタン等の内容だけがカードの背景・枠の外（無地のページ背景の
+     上）に取り残されて見える不具合があった（PC Chromeでは再現しないWebKit固有の
+     再描画バグ）。カード自身（.rowCard）の幅を常にビューポート内に固定し、
+     スクロールもカード自身（.rowCard、@media (max-width: 900px)参照）にだけ
+     持たせ、内側の.rowCard__innerだけがその中でスクロールする構成に変えることで、
+     カードの背景・枠は常にビューポート幅のまま描画され、この種の再描画バグが
+     起こり得なくなる。 */
   .rowCard {
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-left: 4px solid transparent;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 14px 20px;
+    cursor: pointer;
+    transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
+  }
+  .rowCard__inner {
     display: flex;
     flex-wrap: wrap;
     /* 折り返した行の間隔（10px）は列間の間隔（16px）より詰め、複数行になっても
@@ -561,13 +590,6 @@
        揃えることで、状態列の行数（解除リンクの本数）に関係なく、バッジ・
        操作ボタン・他の項目が常に同じ高さで揃う。 */
     align-items: flex-start;
-    background: var(--surface);
-    border: 1px solid var(--outline);
-    border-left: 4px solid transparent;
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    padding: 14px 20px;
-    transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
   }
   /* 状態列も「Hold中（2nd有）」バッジが収まる幅（150px）を確保し、隣の操作列と
      重ならないようにする（以前は108pxで文字がはみ出し、受注確定ボタンと
@@ -593,13 +615,13 @@
      ボタン数の違い（Hold中2個／在庫あり2個／2nd Hold登録済み1個）があっても
      縦の列位置がずれることはない（開始位置は固定、右端は行幅いっぱいまで伸びる
      ため）。 */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > *:nth-child(1) { flex: 0 0 150px; } /* ステータス */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > *:nth-child(2) { flex: 0 0 100px; } /* モデル＋コミッション */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > *:nth-child(3) { flex: 0 0 68px; } /* MP */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > *:nth-child(4) { flex: 0 0 46px; } /* ステア */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > *:nth-child(5) { flex: 0 0 150px; } /* カラー */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > *:nth-child(6) { flex: 0 0 170px; } /* 有償OP */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > *:nth-child(7) { flex: 1 1 210px; } /* 操作ボタン＋比較チェック（行の右端に寄せる） */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(1) { flex: 0 0 150px; } /* ステータス */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(2) { flex: 0 0 100px; } /* モデル＋コミッション */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(3) { flex: 0 0 68px; } /* MP */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(4) { flex: 0 0 46px; } /* ステア */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(5) { flex: 0 0 150px; } /* カラー */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(6) { flex: 0 0 170px; } /* 有償OP */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(7) { flex: 1 1 210px; } /* 操作ボタン＋比較チェック（行の右端に寄せる） */
   /* border-color: transparent ではなく上・右・下のみ指定する。border-color（4辺一括）だと
      border-left-color（在庫状況を示す色つきの左罫線）まで打ち消してしまい、ホバー時に
      状態の色が消えて見えてしまうため（.rowCard--available 等はこのルールより先に書かれて
@@ -613,8 +635,8 @@
      スクロールしないと見えないため、行（カード）自体をタップすると、既存のカード表示と
      同じ見た目で車両情報すべてを画面中央のモーダルに表示する
      （openInventoryDetailModal_、JavaScript.html参照）。チェックボックス・操作ボタン
-     自体は個別にクリックできるよう、cursor はタップ可能であることを示すのみに留める。 */
-  .rowCard { cursor: pointer; }
+     自体は個別にクリックできるよう、cursor はタップ可能であることを示すのみに留める
+     （cursor: pointer自体は上の.rowCard本体の宣言に含めている）。 */
   /* 比較チェックボックスは、以前は左端の専用列（ピン列）→モデル名とコミッションの
      間、と移動してきたが、添付の参照UIにはモデル名の並びに比較チェックの表示が
      無く、そこに挟むと参照UIより1行分縦に間延びして見えるため、操作ボタンの
@@ -678,14 +700,14 @@
      flex-wrapで並べ、画面幅に収まりきらない項目は横スクロールではなく次の行へ
      折り返す（orderRowCardHtmlのDOM出力順に対応するpositionalな:nth-child()指定）。 */
   .rowCard.rowCard--order { border-left-color: var(--primary); }
-  .rowCard.rowCard--order > *:nth-child(1) { flex: 0 0 110px; } /* 顧客＋コミッション */
-  .rowCard.rowCard--order > *:nth-child(2) { flex: 0 0 120px; } /* モデル */
-  .rowCard.rowCard--order > *:nth-child(3) { flex: 0 0 110px; } /* リード番号 */
-  .rowCard.rowCard--order > *:nth-child(4) { flex: 0 0 68px; } /* MP */
-  .rowCard.rowCard--order > *:nth-child(5) { flex: 0 0 88px; } /* VPC */
-  .rowCard.rowCard--order > *:nth-child(6) { flex: 0 0 90px; } /* 担当者 */
-  .rowCard.rowCard--order > *:nth-child(7) { flex: 0 0 80px; } /* 登録月 */
-  .rowCard.rowCard--order > *:nth-child(8) { flex: 0 0 130px; } /* 販売拠点 */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(1) { flex: 0 0 110px; } /* 顧客＋コミッション */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(2) { flex: 0 0 120px; } /* モデル */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(3) { flex: 0 0 110px; } /* リード番号 */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(4) { flex: 0 0 68px; } /* MP */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(5) { flex: 0 0 88px; } /* VPC */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(6) { flex: 0 0 90px; } /* 担当者 */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(7) { flex: 0 0 80px; } /* 登録月 */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(8) { flex: 0 0 130px; } /* 販売拠点 */
 
   /* Gクラス予約リストの表示形式「表」: 在庫リストの項目（MP・ステア・カラー・
      有償OP・入港予定日・可能月・VPC）に加えて担当者・モデル・リード番号も
@@ -693,27 +715,27 @@
      12項目構成になる（gclassRowCardHtml_のDOM出力順）。区別のため専用の
      rowCard--gclassクラスを付け、共通の.rowCard:not(.rowCard--order):not(.rowCard--gclass)
      ルールとは別に、この12項目に対応する:nth-child()を指定する。 */
-  .rowCard--gclass > *:nth-child(1) { flex: 0 0 110px; }
-  .rowCard--gclass > *:nth-child(2) { flex: 0 0 90px; }
-  .rowCard--gclass > *:nth-child(3) { flex: 0 0 120px; }
-  .rowCard--gclass > *:nth-child(4) { flex: 0 0 68px; }
-  .rowCard--gclass > *:nth-child(5) { flex: 0 0 46px; }
-  .rowCard--gclass > *:nth-child(6) { flex: 0 0 150px; }
-  .rowCard--gclass > *:nth-child(7) { flex: 0 0 170px; }
-  .rowCard--gclass > *:nth-child(8) { flex: 0 0 96px; }
-  .rowCard--gclass > *:nth-child(9) { flex: 0 0 84px; }
-  .rowCard--gclass > *:nth-child(10) { flex: 0 0 88px; }
-  .rowCard--gclass > *:nth-child(11) { flex: 0 0 110px; }
-  .rowCard--gclass > *:nth-child(12) { flex: 0 0 130px; }
+  .rowCard--gclass > .rowCard__inner > *:nth-child(1) { flex: 0 0 110px; }
+  .rowCard--gclass > .rowCard__inner > *:nth-child(2) { flex: 0 0 90px; }
+  .rowCard--gclass > .rowCard__inner > *:nth-child(3) { flex: 0 0 120px; }
+  .rowCard--gclass > .rowCard__inner > *:nth-child(4) { flex: 0 0 68px; }
+  .rowCard--gclass > .rowCard__inner > *:nth-child(5) { flex: 0 0 46px; }
+  .rowCard--gclass > .rowCard__inner > *:nth-child(6) { flex: 0 0 150px; }
+  .rowCard--gclass > .rowCard__inner > *:nth-child(7) { flex: 0 0 170px; }
+  .rowCard--gclass > .rowCard__inner > *:nth-child(8) { flex: 0 0 96px; }
+  .rowCard--gclass > .rowCard__inner > *:nth-child(9) { flex: 0 0 84px; }
+  .rowCard--gclass > .rowCard__inner > *:nth-child(10) { flex: 0 0 88px; }
+  .rowCard--gclass > .rowCard__inner > *:nth-child(11) { flex: 0 0 110px; }
+  .rowCard--gclass > .rowCard__inner > *:nth-child(12) { flex: 0 0 130px; }
 
   /* マイページの「発注リスト」セクションの表示形式「表」専用（発注リストタブ自体は
      カード表示のみで表の切り替えは無い。purchaseOrderRowCardHtml_のDOM出力順に
      対応するpositionalな:nth-child()指定。読み取り専用のため操作ボタン列は無い）。 */
-  .rowCard--purchaseOrder > *:nth-child(1) { flex: 0 0 110px; } /* 顧客＋コミッション */
-  .rowCard--purchaseOrder > *:nth-child(2) { flex: 0 0 120px; } /* モデル */
-  .rowCard--purchaseOrder > *:nth-child(3) { flex: 0 0 130px; } /* 拠点 */
-  .rowCard--purchaseOrder > *:nth-child(4) { flex: 0 0 90px; } /* 担当者 */
-  .rowCard--purchaseOrder > *:nth-child(5) { flex: 1 1 110px; } /* リード番号 */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(1) { flex: 0 0 110px; } /* 顧客＋コミッション */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(2) { flex: 0 0 120px; } /* モデル */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(3) { flex: 0 0 130px; } /* 拠点 */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(4) { flex: 0 0 90px; } /* 担当者 */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(5) { flex: 1 1 110px; } /* リード番号 */
   .btn--small { padding: 6px 12px; font-size: 12.5px; }
 
   /* ===== カードグリッド（PCビューで3列固定。Google Material×Teslaの余白多め・
@@ -2220,21 +2242,26 @@
        を保ち、画面外の項目はスマホ操作で慣れた横スワイプで確認できるようにする。
        各項目の横幅（:nth-child()、flex-shrink: 0）は変更しないため、スクロール中も
        列幅は常に一定に保たれる。
-       不具合修正: .rowCardは.rowCardList（display: flex; flex-direction: column）の
-       flexアイテムのため、align-items: stretch（既定）により自身の幅が常に
-       ビューポート幅（.rowCardListの幅）ぴったりにクランプされてしまっていた。
-       その内側で:nth-child()の固定幅列（flex-shrink: 0）を横一列（nowrap）に
-       並べようとすると、クランプされた狭い幅に収まりきらない列・操作ボタンが
-       カード自身の背景・罫線・角丸の外側へ視覚的にはみ出して表示され（横スクロール
-       コンテナ自体はそのはみ出しを可動域として認識できないため、スワイプしても
-       正しく収まらない）、在庫リスト・受注リストの「表」表示でカードの見た目が
-       崩れる不具合があった。align-self: flex-start でstretchを解除し、
-       min-width: 100%を下限にしつつ内容物の実幅（列の合計）ぶんまでカード自身が
-       広がれるようにすることで、すべての列・ボタンがカードの枠内に収まった状態で
-       tableScroll（overflow-x: auto）の横スワイプが機能するようにした。 */
+       不具合修正（iOS Safariでカードの背景・罫線が内容から取り残される問題）:
+       以前は.rowCard自身がflexコンテナ・スクロール対象の両方を兼ねており、
+       align-self: flex-start + min-width: 100%で.rowCard自身をビューポート幅より
+       内容ぶん広げ、祖先の.tableScroll（overflow-x: auto）でスクロールさせていた。
+       この方式だと、角丸・影付きのビューポート幅を超えるボックスをスクロール
+       コンテナ内でスクロールさせる形になり、iOS Safariでスクロール中に背景・罫線の
+       再描画がレイアウトに追従せず、操作ボタン等の内容だけがカードの背景・枠の外
+       （無地のページ背景の上）に取り残されて見える不具合があった（PC Chromeでは
+       再現しないWebKit固有の再描画バグ）。.rowCard自身は常にビューポート幅の
+       ままにし（角丸・影付きの背景ボックスの幅が変わらないようにする）、代わりに
+       .rowCard自身にoverflow-x: autoを持たせてスクロールコンテナ化し、内側の
+       .rowCard__inner（実際に画面に収まりきらない幅まで広がる要素）だけをその中で
+       スクロールさせる構成に変えた。カードの背景・枠は常にビューポート幅のまま
+       描画されるため、この種の再描画バグが起こり得なくなる。 */
     .rowCard {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .rowCard__inner {
       flex-wrap: nowrap;
-      align-self: flex-start;
       min-width: 100%;
     }
     .tableScroll { -webkit-overflow-scrolling: touch; }
@@ -2246,7 +2273,7 @@
        ぶんだけ確保するようにし、列の折り返し（flex-wrap）も禁止して常に横一列に
        並べる。結果としてボタン列が必要以上に広がらず、カード全体もその分だけ
        スリムになる。 */
-    .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > *:nth-child(7) {
+    .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(7) {
       flex: 0 0 auto;
     }
     .rowCard__actions { flex-wrap: nowrap; }
