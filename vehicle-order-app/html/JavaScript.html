@@ -32,6 +32,8 @@
     gclassItems: [], // Gクラス予約リスト（閲覧専用。Hold・受注操作は一切ない）
     gclassViewMode: safeLocalStorageGet_('gclassViewMode') || 'card', // 'card' | 'table'（Gクラス予約リストの表示形式）
     allGClassItems: [], // マイページ集計専用（Gクラス予約リストの検索条件に左右されない全件）
+    purchaseOrders: [], // 発注リスト（閲覧専用。検索条件に左右されない全件をクライアント側で絞り込む）
+    purchaseOrdersViewMode: safeLocalStorageGet_('purchaseOrdersViewMode') || 'card', // 'card' | 'table'（発注リストの表示形式）
     myPageViewMode: safeLocalStorageGet_('myPageViewMode') || 'card' // 'card' | 'table'（マイページ全体の表示形式）
   };
   var COMPARE_MAX = 3;
@@ -1276,6 +1278,7 @@
   syncViewToggle_();
   syncOrdersViewToggle_();
   syncGClassViewToggle_();
+  syncPurchaseOrdersViewToggle_();
   syncMyPageViewToggle_();
 
   // 在庫リストのカード/行タップ操作（Hold・受注・比較・詳細）。マイページの
@@ -1951,13 +1954,16 @@
 
   // ===== 発注リスト =====
   // 在庫リスト・受注リストのようなHold/受注のステータス管理・通知は持たない、
-  // シンプルな登録・編集・削除ができる一覧（現場からの要望で追加。受注リストと
-  // Gクラス予約リストの間に配置する）。件数が多くなりすぎない想定のため、
-  // 検索は在庫リスト・受注リストのようにサーバーへ都度問い合わせず、
-  // 一度読み込んだ全件（state.purchaseOrders）をクライアント側で絞り込む。
-  // マイページの「発注リスト」セクション（renderMyPagePurchaseOrders_）も
-  // 同じstate.purchaseOrdersを担当者名で絞り込んで再利用するため、読み込み後は
-  // 両方の再描画を呼ぶ。
+  // 閲覧専用の一覧（現場からの要望で追加。受注リストとGクラス予約リストの間に
+  // 配置する）。登録・編集・削除はいずれもアプリ画面からは行わず、スプレッド
+  // シートへ直接入力する運用のため、カード・表のどちらにも編集導線は無い。
+  // 件数が多くなりすぎない想定のため、検索は在庫リスト・受注リストのように
+  // サーバーへ都度問い合わせず、一度読み込んだ全件（state.purchaseOrders）を
+  // クライアント側で絞り込む。マイページの「発注リスト」セクション
+  // （renderMyPagePurchaseOrders_）も同じstate.purchaseOrdersを担当者名で
+  // 絞り込んで再利用するため、読み込み後は両方の再描画を呼ぶ。
+  // カード・表とも受注リスト（orderCardHtml/orderRowCardHtml）と同じ「顧客名を
+  // 主役にした見た目」に揃えている。
   function loadPurchaseOrders() {
     return gasRun('api_listPurchaseOrders').then(function (items) {
       state.purchaseOrders = items || [];
@@ -1979,30 +1985,35 @@
     var subParts = [];
     if (po.commission) subParts.push('コミッション: ' + escapeHtml(po.commission));
     if (po.leadNumber) subParts.push('リード番号: ' + escapeHtml(po.leadNumber));
+    if (po.createdAt) subParts.push('登録日時: ' + formatDateTime(po.createdAt));
     return '<div class="purchaseOrderCard">' +
       '<div class="purchaseOrderCard__top">' +
-      '<div class="purchaseOrderCard__model">' + escapeHtml(po.model) + '</div>' +
+      '<div><div class="purchaseOrderCard__customer">' + escapeHtml(po.customer || '-') + '</div>' +
+      '<div class="purchaseOrderCard__staff">担当者: ' + escapeHtml(po.staff || '-') + '</div>' +
+      '<div class="purchaseOrderCard__vehicle">' + escapeHtml(po.model) + '</div></div>' +
       '<span class="badge badge--location">' + escapeHtml(po.salesLocation || '-') + '</span>' +
       '</div>' +
-      '<div class="purchaseOrderCard__meta">担当者: ' + escapeHtml(po.staff) + '　／　顧客: ' + escapeHtml(po.customer) + '</div>' +
       (subParts.length ? '<div class="purchaseOrderCard__sub">' + subParts.join('　') + '</div>' : '') +
       '</div>';
   }
 
   /**
-   * 表示形式「表」用の行カード（マイページの「発注リスト」セクションのみで使う。
-   * 発注リストタブ自体にはカード/表の切り替えは無いため、この行カードは
-   * マイページ専用）。発注リストは閲覧専用のため、カード表示・表表示のどちらも
-   * ボタン・行タップでの編集導線は持たない。 */
+   * 表示形式「表」用の行カード（発注リストタブ本体・マイページの「発注リスト」
+   * セクションの両方で使う）。受注リストのorderRowCardHtmlと同じ列構成の
+   * 考え方（識別列→車両・契約情報→拠点バッジを最後尾に配置）に揃えている。
+   * 発注リストは閲覧専用のため、カード表示・表表示のどちらもボタン・行タップ
+   * での編集導線は持たない。
+   */
   function purchaseOrderRowCardHtml_(po) {
     return '<div class="rowCard rowCard--purchaseOrder" data-purchase-order-id="' + escapeHtml(po.id) + '">' +
       '<div class="rowCard__inner">' +
       '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(po.customer || '-') + '</span>' +
       '<span class="rowCard__commission">' + escapeHtml(po.commission || '-') + '</span></div>' +
       rowField_('モデル', po.model) +
-      rowField_('拠点', po.salesLocation) +
-      rowField_('担当者', po.staff) +
       rowField_('リード番号', po.leadNumber) +
+      rowField_('担当者', po.staff) +
+      rowField_('登録日時', formatDateTime(po.createdAt)) +
+      '<div class="rowCard__status"><span class="badge badge--location">' + escapeHtml(po.salesLocation || '-') + '</span></div>' +
       '</div>' +
       '</div>';
   }
@@ -2013,12 +2024,29 @@
       '</div>';
   }
 
+  function syncPurchaseOrdersViewToggle_() {
+    document.querySelectorAll('#purchaseOrdersViewToggle .viewToggle__item').forEach(function (btn) {
+      btn.classList.toggle('is-active', btn.dataset.view === state.purchaseOrdersViewMode);
+    });
+  }
+
+  $('purchaseOrdersViewToggle').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-view]');
+    if (!btn) return;
+    state.purchaseOrdersViewMode = btn.dataset.view;
+    safeLocalStorageSet_('purchaseOrdersViewMode', state.purchaseOrdersViewMode);
+    syncPurchaseOrdersViewToggle_();
+    renderPurchaseOrders_();
+  });
+
   function renderPurchaseOrders_() {
     var keyword = $('purchaseOrdersKeyword').value;
     var items = (state.purchaseOrders || []).filter(function (po) { return purchaseOrderMatchesKeyword_(po, keyword); });
     $('purchaseOrdersEmpty').classList.toggle('hidden', items.length > 0);
     $('purchaseOrdersTotalCount').textContent = items.length ? '該当 ' + items.length + ' 件' : '';
-    $('purchaseOrdersList').innerHTML = '<div class="purchaseOrderList">' + items.map(purchaseOrderCardHtml_).join('') + '</div>';
+    $('purchaseOrdersList').innerHTML = state.purchaseOrdersViewMode === 'table'
+      ? purchaseOrderRowsHtml_(items)
+      : '<div class="purchaseOrderList">' + items.map(purchaseOrderCardHtml_).join('') + '</div>';
     syncFixedBars_();
   }
 
