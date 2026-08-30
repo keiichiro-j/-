@@ -1072,14 +1072,6 @@
   .purchaseOrderCard__model { font-size: 21px; font-weight: 500; letter-spacing: -.01em; line-height: 1.25; }
   .purchaseOrderCard__meta { font-size: 13.5px; font-weight: 600; color: var(--on-surface-variant); margin-top: 3px; }
   .purchaseOrderCard__sub { font-size: 12.5px; color: var(--on-surface-variant); }
-  .purchaseOrderCard__actions {
-    display: flex;
-    gap: 8px;
-    margin-top: auto;
-    padding-top: 10px;
-    border-top: 1px solid var(--outline);
-  }
-  .purchaseOrderCard__actions .btn { flex: 1; }
 
   /* ===== 設定画面 =====
      項目ごとに独立したカード（島）に分け、Google/Teslaのカードデザインに寄せる
@@ -2227,9 +2219,37 @@
        にすることで、各行は常に単一行（列位置がどの車両でも揃う本来の「表」の見た目）
        を保ち、画面外の項目はスマホ操作で慣れた横スワイプで確認できるようにする。
        各項目の横幅（:nth-child()、flex-shrink: 0）は変更しないため、スクロール中も
-       列幅は常に一定に保たれる。 */
-    .rowCard { flex-wrap: nowrap; }
+       列幅は常に一定に保たれる。
+       不具合修正: .rowCardは.rowCardList（display: flex; flex-direction: column）の
+       flexアイテムのため、align-items: stretch（既定）により自身の幅が常に
+       ビューポート幅（.rowCardListの幅）ぴったりにクランプされてしまっていた。
+       その内側で:nth-child()の固定幅列（flex-shrink: 0）を横一列（nowrap）に
+       並べようとすると、クランプされた狭い幅に収まりきらない列・操作ボタンが
+       カード自身の背景・罫線・角丸の外側へ視覚的にはみ出して表示され（横スクロール
+       コンテナ自体はそのはみ出しを可動域として認識できないため、スワイプしても
+       正しく収まらない）、在庫リスト・受注リストの「表」表示でカードの見た目が
+       崩れる不具合があった。align-self: flex-start でstretchを解除し、
+       min-width: 100%を下限にしつつ内容物の実幅（列の合計）ぶんまでカード自身が
+       広がれるようにすることで、すべての列・ボタンがカードの枠内に収まった状態で
+       tableScroll（overflow-x: auto）の横スワイプが機能するようにした。 */
+    .rowCard {
+      flex-wrap: nowrap;
+      align-self: flex-start;
+      min-width: 100%;
+    }
     .tableScroll { -webkit-overflow-scrolling: touch; }
+    /* 在庫リストの操作ボタン列（Hold／受注／2ND HOLD／受注確定＋比較チェック）は、
+       PCの折り返しレイアウト向けにflex: 1 1 210px（伸縮可）にしているが、横スクロール
+       表示のまま伸縮させるとボタン同士が縦に折り返され、カードが不必要に縦長になる
+       不具合があった（現場からの指摘。「受注確定ボタンも横にしてカードを細める」
+       要望）。横スクロール表示では伸縮させず、ボタン自身の実寸（横一列に並ぶ幅）
+       ぶんだけ確保するようにし、列の折り返し（flex-wrap）も禁止して常に横一列に
+       並べる。結果としてボタン列が必要以上に広がらず、カード全体もその分だけ
+       スリムになる。 */
+    .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > *:nth-child(7) {
+      flex: 0 0 auto;
+    }
+    .rowCard__actions { flex-wrap: nowrap; }
 
     /* 型のクイックナビ: タブレット・スマホ幅では5種類＋「すべて」を折り返し無しで
        並べると窮屈なため、横スクロールにする（よくあるカテゴリ絞り込みチップの

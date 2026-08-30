@@ -98,27 +98,21 @@ function api_listGClassReservations(filters) {
   return searchGClassReservations_(listGClassReservations_(), filters);
 }
 
-// ===== 発注リスト =====
+// ===== 発注リスト（閲覧専用） =====
 // 在庫リスト・受注リストのようなステータス管理・通知は持たない、
 // シンプルな一覧（PurchaseOrderService.gs参照）。アプリ画面はスプレッドシートの
-// データを閲覧する専用のため、新規登録の導線（「＋ 新規登録」ボタン）は置いて
-// いない（既存行の編集・削除はできる。html/Index.html・JavaScript.html参照）。
+// データを閲覧する専用のため、登録・編集・削除の導線はいずれも置いていない
+// （html/Index.html・JavaScript.html参照）。
 function api_listPurchaseOrders() {
   return listPurchaseOrders();
 }
 
-// アプリ画面からは呼ばれない（新規の発注情報はスプレッドシートへ直接追加する
-// 運用のため）。GASエディタから直接実行する場合等に備え、関数自体は残している。
+// アプリ画面からは呼ばれない（発注情報の登録・変更・削除はすべてスプレッドシートへ
+// 直接行う運用のため）。GASエディタから直接実行する場合等に備え、
+// PurchaseOrderService.gs側の関数（addPurchaseOrder / updatePurchaseOrder /
+// deletePurchaseOrder）自体は残しているが、api_ ラッパーはこのlistのみとする。
 function api_addPurchaseOrder(info) {
   return addPurchaseOrder(info);
-}
-
-function api_updatePurchaseOrder(id, info) {
-  return updatePurchaseOrder(id, info);
-}
-
-function api_deletePurchaseOrder(id) {
-  return deletePurchaseOrder(id);
 }
 
 // ===== 設定機能（3.6） =====

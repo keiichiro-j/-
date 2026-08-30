@@ -315,10 +315,9 @@
       </div>
     </main>
 
-    <!-- 発注リスト: スプレッドシートのデータを閲覧する専用の一覧（現場からの要望で
-         新規登録はアプリ画面から行わない方針になったため、「＋ 新規登録」ボタンは
-         置かない。新規の発注情報はスプレッドシートへ直接追加する運用とし、アプリ
-         画面からは既存行の編集・削除のみできる。在庫リスト・受注リストのような
+    <!-- 発注リスト: スプレッドシートのデータを閲覧する専用の一覧（閲覧専用。
+         登録・編集・削除はいずれもアプリ画面から行わず、新規の発注情報・変更は
+         すべてスプレッドシートへ直接行う運用とする。在庫リスト・受注リストのような
          Hold/受注のステータス管理・通知は持たない、シンプルな一覧のまま。
          モデル名・拠点・担当者・顧客は必須、コミッション・リード番号はまだ確定して
          いない段階でも登録できるよう任意項目にしている（PurchaseOrderService.gs参照）。 -->
@@ -689,67 +688,6 @@
       </div>
     </div>
   </div>
-
-  <!-- 発注リスト: 編集モーダル（新規登録はアプリ画面からは行わない。上のview-purchaseOrders
-       のコメント参照） -->
-  <div class="modal hidden" id="purchaseOrderModal">
-    <div class="modal__panel">
-      <div class="modal__header">
-        <h2 id="purchaseOrderModalTitle">発注情報の編集</h2>
-        <button class="btn--icon" data-close-modal>&times;</button>
-      </div>
-      <div class="modal__body">
-        <div class="modal__error hidden" id="purchaseOrderModalError"></div>
-        <div class="formField">
-          <label>モデル名 <span class="formField__required">必須</span></label>
-          <input type="text" id="purchaseOrderModel" class="input">
-        </div>
-        <div class="formField">
-          <label>拠点 <span class="formField__required">必須</span></label>
-          <input type="text" id="purchaseOrderSalesLocation" class="input">
-        </div>
-        <div class="formField">
-          <label>担当者 <span class="formField__required">必須</span></label>
-          <input type="text" id="purchaseOrderStaff" class="input">
-        </div>
-        <div class="formField">
-          <label>顧客 <span class="formField__required">必須</span></label>
-          <input type="text" id="purchaseOrderCustomer" class="input">
-        </div>
-        <div class="formField">
-          <label>コミッション（任意）</label>
-          <input type="text" id="purchaseOrderCommission" class="input">
-        </div>
-        <div class="formField">
-          <label>リード番号（任意）</label>
-          <input type="text" id="purchaseOrderLeadNumber" class="input">
-        </div>
-      </div>
-      <div class="modal__footer">
-        <button class="btn" data-close-modal>キャンセル</button>
-        <button class="btn btn--primary" id="btnPurchaseOrderSubmit">保存</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 発注リスト: 削除確認モーダル -->
-  <div class="modal hidden" id="purchaseOrderDeleteModal">
-    <div class="modal__panel">
-      <div class="modal__header">
-        <h2>発注情報の削除</h2>
-        <button class="btn--icon" data-close-modal>&times;</button>
-      </div>
-      <div class="modal__body">
-        <p class="modal__desc" id="purchaseOrderDeleteDesc"></p>
-        <div class="modal__error hidden" id="purchaseOrderDeleteError"></div>
-      </div>
-      <div class="modal__footer">
-        <button class="btn" data-close-modal>キャンセル</button>
-        <button class="btn btn--danger" id="btnPurchaseOrderDeleteSubmit">削除する</button>
-      </div>
-    </div>
-  </div>
-
 
   <!-- 車両比較モーダル -->
   <div class="modal hidden" id="compareModal">

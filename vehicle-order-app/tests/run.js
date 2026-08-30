@@ -772,7 +772,7 @@ test('未指定（undefined）を渡してもエラーにならずすべて既�
   const result = sandbox.normalizeCelebrationVariants_(undefined);
   assert.deepStrictEqual(result, sandbox.DEFAULT_CELEBRATION_VARIANTS);
 });
-test('D（GASで実現可能な最も派手な演出）はhold/secondHold/orderいずれも有効な値として通る', () => {
+test('D（最も派手な演出）はhold/secondHold/orderいずれも有効な値として通る', () => {
   const result = sandbox.normalizeCelebrationVariants_({ hold: 'D', secondHold: 'D', order: 'D' });
   assert.strictEqual(result.hold, 'D');
   assert.strictEqual(result.secondHold, 'D');

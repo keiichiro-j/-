@@ -1813,20 +1813,14 @@
       '</div>' +
       '<div class="purchaseOrderCard__meta">担当者: ' + escapeHtml(po.staff) + '　／　顧客: ' + escapeHtml(po.customer) + '</div>' +
       (subParts.length ? '<div class="purchaseOrderCard__sub">' + subParts.join('　') + '</div>' : '') +
-      '<div class="purchaseOrderCard__actions">' +
-      '<button type="button" class="btn" data-edit-purchase-order="' + escapeHtml(po.id) + '">編集</button>' +
-      '<button type="button" class="btn btn--danger" data-delete-purchase-order="' + escapeHtml(po.id) + '">削除</button>' +
-      '</div>' +
       '</div>';
   }
 
   /**
    * 表示形式「表」用の行カード（マイページの「発注リスト」セクションのみで使う。
    * 発注リストタブ自体にはカード/表の切り替えは無いため、この行カードは
-   * マイページ専用。読み取り専用の並びのため、編集・削除ボタンは持たせず、
-   * 行タップ（ボタン・入力以外の箇所）で編集モーダルを開く
-   * （handlePurchaseOrderListClick_参照。ボタン付きのカード表示と同じ
-   * openPurchaseOrderModal_を再利用する）。 */
+   * マイページ専用）。発注リストは閲覧専用のため、カード表示・表表示のどちらも
+   * ボタン・行タップでの編集導線は持たない。 */
   function purchaseOrderRowCardHtml_(po) {
     return '<div class="rowCard rowCard--purchaseOrder" data-purchase-order-id="' + escapeHtml(po.id) + '">' +
       '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(po.customer || '-') + '</span>' +
@@ -1854,116 +1848,6 @@
   }
 
   $('purchaseOrdersKeyword').addEventListener('input', debounce(renderPurchaseOrders_, 200));
-
-  // 発注情報を特定するためのアプリ内部の一意なID（コミッションは任意項目のため
-  // 一意性を前提にできない）。新規登録はアプリ画面から行わない方針のため、
-  // 常に編集対象の行のidが入る（上のview-purchaseOrdersのコメント参照）。
-  var purchaseOrderEditingId_ = null;
-
-  function openPurchaseOrderModal_(po) {
-    purchaseOrderEditingId_ = po.id;
-    $('purchaseOrderModalTitle').textContent = '発注情報の編集';
-    $('purchaseOrderModel').value = po.model;
-    $('purchaseOrderSalesLocation').value = po.salesLocation;
-    $('purchaseOrderStaff').value = po.staff;
-    $('purchaseOrderCustomer').value = po.customer;
-    $('purchaseOrderCommission').value = po.commission || '';
-    $('purchaseOrderLeadNumber').value = po.leadNumber || '';
-    $('purchaseOrderModalError').classList.add('hidden');
-    $('btnPurchaseOrderSubmit').textContent = '保存';
-    openModal($('purchaseOrderModal'));
-  }
-
-  /**
-   * 発注リストタブ・マイページの「発注リスト」セクションの両方で共有するクリック
-   * 委譲（マイページの表示形式「カード」も同じpurchaseOrderCardHtml_を使うため、
-   * 編集・削除ボタンの処理はそのまま共通化できる。在庫リストのhandleInventoryListClick_
-   * と同じ考え方）。表示形式「表」（マイページのみ。purchaseOrderRowCardHtml_）は
-   * ボタンを持たないため、行タップ（ボタン・入力以外の箇所）で編集モーダルを開く。
-   */
-  function handlePurchaseOrderListClick_(e) {
-    var editBtn = e.target.closest('[data-edit-purchase-order]');
-    if (editBtn) {
-      var po = (state.purchaseOrders || []).find(function (p) { return p.id === editBtn.dataset.editPurchaseOrder; });
-      if (po) openPurchaseOrderModal_(po);
-      return;
-    }
-    var delBtn = e.target.closest('[data-delete-purchase-order]');
-    if (delBtn) { openPurchaseOrderDeleteModal_(delBtn.dataset.deletePurchaseOrder); return; }
-    var rowEl = e.target.closest('.rowCard--purchaseOrder[data-purchase-order-id]');
-    if (rowEl && !e.target.closest('button, input, label')) {
-      var rowPo = (state.purchaseOrders || []).find(function (p) { return p.id === rowEl.dataset.purchaseOrderId; });
-      if (rowPo) openPurchaseOrderModal_(rowPo);
-    }
-  }
-
-  $('purchaseOrdersList').addEventListener('click', handlePurchaseOrderListClick_);
-
-  function purchaseOrderFormValues_() {
-    return {
-      model: $('purchaseOrderModel').value.trim(),
-      salesLocation: $('purchaseOrderSalesLocation').value.trim(),
-      staff: $('purchaseOrderStaff').value.trim(),
-      customer: $('purchaseOrderCustomer').value.trim(),
-      commission: $('purchaseOrderCommission').value.trim(),
-      leadNumber: $('purchaseOrderLeadNumber').value.trim()
-    };
-  }
-
-  $('btnPurchaseOrderSubmit').addEventListener('click', function () {
-    var btn = this;
-    if (btn.disabled) return;
-    var info = purchaseOrderFormValues_();
-    var missing = [];
-    if (!info.model) missing.push('モデル名');
-    if (!info.salesLocation) missing.push('拠点');
-    if (!info.staff) missing.push('担当者');
-    if (!info.customer) missing.push('顧客');
-    if (missing.length) {
-      $('purchaseOrderModalError').textContent = '次の項目を入力してください: ' + missing.join('、');
-      $('purchaseOrderModalError').classList.remove('hidden');
-      return;
-    }
-    setButtonBusy(btn, true, '保存中...');
-    gasRun('api_updatePurchaseOrder', purchaseOrderEditingId_, info).then(function () {
-      setButtonBusy(btn, false);
-      closeModal($('purchaseOrderModal'));
-      showToast('発注情報を更新しました');
-      loadPurchaseOrders();
-    }).catch(function (err) {
-      setButtonBusy(btn, false);
-      $('purchaseOrderModalError').textContent = err.message;
-      $('purchaseOrderModalError').classList.remove('hidden');
-    });
-  });
-
-  var purchaseOrderDeletingId_ = null;
-
-  function openPurchaseOrderDeleteModal_(id) {
-    var po = (state.purchaseOrders || []).find(function (p) { return p.id === id; });
-    purchaseOrderDeletingId_ = id;
-    $('purchaseOrderDeleteDesc').textContent = po
-      ? ('「' + po.model + '」（顧客: ' + po.customer + '）の発注情報を削除します。よろしいですか？')
-      : 'この発注情報を削除します。よろしいですか？';
-    $('purchaseOrderDeleteError').classList.add('hidden');
-    openModal($('purchaseOrderDeleteModal'));
-  }
-
-  $('btnPurchaseOrderDeleteSubmit').addEventListener('click', function () {
-    var btn = this;
-    if (btn.disabled) return;
-    setButtonBusy(btn, true, '削除中...');
-    gasRun('api_deletePurchaseOrder', purchaseOrderDeletingId_).then(function () {
-      setButtonBusy(btn, false);
-      closeModal($('purchaseOrderDeleteModal'));
-      showToast('発注情報を削除しました');
-      loadPurchaseOrders();
-    }).catch(function (err) {
-      setButtonBusy(btn, false);
-      $('purchaseOrderDeleteError').textContent = err.message;
-      $('purchaseOrderDeleteError').classList.remove('hidden');
-    });
-  });
 
   // ===== Gクラス予約リスト =====
   // 通常の在庫リストに担当者・顧客・リード番号を加えただけの閲覧専用リスト
@@ -3088,9 +2972,9 @@
    * （検索条件に左右されない全件。loadPurchaseOrders参照）を、担当者名（staff列の
    * テキスト）で絞り込む。発注情報には担当者メールの記録が無い（発注リスト自体が
    * 手入力の台帳のため）ため、Gクラス予約リストと同じくstaffNameMatches_で
-   * 担当者マスタの表示名と突き合わせる。カード表示は発注リストタブと同じ
-   * purchaseOrderCardHtml_（編集・削除ボタン込み）、表示形式「表」は読み取り専用の
-   * purchaseOrderRowCardHtml_を使う（handlePurchaseOrderListClick_参照）。
+   * 担当者マスタの表示名と突き合わせる。発注リストは閲覧専用のため、カード表示は
+   * 発注リストタブと同じpurchaseOrderCardHtml_、表示形式「表」はpurchaseOrderRowCardHtml_を
+   * 使い、どちらも編集・削除の導線は持たない。
    */
   function renderMyPagePurchaseOrders_() {
     if (!renderMyPageNoStaffState_()) return;
@@ -3161,8 +3045,6 @@
       openOrderDetailModal_(rowEl.dataset.commission);
     }
   });
-  $('myPagePurchaseOrderList').addEventListener('click', handlePurchaseOrderListClick_);
-
   // グレードタブ（Aクラス行の展開で現れるA180・A200等）をクリックすると、
   // そのグレード1件だけに絞り込んだ在庫リストへ遷移する（タブレット・スマホ幅の
   // インライン展開でのみ発生。PCビューのグレードタブは#homeDetail側にあり、
