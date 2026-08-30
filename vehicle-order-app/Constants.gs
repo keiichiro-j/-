@@ -60,9 +60,10 @@ var OSS_OPTIONS = ['可', '不可'];
 var PAYMENT_METHOD_OPTIONS = ['現金', 'ローン', 'リース'];
 // ホーム画面のモデル写真に割り当てるボディタイプ（車の型）。この配列の並び順が、
 // ホーム画面での型ごとのグループ表示順（Sedan→SUV→Station Wagon→Compact→Coupe→
-// Cabriolet/Roadster→Mini Van）にそのまま使われる（JavaScript.htmlの
-// renderHomeGallery_参照）。
-var MODEL_BODY_TYPE_OPTIONS = ['Sedan', 'SUV', 'Station Wagon', 'Compact', 'Coupe', 'Cabriolet/Roadster', 'Mini Van'];
+// Cabriolet/Roadster→Mini Van→限定車）にそのまま使われる（JavaScript.htmlの
+// renderHomeGallery_参照）。「限定車」は車体の形状ではなく、期間・台数限定の
+// 特別モデルであることを示す型（現場からの要望で追加）。
+var MODEL_BODY_TYPE_OPTIONS = ['Sedan', 'SUV', 'Station Wagon', 'Compact', 'Coupe', 'Cabriolet/Roadster', 'Mini Van', '限定車'];
 var PAID_OPTION_SLOT_COUNT = 7; // 有償オプション（7マス分確保）
 var STAFF_LIST_MAX = 30; // 担当者マスタの最大登録人数
 var MODEL_PHOTOS_MAX = 40; // ホーム画面のモデル写真の最大登録数
@@ -323,7 +324,8 @@ var PROP_KEYS = {
   NOTIFY_CHAT_WEBHOOK_URL: 'NOTIFY_CHAT_WEBHOOK_URL',
   STAFF_LIST: 'STAFF_LIST',
   MODEL_PHOTOS: 'MODEL_PHOTOS',
-  CELEBRATION_VARIANTS: 'CELEBRATION_VARIANTS'
+  CELEBRATION_VARIANTS: 'CELEBRATION_VARIANTS',
+  HOME_ANNOUNCEMENT: 'HOME_ANNOUNCEMENT'
 };
 
 /**
@@ -444,3 +446,9 @@ var MODEL_PHOTOS_TOTAL_MAX_LENGTH = 8000;
 // 2条件だけで、ホーム画面がその場で在庫リストと突き合わせてグレード内訳を計算する
 // （SettingsService.gs / JavaScript.htmlのgradeCountsForEntry_・matchesGradeRule_参照）。
 var MODEL_PHOTO_GRADE_RULE_MAX_LENGTH = 30;
+
+// お知らせ（管理者が設定タブから入力し、ホーム画面の「販売可能リスト」の文字の上に
+// 全利用者向けに表示する案内文。例:「限定車在庫3台あり」）の最大文字数。1行で
+// 目立たせて表示する想定のため短めの上限にしている（validateHomeAnnouncement_、
+// SettingsService.gs参照）。
+var HOME_ANNOUNCEMENT_MAX_LENGTH = 60;

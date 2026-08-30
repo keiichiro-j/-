@@ -24,6 +24,7 @@ function api_getBootstrapData() {
     holdTypeLabels: HOLD_TYPE_LABELS,
     staffListMax: STAFF_LIST_MAX,
     modelPhotosMax: MODEL_PHOTOS_MAX,
+    homeAnnouncementMax: HOME_ANNOUNCEMENT_MAX_LENGTH,
     notifyMailListMax: NOTIFY_MAIL_LIST_MAX,
     modelBodyTypeOptions: MODEL_BODY_TYPE_OPTIONS,
     celebrationVariantOptions: CELEBRATION_VARIANT_OPTIONS,

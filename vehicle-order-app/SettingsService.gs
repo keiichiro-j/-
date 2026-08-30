@@ -35,7 +35,8 @@ function getRawSettings_() {
     notifyChatWebhookUrl: props.getProperty(PROP_KEYS.NOTIFY_CHAT_WEBHOOK_URL) || '',
     staffList: getStaffList_(),
     modelPhotos: getModelPhotos_(),
-    celebrationVariants: getCelebrationVariants_()
+    celebrationVariants: getCelebrationVariants_(),
+    homeAnnouncement: props.getProperty(PROP_KEYS.HOME_ANNOUNCEMENT) || ''
   };
 }
 
@@ -92,6 +93,7 @@ function saveRawSettings_(settings) {
   props.setProperty(PROP_KEYS.STAFF_LIST, JSON.stringify(normalizeStaffList_(settings.staffList)));
   props.setProperty(PROP_KEYS.MODEL_PHOTOS, JSON.stringify(normalizeModelPhotos_(settings.modelPhotos)));
   props.setProperty(PROP_KEYS.CELEBRATION_VARIANTS, JSON.stringify(normalizeCelebrationVariants_(settings.celebrationVariants)));
+  props.setProperty(PROP_KEYS.HOME_ANNOUNCEMENT, validateHomeAnnouncement_(settings.homeAnnouncement));
   return getRawSettings_();
 }
 
@@ -179,6 +181,21 @@ function validateChatWebhookUrl_(url) {
   }
   if (!/^https:\/\//.test(value)) {
     throw new Error('Google ChatのWebhook URLは https:// から始まるURLを指定してください。');
+  }
+  return value;
+}
+
+/**
+ * お知らせ設定値（純粋関数）。ホーム画面の「販売可能リスト」の文字の上に
+ * 全利用者向けに表示する、管理者が入力する自由記述の案内文
+ * （例:「限定車在庫3台あり」）。1行で目立たせて表示する想定のため、
+ * 最大文字数（HOME_ANNOUNCEMENT_MAX_LENGTH）を超える場合はエラーにする。
+ * 空文字であれば単に表示しない（JavaScript.htmlのrenderHomeAnnouncement_参照）。
+ */
+function validateHomeAnnouncement_(text) {
+  var value = String(text || '').trim();
+  if (value.length > HOME_ANNOUNCEMENT_MAX_LENGTH) {
+    throw new Error('お知らせが長すぎます（' + value.length + '文字）。' + HOME_ANNOUNCEMENT_MAX_LENGTH + '文字以内で入力してください。');
   }
   return value;
 }
@@ -523,7 +540,11 @@ function redactSystemMasterSettings_(settings, isAdmin) {
     // Hold登録等の演出バリエーションは、ロゴ・モデル写真と同様に全利用者の
     // 画面で使う（演出を実際に表示するのは操作した本人のブラウザのため）。
     // 編集画面（設定タブ）自体は管理者限定にするが、値自体は非管理者にも渡す。
-    celebrationVariants: settings.celebrationVariants
+    celebrationVariants: settings.celebrationVariants,
+    // お知らせも、ロゴ・モデル写真・演出バリエーションと同様に全利用者の
+    // ホーム画面に表示する値のため、編集画面は管理者限定にしつつ値自体は
+    // 非管理者にも渡す。
+    homeAnnouncement: settings.homeAnnouncement
   };
 }
 
@@ -548,6 +569,7 @@ function applySystemMasterGuard_(incoming, current, isAdmin) {
     notifyChatWebhookUrl: current.notifyChatWebhookUrl,
     staffList: current.staffList,
     modelPhotos: current.modelPhotos,
-    celebrationVariants: current.celebrationVariants
+    celebrationVariants: current.celebrationVariants,
+    homeAnnouncement: current.homeAnnouncement
   };
 }

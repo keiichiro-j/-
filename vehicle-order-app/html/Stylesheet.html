@@ -1318,6 +1318,37 @@
   .mailList__row .input { flex: 1 1 auto; min-width: 0; }
   .mailList__empty { font-size: 13px; color: var(--on-surface-variant); margin-bottom: 4px; }
 
+  /* ===== ホーム画面: お知らせ =====
+     管理者が設定タブ「お知らせ」カードから登録した任意の文言（例:「限定車在庫3台
+     あり」）を、ホームのアプリ名表記のすぐ上に目立つアクセントカラーの帯として
+     表示する（renderHomeAnnouncement_、JavaScript.html参照。未設定の場合は
+     hiddenのまま何も表示しない）。タブレット・スマホ幅では型クイックナビ
+     （.homeTypeNav）と同様position: fixedで独立して固定し、型クイックナビは
+     この帯の高さぶんさらに下へずらす（--home-announcement-h、syncFixedBars_
+     参照）。PC（901px以上）では下のmin-width: 901pxブロックでposition: static
+     に戻し、#homeCombinedHeader内の先頭要素（見出し行のすぐ上）として表示する
+     （このとき#homeCombinedHeaderSpacer自体の高さ実測に自動的に含まれるため、
+     専用のスペーサーはPCでは不要＝下で.homeAnnouncementSpacerをdisplay: noneに
+     している）。 */
+  .homeAnnouncement {
+    position: fixed;
+    top: calc(var(--topbar-h) + 16px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 32px);
+    max-width: 1648px;
+    z-index: 26;
+    background: var(--primary);
+    color: var(--on-primary);
+    padding: 10px 16px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-elevated);
+    font-size: 13.5px;
+    font-weight: 700;
+    line-height: 1.5;
+    text-align: center;
+  }
+
   /* ===== ホーム画面: ボディタイプ（型）のクイックナビ =====
      モデル一覧の上に、設定タブで登録できるボディタイプ（Constants.gsの
      MODEL_BODY_TYPE_OPTIONS参照）をひと並びのボタンで表示し、押すとその型だけに絞り込む
@@ -1331,13 +1362,15 @@
      隠れないようにしている（.toolbar / .toolbarSpacerと同じ仕組み）。
      このため、直後の.homeTypeHeader（型ごとの見出し）との間隔は、この
      要素自身のmargin-bottomではなく、spacerの高さ（syncFixedBars_で
-     「この要素の高さ＋20px」を設定）で確保している。 */
+     「この要素の高さ＋20px」を設定）で確保している。--home-announcement-hは
+     お知らせ（.homeAnnouncement）が表示されている場合にその高さぶんだけ
+     この要素をさらに下へずらすための変数（未表示時は0px、syncFixedBars_参照）。 */
   .homeTypeNav {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
     position: fixed;
-    top: calc(var(--topbar-h) + 16px);
+    top: calc(var(--topbar-h) + 16px + var(--home-announcement-h, 0px));
     left: 50%;
     transform: translateX(-50%);
     width: calc(100% - 32px);
@@ -1778,6 +1811,22 @@
       box-shadow: var(--shadow);
     }
     .homeCombinedHeaderSpacer { display: block; }
+    /* お知らせ（.homeAnnouncement）は、PCでは独立したposition: fixedをやめ、
+       #homeCombinedHeader内の先頭要素として通常のフローに戻す（見出し行の
+       すぐ上に表示される）。#homeCombinedHeaderSpacer自体の高さ実測（上記）に
+       自動的に含まれるため、専用のスペーサー（.homeAnnouncementSpacer）は
+       PCでは不要にする。 */
+    .homeAnnouncement {
+      position: static;
+      top: auto;
+      left: auto;
+      transform: none;
+      width: auto;
+      max-width: none;
+      z-index: auto;
+      box-shadow: none;
+    }
+    .homeAnnouncementSpacer { display: none; }
     .homeCombinedHeader__topRow {
       display: flex;
       align-items: center;
@@ -1800,9 +1849,9 @@
       /* 横スクロールは使わない（PCビューでは横スクロールが必要な画面を作らない
          方針のため）。結合ヘッダーの全幅（中央・右パネル2列ぶん）とこの
          ブレークポイント専用のコンパクトな.homeTypeNav__itemサイズを
-         組み合わせれば、PCビューの最小幅（901px）でも8個（「すべて」＋
-         MODEL_BODY_TYPE_OPTIONSの7種類）すべてが1行に収まる。それでも
-         収まらない極端に狭い状況に備えたフォールバックとしてのみ
+         組み合わせれば、PCビューの最小幅（901px）でも9個（「すべて」＋
+         MODEL_BODY_TYPE_OPTIONSの8種類、「限定車」追加後）すべてが1行に
+         収まる。それでも収まらない極端に狭い状況に備えたフォールバックとしてのみ
          flex-wrap: wrapにしておく（横スクロールより、必要な時だけ2行に
          折り返す方を優先する）。 */
       flex-wrap: wrap;
@@ -1819,19 +1868,21 @@
       width: auto;
       max-width: none;
     }
-    /* PCビューの最小幅（901px）で8個の型タブが1行に収まる最小サイズ
-       （padding: 5px 8px、font-size: 10.5px）を下限に、画面が広がるほど
-       結合ヘッダーの空きスペースに合わせてタブも大きくする（901pxちょうどの
-       ときに隙間なく収まっていたサイズのまま広い画面でも使うと、ヘッダー幅の
-       割にタブが小さく余白ばかり目立ってしまうため。現場からの指摘）。
-       vw（ビューポート幅）に比例して滑らかに拡大し、1440px幅でタブレット・
-       スマホ幅と共通のピル型サイズ（font-size: 13.5px、padding: 8px 16px寄り）に
-       達したところで頭打ちにする（それ以上大きくすると他の画面の文字サイズと
-       不釣り合いになるため）。901px・1440pxそれぞれのサイズから逆算した
-       一次関数をclamp()で挟んでいる。 */
+    /* PCビューの最小幅（901px）で9個（「すべて」＋型8種類、「限定車」追加後）の
+       タブが1行に収まる最小サイズ（padding: 4.5px 7px、font-size: 9.5px）を
+       下限に、画面が広がるほど結合ヘッダーの空きスペースに合わせてタブも
+       大きくする（901pxちょうどのときに隙間なく収まっていたサイズのまま広い
+       画面でも使うと、ヘッダー幅の割にタブが小さく余白ばかり目立ってしまう
+       ため。現場からの指摘）。vw（ビューポート幅）に比例して滑らかに拡大し、
+       1440px幅でタブレット・スマホ幅と共通のピル型サイズ（font-size: 13.5px、
+       padding: 8px 16px寄り）に達したところで頭打ちにする（それ以上大きくすると
+       他の画面の文字サイズと不釣り合いになるため）。901px・1440pxそれぞれの
+       サイズから逆算した一次関数をclamp()で挟んでいる（「限定車」追加で8→9個に
+       増えた際、901pxでの最小サイズをこの下限まで縮小しないと1行に収まらなく
+       なったため再計算した）。 */
     .homeTypeNav__item {
-      padding: clamp(5px, calc(0.3711vw + 1.657px), 7px) clamp(8px, calc(0.9276vw - 0.357px), 13px);
-      font-size: clamp(10.5px, calc(0.5566vw + 5.485px), 13.5px);
+      padding: clamp(4.5px, calc(0.4638vw + 0.321px), 7px) clamp(7px, calc(1.1132vw - 3.030px), 13px);
+      font-size: clamp(9.5px, calc(0.7421vw + 2.813px), 13.5px);
     }
     .homeTypeNavSpacer { display: none; }
 
@@ -2355,7 +2406,7 @@
     }
     .rowCard__actions { flex-wrap: nowrap; }
 
-    /* 型のクイックナビ: タブレット・スマホ幅では5種類＋「すべて」を折り返し無しで
+    /* 型のクイックナビ: タブレット・スマホ幅では8種類＋「すべて」を折り返し無しで
        並べると窮屈なため、横スクロールにする（よくあるカテゴリ絞り込みチップの
        パターン。折り返して縦に伸びると、position: fixedで固定した高さぶんだけ
        スペーサーも伸び、その分モデル一覧が下に押し出されてしまうのを避けるため）。 */

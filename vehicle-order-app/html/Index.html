@@ -229,8 +229,17 @@
            自身の箱を消し、型クイックナビ（#homeTypeNav）だけを従来どおり
            position: fixedで画面上部に固定表示させる。それ以外の子要素
            （見出し・戻る／更新ボタン）はタブレット・スマホ幅では非表示にし、
-           共通トップバーのボタンだけが使われる（Stylesheet.html参照）。 -->
+           共通トップバーのボタンだけが使われる（Stylesheet.html参照）。
+
+           #homeAnnouncement（お知らせ）は、管理者が設定タブから登録した任意の
+           お知らせ文言（例:「限定車在庫3台あり」）を、アプリ名見出しのすぐ上に
+           表示する（renderHomeAnnouncement_、JavaScript.html参照）。未設定の
+           場合はhiddenのまま。PCでは#homeCombinedHeader内の先頭要素として
+           見出し行の直前に表示され、タブレット・スマホ幅では#homeTypeNavと
+           同様position: fixedで独立して固定表示する（#homeAnnouncementSpacer
+           で後続要素が隠れないようにする。Stylesheet.html参照）。 -->
       <div class="homeCombinedHeader" id="homeCombinedHeader">
+        <div class="homeAnnouncement hidden" id="homeAnnouncement"></div>
         <div class="homeCombinedHeader__topRow">
           <div class="homeCombinedHeader__title">販売可能リスト</div>
           <div class="homeCombinedHeader__actions">
@@ -245,6 +254,7 @@
         <div class="homeTypeNav hidden" id="homeTypeNav" role="tablist" aria-label="ボディタイプで絞り込み"></div>
       </div>
       <div class="homeCombinedHeaderSpacer" id="homeCombinedHeaderSpacer"></div>
+      <div class="homeAnnouncementSpacer" id="homeAnnouncementSpacer"></div>
       <div class="homeTypeNavSpacer" id="homeTypeNavSpacer"></div>
       <div class="homeList" id="homeGrid"></div>
       <div class="emptyState hidden" id="homeEmpty">
@@ -477,6 +487,19 @@
               <input type="text" id="settingsLogoUrl" class="input" placeholder="https://... または、上のアップロード欄から選択">
             </div>
             <div class="modal__error hidden" id="settingsLogoError"></div>
+          </div>
+
+          <!-- お知らせ：ホーム画面の「販売可能リスト」の文字の上に、全利用者向けに
+               表示する管理者入力の案内文（例:「限定車在庫3台あり」）。編集画面は
+               ロゴ等と同様に管理者限定だが、値自体はホーム画面で全利用者に表示する
+               （renderHomeAnnouncement_、JavaScript.html参照）。 -->
+          <div class="settingsCard hidden" id="systemMasterAnnouncementCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>お知らせ</h2>
+            <p class="settingsSection__desc">ホーム画面の「販売可能リスト」の文字の上に、目立つ形で全利用者に表示するお知らせです（例:「限定車在庫3台あり」）。空欄にすると非表示になります（最大<span id="homeAnnouncementMax"></span>文字）。</p>
+            <div class="formField">
+              <label>お知らせ内容</label>
+              <input type="text" id="settingsHomeAnnouncement" class="input" placeholder="例: 限定車在庫3台あり">
+            </div>
           </div>
 
           <div class="settingsCard hidden" id="systemMasterModelPhotosCard">

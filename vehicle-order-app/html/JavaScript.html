@@ -2163,6 +2163,7 @@
     var isAdmin = !!(state.bootstrap && state.bootstrap.isSystemAdmin);
     $('systemMasterGroupTitle').classList.toggle('hidden', !isAdmin);
     $('systemMasterLogoCard').classList.toggle('hidden', !isAdmin);
+    $('systemMasterAnnouncementCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterModelPhotosCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterNotifyCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterStaffCard').classList.toggle('hidden', !isAdmin);
@@ -2178,6 +2179,9 @@
     state.themeKey = settings.themeKey;
     renderThemePresets_();
     $('settingsLogoUrl').value = settings.logoUrl || '';
+    $('homeAnnouncementMax').textContent = (state.bootstrap && state.bootstrap.homeAnnouncementMax) || 60;
+    $('settingsHomeAnnouncement').value = settings.homeAnnouncement || '';
+    renderHomeAnnouncement_(settings.homeAnnouncement || '');
     state.notifyHoldMailTo = (settings.notifyHoldMailTo || []).slice();
     state.notifyOrderMailTo = (settings.notifyOrderMailTo || []).slice();
     state.notifyErrorMailTo = (settings.notifyErrorMailTo || []).slice();
@@ -3033,7 +3037,7 @@
 
   /**
    * ホーム上部の、ボディタイプで絞り込むクイックナビ（型の名称を一列に並べた
-   * ボタン列）。「すべて」＋MODEL_BODY_TYPE_OPTIONSの5種類を常に表示する
+   * ボタン列）。「すべて」＋MODEL_BODY_TYPE_OPTIONSの全種類を常に表示する
    * （実際にモデルが登録されているかどうかに関わらず。0件の型を押しても
    * 単に「該当モデルがありません」の状態になるだけで、押せなくする必要は
    * ないため）。押すとその型だけに絞り込んだ表示に切り替える。
@@ -3048,6 +3052,22 @@
       return '<button type="button" class="homeTypeNav__item' + (current === t ? ' is-active' : '') + '" data-home-type="' + escapeHtml(t) + '">' + escapeHtml(t) + '</button>';
     }).join('');
     nav.innerHTML = allBtn + typeBtns;
+  }
+
+  /**
+   * ホーム画面の「販売可能リスト」の文字の上に表示するお知らせ（管理者が設定タブ
+   * から入力する自由記述、例:「限定車在庫3台あり」）。全利用者に表示する
+   * （設定の編集自体は管理者限定だが、値はredactSystemMasterSettings_で
+   * 非管理者にも渡される。SettingsService.gs参照）。未設定（空文字）の場合は
+   * 要素ごと非表示にし、他の固定バー（homeTypeNav等）の位置がずれないよう
+   * syncFixedBars_で高さを再計算する。
+   */
+  function renderHomeAnnouncement_(text) {
+    var el = $('homeAnnouncement');
+    var value = String(text || '').trim();
+    el.textContent = value;
+    el.classList.toggle('hidden', !value);
+    syncFixedBars_();
   }
 
   $('homeTypeNav').addEventListener('click', function (e) {
@@ -3413,9 +3433,19 @@
       return;
     }
 
+    // お知らせも、サーバー側のvalidateHomeAnnouncement_（SettingsService.gs）と
+    // 同じ規則を保存前にクライアント側でもチェックする。
+    var homeAnnouncement = $('settingsHomeAnnouncement').value.trim();
+    var maxAnnouncement = (state.bootstrap && state.bootstrap.homeAnnouncementMax) || 60;
+    if (homeAnnouncement.length > maxAnnouncement) {
+      $('settingsError').textContent = 'お知らせは最大' + maxAnnouncement + '文字までです（現在' + homeAnnouncement.length + '文字）';
+      return;
+    }
+
     var settings = {
       themeKey: state.themeKey || DEFAULT_THEME_KEY,
       logoUrl: $('settingsLogoUrl').value.trim(),
+      homeAnnouncement: homeAnnouncement,
       notifyHoldMailTo: cleanedMailLists.notifyHoldMailTo,
       notifyOrderMailTo: cleanedMailLists.notifyOrderMailTo,
       notifyErrorMailTo: cleanedMailLists.notifyErrorMailTo,
@@ -3473,9 +3503,20 @@
     // 下のhomeTypeNavSpacerとまったく同じ考え方で、都度実測して更新する）。
     var homeTypeNav = $('homeTypeNav');
     var homeTypeNavSpacer = $('homeTypeNavSpacer');
+    var homeAnnouncement = $('homeAnnouncement');
     if (topbar && homeTypeNavSpacer) {
-      var homeOffset = topbar.offsetHeight + 16 + (homeTypeNav && !homeTypeNav.classList.contains('hidden') ? homeTypeNavSpacer.offsetHeight : 0);
+      var homeOffset = topbar.offsetHeight + 16 +
+        (homeAnnouncement && !homeAnnouncement.classList.contains('hidden') ? homeAnnouncement.offsetHeight + 8 : 0) +
+        (homeTypeNav && !homeTypeNav.classList.contains('hidden') ? homeTypeNavSpacer.offsetHeight : 0);
       document.documentElement.style.setProperty('--home-scroll-offset', homeOffset + 'px');
+    }
+    // お知らせ（#homeAnnouncement、タブレット・スマホ幅のみposition: fixed）が
+    // 表示されている場合、型クイックナビ（#homeTypeNav）はこの帯の高さぶん
+    // さらに下へずらす必要がある（Stylesheet.htmlの.homeTypeNavのtop参照）。
+    // お知らせが非表示（class="hidden"）ならoffsetHeightが0になるため、この
+    // 変数も自動的に0pxになる。
+    if (homeAnnouncement) {
+      document.documentElement.style.setProperty('--home-announcement-h', (homeAnnouncement.offsetHeight ? homeAnnouncement.offsetHeight + 8 : 0) + 'px');
     }
     // main.view自身の上余白（16px）が「ヘッダー〜固定バー間の余白」と同じ幅を
     // 既に確保しているため、スペーサーは「固定バー自身の高さ＋固定バー〜
@@ -3490,6 +3531,11 @@
       ['purchaseOrdersToolbar', 'purchaseOrdersToolbarSpacer', 16],
       ['gclassToolbar', 'gclassToolbarSpacer', 16],
       ['myPageToolbar', 'myPageToolbarSpacer', 16],
+      // お知らせ（#homeAnnouncement）はタブレット・スマホ幅のみposition: fixed
+      // （PCでは#homeCombinedHeader内の先頭要素として組み込まれ、そちらの
+      // スペーサーで高さを吸収するため、このスペーサー自体はPCではCSS側で
+      // display: noneにしている）。
+      ['homeAnnouncement', 'homeAnnouncementSpacer', 8],
       ['homeTypeNav', 'homeTypeNavSpacer', 20],
       // #homeCombinedHeaderはPCビューでのみposition: fixed（Stylesheet.html参照。
       // タブレット・スマホ幅ではdisplay: contentsのためoffsetHeightは常に0になり、
