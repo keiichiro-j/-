@@ -90,18 +90,10 @@
     /* トップバーの実高さ。JS（syncFixedBars_）が実測して上書きする。初期値は
        JS実行前のレイアウトずれを防ぐための目安値。 */
     --topbar-h: 108px;
-    /* モーダル（Hold登録・受注確定等）の高さの基準にする「実際に見えている
-       ビューポート」の高さ・上端オフセット。100vh・window.innerHeightは
-       スマートフォンでソフトウェアキーボードが開いてもレイアウト上の
-       ビューポートサイズ自体は変わらない（特にiOS Safari）ため、そのまま
-       モーダルの高さに使うと、画面下端に配置したモーダル（スマホ幅のボトム
-       シート）の下側がキーボードの裏に隠れ、入力中の項目が見えなくなって
-       しまう。JS（syncAppViewportSize_）がwindow.visualViewport（対応
-       ブラウザ）でキーボード表示中の実際に見えている高さ・スクロール位置を
-       都度測り直してこの2つの変数を更新し、モーダル側はこれを基準に高さ・
-       位置を決めることで、キーボードの上に収まるようにする。 */
-    --app-100vh: 100vh;
-    --app-viewport-top: 0px;
+    /* ソフトウェアキーボードが画面下側を覆っている高さ。JS
+       （syncKeyboardInset_）がwindow.visualViewportで実測し、キーボード表示中は
+       その高さに更新する（.modal参照。キーボードが無い間は0のまま）。 */
+    --app-keyboard-inset: 0px;
   }
 
   * { box-sizing: border-box; }
@@ -1994,24 +1986,23 @@
 
   /* ===== モーダル =====
      不具合修正（スマホでHold登録・受注確定の入力中に項目がキーボードの裏に
-     隠れる問題）: position: fixed; inset: 0 だけだと、モーダルの高さは常に
-     レイアウトビューポート（ソフトウェアキーボードを考慮しない、常に一定の
-     画面サイズ）いっぱいになる。スマホ幅ではモーダルを画面下端に固定した
-     ボトムシートにしている（下の@media (max-width: 600px)参照）ため、
-     モーダルの高さがレイアウトビューポート基準のままだと、キーボードが
-     開いてもモーダル自体は動かず、画面下側（キーボードに隠れた部分）に
-     入力中の項目がある場合はそのまま見えなくなってしまう。
-     top・heightをvar(--app-viewport-top)・var(--app-100vh)（JSの
-     syncAppViewportSize_がwindow.visualViewportで実測し、キーボード表示中は
-     実際に見えている高さ・スクロール位置に更新する）にすることで、モーダル
-     自身の表示領域がキーボードの上に収まるサイズへ自動的に縮み、ボトム
-     シート（画面下端に固定）もキーボードのすぐ上に位置するようになる。 */
+     隠れる問題）: 最初、.modal自身のtop・heightをvisualViewportの実測値に
+     ダイレクトに書き換える方式を試したが、iOS Safariではposition: fixed要素の
+     位置・高さをJSから動的に書き換えると、キーボード開閉のタイミングによって
+     レイアウトが崩れて表示されてしまう（ステップ見出しや他の入力欄が消え、
+     ボタンの下に不自然な空白ができる）不具合があった。
+     そこで、.modal自身のtop/left/right/bottom（inset: 0）はそのままレイアウト
+     ビューポート基準で固定し、代わりに下方向のpaddingにキーボードの高さぶんを
+     動的に足す方式に変えた。スマホ幅ではモーダルを画面下端に固定したボトム
+     シートにしている（下の@media (max-width: 600px)参照。align-items:
+     flex-end）ため、.modal自身の下端パディングが広がるとパネルの下端はその
+     パディングの上、つまりキーボードのすぐ上に押し上げられる。.modal自体の
+     位置・高さの計算方法は変えないため、position: fixedのレイアウトが崩れる
+     心配がない。 */
   .modal {
-    position: fixed; left: 0; right: 0;
-    top: var(--app-viewport-top, 0px);
-    height: var(--app-100vh, 100vh);
-    background: rgba(32, 33, 36, .5);
-    display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px;
+    position: fixed; inset: 0; background: rgba(32, 33, 36, .5);
+    display: flex; align-items: center; justify-content: center; z-index: 100;
+    padding: 16px 16px calc(16px + var(--app-keyboard-inset, 0px));
   }
   /* ヘッダー・ステップ進捗・フッターは固定し、modal__bodyだけをスクロール
      させる（display: flex; flex-direction: columnで、modal__bodyのみ
@@ -2021,11 +2012,9 @@
   .modal__panel {
     background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-elevated);
     width: 100%; max-width: 460px;
-    /* .modal自身の高さ（キーボード表示中は実際に見えている高さに縮む）から
-       上下パディング（16px×2）を引いた値を上限にする（90vh固定だと、
-       キーボードで.modalの表示領域が90vhより狭くなった場合にパネルが
-       キーボードの裏まではみ出してしまうため）。 */
-    max-height: calc(var(--app-100vh, 100vh) - 32px);
+    /* キーボード表示中はその高さぶんも差し引く（.modalの下方向パディングと
+       あわせて、パネルがキーボードの裏まではみ出さないようにする）。 */
+    max-height: calc(90vh - var(--app-keyboard-inset, 0px));
     display: flex; flex-direction: column; overflow: hidden;
   }
   .modal__panel--wide { max-width: 640px; }
@@ -2423,12 +2412,10 @@
     .homeGradeTabs { margin-left: 72px; padding-left: 12px; }
     .settingsCard, .settingsActions { padding: 18px 16px; }
     .card { padding: 16px 18px; }
-    .modal { padding: 0; align-items: flex-end; }
-    /* .modalはpadding: 0のため、上のvar(--app-100vh) - 32px（.modalの上下
-       パディングぶん）ではなく、.modal自身の高さ（キーボード表示中は実際に
-       見えている高さに縮む）に対する割合で上限を決める。数値（92%）は
-       以前の92vh固定と同じ比率で、画面最上部にわずかな余白を残す狙い。 */
-    .modal__panel { max-width: 100%; width: 100%; max-height: calc(var(--app-100vh, 100vh) * 0.92); border-radius: var(--radius) var(--radius) 0 0; }
+    /* スマホ幅は画面下端固定のボトムシートにする。左右・上のpaddingは0のまま、
+       下方向だけキーボードの高さぶん動的に足す（上の.modalの基本ルール参照）。 */
+    .modal { padding: 0 0 var(--app-keyboard-inset, 0px); align-items: flex-end; }
+    .modal__panel { max-width: 100%; width: 100%; max-height: calc(92vh - var(--app-keyboard-inset, 0px)); border-radius: var(--radius) var(--radius) 0 0; }
     .modal__grid { grid-template-columns: 1fr; }
     .formField--span2 { grid-column: auto; }
     .modal__footer .btn { flex: 1; min-height: 44px; }
