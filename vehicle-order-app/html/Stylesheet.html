@@ -890,7 +890,21 @@
      横並びにする（カード表示・詳細モーダル・マイページで共通。アプリ全体で
      統一した見せ方にする）。 */
   .card__holdArea--split { flex-direction: row; align-items: stretch; }
-  .card__holdArea--split .card__holdInfo { flex: 1 1 0; min-width: 0; }
+  /* 不具合修正: min-width: 0だけでは、ブラウザ（特にSafari/iOS）によっては
+     各Hold情報ボックス（.card__holdInfo）の内容量に応じた自動最小サイズが
+     stretchによる高さ（.card__holdAreaの150px固定を参照）より優先されてしまい、
+     文字数の多いHold（担当者名・拠点名・リード番号が長い等）で「無期限」の
+     表記がボックスの背景（角丸・紫の枠）からはみ出して見える不具合があった
+     （親要素.card__holdAreaのoverflow-y: autoだけでは、行方向（flex-direction:
+     row）にstretchされた子要素自身の自動最小サイズには効かないため）。
+     子要素自身にもmin-height: 0（自動最小サイズを無効化）とoverflow-y: auto
+     （収まりきらない内容はボックス自身の内側でスクロール）を指定することで、
+     1st Hold・2nd Holdどちらのボックスも必ず親と同じ高さに収まるようにした。
+     これにより、2nd Holdがあるカードの高さも1st Holdのみのカードと常に
+     揃うようになる（.card__holdArea自体の高さは元々どちらも150pxで同じだが、
+     この不具合でボックスの内容がはみ出すぶんカード全体の見た目の高さが
+     ずれて見えていた）。 */
+  .card__holdArea--split .card__holdInfo { flex: 1 1 0; min-width: 0; min-height: 0; overflow-y: auto; }
   .card__holdArea--empty {
     align-items: center;
     justify-content: center;
