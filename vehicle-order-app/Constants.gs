@@ -9,7 +9,7 @@
  *   発注リスト … 閲覧専用の発注情報（MPと外装の間にステア）
  *   Gクラス予約リスト … 在庫リストと同様の車両情報＋担当者／顧客／リード番号＋備考（閲覧専用、Hold不可）
  *   変更履歴 … 監査ログ
- *   有償OPマスタ … 有償OPコードと名称の対応
+ *   有償OPマスタ … 有償OPコードと名称の対応（登録はアプリの設定から）
  * 列見出しの注意事項は各列の note（スプレッドシートのセルコメント）に記載する。
  */
 
@@ -68,7 +68,7 @@ var PAYMENT_METHOD_OPTIONS = ['現金', 'ローン', 'リース'];
 // renderHomeGallery_参照）。「限定車」は車体の形状ではなく、期間・台数限定の
 // 特別モデルであることを示す型（現場からの要望で追加）。
 var MODEL_BODY_TYPE_OPTIONS = ['Sedan', 'SUV', 'Station Wagon', 'Compact', 'Coupe', 'Cabriolet/Roadster', 'Mini Van', '限定車'];
-var PAID_OPTION_SLOT_COUNT = 7; // 有償オプション（7マス分確保）
+var PAID_OPTION_SLOT_COUNT = 7; // 有償OP（7マス分確保）
 var INSPECTION_CUT_REMARK = '完成検査切'; // 備考にこの文言があると在庫カード背景を薄いグレーにする
 var PAID_OPTION_MASTER_MAX = 300; // 有償OPマスタ（コード→名称）の最大登録件数
 var PAID_OPTION_CODE_MAX_LENGTH = 40;
@@ -103,7 +103,7 @@ var VEHICLE_COLUMNS = [
   for (var i = 1; i <= PAID_OPTION_SLOT_COUNT; i++) {
     slots.push({
       key: 'paidOption' + i, label: '有償OP' + i, type: 'text',
-      note: '有償OPコード（例: 21P）。名称は「有償OPマスタ」タブで登録し、アプリでコードをタップすると表示されます。空欄可。'
+      note: '有償OPコード（例: 21P）。名称はアプリの設定「有償OPマスタ」から登録し、アプリでコードをタップすると表示されます。空欄可。'
     });
   }
   return slots;
@@ -310,7 +310,7 @@ var PURCHASE_ORDER_COLUMNS = [
   for (var i = 1; i <= PAID_OPTION_SLOT_COUNT; i++) {
     slots.push({
       key: 'paidOption' + i, label: '有償OP' + i, type: 'text',
-      note: '有償OPコード（例: 21P）。名称は「有償OPマスタ」タブで登録します。空欄可。'
+      note: '有償OPコード（例: 21P）。名称はアプリの設定「有償OPマスタ」から登録します。空欄可。'
     });
   }
   return slots;
@@ -324,17 +324,17 @@ var PURCHASE_ORDER_INPUT_COLUMNS = PURCHASE_ORDER_COLUMNS.filter(function (c) {
 
 /**
  * 有償OPマスタ列定義。在庫・受注・発注・Gクラス予約の有償OP1〜7に入るコードを、
- * 名称へ解決するための辞書（PaidOptionService.gs）。データの追加・編集は設定タブ
- * （管理者）またはこのシートへの直接入力。
+ * 名称へ解決するための辞書（PaidOptionService.gs）。データの追加・編集はアプリの
+ * 設定「有償OPマスタ」（管理者）から行う。このシートは保存先であり、手入力で登録する運用ではない。
  */
 var PAID_OPTION_MASTER_COLUMNS = [
   {
     key: 'code', label: 'コード', type: 'text', required: true,
-    note: '車両情報の有償OP欄に入力するコード（例: 21P）。大文字小文字・前後空白の違いは無視して照合します。'
+    note: '車両情報の有償OP欄に入力するコード（例: 21P）。名称との対応はアプリの設定「有償OPマスタ」から登録します。大文字小文字・前後空白の違いは無視して照合します。'
   },
   {
     key: 'name', label: '名称', type: 'text', required: true,
-    note: 'コードに対応するオプション名称（例: AMGライン）。アプリ上でコードをタップするとポップアップ表示されます。'
+    note: 'コードに対応する有償OPの名称（例: AMGライン）。アプリの設定「有償OPマスタ」から登録します。アプリ上でコードをタップするとポップアップ表示されます。'
   }
 ];
 

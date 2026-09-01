@@ -4,7 +4,7 @@
  *
  * 在庫リスト等の有償OP1〜7にはコードだけが入る運用を想定し、名称はマスタから
  * 解決する。アプリ画面ではコードをタップすると名称ポップアップを出す。
- * マスタの編集は設定タブ（管理者）または「有償OPマスタ」シートへの直接入力。
+ * マスタの登録・編集はアプリの設定「有償OPマスタ」（管理者）。シートは保存先。
  */
 
 function listPaidOptionMaster_() {
@@ -64,7 +64,7 @@ function lookupPaidOptionName_(code, master) {
 }
 
 /**
- * 有償OPマスタを全置換する（設定タブからの保存）。管理者以外は Api.gs 側で拒否する。
+ * 有償OPマスタを全置換する（設定の「有償OPマスタ」からの保存）。管理者以外は Api.gs 側で拒否する。
  * @param {Array<Object>} list
  * @return {Array<{code: string, name: string}>}
  */

@@ -134,7 +134,7 @@ function api_saveSettings(settings) {
 
 /**
  * 有償OPマスタの保存。名称ポップアップ用のコード→名称辞書。管理者のみ更新可。
- * 読み取りは bootstrap.paidOptionMaster 経由で全利用者に渡す（表示に必要なため）。
+ * 登録・編集は設定の「有償OPマスタ」から行う。読み取りは bootstrap.paidOptionMaster 経由で全利用者に渡す。
  */
 function api_savePaidOptionMaster(list) {
   var email = Session.getActiveUser().getEmail();
