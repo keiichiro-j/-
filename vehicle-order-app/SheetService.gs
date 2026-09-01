@@ -9,10 +9,9 @@ function getSpreadsheet_() {
 
 /**
  * シートが無ければ、列定義（columns）から一括で作成する（ヘッダー行・入力規則
- * （選択式の列のドロップダウン）・列ヘッダーの説明メモ・コミッション列の書式まで）。
- * 既存のシートがある場合は何もしない（既存データ・書式を壊さないため）。
- * 既存シートに後からこれらを反映したい場合は、SetupService.gsの
- * applySelectValidationsAndNotes_（スプレッドシートのメニューから実行可能）を使う。
+ * （選択式の列のドロップダウン）・列ヘッダーの説明メモ・テキスト列の書式まで）。
+ * 既存のシートがある場合は不足列の挿入（syncSheetColumns_）と見出しメモの再設定を行う
+ * （既存データは上書きしない。備考・発注のステアなど後から足した列を正しい位置へ入れる）。
  */
 function getOrCreateSheet_(sheetName, columns, textColumnIndexes1) {
   var ss = getSpreadsheet_();
@@ -22,6 +21,12 @@ function getOrCreateSheet_(sheetName, columns, textColumnIndexes1) {
     sheet = ss.insertSheet(sheetName);
     sheet.getRange(1, 1, 1, headerRow.length).setValues([headerRow]);
     sheet.setFrozenRows(1);
+    applyTextColumnFormat_(sheet, textColumnIndexes1);
+    applySelectValidations_(sheet, columns);
+    applyHeaderNotes_(sheet, columns);
+  } else {
+    // 既存シートは列の追加（備考・発注のステア等）と見出しメモをアプリの列定義に合わせる。
+    syncSheetColumns_(sheet, columns);
     applyTextColumnFormat_(sheet, textColumnIndexes1);
     applySelectValidations_(sheet, columns);
     applyHeaderNotes_(sheet, columns);
@@ -74,15 +79,70 @@ function applySelectValidations_(sheet, columns) {
  */
 function applyHeaderNotes_(sheet, columns) {
   columns.forEach(function (col, i) {
-    if (!col.note) return;
-    sheet.getRange(1, i + 1).setNote(col.note);
+    var cell = sheet.getRange(1, i + 1);
+    if (col.note) cell.setNote(col.note);
+    else cell.clearNote();
   });
+}
+
+/**
+ * 期待する列見出しと現在のヘッダー行を比較し、不足列をどの位置（0-indexed）へ
+ * 挿入すべきかを返す（純粋関数）。既存の見出しは残し、足りない列だけを期待位置へ
+ * 差し込む（例: 在庫開示の右へ「備考」、発注リストの MP と外装の間へ「ステア」）。
+ * @param {Array<string>} expectedLabels
+ * @param {Array<*>} currentHeaders
+ * @return {Array<{index: number, label: string}>}
+ */
+function planMissingColumnInserts_(expectedLabels, currentHeaders) {
+  var simulated = [];
+  (currentHeaders || []).forEach(function (h) {
+    simulated.push(String(h == null ? '' : h).trim());
+  });
+  while (simulated.length && !simulated[simulated.length - 1]) simulated.pop();
+  var inserts = [];
+  (expectedLabels || []).forEach(function (label, wantIndex) {
+    var found = -1;
+    for (var i = 0; i < simulated.length; i++) {
+      if (simulated[i] === label) { found = i; break; }
+    }
+    if (found === -1) {
+      inserts.push({ index: wantIndex, label: label });
+      simulated.splice(wantIndex, 0, label);
+    }
+  });
+  return inserts;
+}
+
+/**
+ * 既存シートの列構成をアプリの列定義に合わせ、不足列を正しい位置へ挿入する。
+ * 既存データの列は右へずらすだけで上書きしない。
+ */
+function syncSheetColumns_(sheet, columns) {
+  if (!sheet || !columns || !columns.length) return;
+  var lastCol = Math.max(sheet.getLastColumn(), 1);
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var inserts = planMissingColumnInserts_(columns.map(function (c) { return c.label; }), headers);
+  inserts.forEach(function (ins) {
+    var col1 = ins.index + 1;
+    var maxCol = sheet.getMaxColumns();
+    if (col1 > maxCol) {
+      sheet.insertColumnsAfter(maxCol, col1 - maxCol);
+    } else {
+      var existing = String(sheet.getRange(1, col1).getValue() || '').trim();
+      if (existing && existing !== ins.label) {
+        sheet.insertColumnBefore(col1);
+      }
+    }
+    sheet.getRange(1, col1).setValue(ins.label);
+  });
+  sheet.setFrozenRows(1);
 }
 
 function getInventorySheet_() {
   return getOrCreateSheet_(SHEET_NAMES.INVENTORY, INVENTORY_COLUMNS, [
     inventoryColIndex1('commission'),
-    inventoryColIndex1('registrableMonth')
+    inventoryColIndex1('registrableMonth'),
+    inventoryColIndex1('remarks')
   ]);
 }
 
@@ -94,14 +154,16 @@ function getOrderSheet_() {
   return getOrCreateSheet_(SHEET_NAMES.ORDERS, ORDER_COLUMNS, [
     orderColIndex1('commission'),
     orderColIndex1('registrableMonth'),
-    orderColIndex1('registeredMonth')
+    orderColIndex1('registeredMonth'),
+    orderColIndex1('remarks')
   ]);
 }
 
 function getGClassReservationSheet_() {
   return getOrCreateSheet_(SHEET_NAMES.GCLASS_RESERVATION, GCLASS_COLUMNS, [
     gclassColIndex1('commission'),
-    gclassColIndex1('registrableMonth')
+    gclassColIndex1('registrableMonth'),
+    gclassColIndex1('remarks')
   ]);
 }
 
@@ -143,17 +205,20 @@ function listGClassReservations_() {
 function formatCommissionColumnsAsText_() {
   applyTextColumnFormat_(getInventorySheet_(), [
     inventoryColIndex1('commission'),
-    inventoryColIndex1('registrableMonth')
+    inventoryColIndex1('registrableMonth'),
+    inventoryColIndex1('remarks')
   ]);
   applyTextColumnFormat_(getHoldsSheet_(), [holdColIndex1('commission')]);
   applyTextColumnFormat_(getOrderSheet_(), [
     orderColIndex1('commission'),
     orderColIndex1('registrableMonth'),
-    orderColIndex1('registeredMonth')
+    orderColIndex1('registeredMonth'),
+    orderColIndex1('remarks')
   ]);
   applyTextColumnFormat_(getGClassReservationSheet_(), [
     gclassColIndex1('commission'),
-    gclassColIndex1('registrableMonth')
+    gclassColIndex1('registrableMonth'),
+    gclassColIndex1('remarks')
   ]);
   applyTextColumnFormat_(getPaidOptionMasterSheet_(), [paidOptionMasterColIndex1('code')]);
 }

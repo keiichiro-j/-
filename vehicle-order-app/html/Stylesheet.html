@@ -635,6 +635,9 @@
   .rowCard--hold { border-left-color: var(--warning); }
   .rowCard--hold2 { border-left-color: var(--danger); }
   .rowCard--holdSpecial { border-left-color: var(--hold-special); }
+  /* 備考に「完成検査切」とある車両。左罫線（Hold状態色）は変えず、背景だけ薄いグレー。 */
+  .card--inspectionCut,
+  .rowCard--inspectionCut { background: #e8eaed; }
   /* 横スクロールが必要な列（有償OP等の車両情報・rowCard__status）は画面幅によっては
      スクロールしないと見えないため、行（カード）自体をタップすると、既存のカード表示と
      同じ見た目で車両情報すべてを画面中央のモーダルに表示する
@@ -738,16 +741,17 @@
      操作ボタン列は無く、受注リスト（.rowCard--order）と同じく最後の列に
      拠点バッジを置く。以前はリード番号・担当者・登録日時も加えた9項目構成に
      していたが、項目数が多すぎて画面幅によっては折り返して2行になり、在庫
-     リストの行より縦に間延びして見えていたため、識別・モデル・MP・カラー・
-     有償OP・拠点の6項目に絞り込んだ（現場からの指摘）。それ以外の項目は行タップで
+     リストの行より縦に間延びして見えていたため、識別・モデル・MP・ステア・カラー・
+     有償OP・拠点の7項目に絞り込んだ（現場からの指摘）。それ以外の項目は行タップで
      開く詳細モーダル（openPurchaseOrderDetailModal_）でのみ確認する。 */
   .rowCard.rowCard--purchaseOrder { border-left-color: var(--primary); }
   .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(1) { flex: 0 0 110px; } /* 顧客＋コミッション */
   .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(2) { flex: 0 0 120px; } /* モデル */
   .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(3) { flex: 0 0 68px; } /* MP */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(4) { flex: 0 0 150px; } /* カラー */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(5) { flex: 0 0 170px; } /* 有償OP */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(6) { flex: 0 0 130px; } /* 拠点 */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(4) { flex: 0 0 46px; } /* ステア */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(5) { flex: 0 0 150px; } /* カラー */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(6) { flex: 0 0 170px; } /* 有償OP */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(7) { flex: 0 0 130px; } /* 拠点 */
   .btn--small { padding: 6px 12px; font-size: 12.5px; }
 
   /* ===== カードグリッド（PCビューで3列固定。Google Material×Teslaの余白多め・
@@ -790,6 +794,8 @@
   /* デモカーHOLD・他店HOLDは、通常のHold・2nd Holdとひと目で見分けられるよう
      専用の特別色にする（管理者権限を持つ担当者のみ登録できる。HOLD_TYPE参照）。 */
   .card--holdSpecial { border-left-color: var(--hold-special); }
+  /* 備考に「完成検査切」とある車両。左罫線（Hold状態色）は変えず、背景だけ薄いグレー。 */
+  .card--inspectionCut { background: #e8eaed; }
   /* モデル・コミッション・比較ピンの行と、バッジの行を常に別々の固定行にする。
      以前は1つのflex-wrapコンテナに全部まとめていたため、バッジの個数
      （2個／3個）やモデル名・コミッションの文字数の組み合わせによって折り返し方
@@ -868,6 +874,7 @@
     margin-bottom: 3px;
   }
   .card__metaGrid dd { margin: 0; font-size: 14.5px; font-weight: 600; color: var(--on-surface); line-height: 1.3; }
+  .card__metaGrid__full { grid-column: 1 / -1; }
 
   /* Hold状況エリアは高さ固定・内部スクロール。Hold/2nd Holdが増えてもここで吸収し、
      カード自体の高さは在庫あり／Hold／2nd Holdのどの状態でも常に一定に保たれる。 */

@@ -1061,5 +1061,54 @@ test('コード照合は大文字小文字・前後空白を無視する', () =>
   assert.strictEqual(sandbox.lookupPaidOptionName_('999', master), '');
 });
 
+console.log('== SearchService: hasInspectionCutRemark_ / 備考検索 ==');
+test('備考に「完成検査切」が含まれると true', () => {
+  assert.strictEqual(sandbox.hasInspectionCutRemark_('完成検査切'), true);
+  assert.strictEqual(sandbox.hasInspectionCutRemark_('注: 完成検査切（再検査待ち）'), true);
+});
+test('備考が空・別文言なら false', () => {
+  assert.strictEqual(sandbox.hasInspectionCutRemark_(''), false);
+  assert.strictEqual(sandbox.hasInspectionCutRemark_(null), false);
+  assert.strictEqual(sandbox.hasInspectionCutRemark_('傷あり'), false);
+});
+test('キーワード検索は備考にもヒットする', () => {
+  const withRemarks = vehicles.concat([
+    { commission: 'C003', model: 'モデルC', holdStatus: 'available', remarks: '完成検査切' }
+  ]);
+  assert.strictEqual(sandbox.searchInventory(withRemarks, { keyword: '完成検査切' }).length, 1);
+  assert.strictEqual(sandbox.searchInventory(withRemarks, { keyword: '完成検査切' })[0].commission, 'C003');
+});
+
+console.log('== Constants / SheetService: 備考列・発注ステアの列同期 ==');
+test('在庫リストの末尾は備考、その直前は Holdステータス', () => {
+  const cols = sandbox.INVENTORY_COLUMNS;
+  assert.strictEqual(cols[cols.length - 1].key, 'remarks');
+  assert.strictEqual(cols[cols.length - 2].key, 'holdStatus');
+});
+test('発注リストは MP → ステア → 外装の順', () => {
+  const keys = sandbox.PURCHASE_ORDER_COLUMNS.map((c) => c.key);
+  const mp = keys.indexOf('mp');
+  assert.ok(mp >= 0);
+  assert.strictEqual(keys[mp + 1], 'steering');
+  assert.strictEqual(keys[mp + 2], 'exteriorColor');
+});
+test('不足した備考列は既存ヘッダーの末尾（期待位置）へ挿入する計画になる', () => {
+  const expected = sandbox.INVENTORY_COLUMNS.map((c) => c.label);
+  const current = expected.slice(0, -1); // 備考なし
+  const inserts = sandbox.planMissingColumnInserts_(expected, current);
+  assert.strictEqual(inserts.length, 1);
+  assert.strictEqual(inserts[0].label, '備考');
+  assert.strictEqual(inserts[0].index, expected.length - 1);
+});
+test('発注リストのステア不足は MP と外装の間へ挿入する計画になる', () => {
+  const expected = sandbox.PURCHASE_ORDER_COLUMNS.map((c) => c.label);
+  const current = expected.filter((label) => label !== 'ステア');
+  const inserts = sandbox.planMissingColumnInserts_(expected, current);
+  assert.strictEqual(inserts.length, 1);
+  assert.strictEqual(inserts[0].label, 'ステア');
+  const mpIndex = expected.indexOf('MP');
+  assert.strictEqual(inserts[0].index, mpIndex + 1);
+});
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 if (fail > 0) process.exit(1);

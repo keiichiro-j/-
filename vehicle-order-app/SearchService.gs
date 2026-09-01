@@ -7,7 +7,7 @@
  * 在庫リストの検索・絞り込み。
  * @param {Array<Object>} vehicles
  * @param {Object} filters {
- *   keyword: string,            // モデル・コミッション・外装色に部分一致
+ *   keyword: string,            // モデル・コミッション・外装色・備考に部分一致
  *   includeHold: boolean,       // false の場合 Hold済み車両を除く
  *   exteriorColor: string,      // ボディカラー（外装）の完全一致（前後空白は無視）
  *   registrableMonth: string,   // 正規化後の可能月（YYYY-MM）。過去月は thisMonth に集約した値で比較
@@ -21,7 +21,7 @@ function searchInventory(vehicles, filters) {
   var colorFilter = String(filters.exteriorColor || '').trim();
   return vehicles.filter(function (v) {
     if (filters.includeHold === false && v.holdStatus === HOLD_STATUS.HOLD) return false;
-    if (filters.keyword && !matchesAnyField_(v, filters.keyword, ['model', 'commission', 'exteriorColor'])) return false;
+    if (filters.keyword && !matchesAnyField_(v, filters.keyword, ['model', 'commission', 'exteriorColor', 'remarks'])) return false;
     if (colorFilter && String(v.exteriorColor || '').trim() !== colorFilter) return false;
     if (monthFilter) {
       var effective = effectiveRegistrableMonth_(v.registrableMonth, thisMonth);
@@ -142,6 +142,15 @@ function groupInventoryByRegistrableMonth_(items, thisMonth) {
     });
     return { key: key, items: grouped };
   });
+}
+
+/**
+ * 備考に「完成検査切」が含まれるか（純粋関数）。在庫カードの薄いグレー背景に使う。
+ * @param {*} remarks
+ * @return {boolean}
+ */
+function hasInspectionCutRemark_(remarks) {
+  return String(remarks || '').indexOf(INSPECTION_CUT_REMARK) !== -1;
 }
 
 /**

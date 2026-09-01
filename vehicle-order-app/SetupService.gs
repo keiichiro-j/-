@@ -12,10 +12,9 @@
  * GCLASS_COLUMNS / AUDIT_LOG_COLUMNS / PAID_OPTION_MASTER_COLUMNSの列定義から自動生成するため、今後アプリ側に
  * 列が追加された場合もコード変更はConstants.gs側だけで済む）。
  *
- * 既存のシートがある場合は作り直さない（getOrCreateSheet_ はシートが無いときだけ
- * ヘッダー・入力規則・説明メモを書き込むため、既存データ・書式はそのまま保持される）。
- * 本機能追加より前にセットアップ済みの既存スプレッドシートに、入力規則・説明メモ
- * だけを後から反映したい場合は applySelectValidationsAndNotes_ を使う。
+ * 既存のシートがある場合は作り直さない。不足している列（備考・発注のステア等）は
+ * syncSheetColumns_ が正しい位置へ挿入し、列見出しの注意事項はセルコメント（メモ）として
+ * 書き込む。入力規則・説明メモだけを後から反映したい場合も applySelectValidationsAndNotes_ を使う。
  */
 
 /**
@@ -32,11 +31,12 @@ function setupSpreadsheet_() {
   getGClassReservationSheet_();
   getAuditLogSheet_();
   getPaidOptionMasterSheet_();
+  applySelectValidationsAndNotes_();
   setupTimeDrivenTriggers_();
 
   var message = '在庫リスト・Holdリスト・受注リスト・発注リスト・Gクラス予約リスト・変更履歴・有償OPマスタの7タブを準備しました' +
-    '（既存のシートがあればそのまま利用し、上書きはしていません）。' +
-    '選択式の列にはドロップダウンの入力規則を、列見出しには入力形式の説明メモを' +
+    '（既存のシートがあれば列構成をアプリに合わせて不足列だけ挿入し、データは上書きしていません）。' +
+    '選択式の列にはドロップダウンの入力規則を、列見出しには注意事項のコメント（メモ）を' +
     '設定済みです。Hold期限チェックの時間主導トリガーも設定済みです。';
   Logger.log(message);
   return message;
@@ -45,11 +45,8 @@ function setupSpreadsheet_() {
 /**
  * 既存のスプレッドシートに対して、選択式の列の入力規則（ドロップダウン）と
  * 列見出しの説明メモを後から反映し直す一回限りのメンテナンス関数
- * （formatCommissionColumnsAsText_と同じ位置づけ）。本機能追加より前に
- * setupSpreadsheet_() を実行済みだったスプレッドシートは、これらが無いまま
- * 作成されているため、スクリプトエディタまたはスプレッドシートのメニューから
- * 一度だけ実行する。既存のシート・データは変更しない（ヘッダー行のメモと、
- * 2行目以降の入力規則のみを追加・上書きする）。
+ * （formatCommissionColumnsAsText_と同じ位置づけ）。不足列の挿入と、見出しコメント・
+ * 入力規則の再設定を行う。既存データは上書きしない。
  */
 function applySelectValidationsAndNotes_() {
   [
@@ -61,11 +58,12 @@ function applySelectValidationsAndNotes_() {
     [getAuditLogSheet_(), AUDIT_LOG_COLUMNS],
     [getPaidOptionMasterSheet_(), PAID_OPTION_MASTER_COLUMNS]
   ].forEach(function (pair) {
+    syncSheetColumns_(pair[0], pair[1]);
     applySelectValidations_(pair[0], pair[1]);
     applyHeaderNotes_(pair[0], pair[1]);
   });
 
-  var message = '在庫リスト・Holdリスト・受注リスト・発注リスト・Gクラス予約リスト・変更履歴・有償OPマスタの入力規則・列見出しの説明メモを設定しました。';
+  var message = '在庫リスト・Holdリスト・受注リスト・発注リスト・Gクラス予約リスト・変更履歴・有償OPマスタの列構成・入力規則・列見出しの注意コメントをアプリに合わせて更新しました。';
   Logger.log(message);
   return message;
 }
@@ -79,7 +77,7 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('販売可能リスト')
     .addItem('初期セットアップ（7タブを作成）', 'setupSpreadsheet_')
-    .addItem('入力規則・列見出しの説明メモを再設定', 'applySelectValidationsAndNotes_')
+    .addItem('列構成・入力規則・列見出しのコメントを再設定', 'applySelectValidationsAndNotes_')
     .addItem('コミッション列を書式なしテキストに再設定', 'formatCommissionColumnsAsText_')
     .addToUi();
 }

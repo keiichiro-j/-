@@ -36,7 +36,8 @@
     purchaseOrders: [], // 発注リスト（閲覧専用。検索条件に左右されない全件をクライアント側で絞り込む）
     purchaseOrdersViewMode: safeLocalStorageGet_('purchaseOrdersViewMode') || 'card', // 'card' | 'table'（発注リストの表示形式）
     myPageViewMode: safeLocalStorageGet_('myPageViewMode') || 'card', // 'card' | 'table'（マイページ全体の表示形式）
-    paidOptionMaster: [] // 有償OPマスタ（{code, name}）。設定タブ編集用＋名称ポップアップ用
+    paidOptionMaster: [], // 有償OPマスタ（{code, name}）。設定タブ編集用＋名称ポップアップ用
+    inventoryMonthFilterReady: false // 可能月プルダウンの初回構築前は「当月登録可能」を初期値にする
   };
   var COMPARE_MAX = 3;
 
@@ -742,10 +743,10 @@
 
   function resetInventoryFilters_() {
     $('inventoryKeyword').value = '';
-    $('inventoryMonthFilter').value = '';
     $('inventoryColorFilter').value = '';
     $('inventoryIncludeHold').checked = true;
     state.homeGradeFilter = null;
+    state.inventoryMonthFilterReady = false;
     loadInventory();
   }
 
@@ -880,7 +881,15 @@
       return '<option value="' + escapeHtml(m) + '">' + escapeHtml(label) + '</option>';
     }));
     select.innerHTML = options.join('');
-    select.value = months.indexOf(current) !== -1 ? current : '';
+    // 初回は「当月登録可能」。以降は利用者が「すべて」（空文字）を選んでも上書きしない。
+    if (!state.inventoryMonthFilterReady) {
+      select.value = thisMonth;
+      state.inventoryMonthFilterReady = true;
+    } else if (current === '') {
+      select.value = '';
+    } else {
+      select.value = months.indexOf(current) !== -1 ? current : '';
+    }
   }
 
   function populateInventoryColorFilter_(items) {
@@ -912,14 +921,21 @@
     return map[holdType] || holdType;
   }
 
+  function hasInspectionCutRemark_(remarks) {
+    return String(remarks || '').indexOf('完成検査切') !== -1;
+  }
+
   function vehicleCardTone_(v) {
     var isHold = v.holdStatus === 'hold';
     var hasSecondHold = isHold && !!v.secondHoldCustomer;
     var isSpecialHold = isHold && !!(v.holdHoldType && v.holdHoldType !== 'normal');
-    if (isSpecialHold) return 'card--holdSpecial';
-    if (hasSecondHold) return 'card--hold2';
-    if (isHold) return 'card--hold';
-    return 'card--available';
+    var tone;
+    if (isSpecialHold) tone = 'card--holdSpecial';
+    else if (hasSecondHold) tone = 'card--hold2';
+    else if (isHold) tone = 'card--hold';
+    else tone = 'card--available';
+    if (hasInspectionCutRemark_(v.remarks)) tone += ' card--inspectionCut';
+    return tone;
   }
 
   function vehicleBadgesHtml_(v) {
@@ -974,12 +990,14 @@
   }
 
   function vehicleSpecFieldsHtml_(v) {
+    var remarks = String(v.remarks || '').trim();
     return '<dl class="card__metaGrid">' +
       metaRow_('ステア', v.steering) +
       '<div><dt>有償OP</dt><dd>' + paidOptionsHtml_(v) + '</dd></div>' +
       metaRow_('入港予定日', v.arrivalExpectedDate) +
       metaRow_('可能月', formatRegistrableMonthDisplay_(v)) +
       metaRow_('VPC', v.vpc) +
+      '<div class="card__metaGrid__full"><dt>備考</dt><dd>' + escapeHtml(remarks || '-') + '</dd></div>' +
       '</dl>';
   }
 
@@ -1139,7 +1157,8 @@
     { label: '入港予定日', get: function (v) { return v.arrivalExpectedDate; } },
     { label: '可能月', get: function (v) { return formatRegistrableMonthDisplay_(v); } },
     { label: 'VPC', get: function (v) { return v.vpc; } },
-    { label: '在庫開示', get: function (v) { return v.stockDisclosure; } }
+    { label: '在庫開示', get: function (v) { return v.stockDisclosure; } },
+    { label: '備考', get: function (v) { return v.remarks; } }
   ];
 
   function renderCompareTable_() {
@@ -1245,6 +1264,7 @@
               : '<span class="badge badge--hold"><span class="badge__dot"></span>Hold中</span>')
           : '<span class="badge badge--available"><span class="badge__dot"></span>在庫あり</span>');
     var rowTone = isSpecialHold ? 'rowCard--holdSpecial' : (hasSecondHold ? 'rowCard--hold2' : (isHold ? 'rowCard--hold' : 'rowCard--available'));
+    if (hasInspectionCutRemark_(v.remarks)) rowTone += ' rowCard--inspectionCut';
 
     // 表示形式「表」にもHold解除の導線を用意する（カード表示の「解除」ボタンと同じ
     // data-cancel-hold / data-cancel-rank を使い、既存のクリック委譲・モーダルをそのまま使う）。
@@ -2019,6 +2039,7 @@
       '<div><dt>保険加入の有無</dt><dd>' + escapeHtml(o.insurance || '-') + '</dd></div>' +
       '<div><dt>支払方法</dt><dd>' + escapeHtml(o.paymentMethod || '-') + '</dd></div>' +
       '<div><dt>受注確定日時</dt><dd>' + formatDateTime(o.orderedAt) + '</dd></div>' +
+      '<div class="card__metaGrid__full"><dt>備考</dt><dd>' + escapeHtml(String(o.remarks || '').trim() || '-') + '</dd></div>' +
       '</dl>';
   }
 
@@ -2156,13 +2177,13 @@
     if (!keyword) return true;
     var kw = keyword.trim().toLowerCase();
     if (!kw) return true;
-    return [po.model, po.salesLocation, po.staff, po.customer, po.commission, po.leadNumber, po.mp, po.exteriorColor, po.interiorColor].some(function (v) {
+    return [po.model, po.salesLocation, po.staff, po.customer, po.commission, po.leadNumber, po.mp, po.steering, po.exteriorColor, po.interiorColor].some(function (v) {
       return String(v || '').toLowerCase().indexOf(kw) !== -1;
     });
   }
 
   /**
-   * MP・カラー（外装／内装）・有償OPは、在庫リストのvehicleQuickMetaHtml_ /
+   * MP・ステア・カラー（外装／内装）・有償OPは、在庫リストのvehicleQuickMetaHtml_ /
    * vehicleSpecFieldsHtml_と同じ.card__metaGridを流用して表示する
    * （スプレッドシートへ直接入力する任意項目のため、未入力なら'-'表示）。
    */
@@ -2180,6 +2201,7 @@
       '</div>' +
       '<dl class="card__metaGrid card__metaGrid--quick">' +
       metaRow_('MP', po.mp) +
+      metaRow_('ステア', po.steering) +
       metaRow_('カラー', (po.exteriorColor || '-') + ' / ' + (po.interiorColor || '-')) +
       '</dl>' +
       '<dl class="card__metaGrid">' +
@@ -2197,8 +2219,8 @@
    * での編集導線は持たない。
    * 行に並べる項目は在庫リストのvehicleRowCardHtmlと同じ考え方（ひと目で
    * 必要な項目だけに絞り込み、画面幅にかかわらず折り返し無しで1行に収まる
-   * ようにする）で「識別（顧客・コミッション）・モデル・MP・カラー・有償OP・
-   * 拠点」の6項目だけに絞り込んだ（以前はリード番号・担当者・登録日時も
+   * ようにする）で「識別（顧客・コミッション）・モデル・MP・ステア・カラー・有償OP・
+   * 拠点」の7項目だけに絞り込んだ（以前はリード番号・担当者・登録日時も
    * 並べていたが、項目数が多すぎて画面幅によっては折り返して2行になり、
    * 在庫リストの行より縦に間延びして見えていたため。現場からの指摘）。
    * それ以外の項目（リード番号・担当者・登録日時）は、在庫リスト・受注リストと
@@ -2212,6 +2234,7 @@
       '<span class="rowCard__commission">' + escapeHtml(po.commission || '-') + '</span></div>' +
       rowField_('モデル', po.model) +
       rowField_('MP', po.mp) +
+      rowField_('ステア', po.steering) +
       rowField_('カラー', (po.exteriorColor || '-') + ' / ' + (po.interiorColor || '-')) +
       '<div class="rowCard__field rowCard__field--center"><span class="rowCard__label">有償OP</span>' +
       '<span class="rowCard__value">' + paidOptionsHtml_(po) + '</span></div>' +
@@ -2228,7 +2251,7 @@
 
   /**
    * 表示形式「表」の行タップで開く、画面中央のモーダル（#purchaseOrderDetailModal）。
-   * 発注リストは表示形式「カード」（purchaseOrderCardHtml_）の時点で既にMP・カラー・
+   * 発注リストは表示形式「カード」（purchaseOrderCardHtml_）の時点で既にMP・ステア・カラー・
    * 有償OP・リード番号・担当者・登録日時まですべて省略せず表示しているため、
    * 詳細モーダルもカードと同じ内容をそのまま再利用する（在庫リスト・受注リストの
    * ように「カードでは一部省略、詳細モーダルで残りを表示」という使い分けが不要）。
@@ -2302,7 +2325,9 @@
   // 受注リストのorderCardHtmlと同じ考え方で、トップに顧客名・次に担当者・
   // 次にモデル（＋コミッション）の順で表示する。
   function gclassCardHtml_(v) {
-    return '<div class="card card--available">' +
+    var tone = 'card card--available';
+    if (hasInspectionCutRemark_(v.remarks)) tone += ' card--inspectionCut';
+    return '<div class="' + tone + '">' +
       '<div class="card__top"><div class="card__topRow">' +
       '<div><div class="card__model">' + escapeHtml(v.customer || '-') + '</div>' +
       '<div class="card__commission">担当者: ' + escapeHtml(v.staff || '-') + '</div>' +
@@ -2329,7 +2354,9 @@
    * 詳細モーダル（openGClassDetailModal_）でのみ確認する。
    */
   function gclassRowCardHtml_(v) {
-    return '<div class="rowCard rowCard--available rowCard--gclass" data-commission="' + escapeHtml(v.commission) + '">' +
+    var rowTone = 'rowCard rowCard--available rowCard--gclass';
+    if (hasInspectionCutRemark_(v.remarks)) rowTone += ' rowCard--inspectionCut';
+    return '<div class="' + rowTone + '" data-commission="' + escapeHtml(v.commission) + '">' +
       '<div class="rowCard__inner">' +
       '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(v.customer || '-') + '</span>' +
       '<span class="rowCard__commission">' + escapeHtml(v.commission) + '</span></div>' +
