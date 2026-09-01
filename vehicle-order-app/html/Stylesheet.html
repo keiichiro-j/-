@@ -1297,7 +1297,31 @@
   .staffList__row .input[data-staff-field="name"] { flex: 0 0 22%; min-width: 80px; }
   .staffList__row .input[data-staff-field="email"] { flex: 1 1 40%; min-width: 0; }
   .staffList__row .input[data-staff-field="location"] { flex: 0 0 22%; min-width: 90px; }
+  .staffList__row .input[data-paid-option-field="code"] { flex: 0 0 34%; min-width: 90px; }
+  .staffList__row .input[data-paid-option-field="name"] { flex: 1 1 50%; min-width: 0; }
   .staffList__empty { font-size: 13px; color: var(--on-surface-variant); }
+
+  /* 有償OPコードは従来どおり「、」区切りのテキストに見せ、タップで名称を出すだけ */
+  .paidOpLink {
+    display: inline;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 2px;
+  }
+  .paidOpLink:hover, .paidOpLink:focus-visible {
+    color: var(--primary-text);
+  }
+  .paidOpPopup { display: grid; gap: 12px; margin: 0; }
+  .paidOpPopup div { display: grid; gap: 4px; }
+  .paidOpPopup dt { font-size: 12px; color: var(--on-surface-variant); font-weight: 600; }
+  .paidOpPopup dd { margin: 0; font-size: 14.5px; font-weight: 600; color: var(--on-surface); word-break: break-word; }
 
   /* ===== モデル写真（ホーム画面） ===== */
   .modelPhotoList { display: flex; flex-direction: column; gap: 8px; }
@@ -2514,7 +2538,9 @@
     .staffList__row { flex-wrap: wrap; }
     .staffList__row .input[data-staff-field="name"],
     .staffList__row .input[data-staff-field="email"],
-    .staffList__row .input[data-staff-field="location"] { flex: 1 1 100%; }
+    .staffList__row .input[data-staff-field="location"],
+    .staffList__row .input[data-paid-option-field="code"],
+    .staffList__row .input[data-paid-option-field="name"] { flex: 1 1 100%; }
     .modelPhotoList__row { flex-wrap: wrap; }
     .modelPhotoList__row .input[data-photo-field="model"],
     .modelPhotoList__row .input[data-photo-field="bodyType"],

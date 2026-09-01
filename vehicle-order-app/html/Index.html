@@ -270,9 +270,12 @@
     <!-- 在庫リスト -->
     <main class="view" id="view-inventory">
       <div class="toolbar" id="inventoryToolbar">
-        <input type="search" id="inventoryKeyword" class="input input--search" placeholder="モデル・コミッションで検索">
+        <input type="search" id="inventoryKeyword" class="input input--search" placeholder="モデル・コミッション・色で検索">
         <select id="inventoryMonthFilter" class="input">
           <option value="">可能月：すべて</option>
+        </select>
+        <select id="inventoryColorFilter" class="input">
+          <option value="">色：すべて</option>
         </select>
         <label class="checkboxField">
           <input type="checkbox" id="inventoryIncludeHold" checked> Hold済みを含む
@@ -542,6 +545,13 @@
             <button class="btn" id="btnAddStaff" type="button">＋ 担当者を追加</button>
           </div>
 
+          <div class="settingsCard hidden" id="systemMasterPaidOptionsCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>有償OPマスタ</h2>
+            <p class="settingsSection__desc">車両情報の有償OPコードと名称の対応表です（最大<span id="paidOptionMasterMax"></span>件・現在<span id="paidOptionMasterCount">0</span>件登録中）。在庫・受注・発注・Gクラス予約の有償OPをタップすると、ここに登録した名称がポップアップで表示されます。スプレッドシートの「有償OPマスタ」タブへ直接入力しても同じデータです。ドラッグハンドル（⠿）で表示順を並び替えできます。</p>
+            <div class="staffList" id="paidOptionMasterList"></div>
+            <button class="btn" id="btnAddPaidOption" type="button">＋ コードを追加</button>
+          </div>
+
           <!-- Hold登録・2nd Hold登録・受注確定それぞれの完了時に表示する演出
                （絵柄のアクション）のバリエーション選択（A〜D、4種類ずつ）。
                案内メッセージ自体は固定で、絵柄の演出だけを切り替える
@@ -781,6 +791,26 @@
         <button class="btn--icon" data-close-modal>&times;</button>
       </div>
       <div class="modal__body" id="gclassDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- 有償OPコードをタップしたときに名称を表示するポップアップ -->
+  <div class="modal hidden" id="paidOptionModal">
+    <div class="modal__panel">
+      <div class="modal__header">
+        <h2>有償OP</h2>
+        <button class="btn--icon" data-close-modal>&times;</button>
+      </div>
+      <div class="modal__body">
+        <dl class="paidOpPopup">
+          <div><dt>コード</dt><dd id="paidOptionModalCode">-</dd></div>
+          <div><dt>名称</dt><dd id="paidOptionModalName">-</dd></div>
+        </dl>
+        <p class="modal__hint hidden" id="paidOptionModalHint"></p>
+      </div>
+      <div class="modal__footer">
+        <button class="btn btn--primary" data-close-modal>閉じる</button>
+      </div>
     </div>
   </div>
 

@@ -12,6 +12,7 @@
   var state = {
     bootstrap: null,
     inventoryItems: [],
+    inventoryGroups: [],
     inventoryViewMode: safeLocalStorageGet_('inventoryViewMode') || 'card', // 'card' | 'table'（在庫リストの表示形式。端末ごとにlocalStorageへ保存）
     compareItems: [], // 比較中の車両（在庫リストのピンで選択。最大COMPARE_MAX台）
     ordersViewMode: safeLocalStorageGet_('ordersViewMode') || 'card', // 'card' | 'table'（受注リストの表示形式）
@@ -34,7 +35,8 @@
     allGClassItems: [], // マイページ集計専用（Gクラス予約リストの検索条件に左右されない全件）
     purchaseOrders: [], // 発注リスト（閲覧専用。検索条件に左右されない全件をクライアント側で絞り込む）
     purchaseOrdersViewMode: safeLocalStorageGet_('purchaseOrdersViewMode') || 'card', // 'card' | 'table'（発注リストの表示形式）
-    myPageViewMode: safeLocalStorageGet_('myPageViewMode') || 'card' // 'card' | 'table'（マイページ全体の表示形式）
+    myPageViewMode: safeLocalStorageGet_('myPageViewMode') || 'card', // 'card' | 'table'（マイページ全体の表示形式）
+    paidOptionMaster: [] // 有償OPマスタ（{code, name}）。設定タブ編集用＋名称ポップアップ用
   };
   var COMPARE_MAX = 3;
 
@@ -509,6 +511,100 @@
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
   }
 
+  // 可能月の表記ゆれ正規化・過去月の当月集約・グループ化は SearchService.gs と
+  // 同じ規則（クライアント側でもプルダウン生成・並び替えに使うためミラーしている）。
+  function normalizeYearMonth_(value) {
+    if (value === null || value === undefined || value === '') return '';
+    var s = String(value).trim();
+    if (!s) return '';
+    var m = s.match(/^(\d{4})[-/\.年](\d{1,2})(?:[-/\.月日](\d{1,2}))?/);
+    if (!m) return '';
+    var month = Number(m[2]);
+    if (!month || month < 1 || month > 12) return '';
+    return m[1] + '-' + (month < 10 ? '0' + month : String(month));
+  }
+
+  function effectiveRegistrableMonth_(value, thisMonth) {
+    var normalized = normalizeYearMonth_(value);
+    if (!normalized) return '';
+    if (thisMonth && normalized < thisMonth) return thisMonth;
+    return normalized;
+  }
+
+  function collectRegistrableMonthOptions_(items, thisMonth) {
+    var seen = {};
+    var months = [];
+    (items || []).forEach(function (v) {
+      var month = effectiveRegistrableMonth_(v.registrableMonth, thisMonth);
+      if (!month || seen[month]) return;
+      seen[month] = true;
+      months.push(month);
+    });
+    if (thisMonth && !seen[thisMonth]) months.push(thisMonth);
+    months.sort();
+    return months;
+  }
+
+  function collectExteriorColorOptions_(items) {
+    var seen = {};
+    var colors = [];
+    (items || []).forEach(function (v) {
+      var color = String(v.exteriorColor || '').trim();
+      if (!color) return;
+      var key = color.toLowerCase();
+      if (seen[key]) return;
+      seen[key] = true;
+      colors.push(color);
+    });
+    colors.sort(function (a, b) { return a < b ? -1 : a > b ? 1 : 0; });
+    return colors;
+  }
+
+  function groupInventoryByRegistrableMonth_(items, thisMonth) {
+    var map = {};
+    var order = [];
+    (items || []).forEach(function (item) {
+      var key = effectiveRegistrableMonth_(item.registrableMonth, thisMonth) || '未設定';
+      if (!map[key]) {
+        map[key] = [];
+        order.push(key);
+      }
+      map[key].push(item);
+    });
+    order.sort(function (a, b) {
+      if (a === '未設定') return 1;
+      if (b === '未設定') return -1;
+      return a < b ? -1 : a > b ? 1 : 0;
+    });
+    return order.map(function (key) {
+      var grouped = map[key].slice().sort(function (a, b) {
+        var am = String(a.model || '');
+        var bm = String(b.model || '');
+        if (am !== bm) return am < bm ? -1 : 1;
+        return String(a.commission || '') < String(b.commission || '') ? -1 : 1;
+      });
+      return { key: key, items: grouped };
+    });
+  }
+
+  function registrableMonthGroupTitle_(key, thisMonth) {
+    if (!key || key === '未設定') return '可能月 未設定';
+    if (thisMonth && key === thisMonth) return '可能月 ' + key + '（当月登録可能）';
+    return '可能月 ' + key;
+  }
+
+  function formatRegistrableMonthDisplay_(v) {
+    var thisMonth = currentYearMonth();
+    var effective = effectiveRegistrableMonth_(v.registrableMonth, thisMonth);
+    var original = normalizeYearMonth_(v.registrableMonth);
+    if (!effective) return '-';
+    if (effective === thisMonth) {
+      if (original && original < thisMonth) return '当月登録可能（元: ' + original + '）';
+      return '当月登録可能';
+    }
+    return effective;
+  }
+
   /**
    * コミッションの比較は必ずこの関数を通す（=== での直接比較は禁止）。
    * サーバー側から届く車両データの commission は、スプレッドシートのコミッション
@@ -536,6 +632,64 @@
     var values = keys.map(function (k) { return item[k]; }).filter(function (v) { return v; });
     return values.length ? values.join('、') : '-';
   }
+
+  function paidOptionMasterList_() {
+    return (state.paidOptionMaster && state.paidOptionMaster.length)
+      ? state.paidOptionMaster
+      : ((state.bootstrap && state.bootstrap.paidOptionMaster) || []);
+  }
+
+  function lookupPaidOptionNameClient_(code) {
+    var needle = String(code || '').trim().toLowerCase();
+    if (!needle) return '';
+    var list = paidOptionMasterList_();
+    for (var i = 0; i < list.length; i++) {
+      if (String(list[i].code || '').trim().toLowerCase() === needle) {
+        return String(list[i].name || '').trim();
+      }
+    }
+    return '';
+  }
+
+  function paidOptionCodes_(item) {
+    var keys = (state.bootstrap && state.bootstrap.paidOptionKeys) ||
+      ['paidOption1', 'paidOption2', 'paidOption3', 'paidOption4', 'paidOption5', 'paidOption6', 'paidOption7'];
+    return keys.map(function (k) { return item[k]; }).filter(function (v) { return v; }).map(function (v) {
+      return String(v).trim();
+    }).filter(Boolean);
+  }
+
+  function paidOptionsHtml_(item) {
+    var codes = paidOptionCodes_(item);
+    if (!codes.length) return '-';
+    return codes.map(function (code) {
+      return '<button type="button" class="paidOpLink" data-paid-option="' + escapeHtml(code) + '">' +
+        escapeHtml(code) + '</button>';
+    }).join('、');
+  }
+
+  function openPaidOptionPopup_(code) {
+    var name = lookupPaidOptionNameClient_(code);
+    $('paidOptionModalCode').textContent = code || '-';
+    $('paidOptionModalName').textContent = name || 'マスタ未登録';
+    var hint = $('paidOptionModalHint');
+    if (name) {
+      hint.textContent = '';
+      hint.classList.add('hidden');
+    } else {
+      hint.textContent = '有償OPマスタに未登録です。管理者は設定タブまたはスプレッドシートの「有償OPマスタ」タブから名称を登録できます。';
+      hint.classList.remove('hidden');
+    }
+    openModal($('paidOptionModal'));
+  }
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-paid-option]');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openPaidOptionPopup_(btn.dataset.paidOption);
+  }, true);
 
   // ===== タブ切替 =====
   // ホーム画面のモデル写真クリック（在庫リストへの遷移）からも同じ処理を使えるよう、
@@ -589,6 +743,7 @@
   function resetInventoryFilters_() {
     $('inventoryKeyword').value = '';
     $('inventoryMonthFilter').value = '';
+    $('inventoryColorFilter').value = '';
     $('inventoryIncludeHold').checked = true;
     state.homeGradeFilter = null;
     loadInventory();
@@ -694,37 +849,53 @@
         items = items.filter(function (v) { return state.homeGradeFilter.indexOf(v.model) !== -1; });
       }
       populateInventoryMonthFilter_(items);
+      populateInventoryColorFilter_(items);
+      var thisMonth = currentYearMonth();
       var month = $('inventoryMonthFilter').value;
       if (month) {
-        items = items.filter(function (v) { return v.registrableMonth === month; });
+        items = items.filter(function (v) {
+          return effectiveRegistrableMonth_(v.registrableMonth, thisMonth) === month;
+        });
+      }
+      var color = $('inventoryColorFilter').value;
+      if (color) {
+        items = items.filter(function (v) { return String(v.exteriorColor || '').trim() === color; });
       }
       state.inventoryItems = items;
+      state.inventoryGroups = groupInventoryByRegistrableMonth_(items, thisMonth);
       renderInventory();
     }).catch(function (err) { showToast(err.message, true); });
   }
 
-  // 可能月フィルタの選択肢は、現在の検索条件に該当する在庫の可能月から動的に作る
-  // （当月は在庫がなくても常に選べるようにする）。
+  // 可能月フィルタの選択肢は、現在の検索条件に該当する在庫の可能月から動的に作る。
+  // 表記ゆれ（2026-08 と 2026-08-01 等）は YYYY-MM に正規化し、過去月は「当月登録可能」
+  // に集約する（当月は在庫がなくても常に選べるようにする）。
   function populateInventoryMonthFilter_(items) {
     var select = $('inventoryMonthFilter');
     var current = select.value;
     var thisMonth = currentYearMonth();
-    var months = [];
-    items.forEach(function (v) {
-      if (v.registrableMonth && months.indexOf(v.registrableMonth) === -1) months.push(v.registrableMonth);
-    });
-    if (months.indexOf(thisMonth) === -1) months.push(thisMonth);
-    months.sort();
+    var months = collectRegistrableMonthOptions_(items, thisMonth);
     var options = ['<option value="">可能月：すべて</option>'].concat(months.map(function (m) {
-      var label = m + (m === thisMonth ? '（今月）' : '');
+      var label = m === thisMonth ? '当月登録可能' : m;
       return '<option value="' + escapeHtml(m) + '">' + escapeHtml(label) + '</option>';
     }));
     select.innerHTML = options.join('');
     select.value = months.indexOf(current) !== -1 ? current : '';
   }
 
+  function populateInventoryColorFilter_(items) {
+    var select = $('inventoryColorFilter');
+    var current = select.value;
+    var colors = collectExteriorColorOptions_(items);
+    var options = ['<option value="">色：すべて</option>'].concat(colors.map(function (c) {
+      return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>';
+    }));
+    select.innerHTML = options.join('');
+    select.value = colors.indexOf(current) !== -1 ? current : '';
+  }
+
   function isRegistrableThisMonth_(v) {
-    return !!v.registrableMonth && v.registrableMonth === currentYearMonth();
+    return effectiveRegistrableMonth_(v.registrableMonth, currentYearMonth()) === currentYearMonth();
   }
 
   function metaRow_(label, value) {
@@ -805,9 +976,9 @@
   function vehicleSpecFieldsHtml_(v) {
     return '<dl class="card__metaGrid">' +
       metaRow_('ステア', v.steering) +
-      metaRow_('有償OP', paidOptionsText(v)) +
+      '<div><dt>有償OP</dt><dd>' + paidOptionsHtml_(v) + '</dd></div>' +
       metaRow_('入港予定日', v.arrivalExpectedDate) +
-      metaRow_('可能月', v.registrableMonth) +
+      metaRow_('可能月', formatRegistrableMonthDisplay_(v)) +
       metaRow_('VPC', v.vpc) +
       '</dl>';
   }
@@ -966,7 +1137,7 @@
     { label: '内装', get: function (v) { return v.interiorColor; } },
     { label: '有償OP', get: function (v) { return paidOptionsText(v); } },
     { label: '入港予定日', get: function (v) { return v.arrivalExpectedDate; } },
-    { label: '可能月', get: function (v) { return v.registrableMonth; } },
+    { label: '可能月', get: function (v) { return formatRegistrableMonthDisplay_(v); } },
     { label: 'VPC', get: function (v) { return v.vpc; } },
     { label: '在庫開示', get: function (v) { return v.stockDisclosure; } }
   ];
@@ -1104,7 +1275,8 @@
       rowField_('MP', v.mp) +
       rowField_('ステア', v.steering) +
       rowField_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
-      rowField_('有償OP', paidOptionsText(v)) +
+      '<div class="rowCard__field rowCard__field--center"><span class="rowCard__label">有償OP</span>' +
+      '<span class="rowCard__value">' + paidOptionsHtml_(v) + '</span></div>' +
       '<div class="rowCard__actions">' + actions + comparePinHtml + '</div>' +
       '</div>' +
       '</div>';
@@ -1266,11 +1438,19 @@
   function renderInventory() {
     var container = $('inventoryList');
     var items = state.inventoryItems || [];
+    var groups = state.inventoryGroups || [];
+    var thisMonth = currentYearMonth();
     $('inventoryEmpty').classList.toggle('hidden', items.length > 0);
     $('inventoryTotalCount').textContent = items.length ? '該当 ' + items.length + ' 台' : '';
-    container.innerHTML = state.inventoryViewMode === 'table'
-      ? vehicleRowsHtml(items)
-      : '<div class="cardGrid">' + items.map(vehicleCardHtml).join('') + '</div>';
+    container.innerHTML = groups.map(function (g) {
+      var heading = '<h3 class="group__title">' +
+        escapeHtml(registrableMonthGroupTitle_(g.key, thisMonth)) +
+        '<span class="group__count">' + g.items.length + '台</span></h3>';
+      var body = state.inventoryViewMode === 'table'
+        ? vehicleRowsHtml(g.items)
+        : '<div class="cardGrid">' + g.items.map(vehicleCardHtml).join('') + '</div>';
+      return '<div class="group">' + heading + body + '</div>';
+    }).join('');
     syncComparePins_();
     syncFixedBars_();
   }
@@ -1321,7 +1501,7 @@
     else if (target.dataset.compare) toggleCompare_(target.dataset.compare, target.checked);
   });
 
-  ['inventoryKeyword', 'inventoryMonthFilter', 'inventoryIncludeHold'].forEach(function (id) {
+  ['inventoryKeyword', 'inventoryMonthFilter', 'inventoryColorFilter', 'inventoryIncludeHold'].forEach(function (id) {
     $(id).addEventListener('input', debounce(loadInventory, 250));
     $(id).addEventListener('change', loadInventory);
   });
@@ -1832,7 +2012,7 @@
       '<div><dt>コミッション</dt><dd>' + escapeHtml(o.commission) + '</dd></div>' +
       '<div><dt>MP</dt><dd>' + escapeHtml(o.mp || '-') + '</dd></div>' +
       '<div><dt>VPC</dt><dd>' + escapeHtml(o.vpc || '-') + '</dd></div>' +
-      '<div><dt>有償OP</dt><dd>' + escapeHtml(paidOptionsText(o)) + '</dd></div>' +
+      '<div><dt>有償OP</dt><dd>' + paidOptionsHtml_(o) + '</dd></div>' +
       '<div><dt>登録月</dt><dd>' + escapeHtml(o.registeredMonth || '-') + '</dd></div>' +
       '<div><dt>下取車の有無</dt><dd>' + escapeHtml(o.tradeIn || '-') + '</dd></div>' +
       '<div><dt>OSS登録の可否</dt><dd>' + escapeHtml(o.oss || '-') + '</dd></div>' +
@@ -2003,7 +2183,7 @@
       metaRow_('カラー', (po.exteriorColor || '-') + ' / ' + (po.interiorColor || '-')) +
       '</dl>' +
       '<dl class="card__metaGrid">' +
-      metaRow_('有償OP', paidOptionsText(po)) +
+      '<div><dt>有償OP</dt><dd>' + paidOptionsHtml_(po) + '</dd></div>' +
       '</dl>' +
       (subParts.length ? '<div class="purchaseOrderCard__sub">' + subParts.join('　') + '</div>' : '') +
       '</div>';
@@ -2033,7 +2213,8 @@
       rowField_('モデル', po.model) +
       rowField_('MP', po.mp) +
       rowField_('カラー', (po.exteriorColor || '-') + ' / ' + (po.interiorColor || '-')) +
-      rowField_('有償OP', paidOptionsText(po)) +
+      '<div class="rowCard__field rowCard__field--center"><span class="rowCard__label">有償OP</span>' +
+      '<span class="rowCard__value">' + paidOptionsHtml_(po) + '</span></div>' +
       '<div class="rowCard__status"><span class="badge badge--location">' + escapeHtml(po.salesLocation || '-') + '</span></div>' +
       '</div>' +
       '</div>';
@@ -2156,7 +2337,8 @@
       rowField_('MP', v.mp) +
       rowField_('ステア', v.steering) +
       rowField_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
-      rowField_('有償OP', paidOptionsText(v)) +
+      '<div class="rowCard__field rowCard__field--center"><span class="rowCard__label">有償OP</span>' +
+      '<span class="rowCard__value">' + paidOptionsHtml_(v) + '</span></div>' +
       '<div class="rowCard__status"><span class="badge ' + (v.stockDisclosure === '非開示' ? 'badge--undisclosed' : 'badge--disclosed') + '">' + escapeHtml(v.stockDisclosure || '-') + '</span></div>' +
       '</div>' +
       '</div>';
@@ -2240,6 +2422,7 @@
     $('systemMasterModelPhotosCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterNotifyCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterStaffCard').classList.toggle('hidden', !isAdmin);
+    $('systemMasterPaidOptionsCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterCelebrationCard').classList.toggle('hidden', !isAdmin);
     renderCelebrationVariantSelects_(settings.celebrationVariants);
 
@@ -2268,6 +2451,12 @@
     $('staffListMax').textContent = (state.bootstrap && state.bootstrap.staffListMax) || 30;
     renderStaffList();
     populateOrdersStaffFilter_();
+
+    state.paidOptionMaster = ((state.bootstrap && state.bootstrap.paidOptionMaster) || []).map(function (e) {
+      return { code: e.code || '', name: e.name || '' };
+    });
+    $('paidOptionMasterMax').textContent = (state.bootstrap && state.bootstrap.paidOptionMasterMax) || 300;
+    renderPaidOptionMasterList_();
 
     state.modelPhotos = (settings.modelPhotos || []).map(function (p) {
       return { model: p.model || '', photoUrl: p.photoUrl || '', gradePrefix: p.gradePrefix || '', gradeMarker: p.gradeMarker || '', bodyType: p.bodyType || '' };
@@ -2632,6 +2821,54 @@
     var moved = state.staffList.splice(from, 1)[0];
     state.staffList.splice(to, 0, moved);
     renderStaffList();
+  });
+
+  function renderPaidOptionMasterList_() {
+    var container = $('paidOptionMasterList');
+    $('paidOptionMasterCount').textContent = state.paidOptionMaster.length;
+    if (!state.paidOptionMaster.length) {
+      container.innerHTML = '<div class="staffList__empty">有償OPコードが登録されていません</div>';
+    } else {
+      container.innerHTML = state.paidOptionMaster.map(function (entry, i) {
+        return '<div class="staffList__row" data-drag-index="' + i + '">' +
+          '<span class="dragHandle" draggable="true" aria-label="ドラッグして並び替え">⠿</span>' +
+          '<input type="text" class="input" data-paid-option-index="' + i + '" data-paid-option-field="code" placeholder="コード（例: 21P）" value="' + escapeHtml(entry.code || '') + '">' +
+          '<input type="text" class="input" data-paid-option-index="' + i + '" data-paid-option-field="name" placeholder="名称（例: AMGライン）" value="' + escapeHtml(entry.name || '') + '">' +
+          '<button class="btn btn--icon" data-remove-paid-option="' + i + '" type="button" aria-label="削除">&times;</button>' +
+          '</div>';
+      }).join('');
+    }
+    var max = (state.bootstrap && state.bootstrap.paidOptionMasterMax) || 300;
+    $('btnAddPaidOption').disabled = state.paidOptionMaster.length >= max;
+  }
+
+  $('paidOptionMasterList').addEventListener('input', function (e) {
+    var index = e.target.dataset.paidOptionIndex;
+    var field = e.target.dataset.paidOptionField;
+    if (index === undefined || !field) return;
+    state.paidOptionMaster[Number(index)][field] = e.target.value;
+  });
+
+  $('paidOptionMasterList').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-remove-paid-option]');
+    if (!btn) return;
+    state.paidOptionMaster.splice(Number(btn.dataset.removePaidOption), 1);
+    renderPaidOptionMasterList_();
+  });
+
+  $('btnAddPaidOption').addEventListener('click', function () {
+    var max = (state.bootstrap && state.bootstrap.paidOptionMasterMax) || 300;
+    if (state.paidOptionMaster.length >= max) return;
+    state.paidOptionMaster.push({ code: '', name: '' });
+    renderPaidOptionMasterList_();
+    var inputs = document.querySelectorAll('#paidOptionMasterList [data-paid-option-field="code"]');
+    if (inputs.length) inputs[inputs.length - 1].focus();
+  });
+
+  makeReorderable_($('paidOptionMasterList'), function (from, to) {
+    var moved = state.paidOptionMaster.splice(from, 1)[0];
+    state.paidOptionMaster.splice(to, 0, moved);
+    renderPaidOptionMasterList_();
   });
 
   // ===== モデル写真（ホーム画面） =====
@@ -3161,7 +3398,9 @@
    */
   function loadHomeModelCounts_() {
     return gasRun('api_listInventory', { keyword: '', includeHold: true }).then(function (groups) {
-      state.allInventoryItems = (groups && groups[0] && groups[0].items) || [];
+      state.allInventoryItems = (groups || []).reduce(function (acc, g) {
+        return acc.concat(g.items || []);
+      }, []);
       renderHomeGallery_();
       renderMyPageHolds_();
     }).catch(function () {});
@@ -3517,6 +3756,24 @@
       return;
     }
 
+    var maxPaidOptions = (state.bootstrap && state.bootstrap.paidOptionMasterMax) || 300;
+    var cleanedPaidOptions = state.paidOptionMaster
+      .map(function (e) {
+        return { code: String((e && e.code) || '').trim(), name: String((e && e.name) || '').trim() };
+      })
+      .filter(function (e) { return e.code; });
+    var seenPaidCodes = {};
+    var uniquePaidOptions = cleanedPaidOptions.filter(function (e) {
+      var key = e.code.toLowerCase();
+      if (seenPaidCodes[key]) return false;
+      seenPaidCodes[key] = true;
+      return true;
+    });
+    if (uniquePaidOptions.length > maxPaidOptions) {
+      $('settingsError').textContent = '有償OPマスタは最大' + maxPaidOptions + '件までです（現在' + uniquePaidOptions.length + '件）';
+      return;
+    }
+
     var settings = {
       themeKey: state.themeKey || DEFAULT_THEME_KEY,
       logoUrl: $('settingsLogoUrl').value.trim(),
@@ -3536,8 +3793,10 @@
     setButtonBusy(btn, true, '保存中...');
     gasRun('api_saveSettings', settings).then(function (saved) {
       state.bootstrap.settings = saved;
-      // 担当者マスタが変わった可能性があるため、ログイン中のアカウントに対応する
-      // 担当者名（currentStaffName）を再取得してトップバー表示等に反映する。
+      var isAdmin = !!(state.bootstrap && state.bootstrap.isSystemAdmin);
+      if (!isAdmin) return null;
+      return gasRun('api_savePaidOptionMaster', uniquePaidOptions);
+    }).then(function () {
       return gasRun('api_getBootstrapData');
     }).then(function (bootstrap) {
       setButtonBusy(btn, false);

@@ -80,7 +80,10 @@ function applyHeaderNotes_(sheet, columns) {
 }
 
 function getInventorySheet_() {
-  return getOrCreateSheet_(SHEET_NAMES.INVENTORY, INVENTORY_COLUMNS, [inventoryColIndex1('commission')]);
+  return getOrCreateSheet_(SHEET_NAMES.INVENTORY, INVENTORY_COLUMNS, [
+    inventoryColIndex1('commission'),
+    inventoryColIndex1('registrableMonth')
+  ]);
 }
 
 function getHoldsSheet_() {
@@ -88,11 +91,24 @@ function getHoldsSheet_() {
 }
 
 function getOrderSheet_() {
-  return getOrCreateSheet_(SHEET_NAMES.ORDERS, ORDER_COLUMNS, [orderColIndex1('commission')]);
+  return getOrCreateSheet_(SHEET_NAMES.ORDERS, ORDER_COLUMNS, [
+    orderColIndex1('commission'),
+    orderColIndex1('registrableMonth'),
+    orderColIndex1('registeredMonth')
+  ]);
 }
 
 function getGClassReservationSheet_() {
-  return getOrCreateSheet_(SHEET_NAMES.GCLASS_RESERVATION, GCLASS_COLUMNS, [gclassColIndex1('commission')]);
+  return getOrCreateSheet_(SHEET_NAMES.GCLASS_RESERVATION, GCLASS_COLUMNS, [
+    gclassColIndex1('commission'),
+    gclassColIndex1('registrableMonth')
+  ]);
+}
+
+function getPaidOptionMasterSheet_() {
+  return getOrCreateSheet_(SHEET_NAMES.PAID_OPTIONS, PAID_OPTION_MASTER_COLUMNS, [
+    paidOptionMasterColIndex1('code')
+  ]);
 }
 
 function getPurchaseOrderSheet_() {
@@ -125,10 +141,21 @@ function listGClassReservations_() {
  * 手動で正しい値を入力し直す必要がある。
  */
 function formatCommissionColumnsAsText_() {
-  applyTextColumnFormat_(getInventorySheet_(), [inventoryColIndex1('commission')]);
+  applyTextColumnFormat_(getInventorySheet_(), [
+    inventoryColIndex1('commission'),
+    inventoryColIndex1('registrableMonth')
+  ]);
   applyTextColumnFormat_(getHoldsSheet_(), [holdColIndex1('commission')]);
-  applyTextColumnFormat_(getOrderSheet_(), [orderColIndex1('commission')]);
-  applyTextColumnFormat_(getGClassReservationSheet_(), [gclassColIndex1('commission')]);
+  applyTextColumnFormat_(getOrderSheet_(), [
+    orderColIndex1('commission'),
+    orderColIndex1('registrableMonth'),
+    orderColIndex1('registeredMonth')
+  ]);
+  applyTextColumnFormat_(getGClassReservationSheet_(), [
+    gclassColIndex1('commission'),
+    gclassColIndex1('registrableMonth')
+  ]);
+  applyTextColumnFormat_(getPaidOptionMasterSheet_(), [paidOptionMasterColIndex1('code')]);
 }
 
 /**

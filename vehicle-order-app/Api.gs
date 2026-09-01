@@ -20,6 +20,10 @@ function api_getBootstrapData() {
     ossOptions: OSS_OPTIONS,
     paymentMethodOptions: PAYMENT_METHOD_OPTIONS,
     paidOptionKeys: PAID_OPTION_KEYS,
+    paidOptionMaster: (function () {
+      try { return listPaidOptionMaster_(); } catch (e) { return []; }
+    })(),
+    paidOptionMasterMax: PAID_OPTION_MASTER_MAX,
     holdOrderInputColumns: HOLD_ORDER_INPUT_COLUMNS,
     holdTypeLabels: HOLD_TYPE_LABELS,
     staffListMax: STAFF_LIST_MAX,
@@ -126,4 +130,16 @@ function api_getSettings() {
 
 function api_saveSettings(settings) {
   return saveSettings(settings);
+}
+
+/**
+ * 有償OPマスタの保存。名称ポップアップ用のコード→名称辞書。管理者のみ更新可。
+ * 読み取りは bootstrap.paidOptionMaster 経由で全利用者に渡す（表示に必要なため）。
+ */
+function api_savePaidOptionMaster(list) {
+  var email = Session.getActiveUser().getEmail();
+  if (!isSystemAdmin_(email)) {
+    throw new Error('有償OPマスタを変更する権限がありません');
+  }
+  return replacePaidOptionMaster_(list);
 }

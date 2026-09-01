@@ -27,7 +27,7 @@ vm.createContext(sandbox);
 // AuditLogService.gs / IntegrityService.gs の順で依存関係あり
 const FILES = [
   'Constants.gs', 'HoldService.gs', 'SearchService.gs', 'SheetService.gs', 'SettingsService.gs',
-  'AuditLogService.gs', 'IntegrityService.gs', 'PurchaseOrderService.gs'
+  'AuditLogService.gs', 'IntegrityService.gs', 'PurchaseOrderService.gs', 'PaidOptionService.gs'
 ];
 
 FILES.forEach((file) => {
@@ -355,14 +355,17 @@ test('キーワード未指定は全件返す', () => {
 
 console.log('== SearchService: searchInventory / searchOrders ==');
 const vehicles = [
-  { commission: 'C001', model: 'モデルA', holdStatus: 'available' },
-  { commission: 'C002', model: 'モデルB', holdStatus: 'hold' }
+  { commission: 'C001', model: 'モデルA', holdStatus: 'available', exteriorColor: 'オブシディアンブラック', registrableMonth: '2026-09' },
+  { commission: 'C002', model: 'モデルB', holdStatus: 'hold', exteriorColor: 'ブリリアントホワイト', registrableMonth: '2026-10' }
 ];
 test('キーワードでモデル検索がヒットする', () => {
   assert.strictEqual(sandbox.searchInventory(vehicles, { keyword: 'モデルA' }).length, 1);
 });
 test('キーワードでコミッション検索がヒットする', () => {
   assert.strictEqual(sandbox.searchInventory(vehicles, { keyword: 'C002' }).length, 1);
+});
+test('キーワードで外装色もヒットする', () => {
+  assert.strictEqual(sandbox.searchInventory(vehicles, { keyword: 'ホワイト' }).length, 1);
 });
 test('includeHold=falseでHold済み車両が除外される', () => {
   const result = sandbox.searchInventory(vehicles, { includeHold: false });
@@ -371,6 +374,14 @@ test('includeHold=falseでHold済み車両が除外される', () => {
 });
 test('無関係なキーワードはヒットしない', () => {
   assert.strictEqual(sandbox.searchInventory(vehicles, { keyword: '該当なし' }).length, 0);
+});
+test('ボディカラー（外装）の完全一致で絞り込める', () => {
+  const result = sandbox.searchInventory(vehicles, { exteriorColor: 'オブシディアンブラック' });
+  assert.strictEqual(result.length, 1);
+  assert.strictEqual(result[0].commission, 'C001');
+});
+test('ボディカラーの前後空白は無視して一致する', () => {
+  assert.strictEqual(sandbox.searchInventory(vehicles, { exteriorColor: ' オブシディアンブラック ' }).length, 1);
 });
 
 const orders = [
@@ -413,6 +424,82 @@ test('未設定の項目は「未設定」グループの末尾へ回る', () =>
     'arrivalExpectedDate'
   );
   assert.strictEqual(groups[groups.length - 1].key, '未設定');
+});
+
+console.log('== SearchService: 可能月の正規化・過去月の当月集約・グループ表示 ==');
+test('YYYY-MM はそのまま返す', () => {
+  assert.strictEqual(sandbox.normalizeYearMonth_('2026-08'), '2026-08');
+});
+test('日付セル由来の YYYY-MM-DD は年月だけ残す（プルダウン重複の原因だった表記）', () => {
+  assert.strictEqual(sandbox.normalizeYearMonth_('2026-08-01'), '2026-08');
+});
+test('スラッシュ区切り・1桁月・年月日表記も YYYY-MM に揃える', () => {
+  assert.strictEqual(sandbox.normalizeYearMonth_('2026/8/1'), '2026-08');
+  assert.strictEqual(sandbox.normalizeYearMonth_('2026年8月'), '2026-08');
+});
+test('前後空白は無視する', () => {
+  assert.strictEqual(sandbox.normalizeYearMonth_(' 2026-08 '), '2026-08');
+});
+test('空・不正な値は空文字', () => {
+  assert.strictEqual(sandbox.normalizeYearMonth_(''), '');
+  assert.strictEqual(sandbox.normalizeYearMonth_(null), '');
+  assert.strictEqual(sandbox.normalizeYearMonth_('来月'), '');
+});
+test('過去月は当月へ集約する', () => {
+  assert.strictEqual(sandbox.effectiveRegistrableMonth_('2026-01', '2026-09'), '2026-09');
+});
+test('当月・未来月はそのまま', () => {
+  assert.strictEqual(sandbox.effectiveRegistrableMonth_('2026-09', '2026-09'), '2026-09');
+  assert.strictEqual(sandbox.effectiveRegistrableMonth_('2026-12', '2026-09'), '2026-12');
+});
+test('可能月プルダウンは YYYY-MM と YYYY-MM-DD の重複を1つにまとめる', () => {
+  const options = sandbox.collectRegistrableMonthOptions_([
+    { registrableMonth: '2026-08' },
+    { registrableMonth: '2026-08-01' },
+    { registrableMonth: '2026-10' }
+  ], '2026-09');
+  assert.strictEqual(options.join(','), '2026-09,2026-10');
+});
+test('過去月はプルダウンに出さず当月へ集約し、当月は在庫が無くても含める', () => {
+  const options = sandbox.collectRegistrableMonthOptions_([
+    { registrableMonth: '2026-01' },
+    { registrableMonth: '2026-02-15' }
+  ], '2026-09');
+  assert.strictEqual(options.join(','), '2026-09');
+});
+test('ボディカラーの選択肢は空欄を除き重複なし（大文字小文字違いも同一視）', () => {
+  const colors = sandbox.collectExteriorColorOptions_([
+    { exteriorColor: 'ブラック' },
+    { exteriorColor: ' ブラック ' },
+    { exteriorColor: '' },
+    { exteriorColor: 'ホワイト' }
+  ]);
+  assert.strictEqual(colors.join(','), 'ブラック,ホワイト');
+});
+test('在庫リストは実効可能月の昇順でグループ化し、第1階層のキーが月になる', () => {
+  const groups = sandbox.groupInventoryByRegistrableMonth_([
+    { model: 'B', commission: '2', registrableMonth: '2026-10' },
+    { model: 'A', commission: '1', registrableMonth: '2026-08-01' },
+    { model: 'C', commission: '3', registrableMonth: '' }
+  ], '2026-09');
+  assert.strictEqual(groups.length, 3);
+  assert.strictEqual(groups[0].key, '2026-09');
+  assert.strictEqual(groups[1].key, '2026-10');
+  assert.strictEqual(groups[2].key, '未設定');
+});
+test('グループ見出しは当月を「当月登録可能」と明示する', () => {
+  assert.strictEqual(sandbox.registrableMonthGroupTitle_('2026-09', '2026-09'), '可能月 2026-09（当月登録可能）');
+  assert.strictEqual(sandbox.registrableMonthGroupTitle_('2026-10', '2026-09'), '可能月 2026-10');
+  assert.strictEqual(sandbox.registrableMonthGroupTitle_('未設定', '2026-09'), '可能月 未設定');
+});
+test('可能月フィルタは過去月を当月としてマッチさせる', () => {
+  const items = [
+    { commission: 'OLD', registrableMonth: '2026-01', holdStatus: 'available' },
+    { commission: 'FUT', registrableMonth: '2026-12', holdStatus: 'available' }
+  ];
+  const thisMonth = sandbox.searchInventory(items, { registrableMonth: '2026-09', thisMonth: '2026-09' });
+  assert.strictEqual(thisMonth.length, 1);
+  assert.strictEqual(thisMonth[0].commission, 'OLD');
 });
 
 console.log('== SheetService: holdMatchesCommission_（コミッションの型不一致対策） ==');
@@ -940,6 +1027,38 @@ test('複数の問題は種類ごとにすべて列挙される', () => {
   const types = [];
   for (let i = 0; i < issues.length; i++) types.push(issues[i].type);
   assert.strictEqual(types.sort().join(','), 'duplicateCommission,missingModel,unknownHoldStatus');
+});
+
+console.log('== PaidOptionService: normalizePaidOptionMaster_ / lookupPaidOptionName_ ==');
+test('空コードは除去し、前後空白を整える', () => {
+  const list = sandbox.normalizePaidOptionMaster_([
+    { code: ' 21P ', name: ' AMGライン ' },
+    { code: '', name: '無視' }
+  ]);
+  assert.strictEqual(list.length, 1);
+  assert.strictEqual(list[0].code, '21P');
+  assert.strictEqual(list[0].name, 'AMGライン');
+});
+test('コードの大文字小文字違いは同一とみなし先勝ち', () => {
+  const list = sandbox.normalizePaidOptionMaster_([
+    { code: '21P', name: '先' },
+    { code: '21p', name: '後' }
+  ]);
+  assert.strictEqual(list.length, 1);
+  assert.strictEqual(list[0].name, '先');
+});
+test('コードだけ先に登録できる（名称空でも残す）', () => {
+  const list = sandbox.normalizePaidOptionMaster_([{ code: 'P47', name: '' }]);
+  assert.strictEqual(list.length, 1);
+  assert.strictEqual(list[0].name, '');
+});
+test('配列以外は空配列', () => {
+  assert.strictEqual(sandbox.normalizePaidOptionMaster_(null).length, 0);
+});
+test('コード照合は大文字小文字・前後空白を無視する', () => {
+  const master = [{ code: '21P', name: 'AMGライン' }];
+  assert.strictEqual(sandbox.lookupPaidOptionName_(' 21p ', master), 'AMGライン');
+  assert.strictEqual(sandbox.lookupPaidOptionName_('999', master), '');
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

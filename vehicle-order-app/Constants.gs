@@ -17,7 +17,8 @@ var SHEET_NAMES = {
   ORDERS: '受注リスト',
   PURCHASE_ORDERS: '発注リスト',
   GCLASS_RESERVATION: 'Gクラス予約リスト',
-  AUDIT_LOG: '変更履歴'
+  AUDIT_LOG: '変更履歴',
+  PAID_OPTIONS: '有償OPマスタ'
 };
 
 // ===== Hold 関連 =====
@@ -65,6 +66,9 @@ var PAYMENT_METHOD_OPTIONS = ['現金', 'ローン', 'リース'];
 // 特別モデルであることを示す型（現場からの要望で追加）。
 var MODEL_BODY_TYPE_OPTIONS = ['Sedan', 'SUV', 'Station Wagon', 'Compact', 'Coupe', 'Cabriolet/Roadster', 'Mini Van', '限定車'];
 var PAID_OPTION_SLOT_COUNT = 7; // 有償オプション（7マス分確保）
+var PAID_OPTION_MASTER_MAX = 300; // 有償OPマスタ（コード→名称）の最大登録件数
+var PAID_OPTION_CODE_MAX_LENGTH = 40;
+var PAID_OPTION_NAME_MAX_LENGTH = 80;
 var STAFF_LIST_MAX = 30; // 担当者マスタの最大登録人数
 var MODEL_PHOTOS_MAX = 40; // ホーム画面のモデル写真の最大登録数
 var NOTIFY_MAIL_LIST_MAX = 20; // メール通知先（Hold時／受注確定時／エラー通知）1項目あたりの最大登録件数
@@ -97,8 +101,10 @@ var VEHICLE_COLUMNS = [
   { key: 'arrivalExpectedDate', label: '入港予定日', type: 'date' },
   {
     key: 'registrableMonth', label: '可能月', type: 'text',
-    note: '「YYYY-MM」形式で入力してください（例: 2026-08）。当月と一致する車両は' +
-      'アプリ側で「当月登録可能車両」として強調表示されます。空欄も可。'
+    note: '「YYYY-MM」形式で入力してください（例: 2026-09）。日付セル（例: 2026/08/01）' +
+      'で入っていてもアプリ側で年月に正規化します。過去月は「当月登録可能」に集約されます。' +
+      '空欄も可。列は「書式なしテキスト」にして、同じ月が日付と文字列で二重登録されない' +
+      'ようにしてください。'
   },
   { key: 'vpc', label: 'VPC', type: 'text' },
   { key: 'stockDisclosure', label: '在庫開示', type: 'select', options: STOCK_DISCLOSURE_OPTIONS }
@@ -269,12 +275,29 @@ var PURCHASE_ORDER_INPUT_COLUMNS = PURCHASE_ORDER_COLUMNS.filter(function (c) {
   return c.key !== 'id' && c.key !== 'createdAt';
 });
 
+/**
+ * 有償OPマスタ列定義。在庫・受注・発注・Gクラス予約の有償OP1〜7に入るコードを、
+ * 名称へ解決するための辞書（PaidOptionService.gs）。データの追加・編集は設定タブ
+ * （管理者）またはこのシートへの直接入力。
+ */
+var PAID_OPTION_MASTER_COLUMNS = [
+  {
+    key: 'code', label: 'コード', type: 'text', required: true,
+    note: '車両情報の有償OP欄に入力するコード（例: 21P）。大文字小文字・前後空白の違いは無視して照合します。'
+  },
+  {
+    key: 'name', label: '名称', type: 'text', required: true,
+    note: 'コードに対応するオプション名称（例: AMGライン）。アプリ上でコードをタップするとポップアップ表示されます。'
+  }
+];
+
 var INVENTORY_COL_INDEX = buildColIndex_(INVENTORY_COLUMNS);
 var HOLD_COL_INDEX = buildColIndex_(HOLD_COLUMNS);
 var ORDER_COL_INDEX = buildColIndex_(ORDER_COLUMNS);
 var AUDIT_LOG_COL_INDEX = buildColIndex_(AUDIT_LOG_COLUMNS);
 var GCLASS_COL_INDEX = buildColIndex_(GCLASS_COLUMNS);
 var PURCHASE_ORDER_COL_INDEX = buildColIndex_(PURCHASE_ORDER_COLUMNS);
+var PAID_OPTION_MASTER_COL_INDEX = buildColIndex_(PAID_OPTION_MASTER_COLUMNS);
 
 function buildColIndex_(columns) {
   var map = {};
@@ -304,6 +327,10 @@ function gclassColIndex1(key) {
 
 function purchaseOrderColIndex1(key) {
   return PURCHASE_ORDER_COL_INDEX[key] + 1;
+}
+
+function paidOptionMasterColIndex1(key) {
+  return PAID_OPTION_MASTER_COL_INDEX[key] + 1;
 }
 
 // ===== 設定機能のプロパティキー =====
