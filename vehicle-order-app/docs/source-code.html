@@ -9,7 +9,7 @@
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
          margin: 0; padding: 16px; line-height: 1.45; }
   h1 { font-size: 1.25rem; margin: 0 0 8px; }
-  h2 { font-size: 1.05rem; margin: 28px 0 8px; word-break: break-all; }
+  h2 { font-size: 1.05rem; margin: 0; word-break: break-all; }
   h2 small { font-weight: 400; color: #666; }
   .note { font-size: 14px; color: #444; margin: 0 0 16px; }
   ol { padding-left: 1.3em; }
@@ -17,32 +17,46 @@
   .desc { color: #555; font-size: 13px; }
   .lines { color: #888; font-size: 12px; }
   a { color: #0b57d0; }
-  a.ext { font-size: 12px; margin-left: 6px; }
   .filelinks { font-size: 13px; margin: 0 0 8px; }
+  .head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+          justify-content: space-between; margin: 28px 0 8px; }
+  .copyBtn {
+    flex: 0 0 auto;
+    padding: 8px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    border: 0;
+    border-radius: 8px;
+    background: #0b57d0;
+    color: #fff;
+    cursor: pointer;
+  }
+  .copyBtn:active { transform: scale(.98); }
+  .copyBtn.is-ok { background: #0d7a3f; }
+  .copyBtn.is-ng { background: #b3261e; }
   pre { overflow: auto; padding: 12px; border: 1px solid #ccc; border-radius: 8px;
-        background: #f6f8fa; font-size: 12px; line-height: 1.4; }
+        background: #f6f8fa; font-size: 12px; line-height: 1.4; -webkit-overflow-scrolling: touch; }
   code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
   @media (prefers-color-scheme: dark) {
     .note, h2 small, .desc { color: #bbb; }
     pre { background: #111; border-color: #333; }
     a { color: #8ab4f8; }
+    .copyBtn { background: #8ab4f8; color: #062e6f; }
+    .copyBtn.is-ok { background: #6ec89b; color: #062e6f; }
   }
 </style>
 </head>
 <body>
 <header id="top">
   <h1>販売可能リスト ソースコード一覧</h1>
-  <p class="note">このアプリ（Google Apps Script）で使っているコードです。LINEではこのページのURL、または下の各 GitHub リンクを共有できます。<br>
-  ブランチ: <code>cursor/inventory-month-color-paidop-8680</code></p>
-  <p class="note">この一覧ページ自体: <a href="https://htmlpreview.github.io/?https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/docs/source-code.html">HTMLで開く</a> ／
-  <a href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/docs/source-code.html">GitHub</a></p>
+  <p class="note">このアプリ（Google Apps Script）で使っているコードです。GitHubのログインは不要です。各ファイルの「このコードをコピー」から全文をコピーできます。</p>
 </header>
 <nav>
   <ol>
-    <li><a href="#f1">appsscript.json</a> <span class="desc">GAS プロジェクト設定</span> <span class="lines">18行</span> <a class="ext" href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/appsscript.json">GitHub</a> <a class="ext" href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/appsscript.json">Raw</a></li><li><a href="#f2">Code.gs</a> <span class="desc">Webアプリ入口（doGet）</span> <span class="lines">36行</span> <a class="ext" href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/Code.gs">GitHub</a> <a class="ext" href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/Code.gs">Raw</a></li><li><a href="#f3">Constants.gs</a> <span class="desc">列定義・定数</span> <span class="lines">529行</span> <a class="ext" href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/Constants.gs">GitHub</a> <a class="ext" href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/Constants.gs">Raw</a></li><li><a href="#f4">Api.gs</a> <span class="desc">クライアントから呼ぶ API</span> <span class="lines">146行</span> <a class="ext" href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/Api.gs">GitHub</a> <a class="ext" href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/Api.gs">Raw</a></li><li><a href="#f5">SheetService.gs</a> <span class="desc">スプレッドシート読み書き</span> <span class="lines">441行</span> <a class="ext" href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/SheetService.gs">GitHub</a> <a class="ext" href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/SheetService.gs">Raw</a></li><li><a href="#f6">SearchService.gs</a> <span class="desc">検索・グループ化</span> <span class="lines">234行</span> <a class="ext" href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/SearchService.gs">GitHub</a> <a class="ext" href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/SearchService.gs">Raw</a></li><li><a href="#f7">HoldService.gs</a> <span class="desc">Hold 登録・解除</span> <span class="lines">456行</span> <a class="ext" href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/HoldService.gs">GitHub</a> <a class="ext" href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/HoldService.gs">Raw</a></li><li><a href="#f8">OrderService.gs</a> <span class="desc">受注確定</span> <span class="lines">62行</span> <a class="ext" href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/OrderService.gs">GitHub</a> <a class="ext" href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/OrderService.gs">Raw</a></li><li><a href="#f9">PurchaseOrderService.gs</a> <span class="desc">発注リスト</span> <span class="lines">109行</span> <a class="ext" href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/PurchaseOrderService.gs">GitHub</a> <a class="ext" href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/PurchaseOrderService.gs">Raw</a></li><li><a href="#f10">PaidOptionService.gs</a> <span class="desc">有償OPマスタ</span> <span class="lines">92行</span> <a class="ext" href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/PaidOptionService.gs">GitHub</a> <a class="ext" href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/PaidOptionService.gs">Raw</a></li><li><a href="#f11">SettingsService.gs</a> <span class="desc">設定・担当者マスタ</span> <span class="lines">576行</span> <a class="ext" href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/SettingsService.gs">GitHub</a> <a class="ext" href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/SettingsService.gs">Raw</a></li><li><a href="#f12">NotificationService.gs</a> <span class="desc">メール・Chat 通知</span> <span class="lines">160行</span> <a class="ext" href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/NotificationService.gs">GitHub</a> <a class="ext" href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/NotificationService.gs">Raw</a></li><li><a href="#f13">CalendarService.gs</a> <span class="desc">カレンダー連携</span> <span class="lines">65行</span> <a class="ext" href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/CalendarService.gs">GitHub</a> <a class="ext" href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/CalendarService.gs">Raw</a></li><li><a href="#f14">AuditLogService.gs</a> <span class="desc">変更履歴</span> <span class="lines">57行</span> <a class="ext" href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/AuditLogService.gs">GitHub</a> <a class="ext" href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/AuditLogService.gs">Raw</a></li><li><a href="#f15">IntegrityService.gs</a> <span class="desc">在庫データの整合性</span> <span class="lines">46行</span> <a class="ext" href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/IntegrityService.gs">GitHub</a> <a class="ext" href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/IntegrityService.gs">Raw</a></li><li><a href="#f16">Triggers.gs</a> <span class="desc">時間主導トリガー</span> <span class="lines">45行</span> <a class="ext" href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/Triggers.gs">GitHub</a> <a class="ext" href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/Triggers.gs">Raw</a></li><li><a href="#f17">PwaService.gs</a> <span class="desc">PWA / マニフェスト</span> <span class="lines">77行</span> <a class="ext" href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/PwaService.gs">GitHub</a> <a class="ext" href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/PwaService.gs">Raw</a></li><li><a href="#f18">SetupService.gs</a> <span class="desc">初期セットアップ・メニュー</span> <span class="lines">84行</span> <a class="ext" href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/SetupService.gs">GitHub</a> <a class="ext" href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/SetupService.gs">Raw</a></li><li><a href="#f19">html/Index.html</a> <span class="desc">画面 HTML</span> <span class="lines">845行</span> <a class="ext" href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/html/Index.html">GitHub</a> <a class="ext" href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/html/Index.html">Raw</a></li><li><a href="#f20">html/JavaScript.html</a> <span class="desc">画面 JavaScript</span> <span class="lines">4009行</span> <a class="ext" href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/html/JavaScript.html">GitHub</a> <a class="ext" href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/html/JavaScript.html">Raw</a></li><li><a href="#f21">html/Stylesheet.html</a> <span class="desc">画面 CSS</span> <span class="lines">2594行</span> <a class="ext" href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/html/Stylesheet.html">GitHub</a> <a class="ext" href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/html/Stylesheet.html">Raw</a></li><li><a href="#f22">tests/run.js</a> <span class="desc">単体テスト</span> <span class="lines">1115行</span> <a class="ext" href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/tests/run.js">GitHub</a> <a class="ext" href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/tests/run.js">Raw</a></li><li><a href="#f23">docs/wireframes.html</a> <span class="desc">ワイヤーフレーム</span> <span class="lines">119行</span> <a class="ext" href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/docs/wireframes.html">GitHub</a> <a class="ext" href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/docs/wireframes.html">Raw</a></li><li><a href="#f24">package.json</a> <span class="desc">npm 設定</span> <span class="lines">10行</span> <a class="ext" href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/package.json">GitHub</a> <a class="ext" href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/package.json">Raw</a></li><li><a href="#f25">README.md</a> <span class="desc">説明書</span> <span class="lines">1424行</span> <a class="ext" href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/README.md">GitHub</a> <a class="ext" href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/README.md">Raw</a></li>
+    <li><a href="#f1">appsscript.json</a> <span class="desc">GAS プロジェクト設定</span> <span class="lines">18行</span></li><li><a href="#f2">Code.gs</a> <span class="desc">Webアプリ入口（doGet）</span> <span class="lines">36行</span></li><li><a href="#f3">Constants.gs</a> <span class="desc">列定義・定数</span> <span class="lines">529行</span></li><li><a href="#f4">Api.gs</a> <span class="desc">クライアントから呼ぶ API</span> <span class="lines">146行</span></li><li><a href="#f5">SheetService.gs</a> <span class="desc">スプレッドシート読み書き</span> <span class="lines">441行</span></li><li><a href="#f6">SearchService.gs</a> <span class="desc">検索・グループ化</span> <span class="lines">234行</span></li><li><a href="#f7">HoldService.gs</a> <span class="desc">Hold 登録・解除</span> <span class="lines">456行</span></li><li><a href="#f8">OrderService.gs</a> <span class="desc">受注確定</span> <span class="lines">62行</span></li><li><a href="#f9">PurchaseOrderService.gs</a> <span class="desc">発注リスト</span> <span class="lines">109行</span></li><li><a href="#f10">PaidOptionService.gs</a> <span class="desc">有償OPマスタ</span> <span class="lines">92行</span></li><li><a href="#f11">SettingsService.gs</a> <span class="desc">設定・担当者マスタ</span> <span class="lines">576行</span></li><li><a href="#f12">NotificationService.gs</a> <span class="desc">メール・Chat 通知</span> <span class="lines">160行</span></li><li><a href="#f13">CalendarService.gs</a> <span class="desc">カレンダー連携</span> <span class="lines">65行</span></li><li><a href="#f14">AuditLogService.gs</a> <span class="desc">変更履歴</span> <span class="lines">57行</span></li><li><a href="#f15">IntegrityService.gs</a> <span class="desc">在庫データの整合性</span> <span class="lines">46行</span></li><li><a href="#f16">Triggers.gs</a> <span class="desc">時間主導トリガー</span> <span class="lines">45行</span></li><li><a href="#f17">PwaService.gs</a> <span class="desc">PWA / マニフェスト</span> <span class="lines">77行</span></li><li><a href="#f18">SetupService.gs</a> <span class="desc">初期セットアップ・メニュー</span> <span class="lines">84行</span></li><li><a href="#f19">html/Index.html</a> <span class="desc">画面 HTML</span> <span class="lines">845行</span></li><li><a href="#f20">html/JavaScript.html</a> <span class="desc">画面 JavaScript</span> <span class="lines">4009行</span></li><li><a href="#f21">html/Stylesheet.html</a> <span class="desc">画面 CSS</span> <span class="lines">2594行</span></li><li><a href="#f22">tests/run.js</a> <span class="desc">単体テスト</span> <span class="lines">1115行</span></li><li><a href="#f23">docs/wireframes.html</a> <span class="desc">ワイヤーフレーム</span> <span class="lines">119行</span></li><li><a href="#f24">package.json</a> <span class="desc">npm 設定</span> <span class="lines">10行</span></li><li><a href="#f25">README.md</a> <span class="desc">説明書</span> <span class="lines">1424行</span></li>
   </ol>
 </nav>
-<section id="f1"><h2>appsscript.json <small>GAS プロジェクト設定 ・ 18行</small></h2><p class="filelinks"><a href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/appsscript.json">GitHubで開く</a> ／ <a href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/appsscript.json">Raw（テキスト）</a> ／ <a href="#top">先頭へ</a></p><pre><code class="language-json">{
+<section id="f1"><div class="head"><h2>appsscript.json <small>GAS プロジェクト設定 ・ 18行</small></h2><button type="button" class="copyBtn" data-target="code-1">このコードをコピー</button></div><p class="filelinks"><a href="#top">先頭へ</a></p><pre><code id="code-1">{
   &quot;timeZone&quot;: &quot;Asia/Tokyo&quot;,
   &quot;dependencies&quot;: {},
   &quot;exceptionLogging&quot;: &quot;STACKDRIVER&quot;,
@@ -59,7 +73,7 @@
     &quot;https://www.googleapis.com/auth/script.external_request&quot;
   ]
 }
-</code></pre></section><section id="f2"><h2>Code.gs <small>Webアプリ入口（doGet） ・ 36行</small></h2><p class="filelinks"><a href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/Code.gs">GitHubで開く</a> ／ <a href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/Code.gs">Raw（テキスト）</a> ／ <a href="#top">先頭へ</a></p><pre><code class="language-javascript">/**
+</code></pre></section><section id="f2"><div class="head"><h2>Code.gs <small>Webアプリ入口（doGet） ・ 36行</small></h2><button type="button" class="copyBtn" data-target="code-2">このコードをコピー</button></div><p class="filelinks"><a href="#top">先頭へ</a></p><pre><code id="code-2">/**
  * Code.gs
  * Webアプリのエントリポイント。
  */
@@ -94,7 +108,7 @@ function doGet(e) {
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
-</code></pre></section><section id="f3"><h2>Constants.gs <small>列定義・定数 ・ 529行</small></h2><p class="filelinks"><a href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/Constants.gs">GitHubで開く</a> ／ <a href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/Constants.gs">Raw（テキスト）</a> ／ <a href="#top">先頭へ</a></p><pre><code class="language-javascript">/**
+</code></pre></section><section id="f3"><div class="head"><h2>Constants.gs <small>列定義・定数 ・ 529行</small></h2><button type="button" class="copyBtn" data-target="code-3">このコードをコピー</button></div><p class="filelinks"><a href="#top">先頭へ</a></p><pre><code id="code-3">/**
  * Constants.gs
  * 販売可能リスト 共通定数定義
  *
@@ -622,7 +636,7 @@ var MODEL_PHOTO_GRADE_RULE_MAX_LENGTH = 30;
 // 目立たせて表示する想定のため短めの上限にしている（validateHomeAnnouncement_、
 // SettingsService.gs参照）。
 var HOME_ANNOUNCEMENT_MAX_LENGTH = 60;
-</code></pre></section><section id="f4"><h2>Api.gs <small>クライアントから呼ぶ API ・ 146行</small></h2><p class="filelinks"><a href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/Api.gs">GitHubで開く</a> ／ <a href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/Api.gs">Raw（テキスト）</a> ／ <a href="#top">先頭へ</a></p><pre><code class="language-javascript">/**
+</code></pre></section><section id="f4"><div class="head"><h2>Api.gs <small>クライアントから呼ぶ API ・ 146行</small></h2><button type="button" class="copyBtn" data-target="code-4">このコードをコピー</button></div><p class="filelinks"><a href="#top">先頭へ</a></p><pre><code id="code-4">/**
  * Api.gs
  * HTML Service（クライアント）から google.script.run で呼び出す関数群。
  * サービス層（SheetService / HoldService / OrderService 等）を
@@ -767,7 +781,7 @@ function api_savePaidOptionMaster(list) {
   }
   return replacePaidOptionMaster_(list);
 }
-</code></pre></section><section id="f5"><h2>SheetService.gs <small>スプレッドシート読み書き ・ 441行</small></h2><p class="filelinks"><a href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/SheetService.gs">GitHubで開く</a> ／ <a href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/SheetService.gs">Raw（テキスト）</a> ／ <a href="#top">先頭へ</a></p><pre><code class="language-javascript">/**
+</code></pre></section><section id="f5"><div class="head"><h2>SheetService.gs <small>スプレッドシート読み書き ・ 441行</small></h2><button type="button" class="copyBtn" data-target="code-5">このコードをコピー</button></div><p class="filelinks"><a href="#top">先頭へ</a></p><pre><code id="code-5">/**
  * SheetService.gs
  * スプレッドシートの行 ⇔ オブジェクトの相互変換と、在庫・Hold・受注リストの基本 CRUD 操作。
  */
@@ -1207,7 +1221,7 @@ function appendOrder_(order) {
   sheet.getRange(newRow, 1, 1, ORDER_COLUMNS.length).setValues([objectToRow_(order, ORDER_COLUMNS)]);
   return order;
 }
-</code></pre></section><section id="f6"><h2>SearchService.gs <small>検索・グループ化 ・ 234行</small></h2><p class="filelinks"><a href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/SearchService.gs">GitHubで開く</a> ／ <a href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/SearchService.gs">Raw（テキスト）</a> ／ <a href="#top">先頭へ</a></p><pre><code class="language-javascript">/**
+</code></pre></section><section id="f6"><div class="head"><h2>SearchService.gs <small>検索・グループ化 ・ 234行</small></h2><button type="button" class="copyBtn" data-target="code-6">このコードをコピー</button></div><p class="filelinks"><a href="#top">先頭へ</a></p><pre><code id="code-6">/**
  * SearchService.gs
  * 在庫リスト・受注リストの検索・グループ表示ロジック（純粋関数）。
  */
@@ -1440,7 +1454,7 @@ function groupByField_(items, groupKey) {
   });
   return order.map(function (key) { return { key: key, items: map[key] }; });
 }
-</code></pre></section><section id="f7"><h2>HoldService.gs <small>Hold 登録・解除 ・ 456行</small></h2><p class="filelinks"><a href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/HoldService.gs">GitHubで開く</a> ／ <a href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/HoldService.gs">Raw（テキスト）</a> ／ <a href="#top">先頭へ</a></p><pre><code class="language-javascript">/**
+</code></pre></section><section id="f7"><div class="head"><h2>HoldService.gs <small>Hold 登録・解除 ・ 456行</small></h2><button type="button" class="copyBtn" data-target="code-7">このコードをコピー</button></div><p class="filelinks"><a href="#top">先頭へ</a></p><pre><code id="code-7">/**
  * HoldService.gs
  * Hold（商談確保）機能
  *
@@ -1895,7 +1909,7 @@ function processExpiredHolds() {
   }
 }
 
-</code></pre></section><section id="f8"><h2>OrderService.gs <small>受注確定 ・ 62行</small></h2><p class="filelinks"><a href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/OrderService.gs">GitHubで開く</a> ／ <a href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/OrderService.gs">Raw（テキスト）</a> ／ <a href="#top">先頭へ</a></p><pre><code class="language-javascript">/**
+</code></pre></section><section id="f8"><div class="head"><h2>OrderService.gs <small>受注確定 ・ 62行</small></h2><button type="button" class="copyBtn" data-target="code-8">このコードをコピー</button></div><p class="filelinks"><a href="#top">先頭へ</a></p><pre><code id="code-8">/**
  * OrderService.gs
  * 受注機能
  *
@@ -1956,7 +1970,7 @@ function confirmOrder(commission, info) {
     lock.releaseLock();
   }
 }
-</code></pre></section><section id="f9"><h2>PurchaseOrderService.gs <small>発注リスト ・ 109行</small></h2><p class="filelinks"><a href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/PurchaseOrderService.gs">GitHubで開く</a> ／ <a href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/PurchaseOrderService.gs">Raw（テキスト）</a> ／ <a href="#top">先頭へ</a></p><pre><code class="language-javascript">/**
+</code></pre></section><section id="f9"><div class="head"><h2>PurchaseOrderService.gs <small>発注リスト ・ 109行</small></h2><button type="button" class="copyBtn" data-target="code-9">このコードをコピー</button></div><p class="filelinks"><a href="#top">先頭へ</a></p><pre><code id="code-9">/**
  * PurchaseOrderService.gs
  * 発注リスト機能（閲覧専用）
  *
@@ -2064,7 +2078,7 @@ function deletePurchaseOrder(id) {
     lock.releaseLock();
   }
 }
-</code></pre></section><section id="f10"><h2>PaidOptionService.gs <small>有償OPマスタ ・ 92行</small></h2><p class="filelinks"><a href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/PaidOptionService.gs">GitHubで開く</a> ／ <a href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/PaidOptionService.gs">Raw（テキスト）</a> ／ <a href="#top">先頭へ</a></p><pre><code class="language-javascript">/**
+</code></pre></section><section id="f10"><div class="head"><h2>PaidOptionService.gs <small>有償OPマスタ ・ 92行</small></h2><button type="button" class="copyBtn" data-target="code-10">このコードをコピー</button></div><p class="filelinks"><a href="#top">先頭へ</a></p><pre><code id="code-10">/**
  * PaidOptionService.gs
  * 有償OPマスタ（コード → 名称）の読み書きと照合（純粋関数＋シートCRUD）。
  *
@@ -2155,7 +2169,7 @@ function replacePaidOptionMaster_(list) {
     lock.releaseLock();
   }
 }
-</code></pre></section><section id="f11"><h2>SettingsService.gs <small>設定・担当者マスタ ・ 576行</small></h2><p class="filelinks"><a href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/SettingsService.gs">GitHubで開く</a> ／ <a href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/SettingsService.gs">Raw（テキスト）</a> ／ <a href="#top">先頭へ</a></p><pre><code class="language-javascript">/**
+</code></pre></section><section id="f11"><div class="head"><h2>SettingsService.gs <small>設定・担当者マスタ ・ 576行</small></h2><button type="button" class="copyBtn" data-target="code-11">このコードをコピー</button></div><p class="filelinks"><a href="#top">先頭へ</a></p><pre><code id="code-11">/**
  * SettingsService.gs
  * 設定機能（テーマ設定、Hold時／受注時のメール・Google Chat通知先設定、担当者マスタ）
  *
@@ -2730,7 +2744,7 @@ function applySystemMasterGuard_(incoming, current, isAdmin) {
     homeAnnouncement: current.homeAnnouncement
   };
 }
-</code></pre></section><section id="f12"><h2>NotificationService.gs <small>メール・Chat 通知 ・ 160行</small></h2><p class="filelinks"><a href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/NotificationService.gs">GitHubで開く</a> ／ <a href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/NotificationService.gs">Raw（テキスト）</a> ／ <a href="#top">先頭へ</a></p><pre><code class="language-javascript">/**
+</code></pre></section><section id="f12"><div class="head"><h2>NotificationService.gs <small>メール・Chat 通知 ・ 160行</small></h2><button type="button" class="copyBtn" data-target="code-12">このコードをコピー</button></div><p class="filelinks"><a href="#top">先頭へ</a></p><pre><code id="code-12">/**
  * NotificationService.gs
  * 3.5 メール通知機能／Google Chat通知機能
  * Hold発生時・受注確定時に、設定画面（3.6）で指定した宛先へ自動でメール通知する。
@@ -2889,7 +2903,7 @@ function formatDateTime_(epochMs) {
   if (!epochMs) return &#x27;-&#x27;;
   return Utilities.formatDate(new Date(epochMs), Session.getScriptTimeZone(), &#x27;yyyy-MM-dd HH:mm&#x27;);
 }
-</code></pre></section><section id="f13"><h2>CalendarService.gs <small>カレンダー連携 ・ 65行</small></h2><p class="filelinks"><a href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/CalendarService.gs">GitHubで開く</a> ／ <a href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/CalendarService.gs">Raw（テキスト）</a> ／ <a href="#top">先頭へ</a></p><pre><code class="language-javascript">/**
+</code></pre></section><section id="f13"><div class="head"><h2>CalendarService.gs <small>カレンダー連携 ・ 65行</small></h2><button type="button" class="copyBtn" data-target="code-13">このコードをコピー</button></div><p class="filelinks"><a href="#top">先頭へ</a></p><pre><code id="code-13">/**
  * CalendarService.gs
  * Hold期限のGoogleカレンダー連携
  *
@@ -2953,7 +2967,7 @@ function deleteHoldCalendarEvent_(eventId) {
     // カレンダー操作の失敗は無視する（本体の処理を優先する）。
   }
 }
-</code></pre></section><section id="f14"><h2>AuditLogService.gs <small>変更履歴 ・ 57行</small></h2><p class="filelinks"><a href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/AuditLogService.gs">GitHubで開く</a> ／ <a href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/AuditLogService.gs">Raw（テキスト）</a> ／ <a href="#top">先頭へ</a></p><pre><code class="language-javascript">/**
+</code></pre></section><section id="f14"><div class="head"><h2>AuditLogService.gs <small>変更履歴 ・ 57行</small></h2><button type="button" class="copyBtn" data-target="code-14">このコードをコピー</button></div><p class="filelinks"><a href="#top">先頭へ</a></p><pre><code id="code-14">/**
  * AuditLogService.gs
  * 変更履歴（監査ログ）機能
  *
@@ -3009,7 +3023,7 @@ function appendAuditLog_(entry) {
     // 変更履歴への記録失敗は無視する（本体の処理結果を優先する）。
   }
 }
-</code></pre></section><section id="f15"><h2>IntegrityService.gs <small>在庫データの整合性 ・ 46行</small></h2><p class="filelinks"><a href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/IntegrityService.gs">GitHubで開く</a> ／ <a href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/IntegrityService.gs">Raw（テキスト）</a> ／ <a href="#top">先頭へ</a></p><pre><code class="language-javascript">/**
+</code></pre></section><section id="f15"><div class="head"><h2>IntegrityService.gs <small>在庫データの整合性 ・ 46行</small></h2><button type="button" class="copyBtn" data-target="code-15">このコードをコピー</button></div><p class="filelinks"><a href="#top">先頭へ</a></p><pre><code id="code-15">/**
  * IntegrityService.gs
  * 在庫リストのデータ整合性チェック機能
  *
@@ -3054,7 +3068,7 @@ function checkInventoryIntegrity_(vehicles) {
 
   return issues;
 }
-</code></pre></section><section id="f16"><h2>Triggers.gs <small>時間主導トリガー ・ 45行</small></h2><p class="filelinks"><a href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/Triggers.gs">GitHubで開く</a> ／ <a href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/Triggers.gs">Raw（テキスト）</a> ／ <a href="#top">先頭へ</a></p><pre><code class="language-javascript">/**
+</code></pre></section><section id="f16"><div class="head"><h2>Triggers.gs <small>時間主導トリガー ・ 45行</small></h2><button type="button" class="copyBtn" data-target="code-16">このコードをコピー</button></div><p class="filelinks"><a href="#top">先頭へ</a></p><pre><code id="code-16">/**
  * Triggers.gs
  * インストール型（時間主導型）トリガーのセットアップ。
  * GASエディタから setupTimeDrivenTriggers_() を一度だけ手動実行する。
@@ -3098,7 +3112,7 @@ function triggerHoldExpiryCheck() {
     notifySystemError_(&#x27;Hold期限切れ処理&#x27;, e2);
   }
 }
-</code></pre></section><section id="f17"><h2>PwaService.gs <small>PWA / マニフェスト ・ 77行</small></h2><p class="filelinks"><a href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/PwaService.gs">GitHubで開く</a> ／ <a href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/PwaService.gs">Raw（テキスト）</a> ／ <a href="#top">先頭へ</a></p><pre><code class="language-javascript">/**
+</code></pre></section><section id="f17"><div class="head"><h2>PwaService.gs <small>PWA / マニフェスト ・ 77行</small></h2><button type="button" class="copyBtn" data-target="code-17">このコードをコピー</button></div><p class="filelinks"><a href="#top">先頭へ</a></p><pre><code id="code-17">/**
  * PwaService.gs
  * PWA（ホーム画面に追加してアプリのように起動できるようにする）対応。
  *
@@ -3174,7 +3188,7 @@ var PWA_SERVICE_WORKER_JS_ =
 function appleTouchIconDataUri_() {
   return &#x27;data:image/png;base64,&#x27; + PWA_ICON_192_BASE64;
 }
-</code></pre></section><section id="f18"><h2>SetupService.gs <small>初期セットアップ・メニュー ・ 84行</small></h2><p class="filelinks"><a href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/SetupService.gs">GitHubで開く</a> ／ <a href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/SetupService.gs">Raw（テキスト）</a> ／ <a href="#top">先頭へ</a></p><pre><code class="language-javascript">/**
+</code></pre></section><section id="f18"><div class="head"><h2>SetupService.gs <small>初期セットアップ・メニュー ・ 84行</small></h2><button type="button" class="copyBtn" data-target="code-18">このコードをコピー</button></div><p class="filelinks"><a href="#top">先頭へ</a></p><pre><code id="code-18">/**
  * SetupService.gs
  * スプレッドシートの初期セットアップ（在庫リスト・Holdリスト・受注リスト・発注リスト・
  * Gクラス予約リスト・変更履歴・有償OPマスタの7タブを自動生成）。
@@ -3257,7 +3271,7 @@ function onOpen() {
     .addItem(&#x27;コミッション列を書式なしテキストに再設定&#x27;, &#x27;formatCommissionColumnsAsText_&#x27;)
     .addToUi();
 }
-</code></pre></section><section id="f19"><h2>html/Index.html <small>画面 HTML ・ 845行</small></h2><p class="filelinks"><a href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/html/Index.html">GitHubで開く</a> ／ <a href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/html/Index.html">Raw（テキスト）</a> ／ <a href="#top">先頭へ</a></p><pre><code class="language-html">&lt;!DOCTYPE html&gt;
+</code></pre></section><section id="f19"><div class="head"><h2>html/Index.html <small>画面 HTML ・ 845行</small></h2><button type="button" class="copyBtn" data-target="code-19">このコードをコピー</button></div><p class="filelinks"><a href="#top">先頭へ</a></p><pre><code id="code-19">&lt;!DOCTYPE html&gt;
 &lt;html&gt;
 &lt;head&gt;
   &lt;base target=&quot;_top&quot;&gt;
@@ -4101,7 +4115,7 @@ function onOpen() {
   &lt;?!= include(&#x27;html/JavaScript&#x27;); ?&gt;
 &lt;/body&gt;
 &lt;/html&gt;
-</code></pre></section><section id="f20"><h2>html/JavaScript.html <small>画面 JavaScript ・ 4009行</small></h2><p class="filelinks"><a href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/html/JavaScript.html">GitHubで開く</a> ／ <a href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/html/JavaScript.html">Raw（テキスト）</a> ／ <a href="#top">先頭へ</a></p><pre><code class="language-html">&lt;script&gt;
+</code></pre></section><section id="f20"><div class="head"><h2>html/JavaScript.html <small>画面 JavaScript ・ 4009行</small></h2><button type="button" class="copyBtn" data-target="code-20">このコードをコピー</button></div><p class="filelinks"><a href="#top">先頭へ</a></p><pre><code id="code-20">&lt;script&gt;
 (function () {
   &#x27;use strict&#x27;;
 
@@ -8109,7 +8123,7 @@ function onOpen() {
   init();
 })();
 &lt;/script&gt;
-</code></pre></section><section id="f21"><h2>html/Stylesheet.html <small>画面 CSS ・ 2594行</small></h2><p class="filelinks"><a href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/html/Stylesheet.html">GitHubで開く</a> ／ <a href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/html/Stylesheet.html">Raw（テキスト）</a> ／ <a href="#top">先頭へ</a></p><pre><code class="language-html">&lt;style&gt;
+</code></pre></section><section id="f21"><div class="head"><h2>html/Stylesheet.html <small>画面 CSS ・ 2594行</small></h2><button type="button" class="copyBtn" data-target="code-21">このコードをコピー</button></div><p class="filelinks"><a href="#top">先頭へ</a></p><pre><code id="code-21">&lt;style&gt;
   /* ===== カラーパレット：コーポレートネイビー =====
      指定されたカラーパレット（メインネイビー#102A43／ダークネイビー#0B1F33／
      ネイビーサブ#243B53／ブランドブルー#2F6FAE／ライトブルー#DCEAF7／ページ背景
@@ -10702,7 +10716,7 @@ function onOpen() {
     .celebrationBanner { transition: none; }
   }
 &lt;/style&gt;
-</code></pre></section><section id="f22"><h2>tests/run.js <small>単体テスト ・ 1115行</small></h2><p class="filelinks"><a href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/tests/run.js">GitHubで開く</a> ／ <a href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/tests/run.js">Raw（テキスト）</a> ／ <a href="#top">先頭へ</a></p><pre><code class="language-javascript">/**
+</code></pre></section><section id="f22"><div class="head"><h2>tests/run.js <small>単体テスト ・ 1115行</small></h2><button type="button" class="copyBtn" data-target="code-22">このコードをコピー</button></div><p class="filelinks"><a href="#top">先頭へ</a></p><pre><code id="code-22">/**
  * tests/run.js
  * GAS ファイル（.gs）中の純粋関数（スプレッドシート/Drive等の外部サービスに依存しない
  * ロジック）を Node.js 上の vm サンドボックスへ読み込み、単体テストする。
@@ -11816,7 +11830,7 @@ test(&#x27;発注リストのステア不足は MP と外装の間へ挿入す�
 
 console.log(&#x27;\n&#x27; + pass + &#x27; passed, &#x27; + fail + &#x27; failed&#x27;);
 if (fail &gt; 0) process.exit(1);
-</code></pre></section><section id="f23"><h2>docs/wireframes.html <small>ワイヤーフレーム ・ 119行</small></h2><p class="filelinks"><a href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/docs/wireframes.html">GitHubで開く</a> ／ <a href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/docs/wireframes.html">Raw（テキスト）</a> ／ <a href="#top">先頭へ</a></p><pre><code class="language-html">&lt;!DOCTYPE html&gt;
+</code></pre></section><section id="f23"><div class="head"><h2>docs/wireframes.html <small>ワイヤーフレーム ・ 119行</small></h2><button type="button" class="copyBtn" data-target="code-23">このコードをコピー</button></div><p class="filelinks"><a href="#top">先頭へ</a></p><pre><code id="code-23">&lt;!DOCTYPE html&gt;
 &lt;html lang=&quot;ja&quot;&gt;
 &lt;head&gt;
   &lt;meta charset=&quot;utf-8&quot;&gt;
@@ -11934,7 +11948,7 @@ if (fail &gt; 0) process.exit(1);
   &lt;/main&gt;
 &lt;/body&gt;
 &lt;/html&gt;
-</code></pre></section><section id="f24"><h2>package.json <small>npm 設定 ・ 10行</small></h2><p class="filelinks"><a href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/package.json">GitHubで開く</a> ／ <a href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/package.json">Raw（テキスト）</a> ／ <a href="#top">先頭へ</a></p><pre><code class="language-json">{
+</code></pre></section><section id="f24"><div class="head"><h2>package.json <small>npm 設定 ・ 10行</small></h2><button type="button" class="copyBtn" data-target="code-24">このコードをコピー</button></div><p class="filelinks"><a href="#top">先頭へ</a></p><pre><code id="code-24">{
   &quot;name&quot;: &quot;vehicle-order-app&quot;,
   &quot;version&quot;: &quot;0.1.0&quot;,
   &quot;private&quot;: true,
@@ -11943,7 +11957,7 @@ if (fail &gt; 0) process.exit(1);
     &quot;test&quot;: &quot;node tests/run.js&quot;
   }
 }
-</code></pre></section><section id="f25"><h2>README.md <small>説明書 ・ 1424行</small></h2><p class="filelinks"><a href="https://github.com/keiichiro-j/-/blob/cursor/inventory-month-color-paidop-8680/vehicle-order-app/README.md">GitHubで開く</a> ／ <a href="https://raw.githubusercontent.com/keiichiro-j/-/cursor/inventory-month-color-paidop-8680/vehicle-order-app/README.md">Raw（テキスト）</a> ／ <a href="#top">先頭へ</a></p><pre><code class="language-markdown"># 販売可能リスト（GAS実装）
+</code></pre></section><section id="f25"><div class="head"><h2>README.md <small>説明書 ・ 1424行</small></h2><button type="button" class="copyBtn" data-target="code-25">このコードをコピー</button></div><p class="filelinks"><a href="#top">先頭へ</a></p><pre><code id="code-25"># 販売可能リスト（GAS実装）
 
 `b787266f-vehicleorderappproposal.docx`（車両受注アプリ 企画書）をベースにコード化した
 Google Apps Script プロジェクトです（アプリ名称は「販売可能リスト」）。既存の車両在庫
@@ -13367,5 +13381,51 @@ npm test
 - 個人のGoogleアカウントのみでの運用や、Google Workspace以外の環境でのログイン識別は
   想定していません（「ログイン連携について」の項を参照）。
 </code></pre></section>
+<script>
+(function () {
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text);
+    }
+    return new Promise(function (resolve, reject) {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        if (document.execCommand('copy')) resolve();
+        else reject(new Error('copy failed'));
+      } catch (e) { reject(e); }
+      document.body.removeChild(ta);
+    });
+  }
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('.copyBtn');
+    if (!btn) return;
+    var el = document.getElementById(btn.getAttribute('data-target'));
+    if (!el) return;
+    var orig = 'このコードをコピー';
+    copyText(el.textContent).then(function () {
+      btn.textContent = 'コピーしました';
+      btn.classList.add('is-ok');
+      btn.classList.remove('is-ng');
+      setTimeout(function () {
+        btn.textContent = orig;
+        btn.classList.remove('is-ok');
+      }, 1600);
+    }).catch(function () {
+      btn.textContent = 'コピー失敗';
+      btn.classList.add('is-ng');
+      setTimeout(function () {
+        btn.textContent = orig;
+        btn.classList.remove('is-ng');
+      }, 1600);
+    });
+  });
+})();
+</script>
 </body>
 </html>
