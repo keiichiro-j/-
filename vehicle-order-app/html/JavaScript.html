@@ -1018,37 +1018,11 @@
   }
 
   /**
-   * 表示形式「カード」用のコンパクト版。モデル・コミッション・ステータス・MP・
-   * カラー・Hold要約（顧客名・タイマー）・操作ボタンだけを表示し、車両スペック
-   * （ステア・有償OP等）やHoldの詳細（リード番号等）はカード内では表示しない
-   * （「詳細を見る」から画面中央のモーダル・vehicleDetailHtml_で確認する）。
-   * これにより、在庫あり／Hold中／Hold中（2nd有）のどの状態でもカードの高さが
-   * 揃う（以前は車両スペックの折りたたみ・Hold詳細の折りたたみをカード内に
-   * 直接置いていたため、開閉のたびにカードが伸び縮みし、他のカードとサイズが
-   * 揃わなくなる不具合があった）。
+   * 表示形式「カード」用。モデル・コミッション・ステータス・MP・カラー・
+   * 1ST HOLD / 2ND HOLD（未登録も含めて常時2枠）・操作ボタンを表示する。
+   * 車両スペック（ステア・有償OP等）やHoldの契約詳細は「詳細を見る」のモーダルへ。
    */
   function vehicleCardHtml(v) {
-    var hasSecondHold = v.holdStatus === 'hold' && !!v.secondHoldCustomer;
-    var isHold = v.holdStatus === 'hold';
-
-    // Hold状況の表示エリア（.card__holdArea）は、在庫あり・1st Holdのみ・
-    // 2nd Holdありのどの状態でも常に同じ高さに固定し、カードサイズが
-    // Holdの状態によって変わらないようにする。2nd Holdがある場合は、
-    // card__holdArea--splitで1st Hold（左）・2nd Hold（右）を縦積みではなく
-    // 横並びにする（詳細モーダル側・vehicleDetailHtml_と統一した見せ方。
-    // 横並びにすることで、固定高さの枠内に2nd Holdの内容もすべて収まる）。
-    var holdInfoHtml;
-    if (isHold) {
-      holdInfoHtml = '<div class="card__holdArea' + (hasSecondHold ? ' card__holdArea--split' : '') + '">' +
-        holdInfoBlockHtml_('1ST HOLD', v, 'hold', 'first', false) +
-        (v.secondHoldCustomer ? holdInfoBlockHtml_('2ND HOLD', v, 'secondHold', 'second', false) : '') +
-        '</div>';
-    } else {
-      holdInfoHtml = '<div class="card__holdArea card__holdArea--empty">' +
-        '<span class="card__holdArea__placeholder">現在Hold登録なし</span>' +
-        '</div>';
-    }
-
     var isComparing = isComparingCommission_(v.commission);
     var comparePinHtml = '<label class="card__comparePin">' +
       '<input type="checkbox" data-compare="' + escapeHtml(v.commission) + '"' + (isComparing ? ' checked' : '') + '>比較</label>';
@@ -1058,7 +1032,7 @@
       vehicleTopHtml_(v, comparePinHtml) +
       vehicleQuickMetaHtml_(v) +
       '<button type="button" class="card__detailLink" data-detail="' + escapeHtml(v.commission) + '">▸ 詳細を見る</button>' +
-      holdInfoHtml +
+      vehicleHoldSlotsHtml_(v, false) +
       vehicleActionsHtml_(v) +
       '</div>';
   }
@@ -1069,27 +1043,12 @@
    * も省略せずすべて表示する（openInventoryDetailModal_参照）。
    */
   function vehicleDetailHtml_(v) {
-    var hasSecondHold = v.holdStatus === 'hold' && !!v.secondHoldCustomer;
-    var isHold = v.holdStatus === 'hold';
-
-    var holdInfoHtml;
-    if (isHold) {
-      holdInfoHtml = '<div class="card__holdArea card__holdArea--full' + (hasSecondHold ? ' card__holdArea--split' : '') + '">' +
-        holdInfoBlockHtml_('1ST HOLD', v, 'hold', 'first', true) +
-        (v.secondHoldCustomer ? holdInfoBlockHtml_('2ND HOLD', v, 'secondHold', 'second', true) : '') +
-        '</div>';
-    } else {
-      holdInfoHtml = '<div class="card__holdArea card__holdArea--empty card__holdArea--full">' +
-        '<span class="card__holdArea__placeholder">現在Hold登録なし</span>' +
-        '</div>';
-    }
-
     var cardTone = vehicleCardTone_(v);
     return '<div class="card ' + cardTone + '">' +
       vehicleTopHtml_(v, '') +
       vehicleQuickMetaHtml_(v) +
       vehicleSpecFieldsHtml_(v) +
-      holdInfoHtml +
+      vehicleHoldSlotsHtml_(v, true) +
       vehicleActionsHtml_(v) +
       '</div>';
   }
@@ -1299,6 +1258,7 @@
       '<span class="rowCard__value">' + paidOptionsHtml_(v) + '</span></div>' +
       '<div class="rowCard__actions">' + actions + comparePinHtml + '</div>' +
       '</div>' +
+      rowHoldSlotsHtml_(v) +
       '</div>';
   }
 
@@ -1317,9 +1277,49 @@
       '</div>';
   }
 
+  // 1ST HOLD と 2ND HOLD は、登録の有無に関わらず常に2枠出す。
+  // 以前は未登録を「現在Hold登録なし」の1枠にまとめ、2nd があるときだけ横並び
+  // 固定高さ（150px）にしていたため、2nd の顧客名・タイマーが枠内スクロールに
+  // 隠れることがあった。縦2枠・高さ自動にして、両方を省略せず見せる。
+  function holdSlotEmptyHtml_(label, rank) {
+    return '<div class="card__holdInfo card__holdInfo--' + rank + ' card__holdInfo--empty">' +
+      '<div class="card__holdInfo__head">' +
+      '<span class="card__holdInfo__label">' + label + '</span>' +
+      '</div>' +
+      '<div class="card__holdInfo__row card__holdInfo__row--empty">未登録</div>' +
+      '</div>';
+  }
+
+  function vehicleHoldSlotsHtml_(v, full) {
+    var isHold = v.holdStatus === 'hold';
+    var hasSecondHold = isHold && !!v.secondHoldCustomer;
+    return '<div class="card__holdArea' + (full ? ' card__holdArea--full' : '') + '">' +
+      (isHold ? holdInfoBlockHtml_('1ST HOLD', v, 'hold', 'first', full) : holdSlotEmptyHtml_('1ST HOLD', 'first')) +
+      (hasSecondHold ? holdInfoBlockHtml_('2ND HOLD', v, 'secondHold', 'second', full) : holdSlotEmptyHtml_('2ND HOLD', 'second')) +
+      '</div>';
+  }
+
+  function rowHoldSlotsHtml_(v) {
+    var isHold = v.holdStatus === 'hold';
+    var hasSecondHold = isHold && !!v.secondHoldCustomer;
+    var firstValue = isHold
+      ? escapeHtml(v.holdCustomer || '-') + '（' + escapeHtml(v.holdStaff || '-') + '・' + escapeHtml(v.holdSalesLocation || '-') + '）'
+      : '未登録';
+    var secondValue = hasSecondHold
+      ? escapeHtml(v.secondHoldCustomer || '-') + '（' + escapeHtml(v.secondHoldStaff || '-') + '・' + escapeHtml(v.secondHoldSalesLocation || '-') + '）'
+      : '未登録';
+    return '<div class="rowCard__holds">' +
+      '<div class="rowCard__hold rowCard__hold--first">' +
+      '<span class="rowCard__holdLabel">1ST HOLD</span>' +
+      '<span class="rowCard__holdValue' + (isHold ? '' : ' rowCard__holdValue--empty') + '">' + firstValue + '</span></div>' +
+      '<div class="rowCard__hold rowCard__hold--second">' +
+      '<span class="rowCard__holdLabel">2ND HOLD</span>' +
+      '<span class="rowCard__holdValue' + (hasSecondHold ? '' : ' rowCard__holdValue--empty') + '">' + secondValue + '</span></div>' +
+      '</div>';
+  }
+
   // Hold詳細ブロックは、常に見えている要約行（顧客・担当者・タイマー）と、
   // 折りたたみ式の詳細（リード番号・登録月・下取車・OSS・保険）に分ける。
-  // これにより、2nd Holdが追加されてもカードが縦に伸びすぎず、サイズが揃う。
   /**
    * full=false（表示形式「カード」のコンパクト版）ではリード番号等の詳細を省略し、
    * full=true（詳細モーダル・vehicleDetailHtml_）では折りたたまず常に表示する。
