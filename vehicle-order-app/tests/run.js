@@ -27,7 +27,7 @@ vm.createContext(sandbox);
 // AuditLogService.gs / IntegrityService.gs の順で依存関係あり
 const FILES = [
   'Constants.gs', 'HoldService.gs', 'SearchService.gs', 'SheetService.gs', 'SettingsService.gs',
-  'AuditLogService.gs', 'IntegrityService.gs', 'PurchaseOrderService.gs'
+  'AuditLogService.gs', 'IntegrityService.gs', 'PurchaseOrderService.gs', 'PaidOptionService.gs'
 ];
 
 FILES.forEach((file) => {
@@ -355,14 +355,17 @@ test('キーワード未指定は全件返す', () => {
 
 console.log('== SearchService: searchInventory / searchOrders ==');
 const vehicles = [
-  { commission: 'C001', model: 'モデルA', holdStatus: 'available' },
-  { commission: 'C002', model: 'モデルB', holdStatus: 'hold' }
+  { commission: 'C001', model: 'モデルA', holdStatus: 'available', exteriorColor: 'オブシディアンブラック', registrableMonth: '2026-09' },
+  { commission: 'C002', model: 'モデルB', holdStatus: 'hold', exteriorColor: 'ブリリアントホワイト', registrableMonth: '2026-10' }
 ];
 test('キーワードでモデル検索がヒットする', () => {
   assert.strictEqual(sandbox.searchInventory(vehicles, { keyword: 'モデルA' }).length, 1);
 });
 test('キーワードでコミッション検索がヒットする', () => {
   assert.strictEqual(sandbox.searchInventory(vehicles, { keyword: 'C002' }).length, 1);
+});
+test('キーワードで外装色もヒットする', () => {
+  assert.strictEqual(sandbox.searchInventory(vehicles, { keyword: 'ホワイト' }).length, 1);
 });
 test('includeHold=falseでHold済み車両が除外される', () => {
   const result = sandbox.searchInventory(vehicles, { includeHold: false });
@@ -371,6 +374,14 @@ test('includeHold=falseでHold済み車両が除外される', () => {
 });
 test('無関係なキーワードはヒットしない', () => {
   assert.strictEqual(sandbox.searchInventory(vehicles, { keyword: '該当なし' }).length, 0);
+});
+test('ボディカラー（外装）の完全一致で絞り込める', () => {
+  const result = sandbox.searchInventory(vehicles, { exteriorColor: 'オブシディアンブラック' });
+  assert.strictEqual(result.length, 1);
+  assert.strictEqual(result[0].commission, 'C001');
+});
+test('ボディカラーの前後空白は無視して一致する', () => {
+  assert.strictEqual(sandbox.searchInventory(vehicles, { exteriorColor: ' オブシディアンブラック ' }).length, 1);
 });
 
 const orders = [
@@ -413,6 +424,82 @@ test('未設定の項目は「未設定」グループの末尾へ回る', () =>
     'arrivalExpectedDate'
   );
   assert.strictEqual(groups[groups.length - 1].key, '未設定');
+});
+
+console.log('== SearchService: 可能月の正規化・過去月の当月集約・グループ表示 ==');
+test('YYYY-MM はそのまま返す', () => {
+  assert.strictEqual(sandbox.normalizeYearMonth_('2026-08'), '2026-08');
+});
+test('日付セル由来の YYYY-MM-DD は年月だけ残す（プルダウン重複の原因だった表記）', () => {
+  assert.strictEqual(sandbox.normalizeYearMonth_('2026-08-01'), '2026-08');
+});
+test('スラッシュ区切り・1桁月・年月日表記も YYYY-MM に揃える', () => {
+  assert.strictEqual(sandbox.normalizeYearMonth_('2026/8/1'), '2026-08');
+  assert.strictEqual(sandbox.normalizeYearMonth_('2026年8月'), '2026-08');
+});
+test('前後空白は無視する', () => {
+  assert.strictEqual(sandbox.normalizeYearMonth_(' 2026-08 '), '2026-08');
+});
+test('空・不正な値は空文字', () => {
+  assert.strictEqual(sandbox.normalizeYearMonth_(''), '');
+  assert.strictEqual(sandbox.normalizeYearMonth_(null), '');
+  assert.strictEqual(sandbox.normalizeYearMonth_('来月'), '');
+});
+test('過去月は当月へ集約する', () => {
+  assert.strictEqual(sandbox.effectiveRegistrableMonth_('2026-01', '2026-09'), '2026-09');
+});
+test('当月・未来月はそのまま', () => {
+  assert.strictEqual(sandbox.effectiveRegistrableMonth_('2026-09', '2026-09'), '2026-09');
+  assert.strictEqual(sandbox.effectiveRegistrableMonth_('2026-12', '2026-09'), '2026-12');
+});
+test('可能月プルダウンは YYYY-MM と YYYY-MM-DD の重複を1つにまとめる', () => {
+  const options = sandbox.collectRegistrableMonthOptions_([
+    { registrableMonth: '2026-08' },
+    { registrableMonth: '2026-08-01' },
+    { registrableMonth: '2026-10' }
+  ], '2026-09');
+  assert.strictEqual(options.join(','), '2026-09,2026-10');
+});
+test('過去月はプルダウンに出さず当月へ集約し、当月は在庫が無くても含める', () => {
+  const options = sandbox.collectRegistrableMonthOptions_([
+    { registrableMonth: '2026-01' },
+    { registrableMonth: '2026-02-15' }
+  ], '2026-09');
+  assert.strictEqual(options.join(','), '2026-09');
+});
+test('ボディカラーの選択肢は空欄を除き重複なし（大文字小文字違いも同一視）', () => {
+  const colors = sandbox.collectExteriorColorOptions_([
+    { exteriorColor: 'ブラック' },
+    { exteriorColor: ' ブラック ' },
+    { exteriorColor: '' },
+    { exteriorColor: 'ホワイト' }
+  ]);
+  assert.strictEqual(colors.join(','), 'ブラック,ホワイト');
+});
+test('在庫リストは実効可能月の昇順でグループ化し、第1階層のキーが月になる', () => {
+  const groups = sandbox.groupInventoryByRegistrableMonth_([
+    { model: 'B', commission: '2', registrableMonth: '2026-10' },
+    { model: 'A', commission: '1', registrableMonth: '2026-08-01' },
+    { model: 'C', commission: '3', registrableMonth: '' }
+  ], '2026-09');
+  assert.strictEqual(groups.length, 3);
+  assert.strictEqual(groups[0].key, '2026-09');
+  assert.strictEqual(groups[1].key, '2026-10');
+  assert.strictEqual(groups[2].key, '未設定');
+});
+test('グループ見出しは当月を「当月登録可能」と明示する', () => {
+  assert.strictEqual(sandbox.registrableMonthGroupTitle_('2026-09', '2026-09'), '可能月 2026-09（当月登録可能）');
+  assert.strictEqual(sandbox.registrableMonthGroupTitle_('2026-10', '2026-09'), '可能月 2026-10');
+  assert.strictEqual(sandbox.registrableMonthGroupTitle_('未設定', '2026-09'), '可能月 未設定');
+});
+test('可能月フィルタは過去月を当月としてマッチさせる', () => {
+  const items = [
+    { commission: 'OLD', registrableMonth: '2026-01', holdStatus: 'available' },
+    { commission: 'FUT', registrableMonth: '2026-12', holdStatus: 'available' }
+  ];
+  const thisMonth = sandbox.searchInventory(items, { registrableMonth: '2026-09', thisMonth: '2026-09' });
+  assert.strictEqual(thisMonth.length, 1);
+  assert.strictEqual(thisMonth[0].commission, 'OLD');
 });
 
 console.log('== SheetService: holdMatchesCommission_（コミッションの型不一致対策） ==');
@@ -561,6 +648,42 @@ test('空文字・未指定はそのまま返る', () => {
 test('ドライブのドメインでもファイルIDを抽出できない形式はそのまま返る', () => {
   const url = 'https://drive.google.com/drive/folders/1AbC-xyz_123';
   assert.strictEqual(sandbox.normalizeModelPhotoUrl_(url), url);
+});
+
+console.log('== SettingsService: extractDriveFileId_ / normalizeLoadingSplashDriveId_（起動画面画像） ==');
+test('BareのファイルIDはそのまま返す', () => {
+  assert.strictEqual(sandbox.extractDriveFileId_('1AbC-xyz_1234567890abcd'), '1AbC-xyz_1234567890abcd');
+  assert.strictEqual(sandbox.normalizeLoadingSplashDriveId_('1AbC-xyz_1234567890abcd'), '1AbC-xyz_1234567890abcd');
+});
+test('共有リンクからファイルIDを抽出して保存する', () => {
+  assert.strictEqual(
+    sandbox.normalizeLoadingSplashDriveId_('https://drive.google.com/file/d/1AbC-xyz_1234567890abcd/view?usp=sharing'),
+    '1AbC-xyz_1234567890abcd'
+  );
+});
+test('open?id= 形式からも抽出する', () => {
+  assert.strictEqual(
+    sandbox.extractDriveFileId_('https://drive.google.com/open?id=1AbC-xyz_1234567890abcd'),
+    '1AbC-xyz_1234567890abcd'
+  );
+});
+test('表示用URLは大きい幅で lh3 に変換する', () => {
+  const url = sandbox.loadingSplashImageUrlFromDriveId_('1AbC-xyz_1234567890abcd');
+  assert.strictEqual(url, 'https://lh3.googleusercontent.com/d/1AbC-xyz_1234567890abcd=w1600');
+});
+test('空文字は未設定として空を返す', () => {
+  assert.strictEqual(sandbox.normalizeLoadingSplashDriveId_(''), '');
+  assert.strictEqual(sandbox.loadingSplashImageUrlFromDriveId_(''), '');
+});
+test('ファイルIDとして解釈できない値はエラー', () => {
+  assert.throws(() => sandbox.normalizeLoadingSplashDriveId_('https://example.com/image.png'), /Googleドライブ/);
+});
+test('起動画面の背景色はテーマの sidebarColor を使う', () => {
+  assert.strictEqual(sandbox.resolveLoadingSplashBgColor_('steel'), '#1f3a5c');
+  assert.strictEqual(sandbox.resolveLoadingSplashBgColor_('wine'), '#4a1c22');
+});
+test('ランダムテーマの起動画面背景は初期プリセットにフォールバックする', () => {
+  assert.strictEqual(sandbox.resolveLoadingSplashBgColor_('random'), sandbox.resolveLoadingSplashBgColor_('steel'));
 });
 
 console.log('== SettingsService: normalizeModelPhotos_（ホーム画面のモデル写真最大40件・{model,photoUrl,grades}形式） ==');
@@ -809,9 +932,9 @@ test('管理者にはそのまま返る', () => {
   assert.strictEqual(result.notifyHoldMailTo, 'a@example.com');
   assert.strictEqual(result.staffList.length, 1);
 });
-test('非管理者には通知先・担当者が空になる（テーマ・ロゴ・モデル写真・演出バリエーションはそのまま）', () => {
+test('非管理者には通知先・担当者が空になる（テーマ・ロゴ・起動画面・モデル写真・演出バリエーションはそのまま）', () => {
   const settings = {
-    themeKey: 'wine', logoUrl: 'https://logo.png',
+    themeKey: 'wine', logoUrl: 'https://logo.png', loadingSplashDriveId: '1AbC-xyz_1234567890abcd',
     notifyHoldMailTo: ['a@example.com'], notifyOrderMailTo: ['b@example.com'], notifyErrorMailTo: ['c@example.com'],
     notifyChatWebhookUrl: 'https://chat.googleapis.com/v1/spaces/AAA/messages?key=xxx',
     staffList: [{ name: '佐藤' }], modelPhotos: [{ model: 'Cクラス' }],
@@ -820,6 +943,7 @@ test('非管理者には通知先・担当者が空になる（テーマ・ロ�
   const result = sandbox.redactSystemMasterSettings_(settings, false);
   assert.strictEqual(result.themeKey, 'wine');
   assert.strictEqual(result.logoUrl, 'https://logo.png');
+  assert.strictEqual(result.loadingSplashDriveId, '1AbC-xyz_1234567890abcd');
   assert.strictEqual(result.modelPhotos.length, 1);
   assert.strictEqual(result.notifyHoldMailTo.length, 0);
   assert.strictEqual(result.notifyOrderMailTo.length, 0);
@@ -831,22 +955,24 @@ test('非管理者には通知先・担当者が空になる（テーマ・ロ�
 
 console.log('== SettingsService: applySystemMasterGuard_（非管理者による保存時、ロゴ・モデル写真・通知先・担当者は既存値を維持） ==');
 test('管理者からの保存はそのまま反映される', () => {
-  const incoming = { themeKey: 'petrol', logoUrl: 'https://new-logo.png', notifyHoldMailTo: 'new@example.com', staffList: [{ name: '新規' }], modelPhotos: [{ model: '新モデル' }] };
+  const incoming = { themeKey: 'petrol', logoUrl: 'https://new-logo.png', loadingSplashDriveId: '1NewSplashId0123456789', notifyHoldMailTo: 'new@example.com', staffList: [{ name: '新規' }], modelPhotos: [{ model: '新モデル' }] };
   const current = { notifyHoldMailTo: 'old@example.com', staffList: [{ name: '旧' }] };
   const result = sandbox.applySystemMasterGuard_(incoming, current, true);
   assert.strictEqual(result.notifyHoldMailTo, 'new@example.com');
   assert.strictEqual(result.staffList[0].name, '新規');
   assert.strictEqual(result.logoUrl, 'https://new-logo.png');
+  assert.strictEqual(result.loadingSplashDriveId, '1NewSplashId0123456789');
 });
-test('非管理者からの保存は、ロゴ・モデル写真・通知先・担当者が既存値のまま維持される（テーマは反映される）', () => {
+test('非管理者からの保存は、ロゴ・起動画面・モデル写真・通知先・担当者が既存値のまま維持される（テーマは反映される）', () => {
   const incoming = {
-    themeKey: 'amber', logoUrl: 'https://tampered-logo.png',
+    themeKey: 'amber', logoUrl: 'https://tampered-logo.png', loadingSplashDriveId: '1TamperedSplashId012345',
     notifyHoldMailTo: 'tampered@example.com', notifyOrderMailTo: '', notifyErrorMailTo: '',
     notifyChatWebhookUrl: 'https://tampered-webhook.example.com',
     staffList: [], modelPhotos: [{ model: 'Eクラス' }]
   };
   const current = {
     logoUrl: 'https://real-logo.png',
+    loadingSplashDriveId: '1RealSplashId01234567890',
     notifyHoldMailTo: 'real@example.com', notifyOrderMailTo: 'real2@example.com', notifyErrorMailTo: 'real3@example.com',
     notifyChatWebhookUrl: 'https://chat.googleapis.com/v1/spaces/REAL/messages?key=xxx',
     staffList: [{ name: '本物の担当者', email: 'staff@example.com' }],
@@ -856,6 +982,7 @@ test('非管理者からの保存は、ロゴ・モデル写真・通知先・�
   const result = sandbox.applySystemMasterGuard_(incoming, current, false);
   assert.strictEqual(result.themeKey, 'amber');
   assert.strictEqual(result.logoUrl, 'https://real-logo.png');
+  assert.strictEqual(result.loadingSplashDriveId, '1RealSplashId01234567890');
   assert.strictEqual(result.modelPhotos.length, 1);
   assert.strictEqual(result.modelPhotos[0].model, '本物のモデル');
   assert.strictEqual(result.notifyHoldMailTo, 'real@example.com');
@@ -940,6 +1067,87 @@ test('複数の問題は種類ごとにすべて列挙される', () => {
   const types = [];
   for (let i = 0; i < issues.length; i++) types.push(issues[i].type);
   assert.strictEqual(types.sort().join(','), 'duplicateCommission,missingModel,unknownHoldStatus');
+});
+
+console.log('== PaidOptionService: normalizePaidOptionMaster_ / lookupPaidOptionName_ ==');
+test('空コードは除去し、前後空白を整える', () => {
+  const list = sandbox.normalizePaidOptionMaster_([
+    { code: ' 21P ', name: ' AMGライン ' },
+    { code: '', name: '無視' }
+  ]);
+  assert.strictEqual(list.length, 1);
+  assert.strictEqual(list[0].code, '21P');
+  assert.strictEqual(list[0].name, 'AMGライン');
+});
+test('コードの大文字小文字違いは同一とみなし先勝ち', () => {
+  const list = sandbox.normalizePaidOptionMaster_([
+    { code: '21P', name: '先' },
+    { code: '21p', name: '後' }
+  ]);
+  assert.strictEqual(list.length, 1);
+  assert.strictEqual(list[0].name, '先');
+});
+test('コードだけ先に登録できる（名称空でも残す）', () => {
+  const list = sandbox.normalizePaidOptionMaster_([{ code: 'P47', name: '' }]);
+  assert.strictEqual(list.length, 1);
+  assert.strictEqual(list[0].name, '');
+});
+test('配列以外は空配列', () => {
+  assert.strictEqual(sandbox.normalizePaidOptionMaster_(null).length, 0);
+});
+test('コード照合は大文字小文字・前後空白を無視する', () => {
+  const master = [{ code: '21P', name: 'AMGライン' }];
+  assert.strictEqual(sandbox.lookupPaidOptionName_(' 21p ', master), 'AMGライン');
+  assert.strictEqual(sandbox.lookupPaidOptionName_('999', master), '');
+});
+
+console.log('== SearchService: hasInspectionCutRemark_ / 備考検索 ==');
+test('備考に「完成検査切」が含まれると true', () => {
+  assert.strictEqual(sandbox.hasInspectionCutRemark_('完成検査切'), true);
+  assert.strictEqual(sandbox.hasInspectionCutRemark_('注: 完成検査切（再検査待ち）'), true);
+});
+test('備考が空・別文言なら false', () => {
+  assert.strictEqual(sandbox.hasInspectionCutRemark_(''), false);
+  assert.strictEqual(sandbox.hasInspectionCutRemark_(null), false);
+  assert.strictEqual(sandbox.hasInspectionCutRemark_('傷あり'), false);
+});
+test('キーワード検索は備考にもヒットする', () => {
+  const withRemarks = vehicles.concat([
+    { commission: 'C003', model: 'モデルC', holdStatus: 'available', remarks: '完成検査切' }
+  ]);
+  assert.strictEqual(sandbox.searchInventory(withRemarks, { keyword: '完成検査切' }).length, 1);
+  assert.strictEqual(sandbox.searchInventory(withRemarks, { keyword: '完成検査切' })[0].commission, 'C003');
+});
+
+console.log('== Constants / SheetService: 備考列・発注ステアの列同期 ==');
+test('在庫リストの末尾は備考、その直前は Holdステータス', () => {
+  const cols = sandbox.INVENTORY_COLUMNS;
+  assert.strictEqual(cols[cols.length - 1].key, 'remarks');
+  assert.strictEqual(cols[cols.length - 2].key, 'holdStatus');
+});
+test('発注リストは MP → ステア → 外装の順', () => {
+  const keys = sandbox.PURCHASE_ORDER_COLUMNS.map((c) => c.key);
+  const mp = keys.indexOf('mp');
+  assert.ok(mp >= 0);
+  assert.strictEqual(keys[mp + 1], 'steering');
+  assert.strictEqual(keys[mp + 2], 'exteriorColor');
+});
+test('不足した備考列は既存ヘッダーの末尾（期待位置）へ挿入する計画になる', () => {
+  const expected = sandbox.INVENTORY_COLUMNS.map((c) => c.label);
+  const current = expected.slice(0, -1); // 備考なし
+  const inserts = sandbox.planMissingColumnInserts_(expected, current);
+  assert.strictEqual(inserts.length, 1);
+  assert.strictEqual(inserts[0].label, '備考');
+  assert.strictEqual(inserts[0].index, expected.length - 1);
+});
+test('発注リストのステア不足は MP と外装の間へ挿入する計画になる', () => {
+  const expected = sandbox.PURCHASE_ORDER_COLUMNS.map((c) => c.label);
+  const current = expected.filter((label) => label !== 'ステア');
+  const inserts = sandbox.planMissingColumnInserts_(expected, current);
+  assert.strictEqual(inserts.length, 1);
+  assert.strictEqual(inserts[0].label, 'ステア');
+  const mpIndex = expected.indexOf('MP');
+  assert.strictEqual(inserts[0].index, mpIndex + 1);
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

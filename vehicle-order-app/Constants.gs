@@ -2,12 +2,15 @@
  * Constants.gs
  * 販売可能リスト 共通定数定義
  *
- * スプレッドシートは5タブ構成：
- *   在庫リスト … 車両情報＋Holdステータスのみ
+ * スプレッドシートは7タブ構成：
+ *   在庫リスト … 車両情報＋Holdステータス＋備考（末尾）
  *   Holdリスト … Hold（1st/2nd）の入力項目・開始日時・期限（車両情報とは別テーブル）
- *   受注リスト … 受注確定時に転記される車両情報＋入力項目
- *   Gクラス予約リスト … 在庫リストと同様の車両情報＋リード番号（閲覧専用、Hold不可）
+ *   受注リスト … 受注確定時に転記される車両情報＋入力項目＋備考
+ *   発注リスト … 閲覧専用の発注情報（MPと外装の間にステア）
+ *   Gクラス予約リスト … 在庫リストと同様の車両情報＋担当者／顧客／リード番号＋備考（閲覧専用、Hold不可）
  *   変更履歴 … 監査ログ
+ *   有償OPマスタ … 有償OPコードと名称の対応（登録はアプリの設定から）
+ * 列見出しの注意事項は各列の note（スプレッドシートのセルコメント）に記載する。
  */
 
 // ===== シート名 =====
@@ -17,7 +20,8 @@ var SHEET_NAMES = {
   ORDERS: '受注リスト',
   PURCHASE_ORDERS: '発注リスト',
   GCLASS_RESERVATION: 'Gクラス予約リスト',
-  AUDIT_LOG: '変更履歴'
+  AUDIT_LOG: '変更履歴',
+  PAID_OPTIONS: '有償OPマスタ'
 };
 
 // ===== Hold 関連 =====
@@ -64,7 +68,11 @@ var PAYMENT_METHOD_OPTIONS = ['現金', 'ローン', 'リース'];
 // renderHomeGallery_参照）。「限定車」は車体の形状ではなく、期間・台数限定の
 // 特別モデルであることを示す型（現場からの要望で追加）。
 var MODEL_BODY_TYPE_OPTIONS = ['Sedan', 'SUV', 'Station Wagon', 'Compact', 'Coupe', 'Cabriolet/Roadster', 'Mini Van', '限定車'];
-var PAID_OPTION_SLOT_COUNT = 7; // 有償オプション（7マス分確保）
+var PAID_OPTION_SLOT_COUNT = 7; // 有償OP（7マス分確保）
+var INSPECTION_CUT_REMARK = '完成検査切'; // 備考にこの文言があると在庫カード背景をサンドベージュにする
+var PAID_OPTION_MASTER_MAX = 300; // 有償OPマスタ（コード→名称）の最大登録件数
+var PAID_OPTION_CODE_MAX_LENGTH = 40;
+var PAID_OPTION_NAME_MAX_LENGTH = 80;
 var STAFF_LIST_MAX = 30; // 担当者マスタの最大登録人数
 var MODEL_PHOTOS_MAX = 40; // ホーム画面のモデル写真の最大登録数
 var NOTIFY_MAIL_LIST_MAX = 20; // メール通知先（Hold時／受注確定時／エラー通知）1項目あたりの最大登録件数
@@ -76,32 +84,52 @@ var NOTIFY_MAIL_MAX_LENGTH = 254; // メールアドレス1件あたりの最大
  * 「当月登録可能車両」として画面上で強調表示するために使う（JavaScript.html参照）。
  */
 var VEHICLE_COLUMNS = [
-  { key: 'model', label: 'モデル', type: 'text', required: true },
-  { key: 'mp', label: 'MP', type: 'text' },
-  { key: 'steering', label: 'ステア', type: 'select', options: STEERING_OPTIONS },
-  { key: 'exteriorColor', label: '外装', type: 'text' },
-  { key: 'interiorColor', label: '内装', type: 'text' }
+  {
+    key: 'model', label: 'モデル', type: 'text', required: true,
+    note: '車種・グレード名（例: C180）。必須。アプリの在庫カード見出しになります。'
+  },
+  { key: 'mp', label: 'MP', type: 'text', note: 'モデルイヤー（例: 2026）。空欄可。アプリのカードに常時表示されます。' },
+  {
+    key: 'steering', label: 'ステア', type: 'select', options: STEERING_OPTIONS,
+    note: '「右」または「左」を選択してください。空欄可。車両詳細に表示されます。'
+  },
+  {
+    key: 'exteriorColor', label: '外装', type: 'text',
+    note: 'ボディカラー。アプリの在庫リスト「色」絞り込みとカードのカラー表示に使います。空欄可。'
+  },
+  { key: 'interiorColor', label: '内装', type: 'text', note: '内装色。カードでは「外装 / 内装」として表示されます。空欄可。' }
 ].concat((function () {
   var slots = [];
   for (var i = 1; i <= PAID_OPTION_SLOT_COUNT; i++) {
-    slots.push({ key: 'paidOption' + i, label: '有償OP' + i, type: 'text' });
+    slots.push({
+      key: 'paidOption' + i, label: '有償OP' + i, type: 'text',
+      note: '有償OPコード（例: 21P）。名称はアプリの設定「有償OPマスタ」から登録し、アプリでコードをタップすると表示されます。空欄可。'
+    });
   }
   return slots;
 })()).concat([
   {
     key: 'commission', label: 'コミッション', type: 'text', required: true,
-    note: '車両を特定するID。先頭が0で始まる値（例: 0583911111）も保持されるよう、' +
+    note: '車両を特定するID。必須。先頭が0で始まる値（例: 0583911111）も保持されるよう、' +
       'この列全体を「書式なしテキスト」に設定しています。Number型に戻すと先頭の0が' +
       '消えてしまうため、書式は変更しないでください。'
   },
-  { key: 'arrivalExpectedDate', label: '入港予定日', type: 'date' },
+  {
+    key: 'arrivalExpectedDate', label: '入港予定日', type: 'date',
+    note: '入港予定日。日付で入力してください。空欄可。車両詳細に表示されます。'
+  },
   {
     key: 'registrableMonth', label: '可能月', type: 'text',
-    note: '「YYYY-MM」形式で入力してください（例: 2026-08）。当月と一致する車両は' +
-      'アプリ側で「当月登録可能車両」として強調表示されます。空欄も可。'
+    note: '「YYYY-MM」形式で入力してください（例: 2026-09）。日付セル（例: 2026/08/01）' +
+      'で入っていてもアプリ側で年月に正規化します。過去月は「当月登録可能」に集約されます。' +
+      '空欄も可。列は「書式なしテキスト」にして、同じ月が日付と文字列で二重登録されない' +
+      'ようにしてください。アプリの在庫リストは初期表示で「当月登録可能」に絞り込みます。'
   },
-  { key: 'vpc', label: 'VPC', type: 'text' },
-  { key: 'stockDisclosure', label: '在庫開示', type: 'select', options: STOCK_DISCLOSURE_OPTIONS }
+  { key: 'vpc', label: 'VPC', type: 'text', note: 'VPCの状態・拠点など。空欄可。車両詳細に表示されます。' },
+  {
+    key: 'stockDisclosure', label: '在庫開示', type: 'select', options: STOCK_DISCLOSURE_OPTIONS,
+    note: '「開示」または「非開示」。顧客向けに在庫を見せてよいかを示します。アプリのバッジに反映されます。'
+  }
 ]);
 
 var PAID_OPTION_KEYS = VEHICLE_COLUMNS
@@ -116,7 +144,7 @@ var PAID_OPTION_KEYS = VEHICLE_COLUMNS
  * 入力される（編集可。JavaScript.html の currentStaffLocation_ 参照）。
  */
 var HOLD_ORDER_INPUT_COLUMNS = [
-  { key: 'salesLocation', label: '販売拠点', type: 'text', required: true },
+  { key: 'salesLocation', label: '販売拠点', type: 'text', required: true, note: '販売拠点名。Hold登録時は担当者マスタの拠点名が初期値になります（編集可）。' },
   {
     key: 'leadNumber', label: 'リード番号', type: 'text', required: true,
     note: '「L-」＋数字で保存されます（例: L-12345）。アプリからの入力では数字のみで' +
@@ -126,20 +154,31 @@ var HOLD_ORDER_INPUT_COLUMNS = [
     key: 'registeredMonth', label: '登録月', type: 'text', required: true,
     note: '「YYYY-MM」形式で入力してください（例: 2026-08）。'
   },
-  { key: 'staff', label: '担当者', type: 'text', required: true }, // 担当者マスタから選択（SettingsService参照）
-  { key: 'customer', label: '顧客', type: 'text', required: true },
-  { key: 'tradeIn', label: '下取車の有無', type: 'select', options: YES_NO_OPTIONS, required: true },
-  { key: 'oss', label: 'OSS登録の可否', type: 'select', options: OSS_OPTIONS, required: true },
-  { key: 'insurance', label: '保険加入の有無', type: 'select', options: YES_NO_OPTIONS, required: true },
-  { key: 'paymentMethod', label: '支払方法', type: 'select', options: PAYMENT_METHOD_OPTIONS, required: true }
+  { key: 'staff', label: '担当者', type: 'text', required: true, note: 'アプリがログイン中の担当者名を自動設定します。通常は手動編集しないでください。' },
+  { key: 'customer', label: '顧客', type: 'text', required: true, note: '顧客名。Hold登録・受注確定時の必須項目です。' },
+  { key: 'tradeIn', label: '下取車の有無', type: 'select', options: YES_NO_OPTIONS, required: true, note: '「あり」または「なし」。Hold・受注確定の必須項目です。' },
+  { key: 'oss', label: 'OSS登録の可否', type: 'select', options: OSS_OPTIONS, required: true, note: '「可」または「不可」。Hold・受注確定の必須項目です。' },
+  { key: 'insurance', label: '保険加入の有無', type: 'select', options: YES_NO_OPTIONS, required: true, note: '「あり」または「なし」。Hold・受注確定の必須項目です。' },
+  { key: 'paymentMethod', label: '支払方法', type: 'select', options: PAYMENT_METHOD_OPTIONS, required: true, note: '「現金」「ローン」「リース」。Hold・受注確定の必須項目です。' }
 ];
+
+var REMARKS_COLUMN = {
+  key: 'remarks', label: '備考', type: 'text',
+  note: '車両の補足事項。アプリの車両詳細に表示されます。「' + INSPECTION_CUT_REMARK +
+    '」と記載すると、在庫カードの背景が薄いグレーになります。空欄可。'
+};
 
 /**
  * 在庫リスト列定義（順序 = スプレッドシートの列順）。
- * 車両情報＋Holdステータスのみ。Holdの詳細はHoldリストで別管理する。
+ * 車両情報＋Holdステータス＋備考。備考は末尾に置き、既存シートの Holdステータス列が
+ * ずれないようにする（syncSheetColumns_ が右端へ列を足す）。
  */
 var INVENTORY_COLUMNS = VEHICLE_COLUMNS.concat([
-  { key: 'holdStatus', label: 'Holdステータス', type: 'select', options: [HOLD_STATUS.AVAILABLE, HOLD_STATUS.HOLD] }
+  {
+    key: 'holdStatus', label: 'Holdステータス', type: 'select', options: [HOLD_STATUS.AVAILABLE, HOLD_STATUS.HOLD],
+    note: 'アプリが自動更新する列です（available=在庫あり、hold=Hold中）。通常は手動編集しないでください。'
+  },
+  REMARKS_COLUMN
 ]);
 
 /**
@@ -147,8 +186,14 @@ var INVENTORY_COLUMNS = VEHICLE_COLUMNS.concat([
  * commission + rank で一意に特定する。
  */
 var HOLD_COLUMNS = [
-  { key: 'commission', label: 'コミッション', type: 'text', required: true },
-  { key: 'rank', label: '順番', type: 'select', options: [HOLD_RANK.FIRST, HOLD_RANK.SECOND], required: true },
+  {
+    key: 'commission', label: 'コミッション', type: 'text', required: true,
+    note: '在庫リストのコミッションと突き合わせるIDです。書式なしテキストのままにしてください。'
+  },
+  {
+    key: 'rank', label: '順番', type: 'select', options: [HOLD_RANK.FIRST, HOLD_RANK.SECOND], required: true,
+    note: '1st または 2nd。アプリが自動設定します。通常は手動編集しないでください。'
+  },
   {
     key: 'holdType', label: 'Hold種別', type: 'select',
     options: [HOLD_TYPE.NORMAL, HOLD_TYPE.DEMO, HOLD_TYPE.OTHER_STORE],
@@ -193,7 +238,8 @@ var ORDER_COLUMNS = VEHICLE_COLUMNS.concat(HOLD_ORDER_INPUT_COLUMNS).concat([
     key: 'staffEmail', label: '担当者メール', type: 'text',
     note: '受注確定を行った担当者の内部識別用の列です。アプリからの操作でのみ設定されるため、通常は手動編集しないでください。'
   },
-  { key: 'orderedAt', label: '受注確定日時', type: 'datetime', note: 'アプリが自動記録する値です。手動編集しないでください。' }
+  { key: 'orderedAt', label: '受注確定日時', type: 'datetime', note: 'アプリが自動記録する値です。手動編集しないでください。' },
+  REMARKS_COLUMN
 ]);
 
 /**
@@ -202,28 +248,29 @@ var ORDER_COLUMNS = VEHICLE_COLUMNS.concat(HOLD_ORDER_INPUT_COLUMNS).concat([
  * （AuditLogService.gs参照）。
  */
 var AUDIT_LOG_COLUMNS = [
-  { key: 'timestamp', label: '日時', type: 'datetime' },
-  { key: 'action', label: '操作', type: 'text' },
-  { key: 'commission', label: 'コミッション', type: 'text' },
-  { key: 'model', label: 'モデル', type: 'text' },
-  { key: 'staffName', label: '担当者', type: 'text' },
-  { key: 'staffEmail', label: '担当者メール', type: 'text' },
-  { key: 'detail', label: '詳細', type: 'text' }
+  { key: 'timestamp', label: '日時', type: 'datetime', note: 'アプリが自動記録する監査ログです。行の追加・編集・削除をしないでください。' },
+  { key: 'action', label: '操作', type: 'text', note: 'Hold登録・解除・受注確定などの操作名です。手動編集しないでください。' },
+  { key: 'commission', label: 'コミッション', type: 'text', note: '対象車両のコミッションです。手動編集しないでください。' },
+  { key: 'model', label: 'モデル', type: 'text', note: '対象車両のモデル名です。手動編集しないでください。' },
+  { key: 'staffName', label: '担当者', type: 'text', note: '操作した担当者名（自動処理の場合は「システム（自動処理）」）。手動編集しないでください。' },
+  { key: 'staffEmail', label: '担当者メール', type: 'text', note: '操作した担当者のメールアドレスです。手動編集しないでください。' },
+  { key: 'detail', label: '詳細', type: 'text', note: '操作の補足です。手動編集しないでください。' }
 ];
 
 /**
  * Gクラス予約リスト列定義。通常の在庫リスト（VEHICLE_COLUMNS、在庫開示列まで）に
  * 担当者・顧客・リード番号を加えた表。受注リストと同様に閲覧専用（Hold不可）で、
  * データの追加・編集はスプレッドシートへ直接行う運用のため、いずれも必須にしない。
- * 列順は 在庫開示（VEHICLE_COLUMNS末尾）／担当者／顧客／リード番号。
+ * 列順は 在庫開示（VEHICLE_COLUMNS末尾）／担当者／顧客／リード番号／備考。
  */
 var GCLASS_COLUMNS = VEHICLE_COLUMNS.concat([
-  { key: 'staff', label: '担当者', type: 'text' },
-  { key: 'customer', label: '顧客', type: 'text' },
+  { key: 'staff', label: '担当者', type: 'text', note: '担当者名。閲覧専用リストのため必須ではありません。マイページではこの表示名で本人分を抜き出します。' },
+  { key: 'customer', label: '顧客', type: 'text', note: '顧客名。閲覧専用リストのため必須ではありません。' },
   {
     key: 'leadNumber', label: 'リード番号', type: 'text',
     note: '「L-」＋数字の形式を推奨しますが、閲覧専用リストのため必須ではありません。'
-  }
+  },
+  REMARKS_COLUMN
 ]);
 
 /**
@@ -235,30 +282,36 @@ var GCLASS_COLUMNS = VEHICLE_COLUMNS.concat([
  * するため）。id はコミッション等と異なり必ず一意な値が必要なため、ユーザー入力の
  * 項目とは別にアプリが自動採番する（addPurchaseOrder、PurchaseOrderService.gs参照）。
  */
-// MP・外装／内装カラー・有償OPは、既存のスプレッドシートを使っている利用者の
-// 列位置がずれないよう、既存の列（ID〜登録日時）の後ろに追加している（アプリは
-// 列を「見出し文字列」ではなく「並び順（列の位置）」で読み書きするため。README
-// 「発注リスト」の「既存シートへの影響」参照）。いずれも任意項目（コミッション・
-// リード番号と同様、確定していない段階でも登録できるように必須にしない）。
+// MP・ステア・外装／内装カラー・有償OPは、既存の列（ID〜登録日時）の後ろに追加している
+// （アプリは列を「並び順」で読み書きするため。ステアは MP と外装の間。既存シートは
+// syncSheetColumns_ が不足列を正しい位置へ挿入する。README「発注リスト」参照）。
+// いずれも任意項目（コミッション・リード番号と同様、未確定でも登録できるように必須にしない）。
 var PURCHASE_ORDER_COLUMNS = [
   {
     key: 'id', label: 'ID', type: 'text', required: true,
     note: 'アプリが自動採番する識別用のIDです。手動編集・削除しないでください。'
   },
-  { key: 'model', label: 'モデル名', type: 'text', required: true },
-  { key: 'salesLocation', label: '拠点', type: 'text', required: true },
-  { key: 'staff', label: '担当者', type: 'text', required: true },
-  { key: 'customer', label: '顧客', type: 'text', required: true },
-  { key: 'commission', label: 'コミッション', type: 'text' },
-  { key: 'leadNumber', label: 'リード番号', type: 'text' },
+  { key: 'model', label: 'モデル名', type: 'text', required: true, note: '発注する車種・グレード名。必須。' },
+  { key: 'salesLocation', label: '拠点', type: 'text', required: true, note: '発注元の拠点名。必須。' },
+  { key: 'staff', label: '担当者', type: 'text', required: true, note: '担当者名。必須。マイページではこの表示名で本人分を抜き出します。' },
+  { key: 'customer', label: '顧客', type: 'text', required: true, note: '顧客名。必須。' },
+  { key: 'commission', label: 'コミッション', type: 'text', note: '未確定なら空欄可。書式なしテキストのままにしてください。' },
+  { key: 'leadNumber', label: 'リード番号', type: 'text', note: '未確定なら空欄可。「L-」＋数字の形式を推奨します。' },
   { key: 'createdAt', label: '登録日時', type: 'datetime', note: 'アプリが自動記録する値です。手動編集しないでください。' },
-  { key: 'mp', label: 'MP', type: 'text' },
-  { key: 'exteriorColor', label: '外装', type: 'text' },
-  { key: 'interiorColor', label: '内装', type: 'text' }
+  { key: 'mp', label: 'MP', type: 'text', note: 'モデルイヤー（例: 2026）。空欄可。アプリの発注カードに表示されます。' },
+  {
+    key: 'steering', label: 'ステア', type: 'select', options: STEERING_OPTIONS,
+    note: '「右」または「左」を選択してください。空欄可。MPとカラーの間に表示されます。'
+  },
+  { key: 'exteriorColor', label: '外装', type: 'text', note: 'ボディカラー。空欄可。' },
+  { key: 'interiorColor', label: '内装', type: 'text', note: '内装色。空欄可。' }
 ].concat((function () {
   var slots = [];
   for (var i = 1; i <= PAID_OPTION_SLOT_COUNT; i++) {
-    slots.push({ key: 'paidOption' + i, label: '有償OP' + i, type: 'text' });
+    slots.push({
+      key: 'paidOption' + i, label: '有償OP' + i, type: 'text',
+      note: '有償OPコード（例: 21P）。名称はアプリの設定「有償OPマスタ」から登録します。空欄可。'
+    });
   }
   return slots;
 })());
@@ -269,12 +322,29 @@ var PURCHASE_ORDER_INPUT_COLUMNS = PURCHASE_ORDER_COLUMNS.filter(function (c) {
   return c.key !== 'id' && c.key !== 'createdAt';
 });
 
+/**
+ * 有償OPマスタ列定義。在庫・受注・発注・Gクラス予約の有償OP1〜7に入るコードを、
+ * 名称へ解決するための辞書（PaidOptionService.gs）。データの追加・編集はアプリの
+ * 設定「有償OPマスタ」（管理者）から行う。このシートは保存先であり、手入力で登録する運用ではない。
+ */
+var PAID_OPTION_MASTER_COLUMNS = [
+  {
+    key: 'code', label: 'コード', type: 'text', required: true,
+    note: '車両情報の有償OP欄に入力するコード（例: 21P）。名称との対応はアプリの設定「有償OPマスタ」から登録します。大文字小文字・前後空白の違いは無視して照合します。'
+  },
+  {
+    key: 'name', label: '名称', type: 'text', required: true,
+    note: 'コードに対応する有償OPの名称（例: AMGライン）。アプリの設定「有償OPマスタ」から登録します。アプリ上でコードをタップするとポップアップ表示されます。'
+  }
+];
+
 var INVENTORY_COL_INDEX = buildColIndex_(INVENTORY_COLUMNS);
 var HOLD_COL_INDEX = buildColIndex_(HOLD_COLUMNS);
 var ORDER_COL_INDEX = buildColIndex_(ORDER_COLUMNS);
 var AUDIT_LOG_COL_INDEX = buildColIndex_(AUDIT_LOG_COLUMNS);
 var GCLASS_COL_INDEX = buildColIndex_(GCLASS_COLUMNS);
 var PURCHASE_ORDER_COL_INDEX = buildColIndex_(PURCHASE_ORDER_COLUMNS);
+var PAID_OPTION_MASTER_COL_INDEX = buildColIndex_(PAID_OPTION_MASTER_COLUMNS);
 
 function buildColIndex_(columns) {
   var map = {};
@@ -306,6 +376,10 @@ function purchaseOrderColIndex1(key) {
   return PURCHASE_ORDER_COL_INDEX[key] + 1;
 }
 
+function paidOptionMasterColIndex1(key) {
+  return PAID_OPTION_MASTER_COL_INDEX[key] + 1;
+}
+
 // ===== 設定機能のプロパティキー =====
 // THEME_KEYのみ、ログイン中のGoogleアカウントごとに独立して保存したいため
 // PropertiesService.getUserProperties()（アカウント単位）に、それ以外
@@ -318,6 +392,7 @@ function purchaseOrderColIndex1(key) {
 var PROP_KEYS = {
   THEME_KEY: 'THEME_KEY',
   LOGO_URL: 'LOGO_URL',
+  LOADING_SPLASH_DRIVE_ID: 'LOADING_SPLASH_DRIVE_ID',
   NOTIFY_HOLD_MAIL_TO: 'NOTIFY_HOLD_MAIL_TO',
   NOTIFY_ORDER_MAIL_TO: 'NOTIFY_ORDER_MAIL_TO',
   NOTIFY_ERROR_MAIL_TO: 'NOTIFY_ERROR_MAIL_TO',
@@ -370,15 +445,13 @@ var CELEBRATION_VARIANT_LABELS = {
  *                  （白系、Stylesheet.html参照）になったため、primaryよりも
  *                  濃くしてコントラスト比4.6:1以上を確保している（以前の暗い背景
  *                  向け配色では逆にprimaryより明るい色にしていた）。
- *   sidebarColor … PCビュー左端のサイドバー（項目タブ）の背景色。以前はサイドバーの
- *                  色だけ独立したカラーピッカーで自由に指定できたが、「サイドバーの色と
- *                  表示設定（着せ替え）はセットにしてほしい」という要望を受け、
- *                  プリセット1つでアプリ全体の配色とサイドバーの配色の両方が一括で
- *                  切り替わるようにした。サイドバーの文字色自体は固定せず、この背景色に
- *                  対してコントラスト比が高いほう（白／濃色）をapplySidebarColor_
- *                  （JavaScript.html）が毎回自動計算するため、いずれも十分暗い色にして
- *                  あれば個別のコントラスト検証は不要（白文字側が常に選ばれ、かつ
- *                  10:1以上の余裕を確保できる濃さにしてある）。
+ *   sidebarColor … PCビュー左端のサイドバー（項目タブ）と、スマホ／タブレットの
+ *                  ヘッダー（.topbar）の背景色。以前はサイドバーの色だけ独立した
+ *                  カラーピッカーで自由に指定できたが、「サイドバーの色と表示設定
+ *                  （着せ替え）はセットにしてほしい」という要望を受け、プリセット1つで
+ *                  アプリ全体の配色とナビ帯の配色の両方が一括で切り替わるようにした。
+ *                  文字色自体は固定せず、この背景色に対してコントラスト比が高いほう
+ *                  （白／濃色）をapplySidebarColor_（JavaScript.html）が毎回自動計算する。
  */
 var THEME_PRESETS = [
   { key: 'steel', name: 'ブリリアントブルー', primary: '#2f6fae', primaryDark: '#102a43', primaryText: '#2f6fae', sidebarColor: '#1f3a5c' },
@@ -431,6 +504,16 @@ var MODEL_PHOTO_URL_MAX_LENGTH = 1500;
 // 高解像度ディスプレイ（2倍相当）でも十分な解像度になるよう余裕を持たせている
 // （normalizeModelPhotoUrl_、SettingsService.gs参照）。
 var MODEL_PHOTO_DISPLAY_WIDTH = 1000;
+
+// アプリ起動時のローディング画面に表示する画像の幅（px）。全画面中央に大きめ
+// に載せる想定のため、モデル写真（ホームタイル用）より広い解像度にする
+// （normalizeLoadingSplashDriveId_ / loadingSplashImageUrlFromDriveId_、
+// SettingsService.gs参照）。
+var LOADING_SPLASH_DISPLAY_WIDTH = 1600;
+
+// 起動画面画像の入力値（ファイルIDまたは共有リンク）の最大文字数。抽出後の
+// ファイルID自体は短いが、共有リンクをそのまま貼り付けた場合に備えて余裕を持たせる。
+var LOADING_SPLASH_DRIVE_ID_MAX_LENGTH = 500;
 
 // モデル写真設定全体（JSON化した状態）の最大文字数。最大MODEL_PHOTOS_MAX件分の
 // URLをまとめて1つのScript Propertyへ保存するため、1件あたりの上限だけでは

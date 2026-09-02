@@ -7,17 +7,162 @@
  * 在庫リストの検索・絞り込み。
  * @param {Array<Object>} vehicles
  * @param {Object} filters {
- *   keyword: string,       // モデル・コミッションに部分一致
- *   includeHold: boolean   // false の場合 Hold済み車両を除く
+ *   keyword: string,            // モデル・コミッション・外装色・備考に部分一致
+ *   includeHold: boolean,       // false の場合 Hold済み車両を除く
+ *   exteriorColor: string,      // ボディカラー（外装）の完全一致（前後空白は無視）
+ *   registrableMonth: string,   // 正規化後の可能月（YYYY-MM）。過去月は thisMonth に集約した値で比較
+ *   thisMonth: string           // 当月（YYYY-MM）。registrableMonth フィルタ時に必要
  * }
  */
 function searchInventory(vehicles, filters) {
   filters = filters || {};
+  var thisMonth = filters.thisMonth || '';
+  var monthFilter = filters.registrableMonth ? normalizeYearMonth_(filters.registrableMonth) : '';
+  var colorFilter = String(filters.exteriorColor || '').trim();
   return vehicles.filter(function (v) {
     if (filters.includeHold === false && v.holdStatus === HOLD_STATUS.HOLD) return false;
-    if (filters.keyword && !matchesAnyField_(v, filters.keyword, ['model', 'commission'])) return false;
+    if (filters.keyword && !matchesAnyField_(v, filters.keyword, ['model', 'commission', 'exteriorColor', 'remarks'])) return false;
+    if (colorFilter && String(v.exteriorColor || '').trim() !== colorFilter) return false;
+    if (monthFilter) {
+      var effective = effectiveRegistrableMonth_(v.registrableMonth, thisMonth);
+      if (effective !== monthFilter) return false;
+    }
     return true;
   });
+}
+
+/**
+ * 可能月の表記ゆれを YYYY-MM に正規化する（純粋関数）。
+ * スプレッドシートが日付セルとして保持した場合、rowToObject_ は yyyy-MM-dd
+ * （例: 2026-08-01）に変換する一方、テキストで「2026-08」と入っている行はそのまま
+ * 残るため、同じ月がプルダウンに二重表示されていた。日付・スラッシュ・「年/月」
+ * 表記も年月だけ取り出して揃える。
+ * @param {*} value
+ * @return {string} 'YYYY-MM' または空文字
+ */
+function normalizeYearMonth_(value) {
+  if (value === null || value === undefined || value === '') return '';
+  var s = String(value).trim();
+  if (!s) return '';
+  var m = s.match(/^(\d{4})[-/\.年](\d{1,2})(?:[-/\.月日](\d{1,2}))?/);
+  if (!m) return '';
+  var month = Number(m[2]);
+  if (!month || month < 1 || month > 12) return '';
+  return m[1] + '-' + (month < 10 ? '0' + month : String(month));
+}
+
+/**
+ * 表示・並び・絞り込みに使う「実効可能月」。過去月は当月へ集約する
+ * （期限の過ぎた車両はいま登録できる、という現場運用）。
+ * @param {*} value
+ * @param {string} thisMonth YYYY-MM
+ * @return {string} YYYY-MM または空文字
+ */
+function effectiveRegistrableMonth_(value, thisMonth) {
+  var normalized = normalizeYearMonth_(value);
+  if (!normalized) return '';
+  if (thisMonth && normalized < thisMonth) return thisMonth;
+  return normalized;
+}
+
+/**
+ * 可能月プルダウン用の選択肢（当月＋未来月のみ、重複なし・昇順）。
+ * 過去月は当月へ集約されるため、ここには出てこない。当月は在庫が無くても常に含める。
+ * @param {Array<Object>} items
+ * @param {string} thisMonth YYYY-MM
+ * @return {Array<string>}
+ */
+function collectRegistrableMonthOptions_(items, thisMonth) {
+  var seen = {};
+  var months = [];
+  (items || []).forEach(function (v) {
+    var m = effectiveRegistrableMonth_(v.registrableMonth, thisMonth);
+    if (!m || seen[m]) return;
+    seen[m] = true;
+    months.push(m);
+  });
+  if (thisMonth && !seen[thisMonth]) {
+    months.push(thisMonth);
+  }
+  months.sort();
+  return months;
+}
+
+/**
+ * 在庫の外装色（ボディカラー）プルダウン用の選択肢（空欄除外・重複なし・昇順）。
+ * @param {Array<Object>} items
+ * @return {Array<string>}
+ */
+function collectExteriorColorOptions_(items) {
+  var seen = {};
+  var colors = [];
+  (items || []).forEach(function (v) {
+    var color = String(v.exteriorColor || '').trim();
+    if (!color) return;
+    var key = color.toLowerCase();
+    if (seen[key]) return;
+    seen[key] = true;
+    colors.push(color);
+  });
+  colors.sort(function (a, b) {
+    return a < b ? -1 : a > b ? 1 : 0;
+  });
+  return colors;
+}
+
+/**
+ * 在庫リストを実効可能月でグループ化する（第1階層）。未設定は末尾。
+ * グループ内の並びはモデル名の昇順。
+ * @param {Array<Object>} items
+ * @param {string} thisMonth YYYY-MM
+ * @return {Array<{key: string, items: Array<Object>}>}
+ */
+function groupInventoryByRegistrableMonth_(items, thisMonth) {
+  var map = {};
+  var order = [];
+  (items || []).forEach(function (item) {
+    var key = effectiveRegistrableMonth_(item.registrableMonth, thisMonth) || '未設定';
+    if (!map[key]) {
+      map[key] = [];
+      order.push(key);
+    }
+    map[key].push(item);
+  });
+  order.sort(function (a, b) {
+    if (a === '未設定') return 1;
+    if (b === '未設定') return -1;
+    return a < b ? -1 : a > b ? 1 : 0;
+  });
+  return order.map(function (key) {
+    var grouped = map[key].slice().sort(function (a, b) {
+      var am = String(a.model || '');
+      var bm = String(b.model || '');
+      if (am !== bm) return am < bm ? -1 : 1;
+      return String(a.commission || '') < String(b.commission || '') ? -1 : 1;
+    });
+    return { key: key, items: grouped };
+  });
+}
+
+/**
+ * 備考に「完成検査切」が含まれるか（純粋関数）。在庫カードの薄いグレー背景に使う。
+ * @param {*} remarks
+ * @return {boolean}
+ */
+function hasInspectionCutRemark_(remarks) {
+  return String(remarks || '').indexOf(INSPECTION_CUT_REMARK) !== -1;
+}
+
+/**
+ * 可能月グループ見出し用のラベル。
+ * @param {string} key YYYY-MM または '未設定'
+ * @param {string} thisMonth YYYY-MM
+ * @return {string}
+ */
+function registrableMonthGroupTitle_(key, thisMonth) {
+  if (!key || key === '未設定') return '可能月 未設定';
+  if (thisMonth && key === thisMonth) return '可能月 ' + key + '（当月登録可能）';
+  return '可能月 ' + key;
 }
 
 /**

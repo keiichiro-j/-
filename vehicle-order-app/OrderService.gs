@@ -40,6 +40,8 @@ function confirmOrder(commission, info) {
     HOLD_ORDER_INPUT_COLUMNS.forEach(function (c) { order[c.key] = info[c.key]; });
     order.staffEmail = info.staffEmail;
     VEHICLE_COLUMNS.forEach(function (col) { order[col.key] = vehicle[col.key]; });
+    // 備考は在庫・受注の末尾専用列（VEHICLE_COLUMNS外）。受注確定時に在庫から引き継ぐ。
+    order.remarks = vehicle.remarks || '';
 
     // Hold中だった場合、1st Holdは受注確定を行った本人（＝canConfirmOrder_により
     // 1st Hold担当者のみ受注確定できる）が登録したものなので、そのカレンダーイベントは
