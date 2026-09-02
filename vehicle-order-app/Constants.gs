@@ -69,7 +69,7 @@ var PAYMENT_METHOD_OPTIONS = ['現金', 'ローン', 'リース'];
 // 特別モデルであることを示す型（現場からの要望で追加）。
 var MODEL_BODY_TYPE_OPTIONS = ['Sedan', 'SUV', 'Station Wagon', 'Compact', 'Coupe', 'Cabriolet/Roadster', 'Mini Van', '限定車'];
 var PAID_OPTION_SLOT_COUNT = 7; // 有償OP（7マス分確保）
-var INSPECTION_CUT_REMARK = '完成検査切'; // 備考にこの文言があると在庫カード背景を薄いグレーにする
+var INSPECTION_CUT_REMARK = '完成検査切'; // 備考にこの文言があると在庫カード背景をサンドベージュにする
 var PAID_OPTION_MASTER_MAX = 300; // 有償OPマスタ（コード→名称）の最大登録件数
 var PAID_OPTION_CODE_MAX_LENGTH = 40;
 var PAID_OPTION_NAME_MAX_LENGTH = 80;

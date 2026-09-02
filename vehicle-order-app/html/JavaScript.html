@@ -981,9 +981,9 @@
       metaRow_('ステア', v.steering) +
       '<div><dt>有償OP</dt><dd>' + paidOptionsHtml_(v) + '</dd></div>' +
       metaRow_('入港予定日', v.arrivalExpectedDate) +
-      metaRow_('可能月', formatRegistrableMonthDisplay_(v)) +
       metaRow_('VPC', v.vpc) +
-      '<div class="card__metaGrid__full"><dt>備考</dt><dd>' + escapeHtml(remarks || '-') + '</dd></div>' +
+      '<div class="card__metaGrid__full"><dt>可能月</dt><dd>' + escapeHtml(formatRegistrableMonthDisplay_(v) || '-') + '</dd></div>' +
+      '<div class="card__metaGrid__full card__remarks"><dt>備考</dt><dd>' + escapeHtml(remarks || '-') + '</dd></div>' +
       '</dl>';
   }
 

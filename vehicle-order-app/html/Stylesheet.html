@@ -51,6 +51,16 @@
        （デモカーHOLD・他店HOLDである、という見分けやすさを最優先するため）。 */
     --hold-special: #6d28d9;
     --hold-special-bg: rgba(124, 58, 237, .14);
+    /* 当月登録可能バッジ。テーマの --primary-bg / --primary-text と同じにすると
+       拠点バッジやカード帯と同化して見えにくいため、テーマ非連動のティールにする
+       （在庫ありの緑・Holdのアンバー・完成検査切のサンドとも重ならない）。 */
+    --this-month: #0f6e64;
+    --this-month-bg: #d4f0ea;
+    /* 完成検査切のカード背景。ページ背景やテーマの薄いカード色（グレー系）と
+       同化しないよう、全テーマ共通のサンドベージュ＋濃色文字にする。 */
+    --inspection-cut-bg: #efe4cc;
+    --inspection-cut-fg: #1f2933;
+    --inspection-cut-muted: #5c5346;
     --shadow: 0 1px 2px rgba(16, 31, 51, .10);
     --shadow-elevated: 0 16px 40px rgba(16, 31, 51, .16);
     /* 公式サイトはカードの角丸をあまり強調しないフラットな見た目のため、
@@ -602,9 +612,28 @@
   .rowCard--hold { border-left-color: var(--warning); }
   .rowCard--hold2 { border-left-color: var(--danger); }
   .rowCard--holdSpecial { border-left-color: var(--hold-special); }
-  /* 備考に「完成検査切」とある車両。左罫線（Hold状態色）は変えず、背景だけ薄いグレー。 */
-  .card--inspectionCut,
-  .rowCard--inspectionCut { background: #e8eaed; }
+  /* 備考に「完成検査切」とある車両。左罫線（Hold状態色）は変えず、背景を
+     全テーマ共通のサンドベージュにして文字色も濃色に固定する。
+     .card.card--inspectionCut と2クラスにするのは、後続の .card { background } に
+     負けないようにするため。 */
+  .card.card--inspectionCut,
+  .rowCard.rowCard--inspectionCut {
+    background: var(--inspection-cut-bg);
+    color: var(--inspection-cut-fg);
+  }
+  .card.card--inspectionCut .card__model,
+  .card.card--inspectionCut .card__metaGrid dd,
+  .rowCard.rowCard--inspectionCut .rowCard__model,
+  .rowCard.rowCard--inspectionCut .rowCard__value {
+    color: var(--inspection-cut-fg);
+  }
+  .card.card--inspectionCut .card__commission,
+  .card.card--inspectionCut .card__metaGrid dt,
+  .rowCard.rowCard--inspectionCut .rowCard__commission,
+  .rowCard.rowCard--inspectionCut .rowCard__label,
+  .rowCard.rowCard--inspectionCut .rowCard__value--muted {
+    color: var(--inspection-cut-muted);
+  }
   /* 横スクロールが必要な列（有償OP等の車両情報・rowCard__status）は画面幅によっては
      スクロールしないと見えないため、行（カード）自体をタップすると、既存のカード表示と
      同じ見た目で車両情報すべてを画面中央のモーダルに表示する
@@ -757,8 +786,6 @@
   /* デモカーHOLD・他店HOLDは、通常のHold・2nd Holdとひと目で見分けられるよう
      専用の特別色にする（管理者権限を持つ担当者のみ登録できる。HOLD_TYPE参照）。 */
   .card--holdSpecial { border-left-color: var(--hold-special); }
-  /* 備考に「完成検査切」とある車両。左罫線（Hold状態色）は変えず、背景だけ薄いグレー。 */
-  .card--inspectionCut { background: #e8eaed; }
   /* モデル・コミッションの行と、バッジの行を常に別々の固定行にする。 */
   .card__top { display: flex; flex-direction: column; gap: 8px; }
   .card__topRow { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
@@ -789,7 +816,11 @@
   .badge--holdSpecial { background: var(--hold-special-bg); color: var(--hold-special); }
   .badge--disclosed { background: var(--success-bg); color: var(--success); font-weight: 500; }
   .badge--undisclosed { background: rgba(31, 41, 51, .06); color: var(--on-surface-variant); font-weight: 500; }
-  .badge--thisMonth { background: var(--primary-bg); color: var(--primary-text); font-weight: 500; }
+  .badge--thisMonth {
+    background: var(--this-month-bg);
+    color: var(--this-month);
+    font-weight: 700;
+  }
   .badge--location { background: var(--primary-bg); color: var(--primary-text); font-weight: 500; }
   .card__badges { display: flex; gap: 6px; flex-wrap: wrap; }
 
@@ -817,10 +848,11 @@
      値は大きく太くというメリハリのある「テスラ風」の見出し表現で視認性を高める。 */
   .card__metaGrid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px 16px;
     margin: 0;
     padding: 12px 0 0;
+    min-width: 0;
   }
   /* MP・カラーは折りたたまず常に表示するため、card__topのすぐ下に独自の区切り線を持つ */
   .card__metaGrid--quick { border-top: 1px solid var(--outline); padding-top: 8px; }
@@ -832,8 +864,21 @@
     text-transform: uppercase;
     margin-bottom: 3px;
   }
-  .card__metaGrid dd { margin: 0; font-size: 14.5px; font-weight: 600; color: var(--on-surface); line-height: 1.3; }
-  .card__metaGrid__full { grid-column: 1 / -1; }
+  .card__metaGrid dd {
+    margin: 0;
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--on-surface);
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  .card__metaGrid__full { grid-column: 1 / -1; min-width: 0; }
+  .card__remarks dd {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
 
   /* カード一覧（案A）は 1ST / 2ND を横1行の2枠。詳細モーダルは縦2枠のまま。 */
   .card__holdArea {
@@ -1005,7 +1050,7 @@
     content: '▾ ';
   }
   .card__fold .card__metaGrid { padding-top: 8px; }
-  .modal__body > .card { height: auto; }
+  .modal__body > .card { height: auto; min-width: 0; max-width: 100%; }
   #inventoryDetailModal .modal__body { padding: 12px 16px; }
   #inventoryDetailModal .modal__body .card { gap: 6px; padding: 10px 12px; }
   #inventoryDetailModal .modal__body .card__actions { margin-top: 4px; }
