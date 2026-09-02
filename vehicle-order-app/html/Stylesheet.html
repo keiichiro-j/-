@@ -233,7 +233,7 @@
     background: transparent; border: 1px solid var(--dark-ui-outline); border-radius: 50%;
     color: var(--on-topbar); cursor: pointer;
   }
-  .topbar__navBtn:hover { background: rgba(255, 255, 255, .08); }
+  .topbar__navBtn:hover { background: var(--sidebar-hover-bg); }
   .topbar__navBtn:disabled { opacity: .3; cursor: default; }
   .topbar__navBtn:disabled:hover { background: transparent; }
   /* 「更新」ボタンは「戻る」ボタンと見た目を統一し（同じアウトライン円形）、
@@ -533,9 +533,24 @@
        1枚のカードとしてのまとまりが保たれるようにする。 */
     row-gap: 8px;
     column-gap: 10px;
-    /* 状態列から解除リンクを外し、HOLD列は常に1行（ellipsis＋解除スペーサー）にしたので
-       在庫あり／Hold中／2nd有でも行の高さが揃う。項目は上端揃えのままにする。 */
-    align-items: flex-start;
+    align-items: center;
+  }
+  /* 在庫の表表示は、HOLDの有無で行の高さが変わらないよう PC では1行に収める
+     （長い値は省略。詳細は行タップのモーダル）。折り返しで高さがばらつくのを防ぐ。
+     スマホ幅では下の@media (max-width: 900px)で横スライドに切り替える。 */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) {
+    min-height: 72px;
+    overflow: hidden;
+  }
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner {
+    flex-wrap: nowrap;
+    align-items: center;
+    min-height: 52px;
+    overflow: hidden;
+  }
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:not(.rowCard__actions):not(.rowCard__field--mp) {
+    overflow: hidden;
+    min-width: 0;
   }
   /* 状態列も「Hold中（2nd有）」バッジが収まる幅（150px）を確保し、隣の操作列と
      重ならないようにする（以前は108pxで文字がはみ出し、受注確定ボタンと
@@ -660,10 +675,26 @@
   .rowCard__field--center .rowCard__value {
     text-align: center;
   }
-  .rowCard__model { font-size: 15px; font-weight: 700; letter-spacing: -.005em; }
-  .rowCard__commission { font-size: 11px; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; margin-top: 1px; }
+  .rowCard__model {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -.005em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .rowCard__commission {
+    font-size: 11px;
+    color: var(--on-surface-variant);
+    font-variant-numeric: tabular-nums;
+    margin-top: 1px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   /* 状態列はバッジのみ（解除はHOLD列へ）。Holdの有無で行の高さが変わらないようにする。 */
   .rowCard__status { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; min-height: 28px; overflow: hidden; min-width: 0; }
+  .rowCard__status .badge { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
   .rowCard__cancelLink {
     flex: none;
     width: 2.8em;
@@ -873,14 +904,16 @@
     overflow-wrap: anywhere;
     word-break: break-word;
   }
+  .card__metaGrid > * { min-width: 0; }
   .card__metaGrid__full { grid-column: 1 / -1; min-width: 0; }
+  .card__remarks { min-width: 0; }
   .card__remarks dd {
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     word-break: break-word;
   }
 
-  /* カード一覧（案A）は 1ST / 2ND を横1行の2枠。詳細モーダルは縦2枠のまま。 */
+  /* カード一覧・詳細モーダルとも 1ST / 2ND を横1行の2枠。 */
   .card__holdArea {
     height: auto;
     display: flex;
@@ -902,7 +935,20 @@
     flex: 1 1 0;
     min-width: 0;
   }
-  .card__holdArea--full { height: auto; overflow: visible; }
+  /* 詳細モーダルもカード一覧と同じく 1ST / 2ND を左右2枠にし、
+     2ND HOLDが入っても VPC・備考が枠外へ飛び出さないようにする。 */
+  .card__holdArea--full {
+    flex-direction: row;
+    align-items: stretch;
+    gap: 6px;
+    height: auto;
+    overflow: hidden;
+  }
+  .card__holdArea--full .card__holdInfo {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+  }
   .card__holdInfo {
     flex: none;
     background: var(--background);
@@ -1001,7 +1047,12 @@
      （--first/--secondと同時に付与されるクラスのため、後に書くことで優先させる）。 */
   .card__holdInfo--special { border-left-color: var(--hold-special); background: var(--hold-special-bg); }
   .card__holdInfo--special .card__holdInfo__label { color: var(--hold-special); }
-  .card__holdInfo__row { margin-bottom: 6px; }
+  .card__holdInfo__row {
+    margin-bottom: 6px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
   .card__holdInfo__cancel {
     border: none;
     background: none;
@@ -1021,6 +1072,8 @@
     margin-top: 6px;
     padding-top: 6px;
     border-top: 1px dashed var(--outline);
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
   .card__fold,
   .card__holdInfo__fold {
@@ -1050,9 +1103,9 @@
     content: '▾ ';
   }
   .card__fold .card__metaGrid { padding-top: 8px; }
-  .modal__body > .card { height: auto; min-width: 0; max-width: 100%; }
-  #inventoryDetailModal .modal__body { padding: 12px 16px; }
-  #inventoryDetailModal .modal__body .card { gap: 6px; padding: 10px 12px; }
+  .modal__body > .card { height: auto; min-width: 0; max-width: 100%; overflow: hidden; }
+  #inventoryDetailModal .modal__body { padding: 12px 16px; overflow-x: hidden; }
+  #inventoryDetailModal .modal__body .card { gap: 6px; padding: 10px 12px; overflow: hidden; }
   #inventoryDetailModal .modal__body .card__actions { margin-top: 4px; }
 
   /* ===== Hold 72時間タイマー ===== */
@@ -1088,6 +1141,7 @@
 
   .card__actions { display: flex; gap: 6px; margin-top: auto; padding-top: 2px; flex-wrap: nowrap; min-height: 44px; }
   .card__actions .btn { flex: 1; min-height: 44px; }
+  .card__actionSpacer { flex: 1; min-height: 44px; }
 
   .emptyState {
     display: flex;
@@ -1809,6 +1863,8 @@
     html, body { overflow-x: hidden; }
     main.view { overflow-x: hidden; min-width: 0; }
     .tableScroll { overflow-x: hidden; }
+    /* PCの表表示は横スライドしない。在庫行は1行省略、受注等は折り返し。 */
+    .rowCard { overflow-x: hidden; }
 
     .sidebar {
       display: flex;
@@ -2561,48 +2617,40 @@
     .orderList { grid-template-columns: 1fr; }
     .purchaseOrderList { grid-template-columns: 1fr; }
 
-    /* 表示形式「表」（在庫・受注・Gクラス・マイページ）: PCビューでは横スクロールを
-       禁止し折り返す方針（.rowCardの基本ルール参照）だが、タブレット・スマホ幅では
-       逆に折り返しを禁止し、1行=横スクロール（.tableScrollのoverflow-x: auto）で
-       見せる。PCと同じ折り返し方針のままタブレット・スマホ幅に持ち込むと、狭い画面
-       幅に収まりきらない項目が3〜4行にも折り返され、1台ぶんのカードが縦に間延び
-       して「表」としての一覧性が失われてしまう（現場からの指摘で判明）。横スクロール
-       にすることで、各行は常に単一行（列位置がどの車両でも揃う本来の「表」の見た目）
-       を保ち、画面外の項目はスマホ操作で慣れた横スワイプで確認できるようにする。
-       各項目の横幅（:nth-child()、flex-shrink: 0）は変更しないため、スクロール中も
-       列幅は常に一定に保たれる。
+    /* 表示形式「表」: PC（901px以上）は横スライドなし（在庫は1行省略、受注等は折り返し）。
+       タブレット・スマホでは折り返しを禁止し、行カード内を横スライドする。
+       PCと同じ縮め方のまま狭い画面に持ち込むと文字が重なって読めない。
        不具合修正（iOS Safariでカードの背景・罫線が内容から取り残される問題）:
-       以前は.rowCard自身がflexコンテナ・スクロール対象の両方を兼ねており、
-       align-self: flex-start + min-width: 100%で.rowCard自身をビューポート幅より
-       内容ぶん広げ、祖先の.tableScroll（overflow-x: auto）でスクロールさせていた。
-       この方式だと、角丸・影付きのビューポート幅を超えるボックスをスクロール
-       コンテナ内でスクロールさせる形になり、iOS Safariでスクロール中に背景・罫線の
-       再描画がレイアウトに追従せず、操作ボタン等の内容だけがカードの背景・枠の外
-       （無地のページ背景の上）に取り残されて見える不具合があった（PC Chromeでは
-       再現しないWebKit固有の再描画バグ）。.rowCard自身は常にビューポート幅の
-       ままにし（角丸・影付きの背景ボックスの幅が変わらないようにする）、代わりに
-       .rowCard自身にoverflow-x: autoを持たせてスクロールコンテナ化し、内側の
-       .rowCard__inner（実際に画面に収まりきらない幅まで広がる要素）だけをその中で
-       スクロールさせる構成に変えた。カードの背景・枠は常にビューポート幅のまま
-       描画されるため、この種の再描画バグが起こり得なくなる。 */
+       .rowCard自身は常にビューポート幅のままにし、overflow-x: auto で内側の
+       .rowCard__inner だけを横スクロールさせる。 */
     .rowCard {
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
     }
+    .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) {
+      overflow-x: auto;
+    }
     .rowCard__inner {
       flex-wrap: nowrap;
+      width: max-content;
       min-width: 100%;
+      overflow: visible;
+    }
+    .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner {
+      overflow: visible;
     }
     .tableScroll { -webkit-overflow-scrolling: touch; }
-    /* 在庫リストの操作ボタン列（Hold／受注／2ND HOLD／受注確定）は、
-       PCの折り返しレイアウト向けにflex: 1 1 160px（伸縮可）にしているが、横スクロール
-       表示のまま伸縮させるとボタン同士が縦に折り返され、カードが不必要に縦長になる
-       不具合があった。横スクロール表示では伸縮させず、ボタン自身の実寸（横一列に並ぶ幅）
-       ぶんだけ確保するようにし、列の折り返し（flex-wrap）も禁止して常に横一列に
-       並べる。 */
-    .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(9) {
-      flex: 0 0 auto;
-    }
+    /* スマホの表表示は列を縮めず横スライドする。PCの伸縮（flex: 1 1）のままだと
+       文字が重なって読めなくなるため、各列は内容幅を確保してスクロールさせる。 */
+    .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(1) { flex: 0 0 120px; }
+    .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(2) { flex: 0 0 110px; }
+    .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(3) { flex: 0 0 auto; min-width: 4.5ch; }
+    .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(4) { flex: 0 0 46px; }
+    .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(5) { flex: 0 0 140px; }
+    .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(6) { flex: 0 0 130px; }
+    .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(7) { flex: 0 0 180px; }
+    .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(8) { flex: 0 0 180px; }
+    .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(9) { flex: 0 0 auto; }
     .rowCard__actions { flex-wrap: nowrap; }
 
     /* 型のクイックナビ: タブレット・スマホ幅では8種類＋「すべて」を折り返し無しで

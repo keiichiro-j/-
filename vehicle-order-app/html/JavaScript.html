@@ -595,12 +595,8 @@
   function formatRegistrableMonthDisplay_(v) {
     var thisMonth = currentYearMonth();
     var effective = effectiveRegistrableMonth_(v.registrableMonth, thisMonth);
-    var original = normalizeYearMonth_(v.registrableMonth);
     if (!effective) return '-';
-    if (effective === thisMonth) {
-      if (original && original < thisMonth) return '当月登録可能（元: ' + original + '）';
-      return '当月登録可能';
-    }
+    if (effective === thisMonth) return '当月登録可能';
     return effective;
   }
 
@@ -981,9 +977,9 @@
       metaRow_('ステア', v.steering) +
       '<div><dt>有償OP</dt><dd>' + paidOptionsHtml_(v) + '</dd></div>' +
       metaRow_('入港予定日', v.arrivalExpectedDate) +
+      metaRow_('可能月', formatRegistrableMonthDisplay_(v)) +
       metaRow_('VPC', v.vpc) +
-      '<div class="card__metaGrid__full"><dt>可能月</dt><dd>' + escapeHtml(formatRegistrableMonthDisplay_(v) || '-') + '</dd></div>' +
-      '<div class="card__metaGrid__full card__remarks"><dt>備考</dt><dd>' + escapeHtml(remarks || '-') + '</dd></div>' +
+      '<div class="card__remarks"><dt>備考</dt><dd>' + escapeHtml(remarks || '-') + '</dd></div>' +
       '</dl>';
   }
 
@@ -996,8 +992,10 @@
     } else {
       if (!v.secondHoldCustomer) {
         html += '<button class="btn" data-second-hold="' + escapeHtml(v.commission) + '">2ND HOLD</button>';
+      } else {
+        html += '<span class="card__actionSpacer" aria-hidden="true"></span>';
       }
-      html += '<button class="btn btn--primary" data-order-from-hold="' + escapeHtml(v.commission) + '">受注確定</button>';
+      html += '<button class="btn btn--primary" data-order-from-hold="' + escapeHtml(v.commission) + '">受注</button>';
     }
     html += '</div>';
     return html;
@@ -1021,7 +1019,7 @@
 
   /**
    * 「詳細を見る」タップ・表示形式「表」の行タップで開く、画面中央のモーダル
-   * （#inventoryDetailModal）用のフル版。2ND HOLD／受注確定をすぐ押せるよう
+   * （#inventoryDetailModal）用のフル版。2ND HOLD／受注をすぐ押せるよう
    * 操作ボタンを先に出し、車両スペックとHoldの契約詳細（リード番号等）は
    * 折りたたみ（既定は閉じる）にしてスクロール無しで全体が見えるようにする。
    */
@@ -1087,7 +1085,7 @@
       actions = (hasSecondHold
         ? '<span class="rowCard__actionSpacer" aria-hidden="true"></span>'
         : '<button class="btn btn--small" data-second-hold="' + escapeHtml(v.commission) + '">2ND HOLD</button>') +
-        '<button class="btn btn--small btn--primary" data-order-from-hold="' + escapeHtml(v.commission) + '">受注確定</button>';
+        '<button class="btn btn--small btn--primary" data-order-from-hold="' + escapeHtml(v.commission) + '">受注</button>';
     } else {
       actions = '<button class="btn btn--small" data-hold="' + escapeHtml(v.commission) + '">Hold</button>' +
         '<button class="btn btn--small btn--primary" data-order="' + escapeHtml(v.commission) + '">受注</button>';
@@ -2437,12 +2435,11 @@
    * クライアント側にも持ち、選択UIの描画とプレビュー適用（保存前のリアルタイム反映）に使う。
    * primary/primaryDark/primaryTextはいずれもWCAG AA基準（ボタン塗り用途で白文字との
    * コントラスト比4.5:1以上、文字用途で背景とのコントラスト比4.6:1以上）を確認済み。
-   * sidebarColorはPCビュー左端のサイドバーの背景色で、「サイドバーの色と表示設定は
-   * セットにしてほしい」という要望を受け、プリセット1つでアプリ全体の配色と
-   * サイドバーの配色の両方が一括で切り替わるようにしている。サイドバーの文字色は
-   * 固定せず、sidebarColorに対してコントラスト比の高いほう（白／濃色）を
-   * pickReadableSidebarTextColor_が毎回自動計算するため、値自体は個別の
-   * コントラスト検証をしていない（十分暗い色にしてあるため常に白文字側が選ばれる）。
+   * sidebarColorはPCビュー左端のサイドバーと、スマホ／タブレットのヘッダー
+   * （.topbar）の背景色。「サイドバーの色と表示設定はセットにしてほしい」という
+   * 要望を受け、プリセット1つでアプリ全体の配色とナビ帯の配色が切り替わる。
+   * 文字色は固定せず、sidebarColorに対してコントラスト比の高いほう（白／濃色）を
+   * pickReadableSidebarTextColor_が毎回自動計算する。
    */
   var THEME_PRESETS = [
     { key: 'steel', name: 'ブリリアントブルー', primary: '#2f6fae', primaryDark: '#102a43', primaryText: '#2f6fae', sidebarColor: '#1f3a5c' },
@@ -2609,6 +2606,13 @@
     root.setProperty('--sidebar-fg-muted', 'rgba(' + fgRgb.r + ',' + fgRgb.g + ',' + fgRgb.b + ',.68)');
     root.setProperty('--sidebar-outline', 'rgba(' + fgRgb.r + ',' + fgRgb.g + ',' + fgRgb.b + ',.14)');
     root.setProperty('--sidebar-hover-bg', 'rgba(' + fgRgb.r + ',' + fgRgb.g + ',' + fgRgb.b + ',.08)');
+    // スマホ／タブレットのヘッダー（.topbar）も同じナビ色にする。
+    // PC（901px以上）のトップバーは Stylesheet 側で --surface に上書きする。
+    root.setProperty('--topbar-bg', color);
+    root.setProperty('--on-topbar', fg);
+    root.setProperty('--dark-ui-outline', 'rgba(' + fgRgb.r + ',' + fgRgb.g + ',' + fgRgb.b + ',.14)');
+    var themeMeta = document.querySelector('meta[name="theme-color"]');
+    if (themeMeta) themeMeta.setAttribute('content', color);
   }
 
   // ----- ロゴ設定（画面上部に表示する画像。URLを直接指定するか、小さい画像を
