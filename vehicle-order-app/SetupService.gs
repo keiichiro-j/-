@@ -32,11 +32,58 @@ function setupSpreadsheet_() {
   getGClassReservationSheet_();
   getAuditLogSheet_();
   setupTimeDrivenTriggers_();
+  hidePurchaseOrderIdColumn_();
 
   var message = '在庫リスト・Holdリスト・受注リスト・発注リスト・Gクラス予約リスト・変更履歴の6タブを準備しました' +
     '（既存のシートがあればそのまま利用し、上書きはしていません）。' +
     '選択式の列にはドロップダウンの入力規則を、列見出しには入力形式の説明メモを' +
     '設定済みです。Hold期限チェックの時間主導トリガーも設定済みです。';
+  Logger.log(message);
+  return message;
+}
+
+/**
+ * 発注リストの列A（ID）を非表示列にする。IDはアプリが発注情報を一意に識別する
+ * ために内部的に使う自動採番の値（PURCHASE_ORDER_COLUMNS参照）で、利用者が
+ * 参照・編集する必要が無いため、スプレッドシートを直接開いたときに目に入らない
+ * よう列ごと隠す。データ自体は残るため、アプリの動作・既存データには影響しない
+ * （右クリック→「列の再表示」でいつでも表示し直せる）。
+ */
+function hidePurchaseOrderIdColumn_() {
+  getPurchaseOrderSheet_().hideColumns(purchaseOrderColIndex1('id'));
+}
+
+/**
+ * 既存のスプレッドシートの「ステア」列に保存済みの「右」「左」を「R」「L」へ
+ * 一括変換する一回限りのメンテナンス関数（formatCommissionColumnsAsText_と同じ
+ * 位置づけ）。ステア列を持つ在庫リスト・受注リスト・Gクラス予約リストが対象
+ * （発注リストにはステア列が無い）。「右」「左」以外の値（空欄・既にR/Lへ
+ * 変換済み等）はそのまま変更しない。
+ */
+function migrateSteeringToRL_() {
+  var targets = [
+    [getInventorySheet_(), INVENTORY_COLUMNS],
+    [getOrderSheet_(), ORDER_COLUMNS],
+    [getGClassReservationSheet_(), GCLASS_COLUMNS]
+  ];
+  var converted = 0;
+  targets.forEach(function (pair) {
+    var sheet = pair[0];
+    var colIndex1 = buildColIndex_(pair[1])['steering'] + 1;
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2) return;
+    var range = sheet.getRange(2, colIndex1, lastRow - 1, 1);
+    var values = range.getValues();
+    var changed = false;
+    for (var i = 0; i < values.length; i++) {
+      if (values[i][0] === '右') { values[i][0] = 'R'; changed = true; converted++; }
+      else if (values[i][0] === '左') { values[i][0] = 'L'; changed = true; converted++; }
+    }
+    if (changed) range.setValues(values);
+  });
+
+  var message = 'ステア列の「右」「左」を「R」「L」へ' + converted + '件変換しました' +
+    '（在庫リスト・受注リスト・Gクラス予約リストが対象）。';
   Logger.log(message);
   return message;
 }
@@ -62,6 +109,7 @@ function applySelectValidationsAndNotes_() {
     applySelectValidations_(pair[0], pair[1]);
     applyHeaderNotes_(pair[0], pair[1]);
   });
+  hidePurchaseOrderIdColumn_();
 
   var message = '在庫リスト・Holdリスト・受注リスト・発注リスト・Gクラス予約リスト・変更履歴の入力規則・列見出しの説明メモを設定しました。';
   Logger.log(message);
@@ -79,5 +127,6 @@ function onOpen() {
     .addItem('初期セットアップ（6タブを作成）', 'setupSpreadsheet_')
     .addItem('入力規則・列見出しの説明メモを再設定', 'applySelectValidationsAndNotes_')
     .addItem('コミッション列を書式なしテキストに再設定', 'formatCommissionColumnsAsText_')
+    .addItem('ステア列の「右/左」を「R/L」へ一括変換', 'migrateSteeringToRL_')
     .addToUi();
 }

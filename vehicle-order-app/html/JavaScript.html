@@ -865,7 +865,11 @@
       '<input type="checkbox" data-compare="' + escapeHtml(v.commission) + '"' + (isComparing ? ' checked' : '') + '>比較</label>';
 
     var cardTone = vehicleCardTone_(v);
-    return '<div class="card ' + cardTone + '">' +
+    // data-commissionをカード自体に持たせ、カードのどこをタップしても（ボタン・
+    // 入力・ラベル以外）詳細モーダルを開けるようにする（表示形式「表」の行タップと
+    // 同じ操作感に揃える。現場からの要望）。「▸ 詳細を見る」の文字自体は、タップ
+    // できる範囲があることを示すヒントとして残す。
+    return '<div class="card ' + cardTone + '" data-commission="' + escapeHtml(v.commission) + '">' +
       vehicleTopHtml_(v, comparePinHtml) +
       vehicleQuickMetaHtml_(v) +
       '<button type="button" class="card__detailLink" data-detail="' + escapeHtml(v.commission) + '">▸ 詳細を見る</button>' +
@@ -1297,11 +1301,11 @@
       // （カード自体は伸ばさず、他のカードとサイズを揃えたままにする）。
       openInventoryDetailModal_(target.dataset.detail);
     } else {
-      // 表示形式「表」の行タップ（チェックボックス・ボタン以外の箇所）で
-      // 車両情報の詳細モーダルを開く。
-      var rowEl = target.closest('.rowCard[data-commission]');
-      if (rowEl && !target.closest('button, input, label')) {
-        openInventoryDetailModal_(rowEl.dataset.commission);
+      // 表示形式「表」の行タップ・表示形式「カード」のカードタップ（どちらも
+      // チェックボックス・ボタン・ラベル以外の箇所）で車両情報の詳細モーダルを開く。
+      var tappable = target.closest('.rowCard[data-commission], .card[data-commission]');
+      if (tappable && !target.closest('button, input, label')) {
+        openInventoryDetailModal_(tappable.dataset.commission);
       }
     }
   }
@@ -1813,7 +1817,9 @@
    * 不具合があった）。
    */
   function orderCardHtml(o) {
-    return '<div class="orderCard">' +
+    // data-commissionをカード自体に持たせ、カードのどこをタップしても（ボタン以外）
+    // 詳細モーダルを開けるようにする（在庫リストのvehicleCardHtmlと同じパターン）。
+    return '<div class="orderCard" data-commission="' + escapeHtml(o.commission) + '">' +
       '<div class="orderCard__top">' +
       '<div><div class="orderCard__model">' + escapeHtml(o.customer || '-') + '</div>' +
       '<div class="orderCard__staff">担当者: ' + escapeHtml(o.staff || '-') + '</div>' +
@@ -1926,12 +1932,13 @@
   $('ordersGroups').addEventListener('click', function (e) {
     var btn = e.target.closest('[data-order-detail]');
     if (btn) { openOrderDetailModal_(btn.dataset.orderDetail); return; }
-    // 表示形式「表」の行タップ（ボタン・入力以外の箇所）でも、カード表示の
-    // 「詳細を見る」と同じ詳細モーダルを開く（在庫リストのhandleInventoryListClick_と
-    // 同じパターン。行に表示していない項目・受注確定日時等を確認できるようにする）。
-    var rowEl = e.target.closest('.rowCard--order[data-commission]');
-    if (rowEl && !e.target.closest('button, input, label')) {
-      openOrderDetailModal_(rowEl.dataset.commission);
+    // 表示形式「表」の行タップ・表示形式「カード」のカードタップ（どちらもボタン・
+    // 入力以外の箇所）でも、カード表示の「詳細を見る」と同じ詳細モーダルを開く
+    // （在庫リストのhandleInventoryListClick_と同じパターン。行・カードに表示して
+    // いない項目・受注確定日時等を確認できるようにする）。
+    var tappable = e.target.closest('.rowCard--order[data-commission], .orderCard[data-commission]');
+    if (tappable && !e.target.closest('button, input, label')) {
+      openOrderDetailModal_(tappable.dataset.commission);
     }
   });
 
@@ -2121,7 +2128,10 @@
   // 受注リストのorderCardHtmlと同じ考え方で、トップに顧客名・次に担当者・
   // 次にモデル（＋コミッション）の順で表示する。
   function gclassCardHtml_(v) {
-    return '<div class="card card--available">' +
+    // Gクラス予約リストは在庫あり／Hold中のような実際の状態を持たない閲覧専用
+    // リストのため、状態色（card--available）ではなくテーマカラーに連動する
+    // card--themedを使う（現場からの要望）。
+    return '<div class="card card--themed">' +
       '<div class="card__top"><div class="card__topRow">' +
       '<div><div class="card__model">' + escapeHtml(v.customer || '-') + '</div>' +
       '<div class="card__commission">担当者: ' + escapeHtml(v.staff || '-') + '</div>' +
@@ -2148,7 +2158,9 @@
    * 詳細モーダル（openGClassDetailModal_）でのみ確認する。
    */
   function gclassRowCardHtml_(v) {
-    return '<div class="rowCard rowCard--available rowCard--gclass" data-commission="' + escapeHtml(v.commission) + '">' +
+    // card--themedと同じ理由（実際の状態を持たないため、状態色ではなく
+    // テーマカラーに連動するrowCard--themedを使う）。
+    return '<div class="rowCard rowCard--themed rowCard--gclass" data-commission="' + escapeHtml(v.commission) + '">' +
       '<div class="rowCard__inner">' +
       '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(v.customer || '-') + '</span>' +
       '<span class="rowCard__commission">' + escapeHtml(v.commission) + '</span></div>' +
@@ -2421,6 +2433,12 @@
     // テーマのprimaryDarkに合わせる（現場からの要望で、テーマを切り替えると
     // ローディング画面の背景色も連動して変わるようにしている）。
     root.setProperty('--loading-bg', preset.primaryDark);
+    // スマホ表示時のヘッダー（.topbar、@media max-width: 600px、Stylesheet.html参照）の
+    // 背景も、選択中のテーマのprimaryに合わせる（現場からの要望）。primaryはボタンと
+    // 同じく白文字とのコントラスト比を確保できる明度のため、既存の白文字
+    // （--on-topbar）のまま流用できる。PCビュー・タブレットビューのヘッダーは
+    // これまでどおり固定のネイビー（--topbar-bg）のまま。
+    root.setProperty('--topbar-mobile-bg', preset.primary);
     applySidebarColor_(preset.sidebarColor);
   }
 

@@ -65,7 +65,11 @@
        少しずつ明るくし、旧配色（黒／#1a1a1d／#2a2a2e）と同じ奥行きの付け方を
        踏襲している。このネイビー基調のUI自体の文字色・枠線色は、ベース配色が
        白系になっても白文字のまま保てるよう、--on-surface / --outline とは別に
-       --on-topbar / --dark-ui-outline を用意している。 */
+       --on-topbar / --dark-ui-outline を用意している。
+       例外: スマホ表示（@media max-width: 600px）のヘッダーだけは、現場からの
+       要望でこの「常にネイビー」の方針から外し、--topbar-mobile-bgでテーマカラーに
+       連動させている（下部の--topbar-mobile-bg・スマートフォン用メディアクエリ参照。
+       比較バー・トーストや、PCビュー・タブレットビューのヘッダーはこれまでどおり）。 */
     --topbar-bg: #0b1f33;
     --on-topbar: #ffffff;
     --dark-ui-outline: rgba(255, 255, 255, .14);
@@ -74,6 +78,15 @@
        都度合わせる。ここでの値はJS実行前の初期表示用で、DEFAULT_THEME_KEY「steel」の
        primaryDark（--primary-darkと同じ#102a43）に揃えてある。 */
     --loading-bg: #102a43;
+    /* スマホ表示（@media max-width: 600px）専用のヘッダー背景色。PCビュー・
+       タブレットビューのヘッダーは、他のダークUIパーツ（比較バー・トースト）と
+       揃えるためあえて固定のネイビー（--topbar-bg）のままにしているが、スマホ
+       ビューのヘッダーだけは選んだテーマのprimaryに、JS実行後applyTheme
+       （JavaScript.html参照）が都度合わせる（現場からの要望）。primaryは
+       白文字とのコントラスト比を確保できる明度に調整済みのため、既存の白文字
+       （--on-topbar）のまま流用できる。ここでの値はJS実行前の初期表示用で、
+       DEFAULT_THEME_KEY「steel」のprimaryに揃えてある。 */
+    --topbar-mobile-bg: #2f6fae;
     /* PC専用の左サイドバー（.sidebar）だけに使うグレー背景。以前は--topbar-bg
        （ダークネイビー）を流用していたが、トップバー・比較バー・トーストと違い
        サイドバーは「常に紺色の額縁」という統一を必要としない単独のナビ帯の
@@ -132,7 +145,10 @@
   /* ===== ヘッダー / タブ =====
      position: fixed で画面上部に完全固定する（position: stickyだとスクロール中に
      わずかに追従が遅れて見えることがあるため、実測値ベースで確実に固定する。
-     JavaScript.html の syncFixedBars_ 参照）。 */
+     JavaScript.html の syncFixedBars_ 参照）。背景色はPCビュー・タブレットビューでは
+     固定のネイビー（--topbar-bg）のままだが、スマホ表示（@media max-width: 600px）
+     だけはテーマカラーに連動する（--topbar-mobile-bg、下のスマートフォン用
+     メディアクエリ参照。現場からの要望）。 */
   #app { padding-top: var(--topbar-h); }
   .topbar {
     background: var(--topbar-bg);
@@ -653,6 +669,9 @@
      いるが、:hover は詳細度が高く上書きしてしまう）。 */
   .rowCard:hover { box-shadow: var(--shadow-elevated); transform: translateY(-2px); border-top-color: transparent; border-right-color: transparent; border-bottom-color: transparent; }
   .rowCard--available { border-left-color: var(--success); }
+  /* card--themedと同じ理由（Gクラス予約リストの行は実際の状態を持たないため、
+     状態色ではなくテーマカラーを装飾として使う）。 */
+  .rowCard--themed { border-left-color: var(--primary); }
   .rowCard--hold { border-left-color: var(--warning); }
   .rowCard--hold2 { border-left-color: var(--danger); }
   .rowCard--holdSpecial { border-left-color: var(--hold-special); }
@@ -696,8 +715,8 @@
   .rowCard__field--center .rowCard__value {
     text-align: center;
   }
-  .rowCard__model { font-size: 15px; font-weight: 700; letter-spacing: -.005em; }
-  .rowCard__commission { font-size: 11px; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; margin-top: 1px; }
+  .rowCard__model { font-size: 15px; font-weight: 700; letter-spacing: -.005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rowCard__commission { font-size: 11px; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* 高さ固定・内部スクロール（.card__holdArea と同じ考え方）。Hold中はHOLD解除
      リンクが1本、Hold中（2nd有）は2本に増えて縦に伸びる分だけ、状態列だけが
      他の列より高くなり、行（カード）自体の高さが在庫あり／Hold中／Hold中（2nd有）で
@@ -801,9 +820,21 @@
     gap: 14px;
     transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
   }
+  /* data-commissionを持つカード（在庫リスト・マイページのHold中車両一覧。
+     vehicleCardHtml参照）は、カードのどこをタップしても（ボタン・入力・ラベル
+     以外）詳細モーダルを開けるため、クリック可能であることを示すポインタカーソルに
+     する（handleInventoryListClick_参照）。属性で絞るのは、同じ.cardクラスを使う
+     Gクラス予約リストのカード（タップ操作を持たない。全情報を最初から表示済みの
+     ため詳細モーダル自体が無い）にまでポインタカーソルが付いて誤解を招かないため。 */
+  .card[data-commission] { cursor: pointer; }
   /* rowCard:hover と同じ理由で、border-left-color（在庫状況の色）はホバー時も維持する。 */
   .card:hover { box-shadow: var(--shadow-elevated); transform: translateY(-3px); border-top-color: transparent; border-right-color: transparent; border-bottom-color: transparent; }
   .card--available { border-left-color: var(--success); }
+  /* Gクラス予約リストのカード用。在庫あり／Hold中のような実際の状態を持たない
+     閲覧専用リストのため、状態色（--success等）ではなく選択中のテーマカラー
+     （--primary）を装飾として使う（現場からの要望。テーマを切り替えると
+     このカードの左罫線も連動して変わる）。 */
+  .card--themed { border-left-color: var(--primary); }
   .card--hold { border-left-color: var(--warning); }
   /* 1st・2nd Holdの両方が埋まっている車両は、これ以上の受け皿がない分、他より
      目立たせる（現場の声を踏まえ、Hold1件のみとは別の色にする）。 */
@@ -818,6 +849,12 @@
      2行に固定することで、組み合わせに関わらず常に同じ高さになる。 */
   .card__top { display: flex; flex-direction: column; gap: 8px; }
   .card__topRow { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  /* モデル名・コミッションを常に1行に収める（折り返し無し。現場からの要望）。
+     直接の子要素（無名のdiv）は、flexアイテムの既定値min-width: autoのままだと
+     内容ぶんの幅までしか縮まず、隣（比較ピン）を押し出したり右側でオーバーフロー
+     したりするため、min-width: 0で縮小を許可し、ellipsisが実際に働くようにする。 */
+  .card__topRow > div:first-child { min-width: 0; }
+  .card__model, .card__commission { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .card__model { font-size: 21px; font-weight: 500; letter-spacing: -.01em; line-height: 1.25; }
   .card__commission {
     font-size: 12.5px;
@@ -873,7 +910,10 @@
      値は大きく太くというメリハリのある「テスラ風」の見出し表現で視認性を高める。 */
   .card__metaGrid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    /* minmax(0, 1fr)にする理由は.cardGridと同じ（1fr単独だと、値が長い場合に
+       トラック自体がその内容ぶんまで広がってしまい、下のdd（値）に指定した
+       ellipsisが効かず、カードの外へはみ出してしまう）。 */
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px 16px;
     margin: 0;
     padding: 12px 0 0;
@@ -887,8 +927,12 @@
     letter-spacing: .07em;
     text-transform: uppercase;
     margin-bottom: 3px;
+    white-space: nowrap;
   }
-  .card__metaGrid dd { margin: 0; font-size: 14.5px; font-weight: 600; color: var(--on-surface); line-height: 1.3; }
+  .card__metaGrid dd {
+    margin: 0; font-size: 14.5px; font-weight: 600; color: var(--on-surface); line-height: 1.3;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
 
   /* Hold状況エリアは高さ固定・内部スクロール。Hold/2nd Holdが増えてもここで吸収し、
      カード自体の高さは在庫あり／Hold／2nd Holdのどの状態でも常に一定に保たれる。 */
@@ -958,6 +1002,10 @@
     font-weight: 700;
     letter-spacing: .02em;
     text-transform: uppercase;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .card__holdInfo--first { border-left-color: var(--warning); }
   .card__holdInfo--first .card__holdInfo__label { color: var(--warning); }
@@ -967,7 +1015,10 @@
      （--first/--secondと同時に付与されるクラスのため、後に書くことで優先させる）。 */
   .card__holdInfo--special { border-left-color: var(--hold-special); background: var(--hold-special-bg); }
   .card__holdInfo--special .card__holdInfo__label { color: var(--hold-special); }
-  .card__holdInfo__row { margin-bottom: 6px; }
+  /* 顧客名・担当者名・拠点名は現場の入力次第で長くなり得るため、折り返さず
+     1行に収めて超過分は省略記号にする（現場からの要望。折り返すと、固定高さの
+     .card__holdArea内で行数が増えるぶん縦スクロールが必要になる場面が増える）。 */
+  .card__holdInfo__row { margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .card__holdInfo__cancel {
     border: none;
     background: none;
@@ -1060,13 +1111,21 @@
     display: flex;
     flex-direction: column;
     gap: 14px;
+    cursor: pointer;
     transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
   }
   /* card:hover と同じ理由で、border-left-color（アクセントカラー）はホバー時も維持する。 */
   .orderCard:hover { box-shadow: var(--shadow-elevated); transform: translateY(-3px); border-top-color: transparent; border-right-color: transparent; border-bottom-color: transparent; }
-  .orderCard__top { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 10px; }
-  .orderCard__top .card__badges { margin-left: auto; }
+  /* 顧客名・担当者名・車種は現場の入力次第で長くなり得るため折り返さず、
+     拠点バッジは常に右端に固定表示する（現場からの要望。折り返すとカードの
+     高さが案件ごとにばらつく）。flex-wrap: nowrap＋左側（顧客名側）に
+     min-width: 0を指定し、右側のバッジ（flex: none）を押し出さずに
+     左側だけが縮んでellipsisになるようにする。 */
+  .orderCard__top { display: flex; flex-wrap: nowrap; align-items: flex-start; gap: 8px 10px; }
+  .orderCard__top > div:first-child { min-width: 0; }
+  .orderCard__top .card__badges { margin-left: auto; flex: none; }
   .orderCard__top .card__badges .badge { margin-left: 0; }
+  .orderCard__model, .orderCard__staff, .orderCard__vehicle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .orderCard__model { font-size: 21px; font-weight: 500; letter-spacing: -.01em; line-height: 1.25; }
   .orderCard__staff { font-size: 13.5px; font-weight: 600; color: var(--on-surface-variant); margin-top: 3px; }
   /* 車種は「誰が・何を買ったか」をひと目で確認できるよう、常に表示する
@@ -1136,8 +1195,14 @@
     flex-direction: column;
     gap: 14px;
   }
-  .purchaseOrderCard__top { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 10px; }
-  .purchaseOrderCard__top .badge { margin-left: auto; }
+  /* orderCard__topと同じ考え方（顧客名・担当者・車種は折り返さず、拠点バッジは
+     常に右端に固定。現場からの要望）。 */
+  .purchaseOrderCard__top { display: flex; flex-wrap: nowrap; align-items: flex-start; gap: 8px 10px; }
+  .purchaseOrderCard__top > div:first-child { min-width: 0; }
+  .purchaseOrderCard__top .badge { margin-left: auto; flex: none; }
+  .purchaseOrderCard__customer, .purchaseOrderCard__staff, .purchaseOrderCard__vehicle, .purchaseOrderCard__sub {
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
   .purchaseOrderCard__customer { font-size: 21px; font-weight: 500; letter-spacing: -.01em; line-height: 1.25; }
   .purchaseOrderCard__staff { font-size: 13.5px; font-weight: 600; color: var(--on-surface-variant); margin-top: 3px; }
   .purchaseOrderCard__vehicle { font-size: 14px; font-weight: 600; color: var(--on-surface); margin-top: 4px; }
@@ -2529,6 +2594,10 @@
 
   /* ===== スマートフォン ===== */
   @media (max-width: 600px) {
+    /* スマホ表示のヘッダーだけ、選んだテーマカラー（--topbar-mobile-bg）に
+       連動させる（現場からの要望。PCビュー・タブレットビューのヘッダーは
+       他のダークUIパーツと揃えるため固定のネイビーのまま）。 */
+    .topbar { background: var(--topbar-mobile-bg); }
     .topbar__brandRow { padding: 12px; gap: 8px; }
     .tabs { padding: 0 12px 10px; gap: 20px; }
     .integrityBanner { padding: 8px 12px; font-size: 12.5px; flex-wrap: wrap; }

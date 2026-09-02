@@ -53,7 +53,10 @@ var HOLD_TYPE_LABELS = {
 };
 
 // ===== 選択肢 =====
-var STEERING_OPTIONS = ['右', '左'];
+// 「右」「左」から「R」「L」表記へ変更（現場からの要望）。既存シートに保存済みの
+// 「右」「左」の値は、SetupService.gsのmigrateSteeringToRL_（スプレッドシートの
+// メニューから実行可能）で一括変換できる。
+var STEERING_OPTIONS = ['R', 'L'];
 var STOCK_DISCLOSURE_OPTIONS = ['開示', '非開示'];
 var YES_NO_OPTIONS = ['あり', 'なし'];
 var OSS_OPTIONS = ['可', '不可'];
