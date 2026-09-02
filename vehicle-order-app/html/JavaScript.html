@@ -3264,7 +3264,8 @@
       // PCビューは、サイドバー＋1本のカードグリッド（3枚1行）というシンプルな構成
       // にしたため（Index.html参照）、型グループの見出しは出さずフラットに並べ、
       // 各カードに写真・在庫台数・（グレードがあれば）3列×2行のグレードカードを
-      // すべてタップ・クリックなしで見える形で埋め込む（homeModelCardHtml_参照）。
+      // 見える形で埋め込む。写真タップでそのモデルの全グレード在庫へ行く
+      // （homeModelCardHtml_参照）。
       $('homeGrid').innerHTML = homeVisibleModelsFlat_()
         .map(function (p) { return homeModelCardHtml_(p, allItems, modelPhotos); })
         .join('');
@@ -3327,10 +3328,11 @@
    * PCビューのホーム画面カード1件分のHTML（renderHomeGallery_からhomeVisibleModelsFlat_
    * の順にフラットに呼び出す）。写真・モデル名・ボディタイプ・在庫台数バッジを
    * すべてタップ・クリックなしでカード自体に表示し、グレードが設定されている
-   * モデルはさらに3列×2行のグレードカードをカード内に埋め込む（クリックすると
+   * モデルはさらに3列×2行のグレードカードをカード内に埋め込む（チップをクリックすると
    * そのグレード1件に絞り込んだ在庫リストへ遷移する。data-home-gradeは
-   * #homeGridのクリック委譲で処理する）。グレードが無いモデルはカード全体が
-   * ボタンになっており、クリックするとそのモデルに絞り込んだ在庫リストへ
+   * #homeGridのクリック委譲で処理する）。写真をタップすると、そのモデルの
+   * 全グレードを在庫リストで見る（data-home-all-grades）。グレードが無いモデルは
+   * カード全体がボタンになっており、クリックするとそのモデルに絞り込んだ在庫リストへ
    * 遷移する。
    */
   function homeModelCardHtml_(p, allItems, allModelPhotos) {
@@ -3351,25 +3353,58 @@
         '</div>'
       : '';
     // グレードが無いモデルは、カード自体をクリックすると在庫リストへ絞り込み
-    // 遷移する。グレードがあるモデルは、グレードカードの1つをクリックして
-    // 初めて遷移する構成のため、カード自体は非活性のままにする。どちらも
-    // <button>ではなく<div>で描画する（ブラウザのネイティブ<button>は
+    // 遷移する。グレードがあるモデルは、写真タップで全グレード、チップで1グレード。
+    // どちらもカード外枠は<button>ではなく<div>（ブラウザのネイティブ<button>は
     // padding: 0等で打ち消せない内部余白を持つため、写真をカード上端に
     // ぴったり合わせられない。タブレット・スマホ幅の展開中タイル
     // （.homeRow.is-expanded、homeModelTileHtml_参照）と同じ理由）。
     // キーボード操作（Enter/Spaceキー）は#homeGridへのkeydown委譲リスナーで
     // 別途対応する。
     var tileAttrs = hasGrades ? '' : ' role="button" tabindex="0"';
+    var photoInner = '<img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '">' + stockHtml;
+    var photoHtml = hasGrades
+      ? '<button type="button" class="homeCard__photo homeCard__photo--allGrades" data-home-all-grades="true" aria-label="' +
+        escapeHtml(p.model) + 'の全グレードを見る">' + photoInner +
+        '<span class="homeCard__photoHint">全グレードを見る</span></button>'
+      : '<div class="homeCard__photo">' + photoInner + '</div>';
     return '<div class="homeCard' + (hasGrades ? '' : ' homeCard--clickable') + '"' +
       tileAttrs +
       ' data-home-model="' + escapeHtml(p.model) + '"' +
       (hasGrades ? ' data-has-grades="true"' : '') + '>' +
-      '<div class="homeCard__photo"><img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '">' + stockHtml + '</div>' +
+      photoHtml +
       '<div class="homeCard__body">' +
       '<div class="homeCard__headRow"><span class="homeCard__model">' + escapeHtml(p.model) + '</span>' + typeHtml + '</div>' +
       gradeGridHtml +
       '</div>' +
       '</div>';
+  }
+
+  /**
+   * ホームのベースモデルに属するグレード名（在庫リストのモデル列）をすべて返す。
+   * 写真タップで全グレード在庫を出すときに使う。
+   */
+  function allGradesForHomeModel_(modelName) {
+    var photos = state.modelPhotos || [];
+    var entry = null;
+    for (var i = 0; i < photos.length; i++) {
+      if (photos[i].model === modelName) { entry = photos[i]; break; }
+    }
+    if (!entry) return [];
+    return gradeCountsForEntry_(entry, state.allInventoryItems || [], photos).byGrade.map(function (g) {
+      return g.grade;
+    });
+  }
+
+  function openInventoryForHomeGrades_(grades, fallbackModel) {
+    switchToTab_('inventory');
+    if (grades && grades.length) {
+      state.homeGradeFilter = grades;
+      $('inventoryKeyword').value = '';
+    } else {
+      state.homeGradeFilter = null;
+      $('inventoryKeyword').value = fallbackModel || '';
+    }
+    loadInventory();
   }
 
   /**
@@ -3626,15 +3661,12 @@
   });
   $('myPagePurchaseOrderList').addEventListener('click', handlePurchaseOrderListClick_);
   $('myPageGClassList').addEventListener('click', handleGClassListClick_);
-  // グレードタブ（Aクラス行の展開で現れるA180・A200等）をクリックすると、
-  // そのグレード1件だけに絞り込んだ在庫リストへ遷移する（タブレット・スマホ幅の
-  // インライン展開でのみ発生。PCビューのグレードタブは#homeDetail側にあり、
-  // そちらの専用リスナーで処理する）。
-  // ベースモデル行は、PCビューでは常に右ペイン（#homeDetail）にそのモデルの
-  // 詳細を表示するだけで、その場での展開・在庫リストへの遷移は行わない
-  // （isPcHomeLayout_）。タブレット・スマホ幅では従来どおり、グレードが設定
-  // されていれば展開／折りたたみのトグルのみ行い（在庫リストへは遷移しない）、
-  // 未設定であれば従来通りモデル名をキーワード検索欄に入れて在庫リストへ遷移する。
+  // グレードタブ／チップをクリックすると、そのグレード1件だけに絞り込んだ
+  // 在庫リストへ遷移する。PCビューで車両写真をタップすると、そのモデルの
+  // 全グレードを在庫リストで見る（data-home-all-grades）。タブレット・スマホ幅では
+  // 従来どおり、グレードが設定されていれば展開／折りたたみのトグルのみ行い
+  // （在庫リストへは遷移しない）、未設定であればモデル名をキーワード検索欄に
+  // 入れて在庫リストへ遷移する。
   $('homeGrid').addEventListener('click', function (e) {
     var gradeTab = e.target.closest('[data-home-grade]');
     if (gradeTab) {
@@ -3644,19 +3676,19 @@
       loadInventory();
       return;
     }
+    var allGradesBtn = e.target.closest('[data-home-all-grades]');
+    if (allGradesBtn) {
+      var photoTile = allGradesBtn.closest('[data-home-model]');
+      var modelName = photoTile ? photoTile.dataset.homeModel : '';
+      openInventoryForHomeGrades_(allGradesForHomeModel_(modelName), modelName);
+      return;
+    }
     var tile = e.target.closest('[data-home-model]');
     if (!tile) return;
     if (isPcHomeLayout_()) {
-      // PCのグレード付きカードは非活性の<div>（グレードチップ以外の部分を
-      // クリックしても何も起きない。data-has-grades="true"は付けているが、
-      // タブレット・スマホ幅のようなその場での展開機能はPCには無いため）。
-      // グレード無しカードのみ<button>で、クリックするとそのモデルに
-      // 絞り込んだ在庫リストへ遷移する。
+      // グレード無しカードはカード全体のクリックで、そのモデルに絞り込む。
       if (tile.dataset.hasGrades !== 'true') {
-        switchToTab_('inventory');
-        state.homeGradeFilter = null;
-        $('inventoryKeyword').value = tile.dataset.homeModel;
-        loadInventory();
+        openInventoryForHomeGrades_([], tile.dataset.homeModel);
       }
       return;
     }
@@ -3686,6 +3718,8 @@
   // Enter/Spaceキー押下時にクリックイベントを発火させる。
   $('homeGrid').addEventListener('keydown', function (e) {
     if (e.key !== 'Enter' && e.key !== ' ') return;
+    // 写真（全グレード）・グレードチップはネイティブの<button>なので、ここでは触らない。
+    if (e.target.closest('[data-home-all-grades], [data-home-grade], button, a')) return;
     var target = e.target.closest('[data-home-model]');
     if (!target) return;
     e.preventDefault();
