@@ -14,7 +14,6 @@
     inventoryItems: [],
     inventoryGroups: [],
     inventoryViewMode: safeLocalStorageGet_('inventoryViewMode') || 'card', // 'card' | 'table'（在庫リストの表示形式。端末ごとにlocalStorageへ保存）
-    compareItems: [], // 比較中の車両（在庫リストのピンで選択。最大COMPARE_MAX台）
     ordersViewMode: safeLocalStorageGet_('ordersViewMode') || 'card', // 'card' | 'table'（受注リストの表示形式）
     ordersGroups: [],
     action: null, // { type: 'hold' | 'secondHold' | 'order' | 'orderFromHold', commission }
@@ -39,7 +38,6 @@
     paidOptionMaster: [], // 有償OPマスタ（{code, name}）。設定タブ編集用＋名称ポップアップ用
     inventoryMonthFilterReady: false // 可能月プルダウンの初回構築前は「当月登録可能」を初期値にする
   };
-  var COMPARE_MAX = 3;
 
   // ===== google.script.run を Promise 化するヘルパー =====
   // サーバー側が応答しない場合にボタンやモーダルが固まって見えないよう、
@@ -611,9 +609,8 @@
    * サーバー側から届く車両データの commission は、スプレッドシートのコミッション
    * セルがまだ「書式なしテキスト」になっていない場合、文字列ではなく数値（例: 2004）に
    * なっていることがある（holdMatchesCommission_ 参照。同じ問題のクライアント版）。
-   * 一方、HTML要素の data-compare 等の属性値は常に文字列になるため、===で比較すると
-   * 型が一致せず「一致しないはずなのに一致しない」不具合になる（比較機能で
-   * 「この車両の情報が見つからない」と表示されてしまっていた不具合の原因）。
+   * 一方、HTML要素の data-hold 等の属性値は常に文字列になるため、===で比較すると
+   * 型が一致せず「一致しないはずなのに一致しない」不具合になる。
    * 必ず文字列化してから比較することで、型の違いに影響されないようにする。
    */
   function commissionEquals_(a, b) {
@@ -625,13 +622,6 @@
     var d = new Date(epochMs);
     return d.getFullYear() + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0') +
       ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
-  }
-
-  function paidOptionsText(item) {
-    var keys = (state.bootstrap && state.bootstrap.paidOptionKeys) ||
-      ['paidOption1', 'paidOption2', 'paidOption3', 'paidOption4', 'paidOption5', 'paidOption6', 'paidOption7'];
-    var values = keys.map(function (k) { return item[k]; }).filter(function (v) { return v; });
-    return values.length ? values.join('、') : '-';
   }
 
   function paidOptionMasterList_() {
@@ -963,19 +953,15 @@
   }
 
   /**
-   * カード上部（モデル・コミッション・比較ピンの行＋バッジの行）。2行に分けて
+   * カード上部（モデル・コミッションの行＋バッジの行）。2行に分けて
    * 固定することで、バッジの個数（2個／3個）やモデル名・コミッションの文字数に
-   * よって折り返し方が変わり、カードごとに高さがバラつく問題を避ける（以前は
-   * 1つのflex-wrapコンテナに全部まとめていたため、組み合わせによって1行に
-   * 収まったり2行・3行になったりし、在庫あり／Hold中／Hold中（2nd有）で
-   * カードの高さが揃わなかった）。
+   * よって折り返し方が変わり、カードごとに高さがバラつく問題を避ける。
    */
-  function vehicleTopHtml_(v, comparePinHtml) {
+  function vehicleTopHtml_(v) {
     return '<div class="card__top">' +
       '<div class="card__topRow">' +
       '<div><div class="card__model">' + escapeHtml(v.model) + '</div>' +
       '<div class="card__commission">' + escapeHtml(v.commission) + '</div></div>' +
-      (comparePinHtml || '') +
       '</div>' +
       '<div class="card__badges">' + vehicleBadgesHtml_(v) + '</div>' +
       '</div>';
@@ -1023,13 +1009,9 @@
    * 車両スペック（ステア・有償OP等）やHoldの契約詳細は「詳細を見る」のモーダルへ。
    */
   function vehicleCardHtml(v) {
-    var isComparing = isComparingCommission_(v.commission);
-    var comparePinHtml = '<label class="card__comparePin">' +
-      '<input type="checkbox" data-compare="' + escapeHtml(v.commission) + '"' + (isComparing ? ' checked' : '') + '>比較</label>';
-
     var cardTone = vehicleCardTone_(v);
     return '<div class="card ' + cardTone + '">' +
-      vehicleTopHtml_(v, comparePinHtml) +
+      vehicleTopHtml_(v) +
       vehicleQuickMetaHtml_(v) +
       '<button type="button" class="card__detailLink" data-detail="' + escapeHtml(v.commission) + '">▸ 詳細を見る</button>' +
       vehicleHoldSlotsHtml_(v, false) +
@@ -1039,125 +1021,23 @@
 
   /**
    * 「詳細を見る」タップ・表示形式「表」の行タップで開く、画面中央のモーダル
-   * （#inventoryDetailModal）用のフル版。車両スペック・Holdの詳細（リード番号等）
-   * も省略せずすべて表示する（openInventoryDetailModal_参照）。
+   * （#inventoryDetailModal）用のフル版。2ND HOLD／受注確定をすぐ押せるよう
+   * 操作ボタンを先に出し、車両スペックとHoldの契約詳細（リード番号等）は
+   * 折りたたみ（既定は閉じる）にしてスクロール無しで全体が見えるようにする。
    */
   function vehicleDetailHtml_(v) {
     var cardTone = vehicleCardTone_(v);
     return '<div class="card ' + cardTone + '">' +
-      vehicleTopHtml_(v, '') +
+      vehicleTopHtml_(v) +
       vehicleQuickMetaHtml_(v) +
-      vehicleSpecFieldsHtml_(v) +
       vehicleHoldSlotsHtml_(v, true) +
       vehicleActionsHtml_(v) +
+      '<details class="card__fold">' +
+      '<summary>車両スペック</summary>' +
+      vehicleSpecFieldsHtml_(v) +
+      '</details>' +
       '</div>';
   }
-
-  // ===== 車両比較（在庫リストのカード・表それぞれのピンから最大COMPARE_MAX台まで選び、
-  // スペックを並べて見比べる。商談中に似た条件の車両を比較する場面を想定した機能）。 =====
-  function isComparingCommission_(commission) {
-    return state.compareItems.some(function (v) { return commissionEquals_(v.commission, commission); });
-  }
-
-  function toggleCompare_(commission, checked) {
-    try {
-      if (checked) {
-        if (state.compareItems.length >= COMPARE_MAX) {
-          showToast('比較は最大' + COMPARE_MAX + '台までです', true);
-          document.querySelectorAll('[data-compare="' + commission + '"]').forEach(function (el) { el.checked = false; });
-          return;
-        }
-        var vehicle = findVehicleByCommission(commission);
-        if (!vehicle) {
-          showToast('この車両の情報が見つからないため比較に追加できません。検索条件を変えている場合は解除してからお試しください。', true);
-          document.querySelectorAll('[data-compare="' + commission + '"]').forEach(function (el) { el.checked = false; });
-          return;
-        }
-        state.compareItems.push(vehicle);
-      } else {
-        state.compareItems = state.compareItems.filter(function (v) { return !commissionEquals_(v.commission, commission); });
-      }
-      syncComparePins_();
-      renderCompareBar_();
-    } catch (e) {
-      showToast('比較の切り替えに失敗しました: ' + e.message, true);
-    }
-  }
-
-  function syncComparePins_() {
-    var activeSet = {};
-    state.compareItems.forEach(function (v) { activeSet[v.commission] = true; });
-    // マイページの「Hold中の車両」一覧（#myPageHoldList）も在庫リストと同じ
-    // 比較ピン（vehicleCardHtml）を再利用しているため、あわせて同期する。
-    document.querySelectorAll('#inventoryList [data-compare], #myPageHoldList [data-compare]').forEach(function (el) {
-      el.checked = !!activeSet[el.dataset.compare];
-    });
-  }
-
-  function renderCompareBar_() {
-    var items = state.compareItems;
-    $('compareBar').classList.toggle('hidden', items.length === 0);
-    $('compareBarChips').innerHTML = items.map(function (v) {
-      return '<span class="compareChip">' + escapeHtml(v.model) +
-        '<button type="button" data-compare-remove="' + escapeHtml(v.commission) + '" aria-label="比較から外す">&times;</button></span>';
-    }).join('');
-    $('btnCompareShow').disabled = items.length < 2;
-  }
-
-  var COMPARE_FIELDS = [
-    { label: 'モデル', get: function (v) { return v.model; } },
-    { label: 'コミッション', get: function (v) { return v.commission; } },
-    { label: '状態', get: function (v) { return v.holdStatus === 'hold' ? 'Hold中' : '在庫あり'; } },
-    { label: 'MP', get: function (v) { return v.mp; } },
-    { label: 'ステア', get: function (v) { return v.steering; } },
-    { label: '外装', get: function (v) { return v.exteriorColor; } },
-    { label: '内装', get: function (v) { return v.interiorColor; } },
-    { label: '有償OP', get: function (v) { return paidOptionsText(v); } },
-    { label: '入港予定日', get: function (v) { return v.arrivalExpectedDate; } },
-    { label: '可能月', get: function (v) { return formatRegistrableMonthDisplay_(v); } },
-    { label: 'VPC', get: function (v) { return v.vpc; } },
-    { label: '在庫開示', get: function (v) { return v.stockDisclosure; } },
-    { label: '備考', get: function (v) { return v.remarks; } }
-  ];
-
-  function renderCompareTable_() {
-    var items = state.compareItems;
-    var table = $('compareTable');
-    if (!items.length) { table.innerHTML = ''; return; }
-    var headerCells = '<th></th>' + items.map(function (v) {
-      return '<th>' + escapeHtml(v.model) + '<div class="compareTable__sub">' + escapeHtml(v.commission) + '</div></th>';
-    }).join('');
-    var bodyRows = COMPARE_FIELDS.map(function (f) {
-      var values = items.map(function (v) { return f.get(v) || '-'; });
-      var isDiff = values.some(function (val) { return val !== values[0]; });
-      var cells = values.map(function (val) { return '<td>' + escapeHtml(val) + '</td>'; }).join('');
-      return '<tr class="' + (isDiff ? 'is-diff' : '') + '"><th>' + escapeHtml(f.label) + '</th>' + cells + '</tr>';
-    }).join('');
-    table.innerHTML = '<thead><tr>' + headerCells + '</tr></thead><tbody>' + bodyRows + '</tbody>';
-  }
-
-  $('compareBarChips').addEventListener('click', function (e) {
-    var btn = e.target.closest('[data-compare-remove]');
-    if (!btn) return;
-    toggleCompare_(btn.dataset.compareRemove, false);
-  });
-
-  $('btnCompareClear').addEventListener('click', function () {
-    state.compareItems = [];
-    syncComparePins_();
-    renderCompareBar_();
-  });
-
-  $('btnCompareShow').addEventListener('click', function () {
-    if (state.compareItems.length < 2) return;
-    try {
-      renderCompareTable_();
-      openModal($('compareModal'));
-    } catch (e) {
-      // 比較表の描画に失敗しても無反応にはせず、必ずトーストで知らせる。
-      showToast('比較表の表示に失敗しました: ' + e.message, true);
-    }
-  });
 
   // ===== 在庫リストの表示形式切替（カード／表） =====
   function syncViewToggle_() {
@@ -1202,17 +1082,16 @@
   function vehicleRowCardHtml(v) {
     var isHold = v.holdStatus === 'hold';
     var hasSecondHold = isHold && !!v.secondHoldCustomer;
-    var isComparing = isComparingCommission_(v.commission);
-    // 比較チェックボックスは操作ボタンの並びの末尾に置く（モデル名・コミッションは
-    // 添付の参照UIに合わせて2行だけのシンプルな見た目にするため。以前はモデル名の
-    // 上に置いていたが、参照UIには比較チェックの表示が無く、モデル名の直前に
-    // チェックボックスの行が挟まると参照UIより1行分縦に間延びして見えるため移動した）。
-    var comparePinHtml = '<label class="rowCard__comparePin"><input type="checkbox" data-compare="' + escapeHtml(v.commission) + '"' + (isComparing ? ' checked' : '') + '>比較</label>';
-    var actions = isHold
-      ? ('<button class="btn btn--small btn--primary" data-order-from-hold="' + escapeHtml(v.commission) + '">受注確定</button>' +
-         (!v.secondHoldCustomer ? '<button class="btn btn--small" data-second-hold="' + escapeHtml(v.commission) + '">2ND HOLD</button>' : ''))
-      : ('<button class="btn btn--small" data-hold="' + escapeHtml(v.commission) + '">Hold</button>' +
-         '<button class="btn btn--small btn--primary" data-order="' + escapeHtml(v.commission) + '">受注</button>');
+    var actions;
+    if (isHold) {
+      actions = (hasSecondHold
+        ? '<span class="rowCard__actionSpacer" aria-hidden="true"></span>'
+        : '<button class="btn btn--small" data-second-hold="' + escapeHtml(v.commission) + '">2ND HOLD</button>') +
+        '<button class="btn btn--small btn--primary" data-order-from-hold="' + escapeHtml(v.commission) + '">受注確定</button>';
+    } else {
+      actions = '<button class="btn btn--small" data-hold="' + escapeHtml(v.commission) + '">Hold</button>' +
+        '<button class="btn btn--small btn--primary" data-order="' + escapeHtml(v.commission) + '">受注</button>';
+    }
     var isSpecialHold = isHold && !!(v.holdHoldType && v.holdHoldType !== 'normal');
     var statusBadge = isSpecialHold
       ? ('<span class="badge badge--holdSpecial"><span class="badge__dot"></span>' +
@@ -1226,16 +1105,13 @@
     if (hasInspectionCutRemark_(v.remarks)) rowTone += ' rowCard--inspectionCut';
 
     // 表示形式「表」は、ひと目で商談に必要な項目（ステータス・モデル・コミッション・
-    // MP・ステア・カラー・有償OP・操作ボタン・比較チェック）だけを横1行に並べ、
-    // それ以外の項目（入港予定日・可能月・VPC等）は行に含めない（現場からの指摘。
-    // 「横スクロールなしで確認できる項目」を絞ることで、画面幅に関わらず折り返し
-    // 無しで1行に収まりやすくする）。行に含めない項目も含め、車両情報をすべて
-    // 省略せず見たい場合は、行（チェックボックス・ボタン以外の箇所）をタップすると
-    // 開く詳細モーダル（openInventoryDetailModal_・vehicleDetailHtml_）で確認できる。
-    // 操作ボタン列（比較チェック含む）は、参照UIに合わせて行の右端に寄せて表示する
-    // （.rowCard__actions・Stylesheet.html参照）。
-    // HOLD解除は状態列に置かない（解除リンクが増えると在庫あり行より縦に伸びる）。
-    // 1ST/2ND HOLD列の値と同じ行に「解除」を置き、未登録時は同じ幅のスペーサーを入れて高さを揃える。
+    // MP・ステア・カラー・有償OP・操作ボタン）だけを横1行に並べ、
+    // それ以外の項目（入港予定日・可能月・VPC等）は行に含めない。
+    // 行に含めない項目も含め、車両情報をすべて省略せず見たい場合は、行（ボタン以外の
+    // 箇所）をタップすると開く詳細モーダルで確認できる。
+    // HOLD解除は状態列に置かない。1ST/2ND HOLD列の値と同じ行に「解除」を置き、
+    // 未登録時は同じ幅のスペーサーを入れて高さを揃える。操作ボタンは常に2枠
+    // （2ND HOLD未登録時はスペーサー）にして、HOLDの有無で行高さが変わらないようにする。
     return '<div class="rowCard ' + rowTone + '" data-commission="' + escapeHtml(v.commission) + '">' +
       '<div class="rowCard__inner">' +
       '<div class="rowCard__status">' + statusBadge + '</div>' +
@@ -1249,7 +1125,7 @@
       '<div class="rowCard__field rowCard__field--center"><span class="rowCard__label">有償OP</span>' +
       '<span class="rowCard__value">' + paidOptionsHtml_(v) + '</span></div>' +
       rowHoldFieldsHtml_(v) +
-      '<div class="rowCard__actions">' + actions + comparePinHtml + '</div>' +
+      '<div class="rowCard__actions">' + actions + '</div>' +
       '</div>' +
       '</div>';
   }
@@ -1275,13 +1151,15 @@
   // 隠れることがあった。縦2枠・高さ自動にして、両方を省略せず見せる。
   function holdSlotEmptyHtml_(label, rank, compact) {
     if (compact) {
-      // カード一覧は登録済み枠と同じ1行グリッド（ラベル・未登録・タイマー幅・解除幅）にし、
+      // カード一覧は登録済み枠と同じ構造（見出し＋未登録＋タイマー枠）にし、
       // HOLDの有無でカードの高さが変わらないようにする。
       return '<div class="card__holdInfo card__holdInfo--' + rank + ' card__holdInfo--empty card__holdInfo--compact">' +
+        '<div class="card__holdInfo__head">' +
         '<span class="card__holdInfo__label">' + label + '</span>' +
-        '<div class="card__holdInfo__row card__holdInfo__row--empty">未登録</div>' +
-        '<div class="holdTimer holdTimer--placeholder" aria-hidden="true"><div class="holdTimer__text"></div></div>' +
         '<span class="card__holdInfo__cancel card__holdInfo__cancel--spacer" aria-hidden="true"></span>' +
+        '</div>' +
+        '<div class="card__holdInfo__row card__holdInfo__row--empty">未登録</div>' +
+        holdTimerPlaceholderHtml_() +
         '</div>';
     }
     return '<div class="card__holdInfo card__holdInfo--' + rank + ' card__holdInfo--empty">' +
@@ -1335,7 +1213,9 @@
   // 折りたたみ式の詳細（リード番号・登録月・下取車・OSS・保険）に分ける。
   /**
    * full=false（表示形式「カード」のコンパクト版）ではリード番号等の詳細を省略し、
-   * full=true（詳細モーダル・vehicleDetailHtml_）では折りたたまず常に表示する。
+   * バー・残り時間・担当者を固定高さで見せる。
+   * full=true（詳細モーダル）では要約・タイマーに加え、契約詳細を折りたたみ
+   * （既定は閉じる）で置く。
    */
   function holdInfoBlockHtml_(label, v, prefix, rank, full) {
     var holdType = v[prefix + 'HoldType'] || 'normal';
@@ -1355,44 +1235,38 @@
     var cancelRank = rank === 'first' ? '1st' : '2nd';
 
     var summaryHtml;
-    var detailsHtml = '';
+    var detailsBody = '';
     if (holdType === 'demo') {
       summaryHtml = '<div class="card__holdInfo__row"><b>デモカーHOLD</b>（担当者 ' + escapeHtml(staff || '-') + '）</div>';
-      if (full) {
-        detailsHtml = '<div class="card__holdInfo__detailsBody card__holdInfo__detailsBody--flat">' +
-          'リード番号 ' + escapeHtml(leadNumber || '-') + ' / 登録月 ' + escapeHtml(registeredMonth || '-') +
-          '</div>';
-      }
+      detailsBody = 'リード番号 ' + escapeHtml(leadNumber || '-') + ' / 登録月 ' + escapeHtml(registeredMonth || '-');
     } else if (holdType === 'otherStore') {
       summaryHtml = '<div class="card__holdInfo__row"><b>他店HOLD</b>（担当者 ' + escapeHtml(staff || '-') + '）</div>';
-      if (full) {
-        detailsHtml = '<div class="card__holdInfo__detailsBody card__holdInfo__detailsBody--flat">' +
-          '販売店 ' + escapeHtml(salesStore || '-') +
-          '</div>';
-      }
+      detailsBody = '販売店 ' + escapeHtml(salesStore || '-');
     } else {
       summaryHtml = '<div class="card__holdInfo__row"><b>' + escapeHtml(customer || '-') + '</b>（担当者 ' + escapeHtml(staff || '-') + '・' + escapeHtml(salesLocation || '-') + '）</div>';
-      detailsHtml = full
-        ? '<div class="card__holdInfo__detailsBody card__holdInfo__detailsBody--flat">' +
-          'リード番号 ' + escapeHtml(leadNumber || '-') +
-          ' / 登録月 ' + escapeHtml(registeredMonth || '-') +
-          ' / 下取車 ' + escapeHtml(tradeIn || '-') + ' / OSS ' + escapeHtml(oss || '-') +
-          ' / 保険 ' + escapeHtml(insurance || '-') + ' / 支払方法 ' + escapeHtml(paymentMethod || '-') +
-          '</div>'
-        : '';
+      detailsBody = 'リード番号 ' + escapeHtml(leadNumber || '-') +
+        ' / 登録月 ' + escapeHtml(registeredMonth || '-') +
+        ' / 下取車 ' + escapeHtml(tradeIn || '-') + ' / OSS ' + escapeHtml(oss || '-') +
+        ' / 保険 ' + escapeHtml(insurance || '-') + ' / 支払方法 ' + escapeHtml(paymentMethod || '-');
     }
 
     var specialSuffix = isSpecial ? '（' + escapeHtml(holdTypeLabel_(holdType)) + '）' : '';
     var cancelBtn = '<button class="card__holdInfo__cancel" type="button" data-cancel-hold="' + escapeHtml(v.commission) + '" data-cancel-rank="' + cancelRank + '">解除</button>';
+    var detailsHtml = full
+      ? '<details class="card__holdInfo__fold">' +
+        '<summary>契約詳細</summary>' +
+        '<div class="card__holdInfo__detailsBody card__holdInfo__detailsBody--flat">' + detailsBody + '</div>' +
+        '</details>'
+      : '';
 
     if (!full) {
-      // カード一覧は未登録枠と同じ1行（ラベル・要約・タイマー・解除）に収め、
-      // 詳細モーダル側だけ従来どおり複数行で見せる。
       return '<div class="card__holdInfo card__holdInfo--' + rank + (isSpecial ? ' card__holdInfo--special' : '') + ' card__holdInfo--compact">' +
+        '<div class="card__holdInfo__head">' +
         '<span class="card__holdInfo__label">' + label + specialSuffix + '</span>' +
+        cancelBtn +
+        '</div>' +
         summaryHtml +
         holdTimerHtml_(createdAt, expiresAt) +
-        cancelBtn +
         '</div>';
     }
 
@@ -1412,14 +1286,23 @@
   // 「無期限」の固定表示にする。updateHoldTimersは data-expires-at が空（falsy）の
   // 要素を毎秒の更新対象から除外するため、この初期表示のまま変化しない。
   function holdTimerHtml_(createdAt, expiresAt) {
+    var bar = '<div class="holdTimer__bar"><div class="holdTimer__barFill"></div></div>';
     if (!expiresAt) {
       return '<div class="holdTimer holdTimer--indefinite" data-created-at="' + (createdAt || '') + '" data-expires-at="">' +
+        bar +
         '<div class="holdTimer__text">無期限</div>' +
         '</div>';
     }
     return '<div class="holdTimer" data-created-at="' + (createdAt || '') + '" data-expires-at="' + expiresAt + '">' +
-      '<div class="holdTimer__bar"><div class="holdTimer__barFill"></div></div>' +
+      bar +
       '<div class="holdTimer__text">-</div>' +
+      '</div>';
+  }
+
+  function holdTimerPlaceholderHtml_() {
+    return '<div class="holdTimer holdTimer--placeholder" aria-hidden="true">' +
+      '<div class="holdTimer__bar"><div class="holdTimer__barFill"></div></div>' +
+      '<div class="holdTimer__text">&nbsp;</div>' +
       '</div>';
   }
 
@@ -1504,7 +1387,6 @@
         : '<div class="cardGrid">' + g.items.map(vehicleCardHtml).join('') + '</div>';
       return '<div class="group">' + heading + body + '</div>';
     }).join('');
-    syncComparePins_();
     syncFixedBars_();
   }
 
@@ -1514,7 +1396,7 @@
   syncPurchaseOrdersViewToggle_();
   syncMyPageViewToggle_();
 
-  // 在庫リストのカード/行タップ操作（Hold・受注・比較・詳細）。マイページの
+  // 在庫リストのカード/行タップ操作（Hold・受注・詳細）。マイページの
   // 「Hold中の車両」一覧（#myPageHoldList）も同じカード（vehicleCardHtml）を
   // 再利用しているため、同じ処理を共有できるよう名前付き関数にしている。
   function handleInventoryListClick_(e) {
@@ -1524,13 +1406,12 @@
     else if (target.dataset.order) openActionModal('order', target.dataset.order);
     else if (target.dataset.orderFromHold) openActionModal('orderFromHold', target.dataset.orderFromHold);
     else if (target.dataset.cancelHold) openCancelHoldModal(target.dataset.cancelHold, target.dataset.cancelRank);
-    else if (target.dataset.compare) toggleCompare_(target.dataset.compare, target.checked);
     else if (target.dataset.detail) {
       // 表示形式「カード」の「詳細を見る」タップで、車両情報の詳細モーダルを開く
       // （カード自体は伸ばさず、他のカードとサイズを揃えたままにする）。
       openInventoryDetailModal_(target.dataset.detail);
     } else {
-      // 表示形式「表」の行タップ（チェックボックス・ボタン以外の箇所）で
+      // 表示形式「表」の行タップ（ボタン以外の箇所）で
       // 車両情報の詳細モーダルを開く。
       var rowEl = target.closest('.rowCard[data-commission]');
       if (rowEl && !target.closest('button, input, label')) {
@@ -1541,7 +1422,7 @@
 
   document.getElementById('inventoryList').addEventListener('click', handleInventoryListClick_);
 
-  // 詳細モーダル内のHold/受注/比較等のボタンも、在庫リストと同じ操作ができるようにする。
+  // 詳細モーダル内のHold/受注等のボタンも、在庫リストと同じ操作ができるようにする。
   // 操作系のボタン（Hold・受注・2nd Hold・受注確定・Hold解除）を押した場合は、
   // 続けて別のモーダル（Hold登録等）を開く前に、この詳細モーダル自体は閉じておく。
   $('inventoryDetailModal').addEventListener('click', function (e) {
@@ -1551,7 +1432,6 @@
     else if (target.dataset.order) { closeModal($('inventoryDetailModal')); openActionModal('order', target.dataset.order); }
     else if (target.dataset.orderFromHold) { closeModal($('inventoryDetailModal')); openActionModal('orderFromHold', target.dataset.orderFromHold); }
     else if (target.dataset.cancelHold) { closeModal($('inventoryDetailModal')); openCancelHoldModal(target.dataset.cancelHold, target.dataset.cancelRank); }
-    else if (target.dataset.compare) toggleCompare_(target.dataset.compare, target.checked);
   });
 
   ['inventoryKeyword', 'inventoryMonthFilter', 'inventoryColorFilter', 'inventoryIncludeHold'].forEach(function (id) {
@@ -2112,7 +1992,7 @@
   }
 
   // 受注リストの表示形式「表」: 在庫と同じ「行カード」パターンで、成約済みの案件を
-  // 一覧で見比べやすくする。比較ピン・操作ボタンは受注リストには不要なため専用の
+  // 一覧で見比べやすくする。操作ボタンは受注リストには不要なため専用の
   // 項目構成にする。行に並べる項目は「顧客・コミッション・モデル・リード番号・
   // MP・VPC・担当者・登録月・販売拠点」だけに絞り込み（現場からの指摘）、それ以外
   // （下取車・OSS・保険・支払方法・有償OP・受注確定日時）は行タップで開く詳細
@@ -2344,7 +2224,7 @@
   // ===== Gクラス予約リスト =====
   // 通常の在庫リストに担当者・顧客・リード番号を加えただけの閲覧専用リスト
   // （受注リストと同様、データの追加・編集はスプレッドシートへ直接行う運用）。
-  // Hold・受注確定の操作は一切ないため、在庫リストのカードから比較ピン・バッジ・
+  // Hold・受注確定の操作は一切ないため、在庫リストのカードからバッジ・
   // 操作ボタンを取り除いた簡易版のカードで表示する。表示順（顧客→担当者→モデル）・
   // カード/表の切り替えは受注リストと揃えている。
   function loadGClassReservations() {
@@ -2495,6 +2375,8 @@
     state.themeKey = settings.themeKey;
     renderThemePresets_();
     $('settingsLogoUrl').value = settings.logoUrl || '';
+    var splashInput = $('settingsLoadingSplashDriveId');
+    if (splashInput) splashInput.value = settings.loadingSplashDriveId || '';
     $('homeAnnouncementMax').textContent = (state.bootstrap && state.bootstrap.homeAnnouncementMax) || 60;
     $('settingsHomeAnnouncement').value = settings.homeAnnouncement || '';
     renderHomeAnnouncement_(settings.homeAnnouncement || '');
@@ -2662,6 +2544,8 @@
     // 写真プレースホルダーのどちらとも見分けがつく程度に留める。
     root.setProperty('--card-bg', rgb ? 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',.06)' : preset.primary);
     applySidebarColor_(preset.sidebarColor);
+    var loading = $('appLoading');
+    if (loading) loading.style.background = preset.sidebarColor;
   }
 
   function hexToRgb_(hex) {
@@ -3572,9 +3456,9 @@
   $('myPageKeyword').addEventListener('input', debounce(renderMyPageAll_, 200));
 
   /**
-   * Hold中の車両カードは、在庫リストのvehicleCardHtml（比較ピン・Hold解除・
+   * Hold中の車両カードは、在庫リストのvehicleCardHtml（Hold解除・
    * 受注確定ボタン込み）／表示形式「表」ではvehicleRowsHtmlをそのまま再利用する。
-   * ボタン操作（openActionModal / openCancelHoldModal / toggleCompare_ の各lookup）は
+   * ボタン操作（openActionModal / openCancelHoldModal の各lookup）は
    * 在庫リストの検索・絞り込み条件に左右されない全件キャッシュ
    * （state.allInventoryItems）へもフォールバックするようfindVehicleByCommission側で
    * 対応済みのため、マイページのカードから操作しても在庫リスト側の絞り込み状態に
@@ -3593,7 +3477,6 @@
     $('myPageHoldEmpty').classList.toggle('hidden', items.length > 0);
     $('myPageHoldList').innerHTML = !items.length ? '' :
       (state.myPageViewMode === 'table' ? vehicleRowsHtml(items) : '<div class="cardGrid">' + items.map(vehicleCardHtml).join('') + '</div>');
-    syncComparePins_();
   }
 
   /**
@@ -3871,6 +3754,7 @@
     var settings = {
       themeKey: state.themeKey || DEFAULT_THEME_KEY,
       logoUrl: $('settingsLogoUrl').value.trim(),
+      loadingSplashDriveId: ($('settingsLoadingSplashDriveId') && $('settingsLoadingSplashDriveId').value.trim()) || '',
       homeAnnouncement: homeAnnouncement,
       notifyHoldMailTo: cleanedMailLists.notifyHoldMailTo,
       notifyOrderMailTo: cleanedMailLists.notifyOrderMailTo,

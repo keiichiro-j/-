@@ -11,8 +11,13 @@ function doGet(e) {
   var pwaResponse = servePwaResource_(e);
   if (pwaResponse) return pwaResponse;
 
-  return HtmlService.createTemplateFromFile('html/Index')
-    .evaluate()
+  var template = HtmlService.createTemplateFromFile('html/Index');
+  // 起動画面は bootstrap 取得前に描画されるため、テーマ色と画像URLを
+  // サーバー側で埋め込んで最初のフレームから表示する（loadingSplashBgColor_ /
+  // loadingSplashDisplayUrl_、SettingsService.gs参照）。
+  template.loadingBgColor = loadingSplashBgColor_();
+  template.loadingSplashUrl = loadingSplashDisplayUrl_();
+  return template.evaluate()
     .setTitle('販売可能リスト')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     // Googleサイトへの埋め込みで利用するためALLOWALLにしている。DEFAULT

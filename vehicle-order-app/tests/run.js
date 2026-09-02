@@ -650,6 +650,42 @@ test('ドライブのドメインでもファイルIDを抽出できない形式
   assert.strictEqual(sandbox.normalizeModelPhotoUrl_(url), url);
 });
 
+console.log('== SettingsService: extractDriveFileId_ / normalizeLoadingSplashDriveId_（起動画面画像） ==');
+test('BareのファイルIDはそのまま返す', () => {
+  assert.strictEqual(sandbox.extractDriveFileId_('1AbC-xyz_1234567890abcd'), '1AbC-xyz_1234567890abcd');
+  assert.strictEqual(sandbox.normalizeLoadingSplashDriveId_('1AbC-xyz_1234567890abcd'), '1AbC-xyz_1234567890abcd');
+});
+test('共有リンクからファイルIDを抽出して保存する', () => {
+  assert.strictEqual(
+    sandbox.normalizeLoadingSplashDriveId_('https://drive.google.com/file/d/1AbC-xyz_1234567890abcd/view?usp=sharing'),
+    '1AbC-xyz_1234567890abcd'
+  );
+});
+test('open?id= 形式からも抽出する', () => {
+  assert.strictEqual(
+    sandbox.extractDriveFileId_('https://drive.google.com/open?id=1AbC-xyz_1234567890abcd'),
+    '1AbC-xyz_1234567890abcd'
+  );
+});
+test('表示用URLは大きい幅で lh3 に変換する', () => {
+  const url = sandbox.loadingSplashImageUrlFromDriveId_('1AbC-xyz_1234567890abcd');
+  assert.strictEqual(url, 'https://lh3.googleusercontent.com/d/1AbC-xyz_1234567890abcd=w1600');
+});
+test('空文字は未設定として空を返す', () => {
+  assert.strictEqual(sandbox.normalizeLoadingSplashDriveId_(''), '');
+  assert.strictEqual(sandbox.loadingSplashImageUrlFromDriveId_(''), '');
+});
+test('ファイルIDとして解釈できない値はエラー', () => {
+  assert.throws(() => sandbox.normalizeLoadingSplashDriveId_('https://example.com/image.png'), /Googleドライブ/);
+});
+test('起動画面の背景色はテーマの sidebarColor を使う', () => {
+  assert.strictEqual(sandbox.resolveLoadingSplashBgColor_('steel'), '#1f3a5c');
+  assert.strictEqual(sandbox.resolveLoadingSplashBgColor_('wine'), '#4a1c22');
+});
+test('ランダムテーマの起動画面背景は初期プリセットにフォールバックする', () => {
+  assert.strictEqual(sandbox.resolveLoadingSplashBgColor_('random'), sandbox.resolveLoadingSplashBgColor_('steel'));
+});
+
 console.log('== SettingsService: normalizeModelPhotos_（ホーム画面のモデル写真最大40件・{model,photoUrl,grades}形式） ==');
 test('モデル名・写真URLがともに入力されている行のみ残り、モデル名重複は除去される', () => {
   const list = sandbox.normalizeModelPhotos_([
@@ -896,9 +932,9 @@ test('管理者にはそのまま返る', () => {
   assert.strictEqual(result.notifyHoldMailTo, 'a@example.com');
   assert.strictEqual(result.staffList.length, 1);
 });
-test('非管理者には通知先・担当者が空になる（テーマ・ロゴ・モデル写真・演出バリエーションはそのまま）', () => {
+test('非管理者には通知先・担当者が空になる（テーマ・ロゴ・起動画面・モデル写真・演出バリエーションはそのまま）', () => {
   const settings = {
-    themeKey: 'wine', logoUrl: 'https://logo.png',
+    themeKey: 'wine', logoUrl: 'https://logo.png', loadingSplashDriveId: '1AbC-xyz_1234567890abcd',
     notifyHoldMailTo: ['a@example.com'], notifyOrderMailTo: ['b@example.com'], notifyErrorMailTo: ['c@example.com'],
     notifyChatWebhookUrl: 'https://chat.googleapis.com/v1/spaces/AAA/messages?key=xxx',
     staffList: [{ name: '佐藤' }], modelPhotos: [{ model: 'Cクラス' }],
@@ -907,6 +943,7 @@ test('非管理者には通知先・担当者が空になる（テーマ・ロ�
   const result = sandbox.redactSystemMasterSettings_(settings, false);
   assert.strictEqual(result.themeKey, 'wine');
   assert.strictEqual(result.logoUrl, 'https://logo.png');
+  assert.strictEqual(result.loadingSplashDriveId, '1AbC-xyz_1234567890abcd');
   assert.strictEqual(result.modelPhotos.length, 1);
   assert.strictEqual(result.notifyHoldMailTo.length, 0);
   assert.strictEqual(result.notifyOrderMailTo.length, 0);
@@ -918,22 +955,24 @@ test('非管理者には通知先・担当者が空になる（テーマ・ロ�
 
 console.log('== SettingsService: applySystemMasterGuard_（非管理者による保存時、ロゴ・モデル写真・通知先・担当者は既存値を維持） ==');
 test('管理者からの保存はそのまま反映される', () => {
-  const incoming = { themeKey: 'petrol', logoUrl: 'https://new-logo.png', notifyHoldMailTo: 'new@example.com', staffList: [{ name: '新規' }], modelPhotos: [{ model: '新モデル' }] };
+  const incoming = { themeKey: 'petrol', logoUrl: 'https://new-logo.png', loadingSplashDriveId: '1NewSplashId0123456789', notifyHoldMailTo: 'new@example.com', staffList: [{ name: '新規' }], modelPhotos: [{ model: '新モデル' }] };
   const current = { notifyHoldMailTo: 'old@example.com', staffList: [{ name: '旧' }] };
   const result = sandbox.applySystemMasterGuard_(incoming, current, true);
   assert.strictEqual(result.notifyHoldMailTo, 'new@example.com');
   assert.strictEqual(result.staffList[0].name, '新規');
   assert.strictEqual(result.logoUrl, 'https://new-logo.png');
+  assert.strictEqual(result.loadingSplashDriveId, '1NewSplashId0123456789');
 });
-test('非管理者からの保存は、ロゴ・モデル写真・通知先・担当者が既存値のまま維持される（テーマは反映される）', () => {
+test('非管理者からの保存は、ロゴ・起動画面・モデル写真・通知先・担当者が既存値のまま維持される（テーマは反映される）', () => {
   const incoming = {
-    themeKey: 'amber', logoUrl: 'https://tampered-logo.png',
+    themeKey: 'amber', logoUrl: 'https://tampered-logo.png', loadingSplashDriveId: '1TamperedSplashId012345',
     notifyHoldMailTo: 'tampered@example.com', notifyOrderMailTo: '', notifyErrorMailTo: '',
     notifyChatWebhookUrl: 'https://tampered-webhook.example.com',
     staffList: [], modelPhotos: [{ model: 'Eクラス' }]
   };
   const current = {
     logoUrl: 'https://real-logo.png',
+    loadingSplashDriveId: '1RealSplashId01234567890',
     notifyHoldMailTo: 'real@example.com', notifyOrderMailTo: 'real2@example.com', notifyErrorMailTo: 'real3@example.com',
     notifyChatWebhookUrl: 'https://chat.googleapis.com/v1/spaces/REAL/messages?key=xxx',
     staffList: [{ name: '本物の担当者', email: 'staff@example.com' }],
@@ -943,6 +982,7 @@ test('非管理者からの保存は、ロゴ・モデル写真・通知先・�
   const result = sandbox.applySystemMasterGuard_(incoming, current, false);
   assert.strictEqual(result.themeKey, 'amber');
   assert.strictEqual(result.logoUrl, 'https://real-logo.png');
+  assert.strictEqual(result.loadingSplashDriveId, '1RealSplashId01234567890');
   assert.strictEqual(result.modelPhotos.length, 1);
   assert.strictEqual(result.modelPhotos[0].model, '本物のモデル');
   assert.strictEqual(result.notifyHoldMailTo, 'real@example.com');

@@ -29,6 +29,7 @@ function getRawSettings_() {
     // （getCurrentUserThemeKey_参照）。
     themeKey: getCurrentUserThemeKey_(),
     logoUrl: props.getProperty(PROP_KEYS.LOGO_URL) || '',
+    loadingSplashDriveId: props.getProperty(PROP_KEYS.LOADING_SPLASH_DRIVE_ID) || '',
     notifyHoldMailTo: getMailList_(PROP_KEYS.NOTIFY_HOLD_MAIL_TO),
     notifyOrderMailTo: getMailList_(PROP_KEYS.NOTIFY_ORDER_MAIL_TO),
     notifyErrorMailTo: getMailList_(PROP_KEYS.NOTIFY_ERROR_MAIL_TO),
@@ -86,6 +87,7 @@ function saveRawSettings_(settings) {
   // ため、従来どおりScript Propertiesに保存する。
   setCurrentUserThemeKey_(settings && settings.themeKey);
   props.setProperty(PROP_KEYS.LOGO_URL, logoUrl);
+  props.setProperty(PROP_KEYS.LOADING_SPLASH_DRIVE_ID, normalizeLoadingSplashDriveId_(settings && settings.loadingSplashDriveId));
   props.setProperty(PROP_KEYS.NOTIFY_HOLD_MAIL_TO, JSON.stringify(normalizeMailList_(settings.notifyHoldMailTo)));
   props.setProperty(PROP_KEYS.NOTIFY_ORDER_MAIL_TO, JSON.stringify(normalizeMailList_(settings.notifyOrderMailTo)));
   props.setProperty(PROP_KEYS.NOTIFY_ERROR_MAIL_TO, JSON.stringify(normalizeMailList_(settings.notifyErrorMailTo)));
@@ -146,6 +148,82 @@ function getCurrentUserThemeKey_() {
 
 function setCurrentUserThemeKey_(themeKey) {
   PropertiesService.getUserProperties().setProperty(PROP_KEYS.THEME_KEY, normalizeThemeKey_(themeKey));
+}
+
+/**
+ * GoogleドライブのファイルID、または共有リンク／画像配信URLからファイルIDだけを
+ * 抜き出す（純粋関数）。起動画面の画像設定とモデル写真URLの変換で共用する。
+ * Bare ID（英数字・ハイフン・アンダースコア 20〜128文字）はそのまま返す。
+ */
+function extractDriveFileId_(value) {
+  value = String(value || '').trim();
+  if (!value) return '';
+  if (/^[a-zA-Z0-9_-]{20,128}$/.test(value)) return value;
+  var match = value.match(/\/file\/d\/([a-zA-Z0-9_-]{20,128})/)
+    || value.match(/[?&]id=([a-zA-Z0-9_-]{20,128})/)
+    || value.match(/lh3\.googleusercontent\.com\/d\/([a-zA-Z0-9_-]{20,128})/);
+  return match ? match[1] : '';
+}
+
+/**
+ * 起動画面画像の設定値（純粋関数）。空なら未設定。ファイルIDまたは
+ * Googleドライブの共有リンクを受け取り、保存するのはファイルIDのみ。
+ */
+function normalizeLoadingSplashDriveId_(value) {
+  value = String(value || '').trim();
+  if (!value) return '';
+  if (value.length > LOADING_SPLASH_DRIVE_ID_MAX_LENGTH) {
+    throw new Error(
+      '起動画面の画像の指定が長すぎます（' + value.length + '文字）。' +
+      'GoogleドライブのファイルIDまたは共有リンクを指定してください。'
+    );
+  }
+  var id = extractDriveFileId_(value);
+  if (!id) {
+    throw new Error('起動画面の画像は、GoogleドライブのファイルIDまたは共有リンクを指定してください。');
+  }
+  return id;
+}
+
+/**
+ * 保存済みのドライブファイルID（または共有リンク）を、<img src>に使える
+ * 直接画像URLへ変換する（純粋関数）。未設定なら空文字。
+ */
+function loadingSplashImageUrlFromDriveId_(value) {
+  var id = extractDriveFileId_(value);
+  if (!id) return '';
+  return 'https://lh3.googleusercontent.com/d/' + id + '=w' + LOADING_SPLASH_DISPLAY_WIDTH;
+}
+
+/**
+ * 起動画面の背景色（純粋関数）。ログイン中ユーザーのテーマプリセットの
+ * sidebarColorを使う。ランダムテーマの場合は初期プリセットにフォールバックする
+ * （抽選結果はクライアント側のセッションでのみ決まるため、最初の描画では
+ * 既定色を使う）。
+ */
+function resolveLoadingSplashBgColor_(themeKey) {
+  var key = normalizeThemeKey_(themeKey);
+  if (key === RANDOM_THEME_KEY) key = DEFAULT_THEME_KEY;
+  for (var i = 0; i < THEME_PRESETS.length; i++) {
+    if (THEME_PRESETS[i].key === key) return THEME_PRESETS[i].sidebarColor;
+  }
+  return THEME_PRESETS[0].sidebarColor;
+}
+
+/**
+ * doGet／Index.htmlの起動画面用。Script Propertiesに保存したドライブIDから
+ * 表示用URLを返す。
+ */
+function loadingSplashDisplayUrl_() {
+  var raw = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.LOADING_SPLASH_DRIVE_ID) || '';
+  return loadingSplashImageUrlFromDriveId_(raw);
+}
+
+/**
+ * doGet／Index.htmlの起動画面用。ログイン中ユーザーのテーマに合わせた背景色。
+ */
+function loadingSplashBgColor_() {
+  return resolveLoadingSplashBgColor_(getCurrentUserThemeKey_());
 }
 
 /**
@@ -531,6 +609,7 @@ function redactSystemMasterSettings_(settings, isAdmin) {
   return {
     themeKey: settings.themeKey,
     logoUrl: settings.logoUrl,
+    loadingSplashDriveId: settings.loadingSplashDriveId,
     notifyHoldMailTo: [],
     notifyOrderMailTo: [],
     notifyErrorMailTo: [],
@@ -563,6 +642,7 @@ function applySystemMasterGuard_(incoming, current, isAdmin) {
   return {
     themeKey: incoming.themeKey,
     logoUrl: current.logoUrl,
+    loadingSplashDriveId: current.loadingSplashDriveId,
     notifyHoldMailTo: current.notifyHoldMailTo,
     notifyOrderMailTo: current.notifyOrderMailTo,
     notifyErrorMailTo: current.notifyErrorMailTo,

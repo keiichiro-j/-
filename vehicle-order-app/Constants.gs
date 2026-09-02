@@ -392,6 +392,7 @@ function paidOptionMasterColIndex1(key) {
 var PROP_KEYS = {
   THEME_KEY: 'THEME_KEY',
   LOGO_URL: 'LOGO_URL',
+  LOADING_SPLASH_DRIVE_ID: 'LOADING_SPLASH_DRIVE_ID',
   NOTIFY_HOLD_MAIL_TO: 'NOTIFY_HOLD_MAIL_TO',
   NOTIFY_ORDER_MAIL_TO: 'NOTIFY_ORDER_MAIL_TO',
   NOTIFY_ERROR_MAIL_TO: 'NOTIFY_ERROR_MAIL_TO',
@@ -505,6 +506,16 @@ var MODEL_PHOTO_URL_MAX_LENGTH = 1500;
 // 高解像度ディスプレイ（2倍相当）でも十分な解像度になるよう余裕を持たせている
 // （normalizeModelPhotoUrl_、SettingsService.gs参照）。
 var MODEL_PHOTO_DISPLAY_WIDTH = 1000;
+
+// アプリ起動時のローディング画面に表示する画像の幅（px）。全画面中央に大きめ
+// に載せる想定のため、モデル写真（ホームタイル用）より広い解像度にする
+// （normalizeLoadingSplashDriveId_ / loadingSplashImageUrlFromDriveId_、
+// SettingsService.gs参照）。
+var LOADING_SPLASH_DISPLAY_WIDTH = 1600;
+
+// 起動画面画像の入力値（ファイルIDまたは共有リンク）の最大文字数。抽出後の
+// ファイルID自体は短いが、共有リンクをそのまま貼り付けた場合に備えて余裕を持たせる。
+var LOADING_SPLASH_DRIVE_ID_MAX_LENGTH = 500;
 
 // モデル写真設定全体（JSON化した状態）の最大文字数。最大MODEL_PHOTOS_MAX件分の
 // URLをまとめて1つのScript Propertyへ保存するため、1件あたりの上限だけでは
