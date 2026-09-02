@@ -1256,9 +1256,9 @@
       rowField_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
       '<div class="rowCard__field rowCard__field--center"><span class="rowCard__label">有償OP</span>' +
       '<span class="rowCard__value">' + paidOptionsHtml_(v) + '</span></div>' +
+      rowHoldFieldsHtml_(v) +
       '<div class="rowCard__actions">' + actions + comparePinHtml + '</div>' +
       '</div>' +
-      rowHoldSlotsHtml_(v) +
       '</div>';
   }
 
@@ -1281,8 +1281,8 @@
   // 以前は未登録を「現在Hold登録なし」の1枠にまとめ、2nd があるときだけ横並び
   // 固定高さ（150px）にしていたため、2nd の顧客名・タイマーが枠内スクロールに
   // 隠れることがあった。縦2枠・高さ自動にして、両方を省略せず見せる。
-  function holdSlotEmptyHtml_(label, rank) {
-    return '<div class="card__holdInfo card__holdInfo--' + rank + ' card__holdInfo--empty">' +
+  function holdSlotEmptyHtml_(label, rank, compact) {
+    return '<div class="card__holdInfo card__holdInfo--' + rank + ' card__holdInfo--empty' + (compact ? ' card__holdInfo--compact' : '') + '">' +
       '<div class="card__holdInfo__head">' +
       '<span class="card__holdInfo__label">' + label + '</span>' +
       '</div>' +
@@ -1293,13 +1293,20 @@
   function vehicleHoldSlotsHtml_(v, full) {
     var isHold = v.holdStatus === 'hold';
     var hasSecondHold = isHold && !!v.secondHoldCustomer;
-    return '<div class="card__holdArea' + (full ? ' card__holdArea--full' : '') + '">' +
-      (isHold ? holdInfoBlockHtml_('1ST HOLD', v, 'hold', 'first', full) : holdSlotEmptyHtml_('1ST HOLD', 'first')) +
-      (hasSecondHold ? holdInfoBlockHtml_('2ND HOLD', v, 'secondHold', 'second', full) : holdSlotEmptyHtml_('2ND HOLD', 'second')) +
+    var compact = !full;
+    return '<div class="card__holdArea' + (full ? ' card__holdArea--full' : ' card__holdArea--compact') + '">' +
+      (isHold ? holdInfoBlockHtml_('1ST HOLD', v, 'hold', 'first', full) : holdSlotEmptyHtml_('1ST HOLD', 'first', compact)) +
+      (hasSecondHold ? holdInfoBlockHtml_('2ND HOLD', v, 'secondHold', 'second', full) : holdSlotEmptyHtml_('2ND HOLD', 'second', compact)) +
       '</div>';
   }
 
-  function rowHoldSlotsHtml_(v) {
+  function rowHoldFieldHtml_(label, value, empty, extraClass) {
+    return '<div class="rowCard__field rowCard__field--hold ' + extraClass + '">' +
+      '<span class="rowCard__label">' + label + '</span>' +
+      '<span class="rowCard__value' + (empty ? ' rowCard__value--muted' : '') + '">' + value + '</span></div>';
+  }
+
+  function rowHoldFieldsHtml_(v) {
     var isHold = v.holdStatus === 'hold';
     var hasSecondHold = isHold && !!v.secondHoldCustomer;
     var firstValue = isHold
@@ -1308,14 +1315,8 @@
     var secondValue = hasSecondHold
       ? escapeHtml(v.secondHoldCustomer || '-') + '（' + escapeHtml(v.secondHoldStaff || '-') + '・' + escapeHtml(v.secondHoldSalesLocation || '-') + '）'
       : '未登録';
-    return '<div class="rowCard__holds">' +
-      '<div class="rowCard__hold rowCard__hold--first">' +
-      '<span class="rowCard__holdLabel">1ST HOLD</span>' +
-      '<span class="rowCard__holdValue' + (isHold ? '' : ' rowCard__holdValue--empty') + '">' + firstValue + '</span></div>' +
-      '<div class="rowCard__hold rowCard__hold--second">' +
-      '<span class="rowCard__holdLabel">2ND HOLD</span>' +
-      '<span class="rowCard__holdValue' + (hasSecondHold ? '' : ' rowCard__holdValue--empty') + '">' + secondValue + '</span></div>' +
-      '</div>';
+    return rowHoldFieldHtml_('1ST HOLD', firstValue, !isHold, 'rowCard__field--holdFirst') +
+      rowHoldFieldHtml_('2ND HOLD', secondValue, !hasSecondHold, 'rowCard__field--holdSecond');
   }
 
   // Hold詳細ブロックは、常に見えている要約行（顧客・担当者・タイマー）と、
@@ -1369,7 +1370,7 @@
         : '';
     }
 
-    return '<div class="card__holdInfo card__holdInfo--' + rank + (isSpecial ? ' card__holdInfo--special' : '') + '">' +
+    return '<div class="card__holdInfo card__holdInfo--' + rank + (isSpecial ? ' card__holdInfo--special' : '') + (full ? '' : ' card__holdInfo--compact') + '">' +
       '<div class="card__holdInfo__head">' +
       '<span class="card__holdInfo__label">' + label + (isSpecial ? '（' + escapeHtml(holdTypeLabel_(holdType)) + '）' : '') + '</span>' +
       '<button class="card__holdInfo__cancel" type="button" data-cancel-hold="' + escapeHtml(v.commission) + '" data-cancel-rank="' + cancelRank + '">解除</button>' +

@@ -429,7 +429,7 @@
   .myPageSection__title span { color: var(--primary-text); font-weight: 700; }
 
   /* ===== グループ見出し ===== */
-  .group { margin-bottom: 28px; }
+  .group { margin-bottom: 18px; }
   .group__title {
     font-size: 13px;
     font-weight: 700;
@@ -572,22 +572,23 @@
      カードの背景・枠は常にビューポート幅のまま描画され、この種の再描画バグが
      起こり得なくなる。 */
   .rowCard {
-    background: var(--surface);
+    background: var(--card-bg);
     border: 1px solid var(--outline);
     border-left: 4px solid transparent;
+    border-top: 3px solid var(--primary);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
-    padding: 14px 20px;
+    padding: 10px 14px;
     cursor: pointer;
-    transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
+    transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease, background-color .18s ease;
   }
   .rowCard__inner {
     display: flex;
     flex-wrap: wrap;
     /* 折り返した行の間隔（10px）は列間の間隔（16px）より詰め、複数行になっても
        1枚のカードとしてのまとまりが保たれるようにする。 */
-    row-gap: 10px;
-    column-gap: 16px;
+    row-gap: 8px;
+    column-gap: 10px;
     /* start にする。center だと「Hold中（2nd有）」で解除リンクが2本に増えて
        状態列が縦に伸びた分だけ、1本しか無い操作ボタン（受注確定）が引っ張られて
        ずれてしまうため（現場からの指摘で判明）。start にして全項目を上端に
@@ -619,52 +620,31 @@
      ボタン数の違い（Hold中2個／在庫あり2個／2nd Hold登録済み1個）があっても
      縦の列位置がずれることはない（開始位置は固定、右端は行幅いっぱいまで伸びる
      ため）。 */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(1) { flex: 0 0 150px; } /* ステータス */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(2) { flex: 0 0 100px; } /* モデル＋コミッション */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(3) { flex: 0 0 68px; } /* MP */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(4) { flex: 0 0 46px; } /* ステア */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(5) { flex: 0 0 150px; } /* カラー */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(6) { flex: 0 0 170px; } /* 有償OP */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(7) { flex: 1 1 210px; } /* 操作ボタン＋比較チェック（行の右端に寄せる） */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(1) { flex: 1 1 110px; min-width: 0; } /* ステータス */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(2) { flex: 1 1 88px; min-width: 0; } /* モデル＋コミッション */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(3) { flex: 1 1 48px; min-width: 0; } /* MP */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(4) { flex: 1 1 40px; min-width: 0; } /* ステア */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(5) { flex: 1 1 110px; min-width: 0; } /* カラー */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(6) { flex: 1 1 110px; min-width: 0; } /* 有償OP */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(7) { flex: 1 1 140px; min-width: 0; } /* 1ST HOLD */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(8) { flex: 1 1 140px; min-width: 0; } /* 2ND HOLD */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(9) { flex: 1 1 180px; min-width: 0; } /* 操作ボタン＋比較 */
   /* border-color: transparent ではなく上・右・下のみ指定する。border-color（4辺一括）だと
      border-left-color（在庫状況を示す色つきの左罫線）まで打ち消してしまい、ホバー時に
      状態の色が消えて見えてしまうため（.rowCard--available 等はこのルールより先に書かれて
      いるが、:hover は詳細度が高く上書きしてしまう）。 */
-  .rowCard:hover { box-shadow: var(--shadow-elevated); transform: translateY(-2px); border-right-color: transparent; border-bottom-color: transparent; }
-  .rowCard__holds {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid var(--outline);
+  .rowCard:hover {
+    box-shadow: var(--shadow-elevated);
+    transform: translateY(-2px);
+    border-top-color: var(--primary);
+    border-right-color: var(--primary);
+    border-bottom-color: var(--primary);
   }
-  .rowCard__hold {
-    min-width: 0;
-    border-radius: 8px;
-    padding: 8px 10px;
-    border-left: 3px solid var(--outline);
-    background: var(--background);
-  }
-  .rowCard__hold--first { border-left-color: var(--warning); }
-  .rowCard__hold--second { border-left-color: var(--primary); background: var(--primary-bg); }
-  .rowCard__holdLabel {
-    display: block;
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: .04em;
-    margin-bottom: 2px;
-  }
-  .rowCard__hold--first .rowCard__holdLabel { color: var(--warning); }
-  .rowCard__hold--second .rowCard__holdLabel { color: var(--primary-text); }
-  .rowCard__holdValue {
-    display: block;
-    font-size: 12.5px;
-    font-weight: 600;
-    color: var(--on-surface);
-    line-height: 1.4;
-  }
-  .rowCard__holdValue--empty { color: var(--on-surface-variant); font-weight: 500; }
+  .rowCard__field--holdFirst { border-left: 3px solid var(--warning); padding-left: 8px; }
+  .rowCard__field--holdSecond { border-left: 3px solid var(--primary); padding-left: 8px; }
+  .rowCard__field--hold .rowCard__label { color: var(--warning); }
+  .rowCard__field--holdSecond .rowCard__label { color: var(--primary-text); }
+  .rowCard__value--muted { color: var(--on-surface-variant); font-weight: 500; }
   .rowCard--available { border-left-color: var(--success); }
   .rowCard--hold { border-left-color: var(--warning); }
   .rowCard--hold2 { border-left-color: var(--danger); }
@@ -718,7 +698,7 @@
      リンクが1本、Hold中（2nd有）は2本に増えて縦に伸びる分だけ、状態列だけが
      他の列より高くなり、行（カード）自体の高さが在庫あり／Hold中／Hold中（2nd有）で
      バラバラになっていたため、状態列の高さを常に一定にして吸収する。 */
-  .rowCard__status { display: flex; flex-direction: column; align-items: center; gap: 6px; height: 72px; overflow-y: auto; min-width: 0; }
+  .rowCard__status { display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 0; overflow: visible; min-width: 0; }
   .rowCard__cancelLink {
     border: none; background: none; color: var(--danger); font-size: 11px; font-weight: 700;
     cursor: pointer; padding: 0; text-align: center; width: 100%;
@@ -788,8 +768,7 @@
   .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(7) { flex: 0 0 130px; } /* 拠点 */
   .btn--small { padding: 6px 12px; font-size: 12.5px; }
 
-  /* ===== カードグリッド（PCビューで3列固定。Google Material×Teslaの余白多め・
-     高コントラストな見出しでの「カードタイプUI」） ===== */
+  /* ===== カードグリッド（PCビューで4列。案A：1画面に多くの台数を載せる） ===== */
   .cardGrid {
     display: grid;
     /* 1frだけだと各トラックの下限が「内容物のmin-content幅」になり、
@@ -797,8 +776,8 @@
        グリッド自体がコンテナ幅を超えてページ全体の横スクロールを
        引き起こすことがある。minmax(0, 1fr)にして、必要なときはカードの
        方が縮む（内部でテキストが折り返す）ようにする。 */
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
     /* align-items: stretch（デフォルト）だと、1台だけ「車両スペックを見る」等の
        詳細を開いて縦に伸びたときに、同じグリッド行の他のカードまで背が
        伸びてしまう（グリッド行の高さは行内で最も高いカードに揃うため）。
@@ -807,20 +786,26 @@
     align-items: start;
   }
   .card {
-    background: var(--surface);
+    background: var(--card-bg);
     border: 1px solid var(--outline);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     border-top: 3px solid var(--primary);
     border-left: 4px solid transparent;
-    padding: 18px 18px 16px;
+    padding: 12px 12px 10px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
+    gap: 8px;
+    transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease, background-color .18s ease;
   }
-  /* 上帯はホームカードと同じテーマ色。左帯（在庫状況色）はホバー時も維持する。 */
-  .card:hover { box-shadow: var(--shadow-elevated); transform: translateY(-3px); border-right-color: transparent; border-bottom-color: transparent; }
+  /* 上帯・ホバー枠はホームカードと同じテーマ色。左帯（在庫状況色）はホバー時も維持する。 */
+  .card:hover {
+    box-shadow: var(--shadow-elevated);
+    transform: translateY(-3px);
+    border-top-color: var(--primary);
+    border-right-color: var(--primary);
+    border-bottom-color: var(--primary);
+  }
   .card--available { border-left-color: var(--success); }
   .card--hold { border-left-color: var(--warning); }
   /* 1st・2nd Holdの両方が埋まっている車両は、これ以上の受け皿がない分、他より
@@ -899,7 +884,7 @@
     padding: 12px 0 0;
   }
   /* MP・カラーは折りたたまず常に表示するため、card__topのすぐ下に独自の区切り線を持つ */
-  .card__metaGrid--quick { border-top: 1px solid var(--outline); padding-top: 14px; }
+  .card__metaGrid--quick { border-top: 1px solid var(--outline); padding-top: 8px; }
   .card__metaGrid dt {
     color: var(--on-surface-variant);
     font-size: 10.5px;
@@ -911,13 +896,22 @@
   .card__metaGrid dd { margin: 0; font-size: 14.5px; font-weight: 600; color: var(--on-surface); line-height: 1.3; }
   .card__metaGrid__full { grid-column: 1 / -1; }
 
-  /* Hold状況エリアは 1ST / 2ND を常に縦2枠で出し、内容は切らずに見せる。 */
+  /* カード一覧（案A）は 1ST / 2ND を横1行の2枠。詳細モーダルは縦2枠のまま。 */
   .card__holdArea {
     height: auto;
     display: flex;
     flex-direction: column;
     gap: 8px;
     overflow: visible;
+  }
+  .card__holdArea--compact {
+    flex-direction: row;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .card__holdArea--compact .card__holdInfo {
+    flex: 1 1 0;
+    min-width: 0;
   }
   .card__holdArea--full { height: auto; overflow: visible; }
   .card__holdInfo {
@@ -965,6 +959,16 @@
     font-weight: 600;
     color: var(--on-surface-variant);
   }
+  .card__holdInfo--compact {
+    padding: 6px 8px;
+    font-size: 12px;
+    line-height: 1.4;
+    border-radius: 8px;
+  }
+  .card__holdInfo--compact .card__holdInfo__head { margin-bottom: 2px; }
+  .card__holdInfo--compact .card__holdInfo__row { margin-bottom: 2px; }
+  .card__holdArea--compact .holdTimer__bar { height: 3px; }
+  .card__holdArea--compact .holdTimer__text { margin-top: 2px; font-size: 11px; }
   /* デモカーHOLD・他店HOLDは、順番（1st/2nd）に関わらずこの特別色で上書きする
      （--first/--secondと同時に付与されるクラスのため、後に書くことで優先させる）。 */
   .card__holdInfo--special { border-left-color: var(--hold-special); background: var(--hold-special-bg); }
@@ -1020,7 +1024,7 @@
   .holdTimer--warning .holdTimer__text { color: var(--warning); }
   .holdTimer--expired .holdTimer__text { color: var(--danger); }
 
-  .card__actions { display: flex; gap: 10px; margin-top: auto; padding-top: 4px; flex-wrap: wrap; }
+  .card__actions { display: flex; gap: 6px; margin-top: auto; padding-top: 2px; flex-wrap: wrap; }
   .card__actions .btn { flex: 1; min-height: 44px; }
 
   .emptyState {
@@ -1043,30 +1047,35 @@
     color: var(--outline);
   }
 
-  /* ===== 受注リスト（在庫リストと揃えたカードタイプUI。PCビューで1行3列） ===== */
+  /* ===== 受注リスト（在庫リストと同じ4列。テーマ帯も共通） ===== */
   .orderList {
     display: grid;
     /* minmax(0, 1fr)にする理由は.cardGridと同じ（1fr単独だと内容量が多い
        カードがある場合にグリッド自体がコンテナ幅を超えてしまうため）。 */
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
     align-items: start;
   }
   .orderCard {
-    background: var(--surface);
+    background: var(--card-bg);
     border: 1px solid var(--outline);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     border-top: 3px solid var(--primary);
     border-left: 4px solid var(--primary);
-    padding: 18px 18px 16px;
+    padding: 12px 12px 10px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
+    gap: 8px;
+    transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease, background-color .18s ease;
   }
-  /* card:hover と同じ理由で、border-left-color（アクセントカラー）はホバー時も維持する。 */
-  .orderCard:hover { box-shadow: var(--shadow-elevated); transform: translateY(-3px); border-right-color: transparent; border-bottom-color: transparent; }
+  .orderCard:hover {
+    box-shadow: var(--shadow-elevated);
+    transform: translateY(-3px);
+    border-top-color: var(--primary);
+    border-right-color: var(--primary);
+    border-bottom-color: var(--primary);
+  }
   .orderCard__top { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 10px; }
   .orderCard__top .card__badges { margin-left: auto; }
   .orderCard__top .card__badges .badge { margin-left: 0; }
@@ -1124,21 +1133,29 @@
      「誰が発注したか」がひと目でわかるようにしている。 */
   .purchaseOrderList {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
     align-items: start;
   }
   .purchaseOrderCard {
-    background: var(--surface);
+    background: var(--card-bg);
     border: 1px solid var(--outline);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     border-top: 3px solid var(--primary);
     border-left: 4px solid var(--primary);
-    padding: 18px 18px 16px;
+    padding: 12px 12px 10px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
+    transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease, background-color .18s ease;
+  }
+  .purchaseOrderCard:hover {
+    box-shadow: var(--shadow-elevated);
+    transform: translateY(-3px);
+    border-top-color: var(--primary);
+    border-right-color: var(--primary);
+    border-bottom-color: var(--primary);
   }
   .purchaseOrderCard__top { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 10px; }
   .purchaseOrderCard__top .badge { margin-left: auto; }
@@ -1697,7 +1714,10 @@
   @media (min-width: 901px) {
     :root { --sidebar-w: 232px; }
 
-    #app { padding-left: var(--sidebar-w); }
+    #app { padding-left: var(--sidebar-w); overflow-x: hidden; }
+    html, body { overflow-x: hidden; }
+    main.view { overflow-x: hidden; min-width: 0; }
+    .tableScroll { overflow-x: hidden; }
 
     .sidebar {
       display: flex;
@@ -2435,9 +2455,11 @@
   .celebrationBanner p { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.5; }
   .celebrationBanner p:first-child { font-size: 18px; color: var(--primary-text); }
 
-  /* ===== ノートPC幅（在庫リストはホーム・受注と同じ3列） ===== */
-  @media (max-width: 1400px) {
-    .cardGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* ===== ノートPC幅（4列だとHOLDが窮屈になるため3列） ===== */
+  @media (max-width: 1200px) {
+    .cardGrid,
+    .orderList,
+    .purchaseOrderList { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   }
 
   /* ===== タブレット ===== */
@@ -2490,7 +2512,7 @@
        ぶんだけ確保するようにし、列の折り返し（flex-wrap）も禁止して常に横一列に
        並べる。結果としてボタン列が必要以上に広がらず、カード全体もその分だけ
        スリムになる。 */
-    .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(7) {
+    .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(9) {
       flex: 0 0 auto;
     }
     .rowCard__actions { flex-wrap: nowrap; }
@@ -2603,7 +2625,6 @@
     .toolbar .input, .toolbar .checkboxField { flex: 1 1 auto; }
     .homeTypeNav { padding: 10px; width: calc(100% - 20px); }
     .cardGrid { grid-template-columns: 1fr; gap: 12px; }
-    .rowCard__holds { grid-template-columns: 1fr; }
     .homeRow { gap: 12px; }
     .homeRow__photo { width: 60px; height: 60px; }
     .homeRow__footer { gap: 8px; }
