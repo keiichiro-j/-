@@ -7,7 +7,9 @@
  * 在庫リストの検索・絞り込み。
  * @param {Array<Object>} vehicles
  * @param {Object} filters {
- *   keyword: string,       // モデル・コミッションに部分一致
+ *   keyword: string,       // モデル・コミッションに部分一致（モデルはアルファベットのみの
+ *                           // キーワードの場合、先頭のアルファベット部分との完全一致に限定。
+ *                           // 「C」で「C63」「C43T」はヒットするが「CLA」「GLC」はヒットしない）
  *   includeHold: boolean   // false の場合 Hold済み車両を除く
  * }
  */
@@ -15,9 +17,36 @@ function searchInventory(vehicles, filters) {
   filters = filters || {};
   return vehicles.filter(function (v) {
     if (filters.includeHold === false && v.holdStatus === HOLD_STATUS.HOLD) return false;
-    if (filters.keyword && !matchesAnyField_(v, filters.keyword, ['model', 'commission'])) return false;
+    if (filters.keyword && !inventoryMatchesKeyword_(v, filters.keyword)) return false;
     return true;
   });
+}
+
+/**
+ * 在庫のキーワード検索用マッチ判定。コミッションは従来どおり部分一致。モデルは
+ * 「CLA」「GLC」等のクラス名が「C」等の部分文字列を含んでしまう問題を避けるため、
+ * アルファベットのみのキーワード（グレード名の先頭、例: 「C」「E」「GLC」）に限り
+ * モデル名先頭のアルファベット部分との完全一致とする（現場からの要望）。数字を含む
+ * キーワード（「C63」等）や日本語キーワードは従来どおり部分一致にフォールバックする。
+ * @param {Object} v
+ * @param {string} keyword
+ * @return {boolean}
+ */
+function inventoryMatchesKeyword_(v, keyword) {
+  var kw = String(keyword || '').trim();
+  if (!kw) return true;
+  if (modelMatchesKeyword_(v.model, kw)) return true;
+  return !!v.commission && String(v.commission).indexOf(kw) !== -1;
+}
+
+function modelMatchesKeyword_(model, keyword) {
+  var modelStr = String(model || '');
+  if (/^[A-Za-z]+$/.test(keyword)) {
+    var m = modelStr.match(/^[A-Za-z]+/);
+    var prefix = m ? m[0] : '';
+    return prefix.toLowerCase() === keyword.toLowerCase();
+  }
+  return modelStr.indexOf(keyword) !== -1;
 }
 
 /**

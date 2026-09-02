@@ -2417,6 +2417,10 @@
     // --primary-bgよりさらに薄く（6%）テーマカラーを帯びさせ、ページ背景・
     // 写真プレースホルダーのどちらとも見分けがつく程度に留める。
     root.setProperty('--card-bg', rgb ? 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',.06)' : preset.primary);
+    // 起動時ローディング画面（.appLoading、Stylesheet.html参照）の背景も、選択中の
+    // テーマのprimaryDarkに合わせる（現場からの要望で、テーマを切り替えると
+    // ローディング画面の背景色も連動して変わるようにしている）。
+    root.setProperty('--loading-bg', preset.primaryDark);
     applySidebarColor_(preset.sidebarColor);
   }
 

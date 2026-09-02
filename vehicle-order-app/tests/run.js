@@ -373,6 +373,27 @@ test('無関係なキーワードはヒットしない', () => {
   assert.strictEqual(sandbox.searchInventory(vehicles, { keyword: '該当なし' }).length, 0);
 });
 
+const gradeVehicles = [
+  { commission: 'G001', model: 'C63', holdStatus: 'available' },
+  { commission: 'G002', model: 'C43T', holdStatus: 'available' },
+  { commission: 'G003', model: 'C200', holdStatus: 'available' },
+  { commission: 'G004', model: 'CLA250', holdStatus: 'available' },
+  { commission: 'G005', model: 'GLC300', holdStatus: 'available' }
+];
+test('アルファベットのみのキーワード「C」はモデル先頭が完全一致する車両のみヒットする', () => {
+  const result = sandbox.searchInventory(gradeVehicles, { keyword: 'C' });
+  const models = result.map((v) => v.model).sort();
+  assert.deepStrictEqual(models, ['C200', 'C43T', 'C63']);
+});
+test('アルファベットのみのキーワード「C」は「CLA」「GLC」にはヒットしない', () => {
+  const result = sandbox.searchInventory(gradeVehicles, { keyword: 'C' });
+  assert.ok(!result.some((v) => v.model === 'CLA250'));
+  assert.ok(!result.some((v) => v.model === 'GLC300'));
+});
+test('数字を含むキーワードはモデルの部分一致にフォールバックする', () => {
+  assert.strictEqual(sandbox.searchInventory(gradeVehicles, { keyword: 'C63' }).length, 1);
+});
+
 const orders = [
   { commission: 'C001', model: 'モデルA', customer: '山田太郎', staff: '佐藤', salesLocation: '東京本店' },
   { commission: 'C002', model: 'モデルB', customer: '田中花子', staff: '鈴木', salesLocation: '大阪支店' }
