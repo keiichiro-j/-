@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>販売可能リスト　社員向け取り扱い説明書</title>
+  <style>
+    :root {
+      --navy: #102A43;
+      --navy-dark: #0B1F33;
+      --navy-sub: #243B53;
+      --blue: #2F6FAE;
+      --blue-light: #DCEAF7;
+      --bg: #F4F7FA;
+      --card: #ffffff;
+      --line: #D8E1E8;
+      --text: #1F2933;
+      --muted: #6B7785;
+      --ok: #1b7a3d;
+      --ok-bg: #e8f6ee;
+      --hold: #c05621;
+      --hold-bg: #fff4e5;
+      --warn: #9b1c1c;
+      --warn-bg: #fde8e8;
+      --gray-cut: #e8eaed;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", Meiryo, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.75;
+      font-size: 16px;
+    }
+    .hero {
+      background: linear-gradient(160deg, var(--navy-dark) 0%, var(--navy) 55%, var(--navy-sub) 100%);
+      color: #fff;
+      padding: 40px 28px 36px;
+    }
+    .hero__inner { max-width: 880px; margin: 0 auto; }
+    .hero__kicker {
+      letter-spacing: .18em;
+      font-size: 11px;
+      font-weight: 700;
+      opacity: .75;
+      margin: 0 0 10px;
+    }
+    .hero h1 { margin: 0 0 10px; font-size: 28px; font-weight: 700; letter-spacing: .04em; }
+    .hero p { margin: 0; opacity: .88; font-size: 14.5px; max-width: 42em; }
+    .wrap { max-width: 880px; margin: 0 auto; padding: 28px 20px 80px; }
+    nav.toc {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 20px 22px;
+      margin: 0 0 36px;
+    }
+    nav.toc h2 { margin: 0 0 10px; font-size: 14px; letter-spacing: .08em; color: var(--muted); }
+    nav.toc ol { margin: 0; padding-left: 22px; }
+    nav.toc a { color: var(--blue); text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    h2 {
+      font-size: 20px;
+      margin: 40px 0 12px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--blue);
+      color: var(--navy);
+    }
+    h3 { font-size: 16.5px; margin: 28px 0 8px; color: var(--navy); }
+    p { margin: 0 0 12px; }
+    ol, ul { margin: 0 0 14px; padding-left: 1.4em; }
+    li { margin: 0 0 6px; }
+    .note, .warn, .ok, .hold {
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin: 14px 0 18px;
+      font-size: 14.5px;
+    }
+    .note { background: var(--blue-light); color: var(--navy); }
+    .ok { background: var(--ok-bg); color: #14532d; }
+    .hold { background: var(--hold-bg); color: #7c2d12; }
+    .warn { background: var(--warn-bg); color: var(--warn); }
+    .note strong, .ok strong, .hold strong, .warn strong { display: inline-block; margin-right: 6px; }
+    figure {
+      margin: 16px 0 24px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    figure img { display: block; width: 100%; height: auto; }
+    figure.phone { max-width: 360px; margin-left: auto; margin-right: auto; }
+    figcaption {
+      padding: 10px 14px 12px;
+      font-size: 13px;
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+      background: #fafcfe;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--card);
+      font-size: 14.5px;
+      margin: 12px 0 20px;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: var(--navy); color: #fff; font-weight: 600; width: 28%; }
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin: 16px 0 24px;
+    }
+    .flow__step {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 10px;
+      text-align: center;
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--navy);
+    }
+    .flow__step span {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      color: var(--blue);
+      margin-bottom: 4px;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 700;
+      margin-right: 4px;
+    }
+    .badge--ok { background: var(--ok-bg); color: var(--ok); }
+    .badge--month { background: var(--blue-light); color: var(--blue); }
+    .badge--hold { background: var(--hold-bg); color: var(--hold); }
+    .badge--cut { background: var(--gray-cut); color: #4b5563; }
+    footer {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 0 20px 48px;
+      color: var(--muted);
+      font-size: 12.5px;
+    }
+    @media (max-width: 700px) {
+      .flow { grid-template-columns: 1fr 1fr; }
+      .hero h1 { font-size: 22px; }
+    }
+    @media print {
+      .hero { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      nav.toc { break-after: page; }
+      figure { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero__inner">
+      <p class="hero__kicker">EMPLOYEE MANUAL</p>
+      <h1>販売可能リスト<br>社員向け取り扱い説明書</h1>
+      <p>在庫の確認、Hold（商談確保）、受注確定までの操作を、画面の写真つきでまとめた説明書です。Googleアカウントでアプリを開いて使います。</p>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <nav class="toc" aria-label="目次">
+      <h2>目次</h2>
+      <ol>
+        <li><a href="#start">はじめて使うとき</a></li>
+        <li><a href="#screens">画面の見方</a></li>
+        <li><a href="#home">ホームでモデルを探す</a></li>
+        <li><a href="#inventory">在庫リストで車両を探す</a></li>
+        <li><a href="#card">カードの色とバッジの意味</a></li>
+        <li><a href="#detail">詳細・比較・有償OP</a></li>
+        <li><a href="#hold">Holdの取り方</a></li>
+        <li><a href="#second">2nd Hold・Hold解除・受注確定</a></li>
+        <li><a href="#orders">受注リスト</a></li>
+        <li><a href="#readonly">発注リスト・Gクラス予約リスト</a></li>
+        <li><a href="#mypage">マイページ</a></li>
+        <li><a href="#settings">設定</a></li>
+        <li><a href="#phone">スマートフォンでの操作</a></li>
+        <li><a href="#faq">よくある質問</a></li>
+      </ol>
+    </nav>
+
+    <p class="note"><strong>写真について</strong>掲載の画面は操作の案内用イメージです。実際の在庫台数・車種・担当者名は店舗の最新データに合わせて変わります。見た目の細部が実画面と少し違う場合がありますが、操作の流れは同じです。</p>
+
+    <h2 id="start">1. はじめて使うとき</h2>
+    <ol>
+      <li>会社から案内されたアプリのURLを、Google Chrome などで開きます。</li>
+      <li>社用のGoogleアカウントでログインします。</li>
+      <li>左（パソコン）または上（スマホ）に自分の名前が出ていれば、そのまま使えます。</li>
+    </ol>
+    <p class="warn"><strong>名前が出ない／操作できないとき</strong>担当者マスタに、ログイン中のメールアドレスがまだ登録されていません。Hold・受注・マイページは使えません。管理者に自分の氏名・メール・拠点を伝えて登録してもらってください。判定は表示名ではなく<strong>メールアドレス</strong>です。</p>
+    <p>右上（スマホ）または左下（パソコン）の更新ボタンで、最新の在庫に読み直せます。</p>
+
+    <h2 id="screens">2. 画面の見方</h2>
+    <p>画面の切り替えは次の7つです。</p>
+    <table>
+      <tr><th>ホーム</th><td>モデル写真から在庫を探します。日常の出発点です。</td></tr>
+      <tr><th>在庫リスト</th><td>1台ずつの在庫です。Hold・受注はここから行います。</td></tr>
+      <tr><th>受注リスト</th><td>受注が確定した車両の一覧です。</td></tr>
+      <tr><th>発注リスト</th><td>発注情報の閲覧専用です。アプリから登録・変更はできません。</td></tr>
+      <tr><th>Gクラス予約リスト</th><td>Gクラス予約の閲覧専用です。</td></tr>
+      <tr><th>マイページ</th><td>自分のHold・受注・発注・Gクラスだけをまとめて見ます。</td></tr>
+      <tr><th>設定</th><td>テーマ（配色）の変更。管理者はマスタも編集できます。</td></tr>
+    </table>
+    <div class="flow">
+      <div class="flow__step"><span>STEP 1</span>ホームでモデルを選ぶ</div>
+      <div class="flow__step"><span>STEP 2</span>在庫リストで1台を確認</div>
+      <div class="flow__step"><span>STEP 3</span>Holdで72時間確保</div>
+      <div class="flow__step"><span>STEP 4</span>受注確定する</div>
+    </div>
+
+    <h2 id="home">3. ホームでモデルを探す</h2>
+    <figure>
+      <img src="employee-manual-assets/home.jpg" alt="ホーム画面。左にナビ、中央にモデル写真カード">
+      <figcaption>図1　ホーム（パソコン）。写真をタップすると、そのモデルの全グレード在庫へ進みます。</figcaption>
+    </figure>
+    <ul>
+      <li>上部のボディタイプ（すべて／Sedan／SUV など）でモデルを絞り込めます。</li>
+      <li>カード右下の「在庫 ○台」は、そのモデルの販売可能台数です。</li>
+      <li>写真の下のグレード名（C180 など）をタップすると、<strong>そのグレードだけ</strong>の在庫リストが開きます。</li>
+    </ul>
+    <h3>パソコンのとき</h3>
+    <ol>
+      <li>写真にマウスを乗せると「全グレードを見る」と出ます。</li>
+      <li>写真をタップ（クリック）すると、そのモデルの<strong>全グレード</strong>が在庫リストに表示されます。</li>
+    </ol>
+    <h3>スマホ・タブレットのとき</h3>
+    <p>カードをタップすると、その場でグレード一覧が開きます。開きたいグレードを選んで在庫リストへ進みます。</p>
+
+    <h2 id="inventory">4. 在庫リストで車両を探す</h2>
+    <figure>
+      <img src="employee-manual-assets/inventory.jpg" alt="在庫リスト。可能月グループと車両カード">
+      <figcaption>図2　在庫リスト。最初は「当月登録可能」で絞られています。左が通常在庫、中央がHold中、右が完成検査切のイメージです。</figcaption>
+    </figure>
+    <ol>
+      <li>ホームから来た直後は、選んだモデル（または全グレード）だけが見えます。</li>
+      <li>画面を開いたときの可能月は、<strong>当月登録可能</strong>です。すべての月を見るときはプルダウンを「すべて」にしてください。</li>
+      <li>検索欄はモデル名・コミッション・色で探せます。</li>
+      <li>色プルダウンで外装色を絞れます。</li>
+      <li>「Hold済みを含む」のチェックを外すと、Hold中の車両が消えます。</li>
+      <li>カード表示と表表示は、右上の四角いボタンで切り替えられます。</li>
+      <li>車両は可能月のグループ（見出し）ごとに並びます。</li>
+    </ol>
+    <p class="note"><strong>ホームに戻るとき</strong>可能月の初期値は、もう一度「当月登録可能」に戻ります。</p>
+
+    <h2 id="card">5. カードの色とバッジの意味</h2>
+    <table>
+      <tr>
+        <th><span class="badge badge--ok">在庫あり</span></th>
+        <td>いま Hold されていない販売可能車両です。左端の色は在庫の帯です。</td>
+      </tr>
+      <tr>
+        <th><span class="badge badge--month">当月登録可能</span></th>
+        <td>可能月が今月の車両です。過去月も当月登録可能として扱われます。</td>
+      </tr>
+      <tr>
+        <th><span class="badge badge--hold">Hold中</span></th>
+        <td>誰かが商談確保しています。残り時間がオレンジのバーで減っていきます（通常Holdは72時間）。</td>
+      </tr>
+      <tr>
+        <th><span class="badge badge--cut">完成検査切</span></th>
+        <td>備考に「完成検査切」と入っている車両です。カード全体が灰色になります。左端のHold色はそのままです。</td>
+      </tr>
+    </table>
+    <p>デモカーHOLD・他店HOLDは、通常のHoldと違い期限がありません（無期限）。管理者だけが登録できます。</p>
+
+    <h2 id="detail">6. 詳細・比較・有償OP</h2>
+    <ul>
+      <li><strong>詳細</strong>を開くと、MP・ステア・外装／内装・有償OP・備考など1台分の情報が並びます。</li>
+      <li>有償OPのコードをタップすると、名称が表示されます（マスタに無いコードは「未登録」と出ます）。</li>
+      <li>カードの「比較」にチェックすると、最大3台まで並べて見比べられます。画面下の比較バーから表を開きます。</li>
+    </ul>
+
+    <h2 id="hold">7. Holdの取り方</h2>
+    <p>商談中の車両を72時間確保するのが Hold です。確保できるのは1台につき<strong>2名まで</strong>（1st と 2nd）です。</p>
+    <p class="hold"><strong>本人確認</strong>担当者はログイン中のGoogleメールで自動セットされます。手入力では変えられません。</p>
+
+    <h3>通常のHold（全担当者）</h3>
+    <ol>
+      <li>在庫カードの <strong>Hold</strong> をタップします。</li>
+      <li>ステップ1「顧客情報」を入力して「次へ」。</li>
+      <li>ステップ2「契約内容」を入力して「Holdする」。</li>
+    </ol>
+    <figure>
+      <img src="employee-manual-assets/hold1.jpg" alt="Hold登録ステップ1 顧客情報">
+      <figcaption>図3　Hold登録 ステップ1（顧客情報）。担当者は自動表示です。リード番号は「L-」のあとに数字だけ入れます。</figcaption>
+    </figure>
+    <table>
+      <tr><th>販売拠点</th><td>必須。自分の拠点が最初から入っています。必要なら直せます。</td></tr>
+      <tr><th>リード番号</th><td>必須。「L-」は画面側についています。数字だけ入力してください。</td></tr>
+      <tr><th>顧客</th><td>必須。</td></tr>
+      <tr><th>担当者</th><td>自動。ログイン中の自分です。</td></tr>
+    </table>
+    <figure>
+      <img src="employee-manual-assets/hold2.jpg" alt="Hold登録ステップ2 契約内容">
+      <figcaption>図4　Hold登録 ステップ2（契約内容）。すべて必須です。「戻る」で顧客情報に戻れます。</figcaption>
+    </figure>
+    <table>
+      <tr><th>登録月</th><td>必須。最初は今月が入っています。</td></tr>
+      <tr><th>下取車の有無</th><td>必須。</td></tr>
+      <tr><th>OSS登録の可否</th><td>必須。</td></tr>
+      <tr><th>保険加入の有無</th><td>必須。</td></tr>
+      <tr><th>支払方法</th><td>必須。</td></tr>
+    </table>
+    <p>登録が成功すると演出が表示され、マイページから内容を確認できます。Hold中のカードには残り時間が表示されます。</p>
+
+    <h3>管理者だけのHold</h3>
+    <p>管理者が「Hold」を押すと、先に種類を選べます。</p>
+    <ul>
+      <li><strong>通常のHOLD</strong> … 上と同じ（72時間）。</li>
+      <li><strong>デモカーHOLD</strong> … リード番号・登録月は任意。期限なし。</li>
+      <li><strong>他店HOLD</strong> … 販売店は任意。期限なし。</li>
+    </ul>
+
+    <h2 id="second">8. 2nd Hold・Hold解除・受注確定</h2>
+    <h3>2nd Hold</h3>
+    <ul>
+      <li>すでに1st Holdがある車両に、別の担当者が続けて確保できます。</li>
+      <li><strong>1st Holdと同じ担当者（同じメール）は 2nd を取れません。</strong></li>
+      <li>2nd の72時間は、1st の72時間が終わってから始まります。</li>
+      <li>1st が期限切れになると、2nd が自動で1stに上がります。</li>
+    </ul>
+    <h3>Hold解除</h3>
+    <ul>
+      <li>解除できるのは、そのHoldを登録した本人だけです（メールで判定）。</li>
+      <li>1st と 2nd はそれぞれ、登録した本人が解除します。</li>
+    </ul>
+    <h3>受注確定</h3>
+    <ol>
+      <li>在庫カード（またはマイページ）の <strong>受注</strong> をタップします。</li>
+      <li>Hold中の車両は、入力内容がHold時の内容で埋まっています。必要なら直します。</li>
+      <li>登録月の初期値は「受注する今月」です（Holdした月ではありません）。</li>
+      <li>確定できるのは <strong>1st Holdの本人</strong> だけです。他人のHoldは確定できません。</li>
+      <li>Holdしていない車両は、Holdせずに直接受注することもできます（顧客情報→契約内容の同じ2ステップ）。</li>
+    </ol>
+    <p class="ok"><strong>確定後</strong>その車両は在庫リストから受注リストへ移ります。内容はマイページの「受注した車両」でも確認できます。</p>
+
+    <h2 id="orders">9. 受注リスト</h2>
+    <figure>
+      <img src="employee-manual-assets/orders.jpg" alt="受注リストの月ごとグループ表示">
+      <figcaption>図5　受注リスト。最初の並びは「月ごと」です。</figcaption>
+    </figure>
+    <ul>
+      <li>検索はモデル・コミッション・顧客名・担当・拠点で行えます。</li>
+      <li>拠点・担当者で絞り込めます。</li>
+      <li>グループ表示の初期値は <strong>月ごと</strong> です。販売拠点ごと／モデルごと／グループなしにも変えられます。</li>
+      <li>カード表示と表表示を切り替えられます。</li>
+    </ul>
+
+    <h2 id="readonly">10. 発注リスト・Gクラス予約リスト</h2>
+    <p>どちらも<strong>見るだけ</strong>の画面です。Hold や受注のボタンはありません。検索とカード／表の切り替えは使えます。</p>
+    <p class="note">内容の追加・修正が必要なときは、管理者へ依頼してください。</p>
+
+    <h2 id="mypage">11. マイページ</h2>
+    <figure>
+      <img src="employee-manual-assets/mypage.jpg" alt="マイページ。自分のHoldと受注">
+      <figcaption>図6　マイページ。自分の案件だけが並びます。Holdの解除・受注確定もここからできます。</figcaption>
+    </figure>
+    <p>次の4つが、ログイン中の自分の分だけ表示されます。</p>
+    <ol>
+      <li>Hold中の車両</li>
+      <li>受注した車両</li>
+      <li>発注リスト（担当者名が自分と一致するもの）</li>
+      <li>Gクラス予約リスト（担当者名が自分と一致するもの）</li>
+    </ol>
+    <p>上部の検索は4つのセクション全部に効きます。カード／表の切り替えも一括です。</p>
+
+    <h2 id="settings">12. 設定</h2>
+    <figure>
+      <img src="employee-manual-assets/settings.jpg" alt="設定画面。テーマとシステムマスタ">
+      <figcaption>図7　設定。テーマは全員が変えられます。システムマスタは管理者だけです。</figcaption>
+    </figure>
+    <h3>全員</h3>
+    <p><strong>表示設定</strong>でアプリとサイドバーの配色を選べます（11色＋ランダム）。自分の画面だけに効きます。</p>
+    <h3>管理者限定（システムマスタ）</h3>
+    <ul>
+      <li>ロゴ</li>
+      <li>お知らせ（ホーム上部の文言）</li>
+      <li>モデル写真（ホームのカード写真）</li>
+      <li>通知先（メール・Google Chat）</li>
+      <li>担当者（氏名・メール・拠点。Holdやマイページの本人判定に使います）</li>
+      <li>有償OPマスタ（コードと名称）</li>
+      <li>Hold・受注確定の演出</li>
+    </ul>
+    <p class="warn">担当者や有償OPの追加は、設定の該当カードから行います。一般の担当者にはこの欄は出ません。</p>
+
+    <h2 id="phone">13. スマートフォンでの操作</h2>
+    <figure class="phone">
+      <img src="employee-manual-assets/phone.jpg" alt="スマートフォンのホーム画面">
+      <figcaption>図8　スマホのホーム。カードを開いてグレードを選びます。画面上部のタブで画面を切り替えます。</figcaption>
+    </figure>
+    <ul>
+      <li>パソコンのような左メニューは出ません。画面上のタブ（ホーム／在庫リスト／…）を使います。</li>
+      <li>ホームではカードをタップしてグレードを展開します。</li>
+      <li>Hold・受注の入力は、パソコンと同じ2ステップです。入力欄は画面幅に合わせて並びます。</li>
+      <li>ホーム画面に追加（PWA）できる場合があります。Googleサイトへ埋め込んだ表示では追加できないことがあります。</li>
+    </ul>
+
+    <h2 id="faq">14. よくある質問</h2>
+    <h3>Holdボタンが押せない／エラーになる</h3>
+    <p>担当者マスタ未登録、すでに2名がHoldしている、自分の1st Holdに対して2ndを取ろうとしている、のいずれかです。画面の赤いメッセージを確認してください。</p>
+    <h3>他人のHoldを解除・受注できない</h3>
+    <p>仕様です。解除はそのHoldの本人、受注確定は1st Holdの本人だけです。名前が似ていてもメールが違うと他人扱いになります。</p>
+    <h3>残り時間が0になってもカードが残っている</h3>
+    <p>期限切れの処理はサーバー側で定期的に走ります。数分待ってから更新ボタンを押してください。2nd がいる場合は、2nd が1stに繰り上がります。</p>
+    <h3>コミッションの先頭0が消えて見えない</h3>
+    <p>画面上は0付きで扱う想定です。おかしい数字を見つけたら管理者へ連絡してください。</p>
+    <h3>有償OPをタップしても名称が出ない</h3>
+    <p>有償OPマスタ未登録です。管理者にコードと正式名称を伝えて、設定の「有償OPマスタ」へ登録してもらってください。</p>
+    <h3>ホームに写真が出ない</h3>
+    <p>モデル写真が未登録です。管理者に設定の「モデル写真」への登録を依頼してください。</p>
+    <h3>操作したのに画面が固まったように見える</h3>
+    <p>ボタンは処理中表示になります。応答が遅い場合はエラーに戻ります。連打せず、表示が戻ってからやり直してください。更新ボタンで最新状態を取り直せます。</p>
+  </div>
+  <footer>
+    販売可能リスト　社員向け取り扱い説明書　／　アプリ操作のみ（データ管理の内部作業は管理者向け）
+  </footer>
+</body>
+</html>
