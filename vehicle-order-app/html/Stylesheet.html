@@ -589,11 +589,8 @@
        1枚のカードとしてのまとまりが保たれるようにする。 */
     row-gap: 8px;
     column-gap: 10px;
-    /* start にする。center だと「Hold中（2nd有）」で解除リンクが2本に増えて
-       状態列が縦に伸びた分だけ、1本しか無い操作ボタン（受注確定）が引っ張られて
-       ずれてしまうため（現場からの指摘で判明）。start にして全項目を上端に
-       揃えることで、状態列の行数（解除リンクの本数）に関係なく、バッジ・
-       操作ボタン・他の項目が常に同じ高さで揃う。 */
+    /* 状態列から解除リンクを外し、HOLD列は常に1行（ellipsis＋解除スペーサー）にしたので
+       在庫あり／Hold中／2nd有でも行の高さが揃う。項目は上端揃えのままにする。 */
     align-items: flex-start;
   }
   /* 状態列も「Hold中（2nd有）」バッジが収まる幅（150px）を確保し、隣の操作列と
@@ -622,7 +619,7 @@
      ため）。 */
   .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(1) { flex: 1 1 110px; min-width: 0; } /* ステータス */
   .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(2) { flex: 1 1 88px; min-width: 0; } /* モデル＋コミッション */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(3) { flex: 1 1 48px; min-width: 0; } /* MP */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(3) { flex: 0 0 auto; min-width: 4.5ch; } /* MP（モデルイヤーを省略せず常に全表示） */
   .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(4) { flex: 1 1 40px; min-width: 0; } /* ステア */
   .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(5) { flex: 1 1 110px; min-width: 0; } /* カラー */
   .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(6) { flex: 1 1 110px; min-width: 0; } /* 有償OP */
@@ -644,6 +641,24 @@
   .rowCard__field--holdSecond { border-left: 3px solid var(--primary); padding-left: 8px; }
   .rowCard__field--hold .rowCard__label { color: var(--warning); }
   .rowCard__field--holdSecond .rowCard__label { color: var(--primary-text); }
+  /* MPはHOLD列に押されて省略されないよう、内容幅のまま縮めず ellipsis もかけない。 */
+  .rowCard__field--mp .rowCard__value {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
+  }
+  .rowCard__holdLine {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+  }
+  .rowCard__holdLine .rowCard__value { flex: 1 1 0; min-width: 0; }
+  .rowCard__cancelSpacer {
+    flex: none;
+    width: 2.8em;
+    height: 1em;
+  }
   .rowCard__value--muted { color: var(--on-surface-variant); font-weight: 500; }
   .rowCard--available { border-left-color: var(--success); }
   .rowCard--hold { border-left-color: var(--warning); }
@@ -694,20 +709,20 @@
   }
   .rowCard__model { font-size: 15px; font-weight: 700; letter-spacing: -.005em; }
   .rowCard__commission { font-size: 11px; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; margin-top: 1px; }
-  /* 高さ固定・内部スクロール（.card__holdArea と同じ考え方）。Hold中はHOLD解除
-     リンクが1本、Hold中（2nd有）は2本に増えて縦に伸びる分だけ、状態列だけが
-     他の列より高くなり、行（カード）自体の高さが在庫あり／Hold中／Hold中（2nd有）で
-     バラバラになっていたため、状態列の高さを常に一定にして吸収する。 */
-  .rowCard__status { display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 0; overflow: visible; min-width: 0; }
+  /* 状態列はバッジのみ（解除はHOLD列へ）。Holdの有無で行の高さが変わらないようにする。 */
+  .rowCard__status { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; min-height: 28px; overflow: hidden; min-width: 0; }
   .rowCard__cancelLink {
+    flex: none;
+    width: 2.8em;
     border: none; background: none; color: var(--danger); font-size: 11px; font-weight: 700;
-    cursor: pointer; padding: 0; text-align: center; width: 100%;
+    cursor: pointer; padding: 0; text-align: center;
   }
   .rowCard__cancelLink:hover { text-decoration: underline; }
   /* justify-content: flex-endにし、比較チェック（末尾に追加。vehicleRowCardHtml
-     参照）を含めた操作ボタン一式を行の右端に寄せる（:nth-child(7)のflex-growと
-     組み合わせる。添付の参照UI参照）。 */
-  .rowCard__actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
+     参照）を含めた操作ボタン一式を行の右端に寄せる（:nth-child(9)のflex-growと
+     組み合わせる。添付の参照UI参照）。Holdの有無でボタン数が変わっても
+     折り返して高さが変わらないよう nowrap にする。 */
+  .rowCard__actions { display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; justify-content: flex-end; min-width: 0; min-height: 32px; }
 
   /* 受注リストの表示形式「表」: 在庫と項目構成が異なる（比較ピン・操作ボタンが無く、
      顧客・担当者・リード番号などを表示する）ため、専用の項目幅にする。顧客名の列も
@@ -778,12 +793,9 @@
        方が縮む（内部でテキストが折り返す）ようにする。 */
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 12px;
-    /* align-items: stretch（デフォルト）だと、1台だけ「車両スペックを見る」等の
-       詳細を開いて縦に伸びたときに、同じグリッド行の他のカードまで背が
-       伸びてしまう（グリッド行の高さは行内で最も高いカードに揃うため）。
-       start にすることで、各カードは自分自身の内容量ぶんの高さのみを取り、
-       他のカードのサイズには影響しないようにする。 */
-    align-items: start;
+    /* HOLD枠の高さを未登録時と同じ1行に揃えたので、同じグリッド行は stretch で揃えてよい。
+       詳細はモーダル表示のため、カード内の開閉で行全体が伸びることはない。 */
+    align-items: stretch;
   }
   .card {
     background: var(--card-bg);
@@ -796,6 +808,8 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    height: 100%;
+    min-height: 0;
     transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease, background-color .18s ease;
   }
   /* 上帯・ホバー枠はホームカードと同じテーマ色。左帯（在庫状況色）はホバー時も維持する。 */
@@ -908,6 +922,11 @@
     flex-direction: row;
     align-items: stretch;
     gap: 6px;
+    height: 38px;
+    min-height: 38px;
+    max-height: 38px;
+    overflow: hidden;
+    flex: none;
   }
   .card__holdArea--compact .card__holdInfo {
     flex: 1 1 0;
@@ -960,15 +979,48 @@
     color: var(--on-surface-variant);
   }
   .card__holdInfo--compact {
-    padding: 6px 8px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) 8.2em 2.8em;
+    align-items: center;
+    column-gap: 6px;
+    height: 38px;
+    min-height: 38px;
+    max-height: 38px;
+    overflow: hidden;
+    padding: 0 8px;
+    box-sizing: border-box;
     font-size: 12px;
-    line-height: 1.4;
+    line-height: 1.2;
     border-radius: 8px;
   }
-  .card__holdInfo--compact .card__holdInfo__head { margin-bottom: 2px; }
-  .card__holdInfo--compact .card__holdInfo__row { margin-bottom: 2px; }
-  .card__holdArea--compact .holdTimer__bar { height: 3px; }
-  .card__holdArea--compact .holdTimer__text { margin-top: 2px; font-size: 11px; }
+  .card__holdInfo--compact .card__holdInfo__label { white-space: nowrap; }
+  .card__holdInfo--compact .card__holdInfo__row {
+    margin: 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .card__holdInfo--compact .holdTimer {
+    min-width: 0;
+    overflow: hidden;
+  }
+  .card__holdInfo--compact .holdTimer__bar { display: none; }
+  .card__holdInfo--compact .holdTimer__text {
+    margin: 0;
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .card__holdInfo--compact .card__holdInfo__cancel,
+  .card__holdInfo--compact .card__holdInfo__cancel--spacer {
+    width: 2.8em;
+    min-width: 2.8em;
+    padding: 2px 0;
+    text-align: center;
+  }
+  .card__holdInfo__cancel--spacer { display: inline-block; height: 1em; }
   /* デモカーHOLD・他店HOLDは、順番（1st/2nd）に関わらずこの特別色で上書きする
      （--first/--secondと同時に付与されるクラスのため、後に書くことで優先させる）。 */
   .card__holdInfo--special { border-left-color: var(--hold-special); background: var(--hold-special-bg); }
@@ -1024,7 +1076,7 @@
   .holdTimer--warning .holdTimer__text { color: var(--warning); }
   .holdTimer--expired .holdTimer__text { color: var(--danger); }
 
-  .card__actions { display: flex; gap: 6px; margin-top: auto; padding-top: 2px; flex-wrap: wrap; }
+  .card__actions { display: flex; gap: 6px; margin-top: auto; padding-top: 2px; flex-wrap: nowrap; min-height: 44px; }
   .card__actions .btn { flex: 1; min-height: 44px; }
 
   .emptyState {

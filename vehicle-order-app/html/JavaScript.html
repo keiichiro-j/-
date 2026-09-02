@@ -1194,8 +1194,8 @@
   // 素のtableではなく、カードグリッドと同じ「カードタイプUI」の見た目（角丸・影・
   // ホバーで浮き上がる）を保ったまま、1台=横1行に並べる。
   // Hold詳細（顧客・タイマー等）はカード表示に譲り、こちらはスペック比較の速さを優先する。
-  function rowField_(label, value) {
-    return '<div class="rowCard__field rowCard__field--center"><span class="rowCard__label">' + label + '</span>' +
+  function rowField_(label, value, extraClass) {
+    return '<div class="rowCard__field rowCard__field--center' + (extraClass ? ' ' + extraClass : '') + '"><span class="rowCard__label">' + label + '</span>' +
       '<span class="rowCard__value">' + escapeHtml(value || '-') + '</span></div>';
   }
 
@@ -1225,16 +1225,6 @@
     var rowTone = isSpecialHold ? 'rowCard--holdSpecial' : (hasSecondHold ? 'rowCard--hold2' : (isHold ? 'rowCard--hold' : 'rowCard--available'));
     if (hasInspectionCutRemark_(v.remarks)) rowTone += ' rowCard--inspectionCut';
 
-    // 表示形式「表」にもHold解除の導線を用意する（カード表示の「解除」ボタンと同じ
-    // data-cancel-hold / data-cancel-rank を使い、既存のクリック委譲・モーダルをそのまま使う）。
-    var cancelLinks = '';
-    if (isHold) {
-      cancelLinks += '<button type="button" class="rowCard__cancelLink" data-cancel-hold="' + escapeHtml(v.commission) + '" data-cancel-rank="1st">1ST HOLD解除</button>';
-      if (hasSecondHold) {
-        cancelLinks += '<button type="button" class="rowCard__cancelLink" data-cancel-hold="' + escapeHtml(v.commission) + '" data-cancel-rank="2nd">2ND HOLD解除</button>';
-      }
-    }
-
     // 表示形式「表」は、ひと目で商談に必要な項目（ステータス・モデル・コミッション・
     // MP・ステア・カラー・有償OP・操作ボタン・比較チェック）だけを横1行に並べ、
     // それ以外の項目（入港予定日・可能月・VPC等）は行に含めない（現場からの指摘。
@@ -1244,14 +1234,16 @@
     // 開く詳細モーダル（openInventoryDetailModal_・vehicleDetailHtml_）で確認できる。
     // 操作ボタン列（比較チェック含む）は、参照UIに合わせて行の右端に寄せて表示する
     // （.rowCard__actions・Stylesheet.html参照）。
+    // HOLD解除は状態列に置かない（解除リンクが増えると在庫あり行より縦に伸びる）。
+    // 1ST/2ND HOLD列の値と同じ行に「解除」を置き、未登録時は同じ幅のスペーサーを入れて高さを揃える。
     return '<div class="rowCard ' + rowTone + '" data-commission="' + escapeHtml(v.commission) + '">' +
       '<div class="rowCard__inner">' +
-      '<div class="rowCard__status">' + statusBadge + cancelLinks + '</div>' +
+      '<div class="rowCard__status">' + statusBadge + '</div>' +
       '<div class="rowCard__field">' +
       '<span class="rowCard__model">' + escapeHtml(v.model) + '</span>' +
       '<span class="rowCard__commission">' + escapeHtml(v.commission) + '</span>' +
       '</div>' +
-      rowField_('MP', v.mp) +
+      rowField_('MP', v.mp, 'rowCard__field--mp') +
       rowField_('ステア', v.steering) +
       rowField_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
       '<div class="rowCard__field rowCard__field--center"><span class="rowCard__label">有償OP</span>' +
@@ -1282,7 +1274,17 @@
   // 固定高さ（150px）にしていたため、2nd の顧客名・タイマーが枠内スクロールに
   // 隠れることがあった。縦2枠・高さ自動にして、両方を省略せず見せる。
   function holdSlotEmptyHtml_(label, rank, compact) {
-    return '<div class="card__holdInfo card__holdInfo--' + rank + ' card__holdInfo--empty' + (compact ? ' card__holdInfo--compact' : '') + '">' +
+    if (compact) {
+      // カード一覧は登録済み枠と同じ1行グリッド（ラベル・未登録・タイマー幅・解除幅）にし、
+      // HOLDの有無でカードの高さが変わらないようにする。
+      return '<div class="card__holdInfo card__holdInfo--' + rank + ' card__holdInfo--empty card__holdInfo--compact">' +
+        '<span class="card__holdInfo__label">' + label + '</span>' +
+        '<div class="card__holdInfo__row card__holdInfo__row--empty">未登録</div>' +
+        '<div class="holdTimer holdTimer--placeholder" aria-hidden="true"><div class="holdTimer__text"></div></div>' +
+        '<span class="card__holdInfo__cancel card__holdInfo__cancel--spacer" aria-hidden="true"></span>' +
+        '</div>';
+    }
+    return '<div class="card__holdInfo card__holdInfo--' + rank + ' card__holdInfo--empty">' +
       '<div class="card__holdInfo__head">' +
       '<span class="card__holdInfo__label">' + label + '</span>' +
       '</div>' +
@@ -1300,10 +1302,20 @@
       '</div>';
   }
 
-  function rowHoldFieldHtml_(label, value, empty, extraClass) {
+  function rowHoldCancelHtml_(commission, rank, active) {
+    if (!active) {
+      return '<span class="rowCard__cancelSpacer" aria-hidden="true"></span>';
+    }
+    return '<button type="button" class="rowCard__cancelLink" data-cancel-hold="' + escapeHtml(commission) + '" data-cancel-rank="' + rank + '">解除</button>';
+  }
+
+  function rowHoldFieldHtml_(label, value, empty, extraClass, cancelHtml) {
     return '<div class="rowCard__field rowCard__field--hold ' + extraClass + '">' +
       '<span class="rowCard__label">' + label + '</span>' +
-      '<span class="rowCard__value' + (empty ? ' rowCard__value--muted' : '') + '">' + value + '</span></div>';
+      '<span class="rowCard__holdLine">' +
+      '<span class="rowCard__value' + (empty ? ' rowCard__value--muted' : '') + '">' + value + '</span>' +
+      cancelHtml +
+      '</span></div>';
   }
 
   function rowHoldFieldsHtml_(v) {
@@ -1315,8 +1327,8 @@
     var secondValue = hasSecondHold
       ? escapeHtml(v.secondHoldCustomer || '-') + '（' + escapeHtml(v.secondHoldStaff || '-') + '・' + escapeHtml(v.secondHoldSalesLocation || '-') + '）'
       : '未登録';
-    return rowHoldFieldHtml_('1ST HOLD', firstValue, !isHold, 'rowCard__field--holdFirst') +
-      rowHoldFieldHtml_('2ND HOLD', secondValue, !hasSecondHold, 'rowCard__field--holdSecond');
+    return rowHoldFieldHtml_('1ST HOLD', firstValue, !isHold, 'rowCard__field--holdFirst', rowHoldCancelHtml_(v.commission, '1st', isHold)) +
+      rowHoldFieldHtml_('2ND HOLD', secondValue, !hasSecondHold, 'rowCard__field--holdSecond', rowHoldCancelHtml_(v.commission, '2nd', hasSecondHold));
   }
 
   // Hold詳細ブロックは、常に見えている要約行（顧客・担当者・タイマー）と、
@@ -1370,10 +1382,24 @@
         : '';
     }
 
-    return '<div class="card__holdInfo card__holdInfo--' + rank + (isSpecial ? ' card__holdInfo--special' : '') + (full ? '' : ' card__holdInfo--compact') + '">' +
+    var specialSuffix = isSpecial ? '（' + escapeHtml(holdTypeLabel_(holdType)) + '）' : '';
+    var cancelBtn = '<button class="card__holdInfo__cancel" type="button" data-cancel-hold="' + escapeHtml(v.commission) + '" data-cancel-rank="' + cancelRank + '">解除</button>';
+
+    if (!full) {
+      // カード一覧は未登録枠と同じ1行（ラベル・要約・タイマー・解除）に収め、
+      // 詳細モーダル側だけ従来どおり複数行で見せる。
+      return '<div class="card__holdInfo card__holdInfo--' + rank + (isSpecial ? ' card__holdInfo--special' : '') + ' card__holdInfo--compact">' +
+        '<span class="card__holdInfo__label">' + label + specialSuffix + '</span>' +
+        summaryHtml +
+        holdTimerHtml_(createdAt, expiresAt) +
+        cancelBtn +
+        '</div>';
+    }
+
+    return '<div class="card__holdInfo card__holdInfo--' + rank + (isSpecial ? ' card__holdInfo--special' : '') + '">' +
       '<div class="card__holdInfo__head">' +
-      '<span class="card__holdInfo__label">' + label + (isSpecial ? '（' + escapeHtml(holdTypeLabel_(holdType)) + '）' : '') + '</span>' +
-      '<button class="card__holdInfo__cancel" type="button" data-cancel-hold="' + escapeHtml(v.commission) + '" data-cancel-rank="' + cancelRank + '">解除</button>' +
+      '<span class="card__holdInfo__label">' + label + specialSuffix + '</span>' +
+      cancelBtn +
       '</div>' +
       summaryHtml +
       holdTimerHtml_(createdAt, expiresAt) +
@@ -1420,18 +1446,24 @@
     var now = Date.now();
     var anyExpired = false;
     document.querySelectorAll('.holdTimer').forEach(function (el) {
+      if (el.classList.contains('holdTimer--placeholder')) return;
       var expiresAt = Number(el.dataset.expiresAt);
       if (!expiresAt) return;
       var createdAt = Number(el.dataset.createdAt) || expiresAt - HOLD_DURATION_MS_CLIENT;
       var fill = el.querySelector('.holdTimer__barFill');
       var text = el.querySelector('.holdTimer__text');
+      var compact = !!(el.closest && el.closest('.card__holdInfo--compact'));
 
       if (now < createdAt) {
         // 2nd Hold: 1st Holdの期間が終わるまでは、まだ自身の72時間は始まっていない
         el.classList.remove('holdTimer--expired');
         el.classList.remove('holdTimer--warning');
-        fill.style.width = '0%';
-        text.textContent = '1ST HOLD終了後に開始（あと ' + formatDuration_(createdAt - now) + '）';
+        if (fill) fill.style.width = '0%';
+        if (text) {
+          text.textContent = compact
+            ? '開始待ち ' + formatDuration_(createdAt - now)
+            : '1ST HOLD終了後に開始（あと ' + formatDuration_(createdAt - now) + '）';
+        }
         return;
       }
 
@@ -1441,14 +1473,14 @@
         anyExpired = true;
         el.classList.add('holdTimer--expired');
         el.classList.remove('holdTimer--warning');
-        fill.style.width = '0%';
-        text.textContent = '期限切れ（まもなく自動更新されます）';
+        if (fill) fill.style.width = '0%';
+        if (text) text.textContent = compact ? '期限切れ' : '期限切れ（まもなく自動更新されます）';
       } else {
         var pct = total > 0 ? Math.max(0, Math.min(100, (remaining / total) * 100)) : 0;
-        fill.style.width = pct + '%';
+        if (fill) fill.style.width = pct + '%';
         el.classList.toggle('holdTimer--warning', remaining < 6 * 60 * 60 * 1000);
         el.classList.remove('holdTimer--expired');
-        text.textContent = '残り ' + formatDuration_(remaining);
+        if (text) text.textContent = '残り ' + formatDuration_(remaining);
       }
     });
     if (anyExpired) scheduleExpiredRefresh_();
