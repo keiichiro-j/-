@@ -162,6 +162,23 @@
     transition: opacity .3s ease;
   }
   .appLoading.is-hidden { opacity: 0; pointer-events: none; }
+  /* 管理者が設定タブから登録した画像（任意。#appLoadingImage、
+     applyLoadingImage_・JavaScript.html参照）。読み込み（onload）が完了するまでは
+     opacity: 0のままにしておき、is-visibleが付いたタイミングでゆっくり
+     （1.1秒かけて）フェードインさせる。「うっすら現れる」演出は画像自身の
+     フェードインで、「うっすら消える」演出は画面全体（.appLoading.is-hidden）の
+     フェードアウトで実現しており、２つの独立したopacity遷移の組み合わせになる。
+     未設定（hidden）の場合はスピナー・テキストのみの従来どおりの見た目のまま。 */
+  .appLoading__image {
+    max-width: min(70vw, 320px);
+    max-height: 40vh;
+    width: auto;
+    height: auto;
+    border-radius: 12px;
+    opacity: 0;
+    transition: opacity 1.1s ease;
+  }
+  .appLoading__image.is-visible { opacity: 1; }
   .appLoading__spinner {
     width: 36px;
     height: 36px;
@@ -171,7 +188,10 @@
     animation: navRefreshSpin .8s linear infinite;
   }
   .appLoading__text { margin: 0; font-size: 13px; letter-spacing: .04em; color: rgba(234, 241, 248, .7); }
-  @media (prefers-reduced-motion: reduce) { .appLoading__spinner { animation: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .appLoading__spinner { animation: none; }
+    .appLoading__image { transition: none; }
+  }
 
   /* ===== ブランド表記の行 =====
      左側は「戻る」「更新」ボタン、右側はログイン中のユーザー情報。アプリ名
@@ -1268,6 +1288,12 @@
   .logoPreview img { max-width: 100%; max-height: 100%; object-fit: contain; }
   .logoPreview__placeholder { font-size: 11px; color: var(--on-surface-variant); text-align: center; }
   .logoField__controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+  /* ===== ローディング画像設定のプレビュー =====
+     ロゴ（.logoPreview、72×72の小さな正方形）と異なり、ローディング画像は
+     全画面表示になり得る画像のため、プレビューも横長・大きめにして
+     見え方を確認しやすくする。 */
+  #settingsLoadingImagePreview { width: 100%; max-width: 320px; height: 160px; }
 
   /* ===== 設定タブの各種リスト共通: ドラッグハンドル（担当者・モデル写真・
      メール通知先で共通利用。JavaScript.htmlのmakeReorderable_参照） ===== */

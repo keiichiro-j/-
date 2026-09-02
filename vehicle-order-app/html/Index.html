@@ -110,8 +110,15 @@
        以前は何も表示せず空白のまま数秒待たせていたため、JavaScript.htmlのinit()で
        初回のreloadAll_完了時にのみis-hiddenを付けてフェードアウトする
        （更新ボタンからの再読み込みでは表示しない。そちらは既存のボタン自体の
-       回転アイコンで十分フィードバックできているため）。 -->
+       回転アイコンで十分フィードバックできているため）。
+       #appLoadingImageは、管理者が設定タブから登録した画像（任意。未設定なら
+       非表示）。読み込み完了（onload）まではopacity: 0のままにしておき、
+       読み込めたらis-visibleを付けて「うっすら現れる」フェードインにする
+       （applyLoadingImage_、JavaScript.html参照）。画面全体（#appLoading）自体の
+       フェードアウトは既存のis-hidden（opacity遷移）でそのまま「うっすら消える」
+       演出になる。 -->
   <div class="appLoading" id="appLoading" aria-hidden="true">
+    <img class="appLoading__image hidden" id="appLoadingImage" alt="">
     <div class="appLoading__spinner"></div>
     <p class="appLoading__text">読み込み中…</p>
   </div>
@@ -487,6 +494,29 @@
               <input type="text" id="settingsLogoUrl" class="input" placeholder="https://... または、上のアップロード欄から選択">
             </div>
             <div class="modal__error hidden" id="settingsLogoError"></div>
+          </div>
+
+          <!-- 起動時ローディング画面（#appLoading）に表示する画像。編集画面はロゴ等と
+               同様に管理者限定だが、値自体は起動時に全利用者の画面へ表示する
+               （applyLoadingImage_、JavaScript.html参照）。ロゴ・モデル写真と異なり、
+               ファイルアップロードではなく「ドライブID」（またはドライブの共有リンク・
+               外部画像URL）を直接入力する方式にしている（現場からの要望。
+               normalizeLoadingImageUrl_、SettingsService.gs参照）。 -->
+          <div class="settingsCard hidden" id="systemMasterLoadingImageCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-image"></use></svg>ローディング画像</h2>
+            <p class="settingsSection__desc">アプリを開いたときのローディング画面（読み込み中…）に表示する画像です。Googleドライブにアップロードした画像の「ドライブID」（共有リンクの一部）、共有リンクそのもの、または画像の外部URLのいずれかを指定してください。画像はうっすらと現れ、読み込み完了後はローディング画面ごとうっすらと消えます。空欄にすると画像なし（スピナーのみ）になります。</p>
+            <div class="formField">
+              <label>ドライブID または 画像URL</label>
+              <input type="text" id="settingsLoadingImageId" class="input" placeholder="例: 1AbCdEfGhIjKlMnOpQrStUvWxYz1234567 または https://...">
+              <p class="formField__hint">ドライブIDは、Googleドライブでファイルを右クリック→「リンクを取得」で得られる共有リンク（https://drive.google.com/file/d/【ここがドライブID】/view?usp=sharing）の【ここがドライブID】の部分です（最大<span id="loadingImageUrlMax"></span>文字）。</p>
+            </div>
+            <div class="formField">
+              <label>プレビュー</label>
+              <div class="logoPreview" id="settingsLoadingImagePreview">
+                <span class="logoPreview__placeholder">画像なし</span>
+              </div>
+            </div>
+            <div class="modal__error hidden" id="settingsLoadingImageError"></div>
           </div>
 
           <!-- お知らせ：ホーム画面の「販売可能リスト」の文字の上に、全利用者向けに

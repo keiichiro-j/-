@@ -2236,6 +2236,7 @@
     var isAdmin = !!(state.bootstrap && state.bootstrap.isSystemAdmin);
     $('systemMasterGroupTitle').classList.toggle('hidden', !isAdmin);
     $('systemMasterLogoCard').classList.toggle('hidden', !isAdmin);
+    $('systemMasterLoadingImageCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterAnnouncementCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterModelPhotosCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterNotifyCard').classList.toggle('hidden', !isAdmin);
@@ -2263,6 +2264,10 @@
     applyTheme(settings.themeKey);
     applyLogo(settings.logoUrl);
     renderLogoPreview_(settings.logoUrl);
+    $('loadingImageUrlMax').textContent = (state.bootstrap && state.bootstrap.loadingImageUrlMax) || 1500;
+    $('settingsLoadingImageId').value = settings.loadingImageUrl || '';
+    applyLoadingImage_(settings.loadingImageUrl);
+    renderLoadingImagePreview_(settings.loadingImageUrl);
 
     state.staffList = (settings.staffList || []).map(function (s) { return { name: s.name || '', email: s.email || '', location: s.location || '' }; });
     $('staffListMax').textContent = (state.bootstrap && state.bootstrap.staffListMax) || 30;
@@ -2504,6 +2509,49 @@
       : '<span class="logoPreview__placeholder">ロゴなし</span>';
   }
 
+  // ----- 起動時ローディング画面（#appLoading）の画像設定 -----
+  // ロゴ・モデル写真と異なり、管理者は「ドライブID」（ファイルIDのみの文字列）を
+  // 直接入力できる（normalizeLoadingImageUrl_、SettingsService.gs参照。変換は
+  // 保存時にサーバー側で行うため、設定タブの入力欄はドライブID／共有リンク／
+  // 外部URLのいずれかをそのまま受け付け、保存・再読み込み後に変換済みURLへ
+  // 置き換わる。ロゴ・モデル写真の設定項目と同じ「保存するまでは変換後の見た目を
+  // 確認できない」仕様に揃えている）。
+  function applyLoadingImage_(url) {
+    var img = $('appLoadingImage');
+    if (url) {
+      img.onload = function () { img.classList.add('is-visible'); };
+      img.onerror = function () { img.classList.remove('is-visible'); };
+      img.src = url;
+      img.classList.remove('hidden');
+    } else {
+      img.onload = null;
+      img.onerror = null;
+      img.removeAttribute('src');
+      img.classList.remove('is-visible');
+      img.classList.add('hidden');
+    }
+  }
+
+  /**
+   * 設定タブのプレビュー。入力値がドライブIDのみの場合はそのままでは画像として
+   * 表示できない（保存時にサーバー側でURLへ変換される）ため、読み込みに失敗した
+   * 場合は「保存後に確認できます」という案内に差し替える（壊れた画像アイコンの
+   * まま表示され続けるのを防ぐ）。
+   */
+  function renderLoadingImagePreview_(url) {
+    var el = $('settingsLoadingImagePreview');
+    if (!url) {
+      el.innerHTML = '<span class="logoPreview__placeholder">画像なし</span>';
+      return;
+    }
+    el.innerHTML = '<img alt="ローディング画像プレビュー">';
+    var img = el.querySelector('img');
+    img.onerror = function () {
+      el.innerHTML = '<span class="logoPreview__placeholder">プレビューを表示できません（ドライブIDの場合、保存後に変換されて表示されます）</span>';
+    };
+    img.src = url;
+  }
+
   $('settingsLogoFile').addEventListener('change', function () {
     var file = this.files && this.files[0];
     if (!file) return;
@@ -2535,6 +2583,10 @@
     $('settingsLogoFile').value = '';
     renderLogoPreview_('');
     $('settingsLogoError').classList.add('hidden');
+  });
+
+  $('settingsLoadingImageId').addEventListener('input', function () {
+    renderLoadingImagePreview_(this.value.trim());
   });
 
   // ----- 設定タブの各種リスト（担当者・モデル写真・メール通知先）共通のドラッグ
@@ -3517,9 +3569,22 @@
       return;
     }
 
+    // ローディング画像も、サーバー側のvalidateLoadingImageUrl_（SettingsService.gs）と
+    // 同じ規則（変換後URLの最大文字数）を保存前にクライアント側でもチェックする。
+    // ドライブID・共有リンクを指定した場合、変換後は必ず短い固定形式のURLになるため、
+    // ここでの入力値（変換前）の文字数チェックで実質的に十分カバーできる
+    // （長すぎる外部URLを直接貼り付けた場合のみ引っかかる）。
+    var loadingImageId = $('settingsLoadingImageId').value.trim();
+    var maxLoadingImage = (state.bootstrap && state.bootstrap.loadingImageUrlMax) || 1500;
+    if (loadingImageId.length > maxLoadingImage) {
+      $('settingsError').textContent = 'ローディング画像のURLが長すぎます（' + loadingImageId.length + '文字）';
+      return;
+    }
+
     var settings = {
       themeKey: state.themeKey || DEFAULT_THEME_KEY,
       logoUrl: $('settingsLogoUrl').value.trim(),
+      loadingImageUrl: loadingImageId,
       homeAnnouncement: homeAnnouncement,
       notifyHoldMailTo: cleanedMailLists.notifyHoldMailTo,
       notifyOrderMailTo: cleanedMailLists.notifyOrderMailTo,

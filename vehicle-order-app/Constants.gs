@@ -325,7 +325,8 @@ var PROP_KEYS = {
   STAFF_LIST: 'STAFF_LIST',
   MODEL_PHOTOS: 'MODEL_PHOTOS',
   CELEBRATION_VARIANTS: 'CELEBRATION_VARIANTS',
-  HOME_ANNOUNCEMENT: 'HOME_ANNOUNCEMENT'
+  HOME_ANNOUNCEMENT: 'HOME_ANNOUNCEMENT',
+  LOADING_IMAGE_URL: 'LOADING_IMAGE_URL'
 };
 
 /**
@@ -452,3 +453,15 @@ var MODEL_PHOTO_GRADE_RULE_MAX_LENGTH = 30;
 // 目立たせて表示する想定のため短めの上限にしている（validateHomeAnnouncement_、
 // SettingsService.gs参照）。
 var HOME_ANNOUNCEMENT_MAX_LENGTH = 60;
+
+// 起動時ローディング画面（#appLoading）に表示する画像のURLの最大文字数。
+// モデル写真と同様、Googleドライブの共有リンク／ファイルIDから直接画像URLに
+// 変換したうえで保存するため、data URLではなく変換後の外部URLの利用を前提とする
+// （normalizeLoadingImageUrl_、SettingsService.gs参照）。
+var LOADING_IMAGE_URL_MAX_LENGTH = 1500;
+
+// Googleドライブの共有リンク／ファイルIDを直接画像URLに変換する際に指定する幅
+// （px）。ローディング画面は全画面表示になり得るため、モデル写真
+// （MODEL_PHOTO_DISPLAY_WIDTH）より大きめの解像度にしている
+// （normalizeLoadingImageUrl_参照）。
+var LOADING_IMAGE_DISPLAY_WIDTH = 1600;

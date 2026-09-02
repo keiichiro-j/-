@@ -36,7 +36,12 @@ function getRawSettings_() {
     staffList: getStaffList_(),
     modelPhotos: getModelPhotos_(),
     celebrationVariants: getCelebrationVariants_(),
-    homeAnnouncement: props.getProperty(PROP_KEYS.HOME_ANNOUNCEMENT) || ''
+    homeAnnouncement: props.getProperty(PROP_KEYS.HOME_ANNOUNCEMENT) || '',
+    // 保存済みの値が変換前のドライブ共有リンク／ファイルIDのままだった場合
+    // （この変換機能が無かった頃に登録されたものなど）でも、保存し直さなくても
+    // 表示できるよう、読み出し時にも変換する（getModelPhotos_と同じ考え方。
+    // normalizeLoadingImageUrl_は既に直接画像URLの場合は何もしない純粋関数）。
+    loadingImageUrl: normalizeLoadingImageUrl_(props.getProperty(PROP_KEYS.LOADING_IMAGE_URL) || '')
   };
 }
 
@@ -94,6 +99,7 @@ function saveRawSettings_(settings) {
   props.setProperty(PROP_KEYS.MODEL_PHOTOS, JSON.stringify(normalizeModelPhotos_(settings.modelPhotos)));
   props.setProperty(PROP_KEYS.CELEBRATION_VARIANTS, JSON.stringify(normalizeCelebrationVariants_(settings.celebrationVariants)));
   props.setProperty(PROP_KEYS.HOME_ANNOUNCEMENT, validateHomeAnnouncement_(settings.homeAnnouncement));
+  props.setProperty(PROP_KEYS.LOADING_IMAGE_URL, validateLoadingImageUrl_(settings.loadingImageUrl));
   return getRawSettings_();
 }
 
@@ -349,6 +355,45 @@ function normalizeModelPhotoUrl_(url) {
 }
 
 /**
+ * 起動時ローディング画面（#appLoading）用の画像設定値を、<img>タグでそのまま
+ * 表示できる直接画像URLに変換する（純粋関数）。normalizeModelPhotoUrl_との違いは、
+ * 管理者が共有リンクの全文ではなく「ドライブID」（ファイルIDのみの文字列）を
+ * 直接入力できるようにしている点（現場からの要望）。入力値が
+ * ①ドライブの共有リンク（https://drive.google.com/file/d/{ID}/view?usp=sharing 等）
+ * ならファイルIDを抜き出す、②スラッシュ・コロンを含まない英数字・ハイフン・
+ * アンダースコアのみの文字列（＝ファイルIDそのものを直接貼り付けた場合）なら
+ * そのままファイルIDとして扱う、③どちらでもなければドライブ以外の外部画像URLを
+ * 直接指定したものとみなしそのまま返す（変換しない）。①②はGoogleの画像配信
+ * ドメイン（lh3.googleusercontent.com）のURLに変換し、末尾に
+ * `=w{LOADING_IMAGE_DISPLAY_WIDTH}`を付けることで、管理者が画像のサイズ・
+ * アスペクト比を気にせず登録できるようにする。
+ */
+function normalizeLoadingImageUrl_(value) {
+  value = String(value || '').trim();
+  if (!value) return '';
+  var match = value.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || value.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  var fileId = match ? match[1] : (/^[a-zA-Z0-9_-]+$/.test(value) ? value : '');
+  if (!fileId) return value;
+  return 'https://lh3.googleusercontent.com/d/' + fileId + '=w' + LOADING_IMAGE_DISPLAY_WIDTH;
+}
+
+/**
+ * ローディング画像設定値（純粋関数）。normalizeLoadingImageUrl_で直接画像URLに
+ * 変換したうえで、長すぎる場合（想定外の長い外部URLを直接指定した場合等）は
+ * エラーにする。
+ */
+function validateLoadingImageUrl_(value) {
+  var url = normalizeLoadingImageUrl_(value);
+  if (url.length > LOADING_IMAGE_URL_MAX_LENGTH) {
+    throw new Error(
+      'ローディング画像のURLが長すぎます（' + url.length + '文字）。' +
+      'ドライブIDまたはより短いURLを指定してください。'
+    );
+  }
+  return url;
+}
+
+/**
  * モデル写真設定の正規化（純粋関数）。モデル名・写真URLがともに入力されている行のみ残し、
  * モデル名で重複除去したうえ、最大件数（MODEL_PHOTOS_MAX）を超えていればエラー。
  * 写真URLはGoogleドライブの共有リンクであれば直接画像URLに変換する
@@ -544,7 +589,10 @@ function redactSystemMasterSettings_(settings, isAdmin) {
     // お知らせも、ロゴ・モデル写真・演出バリエーションと同様に全利用者の
     // ホーム画面に表示する値のため、編集画面は管理者限定にしつつ値自体は
     // 非管理者にも渡す。
-    homeAnnouncement: settings.homeAnnouncement
+    homeAnnouncement: settings.homeAnnouncement,
+    // ローディング画像も、起動時に全利用者の画面（#appLoading）へ表示する値の
+    // ため、編集画面は管理者限定にしつつ値自体は非管理者にも渡す。
+    loadingImageUrl: settings.loadingImageUrl
   };
 }
 
@@ -570,6 +618,7 @@ function applySystemMasterGuard_(incoming, current, isAdmin) {
     staffList: current.staffList,
     modelPhotos: current.modelPhotos,
     celebrationVariants: current.celebrationVariants,
-    homeAnnouncement: current.homeAnnouncement
+    homeAnnouncement: current.homeAnnouncement,
+    loadingImageUrl: current.loadingImageUrl
   };
 }
