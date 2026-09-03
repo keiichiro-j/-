@@ -1409,8 +1409,18 @@
     if (name) {
       infoHtml = '<span class="topbar__userName">' + escapeHtml(name) + '</span>' +
         '<span class="topbar__userEmail">' + escapeHtml(email) + '</span>';
+    } else if (email) {
+      // メールアドレスは取得できているが、担当者マスタに未登録の場合。
+      infoHtml = '<span class="topbar__userWarn">担当者未登録: ' + escapeHtml(email) + '</span>';
     } else {
-      infoHtml = '<span class="topbar__userWarn">担当者未登録: ' + escapeHtml(email || '不明') + '</span>';
+      // メールアドレス自体が空の場合。ほとんどの場合、Webアプリのデプロイ設定
+      // （「実行するユーザー」「アクセスできるユーザー」）が原因で
+      // Session.getActiveUser().getEmail() が空文字を返している
+      // （個人のGoogleアカウントで運用する場合、「アクセスできるユーザー」を
+      // 「Googleアカウントを持つ全員」にする必要がある。「全員（匿名ユーザーを
+      // 含む）」だとログイン自体が不要になり、アカウント情報を取得できない）。
+      infoHtml = '<span class="topbar__userWarn" title="Webアプリのデプロイ設定（実行するユーザー・アクセスできるユーザー）をご確認ください">' +
+        'ログイン情報を取得できません</span>';
     }
     el.innerHTML = infoHtml;
     // 左サイドバー（PCビューのみ）のユーザー情報にも同じ内容を反映する。
