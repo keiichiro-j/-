@@ -2756,7 +2756,12 @@
       state.allInventoryItems = (groups && groups[0] && groups[0].items) || [];
       renderHomeGallery_();
       renderMyPageHolds_();
-    }).catch(function () {});
+    }).catch(function (err) {
+      // 補助的な表示のためトースト等では知らせないが、原因調査ができるよう
+      // コンソールには必ず残す（以前はここで完全にエラーを握りつぶしていたため、
+      // ホーム画面・在庫台数が表示されない不具合の原因がまったく分からなかった）。
+      console.error('[used-vehicle-order-app] ホーム画面の在庫台数取得でエラーが発生しました:', err);
+    });
   }
 
   /**
@@ -2767,7 +2772,9 @@
     return gasRun('api_listOrders', {}, '').then(function (groups) {
       state.allOrders = (groups && groups[0] && groups[0].items) || [];
       renderMyPageOrders_();
-    }).catch(function () {});
+    }).catch(function (err) {
+      console.error('[used-vehicle-order-app] マイページ用の受注データ取得でエラーが発生しました:', err);
+    });
   }
 
   /**
@@ -3169,16 +3176,35 @@
   // 起動時の読み込みと、「更新」ボタン（btnRefresh）による再読み込みの両方から呼ぶ
   // 共通処理。設定・担当者判定・整合性チェック・在庫/受注/ホームの一覧をすべて
   // サーバーから最新の状態に取り直す。
+  /**
+   * bootstrap取得後の各初期化ステップを、1つずつ独立してtry/catchする。
+   * これらは互いに無関係な画面（設定タブ・トップバー・整合性チェック）の描画のため、
+   * 例えば設定タブの描画だけが何か（要素の食い違い等）で失敗しても、それが原因で
+   * 在庫リスト・受注リスト・ホーム画面の読み込み（最後のPromise.all）まで
+   * 巻き込んで止まってしまう、という事態を避ける（1箇所の不具合がアプリ全体を
+   * 道連れにしないようにするための防御的な実装）。失敗した処理はコンソールに
+   * エラーを出すだけに留め、他の処理は影響を受けず続行する。
+   */
+  function runInitStep_(label, fn) {
+    try {
+      fn();
+    } catch (e) {
+      console.error('[used-vehicle-order-app] ' + label + ' の処理でエラーが発生しました:', e);
+    }
+  }
+
   function reloadAll_() {
     return gasRun('api_getBootstrapData').then(function (bootstrap) {
       state.bootstrap = bootstrap;
-      fillOptions($('actionTradeIn'), bootstrap.yesNoOptions, true);
-      fillOptions($('actionOss'), bootstrap.ossOptions, true);
-      fillOptions($('actionInsurance'), bootstrap.yesNoOptions, true);
-      fillOptions($('actionPaymentMethod'), bootstrap.paymentMethodOptions, true);
-      renderSettings(bootstrap.settings);
-      renderTopbarUser();
-      checkIntegrity_();
+      runInitStep_('契約条件の選択肢の初期化', function () {
+        fillOptions($('actionTradeIn'), bootstrap.yesNoOptions, true);
+        fillOptions($('actionOss'), bootstrap.ossOptions, true);
+        fillOptions($('actionInsurance'), bootstrap.yesNoOptions, true);
+        fillOptions($('actionPaymentMethod'), bootstrap.paymentMethodOptions, true);
+      });
+      runInitStep_('設定タブの描画', function () { renderSettings(bootstrap.settings); });
+      runInitStep_('ユーザー情報の描画', renderTopbarUser);
+      runInitStep_('在庫データの整合性チェック', checkIntegrity_);
       return Promise.all([loadInventory(), loadOrders(), loadHomeModelCounts_(), loadMyPageOrders_()]);
     });
   }
