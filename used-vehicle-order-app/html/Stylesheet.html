@@ -1,0 +1,2699 @@
+<style>
+  /* ===== カラーパレット：コーポレートネイビー =====
+     指定されたカラーパレット（メインネイビー#102A43／ダークネイビー#0B1F33／
+     ネイビーサブ#243B53／ブランドブルー#2F6FAE／ライトブルー#DCEAF7／ページ背景
+     #F4F7FA／カード#FFFFFF／ボーダー#D8E1E8／メイン文字#1F2933／サブ文字#6B7785）
+     に基づく配色（旧「ウォームアイボリー」から変更）。--primary / --on-surface は
+     テーマ設定（設定タブ）でユーザーが上書きできるため、実際の値はJS
+     （applyTheme、JavaScript.html参照）が document.documentElement.style.setProperty
+     で書き換える。ここでの値は未設定時の初期表示・THEME_PRESETSのDEFAULT_THEME_KEY
+     （Constants.gs、'steel'プリセットをこのパレットのブランドブルーに合わせている）
+     と揃えてある。
+     --success / --warning / --danger、8種のテーマプリセットの primaryText
+     （Constants.gs）は、白背景に対してWCAG AA（コントラスト比4.5:1以上）を
+     確保できる明度まで暗く調整し直している（旧配色は暗い背景向けに明るく
+     調整されていたため、そのままでは白背景で読みにくくなるため）。各色の
+     背景ウォッシュ（--success-bg 等）は元の明るい色調のまま、文字色
+     （--success 等）だけを暗くすることで、淡い背景色＋読みやすい濃い文字の
+     組み合わせにしている。 */
+  :root {
+    /* --primary はボタン塗り・境界線・アクセント用（白文字とのコントラスト比
+       ≒5.2:1を確保できる明度に調整済み）。リンクやアイコンなど、背景の上に
+       「文字として」使う場合は --primary-text（白背景とのコントラスト比≒5.2:1）
+       を使うこと（purpose別に分けている理由はJavaScript.htmlのapplyTheme参照）。
+       --primary-dark（ホバー時等）はメインネイビー#102A43をそのまま使う。 */
+    --primary: #2f6fae;
+    --primary-dark: #102a43;
+    --primary-text: #2f6fae;
+    --on-primary: #ffffff;
+    --surface: #ffffff;
+    --background: #f4f7fa;
+    --on-surface: #1f2933;
+    --on-surface-variant: #6b7785;
+    --outline: #d8e1e8;
+    --success: #188649;
+    --success-bg: rgba(61, 220, 132, .16);
+    --warning: #a5670b;
+    --warning-bg: rgba(242, 169, 60, .16);
+    --danger: #ec0000;
+    --danger-bg: rgba(255, 107, 107, .16);
+    --primary-bg: #dceaf7;
+    /* ホーム画面のカード（.homeRow、PCビューのみ）専用の背景色。ページ背景
+       （--background）ともカード内の写真プレースホルダー（同じく--backgroundを
+       使う）とも見分けがつくよう、薄くテーマカラーを帯びた色にする（JavaScript.html
+       のapplyThemeが、選択中のテーマのprimaryから毎回computeし直す。初期表示・
+       JS実行前の目安値としてDEFAULT_THEME_KEY「steel」のprimary #2f6faeを
+       6%の濃さで混ぜた値をここに置いている）。 */
+    --card-bg: rgba(47, 111, 174, .06);
+    /* 管理者権限を持つ担当者のみ登録できるデモカーHOLD・他店HOLD専用の特別色。
+       通常のHold（--warning・アンバー）・2nd Hold（--danger・レッド／--primary・ブルー）
+       のどれとも重ならない紫系にし、テーマ設定（着せ替え）の影響を受けない固定色にする
+       （デモカーHOLD・他店HOLDである、という見分けやすさを最優先するため）。 */
+    --hold-special: #6d28d9;
+    --hold-special-bg: rgba(124, 58, 237, .14);
+    --shadow: 0 1px 2px rgba(16, 31, 51, .10);
+    --shadow-elevated: 0 16px 40px rgba(16, 31, 51, .16);
+    /* 公式サイトはカードの角丸をあまり強調しないフラットな見た目のため、
+       従来の14pxより控えめな角丸にして「エンジニアリングされた精密さ」を出す。 */
+    --radius: 8px;
+    /* トップバー・比較バー・トーストは、テーマ設定のテーマカラー／文字色や
+       ベース背景色（--background/--surface）に関わらず、常にネイビー基調で
+       統一する（ブランドカラーやページのベース色を載せる帯ではなく、アプリの
+       「額縁」として固定のネイビーにすることで、どのテーマカラー・ベース配色を
+       選んでも重厚なネイビー基調の外観が崩れない）。ダークネイビー（最も暗い＝
+       ヘッダー）／メインネイビー（比較バー）／ネイビーサブ（トースト）の順で
+       少しずつ明るくし、旧配色（黒／#1a1a1d／#2a2a2e）と同じ奥行きの付け方を
+       踏襲している。このネイビー基調のUI自体の文字色・枠線色は、ベース配色が
+       白系になっても白文字のまま保てるよう、--on-surface / --outline とは別に
+       --on-topbar / --dark-ui-outline を用意している。
+       例外: スマホ表示（@media max-width: 600px）のヘッダーだけは、現場からの
+       要望でこの「常にネイビー」の方針から外し、--topbar-mobile-bgでテーマカラーに
+       連動させている（下部の--topbar-mobile-bg・スマートフォン用メディアクエリ参照。
+       比較バー・トーストや、PCビュー・タブレットビューのヘッダーはこれまでどおり）。 */
+    --topbar-bg: #0b1f33;
+    --on-topbar: #ffffff;
+    --dark-ui-outline: rgba(255, 255, 255, .14);
+    /* 起動時ローディング画面（.appLoading）専用の背景色。テーマ設定（表示設定）で
+       選んだテーマのprimaryDarkに、JS実行後applyTheme（JavaScript.html参照）が
+       都度合わせる。ここでの値はJS実行前の初期表示用で、DEFAULT_THEME_KEY「steel」の
+       primaryDark（--primary-darkと同じ#102a43）に揃えてある。 */
+    --loading-bg: #102a43;
+    /* スマホ表示（@media max-width: 600px）専用のヘッダー背景色。PCビュー・
+       タブレットビューのヘッダーは、他のダークUIパーツ（比較バー・トースト）と
+       揃えるためあえて固定のネイビー（--topbar-bg）のままにしているが、スマホ
+       ビューのヘッダーだけは選んだテーマのprimaryに、JS実行後applyTheme
+       （JavaScript.html参照）が都度合わせる（現場からの要望）。primaryは
+       白文字とのコントラスト比を確保できる明度に調整済みのため、既存の白文字
+       （--on-topbar）のまま流用できる。ここでの値はJS実行前の初期表示用で、
+       DEFAULT_THEME_KEY「steel」のprimaryに揃えてある。 */
+    --topbar-mobile-bg: #2f6fae;
+    /* PC専用の左サイドバー（.sidebar）だけに使うグレー背景。以前は--topbar-bg
+       （ダークネイビー）を流用していたが、トップバー・比較バー・トーストと違い
+       サイドバーは「常に紺色の額縁」という統一を必要としない単独のナビ帯の
+       ため、独立したトークンにして他のダークUIパーツに影響を与えずに変更できる
+       ようにした（現場の要望で、背景は明るいまま一番左のナビだけをグレーにする
+       ため）。 */
+    --sidebar-bg: #4b5563;
+    /* サイドバーの文字色・薄い罫線・ホバー背景。設定タブでサイドバーの背景色
+       （--sidebar-bg）を自由に指定できるようにしたため（他のダークUIパーツと違い
+       固定のネイビー・白文字前提にできない）、背景色に対して読みやすいほう
+       （白／濃色）をJS側で毎回計算し直す（pickReadableSidebarTextColor_・
+       applySidebarColor_、JavaScript.html参照）。ここでの値は既定のグレー背景
+       （--sidebar-bg初期値）に対する目安値で、JS実行前のレイアウトずれを防ぐ
+       ためのものに過ぎない。 */
+    --sidebar-fg: #ffffff;
+    --sidebar-fg-muted: rgba(255, 255, 255, .68);
+    --sidebar-outline: rgba(255, 255, 255, .14);
+    --sidebar-hover-bg: rgba(255, 255, 255, .08);
+    /* トップバーの実高さ。JS（syncFixedBars_）が実測して上書きする。初期値は
+       JS実行前のレイアウトずれを防ぐための目安値。 */
+    --topbar-h: 108px;
+    /* ソフトウェアキーボードが画面下側を覆っている高さ。JS
+       （syncKeyboardInset_）がwindow.visualViewportで実測し、キーボード表示中は
+       その高さに更新する（.modal参照。キーボードが無い間は0のまま）。 */
+    --app-keyboard-inset: 0px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    font-family: 'Barlow', 'Roboto', 'Helvetica Neue', Arial, 'Hiragino Sans', 'Yu Gothic', sans-serif;
+    background: var(--background);
+    color: var(--on-surface);
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font-family: inherit; }
+  .hidden { display: none !important; }
+  /* モーダル表示中は背景（在庫リスト・受注リスト等）がスクロールされないようにする
+   （openModal/closeModal、JavaScript.html参照）。 */
+  body.modal-open { overflow: hidden; }
+
+  /* ===== ミニマルな線画アイコン（Google/Tesla調。絵文字アイコンの代わりに使う） ===== */
+  .icon {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex: none;
+    vertical-align: -5px;
+  }
+  .icon--inline { width: 14px; height: 14px; vertical-align: -2px; }
+
+  /* ===== ヘッダー / タブ =====
+     position: fixed で画面上部に完全固定する（position: stickyだとスクロール中に
+     わずかに追従が遅れて見えることがあるため、実測値ベースで確実に固定する。
+     JavaScript.html の syncFixedBars_ 参照）。背景色はPCビュー・タブレットビューでは
+     固定のネイビー（--topbar-bg）のままだが、スマホ表示（@media max-width: 600px）
+     だけはテーマカラーに連動する（--topbar-mobile-bg、下のスマートフォン用
+     メディアクエリ参照。現場からの要望）。 */
+  #app { padding-top: var(--topbar-h); }
+  .topbar {
+    background: var(--topbar-bg);
+    color: var(--on-topbar);
+    display: flex;
+    flex-direction: column;
+    border-bottom: 1px solid var(--dark-ui-outline);
+    box-shadow: var(--shadow);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 30;
+  }
+
+  /* ===== 起動時ローディング画面 =====
+     初回データ取得（reloadAll_）が終わるまでの空白時間を埋める全画面オーバーレイ。
+     is-hiddenでフェードアウトしてからpointer-events: noneにする（フェード中も
+     クリックを奪わないよう、visibility: hiddenではなくopacityのみで消す）。
+     背景色は固定のダークネイビーではなく--loading-bgを使う。これはテーマ
+     プリセットのprimaryDarkから計算する値で（applyTheme、JavaScript.html参照）、
+     設定タブでテーマ（表示設定）を切り替えると、ローディング画面の背景色も
+     連動して変わる（現場からの要望）。JS実行前の初期値は:rootで定義する
+     既定テーマ相当の色にしておく。 */
+  .appLoading {
+    position: fixed;
+    inset: 0;
+    z-index: 400;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    background: var(--loading-bg, var(--topbar-bg));
+    color: #eaf1f8;
+    transition: opacity .3s ease, background-color .3s ease;
+  }
+  .appLoading.is-hidden { opacity: 0; pointer-events: none; }
+  /* 管理者が設定タブから登録した画像（任意。#appLoadingImage、
+     applyLoadingImage_・JavaScript.html参照）。スピナー・「読み込み中…」の文字は
+     表示せず、画像だけを大きめに表示する（現場からの要望）。読み込み（onload）が
+     完了するまではopacity: 0のままにしておき、is-visibleが付いたタイミングで
+     ゆっくり（1.1秒かけて）フェードインさせる。「うっすら現れる」演出は画像自身の
+     フェードインで、「うっすら消える」演出は画面全体（.appLoading.is-hidden）の
+     フェードアウトで実現しており、２つの独立したopacity遷移の組み合わせになる。
+     画像が未設定の場合はテーマカラーの背景だけになる。 */
+  .appLoading__image {
+    max-width: min(88vw, 640px);
+    max-height: 70vh;
+    width: auto;
+    height: auto;
+    border-radius: 12px;
+    opacity: 0;
+    transition: opacity 1.1s ease;
+  }
+  .appLoading__image.is-visible { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) {
+    .appLoading { transition: none; }
+    .appLoading__image { transition: none; }
+  }
+
+  /* ===== ブランド表記の行 =====
+     左側は「戻る」「更新」ボタン、右側はログイン中のユーザー情報。アプリ名
+     「販売可能リスト」＋ロゴは、左右のブロックの幅に関わらず常に画面中央に
+     来るよう、.topbar__brandRow を position: relative にし、.topbar__brand を
+     position: absolute + left: 50% / transform: translate(-50%, -50%) で
+     中央配置している（左右を1fr auto 1frのグリッドで揃える方式だと、左右の
+     内容量が変わるたびに調整が必要になるため、中央配置専用の要素を絶対配置
+     する方式に変更した）。 */
+  .topbar__brandRow {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 28px;
+  }
+  .topbar__left { display: flex; align-items: center; gap: 10px; }
+  .topbar__brand {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+  }
+  /* ロゴとテキストが干渉しないよう、テキストのサイズをロゴの高さに近い
+     スケールに揃える（PCビュー・タブレット/スマホビューそれぞれの
+     .topbar__logoの高さに合わせて、下のmin-width: 901pxブロック内でも
+     調整している）。 */
+  .topbar__brandText {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    color: var(--on-topbar);
+    white-space: nowrap;
+  }
+  .topbar__navBtn {
+    display: flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px; padding: 0; flex: none;
+    background: transparent; border: 1px solid var(--dark-ui-outline); border-radius: 50%;
+    color: var(--on-topbar); cursor: pointer;
+  }
+  .topbar__navBtn:hover { background: rgba(255, 255, 255, .08); }
+  .topbar__navBtn:disabled { opacity: .3; cursor: default; }
+  .topbar__navBtn:disabled:hover { background: transparent; }
+  /* 「更新」ボタンは「戻る」ボタンと見た目を統一し（同じアウトライン円形）、
+     読み込み中はアイコンを回転させることだけでフィードバックする。 */
+  .topbar__navBtn--refresh.is-spinning .icon { animation: navRefreshSpin .8s linear infinite; }
+  @keyframes navRefreshSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  .topbar__logo { height: 28px; width: auto; max-width: 140px; object-fit: contain; }
+  /* PCビュー（901px以上）のみ、ヘッダーを少し大きくする。タブレット・スマホ幅
+     （@media max-width:900px / 600px）は従来どおりのコンパクトなサイズのまま
+     据え置く。トップバーの実測高さはJS側のsyncFixedBars_が都度反映するため、
+     ここでpaddingやボタンサイズを変えるだけで、下に続くツールバー等の
+     固定要素の位置も自動的に追従する。 */
+  @media (min-width: 901px) {
+    .topbar__brandRow { padding: 22px 32px; }
+    .topbar__navBtn { width: 44px; height: 44px; }
+    .topbar__navBtn .icon { width: 22px; height: 22px; }
+    .topbar__logo { height: 34px; max-width: 160px; }
+    .topbar__brandText { font-size: 18px; }
+    .topbar__user { font-size: 14px; }
+    .topbar__userEmail { font-size: 12.5px; }
+  }
+  /* ===== ナビゲーション =====
+     ブランド行の下に、独立した行として中央寄せで配置する。塗りつぶしの
+     ピル型タブではなく、公式サイトのグローバルナビのような「テキスト＋
+     アクティブ時の下線」のミニマルな水平ナビにする。 */
+  .tabs {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    padding: 0 28px 14px;
+    overflow-x: auto;
+  }
+  .tabs__item {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--on-topbar);
+    opacity: .6;
+    padding: 6px 1px;
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity .15s ease, border-color .15s ease;
+  }
+  .tabs__item:hover { opacity: .85; }
+  .tabs__item.is-active { opacity: 1; border-bottom-color: var(--primary); }
+
+  .topbar__user {
+    flex: none;
+    text-align: right;
+    font-size: 12.5px;
+    line-height: 1.5;
+    white-space: nowrap;
+  }
+  .topbar__userName { display: block; font-weight: 500; }
+  .topbar__userEmail { display: block; opacity: .8; font-size: 11.5px; }
+  .topbar__userWarn { display: block; color: var(--warning); background: rgba(242, 169, 60, .16); padding: 4px 10px; border-radius: 999px; font-size: 11.5px; }
+
+  /* ===== 在庫データ整合性チェックの警告バナー（アプリ起動時、問題があれば表示） =====
+     トップバーの子要素として置くことで、表示・非表示による高さの変化を
+     syncFixedBars_ の --topbar-h 実測にそのまま反映させる（ツールバーの
+     固定位置がずれないようにするため）。 */
+  .integrityBanner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--warning);
+    color: #fff;
+    padding: 9px 20px;
+    font-size: 13.5px;
+    font-weight: 500;
+  }
+  .integrityBanner__toggle, .integrityBanner__close {
+    background: rgba(255, 255, 255, .18);
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .integrityBanner__toggle { padding: 4px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 500; flex: none; }
+  .integrityBanner__toggle:hover { background: rgba(255, 255, 255, .3); }
+  .integrityBanner__close { width: 26px; height: 26px; border-radius: 50%; font-size: 16px; line-height: 1; flex: none; }
+  .integrityBanner__close:hover { background: rgba(255, 255, 255, .3); }
+  .integrityBanner__list {
+    list-style: none;
+    margin: 0;
+    padding: 10px 20px 12px;
+    background: rgba(0, 0, 0, .1);
+    color: #fff;
+    font-size: 13px;
+  }
+  .integrityBanner__list li { padding: 3px 0; }
+
+  main.view { max-width: 1680px; margin: 0 auto; padding: 16px; }
+  .view { display: none; }
+  /* タブ切替時、瞬間的にコンテンツが入れ替わるだけだと素っ気ないため、
+     切替後の画面にごく軽いフェードイン（+わずかな上方向スライド）を付ける。
+     display: noneからの復帰にtransitionは効かないため、animationを使う
+     （animationは要素が描画された瞬間から再生されるため、display: none明けでも
+     機能する）。 */
+  .view.is-active { display: block; animation: viewFadeIn .22s ease; }
+  @keyframes viewFadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ===== ツールバー（検索欄を含む） =====
+     トップバーと同様に position: fixed で完全固定する。折り返しで高さが変わるため、
+     すぐ下に高さ実測済みのスペーサー（.toolbarSpacer）を置いて、後続コンテンツが
+     隠れないようにする（JavaScript.html の syncFixedBars_ 参照）。 */
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    background: var(--surface);
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    position: fixed;
+    top: calc(var(--topbar-h) + 16px); /* ツールバーの下（次のカードまで）と同じ余白をヘッダーとの間にも確保する */
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 32px);
+    max-width: 1648px; /* main.view の max-width(1680px) から左右padding(32px)を引いた値 */
+    z-index: 25;
+  }
+  .toolbar__spacer { flex: 1; }
+
+  .input {
+    border: 1px solid var(--outline);
+    border-radius: 8px;
+    padding: 9px 12px;
+    /* 16px未満だとiOS Safari等がフォーカス時に自動でページ全体を拡大表示して
+       しまう（入力欄だけでなく画面全体がズームされたように見える不具合の原因）。
+       Hold登録・受注確定モーダルに限らず、すべての.input（検索欄・設定画面の
+       各種入力欄を含む）が対象になるよう、基準値として16pxにしている。 */
+    font-size: 16px;
+    background: var(--surface);
+    color: var(--on-surface);
+  }
+  .input:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
+  .input--search { min-width: 220px; flex: 1 1 220px; }
+  .input:disabled { background: var(--background); color: var(--on-surface-variant); cursor: not-allowed; }
+
+  .checkboxField { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--on-surface-variant); }
+
+  /* 公式サイトのCTAボタンのような、フル角丸＋大文字＋広めのレタースペーシングの
+     ピル型ボタンにする（塗り／アウトラインどちらも同じ形状で統一）。 */
+  .btn {
+    border: 1px solid var(--outline);
+    background: var(--surface);
+    color: var(--on-surface);
+    border-radius: 999px;
+    padding: 11px 22px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background-color .15s ease, border-color .15s ease;
+  }
+  /* アウトラインボタンは、公式サイトのCTAによくある「ホバーで反転（塗りつぶし）」
+     の挙動にする。 */
+  .btn:hover { background: var(--on-surface); border-color: var(--on-surface); color: var(--background); }
+  .btn--primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+  .btn--primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); color: var(--on-primary); }
+  /* ロゴ削除等の添え書きリンクは、CTAボタンと区別できるよう大文字化・反転させない */
+  .btn--text { border: none; background: none; color: var(--primary-text); padding: 8px 10px; text-transform: none; letter-spacing: normal; }
+  .btn--text:hover { background: none; color: var(--primary-text); text-decoration: underline; }
+  .btn--danger { color: var(--danger); border-color: var(--danger); }
+  .btn--danger:hover { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .btn--block { width: 100%; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  /* タップ領域は44x44px（モバイルの推奨最小タップサイズ）を確保しつつ、
+     見た目上のアイコン自体は従来通り20pxのまま据え置く。 */
+  .btn--icon {
+    border: none; background: transparent; font-size: 20px; line-height: 1;
+    width: 44px; height: 44px; border-radius: 50%; cursor: pointer; color: var(--on-surface-variant);
+  }
+  .btn--icon:hover { background: rgba(31, 41, 51, .06); }
+
+  /* ===== フォーカスリング（キーボード操作時の視認性確保） =====
+     マウス操作時には表示されず、キーボードでのTab移動時のみ表示される
+     :focus-visible を使う。ブランドカラー（--primary-text）で統一する。 */
+  .btn:focus-visible,
+  .tabs__item:focus-visible,
+  .viewToggle__item:focus-visible,
+  .homeRow:focus-visible,
+  .homeGradeTab:focus-visible,
+  .themePreset:focus-visible {
+    outline: 2px solid var(--primary-text);
+    outline-offset: 2px;
+  }
+
+  /* ===== マイページ: ログイン中の担当者本人がHold中／受注した車両だけの一覧 =====
+     カード自体は在庫リスト・受注リストと同じ.cardGrid／.orderListをそのまま
+     再利用する（見た目・操作感を統一するため、専用のカードデザインは作らない）。 */
+  .myPageSection { margin-bottom: 32px; }
+  .myPageSection__title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--on-surface);
+    margin: 0 0 14px 2px;
+  }
+  .myPageSection__title span { color: var(--primary-text); font-weight: 700; }
+
+  /* ===== グループ見出し ===== */
+  .group { margin-bottom: 28px; }
+  .group__title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    color: var(--on-surface-variant);
+    margin: 0 0 14px 2px;
+  }
+  .group__count {
+    margin-left: 8px;
+    font-weight: 600;
+    font-size: 12.5px;
+    color: var(--primary-text);
+  }
+  .toolbar__count { font-size: 13.5px; color: var(--on-surface-variant); font-weight: 600; white-space: nowrap; }
+
+  /* ===== 表示形式切替（カード／表）・在庫リストのツールバーに置くセグメントコントロール ===== */
+  .viewToggle { display: flex; gap: 4px; background: var(--background); border-radius: 999px; padding: 3px; flex: none; }
+  .viewToggle__item {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--on-surface-variant);
+    width: 34px;
+    height: 30px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .viewToggle__item .icon--inline { margin: 0; }
+  .viewToggle__item.is-active { background: var(--surface); color: var(--primary-text); box-shadow: var(--shadow); }
+
+  /* ===== 車両比較（カード・表それぞれに置くピン、下部固定バー、比較モーダル） ===== */
+  .card__comparePin {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--on-surface-variant);
+    cursor: pointer;
+    margin-left: auto;
+  }
+  .card__top .card__comparePin { flex: none; }
+  .tableComparePin { display: flex; }
+
+  .compareBar {
+    position: fixed;
+    left: 50%;
+    bottom: 20px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    /* テーマ設定の文字色やベース背景色（--on-surface/--background/--surface）に
+       関わらず、常にネイビー基調の浮遊バーにする（メインネイビー。枠線も
+       --outlineではなく、ネイビー背景でも見える--dark-ui-outlineを使う）。 */
+    background: #102a43;
+    border: 1px solid var(--dark-ui-outline);
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 999px;
+    box-shadow: var(--shadow-elevated);
+    z-index: 40;
+    max-width: calc(100% - 32px);
+  }
+  .compareBar__label { font-size: 13px; font-weight: 700; flex: none; }
+  .compareBar__chips { display: flex; gap: 6px; flex-wrap: wrap; overflow-x: auto; max-width: 46vw; }
+  .compareBar__spacer { flex: 1; min-width: 8px; }
+  .compareChip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, .16);
+    padding: 4px 6px 4px 12px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    white-space: nowrap;
+  }
+  .compareChip button {
+    border: none;
+    background: rgba(255, 255, 255, .2);
+    color: #fff;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+  }
+  .compareBar .btn { padding: 7px 14px; font-size: 13px; flex: none; }
+  .compareBar .btn:not(.btn--primary) { background: rgba(255, 255, 255, .12); border-color: rgba(255, 255, 255, .3); color: #fff; }
+  .compareBar .btn:not(.btn--primary):hover { background: rgba(255, 255, 255, .2); }
+
+  .modal__panel.modal__panel--compare { max-width: 900px; }
+  .tableScroll { overflow-x: auto; }
+  .compareTable { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .compareTable th, .compareTable td { padding: 10px 14px; border-bottom: 1px solid var(--outline); text-align: left; white-space: nowrap; }
+  .compareTable thead th { color: var(--on-surface-variant); font-size: 12px; font-weight: 700; }
+  .compareTable thead th:first-child { background: var(--surface); }
+  .compareTable tbody th { font-size: 12.5px; font-weight: 700; color: var(--on-surface-variant); background: var(--background); }
+  .compareTable__sub { font-size: 11px; font-weight: 500; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .compareTable tr.is-diff td { background: var(--primary-bg); }
+
+  /* ===== 受注・発注・Gクラス予約リストの表示形式「表」（多台数を一覧で見比べる
+     商談向けビュー） =====
+     素のtableではなく、カードグリッドと同じ「カードタイプUI」（角丸・影・ホバーで
+     浮き上がる）を保ったまま、1台=横1行のカードとして並べる。在庫リストの表示
+     形式「表」（.invTable、下部参照）は現場から提示された参照UIに合わせて素の
+     <table>に切り替えたが、この.rowCardベースの行カードは受注・発注・Gクラス
+     予約リストでは引き続き使う（在庫リストと違い、これら3つは操作ボタン列を
+     持たない閲覧中心の一覧のため、行カードの見た目のままで支障が無い）。
+     PCビュー（901px以上）では横スクロールを一切発生させない方針のため、各項目（列）は
+     display: flex; flex-wrap: wrapで並べ、画面幅に収まりきらない項目は
+     横スクロールではなく次の行へ折り返す（以前はdisplay: gridで固定列幅の
+     1行に並べ、.tableScroll（overflow-x: auto）で横スクロールさせていたが、
+     現場からの「PCビューでは横スクロール自体を禁止したい」という要望を受けて
+     変更した）。各項目の横幅は以前のgrid-template-columnsと同じ値を
+     :nth-child()で個別に指定しており、広い画面では1行に、狭い画面では
+     複数行に自然に収まる（画面幅によって項目の折り返し位置は変わるが、
+     すべての行で列構成・列幅は同じため、行をまたいだ縦の位置揃えは保たれる）。
+     タブレット・スマホ幅（900px以下）ではこの折り返し方針を逆転させ、
+     flex-wrap: nowrap＋横スクロールに戻す（下の@media (max-width: 900px)内の
+     .rowCard／.rowCard__innerルール参照。スクロールはカードの額縁である.rowCard
+     自身に持たせ、実際の項目を並べる.rowCard__innerがその中で横に広がる）。
+     狭い画面でPCと同じ折り返し方針のままだと1台ぶんの行が3〜4行にも縦へ間延び
+     してしまうため、スマホでの操作に慣れた横スワイプで「表」らしい単一行の
+     見た目を保つ狙い。 */
+  .rowCardList { display: flex; flex-direction: column; gap: 10px; width: 100%; min-width: 0; }
+  /* .rowCardは「カードの額縁」（背景・罫線・角丸・影）だけを担当し、常に
+     ビューポート（.rowCardListの幅）ぴったりのまま変わらない。実際の項目
+     （ステータス・モデル……操作ボタン）の配置・折り返し・横スクロールは、
+     この中の.rowCard__inner側に切り出している。
+     不具合修正: 以前は.rowCard自身がflexコンテナも兼ねており、タブレット・
+     スマホ幅では画面に収まりきらない項目ぶんだけ.rowCard自身をalign-self:
+     flex-start + min-width: 100%でビューポート幅より広げ、.tableScroll
+     （祖先の overflow-x: auto）でスクロールさせていた。この方式は、角丸・影付きの
+     ビューポート幅を超えるボックスをスクロールコンテナ内でスクロールさせる形に
+     なるため、iOS Safariでスクロール中に背景・罫線の再描画がレイアウトに
+     追従せず、操作ボタン等の内容だけがカードの背景・枠の外（無地のページ背景の
+     上）に取り残されて見える不具合があった（PC Chromeでは再現しないWebKit固有の
+     再描画バグ）。カード自身（.rowCard）の幅を常にビューポート内に固定し、
+     スクロールもカード自身（.rowCard、@media (max-width: 900px)参照）にだけ
+     持たせ、内側の.rowCard__innerだけがその中でスクロールする構成に変えることで、
+     カードの背景・枠は常にビューポート幅のまま描画され、この種の再描画バグが
+     起こり得なくなる。 */
+  .rowCard {
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-left: 4px solid transparent;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 14px 20px;
+    cursor: pointer;
+    transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
+  }
+  .rowCard__inner {
+    display: flex;
+    flex-wrap: wrap;
+    /* 折り返した行の間隔（10px）は列間の間隔（16px）より詰め、複数行になっても
+       1枚のカードとしてのまとまりが保たれるようにする。 */
+    row-gap: 10px;
+    column-gap: 16px;
+    /* start にする。center だと「Hold中（2nd有）」で解除リンクが2本に増えて
+       状態列が縦に伸びた分だけ、1本しか無い操作ボタン（受注確定）が引っ張られて
+       ずれてしまうため（現場からの指摘で判明）。start にして全項目を上端に
+       揃えることで、状態列の行数（解除リンクの本数）に関係なく、バッジ・
+       操作ボタン・他の項目が常に同じ高さで揃う。 */
+    align-items: flex-start;
+  }
+  /* border-color: transparent ではなく上・右・下のみ指定する。border-color（4辺一括）だと
+     border-left-color（アクセントカラー・状態色）まで打ち消してしまい、ホバー時に
+     色が消えて見えてしまうため（.rowCard--themed・.rowCard.rowCard--order 等は
+     このルールより先に書かれているが、:hover は詳細度が高く上書きしてしまう）。 */
+  .rowCard:hover { box-shadow: var(--shadow-elevated); transform: translateY(-2px); border-top-color: transparent; border-right-color: transparent; border-bottom-color: transparent; }
+  /* Gクラス予約リストの行は実際の状態（在庫あり／Hold中等）を持たないため、
+     状態色ではなくテーマカラーを装飾として使う（card--themedと同じ理由）。 */
+  .rowCard--themed { border-left-color: var(--primary); }
+  /* 横スクロールが必要な列（有償OP等の車両情報・rowCard__status）は画面幅によっては
+     スクロールしないと見えないため、行（カード）自体をタップすると、既存のカード表示と
+     同じ見た目で情報すべてを画面中央のモーダルに表示する（受注リストのopenOrderDetailModal_・
+     発注リストのopenPurchaseOrderDetailModal_・GクラスのopenGClassDetailModal_、
+     JavaScript.html参照）。チェックボックス・操作ボタン自体は個別にクリックできるよう、
+     cursor はタップ可能であることを示すのみに留める（cursor: pointer自体は上の
+     .rowCard本体の宣言に含めている）。 */
+  .rowCard__field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  /* MP・VPC等の英数字（Latin書体）とステア・カラー等の日本語（CJK書体）を
+     同じ.rowCard__valueで混在表示すると、フォントのフォールバック先が異なり
+     行の高さ（line-height）がブラウザの自動計算でわずかに変わってしまい、
+     値の上下位置が項目によって数px揃わなくなっていた（現場からの指摘で判明）。
+     line-heightを明示的に固定することで、どちらの書体でも同じ高さになる。 */
+  .rowCard__label { font-size: 9.5px; line-height: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--on-surface-variant); }
+  .rowCard__value {
+    font-size: 13.5px; line-height: 17px; font-weight: 600; color: var(--on-surface);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  /* 在庫リストの車両情報（MP・ステア・カラー・有償OP・入港予定日・可能月・VPC）は
+     モデル名・コミッションの列（左端の識別列）や状態・操作ボタンの列（右端）とは
+     区別して、カード中央の列としてラベル・値ともに中央揃えにする（現場からの
+     指摘で判明）。 */
+  .rowCard__field--center .rowCard__label,
+  .rowCard__field--center .rowCard__value {
+    text-align: center;
+  }
+  .rowCard__model { font-size: 15px; font-weight: 700; letter-spacing: -.005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rowCard__commission { font-size: 11px; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* 高さ固定・内部スクロール（.card__holdArea と同じ考え方）。Hold中はHOLD解除
+     リンクが1本、Hold中（2nd有）は2本に増えて縦に伸びる分だけ、状態列だけが
+     他の列より高くなり、行（カード）自体の高さが在庫あり／Hold中／Hold中（2nd有）で
+     バラバラになっていたため、状態列の高さを常に一定にして吸収する。 */
+  .rowCard__status { display: flex; flex-direction: column; align-items: center; gap: 6px; height: 72px; overflow-y: auto; min-width: 0; }
+
+  /* 受注リストの表示形式「表」: 比較ピン・操作ボタンが無く、顧客・担当者・
+     リード番号などを表示するため、専用の項目幅にする。顧客名の列も
+     以前210pxにしていたが、実際のコンテンツ（顧客名・コミッション）は最大でも
+     60px程度しか使っておらず、左詰めの文字の右側に無駄な余白が生まれ、顧客名→モデルの
+     間だけ他の列間より大きく間延びして見えていたため（現場からの指摘で判明）、
+     110pxまで縮めている。行に並べる項目は「顧客・コミッション・モデル・リード番号・
+     MP・VPC・担当者・登録月・販売拠点」だけに絞り込み（現場からの指摘）、それ以外
+     （下取車・OSS・保険・支払方法・有償OP・受注確定日時）は行タップで開く詳細モーダル
+     （orderDetailGridHtml_）でのみ確認する。display: flex; flex-wrapで並べ、
+     画面幅に収まりきらない項目は横スクロールではなく次の行へ折り返す
+     （orderRowCardHtmlのDOM出力順に対応するpositionalな:nth-child()指定）。 */
+  .rowCard.rowCard--order { border-left-color: var(--primary); }
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(1) { flex: 0 0 110px; } /* 顧客＋コミッション */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(2) { flex: 0 0 120px; } /* モデル */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(3) { flex: 0 0 110px; } /* リード番号 */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(4) { flex: 0 0 68px; } /* MP */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(5) { flex: 0 0 88px; } /* VPC */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(6) { flex: 0 0 90px; } /* 担当者 */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(7) { flex: 0 0 80px; } /* 登録月 */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(8) { flex: 0 0 130px; } /* 販売拠点 */
+
+  /* Gクラス予約リストの表示形式「表」: 在庫リストの表「ステータス・モデル・MP・
+     ステア・カラー・有償OP」の考え方を踏襲し、識別列を「モデル」から
+     「顧客＋コミッション」に差し替えた7項目構成にする（gclassRowCardHtml_の
+     DOM出力順に対応するpositionalな:nth-child()指定。区別のため専用の
+     rowCard--gclassクラスを付けている）。以前は担当者・
+     入港予定日・可能月・VPC・リード番号も加えた12項目構成にしていたが、項目数が
+     多すぎて画面幅によっては折り返して2〜3行になり、在庫リストの行より縦に
+     間延びして見えていたため絞り込んだ（現場からの指摘）。それ以外の項目は
+     行タップで開く詳細モーダル（openGClassDetailModal_）でのみ確認する。 */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(1) { flex: 0 0 110px; } /* 顧客＋コミッション */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(2) { flex: 0 0 120px; } /* モデル */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(3) { flex: 0 0 68px; } /* MP */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(4) { flex: 0 0 46px; } /* ステア */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(5) { flex: 0 0 150px; } /* カラー */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(6) { flex: 0 0 170px; } /* 有償OP */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(7) { flex: 0 0 130px; } /* 開示状況 */
+
+  /* 発注リストの表示形式「表」（発注リストタブ本体・マイページの「発注リスト」
+     セクションの両方で使う。purchaseOrderRowCardHtml_のDOM出力順に対応する
+     positionalな:nth-child()指定。MP・カラー・有償OPは在庫リストの表（.invTable）の
+     対応列と同じ幅にしている。読み取り専用のため
+     操作ボタン列は無く、受注リスト（.rowCard--order）と同じく最後の列に
+     拠点バッジを置く。以前はリード番号・担当者・登録日時も加えた9項目構成に
+     していたが、項目数が多すぎて画面幅によっては折り返して2行になり、在庫
+     リストの行より縦に間延びして見えていたため、識別・モデル・MP・カラー・
+     有償OP・拠点の6項目に絞り込んだ（現場からの指摘）。それ以外の項目は行タップで
+     開く詳細モーダル（openPurchaseOrderDetailModal_）でのみ確認する。 */
+  .rowCard.rowCard--purchaseOrder { border-left-color: var(--primary); }
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(1) { flex: 0 0 110px; } /* 顧客＋コミッション */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(2) { flex: 0 0 120px; } /* モデル */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(3) { flex: 0 0 68px; } /* MP */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(4) { flex: 0 0 150px; } /* カラー */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(5) { flex: 0 0 170px; } /* 有償OP */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(6) { flex: 0 0 130px; } /* 拠点 */
+  .btn--small { padding: 6px 12px; font-size: 12.5px; }
+
+  /* ===== 在庫リストの表示形式「表」（現場から提示された参照UI「案A 表（横）HOLD」に
+     合わせた、素のHTML <table>） =====
+     「ステータス・車種・コミッション・MP・ハンドル・カラー・有償OP・1ST HOLD・
+     2ND HOLD・操作」の10列を横一列に並べる（vehicleTableRowHtml_、JavaScript.html
+     参照）。受注・発注・Gクラス予約リストの表示形式「表」は引き続き.rowCard
+     （角丸・影付きの行カード）のままだが、在庫リストだけは参照UIの「Hold詳細
+     （担当者・タイマー）を列として直接見せる、素朴な表」という見た目に合わせて
+     本物の<table>に切り替えた。列幅は固定せずtable-layout: auto（既定）に任せ、
+     画面に収まりきらない場合は.invTableWrapのoverflow-x: autoで横スクロールする
+     （PCビューであっても、無理に折り返して縦に間延びさせるより自然なため）。 */
+  .invTableWrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .invTable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  .invTable th, .invTable td {
+    padding: 12px 14px;
+    text-align: left;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--outline);
+  }
+  .invTable thead th {
+    color: var(--on-surface-variant);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    white-space: nowrap;
+    background: var(--background);
+  }
+  .invTable tbody tr:last-child td { border-bottom: none; }
+  .invTable tbody tr:hover td { background: var(--background); }
+  .invTableRow { cursor: pointer; }
+  /* ステータス列の左端に状態色の帯を付ける（参照UIの左罫線に相当）。trへの
+     border-leftはブラウザによって描画が安定しないため、先頭セル（td）に付ける。 */
+  .invTableRow > td:first-child { border-left: 4px solid transparent; }
+  .invTableRow--available > td:first-child { border-left-color: var(--success); }
+  .invTableRow--hold > td:first-child { border-left-color: var(--warning); }
+  .invTableRow--hold2 > td:first-child { border-left-color: var(--danger); }
+  .invTableRow--holdSpecial > td:first-child { border-left-color: var(--hold-special); }
+  /* モデル・コミッション・カラー・有償OPは、値が長い場合でも折り返さず省略記号に
+     する（現場からの要望。折り返すと行の高さが車両ごとにばらつく）。 */
+  .invTableRow__ellipsis {
+    max-width: 220px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .invTableRow__mono { font-variant-numeric: tabular-nums; }
+  .invTableRow__center { text-align: center; }
+  .invTableRow__actions { white-space: nowrap; }
+  .invTableRow__actions .btn { margin-right: 8px; }
+  .invTable__comparePin {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--on-surface-variant);
+    cursor: pointer;
+  }
+  /* 1ST HOLD・2ND HOLD列。Hold登録が無い場合は「未登録」の薄いグレーのピルのみ
+     表示する（参照UI参照）。 */
+  .invHold__empty {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--on-surface-variant);
+    background: rgba(31, 41, 51, .06);
+    padding: 3px 10px;
+    border-radius: 999px;
+  }
+  .invHold {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 130px;
+  }
+  .invHold__name {
+    font-size: 13px; font-weight: 700; color: var(--on-surface);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px;
+  }
+  .invHold--special .invHold__name { color: var(--hold-special); }
+  .invHold__staff {
+    font-size: 11px; color: var(--on-surface-variant);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px;
+  }
+  /* 参照UIのタイマー表記は簡潔な文字だけのため、既存のholdTimer（進捗バー付き）の
+     バーは非表示にし、テキストだけをコンパクトに見せる（holdTimerHtml_の
+     第3引数extraClassでinvHold__timerを付与、JavaScript.html参照）。バーを
+     隠すだけで更新ロジック（updateHoldTimers）自体はそのまま使えるため、タイマーは
+     これまでどおり毎秒自動更新される。 */
+  .invHold__timer .holdTimer__bar { display: none; }
+  .invHold__timer .holdTimer__text { margin-top: 0; font-size: 11.5px; }
+  .invHold__cancel {
+    align-self: flex-start;
+    border: none; background: none; color: var(--danger); font-size: 11px; font-weight: 700;
+    cursor: pointer; padding: 2px 0;
+  }
+  .invHold__cancel:hover { text-decoration: underline; }
+
+  /* ===== カードグリッド（PCビューで3列固定。Google Material×Teslaの余白多め・
+     高コントラストな見出しでの「カードタイプUI」） ===== */
+  .cardGrid {
+    display: grid;
+    /* 1frだけだと各トラックの下限が「内容物のmin-content幅」になり、
+       カードの内容（コミッション番号やバッジ等）が想定より長い場合に
+       グリッド自体がコンテナ幅を超えてページ全体の横スクロールを
+       引き起こすことがある。minmax(0, 1fr)にして、必要なときはカードの
+       方が縮む（内部でテキストが折り返す）ようにする。 */
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 20px;
+    /* align-items: stretch（デフォルト）だと、1台だけ「車両スペックを見る」等の
+       詳細を開いて縦に伸びたときに、同じグリッド行の他のカードまで背が
+       伸びてしまう（グリッド行の高さは行内で最も高いカードに揃うため）。
+       start にすることで、各カードは自分自身の内容量ぶんの高さのみを取り、
+       他のカードのサイズには影響しないようにする。 */
+    align-items: start;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border-left: 4px solid transparent;
+    padding: 22px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
+  }
+  /* data-commissionを持つカード（在庫リスト・マイページのHold中車両一覧。
+     vehicleCardHtml参照）は、カードのどこをタップしても（ボタン・入力・ラベル
+     以外）詳細モーダルを開けるため、クリック可能であることを示すポインタカーソルに
+     する（handleInventoryListClick_参照）。属性で絞るのは、同じ.cardクラスを使う
+     Gクラス予約リストのカード（タップ操作を持たない。全情報を最初から表示済みの
+     ため詳細モーダル自体が無い）にまでポインタカーソルが付いて誤解を招かないため。 */
+  .card[data-commission] { cursor: pointer; }
+  /* rowCard:hover と同じ理由で、border-left-color（在庫状況の色）はホバー時も維持する。 */
+  .card:hover { box-shadow: var(--shadow-elevated); transform: translateY(-3px); border-top-color: transparent; border-right-color: transparent; border-bottom-color: transparent; }
+  .card--available { border-left-color: var(--success); }
+  /* Gクラス予約リストのカード用。在庫あり／Hold中のような実際の状態を持たない
+     閲覧専用リストのため、状態色（--success等）ではなく選択中のテーマカラー
+     （--primary）を装飾として使う（現場からの要望。テーマを切り替えると
+     このカードの左罫線も連動して変わる）。 */
+  .card--themed { border-left-color: var(--primary); }
+  .card--hold { border-left-color: var(--warning); }
+  /* 1st・2nd Holdの両方が埋まっている車両は、これ以上の受け皿がない分、他より
+     目立たせる（現場の声を踏まえ、Hold1件のみとは別の色にする）。 */
+  .card--hold2 { border-left-color: var(--danger); }
+  /* デモカーHOLD・他店HOLDは、通常のHold・2nd Holdとひと目で見分けられるよう
+     専用の特別色にする（管理者権限を持つ担当者のみ登録できる。HOLD_TYPE参照）。 */
+  .card--holdSpecial { border-left-color: var(--hold-special); }
+  /* モデル・コミッション・比較ピンの行と、バッジの行を常に別々の固定行にする。
+     以前は1つのflex-wrapコンテナに全部まとめていたため、バッジの個数
+     （2個／3個）やモデル名・コミッションの文字数の組み合わせによって折り返し方
+     が変わり、在庫あり／Hold中／Hold中（2nd有）でカードの高さが揃わなかった。
+     2行に固定することで、組み合わせに関わらず常に同じ高さになる。 */
+  .card__top { display: flex; flex-direction: column; gap: 8px; }
+  .card__topRow { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  /* モデル名・コミッションを常に1行に収める（折り返し無し。現場からの要望）。
+     直接の子要素（無名のdiv）は、flexアイテムの既定値min-width: autoのままだと
+     内容ぶんの幅までしか縮まず、隣（比較ピン）を押し出したり右側でオーバーフロー
+     したりするため、min-width: 0で縮小を許可し、ellipsisが実際に働くようにする。 */
+  .card__topRow > div:first-child { min-width: 0; }
+  .card__model, .card__commission { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card__model { font-size: 21px; font-weight: 500; letter-spacing: -.01em; line-height: 1.25; }
+  .card__commission {
+    font-size: 12.5px;
+    font-weight: 500;
+    letter-spacing: .03em;
+    color: var(--on-surface-variant);
+    font-variant-numeric: tabular-nums;
+    margin-top: 2px;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .01em;
+    padding: 5px 12px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .badge__dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+  .badge--available { background: var(--success-bg); color: var(--success); }
+  .badge--hold { background: var(--warning-bg); color: var(--warning); }
+  .badge--hold2 { background: var(--danger-bg); color: var(--danger); }
+  .badge--holdSpecial { background: var(--hold-special-bg); color: var(--hold-special); }
+  .badge--disclosed { background: var(--success-bg); color: var(--success); font-weight: 500; }
+  .badge--undisclosed { background: rgba(31, 41, 51, .06); color: var(--on-surface-variant); font-weight: 500; }
+  .badge--thisMonth { background: var(--primary-bg); color: var(--primary-text); font-weight: 500; }
+  .badge--location { background: var(--primary-bg); color: var(--primary-text); font-weight: 500; }
+  .card__badges { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  /* 車両スペック・Hold詳細はカード内に表示せず、「詳細を見る」タップで画面中央の
+     モーダル（vehicleDetailHtml_）にまとめて表示する。以前はカード内の折りたたみ
+     （<details>）だったが、開閉のたびにカードが伸び縮みし、在庫あり／Hold中／
+     Hold中（2nd有）で高さが揃わなくなっていたため。 */
+  .card__detailLink {
+    margin: 0;
+    width: 100%;
+    padding: 12px 0 0;
+    border: none;
+    border-top: 1px solid var(--outline);
+    border-radius: 0;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--primary-text);
+  }
+  .card__detailLink:hover { color: var(--primary); }
+
+  /* メタ情報は2列のミニグリッドで表示。ラベルは小さく大文字寄り・トラッキング広め、
+     値は大きく太くというメリハリのある「テスラ風」の見出し表現で視認性を高める。 */
+  .card__metaGrid {
+    display: grid;
+    /* minmax(0, 1fr)にする理由は.cardGridと同じ（1fr単独だと、値が長い場合に
+       トラック自体がその内容ぶんまで広がってしまい、下のdd（値）に指定した
+       ellipsisが効かず、カードの外へはみ出してしまう）。 */
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 16px;
+    margin: 0;
+    padding: 12px 0 0;
+  }
+  /* MP・カラーは折りたたまず常に表示するため、card__topのすぐ下に独自の区切り線を持つ */
+  .card__metaGrid--quick { border-top: 1px solid var(--outline); padding-top: 14px; }
+  .card__metaGrid dt {
+    color: var(--on-surface-variant);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+    white-space: nowrap;
+  }
+  .card__metaGrid dd {
+    margin: 0; font-size: 14.5px; font-weight: 600; color: var(--on-surface); line-height: 1.3;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  /* Hold状況エリアは高さ固定・内部スクロール。Hold/2nd Holdが増えてもここで吸収し、
+     カード自体の高さは在庫あり／Hold／2nd Holdのどの状態でも常に一定に保たれる。 */
+  /* 高さは在庫あり／1st Holdのみ／2nd Holdありのどの状態でも常に同じ150pxに
+     固定する（2nd Holdが横並び表示に収まる高さを基準に、在庫あり・1st Holdのみ
+     の場合も同じ高さにすることで、カードサイズがHoldの状態によって変わらない
+     ようにしている）。想定を超える長さの内容が入った場合の保険として、
+     内部スクロールも残す。 */
+  .card__holdArea {
+    height: 150px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+  }
+  /* 詳細モーダル（vehicleDetailHtml_）は、カードグリッドの行の高さを揃える
+     必要が無いため、高さ固定・内部スクロールにせず内容ぶんそのまま表示する。 */
+  .card__holdArea--full { height: auto; overflow: visible; }
+  /* 2nd Holdがある場合、1st Hold（左）・2nd Hold（右）を縦積みではなく
+     横並びにする（カード表示・詳細モーダル・マイページで共通。アプリ全体で
+     統一した見せ方にする）。 */
+  .card__holdArea--split { flex-direction: row; align-items: stretch; }
+  /* 不具合修正: min-width: 0だけでは、ブラウザ（特にSafari/iOS）によっては
+     各Hold情報ボックス（.card__holdInfo）の内容量に応じた自動最小サイズが
+     stretchによる高さ（.card__holdAreaの150px固定を参照）より優先されてしまい、
+     文字数の多いHold（担当者名・拠点名・リード番号が長い等）で「無期限」の
+     表記がボックスの背景（角丸・紫の枠）からはみ出して見える不具合があった
+     （親要素.card__holdAreaのoverflow-y: autoだけでは、行方向（flex-direction:
+     row）にstretchされた子要素自身の自動最小サイズには効かないため）。
+     子要素自身にもmin-height: 0（自動最小サイズを無効化）とoverflow-y: auto
+     （収まりきらない内容はボックス自身の内側でスクロール）を指定することで、
+     1st Hold・2nd Holdどちらのボックスも必ず親と同じ高さに収まるようにした。
+     これにより、2nd Holdがあるカードの高さも1st Holdのみのカードと常に
+     揃うようになる（.card__holdArea自体の高さは元々どちらも150pxで同じだが、
+     この不具合でボックスの内容がはみ出すぶんカード全体の見た目の高さが
+     ずれて見えていた）。 */
+  .card__holdArea--split .card__holdInfo { flex: 1 1 0; min-width: 0; min-height: 0; overflow-y: auto; }
+  .card__holdArea--empty {
+    align-items: center;
+    justify-content: center;
+  }
+  .card__holdArea__placeholder {
+    font-size: 12.5px;
+    color: var(--on-surface-variant);
+    opacity: .7;
+  }
+  .card__holdInfo {
+    flex: none;
+    background: var(--background);
+    border-radius: 10px;
+    border-left: 3px solid var(--outline);
+    padding: 10px 12px;
+    font-size: 13.5px;
+    color: var(--on-surface-variant);
+    line-height: 1.6;
+  }
+  .card__holdInfo b { color: var(--on-surface); }
+  .card__holdInfo__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .card__holdInfo__label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .card__holdInfo--first { border-left-color: var(--warning); }
+  .card__holdInfo--first .card__holdInfo__label { color: var(--warning); }
+  .card__holdInfo--second { border-left-color: var(--primary); background: var(--primary-bg); }
+  .card__holdInfo--second .card__holdInfo__label { color: var(--primary-text); }
+  /* デモカーHOLD・他店HOLDは、順番（1st/2nd）に関わらずこの特別色で上書きする
+     （--first/--secondと同時に付与されるクラスのため、後に書くことで優先させる）。 */
+  .card__holdInfo--special { border-left-color: var(--hold-special); background: var(--hold-special-bg); }
+  .card__holdInfo--special .card__holdInfo__label { color: var(--hold-special); }
+  /* 顧客名・担当者名・拠点名は現場の入力次第で長くなり得るため、折り返さず
+     1行に収めて超過分は省略記号にする（現場からの要望。折り返すと、固定高さの
+     .card__holdArea内で行数が増えるぶん縦スクロールが必要になる場面が増える）。 */
+  .card__holdInfo__row { margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card__holdInfo__cancel {
+    border: none;
+    background: none;
+    color: var(--danger);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    flex: none;
+  }
+  .card__holdInfo__cancel:hover { background: var(--danger-bg); }
+
+  /* 詳細（リード番号・登録月・下取車等）は詳細モーダル（vehicleDetailHtml_）内でのみ
+     表示する（card__holdInfo__detailsBody--flat）。カード表示側では表示しない。 */
+  .card__holdInfo__detailsBody--flat {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed var(--outline);
+  }
+
+  /* ===== Hold 72時間タイマー ===== */
+  .holdTimer__bar {
+    height: 5px;
+    border-radius: 999px;
+    background: var(--outline);
+    overflow: hidden;
+  }
+  .holdTimer__barFill {
+    height: 100%;
+    width: 100%;
+    border-radius: 999px;
+    background: var(--primary);
+    transition: width 1s linear;
+  }
+  .holdTimer--warning .holdTimer__barFill { background: var(--warning); }
+  .holdTimer--expired .holdTimer__barFill { background: var(--danger); width: 0% !important; }
+  /* デモカーHOLD・他店HOLDはHold期限が無期限のため、進捗バーは出さず「無期限」の
+     固定表示のみにする（holdTimerHtml_、JavaScript.html参照）。 */
+  .holdTimer--indefinite .holdTimer__text { margin-top: 0; color: var(--hold-special); font-weight: 700; }
+  .holdTimer__text {
+    margin-top: 4px;
+    font-size: 12.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--on-surface-variant);
+  }
+  .holdTimer--warning .holdTimer__text { color: var(--warning); }
+  .holdTimer--expired .holdTimer__text { color: var(--danger); }
+
+  .card__actions { display: flex; gap: 10px; margin-top: auto; padding-top: 4px; flex-wrap: wrap; }
+  .card__actions .btn { flex: 1; min-height: 44px; }
+
+  .emptyState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
+    color: var(--on-surface-variant);
+    padding: 60px 20px;
+    font-size: 14px;
+  }
+  .emptyState p { margin: 0; max-width: 46ch; line-height: 1.7; }
+  /* 単なる文字だけの寂しい印象にならないよう、既存の線画アイコン一式から
+     文脈に合うものを添える（新規アイコンライブラリは追加しない）。 */
+  .emptyState__icon {
+    width: 34px;
+    height: 34px;
+    stroke-width: 1.3;
+    color: var(--outline);
+  }
+
+  /* ===== 受注リスト（在庫リストと揃えたカードタイプUI。PCビューで1行3列） ===== */
+  .orderList {
+    display: grid;
+    /* minmax(0, 1fr)にする理由は.cardGridと同じ（1fr単独だと内容量が多い
+       カードがある場合にグリッド自体がコンテナ幅を超えてしまうため）。 */
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+    align-items: start;
+  }
+  .orderCard {
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border-left: 4px solid var(--primary);
+    padding: 22px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    cursor: pointer;
+    transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
+  }
+  /* card:hover と同じ理由で、border-left-color（アクセントカラー）はホバー時も維持する。 */
+  .orderCard:hover { box-shadow: var(--shadow-elevated); transform: translateY(-3px); border-top-color: transparent; border-right-color: transparent; border-bottom-color: transparent; }
+  /* 顧客名・担当者名・車種は現場の入力次第で長くなり得るため折り返さず、
+     拠点バッジは常に右端に固定表示する（現場からの要望。折り返すとカードの
+     高さが案件ごとにばらつく）。flex-wrap: nowrap＋左側（顧客名側）に
+     min-width: 0を指定し、右側のバッジ（flex: none）を押し出さずに
+     左側だけが縮んでellipsisになるようにする。 */
+  .orderCard__top { display: flex; flex-wrap: nowrap; align-items: flex-start; gap: 8px 10px; }
+  .orderCard__top > div:first-child { min-width: 0; }
+  .orderCard__top .card__badges { margin-left: auto; flex: none; }
+  .orderCard__top .card__badges .badge { margin-left: 0; }
+  .orderCard__model, .orderCard__staff, .orderCard__vehicle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .orderCard__model { font-size: 21px; font-weight: 500; letter-spacing: -.01em; line-height: 1.25; }
+  .orderCard__staff { font-size: 13.5px; font-weight: 600; color: var(--on-surface-variant); margin-top: 3px; }
+  /* 車種は「誰が・何を買ったか」をひと目で確認できるよう、常に表示する
+     （契約内容の詳細は下の折りたたみへ）。 */
+  .orderCard__vehicle {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--on-surface);
+    margin-top: 4px;
+  }
+  /* 契約内容（コミッション・MP・VPC・有償OP・登録月・下取車・OSS・保険・支払方法・
+     受注確定日時・リード番号）はカード内に表示せず、「詳細を見る」タップで画面中央の
+     モーダル（orderDetailHtml_）にまとめて表示する。顧客名・担当者・車種だけで
+     対象案件を判断できる（以前はカード内の折りたたみだったが、開閉のたびに
+     カードが伸び縮みしていたため。card__detailLinkと同じパターン）。 */
+  .orderCard__detailLink {
+    margin: 0;
+    width: 100%;
+    padding: 12px 0 0;
+    border: none;
+    border-top: 1px solid var(--outline);
+    border-radius: 0;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--primary-text);
+  }
+  .orderCard__detailLink:hover { color: var(--primary); }
+  .orderCard__grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px 16px;
+    margin: 0;
+    padding: 12px 0 0;
+  }
+  .orderCard__grid dt {
+    color: var(--on-surface-variant);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+  .orderCard__grid dd { margin: 0; font-size: 14.5px; font-weight: 600; color: var(--on-surface); line-height: 1.3; }
+
+  /* ===== 発注リスト =====
+     登録・編集・削除はいずれもアプリ画面からは行わず、スプレッドシートへ直接
+     入力する運用の閲覧専用一覧（PurchaseOrderService.gs参照）。カード表示は
+     受注リストの.orderCard（顧客名を主役にした見た目）と同じ考え方で統一し、
+     「誰が発注したか」がひと目でわかるようにしている。 */
+  .purchaseOrderList {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+    align-items: start;
+  }
+  .purchaseOrderCard {
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    border-left: 4px solid var(--primary);
+    padding: 22px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  /* orderCard__topと同じ考え方（顧客名・担当者・車種は折り返さず、拠点バッジは
+     常に右端に固定。現場からの要望）。 */
+  .purchaseOrderCard__top { display: flex; flex-wrap: nowrap; align-items: flex-start; gap: 8px 10px; }
+  .purchaseOrderCard__top > div:first-child { min-width: 0; }
+  .purchaseOrderCard__top .badge { margin-left: auto; flex: none; }
+  .purchaseOrderCard__customer, .purchaseOrderCard__staff, .purchaseOrderCard__vehicle, .purchaseOrderCard__sub {
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .purchaseOrderCard__customer { font-size: 21px; font-weight: 500; letter-spacing: -.01em; line-height: 1.25; }
+  .purchaseOrderCard__staff { font-size: 13.5px; font-weight: 600; color: var(--on-surface-variant); margin-top: 3px; }
+  .purchaseOrderCard__vehicle { font-size: 14px; font-weight: 600; color: var(--on-surface); margin-top: 4px; }
+  .purchaseOrderCard__sub { font-size: 12.5px; color: var(--on-surface-variant); }
+
+  /* ===== 設定画面 =====
+     項目ごとに独立したカード（島）に分け、Google/Teslaのカードデザインに寄せる
+     （角丸・影・余白多め。1つの大きなカードに全項目を詰め込まない）。
+     2列の段組み（masonry）レイアウトも試したが、カードの高さがまちまちだと
+     列の合計高さがずれてしまい、次のカードとの間隔だけ広がって不揃いに見える
+     問題が残るため、確実に隙間が一定になる1列の縦積みに統一している
+     （Google/Teslaの設定画面も同様に1列でカードを並べるスタイル）。 */
+  .settingsWrap {
+    max-width: 760px;
+    margin: 0 auto;
+  }
+  .settingsGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  /* テーマ・システムマスタ等、設定タブ内の大分類見出し。カードの外側、
+     グループの先頭に置く（カード自体の見出し＝settingsSection__titleとは別）。 */
+  .settingsGroupTitle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--on-surface-variant);
+    margin: 8px 2px -6px;
+  }
+  .settingsGroupTitle--admin { color: var(--on-surface); }
+  .settingsGroupTitle__badge {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: none;
+    background: var(--warning-bg);
+    color: var(--warning);
+    padding: 3px 10px;
+    border-radius: 999px;
+  }
+  .settingsCard {
+    background: var(--surface);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--outline);
+    padding: 26px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .settingsSection__title {
+    font-size: 15.5px;
+    font-weight: 700;
+    margin: 0 0 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--on-surface);
+  }
+  .settingsSection__title .icon { color: var(--primary-text); }
+  .settingsSection__desc {
+    font-size: 12.5px;
+    color: var(--on-surface-variant);
+    margin: 0 0 14px;
+    line-height: 1.6;
+  }
+  .settingsCard .formField + .formField { margin-top: 14px; }
+  .settingsActions {
+    background: var(--surface);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--outline);
+    padding: 20px 28px;
+  }
+  .formField { display: flex; flex-direction: column; gap: 6px; }
+  .formField label { font-size: 13px; font-weight: 500; color: var(--on-surface-variant); }
+  /* 発注リストの登録・編集モーダルなど、任意項目が混在するフォームで
+     必須項目だけを明示するための小さなバッジ（.settingsGroupTitle__badgeと
+     同じ「警告色の薄いピル」の見た目を流用）。 */
+  .formField__required {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    background: var(--warning-bg);
+    color: var(--warning);
+    padding: 2px 7px;
+    border-radius: 999px;
+    margin-left: 4px;
+  }
+  .formField .input { width: 100%; }
+  .formField__hint { margin: 0; font-size: 12px; color: var(--on-surface-variant); }
+  .formField.hidden { display: none; }
+
+  /* ===== テーマ（着せ替え）プリセット選択 =====
+     以前はカラーピッカーで自由に配色を指定できたが、組み合わせによって
+     コントラスト比が不足する懸念があったため、視覚的に確認済みの11色＋
+     ランダム（ログインのたび変化。renderThemePresets_参照）から選ぶスウォッチ
+     形式に変更した（洋服・スマホケースの色を選ぶイメージ）。プリセット1つで
+     アプリ全体の配色とサイドバーの配色の両方がセットで切り替わる
+     （--sidebar-bg系、.sidebar参照）。 */
+  .themePresetGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  .themePreset {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 8px;
+    background: var(--background);
+    border: 1px solid var(--outline);
+    border-radius: var(--radius);
+    cursor: pointer;
+    color: var(--on-surface-variant);
+    font-size: 12px;
+  }
+  .themePreset:hover { border-color: var(--swatch); }
+  .themePreset.is-selected { border-color: var(--swatch); background: rgba(31, 41, 51, .04); color: var(--on-surface); }
+  .themePreset__swatch {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--swatch);
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .15);
+  }
+  .themePreset.is-selected .themePreset__swatch {
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .15), 0 0 0 3px var(--surface), 0 0 0 5px var(--swatch);
+  }
+  .themePreset__name { text-align: center; line-height: 1.3; }
+  @media (max-width: 480px) {
+    .themePresetGrid { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  /* ===== ロゴ設定 ===== */
+  .logoField { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .logoPreview {
+    width: 72px; height: 72px; flex: none;
+    border: 1px solid var(--outline); border-radius: 8px;
+    background: var(--background);
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+  }
+  .logoPreview img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .logoPreview__placeholder { font-size: 11px; color: var(--on-surface-variant); text-align: center; }
+  .logoField__controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+  /* ===== ローディング画像設定のプレビュー =====
+     ロゴ（.logoPreview、72×72の小さな正方形）と異なり、ローディング画像は
+     全画面表示になり得る画像のため、プレビューも横長・大きめにして
+     見え方を確認しやすくする。 */
+  #settingsLoadingImagePreview { width: 100%; max-width: 320px; height: 160px; }
+
+  /* ===== 設定タブの各種リスト共通: ドラッグハンドル（担当者・モデル写真・
+     メール通知先で共通利用。JavaScript.htmlのmakeReorderable_参照） ===== */
+  .dragHandle {
+    flex: none;
+    display: flex; align-items: center; justify-content: center;
+    width: 22px; height: 32px;
+    color: var(--on-surface-variant);
+    font-size: 15px;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    border-radius: 4px;
+  }
+  .dragHandle:hover { background: var(--background); color: var(--on-surface); }
+  .dragHandle:active { cursor: grabbing; }
+  [data-drag-index].is-dragging { opacity: .4; }
+  [data-drag-index].is-drag-over {
+    outline: 2px dashed var(--primary);
+    outline-offset: 2px;
+    border-radius: 8px;
+  }
+
+  /* ===== 担当者マスタ ===== */
+  .staffList { display: flex; flex-direction: column; gap: 6px; }
+  .staffList__row { display: flex; gap: 8px; align-items: center; }
+  .staffList__row .input[data-staff-field="name"] { flex: 0 0 22%; min-width: 80px; }
+  .staffList__row .input[data-staff-field="email"] { flex: 1 1 40%; min-width: 0; }
+  .staffList__row .input[data-staff-field="location"] { flex: 0 0 22%; min-width: 90px; }
+  .staffList__empty { font-size: 13px; color: var(--on-surface-variant); }
+
+  /* ===== モデル写真（ホーム画面） ===== */
+  .modelPhotoList { display: flex; flex-direction: column; gap: 8px; }
+  /* flex-wrap: wrapにしておく。各入力欄の最小幅（min-width）の合計が、PCビューの
+     最小幅（901px）付近では設定タブの表示幅（.settingsWrapのmax-width: 760px）に
+     収まりきらず、横スクロールが発生してしまっていたため（PCビューでは横スクロール
+     を発生させない方針。現場からの指摘で判明）。折り返しても入力欄の意味は
+     見た目から分かるため、実用上の支障はない。 */
+  .modelPhotoList__row { display: flex; flex-wrap: wrap; row-gap: 8px; gap: 10px; align-items: center; }
+  .modelPhotoList__preview {
+    width: 44px; height: 44px; flex: none;
+    border: 1px solid var(--outline); border-radius: 8px;
+    background: var(--background);
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+  }
+  .modelPhotoList__preview img { width: 100%; height: 100%; object-fit: cover; }
+  .modelPhotoList__row .input[data-photo-field="model"] { flex: 0 0 16%; min-width: 70px; }
+  .modelPhotoList__row .input[data-photo-field="bodyType"] { flex: 0 0 120px; }
+  /* 写真URLは長い値が入る欄のため、残り幅をすべて使う。先頭の文字列・対象の文字列は
+     「CLA」「T」のような短い文字列しか入らないため、固定幅の小さい欄にする
+     （photoUrlと同じ比率で伸縮させると、値が短いのに不自然に幅広くなってしまうため）。 */
+  .modelPhotoList__row .input[data-photo-field="photoUrl"] { flex: 1 1 0; min-width: 110px; }
+  .modelPhotoList__row .input[data-photo-field="gradePrefix"],
+  .modelPhotoList__row .input[data-photo-field="gradeMarker"] { flex: 0 0 96px; min-width: 70px; }
+  .modelPhotoList__empty { font-size: 13px; color: var(--on-surface-variant); }
+
+  /* ===== メール通知先（Hold時／受注確定時／システムエラー通知） =====
+     以前は「,区切りの1テキスト欄」だったが、担当者マスタ・モデル写真と統一した
+     「1行1件・追加/削除/ドラッグ並び替え」のリスト形式に変更した。 */
+  .mailList { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+  .mailList__row { display: flex; gap: 8px; align-items: center; }
+  .mailList__row .input { flex: 1 1 auto; min-width: 0; }
+  .mailList__empty { font-size: 13px; color: var(--on-surface-variant); margin-bottom: 4px; }
+
+  /* ===== ホーム画面: お知らせ =====
+     管理者が設定タブ「お知らせ」カードから登録した任意の文言（例:「限定車在庫3台
+     あり」）を、ホームのアプリ名表記のすぐ上に目立つアクセントカラーの帯として
+     表示する（renderHomeAnnouncement_、JavaScript.html参照。未設定の場合は
+     hiddenのまま何も表示しない）。タブレット・スマホ幅では型クイックナビ
+     （.homeTypeNav）と同様position: fixedで独立して固定し、型クイックナビは
+     この帯の高さぶんさらに下へずらす（--home-announcement-h、syncFixedBars_
+     参照）。PC（901px以上）では下のmin-width: 901pxブロックでposition: static
+     に戻し、#homeCombinedHeader内の先頭要素（見出し行のすぐ上）として表示する
+     （このとき#homeCombinedHeaderSpacer自体の高さ実測に自動的に含まれるため、
+     専用のスペーサーはPCでは不要＝下で.homeAnnouncementSpacerをdisplay: noneに
+     している）。 */
+  .homeAnnouncement {
+    position: fixed;
+    top: calc(var(--topbar-h) + 16px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 32px);
+    max-width: 1648px;
+    z-index: 26;
+    background: var(--primary);
+    color: var(--on-primary);
+    padding: 10px 16px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-elevated);
+    font-size: 13.5px;
+    font-weight: 700;
+    line-height: 1.5;
+    text-align: center;
+  }
+
+  /* ===== ホーム画面: ボディタイプ（型）のクイックナビ =====
+     モデル一覧の上に、設定タブで登録できるボディタイプ（Constants.gsの
+     MODEL_BODY_TYPE_OPTIONS参照）をひと並びのボタンで表示し、押すとその型だけに絞り込む
+     （どの型が何台あるか、目当ての型のモデルを探しやすくするため）。
+     トップバー・ツールバー（検索欄）と同様にposition: fixedで画面上部に
+     完全固定し、上下スクロール中も常に押せる状態を保つ（現場からの指摘。
+     position: stickyだとブラウザによってスクロール中にわずかに追従が
+     遅れる/ずれることがあるため、他の固定要素と同じくJavaScript.htmlの
+     syncFixedBars_で実測値を使って完全に固定している）。すぐ下に高さ
+     実測済みのスペーサー（.homeTypeNavSpacer）を置き、後続のモデル一覧が
+     隠れないようにしている（.toolbar / .toolbarSpacerと同じ仕組み）。
+     このため、直後の.homeTypeHeader（型ごとの見出し）との間隔は、この
+     要素自身のmargin-bottomではなく、spacerの高さ（syncFixedBars_で
+     「この要素の高さ＋20px」を設定）で確保している。--home-announcement-hは
+     お知らせ（.homeAnnouncement）が表示されている場合にその高さぶんだけ
+     この要素をさらに下へずらすための変数（未表示時は0px、syncFixedBars_参照）。 */
+  .homeTypeNav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    position: fixed;
+    top: calc(var(--topbar-h) + 16px + var(--home-announcement-h, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 32px);
+    max-width: 1648px; /* main.view の max-width(1680px) から左右padding(32px)を引いた値。.toolbarと同じ */
+    z-index: 25;
+    background: var(--surface);
+    padding: 10px 16px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .homeTypeNav__item {
+    flex: none;
+    padding: 8px 16px;
+    border: 1px solid var(--outline);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--on-surface-variant);
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .homeTypeNav__item:hover { border-color: var(--primary); color: var(--on-surface); }
+  .homeTypeNav__item.is-active { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+
+  /* ===== ホーム画面: 型ごとのグループ見出し =====
+     モデル一覧を、設定タブで割り当てたボディタイプごとにグループ化して表示する際、
+     各グループの先頭（そのタイプの最初の横スクロール行の直前）に挟む見出し。
+     1台もモデル写真にボディタイプが割り当てられていない場合はグループ化自体を
+     行わず、この見出しも表示しない（renderHomeGallery_のgroupModelPhotosByBodyType_
+     参照。運用を始めたばかりでまだ型を割り振っていない状態でも、従来どおりの
+     見た目のまま使える）。
+     文字サイズは、カード内のモデル名（.homeRow__model、16px）より一段階
+     大きくし、個々のモデルより上位の「見出し」であることが一目でわかる
+     ようにしている。見出し自身は下方向のmargin-bottomのみで、直後の
+     横スクロール行（.homeTypeRow）との間隔を確保する（次のグループとの間隔は
+     .homeTypeRow / .homeGradeTabs側のmargin-bottomで確保しているため、
+     見出し側にmargin-topは付けない）。 */
+  .homeTypeHeader {
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--on-surface);
+    margin: 0 2px 14px;
+  }
+
+  /* ===== ホーム画面 =====
+     PC（901px以上）は、サイドバー＋1本のカードグリッド（3枚1行、.homeList＋
+     .homeCard）というシンプルな構成にする（以前あった右側の詳細ペイン・
+     スライドショー・◀▶モデル送りは廃止し、車両写真・在庫台数・グレード内訳を
+     すべてタップ・クリックなしでカード自体に埋め込んだ。下部の
+     @media (min-width: 901px)内の.homeList・.homeCard系ルール参照）。
+     タブレット・スマホ幅（900px以下）では変更せず、従来どおり型ごとに見出し
+     （.homeTypeHeader）＋縦一列に並ぶ横長の行カード（.homeRow）にし、パッと見て
+     在庫状況がわかる情報密度を優先した「リスト」型のままタップした行その場に
+     グレードタブを展開する（@media (max-width: 900px)で上書き。現場の声を
+     踏まえて選んだ元のレイアウトのため、狭い画面では変更しない）。 */
+  .homeList {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .homeRow {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    gap: 14px;
+    padding: 12px;
+    /* 薄く色付けした背景（--card-bg）にし、ページ背景（--background）・
+       カード内の写真プレースホルダーとも見分けがつくようにする。縁は
+       うっすらとした薄い線に留め（区切りというより背景色の変化で
+       カード同士を見分けさせる）、カード間の余白（.homeListのgap）
+       自体で区切りを表現する。 */
+    background: var(--card-bg);
+    border: 1px solid rgba(15, 23, 42, .06);
+    border-radius: var(--radius);
+    color: var(--on-surface);
+    cursor: pointer;
+    text-align: left;
+    transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease, background-color .18s ease;
+  }
+  .homeRow:hover { box-shadow: var(--shadow-elevated); transform: translateY(-2px); border-color: var(--primary); }
+  /* タブレット・スマホ幅のインライン展開（state.homeExpandedModel）専用。
+     PCビューでは常にfalseのため付与されない（@media (max-width: 900px)で
+     display・padding・背景などを上書きする）。 */
+  .homeRow.is-expanded {
+    margin-bottom: 12px;
+    /* モデルタップ時にscrollIntoView()でこのタイルまで自動スクロールする際
+       （JavaScript.htmlのクリックハンドラ参照）、position: fixedのトップバー・
+       型クイックナビの下に隠れてしまわないよう、その高さぶんの余白を確保する
+       （--home-scroll-offsetはsyncFixedBars_が実測して更新する）。 */
+    scroll-margin-top: calc(var(--home-scroll-offset, 100px) + 16px);
+  }
+  .homeRow.is-expanded:hover { box-shadow: none; transform: none; }
+  .homeRow__photo {
+    order: 1;
+    width: 64px;
+    height: 64px;
+    flex: none;
+    background: var(--background);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .homeRow__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  /* ヘッダー行: モデル名（左）＋グレード件数タグ／「他のモデルを見る」ボタン（右）。
+     写真の右に並べ、フッター行（在庫台数・矢印）と合わせて1行に収める。 */
+  .homeRow__header {
+    order: 2;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .homeRow__model {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -.005em;
+    line-height: 1.3;
+  }
+  /* グレードのあるモデルは、通常表示ではヘッダー行にグレード件数タグを添える
+     （クローズアップ表示では代わりに「他のモデルを見る」ボタンが同じ位置に入る。
+     JavaScript.htmlのgradesTagHtml参照）。 */
+  .homeRow__gradesTag {
+    flex: none;
+    background: var(--primary-bg);
+    color: var(--primary-text);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  /* 「他のモデルを見る」ボタン: 押すと展開を解除し、他のモデルが並ぶ通常の
+     グリッド表示に戻る（#homeGridのクリック委譲で、.homeRow自体のトグル処理が
+     そのまま効く）。ヘッダー行のグレード件数タグと同じ位置に収まる、控えめな
+     テキストリンクにする。 */
+  .homeRow__backBtn {
+    flex: none;
+    border: none;
+    background: none;
+    color: var(--primary-text);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+    white-space: nowrap;
+  }
+  .homeRow__backBtn:hover { text-decoration: underline; }
+  /* フッター行: 在庫台数（アクセントカラー）＋矢印。写真・ヘッダー行と同じ
+     1行に並べ、右端に置く。 */
+  .homeRow__footer {
+    order: 3;
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .homeRow__footer .badge--count {
+    background: none;
+    color: var(--primary-text);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    padding: 0;
+  }
+  /* 在庫0台のモデルは「在庫0台」ではなく「在庫がありません」と表示し
+     （homeStockCountText_、JavaScript.html）、赤文字にして在庫が無いことが
+     ひと目でわかるようにする（グレード別カウントの--zeroと同じ考え方）。 */
+  .homeRow__footer .badge--count--zero { color: var(--danger); }
+  .homeRow__footer .homeRow__chevron {
+    display: inline;
+    flex: none;
+    color: var(--primary-text);
+    font-size: 15px;
+  }
+  .homeRow__chevron--nav { font-size: 16px; }
+
+  /* ===== ホームの型ごとのグループ =====
+     JavaScript.htmlのrenderHomeGallery_は型ごとに.homeTypeRowで.homeRowを
+     グループ化してDOMを生成するが、見た目上は型をまたいで縦一列の.homeList
+     （リスト）として見せるため、display: contentsでこの要素自体の存在を消し、
+     中の.homeRowをそのまま.homeList（縦一列のflexコンテナ）の直接の子として
+     扱わせる（PC・タブレット/スマホで共通）。 */
+  .homeTypeRow { display: contents; }
+
+  /* ===== ホームの結合ヘッダー（アプリ名見出し＋型クイックナビ＋戻る／更新
+     ボタン。PC専用のサイドバー＋1本のカードグリッド構成の一部） =====
+     タブレット・スマホ幅では、この要素自体をdisplay: contentsにして箱を消し、
+     中の#homeTypeNav（position: fixedの型クイックナビ、それらの幅でも従来どおり
+     画面上部に固定表示する）だけをそのまま残す。#homeCombinedHeader__topRow
+     （見出し・戻る／更新ボタン）は、それらの幅では共通トップバーが従来どおり
+     アプリ名・戻る／更新ボタンを表示するため、二重表示を防ぐために非表示にする。 */
+  #homeCombinedHeader { display: contents; }
+  .homeCombinedHeader__topRow { display: none; }
+  /* PCビュー専用のスペーサー（position: fixedの#homeCombinedHeaderの高さぶんの
+     余白を確保する）。タブレット・スマホ幅では#homeCombinedHeader自体が
+     display: contentsで固定表示されないため不要。 */
+  .homeCombinedHeaderSpacer { display: none; }
+
+  /* ===== ホームのグレードタブ（グレードが設定されたモデル行を展開すると現れる） =====
+     PCでは、展開したタイル（そのモデルの型セクション内）の直下にそのまま表示する
+     （renderHomeGallery_がDOM順で展開タイルの直後に並べているため、grid-column・
+     orderによる並び替えは不要）。900px以下（リスト型）では、写真幅ぶんインデントし
+     左に細い罫線を添えることで「ベースモデル行から派生したタブである」ことを
+     視覚的に示す（車両スペック折りたたみ等と同じ、階層関係を罫線で示す考え方。
+     @media (max-width: 900px)で上書き）。 */
+  .homeGradeTabs {
+    margin-bottom: 24px;
+    padding: 16px;
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-radius: var(--radius);
+  }
+  .homeGradeTabs__label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--on-surface-variant);
+    margin: 0 0 10px;
+  }
+  .homeGradeTabs__list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .homeGradeTab {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--outline);
+    background: var(--surface);
+    color: var(--on-surface);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: background-color .15s ease, border-color .15s ease;
+  }
+  .homeGradeTab:hover { background: rgba(31, 41, 51, .05); border-color: var(--primary); }
+  .homeGradeTab__count { color: var(--on-surface-variant); font-weight: 500; font-variant-numeric: tabular-nums; }
+  /* 在庫0台のグレードは、Hold中も無くまとまった在庫の当てがないことがひと目で
+     わかるよう、件数を赤文字にする。 */
+  .homeGradeTab__count--zero { color: var(--danger); font-weight: 700; }
+
+  /* ===== PC専用: 左サイドバーナビゲーション =====
+     901px以上でのみ表示する（タブレット・スマホ幅では従来どおりtopbar内の
+     .tabsを使う。サイドバー方式は狭い画面では畳む必要が生じ、既存の実務向け
+     レイアウトを壊してしまうため、PCビューのみに限定した）。ナビ項目・
+     ユーザー情報の実体はIndex.html参照。ロゴ・担当者情報はJavaScript.htmlの
+     applyLogo/renderTopbarUserがtopbar側と共通の内容を反映する。
+     デフォルトでは非表示にし、下のメディアクエリでのみ表示する。 */
+  .sidebar { display: none; }
+
+  @media (min-width: 901px) {
+    :root { --sidebar-w: 232px; }
+
+    #app { padding-left: var(--sidebar-w); }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      width: var(--sidebar-w);
+      /* 左の項目タブゾーン。背景は明るいまま一番左のナビだけを濃色にするため、
+         トップバー等と共有の--topbar-bgではなく専用の--sidebar-bgを使う
+         （設定タブの表示設定（着せ替え）プリセットとセットで決まる。
+         THEME_PRESETSのsidebarColor・JavaScript.htmlのapplySidebarColor_参照）。
+         文字色・罫線・ホバー背景も--on-topbar・--dark-ui-outlineは使わず、
+         背景色に応じて読みやすいほうへ自動的に切り替わる専用トークン
+         （--sidebar-fg系）を使う。 */
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--sidebar-outline);
+      padding: 20px 0;
+      z-index: 32;
+    }
+    .sidebar__brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 20px 18px;
+      margin-bottom: 8px;
+      border-bottom: 1px solid var(--sidebar-outline);
+    }
+    .sidebar__logo { height: 28px; width: auto; max-width: 100%; object-fit: contain; }
+    .sidebar__brandText {
+      font-size: 13.5px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      color: var(--sidebar-fg);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    /* ロゴを設定した場合は、サイドバーの見出しはロゴ画像だけにする（アプリ名の
+       文字表記は中央ヘッダーの.topbar__brandTextに役割を譲るため、ロゴがある
+       場合にここで重複表示しない。未設定時はこれまでどおりテキストのみ表示する）。 */
+    .sidebar__logo:not(.hidden) ~ .sidebar__brandText { display: none; }
+
+    .sidebarNav { display: flex; flex-direction: column; gap: 2px; padding: 0 12px; flex: 1; overflow-y: auto; }
+    /* .tabs__itemの大文字・トラッキング広め・下線アクティブ表示は水平タブ用の
+       スタイルのため、サイドバーの縦積みリスト用に上書きする
+       （border: noneでborder-styleをnoneにするため、.tabs__item.is-activeの
+       border-bottom-colorが後から効いても実際には描画されない）。 */
+    .sidebarNav__item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border: none;
+      border-radius: 8px;
+      background: none;
+      /* 選んだサイドバー背景色に対して読みやすいほうの文字色（--sidebar-fg）を
+         少し抑えた濃さ（--sidebar-fg-muted）にする（.icon・テキスト双方に
+         効くcurrentColor）。 */
+      color: var(--sidebar-fg-muted);
+      opacity: 1;
+      font-size: 13.5px;
+      font-weight: 600;
+      text-transform: none;
+      letter-spacing: normal;
+      text-align: left;
+      cursor: pointer;
+      transition: background-color .15s ease, color .15s ease;
+    }
+    .sidebarNav__item .icon { flex: none; }
+    .sidebarNav__item:hover { background: var(--sidebar-hover-bg); color: var(--sidebar-fg); opacity: 1; }
+    /* 選択中の項目は、テーマカラーを帯びた明るいピル（--primary-bg/--primary-text）で
+       ダークネイビーの地から浮き上がらせる。 */
+    .sidebarNav__item.is-active {
+      background: var(--primary-bg);
+      color: var(--primary-text);
+      border-bottom-color: transparent;
+    }
+
+    .sidebarUser {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 16px 0;
+      margin-top: 8px;
+      border-top: 1px solid var(--sidebar-outline);
+    }
+    .sidebarUser__avatar {
+      flex: none;
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: var(--primary-bg);
+      color: var(--primary-text);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700;
+    }
+    .sidebarUser__info { min-width: 0; font-size: 11.5px; line-height: 1.5; }
+    .sidebarUser__info .topbar__userName {
+      display: block; font-weight: 600; font-size: 12.5px; color: var(--sidebar-fg);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sidebarUser__info .topbar__userEmail {
+      display: block; color: var(--sidebar-fg-muted); font-size: 11px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sidebarUser__info .topbar__userWarn { font-size: 10.5px; padding: 3px 8px; }
+
+    /* トップバー: ナビ・ユーザー情報はサイドバーに移るため、「戻る／更新」ボタンと
+       中央のアプリ名見出しだけが残るスリムなヘッダーになる。ロゴ画像は
+       サイドバー側（.sidebar__brand）だけに表示すれば十分なため、ここでは
+       文字のみ表示し.topbar__logoは非表示にする（.topbar__brandText参照）。 */
+    .topbar {
+      left: var(--sidebar-w);
+      background: var(--surface);
+      color: var(--on-surface);
+      border-bottom: 1px solid var(--outline);
+      box-shadow: none;
+    }
+    .topbar__brandRow { padding: 20px 32px; }
+    .topbar__logo, .topbar__user, .tabs { display: none; }
+    /* .topbar__brandTextの文字色（--on-topbar、白）はモバイル/タブレットの
+       ネイビー地のトップバー向けのため、PCのホワイト地トップバーでは
+       --on-surface（濃色）に上書きしないと白文字のまま見えなくなる。 */
+    .topbar__brandText { color: var(--on-surface); }
+    .topbar__navBtn { border-color: var(--outline); color: var(--on-surface-variant); }
+    .topbar__navBtn:hover { background: var(--background); }
+    .topbar__navBtn:disabled:hover { background: transparent; }
+    /* ホームタブの間は、この共通トップバーを非表示にする。アプリ名見出し・
+       型クイックナビ・戻る／更新ボタンは、結合ヘッダー（#homeCombinedHeader）
+       にそれぞれ役目を譲るため（サイドバー＋1本のカードグリッドという構成に
+       する。JavaScript.htmlのswitchToTab_参照）。非表示になるとoffsetHeightが
+       0になるため、直後のsyncFixedBars_()が--topbar-hを自動的に0へ更新し、
+       #appの上余白も連動して詰まる。 */
+    body.is-home-tab .topbar { display: none; }
+
+    /* main.viewは全幅を使い、position: fixedのトップバー・ツールバー同様
+       サイドバー幅ぶんのpaddingは#app側で既に確保済みのため、ここでは
+       中央寄せ用のmax-width/marginを解除するだけでよい。 */
+    main.view { max-width: none; margin: 0; padding: 24px 32px 40px; }
+
+    /* 検索欄（在庫リスト・受注リスト・Gクラス予約リストのツールバー）は
+       position: fixedで画面上部に固定しているため（left: 50% +
+       transform: translateX(-50%)で全幅中央寄せ）、サイドバーぶん左に
+       寄せて、コンテンツ列と同じ横幅に揃える。 */
+    .toolbar {
+      left: calc(var(--sidebar-w) + 24px);
+      right: 24px;
+      transform: none;
+      width: auto;
+      max-width: none;
+    }
+
+    /* ホームの結合ヘッダー: アプリ名見出し・戻る／更新ボタン・ボディタイプ
+       絞り込みナビを1本にまとめ、参照UIで「Car Listings」の見出し＋操作
+       ボタンがあった位置に対応させている（結合ヘッダーの全幅を使うため、
+       型の種類が多くても横スクロール・2段折り返しなしで1行に収まりやすい）。
+       カードグリッド（#homeGrid）自体は通常のページとして縦スクロールする
+       構成にしたため、ヘッダーは他のタブのツールバー（.toolbar）と同様
+       position: fixedで画面上部に固定し、後続のカードグリッドが隠れないよう
+       #homeCombinedHeaderSpacerで高さぶんの余白を確保する（syncFixedBars_が
+       実測して高さを反映する。他の.toolbar/.toolbarSpacerペアと同じ考え方）。 */
+    #homeCombinedHeader {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      background: var(--surface);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      position: fixed;
+      top: calc(var(--topbar-h) + 16px);
+      left: calc(var(--sidebar-w) + 24px);
+      right: 24px;
+      z-index: 25;
+      box-shadow: var(--shadow);
+    }
+    .homeCombinedHeaderSpacer { display: block; }
+    /* お知らせ（.homeAnnouncement）は、PCでは独立したposition: fixedをやめ、
+       #homeCombinedHeader内の先頭要素として通常のフローに戻す（見出し行の
+       すぐ上に表示される）。#homeCombinedHeaderSpacer自体の高さ実測（上記）に
+       自動的に含まれるため、専用のスペーサー（.homeAnnouncementSpacer）は
+       PCでは不要にする。 */
+    .homeAnnouncement {
+      position: static;
+      top: auto;
+      left: auto;
+      transform: none;
+      width: auto;
+      max-width: none;
+      z-index: auto;
+      box-shadow: none;
+    }
+    .homeAnnouncementSpacer { display: none; }
+    .homeCombinedHeader__topRow {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .homeCombinedHeader__title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: .02em;
+      color: var(--on-surface);
+    }
+    .homeCombinedHeader__actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: auto;
+    }
+    .homeTypeNav {
+      display: flex;
+      /* 横スクロールは使わない（PCビューでは横スクロールが必要な画面を作らない
+         方針のため）。結合ヘッダーの全幅（中央・右パネル2列ぶん）とこの
+         ブレークポイント専用のコンパクトな.homeTypeNav__itemサイズを
+         組み合わせれば、PCビューの最小幅（901px）でも9個（「すべて」＋
+         MODEL_BODY_TYPE_OPTIONSの8種類、「限定車」追加後）すべてが1行に
+         収まる。それでも収まらない極端に狭い状況に備えたフォールバックとしてのみ
+         flex-wrap: wrapにしておく（横スクロールより、必要な時だけ2行に
+         折り返す方を優先する）。 */
+      flex-wrap: wrap;
+      overflow: visible;
+      gap: 5px;
+      position: static;
+      background: none;
+      margin: 0;
+      padding: 0;
+      border-bottom: none;
+      border-radius: 0;
+      box-shadow: none;
+      transform: none;
+      width: auto;
+      max-width: none;
+    }
+    /* PCビューの最小幅（901px）で9個（「すべて」＋型8種類、「限定車」追加後）の
+       タブが1行に収まる最小サイズ（padding: 4.5px 7px、font-size: 9.5px）を
+       下限に、画面が広がるほど結合ヘッダーの空きスペースに合わせてタブも
+       大きくする（901pxちょうどのときに隙間なく収まっていたサイズのまま広い
+       画面でも使うと、ヘッダー幅の割にタブが小さく余白ばかり目立ってしまう
+       ため。現場からの指摘）。vw（ビューポート幅）に比例して滑らかに拡大し、
+       1440px幅でタブレット・スマホ幅と共通のピル型サイズ（font-size: 13.5px、
+       padding: 8px 16px寄り）に達したところで頭打ちにする（それ以上大きくすると
+       他の画面の文字サイズと不釣り合いになるため）。901px・1440pxそれぞれの
+       サイズから逆算した一次関数をclamp()で挟んでいる（「限定車」追加で8→9個に
+       増えた際、901pxでの最小サイズをこの下限まで縮小しないと1行に収まらなく
+       なったため再計算した）。 */
+    .homeTypeNav__item {
+      padding: clamp(4.5px, calc(0.4638vw + 0.321px), 7px) clamp(7px, calc(1.1132vw - 3.030px), 13px);
+      font-size: clamp(9.5px, calc(0.7421vw + 2.813px), 13.5px);
+    }
+    .homeTypeNavSpacer { display: none; }
+
+    /* ===== PC専用: ホームのカードグリッド（3枚1行） =====
+       参照UIの「Car Listings」パネルに合わせ、型グループの見出しは出さず
+       フラットな3列グリッドに並べる（homeVisibleModelsFlat_、JavaScript.html
+       参照）。minmax(0, 1fr)にしているのは.cardGridと同じ理由（モデル名が
+       長い場合にグリッド自体が列幅を超えてしまうのを防ぐ）。 */
+    .homeList {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 20px;
+    }
+    /* カード1枚分（homeModelCardHtml_参照）。車両写真・在庫台数バッジは
+       タップ・クリックなしでカード自体に表示する。上辺にテーマカラー
+       （--primary）の帯を添え、設定タブでカラーテーマを切り替えた際の
+       見た目の変化がホーム画面でも大きく感じられるようにしている
+       （グレードチップの配色とあわせて、テーマの影響範囲を広げる狙い）。 */
+    .homeCard {
+      display: block;
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--outline);
+      border-top: 3px solid var(--primary);
+      border-radius: var(--radius);
+      overflow: hidden;
+      text-align: left;
+      color: var(--on-surface);
+      padding: 0;
+      transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
+    }
+    /* グレードが無いモデルはカード全体が<button>で、クリックすると在庫リストへ
+       絞り込み遷移する（グレードがあるモデルは非活性の<div>のため、この
+       ホバー演出は付けない。グレードチップ自体のホバーで代用する）。 */
+    .homeCard--clickable { cursor: pointer; }
+    .homeCard--clickable:hover {
+      box-shadow: var(--shadow-elevated);
+      transform: translateY(-3px);
+      border-color: var(--primary);
+    }
+    .homeCard__photo {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      background: var(--background);
+    }
+    .homeCard__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    /* 在庫台数バッジ: タップ・クリックしなくても見える位置（写真右下）に
+       常時重ねて表示する（現場の要望「カードごとに在庫台数を表示、タップ
+       なしで」）。テーマカラーで塗りつぶし、設定タブでのテーマ変更が
+       ひと目でわかるようにする。 */
+    .badge--stock {
+      position: absolute;
+      right: 10px;
+      bottom: 10px;
+      background: var(--primary);
+      color: #fff;
+      box-shadow: var(--shadow-elevated);
+    }
+    /* 在庫0台のモデルは、テーマカラーではなく固定の警告色にし、在庫が無い
+       ことがテーマ設定に関わらず常にひと目でわかるようにする
+       （homeStockCountText_、他の在庫台数表示と同じ考え方）。 */
+    .badge--stock--zero { background: var(--danger); }
+    .homeCard__body { padding: 14px 16px 16px; }
+    .homeCard__headRow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .homeCard__model {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -.005em;
+    }
+    .homeCard__type {
+      flex: none;
+      background: var(--background);
+      color: var(--on-surface-variant);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 999px;
+    }
+    /* グレード別在庫数は、3列×2行（グレードが6件までは2行に収まる）で
+       カード内に埋め込む（現場の要望「モデルカード内に配置するグレード
+       カードは横に3グレード×2列」）。クリックするとそのグレード1件に
+       絞り込んだ在庫リストへ遷移する（#homeGridのクリック委譲、
+       data-home-grade参照）。 */
+    .homeCard__gradeGrid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    /* テーマカラーの淡い塗り（--primary-bg/--primary-text）にし、設定タブの
+       カラーテーマを切り替えるとチップの色味もはっきり変わるようにする。 */
+    .homeCard__gradeChip {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      padding: 10px 6px;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      background: var(--primary-bg);
+      color: var(--primary-text);
+      cursor: pointer;
+      text-align: center;
+      transition: box-shadow .15s ease, border-color .15s ease, transform .15s ease;
+    }
+    .homeCard__gradeChip:hover { box-shadow: var(--shadow-elevated); border-color: var(--primary); transform: translateY(-2px); }
+    .homeCard__gradeName { font-size: 13px; font-weight: 700; }
+    .homeCard__gradeCount { font-size: 11.5px; font-variant-numeric: tabular-nums; }
+    /* 在庫0台のグレードは、Hold中も無くまとまった在庫の当てがないことがひと目で
+       わかるよう、件数を赤文字にする（.homeGradeTab__count--zeroと同じ考え方）。 */
+    .homeCard__gradeCount--zero { color: var(--danger); font-weight: 700; }
+  }
+
+  /* ===== リード番号入力（「L-」固定接頭辞＋数字。Google×Tesla風の見出し扱いにする） ===== */
+  .leadNumberField {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid var(--outline);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--surface);
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  .leadNumberField:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }
+  .leadNumberField__prefix {
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    background: var(--primary-bg);
+    color: var(--primary-text);
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: .03em;
+    border-right: 1px solid var(--outline);
+  }
+  .leadNumberField__input { border: none; border-radius: 0; flex: 1; min-width: 0; font-variant-numeric: tabular-nums; letter-spacing: .03em; }
+  .leadNumberField .leadNumberField__input:focus { outline: none; }
+
+  /* ===== 担当者表示（ログイン中のアカウントから自動判定・読み取り専用） ===== */
+  .staffDisplay {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    background: var(--background);
+    font-size: 14px;
+  }
+  .staffDisplay__email { font-size: 12px; color: var(--on-surface-variant); }
+  .staffDisplay__warn { font-size: 13px; color: var(--danger); }
+
+  /* ===== モーダル =====
+     不具合修正（スマホでHold登録・受注確定の入力中に項目がキーボードの裏に
+     隠れる問題）: 最初、.modal自身のtop・heightをvisualViewportの実測値に
+     ダイレクトに書き換える方式を試したが、iOS Safariではposition: fixed要素の
+     位置・高さをJSから動的に書き換えると、キーボード開閉のタイミングによって
+     レイアウトが崩れて表示されてしまう（ステップ見出しや他の入力欄が消え、
+     ボタンの下に不自然な空白ができる）不具合があった。
+     そこで、.modal自身のtop/left/right/bottom（inset: 0）はそのままレイアウト
+     ビューポート基準で固定し、代わりに下方向のpaddingにキーボードの高さぶんを
+     動的に足す方式に変えた。スマホ幅ではモーダルを画面下端に固定したボトム
+     シートにしている（下の@media (max-width: 600px)参照。align-items:
+     flex-end）ため、.modal自身の下端パディングが広がるとパネルの下端はその
+     パディングの上、つまりキーボードのすぐ上に押し上げられる。.modal自体の
+     位置・高さの計算方法は変えないため、position: fixedのレイアウトが崩れる
+     心配がない。 */
+  .modal {
+    position: fixed; inset: 0; background: rgba(32, 33, 36, .5);
+    display: flex; align-items: center; justify-content: center; z-index: 100;
+    padding: 16px 16px calc(16px + var(--app-keyboard-inset, 0px));
+  }
+  /* ヘッダー・ステップ進捗・フッターは固定し、modal__bodyだけをスクロール
+     させる（display: flex; flex-direction: columnで、modal__bodyのみ
+     flex: 1 1 auto; overflow-y: autoにする）。以前はmodal__panel自体を
+     スクロールさせていたため、内容が長いモーダルではタイトルや「Hold登録」
+     等の見出しごとスクロールして見えなくなっていた。 */
+  .modal__panel {
+    background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-elevated);
+    width: 100%; max-width: 460px;
+    /* キーボード表示中はその高さぶんも差し引く（.modalの下方向パディングと
+       あわせて、パネルがキーボードの裏まではみ出さないようにする）。 */
+    max-height: calc(90vh - var(--app-keyboard-inset, 0px));
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .modal__panel--wide { max-width: 640px; }
+  .modal__header { flex: none; display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--outline); }
+  .modal__header h2 { font-size: 17px; font-weight: 500; margin: 0; display: flex; align-items: center; }
+
+  /* Hold登録・2nd Hold登録はオレンジ、受注確定はブルーで、操作の種類が一目で
+     分かるようにする（Hold中バッジ＝オレンジ、受注確定ボタン＝ブルー、と既存の
+     配色ルールに合わせている）。 */
+  .modal__panel--hold { border-top: 4px solid var(--warning); }
+  .modal__panel--hold .modal__header { background: var(--warning-bg); }
+  .modal__panel--hold .modal__header h2::before { background: var(--warning); }
+  .modal__panel--hold #btnActionSubmit { background: var(--warning); border-color: var(--warning); }
+  .modal__panel--hold #btnActionSubmit:hover { background: #c98423; border-color: #c98423; }
+
+  .modal__panel--order { border-top: 4px solid var(--primary); }
+  .modal__panel--order .modal__header { background: var(--primary-bg); }
+  .modal__panel--order .modal__header h2::before { background: var(--primary); }
+
+  .modal__panel--hold .modal__header h2::before,
+  .modal__panel--order .modal__header h2::before {
+    content: '';
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    margin-right: 9px;
+    flex: none;
+  }
+  .modal__body { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+  /* 予約（Hold/2nd Hold/受注）入力モーダルは2列グリッドにして、デスクトップでは
+     スクロールなしで全項目を入力できるようにする。 */
+  .modal__grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 20px; }
+  .formField--span2 { grid-column: 1 / -1; }
+
+  /* ===== 予約モーダルのステップ進捗（顧客情報→契約内容の2ステップ）=====
+     スマホでの入力ミスを減らすため、8項目を一度に出さず2ステップに分ける。
+     担当者はログインアカウントから自動判定済みのため、ステップが増えても
+     入力の手間自体は増えない。 */
+  .modal__stepBar { flex: none; padding: 12px 20px 0; }
+  .modal__stepBar__track { height: 4px; border-radius: 999px; background: var(--outline); overflow: hidden; }
+  .modal__stepBar__fill { height: 100%; width: 50%; background: var(--primary); border-radius: 999px; transition: width .2s ease; }
+  .modal__panel--hold .modal__stepBar__fill { background: var(--warning); }
+  .modal__stepBar__label { margin-top: 6px; font-size: 12px; font-weight: 600; color: var(--on-surface-variant); }
+  .modal__footer { flex: none; display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--outline); }
+  .modal__error { color: var(--danger); font-size: 13px; }
+  .modal__desc { margin: 0; font-size: 13px; color: var(--on-surface-variant); line-height: 1.6; }
+  .modal__requiredNote { margin: 0 0 4px; font-size: 12px; color: var(--on-surface-variant); }
+  .req { color: var(--danger); margin-left: 2px; }
+  .modal__hint { margin: 10px 0 0; font-size: 12.5px; color: var(--on-surface-variant); line-height: 1.6; }
+
+  /* ===== Hold種別選択（管理者権限を持つ担当者が「Hold」タップ時のみ表示）=====
+     通常のHold／デモカーHOLD／他店HOLDの3択。デモカーHOLD・他店HOLDは専用の
+     特別色（--hold-special）でボタンの左罫線を色分けし、選ぶ前から見分けやすくする。 */
+  .actionTypePick__intro { margin: 0 0 14px; font-size: 13.5px; color: var(--on-surface-variant); }
+  .actionTypePick { display: flex; flex-direction: column; gap: 10px; }
+  .actionTypePick__btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    width: 100%;
+    text-align: left;
+    padding: 14px 16px;
+    border: 1px solid var(--outline);
+    border-left: 4px solid var(--warning);
+    border-radius: var(--radius);
+    background: var(--surface);
+    cursor: pointer;
+    transition: box-shadow .15s ease, transform .15s ease;
+  }
+  .actionTypePick__btn:hover { box-shadow: var(--shadow-elevated); transform: translateY(-1px); }
+  .actionTypePick__btn--demo,
+  .actionTypePick__btn--otherStore { border-left-color: var(--hold-special); }
+  .actionTypePick__btnTitle { font-size: 15px; font-weight: 700; }
+  .actionTypePick__btnDesc { font-size: 12.5px; color: var(--on-surface-variant); }
+
+  /* ===== トースト ===== */
+  .toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+    /* ネイビーサブ（比較バーのメインネイビーより少し明るく、奥行きを付ける）。 */
+    background: #243b53; border: 1px solid var(--dark-ui-outline); color: #fff; padding: 12px 20px; border-radius: 8px;
+    font-size: 14px; box-shadow: var(--shadow-elevated); z-index: 200;
+  }
+  .toast--error { background: var(--danger); }
+
+  /* ===== 受注確定時の紙吹雪演出（文字・カードなし。紙吹雪のみ盛大に降らせる） ===== */
+  .confettiLayer { position: fixed; inset: 0; z-index: 310; overflow: hidden; pointer-events: none; }
+  /* 受注確定の瞬間だけ、ごく短時間だけ画面中央を明るく光らせる「フラッシュ」を
+     重ねる（文字・カードは出さない方針は維持し、あくまで光の演出のみ）。 */
+  .confettiLayer::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 42%, rgba(255, 255, 255, .55), rgba(255, 255, 255, 0) 60%);
+    opacity: 0;
+    transition: opacity .5s ease;
+  }
+  .confettiLayer.is-flashing::before { opacity: 1; }
+  .confettiPiece {
+    position: absolute;
+    top: -24px;
+    opacity: .95;
+    will-change: transform;
+    animation: confettiFall linear forwards;
+  }
+  @keyframes confettiFall {
+    0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+    100% { transform: translate(var(--drift, 0), 112vh) rotate(var(--rot, 720deg)); opacity: .85; }
+  }
+
+  /* ===== Hold登録・2nd Hold登録・受注確定 完了時の演出 =====
+     showCelebration_（JavaScript.html）が、固定の案内メッセージ（.celebrationBanner）と
+     アクションごとに専用のド派手な演出（.celebrationLayerにCSSで描いた図形
+     パーツ・発光エフェクトを生成）を組み合わせて表示する。絵文字はフォント・
+     OSによって見た目が大きく異なる（機種依存文字の再現性が低い）ため使わず、
+     色付きの図形（丸・四角・リボン・星）と発光・拡大・回転などのCSS
+     アニメーションのみで演出する（GAS/HTML Serviceのみで完結する）。 */
+  .celebrationLayer { position: fixed; inset: 0; z-index: 311; overflow: hidden; pointer-events: none; }
+  .celebParticle {
+    position: absolute;
+    bottom: -60px;
+    will-change: transform, opacity;
+  }
+  .celebParticle--circle { border-radius: 50%; }
+  .celebParticle--square { border-radius: 3px; }
+  .celebParticle--ribbon {
+    border-radius: 2px;
+    clip-path: polygon(0 0, 100% 0, 100% 68%, 50% 100%, 0 68%);
+  }
+  .celebParticle--star {
+    clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  }
+  .celebParticle--rise { animation: celebRise linear forwards; }
+  .celebParticle--fall { top: -60px; bottom: auto; animation: celebFall linear forwards; }
+  .celebParticle--burst {
+    left: 50%;
+    top: 50%;
+    bottom: auto;
+    animation: celebBurst .9s cubic-bezier(.2, .8, .3, 1) forwards;
+  }
+  @keyframes celebRise {
+    0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+    12% { opacity: 1; }
+    100% { transform: translate(var(--drift, 0), -112vh) rotate(var(--rot, 0deg)); opacity: .9; }
+  }
+  @keyframes celebFall {
+    0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+    12% { opacity: 1; }
+    100% { transform: translate(var(--drift, 0), 112vh) rotate(var(--rot, 0deg)); opacity: .9; }
+  }
+  @keyframes celebBurst {
+    0% { transform: translate(-50%, -50%) scale(.4); opacity: 1; }
+    100% { transform: translate(calc(-50% + var(--tx, 0)), calc(-50% + var(--ty, 0))) scale(1); opacity: 0; }
+  }
+  /* Hold登録の演出: 画面中央を一瞬だけ明るく光らせる「閃光」（打ち上げ花火の
+     起点のイメージ）。 */
+  .celebFlash {
+    position: fixed;
+    inset: 0;
+    z-index: 313;
+    pointer-events: none;
+    background: radial-gradient(circle at 50% 42%, rgba(255, 255, 255, .95), rgba(255, 199, 60, .55) 45%, rgba(255, 199, 60, 0) 72%);
+    opacity: 0;
+    animation: celebFlashPulse .6s ease-out forwards;
+  }
+  @keyframes celebFlashPulse {
+    0% { opacity: 0; }
+    18% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  /* Hold登録の演出: 画面中央から発光しながら拡大して消えるリング（衝撃波）。
+     打ち上げ花火が開いた瞬間のような「ドン」という手応えを付ける。 */
+  .celebShockwave {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    z-index: 311;
+    pointer-events: none;
+    width: 40px;
+    height: 40px;
+    margin: -20px 0 0 -20px;
+    border-radius: 50%;
+    border: 4px solid rgba(255, 199, 60, .9);
+    box-shadow: 0 0 30px 8px rgba(255, 199, 60, .5);
+    animation: celebShockwaveExpand 1.1s cubic-bezier(.2, .7, .3, 1) forwards;
+  }
+  @keyframes celebShockwaveExpand {
+    0% { transform: scale(0); opacity: 1; }
+    65% { opacity: .45; }
+    100% { transform: scale(11); opacity: 0; }
+  }
+  /* 2nd Hold登録の演出: 画面中央で脈動する発光エネルギーコア（回転するリング
+     ＋脈動する光る球＋広がるリップル2つ）。「もう少し待ってください」という
+     文言に合わせ、力を蓄えているような期待感のある見た目にしている。
+     topを62%（画面中央よりやや下）にしているのは、.celebrationBanner（38%、
+     画面中央よりやや上）との重なりを避けるため。画面の垂直中央を挟んで上下
+     対称に振り分けることで、単体で見ても・組み合わせて見ても「画面中央」に
+     まとまって見えるようにしている。%指定のため、スマホ・PCなどビューの
+     サイズが変わっても自動的に追従する。 */
+  .celebEnergyCore {
+    position: fixed;
+    top: 62%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 311;
+    pointer-events: none;
+    width: 140px;
+    height: 140px;
+  }
+  .celebEnergyCore__orb {
+    position: absolute;
+    inset: 32px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 34% 30%, #fff, #7dd3fc 42%, #1a73e8 78%);
+    box-shadow: 0 0 44px 14px rgba(26, 115, 232, .6);
+    animation: celebOrbPulse 1.4s ease-in-out infinite;
+  }
+  @keyframes celebOrbPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.14); }
+  }
+  .celebEnergyCore__ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 3px solid transparent;
+    border-top-color: #1a73e8;
+    border-right-color: #7dd3fc;
+    animation: celebSpin 1.6s linear infinite;
+  }
+  @keyframes celebSpin { to { transform: rotate(360deg); } }
+  .celebEnergyCore__ripple {
+    position: absolute;
+    inset: 18px;
+    border-radius: 50%;
+    border: 2px solid rgba(26, 115, 232, .55);
+    animation: celebRipplePulse 1.8s ease-out infinite;
+  }
+  .celebEnergyCore__ripple--delay { animation-delay: .6s; }
+  @keyframes celebRipplePulse {
+    0% { transform: scale(.5); opacity: .8; }
+    100% { transform: scale(2.4); opacity: 0; }
+  }
+  /* 案内メッセージのバナー。画面中央（やや上寄り、topは.celebEnergyCore参照）に
+     大きめの文字で表示し、一定時間で自動的にフェードアウトする
+     （showCelebrationBanner_参照）。top・max-widthともに%・vw基準のため、
+     PC・タブレット・スマホいずれの画面サイズでも自動的に追従し、中央付近に
+     表示される。 */
+  .celebrationBanner {
+    position: fixed;
+    top: 38%;
+    left: 50%;
+    z-index: 312;
+    transform: translate(-50%, calc(-50% - 14px));
+    background: var(--surface);
+    color: var(--on-surface);
+    border: 1px solid var(--outline);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-elevated);
+    padding: 20px 32px;
+    text-align: center;
+    max-width: min(90vw, 480px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .35s ease, transform .35s ease;
+  }
+  .celebrationBanner.is-active { opacity: 1; transform: translate(-50%, -50%); }
+  .celebrationBanner p { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.5; }
+  .celebrationBanner p:first-child { font-size: 18px; color: var(--primary-text); }
+
+  /* ===== ノートPC幅（在庫リストは4列だとカードが窮屈になるため3列に落とす。
+     受注リストはもともと1行3列のため、このブレークポイントでは変更しない） ===== */
+  @media (max-width: 1400px) {
+    .cardGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+
+  /* ===== タブレット ===== */
+  @media (max-width: 900px) {
+    main.view { padding: 14px; }
+    .cardGrid { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+    .settingsWrap { max-width: 100%; }
+    /* 受注カードは項目数が多いため、タブレット幅では1列にして読みやすさを優先する */
+    .orderList { grid-template-columns: 1fr; }
+    .purchaseOrderList { grid-template-columns: 1fr; }
+
+    /* 表示形式「表」（在庫・受注・Gクラス・マイページ）: PCビューでは横スクロールを
+       禁止し折り返す方針（.rowCardの基本ルール参照）だが、タブレット・スマホ幅では
+       逆に折り返しを禁止し、1行=横スクロール（.tableScrollのoverflow-x: auto）で
+       見せる。PCと同じ折り返し方針のままタブレット・スマホ幅に持ち込むと、狭い画面
+       幅に収まりきらない項目が3〜4行にも折り返され、1台ぶんのカードが縦に間延び
+       して「表」としての一覧性が失われてしまう（現場からの指摘で判明）。横スクロール
+       にすることで、各行は常に単一行（列位置がどの車両でも揃う本来の「表」の見た目）
+       を保ち、画面外の項目はスマホ操作で慣れた横スワイプで確認できるようにする。
+       各項目の横幅（:nth-child()、flex-shrink: 0）は変更しないため、スクロール中も
+       列幅は常に一定に保たれる。
+       不具合修正（iOS Safariでカードの背景・罫線が内容から取り残される問題）:
+       以前は.rowCard自身がflexコンテナ・スクロール対象の両方を兼ねており、
+       align-self: flex-start + min-width: 100%で.rowCard自身をビューポート幅より
+       内容ぶん広げ、祖先の.tableScroll（overflow-x: auto）でスクロールさせていた。
+       この方式だと、角丸・影付きのビューポート幅を超えるボックスをスクロール
+       コンテナ内でスクロールさせる形になり、iOS Safariでスクロール中に背景・罫線の
+       再描画がレイアウトに追従せず、操作ボタン等の内容だけがカードの背景・枠の外
+       （無地のページ背景の上）に取り残されて見える不具合があった（PC Chromeでは
+       再現しないWebKit固有の再描画バグ）。.rowCard自身は常にビューポート幅の
+       ままにし（角丸・影付きの背景ボックスの幅が変わらないようにする）、代わりに
+       .rowCard自身にoverflow-x: autoを持たせてスクロールコンテナ化し、内側の
+       .rowCard__inner（実際に画面に収まりきらない幅まで広がる要素）だけをその中で
+       スクロールさせる構成に変えた。カードの背景・枠は常にビューポート幅のまま
+       描画されるため、この種の再描画バグが起こり得なくなる。 */
+    .rowCard {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .rowCard__inner {
+      flex-wrap: nowrap;
+      min-width: 100%;
+    }
+    .tableScroll { -webkit-overflow-scrolling: touch; }
+
+    /* 型のクイックナビ: タブレット・スマホ幅では8種類＋「すべて」を折り返し無しで
+       並べると窮屈なため、横スクロールにする（よくあるカテゴリ絞り込みチップの
+       パターン。折り返して縦に伸びると、position: fixedで固定した高さぶんだけ
+       スペーサーも伸び、その分モデル一覧が下に押し出されてしまうのを避けるため）。 */
+    .homeTypeNav { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .homeTypeHeader { margin: 10px 2px 6px; font-size: 17px; }
+
+    /* ホーム画面: PCの5列カードグリッド（写真主体のカードタイプUI）ではなく、
+       元の「実務重視リスト型」（横一列・小さめの写真）に戻す。タブレット・
+       スマホ幅では情報密度を優先するため（現場の声を踏まえた元のレイアウト）。
+       DOM構造（ヘッダー・写真・フッターの3要素）自体はPC・タブレット/スマホで
+       共通のまま（JavaScript.htmlのhomeModelTileHtml_参照）、CSSのorderだけで
+       横一列に組み替える。 */
+    /* PC専用のカード間の余白（gap）を打ち消し、従来どおり罫線だけで隣接する
+       行を区切る密なリストに戻す。 */
+    .homeList { display: flex; flex-direction: column; max-width: 100%; gap: 0; }
+    .homeRow {
+      overflow: visible;
+      flex-direction: row;
+      align-items: center;
+      gap: 18px;
+      padding: 14px 6px;
+      background: none;
+      border: none;
+      border-bottom: 1px solid var(--outline);
+      border-radius: 0;
+    }
+    .homeRow:first-child { border-top: 1px solid var(--outline); }
+    .homeRow:hover { background: rgba(31, 41, 51, .04); box-shadow: none; transform: none; border-color: transparent; }
+    /* PC専用の「クローズアップ」展開表示（.homeRow.is-expanded、上部参照）を
+       打ち消し、タブレット・スマホ幅では従来の横一列リストのままにする
+       （order・「他のモデルを見る」ボタンもすべてPC専用として打ち消す）。 */
+    .homeRow.is-expanded {
+      grid-column: auto;
+      order: 0;
+      display: flex;
+      justify-content: normal;
+      padding: 14px 6px;
+      background: rgba(255, 255, 255, .04);
+      border-color: transparent;
+      border-bottom-color: transparent;
+    }
+    .homeRow__photo { order: 1; width: 76px; height: 76px; aspect-ratio: auto; flex: none; margin: 0; }
+    .homeRow.is-expanded .homeRow__photo { width: 76px; aspect-ratio: auto; }
+    .homeRow__header { order: 2; flex: 1; min-width: 0; }
+    .homeRow__gradesTag { display: none; }
+    .homeRow__model { color: var(--on-surface); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .homeRow__footer {
+      order: 3;
+      flex: none;
+      border-top: none;
+      padding-top: 0;
+      margin-top: 0;
+      gap: 10px;
+    }
+    .homeRow__footer .badge--count {
+      background: var(--primary-bg);
+      color: var(--primary-text);
+      padding: 5px 12px;
+      border-radius: 999px;
+      text-transform: none;
+      letter-spacing: normal;
+      font-size: 12px;
+    }
+    .homeRow__footer .badge--count--zero { background: var(--danger-bg); color: var(--danger); }
+    .homeRow__footer .homeRow__chevron { color: var(--on-surface-variant); font-size: 13px; }
+    .homeRow.is-expanded .homeRow__backBtn { display: none; }
+    .homeGradeTabs {
+      grid-column: auto;
+      order: 0;
+      margin: 0 0 0 94px;
+      padding: 4px 0 16px 16px;
+      background: none;
+      border: none;
+      border-left: 2px solid var(--outline);
+      border-bottom: 1px solid var(--outline);
+      border-radius: 0;
+    }
+  }
+
+  /* ===== スマートフォン ===== */
+  @media (max-width: 600px) {
+    /* スマホ表示のヘッダーだけ、選んだテーマカラー（--topbar-mobile-bg）に
+       連動させる（現場からの要望。PCビュー・タブレットビューのヘッダーは
+       他のダークUIパーツと揃えるため固定のネイビーのまま）。 */
+    .topbar { background: var(--topbar-mobile-bg); }
+    .topbar__brandRow { padding: 12px; gap: 8px; }
+    .tabs { padding: 0 12px 10px; gap: 20px; }
+    .integrityBanner { padding: 8px 12px; font-size: 12.5px; flex-wrap: wrap; }
+    .integrityBanner__list { padding: 8px 12px 10px; }
+    /* メールアドレスの長さ次第では折り返し等で崩れやすいため、ユーザー情報は
+       スマホ幅では非表示にする（中央のアプリ名表記はposition: absoluteで
+       独立して中央配置されているため、ユーザー情報の表示可否からは影響を
+       受けない）。 */
+    .topbar__user { display: none; }
+    .staffList__row { flex-wrap: wrap; }
+    .staffList__row .input[data-staff-field="name"],
+    .staffList__row .input[data-staff-field="email"],
+    .staffList__row .input[data-staff-field="location"] { flex: 1 1 100%; }
+    .modelPhotoList__row { flex-wrap: wrap; }
+    .modelPhotoList__row .input[data-photo-field="model"],
+    .modelPhotoList__row .input[data-photo-field="bodyType"],
+    .modelPhotoList__row .input[data-photo-field="photoUrl"],
+    .modelPhotoList__row .input[data-photo-field="gradePrefix"],
+    .modelPhotoList__row .input[data-photo-field="gradeMarker"] { flex: 1 1 100%; }
+    main.view { padding: 10px; }
+    .toolbar { padding: 10px; width: calc(100% - 20px); }
+    .toolbar .input, .toolbar .checkboxField { flex: 1 1 auto; }
+    .homeTypeNav { padding: 10px; width: calc(100% - 20px); }
+    .cardGrid { grid-template-columns: 1fr; gap: 12px; }
+    .homeRow { gap: 12px; }
+    .homeRow__photo { width: 60px; height: 60px; }
+    .homeRow__footer { gap: 8px; }
+    .homeGradeTabs { margin-left: 72px; padding-left: 12px; }
+    .settingsCard, .settingsActions { padding: 18px 16px; }
+    .card { padding: 16px 18px; }
+    /* スマホ幅は画面下端固定のボトムシートにする。左右・上のpaddingは0のまま、
+       下方向だけキーボードの高さぶん動的に足す（上の.modalの基本ルール参照）。 */
+    .modal { padding: 0 0 var(--app-keyboard-inset, 0px); align-items: flex-end; }
+    .modal__panel { max-width: 100%; width: 100%; max-height: calc(92vh - var(--app-keyboard-inset, 0px)); border-radius: var(--radius) var(--radius) 0 0; }
+    .modal__grid { grid-template-columns: 1fr; }
+    .formField--span2 { grid-column: auto; }
+    .modal__footer .btn { flex: 1; min-height: 44px; }
+    .orderList { gap: 12px; }
+    .orderCard { padding: 16px 18px; }
+    .purchaseOrderList { gap: 12px; }
+    .purchaseOrderCard { padding: 16px 18px; }
+    .compareBar { left: 10px; right: 10px; bottom: 10px; transform: none; max-width: none; flex-wrap: wrap; }
+    .compareBar__chips { max-width: 100%; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .holdTimer__barFill { transition: none; }
+    .confettiPiece { display: none; }
+    .confettiLayer::before { transition: none; }
+    .card, .orderCard { transition: none; }
+    .topbar__navBtn--refresh.is-spinning .icon { animation: none; }
+    .view.is-active { animation: none; }
+    .celebParticle, .celebFlash, .celebShockwave, .celebEnergyCore { display: none; }
+    .celebrationBanner { transition: none; }
+  }
+</style>
