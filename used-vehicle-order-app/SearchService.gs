@@ -38,7 +38,7 @@ function inventoryMatchesKeyword_(v, keyword) {
   var kw = String(keyword || '').trim();
   if (!kw) return true;
   if (modelMatchesKeyword_(v.model, kw)) return true;
-  return matchesAnyField_(v, kw, ['commission', 'ocn', 'chassisNumber', 'chassisNumberLast4', 'registrationNumber']);
+  return matchesAnyField_(v, kw, ['commission', 'ocn', 'chassisNumber', 'chassisNumberLast4', 'plateRegion', 'plateClass', 'plateKana', 'plateNumber']);
 }
 
 function modelMatchesKeyword_(model, keyword) {

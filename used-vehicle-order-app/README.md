@@ -52,7 +52,10 @@ Hold・受注確定・設定保存の各操作はボタンを処理中表示に�
 | ステア | `steering` | R・L の選択式 |
 | 外装色 | `exteriorColor` | テキスト |
 | 内装色 | `interiorColor` | テキスト |
-| 登録番号 | `registrationNumber` | テキスト |
+| 登録番号（地域） | `plateRegion` | テキスト。例: 岐阜 |
+| 登録番号（分類番号） | `plateClass` | テキスト。例: 303 |
+| 登録番号（ひらがな） | `plateKana` | テキスト。例: た |
+| 登録番号（一連番号） | `plateNumber` | テキスト。例: 1247 |
 | 型式 | `modelCode` | テキスト |
 | 車台番号 | `chassisNumber` | テキスト |
 | 下４桁 | `chassisNumberLast4` | テキスト |

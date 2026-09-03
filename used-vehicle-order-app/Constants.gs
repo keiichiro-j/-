@@ -75,7 +75,12 @@ var VEHICLE_COLUMNS = [
   { key: 'steering', label: 'ステア', type: 'select', options: STEERING_OPTIONS },
   { key: 'exteriorColor', label: '外装色', type: 'text' },
   { key: 'interiorColor', label: '内装色', type: 'text' },
-  { key: 'registrationNumber', label: '登録番号', type: 'text' },
+  // 登録番号（ナンバープレート）は「地域名／分類番号／ひらがな／一連指定番号」の
+  // 4マスに分けて管理する（例: 岐阜／303／た／1247）。
+  { key: 'plateRegion', label: '登録番号（地域）', type: 'text' },
+  { key: 'plateClass', label: '登録番号（分類番号）', type: 'text' },
+  { key: 'plateKana', label: '登録番号（ひらがな）', type: 'text' },
+  { key: 'plateNumber', label: '登録番号（一連番号）', type: 'text' },
   { key: 'modelCode', label: '型式', type: 'text' },
   { key: 'chassisNumber', label: '車台番号', type: 'text' },
   { key: 'chassisNumberLast4', label: '下４桁', type: 'text' },

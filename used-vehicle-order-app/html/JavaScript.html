@@ -772,6 +772,13 @@
     return (isNaN(n) ? String(value) : n.toLocaleString()) + unit;
   }
 
+  // 登録番号（ナンバープレート）は地域／分類番号／ひらがな／一連指定番号の4列に
+  // 分けて管理しているが、表示上は「岐阜 303 た 1247」のように1行にまとめる。
+  function plateText_(v) {
+    var parts = [v.plateRegion, v.plateClass, v.plateKana, v.plateNumber].filter(function (p) { return p; });
+    return parts.length ? parts.join(' ') : '';
+  }
+
   function linkRow_(label, url) {
     var dd = url ? '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener">掲載ページを開く</a>' : '-';
     return '<div><dt>' + label + '</dt><dd>' + dd + '</dd></div>';
@@ -792,7 +799,7 @@
     return '<dl class="card__metaGrid">' +
       metaRow_('ＯＣＮ', v.ocn) +
       metaRow_('ステア', v.steering) +
-      metaRow_('登録番号', v.registrationNumber) +
+      metaRow_('登録番号', plateText_(v)) +
       metaRow_('型式', v.modelCode) +
       metaRow_('車台番号', v.chassisNumber) +
       metaRow_('下４桁', v.chassisNumberLast4) +
@@ -967,7 +974,7 @@
     { label: 'ステア', get: function (v) { return v.steering; } },
     { label: '外装色', get: function (v) { return v.exteriorColor; } },
     { label: '内装色', get: function (v) { return v.interiorColor; } },
-    { label: '登録番号', get: function (v) { return v.registrationNumber; } },
+    { label: '登録番号', get: function (v) { return plateText_(v); } },
     { label: '型式', get: function (v) { return v.modelCode; } },
     { label: '車台番号', get: function (v) { return v.chassisNumber; } },
     { label: '下４桁', get: function (v) { return v.chassisNumberLast4; } },
@@ -1854,7 +1861,7 @@
       '<div><dt>コミッション</dt><dd>' + escapeHtml(o.commission) + '</dd></div>' +
       '<div><dt>区分</dt><dd>' + escapeHtml(o.category || '-') + '</dd></div>' +
       '<div><dt>車台番号</dt><dd>' + escapeHtml(o.chassisNumber || '-') + '</dd></div>' +
-      '<div><dt>登録番号</dt><dd>' + escapeHtml(o.registrationNumber || '-') + '</dd></div>' +
+      '<div><dt>登録番号</dt><dd>' + escapeHtml(plateText_(o) || '-') + '</dd></div>' +
       '<div><dt>走行距離</dt><dd>' + escapeHtml(formatNumberUnit_(o.mileage, ' km') || '-') + '</dd></div>' +
       '<div><dt>販売価格</dt><dd>' + escapeHtml(formatNumberUnit_(o.salePrice, ' 円') || '-') + '</dd></div>' +
       '<div><dt>オプション</dt><dd>' + escapeHtml(o.option || '-') + '</dd></div>' +
