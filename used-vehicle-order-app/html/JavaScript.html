@@ -3203,8 +3203,20 @@
     }
   }
 
+  /**
+   * bootstrap（設定・担当者判定・ログインアカウント情報）の取得・反映と、
+   * 在庫リスト・受注リスト・ホーム画面・マイページのデータ取得は、互いに独立した
+   * 別々のサーバー呼び出しであり、本来どちらかがどちらかを待つ理由が無い。
+   * 以前はbootstrap取得が完了する（.then内で）まで在庫等の読み込みを一切
+   * 開始しない直列構造になっており、bootstrap側（api_getBootstrapData自体の
+   * 失敗・タイムアウト等）が何か1つでも失敗すると、在庫・受注・ホーム・
+   * マイページ・ログインアカウント表示のすべてが道連れで真っ白になっていた。
+   * 両者を最初から並行して走らせることで、片方が失敗してももう片方は
+   * 影響を受けず表示できるようにする（bootstrapが遅れて解決した場合も、
+   * renderSettings内で改めてrenderHomeGallery_を呼び直すため表示は正しく揃う）。
+   */
   function reloadAll_() {
-    return gasRun('api_getBootstrapData').then(function (bootstrap) {
+    var bootstrapPromise = gasRun('api_getBootstrapData').then(function (bootstrap) {
       state.bootstrap = bootstrap;
       runInitStep_('契約条件の選択肢の初期化', function () {
         fillOptions($('actionTradeIn'), bootstrap.yesNoOptions, true);
@@ -3215,8 +3227,11 @@
       runInitStep_('設定タブの描画', function () { renderSettings(bootstrap.settings); });
       runInitStep_('ユーザー情報の描画', renderTopbarUser);
       runInitStep_('在庫データの整合性チェック', checkIntegrity_);
-      return Promise.all([loadInventory(), loadOrders(), loadHomeModelCounts_(), loadMyPageOrders_()]);
+    }).catch(function (err) {
+      console.error('[used-vehicle-order-app] 起動時データ（設定・ログインアカウント情報）の取得に失敗しました:', err);
+      showToast('起動時データの取得に失敗しました: ' + err.message, true);
     });
+    return Promise.all([bootstrapPromise, loadInventory(), loadOrders(), loadHomeModelCounts_(), loadMyPageOrders_()]);
   }
 
   function init() {
