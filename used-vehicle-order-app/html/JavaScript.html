@@ -36,6 +36,7 @@
     notifyErrorMailTo: [], // 設定タブで編集中のメール通知先（システムエラー通知、作業用コピー）
     themeKey: null, // 設定タブで選択中のテーマ（着せ替え）プリセットキー。サイドバーの色もこれとセットで決まる（THEME_PRESETSのsidebarColor参照）
     navHistory: [], // 「戻る」ボタン用の画面履歴（タブ名のスタック）
+    homeModelFilter: null, // ホームのモデル写真タイルクリックで設定される、絞り込み対象の型番（MODEL列の値）の配列
     allInventoryItems: [], // ホーム画面の在庫台数集計専用（ツールバーの検索条件に左右されない全件）
     allOrders: [], // マイページ集計専用（受注リストの検索・絞り込み条件に左右されない全件）
     myPageViewMode: safeLocalStorageGet_('myPageViewMode') || 'card' // 'card' | 'table'（マイページ全体の表示形式）
@@ -607,6 +608,7 @@
   function resetInventoryFilters_() {
     $('inventoryKeyword').value = '';
     $('inventoryIncludeHold').checked = true;
+    state.homeModelFilter = null;
     loadInventory();
   }
 
@@ -698,8 +700,17 @@
       keyword: $('inventoryKeyword').value,
       includeHold: $('inventoryIncludeHold').checked
     };
+    // ホームのモデル写真タイルクリックによる絞り込み（state.homeModelFilter、
+    // handleHomeModelClick_参照）は、利用者が検索キーワードを自分で入力した
+    // 時点で解除する（意図しない絞り込みが残り続けないようにするため）。
+    if (filters.keyword && filters.keyword.trim()) {
+      state.homeModelFilter = null;
+    }
     return gasRun('api_listInventory', filters).then(function (groups) {
       var items = (groups && groups[0] && groups[0].items) || [];
+      if (state.homeModelFilter) {
+        items = items.filter(function (v) { return state.homeModelFilter.indexOf(v.model) !== -1; });
+      }
       state.inventoryItems = items;
       renderInventory();
     }).catch(function (err) { showToast(err.message, true); });
@@ -801,8 +812,7 @@
       metaRow_('ステア', v.steering) +
       metaRow_('登録番号', plateText_(v)) +
       metaRow_('型式', v.modelCode) +
-      metaRow_('車台番号', v.chassisNumber) +
-      metaRow_('下４桁', v.chassisNumberLast4) +
+      metaRow_('車台番号下４桁', v.chassisNumberLast4) +
       metaRow_('初年度登録日', v.firstRegistrationDate) +
       metaRow_('車検満了日', v.inspectionExpiryDate) +
       metaRow_('ﾘｻｲｸﾙ料', formatNumberUnit_(v.recycleFee, ' 円')) +
@@ -976,8 +986,7 @@
     { label: '内装色', get: function (v) { return v.interiorColor; } },
     { label: '登録番号', get: function (v) { return plateText_(v); } },
     { label: '型式', get: function (v) { return v.modelCode; } },
-    { label: '車台番号', get: function (v) { return v.chassisNumber; } },
-    { label: '下４桁', get: function (v) { return v.chassisNumberLast4; } },
+    { label: '車台番号下４桁', get: function (v) { return v.chassisNumberLast4; } },
     { label: '初年度登録日', get: function (v) { return v.firstRegistrationDate; } },
     { label: '走行距離', get: function (v) { return formatNumberUnit_(v.mileage, ' km'); } },
     { label: '車検満了日', get: function (v) { return v.inspectionExpiryDate; } },
@@ -1062,10 +1071,13 @@
   });
 
   // 表示形式「表」: 多台数を一覧で見比べたい商談向けの高密度ビュー。素のHTML
-  // <table>で「ステータス・区分・車種・コミッション・ハンドル・カラー・
-  // 走行距離・販売価格・1ST HOLD・2ND HOLD・操作」の11列を横一列に並べる
-  // （vehicleRowsHtml）。1ST HOLD・2ND HOLDの内容（担当者・タイマー）は列として
-  // 直接見せる。操作列（Hold／受注／2ND HOLD／受注確定＋比較チェック）は最右列に置く。
+  // <table>で「ステータス・車種・ＯＣＮ・ハンドル・カラー・
+  // 走行距離・販売価格・1ST HOLD・2ND HOLD・操作」の10列を横一列に並べる
+  // （vehicleRowsHtml）。区分・コミッションはこの一覧では表示せず、行タップで
+  // 開く詳細モーダル（vehicleDetailHtml_）でのみ確認する（現場からの要望で、
+  // PCビューで横スクロールが発生しない列数に絞り込んだ）。1ST HOLD・2ND HOLDの
+  // 内容（担当者・タイマー）は列として直接見せる。操作列（Hold／受注／2ND HOLD／
+  // 受注確定＋比較チェック）は最右列に置く。
 
   // 受注リスト・発注リスト・Gクラス予約リストの表示形式「表」用の共通ラベル+値
   // フィールド（.rowCard__field、Stylesheet.html参照。在庫リストは表として
@@ -1077,7 +1089,7 @@
 
   function invTableHoldCellHtml_(v, prefix, cancelRank) {
     var present = prefix === 'hold' ? v.holdStatus === 'hold' : !!v.secondHoldCustomer;
-    if (!present) return '<span class="invHold__empty">未登録</span>';
+    if (!present) return '<div class="invHold__empty"><span class="invHold__empty__pill">未登録</span></div>';
     var holdType = v[prefix + 'HoldType'] || 'normal';
     var isSpecial = holdType !== 'normal';
     var nameText = isSpecial ? holdTypeLabel_(holdType) : (v[prefix + 'Customer'] || '-');
@@ -1120,9 +1132,8 @@
     // data-commissionを行自体に持たせる（handleInventoryListClick_参照）。
     return '<tr class="invTableRow ' + rowTone + '" data-commission="' + escapeHtml(v.commission) + '">' +
       '<td class="invTableRow__status">' + statusBadge + '</td>' +
-      '<td class="invTableRow__ellipsis">' + escapeHtml(v.category || '-') + '</td>' +
       '<td class="invTableRow__ellipsis">' + escapeHtml(v.model) + '</td>' +
-      '<td class="invTableRow__ellipsis invTableRow__mono">' + escapeHtml(v.commission) + '</td>' +
+      '<td class="invTableRow__ellipsis invTableRow__mono">' + escapeHtml(v.ocn || '-') + '</td>' +
       '<td class="invTableRow__center">' + escapeHtml(v.steering || '-') + '</td>' +
       '<td class="invTableRow__ellipsis">' + escapeHtml((v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) + '</td>' +
       '<td class="invTableRow__mono">' + escapeHtml(formatNumberUnit_(v.mileage, ' km') || '-') + '</td>' +
@@ -1146,7 +1157,7 @@
     if (!items.length) return '';
     return '<div class="invTableWrap"><table class="invTable">' +
       '<thead><tr>' +
-      '<th>ステータス</th><th>区分</th><th>車種</th><th>コミッション</th><th>ハンドル</th>' +
+      '<th>ステータス</th><th>車種</th><th>ＯＣＮ</th><th>ハンドル</th>' +
       '<th>カラー</th><th>走行距離</th><th>販売価格</th><th>1ST HOLD</th><th>2ND HOLD</th><th>操作</th>' +
       '</tr></thead>' +
       '<tbody>' + items.map(vehicleTableRowHtml_).join('') + '</tbody>' +
@@ -1870,7 +1881,7 @@
       '<div><dt>リード番号</dt><dd>' + escapeHtml(o.leadNumber || '-') + '</dd></div>' +
       '<div><dt>コミッション</dt><dd>' + escapeHtml(o.commission) + '</dd></div>' +
       '<div><dt>区分</dt><dd>' + escapeHtml(o.category || '-') + '</dd></div>' +
-      '<div><dt>車台番号</dt><dd>' + escapeHtml(o.chassisNumber || '-') + '</dd></div>' +
+      '<div><dt>車台番号下４桁</dt><dd>' + escapeHtml(o.chassisNumberLast4 || '-') + '</dd></div>' +
       '<div><dt>登録番号</dt><dd>' + escapeHtml(plateText_(o) || '-') + '</dd></div>' +
       '<div><dt>走行距離</dt><dd>' + escapeHtml(formatNumberUnit_(o.mileage, ' km') || '-') + '</dd></div>' +
       '<div><dt>販売価格</dt><dd>' + escapeHtml(formatNumberUnit_(o.salePrice, ' 円') || '-') + '</dd></div>' +
@@ -2064,7 +2075,7 @@
     populateOrdersLocationFilter_();
 
     state.modelPhotos = (settings.modelPhotos || []).map(function (p) {
-      return { model: p.model || '', photoUrl: p.photoUrl || '' };
+      return { model: p.model || '', photoUrl: p.photoUrl || '', gradePrefix: p.gradePrefix || '', gradeMarker: p.gradeMarker || '' };
     });
     $('modelPhotosMax').textContent = (state.bootstrap && state.bootstrap.modelPhotosMax) || 40;
     renderModelPhotoList_();
@@ -2513,7 +2524,9 @@
         return '<div class="modelPhotoList__row" data-drag-index="' + i + '">' +
           '<span class="dragHandle" draggable="true" aria-label="ドラッグして並び替え">⠿</span>' +
           '<div class="modelPhotoList__preview">' + preview + '</div>' +
-          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="model" placeholder="MODEL（在庫リストのMODEL列と完全一致する値）" value="' + escapeHtml(entry.model || '') + '">' +
+          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="model" placeholder="表示名（例: Cクラス）" value="' + escapeHtml(entry.model || '') + '">' +
+          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="gradePrefix" placeholder="先頭の文字列（例: C）" value="' + escapeHtml(entry.gradePrefix || '') + '">' +
+          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="gradeMarker" placeholder="対象の文字列（例: 43）" value="' + escapeHtml(entry.gradeMarker || '') + '">' +
           '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="photoUrl" placeholder="写真URL" value="' + escapeHtml(entry.photoUrl || '') + '">' +
           '<button class="btn btn--icon" data-remove-photo="' + i + '" type="button" aria-label="削除">&times;</button>' +
           '</div>';
@@ -2550,7 +2563,7 @@
   on('btnAddModelPhoto','click', function () {
     var max = (state.bootstrap && state.bootstrap.modelPhotosMax) || 40;
     if (state.modelPhotos.length >= max) return;
-    state.modelPhotos.push({ model: '', photoUrl: '' });
+    state.modelPhotos.push({ model: '', photoUrl: '', gradePrefix: '', gradeMarker: '' });
     renderModelPhotoList_();
     var inputs = document.querySelectorAll('#modelPhotoList [data-photo-field="model"]');
     if (inputs.length) inputs[inputs.length - 1].focus();
@@ -2637,12 +2650,75 @@
   // モデル名と在庫台数を横一列で見せることで、日常的に使う社内ツールとしての
   // 情報密度を優先する（見た目の華やかさより、パッと見て台数がわかることを重視）。
   /**
-   * モデル1件分の在庫台数を集計する（純粋関数）。中古車は1台ごとに個体差があり
-   * グレードという概念を持たないため、モデル名（在庫リストのMODEL列）が完全一致する
-   * 台数をそのまま数える。
+   * 在庫リストの「MODEL」列の値（型番。例:「C200」「C43T」「GLC2DC」）に対する、
+   * 指定エントリの自動判定条件の「具体性スコア」を計算する（純粋関数）。
+   * 条件を満たさない場合は-1（不一致）。条件を満たす場合のスコアは、
+   * gradeMarkerを設定していれば大きく加点したうえでgradePrefixの文字数を加える
+   * （gradeMarker設定済み同士・未設定同士のどちらでも、より長い＝具体的な
+   * gradePrefixほど優先される）。例えば「GLC」（3文字）は「G」（1文字）より
+   * 具体的なため、「GLC300」は先頭の文字列が短い「G」の行ではなく、より具体的な
+   * 「GLC」の方に正しく割り当てられる。
    */
-  function modelCountForEntry_(entry, allItems) {
-    return allItems.filter(function (v) { return v.model === entry.model; }).length;
+  function gradeRuleSpecificity_(modelValue, entry) {
+    if (!entry.gradePrefix || !modelValue) return -1;
+    if (modelValue.indexOf(entry.gradePrefix) !== 0) return -1;
+    if (entry.gradeMarker) {
+      var remainder = modelValue.slice(entry.gradePrefix.length);
+      if (remainder.indexOf(entry.gradeMarker) === -1) return -1;
+      return 10000 + entry.gradePrefix.length;
+    }
+    return entry.gradePrefix.length;
+  }
+
+  /**
+   * 在庫リストの「MODEL」列の値が、指定エントリの自動判定条件に一致するかどうかを
+   * 判定する（純粋関数）。同じ値に複数のエントリの条件が一致しうる場合
+   * （例:「C300」はgradePrefix「C」の行にもgradePrefix「C」+gradeMarker「30」の
+   * 行にも一致する）、gradeRuleSpecificity_で最もスコアの高い（＝最も具体的な
+   * 条件の）エントリだけがその値を拾い、他のエントリには重複してカウントされない
+   * ようにする。
+   */
+  function matchesGradeRule_(modelValue, entry, allEntries) {
+    var score = gradeRuleSpecificity_(modelValue, entry);
+    if (score < 0) return false;
+    var isMostSpecific = !(allEntries || []).some(function (other) {
+      return other !== entry && gradeRuleSpecificity_(modelValue, other) > score;
+    });
+    return isMostSpecific;
+  }
+
+  /**
+   * モデル1件分の在庫台数を集計する（純粋関数）。gradePrefixが設定されている
+   * 場合は、在庫リストに実際にある型番のうちmatchesGradeRule_に一致するものを
+   * 自動的に拾い集めて数える（型番を手入力で列挙する必要がない）。
+   * gradePrefixが未設定の場合は、モデル名そのものを在庫リストのMODEL列と直接
+   * 照合する（従来どおり、グレードの概念を使わない単一モデルの車種向けの
+   * フォールバック）。
+   */
+  function modelCountForEntry_(entry, allItems, allModelPhotos) {
+    if (!entry.gradePrefix) {
+      return allItems.filter(function (v) { return v.model === entry.model; }).length;
+    }
+    return allItems.filter(function (v) { return matchesGradeRule_(v.model, entry, allModelPhotos); }).length;
+  }
+
+  /**
+   * モデル1件分の自動判定条件に一致する、在庫リストに実際にある型番の一覧を
+   * 重複なく返す（純粋関数）。ホームのタイル・カードをクリックした際、その
+   * 条件に一致する車両だけへ在庫リストを絞り込むために使う
+   * （state.homeModelFilter、on('homeGrid','click', ...)参照）。
+   */
+  function matchedModelsForEntry_(entry, allItems, allModelPhotos) {
+    if (!entry.gradePrefix) return [entry.model];
+    var seen = {};
+    var result = [];
+    allItems.forEach(function (v) {
+      if (!matchesGradeRule_(v.model, entry, allModelPhotos)) return;
+      if (seen[v.model]) return;
+      seen[v.model] = true;
+      result.push(v.model);
+    });
+    return result;
   }
 
   /**
@@ -2655,12 +2731,10 @@
   }
 
   /**
-   * モデル1件分のタイル（+展開時のグレードタブ）のHTML。renderHomeGallery_から
-   * 型ごとにグループ化して呼び出す（元は1つの関数の中でmodelPhotosを直接map
-   * していたが、グループ化に伴い「1件分の描画」を切り出した）。
+   * モデル写真1件分のタイルのHTML。renderHomeGallery_から呼び出す。
    */
-  function homeModelTileHtml_(p, allItems) {
-    var total = modelCountForEntry_(p, allItems);
+  function homeModelTileHtml_(p, allItems, allModelPhotos) {
+    var total = modelCountForEntry_(p, allItems, allModelPhotos);
     // 900px以下のリスト表示では以前と同じ位置（モデル名の右）に見せるため、
     // CSS側の.homeRow__footerがそのままメタ情報行としても機能する
     // （Stylesheet.html参照）。
@@ -2668,9 +2742,9 @@
     // ヘッダー（モデル名）→写真→フッター（在庫台数＋矢印）の3ブロック構成。
     // PCビューでは縦に積んだ「カードタイプUI」（写真は白背景のカード内に収める）、
     // 900px以下ではCSSのorderで横一列のリスト型に組み替える（Stylesheet.html参照。
-    // どちらも同じDOM構造をCSSだけで作り分けている）。タップすると直接その
-    // モデル名で在庫リストへ絞り込み遷移する（中古車は1台ごとに個体差があり
-    // グレードという概念を持たないため、グレードタブへの展開は行わない）。
+    // どちらも同じDOM構造をCSSだけで作り分けている）。タップすると、この写真の
+    // 自動判定条件（gradePrefix・gradeMarker、無ければモデル名の完全一致）に
+    // 一致する車両だけに絞り込んだ在庫リストへ遷移する（handleHomeModelClick_参照）。
     return '<button type="button" class="homeRow" data-home-model="' + escapeHtml(p.model) + '">' +
       '<div class="homeRow__header">' +
       '<div class="homeRow__model">' + escapeHtml(p.model) + '</div>' +
@@ -2685,10 +2759,10 @@
   }
 
   /**
-   * 中古車は1台ごとに個体差があり、新車のようなグレード違いのカタログを持たない
-   * ため、ボディタイプ・グレードによるグループ化やタブ展開は行わず、登録された
-   * モデル写真をそのままフラットに並べるだけのシンプルな構成にしている。
-   * タップすると、そのモデル名で在庫リストへ絞り込み遷移する。
+   * 中古車は1台ごとに個体差があるため、型ごとのグループ化やタブ展開は行わず、
+   * 登録されたモデル写真をそのままフラットに並べるだけのシンプルな構成にしている。
+   * タップすると、その写真の自動判定条件（gradePrefix・gradeMarker）に一致する
+   * 車両だけに絞り込んだ在庫リストへ遷移する（handleHomeModelClick_参照）。
    */
   function renderHomeGallery_() {
     var modelPhotos = state.modelPhotos || [];
@@ -2701,12 +2775,12 @@
       // にしたため（Index.html参照）、各カードに写真・在庫台数をタップ・クリック
       // なしで見える形で埋め込む（homeModelCardHtml_参照）。
       $('homeGrid').innerHTML = modelPhotos
-        .map(function (p) { return homeModelCardHtml_(p, allItems); })
+        .map(function (p) { return homeModelCardHtml_(p, allItems, modelPhotos); })
         .join('');
     } else {
       // タブレット・スマホ幅は横一列のリスト型（.homeTypeRow）で並べる。
       $('homeGrid').innerHTML = modelPhotos.length
-        ? '<div class="homeTypeRow">' + modelPhotos.map(function (p) { return homeModelTileHtml_(p, allItems); }).join('') + '</div>'
+        ? '<div class="homeTypeRow">' + modelPhotos.map(function (p) { return homeModelTileHtml_(p, allItems, modelPhotos); }).join('') + '</div>'
         : '';
     }
     // #homeCombinedHeaderはposition: fixedのため、表示・非表示の切り替えや
@@ -2731,8 +2805,8 @@
    * カード全体がボタンになっており、クリックするとそのモデル名で絞り込んだ
    * 在庫リストへ遷移する。
    */
-  function homeModelCardHtml_(p, allItems) {
-    var total = modelCountForEntry_(p, allItems);
+  function homeModelCardHtml_(p, allItems, allModelPhotos) {
+    var total = modelCountForEntry_(p, allItems, allModelPhotos);
     var stockClass = 'badge badge--stock' + (total === 0 ? ' badge--stock--zero' : '');
     var stockHtml = '<span class="' + stockClass + '">' + homeStockCountText_(total) + '</span>';
     return '<div class="homeCard homeCard--clickable" role="button" tabindex="0" data-home-model="' + escapeHtml(p.model) + '">' +
@@ -2906,15 +2980,28 @@
       openOrderDetailModal_(rowEl.dataset.commission);
     }
   });
-  // モデル写真タイルをクリックすると、そのモデル名で在庫リストへ絞り込み遷移する
-  // （中古車は1台ごとに個体差がありグレードという概念を持たないため、ホーム画面に
-  // グレードタブへの展開機能は無い。homeModelTileHtml_・homeModelCardHtml_参照）。
+  /**
+   * モデル写真タイルをクリックすると、その写真の自動判定条件（gradePrefix・
+   * gradeMarker）に一致する型番だけに絞り込んだ在庫リストへ遷移する
+   * （homeModelTileHtml_・homeModelCardHtml_参照）。gradePrefix未設定の場合は
+   * モデル名そのものを絞り込み対象にする（従来どおりの挙動）。絞り込みは
+   * キーワード検索欄への文字入力ではなく、実際に一致する型番の一覧
+   * （state.homeModelFilter）で行うため、「C」と「CLA」のように片方がもう片方の
+   * 部分文字列になっているモデル同士でも取り違えが起きない。
+   */
+  function handleHomeModelClick_(tile) {
+    var entry = (state.modelPhotos || []).find(function (p) { return p.model === tile.dataset.homeModel; });
+    var allItems = state.allInventoryItems || [];
+    switchToTab_('inventory');
+    $('inventoryKeyword').value = '';
+    state.homeModelFilter = entry ? matchedModelsForEntry_(entry, allItems, state.modelPhotos) : [tile.dataset.homeModel];
+    loadInventory();
+  }
+
   on('homeGrid','click', function (e) {
     var tile = e.target.closest('[data-home-model]');
     if (!tile) return;
-    switchToTab_('inventory');
-    $('inventoryKeyword').value = tile.dataset.homeModel;
-    loadInventory();
+    handleHomeModelClick_(tile);
   });
 
   on('homeGrid','keydown', function (e) {
@@ -2952,11 +3039,17 @@
     }
 
     var maxPhotos = (state.bootstrap && state.bootstrap.modelPhotosMax) || 40;
+    var maxGradeRuleLength = (state.bootstrap && state.bootstrap.modelPhotoGradeRuleMaxLength) || 30;
     var cleanedPhotos = state.modelPhotos
       .map(function (p) {
+        var gradePrefix = String((p && p.gradePrefix) || '').trim();
         return {
           model: String((p && p.model) || '').trim(),
-          photoUrl: String((p && p.photoUrl) || '').trim()
+          photoUrl: String((p && p.photoUrl) || '').trim(),
+          // gradePrefixが空欄の場合、gradeMarkerを入力していても意味を持たないため
+          // 空文字にそろえる（サーバー側normalizeModelPhotos_と同じ規則）。
+          gradePrefix: gradePrefix,
+          gradeMarker: gradePrefix ? String((p && p.gradeMarker) || '').trim() : ''
         };
       })
       .filter(function (p) { return p.model && p.photoUrl; });
@@ -2968,6 +3061,22 @@
     });
     if (uniqueModelPhotos.length > maxPhotos) {
       $('settingsError').textContent = 'モデル写真は最大' + maxPhotos + '件までです（現在' + uniqueModelPhotos.length + '件）';
+      return;
+    }
+    var gradeRuleFieldError = null;
+    uniqueModelPhotos.some(function (p) {
+      if (p.gradePrefix.length > maxGradeRuleLength) {
+        gradeRuleFieldError = 'モデル「' + p.model + '」の先頭の文字列「' + p.gradePrefix + '」が長すぎます（' + p.gradePrefix.length + '文字）。';
+        return true;
+      }
+      if (p.gradeMarker.length > maxGradeRuleLength) {
+        gradeRuleFieldError = 'モデル「' + p.model + '」の対象の文字列「' + p.gradeMarker + '」が長すぎます（' + p.gradeMarker.length + '文字）。';
+        return true;
+      }
+      return false;
+    });
+    if (gradeRuleFieldError) {
+      $('settingsError').textContent = gradeRuleFieldError;
       return;
     }
 

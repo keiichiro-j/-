@@ -674,11 +674,13 @@
   }
   .rowCard__model { font-size: 15px; font-weight: 700; letter-spacing: -.005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .rowCard__commission { font-size: 11px; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  /* 高さ固定・内部スクロール（.card__holdArea と同じ考え方）。Hold中はHOLD解除
-     リンクが1本、Hold中（2nd有）は2本に増えて縦に伸びる分だけ、状態列だけが
-     他の列より高くなり、行（カード）自体の高さが在庫あり／Hold中／Hold中（2nd有）で
-     バラバラになっていたため、状態列の高さを常に一定にして吸収する。 */
-  .rowCard__status { display: flex; flex-direction: column; align-items: center; gap: 6px; height: 72px; overflow-y: auto; min-width: 0; }
+  /* 受注リストの表示形式「表」で、拠点バッジ（1個のみ）を表示する列。
+     不具合修正: 以前は在庫リスト（別実装。現在は<table>に切り替え済み）向けの
+     「高さ固定・内部スクロール」ルール（height: 72px）を流用していたが、受注リストの
+     この列はバッジ1個しか置かないため、他の列（顧客・モデル等）よりカードの縦幅を
+     大きく取ってしまい、カード全体に不要な余白が生まれていた（現場からの指摘）。
+     高さを固定せず、他の項目と同じ行の高さに収まるようにする。 */
+  .rowCard__status { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-width: 0; }
 
   /* 受注リストの表示形式「表」: 比較ピン・操作ボタンが無く、顧客・担当者・
      リード番号などを表示するため、専用の項目幅にする。顧客名の列も
@@ -739,14 +741,17 @@
 
   /* ===== 在庫リストの表示形式「表」（現場から提示された参照UI「案A 表（横）HOLD」に
      合わせた、素のHTML <table>） =====
-     「ステータス・車種・コミッション・MP・ハンドル・カラー・有償OP・1ST HOLD・
+     「ステータス・車種・ＯＣＮ・ハンドル・カラー・走行距離・販売価格・1ST HOLD・
      2ND HOLD・操作」の10列を横一列に並べる（vehicleTableRowHtml_、JavaScript.html
-     参照）。受注・発注・Gクラス予約リストの表示形式「表」は引き続き.rowCard
-     （角丸・影付きの行カード）のままだが、在庫リストだけは参照UIの「Hold詳細
-     （担当者・タイマー）を列として直接見せる、素朴な表」という見た目に合わせて
-     本物の<table>に切り替えた。列幅は固定せずtable-layout: auto（既定）に任せ、
-     画面に収まりきらない場合は.invTableWrapのoverflow-x: autoで横スクロールする
-     （PCビューであっても、無理に折り返して縦に間延びさせるより自然なため）。 */
+     参照）。区分・コミッションは一覧には出さず行タップで開く詳細モーダルでのみ
+     確認する（現場からの要望）。受注・発注・Gクラス予約リストの表示形式「表」は
+     引き続き.rowCard（角丸・影付きの行カード）のままだが、在庫リストだけは
+     参照UIの「Hold詳細（担当者・タイマー）を列として直接見せる、素朴な表」という
+     見た目に合わせて本物の<table>に切り替えた。
+     PCビュー（901px以上）では、列数を絞り込んだことで通常は全列が画面幅に収まるため、
+     横スクロールを発生させない（現場からの要望。下のmin-width: 901pxブロックで
+     overflow-xを打ち消す）。タブレット・スマホ幅では従来どおり、画面に収まりきらない
+     場合は.invTableWrapのoverflow-x: autoで横スクロールする。 */
   .invTableWrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -754,6 +759,10 @@
     border: 1px solid var(--outline);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
+  }
+  @media (min-width: 901px) {
+    .invTableWrap { overflow-x: hidden; }
+    .invTable { table-layout: fixed; width: 100%; }
   }
   .invTable {
     width: 100%;
@@ -792,6 +801,13 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  /* PCビュー（901px以上）ではtable-layout: fixedにより列幅自体が既に固定される
+     ため、この220pxの上限は不要（あるとかえって列内で不自然な余白ができる
+     ことがある）。ellipsis化に必要なoverflow/text-overflow/white-spaceは
+     そのまま残す。 */
+  @media (min-width: 901px) {
+    .invTableRow__ellipsis { max-width: none; }
+  }
   .invTableRow__mono { font-variant-numeric: tabular-nums; }
   .invTableRow__center { text-align: center; }
   .invTableRow__actions { white-space: nowrap; }
@@ -806,8 +822,18 @@
     cursor: pointer;
   }
   /* 1ST HOLD・2ND HOLD列。Hold登録が無い場合は「未登録」の薄いグレーのピルのみ
-     表示する（参照UI参照）。 */
+     表示する（参照UI参照）。
+     不具合修正: Hold登録の有無（未登録・1件・詳細内容の長さ）によってこのセルの
+     高さが変わると、表の行の高さも車両ごとにばらついてしまう（現場からの指摘）。
+     .invHold・.invHold__emptyの両方に同じ高さを固定で持たせることで、Hold状態に
+     関わらず行の高さが常に一定になるようにする（overflow: hiddenで、想定を超える
+     長さの内容が入った場合の保険とする）。 */
   .invHold__empty {
+    display: flex;
+    align-items: center;
+    height: 64px;
+  }
+  .invHold__empty__pill {
     display: inline-block;
     font-size: 12px;
     font-weight: 500;
@@ -819,8 +845,11 @@
   .invHold {
     display: flex;
     flex-direction: column;
+    justify-content: center;
     gap: 2px;
     min-width: 130px;
+    height: 64px;
+    overflow: hidden;
   }
   .invHold__name {
     font-size: 13px; font-weight: 700; color: var(--on-surface);
@@ -1462,7 +1491,6 @@
   }
   .modelPhotoList__preview img { width: 100%; height: 100%; object-fit: cover; }
   .modelPhotoList__row .input[data-photo-field="model"] { flex: 0 0 16%; min-width: 70px; }
-  .modelPhotoList__row .input[data-photo-field="bodyType"] { flex: 0 0 120px; }
   /* 写真URLは長い値が入る欄のため、残り幅をすべて使う。先頭の文字列・対象の文字列は
      「CLA」「T」のような短い文字列しか入らないため、固定幅の小さい欄にする
      （photoUrlと同じ比率で伸縮させると、値が短いのに不自然に幅広くなってしまうため）。 */
@@ -2656,7 +2684,6 @@
     .staffList__row .input[data-staff-field="location"] { flex: 1 1 100%; }
     .modelPhotoList__row { flex-wrap: wrap; }
     .modelPhotoList__row .input[data-photo-field="model"],
-    .modelPhotoList__row .input[data-photo-field="bodyType"],
     .modelPhotoList__row .input[data-photo-field="photoUrl"],
     .modelPhotoList__row .input[data-photo-field="gradePrefix"],
     .modelPhotoList__row .input[data-photo-field="gradeMarker"] { flex: 1 1 100%; }

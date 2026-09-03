@@ -138,7 +138,7 @@
     <nav class="sidebar" id="sidebar" aria-label="メインナビゲーション">
       <div class="sidebar__brand">
         <img id="sidebarLogo" class="sidebar__logo hidden" alt="ロゴ">
-        <span class="sidebar__brandText">販売可能リスト <small style="opacity:.55;font-size:.6em;font-weight:400;">[REV-9]</small></span>
+        <span class="sidebar__brandText">販売可能リスト</span>
       </div>
       <div class="sidebarNav" id="sidebarNav" role="tablist" aria-label="画面切替">
         <button class="tabs__item sidebarNav__item is-active" data-tab="home" type="button">
@@ -241,7 +241,7 @@
       <div class="homeCombinedHeader" id="homeCombinedHeader">
         <div class="homeAnnouncement hidden" id="homeAnnouncement"></div>
         <div class="homeCombinedHeader__topRow">
-          <div class="homeCombinedHeader__title">販売可能リスト <small style="opacity:.55;font-size:.55em;font-weight:400;">[REV-9]</small></div>
+          <div class="homeCombinedHeader__title">販売可能リスト</div>
           <div class="homeCombinedHeader__actions">
             <button type="button" class="topbar__navBtn" id="btnNavBackHome" title="戻る" aria-label="1つ前の画面に戻る" disabled>
               <svg class="icon"><use href="#icon-back"></use></svg>
@@ -270,7 +270,7 @@
     <!-- 在庫リスト -->
     <main class="view" id="view-inventory">
       <div class="toolbar" id="inventoryToolbar">
-        <input type="search" id="inventoryKeyword" class="input input--search" placeholder="モデル・コミッション・車台番号・登録番号で検索">
+        <input type="search" id="inventoryKeyword" class="input input--search" placeholder="モデル・ＯＣＮ・コミッション・車台番号下４桁・登録番号で検索">
         <label class="checkboxField">
           <input type="checkbox" id="inventoryIncludeHold" checked> Hold済みを含む
         </label>
@@ -453,7 +453,7 @@
 
           <div class="settingsCard hidden" id="systemMasterModelPhotosCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-image"></use></svg>モデル写真（ホーム画面）</h2>
-            <p class="settingsSection__desc">ホーム画面に並べるモデルの代表写真です（最大<span id="modelPhotosMax"></span>件・現在<span id="modelPhotosCount">0</span>件登録中）。1台ごとではなく、モデル単位で1枚登録してください。「MODEL」欄には在庫リストのMODEL列と完全に一致する値を入力してください。画像は外部（Googleドライブの共有リンク等）にアップロードしたうえでURLを指定してください。ホーム画面で写真をクリックすると、そのモデル名で在庫リストが絞り込まれます。ドラッグハンドル（⠿）でホーム画面での表示順を並び替えできます。</p>
+            <p class="settingsSection__desc">ホーム画面に並べるモデルの代表写真です（最大<span id="modelPhotosMax"></span>件・現在<span id="modelPhotosCount">0</span>件登録中）。1台ごとではなく、モデル単位で1枚登録してください。「MODEL」欄には在庫リストのMODEL列と完全に一致する値を入力するか、「先頭の文字列」「対象の文字列」で自動判定条件を指定してください（例: C200・C300・C43等をまとめて拾いたい場合は先頭の文字列に「C」、C43系だけを別の写真にしたい場合は先頭の文字列「C」＋対象の文字列「43」のように指定します。対象の文字列は先頭の文字列より後ろの部分に含まれていればヒットします）。「先頭の文字列」が未入力の場合は、従来どおりMODEL欄と完全一致で判定します。画像は外部（Googleドライブの共有リンク等）にアップロードしたうえでURLを指定してください。ホーム画面で写真をクリックすると、その条件に一致する在庫だけに絞り込んだ在庫リストが表示されます。ドラッグハンドル（⠿）でホーム画面での表示順を並び替えできます。</p>
             <div class="modelPhotoList" id="modelPhotoList"></div>
             <button class="btn" id="btnAddModelPhoto" type="button">＋ モデル写真を追加</button>
           </div>

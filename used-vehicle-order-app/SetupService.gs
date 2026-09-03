@@ -105,7 +105,7 @@ function applySelectValidationsAndNotes_() {
  *       SpreadsheetApp.getActiveSpreadsheet() が対象のスプレッドシートを指せない）。
  *   (2) 「在庫リスト」という名前のタブが無い、またはヘッダー行の列順が
  *       INVENTORY_COLUMNS（Constants.gs）とズレている。
- *   (3) 各行の「コミッション」列が空欄（readAllRows_はコミッション列が空の行を
+ *   (3) 各行の「ＯＣＮ」列が空欄（readAllRows_はＯＣＮ列が空の行を
  *       「末尾の空行」とみなして無条件にスキップするため、1台も表示されなくなる）。
  *   (4) Session.getActiveUser().getEmail() が空文字（Webアプリのデプロイ設定
  *       「実行するユーザー」「アクセスできるユーザー」が原因）。
@@ -204,22 +204,22 @@ function diagnoseInventoryData_() {
     return finishDiagnosis_(lines);
   }
 
-  var commissionCol1 = inventoryColIndex1('commission');
-  var commissionValues = sheet.getRange(2, commissionCol1, lastRow - 1, 1).getValues();
-  var filled = commissionValues.filter(function (row) { return String(row[0] || '').trim() !== ''; }).length;
+  var ocnCol1 = inventoryColIndex1('ocn');
+  var ocnValues = sheet.getRange(2, ocnCol1, lastRow - 1, 1).getValues();
+  var filled = ocnValues.filter(function (row) { return String(row[0] || '').trim() !== ''; }).length;
   lines.push('✅ データ行数（見出しを除く）: ' + (lastRow - 1) + '行');
   lines.push('');
   if (filled === 0) {
-    lines.push('❌ 「コミッション」列（' + commissionCol1 + '列目）がすべての行で空欄です。');
-    lines.push('この列はアプリが車両を識別するための必須キーで、空欄の行は「データが無い行」として');
-    lines.push('自動的に除外されるため、1台も表示されません。各行に一意のコミッションを入力して');
-    lines.push('ください。');
+    lines.push('❌ 「ＯＣＮ」列（' + ocnCol1 + '列目）がすべての行で空欄です。');
+    lines.push('この列はアプリが在庫の有無を判定するための必須キーで、空欄の行は「データが無い行」として');
+    lines.push('自動的に除外されるため、1台も表示されません（コミッションは任意入力のため、この判定には');
+    lines.push('使いません）。各行に一意のＯＣＮを入力してください。');
   } else if (filled < lastRow - 1) {
-    lines.push('⚠️ 「コミッション」列が入力されている行は ' + filled + ' / ' + (lastRow - 1) + ' 行です。');
+    lines.push('⚠️ 「ＯＣＮ」列が入力されている行は ' + filled + ' / ' + (lastRow - 1) + ' 行です。');
     lines.push('空欄の行はアプリの一覧に表示されません。表示されない行があれば、その行の');
-    lines.push('コミッション欄を確認してください。');
+    lines.push('ＯＣＮ欄を確認してください。');
   } else {
-    lines.push('✅ 全' + filled + '行に「コミッション」が入力されています。この内容であれば');
+    lines.push('✅ 全' + filled + '行に「ＯＣＮ」が入力されています。この内容であれば');
     lines.push('在庫リストに表示されるはずです。それでも表示されない場合は、ブラウザの');
     lines.push('開発者ツールのConsoleタブに赤いエラーが出ていないかご確認ください。');
   }
@@ -255,7 +255,7 @@ function onOpen() {
     .addItem('初期セットアップ（4タブを作成）', 'setupSpreadsheet_')
     .addItem('在庫データの読み込み状況を確認', 'diagnoseInventoryData_')
     .addItem('入力規則・列見出しの説明メモを再設定', 'applySelectValidationsAndNotes_')
-    .addItem('コミッション列を書式なしテキストに再設定', 'formatCommissionColumnsAsText_')
+    .addItem('ＯＣＮ・コミッション列を書式なしテキストに再設定', 'formatCommissionColumnsAsText_')
     .addItem('ステア列の「右/左」を「R/L」へ一括変換', 'migrateSteeringToRL_')
     .addToUi();
 }

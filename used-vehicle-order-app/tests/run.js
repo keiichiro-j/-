@@ -346,9 +346,9 @@ test('キーワードでモデル検索がヒットする', () => {
 test('キーワードでコミッション検索がヒットする', () => {
   assert.strictEqual(sandbox.searchInventory(vehicles, { keyword: 'C002' }).length, 1);
 });
-test('キーワードで車台番号検索がヒットする', () => {
-  const withChassis = [{ commission: 'C003', model: 'モデルC', chassisNumber: 'ABC-1234567', holdStatus: 'available' }];
-  assert.strictEqual(sandbox.searchInventory(withChassis, { keyword: '1234567' }).length, 1);
+test('キーワードで車台番号下４桁検索がヒットする', () => {
+  const withChassis = [{ commission: 'C003', model: 'モデルC', chassisNumberLast4: '4567', holdStatus: 'available' }];
+  assert.strictEqual(sandbox.searchInventory(withChassis, { keyword: '4567' }).length, 1);
 });
 test('includeHold=falseでHold済み車両が除外される', () => {
   const result = sandbox.searchInventory(vehicles, { includeHold: false });
@@ -570,7 +570,7 @@ test('ドライブのドメインでもファイルIDを抽出できない形式
   assert.strictEqual(sandbox.normalizeModelPhotoUrl_(url), url);
 });
 
-console.log('== SettingsService: normalizeModelPhotos_（ホーム画面のモデル写真最大40件・{model,photoUrl}形式） ==');
+console.log('== SettingsService: normalizeModelPhotos_（ホーム画面のモデル写真最大40件・{model,photoUrl,gradePrefix,gradeMarker}形式） ==');
 test('モデル名・写真URLがともに入力されている行のみ残り、モデル名重複は除去される', () => {
   const list = sandbox.normalizeModelPhotos_([
     { model: 'Cクラス', photoUrl: 'https://example.com/c.jpg' },
@@ -616,11 +616,24 @@ test('配列以外が渡されても空配列として扱われる', () => {
   assert.strictEqual(sandbox.normalizeModelPhotos_(null).length, 0);
   assert.strictEqual(sandbox.normalizeModelPhotos_(undefined).length, 0);
 });
-test('modelPhotosはmodel・photoUrl以外の項目を持たない（grade関連の項目は保存されない）', () => {
+test('gradePrefix・gradeMarkerも保存される（型番の自動判定条件）', () => {
   const list = sandbox.normalizeModelPhotos_([
-    { model: 'クラウン', photoUrl: 'https://example.com/crown.jpg', gradePrefix: 'CLA', bodyType: 'Sedan' }
+    { model: 'Cクラス', photoUrl: 'https://example.com/c.jpg', gradePrefix: 'C', gradeMarker: '43' }
   ]);
-  assert.deepStrictEqual(Object.keys(list[0]).sort(), ['model', 'photoUrl']);
+  assert.deepStrictEqual(Object.keys(list[0]).sort(), ['gradeMarker', 'gradePrefix', 'model', 'photoUrl']);
+  assert.strictEqual(list[0].gradePrefix, 'C');
+  assert.strictEqual(list[0].gradeMarker, '43');
+});
+test('gradePrefixが未入力の場合、gradeMarkerが入力されていても空文字にそろえられる', () => {
+  const list = sandbox.normalizeModelPhotos_([
+    { model: 'Cクラス', photoUrl: 'https://example.com/c.jpg', gradePrefix: '', gradeMarker: '43' }
+  ]);
+  assert.strictEqual(list[0].gradePrefix, '');
+  assert.strictEqual(list[0].gradeMarker, '');
+});
+test('gradePrefix・gradeMarkerが長すぎる場合はエラーになる', () => {
+  const list = [{ model: 'Cクラス', photoUrl: 'https://example.com/c.jpg', gradePrefix: 'x'.repeat(31) }];
+  assert.throws(() => sandbox.normalizeModelPhotos_(list), /長すぎます/);
 });
 
 console.log('== SettingsService: resolveStaffNameByEmail_（ログインメールから担当者名を解決） ==');
@@ -851,53 +864,70 @@ test('commission・detailが未指定でも空文字で埋まる', () => {
 console.log('== IntegrityService: checkInventoryIntegrity_（在庫データの整合性チェック） ==');
 test('問題のないデータは空配列を返す', () => {
   const vehicles = [
-    { commission: 'C-001', model: 'A4', holdStatus: 'available' },
-    { commission: 'C-002', model: 'A6', holdStatus: 'hold' },
-    { commission: 'C-003', model: 'Q5', holdStatus: '' }
+    { ocn: 'O-001', commission: 'C-001', model: 'A4', holdStatus: 'available' },
+    { ocn: 'O-002', commission: 'C-002', model: 'A6', holdStatus: 'hold' },
+    { ocn: 'O-003', commission: 'C-003', model: 'Q5', holdStatus: '' }
   ];
   assert.strictEqual(sandbox.checkInventoryIntegrity_(vehicles).length, 0);
 });
-test('コミッションが重複している行を検出する', () => {
+test('ＯＣＮが重複している行を検出する', () => {
   const vehicles = [
-    { commission: 'C-001', model: 'A4', holdStatus: 'available' },
-    { commission: 'C-001', model: 'A4 (別グレード)', holdStatus: 'available' }
+    { ocn: 'O-001', commission: 'C-001', model: 'A4', holdStatus: 'available' },
+    { ocn: 'O-001', commission: 'C-002', model: 'A4 (別グレード)', holdStatus: 'available' }
+  ];
+  const issues = sandbox.checkInventoryIntegrity_(vehicles);
+  assert.strictEqual(issues.length, 1);
+  assert.strictEqual(issues[0].type, 'duplicateOcn');
+  assert.strictEqual(issues[0].ocn, 'O-001');
+});
+test('コミッションが重複している行を検出する（コミッションは任意入力でもチェックする）', () => {
+  const vehicles = [
+    { ocn: 'O-001', commission: 'C-001', model: 'A4', holdStatus: 'available' },
+    { ocn: 'O-002', commission: 'C-001', model: 'A4 (別グレード)', holdStatus: 'available' }
   ];
   const issues = sandbox.checkInventoryIntegrity_(vehicles);
   assert.strictEqual(issues.length, 1);
   assert.strictEqual(issues[0].type, 'duplicateCommission');
-  assert.strictEqual(issues[0].commission, 'C-001');
+  assert.ok(issues[0].message.indexOf('C-001') !== -1);
+});
+test('コミッションが空欄の行同士は重複扱いにしない（任意入力のため）', () => {
+  const vehicles = [
+    { ocn: 'O-001', commission: '', model: 'A4', holdStatus: 'available' },
+    { ocn: 'O-002', commission: '', model: 'A6', holdStatus: 'available' }
+  ];
+  assert.strictEqual(sandbox.checkInventoryIntegrity_(vehicles).length, 0);
 });
 test('モデル名が空欄の行を検出する', () => {
-  const vehicles = [{ commission: 'C-001', model: '', holdStatus: 'available' }];
+  const vehicles = [{ ocn: 'O-001', commission: 'C-001', model: '', holdStatus: 'available' }];
   const issues = sandbox.checkInventoryIntegrity_(vehicles);
   assert.strictEqual(issues.length, 1);
   assert.strictEqual(issues[0].type, 'missingModel');
 });
 test('不明なHoldステータスの行を検出する（例: 削除済みのdemo_reservedが残った行）', () => {
-  const vehicles = [{ commission: 'C-001', model: 'A4', holdStatus: 'demo_reserved' }];
+  const vehicles = [{ ocn: 'O-001', commission: 'C-001', model: 'A4', holdStatus: 'demo_reserved' }];
   const issues = sandbox.checkInventoryIntegrity_(vehicles);
   assert.strictEqual(issues.length, 1);
   assert.strictEqual(issues[0].type, 'unknownHoldStatus');
 });
 test('holdStatusが空欄・未設定は不整合として扱わない', () => {
   const vehicles = [
-    { commission: 'C-001', model: 'A4', holdStatus: '' },
-    { commission: 'C-002', model: 'A6', holdStatus: null },
-    { commission: 'C-003', model: 'Q5' }
+    { ocn: 'O-001', commission: 'C-001', model: 'A4', holdStatus: '' },
+    { ocn: 'O-002', commission: 'C-002', model: 'A6', holdStatus: null },
+    { ocn: 'O-003', commission: 'C-003', model: 'Q5' }
   ];
   assert.strictEqual(sandbox.checkInventoryIntegrity_(vehicles).length, 0);
 });
 test('複数の問題は種類ごとにすべて列挙される', () => {
   const vehicles = [
-    { commission: 'C-001', model: 'A4', holdStatus: 'available' },
-    { commission: 'C-001', model: 'A4', holdStatus: 'available' },
-    { commission: 'C-002', model: '', holdStatus: 'unknown_status' }
+    { ocn: 'O-001', commission: 'C-001', model: 'A4', holdStatus: 'available' },
+    { ocn: 'O-001', commission: 'C-001', model: 'A4', holdStatus: 'available' },
+    { ocn: 'O-002', commission: 'C-002', model: '', holdStatus: 'unknown_status' }
   ];
   const issues = sandbox.checkInventoryIntegrity_(vehicles);
-  assert.strictEqual(issues.length, 3);
+  assert.strictEqual(issues.length, 4);
   const types = [];
   for (let i = 0; i < issues.length; i++) types.push(issues[i].type);
-  assert.strictEqual(types.sort().join(','), 'duplicateCommission,missingModel,unknownHoldStatus');
+  assert.strictEqual(types.sort().join(','), 'duplicateCommission,duplicateOcn,missingModel,unknownHoldStatus');
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

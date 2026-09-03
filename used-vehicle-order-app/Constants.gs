@@ -70,7 +70,13 @@ var NOTIFY_MAIL_MAX_LENGTH = 254; // メールアドレス1件あたりの最大
  */
 var VEHICLE_COLUMNS = [
   { key: 'category', label: '区分', type: 'text', required: true },
-  { key: 'ocn', label: 'ＯＣＮ', type: 'text' },
+  {
+    key: 'ocn', label: 'ＯＣＮ', type: 'text', required: true,
+    note: '在庫の有無を判定するキー列です。この列が空欄の行は、在庫リストに表示されません' +
+      '（末尾の空行等とみなされます）。先頭が0で始まる値（例: 0583911111）も保持されるよう、' +
+      'この列全体を「書式なしテキスト」に設定しています。Number型に戻すと先頭の0が' +
+      '消えてしまうため、書式は変更しないでください。'
+  },
   { key: 'model', label: 'MODEL', type: 'text', required: true },
   { key: 'steering', label: 'ステア', type: 'select', options: STEERING_OPTIONS },
   { key: 'exteriorColor', label: '外装色', type: 'text' },
@@ -82,8 +88,7 @@ var VEHICLE_COLUMNS = [
   { key: 'plateKana', label: '登録番号（ひらがな）', type: 'text' },
   { key: 'plateNumber', label: '登録番号（一連番号）', type: 'text' },
   { key: 'modelCode', label: '型式', type: 'text' },
-  { key: 'chassisNumber', label: '車台番号', type: 'text' },
-  { key: 'chassisNumberLast4', label: '下４桁', type: 'text' },
+  { key: 'chassisNumberLast4', label: '車台番号下４桁', type: 'text' },
   { key: 'firstRegistrationDate', label: '初年度登録日', type: 'date' },
   { key: 'mileage', label: '走行距離', type: 'number' },
   { key: 'inspectionExpiryDate', label: '車検満了日', type: 'date' },
@@ -94,10 +99,11 @@ var VEHICLE_COLUMNS = [
   { key: 'elapsedMonths', label: '経過月', type: 'number' },
   { key: 'currentDisplayLocation', label: '現展示拠点', type: 'text' },
   {
-    key: 'commission', label: 'コミッション', type: 'text', required: true,
-    note: '車両を特定するID。先頭が0で始まる値（例: 0583911111）も保持されるよう、' +
-      'この列全体を「書式なしテキスト」に設定しています。Number型に戻すと先頭の0が' +
-      '消えてしまうため、書式は変更しないでください。'
+    key: 'commission', label: 'コミッション', type: 'text',
+    note: '車両を特定する社内ID（任意入力）。入力する場合、先頭が0で始まる値' +
+      '（例: 0583911111）も保持されるよう、この列全体を「書式なしテキスト」に' +
+      '設定しています。Number型に戻すと先頭の0が消えてしまうため、書式は変更' +
+      'しないでください。'
   },
   { key: 'option', label: 'オプション', type: 'text' },
   { key: 'currentOwnerName', label: '現名義', type: 'text' },
@@ -358,6 +364,15 @@ var MODEL_PHOTO_URL_MAX_LENGTH = 1500;
 // 高解像度ディスプレイ（2倍相当）でも十分な解像度になるよう余裕を持たせている
 // （normalizeModelPhotoUrl_、SettingsService.gs参照）。
 var MODEL_PHOTO_DISPLAY_WIDTH = 1000;
+
+// モデル写真1件（例: 「C」＝Cクラス全般）に紐づけられる、在庫リストのMODEL列の値
+// （型番。例: 「C200」「C43T」「GLC2DC」）を自動判定するための条件（gradePrefix・
+// gradeMarker）1件あたりの最大文字数。型番を手入力で列挙する代わりに、
+// 「①gradePrefixで始まる」「②設定されていればgradeMarkerを、先頭部分を除いた
+// 残りに含む」の2条件だけで、ホーム画面がその場で在庫リストと突き合わせて
+// 台数を計算する（SettingsService.gs / JavaScript.htmlのgradeCountsForEntry_・
+// matchesGradeRule_参照）。
+var MODEL_PHOTO_GRADE_RULE_MAX_LENGTH = 30;
 
 // モデル写真設定全体（JSON化した状態）の最大文字数。最大MODEL_PHOTOS_MAX件分の
 // URLをまとめて1つのScript Propertyへ保存するため、1件あたりの上限だけでは

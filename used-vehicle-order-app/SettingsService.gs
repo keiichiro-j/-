@@ -284,13 +284,16 @@ function normalizeMailList_(list) {
 }
 
 /**
- * ホーム画面のモデル写真設定を { model, photoUrl } の配列で返す。モデル名
- * （在庫リストの「MODEL」列の値と完全一致する文字列）ごとに代表写真を1枚登録し、
- * ホーム画面でクリックするとそのモデル名で在庫リストが絞り込まれる（中古車は
- * 1台ごとに個体差があるため、車両ごとではなくモデル名単位で写真を管理する）。
- * ホーム画面のグループタブは、在庫リストの「区分」列の値から動的に作られる
- * （renderHomeGallery_、JavaScript.html参照。区分の選択肢はコード側では固定せず
- * 実データからそのつど拾う）。
+ * ホーム画面のモデル写真設定を { model, photoUrl, gradePrefix, gradeMarker } の
+ * 配列で返す。中古車は同じ「MODEL」表記の中にも型番違いの車両が混在しうる
+ * （例:「C200」「C300」「C43 AMG」を、まとめて登録した1枚の代表写真では
+ * 区別できない）。gradePrefix・gradeMarkerは、在庫リストの「MODEL」列に実際に
+ * 入力される値（例: 「C20」「C43T」「GLC2DC」）を自動判定するための条件で、
+ * 「①gradePrefixで始まる」「②設定されていればgradeMarkerを、先頭部分を除いた
+ * 残りに含む」の2条件だけで、ホーム画面がその場で在庫リストと突き合わせて
+ * 台数を計算する（JavaScript.htmlのgradeCountsForEntry_・matchesGradeRule_参照）。
+ * gradePrefixが未設定（空文字）の場合は、モデル名そのものを在庫リストのMODEL列と
+ * 直接照合する従来どおりの挙動にフォールバックする。
  */
 function getModelPhotos_() {
   var raw = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.MODEL_PHOTOS);
@@ -310,7 +313,9 @@ function getModelPhotos_() {
       // 読み出し時にも変換する（normalizeModelPhotoUrl_はドライブの共有リンク
       // 以外の値には何もしない純粋関数のため、既に直接画像URLの場合や他の
       // ホスティングサービスのURLの場合はそのまま返る）。
-      photoUrl: normalizeModelPhotoUrl_((entry && entry.photoUrl) || '')
+      photoUrl: normalizeModelPhotoUrl_((entry && entry.photoUrl) || ''),
+      gradePrefix: (entry && entry.gradePrefix) || '',
+      gradeMarker: (entry && entry.gradeMarker) || ''
     };
   });
 }
@@ -383,8 +388,11 @@ function validateLoadingImageUrl_(value) {
  * 写真URLはGoogleドライブの共有リンクであれば直接画像URLに変換する
  * （normalizeModelPhotoUrl_参照）。変換後も長すぎる場合（data URLを直接貼り付けた
  * 場合等）はエラーにする（大きな画像は外部にアップロードしてURLを指定する）。
- * さらに、件数が多いと合計文字数がScript Propertiesの実際の保存上限を超えうるため、
- * JSON化した全体の文字数（MODEL_PHOTOS_TOTAL_MAX_LENGTH）も別途チェックする。
+ * gradePrefix・gradeMarkerも同様にトリムし、1件あたりの最大文字数
+ * （MODEL_PHOTO_GRADE_RULE_MAX_LENGTH）をチェックする。gradePrefixが空文字の場合は
+ * gradeMarkerも意味を持たないため空文字にそろえる。さらに、件数が多いと合計文字数が
+ * Script Propertiesの実際の保存上限を超えうるため、JSON化した全体の文字数
+ * （MODEL_PHOTOS_TOTAL_MAX_LENGTH）も別途チェックする。
  */
 function normalizeModelPhotos_(list) {
   list = Array.isArray(list) ? list : [];
@@ -402,7 +410,19 @@ function normalizeModelPhotos_(list) {
         '画像を外部（Googleドライブの共有リンク等）にアップロードしたうえでURLを指定してください。'
       );
     }
-    result.push({ model: model, photoUrl: photoUrl });
+    var gradePrefix = String((entry && entry.gradePrefix) || '').trim();
+    var gradeMarker = gradePrefix ? String((entry && entry.gradeMarker) || '').trim() : '';
+    [
+      { label: '先頭の文字列', value: gradePrefix },
+      { label: '対象の文字列', value: gradeMarker }
+    ].forEach(function (field) {
+      if (field.value.length > MODEL_PHOTO_GRADE_RULE_MAX_LENGTH) {
+        throw new Error(
+          'モデル「' + model + '」の' + field.label + '「' + field.value + '」が長すぎます（' + field.value.length + '文字）。'
+        );
+      }
+    });
+    result.push({ model: model, photoUrl: photoUrl, gradePrefix: gradePrefix, gradeMarker: gradeMarker });
   });
   if (result.length > MODEL_PHOTOS_MAX) {
     throw new Error('モデル写真は最大' + MODEL_PHOTOS_MAX + '件までです（現在' + result.length + '件）');

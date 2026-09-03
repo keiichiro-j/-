@@ -80,7 +80,7 @@ function applyHeaderNotes_(sheet, columns) {
 }
 
 function getInventorySheet_() {
-  return getOrCreateSheet_(SHEET_NAMES.INVENTORY, INVENTORY_COLUMNS, [inventoryColIndex1('commission')]);
+  return getOrCreateSheet_(SHEET_NAMES.INVENTORY, INVENTORY_COLUMNS, [inventoryColIndex1('ocn'), inventoryColIndex1('commission')]);
 }
 
 function getHoldsSheet_() {
@@ -88,20 +88,20 @@ function getHoldsSheet_() {
 }
 
 function getOrderSheet_() {
-  return getOrCreateSheet_(SHEET_NAMES.ORDERS, ORDER_COLUMNS, [orderColIndex1('commission')]);
+  return getOrCreateSheet_(SHEET_NAMES.ORDERS, ORDER_COLUMNS, [orderColIndex1('ocn'), orderColIndex1('commission')]);
 }
 
 /**
- * 既存のスプレッドシートに対して、コミッション列を書式なしテキストへ設定し直す
- * 一回限りのメンテナンス関数。スクリプトエディタから手動で一度だけ実行する
- * （README参照）。既にNumber型に変換され先頭の0が消えてしまった値は、
+ * 既存のスプレッドシートに対して、ＯＣＮ・コミッション列を書式なしテキストへ
+ * 設定し直す一回限りのメンテナンス関数。スクリプトエディタから手動で一度だけ
+ * 実行する（README参照）。既にNumber型に変換され先頭の0が消えてしまった値は、
  * このスクリプトを実行しても自動では復元されないため、該当セルは
  * 手動で正しい値を入力し直す必要がある。
  */
 function formatCommissionColumnsAsText_() {
-  applyTextColumnFormat_(getInventorySheet_(), [inventoryColIndex1('commission')]);
+  applyTextColumnFormat_(getInventorySheet_(), [inventoryColIndex1('ocn'), inventoryColIndex1('commission')]);
   applyTextColumnFormat_(getHoldsSheet_(), [holdColIndex1('commission')]);
-  applyTextColumnFormat_(getOrderSheet_(), [orderColIndex1('commission')]);
+  applyTextColumnFormat_(getOrderSheet_(), [orderColIndex1('ocn'), orderColIndex1('commission')]);
 }
 
 /**
@@ -175,7 +175,10 @@ function findRowByKey_(sheet, columns, keyField, keyValue) {
 // ===== 在庫リスト =====
 
 function listInventory() {
-  var vehicles = readAllRows_(getInventorySheet_(), INVENTORY_COLUMNS, 'commission');
+  // 在庫として表示するかどうかは「ＯＣＮ」列の入力有無で判定する（コミッションは
+  // 任意入力のため、キー列には使わない。readAllRows_はキー列が空の行を
+  // 「末尾の空行」とみなしてスキップする）。
+  var vehicles = readAllRows_(getInventorySheet_(), INVENTORY_COLUMNS, 'ocn');
   return attachHoldInfo_(vehicles);
 }
 

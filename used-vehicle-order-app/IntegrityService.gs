@@ -11,13 +11,27 @@
  */
 
 /**
- * 在庫データの整合性をチェックする（純粋関数）。
+ * 在庫データの整合性をチェックする（純粋関数）。在庫の有無はＯＣＮ列で判定する
+ * ため（listInventory参照）、ここに渡ってくる車両は必ずＯＣＮが入力済みであり、
+ * 各行の識別表示にはコミッション（任意入力で空欄になり得る）ではなくＯＣＮを使う。
  * @param {Array<Object>} vehicles
- * @return {Array<{type: string, commission: string, message: string}>}
+ * @return {Array<{type: string, ocn: string, message: string}>}
  */
 function checkInventoryIntegrity_(vehicles) {
   vehicles = vehicles || [];
   var issues = [];
+
+  var seenOcns = {};
+  var duplicateOcns = {};
+  vehicles.forEach(function (v) {
+    var key = String(v.ocn || '').trim();
+    if (!key) return;
+    if (seenOcns[key]) duplicateOcns[key] = true;
+    seenOcns[key] = true;
+  });
+  Object.keys(duplicateOcns).sort().forEach(function (o) {
+    issues.push({ type: 'duplicateOcn', ocn: o, message: 'ＯＣＮ「' + o + '」が複数の行に重複しています' });
+  });
 
   var seenCommissions = {};
   var duplicateCommissions = {};
@@ -28,16 +42,16 @@ function checkInventoryIntegrity_(vehicles) {
     seenCommissions[key] = true;
   });
   Object.keys(duplicateCommissions).sort().forEach(function (c) {
-    issues.push({ type: 'duplicateCommission', commission: c, message: 'コミッション「' + c + '」が複数の行に重複しています' });
+    issues.push({ type: 'duplicateCommission', ocn: '', message: 'コミッション「' + c + '」が複数の行に重複しています' });
   });
 
   var validHoldStatuses = [HOLD_STATUS.AVAILABLE, HOLD_STATUS.HOLD, '', null, undefined];
   vehicles.forEach(function (v) {
     if (!v.model || !String(v.model).trim()) {
-      issues.push({ type: 'missingModel', commission: v.commission || '', message: 'コミッション「' + (v.commission || '(空欄)') + '」の行にモデル名がありません' });
+      issues.push({ type: 'missingModel', ocn: v.ocn || '', message: 'ＯＣＮ「' + (v.ocn || '(空欄)') + '」の行にモデル名がありません' });
     }
     if (validHoldStatuses.indexOf(v.holdStatus) === -1) {
-      issues.push({ type: 'unknownHoldStatus', commission: v.commission || '', message: 'コミッション「' + (v.commission || '(空欄)') + '」のHoldステータス「' + v.holdStatus + '」は不明な値です' });
+      issues.push({ type: 'unknownHoldStatus', ocn: v.ocn || '', message: 'ＯＣＮ「' + (v.ocn || '(空欄)') + '」のHoldステータス「' + v.holdStatus + '」は不明な値です' });
     }
   });
 

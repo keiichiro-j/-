@@ -23,6 +23,7 @@ function api_getBootstrapData() {
     holdTypeLabels: HOLD_TYPE_LABELS,
     staffListMax: STAFF_LIST_MAX,
     modelPhotosMax: MODEL_PHOTOS_MAX,
+    modelPhotoGradeRuleMaxLength: MODEL_PHOTO_GRADE_RULE_MAX_LENGTH,
     homeAnnouncementMax: HOME_ANNOUNCEMENT_MAX_LENGTH,
     loadingImageUrlMax: LOADING_IMAGE_URL_MAX_LENGTH,
     notifyMailListMax: NOTIFY_MAIL_LIST_MAX,
@@ -48,7 +49,7 @@ function api_listInventory(filters, groupBy) {
 }
 
 /**
- * 在庫データの整合性チェック（コミッション重複・モデル名欠落・Holdステータス不正値）。
+ * 在庫データの整合性チェック（ＯＣＮ重複・コミッション重複・モデル名欠落・Holdステータス不正値）。
  * アプリ起動時にクライアントから一度だけ呼び出し、問題があれば画面上部に警告表示する
  * （在庫の追加・編集はスプレッドシートへ直接行う運用のため、手作業のミスを早期発見する）。
  */
