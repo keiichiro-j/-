@@ -366,12 +366,16 @@ var MODEL_PHOTO_URL_MAX_LENGTH = 1500;
 var MODEL_PHOTO_DISPLAY_WIDTH = 1000;
 
 // モデル写真1件（例: 「C」＝Cクラス全般）に紐づけられる、在庫リストのMODEL列の値
-// （型番。例: 「C200」「C43T」「GLC2DC」）を自動判定するための条件（gradePrefix・
-// gradeMarker）1件あたりの最大文字数。型番を手入力で列挙する代わりに、
-// 「①gradePrefixで始まる」「②設定されていればgradeMarkerを、先頭部分を除いた
-// 残りに含む」の2条件だけで、ホーム画面がその場で在庫リストと突き合わせて
-// 台数を計算する（SettingsService.gs / JavaScript.htmlのgradeCountsForEntry_・
-// matchesGradeRule_参照）。
+// （型番。例: 「C200」「CLA18」「CLA18T」「GLC2DC」）を自動判定するための条件
+// （gradePrefix・gradeMarker）1件あたりの最大文字数。型番を手入力で列挙する
+// 代わりに、「①型番先頭のアルファベット連続部分（クラス名）がgradePrefixと
+// 完全一致する」「②設定されていればgradeMarkerで型番の語尾（末尾）が一致する」の
+// 2条件だけで、ホーム画面がその場で在庫リストと突き合わせて台数を計算する
+// （SettingsService.gs / JavaScript.htmlのleadingAlphaPrefix_・
+// gradeCountsForEntry_・matchesGradeRule_参照）。①②とも「含む」ではなく
+// 「完全一致」「語尾が一致」にしているのは、「C」が「CLA18」まで拾ったり、
+// 「T」が語尾以外に「T」を含む型番まで拾ったりして、「C20」と「CLA18」、
+// 「CLA18」と「CLA18T」のような似た型番同士を区別できなくなるのを防ぐため。
 var MODEL_PHOTO_GRADE_RULE_MAX_LENGTH = 30;
 
 // モデル写真設定全体（JSON化した状態）の最大文字数。最大MODEL_PHOTOS_MAX件分の
