@@ -1348,9 +1348,9 @@
     else if (target.dataset.compare) toggleCompare_(target.dataset.compare, target.checked);
   });
 
-  ['inventoryKeyword', 'inventoryMonthFilter', 'inventoryIncludeHold'].forEach(function (id) {
-    $(id).addEventListener('input', debounce(loadInventory, 250));
-    $(id).addEventListener('change', loadInventory);
+  ['inventoryKeyword', 'inventoryIncludeHold'].forEach(function (id) {
+    on(id, 'input', debounce(loadInventory, 250));
+    on(id, 'change', loadInventory);
   });
 
   // ===== Hold / 2nd Hold / 受注 共通モーダル =====
@@ -2010,8 +2010,8 @@
   }
 
   ['ordersKeyword', 'ordersGroupBy', 'ordersLocationFilter', 'ordersStaffFilter'].forEach(function (id) {
-    $(id).addEventListener('input', debounce(loadOrders, 250));
-    $(id).addEventListener('change', loadOrders);
+    on(id, 'input', debounce(loadOrders, 250));
+    on(id, 'change', loadOrders);
   });
 
   // ===== 設定 =====
@@ -2597,6 +2597,10 @@
 
   MAIL_FIELDS.forEach(function (field) {
     var container = $(field.listId);
+    if (!container) {
+      console.warn('[used-vehicle-order-app] 要素が見つからないためイベント登録をスキップしました: #' + field.listId);
+      return;
+    }
     container.addEventListener('input', function (e) {
       var index = e.target.dataset.mailIndex;
       if (index === undefined) return;
@@ -2613,7 +2617,7 @@
       state[field.key].splice(to, 0, moved);
       renderMailList_(field);
     });
-    $(field.addBtnId).addEventListener('click', function () {
+    on(field.addBtnId, 'click', function () {
       if (state[field.key].length >= notifyMailListMax_()) return;
       state[field.key].push('');
       renderMailList_(field);
