@@ -288,20 +288,23 @@ function normalizeMailList_(list) {
  * 配列で返す。中古車は同じ「MODEL」表記の中にも型番違いの車両が混在しうる
  * （例:「C200」「C300」「C43 AMG」を、まとめて登録した1枚の代表写真では
  * 区別できない）。gradePrefix・gradeMarkerは、在庫リストの「MODEL」列に実際に
- * 入力される値（例: 「C20」「CLA18」「CLA18T」「GLC2DC」）を自動判定するための条件で、
- * 「①型番先頭のアルファベット連続部分（クラス名）がgradePrefixと完全一致する」
- * 「②設定されていればgradeMarkerで型番の語尾（末尾）が一致する」の2条件だけで、
+ * 入力される値（例: 「C20」「C18T」「C18TZ」「CLA18」「CLA18T」）を自動判定するための
+ * 条件で、「①型番先頭のアルファベット連続部分（クラス名）がgradePrefixと完全一致する」
+ * 「②設定されていれば、gradePrefixに続く部分がgradeMarkerで始まっている」の2条件だけで、
  * ホーム画面がその場で在庫リストと突き合わせて台数を計算する（JavaScript.htmlの
  * leadingAlphaPrefix_・gradeCountsForEntry_・matchesGradeRule_参照）。
  * ①を単純な前方一致ではなく「先頭のアルファベット連続部分との完全一致」にしているのは、
  * gradePrefix「C」が文字として「C」で始まる「CLA18」まで誤って拾ってしまい、
  * 「C20」（Cクラス）と「CLA18」（CLAクラス）を区別できなくなる不具合を防ぐため
  * （現場からの指摘）。
- * ②を「含む」ではなく「語尾が一致する」にしているのは、gradeMarker「T」が
- * 「含む」判定だと「CLA18T」（語尾がT）だけでなく、たまたま途中に「T」を含む
- * 型番まで拾ってしまう可能性があり、特に「CLA18」（末尾なし）と「CLA18T」
- * （末尾T）のように、片方がもう片方の型番に文字を継ぎ足しただけの別車両を
- * 区別できなかったため（現場からの指摘）。
+ * ②はgradeMarkerの後ろに何が続いてもよい前方一致にしている。これにより、
+ * gradeMarker「18T」は「C18T」だけでなく、末尾に追加のサフィックスが付いた
+ * 「C18TZ」も同じグループとして拾える（同じグレードの派生違いをまとめて1枚の
+ * 写真で管理したい場合。現場からの要望）。一方、gradeMarkerを「18」「18T」の
+ * ように別々に登録すれば、「CLA18」（残りが「18」）と「CLA18T」（残りが「18T」）の
+ * ように、片方がもう片方の型番に文字を継ぎ足しただけの別車両も区別できる
+ * （後述のgradeRuleSpecificity_の具体性スコアにより、より長く一致する登録が
+ * 優先されるため、重複してカウントされない）。
  * gradePrefixが未設定（空文字）の場合は、モデル名そのものを在庫リストのMODEL列と
  * 直接照合する従来どおりの挙動にフォールバックする（1台ずつ個別に登録したい場合は、
  * gradePrefix・gradeMarkerを空欄のまま、modelに在庫リストのMODEL列の値そのものを
@@ -426,7 +429,7 @@ function normalizeModelPhotos_(list) {
     var gradeMarker = gradePrefix ? String((entry && entry.gradeMarker) || '').trim() : '';
     [
       { label: '先頭の文字列', value: gradePrefix },
-      { label: '語尾の文字列', value: gradeMarker }
+      { label: '続きの文字列', value: gradeMarker }
     ].forEach(function (field) {
       if (field.value.length > MODEL_PHOTO_GRADE_RULE_MAX_LENGTH) {
         throw new Error(

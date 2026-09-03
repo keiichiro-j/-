@@ -2526,7 +2526,7 @@
           '<div class="modelPhotoList__preview">' + preview + '</div>' +
           '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="model" placeholder="表示名（例: Cクラス）" value="' + escapeHtml(entry.model || '') + '">' +
           '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="gradePrefix" placeholder="先頭の文字列（例: C）" value="' + escapeHtml(entry.gradePrefix || '') + '">' +
-          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="gradeMarker" placeholder="語尾の文字列（例: T）" value="' + escapeHtml(entry.gradeMarker || '') + '">' +
+          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="gradeMarker" placeholder="続きの文字列（例: 18T）" value="' + escapeHtml(entry.gradeMarker || '') + '">' +
           '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="photoUrl" placeholder="写真URL" value="' + escapeHtml(entry.photoUrl || '') + '">' +
           '<button class="btn btn--icon" data-remove-photo="' + i + '" type="button" aria-label="削除">&times;</button>' +
           '</div>';
@@ -2661,9 +2661,9 @@
   }
 
   /**
-   * 在庫リストの「MODEL」列の値（型番。例:「C200」「CLA18」「CLA18T」「GLC2DC」）に対する、
-   * 指定エントリの自動判定条件の「具体性スコア」を計算する（純粋関数）。
-   * 条件を満たさない場合は-1（不一致）。
+   * 在庫リストの「MODEL」列の値（型番。例:「C200」「C18T」「C18TZ」「CLA18」
+   * 「CLA18T」）に対する、指定エントリの自動判定条件の「具体性スコア」を計算する
+   * （純粋関数）。条件を満たさない場合は-1（不一致）。
    *
    * 不具合修正①: 以前はgradePrefixを単純な前方一致（modelValue.indexOf(prefix)===0）で
    * 判定していたため、先頭の文字列を「C」と登録すると、文字として「C」で始まる
@@ -2674,18 +2674,25 @@
    * （C20・C43T等）だけに一致し、クラス名が「CLA」である型番（CLA18・CLA18T等）
    * には一致しないようにする。
    *
-   * 不具合修正②: gradeMarker（語尾の文字列）も、以前はプレフィックスを除いた
-   * 残りの部分に「含まれていれば」一致とする方式（部分一致）だったため、
-   * 「CLA18」（残り「18」）と「CLA18T」（残り「18T」）のように、片方がもう片方の
-   * 語尾を含むだけの型番同士を区別できなかった（例えばgradeMarker「1」を
-   * 登録すると両方に一致してしまう）。gradeMarkerは、プレフィックスを除いた
-   * 残りの部分が「その文字列で終わっている」場合のみ一致とすることで、
-   * gradeMarker「T」は語尾が「T」の型番（CLA18T等）だけに一致し、語尾に「T」を
-   * 持たない型番（CLA18等）には一致しないようにする。
+   * 不具合修正②: gradeMarker（続きの文字列）は、プレフィックスを除いた残りの部分が
+   * 「その文字列で始まっている」場合に一致とする（例えば「C」+「18T」であれば、
+   * 残りが「18T」で始まる「C18T」「C18TZ」の両方に一致する。「Z」等の追加の
+   * サフィックスが後ろに付いていても構わないため、同じグレードの派生違いを
+   * まとめて1枚の写真で管理できる）。一方で、gradeMarkerの異なる登録同士
+   * （例:「18T」と「63T」）は互いに一致しないため、「C18T」「C18TZ」のグループと
+   * 「C63T」「C63TZ」のグループは区別される。以前は「その文字列で終わっている」
+   * （語尾一致）方式にしていたが、「C18T」と「C18TZ」のように同じグレードの末尾に
+   * 追加のサフィックスが付いた型番同士をまとめられなかったため（現場からの指摘）、
+   * 「始まっている」（前方一致）方式に変更した。なお、「CLA18」（残りが「18」）と
+   * 「CLA18T」（残りが「18T」）のような、片方がもう片方の型番に文字を継ぎ足した
+   * だけの別車両を区別したい場合は、gradeMarkerをそれぞれ「18」「18T」のように、
+   * 区別したい文字列そのものを設定すればよい（「18」は「18T」で始まらないため、
+   * より具体的な「18T」の登録がある場合はそちらだけに一致し、無い場合は「18」から
+   * 始まる型番すべて（18・18T・180等）に一致する）。
    *
    * 条件を満たす場合のスコアは、gradeMarkerを設定していれば大きく加点したうえで
    * gradeMarkerの文字数も加える（gradeMarker設定済みのエントリを、同じgradePrefixを
-   * 持つ未設定のエントリより優先し、gradeMarker同士では、より長い＝具体的な語尾を
+   * 持つ未設定のエントリより優先し、gradeMarker同士では、より長い＝具体的な文字列を
    * 持つ方を優先する）。
    */
   function gradeRuleSpecificity_(modelValue, entry) {
@@ -2693,8 +2700,7 @@
     if (leadingAlphaPrefix_(modelValue) !== entry.gradePrefix) return -1;
     if (entry.gradeMarker) {
       var remainder = modelValue.slice(entry.gradePrefix.length);
-      if (remainder.length < entry.gradeMarker.length) return -1;
-      if (remainder.slice(remainder.length - entry.gradeMarker.length) !== entry.gradeMarker) return -1;
+      if (remainder.indexOf(entry.gradeMarker) !== 0) return -1;
       return 10000 + entry.gradePrefix.length + entry.gradeMarker.length;
     }
     return entry.gradePrefix.length;
@@ -2704,7 +2710,7 @@
    * 在庫リストの「MODEL」列の値が、指定エントリの自動判定条件に一致するかどうかを
    * 判定する（純粋関数）。同じ値に複数のエントリの条件が一致しうる場合
    * （例:「CLA18T」はgradePrefix「CLA」（gradeMarker無し・受け皿）の行にも、
-   * gradePrefix「CLA」+gradeMarker「T」（語尾）の行にも一致する）、
+   * gradePrefix「CLA」+gradeMarker「18T」（続きの文字列）の行にも一致する）、
    * gradeRuleSpecificity_で最もスコアの高い（＝最も具体的な条件の）エントリだけが
    * その値を拾い、他のエントリには重複してカウントされないようにする。
    */
@@ -3100,7 +3106,7 @@
         return true;
       }
       if (p.gradeMarker.length > maxGradeRuleLength) {
-        gradeRuleFieldError = 'モデル「' + p.model + '」の語尾の文字列「' + p.gradeMarker + '」が長すぎます（' + p.gradeMarker.length + '文字）。';
+        gradeRuleFieldError = 'モデル「' + p.model + '」の続きの文字列「' + p.gradeMarker + '」が長すぎます（' + p.gradeMarker.length + '文字）。';
         return true;
       }
       return false;

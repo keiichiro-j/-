@@ -366,16 +366,19 @@ var MODEL_PHOTO_URL_MAX_LENGTH = 1500;
 var MODEL_PHOTO_DISPLAY_WIDTH = 1000;
 
 // モデル写真1件（例: 「C」＝Cクラス全般）に紐づけられる、在庫リストのMODEL列の値
-// （型番。例: 「C200」「CLA18」「CLA18T」「GLC2DC」）を自動判定するための条件
-// （gradePrefix・gradeMarker）1件あたりの最大文字数。型番を手入力で列挙する
+// （型番。例: 「C200」「C18T」「C18TZ」「CLA18」「CLA18T」）を自動判定するための
+// 条件（gradePrefix・gradeMarker）1件あたりの最大文字数。型番を手入力で列挙する
 // 代わりに、「①型番先頭のアルファベット連続部分（クラス名）がgradePrefixと
-// 完全一致する」「②設定されていればgradeMarkerで型番の語尾（末尾）が一致する」の
+// 完全一致する」「②設定されていれば、それに続く部分がgradeMarkerで始まっている」の
 // 2条件だけで、ホーム画面がその場で在庫リストと突き合わせて台数を計算する
 // （SettingsService.gs / JavaScript.htmlのleadingAlphaPrefix_・
-// gradeCountsForEntry_・matchesGradeRule_参照）。①②とも「含む」ではなく
-// 「完全一致」「語尾が一致」にしているのは、「C」が「CLA18」まで拾ったり、
-// 「T」が語尾以外に「T」を含む型番まで拾ったりして、「C20」と「CLA18」、
-// 「CLA18」と「CLA18T」のような似た型番同士を区別できなくなるのを防ぐため。
+// gradeCountsForEntry_・matchesGradeRule_参照）。①を単純な前方一致ではなく
+// 完全一致にしているのは、「C」が「CLA18」まで拾ってしまい「C20」と「CLA18」を
+// 区別できなくなるのを防ぐため。②は「後ろに何が続いてもよい」前方一致にする
+// ことで、gradeMarker「18T」が「C18T」だけでなく、末尾に追加のサフィックスが付いた
+// 「C18TZ」も同じグループとして拾える一方、gradeMarkerを「18」「18T」のように
+// 別々に登録すれば「CLA18」と「CLA18T」のような、片方がもう片方に文字を継ぎ足した
+// だけの型番同士も区別できる。
 var MODEL_PHOTO_GRADE_RULE_MAX_LENGTH = 30;
 
 // モデル写真設定全体（JSON化した状態）の最大文字数。最大MODEL_PHOTOS_MAX件分の
