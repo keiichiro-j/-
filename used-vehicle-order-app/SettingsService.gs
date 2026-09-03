@@ -288,12 +288,16 @@ function normalizeMailList_(list) {
  * 配列で返す。中古車は同じ「MODEL」表記の中にも型番違いの車両が混在しうる
  * （例:「C200」「C300」「C43 AMG」を、まとめて登録した1枚の代表写真では
  * 区別できない）。gradePrefix・gradeMarkerは、在庫リストの「MODEL」列に実際に
- * 入力される値（例: 「C20」「C43T」「GLC2DC」）を自動判定するための条件で、
- * 「①gradePrefixで始まる」「②設定されていればgradeMarkerを、先頭部分を除いた
- * 残りに含む」の2条件だけで、ホーム画面がその場で在庫リストと突き合わせて
- * 台数を計算する（JavaScript.htmlのgradeCountsForEntry_・matchesGradeRule_参照）。
- * gradePrefixが未設定（空文字）の場合は、モデル名そのものを在庫リストのMODEL列と
- * 直接照合する従来どおりの挙動にフォールバックする。
+ * 入力される値（例: 「C20」「C43T」「CLA18」「GLC2DC」）を自動判定するための条件で、
+ * 「①型番先頭のアルファベット連続部分（クラス名）がgradePrefixと完全一致する」
+ * 「②設定されていればgradeMarkerを、先頭部分を除いた残りに含む」の2条件だけで、
+ * ホーム画面がその場で在庫リストと突き合わせて台数を計算する（JavaScript.htmlの
+ * leadingAlphaPrefix_・gradeCountsForEntry_・matchesGradeRule_参照）。①を単純な
+ * 前方一致ではなく「先頭のアルファベット連続部分との完全一致」にしているのは、
+ * gradePrefix「C」が文字として「C」で始まる「CLA18」まで誤って拾ってしまい、
+ * 「C20」（Cクラス）と「CLA18」（CLAクラス）を区別できなくなる不具合を防ぐため
+ * （現場からの指摘）。gradePrefixが未設定（空文字）の場合は、モデル名そのものを
+ * 在庫リストのMODEL列と直接照合する従来どおりの挙動にフォールバックする。
  */
 function getModelPhotos_() {
   var raw = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.MODEL_PHOTOS);

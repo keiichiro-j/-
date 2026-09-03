@@ -2650,18 +2650,38 @@
   // モデル名と在庫台数を横一列で見せることで、日常的に使う社内ツールとしての
   // 情報密度を優先する（見た目の華やかさより、パッと見て台数がわかることを重視）。
   /**
-   * 在庫リストの「MODEL」列の値（型番。例:「C200」「C43T」「GLC2DC」）に対する、
+   * 型番（在庫リストのMODEL列の値。例:「C200」「C43T」「CLA18」「GLC2DC」）の
+   * 先頭にあるアルファベットの連続部分だけを取り出す（純粋関数）。Mercedes系の
+   * 型番は「クラス名（アルファベット）＋グレード番号（数字）＋任意のサフィックス」
+   * という構成のため、これでクラス名部分（「C」「CLA」「GLC」等）を正確に切り出せる。
+   */
+  function leadingAlphaPrefix_(modelValue) {
+    var m = String(modelValue || '').match(/^[A-Za-z]+/);
+    return m ? m[0] : '';
+  }
+
+  /**
+   * 在庫リストの「MODEL」列の値（型番。例:「C200」「C43T」「CLA18」「GLC2DC」）に対する、
    * 指定エントリの自動判定条件の「具体性スコア」を計算する（純粋関数）。
-   * 条件を満たさない場合は-1（不一致）。条件を満たす場合のスコアは、
-   * gradeMarkerを設定していれば大きく加点したうえでgradePrefixの文字数を加える
-   * （gradeMarker設定済み同士・未設定同士のどちらでも、より長い＝具体的な
-   * gradePrefixほど優先される）。例えば「GLC」（3文字）は「G」（1文字）より
-   * 具体的なため、「GLC300」は先頭の文字列が短い「G」の行ではなく、より具体的な
-   * 「GLC」の方に正しく割り当てられる。
+   * 条件を満たさない場合は-1（不一致）。
+   *
+   * 不具合修正: 以前はgradePrefixを単純な前方一致（modelValue.indexOf(prefix)===0）で
+   * 判定していたため、先頭の文字列を「C」と登録すると、文字として「C」で始まる
+   * 「CLA18」「CLA18T」まで誤って一致してしまい、「C20」「C43T」（Cクラス）と
+   * 「CLA18」「CLA18T」（CLAクラス）を区別できなかった（現場からの指摘）。
+   * gradePrefixは、型番先頭のアルファベット連続部分（leadingAlphaPrefix_）と
+   * 「完全一致」した場合のみ一致とすることで、「C」は「C」で始まりかつクラス名が
+   * ちょうど「C」である型番（C20・C43T等）だけに一致し、クラス名が「CLA」である
+   * 型番（CLA18・CLA18T等）には一致しないようにする。
+   *
+   * 条件を満たす場合のスコアは、gradeMarkerを設定していれば大きく加点する
+   * （gradeMarker設定済みのエントリを、同じgradePrefixを持つ未設定のエントリより
+   * 優先する。例: gradePrefix「C」+gradeMarker「43」の行を、gradePrefix「C」のみの
+   * 「受け皿」の行より優先し、「C43T」が両方に重複してカウントされないようにする）。
    */
   function gradeRuleSpecificity_(modelValue, entry) {
     if (!entry.gradePrefix || !modelValue) return -1;
-    if (modelValue.indexOf(entry.gradePrefix) !== 0) return -1;
+    if (leadingAlphaPrefix_(modelValue) !== entry.gradePrefix) return -1;
     if (entry.gradeMarker) {
       var remainder = modelValue.slice(entry.gradePrefix.length);
       if (remainder.indexOf(entry.gradeMarker) === -1) return -1;
@@ -2673,10 +2693,10 @@
   /**
    * 在庫リストの「MODEL」列の値が、指定エントリの自動判定条件に一致するかどうかを
    * 判定する（純粋関数）。同じ値に複数のエントリの条件が一致しうる場合
-   * （例:「C300」はgradePrefix「C」の行にもgradePrefix「C」+gradeMarker「30」の
-   * 行にも一致する）、gradeRuleSpecificity_で最もスコアの高い（＝最も具体的な
-   * 条件の）エントリだけがその値を拾い、他のエントリには重複してカウントされない
-   * ようにする。
+   * （例:「C43T」はgradePrefix「C」（gradeMarker無し・受け皿）の行にも、
+   * gradePrefix「C」+gradeMarker「43」の行にも一致する）、gradeRuleSpecificity_で
+   * 最もスコアの高い（＝最も具体的な条件の）エントリだけがその値を拾い、
+   * 他のエントリには重複してカウントされないようにする。
    */
   function matchesGradeRule_(modelValue, entry, allEntries) {
     var score = gradeRuleSpecificity_(modelValue, entry);
