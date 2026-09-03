@@ -108,6 +108,25 @@
     <img class="appLoading__image hidden" id="appLoadingImage" alt="">
   </div>
 
+  <!-- 保険（フェイルセーフ）: html/JavaScript.html とは完全に独立した別の<script>
+       タグにする。ブラウザはscriptタグごとに解析・実行するため、html/JavaScript
+       側に何らかの理由（手作業でのファイル移行時の貼り付け漏れ・バージョン食い違い等）
+       で構文エラーがあり丸ごと動かなかった場合でも、このタグ自体はその影響を受けず
+       独立して動く。一定時間後もローディング画面が消えていなければ、原因が何であれ
+       強制的に消して「画面が固まって見える」状態を防ぐ（本来はhtml/JavaScript.html
+       側の起動処理がその場で消すため、これは最後の砦としてのみ働く）。 -->
+  <script>
+    (function () {
+      setTimeout(function () {
+        var el = document.getElementById('appLoading');
+        if (el && !el.classList.contains('is-hidden')) {
+          el.classList.add('is-hidden');
+          console.warn('[used-vehicle-order-app] 起動処理が完了しないため、読み込み画面を保険で閉じました。コンソールに他のエラーが出ていないかご確認ください。');
+        }
+      }, 8000);
+    })();
+  </script>
+
   <div id="app">
     <!-- 左サイドバー: PCビュー（901px以上）のみ表示する（Stylesheet.html参照）。
          タブレット・スマホ幅は従来どおりtopbar内の.tabs（水平タブ）を使うため、

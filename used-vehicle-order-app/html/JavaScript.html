@@ -2,6 +2,18 @@
 (function () {
   'use strict';
 
+  // 安全策: このスクリプトのどこかで想定外のエラーが起きても、起動時ローディング
+  // 画面（#appLoading）だけは必ず消す。手作業でのファイル移行（Apps Scriptエディタへ
+  // のコピー＆貼り付け）ではhtml/Index.htmlとhtml/JavaScript.htmlのバージョンが
+  // 食い違う等の事故が起こり得るため、原因が何であれ「読み込み画面から進まない」と
+  // いう一番困る症状にだけはならないようにする（html/Index.html側にも独立した
+  // 保険のタイマーを別途置いているが、こちらは発生した瞬間に反応できる）。
+  window.addEventListener('error', function (e) {
+    console.error('[used-vehicle-order-app] 予期しないエラーが発生しました:', e.error || e.message);
+    var loading = document.getElementById('appLoading');
+    if (loading) loading.classList.add('is-hidden');
+  });
+
   function safeLocalStorageGet_(key) {
     try { return localStorage.getItem(key); } catch (e) { return null; }
   }
@@ -75,6 +87,26 @@
   }
 
   function $(id) { return document.getElementById(id); }
+
+  /**
+   * $(id).addEventListener(...) を安全に行うヘルパー。手作業でのファイル移行
+   * （Apps Scriptエディタへのコピー＆貼り付け）では、html/Index.html と
+   * html/JavaScript.html のバージョンが食い違っていたり、貼り付けが途中で
+   * 切れたりして、本来あるはずのIDの要素が見つからない事態が起こり得る。
+   * addEventListenerをnullへ直接呼ぶとその場でスクリプト全体が停止してしまい
+   * （このIIFEはトップレベルで多数のイベント登録を順番に実行するため、1つでも
+   * 失敗すると以降の初期化処理・起動時ローディング画面を消す処理まで丸ごと
+   * 止まってしまう）、アプリが読み込み画面から進まなくなる原因になる。
+   * 要素が見つからない場合は、処理を止めずコンソールに警告を出すだけに留める。
+   */
+  function on(id, evt, handler) {
+    var el = $(id);
+    if (!el) {
+      console.warn('[used-vehicle-order-app] 要素が見つからないためイベント登録をスキップしました: #' + id);
+      return;
+    }
+    el.addEventListener(evt, handler);
+  }
 
   function showToast(message, isError) {
     var toast = $('toast');
@@ -491,9 +523,10 @@
   }
 
   function fillOptions(select, options, includeBlank) {
+    if (!select) return;
     select.innerHTML = '';
     if (includeBlank) select.appendChild(new Option('', ''));
-    options.forEach(function (o) { select.appendChild(new Option(o, o)); });
+    (options || []).forEach(function (o) { select.appendChild(new Option(o, o)); });
   }
 
   function currentYearMonth() {
@@ -577,7 +610,7 @@
     loadInventory();
   }
 
-  document.getElementById('mainTabs').addEventListener('click', function (e) {
+  on('mainTabs','click', function (e) {
     var btn = e.target.closest('[data-tab]');
     if (!btn) return;
     switchToTab_(btn.dataset.tab);
@@ -588,7 +621,7 @@
   // 同じ.tabs__itemクラスを共有しているため、is-active状態の同期は
   // switchToTab_側の一括トグル（document.querySelectorAll('.tabs__item')）で
   // 自動的に行われる。
-  document.getElementById('sidebarNav').addEventListener('click', function (e) {
+  on('sidebarNav','click', function (e) {
     var btn = e.target.closest('[data-tab]');
     if (!btn) return;
     switchToTab_(btn.dataset.tab);
@@ -612,8 +645,8 @@
     switchToTab_(prev, { skipHistory: true });
     syncNavButtons_();
   }
-  $('btnNavBack').addEventListener('click', handleNavBackClick_);
-  $('btnNavBackHome').addEventListener('click', handleNavBackClick_);
+  on('btnNavBack','click', handleNavBackClick_);
+  on('btnNavBackHome','click', handleNavBackClick_);
 
   function handleRefreshClick_() {
     var btns = [$('btnRefresh'), $('btnRefreshHome')];
@@ -626,8 +659,8 @@
       btns.forEach(function (b) { b.disabled = false; b.classList.remove('is-spinning'); });
     });
   }
-  $('btnRefresh').addEventListener('click', handleRefreshClick_);
-  $('btnRefreshHome').addEventListener('click', handleRefreshClick_);
+  on('btnRefresh','click', handleRefreshClick_);
+  on('btnRefreshHome','click', handleRefreshClick_);
 
   // ===== モーダル共通 =====
   document.querySelectorAll('[data-close-modal]').forEach(function (btn) {
@@ -967,19 +1000,19 @@
     table.innerHTML = '<thead><tr>' + headerCells + '</tr></thead><tbody>' + bodyRows + '</tbody>';
   }
 
-  $('compareBarChips').addEventListener('click', function (e) {
+  on('compareBarChips','click', function (e) {
     var btn = e.target.closest('[data-compare-remove]');
     if (!btn) return;
     toggleCompare_(btn.dataset.compareRemove, false);
   });
 
-  $('btnCompareClear').addEventListener('click', function () {
+  on('btnCompareClear','click', function () {
     state.compareItems = [];
     syncComparePins_();
     renderCompareBar_();
   });
 
-  $('btnCompareShow').addEventListener('click', function () {
+  on('btnCompareShow','click', function () {
     if (state.compareItems.length < 2) return;
     try {
       renderCompareTable_();
@@ -997,7 +1030,7 @@
     });
   }
 
-  $('inventoryViewToggle').addEventListener('click', function (e) {
+  on('inventoryViewToggle','click', function (e) {
     var btn = e.target.closest('[data-view]');
     if (!btn) return;
     state.inventoryViewMode = btn.dataset.view;
@@ -1012,7 +1045,7 @@
     });
   }
 
-  $('ordersViewToggle').addEventListener('click', function (e) {
+  on('ordersViewToggle','click', function (e) {
     var btn = e.target.closest('[data-view]');
     if (!btn) return;
     state.ordersViewMode = btn.dataset.view;
@@ -1293,12 +1326,12 @@
     }
   }
 
-  document.getElementById('inventoryList').addEventListener('click', handleInventoryListClick_);
+  on('inventoryList','click', handleInventoryListClick_);
 
   // 詳細モーダル内のHold/受注/比較等のボタンも、在庫リストと同じ操作ができるようにする。
   // 操作系のボタン（Hold・受注・2nd Hold・受注確定・Hold解除）を押した場合は、
   // 続けて別のモーダル（Hold登録等）を開く前に、この詳細モーダル自体は閉じておく。
-  $('inventoryDetailModal').addEventListener('click', function (e) {
+  on('inventoryDetailModal','click', function (e) {
     var target = e.target;
     if (target.dataset.hold) { closeModal($('inventoryDetailModal')); openActionModal('hold', target.dataset.hold); }
     else if (target.dataset.secondHold) { closeModal($('inventoryDetailModal')); openActionModal('secondHold', target.dataset.secondHold); }
@@ -1408,12 +1441,12 @@
     syncFixedBars_();
   }
 
-  $('btnIntegrityDetail').addEventListener('click', function () {
+  on('btnIntegrityDetail','click', function () {
     $('integrityBannerList').classList.toggle('hidden');
     syncFixedBars_();
   });
 
-  $('btnIntegrityClose').addEventListener('click', function () {
+  on('btnIntegrityClose','click', function () {
     $('integrityBanner').classList.add('hidden');
     $('integrityBannerList').classList.add('hidden');
     syncFixedBars_();
@@ -1457,7 +1490,7 @@
     $('actionModalError').classList.add('hidden');
   }
 
-  $('btnActionNext').addEventListener('click', function () {
+  on('btnActionNext','click', function () {
     var missing = missingRequiredFieldLabels_(ACTION_STEP1_KEYS);
     if (missing.length) {
       var errEl = $('actionModalError');
@@ -1468,7 +1501,7 @@
     goToActionStep_(2);
   });
 
-  $('btnActionBack').addEventListener('click', function () {
+  on('btnActionBack','click', function () {
     if (state.actionStep === 2) { goToActionStep_(1); }
     else if (state.actionStep === 1 || state.actionStep === 'demo' || state.actionStep === 'otherStore') { goToActionStep_('typePick'); }
   });
@@ -1476,7 +1509,7 @@
   var ACTION_TYPE_PICK_TITLES = { normal: 'Hold登録', demo: 'デモカーHOLD登録', otherStore: '他店HOLD登録' };
   var ACTION_TYPE_PICK_BUTTONS = { normal: 'Holdする', demo: 'デモカーHOLDする', otherStore: '他店HOLDする' };
 
-  $('actionModal').addEventListener('click', function (e) {
+  on('actionModal','click', function (e) {
     var btn = e.target.closest('[data-hold-type-pick]');
     if (!btn) return;
     var holdType = btn.dataset.holdTypePick;
@@ -1578,13 +1611,13 @@
 
   // リード番号は「L-」固定接頭辞＋数字のみで扱う。入力欄には数字部分のみを
   // 持たせ、数字以外が入力されてもその場で取り除く。
-  $('actionLeadNumber').addEventListener('input', function () {
+  on('actionLeadNumber','input', function () {
     var digits = this.value.replace(/[^0-9]/g, '');
     if (this.value !== digits) this.value = digits;
   });
 
   // デモカーHOLDのリード番号欄も同様（未入力のままでもよい）。
-  $('actionDemoLeadNumber').addEventListener('input', function () {
+  on('actionDemoLeadNumber','input', function () {
     var digits = this.value.replace(/[^0-9]/g, '');
     if (this.value !== digits) this.value = digits;
   });
@@ -1636,7 +1669,7 @@
     openModal($('cancelHoldModal'));
   }
 
-  $('btnCancelHoldSubmit').addEventListener('click', function () {
+  on('btnCancelHoldSubmit','click', function () {
     if (this.disabled || !cancelHoldState) return;
     var btn = this;
     var errEl = $('cancelHoldModalError');
@@ -1698,7 +1731,7 @@
     el.classList.remove('hidden');
   }
 
-  $('btnActionSubmit').addEventListener('click', function () {
+  on('btnActionSubmit','click', function () {
     if (this.disabled) return;
     var btn = this;
     var action = state.action;
@@ -1915,7 +1948,7 @@
     syncFixedBars_();
   }
 
-  $('ordersGroups').addEventListener('click', function (e) {
+  on('ordersGroups','click', function (e) {
     var btn = e.target.closest('[data-order-detail]');
     if (btn) { openOrderDetailModal_(btn.dataset.orderDetail); return; }
     // 表示形式「表」の行タップ・表示形式「カード」のカードタップ（どちらもボタン・
@@ -2125,7 +2158,7 @@
     container.innerHTML = presetTiles + randomTile;
   }
 
-  $('themePresetGrid').addEventListener('click', function (e) {
+  on('themePresetGrid','click', function (e) {
     var btn = e.target.closest('[data-theme-key]');
     if (!btn) return;
     state.themeKey = btn.dataset.themeKey;
@@ -2301,7 +2334,7 @@
     img.src = url;
   }
 
-  $('settingsLogoFile').addEventListener('change', function () {
+  on('settingsLogoFile','change', function () {
     var file = this.files && this.files[0];
     if (!file) return;
     $('settingsLogoError').classList.add('hidden');
@@ -2323,18 +2356,18 @@
     reader.readAsDataURL(file);
   });
 
-  $('settingsLogoUrl').addEventListener('input', function () {
+  on('settingsLogoUrl','input', function () {
     renderLogoPreview_(this.value.trim());
   });
 
-  $('btnClearLogo').addEventListener('click', function () {
+  on('btnClearLogo','click', function () {
     $('settingsLogoUrl').value = '';
     $('settingsLogoFile').value = '';
     renderLogoPreview_('');
     $('settingsLogoError').classList.add('hidden');
   });
 
-  $('settingsLoadingImageId').addEventListener('input', function () {
+  on('settingsLoadingImageId','input', function () {
     renderLoadingImagePreview_(this.value.trim());
   });
 
@@ -2406,21 +2439,21 @@
     $('btnAddStaff').disabled = state.staffList.length >= max;
   }
 
-  $('staffList').addEventListener('input', function (e) {
+  on('staffList','input', function (e) {
     var index = e.target.dataset.staffIndex;
     var field = e.target.dataset.staffField;
     if (index === undefined || !field) return;
     state.staffList[Number(index)][field] = e.target.value;
   });
 
-  $('staffList').addEventListener('click', function (e) {
+  on('staffList','click', function (e) {
     var btn = e.target.closest('[data-remove-staff]');
     if (!btn) return;
     state.staffList.splice(Number(btn.dataset.removeStaff), 1);
     renderStaffList();
   });
 
-  $('btnAddStaff').addEventListener('click', function () {
+  on('btnAddStaff','click', function () {
     var max = (state.bootstrap && state.bootstrap.staffListMax) || 30;
     if (state.staffList.length >= max) return;
     state.staffList.push({ name: '', email: '', location: '' });
@@ -2473,7 +2506,7 @@
     $('btnAddModelPhoto').disabled = state.modelPhotos.length >= max;
   }
 
-  $('modelPhotoList').addEventListener('input', function (e) {
+  on('modelPhotoList','input', function (e) {
     var index = e.target.dataset.photoIndex;
     var field = e.target.dataset.photoField;
     if (index === undefined || !field) return;
@@ -2490,14 +2523,14 @@
     }
   });
 
-  $('modelPhotoList').addEventListener('click', function (e) {
+  on('modelPhotoList','click', function (e) {
     var btn = e.target.closest('[data-remove-photo]');
     if (!btn) return;
     state.modelPhotos.splice(Number(btn.dataset.removePhoto), 1);
     renderModelPhotoList_();
   });
 
-  $('btnAddModelPhoto').addEventListener('click', function () {
+  on('btnAddModelPhoto','click', function () {
     var max = (state.bootstrap && state.bootstrap.modelPhotosMax) || 40;
     if (state.modelPhotos.length >= max) return;
     state.modelPhotos.push({ model: '', photoUrl: '' });
@@ -2754,7 +2787,7 @@
     });
   }
 
-  $('myPageViewToggle').addEventListener('click', function (e) {
+  on('myPageViewToggle','click', function (e) {
     var btn = e.target.closest('[data-view]');
     if (!btn) return;
     state.myPageViewMode = btn.dataset.view;
@@ -2782,7 +2815,7 @@
     return matchesAnyField_([o.model, o.commission, o.customer, o.leadNumber, o.salesLocation], keyword);
   }
 
-  $('myPageKeyword').addEventListener('input', debounce(renderMyPageAll_, 200));
+  on('myPageKeyword','input', debounce(renderMyPageAll_, 200));
 
   /**
    * Hold中の車両カードは、在庫リストのvehicleCardHtml（比較ピン・Hold解除・
@@ -2836,8 +2869,8 @@
     renderMyPageOrders_();
   }
 
-  $('myPageHoldList').addEventListener('click', handleInventoryListClick_);
-  $('myPageOrderList').addEventListener('click', function (e) {
+  on('myPageHoldList','click', handleInventoryListClick_);
+  on('myPageOrderList','click', function (e) {
     var btn = e.target.closest('[data-order-detail]');
     if (btn) { openOrderDetailModal_(btn.dataset.orderDetail); return; }
     var rowEl = e.target.closest('.rowCard--order[data-commission]');
@@ -2848,7 +2881,7 @@
   // モデル写真タイルをクリックすると、そのモデル名で在庫リストへ絞り込み遷移する
   // （中古車は1台ごとに個体差がありグレードという概念を持たないため、ホーム画面に
   // グレードタブへの展開機能は無い。homeModelTileHtml_・homeModelCardHtml_参照）。
-  $('homeGrid').addEventListener('click', function (e) {
+  on('homeGrid','click', function (e) {
     var tile = e.target.closest('[data-home-model]');
     if (!tile) return;
     switchToTab_('inventory');
@@ -2856,7 +2889,7 @@
     loadInventory();
   });
 
-  $('homeGrid').addEventListener('keydown', function (e) {
+  on('homeGrid','keydown', function (e) {
     if (e.key !== 'Enter' && e.key !== ' ') return;
     var target = e.target.closest('[data-home-model]');
     if (!target) return;
@@ -2864,7 +2897,7 @@
     target.click();
   });
 
-  $('btnSaveSettings').addEventListener('click', function () {
+  on('btnSaveSettings','click', function () {
     if (this.disabled) return;
     var btn = this;
     var max = (state.bootstrap && state.bootstrap.staffListMax) || 30;
@@ -3163,6 +3196,12 @@
     navigator.serviceWorker.register('?resource=sw').catch(function () { /* 埋め込み表示等では失敗し得るため無視する */ });
   }
 
-  init();
+  try {
+    init();
+  } catch (e) {
+    console.error('[used-vehicle-order-app] 初期化中にエラーが発生しました:', e);
+    var loadingEl = document.getElementById('appLoading');
+    if (loadingEl) loadingEl.classList.add('is-hidden');
+  }
 })();
 </script>
