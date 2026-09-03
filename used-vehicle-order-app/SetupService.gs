@@ -98,7 +98,8 @@ function applySelectValidationsAndNotes_() {
 }
 
 /**
- * 「在庫リストに何も表示されない」という問い合わせの多くは、以下のいずれかが原因：
+ * 「在庫リスト・設定・ログインユーザーが何も表示されない」という問い合わせの多くは、
+ * 以下のいずれかが原因：
  *   (1) このスクリプトが、データを貼り付けたスプレッドシートに「コンテナバインド」
  *       されていない（スタンドアロンのスクリプトとして作成したため、
  *       SpreadsheetApp.getActiveSpreadsheet() が対象のスプレッドシートを指せない）。
@@ -106,12 +107,45 @@ function applySelectValidationsAndNotes_() {
  *       INVENTORY_COLUMNS（Constants.gs）とズレている。
  *   (3) 各行の「コミッション」列が空欄（readAllRows_はコミッション列が空の行を
  *       「末尾の空行」とみなして無条件にスキップするため、1台も表示されなくなる）。
- * 開発者ツールのコンソールを開けない・見方が分からない利用者でも自己診断できるよう、
- * スプレッドシートのメニュー「販売可能リスト」→「在庫データの読み込み状況を確認」
- * から実行すると、原因をポップアップで案内する。
+ *   (4) Session.getActiveUser().getEmail() が空文字（Webアプリのデプロイ設定
+ *       「実行するユーザー」「アクセスできるユーザー」が原因）。
+ *
+ * 2通りの実行方法どちらでも結果を確認できるようにしている:
+ *   A. スプレッドシートのメニュー「販売可能リスト」→「在庫データの読み込み状況を確認」
+ *      から実行 → ポップアップで結果を表示。
+ *   B. Apps Scriptエディタの関数選択プルダウンでこの関数を選んで直接「実行」
+ *      （スプレッドシートを開いていなくてもよい）→ ポップアップは出せないため、
+ *      エディタ下部の「実行ログ」に結果が出る。
+ * どちらの方法で実行したかに関わらず必ずLogger.logと戻り値の両方に結果を残すため、
+ * ブラウザの開発者ツールが使えない・見方が分からない場合でも原因を確認できる。
  */
 function diagnoseInventoryData_() {
   var lines = [];
+
+  // ----- (4) ログイン中のGoogleアカウント -----
+  var email = '';
+  try {
+    email = Session.getActiveUser().getEmail() || '';
+  } catch (e) {
+    lines.push('❌ Session.getActiveUser() の呼び出し自体でエラー: ' + e.message);
+  }
+  if (email) {
+    lines.push('✅ ログイン中のGoogleアカウント: ' + email);
+    lines.push('　　管理者（SYSTEM_ADMIN_EMAILS）: ' + (isSystemAdmin_(email) ? 'はい' : 'いいえ'));
+  } else {
+    lines.push('❌ ログイン中のGoogleアカウントのメールアドレスを取得できません（空文字）。');
+    lines.push('　　Webアプリのデプロイ設定を確認してください: 「実行するユーザー」を');
+    lines.push('　　「アプリにアクセスするユーザー」にし、「アクセスできるユーザー」を');
+    lines.push('　　個人のGoogleアカウントなら「Googleアカウントを持つ全員」、');
+    lines.push('　　Google Workspaceなら「組織内のユーザー」にする必要があります');
+    lines.push('　　（「全員（匿名ユーザーを含む）」だとログイン自体が発生しないため空になります）。');
+    lines.push('　　※ この関数をApps Scriptエディタから直接実行した場合も同様に空になります');
+    lines.push('　　　（エディタ実行は常にスクリプト所有者自身として動くため）。これは異常では');
+    lines.push('　　　ありません。実際のWebアプリ（.../exec のURL）で確認してください。');
+  }
+  lines.push('');
+
+  // ----- (1)〜(3) 在庫リスト -----
   var ss;
   try {
     ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -120,12 +154,10 @@ function diagnoseInventoryData_() {
   }
   if (!ss) {
     lines.push('❌ このスクリプトは、いま開いているスプレッドシートに紐づいていません。');
-    lines.push('');
     lines.push('対処: データを貼り付けたスプレッドシートを開き、「拡張機能」→「Apps Script」から');
     lines.push('このプロジェクトのファイル一式を配置し直してください（スタンドアロンで作成した');
     lines.push('プロジェクトをそのまま使うことはできません）。');
-    SpreadsheetApp.getUi().alert('在庫データの読み込み状況', lines.join('\n'), SpreadsheetApp.getUi().ButtonSet.OK);
-    return;
+    return finishDiagnosis_(lines);
   }
   lines.push('✅ スプレッドシート「' + ss.getName() + '」に紐づいています。');
 
@@ -136,8 +168,7 @@ function diagnoseInventoryData_() {
     lines.push('タブ名が完全に一致している必要があります（前後の空白・全角半角の違いも不可）。');
     lines.push('スプレッドシートのメニュー「販売可能リスト」→「初期セットアップ」を実行すると');
     lines.push('正しい名前・列見出しのタブを自動作成できます。');
-    SpreadsheetApp.getUi().alert('在庫データの読み込み状況', lines.join('\n'), SpreadsheetApp.getUi().ButtonSet.OK);
-    return;
+    return finishDiagnosis_(lines);
   }
   lines.push('✅ 「' + SHEET_NAMES.INVENTORY + '」タブが見つかりました。');
 
@@ -162,8 +193,7 @@ function diagnoseInventoryData_() {
     lines.push('対処: 既存のタブを削除し、スプレッドシートのメニュー「販売可能リスト」→');
     lines.push('「初期セットアップ」で正しい列順のタブを作り直してから、データを貼り付け直して');
     lines.push('ください（1行目の見出し行はそのままに、2行目以降にデータだけ貼り付けます）。');
-    SpreadsheetApp.getUi().alert('在庫データの読み込み状況', lines.join('\n'), SpreadsheetApp.getUi().ButtonSet.OK);
-    return;
+    return finishDiagnosis_(lines);
   }
   lines.push('✅ 1行目の見出しは列定義どおりです。');
 
@@ -171,8 +201,7 @@ function diagnoseInventoryData_() {
     lines.push('');
     lines.push('❌ 2行目以降にデータがありません（見出し行のみです）。');
     lines.push('2行目から実際の車両データを貼り付けてください。');
-    SpreadsheetApp.getUi().alert('在庫データの読み込み状況', lines.join('\n'), SpreadsheetApp.getUi().ButtonSet.OK);
-    return;
+    return finishDiagnosis_(lines);
   }
 
   var commissionCol1 = inventoryColIndex1('commission');
@@ -194,7 +223,25 @@ function diagnoseInventoryData_() {
     lines.push('在庫リストに表示されるはずです。それでも表示されない場合は、ブラウザの');
     lines.push('開発者ツールのConsoleタブに赤いエラーが出ていないかご確認ください。');
   }
-  SpreadsheetApp.getUi().alert('在庫データの読み込み状況', lines.join('\n'), SpreadsheetApp.getUi().ButtonSet.OK);
+  return finishDiagnosis_(lines);
+}
+
+/**
+ * diagnoseInventoryData_の結果をLogger.log（実行ログ）と戻り値の両方に残したうえで、
+ * 可能であればポップアップでも表示する（スプレッドシートのメニューから実行した場合）。
+ * Apps Scriptエディタから直接実行した場合はUIが無くSpreadsheetApp.getUi()が例外を
+ * 投げるため、その場合は静かに無視してLogger.log／戻り値だけで確認できるようにする。
+ */
+function finishDiagnosis_(lines) {
+  var message = lines.join('\n');
+  Logger.log(message);
+  try {
+    SpreadsheetApp.getUi().alert('読み込み状況の診断結果', message, SpreadsheetApp.getUi().ButtonSet.OK);
+  } catch (e) {
+    // Apps Scriptエディタから直接実行した場合はUIが無いため、ここには来るが無視してよい。
+    // 結果はLogger.log済み・戻り値としても返しているため、実行ログか戻り値で確認できる。
+  }
+  return message;
 }
 
 /**
