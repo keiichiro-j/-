@@ -57,14 +57,17 @@
     notifyErrorMailTo: [], // 設定タブで編集中のメール通知先（システムエラー通知、作業用コピー）
     themeKey: null, // 設定タブで選択中のテーマ（着せ替え）プリセットキー。サイドバーの色もこれとセットで決まる（THEME_PRESETSのsidebarColor参照）
     navHistory: [], // 「戻る」ボタン用の画面履歴（タブ名のスタック）
-    allInventoryItems: [], // ホーム画面の在庫台数集計専用（ツールバーの検索条件に左右されない全件）
+    allInventoryItems: [], // 在庫の全件キャッシュ（検索はクライアント側。ホーム台数・マイページHoldもここから）
+    inventoryCacheReady: false, // 在庫全件の初回取得が成功したら true
     homeGradeFilter: null, // ホームのグレードタブクリックで設定される、絞り込み対象グレード名の配列
     homeExpandedModel: null, // ホームで現在グレードタブを展開中のベースモデル名（タブレット・スマホ幅のみ使用。1つのみ展開可能）
     homeTypeFilter: null, // ホーム上部のボディタイプ絞り込み（未選択＝「すべて」はnull）
-    allOrders: [], // マイページ集計専用（受注リストの検索・絞り込み条件に左右されない全件）
+    allOrders: [], // 受注の全件キャッシュ（検索はクライアント側。マイページ受注もここから）
+    ordersCacheReady: false, // 受注全件の初回取得が成功したら true
     gclassItems: [], // Gクラス予約リスト（閲覧専用。Hold・受注操作は一切ない）
     gclassViewMode: safeLocalStorageGet_('gclassViewMode') || 'card', // 'card' | 'table'（Gクラス予約リストの表示形式）
-    allGClassItems: [], // マイページ集計専用（Gクラス予約リストの検索条件に左右されない全件）
+    allGClassItems: [], // Gクラス予約の全件キャッシュ（検索はクライアント側。マイページもここから）
+    gclassCacheReady: false, // Gクラス全件の初回取得が成功したら true
     purchaseOrders: [], // 発注リスト（閲覧専用。検索条件に左右されない全件をクライアント側で絞り込む）
     purchaseOrdersViewMode: safeLocalStorageGet_('purchaseOrdersViewMode') || 'card', // 'card' | 'table'（発注リストの表示形式）
     myPageViewMode: safeLocalStorageGet_('myPageViewMode') || 'card', // 'card' | 'table'（マイページ全体の表示形式）
@@ -76,6 +79,10 @@
   // サーバー側が応答しない場合にボタンやモーダルが固まって見えないよう、
   // 一定時間で必ずエラーとして解決させるタイムアウトを設ける。
   var GAS_CALL_TIMEOUT_MS = 25000;
+  // 同じ一覧のサーバー再取得が重ならないよう、進行中の Promise を共有する。
+  var inventoryFetchPromise_ = null;
+  var ordersFetchPromise_ = null;
+  var gclassFetchPromise_ = null;
 
   function gasRun(fnName) {
     var args = Array.prototype.slice.call(arguments, 1);
@@ -901,39 +908,96 @@
     return !!(v && v.holdHoldType && v.holdHoldType !== 'normal');
   }
 
-  function loadInventory() {
-    var filters = {
-      keyword: $('inventoryKeyword').value,
-      includeHold: $('inventoryIncludeHold').checked
-    };
+  function flattenGroupedItems_(groups) {
+    return (groups || []).reduce(function (acc, g) {
+      return acc.concat((g && g.items) || []);
+    }, []);
+  }
+
+  // SearchService.gs の groupByField_ と同じ規則（受注リストのグループ表示用）。
+  function groupByField_(items, groupKey) {
+    var map = {};
+    var order = [];
+    (items || []).forEach(function (item) {
+      var key = item[groupKey] || '未設定';
+      if (!map[key]) {
+        map[key] = [];
+        order.push(key);
+      }
+      map[key].push(item);
+    });
+    order.sort(function (a, b) {
+      if (a === '未設定') return 1;
+      if (b === '未設定') return -1;
+      return a < b ? -1 : a > b ? 1 : 0;
+    });
+    return order.map(function (key) { return { key: key, items: map[key] }; });
+  }
+
+  /**
+   * 在庫リストの検索・可能月・色・Hold表示は、サーバーへ都度問い合わせず
+   * 全件キャッシュ（state.allInventoryItems）をクライアント側で絞り込む。
+   * 規則は SearchService.gs の searchInventory と同じ。
+   */
+  function applyInventoryView_() {
+    var keyword = $('inventoryKeyword').value;
     // ホームのベースモデル行クリックによるグレード絞り込み（state.homeGradeFilter）は、
     // 利用者が検索キーワードを自分で入力した時点で解除する（意図しない絞り込みが
     // 残り続けないようにするため）。
-    if (filters.keyword && filters.keyword.trim()) {
+    if (keyword && String(keyword).trim()) {
       state.homeGradeFilter = null;
     }
-    return gasRun('api_listInventory', filters).then(function (groups) {
-      var items = (groups && groups[0] && groups[0].items) || [];
-      if (state.homeGradeFilter) {
-        items = items.filter(function (v) { return state.homeGradeFilter.indexOf(v.model) !== -1; });
-      }
-      populateInventoryMonthFilter_(items);
-      populateInventoryColorFilter_(items);
-      var thisMonth = currentYearMonth();
-      var month = $('inventoryMonthFilter').value;
-      if (month) {
-        items = items.filter(function (v) {
-          return effectiveRegistrableMonth_(v.registrableMonth, thisMonth) === month;
-        });
-      }
-      var color = $('inventoryColorFilter').value;
-      if (color) {
-        items = items.filter(function (v) { return String(v.exteriorColor || '').trim() === color; });
-      }
-      state.inventoryItems = items;
-      state.inventoryGroups = groupInventoryByRegistrableMonth_(items, thisMonth);
-      renderInventory();
-    }).catch(function (err) { showToast(err.message, true); });
+    var includeHold = $('inventoryIncludeHold').checked;
+    var items = (state.allInventoryItems || []).filter(function (v) {
+      if (!includeHold && v.holdStatus === 'hold') return false;
+      if (keyword && !matchesListKeyword_(v, keyword, ['model', 'commission', 'exteriorColor', 'remarks'])) return false;
+      if (state.homeGradeFilter && state.homeGradeFilter.length && state.homeGradeFilter.indexOf(v.model) === -1) return false;
+      return true;
+    });
+    populateInventoryMonthFilter_(items);
+    populateInventoryColorFilter_(items);
+    var thisMonth = currentYearMonth();
+    var month = $('inventoryMonthFilter').value;
+    if (month) {
+      items = items.filter(function (v) {
+        return effectiveRegistrableMonth_(v.registrableMonth, thisMonth) === month;
+      });
+    }
+    var color = $('inventoryColorFilter').value;
+    if (color) {
+      items = items.filter(function (v) { return String(v.exteriorColor || '').trim() === color; });
+    }
+    state.inventoryItems = items;
+    state.inventoryGroups = groupInventoryByRegistrableMonth_(items, thisMonth);
+    renderInventory();
+  }
+
+  /**
+   * 在庫の全件をサーバーから取り直す（起動・更新ボタン・Hold/受注/解除のあと）。
+   * 進行中の取得があればそれを共有し、二重通信しない。
+   */
+  function refreshInventoryFromServer_() {
+    if (inventoryFetchPromise_) return inventoryFetchPromise_;
+    inventoryFetchPromise_ = gasRun('api_listInventory', { keyword: '', includeHold: true }).then(function (groups) {
+      state.allInventoryItems = flattenGroupedItems_(groups);
+      state.inventoryCacheReady = true;
+      applyInventoryView_();
+      renderHomeGallery_();
+      renderMyPageHolds_();
+    }).catch(function (err) {
+      showToast(err.message, true);
+    }).then(function () {
+      inventoryFetchPromise_ = null;
+    });
+    return inventoryFetchPromise_;
+  }
+
+  function loadInventory() {
+    if (state.inventoryCacheReady) {
+      applyInventoryView_();
+      return Promise.resolve();
+    }
+    return refreshInventoryFromServer_();
   }
 
   // 可能月フィルタの選択肢は、現在の検索条件に該当する在庫の可能月から動的に作る。
@@ -1410,8 +1474,7 @@
     if (expiredRefreshTimer) return;
     expiredRefreshTimer = setTimeout(function () {
       expiredRefreshTimer = null;
-      loadInventory();
-      loadHomeModelCounts_();
+      refreshInventoryFromServer_();
     }, 15000);
   }
 
@@ -1525,7 +1588,7 @@
   });
 
   ['inventoryKeyword', 'inventoryMonthFilter', 'inventoryColorFilter', 'inventoryIncludeHold'].forEach(function (id) {
-    $(id).addEventListener('input', debounce(loadInventory, 250));
+    $(id).addEventListener('input', debounce(loadInventory, 50));
     $(id).addEventListener('change', loadInventory);
   });
 
@@ -1869,8 +1932,7 @@
       setButtonBusy(btn, false);
       closeModal($('cancelHoldModal'));
       showToast('Holdを解除しました');
-      loadInventory();
-      loadHomeModelCounts_();
+      refreshInventoryFromServer_();
     }).catch(function (err) {
       setButtonBusy(btn, false);
       errEl.textContent = err.message;
@@ -1909,11 +1971,9 @@
     setButtonBusy(btn, false);
     closeModal($('actionModal'));
     showCelebration_(state.action.type);
-    loadInventory();
-    loadHomeModelCounts_();
+    refreshInventoryFromServer_();
     if (ORDER_TYPES.indexOf(state.action.type) !== -1) {
-      loadOrders();
-      loadMyPageOrders_();
+      refreshOrdersFromServer_();
     }
   }
 
@@ -2003,17 +2063,47 @@
   });
 
   // ===== 受注リスト =====
-  function loadOrders() {
-    var filters = {
-      keyword: $('ordersKeyword').value,
-      salesLocation: $('ordersLocationFilter').value,
-      staff: $('ordersStaffFilter').value
-    };
+  /**
+   * 受注リストの検索・拠点・担当・グループ表示は全件キャッシュをクライアント側で
+   * 絞り込む。規則は SearchService.gs の searchOrders / groupByField_ と同じ。
+   */
+  function applyOrdersView_() {
+    var keyword = $('ordersKeyword').value;
+    var salesLocation = $('ordersLocationFilter').value;
+    var staff = $('ordersStaffFilter').value;
+    var items = (state.allOrders || []).filter(function (o) {
+      if (keyword && !matchesListKeyword_(o, keyword, ['model', 'commission', 'customer', 'staff', 'salesLocation'])) return false;
+      if (salesLocation && !fieldContainsInsensitive_(o.salesLocation, salesLocation)) return false;
+      if (staff && String(o.staff || '').trim() !== String(staff).trim()) return false;
+      return true;
+    });
     var groupBy = $('ordersGroupBy').value;
-    return gasRun('api_listOrders', filters, groupBy).then(function (groups) {
-      state.ordersGroups = groups || [];
-      renderOrders();
-    }).catch(function (err) { showToast(err.message, true); });
+    state.ordersGroups = groupBy ? groupByField_(items, groupBy) : [{ key: '', items: items }];
+    renderOrders();
+  }
+
+  function refreshOrdersFromServer_() {
+    if (ordersFetchPromise_) return ordersFetchPromise_;
+    ordersFetchPromise_ = gasRun('api_listOrders', {}, '').then(function (groups) {
+      state.allOrders = flattenGroupedItems_(groups);
+      state.ordersCacheReady = true;
+      populateOrdersStaffFilter_();
+      applyOrdersView_();
+      renderMyPageOrders_();
+    }).catch(function (err) {
+      showToast(err.message, true);
+    }).then(function () {
+      ordersFetchPromise_ = null;
+    });
+    return ordersFetchPromise_;
+  }
+
+  function loadOrders() {
+    if (state.ordersCacheReady) {
+      applyOrdersView_();
+      return Promise.resolve();
+    }
+    return refreshOrdersFromServer_();
   }
 
   /**
@@ -2237,7 +2327,7 @@
   }
 
   ['ordersKeyword', 'ordersGroupBy', 'ordersLocationFilter', 'ordersStaffFilter'].forEach(function (id) {
-    $(id).addEventListener('input', debounce(loadOrders, 250));
+    $(id).addEventListener('input', debounce(loadOrders, 50));
     $(id).addEventListener('change', loadOrders);
   });
 
@@ -2246,9 +2336,9 @@
   // 閲覧専用の一覧（現場からの要望で追加。受注リストとGクラス予約リストの間に
   // 配置する）。登録・編集・削除はいずれもアプリ画面からは行わず、スプレッド
   // シートへ直接入力する運用のため、カード・表のどちらにも編集導線は無い。
-  // 件数が多くなりすぎない想定のため、検索は在庫リスト・受注リストのように
-  // サーバーへ都度問い合わせず、一度読み込んだ全件（state.purchaseOrders）を
-  // クライアント側で絞り込む。マイページの「発注リスト」セクション
+  // 検索は在庫リスト・受注リスト・Gクラス予約リストと同じく、一度読み込んだ全件
+  // （state.purchaseOrders）をクライアント側で絞り込む。マイページの「発注リスト」
+  // セクション（renderMyPagePurchaseOrders_）も同じstate.purchaseOrdersを担当者名で
   // （renderMyPagePurchaseOrders_）も同じstate.purchaseOrdersを担当者名で
   // 絞り込んで再利用するため、読み込み後は両方の再描画を呼ぶ。
   // カード・表とも受注リスト（orderCardHtml/orderRowCardHtml）と同じ「顧客名を
@@ -2393,12 +2483,35 @@
   // Hold・受注確定の操作は一切ないため、在庫リストのカードからバッジ・
   // 操作ボタンを取り除いた簡易版のカードで表示する。表示順（顧客→担当者→モデル）・
   // カード/表の切り替えは受注リストと揃えている。
+  function applyGClassView_() {
+    var keyword = $('gclassKeyword').value;
+    state.gclassItems = (state.allGClassItems || []).filter(function (v) {
+      return matchesListKeyword_(v, keyword, ['model', 'commission', 'leadNumber', 'customer', 'staff']);
+    });
+    renderGClassList_();
+  }
+
+  function refreshGClassFromServer_() {
+    if (gclassFetchPromise_) return gclassFetchPromise_;
+    gclassFetchPromise_ = gasRun('api_listGClassReservations', {}).then(function (items) {
+      state.allGClassItems = items || [];
+      state.gclassCacheReady = true;
+      applyGClassView_();
+      renderMyPageGClass_();
+    }).catch(function (err) {
+      showToast(err.message, true);
+    }).then(function () {
+      gclassFetchPromise_ = null;
+    });
+    return gclassFetchPromise_;
+  }
+
   function loadGClassReservations() {
-    var filters = { keyword: $('gclassKeyword').value };
-    return gasRun('api_listGClassReservations', filters).then(function (items) {
-      state.gclassItems = items || [];
-      renderGClassList_();
-    }).catch(function (err) { showToast(err.message, true); });
+    if (state.gclassCacheReady) {
+      applyGClassView_();
+      return Promise.resolve();
+    }
+    return refreshGClassFromServer_();
   }
 
   // 受注リストのorderCardHtmlと同じ考え方で、トップに顧客名・次に担当者・
@@ -2507,7 +2620,7 @@
     syncFixedBars_();
   }
 
-  $('gclassKeyword').addEventListener('input', debounce(loadGClassReservations, 250));
+  $('gclassKeyword').addEventListener('input', debounce(loadGClassReservations, 50));
   $('gclassList').addEventListener('click', handleGClassListClick_);
 
   // ===== 設定 =====
@@ -3539,31 +3652,28 @@
   });
 
   /**
-   * ホーム画面の在庫台数表示専用に、フィルタ無しで在庫リストを取得する。
-   * 在庫リストのツールバー（検索キーワード等）の状態に関わらず、常に全件の台数を
-   * 表示するため、state.inventoryItems（ツールバーの検索条件に連動）とは別に保持する。
-   * 補助的な表示のため、取得に失敗してもトースト等では知らせず、件数表示を省略するに留める。
+   * ホーム画面の在庫台数は、在庫リストと同じ全件キャッシュ（state.allInventoryItems）
+   * を使う。未取得ならサーバーから取り、取得済みなら再描画のみ。
    */
   function loadHomeModelCounts_() {
-    return gasRun('api_listInventory', { keyword: '', includeHold: true }).then(function (groups) {
-      state.allInventoryItems = (groups || []).reduce(function (acc, g) {
-        return acc.concat(g.items || []);
-      }, []);
+    if (state.inventoryCacheReady) {
       renderHomeGallery_();
       renderMyPageHolds_();
-    }).catch(function () {});
+      return Promise.resolve();
+    }
+    return refreshInventoryFromServer_();
   }
 
   /**
-   * マイページ用に、受注リストの検索・絞り込み条件に左右されない全件を取得する
-   * （loadHomeModelCounts_が在庫についてやっているのと同じ考え方）。
+   * マイページの受注は、受注リストと同じ全件キャッシュ（state.allOrders）を使う。
    */
   function loadMyPageOrders_() {
-    return gasRun('api_listOrders', {}, '').then(function (groups) {
-      state.allOrders = (groups && groups[0] && groups[0].items) || [];
+    if (state.ordersCacheReady) {
       populateOrdersStaffFilter_();
       renderMyPageOrders_();
-    }).catch(function () {});
+      return Promise.resolve();
+    }
+    return refreshOrdersFromServer_();
   }
 
   /**
@@ -3684,14 +3794,14 @@
   }
 
   /**
-   * マイページ用に、Gクラス予約リストの検索条件に左右されない全件を取得する
-   * （loadMyPageOrders_と同じ考え方）。
+   * マイページのGクラス予約は、Gクラス予約リストと同じ全件キャッシュを使う。
    */
   function loadMyPageGClass_() {
-    return gasRun('api_listGClassReservations', {}).then(function (items) {
-      state.allGClassItems = items || [];
+    if (state.gclassCacheReady) {
       renderMyPageGClass_();
-    }).catch(function () {});
+      return Promise.resolve();
+    }
+    return refreshGClassFromServer_();
   }
 
   /**
@@ -4097,7 +4207,12 @@
       renderSettings(bootstrap.settings);
       renderTopbarUser();
       checkIntegrity_();
-      return Promise.all([loadInventory(), loadOrders(), loadPurchaseOrders(), loadGClassReservations(), loadHomeModelCounts_(), loadMyPageOrders_(), loadMyPageGClass_()]);
+      return Promise.all([
+        refreshInventoryFromServer_(),
+        refreshOrdersFromServer_(),
+        loadPurchaseOrders(),
+        refreshGClassFromServer_()
+      ]);
     });
   }
 
