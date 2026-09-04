@@ -74,6 +74,9 @@ var PAID_OPTION_MASTER_MAX = 300; // 有償OPマスタ（コード→名称）�
 var PAID_OPTION_CODE_MAX_LENGTH = 40;
 var PAID_OPTION_NAME_MAX_LENGTH = 80;
 var STAFF_LIST_MAX = 30; // 担当者マスタの最大登録人数
+// 受注リストの拠点絞り込み、Hold／受注の販売拠点入力の候補。
+// 担当者マスタの拠点名も同じ候補から選べる（自由入力も可）。
+var SALES_LOCATION_OPTIONS = ['岐阜', '大垣', '多治見', '高山', '店間移動'];
 var MODEL_PHOTOS_MAX = 40; // ホーム画面のモデル写真の最大登録数
 var NOTIFY_MAIL_LIST_MAX = 20; // メール通知先（Hold時／受注確定時／エラー通知）1項目あたりの最大登録件数
 var NOTIFY_MAIL_MAX_LENGTH = 254; // メールアドレス1件あたりの最大文字数（RFC 5321の実務上の上限に合わせる）

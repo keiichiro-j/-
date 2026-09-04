@@ -27,6 +27,7 @@ function api_getBootstrapData() {
     holdOrderInputColumns: HOLD_ORDER_INPUT_COLUMNS,
     holdTypeLabels: HOLD_TYPE_LABELS,
     staffListMax: STAFF_LIST_MAX,
+    salesLocationOptions: SALES_LOCATION_OPTIONS,
     modelPhotosMax: MODEL_PHOTOS_MAX,
     homeAnnouncementMax: HOME_ANNOUNCEMENT_MAX_LENGTH,
     notifyMailListMax: NOTIFY_MAIL_LIST_MAX,

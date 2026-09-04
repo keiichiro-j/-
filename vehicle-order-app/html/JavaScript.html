@@ -2075,6 +2075,30 @@
     if (names.indexOf(current) !== -1) select.value = current;
   }
 
+  function salesLocationOptions_() {
+    var fromBootstrap = state.bootstrap && state.bootstrap.salesLocationOptions;
+    if (fromBootstrap && fromBootstrap.length) return fromBootstrap.slice();
+    return ['岐阜', '大垣', '多治見', '高山', '店間移動'];
+  }
+
+  function populateSalesLocationOptions_() {
+    var options = salesLocationOptions_();
+    var select = $('ordersLocationFilter');
+    if (select) {
+      var current = select.value;
+      select.innerHTML = '';
+      select.appendChild(new Option('拠点：すべて', ''));
+      options.forEach(function (name) { select.appendChild(new Option(name, name)); });
+      if (options.indexOf(current) !== -1) select.value = current;
+    }
+    var datalist = $('salesLocationOptions');
+    if (datalist) {
+      datalist.innerHTML = options.map(function (name) {
+        return '<option value="' + escapeHtml(name) + '"></option>';
+      }).join('');
+    }
+  }
+
   ['ordersKeyword', 'ordersGroupBy', 'ordersLocationFilter', 'ordersStaffFilter'].forEach(function (id) {
     $(id).addEventListener('input', debounce(loadOrders, 250));
     $(id).addEventListener('change', loadOrders);
@@ -2407,6 +2431,7 @@
     $('staffListMax').textContent = (state.bootstrap && state.bootstrap.staffListMax) || 30;
     renderStaffList();
     populateOrdersStaffFilter_();
+    populateSalesLocationOptions_();
 
     state.paidOptionMaster = ((state.bootstrap && state.bootstrap.paidOptionMaster) || []).map(function (e) {
       return { code: e.code || '', name: e.name || '' };
@@ -2749,7 +2774,7 @@
           '<span class="dragHandle" draggable="true" aria-label="ドラッグして並び替え">⠿</span>' +
           '<input type="text" class="input" data-staff-index="' + i + '" data-staff-field="name" placeholder="名前" value="' + escapeHtml(entry.name || '') + '">' +
           '<input type="email" class="input" data-staff-index="' + i + '" data-staff-field="email" placeholder="メールアドレス" value="' + escapeHtml(entry.email || '') + '">' +
-          '<input type="text" class="input" data-staff-index="' + i + '" data-staff-field="location" placeholder="拠点名" value="' + escapeHtml(entry.location || '') + '">' +
+          '<input type="text" class="input" data-staff-index="' + i + '" data-staff-field="location" placeholder="拠点名" list="salesLocationOptions" value="' + escapeHtml(entry.location || '') + '">' +
           '<button class="btn btn--icon" data-remove-staff="' + i + '" type="button" aria-label="削除">&times;</button>' +
           '</div>';
       }).join('');

@@ -411,6 +411,19 @@ test('拠点・担当者の検索は組み合わせて絞り込める（両方�
   assert.strictEqual(sandbox.searchOrders(orders, { salesLocation: '東京', staff: '鈴木' }).length, 0);
   assert.strictEqual(sandbox.searchOrders(orders, { salesLocation: '東京', staff: '佐藤' }).length, 1);
 });
+test('拠点「店間移動」で絞り込める', () => {
+  const withTransfer = orders.concat([
+    { commission: 'C003', model: 'モデルC', customer: '高橋', staff: '佐藤', salesLocation: '店間移動' }
+  ]);
+  const result = sandbox.searchOrders(withTransfer, { salesLocation: '店間移動' });
+  assert.strictEqual(result.length, 1);
+  assert.strictEqual(result[0].commission, 'C003');
+});
+
+console.log('== Constants: SALES_LOCATION_OPTIONS（受注リストの拠点絞り込み） ==');
+test('岐阜・大垣・多治見・高山に加えて店間移動がある', () => {
+  assert.strictEqual(sandbox.SALES_LOCATION_OPTIONS.join(','), '岐阜,大垣,多治見,高山,店間移動');
+});
 
 console.log('== SearchService: groupByField_ ==');
 test('モデルごとにグループ化される', () => {
