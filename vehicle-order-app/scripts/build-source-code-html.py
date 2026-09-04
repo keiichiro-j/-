@@ -118,7 +118,7 @@ def main() -> None:
 <body>
 <header id="top">
   <h1>販売可能リスト ソースコード一覧</h1>
-  <p class="note">このアプリ（Google Apps Script）で使っているコードです。GitHubのログインは不要です。各ファイルの「このコードをコピー」から全文をコピーできます。GASへ貼るときは、まず html/JavaScript.html・HoldService.gs・SearchService.gs を更新し、スクリプトを保存したうえでウェブアプリを再デプロイしてください。</p>
+  <p class="note">このアプリ（Google Apps Script）で使っているコードです。GitHubのログインは不要です。各ファイルの「このコードをコピー」から全文をコピーできます。今回の変更を反映するときは、まず html/JavaScript.html と html/Stylesheet.html を貼り、スクリプトを保存したうえでウェブアプリを再デプロイしてください。</p>
 </header>
 <nav>
   <ol>
