@@ -83,6 +83,12 @@
   var inventoryFetchPromise_ = null;
   var ordersFetchPromise_ = null;
   var gclassFetchPromise_ = null;
+  // Holdの表示をなるべくリアルタイムに近づけるため、在庫だけ裏で取り直す。
+  // 検索のたびに取るのではなく、一定間隔・画面復帰・Hold操作時に取る。
+  var INVENTORY_POLL_MS_ = 15000;
+  var INVENTORY_STALE_MS_ = 3000;
+  var inventoryFetchedAt_ = 0;
+  var inventoryLiveRefreshStarted_ = false;
 
   function gasRun(fnName) {
     var args = Array.prototype.slice.call(arguments, 1);
@@ -773,6 +779,11 @@
     // 非表示（display: none）だった間はツールバーの実測高さが0になっているため、
     // 表示状態に切り替わった直後に再計測してスペーサーの高さを補正する。
     syncFixedBars_();
+    // Hold台数・Holdボタンが出る画面へ切り替えたら、古いキャッシュのまま
+    // 操作しないよう在庫を取り直す（直前に取っていればスキップ）。
+    if (tabName === 'home' || tabName === 'inventory' || tabName === 'mypage') {
+      refreshInventoryIfStale_(INVENTORY_STALE_MS_, true);
+    }
   }
 
   function resetInventoryFilters_() {
@@ -972,24 +983,76 @@
     renderInventory();
   }
 
+  function inventoryFingerprint_(items) {
+    return (items || []).map(function (v) {
+      return [
+        v.commission || '',
+        v.model || '',
+        v.holdStatus || '',
+        v.holdStaffEmail || '',
+        String(v.holdExpiresAt || ''),
+        v.secondHoldStaffEmail || '',
+        v.holdHoldType || '',
+        v.holdCustomer || ''
+      ].join('\t');
+    }).sort().join('\n');
+  }
+
   /**
-   * 在庫の全件をサーバーから取り直す（起動・更新ボタン・Hold/受注/解除のあと）。
-   * 進行中の取得があればそれを共有し、二重通信しない。
+   * 在庫の全件をサーバーから取り直す（起動・更新ボタン・Hold/受注/解除のあと、
+   * および裏での定期更新）。進行中の取得があればそれを共有し、二重通信しない。
+   * opts.silent のときは失敗トーストを出さず、内容が変わったときだけ描画し直す
+   * （検索中のスクロール位置を保つ）。
    */
-  function refreshInventoryFromServer_() {
+  function refreshInventoryFromServer_(opts) {
+    opts = opts || {};
     if (inventoryFetchPromise_) return inventoryFetchPromise_;
+    var silent = !!opts.silent;
+    var scrollY = silent ? window.scrollY : null;
+    var previousFingerprint = inventoryFingerprint_(state.allInventoryItems);
     inventoryFetchPromise_ = gasRun('api_listInventory', { keyword: '', includeHold: true }).then(function (groups) {
-      state.allInventoryItems = flattenGroupedItems_(groups);
+      var next = flattenGroupedItems_(groups);
+      var changed = inventoryFingerprint_(next) !== previousFingerprint;
+      state.allInventoryItems = next;
       state.inventoryCacheReady = true;
-      applyInventoryView_();
-      renderHomeGallery_();
-      renderMyPageHolds_();
+      inventoryFetchedAt_ = Date.now();
+      startInventoryLiveRefresh_();
+      if (!silent || changed) {
+        applyInventoryView_();
+        renderHomeGallery_();
+        renderMyPageHolds_();
+        if (silent && scrollY != null) window.scrollTo(0, scrollY);
+      }
+      syncOpenActionModalWithLatest_();
     }).catch(function (err) {
-      showToast(err.message, true);
+      if (!silent) showToast(err.message, true);
     }).then(function () {
       inventoryFetchPromise_ = null;
     });
     return inventoryFetchPromise_;
+  }
+
+  function refreshInventoryIfStale_(maxAgeMs, silent) {
+    if (inventoryFetchPromise_) return inventoryFetchPromise_;
+    if (inventoryFetchedAt_ && (Date.now() - inventoryFetchedAt_) < maxAgeMs) {
+      return Promise.resolve();
+    }
+    return refreshInventoryFromServer_({ silent: !!silent });
+  }
+
+  function startInventoryLiveRefresh_() {
+    if (inventoryLiveRefreshStarted_) return;
+    inventoryLiveRefreshStarted_ = true;
+    setInterval(function () {
+      if (document.hidden) return;
+      refreshInventoryIfStale_(INVENTORY_POLL_MS_, true);
+    }, INVENTORY_POLL_MS_);
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) refreshInventoryIfStale_(INVENTORY_STALE_MS_, true);
+    });
+    window.addEventListener('focus', function () {
+      refreshInventoryIfStale_(INVENTORY_STALE_MS_, true);
+    });
   }
 
   function loadInventory() {
@@ -1860,6 +1923,53 @@
     $('actionPaymentMethod').value = prefill.paymentMethod || '';
 
     openModal($('actionModal'));
+    // 画面のキャッシュが古くても、Hold/受注の直前に在庫を取り直してボタン状態を合わせる。
+    // 確定そのものはサーバーがシートを読み直して判定する（先に書き込めた人が優先）。
+    refreshInventoryFromServer_({ silent: true });
+  }
+
+  /**
+   * 裏で在庫を取り直したあと、開いているHold/受注モーダルの可否を最新に合わせる。
+   * 先にログインしていた人が古い「在庫あり」のまま確定できないようにする。
+   */
+  function syncOpenActionModalWithLatest_() {
+    var modal = $('actionModal');
+    if (!state.action || !modal || modal.classList.contains('hidden')) return;
+    var vehicle = findVehicleByCommission(state.action.commission);
+    var type = state.action.type;
+    var submitBtn = $('btnActionSubmit');
+    var errEl = $('actionModalError');
+    if (type === 'hold') {
+      if (vehicle && vehicle.holdStatus === 'hold') {
+        errEl.textContent = 'この車両は既にHold中です。先に確定したHoldが優先されます。';
+        errEl.classList.remove('hidden');
+        submitBtn.disabled = true;
+      }
+      return;
+    }
+    if (type === 'secondHold') {
+      if (!vehicle || vehicle.holdStatus !== 'hold') {
+        errEl.textContent = 'Hold状態が変わったため、2ND HOLDを登録できません。';
+        errEl.classList.remove('hidden');
+        submitBtn.disabled = true;
+        return;
+      }
+      if (vehicle.secondHoldCustomer || isIndefiniteHoldType_(vehicle)) {
+        errEl.textContent = vehicle.secondHoldCustomer
+          ? '2nd Holdまで登録済みのため、これ以上のHoldはできません'
+          : 'デモカーHOLD・他店HOLDには2ND HOLDを登録できません';
+        errEl.classList.remove('hidden');
+        submitBtn.disabled = true;
+      }
+      return;
+    }
+    if ((type === 'order' || type === 'orderFromHold') && vehicle && vehicle.holdStatus === 'hold' &&
+        vehicle.holdStaffEmail && !emailsMatch_(vehicle.holdStaffEmail, currentUserEmail_())) {
+      errEl.textContent = 'このHoldの担当者は「' + (vehicle.holdStaff || '-') +
+        '」です。ログイン中の担当者（' + (currentStaffName_() || '-') + '）では受注確定できません。';
+      errEl.classList.remove('hidden');
+      submitBtn.disabled = true;
+    }
   }
 
   // リード番号は「L-」固定接頭辞＋数字のみで扱う。入力欄には数字部分のみを
@@ -1982,6 +2092,7 @@
     var el = $('actionModalError');
     el.textContent = err.message;
     el.classList.remove('hidden');
+    refreshInventoryFromServer_({ silent: true });
   }
 
   $('btnActionSubmit').addEventListener('click', function () {
