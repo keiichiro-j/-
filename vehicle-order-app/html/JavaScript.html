@@ -2,6 +2,14 @@
 (function () {
   'use strict';
 
+  // 起動画面が残ったまま操作不能になるのを防ぐ（HTML差し替え途中・通信待ちでも閉じる）
+  setTimeout(function () {
+    var el = document.getElementById('appLoading');
+    if (!el) return;
+    el.classList.add('is-hidden');
+    el.style.display = 'none';
+  }, 8000);
+
   function safeLocalStorageGet_(key) {
     try { return localStorage.getItem(key); } catch (e) { return null; }
   }
@@ -87,6 +95,7 @@
 
   function showToast(message, isError) {
     var toast = $('toast');
+    if (!toast) return;
     toast.textContent = message;
     toast.className = 'toast' + (isError ? ' toast--error' : '');
     clearTimeout(showToast._t);
@@ -3938,14 +3947,19 @@
     });
   }
 
+  function hideAppLoading_() {
+    var loading = $('appLoading') || document.getElementById('appLoading');
+    if (!loading) return;
+    loading.classList.add('is-hidden');
+    loading.style.display = 'none';
+  }
+
   function init() {
-    syncNavButtons_();
-    reloadAll_().catch(function (err) { showToast(err.message, true); }).then(function () {
-      // 起動時ローディング画面は初回の読み込み完了時のみフェードアウトする
-      // （更新ボタンからの再読み込みは、ボタン自体の回転アイコンで十分なため
-      // 全画面オーバーレイは出さない）。
-      var loading = $('appLoading');
-      if (loading) loading.classList.add('is-hidden');
+    try { syncNavButtons_(); } catch (eSync) {}
+    reloadAll_().catch(function (err) {
+      try { showToast(err.message, true); } catch (eToast) {}
+    }).then(function () {
+      hideAppLoading_();
     });
   }
 
@@ -3958,6 +3972,14 @@
     navigator.serviceWorker.register('?resource=sw').catch(function () { /* 埋め込み表示等では失敗し得るため無視する */ });
   }
 
-  init();
+  try {
+    init();
+  } catch (eInit) {
+    var loadingEl = document.getElementById('appLoading');
+    if (loadingEl) {
+      loadingEl.classList.add('is-hidden');
+      loadingEl.style.display = 'none';
+    }
+  }
 })();
 </script>

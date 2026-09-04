@@ -12,11 +12,6 @@ function doGet(e) {
   if (pwaResponse) return pwaResponse;
 
   var template = HtmlService.createTemplateFromFile('html/Index');
-  // 起動画面の色・画像は Index.html 側で loadingSplashBgColor_() /
-  // loadingSplashDisplayUrl_() を直接呼ぶ（html/Index.html 参照）。
-  // ここでも同じ値を渡しておく（古いテンプレート差し替えとの両対応）。
-  try { template.loadingBgColor = loadingSplashBgColor_(); } catch (eLoadingBg) { template.loadingBgColor = '#1f3a5c'; }
-  try { template.loadingSplashUrl = loadingSplashDisplayUrl_(); } catch (eLoadingUrl) { template.loadingSplashUrl = ''; }
   return template.evaluate()
     .setTitle('販売可能リスト')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')

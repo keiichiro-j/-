@@ -712,6 +712,10 @@ test('起動画面の背景色はテーマの sidebarColor を使う', () => {
 test('ランダムテーマの起動画面背景は初期プリセットにフォールバックする', () => {
   assert.strictEqual(sandbox.resolveLoadingSplashBgColor_('random'), sandbox.resolveLoadingSplashBgColor_('steel'));
 });
+test('起動画面の色・画像URLは取得失敗時もテンプレートを落とさない', () => {
+  assert.strictEqual(sandbox.loadingSplashBgColorSafe_(), '#1f3a5c');
+  assert.strictEqual(sandbox.loadingSplashUrlSafe_(), '');
+});
 
 console.log('== SettingsService: normalizeModelPhotos_（ホーム画面のモデル写真最大40件・{model,photoUrl,grades}形式） ==');
 test('モデル名・写真URLがともに入力されている行のみ残り、モデル名重複は除去される', () => {

@@ -109,20 +109,12 @@
   <!-- 起動直後、初回データ取得（reloadAll_）が終わるまで表示するローディング画面。
        背景色はログイン中ユーザーのテーマ（sidebarColor）に合わせ、管理者が
        GoogleドライブのファイルIDを設定していればその画像を大きく表示する。
-       「読み込み中…」の文字は出さない。
-       色・画像URLはテンプレート変数 loadingBgColor に頼らず、appleTouchIconDataUri_()
-       と同じくサーバー関数をここで直接呼ぶ（Index.html だけ差し替えたときに
-       「loadingBgColor が定義されていない」で落ちないようにする）。 -->
-  <?
-    var splashBg_ = '#1f3a5c';
-    var splashUrl_ = '';
-    try { splashBg_ = loadingSplashBgColor_() || splashBg_; } catch (eLoadingBg) {}
-    try { splashUrl_ = loadingSplashDisplayUrl_() || ''; } catch (eLoadingUrl) {}
-  ?>
-  <div class="appLoading" id="appLoading" style="background: <?= splashBg_ ?>" aria-hidden="true">
-    <? if (splashUrl_) { ?>
-      <img class="appLoading__image" src="<?= splashUrl_ ?>" alt=""
-           onerror="this.style.display='none';var s=document.createElement('div');s.className='appLoading__spinner';this.parentNode.appendChild(s);">
+       「読み込み中…」の文字は出さない。色・画像は SettingsService の安全な
+       取得関数を直接呼ぶ（テンプレート変数 loadingBgColor や try/catch スクリプトレットは使わない）。 -->
+  <? var splashUrlSafe = loadingSplashUrlSafe_(); ?>
+  <div class="appLoading" id="appLoading" style="background: <?= loadingSplashBgColorSafe_() ?>" aria-hidden="true">
+    <? if (splashUrlSafe) { ?>
+      <img class="appLoading__image" src="<?= splashUrlSafe ?>" alt="">
     <? } else { ?>
       <div class="appLoading__spinner"></div>
     <? } ?>

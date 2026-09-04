@@ -227,6 +227,25 @@ function loadingSplashBgColor_() {
 }
 
 /**
+ * Index.html の起動画面用。取得に失敗してもテンプレート評価を落とさない。
+ */
+function loadingSplashBgColorSafe_() {
+  try {
+    return loadingSplashBgColor_() || '#1f3a5c';
+  } catch (err) {
+    return '#1f3a5c';
+  }
+}
+
+function loadingSplashUrlSafe_() {
+  try {
+    return loadingSplashDisplayUrl_() || '';
+  } catch (err) {
+    return '';
+  }
+}
+
+/**
  * ロゴ設定値（純粋関数）。画像URL、またはアップロード時に変換されたdata URLの
  * どちらかを想定している。Script Propertiesの1プロパティあたりの上限（9KB）を
  * 超える場合はエラーにする（大きな画像は外部にアップロードしてURLで指定してもらう）。
