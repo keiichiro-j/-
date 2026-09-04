@@ -110,6 +110,25 @@ test('1st Holdの担当者メールに大文字小文字・前後の空白の違
   const result = sandbox.canRegisterSecondHold_({ holdStatus: 'hold' }, false, ' Sato@Example.com ', 'sato@example.com');
   assert.strictEqual(result.ok, false);
 });
+test('デモカーHOLD・他店HOLDには2nd Holdを登録できない', () => {
+  const demo = sandbox.canRegisterSecondHold_(
+    { holdStatus: 'hold' }, false, 'sato@example.com', 'suzuki@example.com',
+    { holdType: 'demo', expiresAt: null, staffEmail: 'sato@example.com' }
+  );
+  assert.strictEqual(demo.ok, false);
+  const other = sandbox.canRegisterSecondHold_(
+    { holdStatus: 'hold' }, false, 'sato@example.com', 'suzuki@example.com',
+    { holdType: 'otherStore', expiresAt: null, staffEmail: 'sato@example.com' }
+  );
+  assert.strictEqual(other.ok, false);
+});
+test('期限のない通常Holdにも2nd Holdを登録できない', () => {
+  const result = sandbox.canRegisterSecondHold_(
+    { holdStatus: 'hold' }, false, 'sato@example.com', 'suzuki@example.com',
+    { holdType: 'normal', expiresAt: null, staffEmail: 'sato@example.com' }
+  );
+  assert.strictEqual(result.ok, false);
+});
 
 console.log('== HoldService: canConfirmOrder_（Hold担当者のみ受注確定可・メールアドレスで判定） ==');
 test('Holdが入っていない車両は誰でも受注確定できる', () => {
@@ -352,6 +371,9 @@ test('キーワードで顧客検索がヒットする', () => {
 test('キーワード未指定は全件返す', () => {
   assert.strictEqual(sandbox.searchGClassReservations_(gclassItems, {}).length, 2);
 });
+test('キーワードで担当者名がヒットする', () => {
+  assert.strictEqual(sandbox.searchGClassReservations_(gclassItems, { keyword: '佐藤' }).length, 1);
+});
 
 console.log('== SearchService: searchInventory / searchOrders ==');
 const vehicles = [
@@ -366,6 +388,49 @@ test('キーワードでコミッション検索がヒットする', () => {
 });
 test('キーワードで外装色もヒットする', () => {
   assert.strictEqual(sandbox.searchInventory(vehicles, { keyword: 'ホワイト' }).length, 1);
+});
+test('在庫の「C」は C20/C18/C20T に当たり CLE/CLA には当たらない', () => {
+  const mercedes = [
+    { commission: 'X1', model: 'C20', holdStatus: 'available' },
+    { commission: 'X2', model: 'C18', holdStatus: 'available' },
+    { commission: 'X3', model: 'C20T', holdStatus: 'available' },
+    { commission: 'X4', model: 'CLE53', holdStatus: 'available' },
+    { commission: 'X5', model: 'CLA18', holdStatus: 'available' },
+    { commission: 'C009', model: 'E200', holdStatus: 'available' }
+  ];
+  const models = sandbox.searchInventory(mercedes, { keyword: 'C' }).map((v) => v.model).sort();
+  assert.deepStrictEqual(models, ['C18', 'C20', 'C20T']);
+});
+test('在庫の「CLE」は CLE53 に当たり C20 には当たらない', () => {
+  const mercedes = [
+    { commission: 'X1', model: 'C20', holdStatus: 'available' },
+    { commission: 'X4', model: 'CLE53', holdStatus: 'available' }
+  ];
+  const result = sandbox.searchInventory(mercedes, { keyword: 'CLE' });
+  assert.strictEqual(result.length, 1);
+  assert.strictEqual(result[0].model, 'CLE53');
+});
+test('在庫の「C20」は C20T にも当たる', () => {
+  const mercedes = [
+    { commission: 'X1', model: 'C20', holdStatus: 'available' },
+    { commission: 'X3', model: 'C20T', holdStatus: 'available' },
+    { commission: 'X4', model: 'CLE53', holdStatus: 'available' }
+  ];
+  const models = sandbox.searchInventory(mercedes, { keyword: 'C20' }).map((v) => v.model).sort();
+  assert.deepStrictEqual(models, ['C20', 'C20T']);
+});
+test('在庫の「C」はコミッション C009 に部分一致しない', () => {
+  const items = [
+    { commission: 'C009', model: 'E200', holdStatus: 'available' },
+    { commission: 'X1', model: 'C20', holdStatus: 'available' }
+  ];
+  const result = sandbox.searchInventory(items, { keyword: 'C' });
+  assert.strictEqual(result.length, 1);
+  assert.strictEqual(result[0].model, 'C20');
+});
+test('小文字の c でも C20 に当たる', () => {
+  const items = [{ commission: 'X1', model: 'C20', holdStatus: 'available' }];
+  assert.strictEqual(sandbox.searchInventory(items, { keyword: 'c' }).length, 1);
 });
 test('includeHold=falseでHold済み車両が除外される', () => {
   const result = sandbox.searchInventory(vehicles, { includeHold: false });
@@ -406,6 +471,12 @@ test('担当者ごとの検索（完全一致）で絞り込める', () => {
   const result = sandbox.searchOrders(orders, { staff: '鈴木' });
   assert.strictEqual(result.length, 1);
   assert.strictEqual(result[0].commission, 'C002');
+});
+test('担当者フィルタは前後空白を無視する', () => {
+  const withSpace = [
+    { commission: 'C001', model: 'モデルA', customer: '山田太郎', staff: ' 佐藤 ', salesLocation: '東京本店' }
+  ];
+  assert.strictEqual(sandbox.searchOrders(withSpace, { staff: '佐藤' }).length, 1);
 });
 test('拠点・担当者の検索は組み合わせて絞り込める（両方一致する行のみ）', () => {
   assert.strictEqual(sandbox.searchOrders(orders, { salesLocation: '東京', staff: '鈴木' }).length, 0);

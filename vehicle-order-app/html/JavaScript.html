@@ -860,6 +860,47 @@
   });
 
   // ===== 在庫リスト =====
+  // モデル検索「C」は C20 / C18 / C20T に当て、CLE / CLA には当てない（先頭の車種記号を固定）。
+  // SearchService.gs の modelSeriesPrefixMatches_ / matchesListKeyword_ と同じ規則。
+  function isLatinModelCodeKeyword_(kw) {
+    return /^[A-Za-z][A-Za-z0-9]*$/.test(String(kw || '').trim());
+  }
+  function isLettersOnlyLatinKeyword_(kw) {
+    return /^[A-Za-z]+$/.test(String(kw || '').trim());
+  }
+  function modelSeriesPrefixMatches_(model, keyword) {
+    var m = String(model || '').trim().toUpperCase().replace(/\s+/g, '');
+    var kw = String(keyword || '').trim().toUpperCase().replace(/\s+/g, '');
+    if (!m || !kw) return false;
+    if (m.indexOf(kw) !== 0) return false;
+    var rest = m.slice(kw.length);
+    if (!rest) return true;
+    if (/\d/.test(kw)) return true;
+    return /^[0-9]/.test(rest);
+  }
+  function fieldContainsInsensitive_(value, needle) {
+    var n = String(needle || '').trim().toLowerCase();
+    if (!n) return true;
+    return String(value || '').toLowerCase().indexOf(n) !== -1;
+  }
+  function matchesListKeyword_(item, keyword, fields) {
+    var kw = String(keyword || '').trim();
+    if (!kw) return true;
+    fields = fields || [];
+    if (isLatinModelCodeKeyword_(kw)) {
+      if (fields.indexOf('model') !== -1 && modelSeriesPrefixMatches_(item.model, kw)) return true;
+      if (isLettersOnlyLatinKeyword_(kw)) return false;
+      return fields.some(function (f) {
+        if (f === 'model') return false;
+        return fieldContainsInsensitive_(item[f], kw);
+      });
+    }
+    return fields.some(function (f) { return fieldContainsInsensitive_(item[f], kw); });
+  }
+  function isIndefiniteHoldType_(v) {
+    return !!(v && v.holdHoldType && v.holdHoldType !== 'normal');
+  }
+
   function loadInventory() {
     var filters = {
       keyword: $('inventoryKeyword').value,
@@ -1031,7 +1072,7 @@
       html += '<button class="btn" data-hold="' + escapeHtml(v.commission) + '">Hold</button>';
       html += '<button class="btn btn--primary" data-order="' + escapeHtml(v.commission) + '">受注</button>';
     } else {
-      if (!v.secondHoldCustomer) {
+      if (!v.secondHoldCustomer && !isIndefiniteHoldType_(v)) {
         html += '<button class="btn" data-second-hold="' + escapeHtml(v.commission) + '">2ND HOLD</button>';
       } else {
         html += '<span class="card__actionSpacer" aria-hidden="true"></span>';
@@ -1132,7 +1173,7 @@
     var hasSecondHold = isHold && !!v.secondHoldCustomer;
     var actions;
     if (isHold) {
-      actions = (hasSecondHold
+      actions = (hasSecondHold || isIndefiniteHoldType_(v)
         ? '<span class="rowCard__actionSpacer" aria-hidden="true"></span>'
         : '<button class="btn btn--small" data-second-hold="' + escapeHtml(v.commission) + '">2ND HOLD</button>') +
         '<button class="btn btn--small btn--primary" data-order-from-hold="' + escapeHtml(v.commission) + '">受注</button>';
@@ -1370,6 +1411,7 @@
     expiredRefreshTimer = setTimeout(function () {
       expiredRefreshTimer = null;
       loadInventory();
+      loadHomeModelCounts_();
     }, 15000);
   }
 
@@ -1671,6 +1713,13 @@
   }
 
   function openActionModal(type, commission) {
+    if (type === 'secondHold') {
+      var holdVehicle = findVehicleByCommission(commission);
+      if (isIndefiniteHoldType_(holdVehicle)) {
+        showToast('デモカーHOLD・他店HOLDには2ND HOLDを登録できません', true);
+        return;
+      }
+    }
     var currentStaff = currentStaffName_();
     if (!currentStaff) {
       showToast('担当者マスタに登録されていないため操作できません。設定タブでご自身のメールアドレスを登録してください（' + (currentUserEmail_() || '不明') + '）', true);
@@ -1862,7 +1911,10 @@
     showCelebration_(state.action.type);
     loadInventory();
     loadHomeModelCounts_();
-    if (ORDER_TYPES.indexOf(state.action.type) !== -1) loadOrders();
+    if (ORDER_TYPES.indexOf(state.action.type) !== -1) {
+      loadOrders();
+      loadMyPageOrders_();
+    }
   }
 
   function handleActionSubmitError_(btn, err) {
@@ -2138,9 +2190,22 @@
   function populateOrdersStaffFilter_() {
     var select = $('ordersStaffFilter');
     var current = select.value;
-    var names = ((state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.staffList) || [])
-      .map(function (s) { return s.name; })
-      .filter(function (n) { return n; });
+    var seen = {};
+    var names = [];
+    function addName(name) {
+      name = String(name || '').trim();
+      if (!name || seen[name]) return;
+      seen[name] = true;
+      names.push(name);
+    }
+    ((state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.staffList) || []).forEach(function (s) {
+      addName(s && s.name);
+    });
+    (state.allOrders || []).forEach(function (o) { addName(o.staff); });
+    (state.ordersGroups || []).forEach(function (g) {
+      (g.items || []).forEach(function (o) { addName(o.staff); });
+    });
+    names.sort();
     select.innerHTML = '';
     select.appendChild(new Option('担当者：すべて', ''));
     names.forEach(function (n) { select.appendChild(new Option(n, n)); });
@@ -2197,12 +2262,7 @@
   }
 
   function purchaseOrderMatchesKeyword_(po, keyword) {
-    if (!keyword) return true;
-    var kw = keyword.trim().toLowerCase();
-    if (!kw) return true;
-    return [po.model, po.salesLocation, po.staff, po.customer, po.commission, po.leadNumber, po.mp, po.steering, po.exteriorColor, po.interiorColor].some(function (v) {
-      return String(v || '').toLowerCase().indexOf(kw) !== -1;
-    });
+    return matchesListKeyword_(po, keyword, ['model', 'salesLocation', 'staff', 'customer', 'commission', 'leadNumber', 'mp', 'steering', 'exteriorColor', 'interiorColor']);
   }
 
   /**
@@ -3077,8 +3137,8 @@
 
   // ===== ホーム画面（実務重視リスト型） =====
   // モデル写真をクリックすると、在庫リストへ切り替えたうえで、そのモデル名を
-  // キーワード検索欄に入れて再検索する（searchInventory はモデル名の部分一致に
-  // 対応済みのため、サーバー側の変更は不要）。写真は小さめのサムネイルにとどめ、
+  // キーワード検索欄に入れて再検索する（searchInventory はモデルの車種記号を
+  // 先頭固定で見る。C は C20 に当たり CLE には当たらない）。写真は小さめのサムネイルにとどめ、
   // モデル名と在庫台数を横一列で見せることで、日常的に使う社内ツールとしての
   // 情報密度を優先する（見た目の華やかさより、パッと見て台数がわかることを重視）。
   /**
@@ -3501,6 +3561,7 @@
   function loadMyPageOrders_() {
     return gasRun('api_listOrders', {}, '').then(function (groups) {
       state.allOrders = (groups && groups[0] && groups[0].items) || [];
+      populateOrdersStaffFilter_();
       renderMyPageOrders_();
     }).catch(function () {});
   }
@@ -3543,23 +3604,16 @@
     return $('myPageKeyword').value;
   }
 
-  function matchesAnyField_(values, keyword) {
-    if (!keyword) return true;
-    var kw = keyword.trim().toLowerCase();
-    if (!kw) return true;
-    return values.some(function (v) { return String(v || '').toLowerCase().indexOf(kw) !== -1; });
-  }
-
   function myPageVehicleMatchesKeyword_(v, keyword) {
-    return matchesAnyField_([v.model, v.commission, v.holdCustomer, v.secondHoldCustomer], keyword);
+    return matchesListKeyword_(v, keyword, ['model', 'commission', 'holdCustomer', 'secondHoldCustomer', 'exteriorColor', 'remarks']);
   }
 
   function myPageOrderMatchesKeyword_(o, keyword) {
-    return matchesAnyField_([o.model, o.commission, o.customer, o.leadNumber, o.salesLocation], keyword);
+    return matchesListKeyword_(o, keyword, ['model', 'commission', 'customer', 'leadNumber', 'salesLocation']);
   }
 
   function myPageGClassMatchesKeyword_(v, keyword) {
-    return matchesAnyField_([v.model, v.commission, v.customer, v.leadNumber], keyword);
+    return matchesListKeyword_(v, keyword, ['model', 'commission', 'customer', 'leadNumber', 'staff']);
   }
 
   $('myPageKeyword').addEventListener('input', debounce(renderMyPageAll_, 200));

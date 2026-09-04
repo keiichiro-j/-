@@ -7,7 +7,8 @@
  * 在庫リストの検索・絞り込み。
  * @param {Array<Object>} vehicles
  * @param {Object} filters {
- *   keyword: string,            // モデル・コミッション・外装色・備考に部分一致
+ *   keyword: string,            // モデルは先頭の車種記号で固定（C→C20/C18。CLE/CLAは含まない）。
+ *                               // コミッション・外装色・備考は部分一致（英字のみの車種記号はモデルだけ）
  *   includeHold: boolean,       // false の場合 Hold済み車両を除く
  *   exteriorColor: string,      // ボディカラー（外装）の完全一致（前後空白は無視）
  *   registrableMonth: string,   // 正規化後の可能月（YYYY-MM）。過去月は thisMonth に集約した値で比較
@@ -21,7 +22,7 @@ function searchInventory(vehicles, filters) {
   var colorFilter = String(filters.exteriorColor || '').trim();
   return vehicles.filter(function (v) {
     if (filters.includeHold === false && v.holdStatus === HOLD_STATUS.HOLD) return false;
-    if (filters.keyword && !matchesAnyField_(v, filters.keyword, ['model', 'commission', 'exteriorColor', 'remarks'])) return false;
+    if (filters.keyword && !matchesListKeyword_(v, filters.keyword, ['model', 'commission', 'exteriorColor', 'remarks'])) return false;
     if (colorFilter && String(v.exteriorColor || '').trim() !== colorFilter) return false;
     if (monthFilter) {
       var effective = effectiveRegistrableMonth_(v.registrableMonth, thisMonth);
@@ -169,7 +170,7 @@ function registrableMonthGroupTitle_(key, thisMonth) {
  * 受注リストの検索・絞り込み。
  * @param {Array<Object>} orders
  * @param {Object} filters {
- *   keyword: string,        // モデル・コミッション・顧客名・担当・販売拠点に部分一致（自由検索）
+ *   keyword: string,        // 自由検索。モデルは在庫と同じ車種記号の先頭一致
  *   salesLocation: string,  // 販売拠点に部分一致（拠点ごとの検索）
  *   staff: string           // 担当者に完全一致（担当者マスタから選択。担当者ごとの検索）
  * }
@@ -177,9 +178,9 @@ function registrableMonthGroupTitle_(key, thisMonth) {
 function searchOrders(orders, filters) {
   filters = filters || {};
   return orders.filter(function (o) {
-    if (filters.keyword && !matchesAnyField_(o, filters.keyword, ['model', 'commission', 'customer', 'staff', 'salesLocation'])) return false;
+    if (filters.keyword && !matchesListKeyword_(o, filters.keyword, ['model', 'commission', 'customer', 'staff', 'salesLocation'])) return false;
     if (filters.salesLocation && !fieldContains_(o.salesLocation, filters.salesLocation)) return false;
-    if (filters.staff && o.staff !== filters.staff) return false;
+    if (filters.staff && String(o.staff || '').trim() !== String(filters.staff).trim()) return false;
     return true;
   });
 }
@@ -201,26 +202,84 @@ function normalizeOrdersRegisteredMonth_(orders) {
 /**
  * Gクラス予約リストの検索・絞り込み（閲覧専用リストのため、キーワード検索のみ）。
  * @param {Array<Object>} items
- * @param {Object} filters { keyword: string } // モデル・コミッション・リード番号・顧客に部分一致
+ * @param {Object} filters { keyword: string } // モデルは車種記号の先頭一致。コミッション・リード番号・顧客・担当者は部分一致
  */
 function searchGClassReservations_(items, filters) {
   filters = filters || {};
   return items.filter(function (v) {
-    if (filters.keyword && !matchesAnyField_(v, filters.keyword, ['model', 'commission', 'leadNumber', 'customer'])) return false;
+    if (filters.keyword && !matchesListKeyword_(v, filters.keyword, ['model', 'commission', 'leadNumber', 'customer', 'staff'])) return false;
     return true;
   });
 }
 
-function matchesAnyField_(item, keyword, fields) {
-  var kw = String(keyword).trim();
+/**
+ * 在庫のモデル名から先頭の英字車種記号を切り出す（C20T→C、CLE53→CLE、G400d→G）。
+ * 数字の前までが系列。日本語モデル名は空文字。
+ */
+function modelSeriesLetters_(model) {
+  var m = String(model || '').trim().toUpperCase().replace(/\s+/g, '');
+  var match = m.match(/^([A-Z]+)/);
+  return match ? match[1] : '';
+}
+
+/**
+ * 「C」は C20 / C18 / C20T に当て、CLE / CLA には当てない。
+ * キーワードが数字を含む（C20）ときは C20・C20T・C200 など接頭辞一致。
+ */
+function modelSeriesPrefixMatches_(model, keyword) {
+  var m = String(model || '').trim().toUpperCase().replace(/\s+/g, '');
+  var kw = String(keyword || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (!m || !kw) return false;
+  if (m.indexOf(kw) !== 0) return false;
+  var rest = m.slice(kw.length);
+  if (!rest) return true;
+  if (/\d/.test(kw)) return true;
+  return /^[0-9]/.test(rest);
+}
+
+function isLatinModelCodeKeyword_(keyword) {
+  return /^[A-Za-z][A-Za-z0-9]*$/.test(String(keyword || '').trim());
+}
+
+function isLettersOnlyLatinKeyword_(keyword) {
+  return /^[A-Za-z]+$/.test(String(keyword || '').trim());
+}
+
+function fieldContainsInsensitive_(value, needle) {
+  var n = String(needle || '').trim().toLowerCase();
+  if (!n) return true;
+  return String(value || '').toLowerCase().indexOf(n) !== -1;
+}
+
+/**
+ * リストのキーワード一致。英字の車種記号（C / CLE / C20）はモデルの先頭系列で固定し、
+ * 「C」が CLE やコミッション C001 に部分一致しないようにする。
+ * それ以外（色・備考・日本語モデル名）は大文字小文字を無視した部分一致。
+ */
+function matchesListKeyword_(item, keyword, fields) {
+  var kw = String(keyword || '').trim();
   if (!kw) return true;
-  return fields.some(function (f) { return item[f] && String(item[f]).indexOf(kw) !== -1; });
+  fields = fields || [];
+  var hasModel = fields.indexOf('model') !== -1;
+  if (isLatinModelCodeKeyword_(kw)) {
+    if (hasModel && modelSeriesPrefixMatches_(item.model, kw)) return true;
+    if (isLettersOnlyLatinKeyword_(kw)) return false;
+    return fields.some(function (f) {
+      if (f === 'model') return false;
+      return fieldContainsInsensitive_(item[f], kw);
+    });
+  }
+  return fields.some(function (f) { return fieldContainsInsensitive_(item[f], kw); });
+}
+
+function matchesAnyField_(item, keyword, fields) {
+  return matchesListKeyword_(item, keyword, fields);
 }
 
 function fieldContains_(value, needle) {
   var n = String(needle).trim();
   if (!n) return true;
-  return !!value && String(value).indexOf(n) !== -1;
+  return fieldContainsInsensitive_(value, n);
 }
 
 /**

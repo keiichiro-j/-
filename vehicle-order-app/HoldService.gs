@@ -100,12 +100,19 @@ function emailsMatch_(a, b) {
  * また、1st Holdと同じ担当者は2nd Holdを登録できない（同一担当者による二重確保の防止）。
  * 同一人物かどうかはメールアドレスで判定する（表示名の変更・表記ゆれに影響されないため）。
  */
-function canRegisterSecondHold_(vehicle, hasSecondHold, firstHoldEmail, newEmail) {
+function canRegisterSecondHold_(vehicle, hasSecondHold, firstHoldEmail, newEmail, firstHold) {
   if (!vehicle) return { ok: false, reason: '該当車両が見つかりません' };
   if (vehicle.holdStatus !== HOLD_STATUS.HOLD) return { ok: false, reason: 'Hold中の車両ではありません' };
   if (hasSecondHold) return { ok: false, reason: '2nd Holdまで登録済みのため、これ以上のHoldはできません' };
   if (emailsMatch_(firstHoldEmail, newEmail)) {
     return { ok: false, reason: '1st Holdと同じ担当者は2nd Holdを登録できません' };
+  }
+  var firstType = firstHold && firstHold.holdType;
+  if (firstType && firstType !== HOLD_TYPE.NORMAL) {
+    return { ok: false, reason: 'デモカーHOLD・他店HOLDには2nd Holdを登録できません' };
+  }
+  if (firstHold && (firstHold.expiresAt == null || firstHold.expiresAt === '')) {
+    return { ok: false, reason: '期限のないHoldには2nd Holdを登録できません' };
   }
   return { ok: true, reason: '' };
 }
@@ -309,8 +316,12 @@ function registerSecondHold(commission, info) {
     );
     var holds = getHoldsForCommission_(commission);
     if (!holds.first) throw new Error('Hold情報が見つかりません（コミッション: ' + commission + '）');
-    var check = canRegisterSecondHold_(vehicle, !!holds.second, holds.first.staffEmail, currentStaff.email);
+    var check = canRegisterSecondHold_(vehicle, !!holds.second, holds.first.staffEmail, currentStaff.email, holds.first);
     if (!check.ok) throw new Error(check.reason);
+
+    if (holds.first.expiresAt == null || holds.first.expiresAt === '') {
+      throw new Error('期限のないHoldには2nd Holdを登録できません');
+    }
 
     // 1st Holdの72時間が終了した時点を起点に、2nd Hold自身の72時間を与える
     var createdAt = holds.first.expiresAt;
