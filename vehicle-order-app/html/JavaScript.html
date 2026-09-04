@@ -2046,7 +2046,7 @@
   function orderRowCardHtml(o) {
     return '<div class="rowCard rowCard--order" data-commission="' + escapeHtml(o.commission) + '">' +
       '<div class="rowCard__inner">' +
-      '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(o.customer || '-') + '</span>' +
+      '<div class="rowCard__field rowCard__id"><span class="rowCard__model">' + escapeHtml(o.customer || '-') + '</span>' +
       '<span class="rowCard__commission">' + escapeHtml(o.commission) + '</span></div>' +
       rowField_('モデル', o.model) +
       rowField_('リード番号', o.leadNumber) +
@@ -2248,7 +2248,7 @@
   function purchaseOrderRowCardHtml_(po) {
     return '<div class="rowCard rowCard--purchaseOrder" data-purchase-order-id="' + escapeHtml(po.id) + '">' +
       '<div class="rowCard__inner">' +
-      '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(po.customer || '-') + '</span>' +
+      '<div class="rowCard__field rowCard__id"><span class="rowCard__model">' + escapeHtml(po.customer || '-') + '</span>' +
       '<span class="rowCard__commission">' + escapeHtml(po.commission || '-') + '</span></div>' +
       rowField_('モデル', po.model) +
       rowField_('MP', po.mp) +
@@ -2372,7 +2372,7 @@
     if (hasInspectionCutRemark_(v.remarks)) rowTone += ' rowCard--inspectionCut';
     return '<div class="' + rowTone + '" data-commission="' + escapeHtml(v.commission) + '">' +
       '<div class="rowCard__inner">' +
-      '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(v.customer || '-') + '</span>' +
+      '<div class="rowCard__field rowCard__id"><span class="rowCard__model">' + escapeHtml(v.customer || '-') + '</span>' +
       '<span class="rowCard__commission">' + escapeHtml(v.commission) + '</span></div>' +
       rowField_('モデル', v.model) +
       rowField_('MP', v.mp) +

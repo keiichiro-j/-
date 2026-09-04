@@ -682,6 +682,14 @@
      自体は個別にクリックできるよう、cursor はタップ可能であることを示すのみに留める
      （cursor: pointer自体は上の.rowCard本体の宣言に含めている）。 */
   .rowCard__field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .rowCard.rowCard--order > .rowCard__inner > .rowCard__id,
+  .rowCard--gclass > .rowCard__inner > .rowCard__id,
+  .rowCard--purchaseOrder > .rowCard__inner > .rowCard__id {
+    flex: 0 0 auto;
+    min-width: 0;
+    max-width: 12em;
+    width: max-content;
+  }
   .rowCard__inner > .rowCard__field--steer {
     flex: 0 0 auto;
     min-width: 3.5em;
@@ -762,8 +770,8 @@
   .rowCard.rowCard--order > .rowCard__inner > * {
     overflow: hidden;
   }
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(1) { flex: 0 1 auto; min-width: 4.5em; max-width: 9em; } /* 顧客＋コミッション（余白を吸わない） */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(2) { flex: 0 1 auto; min-width: 4.5em; max-width: 9em; } /* モデル */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(1) { flex: 0 0 auto; min-width: 0; max-width: 12em; width: max-content; } /* 顧客＋コミッション */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(2) { flex: 0 0 auto; min-width: 0; max-width: 10em; width: max-content; } /* モデル */
   .rowCard.rowCard--order > .rowCard__inner > *:nth-child(3) { flex: 1 1 88px; min-width: 64px; } /* リード番号 */
   .rowCard.rowCard--order > .rowCard__inner > *:nth-child(4) { flex: 0 1 auto; min-width: 4.5ch; } /* MP */
   .rowCard.rowCard--order > .rowCard__inner > *:nth-child(5) { flex: 0 0 auto; min-width: 3.5em; } /* ステア R/L（ラベル1行） */
@@ -783,8 +791,8 @@
     overflow: hidden;
   }
   .rowCard--gclass > .rowCard__inner > * { overflow: hidden; min-width: 0; }
-  .rowCard--gclass > .rowCard__inner > *:nth-child(1) { flex: 0 1 auto; min-width: 4.5em; max-width: 9em; } /* 顧客＋コミッション */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(2) { flex: 0 1 auto; min-width: 4.5em; max-width: 9em; } /* モデル */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(1) { flex: 0 0 auto; min-width: 0; max-width: 12em; width: max-content; } /* 顧客＋コミッション */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(2) { flex: 0 0 auto; min-width: 0; max-width: 10em; width: max-content; } /* モデル */
   .rowCard--gclass > .rowCard__inner > *:nth-child(3) { flex: 0 1 auto; min-width: 4.5ch; } /* MP */
   .rowCard--gclass > .rowCard__inner > *:nth-child(4) { flex: 0 0 auto; min-width: 3.5em; } /* ステア */
   .rowCard--gclass > .rowCard__inner > *:nth-child(5) { flex: 1 1 100px; } /* カラー */
@@ -802,8 +810,8 @@
     overflow: hidden;
   }
   .rowCard--purchaseOrder > .rowCard__inner > * { overflow: hidden; min-width: 0; }
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(1) { flex: 0 1 auto; min-width: 4.5em; max-width: 9em; } /* 顧客＋コミッション */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(2) { flex: 0 1 auto; min-width: 4.5em; max-width: 9em; } /* モデル */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(1) { flex: 0 0 auto; min-width: 0; max-width: 12em; width: max-content; } /* 顧客＋コミッション */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(2) { flex: 0 0 auto; min-width: 0; max-width: 10em; width: max-content; } /* モデル */
   .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(3) { flex: 0 1 auto; min-width: 4.5ch; } /* MP */
   .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(4) { flex: 0 0 auto; min-width: 3.5em; } /* ステア */
   .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(5) { flex: 1 1 100px; } /* カラー */
