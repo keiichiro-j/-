@@ -2498,15 +2498,11 @@
   }
 
   /**
-   * MP・ステア・カラー（外装／内装）・有償OPは、在庫リストのvehicleQuickMetaHtml_ /
-   * vehicleSpecFieldsHtml_と同じ.card__metaGridを流用して表示する
-   * （スプレッドシートへ直接入力する任意項目のため、未入力なら'-'表示）。
+   * MP・ステア・カラー・有償OP・コミッション・リード番号は、在庫リストの
+   * vehicleQuickMetaHtml_ / vehicleSpecFieldsHtml_と同じ.card__metaGridで表示する
+   * （ラベル上・値下。未入力なら'-'）。登録日時も同じ形式。
    */
   function purchaseOrderCardHtml_(po) {
-    var subParts = [];
-    if (po.commission) subParts.push('コミッション: ' + escapeHtml(po.commission));
-    if (po.leadNumber) subParts.push('リード番号: ' + escapeHtml(po.leadNumber));
-    if (po.createdAt) subParts.push('登録日時: ' + formatDateTime(po.createdAt));
     return '<div class="purchaseOrderCard">' +
       '<div class="purchaseOrderCard__top">' +
       '<div><div class="purchaseOrderCard__customer">' + escapeHtml(po.customer || '-') + '</div>' +
@@ -2522,7 +2518,11 @@
       '<dl class="card__metaGrid">' +
       '<div><dt>有償OP</dt><dd>' + paidOptionsHtml_(po) + '</dd></div>' +
       '</dl>' +
-      (subParts.length ? '<div class="purchaseOrderCard__sub">' + subParts.join('　') + '</div>' : '') +
+      '<dl class="card__metaGrid">' +
+      metaRow_('コミッション', po.commission) +
+      metaRow_('リード番号', po.leadNumber) +
+      (po.createdAt ? metaRow_('登録日時', formatDateTime(po.createdAt)) : '') +
+      '</dl>' +
       '</div>';
   }
 

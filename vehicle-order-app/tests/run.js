@@ -1397,6 +1397,15 @@ test('受注・発注・Gクラスの表はPCで列を均等に伸ばす', () =>
   assert.ok(/\.rowCard--gclass > \.rowCard__inner > \* \{[^}]*flex:\s*1 1 0/.test(css));
   assert.ok(!/\.rowCard--gclass > \.rowCard__inner > \*:nth-child\(1\) \{[^}]*width:\s*max-content/.test(css));
 });
+test('発注カードのコミッションとリード番号はMP・ステアと同じメタ行', () => {
+  const js = fs.readFileSync(path.join(ROOT, 'html/JavaScript.html'), 'utf8');
+  const start = js.indexOf('function purchaseOrderCardHtml_');
+  assert.ok(start >= 0);
+  const body = js.slice(start, js.indexOf('\n  function ', start + 10));
+  assert.ok(/metaRow_\('コミッション'/.test(body));
+  assert.ok(/metaRow_\('リード番号'/.test(body));
+  assert.ok(!/purchaseOrderCard__sub/.test(body), '灰色の1行まとめ表示は使わない');
+});
 test('起動画面の画像はフェードインし、閉じるときはゆっくり消える', () => {
   const css = fs.readFileSync(path.join(ROOT, 'html/Stylesheet.html'), 'utf8');
   const js = fs.readFileSync(path.join(ROOT, 'html/JavaScript.html'), 'utf8');
