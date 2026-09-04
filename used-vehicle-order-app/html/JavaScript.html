@@ -2075,7 +2075,7 @@
     populateOrdersLocationFilter_();
 
     state.modelPhotos = (settings.modelPhotos || []).map(function (p) {
-      return { model: p.model || '', photoUrl: p.photoUrl || '', gradePrefix: p.gradePrefix || '', gradeMarker: p.gradeMarker || '' };
+      return { model: p.model || '', photoUrl: p.photoUrl || '', gradePrefix: p.gradePrefix || '', gradeMarker: p.gradeMarker || '', bodyType: p.bodyType || '' };
     });
     $('modelPhotosMax').textContent = (state.bootstrap && state.bootstrap.modelPhotosMax) || 40;
     renderModelPhotoList_();
@@ -2517,14 +2517,22 @@
     if (!state.modelPhotos.length) {
       container.innerHTML = '<div class="modelPhotoList__empty">モデル写真が登録されていません</div>';
     } else {
+      var bodyTypeOptions = (state.bootstrap && state.bootstrap.modelBodyTypeOptions) || [];
       container.innerHTML = state.modelPhotos.map(function (entry, i) {
         var preview = entry.photoUrl
           ? '<img src="' + escapeHtml(normalizeModelPhotoUrl_(entry.photoUrl)) + '" alt="">'
           : '<span class="logoPreview__placeholder">写真</span>';
+        var bodyTypeSelectHtml = '<select class="input" data-photo-index="' + i + '" data-photo-field="bodyType">' +
+          '<option value="">型：未設定</option>' +
+          bodyTypeOptions.map(function (t) {
+            return '<option value="' + escapeHtml(t) + '"' + (entry.bodyType === t ? ' selected' : '') + '>' + escapeHtml(t) + '</option>';
+          }).join('') +
+          '</select>';
         return '<div class="modelPhotoList__row" data-drag-index="' + i + '">' +
           '<span class="dragHandle" draggable="true" aria-label="ドラッグして並び替え">⠿</span>' +
           '<div class="modelPhotoList__preview">' + preview + '</div>' +
           '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="model" placeholder="表示名（例: Cクラス）" value="' + escapeHtml(entry.model || '') + '">' +
+          bodyTypeSelectHtml +
           '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="gradePrefix" placeholder="先頭の文字列（例: C）" value="' + escapeHtml(entry.gradePrefix || '') + '">' +
           '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="gradeMarker" placeholder="含む文字列（例: T）" value="' + escapeHtml(entry.gradeMarker || '') + '">' +
           '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="photoUrl" placeholder="写真URL" value="' + escapeHtml(entry.photoUrl || '') + '">' +
@@ -2563,7 +2571,7 @@
   on('btnAddModelPhoto','click', function () {
     var max = (state.bootstrap && state.bootstrap.modelPhotosMax) || 40;
     if (state.modelPhotos.length >= max) return;
-    state.modelPhotos.push({ model: '', photoUrl: '', gradePrefix: '', gradeMarker: '' });
+    state.modelPhotos.push({ model: '', photoUrl: '', gradePrefix: '', gradeMarker: '', bodyType: '' });
     renderModelPhotoList_();
     var inputs = document.querySelectorAll('#modelPhotoList [data-photo-field="model"]');
     if (inputs.length) inputs[inputs.length - 1].focus();
@@ -3081,7 +3089,8 @@
           // gradePrefixが空欄の場合、gradeMarkerを入力していても意味を持たないため
           // 空文字にそろえる（サーバー側normalizeModelPhotos_と同じ規則）。
           gradePrefix: gradePrefix,
-          gradeMarker: gradePrefix ? String((p && p.gradeMarker) || '').trim() : ''
+          gradeMarker: gradePrefix ? String((p && p.gradeMarker) || '').trim() : '',
+          bodyType: String((p && p.bodyType) || '').trim()
         };
       })
       .filter(function (p) { return p.model && p.photoUrl; });

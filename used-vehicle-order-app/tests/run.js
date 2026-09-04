@@ -620,7 +620,7 @@ test('gradePrefix・gradeMarkerも保存される（型番の自動判定条件�
   const list = sandbox.normalizeModelPhotos_([
     { model: 'Cクラス', photoUrl: 'https://example.com/c.jpg', gradePrefix: 'C', gradeMarker: '43' }
   ]);
-  assert.deepStrictEqual(Object.keys(list[0]).sort(), ['gradeMarker', 'gradePrefix', 'model', 'photoUrl']);
+  assert.deepStrictEqual(Object.keys(list[0]).sort(), ['bodyType', 'gradeMarker', 'gradePrefix', 'model', 'photoUrl']);
   assert.strictEqual(list[0].gradePrefix, 'C');
   assert.strictEqual(list[0].gradeMarker, '43');
 });
@@ -634,6 +634,24 @@ test('gradePrefixが未入力の場合、gradeMarkerが入力されていても�
 test('gradePrefix・gradeMarkerが長すぎる場合はエラーになる', () => {
   const list = [{ model: 'Cクラス', photoUrl: 'https://example.com/c.jpg', gradePrefix: 'x'.repeat(31) }];
   assert.throws(() => sandbox.normalizeModelPhotos_(list), /長すぎます/);
+});
+test('bodyTypeは選択肢のいずれかであれば保存される', () => {
+  const list = sandbox.normalizeModelPhotos_([
+    { model: 'Cクラス', photoUrl: 'https://example.com/c.jpg', bodyType: 'Sedan' }
+  ]);
+  assert.strictEqual(list[0].bodyType, 'Sedan');
+});
+test('bodyTypeが選択肢にない値の場合は空文字にそろえられる（改ざん・不正値対策）', () => {
+  const list = sandbox.normalizeModelPhotos_([
+    { model: 'Cクラス', photoUrl: 'https://example.com/c.jpg', bodyType: '存在しない型' }
+  ]);
+  assert.strictEqual(list[0].bodyType, '');
+});
+test('bodyTypeが未入力の場合は空文字になる', () => {
+  const list = sandbox.normalizeModelPhotos_([
+    { model: 'Cクラス', photoUrl: 'https://example.com/c.jpg' }
+  ]);
+  assert.strictEqual(list[0].bodyType, '');
 });
 
 console.log('== SettingsService: resolveStaffNameByEmail_（ログインメールから担当者名を解決） ==');

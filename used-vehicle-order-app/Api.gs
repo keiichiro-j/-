@@ -24,6 +24,7 @@ function api_getBootstrapData() {
     staffListMax: STAFF_LIST_MAX,
     modelPhotosMax: MODEL_PHOTOS_MAX,
     modelPhotoGradeRuleMaxLength: MODEL_PHOTO_GRADE_RULE_MAX_LENGTH,
+    modelBodyTypeOptions: MODEL_BODY_TYPE_OPTIONS,
     homeAnnouncementMax: HOME_ANNOUNCEMENT_MAX_LENGTH,
     loadingImageUrlMax: LOADING_IMAGE_URL_MAX_LENGTH,
     notifyMailListMax: NOTIFY_MAIL_LIST_MAX,

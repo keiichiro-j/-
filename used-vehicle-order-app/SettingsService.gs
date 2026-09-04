@@ -312,6 +312,8 @@ function normalizeMailList_(list) {
  * 直接照合する従来どおりの挙動にフォールバックする（1台ずつ個別に登録したい場合は、
  * gradePrefix・gradeMarkerを空欄のまま、modelに在庫リストのMODEL列の値そのものを
  * 入力すればよい）。
+ * bodyTypeは在庫の自動判定には使わず、ホーム画面での表示グループ分け専用の
+ * 任意項目（MODEL_BODY_TYPE_OPTIONSのいずれか、または未設定の空文字）。
  */
 function getModelPhotos_() {
   var raw = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.MODEL_PHOTOS);
@@ -333,7 +335,8 @@ function getModelPhotos_() {
       // ホスティングサービスのURLの場合はそのまま返る）。
       photoUrl: normalizeModelPhotoUrl_((entry && entry.photoUrl) || ''),
       gradePrefix: (entry && entry.gradePrefix) || '',
-      gradeMarker: (entry && entry.gradeMarker) || ''
+      gradeMarker: (entry && entry.gradeMarker) || '',
+      bodyType: (entry && entry.bodyType) || ''
     };
   });
 }
@@ -440,7 +443,8 @@ function normalizeModelPhotos_(list) {
         );
       }
     });
-    result.push({ model: model, photoUrl: photoUrl, gradePrefix: gradePrefix, gradeMarker: gradeMarker });
+    var bodyType = MODEL_BODY_TYPE_OPTIONS.indexOf((entry && entry.bodyType) || '') !== -1 ? entry.bodyType : '';
+    result.push({ model: model, photoUrl: photoUrl, gradePrefix: gradePrefix, gradeMarker: gradeMarker, bodyType: bodyType });
   });
   if (result.length > MODEL_PHOTOS_MAX) {
     throw new Error('モデル写真は最大' + MODEL_PHOTOS_MAX + '件までです（現在' + result.length + '件）');
