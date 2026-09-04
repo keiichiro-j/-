@@ -705,6 +705,37 @@ test('空文字は未設定として空を返す', () => {
 test('ファイルIDとして解釈できない値はエラー', () => {
   assert.throws(() => sandbox.normalizeLoadingSplashDriveId_('https://example.com/image.png'), /Googleドライブ/);
 });
+test('共有リンクに改行や空白が混ざってもファイルIDを取り出す', () => {
+  const pasted = 'https://drive.google.com/file/d/1AbC-xyz_1234567890abcd/view?usp=sharing'.replace('xyz', 'xyz\n');
+  assert.strictEqual(
+    sandbox.normalizeLoadingSplashDriveId_(pasted),
+    '1AbC-xyz_1234567890abcd'
+  );
+});
+test('全角英数字のファイルIDは半角に揃えて保存する', () => {
+  assert.strictEqual(
+    sandbox.normalizeLoadingSplashDriveId_('１ＡｂＣ-ｘｙｚ_１２３４５６７８９０ａｂｃｄ'),
+    '1AbC-xyz_1234567890abcd'
+  );
+});
+test('drive_link 形式の共有リンクからもファイルIDを取り出す', () => {
+  assert.strictEqual(
+    sandbox.extractDriveFileId_('https://drive.google.com/file/d/1AbC-xyz_1234567890abcd/view?usp=drive_link'),
+    '1AbC-xyz_1234567890abcd'
+  );
+});
+test('前後の引用符や「ファイルID:」があっても取り出す', () => {
+  assert.strictEqual(
+    sandbox.extractDriveFileId_('ファイルID：1AbC-xyz_1234567890abcd'),
+    '1AbC-xyz_1234567890abcd'
+  );
+});
+test('フォルダのリンクは起動画面画像として保存できない', () => {
+  assert.throws(
+    () => sandbox.normalizeLoadingSplashDriveId_('https://drive.google.com/drive/folders/1AbC-xyz_1234567890abcd'),
+    /フォルダ/
+  );
+});
 test('起動画面の背景色はテーマの sidebarColor を使う', () => {
   assert.strictEqual(sandbox.resolveLoadingSplashBgColor_('steel'), '#1f3a5c');
   assert.strictEqual(sandbox.resolveLoadingSplashBgColor_('wine'), '#4a1c22');

@@ -102,6 +102,13 @@
     showToast._t = setTimeout(function () { toast.classList.add('hidden'); }, 3200);
   }
 
+  function sanitizeDriveInputClient_(value) {
+    value = String(value == null ? '' : value);
+    value = value.replace(/[\u200B-\u200D\uFEFF\u00AD]/g, '');
+    try { if (value.normalize) value = value.normalize('NFKC'); } catch (eNorm) {}
+    return value.replace(/[\s\u00A0\u3000]+/g, '').replace(/^["'「『]+|["'」』]+$/g, '');
+  }
+
   // ===== Hold登録・2nd Hold登録・受注確定 完了時の演出 =====
   // いずれも固定の案内メッセージ（バナー、5秒間表示）と、文言にふさわしい
   // 専用のド派手な演出をセットで表示する（現場からの要望）。絵文字は機種依存
@@ -3767,7 +3774,7 @@
     var settings = {
       themeKey: state.themeKey || DEFAULT_THEME_KEY,
       logoUrl: $('settingsLogoUrl').value.trim(),
-      loadingSplashDriveId: ($('settingsLoadingSplashDriveId') && $('settingsLoadingSplashDriveId').value.trim()) || '',
+      loadingSplashDriveId: sanitizeDriveInputClient_(($('settingsLoadingSplashDriveId') && $('settingsLoadingSplashDriveId').value) || ''),
       homeAnnouncement: homeAnnouncement,
       notifyHoldMailTo: cleanedMailLists.notifyHoldMailTo,
       notifyOrderMailTo: cleanedMailLists.notifyOrderMailTo,

@@ -151,18 +151,41 @@ function setCurrentUserThemeKey_(themeKey) {
 }
 
 /**
+ * ドライブID／共有リンクの貼り付けゆれを整える（純粋関数）。
+ * LINEやスマホから貼ると、改行・ゼロ幅文字・全角英数字・前後の引用符が混ざることがある。
+ */
+function sanitizeDriveInput_(value) {
+  value = String(value == null ? '' : value);
+  value = value.replace(/[\u200B-\u200D\uFEFF\u00AD]/g, '');
+  try {
+    if (value.normalize) value = value.normalize('NFKC');
+  } catch (err) {}
+  value = value.replace(/[\s\u00A0\u3000]+/g, '');
+  value = value.replace(/^["'「『]+|["'」』]+$/g, '');
+  try {
+    value = decodeURIComponent(value);
+  } catch (err2) {}
+  return value;
+}
+
+/**
  * GoogleドライブのファイルID、または共有リンク／画像配信URLからファイルIDだけを
  * 抜き出す（純粋関数）。起動画面の画像設定とモデル写真URLの変換で共用する。
- * Bare ID（英数字・ハイフン・アンダースコア 20〜128文字）はそのまま返す。
+ * Bare ID（英数字・ハイフン・アンダースコア 16〜128文字）はそのまま返す。
  */
 function extractDriveFileId_(value) {
-  value = String(value || '').trim();
+  value = sanitizeDriveInput_(value);
   if (!value) return '';
-  if (/^[a-zA-Z0-9_-]{20,128}$/.test(value)) return value;
-  var match = value.match(/\/file\/d\/([a-zA-Z0-9_-]{20,128})/)
-    || value.match(/[?&]id=([a-zA-Z0-9_-]{20,128})/)
-    || value.match(/lh3\.googleusercontent\.com\/d\/([a-zA-Z0-9_-]{20,128})/);
-  return match ? match[1] : '';
+  var match = value.match(/\/file\/d\/([a-zA-Z0-9_-]{16,128})/)
+    || value.match(/\/uc\/d\/([a-zA-Z0-9_-]{16,128})/)
+    || value.match(/[?&]id=([a-zA-Z0-9_-]{16,128})/)
+    || value.match(/lh3\.googleusercontent\.com\/d\/([a-zA-Z0-9_-]{16,128})/)
+    || value.match(/drive\.usercontent\.google\.com\/[^?]*[?&]id=([a-zA-Z0-9_-]{16,128})/);
+  if (match) return match[1];
+  if (/\/folders\//i.test(value)) return '';
+  if (/^[a-zA-Z0-9_-]{16,128}$/.test(value)) return value;
+  var fallback = value.match(/[a-zA-Z0-9_-]{16,128}/);
+  return fallback ? fallback[0] : '';
 }
 
 /**
@@ -170,17 +193,24 @@ function extractDriveFileId_(value) {
  * Googleドライブの共有リンクを受け取り、保存するのはファイルIDのみ。
  */
 function normalizeLoadingSplashDriveId_(value) {
-  value = String(value || '').trim();
-  if (!value) return '';
-  if (value.length > LOADING_SPLASH_DRIVE_ID_MAX_LENGTH) {
+  var raw = String(value || '').trim();
+  if (!raw) return '';
+  if (raw.length > LOADING_SPLASH_DRIVE_ID_MAX_LENGTH) {
     throw new Error(
-      '起動画面の画像の指定が長すぎます（' + value.length + '文字）。' +
+      '起動画面の画像の指定が長すぎます（' + raw.length + '文字）。' +
       'GoogleドライブのファイルIDまたは共有リンクを指定してください。'
     );
   }
-  var id = extractDriveFileId_(value);
+  var cleaned = sanitizeDriveInput_(raw);
+  if (/\/folders\//i.test(cleaned) && !/\/file\/d\//i.test(cleaned)) {
+    throw new Error('フォルダのリンクではなく、画像ファイルそのものの共有リンク（またはファイルID）を指定してください。');
+  }
+  var id = extractDriveFileId_(raw);
   if (!id) {
-    throw new Error('起動画面の画像は、GoogleドライブのファイルIDまたは共有リンクを指定してください。');
+    throw new Error(
+      '起動画面の画像は、GoogleドライブのファイルIDまたは共有リンクを指定してください。' +
+      'ファイルを開いた画面の「共有」→「リンクをコピー」を、そのまま貼り付けて構いません。'
+    );
   }
   return id;
 }
