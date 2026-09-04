@@ -112,9 +112,11 @@
        「読み込み中…」の文字は出さない。色・画像は SettingsService の安全な
        取得関数を直接呼ぶ（テンプレート変数 loadingBgColor や try/catch スクリプトレットは使わない）。 -->
   <? var splashUrlSafe = loadingSplashUrlSafe_(); ?>
+  <? var splashFallbackSafe = loadingSplashFallbackUrlSafe_(); ?>
+  <? var splashUcSafe = loadingSplashUcUrlSafe_(); ?>
   <div class="appLoading" id="appLoading" style="background: <?= loadingSplashBgColorSafe_() ?>" aria-hidden="true">
     <? if (splashUrlSafe) { ?>
-      <img class="appLoading__image" src="<?= splashUrlSafe ?>" alt="">
+      <img class="appLoading__image" src="<?= splashUrlSafe ?>" data-fb1="<?= splashFallbackSafe ?>" data-fb2="<?= splashUcSafe ?>" alt="" onerror="var i=this;i._n=(i._n||0)+1;var n=i.getAttribute('data-fb'+i._n);if(n){i.src=n;return;}i.style.display='none';var p=i.parentNode;if(p&&!p.querySelector('.appLoading__spinner')){var s=document.createElement('div');s.className='appLoading__spinner';p.appendChild(s);}">
     <? } else { ?>
       <div class="appLoading__spinner"></div>
     <? } ?>
@@ -497,7 +499,7 @@
             <div class="formField">
               <label>起動画面の画像（GoogleドライブのファイルID）</label>
               <input type="text" id="settingsLoadingSplashDriveId" class="input" placeholder="例: 1AbC...xyz または共有リンク">
-              <p class="formField__hint">アプリ起動時の読み込み画面に大きく表示する画像です。Googleドライブにアップロードした<strong>画像ファイル</strong>のファイルID、またはそのファイルの共有リンクをそのまま貼ってください（改行・全角が混ざっても構いません）。フォルダのリンクでは保存できません。未設定の場合は読み込みアニメーションのみ表示します。背景色は表示設定のテーマ色に合わせます。</p>
+              <p class="formField__hint">アプリ起動時の読み込み画面に大きく表示する画像です。Googleドライブの<strong>画像ファイル</strong>を「共有」→「リンクを知っている全員」にしたうえで、その共有リンク（またはファイルID）を貼ってください。https で始まる画像URLでも保存できます。フォルダのリンクでは画像は出ません。未設定の場合は読み込みアニメーションのみ表示します。背景色は表示設定のテーマ色に合わせます。</p>
             </div>
             <div class="modal__error hidden" id="settingsLogoError"></div>
           </details>
@@ -582,11 +584,11 @@
               <select id="celebrationVariantOrder" class="input"></select>
             </div>
           </details>
-        </div>
 
-        <div class="settingsActions">
-          <div id="settingsError" class="modal__error"></div>
-          <button class="btn btn--primary btn--block" id="btnSaveSettings">保存</button>
+          <div class="settingsActions">
+            <div id="settingsError" class="modal__error"></div>
+            <button class="btn btn--primary btn--block" id="btnSaveSettings">保存</button>
+          </div>
         </div>
       </div>
     </main>

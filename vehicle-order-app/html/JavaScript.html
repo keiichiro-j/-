@@ -990,7 +990,7 @@
   function vehicleSpecFieldsHtml_(v) {
     var remarks = String(v.remarks || '').trim();
     return '<dl class="card__metaGrid">' +
-      metaRow_('ステア', v.steering) +
+      metaRow_('ステア', formatSteering_(v.steering)) +
       '<div><dt>有償OP</dt><dd>' + paidOptionsHtml_(v) + '</dd></div>' +
       metaRow_('入港予定日', v.arrivalExpectedDate) +
       metaRow_('可能月', formatRegistrableMonthDisplay_(v)) +
@@ -1093,6 +1093,15 @@
       '<span class="rowCard__value">' + escapeHtml(value || '-') + '</span></div>';
   }
 
+  function formatSteering_(value) {
+    var raw = String(value == null ? '' : value).trim();
+    if (!raw) return '';
+    var upper = raw.toUpperCase();
+    if (raw === '右' || upper === 'R' || upper === 'RIGHT') return 'R';
+    if (raw === '左' || upper === 'L' || upper === 'LEFT') return 'L';
+    return raw;
+  }
+
   function vehicleRowCardHtml(v) {
     var isHold = v.holdStatus === 'hold';
     var hasSecondHold = isHold && !!v.secondHoldCustomer;
@@ -1134,7 +1143,7 @@
       '<span class="rowCard__commission">' + escapeHtml(v.commission) + '</span>' +
       '</div>' +
       rowField_('MP', v.mp, 'rowCard__field--mp') +
-      rowField_('ステア', v.steering) +
+      rowField_('ステア', formatSteering_(v.steering)) +
       rowField_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
       '<div class="rowCard__field rowCard__field--center"><span class="rowCard__label">有償OP</span>' +
       '<span class="rowCard__value">' + paidOptionsHtml_(v) + '</span></div>' +
@@ -2005,12 +2014,10 @@
     openModal($('orderDetailModal'));
   }
 
-  // 受注リストの表示形式「表」: 在庫と同じ「行カード」パターンで、成約済みの案件を
-  // 一覧で見比べやすくする。操作ボタンは受注リストには不要なため専用の
-  // 項目構成にする。行に並べる項目は「顧客・コミッション・モデル・リード番号・
-  // MP・VPC・担当者・登録月・販売拠点」だけに絞り込み（現場からの指摘）、それ以外
-  // （下取車・OSS・保険・支払方法・有償OP・受注確定日時）は行タップで開く詳細
-  // モーダル（openOrderDetailModal_・orderDetailGridHtml_）でのみ確認する。
+  // 受注リストの表示形式「表」: PCでは行幅いっぱいまで優先度の高い項目を並べ、
+  // 入りきらない項目は隠して行タップの詳細モーダルで確認する（折り返して
+  // 2行になると縦余白が出るため nowrap）。項目順は顧客・モデル・リード番号・
+  // MP・ステア・カラー・有償OP・担当者・登録月・VPC・販売拠点。
   function orderRowCardHtml(o) {
     return '<div class="rowCard rowCard--order" data-commission="' + escapeHtml(o.commission) + '">' +
       '<div class="rowCard__inner">' +
@@ -2018,13 +2025,52 @@
       '<span class="rowCard__commission">' + escapeHtml(o.commission) + '</span></div>' +
       rowField_('モデル', o.model) +
       rowField_('リード番号', o.leadNumber) +
-      rowField_('MP', o.mp) +
-      rowField_('VPC', o.vpc) +
+      rowField_('MP', o.mp, 'rowCard__field--mp') +
+      rowField_('ステア', formatSteering_(o.steering)) +
+      rowField_('カラー', (o.exteriorColor || '-') + ' / ' + (o.interiorColor || '-'), 'rowCard__fit--mid') +
+      '<div class="rowCard__field rowCard__field--center rowCard__fit--mid"><span class="rowCard__label">有償OP</span>' +
+      '<span class="rowCard__value">' + paidOptionsHtml_(o) + '</span></div>' +
       rowField_('担当者', o.staff) +
-      rowField_('登録月', o.registeredMonth) +
+      rowField_('登録月', o.registeredMonth, 'rowCard__fit--low') +
+      rowField_('VPC', o.vpc, 'rowCard__fit--low') +
       '<div class="rowCard__status"><span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span></div>' +
       '</div>' +
       '</div>';
+  }
+
+  /**
+   * 受注リスト「表」の行で、カード幅に入りきらない低優先項目を隠す。
+   * 優先度の低い順（登録月・VPC → カラー・有償OP）に外し、残った項目は
+   * flex-grow で行幅いっぱいまで伸ばす。タブレット幅以下は横スライドのため触らない。
+   */
+  function fitOrderRowCards_(root) {
+    var scope = root || document;
+    var rows = scope.querySelectorAll ? scope.querySelectorAll('.rowCard--order') : [];
+    var isNarrow = window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
+    Array.prototype.forEach.call(rows, function (row) {
+      var inner = row.querySelector('.rowCard__inner');
+      if (!inner) return;
+      var hidable = inner.querySelectorAll('.rowCard__fit--low, .rowCard__fit--mid');
+      Array.prototype.forEach.call(hidable, function (el) {
+        el.classList.remove('is-overflow-hidden');
+      });
+      if (isNarrow) return;
+      function overflowing() {
+        return inner.scrollWidth > inner.clientWidth + 2;
+      }
+      Array.prototype.forEach.call(inner.querySelectorAll('.rowCard__fit--low'), function (el) {
+        if (overflowing()) el.classList.add('is-overflow-hidden');
+      });
+      Array.prototype.forEach.call(inner.querySelectorAll('.rowCard__fit--mid'), function (el) {
+        if (overflowing()) el.classList.add('is-overflow-hidden');
+      });
+    });
+  }
+
+  function scheduleFitOrderRowCards_() {
+    var run = function () { fitOrderRowCards_(); };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
+    else setTimeout(run, 0);
   }
 
   function orderRowsHtml(items) {
@@ -2049,6 +2095,7 @@
       return '<div class="group">' + heading + body + '</div>';
     }).join('');
     syncFixedBars_();
+    if (state.ordersViewMode === 'table') scheduleFitOrderRowCards_();
   }
 
   $('ordersGroups').addEventListener('click', function (e) {
@@ -2152,7 +2199,7 @@
       '</div>' +
       '<dl class="card__metaGrid card__metaGrid--quick">' +
       metaRow_('MP', po.mp) +
-      metaRow_('ステア', po.steering) +
+      metaRow_('ステア', formatSteering_(po.steering)) +
       metaRow_('カラー', (po.exteriorColor || '-') + ' / ' + (po.interiorColor || '-')) +
       '</dl>' +
       '<dl class="card__metaGrid">' +
@@ -2185,7 +2232,7 @@
       '<span class="rowCard__commission">' + escapeHtml(po.commission || '-') + '</span></div>' +
       rowField_('モデル', po.model) +
       rowField_('MP', po.mp) +
-      rowField_('ステア', po.steering) +
+      rowField_('ステア', formatSteering_(po.steering)) +
       rowField_('カラー', (po.exteriorColor || '-') + ' / ' + (po.interiorColor || '-')) +
       '<div class="rowCard__field rowCard__field--center"><span class="rowCard__label">有償OP</span>' +
       '<span class="rowCard__value">' + paidOptionsHtml_(po) + '</span></div>' +
@@ -2313,7 +2360,7 @@
       '<span class="rowCard__commission">' + escapeHtml(v.commission) + '</span></div>' +
       rowField_('モデル', v.model) +
       rowField_('MP', v.mp) +
-      rowField_('ステア', v.steering) +
+      rowField_('ステア', formatSteering_(v.steering)) +
       rowField_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
       '<div class="rowCard__field rowCard__field--center"><span class="rowCard__label">有償OP</span>' +
       '<span class="rowCard__value">' + paidOptionsHtml_(v) + '</span></div>' +
@@ -3540,6 +3587,7 @@
     $('myPageOrderEmpty').classList.toggle('hidden', items.length > 0);
     $('myPageOrderList').innerHTML = !items.length ? '' :
       (state.myPageViewMode === 'table' ? orderRowsHtml(items) : '<div class="orderList">' + items.map(orderCardHtml).join('') + '</div>');
+    if (state.myPageViewMode === 'table') scheduleFitOrderRowCards_();
   }
 
   /**
@@ -3904,7 +3952,10 @@
       if (toolbar && spacer) spacer.style.height = (toolbar.offsetHeight + pair[2]) + 'px';
     });
   }
-  window.addEventListener('resize', debounce(syncFixedBars_, 100));
+  window.addEventListener('resize', debounce(function () {
+    syncFixedBars_();
+    fitOrderRowCards_();
+  }, 100));
 
   // ===== モーダルをソフトウェアキーボードの上に収める =====
   // 不具合修正: スマホでHold登録・受注確定モーダルの入力欄をタップすると、

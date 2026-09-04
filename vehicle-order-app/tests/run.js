@@ -425,6 +425,24 @@ test('岐阜・大垣・多治見・高山に加えて店間移動がある', ()
   assert.strictEqual(sandbox.SALES_LOCATION_OPTIONS.join(','), '岐阜,大垣,多治見,高山,店間移動');
 });
 
+console.log('== Constants: formatSteering_（ステアは R / L 表示） ==');
+test('右・R・RIGHT は R、左・L・LEFT は L に揃える', () => {
+  assert.strictEqual(sandbox.formatSteering_('右'), 'R');
+  assert.strictEqual(sandbox.formatSteering_('R'), 'R');
+  assert.strictEqual(sandbox.formatSteering_('right'), 'R');
+  assert.strictEqual(sandbox.formatSteering_('左'), 'L');
+  assert.strictEqual(sandbox.formatSteering_('L'), 'L');
+  assert.strictEqual(sandbox.formatSteering_('LEFT'), 'L');
+});
+test('空は空文字、不明な値はそのまま返す', () => {
+  assert.strictEqual(sandbox.formatSteering_(''), '');
+  assert.strictEqual(sandbox.formatSteering_(null), '');
+  assert.strictEqual(sandbox.formatSteering_('両方'), '両方');
+});
+test('選択肢は R と L', () => {
+  assert.strictEqual(sandbox.STEERING_OPTIONS.join(','), 'R,L');
+});
+
 console.log('== SearchService: groupByField_ ==');
 test('モデルごとにグループ化される', () => {
   const groups = sandbox.groupByField_(vehicles, 'model');
@@ -707,16 +725,19 @@ test('open?id= 形式からも抽出する', () => {
     '1AbC-xyz_1234567890abcd'
   );
 });
-test('表示用URLは大きい幅で lh3 に変換する', () => {
+test('表示用URLは大きい幅の thumbnail に変換する', () => {
   const url = sandbox.loadingSplashImageUrlFromDriveId_('1AbC-xyz_1234567890abcd');
-  assert.strictEqual(url, 'https://lh3.googleusercontent.com/d/1AbC-xyz_1234567890abcd=w1600');
+  assert.strictEqual(url, 'https://drive.google.com/thumbnail?id=1AbC-xyz_1234567890abcd&sz=w1600');
 });
 test('空文字は未設定として空を返す', () => {
   assert.strictEqual(sandbox.normalizeLoadingSplashDriveId_(''), '');
   assert.strictEqual(sandbox.loadingSplashImageUrlFromDriveId_(''), '');
 });
-test('ファイルIDとして解釈できない値はエラー', () => {
-  assert.throws(() => sandbox.normalizeLoadingSplashDriveId_('https://example.com/image.png'), /Googleドライブ/);
+test('https の画像URLはそのまま保存できる', () => {
+  assert.strictEqual(
+    sandbox.normalizeLoadingSplashDriveId_('https://example.com/image.png'),
+    'https://example.com/image.png'
+  );
 });
 test('共有リンクに改行や空白が混ざってもファイルIDを取り出す', () => {
   const pasted = 'https://drive.google.com/file/d/1AbC-xyz_1234567890abcd/view?usp=sharing'.replace('xyz', 'xyz\n');
@@ -743,10 +764,21 @@ test('前後の引用符や「ファイルID:」があっても取り出す', ()
     '1AbC-xyz_1234567890abcd'
   );
 });
-test('フォルダのリンクは起動画面画像として保存できない', () => {
-  assert.throws(
-    () => sandbox.normalizeLoadingSplashDriveId_('https://drive.google.com/drive/folders/1AbC-xyz_1234567890abcd'),
-    /フォルダ/
+test('フォルダのリンクは起動画面画像として保存せず空にする', () => {
+  assert.strictEqual(
+    sandbox.normalizeLoadingSplashDriveId_('https://drive.google.com/drive/folders/1AbC-xyz_1234567890abcd'),
+    ''
+  );
+});
+test('表示用の予備URLは lh3 と uc の両方を返す', () => {
+  const id = '1AbC-xyz_1234567890abcd';
+  assert.strictEqual(
+    sandbox.loadingSplashFallbackUrlFromDriveId_(id),
+    'https://lh3.googleusercontent.com/d/1AbC-xyz_1234567890abcd=w1600'
+  );
+  assert.strictEqual(
+    sandbox.loadingSplashUcUrlFromDriveId_(id),
+    'https://drive.google.com/uc?export=view&id=1AbC-xyz_1234567890abcd'
   );
 });
 test('起動画面の背景色はテーマの sidebarColor を使う', () => {

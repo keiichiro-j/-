@@ -134,14 +134,19 @@ function getSettings() {
  * 権限チェック・システムマスタ項目のガードを済ませたデータを渡すこと。
  */
 function saveRawSettings_(settings) {
-  var logoUrl = validateLogoUrl_(settings && settings.logoUrl);
   var props = PropertiesService.getScriptProperties();
+  // 起動画面画像は他項目の検証エラーに巻き込まれないよう、先に単独で保存する。
+  // normalize は例外を投げない。setProperty だけ失敗しても他の設定は続ける。
+  try {
+    var splashValue = normalizeLoadingSplashDriveId_(settings && settings.loadingSplashDriveId);
+    setScriptProp_(props, 'LOADING_SPLASH_DRIVE_ID', splashValue == null ? '' : String(splashValue));
+  } catch (splashErr) {}
+  var logoUrl = validateLogoUrl_(settings && settings.logoUrl);
   // テーマのみ、ログイン中のGoogleアカウントごとに独立して保存する
   // （setCurrentUserThemeKey_参照）。それ以外は全利用者共通のシステムマスタの
   // ため、従来どおりScript Propertiesに保存する。
   setCurrentUserThemeKey_(settings && settings.themeKey);
   setScriptProp_(props, 'LOGO_URL', logoUrl);
-  setScriptProp_(props, 'LOADING_SPLASH_DRIVE_ID', normalizeLoadingSplashDriveId_(settings && settings.loadingSplashDriveId));
   setScriptProp_(props, 'NOTIFY_HOLD_MAIL_TO', JSON.stringify(normalizeMailList_(settings.notifyHoldMailTo)));
   setScriptProp_(props, 'NOTIFY_ORDER_MAIL_TO', JSON.stringify(normalizeMailList_(settings.notifyOrderMailTo)));
   setScriptProp_(props, 'NOTIFY_ERROR_MAIL_TO', JSON.stringify(normalizeMailList_(settings.notifyErrorMailTo)));
@@ -262,24 +267,19 @@ function extractDriveFileId_(value) {
 function normalizeLoadingSplashDriveId_(value) {
   var raw = String(value || '').trim();
   if (!raw) return '';
-  if (raw.length > LOADING_SPLASH_DRIVE_ID_MAX_LENGTH) {
-    throw new Error(
-      '起動画面の画像の指定が長すぎます（' + raw.length + '文字）。' +
-      'GoogleドライブのファイルIDまたは共有リンクを指定してください。'
-    );
-  }
   var cleaned = sanitizeDriveInput_(raw);
-  if (/\/folders\//i.test(cleaned) && !/\/file\/d\//i.test(cleaned)) {
-    throw new Error('フォルダのリンクではなく、画像ファイルそのものの共有リンク（またはファイルID）を指定してください。');
+  if (!cleaned) return '';
+  if (/\/folders\//i.test(cleaned) && !/\/file\/d\//i.test(cleaned) && !/[?&]id=/.test(cleaned)) {
+    return '';
   }
   var id = extractDriveFileId_(raw);
-  if (!id) {
-    throw new Error(
-      '起動画面の画像は、GoogleドライブのファイルIDまたは共有リンクを指定してください。' +
-      'ファイルを開いた画面の「共有」→「リンクをコピー」を、そのまま貼り付けて構いません。'
-    );
+  if (id) return id;
+  var url = String(value || '').trim();
+  if (/^https:\/\//i.test(url) && url.length <= LOADING_SPLASH_DRIVE_ID_MAX_LENGTH) {
+    return url;
   }
-  return id;
+  if (/^[a-zA-Z0-9_-]{10,128}$/.test(cleaned)) return cleaned;
+  return '';
 }
 
 /**
@@ -287,6 +287,17 @@ function normalizeLoadingSplashDriveId_(value) {
  * 直接画像URLへ変換する（純粋関数）。未設定なら空文字。
  */
 function loadingSplashImageUrlFromDriveId_(value) {
+  var raw = String(value || '').trim();
+  if (!raw) return '';
+  var id = extractDriveFileId_(raw);
+  if (id) {
+    return 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(id) + '&sz=w' + LOADING_SPLASH_DISPLAY_WIDTH;
+  }
+  if (/^https:\/\//i.test(raw)) return raw;
+  return '';
+}
+
+function loadingSplashFallbackUrlFromDriveId_(value) {
   var id = extractDriveFileId_(value);
   if (!id) return '';
   return 'https://lh3.googleusercontent.com/d/' + id + '=w' + LOADING_SPLASH_DISPLAY_WIDTH;
@@ -337,6 +348,30 @@ function loadingSplashBgColorSafe_() {
 function loadingSplashUrlSafe_() {
   try {
     return loadingSplashDisplayUrl_() || '';
+  } catch (err) {
+    return '';
+  }
+}
+
+function loadingSplashFallbackUrlSafe_() {
+  try {
+    var raw = getScriptProp_(PropertiesService.getScriptProperties(), 'LOADING_SPLASH_DRIVE_ID');
+    return loadingSplashFallbackUrlFromDriveId_(raw) || '';
+  } catch (err) {
+    return '';
+  }
+}
+
+function loadingSplashUcUrlFromDriveId_(value) {
+  var id = extractDriveFileId_(value);
+  if (!id) return '';
+  return 'https://drive.google.com/uc?export=view&id=' + encodeURIComponent(id);
+}
+
+function loadingSplashUcUrlSafe_() {
+  try {
+    var raw = getScriptProp_(PropertiesService.getScriptProperties(), 'LOADING_SPLASH_DRIVE_ID');
+    return loadingSplashUcUrlFromDriveId_(raw) || '';
   } catch (err) {
     return '';
   }

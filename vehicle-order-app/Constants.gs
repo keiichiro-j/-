@@ -57,7 +57,19 @@ var HOLD_TYPE_LABELS = {
 };
 
 // ===== 選択肢 =====
-var STEERING_OPTIONS = ['右', '左'];
+var STEERING_OPTIONS = ['R', 'L'];
+/**
+ * ステアの表示用（純粋関数）。スプレッドシートに残っている「右」「左」も
+ * アプリ上は「R」「L」に揃える。空なら空文字。
+ */
+function formatSteering_(value) {
+  var raw = String(value == null ? '' : value).trim();
+  if (!raw) return '';
+  var upper = raw.toUpperCase();
+  if (raw === '右' || upper === 'R' || upper === 'RIGHT') return 'R';
+  if (raw === '左' || upper === 'L' || upper === 'LEFT') return 'L';
+  return raw;
+}
 var STOCK_DISCLOSURE_OPTIONS = ['開示', '非開示'];
 var YES_NO_OPTIONS = ['あり', 'なし'];
 var OSS_OPTIONS = ['可', '不可'];
@@ -94,7 +106,7 @@ var VEHICLE_COLUMNS = [
   { key: 'mp', label: 'MP', type: 'text', note: 'モデルイヤー（例: 2026）。空欄可。アプリのカードに常時表示されます。' },
   {
     key: 'steering', label: 'ステア', type: 'select', options: STEERING_OPTIONS,
-    note: '「右」または「左」を選択してください。空欄可。車両詳細に表示されます。'
+    note: '「R」または「L」を選択してください（旧「右」「左」もアプリでは R／L と表示します）。空欄可。車両詳細に表示されます。'
   },
   {
     key: 'exteriorColor', label: '外装', type: 'text',
@@ -304,7 +316,7 @@ var PURCHASE_ORDER_COLUMNS = [
   { key: 'mp', label: 'MP', type: 'text', note: 'モデルイヤー（例: 2026）。空欄可。アプリの発注カードに表示されます。' },
   {
     key: 'steering', label: 'ステア', type: 'select', options: STEERING_OPTIONS,
-    note: '「右」または「左」を選択してください。空欄可。MPとカラーの間に表示されます。'
+    note: '「R」または「L」を選択してください（旧「右」「左」もアプリでは R／L と表示します）。空欄可。MPとカラーの間に表示されます。'
   },
   { key: 'exteriorColor', label: '外装', type: 'text', note: 'ボディカラー。空欄可。' },
   { key: 'interiorColor', label: '内装', type: 'text', note: '内装色。空欄可。' }

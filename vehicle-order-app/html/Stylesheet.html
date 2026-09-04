@@ -582,7 +582,7 @@
   .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(1) { flex: 1 1 110px; min-width: 0; } /* ステータス */
   .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(2) { flex: 1 1 88px; min-width: 0; } /* モデル＋コミッション */
   .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(3) { flex: 0 0 auto; min-width: 4.5ch; } /* MP（モデルイヤーを省略せず常に全表示） */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(4) { flex: 1 1 40px; min-width: 0; } /* ステア */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(4) { flex: 1 1 32px; min-width: 0; } /* ステア */
   .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(5) { flex: 1 1 110px; min-width: 0; } /* カラー */
   .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(6) { flex: 1 1 110px; min-width: 0; } /* 有償OP */
   .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(7) { flex: 1 1 140px; min-width: 0; } /* 1ST HOLD */
@@ -718,26 +718,33 @@
     height: 32px;
   }
 
-  /* 受注リストの表示形式「表」: 在庫と項目構成が異なる（操作ボタンが無く、
-     顧客・担当者・リード番号などを表示する）ため、専用の項目幅にする。顧客名の列も
-     以前210pxにしていたが、実際のコンテンツ（顧客名・コミッション）は最大でも
-     60px程度しか使っておらず、左詰めの文字の右側に無駄な余白が生まれ、顧客名→モデルの
-     間だけ他の列間より大きく間延びして見えていたため（現場からの指摘で判明）、
-     110pxまで縮めている。行に並べる項目は「顧客・コミッション・モデル・リード番号・
-     MP・VPC・担当者・登録月・販売拠点」だけに絞り込み（現場からの指摘）、それ以外
-     （下取車・OSS・保険・支払方法・有償OP・受注確定日時）は行タップで開く詳細モーダル
-     （orderDetailGridHtml_）でのみ確認する。在庫リストと同じくdisplay: flex;
-     flex-wrapで並べ、画面幅に収まりきらない項目は横スクロールではなく次の行へ
-     折り返す（orderRowCardHtmlのDOM出力順に対応するpositionalな:nth-child()指定）。 */
-  .rowCard.rowCard--order { border-left-color: var(--primary); }
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(1) { flex: 0 0 110px; } /* 顧客＋コミッション */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(2) { flex: 0 0 120px; } /* モデル */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(3) { flex: 0 0 110px; } /* リード番号 */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(4) { flex: 0 0 68px; } /* MP */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(5) { flex: 0 0 88px; } /* VPC */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(6) { flex: 0 0 90px; } /* 担当者 */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(7) { flex: 0 0 80px; } /* 登録月 */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(8) { flex: 0 0 130px; } /* 販売拠点 */
+  /* 受注リストの表示形式「表」: PCでは行幅いっぱいまで項目を伸ばし（余白を空けない）、
+     入りきらない低優先項目は JS（fitOrderRowCards_）が隠して行タップの詳細で確認する。
+     min-width を残すことで「縮めて押し込む」のではなく「見切れる前に項目ごと隠す」。 */
+  .rowCard.rowCard--order {
+    overflow: hidden;
+    border-left-color: var(--primary);
+  }
+  .rowCard.rowCard--order > .rowCard__inner {
+    flex-wrap: nowrap;
+    overflow: hidden;
+    min-height: 52px;
+  }
+  .rowCard.rowCard--order > .rowCard__inner > * {
+    overflow: hidden;
+  }
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(1) { flex: 1 1 100px; min-width: 80px; } /* 顧客＋コミッション */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(2) { flex: 1 1 90px; min-width: 64px; } /* モデル */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(3) { flex: 1 1 88px; min-width: 64px; } /* リード番号 */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(4) { flex: 0 1 auto; min-width: 4.5ch; } /* MP */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(5) { flex: 0 0 28px; min-width: 24px; } /* ステア R/L */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(6) { flex: 1 1 110px; min-width: 72px; } /* カラー */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(7) { flex: 1 1 110px; min-width: 72px; } /* 有償OP */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(8) { flex: 1 1 72px; min-width: 56px; } /* 担当者 */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(9) { flex: 1 1 72px; min-width: 56px; } /* 登録月 */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(10) { flex: 1 1 64px; min-width: 48px; } /* VPC */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(11) { flex: 1 1 80px; min-width: 64px; } /* 販売拠点 */
+  .rowCard.rowCard--order .is-overflow-hidden { display: none !important; }
 
   /* Gクラス予約リストの表示形式「表」: 在庫リストの行（vehicleRowCardHtml、
      ステータス・モデル・MP・ステア・カラー・有償OPの7項目）と同じ考え方で、
@@ -749,13 +756,18 @@
      多すぎて画面幅によっては折り返して2〜3行になり、在庫リストの行より縦に
      間延びして見えていたため絞り込んだ（現場からの指摘）。それ以外の項目は
      行タップで開く詳細モーダル（openGClassDetailModal_）でのみ確認する。 */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(1) { flex: 0 0 110px; } /* 顧客＋コミッション */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(2) { flex: 0 0 120px; } /* モデル */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(3) { flex: 0 0 68px; } /* MP */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(4) { flex: 0 0 46px; } /* ステア */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(5) { flex: 0 0 150px; } /* カラー */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(6) { flex: 0 0 170px; } /* 有償OP */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(7) { flex: 0 0 130px; } /* 開示状況 */
+  .rowCard--gclass > .rowCard__inner {
+    flex-wrap: nowrap;
+    overflow: hidden;
+  }
+  .rowCard--gclass > .rowCard__inner > * { overflow: hidden; min-width: 0; }
+  .rowCard--gclass > .rowCard__inner > *:nth-child(1) { flex: 1 1 110px; } /* 顧客＋コミッション */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(2) { flex: 1 1 100px; } /* モデル */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(3) { flex: 0 1 auto; min-width: 4.5ch; } /* MP */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(4) { flex: 0 1 32px; } /* ステア */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(5) { flex: 1 1 120px; } /* カラー */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(6) { flex: 1 1 120px; } /* 有償OP */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(7) { flex: 1 1 80px; } /* 開示状況 */
 
   /* 発注リストの表示形式「表」（発注リストタブ本体・マイページの「発注リスト」
      セクションの両方で使う。purchaseOrderRowCardHtml_のDOM出力順に対応する
@@ -768,13 +780,18 @@
      有償OP・拠点の7項目に絞り込んだ（現場からの指摘）。それ以外の項目は行タップで
      開く詳細モーダル（openPurchaseOrderDetailModal_）でのみ確認する。 */
   .rowCard.rowCard--purchaseOrder { border-left-color: var(--primary); }
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(1) { flex: 0 0 110px; } /* 顧客＋コミッション */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(2) { flex: 0 0 120px; } /* モデル */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(3) { flex: 0 0 68px; } /* MP */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(4) { flex: 0 0 46px; } /* ステア */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(5) { flex: 0 0 150px; } /* カラー */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(6) { flex: 0 0 170px; } /* 有償OP */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(7) { flex: 0 0 130px; } /* 拠点 */
+  .rowCard--purchaseOrder > .rowCard__inner {
+    flex-wrap: nowrap;
+    overflow: hidden;
+  }
+  .rowCard--purchaseOrder > .rowCard__inner > * { overflow: hidden; min-width: 0; }
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(1) { flex: 1 1 110px; } /* 顧客＋コミッション */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(2) { flex: 1 1 100px; } /* モデル */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(3) { flex: 0 1 auto; min-width: 4.5ch; } /* MP */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(4) { flex: 0 1 32px; } /* ステア */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(5) { flex: 1 1 120px; } /* カラー */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(6) { flex: 1 1 120px; } /* 有償OP */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(7) { flex: 1 1 80px; } /* 拠点 */
   .btn--small { padding: 6px 12px; font-size: 12.5px; }
 
   /* ===== カードグリッド（PCビューで3列。HOLDのバー・時間・担当者を収める） ===== */
@@ -1339,7 +1356,7 @@
     padding: 12px 20px 12px;
   }
   .settingsCard--fold[open] {
-    padding: 14px 20px 20px;
+    padding: 14px 20px 28px;
   }
   /* details に display:flex が付くと、閉じても summary 以外が表示され続ける
      ブラウザがあるため、未展開時は明示的に隠す。 */
@@ -1387,6 +1404,8 @@
     box-shadow: var(--shadow);
     border: 1px solid var(--outline);
     padding: 20px 28px;
+    /* settingsGrid の gap（20px）と同じ間隔。グリッド内の他カード同士と揃える。 */
+    margin-top: 0;
   }
   .formField { display: flex; flex-direction: column; gap: 6px; }
   .formField label { font-size: 13px; font-weight: 500; color: var(--on-surface-variant); }
