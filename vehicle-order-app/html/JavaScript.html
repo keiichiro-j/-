@@ -72,7 +72,8 @@
     purchaseOrdersViewMode: safeLocalStorageGet_('purchaseOrdersViewMode') || 'card', // 'card' | 'table'（発注リストの表示形式）
     myPageViewMode: safeLocalStorageGet_('myPageViewMode') || 'card', // 'card' | 'table'（マイページ全体の表示形式）
     paidOptionMaster: [], // 有償OPマスタ（{code, name}）。設定タブ編集用＋名称ポップアップ用
-    inventoryMonthFilterReady: false // 可能月プルダウンの初回構築前は「当月登録可能」を初期値にする
+    inventoryMonthFilterReady: false, // 可能月プルダウンの初回構築前は「当月登録可能」を初期値にする
+    openInventoryDetailCommission: null // 開いている在庫詳細モーダルのコミッション（裏更新で中身を合わせる）
   };
 
   // ===== google.script.run を Promise 化するヘルパー =====
@@ -1024,6 +1025,7 @@
         if (silent && scrollY != null) window.scrollTo(0, scrollY);
       }
       syncOpenActionModalWithLatest_();
+      syncOpenInventoryDetailModal_();
     }).catch(function (err) {
       if (!silent) showToast(err.message, true);
     }).then(function () {
@@ -1351,8 +1353,27 @@
   function openInventoryDetailModal_(commission) {
     var vehicle = findVehicleByCommission(commission);
     if (!vehicle) return;
+    state.openInventoryDetailCommission = commission;
     $('inventoryDetailBody').innerHTML = vehicleDetailHtml_(vehicle);
     openModal($('inventoryDetailModal'));
+  }
+
+  /**
+   * 裏で在庫を取り直したあと、開いている車両詳細のHold/受注ボタンを最新に合わせる。
+   */
+  function syncOpenInventoryDetailModal_() {
+    var modal = $('inventoryDetailModal');
+    if (!modal || modal.classList.contains('hidden')) return;
+    var commission = state.openInventoryDetailCommission;
+    if (!commission) return;
+    var vehicle = findVehicleByCommission(commission);
+    if (!vehicle) {
+      closeModal(modal);
+      state.openInventoryDetailCommission = null;
+      showToast('この車両は在庫にありません。最新の状態に更新しました。', true);
+      return;
+    }
+    $('inventoryDetailBody').innerHTML = vehicleDetailHtml_(vehicle);
   }
 
   function vehicleRowsHtml(items) {
@@ -1537,8 +1558,8 @@
     if (expiredRefreshTimer) return;
     expiredRefreshTimer = setTimeout(function () {
       expiredRefreshTimer = null;
-      refreshInventoryFromServer_();
-    }, 15000);
+      refreshInventoryFromServer_({ silent: true });
+    }, 1000);
   }
 
   function updateHoldTimers() {
@@ -1910,6 +1931,9 @@
       var errEl = $('actionModalError');
       errEl.textContent = 'このHoldの担当者は「' + vehicle.holdStaff + '」です。ログイン中の担当者（' + currentStaff + '）では受注確定できません。';
       errEl.classList.remove('hidden');
+      errEl.dataset.liveHoldBlock = '1';
+    } else {
+      delete $('actionModalError').dataset.liveHoldBlock;
     }
     submitBtn.disabled = !!staffMismatch;
 
@@ -1931,6 +1955,7 @@
   /**
    * 裏で在庫を取り直したあと、開いているHold/受注モーダルの可否を最新に合わせる。
    * 先にログインしていた人が古い「在庫あり」のまま確定できないようにする。
+   * 入力不備など別理由のエラー文は上書きしない。
    */
   function syncOpenActionModalWithLatest_() {
     var modal = $('actionModal');
@@ -1939,36 +1964,41 @@
     var type = state.action.type;
     var submitBtn = $('btnActionSubmit');
     var errEl = $('actionModalError');
-    if (type === 'hold') {
-      if (vehicle && vehicle.holdStatus === 'hold') {
-        errEl.textContent = 'この車両は既にHold中です。先に確定したHoldが優先されます。';
-        errEl.classList.remove('hidden');
-        submitBtn.disabled = true;
+    var blockReason = '';
+    if (!vehicle) {
+      blockReason = 'この車両は在庫にありません。受注済みの可能性があります。';
+    } else if (type === 'hold') {
+      if (vehicle.holdStatus === 'hold') {
+        blockReason = 'この車両は既にHold中です。先に確定したHoldが優先されます。';
       }
-      return;
-    }
-    if (type === 'secondHold') {
-      if (!vehicle || vehicle.holdStatus !== 'hold') {
-        errEl.textContent = 'Hold状態が変わったため、2ND HOLDを登録できません。';
-        errEl.classList.remove('hidden');
-        submitBtn.disabled = true;
-        return;
-      }
-      if (vehicle.secondHoldCustomer || isIndefiniteHoldType_(vehicle)) {
-        errEl.textContent = vehicle.secondHoldCustomer
+    } else if (type === 'secondHold') {
+      if (vehicle.holdStatus !== 'hold') {
+        blockReason = 'Hold状態が変わったため、2ND HOLDを登録できません。';
+      } else if (vehicle.secondHoldCustomer || isIndefiniteHoldType_(vehicle)) {
+        blockReason = vehicle.secondHoldCustomer
           ? '2nd Holdまで登録済みのため、これ以上のHoldはできません'
           : 'デモカーHOLD・他店HOLDには2ND HOLDを登録できません';
-        errEl.classList.remove('hidden');
-        submitBtn.disabled = true;
+      } else if (vehicle.holdStaffEmail && emailsMatch_(vehicle.holdStaffEmail, currentUserEmail_())) {
+        blockReason = '1ST HOLDと同じ担当者は2ND HOLDを登録できません';
       }
-      return;
+    } else if (type === 'order' || type === 'orderFromHold') {
+      if (type === 'orderFromHold' && vehicle.holdStatus !== 'hold') {
+        blockReason = 'Hold状態が変わったため、この操作はできません。';
+      } else if (vehicle.holdStatus === 'hold' && vehicle.holdStaffEmail &&
+          !emailsMatch_(vehicle.holdStaffEmail, currentUserEmail_())) {
+        blockReason = 'このHoldの担当者は「' + (vehicle.holdStaff || '-') +
+          '」です。ログイン中の担当者（' + (currentStaffName_() || '-') + '）では受注確定できません。';
+      }
     }
-    if ((type === 'order' || type === 'orderFromHold') && vehicle && vehicle.holdStatus === 'hold' &&
-        vehicle.holdStaffEmail && !emailsMatch_(vehicle.holdStaffEmail, currentUserEmail_())) {
-      errEl.textContent = 'このHoldの担当者は「' + (vehicle.holdStaff || '-') +
-        '」です。ログイン中の担当者（' + (currentStaffName_() || '-') + '）では受注確定できません。';
+    if (blockReason) {
+      errEl.textContent = blockReason;
       errEl.classList.remove('hidden');
+      errEl.dataset.liveHoldBlock = '1';
       submitBtn.disabled = true;
+    } else if (errEl.dataset.liveHoldBlock) {
+      delete errEl.dataset.liveHoldBlock;
+      errEl.classList.add('hidden');
+      submitBtn.disabled = false;
     }
   }
 
