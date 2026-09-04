@@ -1286,5 +1286,40 @@ test('発注リストのステア不足は MP と外装の間へ挿入する計�
   assert.strictEqual(inserts[0].index, mpIndex + 1);
 });
 
+console.log('== 表表示: ステア1行・発注/Gクラスの担当者・起動画面フェード ==');
+test('発注リストとGクラス予約リストの表は有償OPの次に担当者を置く', () => {
+  const js = fs.readFileSync(path.join(ROOT, 'html/JavaScript.html'), 'utf8');
+  function fieldOrderAfter(fnName) {
+    const start = js.indexOf('function ' + fnName);
+    assert.ok(start >= 0, fnName + ' が見つからない');
+    const body = js.slice(start, js.indexOf('\n  function ', start + 10));
+    const labels = [];
+    const re = /rowField_\('([^']+)'|rowCard__label">([^<]+)/g;
+    let m;
+    while ((m = re.exec(body))) labels.push(m[1] || m[2]);
+    const op = labels.indexOf('有償OP');
+    const staff = labels.indexOf('担当者');
+    assert.ok(op >= 0, fnName + ' に有償OPが無い');
+    assert.ok(staff >= 0, fnName + ' に担当者が無い');
+    assert.strictEqual(staff, op + 1, fnName + ' は有償OPの直後が担当者');
+  }
+  fieldOrderAfter('purchaseOrderRowCardHtml_');
+  fieldOrderAfter('gclassRowCardHtml_');
+});
+test('表のステアラベルは折り返さない', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'html/Stylesheet.html'), 'utf8');
+  assert.ok(/\.rowCard__label \{[^}]*white-space:\s*nowrap/.test(css));
+  assert.ok(/min-width:\s*3\.5em/.test(css));
+});
+test('起動画面の画像はフェードインし、閉じるときはゆっくり消える', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'html/Stylesheet.html'), 'utf8');
+  const js = fs.readFileSync(path.join(ROOT, 'html/JavaScript.html'), 'utf8');
+  assert.ok(css.includes('appLoadingImageIn'));
+  assert.ok(css.includes('appLoadingImageOut'));
+  assert.ok(css.includes('.appLoading.is-leaving'));
+  assert.ok(js.includes('APP_LOADING_FADE_MS_'));
+  assert.ok(js.includes('is-leaving'));
+});
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 if (fail > 0) process.exit(1);

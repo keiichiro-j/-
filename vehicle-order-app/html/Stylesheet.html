@@ -156,7 +156,7 @@
   /* ===== 起動時ローディング画面 =====
      初回データ取得（reloadAll_）が終わるまでの空白時間を埋める全画面オーバーレイ。
      背景はログイン中ユーザーのテーマ色（doGetで inline 指定、applyTheme でも更新）。
-     is-hiddenでフェードアウトしてから pointer-events: noneにする。 */
+     画像はじわっとフェードインし、読み込み完了後は is-leaving でゆっくり消える。 */
   .appLoading {
     position: fixed;
     inset: 0;
@@ -168,7 +168,11 @@
     gap: 16px;
     background: var(--sidebar-bg, var(--topbar-bg));
     color: #eaf1f8;
-    transition: opacity .3s ease;
+    transition: opacity 1.5s ease;
+  }
+  .appLoading.is-leaving {
+    opacity: 0;
+    pointer-events: none;
   }
   .appLoading.is-hidden {
     opacity: 0;
@@ -191,8 +195,25 @@
     height: auto;
     object-fit: contain;
     border-radius: 12px;
+    opacity: 0;
+    animation: appLoadingImageIn 1.6s ease-out forwards;
   }
-  @media (prefers-reduced-motion: reduce) { .appLoading__spinner { animation: none; } }
+  @keyframes appLoadingImageIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes appLoadingImageOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+  .appLoading.is-leaving .appLoading__image {
+    animation: appLoadingImageOut 1.5s ease-in forwards;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .appLoading { transition: none; }
+    .appLoading__spinner { animation: none; }
+    .appLoading__image { animation: none; opacity: 1; }
+  }
 
   /* ===== ブランド表記の行 =====
      左側は「戻る」「更新」ボタン、右側はログイン中のユーザー情報。アプリ名
@@ -582,7 +603,7 @@
   .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(1) { flex: 1 1 110px; min-width: 0; } /* ステータス */
   .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(2) { flex: 1 1 88px; min-width: 0; } /* モデル＋コミッション */
   .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(3) { flex: 0 0 auto; min-width: 4.5ch; } /* MP（モデルイヤーを省略せず常に全表示） */
-  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(4) { flex: 1 1 32px; min-width: 0; } /* ステア */
+  .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(4) { flex: 0 0 auto; min-width: 3.5em; } /* ステア（ラベル折り返し防止） */
   .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(5) { flex: 1 1 110px; min-width: 0; } /* カラー */
   .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(6) { flex: 1 1 110px; min-width: 0; } /* 有償OP */
   .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(7) { flex: 1 1 140px; min-width: 0; } /* 1ST HOLD */
@@ -661,12 +682,20 @@
      自体は個別にクリックできるよう、cursor はタップ可能であることを示すのみに留める
      （cursor: pointer自体は上の.rowCard本体の宣言に含めている）。 */
   .rowCard__field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .rowCard__inner > .rowCard__field--steer {
+    flex: 0 0 auto;
+    min-width: 3.5em;
+  }
+  .rowCard__field--steer .rowCard__label,
+  .rowCard__field--steer .rowCard__value {
+    white-space: nowrap;
+  }
   /* MP・VPC等の英数字（Latin書体）とステア・カラー等の日本語（CJK書体）を
      同じ.rowCard__valueで混在表示すると、フォントのフォールバック先が異なり
      行の高さ（line-height）がブラウザの自動計算でわずかに変わってしまい、
      値の上下位置が項目によって数px揃わなくなっていた（現場からの指摘で判明）。
      line-heightを明示的に固定することで、どちらの書体でも同じ高さになる。 */
-  .rowCard__label { font-size: 9.5px; line-height: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--on-surface-variant); }
+  .rowCard__label { font-size: 9.5px; line-height: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--on-surface-variant); white-space: nowrap; }
   .rowCard__value {
     font-size: 13.5px; line-height: 17px; font-weight: 600; color: var(--on-surface);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -733,11 +762,11 @@
   .rowCard.rowCard--order > .rowCard__inner > * {
     overflow: hidden;
   }
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(1) { flex: 1 1 100px; min-width: 80px; } /* 顧客＋コミッション */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(2) { flex: 1 1 90px; min-width: 64px; } /* モデル */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(1) { flex: 0 1 auto; min-width: 4.5em; max-width: 9em; } /* 顧客＋コミッション（余白を吸わない） */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(2) { flex: 0 1 auto; min-width: 4.5em; max-width: 9em; } /* モデル */
   .rowCard.rowCard--order > .rowCard__inner > *:nth-child(3) { flex: 1 1 88px; min-width: 64px; } /* リード番号 */
   .rowCard.rowCard--order > .rowCard__inner > *:nth-child(4) { flex: 0 1 auto; min-width: 4.5ch; } /* MP */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(5) { flex: 0 0 28px; min-width: 24px; } /* ステア R/L */
+  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(5) { flex: 0 0 auto; min-width: 3.5em; } /* ステア R/L（ラベル1行） */
   .rowCard.rowCard--order > .rowCard__inner > *:nth-child(6) { flex: 1 1 110px; min-width: 72px; } /* カラー */
   .rowCard.rowCard--order > .rowCard__inner > *:nth-child(7) { flex: 1 1 110px; min-width: 72px; } /* 有償OP */
   .rowCard.rowCard--order > .rowCard__inner > *:nth-child(8) { flex: 1 1 72px; min-width: 56px; } /* 担当者 */
@@ -746,52 +775,41 @@
   .rowCard.rowCard--order > .rowCard__inner > *:nth-child(11) { flex: 1 1 80px; min-width: 64px; } /* 販売拠点 */
   .rowCard.rowCard--order .is-overflow-hidden { display: none !important; }
 
-  /* Gクラス予約リストの表示形式「表」: 在庫リストの行（vehicleRowCardHtml、
-     ステータス・モデル・MP・ステア・カラー・有償OPの7項目）と同じ考え方で、
-     識別列を「モデル」から「顧客＋コミッション」に差し替えた7項目構成にする
-     （gclassRowCardHtml_のDOM出力順。区別のため専用のrowCard--gclassクラスを付け、
-     共通の.rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder)
-     ルールとは別にこの7項目に対応する:nth-child()を指定する）。以前は担当者・
-     入港予定日・可能月・VPC・リード番号も加えた12項目構成にしていたが、項目数が
-     多すぎて画面幅によっては折り返して2〜3行になり、在庫リストの行より縦に
-     間延びして見えていたため絞り込んだ（現場からの指摘）。それ以外の項目は
-     行タップで開く詳細モーダル（openGClassDetailModal_）でのみ確認する。 */
+  /* Gクラス予約リストの表示形式「表」: 顧客列は内容幅に留め、モデルとの間に
+     余白が開かないようにする。有償OPの次に担当者を置き、最後尾は開示状況。
+     それ以外（入港予定日・可能月・VPC・リード番号）は行タップの詳細モーダル。 */
   .rowCard--gclass > .rowCard__inner {
     flex-wrap: nowrap;
     overflow: hidden;
   }
   .rowCard--gclass > .rowCard__inner > * { overflow: hidden; min-width: 0; }
-  .rowCard--gclass > .rowCard__inner > *:nth-child(1) { flex: 1 1 110px; } /* 顧客＋コミッション */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(2) { flex: 1 1 100px; } /* モデル */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(1) { flex: 0 1 auto; min-width: 4.5em; max-width: 9em; } /* 顧客＋コミッション */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(2) { flex: 0 1 auto; min-width: 4.5em; max-width: 9em; } /* モデル */
   .rowCard--gclass > .rowCard__inner > *:nth-child(3) { flex: 0 1 auto; min-width: 4.5ch; } /* MP */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(4) { flex: 0 1 32px; } /* ステア */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(5) { flex: 1 1 120px; } /* カラー */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(6) { flex: 1 1 120px; } /* 有償OP */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(7) { flex: 1 1 80px; } /* 開示状況 */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(4) { flex: 0 0 auto; min-width: 3.5em; } /* ステア */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(5) { flex: 1 1 100px; } /* カラー */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(6) { flex: 1 1 90px; } /* 有償OP */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(7) { flex: 0 1 auto; min-width: 3.5em; max-width: 7em; } /* 担当者 */
+  .rowCard--gclass > .rowCard__inner > *:nth-child(8) { flex: 1 1 72px; } /* 開示状況 */
 
   /* 発注リストの表示形式「表」（発注リストタブ本体・マイページの「発注リスト」
-     セクションの両方で使う。purchaseOrderRowCardHtml_のDOM出力順に対応する
-     positionalな:nth-child()指定。MP・カラー・有償OPは在庫リスト
-     （vehicleRowCardHtmlの対応列）と同じ幅にしている。読み取り専用のため
-     操作ボタン列は無く、受注リスト（.rowCard--order）と同じく最後の列に
-     拠点バッジを置く。以前はリード番号・担当者・登録日時も加えた9項目構成に
-     していたが、項目数が多すぎて画面幅によっては折り返して2行になり、在庫
-     リストの行より縦に間延びして見えていたため、識別・モデル・MP・ステア・カラー・
-     有償OP・拠点の7項目に絞り込んだ（現場からの指摘）。それ以外の項目は行タップで
-     開く詳細モーダル（openPurchaseOrderDetailModal_）でのみ確認する。 */
+     セクションの両方。purchaseOrderRowCardHtml_のDOM出力順）。顧客列は内容幅に
+     留め、有償OPの次に担当者、最後尾に拠点バッジ。リード番号・登録日時は行タップ
+     の詳細モーダル（openPurchaseOrderDetailModal_）でのみ確認する。 */
   .rowCard.rowCard--purchaseOrder { border-left-color: var(--primary); }
   .rowCard--purchaseOrder > .rowCard__inner {
     flex-wrap: nowrap;
     overflow: hidden;
   }
   .rowCard--purchaseOrder > .rowCard__inner > * { overflow: hidden; min-width: 0; }
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(1) { flex: 1 1 110px; } /* 顧客＋コミッション */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(2) { flex: 1 1 100px; } /* モデル */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(1) { flex: 0 1 auto; min-width: 4.5em; max-width: 9em; } /* 顧客＋コミッション */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(2) { flex: 0 1 auto; min-width: 4.5em; max-width: 9em; } /* モデル */
   .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(3) { flex: 0 1 auto; min-width: 4.5ch; } /* MP */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(4) { flex: 0 1 32px; } /* ステア */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(5) { flex: 1 1 120px; } /* カラー */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(6) { flex: 1 1 120px; } /* 有償OP */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(7) { flex: 1 1 80px; } /* 拠点 */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(4) { flex: 0 0 auto; min-width: 3.5em; } /* ステア */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(5) { flex: 1 1 100px; } /* カラー */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(6) { flex: 1 1 90px; } /* 有償OP */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(7) { flex: 0 1 auto; min-width: 3.5em; max-width: 7em; } /* 担当者 */
+  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(8) { flex: 1 1 72px; } /* 拠点 */
   .btn--small { padding: 6px 12px; font-size: 12.5px; }
 
   /* ===== カードグリッド（PCビューで3列。HOLDのバー・時間・担当者を収める） ===== */
@@ -2669,7 +2687,7 @@
     .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(1) { flex: 0 0 120px; }
     .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(2) { flex: 0 0 110px; }
     .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(3) { flex: 0 0 auto; min-width: 4.5ch; }
-    .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(4) { flex: 0 0 46px; }
+    .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(4) { flex: 0 0 auto; min-width: 3.5em; }
     .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(5) { flex: 0 0 140px; }
     .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(6) { flex: 0 0 130px; }
     .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(7) { flex: 0 0 180px; }

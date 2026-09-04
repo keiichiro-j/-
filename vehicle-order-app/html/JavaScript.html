@@ -4,11 +4,36 @@
 
   // 起動画面が残ったまま操作不能になるのを防ぐ（HTML差し替え途中・通信待ちでも閉じる）
   setTimeout(function () {
-    var el = document.getElementById('appLoading');
-    if (!el) return;
-    el.classList.add('is-hidden');
-    el.style.display = 'none';
+    hideAppLoading_();
   }, 8000);
+
+  var appLoadingHidden_ = false;
+  var appLoadingShownAt_ = Date.now();
+  var APP_LOADING_FADE_MS_ = 1500;
+  var APP_LOADING_MIN_VISIBLE_MS_ = 1800;
+
+  function prefersReducedMotion_() {
+    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+
+  function hideAppLoading_() {
+    var loading = document.getElementById('appLoading');
+    if (!loading || appLoadingHidden_) return;
+    appLoadingHidden_ = true;
+    function finish() {
+      loading.classList.add('is-hidden');
+      loading.style.display = 'none';
+    }
+    if (prefersReducedMotion_()) {
+      finish();
+      return;
+    }
+    var wait = Math.max(0, APP_LOADING_MIN_VISIBLE_MS_ - (Date.now() - appLoadingShownAt_));
+    setTimeout(function () {
+      loading.classList.add('is-leaving');
+      setTimeout(finish, APP_LOADING_FADE_MS_);
+    }, wait);
+  }
 
   function safeLocalStorageGet_(key) {
     try { return localStorage.getItem(key); } catch (e) { return null; }
@@ -1143,7 +1168,7 @@
       '<span class="rowCard__commission">' + escapeHtml(v.commission) + '</span>' +
       '</div>' +
       rowField_('MP', v.mp, 'rowCard__field--mp') +
-      rowField_('ステア', formatSteering_(v.steering)) +
+      rowField_('ステア', formatSteering_(v.steering), 'rowCard__field--steer') +
       rowField_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
       '<div class="rowCard__field rowCard__field--center"><span class="rowCard__label">有償OP</span>' +
       '<span class="rowCard__value">' + paidOptionsHtml_(v) + '</span></div>' +
@@ -2026,7 +2051,7 @@
       rowField_('モデル', o.model) +
       rowField_('リード番号', o.leadNumber) +
       rowField_('MP', o.mp, 'rowCard__field--mp') +
-      rowField_('ステア', formatSteering_(o.steering)) +
+      rowField_('ステア', formatSteering_(o.steering), 'rowCard__field--steer') +
       rowField_('カラー', (o.exteriorColor || '-') + ' / ' + (o.interiorColor || '-'), 'rowCard__fit--mid') +
       '<div class="rowCard__field rowCard__field--center rowCard__fit--mid"><span class="rowCard__label">有償OP</span>' +
       '<span class="rowCard__value">' + paidOptionsHtml_(o) + '</span></div>' +
@@ -2215,15 +2240,10 @@
    * 考え方（識別列→車両・契約情報→拠点バッジを最後尾に配置）に揃えている。
    * 発注リストは閲覧専用のため、カード表示・表表示のどちらもボタン・行タップ
    * での編集導線は持たない。
-   * 行に並べる項目は在庫リストのvehicleRowCardHtmlと同じ考え方（ひと目で
-   * 必要な項目だけに絞り込み、画面幅にかかわらず折り返し無しで1行に収まる
-   * ようにする）で「識別（顧客・コミッション）・モデル・MP・ステア・カラー・有償OP・
-   * 拠点」の7項目だけに絞り込んだ（以前はリード番号・担当者・登録日時も
-   * 並べていたが、項目数が多すぎて画面幅によっては折り返して2行になり、
-   * 在庫リストの行より縦に間延びして見えていたため。現場からの指摘）。
-   * それ以外の項目（リード番号・担当者・登録日時）は、在庫リスト・受注リストと
-   * 同じく行タップで開く詳細モーダル（openPurchaseOrderDetailModal_・
-   * purchaseOrderDetailHtml_）でのみ確認する。
+   * 行に並べる項目は「識別（顧客・コミッション）・モデル・MP・ステア・カラー・有償OP・
+   * 担当者・拠点」。顧客列は内容幅に留めてモデルとの間を詰め、ステアはラベルを
+   * 折り返さない。リード番号・登録日時は行タップの詳細モーダル
+   * （openPurchaseOrderDetailModal_）でのみ確認する。
    */
   function purchaseOrderRowCardHtml_(po) {
     return '<div class="rowCard rowCard--purchaseOrder" data-purchase-order-id="' + escapeHtml(po.id) + '">' +
@@ -2232,10 +2252,11 @@
       '<span class="rowCard__commission">' + escapeHtml(po.commission || '-') + '</span></div>' +
       rowField_('モデル', po.model) +
       rowField_('MP', po.mp) +
-      rowField_('ステア', formatSteering_(po.steering)) +
+      rowField_('ステア', formatSteering_(po.steering), 'rowCard__field--steer') +
       rowField_('カラー', (po.exteriorColor || '-') + ' / ' + (po.interiorColor || '-')) +
       '<div class="rowCard__field rowCard__field--center"><span class="rowCard__label">有償OP</span>' +
       '<span class="rowCard__value">' + paidOptionsHtml_(po) + '</span></div>' +
+      rowField_('担当者', po.staff) +
       '<div class="rowCard__status"><span class="badge badge--location">' + escapeHtml(po.salesLocation || '-') + '</span></div>' +
       '</div>' +
       '</div>';
@@ -2341,15 +2362,10 @@
   }
 
   /**
-   * 表示形式「表」: 在庫リストのvehicleRowCardHtmlと同じ考え方（ひと目で必要な
-   * 項目だけに絞り込み、画面幅にかかわらず折り返し無しで1行に収まるようにする）で
-   * 「識別（顧客・コミッション）・モデル・MP・ステア・カラー・有償OP・開示状況」の
-   * 7項目だけに絞り込んだ（在庫リストの7項目構成に、識別列（顧客）を1つ加えた形。
-   * 以前は担当者・入港予定日・可能月・VPC・リード番号も並べていたが、項目数が
-   * 多すぎて画面幅によっては折り返して2〜3行になり、在庫リストの行より縦に
-   * 間延びして見えていたため。現場からの指摘）。それ以外の項目（担当者・入港予定日・
-   * 可能月・VPC・リード番号）は、在庫リスト・受注リストと同じく行タップで開く
-   * 詳細モーダル（openGClassDetailModal_）でのみ確認する。
+   * 表示形式「表」: 顧客・モデル・MP・ステア・カラー・有償OP・担当者・開示状況。
+   * 顧客列は内容幅に留めてモデルとの間を詰め、ステアはラベルを折り返さない。
+   * 入港予定日・可能月・VPC・リード番号は行タップの詳細モーダル
+   * （openGClassDetailModal_）でのみ確認する。
    */
   function gclassRowCardHtml_(v) {
     var rowTone = 'rowCard rowCard--available rowCard--gclass';
@@ -2360,10 +2376,11 @@
       '<span class="rowCard__commission">' + escapeHtml(v.commission) + '</span></div>' +
       rowField_('モデル', v.model) +
       rowField_('MP', v.mp) +
-      rowField_('ステア', formatSteering_(v.steering)) +
+      rowField_('ステア', formatSteering_(v.steering), 'rowCard__field--steer') +
       rowField_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
       '<div class="rowCard__field rowCard__field--center"><span class="rowCard__label">有償OP</span>' +
       '<span class="rowCard__value">' + paidOptionsHtml_(v) + '</span></div>' +
+      rowField_('担当者', v.staff) +
       '<div class="rowCard__status"><span class="badge ' + (v.stockDisclosure === '非開示' ? 'badge--undisclosed' : 'badge--disclosed') + '">' + escapeHtml(v.stockDisclosure || '-') + '</span></div>' +
       '</div>' +
       '</div>';
@@ -4030,13 +4047,6 @@
     });
   }
 
-  function hideAppLoading_() {
-    var loading = $('appLoading') || document.getElementById('appLoading');
-    if (!loading) return;
-    loading.classList.add('is-hidden');
-    loading.style.display = 'none';
-  }
-
   function init() {
     try { syncNavButtons_(); } catch (eSync) {}
     reloadAll_().catch(function (err) {
@@ -4058,11 +4068,7 @@
   try {
     init();
   } catch (eInit) {
-    var loadingEl = document.getElementById('appLoading');
-    if (loadingEl) {
-      loadingEl.classList.add('is-hidden');
-      loadingEl.style.display = 'none';
-    }
+    hideAppLoading_();
   }
 })();
 </script>
