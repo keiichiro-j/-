@@ -84,17 +84,11 @@ function api_confirmOrder(commission, info) {
 }
 
 /**
- * 受注リスト一覧。受注確定日時（orderedAt）から「2026-08」形式の orderedMonth を
- * 付与し、月ごとのグループ表示・トータル台数の把握に使えるようにする。
+ * 受注リスト一覧。スプレッドシートの「登録月」列を YYYY-MM に揃えてから返す。
+ * グループ表示の初期値「登録月」は受注確定日時ではなく、この列で分かれる。
  */
 function api_listOrders(filters, groupBy) {
-  var orders = listOrders().map(function (o) {
-    o.orderedMonth = o.orderedAt
-      ? Utilities.formatDate(new Date(o.orderedAt), Session.getScriptTimeZone(), 'yyyy-MM')
-      : '';
-    return o;
-  });
-  var result = searchOrders(orders, filters);
+  var result = searchOrders(normalizeOrdersRegisteredMonth_(listOrders()), filters);
   return groupBy ? groupByField_(result, groupBy) : [{ key: '', items: result }];
 }
 

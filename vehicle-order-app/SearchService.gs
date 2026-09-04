@@ -185,6 +185,20 @@ function searchOrders(orders, filters) {
 }
 
 /**
+ * 受注リストの「登録月」を YYYY-MM に揃える。
+ * スプレッドシートが日付セルだと rowToObject_ が yyyy-MM-dd にするため、
+ * 「2026-08」と「2026-08-01」が別グループに分かれないようにする。
+ * 正規化できない値（空・自由記述）はそのまま残し、空はグループ化時に「未設定」になる。
+ */
+function normalizeOrdersRegisteredMonth_(orders) {
+  return (orders || []).map(function (o) {
+    var normalized = normalizeYearMonth_(o.registeredMonth);
+    if (normalized) o.registeredMonth = normalized;
+    return o;
+  });
+}
+
+/**
  * Gクラス予約リストの検索・絞り込み（閲覧専用リストのため、キーワード検索のみ）。
  * @param {Array<Object>} items
  * @param {Object} filters { keyword: string } // モデル・コミッション・リード番号・顧客に部分一致

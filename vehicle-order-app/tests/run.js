@@ -425,6 +425,33 @@ test('未設定の項目は「未設定」グループの末尾へ回る', () =>
   );
   assert.strictEqual(groups[groups.length - 1].key, '未設定');
 });
+test('登録月は YYYY-MM と日付セル由来の YYYY-MM-DD を同じグループにする', () => {
+  const orders = sandbox.normalizeOrdersRegisteredMonth_([
+    { customer: 'A', registeredMonth: '2026-08-01' },
+    { customer: 'B', registeredMonth: '2026-08' },
+    { customer: 'C', registeredMonth: '2026/8/15' },
+    { customer: 'D', registeredMonth: '2026-09' },
+    { customer: 'E', registeredMonth: '' }
+  ]);
+  const groups = sandbox.groupByField_(orders, 'registeredMonth');
+  assert.strictEqual(groups.length, 3);
+  assert.strictEqual(groups[0].key, '2026-08');
+  assert.strictEqual(groups[0].items.length, 3);
+  assert.strictEqual(groups[1].key, '2026-09');
+  assert.strictEqual(groups[1].items.length, 1);
+  assert.strictEqual(groups[2].key, '未設定');
+  assert.strictEqual(groups[2].items.length, 1);
+});
+test('登録月のグループは受注確定日時ではなく登録月列を使う', () => {
+  const orders = sandbox.normalizeOrdersRegisteredMonth_([
+    { registeredMonth: '2026-01', orderedAt: '2026-08-20T10:00:00' },
+    { registeredMonth: '2026-01', orderedAt: '2026-09-01T10:00:00' }
+  ]);
+  const groups = sandbox.groupByField_(orders, 'registeredMonth');
+  assert.strictEqual(groups.length, 1);
+  assert.strictEqual(groups[0].key, '2026-01');
+  assert.strictEqual(groups[0].items.length, 2);
+});
 
 console.log('== SearchService: 可能月の正規化・過去月の当月集約・グループ表示 ==');
 test('YYYY-MM はそのまま返す', () => {
