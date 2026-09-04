@@ -14,6 +14,9 @@ function getSpreadsheet_() {
  * （既存データは上書きしない。備考・発注のステアなど後から足した列を正しい位置へ入れる）。
  */
 function getOrCreateSheet_(sheetName, columns, textColumnIndexes1) {
+  if (!sheetName) {
+    throw new Error('シート名が空です。Constants.gs の SHEET_NAMES を最新版にしてください。');
+  }
   var ss = getSpreadsheet_();
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet) {
@@ -45,6 +48,7 @@ function applyTextColumnFormat_(sheet, columnIndexes1) {
   if (!columnIndexes1 || !columnIndexes1.length) return;
   var numRows = Math.max(sheet.getMaxRows() - 1, 1000);
   columnIndexes1.forEach(function (col1) {
+    if (!(col1 >= 1)) return;
     sheet.getRange(2, col1, numRows, 1).setNumberFormat('@');
   });
 }

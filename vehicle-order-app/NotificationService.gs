@@ -8,7 +8,7 @@
  */
 
 function notifyHoldRegistered(vehicle, isSecondHold) {
-  var mailTo = getMailList_(PROP_KEYS.NOTIFY_HOLD_MAIL_TO).join(',');
+  var mailTo = getMailList_(scriptPropKey_('NOTIFY_HOLD_MAIL_TO')).join(',');
 
   var label = isSecondHold ? '2nd Hold' : 'Hold';
   var prefix = isSecondHold ? 'secondHold' : 'hold';
@@ -60,7 +60,7 @@ function notifyHoldRegistered(vehicle, isSecondHold) {
 }
 
 function notifyOrderConfirmed(order) {
-  var mailTo = getMailList_(PROP_KEYS.NOTIFY_ORDER_MAIL_TO).join(',');
+  var mailTo = getMailList_(scriptPropKey_('NOTIFY_ORDER_MAIL_TO')).join(',');
 
   var bodyLines = [
     '受注が確定しました。',
@@ -106,7 +106,7 @@ function notifyOrderConfirmed(order) {
  * メッセージはGoogle Chatの簡易Markdown（*太字*等）に対応させている。
  */
 function sendChatNotification_(text) {
-  var url = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.NOTIFY_CHAT_WEBHOOK_URL);
+  var url = getScriptProp_(PropertiesService.getScriptProperties(), 'NOTIFY_CHAT_WEBHOOK_URL');
   if (!url) return false;
   try {
     var response = UrlFetchApp.fetch(url, {
@@ -137,7 +137,7 @@ function sendChatNotification_(text) {
  * 設定タブで「システムエラー通知先」が未設定の場合は何もしない。
  */
 function notifySystemError_(context, error) {
-  var to = getMailList_(PROP_KEYS.NOTIFY_ERROR_MAIL_TO).join(',');
+  var to = getMailList_(scriptPropKey_('NOTIFY_ERROR_MAIL_TO')).join(',');
   if (!to) return false;
 
   MailApp.sendEmail({

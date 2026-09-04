@@ -10,6 +10,59 @@
  */
 
 /**
+ * 設定の Script Properties キー。Constants.gs の PROP_KEYS と同名だが、
+ * こちらを正とする。PROP_KEYS が未更新、または別ファイルで上書きされて
+ * キーが undefined になると、PropertiesService.setProperty が
+ * 「無効な引数: key」で保存できなくなるため、定数が欠けていてもこの表へ戻す。
+ */
+var SETTINGS_PROP_KEYS_ = {
+  THEME_KEY: 'THEME_KEY',
+  LOGO_URL: 'LOGO_URL',
+  LOADING_SPLASH_DRIVE_ID: 'LOADING_SPLASH_DRIVE_ID',
+  NOTIFY_HOLD_MAIL_TO: 'NOTIFY_HOLD_MAIL_TO',
+  NOTIFY_ORDER_MAIL_TO: 'NOTIFY_ORDER_MAIL_TO',
+  NOTIFY_ERROR_MAIL_TO: 'NOTIFY_ERROR_MAIL_TO',
+  NOTIFY_CHAT_WEBHOOK_URL: 'NOTIFY_CHAT_WEBHOOK_URL',
+  STAFF_LIST: 'STAFF_LIST',
+  MODEL_PHOTOS: 'MODEL_PHOTOS',
+  CELEBRATION_VARIANTS: 'CELEBRATION_VARIANTS',
+  HOME_ANNOUNCEMENT: 'HOME_ANNOUNCEMENT'
+};
+
+/**
+ * 設定保存・読込で使うプロパティキー（純粋関数）。PROP_KEYS にあればそれを使い、
+ * 無ければ SETTINGS_PROP_KEYS_、それも無ければ引数の名前そのもの。
+ * 空文字は返さない（setProperty の「無効な引数: key」を防ぐ）。
+ */
+function scriptPropKey_(name) {
+  var mapped = '';
+  try {
+    if (typeof PROP_KEYS === 'object' && PROP_KEYS && PROP_KEYS[name]) mapped = PROP_KEYS[name];
+  } catch (err) {}
+  if (!mapped && SETTINGS_PROP_KEYS_ && SETTINGS_PROP_KEYS_[name]) mapped = SETTINGS_PROP_KEYS_[name];
+  var key = String(mapped || name || '').trim();
+  return key;
+}
+
+function getScriptProp_(props, name) {
+  var key = scriptPropKey_(name);
+  if (!key) return '';
+  try {
+    return props.getProperty(key) || '';
+  } catch (err) {
+    return '';
+  }
+}
+
+function setScriptProp_(props, name, value) {
+  var key = scriptPropKey_(name);
+  if (!key) {
+    throw new Error('設定の保存に失敗しました（保存キーが空です: ' + name + '）');
+  }
+  props.setProperty(key, value == null ? '' : String(value));
+}
+
+/**
  * 設定値をScript Propertiesから読み出す（内部用・未リダクト）。Apps Scriptは
  * トップレベル関数である以上、名前の末尾に`_`を付けても google.script.run から
  * クライアントが直接呼び出せてしまう（命名規則であって実行時の制限ではない）。
@@ -28,16 +81,16 @@ function getRawSettings_() {
     // ため、従来どおりgetScriptProperties()（スクリプト単位）から読む
     // （getCurrentUserThemeKey_参照）。
     themeKey: getCurrentUserThemeKey_(),
-    logoUrl: props.getProperty(PROP_KEYS.LOGO_URL) || '',
-    loadingSplashDriveId: props.getProperty(PROP_KEYS.LOADING_SPLASH_DRIVE_ID) || '',
-    notifyHoldMailTo: getMailList_(PROP_KEYS.NOTIFY_HOLD_MAIL_TO),
-    notifyOrderMailTo: getMailList_(PROP_KEYS.NOTIFY_ORDER_MAIL_TO),
-    notifyErrorMailTo: getMailList_(PROP_KEYS.NOTIFY_ERROR_MAIL_TO),
-    notifyChatWebhookUrl: props.getProperty(PROP_KEYS.NOTIFY_CHAT_WEBHOOK_URL) || '',
+    logoUrl: getScriptProp_(props, 'LOGO_URL'),
+    loadingSplashDriveId: getScriptProp_(props, 'LOADING_SPLASH_DRIVE_ID'),
+    notifyHoldMailTo: getMailList_(scriptPropKey_('NOTIFY_HOLD_MAIL_TO')),
+    notifyOrderMailTo: getMailList_(scriptPropKey_('NOTIFY_ORDER_MAIL_TO')),
+    notifyErrorMailTo: getMailList_(scriptPropKey_('NOTIFY_ERROR_MAIL_TO')),
+    notifyChatWebhookUrl: getScriptProp_(props, 'NOTIFY_CHAT_WEBHOOK_URL'),
     staffList: getStaffList_(),
     modelPhotos: getModelPhotos_(),
     celebrationVariants: getCelebrationVariants_(),
-    homeAnnouncement: props.getProperty(PROP_KEYS.HOME_ANNOUNCEMENT) || ''
+    homeAnnouncement: getScriptProp_(props, 'HOME_ANNOUNCEMENT')
   };
 }
 
@@ -50,6 +103,7 @@ function getRawSettings_() {
  * カンマ区切りとして分割して読み取れるようにしている（保存し直さなくても引き続き使える）。
  */
 function getMailList_(propKey) {
+  if (!propKey) return [];
   var raw = PropertiesService.getScriptProperties().getProperty(propKey);
   if (!raw) return [];
   var list;
@@ -86,16 +140,16 @@ function saveRawSettings_(settings) {
   // （setCurrentUserThemeKey_参照）。それ以外は全利用者共通のシステムマスタの
   // ため、従来どおりScript Propertiesに保存する。
   setCurrentUserThemeKey_(settings && settings.themeKey);
-  props.setProperty(PROP_KEYS.LOGO_URL, logoUrl);
-  props.setProperty(PROP_KEYS.LOADING_SPLASH_DRIVE_ID, normalizeLoadingSplashDriveId_(settings && settings.loadingSplashDriveId));
-  props.setProperty(PROP_KEYS.NOTIFY_HOLD_MAIL_TO, JSON.stringify(normalizeMailList_(settings.notifyHoldMailTo)));
-  props.setProperty(PROP_KEYS.NOTIFY_ORDER_MAIL_TO, JSON.stringify(normalizeMailList_(settings.notifyOrderMailTo)));
-  props.setProperty(PROP_KEYS.NOTIFY_ERROR_MAIL_TO, JSON.stringify(normalizeMailList_(settings.notifyErrorMailTo)));
-  props.setProperty(PROP_KEYS.NOTIFY_CHAT_WEBHOOK_URL, validateChatWebhookUrl_(settings.notifyChatWebhookUrl));
-  props.setProperty(PROP_KEYS.STAFF_LIST, JSON.stringify(normalizeStaffList_(settings.staffList)));
-  props.setProperty(PROP_KEYS.MODEL_PHOTOS, JSON.stringify(normalizeModelPhotos_(settings.modelPhotos)));
-  props.setProperty(PROP_KEYS.CELEBRATION_VARIANTS, JSON.stringify(normalizeCelebrationVariants_(settings.celebrationVariants)));
-  props.setProperty(PROP_KEYS.HOME_ANNOUNCEMENT, validateHomeAnnouncement_(settings.homeAnnouncement));
+  setScriptProp_(props, 'LOGO_URL', logoUrl);
+  setScriptProp_(props, 'LOADING_SPLASH_DRIVE_ID', normalizeLoadingSplashDriveId_(settings && settings.loadingSplashDriveId));
+  setScriptProp_(props, 'NOTIFY_HOLD_MAIL_TO', JSON.stringify(normalizeMailList_(settings.notifyHoldMailTo)));
+  setScriptProp_(props, 'NOTIFY_ORDER_MAIL_TO', JSON.stringify(normalizeMailList_(settings.notifyOrderMailTo)));
+  setScriptProp_(props, 'NOTIFY_ERROR_MAIL_TO', JSON.stringify(normalizeMailList_(settings.notifyErrorMailTo)));
+  setScriptProp_(props, 'NOTIFY_CHAT_WEBHOOK_URL', validateChatWebhookUrl_(settings.notifyChatWebhookUrl));
+  setScriptProp_(props, 'STAFF_LIST', JSON.stringify(normalizeStaffList_(settings.staffList)));
+  setScriptProp_(props, 'MODEL_PHOTOS', JSON.stringify(normalizeModelPhotos_(settings.modelPhotos)));
+  setScriptProp_(props, 'CELEBRATION_VARIANTS', JSON.stringify(normalizeCelebrationVariants_(settings.celebrationVariants)));
+  setScriptProp_(props, 'HOME_ANNOUNCEMENT', validateHomeAnnouncement_(settings.homeAnnouncement));
   return getRawSettings_();
 }
 
@@ -143,11 +197,24 @@ function normalizeThemeKey_(key) {
  * 「全員共通のテーマ」に戻ってしまう点に注意。
  */
 function getCurrentUserThemeKey_() {
-  return normalizeThemeKey_(PropertiesService.getUserProperties().getProperty(PROP_KEYS.THEME_KEY));
+  var key = scriptPropKey_('THEME_KEY');
+  var raw = '';
+  if (key) {
+    try {
+      raw = PropertiesService.getUserProperties().getProperty(key);
+    } catch (err) {
+      raw = '';
+    }
+  }
+  return normalizeThemeKey_(raw);
 }
 
 function setCurrentUserThemeKey_(themeKey) {
-  PropertiesService.getUserProperties().setProperty(PROP_KEYS.THEME_KEY, normalizeThemeKey_(themeKey));
+  var key = scriptPropKey_('THEME_KEY');
+  if (!key) {
+    throw new Error('テーマ設定の保存に失敗しました（保存キーが空です）');
+  }
+  PropertiesService.getUserProperties().setProperty(key, normalizeThemeKey_(themeKey));
 }
 
 /**
@@ -245,7 +312,7 @@ function resolveLoadingSplashBgColor_(themeKey) {
  * 表示用URLを返す。
  */
 function loadingSplashDisplayUrl_() {
-  var raw = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.LOADING_SPLASH_DRIVE_ID) || '';
+  var raw = getScriptProp_(PropertiesService.getScriptProperties(), 'LOADING_SPLASH_DRIVE_ID');
   return loadingSplashImageUrlFromDriveId_(raw);
 }
 
@@ -333,7 +400,7 @@ function validateHomeAnnouncement_(text) {
  * 保存されている場合も読み取れるようにしておく（email/locationは空文字になる）。
  */
 function getStaffList_() {
-  var raw = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.STAFF_LIST);
+  var raw = getScriptProp_(PropertiesService.getScriptProperties(), 'STAFF_LIST');
   if (!raw) return [];
   var list;
   try {
@@ -425,7 +492,7 @@ function normalizeMailList_(list) {
  * 直接照合する従来の挙動にフォールバックする。
  */
 function getModelPhotos_() {
-  var raw = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.MODEL_PHOTOS);
+  var raw = getScriptProp_(PropertiesService.getScriptProperties(), 'MODEL_PHOTOS');
   if (!raw) return [];
   var list;
   try {
@@ -544,7 +611,7 @@ function normalizeModelPhotos_(list) {
  * にフォールバックする。
  */
 function getCelebrationVariants_() {
-  var raw = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.CELEBRATION_VARIANTS);
+  var raw = getScriptProp_(PropertiesService.getScriptProperties(), 'CELEBRATION_VARIANTS');
   if (!raw) return Object.assign({}, DEFAULT_CELEBRATION_VARIANTS);
   var parsed;
   try {

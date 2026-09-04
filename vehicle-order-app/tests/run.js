@@ -921,6 +921,35 @@ test('含まれないメールアドレス・空はfalse', () => {
   assert.strictEqual(sandbox.isSystemAdmin_(null), false);
 });
 
+console.log('== SettingsService: scriptPropKey_（PROP_KEYS欠落時も保存キーを空にしない） ==');
+test('PROP_KEYSにあるキーはその値を使う', () => {
+  assert.strictEqual(sandbox.scriptPropKey_('STAFF_LIST'), sandbox.PROP_KEYS.STAFF_LIST);
+  assert.strictEqual(sandbox.scriptPropKey_('LOADING_SPLASH_DRIVE_ID'), sandbox.PROP_KEYS.LOADING_SPLASH_DRIVE_ID);
+  assert.strictEqual(sandbox.scriptPropKey_('THEME_KEY'), sandbox.PROP_KEYS.THEME_KEY);
+});
+test('PROP_KEYSにキーが無くても設定用の名前へフォールバックし、空文字は返さない', () => {
+  const original = sandbox.PROP_KEYS;
+  sandbox.PROP_KEYS = { COMPANIES: 'COMPANIES_CONFIG', OCR_SPACE_API_KEY: 'OCR_SPACE_API_KEY' };
+  try {
+    assert.strictEqual(sandbox.scriptPropKey_('STAFF_LIST'), 'STAFF_LIST');
+    assert.strictEqual(sandbox.scriptPropKey_('LOADING_SPLASH_DRIVE_ID'), 'LOADING_SPLASH_DRIVE_ID');
+    assert.strictEqual(sandbox.scriptPropKey_('THEME_KEY'), 'THEME_KEY');
+    assert.strictEqual(sandbox.scriptPropKey_('HOME_ANNOUNCEMENT'), 'HOME_ANNOUNCEMENT');
+    assert.ok(sandbox.scriptPropKey_('STAFF_LIST').length > 0);
+  } finally {
+    sandbox.PROP_KEYS = original;
+  }
+});
+test('PROP_KEYS自体が未定義でもフォールバックする', () => {
+  const original = sandbox.PROP_KEYS;
+  sandbox.PROP_KEYS = undefined;
+  try {
+    assert.strictEqual(sandbox.scriptPropKey_('NOTIFY_HOLD_MAIL_TO'), 'NOTIFY_HOLD_MAIL_TO');
+  } finally {
+    sandbox.PROP_KEYS = original;
+  }
+});
+
 console.log('== SettingsService: normalizeThemeKey_（着せ替えプリセットキーの検証） ==');
 test('THEME_PRESETSに存在するキーはそのまま返る', () => {
   assert.strictEqual(sandbox.normalizeThemeKey_('wine'), 'wine');
