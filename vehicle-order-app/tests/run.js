@@ -1390,10 +1390,12 @@ test('在庫リストの可能月プルダウン初期値はすべて', () => {
   assert.ok(!/select\.value = thisMonth/.test(body), '初回に当月へ上書きしない');
   assert.ok(/select\.value = ''/.test(body), '初回は空（すべて）');
 });
-test('受注・発注の表はPCで列を均等に伸ばす', () => {
+test('受注・発注・Gクラスの表はPCで列を均等に伸ばす', () => {
   const css = fs.readFileSync(path.join(ROOT, 'html/Stylesheet.html'), 'utf8');
   assert.ok(/\.rowCard\.rowCard--order > \.rowCard__inner > \* \{[^}]*flex:\s*1 1 0/.test(css));
   assert.ok(/\.rowCard--purchaseOrder > \.rowCard__inner > \* \{[^}]*flex:\s*1 1 0/.test(css));
+  assert.ok(/\.rowCard--gclass > \.rowCard__inner > \* \{[^}]*flex:\s*1 1 0/.test(css));
+  assert.ok(!/\.rowCard--gclass > \.rowCard__inner > \*:nth-child\(1\) \{[^}]*width:\s*max-content/.test(css));
 });
 test('起動画面の画像はフェードインし、閉じるときはゆっくり消える', () => {
   const css = fs.readFileSync(path.join(ROOT, 'html/Stylesheet.html'), 'utf8');

@@ -2677,7 +2677,7 @@
 
   /**
    * 表示形式「表」: 顧客・モデル・MP・ステア・カラー・有償OP・担当者・開示状況。
-   * 顧客列は内容幅に留めてモデルとの間を詰め、ステアはラベルを折り返さない。
+   * PCでは受注・発注と同じく行幅いっぱいに均等配置する。ステアはラベルを折り返さない。
    * 入港予定日・可能月・VPC・リード番号は行タップの詳細モーダル
    * （openGClassDetailModal_）でのみ確認する。
    */
@@ -2689,7 +2689,7 @@
       '<div class="rowCard__field rowCard__id"><span class="rowCard__model">' + escapeHtml(v.customer || '-') + '</span>' +
       '<span class="rowCard__commission">' + escapeHtml(v.commission) + '</span></div>' +
       rowField_('モデル', v.model) +
-      rowField_('MP', v.mp) +
+      rowField_('MP', v.mp, 'rowCard__field--mp') +
       rowField_('ステア', formatSteering_(v.steering), 'rowCard__field--steer') +
       rowField_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
       '<div class="rowCard__field rowCard__field--center"><span class="rowCard__label">有償OP</span>' +

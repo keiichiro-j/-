@@ -683,17 +683,12 @@
      （cursor: pointer自体は上の.rowCard本体の宣言に含めている）。 */
   .rowCard__field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .rowCard.rowCard--order > .rowCard__inner > .rowCard__id,
-  .rowCard--purchaseOrder > .rowCard__inner > .rowCard__id {
+  .rowCard--purchaseOrder > .rowCard__inner > .rowCard__id,
+  .rowCard--gclass > .rowCard__inner > .rowCard__id {
     flex: 1 1 0;
     min-width: 0;
     max-width: none;
     width: auto;
-  }
-  .rowCard--gclass > .rowCard__inner > .rowCard__id {
-    flex: 0 0 auto;
-    min-width: 0;
-    max-width: 12em;
-    width: max-content;
   }
   .rowCard__inner > .rowCard__field--steer {
     flex: 0 0 auto;
@@ -782,22 +777,23 @@
   .rowCard.rowCard--order > .rowCard__inner > .rowCard__field--steer { flex: 0 0 auto; min-width: 3.5em; }
   .rowCard.rowCard--order .is-overflow-hidden { display: none !important; }
 
-  /* Gクラス予約リストの表示形式「表」: 顧客列は内容幅に留め、モデルとの間に
-     余白が開かないようにする。有償OPの次に担当者を置き、最後尾は開示状況。
-     それ以外（入港予定日・可能月・VPC・リード番号）は行タップの詳細モーダル。 */
+  /* Gクラス予約リストの表示形式「表」: PCでは顧客〜開示状況まで行幅いっぱいに
+     均等配置する（内容幅に縮めると左に寄って見える）。有償OPの次に担当者、
+     最後尾は開示状況。入港予定日・可能月・VPC・リード番号は行タップの詳細モーダル。 */
+  .rowCard.rowCard--gclass { overflow: hidden; }
   .rowCard--gclass > .rowCard__inner {
     flex-wrap: nowrap;
     overflow: hidden;
+    min-height: 52px;
+    justify-content: space-between;
   }
-  .rowCard--gclass > .rowCard__inner > * { overflow: hidden; min-width: 0; }
-  .rowCard--gclass > .rowCard__inner > *:nth-child(1) { flex: 0 0 auto; min-width: 0; max-width: 12em; width: max-content; } /* 顧客＋コミッション */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(2) { flex: 0 0 auto; min-width: 0; max-width: 10em; width: max-content; } /* モデル */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(3) { flex: 0 1 auto; min-width: 4.5ch; } /* MP */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(4) { flex: 0 0 auto; min-width: 3.5em; } /* ステア */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(5) { flex: 1 1 100px; } /* カラー */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(6) { flex: 1 1 90px; } /* 有償OP */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(7) { flex: 0 1 auto; min-width: 3.5em; max-width: 7em; } /* 担当者 */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(8) { flex: 1 1 72px; } /* 開示状況 */
+  .rowCard--gclass > .rowCard__inner > * {
+    overflow: hidden;
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .rowCard--gclass > .rowCard__inner > .rowCard__field--mp { flex: 0 1 auto; min-width: 4.5ch; }
+  .rowCard--gclass > .rowCard__inner > .rowCard__field--steer { flex: 0 0 auto; min-width: 3.5em; }
 
   /* 発注リストの表示形式「表」（発注リストタブ本体・マイページの「発注リスト」
      セクションの両方。purchaseOrderRowCardHtml_のDOM出力順）。PCでは顧客〜拠点を
@@ -2696,20 +2692,23 @@
     .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(8) { flex: 0 0 180px; }
     .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(9) { flex: 0 0 auto; }
     .rowCard__actions { flex-wrap: nowrap; }
-    /* 受注・発注の表はPCでは均等配置だが、狭い画面では列を縮めず横スライドする。 */
+    /* 受注・発注・Gクラスの表はPCでは均等配置だが、狭い画面では列を縮めず横スライドする。 */
     .rowCard.rowCard--order > .rowCard__inner > *,
-    .rowCard--purchaseOrder > .rowCard__inner > * {
+    .rowCard--purchaseOrder > .rowCard__inner > *,
+    .rowCard--gclass > .rowCard__inner > * {
       flex: 0 0 auto;
       width: auto;
       max-width: none;
       min-width: 5.5em;
     }
     .rowCard.rowCard--order > .rowCard__inner > .rowCard__field--steer,
-    .rowCard--purchaseOrder > .rowCard__inner > .rowCard__field--steer {
+    .rowCard--purchaseOrder > .rowCard__inner > .rowCard__field--steer,
+    .rowCard--gclass > .rowCard__inner > .rowCard__field--steer {
       min-width: 3.5em;
     }
     .rowCard.rowCard--order > .rowCard__inner > .rowCard__field--mp,
-    .rowCard--purchaseOrder > .rowCard__inner > .rowCard__field--mp {
+    .rowCard--purchaseOrder > .rowCard__inner > .rowCard__field--mp,
+    .rowCard--gclass > .rowCard__inner > .rowCard__field--mp {
       min-width: 4.5ch;
     }
 
