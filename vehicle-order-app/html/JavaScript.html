@@ -72,7 +72,7 @@
     purchaseOrdersViewMode: safeLocalStorageGet_('purchaseOrdersViewMode') || 'card', // 'card' | 'table'（発注リストの表示形式）
     myPageViewMode: safeLocalStorageGet_('myPageViewMode') || 'card', // 'card' | 'table'（マイページ全体の表示形式）
     paidOptionMaster: [], // 有償OPマスタ（{code, name}）。設定タブ編集用＋名称ポップアップ用
-    inventoryMonthFilterReady: false, // 可能月プルダウンの初回構築前は「当月登録可能」を初期値にする
+    inventoryMonthFilterReady: false, // 可能月プルダウンの初回構築前は「すべて」を初期値にする
     openInventoryDetailCommission: null // 開いている在庫詳細モーダルのコミッション（裏更新で中身を合わせる）
   };
 
@@ -790,6 +790,7 @@
   function resetInventoryFilters_() {
     $('inventoryKeyword').value = '';
     $('inventoryColorFilter').value = '';
+    $('inventoryMonthFilter').value = '';
     $('inventoryIncludeHold').checked = true;
     state.homeGradeFilter = null;
     state.inventoryMonthFilterReady = false;
@@ -1078,9 +1079,9 @@
       return '<option value="' + escapeHtml(m) + '">' + escapeHtml(label) + '</option>';
     }));
     select.innerHTML = options.join('');
-    // 初回は「当月登録可能」。以降は利用者が「すべて」（空文字）を選んでも上書きしない。
+    // 初回は「可能月：すべて」。以降は利用者が「すべて」（空文字）を選んでも上書きしない。
     if (!state.inventoryMonthFilterReady) {
-      select.value = thisMonth;
+      select.value = '';
       state.inventoryMonthFilterReady = true;
     } else if (current === '') {
       select.value = '';
@@ -2532,9 +2533,8 @@
    * 発注リストは閲覧専用のため、カード表示・表表示のどちらもボタン・行タップ
    * での編集導線は持たない。
    * 行に並べる項目は「識別（顧客・コミッション）・モデル・MP・ステア・カラー・有償OP・
-   * 担当者・拠点」。顧客列は内容幅に留めてモデルとの間を詰め、ステアはラベルを
-   * 折り返さない。リード番号・登録日時は行タップの詳細モーダル
-   * （openPurchaseOrderDetailModal_）でのみ確認する。
+   * 担当者・拠点」。ステアはラベルを折り返さない。リード番号・登録日時は行タップ
+   * の詳細モーダル（openPurchaseOrderDetailModal_）でのみ確認する。
    */
   function purchaseOrderRowCardHtml_(po) {
     return '<div class="rowCard rowCard--purchaseOrder" data-purchase-order-id="' + escapeHtml(po.id) + '">' +

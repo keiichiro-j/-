@@ -683,8 +683,13 @@
      （cursor: pointer自体は上の.rowCard本体の宣言に含めている）。 */
   .rowCard__field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .rowCard.rowCard--order > .rowCard__inner > .rowCard__id,
-  .rowCard--gclass > .rowCard__inner > .rowCard__id,
   .rowCard--purchaseOrder > .rowCard__inner > .rowCard__id {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: none;
+    width: auto;
+  }
+  .rowCard--gclass > .rowCard__inner > .rowCard__id {
     flex: 0 0 auto;
     min-width: 0;
     max-width: 12em;
@@ -755,9 +760,9 @@
     height: 32px;
   }
 
-  /* 受注リストの表示形式「表」: PCでは行幅いっぱいまで項目を伸ばし（余白を空けない）、
-     入りきらない低優先項目は JS（fitOrderRowCards_）が隠して行タップの詳細で確認する。
-     min-width を残すことで「縮めて押し込む」のではなく「見切れる前に項目ごと隠す」。 */
+  /* 受注リストの表示形式「表」: PCでは顧客〜拠点まで行幅いっぱいに均等配置する
+     （内容幅に縮めると左に寄って見える）。入りきらない低優先項目は
+     JS（fitOrderRowCards_）が隠して行タップの詳細で確認する。 */
   .rowCard.rowCard--order {
     overflow: hidden;
     border-left-color: var(--primary);
@@ -766,21 +771,15 @@
     flex-wrap: nowrap;
     overflow: hidden;
     min-height: 52px;
+    justify-content: space-between;
   }
   .rowCard.rowCard--order > .rowCard__inner > * {
     overflow: hidden;
+    flex: 1 1 0;
+    min-width: 0;
   }
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(1) { flex: 0 0 auto; min-width: 0; max-width: 12em; width: max-content; } /* 顧客＋コミッション */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(2) { flex: 0 0 auto; min-width: 0; max-width: 10em; width: max-content; } /* モデル */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(3) { flex: 1 1 88px; min-width: 64px; } /* リード番号 */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(4) { flex: 0 1 auto; min-width: 4.5ch; } /* MP */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(5) { flex: 0 0 auto; min-width: 3.5em; } /* ステア R/L（ラベル1行） */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(6) { flex: 1 1 110px; min-width: 72px; } /* カラー */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(7) { flex: 1 1 110px; min-width: 72px; } /* 有償OP */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(8) { flex: 1 1 72px; min-width: 56px; } /* 担当者 */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(9) { flex: 1 1 72px; min-width: 56px; } /* 登録月 */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(10) { flex: 1 1 64px; min-width: 48px; } /* VPC */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(11) { flex: 1 1 80px; min-width: 64px; } /* 販売拠点 */
+  .rowCard.rowCard--order > .rowCard__inner > .rowCard__field--mp { flex: 0 1 auto; min-width: 4.5ch; }
+  .rowCard.rowCard--order > .rowCard__inner > .rowCard__field--steer { flex: 0 0 auto; min-width: 3.5em; }
   .rowCard.rowCard--order .is-overflow-hidden { display: none !important; }
 
   /* Gクラス予約リストの表示形式「表」: 顧客列は内容幅に留め、モデルとの間に
@@ -801,23 +800,18 @@
   .rowCard--gclass > .rowCard__inner > *:nth-child(8) { flex: 1 1 72px; } /* 開示状況 */
 
   /* 発注リストの表示形式「表」（発注リストタブ本体・マイページの「発注リスト」
-     セクションの両方。purchaseOrderRowCardHtml_のDOM出力順）。顧客列は内容幅に
-     留め、有償OPの次に担当者、最後尾に拠点バッジ。リード番号・登録日時は行タップ
-     の詳細モーダル（openPurchaseOrderDetailModal_）でのみ確認する。 */
+     セクションの両方。purchaseOrderRowCardHtml_のDOM出力順）。PCでは顧客〜拠点を
+     行幅いっぱいに均等配置する。リード番号・登録日時は行タップの詳細モーダル
+     （openPurchaseOrderDetailModal_）でのみ確認する。 */
   .rowCard.rowCard--purchaseOrder { border-left-color: var(--primary); }
   .rowCard--purchaseOrder > .rowCard__inner {
     flex-wrap: nowrap;
     overflow: hidden;
+    justify-content: space-between;
   }
-  .rowCard--purchaseOrder > .rowCard__inner > * { overflow: hidden; min-width: 0; }
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(1) { flex: 0 0 auto; min-width: 0; max-width: 12em; width: max-content; } /* 顧客＋コミッション */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(2) { flex: 0 0 auto; min-width: 0; max-width: 10em; width: max-content; } /* モデル */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(3) { flex: 0 1 auto; min-width: 4.5ch; } /* MP */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(4) { flex: 0 0 auto; min-width: 3.5em; } /* ステア */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(5) { flex: 1 1 100px; } /* カラー */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(6) { flex: 1 1 90px; } /* 有償OP */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(7) { flex: 0 1 auto; min-width: 3.5em; max-width: 7em; } /* 担当者 */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(8) { flex: 1 1 72px; } /* 拠点 */
+  .rowCard--purchaseOrder > .rowCard__inner > * { overflow: hidden; min-width: 0; flex: 1 1 0; }
+  .rowCard--purchaseOrder > .rowCard__inner > .rowCard__field--mp { flex: 0 1 auto; min-width: 4.5ch; }
+  .rowCard--purchaseOrder > .rowCard__inner > .rowCard__field--steer { flex: 0 0 auto; min-width: 3.5em; }
   .btn--small { padding: 6px 12px; font-size: 12.5px; }
 
   /* ===== カードグリッド（PCビューで3列。HOLDのバー・時間・担当者を収める） ===== */
@@ -2702,6 +2696,22 @@
     .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(8) { flex: 0 0 180px; }
     .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(9) { flex: 0 0 auto; }
     .rowCard__actions { flex-wrap: nowrap; }
+    /* 受注・発注の表はPCでは均等配置だが、狭い画面では列を縮めず横スライドする。 */
+    .rowCard.rowCard--order > .rowCard__inner > *,
+    .rowCard--purchaseOrder > .rowCard__inner > * {
+      flex: 0 0 auto;
+      width: auto;
+      max-width: none;
+      min-width: 5.5em;
+    }
+    .rowCard.rowCard--order > .rowCard__inner > .rowCard__field--steer,
+    .rowCard--purchaseOrder > .rowCard__inner > .rowCard__field--steer {
+      min-width: 3.5em;
+    }
+    .rowCard.rowCard--order > .rowCard__inner > .rowCard__field--mp,
+    .rowCard--purchaseOrder > .rowCard__inner > .rowCard__field--mp {
+      min-width: 4.5ch;
+    }
 
     /* 型のクイックナビ: タブレット・スマホ幅では8種類＋「すべて」を折り返し無しで
        並べると窮屈なため、横スクロールにする（よくあるカテゴリ絞り込みチップの
