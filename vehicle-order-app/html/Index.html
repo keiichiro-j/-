@@ -145,6 +145,12 @@
         <button class="tabs__item sidebarNav__item" data-tab="orders" type="button">
           <svg class="icon"><use href="#icon-table"></use></svg><span>受注リスト</span>
         </button>
+        <button class="tabs__item sidebarNav__item" data-tab="demoOrders" type="button">
+          <svg class="icon"><use href="#icon-table"></use></svg><span>デモカー受注リスト</span>
+        </button>
+        <button class="tabs__item sidebarNav__item" data-tab="otherStoreOrders" type="button">
+          <svg class="icon"><use href="#icon-table"></use></svg><span>他店受注リスト</span>
+        </button>
         <button class="tabs__item sidebarNav__item" data-tab="purchaseOrders" type="button">
           <svg class="icon"><use href="#icon-clipboard"></use></svg><span>発注リスト</span>
         </button>
@@ -196,6 +202,8 @@
         <button class="tabs__item is-active" data-tab="home">ホーム</button>
         <button class="tabs__item" data-tab="inventory">在庫リスト</button>
         <button class="tabs__item" data-tab="orders">受注リスト</button>
+        <button class="tabs__item" data-tab="demoOrders">デモカー受注リスト</button>
+        <button class="tabs__item" data-tab="otherStoreOrders">他店受注リスト</button>
         <button class="tabs__item" data-tab="purchaseOrders">発注リスト</button>
         <button class="tabs__item" data-tab="gclass">Gクラス予約リスト</button>
         <button class="tabs__item" data-tab="mypage">マイページ</button>
@@ -311,7 +319,6 @@
           <option value="大垣">大垣</option>
           <option value="多治見">多治見</option>
           <option value="高山">高山</option>
-          <option value="店間移動">店間移動</option>
         </select>
         <select id="ordersStaffFilter" class="input"></select>
         <select id="ordersGroupBy" class="input">
@@ -332,6 +339,72 @@
       <div class="emptyState hidden" id="ordersEmpty">
         <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
         <p>該当する受注がありません</p>
+      </div>
+    </main>
+
+    <!-- デモカー受注リスト: デモカーHOLDから受注確定した車両。見た目・絞り込みは受注リストと同じ。 -->
+    <main class="view" id="view-demoOrders">
+      <div class="toolbar" id="demoOrdersToolbar">
+        <input type="search" id="demoOrdersKeyword" class="input input--search" placeholder="自由検索（モデル・コミッション・顧客名・担当・拠点）">
+        <select id="demoOrdersLocationFilter" class="input">
+          <option value="">拠点：すべて</option>
+          <option value="岐阜">岐阜</option>
+          <option value="大垣">大垣</option>
+          <option value="多治見">多治見</option>
+          <option value="高山">高山</option>
+        </select>
+        <select id="demoOrdersStaffFilter" class="input"></select>
+        <select id="demoOrdersGroupBy" class="input">
+          <option value="">グループ表示なし</option>
+          <option value="registeredMonth" selected>登録月</option>
+          <option value="salesLocation">販売拠点ごと</option>
+          <option value="model">モデルごと</option>
+        </select>
+        <div class="toolbar__spacer"></div>
+        <div class="viewToggle" id="demoOrdersViewToggle">
+          <button type="button" class="viewToggle__item" data-view="card" title="カード表示" aria-label="カード表示"><svg class="icon icon--inline"><use href="#icon-grid"></use></svg></button>
+          <button type="button" class="viewToggle__item" data-view="table" title="表表示" aria-label="表表示"><svg class="icon icon--inline"><use href="#icon-table"></use></svg></button>
+        </div>
+        <span class="toolbar__count" id="demoOrdersTotalCount"></span>
+      </div>
+      <div class="toolbarSpacer" id="demoOrdersToolbarSpacer"></div>
+      <div id="demoOrdersGroups"></div>
+      <div class="emptyState hidden" id="demoOrdersEmpty">
+        <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
+        <p>該当するデモカー受注がありません</p>
+      </div>
+    </main>
+
+    <!-- 他店受注リスト: 他店HOLDから受注確定した車両。見た目・絞り込みは受注リストと同じ。 -->
+    <main class="view" id="view-otherStoreOrders">
+      <div class="toolbar" id="otherStoreOrdersToolbar">
+        <input type="search" id="otherStoreOrdersKeyword" class="input input--search" placeholder="自由検索（モデル・コミッション・顧客名・担当・拠点）">
+        <select id="otherStoreOrdersLocationFilter" class="input">
+          <option value="">拠点：すべて</option>
+          <option value="岐阜">岐阜</option>
+          <option value="大垣">大垣</option>
+          <option value="多治見">多治見</option>
+          <option value="高山">高山</option>
+        </select>
+        <select id="otherStoreOrdersStaffFilter" class="input"></select>
+        <select id="otherStoreOrdersGroupBy" class="input">
+          <option value="">グループ表示なし</option>
+          <option value="registeredMonth" selected>登録月</option>
+          <option value="salesLocation">販売拠点ごと</option>
+          <option value="model">モデルごと</option>
+        </select>
+        <div class="toolbar__spacer"></div>
+        <div class="viewToggle" id="otherStoreOrdersViewToggle">
+          <button type="button" class="viewToggle__item" data-view="card" title="カード表示" aria-label="カード表示"><svg class="icon icon--inline"><use href="#icon-grid"></use></svg></button>
+          <button type="button" class="viewToggle__item" data-view="table" title="表表示" aria-label="表表示"><svg class="icon icon--inline"><use href="#icon-table"></use></svg></button>
+        </div>
+        <span class="toolbar__count" id="otherStoreOrdersTotalCount"></span>
+      </div>
+      <div class="toolbarSpacer" id="otherStoreOrdersToolbarSpacer"></div>
+      <div id="otherStoreOrdersGroups"></div>
+      <div class="emptyState hidden" id="otherStoreOrdersEmpty">
+        <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
+        <p>該当する他店受注がありません</p>
       </div>
     </main>
 
@@ -386,7 +459,7 @@
          Googleアカウントの場合は、その旨を案内するメッセージのみ表示する
          （#myPageNoStaff、JavaScript.htmlのrenderMyPageNoStaffState_参照）。
          在庫リスト・受注リストと同様、表示形式（カード／表）の切り替えと自由検索欄を
-         ツールバーに持たせ、マイページ全体（4セクションすべて）に一括で適用する
+         ツールバーに持たせ、マイページ全体（6セクションすべて）に一括で適用する
          （#myPageViewToggle・#myPageKeyword、renderMyPageAll_参照）。 -->
     <main class="view" id="view-mypage">
       <div class="toolbar" id="myPageToolbar">
@@ -418,6 +491,22 @@
           <div class="emptyState hidden" id="myPageOrderEmpty">
             <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
             <p>受注した車両はありません</p>
+          </div>
+        </section>
+        <section class="myPageSection">
+          <h2 class="myPageSection__title">デモカー受注（<span id="myPageDemoOrderCount">0</span>台）</h2>
+          <div id="myPageDemoOrderList"></div>
+          <div class="emptyState hidden" id="myPageDemoOrderEmpty">
+            <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
+            <p>デモカー受注した車両はありません</p>
+          </div>
+        </section>
+        <section class="myPageSection">
+          <h2 class="myPageSection__title">他店受注（<span id="myPageOtherStoreOrderCount">0</span>台）</h2>
+          <div id="myPageOtherStoreOrderList"></div>
+          <div class="emptyState hidden" id="myPageOtherStoreOrderEmpty">
+            <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
+            <p>他店受注した車両はありません</p>
           </div>
         </section>
         <!-- 発注リストには担当者メールの記録がない（在庫リスト・受注リストと違い
@@ -668,7 +757,6 @@
                 <option value="大垣"></option>
                 <option value="多治見"></option>
                 <option value="高山"></option>
-                <option value="店間移動"></option>
               </datalist>
             </div>
             <div class="formField">

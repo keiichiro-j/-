@@ -85,12 +85,24 @@ function api_confirmOrder(commission, info) {
 }
 
 /**
- * 受注リスト一覧。スプレッドシートの「登録月」列を YYYY-MM に揃えてから返す。
+ * 受注系3リスト共通の一覧。スプレッドシートの「登録月」列を YYYY-MM に揃えてから返す。
  * グループ表示の初期値「登録月」は受注確定日時ではなく、この列で分かれる。
  */
-function api_listOrders(filters, groupBy) {
-  var result = searchOrders(normalizeOrdersRegisteredMonth_(listOrders()), filters);
+function listOrdersApi_(listFn, filters, groupBy) {
+  var result = searchOrders(normalizeOrdersRegisteredMonth_(listFn()), filters);
   return groupBy ? groupByField_(result, groupBy) : [{ key: '', items: result }];
+}
+
+function api_listOrders(filters, groupBy) {
+  return listOrdersApi_(listOrders, filters, groupBy);
+}
+
+function api_listDemoOrders(filters, groupBy) {
+  return listOrdersApi_(listDemoOrders, filters, groupBy);
+}
+
+function api_listOtherStoreOrders(filters, groupBy) {
+  return listOrdersApi_(listOtherStoreOrders, filters, groupBy);
 }
 
 // ===== Gクラス予約リスト（閲覧専用） =====

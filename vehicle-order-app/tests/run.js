@@ -27,7 +27,8 @@ vm.createContext(sandbox);
 // AuditLogService.gs / IntegrityService.gs の順で依存関係あり
 const FILES = [
   'Constants.gs', 'HoldService.gs', 'SearchService.gs', 'SheetService.gs', 'SettingsService.gs',
-  'AuditLogService.gs', 'IntegrityService.gs', 'PurchaseOrderService.gs', 'PaidOptionService.gs'
+  'AuditLogService.gs', 'IntegrityService.gs', 'PurchaseOrderService.gs', 'PaidOptionService.gs',
+  'OrderService.gs'
 ];
 
 FILES.forEach((file) => {
@@ -482,18 +483,25 @@ test('拠点・担当者の検索は組み合わせて絞り込める（両方�
   assert.strictEqual(sandbox.searchOrders(orders, { salesLocation: '東京', staff: '鈴木' }).length, 0);
   assert.strictEqual(sandbox.searchOrders(orders, { salesLocation: '東京', staff: '佐藤' }).length, 1);
 });
-test('拠点「店間移動」で絞り込める', () => {
-  const withTransfer = orders.concat([
-    { commission: 'C003', model: 'モデルC', customer: '高橋', staff: '佐藤', salesLocation: '店間移動' }
-  ]);
-  const result = sandbox.searchOrders(withTransfer, { salesLocation: '店間移動' });
-  assert.strictEqual(result.length, 1);
-  assert.strictEqual(result[0].commission, 'C003');
+console.log('== Constants: SALES_LOCATION_OPTIONS（受注リストの拠点絞り込み） ==');
+test('販売拠点の候補は岐阜・大垣・多治見・高山で、店間移動は無い', () => {
+  assert.strictEqual(sandbox.SALES_LOCATION_OPTIONS.join(','), '岐阜,大垣,多治見,高山');
+  assert.ok(sandbox.SALES_LOCATION_OPTIONS.indexOf('店間移動') === -1);
 });
 
-console.log('== Constants: SALES_LOCATION_OPTIONS（受注リストの拠点絞り込み） ==');
-test('岐阜・大垣・多治見・高山に加えて店間移動がある', () => {
-  assert.strictEqual(sandbox.SALES_LOCATION_OPTIONS.join(','), '岐阜,大垣,多治見,高山,店間移動');
+console.log('== OrderService: orderDestinationFromHold_（デモカー/他店HOLDの受注先） ==');
+test('デモカーHOLDからの受注はデモカー受注リストへ', () => {
+  assert.strictEqual(sandbox.orderDestinationFromHold_({ holdType: 'demo' }), 'demo');
+  assert.strictEqual(sandbox.orderListNameForDestination_('demo'), 'デモカー受注リスト');
+});
+test('他店HOLDからの受注は他店受注リストへ', () => {
+  assert.strictEqual(sandbox.orderDestinationFromHold_({ holdType: 'otherStore' }), 'otherStore');
+  assert.strictEqual(sandbox.orderListNameForDestination_('otherStore'), '他店受注リスト');
+});
+test('通常HoldとHoldなしは受注リストへ', () => {
+  assert.strictEqual(sandbox.orderDestinationFromHold_({ holdType: 'normal' }), 'normal');
+  assert.strictEqual(sandbox.orderDestinationFromHold_(null), 'normal');
+  assert.strictEqual(sandbox.orderListNameForDestination_('normal'), '受注リスト');
 });
 
 console.log('== Constants: formatSteering_（ステアは R / L 表示） ==');
@@ -1405,6 +1413,21 @@ test('発注カードのコミッションとリード番号はMP・ステアと
   assert.ok(/metaRow_\('コミッション'/.test(body));
   assert.ok(/metaRow_\('リード番号'/.test(body));
   assert.ok(!/purchaseOrderCard__sub/.test(body), '灰色の1行まとめ表示は使わない');
+});
+test('デモカー受注リストと他店受注リストの画面があり、店間移動の選択肢は無い', () => {
+  const html = fs.readFileSync(path.join(ROOT, 'html/Index.html'), 'utf8');
+  const js = fs.readFileSync(path.join(ROOT, 'html/JavaScript.html'), 'utf8');
+  const constants = fs.readFileSync(path.join(ROOT, 'Constants.gs'), 'utf8');
+  assert.ok(html.includes('id="view-demoOrders"'));
+  assert.ok(html.includes('id="view-otherStoreOrders"'));
+  assert.ok(html.includes('data-tab="demoOrders"'));
+  assert.ok(html.includes('data-tab="otherStoreOrders"'));
+  assert.ok(!html.includes('店間移動'));
+  assert.ok(js.includes("api_listDemoOrders"));
+  assert.ok(js.includes("api_listOtherStoreOrders"));
+  assert.ok(js.includes('refreshAllOrderListsFromServer_'));
+  assert.ok(constants.includes("DEMO_ORDERS: 'デモカー受注リスト'"));
+  assert.ok(constants.includes("OTHER_STORE_ORDERS: '他店受注リスト'"));
 });
 test('起動画面の画像はフェードインし、閉じるときはゆっくり消える', () => {
   const css = fs.readFileSync(path.join(ROOT, 'html/Stylesheet.html'), 'utf8');

@@ -1,11 +1,12 @@
 /**
  * SetupService.gs
- * スプレッドシートの初期セットアップ（在庫リスト・Holdリスト・受注リスト・発注リスト・
- * Gクラス予約リスト・変更履歴・有償OPマスタの7タブを自動生成）。
+ * スプレッドシートの初期セットアップ（在庫リスト・Holdリスト・受注リスト・
+ * デモカー受注リスト・他店受注リスト・発注リスト・
+ * Gクラス予約リスト・変更履歴・有償OPマスタの9タブを自動生成）。
  *
  * 元データスプレッドシート（xlsx）を手作業でアップロード・貼り付けする代わりに、
  * 任意の空のGoogleスプレッドシートに本プロジェクトをコンテナバインドした状態で
- * setupSpreadsheet_() を一度実行するだけで、必要な7タブ・ヘッダー・入力規則
+ * setupSpreadsheet_() を一度実行するだけで、必要な9タブ・ヘッダー・入力規則
  * （選択式の列のドロップダウン）・列ヘッダーの説明メモ・コミッション列の書式
  * （先頭0保持）・時間主導トリガーまで一括で整えられる（Constants.gsの
  * INVENTORY_COLUMNS / HOLD_COLUMNS / ORDER_COLUMNS / PURCHASE_ORDER_COLUMNS /
@@ -18,15 +19,17 @@
  */
 
 /**
- * 在庫リスト・Holdリスト・受注リスト・発注リスト・Gクラス予約リスト・変更履歴・
- * 有償OPマスタを作成し、Hold期限チェックの時間主導トリガーをセットアップする。GASエディタから
- * 手動実行するか、スプレッドシートのメニュー「販売可能リスト」→「初期セットアップ」
- * からも実行できる（onOpen参照）。
+ * 在庫リスト・Holdリスト・受注リスト・デモカー受注リスト・他店受注リスト・発注リスト・
+ * Gクラス予約リスト・変更履歴・有償OPマスタを作成し、Hold期限チェックの時間主導トリガーを
+ * セットアップする。GASエディタから手動実行するか、スプレッドシートのメニュー
+ * 「販売可能リスト」→「初期セットアップ」からも実行できる（onOpen参照）。
  */
 function setupSpreadsheet_() {
   getInventorySheet_();
   getHoldsSheet_();
   getOrderSheet_();
+  getDemoOrderSheet_();
+  getOtherStoreOrderSheet_();
   getPurchaseOrderSheet_();
   getGClassReservationSheet_();
   getAuditLogSheet_();
@@ -34,7 +37,7 @@ function setupSpreadsheet_() {
   applySelectValidationsAndNotes_();
   setupTimeDrivenTriggers_();
 
-  var message = '在庫リスト・Holdリスト・受注リスト・発注リスト・Gクラス予約リスト・変更履歴・有償OPマスタの7タブを準備しました' +
+  var message = '在庫リスト・Holdリスト・受注リスト・デモカー受注リスト・他店受注リスト・発注リスト・Gクラス予約リスト・変更履歴・有償OPマスタの9タブを準備しました' +
     '（既存のシートがあれば列構成をアプリに合わせて不足列だけ挿入し、データは上書きしていません）。' +
     '選択式の列にはドロップダウンの入力規則を、列見出しには注意事項のコメント（メモ）を' +
     '設定済みです。Hold期限チェックの時間主導トリガーも設定済みです。';
@@ -53,6 +56,8 @@ function applySelectValidationsAndNotes_() {
     [getInventorySheet_(), INVENTORY_COLUMNS],
     [getHoldsSheet_(), HOLD_COLUMNS],
     [getOrderSheet_(), ORDER_COLUMNS],
+    [getDemoOrderSheet_(), ORDER_COLUMNS],
+    [getOtherStoreOrderSheet_(), ORDER_COLUMNS],
     [getPurchaseOrderSheet_(), PURCHASE_ORDER_COLUMNS],
     [getGClassReservationSheet_(), GCLASS_COLUMNS],
     [getAuditLogSheet_(), AUDIT_LOG_COLUMNS],
@@ -63,7 +68,7 @@ function applySelectValidationsAndNotes_() {
     applyHeaderNotes_(pair[0], pair[1]);
   });
 
-  var message = '在庫リスト・Holdリスト・受注リスト・発注リスト・Gクラス予約リスト・変更履歴・有償OPマスタの列構成・入力規則・列見出しの注意コメントをアプリに合わせて更新しました。';
+  var message = '在庫リスト・Holdリスト・受注リスト・デモカー受注リスト・他店受注リスト・発注リスト・Gクラス予約リスト・変更履歴・有償OPマスタの列構成・入力規則・列見出しの注意コメントをアプリに合わせて更新しました。';
   Logger.log(message);
   return message;
 }
@@ -76,7 +81,7 @@ function applySelectValidationsAndNotes_() {
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('販売可能リスト')
-    .addItem('初期セットアップ（7タブを作成）', 'setupSpreadsheet_')
+    .addItem('初期セットアップ（9タブを作成）', 'setupSpreadsheet_')
     .addItem('列構成・入力規則・列見出しのコメントを再設定', 'applySelectValidationsAndNotes_')
     .addItem('コミッション列を書式なしテキストに再設定', 'formatCommissionColumnsAsText_')
     .addToUi();

@@ -59,12 +59,14 @@ function notifyHoldRegistered(vehicle, isSecondHold) {
   return sent;
 }
 
-function notifyOrderConfirmed(order) {
+function notifyOrderConfirmed(order, destination) {
   var mailTo = getMailList_(scriptPropKey_('NOTIFY_ORDER_MAIL_TO')).join(',');
+  var listName = orderListNameForDestination_(destination || HOLD_TYPE.NORMAL);
 
   var bodyLines = [
     '受注が確定しました。',
     '',
+    '表示先: ' + listName,
     'コミッション: ' + order.commission,
     'モデル: ' + order.model,
     '販売拠点: ' + order.salesLocation,

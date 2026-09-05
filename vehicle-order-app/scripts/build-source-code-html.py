@@ -118,7 +118,7 @@ def main() -> None:
 <body>
 <header id="top">
   <h1>販売可能リスト ソースコード一覧</h1>
-  <p class="note">このアプリ（Google Apps Script）で使っているコードです。GitHubのログインは不要です。各ファイルの「このコードをコピー」から全文をコピーできます。今回の変更を反映するときは、まず html/JavaScript.html と html/Stylesheet.html を貼り、スクリプトを保存したうえでウェブアプリを再デプロイしてください。</p>
+  <p class="note">このアプリ（Google Apps Script）で使っているコードです。GitHubのログインは不要です。各ファイルの「このコードをコピー」から全文をコピーできます。今回のデモカー／他店受注リストを反映するときは、Constants.gs・OrderService.gs・SheetService.gs・Api.gs・SetupService.gs・NotificationService.gs・html/Index.html・html/JavaScript.html を貼り、スクリプトを保存したうえでウェブアプリを再デプロイしてください。スプレッドシートに「デモカー受注リスト」「他店受注リスト」タブが無ければ、メニューの初期セットアップを一度実行してください。</p>
 </header>
 <nav>
   <ol>

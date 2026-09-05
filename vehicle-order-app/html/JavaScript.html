@@ -62,8 +62,16 @@
     homeGradeFilter: null, // ホームのグレードタブクリックで設定される、絞り込み対象グレード名の配列
     homeExpandedModel: null, // ホームで現在グレードタブを展開中のベースモデル名（タブレット・スマホ幅のみ使用。1つのみ展開可能）
     homeTypeFilter: null, // ホーム上部のボディタイプ絞り込み（未選択＝「すべて」はnull）
-    allOrders: [], // 受注の全件キャッシュ（検索はクライアント側。マイページ受注もここから）
-    ordersCacheReady: false, // 受注全件の初回取得が成功したら true
+    allOrders: [], // 通常受注の全件キャッシュ（検索はクライアント側。マイページ受注もここから）
+    ordersCacheReady: false, // 通常受注全件の初回取得が成功したら true
+    allDemoOrders: [], // デモカー受注の全件キャッシュ
+    demoOrdersCacheReady: false,
+    demoOrdersGroups: [],
+    demoOrdersViewMode: safeLocalStorageGet_('demoOrdersViewMode') || 'card',
+    allOtherStoreOrders: [], // 他店受注の全件キャッシュ
+    otherStoreOrdersCacheReady: false,
+    otherStoreOrdersGroups: [],
+    otherStoreOrdersViewMode: safeLocalStorageGet_('otherStoreOrdersViewMode') || 'card',
     gclassItems: [], // Gクラス予約リスト（閲覧専用。Hold・受注操作は一切ない）
     gclassViewMode: safeLocalStorageGet_('gclassViewMode') || 'card', // 'card' | 'table'（Gクラス予約リストの表示形式）
     allGClassItems: [], // Gクラス予約の全件キャッシュ（検索はクライアント側。マイページもここから）
@@ -82,7 +90,6 @@
   var GAS_CALL_TIMEOUT_MS = 25000;
   // 同じ一覧のサーバー再取得が重ならないよう、進行中の Promise を共有する。
   var inventoryFetchPromise_ = null;
-  var ordersFetchPromise_ = null;
   var gclassFetchPromise_ = null;
   // Holdの表示をなるべくリアルタイムに近づけるため、在庫だけ裏で取り直す。
   // 検索のたびに取るのではなく、一定間隔・画面復帰・Hold操作時に取る。
@@ -1265,20 +1272,34 @@
     renderInventory();
   });
 
-  function syncOrdersViewToggle_() {
-    document.querySelectorAll('#ordersViewToggle .viewToggle__item').forEach(function (btn) {
-      btn.classList.toggle('is-active', btn.dataset.view === state.ordersViewMode);
+  function orderListViewKey_(kind) {
+    if (kind === 'demoOrders') return 'demoOrdersViewMode';
+    if (kind === 'otherStoreOrders') return 'otherStoreOrdersViewMode';
+    return 'ordersViewMode';
+  }
+
+  function syncOrderListViewToggle_(kind) {
+    var viewKey = orderListViewKey_(kind);
+    document.querySelectorAll('#' + kind + 'ViewToggle .viewToggle__item').forEach(function (btn) {
+      btn.classList.toggle('is-active', btn.dataset.view === state[viewKey]);
     });
   }
 
-  $('ordersViewToggle').addEventListener('click', function (e) {
-    var btn = e.target.closest('[data-view]');
-    if (!btn) return;
-    state.ordersViewMode = btn.dataset.view;
-    safeLocalStorageSet_('ordersViewMode', state.ordersViewMode);
-    syncOrdersViewToggle_();
-    renderOrders();
-  });
+  function syncOrdersViewToggle_() { syncOrderListViewToggle_('orders'); }
+
+  function bindOrderListViewToggle_(kind) {
+    var toggle = $(kind + 'ViewToggle');
+    if (!toggle) return;
+    toggle.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-view]');
+      if (!btn) return;
+      var keys = orderListKeys_(kind);
+      state[keys.view] = btn.dataset.view;
+      safeLocalStorageSet_(keys.view, state[keys.view]);
+      syncOrderListViewToggle_(kind);
+      renderOrderList_(kind);
+    });
+  }
 
   // 表示形式「表」: 多台数を一覧で見比べたい商談向けの高密度ビュー。
   // 素のtableではなく、カードグリッドと同じ「カードタイプUI」の見た目（角丸・影・
@@ -1630,6 +1651,8 @@
 
   syncViewToggle_();
   syncOrdersViewToggle_();
+  syncOrderListViewToggle_('demoOrders');
+  syncOrderListViewToggle_('otherStoreOrders');
   syncGClassViewToggle_();
   syncPurchaseOrdersViewToggle_();
   syncMyPageViewToggle_();
@@ -2114,7 +2137,7 @@
     showCelebration_(state.action.type);
     refreshInventoryFromServer_();
     if (ORDER_TYPES.indexOf(state.action.type) !== -1) {
-      refreshOrdersFromServer_();
+      refreshAllOrderListsFromServer_();
     }
   }
 
@@ -2204,48 +2227,71 @@
     });
   });
 
-  // ===== 受注リスト =====
+  // ===== 受注リスト（通常／デモカー／他店。見た目は同じカード・表） =====
+  var ORDER_LIST_KINDS_ = ['orders', 'demoOrders', 'otherStoreOrders'];
+  var ORDER_LIST_FETCH_PROMISES_ = {};
+
+  function orderListKeys_(kind) {
+    if (kind === 'demoOrders') {
+      return { all: 'allDemoOrders', cache: 'demoOrdersCacheReady', groups: 'demoOrdersGroups', view: 'demoOrdersViewMode', api: 'api_listDemoOrders' };
+    }
+    if (kind === 'otherStoreOrders') {
+      return { all: 'allOtherStoreOrders', cache: 'otherStoreOrdersCacheReady', groups: 'otherStoreOrdersGroups', view: 'otherStoreOrdersViewMode', api: 'api_listOtherStoreOrders' };
+    }
+    return { all: 'allOrders', cache: 'ordersCacheReady', groups: 'ordersGroups', view: 'ordersViewMode', api: 'api_listOrders' };
+  }
+
   /**
-   * 受注リストの検索・拠点・担当・グループ表示は全件キャッシュをクライアント側で
+   * 受注系リストの検索・拠点・担当・グループ表示は全件キャッシュをクライアント側で
    * 絞り込む。規則は SearchService.gs の searchOrders / groupByField_ と同じ。
    */
-  function applyOrdersView_() {
-    var keyword = $('ordersKeyword').value;
-    var salesLocation = $('ordersLocationFilter').value;
-    var staff = $('ordersStaffFilter').value;
-    var items = (state.allOrders || []).filter(function (o) {
+  function applyOrderListView_(kind) {
+    var keys = orderListKeys_(kind);
+    var keyword = $(kind + 'Keyword').value;
+    var salesLocation = $(kind + 'LocationFilter').value;
+    var staff = $(kind + 'StaffFilter').value;
+    var items = (state[keys.all] || []).filter(function (o) {
       if (keyword && !matchesListKeyword_(o, keyword, ['model', 'commission', 'customer', 'staff', 'salesLocation'])) return false;
       if (salesLocation && !fieldContainsInsensitive_(o.salesLocation, salesLocation)) return false;
       if (staff && String(o.staff || '').trim() !== String(staff).trim()) return false;
       return true;
     });
-    var groupBy = $('ordersGroupBy').value;
-    state.ordersGroups = groupBy ? groupByField_(items, groupBy) : [{ key: '', items: items }];
-    renderOrders();
+    var groupBy = $(kind + 'GroupBy').value;
+    state[keys.groups] = groupBy ? groupByField_(items, groupBy) : [{ key: '', items: items }];
+    renderOrderList_(kind);
   }
 
-  function refreshOrdersFromServer_() {
-    if (ordersFetchPromise_) return ordersFetchPromise_;
-    ordersFetchPromise_ = gasRun('api_listOrders', {}, '').then(function (groups) {
-      state.allOrders = flattenGroupedItems_(groups);
-      state.ordersCacheReady = true;
-      populateOrdersStaffFilter_();
-      applyOrdersView_();
-      renderMyPageOrders_();
+  function refreshOrderListFromServer_(kind) {
+    var keys = orderListKeys_(kind);
+    if (ORDER_LIST_FETCH_PROMISES_[kind]) return ORDER_LIST_FETCH_PROMISES_[kind];
+    ORDER_LIST_FETCH_PROMISES_[kind] = gasRun(keys.api, {}, '').then(function (groups) {
+      state[keys.all] = flattenGroupedItems_(groups);
+      state[keys.cache] = true;
+      populateOrderListStaffFilter_(kind);
+      applyOrderListView_(kind);
+      renderMyPageOrderKind_(kind);
     }).catch(function (err) {
       showToast(err.message, true);
     }).then(function () {
-      ordersFetchPromise_ = null;
+      ORDER_LIST_FETCH_PROMISES_[kind] = null;
     });
-    return ordersFetchPromise_;
+    return ORDER_LIST_FETCH_PROMISES_[kind];
   }
 
-  function loadOrders() {
-    if (state.ordersCacheReady) {
-      applyOrdersView_();
+  function loadOrderList_(kind) {
+    var keys = orderListKeys_(kind);
+    if (state[keys.cache]) {
+      applyOrderListView_(kind);
       return Promise.resolve();
     }
-    return refreshOrdersFromServer_();
+    return refreshOrderListFromServer_(kind);
+  }
+
+  function applyOrdersView_() { applyOrderListView_('orders'); }
+  function refreshOrdersFromServer_() { return refreshOrderListFromServer_('orders'); }
+  function loadOrders() { return loadOrderList_('orders'); }
+  function refreshAllOrderListsFromServer_() {
+    return Promise.all(ORDER_LIST_KINDS_.map(refreshOrderListFromServer_));
   }
 
   /**
@@ -2303,17 +2349,26 @@
   }
 
   function findOrderByCommission_(commission) {
-    var groups = state.ordersGroups || [];
-    for (var i = 0; i < groups.length; i++) {
-      var items = groups[i].items || [];
-      for (var j = 0; j < items.length; j++) {
-        if (commissionEquals_(items[j].commission, commission)) return items[j];
+    var caches = [state.allOrders, state.allDemoOrders, state.allOtherStoreOrders];
+    var groupSets = [state.ordersGroups, state.demoOrdersGroups, state.otherStoreOrdersGroups];
+    var i;
+    var j;
+    var k;
+    for (k = 0; k < groupSets.length; k++) {
+      var groups = groupSets[k] || [];
+      for (i = 0; i < groups.length; i++) {
+        var items = groups[i].items || [];
+        for (j = 0; j < items.length; j++) {
+          if (commissionEquals_(items[j].commission, commission)) return items[j];
+        }
       }
     }
-    // 受注リストの検索・絞り込み条件で対象外になっていても（マイページ等、
-    // 別画面のカードから操作した場合など）見つけられるよう、フィルタに
-    // 左右されない全件キャッシュ（state.allOrders）も探す。
-    return (state.allOrders || []).find(function (o) { return commissionEquals_(o.commission, commission); }) || null;
+    // 絞り込みで対象外でも、マイページ等から開けるよう3リストの全件キャッシュを探す。
+    for (k = 0; k < caches.length; k++) {
+      var found = (caches[k] || []).find(function (o) { return commissionEquals_(o.commission, commission); });
+      if (found) return found;
+    }
+    return null;
   }
 
   function openOrderDetailModal_(commission) {
@@ -2388,39 +2443,41 @@
       '</div>';
   }
 
-  function renderOrders() {
-    var container = $('ordersGroups');
-    var groups = state.ordersGroups || [];
+  function renderOrderList_(kind) {
+    var keys = orderListKeys_(kind);
+    var container = $(kind + 'Groups');
+    var groups = state[keys.groups] || [];
     var totalItems = groups.reduce(function (n, g) { return n + g.items.length; }, 0);
-    $('ordersEmpty').classList.toggle('hidden', totalItems > 0);
-    $('ordersTotalCount').textContent = '該当 ' + totalItems + ' 台';
+    $(kind + 'Empty').classList.toggle('hidden', totalItems > 0);
+    $(kind + 'TotalCount').textContent = '該当 ' + totalItems + ' 台';
     container.innerHTML = groups.map(function (g) {
       var heading = g.key
         ? '<h3 class="group__title">' + escapeHtml(g.key) + '<span class="group__count">' + g.items.length + '台</span></h3>'
         : '';
-      var body = state.ordersViewMode === 'table'
+      var body = state[keys.view] === 'table'
         ? orderRowsHtml(g.items)
         : '<div class="orderList">' + g.items.map(orderCardHtml).join('') + '</div>';
       return '<div class="group">' + heading + body + '</div>';
     }).join('');
     syncFixedBars_();
-    if (state.ordersViewMode === 'table') scheduleFitOrderRowCards_();
+    if (state[keys.view] === 'table') scheduleFitOrderRowCards_();
   }
 
-  $('ordersGroups').addEventListener('click', function (e) {
+  function renderOrders() { renderOrderList_('orders'); }
+
+  function handleOrderListClick_(e) {
     var btn = e.target.closest('[data-order-detail]');
     if (btn) { openOrderDetailModal_(btn.dataset.orderDetail); return; }
-    // 表示形式「表」の行タップ（ボタン・入力以外の箇所）でも、カード表示の
-    // 「詳細を見る」と同じ詳細モーダルを開く（在庫リストのhandleInventoryListClick_と
-    // 同じパターン。行に表示していない項目・受注確定日時等を確認できるようにする）。
     var rowEl = e.target.closest('.rowCard--order[data-commission]');
     if (rowEl && !e.target.closest('button, input, label')) {
       openOrderDetailModal_(rowEl.dataset.commission);
     }
-  });
+  }
 
-  function populateOrdersStaffFilter_() {
-    var select = $('ordersStaffFilter');
+  function populateOrderListStaffFilter_(kind) {
+    var keys = orderListKeys_(kind);
+    var select = $(kind + 'StaffFilter');
+    if (!select) return;
     var current = select.value;
     var seen = {};
     var names = [];
@@ -2433,8 +2490,8 @@
     ((state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.staffList) || []).forEach(function (s) {
       addName(s && s.name);
     });
-    (state.allOrders || []).forEach(function (o) { addName(o.staff); });
-    (state.ordersGroups || []).forEach(function (g) {
+    (state[keys.all] || []).forEach(function (o) { addName(o.staff); });
+    (state[keys.groups] || []).forEach(function (g) {
       (g.items || []).forEach(function (o) { addName(o.staff); });
     });
     names.sort();
@@ -2444,22 +2501,25 @@
     if (names.indexOf(current) !== -1) select.value = current;
   }
 
+  function populateOrdersStaffFilter_() { populateOrderListStaffFilter_('orders'); }
+
   function salesLocationOptions_() {
     var fromBootstrap = state.bootstrap && state.bootstrap.salesLocationOptions;
     if (fromBootstrap && fromBootstrap.length) return fromBootstrap.slice();
-    return ['岐阜', '大垣', '多治見', '高山', '店間移動'];
+    return ['岐阜', '大垣', '多治見', '高山'];
   }
 
   function populateSalesLocationOptions_() {
     var options = salesLocationOptions_();
-    var select = $('ordersLocationFilter');
-    if (select) {
+    ORDER_LIST_KINDS_.forEach(function (kind) {
+      var select = $(kind + 'LocationFilter');
+      if (!select) return;
       var current = select.value;
       select.innerHTML = '';
       select.appendChild(new Option('拠点：すべて', ''));
       options.forEach(function (name) { select.appendChild(new Option(name, name)); });
       if (options.indexOf(current) !== -1) select.value = current;
-    }
+    });
     var datalist = $('salesLocationOptions');
     if (datalist) {
       datalist.innerHTML = options.map(function (name) {
@@ -2468,9 +2528,13 @@
     }
   }
 
-  ['ordersKeyword', 'ordersGroupBy', 'ordersLocationFilter', 'ordersStaffFilter'].forEach(function (id) {
-    $(id).addEventListener('input', debounce(loadOrders, 50));
-    $(id).addEventListener('change', loadOrders);
+  ORDER_LIST_KINDS_.forEach(function (kind) {
+    bindOrderListViewToggle_(kind);
+    $(kind + 'Groups').addEventListener('click', handleOrderListClick_);
+    [kind + 'Keyword', kind + 'GroupBy', kind + 'LocationFilter', kind + 'StaffFilter'].forEach(function (id) {
+      $(id).addEventListener('input', debounce(function () { loadOrderList_(kind); }, 50));
+      $(id).addEventListener('change', function () { loadOrderList_(kind); });
+    });
   });
 
   // ===== 発注リスト =====
@@ -2808,7 +2872,7 @@
     state.staffList = (settings.staffList || []).map(function (s) { return { name: s.name || '', email: s.email || '', location: s.location || '' }; });
     $('staffListMax').textContent = (state.bootstrap && state.bootstrap.staffListMax) || 30;
     renderStaffList();
-    populateOrdersStaffFilter_();
+    ORDER_LIST_KINDS_.forEach(populateOrderListStaffFilter_);
     populateSalesLocationOptions_();
 
     state.paidOptionMaster = ((state.bootstrap && state.bootstrap.paidOptionMaster) || []).map(function (e) {
@@ -3912,6 +3976,34 @@
     if (state.myPageViewMode === 'table') scheduleFitOrderRowCards_();
   }
 
+  function renderMyPageOrderListSection_(allKey, countId, emptyId, listId) {
+    if (!renderMyPageNoStaffState_()) return;
+    var email = currentUserEmail_();
+    var keyword = myPageKeyword_();
+    var items = (state[allKey] || []).filter(function (o) {
+      return emailsMatch_(o.staffEmail, email) && myPageOrderMatchesKeyword_(o, keyword);
+    });
+    $(countId).textContent = items.length;
+    $(emptyId).classList.toggle('hidden', items.length > 0);
+    $(listId).innerHTML = !items.length ? '' :
+      (state.myPageViewMode === 'table' ? orderRowsHtml(items) : '<div class="orderList">' + items.map(orderCardHtml).join('') + '</div>');
+    if (state.myPageViewMode === 'table') scheduleFitOrderRowCards_();
+  }
+
+  function renderMyPageDemoOrders_() {
+    renderMyPageOrderListSection_('allDemoOrders', 'myPageDemoOrderCount', 'myPageDemoOrderEmpty', 'myPageDemoOrderList');
+  }
+
+  function renderMyPageOtherStoreOrders_() {
+    renderMyPageOrderListSection_('allOtherStoreOrders', 'myPageOtherStoreOrderCount', 'myPageOtherStoreOrderEmpty', 'myPageOtherStoreOrderList');
+  }
+
+  function renderMyPageOrderKind_(kind) {
+    if (kind === 'demoOrders') renderMyPageDemoOrders_();
+    else if (kind === 'otherStoreOrders') renderMyPageOtherStoreOrders_();
+    else renderMyPageOrders_();
+  }
+
   /**
    * マイページの「発注リスト」セクション: 発注リストタブと同じstate.purchaseOrders
    * （検索条件に左右されない全件。loadPurchaseOrders参照）を、担当者名（staff列の
@@ -3977,19 +4069,16 @@
   function renderMyPageAll_() {
     renderMyPageHolds_();
     renderMyPageOrders_();
+    renderMyPageDemoOrders_();
+    renderMyPageOtherStoreOrders_();
     renderMyPagePurchaseOrders_();
     renderMyPageGClass_();
   }
 
   $('myPageHoldList').addEventListener('click', handleInventoryListClick_);
-  $('myPageOrderList').addEventListener('click', function (e) {
-    var btn = e.target.closest('[data-order-detail]');
-    if (btn) { openOrderDetailModal_(btn.dataset.orderDetail); return; }
-    var rowEl = e.target.closest('.rowCard--order[data-commission]');
-    if (rowEl && !e.target.closest('button, input, label')) {
-      openOrderDetailModal_(rowEl.dataset.commission);
-    }
-  });
+  $('myPageOrderList').addEventListener('click', handleOrderListClick_);
+  $('myPageDemoOrderList').addEventListener('click', handleOrderListClick_);
+  $('myPageOtherStoreOrderList').addEventListener('click', handleOrderListClick_);
   $('myPagePurchaseOrderList').addEventListener('click', handlePurchaseOrderListClick_);
   $('myPageGClassList').addEventListener('click', handleGClassListClick_);
   // グレードタブ／チップをクリックすると、そのグレード1件だけに絞り込んだ
@@ -4255,6 +4344,8 @@
     [
       ['inventoryToolbar', 'inventoryToolbarSpacer', 16],
       ['ordersToolbar', 'ordersToolbarSpacer', 16],
+      ['demoOrdersToolbar', 'demoOrdersToolbarSpacer', 16],
+      ['otherStoreOrdersToolbar', 'otherStoreOrdersToolbarSpacer', 16],
       ['purchaseOrdersToolbar', 'purchaseOrdersToolbarSpacer', 16],
       ['gclassToolbar', 'gclassToolbarSpacer', 16],
       ['myPageToolbar', 'myPageToolbarSpacer', 16],
@@ -4351,6 +4442,8 @@
       return Promise.all([
         refreshInventoryFromServer_(),
         refreshOrdersFromServer_(),
+        refreshOrderListFromServer_('demoOrders'),
+        refreshOrderListFromServer_('otherStoreOrders'),
         loadPurchaseOrders(),
         refreshGClassFromServer_()
       ]);

@@ -2,12 +2,38 @@
  * OrderService.gs
  * 受注機能
  *
- * 受注確定時、在庫リストから「受注リスト」へ自動移行する。
+ * 受注確定時、在庫リストから受注系シートへ自動移行する。
+ * デモカーHOLDからの受注は「デモカー受注リスト」、他店HOLDからの受注は
+ * 「他店受注リスト」、それ以外（通常Hold／Holdなし）は「受注リスト」へ書く
+ * （orderDestinationFromHold_）。
  * Hold中の車両は、Holdを行った担当者のみ受注確定できる（canConfirmOrder_）。
  * Holdが入っていない車両は誰でも受注確定できる。
  * 受注確定時も、Hold登録時と同じ入力項目をすべて入力する必要がある
  * （担当者はログイン中のGoogleアカウントから自動設定される。requireCurrentStaff_参照）。
  */
+
+/**
+ * 1st Holdの種別から、受注確定後の書き込み先を決める（純粋関数）。
+ * Holdなし・通常Hold・不明な値は受注リスト（normal）。
+ */
+function orderDestinationFromHold_(holdRow) {
+  var type = holdRow && holdRow.holdType;
+  if (type === HOLD_TYPE.DEMO) return HOLD_TYPE.DEMO;
+  if (type === HOLD_TYPE.OTHER_STORE) return HOLD_TYPE.OTHER_STORE;
+  return HOLD_TYPE.NORMAL;
+}
+
+function orderListNameForDestination_(destination) {
+  if (destination === HOLD_TYPE.DEMO) return SHEET_NAMES.DEMO_ORDERS;
+  if (destination === HOLD_TYPE.OTHER_STORE) return SHEET_NAMES.OTHER_STORE_ORDERS;
+  return SHEET_NAMES.ORDERS;
+}
+
+function appendOrderByDestination_(destination, order) {
+  if (destination === HOLD_TYPE.DEMO) return appendDemoOrder_(order);
+  if (destination === HOLD_TYPE.OTHER_STORE) return appendOtherStoreOrder_(order);
+  return appendOrder_(order);
+}
 
 /**
  * 受注を確定し、在庫リストの行を受注リストへ移行する。
@@ -49,11 +75,19 @@ function confirmOrder(commission, info) {
     // カレンダーにあるため、この実行コンテキストからは削除できない（CalendarService.gs参照）。
     if (holds.first) deleteHoldCalendarEvent_(holds.first.calendarEventId);
 
-    appendOrder_(order);
+    var destination = orderDestinationFromHold_(holds.first);
+    appendOrderByDestination_(destination, order);
     deleteInventoryRow_(sheet, rowNumber);
     deleteAllHoldRowsForCommission_(commission);
-    notifyOrderConfirmed(order);
-    appendAuditLog_(buildAuditLogEntry_('受注確定', commission, vehicle.model, currentStaff, '顧客: ' + info.customer, order.orderedAt));
+    notifyOrderConfirmed(order, destination);
+    appendAuditLog_(buildAuditLogEntry_(
+      '受注確定',
+      commission,
+      vehicle.model,
+      currentStaff,
+      '顧客: ' + info.customer + ' / ' + orderListNameForDestination_(destination),
+      order.orderedAt
+    ));
     return order;
   } finally {
     lock.releaseLock();

@@ -154,13 +154,29 @@ function getHoldsSheet_() {
   return getOrCreateSheet_(SHEET_NAMES.HOLDS, HOLD_COLUMNS, [holdColIndex1('commission')]);
 }
 
-function getOrderSheet_() {
-  return getOrCreateSheet_(SHEET_NAMES.ORDERS, ORDER_COLUMNS, [
+function orderSheetTextCols_() {
+  return [
     orderColIndex1('commission'),
     orderColIndex1('registrableMonth'),
     orderColIndex1('registeredMonth'),
     orderColIndex1('remarks')
-  ]);
+  ];
+}
+
+function getOrderSheetByName_(sheetName) {
+  return getOrCreateSheet_(sheetName, ORDER_COLUMNS, orderSheetTextCols_());
+}
+
+function getOrderSheet_() {
+  return getOrderSheetByName_(SHEET_NAMES.ORDERS);
+}
+
+function getDemoOrderSheet_() {
+  return getOrderSheetByName_(SHEET_NAMES.DEMO_ORDERS);
+}
+
+function getOtherStoreOrderSheet_() {
+  return getOrderSheetByName_(SHEET_NAMES.OTHER_STORE_ORDERS);
 }
 
 function getGClassReservationSheet_() {
@@ -213,12 +229,9 @@ function formatCommissionColumnsAsText_() {
     inventoryColIndex1('remarks')
   ]);
   applyTextColumnFormat_(getHoldsSheet_(), [holdColIndex1('commission')]);
-  applyTextColumnFormat_(getOrderSheet_(), [
-    orderColIndex1('commission'),
-    orderColIndex1('registrableMonth'),
-    orderColIndex1('registeredMonth'),
-    orderColIndex1('remarks')
-  ]);
+  applyTextColumnFormat_(getOrderSheet_(), orderSheetTextCols_());
+  applyTextColumnFormat_(getDemoOrderSheet_(), orderSheetTextCols_());
+  applyTextColumnFormat_(getOtherStoreOrderSheet_(), orderSheetTextCols_());
   applyTextColumnFormat_(getGClassReservationSheet_(), [
     gclassColIndex1('commission'),
     gclassColIndex1('registrableMonth'),
@@ -427,18 +440,41 @@ function deleteAllHoldRowsForCommission_(commission) {
   }
 }
 
-// ===== 受注リスト =====
+// ===== 受注リスト（通常／デモカー／他店。列は ORDER_COLUMNS で共通） =====
 
-function listOrders() {
-  return readAllRows_(getOrderSheet_(), ORDER_COLUMNS, 'commission');
+function listOrdersFromSheet_(sheet) {
+  return readAllRows_(sheet, ORDER_COLUMNS, 'commission');
 }
 
-function appendOrder_(order) {
-  var sheet = getOrderSheet_();
+function listOrders() {
+  return listOrdersFromSheet_(getOrderSheet_());
+}
+
+function listDemoOrders() {
+  return listOrdersFromSheet_(getDemoOrderSheet_());
+}
+
+function listOtherStoreOrders() {
+  return listOrdersFromSheet_(getOtherStoreOrderSheet_());
+}
+
+function appendOrderToSheet_(sheet, order) {
   var newRow = sheet.getLastRow() + 1;
   // createHoldRow_と同様、appendRowだけに頼ると数字のみのコミッションの先頭0が
   // 消えることがあるため、書き込み直前に対象セルの書式を明示的に設定する。
   sheet.getRange(newRow, orderColIndex1('commission'), 1, 1).setNumberFormat('@');
   sheet.getRange(newRow, 1, 1, ORDER_COLUMNS.length).setValues([objectToRow_(order, ORDER_COLUMNS)]);
   return order;
+}
+
+function appendOrder_(order) {
+  return appendOrderToSheet_(getOrderSheet_(), order);
+}
+
+function appendDemoOrder_(order) {
+  return appendOrderToSheet_(getDemoOrderSheet_(), order);
+}
+
+function appendOtherStoreOrder_(order) {
+  return appendOrderToSheet_(getOtherStoreOrderSheet_(), order);
 }
