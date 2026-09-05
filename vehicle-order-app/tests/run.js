@@ -1414,6 +1414,14 @@ test('発注カードのコミッションとリード番号はMP・ステアと
   assert.ok(/metaRow_\('リード番号'/.test(body));
   assert.ok(!/purchaseOrderCard__sub/.test(body), '灰色の1行まとめ表示は使わない');
 });
+test('スマホの受注・Gクラス表はカード内を横スライドでき、PC用overflow hiddenは残る', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'html/Stylesheet.html'), 'utf8');
+  assert.ok(css.includes('.rowCard.rowCard--order,\n    .rowCard.rowCard--gclass {\n      overflow-x: auto;'));
+  assert.ok(css.includes('.rowCard.rowCard--order > .rowCard__inner,\n    .rowCard--gclass > .rowCard__inner {\n      overflow: visible;'));
+  assert.ok(css.includes('@media (min-width: 901px)'));
+  assert.ok(css.includes('/* PCの表表示は横スライドしない。在庫行は1行省略、受注等は折り返し。 */\n    .rowCard { overflow-x: hidden; }') ||
+    /@media \(min-width: 901px\)[\s\S]{0,400}\.rowCard \{ overflow-x: hidden; \}/.test(css));
+});
 test('デモカー受注リストと他店受注リストの画面があり、店間移動の選択肢は無い', () => {
   const html = fs.readFileSync(path.join(ROOT, 'html/Index.html'), 'utf8');
   const js = fs.readFileSync(path.join(ROOT, 'html/JavaScript.html'), 'utf8');

@@ -2710,6 +2710,22 @@
     .rowCard--gclass > .rowCard__inner > .rowCard__field--mp {
       min-width: 4.5ch;
     }
+    /* 受注・Gクラスの表は PC 用 overflow:hidden の詳細度が高く、上の
+       .rowCard { overflow-x: auto } がスマホでも負けていた。ここでのみ
+       カード内横スライドを復活させる。min-width: 901px 側は変更しない。 */
+    .rowCard.rowCard--order,
+    .rowCard.rowCard--gclass {
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+    }
+    .rowCard.rowCard--order > .rowCard__inner,
+    .rowCard--gclass > .rowCard__inner {
+      overflow: visible;
+      width: max-content;
+      min-width: 100%;
+      flex-wrap: nowrap;
+    }
 
     /* 型のクイックナビ: タブレット・スマホ幅では8種類＋「すべて」を折り返し無しで
        並べると窮屈なため、横スクロールにする（よくあるカテゴリ絞り込みチップの
