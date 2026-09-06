@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <?!= include('html/Styles'); ?>
+</head>
+<body>
+  <div class="app-shell">
+    <?!= include('html/ControlPanel'); ?>
+
+    <main class="main-content">
+      <div id="view-home">
+        <div class="card-stack" id="card-stack">
+          <?!= include('html/CalendarCard'); ?>
+          <?!= include('html/MailCard'); ?>
+          <?!= include('html/LinkCard'); ?>
+        </div>
+      </div>
+
+      <div id="view-drive" hidden>
+        <?!= include('html/DriveCard'); ?>
+      </div>
+
+      <div id="view-settings" hidden>
+        <?!= include('html/SettingsPanel'); ?>
+      </div>
+    </main>
+  </div>
+
+  <?!= include('html/JavaScript'); ?>
+</body>
+</html>

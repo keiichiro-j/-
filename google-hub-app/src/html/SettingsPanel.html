@@ -1,0 +1,56 @@
+<div class="card">
+  <h2>個人設定（このアカウントのみ）</h2>
+
+  <div class="settings-section">
+    <h3>表示するカード</h3>
+    <div class="checkbox-row">
+      <input type="checkbox" id="visible-calendar" value="calendar">
+      <label for="visible-calendar" style="margin:0;">カレンダー</label>
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="visible-mail" value="mail">
+      <label for="visible-mail" style="margin:0;">メール</label>
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="visible-links" value="links">
+      <label for="visible-links" style="margin:0;">アプリリンク集</label>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <h3>カードの表示順</h3>
+    <table>
+      <tbody id="card-order-list"></tbody>
+    </table>
+  </div>
+
+  <div class="settings-section">
+    <h3>メール表示件数</h3>
+    <input type="number" id="setting-mail-count" min="1" max="20" style="width:80px;">
+  </div>
+
+  <button type="button" id="btn-save-user-settings" class="primary">個人設定を保存</button>
+</div>
+
+<div class="card">
+  <h2>全体設定（アプリ全体に反映）</h2>
+
+  <div class="settings-section">
+    <h3>同期対象カレンダー</h3>
+    <div id="sync-calendar-list" class="empty-hint">読み込み中...</div>
+  </div>
+
+  <div class="settings-section">
+    <h3>メール取得対象ラベル</h3>
+    <input type="text" id="setting-mail-label" placeholder="INBOX">
+  </div>
+
+  <div class="settings-section">
+    <div class="checkbox-row">
+      <input type="checkbox" id="setting-notify-enabled">
+      <label for="setting-notify-enabled" style="margin:0;">通知を有効にする</label>
+    </div>
+  </div>
+
+  <button type="button" id="btn-save-global-settings" class="primary">全体設定を保存</button>
+</div>

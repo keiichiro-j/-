@@ -1,0 +1,34 @@
+<section class="card" id="card-links" data-card="links">
+  <h2>
+    <span>アプリリンク集</span>
+    <span class="card-actions">
+      <button type="button" id="btn-check-all">全て稼働確認</button>
+      <button type="button" id="btn-app-new">＋ アプリを登録</button>
+    </span>
+  </h2>
+  <div id="app-list">
+    <div class="empty-hint">読み込み中...</div>
+  </div>
+</section>
+
+<div class="modal-backdrop" id="app-modal" hidden>
+  <div class="modal-box">
+    <h3 id="app-modal-title">アプリを登録</h3>
+    <input type="hidden" id="app-id">
+
+    <label for="app-name">名称</label>
+    <input type="text" id="app-name" placeholder="車両在庫管理アプリ">
+
+    <label for="app-url">URL</label>
+    <input type="text" id="app-url" placeholder="https://script.google.com/macros/s/xxxx/exec">
+
+    <label for="app-description">用途メモ</label>
+    <textarea id="app-description" rows="2"></textarea>
+
+    <div class="modal-footer">
+      <button type="button" id="btn-app-delete" class="danger" hidden>削除</button>
+      <button type="button" id="btn-app-cancel">キャンセル</button>
+      <button type="button" id="btn-app-save" class="primary">保存</button>
+    </div>
+  </div>
+</div>
