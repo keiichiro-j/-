@@ -3,6 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <base target="_top">
+  <!-- 標準のシステムフォント任せだと「いかにもGASの簡易画面」という印象になりがちなため、
+       アプリらしい統一感を出すためにWebフォント(Noto Sans JP)を読み込む。フォント読み込み前・
+       失敗時はAssets.html側のフォールバックスタック(システムフォント)で表示される。 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
   <?!= include('html/Assets'); ?>

@@ -215,6 +215,15 @@
     --cal-sun-bg: #fbe9f0;
     --cal-sat-bg: #e8f3fb;
     --cal-holiday-bg: #e6f5e6;
+    --accent-rgb: 57, 74, 171;
+
+    /* ===== 影・階層のトークン =====
+       「いかにもGASの簡易画面」に見えないよう、カード/モーダル/ボタン等の浮き上がり感を
+       段階的な影のスケールとして統一する。値そのものをコンポーネント側に直書きしない。 */
+    --shadow-xs: 0 1px 2px rgba(20, 20, 30, 0.06);
+    --shadow-sm: 0 2px 8px rgba(20, 20, 30, 0.07);
+    --shadow-md: 0 8px 24px rgba(20, 20, 30, 0.12);
+    --shadow-lg: 0 16px 40px rgba(20, 20, 30, 0.18);
   }
 
   /* ===== 表示モード（ライト/ダーク/システムに合わせる） =====
@@ -236,10 +245,15 @@
       --danger: #ef5350;
       --icon-color: #c7c7ca;
       --accent: #8b97ff;
+      --accent-rgb: 139, 151, 255;
       --primary-bg: #4b4b52;
       --cal-sun-bg: #241f28;
       --cal-sat-bg: #22242e;
       --cal-holiday-bg: #1c2a20;
+      --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+      --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.32);
+      --shadow-md: 0 10px 28px rgba(0, 0, 0, 0.4);
+      --shadow-lg: 0 18px 44px rgba(0, 0, 0, 0.5);
     }
   }
   html[data-dark-mode="dark"] {
@@ -257,10 +271,15 @@
     --danger: #ef5350;
     --icon-color: #c7c7ca;
     --accent: #8b97ff;
+    --accent-rgb: 139, 151, 255;
     --primary-bg: #4b4b52;
     --cal-sun-bg: #241f28;
     --cal-sat-bg: #22242e;
     --cal-holiday-bg: #1c2a20;
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.32);
+    --shadow-md: 0 10px 28px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 18px 44px rgba(0, 0, 0, 0.5);
   }
 
   * { box-sizing: border-box; }
@@ -271,7 +290,7 @@
     margin: 0;
     padding: 0;
     height: 100%;
-    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+    font-family: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
     background: var(--content-bg);
     color: var(--content-text);
     overflow-x: hidden;
@@ -361,7 +380,7 @@
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    box-shadow: var(--shadow-md);
     max-height: 360px;
     overflow-y: auto;
     z-index: 30;
@@ -426,7 +445,7 @@
     padding: 10px 20px;
     border-radius: 999px;
     font-size: 13px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    box-shadow: var(--shadow-lg);
     z-index: 200;
     opacity: 0;
     pointer-events: none;
@@ -588,8 +607,9 @@
   .card {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 16px 18px;
+    box-shadow: var(--shadow-xs);
   }
 
   .card h2 {
@@ -618,7 +638,7 @@
     font-family: inherit;
     font-size: 13px;
     padding: 6px 12px;
-    border-radius: 6px;
+    border-radius: 8px;
     border: 1px solid var(--border-color);
     background: var(--card-bg);
     color: var(--content-text);
@@ -626,7 +646,13 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    transition: transform 0.08s ease, filter 0.08s ease;
+    box-shadow: var(--shadow-xs);
+    transition: transform 0.08s ease, filter 0.08s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  }
+
+  button:hover:not(:disabled) {
+    border-color: var(--accent);
+    box-shadow: var(--shadow-sm);
   }
 
   /* クリック/タップした「押した感触」。全ボタン共通（テーマスウォッチ・ナビ項目・タグチップ等、
@@ -634,12 +660,18 @@
   button:active:not(:disabled) {
     transform: scale(0.96);
     filter: brightness(0.95);
+    box-shadow: var(--shadow-xs);
   }
 
   button.primary {
     background: var(--primary-bg);
     border-color: var(--primary-bg);
     color: #ffffff;
+    box-shadow: 0 2px 10px rgba(var(--accent-rgb), 0.28);
+  }
+  button.primary:hover:not(:disabled) {
+    border-color: var(--primary-bg);
+    box-shadow: 0 4px 16px rgba(var(--accent-rgb), 0.36);
   }
 
   button.danger {
@@ -655,7 +687,7 @@
     border-radius: 50%;
   }
 
-  button:disabled { opacity: 0.55; cursor: default; }
+  button:disabled { opacity: 0.55; cursor: default; box-shadow: none; }
 
   /* 更新ボタンのタップ時の読み込み演出（アイコンを回転させる） */
   @keyframes icon-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -674,10 +706,91 @@
   input[type="text"], input[type="datetime-local"], input[type="date"], input[type="number"], select, textarea {
     font-family: inherit;
     font-size: 13px;
-    padding: 6px 8px;
-    border-radius: 6px;
+    padding: 7px 9px;
+    border-radius: 7px;
     border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    color: var(--content-text);
     width: 100%;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  input[type="text"]:focus, input[type="datetime-local"]:focus, input[type="date"]:focus,
+  input[type="number"]:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.22);
+  }
+
+  /* ===== ブラウザ標準の見た目を消して、テーマに馴染むデザインに揃える =====
+     セレクトボックス: appearance:none にして固定色のシェブロンアイコンを合成する
+     （文字色はテーマで変わるが、この矢印は淡いグレー固定でライト/ダークどちらでも視認できる）。 */
+  select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    padding-right: 30px;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 9l6 6 6-6' fill='none' stroke='%23999999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 9px center;
+    background-size: 14px;
+  }
+
+  /* チェックボックス: ネイティブのチェックボックスをアクセントカラーの角丸スクエアに置き換える */
+  input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    width: 17px;
+    height: 17px;
+    border-radius: 5px;
+    border: 1.5px solid var(--border-color);
+    background: var(--card-bg);
+    display: inline-block;
+    position: relative;
+    flex: 0 0 auto;
+    cursor: pointer;
+    vertical-align: middle;
+    transition: background 0.12s ease, border-color 0.12s ease;
+  }
+  input[type="checkbox"]:checked {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    left: 5px;
+    top: 2px;
+    width: 4px;
+    height: 8px;
+    border: solid #ffffff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+  input[type="checkbox"]:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.25);
+  }
+
+  /* 日付・日時入力: カレンダー呼び出しアイコンはOS/ブラウザ標準のままだが、押しやすいよう
+     カーソルと透明度だけ整える。ダークモードでは黒いアイコンが背景に沈むため反転させて視認性を保つ。 */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.6;
+    border-radius: 4px;
+  }
+  html[data-dark-mode="dark"] input[type="date"]::-webkit-calendar-picker-indicator,
+  html[data-dark-mode="dark"] input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+  }
+  @media (prefers-color-scheme: dark) {
+    html[data-dark-mode="system"] input[type="date"]::-webkit-calendar-picker-indicator,
+    html[data-dark-mode="system"] input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+      filter: invert(1);
+    }
   }
 
   label {
@@ -841,7 +954,7 @@
   .status-badge.unknown { background: #9e9e9e; }
 
   /* ===== ToDoリスト ===== */
-  .todo-row input[type="checkbox"] { width: auto; flex: 0 0 auto; }
+  .todo-row input[type="checkbox"] { flex: 0 0 auto; }
   .todo-text { flex: 1; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .todo-text.done { text-decoration: line-through; color: var(--content-muted); }
 
@@ -872,8 +985,8 @@
     display: flex; align-items: center; justify-content: center; z-index: 100;
   }
   .modal-box {
-    background: var(--card-bg); border-radius: 10px; padding: 20px; width: 360px; max-width: 90vw;
-    max-height: 85vh; overflow-y: auto;
+    background: var(--card-bg); border-radius: 14px; padding: 20px; width: 360px; max-width: 90vw;
+    max-height: 85vh; overflow-y: auto; box-shadow: var(--shadow-lg);
   }
   .modal-box h3 { margin-top: 0; }
   .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
@@ -1164,7 +1277,7 @@
   .cal-view-mode-switch { display: flex; gap: 4px; }
   .agenda-todos { display: flex; flex-direction: column; }
   .agenda-todo-row { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 12.5px; }
-  .agenda-todo-row input[type="checkbox"] { width: auto; flex: 0 0 auto; }
+  .agenda-todo-row input[type="checkbox"] { flex: 0 0 auto; }
   .todo-indicator { position: absolute; bottom: 3px; right: 3px; font-size: 8.5px; color: var(--accent); font-weight: 700; }
 
   /* ===== カレンダー: 週表示/日表示（実時間グリッド。横=日付の列、縦=時刻） ===== */
