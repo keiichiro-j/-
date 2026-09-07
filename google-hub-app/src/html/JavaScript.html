@@ -668,11 +668,18 @@
 
   function bindTimeGridHandlers() {
     var container = qs('mini-calendar');
-    Array.prototype.forEach.call(container.querySelectorAll('.tg-event, .tg-allday-chip'), function (el) {
+    Array.prototype.forEach.call(container.querySelectorAll('.tg-allday-chip'), function (el) {
       el.addEventListener('click', function (e) {
         e.stopPropagation();
         openEventModal(el.getAttribute('data-calendar-id'), el.getAttribute('data-event-id'));
       });
+    });
+    Array.prototype.forEach.call(container.querySelectorAll('.tg-event'), function (el) {
+      el.addEventListener('click', function (e) {
+        e.stopPropagation();
+        openEventModal(el.getAttribute('data-calendar-id'), el.getAttribute('data-event-id'));
+      });
+      initTimeGridEventDrag(el);
     });
     Array.prototype.forEach.call(container.querySelectorAll('.tg-day-col'), function (col) {
       col.addEventListener('click', function (e) {
@@ -684,6 +691,78 @@
         openEventModal(null, null, new Date(parts[0], parts[1] - 1, parts[2], Math.floor(totalMinutes / 60), totalMinutes % 60, 0, 0));
       });
     });
+  }
+
+  // 週表示/日表示: 予定ブロックを縦にドラッグして時刻を変更する（所要時間は維持したまま開始/終了が動く）。
+  // 月表示の日付ドラッグ&ドロップと同じ考え方で、時刻軸上での移動を1本のマウス操作で行えるようにする。
+  // ネイティブのHTML5ドラッグ&ドロップではなくmousemoveベースにしているのは、ドラッグ中に予定ブロックを
+  // リアルタイムに追従させたい（ウィジェットの大きさ変更ハンドラと同じ方式）ため。
+  var TIME_GRID_SNAP_MINUTES = 15;
+
+  function initTimeGridEventDrag(el) {
+    el.addEventListener('mousedown', function (e) {
+      if (e.button !== 0) return;
+      var startY = e.clientY;
+      var startTop = parseFloat(el.style.top) || 0;
+      var dragging = false;
+      var newTop = startTop;
+
+      function onMove(moveEvent) {
+        var delta = moveEvent.clientY - startY;
+        if (!dragging && Math.abs(delta) > 4) {
+          dragging = true;
+          el.classList.add('is-dragging');
+        }
+        if (!dragging) return;
+        var rawTop = startTop + delta;
+        var totalMinutes = Math.round((rawTop / GRID_HOUR_PX) * 60 / TIME_GRID_SNAP_MINUTES) * TIME_GRID_SNAP_MINUTES;
+        totalMinutes = Math.max(0, Math.min(totalMinutes, GRID_TOTAL_HOURS * 60 - TIME_GRID_SNAP_MINUTES));
+        newTop = (totalMinutes / 60) * GRID_HOUR_PX;
+        el.style.top = newTop + 'px';
+      }
+
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        el.classList.remove('is-dragging');
+        if (!dragging) return; // 動いていなければ通常のクリック(編集モーダルを開く)に任せる
+        // ドラッグ直後に発火するclickイベントで編集モーダルが開いてしまわないよう1回だけ抑止する
+        var suppressClick = function (clickEvent) {
+          clickEvent.stopPropagation();
+          el.removeEventListener('click', suppressClick, true);
+        };
+        el.addEventListener('click', suppressClick, true);
+
+        var eventId = el.getAttribute('data-event-id');
+        var calendarId = el.getAttribute('data-calendar-id');
+        var ev = state.calendar.events.filter(function (item) { return item.id === eventId && item.calendarId === calendarId; })[0];
+        if (!ev) return;
+        var totalMinutes = Math.round((newTop / GRID_HOUR_PX) * 60 / TIME_GRID_SNAP_MINUTES) * TIME_GRID_SNAP_MINUTES;
+        moveTimeGridEvent(ev, totalMinutes);
+      }
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
+  // 所要時間を維持したまま、その予定の日付の中で開始時刻だけをnewStartMinutes(0時からの分数)に付け替える
+  function moveTimeGridEvent(ev, newStartMinutes) {
+    var oldStart = new Date(ev.start);
+    var durationMs = new Date(ev.end).getTime() - oldStart.getTime();
+    var dayStart = new Date(oldStart.getFullYear(), oldStart.getMonth(), oldStart.getDate());
+    var newStart = new Date(dayStart.getTime() + newStartMinutes * 60000);
+    if (newStart.getTime() === oldStart.getTime()) return;
+    var newEnd = new Date(newStart.getTime() + durationMs);
+    gasRun('moveCalendarEventDate', ev.calendarId, ev.id, newStart.toISOString(), newEnd.toISOString())
+      .then(function () {
+        showToast((ev.title || '予定') + 'を' + formatTime(newStart.toISOString()) + 'に移動しました');
+        return refreshCalendarViews();
+      })
+      .catch(function (err) {
+        showError(err);
+        return refreshCalendarViews(); // 失敗時は表示を元の位置に戻す
+      });
   }
 
   // ===================== カレンダー表示形式(月/週/日)の切替 =====================
