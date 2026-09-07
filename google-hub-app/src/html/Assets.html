@@ -328,18 +328,9 @@
      パネルの背景はテーマ色で変わるため、周囲の色に馴染む半透明の「すりガラス」風にし、
      文字色が濃い配色(data-text="dark")の場合は黒みの半透明に切り替えて視認性を保つ。 */
   .control-panel-search { position: relative; margin: 0 2px 10px; }
-  .control-panel-search .icon {
-    position: absolute;
-    left: 11px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: inherit;
-    opacity: 0.75;
-    pointer-events: none;
-  }
   .control-panel-search input {
     width: 100%;
-    padding: 8px 10px 8px 32px;
+    padding: 8px 10px;
     border-radius: 8px;
     border: 1px solid rgba(255,255,255,0.3);
     background: rgba(255,255,255,0.16);
@@ -868,7 +859,7 @@
   .drive-grid-item { cursor: pointer; }
   .drive-grid-item:hover { background: var(--content-bg); }
   .drive-row img { width: 18px; height: 18px; }
-  .drive-row .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .drive-row .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .drive-row .name a { color: inherit; text-decoration: none; }
   .drive-row .name a:hover { text-decoration: underline; }
   .drive-row .meta { color: var(--content-muted); font-size: 12px; width: 140px; text-align: right; }
@@ -984,6 +975,13 @@
   .widget-block-size-small { flex: 1 1 0; }
   .widget-block-size-medium { flex: 2 1 0; }
   .widget-block-size-large { flex: 3 1 0; }
+  /* ドロップゾーン内にブロックが1つだけの場合、flex-growの比率だけでは相手がいないため
+     常にゾーンの高さいっぱいまで広がってしまい、大きさ変更が見た目に反映されない。
+     唯一のブロックの場合は大きさごとに固定の高さ割合を割り当て、余白を残すことで
+     他のウィジェットを配置できる余地が一目でわかるようにする。 */
+  .widget-block:only-child.widget-block-size-small { flex: 0 0 33%; }
+  .widget-block:only-child.widget-block-size-medium { flex: 0 0 66%; }
+  .widget-block:only-child.widget-block-size-large { flex: 0 0 100%; }
   .widget-block.is-dragging { opacity: 0.35; }
   .widget-block.is-hidden { opacity: 0.5; border-style: dashed; background: transparent; }
 
@@ -1274,6 +1272,17 @@
       display: flex;
       flex-direction: column;
     }
+
+    /* ウィジェットが列内で唯一の表示ウィジェットの場合、flex-growの比率だけでは相手がいないため
+       常にその列の高さいっぱいまで広がってしまい、大きさ変更(小/中/大)をしても見た目が変わらない。
+       そのため「唯一の表示ウィジェット」(JS側でwidget-soloクラスを付与)の場合は大きさごとに
+       列の高さに対する固定割合を割り当て、余白を視覚的に残す。 */
+    .card-stack > .card.widget-solo.widget-size-small,
+    .right-sidebar > .card.widget-solo.widget-size-small { flex: 0 0 33%; }
+    .card-stack > .card.widget-solo.widget-size-medium,
+    .right-sidebar > .card.widget-solo.widget-size-medium { flex: 0 0 66%; }
+    .card-stack > .card.widget-solo.widget-size-large,
+    .right-sidebar > .card.widget-solo.widget-size-large { flex: 0 0 100%; }
 
     .card-stack #mail-list, .right-sidebar #mail-list,
     .card-stack #app-list, .right-sidebar #app-list,

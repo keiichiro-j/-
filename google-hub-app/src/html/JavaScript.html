@@ -377,13 +377,22 @@
   function applyWidgetLayout(userSettings) {
     var columnMain = qs('card-stack');
     var columnSide = qs('right-sidebar');
+    // 表示中のウィジェットが列内に1つだけの場合、flex-growの比率だけでは相手がいないため
+    // 大きさ(小/中/大)を変えても常に列いっぱいに広がってしまう。非表示ウィジェットは
+    // display:noneでレイアウトに参加しないため、カウント対象は表示中のものだけに限る。
+    var visibleCountByColumn = { main: 0, side: 0 };
+    userSettings.widgets.forEach(function (w) {
+      if (w.visible) visibleCountByColumn[w.column === 'main' ? 'main' : 'side']++;
+    });
     userSettings.widgets.forEach(function (w) {
       var el = document.querySelector('[data-card="' + w.id + '"]');
       if (!el) return;
+      var columnKey = w.column === 'main' ? 'main' : 'side';
       el.classList.remove('widget-size-small', 'widget-size-medium', 'widget-size-large');
       el.classList.add('widget-size-' + w.size);
       el.style.display = w.visible ? '' : 'none';
-      var target = w.column === 'main' ? columnMain : columnSide;
+      el.classList.toggle('widget-solo', w.visible && visibleCountByColumn[columnKey] === 1);
+      var target = columnKey === 'main' ? columnMain : columnSide;
       target.appendChild(el);
     });
   }
