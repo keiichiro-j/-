@@ -22,16 +22,15 @@ namespace DriveService {
     getUrl(): string;
     getLastUpdated(): GoogleAppsScript.Base.Date;
     getSize(): number;
-    getSharingAccess(): GoogleAppsScript.Drive.Access;
   }
 
+  /**
+   * 一覧表示では entry.getSharingAccess() を呼ばない（呼ぶとファイル/フォルダ1件ごとに
+   * 追加のDrive API往復が発生し、一覧の読み込みが件数に比例して遅くなるため）。
+   * 現状のUIは一覧上でsharingAccessを表示していないため、常に"UNKNOWN"を返す。
+   * 個別ファイルの共有状態が必要になった場合は、そのファイルに対してのみ取得すること。
+   */
   function toItem(entry: DriveEntryLike, mimeType: string, isFolder: boolean): DriveFileItem {
-    let sharingAccess = "UNKNOWN";
-    try {
-      sharingAccess = String(entry.getSharingAccess());
-    } catch (e) {
-      // 権限不足等で取得できない場合は UNKNOWN のまま
-    }
     return {
       id: entry.getId(),
       name: entry.getName(),
@@ -42,7 +41,7 @@ namespace DriveService {
       lastUpdated: entry.getLastUpdated().toISOString(),
       sizeBytes: isFolder ? 0 : entry.getSize(),
       isFolder: isFolder,
-      sharingAccess: sharingAccess,
+      sharingAccess: "UNKNOWN",
     };
   }
 

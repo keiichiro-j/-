@@ -128,67 +128,6 @@
     gap: 6px;
     flex: 0 0 auto;
   }
-  .icon-btn {
-    position: relative;
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    border: none;
-    background: transparent;
-    color: var(--icon-color);
-    cursor: pointer;
-  }
-  .icon-btn:hover { background: var(--content-bg); }
-  .icon-btn .badge-dot {
-    position: absolute;
-    top: 6px;
-    right: 7px;
-    min-width: 8px;
-    height: 8px;
-    padding: 0 3px;
-    border-radius: 999px;
-    background: var(--danger);
-    color: #fff;
-    font-size: 9px;
-    line-height: 8px;
-    text-align: center;
-  }
-
-  .dropdown-panel {
-    position: absolute;
-    top: 50px;
-    right: 20px;
-    width: 300px;
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-    z-index: 30;
-    overflow: hidden;
-  }
-  .dropdown-panel h4 {
-    margin: 0;
-    padding: 12px 14px;
-    font-size: 13px;
-    border-bottom: 1px solid var(--border-soft);
-  }
-  .dropdown-list { max-height: 320px; overflow-y: auto; }
-  .dropdown-item {
-    display: flex;
-    gap: 8px;
-    align-items: flex-start;
-    padding: 10px 14px;
-    border-top: 1px solid var(--border-soft);
-    font-size: 12.5px;
-  }
-  .dropdown-item .icon { margin-top: 2px; color: var(--content-faint); }
-  .dropdown-item .d-title { font-weight: 600; }
-  .dropdown-item .d-sub { color: var(--content-muted); font-size: 11.5px; }
-  .dropdown-empty { padding: 16px 14px; font-size: 12.5px; color: var(--content-muted); }
-
   .avatar-badge {
     width: 32px;
     height: 32px;
@@ -216,6 +155,25 @@
     align-items: stretch;
     min-height: 0;
   }
+
+  /* ===== トースト通知（設定保存完了などの一時メッセージ） ===== */
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 28px;
+    transform: translate(-50%, 12px);
+    background: #1a1a1a;
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 999px;
+    font-size: 13px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  .toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
 
   /* --- 左：コントロールパネル（テーマ色を適用する唯一の領域） --- */
   .control-panel {
@@ -516,12 +474,28 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .cal-cell .dots { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; }
-  .cal-cell .dot {
-    width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto;
-    background: var(--accent);
+  /* 予定を追加すると、セル内に見える範囲でタイトルをチップ表示する（詳細はセルタップのポップアップで） */
+  .cal-cell .event-chips {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5px;
+    margin-top: 2px;
+    overflow: hidden;
   }
-  .cal-cell .dot-more { font-size: 10px; color: var(--content-muted); }
+  .cal-cell .event-chip {
+    font-size: 9.5px;
+    line-height: 1.5;
+    padding: 0 4px;
+    border-radius: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .cal-cell .event-chip-more {
+    font-size: 9px;
+    color: var(--content-muted);
+    padding: 0 2px;
+  }
 
   .mail-row, .link-row {
     display: flex;
@@ -537,10 +511,41 @@
   .mail-row:hover { background: var(--content-bg); }
   .mail-row .subject { font-weight: bold; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mail-row.unread .subject { color: #1a237e; }
+  .mail-row.selected { background: #eef0fb; }
   .mail-row .from { color: var(--content-muted); font-size: 12px; width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mail-row .date { color: var(--content-muted); font-size: 12px; width: 90px; text-align: right; }
 
   .right-sidebar .mail-row .from { width: auto; max-width: 90px; }
+
+  /* ===== メールタブ専用の2カラム画面（左：件名一覧／右：本文） ===== */
+  .mail-page { display: flex; gap: 0; padding: 0; overflow: hidden; }
+  .mail-page-list-col {
+    width: 340px;
+    flex: 0 0 340px;
+    border-right: 1px solid var(--border-color);
+    padding: 16px 14px;
+    min-width: 0;
+  }
+  .mail-page-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .mail-page-reader-col {
+    flex: 1 1 auto;
+    padding: 20px 24px;
+    min-width: 0;
+  }
+  .mail-page-reader-col .subject { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  .mail-page-reader-col .meta { color: var(--content-muted); font-size: 12.5px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border-color); }
+  .mail-page-reader-col .body-text { white-space: pre-wrap; font-size: 13.5px; line-height: 1.7; }
+  #mail-page-list .mail-row .subject { font-weight: 600; }
+  @media (max-width: 860px) {
+    .mail-page { flex-direction: column; }
+    .mail-page-list-col { width: 100%; flex: 1 1 auto; border-right: none; border-bottom: 1px solid var(--border-color); }
+  }
 
   .link-row .name { font-weight: bold; }
   .link-row .desc { color: var(--content-muted); font-size: 12px; }
@@ -566,6 +571,8 @@
   }
   .drive-row img { width: 18px; height: 18px; }
   .drive-row .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .drive-row .name a { color: inherit; text-decoration: none; }
+  .drive-row .name a:hover { text-decoration: underline; }
   .drive-row .meta { color: var(--content-muted); font-size: 12px; width: 140px; text-align: right; }
 
   .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
@@ -626,11 +633,111 @@
   }
   .theme-swatch .swatch-color.is-random .icon { color: #fff; width: 16px; height: 16px; }
 
+  /* ===== 設定画面: ホーム画面ウィジェットの視覚的レイアウトエディタ =====
+     ブロックの高さそのものを大きさ(小=60px:中=120px:大=180px = 1:2:3)に比例させ、
+     実際のダッシュボードのflex-grow比率(1:2:3)をそのまま可視化する。 */
+  .widget-layout-editor {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  .widget-layout-col { flex: 2 1 0; min-width: 0; }
+  .widget-layout-col[data-column="side"] { flex: 1 1 0; }
+  .widget-layout-col-label {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--content-muted);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .widget-layout-dropzone {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 80px;
+    padding: 8px;
+    border: 1.5px dashed var(--border-color);
+    border-radius: 10px;
+    background: var(--content-bg);
+  }
+  .widget-layout-dropzone.is-drag-over { border-color: var(--accent); background: #eef0fb; }
+
+  .widget-block {
+    display: flex;
+    flex-direction: column;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px 10px;
+    cursor: grab;
+    user-select: none;
+    transition: opacity 0.15s ease;
+  }
+  .widget-block-size-small { height: 60px; }
+  .widget-block-size-medium { height: 120px; }
+  .widget-block-size-large { height: 180px; }
+  .widget-block.is-dragging { opacity: 0.35; }
+  .widget-block.is-hidden { opacity: 0.5; border-style: dashed; background: transparent; }
+
+  .widget-block-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .widget-block-drag-handle { color: var(--content-faint); flex: 0 0 auto; cursor: grab; }
+  .widget-block-label { font-size: 13px; font-weight: 600; flex: 1 1 auto; }
+  .widget-block-visibility {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--content-muted);
+  }
+  .widget-block-visibility:hover { background: var(--content-bg); }
+  .widget-block-size-label {
+    margin-top: auto;
+    font-size: 10.5px;
+    color: var(--content-faint);
+  }
+  .widget-block-resize-handle {
+    flex: 0 0 auto;
+    height: 10px;
+    margin: 4px -2px -2px;
+    border-radius: 4px;
+    cursor: ns-resize;
+    position: relative;
+  }
+  .widget-block-resize-handle::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 28px;
+    height: 3px;
+    border-radius: 999px;
+    background: var(--border-color);
+    transform: translate(-50%, -50%);
+  }
+  .widget-block-resize-handle:hover::after { background: var(--accent); }
+
   /* ===== PCビュー: ホーム画面は縦スクロールなしで、縦幅いっぱいにウィジェットを配置 =====
      メインエリア・サイドバーとも overflow:hidden にして下スライド(スクロール)を禁止し、
      各ウィジェットは widget-size-* の比率で残りの縦幅を分け合う。ウィジェット内の一覧が
      割り当てられた高さに収まらない場合のみ、そのウィジェット内部だけがスクロールする。 */
   @media (min-width: 721px) {
+    /* ホーム画面以外(メール/Drive/設定/アプリリンク)は下方向へスクロールできるようにしつつ、
+       コントロールパネル(左)とヘッダーは常に固定表示にする。app-shell自体の高さを画面ぴったりに
+       固定してページ全体がスクロールしないようにし、代わりに main-content 内部だけが
+       スクロール領域になる（.main-content の overflow-y:auto が実際に効くようにするための前提）。 */
+    .app-shell { height: 100vh; overflow: hidden; }
+    .shell-body { overflow: hidden; }
+    .control-panel { overflow-y: auto; }
+
     .main-content { display: flex; flex-direction: column; }
     .right-sidebar { overflow-y: hidden; min-height: 0; }
     /* view-home 自身をクリップすることで、他の画面(Drive/設定/メール/アプリリンク)の

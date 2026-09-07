@@ -10,21 +10,17 @@
   <h2>個人設定（このアカウントのみ）</h2>
 
   <div class="settings-section">
-    <h3>ホーム画面のウィジェット</h3>
-    <p class="empty-hint" style="padding-top:0;">カレンダー・今日の予定・メール・アプリリンク集は、それぞれ独立した「パーツ」です。表示・配置先・大きさ・表示順を自由に変更できます（PCビューはスクロールせず縦幅いっぱいに収まるよう自動調整されます）。</p>
-    <div style="overflow-x:auto;">
-      <table>
-        <thead>
-          <tr>
-            <th>表示</th>
-            <th>パーツ</th>
-            <th>配置先</th>
-            <th>大きさ</th>
-            <th>順序</th>
-          </tr>
-        </thead>
-        <tbody id="widget-settings-list"></tbody>
-      </table>
+    <h3>ホーム画面のウィジェット（レイアウト）</h3>
+    <p class="empty-hint" style="padding-top:0;">ブロックをドラッグして配置先・順序を変更できます。ブロック下端の取っ手を上下にドラッグすると大きさ（小・中・大）を調整できます。目のアイコンで表示/非表示を切り替えられます。変更内容は「個人設定を保存」を押すまで確定しません。</p>
+    <div class="widget-layout-editor" id="widget-layout-editor">
+      <div class="widget-layout-col" data-column="main">
+        <div class="widget-layout-col-label">メインエリア</div>
+        <div class="widget-layout-dropzone" data-column="main" id="widget-layout-main"></div>
+      </div>
+      <div class="widget-layout-col" data-column="side">
+        <div class="widget-layout-col-label">サイドバー</div>
+        <div class="widget-layout-dropzone" data-column="side" id="widget-layout-side"></div>
+      </div>
     </div>
   </div>
 

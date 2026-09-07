@@ -204,6 +204,17 @@ function getMailBody(threadId: string): MailBody {
   return MailService.getBody(threadId);
 }
 
+/** メール一覧のみを再取得する軽量エンドポイント（更新ボタン用。ホーム全体の再読込より高速） */
+function getRecentMails(): MailSubjectItem[] {
+  const userSettings = UserSettingsService.getSettings();
+  const globalSettings = GlobalSettingsService.getSettings();
+  return MailService.getRecentSubjects(userSettings.mailCount, globalSettings.mailLabel);
+}
+
+function markMailRead(threadId: string): void {
+  MailService.markRead(threadId);
+}
+
 function sendMail(to: string, subject: string, body: string): void {
   MailService.send(to, subject, body);
 }

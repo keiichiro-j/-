@@ -44,7 +44,6 @@
   var WIDGET_LABELS = { calendar: 'カレンダー', today: '今日の予定', mail: 'メール', links: 'アプリリンク集' };
   var WIDGET_IDS = ['calendar', 'today', 'mail', 'links'];
   var WIDGET_SIZE_LABELS = { small: '小', medium: '中', large: '大' };
-  var WIDGET_COLUMN_LABELS = { main: 'メインエリア', side: 'サイドバー' };
 
   var now0 = new Date();
   var state = {
@@ -64,8 +63,22 @@
       items: [],
       sortKey: 'updated',
       ascending: false
+    },
+    mailPage: {
+      selectedThreadId: null
     }
   };
+
+  // ===================== トースト通知（保存完了などの一時メッセージ） =====================
+  var toastTimer = null;
+  function showToast(message) {
+    var el = qs('toast');
+    if (!el) { return; }
+    clearTimeout(toastTimer);
+    el.textContent = message;
+    el.classList.add('is-visible');
+    toastTimer = setTimeout(function () { el.classList.remove('is-visible'); }, 2400);
+  }
 
   // ===================== テーマ適用（コントロールパネルのみ） =====================
   function applyTheme(theme) {
@@ -93,6 +106,9 @@
 
     if (view === 'drive' && state.drive.items.length === 0) {
       loadDriveFolder(null);
+    }
+    if (view === 'mail' && state.home) {
+      renderMailPageList(state.home.mails);
     }
   }
 
@@ -127,7 +143,9 @@
       populateEventCalendarOptions(home.calendars);
       renderCategorySwatchPicker(state.eventCategories, '');
       populateSettingsForm(home.userSettings, home.globalSettings, home.calendars, state.themeChoices);
-      renderNotifications(home);
+      if (state.currentView === 'mail') {
+        renderMailPageList(home.mails);
+      }
 
       var t = new Date();
       state.calendar.year = t.getFullYear();
@@ -152,14 +170,14 @@
     });
   }
 
-  // メール／アプリリンクは専用ページ(view-mail/view-links)を持つため、現在の画面に応じて
-  // ホーム画面のウィジェット配置を適用した直後に、該当カードだけ専用ページへ移し替える。
+  // アプリリンクは専用ページ(view-links)を持つため、ホーム画面のウィジェット配置を適用した
+  // 直後に、そのカードだけ専用ページへ移し替える。メールタブは独立したページ(MailPage.html)を
+  // 持つため、ホームのメールウィジェット(#card-mail)を移動する必要はない
+  // （右サイドバーごと非表示になっても影響を受けないようにするため、あえて分離している）。
   function placeWidgetsForCurrentView() {
     if (!state.home) return;
     applyWidgetLayout(state.home.userSettings);
-    if (state.currentView === 'mail') {
-      qs('view-mail').appendChild(qs('card-mail'));
-    } else if (state.currentView === 'links') {
+    if (state.currentView === 'links') {
       qs('view-links').appendChild(qs('card-links'));
     }
   }
@@ -215,6 +233,16 @@
     return found ? found.label : '未設定';
   }
 
+  // カレンダー上の予定チップの文字色を、背景色の輝度(YIQ)に応じて自動選択する
+  function pickChipTextColor(hex) {
+    var normalized = hex.replace('#', '');
+    var r = parseInt(normalized.substring(0, 2), 16);
+    var g = parseInt(normalized.substring(2, 4), 16);
+    var b = parseInt(normalized.substring(4, 6), 16);
+    var yiq = (r * 299 + g * 587 + b * 114) / 1000;
+    return yiq > 140 ? '#1a1a1a' : '#ffffff';
+  }
+
   function renderTodayList(events) {
     var container = qs('today-list');
     if (events.length === 0) {
@@ -254,7 +282,7 @@
       '<div class="cal-weekdays">' + weekdaysHtml + '</div>' +
       '<div class="cal-grid" id="cal-grid"></div>';
 
-    var MAX_DOTS = 4;
+    var MAX_CHIPS = 3;
     var grid = qs('cal-grid');
     var html = '';
     for (var i = 0; i < startWeekday; i++) {
@@ -265,17 +293,18 @@
       var isToday = year === now.getFullYear() && month === now.getMonth() && day === now.getDate();
       var info = dayInfoByDay[day];
       var isHoliday = !!(info && info.holidayName);
-      var dotsHtml = dayEvents.slice(0, MAX_DOTS).map(function (ev) {
-        return '<span class="dot" style="background:' + categoryHex(ev.categoryColorId) + ';" title="' + escapeHtml(ev.title || '') + '"></span>';
+      var chipsHtml = dayEvents.slice(0, MAX_CHIPS).map(function (ev) {
+        var hex = categoryHex(ev.categoryColorId);
+        return '<div class="event-chip" style="background:' + hex + ';color:' + pickChipTextColor(hex) + ';" title="' + escapeHtml(ev.title || '') + '">' + escapeHtml(ev.title || '(無題)') + '</div>';
       }).join('');
-      if (dayEvents.length > MAX_DOTS) {
-        dotsHtml += '<span class="dot-more">+' + (dayEvents.length - MAX_DOTS) + '</span>';
+      if (dayEvents.length > MAX_CHIPS) {
+        chipsHtml += '<div class="event-chip-more">他' + (dayEvents.length - MAX_CHIPS) + '件</div>';
       }
       html += '<div class="cal-cell' + (isToday ? ' is-today' : '') + (isHoliday ? ' is-holiday' : '') + '" data-day="' + day + '">' +
         '<div class="day-num">' + day + '</div>' +
         (info ? '<div class="rokuyo-label">' + escapeHtml(info.rokuyo) + '</div>' : '') +
         (isHoliday ? '<div class="holiday-label">' + escapeHtml(info.holidayName) + '</div>' : '') +
-        (dayEvents.length > 0 ? '<div class="dots">' + dotsHtml + '</div>' : '') +
+        (dayEvents.length > 0 ? '<div class="event-chips">' + chipsHtml + '</div>' : '') +
         '</div>';
     }
     var totalCells = startWeekday + daysInMonth;
@@ -483,29 +512,43 @@
     var container = qs('mail-list');
     if (mails.length === 0) {
       container.innerHTML = '<div class="empty-hint">新着メールはありません</div>';
-      return;
-    }
-    container.innerHTML = mails.map(function (m) {
-      return '<div class="mail-row' + (m.isUnread ? ' unread' : '') + '" data-thread-id="' + escapeHtml(m.threadId) + '">' +
-        '<div class="subject">' + escapeHtml(m.subject || '(件名なし)') + '</div>' +
-        '<div class="date">' + formatDateTime(m.date) + '</div>' +
-        '</div>';
-    }).join('');
+    } else {
+      container.innerHTML = mails.map(function (m) {
+        return '<div class="mail-row' + (m.isUnread ? ' unread' : '') + '" data-thread-id="' + escapeHtml(m.threadId) + '">' +
+          '<div class="subject">' + escapeHtml(m.subject || '(件名なし)') + '</div>' +
+          '<div class="date">' + formatDateTime(m.date) + '</div>' +
+          '</div>';
+      }).join('');
 
-    Array.prototype.forEach.call(container.querySelectorAll('.mail-row'), function (row) {
-      row.addEventListener('click', function () {
-        openMailDetail(row.getAttribute('data-thread-id'));
+      Array.prototype.forEach.call(container.querySelectorAll('.mail-row'), function (row) {
+        row.addEventListener('click', function () {
+          openMailDetail(row.getAttribute('data-thread-id'));
+        });
       });
-    });
+    }
+    updateMailBadge(mails);
+  }
 
+  // 未読数バッジ（左ナビの「メール」タブ）を更新する
+  function updateMailBadge(mails) {
     var unread = mails.filter(function (m) { return m.isUnread; }).length;
     var unreadLabel = unread > 9 ? '9+' : String(unread);
-    var headerBadge = qs('mail-badge');
-    headerBadge.textContent = unreadLabel;
-    headerBadge.hidden = unread === 0;
     var navBadge = qs('nav-mail-badge');
     navBadge.textContent = unreadLabel;
     navBadge.hidden = unread === 0;
+  }
+
+  // 一度開いたメールを未読から外す（表示上の即時反映 + サーバー側の既読化）
+  function markMailReadLocally(threadId) {
+    if (!state.home) return;
+    var mail = state.home.mails.filter(function (m) { return m.threadId === threadId; })[0];
+    if (!mail || !mail.isUnread) return;
+    mail.isUnread = false;
+    renderMailList(state.home.mails, state.home.userSettings.mailCount);
+    if (state.currentView === 'mail') {
+      renderMailPageList(state.home.mails);
+    }
+    gasRun('markMailRead', threadId).catch(function () { /* 既読化に失敗しても表示は既読のままでよい */ });
   }
 
   function openMailDetail(threadId) {
@@ -519,6 +562,7 @@
       qs('mail-detail-subject').textContent = mail.subject || '(件名なし)';
       qs('mail-detail-meta').textContent = mail.from + ' ・ ' + formatDateTime(mail.date);
       qs('mail-detail-body').textContent = mail.bodyPlain;
+      markMailReadLocally(threadId);
     }).catch(function (err) {
       modal.hidden = true;
       showError(err);
@@ -526,8 +570,7 @@
   }
 
   function initMail() {
-    qs('btn-mail-refresh').addEventListener('click', function () { loadHome(); });
-    qs('btn-mail-shortcut').addEventListener('click', function () { switchView('mail'); });
+    qs('btn-mail-refresh').addEventListener('click', function () { refreshMailData(); });
     qs('btn-mail-viewall').addEventListener('click', function () { switchView('mail'); });
     qs('btn-mail-detail-close').addEventListener('click', function () { qs('mail-detail-modal').hidden = true; });
 
@@ -545,52 +588,85 @@
       if (!to) { window.alert('宛先を入力してください'); return; }
       gasRun('sendMail', to, subject, body).then(function () {
         qs('mail-compose-modal').hidden = true;
-        window.alert('メールを送信しました');
+        showToast('メールを送信しました');
       }).catch(showError);
     });
   }
 
-  // ===================== ヘッダー: お知らせ（ベル） =====================
-  function renderNotifications(home) {
-    var items = [];
-    home.mails.filter(function (m) { return m.isUnread; }).forEach(function (m) {
-      items.push({ icon: 'icon-mail', title: m.subject || '(件名なし)', sub: m.from, date: m.date });
-    });
-    home.apps.filter(function (a) { return a.status === 'error'; }).forEach(function (a) {
-      items.push({ icon: 'icon-link', title: a.name + ' が応答していません', sub: 'アプリリンク集で確認してください', date: a.lastCheckedAt || a.addedAt });
-    });
-    items.sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
-
-    var list = qs('notif-list');
-    list.innerHTML = items.length === 0
-      ? '<div class="dropdown-empty">新しいお知らせはありません</div>'
-      : items.map(function (item) {
-        return '<div class="dropdown-item">' +
-          '<svg class="icon icon-sm"><use href="#' + item.icon + '"></use></svg>' +
-          '<div><div class="d-title">' + escapeHtml(item.title) + '</div><div class="d-sub">' + escapeHtml(item.sub) + '</div></div>' +
-          '</div>';
-      }).join('');
-
-    var badge = qs('notif-badge');
-    badge.textContent = items.length > 9 ? '9+' : String(items.length);
-    badge.hidden = items.length === 0;
+  // メール一覧のみを軽量に再取得する（ホーム全体を読み込み直す loadHome() より高速）
+  function refreshMailData() {
+    return gasRun('getRecentMails').then(function (mails) {
+      if (!state.home) return;
+      state.home.mails = mails;
+      renderMailList(mails, state.home.userSettings.mailCount);
+      if (state.currentView === 'mail') {
+        renderMailPageList(mails);
+      }
+    }).catch(showError);
   }
 
-  function closeAllDropdowns(except) {
-    ['notif-panel', 'search-results'].forEach(function (id) {
-      if (id !== except) qs(id).hidden = true;
+  // ===================== メールタブ（2カラム：左に一覧／右に本文） =====================
+  function renderMailPageList(mails) {
+    var container = qs('mail-page-list');
+    if (!container) return;
+    if (mails.length === 0) {
+      container.innerHTML = '<div class="empty-hint">新着メールはありません</div>';
+      return;
+    }
+    container.innerHTML = mails.map(function (m) {
+      var selected = m.threadId === state.mailPage.selectedThreadId ? ' selected' : '';
+      return '<div class="mail-row' + (m.isUnread ? ' unread' : '') + selected + '" data-thread-id="' + escapeHtml(m.threadId) + '">' +
+        '<div class="subject">' + escapeHtml(m.subject || '(件名なし)') + '</div>' +
+        '<div class="date">' + formatDateTime(m.date) + '</div>' +
+        '</div>';
+    }).join('');
+
+    Array.prototype.forEach.call(container.querySelectorAll('.mail-row'), function (row) {
+      row.addEventListener('click', function () {
+        openMailPageThread(row.getAttribute('data-thread-id'));
+      });
     });
   }
 
-  function initNotifications() {
-    qs('btn-notif').addEventListener('click', function (e) {
-      e.stopPropagation();
-      var panel = qs('notif-panel');
-      var willOpen = panel.hidden;
-      closeAllDropdowns();
-      panel.hidden = !willOpen;
+  function openMailPageThread(threadId) {
+    state.mailPage.selectedThreadId = threadId;
+    renderMailPageList(state.home.mails);
+
+    var reader = qs('mail-page-reader');
+    reader.innerHTML = '<div class="empty-hint">読み込み中...</div>';
+
+    gasRun('getMailBody', threadId).then(function (mail) {
+      reader.innerHTML =
+        '<div class="subject">' + escapeHtml(mail.subject || '(件名なし)') + '</div>' +
+        '<div class="meta">' + escapeHtml(mail.from) + ' ・ ' + escapeHtml(formatDateTime(mail.date)) + '</div>' +
+        '<div class="body-text">' + escapeHtml(mail.bodyPlain) + '</div>';
+      markMailReadLocally(threadId);
+    }).catch(function (err) {
+      reader.innerHTML = '<div class="empty-hint">読み込みに失敗しました</div>';
+      showError(err);
     });
-    document.addEventListener('click', function () { closeAllDropdowns(); });
+  }
+
+  function initMailPage() {
+    qs('btn-mailpage-refresh').addEventListener('click', function () { refreshMailData(); });
+
+    qs('btn-mailpage-compose').addEventListener('click', function () {
+      qs('mailpage-compose-to').value = '';
+      qs('mailpage-compose-subject').value = '';
+      qs('mailpage-compose-body').value = '';
+      qs('mailpage-compose-modal').hidden = false;
+    });
+    qs('btn-mailpage-compose-cancel').addEventListener('click', function () { qs('mailpage-compose-modal').hidden = true; });
+    qs('btn-mailpage-compose-send').addEventListener('click', function () {
+      var to = qs('mailpage-compose-to').value.trim();
+      var subject = qs('mailpage-compose-subject').value.trim();
+      var body = qs('mailpage-compose-body').value;
+      if (!to) { window.alert('宛先を入力してください'); return; }
+      gasRun('sendMail', to, subject, body).then(function () {
+        qs('mailpage-compose-modal').hidden = true;
+        showToast('メールを送信しました');
+      }).catch(showError);
+    });
   }
 
   // ===================== ヘッダー: 横断検索 =====================
@@ -601,6 +677,7 @@
 
     input.addEventListener('click', function (e) { e.stopPropagation(); });
     results.addEventListener('click', function (e) { e.stopPropagation(); });
+    document.addEventListener('click', function () { results.hidden = true; });
 
     input.addEventListener('input', function () {
       var query = input.value.trim();
@@ -714,8 +791,11 @@
   // ===================== Drive =====================
   function driveIconAndSize(item) {
     var sizeLabel = item.isFolder ? '' : formatBytes(item.sizeBytes);
+    var nameHtml = item.isFolder
+      ? escapeHtml(item.name)
+      : '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener">' + escapeHtml(item.name) + '</a>';
     return '<img src="' + escapeHtml(item.iconUrl) + '" alt="">' +
-      '<div class="name">' + escapeHtml(item.name) + '</div>' +
+      '<div class="name">' + nameHtml + '</div>' +
       '<div class="meta">' + sizeLabel + '</div>';
   }
 
@@ -893,7 +973,7 @@
     renderThemeSwatches(themeChoices, userSettings.themeChoice);
 
     qs('setting-mail-count').value = userSettings.mailCount;
-    renderWidgetSettingsList(userSettings.widgets);
+    renderWidgetLayoutEditor(userSettings.widgets);
     renderCustomNavSettingsList(userSettings.customNavItems);
 
     qs('setting-mail-label').value = globalSettings.mailLabel;
@@ -910,52 +990,163 @@
     qs('sync-calendar-list').innerHTML = listHtml || '<div class="empty-hint">利用可能なカレンダーがありません</div>';
   }
 
-  // ---- ウィジェット（カレンダー/今日の予定/メール/アプリリンク集）の配置・サイズ設定 ----
-  function widgetOptionsHtml(labelMap, selectedValue) {
-    return Object.keys(labelMap).map(function (value) {
-      return '<option value="' + value + '"' + (value === selectedValue ? ' selected' : '') + '>' + labelMap[value] + '</option>';
-    }).join('');
+  // ---- ウィジェット（カレンダー/今日の予定/メール/アプリリンク集）の視覚的レイアウトエディタ ----
+  // ブロックの高さそのものを大きさ比率(小:中:大 = 1:2:3、実際のflex-growと同じ比率)で表現し、
+  // ドラッグ＆ドロップで配置先・順序を、下端の取っ手のドラッグで大きさを変更できるようにする。
+  var WIDGET_SIZE_FROM_HEIGHT_THRESHOLDS = { small: 90, medium: 150 }; // これ未満はsmall/medium
+  var draggingWidgetBlock = null;
+
+  function sizeFromBlockHeight(height) {
+    if (height < WIDGET_SIZE_FROM_HEIGHT_THRESHOLDS.small) return 'small';
+    if (height < WIDGET_SIZE_FROM_HEIGHT_THRESHOLDS.medium) return 'medium';
+    return 'large';
   }
 
-  function renderWidgetSettingsList(widgets) {
-    var tbody = qs('widget-settings-list');
-    tbody.innerHTML = widgets.map(function (w, index) {
-      return '<tr data-widget-id="' + w.id + '">' +
-        '<td><input type="checkbox" class="widget-visible"' + (w.visible ? ' checked' : '') + '></td>' +
-        '<td>' + WIDGET_LABELS[w.id] + '</td>' +
-        '<td><select class="widget-column">' + widgetOptionsHtml(WIDGET_COLUMN_LABELS, w.column) + '</select></td>' +
-        '<td><select class="widget-size">' + widgetOptionsHtml(WIDGET_SIZE_LABELS, w.size) + '</select></td>' +
-        '<td style="text-align:right; white-space:nowrap;">' +
-        '<button type="button" class="btn-order-up" ' + (index === 0 ? 'disabled' : '') + '>↑</button> ' +
-        '<button type="button" class="btn-order-down" ' + (index === widgets.length - 1 ? 'disabled' : '') + '>↓</button>' +
-        '</td></tr>';
-    }).join('');
-
-    Array.prototype.forEach.call(tbody.querySelectorAll('.btn-order-up'), function (btn) {
-      btn.addEventListener('click', function () { moveWidgetOrder(btn.closest('tr'), -1); });
-    });
-    Array.prototype.forEach.call(tbody.querySelectorAll('.btn-order-down'), function (btn) {
-      btn.addEventListener('click', function () { moveWidgetOrder(btn.closest('tr'), 1); });
+  function renderWidgetLayoutEditor(widgets) {
+    var mainZone = qs('widget-layout-main');
+    var sideZone = qs('widget-layout-side');
+    mainZone.innerHTML = '';
+    sideZone.innerHTML = '';
+    widgets.forEach(function (w) {
+      var zone = w.column === 'main' ? mainZone : sideZone;
+      zone.appendChild(buildWidgetBlock(w));
     });
   }
 
-  function moveWidgetOrder(row, direction) {
-    var sibling = direction < 0 ? row.previousElementSibling : row.nextElementSibling;
-    if (!sibling) return;
-    if (direction < 0) row.parentNode.insertBefore(row, sibling);
-    else row.parentNode.insertBefore(sibling, row);
-    renderWidgetSettingsList(currentWidgetSettings());
+  function buildWidgetBlock(w) {
+    var block = document.createElement('div');
+    block.className = 'widget-block widget-block-size-' + w.size + (w.visible ? '' : ' is-hidden');
+    block.draggable = true;
+    block.setAttribute('data-widget-id', w.id);
+    block.setAttribute('data-size', w.size);
+    block.setAttribute('data-visible', w.visible ? 'true' : 'false');
+
+    var head = document.createElement('div');
+    head.className = 'widget-block-head';
+    head.innerHTML =
+      '<svg class="icon icon-sm widget-block-drag-handle"><use href="#icon-grip"></use></svg>' +
+      '<span class="widget-block-label">' + WIDGET_LABELS[w.id] + '</span>' +
+      '<button type="button" class="widget-block-visibility" aria-label="表示/非表示切替" title="表示/非表示切替">' +
+      '<svg class="icon icon-sm"><use href="#' + (w.visible ? 'icon-eye' : 'icon-eye-off') + '"></use></svg>' +
+      '</button>';
+    block.appendChild(head);
+
+    var sizeLabel = document.createElement('div');
+    sizeLabel.className = 'widget-block-size-label';
+    sizeLabel.textContent = '大きさ: ' + WIDGET_SIZE_LABELS[w.size];
+    block.appendChild(sizeLabel);
+
+    var resizeHandle = document.createElement('div');
+    resizeHandle.className = 'widget-block-resize-handle';
+    resizeHandle.title = 'ドラッグで大きさを変更';
+    block.appendChild(resizeHandle);
+
+    head.querySelector('.widget-block-visibility').addEventListener('click', function (e) {
+      e.stopPropagation();
+      var nowVisible = block.getAttribute('data-visible') !== 'true';
+      block.setAttribute('data-visible', nowVisible ? 'true' : 'false');
+      block.classList.toggle('is-hidden', !nowVisible);
+      e.currentTarget.querySelector('use').setAttribute('href', '#' + (nowVisible ? 'icon-eye' : 'icon-eye-off'));
+    });
+
+    initWidgetBlockDrag(block);
+    initWidgetBlockResize(block, resizeHandle, sizeLabel);
+    return block;
+  }
+
+  function initWidgetBlockDrag(block) {
+    block.addEventListener('dragstart', function (e) {
+      draggingWidgetBlock = block;
+      block.classList.add('is-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', block.getAttribute('data-widget-id')); } catch (err) { /* Firefox以外は不要 */ }
+    });
+    block.addEventListener('dragend', function () {
+      block.classList.remove('is-dragging');
+      draggingWidgetBlock = null;
+      Array.prototype.forEach.call(document.querySelectorAll('.widget-layout-dropzone'), function (z) {
+        z.classList.remove('is-drag-over');
+      });
+    });
+  }
+
+  function widgetLayoutInsertionTarget(zone, y) {
+    var blocks = Array.prototype.slice.call(zone.querySelectorAll('.widget-block:not(.is-dragging)'));
+    var result = null;
+    var closestOffset = -Infinity;
+    blocks.forEach(function (child) {
+      var box = child.getBoundingClientRect();
+      var offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > closestOffset) {
+        closestOffset = offset;
+        result = child;
+      }
+    });
+    return result;
+  }
+
+  function initWidgetLayoutDropzones() {
+    Array.prototype.forEach.call(document.querySelectorAll('.widget-layout-dropzone'), function (zone) {
+      zone.addEventListener('dragover', function (e) {
+        if (!draggingWidgetBlock) return;
+        e.preventDefault();
+        zone.classList.add('is-drag-over');
+        var after = widgetLayoutInsertionTarget(zone, e.clientY);
+        if (after) {
+          zone.insertBefore(draggingWidgetBlock, after);
+        } else {
+          zone.appendChild(draggingWidgetBlock);
+        }
+      });
+      zone.addEventListener('dragleave', function (e) {
+        if (e.target === zone) zone.classList.remove('is-drag-over');
+      });
+      zone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        zone.classList.remove('is-drag-over');
+      });
+    });
+  }
+
+  function initWidgetBlockResize(block, handle, sizeLabelEl) {
+    handle.addEventListener('mousedown', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var startY = e.clientY;
+      var startHeight = block.getBoundingClientRect().height;
+
+      function onMove(ev) {
+        var newHeight = Math.max(40, Math.min(220, startHeight + (ev.clientY - startY)));
+        block.style.height = newHeight + 'px';
+        var size = sizeFromBlockHeight(newHeight);
+        block.className = block.className.replace(/widget-block-size-\w+/, 'widget-block-size-' + size);
+        block.setAttribute('data-size', size);
+        sizeLabelEl.textContent = '大きさ: ' + WIDGET_SIZE_LABELS[size];
+      }
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        block.style.height = ''; // クラス側の固定高さ(60/120/180px)に戻す
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
   }
 
   function currentWidgetSettings() {
-    return Array.prototype.map.call(qs('widget-settings-list').querySelectorAll('tr'), function (tr) {
-      return {
-        id: tr.getAttribute('data-widget-id'),
-        visible: tr.querySelector('.widget-visible').checked,
-        column: tr.querySelector('.widget-column').value,
-        size: tr.querySelector('.widget-size').value
-      };
+    var result = [];
+    Array.prototype.forEach.call(document.querySelectorAll('.widget-layout-dropzone'), function (zone) {
+      var column = zone.getAttribute('data-column');
+      Array.prototype.forEach.call(zone.querySelectorAll('.widget-block'), function (block) {
+        result.push({
+          id: block.getAttribute('data-widget-id'),
+          column: column,
+          size: block.getAttribute('data-size'),
+          visible: block.getAttribute('data-visible') === 'true'
+        });
+      });
     });
+    return result;
   }
 
   // ---- カスタムナビ項目（個人用ショートカット） ----
@@ -1055,7 +1246,7 @@
       gasRun('saveUserSettings', settings).then(function () {
         return loadHome();
       }).then(function () {
-        window.alert('個人設定を保存しました');
+        showToast('保存しました');
       }).catch(showError);
     });
 
@@ -1072,24 +1263,36 @@
       gasRun('saveGlobalSettings', settings).then(function () {
         return loadHome();
       }).then(function () {
-        window.alert('全体設定を保存しました');
+        showToast('保存しました');
       }).catch(showError);
     });
   }
 
   // ===================== 初期化 =====================
+  // 各init関数はtry/catchで個別に保護する。手動移行等でHTMLファイルの一部が古い/欠けている
+  // ような場合でも、1箇所の初期化失敗が他の機能(更新ボタン等)の初期化まで巻き込んで
+  // 止めてしまわないようにするため。
+  function safeInit(name, fn) {
+    try {
+      fn();
+    } catch (e) {
+      console.error('初期化に失敗しました: ' + name, e);
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
-    initNav();
-    initEventModal();
-    initCalendarNav();
-    initDayDetail();
-    initMail();
-    initNotifications();
-    initSearch();
-    initAppLedger();
-    initDrive();
-    initSettings();
-    initCustomNavSettings();
+    safeInit('initNav', initNav);
+    safeInit('initEventModal', initEventModal);
+    safeInit('initCalendarNav', initCalendarNav);
+    safeInit('initDayDetail', initDayDetail);
+    safeInit('initMail', initMail);
+    safeInit('initMailPage', initMailPage);
+    safeInit('initSearch', initSearch);
+    safeInit('initAppLedger', initAppLedger);
+    safeInit('initDrive', initDrive);
+    safeInit('initSettings', initSettings);
+    safeInit('initCustomNavSettings', initCustomNavSettings);
+    safeInit('initWidgetLayoutDropzones', initWidgetLayoutDropzones);
     loadHome();
   });
 })();
