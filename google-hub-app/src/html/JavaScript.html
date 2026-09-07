@@ -41,8 +41,10 @@
     window.alert(err && err.message ? err.message : String(err));
   }
 
-  var SIDEBAR_CARD_LABELS = { mail: 'メール', links: 'アプリリンク集' };
-  var SIDEBAR_CARD_IDS = ['mail', 'links'];
+  var WIDGET_LABELS = { calendar: 'カレンダー', today: '今日の予定', mail: 'メール', links: 'アプリリンク集' };
+  var WIDGET_IDS = ['calendar', 'today', 'mail', 'links'];
+  var WIDGET_SIZE_LABELS = { small: '小', medium: '中', large: '大' };
+  var WIDGET_COLUMN_LABELS = { main: 'メインエリア', side: 'サイドバー' };
 
   var now0 = new Date();
   var state = {
@@ -82,17 +84,7 @@
     qs('view-settings').hidden = view !== 'settings';
     qs('right-sidebar').hidden = view !== 'home';
 
-    // メール／アプリリンクのカードは、専用ページ表示時はそちらへ、
-    // それ以外（ホーム等）では右サイドバーへ戻す（同じDOM要素を使い回す）
-    if (view === 'mail') {
-      qs('view-mail').appendChild(qs('card-mail'));
-    } else if (view === 'links') {
-      qs('view-links').appendChild(qs('card-links'));
-    } else {
-      qs('right-sidebar').appendChild(qs('card-mail'));
-      qs('right-sidebar').appendChild(qs('card-links'));
-      if (state.home) applyCardLayout(state.home.userSettings);
-    }
+    placeWidgetsForCurrentView();
 
     Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function (btn) {
       btn.classList.toggle('active', btn.getAttribute('data-view') === view);
@@ -126,7 +118,7 @@
       state.themeChoices = results[1];
       state.eventCategories = results[2];
       applyTheme(home.theme);
-      applyCardLayout(home.userSettings);
+      placeWidgetsForCurrentView();
       renderAvatar(home.currentUserEmail);
       renderMailList(home.mails, home.userSettings.mailCount);
       renderAppList(home.apps);
@@ -142,17 +134,32 @@
     }).catch(showError);
   }
 
-  function applyCardLayout(userSettings) {
-    var sidebar = qs('right-sidebar');
-    var sidebarOrder = userSettings.cardOrder.filter(function (id) { return SIDEBAR_CARD_IDS.indexOf(id) !== -1; });
-    sidebarOrder.forEach(function (cardId) {
-      var el = document.querySelector('[data-card="' + cardId + '"]');
-      if (el) sidebar.appendChild(el);
+  // ===================== ウィジェット（カレンダー/今日の予定/メール/アプリリンク集）の配置 =====================
+  // 設定画面で選んだ配置先(メイン/サイドバー)・サイズ・表示可否を、実際のDOM配置に反映する。
+  function applyWidgetLayout(userSettings) {
+    var columnMain = qs('card-stack');
+    var columnSide = qs('right-sidebar');
+    userSettings.widgets.forEach(function (w) {
+      var el = document.querySelector('[data-card="' + w.id + '"]');
+      if (!el) return;
+      el.classList.remove('widget-size-small', 'widget-size-medium', 'widget-size-large');
+      el.classList.add('widget-size-' + w.size);
+      el.style.display = w.visible ? '' : 'none';
+      var target = w.column === 'main' ? columnMain : columnSide;
+      target.appendChild(el);
     });
-    SIDEBAR_CARD_IDS.forEach(function (cardId) {
-      var el = document.querySelector('[data-card="' + cardId + '"]');
-      if (el) el.style.display = userSettings.visibleCards.indexOf(cardId) !== -1 ? '' : 'none';
-    });
+  }
+
+  // メール／アプリリンクは専用ページ(view-mail/view-links)を持つため、現在の画面に応じて
+  // ホーム画面のウィジェット配置を適用した直後に、該当カードだけ専用ページへ移し替える。
+  function placeWidgetsForCurrentView() {
+    if (!state.home) return;
+    applyWidgetLayout(state.home.userSettings);
+    if (state.currentView === 'mail') {
+      qs('view-mail').appendChild(qs('card-mail'));
+    } else if (state.currentView === 'links') {
+      qs('view-links').appendChild(qs('card-links'));
+    }
   }
 
   // ===================== カレンダー（メイン・月ナビゲーション対応） =====================
@@ -868,10 +875,8 @@
   function populateSettingsForm(userSettings, globalSettings, calendars, themeChoices) {
     renderThemeSwatches(themeChoices, userSettings.themeChoice);
 
-    qs('visible-mail').checked = userSettings.visibleCards.indexOf('mail') !== -1;
-    qs('visible-links').checked = userSettings.visibleCards.indexOf('links') !== -1;
     qs('setting-mail-count').value = userSettings.mailCount;
-    renderCardOrderList(userSettings.cardOrder.filter(function (id) { return SIDEBAR_CARD_IDS.indexOf(id) !== -1; }));
+    renderWidgetSettingsList(userSettings.widgets);
 
     qs('setting-mail-label').value = globalSettings.mailLabel;
     qs('setting-notify-enabled').checked = globalSettings.notifyEnabled;
@@ -887,53 +892,58 @@
     qs('sync-calendar-list').innerHTML = listHtml || '<div class="empty-hint">利用可能なカレンダーがありません</div>';
   }
 
-  function renderCardOrderList(cardOrder) {
-    var tbody = qs('card-order-list');
-    tbody.innerHTML = cardOrder.map(function (cardId, index) {
-      return '<tr data-card-id="' + cardId + '">' +
-        '<td>' + SIDEBAR_CARD_LABELS[cardId] + '</td>' +
-        '<td style="text-align:right;">' +
+  // ---- ウィジェット（カレンダー/今日の予定/メール/アプリリンク集）の配置・サイズ設定 ----
+  function widgetOptionsHtml(labelMap, selectedValue) {
+    return Object.keys(labelMap).map(function (value) {
+      return '<option value="' + value + '"' + (value === selectedValue ? ' selected' : '') + '>' + labelMap[value] + '</option>';
+    }).join('');
+  }
+
+  function renderWidgetSettingsList(widgets) {
+    var tbody = qs('widget-settings-list');
+    tbody.innerHTML = widgets.map(function (w, index) {
+      return '<tr data-widget-id="' + w.id + '">' +
+        '<td><input type="checkbox" class="widget-visible"' + (w.visible ? ' checked' : '') + '></td>' +
+        '<td>' + WIDGET_LABELS[w.id] + '</td>' +
+        '<td><select class="widget-column">' + widgetOptionsHtml(WIDGET_COLUMN_LABELS, w.column) + '</select></td>' +
+        '<td><select class="widget-size">' + widgetOptionsHtml(WIDGET_SIZE_LABELS, w.size) + '</select></td>' +
+        '<td style="text-align:right; white-space:nowrap;">' +
         '<button type="button" class="btn-order-up" ' + (index === 0 ? 'disabled' : '') + '>↑</button> ' +
-        '<button type="button" class="btn-order-down" ' + (index === cardOrder.length - 1 ? 'disabled' : '') + '>↓</button>' +
+        '<button type="button" class="btn-order-down" ' + (index === widgets.length - 1 ? 'disabled' : '') + '>↓</button>' +
         '</td></tr>';
     }).join('');
 
     Array.prototype.forEach.call(tbody.querySelectorAll('.btn-order-up'), function (btn) {
-      btn.addEventListener('click', function () { moveCardOrder(btn.closest('tr'), -1); });
+      btn.addEventListener('click', function () { moveWidgetOrder(btn.closest('tr'), -1); });
     });
     Array.prototype.forEach.call(tbody.querySelectorAll('.btn-order-down'), function (btn) {
-      btn.addEventListener('click', function () { moveCardOrder(btn.closest('tr'), 1); });
+      btn.addEventListener('click', function () { moveWidgetOrder(btn.closest('tr'), 1); });
     });
   }
 
-  function moveCardOrder(row, direction) {
+  function moveWidgetOrder(row, direction) {
     var sibling = direction < 0 ? row.previousElementSibling : row.nextElementSibling;
     if (!sibling) return;
     if (direction < 0) row.parentNode.insertBefore(row, sibling);
     else row.parentNode.insertBefore(sibling, row);
-
-    var newOrder = Array.prototype.map.call(row.parentNode.querySelectorAll('tr'), function (tr) {
-      return tr.getAttribute('data-card-id');
-    });
-    renderCardOrderList(newOrder);
+    renderWidgetSettingsList(currentWidgetSettings());
   }
 
-  function currentCardOrder() {
-    var sidebarOrder = Array.prototype.map.call(qs('card-order-list').querySelectorAll('tr'), function (tr) {
-      return tr.getAttribute('data-card-id');
+  function currentWidgetSettings() {
+    return Array.prototype.map.call(qs('widget-settings-list').querySelectorAll('tr'), function (tr) {
+      return {
+        id: tr.getAttribute('data-widget-id'),
+        visible: tr.querySelector('.widget-visible').checked,
+        column: tr.querySelector('.widget-column').value,
+        size: tr.querySelector('.widget-size').value
+      };
     });
-    return ['calendar'].concat(sidebarOrder);
   }
 
   function initSettings() {
     qs('btn-save-user-settings').addEventListener('click', function () {
-      var visibleCards = ['calendar'];
-      if (qs('visible-mail').checked) visibleCards.push('mail');
-      if (qs('visible-links').checked) visibleCards.push('links');
-
       var settings = {
-        visibleCards: visibleCards,
-        cardOrder: currentCardOrder(),
+        widgets: currentWidgetSettings(),
         mailCount: parseInt(qs('setting-mail-count').value, 10) || 5
       };
       gasRun('saveUserSettings', settings).then(function () {

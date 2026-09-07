@@ -1,6 +1,20 @@
 /** アプリ全体で共有する型定義（グローバルスコープ／モジュール分割なし） */
 
-type CardId = "calendar" | "mail" | "links";
+/** ホーム画面に配置できるウィジェット（パーツ）の種類 */
+type WidgetId = "calendar" | "today" | "mail" | "links";
+
+/** ウィジェットの配置先。main=中央のメインエリア、side=右サイドバー */
+type WidgetColumn = "main" | "side";
+
+/** ウィジェットの大きさ（他ウィジェットとの高さ比率。小=1:中=2:大=3） */
+type WidgetSize = "small" | "medium" | "large";
+
+interface WidgetConfig {
+  id: WidgetId;
+  column: WidgetColumn;
+  size: WidgetSize;
+  visible: boolean;
+}
 
 interface ThemeColor {
   name: string;
@@ -14,9 +28,9 @@ interface AppliedTheme {
 }
 
 interface UserSettings {
-  cardOrder: CardId[];
+  /** ホーム画面のウィジェット配置・サイズ・表示可否。配列の並び順が各カラム内の表示順になる */
+  widgets: WidgetConfig[];
   mailCount: number;
-  visibleCards: CardId[];
   /** テーマ配色パレット(Theme.PALETTE_11)のいずれかの name、または "random" */
   themeChoice: string;
 }

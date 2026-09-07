@@ -1,18 +1,32 @@
 /**
  * 5.2 ホーム画面のカスタマイズ機能
- * ユーザーごとの表示カード・表示順・メール表示件数を PropertiesService(User) に保存する。
+ * ウィジェット（カレンダー/今日の予定/メール/アプリリンク集）の配置・サイズ・表示可否、
+ * メール表示件数、テーマ選択を PropertiesService(User) に保存する。
  */
 namespace UserSettingsService {
   const PROPERTY_KEY = "USER_SETTINGS";
 
+  const ALL_WIDGET_IDS: WidgetId[] = ["calendar", "today", "mail", "links"];
+  const VALID_COLUMNS: WidgetColumn[] = ["main", "side"];
+  const VALID_SIZES: WidgetSize[] = ["small", "medium", "large"];
+
+  const DEFAULT_WIDGETS: WidgetConfig[] = [
+    { id: "calendar", column: "main", size: "large", visible: true },
+    { id: "today", column: "side", size: "small", visible: true },
+    { id: "mail", column: "side", size: "medium", visible: true },
+    { id: "links", column: "side", size: "medium", visible: true },
+  ];
+
   const DEFAULT_SETTINGS: UserSettings = {
-    cardOrder: ["calendar", "mail", "links"],
+    widgets: DEFAULT_WIDGETS,
     mailCount: 5,
-    visibleCards: ["calendar", "mail", "links"],
     themeChoice: Theme.RANDOM_CHOICE_ID,
   };
 
-  const ALL_CARDS: CardId[] = ["calendar", "mail", "links"];
+  function defaultWidget(id: WidgetId): WidgetConfig {
+    const found = DEFAULT_WIDGETS.filter((w) => w.id === id)[0];
+    return { id: found.id, column: found.column, size: found.size, visible: found.visible };
+  }
 
   export function getSettings(): UserSettings {
     const raw = PropertiesService.getUserProperties().getProperty(PROPERTY_KEY);
@@ -36,20 +50,39 @@ namespace UserSettingsService {
     return sanitized;
   }
 
+  /** ウィジェット設定を検証・補完する（不正な値はデフォルトへ、欠けているウィジェットは末尾に補完） */
+  export function sanitizeWidgets(input: unknown): WidgetConfig[] {
+    const result: WidgetConfig[] = [];
+    const seen: { [key: string]: boolean } = {};
+
+    if (Array.isArray(input)) {
+      input.forEach((raw) => {
+        if (!raw || typeof raw !== "object") {
+          return;
+        }
+        const w = raw as Partial<WidgetConfig>;
+        if (!w.id || ALL_WIDGET_IDS.indexOf(w.id) === -1 || seen[w.id]) {
+          return;
+        }
+        seen[w.id] = true;
+        const fallback = defaultWidget(w.id);
+        result.push({
+          id: w.id,
+          column: w.column && VALID_COLUMNS.indexOf(w.column) !== -1 ? w.column : fallback.column,
+          size: w.size && VALID_SIZES.indexOf(w.size) !== -1 ? w.size : fallback.size,
+          visible: typeof w.visible === "boolean" ? w.visible : fallback.visible,
+        });
+      });
+    }
+
+    ALL_WIDGET_IDS.filter((id) => !seen[id]).forEach((id) => result.push(defaultWidget(id)));
+    return result;
+  }
+
   export function sanitize(input: Partial<UserSettings>): UserSettings {
-    const cardOrder = Array.isArray(input.cardOrder)
-      ? input.cardOrder.filter((c): c is CardId => ALL_CARDS.indexOf(c) !== -1)
-      : DEFAULT_SETTINGS.cardOrder;
-    const visibleCards = Array.isArray(input.visibleCards)
-      ? input.visibleCards.filter((c): c is CardId => ALL_CARDS.indexOf(c) !== -1)
-      : DEFAULT_SETTINGS.visibleCards;
+    const widgets = sanitizeWidgets(input.widgets);
     const mailCountRaw = typeof input.mailCount === "number" ? input.mailCount : DEFAULT_SETTINGS.mailCount;
     const mailCount = Math.min(20, Math.max(1, Math.floor(mailCountRaw)));
-
-    // cardOrder に欠けているカードIDを末尾に補完（設定の不整合対策）
-    const completedOrder = cardOrder.concat(
-      ALL_CARDS.filter((c) => cardOrder.indexOf(c) === -1)
-    );
 
     const validThemeChoices = Theme.PALETTE_11.map((c) => c.name).concat([Theme.RANDOM_CHOICE_ID]);
     const themeChoice =
@@ -58,18 +91,16 @@ namespace UserSettingsService {
         : DEFAULT_SETTINGS.themeChoice;
 
     return {
-      cardOrder: completedOrder,
+      widgets: widgets,
       mailCount: mailCount,
-      visibleCards: visibleCards.length > 0 ? visibleCards : DEFAULT_SETTINGS.visibleCards,
       themeChoice: themeChoice,
     };
   }
 
   function cloneDefaults(): UserSettings {
     return {
-      cardOrder: DEFAULT_SETTINGS.cardOrder.slice(),
+      widgets: DEFAULT_WIDGETS.map((w) => ({ id: w.id, column: w.column, size: w.size, visible: w.visible })),
       mailCount: DEFAULT_SETTINGS.mailCount,
-      visibleCards: DEFAULT_SETTINGS.visibleCards.slice(),
       themeChoice: DEFAULT_SETTINGS.themeChoice,
     };
   }

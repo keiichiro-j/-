@@ -95,15 +95,39 @@ test('"random"または未知の値はランダム抽選にフォールバック
   assert.ok(allHex.indexOf(theme.hex) !== -1);
 });
 
+console.log('== UserSettingsService: sanitizeWidgets（ウィジェットの配置・サイズ設定） ==');
+test('未指定時は4種類のウィジェットが既定値で揃う', () => {
+  const widgets = sandbox.UserSettingsService.sanitizeWidgets(undefined);
+  assert.strictEqual(JSON.stringify(widgets.map((w) => w.id)), JSON.stringify(['calendar', 'today', 'mail', 'links']));
+  assert.strictEqual(widgets[0].column, 'main');
+  assert.strictEqual(widgets[0].size, 'large');
+});
+test('不正なid・重複したidは無視される', () => {
+  const widgets = sandbox.UserSettingsService.sanitizeWidgets([
+    { id: 'calendar', column: 'side', size: 'small', visible: false },
+    { id: 'calendar', column: 'main', size: 'large', visible: true },
+    { id: 'unknown', column: 'main', size: 'large', visible: true }
+  ]);
+  assert.strictEqual(widgets.filter((w) => w.id === 'calendar').length, 1);
+  assert.strictEqual(widgets[0].column, 'side');
+  assert.strictEqual(widgets[0].visible, false);
+});
+test('欠けているウィジェットは末尾に既定値で補完される', () => {
+  const widgets = sandbox.UserSettingsService.sanitizeWidgets([
+    { id: 'mail', column: 'main', size: 'small', visible: true }
+  ]);
+  assert.strictEqual(JSON.stringify(widgets.map((w) => w.id)), JSON.stringify(['mail', 'calendar', 'today', 'links']));
+});
+test('不正なcolumn/sizeは既定値にフォールバック', () => {
+  const widgets = sandbox.UserSettingsService.sanitizeWidgets([
+    { id: 'links', column: 'nonsense', size: 'huge', visible: true }
+  ]);
+  const links = widgets.filter((w) => w.id === 'links')[0];
+  assert.strictEqual(links.column, 'side');
+  assert.strictEqual(links.size, 'medium');
+});
+
 console.log('== UserSettingsService: sanitize ==');
-test('不正なカードIDは除外される', () => {
-  const s = sandbox.UserSettingsService.sanitize({ visibleCards: ['calendar', 'unknown'] });
-  assert.deepStrictEqual(s.visibleCards, ['calendar']);
-});
-test('cardOrderに欠けているIDは末尾に補完される', () => {
-  const s = sandbox.UserSettingsService.sanitize({ cardOrder: ['mail'] });
-  assert.deepStrictEqual(s.cardOrder, ['mail', 'calendar', 'links']);
-});
 test('themeChoiceは有効な色名かrandomのみ許可、それ以外はrandomにフォールバック', () => {
   assert.strictEqual(sandbox.UserSettingsService.sanitize({ themeChoice: 'ボヤージュブルー' }).themeChoice, 'ボヤージュブルー');
   assert.strictEqual(sandbox.UserSettingsService.sanitize({ themeChoice: 'nonsense' }).themeChoice, 'random');

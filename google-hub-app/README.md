@@ -18,7 +18,7 @@ Google Apps Script プロジェクトです。Drive・Calendar・Mail と自社�
 | `src/services/calendarService.ts` | 4. Calendar機能（予定作成/編集/削除・ゲスト招待・複数カレンダー統合・種類の色分け） |
 | `src/services/mailService.ts` | 4. Mail機能（直近N件の件名一覧・本文閲覧・新規作成/送信） |
 | `src/services/appLedger.ts` | 4. スクリプト管理／11.2 自社アプリ台帳（URL貼り付けのみで登録、名称は<title>から自動取得・編集不可・簡易死活監視） |
-| `src/services/userSettingsService.ts` | 5.2 ホーム画面のカスタマイズ機能（個人設定） |
+| `src/services/userSettingsService.ts` | 5.2 ホーム画面のカスタマイズ機能（ウィジェットの配置・サイズ・表示可否） |
 | `src/services/globalSettingsService.ts` | 5.3 アプリ全域のデータ設定（全体設定） |
 | `src/services/dateUtils.ts` | ミニカレンダー表示用の月範囲計算 |
 | `src/html/Index.html` 他 | 5.1 全体レイアウト（左コントロールパネル＋右カード縦積み／Drive画面／設定画面） |
@@ -31,6 +31,27 @@ Drive機能は企画書5.1のホーム3カード（カレンダー／メール�
 `#card-links`）と専用ページは同一のDOM要素をJS側で付け替えて使い回しており（`switchView()`）、
 ホーム画面のカード見出しにある「すべて見る」リンクからも各ページへ遷移できます。未読メールが
 あれば、左ナビの「メール」タブと画面右上のメールアイコンの両方に件数バッジを表示します。
+
+## ホーム画面のウィジェットシステム（配置・サイズのカスタマイズ）
+
+カレンダー・今日の予定・メール・アプリリンク集は、それぞれ独立した「ウィジェット」として扱い、
+全体設定画面から次を自由に変更できます（`UserSettings.widgets`、`src/services/userSettingsService.ts`）。
+
+- **表示/非表示**
+- **配置先**（メインエリア／サイドバー）
+- **大きさ**（小=1:中=2:大=3 の高さ比率でflex-growに反映）
+- **表示順**（同じ配置先内での並び順）
+
+実装上は、`data-card="calendar|today|mail|links"` を持つ同一のカード要素を
+`JavaScript.html` の `applyWidgetLayout()` が設定に応じてメインエリア（`#card-stack`）か
+サイドバー（`#right-sidebar`）へ都度付け替えており、ウィジェットごとに専用のDOMや設定画面を
+複製していません。
+
+**PCビューのホーム画面は下方向にスクロールしません。** メインエリア・サイドバーは
+`overflow:hidden` とし、各ウィジェットは割り当てられた高さぴったりに収まるよう
+flex-growで比率配分されます。ウィジェット内の一覧（メール・アプリリンク等）がその高さに
+収まらない場合は、ページ全体ではなく該当ウィジェット内部だけがスクロールします。
+この制約はPCビュー限定で、モバイル幅では従来通り自然な縦積み＋ページスクロールです。
 
 ## セットアップ手順
 
