@@ -223,7 +223,13 @@ namespace GlobalSettingsService {
     syncCalendarIds: ["primary"],
     mailLabel: "INBOX",
     notifyEnabled: true,
+    notifyHour: 8,
   };
+
+  function clampHour(value: unknown): number {
+    const n = typeof value === "number" && !isNaN(value) ? Math.floor(value) : DEFAULT_SETTINGS.notifyHour;
+    return Math.max(0, Math.min(23, n));
+  }
 
   export function getSettings(): GlobalSettings {
     const raw = PropertiesService.getScriptProperties().getProperty(PROPERTY_KEY);
@@ -258,11 +264,13 @@ namespace GlobalSettingsService {
         : DEFAULT_SETTINGS.mailLabel;
     const notifyEnabled =
       typeof input.notifyEnabled === "boolean" ? input.notifyEnabled : DEFAULT_SETTINGS.notifyEnabled;
+    const notifyHour = clampHour(input.notifyHour);
 
     return {
       syncCalendarIds: syncCalendarIds.length > 0 ? syncCalendarIds : DEFAULT_SETTINGS.syncCalendarIds.slice(),
       mailLabel: mailLabel,
       notifyEnabled: notifyEnabled,
+      notifyHour: notifyHour,
     };
   }
 
@@ -271,6 +279,7 @@ namespace GlobalSettingsService {
       syncCalendarIds: DEFAULT_SETTINGS.syncCalendarIds.slice(),
       mailLabel: DEFAULT_SETTINGS.mailLabel,
       notifyEnabled: DEFAULT_SETTINGS.notifyEnabled,
+      notifyHour: DEFAULT_SETTINGS.notifyHour,
     };
   }
 }

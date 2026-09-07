@@ -214,6 +214,40 @@ test('サイズの降順ソート', () => {
   assert.deepStrictEqual(sorted.map((i) => i.name), ['b', 'a']);
 });
 
+console.log('== DriveService: rankByRelevance（あいまい検索・全文検索用のスコアリング） ==');
+test('ファイル名に一致する語が多いほど上位になる', () => {
+  const items = [
+    { name: '経理見積書', lastUpdated: '', sizeBytes: 0 }, // "経理"のみ一致
+    { name: '経理資料', lastUpdated: '', sizeBytes: 0 }, // "経理"「資料」両方一致
+    { name: '議事録', lastUpdated: '', sizeBytes: 0 } // どちらも不一致
+  ];
+  const ranked = sandbox.DriveService.rankByRelevance(items, ['経理', '資料']);
+  assert.deepStrictEqual(ranked.map((i) => i.name), ['経理資料', '経理見積書', '議事録']);
+});
+test('完全フレーズ一致は追加ボーナスで上位になる', () => {
+  const items = [
+    { name: '資料の経理まとめ', lastUpdated: '', sizeBytes: 0 },
+    { name: '経理資料', lastUpdated: '', sizeBytes: 0 }
+  ];
+  const ranked = sandbox.DriveService.rankByRelevance(items, ['経理資料']);
+  assert.strictEqual(ranked[0].name, '経理資料');
+});
+test('本文一致のみ(ファイル名に一致無し)でもスコア0のまま除外はされない', () => {
+  const items = [{ name: '無関係な名前', lastUpdated: '', sizeBytes: 0 }];
+  const ranked = sandbox.DriveService.rankByRelevance(items, ['経理']);
+  assert.strictEqual(ranked.length, 1);
+});
+
+console.log('== GlobalSettingsService: sanitize（notifyHour） ==');
+test('notifyHourは0〜23にクランプされる', () => {
+  assert.strictEqual(sandbox.GlobalSettingsService.sanitize({ notifyHour: 99 }).notifyHour, 23);
+  assert.strictEqual(sandbox.GlobalSettingsService.sanitize({ notifyHour: -5 }).notifyHour, 0);
+  assert.strictEqual(sandbox.GlobalSettingsService.sanitize({ notifyHour: 8.7 }).notifyHour, 8);
+});
+test('notifyHour未指定は既定値(8時)になる', () => {
+  assert.strictEqual(sandbox.GlobalSettingsService.sanitize({}).notifyHour, 8);
+});
+
 console.log('== DateUtils: getMonthRange ==');
 test('12月は翌年1月始まりまでの範囲になる', () => {
   const range = sandbox.DateUtils.getMonthRange(2025, 11); // 11 = 12月

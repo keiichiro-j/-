@@ -632,7 +632,7 @@
       var isHoliday = !!(info && info.holidayName);
       var chipsHtml = dayEvents.slice(0, MAX_CHIPS).map(function (ev) {
         var hex = categoryHex(ev.categoryColorId);
-        return '<div class="event-chip" style="background:' + hex + ';color:' + pickChipTextColor(hex) + ';" title="' + escapeHtml(ev.title || '') + '">' + escapeHtml(ev.title || '(無題)') + '</div>';
+        return '<div class="event-chip" draggable="true" data-event-id="' + escapeHtml(ev.id) + '" data-calendar-id="' + escapeHtml(ev.calendarId) + '" style="background:' + hex + ';color:' + pickChipTextColor(hex) + ';" title="' + escapeHtml(ev.title || '') + '">' + escapeHtml(ev.title || '(無題)') + '</div>';
       }).join('');
       if (dayEvents.length > MAX_CHIPS) {
         chipsHtml += '<div class="event-chip-more">他' + (dayEvents.length - MAX_CHIPS) + '件</div>';
@@ -658,6 +658,70 @@
         openDayDetail(parseInt(cell.getAttribute('data-day'), 10));
       });
     });
+
+    initCalendarDragDrop(grid);
+  }
+
+  // ===================== 月表示カレンダー: 予定チップのドラッグ&ドロップによる日付変更 =====================
+  var draggingCalendarEvent = null;
+
+  function initCalendarDragDrop(grid) {
+    Array.prototype.forEach.call(grid.querySelectorAll('.event-chip[draggable="true"]'), function (chip) {
+      chip.addEventListener('dragstart', function (e) {
+        e.stopPropagation();
+        var eventId = chip.getAttribute('data-event-id');
+        var calendarId = chip.getAttribute('data-calendar-id');
+        draggingCalendarEvent = state.calendar.events.filter(function (ev) {
+          return ev.id === eventId && ev.calendarId === calendarId;
+        })[0] || null;
+        if (draggingCalendarEvent) {
+          e.dataTransfer.effectAllowed = 'move';
+          try { e.dataTransfer.setData('text/plain', eventId); } catch (err) { /* Firefox以外は不要 */ }
+        }
+      });
+      chip.addEventListener('dragend', function () {
+        draggingCalendarEvent = null;
+        Array.prototype.forEach.call(grid.querySelectorAll('.cal-cell.drag-over'), function (c) {
+          c.classList.remove('drag-over');
+        });
+      });
+    });
+
+    Array.prototype.forEach.call(grid.querySelectorAll('.cal-cell[data-day]'), function (cell) {
+      cell.addEventListener('dragover', function (e) {
+        if (!draggingCalendarEvent) return;
+        e.preventDefault();
+        cell.classList.add('drag-over');
+      });
+      cell.addEventListener('dragleave', function () {
+        cell.classList.remove('drag-over');
+      });
+      cell.addEventListener('drop', function (e) {
+        e.preventDefault();
+        cell.classList.remove('drag-over');
+        if (!draggingCalendarEvent) return;
+        moveEventToDay(draggingCalendarEvent, parseInt(cell.getAttribute('data-day'), 10));
+        draggingCalendarEvent = null;
+      });
+    });
+  }
+
+  // 予定の時間帯(所要時間)は維持したまま、日付だけをドロップ先の日に付け替える
+  function moveEventToDay(ev, newDay) {
+    var year = state.calendar.year, month = state.calendar.month;
+    var oldStart = new Date(ev.start);
+    if (oldStart.getFullYear() === year && oldStart.getMonth() === month && oldStart.getDate() === newDay) {
+      return;
+    }
+    var durationMs = new Date(ev.end).getTime() - oldStart.getTime();
+    var newStart = new Date(year, month, newDay, oldStart.getHours(), oldStart.getMinutes(), oldStart.getSeconds());
+    var newEnd = new Date(newStart.getTime() + durationMs);
+    gasRun('moveCalendarEventDate', ev.calendarId, ev.id, newStart.toISOString(), newEnd.toISOString())
+      .then(function () {
+        showToast((ev.title || '予定') + 'を' + (month + 1) + '/' + newDay + 'に移動しました');
+        return refreshCalendarViews();
+      })
+      .catch(showError);
   }
 
   // ===================== 日付タップ時のポップアップ（その日の予定一覧・編集） =====================
@@ -1749,6 +1813,16 @@
   }
 
   // ===================== 設定画面 =====================
+  function populateNotifyHourOptions() {
+    var select = qs('setting-notify-hour');
+    if (select.options.length > 0) return; // 初回のみ生成（毎回作り直すと選択中の値が一瞬消える）
+    var html = '';
+    for (var h = 0; h < 24; h++) {
+      html += '<option value="' + h + '">' + h + '時</option>';
+    }
+    select.innerHTML = html;
+  }
+
   function populateSettingsForm(userSettings, globalSettings, calendars, themeChoices) {
     renderThemeSwatches(themeChoices, userSettings.themeChoice);
     renderDarkModeSwitcher(userSettings.darkMode);
@@ -1759,6 +1833,8 @@
 
     qs('setting-mail-label').value = globalSettings.mailLabel;
     qs('setting-notify-enabled').checked = globalSettings.notifyEnabled;
+    populateNotifyHourOptions();
+    qs('setting-notify-hour').value = String(globalSettings.notifyHour);
 
     var syncSet = {};
     globalSettings.syncCalendarIds.forEach(function (id) { syncSet[id] = true; });
@@ -2046,13 +2122,22 @@
       var settings = {
         syncCalendarIds: syncCalendarIds,
         mailLabel: qs('setting-mail-label').value.trim() || 'INBOX',
-        notifyEnabled: qs('setting-notify-enabled').checked
+        notifyEnabled: qs('setting-notify-enabled').checked,
+        notifyHour: parseInt(qs('setting-notify-hour').value, 10) || 0
       };
       gasRun('saveGlobalSettings', settings).then(function () {
         return loadHome();
       }).then(function () {
         showToast('保存しました');
       }).catch(showError);
+    });
+
+    qs('btn-send-test-notification').addEventListener('click', function (e) {
+      withSpinner(e.currentTarget, function () {
+        return gasRun('sendTestNotification').then(function () {
+          showToast('テスト通知を送信しました');
+        }).catch(showError);
+      });
     });
   }
 

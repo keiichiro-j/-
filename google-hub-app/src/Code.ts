@@ -74,7 +74,19 @@ function saveUserSettings(settings: Partial<UserSettings>): UserSettings {
 }
 
 function saveGlobalSettings(settings: Partial<GlobalSettings>): GlobalSettings {
-  return GlobalSettingsService.saveSettings(settings);
+  const saved = GlobalSettingsService.saveSettings(settings);
+  NotificationService.syncTrigger(saved);
+  return saved;
+}
+
+/** 通知の時限トリガーから呼ばれるハンドラ本体（google.script.runからは呼ばない） */
+function runDailyNotification(): void {
+  NotificationService.sendDailyDigest();
+}
+
+/** 設定画面の「テスト通知を送信」ボタン用。notifyEnabledの状態に関わらず必ず送信する */
+function sendTestNotification(): void {
+  NotificationService.sendDailyDigest(true);
 }
 
 function listCalendars(): CalendarInfo[] {
@@ -148,6 +160,16 @@ function updateCalendarEvent(
 
 function deleteCalendarEvent(calendarId: string, eventId: string): void {
   CalendarService.deleteEvent(calendarId, eventId);
+}
+
+/** 月表示カレンダーでのドラッグ&ドロップによる日付変更（時刻のみ更新、他の項目は変更しない） */
+function moveCalendarEventDate(
+  calendarId: string,
+  eventId: string,
+  newStartIso: string,
+  newEndIso: string
+): CalendarEventItem {
+  return CalendarService.moveEventDate(calendarId, eventId, newStartIso, newEndIso);
 }
 
 // ---- Drive ----

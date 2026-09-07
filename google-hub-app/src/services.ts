@@ -140,6 +140,30 @@ namespace CalendarService {
     return toItem(calendarId, event);
   }
 
+  /**
+   * 月表示カレンダーでのドラッグ&ドロップによる日付変更専用。updateEvent()と違い、
+   * タイトル・説明・ゲスト・種類(色)には一切触れず時刻だけを付け替える。CalendarEventItemは
+   * description を持たないため、もしupdateEvent()を流用すると説明欄が空文字で上書きされてしまう。
+   */
+  export function moveEventDate(
+    calendarId: string,
+    eventId: string,
+    newStartIso: string,
+    newEndIso: string
+  ): CalendarEventItem {
+    const calendar = resolveCalendar(calendarId);
+    const event = calendar.getEventById(eventId);
+    if (!event) {
+      throw new Error("予定が見つかりません: " + eventId);
+    }
+    if (event.isAllDayEvent()) {
+      event.setAllDayDate(new Date(newStartIso));
+    } else {
+      event.setTime(new Date(newStartIso), new Date(newEndIso));
+    }
+    return toItem(calendarId, event);
+  }
+
   export function deleteEvent(calendarId: string, eventId: string): void {
     const calendar = resolveCalendar(calendarId);
     const event = calendar.getEventById(eventId);
@@ -341,15 +365,53 @@ namespace DriveService {
     return sortItems(items, sortKey, ascending);
   }
 
+  const SEARCH_FETCH_MULTIPLIER = 3;
+
+  function escapeForDriveQuery(word: string): string {
+    return word.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+  }
+
+  /**
+   * あいまい検索・全文検索対応: クエリを単語ごとに分割し、各単語について「ファイル名に含む」
+   * または「本文(fullText)に含む」のいずれかを満たすファイルをOR条件で広く集める。
+   * Drive API自体は真のあいまいマッチ(タイプミス許容等)をサポートしないため、
+   * 一致語数・完全フレーズ一致でスコアリングして並び替えることで「あいまい検索」に近い
+   * 体験にしている（rankByRelevance）。
+   */
   export function searchFiles(query: string, limit: number = 50): DriveFileItem[] {
-    const escaped = query.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-    const searchQuery = "title contains '" + escaped + "' and trashed = false";
+    const words = query.trim().split(/\s+/).filter((w) => w.length > 0);
+    if (words.length === 0) {
+      return [];
+    }
+    const clauses = words.map((w) => {
+      const escaped = escapeForDriveQuery(w);
+      return "(title contains '" + escaped + "' or fullText contains '" + escaped + "')";
+    });
+    const searchQuery = "(" + clauses.join(" or ") + ") and trashed = false";
     const iterator = DriveApp.searchFiles(searchQuery);
     const items: DriveFileItem[] = [];
-    while (iterator.hasNext() && items.length < limit) {
+    const fetchLimit = limit * SEARCH_FETCH_MULTIPLIER;
+    while (iterator.hasNext() && items.length < fetchLimit) {
       items.push(fileToItem(iterator.next()));
     }
-    return items;
+    return rankByRelevance(items, words).slice(0, limit);
+  }
+
+  /** ファイル名との一致度でスコアリングして並び替える（一致語数が多いほど、完全フレーズ一致ならさらに高スコア） */
+  export function rankByRelevance(items: DriveFileItem[], words: string[]): DriveFileItem[] {
+    const lowerWords = words.map((w) => w.toLowerCase());
+    const phrase = lowerWords.join(" ");
+    const scored = items.map((item) => {
+      const lowerName = item.name.toLowerCase();
+      let score = 0;
+      lowerWords.forEach((w) => {
+        if (lowerName.indexOf(w) !== -1) score += 10;
+      });
+      if (phrase.length > 0 && lowerName.indexOf(phrase) !== -1) score += 20;
+      return { item: item, score: score };
+    });
+    scored.sort((a, b) => b.score - a.score);
+    return scored.map((s) => s.item);
   }
 
   export function getPreviewUrl(fileId: string): string {
@@ -708,5 +770,99 @@ namespace TodoService {
 
   export function clearDone(): TodoItem[] {
     return saveAll(getAll().filter((t) => !t.done));
+  }
+}
+
+/**
+ * 通知機能。時限トリガーから毎日決まった時刻に、今日の予定と期限が近い(当日〜期限切れ)ToDoを
+ * まとめてメールで送る。Google Chat連携は対象外のため、送信手段は既存のgmail.sendスコープで
+ * 足りるGmailを使う。トリガーの作成・削除は全体設定の保存時（saveGlobalSettings）に同期する。
+ */
+namespace NotificationService {
+  export const TRIGGER_HANDLER = "runDailyNotification";
+
+  /** 全体設定のnotifyEnabled/notifyHourに合わせて、時限トリガーの有無・時刻を同期する */
+  export function syncTrigger(settings: GlobalSettings): void {
+    removeExistingTriggers();
+    if (settings.notifyEnabled) {
+      ScriptApp.newTrigger(TRIGGER_HANDLER).timeBased().everyDays(1).atHour(settings.notifyHour).create();
+    }
+  }
+
+  function removeExistingTriggers(): void {
+    ScriptApp.getProjectTriggers().forEach((trigger) => {
+      if (trigger.getHandlerFunction() === TRIGGER_HANDLER) {
+        ScriptApp.deleteTrigger(trigger);
+      }
+    });
+  }
+
+  function dayRange(date: Date): { start: Date; end: Date } {
+    const start = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+    const end = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1, 0, 0, 0, 0);
+    return { start: start, end: end };
+  }
+
+  function todayKey(date: Date): string {
+    return Utilities.formatDate(date, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  }
+
+  function formatEventTime(iso: string): string {
+    return Utilities.formatDate(new Date(iso), Session.getScriptTimeZone(), "HH:mm");
+  }
+
+  function buildDigestBody(events: CalendarEventItem[], todos: TodoItem[]): string {
+    const lines: string[] = ["Google Hubからの通知です。", ""];
+    if (events.length > 0) {
+      lines.push("◆ 今日の予定");
+      events.forEach((ev) => {
+        const timeLabel = ev.allDay ? "終日" : formatEventTime(ev.start) + "〜" + formatEventTime(ev.end);
+        lines.push("・" + timeLabel + " " + (ev.title || "(無題)"));
+      });
+      lines.push("");
+    }
+    if (todos.length > 0) {
+      lines.push("◆ 期限のToDo（本日まで・期限切れ含む）");
+      todos.forEach((t) => {
+        lines.push("・" + t.text + (t.dueDate ? "（期限: " + t.dueDate + "）" : ""));
+      });
+      lines.push("");
+    }
+    if (events.length === 0 && todos.length === 0) {
+      lines.push("本日の予定・期限のToDoはありません。");
+    }
+    return lines.join("\n");
+  }
+
+  /**
+   * 今日の予定・期限が近い(当日〜期限切れ)ToDoをまとめてメール通知する（時限トリガーから呼ばれる）。
+   * force=trueの場合、notifyEnabledの状態や「何もなければ送らない」の省略ロジックを無視して
+   * 必ず送信する（設定画面の「テスト通知を送信」ボタン用）。
+   */
+  export function sendDailyDigest(force?: boolean): void {
+    const globalSettings = GlobalSettingsService.getSettings();
+    if (!force && !globalSettings.notifyEnabled) {
+      return; // トリガーの削除漏れ等に対する保険
+    }
+    const now = new Date();
+    const range = dayRange(now);
+    const events = CalendarService.getEvents(
+      globalSettings.syncCalendarIds,
+      range.start.toISOString(),
+      range.end.toISOString()
+    );
+    const key = todayKey(now);
+    const todos = TodoService.list().filter((t) => !t.done && t.dueDate !== null && t.dueDate <= key);
+
+    if (!force && events.length === 0 && todos.length === 0) {
+      return; // 何も無ければ毎日空メールを送らない
+    }
+
+    const recipient = Session.getEffectiveUser().getEmail();
+    if (!recipient) {
+      return;
+    }
+    const subject = "【Google Hub】本日の予定・ToDo（" + Utilities.formatDate(now, Session.getScriptTimeZone(), "M/d") + "）";
+    GmailApp.sendEmail(recipient, subject, buildDigestBody(events, todos));
   }
 }
