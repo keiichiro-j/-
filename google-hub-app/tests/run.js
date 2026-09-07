@@ -337,5 +337,68 @@ test('sanitize()にcustomNavItemsが含まれる', () => {
   assert.strictEqual(sandbox.UserSettingsService.sanitize({}).customNavItems.length, 0);
 });
 
+console.log('== UserSettingsService: sanitizePinnedFolders（Driveのよく使うフォルダのピン留め） ==');
+test('id・nameが揃っていれば登録される', () => {
+  const folders = sandbox.UserSettingsService.sanitizePinnedFolders([
+    { id: 'f1', name: '経理資料' }
+  ]);
+  assert.strictEqual(folders.length, 1);
+  assert.strictEqual(folders[0].id, 'f1');
+  assert.strictEqual(folders[0].name, '経理資料');
+});
+test('idまたはnameが空の項目は除外される', () => {
+  const folders = sandbox.UserSettingsService.sanitizePinnedFolders([
+    { id: '', name: '経理資料' },
+    { id: 'f2', name: '' },
+    { id: 'f3', name: 'OK' }
+  ]);
+  assert.strictEqual(folders.length, 1);
+  assert.strictEqual(folders[0].id, 'f3');
+});
+test('同じidの重複は1件にまとめられる', () => {
+  const folders = sandbox.UserSettingsService.sanitizePinnedFolders([
+    { id: 'f1', name: '旧名' },
+    { id: 'f1', name: '新名' }
+  ]);
+  assert.strictEqual(folders.length, 1);
+  assert.strictEqual(folders[0].name, '旧名');
+});
+test('配列以外の入力は空配列になる', () => {
+  assert.strictEqual(sandbox.UserSettingsService.sanitizePinnedFolders(undefined).length, 0);
+  assert.strictEqual(sandbox.UserSettingsService.sanitizePinnedFolders(null).length, 0);
+});
+test('最大件数を超える分は切り詰められる', () => {
+  const input = [];
+  for (let i = 0; i < 30; i++) input.push({ id: 'f' + i, name: 'フォルダ' + i });
+  const folders = sandbox.UserSettingsService.sanitizePinnedFolders(input);
+  assert.ok(folders.length <= 20);
+});
+test('sanitize()にpinnedFolders/driveViewMode/calendarViewMode/darkModeが含まれる', () => {
+  const result = sandbox.UserSettingsService.sanitize({
+    pinnedFolders: [{ id: 'f1', name: 'A' }],
+    driveViewMode: 'grid',
+    calendarViewMode: 'week',
+    darkMode: 'dark'
+  });
+  assert.strictEqual(result.pinnedFolders.length, 1);
+  assert.strictEqual(result.driveViewMode, 'grid');
+  assert.strictEqual(result.calendarViewMode, 'week');
+  assert.strictEqual(result.darkMode, 'dark');
+  const defaults = sandbox.UserSettingsService.sanitize({});
+  assert.strictEqual(defaults.driveViewMode, 'list');
+  assert.strictEqual(defaults.calendarViewMode, 'month');
+  assert.strictEqual(defaults.darkMode, 'system');
+});
+test('不正なdriveViewMode/calendarViewMode/darkModeは既定値にフォールバック', () => {
+  const result = sandbox.UserSettingsService.sanitize({
+    driveViewMode: 'nonsense',
+    calendarViewMode: 'nonsense',
+    darkMode: 'nonsense'
+  });
+  assert.strictEqual(result.driveViewMode, 'list');
+  assert.strictEqual(result.calendarViewMode, 'month');
+  assert.strictEqual(result.darkMode, 'system');
+});
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail > 0 ? 1 : 0);

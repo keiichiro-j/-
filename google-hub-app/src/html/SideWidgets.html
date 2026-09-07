@@ -79,6 +79,8 @@
     <button type="button" id="btn-app-add" class="primary"><svg class="icon icon-sm"><use href="#icon-plus"></use></svg>追加</button>
   </div>
 
+  <div class="tag-filter-bar" id="app-tag-filter-bar"></div>
+
   <div id="app-list">
     <div class="empty-hint">読み込み中...</div>
   </div>
@@ -95,7 +97,18 @@
 
   <div class="toolbar">
     <input type="text" id="todo-input" placeholder="やることを入力してEnter">
+    <button type="button" class="icon-only" id="btn-todo-detail-toggle" aria-label="期限日・優先度を設定" title="期限日・優先度を設定"><svg class="icon icon-sm"><use href="#icon-flag"></use></svg></button>
     <button type="button" class="icon-only primary" id="btn-todo-add" aria-label="追加" title="追加"><svg class="icon icon-sm"><use href="#icon-plus"></use></svg></button>
+  </div>
+  <div class="todo-detail-row" id="todo-detail-row" hidden>
+    <label style="margin:0; font-size:11px;" for="todo-due-input">期限日</label>
+    <input type="date" id="todo-due-input">
+    <label style="margin:0; font-size:11px;" for="todo-priority-input">優先度</label>
+    <select id="todo-priority-input">
+      <option value="low">低</option>
+      <option value="medium" selected>中</option>
+      <option value="high">高</option>
+    </select>
   </div>
 
   <div id="todo-list">

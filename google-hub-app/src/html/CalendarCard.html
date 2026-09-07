@@ -2,9 +2,14 @@
   <h2>
     <span class="h2-label"><svg class="icon"><use href="#icon-clock"></use></svg><span id="calendar-month-label">カレンダー</span></span>
     <span class="card-actions">
-      <button type="button" class="icon-only" id="btn-cal-prev" aria-label="前の月" title="前の月">‹</button>
+      <span class="cal-view-mode-switch">
+        <button type="button" class="toggle-btn" id="btn-cal-view-month" data-cal-view="month">月</button>
+        <button type="button" class="toggle-btn" id="btn-cal-view-week" data-cal-view="week">週</button>
+        <button type="button" class="toggle-btn" id="btn-cal-view-day" data-cal-view="day">日</button>
+      </span>
+      <button type="button" class="icon-only" id="btn-cal-prev" aria-label="前へ" title="前へ">‹</button>
       <button type="button" id="btn-cal-today">今日</button>
-      <button type="button" class="icon-only" id="btn-cal-next" aria-label="次の月" title="次の月">›</button>
+      <button type="button" class="icon-only" id="btn-cal-next" aria-label="次へ" title="次へ">›</button>
       <button type="button" id="btn-new-event"><svg class="icon icon-sm"><use href="#icon-plus"></use></svg>予定を追加</button>
     </span>
   </h2>
@@ -18,6 +23,7 @@
   <div class="modal-box" style="width: 420px;">
     <h3 id="day-detail-title">日付</h3>
     <div id="day-detail-list" style="max-height: 320px; overflow-y: auto;"></div>
+    <div id="day-detail-todos"></div>
     <div class="modal-footer">
       <button type="button" id="btn-day-add-event" class="primary"><svg class="icon icon-sm"><use href="#icon-plus"></use></svg>この日に予定を追加</button>
       <button type="button" id="btn-day-detail-close">閉じる</button>

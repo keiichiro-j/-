@@ -25,12 +25,20 @@ namespace UserSettingsService {
   ];
 
   const MAX_CUSTOM_NAV_ITEMS = 12;
+  const MAX_PINNED_FOLDERS = 20;
+  const VALID_DRIVE_VIEW_MODES: DriveViewMode[] = ["list", "grid"];
+  const VALID_CALENDAR_VIEW_MODES: CalendarViewMode[] = ["month", "week", "day"];
+  const VALID_DARK_MODES: DarkMode[] = ["system", "light", "dark"];
 
   const DEFAULT_SETTINGS: UserSettings = {
     widgets: DEFAULT_WIDGETS,
     mailCount: 5,
     themeChoice: Theme.RANDOM_CHOICE_ID,
     customNavItems: [],
+    driveViewMode: "list",
+    pinnedFolders: [],
+    calendarViewMode: "month",
+    darkMode: "system",
   };
 
   function defaultWidget(id: WidgetId): WidgetConfig {
@@ -59,6 +67,10 @@ namespace UserSettingsService {
       mailCount: settings.mailCount !== undefined ? settings.mailCount : current.mailCount,
       themeChoice: settings.themeChoice !== undefined ? settings.themeChoice : current.themeChoice,
       customNavItems: settings.customNavItems !== undefined ? settings.customNavItems : current.customNavItems,
+      driveViewMode: settings.driveViewMode !== undefined ? settings.driveViewMode : current.driveViewMode,
+      pinnedFolders: settings.pinnedFolders !== undefined ? settings.pinnedFolders : current.pinnedFolders,
+      calendarViewMode: settings.calendarViewMode !== undefined ? settings.calendarViewMode : current.calendarViewMode,
+      darkMode: settings.darkMode !== undefined ? settings.darkMode : current.darkMode,
     };
     const sanitized = sanitize(merged);
     PropertiesService.getUserProperties().setProperty(
@@ -119,6 +131,29 @@ namespace UserSettingsService {
     return result;
   }
 
+  /** ピン留めフォルダを検証・補完する（不正な項目は除外、最大件数で切り詰め） */
+  export function sanitizePinnedFolders(input: unknown): PinnedFolder[] {
+    if (!Array.isArray(input)) {
+      return [];
+    }
+    const result: PinnedFolder[] = [];
+    const seen: { [key: string]: boolean } = {};
+    input.forEach((raw) => {
+      if (result.length >= MAX_PINNED_FOLDERS || !raw || typeof raw !== "object") {
+        return;
+      }
+      const item = raw as Partial<PinnedFolder>;
+      const id = typeof item.id === "string" ? item.id.trim() : "";
+      const name = typeof item.name === "string" ? item.name.trim() : "";
+      if (!id || !name || seen[id]) {
+        return;
+      }
+      seen[id] = true;
+      result.push({ id: id, name: name });
+    });
+    return result;
+  }
+
   export function sanitize(input: Partial<UserSettings>): UserSettings {
     const widgets = sanitizeWidgets(input.widgets);
     const mailCountRaw = typeof input.mailCount === "number" ? input.mailCount : DEFAULT_SETTINGS.mailCount;
@@ -131,12 +166,33 @@ namespace UserSettingsService {
         : DEFAULT_SETTINGS.themeChoice;
 
     const customNavItems = sanitizeCustomNavItems(input.customNavItems);
+    const pinnedFolders = sanitizePinnedFolders(input.pinnedFolders);
+
+    const driveViewMode =
+      typeof input.driveViewMode === "string" && VALID_DRIVE_VIEW_MODES.indexOf(input.driveViewMode as DriveViewMode) !== -1
+        ? (input.driveViewMode as DriveViewMode)
+        : DEFAULT_SETTINGS.driveViewMode;
+
+    const calendarViewMode =
+      typeof input.calendarViewMode === "string" &&
+      VALID_CALENDAR_VIEW_MODES.indexOf(input.calendarViewMode as CalendarViewMode) !== -1
+        ? (input.calendarViewMode as CalendarViewMode)
+        : DEFAULT_SETTINGS.calendarViewMode;
+
+    const darkMode =
+      typeof input.darkMode === "string" && VALID_DARK_MODES.indexOf(input.darkMode as DarkMode) !== -1
+        ? (input.darkMode as DarkMode)
+        : DEFAULT_SETTINGS.darkMode;
 
     return {
       widgets: widgets,
       mailCount: mailCount,
       themeChoice: themeChoice,
       customNavItems: customNavItems,
+      driveViewMode: driveViewMode,
+      pinnedFolders: pinnedFolders,
+      calendarViewMode: calendarViewMode,
+      darkMode: darkMode,
     };
   }
 
@@ -146,6 +202,10 @@ namespace UserSettingsService {
       mailCount: DEFAULT_SETTINGS.mailCount,
       themeChoice: DEFAULT_SETTINGS.themeChoice,
       customNavItems: [],
+      driveViewMode: DEFAULT_SETTINGS.driveViewMode,
+      pinnedFolders: [],
+      calendarViewMode: DEFAULT_SETTINGS.calendarViewMode,
+      darkMode: DEFAULT_SETTINGS.darkMode,
     };
   }
 }

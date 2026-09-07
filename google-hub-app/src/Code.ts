@@ -199,6 +199,11 @@ function checkAllApps(): AppLedgerEntry[] {
   return AppLedger.checkAllApps();
 }
 
+/** 分類用タグの追加・編集（名称やURLと違い登録後も自由に変更できる） */
+function updateAppTags(id: string, tags: string[]): AppLedgerEntry {
+  return AppLedger.updateAppTags(id, tags);
+}
+
 // ---- Mail: 本文閲覧・新規作成 ----
 
 function getMailBody(threadId: string): MailBody {
@@ -216,6 +221,16 @@ function markMailRead(threadId: string): void {
   MailService.markRead(threadId);
 }
 
+/** メールタブでの複数選択操作: まとめて既読にする */
+function markMailReadBulk(threadIds: string[]): void {
+  MailService.markReadBulk(threadIds);
+}
+
+/** メールタブでの複数選択操作: まとめてアーカイブする */
+function archiveMailBulk(threadIds: string[]): void {
+  MailService.archiveBulk(threadIds);
+}
+
 function replyMail(threadId: string, body: string): void {
   MailService.reply(threadId, body);
 }
@@ -230,8 +245,8 @@ function listTodos(): TodoItem[] {
   return TodoService.list();
 }
 
-function addTodo(text: string): TodoItem[] {
-  return TodoService.add(text);
+function addTodo(text: string, dueDate: string | null, priority: string): TodoItem[] {
+  return TodoService.add(text, dueDate, priority);
 }
 
 function toggleTodo(id: string): TodoItem[] {

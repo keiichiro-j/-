@@ -115,6 +115,56 @@
     <symbol id="icon-check" viewBox="0 0 24 24">
       <path d="M5 12.5l4.5 4.5L19 7" />
     </symbol>
+
+    <symbol id="icon-pin" viewBox="0 0 24 24">
+      <path d="M12 3l3 3-1.5 1.5 3 3-2 2-3-3L8 12l1 4-2 2-4-4 2-2 4 1 2.5-2.5-3-3L10.5 6z" />
+    </symbol>
+
+    <symbol id="icon-grid" viewBox="0 0 24 24">
+      <rect x="4" y="4" width="7" height="7" rx="1" />
+      <rect x="13" y="4" width="7" height="7" rx="1" />
+      <rect x="4" y="13" width="7" height="7" rx="1" />
+      <rect x="13" y="13" width="7" height="7" rx="1" />
+    </symbol>
+
+    <symbol id="icon-list" viewBox="0 0 24 24">
+      <line x1="8" y1="6" x2="20" y2="6" />
+      <line x1="8" y1="12" x2="20" y2="12" />
+      <line x1="8" y1="18" x2="20" y2="18" />
+      <circle cx="4.2" cy="6" r="1" />
+      <circle cx="4.2" cy="12" r="1" />
+      <circle cx="4.2" cy="18" r="1" />
+    </symbol>
+
+    <symbol id="icon-sun" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="4.2" />
+      <path d="M12 3v2.4M12 18.6V21M4.4 4.4l1.7 1.7M17.9 17.9l1.7 1.7M3 12h2.4M18.6 12H21M4.4 19.6l1.7-1.7M17.9 6.1l1.7-1.7" />
+    </symbol>
+
+    <symbol id="icon-moon" viewBox="0 0 24 24">
+      <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.8 6.8 0 0 0 10.5 10.5z" />
+    </symbol>
+
+    <symbol id="icon-monitor" viewBox="0 0 24 24">
+      <rect x="3" y="4.5" width="18" height="12" rx="1.4" />
+      <path d="M8.5 20h7M12 16.5V20" />
+    </symbol>
+
+    <symbol id="icon-tag" viewBox="0 0 24 24">
+      <path d="M11.5 3.5H5a1.5 1.5 0 0 0-1.5 1.5v6.5a1.5 1.5 0 0 0 .44 1.06l9 9a1.5 1.5 0 0 0 2.12 0l6.5-6.5a1.5 1.5 0 0 0 0-2.12l-9-9a1.5 1.5 0 0 0-1.06-.44z" />
+      <circle cx="8" cy="8" r="1.4" />
+    </symbol>
+
+    <symbol id="icon-archive" viewBox="0 0 24 24">
+      <rect x="3.5" y="4" width="17" height="4.5" rx="1" />
+      <path d="M4.5 8.5V19a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1V8.5" />
+      <path d="M10 13h4" />
+    </symbol>
+
+    <symbol id="icon-flag" viewBox="0 0 24 24">
+      <path d="M6 3v18" />
+      <path d="M6 4h11l-2.5 3.5L17 11H6" />
+    </symbol>
   </defs>
 </svg>
 
@@ -133,6 +183,50 @@
     --danger: #c62828;
     --icon-color: #5a5a5a;
     --accent: #3949ab;
+    --primary-bg: #333333;
+    --cal-sun-bg: #fbe9f0;
+    --cal-sat-bg: #e8f3fb;
+    --cal-holiday-bg: #e6f5e6;
+  }
+
+  /* ===== 表示モード（ライト/ダーク/システムに合わせる） =====
+     <html data-dark-mode="system|light|dark"> をJSが切り替える。"system"の場合のみ
+     prefers-color-schemeメディアクエリと組み合わせて判定する。 */
+  @media (prefers-color-scheme: dark) {
+    html[data-dark-mode="system"] {
+      --content-bg: #17181a;
+      --content-text: #e8e8ea;
+      --content-muted: #9a9a9e;
+      --content-faint: #6f6f74;
+      --card-bg: #232326;
+      --border-color: #3a3a3e;
+      --border-soft: #2c2c30;
+      --topbar-bg: #1c1c1f;
+      --danger: #ef5350;
+      --icon-color: #c7c7ca;
+      --accent: #8b97ff;
+      --primary-bg: #4b4b52;
+      --cal-sun-bg: #241f28;
+      --cal-sat-bg: #22242e;
+      --cal-holiday-bg: #1c2a20;
+    }
+  }
+  html[data-dark-mode="dark"] {
+    --content-bg: #17181a;
+    --content-text: #e8e8ea;
+    --content-muted: #9a9a9e;
+    --content-faint: #6f6f74;
+    --card-bg: #232326;
+    --border-color: #3a3a3e;
+    --border-soft: #2c2c30;
+    --topbar-bg: #1c1c1f;
+    --danger: #ef5350;
+    --icon-color: #c7c7ca;
+    --accent: #8b97ff;
+    --primary-bg: #4b4b52;
+    --cal-sun-bg: #241f28;
+    --cal-sat-bg: #22242e;
+    --cal-holiday-bg: #1c2a20;
   }
 
   * { box-sizing: border-box; }
@@ -209,7 +303,7 @@
     background: var(--content-bg);
     font-size: 13px;
   }
-  .topbar-search input:focus { outline: none; border-color: var(--accent); background: #fff; }
+  .topbar-search input:focus { outline: none; border-color: var(--accent); background: var(--card-bg); }
 
   .search-results {
     position: absolute;
@@ -441,7 +535,7 @@
     padding: 5px 10px;
     border-radius: 999px;
     border: 1.5px solid var(--border-color);
-    background: #fff;
+    background: var(--card-bg);
     cursor: pointer;
   }
   .category-swatch.selected { border-color: var(--content-text); background: var(--content-bg); font-weight: 600; }
@@ -481,7 +575,7 @@
     padding: 6px 12px;
     border-radius: 6px;
     border: 1px solid var(--border-color);
-    background: #fff;
+    background: var(--card-bg);
     color: var(--content-text);
     cursor: pointer;
     display: inline-flex;
@@ -490,8 +584,8 @@
   }
 
   button.primary {
-    background: #333333;
-    border-color: #333333;
+    background: var(--primary-bg);
+    border-color: var(--primary-bg);
     color: #ffffff;
   }
 
@@ -570,22 +664,22 @@
     border: 1px solid var(--border-color);
   }
   .cal-cell {
-    background: #fff;
+    background: var(--card-bg);
     padding: 4px;
     position: relative;
     overflow: hidden;
     cursor: pointer;
   }
   .cal-cell:hover { background: var(--content-bg); }
-  .cal-cell.empty { background: #fafafa; cursor: default; }
-  .cal-cell.empty:hover { background: #fafafa; }
+  .cal-cell.empty { background: var(--content-bg); cursor: default; }
+  .cal-cell.empty:hover { background: var(--content-bg); }
 
   /* 土曜=水色・日曜=ピンク・祝日=ライトグリーン背景（7列グリッドの位置から曜日を判定） */
-  .cal-cell:not(.empty):nth-child(7n+1) { background: #e8f3fb; }
-  .cal-cell:not(.empty):nth-child(7n) { background: #fbe9f0; }
+  .cal-cell:not(.empty):nth-child(7n+1) { background: var(--cal-sun-bg); }
+  .cal-cell:not(.empty):nth-child(7n) { background: var(--cal-sat-bg); }
   .cal-cell:not(.empty):nth-child(7n+1):hover,
   .cal-cell:not(.empty):nth-child(7n):hover { filter: brightness(0.97); }
-  .cal-cell.is-holiday { background: #e6f5e6; }
+  .cal-cell.is-holiday { background: var(--cal-holiday-bg); }
   .cal-cell.is-holiday:hover { filter: brightness(0.97); }
 
   .cal-cell .day-num { font-size: 11px; color: var(--content-muted); }
@@ -716,7 +810,7 @@
     display: flex; align-items: center; justify-content: center; z-index: 100;
   }
   .modal-box {
-    background: #fff; border-radius: 10px; padding: 20px; width: 360px; max-width: 90vw;
+    background: var(--card-bg); border-radius: 10px; padding: 20px; width: 360px; max-width: 90vw;
     max-height: 85vh; overflow-y: auto;
   }
   .modal-box h3 { margin-top: 0; }
@@ -862,6 +956,121 @@
   }
   .widget-block-resize-handle:hover::after { background: var(--accent); }
 
+  /* ===== 表示モード切替（設定画面）: システム/ライト/ダーク ===== */
+  .dark-mode-switcher { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+  .dark-mode-option {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: 999px;
+    border: 1.5px solid var(--border-color); background: var(--card-bg);
+    cursor: pointer; font-size: 12.5px; color: var(--content-muted);
+  }
+  .dark-mode-option.selected { border-color: var(--accent); background: var(--content-bg); color: var(--content-text); font-weight: 600; }
+
+  /* 汎用トグルボタンの選択状態（Drive表示形式・カレンダー表示形式などで共用） */
+  button.toggle-btn.active,
+  button.icon-only.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #ffffff;
+  }
+  button.toggle-btn.active .icon,
+  button.icon-only.active .icon { color: #ffffff; }
+
+  /* ===== Drive: ピン留めフォルダ・表示形式(リスト/グリッド)・種類フィルタ ===== */
+  .pinned-folder-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .pinned-folder-chip {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 6px 5px 12px; border-radius: 999px;
+    border: 1.5px solid var(--border-color); background: var(--card-bg);
+    font-size: 12px; cursor: pointer; color: var(--content-text);
+  }
+  .pinned-folder-chip:hover { background: var(--content-bg); }
+  .pinned-folder-chip .btn-unpin {
+    width: 18px; height: 18px; padding: 0; border: none; background: transparent;
+    color: var(--content-faint); border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  }
+  .pinned-folder-chip .btn-unpin:hover { background: var(--border-soft); color: var(--danger); }
+
+  .drive-row .thumb { width: 18px; height: 18px; object-fit: cover; border-radius: 3px; flex: 0 0 auto; }
+  .drive-row .btn-drive-pin.is-pinned, .drive-grid-item .btn-drive-pin.is-pinned { color: var(--accent); }
+
+  .drive-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
+  .drive-grid-item {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 12px 8px; border: 1px solid var(--border-color); border-radius: 10px;
+    background: var(--card-bg); text-align: center; position: relative;
+  }
+  .drive-grid-item .thumb { width: 64px; height: 64px; border-radius: 6px; object-fit: cover; }
+  .drive-grid-item .name { font-size: 12px; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .drive-grid-item .name a { color: inherit; text-decoration: none; }
+  .drive-grid-item .meta { font-size: 10.5px; color: var(--content-muted); }
+  .drive-grid-item .btn-drive-pin {
+    position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; padding: 0;
+    border-radius: 50%; justify-content: center;
+  }
+  .drive-grid-item .grid-actions { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin-top: 2px; }
+  .drive-grid-item .grid-actions button { font-size: 10.5px; padding: 3px 7px; }
+
+  /* ===== ToDo: 期限日/優先度 ===== */
+  .todo-row { align-items: flex-start; flex-wrap: wrap; }
+  .todo-row .todo-main { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; }
+  .todo-priority-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+  .todo-priority-dot.low { background: #8bc34a; }
+  .todo-priority-dot.medium { background: #ffa726; }
+  .todo-priority-dot.high { background: #e53935; }
+  .todo-due-badge {
+    font-size: 10.5px; color: var(--content-muted); padding: 1px 7px;
+    border-radius: 999px; background: var(--content-bg); flex: 0 0 auto; white-space: nowrap;
+  }
+  .todo-due-badge.overdue { color: #fff; background: var(--danger); }
+  .todo-detail-toggle { font-size: 11px; }
+  .todo-detail-row {
+    display: flex; gap: 8px; align-items: center; margin-top: 6px;
+    padding-top: 6px; border-top: 1px dashed var(--border-color); flex-wrap: wrap; width: 100%;
+  }
+  .todo-detail-row input[type="date"], .todo-detail-row select { width: auto; flex: 0 0 auto; }
+
+  /* ===== メールタブ: 複数選択の一括操作 ===== */
+  .mail-row .mail-row-check { width: auto; flex: 0 0 auto; }
+  .mail-bulk-toolbar {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px;
+    padding: 6px 10px; border-radius: 8px; background: var(--content-bg); font-size: 12px;
+  }
+  .mail-bulk-toolbar .count { font-weight: 600; color: var(--content-text); white-space: nowrap; }
+  .mail-bulk-toolbar .spacer { flex: 1 1 0; min-width: 0; }
+  .mail-bulk-toolbar button { font-size: 11.5px; padding: 5px 9px; white-space: nowrap; }
+
+  /* ===== アプリリンク集: タグ/カテゴリ分け ===== */
+  .tag-chip {
+    display: inline-flex; align-items: center; gap: 3px; font-size: 10.5px;
+    padding: 1px 8px; border-radius: 999px; background: var(--content-bg); color: var(--content-muted);
+  }
+  .tag-list { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+  .tag-filter-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .tag-filter-chip {
+    font-size: 11px; padding: 4px 10px; border-radius: 999px;
+    border: 1.5px solid var(--border-color); background: var(--card-bg); cursor: pointer; color: var(--content-muted);
+  }
+  .tag-filter-chip.active { border-color: var(--accent); background: var(--content-bg); color: var(--content-text); font-weight: 600; }
+  .tag-edit-row { display: flex; gap: 6px; margin-top: 6px; }
+  .tag-edit-row input[type="text"] { flex: 1 1 auto; min-width: 0; font-size: 12px; padding: 4px 6px; }
+  .tag-edit-row button { flex: 0 0 auto; white-space: nowrap; font-size: 11px; padding: 4px 10px; }
+
+  /* ===== カレンダー: 週表示/日表示（簡易アジェンダ形式） ===== */
+  .cal-view-mode-switch { display: flex; gap: 4px; }
+  .cal-agenda { display: flex; flex-direction: column; gap: 12px; }
+  .agenda-day { border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 12px; }
+  .agenda-day.is-today { border-color: var(--accent); }
+  .agenda-day-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+  .agenda-day-date { font-weight: 700; font-size: 13px; }
+  .agenda-holiday { font-size: 11px; color: #2f8a3e; font-weight: 600; }
+  .agenda-day-head .agenda-add-btn { margin-left: auto; font-size: 11px; padding: 3px 9px; }
+  .agenda-events, .agenda-todos { display: flex; flex-direction: column; }
+  .agenda-todos { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--border-color); }
+  .agenda-todo-row { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 12.5px; }
+  .agenda-todo-row input[type="checkbox"] { width: auto; flex: 0 0 auto; }
+  .todo-indicator { position: absolute; bottom: 3px; right: 3px; font-size: 8.5px; color: var(--accent); font-weight: 700; }
+
   /* ===== PCビュー: ホーム画面は縦スクロールなしで、縦幅いっぱいにウィジェットを配置 =====
      メインエリア・サイドバーとも overflow:hidden にして下スライド(スクロール)を禁止し、
      各ウィジェットは widget-size-* の比率で残りの縦幅を分け合う。ウィジェット内の一覧が
@@ -901,6 +1110,7 @@
 
     #card-calendar .mini-calendar { flex: 1; min-height: 0; display: flex; flex-direction: column; }
     #card-calendar .cal-grid { flex: 1; min-height: 0; grid-auto-rows: 1fr; }
+    #card-calendar .cal-agenda { flex: 1; min-height: 0; overflow-y: auto; }
 
     /* メールタブ: 左の件名一覧と右の本文をそれぞれ独立してスクロールさせる（Gmail等と同様）。
        右側の本文をスクロールしても左の一覧は動かない。メールタブ画面全体は画面の残り高さに

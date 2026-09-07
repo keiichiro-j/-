@@ -208,6 +208,21 @@ namespace MailService {
     }
   }
 
+  /** メールタブでの複数選択操作: 選択したスレッドをまとめて既読にする */
+  export function markReadBulk(threadIds: string[]): void {
+    threadIds.forEach((threadId) => markRead(threadId));
+  }
+
+  /** メールタブでの複数選択操作: 選択したスレッドをまとめてアーカイブする（受信トレイから外す） */
+  export function archiveBulk(threadIds: string[]): void {
+    threadIds.forEach((threadId) => {
+      const thread = GmailApp.getThreadById(threadId);
+      if (thread) {
+        thread.moveToArchive();
+      }
+    });
+  }
+
   /** 開いているスレッドへの返信（宛先・件名(Re:)はGmailThread.reply()が自動的に設定する） */
   export function reply(threadId: string, body: string): void {
     const thread = GmailApp.getThreadById(threadId);
@@ -260,6 +275,12 @@ namespace DriveService {
    * 追加のDrive API往復が発生し、一覧の読み込みが件数に比例して遅くなるため）。
    * 現状のUIは一覧上でsharingAccessを表示していないため、常に"UNKNOWN"を返す。
    * 個別ファイルの共有状態が必要になった場合は、そのファイルに対してのみ取得すること。
+   *
+   * サムネイルは Advanced Drive Service（要有効化）を使わず、閲覧者が対象ファイルに
+   * アクセス権を持つ場合にブラウザのGoogleセッションで直接読み込める
+   * "https://drive.google.com/thumbnail?id=..." のURLパターンをそのまま組み立てて返す。
+   * サムネイルが生成されていないファイル種別ではその画像取得自体が失敗するため、
+   * クライアント側でmimeTypeアイコンへフォールバックする前提。
    */
   function toItem(entry: DriveEntryLike, mimeType: string, isFolder: boolean): DriveFileItem {
     return {
@@ -267,7 +288,7 @@ namespace DriveService {
       name: entry.getName(),
       mimeType: mimeType,
       iconUrl: iconUrlForMimeType(mimeType, isFolder),
-      thumbnailUrl: "",
+      thumbnailUrl: isFolder ? "" : "https://drive.google.com/thumbnail?id=" + entry.getId() + "&sz=w200",
       url: entry.getUrl(),
       lastUpdated: entry.getLastUpdated().toISOString(),
       sizeBytes: isFolder ? 0 : entry.getSize(),
@@ -400,7 +421,8 @@ namespace DriveService {
 namespace AppLedger {
   const LEDGER_ID_PROPERTY = "LEDGER_SPREADSHEET_ID";
   const SHEET_NAME = "Apps";
-  const HEADERS = ["id", "name", "url", "addedAt", "lastCheckedAt", "status"];
+  const HEADERS = ["id", "name", "url", "addedAt", "lastCheckedAt", "status", "tags"];
+  const MAX_TAGS = 10;
 
   /** HTTPステータスコードから稼働状況を判定する（純粋関数） */
   export function statusFromHttpCode(code: number): AppStatus {
@@ -467,8 +489,23 @@ namespace AppLedger {
     }
     if (sheet.getLastRow() === 0) {
       sheet.appendRow(HEADERS);
+    } else if (String(sheet.getRange(1, HEADERS.length).getValue()) !== "tags") {
+      // 既存の台帳（tags列導入前に作成されたシート）にはヘッダーだけ追記する。
+      // データ列自体は listApps() 側で不足分を空文字として扱うため、後方互換のために必要な補正はこれだけでよい。
+      sheet.getRange(1, HEADERS.length).setValue("tags");
     }
     return sheet;
+  }
+
+  function parseTags(value: string | number | boolean | Date | undefined): string[] {
+    if (!value) {
+      return [];
+    }
+    return String(value)
+      .split(",")
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0)
+      .slice(0, MAX_TAGS);
   }
 
   function rowToEntry(row: (string | number | boolean | Date)[]): AppLedgerEntry {
@@ -479,6 +516,7 @@ namespace AppLedger {
       addedAt: toIso(row[3]),
       lastCheckedAt: row[4] ? toIso(row[4]) : null,
       status: (row[5] as AppStatus) || "unknown",
+      tags: parseTags(row[6]),
     };
   }
 
@@ -523,8 +561,8 @@ namespace AppLedger {
     const id = Utilities.getUuid();
     const now = new Date().toISOString();
     const name = resolveNameFromUrl(trimmedUrl);
-    sheet.appendRow([id, name, trimmedUrl, now, "", "unknown"]);
-    return { id, name, url: trimmedUrl, addedAt: now, lastCheckedAt: null, status: "unknown" };
+    sheet.appendRow([id, name, trimmedUrl, now, "", "unknown", ""]);
+    return { id, name, url: trimmedUrl, addedAt: now, lastCheckedAt: null, status: "unknown", tags: [] };
   }
 
   export function deleteApp(id: string): void {
@@ -533,6 +571,21 @@ namespace AppLedger {
     if (rowIndex !== -1) {
       sheet.deleteRow(rowIndex);
     }
+  }
+
+  /** 分類用タグの追加・編集（名称やURLとは異なり、後から自由に付け替えられる） */
+  export function updateAppTags(id: string, tags: string[]): AppLedgerEntry {
+    const sheet = getOrCreateSheet();
+    const rowIndex = findRowIndexById(sheet, id);
+    if (rowIndex === -1) {
+      throw new Error("台帳エントリが見つかりません: " + id);
+    }
+    const cleaned = Array.isArray(tags)
+      ? tags.map((t) => String(t).trim()).filter((t) => t.length > 0).slice(0, MAX_TAGS)
+      : [];
+    sheet.getRange(rowIndex, 7).setValue(cleaned.join(", "));
+    const row = sheet.getRange(rowIndex, 1, 1, HEADERS.length).getValues()[0];
+    return rowToEntry(row);
   }
 
   /** 対象アプリへ簡易ヘルスチェック(HTTPリクエスト)を行い、結果を台帳に反映する */
@@ -569,11 +622,34 @@ namespace AppLedger {
 
 /**
  * ToDoリスト機能。個人のPropertiesServiceに配列のまま保存する簡易実装
- * （一般的なToDoリストと同等の仕様: 追加・完了切替・削除・完了済み一括削除のみ）。
+ * （一般的なToDoリストと同等の仕様: 追加・完了切替・削除・完了済み一括削除に加え、
+ * 期限日・優先度を付けられる）。
  */
 namespace TodoService {
   const PROPERTY_KEY = "TODO_ITEMS";
   const MAX_ITEMS = 200;
+  const VALID_PRIORITIES: TodoPriority[] = ["low", "medium", "high"];
+  const DUE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+  function sanitizeDueDate(dueDate: string | null | undefined): string | null {
+    return typeof dueDate === "string" && DUE_DATE_PATTERN.test(dueDate) ? dueDate : null;
+  }
+
+  function sanitizePriority(priority: string | null | undefined): TodoPriority {
+    return VALID_PRIORITIES.indexOf(priority as TodoPriority) !== -1 ? (priority as TodoPriority) : "medium";
+  }
+
+  /** 期限日・優先度が導入される前に保存された項目にも欠けているフィールドを補う */
+  function normalize(item: Partial<TodoItem>): TodoItem {
+    return {
+      id: item.id || Utilities.getUuid(),
+      text: item.text || "",
+      done: !!item.done,
+      createdAt: item.createdAt || new Date().toISOString(),
+      dueDate: sanitizeDueDate(item.dueDate),
+      priority: sanitizePriority(item.priority),
+    };
+  }
 
   function getAll(): TodoItem[] {
     const raw = PropertiesService.getUserProperties().getProperty(PROPERTY_KEY);
@@ -582,7 +658,7 @@ namespace TodoService {
     }
     try {
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
+      return Array.isArray(parsed) ? parsed.map(normalize) : [];
     } catch (e) {
       return [];
     }
@@ -597,7 +673,7 @@ namespace TodoService {
     return getAll();
   }
 
-  export function add(text: string): TodoItem[] {
+  export function add(text: string, dueDate?: string | null, priority?: string | null): TodoItem[] {
     const trimmed = (text || "").trim();
     if (!trimmed) {
       throw new Error("内容を入力してください");
@@ -606,7 +682,14 @@ namespace TodoService {
     if (items.length >= MAX_ITEMS) {
       throw new Error("登録できる件数の上限(" + MAX_ITEMS + "件)に達しています");
     }
-    items.push({ id: Utilities.getUuid(), text: trimmed, done: false, createdAt: new Date().toISOString() });
+    items.push({
+      id: Utilities.getUuid(),
+      text: trimmed,
+      done: false,
+      createdAt: new Date().toISOString(),
+      dueDate: sanitizeDueDate(dueDate),
+      priority: sanitizePriority(priority),
+    });
     return saveAll(items);
   }
 

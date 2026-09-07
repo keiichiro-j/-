@@ -23,12 +23,33 @@ interface CustomNavItem {
   url: string;
 }
 
+/** ToDoの優先度 */
+type TodoPriority = "low" | "medium" | "high";
+
 /** ToDoリストの1項目 */
 interface TodoItem {
   id: string;
   text: string;
   done: boolean;
   createdAt: string; // ISO8601
+  /** 期限日（YYYY-MM-DD）。未設定は null */
+  dueDate: string | null;
+  priority: TodoPriority;
+}
+
+/** Driveのファイル一覧の表示形式 */
+type DriveViewMode = "list" | "grid";
+
+/** カレンダーの表示形式 */
+type CalendarViewMode = "month" | "week" | "day";
+
+/** 表示モード（配色）。system=OS/ブラウザの設定に追従 */
+type DarkMode = "system" | "light" | "dark";
+
+/** よく使うフォルダのピン留め */
+interface PinnedFolder {
+  id: string;
+  name: string;
 }
 
 /** ミニカレンダーの日付セル1つ分の付加情報（祝日名・六曜） */
@@ -59,6 +80,14 @@ interface UserSettings {
   themeChoice: string;
   /** 個人用カスタムナビ項目（コントロールパネルにボタンとして追加表示） */
   customNavItems: CustomNavItem[];
+  /** Driveタブの一覧表示形式（リスト/グリッド）。切替時に自動保存される */
+  driveViewMode: DriveViewMode;
+  /** よく使うフォルダのピン留め（Driveタブ上部にショートカット表示） */
+  pinnedFolders: PinnedFolder[];
+  /** カレンダーの表示形式（月/週/日）。切替時に自動保存される */
+  calendarViewMode: CalendarViewMode;
+  /** 表示モード（配色）。切替時に自動保存・即時反映される */
+  darkMode: DarkMode;
 }
 
 interface GlobalSettings {
@@ -124,6 +153,8 @@ interface AppLedgerEntry {
   addedAt: string; // ISO8601
   lastCheckedAt: string | null; // ISO8601
   status: AppStatus;
+  /** 分類用のタグ（自由記述、登録後に追加・編集可能） */
+  tags: string[];
 }
 
 interface GlobalSearchResult {
