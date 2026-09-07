@@ -76,9 +76,23 @@
   function switchView(view) {
     state.currentView = view;
     qs('view-home').hidden = view !== 'home';
+    qs('view-mail').hidden = view !== 'mail';
+    qs('view-links').hidden = view !== 'links';
     qs('view-drive').hidden = view !== 'drive';
     qs('view-settings').hidden = view !== 'settings';
     qs('right-sidebar').hidden = view !== 'home';
+
+    // メール／アプリリンクのカードは、専用ページ表示時はそちらへ、
+    // それ以外（ホーム等）では右サイドバーへ戻す（同じDOM要素を使い回す）
+    if (view === 'mail') {
+      qs('view-mail').appendChild(qs('card-mail'));
+    } else if (view === 'links') {
+      qs('view-links').appendChild(qs('card-links'));
+    } else {
+      qs('right-sidebar').appendChild(qs('card-mail'));
+      qs('right-sidebar').appendChild(qs('card-links'));
+      if (state.home) applyCardLayout(state.home.userSettings);
+    }
 
     Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function (btn) {
       btn.classList.toggle('active', btn.getAttribute('data-view') === view);
@@ -461,9 +475,13 @@
     });
 
     var unread = mails.filter(function (m) { return m.isUnread; }).length;
-    var badge = qs('mail-badge');
-    badge.textContent = unread > 9 ? '9+' : String(unread);
-    badge.hidden = unread === 0;
+    var unreadLabel = unread > 9 ? '9+' : String(unread);
+    var headerBadge = qs('mail-badge');
+    headerBadge.textContent = unreadLabel;
+    headerBadge.hidden = unread === 0;
+    var navBadge = qs('nav-mail-badge');
+    navBadge.textContent = unreadLabel;
+    navBadge.hidden = unread === 0;
   }
 
   function openMailDetail(threadId) {
@@ -485,11 +503,8 @@
 
   function initMail() {
     qs('btn-mail-refresh').addEventListener('click', function () { loadHome(); });
-    qs('btn-mail-shortcut').addEventListener('click', function () {
-      switchView('home');
-      var card = qs('card-mail');
-      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
+    qs('btn-mail-shortcut').addEventListener('click', function () { switchView('mail'); });
+    qs('btn-mail-viewall').addEventListener('click', function () { switchView('mail'); });
     qs('btn-mail-detail-close').addEventListener('click', function () { qs('mail-detail-modal').hidden = true; });
 
     qs('btn-mail-compose').addEventListener('click', function () {
@@ -653,6 +668,7 @@
   }
 
   function initAppLedger() {
+    qs('btn-links-viewall').addEventListener('click', function () { switchView('links'); });
     qs('btn-check-all').addEventListener('click', function () {
       gasRun('checkAllApps').then(function () { return loadHome(); }).catch(showError);
     });
