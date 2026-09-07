@@ -190,8 +190,10 @@
   :root {
     --panel-bg: #757575;
     --panel-text: #ffffff;
-    --topbar-bg: #ffffff;
-    --content-bg: #f4f4f4;
+    /* --theme-*-light/-dark はJS側(applyThemeBackgrounds())が選択中のテーマ色から計算して
+       ここに動的にセットする。JS実行前・テーマ未適用時はフォールバック値（従来の中立色）になる。 */
+    --topbar-bg: var(--theme-topbar-bg-light, #ffffff);
+    --content-bg: var(--theme-content-bg-light, #f4f4f4);
     --content-text: #1a1a1a;
     --content-muted: #666666;
     --content-faint: #999999;
@@ -212,14 +214,14 @@
      prefers-color-schemeメディアクエリと組み合わせて判定する。 */
   @media (prefers-color-scheme: dark) {
     html[data-dark-mode="system"] {
-      --content-bg: #17181a;
+      --content-bg: var(--theme-content-bg-dark, #17181a);
       --content-text: #e8e8ea;
       --content-muted: #9a9a9e;
       --content-faint: #6f6f74;
       --card-bg: #232326;
       --border-color: #3a3a3e;
       --border-soft: #2c2c30;
-      --topbar-bg: #1c1c1f;
+      --topbar-bg: var(--theme-topbar-bg-dark, #1c1c1f);
       --danger: #ef5350;
       --icon-color: #c7c7ca;
       --accent: #8b97ff;
@@ -230,14 +232,14 @@
     }
   }
   html[data-dark-mode="dark"] {
-    --content-bg: #17181a;
+    --content-bg: var(--theme-content-bg-dark, #17181a);
     --content-text: #e8e8ea;
     --content-muted: #9a9a9e;
     --content-faint: #6f6f74;
     --card-bg: #232326;
     --border-color: #3a3a3e;
     --border-soft: #2c2c30;
-    --topbar-bg: #1c1c1f;
+    --topbar-bg: var(--theme-topbar-bg-dark, #1c1c1f);
     --danger: #ef5350;
     --icon-color: #c7c7ca;
     --accent: #8b97ff;

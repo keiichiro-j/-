@@ -138,11 +138,6 @@ test('mailCountは1〜20にクランプされる', () => {
   assert.strictEqual(sandbox.UserSettingsService.sanitize({ mailCount: -5 }).mailCount, 1);
 });
 
-console.log('== GlobalSettingsService: sanitize ==');
-test('mailLabel未指定はINBOX', () => {
-  assert.strictEqual(sandbox.GlobalSettingsService.sanitize({}).mailLabel, 'INBOX');
-});
-
 console.log('== CalendarService: parseGuestsCsv ==');
 test('カンマ区切り・前後空白・重複を正規化', () => {
   const guests = sandbox.CalendarService.parseGuestsCsv(' a@example.com ,b@example.com, a@example.com,');

@@ -220,7 +220,6 @@ namespace GlobalSettingsService {
   const PROPERTY_KEY = "GLOBAL_SETTINGS";
 
   const DEFAULT_SETTINGS: GlobalSettings = {
-    mailLabel: "INBOX",
     notifyEnabled: true,
     notifyHour: 8,
   };
@@ -253,16 +252,11 @@ namespace GlobalSettingsService {
   }
 
   export function sanitize(input: Partial<GlobalSettings>): GlobalSettings {
-    const mailLabel =
-      typeof input.mailLabel === "string" && input.mailLabel.length > 0
-        ? input.mailLabel
-        : DEFAULT_SETTINGS.mailLabel;
     const notifyEnabled =
       typeof input.notifyEnabled === "boolean" ? input.notifyEnabled : DEFAULT_SETTINGS.notifyEnabled;
     const notifyHour = clampHour(input.notifyHour);
 
     return {
-      mailLabel: mailLabel,
       notifyEnabled: notifyEnabled,
       notifyHour: notifyHour,
     };
@@ -270,7 +264,6 @@ namespace GlobalSettingsService {
 
   function cloneDefaults(): GlobalSettings {
     return {
-      mailLabel: DEFAULT_SETTINGS.mailLabel,
       notifyEnabled: DEFAULT_SETTINGS.notifyEnabled,
       notifyHour: DEFAULT_SETTINGS.notifyHour,
     };

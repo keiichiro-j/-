@@ -196,21 +196,21 @@ namespace MailService {
 
   const VALID_FOLDERS = ["inbox", "spam", "trash"];
 
-  /** ラベル指定は受信トレイ(inbox)のときのみ意味を持つ。迷惑メール・ゴミ箱はGmail標準フォルダを直接見る */
-  function buildSearchQuery(folder: string, label: string): string {
+  /** 取得元フォルダは受信トレイ/迷惑メール/ゴミ箱の3択（Gmail標準フォルダを直接見る） */
+  function buildSearchQuery(folder: string): string {
     if (folder === "spam") {
       return "in:spam";
     }
     if (folder === "trash") {
       return "in:trash";
     }
-    return label && label !== "INBOX" ? "label:" + label : "in:inbox";
+    return "in:inbox";
   }
 
-  export function getRecentSubjects(count: number, label: string, folder?: string): MailSubjectItem[] {
+  export function getRecentSubjects(count: number, folder?: string): MailSubjectItem[] {
     const safeCount = clampCount(count);
     const safeFolder = folder && VALID_FOLDERS.indexOf(folder) !== -1 ? folder : "inbox";
-    const searchQuery = buildSearchQuery(safeFolder, label);
+    const searchQuery = buildSearchQuery(safeFolder);
     const threads = GmailApp.search(searchQuery, 0, safeCount);
 
     return threads.map((thread) => {

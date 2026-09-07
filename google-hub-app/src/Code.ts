@@ -27,7 +27,7 @@ function getHomeData(): HomeData {
 
   const calendars = CalendarService.listCalendars();
   const events = CalendarService.getEvents(calendars.map((c) => c.id), range.startIso, range.endIso);
-  const mails = MailService.getRecentSubjects(userSettings.mailCount, globalSettings.mailLabel);
+  const mails = MailService.getRecentSubjects(userSettings.mailCount);
   const apps = AppLedger.listApps();
   const todos = TodoService.list();
   const theme = Theme.resolveTheme(userSettings.themeChoice);
@@ -234,14 +234,13 @@ function getMailBody(threadId: string): MailBody {
 
 /**
  * メール一覧のみを再取得する軽量エンドポイント（更新ボタン用。ホーム全体の再読込より高速）。
- * folderを指定すると、通常のラベル指定(全体設定のメール取得対象ラベル)の代わりに
- * Gmailの迷惑メール(spam)・ゴミ箱(trash)フォルダを直接見る。メールタブのフォルダ切替専用で、
- * ホーム画面のメールウィジェットは常に既定(受信トレイ)のまま。
+ * folderを指定すると、既定の受信トレイの代わりにGmailの迷惑メール(spam)・ゴミ箱(trash)
+ * フォルダを直接見る。メールタブのフォルダ切替専用で、ホーム画面のメールウィジェットは
+ * 常に既定(受信トレイ)のまま。
  */
 function getRecentMails(folder?: string): MailSubjectItem[] {
   const userSettings = UserSettingsService.getSettings();
-  const globalSettings = GlobalSettingsService.getSettings();
-  return MailService.getRecentSubjects(userSettings.mailCount, globalSettings.mailLabel, folder);
+  return MailService.getRecentSubjects(userSettings.mailCount, folder);
 }
 
 function markMailRead(threadId: string): void {
