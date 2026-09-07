@@ -84,6 +84,21 @@ function getCalendarEvents(calendarIds: string[], startIso: string, endIso: stri
   return CalendarService.getEvents(calendarIds, startIso, endIso);
 }
 
+/** 指定月の各日の祝日名・六曜（簡易近似）をまとめて返す（ミニカレンダーの背景色/ラベル表示用） */
+function getCalendarDayInfo(year: number, month: number): DayInfo[] {
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const result: DayInfo[] = [];
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = new Date(year, month, day);
+    result.push({
+      day: day,
+      holidayName: JapaneseHoliday.nameFor(date),
+      rokuyo: RokuyoService.forDate(date),
+    });
+  }
+  return result;
+}
+
 // ---- Calendar ----
 
 function createCalendarEvent(

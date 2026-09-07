@@ -272,6 +272,15 @@
   .control-panel[data-text="dark"] .nav-item:hover { background: rgba(0, 0, 0, 0.1); }
   .control-panel[data-text="dark"] .nav-item.active { background: rgba(0, 0, 0, 0.16); }
 
+  /* --- 個人用カスタムナビ項目（設定画面から自由に追加できるショートカット） --- */
+  .nav-divider {
+    height: 1px;
+    margin: 8px 4px;
+    background: rgba(255, 255, 255, 0.25);
+  }
+  .control-panel[data-text="dark"] .nav-divider { background: rgba(0, 0, 0, 0.16); }
+  .nav-item-custom .icon { opacity: 0.7; }
+
   /* --- 中央：メインコンテンツ（中立色固定） --- */
   .main-content {
     flex: 1 1 auto;
@@ -466,6 +475,8 @@
     color: var(--content-muted);
     padding: 4px 0;
   }
+  .cal-weekdays span:first-child { color: #e05a8a; }
+  .cal-weekdays span:last-child { color: #3a8fd6; }
   .cal-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
@@ -484,8 +495,27 @@
   .cal-cell:hover { background: var(--content-bg); }
   .cal-cell.empty { background: #fafafa; cursor: default; }
   .cal-cell.empty:hover { background: #fafafa; }
+
+  /* 土曜=水色・日曜=ピンク・祝日=ライトグリーン背景（7列グリッドの位置から曜日を判定） */
+  .cal-cell:not(.empty):nth-child(7n+1) { background: #e8f3fb; }
+  .cal-cell:not(.empty):nth-child(7n) { background: #fbe9f0; }
+  .cal-cell:not(.empty):nth-child(7n+1):hover,
+  .cal-cell:not(.empty):nth-child(7n):hover { filter: brightness(0.97); }
+  .cal-cell.is-holiday { background: #e6f5e6; }
+  .cal-cell.is-holiday:hover { filter: brightness(0.97); }
+
   .cal-cell .day-num { font-size: 11px; color: var(--content-muted); }
   .cal-cell.is-today .day-num { font-weight: bold; color: var(--accent); }
+  .cal-cell .rokuyo-label { font-size: 9px; color: var(--content-muted); line-height: 1.3; }
+  .cal-cell .holiday-label {
+    font-size: 9px;
+    color: #2f8a3e;
+    font-weight: 600;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .cal-cell .dots { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; }
   .cal-cell .dot {
     width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto;

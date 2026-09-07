@@ -17,10 +17,13 @@ namespace UserSettingsService {
     { id: "links", column: "side", size: "medium", visible: true },
   ];
 
+  const MAX_CUSTOM_NAV_ITEMS = 12;
+
   const DEFAULT_SETTINGS: UserSettings = {
     widgets: DEFAULT_WIDGETS,
     mailCount: 5,
     themeChoice: Theme.RANDOM_CHOICE_ID,
+    customNavItems: [],
   };
 
   function defaultWidget(id: WidgetId): WidgetConfig {
@@ -41,8 +44,16 @@ namespace UserSettingsService {
     }
   }
 
+  /** 保存済みの設定に、渡された項目だけを上書きしてから保存する（他の項目が消えないようにする） */
   export function saveSettings(settings: Partial<UserSettings>): UserSettings {
-    const sanitized = sanitize(settings);
+    const current = getSettings();
+    const merged: Partial<UserSettings> = {
+      widgets: settings.widgets !== undefined ? settings.widgets : current.widgets,
+      mailCount: settings.mailCount !== undefined ? settings.mailCount : current.mailCount,
+      themeChoice: settings.themeChoice !== undefined ? settings.themeChoice : current.themeChoice,
+      customNavItems: settings.customNavItems !== undefined ? settings.customNavItems : current.customNavItems,
+    };
+    const sanitized = sanitize(merged);
     PropertiesService.getUserProperties().setProperty(
       PROPERTY_KEY,
       JSON.stringify(sanitized)
@@ -79,6 +90,28 @@ namespace UserSettingsService {
     return result;
   }
 
+  /** 個人用カスタムナビ項目を検証・補完する（不正な項目は除外、IDが無ければ発行、最大件数で切り詰め） */
+  export function sanitizeCustomNavItems(input: unknown): CustomNavItem[] {
+    if (!Array.isArray(input)) {
+      return [];
+    }
+    const result: CustomNavItem[] = [];
+    input.forEach((raw) => {
+      if (result.length >= MAX_CUSTOM_NAV_ITEMS || !raw || typeof raw !== "object") {
+        return;
+      }
+      const item = raw as Partial<CustomNavItem>;
+      const label = typeof item.label === "string" ? item.label.trim() : "";
+      const url = typeof item.url === "string" ? item.url.trim() : "";
+      if (!label || !AppLedger.isValidHttpUrl(url)) {
+        return;
+      }
+      const id = typeof item.id === "string" && item.id ? item.id : Utilities.getUuid();
+      result.push({ id: id, label: label, url: url });
+    });
+    return result;
+  }
+
   export function sanitize(input: Partial<UserSettings>): UserSettings {
     const widgets = sanitizeWidgets(input.widgets);
     const mailCountRaw = typeof input.mailCount === "number" ? input.mailCount : DEFAULT_SETTINGS.mailCount;
@@ -90,10 +123,13 @@ namespace UserSettingsService {
         ? input.themeChoice
         : DEFAULT_SETTINGS.themeChoice;
 
+    const customNavItems = sanitizeCustomNavItems(input.customNavItems);
+
     return {
       widgets: widgets,
       mailCount: mailCount,
       themeChoice: themeChoice,
+      customNavItems: customNavItems,
     };
   }
 
@@ -102,6 +138,7 @@ namespace UserSettingsService {
       widgets: DEFAULT_WIDGETS.map((w) => ({ id: w.id, column: w.column, size: w.size, visible: w.visible })),
       mailCount: DEFAULT_SETTINGS.mailCount,
       themeChoice: DEFAULT_SETTINGS.themeChoice,
+      customNavItems: [],
     };
   }
 }

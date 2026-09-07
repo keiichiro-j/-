@@ -24,12 +24,17 @@ const sandbox = {
     Access: { ANYONE: 'A', ANYONE_WITH_LINK: 'AL', DOMAIN: 'D', DOMAIN_WITH_LINK: 'DL', PRIVATE: 'P' },
     Permission: { VIEW: 'V', EDIT: 'E', COMMENT: 'C', NONE: 'N' },
   },
+  Utilities: {
+    getUuid: () => 'test-uuid-' + Math.random().toString(36).slice(2),
+  },
 };
 vm.createContext(sandbox);
 
 const FILES = [
   'theme.js',
   'eventCategory.js',
+  'japaneseHoliday.js',
+  'rokuyo.js',
   'services/dateUtils.js',
   'services/userSettingsService.js',
   'services/globalSettingsService.js',
@@ -221,6 +226,120 @@ test('12月は翌年1月始まりまでの範囲になる', () => {
   const end = new Date(range.endIso);
   assert.strictEqual(start.getMonth(), 11);
   assert.strictEqual(end.getFullYear() > start.getFullYear() || end.getMonth() === 0, true);
+});
+
+console.log('== JapaneseHoliday: nameFor（固定日・ハッピーマンデー・振替休日・国民の休日） ==');
+test('固定日の祝日を判定できる（元日・建国記念の日）', () => {
+  assert.strictEqual(sandbox.JapaneseHoliday.nameFor(new Date(2026, 0, 1)), '元日');
+  assert.strictEqual(sandbox.JapaneseHoliday.nameFor(new Date(2026, 1, 11)), '建国記念の日');
+  assert.strictEqual(sandbox.JapaneseHoliday.nameFor(new Date(2026, 0, 2)), null);
+});
+test('ハッピーマンデー（成人の日=1月第2月曜）を独立に計算した日付と照合する', () => {
+  // 実装(nthMondayDay)を使わず、JSのDateから独立に「1月の2番目の月曜日」を求めて突き合わせる
+  const year = 2026;
+  let mondayCount = 0;
+  let secondMonday = null;
+  for (let day = 1; day <= 31; day++) {
+    const d = new Date(year, 0, day);
+    if (d.getMonth() !== 0) break;
+    if (d.getDay() === 1) {
+      mondayCount++;
+      if (mondayCount === 2) { secondMonday = day; break; }
+    }
+  }
+  assert.ok(secondMonday !== null);
+  assert.strictEqual(sandbox.JapaneseHoliday.nameFor(new Date(year, 0, secondMonday)), '成人の日');
+  assert.strictEqual(sandbox.JapaneseHoliday.nameFor(new Date(year, 0, secondMonday - 7)), null);
+});
+test('振替休日: 固定祝日が日曜と重なる年を独立に探索して検証する', () => {
+  let found = false;
+  for (let year = 2024; year <= 2040 && !found; year++) {
+    const bunkaNoHi = new Date(year, 10, 3); // 文化の日（11/3、固定日）
+    if (bunkaNoHi.getDay() === 0) {
+      found = true;
+      assert.strictEqual(sandbox.JapaneseHoliday.nameFor(bunkaNoHi), '文化の日');
+      assert.strictEqual(sandbox.JapaneseHoliday.nameFor(new Date(year, 10, 4)), '振替休日');
+    }
+  }
+  assert.ok(found, 'テスト対象期間内に文化の日が日曜となる年が見つかりませんでした');
+});
+test('国民の休日: 敬老の日と秋分の日の間が1日だけ空く年を探索して検証する', () => {
+  function thirdMondayOfSeptember(year) {
+    let mondayCount = 0;
+    for (let day = 1; day <= 30; day++) {
+      if (new Date(year, 8, day).getDay() === 1) {
+        mondayCount++;
+        if (mondayCount === 3) return day;
+      }
+    }
+    return null;
+  }
+  function equinoxDaySeptember(year) {
+    for (let day = 20; day <= 25; day++) {
+      if (sandbox.JapaneseHoliday.nameFor(new Date(year, 8, day)) === '秋分の日') return day;
+    }
+    return null;
+  }
+  let found = false;
+  for (let year = 2015; year <= 2045 && !found; year++) {
+    const keiro = thirdMondayOfSeptember(year);
+    const equinox = equinoxDaySeptember(year);
+    if (keiro !== null && equinox !== null && equinox - keiro === 2) {
+      found = true;
+      assert.strictEqual(sandbox.JapaneseHoliday.nameFor(new Date(year, 8, keiro + 1)), '国民の休日');
+    }
+  }
+  assert.ok(found, 'テスト対象期間内に敬老の日と秋分の日の間が1日空く年が見つかりませんでした');
+});
+
+console.log('== RokuyoService: forDate（簡易6日周期の近似ローテーション） ==');
+test('6日周期でローテーションする（基準日から1日ずつ進むと順送り、6日で一巡）', () => {
+  const base = new Date(2000, 0, 1);
+  const first = sandbox.RokuyoService.forDate(base);
+  const cycle = ['先勝', '友引', '先負', '仏滅', '大安', '赤口'];
+  assert.ok(cycle.indexOf(first) !== -1);
+  for (let i = 1; i <= 6; i++) {
+    const d = new Date(2000, 0, 1 + i);
+    const expectedIdx = (cycle.indexOf(first) + i) % 6;
+    assert.strictEqual(sandbox.RokuyoService.forDate(d), cycle[expectedIdx]);
+  }
+  // 6日後は同じ六曜に戻る
+  assert.strictEqual(sandbox.RokuyoService.forDate(new Date(2000, 0, 7)), first);
+});
+
+console.log('== UserSettingsService: sanitizeCustomNavItems（個人用カスタムナビ項目） ==');
+test('ラベルとhttp(s)のURLが揃っていれば登録される（idが無ければ自動採番）', () => {
+  const items = sandbox.UserSettingsService.sanitizeCustomNavItems([
+    { label: '社内Wiki', url: 'https://example.com/wiki' }
+  ]);
+  assert.strictEqual(items.length, 1);
+  assert.strictEqual(items[0].label, '社内Wiki');
+  assert.strictEqual(items[0].url, 'https://example.com/wiki');
+  assert.ok(items[0].id);
+});
+test('ラベルが空・URLが不正な項目は除外される', () => {
+  const items = sandbox.UserSettingsService.sanitizeCustomNavItems([
+    { label: '', url: 'https://example.com' },
+    { label: '不正URL', url: 'ftp://example.com' },
+    { label: 'OK', url: 'https://example.com/ok' }
+  ]);
+  assert.strictEqual(items.length, 1);
+  assert.strictEqual(items[0].label, 'OK');
+});
+test('配列以外の入力は空配列になる', () => {
+  assert.strictEqual(sandbox.UserSettingsService.sanitizeCustomNavItems(undefined).length, 0);
+  assert.strictEqual(sandbox.UserSettingsService.sanitizeCustomNavItems(null).length, 0);
+});
+test('最大件数を超える分は切り詰められる', () => {
+  const input = [];
+  for (let i = 0; i < 20; i++) input.push({ label: 'item' + i, url: 'https://example.com/' + i });
+  const items = sandbox.UserSettingsService.sanitizeCustomNavItems(input);
+  assert.ok(items.length <= 12);
+});
+test('sanitize()にcustomNavItemsが含まれる', () => {
+  const result = sandbox.UserSettingsService.sanitize({ customNavItems: [{ label: 'A', url: 'https://example.com' }] });
+  assert.strictEqual(result.customNavItems.length, 1);
+  assert.strictEqual(sandbox.UserSettingsService.sanitize({}).customNavItems.length, 0);
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

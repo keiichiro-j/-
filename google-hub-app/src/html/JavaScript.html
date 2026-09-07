@@ -55,7 +55,8 @@
     calendar: {
       year: now0.getFullYear(),
       month: now0.getMonth(), // 0-indexed。表示中の月（前月/次月ボタンで変わる）
-      events: []
+      events: [],
+      dayInfoByDay: {} // { day: { holidayName, rokuyo } } 表示中の月の祝日名・六曜
     },
     dayDetail: null, // 日付タップ時のポップアップで選択中の日 { year, month, day }
     drive: {
@@ -122,6 +123,7 @@
       renderAvatar(home.currentUserEmail);
       renderMailList(home.mails, home.userSettings.mailCount);
       renderAppList(home.apps);
+      renderCustomNav(home.userSettings.customNavItems);
       populateEventCalendarOptions(home.calendars);
       renderCategorySwatchPicker(state.eventCategories, '');
       populateSettingsForm(home.userSettings, home.globalSettings, home.calendars, state.themeChoices);
@@ -175,11 +177,19 @@
     if (!state.home) return Promise.resolve();
     var range = monthRangeIso(year, month);
     var calendarIds = state.home.globalSettings.syncCalendarIds;
-    return gasRun('getCalendarEvents', calendarIds, range.startIso, range.endIso).then(function (events) {
+    return Promise.all([
+      gasRun('getCalendarEvents', calendarIds, range.startIso, range.endIso),
+      gasRun('getCalendarDayInfo', year, month)
+    ]).then(function (results) {
+      var events = results[0];
+      var dayInfoList = results[1];
+      var dayInfoByDay = {};
+      dayInfoList.forEach(function (info) { dayInfoByDay[info.day] = info; });
       state.calendar.year = year;
       state.calendar.month = month;
       state.calendar.events = events;
-      renderMiniCalendar(year, month, events);
+      state.calendar.dayInfoByDay = dayInfoByDay;
+      renderMiniCalendar(year, month, events, dayInfoByDay);
     }).catch(showError);
   }
 
@@ -221,7 +231,8 @@
     }).join('');
   }
 
-  function renderMiniCalendar(year, month, events) {
+  function renderMiniCalendar(year, month, events, dayInfoByDay) {
+    dayInfoByDay = dayInfoByDay || {};
     qs('calendar-month-label').textContent = (year + '年' + (month + 1) + '月');
 
     var now = new Date();
@@ -252,14 +263,18 @@
     for (var day = 1; day <= daysInMonth; day++) {
       var dayEvents = eventsByDay[day] || [];
       var isToday = year === now.getFullYear() && month === now.getMonth() && day === now.getDate();
+      var info = dayInfoByDay[day];
+      var isHoliday = !!(info && info.holidayName);
       var dotsHtml = dayEvents.slice(0, MAX_DOTS).map(function (ev) {
         return '<span class="dot" style="background:' + categoryHex(ev.categoryColorId) + ';" title="' + escapeHtml(ev.title || '') + '"></span>';
       }).join('');
       if (dayEvents.length > MAX_DOTS) {
         dotsHtml += '<span class="dot-more">+' + (dayEvents.length - MAX_DOTS) + '</span>';
       }
-      html += '<div class="cal-cell' + (isToday ? ' is-today' : '') + '" data-day="' + day + '">' +
+      html += '<div class="cal-cell' + (isToday ? ' is-today' : '') + (isHoliday ? ' is-holiday' : '') + '" data-day="' + day + '">' +
         '<div class="day-num">' + day + '</div>' +
+        (info ? '<div class="rokuyo-label">' + escapeHtml(info.rokuyo) + '</div>' : '') +
+        (isHoliday ? '<div class="holiday-label">' + escapeHtml(info.holidayName) + '</div>' : '') +
         (dayEvents.length > 0 ? '<div class="dots">' + dotsHtml + '</div>' : '') +
         '</div>';
     }
@@ -289,7 +304,9 @@
     }).sort(function (a, b) { return a.start < b.start ? -1 : a.start > b.start ? 1 : 0; });
 
     var dateObj = new Date(year, month, day);
-    qs('day-detail-title').textContent = year + '年' + (month + 1) + '月' + day + '日（' + WEEKDAY_LABELS[dateObj.getDay()] + '）';
+    var info = state.calendar.dayInfoByDay[day];
+    var titleSuffix = info ? '・' + info.rokuyo + (info.holidayName ? '・' + info.holidayName : '') : '';
+    qs('day-detail-title').textContent = year + '年' + (month + 1) + '月' + day + '日（' + WEEKDAY_LABELS[dateObj.getDay()] + '）' + titleSuffix;
 
     var list = qs('day-detail-list');
     list.innerHTML = dayEvents.length === 0
@@ -877,6 +894,7 @@
 
     qs('setting-mail-count').value = userSettings.mailCount;
     renderWidgetSettingsList(userSettings.widgets);
+    renderCustomNavSettingsList(userSettings.customNavItems);
 
     qs('setting-mail-label').value = globalSettings.mailLabel;
     qs('setting-notify-enabled').checked = globalSettings.notifyEnabled;
@@ -940,6 +958,94 @@
     });
   }
 
+  // ---- カスタムナビ項目（個人用ショートカット） ----
+  function renderCustomNav(items) {
+    var list = qs('nav-custom-list');
+    qs('nav-custom-divider').hidden = items.length === 0;
+    list.innerHTML = items.map(function (item) {
+      return '<button type="button" class="nav-item nav-item-custom" data-url="' + escapeHtml(item.url) + '" title="' + escapeHtml(item.url) + '">' +
+        '<svg class="icon"><use href="#icon-link"></use></svg><span>' + escapeHtml(item.label) + '</span>' +
+        '</button>';
+    }).join('');
+    Array.prototype.forEach.call(list.querySelectorAll('.nav-item-custom'), function (btn) {
+      btn.addEventListener('click', function () {
+        window.open(btn.getAttribute('data-url'), '_blank', 'noopener');
+      });
+    });
+  }
+
+  function saveCustomNavItems(items) {
+    return gasRun('saveUserSettings', { customNavItems: items }).then(function () {
+      return loadHome();
+    });
+  }
+
+  function renderCustomNavSettingsList(items) {
+    var container = qs('custom-nav-settings-list');
+    if (items.length === 0) {
+      container.innerHTML = '<div class="empty-hint">まだカスタム項目がありません</div>';
+      return;
+    }
+    container.innerHTML = items.map(function (item, index) {
+      return '<div class="link-row" data-nav-item-id="' + escapeHtml(item.id) + '">' +
+        '<div>' +
+        '<div class="name">' + escapeHtml(item.label) + '</div>' +
+        '<div class="desc">' + escapeHtml(item.url) + '</div>' +
+        '</div>' +
+        '<span>' +
+        '<button type="button" class="btn-custom-nav-up" ' + (index === 0 ? 'disabled' : '') + '>↑</button> ' +
+        '<button type="button" class="btn-custom-nav-down" ' + (index === items.length - 1 ? 'disabled' : '') + '>↓</button> ' +
+        '<button type="button" class="icon-only btn-custom-nav-delete" aria-label="削除" title="削除"><svg class="icon icon-sm"><use href="#icon-trash"></use></svg></button>' +
+        '</span>' +
+        '</div>';
+    }).join('');
+
+    Array.prototype.forEach.call(container.querySelectorAll('.btn-custom-nav-delete'), function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.closest('[data-nav-item-id]').getAttribute('data-nav-item-id');
+        var next = items.filter(function (item) { return item.id !== id; });
+        saveCustomNavItems(next).catch(showError);
+      });
+    });
+    Array.prototype.forEach.call(container.querySelectorAll('.btn-custom-nav-up'), function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.closest('[data-nav-item-id]').getAttribute('data-nav-item-id');
+        var idx = items.map(function (i) { return i.id; }).indexOf(id);
+        if (idx <= 0) return;
+        var next = items.slice();
+        var tmp = next[idx - 1]; next[idx - 1] = next[idx]; next[idx] = tmp;
+        saveCustomNavItems(next).catch(showError);
+      });
+    });
+    Array.prototype.forEach.call(container.querySelectorAll('.btn-custom-nav-down'), function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.closest('[data-nav-item-id]').getAttribute('data-nav-item-id');
+        var idx = items.map(function (i) { return i.id; }).indexOf(id);
+        if (idx === -1 || idx >= items.length - 1) return;
+        var next = items.slice();
+        var tmp = next[idx + 1]; next[idx + 1] = next[idx]; next[idx] = tmp;
+        saveCustomNavItems(next).catch(showError);
+      });
+    });
+  }
+
+  function initCustomNavSettings() {
+    qs('btn-custom-nav-add').addEventListener('click', function () {
+      var labelInput = qs('custom-nav-label-input');
+      var urlInput = qs('custom-nav-url-input');
+      var label = labelInput.value.trim();
+      var url = urlInput.value.trim();
+      if (!label) { window.alert('表示名を入力してください'); return; }
+      if (!/^https?:\/\/.+/i.test(url)) { window.alert('http(s)から始まるURLを入力してください'); return; }
+      var current = state.home ? state.home.userSettings.customNavItems : [];
+      var next = current.concat([{ label: label, url: url }]);
+      saveCustomNavItems(next).then(function () {
+        labelInput.value = '';
+        urlInput.value = '';
+      }).catch(showError);
+    });
+  }
+
   function initSettings() {
     qs('btn-save-user-settings').addEventListener('click', function () {
       var settings = {
@@ -983,6 +1089,7 @@
     initAppLedger();
     initDrive();
     initSettings();
+    initCustomNavSettings();
     loadHome();
   });
 })();

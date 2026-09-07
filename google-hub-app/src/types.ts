@@ -16,6 +16,22 @@ interface WidgetConfig {
   visible: boolean;
 }
 
+/** 個人がコントロールパネルに自由に追加できるカスタムショートカット（タップで指定URLへ移動） */
+interface CustomNavItem {
+  id: string;
+  label: string;
+  url: string;
+}
+
+/** ミニカレンダーの日付セル1つ分の付加情報（祝日名・六曜） */
+interface DayInfo {
+  day: number;
+  /** 祝日名。祝日でなければ null */
+  holidayName: string | null;
+  /** 六曜（簡易近似）。先勝/友引/先負/仏滅/大安/赤口 のいずれか */
+  rokuyo: string;
+}
+
 interface ThemeColor {
   name: string;
   hex: string;
@@ -33,6 +49,8 @@ interface UserSettings {
   mailCount: number;
   /** テーマ配色パレット(Theme.PALETTE_11)のいずれかの name、または "random" */
   themeChoice: string;
+  /** 個人用カスタムナビ項目（コントロールパネルにボタンとして追加表示） */
+  customNavItems: CustomNavItem[];
 }
 
 interface GlobalSettings {
