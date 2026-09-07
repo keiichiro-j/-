@@ -77,6 +77,23 @@ test('候補数は常に11色パレット+1(ボーナス)の12通りの中から
   assert.ok(allHex.indexOf(theme.hex) !== -1);
 });
 
+console.log('== Theme: listChoices / resolveTheme（設定画面の12択） ==');
+test('選択肢は11色 + ランダムの合計12件', () => {
+  const choices = sandbox.Theme.listChoices();
+  assert.strictEqual(choices.length, 12);
+  assert.strictEqual(choices.filter((c) => c.hex === null).length, 1);
+});
+test('固定色を選ぶとその色がそのまま適用される', () => {
+  const theme = sandbox.Theme.resolveTheme('インクネイビー');
+  assert.strictEqual(theme.hex, '#3949AB');
+  assert.strictEqual(theme.textColor, '#ffffff');
+});
+test('"random"または未知の値はランダム抽選にフォールバックする', () => {
+  const theme = sandbox.Theme.resolveTheme('random', () => 0.5);
+  const allHex = sandbox.Theme.PALETTE_11.map((c) => c.hex).concat(sandbox.Theme.RANDOM_POOL.map((c) => c.hex));
+  assert.ok(allHex.indexOf(theme.hex) !== -1);
+});
+
 console.log('== UserSettingsService: sanitize ==');
 test('不正なカードIDは除外される', () => {
   const s = sandbox.UserSettingsService.sanitize({ visibleCards: ['calendar', 'unknown'] });
@@ -85,6 +102,11 @@ test('不正なカードIDは除外される', () => {
 test('cardOrderに欠けているIDは末尾に補完される', () => {
   const s = sandbox.UserSettingsService.sanitize({ cardOrder: ['mail'] });
   assert.deepStrictEqual(s.cardOrder, ['mail', 'calendar', 'links']);
+});
+test('themeChoiceは有効な色名かrandomのみ許可、それ以外はrandomにフォールバック', () => {
+  assert.strictEqual(sandbox.UserSettingsService.sanitize({ themeChoice: 'ボヤージュブルー' }).themeChoice, 'ボヤージュブルー');
+  assert.strictEqual(sandbox.UserSettingsService.sanitize({ themeChoice: 'nonsense' }).themeChoice, 'random');
+  assert.strictEqual(sandbox.UserSettingsService.sanitize({}).themeChoice, 'random');
 });
 test('mailCountは1〜20にクランプされる', () => {
   assert.strictEqual(sandbox.UserSettingsService.sanitize({ mailCount: 999 }).mailCount, 20);

@@ -17,6 +17,8 @@ interface UserSettings {
   cardOrder: CardId[];
   mailCount: number;
   visibleCards: CardId[];
+  /** テーマ配色パレット(Theme.PALETTE_11)のいずれかの name、または "random" */
+  themeChoice: string;
 }
 
 interface GlobalSettings {
@@ -73,6 +75,11 @@ interface AppLedgerEntry {
   status: AppStatus;
 }
 
+interface GlobalSearchResult {
+  apps: AppLedgerEntry[];
+  files: DriveFileItem[];
+}
+
 interface HomeData {
   theme: AppliedTheme;
   userSettings: UserSettings;
@@ -81,4 +88,5 @@ interface HomeData {
   events: CalendarEventItem[];
   mails: MailSubjectItem[];
   apps: AppLedgerEntry[];
+  currentUserEmail: string;
 }

@@ -2,8 +2,11 @@
  * 6. カラーテーマ仕様
  * 「1900年代の冒険者の日記帳」モチーフの11色 + ランダム候補2色。
  * 適用範囲はコントロールパネルおよびその周辺のみ（本文は中立色で固定）。
+ * 設定画面では「11色 + ランダム」の合計12択から選べる（既定は "random"）。
  */
 namespace Theme {
+  export const RANDOM_CHOICE_ID = "random";
+
   export const PALETTE_11: ThemeColor[] = [
     { name: "エクスペディションレッド", hex: "#E53935" },
     { name: "キャンプファイヤーオレンジ", hex: "#FB8C00" },
@@ -55,10 +58,36 @@ namespace Theme {
     const bonusColor = pickRandom(RANDOM_POOL, randomFn);
     const candidates = PALETTE_11.concat([bonusColor]);
     const chosen = pickRandom(candidates, randomFn);
+    return toApplied(chosen);
+  }
+
+  function toApplied(color: ThemeColor): AppliedTheme {
     return {
-      name: chosen.name,
-      hex: chosen.hex,
-      textColor: pickTextColor(chosen.hex),
+      name: color.name,
+      hex: color.hex,
+      textColor: pickTextColor(color.hex),
     };
+  }
+
+  /** 設定画面に表示する選択肢一覧（11色 + ランダム、合計12件）。ランダムはUI表示専用でhexは持たない */
+  export function listChoices(): { id: string; name: string; hex: string | null }[] {
+    const fixed: { id: string; name: string; hex: string | null }[] = PALETTE_11.map((c) => ({
+      id: c.name,
+      name: c.name,
+      hex: c.hex,
+    }));
+    return fixed.concat([{ id: RANDOM_CHOICE_ID, name: "ランダム", hex: null }]);
+  }
+
+  /**
+   * 個人設定の themeChoice（11色いずれかの name、または "random"）からテーマを決定する。
+   * "random" または未知の値の場合は起動のたびに13.4の擬似コード通りランダム抽選する。
+   */
+  export function resolveTheme(themeChoice: string, randomFn: () => number = Math.random): AppliedTheme {
+    const fixed = PALETTE_11.filter((c) => c.name === themeChoice)[0];
+    if (fixed) {
+      return toApplied(fixed);
+    }
+    return pickTheme(randomFn);
   }
 }

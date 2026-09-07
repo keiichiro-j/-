@@ -2,12 +2,17 @@
   :root {
     --panel-bg: #757575;
     --panel-text: #ffffff;
+    --topbar-bg: #ffffff;
     --content-bg: #f4f4f4;
     --content-text: #1a1a1a;
     --content-muted: #666666;
+    --content-faint: #999999;
     --card-bg: #ffffff;
     --border-color: #dcdcdc;
+    --border-soft: #ececec;
     --danger: #c62828;
+    --icon-color: #5a5a5a;
+    --accent: #3949ab;
   }
 
   * { box-sizing: border-box; }
@@ -22,77 +27,284 @@
     overflow-x: hidden;
   }
 
+  /* ===== 共通アイコン: シックな単色ラインアイコン（絵文字は使わない） ===== */
+  .icon {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .icon-sm { width: 15px; height: 15px; }
+  .icon-lg { width: 22px; height: 22px; }
+
+  /* ===== 上部ヘッダー（全幅・中立色） ===== */
+  .topbar {
+    height: 60px;
+    flex: 0 0 60px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 0 20px;
+    background: var(--topbar-bg);
+    border-bottom: 1px solid var(--border-color);
+    position: relative;
+    z-index: 20;
+  }
+  .topbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: bold;
+    font-size: 15px;
+    color: var(--content-text);
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+  .topbar-brand .icon { color: var(--accent); width: 22px; height: 22px; }
+
+  .topbar-search {
+    flex: 1 1 auto;
+    max-width: 480px;
+    position: relative;
+  }
+  .topbar-search .icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--content-faint);
+    pointer-events: none;
+  }
+  .topbar-search input {
+    width: 100%;
+    padding: 8px 12px 8px 36px;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    background: var(--content-bg);
+    font-size: 13px;
+  }
+  .topbar-search input:focus { outline: none; border-color: var(--accent); background: #fff; }
+
+  .search-results {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    max-height: 360px;
+    overflow-y: auto;
+    z-index: 30;
+  }
+  .search-results[hidden] { display: none; }
+  .search-group-label {
+    font-size: 11px;
+    color: var(--content-muted);
+    padding: 8px 14px 4px;
+  }
+  .search-result-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 14px;
+    cursor: pointer;
+    border-top: 1px solid var(--border-soft);
+  }
+  .search-result-row:hover { background: var(--content-bg); }
+  .search-result-row .r-name { font-size: 13px; font-weight: 600; }
+  .search-result-row .r-desc { font-size: 11px; color: var(--content-muted); }
+
+  .topbar-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+  }
+  .icon-btn {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--icon-color);
+    cursor: pointer;
+  }
+  .icon-btn:hover { background: var(--content-bg); }
+  .icon-btn .badge-dot {
+    position: absolute;
+    top: 6px;
+    right: 7px;
+    min-width: 8px;
+    height: 8px;
+    padding: 0 3px;
+    border-radius: 999px;
+    background: var(--danger);
+    color: #fff;
+    font-size: 9px;
+    line-height: 8px;
+    text-align: center;
+  }
+  .icon-btn .badge-dot[hidden] { display: none; }
+
+  .dropdown-panel {
+    position: absolute;
+    top: 50px;
+    right: 20px;
+    width: 300px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    z-index: 30;
+    overflow: hidden;
+  }
+  .dropdown-panel[hidden] { display: none; }
+  .dropdown-panel h4 {
+    margin: 0;
+    padding: 12px 14px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .dropdown-list { max-height: 320px; overflow-y: auto; }
+  .dropdown-item {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 10px 14px;
+    border-top: 1px solid var(--border-soft);
+    font-size: 12.5px;
+  }
+  .dropdown-item .icon { margin-top: 2px; color: var(--content-faint); }
+  .dropdown-item .d-title { font-weight: 600; }
+  .dropdown-item .d-sub { color: var(--content-muted); font-size: 11.5px; }
+  .dropdown-empty { padding: 16px 14px; font-size: 12.5px; color: var(--content-muted); }
+
+  .avatar-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: default;
+    flex: 0 0 auto;
+  }
+
+  /* ===== 全体レイアウト: ヘッダー(全幅) + 左ナビ / メイン / 右サイドバー ===== */
   .app-shell {
     display: flex;
+    flex-direction: column;
     min-height: 100vh;
+  }
+  .shell-body {
+    display: flex;
+    flex: 1 1 auto;
     align-items: stretch;
+    min-height: 0;
   }
 
   /* --- 左：コントロールパネル（テーマ色を適用する唯一の領域） --- */
   .control-panel {
-    width: 220px;
-    flex: 0 0 220px;
+    width: 208px;
+    flex: 0 0 208px;
     background: var(--panel-bg);
     color: var(--panel-text);
-    padding: 20px 12px;
+    padding: 16px 10px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
-  }
-
-  .control-panel .brand {
-    font-size: 14px;
-    font-weight: bold;
-    opacity: 0.9;
-    margin-bottom: 16px;
-    padding: 0 8px;
-    word-break: break-word;
+    gap: 2px;
   }
 
   .nav-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 8px;
+    gap: 12px;
+    padding: 10px 10px;
     border-radius: 8px;
     cursor: pointer;
     color: inherit;
     background: transparent;
     border: none;
-    font-size: 14px;
+    font-size: 13.5px;
     text-align: left;
     width: 100%;
   }
-
-  .nav-item .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+  .nav-item .icon { color: inherit; opacity: 0.85; }
 
   .nav-item:hover {
     background: rgba(255, 255, 255, 0.15);
   }
 
   .nav-item.active {
-    background: rgba(255, 255, 255, 0.28);
-    font-weight: bold;
+    background: rgba(255, 255, 255, 0.25);
+    font-weight: 600;
   }
+  .nav-item.active .icon { opacity: 1; }
 
   .control-panel[data-text="dark"] .nav-item:hover { background: rgba(0, 0, 0, 0.1); }
-  .control-panel[data-text="dark"] .nav-item.active { background: rgba(0, 0, 0, 0.18); }
+  .control-panel[data-text="dark"] .nav-item.active { background: rgba(0, 0, 0, 0.16); }
 
-  /* --- 右：メインコンテンツ（中立色固定） --- */
+  /* --- 中央：メインコンテンツ（中立色固定） --- */
   .main-content {
     flex: 1 1 auto;
-    padding: 24px;
+    padding: 22px;
     overflow-y: auto;
     overflow-x: hidden;
-    max-width: 100%;
+    min-width: 0;
   }
+
+  .page-greeting {
+    margin-bottom: 16px;
+  }
+  .page-greeting .greet-name { font-size: 19px; font-weight: 700; }
+  .page-greeting .greet-date { font-size: 12.5px; color: var(--content-muted); margin-top: 2px; }
 
   .card-stack {
     display: flex;
     flex-direction: column;
     gap: 20px;
-    max-width: 900px;
   }
+
+  /* --- 右：サイドバー（お知らせ・今日の予定・リンク集） --- */
+  .right-sidebar {
+    width: 300px;
+    flex: 0 0 300px;
+    padding: 22px 18px 22px 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .right-sidebar[hidden] { display: none; }
+  .right-sidebar .card { padding: 14px 16px; }
+  .right-sidebar .card h2 { font-size: 13.5px; }
+
+  .today-list { display: flex; flex-direction: column; gap: 10px; }
+  .today-item { display: flex; gap: 10px; font-size: 12.5px; }
+  .today-item .t-time {
+    flex: 0 0 auto;
+    width: 46px;
+    color: var(--accent);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .today-item .t-title { font-weight: 600; }
+  .today-item .t-place { color: var(--content-muted); font-size: 11.5px; }
 
   .card {
     background: var(--card-bg);
@@ -110,6 +322,8 @@
     flex-wrap: wrap;
     gap: 8px;
   }
+  .card h2 .h2-label { display: flex; align-items: center; gap: 8px; }
+  .card h2 .icon { color: var(--content-faint); }
 
   .card .card-actions {
     display: flex;
@@ -130,6 +344,9 @@
     background: #fff;
     color: var(--content-text);
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
 
   button.primary {
@@ -141,6 +358,14 @@
   button.danger {
     color: var(--danger);
     border-color: var(--danger);
+  }
+
+  button.icon-only {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
   }
 
   input[type="text"], input[type="datetime-local"], input[type="date"], input[type="number"], select, textarea {
@@ -170,7 +395,7 @@
   .mini-calendar td {
     text-align: center;
     vertical-align: top;
-    height: 46px;
+    height: 72px;
     border: 1px solid var(--border-color);
     font-size: 12px;
     padding: 4px;
@@ -179,7 +404,7 @@
   .mini-calendar td .day-num { font-size: 11px; color: var(--content-muted); }
   .mini-calendar td.has-event { background: #eef2ff; }
   .mini-calendar td .dot {
-    width: 6px; height: 6px; border-radius: 50%; background: #3949AB;
+    width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
     display: inline-block; margin-top: 2px;
   }
   .mini-calendar td.empty { background: #fafafa; color: #ccc; }
@@ -198,6 +423,8 @@
   .mail-row.unread .subject { color: #1a237e; }
   .mail-row .from { color: var(--content-muted); font-size: 12px; width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mail-row .date { color: var(--content-muted); font-size: 12px; width: 90px; text-align: right; }
+
+  .right-sidebar .mail-row .from { width: auto; max-width: 90px; }
 
   .link-row .name { font-weight: bold; }
   .link-row .desc { color: var(--content-muted); font-size: 12px; }
@@ -247,11 +474,54 @@
   .settings-section { margin-bottom: 20px; }
   .settings-section h3 { font-size: 14px; margin-bottom: 8px; }
 
+  /* ===== 設定画面: テーマスウォッチ（11色 + ランダムの計12択） ===== */
+  .theme-swatch-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    gap: 10px;
+  }
+  .theme-swatch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 6px 7px;
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    font-size: 10.5px;
+    color: var(--content-muted);
+    text-align: center;
+  }
+  .theme-swatch:hover { background: var(--content-bg); }
+  .theme-swatch.selected { border-color: var(--accent); background: var(--content-bg); color: var(--content-text); font-weight: 600; }
+  .theme-swatch .swatch-color {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.08);
+  }
+  .theme-swatch .swatch-color.is-random {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: repeating-conic-gradient(from 0deg, #e53935 0deg 32.7deg, #fb8c00 32.7deg 65.4deg, #fdd835 65.4deg 98.1deg, #43a047 98.1deg 130.8deg, #00897b 130.8deg 163.5deg, #1e88e5 163.5deg 196.2deg, #3949ab 196.2deg 228.9deg, #8e24aa 228.9deg 261.6deg, #d81b60 261.6deg 294.3deg, #6d4c41 294.3deg 327deg, #757575 327deg 360deg);
+    color: #fff;
+  }
+  .theme-swatch .swatch-color.is-random .icon { color: #fff; width: 16px; height: 16px; }
+
+  @media (max-width: 960px) {
+    .shell-body { flex-wrap: wrap; }
+    .right-sidebar { width: 100%; flex: 1 1 100%; padding: 0 22px 22px; }
+  }
+
   @media (max-width: 720px) {
-    .app-shell { flex-direction: column; }
+    .topbar { gap: 10px; padding: 0 12px; }
+    .topbar-search { display: none; }
+    .shell-body { flex-direction: column; }
     .control-panel { width: 100%; flex: 0 0 auto; flex-direction: row; overflow-x: auto; }
-    .control-panel .brand { display: none; }
-    .nav-item { flex: 0 0 auto; white-space: nowrap; }
     .main-content { padding: 14px; }
+    .right-sidebar { padding: 0 14px 14px; }
   }
 </style>

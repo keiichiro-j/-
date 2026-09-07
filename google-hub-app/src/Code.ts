@@ -29,9 +29,38 @@ function getHomeData(): HomeData {
   const events = CalendarService.getEvents(globalSettings.syncCalendarIds, range.startIso, range.endIso);
   const mails = MailService.getRecentSubjects(userSettings.mailCount, globalSettings.mailLabel);
   const apps = AppLedger.listApps();
-  const theme = Theme.pickTheme();
+  const theme = Theme.resolveTheme(userSettings.themeChoice);
+  const currentUserEmail = getCurrentUserEmail();
 
-  return { theme, userSettings, globalSettings, calendars, events, mails, apps };
+  return { theme, userSettings, globalSettings, calendars, events, mails, apps, currentUserEmail };
+}
+
+function getCurrentUserEmail(): string {
+  try {
+    const email = Session.getActiveUser().getEmail();
+    return email || "";
+  } catch (e) {
+    return "";
+  }
+}
+
+/** 設定画面のテーマ選択肢（11色 + ランダムの合計12件） */
+function listThemeChoices(): { id: string; name: string; hex: string | null }[] {
+  return Theme.listChoices();
+}
+
+/** ヘッダー検索バー用: アプリ台帳とDriveを横断検索する */
+function globalSearch(query: string): GlobalSearchResult {
+  const trimmed = query.trim();
+  if (!trimmed) {
+    return { apps: [], files: [] };
+  }
+  const lower = trimmed.toLowerCase();
+  const apps = AppLedger.listApps().filter(
+    (app) => app.name.toLowerCase().indexOf(lower) !== -1 || app.description.toLowerCase().indexOf(lower) !== -1
+  );
+  const files = DriveService.searchFiles(trimmed, 10);
+  return { apps, files };
 }
 
 // ---- 個人設定 / 全体設定 ----

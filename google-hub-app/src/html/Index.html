@@ -5,26 +5,40 @@
   <?!= include('html/Styles'); ?>
 </head>
 <body>
+  <?!= include('html/Icons'); ?>
+
   <div class="app-shell">
-    <?!= include('html/ControlPanel'); ?>
+    <?!= include('html/TopBar'); ?>
 
-    <main class="main-content">
-      <div id="view-home">
-        <div class="card-stack" id="card-stack">
-          <?!= include('html/CalendarCard'); ?>
-          <?!= include('html/MailCard'); ?>
-          <?!= include('html/LinkCard'); ?>
+    <div class="shell-body">
+      <?!= include('html/ControlPanel'); ?>
+
+      <main class="main-content">
+        <div id="view-home">
+          <div class="page-greeting">
+            <div class="greet-name" id="greet-name">おはようございます</div>
+            <div class="greet-date" id="greet-date"></div>
+          </div>
+          <div class="card-stack" id="card-stack">
+            <?!= include('html/CalendarCard'); ?>
+          </div>
         </div>
-      </div>
 
-      <div id="view-drive" hidden>
-        <?!= include('html/DriveCard'); ?>
-      </div>
+        <div id="view-drive" hidden>
+          <?!= include('html/DriveCard'); ?>
+        </div>
 
-      <div id="view-settings" hidden>
-        <?!= include('html/SettingsPanel'); ?>
-      </div>
-    </main>
+        <div id="view-settings" hidden>
+          <?!= include('html/SettingsPanel'); ?>
+        </div>
+      </main>
+
+      <aside class="right-sidebar" id="right-sidebar">
+        <?!= include('html/TodayEventsCard'); ?>
+        <?!= include('html/MailCard'); ?>
+        <?!= include('html/LinkCard'); ?>
+      </aside>
+    </div>
   </div>
 
   <?!= include('html/JavaScript'); ?>

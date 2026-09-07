@@ -9,6 +9,7 @@ namespace UserSettingsService {
     cardOrder: ["calendar", "mail", "links"],
     mailCount: 5,
     visibleCards: ["calendar", "mail", "links"],
+    themeChoice: Theme.RANDOM_CHOICE_ID,
   };
 
   const ALL_CARDS: CardId[] = ["calendar", "mail", "links"];
@@ -50,10 +51,17 @@ namespace UserSettingsService {
       ALL_CARDS.filter((c) => cardOrder.indexOf(c) === -1)
     );
 
+    const validThemeChoices = Theme.PALETTE_11.map((c) => c.name).concat([Theme.RANDOM_CHOICE_ID]);
+    const themeChoice =
+      typeof input.themeChoice === "string" && validThemeChoices.indexOf(input.themeChoice) !== -1
+        ? input.themeChoice
+        : DEFAULT_SETTINGS.themeChoice;
+
     return {
       cardOrder: completedOrder,
       mailCount: mailCount,
       visibleCards: visibleCards.length > 0 ? visibleCards : DEFAULT_SETTINGS.visibleCards,
+      themeChoice: themeChoice,
     };
   }
 
@@ -62,6 +70,7 @@ namespace UserSettingsService {
       cardOrder: DEFAULT_SETTINGS.cardOrder.slice(),
       mailCount: DEFAULT_SETTINGS.mailCount,
       visibleCards: DEFAULT_SETTINGS.visibleCards.slice(),
+      themeChoice: DEFAULT_SETTINGS.themeChoice,
     };
   }
 }
