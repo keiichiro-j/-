@@ -107,7 +107,39 @@ interface CalendarEventItem {
   guests: string[];
   /** 予定の種類（EventCategory.CATEGORIES の id = Calendarの colorId）。未設定は空文字 */
   categoryColorId: string;
+  /** この予定が繰り返し予定(シリーズ)の1回かどうか。単発予定は常にfalse */
+  isRecurring: boolean;
 }
+
+/** 繰り返し予定の頻度。"none"は単発（繰り返さない）を表す */
+type RecurrenceFrequency = "none" | "daily" | "weekly" | "monthly" | "yearly";
+
+/** 繰り返しの終了条件 */
+type RecurrenceEndType = "never" | "count" | "until";
+
+/**
+ * 繰り返し予定のルール。予定の新規作成時にのみ指定できる（作成後のルール変更＝繰り返し間隔や
+ * 終了条件の変更は本アプリでは非対応。Google Calendar自体は対応しているが、シリーズの
+ * 作り直しが必要になり編集フローが複雑化するため、企画のスコープでは見送っている）。
+ */
+interface EventRecurrenceRule {
+  frequency: RecurrenceFrequency;
+  /** 何回ごとに繰り返すか（1〜99） */
+  interval: number;
+  endType: RecurrenceEndType;
+  /** endType==="count"のときの回数（1〜365） */
+  count: number;
+  /** endType==="until"のときの終了日(YYYY-MM-DD)。それ以外はnull */
+  until: string | null;
+}
+
+/**
+ * 繰り返し予定の編集・削除の適用範囲。単発予定では常に"single"と同じ扱いになる。
+ * "series"は「このシリーズ全体（過去の回を含む）」を意味し、Google Calendar UIにある
+ * 「今後の予定」（このシリーズを分割して以降の回だけ変更する）は、Calendar Serviceの
+ * API制約により本アプリでは提供していない。
+ */
+type EventEditScope = "single" | "series";
 
 interface CalendarInfo {
   id: string;

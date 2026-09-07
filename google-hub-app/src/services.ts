@@ -56,15 +56,89 @@ namespace CalendarService {
       allDay: event.isAllDayEvent(),
       guests: event.getGuestList().map((g) => g.getEmail()),
       categoryColorId: event.getColor() || "",
+      isRecurring: event.isRecurringEvent(),
     };
   }
 
-  /** 予定の種類(カテゴリ)をCalendarのイベントカラーとして設定する。空文字は「未設定」として何もしない */
-  function applyCategoryColor(event: GoogleAppsScript.Calendar.CalendarEvent, categoryColorId: string): void {
+  const RECURRENCE_FREQUENCIES: RecurrenceFrequency[] = ["daily", "weekly", "monthly", "yearly"];
+
+  /** UIから渡された繰り返しルールを安全な値に補正する（純粋関数） */
+  export function sanitizeRecurrenceRule(input: Partial<EventRecurrenceRule> | null | undefined): EventRecurrenceRule {
+    const frequency: RecurrenceFrequency =
+      input && RECURRENCE_FREQUENCIES.indexOf(input.frequency as RecurrenceFrequency) !== -1
+        ? (input.frequency as RecurrenceFrequency)
+        : "none";
+    const rawInterval = input && input.interval != null ? Number(input.interval) : 1;
+    const interval = isNaN(rawInterval) ? 1 : Math.min(99, Math.max(1, Math.floor(rawInterval)));
+    const endType: RecurrenceEndType =
+      input && (input.endType === "count" || input.endType === "until") ? input.endType : "never";
+    const rawCount = input && input.count != null ? Number(input.count) : 10;
+    const count = isNaN(rawCount) ? 10 : Math.min(365, Math.max(1, Math.floor(rawCount)));
+    const until =
+      input && typeof input.until === "string" && /^\d{4}-\d{2}-\d{2}$/.test(input.until) ? input.until : null;
+    // endType==="until"なのに終了日が無い(未入力・不正な形式)場合、無期限に繰り返してしまうと
+    // 後から直せない(作成後のルール変更は非対応)ため、安全側の"never"には倒さず「終了しない」
+    // として扱わずエラーにする方が親切だが、この関数は純粋な補正のみを担うため、
+    // 呼び出し側(createEvent)で終了日の整合性チェックを行う前提とし、ここでは"never"にフォールバックする。
+    const safeEndType: RecurrenceEndType = endType === "until" && !until ? "never" : endType;
+    return { frequency, interval, endType: safeEndType, count, until };
+  }
+
+  /** 補正済みのEventRecurrenceRuleから、Calendar Service用のEventRecurrenceを組み立てる */
+  function buildRecurrence(rule: EventRecurrenceRule): GoogleAppsScript.Calendar.EventRecurrence {
+    const recurrence = CalendarApp.newRecurrence();
+    let ruleBuilder: GoogleAppsScript.Calendar.RecurrenceRule;
+    if (rule.frequency === "weekly") {
+      ruleBuilder = recurrence.addWeeklyRule();
+    } else if (rule.frequency === "monthly") {
+      ruleBuilder = recurrence.addMonthlyRule();
+    } else if (rule.frequency === "yearly") {
+      ruleBuilder = recurrence.addYearlyRule();
+    } else {
+      ruleBuilder = recurrence.addDailyRule();
+    }
+    ruleBuilder.interval(rule.interval);
+    if (rule.endType === "count") {
+      ruleBuilder.times(rule.count);
+    } else if (rule.endType === "until" && rule.until) {
+      ruleBuilder.until(new Date(rule.until + "T23:59:59"));
+    }
+    return recurrence;
+  }
+
+  /**
+   * 予定の種類(カテゴリ)をCalendarのイベントカラーとして設定する。空文字は「未設定」として何もしない。
+   * CalendarEvent(単発の回)とCalendarEventSeries(繰り返し予定のシリーズ全体)のどちらも
+   * setColor(color: string) を持つため、構造的部分型でどちらも受け取れるようにしている。
+   */
+  function applyCategoryColor(entity: { setColor(color: string): unknown }, categoryColorId: string): void {
     if (!categoryColorId) {
       return;
     }
-    event.setColor(categoryColorId);
+    entity.setColor(categoryColorId);
+  }
+
+  /**
+   * ゲスト一覧を目的の状態に同期する（差分だけadd/removeする）。CalendarEventとCalendarEventSeries
+   * のどちらも同じ形のgetGuestList/addGuest/removeGuestを持つため、applyCategoryColor同様
+   * 構造的部分型で共通化している。
+   */
+  function syncGuests(
+    entity: {
+      getGuestList(): GoogleAppsScript.Calendar.EventGuest[];
+      addGuest(email: string): unknown;
+      removeGuest(email: string): unknown;
+    },
+    guestsCsv: string
+  ): void {
+    const desiredGuests = parseGuestsCsv(guestsCsv);
+    const currentGuests = entity.getGuestList().map((g) => g.getEmail());
+    desiredGuests
+      .filter((email) => currentGuests.indexOf(email) === -1)
+      .forEach((email) => entity.addGuest(email));
+    currentGuests
+      .filter((email) => desiredGuests.indexOf(email) === -1)
+      .forEach((email) => entity.removeGuest(email));
   }
 
   /** 複数カレンダーの予定を期間指定でまとめて取得し、開始時刻順に整列する */
@@ -92,7 +166,8 @@ namespace CalendarService {
     allDay: boolean,
     guestsCsv: string,
     description: string,
-    categoryColorId: string
+    categoryColorId: string,
+    recurrenceRuleInput?: Partial<EventRecurrenceRule> | null
   ): CalendarEventItem {
     const calendar = resolveCalendar(calendarId);
     const guests = parseGuestsCsv(guestsCsv);
@@ -101,14 +176,49 @@ namespace CalendarService {
       options.guests = guests.join(",");
     }
 
-    let event: GoogleAppsScript.Calendar.CalendarEvent;
-    if (allDay) {
-      event = calendar.createAllDayEvent(title, new Date(startIso), options);
-    } else {
-      event = calendar.createEvent(title, new Date(startIso), new Date(endIso), options);
+    const rule = sanitizeRecurrenceRule(recurrenceRuleInput);
+    if (rule.endType === "until" && rule.until && rule.until < startIso.slice(0, 10)) {
+      // 予定を作成する前（＝副作用が発生する前）に検証するため、ここで弾いても安全にエラーにできる
+      throw new Error("繰り返しの終了日は開始日以降の日付にしてください");
     }
-    applyCategoryColor(event, categoryColorId);
-    return toItem(calendarId, event);
+
+    let event: GoogleAppsScript.Calendar.CalendarEvent;
+    if (rule.frequency === "none") {
+      if (allDay) {
+        event = calendar.createAllDayEvent(title, new Date(startIso), options);
+      } else {
+        event = calendar.createEvent(title, new Date(startIso), new Date(endIso), options);
+      }
+      applyCategoryColor(event, categoryColorId);
+      return toItem(calendarId, event);
+    }
+
+    const recurrence = buildRecurrence(rule);
+    const series = allDay
+      ? calendar.createAllDayEventSeries(title, new Date(startIso), recurrence, options)
+      : calendar.createEventSeries(title, new Date(startIso), new Date(endIso), recurrence, options);
+    applyCategoryColor(series, categoryColorId);
+    // getEventById()にシリーズのIDを渡すと、そのシリーズの最初の回のCalendarEventが返る
+    // （Calendar Serviceの仕様）。以後の一覧表示・編集は通常の単発予定と同じCalendarEventとして扱う。
+    const firstOccurrence = calendar.getEventById(series.getId());
+    if (!firstOccurrence) {
+      // この時点でシリーズ自体はすでにカレンダーへ作成済みなので、ここで例外を投げると
+      // クライアントには失敗として見え、ユーザーが保存をやり直して重複シリーズを作りかねない。
+      // 取得できた情報だけでCalendarEventItem相当を組み立てて返し、失敗として扱わないようにする
+      // （実際の内容は次回の一覧再取得で正しく反映される）。
+      return {
+        id: series.getId(),
+        calendarId: calendarId,
+        title: title,
+        start: startIso,
+        end: allDay ? startIso : endIso,
+        allDay: allDay,
+        guests: guests,
+        categoryColorId: categoryColorId,
+        isRecurring: true,
+      };
+    }
+    return toItem(calendarId, firstOccurrence);
   }
 
   export function updateEvent(
@@ -119,28 +229,35 @@ namespace CalendarService {
     endIso: string,
     guestsCsv: string,
     description: string,
-    categoryColorId: string
+    categoryColorId: string,
+    scope?: EventEditScope
   ): CalendarEventItem {
     const calendar = resolveCalendar(calendarId);
     const event = calendar.getEventById(eventId);
     if (!event) {
       throw new Error("予定が見つかりません: " + eventId);
     }
+
+    if (scope === "series" && event.isRecurringEvent()) {
+      // シリーズ全体への適用は、Calendar Serviceの制約上タイトル・メモ・種類(色)・ゲストのみに限る。
+      // 開始/終了時刻はシリーズ全体をまとめて動かすAPIが無いため、この回だけの例外にするしかなく、
+      // 「シリーズ全体」の意図と矛盾するため、時刻の変更は反映しない
+      // （UI側もこのスコープを選ぶと開始/終了欄を編集不可にする）。
+      const series = event.getEventSeries();
+      series.setTitle(title);
+      series.setDescription(description);
+      applyCategoryColor(series, categoryColorId);
+      syncGuests(series, guestsCsv);
+      return toItem(calendarId, event);
+    }
+
     event.setTitle(title);
     if (!event.isAllDayEvent()) {
       event.setTime(new Date(startIso), new Date(endIso));
     }
     event.setDescription(description);
     applyCategoryColor(event, categoryColorId);
-
-    const desiredGuests = parseGuestsCsv(guestsCsv);
-    const currentGuests = event.getGuestList().map((g) => g.getEmail());
-    desiredGuests
-      .filter((email) => currentGuests.indexOf(email) === -1)
-      .forEach((email) => event.addGuest(email));
-    currentGuests
-      .filter((email) => desiredGuests.indexOf(email) === -1)
-      .forEach((email) => event.removeGuest(email));
+    syncGuests(event, guestsCsv);
 
     return toItem(calendarId, event);
   }
@@ -169,10 +286,20 @@ namespace CalendarService {
     return toItem(calendarId, event);
   }
 
-  export function deleteEvent(calendarId: string, eventId: string): void {
+  /**
+   * scope==="series"かつ繰り返し予定の場合、シリーズ全体（過去の回を含む全ての回）を削除する。
+   * Calendar Serviceには「この回より後だけ削除」に相当するAPIが無いため、Google Calendar UIの
+   * 「今後の予定」に完全には対応していない点に注意（README参照）。
+   */
+  export function deleteEvent(calendarId: string, eventId: string, scope?: EventEditScope): void {
     const calendar = resolveCalendar(calendarId);
     const event = calendar.getEventById(eventId);
-    if (event) {
+    if (!event) {
+      return;
+    }
+    if (scope === "series" && event.isRecurringEvent()) {
+      event.getEventSeries().deleteEventSeries();
+    } else {
       event.deleteEvent();
     }
   }
@@ -488,6 +615,34 @@ namespace DriveService {
       parent.removeFile(file);
     }
     destination.addFile(file);
+    return fileToItem(file);
+  }
+
+  /**
+   * google.script.runは文字列引数のサイズに実用上の上限があるため(Base64化で元データの
+   * 約1.33倍に膨らむことも踏まえ)、アップロード可能な1ファイルあたりのサイズを制限する。
+   * ブラウザのドラッグ&ドロップ/ファイル選択からアップロードされたファイルをそのまま
+   * 現在開いているフォルダ（未指定時はマイドライブ直下）に保存する。
+   */
+  const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // 20MB
+
+  export function uploadFile(
+    folderId: string | null,
+    fileName: string,
+    mimeType: string,
+    base64Data: string
+  ): DriveFileItem {
+    const trimmedName = fileName.trim();
+    if (!trimmedName) {
+      throw new Error("ファイル名を取得できませんでした");
+    }
+    const bytes = Utilities.base64Decode(base64Data);
+    if (bytes.length > MAX_UPLOAD_BYTES) {
+      throw new Error("ファイルサイズが大きすぎます（1ファイルあたり20MBまで）: " + trimmedName);
+    }
+    const blob = Utilities.newBlob(bytes, mimeType || "application/octet-stream", trimmedName);
+    const folder = folderId ? DriveApp.getFolderById(folderId) : DriveApp.getRootFolder();
+    const file = folder.createFile(blob);
     return fileToItem(file);
   }
 }

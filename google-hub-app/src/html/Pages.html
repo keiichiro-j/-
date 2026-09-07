@@ -73,11 +73,17 @@
       <span class="h2-label"><svg class="icon"><use href="#icon-folder"></use></svg>Drive</span>
       <span class="card-actions">
         <button type="button" id="btn-drive-up"><svg class="icon icon-sm"><use href="#icon-arrow-up"></use></svg>上の階層へ</button>
+        <button type="button" id="btn-drive-upload"><svg class="icon icon-sm"><use href="#icon-upload"></use></svg>アップロード</button>
         <button type="button" class="icon-only toggle-btn" id="btn-drive-view-list" data-drive-view="list" aria-label="リスト表示" title="リスト表示"><svg class="icon icon-sm"><use href="#icon-list"></use></svg></button>
         <button type="button" class="icon-only toggle-btn" id="btn-drive-view-grid" data-drive-view="grid" aria-label="グリッド表示" title="グリッド表示"><svg class="icon icon-sm"><use href="#icon-grid"></use></svg></button>
         <button type="button" class="icon-only" id="btn-drive-refresh" aria-label="更新" title="更新"><svg class="icon icon-sm"><use href="#icon-refresh"></use></svg></button>
       </span>
     </h2>
+    <input type="file" id="drive-upload-input" multiple hidden>
+
+    <!-- パンくずリスト。「上の階層へ」ボタンは常にルートへ戻るだけだったため、実際に辿った
+         経路を表示し、途中の階層へも直接ジャンプできるようにしたもの（Google Drive相当の操作性）。 -->
+    <div class="drive-breadcrumb" id="drive-breadcrumb"></div>
 
     <div class="pinned-folder-chips" id="pinned-folder-chips"></div>
 
@@ -105,6 +111,8 @@
       </select>
     </div>
 
+    <!-- ドラッグ&ドロップでのアップロード対応。#drive-listへドラッグすると is-drag-over で
+         枠線をハイライトし、ドロップ時にuploadDriveFile()へ順番に送る（JavaScript.html参照）。 -->
     <div class="drive-list" id="drive-list">
       <div class="empty-hint">読み込み中...</div>
     </div>

@@ -57,6 +57,41 @@
     <label for="event-end">終了</label>
     <input type="datetime-local" id="event-end">
 
+    <!-- 繰り返しルールは新規作成時のみ設定できる（作成後のルール変更は非対応。README参照） -->
+    <div id="event-recurrence-section">
+      <label for="event-recurrence-freq">繰り返し</label>
+      <div class="toolbar">
+        <select id="event-recurrence-freq" style="flex: 1 1 auto;">
+          <option value="none">繰り返さない</option>
+          <option value="daily">毎日</option>
+          <option value="weekly">毎週</option>
+          <option value="monthly">毎月</option>
+          <option value="yearly">毎年</option>
+        </select>
+        <input type="number" id="event-recurrence-interval" min="1" max="99" value="1" style="width: 68px; flex: 0 0 auto;" hidden>
+      </div>
+      <div class="toolbar" id="event-recurrence-end-row" hidden>
+        <select id="event-recurrence-end-type" style="flex: 0 0 auto;">
+          <option value="never">終了しない</option>
+          <option value="count">回数で指定</option>
+          <option value="until">日付で指定</option>
+        </select>
+        <input type="number" id="event-recurrence-count" min="1" max="365" value="10" style="width: 68px;" hidden>
+        <input type="date" id="event-recurrence-until" hidden>
+      </div>
+    </div>
+
+    <!-- 繰り返し予定の既存の回を編集/削除する場合のみ表示。単発予定・新規作成時は不要 -->
+    <div id="event-scope-section" hidden>
+      <label>適用範囲</label>
+      <input type="hidden" id="event-scope" value="single">
+      <div class="cal-view-mode-switch" id="event-scope-switch">
+        <button type="button" class="toggle-btn active" data-event-scope="single">この予定だけ</button>
+        <button type="button" class="toggle-btn" data-event-scope="series">シリーズ全体</button>
+      </div>
+      <div class="empty-hint" id="event-scope-hint" style="padding: 6px 2px 0;"></div>
+    </div>
+
     <label for="event-guests">ゲスト（カンマ区切りのメールアドレス）</label>
     <input type="text" id="event-guests">
 

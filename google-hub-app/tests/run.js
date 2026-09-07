@@ -145,6 +145,46 @@ test('カンマ区切り・前後空白・重複を正規化', () => {
 });
 test('空文字は空配列', () => assert.strictEqual(sandbox.CalendarService.parseGuestsCsv('').length, 0));
 
+console.log('== CalendarService: sanitizeRecurrenceRule（繰り返し予定のルール検証） ==');
+test('未指定はnone(単発)になる', () => {
+  const rule = sandbox.CalendarService.sanitizeRecurrenceRule(undefined);
+  assert.strictEqual(rule.frequency, 'none');
+  assert.strictEqual(rule.interval, 1);
+  assert.strictEqual(rule.endType, 'never');
+});
+test('不正なfrequency/endTypeはnone/neverにフォールバックする', () => {
+  const rule = sandbox.CalendarService.sanitizeRecurrenceRule({ frequency: 'hourly', endType: 'forever' });
+  assert.strictEqual(rule.frequency, 'none');
+  assert.strictEqual(rule.endType, 'never');
+});
+test('有効なfrequency/endTypeはそのまま採用される', () => {
+  const rule = sandbox.CalendarService.sanitizeRecurrenceRule({ frequency: 'weekly', endType: 'count', count: 5, interval: 2 });
+  assert.strictEqual(rule.frequency, 'weekly');
+  assert.strictEqual(rule.endType, 'count');
+  assert.strictEqual(rule.count, 5);
+  assert.strictEqual(rule.interval, 2);
+});
+test('intervalは1〜99にクランプされる', () => {
+  assert.strictEqual(sandbox.CalendarService.sanitizeRecurrenceRule({ frequency: 'daily', interval: 0 }).interval, 1);
+  assert.strictEqual(sandbox.CalendarService.sanitizeRecurrenceRule({ frequency: 'daily', interval: 500 }).interval, 99);
+  assert.strictEqual(sandbox.CalendarService.sanitizeRecurrenceRule({ frequency: 'daily', interval: NaN }).interval, 1);
+});
+test('countは1〜365にクランプされる', () => {
+  assert.strictEqual(sandbox.CalendarService.sanitizeRecurrenceRule({ frequency: 'daily', endType: 'count', count: 0 }).count, 1);
+  assert.strictEqual(sandbox.CalendarService.sanitizeRecurrenceRule({ frequency: 'daily', endType: 'count', count: 9999 }).count, 365);
+});
+test('untilはYYYY-MM-DD形式のみ受け付け、それ以外はnullになる', () => {
+  assert.strictEqual(sandbox.CalendarService.sanitizeRecurrenceRule({ frequency: 'daily', endType: 'until', until: '2026-12-31' }).until, '2026-12-31');
+  assert.strictEqual(sandbox.CalendarService.sanitizeRecurrenceRule({ frequency: 'daily', endType: 'until', until: '2026/12/31' }).until, null);
+  assert.strictEqual(sandbox.CalendarService.sanitizeRecurrenceRule({ frequency: 'daily', endType: 'until' }).until, null);
+});
+test('endType="until"なのに有効な終了日が無い場合は無期限(never)にフォールバックする（無期限で作成後に直せなくなる事故を防ぐ）', () => {
+  const withoutDate = sandbox.CalendarService.sanitizeRecurrenceRule({ frequency: 'weekly', endType: 'until' });
+  assert.strictEqual(withoutDate.endType, 'never');
+  const withInvalidDate = sandbox.CalendarService.sanitizeRecurrenceRule({ frequency: 'weekly', endType: 'until', until: '2026/12/31' });
+  assert.strictEqual(withInvalidDate.endType, 'never');
+});
+
 console.log('== MailService: clampCount ==');
 test('範囲外は1〜20にクランプ', () => {
   assert.strictEqual(sandbox.MailService.clampCount(0), 1);

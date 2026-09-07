@@ -66,7 +66,14 @@
       sortKey: 'updated',
       ascending: false,
       viewMode: 'list', // 'list' | 'grid'
-      typeFilter: 'all'
+      typeFilter: 'all',
+      // パンくずリスト用のフォルダ階層。マイドライブ(ルート)は含めず、そこから辿った各階層を
+      // { id, name } で積む。サーバー側APIは親フォルダIDを返さないため、アプリ内で辿った
+      // 経路をクライアント側だけで記憶する方式にしている（ピン留めフォルダへジャンプした場合は
+      // 経路をリセットし、ジャンプ先1件だけの階層として扱う）。
+      folderPath: [],
+      // 検索結果表示中かどうか。trueの間にフォルダを開いた場合は経路への追加ではなくジャンプ扱いにする
+      searchActive: false
     },
     mailPage: {
       selectedThreadId: null,
@@ -199,13 +206,35 @@
     return yiq >= 140 ? '#1a1a1a' : '#ffffff';
   }
 
+  function yiqLuminanceOf(hex) {
+    var rgb = hexToRgb(hex);
+    return (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
+  }
+
+  // themeTint()の明度パラメータをそのまま使うと、彩度・色相の組み合わせによっては
+  // (特に黄色系のように同じHSL明度でも知覚的に明るく見える色相)、そのYIQ輝度が
+  // 白文字にとって安全な範囲を超えてしまうことがある。コントロールパネルの文字は
+  // 常に白固定にしたため、白文字で確実に読める明るさになるまで明度を段階的に下げる。
+  function themeTintSafeForWhiteText(hex, baseLightness, saturation, maxYiq) {
+    var lightness = baseLightness;
+    var candidate = themeTint(hex, lightness, saturation);
+    while (yiqLuminanceOf(candidate) > maxYiq && lightness > 15) {
+      lightness -= 4;
+      candidate = themeTint(hex, lightness, saturation);
+    }
+    return candidate;
+  }
+
   function applyThemeBackgrounds(theme) {
     if (!theme || !theme.hex) return;
     var root = document.documentElement.style;
 
     var topbarLight = themeTint(theme.hex, 38, 55);
     var topbarDark = themeTint(theme.hex, 22, 48);
-    var panelLight = themeTint(theme.hex, 80, 45);
+    // パネルの文字は常に白固定(下記参照)にしたため、白文字が確実に読める明るさに収める。
+    // 単純に明度52%固定にすると、同じ明度でも黄色系など知覚的に明るい色相ではYIQ輝度が
+    // 高くなりすぎて白文字が読みにくくなるため、YIQ輝度が閾値以下になるまで明度を調整する。
+    var panelLight = themeTintSafeForWhiteText(theme.hex, 52, 45, 120);
     var panelDark = themeTint(theme.hex, 30, 35);
 
     root.setProperty('--theme-topbar-bg-light', topbarLight);
@@ -215,25 +244,12 @@
 
     root.setProperty('--theme-panel-bg-light', panelLight);
     root.setProperty('--theme-panel-bg-dark', panelDark);
-    root.setProperty('--theme-panel-text-light', pickTextColorFor(panelLight));
-    root.setProperty('--theme-panel-text-dark', pickTextColorFor(panelDark));
+    // コントロールパネルの文字色は輝度判定(黒/白の自動切替)をやめ、常に白の太字に固定する
+    // （テーマによっては自動判定が黒文字を選び、淡色背景との組み合わせで視認性が落ちる事例があったため）。
+    // そのため--theme-panel-text-*は設定せず、Assets.htmlのCSS変数フォールバック(#ffffff)に委ねる。
 
     root.setProperty('--theme-content-bg-light', themeTint(theme.hex, 96, 42));
     root.setProperty('--theme-content-bg-dark', themeTint(theme.hex, 11, 26));
-
-    syncControlPanelTextAttr();
-  }
-
-  // コントロールパネルのホバー演出（.control-panel[data-text="dark|light"]）は、実際に適用されている
-  // --panel-text の輝度で決める。テーマだけでなくダークモードの切替でも--panel-textが変わるため、
-  // テーマ適用時・ダークモード切替時の両方からこの関数を呼ぶ。
-  function syncControlPanelTextAttr() {
-    var panel = qs('control-panel');
-    if (!panel) return;
-    var rgb = getComputedStyle(panel).color.match(/\d+/g);
-    if (!rgb) return;
-    var avg = (parseInt(rgb[0], 10) + parseInt(rgb[1], 10) + parseInt(rgb[2], 10)) / 3;
-    panel.setAttribute('data-text', avg < 128 ? 'dark' : 'light');
   }
 
   // ===================== 画面切り替え =====================
@@ -340,8 +356,6 @@
   // ===================== 表示モード（ライト/ダーク/システム） =====================
   function applyDarkMode(mode) {
     document.documentElement.setAttribute('data-dark-mode', mode || 'system');
-    // ダークモードの切替で--panel-textが変わるため、コントロールパネルのホバー演出も追従させる
-    syncControlPanelTextAttr();
   }
 
   function renderDarkModeSwitcher(selected) {
@@ -655,9 +669,10 @@
         var widthPct = 100 / p.totalCols;
         var leftPct = p.col * widthPct;
         var hex = categoryHex(ev.categoryColorId);
+        var repeatIcon = ev.isRecurring ? '<svg class="icon icon-sm tg-event-repeat"><use href="#icon-repeat"></use></svg>' : '';
         return '<div class="tg-event" data-event-id="' + escapeHtml(ev.id) + '" data-calendar-id="' + escapeHtml(ev.calendarId) + '" ' +
           'style="top:' + topPx + 'px; height:' + heightPx + 'px; left:' + leftPct + '%; width:calc(' + widthPct + '% - 2px); background:' + hex + ';color:' + pickChipTextColor(hex) + ';" title="' + escapeHtml(ev.title || '') + '">' +
-          '<div class="tg-event-time">' + formatTime(ev.start) + '</div><div class="tg-event-title">' + escapeHtml(ev.title || '(無題)') + '</div></div>';
+          '<div class="tg-event-time">' + formatTime(ev.start) + '</div><div class="tg-event-title">' + repeatIcon + escapeHtml(ev.title || '(無題)') + '</div></div>';
       }).join('');
 
       var nowLineHtml = isToday ? '<div class="tg-now-line" style="top:' + ((timeGridMinutes(now) / 60) * GRID_HOUR_PX) + 'px;"></div>' : '';
@@ -857,9 +872,10 @@
     var sorted = events.slice().sort(function (a, b) { return a.start < b.start ? -1 : a.start > b.start ? 1 : 0; });
     container.innerHTML = sorted.map(function (ev) {
       var timeLabel = ev.allDay ? '終日' : formatTime(ev.start) + '〜' + formatTime(ev.end);
+      var repeatIcon = ev.isRecurring ? '<svg class="icon icon-sm" style="color:var(--content-faint); margin-right:2px;"><use href="#icon-repeat"></use></svg>' : '';
       return '<div class="today-item">' +
         '<div class="t-time">' + timeLabel + '</div>' +
-        '<div><div class="t-title"><span class="category-dot" style="background:' + categoryHex(ev.categoryColorId) + ';"></span>' + escapeHtml(ev.title || '(無題)') + '</div></div>' +
+        '<div><div class="t-title"><span class="category-dot" style="background:' + categoryHex(ev.categoryColorId) + ';"></span>' + repeatIcon + escapeHtml(ev.title || '(無題)') + '</div></div>' +
         '</div>';
     }).join('');
   }
@@ -1121,6 +1137,64 @@
     });
   }
 
+  // ===================== カレンダー: 繰り返し予定の設定・適用範囲UI =====================
+  // 繰り返しルールは新規作成時のみ設定できる（作成後のルール変更は非対応。README参照）。
+  function resetRecurrenceControls() {
+    qs('event-recurrence-freq').value = 'none';
+    qs('event-recurrence-interval').value = '1';
+    qs('event-recurrence-end-type').value = 'never';
+    qs('event-recurrence-count').value = '10';
+    qs('event-recurrence-until').value = '';
+    updateRecurrenceControlsVisibility();
+  }
+
+  function updateRecurrenceControlsVisibility() {
+    var active = qs('event-recurrence-freq').value !== 'none';
+    qs('event-recurrence-interval').hidden = !active;
+    qs('event-recurrence-end-row').hidden = !active;
+    var endType = qs('event-recurrence-end-type').value;
+    qs('event-recurrence-count').hidden = !(active && endType === 'count');
+    qs('event-recurrence-until').hidden = !(active && endType === 'until');
+  }
+
+  function readRecurrenceRuleFromForm() {
+    return {
+      frequency: qs('event-recurrence-freq').value,
+      interval: parseInt(qs('event-recurrence-interval').value, 10) || 1,
+      endType: qs('event-recurrence-end-type').value,
+      count: parseInt(qs('event-recurrence-count').value, 10) || 10,
+      until: qs('event-recurrence-until').value || null
+    };
+  }
+
+  // 適用範囲(この予定だけ/シリーズ全体)は、既存の繰り返し予定を編集・削除する場合のみ表示する。
+  // シリーズ全体を選ぶと開始/終了時刻の変更はサーバー側で無視されるため(services.ts参照)、
+  // 混乱を避けるためUI側でも開始/終了/終日の入力を無効化する。
+  function setEventScope(scope) {
+    qs('event-scope').value = scope;
+    Array.prototype.forEach.call(qs('event-scope-switch').querySelectorAll('.toggle-btn'), function (btn) {
+      btn.classList.toggle('active', btn.getAttribute('data-event-scope') === scope);
+    });
+    var isSeries = scope === 'series';
+    qs('event-start').disabled = isSeries;
+    qs('event-end').disabled = isSeries;
+    qs('event-allday').disabled = isSeries;
+    qs('event-scope-hint').textContent = isSeries
+      ? 'タイトル・種類・メモ・ゲストが全ての回に反映されます。開始/終了時刻はこの操作では変更できません（時刻を変えたい場合は「この予定だけ」を選んでください）。'
+      : 'この回だけに適用され、他の回には影響しません。';
+  }
+
+  function initEventRecurrenceControls() {
+    qs('event-recurrence-freq').addEventListener('change', updateRecurrenceControlsVisibility);
+    qs('event-recurrence-end-type').addEventListener('change', updateRecurrenceControlsVisibility);
+  }
+
+  function initEventScopeSwitch() {
+    Array.prototype.forEach.call(qs('event-scope-switch').querySelectorAll('.toggle-btn'), function (btn) {
+      btn.addEventListener('click', function () { setEventScope(btn.getAttribute('data-event-scope')); });
+    });
+  }
+
   function openEventModal(calendarId, eventId, presetDate) {
     var modal = qs('event-modal');
     qs('event-id').value = eventId || '';
@@ -1131,6 +1205,7 @@
     qs('event-description').value = '';
 
     var categoryColorId = '';
+    var isRecurring = false;
     if (eventId) {
       var ev = state.calendar.events.filter(function (e) { return e.id === eventId; })[0];
       if (ev) {
@@ -1141,6 +1216,7 @@
         qs('event-end').value = toDatetimeLocal(ev.end);
         qs('event-guests').value = ev.guests.join(', ');
         categoryColorId = ev.categoryColorId || '';
+        isRecurring = !!ev.isRecurring;
       }
     } else {
       qs('event-title').value = '';
@@ -1151,6 +1227,13 @@
     }
     qs('event-category').value = categoryColorId;
     renderCategorySwatchPicker(state.eventCategories, categoryColorId);
+
+    qs('event-recurrence-section').hidden = !!eventId;
+    resetRecurrenceControls();
+
+    qs('event-scope-section').hidden = !isRecurring;
+    setEventScope('single');
+
     modal.hidden = false;
   }
 
@@ -1166,6 +1249,8 @@
   }
 
   function initEventModal() {
+    initEventRecurrenceControls();
+    initEventScopeSwitch();
     qs('btn-new-event').addEventListener('click', function () { openEventModal(null, null); });
     qs('btn-event-cancel').addEventListener('click', function () { qs('event-modal').hidden = true; });
 
@@ -1181,9 +1266,21 @@
       var description = qs('event-description').value;
       var categoryColorId = qs('event-category').value;
 
-      var promise = id
-        ? gasRun('updateCalendarEvent', calendarId, id, title, startIso, endIso, guests, description, categoryColorId)
-        : gasRun('createCalendarEvent', calendarId, title, startIso, endIso, allDay, guests, description, categoryColorId);
+      var promise;
+      if (id) {
+        var scope = qs('event-scope').value;
+        promise = gasRun('updateCalendarEvent', calendarId, id, title, startIso, endIso, guests, description, categoryColorId, scope);
+      } else {
+        var recurrenceRule = readRecurrenceRuleFromForm();
+        if (recurrenceRule.frequency !== 'none' && recurrenceRule.endType === 'until') {
+          if (!recurrenceRule.until) { window.alert('繰り返しの終了日を入力してください'); return; }
+          if (recurrenceRule.until < qs('event-start').value.slice(0, 10)) {
+            window.alert('繰り返しの終了日は開始日以降の日付にしてください');
+            return;
+          }
+        }
+        promise = gasRun('createCalendarEvent', calendarId, title, startIso, endIso, allDay, guests, description, categoryColorId, recurrenceRule);
+      }
 
       promise.then(function () {
         qs('event-modal').hidden = true;
@@ -1192,10 +1289,12 @@
     });
 
     qs('btn-event-delete').addEventListener('click', function () {
-      if (!window.confirm('この予定を削除しますか？')) return;
+      var scope = qs('event-scope').value;
+      var confirmMessage = scope === 'series' ? 'このシリーズ全体（すべての回）を削除しますか？' : 'この予定を削除しますか？';
+      if (!window.confirm(confirmMessage)) return;
       var id = qs('event-id').value;
       var calendarId = qs('event-calendar').value;
-      gasRun('deleteCalendarEvent', calendarId, id).then(function () {
+      gasRun('deleteCalendarEvent', calendarId, id, scope).then(function () {
         qs('event-modal').hidden = true;
         return refreshCalendarViews();
       }).catch(showError);
@@ -1852,7 +1951,11 @@
     Array.prototype.forEach.call(container.querySelectorAll('.pinned-folder-chip'), function (chip) {
       chip.addEventListener('click', function (e) {
         if (e.target.closest('.btn-unpin')) return;
-        loadDriveFolder(chip.getAttribute('data-folder-id'));
+        // ピン留めは階層を辿らない直接ジャンプのため、パンくずはジャンプ先1件だけにリセットする
+        // （祖先フォルダの情報をサーバーから取得していないため、経路全体は復元できない）。
+        var id = chip.getAttribute('data-folder-id');
+        var pinned = (state.home && state.home.userSettings.pinnedFolders || []).filter(function (f) { return f.id === id; })[0];
+        jumpToDriveFolder(id, pinned ? pinned.name : '');
       });
     });
     Array.prototype.forEach.call(container.querySelectorAll('.btn-unpin'), function (btn) {
@@ -1969,7 +2072,10 @@
     Array.prototype.forEach.call(container.querySelectorAll('.btn-drive-open'), function (btn) {
       btn.addEventListener('click', function () {
         var row = btn.closest('[data-file-id]');
-        loadDriveFolder(row.getAttribute('data-file-id'));
+        var id = row.getAttribute('data-file-id');
+        var item = state.drive.items.filter(function (i) { return i.id === id; })[0];
+        var name = item ? item.name : '';
+        if (state.drive.searchActive) { jumpToDriveFolder(id, name); } else { openDriveFolder(id, name); }
       });
     });
     Array.prototype.forEach.call(container.querySelectorAll('.btn-drive-preview'), function (btn) {
@@ -1986,7 +2092,9 @@
         if (e.target.closest('a, button')) return;
         var fileId = row.getAttribute('data-file-id');
         if (row.getAttribute('data-is-folder') === 'true') {
-          loadDriveFolder(fileId);
+          var item = state.drive.items.filter(function (i) { return i.id === fileId; })[0];
+          var name = item ? item.name : '';
+          if (state.drive.searchActive) { jumpToDriveFolder(fileId, name); } else { openDriveFolder(fileId, name); }
         } else {
           openDrivePreview(fileId);
         }
@@ -2021,10 +2129,91 @@
 
   function loadDriveFolder(folderId) {
     state.drive.currentFolderId = folderId;
+    state.drive.searchActive = false;
+    renderDriveBreadcrumb();
     return gasRun('listDriveFiles', folderId, state.drive.sortKey, state.drive.ascending).then(function (items) {
       state.drive.items = items;
       renderDriveList(items);
     }).catch(showError);
+  }
+
+  function runDriveSearch() {
+    var query = qs('drive-search').value.trim();
+    if (!query) { return loadDriveFolder(state.drive.currentFolderId); }
+    return gasRun('searchDriveFiles', query).then(function (items) {
+      // 検索結果は現在の階層と無関係な場所から集まるため、結果からフォルダを開いた場合は
+      // パンくずを経路の続きとして積まず、そのフォルダ単体へのジャンプとして扱う。
+      // パンくず自体も、直前にいた場所を誤解させないよう検索中は非表示にする。
+      state.drive.searchActive = true;
+      state.drive.items = items;
+      renderDriveList(items);
+      renderDriveBreadcrumb();
+    }).catch(showError);
+  }
+
+  // 更新ボタン・並び替え(種類/日時・昇順降順)は、検索結果表示中はその検索を条件そのままで
+  // 再実行する（以前はここで常にloadDriveFolder()を呼んでいたため、検索中に更新や並び替えを
+  // 触ると検索結果が何の予告もなくフォルダ一覧に置き換わってしまっていた）。
+  // ただしsearchDriveFiles()自体は関連度順に固定でsort/order引数を受け付けないため、
+  // 検索結果表示中は並び替えの見た目上の変化はない（検索モードが途切れないことだけを保証する）。
+  function refreshDriveView() {
+    if (state.drive.searchActive) {
+      return runDriveSearch();
+    }
+    return loadDriveFolder(state.drive.currentFolderId);
+  }
+
+  // ===================== Drive: パンくずリスト（フォルダ階層のナビゲーション） =====================
+  // フォルダを開く（一覧上のフォルダをクリック/「開く」ボタン）たびに経路へ積んでいく。
+  function openDriveFolder(folderId, folderName) {
+    state.drive.folderPath = state.drive.folderPath.concat([{ id: folderId, name: folderName || '' }]);
+    return loadDriveFolder(folderId);
+  }
+
+  // ピン留めフォルダへのジャンプ・検索結果からのフォルダオープンなど、現在の経路と無関係な
+  // 場所へ移動する場合に使う。経路をジャンプ先1件だけにリセットする。
+  function jumpToDriveFolder(folderId, folderName) {
+    state.drive.folderPath = [{ id: folderId, name: folderName || '' }];
+    return loadDriveFolder(folderId);
+  }
+
+  // 「上の階層へ」は、以前は常にマイドライブ直下(ルート)へ戻っていたが、実際に辿ってきた
+  // 経路から1階層だけ戻る（Google Driveの「戻る」相当の挙動）ようにしたもの。
+  function goDriveUp() {
+    state.drive.folderPath = state.drive.folderPath.slice(0, -1);
+    var parent = state.drive.folderPath[state.drive.folderPath.length - 1];
+    return loadDriveFolder(parent ? parent.id : null);
+  }
+
+  function goToDriveBreadcrumb(index) {
+    if (index < 0) {
+      state.drive.folderPath = [];
+      return loadDriveFolder(null);
+    }
+    state.drive.folderPath = state.drive.folderPath.slice(0, index + 1);
+    return loadDriveFolder(state.drive.folderPath[index].id);
+  }
+
+  function renderDriveBreadcrumb() {
+    var container = qs('drive-breadcrumb');
+    if (!container) return;
+    // 検索結果表示中は、一覧が現在の階層と無関係な場所から集まってくるため、
+    // 直前にいたフォルダの経路をそのまま表示すると現在地を誤解させる。検索中は非表示にする。
+    // 経路が空(マイドライブ直下)のときも同様にパンくず自体を表示しない。
+    if (state.drive.searchActive || state.drive.folderPath.length === 0) {
+      container.innerHTML = '';
+      return;
+    }
+    var crumbs = [{ id: null, name: 'マイドライブ' }].concat(state.drive.folderPath);
+    container.innerHTML = crumbs.map(function (crumb, i) {
+      var isCurrent = i === crumbs.length - 1;
+      var label = escapeHtml(crumb.name || '(名称不明)');
+      var sep = isCurrent ? '' : '<span class="drive-breadcrumb-sep">/</span>';
+      return '<button type="button" class="drive-breadcrumb-item' + (isCurrent ? ' is-current' : '') + '" data-index="' + (i - 1) + '"' + (isCurrent ? ' disabled' : '') + '>' + label + '</button>' + sep;
+    }).join('');
+    Array.prototype.forEach.call(container.querySelectorAll('.drive-breadcrumb-item:not(.is-current)'), function (btn) {
+      btn.addEventListener('click', function () { goToDriveBreadcrumb(parseInt(btn.getAttribute('data-index'), 10)); });
+    });
   }
 
   // ===================== Drive表示形式(リスト/グリッド)の切替 =====================
@@ -2056,28 +2245,113 @@
     });
   }
 
-  function initDrive() {
-    qs('btn-drive-refresh').addEventListener('click', function (e) {
-      withSpinner(e.currentTarget, function () { return loadDriveFolder(state.drive.currentFolderId); });
+  // ===================== Drive: ドラッグ&ドロップ／ファイル選択によるアップロード =====================
+  // FileをGAS側に渡せる形式(base64文字列)に変換する。data:URLの先頭"data:<mime>;base64,"部分は
+  // uploadDriveFile()側では不要なため、カンマ以降だけを取り出す。
+  function readFileAsBase64(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        var result = String(reader.result || '');
+        var commaIndex = result.indexOf(',');
+        resolve(commaIndex === -1 ? result : result.slice(commaIndex + 1));
+      };
+      reader.onerror = function () { reject(reader.error || new Error('ファイルの読み込みに失敗しました')); };
+      reader.readAsDataURL(file);
     });
-    qs('btn-drive-up').addEventListener('click', function () { loadDriveFolder(null); });
+  }
 
-    qs('btn-drive-search').addEventListener('click', function () {
-      var query = qs('drive-search').value.trim();
-      if (!query) { loadDriveFolder(state.drive.currentFolderId); return; }
-      gasRun('searchDriveFiles', query).then(function (items) {
-        state.drive.items = items;
-        renderDriveList(items);
-      }).catch(showError);
+  // 複数ファイルは並列に投げるとgoogle.script.runの同時実行数やDriveのレート制限に当たりやすいため、
+  // 1件ずつ順番にアップロードする。1件の失敗が他のファイルの処理を止めないよう、失敗はcatchで
+  // 個別に握りつぶして件数だけ記録し、最後にまとめて結果をトーストで表示する。
+  function uploadDriveFiles(fileList) {
+    var files = Array.prototype.slice.call(fileList || []);
+    if (files.length === 0) return Promise.resolve();
+    var folderId = state.drive.currentFolderId;
+    var successCount = 0;
+    var failCount = 0;
+
+    var failedNames = [];
+    var chain = files.reduce(function (promise, file) {
+      return promise.then(function () {
+        return readFileAsBase64(file)
+          .then(function (base64) {
+            return gasRun('uploadDriveFile', folderId, file.name, file.type || 'application/octet-stream', base64);
+          })
+          .then(function () { successCount++; })
+          .catch(function (err) {
+            // window.alert(showError)を1件ごとに出すとダイアログが連続してブロックしてしまうため、
+            // ここでは個別には通知せず件数だけ記録し、全件処理後にまとめて1回だけ知らせる。
+            failCount++;
+            failedNames.push(file.name);
+            console.error('アップロードに失敗しました: ' + file.name, err);
+          });
+      });
+    }, Promise.resolve());
+
+    return chain.then(function () {
+      if (successCount > 0) {
+        showToast(successCount + '件アップロードしました' + (failCount > 0 ? '（' + failCount + '件失敗）' : ''));
+      }
+      if (failCount > 0) {
+        window.alert(failCount + '件のアップロードに失敗しました:\n' + failedNames.join('\n'));
+      }
+      return loadDriveFolder(state.drive.currentFolderId);
     });
+  }
+
+  function initDriveUpload() {
+    var dropzone = qs('drive-list');
+    var fileInput = qs('drive-upload-input');
+    var dragCounter = 0;
+
+    qs('btn-drive-upload').addEventListener('click', function () { fileInput.click(); });
+    fileInput.addEventListener('change', function () {
+      withSpinner(qs('btn-drive-upload'), function () { return uploadDriveFiles(fileInput.files); });
+      fileInput.value = '';
+    });
+
+    // dragenter/dragleaveは子要素への出入りでも発火するため、カウンタで実際にゾーンの外に
+    // 出たときだけ is-drag-over を外す（子要素をまたぐたびにチラつくのを防ぐ）。
+    dropzone.addEventListener('dragenter', function (e) {
+      if (!e.dataTransfer || e.dataTransfer.types.indexOf('Files') === -1) return;
+      e.preventDefault();
+      dragCounter++;
+      dropzone.classList.add('is-drag-over');
+    });
+    dropzone.addEventListener('dragover', function (e) {
+      if (!e.dataTransfer || e.dataTransfer.types.indexOf('Files') === -1) return;
+      e.preventDefault();
+    });
+    dropzone.addEventListener('dragleave', function () {
+      dragCounter = Math.max(0, dragCounter - 1);
+      if (dragCounter === 0) dropzone.classList.remove('is-drag-over');
+    });
+    dropzone.addEventListener('drop', function (e) {
+      if (!e.dataTransfer || e.dataTransfer.types.indexOf('Files') === -1) return;
+      e.preventDefault();
+      dragCounter = 0;
+      dropzone.classList.remove('is-drag-over');
+      uploadDriveFiles(e.dataTransfer.files);
+    });
+  }
+
+  function initDrive() {
+    initDriveUpload();
+    qs('btn-drive-refresh').addEventListener('click', function (e) {
+      withSpinner(e.currentTarget, function () { return refreshDriveView(); });
+    });
+    qs('btn-drive-up').addEventListener('click', function () { goDriveUp(); });
+
+    qs('btn-drive-search').addEventListener('click', function () { runDriveSearch(); });
 
     qs('drive-sort').addEventListener('change', function () {
       state.drive.sortKey = qs('drive-sort').value;
-      loadDriveFolder(state.drive.currentFolderId);
+      refreshDriveView();
     });
     qs('drive-order').addEventListener('change', function () {
       state.drive.ascending = qs('drive-order').value === 'asc';
-      loadDriveFolder(state.drive.currentFolderId);
+      refreshDriveView();
     });
 
     qs('btn-drive-preview-close').addEventListener('click', function () {

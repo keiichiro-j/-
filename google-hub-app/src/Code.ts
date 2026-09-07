@@ -122,7 +122,8 @@ function createCalendarEvent(
   allDay: boolean,
   guestsCsv: string,
   description: string,
-  categoryColorId: string
+  categoryColorId: string,
+  recurrenceRule?: Partial<EventRecurrenceRule> | null
 ): CalendarEventItem {
   return CalendarService.createEvent(
     calendarId,
@@ -132,7 +133,8 @@ function createCalendarEvent(
     allDay,
     guestsCsv,
     description,
-    categoryColorId
+    categoryColorId,
+    recurrenceRule
   );
 }
 
@@ -144,7 +146,8 @@ function updateCalendarEvent(
   endIso: string,
   guestsCsv: string,
   description: string,
-  categoryColorId: string
+  categoryColorId: string,
+  scope?: EventEditScope
 ): CalendarEventItem {
   return CalendarService.updateEvent(
     calendarId,
@@ -154,12 +157,13 @@ function updateCalendarEvent(
     endIso,
     guestsCsv,
     description,
-    categoryColorId
+    categoryColorId,
+    scope
   );
 }
 
-function deleteCalendarEvent(calendarId: string, eventId: string): void {
-  CalendarService.deleteEvent(calendarId, eventId);
+function deleteCalendarEvent(calendarId: string, eventId: string, scope?: EventEditScope): void {
+  CalendarService.deleteEvent(calendarId, eventId, scope);
 }
 
 /** 月表示カレンダーでのドラッグ&ドロップによる日付変更（時刻のみ更新、他の項目は変更しない） */
@@ -196,6 +200,11 @@ function renameDriveEntry(id: string, newName: string, isFolder: boolean): Drive
 
 function moveDriveFile(fileId: string, destinationFolderId: string): DriveFileItem {
   return DriveService.moveFile(fileId, destinationFolderId);
+}
+
+/** ドラッグ&ドロップ／ファイル選択でのアップロード用。base64Dataはdata:URLのカンマ以降のみを渡す */
+function uploadDriveFile(folderId: string | null, fileName: string, mimeType: string, base64Data: string): DriveFileItem {
+  return DriveService.uploadFile(folderId, fileName, mimeType, base64Data);
 }
 
 // ---- スクリプト/アプリ台帳 ----
