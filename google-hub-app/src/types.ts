@@ -35,6 +35,8 @@ interface CalendarEventItem {
   end: string; // ISO8601
   allDay: boolean;
   guests: string[];
+  /** 予定の種類（EventCategory.CATEGORIES の id = Calendarの colorId）。未設定は空文字 */
+  categoryColorId: string;
 }
 
 interface CalendarInfo {
@@ -76,13 +78,10 @@ type AppStatus = "ok" | "error" | "unknown";
 
 interface AppLedgerEntry {
   id: string;
-  /** 実際のアプリ名（参照用） */
+  /** リンク先ページの <title> から自動取得した名称（手動編集は不可） */
   name: string;
-  /** アプリリンク集に表示する名称。未設定時は name を表示する */
-  displayName: string;
   url: string;
-  description: string;
-  updatedAt: string; // ISO8601
+  addedAt: string; // ISO8601
   lastCheckedAt: string | null; // ISO8601
   status: AppStatus;
 }

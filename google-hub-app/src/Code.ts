@@ -49,6 +49,11 @@ function listThemeChoices(): { id: string; name: string; hex: string | null }[] 
   return Theme.listChoices();
 }
 
+/** 予定作成/編集モーダルの「予定の種類」選択肢 */
+function listEventCategories(): EventCategory.Category[] {
+  return EventCategory.CATEGORIES;
+}
+
 /** ヘッダー検索バー用: アプリ台帳とDriveを横断検索する */
 function globalSearch(query: string): GlobalSearchResult {
   const trimmed = query.trim();
@@ -56,12 +61,7 @@ function globalSearch(query: string): GlobalSearchResult {
     return { apps: [], files: [] };
   }
   const lower = trimmed.toLowerCase();
-  const apps = AppLedger.listApps().filter(
-    (app) =>
-      app.name.toLowerCase().indexOf(lower) !== -1 ||
-      app.displayName.toLowerCase().indexOf(lower) !== -1 ||
-      app.description.toLowerCase().indexOf(lower) !== -1
-  );
+  const apps = AppLedger.listApps().filter((app) => app.name.toLowerCase().indexOf(lower) !== -1);
   const files = DriveService.searchFiles(trimmed, 10);
   return { apps, files };
 }
@@ -93,9 +93,19 @@ function createCalendarEvent(
   endIso: string,
   allDay: boolean,
   guestsCsv: string,
-  description: string
+  description: string,
+  categoryColorId: string
 ): CalendarEventItem {
-  return CalendarService.createEvent(calendarId, title, startIso, endIso, allDay, guestsCsv, description);
+  return CalendarService.createEvent(
+    calendarId,
+    title,
+    startIso,
+    endIso,
+    allDay,
+    guestsCsv,
+    description,
+    categoryColorId
+  );
 }
 
 function updateCalendarEvent(
@@ -105,9 +115,19 @@ function updateCalendarEvent(
   startIso: string,
   endIso: string,
   guestsCsv: string,
-  description: string
+  description: string,
+  categoryColorId: string
 ): CalendarEventItem {
-  return CalendarService.updateEvent(calendarId, eventId, title, startIso, endIso, guestsCsv, description);
+  return CalendarService.updateEvent(
+    calendarId,
+    eventId,
+    title,
+    startIso,
+    endIso,
+    guestsCsv,
+    description,
+    categoryColorId
+  );
 }
 
 function deleteCalendarEvent(calendarId: string, eventId: string): void {
@@ -146,18 +166,9 @@ function listApps(): AppLedgerEntry[] {
   return AppLedger.listApps();
 }
 
-function addApp(name: string, displayName: string, url: string, description: string): AppLedgerEntry {
-  return AppLedger.addApp(name, displayName, url, description);
-}
-
-function updateApp(
-  id: string,
-  name: string,
-  displayName: string,
-  url: string,
-  description: string
-): AppLedgerEntry {
-  return AppLedger.updateApp(id, name, displayName, url, description);
+/** リンクを貼り付けるだけで登録する（名称はリンク先ページの<title>から自動取得、編集機能はない） */
+function addApp(url: string): AppLedgerEntry {
+  return AppLedger.addApp(url);
 }
 
 function deleteApp(id: string): void {

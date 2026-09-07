@@ -13,10 +13,11 @@ Google Apps Script プロジェクトです。Drive・Calendar・Mail と自社�
 |---|---|
 | `src/Code.ts` | 7. システム構成（`doGet`エントリポイント、`google.script.run`用API） |
 | `src/theme.ts` | 6. カラーテーマ仕様（11色+ランダム2色、YIQ輝度による文字色自動切替） |
-| `src/services/driveService.ts` | 4. Drive機能（一覧・検索・並び替え・プレビュー・共有設定変更・移動） |
-| `src/services/calendarService.ts` | 4. Calendar機能（予定作成/編集/削除・ゲスト招待・複数カレンダー統合） |
+| `src/eventCategory.ts` | カレンダー予定の種類分け（有給/半休/ミーティング等、Calendarのイベントカラーで色分け） |
+| `src/services/driveService.ts` | 4. Drive機能（一覧・検索・並び替え・プレビュー・共有設定変更・移動・名称変更） |
+| `src/services/calendarService.ts` | 4. Calendar機能（予定作成/編集/削除・ゲスト招待・複数カレンダー統合・種類の色分け） |
 | `src/services/mailService.ts` | 4. Mail機能（直近N件の件名一覧・本文閲覧・新規作成/送信） |
-| `src/services/appLedger.ts` | 4. スクリプト管理／11.2 自社アプリ台帳（スプレッドシート台帳・簡易死活監視・表示名管理） |
+| `src/services/appLedger.ts` | 4. スクリプト管理／11.2 自社アプリ台帳（URL貼り付けのみで登録、名称は<title>から自動取得・編集不可・簡易死活監視） |
 | `src/services/userSettingsService.ts` | 5.2 ホーム画面のカスタマイズ機能（個人設定） |
 | `src/services/globalSettingsService.ts` | 5.3 アプリ全域のデータ設定（全体設定） |
 | `src/services/dateUtils.ts` | ミニカレンダー表示用の月範囲計算 |
@@ -57,8 +58,8 @@ Drive機能は企画書5.1のホーム3カード（カレンダー／メール�
 
 Calendar/Drive/Gmail/Spreadsheet等の外部サービスに依存しない純粋ロジック
 （テーマ抽選・輝度判定、設定値のサニタイズ、ゲストCSV解析、HTTPステータス判定、
-Drive一覧の並び替え、月範囲計算）を Node.js の `vm` サンドボックスで検証します。
-実行前に一度 `npm run build` が必要です。
+Drive一覧の並び替え、月範囲計算、URL検証と`<title>`抽出、予定の種類と色の対応）を
+Node.js の `vm` サンドボックスで検証します。実行前に一度 `npm run build` が必要です。
 
 ```bash
 npm run build
@@ -75,6 +76,14 @@ Gmail閲覧・送信、スプレッドシート台帳、簡易死活監視のUrl
 別スコープとして管理しています。将来的に共有設定変更・移動機能を使わない場合は、
 `drive.readonly` へ絞り込むことを推奨します。
 
+## 予定の種類（カテゴリ）と色分けについて
+
+予定作成/編集モーダルの「予定の種類」（未設定／有給／午前半休／午後半休／ミーティング／来客対応／
+出張／その他）は、追加のプロパティやシートを持たず、Google Calendarが標準で持つイベントカラー
+（`CalendarEvent.setColor()`/`getColor()`、colorId "1"〜"11"）にそのまま乗せて実装しています
+（`src/eventCategory.ts`）。そのため、本アプリで設定した色分けはGoogleカレンダー本体でもそのまま
+確認できます。候補を増減したい場合は `EventCategory.CATEGORIES` を編集してください。
+
 ## 制約事項・留意点（企画書 8章 準拠）
 
 - 1回のスクリプト実行は最大6分でタイムアウトするため、`checkAllApps()` によるアプリ台帳の
@@ -82,6 +91,11 @@ Gmail閲覧・送信、スプレッドシート台帳、簡易死活監視のUrl
 - カレンダーへのゲスト招待メール送信、メールタブからの新規作成・送信はいずれもGmail送信枠を
   消費するため、大量自動送信は避けてください。
 - Google Chatとの連携は本フェーズの対象外です（将来フェーズで再検討）。
+- アプリリンク集はURLを貼り付けるだけで登録する方式とし、後から名称やURLを編集する機能は
+  意図的に持たせていません（誤登録は削除のみ可能）。名称はリンク先ページの`<title>`を
+  自動取得します。取得できない場合はURLがそのまま名称になります。
+- カレンダーをメインコンテンツの縦幅いっぱいに表示するレイアウトはPCビュー限定です
+  （モバイル幅では従来通り内容に応じた高さで表示されます）。
 
 ## 未実装・今回スコープ外
 

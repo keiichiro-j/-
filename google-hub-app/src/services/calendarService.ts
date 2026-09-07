@@ -43,7 +43,16 @@ namespace CalendarService {
       end: event.getEndTime().toISOString(),
       allDay: event.isAllDayEvent(),
       guests: event.getGuestList().map((g) => g.getEmail()),
+      categoryColorId: event.getColor() || "",
     };
+  }
+
+  /** 予定の種類(カテゴリ)をCalendarのイベントカラーとして設定する。空文字は「未設定」として何もしない */
+  function applyCategoryColor(event: GoogleAppsScript.Calendar.CalendarEvent, categoryColorId: string): void {
+    if (!categoryColorId) {
+      return;
+    }
+    event.setColor(categoryColorId);
   }
 
   /** 複数カレンダーの予定を期間指定でまとめて取得し、開始時刻順に整列する */
@@ -70,7 +79,8 @@ namespace CalendarService {
     endIso: string,
     allDay: boolean,
     guestsCsv: string,
-    description: string
+    description: string,
+    categoryColorId: string
   ): CalendarEventItem {
     const calendar = resolveCalendar(calendarId);
     const guests = parseGuestsCsv(guestsCsv);
@@ -85,6 +95,7 @@ namespace CalendarService {
     } else {
       event = calendar.createEvent(title, new Date(startIso), new Date(endIso), options);
     }
+    applyCategoryColor(event, categoryColorId);
     return toItem(calendarId, event);
   }
 
@@ -95,7 +106,8 @@ namespace CalendarService {
     startIso: string,
     endIso: string,
     guestsCsv: string,
-    description: string
+    description: string,
+    categoryColorId: string
   ): CalendarEventItem {
     const calendar = resolveCalendar(calendarId);
     const event = calendar.getEventById(eventId);
@@ -107,6 +119,7 @@ namespace CalendarService {
       event.setTime(new Date(startIso), new Date(endIso));
     }
     event.setDescription(description);
+    applyCategoryColor(event, categoryColorId);
 
     const desiredGuests = parseGuestsCsv(guestsCsv);
     const currentGuests = event.getGuestList().map((g) => g.getEmail());

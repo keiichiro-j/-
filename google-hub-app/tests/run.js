@@ -29,6 +29,7 @@ vm.createContext(sandbox);
 
 const FILES = [
   'theme.js',
+  'eventCategory.js',
   'services/dateUtils.js',
   'services/userSettingsService.js',
   'services/globalSettingsService.js',
@@ -144,6 +145,34 @@ test('2xx/3xxはok', () => {
 test('4xx/5xxはerror', () => {
   assert.strictEqual(sandbox.AppLedger.statusFromHttpCode(404), 'error');
   assert.strictEqual(sandbox.AppLedger.statusFromHttpCode(500), 'error');
+});
+
+console.log('== AppLedger: isValidHttpUrl / extractTitle（リンク貼り付けのみで登録） ==');
+test('http/httpsのURLのみ有効', () => {
+  assert.strictEqual(sandbox.AppLedger.isValidHttpUrl('https://example.com'), true);
+  assert.strictEqual(sandbox.AppLedger.isValidHttpUrl('http://example.com/path'), true);
+  assert.strictEqual(sandbox.AppLedger.isValidHttpUrl('ftp://example.com'), false);
+  assert.strictEqual(sandbox.AppLedger.isValidHttpUrl('example.com'), false);
+});
+test('<title>タグの中身を抽出しHTMLエンティティをデコードする', () => {
+  const html = '<html><head><title>在庫管理 &amp; 発注</title></head></html>';
+  assert.strictEqual(sandbox.AppLedger.extractTitle(html), '在庫管理 & 発注');
+});
+test('<title>が無ければnull', () => {
+  assert.strictEqual(sandbox.AppLedger.extractTitle('<html><head></head></html>'), null);
+});
+
+console.log('== EventCategory: listChoices / labelFor / hexFor（予定の種類の色分け） ==');
+test('未設定を含め8種類の候補がある', () => {
+  assert.strictEqual(sandbox.EventCategory.CATEGORIES.length, 8);
+  assert.strictEqual(sandbox.EventCategory.CATEGORIES[0].id, '');
+});
+test('colorIdからラベル・色を逆引きできる', () => {
+  assert.strictEqual(sandbox.EventCategory.labelFor('10'), '有給');
+  assert.strictEqual(sandbox.EventCategory.hexFor('9'), '#5484ed');
+});
+test('未知のcolorIdは未設定にフォールバック', () => {
+  assert.strictEqual(sandbox.EventCategory.labelFor('99'), '未設定');
 });
 
 console.log('== DriveService: iconUrlForMimeType / sortItems ==');

@@ -1,12 +1,14 @@
 /**
  * 4. スクリプト管理 / 11.2 自社アプリ台帳機能への応用
- * 自社GASアプリの一覧（名称・URL・用途・更新日）をスプレッドシート台帳で管理し、
- * UrlFetchAppによる簡易死活監視（起動確認）を行う。
+ * 自社GASアプリ等へのリンクをスプレッドシート台帳で管理する。
+ * URLを貼り付けるだけで登録でき、名称はリンク先ページの<title>から自動取得する
+ * （台帳の内容を後から書き換える「編集」機能は持たせない。誤登録は削除のみ可能）。
+ * UrlFetchAppによる簡易死活監視（起動確認）も行う。
  */
 namespace AppLedger {
   const LEDGER_ID_PROPERTY = "LEDGER_SPREADSHEET_ID";
   const SHEET_NAME = "Apps";
-  const HEADERS = ["id", "name", "displayName", "url", "description", "updatedAt", "lastCheckedAt", "status"];
+  const HEADERS = ["id", "name", "url", "addedAt", "lastCheckedAt", "status"];
 
   /** HTTPステータスコードから稼働状況を判定する（純粋関数） */
   export function statusFromHttpCode(code: number): AppStatus {
@@ -14,6 +16,39 @@ namespace AppLedger {
       return "ok";
     }
     return "error";
+  }
+
+  /** http/https のURLとして最低限妥当かを判定する（純粋関数） */
+  export function isValidHttpUrl(url: string): boolean {
+    return /^https?:\/\/.+/i.test(url.trim());
+  }
+
+  /** HTMLソースから<title>の中身を抜き出す（純粋関数）。見つからなければnull */
+  export function extractTitle(html: string): string | null {
+    const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    if (!match) {
+      return null;
+    }
+    const decoded = match[1]
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/\s+/g, " ")
+      .trim();
+    return decoded.length > 0 ? decoded : null;
+  }
+
+  /** リンク先ページを取得し、<title>を名称として使う。取得できない場合はURLをそのまま名称にする */
+  function resolveNameFromUrl(url: string): string {
+    try {
+      const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true });
+      const title = extractTitle(response.getContentText());
+      return title || url;
+    } catch (e) {
+      return url;
+    }
   }
 
   function getOrCreateSpreadsheet(): GoogleAppsScript.Spreadsheet.Spreadsheet {
@@ -48,12 +83,10 @@ namespace AppLedger {
     return {
       id: String(row[0]),
       name: String(row[1]),
-      displayName: String(row[2] || ""),
-      url: String(row[3]),
-      description: String(row[4]),
-      updatedAt: toIso(row[5]),
-      lastCheckedAt: row[6] ? toIso(row[6]) : null,
-      status: (row[7] as AppStatus) || "unknown",
+      url: String(row[2]),
+      addedAt: toIso(row[3]),
+      lastCheckedAt: row[4] ? toIso(row[4]) : null,
+      status: (row[5] as AppStatus) || "unknown",
     };
   }
 
@@ -88,31 +121,18 @@ namespace AppLedger {
     return -1;
   }
 
-  export function addApp(name: string, displayName: string, url: string, description: string): AppLedgerEntry {
+  /** URLを貼り付けるだけで登録する。名称はリンク先の<title>から自動取得する */
+  export function addApp(url: string): AppLedgerEntry {
+    const trimmedUrl = url.trim();
+    if (!isValidHttpUrl(trimmedUrl)) {
+      throw new Error("http:// または https:// で始まる正しいURLを入力してください");
+    }
     const sheet = getOrCreateSheet();
     const id = Utilities.getUuid();
     const now = new Date().toISOString();
-    sheet.appendRow([id, name, displayName, url, description, now, "", "unknown"]);
-    return { id, name, displayName, url, description, updatedAt: now, lastCheckedAt: null, status: "unknown" };
-  }
-
-  export function updateApp(
-    id: string,
-    name: string,
-    displayName: string,
-    url: string,
-    description: string
-  ): AppLedgerEntry {
-    const sheet = getOrCreateSheet();
-    const rowIndex = findRowIndexById(sheet, id);
-    if (rowIndex === -1) {
-      throw new Error("台帳エントリが見つかりません: " + id);
-    }
-    const now = new Date().toISOString();
-    sheet.getRange(rowIndex, 2, 1, 4).setValues([[name, displayName, url, description]]);
-    sheet.getRange(rowIndex, 6).setValue(now);
-    const row = sheet.getRange(rowIndex, 1, 1, HEADERS.length).getValues()[0];
-    return rowToEntry(row);
+    const name = resolveNameFromUrl(trimmedUrl);
+    sheet.appendRow([id, name, trimmedUrl, now, "", "unknown"]);
+    return { id, name, url: trimmedUrl, addedAt: now, lastCheckedAt: null, status: "unknown" };
   }
 
   export function deleteApp(id: string): void {
@@ -130,7 +150,7 @@ namespace AppLedger {
     if (rowIndex === -1) {
       throw new Error("台帳エントリが見つかりません: " + id);
     }
-    const url = String(sheet.getRange(rowIndex, 4).getValue());
+    const url = String(sheet.getRange(rowIndex, 3).getValue());
     let status: AppStatus = "error";
     try {
       const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true });
@@ -139,7 +159,7 @@ namespace AppLedger {
       status = "error";
     }
     const now = new Date().toISOString();
-    sheet.getRange(rowIndex, 7, 1, 2).setValues([[now, status]]);
+    sheet.getRange(rowIndex, 5, 1, 2).setValues([[now, status]]);
     const row = sheet.getRange(rowIndex, 1, 1, HEADERS.length).getValues()[0];
     return rowToEntry(row);
   }
