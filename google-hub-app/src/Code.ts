@@ -29,10 +29,11 @@ function getHomeData(): HomeData {
   const events = CalendarService.getEvents(globalSettings.syncCalendarIds, range.startIso, range.endIso);
   const mails = MailService.getRecentSubjects(userSettings.mailCount, globalSettings.mailLabel);
   const apps = AppLedger.listApps();
+  const todos = TodoService.list();
   const theme = Theme.resolveTheme(userSettings.themeChoice);
   const currentUserEmail = getCurrentUserEmail();
 
-  return { theme, userSettings, globalSettings, calendars, events, mails, apps, currentUserEmail };
+  return { theme, userSettings, globalSettings, calendars, events, mails, apps, todos, currentUserEmail };
 }
 
 function getCurrentUserEmail(): string {
@@ -221,4 +222,26 @@ function replyMail(threadId: string, body: string): void {
 
 function sendMail(to: string, subject: string, body: string): void {
   MailService.send(to, subject, body);
+}
+
+// ---- ToDoリスト ----
+
+function listTodos(): TodoItem[] {
+  return TodoService.list();
+}
+
+function addTodo(text: string): TodoItem[] {
+  return TodoService.add(text);
+}
+
+function toggleTodo(id: string): TodoItem[] {
+  return TodoService.toggle(id);
+}
+
+function deleteTodo(id: string): TodoItem[] {
+  return TodoService.remove(id);
+}
+
+function clearDoneTodos(): TodoItem[] {
+  return TodoService.clearDone();
 }

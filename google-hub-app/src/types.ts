@@ -1,7 +1,7 @@
 /** アプリ全体で共有する型定義（グローバルスコープ／モジュール分割なし） */
 
 /** ホーム画面に配置できるウィジェット（パーツ）の種類 */
-type WidgetId = "calendar" | "today" | "mail" | "links";
+type WidgetId = "calendar" | "today" | "mail" | "links" | "todo";
 
 /** ウィジェットの配置先。main=中央のメインエリア、side=右サイドバー */
 type WidgetColumn = "main" | "side";
@@ -21,6 +21,14 @@ interface CustomNavItem {
   id: string;
   label: string;
   url: string;
+}
+
+/** ToDoリストの1項目 */
+interface TodoItem {
+  id: string;
+  text: string;
+  done: boolean;
+  createdAt: string; // ISO8601
 }
 
 /** ミニカレンダーの日付セル1つ分の付加情報（祝日名・六曜） */
@@ -131,5 +139,6 @@ interface HomeData {
   events: CalendarEventItem[];
   mails: MailSubjectItem[];
   apps: AppLedgerEntry[];
+  todos: TodoItem[];
   currentUserEmail: string;
 }

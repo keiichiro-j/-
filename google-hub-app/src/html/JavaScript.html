@@ -41,7 +41,7 @@
     window.alert(err && err.message ? err.message : String(err));
   }
 
-  var WIDGET_LABELS = { calendar: 'カレンダー', today: '今日の予定', mail: 'メール', links: 'アプリリンク集' };
+  var WIDGET_LABELS = { calendar: 'カレンダー', today: '今日の予定', mail: 'メール', links: 'アプリリンク集', todo: 'ToDoリスト' };
   var WIDGET_IDS = ['calendar', 'today', 'mail', 'links'];
   var WIDGET_SIZE_LABELS = { small: '小', medium: '中', large: '大' };
 
@@ -130,6 +130,7 @@
     qs('view-home').hidden = view !== 'home';
     qs('view-mail').hidden = view !== 'mail';
     qs('view-links').hidden = view !== 'links';
+    qs('view-todo').hidden = view !== 'todo';
     qs('view-drive').hidden = view !== 'drive';
     qs('view-settings').hidden = view !== 'settings';
     qs('right-sidebar').hidden = view !== 'home';
@@ -192,6 +193,7 @@
       renderAvatar(home.currentUserEmail);
       renderMailList(home.mails, home.userSettings.mailCount);
       renderAppList(home.apps);
+      renderTodoList(home.todos);
       renderCustomNav(home.userSettings.customNavItems);
       populateEventCalendarOptions(home.calendars);
       renderCategorySwatchPicker(state.eventCategories, '');
@@ -223,15 +225,18 @@
     });
   }
 
-  // アプリリンクは専用ページ(view-links)を持つため、ホーム画面のウィジェット配置を適用した
-  // 直後に、そのカードだけ専用ページへ移し替える。メールタブは独立したページ(MailPage.html)を
-  // 持つため、ホームのメールウィジェット(#card-mail)を移動する必要はない
-  // （右サイドバーごと非表示になっても影響を受けないようにするため、あえて分離している）。
+  // アプリリンク集・ToDoリストは専用ページ(view-links/view-todo)を持つため、ホーム画面の
+  // ウィジェット配置を適用した直後に、そのカードだけ専用ページへ移し替える。メールタブは
+  // 独立したページ(Pages.html内のview-mail)を持つため、ホームのメールウィジェット(#card-mail)を
+  // 移動する必要はない（右サイドバーごと非表示になっても影響を受けないようにするため、
+  // あえて分離している）。
   function placeWidgetsForCurrentView() {
     if (!state.home) return;
     applyWidgetLayout(state.home.userSettings);
     if (state.currentView === 'links') {
       qs('view-links').appendChild(qs('card-links'));
+    } else if (state.currentView === 'todo') {
+      qs('view-todo').appendChild(qs('card-todo'));
     }
   }
 
@@ -888,6 +893,69 @@
     });
   }
 
+  // ===================== ToDoリスト =====================
+  function renderTodoList(todos) {
+    var container = qs('todo-list');
+    if (!container) return;
+    if (!todos || todos.length === 0) {
+      container.innerHTML = '<div class="empty-hint">やることがありません</div>';
+      return;
+    }
+    container.innerHTML = todos.map(function (t) {
+      return '<div class="todo-row" data-todo-id="' + escapeHtml(t.id) + '">' +
+        '<input type="checkbox" class="todo-check"' + (t.done ? ' checked' : '') + '>' +
+        '<span class="todo-text' + (t.done ? ' done' : '') + '">' + escapeHtml(t.text) + '</span>' +
+        '<button type="button" class="icon-only todo-delete" aria-label="削除" title="削除"><svg class="icon icon-sm"><use href="#icon-trash"></use></svg></button>' +
+        '</div>';
+    }).join('');
+
+    Array.prototype.forEach.call(container.querySelectorAll('.todo-check'), function (cb) {
+      cb.addEventListener('change', function () {
+        var id = cb.closest('[data-todo-id]').getAttribute('data-todo-id');
+        gasRun('toggleTodo', id).then(function (todos) {
+          state.home.todos = todos;
+          renderTodoList(todos);
+        }).catch(showError);
+      });
+    });
+    Array.prototype.forEach.call(container.querySelectorAll('.todo-delete'), function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.closest('[data-todo-id]').getAttribute('data-todo-id');
+        gasRun('deleteTodo', id).then(function (todos) {
+          state.home.todos = todos;
+          renderTodoList(todos);
+        }).catch(showError);
+      });
+    });
+  }
+
+  function initTodo() {
+    qs('btn-todo-viewall').addEventListener('click', function () { switchView('todo'); });
+
+    qs('btn-todo-add').addEventListener('click', function () {
+      var input = qs('todo-input');
+      var text = input.value.trim();
+      if (!text) { window.alert('内容を入力してください'); return; }
+      gasRun('addTodo', text).then(function (todos) {
+        input.value = '';
+        state.home.todos = todos;
+        renderTodoList(todos);
+      }).catch(showError);
+    });
+    qs('todo-input').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') qs('btn-todo-add').click();
+    });
+
+    qs('btn-todo-clear-done').addEventListener('click', function (e) {
+      withSpinner(e.currentTarget, function () {
+        return gasRun('clearDoneTodos').then(function (todos) {
+          state.home.todos = todos;
+          renderTodoList(todos);
+        }).catch(showError);
+      });
+    });
+  }
+
   // ===================== Drive =====================
   function driveIconAndSize(item) {
     var sizeLabel = item.isFolder ? '' : formatBytes(item.sizeBytes);
@@ -1399,6 +1467,7 @@
     safeInit('initMailPage', initMailPage);
     safeInit('initSearch', initSearch);
     safeInit('initAppLedger', initAppLedger);
+    safeInit('initTodo', initTodo);
     safeInit('initDrive', initDrive);
     safeInit('initSettings', initSettings);
     safeInit('initCustomNavSettings', initCustomNavSettings);

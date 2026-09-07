@@ -1,12 +1,18 @@
 /**
+ * 個人設定・全体設定・日付ユーティリティをまとめたファイル。
+ * 以前は services/userSettingsService.ts / globalSettingsService.ts / dateUtils.ts に
+ * 分かれていたが、ファイル数を抑えるためこの1ファイルに集約している。
+ */
+
+/**
  * 5.2 ホーム画面のカスタマイズ機能
- * ウィジェット（カレンダー/今日の予定/メール/アプリリンク集）の配置・サイズ・表示可否、
+ * ウィジェット（カレンダー/今日の予定/メール/アプリリンク集/ToDoリスト）の配置・サイズ・表示可否、
  * メール表示件数、テーマ選択を PropertiesService(User) に保存する。
  */
 namespace UserSettingsService {
   const PROPERTY_KEY = "USER_SETTINGS";
 
-  const ALL_WIDGET_IDS: WidgetId[] = ["calendar", "today", "mail", "links"];
+  const ALL_WIDGET_IDS: WidgetId[] = ["calendar", "today", "mail", "links", "todo"];
   const VALID_COLUMNS: WidgetColumn[] = ["main", "side"];
   const VALID_SIZES: WidgetSize[] = ["small", "medium", "large"];
 
@@ -15,6 +21,7 @@ namespace UserSettingsService {
     { id: "today", column: "side", size: "small", visible: true },
     { id: "mail", column: "side", size: "medium", visible: true },
     { id: "links", column: "side", size: "medium", visible: true },
+    { id: "todo", column: "side", size: "small", visible: true },
   ];
 
   const MAX_CUSTOM_NAV_ITEMS = 12;
@@ -140,5 +147,85 @@ namespace UserSettingsService {
       themeChoice: DEFAULT_SETTINGS.themeChoice,
       customNavItems: [],
     };
+  }
+}
+
+/**
+ * 5.3 アプリ全域のデータ設定
+ * 同期対象カレンダー・メール取得ラベル・通知ON/OFFなど、全ユーザー共通の設定。
+ * スプレッドシート台帳が使えない/未初期化のケースに備え、
+ * スクリプトプロパティ（PropertiesService.getScriptProperties）を正とする。
+ */
+namespace GlobalSettingsService {
+  const PROPERTY_KEY = "GLOBAL_SETTINGS";
+
+  const DEFAULT_SETTINGS: GlobalSettings = {
+    syncCalendarIds: ["primary"],
+    mailLabel: "INBOX",
+    notifyEnabled: true,
+  };
+
+  export function getSettings(): GlobalSettings {
+    const raw = PropertiesService.getScriptProperties().getProperty(PROPERTY_KEY);
+    if (!raw) {
+      return cloneDefaults();
+    }
+    try {
+      const parsed = JSON.parse(raw) as Partial<GlobalSettings>;
+      return sanitize(parsed);
+    } catch (e) {
+      return cloneDefaults();
+    }
+  }
+
+  export function saveSettings(settings: Partial<GlobalSettings>): GlobalSettings {
+    const sanitized = sanitize(settings);
+    PropertiesService.getScriptProperties().setProperty(
+      PROPERTY_KEY,
+      JSON.stringify(sanitized)
+    );
+    return sanitized;
+  }
+
+  export function sanitize(input: Partial<GlobalSettings>): GlobalSettings {
+    const syncCalendarIds =
+      Array.isArray(input.syncCalendarIds) && input.syncCalendarIds.length > 0
+        ? input.syncCalendarIds.filter((id) => typeof id === "string" && id.length > 0)
+        : DEFAULT_SETTINGS.syncCalendarIds.slice();
+    const mailLabel =
+      typeof input.mailLabel === "string" && input.mailLabel.length > 0
+        ? input.mailLabel
+        : DEFAULT_SETTINGS.mailLabel;
+    const notifyEnabled =
+      typeof input.notifyEnabled === "boolean" ? input.notifyEnabled : DEFAULT_SETTINGS.notifyEnabled;
+
+    return {
+      syncCalendarIds: syncCalendarIds.length > 0 ? syncCalendarIds : DEFAULT_SETTINGS.syncCalendarIds.slice(),
+      mailLabel: mailLabel,
+      notifyEnabled: notifyEnabled,
+    };
+  }
+
+  function cloneDefaults(): GlobalSettings {
+    return {
+      syncCalendarIds: DEFAULT_SETTINGS.syncCalendarIds.slice(),
+      mailLabel: DEFAULT_SETTINGS.mailLabel,
+      notifyEnabled: DEFAULT_SETTINGS.notifyEnabled,
+    };
+  }
+}
+
+/** ミニカレンダー表示用の日付計算ユーティリティ（外部サービス非依存の純粋関数） */
+namespace DateUtils {
+  export interface MonthRange {
+    startIso: string;
+    endIso: string;
+  }
+
+  /** 指定年月（month は 0=1月 ... 11=12月）の月初〜翌月初のISO範囲を返す */
+  export function getMonthRange(year: number, month: number): MonthRange {
+    const start = new Date(year, month, 1, 0, 0, 0, 0);
+    const end = new Date(year, month + 1, 1, 0, 0, 0, 0);
+    return { startIso: start.toISOString(), endIso: end.toISOString() };
   }
 }

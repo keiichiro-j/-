@@ -1,0 +1,104 @@
+<!-- ホーム画面のウィジェットのうち、既定でサイドバーに配置される4つ（今日の予定/メール/
+     アプリリンク集/ToDoリスト）をまとめたファイル。以前はそれぞれ別ファイルだったが、
+     ファイル数を抑えるため統合した。各 data-card 要素はJS側(applyWidgetLayout)が個人設定に
+     応じてメインエリア/サイドバー間を付け替えるため、初期配置はどこにあっても最終的な見た目に
+     影響しない。 -->
+<section class="card" id="card-today">
+  <h2><span class="h2-label"><svg class="icon"><use href="#icon-clock"></use></svg>今日の予定</span></h2>
+  <div class="today-list" id="today-list">
+    <div class="empty-hint">読み込み中...</div>
+  </div>
+</section>
+
+<section class="card" id="card-mail" data-card="mail">
+  <h2>
+    <span class="h2-label"><svg class="icon"><use href="#icon-mail"></use></svg>メール（直近<span id="mail-count-label">5</span>件）</span>
+    <span class="card-actions">
+      <button type="button" class="link-button" id="btn-mail-viewall">すべて見る</button>
+      <button type="button" class="icon-only" id="btn-mail-compose" aria-label="メールを作成" title="メールを作成"><svg class="icon icon-sm"><use href="#icon-plus"></use></svg></button>
+      <button type="button" class="icon-only" id="btn-mail-refresh" aria-label="更新" title="更新"><svg class="icon icon-sm"><use href="#icon-refresh"></use></svg></button>
+    </span>
+  </h2>
+  <div id="mail-list">
+    <div class="empty-hint">読み込み中...</div>
+  </div>
+</section>
+
+<div class="modal-backdrop" id="mail-detail-modal" hidden>
+  <div class="modal-box" style="width: 480px;">
+    <h3 id="mail-detail-subject">件名</h3>
+    <div class="empty-hint" id="mail-detail-meta" style="padding-top:0;"></div>
+    <div id="mail-detail-body" style="white-space: pre-wrap; font-size: 13px; max-height: 320px; overflow-y: auto; border-top: 1px solid var(--border-color); padding-top: 10px; margin-top: 6px;"></div>
+
+    <div id="mail-detail-reply-section" hidden style="margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+      <label for="mail-detail-reply-body">返信内容</label>
+      <textarea id="mail-detail-reply-body" rows="4"></textarea>
+      <div class="modal-footer">
+        <button type="button" id="btn-mail-detail-reply-send" class="primary">返信を送信</button>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" id="btn-mail-detail-reply-toggle">返信</button>
+      <button type="button" id="btn-mail-detail-close">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="mail-compose-modal" hidden>
+  <div class="modal-box">
+    <h3>メールを作成</h3>
+
+    <label for="mail-compose-to">宛先</label>
+    <input type="text" id="mail-compose-to" placeholder="a@example.com">
+
+    <label for="mail-compose-subject">件名</label>
+    <input type="text" id="mail-compose-subject">
+
+    <label for="mail-compose-body">本文</label>
+    <textarea id="mail-compose-body" rows="6"></textarea>
+
+    <div class="modal-footer">
+      <button type="button" id="btn-mail-compose-cancel">キャンセル</button>
+      <button type="button" id="btn-mail-compose-send" class="primary">送信</button>
+    </div>
+  </div>
+</div>
+
+<section class="card" id="card-links" data-card="links">
+  <h2>
+    <span class="h2-label"><svg class="icon"><use href="#icon-link"></use></svg>アプリリンク集</span>
+    <span class="card-actions">
+      <button type="button" class="link-button" id="btn-links-viewall">すべて見る</button>
+      <button type="button" class="icon-only" id="btn-check-all" aria-label="全て稼働確認" title="全て稼働確認"><svg class="icon icon-sm"><use href="#icon-refresh"></use></svg></button>
+    </span>
+  </h2>
+
+  <div class="toolbar">
+    <input type="text" id="app-url-input" placeholder="URLを貼り付け（例: https://script.google.com/macros/s/xxxx/exec）">
+    <button type="button" id="btn-app-add" class="primary"><svg class="icon icon-sm"><use href="#icon-plus"></use></svg>追加</button>
+  </div>
+
+  <div id="app-list">
+    <div class="empty-hint">読み込み中...</div>
+  </div>
+</section>
+
+<section class="card" id="card-todo" data-card="todo">
+  <h2>
+    <span class="h2-label"><svg class="icon"><use href="#icon-check"></use></svg>ToDoリスト</span>
+    <span class="card-actions">
+      <button type="button" class="link-button" id="btn-todo-viewall">すべて見る</button>
+      <button type="button" class="icon-only" id="btn-todo-clear-done" aria-label="完了済みを削除" title="完了済みを削除"><svg class="icon icon-sm"><use href="#icon-trash"></use></svg></button>
+    </span>
+  </h2>
+
+  <div class="toolbar">
+    <input type="text" id="todo-input" placeholder="やることを入力してEnter">
+    <button type="button" class="icon-only primary" id="btn-todo-add" aria-label="追加" title="追加"><svg class="icon icon-sm"><use href="#icon-plus"></use></svg></button>
+  </div>
+
+  <div id="todo-list">
+    <div class="empty-hint">読み込み中...</div>
+  </div>
+</section>

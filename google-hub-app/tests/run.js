@@ -31,17 +31,9 @@ const sandbox = {
 vm.createContext(sandbox);
 
 const FILES = [
-  'theme.js',
-  'eventCategory.js',
-  'japaneseHoliday.js',
-  'rokuyo.js',
-  'services/dateUtils.js',
-  'services/userSettingsService.js',
-  'services/globalSettingsService.js',
-  'services/calendarService.js',
-  'services/mailService.js',
-  'services/appLedger.js',
-  'services/driveService.js',
+  'constants.js',
+  'services.js',
+  'settingsService.js',
 ];
 
 FILES.forEach((file) => {
@@ -101,11 +93,14 @@ test('"random"または未知の値はランダム抽選にフォールバック
 });
 
 console.log('== UserSettingsService: sanitizeWidgets（ウィジェットの配置・サイズ設定） ==');
-test('未指定時は4種類のウィジェットが既定値で揃う', () => {
+test('未指定時は5種類のウィジェットが既定値で揃う', () => {
   const widgets = sandbox.UserSettingsService.sanitizeWidgets(undefined);
-  assert.strictEqual(JSON.stringify(widgets.map((w) => w.id)), JSON.stringify(['calendar', 'today', 'mail', 'links']));
+  assert.strictEqual(JSON.stringify(widgets.map((w) => w.id)), JSON.stringify(['calendar', 'today', 'mail', 'links', 'todo']));
   assert.strictEqual(widgets[0].column, 'main');
   assert.strictEqual(widgets[0].size, 'large');
+  const todo = widgets.filter((w) => w.id === 'todo')[0];
+  assert.strictEqual(todo.column, 'side');
+  assert.strictEqual(todo.visible, true);
 });
 test('不正なid・重複したidは無視される', () => {
   const widgets = sandbox.UserSettingsService.sanitizeWidgets([
@@ -121,7 +116,7 @@ test('欠けているウィジェットは末尾に既定値で補完される',
   const widgets = sandbox.UserSettingsService.sanitizeWidgets([
     { id: 'mail', column: 'main', size: 'small', visible: true }
   ]);
-  assert.strictEqual(JSON.stringify(widgets.map((w) => w.id)), JSON.stringify(['mail', 'calendar', 'today', 'links']));
+  assert.strictEqual(JSON.stringify(widgets.map((w) => w.id)), JSON.stringify(['mail', 'calendar', 'today', 'links', 'todo']));
 });
 test('不正なcolumn/sizeは既定値にフォールバック', () => {
   const widgets = sandbox.UserSettingsService.sanitizeWidgets([

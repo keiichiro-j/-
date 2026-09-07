@@ -1,0 +1,226 @@
+<!-- フルページ表示の3タブ（メール／Drive／全体設定）をまとめたファイル。以前はそれぞれ
+     別ファイルだったが、ファイル数を抑えるため統合した。各ビューは #view-X の hidden 属性で
+     JS(switchView)から表示/非表示を切り替えるため、この1ファイルの中に3つとも自己完結した
+     <div id="view-X" hidden> ブロックとして持たせている。 -->
+
+<!-- ===== メールタブ（左：件名一覧／右：本文）。ホーム画面のメールウィジェット(SideWidgets.html)
+     とは別の独立したDOMで、右サイドバーの表示/非表示に影響されない。 ===== -->
+<div id="view-mail" hidden>
+  <section class="card mail-page">
+    <div class="mail-page-list-col">
+      <div class="mail-page-toolbar">
+        <h2 style="margin:0; font-size:15px;">
+          <span class="h2-label"><svg class="icon"><use href="#icon-mail"></use></svg>メール</span>
+        </h2>
+        <span class="card-actions">
+          <button type="button" class="icon-only" id="btn-mailpage-compose" aria-label="メールを作成" title="メールを作成"><svg class="icon icon-sm"><use href="#icon-plus"></use></svg></button>
+          <button type="button" class="icon-only" id="btn-mailpage-refresh" aria-label="更新" title="更新"><svg class="icon icon-sm"><use href="#icon-refresh"></use></svg></button>
+        </span>
+      </div>
+      <div id="mail-page-list">
+        <div class="empty-hint">読み込み中...</div>
+      </div>
+    </div>
+
+    <div class="mail-page-reader-col" id="mail-page-reader">
+      <div class="empty-hint">左の一覧からメールを選択してください</div>
+    </div>
+  </section>
+
+  <div class="modal-backdrop" id="mailpage-compose-modal" hidden>
+    <div class="modal-box">
+      <h3>メールを作成</h3>
+
+      <label for="mailpage-compose-to">宛先</label>
+      <input type="text" id="mailpage-compose-to" placeholder="a@example.com">
+
+      <label for="mailpage-compose-subject">件名</label>
+      <input type="text" id="mailpage-compose-subject">
+
+      <label for="mailpage-compose-body">本文</label>
+      <textarea id="mailpage-compose-body" rows="6"></textarea>
+
+      <div class="modal-footer">
+        <button type="button" id="btn-mailpage-compose-cancel">キャンセル</button>
+        <button type="button" id="btn-mailpage-compose-send" class="primary">送信</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== アプリリンク集タブ。card-links(SideWidgets.html)をJS側で付け替えて使い回す。 ===== -->
+<div id="view-links" hidden></div>
+
+<!-- ===== ToDoリストタブ。card-todo(SideWidgets.html)をJS側で付け替えて使い回す。 ===== -->
+<div id="view-todo" hidden></div>
+
+<!-- ===== Driveタブ ===== -->
+<div id="view-drive" hidden>
+  <section class="card" id="card-drive">
+    <h2>
+      <span class="h2-label"><svg class="icon"><use href="#icon-folder"></use></svg>Drive</span>
+      <span class="card-actions">
+        <button type="button" id="btn-drive-up"><svg class="icon icon-sm"><use href="#icon-arrow-up"></use></svg>上の階層へ</button>
+        <button type="button" class="icon-only" id="btn-drive-refresh" aria-label="更新" title="更新"><svg class="icon icon-sm"><use href="#icon-refresh"></use></svg></button>
+      </span>
+    </h2>
+
+    <div class="toolbar">
+      <input type="text" id="drive-search" placeholder="ファイル名で検索...">
+      <button type="button" class="icon-only" id="btn-drive-search" aria-label="検索" title="検索"><svg class="icon icon-sm"><use href="#icon-search"></use></svg></button>
+      <select id="drive-sort">
+        <option value="updated">更新日時</option>
+        <option value="name">名前</option>
+        <option value="size">サイズ</option>
+      </select>
+      <select id="drive-order">
+        <option value="desc">降順</option>
+        <option value="asc">昇順</option>
+      </select>
+    </div>
+
+    <div class="drive-list" id="drive-list">
+      <div class="empty-hint">読み込み中...</div>
+    </div>
+  </section>
+
+  <div class="modal-backdrop" id="drive-preview-modal" hidden>
+    <div class="modal-box" style="width: 640px;">
+      <h3>プレビュー</h3>
+      <iframe id="drive-preview-frame" style="width:100%; height:380px; border:1px solid #ddd;"></iframe>
+      <div class="modal-footer">
+        <button type="button" id="btn-drive-preview-close">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="drive-share-modal" hidden>
+    <div class="modal-box">
+      <h3>共有設定を変更</h3>
+      <input type="hidden" id="drive-share-file-id">
+
+      <label for="drive-share-access">公開範囲</label>
+      <select id="drive-share-access">
+        <option value="PRIVATE">限定公開（PRIVATE）</option>
+        <option value="DOMAIN_WITH_LINK">ドメイン内（リンクを知っている人）</option>
+        <option value="DOMAIN">ドメイン内（全員）</option>
+        <option value="ANYONE_WITH_LINK">リンクを知っている全員</option>
+        <option value="ANYONE">ウェブ上の全員</option>
+      </select>
+
+      <label for="drive-share-permission">権限</label>
+      <select id="drive-share-permission">
+        <option value="VIEW">閲覧のみ</option>
+        <option value="COMMENT">コメント可</option>
+        <option value="EDIT">編集可</option>
+      </select>
+
+      <div class="modal-footer">
+        <button type="button" id="btn-drive-share-cancel">キャンセル</button>
+        <button type="button" id="btn-drive-share-save" class="primary">適用</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="drive-move-modal" hidden>
+    <div class="modal-box">
+      <h3>フォルダを移動</h3>
+      <input type="hidden" id="drive-move-file-id">
+      <label for="drive-move-dest">移動先フォルダID</label>
+      <input type="text" id="drive-move-dest" placeholder="フォルダのURLに含まれるID">
+      <div class="modal-footer">
+        <button type="button" id="btn-drive-move-cancel">キャンセル</button>
+        <button type="button" id="btn-drive-move-save" class="primary">移動</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="drive-rename-modal" hidden>
+    <div class="modal-box">
+      <h3>名称を変更</h3>
+      <input type="hidden" id="drive-rename-file-id">
+      <input type="hidden" id="drive-rename-is-folder">
+      <label for="drive-rename-name">新しい名前</label>
+      <input type="text" id="drive-rename-name">
+      <div class="modal-footer">
+        <button type="button" id="btn-drive-rename-cancel">キャンセル</button>
+        <button type="button" id="btn-drive-rename-save" class="primary">変更</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 全体設定タブ ===== -->
+<div id="view-settings" hidden>
+  <div class="card">
+    <h2><span class="h2-label"><svg class="icon"><use href="#icon-shuffle"></use></svg>テーマカラー</span></h2>
+    <p class="empty-hint" style="padding-top:0;">コントロールパネル（左のメニュー）に適用する配色です。「ランダム」を選ぶと起動のたびに自動で切り替わります。</p>
+    <div class="theme-swatch-grid" id="theme-swatch-grid">
+      <div class="empty-hint">読み込み中...</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>個人設定（このアカウントのみ）</h2>
+
+    <div class="settings-section">
+      <h3>ホーム画面のウィジェット（レイアウト）</h3>
+      <p class="empty-hint" style="padding-top:0;">ブロックをドラッグして配置先・順序を変更できます。ブロック下端の取っ手を上下にドラッグすると大きさ（小・中・大）を調整できます。目のアイコンで表示/非表示を切り替えられます。変更内容は「個人設定を保存」を押すまで確定しません。</p>
+      <div class="widget-layout-editor" id="widget-layout-editor">
+        <div class="widget-layout-col" data-column="main">
+          <div class="widget-layout-col-label">メインエリア</div>
+          <div class="widget-layout-dropzone" data-column="main" id="widget-layout-main"></div>
+        </div>
+        <div class="widget-layout-col" data-column="side">
+          <div class="widget-layout-col-label">サイドバー</div>
+          <div class="widget-layout-dropzone" data-column="side" id="widget-layout-side"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>メール表示件数</h3>
+      <input type="number" id="setting-mail-count" min="1" max="20" style="width:80px;">
+    </div>
+
+    <button type="button" id="btn-save-user-settings" class="primary">個人設定を保存</button>
+  </div>
+
+  <div class="card">
+    <h2><span class="h2-label"><svg class="icon"><use href="#icon-link"></use></svg>カスタムナビ項目（個人用ショートカット）</span></h2>
+    <p class="empty-hint" style="padding-top:0;">アプリリンク集とは別に、コントロールパネルに好きな名前のボタンを追加できます。押すと指定したURLを新しいタブで開きます。</p>
+
+    <div class="toolbar">
+      <input type="text" id="custom-nav-label-input" placeholder="表示名（例：社内Wiki）" style="flex:0 0 160px;">
+      <input type="text" id="custom-nav-url-input" placeholder="https://...">
+      <button type="button" id="btn-custom-nav-add" class="primary">
+        <svg class="icon icon-sm"><use href="#icon-plus"></use></svg>追加
+      </button>
+    </div>
+
+    <div id="custom-nav-settings-list"></div>
+  </div>
+
+  <div class="card">
+    <h2>全体設定（アプリ全体に反映）</h2>
+
+    <div class="settings-section">
+      <h3>同期対象カレンダー</h3>
+      <div id="sync-calendar-list" class="empty-hint">読み込み中...</div>
+    </div>
+
+    <div class="settings-section">
+      <h3>メール取得対象ラベル</h3>
+      <input type="text" id="setting-mail-label" placeholder="INBOX">
+    </div>
+
+    <div class="settings-section">
+      <div class="checkbox-row">
+        <input type="checkbox" id="setting-notify-enabled">
+        <label for="setting-notify-enabled" style="margin:0;">通知を有効にする</label>
+      </div>
+    </div>
+
+    <button type="button" id="btn-save-global-settings" class="primary">全体設定を保存</button>
+  </div>
+</div>
