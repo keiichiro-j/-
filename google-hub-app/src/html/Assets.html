@@ -48,9 +48,14 @@
       <path d="M17 20l3-3-3-3" />
     </symbol>
 
-    <symbol id="icon-compass" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="8.2" />
-      <path d="M15.2 8.8l-2 4.4-4.4 2 2-4.4z" />
+    <!-- アプリのロゴアイコン: 中心のハブと4つの衛星ノードをつなぐ「統合の要」を表すオリジナルデザイン -->
+    <symbol id="icon-hub" viewBox="0 0 24 24">
+      <path d="M12 8.6V4.8M15.4 12H19.2M12 15.4V19.2M8.6 12H4.8" />
+      <circle cx="12" cy="12" r="3.4" />
+      <circle cx="12" cy="3.6" r="1.8" />
+      <circle cx="20.4" cy="12" r="1.8" />
+      <circle cx="12" cy="20.4" r="1.8" />
+      <circle cx="3.6" cy="12" r="1.8" />
     </symbol>
 
     <symbol id="icon-arrow-up" viewBox="0 0 24 24">
@@ -188,11 +193,14 @@
 
 <style>
   :root {
-    --panel-bg: #757575;
-    --panel-text: #ffffff;
     /* --theme-*-light/-dark はJS側(applyThemeBackgrounds())が選択中のテーマ色から計算して
-       ここに動的にセットする。JS実行前・テーマ未適用時はフォールバック値（従来の中立色）になる。 */
+       ここに動的にセットする。JS実行前・テーマ未適用時はフォールバック値（従来の中立色）になる。
+       ヘッダー(topbar)=視覚的に濃いめの帯、コントロールパネル(panel)=それより淡い配色、
+       本文の背景(content)=さらに淡いパステル調、という明度の階層をテーマ色で統一している。 */
     --topbar-bg: var(--theme-topbar-bg-light, #ffffff);
+    --topbar-text: var(--theme-topbar-text-light, #1a1a1a);
+    --panel-bg: var(--theme-panel-bg-light, #757575);
+    --panel-text: var(--theme-panel-text-light, #ffffff);
     --content-bg: var(--theme-content-bg-light, #f4f4f4);
     --content-text: #1a1a1a;
     --content-muted: #666666;
@@ -222,6 +230,9 @@
       --border-color: #3a3a3e;
       --border-soft: #2c2c30;
       --topbar-bg: var(--theme-topbar-bg-dark, #1c1c1f);
+      --topbar-text: var(--theme-topbar-text-dark, #e8e8ea);
+      --panel-bg: var(--theme-panel-bg-dark, #4b4b52);
+      --panel-text: var(--theme-panel-text-dark, #ffffff);
       --danger: #ef5350;
       --icon-color: #c7c7ca;
       --accent: #8b97ff;
@@ -240,6 +251,9 @@
     --border-color: #3a3a3e;
     --border-soft: #2c2c30;
     --topbar-bg: var(--theme-topbar-bg-dark, #1c1c1f);
+    --topbar-text: var(--theme-topbar-text-dark, #e8e8ea);
+    --panel-bg: var(--theme-panel-bg-dark, #4b4b52);
+    --panel-text: var(--theme-panel-text-dark, #ffffff);
     --danger: #ef5350;
     --icon-color: #c7c7ca;
     --accent: #8b97ff;
@@ -277,12 +291,15 @@
   .icon-sm { width: 15px; height: 15px; }
   .icon-lg { width: 22px; height: 22px; }
 
-  /* ===== 上部ヘッダー（全幅・中立色） =====
+  /* ===== 上部ヘッダー（全幅・テーマ配色の濃色帯） =====
      ロゴを常に画面中央に置くため、左右のブロック(.topbar-side)を同じflex比率(1)で確保し、
-     中央の.topbar-brandをその間に挟む3分割構成にしている（左右の中身の幅が違っても中央は揃う）。 */
+     中央の.topbar-brandをその間に挟む3分割構成にしている（左右の中身の幅が違っても中央は揃う）。
+     背景色(--topbar-bg)・文字色(--topbar-text)はテーマ配色から動的に計算する
+     （applyThemeBackgrounds()、src/html/JavaScript.html）。戻る/更新ボタンは独自の背景を持つ
+     丸ボタンのためここでは色を変えず、ヘッダー上に直接乗るロゴだけを--topbar-textに追従させる。 */
   .topbar {
-    height: 60px;
-    flex: 0 0 60px;
+    height: 64px;
+    flex: 0 0 64px;
     display: flex;
     align-items: center;
     gap: 12px;
@@ -297,14 +314,15 @@
   .topbar-brand {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-weight: bold;
-    font-size: 15px;
-    color: var(--content-text);
+    gap: 9px;
+    font-weight: 800;
+    font-size: 19px;
+    letter-spacing: 0.01em;
+    color: var(--topbar-text);
     flex: 0 0 auto;
     white-space: nowrap;
   }
-  .topbar-brand .icon { color: var(--accent); width: 22px; height: 22px; }
+  .topbar-brand .icon { color: inherit; width: 28px; height: 28px; }
 
   /* ===== コントロールパネルの横断検索（ホームの直上） =====
      パネルの背景はテーマ色で変わるため、周囲の色に馴染む半透明の「すりガラス」風にし、

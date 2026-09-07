@@ -122,19 +122,16 @@
     return result;
   }
 
-  // ===================== テーマ適用（コントロールパネルのみ） =====================
+  // ===================== テーマ適用 =====================
   function applyTheme(theme) {
-    var panel = qs('control-panel');
-    panel.style.background = theme.hex;
-    panel.style.color = theme.textColor;
-    panel.setAttribute('data-text', theme.textColor === '#1a1a1a' ? 'dark' : 'light');
     applyThemeBackgrounds(theme);
   }
 
-  // ===================== テーマ色に沿ったホーム背景・ヘッダー背景 =====================
-  // コントロールパネルだけでなく、ページ全体の背景(--content-bg)とヘッダー(--topbar-bg)も
-  // 選択中のテーマ色の色相を活かした淡い配色にする。本文の可読性を保つため、彩度・明度は
-  // 元のテーマ色そのままではなく、読みやすい範囲(かなり明るい/暗いパステル調)に固定し直す。
+  // ===================== テーマ色に沿ったヘッダー・コントロールパネル・ホーム背景 =====================
+  // ヘッダー(topbar)=視覚的に濃いめの帯、コントロールパネル(panel)=それより淡い配色、
+  // 本文の背景(content)=さらに淡いパステル調、という明度の階層をテーマ色の色相から作る。
+  // 元のテーマ色をそのまま使うと面ごとに可読性が揃わないため、色相だけを引き継ぎ、
+  // 面ごとに読みやすい明度・彩度へ固定し直し、YIQ輝度から文字色も都度計算する。
   function hexToRgb(hex) {
     var h = hex.replace('#', '');
     return {
@@ -194,13 +191,49 @@
     return hslToHex(hsl.h, s, lightness);
   }
 
+  // 背景色の明るさ(YIQ輝度)から、その面の上に乗せる文字色として黒/白どちらが読みやすいか判定する
+  // （サーバー側のTheme.pickTextColor()と同じ閾値140を使用し、判定基準を統一している）
+  function pickTextColorFor(hex) {
+    var rgb = hexToRgb(hex);
+    var yiq = (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
+    return yiq >= 140 ? '#1a1a1a' : '#ffffff';
+  }
+
   function applyThemeBackgrounds(theme) {
     if (!theme || !theme.hex) return;
     var root = document.documentElement.style;
+
+    var topbarLight = themeTint(theme.hex, 38, 55);
+    var topbarDark = themeTint(theme.hex, 22, 48);
+    var panelLight = themeTint(theme.hex, 80, 45);
+    var panelDark = themeTint(theme.hex, 30, 35);
+
+    root.setProperty('--theme-topbar-bg-light', topbarLight);
+    root.setProperty('--theme-topbar-bg-dark', topbarDark);
+    root.setProperty('--theme-topbar-text-light', pickTextColorFor(topbarLight));
+    root.setProperty('--theme-topbar-text-dark', pickTextColorFor(topbarDark));
+
+    root.setProperty('--theme-panel-bg-light', panelLight);
+    root.setProperty('--theme-panel-bg-dark', panelDark);
+    root.setProperty('--theme-panel-text-light', pickTextColorFor(panelLight));
+    root.setProperty('--theme-panel-text-dark', pickTextColorFor(panelDark));
+
     root.setProperty('--theme-content-bg-light', themeTint(theme.hex, 96, 42));
-    root.setProperty('--theme-topbar-bg-light', themeTint(theme.hex, 90, 48));
     root.setProperty('--theme-content-bg-dark', themeTint(theme.hex, 11, 26));
-    root.setProperty('--theme-topbar-bg-dark', themeTint(theme.hex, 16, 30));
+
+    syncControlPanelTextAttr();
+  }
+
+  // コントロールパネルのホバー演出（.control-panel[data-text="dark|light"]）は、実際に適用されている
+  // --panel-text の輝度で決める。テーマだけでなくダークモードの切替でも--panel-textが変わるため、
+  // テーマ適用時・ダークモード切替時の両方からこの関数を呼ぶ。
+  function syncControlPanelTextAttr() {
+    var panel = qs('control-panel');
+    if (!panel) return;
+    var rgb = getComputedStyle(panel).color.match(/\d+/g);
+    if (!rgb) return;
+    var avg = (parseInt(rgb[0], 10) + parseInt(rgb[1], 10) + parseInt(rgb[2], 10)) / 3;
+    panel.setAttribute('data-text', avg < 128 ? 'dark' : 'light');
   }
 
   // ===================== 画面切り替え =====================
@@ -307,6 +340,8 @@
   // ===================== 表示モード（ライト/ダーク/システム） =====================
   function applyDarkMode(mode) {
     document.documentElement.setAttribute('data-dark-mode', mode || 'system');
+    // ダークモードの切替で--panel-textが変わるため、コントロールパネルのホバー演出も追従させる
+    syncControlPanelTextAttr();
   }
 
   function renderDarkModeSwitcher(selected) {
