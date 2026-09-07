@@ -1,5 +1,12 @@
-<!-- 5.1: 左コントロールパネル。テーマ色（背景・文字色）はJS側で動的に適用する唯一の領域 -->
+<!-- 5.1: 左コントロールパネル。テーマ色（背景・文字色）はJS側で動的に適用する唯一の領域。
+     横断検索（アプリ・ファイル）はヘッダーではなくここ、「ホーム」の直上に配置している。 -->
 <nav class="control-panel" id="control-panel">
+  <div class="control-panel-search">
+    <svg class="icon icon-sm"><use href="#icon-search"></use></svg>
+    <input type="text" id="global-search" placeholder="アプリ・ファイルを検索">
+    <div class="search-results" id="search-results" hidden></div>
+  </div>
+
   <button type="button" class="nav-item active" data-view="home">
     <svg class="icon"><use href="#icon-home"></use></svg><span>ホーム</span>
   </button>

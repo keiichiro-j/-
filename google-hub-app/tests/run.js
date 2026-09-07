@@ -139,10 +139,6 @@ test('mailCountは1〜20にクランプされる', () => {
 });
 
 console.log('== GlobalSettingsService: sanitize ==');
-test('空配列のsyncCalendarIdsはデフォルトにフォールバック', () => {
-  const s = sandbox.GlobalSettingsService.sanitize({ syncCalendarIds: [] });
-  assert.strictEqual(JSON.stringify(s.syncCalendarIds), JSON.stringify(['primary']));
-});
 test('mailLabel未指定はINBOX', () => {
   assert.strictEqual(sandbox.GlobalSettingsService.sanitize({}).mailLabel, 'INBOX');
 });

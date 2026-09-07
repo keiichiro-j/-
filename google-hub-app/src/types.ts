@@ -91,7 +91,6 @@ interface UserSettings {
 }
 
 interface GlobalSettings {
-  syncCalendarIds: string[];
   mailLabel: string;
   /** 毎日メールで通知するかどうか（今日の予定・期限が近い/期限切れのToDo） */
   notifyEnabled: boolean;

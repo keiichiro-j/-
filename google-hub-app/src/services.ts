@@ -34,6 +34,11 @@ namespace CalendarService {
     }));
   }
 
+  /** 同期対象カレンダーはログインアカウントに紐づくため選択式にせず、常にアカウントの全カレンダーを対象にする */
+  export function listCalendarIds(): string[] {
+    return listCalendars().map((c) => c.id);
+  }
+
   function resolveCalendar(calendarId: string): GoogleAppsScript.Calendar.Calendar {
     if (calendarId === "primary") {
       return CalendarApp.getDefaultCalendar();
@@ -189,9 +194,23 @@ namespace MailService {
     return Math.min(MAX_COUNT, Math.max(1, Math.floor(count)));
   }
 
-  export function getRecentSubjects(count: number, label: string): MailSubjectItem[] {
+  const VALID_FOLDERS = ["inbox", "spam", "trash"];
+
+  /** ラベル指定は受信トレイ(inbox)のときのみ意味を持つ。迷惑メール・ゴミ箱はGmail標準フォルダを直接見る */
+  function buildSearchQuery(folder: string, label: string): string {
+    if (folder === "spam") {
+      return "in:spam";
+    }
+    if (folder === "trash") {
+      return "in:trash";
+    }
+    return label && label !== "INBOX" ? "label:" + label : "in:inbox";
+  }
+
+  export function getRecentSubjects(count: number, label: string, folder?: string): MailSubjectItem[] {
     const safeCount = clampCount(count);
-    const searchQuery = label && label !== "INBOX" ? "label:" + label : "in:inbox";
+    const safeFolder = folder && VALID_FOLDERS.indexOf(folder) !== -1 ? folder : "inbox";
+    const searchQuery = buildSearchQuery(safeFolder, label);
     const threads = GmailApp.search(searchQuery, 0, safeCount);
 
     return threads.map((thread) => {
@@ -847,7 +866,7 @@ namespace NotificationService {
     const now = new Date();
     const range = dayRange(now);
     const events = CalendarService.getEvents(
-      globalSettings.syncCalendarIds,
+      CalendarService.listCalendarIds(),
       range.start.toISOString(),
       range.end.toISOString()
     );

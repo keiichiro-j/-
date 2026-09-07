@@ -1,21 +1,19 @@
-<!-- 全幅ヘッダー: 戻る／ロゴ／横断検索／更新／アバター。中立色固定でテーマ色の影響を受けない -->
+<!-- 全幅ヘッダー: 戻る／ロゴ（中央）／更新／アバター。中立色固定でテーマ色の影響を受けない。
+     横断検索はコントロールパネル側（ホームの上）に移設したため、ここには無い。
+     ロゴを常に画面中央に置くため、左右のブロックを同じflex比率(1)で確保する3分割構成にしている。 -->
 <header class="topbar">
-  <button type="button" class="icon-only" id="btn-global-back" aria-label="戻る" title="戻る">
-    <svg class="icon icon-sm"><use href="#icon-arrow-left"></use></svg>
-  </button>
+  <div class="topbar-side topbar-side-left">
+    <button type="button" class="icon-only" id="btn-global-back" aria-label="戻る" title="戻る">
+      <svg class="icon icon-sm"><use href="#icon-arrow-left"></use></svg>
+    </button>
+  </div>
 
   <div class="topbar-brand">
     <svg class="icon"><use href="#icon-compass"></use></svg>
     <span>Google Hub</span>
   </div>
 
-  <div class="topbar-search">
-    <svg class="icon"><use href="#icon-search"></use></svg>
-    <input type="text" id="global-search" placeholder="アプリ・ファイルを検索">
-    <div class="search-results" id="search-results" hidden></div>
-  </div>
-
-  <div class="topbar-actions">
+  <div class="topbar-side topbar-side-right topbar-actions">
     <button type="button" class="icon-only" id="btn-global-refresh" aria-label="更新" title="更新">
       <svg class="icon icon-sm"><use href="#icon-refresh"></use></svg>
     </button>

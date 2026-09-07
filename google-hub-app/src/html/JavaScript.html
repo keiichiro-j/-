@@ -70,7 +70,9 @@
     },
     mailPage: {
       selectedThreadId: null,
-      selectedIds: {} // { threadId: true } 一括操作用の複数選択状態（メールタブのみ）
+      selectedIds: {}, // { threadId: true } 一括操作用の複数選択状態（メールタブのみ）
+      folder: 'inbox', // 'inbox' | 'spam' | 'trash' メールタブで表示中のフォルダ
+      mails: [] // 現在表示中フォルダの一覧（folderが'inbox'以外のときはstate.home.mailsと異なる）
     },
     appLedger: {
       tagFilter: null // 選択中のタグ（nullは「すべて」）
@@ -155,7 +157,7 @@
       if (state.drive.items.length === 0) loadDriveFolder(null);
     }
     if (view === 'mail' && state.home) {
-      renderMailPageList(state.home.mails);
+      refreshMailPageForCurrentFolder();
     }
   }
 
@@ -210,7 +212,7 @@
       renderCategorySwatchPicker(state.eventCategories, '');
       populateSettingsForm(home.userSettings, home.globalSettings, home.calendars, state.themeChoices);
       if (state.currentView === 'mail') {
-        renderMailPageList(home.mails);
+        refreshMailPageForCurrentFolder();
       }
       if (state.currentView === 'drive') {
         renderPinnedFolders(home.userSettings.pinnedFolders);
@@ -302,10 +304,16 @@
     return { startIso: start.toISOString(), endIso: end.toISOString() };
   }
 
+  // 同期対象カレンダーはログインアカウントに紐づくため選択式にしていない。常にアカウントの
+  // 全カレンダー(state.home.calendars、getHomeData()で取得済み)を対象にする。
+  function syncedCalendarIds() {
+    return state.home ? state.home.calendars.map(function (c) { return c.id; }) : [];
+  }
+
   function loadCalendarMonth(year, month) {
     if (!state.home) return Promise.resolve();
     var range = monthRangeIso(year, month);
-    var calendarIds = state.home.globalSettings.syncCalendarIds;
+    var calendarIds = syncedCalendarIds();
     return Promise.all([
       gasRun('getCalendarEvents', calendarIds, range.startIso, range.endIso),
       gasRun('getCalendarDayInfo', year, month)
@@ -400,7 +408,7 @@
     var start = startOfWeek(anchorDate);
     var end = new Date(start);
     end.setDate(end.getDate() + 7);
-    var calendarIds = state.home.globalSettings.syncCalendarIds;
+    var calendarIds = syncedCalendarIds();
     return Promise.all([
       gasRun('getCalendarEvents', calendarIds, start.toISOString(), end.toISOString()),
       loadDayInfoRange(start, end)
@@ -417,7 +425,7 @@
         d.setDate(d.getDate() + i);
         days.push(buildAgendaDay(d, events, infoMap));
       }
-      renderAgendaView(days);
+      renderTimeGridView(days);
     }).catch(showError);
   }
 
@@ -426,7 +434,7 @@
     var start = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), anchorDate.getDate());
     var end = new Date(start);
     end.setDate(end.getDate() + 1);
-    var calendarIds = state.home.globalSettings.syncCalendarIds;
+    var calendarIds = syncedCalendarIds();
     return Promise.all([
       gasRun('getCalendarEvents', calendarIds, start.toISOString(), end.toISOString()),
       loadDayInfoRange(start, end)
@@ -437,71 +445,135 @@
       state.calendar.refDate = anchorDate;
       state.calendar.events = events;
       renderCalendarLabel('day', start, end);
-      renderAgendaView([buildAgendaDay(start, events, infoMap)]);
+      renderTimeGridView([buildAgendaDay(start, events, infoMap)]);
     }).catch(showError);
   }
 
-  // 週表示/日表示: 時刻の位置合わせは行わない簡易アジェンダ形式（1日ぶんを縦一列のリストで表示）
-  function renderAgendaView(days) {
+  // ===================== 週表示/日表示: 実時間グリッド（横=日付の列、縦=時刻） =====================
+  var GRID_HOUR_PX = 48; // 1時間あたりの高さ(px)
+  var GRID_TOTAL_HOURS = 24;
+
+  function timeGridMinutes(date) {
+    return date.getHours() * 60 + date.getMinutes();
+  }
+
+  // 同じ日に時間が重なる予定を、重ならないように列(トラック)へ振り分ける（連結成分ごとに貪欲法）。
+  // 例: 9-10時と9:30-10:30時の予定は重なるので横に並べ、13-14時の別の予定は無関係なので幅いっぱいに使う。
+  function layoutTimedEvents(events) {
+    var items = events.map(function (ev) {
+      var start = new Date(ev.start).getTime();
+      var end = Math.max(new Date(ev.end).getTime(), start + 15 * 60000); // 極端に短い予定でも最低幅を確保
+      return { ev: ev, start: start, end: end };
+    }).sort(function (a, b) { return a.start - b.start; });
+
+    var placements = [];
+    var cluster = [];
+    var clusterMaxEnd = -Infinity;
+
+    function flushCluster() {
+      if (cluster.length === 0) return;
+      var columns = [];
+      cluster.forEach(function (item) {
+        var placedCol = -1;
+        for (var c = 0; c < columns.length; c++) {
+          if (columns[c] <= item.start) { columns[c] = item.end; placedCol = c; break; }
+        }
+        if (placedCol === -1) { columns.push(item.end); placedCol = columns.length - 1; }
+        placements.push({ ev: item.ev, col: placedCol, totalColsRef: columns });
+      });
+      cluster = [];
+    }
+
+    items.forEach(function (item) {
+      if (cluster.length > 0 && item.start >= clusterMaxEnd) {
+        flushCluster();
+        clusterMaxEnd = -Infinity;
+      }
+      cluster.push(item);
+      clusterMaxEnd = Math.max(clusterMaxEnd, item.end);
+    });
+    flushCluster();
+
+    return placements.map(function (p) { return { ev: p.ev, col: p.col, totalCols: p.totalColsRef.length }; });
+  }
+
+  function renderTimeGridView(days) {
     var now = new Date();
-    var html = days.map(function (d) {
+    var gridTemplateColumns = '46px repeat(' + days.length + ', 1fr)';
+
+    var headerHtml = '<div class="tg-corner" style="grid-column:1; grid-row:1;"></div>';
+    var alldayHtml = '<div class="tg-gutter-label" style="grid-column:1; grid-row:2;">終日</div>';
+    var hourLabelsHtml = '';
+    for (var h = 0; h < GRID_TOTAL_HOURS; h++) {
+      hourLabelsHtml += '<div class="tg-hour-label" style="grid-column:1; grid-row:' + (h + 3) + ';">' + (h === 0 ? '' : h + ':00') + '</div>';
+    }
+    var dayColsHtml = '';
+
+    days.forEach(function (d, i) {
+      var col = i + 2;
       var isToday = ymd(now) === d.key;
-      var isHoliday = !!(d.info && d.info.holidayName);
+      var allDayEvents = d.events.filter(function (ev) { return ev.allDay; });
+      var timedEvents = d.events.filter(function (ev) { return !ev.allDay; });
+      var dueTodoCount = d.todos.filter(function (t) { return !t.done; }).length;
+
       var dateLabel = (d.date.getMonth() + 1) + '/' + d.date.getDate() + '（' + WEEKDAY_LABELS[d.date.getDay()] + '）';
-      var eventsHtml = d.events.length === 0
-        ? '<div class="empty-hint">予定はありません</div>'
-        : d.events.map(function (ev) {
-          var catLabel = ev.categoryColorId ? '<span class="category-badge"><span class="category-dot" style="background:' + categoryHex(ev.categoryColorId) + ';"></span>' + escapeHtml(categoryLabel(ev.categoryColorId)) + '</span>' : '';
-          var timeLabel = ev.allDay ? '終日' : formatTime(ev.start) + ' 〜 ' + formatTime(ev.end);
-          return '<div class="link-row" data-event-id="' + escapeHtml(ev.id) + '" data-calendar-id="' + escapeHtml(ev.calendarId) + '">' +
-            '<div>' +
-            '<div class="name"><span class="category-dot" style="background:' + categoryHex(ev.categoryColorId) + ';"></span>' + escapeHtml(ev.title || '(無題)') + catLabel + '</div>' +
-            '<div class="desc">' + timeLabel + '</div>' +
-            '</div>' +
-            '<button type="button" class="btn-edit-event">編集</button>' +
-            '</div>';
-        }).join('');
-      var todosHtml = d.todos.length === 0 ? '' : '<div class="agenda-todos">' + d.todos.map(function (t) {
-        return '<div class="agenda-todo-row" data-todo-id="' + escapeHtml(t.id) + '">' +
-          '<input type="checkbox" class="agenda-todo-check"' + (t.done ? ' checked' : '') + '>' +
-          '<span class="todo-priority-dot ' + t.priority + '"></span>' +
-          '<span class="todo-text' + (t.done ? ' done' : '') + '">' + escapeHtml(t.text) + '</span>' +
-          '</div>';
-      }).join('') + '</div>';
-      return '<div class="agenda-day' + (isToday ? ' is-today' : '') + '">' +
-        '<div class="agenda-day-head">' +
-        '<span class="agenda-day-date">' + dateLabel + '</span>' +
-        (d.info ? '<span class="agenda-holiday">' + escapeHtml(isHoliday ? d.info.holidayName : d.info.rokuyo) + '</span>' : '') +
-        '<button type="button" class="agenda-add-btn" data-date-key="' + d.key + '"><svg class="icon icon-sm"><use href="#icon-plus"></use></svg>予定を追加</button>' +
-        '</div>' +
-        '<div class="agenda-events">' + eventsHtml + '</div>' +
-        todosHtml +
+      headerHtml += '<div class="tg-day-header' + (isToday ? ' is-today' : '') + '" style="grid-column:' + col + '; grid-row:1;">' +
+        '<div class="tg-day-header-date">' + dateLabel + '</div>' +
+        (d.info && d.info.holidayName ? '<div class="tg-day-header-holiday">' + escapeHtml(d.info.holidayName) + '</div>' : '') +
+        (dueTodoCount > 0 ? '<div class="tg-day-header-todo" title="期限のToDo ' + dueTodoCount + '件"><svg class="icon" style="width:9px;height:9px;"><use href="#icon-check"></use></svg>' + dueTodoCount + '</div>' : '') +
         '</div>';
-    }).join('');
 
-    qs('mini-calendar').innerHTML = '<div class="cal-agenda">' + html + '</div>';
+      var alldayChips = allDayEvents.map(function (ev) {
+        var hex = categoryHex(ev.categoryColorId);
+        return '<div class="tg-allday-chip" style="background:' + hex + ';color:' + pickChipTextColor(hex) + ';" data-event-id="' + escapeHtml(ev.id) + '" data-calendar-id="' + escapeHtml(ev.calendarId) + '" title="' + escapeHtml(ev.title || '') + '">' + escapeHtml(ev.title || '(無題)') + '</div>';
+      }).join('');
+      headerHtml += '<div class="tg-allday-cell" style="grid-column:' + col + '; grid-row:2;">' + alldayChips + '</div>';
 
+      var eventsHtml = layoutTimedEvents(timedEvents).map(function (p) {
+        var ev = p.ev;
+        var startDate = new Date(ev.start);
+        var topPx = (timeGridMinutes(startDate) / 60) * GRID_HOUR_PX;
+        var durationMin = Math.max((new Date(ev.end) - startDate) / 60000, 15);
+        var heightPx = Math.max((durationMin / 60) * GRID_HOUR_PX, 16);
+        var widthPct = 100 / p.totalCols;
+        var leftPct = p.col * widthPct;
+        var hex = categoryHex(ev.categoryColorId);
+        return '<div class="tg-event" data-event-id="' + escapeHtml(ev.id) + '" data-calendar-id="' + escapeHtml(ev.calendarId) + '" ' +
+          'style="top:' + topPx + 'px; height:' + heightPx + 'px; left:' + leftPct + '%; width:calc(' + widthPct + '% - 2px); background:' + hex + ';color:' + pickChipTextColor(hex) + ';" title="' + escapeHtml(ev.title || '') + '">' +
+          '<div class="tg-event-time">' + formatTime(ev.start) + '</div><div class="tg-event-title">' + escapeHtml(ev.title || '(無題)') + '</div></div>';
+      }).join('');
+
+      var nowLineHtml = isToday ? '<div class="tg-now-line" style="top:' + ((timeGridMinutes(now) / 60) * GRID_HOUR_PX) + 'px;"></div>' : '';
+
+      dayColsHtml += '<div class="tg-day-col" data-date-key="' + d.key + '" style="grid-column:' + col + '; grid-row: 3 / span ' + GRID_TOTAL_HOURS + '; height:' + (GRID_TOTAL_HOURS * GRID_HOUR_PX) + 'px;">' +
+        eventsHtml + nowLineHtml + '</div>';
+    });
+
+    var gridTemplateRows = 'auto auto repeat(' + GRID_TOTAL_HOURS + ', ' + GRID_HOUR_PX + 'px)';
+    qs('mini-calendar').innerHTML = '<div class="cal-timegrid"><div class="tg-scroll"><div class="tg-grid" style="grid-template-columns:' + gridTemplateColumns + '; grid-template-rows:' + gridTemplateRows + ';">' +
+      headerHtml + alldayHtml + hourLabelsHtml + dayColsHtml + '</div></div></div>';
+
+    bindTimeGridHandlers();
+    var scrollEl = document.querySelector('#mini-calendar .tg-scroll');
+    if (scrollEl) scrollEl.scrollTop = Math.max(0, 7 * GRID_HOUR_PX - 20); // 初期表示はおおよそ7時付近から
+  }
+
+  function bindTimeGridHandlers() {
     var container = qs('mini-calendar');
-    Array.prototype.forEach.call(container.querySelectorAll('.btn-edit-event'), function (btn) {
-      btn.addEventListener('click', function () {
-        var row = btn.closest('[data-event-id]');
-        openEventModal(row.getAttribute('data-calendar-id'), row.getAttribute('data-event-id'));
+    Array.prototype.forEach.call(container.querySelectorAll('.tg-event, .tg-allday-chip'), function (el) {
+      el.addEventListener('click', function (e) {
+        e.stopPropagation();
+        openEventModal(el.getAttribute('data-calendar-id'), el.getAttribute('data-event-id'));
       });
     });
-    Array.prototype.forEach.call(container.querySelectorAll('.agenda-add-btn'), function (btn) {
-      btn.addEventListener('click', function () {
-        var parts = btn.getAttribute('data-date-key').split('-').map(function (n) { return parseInt(n, 10); });
-        openEventModal(null, null, new Date(parts[0], parts[1] - 1, parts[2], 9, 0, 0, 0));
-      });
-    });
-    Array.prototype.forEach.call(container.querySelectorAll('.agenda-todo-check'), function (cb) {
-      cb.addEventListener('change', function () {
-        var id = cb.closest('[data-todo-id]').getAttribute('data-todo-id');
-        gasRun('toggleTodo', id).then(function (todos) {
-          state.home.todos = todos;
-          renderTodoList(todos);
-          return loadCalendarForCurrentMode();
-        }).catch(showError);
+    Array.prototype.forEach.call(container.querySelectorAll('.tg-day-col'), function (col) {
+      col.addEventListener('click', function (e) {
+        if (e.target !== col) return; // 予定ブロック自体のクリックは上のハンドラに任せる
+        var rect = col.getBoundingClientRect();
+        var offsetY = e.clientY - rect.top;
+        var totalMinutes = Math.round(((offsetY / GRID_HOUR_PX) * 60) / 30) * 30; // 30分単位に丸める
+        var parts = col.getAttribute('data-date-key').split('-').map(function (n) { return parseInt(n, 10); });
+        openEventModal(null, null, new Date(parts[0], parts[1] - 1, parts[2], Math.floor(totalMinutes / 60), totalMinutes % 60, 0, 0));
       });
     });
   }
@@ -553,7 +625,7 @@
     var t = new Date();
     var start = new Date(t.getFullYear(), t.getMonth(), t.getDate(), 0, 0, 0, 0);
     var end = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1, 0, 0, 0, 0);
-    var calendarIds = state.home.globalSettings.syncCalendarIds;
+    var calendarIds = syncedCalendarIds();
     return gasRun('getCalendarEvents', calendarIds, start.toISOString(), end.toISOString()).then(function (events) {
       renderTodayList(events);
     }).catch(showError);
@@ -966,15 +1038,29 @@
     navBadge.hidden = unread === 0;
   }
 
-  // 一度開いたメールを未読から外す（表示上の即時反映 + サーバー側の既読化）
+  // 一度開いたメールを未読から外す（表示上の即時反映 + サーバー側の既読化）。
+  // メールタブは受信トレイ以外のフォルダ(迷惑メール/ゴミ箱)を表示している場合があり、その一覧は
+  // state.home.mails ではなく state.mailPage.mails 側にあるため、両方を個別にチェックする。
   function markMailReadLocally(threadId) {
-    if (!state.home) return;
-    var mail = state.home.mails.filter(function (m) { return m.threadId === threadId; })[0];
-    if (!mail || !mail.isUnread) return;
-    mail.isUnread = false;
-    renderMailList(state.home.mails, state.home.userSettings.mailCount);
-    if (state.currentView === 'mail') {
-      renderMailPageList(state.home.mails);
+    var updatedHome = false;
+    if (state.home) {
+      var homeMail = state.home.mails.filter(function (m) { return m.threadId === threadId; })[0];
+      if (homeMail && homeMail.isUnread) {
+        homeMail.isUnread = false;
+        updatedHome = true;
+      }
+    }
+    var updatedPage = false;
+    var pageMail = state.mailPage.mails.filter(function (m) { return m.threadId === threadId; })[0];
+    if (pageMail && pageMail.isUnread) {
+      pageMail.isUnread = false;
+      updatedPage = true;
+    }
+    if (updatedHome) {
+      renderMailList(state.home.mails, state.home.userSettings.mailCount);
+    }
+    if (updatedPage && state.currentView === 'mail') {
+      renderMailPageList(state.mailPage.mails);
     }
     gasRun('markMailRead', threadId).catch(function () { /* 既読化に失敗しても表示は既読のままでよい */ });
   }
@@ -1041,16 +1127,45 @@
     });
   }
 
-  // メール一覧のみを軽量に再取得する（ホーム全体を読み込み直す loadHome() より高速）
+  // メール一覧のみを軽量に再取得する（ホーム全体を読み込み直す loadHome() より高速）。
+  // ホーム画面のメールウィジェットは常に受信トレイ固定のため、ここでは常にフォルダ指定なしで取得する。
   function refreshMailData() {
     return gasRun('getRecentMails').then(function (mails) {
-      if (!state.home) return;
+      if (!state.home) return Promise.resolve();
       state.home.mails = mails;
       renderMailList(mails, state.home.userSettings.mailCount);
-      if (state.currentView === 'mail') {
-        renderMailPageList(mails);
-      }
+      if (state.currentView !== 'mail') return Promise.resolve();
+      return refreshMailPageForCurrentFolder();
     }).catch(showError);
+  }
+
+  // メールタブで現在選択中のフォルダ(受信トレイ/迷惑メール/ゴミ箱)のメールを取得する。
+  // 受信トレイの場合はホームウィジェットと同じデータ(state.home.mails)をそのまま使い、
+  // 迷惑メール・ゴミ箱の場合のみ専用のサーバー呼び出しを行う。
+  function loadMailPageMails() {
+    if (state.mailPage.folder === 'inbox') {
+      return Promise.resolve(state.home ? state.home.mails : []);
+    }
+    return gasRun('getRecentMails', state.mailPage.folder);
+  }
+
+  function refreshMailPageForCurrentFolder() {
+    return loadMailPageMails().then(function (mails) {
+      state.mailPage.mails = mails;
+      renderMailPageList(mails);
+    }).catch(showError);
+  }
+
+  function initMailFolderSelector() {
+    var select = qs('mail-folder-select');
+    if (!select) return;
+    select.addEventListener('change', function () {
+      state.mailPage.folder = select.value;
+      state.mailPage.selectedThreadId = null;
+      state.mailPage.selectedIds = {};
+      qs('mail-page-reader').innerHTML = '<div class="empty-hint">左の一覧からメールを選択してください</div>';
+      withSpinner(select, refreshMailPageForCurrentFolder);
+    });
   }
 
   // ===================== メールタブ（2カラム：左に一覧／右に本文） =====================
@@ -1125,13 +1240,13 @@
     });
     qs('btn-mail-bulk-clear').addEventListener('click', function () {
       state.mailPage.selectedIds = {};
-      if (state.home) renderMailPageList(state.home.mails);
+      renderMailPageList(state.mailPage.mails);
     });
   }
 
   function openMailPageThread(threadId) {
     state.mailPage.selectedThreadId = threadId;
-    renderMailPageList(state.home.mails);
+    renderMailPageList(state.mailPage.mails);
 
     var reader = qs('mail-page-reader');
     reader.innerHTML = '<div class="empty-hint">読み込み中...</div>';
@@ -1575,13 +1690,17 @@
       '<svg class="icon icon-sm"><use href="#icon-pin"></use></svg></button>';
   }
 
-  function driveActionButtonsHtml(item) {
-    return (item.isFolder
-      ? '<button type="button" class="btn-drive-open">開く</button>'
-      : '<button type="button" class="btn-drive-preview">プレビュー</button>') +
-      '<button type="button" class="btn-drive-rename">名称変更</button>' +
-      '<button type="button" class="btn-drive-share">共有</button>' +
-      '<button type="button" class="btn-drive-move">移動</button>';
+  // iconOnly=true: グリッド(カード)表示用。4つのボタンを1行に収めるため、アイコンのみの丸ボタンにする
+  function driveActionButtonsHtml(item, iconOnly) {
+    function btn(cls, label, icon) {
+      if (iconOnly) {
+        return '<button type="button" class="icon-only ' + cls + '" aria-label="' + label + '" title="' + label + '">' +
+          '<svg class="icon icon-sm"><use href="#' + icon + '"></use></svg></button>';
+      }
+      return '<button type="button" class="' + cls + '">' + label + '</button>';
+    }
+    var primary = item.isFolder ? btn('btn-drive-open', '開く', 'icon-folder') : btn('btn-drive-preview', 'プレビュー', 'icon-eye');
+    return primary + btn('btn-drive-rename', '名称変更', 'icon-edit') + btn('btn-drive-share', '共有', 'icon-share') + btn('btn-drive-move', '移動', 'icon-move');
   }
 
   function driveListRowHtml(item) {
@@ -1593,7 +1712,7 @@
       driveThumbHtml(item, 'thumb') +
       '<div class="name">' + nameHtml + '</div>' +
       '<div class="meta">' + sizeLabel + '</div>' +
-      '<span>' + drivePinButtonHtml(item) + driveActionButtonsHtml(item) + '</span></div>';
+      '<span>' + drivePinButtonHtml(item) + driveActionButtonsHtml(item, false) + '</span></div>';
   }
 
   function driveGridItemHtml(item) {
@@ -1606,7 +1725,15 @@
       driveThumbHtml(item, 'thumb') +
       '<div class="name">' + nameHtml + '</div>' +
       '<div class="meta">' + sizeLabel + '</div>' +
-      '<div class="grid-actions">' + driveActionButtonsHtml(item) + '</div></div>';
+      '<div class="grid-actions">' + driveActionButtonsHtml(item, true) + '</div></div>';
+  }
+
+  // カード/行のクリック、および「プレビュー」ボタンの両方から呼ばれる共通処理
+  function openDrivePreview(fileId) {
+    gasRun('getDrivePreviewUrl', fileId).then(function (url) {
+      qs('drive-preview-frame').src = url;
+      qs('drive-preview-modal').hidden = false;
+    }).catch(showError);
   }
 
   function formatBytes(bytes) {
@@ -1652,10 +1779,21 @@
     Array.prototype.forEach.call(container.querySelectorAll('.btn-drive-preview'), function (btn) {
       btn.addEventListener('click', function () {
         var row = btn.closest('[data-file-id]');
-        gasRun('getDrivePreviewUrl', row.getAttribute('data-file-id')).then(function (url) {
-          qs('drive-preview-frame').src = url;
-          qs('drive-preview-modal').hidden = false;
-        }).catch(showError);
+        openDrivePreview(row.getAttribute('data-file-id'));
+      });
+    });
+
+    // カード/行のどこをクリックしても既定の操作(ファイルはプレビュー、フォルダは開く)が起きるようにする。
+    // ボタンやファイル名リンクのクリックはそれぞれ専用のハンドラに任せるため、ここでは何もしない。
+    Array.prototype.forEach.call(container.querySelectorAll('.drive-row, .drive-grid-item'), function (row) {
+      row.addEventListener('click', function (e) {
+        if (e.target.closest('a, button')) return;
+        var fileId = row.getAttribute('data-file-id');
+        if (row.getAttribute('data-is-folder') === 'true') {
+          loadDriveFolder(fileId);
+        } else {
+          openDrivePreview(fileId);
+        }
       });
     });
     Array.prototype.forEach.call(container.querySelectorAll('.btn-drive-rename'), function (btn) {
@@ -1836,13 +1974,10 @@
     populateNotifyHourOptions();
     qs('setting-notify-hour').value = String(globalSettings.notifyHour);
 
-    var syncSet = {};
-    globalSettings.syncCalendarIds.forEach(function (id) { syncSet[id] = true; });
+    // 同期対象カレンダーはログインアカウントに紐づくため選択式にはせず、現在自動的に
+    // 同期されるカレンダー名を確認用に一覧表示するのみ（選択UIは持たない）
     var listHtml = calendars.map(function (cal) {
-      var checked = syncSet[cal.id] ? ' checked' : '';
-      return '<div class="checkbox-row">' +
-        '<input type="checkbox" class="sync-calendar-checkbox" value="' + escapeHtml(cal.id) + '"' + checked + '>' +
-        '<label style="margin:0;">' + escapeHtml(cal.name) + '</label></div>';
+      return '<div class="synced-calendar-row"><svg class="icon icon-sm"><use href="#icon-check"></use></svg>' + escapeHtml(cal.name) + '</div>';
     }).join('');
     qs('sync-calendar-list').innerHTML = listHtml || '<div class="empty-hint">利用可能なカレンダーがありません</div>';
   }
@@ -1866,6 +2001,78 @@
     });
   }
 
+  // ---- ウィジェットブロックのサンプルデザイン（レイアウトの見た目を大きさごとに確認できるようにする） ----
+  // 実データではなく、そのウィジェットが実際にどう見えるかを示す簡易モックアップ(骨組み)。
+  // 大きさ(小/中/大)に応じて行数を増減させ、リサイズ時の見た目の変化も確認できるようにしている。
+  function wmockRowCount(size) {
+    return size === 'small' ? 2 : size === 'medium' ? 3 : 5;
+  }
+
+  function buildCalendarMock(size) {
+    var rows = size === 'small' ? 2 : size === 'medium' ? 3 : 4;
+    var weekdaysHtml = ['日', '月', '火', '水', '木', '金', '土'].map(function (d) { return '<span>' + d + '</span>'; }).join('');
+    var cellsHtml = '';
+    for (var i = 0; i < rows * 7; i++) {
+      var hasEvent = i % 9 === 3 || i % 11 === 5;
+      cellsHtml += '<div class="wmock-cal-cell">' + (hasEvent ? '<span class="wmock-chip"></span>' : '') + '</div>';
+    }
+    return '<div class="wmock-cal-weekdays">' + weekdaysHtml + '</div>' +
+      '<div class="wmock-cal-grid" style="grid-template-rows: repeat(' + rows + ', 1fr);">' + cellsHtml + '</div>';
+  }
+
+  function buildTodayMock(size) {
+    var rows = wmockRowCount(size);
+    var html = '';
+    for (var i = 0; i < rows; i++) {
+      html += '<div class="wmock-row"><span class="wmock-time"></span><span class="wmock-bar" style="width:' + (46 + (i % 3) * 16) + '%;"></span></div>';
+    }
+    return '<div class="wmock-list">' + html + '</div>';
+  }
+
+  function buildMailMock(size) {
+    var rows = wmockRowCount(size);
+    var html = '';
+    for (var i = 0; i < rows; i++) {
+      html += '<div class="wmock-row"><span class="wmock-dot' + (i < 2 ? ' is-unread' : '') + '"></span>' +
+        '<span class="wmock-bar" style="width:' + (55 + (i % 3) * 14) + '%;"></span><span class="wmock-bar wmock-bar-sm"></span></div>';
+    }
+    return '<div class="wmock-list">' + html + '</div>';
+  }
+
+  function buildLinksMock(size) {
+    var rows = wmockRowCount(size);
+    var html = '';
+    for (var i = 0; i < rows; i++) {
+      html += '<div class="wmock-row"><span class="wmock-icon-dot"></span>' +
+        '<span class="wmock-bar" style="width:' + (50 + (i % 3) * 16) + '%;"></span><span class="wmock-badge"></span></div>';
+    }
+    return '<div class="wmock-list">' + html + '</div>';
+  }
+
+  function buildTodoMock(size) {
+    var rows = wmockRowCount(size);
+    var html = '';
+    for (var i = 0; i < rows; i++) {
+      var done = i === 1;
+      html += '<div class="wmock-row"><span class="wmock-check' + (done ? ' is-checked' : '') + '"></span>' +
+        '<span class="wmock-bar' + (done ? ' is-done' : '') + '" style="width:' + (45 + (i % 3) * 18) + '%;"></span></div>';
+    }
+    return '<div class="wmock-list">' + html + '</div>';
+  }
+
+  var WIDGET_MOCK_BUILDERS = {
+    calendar: buildCalendarMock,
+    today: buildTodayMock,
+    mail: buildMailMock,
+    links: buildLinksMock,
+    todo: buildTodoMock
+  };
+
+  function buildWidgetMockHtml(widgetId, size) {
+    var builder = WIDGET_MOCK_BUILDERS[widgetId];
+    return builder ? builder(size) : '';
+  }
+
   function buildWidgetBlock(w) {
     var block = document.createElement('div');
     block.className = 'widget-block widget-block-size-' + w.size + (w.visible ? '' : ' is-hidden');
@@ -1883,6 +2090,11 @@
       '<svg class="icon icon-sm"><use href="#' + (w.visible ? 'icon-eye' : 'icon-eye-off') + '"></use></svg>' +
       '</button>';
     block.appendChild(head);
+
+    var mock = document.createElement('div');
+    mock.className = 'widget-block-mock';
+    mock.innerHTML = buildWidgetMockHtml(w.id, w.size);
+    block.appendChild(mock);
 
     var sizeLabel = document.createElement('div');
     sizeLabel.className = 'widget-block-size-label';
@@ -1965,6 +2177,8 @@
     block.className = block.className.replace(/widget-block-size-\w+/, 'widget-block-size-' + size);
     block.setAttribute('data-size', size);
     sizeLabelEl.textContent = '大きさ: ' + WIDGET_SIZE_LABELS[size];
+    var mock = block.querySelector('.widget-block-mock');
+    if (mock) mock.innerHTML = buildWidgetMockHtml(block.getAttribute('data-widget-id'), size);
   }
 
   // 列の高さは固定なので、大きさはピクセル指定ではなく「小⇔中⇔大」の段階を動かす形で変更する。
@@ -2042,7 +2256,8 @@
       return;
     }
     container.innerHTML = items.map(function (item, index) {
-      return '<div class="link-row" data-nav-item-id="' + escapeHtml(item.id) + '">' +
+      return '<div class="link-row nav-item-settings-row" draggable="true" data-nav-item-id="' + escapeHtml(item.id) + '">' +
+        '<svg class="icon icon-sm widget-block-drag-handle" style="flex:0 0 auto;"><use href="#icon-grip"></use></svg>' +
         '<div>' +
         '<div class="name">' + escapeHtml(item.label) + '</div>' +
         '<div class="desc">' + escapeHtml(item.url) + '</div>' +
@@ -2082,6 +2297,63 @@
         saveCustomNavItems(next).catch(showError);
       });
     });
+
+    initCustomNavDragDrop(container, items);
+  }
+
+  // ↑↓ボタン(キーボード操作・タッチ操作向け)に加えて、行自体をドラッグしても並び替えられるようにする
+  var draggingNavRow = null;
+
+  function navRowInsertionTarget(container, y) {
+    var rows = Array.prototype.slice.call(container.querySelectorAll('.nav-item-settings-row:not(.is-dragging)'));
+    var result = null;
+    var closestOffset = -Infinity;
+    rows.forEach(function (row) {
+      var box = row.getBoundingClientRect();
+      var offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > closestOffset) {
+        closestOffset = offset;
+        result = row;
+      }
+    });
+    return result;
+  }
+
+  function initCustomNavDragDrop(container, items) {
+    Array.prototype.forEach.call(container.querySelectorAll('.nav-item-settings-row'), function (row) {
+      row.addEventListener('dragstart', function (e) {
+        draggingNavRow = row;
+        row.classList.add('is-dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        try { e.dataTransfer.setData('text/plain', row.getAttribute('data-nav-item-id')); } catch (err) { /* Firefox以外は不要 */ }
+      });
+      row.addEventListener('dragend', function () {
+        row.classList.remove('is-dragging');
+        draggingNavRow = null;
+      });
+    });
+
+    container.addEventListener('dragover', function (e) {
+      if (!draggingNavRow) return;
+      e.preventDefault();
+      var after = navRowInsertionTarget(container, e.clientY);
+      if (after) {
+        container.insertBefore(draggingNavRow, after);
+      } else {
+        container.appendChild(draggingNavRow);
+      }
+    });
+
+    container.addEventListener('drop', function (e) {
+      e.preventDefault();
+      if (!draggingNavRow) return;
+      var byId = {};
+      items.forEach(function (item) { byId[item.id] = item; });
+      var next = Array.prototype.map.call(container.querySelectorAll('.nav-item-settings-row'), function (row) {
+        return byId[row.getAttribute('data-nav-item-id')];
+      });
+      saveCustomNavItems(next).catch(showError);
+    });
   }
 
   function initCustomNavSettings() {
@@ -2115,12 +2387,7 @@
     });
 
     qs('btn-save-global-settings').addEventListener('click', function () {
-      var syncCalendarIds = Array.prototype.map.call(
-        document.querySelectorAll('.sync-calendar-checkbox:checked'),
-        function (cb) { return cb.value; }
-      );
       var settings = {
-        syncCalendarIds: syncCalendarIds,
         mailLabel: qs('setting-mail-label').value.trim() || 'INBOX',
         notifyEnabled: qs('setting-notify-enabled').checked,
         notifyHour: parseInt(qs('setting-notify-hour').value, 10) || 0
@@ -2162,6 +2429,7 @@
     safeInit('initDayDetail', initDayDetail);
     safeInit('initMail', initMail);
     safeInit('initMailPage', initMailPage);
+    safeInit('initMailFolderSelector', initMailFolderSelector);
     safeInit('initMailBulkActions', initMailBulkActions);
     safeInit('initSearch', initSearch);
     safeInit('initAppLedger', initAppLedger);

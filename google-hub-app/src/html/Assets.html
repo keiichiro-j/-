@@ -165,6 +165,24 @@
       <path d="M6 3v18" />
       <path d="M6 4h11l-2.5 3.5L17 11H6" />
     </symbol>
+
+    <symbol id="icon-edit" viewBox="0 0 24 24">
+      <path d="M4 20l1-4.2L15.8 5 19 8.2 8.2 19z" />
+      <path d="M13.5 6.5l4 4" />
+    </symbol>
+
+    <symbol id="icon-share" viewBox="0 0 24 24">
+      <circle cx="18" cy="5" r="2.3" />
+      <circle cx="6" cy="12" r="2.3" />
+      <circle cx="18" cy="19" r="2.3" />
+      <path d="M8.1 10.8l7.8-4.4M8.1 13.2l7.8 4.4" />
+    </symbol>
+
+    <symbol id="icon-move" viewBox="0 0 24 24">
+      <path d="M4 7a1 1 0 0 1 1-1h4.2l1.6 2H19a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7z" />
+      <path d="M9 14l3-3 3 3" />
+      <path d="M12 11v6" />
+    </symbol>
   </defs>
 </svg>
 
@@ -257,19 +275,23 @@
   .icon-sm { width: 15px; height: 15px; }
   .icon-lg { width: 22px; height: 22px; }
 
-  /* ===== 上部ヘッダー（全幅・中立色） ===== */
+  /* ===== 上部ヘッダー（全幅・中立色） =====
+     ロゴを常に画面中央に置くため、左右のブロック(.topbar-side)を同じflex比率(1)で確保し、
+     中央の.topbar-brandをその間に挟む3分割構成にしている（左右の中身の幅が違っても中央は揃う）。 */
   .topbar {
     height: 60px;
     flex: 0 0 60px;
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 12px;
     padding: 0 20px;
     background: var(--topbar-bg);
     border-bottom: 1px solid var(--border-color);
     position: relative;
     z-index: 20;
   }
+  .topbar-side { flex: 1 1 0; display: flex; align-items: center; min-width: 0; }
+  .topbar-side-left { justify-content: flex-start; }
   .topbar-brand {
     display: flex;
     align-items: center;
@@ -282,28 +304,43 @@
   }
   .topbar-brand .icon { color: var(--accent); width: 22px; height: 22px; }
 
-  .topbar-search {
-    flex: 1 1 auto;
-    max-width: 480px;
-    position: relative;
-  }
-  .topbar-search .icon {
+  /* ===== コントロールパネルの横断検索（ホームの直上） =====
+     パネルの背景はテーマ色で変わるため、周囲の色に馴染む半透明の「すりガラス」風にし、
+     文字色が濃い配色(data-text="dark")の場合は黒みの半透明に切り替えて視認性を保つ。 */
+  .control-panel-search { position: relative; margin: 0 2px 10px; }
+  .control-panel-search .icon {
     position: absolute;
-    left: 12px;
+    left: 11px;
     top: 50%;
     transform: translateY(-50%);
-    color: var(--content-faint);
+    color: inherit;
+    opacity: 0.75;
     pointer-events: none;
   }
-  .topbar-search input {
+  .control-panel-search input {
     width: 100%;
-    padding: 8px 12px 8px 36px;
-    border-radius: 999px;
-    border: 1px solid var(--border-color);
-    background: var(--content-bg);
-    font-size: 13px;
+    padding: 8px 10px 8px 32px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.16);
+    color: inherit;
+    font-size: 12.5px;
   }
-  .topbar-search input:focus { outline: none; border-color: var(--accent); background: var(--card-bg); }
+  .control-panel-search input::placeholder { color: inherit; opacity: 0.7; }
+  .control-panel-search input:focus {
+    outline: none;
+    border-color: rgba(255,255,255,0.6);
+    background: rgba(255,255,255,0.24);
+  }
+  .control-panel[data-text="dark"] .control-panel-search input {
+    border-color: rgba(0,0,0,0.22);
+    background: rgba(0,0,0,0.08);
+  }
+  .control-panel[data-text="dark"] .control-panel-search input:focus {
+    border-color: rgba(0,0,0,0.4);
+    background: rgba(0,0,0,0.14);
+  }
+  .control-panel-search .search-results { color: var(--content-text); }
 
   .search-results {
     position: absolute;
@@ -336,11 +373,8 @@
   .search-result-row .r-desc { font-size: 11px; color: var(--content-muted); }
 
   .topbar-actions {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
+    justify-content: flex-end;
     gap: 6px;
-    flex: 0 0 auto;
   }
   .avatar-badge {
     width: 32px;
@@ -581,6 +615,14 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    transition: transform 0.08s ease, filter 0.08s ease;
+  }
+
+  /* クリック/タップした「押した感触」。全ボタン共通（テーマスウォッチ・ナビ項目・タグチップ等、
+     <button>要素として実装されているものすべてに自動的に効く） */
+  button:active:not(:disabled) {
+    transform: scale(0.96);
+    filter: brightness(0.95);
   }
 
   button.primary {
@@ -772,6 +814,8 @@
     .mail-page-list-col { width: 100%; flex: 1 1 auto; border-right: none; border-bottom: 1px solid var(--border-color); }
   }
 
+  .nav-item-settings-row { cursor: grab; }
+  .nav-item-settings-row.is-dragging { opacity: 0.4; }
   .link-row .name { font-weight: bold; }
   .link-row .desc { color: var(--content-muted); font-size: 12px; }
   .status-badge {
@@ -798,7 +842,11 @@
     padding: 6px 4px;
     border-bottom: 1px solid var(--border-color);
     font-size: 13px;
+    cursor: pointer;
   }
+  .drive-row:hover { background: var(--content-bg); }
+  .drive-grid-item { cursor: pointer; }
+  .drive-grid-item:hover { background: var(--content-bg); }
   .drive-row img { width: 18px; height: 18px; }
   .drive-row .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .drive-row .name a { color: inherit; text-decoration: none; }
@@ -825,6 +873,11 @@
 
   .settings-section { margin-bottom: 20px; }
   .settings-section h3 { font-size: 14px; margin-bottom: 8px; }
+  .synced-calendar-row {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 13px; padding: 4px 0; color: var(--content-text);
+  }
+  .synced-calendar-row .icon { color: var(--accent); width: 14px; height: 14px; }
 
   /* ===== 設定画面: テーマスウォッチ（11色 + ランダムの計12択） ===== */
   .theme-swatch-grid {
@@ -933,8 +986,37 @@
     color: var(--content-muted);
   }
   .widget-block-visibility:hover { background: var(--content-bg); }
+
+  /* サンプルデザイン(実データではなく骨組みのモックアップ)。大きさ(小/中/大)に応じて
+     行数が変わり、リサイズ時の見た目の変化をその場で確認できる。 */
+  .widget-block-mock {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    margin-top: 6px;
+    display: flex;
+    flex-direction: column;
+  }
+  .wmock-list { display: flex; flex-direction: column; gap: 5px; }
+  .wmock-row { display: flex; align-items: center; gap: 5px; }
+  .wmock-bar { height: 6px; border-radius: 3px; background: var(--border-color); flex: 0 0 auto; }
+  .wmock-bar-sm { width: 22px !important; margin-left: auto; }
+  .wmock-bar.is-done { opacity: 0.45; }
+  .wmock-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border-color); flex: 0 0 auto; }
+  .wmock-dot.is-unread { background: var(--accent); }
+  .wmock-time { width: 22px; height: 6px; border-radius: 3px; background: var(--accent); opacity: 0.5; flex: 0 0 auto; }
+  .wmock-icon-dot { width: 9px; height: 9px; border-radius: 3px; background: var(--content-faint); flex: 0 0 auto; }
+  .wmock-badge { width: 16px; height: 6px; border-radius: 3px; background: var(--content-faint); opacity: 0.6; margin-left: auto; flex: 0 0 auto; }
+  .wmock-check { width: 9px; height: 9px; border-radius: 2px; border: 1.5px solid var(--content-faint); flex: 0 0 auto; }
+  .wmock-check.is-checked { background: var(--accent); border-color: var(--accent); }
+
+  .wmock-cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 3px; flex: 0 0 auto; }
+  .wmock-cal-weekdays span { font-size: 7px; text-align: center; color: var(--content-faint); }
+  .wmock-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; flex: 1 1 auto; min-height: 0; }
+  .wmock-cal-cell { background: var(--content-bg); border-radius: 2px; display: flex; align-items: flex-end; padding: 1px; min-height: 7px; }
+  .wmock-chip { width: 100%; height: 3px; border-radius: 2px; background: var(--accent); opacity: 0.55; }
+
   .widget-block-size-label {
-    margin-top: auto;
     font-size: 10.5px;
     color: var(--content-faint);
   }
@@ -997,7 +1079,7 @@
   .drive-row .thumb { width: 18px; height: 18px; object-fit: cover; border-radius: 3px; flex: 0 0 auto; }
   .drive-row .btn-drive-pin.is-pinned, .drive-grid-item .btn-drive-pin.is-pinned { color: var(--accent); }
 
-  .drive-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
+  .drive-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
   .drive-grid-item {
     display: flex; flex-direction: column; align-items: center; gap: 6px;
     padding: 12px 8px; border: 1px solid var(--border-color); border-radius: 10px;
@@ -1011,8 +1093,9 @@
     position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; padding: 0;
     border-radius: 50%; justify-content: center;
   }
-  .drive-grid-item .grid-actions { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin-top: 2px; }
-  .drive-grid-item .grid-actions button { font-size: 10.5px; padding: 3px 7px; }
+  .drive-grid-item .grid-actions { display: flex; flex-wrap: nowrap; gap: 3px; justify-content: center; margin-top: 2px; }
+  .drive-grid-item .grid-actions button.icon-only { width: 24px; height: 24px; }
+  .drive-grid-item .grid-actions button.icon-only .icon { width: 13px; height: 13px; }
 
   /* ===== ToDo: 期限日/優先度 ===== */
   .todo-row { align-items: flex-start; flex-wrap: wrap; }
@@ -1061,18 +1144,80 @@
 
   /* ===== カレンダー: 週表示/日表示（簡易アジェンダ形式） ===== */
   .cal-view-mode-switch { display: flex; gap: 4px; }
-  .cal-agenda { display: flex; flex-direction: column; gap: 12px; }
-  .agenda-day { border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 12px; }
-  .agenda-day.is-today { border-color: var(--accent); }
-  .agenda-day-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
-  .agenda-day-date { font-weight: 700; font-size: 13px; }
-  .agenda-holiday { font-size: 11px; color: #2f8a3e; font-weight: 600; }
-  .agenda-day-head .agenda-add-btn { margin-left: auto; font-size: 11px; padding: 3px 9px; }
-  .agenda-events, .agenda-todos { display: flex; flex-direction: column; }
-  .agenda-todos { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--border-color); }
+  .agenda-todos { display: flex; flex-direction: column; }
   .agenda-todo-row { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 12.5px; }
   .agenda-todo-row input[type="checkbox"] { width: auto; flex: 0 0 auto; }
   .todo-indicator { position: absolute; bottom: 3px; right: 3px; font-size: 8.5px; color: var(--accent); font-weight: 700; }
+
+  /* ===== カレンダー: 週表示/日表示（実時間グリッド。横=日付の列、縦=時刻） ===== */
+  .cal-timegrid { height: 100%; display: flex; flex-direction: column; min-height: 420px; }
+  .tg-scroll {
+    flex: 1; min-height: 0; overflow: auto;
+    border: 1px solid var(--border-color); border-radius: 6px;
+  }
+  .tg-grid { display: grid; min-width: 480px; }
+  .tg-corner {
+    position: sticky; top: 0; left: 0; z-index: 4; background: var(--card-bg);
+    border-bottom: 1px solid var(--border-color); border-right: 1px solid var(--border-color);
+  }
+  .tg-day-header {
+    position: sticky; top: 0; z-index: 3; background: var(--card-bg);
+    border-bottom: 1px solid var(--border-color); border-left: 1px solid var(--border-soft);
+    padding: 6px 4px; text-align: center;
+  }
+  .tg-day-header.is-today { background: var(--content-bg); }
+  .tg-day-header-date { font-size: 11.5px; font-weight: 700; }
+  .tg-day-header.is-today .tg-day-header-date { color: var(--accent); }
+  .tg-day-header-holiday { font-size: 9px; color: #2f8a3e; font-weight: 600; margin-top: 1px; }
+  .tg-day-header-todo {
+    display: inline-flex; align-items: center; gap: 2px; font-size: 8.5px;
+    color: var(--accent); font-weight: 700; margin-top: 1px;
+  }
+  .tg-gutter-label {
+    position: sticky; top: 0; left: 0; z-index: 2; background: var(--card-bg);
+    font-size: 9.5px; color: var(--content-muted); display: flex; align-items: center; justify-content: flex-end;
+    padding: 2px 4px; border-right: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);
+  }
+  .tg-allday-cell {
+    border-left: 1px solid var(--border-soft); border-bottom: 1px solid var(--border-color);
+    padding: 2px; display: flex; flex-direction: column; gap: 2px; min-height: 20px;
+  }
+  .tg-allday-chip {
+    font-size: 10px; line-height: 1.5; padding: 0 5px; border-radius: 3px; cursor: pointer;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .tg-hour-label {
+    position: sticky; left: 0; z-index: 1; background: var(--card-bg);
+    font-size: 9.5px; color: var(--content-muted);
+    display: flex; align-items: flex-start; justify-content: flex-end;
+    padding: 2px 4px 0 0; border-right: 1px solid var(--border-color);
+  }
+  .tg-day-col {
+    position: relative;
+    border-left: 1px solid var(--border-soft);
+    background-image: repeating-linear-gradient(to bottom, var(--border-soft) 0, var(--border-soft) 1px, transparent 1px, transparent 48px);
+    cursor: pointer;
+  }
+  .tg-event {
+    position: absolute;
+    border-radius: 4px;
+    padding: 2px 4px;
+    font-size: 10px;
+    line-height: 1.3;
+    overflow: hidden;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+  }
+  .tg-event-time { font-size: 8.5px; opacity: 0.85; }
+  .tg-event-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tg-now-line {
+    position: absolute; left: 0; right: 0; height: 0; border-top: 2px solid var(--danger);
+    z-index: 2; pointer-events: none;
+  }
+  .tg-now-line::before {
+    content: ""; position: absolute; left: -3px; top: -4px; width: 8px; height: 8px;
+    border-radius: 50%; background: var(--danger);
+  }
 
   /* ===== PCビュー: ホーム画面は縦スクロールなしで、縦幅いっぱいにウィジェットを配置 =====
      メインエリア・サイドバーとも overflow:hidden にして下スライド(スクロール)を禁止し、
@@ -1113,7 +1258,7 @@
 
     #card-calendar .mini-calendar { flex: 1; min-height: 0; display: flex; flex-direction: column; }
     #card-calendar .cal-grid { flex: 1; min-height: 0; grid-auto-rows: 1fr; }
-    #card-calendar .cal-agenda { flex: 1; min-height: 0; overflow-y: auto; }
+    #card-calendar .cal-timegrid { flex: 1; min-height: 0; }
 
     /* メールタブ: 左の件名一覧と右の本文をそれぞれ独立してスクロールさせる（Gmail等と同様）。
        右側の本文をスクロールしても左の一覧は動かない。メールタブ画面全体は画面の残り高さに
@@ -1126,14 +1271,18 @@
   @media (max-width: 960px) {
     .shell-body { flex-wrap: wrap; }
     .right-sidebar { width: 100%; flex: 1 1 100%; padding: 0 22px 22px; }
+    .drive-grid { grid-template-columns: repeat(3, 1fr); }
   }
 
   @media (max-width: 720px) {
     .topbar { gap: 10px; padding: 0 12px; }
-    .topbar-search { display: none; }
     .shell-body { flex-direction: column; }
     .control-panel { width: 100%; flex: 0 0 auto; flex-direction: row; overflow-x: auto; }
+    /* 横スクロールする横並びナビの帯に検索欄を混在させると窮屈なため、モバイル幅では非表示にする
+       （以前ヘッダーにあった検索欄も同じくモバイル幅では非表示だったため、挙動は従来通り） */
+    .control-panel-search { display: none; }
     .control-panel .nav-item { flex: 0 0 auto; width: auto; white-space: nowrap; }
+    .drive-grid { grid-template-columns: repeat(2, 1fr); }
     .main-content { padding: 14px; }
     .right-sidebar { padding: 0 14px 14px; }
 

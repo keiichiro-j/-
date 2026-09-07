@@ -220,7 +220,6 @@ namespace GlobalSettingsService {
   const PROPERTY_KEY = "GLOBAL_SETTINGS";
 
   const DEFAULT_SETTINGS: GlobalSettings = {
-    syncCalendarIds: ["primary"],
     mailLabel: "INBOX",
     notifyEnabled: true,
     notifyHour: 8,
@@ -254,10 +253,6 @@ namespace GlobalSettingsService {
   }
 
   export function sanitize(input: Partial<GlobalSettings>): GlobalSettings {
-    const syncCalendarIds =
-      Array.isArray(input.syncCalendarIds) && input.syncCalendarIds.length > 0
-        ? input.syncCalendarIds.filter((id) => typeof id === "string" && id.length > 0)
-        : DEFAULT_SETTINGS.syncCalendarIds.slice();
     const mailLabel =
       typeof input.mailLabel === "string" && input.mailLabel.length > 0
         ? input.mailLabel
@@ -267,7 +262,6 @@ namespace GlobalSettingsService {
     const notifyHour = clampHour(input.notifyHour);
 
     return {
-      syncCalendarIds: syncCalendarIds.length > 0 ? syncCalendarIds : DEFAULT_SETTINGS.syncCalendarIds.slice(),
       mailLabel: mailLabel,
       notifyEnabled: notifyEnabled,
       notifyHour: notifyHour,
@@ -276,7 +270,6 @@ namespace GlobalSettingsService {
 
   function cloneDefaults(): GlobalSettings {
     return {
-      syncCalendarIds: DEFAULT_SETTINGS.syncCalendarIds.slice(),
       mailLabel: DEFAULT_SETTINGS.mailLabel,
       notifyEnabled: DEFAULT_SETTINGS.notifyEnabled,
       notifyHour: DEFAULT_SETTINGS.notifyHour,
