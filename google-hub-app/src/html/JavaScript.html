@@ -55,6 +55,7 @@
       month: now0.getMonth(), // 0-indexed。表示中の月（前月/次月ボタンで変わる）
       events: []
     },
+    dayDetail: null, // 日付タップ時のポップアップで選択中の日 { year, month, day }
     drive: {
       currentFolderId: null,
       items: [],
@@ -158,7 +159,6 @@
       state.calendar.month = month;
       state.calendar.events = events;
       renderMiniCalendar(year, month, events);
-      renderEventList(events);
     }).catch(showError);
   }
 
@@ -237,7 +237,7 @@
       if (dayEvents.length > MAX_DOTS) {
         dotsHtml += '<span class="dot-more">+' + (dayEvents.length - MAX_DOTS) + '</span>';
       }
-      html += '<div class="cal-cell' + (isToday ? ' is-today' : '') + '">' +
+      html += '<div class="cal-cell' + (isToday ? ' is-today' : '') + '" data-day="' + day + '">' +
         '<div class="day-num">' + day + '</div>' +
         (dayEvents.length > 0 ? '<div class="dots">' + dotsHtml + '</div>' : '') +
         '</div>';
@@ -248,6 +248,61 @@
       html += '<div class="cal-cell empty"></div>';
     }
     grid.innerHTML = html;
+
+    Array.prototype.forEach.call(grid.querySelectorAll('.cal-cell[data-day]'), function (cell) {
+      cell.addEventListener('click', function () {
+        openDayDetail(parseInt(cell.getAttribute('data-day'), 10));
+      });
+    });
+  }
+
+  // ===================== 日付タップ時のポップアップ（その日の予定一覧・編集） =====================
+  function openDayDetail(day) {
+    var year = state.calendar.year;
+    var month = state.calendar.month;
+    state.dayDetail = { year: year, month: month, day: day };
+
+    var dayEvents = state.calendar.events.filter(function (ev) {
+      var d = new Date(ev.start);
+      return d.getFullYear() === year && d.getMonth() === month && d.getDate() === day;
+    }).sort(function (a, b) { return a.start < b.start ? -1 : a.start > b.start ? 1 : 0; });
+
+    var dateObj = new Date(year, month, day);
+    qs('day-detail-title').textContent = year + '年' + (month + 1) + '月' + day + '日（' + WEEKDAY_LABELS[dateObj.getDay()] + '）';
+
+    var list = qs('day-detail-list');
+    list.innerHTML = dayEvents.length === 0
+      ? '<div class="empty-hint">この日の予定はありません</div>'
+      : dayEvents.map(function (ev) {
+        var catLabel = ev.categoryColorId ? '<span class="category-badge"><span class="category-dot" style="background:' + categoryHex(ev.categoryColorId) + ';"></span>' + escapeHtml(categoryLabel(ev.categoryColorId)) + '</span>' : '';
+        var timeLabel = ev.allDay ? '終日' : formatTime(ev.start) + ' 〜 ' + formatTime(ev.end);
+        return '<div class="link-row" data-event-id="' + escapeHtml(ev.id) + '" data-calendar-id="' + escapeHtml(ev.calendarId) + '">' +
+          '<div>' +
+          '<div class="name"><span class="category-dot" style="background:' + categoryHex(ev.categoryColorId) + ';"></span>' + escapeHtml(ev.title || '(無題)') + catLabel + '</div>' +
+          '<div class="desc">' + timeLabel + '</div>' +
+          '</div>' +
+          '<button type="button" class="btn-edit-event">編集</button>' +
+          '</div>';
+      }).join('');
+
+    Array.prototype.forEach.call(list.querySelectorAll('.btn-edit-event'), function (btn) {
+      btn.addEventListener('click', function () {
+        var row = btn.closest('[data-event-id]');
+        qs('day-detail-modal').hidden = true;
+        openEventModal(row.getAttribute('data-calendar-id'), row.getAttribute('data-event-id'));
+      });
+    });
+
+    qs('day-detail-modal').hidden = false;
+  }
+
+  function initDayDetail() {
+    qs('btn-day-detail-close').addEventListener('click', function () { qs('day-detail-modal').hidden = true; });
+    qs('btn-day-add-event').addEventListener('click', function () {
+      var d = state.dayDetail;
+      qs('day-detail-modal').hidden = true;
+      openEventModal(null, null, d ? new Date(d.year, d.month, d.day, 9, 0, 0, 0) : null);
+    });
   }
 
   function formatTime(iso) {
@@ -258,32 +313,6 @@
   function formatDateTime(iso) {
     var d = new Date(iso);
     return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + formatTime(iso);
-  }
-
-  function renderEventList(events) {
-    var container = qs('event-list');
-    if (events.length === 0) {
-      container.innerHTML = '<div class="empty-hint">この月の予定はありません</div>';
-      return;
-    }
-    var sorted = events.slice().sort(function (a, b) { return a.start < b.start ? -1 : a.start > b.start ? 1 : 0; });
-    container.innerHTML = sorted.map(function (ev) {
-      var catLabel = ev.categoryColorId ? '<span class="category-badge"><span class="category-dot" style="background:' + categoryHex(ev.categoryColorId) + ';"></span>' + escapeHtml(categoryLabel(ev.categoryColorId)) + '</span>' : '';
-      return '<div class="link-row" data-event-id="' + escapeHtml(ev.id) + '" data-calendar-id="' + escapeHtml(ev.calendarId) + '">' +
-        '<div>' +
-        '<div class="name"><span class="category-dot" style="background:' + categoryHex(ev.categoryColorId) + ';"></span>' + escapeHtml(ev.title || '(無題)') + catLabel + '</div>' +
-        '<div class="desc">' + formatDateTime(ev.start) + (ev.allDay ? '（終日）' : ' 〜 ' + formatDateTime(ev.end)) + '</div>' +
-        '</div>' +
-        '<button type="button" class="btn-edit-event">編集</button>' +
-        '</div>';
-    }).join('');
-
-    Array.prototype.forEach.call(container.querySelectorAll('.btn-edit-event'), function (btn) {
-      btn.addEventListener('click', function () {
-        var row = btn.closest('[data-event-id]');
-        openEventModal(row.getAttribute('data-calendar-id'), row.getAttribute('data-event-id'));
-      });
-    });
   }
 
   function populateEventCalendarOptions(calendars) {
@@ -329,7 +358,7 @@
     });
   }
 
-  function openEventModal(calendarId, eventId) {
+  function openEventModal(calendarId, eventId, presetDate) {
     var modal = qs('event-modal');
     qs('event-id').value = eventId || '';
     qs('event-modal-title').textContent = eventId ? '予定を編集' : '予定を追加';
@@ -352,9 +381,9 @@
       }
     } else {
       qs('event-title').value = '';
-      var now = new Date();
-      qs('event-start').value = toDatetimeLocal(now.toISOString());
-      qs('event-end').value = toDatetimeLocal(new Date(now.getTime() + 60 * 60 * 1000).toISOString());
+      var base = presetDate || new Date();
+      qs('event-start').value = toDatetimeLocal(base.toISOString());
+      qs('event-end').value = toDatetimeLocal(new Date(base.getTime() + 60 * 60 * 1000).toISOString());
       if (calendarId) qs('event-calendar').value = calendarId;
     }
     qs('event-category').value = categoryColorId;
@@ -921,6 +950,7 @@
     initNav();
     initEventModal();
     initCalendarNav();
+    initDayDetail();
     initMail();
     initNotifications();
     initSearch();
