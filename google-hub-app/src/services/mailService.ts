@@ -57,6 +57,18 @@ namespace MailService {
     }
   }
 
+  /** 開いているスレッドへの返信（宛先・件名(Re:)はGmailThread.reply()が自動的に設定する） */
+  export function reply(threadId: string, body: string): void {
+    const thread = GmailApp.getThreadById(threadId);
+    if (!thread) {
+      throw new Error("メールが見つかりません: " + threadId);
+    }
+    if (!body || !body.trim()) {
+      throw new Error("返信内容を入力してください");
+    }
+    thread.reply(body);
+  }
+
   /** メールタブからの新規メール作成・送信 */
   export function send(to: string, subject: string, body: string): void {
     if (!to || !to.trim()) {

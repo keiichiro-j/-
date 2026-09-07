@@ -388,6 +388,12 @@
     border-radius: 50%;
   }
 
+  button:disabled { opacity: 0.55; cursor: default; }
+
+  /* 更新ボタンのタップ時の読み込み演出（アイコンを回転させる） */
+  @keyframes icon-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  button.is-loading .icon { animation: icon-spin 0.7s linear infinite; }
+
   button.link-button {
     background: none;
     border: none;
@@ -541,6 +547,8 @@
   .mail-page-reader-col .subject { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
   .mail-page-reader-col .meta { color: var(--content-muted); font-size: 12.5px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border-color); }
   .mail-page-reader-col .body-text { white-space: pre-wrap; font-size: 13.5px; line-height: 1.7; }
+  .mail-reply-toolbar { margin-top: 14px; }
+  #mailpage-reply-section, #mail-detail-reply-section { margin-top: 8px; }
   #mail-page-list .mail-row .subject { font-weight: 600; }
   @media (max-width: 860px) {
     .mail-page { flex-direction: column; }
@@ -634,14 +642,16 @@
   .theme-swatch .swatch-color.is-random .icon { color: #fff; width: 16px; height: 16px; }
 
   /* ===== 設定画面: ホーム画面ウィジェットの視覚的レイアウトエディタ =====
-     ブロックの高さそのものを大きさ(小=60px:中=120px:大=180px = 1:2:3)に比例させ、
-     実際のダッシュボードのflex-grow比率(1:2:3)をそのまま可視化する。 */
+     メインエリア・サイドバーの各ドロップゾーンを同じ固定高さにし、その中でブロックを
+     widget-block-size-*(flex-grow 1:2:3)で分け合わせる。実際のダッシュボードと同じ
+     「同じ高さの列を、中の各ウィジェットがflex-growで奪い合う」仕組みをそのまま再現するため、
+     ウィジェット構成に関わらずメインエリアとサイドバーの合計の高さは常に一致する。 */
   .widget-layout-editor {
     display: flex;
     gap: 16px;
-    align-items: flex-start;
+    align-items: stretch;
   }
-  .widget-layout-col { flex: 2 1 0; min-width: 0; }
+  .widget-layout-col { flex: 2 1 0; min-width: 0; display: flex; flex-direction: column; }
   .widget-layout-col[data-column="side"] { flex: 1 1 0; }
   .widget-layout-col-label {
     font-size: 11.5px;
@@ -655,7 +665,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    min-height: 80px;
+    height: 420px;
     padding: 8px;
     border: 1.5px dashed var(--border-color);
     border-radius: 10px;
@@ -672,11 +682,13 @@
     padding: 8px 10px;
     cursor: grab;
     user-select: none;
+    min-height: 0;
+    overflow: hidden;
     transition: opacity 0.15s ease;
   }
-  .widget-block-size-small { height: 60px; }
-  .widget-block-size-medium { height: 120px; }
-  .widget-block-size-large { height: 180px; }
+  .widget-block-size-small { flex: 1 1 0; }
+  .widget-block-size-medium { flex: 2 1 0; }
+  .widget-block-size-large { flex: 3 1 0; }
   .widget-block.is-dragging { opacity: 0.35; }
   .widget-block.is-hidden { opacity: 0.5; border-style: dashed; background: transparent; }
 
@@ -763,6 +775,13 @@
 
     #card-calendar .mini-calendar { flex: 1; min-height: 0; display: flex; flex-direction: column; }
     #card-calendar .cal-grid { flex: 1; min-height: 0; grid-auto-rows: 1fr; }
+
+    /* メールタブ: 左の件名一覧と右の本文をそれぞれ独立してスクロールさせる（Gmail等と同様）。
+       右側の本文をスクロールしても左の一覧は動かない。メールタブ画面全体は画面の残り高さに
+       固定し(#view-home と同じ考え方)、内側の2カラムだけがそれぞれ自前でスクロールする。 */
+    #view-mail { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .mail-page { flex: 1; min-height: 0; }
+    .mail-page-list-col, .mail-page-reader-col { overflow-y: auto; min-height: 0; }
   }
 
   @media (max-width: 960px) {
@@ -778,5 +797,8 @@
     .control-panel .nav-item { flex: 0 0 auto; width: auto; white-space: nowrap; }
     .main-content { padding: 14px; }
     .right-sidebar { padding: 0 14px 14px; }
+
+    .widget-layout-editor { flex-direction: column; }
+    .widget-layout-dropzone { height: 300px; }
   }
 </style>

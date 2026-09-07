@@ -66,7 +66,9 @@
     },
     mailPage: {
       selectedThreadId: null
-    }
+    },
+    mailDetailThreadId: null, // メールウィジェットのポップアップで開いているスレッドID（返信用）
+    viewHistory: [] // 「戻る」ボタン用の閲覧履歴（直前に居た画面を積んでいく）
   };
 
   // ===================== トースト通知（保存完了などの一時メッセージ） =====================
@@ -80,6 +82,36 @@
     toastTimer = setTimeout(function () { el.classList.remove('is-visible'); }, 2400);
   }
 
+  // ===================== 更新ボタンの読み込み演出 =====================
+  // アイコンを回転させつつボタンを一時的に無効化する。ローカルのモック等ですぐ終わっても
+  // 「読み込んでいる」ことがわかるよう、最低でも一定時間はアニメーションを表示する。
+  function withSpinner(button, taskFn) {
+    if (!button) return taskFn();
+    button.classList.add('is-loading');
+    button.disabled = true;
+    var startedAt = Date.now();
+    var MIN_MS = 400;
+    function finish() {
+      var wait = Math.max(0, MIN_MS - (Date.now() - startedAt));
+      setTimeout(function () {
+        button.classList.remove('is-loading');
+        button.disabled = false;
+      }, wait);
+    }
+    var result;
+    try {
+      result = taskFn();
+    } catch (e) {
+      finish();
+      throw e;
+    }
+    if (result && typeof result.then === 'function') {
+      return result.then(function (v) { finish(); return v; }, function (e) { finish(); throw e; });
+    }
+    finish();
+    return result;
+  }
+
   // ===================== テーマ適用（コントロールパネルのみ） =====================
   function applyTheme(theme) {
     var panel = qs('control-panel');
@@ -89,7 +121,11 @@
   }
 
   // ===================== 画面切り替え =====================
-  function switchView(view) {
+  // skipHistory: true の場合は履歴に積まない（「戻る」ボタン自身からの遷移で使う）
+  function switchView(view, skipHistory) {
+    if (!skipHistory && view !== state.currentView) {
+      state.viewHistory.push(state.currentView);
+    }
     state.currentView = view;
     qs('view-home').hidden = view !== 'home';
     qs('view-mail').hidden = view !== 'mail';
@@ -110,6 +146,23 @@
     if (view === 'mail' && state.home) {
       renderMailPageList(state.home.mails);
     }
+  }
+
+  // 現在の画面に応じた「更新」処理を呼び分ける（ヘッダーの共通更新ボタン用）
+  function refreshCurrentView() {
+    if (state.currentView === 'mail') return refreshMailData();
+    if (state.currentView === 'drive') return loadDriveFolder(state.drive.currentFolderId);
+    return loadHome();
+  }
+
+  function initGlobalActions() {
+    qs('btn-global-back').addEventListener('click', function () {
+      var previous = state.viewHistory.pop();
+      switchView(previous || 'home', true);
+    });
+    qs('btn-global-refresh').addEventListener('click', function (e) {
+      withSpinner(e.currentTarget, refreshCurrentView);
+    });
   }
 
   function initNav() {
@@ -556,7 +609,10 @@
     qs('mail-detail-subject').textContent = '読み込み中...';
     qs('mail-detail-meta').textContent = '';
     qs('mail-detail-body').textContent = '';
+    qs('mail-detail-reply-section').hidden = true;
+    qs('mail-detail-reply-body').value = '';
     modal.hidden = false;
+    state.mailDetailThreadId = threadId;
 
     gasRun('getMailBody', threadId).then(function (mail) {
       qs('mail-detail-subject').textContent = mail.subject || '(件名なし)';
@@ -570,9 +626,26 @@
   }
 
   function initMail() {
-    qs('btn-mail-refresh').addEventListener('click', function () { refreshMailData(); });
+    qs('btn-mail-refresh').addEventListener('click', function (e) { withSpinner(e.currentTarget, refreshMailData); });
     qs('btn-mail-viewall').addEventListener('click', function () { switchView('mail'); });
     qs('btn-mail-detail-close').addEventListener('click', function () { qs('mail-detail-modal').hidden = true; });
+
+    qs('btn-mail-detail-reply-toggle').addEventListener('click', function () {
+      var section = qs('mail-detail-reply-section');
+      section.hidden = !section.hidden;
+      if (!section.hidden) qs('mail-detail-reply-body').focus();
+    });
+    qs('btn-mail-detail-reply-send').addEventListener('click', function (e) {
+      var body = qs('mail-detail-reply-body').value;
+      if (!body.trim()) { window.alert('返信内容を入力してください'); return; }
+      withSpinner(e.currentTarget, function () {
+        return gasRun('replyMail', state.mailDetailThreadId, body).then(function () {
+          showToast('返信を送信しました');
+          qs('mail-detail-reply-body').value = '';
+          qs('mail-detail-reply-section').hidden = true;
+        }).catch(showError);
+      });
+    });
 
     qs('btn-mail-compose').addEventListener('click', function () {
       qs('mail-compose-to').value = '';
@@ -639,16 +712,41 @@
       reader.innerHTML =
         '<div class="subject">' + escapeHtml(mail.subject || '(件名なし)') + '</div>' +
         '<div class="meta">' + escapeHtml(mail.from) + ' ・ ' + escapeHtml(formatDateTime(mail.date)) + '</div>' +
-        '<div class="body-text">' + escapeHtml(mail.bodyPlain) + '</div>';
+        '<div class="body-text">' + escapeHtml(mail.bodyPlain) + '</div>' +
+        '<div class="mail-reply-toolbar"><button type="button" id="btn-mailpage-reply-toggle">返信</button></div>' +
+        '<div id="mailpage-reply-section" hidden>' +
+        '<textarea id="mailpage-reply-body" rows="4" placeholder="返信内容を入力..."></textarea>' +
+        '<div class="modal-footer"><button type="button" id="btn-mailpage-reply-send" class="primary">返信を送信</button></div>' +
+        '</div>';
       markMailReadLocally(threadId);
+      initMailPageReply(threadId);
     }).catch(function (err) {
       reader.innerHTML = '<div class="empty-hint">読み込みに失敗しました</div>';
       showError(err);
     });
   }
 
+  function initMailPageReply(threadId) {
+    qs('btn-mailpage-reply-toggle').addEventListener('click', function () {
+      var section = qs('mailpage-reply-section');
+      section.hidden = !section.hidden;
+      if (!section.hidden) qs('mailpage-reply-body').focus();
+    });
+    qs('btn-mailpage-reply-send').addEventListener('click', function (e) {
+      var body = qs('mailpage-reply-body').value;
+      if (!body.trim()) { window.alert('返信内容を入力してください'); return; }
+      withSpinner(e.currentTarget, function () {
+        return gasRun('replyMail', threadId, body).then(function () {
+          showToast('返信を送信しました');
+          qs('mailpage-reply-body').value = '';
+          qs('mailpage-reply-section').hidden = true;
+        }).catch(showError);
+      });
+    });
+  }
+
   function initMailPage() {
-    qs('btn-mailpage-refresh').addEventListener('click', function () { refreshMailData(); });
+    qs('btn-mailpage-refresh').addEventListener('click', function (e) { withSpinner(e.currentTarget, refreshMailData); });
 
     qs('btn-mailpage-compose').addEventListener('click', function () {
       qs('mailpage-compose-to').value = '';
@@ -770,8 +868,10 @@
 
   function initAppLedger() {
     qs('btn-links-viewall').addEventListener('click', function () { switchView('links'); });
-    qs('btn-check-all').addEventListener('click', function () {
-      gasRun('checkAllApps').then(function () { return loadHome(); }).catch(showError);
+    qs('btn-check-all').addEventListener('click', function (e) {
+      withSpinner(e.currentTarget, function () {
+        return gasRun('checkAllApps').then(function () { return loadHome(); }).catch(showError);
+      });
     });
 
     qs('btn-app-add').addEventListener('click', function () {
@@ -881,7 +981,9 @@
   }
 
   function initDrive() {
-    qs('btn-drive-refresh').addEventListener('click', function () { loadDriveFolder(state.drive.currentFolderId); });
+    qs('btn-drive-refresh').addEventListener('click', function (e) {
+      withSpinner(e.currentTarget, function () { return loadDriveFolder(state.drive.currentFolderId); });
+    });
     qs('btn-drive-up').addEventListener('click', function () { loadDriveFolder(null); });
 
     qs('btn-drive-search').addEventListener('click', function () {
@@ -991,16 +1093,12 @@
   }
 
   // ---- ウィジェット（カレンダー/今日の予定/メール/アプリリンク集）の視覚的レイアウトエディタ ----
-  // ブロックの高さそのものを大きさ比率(小:中:大 = 1:2:3、実際のflex-growと同じ比率)で表現し、
-  // ドラッグ＆ドロップで配置先・順序を、下端の取っ手のドラッグで大きさを変更できるようにする。
-  var WIDGET_SIZE_FROM_HEIGHT_THRESHOLDS = { small: 90, medium: 150 }; // これ未満はsmall/medium
+  // 各列(メインエリア/サイドバー)のドロップゾーンは固定の同じ高さで、中のブロックは実際の
+  // ダッシュボードと同じ widget-size-*（flex-grow比率 1:2:3）でその高さを分け合う。そのため
+  // ウィジェットの構成に関わらず、メインエリアとサイドバーの合計の高さは常に一致する。
+  var WIDGET_SIZE_ORDER = ['small', 'medium', 'large'];
+  var WIDGET_RESIZE_STEP_PX = 36; // この距離だけドラッグするたびに大きさが1段階変わる
   var draggingWidgetBlock = null;
-
-  function sizeFromBlockHeight(height) {
-    if (height < WIDGET_SIZE_FROM_HEIGHT_THRESHOLDS.small) return 'small';
-    if (height < WIDGET_SIZE_FROM_HEIGHT_THRESHOLDS.medium) return 'medium';
-    return 'large';
-  }
 
   function renderWidgetLayoutEditor(widgets) {
     var mainZone = qs('widget-layout-main');
@@ -1108,25 +1206,36 @@
     });
   }
 
+  function applyWidgetBlockSize(block, sizeLabelEl, size) {
+    block.className = block.className.replace(/widget-block-size-\w+/, 'widget-block-size-' + size);
+    block.setAttribute('data-size', size);
+    sizeLabelEl.textContent = '大きさ: ' + WIDGET_SIZE_LABELS[size];
+  }
+
+  // 列の高さは固定なので、大きさはピクセル指定ではなく「小⇔中⇔大」の段階を動かす形で変更する。
+  // 一定距離ドラッグするたびに1段階変わり、他のブロックはflex-growで自動的に伸縮する。
   function initWidgetBlockResize(block, handle, sizeLabelEl) {
     handle.addEventListener('mousedown', function (e) {
       e.preventDefault();
       e.stopPropagation();
       var startY = e.clientY;
-      var startHeight = block.getBoundingClientRect().height;
+      var index = WIDGET_SIZE_ORDER.indexOf(block.getAttribute('data-size'));
 
       function onMove(ev) {
-        var newHeight = Math.max(40, Math.min(220, startHeight + (ev.clientY - startY)));
-        block.style.height = newHeight + 'px';
-        var size = sizeFromBlockHeight(newHeight);
-        block.className = block.className.replace(/widget-block-size-\w+/, 'widget-block-size-' + size);
-        block.setAttribute('data-size', size);
-        sizeLabelEl.textContent = '大きさ: ' + WIDGET_SIZE_LABELS[size];
+        var delta = ev.clientY - startY;
+        if (delta >= WIDGET_RESIZE_STEP_PX && index < WIDGET_SIZE_ORDER.length - 1) {
+          index++;
+          startY = ev.clientY;
+          applyWidgetBlockSize(block, sizeLabelEl, WIDGET_SIZE_ORDER[index]);
+        } else if (delta <= -WIDGET_RESIZE_STEP_PX && index > 0) {
+          index--;
+          startY = ev.clientY;
+          applyWidgetBlockSize(block, sizeLabelEl, WIDGET_SIZE_ORDER[index]);
+        }
       }
       function onUp() {
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
-        block.style.height = ''; // クラス側の固定高さ(60/120/180px)に戻す
       }
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
@@ -1281,6 +1390,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
+    safeInit('initGlobalActions', initGlobalActions);
     safeInit('initNav', initNav);
     safeInit('initEventModal', initEventModal);
     safeInit('initCalendarNav', initCalendarNav);

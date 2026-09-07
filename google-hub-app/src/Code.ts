@@ -215,6 +215,10 @@ function markMailRead(threadId: string): void {
   MailService.markRead(threadId);
 }
 
+function replyMail(threadId: string, body: string): void {
+  MailService.reply(threadId, body);
+}
+
 function sendMail(to: string, subject: string, body: string): void {
   MailService.send(to, subject, body);
 }
