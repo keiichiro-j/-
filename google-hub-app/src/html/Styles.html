@@ -16,6 +16,8 @@
   }
 
   * { box-sizing: border-box; }
+  /* hidden属性は他のdisplay指定より必ず優先する（button等のdisplay:inline-flexに負けないように） */
+  [hidden] { display: none !important; }
 
   html, body {
     margin: 0;
@@ -102,7 +104,6 @@
     overflow-y: auto;
     z-index: 30;
   }
-  .search-results[hidden] { display: none; }
   .search-group-label {
     font-size: 11px;
     color: var(--content-muted);
@@ -155,7 +156,6 @@
     line-height: 8px;
     text-align: center;
   }
-  .icon-btn .badge-dot[hidden] { display: none; }
 
   .dropdown-panel {
     position: absolute;
@@ -169,7 +169,6 @@
     z-index: 30;
     overflow: hidden;
   }
-  .dropdown-panel[hidden] { display: none; }
   .dropdown-panel h4 {
     margin: 0;
     padding: 12px 14px;
@@ -268,12 +267,6 @@
     min-width: 0;
   }
 
-  .page-greeting {
-    margin-bottom: 16px;
-  }
-  .page-greeting .greet-name { font-size: 19px; font-weight: 700; }
-  .page-greeting .greet-date { font-size: 12.5px; color: var(--content-muted); margin-top: 2px; }
-
   .card-stack {
     display: flex;
     flex-direction: column;
@@ -290,7 +283,6 @@
     flex-direction: column;
     gap: 16px;
   }
-  .right-sidebar[hidden] { display: none; }
   .right-sidebar .card { padding: 14px 16px; }
   .right-sidebar .card h2 { font-size: 13.5px; }
 
@@ -419,6 +411,8 @@
     gap: 8px;
   }
   .mail-row:last-child, .link-row:last-child { border-bottom: none; }
+  .mail-row { cursor: pointer; }
+  .mail-row:hover { background: var(--content-bg); }
   .mail-row .subject { font-weight: bold; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mail-row.unread .subject { color: #1a237e; }
   .mail-row .from { color: var(--content-muted); font-size: 12px; width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -459,7 +453,6 @@
     position: fixed; inset: 0; background: rgba(0,0,0,0.4);
     display: flex; align-items: center; justify-content: center; z-index: 100;
   }
-  .modal-backdrop[hidden] { display: none; }
   .modal-box {
     background: #fff; border-radius: 10px; padding: 20px; width: 360px; max-width: 90vw;
     max-height: 85vh; overflow-y: auto;

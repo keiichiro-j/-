@@ -1,7 +1,7 @@
 /**
  * 4. Mail機能
- * 受信メールの件名一覧確認（ホーム画面に直近N件を表示）。
- * 読み取り専用スコープ（gmail.readonly）で完結させる。
+ * 受信メールの件名一覧確認（ホーム画面に直近N件を表示）／本文閲覧／新規作成・送信。
+ * 閲覧は gmail.readonly、送信のみ gmail.send を使用する。
  */
 namespace MailService {
   const MAX_COUNT = 20;
@@ -29,5 +29,31 @@ namespace MailService {
         isUnread: thread.isUnread(),
       };
     });
+  }
+
+  /** タップされたメールの本文を取得する（スレッド内最新メッセージ） */
+  export function getBody(threadId: string): MailBody {
+    const thread = GmailApp.getThreadById(threadId);
+    if (!thread) {
+      throw new Error("メールが見つかりません: " + threadId);
+    }
+    const messages = thread.getMessages();
+    const lastMessage = messages[messages.length - 1];
+    return {
+      threadId: thread.getId(),
+      from: lastMessage.getFrom(),
+      to: lastMessage.getTo(),
+      date: lastMessage.getDate().toISOString(),
+      subject: thread.getFirstMessageSubject(),
+      bodyPlain: lastMessage.getPlainBody(),
+    };
+  }
+
+  /** メールタブからの新規メール作成・送信 */
+  export function send(to: string, subject: string, body: string): void {
+    if (!to || !to.trim()) {
+      throw new Error("宛先を入力してください");
+    }
+    GmailApp.sendEmail(to.trim(), subject, body);
   }
 }

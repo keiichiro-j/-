@@ -50,6 +50,15 @@ interface MailSubjectItem {
   isUnread: boolean;
 }
 
+interface MailBody {
+  threadId: string;
+  from: string;
+  to: string;
+  date: string; // ISO8601
+  subject: string;
+  bodyPlain: string;
+}
+
 interface DriveFileItem {
   id: string;
   name: string;
@@ -67,7 +76,10 @@ type AppStatus = "ok" | "error" | "unknown";
 
 interface AppLedgerEntry {
   id: string;
+  /** 実際のアプリ名（参照用） */
   name: string;
+  /** アプリリンク集に表示する名称。未設定時は name を表示する */
+  displayName: string;
   url: string;
   description: string;
   updatedAt: string; // ISO8601

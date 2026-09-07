@@ -57,7 +57,10 @@ function globalSearch(query: string): GlobalSearchResult {
   }
   const lower = trimmed.toLowerCase();
   const apps = AppLedger.listApps().filter(
-    (app) => app.name.toLowerCase().indexOf(lower) !== -1 || app.description.toLowerCase().indexOf(lower) !== -1
+    (app) =>
+      app.name.toLowerCase().indexOf(lower) !== -1 ||
+      app.displayName.toLowerCase().indexOf(lower) !== -1 ||
+      app.description.toLowerCase().indexOf(lower) !== -1
   );
   const files = DriveService.searchFiles(trimmed, 10);
   return { apps, files };
@@ -129,6 +132,10 @@ function updateDriveSharing(fileId: string, access: string, permission: string):
   return DriveService.updateSharing(fileId, access, permission);
 }
 
+function renameDriveEntry(id: string, newName: string, isFolder: boolean): DriveFileItem {
+  return DriveService.renameEntry(id, newName, isFolder);
+}
+
 function moveDriveFile(fileId: string, destinationFolderId: string): DriveFileItem {
   return DriveService.moveFile(fileId, destinationFolderId);
 }
@@ -139,12 +146,18 @@ function listApps(): AppLedgerEntry[] {
   return AppLedger.listApps();
 }
 
-function addApp(name: string, url: string, description: string): AppLedgerEntry {
-  return AppLedger.addApp(name, url, description);
+function addApp(name: string, displayName: string, url: string, description: string): AppLedgerEntry {
+  return AppLedger.addApp(name, displayName, url, description);
 }
 
-function updateApp(id: string, name: string, url: string, description: string): AppLedgerEntry {
-  return AppLedger.updateApp(id, name, url, description);
+function updateApp(
+  id: string,
+  name: string,
+  displayName: string,
+  url: string,
+  description: string
+): AppLedgerEntry {
+  return AppLedger.updateApp(id, name, displayName, url, description);
 }
 
 function deleteApp(id: string): void {
@@ -157,4 +170,14 @@ function checkApp(id: string): AppLedgerEntry {
 
 function checkAllApps(): AppLedgerEntry[] {
   return AppLedger.checkAllApps();
+}
+
+// ---- Mail: 本文閲覧・新規作成 ----
+
+function getMailBody(threadId: string): MailBody {
+  return MailService.getBody(threadId);
+}
+
+function sendMail(to: string, subject: string, body: string): void {
+  MailService.send(to, subject, body);
 }

@@ -95,27 +95,7 @@
     });
   }
 
-  // ===================== ヘッダー（挨拶・アバター） =====================
-  function timeGreeting() {
-    var h = new Date().getHours();
-    if (h < 11) return 'おはようございます';
-    if (h < 18) return 'こんにちは';
-    return 'お疲れさまです';
-  }
-
-  function displayNameFromEmail(email) {
-    if (!email) return 'ゲスト';
-    return email.split('@')[0];
-  }
-
-  function renderGreeting(email) {
-    var name = displayNameFromEmail(email);
-    qs('greet-name').textContent = timeGreeting() + '、' + name + 'さん';
-    var d = new Date();
-    var weekday = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
-    qs('greet-date').textContent = d.getFullYear() + '年' + (d.getMonth() + 1) + '月' + d.getDate() + '日（' + weekday + '）';
-  }
-
+  // ===================== ヘッダー（アバター） =====================
   function renderAvatar(email) {
     var badge = qs('avatar-badge');
     badge.textContent = email ? email.charAt(0).toUpperCase() : '?';
@@ -130,7 +110,6 @@
       state.themeChoices = results[1];
       applyTheme(home.theme);
       applyCardLayout(home.userSettings);
-      renderGreeting(home.currentUserEmail);
       renderAvatar(home.currentUserEmail);
       renderMailList(home.mails, home.userSettings.mailCount);
       renderAppList(home.apps);
@@ -397,16 +376,39 @@
       return;
     }
     container.innerHTML = mails.map(function (m) {
-      return '<div class="mail-row' + (m.isUnread ? ' unread' : '') + '">' +
+      return '<div class="mail-row' + (m.isUnread ? ' unread' : '') + '" data-thread-id="' + escapeHtml(m.threadId) + '">' +
         '<div class="subject">' + escapeHtml(m.subject || '(件名なし)') + '</div>' +
         '<div class="date">' + formatDateTime(m.date) + '</div>' +
         '</div>';
     }).join('');
 
+    Array.prototype.forEach.call(container.querySelectorAll('.mail-row'), function (row) {
+      row.addEventListener('click', function () {
+        openMailDetail(row.getAttribute('data-thread-id'));
+      });
+    });
+
     var unread = mails.filter(function (m) { return m.isUnread; }).length;
     var badge = qs('mail-badge');
     badge.textContent = unread > 9 ? '9+' : String(unread);
     badge.hidden = unread === 0;
+  }
+
+  function openMailDetail(threadId) {
+    var modal = qs('mail-detail-modal');
+    qs('mail-detail-subject').textContent = '読み込み中...';
+    qs('mail-detail-meta').textContent = '';
+    qs('mail-detail-body').textContent = '';
+    modal.hidden = false;
+
+    gasRun('getMailBody', threadId).then(function (mail) {
+      qs('mail-detail-subject').textContent = mail.subject || '(件名なし)';
+      qs('mail-detail-meta').textContent = mail.from + ' ・ ' + formatDateTime(mail.date);
+      qs('mail-detail-body').textContent = mail.bodyPlain;
+    }).catch(function (err) {
+      modal.hidden = true;
+      showError(err);
+    });
   }
 
   function initMail() {
@@ -415,6 +417,25 @@
       switchView('home');
       var card = qs('card-mail');
       if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    qs('btn-mail-detail-close').addEventListener('click', function () { qs('mail-detail-modal').hidden = true; });
+
+    qs('btn-mail-compose').addEventListener('click', function () {
+      qs('mail-compose-to').value = '';
+      qs('mail-compose-subject').value = '';
+      qs('mail-compose-body').value = '';
+      qs('mail-compose-modal').hidden = false;
+    });
+    qs('btn-mail-compose-cancel').addEventListener('click', function () { qs('mail-compose-modal').hidden = true; });
+    qs('btn-mail-compose-send').addEventListener('click', function () {
+      var to = qs('mail-compose-to').value.trim();
+      var subject = qs('mail-compose-subject').value.trim();
+      var body = qs('mail-compose-body').value;
+      if (!to) { window.alert('宛先を入力してください'); return; }
+      gasRun('sendMail', to, subject, body).then(function () {
+        qs('mail-compose-modal').hidden = true;
+        window.alert('メールを送信しました');
+      }).catch(showError);
     });
   }
 
@@ -425,7 +446,8 @@
       items.push({ icon: 'icon-mail', title: m.subject || '(件名なし)', sub: m.from, date: m.date });
     });
     home.apps.filter(function (a) { return a.status === 'error'; }).forEach(function (a) {
-      items.push({ icon: 'icon-link', title: a.name + ' が応答していません', sub: 'アプリリンク集で確認してください', date: a.lastCheckedAt || a.updatedAt });
+      var label = a.displayName || a.name;
+      items.push({ icon: 'icon-link', title: label + ' が応答していません', sub: 'アプリリンク集で確認してください', date: a.lastCheckedAt || a.updatedAt });
     });
     items.sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
 
@@ -495,7 +517,7 @@
       html += '<div class="search-group-label">アプリ</div>';
       html += found.apps.map(function (app) {
         return '<div class="search-result-row" data-open="' + escapeHtml(app.url) + '">' +
-          '<div class="r-name">' + escapeHtml(app.name) + '</div>' +
+          '<div class="r-name">' + escapeHtml(app.displayName || app.name) + '</div>' +
           '<div class="r-desc">' + escapeHtml(app.description || '') + '</div></div>';
       }).join('');
     }
@@ -531,11 +553,13 @@
       return;
     }
     container.innerHTML = apps.map(function (app) {
+      var label = app.displayName || app.name;
+      var realNameNote = app.displayName && app.displayName !== app.name ? '（実際のアプリ名: ' + escapeHtml(app.name) + '）' : '';
       return '<div class="link-row" data-app-id="' + escapeHtml(app.id) + '">' +
         '<div>' +
-        '<div class="name"><a href="' + escapeHtml(app.url) + '" target="_blank" rel="noopener">' + escapeHtml(app.name) + '</a> ' +
+        '<div class="name"><a href="' + escapeHtml(app.url) + '" target="_blank" rel="noopener">' + escapeHtml(label) + '</a> ' +
         '<span class="status-badge ' + app.status + '">' + statusLabel(app.status) + '</span></div>' +
-        '<div class="desc">' + escapeHtml(app.description || '') + '</div>' +
+        '<div class="desc">' + escapeHtml(app.description || '') + realNameNote + '</div>' +
         '</div>' +
         '<span><button type="button" class="btn-app-check">確認</button>' +
         '<button type="button" class="btn-app-edit">編集</button></span>' +
@@ -566,11 +590,13 @@
       var app = state.home.apps.filter(function (a) { return a.id === appId; })[0];
       if (app) {
         qs('app-name').value = app.name;
+        qs('app-display-name').value = app.displayName;
         qs('app-url').value = app.url;
         qs('app-description').value = app.description;
       }
     } else {
       qs('app-name').value = '';
+      qs('app-display-name').value = '';
       qs('app-url').value = '';
       qs('app-description').value = '';
     }
@@ -587,13 +613,14 @@
     qs('btn-app-save').addEventListener('click', function () {
       var id = qs('app-id').value;
       var name = qs('app-name').value.trim();
+      var displayName = qs('app-display-name').value.trim();
       var url = qs('app-url').value.trim();
       var description = qs('app-description').value.trim();
-      if (!name || !url) { window.alert('名称とURLを入力してください'); return; }
+      if (!name || !url) { window.alert('実際のアプリ名とURLを入力してください'); return; }
 
       var promise = id
-        ? gasRun('updateApp', id, name, url, description)
-        : gasRun('addApp', name, url, description);
+        ? gasRun('updateApp', id, name, displayName, url, description)
+        : gasRun('addApp', name, displayName, url, description);
 
       promise.then(function () {
         qs('app-modal').hidden = true;
@@ -643,6 +670,7 @@
         (item.isFolder
           ? '<button type="button" class="btn-drive-open">開く</button>'
           : '<button type="button" class="btn-drive-preview">プレビュー</button>') +
+        '<button type="button" class="btn-drive-rename">名称変更</button>' +
         '<button type="button" class="btn-drive-share">共有</button>' +
         '<button type="button" class="btn-drive-move">移動</button>' +
         '</span></div>';
@@ -661,6 +689,16 @@
           qs('drive-preview-frame').src = url;
           qs('drive-preview-modal').hidden = false;
         }).catch(showError);
+      });
+    });
+    Array.prototype.forEach.call(container.querySelectorAll('.btn-drive-rename'), function (btn) {
+      btn.addEventListener('click', function () {
+        var row = btn.closest('[data-file-id]');
+        var item = state.drive.items.filter(function (i) { return i.id === row.getAttribute('data-file-id'); })[0];
+        qs('drive-rename-file-id').value = row.getAttribute('data-file-id');
+        qs('drive-rename-is-folder').value = row.getAttribute('data-is-folder');
+        qs('drive-rename-name').value = item ? item.name : '';
+        qs('drive-rename-modal').hidden = false;
       });
     });
     Array.prototype.forEach.call(container.querySelectorAll('.btn-drive-share'), function (btn) {
@@ -733,6 +771,18 @@
       if (!destination) { window.alert('移動先フォルダIDを入力してください'); return; }
       gasRun('moveDriveFile', fileId, destination).then(function () {
         qs('drive-move-modal').hidden = true;
+        return loadDriveFolder(state.drive.currentFolderId);
+      }).catch(showError);
+    });
+
+    qs('btn-drive-rename-cancel').addEventListener('click', function () { qs('drive-rename-modal').hidden = true; });
+    qs('btn-drive-rename-save').addEventListener('click', function () {
+      var fileId = qs('drive-rename-file-id').value;
+      var isFolder = qs('drive-rename-is-folder').value === 'true';
+      var newName = qs('drive-rename-name').value.trim();
+      if (!newName) { window.alert('新しい名前を入力してください'); return; }
+      gasRun('renameDriveEntry', fileId, newName, isFolder).then(function () {
+        qs('drive-rename-modal').hidden = true;
         return loadDriveFolder(state.drive.currentFolderId);
       }).catch(showError);
     });

@@ -132,6 +132,21 @@ namespace DriveService {
     return fileToItem(file);
   }
 
+  export function renameEntry(id: string, newName: string, isFolder: boolean): DriveFileItem {
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      throw new Error("新しい名前を入力してください");
+    }
+    if (isFolder) {
+      const folder = DriveApp.getFolderById(id);
+      folder.setName(trimmed);
+      return folderToItem(folder);
+    }
+    const file = DriveApp.getFileById(id);
+    file.setName(trimmed);
+    return fileToItem(file);
+  }
+
   export function moveFile(fileId: string, destinationFolderId: string): DriveFileItem {
     const file = DriveApp.getFileById(fileId);
     const destination = DriveApp.getFolderById(destinationFolderId);

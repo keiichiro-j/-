@@ -6,7 +6,7 @@
 namespace AppLedger {
   const LEDGER_ID_PROPERTY = "LEDGER_SPREADSHEET_ID";
   const SHEET_NAME = "Apps";
-  const HEADERS = ["id", "name", "url", "description", "updatedAt", "lastCheckedAt", "status"];
+  const HEADERS = ["id", "name", "displayName", "url", "description", "updatedAt", "lastCheckedAt", "status"];
 
   /** HTTPステータスコードから稼働状況を判定する（純粋関数） */
   export function statusFromHttpCode(code: number): AppStatus {
@@ -48,11 +48,12 @@ namespace AppLedger {
     return {
       id: String(row[0]),
       name: String(row[1]),
-      url: String(row[2]),
-      description: String(row[3]),
-      updatedAt: toIso(row[4]),
-      lastCheckedAt: row[5] ? toIso(row[5]) : null,
-      status: (row[6] as AppStatus) || "unknown",
+      displayName: String(row[2] || ""),
+      url: String(row[3]),
+      description: String(row[4]),
+      updatedAt: toIso(row[5]),
+      lastCheckedAt: row[6] ? toIso(row[6]) : null,
+      status: (row[7] as AppStatus) || "unknown",
     };
   }
 
@@ -87,23 +88,29 @@ namespace AppLedger {
     return -1;
   }
 
-  export function addApp(name: string, url: string, description: string): AppLedgerEntry {
+  export function addApp(name: string, displayName: string, url: string, description: string): AppLedgerEntry {
     const sheet = getOrCreateSheet();
     const id = Utilities.getUuid();
     const now = new Date().toISOString();
-    sheet.appendRow([id, name, url, description, now, "", "unknown"]);
-    return { id, name, url, description, updatedAt: now, lastCheckedAt: null, status: "unknown" };
+    sheet.appendRow([id, name, displayName, url, description, now, "", "unknown"]);
+    return { id, name, displayName, url, description, updatedAt: now, lastCheckedAt: null, status: "unknown" };
   }
 
-  export function updateApp(id: string, name: string, url: string, description: string): AppLedgerEntry {
+  export function updateApp(
+    id: string,
+    name: string,
+    displayName: string,
+    url: string,
+    description: string
+  ): AppLedgerEntry {
     const sheet = getOrCreateSheet();
     const rowIndex = findRowIndexById(sheet, id);
     if (rowIndex === -1) {
       throw new Error("台帳エントリが見つかりません: " + id);
     }
     const now = new Date().toISOString();
-    sheet.getRange(rowIndex, 2, 1, 3).setValues([[name, url, description]]);
-    sheet.getRange(rowIndex, 5).setValue(now);
+    sheet.getRange(rowIndex, 2, 1, 4).setValues([[name, displayName, url, description]]);
+    sheet.getRange(rowIndex, 6).setValue(now);
     const row = sheet.getRange(rowIndex, 1, 1, HEADERS.length).getValues()[0];
     return rowToEntry(row);
   }
@@ -123,7 +130,7 @@ namespace AppLedger {
     if (rowIndex === -1) {
       throw new Error("台帳エントリが見つかりません: " + id);
     }
-    const url = String(sheet.getRange(rowIndex, 3).getValue());
+    const url = String(sheet.getRange(rowIndex, 4).getValue());
     let status: AppStatus = "error";
     try {
       const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true });
@@ -132,7 +139,7 @@ namespace AppLedger {
       status = "error";
     }
     const now = new Date().toISOString();
-    sheet.getRange(rowIndex, 6, 1, 2).setValues([[now, status]]);
+    sheet.getRange(rowIndex, 7, 1, 2).setValues([[now, status]]);
     const row = sheet.getRange(rowIndex, 1, 1, HEADERS.length).getValues()[0];
     return rowToEntry(row);
   }

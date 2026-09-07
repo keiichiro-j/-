@@ -15,8 +15,8 @@ Google Apps Script プロジェクトです。Drive・Calendar・Mail と自社�
 | `src/theme.ts` | 6. カラーテーマ仕様（11色+ランダム2色、YIQ輝度による文字色自動切替） |
 | `src/services/driveService.ts` | 4. Drive機能（一覧・検索・並び替え・プレビュー・共有設定変更・移動） |
 | `src/services/calendarService.ts` | 4. Calendar機能（予定作成/編集/削除・ゲスト招待・複数カレンダー統合） |
-| `src/services/mailService.ts` | 4. Mail機能（直近N件の件名一覧） |
-| `src/services/appLedger.ts` | 4. スクリプト管理／11.2 自社アプリ台帳（スプレッドシート台帳・簡易死活監視） |
+| `src/services/mailService.ts` | 4. Mail機能（直近N件の件名一覧・本文閲覧・新規作成/送信） |
+| `src/services/appLedger.ts` | 4. スクリプト管理／11.2 自社アプリ台帳（スプレッドシート台帳・簡易死活監視・表示名管理） |
 | `src/services/userSettingsService.ts` | 5.2 ホーム画面のカスタマイズ機能（個人設定） |
 | `src/services/globalSettingsService.ts` | 5.3 アプリ全域のデータ設定（全体設定） |
 | `src/services/dateUtils.ts` | ミニカレンダー表示用の月範囲計算 |
@@ -67,17 +67,20 @@ npm test
 
 ## OAuthスコープについて（11.1 開発・セキュリティ面のベストプラクティス）
 
-`appsscript.json` は本アプリの機能（Driveの共有設定変更・移動、Calendarの予定操作、
-Gmail読み取り、スプレッドシート台帳、簡易死活監視のUrlFetchApp）に必要な最小限のスコープを
-指定しています。Drive共有設定の変更・移動はアプリ作成外のファイルにも及ぶため、
+`appsscript.json` は本アプリの機能（Driveの共有設定変更・移動・名称変更、Calendarの予定操作、
+Gmail閲覧・送信、スプレッドシート台帳、簡易死活監視のUrlFetchApp）に必要な最小限のスコープを
+指定しています。Drive共有設定の変更・移動・名称変更はアプリ作成外のファイルにも及ぶため、
 `drive.readonly` や `drive.file` では不足し、フルスコープの `drive` を使用しています。
-将来的に共有設定変更・移動機能を使わない場合は、`drive.readonly` へ絞り込むことを推奨します。
+メール作成・送信機能のために `gmail.send` を追加しており、閲覧専用の `gmail.readonly` とは
+別スコープとして管理しています。将来的に共有設定変更・移動機能を使わない場合は、
+`drive.readonly` へ絞り込むことを推奨します。
 
 ## 制約事項・留意点（企画書 8章 準拠）
 
 - 1回のスクリプト実行は最大6分でタイムアウトするため、`checkAllApps()` によるアプリ台帳の
   一括稼働確認は登録数が多い場合に分割実行を検討してください。
-- カレンダーへのゲスト招待メール送信もGmail送信枠を消費するため、大量自動送信は避けてください。
+- カレンダーへのゲスト招待メール送信、メールタブからの新規作成・送信はいずれもGmail送信枠を
+  消費するため、大量自動送信は避けてください。
 - Google Chatとの連携は本フェーズの対象外です（将来フェーズで再検討）。
 
 ## 未実装・今回スコープ外
