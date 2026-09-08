@@ -1893,14 +1893,20 @@
 
     qs('btn-app-add').addEventListener('click', function () {
       var input = qs('app-url-input');
+      var nameInput = qs('app-name-input');
       var url = input.value.trim();
       if (!url) { window.alert('URLを入力してください'); return; }
-      gasRun('addApp', url).then(function () {
+      var name = nameInput.value.trim();
+      gasRun('addApp', url, name).then(function () {
         input.value = '';
+        nameInput.value = '';
         return loadHome();
       }).catch(showError);
     });
     qs('app-url-input').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') qs('btn-app-add').click();
+    });
+    qs('app-name-input').addEventListener('keydown', function (e) {
       if (e.key === 'Enter') qs('btn-app-add').click();
     });
   }

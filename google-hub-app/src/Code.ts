@@ -229,9 +229,9 @@ function listApps(): AppLedgerEntry[] {
   return AppLedger.listApps();
 }
 
-/** リンクを貼り付けるだけで登録する（名称はリンク先ページの<title>から自動取得。後から変更可） */
-function addApp(url: string): AppLedgerEntry {
-  return AppLedger.addApp(url);
+/** リンクを登録する。nameを指定すればその名称を、省略時はリンク先ページの<title>を自動取得する（後から変更も可） */
+function addApp(url: string, name?: string): AppLedgerEntry {
+  return AppLedger.addApp(url, name);
 }
 
 function deleteApp(id: string): void {

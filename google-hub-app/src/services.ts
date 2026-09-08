@@ -941,8 +941,11 @@ namespace AppLedger {
     return -1;
   }
 
-  /** URLを貼り付けるだけで登録する。名称はリンク先の<title>から自動取得する */
-  export function addApp(url: string): AppLedgerEntry {
+  /**
+   * URLを貼り付けて登録する。名称を指定すればそれをそのまま使い、未指定/空文字の場合のみ
+   * リンク先の<title>から自動取得する（名称指定時はUrlFetchAppを呼ばずに済むため高速化にもなる）。
+   */
+  export function addApp(url: string, name?: string): AppLedgerEntry {
     const trimmedUrl = url.trim();
     if (!isValidHttpUrl(trimmedUrl)) {
       throw new Error("http:// または https:// で始まる正しいURLを入力してください");
@@ -950,9 +953,10 @@ namespace AppLedger {
     const sheet = getOrCreateSheet();
     const id = Utilities.getUuid();
     const now = new Date().toISOString();
-    const name = resolveNameFromUrl(trimmedUrl);
-    sheet.appendRow([id, name, trimmedUrl, now, "", "unknown", ""]);
-    return { id, name, url: trimmedUrl, addedAt: now, lastCheckedAt: null, status: "unknown", tags: [] };
+    const trimmedName = name ? name.trim() : "";
+    const resolvedName = trimmedName || resolveNameFromUrl(trimmedUrl);
+    sheet.appendRow([id, resolvedName, trimmedUrl, now, "", "unknown", ""]);
+    return { id, name: resolvedName, url: trimmedUrl, addedAt: now, lastCheckedAt: null, status: "unknown", tags: [] };
   }
 
   export function deleteApp(id: string): void {

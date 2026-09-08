@@ -565,7 +565,10 @@
     gap: 16px;
   }
   .right-sidebar .card { padding: 14px 16px; }
-  .right-sidebar .card h2 { font-size: 13.5px; }
+  .right-sidebar .card h2 { font-size: 13.5px; margin-bottom: 8px; }
+  /* サイドバーのコンパクトウィジェットは高さの余裕が乏しいため、見出し・ツールバーの
+     余白を本来の値(12px/10px)より切り詰め、一覧表示に使える縦幅を少しでも増やす */
+  .right-sidebar .toolbar { margin-bottom: 6px; }
 
   /* ===== ウィジェット（カレンダー/今日の予定/メール/アプリリンク集/ToDo）の配置・サイズ =====
      配置先(メイン/サイドバー)・サイズ(小/中/大)は設定画面から変更可能。
@@ -1472,6 +1475,25 @@
     .right-sidebar > .card.widget-solo.widget-size-medium { flex: 0 0 66%; }
     .card-stack > .card.widget-solo.widget-size-large,
     .right-sidebar > .card.widget-solo.widget-size-large { flex: 0 0 100%; }
+
+    /* 大きさ「小」は他のウィジェットとの比率(小=1:中=2:大=3)だけに任せると、同じ列に中/大の
+       ウィジェットが並んだ際に極端に低くなり(見出し+ツールバーだけで大半を占め、肝心の一覧が
+       数行どころか1行も表示できない高さまで潰れてしまう)実用に耐えなくなる。そのため「小」には
+       比率配分の下限として最低限の高さを保証する（他のウィジェットはflex-growにより自動的に
+       その分だけ縮んで調整される）。 */
+    .card-stack > .card.widget-size-small,
+    .right-sidebar > .card.widget-size-small { min-height: 160px; }
+
+    /* タグ絞り込みチップは一覧の「絞り込み」機能であり、ホームのコンパクトウィジェット表示では
+       一覧を表示するための縦幅を圧迫するだけで得るものが少ないため非表示にする（絞り込みは
+       「すべて見る」で開くアプリリンク集タブ側でのみ使う）。#card-linksをどの列(main/side)に
+       配置していても、コンパクト表示中は必ず#card-stackか#right-sidebarの直下にいるため、
+       このセレクタで「タブへ移動する前かどうか」を判定できる。 */
+    #card-stack .tag-filter-bar, #right-sidebar .tag-filter-bar { display: none; }
+    /* 登録時の名称欄も同様に、コンパクトウィジェットでは「URLを貼り付けるだけの簡易追加」を
+       優先し非表示にする（名称を指定したい場合はアプリリンク集タブから追加するか、追加後に
+       鉛筆アイコンから変更する）。 */
+    #card-stack #app-name-input, #right-sidebar #app-name-input { display: none; }
 
     .card-stack #mail-list, .right-sidebar #mail-list,
     .card-stack #app-list, .right-sidebar #app-list,
