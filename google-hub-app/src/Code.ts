@@ -229,7 +229,7 @@ function listApps(): AppLedgerEntry[] {
   return AppLedger.listApps();
 }
 
-/** リンクを貼り付けるだけで登録する（名称はリンク先ページの<title>から自動取得、編集機能はない） */
+/** リンクを貼り付けるだけで登録する（名称はリンク先ページの<title>から自動取得。後から変更可） */
 function addApp(url: string): AppLedgerEntry {
   return AppLedger.addApp(url);
 }
@@ -244,6 +244,11 @@ function checkApp(id: string): AppLedgerEntry {
 
 function checkAllApps(): AppLedgerEntry[] {
   return AppLedger.checkAllApps();
+}
+
+/** 登録名称の変更（自動取得された<title>が実態と異なる/わかりにくい場合の手動上書き用） */
+function updateAppName(id: string, name: string): AppLedgerEntry {
+  return AppLedger.updateAppName(id, name);
 }
 
 /** 分類用タグの追加・編集（名称やURLと違い登録後も自由に変更できる） */

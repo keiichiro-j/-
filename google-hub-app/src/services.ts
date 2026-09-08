@@ -805,7 +805,7 @@ namespace DriveService {
  * 4. スクリプト管理 / 11.2 自社アプリ台帳機能への応用
  * 自社GASアプリ等へのリンクをスプレッドシート台帳で管理する。
  * URLを貼り付けるだけで登録でき、名称はリンク先ページの<title>から自動取得する
- * （台帳の内容を後から書き換える「編集」機能は持たせない。誤登録は削除のみ可能）。
+ * （自動取得された名称は後から自由に変更できる。URL自体の変更は非対応で、誤登録は削除のみ可能）。
  * UrlFetchAppによる簡易死活監視（起動確認）も行う。
  */
 namespace AppLedger {
@@ -961,6 +961,22 @@ namespace AppLedger {
     if (rowIndex !== -1) {
       sheet.deleteRow(rowIndex);
     }
+  }
+
+  /** 登録名称の変更。自動取得された<title>が実態と異なる/わかりにくい場合に手動で上書きできる */
+  export function updateAppName(id: string, name: string): AppLedgerEntry {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      throw new Error("名称を入力してください");
+    }
+    const sheet = getOrCreateSheet();
+    const rowIndex = findRowIndexById(sheet, id);
+    if (rowIndex === -1) {
+      throw new Error("台帳エントリが見つかりません: " + id);
+    }
+    sheet.getRange(rowIndex, 2).setValue(trimmed);
+    const row = sheet.getRange(rowIndex, 1, 1, HEADERS.length).getValues()[0];
+    return rowToEntry(row);
   }
 
   /** 分類用タグの追加・編集（名称やURLとは異なり、後から自由に付け替えられる） */

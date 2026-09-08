@@ -1811,12 +1811,17 @@
         '<span class="status-badge ' + app.status + '">' + statusLabel(app.status) + '</span></div>' +
         '<div class="desc">' + escapeHtml(app.url) + '</div>' +
         tagsHtml +
+        '<div class="name-edit-row" hidden>' +
+        '<input type="text" class="name-edit-input" placeholder="登録名称">' +
+        '<button type="button" class="btn-name-save">保存</button>' +
+        '</div>' +
         '<div class="tag-edit-row" hidden>' +
         '<input type="text" class="tag-edit-input" placeholder="タグをカンマ区切りで入力">' +
         '<button type="button" class="btn-tag-save">保存</button>' +
         '</div>' +
         '</div>' +
         '<span>' +
+        '<button type="button" class="icon-only btn-app-name-edit" aria-label="名称を変更" title="名称を変更"><svg class="icon icon-sm"><use href="#icon-edit"></use></svg></button>' +
         '<button type="button" class="icon-only btn-app-tag-edit" aria-label="タグを編集" title="タグを編集"><svg class="icon icon-sm"><use href="#icon-tag"></use></svg></button>' +
         '<button type="button" class="btn-app-check">確認</button>' +
         '<button type="button" class="icon-only btn-app-delete" aria-label="削除" title="削除"><svg class="icon icon-sm"><use href="#icon-trash"></use></svg></button>' +
@@ -1835,6 +1840,26 @@
         if (!window.confirm('このリンクを台帳から削除しますか？')) return;
         var row = btn.closest('[data-app-id]');
         gasRun('deleteApp', row.getAttribute('data-app-id')).then(function () { return loadHome(); }).catch(showError);
+      });
+    });
+    Array.prototype.forEach.call(container.querySelectorAll('.btn-app-name-edit'), function (btn) {
+      btn.addEventListener('click', function () {
+        var row = btn.closest('[data-app-id]');
+        var editRow = row.querySelector('.name-edit-row');
+        var app = filtered.filter(function (a) { return a.id === row.getAttribute('data-app-id'); })[0];
+        editRow.querySelector('.name-edit-input').value = app ? app.name : '';
+        editRow.hidden = !editRow.hidden;
+      });
+    });
+    Array.prototype.forEach.call(container.querySelectorAll('.btn-name-save'), function (btn) {
+      btn.addEventListener('click', function () {
+        var row = btn.closest('[data-app-id]');
+        var input = row.querySelector('.name-edit-input');
+        var name = input.value.trim();
+        if (!name) { window.alert('名称を入力してください'); return; }
+        gasRun('updateAppName', row.getAttribute('data-app-id'), name).then(function () {
+          return loadHome();
+        }).catch(showError);
       });
     });
     Array.prototype.forEach.call(container.querySelectorAll('.btn-app-tag-edit'), function (btn) {
