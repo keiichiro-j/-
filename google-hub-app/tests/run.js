@@ -17,13 +17,14 @@ if (!fs.existsSync(DIST)) {
   process.exit(1);
 }
 
-// DriveService の ACCESS_MAP/PERMISSION_MAP は namespace 直下（IIFE実行時）で
-// DriveApp.Access / DriveApp.Permission を参照するため、テスト対象外の値だけ最小限スタブする。
+// DriveService は namespace 直下（IIFE実行時）で Drive（Advanced Drive Service）を
+// 参照するため、テスト対象外の値だけ最小限スタブする。
 const sandbox = {
   DriveApp: {
     Access: { ANYONE: 'A', ANYONE_WITH_LINK: 'AL', DOMAIN: 'D', DOMAIN_WITH_LINK: 'DL', PRIVATE: 'P' },
     Permission: { VIEW: 'V', EDIT: 'E', COMMENT: 'C', NONE: 'N' },
   },
+  Drive: {},
   Utilities: {
     getUuid: () => 'test-uuid-' + Math.random().toString(36).slice(2),
   },

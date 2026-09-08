@@ -62,13 +62,17 @@
     dayDetail: null, // 日付タップ時のポップアップで選択中の日 { year, month, day }
     drive: {
       currentFolderId: null,
+      // 現在閲覧中のドライブ。空文字は「マイドライブ」、それ以外は共有ドライブのID。
+      driveId: '',
+      driveName: 'マイドライブ',
+      sharedDrives: [], // listSharedDrives() の結果（起動時に一度だけ取得）
       items: [],
       sortKey: 'updated',
       ascending: false,
       viewMode: 'list', // 'list' | 'grid'
       typeFilter: 'all',
-      // パンくずリスト用のフォルダ階層。マイドライブ(ルート)は含めず、そこから辿った各階層を
-      // { id, name } で積む。サーバー側APIは親フォルダIDを返さないため、アプリ内で辿った
+      // パンくずリスト用のフォルダ階層。ルート(マイドライブ/共有ドライブ直下)は含めず、そこから辿った
+      // 各階層を { id, name } で積む。サーバー側APIは親フォルダIDを返さないため、アプリ内で辿った
       // 経路をクライアント側だけで記憶する方式にしている（ピン留めフォルダへジャンプした場合は
       // 経路をリセットし、ジャンプ先1件だけの階層として扱う）。
       folderPath: [],
@@ -2216,7 +2220,7 @@
     state.drive.currentFolderId = folderId;
     state.drive.searchActive = false;
     renderDriveBreadcrumb();
-    return gasRun('listDriveFiles', folderId, state.drive.sortKey, state.drive.ascending).then(function (items) {
+    return gasRun('listDriveFiles', folderId, state.drive.driveId, state.drive.sortKey, state.drive.ascending).then(function (items) {
       state.drive.items = items;
       renderDriveList(items);
     }).catch(showError);
@@ -2225,7 +2229,7 @@
   function runDriveSearch() {
     var query = qs('drive-search').value.trim();
     if (!query) { return loadDriveFolder(state.drive.currentFolderId); }
-    return gasRun('searchDriveFiles', query).then(function (items) {
+    return gasRun('searchDriveFiles', query, state.drive.driveId).then(function (items) {
       // 検索結果は現在の階層と無関係な場所から集まるため、結果からフォルダを開いた場合は
       // パンくずを経路の続きとして積まず、そのフォルダ単体へのジャンプとして扱う。
       // パンくず自体も、直前にいた場所を誤解させないよう検索中は非表示にする。
@@ -2289,7 +2293,7 @@
       container.innerHTML = '';
       return;
     }
-    var crumbs = [{ id: null, name: 'マイドライブ' }].concat(state.drive.folderPath);
+    var crumbs = [{ id: null, name: state.drive.driveName }].concat(state.drive.folderPath);
     container.innerHTML = crumbs.map(function (crumb, i) {
       var isCurrent = i === crumbs.length - 1;
       var label = escapeHtml(crumb.name || '(名称不明)');
@@ -2299,6 +2303,37 @@
     Array.prototype.forEach.call(container.querySelectorAll('.drive-breadcrumb-item:not(.is-current)'), function (btn) {
       btn.addEventListener('click', function () { goToDriveBreadcrumb(parseInt(btn.getAttribute('data-index'), 10)); });
     });
+  }
+
+  // ===================== Drive: マイドライブ/共有ドライブの切替 =====================
+  // 切替先のルートへ移動するため、経路(folderPath)・検索状態をリセットしてから読み込み直す。
+  function switchDrive(driveId, driveName) {
+    state.drive.driveId = driveId;
+    state.drive.driveName = driveName;
+    state.drive.folderPath = [];
+    state.drive.searchActive = false;
+    qs('drive-search').value = '';
+    return loadDriveFolder(null);
+  }
+
+  function initDriveSelector() {
+    var select = qs('drive-selector');
+    if (!select) return;
+    return gasRun('listSharedDrives').then(function (drives) {
+      state.drive.sharedDrives = drives || [];
+      var options = ['<option value="">マイドライブ</option>'].concat(
+        state.drive.sharedDrives.map(function (d) {
+          return '<option value="' + escapeHtml(d.id) + '">' + escapeHtml(d.name) + '</option>';
+        })
+      );
+      select.innerHTML = options.join('');
+      select.addEventListener('change', function () {
+        var driveId = select.value;
+        var driveName = driveId === '' ? 'マイドライブ' :
+          (state.drive.sharedDrives.filter(function (d) { return d.id === driveId; })[0] || {}).name || driveId;
+        switchDrive(driveId, driveName);
+      });
+    }).catch(showError);
   }
 
   // ===================== Drive表示形式(リスト/グリッド)の切替 =====================
@@ -2353,6 +2388,7 @@
     var files = Array.prototype.slice.call(fileList || []);
     if (files.length === 0) return Promise.resolve();
     var folderId = state.drive.currentFolderId;
+    var driveId = state.drive.driveId;
     var successCount = 0;
     var failCount = 0;
 
@@ -2361,7 +2397,7 @@
       return promise.then(function () {
         return readFileAsBase64(file)
           .then(function (base64) {
-            return gasRun('uploadDriveFile', folderId, file.name, file.type || 'application/octet-stream', base64);
+            return gasRun('uploadDriveFile', folderId, driveId, file.name, file.type || 'application/octet-stream', base64);
           })
           .then(function () { successCount++; })
           .catch(function (err) {
@@ -2423,6 +2459,7 @@
 
   function initDrive() {
     initDriveUpload();
+    initDriveSelector();
     qs('btn-drive-refresh').addEventListener('click', function (e) {
       withSpinner(e.currentTarget, function () { return refreshDriveView(); });
     });

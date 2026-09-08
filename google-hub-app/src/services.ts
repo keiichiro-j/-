@@ -495,13 +495,20 @@ namespace MailService {
 
 /**
  * 4. Drive機能
- * ファイル/フォルダの一覧・検索・並び替え・プレビュー・共有設定変更・移動。
- * Advanced Drive Service は使わず、DriveApp のみで完結させる（有効化不要・スコープ最小化）。
+ * ファイル/フォルダの一覧・検索・並び替え・プレビュー・共有設定変更・移動・アップロード。
+ * マイドライブに加えて共有ドライブの閲覧・アップロードにも対応するため、Advanced Drive
+ * Service（Drive API v3、appsscript.jsonでenabledAdvancedServicesとして有効化）を使う。
+ * 基本のDriveAppサービスは共有ドライブの列挙(フォルダの中身一覧・検索)を正式にサポートして
+ * いないため、共有ドライブ対応にはこのAdvanced Serviceが必須となる。
  */
 namespace DriveService {
   export type SortKey = "name" | "updated" | "size";
 
   const FOLDER_MIME_TYPE = "application/vnd.google-apps.folder";
+  const FILE_FIELDS = "id,name,mimeType,webViewLink,modifiedTime,size,parents";
+  /** 型定義上はDrive Advanced Serviceが未定義の可能性を許容しているが、appsscript.jsonで
+   *  有効化済みの前提のGAS実行環境では必ず存在するため、以降はこれ経由で参照する */
+  const DriveApi = Drive as GoogleAppsScript.Drive;
 
   /** Google純正の「third-party icon」規則に沿ったアイコンURLを組み立てる（API呼び出し不要の純粋関数） */
   export function iconUrlForMimeType(mimeType: string, isFolder: boolean): string {
@@ -511,47 +518,34 @@ namespace DriveService {
     return "https://drive-thirdparty.googleusercontent.com/16/type/" + encodeURIComponent(mimeType);
   }
 
-  interface DriveEntryLike {
-    getId(): string;
-    getName(): string;
-    getUrl(): string;
-    getLastUpdated(): GoogleAppsScript.Base.Date;
-    getSize(): number;
-  }
-
   /**
-   * 一覧表示では entry.getSharingAccess() を呼ばない（呼ぶとファイル/フォルダ1件ごとに
-   * 追加のDrive API往復が発生し、一覧の読み込みが件数に比例して遅くなるため）。
-   * 現状のUIは一覧上でsharingAccessを表示していないため、常に"UNKNOWN"を返す。
-   * 個別ファイルの共有状態が必要になった場合は、そのファイルに対してのみ取得すること。
+   * 一覧表示では共有設定(sharingAccess)を個別に取得しない（1件ごとに追加のAPI往復が発生し、
+   * 一覧の読み込みが件数に比例して遅くなるため）。現状のUIは一覧上でsharingAccessを
+   * 表示していないため、常に"UNKNOWN"を返す。個別ファイルの共有状態が必要になった場合は、
+   * そのファイルに対してのみ取得すること。
    *
-   * サムネイルは Advanced Drive Service（要有効化）を使わず、閲覧者が対象ファイルに
-   * アクセス権を持つ場合にブラウザのGoogleセッションで直接読み込める
-   * "https://drive.google.com/thumbnail?id=..." のURLパターンをそのまま組み立てて返す。
+   * サムネイルは、閲覧者が対象ファイルにアクセス権を持つ場合にブラウザのGoogleセッションで
+   * 直接読み込める"https://drive.google.com/thumbnail?id=..."のURLパターンをそのまま
+   * 組み立てて返す（Advanced ServiceのthumbnailLinkは短期間で失効するURLのため使わない）。
    * サムネイルが生成されていないファイル種別ではその画像取得自体が失敗するため、
    * クライアント側でmimeTypeアイコンへフォールバックする前提。
    */
-  function toItem(entry: DriveEntryLike, mimeType: string, isFolder: boolean): DriveFileItem {
+  function toItem(file: GoogleAppsScript.Drive_v3.Drive.V3.Schema.File): DriveFileItem {
+    const mimeType = file.mimeType || "";
+    const isFolder = mimeType === FOLDER_MIME_TYPE;
+    const id = file.id || "";
     return {
-      id: entry.getId(),
-      name: entry.getName(),
+      id: id,
+      name: file.name || "",
       mimeType: mimeType,
       iconUrl: iconUrlForMimeType(mimeType, isFolder),
-      thumbnailUrl: isFolder ? "" : "https://drive.google.com/thumbnail?id=" + entry.getId() + "&sz=w200",
-      url: entry.getUrl(),
-      lastUpdated: entry.getLastUpdated().toISOString(),
-      sizeBytes: isFolder ? 0 : entry.getSize(),
+      thumbnailUrl: isFolder ? "" : "https://drive.google.com/thumbnail?id=" + id + "&sz=w200",
+      url: file.webViewLink || "https://drive.google.com/file/d/" + id + "/view",
+      lastUpdated: file.modifiedTime || new Date().toISOString(),
+      sizeBytes: isFolder ? 0 : Number(file.size || "0"),
       isFolder: isFolder,
       sharingAccess: "UNKNOWN",
     };
-  }
-
-  function fileToItem(file: GoogleAppsScript.Drive.File): DriveFileItem {
-    return toItem(file, file.getMimeType(), false);
-  }
-
-  function folderToItem(folder: GoogleAppsScript.Drive.Folder): DriveFileItem {
-    return toItem(folder, FOLDER_MIME_TYPE, true);
   }
 
   export function sortItems(items: DriveFileItem[], sortKey: SortKey, ascending: boolean): DriveFileItem[] {
@@ -569,24 +563,58 @@ namespace DriveService {
     return sorted;
   }
 
-  /** フォルダ直下（未指定時はマイドライブ直下）の一覧。フォルダ優先で返す */
+  /** 共有ドライブ一覧（切り替えUI用）。ユーザーがアクセスできる共有ドライブをすべて返す */
+  export function listSharedDrives(): DriveInfo[] {
+    const drives: DriveInfo[] = [];
+    let pageToken: string | undefined;
+    do {
+      const response: GoogleAppsScript.Drive_v3.Drive.V3.Schema.DriveList = DriveApi.Drives.list({
+        pageSize: 100,
+        pageToken: pageToken,
+        fields: "nextPageToken, drives(id, name)",
+      });
+      (response.drives || []).forEach((d) => {
+        drives.push({ id: d.id || "", name: d.name || "" });
+      });
+      pageToken = response.nextPageToken;
+    } while (pageToken);
+    return drives;
+  }
+
+  /** マイドライブ/共有ドライブいずれかの「ルート」に相当するフォルダIDを返す。
+   *  共有ドライブ自体のIDは、そのままトップレベル項目の親IDとして使える。 */
+  function resolveRootId(driveId: string): string {
+    return driveId || DriveApp.getRootFolder().getId();
+  }
+
+  /**
+   * フォルダ直下（未指定時はdriveIdのルート。driveIdが空文字ならマイドライブ直下）の一覧。
+   * 特定の親フォルダIDを指定してのファイル列挙は、共有ドライブ上のフォルダでも
+   * supportsAllDrives/includeItemsFromAllDrivesを付ければそのまま機能するため、
+   * マイドライブ・共有ドライブを区別せず同じコードパスで扱える。
+   */
   export function listFiles(
     folderId: string | null,
+    driveId: string,
     sortKey: SortKey = "updated",
     ascending: boolean = false,
     limit: number = 100
   ): DriveFileItem[] {
-    const folder = folderId ? DriveApp.getFolderById(folderId) : DriveApp.getRootFolder();
+    const parentId = folderId || resolveRootId(driveId);
     const items: DriveFileItem[] = [];
-
-    const folderIterator = folder.getFolders();
-    while (folderIterator.hasNext() && items.length < limit) {
-      items.push(folderToItem(folderIterator.next()));
-    }
-    const fileIterator = folder.getFiles();
-    while (fileIterator.hasNext() && items.length < limit) {
-      items.push(fileToItem(fileIterator.next()));
-    }
+    let pageToken: string | undefined;
+    do {
+      const response: GoogleAppsScript.Drive_v3.Drive.V3.Schema.FileList = DriveApi.Files.list({
+        q: "'" + parentId + "' in parents and trashed = false",
+        fields: "nextPageToken, files(" + FILE_FIELDS + ")",
+        pageSize: Math.min(100, limit - items.length),
+        pageToken: pageToken,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
+      });
+      (response.files || []).forEach((f) => items.push(toItem(f)));
+      pageToken = response.nextPageToken;
+    } while (pageToken && items.length < limit);
     return sortItems(items, sortKey, ascending);
   }
 
@@ -601,24 +629,34 @@ namespace DriveService {
    * または「本文(fullText)に含む」のいずれかを満たすファイルをOR条件で広く集める。
    * Drive API自体は真のあいまいマッチ(タイプミス許容等)をサポートしないため、
    * 一致語数・完全フレーズ一致でスコアリングして並び替えることで「あいまい検索」に近い
-   * 体験にしている（rankByRelevance）。
+   * 体験にしている（rankByRelevance）。driveIdを指定すると、その共有ドライブの範囲内だけを
+   * 検索する（corpora: "drive"）。空文字ならマイドライブの範囲内（corpora: "user"）。
    */
-  export function searchFiles(query: string, limit: number = 50): DriveFileItem[] {
+  export function searchFiles(query: string, driveId: string, limit: number = 50): DriveFileItem[] {
     const words = query.trim().split(/\s+/).filter((w) => w.length > 0);
     if (words.length === 0) {
       return [];
     }
     const clauses = words.map((w) => {
       const escaped = escapeForDriveQuery(w);
-      return "(title contains '" + escaped + "' or fullText contains '" + escaped + "')";
+      return "(name contains '" + escaped + "' or fullText contains '" + escaped + "')";
     });
     const searchQuery = "(" + clauses.join(" or ") + ") and trashed = false";
-    const iterator = DriveApp.searchFiles(searchQuery);
-    const items: DriveFileItem[] = [];
-    const fetchLimit = limit * SEARCH_FETCH_MULTIPLIER;
-    while (iterator.hasNext() && items.length < fetchLimit) {
-      items.push(fileToItem(iterator.next()));
+    const optionalArgs: Record<string, any> = {
+      q: searchQuery,
+      fields: "files(" + FILE_FIELDS + ")",
+      pageSize: Math.min(100, limit * SEARCH_FETCH_MULTIPLIER),
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+    };
+    if (driveId) {
+      optionalArgs.corpora = "drive";
+      optionalArgs.driveId = driveId;
+    } else {
+      optionalArgs.corpora = "user";
     }
+    const response: GoogleAppsScript.Drive_v3.Drive.V3.Schema.FileList = DriveApi.Files.list(optionalArgs);
+    const items = (response.files || []).map(toItem);
     return rankByRelevance(items, words).slice(0, limit);
   }
 
@@ -640,34 +678,62 @@ namespace DriveService {
   }
 
   export function getPreviewUrl(fileId: string): string {
-    const file = DriveApp.getFileById(fileId);
-    return "https://drive.google.com/file/d/" + file.getId() + "/preview";
+    return "https://drive.google.com/file/d/" + fileId + "/preview";
   }
 
-  const ACCESS_MAP: { [key: string]: GoogleAppsScript.Drive.Access } = {
-    ANYONE: DriveApp.Access.ANYONE,
-    ANYONE_WITH_LINK: DriveApp.Access.ANYONE_WITH_LINK,
-    DOMAIN: DriveApp.Access.DOMAIN,
-    DOMAIN_WITH_LINK: DriveApp.Access.DOMAIN_WITH_LINK,
-    PRIVATE: DriveApp.Access.PRIVATE,
+  const ACCESS_ROLE_MAP: { [key: string]: string } = {
+    VIEW: "reader",
+    EDIT: "writer",
+    COMMENT: "commenter",
   };
 
-  const PERMISSION_MAP: { [key: string]: GoogleAppsScript.Drive.Permission } = {
-    VIEW: DriveApp.Permission.VIEW,
-    EDIT: DriveApp.Permission.EDIT,
-    COMMENT: DriveApp.Permission.COMMENT,
-    NONE: DriveApp.Permission.NONE,
-  };
+  function currentUserDomain(): string {
+    const email = Session.getActiveUser().getEmail() || Session.getEffectiveUser().getEmail() || "";
+    const at = email.indexOf("@");
+    return at === -1 ? "" : email.slice(at + 1);
+  }
 
+  /**
+   * DriveAppのsetSharing()のような「1回で置き換える」専用APIがAdvanced Serviceには無いため、
+   * 既存の公開範囲(anyone/domain)の権限を削除してから、必要なら新しい権限を作り直す。
+   * 個別ユーザー・グループへの共有(type: user/group)はこの一覧・削除の対象に含めないため、
+   * 個別共有されたユーザーが意図せず外れることはない。
+   */
   export function updateSharing(fileId: string, access: string, permission: string): DriveFileItem {
-    const file = DriveApp.getFileById(fileId);
-    const accessEnum = ACCESS_MAP[access];
-    const permissionEnum = PERMISSION_MAP[permission];
-    if (!accessEnum || !permissionEnum) {
-      throw new Error("不正な共有設定です: access=" + access + ", permission=" + permission);
+    const existing: GoogleAppsScript.Drive_v3.Drive.V3.Schema.PermissionList = DriveApi.Permissions.list(fileId, {
+      fields: "permissions(id, type)",
+      supportsAllDrives: true,
+    });
+    (existing.permissions || []).forEach((p) => {
+      if (p.id && (p.type === "anyone" || p.type === "domain")) {
+        DriveApi.Permissions.remove(fileId, p.id, { supportsAllDrives: true });
+      }
+    });
+
+    if (access !== "PRIVATE") {
+      const role = ACCESS_ROLE_MAP[permission];
+      if (!role) {
+        throw new Error("不正な共有設定です: access=" + access + ", permission=" + permission);
+      }
+      const resource: GoogleAppsScript.Drive_v3.Drive.V3.Schema.Permission = { role: role };
+      if (access === "ANYONE") {
+        resource.type = "anyone";
+        resource.allowFileDiscovery = true;
+      } else if (access === "ANYONE_WITH_LINK") {
+        resource.type = "anyone";
+        resource.allowFileDiscovery = false;
+      } else if (access === "DOMAIN" || access === "DOMAIN_WITH_LINK") {
+        resource.type = "domain";
+        resource.domain = currentUserDomain();
+        resource.allowFileDiscovery = access === "DOMAIN";
+      } else {
+        throw new Error("不正な共有設定です: access=" + access + ", permission=" + permission);
+      }
+      DriveApi.Permissions.create(resource, fileId, { supportsAllDrives: true });
     }
-    file.setSharing(accessEnum, permissionEnum);
-    return fileToItem(file);
+
+    const file = DriveApi.Files.get(fileId, { fields: FILE_FIELDS, supportsAllDrives: true });
+    return toItem(file);
   }
 
   export function renameEntry(id: string, newName: string, isFolder: boolean): DriveFileItem {
@@ -675,38 +741,44 @@ namespace DriveService {
     if (!trimmed) {
       throw new Error("新しい名前を入力してください");
     }
-    if (isFolder) {
-      const folder = DriveApp.getFolderById(id);
-      folder.setName(trimmed);
-      return folderToItem(folder);
-    }
-    const file = DriveApp.getFileById(id);
-    file.setName(trimmed);
-    return fileToItem(file);
+    // update(resource, fileId, optionalArgs)（メディア無しでの更新）は実際のAPIでは有効だが、
+    // 型定義側にその組み合わせのオーバーロードが無いため、ここだけ型チェックを迂回している。
+    const updated: GoogleAppsScript.Drive_v3.Drive.V3.Schema.File = (DriveApi.Files.update as any)(
+      { name: trimmed },
+      id,
+      { fields: FILE_FIELDS, supportsAllDrives: true }
+    );
+    void isFolder; // フォルダ/ファイルいずれもFiles.updateで同じように扱えるため未使用
+    return toItem(updated);
   }
 
   export function moveFile(fileId: string, destinationFolderId: string): DriveFileItem {
-    const file = DriveApp.getFileById(fileId);
-    const destination = DriveApp.getFolderById(destinationFolderId);
-    const parents = file.getParents();
-    while (parents.hasNext()) {
-      const parent = parents.next();
-      parent.removeFile(file);
-    }
-    destination.addFile(file);
-    return fileToItem(file);
+    const current = DriveApi.Files.get(fileId, { fields: "parents", supportsAllDrives: true });
+    const previousParents = (current.parents || []).join(",");
+    const updated: GoogleAppsScript.Drive_v3.Drive.V3.Schema.File = (DriveApi.Files.update as any)(
+      {},
+      fileId,
+      {
+        addParents: destinationFolderId,
+        removeParents: previousParents,
+        fields: FILE_FIELDS,
+        supportsAllDrives: true,
+      }
+    );
+    return toItem(updated);
   }
 
   /**
    * google.script.runは文字列引数のサイズに実用上の上限があるため(Base64化で元データの
    * 約1.33倍に膨らむことも踏まえ)、アップロード可能な1ファイルあたりのサイズを制限する。
    * ブラウザのドラッグ&ドロップ/ファイル選択からアップロードされたファイルをそのまま
-   * 現在開いているフォルダ（未指定時はマイドライブ直下）に保存する。
+   * 現在開いているフォルダ（未指定時はdriveIdのルート）に保存する。
    */
   const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // 20MB
 
   export function uploadFile(
     folderId: string | null,
+    driveId: string,
     fileName: string,
     mimeType: string,
     base64Data: string
@@ -720,9 +792,12 @@ namespace DriveService {
       throw new Error("ファイルサイズが大きすぎます（1ファイルあたり20MBまで）: " + trimmedName);
     }
     const blob = Utilities.newBlob(bytes, mimeType || "application/octet-stream", trimmedName);
-    const folder = folderId ? DriveApp.getFolderById(folderId) : DriveApp.getRootFolder();
-    const file = folder.createFile(blob);
-    return fileToItem(file);
+    const parentId = folderId || resolveRootId(driveId);
+    const created = DriveApi.Files.create({ name: trimmedName, parents: [parentId] }, blob, {
+      fields: FILE_FIELDS,
+      supportsAllDrives: true,
+    });
+    return toItem(created);
   }
 }
 

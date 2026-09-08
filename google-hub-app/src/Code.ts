@@ -63,7 +63,7 @@ function globalSearch(query: string): GlobalSearchResult {
   }
   const lower = trimmed.toLowerCase();
   const apps = AppLedger.listApps().filter((app) => app.name.toLowerCase().indexOf(lower) !== -1);
-  const files = DriveService.searchFiles(trimmed, 10);
+  const files = DriveService.searchFiles(trimmed, "", 10);
   return { apps, files };
 }
 
@@ -178,12 +178,22 @@ function moveCalendarEventDate(
 
 // ---- Drive ----
 
-function listDriveFiles(folderId: string | null, sortKey: DriveService.SortKey, ascending: boolean): DriveFileItem[] {
-  return DriveService.listFiles(folderId, sortKey, ascending);
+function listDriveFiles(
+  folderId: string | null,
+  driveId: string,
+  sortKey: DriveService.SortKey,
+  ascending: boolean
+): DriveFileItem[] {
+  return DriveService.listFiles(folderId, driveId, sortKey, ascending);
 }
 
-function searchDriveFiles(query: string): DriveFileItem[] {
-  return DriveService.searchFiles(query);
+function searchDriveFiles(query: string, driveId: string): DriveFileItem[] {
+  return DriveService.searchFiles(query, driveId);
+}
+
+/** 共有ドライブの一覧（Driveタブのドライブ切替セレクタ用） */
+function listSharedDrives(): DriveInfo[] {
+  return DriveService.listSharedDrives();
 }
 
 function getDrivePreviewUrl(fileId: string): string {
@@ -203,8 +213,14 @@ function moveDriveFile(fileId: string, destinationFolderId: string): DriveFileIt
 }
 
 /** ドラッグ&ドロップ／ファイル選択でのアップロード用。base64Dataはdata:URLのカンマ以降のみを渡す */
-function uploadDriveFile(folderId: string | null, fileName: string, mimeType: string, base64Data: string): DriveFileItem {
-  return DriveService.uploadFile(folderId, fileName, mimeType, base64Data);
+function uploadDriveFile(
+  folderId: string | null,
+  driveId: string,
+  fileName: string,
+  mimeType: string,
+  base64Data: string
+): DriveFileItem {
+  return DriveService.uploadFile(folderId, driveId, fileName, mimeType, base64Data);
 }
 
 // ---- スクリプト/アプリ台帳 ----

@@ -467,13 +467,43 @@ Google DocsやPDF（OCR済み含む）等、Drive側でコンテンツがイン�
   ピン留めフォルダへジャンプした場合や検索結果からフォルダを開いた場合は、経路をジャンプ先1件
   だけにリセットします（祖先フォルダの情報を持っていないため）。
 - **ドラッグ&ドロップ / ファイル選択によるアップロード**: Driveタブの「アップロード」ボタン、または
-  ファイル一覧へのドラッグ&ドロップで、現在開いているフォルダ（未指定時はマイドライブ直下）へ
-  ファイルをアップロードできます。ブラウザの`FileReader`でファイルをBase64化し、
+  ファイル一覧へのドラッグ&ドロップで、現在開いているドライブ・フォルダ（未指定時は現在選択中の
+  ドライブのルート）へファイルをアップロードできます。ブラウザの`FileReader`でファイルをBase64化し、
   `DriveService.uploadFile()`（`src/services.ts`）が`Utilities.base64Decode()`でバイト列に戻して
-  `Folder.createFile()`で保存します。`google.script.run`の引数サイズには実用上の上限があるため、
+  Drive API (`Files.create`) で保存します。`google.script.run`の引数サイズには実用上の上限があるため、
   1ファイルあたり20MBまでという制限を設けています。複数ファイルを一度にドロップした場合は
   同時実行数・Driveのレート制限を避けるため1件ずつ順番にアップロードし、完了後にまとめて
   成功/失敗件数をトースト通知します。
+
+## 共有ドライブの閲覧・アップロード対応
+
+Driveタブ上部の「マイドライブ／共有ドライブ」切替セレクタから、参加している共有ドライブに
+そのまま切り替えて閲覧・検索・アップロードできます。基本の`DriveApp`サービスは共有ドライブの
+列挙（フォルダの中身一覧・検索）を正式にサポートしていないため、Advanced Drive Service
+（Drive API v3、`Drive`グローバル）に切り替えて実装しています
+（`DriveService`namespace、`src/services.ts`）。
+
+- **仕組み**: 一覧・検索のいずれも`supportsAllDrives: true`・`includeItemsFromAllDrives: true`を
+  指定した`Drive.Files.list()`を使い、マイドライブと共有ドライブを同じコードパスで扱います
+  （共有ドライブ自体のIDが、そのままトップレベル項目の親IDとして機能するため、マイドライブの
+  ような別途の「ルートフォルダ取得」が不要）。検索時は共有ドライブを選択中であれば
+  `corpora: "drive"` + `driveId`を指定し、その共有ドライブの範囲内だけを検索します。
+- **切替セレクタ**: 起動時に`listSharedDrives()`（`Drive.Drives.list()`）で参加中の共有ドライブ
+  一覧を取得し、Driveタブ上部のセレクタに反映します。切替時はパンくず・検索状態をリセットし、
+  切替先ドライブのルートを読み込み直します（`state.drive.driveId`、
+  `src/html/JavaScript.html`の`switchDrive()`）。
+- **対象外の機能**: メール添付ファイルをDriveへ保存する機能（`MailService.saveAttachmentToDrive()`）
+  は、保存先を都度選ばせるUIがないため、これまで通りマイドライブのルートに保存する仕様のままです。
+
+> **重要: Google Cloud Platform側での手動設定が必要です。** `appsscript.json`の
+> `enabledAdvancedServices`にDriveサービスを追加しただけでは有効になりません。GASエディタの
+> 「サービス」に`Drive API`が追加されていることを確認した上で、そのGASプロジェクトに紐づく
+> Google Cloud Platformプロジェクト（GASエディタの「プロジェクトの設定」→
+> 「Google Cloud Platform（GCP）プロジェクト」から確認・移動できます）側でも
+> **「Drive API」を有効にする**必要があります（APIとサービス → ライブラリ → "Google Drive API"
+> を検索 → 有効にする）。この手順はコードやマニフェストからは自動化できない、GCPコンソール上の
+> 一度きりの手動設定です。有効化を忘れると、Driveタブへのアクセス時に
+> `Drive is not defined`相当のエラーになります。
 
 ## セットアップ手順
 
@@ -496,11 +526,17 @@ Google DocsやPDF（OCR済み含む）等、Drive側でコンテンツがイン�
    `npm run build`（`clasp:push`が内部で呼び出します）は毎回 `dist/` を空にしてから再生成します
    （`scripts/clean.js`）。ソースファイルの統合・削除・リネームを行った際に、`dist/` に古いファイルが
    残ったまま `clasp push` してしまう事故を防ぐためです。
-4. **Webアプリとしてデプロイ**
+4. **Drive APIの有効化（共有ドライブ対応に必須）**
+   - GASエディタの「プロジェクトの設定」からGoogle Cloud Platform（GCP）プロジェクトを開き、
+     「APIとサービス」→「ライブラリ」で「Google Drive API」を検索して有効化してください。
+   - `appsscript.json`の`enabledAdvancedServices`への追記だけでは有効になりません。この手順は
+     コードから自動化できない、GCPコンソール上での一度きりの手動設定です（詳細は
+     「共有ドライブの閲覧・アップロード対応」の節を参照）。
+5. **Webアプリとしてデプロイ**
    - GASエディタの「デプロイ」→「ウェブアプリ」、または `npx clasp deploy`
    - `appsscript.json` の既定値は `access: MYSELF`（個人アカウント運用を前提とした最も安全な既定値）。
      社内Workspaceドメインで運用する場合は `DOMAIN` に変更してください（11.1 参照）。
-5. **初回アクセス**
+6. **初回アクセス**
    - アプリ台帳（スクリプト管理）用のスプレッドシートは初回アクセス時に自動作成され、
      スクリプトプロパティ `LEDGER_SPREADSHEET_ID` に保存されます（手動作成不要）。
    - 通知設定は「全体設定」画面からいつでも変更できます（同期対象カレンダーはアカウントに

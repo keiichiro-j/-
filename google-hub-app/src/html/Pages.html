@@ -85,6 +85,14 @@
     </h2>
     <input type="file" id="drive-upload-input" multiple hidden>
 
+    <!-- マイドライブ/共有ドライブの切替。起動時にlistSharedDrives()で選択肢を取得する（JavaScript.html参照）。 -->
+    <div class="drive-selector-row">
+      <label for="drive-selector" class="visually-hidden">閲覧するドライブ</label>
+      <select id="drive-selector">
+        <option value="">マイドライブ</option>
+      </select>
+    </div>
+
     <!-- パンくずリスト。「上の階層へ」ボタンは常にルートへ戻るだけだったため、実際に辿った
          経路を表示し、途中の階層へも直接ジャンプできるようにしたもの（Google Drive相当の操作性）。 -->
     <div class="drive-breadcrumb" id="drive-breadcrumb"></div>

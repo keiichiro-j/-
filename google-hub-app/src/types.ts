@@ -192,6 +192,12 @@ interface DriveFileItem {
   sharingAccess: string;
 }
 
+/** 共有ドライブ1件分の情報。クライアント側では空文字IDを「マイドライブ」として扱う */
+interface DriveInfo {
+  id: string;
+  name: string;
+}
+
 type AppStatus = "ok" | "error" | "unknown";
 
 interface AppLedgerEntry {
