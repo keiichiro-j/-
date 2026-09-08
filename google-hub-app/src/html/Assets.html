@@ -941,9 +941,32 @@
   .mail-page-list-col {
     width: 340px;
     flex: 0 0 340px;
-    border-right: 1px solid var(--border-color);
     padding: 12px;
     min-width: 0;
+  }
+  /* 件名一覧/本文の境界のドラッグハンドル。実際に見せる境界線は中央の細い縦棒(::after)だけで、
+     クリック/ドラッグ判定はそれより広い当たり判定(6px)を確保して掴みやすくしている。 */
+  .mail-page-resizer {
+    flex: 0 0 6px;
+    width: 6px;
+    cursor: col-resize;
+    position: relative;
+    background: transparent;
+  }
+  .mail-page-resizer::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--border-color);
+    transform: translateX(-50%);
+  }
+  .mail-page-resizer:hover::after,
+  .mail-page-resizer.is-dragging::after {
+    width: 3px;
+    background: var(--accent);
   }
   .mail-page-toolbar {
     display: flex;
@@ -978,7 +1001,11 @@
   #mail-page-list .mail-row .subject { font-weight: 600; }
   @media (max-width: 860px) {
     .mail-page { flex-direction: column; }
-    .mail-page-list-col { width: 100%; flex: 1 1 auto; border-right: none; border-bottom: 1px solid var(--border-color); }
+    /* PC幅でドラッグ調整した幅はJS側でインラインstyleとして直接要素に設定されるため、
+       通常のクラスセレクタでは上書きできない（インラインstyleの方が優先される）。
+       ここでは明示的に!importantを使い、モバイル幅では常に折り返し表示に固定する。 */
+    .mail-page-list-col { width: 100% !important; flex: 1 1 auto !important; border-right: none; border-bottom: 1px solid var(--border-color); }
+    .mail-page-resizer { display: none; }
   }
 
   .nav-item-settings-row { cursor: grab; }

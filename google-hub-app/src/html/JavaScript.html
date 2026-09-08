@@ -1694,6 +1694,54 @@
     });
   }
 
+  // ===================== メールタブ: 件名一覧／本文の幅をドラッグで調整 =====================
+  var MAIL_LIST_COL_WIDTH_KEY = 'googleHub.mailListColWidth';
+  var MAIL_LIST_COL_MIN_WIDTH = 240;
+  var MAIL_LIST_COL_MAX_WIDTH = 640;
+
+  function applyMailListColWidth(px) {
+    qs('mail-page-list-col').style.flexBasis = px + 'px';
+    qs('mail-page-list-col').style.width = px + 'px';
+  }
+
+  function initMailPageResizer() {
+    var savedWidth = null;
+    try { savedWidth = parseInt(window.localStorage.getItem(MAIL_LIST_COL_WIDTH_KEY), 10); } catch (e) { /* プライベートブラウジング等では無視 */ }
+    if (savedWidth && !isNaN(savedWidth)) {
+      applyMailListColWidth(Math.min(MAIL_LIST_COL_MAX_WIDTH, Math.max(MAIL_LIST_COL_MIN_WIDTH, savedWidth)));
+    }
+
+    var resizer = qs('mail-page-resizer');
+    resizer.addEventListener('mousedown', function (e) {
+      e.preventDefault();
+      var container = qs('mail-page-reader').closest('.mail-page');
+      var containerLeft = container.getBoundingClientRect().left;
+      resizer.classList.add('is-dragging');
+      // ドラッグ中はテキスト選択やメール本文のスクロール操作と競合しないよう、
+      // 一覧・本文それぞれのポインタイベントを一時的に無効化する。
+      document.body.style.userSelect = 'none';
+
+      function onMove(ev) {
+        var maxByContainer = container.getBoundingClientRect().width - MAIL_LIST_COL_MIN_WIDTH;
+        var width = ev.clientX - containerLeft;
+        width = Math.max(MAIL_LIST_COL_MIN_WIDTH, Math.min(MAIL_LIST_COL_MAX_WIDTH, Math.min(maxByContainer, width)));
+        applyMailListColWidth(width);
+      }
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        resizer.classList.remove('is-dragging');
+        document.body.style.userSelect = '';
+        try {
+          var current = parseInt(qs('mail-page-list-col').style.width, 10);
+          if (!isNaN(current)) window.localStorage.setItem(MAIL_LIST_COL_WIDTH_KEY, String(current));
+        } catch (e) { /* 保存できなくても致命的ではないため無視 */ }
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
   // ===================== ヘッダー: 横断検索 =====================
   function initSearch() {
     var input = qs('global-search');
@@ -1854,9 +1902,8 @@
         : '';
       return '<div class="link-row" data-app-id="' + escapeHtml(app.id) + '">' +
         '<div>' +
-        '<div class="name"><a href="' + escapeHtml(app.url) + '" target="_blank" rel="noopener">' + escapeHtml(app.name) + '</a> ' +
+        '<div class="name"><a href="' + escapeHtml(app.url) + '" target="_blank" rel="noopener" title="' + escapeHtml(app.url) + '">' + escapeHtml(app.name) + '</a> ' +
         '<span class="status-badge ' + app.status + '">' + statusLabel(app.status) + '</span></div>' +
-        '<div class="desc">' + escapeHtml(app.url) + '</div>' +
         tagsHtml +
         '<div class="name-edit-row" hidden>' +
         '<input type="text" class="name-edit-input" placeholder="登録名称">' +
@@ -3187,6 +3234,7 @@
     safeInit('initDayDetail', initDayDetail);
     safeInit('initMail', initMail);
     safeInit('initMailPage', initMailPage);
+    safeInit('initMailPageResizer', initMailPageResizer);
     safeInit('initMailFolderSelector', initMailFolderSelector);
     safeInit('initMailBulkActions', initMailBulkActions);
     safeInit('initSearch', initSearch);

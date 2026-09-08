@@ -7,7 +7,7 @@
      とは別の独立したDOMで、右サイドバーの表示/非表示に影響されない。 ===== -->
 <div id="view-mail" hidden>
   <section class="card mail-page">
-    <div class="mail-page-list-col">
+    <div class="mail-page-list-col" id="mail-page-list-col">
       <div class="mail-page-toolbar">
         <h2 style="margin:0; font-size:15px;">
           <span class="h2-label"><svg class="icon"><use href="#icon-mail"></use></svg>メール</span>
@@ -37,6 +37,10 @@
         <div class="empty-hint">読み込み中...</div>
       </div>
     </div>
+
+    <!-- 件名一覧／本文の境界をドラッグして幅を変更できる。選んだ幅はブラウザに記憶され、
+         次回このタブを開いたときも同じ幅で表示される（initMailPageResizer()、JavaScript.html）。 -->
+    <div class="mail-page-resizer" id="mail-page-resizer" title="ドラッグして幅を調整"></div>
 
     <div class="mail-page-reader-col" id="mail-page-reader">
       <div class="empty-hint">左の一覧からメールを選択してください</div>
