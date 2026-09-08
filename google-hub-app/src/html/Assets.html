@@ -723,15 +723,22 @@
   @keyframes icon-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   button.is-loading .icon { animation: icon-spin 0.7s linear infinite; }
 
-  button.link-button {
+  /* ホームウィジェットの見出し自体をボタン化したもの。見た目は元の.h2-labelのままで、
+     ホバー時だけテーマ色に変わり「押せる」ことを示す（元の「すべて見る」ボタンの代わり）。 */
+  button.h2-label-link {
     background: none;
     border: none;
-    padding: 4px 2px;
-    color: var(--accent);
-    font-size: 12px;
-    font-weight: 600;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
   }
-  button.link-button:hover { text-decoration: underline; }
+  button.h2-label-link:hover,
+  button.h2-label-link:hover .icon {
+    color: var(--accent);
+  }
 
   input[type="text"], input[type="datetime-local"], input[type="date"], input[type="number"], select, textarea {
     font-family: inherit;
@@ -1355,6 +1362,10 @@
   .todo-priority-dot.low { background: #8bc34a; }
   .todo-priority-dot.medium { background: #ffa726; }
   .todo-priority-dot.high { background: #e53935; }
+  .todo-modal-priority-preview {
+    display: flex; align-items: center; gap: 6px; font-size: 12.5px;
+    color: var(--content-muted); margin-top: 4px;
+  }
   .todo-due-badge {
     font-size: 10.5px; color: var(--content-muted); padding: 1px 7px;
     border-radius: 999px; background: var(--content-bg); flex: 0 0 auto; white-space: nowrap;
@@ -1526,6 +1537,9 @@
        配置していても、コンパクト表示中は必ず#card-stackか#right-sidebarの直下にいるため、
        このセレクタで「タブへ移動する前かどうか」を判定できる。 */
     #card-stack .tag-filter-bar, #right-sidebar .tag-filter-bar { display: none; }
+    /* 並び替え用のドラッグハンドルも、絞り込みチップと同じ理由でコンパクト表示中は隠す
+       （並び替えはアプリリンク集タブの広い一覧で行う操作という位置づけのため）。 */
+    #card-stack .app-drag-handle, #right-sidebar .app-drag-handle { display: none; }
 
     .card-stack #mail-list, .right-sidebar #mail-list,
     .card-stack #app-list, .right-sidebar #app-list,

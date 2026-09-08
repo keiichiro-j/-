@@ -273,6 +273,11 @@ function updateAppTags(id: string, tags: string[]): AppLedgerEntry {
   return AppLedger.updateAppTags(id, tags);
 }
 
+/** アプリリンク集タブでのドラッグ&ドロップによる並び替え。orderedIdsは新しい表示順のID一覧 */
+function reorderApps(orderedIds: string[]): AppLedgerEntry[] {
+  return AppLedger.reorderApps(orderedIds);
+}
+
 // ---- Mail: 本文閲覧・新規作成 ----
 
 function getMailBody(threadId: string): MailBody {

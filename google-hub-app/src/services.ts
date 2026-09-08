@@ -876,15 +876,22 @@ namespace AppLedger {
     return decoded.length > 0 ? decoded : null;
   }
 
-  /** リンク先ページを取得し、<title>を名称として使う。取得できない場合はURLをそのまま名称にする */
-  function resolveNameFromUrl(url: string): string {
+  /** 登録時に名称取得・稼働確認の両方で使うため、URLへのフェッチを1回だけ行う共通ヘルパー */
+  function fetchUrlSafely(url: string): GoogleAppsScript.URL_Fetch.HTTPResponse | null {
     try {
-      const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true });
-      const title = extractTitle(response.getContentText());
-      return title || url;
+      return UrlFetchApp.fetch(url, { muteHttpExceptions: true, followRedirects: true });
     } catch (e) {
+      return null;
+    }
+  }
+
+  /** レスポンスの<title>を名称として使う。取得できない場合はURLをそのまま名称にする */
+  function resolveNameFromResponse(response: GoogleAppsScript.URL_Fetch.HTTPResponse | null, url: string): string {
+    if (!response) {
       return url;
     }
+    const title = extractTitle(response.getContentText());
+    return title || url;
   }
 
   function getOrCreateSpreadsheet(): GoogleAppsScript.Spreadsheet.Spreadsheet {
@@ -975,7 +982,9 @@ namespace AppLedger {
 
   /**
    * URLを貼り付けて登録する。名称を指定すればそれをそのまま使い、未指定/空文字の場合のみ
-   * リンク先の<title>から自動取得する（名称指定時はUrlFetchAppを呼ばずに済むため高速化にもなる）。
+   * リンク先の<title>から自動取得する。登録と同時に稼働確認も自動で行うため（手動の「確認」
+   * ボタンは廃止し、登録時の1回だけで済ませる方針）、名称取得用のフェッチと稼働確認用の
+   * フェッチを1回にまとめている（名称を指定した場合でも、稼働確認のためにフェッチ自体は行う）。
    */
   export function addApp(url: string, name?: string): AppLedgerEntry {
     const trimmedUrl = url.trim();
@@ -986,9 +995,11 @@ namespace AppLedger {
     const id = Utilities.getUuid();
     const now = new Date().toISOString();
     const trimmedName = name ? name.trim() : "";
-    const resolvedName = trimmedName || resolveNameFromUrl(trimmedUrl);
-    sheet.appendRow([id, resolvedName, trimmedUrl, now, "", "unknown", ""]);
-    return { id, name: resolvedName, url: trimmedUrl, addedAt: now, lastCheckedAt: null, status: "unknown", tags: [] };
+    const response = fetchUrlSafely(trimmedUrl);
+    const resolvedName = trimmedName || resolveNameFromResponse(response, trimmedUrl);
+    const status: AppStatus = response ? statusFromHttpCode(response.getResponseCode()) : "error";
+    sheet.appendRow([id, resolvedName, trimmedUrl, now, now, status, ""]);
+    return { id, name: resolvedName, url: trimmedUrl, addedAt: now, lastCheckedAt: now, status, tags: [] };
   }
 
   export function deleteApp(id: string): void {
@@ -997,6 +1008,46 @@ namespace AppLedger {
     if (rowIndex !== -1) {
       sheet.deleteRow(rowIndex);
     }
+  }
+
+  /**
+   * 一覧のドラッグ&ドロップによる並び替え。台帳シートには順序専用の列を持たせず、
+   * シート上の行そのものを指定順に並べ替えることで、listApps()が返す順序（=行の並び順）を
+   * そのまま並び替え結果として使えるようにしている。orderedIdsに含まれない行（並び替え中に
+   * 他の操作で削除された等、画面と台帳がずれた場合の保険）は、元の順序のまま末尾に残す。
+   */
+  export function reorderApps(orderedIds: string[]): AppLedgerEntry[] {
+    const sheet = getOrCreateSheet();
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+      return [];
+    }
+    const values = sheet.getRange(2, 1, lastRow - 1, HEADERS.length).getValues();
+    const byId: { [id: string]: (string | number | boolean | Date)[] } = {};
+    values.forEach((row) => {
+      if (row[0]) {
+        byId[String(row[0])] = row;
+      }
+    });
+    const seen: { [id: string]: boolean } = {};
+    const ordered: (string | number | boolean | Date)[][] = [];
+    orderedIds.forEach((id) => {
+      if (byId[id] && !seen[id]) {
+        ordered.push(byId[id]);
+        seen[id] = true;
+      }
+    });
+    values.forEach((row) => {
+      const id = String(row[0]);
+      if (row[0] && !seen[id]) {
+        ordered.push(row);
+        seen[id] = true;
+      }
+    });
+    if (ordered.length > 0) {
+      sheet.getRange(2, 1, ordered.length, HEADERS.length).setValues(ordered);
+    }
+    return ordered.map(rowToEntry);
   }
 
   /** 登録名称の変更。自動取得された<title>が実態と異なる/わかりにくい場合に手動で上書きできる */

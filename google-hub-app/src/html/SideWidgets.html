@@ -12,9 +12,12 @@
 
 <section class="card" id="card-mail" data-card="mail">
   <h2>
-    <span class="h2-label"><svg class="icon"><use href="#icon-mail"></use></svg>メール（直近<span id="mail-count-label">5</span>件）</span>
+    <!-- 見出し自体をボタン化し、押すとメールタブへ移動する（以前はここに独立した
+         「すべて見る」ボタンを置いていたが、見出しを押すだけで移動できる方が自然なため統合した）。 -->
+    <button type="button" class="h2-label h2-label-link" id="btn-mail-title" title="メールタブを開く">
+      <svg class="icon"><use href="#icon-mail"></use></svg>メール（直近<span id="mail-count-label">5</span>件）
+    </button>
     <span class="card-actions">
-      <button type="button" class="link-button" id="btn-mail-viewall">すべて見る</button>
       <button type="button" class="icon-only" id="btn-mail-compose" aria-label="メールを作成" title="メールを作成"><svg class="icon icon-sm"><use href="#icon-plus"></use></svg></button>
       <button type="button" class="icon-only" id="btn-mail-refresh" aria-label="更新" title="更新"><svg class="icon icon-sm"><use href="#icon-refresh"></use></svg></button>
     </span>
@@ -26,9 +29,10 @@
 
 <section class="card" id="card-links" data-card="links">
   <h2>
-    <span class="h2-label"><svg class="icon"><use href="#icon-link"></use></svg>アプリリンク集</span>
+    <button type="button" class="h2-label h2-label-link" id="btn-links-title" title="アプリリンク集タブを開く">
+      <svg class="icon"><use href="#icon-link"></use></svg>アプリリンク集
+    </button>
     <span class="card-actions">
-      <button type="button" class="link-button" id="btn-links-viewall">すべて見る</button>
       <button type="button" class="icon-only" id="btn-check-all" aria-label="全て稼働確認" title="全て稼働確認"><svg class="icon icon-sm"><use href="#icon-refresh"></use></svg></button>
     </span>
   </h2>
@@ -48,9 +52,10 @@
 
 <section class="card" id="card-todo" data-card="todo">
   <h2>
-    <span class="h2-label"><svg class="icon"><use href="#icon-check"></use></svg>ToDoリスト</span>
+    <button type="button" class="h2-label h2-label-link" id="btn-todo-title" title="ToDoタブを開く">
+      <svg class="icon"><use href="#icon-check"></use></svg>ToDoリスト
+    </button>
     <span class="card-actions">
-      <button type="button" class="link-button" id="btn-todo-viewall">すべて見る</button>
       <button type="button" class="icon-only" id="btn-todo-clear-done" aria-label="完了済みを削除" title="完了済みを削除"><svg class="icon icon-sm"><use href="#icon-trash"></use></svg></button>
     </span>
   </h2>

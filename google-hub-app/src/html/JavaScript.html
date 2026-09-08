@@ -1434,7 +1434,7 @@
 
   function initMail() {
     qs('btn-mail-refresh').addEventListener('click', function (e) { withSpinner(e.currentTarget, refreshMailData); });
-    qs('btn-mail-viewall').addEventListener('click', function () { switchView('mail'); });
+    qs('btn-mail-title').addEventListener('click', function () { switchView('mail'); });
     qs('btn-mail-detail-close').addEventListener('click', function () { qs('mail-detail-modal').hidden = true; });
 
     qs('btn-mail-detail-reply-toggle').addEventListener('click', function () {
@@ -1896,11 +1896,16 @@
       container.innerHTML = '<div class="empty-hint">該当するタグの登録がありません</div>';
       return;
     }
+    // タグ絞り込み中は一覧が全体の一部だけになるため、ここで並び替えると絞り込みで隠れている
+    // 項目の順序を壊してしまう（reorderApps()は渡されたIDリストにない項目を末尾へ寄せるため）。
+    // 「すべて」表示中のみドラッグ操作を許可する。
+    var reorderable = !state.appLedger.tagFilter;
     container.innerHTML = filtered.map(function (app) {
       var tagsHtml = (app.tags && app.tags.length > 0)
         ? '<div class="tag-list">' + app.tags.map(function (t) { return '<span class="tag-chip">' + escapeHtml(t) + '</span>'; }).join('') + '</div>'
         : '';
-      return '<div class="link-row" data-app-id="' + escapeHtml(app.id) + '">' +
+      return '<div class="link-row" draggable="' + reorderable + '" data-app-id="' + escapeHtml(app.id) + '">' +
+        (reorderable ? '<svg class="icon icon-sm widget-block-drag-handle app-drag-handle" title="ドラッグして並び替え"><use href="#icon-grip"></use></svg>' : '') +
         '<div>' +
         '<div class="name"><a href="' + escapeHtml(app.url) + '" target="_blank" rel="noopener" title="' + escapeHtml(app.url) + '">' + escapeHtml(app.name) + '</a> ' +
         '<span class="status-badge ' + app.status + '">' + statusLabel(app.status) + '</span></div>' +
@@ -1917,18 +1922,12 @@
         '<span>' +
         '<button type="button" class="icon-only btn-app-name-edit" aria-label="名称を変更" title="名称を変更"><svg class="icon icon-sm"><use href="#icon-edit"></use></svg></button>' +
         '<button type="button" class="icon-only btn-app-tag-edit" aria-label="タグを編集" title="タグを編集"><svg class="icon icon-sm"><use href="#icon-tag"></use></svg></button>' +
-        '<button type="button" class="btn-app-check">確認</button>' +
         '<button type="button" class="icon-only btn-app-delete" aria-label="削除" title="削除"><svg class="icon icon-sm"><use href="#icon-trash"></use></svg></button>' +
         '</span>' +
         '</div>';
     }).join('');
 
-    Array.prototype.forEach.call(container.querySelectorAll('.btn-app-check'), function (btn) {
-      btn.addEventListener('click', function () {
-        var row = btn.closest('[data-app-id]');
-        gasRun('checkApp', row.getAttribute('data-app-id')).then(replaceAppInState).catch(showError);
-      });
-    });
+    initAppDragDrop(container, filtered);
     Array.prototype.forEach.call(container.querySelectorAll('.btn-app-delete'), function (btn) {
       btn.addEventListener('click', function () {
         if (!window.confirm('このリンクを台帳から削除しますか？')) return;
@@ -1975,8 +1974,8 @@
   }
 
   // ===================== アプリ台帳: サーバー往復を最小限にするローカル状態更新ヘルパー =====================
-  // 個別アプリの確認・名称変更・タグ編集はいずれもサーバー側で更新後の1件分(AppLedgerEntry)を
-  // 返すため、ホーム全体(Calendar/Gmail/Sheets等)を読み直すloadHome()は不要で、その1件だけを
+  // 名称変更・タグ編集はいずれもサーバー側で更新後の1件分(AppLedgerEntry)を返すため、
+  // ホーム全体(Calendar/Gmail/Sheets等)を読み直すloadHome()は不要で、その1件だけを
   // state.home.appsの中で差し替えて一覧を再描画すれば足りる。
   function replaceAppInState(updatedApp) {
     if (!state.home || !updatedApp) return;
@@ -1996,8 +1995,67 @@
     renderAppList(state.home.apps);
   }
 
+  // ===================== アプリ台帳: 一覧の並び替え（ドラッグ&ドロップ） =====================
+  // カスタムナビ項目の並び替え(initCustomNavDragDrop)と同じ考え方。ホームのコンパクト
+  // ウィジェットではドラッグハンドル自体をCSSで非表示にしている(Assets.html)ため、
+  // 実際に並び替え操作ができるのはアプリリンク集タブのみ。
+  var draggingAppRow = null;
+
+  function appRowInsertionTarget(container, y) {
+    var rows = Array.prototype.slice.call(container.querySelectorAll('.link-row[data-app-id]:not(.is-dragging)'));
+    var result = null;
+    var closestOffset = -Infinity;
+    rows.forEach(function (row) {
+      var box = row.getBoundingClientRect();
+      var offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > closestOffset) {
+        closestOffset = offset;
+        result = row;
+      }
+    });
+    return result;
+  }
+
+  function initAppDragDrop(container, apps) {
+    Array.prototype.forEach.call(container.querySelectorAll('.link-row[data-app-id]'), function (row) {
+      row.addEventListener('dragstart', function (e) {
+        draggingAppRow = row;
+        row.classList.add('is-dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        try { e.dataTransfer.setData('text/plain', row.getAttribute('data-app-id')); } catch (err) { /* Firefox以外は不要 */ }
+      });
+      row.addEventListener('dragend', function () {
+        row.classList.remove('is-dragging');
+        draggingAppRow = null;
+      });
+    });
+
+    container.addEventListener('dragover', function (e) {
+      if (!draggingAppRow) return;
+      e.preventDefault();
+      var after = appRowInsertionTarget(container, e.clientY);
+      if (after) {
+        container.insertBefore(draggingAppRow, after);
+      } else {
+        container.appendChild(draggingAppRow);
+      }
+    });
+
+    container.addEventListener('drop', function (e) {
+      e.preventDefault();
+      if (!draggingAppRow) return;
+      var orderedIds = Array.prototype.map.call(container.querySelectorAll('.link-row[data-app-id]'), function (row) {
+        return row.getAttribute('data-app-id');
+      });
+      gasRun('reorderApps', orderedIds).then(function (reordered) {
+        state.home.apps = reordered;
+        renderAppList(reordered);
+      }).catch(showError);
+    });
+  }
+
   function initAppLedger() {
-    qs('btn-links-viewall').addEventListener('click', function () { switchView('links'); });
+    qs('btn-links-title').addEventListener('click', function () { switchView('links'); });
     qs('btn-check-all').addEventListener('click', function (e) {
       withSpinner(e.currentTarget, function () {
         return gasRun('checkAllApps').then(function (apps) {
@@ -2044,9 +2102,21 @@
     return dueDate < ymd(new Date());
   }
 
+  // 今日中の件数バッジ（左ナビの「ToDo」タブ）を更新する。メールの未読数バッジと同じ考え方で、
+  // 「期限日が今日以前（期限切れを含む）でまだ完了していない」件数を表示する。
+  function updateTodoBadge(todos) {
+    var navBadge = qs('nav-todo-badge');
+    if (!navBadge) return;
+    var today = ymd(new Date());
+    var dueCount = (todos || []).filter(function (t) { return !t.done && t.dueDate && t.dueDate <= today; }).length;
+    navBadge.textContent = dueCount > 9 ? '9+' : String(dueCount);
+    navBadge.hidden = dueCount === 0;
+  }
+
   function renderTodoList(todos) {
     var container = qs('todo-list');
     if (!container) return;
+    updateTodoBadge(todos);
     if (!todos || todos.length === 0) {
       container.innerHTML = '<div class="empty-hint">やることがありません</div>';
       return;
@@ -2102,8 +2172,35 @@
     });
   }
 
+  // 期限日(YYYY-MM-DD)2つの差を日数で返す（純粋関数。b - a）
+  function daysBetweenYmd(a, b) {
+    var da = new Date(a + 'T00:00:00');
+    var db = new Date(b + 'T00:00:00');
+    return Math.round((db.getTime() - da.getTime()) / 86400000);
+  }
+
+  // 期限日から優先度を自動判定する（純粋関数）。手動選択の代わりに、
+  // 「今日・明日・明後日まで＝高」「1週間以内＝中」「それ以降＝低」の3段階に振り分ける。
+  // 期限切れ(過去の日付)も残り日数が0以下になるため自動的に「高」に含まれる。
+  // 期限日が未設定の場合はクイック追加と同じ既定値「中」にする。
+  function priorityFromDueDate(dueDate) {
+    if (!dueDate) return 'medium';
+    var diff = daysBetweenYmd(ymd(new Date()), dueDate);
+    if (diff <= 2) return 'high';
+    if (diff <= 7) return 'medium';
+    return 'low';
+  }
+
+  function updateTodoPriorityPreview() {
+    var dueDate = qs('todo-modal-due').value || null;
+    var priority = priorityFromDueDate(dueDate);
+    var reason = !dueDate ? '（期限日未設定のため既定値）' : priority === 'high' ? '（期限まで残りわずか）' : priority === 'medium' ? '（1週間以内）' : '（期限に余裕あり）';
+    qs('todo-modal-priority-preview').innerHTML =
+      '<span class="todo-priority-dot ' + priority + '"></span>優先度: ' + TODO_PRIORITY_LABELS[priority] + reason;
+  }
+
   function initTodo() {
-    qs('btn-todo-viewall').addEventListener('click', function () { switchView('todo'); });
+    qs('btn-todo-title').addEventListener('click', function () { switchView('todo'); });
 
     // クイック追加: 期限日なし・優先度「中」で即座に追加する（Enterキー1つで完結する速さを優先）。
     qs('btn-todo-add').addEventListener('click', function () {
@@ -2118,23 +2215,25 @@
       if (e.key === 'Enter') qs('btn-todo-add').click();
     });
 
-    // 期限日・優先度を指定して追加: ポップアップ側で入力する。以前はツールバー直下に隠しておいた
+    // 期限日を指定して追加: ポップアップ側で入力する。以前はツールバー直下に隠しておいた
     // 入力欄を展開する方式だったが、ホームのコンパクトウィジェットではカードの高さが小さく、
-    // 展開すると優先度の選択欄自体がカードの外側(overflow:hiddenでクリップされる領域)へ
-    // はみ出して操作できなくなってしまっていたため、カードの大きさに左右されないポップアップに変更した。
+    // 展開すると入力欄自体がカードの外側(overflow:hiddenでクリップされる領域)へはみ出して
+    // 操作できなくなってしまっていたため、カードの大きさに左右されないポップアップに変更した。
+    // 優先度は手動選択をやめ、期限日から自動的に決まる（priorityFromDueDate()）。
     qs('btn-todo-detail-open').addEventListener('click', function () {
       qs('todo-modal-text').value = qs('todo-input').value.trim();
       qs('todo-modal-due').value = '';
-      qs('todo-modal-priority').value = 'medium';
+      updateTodoPriorityPreview();
       qs('todo-add-modal').hidden = false;
       qs('todo-modal-text').focus();
     });
+    qs('todo-modal-due').addEventListener('change', updateTodoPriorityPreview);
     qs('btn-todo-modal-cancel').addEventListener('click', function () { qs('todo-add-modal').hidden = true; });
     qs('btn-todo-modal-save').addEventListener('click', function () {
       var text = qs('todo-modal-text').value.trim();
       if (!text) { window.alert('内容を入力してください'); return; }
       var dueDate = qs('todo-modal-due').value || null;
-      var priority = qs('todo-modal-priority').value;
+      var priority = priorityFromDueDate(dueDate);
       addTodoAndRefresh(text, dueDate, priority).then(function () {
         qs('todo-add-modal').hidden = true;
         qs('todo-input').value = '';
