@@ -87,9 +87,6 @@
       mails: [], // 現在表示中フォルダの一覧（folderが'inbox'以外のときはstate.home.mailsと異なる）
       searchActive: false // 検索結果表示中かどうか。trueの間は更新ボタンが検索の再実行になる
     },
-    appLedger: {
-      tagFilter: null // 選択中のタグ（nullは「すべて」）
-    },
     mailDetailThreadId: null, // メールウィジェットのポップアップで開いているスレッドID（返信用）
     viewHistory: [], // 「戻る」ボタン用の閲覧履歴（直前に居た画面を積んでいく）
     // 設定画面(テーマスウォッチ・ウィジェット配置エディタ・カスタムナビ一覧)はDOM構築量が多いため、
@@ -1867,81 +1864,31 @@
     return '未確認';
   }
 
-  // アプリリンク集に登録されている全タグ（重複なし・昇順）を集計する
-  function allAppTags(apps) {
-    var set = {};
-    apps.forEach(function (app) { (app.tags || []).forEach(function (t) { set[t] = true; }); });
-    return Object.keys(set).sort();
-  }
-
-  function renderAppTagFilterBar(apps) {
-    var container = qs('app-tag-filter-bar');
-    if (!container) return;
-    var tags = allAppTags(apps);
-    if (tags.length === 0) {
-      container.innerHTML = '';
-      return;
-    }
-    var chips = '<button type="button" class="tag-filter-chip' + (state.appLedger.tagFilter === null ? ' active' : '') + '" data-tag="">すべて</button>' +
-      tags.map(function (t) {
-        return '<button type="button" class="tag-filter-chip' + (state.appLedger.tagFilter === t ? ' active' : '') + '" data-tag="' + escapeHtml(t) + '">' + escapeHtml(t) + '</button>';
-      }).join('');
-    container.innerHTML = chips;
-    Array.prototype.forEach.call(container.querySelectorAll('.tag-filter-chip'), function (btn) {
-      btn.addEventListener('click', function () {
-        var tag = btn.getAttribute('data-tag');
-        state.appLedger.tagFilter = tag === '' ? null : tag;
-        renderAppList(apps);
-      });
-    });
-  }
-
   function renderAppList(apps) {
-    renderAppTagFilterBar(apps);
     var container = qs('app-list');
     if (apps.length === 0) {
       container.innerHTML = '<div class="empty-hint">URLを貼り付けて登録してください</div>';
       return;
     }
-    var filtered = state.appLedger.tagFilter
-      ? apps.filter(function (app) { return (app.tags || []).indexOf(state.appLedger.tagFilter) !== -1; })
-      : apps;
-    if (filtered.length === 0) {
-      container.innerHTML = '<div class="empty-hint">該当するタグの登録がありません</div>';
-      return;
-    }
-    // タグ絞り込み中は一覧が全体の一部だけになるため、ここで並び替えると絞り込みで隠れている
-    // 項目の順序を壊してしまう（reorderApps()は渡されたIDリストにない項目を末尾へ寄せるため）。
-    // 「すべて」表示中のみドラッグ操作を許可する。
-    var reorderable = !state.appLedger.tagFilter;
-    container.innerHTML = filtered.map(function (app) {
-      var tagsHtml = (app.tags && app.tags.length > 0)
-        ? '<div class="tag-list">' + app.tags.map(function (t) { return '<span class="tag-chip">' + escapeHtml(t) + '</span>'; }).join('') + '</div>'
-        : '';
-      return '<div class="link-row" draggable="' + reorderable + '" data-app-id="' + escapeHtml(app.id) + '">' +
-        (reorderable ? '<svg class="icon icon-sm widget-block-drag-handle app-drag-handle" title="ドラッグして並び替え"><use href="#icon-grip"></use></svg>' : '') +
+    container.innerHTML = apps.map(function (app) {
+      return '<div class="link-row" draggable="true" data-app-id="' + escapeHtml(app.id) + '">' +
+        '<svg class="icon icon-sm widget-block-drag-handle app-drag-handle" title="ドラッグして並び替え"><use href="#icon-grip"></use></svg>' +
         '<div>' +
         '<div class="name"><a href="' + escapeHtml(app.url) + '" target="_blank" rel="noopener" title="' + escapeHtml(app.url) + '">' + escapeHtml(app.name) + '</a> ' +
         '<span class="status-badge ' + app.status + '">' + statusLabel(app.status) + '</span></div>' +
-        tagsHtml +
         '<div class="name-edit-row" hidden>' +
         '<input type="text" class="name-edit-input" placeholder="登録名称">' +
         '<button type="button" class="btn-name-save">保存</button>' +
         '</div>' +
-        '<div class="tag-edit-row" hidden>' +
-        '<input type="text" class="tag-edit-input" placeholder="タグをカンマ区切りで入力">' +
-        '<button type="button" class="btn-tag-save">保存</button>' +
-        '</div>' +
         '</div>' +
         '<span>' +
         '<button type="button" class="icon-only btn-app-name-edit" aria-label="名称を変更" title="名称を変更"><svg class="icon icon-sm"><use href="#icon-edit"></use></svg></button>' +
-        '<button type="button" class="icon-only btn-app-tag-edit" aria-label="タグを編集" title="タグを編集"><svg class="icon icon-sm"><use href="#icon-tag"></use></svg></button>' +
         '<button type="button" class="icon-only btn-app-delete" aria-label="削除" title="削除"><svg class="icon icon-sm"><use href="#icon-trash"></use></svg></button>' +
         '</span>' +
         '</div>';
     }).join('');
 
-    initAppDragDrop(container, filtered);
+    initAppDragDrop(container, apps);
     Array.prototype.forEach.call(container.querySelectorAll('.btn-app-delete'), function (btn) {
       btn.addEventListener('click', function () {
         if (!window.confirm('このリンクを台帳から削除しますか？')) return;
@@ -1954,7 +1901,7 @@
       btn.addEventListener('click', function () {
         var row = btn.closest('[data-app-id]');
         var editRow = row.querySelector('.name-edit-row');
-        var app = filtered.filter(function (a) { return a.id === row.getAttribute('data-app-id'); })[0];
+        var app = apps.filter(function (a) { return a.id === row.getAttribute('data-app-id'); })[0];
         editRow.querySelector('.name-edit-input').value = app ? app.name : '';
         editRow.hidden = !editRow.hidden;
       });
@@ -1968,27 +1915,10 @@
         gasRun('updateAppName', row.getAttribute('data-app-id'), name).then(replaceAppInState).catch(showError);
       });
     });
-    Array.prototype.forEach.call(container.querySelectorAll('.btn-app-tag-edit'), function (btn) {
-      btn.addEventListener('click', function () {
-        var row = btn.closest('[data-app-id]');
-        var editRow = row.querySelector('.tag-edit-row');
-        var app = filtered.filter(function (a) { return a.id === row.getAttribute('data-app-id'); })[0];
-        editRow.querySelector('.tag-edit-input').value = app ? app.tags.join(', ') : '';
-        editRow.hidden = !editRow.hidden;
-      });
-    });
-    Array.prototype.forEach.call(container.querySelectorAll('.btn-tag-save'), function (btn) {
-      btn.addEventListener('click', function () {
-        var row = btn.closest('[data-app-id]');
-        var input = row.querySelector('.tag-edit-input');
-        var tags = input.value.split(',').map(function (t) { return t.trim(); }).filter(function (t) { return t.length > 0; });
-        gasRun('updateAppTags', row.getAttribute('data-app-id'), tags).then(replaceAppInState).catch(showError);
-      });
-    });
   }
 
   // ===================== アプリ台帳: サーバー往復を最小限にするローカル状態更新ヘルパー =====================
-  // 名称変更・タグ編集はいずれもサーバー側で更新後の1件分(AppLedgerEntry)を返すため、
+  // 名称変更はサーバー側で更新後の1件分(AppLedgerEntry)を返すため、
   // ホーム全体(Calendar/Gmail/Sheets等)を読み直すloadHome()は不要で、その1件だけを
   // state.home.appsの中で差し替えて一覧を再描画すれば足りる。
   function replaceAppInState(updatedApp) {
@@ -2778,10 +2708,12 @@
   // 複数ファイルは並列に投げるとgoogle.script.runの同時実行数やDriveのレート制限に当たりやすいため、
   // 1件ずつ順番にアップロードする。1件の失敗が他のファイルの処理を止めないよう、失敗はcatchで
   // 個別に握りつぶして件数だけ記録し、最後にまとめて結果をトーストで表示する。
-  function uploadDriveFiles(fileList) {
+  // destinationFolderIdはアップロード先モーダル(#drive-upload-modal)で選択された値で、
+  // 未指定/空文字は現在選択中のドライブのルートを意味する。
+  function uploadDriveFiles(fileList, destinationFolderId) {
     var files = Array.prototype.slice.call(fileList || []);
     if (files.length === 0) return Promise.resolve();
-    var folderId = state.drive.currentFolderId;
+    var folderId = destinationFolderId || null;
     var driveId = state.drive.driveId;
     var successCount = 0;
     var failCount = 0;
@@ -2815,6 +2747,21 @@
     });
   }
 
+  // アップロード先フォルダを選ぶモーダル。ボタンからのファイル選択・ドラッグ&ドロップの
+  // どちらも、実際のアップロード開始前にここを経由させることで、常に同じ手順で行き先を
+  // 確認・変更できるようにしている（既定値は現在開いているフォルダなので、何も変更しなければ
+  // 従来通りの「今見ているフォルダにアップロードする」動作のまま）。
+  var pendingUploadFiles = [];
+
+  function openDriveUploadModal(fileList) {
+    var files = Array.prototype.slice.call(fileList || []);
+    if (files.length === 0) return;
+    pendingUploadFiles = files;
+    qs('drive-upload-dest').value = state.drive.currentFolderId || '';
+    qs('drive-upload-count').textContent = files.length + '件のファイルをアップロードします';
+    qs('drive-upload-modal').hidden = false;
+  }
+
   function initDriveUpload() {
     var dropzone = qs('drive-list');
     var fileInput = qs('drive-upload-input');
@@ -2822,7 +2769,7 @@
 
     qs('btn-drive-upload').addEventListener('click', function () { fileInput.click(); });
     fileInput.addEventListener('change', function () {
-      withSpinner(qs('btn-drive-upload'), function () { return uploadDriveFiles(fileInput.files); });
+      openDriveUploadModal(fileInput.files);
       fileInput.value = '';
     });
 
@@ -2847,7 +2794,19 @@
       e.preventDefault();
       dragCounter = 0;
       dropzone.classList.remove('is-drag-over');
-      uploadDriveFiles(e.dataTransfer.files);
+      openDriveUploadModal(e.dataTransfer.files);
+    });
+
+    qs('btn-drive-upload-cancel').addEventListener('click', function () {
+      pendingUploadFiles = [];
+      qs('drive-upload-modal').hidden = true;
+    });
+    qs('btn-drive-upload-save').addEventListener('click', function (e) {
+      var files = pendingUploadFiles;
+      var destination = qs('drive-upload-dest').value.trim();
+      pendingUploadFiles = [];
+      qs('drive-upload-modal').hidden = true;
+      withSpinner(e.currentTarget, function () { return uploadDriveFiles(files, destination); });
     });
   }
 

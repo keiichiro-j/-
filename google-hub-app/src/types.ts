@@ -223,8 +223,6 @@ interface AppLedgerEntry {
   addedAt: string; // ISO8601
   lastCheckedAt: string | null; // ISO8601
   status: AppStatus;
-  /** 分類用のタグ（自由記述、登録後に追加・編集可能） */
-  tags: string[];
 }
 
 interface GlobalSearchResult {

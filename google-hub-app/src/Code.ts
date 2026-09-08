@@ -292,11 +292,6 @@ function updateAppName(id: string, name: string): AppLedgerEntry {
   return AppLedger.updateAppName(id, name);
 }
 
-/** 分類用タグの追加・編集（名称やURLと違い登録後も自由に変更できる） */
-function updateAppTags(id: string, tags: string[]): AppLedgerEntry {
-  return AppLedger.updateAppTags(id, tags);
-}
-
 /** アプリリンク集タブでのドラッグ&ドロップによる並び替え。orderedIdsは新しい表示順のID一覧 */
 function reorderApps(orderedIds: string[]): AppLedgerEntry[] {
   return AppLedger.reorderApps(orderedIds);

@@ -925,8 +925,7 @@ namespace DriveService {
 namespace AppLedger {
   const LEDGER_ID_PROPERTY = "LEDGER_SPREADSHEET_ID";
   const SHEET_NAME = "Apps";
-  const HEADERS = ["id", "name", "url", "addedAt", "lastCheckedAt", "status", "tags"];
-  const MAX_TAGS = 10;
+  const HEADERS = ["id", "name", "url", "addedAt", "lastCheckedAt", "status"];
 
   /** HTTPステータスコードから稼働状況を判定する（純粋関数） */
   export function statusFromHttpCode(code: number): AppStatus {
@@ -1000,23 +999,8 @@ namespace AppLedger {
     }
     if (sheet.getLastRow() === 0) {
       sheet.appendRow(HEADERS);
-    } else if (String(sheet.getRange(1, HEADERS.length).getValue()) !== "tags") {
-      // 既存の台帳（tags列導入前に作成されたシート）にはヘッダーだけ追記する。
-      // データ列自体は listApps() 側で不足分を空文字として扱うため、後方互換のために必要な補正はこれだけでよい。
-      sheet.getRange(1, HEADERS.length).setValue("tags");
     }
     return sheet;
-  }
-
-  function parseTags(value: string | number | boolean | Date | undefined): string[] {
-    if (!value) {
-      return [];
-    }
-    return String(value)
-      .split(",")
-      .map((t) => t.trim())
-      .filter((t) => t.length > 0)
-      .slice(0, MAX_TAGS);
   }
 
   function rowToEntry(row: (string | number | boolean | Date)[]): AppLedgerEntry {
@@ -1027,7 +1011,6 @@ namespace AppLedger {
       addedAt: toIso(row[3]),
       lastCheckedAt: row[4] ? toIso(row[4]) : null,
       status: (row[5] as AppStatus) || "unknown",
-      tags: parseTags(row[6]),
     };
   }
 
@@ -1080,8 +1063,8 @@ namespace AppLedger {
     const response = fetchUrlSafely(trimmedUrl);
     const resolvedName = trimmedName || resolveNameFromResponse(response, trimmedUrl);
     const status: AppStatus = response ? statusFromHttpCode(response.getResponseCode()) : "error";
-    sheet.appendRow([id, resolvedName, trimmedUrl, now, now, status, ""]);
-    return { id, name: resolvedName, url: trimmedUrl, addedAt: now, lastCheckedAt: now, status, tags: [] };
+    sheet.appendRow([id, resolvedName, trimmedUrl, now, now, status]);
+    return { id, name: resolvedName, url: trimmedUrl, addedAt: now, lastCheckedAt: now, status };
   }
 
   export function deleteApp(id: string): void {
@@ -1144,21 +1127,6 @@ namespace AppLedger {
       throw new Error("台帳エントリが見つかりません: " + id);
     }
     sheet.getRange(rowIndex, 2).setValue(trimmed);
-    const row = sheet.getRange(rowIndex, 1, 1, HEADERS.length).getValues()[0];
-    return rowToEntry(row);
-  }
-
-  /** 分類用タグの追加・編集（名称やURLとは異なり、後から自由に付け替えられる） */
-  export function updateAppTags(id: string, tags: string[]): AppLedgerEntry {
-    const sheet = getOrCreateSheet();
-    const rowIndex = findRowIndexById(sheet, id);
-    if (rowIndex === -1) {
-      throw new Error("台帳エントリが見つかりません: " + id);
-    }
-    const cleaned = Array.isArray(tags)
-      ? tags.map((t) => String(t).trim()).filter((t) => t.length > 0).slice(0, MAX_TAGS)
-      : [];
-    sheet.getRange(rowIndex, 7).setValue(cleaned.join(", "));
     const row = sheet.getRange(rowIndex, 1, 1, HEADERS.length).getValues()[0];
     return rowToEntry(row);
   }

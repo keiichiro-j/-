@@ -1455,21 +1455,10 @@
   }
   .drive-new-menu button:hover:not(:disabled) { background: var(--content-bg); border-color: transparent; }
 
-  /* ===== アプリリンク集: タグ/カテゴリ分け ===== */
-  .tag-chip {
-    display: inline-flex; align-items: center; gap: 3px; font-size: 10.5px;
-    padding: 1px 8px; border-radius: 999px; background: var(--content-bg); color: var(--content-muted);
-  }
-  .tag-list { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
-  .tag-filter-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-  .tag-filter-chip {
-    font-size: 11px; padding: 4px 10px; border-radius: 999px;
-    border: 1.5px solid var(--border-color); background: var(--card-bg); cursor: pointer; color: var(--content-muted);
-  }
-  .tag-filter-chip.active { border-color: var(--accent); background: var(--content-bg); color: var(--content-text); font-weight: 600; }
-  .tag-edit-row, .name-edit-row { display: flex; gap: 6px; margin-top: 6px; }
-  .tag-edit-row input[type="text"], .name-edit-row input[type="text"] { flex: 1 1 auto; min-width: 0; font-size: 12px; padding: 4px 6px; }
-  .tag-edit-row button, .name-edit-row button { flex: 0 0 auto; white-space: nowrap; font-size: 11px; padding: 4px 10px; }
+  /* ===== アプリリンク集: 名称編集の展開行 ===== */
+  .name-edit-row { display: flex; gap: 6px; margin-top: 6px; }
+  .name-edit-row input[type="text"] { flex: 1 1 auto; min-width: 0; font-size: 12px; padding: 4px 6px; }
+  .name-edit-row button { flex: 0 0 auto; white-space: nowrap; font-size: 11px; padding: 4px 10px; }
 
   /* ===== カレンダー: 週表示/日表示（簡易アジェンダ形式） ===== */
   .cal-view-mode-switch { display: flex; gap: 4px; }
@@ -1604,14 +1593,11 @@
     .card-stack > .card.widget-size-small,
     .right-sidebar > .card.widget-size-small { min-height: 160px; }
 
-    /* タグ絞り込みチップは一覧の「絞り込み」機能であり、ホームのコンパクトウィジェット表示では
-       一覧を表示するための縦幅を圧迫するだけで得るものが少ないため非表示にする（絞り込みは
-       「すべて見る」で開くアプリリンク集タブ側でのみ使う）。#card-linksをどの列(main/side)に
-       配置していても、コンパクト表示中は必ず#card-stackか#right-sidebarの直下にいるため、
-       このセレクタで「タブへ移動する前かどうか」を判定できる。 */
-    #card-stack .tag-filter-bar, #right-sidebar .tag-filter-bar { display: none; }
-    /* 並び替え用のドラッグハンドルも、絞り込みチップと同じ理由でコンパクト表示中は隠す
-       （並び替えはアプリリンク集タブの広い一覧で行う操作という位置づけのため）。 */
+    /* 並び替え用のドラッグハンドルは、ホームのコンパクトウィジェット表示では一覧を表示するための
+       縦幅を圧迫するだけで得るものが少ないため隠す（並び替えは「すべて見る」で開くアプリリンク集
+       タブの広い一覧で行う操作という位置づけのため）。#card-linksをどの列(main/side)に配置して
+       いても、コンパクト表示中は必ず#card-stackか#right-sidebarの直下にいるため、このセレクタで
+       「タブへ移動する前かどうか」を判定できる。 */
     #card-stack .app-drag-handle, #right-sidebar .app-drag-handle { display: none; }
 
     .card-stack #mail-list, .right-sidebar #mail-list,
