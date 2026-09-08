@@ -800,6 +800,88 @@ namespace DriveService {
     return toItem(updated);
   }
 
+  /** ゴミ箱へ移動する（完全削除ではない。Google Drive本体の「削除」ボタンと同じ挙動）。 */
+  export function trashFile(fileId: string): void {
+    (DriveApi.Files.update as any)({ trashed: true }, fileId, { supportsAllDrives: true });
+  }
+
+  /**
+   * 一覧の複数選択からの一括操作用。google.script.runは呼び出しごとに往復が発生するため、
+   * 選択件数分だけ個別に呼び出すのではなく、サーバー側でループしてまとめて処理し、
+   * 結果(成功分の一覧・失敗件数)だけをまとめて返す。1件の失敗が他の処理を止めないよう、
+   * 失敗はcatchで個別に握りつぶして件数だけ数える。
+   */
+  export function bulkMoveFiles(fileIds: string[], destinationFolderId: string): DriveBulkResult {
+    const succeeded: DriveFileItem[] = [];
+    let failedCount = 0;
+    fileIds.forEach((id) => {
+      try {
+        succeeded.push(moveFile(id, destinationFolderId));
+      } catch (e) {
+        failedCount++;
+      }
+    });
+    return { succeeded, failedCount };
+  }
+
+  export function bulkUpdateSharing(fileIds: string[], access: string, permission: string): DriveBulkResult {
+    const succeeded: DriveFileItem[] = [];
+    let failedCount = 0;
+    fileIds.forEach((id) => {
+      try {
+        succeeded.push(updateSharing(id, access, permission));
+      } catch (e) {
+        failedCount++;
+      }
+    });
+    return { succeeded, failedCount };
+  }
+
+  export function bulkTrashFiles(fileIds: string[]): DriveBulkDeleteResult {
+    const succeededIds: string[] = [];
+    let failedCount = 0;
+    fileIds.forEach((id) => {
+      try {
+        trashFile(id);
+        succeededIds.push(id);
+      } catch (e) {
+        failedCount++;
+      }
+    });
+    return { succeededIds, failedCount };
+  }
+
+  /** 新規作成が許可される種類（フォルダ／Googleドキュメント／スプレッドシート／スライド）。
+   *  クライアントからは種類のキーワードだけを受け取り、ここで実際のmimeTypeへ変換する
+   *  （任意のmimeTypeを直接受け取らないようにするための最小限のバリデーション）。 */
+  const CREATABLE_KIND_TO_MIME_TYPE: { [key: string]: string } = {
+    folder: FOLDER_MIME_TYPE,
+    document: "application/vnd.google-apps.document",
+    spreadsheet: "application/vnd.google-apps.spreadsheet",
+    presentation: "application/vnd.google-apps.presentation",
+  };
+
+  /** 新規フォルダ・新規Googleドキュメント/スプレッドシート/スライドの作成（空の状態で作成し、
+   *  作成後にファイル自体を新しいタブで開くのはクライアント側に任せる）。 */
+  export function createEntry(folderId: string | null, driveId: string, name: string, kind: string): DriveFileItem {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      throw new Error("名前を入力してください");
+    }
+    const mimeType = CREATABLE_KIND_TO_MIME_TYPE[kind];
+    if (!mimeType) {
+      throw new Error("不正な種類です: " + kind);
+    }
+    const parentId = folderId || resolveRootId(driveId);
+    // create(resource, optionalArgs)（メディア無しでの作成）は実際のAPIでは有効だが、
+    // renameEntry()と同様に型定義側にその組み合わせのオーバーロードが無いため型チェックを迂回している。
+    const created: GoogleAppsScript.Drive_v3.Drive.V3.Schema.File = (DriveApi.Files.create as any)(
+      { name: trimmedName, mimeType: mimeType, parents: [parentId] },
+      { fields: FILE_FIELDS, supportsAllDrives: true }
+    );
+    return toItem(created);
+  }
+
   /**
    * google.script.runは文字列引数のサイズに実用上の上限があるため(Base64化で元データの
    * 約1.33倍に膨らむことも踏まえ)、アップロード可能な1ファイルあたりのサイズを制限する。

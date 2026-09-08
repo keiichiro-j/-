@@ -240,6 +240,30 @@ function uploadDriveFile(
   return DriveService.uploadFile(folderId, driveId, fileName, mimeType, base64Data);
 }
 
+/** 新規フォルダ・新規ドキュメント/スプレッドシート/スライドの作成。kindは"folder"|"document"|"spreadsheet"|"presentation" */
+function createDriveEntry(folderId: string | null, driveId: string, name: string, kind: string): DriveFileItem {
+  return DriveService.createEntry(folderId, driveId, name, kind);
+}
+
+function trashDriveFile(fileId: string): void {
+  DriveService.trashFile(fileId);
+}
+
+/** Driveタブの複数選択操作: まとめて移動する */
+function bulkMoveDriveFiles(fileIds: string[], destinationFolderId: string): DriveBulkResult {
+  return DriveService.bulkMoveFiles(fileIds, destinationFolderId);
+}
+
+/** Driveタブの複数選択操作: まとめて共有設定を変更する */
+function bulkUpdateDriveSharing(fileIds: string[], access: string, permission: string): DriveBulkResult {
+  return DriveService.bulkUpdateSharing(fileIds, access, permission);
+}
+
+/** Driveタブの複数選択操作: まとめてゴミ箱へ移動する */
+function bulkTrashDriveFiles(fileIds: string[]): DriveBulkDeleteResult {
+  return DriveService.bulkTrashFiles(fileIds);
+}
+
 // ---- スクリプト/アプリ台帳 ----
 
 function listApps(): AppLedgerEntry[] {

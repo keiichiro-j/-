@@ -80,6 +80,15 @@
     <h2>
       <span class="h2-label"><svg class="icon"><use href="#icon-folder"></use></svg>Drive</span>
       <span class="card-actions">
+        <div class="drive-new-dropdown" id="drive-new-dropdown">
+          <button type="button" id="btn-drive-new"><svg class="icon icon-sm"><use href="#icon-plus"></use></svg>新規</button>
+          <div class="drive-new-menu" id="drive-new-menu" hidden>
+            <button type="button" data-kind="folder"><svg class="icon icon-sm"><use href="#icon-folder"></use></svg>フォルダ</button>
+            <button type="button" data-kind="document">Googleドキュメント</button>
+            <button type="button" data-kind="spreadsheet">Googleスプレッドシート</button>
+            <button type="button" data-kind="presentation">Googleスライド</button>
+          </div>
+        </div>
         <button type="button" id="btn-drive-up"><svg class="icon icon-sm"><use href="#icon-arrow-up"></use></svg>上の階層へ</button>
         <button type="button" id="btn-drive-upload"><svg class="icon icon-sm"><use href="#icon-upload"></use></svg>アップロード</button>
         <button type="button" class="icon-only toggle-btn" id="btn-drive-view-list" data-drive-view="list" aria-label="リスト表示" title="リスト表示"><svg class="icon icon-sm"><use href="#icon-list"></use></svg></button>
@@ -125,6 +134,16 @@
         <option value="desc">降順</option>
         <option value="asc">昇順</option>
       </select>
+    </div>
+
+    <!-- チェックボックスで複数選択したときの一括操作ツールバー。メールタブの#mail-bulk-toolbarと同じ考え方。 -->
+    <div class="drive-bulk-toolbar" id="drive-bulk-toolbar" hidden>
+      <span class="count" id="drive-bulk-count">0件選択中</span>
+      <span class="spacer"></span>
+      <button type="button" id="btn-drive-bulk-move"><svg class="icon icon-sm"><use href="#icon-move"></use></svg>移動</button>
+      <button type="button" id="btn-drive-bulk-share"><svg class="icon icon-sm"><use href="#icon-share"></use></svg>共有設定</button>
+      <button type="button" class="danger" id="btn-drive-bulk-delete"><svg class="icon icon-sm"><use href="#icon-trash"></use></svg>削除</button>
+      <button type="button" id="btn-drive-bulk-clear">選択解除</button>
     </div>
 
     <!-- ドラッグ&ドロップでのアップロード対応。#drive-listへドラッグすると is-drag-over で
@@ -195,6 +214,19 @@
       <div class="modal-footer">
         <button type="button" id="btn-drive-rename-cancel">キャンセル</button>
         <button type="button" id="btn-drive-rename-save" class="primary">変更</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="drive-create-modal" hidden>
+    <div class="modal-box">
+      <h3 id="drive-create-title">新規フォルダ</h3>
+      <input type="hidden" id="drive-create-kind">
+      <label for="drive-create-name">名前</label>
+      <input type="text" id="drive-create-name">
+      <div class="modal-footer">
+        <button type="button" id="btn-drive-create-cancel">キャンセル</button>
+        <button type="button" id="btn-drive-create-save" class="primary">作成</button>
       </div>
     </div>
   </div>

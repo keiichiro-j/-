@@ -77,7 +77,8 @@
       // 経路をリセットし、ジャンプ先1件だけの階層として扱う）。
       folderPath: [],
       // 検索結果表示中かどうか。trueの間にフォルダを開いた場合は経路への追加ではなくジャンプ扱いにする
-      searchActive: false
+      searchActive: false,
+      selectedIds: {} // { fileId: true } 一括操作用の複数選択状態
     },
     mailPage: {
       selectedThreadId: null,
@@ -90,7 +91,10 @@
       tagFilter: null // 選択中のタグ（nullは「すべて」）
     },
     mailDetailThreadId: null, // メールウィジェットのポップアップで開いているスレッドID（返信用）
-    viewHistory: [] // 「戻る」ボタン用の閲覧履歴（直前に居た画面を積んでいく）
+    viewHistory: [], // 「戻る」ボタン用の閲覧履歴（直前に居た画面を積んでいく）
+    // 設定画面(テーマスウォッチ・ウィジェット配置エディタ・カスタムナビ一覧)はDOM構築量が多いため、
+    // 起動時のloadHome()では組み立てず、実際に設定タブを開いたときに初めて構築する（初回表示を軽くするため）。
+    settingsPopulated: false
   };
 
   // ===================== トースト通知（保存完了などの一時メッセージ） =====================
@@ -263,6 +267,10 @@
     if (view === 'mail' && state.home) {
       refreshMailPageForCurrentFolder();
     }
+    if (view === 'settings' && state.home && !state.settingsPopulated) {
+      populateSettingsForm(state.home.userSettings, state.home.globalSettings, state.home.calendars, state.themeChoices);
+      state.settingsPopulated = true;
+    }
   }
 
   // 現在の画面に応じた「更新」処理を呼び分ける（ヘッダーの共通更新ボタン用）
@@ -314,7 +322,13 @@
       renderCustomNav(home.userSettings.customNavItems);
       populateEventCalendarOptions(home.calendars);
       renderCategorySwatchPicker(state.eventCategories, '');
-      populateSettingsForm(home.userSettings, home.globalSettings, home.calendars, state.themeChoices);
+      // 設定画面のDOM(テーマスウォッチ・ウィジェット配置エディタ等)は組み立てコストが高いため、
+      // まだ一度も開かれていなければここでは構築しない(switchView()が初回表示時に構築する)。
+      // 既に開いたことがある場合や、現在まさに設定タブを見ている場合(更新ボタン)は最新化する。
+      if (state.settingsPopulated || state.currentView === 'settings') {
+        populateSettingsForm(home.userSettings, home.globalSettings, home.calendars, state.themeChoices);
+        state.settingsPopulated = true;
+      }
       if (state.currentView === 'mail') {
         refreshMailPageForCurrentFolder();
       }
@@ -2364,12 +2378,20 @@
     return primary + btn('btn-drive-rename', '名称変更', 'icon-edit') + btn('btn-drive-share', '共有', 'icon-share') + btn('btn-drive-move', '移動', 'icon-move');
   }
 
+  // 複数選択(一括操作)用のチェックボックス。メールタブのチェック方式(.mail-row-check)と同じ考え方で、
+  // 選択状態はstate.drive.selectedIdsに { fileId: true } の形で持つ。
+  function driveCheckboxHtml(item) {
+    var checked = state.drive.selectedIds[item.id] ? ' checked' : '';
+    return '<input type="checkbox" class="drive-row-check" data-file-id="' + escapeHtml(item.id) + '"' + checked + '>';
+  }
+
   function driveListRowHtml(item) {
     var sizeLabel = item.isFolder ? '' : formatBytes(item.sizeBytes);
     var nameHtml = item.isFolder
       ? escapeHtml(item.name)
       : '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener">' + escapeHtml(item.name) + '</a>';
     return '<div class="drive-row" data-file-id="' + escapeHtml(item.id) + '" data-is-folder="' + item.isFolder + '">' +
+      driveCheckboxHtml(item) +
       driveThumbHtml(item, 'thumb') +
       '<div class="name">' + nameHtml + '</div>' +
       '<div class="meta">' + sizeLabel + '</div>' +
@@ -2382,6 +2404,7 @@
       ? escapeHtml(item.name)
       : '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener">' + escapeHtml(item.name) + '</a>';
     return '<div class="drive-grid-item" data-file-id="' + escapeHtml(item.id) + '" data-is-folder="' + item.isFolder + '">' +
+      driveCheckboxHtml(item) +
       drivePinButtonHtml(item) +
       driveThumbHtml(item, 'thumb') +
       '<div class="name">' + nameHtml + '</div>' +
@@ -2415,10 +2438,22 @@
     container.classList.toggle('drive-grid', state.drive.viewMode === 'grid');
     if (filtered.length === 0) {
       container.innerHTML = '<div class="empty-hint">' + (items.length === 0 ? 'ファイルがありません' : '該当する種類のファイルがありません') + '</div>';
+      updateDriveBulkToolbar();
       return;
     }
     container.innerHTML = filtered.map(state.drive.viewMode === 'grid' ? driveGridItemHtml : driveListRowHtml).join('');
     bindThumbFallback(container);
+
+    Array.prototype.forEach.call(container.querySelectorAll('.drive-row-check'), function (cb) {
+      cb.addEventListener('click', function (e) { e.stopPropagation(); });
+      cb.addEventListener('change', function () {
+        var id = cb.getAttribute('data-file-id');
+        if (cb.checked) state.drive.selectedIds[id] = true;
+        else delete state.drive.selectedIds[id];
+        updateDriveBulkToolbar();
+      });
+    });
+    updateDriveBulkToolbar();
 
     Array.prototype.forEach.call(container.querySelectorAll('.btn-drive-pin'), function (btn) {
       btn.addEventListener('click', function (e) {
@@ -2451,7 +2486,7 @@
     // ボタンやファイル名リンクのクリックはそれぞれ専用のハンドラに任せるため、ここでは何もしない。
     Array.prototype.forEach.call(container.querySelectorAll('.drive-row, .drive-grid-item'), function (row) {
       row.addEventListener('click', function (e) {
-        if (e.target.closest('a, button')) return;
+        if (e.target.closest('a, button, input')) return;
         var fileId = row.getAttribute('data-file-id');
         if (row.getAttribute('data-is-folder') === 'true') {
           var item = state.drive.items.filter(function (i) { return i.id === fileId; })[0];
@@ -2475,6 +2510,7 @@
     Array.prototype.forEach.call(container.querySelectorAll('.btn-drive-share'), function (btn) {
       btn.addEventListener('click', function () {
         var row = btn.closest('[data-file-id]');
+        driveBulkModalActive = false;
         qs('drive-share-file-id').value = row.getAttribute('data-file-id');
         qs('drive-share-modal').hidden = false;
       });
@@ -2482,10 +2518,95 @@
     Array.prototype.forEach.call(container.querySelectorAll('.btn-drive-move'), function (btn) {
       btn.addEventListener('click', function () {
         var row = btn.closest('[data-file-id]');
+        driveBulkModalActive = false;
         qs('drive-move-file-id').value = row.getAttribute('data-file-id');
         qs('drive-move-dest').value = '';
         qs('drive-move-modal').hidden = false;
       });
+    });
+  }
+
+  // ===================== Drive: 複数選択(チェックボックス)からの一括操作 =====================
+  // メールタブの一括操作(state.mailPage.selectedIds / #mail-bulk-toolbar)と同じ考え方。
+  // 移動・共有設定変更は既存の単一操作用モーダル(#drive-move-modal/#drive-share-modal)を
+  // そのまま再利用し、このフラグでモーダルの保存ボタンの挙動(単一/一括)を切り替える。
+  var driveBulkModalActive = false;
+
+  function updateDriveBulkToolbar() {
+    var toolbar = qs('drive-bulk-toolbar');
+    if (!toolbar) return;
+    var count = Object.keys(state.drive.selectedIds).length;
+    toolbar.hidden = count === 0;
+    qs('drive-bulk-count').textContent = count + '件選択中';
+  }
+
+  function initDriveBulkActions() {
+    qs('btn-drive-bulk-move').addEventListener('click', function () {
+      if (Object.keys(state.drive.selectedIds).length === 0) return;
+      driveBulkModalActive = true;
+      qs('drive-move-dest').value = '';
+      qs('drive-move-modal').hidden = false;
+    });
+    qs('btn-drive-bulk-share').addEventListener('click', function () {
+      if (Object.keys(state.drive.selectedIds).length === 0) return;
+      driveBulkModalActive = true;
+      qs('drive-share-modal').hidden = false;
+    });
+    qs('btn-drive-bulk-delete').addEventListener('click', function (e) {
+      var ids = Object.keys(state.drive.selectedIds);
+      if (ids.length === 0) return;
+      if (!window.confirm(ids.length + '件をゴミ箱に移動しますか？')) return;
+      withSpinner(e.currentTarget, function () {
+        return gasRun('bulkTrashDriveFiles', ids).then(function (result) {
+          state.drive.selectedIds = {};
+          showToast('ゴミ箱に移動しました' + (result.failedCount > 0 ? '（' + result.failedCount + '件失敗）' : ''));
+          return refreshDriveView();
+        }).catch(showError);
+      });
+    });
+    qs('btn-drive-bulk-clear').addEventListener('click', function () {
+      state.drive.selectedIds = {};
+      renderDriveList(state.drive.items);
+    });
+  }
+
+  // ===================== Drive: 新規フォルダ/ドキュメント/スプレッドシート/スライド作成 =====================
+  var DRIVE_CREATE_LABELS = { folder: 'フォルダ', document: 'Googleドキュメント', spreadsheet: 'Googleスプレッドシート', presentation: 'Googleスライド' };
+
+  function initDriveCreate() {
+    var dropdown = qs('drive-new-dropdown');
+    var menu = qs('drive-new-menu');
+    qs('btn-drive-new').addEventListener('click', function (e) {
+      e.stopPropagation();
+      menu.hidden = !menu.hidden;
+    });
+    // メニューの外側をクリックしたら閉じる
+    document.addEventListener('click', function (e) {
+      if (!dropdown.contains(e.target)) menu.hidden = true;
+    });
+    Array.prototype.forEach.call(menu.querySelectorAll('button[data-kind]'), function (btn) {
+      btn.addEventListener('click', function () {
+        menu.hidden = true;
+        var kind = btn.getAttribute('data-kind');
+        qs('drive-create-kind').value = kind;
+        qs('drive-create-title').textContent = '新規' + DRIVE_CREATE_LABELS[kind];
+        qs('drive-create-name').value = kind === 'folder' ? '' : ('無題の' + DRIVE_CREATE_LABELS[kind].replace('Google', ''));
+        qs('drive-create-modal').hidden = false;
+      });
+    });
+    qs('btn-drive-create-cancel').addEventListener('click', function () { qs('drive-create-modal').hidden = true; });
+    qs('btn-drive-create-save').addEventListener('click', function () {
+      var kind = qs('drive-create-kind').value;
+      var name = qs('drive-create-name').value.trim();
+      if (!name) { window.alert('名前を入力してください'); return; }
+      gasRun('createDriveEntry', state.drive.currentFolderId, state.drive.driveId, name, kind).then(function (item) {
+        qs('drive-create-modal').hidden = true;
+        showToast('作成しました');
+        // ドキュメント/スプレッドシート/スライドは作成直後に新しいタブで開く(Google Drive本体と同じ挙動)。
+        // フォルダは開く対象がないため一覧の更新のみ。
+        if (!item.isFolder) window.open(item.url, '_blank', 'noopener');
+        return loadDriveFolder(state.drive.currentFolderId);
+      }).catch(showError);
     });
   }
 
@@ -2754,22 +2875,42 @@
       qs('drive-preview-modal').hidden = true;
     });
 
-    qs('btn-drive-share-cancel').addEventListener('click', function () { qs('drive-share-modal').hidden = true; });
+    qs('btn-drive-share-cancel').addEventListener('click', function () { driveBulkModalActive = false; qs('drive-share-modal').hidden = true; });
     qs('btn-drive-share-save').addEventListener('click', function () {
-      var fileId = qs('drive-share-file-id').value;
       var access = qs('drive-share-access').value;
       var permission = qs('drive-share-permission').value;
+      if (driveBulkModalActive) {
+        var ids = Object.keys(state.drive.selectedIds);
+        gasRun('bulkUpdateDriveSharing', ids, access, permission).then(function (result) {
+          state.drive.selectedIds = {};
+          qs('drive-share-modal').hidden = true;
+          showToast('共有設定を変更しました' + (result.failedCount > 0 ? '（' + result.failedCount + '件失敗）' : ''));
+          return refreshDriveView();
+        }).catch(showError);
+        return;
+      }
+      var fileId = qs('drive-share-file-id').value;
       gasRun('updateDriveSharing', fileId, access, permission).then(function () {
         qs('drive-share-modal').hidden = true;
         return loadDriveFolder(state.drive.currentFolderId);
       }).catch(showError);
     });
 
-    qs('btn-drive-move-cancel').addEventListener('click', function () { qs('drive-move-modal').hidden = true; });
+    qs('btn-drive-move-cancel').addEventListener('click', function () { driveBulkModalActive = false; qs('drive-move-modal').hidden = true; });
     qs('btn-drive-move-save').addEventListener('click', function () {
-      var fileId = qs('drive-move-file-id').value;
       var destination = qs('drive-move-dest').value.trim();
       if (!destination) { window.alert('移動先フォルダIDを入力してください'); return; }
+      if (driveBulkModalActive) {
+        var ids = Object.keys(state.drive.selectedIds);
+        gasRun('bulkMoveDriveFiles', ids, destination).then(function (result) {
+          state.drive.selectedIds = {};
+          qs('drive-move-modal').hidden = true;
+          showToast('移動しました' + (result.failedCount > 0 ? '（' + result.failedCount + '件失敗）' : ''));
+          return refreshDriveView();
+        }).catch(showError);
+        return;
+      }
+      var fileId = qs('drive-move-file-id').value;
       gasRun('moveDriveFile', fileId, destination).then(function () {
         qs('drive-move-modal').hidden = true;
         return loadDriveFolder(state.drive.currentFolderId);
@@ -3342,6 +3483,8 @@
     safeInit('initDrive', initDrive);
     safeInit('initDriveViewMode', initDriveViewMode);
     safeInit('initDriveTypeFilter', initDriveTypeFilter);
+    safeInit('initDriveBulkActions', initDriveBulkActions);
+    safeInit('initDriveCreate', initDriveCreate);
     safeInit('initSettings', initSettings);
     safeInit('initCustomNavSettings', initCustomNavSettings);
     safeInit('initWidgetLayoutDropzones', initWidgetLayoutDropzones);

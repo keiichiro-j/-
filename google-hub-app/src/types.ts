@@ -201,6 +201,18 @@ interface DriveInfo {
   name: string;
 }
 
+/** Drive一覧の複数選択からの一括操作（移動・共有設定変更）の結果 */
+interface DriveBulkResult {
+  succeeded: DriveFileItem[];
+  failedCount: number;
+}
+
+/** 一括削除（ゴミ箱へ移動）の結果。削除は項目自体が無くなるため、成功分はID一覧のみ返す */
+interface DriveBulkDeleteResult {
+  succeededIds: string[];
+  failedCount: number;
+}
+
 type AppStatus = "ok" | "error" | "unknown";
 
 interface AppLedgerEntry {

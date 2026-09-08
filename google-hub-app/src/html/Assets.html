@@ -245,6 +245,9 @@
     --shadow-sm: 0 1px 3px rgba(60, 64, 67, 0.16), 0 4px 8px 1px rgba(60, 64, 67, 0.08);
     --shadow-md: 0 2px 6px rgba(60, 64, 67, 0.18), 0 8px 24px 4px rgba(60, 64, 67, 0.12);
     --shadow-lg: 0 4px 12px rgba(60, 64, 67, 0.22), 0 16px 40px 8px rgba(60, 64, 67, 0.16);
+
+    /* iPhone/iOS標準の easing 相当。画面遷移・モーダル開閉など、この後追加するアニメーション全般で使う。 */
+    --ios-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
   }
 
   /* ===== 表示モード（ライト/ダーク/システムに合わせる） =====
@@ -677,7 +680,7 @@
     align-items: center;
     gap: 6px;
     box-shadow: var(--shadow-xs);
-    transition: transform 0.08s ease, filter 0.08s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    transition: transform 0.12s var(--ios-ease), filter 0.12s var(--ios-ease), box-shadow 0.15s var(--ios-ease), border-color 0.15s var(--ios-ease);
   }
 
   button:hover:not(:disabled) {
@@ -686,7 +689,8 @@
   }
 
   /* クリック/タップした「押した感触」。全ボタン共通（テーマスウォッチ・ナビ項目・タグチップ等、
-     <button>要素として実装されているものすべてに自動的に効く） */
+     <button>要素として実装されているものすべてに自動的に効く）。iOSのボタン押下と同じく
+     一瞬だけ縮んで少し暗くなり、離すと(:activeが外れると)上のtransitionでふわっと元に戻る。 */
   button:active:not(:disabled) {
     transform: scale(0.96);
     filter: brightness(0.95);
@@ -789,7 +793,10 @@
     flex: 0 0 auto;
     cursor: pointer;
     vertical-align: middle;
-    transition: background 0.12s ease, border-color 0.12s ease;
+    transition: background 0.12s var(--ios-ease), border-color 0.12s var(--ios-ease), transform 0.1s var(--ios-ease);
+  }
+  input[type="checkbox"]:active {
+    transform: scale(0.9);
   }
   input[type="checkbox"]:checked {
     background: var(--accent);
@@ -931,10 +938,12 @@
     border-bottom: 1px solid var(--border-color);
     font-size: 13px;
     gap: 8px;
+    transition: background 0.15s var(--ios-ease);
   }
   .mail-row:last-child, .link-row:last-child, .todo-row:last-child { border-bottom: none; }
   .mail-row { cursor: pointer; }
   .mail-row:hover { background: var(--content-bg); }
+  .mail-row:active, .link-row:active, .todo-row:active { background: var(--content-bg); }
   .mail-row .subject { font-weight: bold; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mail-row.unread .subject { color: var(--accent); }
   .mail-row.selected { background: rgba(var(--accent-rgb), 0.12); }
@@ -1073,10 +1082,12 @@
     border-bottom: 1px solid var(--border-color);
     font-size: 13px;
     cursor: pointer;
+    transition: background 0.15s var(--ios-ease);
   }
   .drive-row:hover { background: var(--content-bg); }
-  .drive-grid-item { cursor: pointer; }
+  .drive-grid-item { cursor: pointer; transition: background 0.15s var(--ios-ease), transform 0.15s var(--ios-ease); }
   .drive-grid-item:hover { background: var(--content-bg); }
+  .drive-grid-item:active { transform: scale(0.98); }
   .drive-row img { width: 18px; height: 18px; }
   .drive-row .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .drive-row .name a { color: inherit; text-decoration: none; }
@@ -1094,10 +1105,35 @@
   .modal-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,0.4);
     display: flex; align-items: center; justify-content: center; z-index: 100;
+    /* hidden属性が外れて表示された瞬間(display:noneから復帰した瞬間)にアニメーションが
+       自動的に(再)生する性質を利用して、表示のたびにフェードインさせている(JS側の変更は不要)。 */
+    animation: modal-backdrop-in 0.18s var(--ios-ease);
   }
   .modal-box {
     background: var(--card-bg); border-radius: 20px; padding: 16px; width: 360px; max-width: 90vw;
     max-height: 85vh; overflow-y: auto; box-shadow: var(--shadow-lg);
+    animation: modal-box-in 0.22s var(--ios-ease);
+  }
+  @keyframes modal-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes modal-box-in {
+    from { opacity: 0; transform: scale(0.94) translateY(8px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  /* ===== 画面切替(タブ切替)のフェードイン ===== switchView()はhidden属性の付け外しだけで
+     画面を切り替えており、display:noneから復帰した要素にはアニメーションが自動的に(再)生する
+     性質があるため、JS側は変更せずCSSだけで各タブに軽いフェード+わずかな浮き上がりを付けられる。 */
+  @keyframes view-fade-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  #view-home:not([hidden]),
+  #view-mail:not([hidden]),
+  #view-links:not([hidden]),
+  #view-todo:not([hidden]),
+  #view-drive:not([hidden]),
+  #view-settings:not([hidden]) {
+    animation: view-fade-in 0.22s var(--ios-ease);
   }
   .modal-box h3 { margin-top: 0; margin-bottom: 10px; }
   .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
@@ -1373,7 +1409,7 @@
   .todo-due-badge.overdue { color: #fff; background: var(--danger); }
 
   /* ===== メールタブ: 複数選択の一括操作 ===== */
-  .mail-row .mail-row-check { width: auto; flex: 0 0 auto; }
+  .mail-row .mail-row-check { flex: 0 0 auto; }
   .mail-bulk-toolbar {
     display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px;
     padding: 6px 10px; border-radius: 8px; background: var(--content-bg); font-size: 12px;
@@ -1381,6 +1417,30 @@
   .mail-bulk-toolbar .count { font-weight: 600; color: var(--content-text); white-space: nowrap; }
   .mail-bulk-toolbar .spacer { flex: 1 1 0; min-width: 0; }
   .mail-bulk-toolbar button { font-size: 11.5px; padding: 5px 9px; white-space: nowrap; }
+
+  /* ===== Driveタブ: 複数選択の一括操作（メールタブの.mail-bulk-toolbarと同じ見た目） ===== */
+  .drive-row .drive-row-check, .drive-grid-item .drive-row-check { flex: 0 0 auto; }
+  .drive-grid-item .drive-row-check { position: absolute; top: 6px; left: 6px; z-index: 1; }
+  .drive-bulk-toolbar {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px;
+    padding: 6px 10px; border-radius: 8px; background: var(--content-bg); font-size: 12px;
+  }
+  .drive-bulk-toolbar .count { font-weight: 600; color: var(--content-text); white-space: nowrap; }
+  .drive-bulk-toolbar .spacer { flex: 1 1 0; min-width: 0; }
+  .drive-bulk-toolbar button { font-size: 11.5px; padding: 5px 9px; white-space: nowrap; }
+
+  /* ===== Driveタブ: 「新規」ドロップダウン（フォルダ/ドキュメント/スプレッドシート/スライド作成） ===== */
+  .drive-new-dropdown { position: relative; display: inline-flex; }
+  .drive-new-menu {
+    position: absolute; top: calc(100% + 6px); left: 0; z-index: 50;
+    display: flex; flex-direction: column; gap: 2px; min-width: 180px;
+    background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px;
+    padding: 6px; box-shadow: var(--shadow-lg);
+  }
+  .drive-new-menu button {
+    justify-content: flex-start; border: none; box-shadow: none; background: transparent; width: 100%;
+  }
+  .drive-new-menu button:hover:not(:disabled) { background: var(--content-bg); border-color: transparent; }
 
   /* ===== アプリリンク集: タグ/カテゴリ分け ===== */
   .tag-chip {
