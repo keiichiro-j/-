@@ -158,6 +158,38 @@ namespace CalendarService {
     return items.sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));
   }
 
+  /**
+   * ヘッダーの横断検索用。タイトル・説明・参加者・場所を対象に、前後1年の範囲で検索する
+   * （Calendar Serviceの`getEvents(start, end, {search})`はGoogle Calendar本体の検索と同じ
+   * 全文検索に対応しているため、あいまい一致にも強い）。全期間を対象にすると件数・応答時間が
+   * 際限なく増えるため、実用上十分な「前後1年」に絞っている。
+   */
+  export function searchEvents(query: string, limit: number = 20): CalendarEventItem[] {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      return [];
+    }
+    const now = new Date();
+    const start = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+    const end = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
+    const items: CalendarEventItem[] = [];
+    listCalendarIds().forEach((calendarId) => {
+      if (items.length >= limit) {
+        return;
+      }
+      const calendar = resolveCalendar(calendarId);
+      if (!calendar) {
+        return;
+      }
+      calendar.getEvents(start, end, { search: trimmed }).forEach((event) => {
+        if (items.length < limit) {
+          items.push(toItem(calendarId, event));
+        }
+      });
+    });
+    return items.sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));
+  }
+
   export function createEvent(
     calendarId: string,
     title: string,

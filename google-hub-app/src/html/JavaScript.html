@@ -1718,7 +1718,8 @@
 
   function renderSearchResults(found) {
     var results = qs('search-results');
-    var hasAny = found.apps.length > 0 || found.files.length > 0;
+    var hasAny = found.apps.length > 0 || found.files.length > 0 || found.events.length > 0 ||
+      found.todos.length > 0 || found.mails.length > 0;
     if (!hasAny) {
       results.innerHTML = '<div class="dropdown-empty">一致する結果がありません</div>';
       results.hidden = false;
@@ -1728,7 +1729,7 @@
     if (found.apps.length > 0) {
       html += '<div class="search-group-label">アプリ</div>';
       html += found.apps.map(function (app) {
-        return '<div class="search-result-row" data-open="' + escapeHtml(app.url) + '">' +
+        return '<div class="search-result-row" data-type="app" data-open="' + escapeHtml(app.url) + '">' +
           '<div class="r-name">' + escapeHtml(app.name) + '</div>' +
           '<div class="r-desc">' + escapeHtml(app.url) + '</div></div>';
       }).join('');
@@ -1736,19 +1737,65 @@
     if (found.files.length > 0) {
       html += '<div class="search-group-label">Drive</div>';
       html += found.files.map(function (f) {
-        return '<div class="search-result-row" data-open="' + escapeHtml(f.url) + '">' +
+        return '<div class="search-result-row" data-type="file" data-open="' + escapeHtml(f.url) + '">' +
           '<div class="r-name">' + escapeHtml(f.name) + '</div>' +
           '<div class="r-desc">' + escapeHtml(f.mimeType) + '</div></div>';
+      }).join('');
+    }
+    if (found.events.length > 0) {
+      html += '<div class="search-group-label">予定</div>';
+      html += found.events.map(function (ev) {
+        return '<div class="search-result-row" data-type="event" data-calendar-id="' + escapeHtml(ev.calendarId) + '" data-event-id="' + escapeHtml(ev.id) + '" data-start="' + escapeHtml(ev.start) + '">' +
+          '<div class="r-name">' + escapeHtml(ev.title || '(タイトルなし)') + '</div>' +
+          '<div class="r-desc">' + formatDateTime(ev.start) + '</div></div>';
+      }).join('');
+    }
+    if (found.todos.length > 0) {
+      html += '<div class="search-group-label">ToDo</div>';
+      html += found.todos.map(function (t) {
+        return '<div class="search-result-row" data-type="todo">' +
+          '<div class="r-name">' + escapeHtml(t.text) + '</div>' +
+          '<div class="r-desc">' + (t.done ? '完了済み' : (t.dueDate ? '期限: ' + t.dueDate : '期限なし')) + '</div></div>';
+      }).join('');
+    }
+    if (found.mails.length > 0) {
+      html += '<div class="search-group-label">メール</div>';
+      html += found.mails.map(function (m) {
+        return '<div class="search-result-row" data-type="mail" data-thread-id="' + escapeHtml(m.threadId) + '">' +
+          '<div class="r-name">' + escapeHtml(m.subject || '(件名なし)') + '</div>' +
+          '<div class="r-desc">' + escapeHtml(m.from) + '</div></div>';
       }).join('');
     }
     results.innerHTML = html;
     results.hidden = false;
     Array.prototype.forEach.call(results.querySelectorAll('.search-result-row'), function (row) {
       row.addEventListener('click', function () {
-        window.open(row.getAttribute('data-open'), '_blank');
+        var type = row.getAttribute('data-type');
         results.hidden = true;
+        if (type === 'app' || type === 'file') {
+          window.open(row.getAttribute('data-open'), '_blank');
+        } else if (type === 'event') {
+          openSearchedEvent(row.getAttribute('data-calendar-id'), row.getAttribute('data-event-id'), row.getAttribute('data-start'));
+        } else if (type === 'todo') {
+          switchView('todo');
+        } else if (type === 'mail') {
+          switchView('home');
+          openMailDetail(row.getAttribute('data-thread-id'));
+        }
       });
     });
+  }
+
+  // 検索結果の予定は表示中の月とは限らないため、まずその予定が属する月へカレンダー表示を
+  // 切り替えてstate.calendar.eventsに読み込み直してから編集モーダルを開く
+  // （openEventModal()はstate.calendar.eventsからeventIdを探して内容を埋めるため、
+  // その月を読み込まないと予定が見つからず空欄のフォームになってしまう）。
+  function openSearchedEvent(calendarId, eventId, startIso) {
+    switchView('home');
+    var start = new Date(startIso);
+    loadCalendarMonth(start.getFullYear(), start.getMonth()).then(function () {
+      openEventModal(calendarId, eventId);
+    }).catch(showError);
   }
 
   // ===================== アプリ台帳（リンク集） =====================

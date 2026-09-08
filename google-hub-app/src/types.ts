@@ -218,6 +218,11 @@ interface AppLedgerEntry {
 interface GlobalSearchResult {
   apps: AppLedgerEntry[];
   files: DriveFileItem[];
+  /** 前後1年（当日を含む）の範囲でタイトルが一致した予定 */
+  events: CalendarEventItem[];
+  todos: TodoItem[];
+  /** 件名または差出人が一致した直近のメール（受信トレイのみ） */
+  mails: MailSubjectItem[];
 }
 
 interface HomeData {

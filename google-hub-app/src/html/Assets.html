@@ -342,12 +342,12 @@
      白いヘッダーの上に色付きのロゴだけが乗る配色）。戻る/更新ボタンは独自の背景を持つ
      丸ボタンのためここでは色を変えない。 */
   .topbar {
-    height: 64px;
-    flex: 0 0 64px;
+    height: 56px;
+    flex: 0 0 56px;
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 0 20px;
+    padding: 0 16px;
     background: var(--topbar-bg);
     border-bottom: 1px solid var(--border-color);
     box-shadow: var(--shadow-xs);
@@ -474,21 +474,21 @@
      背景は白に近い淡いグレーで固定し、選択中のナビ項目だけをテーマの--accentで淡くハイライトする
      （Gmailの受信トレイ選択時の丸みを帯びたハイライトと同じ考え方）。 */
   .control-panel {
-    width: 208px;
-    flex: 0 0 208px;
+    width: 200px;
+    flex: 0 0 200px;
     background: var(--panel-bg);
     color: var(--panel-text);
-    padding: 16px 10px;
+    padding: 12px 8px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
   }
 
   .nav-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 14px;
+    gap: 10px;
+    padding: 8px 12px;
     border-radius: 999px;
     cursor: pointer;
     color: inherit;
@@ -542,7 +542,7 @@
   /* --- 中央：メインコンテンツ（中立色固定） --- */
   .main-content {
     flex: 1 1 auto;
-    padding: 22px;
+    padding: 16px;
     overflow-y: auto;
     overflow-x: hidden;
     min-width: 0;
@@ -551,24 +551,24 @@
   .card-stack {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 14px;
   }
 
   /* --- 右：サイドバー（今日の予定・メール・リンク集・ToDo） --- */
   .right-sidebar {
     width: 300px;
     flex: 0 0 300px;
-    padding: 22px 18px 22px 0;
+    padding: 16px 14px 16px 0;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 10px;
   }
-  .right-sidebar .card { padding: 14px 16px; }
-  .right-sidebar .card h2 { font-size: 13.5px; margin-bottom: 8px; }
+  .right-sidebar .card { padding: 10px 12px; }
+  .right-sidebar .card h2 { font-size: 13.5px; margin-bottom: 6px; }
   /* サイドバーのコンパクトウィジェットは高さの余裕が乏しいため、見出し・ツールバーの
      余白を本来の値(12px/10px)より切り詰め、一覧表示に使える縦幅を少しでも増やす */
-  .right-sidebar .toolbar { margin-bottom: 6px; }
+  .right-sidebar .toolbar { margin-bottom: 4px; }
 
   /* ===== ウィジェット（カレンダー/今日の予定/メール/アプリリンク集/ToDo）の配置・サイズ =====
      配置先(メイン/サイドバー)・サイズ(小/中/大)は設定画面から変更可能。
@@ -633,12 +633,16 @@
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: 16px;
-    padding: 16px 18px;
+    padding: 14px 16px;
     box-shadow: var(--shadow-xs);
   }
+  /* 全体設定タブは複数の.cardが素のブロック要素として縦に並ぶだけで、
+     card-stack/right-sidebarのようなflex+gapの親を持たないため、
+     このルールが無いとカード同士が隙間なく密着してしまう（枠線が重なって見える）。 */
+  #view-settings > .card { margin-bottom: 12px; }
 
   .card h2 {
-    margin: 0 0 12px 0;
+    margin: 0 0 10px 0;
     font-size: 16px;
     display: flex;
     align-items: center;
@@ -938,7 +942,7 @@
     width: 340px;
     flex: 0 0 340px;
     border-right: 1px solid var(--border-color);
-    padding: 16px 14px;
+    padding: 12px;
     min-width: 0;
   }
   .mail-page-toolbar {
@@ -946,11 +950,11 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
   }
   .mail-page-reader-col {
     flex: 1 1 auto;
-    padding: 20px 24px;
+    padding: 16px 18px;
     min-width: 0;
   }
   .mail-page-reader-col .subject { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
@@ -1045,7 +1049,7 @@
   .drive-row .name a:hover { text-decoration: underline; }
   .drive-row .meta { color: var(--content-muted); font-size: 12px; width: 140px; text-align: right; }
 
-  .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
   .toolbar input[type="text"] { flex: 1; min-width: 120px; }
   /* select系の入力はデフォルトでwidth:100%になっているため、.toolbar内に複数個並べると
      それぞれが横幅いっぱいを取ろうとして1つずつ改行され、縦積みに見えてしまう。
@@ -1058,17 +1062,17 @@
     display: flex; align-items: center; justify-content: center; z-index: 100;
   }
   .modal-box {
-    background: var(--card-bg); border-radius: 24px; padding: 20px; width: 360px; max-width: 90vw;
+    background: var(--card-bg); border-radius: 20px; padding: 16px; width: 360px; max-width: 90vw;
     max-height: 85vh; overflow-y: auto; box-shadow: var(--shadow-lg);
   }
-  .modal-box h3 { margin-top: 0; }
-  .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  .modal-box h3 { margin-top: 0; margin-bottom: 10px; }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
 
   .empty-hint { color: var(--content-muted); font-size: 13px; padding: 8px 0; }
   .checkbox-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 13px; }
   .checkbox-row label { margin: 0; }
 
-  .settings-section { margin-bottom: 20px; }
+  .settings-section { margin-bottom: 14px; }
   .settings-section h3 { font-size: 14px; margin-bottom: 8px; }
   .synced-calendar-row {
     display: flex; align-items: center; gap: 6px;
@@ -1537,7 +1541,7 @@
 
   @media (max-width: 960px) {
     .shell-body { flex-wrap: wrap; }
-    .right-sidebar { width: 100%; flex: 1 1 100%; padding: 0 22px 22px; }
+    .right-sidebar { width: 100%; flex: 1 1 100%; padding: 0 16px 16px; }
     .drive-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   }
 

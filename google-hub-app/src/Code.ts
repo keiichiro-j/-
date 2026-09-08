@@ -56,16 +56,21 @@ function listEventCategories(): EventCategory.Category[] {
   return EventCategory.CATEGORIES;
 }
 
-/** ヘッダー検索バー用: アプリ台帳とDriveを横断検索する */
+/** ヘッダー検索バー用: アプリ台帳・Drive・予定・ToDo・メールを横断検索する */
 function globalSearch(query: string): GlobalSearchResult {
   const trimmed = query.trim();
   if (!trimmed) {
-    return { apps: [], files: [] };
+    return { apps: [], files: [], events: [], todos: [], mails: [] };
   }
   const lower = trimmed.toLowerCase();
   const apps = AppLedger.listApps().filter((app) => app.name.toLowerCase().indexOf(lower) !== -1);
   const files = DriveService.searchFiles(trimmed, "", 10);
-  return { apps, files };
+  const events = CalendarService.searchEvents(trimmed, 10);
+  const todos = TodoService.list()
+    .filter((t) => t.text.toLowerCase().indexOf(lower) !== -1)
+    .slice(0, 10);
+  const mails = MailService.searchMails(trimmed).slice(0, 10);
+  return { apps, files, events, todos, mails };
 }
 
 // ---- 個人設定 / 全体設定 ----
