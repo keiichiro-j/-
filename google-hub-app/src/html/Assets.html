@@ -485,6 +485,14 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
+    /* メインエリアより一段浮いた面であることを示す、右端だけの弱いドロップシャドウ */
+    box-shadow: 1px 0 3px rgba(60, 64, 67, 0.08);
+    position: relative;
+    z-index: 5;
+  }
+  html[data-dark-mode="dark"] .control-panel { box-shadow: 1px 0 3px rgba(0, 0, 0, 0.3); }
+  @media (prefers-color-scheme: dark) {
+    html[data-dark-mode="system"] .control-panel { box-shadow: 1px 0 3px rgba(0, 0, 0, 0.3); }
   }
 
   .nav-item {
@@ -637,7 +645,8 @@
     border: 1px solid var(--border-color);
     border-radius: 16px;
     padding: 14px 16px;
-    box-shadow: var(--shadow-xs);
+    /* Google純正アプリのモジュールカード相当の、はっきりと分かる浮き上がり */
+    box-shadow: var(--shadow-sm);
   }
   /* 全体設定タブは複数の.cardが素のブロック要素として縦に並ぶだけで、
      card-stack/right-sidebarのようなflex+gapの親を持たないため、
@@ -670,8 +679,8 @@
     font-family: inherit;
     font-size: 13px;
     padding: 6px 14px;
-    /* Material 3のボタンは高さの半分に近い角丸(実質ピル型)が基本形なので、それに合わせる */
-    border-radius: 18px;
+    /* 完全なピル型ではなく、四角に近い程度の軽い角丸にする */
+    border-radius: 8px;
     border: 1px solid var(--border-color);
     background: var(--card-bg);
     color: var(--content-text);
@@ -1082,11 +1091,10 @@
     border-bottom: 1px solid var(--border-color);
     font-size: 13px;
     cursor: pointer;
-    transition: background 0.15s var(--ios-ease);
+    transition: background 0.15s var(--ios-ease), box-shadow 0.15s var(--ios-ease);
   }
-  .drive-row:hover { background: var(--content-bg); }
-  .drive-grid-item { cursor: pointer; transition: background 0.15s var(--ios-ease), transform 0.15s var(--ios-ease); }
-  .drive-grid-item:hover { background: var(--content-bg); }
+  .drive-row:hover { background: var(--content-bg); box-shadow: var(--shadow-xs); }
+  .drive-grid-item:hover { background: var(--content-bg); box-shadow: var(--shadow-sm); }
   .drive-grid-item:active { transform: scale(0.98); }
   .drive-row img { width: 18px; height: 18px; }
   .drive-row .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1241,7 +1249,8 @@
     user-select: none;
     min-height: 0;
     overflow: hidden;
-    transition: opacity 0.15s ease;
+    box-shadow: var(--shadow-xs);
+    transition: opacity 0.15s ease, box-shadow 0.15s var(--ios-ease);
   }
   .widget-block-size-small { flex: 1 1 0; }
   .widget-block-size-medium { flex: 2 1 0; }
@@ -1253,7 +1262,8 @@
   .widget-block:only-child.widget-block-size-small { flex: 0 0 33%; }
   .widget-block:only-child.widget-block-size-medium { flex: 0 0 66%; }
   .widget-block:only-child.widget-block-size-large { flex: 0 0 100%; }
-  .widget-block.is-dragging { opacity: 0.35; }
+  /* ドラッグ中はMaterialのドラッグ操作と同じく、持ち上げたように影を強める */
+  .widget-block.is-dragging { opacity: 0.35; box-shadow: var(--shadow-md); }
   .widget-block.is-hidden { opacity: 0.5; border-style: dashed; background: transparent; }
 
   .widget-block-head {
@@ -1377,7 +1387,10 @@
   .drive-grid-item {
     display: flex; flex-direction: column; align-items: center; gap: 6px;
     padding: 12px 8px; border: 1px solid var(--border-color); border-radius: 10px;
-    background: var(--card-bg); text-align: center; position: relative;
+    background: var(--card-bg); text-align: center; position: relative; cursor: pointer;
+    /* Google Drive/フォトのグリッドカードのように、通常時も軽く浮かせ、ホバー時にさらに持ち上げる */
+    box-shadow: var(--shadow-xs);
+    transition: background 0.15s var(--ios-ease), transform 0.15s var(--ios-ease), box-shadow 0.15s var(--ios-ease);
   }
   .drive-grid-item .thumb { width: 64px; height: 64px; border-radius: 6px; object-fit: cover; }
   .drive-grid-item .name { font-size: 12px; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
