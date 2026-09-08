@@ -252,6 +252,21 @@ function getRecentMails(folder?: string): MailSubjectItem[] {
   return MailService.getRecentSubjects(userSettings.mailCount, folder);
 }
 
+/** メールタブの検索欄用。folderの範囲内でGmail検索構文（差出人・キーワード等）がそのまま使える */
+function searchMail(query: string, folder?: string): MailSubjectItem[] {
+  return MailService.searchMails(query, folder);
+}
+
+/** 添付ファイルの実データ(Base64)を取得する。プレビュー・ダウンロード時に都度呼ぶ軽量API */
+function getMailAttachmentData(threadId: string, attachmentId: string): MailAttachmentData {
+  return MailService.getAttachmentData(threadId, attachmentId);
+}
+
+/** 添付ファイルをマイドライブ直下へ保存する（ブラウザで直接プレビューできない種類向けの代替手段） */
+function saveMailAttachmentToDrive(threadId: string, attachmentId: string): DriveFileItem {
+  return MailService.saveAttachmentToDrive(threadId, attachmentId);
+}
+
 function markMailRead(threadId: string): void {
   MailService.markRead(threadId);
 }

@@ -79,7 +79,8 @@
       selectedThreadId: null,
       selectedIds: {}, // { threadId: true } 一括操作用の複数選択状態（メールタブのみ）
       folder: 'inbox', // 'inbox' | 'spam' | 'trash' メールタブで表示中のフォルダ
-      mails: [] // 現在表示中フォルダの一覧（folderが'inbox'以外のときはstate.home.mailsと異なる）
+      mails: [], // 現在表示中フォルダの一覧（folderが'inbox'以外のときはstate.home.mailsと異なる）
+      searchActive: false // 検索結果表示中かどうか。trueの間は更新ボタンが検索の再実行になる
     },
     appLedger: {
       tagFilter: null // 選択中のタグ（nullは「すべて」）
@@ -206,50 +207,27 @@
     return yiq >= 140 ? '#1a1a1a' : '#ffffff';
   }
 
-  function yiqLuminanceOf(hex) {
-    var rgb = hexToRgb(hex);
-    return (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
-  }
-
-  // themeTint()の明度パラメータをそのまま使うと、彩度・色相の組み合わせによっては
-  // (特に黄色系のように同じHSL明度でも知覚的に明るく見える色相)、そのYIQ輝度が
-  // 白文字にとって安全な範囲を超えてしまうことがある。コントロールパネルの文字は
-  // 常に白固定にしたため、白文字で確実に読める明るさになるまで明度を段階的に下げる。
-  function themeTintSafeForWhiteText(hex, baseLightness, saturation, maxYiq) {
-    var lightness = baseLightness;
-    var candidate = themeTint(hex, lightness, saturation);
-    while (yiqLuminanceOf(candidate) > maxYiq && lightness > 15) {
-      lightness -= 4;
-      candidate = themeTint(hex, lightness, saturation);
-    }
-    return candidate;
-  }
-
+  // Google Workspace系アプリ（Gmail/Drive/カレンダー等）はヘッダーやナビの背景をテーマ色で
+  // 塗りつぶさず、白/淡いグレーの中立なクロームに統一した上で、ロゴアイコン・主要ボタン・
+  // 選択中のナビ項目・フォーカスリングといった「差し色」だけにブランドカラーを使う。
+  // 本アプリも同じ考え方に合わせ、選んだテーマ色は--accent系の変数にのみ反映する
+  // （ヘッダー/パネル/本文の背景色そのものはAssets.html側で固定の中立色にしている）。
   function applyThemeBackgrounds(theme) {
     if (!theme || !theme.hex) return;
     var root = document.documentElement.style;
 
-    var topbarLight = themeTint(theme.hex, 38, 55);
-    var topbarDark = themeTint(theme.hex, 22, 48);
-    // パネルの文字は常に白固定(下記参照)にしたため、白文字が確実に読める明るさに収める。
-    // 単純に明度52%固定にすると、同じ明度でも黄色系など知覚的に明るい色相ではYIQ輝度が
-    // 高くなりすぎて白文字が読みにくくなるため、YIQ輝度が閾値以下になるまで明度を調整する。
-    var panelLight = themeTintSafeForWhiteText(theme.hex, 52, 45, 120);
-    var panelDark = themeTint(theme.hex, 30, 35);
+    var rgbLight = hexToRgb(theme.hex);
+    root.setProperty('--theme-accent-light', theme.hex);
+    root.setProperty('--theme-accent-rgb-light', rgbLight.r + ', ' + rgbLight.g + ', ' + rgbLight.b);
+    root.setProperty('--theme-primary-text-light', pickTextColorFor(theme.hex));
 
-    root.setProperty('--theme-topbar-bg-light', topbarLight);
-    root.setProperty('--theme-topbar-bg-dark', topbarDark);
-    root.setProperty('--theme-topbar-text-light', pickTextColorFor(topbarLight));
-    root.setProperty('--theme-topbar-text-dark', pickTextColorFor(topbarDark));
-
-    root.setProperty('--theme-panel-bg-light', panelLight);
-    root.setProperty('--theme-panel-bg-dark', panelDark);
-    // コントロールパネルの文字色は輝度判定(黒/白の自動切替)をやめ、常に白の太字に固定する
-    // （テーマによっては自動判定が黒文字を選び、淡色背景との組み合わせで視認性が落ちる事例があったため）。
-    // そのため--theme-panel-text-*は設定せず、Assets.htmlのCSS変数フォールバック(#ffffff)に委ねる。
-
-    root.setProperty('--theme-content-bg-light', themeTint(theme.hex, 96, 42));
-    root.setProperty('--theme-content-bg-dark', themeTint(theme.hex, 11, 26));
+    // ダークモードでは、暗い背景の上でも視認できるよう明度を上げた色をアクセントにする
+    // （色相はそのまま保つので、選んだテーマの個性は保たれる）。
+    var accentDark = themeTint(theme.hex, 70, 55);
+    var rgbDark = hexToRgb(accentDark);
+    root.setProperty('--theme-accent-dark', accentDark);
+    root.setProperty('--theme-accent-rgb-dark', rgbDark.r + ', ' + rgbDark.g + ', ' + rgbDark.b);
+    root.setProperty('--theme-primary-text-dark', pickTextColorFor(accentDark));
   }
 
   // ===================== 画面切り替え =====================
@@ -1360,11 +1338,77 @@
     gasRun('markMailRead', threadId).catch(function () { /* 既読化に失敗しても表示は既読のままでよい */ });
   }
 
+  // ===================== メール本文中の添付ファイル =====================
+  // ホーム画面の詳細モーダル・メールタブの本文欄のどちらからも呼べる共通ヘルパー。
+  function renderMailAttachmentsHtml(attachments) {
+    if (!attachments || attachments.length === 0) return '';
+    return '<div class="mail-attachments">' +
+      '<div class="mail-attachments-title">添付ファイル（' + attachments.length + '件）</div>' +
+      attachments.map(function (a) {
+        return '<div class="mail-attachment-row">' +
+          '<svg class="icon icon-sm"><use href="#icon-attachment"></use></svg>' +
+          '<span class="mail-attachment-name" title="' + escapeHtml(a.name) + '">' + escapeHtml(a.name) + '</span>' +
+          '<span class="mail-attachment-size">' + formatBytes(a.sizeBytes) + '</span>' +
+          '<button type="button" class="btn-mail-attachment-open" data-attachment-id="' + escapeHtml(a.id) + '">開く</button>' +
+          '<button type="button" class="btn-mail-attachment-save" data-attachment-id="' + escapeHtml(a.id) + '">Driveに保存</button>' +
+          '</div>';
+      }).join('') +
+      '</div>';
+  }
+
+  function bindMailAttachmentActions(container, threadId) {
+    Array.prototype.forEach.call(container.querySelectorAll('.btn-mail-attachment-open'), function (btn) {
+      btn.addEventListener('click', function () { openMailAttachment(threadId, btn.getAttribute('data-attachment-id'), btn); });
+    });
+    Array.prototype.forEach.call(container.querySelectorAll('.btn-mail-attachment-save'), function (btn) {
+      btn.addEventListener('click', function () { saveMailAttachmentToDriveFromUi(threadId, btn.getAttribute('data-attachment-id'), btn); });
+    });
+  }
+
+  function base64ToBlob(base64, contentType) {
+    var binary = atob(base64);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: contentType || 'application/octet-stream' });
+  }
+
+  // PDF・画像等はブラウザの標準ビューアでそのまま新しいタブに開ける(blob: URL)。
+  // それ以外の種類(Office文書・zip等)は、ブラウザがプレビューできず単純にダウンロードになる。
+  function openMailAttachment(threadId, attachmentId, btn) {
+    withSpinner(btn, function () {
+      return gasRun('getMailAttachmentData', threadId, attachmentId).then(function (data) {
+        var url = URL.createObjectURL(base64ToBlob(data.base64, data.contentType));
+        var win = window.open(url, '_blank');
+        if (!win) {
+          // ポップアップブロック等でnullが返る場合は、ダウンロードリンクとしてフォールバックする
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = data.name;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
+        setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+      }).catch(showError);
+    });
+  }
+
+  // ブラウザで直接プレビューできない種類でも、Drive自体のプレビュー機能で内容を確認できるように
+  // マイドライブへ保存する（Gmail純正の「Driveに追加」相当）。
+  function saveMailAttachmentToDriveFromUi(threadId, attachmentId, btn) {
+    withSpinner(btn, function () {
+      return gasRun('saveMailAttachmentToDrive', threadId, attachmentId).then(function (file) {
+        showToast('Driveに保存しました: ' + file.name);
+      }).catch(showError);
+    });
+  }
+
   function openMailDetail(threadId) {
     var modal = qs('mail-detail-modal');
     qs('mail-detail-subject').textContent = '読み込み中...';
     qs('mail-detail-meta').textContent = '';
     qs('mail-detail-body').textContent = '';
+    qs('mail-detail-attachments').innerHTML = '';
     qs('mail-detail-reply-section').hidden = true;
     qs('mail-detail-reply-body').value = '';
     modal.hidden = false;
@@ -1374,6 +1418,9 @@
       qs('mail-detail-subject').textContent = mail.subject || '(件名なし)';
       qs('mail-detail-meta').textContent = mail.from + ' ・ ' + formatDateTime(mail.date);
       qs('mail-detail-body').textContent = mail.bodyPlain;
+      var attachmentsEl = qs('mail-detail-attachments');
+      attachmentsEl.innerHTML = renderMailAttachmentsHtml(mail.attachments);
+      bindMailAttachmentActions(attachmentsEl, threadId);
       markMailReadLocally(threadId);
     }).catch(function (err) {
       modal.hidden = true;
@@ -1430,7 +1477,9 @@
       state.home.mails = mails;
       renderMailList(mails, state.home.userSettings.mailCount);
       if (state.currentView !== 'mail') return Promise.resolve();
-      return refreshMailPageForCurrentFolder();
+      // 検索結果表示中は、ホーム画面のメールウィジェットからの更新であっても検索結果を
+      // 勝手にフォルダ一覧へ差し替えない（検索を条件そのまま再実行する）。
+      return state.mailPage.searchActive ? runMailSearch() : refreshMailPageForCurrentFolder();
     }).catch(showError);
   }
 
@@ -1458,8 +1507,37 @@
       state.mailPage.folder = select.value;
       state.mailPage.selectedThreadId = null;
       state.mailPage.selectedIds = {};
+      state.mailPage.searchActive = false;
+      qs('mail-search').value = '';
       qs('mail-page-reader').innerHTML = '<div class="empty-hint">左の一覧からメールを選択してください</div>';
       withSpinner(select, refreshMailPageForCurrentFolder);
+    });
+  }
+
+  // メールタブの検索欄。件名だけでなく、Gmailの検索構文（差出人・本文キーワード等）がそのまま使える。
+  // 現在選択中のフォルダ(受信トレイ/迷惑メール/ゴミ箱)の範囲内で検索する。
+  function runMailSearch() {
+    var query = qs('mail-search').value.trim();
+    state.mailPage.selectedThreadId = null;
+    state.mailPage.selectedIds = {};
+    qs('mail-page-reader').innerHTML = '<div class="empty-hint">左の一覧からメールを選択してください</div>';
+    if (!query) {
+      state.mailPage.searchActive = false;
+      return refreshMailPageForCurrentFolder();
+    }
+    state.mailPage.searchActive = true;
+    return gasRun('searchMail', query, state.mailPage.folder).then(function (mails) {
+      state.mailPage.mails = mails;
+      renderMailPageList(mails);
+    }).catch(showError);
+  }
+
+  function initMailSearch() {
+    var input = qs('mail-search');
+    if (!input) return;
+    qs('btn-mail-search').addEventListener('click', function () { runMailSearch(); });
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') runMailSearch();
     });
   }
 
@@ -1551,11 +1629,13 @@
         '<div class="subject">' + escapeHtml(mail.subject || '(件名なし)') + '</div>' +
         '<div class="meta">' + escapeHtml(mail.from) + ' ・ ' + escapeHtml(formatDateTime(mail.date)) + '</div>' +
         '<div class="body-text">' + escapeHtml(mail.bodyPlain) + '</div>' +
+        renderMailAttachmentsHtml(mail.attachments) +
         '<div class="mail-reply-toolbar"><button type="button" id="btn-mailpage-reply-toggle">返信</button></div>' +
         '<div id="mailpage-reply-section" hidden>' +
         '<textarea id="mailpage-reply-body" rows="4" placeholder="返信内容を入力..."></textarea>' +
         '<div class="modal-footer"><button type="button" id="btn-mailpage-reply-send" class="primary">返信を送信</button></div>' +
         '</div>';
+      bindMailAttachmentActions(reader, threadId);
       markMailReadLocally(threadId);
       initMailPageReply(threadId);
     }).catch(function (err) {
@@ -1584,7 +1664,12 @@
   }
 
   function initMailPage() {
-    qs('btn-mailpage-refresh').addEventListener('click', function (e) { withSpinner(e.currentTarget, refreshMailData); });
+    initMailSearch();
+    qs('btn-mailpage-refresh').addEventListener('click', function (e) {
+      withSpinner(e.currentTarget, function () {
+        return state.mailPage.searchActive ? runMailSearch() : refreshMailData();
+      });
+    });
 
     qs('btn-mailpage-compose').addEventListener('click', function () {
       qs('mailpage-compose-to').value = '';

@@ -334,25 +334,40 @@ namespace MailService {
     return "in:inbox";
   }
 
+  function threadToSubjectItem(thread: GoogleAppsScript.Gmail.GmailThread): MailSubjectItem {
+    const lastMessage = thread.getMessages()[thread.getMessageCount() - 1];
+    return {
+      threadId: thread.getId(),
+      subject: thread.getFirstMessageSubject(),
+      from: lastMessage.getFrom(),
+      date: lastMessage.getDate().toISOString(),
+      isUnread: thread.isUnread(),
+    };
+  }
+
   export function getRecentSubjects(count: number, folder?: string): MailSubjectItem[] {
     const safeCount = clampCount(count);
     const safeFolder = folder && VALID_FOLDERS.indexOf(folder) !== -1 ? folder : "inbox";
     const searchQuery = buildSearchQuery(safeFolder);
     const threads = GmailApp.search(searchQuery, 0, safeCount);
-
-    return threads.map((thread) => {
-      const lastMessage = thread.getMessages()[thread.getMessageCount() - 1];
-      return {
-        threadId: thread.getId(),
-        subject: thread.getFirstMessageSubject(),
-        from: lastMessage.getFrom(),
-        date: lastMessage.getDate().toISOString(),
-        isUnread: thread.isUnread(),
-      };
-    });
+    return threads.map(threadToSubjectItem);
   }
 
-  /** タップされたメールの本文を取得する（スレッド内最新メッセージ） */
+  const SEARCH_RESULT_LIMIT = 30;
+
+  /** メールタブの検索欄用。folder(受信トレイ/迷惑メール/ゴミ箱)の範囲内でGmail検索構文をそのまま使える */
+  export function searchMails(query: string, folder?: string): MailSubjectItem[] {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      return getRecentSubjects(SEARCH_RESULT_LIMIT, folder);
+    }
+    const safeFolder = folder && VALID_FOLDERS.indexOf(folder) !== -1 ? folder : "inbox";
+    const searchQuery = buildSearchQuery(safeFolder) + " " + trimmed;
+    const threads = GmailApp.search(searchQuery, 0, SEARCH_RESULT_LIMIT);
+    return threads.map(threadToSubjectItem);
+  }
+
+  /** タップされたメールの本文を取得する（スレッド内最新メッセージ）。添付ファイルはスレッド内の全メッセージ分をまとめる */
   export function getBody(threadId: string): MailBody {
     const thread = GmailApp.getThreadById(threadId);
     if (!thread) {
@@ -360,6 +375,17 @@ namespace MailService {
     }
     const messages = thread.getMessages();
     const lastMessage = messages[messages.length - 1];
+    const attachments: MailAttachmentItem[] = [];
+    messages.forEach((message, messageIndex) => {
+      message.getAttachments().forEach((attachment, attachmentIndex) => {
+        attachments.push({
+          id: messageIndex + ":" + attachmentIndex,
+          name: attachment.getName(),
+          contentType: attachment.getContentType(),
+          sizeBytes: attachment.getSize(),
+        });
+      });
+    });
     return {
       threadId: thread.getId(),
       from: lastMessage.getFrom(),
@@ -367,6 +393,59 @@ namespace MailService {
       date: lastMessage.getDate().toISOString(),
       subject: thread.getFirstMessageSubject(),
       bodyPlain: lastMessage.getPlainBody(),
+      attachments: attachments,
+    };
+  }
+
+  function resolveAttachment(
+    threadId: string,
+    attachmentId: string
+  ): GoogleAppsScript.Gmail.GmailAttachment {
+    const thread = GmailApp.getThreadById(threadId);
+    if (!thread) {
+      throw new Error("メールが見つかりません: " + threadId);
+    }
+    const parts = attachmentId.split(":");
+    const message = thread.getMessages()[Number(parts[0])];
+    if (!message) {
+      throw new Error("メッセージが見つかりません");
+    }
+    const attachment = message.getAttachments()[Number(parts[1])];
+    if (!attachment) {
+      throw new Error("添付ファイルが見つかりません: " + attachmentId);
+    }
+    return attachment;
+  }
+
+  /** 添付ファイルの実データをBase64で取得する（プレビュー・ダウンロード時に都度呼ぶ） */
+  export function getAttachmentData(threadId: string, attachmentId: string): MailAttachmentData {
+    const attachment = resolveAttachment(threadId, attachmentId);
+    return {
+      name: attachment.getName(),
+      contentType: attachment.getContentType(),
+      base64: Utilities.base64Encode(attachment.getBytes()),
+    };
+  }
+
+  /**
+   * 添付ファイルをDriveのマイドライブ直下へ保存する。ブラウザで直接プレビューできない種類
+   * （Office文書・zip等）でも、Drive自体のプレビュー機能でそのまま内容を確認できるようにするため
+   * （Gmail純正の「Driveに追加」相当の機能）。
+   */
+  export function saveAttachmentToDrive(threadId: string, attachmentId: string): DriveFileItem {
+    const attachment = resolveAttachment(threadId, attachmentId);
+    const file = DriveApp.getRootFolder().createFile(attachment.copyBlob());
+    return {
+      id: file.getId(),
+      name: file.getName(),
+      mimeType: file.getMimeType(),
+      iconUrl: DriveService.iconUrlForMimeType(file.getMimeType(), false),
+      thumbnailUrl: "https://drive.google.com/thumbnail?id=" + file.getId() + "&sz=w200",
+      url: file.getUrl(),
+      lastUpdated: file.getLastUpdated().toISOString(),
+      sizeBytes: file.getSize(),
+      isFolder: false,
+      sharingAccess: "UNKNOWN",
     };
   }
 

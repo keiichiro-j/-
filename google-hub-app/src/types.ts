@@ -154,6 +154,21 @@ interface MailSubjectItem {
   isUnread: boolean;
 }
 
+/** メール本文中の添付ファイル1件分のメタ情報。idは"<メッセージ番号>:<添付番号>"形式の参照キー */
+interface MailAttachmentItem {
+  id: string;
+  name: string;
+  contentType: string;
+  sizeBytes: number;
+}
+
+/** 添付ファイルの実データ（Base64）。プレビュー/ダウンロード時にのみ都度取得する */
+interface MailAttachmentData {
+  name: string;
+  contentType: string;
+  base64: string;
+}
+
 interface MailBody {
   threadId: string;
   from: string;
@@ -161,6 +176,7 @@ interface MailBody {
   date: string; // ISO8601
   subject: string;
   bodyPlain: string;
+  attachments: MailAttachmentItem[];
 }
 
 interface DriveFileItem {
