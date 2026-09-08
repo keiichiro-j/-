@@ -1439,7 +1439,25 @@
        固定し(#view-home と同じ考え方)、内側の2カラムだけがそれぞれ自前でスクロールする。 */
     #view-mail { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
     .mail-page { flex: 1; min-height: 0; }
-    .mail-page-list-col, .mail-page-reader-col { overflow-y: auto; min-height: 0; }
+    .mail-page-reader-col { overflow-y: auto; min-height: 0; }
+    /* 左の件名一覧側は、フォルダ選択・作成/更新ボタン等のツールバーが一覧のスクロールにつられて
+       流れてしまわないよう、ツールバー部分は固定し、#mail-page-list だけが内部スクロールする
+       （#view-home の「見出し/ツールバー固定・一覧だけスクロール」と同じ考え方）。 */
+    .mail-page-list-col { overflow: hidden; min-height: 0; display: flex; flex-direction: column; }
+    #mail-page-list { flex: 1; min-height: 0; overflow-y: auto; }
+
+    /* Driveタブ・アプリリンク集タブ・ToDoリストタブも同様に、パンくず/検索・絞り込み等の
+       ツールバー部分を固定し、ファイル/項目一覧だけが内部スクロールするようにする。
+       アプリリンク集・ToDoは、ホーム画面のウィジェットと同じDOM(#card-links/#card-todo)を
+       付け替えて使い回しているため、既存の「.card-stack > .card」等と対になる形でここにも
+       同じ考え方のルールを用意している。 */
+    #view-drive { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    #card-drive { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+    #drive-list { flex: 1; min-height: 0; overflow-y: auto; }
+
+    #view-links, #view-todo { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    #view-links > .card, #view-todo > .card { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+    #view-links #app-list, #view-todo #todo-list { flex: 1; min-height: 0; overflow-y: auto; }
   }
 
   @media (max-width: 960px) {
