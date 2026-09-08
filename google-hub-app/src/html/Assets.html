@@ -1269,7 +1269,12 @@
   .drive-row .thumb { width: 18px; height: 18px; object-fit: cover; border-radius: 3px; flex: 0 0 auto; }
   .drive-row .btn-drive-pin.is-pinned, .drive-grid-item .btn-drive-pin.is-pinned { color: var(--accent); }
 
-  .drive-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  /* grid-template-columnsを単純な1frにすると、各トラックは中身の最小コンテンツ幅
+     (長いファイル名など折り返せない文字列の幅)より縮まなくなり、.name側でoverflow:hidden/
+     text-overflow:ellipsisを指定していてもトラックそのものが伸びてカード全体が広がってしまう
+     （flexアイテムのmin-width:autoと同種の問題）。minmax(0, 1fr)にして、トラックが
+     コンテンツ幅を無視して縮められるようにすることで、省略記号が実際に効くようにする。 */
+  .drive-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
   .drive-grid-item {
     display: flex; flex-direction: column; align-items: center; gap: 6px;
     padding: 12px 8px; border: 1px solid var(--border-color); border-radius: 10px;
@@ -1499,7 +1504,7 @@
   @media (max-width: 960px) {
     .shell-body { flex-wrap: wrap; }
     .right-sidebar { width: 100%; flex: 1 1 100%; padding: 0 22px 22px; }
-    .drive-grid { grid-template-columns: repeat(3, 1fr); }
+    .drive-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   }
 
   @media (max-width: 720px) {
@@ -1510,7 +1515,7 @@
        （以前ヘッダーにあった検索欄も同じくモバイル幅では非表示だったため、挙動は従来通り） */
     .control-panel-search { display: none; }
     .control-panel .nav-item { flex: 0 0 auto; width: auto; white-space: nowrap; }
-    .drive-grid { grid-template-columns: repeat(2, 1fr); }
+    .drive-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .main-content { padding: 14px; }
     .right-sidebar { padding: 0 14px 14px; }
 
