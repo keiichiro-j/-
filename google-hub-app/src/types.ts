@@ -21,6 +21,9 @@ interface CustomNavItem {
   id: string;
   label: string;
   url: string;
+  /** ボタンに表示するアイコン。Assets.html内の<symbol id="icon-XXX">のXXX部分（例:"link"）。
+   *  UserSettingsService.VALID_NAV_ICONSのいずれか。省略/不正値は"link"に補正される */
+  icon: string;
 }
 
 /** ToDoの優先度 */
@@ -222,7 +225,6 @@ interface HomeData {
   userSettings: UserSettings;
   globalSettings: GlobalSettings;
   calendars: CalendarInfo[];
-  events: CalendarEventItem[];
   mails: MailSubjectItem[];
   apps: AppLedgerEntry[];
   todos: TodoItem[];

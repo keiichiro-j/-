@@ -378,6 +378,16 @@ test('ラベルとhttp(s)のURLが揃っていれば登録される（idが無�
   assert.strictEqual(items[0].url, 'https://example.com/wiki');
   assert.ok(items[0].id);
 });
+test('iconは候補一覧のいずれかを指定でき、未指定・不正値は既定の"link"になる', () => {
+  const items = sandbox.UserSettingsService.sanitizeCustomNavItems([
+    { label: 'A', url: 'https://example.com/a', icon: 'mail' },
+    { label: 'B', url: 'https://example.com/b' },
+    { label: 'C', url: 'https://example.com/c', icon: 'not-a-real-icon' }
+  ]);
+  assert.strictEqual(items[0].icon, 'mail');
+  assert.strictEqual(items[1].icon, 'link');
+  assert.strictEqual(items[2].icon, 'link');
+});
 test('ラベルが空・URLが不正な項目は除外される', () => {
   const items = sandbox.UserSettingsService.sanitizeCustomNavItems([
     { label: '', url: 'https://example.com' },

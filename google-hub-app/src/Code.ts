@@ -22,18 +22,19 @@ function include(filename: string): string {
 function getHomeData(): HomeData {
   const userSettings = UserSettingsService.getSettings();
   const globalSettings = GlobalSettingsService.getSettings();
-  const now = new Date();
-  const range = DateUtils.getMonthRange(now.getFullYear(), now.getMonth());
 
+  // 当月の予定(events)はここでは取得しない。呼び出し側(JavaScript.htmlのloadHome())が
+  // 直後に必ずloadCalendarForCurrentMode()/loadTodayEvents()で改めてCalendarEventsを取得して
+  // ミニカレンダー・今日の予定を描画するため、ここで取得しても使われない
+  // (以前はここでも取得しており、Calendar APIの往復とレスポンスサイズが無駄になっていた)。
   const calendars = CalendarService.listCalendars();
-  const events = CalendarService.getEvents(calendars.map((c) => c.id), range.startIso, range.endIso);
   const mails = MailService.getRecentSubjects(userSettings.mailCount);
   const apps = AppLedger.listApps();
   const todos = TodoService.list();
   const theme = Theme.resolveTheme(userSettings.themeChoice);
   const currentUserEmail = getCurrentUserEmail();
 
-  return { theme, userSettings, globalSettings, calendars, events, mails, apps, todos, currentUserEmail };
+  return { theme, userSettings, globalSettings, calendars, mails, apps, todos, currentUserEmail };
 }
 
 function getCurrentUserEmail(): string {
@@ -71,6 +72,17 @@ function globalSearch(query: string): GlobalSearchResult {
 
 function saveUserSettings(settings: Partial<UserSettings>): UserSettings {
   return UserSettingsService.saveSettings(settings);
+}
+
+/**
+ * テーマ配色スウォッチのクリック専用の軽量エンドポイント。saveUserSettings()に任せると
+ * 呼び出し側はホーム全体(getHomeData()相当のCalendar/Gmail/Sheets往復)を再取得しないと
+ * 反映後のテーマ(hex/textColor)を得られず、配色を変えるだけの操作にしては重すぎるため、
+ * 保存と同時にThemeService側で解決済みのAppliedThemeを直接返す。
+ */
+function saveThemeChoice(themeChoice: string): AppliedTheme {
+  UserSettingsService.saveSettings({ themeChoice: themeChoice });
+  return Theme.resolveTheme(themeChoice);
 }
 
 function saveGlobalSettings(settings: Partial<GlobalSettings>): GlobalSettings {

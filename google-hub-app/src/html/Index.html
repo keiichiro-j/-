@@ -38,6 +38,47 @@
 
   <div class="toast" id="toast"></div>
 
+  <!-- アプリリンク集・ToDoリストの追加ポップアップ。#card-links/#card-todo自体はJS側で
+       ホームのウィジェット(#right-sidebar内)とそれぞれの専用タブ(#view-links/#view-todo)との
+       間で付け替えられるが、この2つのモーダルはどちらの場所にも属さない共通の要素として、
+       あえて#right-sidebarの外（付け替えの影響を受けない場所）に置いている。
+       以前は#right-sidebar内に置いていたため、他のタブ(アプリリンク集/ToDoタブ等)を
+       表示中は#right-sidebar自体がhidden([hidden]{display:none!important})になり、
+       中に残ったモーダルを開いても画面上には何も表示されない不具合があった。 -->
+  <div class="modal-backdrop" id="app-add-modal" hidden>
+    <div class="modal-box">
+      <h3>アプリリンクを追加</h3>
+      <label for="app-add-url">URL</label>
+      <input type="text" id="app-add-url" placeholder="https://...">
+      <label for="app-add-name">名称</label>
+      <input type="text" id="app-add-name" placeholder="名称（省略時はURL先の<title>を自動取得）">
+      <div class="modal-footer">
+        <button type="button" id="btn-app-add-cancel">キャンセル</button>
+        <button type="button" id="btn-app-add-save" class="primary">追加</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="todo-add-modal" hidden>
+    <div class="modal-box">
+      <h3>期限日・優先度を指定して追加</h3>
+      <label for="todo-modal-text">内容</label>
+      <input type="text" id="todo-modal-text" placeholder="やることを入力">
+      <label for="todo-modal-due">期限日</label>
+      <input type="date" id="todo-modal-due">
+      <label for="todo-modal-priority">優先度</label>
+      <select id="todo-modal-priority">
+        <option value="low">低</option>
+        <option value="medium" selected>中</option>
+        <option value="high">高</option>
+      </select>
+      <div class="modal-footer">
+        <button type="button" id="btn-todo-modal-cancel">キャンセル</button>
+        <button type="button" id="btn-todo-modal-save" class="primary">追加</button>
+      </div>
+    </div>
+  </div>
+
   <?!= include('html/JavaScript'); ?>
 </body>
 </html>

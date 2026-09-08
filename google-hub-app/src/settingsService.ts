@@ -24,6 +24,15 @@ namespace UserSettingsService {
     { id: "todo", column: "side", size: "small", visible: true },
   ];
 
+  // カスタムナビ項目に選べるアイコンの候補（Assets.html内の<symbol id="icon-XXX">のXXX部分）。
+  // クライアント側(JavaScript.htmlのNAV_ICON_CHOICES)にも同じ一覧を静的に持たせており、
+  // アイコン選択のためだけにサーバー往復を発生させないようにしている。
+  const VALID_NAV_ICONS = [
+    "link", "home", "folder", "mail", "bell", "check",
+    "flag", "tag", "archive", "hub", "share", "grid",
+  ];
+  const DEFAULT_NAV_ICON = "link";
+
   const MAX_CUSTOM_NAV_ITEMS = 12;
   const MAX_PINNED_FOLDERS = 20;
   const VALID_DRIVE_VIEW_MODES: DriveViewMode[] = ["list", "grid"];
@@ -126,7 +135,8 @@ namespace UserSettingsService {
         return;
       }
       const id = typeof item.id === "string" && item.id ? item.id : Utilities.getUuid();
-      result.push({ id: id, label: label, url: url });
+      const icon = typeof item.icon === "string" && VALID_NAV_ICONS.indexOf(item.icon) !== -1 ? item.icon : DEFAULT_NAV_ICON;
+      result.push({ id: id, label: label, url: url, icon: icon });
     });
     return result;
   }

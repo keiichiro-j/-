@@ -1832,14 +1832,15 @@
     Array.prototype.forEach.call(container.querySelectorAll('.btn-app-check'), function (btn) {
       btn.addEventListener('click', function () {
         var row = btn.closest('[data-app-id]');
-        gasRun('checkApp', row.getAttribute('data-app-id')).then(function () { return loadHome(); }).catch(showError);
+        gasRun('checkApp', row.getAttribute('data-app-id')).then(replaceAppInState).catch(showError);
       });
     });
     Array.prototype.forEach.call(container.querySelectorAll('.btn-app-delete'), function (btn) {
       btn.addEventListener('click', function () {
         if (!window.confirm('このリンクを台帳から削除しますか？')) return;
         var row = btn.closest('[data-app-id]');
-        gasRun('deleteApp', row.getAttribute('data-app-id')).then(function () { return loadHome(); }).catch(showError);
+        var id = row.getAttribute('data-app-id');
+        gasRun('deleteApp', id).then(function () { removeAppFromState(id); }).catch(showError);
       });
     });
     Array.prototype.forEach.call(container.querySelectorAll('.btn-app-name-edit'), function (btn) {
@@ -1857,9 +1858,7 @@
         var input = row.querySelector('.name-edit-input');
         var name = input.value.trim();
         if (!name) { window.alert('名称を入力してください'); return; }
-        gasRun('updateAppName', row.getAttribute('data-app-id'), name).then(function () {
-          return loadHome();
-        }).catch(showError);
+        gasRun('updateAppName', row.getAttribute('data-app-id'), name).then(replaceAppInState).catch(showError);
       });
     });
     Array.prototype.forEach.call(container.querySelectorAll('.btn-app-tag-edit'), function (btn) {
@@ -1876,18 +1875,41 @@
         var row = btn.closest('[data-app-id]');
         var input = row.querySelector('.tag-edit-input');
         var tags = input.value.split(',').map(function (t) { return t.trim(); }).filter(function (t) { return t.length > 0; });
-        gasRun('updateAppTags', row.getAttribute('data-app-id'), tags).then(function () {
-          return loadHome();
-        }).catch(showError);
+        gasRun('updateAppTags', row.getAttribute('data-app-id'), tags).then(replaceAppInState).catch(showError);
       });
     });
+  }
+
+  // ===================== アプリ台帳: サーバー往復を最小限にするローカル状態更新ヘルパー =====================
+  // 個別アプリの確認・名称変更・タグ編集はいずれもサーバー側で更新後の1件分(AppLedgerEntry)を
+  // 返すため、ホーム全体(Calendar/Gmail/Sheets等)を読み直すloadHome()は不要で、その1件だけを
+  // state.home.appsの中で差し替えて一覧を再描画すれば足りる。
+  function replaceAppInState(updatedApp) {
+    if (!state.home || !updatedApp) return;
+    state.home.apps = state.home.apps.map(function (a) { return a.id === updatedApp.id ? updatedApp : a; });
+    renderAppList(state.home.apps);
+  }
+
+  function removeAppFromState(id) {
+    if (!state.home) return;
+    state.home.apps = state.home.apps.filter(function (a) { return a.id !== id; });
+    renderAppList(state.home.apps);
+  }
+
+  function addAppToState(newApp) {
+    if (!state.home || !newApp) return;
+    state.home.apps = state.home.apps.concat([newApp]);
+    renderAppList(state.home.apps);
   }
 
   function initAppLedger() {
     qs('btn-links-viewall').addEventListener('click', function () { switchView('links'); });
     qs('btn-check-all').addEventListener('click', function (e) {
       withSpinner(e.currentTarget, function () {
-        return gasRun('checkAllApps').then(function () { return loadHome(); }).catch(showError);
+        return gasRun('checkAllApps').then(function (apps) {
+          state.home.apps = apps;
+          renderAppList(apps);
+        }).catch(showError);
       });
     });
 
@@ -1902,9 +1924,9 @@
       var url = qs('app-add-url').value.trim();
       if (!url) { window.alert('URLを入力してください'); return; }
       var name = qs('app-add-name').value.trim();
-      gasRun('addApp', url, name).then(function () {
+      gasRun('addApp', url, name).then(function (newApp) {
         qs('app-add-modal').hidden = true;
-        return loadHome();
+        addAppToState(newApp);
       }).catch(showError);
     });
     qs('app-add-url').addEventListener('keydown', function (e) {
@@ -2593,8 +2615,14 @@
     Array.prototype.forEach.call(grid.querySelectorAll('.theme-swatch'), function (btn) {
       btn.addEventListener('click', function () {
         var themeId = btn.getAttribute('data-theme-id');
-        gasRun('saveUserSettings', { themeChoice: themeId }).then(function () {
-          return loadHome();
+        // saveUserSettings()+loadHome()（Calendar/Gmail/Sheets等ホーム全体の再取得）は配色を
+        // 変えるだけの操作には重すぎるため、保存と解決後のテーマをまとめて返す専用の軽量
+        // エンドポイントを使う（src/Code.tsのsaveThemeChoice()）。
+        gasRun('saveThemeChoice', themeId).then(function (theme) {
+          state.home.theme = theme;
+          state.home.userSettings.themeChoice = themeId;
+          applyTheme(theme);
+          renderThemeSwatches(state.themeChoices, themeId);
         }).catch(showError);
       });
     });
@@ -2877,12 +2905,32 @@
   }
 
   // ---- カスタムナビ項目（個人用ショートカット） ----
+  // サーバー側(settingsService.tsのVALID_NAV_ICONS)と同じ一覧。アイコン選択のためだけに
+  // サーバー往復を発生させないよう、選択肢はクライアント側にも静的に持たせている。
+  var NAV_ICON_CHOICES = ['link', 'home', 'folder', 'mail', 'bell', 'check', 'flag', 'tag', 'archive', 'hub', 'share', 'grid'];
+  var selectedNavIcon = 'link';
+
+  function renderNavIconPicker() {
+    var container = qs('nav-icon-picker');
+    if (!container) return;
+    container.innerHTML = NAV_ICON_CHOICES.map(function (icon) {
+      return '<button type="button" class="nav-icon-swatch' + (icon === selectedNavIcon ? ' selected' : '') + '" data-icon="' + icon + '" aria-label="アイコン: ' + icon + '" title="アイコン: ' + icon + '">' +
+        '<svg class="icon icon-sm"><use href="#icon-' + icon + '"></use></svg></button>';
+    }).join('');
+    Array.prototype.forEach.call(container.querySelectorAll('.nav-icon-swatch'), function (btn) {
+      btn.addEventListener('click', function () {
+        selectedNavIcon = btn.getAttribute('data-icon');
+        renderNavIconPicker();
+      });
+    });
+  }
+
   function renderCustomNav(items) {
     var list = qs('nav-custom-list');
     qs('nav-custom-divider').hidden = items.length === 0;
     list.innerHTML = items.map(function (item) {
       return '<button type="button" class="nav-item nav-item-custom" data-url="' + escapeHtml(item.url) + '" title="' + escapeHtml(item.url) + '">' +
-        '<svg class="icon"><use href="#icon-link"></use></svg><span>' + escapeHtml(item.label) + '</span>' +
+        '<svg class="icon"><use href="#icon-' + escapeHtml(item.icon || 'link') + '"></use></svg><span>' + escapeHtml(item.label) + '</span>' +
         '</button>';
     }).join('');
     Array.prototype.forEach.call(list.querySelectorAll('.nav-item-custom'), function (btn) {
@@ -2893,8 +2941,13 @@
   }
 
   function saveCustomNavItems(items) {
-    return gasRun('saveUserSettings', { customNavItems: items }).then(function () {
-      return loadHome();
+    // saveUserSettings()は更新後のUserSettings一式をそのまま返すため、ホーム全体
+    // (Calendar/Gmail/Sheets等)を読み直すloadHome()を挟まずに、その場でコントロールパネルの
+    // ナビ一覧と設定画面側の一覧の両方を再描画する。
+    return gasRun('saveUserSettings', { customNavItems: items }).then(function (saved) {
+      state.home.userSettings = saved;
+      renderCustomNav(saved.customNavItems);
+      renderCustomNavSettingsList(saved.customNavItems);
     });
   }
 
@@ -2907,6 +2960,7 @@
     container.innerHTML = items.map(function (item, index) {
       return '<div class="link-row nav-item-settings-row" draggable="true" data-nav-item-id="' + escapeHtml(item.id) + '">' +
         '<svg class="icon icon-sm widget-block-drag-handle" style="flex:0 0 auto;"><use href="#icon-grip"></use></svg>' +
+        '<svg class="icon icon-sm" style="flex:0 0 auto; color:var(--content-muted);"><use href="#icon-' + escapeHtml(item.icon || 'link') + '"></use></svg>' +
         '<div>' +
         '<div class="name">' + escapeHtml(item.label) + '</div>' +
         '<div class="desc">' + escapeHtml(item.url) + '</div>' +
@@ -3006,6 +3060,7 @@
   }
 
   function initCustomNavSettings() {
+    renderNavIconPicker();
     qs('btn-custom-nav-add').addEventListener('click', function () {
       var labelInput = qs('custom-nav-label-input');
       var urlInput = qs('custom-nav-url-input');
@@ -3014,10 +3069,12 @@
       if (!label) { window.alert('表示名を入力してください'); return; }
       if (!/^https?:\/\/.+/i.test(url)) { window.alert('http(s)から始まるURLを入力してください'); return; }
       var current = state.home ? state.home.userSettings.customNavItems : [];
-      var next = current.concat([{ label: label, url: url }]);
+      var next = current.concat([{ label: label, url: url, icon: selectedNavIcon }]);
       saveCustomNavItems(next).then(function () {
         labelInput.value = '';
         urlInput.value = '';
+        selectedNavIcon = 'link';
+        renderNavIconPicker();
       }).catch(showError);
     });
   }
@@ -3028,8 +3085,14 @@
         widgets: currentWidgetSettings(),
         mailCount: parseInt(qs('setting-mail-count').value, 10) || 5
       };
-      gasRun('saveUserSettings', settings).then(function () {
-        return loadHome();
+      // saveUserSettings()は更新後のUserSettings一式を返すため、ホーム全体
+      // (Calendar/Gmail/Sheets等)を読み直すloadHome()は使わず、ウィジェット配置をその場で
+      // 再適用する。mailCountはサーバー側で保存済みの値を使うgetRecentMails()の軽量版
+      // (refreshMailData())だけを呼べば反映できる。
+      gasRun('saveUserSettings', settings).then(function (saved) {
+        state.home.userSettings = saved;
+        applyWidgetLayout(saved);
+        return refreshMailData();
       }).then(function () {
         showToast('保存しました');
       }).catch(showError);
@@ -3040,9 +3103,9 @@
         notifyEnabled: qs('setting-notify-enabled').checked,
         notifyHour: parseInt(qs('setting-notify-hour').value, 10) || 0
       };
-      gasRun('saveGlobalSettings', settings).then(function () {
-        return loadHome();
-      }).then(function () {
+      // 全体設定は設定画面のフォーム自体にしか影響しないため、loadHome()は不要。
+      gasRun('saveGlobalSettings', settings).then(function (saved) {
+        state.home.globalSettings = saved;
         showToast('保存しました');
       }).catch(showError);
     });

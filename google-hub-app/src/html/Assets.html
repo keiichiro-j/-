@@ -1113,6 +1113,17 @@
   }
   .theme-swatch .swatch-color.is-random .icon { color: #fff; width: 16px; height: 16px; }
 
+  /* ===== カスタムナビ項目のアイコン選択（追加フォーム用） ===== */
+  .nav-icon-picker { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; }
+  .nav-icon-swatch {
+    display: flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; padding: 0; border-radius: 8px;
+    border: 2px solid transparent; background: var(--content-bg); color: var(--content-muted);
+    cursor: pointer;
+  }
+  .nav-icon-swatch:hover { color: var(--content-text); }
+  .nav-icon-swatch.selected { border-color: var(--accent); color: var(--accent); background: rgba(var(--accent-rgb), 0.1); }
+
   /* ===== 設定画面: ホーム画面ウィジェットの視覚的レイアウトエディタ =====
      メインエリア・サイドバーの各ドロップゾーンを同じ固定高さにし、その中でブロックを
      widget-block-size-*(flex-grow 1:2:3)で分け合わせる。実際のダッシュボードと同じ
