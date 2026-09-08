@@ -1,0 +1,107 @@
+<section class="card" id="card-calendar" data-card="calendar">
+  <h2>
+    <span class="h2-label"><svg class="icon"><use href="#icon-clock"></use></svg><span id="calendar-month-label">カレンダー</span></span>
+    <span class="card-actions">
+      <span class="cal-view-mode-switch">
+        <button type="button" class="toggle-btn" id="btn-cal-view-month" data-cal-view="month">月</button>
+        <button type="button" class="toggle-btn" id="btn-cal-view-week" data-cal-view="week">週</button>
+        <button type="button" class="toggle-btn" id="btn-cal-view-day" data-cal-view="day">日</button>
+      </span>
+      <button type="button" class="icon-only" id="btn-cal-prev" aria-label="前へ" title="前へ">‹</button>
+      <button type="button" id="btn-cal-today">今日</button>
+      <button type="button" class="icon-only" id="btn-cal-next" aria-label="次へ" title="次へ">›</button>
+      <button type="button" id="btn-new-event"><svg class="icon icon-sm"><use href="#icon-plus"></use></svg>予定を追加</button>
+    </span>
+  </h2>
+
+  <div class="mini-calendar" id="mini-calendar">
+    <div class="empty-hint">読み込み中...</div>
+  </div>
+</section>
+
+<div class="modal-backdrop" id="day-detail-modal" hidden>
+  <div class="modal-box" style="width: 420px;">
+    <h3 id="day-detail-title">日付</h3>
+    <div id="day-detail-list" style="max-height: 320px; overflow-y: auto;"></div>
+    <div id="day-detail-todos"></div>
+    <div class="modal-footer">
+      <button type="button" id="btn-day-add-event" class="primary"><svg class="icon icon-sm"><use href="#icon-plus"></use></svg>この日に予定を追加</button>
+      <button type="button" id="btn-day-detail-close">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="event-modal" hidden>
+  <div class="modal-box">
+    <h3 id="event-modal-title">予定を追加</h3>
+    <input type="hidden" id="event-id">
+
+    <label for="event-calendar">カレンダー</label>
+    <select id="event-calendar"></select>
+
+    <label for="event-title">タイトル</label>
+    <input type="text" id="event-title">
+
+    <label>予定の種類</label>
+    <input type="hidden" id="event-category" value="">
+    <div class="category-swatch-select" id="event-category-select"></div>
+
+    <div class="checkbox-row">
+      <input type="checkbox" id="event-allday">
+      <label for="event-allday" style="margin:0;">終日</label>
+    </div>
+
+    <label for="event-start">開始</label>
+    <input type="datetime-local" id="event-start">
+
+    <label for="event-end">終了</label>
+    <input type="datetime-local" id="event-end">
+
+    <!-- 繰り返しルールは新規作成時のみ設定できる（作成後のルール変更は非対応。README参照） -->
+    <div id="event-recurrence-section">
+      <label for="event-recurrence-freq">繰り返し</label>
+      <div class="toolbar">
+        <select id="event-recurrence-freq" style="flex: 1 1 auto;">
+          <option value="none">繰り返さない</option>
+          <option value="daily">毎日</option>
+          <option value="weekly">毎週</option>
+          <option value="monthly">毎月</option>
+          <option value="yearly">毎年</option>
+        </select>
+        <input type="number" id="event-recurrence-interval" min="1" max="99" value="1" style="width: 68px; flex: 0 0 auto;" hidden>
+      </div>
+      <div class="toolbar" id="event-recurrence-end-row" hidden>
+        <select id="event-recurrence-end-type" style="flex: 0 0 auto;">
+          <option value="never">終了しない</option>
+          <option value="count">回数で指定</option>
+          <option value="until">日付で指定</option>
+        </select>
+        <input type="number" id="event-recurrence-count" min="1" max="365" value="10" style="width: 68px;" hidden>
+        <input type="date" id="event-recurrence-until" hidden>
+      </div>
+    </div>
+
+    <!-- 繰り返し予定の既存の回を編集/削除する場合のみ表示。単発予定・新規作成時は不要 -->
+    <div id="event-scope-section" hidden>
+      <label>適用範囲</label>
+      <input type="hidden" id="event-scope" value="single">
+      <div class="cal-view-mode-switch" id="event-scope-switch">
+        <button type="button" class="toggle-btn active" data-event-scope="single">この予定だけ</button>
+        <button type="button" class="toggle-btn" data-event-scope="series">シリーズ全体</button>
+      </div>
+      <div class="empty-hint" id="event-scope-hint" style="padding: 6px 2px 0;"></div>
+    </div>
+
+    <label for="event-guests">ゲスト（カンマ区切りのメールアドレス）</label>
+    <input type="text" id="event-guests">
+
+    <label for="event-description">メモ</label>
+    <textarea id="event-description" rows="2"></textarea>
+
+    <div class="modal-footer">
+      <button type="button" id="btn-event-delete" class="danger" hidden>削除</button>
+      <button type="button" id="btn-event-cancel">キャンセル</button>
+      <button type="button" id="btn-event-save" class="primary">保存</button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,3499 @@
+<script>
+(function () {
+  'use strict';
+
+  var GAS_CALL_TIMEOUT_MS = 25000;
+
+  // ===== google.script.run を Promise 化するヘルパー =====
+  function gasRun(fnName) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return new Promise(function (resolve, reject) {
+      var settled = false;
+      var timer = setTimeout(function () {
+        if (settled) return;
+        settled = true;
+        reject(new Error('サーバーからの応答がありません。しばらくしてから再度お試しください。'));
+      }, GAS_CALL_TIMEOUT_MS);
+
+      google.script.run
+        .withSuccessHandler(function (result) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          resolve(result);
+        })
+        .withFailureHandler(function (err) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          reject(new Error(err && err.message ? err.message : String(err)));
+        })
+        [fnName].apply(null, args);
+    });
+  }
+
+  function qs(id) { return document.getElementById(id); }
+  function escapeHtml(text) {
+    return String(text == null ? '' : text)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function showError(err) {
+    window.alert(err && err.message ? err.message : String(err));
+  }
+
+  var WIDGET_LABELS = { calendar: 'カレンダー', today: '今日の予定', mail: 'メール', links: 'アプリリンク集', todo: 'ToDoリスト' };
+  var WIDGET_IDS = ['calendar', 'today', 'mail', 'links'];
+  var WIDGET_SIZE_LABELS = { small: '小', medium: '中', large: '大' };
+
+  var now0 = new Date();
+  var state = {
+    home: null, // getHomeData() の結果一式（テーマ・設定・カレンダー・メール・アプリ台帳）
+    themeChoices: [],
+    eventCategories: [], // 予定の種類一覧（EventCategory.CATEGORIES）
+    currentView: 'home', // 'home' | 'drive' | 'settings'
+    calendar: {
+      year: now0.getFullYear(),
+      month: now0.getMonth(), // 0-indexed。表示中の月（前月/次月ボタンで変わる）
+      events: [],
+      dayInfoByDay: {}, // { day: { holidayName, rokuyo } } 表示中の月の祝日名・六曜
+      viewMode: 'month', // 'month' | 'week' | 'day'
+      refDate: now0 // 週表示/日表示のときの基準日（前/次ボタンで動く）
+    },
+    dayDetail: null, // 日付タップ時のポップアップで選択中の日 { year, month, day }
+    drive: {
+      currentFolderId: null,
+      // 現在閲覧中のドライブ。空文字は「マイドライブ」、それ以外は共有ドライブのID。
+      driveId: '',
+      driveName: 'マイドライブ',
+      sharedDrives: [], // listSharedDrives() の結果（起動時に一度だけ取得）
+      items: [],
+      sortKey: 'updated',
+      ascending: false,
+      viewMode: 'list', // 'list' | 'grid'
+      typeFilter: 'all',
+      // パンくずリスト用のフォルダ階層。ルート(マイドライブ/共有ドライブ直下)は含めず、そこから辿った
+      // 各階層を { id, name } で積む。サーバー側APIは親フォルダIDを返さないため、アプリ内で辿った
+      // 経路をクライアント側だけで記憶する方式にしている（ピン留めフォルダへジャンプした場合は
+      // 経路をリセットし、ジャンプ先1件だけの階層として扱う）。
+      folderPath: [],
+      // 検索結果表示中かどうか。trueの間にフォルダを開いた場合は経路への追加ではなくジャンプ扱いにする
+      searchActive: false,
+      selectedIds: {} // { fileId: true } 一括操作用の複数選択状態
+    },
+    mailPage: {
+      selectedThreadId: null,
+      selectedIds: {}, // { threadId: true } 一括操作用の複数選択状態（メールタブのみ）
+      folder: 'inbox', // 'inbox' | 'spam' | 'trash' メールタブで表示中のフォルダ
+      mails: [], // 現在表示中フォルダの一覧（folderが'inbox'以外のときはstate.home.mailsと異なる）
+      searchActive: false // 検索結果表示中かどうか。trueの間は更新ボタンが検索の再実行になる
+    },
+    appLedger: {
+      searchQuery: '' // アプリリンク集タブの名前検索欄の入力値（ホームのコンパクトウィジェットでは検索欄自体を隠すため常に空文字）
+    },
+    mailDetailThreadId: null, // メールウィジェットのポップアップで開いているスレッドID（返信用）
+    viewHistory: [], // 「戻る」ボタン用の閲覧履歴（直前に居た画面を積んでいく）
+    // 設定画面(テーマスウォッチ・ウィジェット配置エディタ・カスタムナビ一覧)はDOM構築量が多いため、
+    // 起動時のloadHome()では組み立てず、実際に設定タブを開いたときに初めて構築する（初回表示を軽くするため）。
+    settingsPopulated: false
+  };
+
+  // ===================== トースト通知（保存完了などの一時メッセージ） =====================
+  var toastTimer = null;
+  function showToast(message) {
+    var el = qs('toast');
+    if (!el) { return; }
+    clearTimeout(toastTimer);
+    el.textContent = message;
+    el.classList.add('is-visible');
+    toastTimer = setTimeout(function () { el.classList.remove('is-visible'); }, 2400);
+  }
+
+  // ===================== 更新ボタンの読み込み演出 =====================
+  // アイコンを回転させつつボタンを一時的に無効化する。ローカルのモック等ですぐ終わっても
+  // 「読み込んでいる」ことがわかるよう、最低でも一定時間はアニメーションを表示する。
+  function withSpinner(button, taskFn) {
+    if (!button) return taskFn();
+    button.classList.add('is-loading');
+    button.disabled = true;
+    var startedAt = Date.now();
+    var MIN_MS = 400;
+    function finish() {
+      var wait = Math.max(0, MIN_MS - (Date.now() - startedAt));
+      setTimeout(function () {
+        button.classList.remove('is-loading');
+        button.disabled = false;
+      }, wait);
+    }
+    var result;
+    try {
+      result = taskFn();
+    } catch (e) {
+      finish();
+      throw e;
+    }
+    if (result && typeof result.then === 'function') {
+      return result.then(function (v) { finish(); return v; }, function (e) { finish(); throw e; });
+    }
+    finish();
+    return result;
+  }
+
+  // ===================== テーマ適用 =====================
+  function applyTheme(theme) {
+    applyThemeBackgrounds(theme);
+  }
+
+  // ===================== テーマ色に沿ったヘッダー・コントロールパネル・ホーム背景 =====================
+  // ヘッダー(topbar)=視覚的に濃いめの帯、コントロールパネル(panel)=それより淡い配色、
+  // 本文の背景(content)=さらに淡いパステル調、という明度の階層をテーマ色の色相から作る。
+  // 元のテーマ色をそのまま使うと面ごとに可読性が揃わないため、色相だけを引き継ぎ、
+  // 面ごとに読みやすい明度・彩度へ固定し直し、YIQ輝度から文字色も都度計算する。
+  function hexToRgb(hex) {
+    var h = hex.replace('#', '');
+    return {
+      r: parseInt(h.substring(0, 2), 16),
+      g: parseInt(h.substring(2, 4), 16),
+      b: parseInt(h.substring(4, 6), 16)
+    };
+  }
+
+  function rgbToHsl(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    var max = Math.max(r, g, b), min = Math.min(r, g, b);
+    var h = 0, s = 0, l = (max + min) / 2;
+    if (max !== min) {
+      var d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h /= 6;
+    }
+    return { h: h * 360, s: s * 100, l: l * 100 };
+  }
+
+  function hslToHex(h, s, l) {
+    h = ((h % 360) + 360) % 360 / 360; s /= 100; l /= 100;
+    var r, g, b;
+    if (s === 0) {
+      r = g = b = l;
+    } else {
+      var hue2rgb = function (p, q, t) {
+        if (t < 0) t += 1;
+        if (t > 1) t -= 1;
+        if (t < 1 / 6) return p + (q - p) * 6 * t;
+        if (t < 1 / 2) return q;
+        if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+        return p;
+      };
+      var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+      var p = 2 * l - q;
+      r = hue2rgb(p, q, h + 1 / 3);
+      g = hue2rgb(p, q, h);
+      b = hue2rgb(p, q, h - 1 / 3);
+    }
+    function toHex(x) {
+      return ('0' + Math.round(x * 255).toString(16)).slice(-2);
+    }
+    return '#' + toHex(r) + toHex(g) + toHex(b);
+  }
+
+  // テーマ色の色相だけを取り出し、指定した明度・彩度に置き換えた淡色を作る。
+  // 元の色がほぼ無彩色(ピューターグレー等)の場合は色相が不定なため、無彩色のまま返す。
+  function themeTint(hex, lightness, saturation) {
+    var rgb = hexToRgb(hex);
+    var hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+    var s = hsl.s < 5 ? 0 : saturation;
+    return hslToHex(hsl.h, s, lightness);
+  }
+
+  // 背景色の明るさ(YIQ輝度)から、その面の上に乗せる文字色として黒/白どちらが読みやすいか判定する
+  // （サーバー側のTheme.pickTextColor()と同じ閾値140を使用し、判定基準を統一している）
+  function pickTextColorFor(hex) {
+    var rgb = hexToRgb(hex);
+    var yiq = (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
+    return yiq >= 140 ? '#1a1a1a' : '#ffffff';
+  }
+
+  // Google Workspace系アプリ（Gmail/Drive/カレンダー等）はヘッダーやナビの背景をテーマ色で
+  // 塗りつぶさず、白/淡いグレーの中立なクロームに統一した上で、ロゴアイコン・主要ボタン・
+  // 選択中のナビ項目・フォーカスリングといった「差し色」だけにブランドカラーを使う。
+  // 本アプリも同じ考え方に合わせ、選んだテーマ色は--accent系の変数にのみ反映する
+  // （ヘッダー/パネル/本文の背景色そのものはAssets.html側で固定の中立色にしている）。
+  function applyThemeBackgrounds(theme) {
+    if (!theme || !theme.hex) return;
+    var root = document.documentElement.style;
+
+    var rgbLight = hexToRgb(theme.hex);
+    root.setProperty('--theme-accent-light', theme.hex);
+    root.setProperty('--theme-accent-rgb-light', rgbLight.r + ', ' + rgbLight.g + ', ' + rgbLight.b);
+    root.setProperty('--theme-primary-text-light', pickTextColorFor(theme.hex));
+
+    // ダークモードでは、暗い背景の上でも視認できるよう明度を上げた色をアクセントにする
+    // （色相はそのまま保つので、選んだテーマの個性は保たれる）。
+    var accentDark = themeTint(theme.hex, 70, 55);
+    var rgbDark = hexToRgb(accentDark);
+    root.setProperty('--theme-accent-dark', accentDark);
+    root.setProperty('--theme-accent-rgb-dark', rgbDark.r + ', ' + rgbDark.g + ', ' + rgbDark.b);
+    root.setProperty('--theme-primary-text-dark', pickTextColorFor(accentDark));
+  }
+
+  // ===================== 画面切り替え =====================
+  // skipHistory: true の場合は履歴に積まない（「戻る」ボタン自身からの遷移で使う）
+  function switchView(view, skipHistory) {
+    if (!skipHistory && view !== state.currentView) {
+      state.viewHistory.push(state.currentView);
+    }
+    state.currentView = view;
+    qs('view-home').hidden = view !== 'home';
+    qs('view-mail').hidden = view !== 'mail';
+    qs('view-links').hidden = view !== 'links';
+    qs('view-todo').hidden = view !== 'todo';
+    qs('view-drive').hidden = view !== 'drive';
+    qs('view-settings').hidden = view !== 'settings';
+    qs('right-sidebar').hidden = view !== 'home';
+
+    placeWidgetsForCurrentView();
+
+    Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function (btn) {
+      btn.classList.toggle('active', btn.getAttribute('data-view') === view);
+    });
+
+    if (view === 'drive') {
+      if (state.home) renderPinnedFolders(state.home.userSettings.pinnedFolders);
+      applyDriveViewModeButtons();
+      if (state.drive.items.length === 0) loadDriveFolder(null);
+    }
+    if (view === 'mail' && state.home) {
+      refreshMailPageForCurrentFolder();
+    }
+    if (view === 'settings' && state.home && !state.settingsPopulated) {
+      populateSettingsForm(state.home.userSettings, state.home.globalSettings, state.home.calendars, state.themeChoices);
+      state.settingsPopulated = true;
+    }
+  }
+
+  // 現在の画面に応じた「更新」処理を呼び分ける（ヘッダーの共通更新ボタン用）
+  function refreshCurrentView() {
+    if (state.currentView === 'mail') return refreshMailData();
+    if (state.currentView === 'drive') return loadDriveFolder(state.drive.currentFolderId);
+    return loadHome();
+  }
+
+  function initGlobalActions() {
+    qs('btn-global-back').addEventListener('click', function () {
+      var previous = state.viewHistory.pop();
+      switchView(previous || 'home', true);
+    });
+    qs('btn-global-refresh').addEventListener('click', function (e) {
+      withSpinner(e.currentTarget, refreshCurrentView);
+    });
+  }
+
+  function initNav() {
+    Array.prototype.forEach.call(document.querySelectorAll('.nav-item'), function (btn) {
+      btn.addEventListener('click', function () {
+        switchView(btn.getAttribute('data-view'));
+      });
+    });
+  }
+
+  // ===================== ヘッダー（アバター） =====================
+  function renderAvatar(email) {
+    var badge = qs('avatar-badge');
+    badge.textContent = email ? email.charAt(0).toUpperCase() : '?';
+    badge.title = email || '未ログイン';
+  }
+
+  // ===================== ホーム画面の読み込み =====================
+  function loadHome() {
+    return Promise.all([gasRun('getHomeData'), gasRun('listThemeChoices'), gasRun('listEventCategories')]).then(function (results) {
+      var home = results[0];
+      state.home = home;
+      state.themeChoices = results[1];
+      state.eventCategories = results[2];
+      applyTheme(home.theme);
+      applyDarkMode(home.userSettings.darkMode);
+      placeWidgetsForCurrentView();
+      renderAvatar(home.currentUserEmail);
+      renderMailList(home.mails, home.userSettings.mailCount);
+      renderAppList(home.apps);
+      renderTodoList(home.todos);
+      renderCustomNav(home.userSettings.customNavItems);
+      populateEventCalendarOptions(home.calendars);
+      renderCategorySwatchPicker(state.eventCategories, '');
+      // 設定画面のDOM(テーマスウォッチ・ウィジェット配置エディタ等)は組み立てコストが高いため、
+      // まだ一度も開かれていなければここでは構築しない(switchView()が初回表示時に構築する)。
+      // 既に開いたことがある場合や、現在まさに設定タブを見ている場合(更新ボタン)は最新化する。
+      if (state.settingsPopulated || state.currentView === 'settings') {
+        populateSettingsForm(home.userSettings, home.globalSettings, home.calendars, state.themeChoices);
+        state.settingsPopulated = true;
+      }
+      if (state.currentView === 'mail') {
+        refreshMailPageForCurrentFolder();
+      }
+      if (state.currentView === 'drive') {
+        renderPinnedFolders(home.userSettings.pinnedFolders);
+      }
+
+      state.drive.viewMode = home.userSettings.driveViewMode || 'list';
+      applyDriveViewModeButtons();
+
+      var t = new Date();
+      state.calendar.year = t.getFullYear();
+      state.calendar.month = t.getMonth();
+      state.calendar.refDate = t;
+      state.calendar.viewMode = home.userSettings.calendarViewMode || 'month';
+      applyCalendarViewModeButtons();
+      return Promise.all([loadCalendarForCurrentMode(), loadTodayEvents()]);
+    }).catch(showError);
+  }
+
+  // ===================== 表示モード（ライト/ダーク/システム） =====================
+  function applyDarkMode(mode) {
+    document.documentElement.setAttribute('data-dark-mode', mode || 'system');
+  }
+
+  function renderDarkModeSwitcher(selected) {
+    var container = qs('dark-mode-switcher');
+    if (!container) return;
+    var options = [
+      { id: 'system', label: 'システム', icon: 'icon-monitor' },
+      { id: 'light', label: 'ライト', icon: 'icon-sun' },
+      { id: 'dark', label: 'ダーク', icon: 'icon-moon' }
+    ];
+    container.innerHTML = options.map(function (opt) {
+      var sel = opt.id === selected ? ' selected' : '';
+      return '<button type="button" class="dark-mode-option' + sel + '" data-mode="' + opt.id + '">' +
+        '<svg class="icon icon-sm"><use href="#' + opt.icon + '"></use></svg>' + opt.label + '</button>';
+    }).join('');
+
+    Array.prototype.forEach.call(container.querySelectorAll('.dark-mode-option'), function (btn) {
+      btn.addEventListener('click', function () {
+        var mode = btn.getAttribute('data-mode');
+        applyDarkMode(mode);
+        Array.prototype.forEach.call(container.querySelectorAll('.dark-mode-option'), function (b) {
+          b.classList.toggle('selected', b === btn);
+        });
+        gasRun('saveUserSettings', { darkMode: mode }).then(function () {
+          if (state.home) state.home.userSettings.darkMode = mode;
+        }).catch(showError);
+      });
+    });
+  }
+
+  // ===================== ウィジェット（カレンダー/今日の予定/メール/アプリリンク集）の配置 =====================
+  // 設定画面で選んだ配置先(メイン/サイドバー)・サイズ・表示可否を、実際のDOM配置に反映する。
+  function applyWidgetLayout(userSettings) {
+    var columnMain = qs('card-stack');
+    var columnSide = qs('right-sidebar');
+    // 表示中のウィジェットが列内に1つだけの場合、flex-growの比率だけでは相手がいないため
+    // 大きさ(小/中/大)を変えても常に列いっぱいに広がってしまう。非表示ウィジェットは
+    // display:noneでレイアウトに参加しないため、カウント対象は表示中のものだけに限る。
+    var visibleCountByColumn = { main: 0, side: 0 };
+    userSettings.widgets.forEach(function (w) {
+      if (w.visible) visibleCountByColumn[w.column === 'main' ? 'main' : 'side']++;
+    });
+    userSettings.widgets.forEach(function (w) {
+      var el = document.querySelector('[data-card="' + w.id + '"]');
+      if (!el) return;
+      var columnKey = w.column === 'main' ? 'main' : 'side';
+      el.classList.remove('widget-size-small', 'widget-size-medium', 'widget-size-large');
+      el.classList.add('widget-size-' + w.size);
+      el.style.display = w.visible ? '' : 'none';
+      el.classList.toggle('widget-solo', w.visible && visibleCountByColumn[columnKey] === 1);
+      var target = columnKey === 'main' ? columnMain : columnSide;
+      target.appendChild(el);
+    });
+  }
+
+  // アプリリンク集・ToDoリストは専用ページ(view-links/view-todo)を持つため、ホーム画面の
+  // ウィジェット配置を適用した直後に、そのカードだけ専用ページへ移し替える。メールタブは
+  // 独立したページ(Pages.html内のview-mail)を持つため、ホームのメールウィジェット(#card-mail)を
+  // 移動する必要はない（右サイドバーごと非表示になっても影響を受けないようにするため、
+  // あえて分離している）。
+  function placeWidgetsForCurrentView() {
+    if (!state.home) return;
+    applyWidgetLayout(state.home.userSettings);
+    if (state.currentView === 'links') {
+      qs('view-links').appendChild(qs('card-links'));
+    } else if (state.currentView === 'todo') {
+      qs('view-todo').appendChild(qs('card-todo'));
+    }
+  }
+
+  // ===================== カレンダー（メイン・月ナビゲーション対応） =====================
+  var WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
+
+  function monthRangeIso(year, month) {
+    var start = new Date(year, month, 1, 0, 0, 0, 0);
+    var end = new Date(year, month + 1, 1, 0, 0, 0, 0);
+    return { startIso: start.toISOString(), endIso: end.toISOString() };
+  }
+
+  // 同期対象カレンダーはログインアカウントに紐づくため選択式にしていない。常にアカウントの
+  // 全カレンダー(state.home.calendars、getHomeData()で取得済み)を対象にする。
+  function syncedCalendarIds() {
+    return state.home ? state.home.calendars.map(function (c) { return c.id; }) : [];
+  }
+
+  function loadCalendarMonth(year, month) {
+    if (!state.home) return Promise.resolve();
+    var range = monthRangeIso(year, month);
+    var calendarIds = syncedCalendarIds();
+    return Promise.all([
+      gasRun('getCalendarEvents', calendarIds, range.startIso, range.endIso),
+      gasRun('getCalendarDayInfo', year, month)
+    ]).then(function (results) {
+      var events = results[0];
+      var dayInfoList = results[1];
+      var dayInfoByDay = {};
+      dayInfoList.forEach(function (info) { dayInfoByDay[info.day] = info; });
+      state.calendar.year = year;
+      state.calendar.month = month;
+      state.calendar.events = events;
+      state.calendar.dayInfoByDay = dayInfoByDay;
+      state.calendar.viewMode = 'month';
+      state.calendar.refDate = new Date(year, month, 1);
+      renderMiniCalendar(year, month, events, dayInfoByDay);
+    }).catch(showError);
+  }
+
+  // 現在の表示モード(月/週/日)に応じてカレンダーを読み込む
+  function loadCalendarForCurrentMode() {
+    var anchor = state.calendar.refDate || new Date();
+    if (state.calendar.viewMode === 'week') return loadCalendarWeek(anchor);
+    if (state.calendar.viewMode === 'day') return loadCalendarDay(anchor);
+    return loadCalendarMonth(anchor.getFullYear(), anchor.getMonth());
+  }
+
+  function ymd(date) {
+    var pad = function (n) { return ('0' + n).slice(-2); };
+    return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate());
+  }
+
+  function startOfWeek(date) {
+    var d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    d.setDate(d.getDate() - d.getDay());
+    return d;
+  }
+
+  // 指定期間(startDate〜endDateExclusive)にまたがる月ぶんの祝日・六曜情報をまとめて取得し、
+  // 'YYYY-MM-DD' をキーにした連想配列にする（週表示が月をまたぐケースに対応するため）
+  function loadDayInfoRange(startDate, endDateExclusive) {
+    var months = {};
+    var cursor = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    while (cursor < endDateExclusive) {
+      var key = cursor.getFullYear() + '-' + cursor.getMonth();
+      months[key] = { year: cursor.getFullYear(), month: cursor.getMonth() };
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+    }
+    var monthKeys = Object.keys(months);
+    return Promise.all(monthKeys.map(function (key) {
+      var m = months[key];
+      return gasRun('getCalendarDayInfo', m.year, m.month).then(function (list) {
+        return { year: m.year, month: m.month, list: list };
+      });
+    })).then(function (results) {
+      var map = {};
+      results.forEach(function (r) {
+        r.list.forEach(function (info) {
+          map[ymd(new Date(r.year, r.month, info.day))] = info;
+        });
+      });
+      return map;
+    });
+  }
+
+  // カレンダー連携: 指定日が期限日のToDo一覧（ToDoリストウィジェット/タブと共通のstate.home.todosから）
+  function todosDueOn(dateKey) {
+    return (state.home && state.home.todos ? state.home.todos : []).filter(function (t) { return t.dueDate === dateKey; });
+  }
+
+  function buildAgendaDay(date, events, infoMap) {
+    var key = ymd(date);
+    var dayEvents = events.filter(function (ev) {
+      return ymd(new Date(ev.start)) === key;
+    }).sort(function (a, b) { return a.start < b.start ? -1 : a.start > b.start ? 1 : 0; });
+    return { date: date, key: key, events: dayEvents, todos: todosDueOn(key), info: infoMap[key] || null };
+  }
+
+  function renderCalendarLabel(mode, start, end) {
+    var label = qs('calendar-month-label');
+    if (mode === 'week') {
+      var endInclusive = new Date(end);
+      endInclusive.setDate(endInclusive.getDate() - 1);
+      label.textContent = start.getFullYear() + '年' + (start.getMonth() + 1) + '月' + start.getDate() + '日 〜 ' +
+        (endInclusive.getMonth() + 1) + '月' + endInclusive.getDate() + '日';
+    } else {
+      label.textContent = start.getFullYear() + '年' + (start.getMonth() + 1) + '月' + start.getDate() + '日（' + WEEKDAY_LABELS[start.getDay()] + '）';
+    }
+  }
+
+  function loadCalendarWeek(anchorDate) {
+    if (!state.home) return Promise.resolve();
+    var start = startOfWeek(anchorDate);
+    var end = new Date(start);
+    end.setDate(end.getDate() + 7);
+    var calendarIds = syncedCalendarIds();
+    return Promise.all([
+      gasRun('getCalendarEvents', calendarIds, start.toISOString(), end.toISOString()),
+      loadDayInfoRange(start, end)
+    ]).then(function (results) {
+      var events = results[0];
+      var infoMap = results[1];
+      state.calendar.viewMode = 'week';
+      state.calendar.refDate = anchorDate;
+      state.calendar.events = events;
+      renderCalendarLabel('week', start, end);
+      var days = [];
+      for (var i = 0; i < 7; i++) {
+        var d = new Date(start);
+        d.setDate(d.getDate() + i);
+        days.push(buildAgendaDay(d, events, infoMap));
+      }
+      renderTimeGridView(days);
+    }).catch(showError);
+  }
+
+  function loadCalendarDay(anchorDate) {
+    if (!state.home) return Promise.resolve();
+    var start = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), anchorDate.getDate());
+    var end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    var calendarIds = syncedCalendarIds();
+    return Promise.all([
+      gasRun('getCalendarEvents', calendarIds, start.toISOString(), end.toISOString()),
+      loadDayInfoRange(start, end)
+    ]).then(function (results) {
+      var events = results[0];
+      var infoMap = results[1];
+      state.calendar.viewMode = 'day';
+      state.calendar.refDate = anchorDate;
+      state.calendar.events = events;
+      renderCalendarLabel('day', start, end);
+      renderTimeGridView([buildAgendaDay(start, events, infoMap)]);
+    }).catch(showError);
+  }
+
+  // ===================== 週表示/日表示: 実時間グリッド（横=日付の列、縦=時刻） =====================
+  var GRID_HOUR_PX = 48; // 1時間あたりの高さ(px)
+  var GRID_TOTAL_HOURS = 24;
+
+  function timeGridMinutes(date) {
+    return date.getHours() * 60 + date.getMinutes();
+  }
+
+  // 同じ日に時間が重なる予定を、重ならないように列(トラック)へ振り分ける（連結成分ごとに貪欲法）。
+  // 例: 9-10時と9:30-10:30時の予定は重なるので横に並べ、13-14時の別の予定は無関係なので幅いっぱいに使う。
+  function layoutTimedEvents(events) {
+    var items = events.map(function (ev) {
+      var start = new Date(ev.start).getTime();
+      var end = Math.max(new Date(ev.end).getTime(), start + 15 * 60000); // 極端に短い予定でも最低幅を確保
+      return { ev: ev, start: start, end: end };
+    }).sort(function (a, b) { return a.start - b.start; });
+
+    var placements = [];
+    var cluster = [];
+    var clusterMaxEnd = -Infinity;
+
+    function flushCluster() {
+      if (cluster.length === 0) return;
+      var columns = [];
+      cluster.forEach(function (item) {
+        var placedCol = -1;
+        for (var c = 0; c < columns.length; c++) {
+          if (columns[c] <= item.start) { columns[c] = item.end; placedCol = c; break; }
+        }
+        if (placedCol === -1) { columns.push(item.end); placedCol = columns.length - 1; }
+        placements.push({ ev: item.ev, col: placedCol, totalColsRef: columns });
+      });
+      cluster = [];
+    }
+
+    items.forEach(function (item) {
+      if (cluster.length > 0 && item.start >= clusterMaxEnd) {
+        flushCluster();
+        clusterMaxEnd = -Infinity;
+      }
+      cluster.push(item);
+      clusterMaxEnd = Math.max(clusterMaxEnd, item.end);
+    });
+    flushCluster();
+
+    return placements.map(function (p) { return { ev: p.ev, col: p.col, totalCols: p.totalColsRef.length }; });
+  }
+
+  function renderTimeGridView(days) {
+    var now = new Date();
+    var gridTemplateColumns = '46px repeat(' + days.length + ', 1fr)';
+
+    var headerHtml = '<div class="tg-corner" style="grid-column:1; grid-row:1;"></div>';
+    var alldayHtml = '<div class="tg-gutter-label" style="grid-column:1; grid-row:2;">終日</div>';
+    var hourLabelsHtml = '';
+    for (var h = 0; h < GRID_TOTAL_HOURS; h++) {
+      hourLabelsHtml += '<div class="tg-hour-label" style="grid-column:1; grid-row:' + (h + 3) + ';">' + (h === 0 ? '' : h + ':00') + '</div>';
+    }
+    var dayColsHtml = '';
+
+    days.forEach(function (d, i) {
+      var col = i + 2;
+      var isToday = ymd(now) === d.key;
+      var allDayEvents = d.events.filter(function (ev) { return ev.allDay; });
+      var timedEvents = d.events.filter(function (ev) { return !ev.allDay; });
+      var dueTodoCount = d.todos.filter(function (t) { return !t.done; }).length;
+
+      var dateLabel = (d.date.getMonth() + 1) + '/' + d.date.getDate() + '（' + WEEKDAY_LABELS[d.date.getDay()] + '）';
+      headerHtml += '<div class="tg-day-header' + (isToday ? ' is-today' : '') + '" style="grid-column:' + col + '; grid-row:1;">' +
+        '<div class="tg-day-header-date">' + dateLabel + '</div>' +
+        (d.info && d.info.holidayName ? '<div class="tg-day-header-holiday">' + escapeHtml(d.info.holidayName) + '</div>' : '') +
+        (dueTodoCount > 0 ? '<div class="tg-day-header-todo" title="期限のToDo ' + dueTodoCount + '件"><svg class="icon" style="width:9px;height:9px;"><use href="#icon-check"></use></svg>' + dueTodoCount + '</div>' : '') +
+        '</div>';
+
+      var alldayChips = allDayEvents.map(function (ev) {
+        var hex = categoryHex(ev.categoryColorId);
+        return '<div class="tg-allday-chip" style="background:' + hex + ';color:' + pickChipTextColor(hex) + ';" data-event-id="' + escapeHtml(ev.id) + '" data-calendar-id="' + escapeHtml(ev.calendarId) + '" title="' + escapeHtml(ev.title || '') + '">' + escapeHtml(ev.title || '(無題)') + '</div>';
+      }).join('');
+      headerHtml += '<div class="tg-allday-cell" style="grid-column:' + col + '; grid-row:2;">' + alldayChips + '</div>';
+
+      var eventsHtml = layoutTimedEvents(timedEvents).map(function (p) {
+        var ev = p.ev;
+        var startDate = new Date(ev.start);
+        var topPx = (timeGridMinutes(startDate) / 60) * GRID_HOUR_PX;
+        var durationMin = Math.max((new Date(ev.end) - startDate) / 60000, 15);
+        var heightPx = Math.max((durationMin / 60) * GRID_HOUR_PX, 16);
+        var widthPct = 100 / p.totalCols;
+        var leftPct = p.col * widthPct;
+        var hex = categoryHex(ev.categoryColorId);
+        var repeatIcon = ev.isRecurring ? '<svg class="icon icon-sm tg-event-repeat"><use href="#icon-repeat"></use></svg>' : '';
+        return '<div class="tg-event" data-event-id="' + escapeHtml(ev.id) + '" data-calendar-id="' + escapeHtml(ev.calendarId) + '" ' +
+          'style="top:' + topPx + 'px; height:' + heightPx + 'px; left:' + leftPct + '%; width:calc(' + widthPct + '% - 2px); background:' + hex + ';color:' + pickChipTextColor(hex) + ';" title="' + escapeHtml(ev.title || '') + '">' +
+          '<div class="tg-event-time">' + formatTime(ev.start) + '</div><div class="tg-event-title">' + repeatIcon + escapeHtml(ev.title || '(無題)') + '</div></div>';
+      }).join('');
+
+      var nowLineHtml = isToday ? '<div class="tg-now-line" style="top:' + ((timeGridMinutes(now) / 60) * GRID_HOUR_PX) + 'px;"></div>' : '';
+
+      dayColsHtml += '<div class="tg-day-col" data-date-key="' + d.key + '" style="grid-column:' + col + '; grid-row: 3 / span ' + GRID_TOTAL_HOURS + '; height:' + (GRID_TOTAL_HOURS * GRID_HOUR_PX) + 'px;">' +
+        eventsHtml + nowLineHtml + '</div>';
+    });
+
+    var gridTemplateRows = 'auto auto repeat(' + GRID_TOTAL_HOURS + ', ' + GRID_HOUR_PX + 'px)';
+    qs('mini-calendar').innerHTML = '<div class="cal-timegrid"><div class="tg-scroll"><div class="tg-grid" style="grid-template-columns:' + gridTemplateColumns + '; grid-template-rows:' + gridTemplateRows + ';">' +
+      headerHtml + alldayHtml + hourLabelsHtml + dayColsHtml + '</div></div></div>';
+
+    bindTimeGridHandlers();
+    var scrollEl = document.querySelector('#mini-calendar .tg-scroll');
+    if (scrollEl) scrollEl.scrollTop = Math.max(0, 7 * GRID_HOUR_PX - 20); // 初期表示はおおよそ7時付近から
+  }
+
+  function bindTimeGridHandlers() {
+    var container = qs('mini-calendar');
+    Array.prototype.forEach.call(container.querySelectorAll('.tg-allday-chip'), function (el) {
+      el.addEventListener('click', function (e) {
+        e.stopPropagation();
+        openEventModal(el.getAttribute('data-calendar-id'), el.getAttribute('data-event-id'));
+      });
+    });
+    Array.prototype.forEach.call(container.querySelectorAll('.tg-event'), function (el) {
+      el.addEventListener('click', function (e) {
+        e.stopPropagation();
+        openEventModal(el.getAttribute('data-calendar-id'), el.getAttribute('data-event-id'));
+      });
+      initTimeGridEventDrag(el);
+    });
+    Array.prototype.forEach.call(container.querySelectorAll('.tg-day-col'), function (col) {
+      col.addEventListener('click', function (e) {
+        if (e.target !== col) return; // 予定ブロック自体のクリックは上のハンドラに任せる
+        var rect = col.getBoundingClientRect();
+        var offsetY = e.clientY - rect.top;
+        var totalMinutes = Math.round(((offsetY / GRID_HOUR_PX) * 60) / 30) * 30; // 30分単位に丸める
+        var parts = col.getAttribute('data-date-key').split('-').map(function (n) { return parseInt(n, 10); });
+        openEventModal(null, null, new Date(parts[0], parts[1] - 1, parts[2], Math.floor(totalMinutes / 60), totalMinutes % 60, 0, 0));
+      });
+    });
+  }
+
+  // 週表示/日表示: 予定ブロックを縦にドラッグして時刻を変更する（所要時間は維持したまま開始/終了が動く）。
+  // 月表示の日付ドラッグ&ドロップと同じ考え方で、時刻軸上での移動を1本のマウス操作で行えるようにする。
+  // ネイティブのHTML5ドラッグ&ドロップではなくmousemoveベースにしているのは、ドラッグ中に予定ブロックを
+  // リアルタイムに追従させたい（ウィジェットの大きさ変更ハンドラと同じ方式）ため。
+  var TIME_GRID_SNAP_MINUTES = 15;
+
+  function initTimeGridEventDrag(el) {
+    el.addEventListener('mousedown', function (e) {
+      if (e.button !== 0) return;
+      var startY = e.clientY;
+      var startTop = parseFloat(el.style.top) || 0;
+      var dragging = false;
+      var newTop = startTop;
+
+      function onMove(moveEvent) {
+        var delta = moveEvent.clientY - startY;
+        if (!dragging && Math.abs(delta) > 4) {
+          dragging = true;
+          el.classList.add('is-dragging');
+        }
+        if (!dragging) return;
+        var rawTop = startTop + delta;
+        var totalMinutes = Math.round((rawTop / GRID_HOUR_PX) * 60 / TIME_GRID_SNAP_MINUTES) * TIME_GRID_SNAP_MINUTES;
+        totalMinutes = Math.max(0, Math.min(totalMinutes, GRID_TOTAL_HOURS * 60 - TIME_GRID_SNAP_MINUTES));
+        newTop = (totalMinutes / 60) * GRID_HOUR_PX;
+        el.style.top = newTop + 'px';
+      }
+
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        el.classList.remove('is-dragging');
+        if (!dragging) return; // 動いていなければ通常のクリック(編集モーダルを開く)に任せる
+        // ドラッグ直後に発火するclickイベントで編集モーダルが開いてしまわないよう1回だけ抑止する
+        var suppressClick = function (clickEvent) {
+          clickEvent.stopPropagation();
+          el.removeEventListener('click', suppressClick, true);
+        };
+        el.addEventListener('click', suppressClick, true);
+
+        var eventId = el.getAttribute('data-event-id');
+        var calendarId = el.getAttribute('data-calendar-id');
+        var ev = state.calendar.events.filter(function (item) { return item.id === eventId && item.calendarId === calendarId; })[0];
+        if (!ev) return;
+        var totalMinutes = Math.round((newTop / GRID_HOUR_PX) * 60 / TIME_GRID_SNAP_MINUTES) * TIME_GRID_SNAP_MINUTES;
+        moveTimeGridEvent(ev, totalMinutes);
+      }
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
+  // 所要時間を維持したまま、その予定の日付の中で開始時刻だけをnewStartMinutes(0時からの分数)に付け替える
+  function moveTimeGridEvent(ev, newStartMinutes) {
+    var oldStart = new Date(ev.start);
+    var durationMs = new Date(ev.end).getTime() - oldStart.getTime();
+    var dayStart = new Date(oldStart.getFullYear(), oldStart.getMonth(), oldStart.getDate());
+    var newStart = new Date(dayStart.getTime() + newStartMinutes * 60000);
+    if (newStart.getTime() === oldStart.getTime()) return;
+    var newEnd = new Date(newStart.getTime() + durationMs);
+    gasRun('moveCalendarEventDate', ev.calendarId, ev.id, newStart.toISOString(), newEnd.toISOString())
+      .then(function () {
+        showToast((ev.title || '予定') + 'を' + formatTime(newStart.toISOString()) + 'に移動しました');
+        return refreshCalendarViews();
+      })
+      .catch(function (err) {
+        showError(err);
+        return refreshCalendarViews(); // 失敗時は表示を元の位置に戻す
+      });
+  }
+
+  // ===================== カレンダー表示形式(月/週/日)の切替 =====================
+  function applyCalendarViewModeButtons() {
+    Array.prototype.forEach.call(document.querySelectorAll('.cal-view-mode-switch .toggle-btn'), function (btn) {
+      btn.classList.toggle('active', btn.getAttribute('data-cal-view') === state.calendar.viewMode);
+    });
+  }
+
+  function setCalendarViewMode(mode) {
+    if (state.calendar.viewMode === mode) return;
+    state.calendar.viewMode = mode;
+    applyCalendarViewModeButtons();
+    gasRun('saveUserSettings', { calendarViewMode: mode }).then(function () {
+      if (state.home) state.home.userSettings.calendarViewMode = mode;
+    }).catch(showError);
+    loadCalendarForCurrentMode();
+  }
+
+  function initCalendarViewModeSwitch() {
+    Array.prototype.forEach.call(document.querySelectorAll('.cal-view-mode-switch .toggle-btn'), function (btn) {
+      btn.addEventListener('click', function () {
+        setCalendarViewMode(btn.getAttribute('data-cal-view'));
+      });
+    });
+  }
+
+  // 前へ/次へボタン: 表示モードに応じて月/週/日の単位で移動する
+  function calendarStep(delta) {
+    if (state.calendar.viewMode === 'week') {
+      var d = new Date(state.calendar.refDate);
+      d.setDate(d.getDate() + delta * 7);
+      loadCalendarWeek(d);
+    } else if (state.calendar.viewMode === 'day') {
+      var d2 = new Date(state.calendar.refDate);
+      d2.setDate(d2.getDate() + delta);
+      loadCalendarDay(d2);
+    } else {
+      var m = state.calendar.month + delta, y = state.calendar.year;
+      if (m < 0) { m = 11; y--; } else if (m > 11) { m = 0; y++; }
+      loadCalendarMonth(y, m);
+    }
+  }
+
+  function loadTodayEvents() {
+    if (!state.home) return Promise.resolve();
+    var t = new Date();
+    var start = new Date(t.getFullYear(), t.getMonth(), t.getDate(), 0, 0, 0, 0);
+    var end = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1, 0, 0, 0, 0);
+    var calendarIds = syncedCalendarIds();
+    return gasRun('getCalendarEvents', calendarIds, start.toISOString(), end.toISOString()).then(function (events) {
+      renderTodayList(events);
+    }).catch(showError);
+  }
+
+  // ===================== 予定の種類（カテゴリ）色分け =====================
+  function categoryHex(colorId) {
+    var found = state.eventCategories.filter(function (c) { return c.id === colorId; })[0];
+    return found ? found.hex : '#dadce0';
+  }
+
+  function categoryLabel(colorId) {
+    var found = state.eventCategories.filter(function (c) { return c.id === colorId; })[0];
+    return found ? found.label : '未設定';
+  }
+
+  // カレンダー上の予定チップの文字色を、背景色の輝度(YIQ)に応じて自動選択する
+  function pickChipTextColor(hex) {
+    var normalized = hex.replace('#', '');
+    var r = parseInt(normalized.substring(0, 2), 16);
+    var g = parseInt(normalized.substring(2, 4), 16);
+    var b = parseInt(normalized.substring(4, 6), 16);
+    var yiq = (r * 299 + g * 587 + b * 114) / 1000;
+    return yiq > 140 ? '#1a1a1a' : '#ffffff';
+  }
+
+  function renderTodayList(events) {
+    var container = qs('today-list');
+    if (events.length === 0) {
+      container.innerHTML = '<div class="empty-hint">今日の予定はありません</div>';
+      return;
+    }
+    var sorted = events.slice().sort(function (a, b) { return a.start < b.start ? -1 : a.start > b.start ? 1 : 0; });
+    container.innerHTML = sorted.map(function (ev) {
+      var timeLabel = ev.allDay ? '終日' : formatTime(ev.start) + '〜' + formatTime(ev.end);
+      var repeatIcon = ev.isRecurring ? '<svg class="icon icon-sm" style="color:var(--content-faint); margin-right:2px;"><use href="#icon-repeat"></use></svg>' : '';
+      return '<div class="today-item">' +
+        '<div class="t-time">' + timeLabel + '</div>' +
+        '<div><div class="t-title"><span class="category-dot" style="background:' + categoryHex(ev.categoryColorId) + ';"></span>' + repeatIcon + escapeHtml(ev.title || '(無題)') + '</div></div>' +
+        '</div>';
+    }).join('');
+  }
+
+  function renderMiniCalendar(year, month, events, dayInfoByDay) {
+    dayInfoByDay = dayInfoByDay || {};
+    qs('calendar-month-label').textContent = (year + '年' + (month + 1) + '月');
+
+    var now = new Date();
+    var firstDay = new Date(year, month, 1);
+    var daysInMonth = new Date(year, month + 1, 0).getDate();
+    var startWeekday = firstDay.getDay();
+
+    var eventsByDay = {};
+    events.forEach(function (ev) {
+      var d = new Date(ev.start);
+      if (d.getFullYear() === year && d.getMonth() === month) {
+        var day = d.getDate();
+        (eventsByDay[day] = eventsByDay[day] || []).push(ev);
+      }
+    });
+
+    var weekdaysHtml = WEEKDAY_LABELS.map(function (w) { return '<span>' + w + '</span>'; }).join('');
+    qs('mini-calendar').innerHTML =
+      '<div class="cal-weekdays">' + weekdaysHtml + '</div>' +
+      '<div class="cal-grid" id="cal-grid"></div>';
+
+    var MAX_CHIPS = 3;
+    var grid = qs('cal-grid');
+    var html = '';
+    for (var i = 0; i < startWeekday; i++) {
+      html += '<div class="cal-cell empty"></div>';
+    }
+    for (var day = 1; day <= daysInMonth; day++) {
+      var dayEvents = eventsByDay[day] || [];
+      var isToday = year === now.getFullYear() && month === now.getMonth() && day === now.getDate();
+      var info = dayInfoByDay[day];
+      var isHoliday = !!(info && info.holidayName);
+      var chipsHtml = dayEvents.slice(0, MAX_CHIPS).map(function (ev) {
+        var hex = categoryHex(ev.categoryColorId);
+        return '<div class="event-chip" draggable="true" data-event-id="' + escapeHtml(ev.id) + '" data-calendar-id="' + escapeHtml(ev.calendarId) + '" style="background:' + hex + ';color:' + pickChipTextColor(hex) + ';" title="' + escapeHtml(ev.title || '') + '">' + escapeHtml(ev.title || '(無題)') + '</div>';
+      }).join('');
+      if (dayEvents.length > MAX_CHIPS) {
+        chipsHtml += '<div class="event-chip-more">他' + (dayEvents.length - MAX_CHIPS) + '件</div>';
+      }
+      var dueTodoCount = todosDueOn(ymd(new Date(year, month, day))).filter(function (t) { return !t.done; }).length;
+      html += '<div class="cal-cell' + (isToday ? ' is-today' : '') + (isHoliday ? ' is-holiday' : '') + '" data-day="' + day + '">' +
+        '<div class="day-num">' + day + '</div>' +
+        (info ? '<div class="rokuyo-label">' + escapeHtml(info.rokuyo) + '</div>' : '') +
+        (isHoliday ? '<div class="holiday-label">' + escapeHtml(info.holidayName) + '</div>' : '') +
+        (dayEvents.length > 0 ? '<div class="event-chips">' + chipsHtml + '</div>' : '') +
+        (dueTodoCount > 0 ? '<div class="todo-indicator" title="期限のToDo ' + dueTodoCount + '件"><svg class="icon" style="width:10px;height:10px;"><use href="#icon-check"></use></svg>' + dueTodoCount + '</div>' : '') +
+        '</div>';
+    }
+    var totalCells = startWeekday + daysInMonth;
+    var trailing = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+    for (var j = 0; j < trailing; j++) {
+      html += '<div class="cal-cell empty"></div>';
+    }
+    grid.innerHTML = html;
+
+    Array.prototype.forEach.call(grid.querySelectorAll('.cal-cell[data-day]'), function (cell) {
+      cell.addEventListener('click', function () {
+        openDayDetail(parseInt(cell.getAttribute('data-day'), 10));
+      });
+    });
+
+    initCalendarDragDrop(grid);
+  }
+
+  // ===================== 月表示カレンダー: 予定チップのドラッグ&ドロップによる日付変更 =====================
+  var draggingCalendarEvent = null;
+
+  function initCalendarDragDrop(grid) {
+    Array.prototype.forEach.call(grid.querySelectorAll('.event-chip[draggable="true"]'), function (chip) {
+      chip.addEventListener('dragstart', function (e) {
+        e.stopPropagation();
+        var eventId = chip.getAttribute('data-event-id');
+        var calendarId = chip.getAttribute('data-calendar-id');
+        draggingCalendarEvent = state.calendar.events.filter(function (ev) {
+          return ev.id === eventId && ev.calendarId === calendarId;
+        })[0] || null;
+        if (draggingCalendarEvent) {
+          e.dataTransfer.effectAllowed = 'move';
+          try { e.dataTransfer.setData('text/plain', eventId); } catch (err) { /* Firefox以外は不要 */ }
+        }
+      });
+      chip.addEventListener('dragend', function () {
+        draggingCalendarEvent = null;
+        Array.prototype.forEach.call(grid.querySelectorAll('.cal-cell.drag-over'), function (c) {
+          c.classList.remove('drag-over');
+        });
+      });
+    });
+
+    Array.prototype.forEach.call(grid.querySelectorAll('.cal-cell[data-day]'), function (cell) {
+      cell.addEventListener('dragover', function (e) {
+        if (!draggingCalendarEvent) return;
+        e.preventDefault();
+        cell.classList.add('drag-over');
+      });
+      cell.addEventListener('dragleave', function () {
+        cell.classList.remove('drag-over');
+      });
+      cell.addEventListener('drop', function (e) {
+        e.preventDefault();
+        cell.classList.remove('drag-over');
+        if (!draggingCalendarEvent) return;
+        moveEventToDay(draggingCalendarEvent, parseInt(cell.getAttribute('data-day'), 10));
+        draggingCalendarEvent = null;
+      });
+    });
+  }
+
+  // 予定の時間帯(所要時間)は維持したまま、日付だけをドロップ先の日に付け替える
+  function moveEventToDay(ev, newDay) {
+    var year = state.calendar.year, month = state.calendar.month;
+    var oldStart = new Date(ev.start);
+    if (oldStart.getFullYear() === year && oldStart.getMonth() === month && oldStart.getDate() === newDay) {
+      return;
+    }
+    var durationMs = new Date(ev.end).getTime() - oldStart.getTime();
+    var newStart = new Date(year, month, newDay, oldStart.getHours(), oldStart.getMinutes(), oldStart.getSeconds());
+    var newEnd = new Date(newStart.getTime() + durationMs);
+    gasRun('moveCalendarEventDate', ev.calendarId, ev.id, newStart.toISOString(), newEnd.toISOString())
+      .then(function () {
+        showToast((ev.title || '予定') + 'を' + (month + 1) + '/' + newDay + 'に移動しました');
+        return refreshCalendarViews();
+      })
+      .catch(showError);
+  }
+
+  // ===================== 日付タップ時のポップアップ（その日の予定一覧・編集） =====================
+  function openDayDetail(day) {
+    var year = state.calendar.year;
+    var month = state.calendar.month;
+    state.dayDetail = { year: year, month: month, day: day };
+
+    var dayEvents = state.calendar.events.filter(function (ev) {
+      var d = new Date(ev.start);
+      return d.getFullYear() === year && d.getMonth() === month && d.getDate() === day;
+    }).sort(function (a, b) { return a.start < b.start ? -1 : a.start > b.start ? 1 : 0; });
+
+    var dateObj = new Date(year, month, day);
+    var info = state.calendar.dayInfoByDay[day];
+    var titleSuffix = info ? '・' + info.rokuyo + (info.holidayName ? '・' + info.holidayName : '') : '';
+    qs('day-detail-title').textContent = year + '年' + (month + 1) + '月' + day + '日（' + WEEKDAY_LABELS[dateObj.getDay()] + '）' + titleSuffix;
+
+    var list = qs('day-detail-list');
+    list.innerHTML = dayEvents.length === 0
+      ? '<div class="empty-hint">この日の予定はありません</div>'
+      : dayEvents.map(function (ev) {
+        var catLabel = ev.categoryColorId ? '<span class="category-badge"><span class="category-dot" style="background:' + categoryHex(ev.categoryColorId) + ';"></span>' + escapeHtml(categoryLabel(ev.categoryColorId)) + '</span>' : '';
+        var timeLabel = ev.allDay ? '終日' : formatTime(ev.start) + ' 〜 ' + formatTime(ev.end);
+        return '<div class="link-row" data-event-id="' + escapeHtml(ev.id) + '" data-calendar-id="' + escapeHtml(ev.calendarId) + '">' +
+          '<div>' +
+          '<div class="name"><span class="category-dot" style="background:' + categoryHex(ev.categoryColorId) + ';"></span>' + escapeHtml(ev.title || '(無題)') + catLabel + '</div>' +
+          '<div class="desc">' + timeLabel + '</div>' +
+          '</div>' +
+          '<button type="button" class="btn-edit-event">編集</button>' +
+          '</div>';
+      }).join('');
+
+    Array.prototype.forEach.call(list.querySelectorAll('.btn-edit-event'), function (btn) {
+      btn.addEventListener('click', function () {
+        var row = btn.closest('[data-event-id]');
+        qs('day-detail-modal').hidden = true;
+        openEventModal(row.getAttribute('data-calendar-id'), row.getAttribute('data-event-id'));
+      });
+    });
+
+    renderDayDetailTodos(ymd(dateObj));
+    qs('day-detail-modal').hidden = false;
+  }
+
+  // カレンダー連携: 日付ポップアップにその日が期限のToDoを表示し、その場で完了切替できるようにする
+  function renderDayDetailTodos(dateKey) {
+    var container = qs('day-detail-todos');
+    if (!container) return;
+    var todos = todosDueOn(dateKey);
+    if (todos.length === 0) {
+      container.innerHTML = '';
+      return;
+    }
+    container.innerHTML = '<div class="agenda-todos">' + todos.map(function (t) {
+      return '<div class="agenda-todo-row" data-todo-id="' + escapeHtml(t.id) + '">' +
+        '<input type="checkbox" class="agenda-todo-check"' + (t.done ? ' checked' : '') + '>' +
+        '<span class="todo-priority-dot ' + t.priority + '"></span>' +
+        '<span class="todo-text' + (t.done ? ' done' : '') + '">' + escapeHtml(t.text) + '</span>' +
+        '</div>';
+    }).join('') + '</div>';
+
+    Array.prototype.forEach.call(container.querySelectorAll('.agenda-todo-check'), function (cb) {
+      cb.addEventListener('change', function () {
+        var id = cb.closest('[data-todo-id]').getAttribute('data-todo-id');
+        gasRun('toggleTodo', id).then(function (todos) {
+          state.home.todos = todos;
+          renderTodoList(todos);
+          renderDayDetailTodos(dateKey);
+          return loadCalendarForCurrentMode();
+        }).catch(showError);
+      });
+    });
+  }
+
+  function initDayDetail() {
+    qs('btn-day-detail-close').addEventListener('click', function () { qs('day-detail-modal').hidden = true; });
+    qs('btn-day-add-event').addEventListener('click', function () {
+      var d = state.dayDetail;
+      qs('day-detail-modal').hidden = true;
+      openEventModal(null, null, d ? new Date(d.year, d.month, d.day, 9, 0, 0, 0) : null);
+    });
+  }
+
+  function formatTime(iso) {
+    var d = new Date(iso);
+    return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+  }
+
+  function formatDateTime(iso) {
+    var d = new Date(iso);
+    return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + formatTime(iso);
+  }
+
+  function populateEventCalendarOptions(calendars) {
+    var select = qs('event-calendar');
+    select.innerHTML = calendars.map(function (c) {
+      return '<option value="' + escapeHtml(c.id) + '">' + escapeHtml(c.name) + '</option>';
+    }).join('');
+  }
+
+  function initCalendarNav() {
+    qs('btn-cal-prev').addEventListener('click', function () { calendarStep(-1); });
+    qs('btn-cal-next').addEventListener('click', function () { calendarStep(1); });
+    qs('btn-cal-today').addEventListener('click', function () {
+      var t = new Date();
+      if (state.calendar.viewMode === 'week') loadCalendarWeek(t);
+      else if (state.calendar.viewMode === 'day') loadCalendarDay(t);
+      else loadCalendarMonth(t.getFullYear(), t.getMonth());
+    });
+  }
+
+  function renderCategorySwatchPicker(categories, selectedId) {
+    var container = qs('event-category-select');
+    container.innerHTML = categories.map(function (cat) {
+      var selected = cat.id === selectedId ? ' selected' : '';
+      return '<button type="button" class="category-swatch' + selected + '" data-category-id="' + escapeHtml(cat.id) + '">' +
+        '<span class="category-dot" style="background:' + cat.hex + ';"></span>' + escapeHtml(cat.label) +
+        '</button>';
+    }).join('');
+
+    Array.prototype.forEach.call(container.querySelectorAll('.category-swatch'), function (btn) {
+      btn.addEventListener('click', function () {
+        qs('event-category').value = btn.getAttribute('data-category-id');
+        Array.prototype.forEach.call(container.querySelectorAll('.category-swatch'), function (b) {
+          b.classList.toggle('selected', b === btn);
+        });
+      });
+    });
+  }
+
+  // ===================== カレンダー: 繰り返し予定の設定・適用範囲UI =====================
+  // 繰り返しルールは新規作成時のみ設定できる（作成後のルール変更は非対応。README参照）。
+  function resetRecurrenceControls() {
+    qs('event-recurrence-freq').value = 'none';
+    qs('event-recurrence-interval').value = '1';
+    qs('event-recurrence-end-type').value = 'never';
+    qs('event-recurrence-count').value = '10';
+    qs('event-recurrence-until').value = '';
+    updateRecurrenceControlsVisibility();
+  }
+
+  function updateRecurrenceControlsVisibility() {
+    var active = qs('event-recurrence-freq').value !== 'none';
+    qs('event-recurrence-interval').hidden = !active;
+    qs('event-recurrence-end-row').hidden = !active;
+    var endType = qs('event-recurrence-end-type').value;
+    qs('event-recurrence-count').hidden = !(active && endType === 'count');
+    qs('event-recurrence-until').hidden = !(active && endType === 'until');
+  }
+
+  function readRecurrenceRuleFromForm() {
+    return {
+      frequency: qs('event-recurrence-freq').value,
+      interval: parseInt(qs('event-recurrence-interval').value, 10) || 1,
+      endType: qs('event-recurrence-end-type').value,
+      count: parseInt(qs('event-recurrence-count').value, 10) || 10,
+      until: qs('event-recurrence-until').value || null
+    };
+  }
+
+  // 適用範囲(この予定だけ/シリーズ全体)は、既存の繰り返し予定を編集・削除する場合のみ表示する。
+  // シリーズ全体を選ぶと開始/終了時刻の変更はサーバー側で無視されるため(services.ts参照)、
+  // 混乱を避けるためUI側でも開始/終了/終日の入力を無効化する。
+  function setEventScope(scope) {
+    qs('event-scope').value = scope;
+    Array.prototype.forEach.call(qs('event-scope-switch').querySelectorAll('.toggle-btn'), function (btn) {
+      btn.classList.toggle('active', btn.getAttribute('data-event-scope') === scope);
+    });
+    var isSeries = scope === 'series';
+    qs('event-start').disabled = isSeries;
+    qs('event-end').disabled = isSeries;
+    qs('event-allday').disabled = isSeries;
+    qs('event-scope-hint').textContent = isSeries
+      ? 'タイトル・種類・メモ・ゲストが全ての回に反映されます。開始/終了時刻はこの操作では変更できません（時刻を変えたい場合は「この予定だけ」を選んでください）。'
+      : 'この回だけに適用され、他の回には影響しません。';
+  }
+
+  function initEventRecurrenceControls() {
+    qs('event-recurrence-freq').addEventListener('change', updateRecurrenceControlsVisibility);
+    qs('event-recurrence-end-type').addEventListener('change', updateRecurrenceControlsVisibility);
+  }
+
+  function initEventScopeSwitch() {
+    Array.prototype.forEach.call(qs('event-scope-switch').querySelectorAll('.toggle-btn'), function (btn) {
+      btn.addEventListener('click', function () { setEventScope(btn.getAttribute('data-event-scope')); });
+    });
+  }
+
+  function openEventModal(calendarId, eventId, presetDate) {
+    var modal = qs('event-modal');
+    qs('event-id').value = eventId || '';
+    qs('event-modal-title').textContent = eventId ? '予定を編集' : '予定を追加';
+    qs('btn-event-delete').hidden = !eventId;
+    qs('event-allday').checked = false;
+    qs('event-guests').value = '';
+    qs('event-description').value = '';
+
+    var categoryColorId = '';
+    var isRecurring = false;
+    if (eventId) {
+      var ev = state.calendar.events.filter(function (e) { return e.id === eventId; })[0];
+      if (ev) {
+        if (calendarId) qs('event-calendar').value = calendarId;
+        qs('event-title').value = ev.title;
+        qs('event-allday').checked = ev.allDay;
+        qs('event-start').value = toDatetimeLocal(ev.start);
+        qs('event-end').value = toDatetimeLocal(ev.end);
+        qs('event-guests').value = ev.guests.join(', ');
+        categoryColorId = ev.categoryColorId || '';
+        isRecurring = !!ev.isRecurring;
+      }
+    } else {
+      qs('event-title').value = '';
+      var base = presetDate || new Date();
+      qs('event-start').value = toDatetimeLocal(base.toISOString());
+      qs('event-end').value = toDatetimeLocal(new Date(base.getTime() + 60 * 60 * 1000).toISOString());
+      if (calendarId) qs('event-calendar').value = calendarId;
+    }
+    qs('event-category').value = categoryColorId;
+    renderCategorySwatchPicker(state.eventCategories, categoryColorId);
+
+    qs('event-recurrence-section').hidden = !!eventId;
+    resetRecurrenceControls();
+
+    qs('event-scope-section').hidden = !isRecurring;
+    setEventScope('single');
+
+    modal.hidden = false;
+  }
+
+  function toDatetimeLocal(iso) {
+    var d = new Date(iso);
+    var pad = function (n) { return ('0' + n).slice(-2); };
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' +
+      pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+
+  function refreshCalendarViews() {
+    return Promise.all([loadCalendarForCurrentMode(), loadTodayEvents()]);
+  }
+
+  function initEventModal() {
+    initEventRecurrenceControls();
+    initEventScopeSwitch();
+    qs('btn-new-event').addEventListener('click', function () { openEventModal(null, null); });
+    qs('btn-event-cancel').addEventListener('click', function () { qs('event-modal').hidden = true; });
+
+    qs('btn-event-save').addEventListener('click', function () {
+      var id = qs('event-id').value;
+      var calendarId = qs('event-calendar').value;
+      var title = qs('event-title').value.trim();
+      if (!title) { window.alert('タイトルを入力してください'); return; }
+      var startIso = new Date(qs('event-start').value).toISOString();
+      var endIso = new Date(qs('event-end').value).toISOString();
+      var allDay = qs('event-allday').checked;
+      var guests = qs('event-guests').value;
+      var description = qs('event-description').value;
+      var categoryColorId = qs('event-category').value;
+
+      var promise;
+      if (id) {
+        var scope = qs('event-scope').value;
+        promise = gasRun('updateCalendarEvent', calendarId, id, title, startIso, endIso, guests, description, categoryColorId, scope);
+      } else {
+        var recurrenceRule = readRecurrenceRuleFromForm();
+        if (recurrenceRule.frequency !== 'none' && recurrenceRule.endType === 'until') {
+          if (!recurrenceRule.until) { window.alert('繰り返しの終了日を入力してください'); return; }
+          if (recurrenceRule.until < qs('event-start').value.slice(0, 10)) {
+            window.alert('繰り返しの終了日は開始日以降の日付にしてください');
+            return;
+          }
+        }
+        promise = gasRun('createCalendarEvent', calendarId, title, startIso, endIso, allDay, guests, description, categoryColorId, recurrenceRule);
+      }
+
+      promise.then(function () {
+        qs('event-modal').hidden = true;
+        return refreshCalendarViews();
+      }).catch(showError);
+    });
+
+    qs('btn-event-delete').addEventListener('click', function () {
+      var scope = qs('event-scope').value;
+      var confirmMessage = scope === 'series' ? 'このシリーズ全体（すべての回）を削除しますか？' : 'この予定を削除しますか？';
+      if (!window.confirm(confirmMessage)) return;
+      var id = qs('event-id').value;
+      var calendarId = qs('event-calendar').value;
+      gasRun('deleteCalendarEvent', calendarId, id, scope).then(function () {
+        qs('event-modal').hidden = true;
+        return refreshCalendarViews();
+      }).catch(showError);
+    });
+  }
+
+  // ===================== メール =====================
+  function renderMailList(mails, mailCount) {
+    qs('mail-count-label').textContent = mailCount;
+    var container = qs('mail-list');
+    if (mails.length === 0) {
+      container.innerHTML = '<div class="empty-hint">新着メールはありません</div>';
+    } else {
+      container.innerHTML = mails.map(function (m) {
+        return '<div class="mail-row' + (m.isUnread ? ' unread' : '') + '" data-thread-id="' + escapeHtml(m.threadId) + '">' +
+          '<div class="subject">' + escapeHtml(m.subject || '(件名なし)') + '</div>' +
+          '<div class="date">' + formatDateTime(m.date) + '</div>' +
+          '</div>';
+      }).join('');
+
+      Array.prototype.forEach.call(container.querySelectorAll('.mail-row'), function (row) {
+        row.addEventListener('click', function () {
+          openMailDetail(row.getAttribute('data-thread-id'));
+        });
+      });
+    }
+    updateMailBadge(mails);
+  }
+
+  // 未読数バッジ（左ナビの「メール」タブ）を更新する
+  function updateMailBadge(mails) {
+    var unread = mails.filter(function (m) { return m.isUnread; }).length;
+    var unreadLabel = unread > 9 ? '9+' : String(unread);
+    var navBadge = qs('nav-mail-badge');
+    navBadge.textContent = unreadLabel;
+    navBadge.hidden = unread === 0;
+  }
+
+  // 一度開いたメールを未読から外す（表示上の即時反映 + サーバー側の既読化）。
+  // メールタブは受信トレイ以外のフォルダ(迷惑メール/ゴミ箱)を表示している場合があり、その一覧は
+  // state.home.mails ではなく state.mailPage.mails 側にあるため、両方を個別にチェックする。
+  function markMailReadLocally(threadId) {
+    var updatedHome = false;
+    if (state.home) {
+      var homeMail = state.home.mails.filter(function (m) { return m.threadId === threadId; })[0];
+      if (homeMail && homeMail.isUnread) {
+        homeMail.isUnread = false;
+        updatedHome = true;
+      }
+    }
+    var updatedPage = false;
+    var pageMail = state.mailPage.mails.filter(function (m) { return m.threadId === threadId; })[0];
+    if (pageMail && pageMail.isUnread) {
+      pageMail.isUnread = false;
+      updatedPage = true;
+    }
+    if (updatedHome) {
+      renderMailList(state.home.mails, state.home.userSettings.mailCount);
+    }
+    if (updatedPage && state.currentView === 'mail') {
+      renderMailPageList(state.mailPage.mails);
+    }
+    gasRun('markMailRead', threadId).catch(function () { /* 既読化に失敗しても表示は既読のままでよい */ });
+  }
+
+  // ===================== メール本文中の添付ファイル =====================
+  // ホーム画面の詳細モーダル・メールタブの本文欄のどちらからも呼べる共通ヘルパー。
+  function renderMailAttachmentsHtml(attachments) {
+    if (!attachments || attachments.length === 0) return '';
+    return '<div class="mail-attachments">' +
+      '<div class="mail-attachments-title">添付ファイル（' + attachments.length + '件）</div>' +
+      attachments.map(function (a) {
+        return '<div class="mail-attachment-row">' +
+          '<svg class="icon icon-sm"><use href="#icon-attachment"></use></svg>' +
+          '<span class="mail-attachment-name" title="' + escapeHtml(a.name) + '">' + escapeHtml(a.name) + '</span>' +
+          '<span class="mail-attachment-size">' + formatBytes(a.sizeBytes) + '</span>' +
+          '<button type="button" class="btn-mail-attachment-open" data-attachment-id="' + escapeHtml(a.id) + '">開く</button>' +
+          '<button type="button" class="btn-mail-attachment-save" data-attachment-id="' + escapeHtml(a.id) + '">Driveに保存</button>' +
+          '</div>';
+      }).join('') +
+      '</div>';
+  }
+
+  function bindMailAttachmentActions(container, threadId) {
+    Array.prototype.forEach.call(container.querySelectorAll('.btn-mail-attachment-open'), function (btn) {
+      btn.addEventListener('click', function () { openMailAttachment(threadId, btn.getAttribute('data-attachment-id'), btn); });
+    });
+    Array.prototype.forEach.call(container.querySelectorAll('.btn-mail-attachment-save'), function (btn) {
+      btn.addEventListener('click', function () { saveMailAttachmentToDriveFromUi(threadId, btn.getAttribute('data-attachment-id'), btn); });
+    });
+  }
+
+  function base64ToBlob(base64, contentType) {
+    var binary = atob(base64);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: contentType || 'application/octet-stream' });
+  }
+
+  // PDF・画像等はブラウザの標準ビューアでそのまま新しいタブに開ける(blob: URL)。
+  // それ以外の種類(Office文書・zip等)は、ブラウザがプレビューできず単純にダウンロードになる。
+  function openMailAttachment(threadId, attachmentId, btn) {
+    withSpinner(btn, function () {
+      return gasRun('getMailAttachmentData', threadId, attachmentId).then(function (data) {
+        var url = URL.createObjectURL(base64ToBlob(data.base64, data.contentType));
+        var win = window.open(url, '_blank');
+        if (!win) {
+          // ポップアップブロック等でnullが返る場合は、ダウンロードリンクとしてフォールバックする
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = data.name;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
+        setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+      }).catch(showError);
+    });
+  }
+
+  // ブラウザで直接プレビューできない種類でも、Drive自体のプレビュー機能で内容を確認できるように
+  // マイドライブへ保存する（Gmail純正の「Driveに追加」相当）。
+  function saveMailAttachmentToDriveFromUi(threadId, attachmentId, btn) {
+    withSpinner(btn, function () {
+      return gasRun('saveMailAttachmentToDrive', threadId, attachmentId).then(function (file) {
+        showToast('Driveに保存しました: ' + file.name);
+      }).catch(showError);
+    });
+  }
+
+  function openMailDetail(threadId) {
+    var modal = qs('mail-detail-modal');
+    qs('mail-detail-subject').textContent = '読み込み中...';
+    qs('mail-detail-meta').textContent = '';
+    qs('mail-detail-body').textContent = '';
+    qs('mail-detail-attachments').innerHTML = '';
+    qs('mail-detail-reply-section').hidden = true;
+    qs('mail-detail-reply-body').value = '';
+    modal.hidden = false;
+    state.mailDetailThreadId = threadId;
+
+    gasRun('getMailBody', threadId).then(function (mail) {
+      qs('mail-detail-subject').textContent = mail.subject || '(件名なし)';
+      qs('mail-detail-meta').textContent = mail.from + ' ・ ' + formatDateTime(mail.date);
+      qs('mail-detail-body').textContent = mail.bodyPlain;
+      var attachmentsEl = qs('mail-detail-attachments');
+      attachmentsEl.innerHTML = renderMailAttachmentsHtml(mail.attachments);
+      bindMailAttachmentActions(attachmentsEl, threadId);
+      markMailReadLocally(threadId);
+    }).catch(function (err) {
+      modal.hidden = true;
+      showError(err);
+    });
+  }
+
+  function initMail() {
+    qs('btn-mail-refresh').addEventListener('click', function (e) { withSpinner(e.currentTarget, refreshMailData); });
+    qs('btn-mail-title').addEventListener('click', function () { switchView('mail'); });
+    qs('btn-mail-detail-close').addEventListener('click', function () { qs('mail-detail-modal').hidden = true; });
+
+    qs('btn-mail-detail-reply-toggle').addEventListener('click', function () {
+      var section = qs('mail-detail-reply-section');
+      section.hidden = !section.hidden;
+      if (!section.hidden) qs('mail-detail-reply-body').focus();
+    });
+    qs('btn-mail-detail-reply-send').addEventListener('click', function (e) {
+      var body = qs('mail-detail-reply-body').value;
+      if (!body.trim()) { window.alert('返信内容を入力してください'); return; }
+      withSpinner(e.currentTarget, function () {
+        return gasRun('replyMail', state.mailDetailThreadId, body).then(function () {
+          showToast('返信を送信しました');
+          qs('mail-detail-reply-body').value = '';
+          qs('mail-detail-reply-section').hidden = true;
+        }).catch(showError);
+      });
+    });
+
+    qs('btn-mail-compose').addEventListener('click', function () {
+      qs('mail-compose-to').value = '';
+      qs('mail-compose-subject').value = '';
+      qs('mail-compose-body').value = '';
+      qs('mail-compose-modal').hidden = false;
+    });
+    qs('btn-mail-compose-cancel').addEventListener('click', function () { qs('mail-compose-modal').hidden = true; });
+    qs('btn-mail-compose-send').addEventListener('click', function () {
+      var to = qs('mail-compose-to').value.trim();
+      var subject = qs('mail-compose-subject').value.trim();
+      var body = qs('mail-compose-body').value;
+      if (!to) { window.alert('宛先を入力してください'); return; }
+      gasRun('sendMail', to, subject, body).then(function () {
+        qs('mail-compose-modal').hidden = true;
+        showToast('メールを送信しました');
+      }).catch(showError);
+    });
+  }
+
+  // メール一覧のみを軽量に再取得する（ホーム全体を読み込み直す loadHome() より高速）。
+  // ホーム画面のメールウィジェットは常に受信トレイ固定のため、ここでは常にフォルダ指定なしで取得する。
+  function refreshMailData() {
+    return gasRun('getRecentMails').then(function (mails) {
+      if (!state.home) return Promise.resolve();
+      state.home.mails = mails;
+      renderMailList(mails, state.home.userSettings.mailCount);
+      if (state.currentView !== 'mail') return Promise.resolve();
+      // 検索結果表示中は、ホーム画面のメールウィジェットからの更新であっても検索結果を
+      // 勝手にフォルダ一覧へ差し替えない（検索を条件そのまま再実行する）。
+      return state.mailPage.searchActive ? runMailSearch() : refreshMailPageForCurrentFolder();
+    }).catch(showError);
+  }
+
+  // メールタブで現在選択中のフォルダ(受信トレイ/迷惑メール/ゴミ箱)のメールを取得する。
+  // 受信トレイの場合はホームウィジェットと同じデータ(state.home.mails)をそのまま使い、
+  // 迷惑メール・ゴミ箱の場合のみ専用のサーバー呼び出しを行う。
+  function loadMailPageMails() {
+    if (state.mailPage.folder === 'inbox') {
+      return Promise.resolve(state.home ? state.home.mails : []);
+    }
+    return gasRun('getRecentMails', state.mailPage.folder);
+  }
+
+  function refreshMailPageForCurrentFolder() {
+    return loadMailPageMails().then(function (mails) {
+      state.mailPage.mails = mails;
+      renderMailPageList(mails);
+    }).catch(showError);
+  }
+
+  function initMailFolderSelector() {
+    var select = qs('mail-folder-select');
+    if (!select) return;
+    select.addEventListener('change', function () {
+      state.mailPage.folder = select.value;
+      state.mailPage.selectedThreadId = null;
+      state.mailPage.selectedIds = {};
+      state.mailPage.searchActive = false;
+      qs('mail-search').value = '';
+      qs('mail-page-reader').innerHTML = '<div class="empty-hint">左の一覧からメールを選択してください</div>';
+      withSpinner(select, refreshMailPageForCurrentFolder);
+    });
+  }
+
+  // メールタブの検索欄。件名だけでなく、Gmailの検索構文（差出人・本文キーワード等）がそのまま使える。
+  // 現在選択中のフォルダ(受信トレイ/迷惑メール/ゴミ箱)の範囲内で検索する。
+  function runMailSearch() {
+    var query = qs('mail-search').value.trim();
+    state.mailPage.selectedThreadId = null;
+    state.mailPage.selectedIds = {};
+    qs('mail-page-reader').innerHTML = '<div class="empty-hint">左の一覧からメールを選択してください</div>';
+    if (!query) {
+      state.mailPage.searchActive = false;
+      return refreshMailPageForCurrentFolder();
+    }
+    state.mailPage.searchActive = true;
+    return gasRun('searchMail', query, state.mailPage.folder).then(function (mails) {
+      state.mailPage.mails = mails;
+      renderMailPageList(mails);
+    }).catch(showError);
+  }
+
+  function initMailSearch() {
+    var input = qs('mail-search');
+    if (!input) return;
+    qs('btn-mail-search').addEventListener('click', function () { runMailSearch(); });
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') runMailSearch();
+    });
+  }
+
+  // ===================== メールタブ（2カラム：左に一覧／右に本文） =====================
+  // 複数選択の一括操作(既読化・アーカイブ)はメールタブ専用。ホーム画面のメールウィジェット(コンパクト表示)には持たせない。
+  function renderMailPageList(mails) {
+    var container = qs('mail-page-list');
+    if (!container) return;
+    if (mails.length === 0) {
+      container.innerHTML = '<div class="empty-hint">新着メールはありません</div>';
+      updateMailBulkToolbar();
+      return;
+    }
+    container.innerHTML = mails.map(function (m) {
+      var selected = m.threadId === state.mailPage.selectedThreadId ? ' selected' : '';
+      var checked = state.mailPage.selectedIds[m.threadId] ? ' checked' : '';
+      return '<div class="mail-row' + (m.isUnread ? ' unread' : '') + selected + '" data-thread-id="' + escapeHtml(m.threadId) + '">' +
+        '<input type="checkbox" class="mail-row-check" data-thread-id="' + escapeHtml(m.threadId) + '"' + checked + '>' +
+        '<div class="subject">' + escapeHtml(m.subject || '(件名なし)') + '</div>' +
+        '<div class="date">' + formatDateTime(m.date) + '</div>' +
+        '</div>';
+    }).join('');
+
+    Array.prototype.forEach.call(container.querySelectorAll('.mail-row'), function (row) {
+      row.addEventListener('click', function (e) {
+        if (e.target.closest('.mail-row-check')) return;
+        openMailPageThread(row.getAttribute('data-thread-id'));
+      });
+    });
+    Array.prototype.forEach.call(container.querySelectorAll('.mail-row-check'), function (cb) {
+      cb.addEventListener('click', function (e) { e.stopPropagation(); });
+      cb.addEventListener('change', function () {
+        var id = cb.getAttribute('data-thread-id');
+        if (cb.checked) state.mailPage.selectedIds[id] = true;
+        else delete state.mailPage.selectedIds[id];
+        updateMailBulkToolbar();
+      });
+    });
+    updateMailBulkToolbar();
+  }
+
+  function updateMailBulkToolbar() {
+    var toolbar = qs('mail-bulk-toolbar');
+    if (!toolbar) return;
+    var count = Object.keys(state.mailPage.selectedIds).length;
+    toolbar.hidden = count === 0;
+    qs('mail-bulk-count').textContent = count + '件選択中';
+  }
+
+  function initMailBulkActions() {
+    qs('btn-mail-bulk-read').addEventListener('click', function (e) {
+      var ids = Object.keys(state.mailPage.selectedIds);
+      if (ids.length === 0) return;
+      withSpinner(e.currentTarget, function () {
+        return gasRun('markMailReadBulk', ids).then(function () {
+          state.mailPage.selectedIds = {};
+          showToast('既読にしました');
+          return refreshMailData();
+        }).catch(showError);
+      });
+    });
+    qs('btn-mail-bulk-archive').addEventListener('click', function (e) {
+      var ids = Object.keys(state.mailPage.selectedIds);
+      if (ids.length === 0) return;
+      if (!window.confirm(ids.length + '件のメールをアーカイブしますか？')) return;
+      withSpinner(e.currentTarget, function () {
+        return gasRun('archiveMailBulk', ids).then(function () {
+          state.mailPage.selectedIds = {};
+          showToast('アーカイブしました');
+          return refreshMailData();
+        }).catch(showError);
+      });
+    });
+    qs('btn-mail-bulk-clear').addEventListener('click', function () {
+      state.mailPage.selectedIds = {};
+      renderMailPageList(state.mailPage.mails);
+    });
+  }
+
+  function openMailPageThread(threadId) {
+    state.mailPage.selectedThreadId = threadId;
+    renderMailPageList(state.mailPage.mails);
+
+    var reader = qs('mail-page-reader');
+    reader.innerHTML = '<div class="empty-hint">読み込み中...</div>';
+
+    gasRun('getMailBody', threadId).then(function (mail) {
+      reader.innerHTML =
+        '<div class="subject">' + escapeHtml(mail.subject || '(件名なし)') + '</div>' +
+        '<div class="meta">' + escapeHtml(mail.from) + ' ・ ' + escapeHtml(formatDateTime(mail.date)) + '</div>' +
+        '<div class="body-text">' + escapeHtml(mail.bodyPlain) + '</div>' +
+        renderMailAttachmentsHtml(mail.attachments) +
+        '<div class="mail-reply-toolbar"><button type="button" id="btn-mailpage-reply-toggle">返信</button></div>' +
+        '<div id="mailpage-reply-section" hidden>' +
+        '<textarea id="mailpage-reply-body" rows="4" placeholder="返信内容を入力..."></textarea>' +
+        '<div class="modal-footer"><button type="button" id="btn-mailpage-reply-send" class="primary">返信を送信</button></div>' +
+        '</div>';
+      bindMailAttachmentActions(reader, threadId);
+      markMailReadLocally(threadId);
+      initMailPageReply(threadId);
+    }).catch(function (err) {
+      reader.innerHTML = '<div class="empty-hint">読み込みに失敗しました</div>';
+      showError(err);
+    });
+  }
+
+  function initMailPageReply(threadId) {
+    qs('btn-mailpage-reply-toggle').addEventListener('click', function () {
+      var section = qs('mailpage-reply-section');
+      section.hidden = !section.hidden;
+      if (!section.hidden) qs('mailpage-reply-body').focus();
+    });
+    qs('btn-mailpage-reply-send').addEventListener('click', function (e) {
+      var body = qs('mailpage-reply-body').value;
+      if (!body.trim()) { window.alert('返信内容を入力してください'); return; }
+      withSpinner(e.currentTarget, function () {
+        return gasRun('replyMail', threadId, body).then(function () {
+          showToast('返信を送信しました');
+          qs('mailpage-reply-body').value = '';
+          qs('mailpage-reply-section').hidden = true;
+        }).catch(showError);
+      });
+    });
+  }
+
+  function initMailPage() {
+    initMailSearch();
+    qs('btn-mailpage-refresh').addEventListener('click', function (e) {
+      withSpinner(e.currentTarget, function () {
+        return state.mailPage.searchActive ? runMailSearch() : refreshMailData();
+      });
+    });
+
+    qs('btn-mailpage-compose').addEventListener('click', function () {
+      qs('mailpage-compose-to').value = '';
+      qs('mailpage-compose-subject').value = '';
+      qs('mailpage-compose-body').value = '';
+      qs('mailpage-compose-modal').hidden = false;
+    });
+    qs('btn-mailpage-compose-cancel').addEventListener('click', function () { qs('mailpage-compose-modal').hidden = true; });
+    qs('btn-mailpage-compose-send').addEventListener('click', function () {
+      var to = qs('mailpage-compose-to').value.trim();
+      var subject = qs('mailpage-compose-subject').value.trim();
+      var body = qs('mailpage-compose-body').value;
+      if (!to) { window.alert('宛先を入力してください'); return; }
+      gasRun('sendMail', to, subject, body).then(function () {
+        qs('mailpage-compose-modal').hidden = true;
+        showToast('メールを送信しました');
+      }).catch(showError);
+    });
+  }
+
+  // ===================== メールタブ: 件名一覧／本文の幅をドラッグで調整 =====================
+  var MAIL_LIST_COL_WIDTH_KEY = 'googleHub.mailListColWidth';
+  var MAIL_LIST_COL_MIN_WIDTH = 240;
+  var MAIL_LIST_COL_MAX_WIDTH = 640;
+
+  function applyMailListColWidth(px) {
+    qs('mail-page-list-col').style.flexBasis = px + 'px';
+    qs('mail-page-list-col').style.width = px + 'px';
+  }
+
+  function initMailPageResizer() {
+    var savedWidth = null;
+    try { savedWidth = parseInt(window.localStorage.getItem(MAIL_LIST_COL_WIDTH_KEY), 10); } catch (e) { /* プライベートブラウジング等では無視 */ }
+    if (savedWidth && !isNaN(savedWidth)) {
+      applyMailListColWidth(Math.min(MAIL_LIST_COL_MAX_WIDTH, Math.max(MAIL_LIST_COL_MIN_WIDTH, savedWidth)));
+    }
+
+    var resizer = qs('mail-page-resizer');
+    resizer.addEventListener('mousedown', function (e) {
+      e.preventDefault();
+      var container = qs('mail-page-reader').closest('.mail-page');
+      var containerLeft = container.getBoundingClientRect().left;
+      resizer.classList.add('is-dragging');
+      // ドラッグ中はテキスト選択やメール本文のスクロール操作と競合しないよう、
+      // 一覧・本文それぞれのポインタイベントを一時的に無効化する。
+      document.body.style.userSelect = 'none';
+
+      function onMove(ev) {
+        var maxByContainer = container.getBoundingClientRect().width - MAIL_LIST_COL_MIN_WIDTH;
+        var width = ev.clientX - containerLeft;
+        width = Math.max(MAIL_LIST_COL_MIN_WIDTH, Math.min(MAIL_LIST_COL_MAX_WIDTH, Math.min(maxByContainer, width)));
+        applyMailListColWidth(width);
+      }
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        resizer.classList.remove('is-dragging');
+        document.body.style.userSelect = '';
+        try {
+          var current = parseInt(qs('mail-page-list-col').style.width, 10);
+          if (!isNaN(current)) window.localStorage.setItem(MAIL_LIST_COL_WIDTH_KEY, String(current));
+        } catch (e) { /* 保存できなくても致命的ではないため無視 */ }
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
+  // ===================== ヘッダー: 横断検索 =====================
+  function initSearch() {
+    var input = qs('global-search');
+    var results = qs('search-results');
+    var timer = null;
+
+    input.addEventListener('click', function (e) { e.stopPropagation(); });
+    results.addEventListener('click', function (e) { e.stopPropagation(); });
+    document.addEventListener('click', function () { results.hidden = true; });
+
+    input.addEventListener('input', function () {
+      var query = input.value.trim();
+      clearTimeout(timer);
+      if (!query) { results.hidden = true; return; }
+      timer = setTimeout(function () {
+        gasRun('globalSearch', query).then(function (found) {
+          renderSearchResults(found);
+        }).catch(showError);
+      }, 300);
+    });
+  }
+
+  function renderSearchResults(found) {
+    var results = qs('search-results');
+    var hasAny = found.apps.length > 0 || found.files.length > 0 || found.events.length > 0 ||
+      found.todos.length > 0 || found.mails.length > 0;
+    if (!hasAny) {
+      results.innerHTML = '<div class="dropdown-empty">一致する結果がありません</div>';
+      results.hidden = false;
+      return;
+    }
+    var html = '';
+    if (found.apps.length > 0) {
+      html += '<div class="search-group-label">アプリ</div>';
+      html += found.apps.map(function (app) {
+        return '<div class="search-result-row" data-type="app" data-open="' + escapeHtml(app.url) + '">' +
+          '<div class="r-name">' + escapeHtml(app.name) + '</div>' +
+          '<div class="r-desc">' + escapeHtml(app.url) + '</div></div>';
+      }).join('');
+    }
+    if (found.files.length > 0) {
+      html += '<div class="search-group-label">Drive</div>';
+      html += found.files.map(function (f) {
+        return '<div class="search-result-row" data-type="file" data-open="' + escapeHtml(f.url) + '">' +
+          '<div class="r-name">' + escapeHtml(f.name) + '</div>' +
+          '<div class="r-desc">' + escapeHtml(f.mimeType) + '</div></div>';
+      }).join('');
+    }
+    if (found.events.length > 0) {
+      html += '<div class="search-group-label">予定</div>';
+      html += found.events.map(function (ev) {
+        return '<div class="search-result-row" data-type="event" data-calendar-id="' + escapeHtml(ev.calendarId) + '" data-event-id="' + escapeHtml(ev.id) + '" data-start="' + escapeHtml(ev.start) + '">' +
+          '<div class="r-name">' + escapeHtml(ev.title || '(タイトルなし)') + '</div>' +
+          '<div class="r-desc">' + formatDateTime(ev.start) + '</div></div>';
+      }).join('');
+    }
+    if (found.todos.length > 0) {
+      html += '<div class="search-group-label">ToDo</div>';
+      html += found.todos.map(function (t) {
+        return '<div class="search-result-row" data-type="todo">' +
+          '<div class="r-name">' + escapeHtml(t.text) + '</div>' +
+          '<div class="r-desc">' + (t.done ? '完了済み' : (t.dueDate ? '期限: ' + t.dueDate : '期限なし')) + '</div></div>';
+      }).join('');
+    }
+    if (found.mails.length > 0) {
+      html += '<div class="search-group-label">メール</div>';
+      html += found.mails.map(function (m) {
+        return '<div class="search-result-row" data-type="mail" data-thread-id="' + escapeHtml(m.threadId) + '">' +
+          '<div class="r-name">' + escapeHtml(m.subject || '(件名なし)') + '</div>' +
+          '<div class="r-desc">' + escapeHtml(m.from) + '</div></div>';
+      }).join('');
+    }
+    results.innerHTML = html;
+    results.hidden = false;
+    Array.prototype.forEach.call(results.querySelectorAll('.search-result-row'), function (row) {
+      row.addEventListener('click', function () {
+        var type = row.getAttribute('data-type');
+        results.hidden = true;
+        if (type === 'app' || type === 'file') {
+          window.open(row.getAttribute('data-open'), '_blank');
+        } else if (type === 'event') {
+          openSearchedEvent(row.getAttribute('data-calendar-id'), row.getAttribute('data-event-id'), row.getAttribute('data-start'));
+        } else if (type === 'todo') {
+          switchView('todo');
+        } else if (type === 'mail') {
+          switchView('home');
+          openMailDetail(row.getAttribute('data-thread-id'));
+        }
+      });
+    });
+  }
+
+  // 検索結果の予定は表示中の月とは限らないため、まずその予定が属する月へカレンダー表示を
+  // 切り替えてstate.calendar.eventsに読み込み直してから編集モーダルを開く
+  // （openEventModal()はstate.calendar.eventsからeventIdを探して内容を埋めるため、
+  // その月を読み込まないと予定が見つからず空欄のフォームになってしまう）。
+  function openSearchedEvent(calendarId, eventId, startIso) {
+    switchView('home');
+    var start = new Date(startIso);
+    loadCalendarMonth(start.getFullYear(), start.getMonth()).then(function () {
+      openEventModal(calendarId, eventId);
+    }).catch(showError);
+  }
+
+  // ===================== アプリ台帳（リンク集） =====================
+  function statusLabel(status) {
+    if (status === 'ok') return 'OK';
+    if (status === 'error') return 'エラー';
+    return '未確認';
+  }
+
+  // アプリリンク集タブ上部の件数表示。ホームのコンパクトウィジェットでは要素自体をCSSで隠している。
+  function updateAppLinkCount(shownCount, totalCount) {
+    var el = qs('app-link-count');
+    if (!el) return;
+    el.textContent = shownCount === totalCount
+      ? totalCount + '件のリンクが登録されています'
+      : shownCount + ' / ' + totalCount + '件を表示中';
+  }
+
+  function renderAppList(apps) {
+    var container = qs('app-list');
+    if (apps.length === 0) {
+      container.innerHTML = '<div class="empty-hint">URLを貼り付けて登録してください</div>';
+      updateAppLinkCount(0, 0);
+      return;
+    }
+    // 名前検索(アプリリンク集タブのみで使う機能。ホームのコンパクトウィジェットでは
+    // 検索欄自体を隠しているためstate.appLedger.searchQueryは常に空文字のまま)。
+    var query = state.appLedger.searchQuery.trim().toLowerCase();
+    var filtered = query ? apps.filter(function (app) { return app.name.toLowerCase().indexOf(query) !== -1; }) : apps;
+    updateAppLinkCount(filtered.length, apps.length);
+    if (filtered.length === 0) {
+      container.innerHTML = '<div class="empty-hint">該当するアプリがありません</div>';
+      return;
+    }
+    // 検索で絞り込み中は一覧が全体の一部だけになるため、ここで並び替えると絞り込みで隠れている
+    // 項目の順序を壊してしまう（reorderApps()は渡されたIDリストにない項目を末尾へ寄せるため）。
+    // 検索していない（＝全件表示中）ときだけドラッグ操作を許可する。
+    var reorderable = !query;
+    container.innerHTML = filtered.map(function (app) {
+      return '<div class="link-row" draggable="' + reorderable + '" data-app-id="' + escapeHtml(app.id) + '">' +
+        (reorderable ? '<svg class="icon icon-sm widget-block-drag-handle app-drag-handle" title="ドラッグして並び替え"><use href="#icon-grip"></use></svg>' : '') +
+        '<div class="link-name-wrap">' +
+        '<div class="name"><a href="' + escapeHtml(app.url) + '" target="_blank" rel="noopener" title="' + escapeHtml(app.url) + '">' + escapeHtml(app.name) + '</a> ' +
+        '<span class="status-badge ' + app.status + '">' + statusLabel(app.status) + '</span></div>' +
+        '<div class="name-edit-row" hidden>' +
+        '<input type="text" class="name-edit-input" placeholder="登録名称">' +
+        '<button type="button" class="btn-name-save">保存</button>' +
+        '</div>' +
+        '</div>' +
+        // 名称とボタン列の間にできる余白を活かし、アプリリンク集タブでのみ登録日時・最終確認日時を
+        // 列として表示する（Driveタブの一覧にある.meta列と同じ、固定幅・右寄せの考え方）。
+        '<div class="link-col link-added" title="登録日時">' + escapeHtml(formatDateTime(app.addedAt)) + '</div>' +
+        '<div class="link-col link-checked" title="最終確認日時">' + (app.lastCheckedAt ? escapeHtml(formatDateTime(app.lastCheckedAt)) : '未確認') + '</div>' +
+        '<span>' +
+        '<button type="button" class="icon-only btn-app-recheck" aria-label="今すぐ確認" title="今すぐ確認"><svg class="icon icon-sm"><use href="#icon-refresh"></use></svg></button>' +
+        '<button type="button" class="icon-only btn-app-name-edit" aria-label="名称を変更" title="名称を変更"><svg class="icon icon-sm"><use href="#icon-edit"></use></svg></button>' +
+        '<button type="button" class="icon-only btn-app-delete" aria-label="削除" title="削除"><svg class="icon icon-sm"><use href="#icon-trash"></use></svg></button>' +
+        '</span>' +
+        '</div>';
+    }).join('');
+
+    initAppDragDrop(container, filtered);
+    Array.prototype.forEach.call(container.querySelectorAll('.btn-app-recheck'), function (btn) {
+      btn.addEventListener('click', function (e) {
+        var id = btn.closest('[data-app-id]').getAttribute('data-app-id');
+        withSpinner(e.currentTarget, function () {
+          return gasRun('checkApp', id).then(replaceAppInState).catch(showError);
+        });
+      });
+    });
+    Array.prototype.forEach.call(container.querySelectorAll('.btn-app-delete'), function (btn) {
+      btn.addEventListener('click', function () {
+        if (!window.confirm('このリンクを台帳から削除しますか？')) return;
+        var row = btn.closest('[data-app-id]');
+        var id = row.getAttribute('data-app-id');
+        gasRun('deleteApp', id).then(function () { removeAppFromState(id); }).catch(showError);
+      });
+    });
+    Array.prototype.forEach.call(container.querySelectorAll('.btn-app-name-edit'), function (btn) {
+      btn.addEventListener('click', function () {
+        var row = btn.closest('[data-app-id]');
+        var editRow = row.querySelector('.name-edit-row');
+        var app = apps.filter(function (a) { return a.id === row.getAttribute('data-app-id'); })[0];
+        editRow.querySelector('.name-edit-input').value = app ? app.name : '';
+        editRow.hidden = !editRow.hidden;
+      });
+    });
+    Array.prototype.forEach.call(container.querySelectorAll('.btn-name-save'), function (btn) {
+      btn.addEventListener('click', function () {
+        var row = btn.closest('[data-app-id]');
+        var input = row.querySelector('.name-edit-input');
+        var name = input.value.trim();
+        if (!name) { window.alert('名称を入力してください'); return; }
+        gasRun('updateAppName', row.getAttribute('data-app-id'), name).then(replaceAppInState).catch(showError);
+      });
+    });
+  }
+
+  // ===================== アプリ台帳: サーバー往復を最小限にするローカル状態更新ヘルパー =====================
+  // 名称変更はサーバー側で更新後の1件分(AppLedgerEntry)を返すため、
+  // ホーム全体(Calendar/Gmail/Sheets等)を読み直すloadHome()は不要で、その1件だけを
+  // state.home.appsの中で差し替えて一覧を再描画すれば足りる。
+  function replaceAppInState(updatedApp) {
+    if (!state.home || !updatedApp) return;
+    state.home.apps = state.home.apps.map(function (a) { return a.id === updatedApp.id ? updatedApp : a; });
+    renderAppList(state.home.apps);
+  }
+
+  function removeAppFromState(id) {
+    if (!state.home) return;
+    state.home.apps = state.home.apps.filter(function (a) { return a.id !== id; });
+    renderAppList(state.home.apps);
+  }
+
+  function addAppToState(newApp) {
+    if (!state.home || !newApp) return;
+    state.home.apps = state.home.apps.concat([newApp]);
+    renderAppList(state.home.apps);
+  }
+
+  // ===================== アプリ台帳: 一覧の並び替え（ドラッグ&ドロップ） =====================
+  // カスタムナビ項目の並び替え(initCustomNavDragDrop)と同じ考え方。ホームのコンパクト
+  // ウィジェットではドラッグハンドル自体をCSSで非表示にしている(Assets.html)ため、
+  // 実際に並び替え操作ができるのはアプリリンク集タブのみ。
+  var draggingAppRow = null;
+
+  function appRowInsertionTarget(container, y) {
+    var rows = Array.prototype.slice.call(container.querySelectorAll('.link-row[data-app-id]:not(.is-dragging)'));
+    var result = null;
+    var closestOffset = -Infinity;
+    rows.forEach(function (row) {
+      var box = row.getBoundingClientRect();
+      var offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > closestOffset) {
+        closestOffset = offset;
+        result = row;
+      }
+    });
+    return result;
+  }
+
+  function initAppDragDrop(container, apps) {
+    Array.prototype.forEach.call(container.querySelectorAll('.link-row[data-app-id]'), function (row) {
+      row.addEventListener('dragstart', function (e) {
+        draggingAppRow = row;
+        row.classList.add('is-dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        try { e.dataTransfer.setData('text/plain', row.getAttribute('data-app-id')); } catch (err) { /* Firefox以外は不要 */ }
+      });
+      row.addEventListener('dragend', function () {
+        row.classList.remove('is-dragging');
+        draggingAppRow = null;
+      });
+    });
+
+    container.addEventListener('dragover', function (e) {
+      if (!draggingAppRow) return;
+      e.preventDefault();
+      var after = appRowInsertionTarget(container, e.clientY);
+      if (after) {
+        container.insertBefore(draggingAppRow, after);
+      } else {
+        container.appendChild(draggingAppRow);
+      }
+    });
+
+    container.addEventListener('drop', function (e) {
+      e.preventDefault();
+      if (!draggingAppRow) return;
+      var orderedIds = Array.prototype.map.call(container.querySelectorAll('.link-row[data-app-id]'), function (row) {
+        return row.getAttribute('data-app-id');
+      });
+      gasRun('reorderApps', orderedIds).then(function (reordered) {
+        state.home.apps = reordered;
+        renderAppList(reordered);
+      }).catch(showError);
+    });
+  }
+
+  function initAppLedger() {
+    qs('btn-links-title').addEventListener('click', function () { switchView('links'); });
+    qs('btn-check-all').addEventListener('click', function (e) {
+      withSpinner(e.currentTarget, function () {
+        return gasRun('checkAllApps').then(function (apps) {
+          state.home.apps = apps;
+          renderAppList(apps);
+        }).catch(showError);
+      });
+    });
+
+    qs('btn-app-add-open').addEventListener('click', function () {
+      qs('app-add-url').value = '';
+      qs('app-add-name').value = '';
+      qs('app-add-modal').hidden = false;
+      qs('app-add-url').focus();
+    });
+    qs('btn-app-add-cancel').addEventListener('click', function () { qs('app-add-modal').hidden = true; });
+    qs('btn-app-add-save').addEventListener('click', function () {
+      var url = qs('app-add-url').value.trim();
+      if (!url) { window.alert('URLを入力してください'); return; }
+      var name = qs('app-add-name').value.trim();
+      gasRun('addApp', url, name).then(function (newApp) {
+        qs('app-add-modal').hidden = true;
+        addAppToState(newApp);
+      }).catch(showError);
+    });
+    qs('app-add-url').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') qs('btn-app-add-save').click();
+    });
+    qs('app-add-name').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') qs('btn-app-add-save').click();
+    });
+
+    // 名前検索(アプリリンク集タブのみで使う機能。検索欄自体はホームのコンパクトウィジェットでは
+    // CSSで隠しているため、入力できるのはタブを開いているときだけ)。
+    qs('app-link-search').addEventListener('input', function () {
+      state.appLedger.searchQuery = qs('app-link-search').value;
+      renderAppList(state.home.apps);
+    });
+  }
+
+  // ===================== ToDoリスト =====================
+  var TODO_PRIORITY_LABELS = { low: '低', medium: '中', high: '高' };
+
+  function formatDueDateLabel(dueDate) {
+    var parts = dueDate.split('-').map(function (n) { return parseInt(n, 10); });
+    return parts[1] + '/' + parts[2];
+  }
+
+  function isOverdue(dueDate, done) {
+    if (!dueDate || done) return false;
+    return dueDate < ymd(new Date());
+  }
+
+  // 今日中の件数バッジ（左ナビの「ToDo」タブ）を更新する。メールの未読数バッジと同じ考え方で、
+  // 「期限日が今日以前（期限切れを含む）でまだ完了していない」件数を表示する。
+  function updateTodoBadge(todos) {
+    var navBadge = qs('nav-todo-badge');
+    if (!navBadge) return;
+    var today = ymd(new Date());
+    var dueCount = (todos || []).filter(function (t) { return !t.done && t.dueDate && t.dueDate <= today; }).length;
+    navBadge.textContent = dueCount > 9 ? '9+' : String(dueCount);
+    navBadge.hidden = dueCount === 0;
+  }
+
+  function renderTodoList(todos) {
+    var container = qs('todo-list');
+    if (!container) return;
+    updateTodoBadge(todos);
+    if (!todos || todos.length === 0) {
+      container.innerHTML = '<div class="empty-hint">やることがありません</div>';
+      return;
+    }
+    // 期限日が近い順（未設定は最後）→ 優先度(高いほど先)の順に並び替える
+    var priorityOrder = { high: 0, medium: 1, low: 2 };
+    var sorted = todos.slice().sort(function (a, b) {
+      if (!!a.dueDate !== !!b.dueDate) return a.dueDate ? -1 : 1;
+      if (a.dueDate && a.dueDate !== b.dueDate) return a.dueDate < b.dueDate ? -1 : 1;
+      return priorityOrder[a.priority] - priorityOrder[b.priority];
+    });
+    container.innerHTML = sorted.map(function (t) {
+      var overdue = isOverdue(t.dueDate, t.done);
+      var dueBadge = t.dueDate ? '<span class="todo-due-badge' + (overdue ? ' overdue' : '') + '">' + formatDueDateLabel(t.dueDate) + '</span>' : '';
+      return '<div class="todo-row" data-todo-id="' + escapeHtml(t.id) + '">' +
+        '<div class="todo-main">' +
+        '<input type="checkbox" class="todo-check"' + (t.done ? ' checked' : '') + '>' +
+        '<span class="todo-priority-dot ' + t.priority + '" title="優先度: ' + TODO_PRIORITY_LABELS[t.priority] + '"></span>' +
+        '<span class="todo-text' + (t.done ? ' done' : '') + '">' + escapeHtml(t.text) + '</span>' +
+        '</div>' +
+        dueBadge +
+        '<button type="button" class="icon-only todo-delete" aria-label="削除" title="削除"><svg class="icon icon-sm"><use href="#icon-trash"></use></svg></button>' +
+        '</div>';
+    }).join('');
+
+    Array.prototype.forEach.call(container.querySelectorAll('.todo-check'), function (cb) {
+      cb.addEventListener('change', function () {
+        var id = cb.closest('[data-todo-id]').getAttribute('data-todo-id');
+        gasRun('toggleTodo', id).then(function (todos) {
+          state.home.todos = todos;
+          renderTodoList(todos);
+          return loadCalendarForCurrentMode();
+        }).catch(showError);
+      });
+    });
+    Array.prototype.forEach.call(container.querySelectorAll('.todo-delete'), function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.closest('[data-todo-id]').getAttribute('data-todo-id');
+        gasRun('deleteTodo', id).then(function (todos) {
+          state.home.todos = todos;
+          renderTodoList(todos);
+          return loadCalendarForCurrentMode();
+        }).catch(showError);
+      });
+    });
+  }
+
+  function addTodoAndRefresh(text, dueDate, priority) {
+    return gasRun('addTodo', text, dueDate, priority).then(function (todos) {
+      state.home.todos = todos;
+      renderTodoList(todos);
+      return loadCalendarForCurrentMode();
+    });
+  }
+
+  // 期限日(YYYY-MM-DD)2つの差を日数で返す（純粋関数。b - a）
+  function daysBetweenYmd(a, b) {
+    var da = new Date(a + 'T00:00:00');
+    var db = new Date(b + 'T00:00:00');
+    return Math.round((db.getTime() - da.getTime()) / 86400000);
+  }
+
+  // 期限日から優先度を自動判定する（純粋関数）。手動選択の代わりに、
+  // 「今日・明日・明後日まで＝高」「1週間以内＝中」「それ以降＝低」の3段階に振り分ける。
+  // 期限切れ(過去の日付)も残り日数が0以下になるため自動的に「高」に含まれる。
+  // 期限日が未設定の場合はクイック追加と同じ既定値「中」にする。
+  function priorityFromDueDate(dueDate) {
+    if (!dueDate) return 'medium';
+    var diff = daysBetweenYmd(ymd(new Date()), dueDate);
+    if (diff <= 2) return 'high';
+    if (diff <= 7) return 'medium';
+    return 'low';
+  }
+
+  function updateTodoPriorityPreview() {
+    var dueDate = qs('todo-modal-due').value || null;
+    var priority = priorityFromDueDate(dueDate);
+    var reason = !dueDate ? '（期限日未設定のため既定値）' : priority === 'high' ? '（期限まで残りわずか）' : priority === 'medium' ? '（1週間以内）' : '（期限に余裕あり）';
+    qs('todo-modal-priority-preview').innerHTML =
+      '<span class="todo-priority-dot ' + priority + '"></span>優先度: ' + TODO_PRIORITY_LABELS[priority] + reason;
+  }
+
+  function initTodo() {
+    qs('btn-todo-title').addEventListener('click', function () { switchView('todo'); });
+
+    // クイック追加: 期限日なし・優先度「中」で即座に追加する（Enterキー1つで完結する速さを優先）。
+    qs('btn-todo-add').addEventListener('click', function () {
+      var input = qs('todo-input');
+      var text = input.value.trim();
+      if (!text) { window.alert('内容を入力してください'); return; }
+      addTodoAndRefresh(text, null, 'medium').then(function () {
+        input.value = '';
+      }).catch(showError);
+    });
+    qs('todo-input').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') qs('btn-todo-add').click();
+    });
+
+    // 期限日を指定して追加: ポップアップ側で入力する。以前はツールバー直下に隠しておいた
+    // 入力欄を展開する方式だったが、ホームのコンパクトウィジェットではカードの高さが小さく、
+    // 展開すると入力欄自体がカードの外側(overflow:hiddenでクリップされる領域)へはみ出して
+    // 操作できなくなってしまっていたため、カードの大きさに左右されないポップアップに変更した。
+    // 優先度は手動選択をやめ、期限日から自動的に決まる（priorityFromDueDate()）。
+    qs('btn-todo-detail-open').addEventListener('click', function () {
+      qs('todo-modal-text').value = qs('todo-input').value.trim();
+      qs('todo-modal-due').value = '';
+      updateTodoPriorityPreview();
+      qs('todo-add-modal').hidden = false;
+      qs('todo-modal-text').focus();
+    });
+    qs('todo-modal-due').addEventListener('change', updateTodoPriorityPreview);
+    qs('btn-todo-modal-cancel').addEventListener('click', function () { qs('todo-add-modal').hidden = true; });
+    qs('btn-todo-modal-save').addEventListener('click', function () {
+      var text = qs('todo-modal-text').value.trim();
+      if (!text) { window.alert('内容を入力してください'); return; }
+      var dueDate = qs('todo-modal-due').value || null;
+      var priority = priorityFromDueDate(dueDate);
+      addTodoAndRefresh(text, dueDate, priority).then(function () {
+        qs('todo-add-modal').hidden = true;
+        qs('todo-input').value = '';
+      }).catch(showError);
+    });
+    qs('todo-modal-text').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') qs('btn-todo-modal-save').click();
+    });
+
+    qs('btn-todo-clear-done').addEventListener('click', function (e) {
+      withSpinner(e.currentTarget, function () {
+        return gasRun('clearDoneTodos').then(function (todos) {
+          state.home.todos = todos;
+          renderTodoList(todos);
+          return loadCalendarForCurrentMode();
+        }).catch(showError);
+      });
+    });
+  }
+
+  // ===================== Drive =====================
+  // ファイルの種類を分類する。フィルタのUI(#drive-type-filter)の選択肢と対応させる。
+  function classifyMimeType(mimeType) {
+    if (!mimeType) return 'other';
+    if (mimeType === 'application/vnd.google-apps.folder') return 'folder';
+    if (mimeType === 'application/vnd.google-apps.document' || mimeType === 'application/msword' ||
+      mimeType.indexOf('wordprocessingml') !== -1 || mimeType === 'text/plain') return 'document';
+    if (mimeType === 'application/vnd.google-apps.spreadsheet' || mimeType === 'application/vnd.ms-excel' ||
+      mimeType.indexOf('spreadsheetml') !== -1 || mimeType === 'text/csv') return 'spreadsheet';
+    if (mimeType === 'application/vnd.google-apps.presentation' || mimeType === 'application/vnd.ms-powerpoint' ||
+      mimeType.indexOf('presentationml') !== -1) return 'presentation';
+    if (mimeType.indexOf('image/') === 0) return 'image';
+    if (mimeType === 'application/pdf') return 'pdf';
+    return 'other';
+  }
+
+  function driveTypeMatches(item, filter) {
+    if (filter === 'all') return true;
+    if (item.isFolder) return filter === 'folder';
+    return classifyMimeType(item.mimeType) === filter;
+  }
+
+  function isPinnedFolder(id) {
+    var pinned = (state.home && state.home.userSettings.pinnedFolders) || [];
+    return pinned.some(function (f) { return f.id === id; });
+  }
+
+  // ピン留めの追加/解除。設定は自動保存され、Driveタブ上部のチップ・行/カードのピンアイコンを再描画する。
+  function togglePinFolder(id, name, pin) {
+    if (!state.home) return Promise.resolve();
+    var current = state.home.userSettings.pinnedFolders || [];
+    var next = pin
+      ? (current.some(function (f) { return f.id === id; }) ? current : current.concat([{ id: id, name: name }]))
+      : current.filter(function (f) { return f.id !== id; });
+    return gasRun('saveUserSettings', { pinnedFolders: next }).then(function (settings) {
+      state.home.userSettings.pinnedFolders = settings.pinnedFolders;
+      renderPinnedFolders(settings.pinnedFolders);
+      renderDriveList(state.drive.items);
+    }).catch(showError);
+  }
+
+  function renderPinnedFolders(pinnedFolders) {
+    var container = qs('pinned-folder-chips');
+    if (!container) return;
+    pinnedFolders = pinnedFolders || [];
+    if (pinnedFolders.length === 0) {
+      container.innerHTML = '';
+      return;
+    }
+    container.innerHTML = pinnedFolders.map(function (f) {
+      return '<span class="pinned-folder-chip" data-folder-id="' + escapeHtml(f.id) + '">' +
+        '<svg class="icon icon-sm"><use href="#icon-pin"></use></svg>' + escapeHtml(f.name) +
+        '<button type="button" class="btn-unpin" data-folder-id="' + escapeHtml(f.id) + '" aria-label="ピン留め解除" title="ピン留め解除">×</button>' +
+        '</span>';
+    }).join('');
+
+    Array.prototype.forEach.call(container.querySelectorAll('.pinned-folder-chip'), function (chip) {
+      chip.addEventListener('click', function (e) {
+        if (e.target.closest('.btn-unpin')) return;
+        // ピン留めは階層を辿らない直接ジャンプのため、パンくずはジャンプ先1件だけにリセットする
+        // （祖先フォルダの情報をサーバーから取得していないため、経路全体は復元できない）。
+        var id = chip.getAttribute('data-folder-id');
+        var pinned = (state.home && state.home.userSettings.pinnedFolders || []).filter(function (f) { return f.id === id; })[0];
+        jumpToDriveFolder(id, pinned ? pinned.name : '');
+      });
+    });
+    Array.prototype.forEach.call(container.querySelectorAll('.btn-unpin'), function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        togglePinFolder(btn.getAttribute('data-folder-id'), '', false);
+      });
+    });
+  }
+
+  // サムネイル画像。読み込みに失敗した場合(全ファイルで生成されるとは限らないため)は
+  // 種類アイコン(iconUrl)にフォールバックする。
+  function driveThumbHtml(item, sizeClass) {
+    var primary = item.isFolder ? item.iconUrl : (item.thumbnailUrl || item.iconUrl);
+    return '<img class="' + sizeClass + '" src="' + escapeHtml(primary) + '" data-fallback="' + escapeHtml(item.iconUrl) + '" alt="">';
+  }
+
+  function bindThumbFallback(container) {
+    Array.prototype.forEach.call(container.querySelectorAll('img[data-fallback]'), function (img) {
+      img.addEventListener('error', function onErr() {
+        var fallback = img.getAttribute('data-fallback');
+        if (img.src.indexOf(fallback) === -1) img.src = fallback;
+        img.removeEventListener('error', onErr);
+      });
+    });
+  }
+
+  function drivePinButtonHtml(item) {
+    if (!item.isFolder) return '';
+    return '<button type="button" class="icon-only btn-drive-pin' + (isPinnedFolder(item.id) ? ' is-pinned' : '') + '" aria-label="ピン留め" title="ピン留め">' +
+      '<svg class="icon icon-sm"><use href="#icon-pin"></use></svg></button>';
+  }
+
+  // iconOnly=true: グリッド(カード)表示用。4つのボタンを1行に収めるため、アイコンのみの丸ボタンにする
+  function driveActionButtonsHtml(item, iconOnly) {
+    function btn(cls, label, icon) {
+      if (iconOnly) {
+        return '<button type="button" class="icon-only ' + cls + '" aria-label="' + label + '" title="' + label + '">' +
+          '<svg class="icon icon-sm"><use href="#' + icon + '"></use></svg></button>';
+      }
+      return '<button type="button" class="' + cls + '">' + label + '</button>';
+    }
+    var primary = item.isFolder ? btn('btn-drive-open', '開く', 'icon-folder') : btn('btn-drive-preview', 'プレビュー', 'icon-eye');
+    return primary + btn('btn-drive-rename', '名称変更', 'icon-edit') + btn('btn-drive-share', '共有', 'icon-share') + btn('btn-drive-move', '移動', 'icon-move');
+  }
+
+  // 複数選択(一括操作)用のチェックボックス。メールタブのチェック方式(.mail-row-check)と同じ考え方で、
+  // 選択状態はstate.drive.selectedIdsに { fileId: true } の形で持つ。
+  function driveCheckboxHtml(item) {
+    var checked = state.drive.selectedIds[item.id] ? ' checked' : '';
+    return '<input type="checkbox" class="drive-row-check" data-file-id="' + escapeHtml(item.id) + '"' + checked + '>';
+  }
+
+  function driveListRowHtml(item) {
+    var sizeLabel = item.isFolder ? '' : formatBytes(item.sizeBytes);
+    var nameHtml = item.isFolder
+      ? escapeHtml(item.name)
+      : '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener">' + escapeHtml(item.name) + '</a>';
+    return '<div class="drive-row" data-file-id="' + escapeHtml(item.id) + '" data-is-folder="' + item.isFolder + '">' +
+      driveCheckboxHtml(item) +
+      driveThumbHtml(item, 'thumb') +
+      '<div class="name">' + nameHtml + '</div>' +
+      '<div class="meta">' + sizeLabel + '</div>' +
+      '<span>' + drivePinButtonHtml(item) + driveActionButtonsHtml(item, false) + '</span></div>';
+  }
+
+  function driveGridItemHtml(item) {
+    var sizeLabel = item.isFolder ? '' : formatBytes(item.sizeBytes);
+    var nameHtml = item.isFolder
+      ? escapeHtml(item.name)
+      : '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener">' + escapeHtml(item.name) + '</a>';
+    return '<div class="drive-grid-item" data-file-id="' + escapeHtml(item.id) + '" data-is-folder="' + item.isFolder + '">' +
+      driveCheckboxHtml(item) +
+      drivePinButtonHtml(item) +
+      driveThumbHtml(item, 'thumb') +
+      '<div class="name">' + nameHtml + '</div>' +
+      '<div class="meta">' + sizeLabel + '</div>' +
+      '<div class="grid-actions">' + driveActionButtonsHtml(item, true) + '</div></div>';
+  }
+
+  // カード/行のクリック、および「プレビュー」ボタンの両方から呼ばれる共通処理
+  function openDrivePreview(fileId) {
+    gasRun('getDrivePreviewUrl', fileId).then(function (url) {
+      qs('drive-preview-frame').src = url;
+      qs('drive-preview-modal').hidden = false;
+    }).catch(showError);
+  }
+
+  function formatBytes(bytes) {
+    if (!bytes) return '';
+    var units = ['B', 'KB', 'MB', 'GB'];
+    var value = bytes;
+    var unitIndex = 0;
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value = value / 1024;
+      unitIndex++;
+    }
+    return value.toFixed(unitIndex === 0 ? 0 : 1) + units[unitIndex];
+  }
+
+  function renderDriveList(items) {
+    var container = qs('drive-list');
+    var filtered = items.filter(function (item) { return driveTypeMatches(item, state.drive.typeFilter); });
+    container.classList.toggle('drive-grid', state.drive.viewMode === 'grid');
+    if (filtered.length === 0) {
+      container.innerHTML = '<div class="empty-hint">' + (items.length === 0 ? 'ファイルがありません' : '該当する種類のファイルがありません') + '</div>';
+      updateDriveBulkToolbar();
+      return;
+    }
+    container.innerHTML = filtered.map(state.drive.viewMode === 'grid' ? driveGridItemHtml : driveListRowHtml).join('');
+    bindThumbFallback(container);
+
+    Array.prototype.forEach.call(container.querySelectorAll('.drive-row-check'), function (cb) {
+      cb.addEventListener('click', function (e) { e.stopPropagation(); });
+      cb.addEventListener('change', function () {
+        var id = cb.getAttribute('data-file-id');
+        if (cb.checked) state.drive.selectedIds[id] = true;
+        else delete state.drive.selectedIds[id];
+        updateDriveBulkToolbar();
+      });
+    });
+    updateDriveBulkToolbar();
+
+    Array.prototype.forEach.call(container.querySelectorAll('.btn-drive-pin'), function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var row = btn.closest('[data-file-id]');
+        var id = row.getAttribute('data-file-id');
+        var item = state.drive.items.filter(function (i) { return i.id === id; })[0];
+        if (!item) return;
+        togglePinFolder(id, item.name, !isPinnedFolder(id));
+      });
+    });
+
+    Array.prototype.forEach.call(container.querySelectorAll('.btn-drive-open'), function (btn) {
+      btn.addEventListener('click', function () {
+        var row = btn.closest('[data-file-id]');
+        var id = row.getAttribute('data-file-id');
+        var item = state.drive.items.filter(function (i) { return i.id === id; })[0];
+        var name = item ? item.name : '';
+        if (state.drive.searchActive) { jumpToDriveFolder(id, name); } else { openDriveFolder(id, name); }
+      });
+    });
+    Array.prototype.forEach.call(container.querySelectorAll('.btn-drive-preview'), function (btn) {
+      btn.addEventListener('click', function () {
+        var row = btn.closest('[data-file-id]');
+        openDrivePreview(row.getAttribute('data-file-id'));
+      });
+    });
+
+    // カード/行のどこをクリックしても既定の操作(ファイルはプレビュー、フォルダは開く)が起きるようにする。
+    // ボタンやファイル名リンクのクリックはそれぞれ専用のハンドラに任せるため、ここでは何もしない。
+    Array.prototype.forEach.call(container.querySelectorAll('.drive-row, .drive-grid-item'), function (row) {
+      row.addEventListener('click', function (e) {
+        if (e.target.closest('a, button, input')) return;
+        var fileId = row.getAttribute('data-file-id');
+        if (row.getAttribute('data-is-folder') === 'true') {
+          var item = state.drive.items.filter(function (i) { return i.id === fileId; })[0];
+          var name = item ? item.name : '';
+          if (state.drive.searchActive) { jumpToDriveFolder(fileId, name); } else { openDriveFolder(fileId, name); }
+        } else {
+          openDrivePreview(fileId);
+        }
+      });
+    });
+    Array.prototype.forEach.call(container.querySelectorAll('.btn-drive-rename'), function (btn) {
+      btn.addEventListener('click', function () {
+        var row = btn.closest('[data-file-id]');
+        var item = state.drive.items.filter(function (i) { return i.id === row.getAttribute('data-file-id'); })[0];
+        qs('drive-rename-file-id').value = row.getAttribute('data-file-id');
+        qs('drive-rename-is-folder').value = row.getAttribute('data-is-folder');
+        qs('drive-rename-name').value = item ? item.name : '';
+        qs('drive-rename-modal').hidden = false;
+      });
+    });
+    Array.prototype.forEach.call(container.querySelectorAll('.btn-drive-share'), function (btn) {
+      btn.addEventListener('click', function () {
+        var row = btn.closest('[data-file-id]');
+        driveBulkModalActive = false;
+        qs('drive-share-file-id').value = row.getAttribute('data-file-id');
+        qs('drive-share-modal').hidden = false;
+      });
+    });
+    Array.prototype.forEach.call(container.querySelectorAll('.btn-drive-move'), function (btn) {
+      btn.addEventListener('click', function () {
+        var row = btn.closest('[data-file-id]');
+        driveBulkModalActive = false;
+        qs('drive-move-file-id').value = row.getAttribute('data-file-id');
+        qs('drive-move-dest').value = '';
+        qs('drive-move-modal').hidden = false;
+      });
+    });
+  }
+
+  // ===================== Drive: 複数選択(チェックボックス)からの一括操作 =====================
+  // メールタブの一括操作(state.mailPage.selectedIds / #mail-bulk-toolbar)と同じ考え方。
+  // 移動・共有設定変更は既存の単一操作用モーダル(#drive-move-modal/#drive-share-modal)を
+  // そのまま再利用し、このフラグでモーダルの保存ボタンの挙動(単一/一括)を切り替える。
+  var driveBulkModalActive = false;
+
+  function updateDriveBulkToolbar() {
+    var toolbar = qs('drive-bulk-toolbar');
+    if (!toolbar) return;
+    var count = Object.keys(state.drive.selectedIds).length;
+    toolbar.hidden = count === 0;
+    qs('drive-bulk-count').textContent = count + '件選択中';
+  }
+
+  function initDriveBulkActions() {
+    qs('btn-drive-bulk-move').addEventListener('click', function () {
+      if (Object.keys(state.drive.selectedIds).length === 0) return;
+      driveBulkModalActive = true;
+      qs('drive-move-dest').value = '';
+      qs('drive-move-modal').hidden = false;
+    });
+    qs('btn-drive-bulk-share').addEventListener('click', function () {
+      if (Object.keys(state.drive.selectedIds).length === 0) return;
+      driveBulkModalActive = true;
+      qs('drive-share-modal').hidden = false;
+    });
+    qs('btn-drive-bulk-delete').addEventListener('click', function (e) {
+      var ids = Object.keys(state.drive.selectedIds);
+      if (ids.length === 0) return;
+      if (!window.confirm(ids.length + '件をゴミ箱に移動しますか？')) return;
+      withSpinner(e.currentTarget, function () {
+        return gasRun('bulkTrashDriveFiles', ids).then(function (result) {
+          state.drive.selectedIds = {};
+          showToast('ゴミ箱に移動しました' + (result.failedCount > 0 ? '（' + result.failedCount + '件失敗）' : ''));
+          return refreshDriveView();
+        }).catch(showError);
+      });
+    });
+    qs('btn-drive-bulk-clear').addEventListener('click', function () {
+      state.drive.selectedIds = {};
+      renderDriveList(state.drive.items);
+    });
+  }
+
+  // ===================== Drive: 新規フォルダ/ドキュメント/スプレッドシート/スライド作成 =====================
+  var DRIVE_CREATE_LABELS = { folder: 'フォルダ', document: 'Googleドキュメント', spreadsheet: 'Googleスプレッドシート', presentation: 'Googleスライド' };
+
+  function initDriveCreate() {
+    var dropdown = qs('drive-new-dropdown');
+    var menu = qs('drive-new-menu');
+    qs('btn-drive-new').addEventListener('click', function (e) {
+      e.stopPropagation();
+      menu.hidden = !menu.hidden;
+    });
+    // メニューの外側をクリックしたら閉じる
+    document.addEventListener('click', function (e) {
+      if (!dropdown.contains(e.target)) menu.hidden = true;
+    });
+    Array.prototype.forEach.call(menu.querySelectorAll('button[data-kind]'), function (btn) {
+      btn.addEventListener('click', function () {
+        menu.hidden = true;
+        var kind = btn.getAttribute('data-kind');
+        qs('drive-create-kind').value = kind;
+        qs('drive-create-title').textContent = '新規' + DRIVE_CREATE_LABELS[kind];
+        qs('drive-create-name').value = kind === 'folder' ? '' : ('無題の' + DRIVE_CREATE_LABELS[kind].replace('Google', ''));
+        qs('drive-create-modal').hidden = false;
+      });
+    });
+    qs('btn-drive-create-cancel').addEventListener('click', function () { qs('drive-create-modal').hidden = true; });
+    qs('btn-drive-create-save').addEventListener('click', function () {
+      var kind = qs('drive-create-kind').value;
+      var name = qs('drive-create-name').value.trim();
+      if (!name) { window.alert('名前を入力してください'); return; }
+      gasRun('createDriveEntry', state.drive.currentFolderId, state.drive.driveId, name, kind).then(function (item) {
+        qs('drive-create-modal').hidden = true;
+        showToast('作成しました');
+        // ドキュメント/スプレッドシート/スライドは作成直後に新しいタブで開く(Google Drive本体と同じ挙動)。
+        // フォルダは開く対象がないため一覧の更新のみ。
+        if (!item.isFolder) window.open(item.url, '_blank', 'noopener');
+        return loadDriveFolder(state.drive.currentFolderId);
+      }).catch(showError);
+    });
+  }
+
+  function loadDriveFolder(folderId) {
+    state.drive.currentFolderId = folderId;
+    state.drive.searchActive = false;
+    renderDriveBreadcrumb();
+    return gasRun('listDriveFiles', folderId, state.drive.driveId, state.drive.sortKey, state.drive.ascending).then(function (items) {
+      state.drive.items = items;
+      renderDriveList(items);
+    }).catch(showError);
+  }
+
+  function runDriveSearch() {
+    var query = qs('drive-search').value.trim();
+    if (!query) { return loadDriveFolder(state.drive.currentFolderId); }
+    return gasRun('searchDriveFiles', query, state.drive.driveId).then(function (items) {
+      // 検索結果は現在の階層と無関係な場所から集まるため、結果からフォルダを開いた場合は
+      // パンくずを経路の続きとして積まず、そのフォルダ単体へのジャンプとして扱う。
+      // パンくず自体も、直前にいた場所を誤解させないよう検索中は非表示にする。
+      state.drive.searchActive = true;
+      state.drive.items = items;
+      renderDriveList(items);
+      renderDriveBreadcrumb();
+    }).catch(showError);
+  }
+
+  // 更新ボタン・並び替え(種類/日時・昇順降順)は、検索結果表示中はその検索を条件そのままで
+  // 再実行する（以前はここで常にloadDriveFolder()を呼んでいたため、検索中に更新や並び替えを
+  // 触ると検索結果が何の予告もなくフォルダ一覧に置き換わってしまっていた）。
+  // ただしsearchDriveFiles()自体は関連度順に固定でsort/order引数を受け付けないため、
+  // 検索結果表示中は並び替えの見た目上の変化はない（検索モードが途切れないことだけを保証する）。
+  function refreshDriveView() {
+    if (state.drive.searchActive) {
+      return runDriveSearch();
+    }
+    return loadDriveFolder(state.drive.currentFolderId);
+  }
+
+  // ===================== Drive: パンくずリスト（フォルダ階層のナビゲーション） =====================
+  // フォルダを開く（一覧上のフォルダをクリック/「開く」ボタン）たびに経路へ積んでいく。
+  function openDriveFolder(folderId, folderName) {
+    state.drive.folderPath = state.drive.folderPath.concat([{ id: folderId, name: folderName || '' }]);
+    return loadDriveFolder(folderId);
+  }
+
+  // ピン留めフォルダへのジャンプ・検索結果からのフォルダオープンなど、現在の経路と無関係な
+  // 場所へ移動する場合に使う。経路をジャンプ先1件だけにリセットする。
+  function jumpToDriveFolder(folderId, folderName) {
+    state.drive.folderPath = [{ id: folderId, name: folderName || '' }];
+    return loadDriveFolder(folderId);
+  }
+
+  // 「上の階層へ」は、以前は常にマイドライブ直下(ルート)へ戻っていたが、実際に辿ってきた
+  // 経路から1階層だけ戻る（Google Driveの「戻る」相当の挙動）ようにしたもの。
+  function goDriveUp() {
+    state.drive.folderPath = state.drive.folderPath.slice(0, -1);
+    var parent = state.drive.folderPath[state.drive.folderPath.length - 1];
+    return loadDriveFolder(parent ? parent.id : null);
+  }
+
+  function goToDriveBreadcrumb(index) {
+    if (index < 0) {
+      state.drive.folderPath = [];
+      return loadDriveFolder(null);
+    }
+    state.drive.folderPath = state.drive.folderPath.slice(0, index + 1);
+    return loadDriveFolder(state.drive.folderPath[index].id);
+  }
+
+  function renderDriveBreadcrumb() {
+    var container = qs('drive-breadcrumb');
+    if (!container) return;
+    // 検索結果表示中は、一覧が現在の階層と無関係な場所から集まってくるため、
+    // 直前にいたフォルダの経路をそのまま表示すると現在地を誤解させる。検索中は非表示にする。
+    // 経路が空(マイドライブ直下)のときも同様にパンくず自体を表示しない。
+    if (state.drive.searchActive || state.drive.folderPath.length === 0) {
+      container.innerHTML = '';
+      return;
+    }
+    var crumbs = [{ id: null, name: state.drive.driveName }].concat(state.drive.folderPath);
+    container.innerHTML = crumbs.map(function (crumb, i) {
+      var isCurrent = i === crumbs.length - 1;
+      var label = escapeHtml(crumb.name || '(名称不明)');
+      var sep = isCurrent ? '' : '<span class="drive-breadcrumb-sep">/</span>';
+      return '<button type="button" class="drive-breadcrumb-item' + (isCurrent ? ' is-current' : '') + '" data-index="' + (i - 1) + '"' + (isCurrent ? ' disabled' : '') + '>' + label + '</button>' + sep;
+    }).join('');
+    Array.prototype.forEach.call(container.querySelectorAll('.drive-breadcrumb-item:not(.is-current)'), function (btn) {
+      btn.addEventListener('click', function () { goToDriveBreadcrumb(parseInt(btn.getAttribute('data-index'), 10)); });
+    });
+  }
+
+  // ===================== Drive: マイドライブ/共有ドライブの切替 =====================
+  // 切替先のルートへ移動するため、経路(folderPath)・検索状態をリセットしてから読み込み直す。
+  function switchDrive(driveId, driveName) {
+    state.drive.driveId = driveId;
+    state.drive.driveName = driveName;
+    state.drive.folderPath = [];
+    state.drive.searchActive = false;
+    qs('drive-search').value = '';
+    return loadDriveFolder(null);
+  }
+
+  function initDriveSelector() {
+    var select = qs('drive-selector');
+    if (!select) return;
+    return gasRun('listSharedDrives').then(function (drives) {
+      state.drive.sharedDrives = drives || [];
+      var options = ['<option value="">マイドライブ</option>'].concat(
+        state.drive.sharedDrives.map(function (d) {
+          return '<option value="' + escapeHtml(d.id) + '">' + escapeHtml(d.name) + '</option>';
+        })
+      );
+      select.innerHTML = options.join('');
+      select.addEventListener('change', function () {
+        var driveId = select.value;
+        var driveName = driveId === '' ? 'マイドライブ' :
+          (state.drive.sharedDrives.filter(function (d) { return d.id === driveId; })[0] || {}).name || driveId;
+        switchDrive(driveId, driveName);
+      });
+    }).catch(showError);
+  }
+
+  // ===================== Drive表示形式(リスト/グリッド)の切替 =====================
+  function applyDriveViewModeButtons() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-drive-view]'), function (btn) {
+      btn.classList.toggle('active', btn.getAttribute('data-drive-view') === state.drive.viewMode);
+    });
+  }
+
+  function initDriveViewMode() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-drive-view]'), function (btn) {
+      btn.addEventListener('click', function () {
+        var mode = btn.getAttribute('data-drive-view');
+        if (state.drive.viewMode === mode) return;
+        state.drive.viewMode = mode;
+        applyDriveViewModeButtons();
+        renderDriveList(state.drive.items);
+        gasRun('saveUserSettings', { driveViewMode: mode }).then(function () {
+          if (state.home) state.home.userSettings.driveViewMode = mode;
+        }).catch(showError);
+      });
+    });
+  }
+
+  function initDriveTypeFilter() {
+    qs('drive-type-filter').addEventListener('change', function () {
+      state.drive.typeFilter = qs('drive-type-filter').value;
+      renderDriveList(state.drive.items);
+    });
+  }
+
+  // ===================== Drive: ドラッグ&ドロップ／ファイル選択によるアップロード =====================
+  // FileをGAS側に渡せる形式(base64文字列)に変換する。data:URLの先頭"data:<mime>;base64,"部分は
+  // uploadDriveFile()側では不要なため、カンマ以降だけを取り出す。
+  function readFileAsBase64(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        var result = String(reader.result || '');
+        var commaIndex = result.indexOf(',');
+        resolve(commaIndex === -1 ? result : result.slice(commaIndex + 1));
+      };
+      reader.onerror = function () { reject(reader.error || new Error('ファイルの読み込みに失敗しました')); };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // 複数ファイルは並列に投げるとgoogle.script.runの同時実行数やDriveのレート制限に当たりやすいため、
+  // 1件ずつ順番にアップロードする。1件の失敗が他のファイルの処理を止めないよう、失敗はcatchで
+  // 個別に握りつぶして件数だけ記録し、最後にまとめて結果をトーストで表示する。
+  // destinationFolderIdはアップロード先モーダル(#drive-upload-modal)で選択された値で、
+  // 未指定/空文字は現在選択中のドライブのルートを意味する。
+  function uploadDriveFiles(fileList, destinationFolderId) {
+    var files = Array.prototype.slice.call(fileList || []);
+    if (files.length === 0) return Promise.resolve();
+    var folderId = destinationFolderId || null;
+    var driveId = state.drive.driveId;
+    var successCount = 0;
+    var failCount = 0;
+
+    var failedNames = [];
+    var chain = files.reduce(function (promise, file) {
+      return promise.then(function () {
+        return readFileAsBase64(file)
+          .then(function (base64) {
+            return gasRun('uploadDriveFile', folderId, driveId, file.name, file.type || 'application/octet-stream', base64);
+          })
+          .then(function () { successCount++; })
+          .catch(function (err) {
+            // window.alert(showError)を1件ごとに出すとダイアログが連続してブロックしてしまうため、
+            // ここでは個別には通知せず件数だけ記録し、全件処理後にまとめて1回だけ知らせる。
+            failCount++;
+            failedNames.push(file.name);
+            console.error('アップロードに失敗しました: ' + file.name, err);
+          });
+      });
+    }, Promise.resolve());
+
+    return chain.then(function () {
+      if (successCount > 0) {
+        showToast(successCount + '件アップロードしました' + (failCount > 0 ? '（' + failCount + '件失敗）' : ''));
+      }
+      if (failCount > 0) {
+        window.alert(failCount + '件のアップロードに失敗しました:\n' + failedNames.join('\n'));
+      }
+      return loadDriveFolder(state.drive.currentFolderId);
+    });
+  }
+
+  // アップロード先フォルダを選ぶモーダル。ボタンからのファイル選択・ドラッグ&ドロップの
+  // どちらも、実際のアップロード開始前にここを経由させることで、常に同じ手順で行き先を
+  // 確認・変更できるようにしている（既定値は現在開いているフォルダなので、何も変更しなければ
+  // 従来通りの「今見ているフォルダにアップロードする」動作のまま）。
+  var pendingUploadFiles = [];
+
+  function openDriveUploadModal(fileList) {
+    var files = Array.prototype.slice.call(fileList || []);
+    if (files.length === 0) return;
+    pendingUploadFiles = files;
+    qs('drive-upload-dest').value = state.drive.currentFolderId || '';
+    qs('drive-upload-count').textContent = files.length + '件のファイルをアップロードします';
+    qs('drive-upload-modal').hidden = false;
+  }
+
+  function initDriveUpload() {
+    var dropzone = qs('drive-list');
+    var fileInput = qs('drive-upload-input');
+    var dragCounter = 0;
+
+    qs('btn-drive-upload').addEventListener('click', function () { fileInput.click(); });
+    fileInput.addEventListener('change', function () {
+      openDriveUploadModal(fileInput.files);
+      fileInput.value = '';
+    });
+
+    // dragenter/dragleaveは子要素への出入りでも発火するため、カウンタで実際にゾーンの外に
+    // 出たときだけ is-drag-over を外す（子要素をまたぐたびにチラつくのを防ぐ）。
+    dropzone.addEventListener('dragenter', function (e) {
+      if (!e.dataTransfer || e.dataTransfer.types.indexOf('Files') === -1) return;
+      e.preventDefault();
+      dragCounter++;
+      dropzone.classList.add('is-drag-over');
+    });
+    dropzone.addEventListener('dragover', function (e) {
+      if (!e.dataTransfer || e.dataTransfer.types.indexOf('Files') === -1) return;
+      e.preventDefault();
+    });
+    dropzone.addEventListener('dragleave', function () {
+      dragCounter = Math.max(0, dragCounter - 1);
+      if (dragCounter === 0) dropzone.classList.remove('is-drag-over');
+    });
+    dropzone.addEventListener('drop', function (e) {
+      if (!e.dataTransfer || e.dataTransfer.types.indexOf('Files') === -1) return;
+      e.preventDefault();
+      dragCounter = 0;
+      dropzone.classList.remove('is-drag-over');
+      openDriveUploadModal(e.dataTransfer.files);
+    });
+
+    qs('btn-drive-upload-cancel').addEventListener('click', function () {
+      pendingUploadFiles = [];
+      qs('drive-upload-modal').hidden = true;
+    });
+    qs('btn-drive-upload-save').addEventListener('click', function (e) {
+      var files = pendingUploadFiles;
+      var destination = qs('drive-upload-dest').value.trim();
+      pendingUploadFiles = [];
+      qs('drive-upload-modal').hidden = true;
+      withSpinner(e.currentTarget, function () { return uploadDriveFiles(files, destination); });
+    });
+  }
+
+  function initDrive() {
+    initDriveUpload();
+    initDriveSelector();
+    qs('btn-drive-refresh').addEventListener('click', function (e) {
+      withSpinner(e.currentTarget, function () { return refreshDriveView(); });
+    });
+    qs('btn-drive-up').addEventListener('click', function () { goDriveUp(); });
+
+    qs('btn-drive-search').addEventListener('click', function () { runDriveSearch(); });
+
+    qs('drive-sort').addEventListener('change', function () {
+      state.drive.sortKey = qs('drive-sort').value;
+      refreshDriveView();
+    });
+    qs('drive-order').addEventListener('change', function () {
+      state.drive.ascending = qs('drive-order').value === 'asc';
+      refreshDriveView();
+    });
+
+    qs('btn-drive-preview-close').addEventListener('click', function () {
+      qs('drive-preview-frame').src = 'about:blank';
+      qs('drive-preview-modal').hidden = true;
+    });
+
+    qs('btn-drive-share-cancel').addEventListener('click', function () { driveBulkModalActive = false; qs('drive-share-modal').hidden = true; });
+    qs('btn-drive-share-save').addEventListener('click', function () {
+      var access = qs('drive-share-access').value;
+      var permission = qs('drive-share-permission').value;
+      if (driveBulkModalActive) {
+        var ids = Object.keys(state.drive.selectedIds);
+        gasRun('bulkUpdateDriveSharing', ids, access, permission).then(function (result) {
+          state.drive.selectedIds = {};
+          qs('drive-share-modal').hidden = true;
+          showToast('共有設定を変更しました' + (result.failedCount > 0 ? '（' + result.failedCount + '件失敗）' : ''));
+          return refreshDriveView();
+        }).catch(showError);
+        return;
+      }
+      var fileId = qs('drive-share-file-id').value;
+      gasRun('updateDriveSharing', fileId, access, permission).then(function () {
+        qs('drive-share-modal').hidden = true;
+        return loadDriveFolder(state.drive.currentFolderId);
+      }).catch(showError);
+    });
+
+    qs('btn-drive-move-cancel').addEventListener('click', function () { driveBulkModalActive = false; qs('drive-move-modal').hidden = true; });
+    qs('btn-drive-move-save').addEventListener('click', function () {
+      var destination = qs('drive-move-dest').value.trim();
+      if (!destination) { window.alert('移動先フォルダIDを入力してください'); return; }
+      if (driveBulkModalActive) {
+        var ids = Object.keys(state.drive.selectedIds);
+        gasRun('bulkMoveDriveFiles', ids, destination).then(function (result) {
+          state.drive.selectedIds = {};
+          qs('drive-move-modal').hidden = true;
+          showToast('移動しました' + (result.failedCount > 0 ? '（' + result.failedCount + '件失敗）' : ''));
+          return refreshDriveView();
+        }).catch(showError);
+        return;
+      }
+      var fileId = qs('drive-move-file-id').value;
+      gasRun('moveDriveFile', fileId, destination).then(function () {
+        qs('drive-move-modal').hidden = true;
+        return loadDriveFolder(state.drive.currentFolderId);
+      }).catch(showError);
+    });
+
+    qs('btn-drive-rename-cancel').addEventListener('click', function () { qs('drive-rename-modal').hidden = true; });
+    qs('btn-drive-rename-save').addEventListener('click', function () {
+      var fileId = qs('drive-rename-file-id').value;
+      var isFolder = qs('drive-rename-is-folder').value === 'true';
+      var newName = qs('drive-rename-name').value.trim();
+      if (!newName) { window.alert('新しい名前を入力してください'); return; }
+      gasRun('renameDriveEntry', fileId, newName, isFolder).then(function () {
+        qs('drive-rename-modal').hidden = true;
+        return loadDriveFolder(state.drive.currentFolderId);
+      }).catch(showError);
+    });
+  }
+
+  // ===================== 設定画面: テーマ配色（11色 + ランダム = 12択） =====================
+  function renderThemeSwatches(choices, selectedId) {
+    var grid = qs('theme-swatch-grid');
+    grid.innerHTML = choices.map(function (choice) {
+      var isRandom = choice.hex === null;
+      var selected = choice.id === selectedId ? ' selected' : '';
+      var swatchInner = isRandom
+        ? '<svg class="icon"><use href="#icon-shuffle"></use></svg>'
+        : '';
+      var swatchStyle = isRandom ? '' : ' style="background:' + choice.hex + ';"';
+      return '<button type="button" class="theme-swatch' + selected + '" data-theme-id="' + escapeHtml(choice.id) + '">' +
+        '<span class="swatch-color' + (isRandom ? ' is-random' : '') + '"' + swatchStyle + '>' + swatchInner + '</span>' +
+        '<span>' + escapeHtml(choice.name) + '</span>' +
+        '</button>';
+    }).join('');
+
+    Array.prototype.forEach.call(grid.querySelectorAll('.theme-swatch'), function (btn) {
+      btn.addEventListener('click', function () {
+        var themeId = btn.getAttribute('data-theme-id');
+        // saveUserSettings()+loadHome()（Calendar/Gmail/Sheets等ホーム全体の再取得）は配色を
+        // 変えるだけの操作には重すぎるため、保存と解決後のテーマをまとめて返す専用の軽量
+        // エンドポイントを使う（src/Code.tsのsaveThemeChoice()）。
+        gasRun('saveThemeChoice', themeId).then(function (theme) {
+          state.home.theme = theme;
+          state.home.userSettings.themeChoice = themeId;
+          applyTheme(theme);
+          renderThemeSwatches(state.themeChoices, themeId);
+        }).catch(showError);
+      });
+    });
+  }
+
+  // ===================== 設定画面 =====================
+  function populateNotifyHourOptions() {
+    var select = qs('setting-notify-hour');
+    if (select.options.length > 0) return; // 初回のみ生成（毎回作り直すと選択中の値が一瞬消える）
+    var html = '';
+    for (var h = 0; h < 24; h++) {
+      html += '<option value="' + h + '">' + h + '時</option>';
+    }
+    select.innerHTML = html;
+  }
+
+  function populateSettingsForm(userSettings, globalSettings, calendars, themeChoices) {
+    renderThemeSwatches(themeChoices, userSettings.themeChoice);
+    renderDarkModeSwitcher(userSettings.darkMode);
+
+    qs('setting-mail-count').value = userSettings.mailCount;
+    renderWidgetLayoutEditor(userSettings.widgets);
+    renderCustomNavSettingsList(userSettings.customNavItems);
+
+    qs('setting-notify-enabled').checked = globalSettings.notifyEnabled;
+    populateNotifyHourOptions();
+    qs('setting-notify-hour').value = String(globalSettings.notifyHour);
+
+    // 同期対象カレンダーはログインアカウントに紐づくため選択式にはせず、現在自動的に
+    // 同期されるカレンダー名を確認用に一覧表示するのみ（選択UIは持たない）
+    var listHtml = calendars.map(function (cal) {
+      return '<div class="synced-calendar-row"><svg class="icon icon-sm"><use href="#icon-check"></use></svg>' + escapeHtml(cal.name) + '</div>';
+    }).join('');
+    qs('sync-calendar-list').innerHTML = listHtml || '<div class="empty-hint">利用可能なカレンダーがありません</div>';
+  }
+
+  // ---- ウィジェット（カレンダー/今日の予定/メール/アプリリンク集）の視覚的レイアウトエディタ ----
+  // 各列(メインエリア/サイドバー)のドロップゾーンは固定の同じ高さで、中のブロックは実際の
+  // ダッシュボードと同じ widget-size-*（flex-grow比率 1:2:3）でその高さを分け合う。そのため
+  // ウィジェットの構成に関わらず、メインエリアとサイドバーの合計の高さは常に一致する。
+  var WIDGET_SIZE_ORDER = ['small', 'medium', 'large'];
+  var WIDGET_RESIZE_STEP_PX = 36; // この距離だけドラッグするたびに大きさが1段階変わる
+  var draggingWidgetBlock = null;
+
+  function renderWidgetLayoutEditor(widgets) {
+    var mainZone = qs('widget-layout-main');
+    var sideZone = qs('widget-layout-side');
+    mainZone.innerHTML = '';
+    sideZone.innerHTML = '';
+    widgets.forEach(function (w) {
+      var zone = w.column === 'main' ? mainZone : sideZone;
+      zone.appendChild(buildWidgetBlock(w));
+    });
+  }
+
+  // ---- ウィジェットブロックのサンプルデザイン（レイアウトの見た目を大きさごとに確認できるようにする） ----
+  // 実データではなく、そのウィジェットが実際にどう見えるかを示す簡易モックアップ(骨組み)。
+  // 大きさ(小/中/大)に応じて行数を増減させ、リサイズ時の見た目の変化も確認できるようにしている。
+  function wmockRowCount(size) {
+    return size === 'small' ? 2 : size === 'medium' ? 3 : 5;
+  }
+
+  function buildCalendarMock(size) {
+    var rows = size === 'small' ? 2 : size === 'medium' ? 3 : 4;
+    var weekdaysHtml = ['日', '月', '火', '水', '木', '金', '土'].map(function (d) { return '<span>' + d + '</span>'; }).join('');
+    var cellsHtml = '';
+    for (var i = 0; i < rows * 7; i++) {
+      var hasEvent = i % 9 === 3 || i % 11 === 5;
+      cellsHtml += '<div class="wmock-cal-cell">' + (hasEvent ? '<span class="wmock-chip"></span>' : '') + '</div>';
+    }
+    return '<div class="wmock-cal-weekdays">' + weekdaysHtml + '</div>' +
+      '<div class="wmock-cal-grid" style="grid-template-rows: repeat(' + rows + ', 1fr);">' + cellsHtml + '</div>';
+  }
+
+  function buildTodayMock(size) {
+    var rows = wmockRowCount(size);
+    var html = '';
+    for (var i = 0; i < rows; i++) {
+      html += '<div class="wmock-row"><span class="wmock-time"></span><span class="wmock-bar" style="width:' + (46 + (i % 3) * 16) + '%;"></span></div>';
+    }
+    return '<div class="wmock-list">' + html + '</div>';
+  }
+
+  function buildMailMock(size) {
+    var rows = wmockRowCount(size);
+    var html = '';
+    for (var i = 0; i < rows; i++) {
+      html += '<div class="wmock-row"><span class="wmock-dot' + (i < 2 ? ' is-unread' : '') + '"></span>' +
+        '<span class="wmock-bar" style="width:' + (55 + (i % 3) * 14) + '%;"></span><span class="wmock-bar wmock-bar-sm"></span></div>';
+    }
+    return '<div class="wmock-list">' + html + '</div>';
+  }
+
+  function buildLinksMock(size) {
+    var rows = wmockRowCount(size);
+    var html = '';
+    for (var i = 0; i < rows; i++) {
+      html += '<div class="wmock-row"><span class="wmock-icon-dot"></span>' +
+        '<span class="wmock-bar" style="width:' + (50 + (i % 3) * 16) + '%;"></span><span class="wmock-badge"></span></div>';
+    }
+    return '<div class="wmock-list">' + html + '</div>';
+  }
+
+  function buildTodoMock(size) {
+    var rows = wmockRowCount(size);
+    var html = '';
+    for (var i = 0; i < rows; i++) {
+      var done = i === 1;
+      html += '<div class="wmock-row"><span class="wmock-check' + (done ? ' is-checked' : '') + '"></span>' +
+        '<span class="wmock-bar' + (done ? ' is-done' : '') + '" style="width:' + (45 + (i % 3) * 18) + '%;"></span></div>';
+    }
+    return '<div class="wmock-list">' + html + '</div>';
+  }
+
+  var WIDGET_MOCK_BUILDERS = {
+    calendar: buildCalendarMock,
+    today: buildTodayMock,
+    mail: buildMailMock,
+    links: buildLinksMock,
+    todo: buildTodoMock
+  };
+
+  function buildWidgetMockHtml(widgetId, size) {
+    var builder = WIDGET_MOCK_BUILDERS[widgetId];
+    return builder ? builder(size) : '';
+  }
+
+  function buildWidgetBlock(w) {
+    var block = document.createElement('div');
+    block.className = 'widget-block widget-block-size-' + w.size + (w.visible ? '' : ' is-hidden');
+    block.draggable = true;
+    block.setAttribute('data-widget-id', w.id);
+    block.setAttribute('data-size', w.size);
+    block.setAttribute('data-visible', w.visible ? 'true' : 'false');
+
+    var head = document.createElement('div');
+    head.className = 'widget-block-head';
+    head.innerHTML =
+      '<svg class="icon icon-sm widget-block-drag-handle"><use href="#icon-grip"></use></svg>' +
+      '<span class="widget-block-label">' + WIDGET_LABELS[w.id] + '</span>' +
+      '<button type="button" class="widget-block-visibility" aria-label="表示/非表示切替" title="表示/非表示切替">' +
+      '<svg class="icon icon-sm"><use href="#' + (w.visible ? 'icon-eye' : 'icon-eye-off') + '"></use></svg>' +
+      '</button>';
+    block.appendChild(head);
+
+    var mock = document.createElement('div');
+    mock.className = 'widget-block-mock';
+    mock.innerHTML = buildWidgetMockHtml(w.id, w.size);
+    block.appendChild(mock);
+
+    var sizeLabel = document.createElement('div');
+    sizeLabel.className = 'widget-block-size-label';
+    sizeLabel.textContent = '大きさ: ' + WIDGET_SIZE_LABELS[w.size];
+    block.appendChild(sizeLabel);
+
+    var resizeHandle = document.createElement('div');
+    resizeHandle.className = 'widget-block-resize-handle';
+    resizeHandle.title = 'ドラッグで大きさを変更';
+    block.appendChild(resizeHandle);
+
+    head.querySelector('.widget-block-visibility').addEventListener('click', function (e) {
+      e.stopPropagation();
+      var nowVisible = block.getAttribute('data-visible') !== 'true';
+      block.setAttribute('data-visible', nowVisible ? 'true' : 'false');
+      block.classList.toggle('is-hidden', !nowVisible);
+      e.currentTarget.querySelector('use').setAttribute('href', '#' + (nowVisible ? 'icon-eye' : 'icon-eye-off'));
+    });
+
+    initWidgetBlockDrag(block);
+    initWidgetBlockResize(block, resizeHandle, sizeLabel);
+    return block;
+  }
+
+  function initWidgetBlockDrag(block) {
+    block.addEventListener('dragstart', function (e) {
+      draggingWidgetBlock = block;
+      block.classList.add('is-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', block.getAttribute('data-widget-id')); } catch (err) { /* Firefox以外は不要 */ }
+    });
+    block.addEventListener('dragend', function () {
+      block.classList.remove('is-dragging');
+      draggingWidgetBlock = null;
+      Array.prototype.forEach.call(document.querySelectorAll('.widget-layout-dropzone'), function (z) {
+        z.classList.remove('is-drag-over');
+      });
+    });
+  }
+
+  function widgetLayoutInsertionTarget(zone, y) {
+    var blocks = Array.prototype.slice.call(zone.querySelectorAll('.widget-block:not(.is-dragging)'));
+    var result = null;
+    var closestOffset = -Infinity;
+    blocks.forEach(function (child) {
+      var box = child.getBoundingClientRect();
+      var offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > closestOffset) {
+        closestOffset = offset;
+        result = child;
+      }
+    });
+    return result;
+  }
+
+  function initWidgetLayoutDropzones() {
+    Array.prototype.forEach.call(document.querySelectorAll('.widget-layout-dropzone'), function (zone) {
+      zone.addEventListener('dragover', function (e) {
+        if (!draggingWidgetBlock) return;
+        e.preventDefault();
+        zone.classList.add('is-drag-over');
+        var after = widgetLayoutInsertionTarget(zone, e.clientY);
+        if (after) {
+          zone.insertBefore(draggingWidgetBlock, after);
+        } else {
+          zone.appendChild(draggingWidgetBlock);
+        }
+      });
+      zone.addEventListener('dragleave', function (e) {
+        if (e.target === zone) zone.classList.remove('is-drag-over');
+      });
+      zone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        zone.classList.remove('is-drag-over');
+      });
+    });
+  }
+
+  function applyWidgetBlockSize(block, sizeLabelEl, size) {
+    block.className = block.className.replace(/widget-block-size-\w+/, 'widget-block-size-' + size);
+    block.setAttribute('data-size', size);
+    sizeLabelEl.textContent = '大きさ: ' + WIDGET_SIZE_LABELS[size];
+    var mock = block.querySelector('.widget-block-mock');
+    if (mock) mock.innerHTML = buildWidgetMockHtml(block.getAttribute('data-widget-id'), size);
+  }
+
+  // 列の高さは固定なので、大きさはピクセル指定ではなく「小⇔中⇔大」の段階を動かす形で変更する。
+  // 一定距離ドラッグするたびに1段階変わり、他のブロックはflex-growで自動的に伸縮する。
+  function initWidgetBlockResize(block, handle, sizeLabelEl) {
+    handle.addEventListener('mousedown', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var startY = e.clientY;
+      var index = WIDGET_SIZE_ORDER.indexOf(block.getAttribute('data-size'));
+
+      function onMove(ev) {
+        var delta = ev.clientY - startY;
+        if (delta >= WIDGET_RESIZE_STEP_PX && index < WIDGET_SIZE_ORDER.length - 1) {
+          index++;
+          startY = ev.clientY;
+          applyWidgetBlockSize(block, sizeLabelEl, WIDGET_SIZE_ORDER[index]);
+        } else if (delta <= -WIDGET_RESIZE_STEP_PX && index > 0) {
+          index--;
+          startY = ev.clientY;
+          applyWidgetBlockSize(block, sizeLabelEl, WIDGET_SIZE_ORDER[index]);
+        }
+      }
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
+
+  function currentWidgetSettings() {
+    var result = [];
+    Array.prototype.forEach.call(document.querySelectorAll('.widget-layout-dropzone'), function (zone) {
+      var column = zone.getAttribute('data-column');
+      Array.prototype.forEach.call(zone.querySelectorAll('.widget-block'), function (block) {
+        result.push({
+          id: block.getAttribute('data-widget-id'),
+          column: column,
+          size: block.getAttribute('data-size'),
+          visible: block.getAttribute('data-visible') === 'true'
+        });
+      });
+    });
+    return result;
+  }
+
+  // ---- カスタムナビ項目（個人用ショートカット） ----
+  // サーバー側(settingsService.tsのVALID_NAV_ICONS)と同じ一覧。アイコン選択のためだけに
+  // サーバー往復を発生させないよう、選択肢はクライアント側にも静的に持たせている。
+  var NAV_ICON_CHOICES = ['link', 'home', 'folder', 'mail', 'bell', 'check', 'flag', 'tag', 'archive', 'hub', 'share', 'grid'];
+  var selectedNavIcon = 'link';
+
+  function renderNavIconPicker() {
+    var container = qs('nav-icon-picker');
+    if (!container) return;
+    container.innerHTML = NAV_ICON_CHOICES.map(function (icon) {
+      return '<button type="button" class="nav-icon-swatch' + (icon === selectedNavIcon ? ' selected' : '') + '" data-icon="' + icon + '" aria-label="アイコン: ' + icon + '" title="アイコン: ' + icon + '">' +
+        '<svg class="icon icon-sm"><use href="#icon-' + icon + '"></use></svg></button>';
+    }).join('');
+    Array.prototype.forEach.call(container.querySelectorAll('.nav-icon-swatch'), function (btn) {
+      btn.addEventListener('click', function () {
+        selectedNavIcon = btn.getAttribute('data-icon');
+        renderNavIconPicker();
+      });
+    });
+  }
+
+  function renderCustomNav(items) {
+    var list = qs('nav-custom-list');
+    qs('nav-custom-divider').hidden = items.length === 0;
+    list.innerHTML = items.map(function (item) {
+      return '<button type="button" class="nav-item nav-item-custom" data-url="' + escapeHtml(item.url) + '" title="' + escapeHtml(item.url) + '">' +
+        '<svg class="icon"><use href="#icon-' + escapeHtml(item.icon || 'link') + '"></use></svg><span>' + escapeHtml(item.label) + '</span>' +
+        '</button>';
+    }).join('');
+    Array.prototype.forEach.call(list.querySelectorAll('.nav-item-custom'), function (btn) {
+      btn.addEventListener('click', function () {
+        window.open(btn.getAttribute('data-url'), '_blank', 'noopener');
+      });
+    });
+  }
+
+  function saveCustomNavItems(items) {
+    // saveUserSettings()は更新後のUserSettings一式をそのまま返すため、ホーム全体
+    // (Calendar/Gmail/Sheets等)を読み直すloadHome()を挟まずに、その場でコントロールパネルの
+    // ナビ一覧と設定画面側の一覧の両方を再描画する。
+    return gasRun('saveUserSettings', { customNavItems: items }).then(function (saved) {
+      state.home.userSettings = saved;
+      renderCustomNav(saved.customNavItems);
+      renderCustomNavSettingsList(saved.customNavItems);
+    });
+  }
+
+  function renderCustomNavSettingsList(items) {
+    var container = qs('custom-nav-settings-list');
+    if (items.length === 0) {
+      container.innerHTML = '<div class="empty-hint">まだカスタム項目がありません</div>';
+      return;
+    }
+    container.innerHTML = items.map(function (item, index) {
+      return '<div class="link-row nav-item-settings-row" draggable="true" data-nav-item-id="' + escapeHtml(item.id) + '">' +
+        '<svg class="icon icon-sm widget-block-drag-handle" style="flex:0 0 auto;"><use href="#icon-grip"></use></svg>' +
+        '<svg class="icon icon-sm" style="flex:0 0 auto; color:var(--content-muted);"><use href="#icon-' + escapeHtml(item.icon || 'link') + '"></use></svg>' +
+        '<div>' +
+        '<div class="name">' + escapeHtml(item.label) + '</div>' +
+        '<div class="desc">' + escapeHtml(item.url) + '</div>' +
+        '</div>' +
+        '<span>' +
+        '<button type="button" class="btn-custom-nav-up" ' + (index === 0 ? 'disabled' : '') + '>↑</button> ' +
+        '<button type="button" class="btn-custom-nav-down" ' + (index === items.length - 1 ? 'disabled' : '') + '>↓</button> ' +
+        '<button type="button" class="icon-only btn-custom-nav-delete" aria-label="削除" title="削除"><svg class="icon icon-sm"><use href="#icon-trash"></use></svg></button>' +
+        '</span>' +
+        '</div>';
+    }).join('');
+
+    Array.prototype.forEach.call(container.querySelectorAll('.btn-custom-nav-delete'), function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.closest('[data-nav-item-id]').getAttribute('data-nav-item-id');
+        var next = items.filter(function (item) { return item.id !== id; });
+        saveCustomNavItems(next).catch(showError);
+      });
+    });
+    Array.prototype.forEach.call(container.querySelectorAll('.btn-custom-nav-up'), function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.closest('[data-nav-item-id]').getAttribute('data-nav-item-id');
+        var idx = items.map(function (i) { return i.id; }).indexOf(id);
+        if (idx <= 0) return;
+        var next = items.slice();
+        var tmp = next[idx - 1]; next[idx - 1] = next[idx]; next[idx] = tmp;
+        saveCustomNavItems(next).catch(showError);
+      });
+    });
+    Array.prototype.forEach.call(container.querySelectorAll('.btn-custom-nav-down'), function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.closest('[data-nav-item-id]').getAttribute('data-nav-item-id');
+        var idx = items.map(function (i) { return i.id; }).indexOf(id);
+        if (idx === -1 || idx >= items.length - 1) return;
+        var next = items.slice();
+        var tmp = next[idx + 1]; next[idx + 1] = next[idx]; next[idx] = tmp;
+        saveCustomNavItems(next).catch(showError);
+      });
+    });
+
+    initCustomNavDragDrop(container, items);
+  }
+
+  // ↑↓ボタン(キーボード操作・タッチ操作向け)に加えて、行自体をドラッグしても並び替えられるようにする
+  var draggingNavRow = null;
+
+  function navRowInsertionTarget(container, y) {
+    var rows = Array.prototype.slice.call(container.querySelectorAll('.nav-item-settings-row:not(.is-dragging)'));
+    var result = null;
+    var closestOffset = -Infinity;
+    rows.forEach(function (row) {
+      var box = row.getBoundingClientRect();
+      var offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > closestOffset) {
+        closestOffset = offset;
+        result = row;
+      }
+    });
+    return result;
+  }
+
+  function initCustomNavDragDrop(container, items) {
+    Array.prototype.forEach.call(container.querySelectorAll('.nav-item-settings-row'), function (row) {
+      row.addEventListener('dragstart', function (e) {
+        draggingNavRow = row;
+        row.classList.add('is-dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        try { e.dataTransfer.setData('text/plain', row.getAttribute('data-nav-item-id')); } catch (err) { /* Firefox以外は不要 */ }
+      });
+      row.addEventListener('dragend', function () {
+        row.classList.remove('is-dragging');
+        draggingNavRow = null;
+      });
+    });
+
+    container.addEventListener('dragover', function (e) {
+      if (!draggingNavRow) return;
+      e.preventDefault();
+      var after = navRowInsertionTarget(container, e.clientY);
+      if (after) {
+        container.insertBefore(draggingNavRow, after);
+      } else {
+        container.appendChild(draggingNavRow);
+      }
+    });
+
+    container.addEventListener('drop', function (e) {
+      e.preventDefault();
+      if (!draggingNavRow) return;
+      var byId = {};
+      items.forEach(function (item) { byId[item.id] = item; });
+      var next = Array.prototype.map.call(container.querySelectorAll('.nav-item-settings-row'), function (row) {
+        return byId[row.getAttribute('data-nav-item-id')];
+      });
+      saveCustomNavItems(next).catch(showError);
+    });
+  }
+
+  function initCustomNavSettings() {
+    renderNavIconPicker();
+    qs('btn-custom-nav-add').addEventListener('click', function () {
+      var labelInput = qs('custom-nav-label-input');
+      var urlInput = qs('custom-nav-url-input');
+      var label = labelInput.value.trim();
+      var url = urlInput.value.trim();
+      if (!label) { window.alert('表示名を入力してください'); return; }
+      if (!/^https?:\/\/.+/i.test(url)) { window.alert('http(s)から始まるURLを入力してください'); return; }
+      var current = state.home ? state.home.userSettings.customNavItems : [];
+      var next = current.concat([{ label: label, url: url, icon: selectedNavIcon }]);
+      saveCustomNavItems(next).then(function () {
+        labelInput.value = '';
+        urlInput.value = '';
+        selectedNavIcon = 'link';
+        renderNavIconPicker();
+      }).catch(showError);
+    });
+  }
+
+  function initSettings() {
+    qs('btn-save-user-settings').addEventListener('click', function () {
+      var settings = {
+        widgets: currentWidgetSettings(),
+        mailCount: parseInt(qs('setting-mail-count').value, 10) || 5
+      };
+      // saveUserSettings()は更新後のUserSettings一式を返すため、ホーム全体
+      // (Calendar/Gmail/Sheets等)を読み直すloadHome()は使わず、ウィジェット配置をその場で
+      // 再適用する。mailCountはサーバー側で保存済みの値を使うgetRecentMails()の軽量版
+      // (refreshMailData())だけを呼べば反映できる。
+      gasRun('saveUserSettings', settings).then(function (saved) {
+        state.home.userSettings = saved;
+        applyWidgetLayout(saved);
+        return refreshMailData();
+      }).then(function () {
+        showToast('保存しました');
+      }).catch(showError);
+    });
+
+    qs('btn-save-global-settings').addEventListener('click', function () {
+      var settings = {
+        notifyEnabled: qs('setting-notify-enabled').checked,
+        notifyHour: parseInt(qs('setting-notify-hour').value, 10) || 0
+      };
+      // 全体設定は設定画面のフォーム自体にしか影響しないため、loadHome()は不要。
+      gasRun('saveGlobalSettings', settings).then(function (saved) {
+        state.home.globalSettings = saved;
+        showToast('保存しました');
+      }).catch(showError);
+    });
+
+    qs('btn-send-test-notification').addEventListener('click', function (e) {
+      withSpinner(e.currentTarget, function () {
+        return gasRun('sendTestNotification').then(function () {
+          showToast('テスト通知を送信しました');
+        }).catch(showError);
+      });
+    });
+  }
+
+  // ===================== 初期化 =====================
+  // 各init関数はtry/catchで個別に保護する。手動移行等でHTMLファイルの一部が古い/欠けている
+  // ような場合でも、1箇所の初期化失敗が他の機能(更新ボタン等)の初期化まで巻き込んで
+  // 止めてしまわないようにするため。
+  function safeInit(name, fn) {
+    try {
+      fn();
+    } catch (e) {
+      console.error('初期化に失敗しました: ' + name, e);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    safeInit('initGlobalActions', initGlobalActions);
+    safeInit('initNav', initNav);
+    safeInit('initEventModal', initEventModal);
+    safeInit('initCalendarNav', initCalendarNav);
+    safeInit('initCalendarViewModeSwitch', initCalendarViewModeSwitch);
+    safeInit('initDayDetail', initDayDetail);
+    safeInit('initMail', initMail);
+    safeInit('initMailPage', initMailPage);
+    safeInit('initMailPageResizer', initMailPageResizer);
+    safeInit('initMailFolderSelector', initMailFolderSelector);
+    safeInit('initMailBulkActions', initMailBulkActions);
+    safeInit('initSearch', initSearch);
+    safeInit('initAppLedger', initAppLedger);
+    safeInit('initTodo', initTodo);
+    safeInit('initDrive', initDrive);
+    safeInit('initDriveViewMode', initDriveViewMode);
+    safeInit('initDriveTypeFilter', initDriveTypeFilter);
+    safeInit('initDriveBulkActions', initDriveBulkActions);
+    safeInit('initDriveCreate', initDriveCreate);
+    safeInit('initSettings', initSettings);
+    safeInit('initCustomNavSettings', initCustomNavSettings);
+    safeInit('initWidgetLayoutDropzones', initWidgetLayoutDropzones);
+    loadHome();
+  });
+})();
+</script>

@@ -1,0 +1,79 @@
+<!-- ホーム画面のウィジェットのうち、既定でサイドバーに配置される4つ（今日の予定/メール/
+     アプリリンク集/ToDoリスト）をまとめたファイル。以前はそれぞれ別ファイルだったが、
+     ファイル数を抑えるため統合した。各 data-card 要素はJS側(applyWidgetLayout)が個人設定に
+     応じてメインエリア/サイドバー間を付け替えるため、初期配置はどこにあっても最終的な見た目に
+     影響しない。 -->
+<section class="card" id="card-today" data-card="today">
+  <h2><span class="h2-label"><svg class="icon"><use href="#icon-clock"></use></svg>今日の予定</span></h2>
+  <div class="today-list" id="today-list">
+    <div class="empty-hint">読み込み中...</div>
+  </div>
+</section>
+
+<section class="card" id="card-mail" data-card="mail">
+  <h2>
+    <!-- 見出し自体をボタン化し、押すとメールタブへ移動する（以前はここに独立した
+         「すべて見る」ボタンを置いていたが、見出しを押すだけで移動できる方が自然なため統合した）。 -->
+    <button type="button" class="h2-label h2-label-link" id="btn-mail-title" title="メールタブを開く">
+      <svg class="icon"><use href="#icon-mail"></use></svg>メール（直近<span id="mail-count-label">5</span>件）
+    </button>
+    <span class="card-actions">
+      <button type="button" class="icon-only" id="btn-mail-compose" aria-label="メールを作成" title="メールを作成"><svg class="icon icon-sm"><use href="#icon-plus"></use></svg></button>
+      <button type="button" class="icon-only" id="btn-mail-refresh" aria-label="更新" title="更新"><svg class="icon icon-sm"><use href="#icon-refresh"></use></svg></button>
+    </span>
+  </h2>
+  <div id="mail-list">
+    <div class="empty-hint">読み込み中...</div>
+  </div>
+</section>
+
+<section class="card" id="card-links" data-card="links">
+  <h2>
+    <button type="button" class="h2-label h2-label-link" id="btn-links-title" title="アプリリンク集タブを開く">
+      <svg class="icon"><use href="#icon-link"></use></svg>アプリリンク集
+    </button>
+    <span class="card-actions">
+      <button type="button" class="icon-only" id="btn-check-all" aria-label="全て稼働確認" title="全て稼働確認"><svg class="icon icon-sm"><use href="#icon-refresh"></use></svg></button>
+      <!-- URL・名称の入力はポップアップ(#app-add-modal)側で行う。ToDoリストの追加ボタンと同じ、
+           見出し右の丸いアイコンボタンにしている。 -->
+      <button type="button" class="icon-only primary" id="btn-app-add-open" aria-label="追加" title="追加"><svg class="icon icon-sm"><use href="#icon-plus"></use></svg></button>
+    </span>
+  </h2>
+
+  <!-- 検索・件数表示はフルの「アプリリンク集」タブでのみ使う機能。ホームのコンパクトウィジェットでは
+       一覧を表示するための縦幅を圧迫するだけで得るものが少ないため、CSS側で非表示にしている
+       （Assets.htmlの.app-link-search-row/.app-link-countの非表示ルール）。 -->
+  <div class="toolbar app-link-search-row">
+    <input type="text" id="app-link-search" placeholder="名前で検索...">
+  </div>
+  <div class="empty-hint app-link-count" id="app-link-count"></div>
+
+  <div id="app-list">
+    <div class="empty-hint">読み込み中...</div>
+  </div>
+</section>
+
+<section class="card" id="card-todo" data-card="todo">
+  <h2>
+    <button type="button" class="h2-label h2-label-link" id="btn-todo-title" title="ToDoタブを開く">
+      <svg class="icon"><use href="#icon-check"></use></svg>ToDoリスト
+    </button>
+    <span class="card-actions">
+      <button type="button" class="icon-only" id="btn-todo-clear-done" aria-label="完了済みを削除" title="完了済みを削除"><svg class="icon icon-sm"><use href="#icon-trash"></use></svg></button>
+    </span>
+  </h2>
+
+  <div class="toolbar">
+    <input type="text" id="todo-input" placeholder="やることを入力してEnter">
+    <!-- 期限日・優先度はポップアップ(#todo-add-modal)側で設定する。以前はここに隠しておいた
+         入力欄(todo-detail-row)を展開する方式だったが、ホームのコンパクトウィジェットでは
+         カードの高さが小さいため、展開すると一覧どころか優先度の選択欄自体がカードの外側へ
+         はみ出して見えなくなってしまっていた（カード自体がoverflow:hiddenのため）。 -->
+    <button type="button" class="icon-only" id="btn-todo-detail-open" aria-label="期限日・優先度を指定して追加" title="期限日・優先度を指定して追加"><svg class="icon icon-sm"><use href="#icon-flag"></use></svg></button>
+    <button type="button" class="icon-only primary" id="btn-todo-add" aria-label="追加" title="追加"><svg class="icon icon-sm"><use href="#icon-plus"></use></svg></button>
+  </div>
+
+  <div id="todo-list">
+    <div class="empty-hint">読み込み中...</div>
+  </div>
+</section>

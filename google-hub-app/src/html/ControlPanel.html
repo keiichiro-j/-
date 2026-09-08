@@ -1,0 +1,32 @@
+<!-- 5.1: 左コントロールパネル。テーマ色（背景・文字色）はJS側で動的に適用する唯一の領域。
+     横断検索（アプリ・ファイル）はヘッダーではなくここ、「ホーム」の直上に配置している。 -->
+<nav class="control-panel" id="control-panel">
+  <div class="control-panel-search">
+    <input type="text" id="global-search" placeholder="アプリ・ファイルを検索">
+    <div class="search-results" id="search-results" hidden></div>
+  </div>
+
+  <button type="button" class="nav-item active" data-view="home">
+    <svg class="icon"><use href="#icon-home"></use></svg><span>ホーム</span>
+  </button>
+  <button type="button" class="nav-item" data-view="mail">
+    <svg class="icon"><use href="#icon-mail"></use></svg><span>メール</span>
+    <span class="nav-badge" id="nav-mail-badge" hidden></span>
+  </button>
+  <button type="button" class="nav-item" data-view="links">
+    <svg class="icon"><use href="#icon-link"></use></svg><span>アプリリンク</span>
+  </button>
+  <button type="button" class="nav-item" data-view="todo">
+    <svg class="icon"><use href="#icon-check"></use></svg><span>ToDo</span>
+    <span class="nav-badge" id="nav-todo-badge" hidden></span>
+  </button>
+  <button type="button" class="nav-item" data-view="drive">
+    <svg class="icon"><use href="#icon-folder"></use></svg><span>Drive</span>
+  </button>
+  <button type="button" class="nav-item" data-view="settings">
+    <svg class="icon"><use href="#icon-sliders"></use></svg><span>全体設定</span>
+  </button>
+
+  <div class="nav-divider" id="nav-custom-divider" hidden></div>
+  <div id="nav-custom-list"></div>
+</nav>

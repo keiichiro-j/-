@@ -1,0 +1,335 @@
+<!-- フルページ表示の3タブ（メール／Drive／全体設定）をまとめたファイル。以前はそれぞれ
+     別ファイルだったが、ファイル数を抑えるため統合した。各ビューは #view-X の hidden 属性で
+     JS(switchView)から表示/非表示を切り替えるため、この1ファイルの中に3つとも自己完結した
+     <div id="view-X" hidden> ブロックとして持たせている。 -->
+
+<!-- ===== メールタブ（左：件名一覧／右：本文）。ホーム画面のメールウィジェット(SideWidgets.html)
+     とは別の独立したDOMで、右サイドバーの表示/非表示に影響されない。 ===== -->
+<div id="view-mail" hidden>
+  <section class="card mail-page">
+    <div class="mail-page-list-col" id="mail-page-list-col">
+      <div class="mail-page-toolbar">
+        <h2 style="margin:0; font-size:15px;">
+          <span class="h2-label"><svg class="icon"><use href="#icon-mail"></use></svg>メール</span>
+        </h2>
+        <span class="card-actions">
+          <select id="mail-folder-select" style="width:auto;">
+            <option value="inbox">受信トレイ</option>
+            <option value="spam">迷惑メール</option>
+            <option value="trash">ゴミ箱</option>
+          </select>
+          <button type="button" class="icon-only" id="btn-mailpage-compose" aria-label="メールを作成" title="メールを作成"><svg class="icon icon-sm"><use href="#icon-plus"></use></svg></button>
+          <button type="button" class="icon-only" id="btn-mailpage-refresh" aria-label="更新" title="更新"><svg class="icon icon-sm"><use href="#icon-refresh"></use></svg></button>
+        </span>
+      </div>
+      <div class="toolbar mail-page-search-row">
+        <input type="text" id="mail-search" placeholder="件名・差出人・本文を検索...">
+        <button type="button" class="icon-only" id="btn-mail-search" aria-label="検索" title="検索"><svg class="icon icon-sm"><use href="#icon-search"></use></svg></button>
+      </div>
+      <div class="mail-bulk-toolbar" id="mail-bulk-toolbar" hidden>
+        <span class="count" id="mail-bulk-count">0件選択中</span>
+        <span class="spacer"></span>
+        <button type="button" id="btn-mail-bulk-read"><svg class="icon icon-sm"><use href="#icon-check"></use></svg>既読にする</button>
+        <button type="button" id="btn-mail-bulk-archive"><svg class="icon icon-sm"><use href="#icon-archive"></use></svg>アーカイブ</button>
+        <button type="button" id="btn-mail-bulk-clear">選択解除</button>
+      </div>
+      <div id="mail-page-list">
+        <div class="empty-hint">読み込み中...</div>
+      </div>
+    </div>
+
+    <!-- 件名一覧／本文の境界をドラッグして幅を変更できる。選んだ幅はブラウザに記憶され、
+         次回このタブを開いたときも同じ幅で表示される（initMailPageResizer()、JavaScript.html）。 -->
+    <div class="mail-page-resizer" id="mail-page-resizer" title="ドラッグして幅を調整"></div>
+
+    <div class="mail-page-reader-col" id="mail-page-reader">
+      <div class="empty-hint">左の一覧からメールを選択してください</div>
+    </div>
+  </section>
+
+  <div class="modal-backdrop" id="mailpage-compose-modal" hidden>
+    <div class="modal-box">
+      <h3>メールを作成</h3>
+
+      <label for="mailpage-compose-to">宛先</label>
+      <input type="text" id="mailpage-compose-to">
+
+      <label for="mailpage-compose-subject">件名</label>
+      <input type="text" id="mailpage-compose-subject">
+
+      <label for="mailpage-compose-body">本文</label>
+      <textarea id="mailpage-compose-body" rows="6"></textarea>
+
+      <div class="modal-footer">
+        <button type="button" id="btn-mailpage-compose-cancel">キャンセル</button>
+        <button type="button" id="btn-mailpage-compose-send" class="primary">送信</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== アプリリンク集タブ。card-links(SideWidgets.html)をJS側で付け替えて使い回す。 ===== -->
+<div id="view-links" hidden></div>
+
+<!-- ===== ToDoリストタブ。card-todo(SideWidgets.html)をJS側で付け替えて使い回す。 ===== -->
+<div id="view-todo" hidden></div>
+
+<!-- ===== Driveタブ ===== -->
+<div id="view-drive" hidden>
+  <section class="card" id="card-drive">
+    <h2>
+      <span class="h2-label"><svg class="icon"><use href="#icon-folder"></use></svg>Drive</span>
+      <span class="card-actions">
+        <div class="drive-new-dropdown" id="drive-new-dropdown">
+          <button type="button" id="btn-drive-new"><svg class="icon icon-sm"><use href="#icon-plus"></use></svg>新規</button>
+          <div class="drive-new-menu" id="drive-new-menu" hidden>
+            <button type="button" data-kind="folder"><svg class="icon icon-sm"><use href="#icon-folder"></use></svg>フォルダ</button>
+            <button type="button" data-kind="document">Googleドキュメント</button>
+            <button type="button" data-kind="spreadsheet">Googleスプレッドシート</button>
+            <button type="button" data-kind="presentation">Googleスライド</button>
+          </div>
+        </div>
+        <button type="button" id="btn-drive-up"><svg class="icon icon-sm"><use href="#icon-arrow-up"></use></svg>上の階層へ</button>
+        <button type="button" id="btn-drive-upload"><svg class="icon icon-sm"><use href="#icon-upload"></use></svg>アップロード</button>
+        <button type="button" class="icon-only toggle-btn" id="btn-drive-view-list" data-drive-view="list" aria-label="リスト表示" title="リスト表示"><svg class="icon icon-sm"><use href="#icon-list"></use></svg></button>
+        <button type="button" class="icon-only toggle-btn" id="btn-drive-view-grid" data-drive-view="grid" aria-label="グリッド表示" title="グリッド表示"><svg class="icon icon-sm"><use href="#icon-grid"></use></svg></button>
+        <button type="button" class="icon-only" id="btn-drive-refresh" aria-label="更新" title="更新"><svg class="icon icon-sm"><use href="#icon-refresh"></use></svg></button>
+      </span>
+    </h2>
+    <input type="file" id="drive-upload-input" multiple hidden>
+
+    <!-- マイドライブ/共有ドライブの切替。起動時にlistSharedDrives()で選択肢を取得する（JavaScript.html参照）。 -->
+    <div class="drive-selector-row">
+      <label for="drive-selector" class="visually-hidden">閲覧するドライブ</label>
+      <select id="drive-selector">
+        <option value="">マイドライブ</option>
+      </select>
+    </div>
+
+    <!-- パンくずリスト。「上の階層へ」ボタンは常にルートへ戻るだけだったため、実際に辿った
+         経路を表示し、途中の階層へも直接ジャンプできるようにしたもの（Google Drive相当の操作性）。 -->
+    <div class="drive-breadcrumb" id="drive-breadcrumb"></div>
+
+    <div class="pinned-folder-chips" id="pinned-folder-chips"></div>
+
+    <div class="toolbar">
+      <input type="text" id="drive-search" placeholder="ファイル名で検索...">
+      <button type="button" class="icon-only" id="btn-drive-search" aria-label="検索" title="検索"><svg class="icon icon-sm"><use href="#icon-search"></use></svg></button>
+      <select id="drive-type-filter">
+        <option value="all">すべての種類</option>
+        <option value="folder">フォルダ</option>
+        <option value="document">ドキュメント</option>
+        <option value="spreadsheet">スプレッドシート</option>
+        <option value="presentation">スライド</option>
+        <option value="image">画像</option>
+        <option value="pdf">PDF</option>
+        <option value="other">その他</option>
+      </select>
+      <select id="drive-sort">
+        <option value="updated">更新日時</option>
+        <option value="name">名前</option>
+        <option value="size">サイズ</option>
+      </select>
+      <select id="drive-order">
+        <option value="desc">降順</option>
+        <option value="asc">昇順</option>
+      </select>
+    </div>
+
+    <!-- チェックボックスで複数選択したときの一括操作ツールバー。メールタブの#mail-bulk-toolbarと同じ考え方。 -->
+    <div class="drive-bulk-toolbar" id="drive-bulk-toolbar" hidden>
+      <span class="count" id="drive-bulk-count">0件選択中</span>
+      <span class="spacer"></span>
+      <button type="button" id="btn-drive-bulk-move"><svg class="icon icon-sm"><use href="#icon-move"></use></svg>移動</button>
+      <button type="button" id="btn-drive-bulk-share"><svg class="icon icon-sm"><use href="#icon-share"></use></svg>共有設定</button>
+      <button type="button" class="danger" id="btn-drive-bulk-delete"><svg class="icon icon-sm"><use href="#icon-trash"></use></svg>削除</button>
+      <button type="button" id="btn-drive-bulk-clear">選択解除</button>
+    </div>
+
+    <!-- ドラッグ&ドロップでのアップロード対応。#drive-listへドラッグすると is-drag-over で
+         枠線をハイライトし、ドロップ時にuploadDriveFile()へ順番に送る（JavaScript.html参照）。 -->
+    <div class="drive-list" id="drive-list">
+      <div class="empty-hint">読み込み中...</div>
+    </div>
+  </section>
+
+  <div class="modal-backdrop" id="drive-preview-modal" hidden>
+    <div class="modal-box" style="width: 640px;">
+      <h3>プレビュー</h3>
+      <iframe id="drive-preview-frame" style="width:100%; height:380px; border:1px solid #ddd;"></iframe>
+      <div class="modal-footer">
+        <button type="button" id="btn-drive-preview-close">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="drive-share-modal" hidden>
+    <div class="modal-box">
+      <h3>共有設定を変更</h3>
+      <input type="hidden" id="drive-share-file-id">
+
+      <label for="drive-share-access">公開範囲</label>
+      <select id="drive-share-access">
+        <option value="PRIVATE">限定公開（PRIVATE）</option>
+        <option value="DOMAIN_WITH_LINK">ドメイン内（リンクを知っている人）</option>
+        <option value="DOMAIN">ドメイン内（全員）</option>
+        <option value="ANYONE_WITH_LINK">リンクを知っている全員</option>
+        <option value="ANYONE">ウェブ上の全員</option>
+      </select>
+
+      <label for="drive-share-permission">権限</label>
+      <select id="drive-share-permission">
+        <option value="VIEW">閲覧のみ</option>
+        <option value="COMMENT">コメント可</option>
+        <option value="EDIT">編集可</option>
+      </select>
+
+      <div class="modal-footer">
+        <button type="button" id="btn-drive-share-cancel">キャンセル</button>
+        <button type="button" id="btn-drive-share-save" class="primary">適用</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="drive-upload-modal" hidden>
+    <div class="modal-box">
+      <h3>アップロード先を選択</h3>
+      <p class="empty-hint" style="padding-top:0;" id="drive-upload-count"></p>
+      <label for="drive-upload-dest">アップロード先フォルダID</label>
+      <input type="text" id="drive-upload-dest" placeholder="空欄の場合はドライブのルート">
+      <p class="empty-hint">既定では現在開いているフォルダになっています。別のフォルダのURLに
+        含まれるIDを入力すると、アップロード先を変更できます。</p>
+      <div class="modal-footer">
+        <button type="button" id="btn-drive-upload-cancel">キャンセル</button>
+        <button type="button" id="btn-drive-upload-save" class="primary">アップロード</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="drive-move-modal" hidden>
+    <div class="modal-box">
+      <h3>フォルダを移動</h3>
+      <input type="hidden" id="drive-move-file-id">
+      <label for="drive-move-dest">移動先フォルダID</label>
+      <input type="text" id="drive-move-dest" placeholder="フォルダのURLに含まれるID">
+      <div class="modal-footer">
+        <button type="button" id="btn-drive-move-cancel">キャンセル</button>
+        <button type="button" id="btn-drive-move-save" class="primary">移動</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="drive-rename-modal" hidden>
+    <div class="modal-box">
+      <h3>名称を変更</h3>
+      <input type="hidden" id="drive-rename-file-id">
+      <input type="hidden" id="drive-rename-is-folder">
+      <label for="drive-rename-name">新しい名前</label>
+      <input type="text" id="drive-rename-name">
+      <div class="modal-footer">
+        <button type="button" id="btn-drive-rename-cancel">キャンセル</button>
+        <button type="button" id="btn-drive-rename-save" class="primary">変更</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="drive-create-modal" hidden>
+    <div class="modal-box">
+      <h3 id="drive-create-title">新規フォルダ</h3>
+      <input type="hidden" id="drive-create-kind">
+      <label for="drive-create-name">名前</label>
+      <input type="text" id="drive-create-name">
+      <div class="modal-footer">
+        <button type="button" id="btn-drive-create-cancel">キャンセル</button>
+        <button type="button" id="btn-drive-create-save" class="primary">作成</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 全体設定タブ ===== -->
+<div id="view-settings" hidden>
+  <div class="card">
+    <h2><span class="h2-label"><svg class="icon"><use href="#icon-shuffle"></use></svg>テーマカラー</span></h2>
+    <p class="empty-hint" style="padding-top:0;">コントロールパネル（左のメニュー）に適用する配色です。「ランダム」を選ぶと起動のたびに自動で切り替わります。</p>
+    <div class="theme-swatch-grid" id="theme-swatch-grid">
+      <div class="empty-hint">読み込み中...</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="h2-label"><svg class="icon"><use href="#icon-monitor"></use></svg>表示モード</span></h2>
+    <p class="empty-hint" style="padding-top:0;">画面全体の配色です。「システム」を選ぶとお使いの端末・ブラウザの設定に自動で合わせます。選択するとすぐに反映されます。</p>
+    <div class="dark-mode-switcher" id="dark-mode-switcher"></div>
+  </div>
+
+  <div class="card">
+    <h2>個人設定（このアカウントのみ）</h2>
+
+    <div class="settings-section">
+      <h3>ホーム画面のウィジェット（レイアウト）</h3>
+      <p class="empty-hint" style="padding-top:0;">ブロックをドラッグして配置先・順序を変更できます。ブロック下端の取っ手を上下にドラッグすると大きさ（小・中・大）を調整できます。目のアイコンで表示/非表示を切り替えられます。変更内容は「個人設定を保存」を押すまで確定しません。</p>
+      <div class="widget-layout-editor" id="widget-layout-editor">
+        <div class="widget-layout-col" data-column="main">
+          <div class="widget-layout-col-label">メインエリア</div>
+          <div class="widget-layout-dropzone" data-column="main" id="widget-layout-main"></div>
+        </div>
+        <div class="widget-layout-col" data-column="side">
+          <div class="widget-layout-col-label">サイドバー</div>
+          <div class="widget-layout-dropzone" data-column="side" id="widget-layout-side"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>メール表示件数</h3>
+      <input type="number" id="setting-mail-count" min="1" max="20" style="width:80px;">
+    </div>
+
+    <button type="button" id="btn-save-user-settings" class="primary">個人設定を保存</button>
+  </div>
+
+  <div class="card">
+    <h2><span class="h2-label"><svg class="icon"><use href="#icon-link"></use></svg>カスタムナビ項目（個人用ショートカット）</span></h2>
+    <p class="empty-hint" style="padding-top:0;">アプリリンク集とは別に、コントロールパネルに好きな名前のボタンを追加できます。押すと指定したURLを新しいタブで開きます。</p>
+
+    <div class="toolbar">
+      <input type="text" id="custom-nav-label-input" placeholder="表示名" style="flex:0 0 160px;">
+      <input type="text" id="custom-nav-url-input" placeholder="URL">
+      <button type="button" id="btn-custom-nav-add" class="primary">
+        <svg class="icon icon-sm"><use href="#icon-plus"></use></svg>追加
+      </button>
+    </div>
+    <!-- 追加する項目のアイコンを選ぶ（未選択時は既定の"link"アイコン）。既存項目のアイコンは
+         下の一覧にそのまま表示されるが、名称・URLと同様に追加後の変更はできない。 -->
+    <div class="nav-icon-picker" id="nav-icon-picker"></div>
+
+    <div id="custom-nav-settings-list"></div>
+  </div>
+
+  <div class="card">
+    <h2>全体設定（アプリ全体に反映）</h2>
+
+    <div class="settings-section">
+      <h3>同期対象カレンダー</h3>
+      <p class="empty-hint" style="padding-top:0;">ログイン中のGoogleアカウントに紐づく以下のカレンダーが自動的に同期されます（個別に選択する必要はありません）。</p>
+      <div id="sync-calendar-list"></div>
+    </div>
+
+    <div class="settings-section">
+      <h3>通知</h3>
+      <p class="empty-hint" style="padding-top:0;">有効にすると、毎日指定した時刻に「今日の予定」と「期限が近い/期限切れのToDo」をメールでまとめて通知します（対象が無い日は送信されません）。</p>
+      <div class="checkbox-row">
+        <input type="checkbox" id="setting-notify-enabled">
+        <label for="setting-notify-enabled" style="margin:0;">通知を有効にする</label>
+      </div>
+      <div class="checkbox-row">
+        <label for="setting-notify-hour" style="margin:0;">通知時刻</label>
+        <select id="setting-notify-hour" style="width:auto;"></select>
+        <button type="button" id="btn-send-test-notification">テスト通知を送信</button>
+      </div>
+    </div>
+
+    <button type="button" id="btn-save-global-settings" class="primary">全体設定を保存</button>
+  </div>
+</div>

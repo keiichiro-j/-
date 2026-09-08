@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <!-- 公式サイト風の細身・ジオメトリックなサンセリフ体（Barlow）。和文はBarlowに
+       グリフが無いため、自動的に既存のフォールバック（游ゴシック等）にフォントが
+       切り替わる（Stylesheet.htmlのfont-family参照）。 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- PWA対応（ホーム画面に追加してアプリのように起動できるようにする）。
+       manifest・Service Workerの実体はPwaService.gs参照。ウェブアプリの
+       URL（.../exec）に直接アクセスした場合にのみ機能し、Googleサイトへの
+       埋め込み表示では（トップレベルのページがGoogleサイト側のため）
+       ホーム画面への追加は機能しない点に注意。 -->
+  <link rel="manifest" href="?resource=manifest">
+  <meta name="theme-color" content="#0b1f33">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="販売可能リスト">
+  <link rel="apple-touch-icon" href="<?!= appleTouchIconDataUri_() ?>">
+  <?!= include('html/Stylesheet'); ?>
+</head>
+<body class="is-home-tab">
+  <!-- Google/Teslaのようなミニマルな線画アイコン一式（外部アイコンライブラリ非依存。
+       個々の絵文字アイコンの代わりに使う。<use>で参照する）。 -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="icon-tune" viewBox="0 0 24 24">
+        <line x1="4" y1="7" x2="20" y2="7"/>
+        <line x1="4" y1="12" x2="20" y2="12"/>
+        <line x1="4" y1="17" x2="20" y2="17"/>
+        <circle cx="15" cy="7" r="1.8" fill="currentColor" stroke="none"/>
+        <circle cx="9" cy="12" r="1.8" fill="currentColor" stroke="none"/>
+        <circle cx="13" cy="17" r="1.8" fill="currentColor" stroke="none"/>
+      </symbol>
+      <symbol id="icon-image" viewBox="0 0 24 24">
+        <rect x="3.5" y="5" width="17" height="14" rx="2.5"/>
+        <circle cx="9" cy="10.5" r="1.6"/>
+        <path d="M4 16.5l4.3-4.3a1.5 1.5 0 012.1 0l1.4 1.4 3.4-3.4a1.5 1.5 0 012.1 0L20 13"/>
+      </symbol>
+      <symbol id="icon-mail" viewBox="0 0 24 24">
+        <rect x="3.5" y="5.5" width="17" height="13" rx="2"/>
+        <path d="M4 7l8 6 8-6"/>
+      </symbol>
+      <symbol id="icon-people" viewBox="0 0 24 24">
+        <circle cx="9" cy="8.2" r="2.7"/>
+        <path d="M4 19c0-3 2.3-5 5-5s5 2 5 5"/>
+        <circle cx="17" cy="9" r="2.1"/>
+        <path d="M14.7 19c.3-2.2 1.6-3.7 3.1-4.3"/>
+      </symbol>
+      <symbol id="icon-grid" viewBox="0 0 24 24">
+        <rect x="4" y="4" width="7" height="7" rx="1.3"/>
+        <rect x="13" y="4" width="7" height="7" rx="1.3"/>
+        <rect x="4" y="13" width="7" height="7" rx="1.3"/>
+        <rect x="13" y="13" width="7" height="7" rx="1.3"/>
+      </symbol>
+      <symbol id="icon-table" viewBox="0 0 24 24">
+        <rect x="4" y="5" width="16" height="14" rx="1.5"/>
+        <line x1="4" y1="10" x2="20" y2="10"/>
+        <line x1="4" y1="14.5" x2="20" y2="14.5"/>
+        <line x1="10.5" y1="5" x2="10.5" y2="19"/>
+      </symbol>
+      <symbol id="icon-alert" viewBox="0 0 24 24">
+        <path d="M12 4.2L21 19.5H3L12 4.2z" stroke-linejoin="round"/>
+        <line x1="12" y1="10.3" x2="12" y2="14.3"/>
+        <circle cx="12" cy="16.8" r="1" fill="currentColor" stroke="none"/>
+      </symbol>
+      <symbol id="icon-home" viewBox="0 0 24 24">
+        <path d="M4 11.5L12 4.5l8 7" stroke-linejoin="round"/>
+        <path d="M5.5 10v9h13v-9" stroke-linejoin="round"/>
+        <path d="M10 19v-5.5h4V19"/>
+      </symbol>
+      <symbol id="icon-lock" viewBox="0 0 24 24">
+        <rect x="5" y="11" width="14" height="9" rx="2"/>
+        <path d="M8 11V8a4 4 0 018 0v3"/>
+        <circle cx="12" cy="15.2" r="1.2" fill="currentColor" stroke="none"/>
+      </symbol>
+      <symbol id="icon-back" viewBox="0 0 24 24">
+        <path d="M14.5 5L7 12l7.5 7" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-refresh" viewBox="0 0 24 24">
+        <path d="M5.5 8a7.5 7.5 0 0112.7-3.8M19 3.6v4.4h-4.4"/>
+        <path d="M18.5 16a7.5 7.5 0 01-12.7 3.8M5 20.4V16h4.4"/>
+      </symbol>
+      <!-- 左サイドバー（PCビューのみ）の「Gクラス予約リスト」ナビ項目専用に追加。
+           既存アイコン一式にはカレンダー系の意匠が無かったため、他の線画アイコンと
+           同じ描画ルール（stroke・角丸）に合わせて新規に追加した。 -->
+      <symbol id="icon-calendar" viewBox="0 0 24 24">
+        <rect x="4" y="5.5" width="16" height="14" rx="2"/>
+        <line x1="4" y1="9.5" x2="20" y2="9.5"/>
+        <line x1="8" y1="3.5" x2="8" y2="7"/>
+        <line x1="16" y1="3.5" x2="16" y2="7"/>
+      </symbol>
+      <!-- 左サイドバー（PCビューのみ）の「発注リスト」ナビ項目専用に追加。
+           クリップボード（発注書のイメージ）を、他の線画アイコンと同じ
+           描画ルール（stroke・角丸）に合わせて新規に追加した。 -->
+      <symbol id="icon-clipboard" viewBox="0 0 24 24">
+        <rect x="5.5" y="5" width="13" height="16" rx="2"/>
+        <rect x="9" y="3.3" width="6" height="3.4" rx="1.2"/>
+        <line x1="8.3" y1="12" x2="15.7" y2="12"/>
+        <line x1="8.3" y1="15.8" x2="15.7" y2="15.8"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <!-- 起動直後、初回データ取得（reloadAll_）が終わるまで表示するローディング画面。
+       以前は何も表示せず空白のまま数秒待たせていたため、JavaScript.htmlのinit()で
+       初回のreloadAll_完了時にのみis-hiddenを付けてフェードアウトする
+       （更新ボタンからの再読み込みでは表示しない。そちらは既存のボタン自体の
+       回転アイコンで十分フィードバックできているため）。
+       スピナー・「読み込み中…」の文字は表示しない（現場からの要望で廃止。
+       画像だけをうっすら映す、静かな演出にしている）。背景色は固定のネイビー
+       ではなく、選択中のテーマ（表示設定）の配色に連動する
+       （--loading-bg、applyTheme・JavaScript.html参照。テーマを切り替えると
+       ローディング画面の背景色も一緒に変わる）。
+       #appLoadingImageは、管理者が設定タブから登録した画像（任意。未設定なら
+       非表示）。読み込み完了（onload）まではopacity: 0のままにしておき、
+       読み込めたらis-visibleを付けて「うっすら現れる」フェードインにする
+       （applyLoadingImage_、JavaScript.html参照）。画面全体（#appLoading）自体の
+       フェードアウトは既存のis-hidden（opacity遷移）でそのまま「うっすら消える」
+       演出になる。 -->
+  <div class="appLoading" id="appLoading" aria-hidden="true">
+    <img class="appLoading__image hidden" id="appLoadingImage" alt="">
+  </div>
+
+  <div id="app">
+    <!-- 左サイドバー: PCビュー（901px以上）のみ表示する（Stylesheet.html参照）。
+         タブレット・スマホ幅は従来どおりtopbar内の.tabs（水平タブ）を使うため、
+         このsidebarはCSSで非表示にしたまま何もレンダリングに影響しない。
+         ナビ項目は既存の.tabs__itemクラスを共有して付与し、switchToTab_
+         （JavaScript.html）がdocument.querySelectorAll('.tabs__item')で
+         is-activeを一括トグルする既存の仕組みにそのまま乗せている
+         （mainTabsの各ボタンと状態が自動的に同期する）。 -->
+    <nav class="sidebar" id="sidebar" aria-label="メインナビゲーション">
+      <div class="sidebar__brand">
+        <img id="sidebarLogo" class="sidebar__logo hidden" alt="ロゴ">
+        <span class="sidebar__brandText">販売可能リスト</span>
+      </div>
+      <div class="sidebarNav" id="sidebarNav" role="tablist" aria-label="画面切替">
+        <button class="tabs__item sidebarNav__item is-active" data-tab="home" type="button">
+          <svg class="icon"><use href="#icon-home"></use></svg><span>ホーム</span>
+        </button>
+        <button class="tabs__item sidebarNav__item" data-tab="inventory" type="button">
+          <svg class="icon"><use href="#icon-grid"></use></svg><span>在庫リスト</span>
+        </button>
+        <button class="tabs__item sidebarNav__item" data-tab="orders" type="button">
+          <svg class="icon"><use href="#icon-table"></use></svg><span>受注リスト</span>
+        </button>
+        <button class="tabs__item sidebarNav__item" data-tab="purchaseOrders" type="button">
+          <svg class="icon"><use href="#icon-clipboard"></use></svg><span>発注リスト</span>
+        </button>
+        <button class="tabs__item sidebarNav__item" data-tab="gclass" type="button">
+          <svg class="icon"><use href="#icon-calendar"></use></svg><span>Gクラス予約リスト</span>
+        </button>
+        <button class="tabs__item sidebarNav__item" data-tab="mypage" type="button">
+          <svg class="icon"><use href="#icon-people"></use></svg><span>マイページ</span>
+        </button>
+        <button class="tabs__item sidebarNav__item" data-tab="settings" type="button">
+          <svg class="icon"><use href="#icon-tune"></use></svg><span>設定</span>
+        </button>
+      </div>
+      <!-- ログイン中の担当者情報。topbar__userと同じ内容をrenderTopbarUser
+           （JavaScript.html）が両方に描画する。 -->
+      <div class="sidebarUser" id="sidebarUser">
+        <div class="sidebarUser__avatar" id="sidebarUserAvatar" aria-hidden="true"></div>
+        <div class="sidebarUser__info" id="sidebarUserInfo"></div>
+      </div>
+    </nav>
+
+    <header class="topbar" id="topbar">
+      <div class="topbar__brandRow">
+        <!-- PCビューではロゴ・ナビ・ユーザー情報がサイドバーに移るため、topbarには
+             戻る／更新ボタンだけが残る（見出しテキストは表示しない。サイドバーの
+             .sidebar__brandTextと重複させないため。ホームタブでは、この見出しが
+             あった場所にボディタイプ絞り込みナビ（#homeTypeNav）が重なって表示される。
+             Stylesheet.html参照）。 -->
+        <div class="topbar__left">
+          <button type="button" class="topbar__navBtn" id="btnNavBack" title="戻る" aria-label="1つ前の画面に戻る" disabled>
+            <svg class="icon"><use href="#icon-back"></use></svg>
+          </button>
+          <button type="button" class="topbar__navBtn topbar__navBtn--refresh" id="btnRefresh" title="更新" aria-label="最新の情報に更新">
+            <svg class="icon"><use href="#icon-refresh"></use></svg>
+          </button>
+        </div>
+        <!-- アプリ名表記。左右のボタン・ユーザー情報の幅に関わらず画面中央に来るよう、
+             .topbar__brandRow(position: relative)を基準にposition: absoluteで
+             中央配置する（Stylesheet.html参照）。タブレット・スマホ幅のみで表示し、
+             PCビューではサイドバーのロゴ表記（.sidebar__brand）に役割を譲って
+             非表示にする。 -->
+        <div class="topbar__brand">
+          <img id="topbarLogo" class="topbar__logo hidden" alt="ロゴ">
+          <span class="topbar__brandText">販売可能リスト</span>
+        </div>
+        <div class="topbar__user" id="topbarUser"></div>
+      </div>
+      <nav class="tabs" id="mainTabs" role="tablist" aria-label="画面切替">
+        <button class="tabs__item is-active" data-tab="home">ホーム</button>
+        <button class="tabs__item" data-tab="inventory">在庫リスト</button>
+        <button class="tabs__item" data-tab="orders">受注リスト</button>
+        <button class="tabs__item" data-tab="purchaseOrders">発注リスト</button>
+        <button class="tabs__item" data-tab="gclass">Gクラス予約リスト</button>
+        <button class="tabs__item" data-tab="mypage">マイページ</button>
+        <button class="tabs__item" data-tab="settings">設定</button>
+      </nav>
+      <div class="integrityBanner hidden" id="integrityBanner">
+        <svg class="icon icon--inline"><use href="#icon-alert"></use></svg>
+        <span id="integrityBannerSummary"></span>
+        <button type="button" class="integrityBanner__toggle" id="btnIntegrityDetail">詳細を見る</button>
+        <div class="toolbar__spacer"></div>
+        <button type="button" class="integrityBanner__close" id="btnIntegrityClose" aria-label="閉じる">&times;</button>
+      </div>
+      <ul class="integrityBanner__list hidden" id="integrityBannerList"></ul>
+    </header>
+
+    <!-- ホーム -->
+    <main class="view is-active" id="view-home">
+      <!-- PCビューは、サイドバー＋1本のカードグリッド（3枚1行）というシンプルな
+           構成にする（以前あった右側の詳細ペイン・スライドショーは廃止し、
+           車両画像・在庫台数・グレード内訳をすべてカード自体に埋め込んだ。
+           添付の参照UIに合わせた構成。Stylesheet.html参照）。タブレット・スマホ幅では
+           従来どおりモデル一覧のみ・タップでその場にグレードタブを展開する動作の
+           ままにする（JavaScript.htmlのisPcHomeLayout_参照）。
+           PCビューでは、共通のトップバー（戻る／更新ボタン＋アプリ名見出し）を
+           ホームタブの間だけ非表示にし（body.is-home-tab、Stylesheet.html参照）、
+           代わりに結合ヘッダー（#homeCombinedHeader）にアプリ名見出し・型クイック
+           ナビ・戻る／更新ボタンをまとめて持たせる。参照UIで「Car Listings」の
+           見出し＋操作ボタンがあった位置に、この結合ヘッダー（型クイックナビ）を
+           対応させている。結合ヘッダーは他のタブのツールバーと同様
+           position: fixedで画面上部に固定し（#homeCombinedHeaderSpacerで
+           後続のカードグリッドが隠れないようにする）、カードグリッド自体は
+           ページとして通常どおり縦スクロールする。
+           戻る／更新ボタン（#btnNavBackHome/#btnRefreshHome）は、共通トップバー側の
+           ボタン（#btnNavBack/#btnRefresh）と同じ処理を呼ぶ別要素（JavaScript.html
+           のhandleNavBackClick_/handleRefreshClick_・syncNavButtons_参照）。
+           タブレット・スマホ幅では#homeCombinedHeader自体をdisplay: contentsにして
+           自身の箱を消し、型クイックナビ（#homeTypeNav）だけを従来どおり
+           position: fixedで画面上部に固定表示させる。それ以外の子要素
+           （見出し・戻る／更新ボタン）はタブレット・スマホ幅では非表示にし、
+           共通トップバーのボタンだけが使われる（Stylesheet.html参照）。
+
+           #homeAnnouncement（お知らせ）は、管理者が設定タブから登録した任意の
+           お知らせ文言（例:「限定車在庫3台あり」）を、アプリ名見出しのすぐ上に
+           表示する（renderHomeAnnouncement_、JavaScript.html参照）。未設定の
+           場合はhiddenのまま。PCでは#homeCombinedHeader内の先頭要素として
+           見出し行の直前に表示され、タブレット・スマホ幅では#homeTypeNavと
+           同様position: fixedで独立して固定表示する（#homeAnnouncementSpacer
+           で後続要素が隠れないようにする。Stylesheet.html参照）。 -->
+      <div class="homeCombinedHeader" id="homeCombinedHeader">
+        <div class="homeAnnouncement hidden" id="homeAnnouncement"></div>
+        <div class="homeCombinedHeader__topRow">
+          <div class="homeCombinedHeader__title">販売可能リスト</div>
+          <div class="homeCombinedHeader__actions">
+            <button type="button" class="topbar__navBtn" id="btnNavBackHome" title="戻る" aria-label="1つ前の画面に戻る" disabled>
+              <svg class="icon"><use href="#icon-back"></use></svg>
+            </button>
+            <button type="button" class="topbar__navBtn topbar__navBtn--refresh" id="btnRefreshHome" title="更新" aria-label="最新の情報に更新">
+              <svg class="icon"><use href="#icon-refresh"></use></svg>
+            </button>
+          </div>
+        </div>
+        <div class="homeTypeNav hidden" id="homeTypeNav" role="tablist" aria-label="ボディタイプで絞り込み"></div>
+      </div>
+      <div class="homeCombinedHeaderSpacer" id="homeCombinedHeaderSpacer"></div>
+      <div class="homeAnnouncementSpacer" id="homeAnnouncementSpacer"></div>
+      <div class="homeTypeNavSpacer" id="homeTypeNavSpacer"></div>
+      <div class="homeList" id="homeGrid"></div>
+      <div class="emptyState hidden" id="homeEmpty">
+        <svg class="icon emptyState__icon"><use href="#icon-image"></use></svg>
+        <p>モデル写真がまだ登録されていません。設定タブの「モデル写真」から登録できます。</p>
+      </div>
+      <div class="emptyState hidden" id="homeTypeEmpty">
+        <svg class="icon emptyState__icon"><use href="#icon-tune"></use></svg>
+        <p>該当するボディタイプのモデルが登録されていません。</p>
+      </div>
+    </main>
+
+    <!-- 在庫リスト -->
+    <main class="view" id="view-inventory">
+      <div class="toolbar" id="inventoryToolbar">
+        <input type="search" id="inventoryKeyword" class="input input--search" placeholder="モデル・コミッションで検索">
+        <select id="inventoryMonthFilter" class="input">
+          <option value="">可能月：すべて</option>
+        </select>
+        <label class="checkboxField">
+          <input type="checkbox" id="inventoryIncludeHold" checked> Hold済みを含む
+        </label>
+        <div class="toolbar__spacer"></div>
+        <div class="viewToggle" id="inventoryViewToggle">
+          <button type="button" class="viewToggle__item" data-view="card" title="カード表示" aria-label="カード表示"><svg class="icon icon--inline"><use href="#icon-grid"></use></svg></button>
+          <button type="button" class="viewToggle__item" data-view="table" title="表表示" aria-label="表表示"><svg class="icon icon--inline"><use href="#icon-table"></use></svg></button>
+        </div>
+        <span class="toolbar__count" id="inventoryTotalCount"></span>
+      </div>
+      <div class="toolbarSpacer" id="inventoryToolbarSpacer"></div>
+      <div id="inventoryList"></div>
+      <div class="emptyState hidden" id="inventoryEmpty">
+        <svg class="icon emptyState__icon"><use href="#icon-grid"></use></svg>
+        <p>該当する在庫がありません</p>
+      </div>
+    </main>
+
+    <!-- 受注リスト -->
+    <main class="view" id="view-orders">
+      <div class="toolbar" id="ordersToolbar">
+        <input type="search" id="ordersKeyword" class="input input--search" placeholder="自由検索（モデル・コミッション・顧客名・担当・拠点）">
+        <select id="ordersLocationFilter" class="input">
+          <option value="">拠点：すべて</option>
+          <option value="岐阜">岐阜</option>
+          <option value="大垣">大垣</option>
+          <option value="多治見">多治見</option>
+          <option value="高山">高山</option>
+        </select>
+        <select id="ordersStaffFilter" class="input"></select>
+        <select id="ordersGroupBy" class="input">
+          <option value="">グループ表示なし</option>
+          <option value="orderedMonth">月ごと</option>
+          <option value="salesLocation">販売拠点ごと</option>
+          <option value="model">モデルごと</option>
+        </select>
+        <div class="toolbar__spacer"></div>
+        <div class="viewToggle" id="ordersViewToggle">
+          <button type="button" class="viewToggle__item" data-view="card" title="カード表示" aria-label="カード表示"><svg class="icon icon--inline"><use href="#icon-grid"></use></svg></button>
+          <button type="button" class="viewToggle__item" data-view="table" title="表表示" aria-label="表表示"><svg class="icon icon--inline"><use href="#icon-table"></use></svg></button>
+        </div>
+        <span class="toolbar__count" id="ordersTotalCount"></span>
+      </div>
+      <div class="toolbarSpacer" id="ordersToolbarSpacer"></div>
+      <div id="ordersGroups"></div>
+      <div class="emptyState hidden" id="ordersEmpty">
+        <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
+        <p>該当する受注がありません</p>
+      </div>
+    </main>
+
+    <!-- 発注リスト: スプレッドシートのデータを閲覧する専用の一覧（閲覧専用。
+         登録・編集・削除はいずれもアプリ画面から行わず、新規の発注情報・変更は
+         すべてスプレッドシートへ直接行う運用とする。在庫リスト・受注リストのような
+         Hold/受注のステータス管理・通知は持たない、シンプルな一覧のまま。
+         モデル名・拠点・担当者・顧客は必須、コミッション・リード番号はまだ確定して
+         いない段階でも登録できるよう任意項目にしている（PurchaseOrderService.gs参照）。 -->
+    <main class="view" id="view-purchaseOrders">
+      <div class="toolbar" id="purchaseOrdersToolbar">
+        <input type="search" id="purchaseOrdersKeyword" class="input input--search" placeholder="自由検索（モデル・拠点・担当者・顧客・コミッション・リード番号）">
+        <div class="toolbar__spacer"></div>
+        <div class="viewToggle" id="purchaseOrdersViewToggle">
+          <button type="button" class="viewToggle__item" data-view="card" title="カード表示" aria-label="カード表示"><svg class="icon icon--inline"><use href="#icon-grid"></use></svg></button>
+          <button type="button" class="viewToggle__item" data-view="table" title="表表示" aria-label="表表示"><svg class="icon icon--inline"><use href="#icon-table"></use></svg></button>
+        </div>
+        <span class="toolbar__count" id="purchaseOrdersTotalCount"></span>
+      </div>
+      <div class="toolbarSpacer" id="purchaseOrdersToolbarSpacer"></div>
+      <div id="purchaseOrdersList"></div>
+      <div class="emptyState hidden" id="purchaseOrdersEmpty">
+        <svg class="icon emptyState__icon"><use href="#icon-clipboard"></use></svg>
+        <p>該当する発注情報がありません</p>
+      </div>
+    </main>
+
+    <!-- Gクラス予約リスト: 通常の在庫リストにリード番号を加えた閲覧専用の一覧。
+         受注リストと同様、データの追加・編集はスプレッドシートへ直接行う運用のため、
+         Hold・受注操作のボタンは一切表示しない（HOLDは不可、閲覧のみ）。 -->
+    <main class="view" id="view-gclass">
+      <div class="toolbar" id="gclassToolbar">
+        <input type="search" id="gclassKeyword" class="input input--search" placeholder="自由検索（モデル・コミッション・リード番号・顧客）">
+        <div class="toolbar__spacer"></div>
+        <div class="viewToggle" id="gclassViewToggle">
+          <button type="button" class="viewToggle__item" data-view="card" title="カード表示" aria-label="カード表示"><svg class="icon icon--inline"><use href="#icon-grid"></use></svg></button>
+          <button type="button" class="viewToggle__item" data-view="table" title="表表示" aria-label="表表示"><svg class="icon icon--inline"><use href="#icon-table"></use></svg></button>
+        </div>
+        <span class="toolbar__count" id="gclassTotalCount"></span>
+      </div>
+      <div class="toolbarSpacer" id="gclassToolbarSpacer"></div>
+      <div id="gclassList"></div>
+      <div class="emptyState hidden" id="gclassEmpty">
+        <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
+        <p>該当するGクラス予約がありません</p>
+      </div>
+    </main>
+
+    <!-- マイページ: ログイン中の担当者本人がHold中の車両・受注した車両・発注リスト・
+         Gクラス予約リストだけを抜き出して表示する（在庫リスト・受注リスト等は全担当者
+         ぶんが並ぶため、自分の案件だけをすぐ確認したい場面向け）。担当者マスタに未登録の
+         Googleアカウントの場合は、その旨を案内するメッセージのみ表示する
+         （#myPageNoStaff、JavaScript.htmlのrenderMyPageNoStaffState_参照）。
+         在庫リスト・受注リストと同様、表示形式（カード／表）の切り替えと自由検索欄を
+         ツールバーに持たせ、マイページ全体（4セクションすべて）に一括で適用する
+         （#myPageViewToggle・#myPageKeyword、renderMyPageAll_参照）。 -->
+    <main class="view" id="view-mypage">
+      <div class="toolbar" id="myPageToolbar">
+        <input type="search" id="myPageKeyword" class="input input--search" placeholder="自由検索（モデル・コミッション・顧客・リード番号等）">
+        <div class="toolbar__spacer"></div>
+        <div class="viewToggle" id="myPageViewToggle">
+          <button type="button" class="viewToggle__item" data-view="card" title="カード表示" aria-label="カード表示"><svg class="icon icon--inline"><use href="#icon-grid"></use></svg></button>
+          <button type="button" class="viewToggle__item" data-view="table" title="表表示" aria-label="表表示"><svg class="icon icon--inline"><use href="#icon-table"></use></svg></button>
+        </div>
+      </div>
+      <div class="toolbarSpacer" id="myPageToolbarSpacer"></div>
+      <div class="emptyState hidden" id="myPageNoStaff">
+        <svg class="icon emptyState__icon"><use href="#icon-people"></use></svg>
+        <p>ご利用中のGoogleアカウントが担当者マスタに登録されていないため、マイページを表示できません。
+        設定タブの「担当者」にご自身のメールアドレスを登録してください。</p>
+      </div>
+      <div id="myPageContent">
+        <section class="myPageSection">
+          <h2 class="myPageSection__title">Hold中の車両（<span id="myPageHoldCount">0</span>台）</h2>
+          <div id="myPageHoldList"></div>
+          <div class="emptyState hidden" id="myPageHoldEmpty">
+            <svg class="icon emptyState__icon"><use href="#icon-lock"></use></svg>
+            <p>現在Hold中の車両はありません</p>
+          </div>
+        </section>
+        <section class="myPageSection">
+          <h2 class="myPageSection__title">受注した車両（<span id="myPageOrderCount">0</span>台）</h2>
+          <div id="myPageOrderList"></div>
+          <div class="emptyState hidden" id="myPageOrderEmpty">
+            <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
+            <p>受注した車両はありません</p>
+          </div>
+        </section>
+        <!-- 発注リストには担当者メールの記録がない（在庫リスト・受注リストと違い
+             手入力の台帳のため）ため、Gクラス予約リストと同じく担当者マスタで解決した
+             表示名（担当者列のテキスト）で突き合わせる（renderMyPagePurchaseOrders_参照）。 -->
+        <section class="myPageSection">
+          <h2 class="myPageSection__title">発注リスト（<span id="myPagePurchaseOrderCount">0</span>件）</h2>
+          <div id="myPagePurchaseOrderList"></div>
+          <div class="emptyState hidden" id="myPagePurchaseOrderEmpty">
+            <svg class="icon emptyState__icon"><use href="#icon-clipboard"></use></svg>
+            <p>担当者として登録されている発注情報はありません</p>
+          </div>
+        </section>
+        <!-- Gクラス予約リストは担当者メールの記録がない（閲覧専用・スプレッドシート
+             直接編集のため）ため、担当者マスタで解決した表示名（担当者列のテキスト）で
+             突き合わせる（renderMyPageGClass_参照）。 -->
+        <section class="myPageSection">
+          <h2 class="myPageSection__title">Gクラス予約リスト（<span id="myPageGClassCount">0</span>台）</h2>
+          <div id="myPageGClassList"></div>
+          <div class="emptyState hidden" id="myPageGClassEmpty">
+            <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
+            <p>担当者として登録されているGクラス予約はありません</p>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <!-- 設定 -->
+    <main class="view" id="view-settings">
+      <div class="settingsWrap">
+        <div class="settingsGrid">
+          <div class="settingsGroupTitle">テーマ</div>
+          <!-- 表示設定（着せ替え）: アプリ全体の配色（--primary系）とPCビュー左端の
+               サイドバーの配色（--sidebar-bg系）は、1つのプリセットでセットになって
+               切り替わる（「サイドバーの色と表示設定は別々ではなく組にしてほしい」
+               という要望を受け、以前は独立したカラーピッカーだったサイドバーの色を
+               THEME_PRESETSのsidebarColorに統合した）。サイドバーの文字色は選んだ
+               sidebarColorに対して読みやすいほう（白／濃色）へ自動的に切り替わる
+               （pickReadableSidebarTextColor_、JavaScript.html参照）ため、プリセット
+               追加時にサイドバー側の可読性を個別に検証する必要はない。11色（メルセデス・
+               ベンツのボディカラー名にちなむ）＋「ランダム（ログインのたび変化。
+               THEME_PRESETSから毎回無作為に1つ選ぶ）」の計12種類から選べる。 -->
+          <div class="settingsCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>表示設定</h2>
+            <p class="settingsSection__desc">アプリ全体とサイドバーの配色を、視覚的に確認済みの11種類（着せ替え）＋ランダム（ログインのたび変化）から選べます。</p>
+            <div class="themePresetGrid" id="themePresetGrid"></div>
+          </div>
+
+          <!-- システムマスタ: ログイン中のGoogleアカウントがSYSTEM_ADMIN_EMAILS（Constants.gs）に
+               登録されている場合のみ表示する（renderSettings参照）。ロゴ・モデル写真は
+               全利用者の画面に表示されるデータのため値自体は非管理者にも渡るが、
+               編集画面はここに集約し管理者限定にする。保存処理も、この一覧を
+               表示できない利用者からの変更は常にサーバー側で無視される（Api.gs参照）。 -->
+          <div class="settingsGroupTitle settingsGroupTitle--admin hidden" id="systemMasterGroupTitle">
+            <svg class="icon icon--inline"><use href="#icon-lock"></use></svg>
+            システムマスタ
+            <span class="settingsGroupTitle__badge">管理者限定</span>
+          </div>
+
+          <div class="settingsCard hidden" id="systemMasterLogoCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-image"></use></svg>ロゴ</h2>
+            <p class="settingsSection__desc">画面上部に表示するロゴ画像です。画像ファイルをアップロードするか、画像のURLを直接指定してください。アップロードした画像はこの設定項目内にそのまま保存されるため、なるべく小さいサイズ（数十KB程度まで）の画像をお使いください。大きな画像を使いたい場合は、外部（Googleドライブの共有リンク等）にアップロードしたうえでURLを指定してください。</p>
+            <div class="formField">
+              <label>ロゴ画像</label>
+              <div class="logoField">
+                <div class="logoPreview" id="settingsLogoPreview">
+                  <span class="logoPreview__placeholder">ロゴなし</span>
+                </div>
+                <div class="logoField__controls">
+                  <input type="file" id="settingsLogoFile" accept="image/*">
+                  <button class="btn btn--text" type="button" id="btnClearLogo">ロゴを削除</button>
+                </div>
+              </div>
+            </div>
+            <div class="formField">
+              <label>ロゴ画像URL</label>
+              <input type="text" id="settingsLogoUrl" class="input" placeholder="https://... または、上のアップロード欄から選択">
+            </div>
+            <div class="modal__error hidden" id="settingsLogoError"></div>
+          </div>
+
+          <!-- 起動時ローディング画面（#appLoading）に表示する画像。編集画面はロゴ等と
+               同様に管理者限定だが、値自体は起動時に全利用者の画面へ表示する
+               （applyLoadingImage_、JavaScript.html参照）。ロゴ・モデル写真と異なり、
+               ファイルアップロードではなく「ドライブID」（またはドライブの共有リンク・
+               外部画像URL）を直接入力する方式にしている（現場からの要望。
+               normalizeLoadingImageUrl_、SettingsService.gs参照）。 -->
+          <div class="settingsCard hidden" id="systemMasterLoadingImageCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-image"></use></svg>ローディング画像</h2>
+            <p class="settingsSection__desc">アプリを開いたときのローディング画面（読み込み中…）に表示する画像です。Googleドライブにアップロードした画像の「ドライブID」（共有リンクの一部）、共有リンクそのもの、または画像の外部URLのいずれかを指定してください。画像はうっすらと現れ、読み込み完了後はローディング画面ごとうっすらと消えます。空欄にすると画像なし（スピナーのみ）になります。</p>
+            <div class="formField">
+              <label>ドライブID または 画像URL</label>
+              <input type="text" id="settingsLoadingImageId" class="input" placeholder="例: 1AbCdEfGhIjKlMnOpQrStUvWxYz1234567 または https://...">
+              <p class="formField__hint">ドライブIDは、Googleドライブでファイルを右クリック→「リンクを取得」で得られる共有リンク（https://drive.google.com/file/d/【ここがドライブID】/view?usp=sharing）の【ここがドライブID】の部分です（最大<span id="loadingImageUrlMax"></span>文字）。</p>
+            </div>
+            <div class="formField">
+              <label>プレビュー</label>
+              <div class="logoPreview" id="settingsLoadingImagePreview">
+                <span class="logoPreview__placeholder">画像なし</span>
+              </div>
+            </div>
+            <div class="modal__error hidden" id="settingsLoadingImageError"></div>
+          </div>
+
+          <!-- お知らせ：ホーム画面の「販売可能リスト」の文字の上に、全利用者向けに
+               表示する管理者入力の案内文（例:「限定車在庫3台あり」）。編集画面は
+               ロゴ等と同様に管理者限定だが、値自体はホーム画面で全利用者に表示する
+               （renderHomeAnnouncement_、JavaScript.html参照）。 -->
+          <div class="settingsCard hidden" id="systemMasterAnnouncementCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>お知らせ</h2>
+            <p class="settingsSection__desc">ホーム画面の「販売可能リスト」の文字の上に、目立つ形で全利用者に表示するお知らせです（例:「限定車在庫3台あり」）。空欄にすると非表示になります（最大<span id="homeAnnouncementMax"></span>文字）。</p>
+            <div class="formField">
+              <label>お知らせ内容</label>
+              <input type="text" id="settingsHomeAnnouncement" class="input" placeholder="例: 限定車在庫3台あり">
+            </div>
+          </div>
+
+          <div class="settingsCard hidden" id="systemMasterModelPhotosCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-image"></use></svg>モデル写真（ホーム画面）</h2>
+            <p class="settingsSection__desc">ホーム画面に並べるモデルの代表写真です（最大<span id="modelPhotosMax"></span>件・現在<span id="modelPhotosCount">0</span>件登録中）。1台ごとではなく、モデル単位で1枚登録してください。画像は外部（Googleドライブの共有リンク等）にアップロードしたうえでURLを指定してください。ホーム画面で写真をクリックすると、そのモデル名で在庫リストが絞り込まれます。グレードは一件ずつ入力する代わりに「先頭の文字列」（例: CLAクラスなら「CLA」）を登録するだけで、在庫リストにある型番を自動で拾ってグレード内訳を表示します。「CLA Coupe」の「CLA18」「CLA22」と「CLA Shooting Brake」の「CLA18T」「CLA22T」のように、先頭の文字列が同じでも区別したい場合は「対象の文字列」（例: 「T」）も登録してください（先頭の文字列より後ろの部分にその文字列を含む型番だけが対象になります）。ドラッグハンドル（⠿）でホーム画面での表示順を並び替えできます。</p>
+            <div class="modelPhotoList" id="modelPhotoList"></div>
+            <button class="btn" id="btnAddModelPhoto" type="button">＋ モデル写真を追加</button>
+          </div>
+
+          <div class="settingsCard hidden" id="systemMasterNotifyCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-mail"></use></svg>メール通知設定</h2>
+            <p class="settingsSection__desc">Hold登録・受注確定があったときに通知するメールアドレスです。複数指定する場合は「＋ 追加」で行を増やし、ドラッグハンドル（⠿）で並び替えできます。未設定の場合は通知をスキップします。</p>
+            <div class="formField">
+              <label>Hold時（現在<span id="notifyHoldMailCount">0</span>件）</label>
+              <div class="mailList" id="notifyHoldMailList" data-mail-field="notifyHoldMailTo"></div>
+              <button class="btn" id="btnAddHoldMail" data-mail-field="notifyHoldMailTo" type="button">＋ 宛先を追加</button>
+            </div>
+            <div class="formField">
+              <label>受注確定時（現在<span id="notifyOrderMailCount">0</span>件）</label>
+              <div class="mailList" id="notifyOrderMailList" data-mail-field="notifyOrderMailTo"></div>
+              <button class="btn" id="btnAddOrderMail" data-mail-field="notifyOrderMailTo" type="button">＋ 宛先を追加</button>
+            </div>
+            <div class="formField">
+              <label>システムエラー通知先（現在<span id="notifyErrorMailCount">0</span>件）</label>
+              <div class="mailList" id="notifyErrorMailList" data-mail-field="notifyErrorMailTo"></div>
+              <button class="btn" id="btnAddErrorMail" data-mail-field="notifyErrorMailTo" type="button">＋ 宛先を追加</button>
+              <p class="formField__hint">Hold期限切れ処理が失敗し続けた場合など、システム側のエラーを知らせます。未設定の場合は通知しません。</p>
+            </div>
+            <div class="formField">
+              <label>Google Chat通知先（Webhook URL）</label>
+              <input type="text" id="settingsChatWebhookUrl" class="input" placeholder="https://chat.googleapis.com/v1/spaces/.../messages?key=...">
+              <p class="formField__hint">Google Chatのスペースで「Webhookを管理」から発行したURLを貼り付けると、Hold登録・受注確定のたびに同じ内容をそのスペースへ通知します（メール通知先とは別に、どちらか一方だけの設定でも動作します）。未設定の場合はGoogle Chatへの通知をスキップします。</p>
+            </div>
+          </div>
+
+          <div class="settingsCard hidden" id="systemMasterStaffCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-people"></use></svg>担当者</h2>
+            <p class="settingsSection__desc">拠点・名前・Googleアカウントのメールアドレスを登録してください（最大<span id="staffListMax"></span>人・現在<span id="staffListCount">0</span>人登録中）。Hold登録・2ND HOLD登録・受注確定・Hold解除の「担当者」は、ログイン中のGoogleアカウントのメールアドレスからここで自動的に判定されるため、操作のたびに担当者を選ぶ必要はありません。拠点名も同様に、Hold登録・受注確定の「販売拠点」欄へ自動的に入力されます（編集可）。ドラッグハンドル（⠿）で表示順を並び替えできます。</p>
+            <div class="staffList" id="staffList"></div>
+            <button class="btn" id="btnAddStaff" type="button">＋ 担当者を追加</button>
+          </div>
+
+          <!-- Hold登録・2nd Hold登録・受注確定それぞれの完了時に表示する演出
+               （絵柄のアクション）のバリエーション選択（A〜D、4種類ずつ）。
+               案内メッセージ自体は固定で、絵柄の演出だけを切り替える
+               （showCelebration_・CELEBRATION_EFFECTS、JavaScript.html参照）。 -->
+          <div class="settingsCard hidden" id="systemMasterCelebrationCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>Hold・受注確定の演出</h2>
+            <p class="settingsSection__desc">Hold登録・2ND HOLD登録・受注確定が完了したときに表示する「絵柄のアクション」を選べます（案内メッセージ自体は固定です）。</p>
+            <div class="formField">
+              <label>Hold登録時</label>
+              <select id="celebrationVariantHold" class="input"></select>
+            </div>
+            <div class="formField">
+              <label>2ND HOLD登録時</label>
+              <select id="celebrationVariantSecondHold" class="input"></select>
+            </div>
+            <div class="formField">
+              <label>受注確定時</label>
+              <select id="celebrationVariantOrder" class="input"></select>
+            </div>
+          </div>
+        </div>
+
+        <div class="settingsActions">
+          <div id="settingsError" class="modal__error"></div>
+          <button class="btn btn--primary btn--block" id="btnSaveSettings">保存</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Hold / 2nd Hold / 受注 共通入力モーダル（顧客情報→契約内容の2ステップ） -->
+  <div class="modal hidden" id="actionModal">
+    <div class="modal__panel modal__panel--wide">
+      <div class="modal__header">
+        <h2 id="actionModalTitle">Hold登録</h2>
+        <button class="btn--icon" data-close-modal>&times;</button>
+      </div>
+      <div class="modal__stepBar">
+        <div class="modal__stepBar__track"><div class="modal__stepBar__fill" id="actionStepFill"></div></div>
+        <div class="modal__stepBar__label" id="actionStepLabel">ステップ 1/2　顧客情報</div>
+      </div>
+      <div class="modal__body">
+        <div class="modal__error hidden" id="actionModalError"></div>
+        <p class="modal__requiredNote"><span class="req">*</span> は必須項目です</p>
+
+        <!-- 管理者権限を持つ担当者がHoldをタップした場合のみ表示するHold種別選択
+             （通常のHold／デモカーHOLD／他店HOLD）。openActionModal参照。 -->
+        <div class="modal__step hidden" id="actionTypePickStep">
+          <p class="actionTypePick__intro">Hold種別を選択してください</p>
+          <div class="actionTypePick">
+            <button type="button" class="actionTypePick__btn" data-hold-type-pick="normal">
+              <span class="actionTypePick__btnTitle">通常のHOLD</span>
+              <span class="actionTypePick__btnDesc">顧客情報・契約内容を入力して登録します（期限72時間）</span>
+            </button>
+            <button type="button" class="actionTypePick__btn actionTypePick__btn--demo" data-hold-type-pick="demo">
+              <span class="actionTypePick__btnTitle">デモカーHOLD</span>
+              <span class="actionTypePick__btnDesc">リード番号・登録月のみ（任意入力）。期限は無期限です</span>
+            </button>
+            <button type="button" class="actionTypePick__btn actionTypePick__btn--otherStore" data-hold-type-pick="otherStore">
+              <span class="actionTypePick__btnTitle">他店HOLD</span>
+              <span class="actionTypePick__btnDesc">販売店のみ（任意入力）。期限は無期限です</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- デモカーHOLD用の簡易入力（リード番号・登録月のみ、どちらも任意入力） -->
+        <div class="modal__step hidden" id="actionStepDemo">
+          <div class="modal__grid">
+            <div class="formField">
+              <label>リード番号</label>
+              <div class="leadNumberField">
+                <span class="leadNumberField__prefix">L-</span>
+                <input type="text" id="actionDemoLeadNumber" class="input leadNumberField__input" inputmode="numeric" pattern="[0-9]*" maxlength="14">
+              </div>
+            </div>
+            <div class="formField">
+              <label>登録月</label>
+              <input type="month" id="actionDemoRegisteredMonth" class="input">
+            </div>
+          </div>
+          <p class="modal__hint">デモカーHOLDはリード番号・登録月とも未入力のまま登録できます。Hold期限は無期限です。</p>
+        </div>
+
+        <!-- 他店HOLD用の簡易入力（販売店のみ、任意入力） -->
+        <div class="modal__step hidden" id="actionStepOtherStore">
+          <div class="modal__grid">
+            <div class="formField formField--span2">
+              <label>販売店</label>
+              <input type="text" id="actionSalesStore" class="input">
+            </div>
+          </div>
+          <p class="modal__hint">他店HOLDは販売店未入力のまま登録できます。Hold期限は無期限です。</p>
+        </div>
+
+        <div class="modal__step" id="actionStep1">
+          <div class="modal__grid">
+            <div class="formField formField--span2" id="actionSalesLocationField">
+              <label>販売拠点<span class="req">*</span></label>
+              <input type="text" id="actionSalesLocation" class="input">
+            </div>
+            <div class="formField">
+              <label>リード番号<span class="req">*</span></label>
+              <div class="leadNumberField">
+                <span class="leadNumberField__prefix">L-</span>
+                <input type="text" id="actionLeadNumber" class="input leadNumberField__input" inputmode="numeric" pattern="[0-9]*" maxlength="14">
+              </div>
+            </div>
+            <div class="formField">
+              <label>顧客<span class="req">*</span></label>
+              <input type="text" id="actionCustomer" class="input">
+            </div>
+            <div class="formField formField--span2">
+              <label>担当者（自動設定）</label>
+              <div class="staffDisplay" id="actionStaffDisplay"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal__step hidden" id="actionStep2">
+          <div class="modal__grid">
+            <div class="formField">
+              <label>登録月<span class="req">*</span></label>
+              <input type="month" id="actionRegisteredMonth" class="input">
+            </div>
+            <div class="formField">
+              <label>下取車の有無<span class="req">*</span></label>
+              <select id="actionTradeIn" class="input"></select>
+            </div>
+            <div class="formField">
+              <label>OSS登録の可否<span class="req">*</span></label>
+              <select id="actionOss" class="input"></select>
+            </div>
+            <div class="formField">
+              <label>保険加入の有無<span class="req">*</span></label>
+              <select id="actionInsurance" class="input"></select>
+            </div>
+            <div class="formField">
+              <label>支払方法<span class="req">*</span></label>
+              <select id="actionPaymentMethod" class="input"></select>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn" data-close-modal id="btnActionCancel">キャンセル</button>
+        <button class="btn hidden" type="button" id="btnActionBack">戻る</button>
+        <button class="btn btn--primary" type="button" id="btnActionNext">次へ</button>
+        <button class="btn btn--primary hidden" id="btnActionSubmit">登録</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hold解除モーダル -->
+  <div class="modal hidden" id="cancelHoldModal">
+    <div class="modal__panel">
+      <div class="modal__header">
+        <h2 id="cancelHoldModalTitle">Holdの解除</h2>
+        <button class="btn--icon" data-close-modal>&times;</button>
+      </div>
+      <div class="modal__body">
+        <p class="modal__desc" id="cancelHoldModalDesc"></p>
+        <div class="modal__error hidden" id="cancelHoldModalError"></div>
+        <div class="formField">
+          <label>解除操作者（ログイン中のアカウント）</label>
+          <div class="staffDisplay" id="cancelHoldStaffDisplay"></div>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn" data-close-modal>キャンセル</button>
+        <button class="btn btn--danger" id="btnCancelHoldSubmit">解除する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 車両比較モーダル -->
+  <div class="modal hidden" id="compareModal">
+    <div class="modal__panel modal__panel--wide modal__panel--compare">
+      <div class="modal__header">
+        <h2>車両を比較</h2>
+        <button class="btn--icon" data-close-modal>&times;</button>
+      </div>
+      <div class="modal__body">
+        <div class="tableScroll"><table class="compareTable" id="compareTable"></table></div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn" data-close-modal>閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 在庫リストで「詳細を見る」タップ・表示形式「表」で行（カード）をタップした際、
+       車両情報を画面中央にカードタイプ（既存の.cardと同じ見た目）で表示するモーダル。
+       カード自体は伸ばさず、他のカードとサイズを揃えたままにする。 -->
+  <div class="modal hidden" id="inventoryDetailModal">
+    <div class="modal__panel">
+      <div class="modal__header">
+        <h2>車両情報</h2>
+        <button class="btn--icon" data-close-modal>&times;</button>
+      </div>
+      <div class="modal__body" id="inventoryDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- 受注リストで「詳細を見る」タップした際、契約内容を画面中央に表示するモーダル
+       （inventoryDetailModalと同じパターン）。 -->
+  <div class="modal hidden" id="orderDetailModal">
+    <div class="modal__panel">
+      <div class="modal__header">
+        <h2>受注情報</h2>
+        <button class="btn--icon" data-close-modal>&times;</button>
+      </div>
+      <div class="modal__body" id="orderDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- 発注リストで表示形式「表」の行をタップした際、発注情報を画面中央に表示する
+       モーダル（inventoryDetailModalと同じパターン。発注リストは表示形式「カード」の
+       時点ですべての項目を省略せず表示しているため、モーダルの中身もカードと同じ
+       ものをそのまま流用する。purchaseOrderCardHtml_・openPurchaseOrderDetailModal_参照）。 -->
+  <div class="modal hidden" id="purchaseOrderDetailModal">
+    <div class="modal__panel">
+      <div class="modal__header">
+        <h2>発注情報</h2>
+        <button class="btn--icon" data-close-modal>&times;</button>
+      </div>
+      <div class="modal__body" id="purchaseOrderDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- Gクラス予約リストで表示形式「表」の行をタップした際、予約情報を画面中央に
+       表示するモーダル（purchaseOrderDetailModalと同じパターン。gclassCardHtml_・
+       openGClassDetailModal_参照）。 -->
+  <div class="modal hidden" id="gclassDetailModal">
+    <div class="modal__panel">
+      <div class="modal__header">
+        <h2>Gクラス予約情報</h2>
+        <button class="btn--icon" data-close-modal>&times;</button>
+      </div>
+      <div class="modal__body" id="gclassDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- 比較中の車両を表示する固定バー（在庫リストでカードのチェックを入れると表示される） -->
+  <div class="compareBar hidden" id="compareBar">
+    <span class="compareBar__label">比較</span>
+    <div class="compareBar__chips" id="compareBarChips"></div>
+    <div class="compareBar__spacer"></div>
+    <button class="btn" type="button" id="btnCompareClear">クリア</button>
+    <button class="btn btn--primary" type="button" id="btnCompareShow">比較を表示</button>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- 受注確定・Hold登録・2nd Hold登録の演出レイヤー（confettiLayer・
+       celebrationLayer・celebrationBanner）をまとめるラッパー。現在は
+       単なるグルーピング用で、このラッパー自体に演出上の効果はない。 -->
+  <div id="celebrationShakeStage">
+    <!-- 受注確定時の紙吹雪演出（文字・カードなし。confettiLayerに紙吹雪だけを降らせる） -->
+    <div class="confettiLayer" id="confettiLayer"></div>
+
+    <!-- Hold登録・2nd Hold登録・受注確定 完了時の演出（showCelebration_、JavaScript.html参照）。
+         celebrationLayerにはCSSで描いた図形・発光エフェクト（バリエーションA〜Dで内容が
+         切り替わる）を、celebrationBannerには固定の案内メッセージを表示する。 -->
+    <div class="celebrationLayer" id="celebrationLayer"></div>
+    <div class="celebrationBanner hidden" id="celebrationBanner"></div>
+  </div>
+
+  <?!= include('html/JavaScript'); ?>
+</body>
+</html>

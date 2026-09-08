@@ -1,0 +1,3820 @@
+<script>
+(function () {
+  'use strict';
+
+  function safeLocalStorageGet_(key) {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  }
+  function safeLocalStorageSet_(key, value) {
+    try { localStorage.setItem(key, value); } catch (e) { /* 保存できない環境では無視する */ }
+  }
+
+  var state = {
+    bootstrap: null,
+    inventoryItems: [],
+    inventoryViewMode: safeLocalStorageGet_('inventoryViewMode') || 'card', // 'card' | 'table'（在庫リストの表示形式。端末ごとにlocalStorageへ保存）
+    compareItems: [], // 比較中の車両（在庫リストのピンで選択。最大COMPARE_MAX台）
+    ordersViewMode: safeLocalStorageGet_('ordersViewMode') || 'card', // 'card' | 'table'（受注リストの表示形式）
+    ordersGroups: [],
+    action: null, // { type: 'hold' | 'secondHold' | 'order' | 'orderFromHold', commission }
+    staffList: [], // 設定タブで編集中の担当者マスタ（作業用コピー）
+    modelPhotos: [], // 設定タブで編集中のモデル写真（作業用コピー）
+    notifyHoldMailTo: [], // 設定タブで編集中のメール通知先（Hold時、作業用コピー）
+    notifyOrderMailTo: [], // 設定タブで編集中のメール通知先（受注確定時、作業用コピー）
+    notifyErrorMailTo: [], // 設定タブで編集中のメール通知先（システムエラー通知、作業用コピー）
+    themeKey: null, // 設定タブで選択中のテーマ（着せ替え）プリセットキー。サイドバーの色もこれとセットで決まる（THEME_PRESETSのsidebarColor参照）
+    navHistory: [], // 「戻る」ボタン用の画面履歴（タブ名のスタック）
+    allInventoryItems: [], // ホーム画面の在庫台数集計専用（ツールバーの検索条件に左右されない全件）
+    homeGradeFilter: null, // ホームのグレードタブクリックで設定される、絞り込み対象グレード名の配列
+    homeExpandedModel: null, // ホームで現在グレードタブを展開中のベースモデル名（タブレット・スマホ幅のみ使用。1つのみ展開可能）
+    homeTypeFilter: null, // ホーム上部のボディタイプ絞り込み（未選択＝「すべて」はnull）
+    allOrders: [], // マイページ集計専用（受注リストの検索・絞り込み条件に左右されない全件）
+    gclassItems: [], // Gクラス予約リスト（閲覧専用。Hold・受注操作は一切ない）
+    gclassViewMode: safeLocalStorageGet_('gclassViewMode') || 'card', // 'card' | 'table'（Gクラス予約リストの表示形式）
+    allGClassItems: [], // マイページ集計専用（Gクラス予約リストの検索条件に左右されない全件）
+    purchaseOrders: [], // 発注リスト（閲覧専用。検索条件に左右されない全件をクライアント側で絞り込む）
+    purchaseOrdersViewMode: safeLocalStorageGet_('purchaseOrdersViewMode') || 'card', // 'card' | 'table'（発注リストの表示形式）
+    myPageViewMode: safeLocalStorageGet_('myPageViewMode') || 'card' // 'card' | 'table'（マイページ全体の表示形式）
+  };
+  var COMPARE_MAX = 3;
+
+  // ===== google.script.run を Promise 化するヘルパー =====
+  // サーバー側が応答しない場合にボタンやモーダルが固まって見えないよう、
+  // 一定時間で必ずエラーとして解決させるタイムアウトを設ける。
+  var GAS_CALL_TIMEOUT_MS = 25000;
+
+  function gasRun(fnName) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return new Promise(function (resolve, reject) {
+      var settled = false;
+      var timer = setTimeout(function () {
+        if (settled) return;
+        settled = true;
+        reject(new Error('サーバーからの応答がありません。通信環境をご確認のうえ、もう一度お試しください。'));
+      }, GAS_CALL_TIMEOUT_MS);
+
+      google.script.run
+        .withSuccessHandler(function (result) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          resolve(result);
+        })
+        .withFailureHandler(function (err) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          reject(new Error(err && err.message ? err.message : String(err)));
+        })
+        [fnName].apply(null, args);
+    });
+  }
+
+  // ===== ボタンの多重送信防止（処理中はラベルを差し替えて無効化） =====
+  function setButtonBusy(btn, busy, busyLabel) {
+    if (busy) {
+      if (btn.dataset.originalLabel === undefined) btn.dataset.originalLabel = btn.textContent;
+      btn.textContent = busyLabel || '処理中...';
+      btn.disabled = true;
+    } else {
+      if (btn.dataset.originalLabel !== undefined) btn.textContent = btn.dataset.originalLabel;
+      btn.disabled = false;
+    }
+  }
+
+  function $(id) { return document.getElementById(id); }
+
+  function showToast(message, isError) {
+    var toast = $('toast');
+    toast.textContent = message;
+    toast.className = 'toast' + (isError ? ' toast--error' : '');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function () { toast.classList.add('hidden'); }, 3200);
+  }
+
+  // ===== Hold登録・2nd Hold登録・受注確定 完了時の演出 =====
+  // いずれも固定の案内メッセージ（バナー、5秒間表示）と、文言にふさわしい
+  // 専用のド派手な演出をセットで表示する（現場からの要望）。絵文字は機種依存
+  // で見た目の再現性が低いため使わず、色付きのCSS図形・発光・ウェーブ等の
+  // アニメーションのみで演出する（GAS/HTML Serviceのみで完結する）。
+  // 案内メッセージ自体は固定だが、絵柄の演出はアクションごとにA〜D
+  // 4種類ずつ用意しており、管理者は設定タブの「Hold・受注確定の演出」
+  // カードから選べる（celebrationVariants、CELEBRATION_EFFECTS参照）。
+  var CELEBRATION_MESSAGES = {
+    hold: ['1ST HOLD しました！', '頑張ってください！', 'HOLD内容はマイページで確認できます'],
+    secondHold: ['2ND HOLD しました！', 'もう少し待ってください', 'HOLD内容はマイページで確認できます'],
+    order: ['おめでとうございます！', '受注内容はマイページで確認できます']
+  };
+
+  /**
+   * アクション（hold/secondHold/order）×バリエーション（A〜D）ごとの演出関数
+   * 一覧。ラベル（Constants.gsのCELEBRATION_VARIANT_LABELSと対応）:
+   *   hold:       A=エール（既定） B=応援フラッグ C=ガッツポーズ D=全力エール
+   *   secondHold: A=砂時計（既定） B=コーヒーブレイク C=少々お待ちを D=大歓声で応援
+   *   order:      A=紙吹雪＋風船（既定） B=花火 C=祝福シャワー D=祝賀フィナーレ
+   * いずれも同じCSS図形パーツ（spawnParticleBurst_・spawnParticleWave_・
+   * spawnShockwave_・spawnEnergyCore_・triggerWideConfetti_等）の組み合わせ・
+   * 発生位置・タイミングを変えることで演出ごとの個性を出しており、D は
+   * どのアクションでも既存パーツを最も多く重ね掛けした最も派手な演出にしている。
+   */
+  var CELEBRATION_EFFECTS = {
+    hold: { A: triggerHoldCelebrationA_, B: triggerHoldCelebrationB_, C: triggerHoldCelebrationC_, D: triggerHoldCelebrationD_ },
+    secondHold: { A: triggerSecondHoldCelebrationA_, B: triggerSecondHoldCelebrationB_, C: triggerSecondHoldCelebrationC_, D: triggerSecondHoldCelebrationD_ },
+    order: { A: triggerOrderCelebrationA_, B: triggerOrderCelebrationB_, C: triggerOrderCelebrationC_, D: triggerOrderCelebrationD_ }
+  };
+
+  /**
+   * Hold登録・2nd Hold登録・受注確定の完了直後に呼ぶ（finishActionSubmit_参照）。
+   * actionTypeは state.action.type（'hold' | 'secondHold' | 'order' | 'orderFromHold'）。
+   * 'orderFromHold'（Hold中の車両の受注確定）も見た目上は'order'と同じ演出にする。
+   * 演出は、設定タブ（管理者限定）で選んだバリエーション（state.bootstrap.settings.
+   * celebrationVariants）に応じてCELEBRATION_EFFECTSから切り替える（未選択・
+   * 不正な値はA、いずれの利用者の画面でも管理者が選んだバリエーションで統一表示される）。
+   */
+  function showCelebration_(actionType) {
+    var key = actionType === 'orderFromHold' ? 'order' : actionType;
+    var messageLines = CELEBRATION_MESSAGES[key];
+    if (!messageLines) return;
+    showCelebrationBanner_(messageLines);
+    var variants = (state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.celebrationVariants) || {};
+    var variantKey = variants[key] || 'A';
+    var effect = (CELEBRATION_EFFECTS[key] && CELEBRATION_EFFECTS[key][variantKey]) || CELEBRATION_EFFECTS[key].A;
+    effect();
+  }
+
+  function showCelebrationBanner_(lines) {
+    var el = $('celebrationBanner');
+    el.innerHTML = lines.map(function (line) { return '<p>' + escapeHtml(line) + '</p>'; }).join('');
+    el.classList.remove('hidden');
+    // is-activeを一度外して強制的にreflowしてから付け直すことで、連続して
+    // 表示した場合でもCSSアニメーション（フェードイン→表示→フェードアウト）を
+    // 必ず最初から再生させる。
+    el.classList.remove('is-active');
+    void el.offsetWidth;
+    el.classList.add('is-active');
+    clearTimeout(showCelebrationBanner_._t);
+    showCelebrationBanner_._t = setTimeout(function () {
+      el.classList.remove('is-active');
+      setTimeout(function () { el.classList.add('hidden'); }, 400);
+    }, 5000);
+  }
+
+  // ----- Hold登録の演出（A=エール／B=応援フラッグ／C=ガッツポーズ／D=全力エール） -----
+
+  /**
+   * A（既定）: エール。中央での閃光→発光する衝撃波（2回）→画面下の左右2箇所
+   * から打ち上がるバースト→立ち上る火花の余韻、という4段構成にすることで、
+   * 「1ST HOLDしました！頑張ってください！」という景気の良い文言にふさわしい
+   * 打ち上げ花火のような演出にしている。
+   */
+  function triggerHoldCelebrationA_() {
+    flashScreen_();
+    spawnShockwave_();
+    setTimeout(spawnShockwave_, 180);
+    var shapes = ['star', 'circle', 'ribbon'];
+    [24, 76].forEach(function (x, i) {
+      setTimeout(function () { spawnParticleBurst_(shapes, 26, x, 62); }, i * 140);
+    });
+    spawnParticleWave_(shapes, 'rise', 30);
+  }
+
+  /**
+   * B: 応援フラッグ。旗を振るイメージで、リボン形の図形を中心に画面上から
+   * 2波に分けて降らせる（打ち上げ系のAとは逆に、降ってくる演出にすることで
+   * 見分けやすくしている）。
+   */
+  function triggerHoldCelebrationB_() {
+    var shapes = ['ribbon', 'star'];
+    spawnParticleWave_(shapes, 'fall', 30);
+    setTimeout(function () { spawnParticleWave_(shapes, 'fall', 22); }, 260);
+  }
+
+  /**
+   * C: ガッツポーズ。景気づけのエールというより、決めのポーズ1発という
+   * イメージで、画面中央への強い衝撃波＋大きめのバーストを1〜2回だけ
+   * 短く鋭く出す（Aのような連続演出にはしない）。
+   */
+  function triggerHoldCelebrationC_() {
+    spawnShockwave_();
+    spawnParticleBurst_(['star', 'square'], 40);
+    setTimeout(function () { spawnParticleBurst_(['star', 'square'], 20); }, 220);
+  }
+
+  /**
+   * D（最も派手な演出）: 全力エール。A（打ち上げ花火）の構成をベースに、
+   * 衝撃波を3連発・バーストを左右＋中央の3箇所・火花の余韻も増量することで、
+   * 既存パーツを最も多く重ね掛けした演出にしている。
+   */
+  function triggerHoldCelebrationD_() {
+    flashScreen_();
+    spawnShockwave_();
+    setTimeout(spawnShockwave_, 150);
+    setTimeout(spawnShockwave_, 300);
+    var shapes = ['star', 'circle', 'ribbon', 'square'];
+    [24, 76].forEach(function (x, i) {
+      setTimeout(function () { spawnParticleBurst_(shapes, 30, x, 62); }, i * 120);
+    });
+    setTimeout(function () { spawnParticleBurst_(shapes, 30); }, 200);
+    spawnParticleWave_(shapes, 'rise', 40);
+  }
+
+  // ----- 2nd Hold登録の演出（A=砂時計／B=コーヒーブレイク／C=少々お待ちを／D=大歓声で応援） -----
+
+  /**
+   * A（既定）: 砂時計。「もう少し待ってください」という文言に合わせ、
+   * 単純なローディングスピナーではなく、画面中央で脈動する発光エネルギー
+   * コア（回転するリング＋光る球＋広がるリップル、spawnEnergyCore_）が力を
+   * 蓄えているような、期待感のある演出にしている。
+   */
+  function triggerSecondHoldCelebrationA_() {
+    spawnEnergyCore_();
+    spawnParticleWave_(['star', 'circle'], 'rise', 18);
+  }
+
+  /**
+   * B: コーヒーブレイク。一息つくイメージで、エネルギーコアだけを静かに
+   * 表示し、火花の演出は付けない（A・Dより控えめで落ち着いた見た目にする）。
+   */
+  function triggerSecondHoldCelebrationB_() {
+    spawnEnergyCore_();
+  }
+
+  /**
+   * C: 少々お待ちを。エネルギーコアに、舞い上がる火花ではなく静かに舞い
+   * 落ちる火花を少数添えることで、「お待ちを」の落ち着いたトーンを出す。
+   */
+  function triggerSecondHoldCelebrationC_() {
+    spawnEnergyCore_();
+    spawnParticleWave_(['circle', 'square'], 'fall', 12);
+  }
+
+  /**
+   * D（最も派手な演出）: 大歓声で応援。エネルギーコアに衝撃波・中央バースト・
+   * 上昇する火花を重ね掛けし、既存パーツを最も多く使った演出にしている。
+   */
+  function triggerSecondHoldCelebrationD_() {
+    spawnEnergyCore_();
+    spawnShockwave_();
+    spawnParticleBurst_(['star', 'circle'], 30);
+    spawnParticleWave_(['star', 'circle', 'ribbon'], 'rise', 30);
+  }
+
+  // ----- 受注確定の演出（A=紙吹雪＋風船／B=花火／C=祝福シャワー／D=祝賀フィナーレ） -----
+
+  /**
+   * A（既定）: 紙吹雪＋風船。「おめでとうございます！」にふさわしく、紙吹雪を
+   * 画面の左右両半分からこれまでより多く・長く降らせて画面いっぱいを埋め
+   * 尽くし（triggerWideConfetti_）、さらに画面内のランダムな位置・タイミングで
+   * 複数回バーストする演出（triggerRandomBursts_）を重ね掛けする
+   * （現場からの要望）。
+   */
+  function triggerOrderCelebrationA_() {
+    triggerWideConfetti_();
+    triggerRandomBursts_();
+  }
+
+  /**
+   * B: 花火。紙吹雪は使わず、画面内のランダムな位置で衝撃波＋バーストの
+   * 「打ち上がって開く」組み合わせを時間差で連続発生させ、花火大会のような
+   * 見た目にする（spawnShockwave_の座標指定に対応）。
+   */
+  function triggerOrderCelebrationB_() {
+    flashScreen_();
+    var shapes = ['star', 'circle', 'ribbon'];
+    var launches = 4 + Math.floor(Math.random() * 3);
+    for (var i = 0; i < launches; i++) {
+      (function () {
+        var x = 14 + Math.random() * 72;
+        var y = 16 + Math.random() * 46;
+        var delay = i * 260 + Math.random() * 200;
+        setTimeout(function () {
+          spawnShockwave_(x, y);
+          spawnParticleBurst_(shapes, 22 + Math.floor(Math.random() * 10), x, y);
+        }, delay);
+      })();
+    }
+  }
+
+  /**
+   * C: 祝福シャワー。左右からの紙吹雪ではなく、画面上からCSS図形（星・丸・
+   * リボン）を全幅にわたって2波降らせ、シャワーのように浴びせる演出にする。
+   */
+  function triggerOrderCelebrationC_() {
+    flashScreen_();
+    var shapes = ['star', 'circle', 'ribbon'];
+    spawnParticleWave_(shapes, 'fall', 50);
+    setTimeout(function () { spawnParticleWave_(shapes, 'fall', 34); }, 320);
+  }
+
+  /**
+   * D（最も派手な演出）: 祝賀フィナーレ。A（紙吹雪＋ランダムバースト）に
+   * 花火演出（B）の打ち上げ花火を重ね掛けし、既存パーツを最も多く使った
+   * 演出にしている。
+   */
+  function triggerOrderCelebrationD_() {
+    flashScreen_();
+    triggerWideConfetti_();
+    triggerRandomBursts_();
+    var shapes = ['star', 'circle', 'ribbon', 'square'];
+    [[20, 22], [80, 30]].forEach(function (pos, i) {
+      setTimeout(function () {
+        spawnShockwave_(pos[0], pos[1]);
+        spawnParticleBurst_(shapes, 26, pos[0], pos[1]);
+      }, i * 240);
+    });
+  }
+
+  /**
+   * 中央を一瞬だけ明るく光らせる「閃光」。Hold登録の演出の起点として使う。
+   */
+  function flashScreen_() {
+    var layer = $('celebrationLayer');
+    var el = document.createElement('div');
+    el.className = 'celebFlash';
+    layer.appendChild(el);
+    setTimeout(function () { el.remove(); }, 650);
+  }
+
+  /**
+   * 発光しながら拡大して消えるリング（衝撃波）を1つ生成する。
+   * @param {number} [originLeftVw] 中心位置（横、vw）。省略時はCSS既定の50%（画面中央）。
+   * @param {number} [originTopVh] 中心位置（縦、vh）。省略時はCSS既定の50%（画面中央）。
+   */
+  function spawnShockwave_(originLeftVw, originTopVh) {
+    var layer = $('celebrationLayer');
+    var el = document.createElement('div');
+    el.className = 'celebShockwave';
+    if (originLeftVw !== undefined) el.style.left = originLeftVw + 'vw';
+    if (originTopVh !== undefined) el.style.top = originTopVh + 'vh';
+    layer.appendChild(el);
+    setTimeout(function () { el.remove(); }, 1200);
+  }
+
+  /**
+   * 画面中央に、回転するリング・脈動する光る球・広がるリップルを重ねた
+   * 発光エネルギーコアを表示する（2nd Hold「お待ちください」系の演出用）。
+   */
+  function spawnEnergyCore_() {
+    var layer = $('celebrationLayer');
+    var wrap = document.createElement('div');
+    wrap.className = 'celebEnergyCore';
+    wrap.innerHTML =
+      '<div class="celebEnergyCore__ripple"></div>' +
+      '<div class="celebEnergyCore__ripple celebEnergyCore__ripple--delay"></div>' +
+      '<div class="celebEnergyCore__ring"></div>' +
+      '<div class="celebEnergyCore__orb"></div>';
+    layer.appendChild(wrap);
+    setTimeout(function () { wrap.remove(); }, 2600);
+  }
+
+  function randomCelebColor_() {
+    return CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
+  }
+
+  /**
+   * 画面下（rise）または画面上（fall）から、指定した図形をランダムな横位置・
+   * ランダムな揺れ・回転で漂わせる（Hold登録の火花の余韻・2nd Holdの演出の
+   * エンジン）。
+   */
+  function spawnParticleWave_(shapes, direction, count) {
+    var layer = $('celebrationLayer');
+    var pieces = [];
+    for (var i = 0; i < count; i++) {
+      var shape = shapes[Math.floor(Math.random() * shapes.length)];
+      var el = document.createElement('span');
+      el.className = 'celebParticle celebParticle--' + shape + ' celebParticle--' + direction;
+      el.style.left = (Math.random() * 94 + 2) + 'vw';
+      var size = 14 + Math.random() * 16;
+      el.style.width = size + 'px';
+      el.style.height = size + 'px';
+      el.style.background = randomCelebColor_();
+      el.style.setProperty('--drift', (Math.random() * 160 - 80) + 'px');
+      el.style.setProperty('--rot', (Math.random() * 60 - 30) + 'deg');
+      el.style.animationDuration = (2.4 + Math.random() * 1.8) + 's';
+      el.style.animationDelay = (Math.random() * .7) + 's';
+      layer.appendChild(el);
+      pieces.push(el);
+    }
+    setTimeout(function () { pieces.forEach(function (el) { el.remove(); }); }, 5200);
+  }
+
+  /**
+   * 指定した位置（省略時は画面中央）から放射状に飛び散らせる（Hold登録の
+   * 打ち上げバースト・受注確定のランダムバースト演出用）。
+   * @param {number} [originLeftVw] バーストの中心位置（横、vw）。省略時はCSS既定の50%（画面中央）。
+   * @param {number} [originTopVh] バーストの中心位置（縦、vh）。省略時はCSS既定の50%（画面中央）。
+   */
+  function spawnParticleBurst_(shapes, count, originLeftVw, originTopVh) {
+    var layer = $('celebrationLayer');
+    var pieces = [];
+    for (var i = 0; i < count; i++) {
+      var shape = shapes[Math.floor(Math.random() * shapes.length)];
+      var el = document.createElement('span');
+      el.className = 'celebParticle celebParticle--' + shape + ' celebParticle--burst';
+      if (originLeftVw !== undefined) el.style.left = originLeftVw + 'vw';
+      if (originTopVh !== undefined) el.style.top = originTopVh + 'vh';
+      var angle = (i / count) * Math.PI * 2 + Math.random() * .4;
+      var dist = 140 + Math.random() * 160;
+      el.style.setProperty('--tx', (Math.cos(angle) * dist) + 'px');
+      el.style.setProperty('--ty', (Math.sin(angle) * dist) + 'px');
+      var size = 14 + Math.random() * 14;
+      el.style.width = size + 'px';
+      el.style.height = size + 'px';
+      el.style.background = randomCelebColor_();
+      el.style.animationDelay = (Math.random() * .25) + 's';
+      layer.appendChild(el);
+      pieces.push(el);
+    }
+    setTimeout(function () { pieces.forEach(function (el) { el.remove(); }); }, 2200);
+  }
+
+  var CONFETTI_COLORS = ['#1a73e8', '#34a853', '#fbbc05', '#ea4335', '#a142f4', '#00bcd4'];
+
+  /**
+   * @param {number} minVw 出現位置の左端（vw）
+   * @param {number} maxVw 出現位置の右端（vw）
+   */
+  function spawnConfettiBatch_(layer, pieces, count, minVw, maxVw) {
+    for (var i = 0; i < count; i++) {
+      var el = document.createElement('div');
+      el.className = 'confettiPiece';
+      el.style.left = (minVw + Math.random() * (maxVw - minVw)) + 'vw';
+      el.style.background = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
+      // 一部を細長い「リボン状」にすることで、丸・角の紙吹雪だけの単調さを避ける。
+      var isStreamer = Math.random() < .2;
+      el.style.width = (isStreamer ? 4 + Math.random() * 3 : 6 + Math.random() * 9) + 'px';
+      el.style.height = (isStreamer ? 22 + Math.random() * 14 : 10 + Math.random() * 10) + 'px';
+      el.style.borderRadius = isStreamer ? '2px' : (Math.random() < .5 ? '50%' : '2px');
+      // 真下に一直線に落ちるだけだと単調なので、横方向の揺れ（--drift）と
+      // 複数回転（--rot）をランダムに与え、ひらひら舞い散る動きにする。
+      el.style.setProperty('--drift', (Math.random() * 220 - 110) + 'px');
+      el.style.setProperty('--rot', (540 + Math.random() * 900) + 'deg');
+      el.style.animationDuration = (2.6 + Math.random() * 2.4) + 's';
+      el.style.animationDelay = (Math.random() * .6) + 's';
+      layer.appendChild(el);
+      pieces.push(el);
+    }
+  }
+
+  /**
+   * 受注確定の紙吹雪。画面を左右2つの半分に分け、それぞれから4波に分けて
+   * 降らせることで、端だけでなく画面いっぱいに紙吹雪が舞う見た目にする
+   * （「受注確定はより紙吹雪を左右から画面いっぱいに」という要望に対応）。
+   */
+  function triggerWideConfetti_() {
+    var layer = $('confettiLayer');
+    layer.classList.add('is-flashing');
+    var pieces = [];
+    [[0, 50], [50, 100]].forEach(function (range) {
+      spawnConfettiBatch_(layer, pieces, 140, range[0], range[1]);
+      setTimeout(function () { spawnConfettiBatch_(layer, pieces, 120, range[0], range[1]); }, 220);
+      setTimeout(function () { spawnConfettiBatch_(layer, pieces, 100, range[0], range[1]); }, 460);
+      setTimeout(function () { spawnConfettiBatch_(layer, pieces, 70, range[0], range[1]); }, 720);
+    });
+    setTimeout(function () { layer.classList.remove('is-flashing'); }, 700);
+    setTimeout(function () {
+      pieces.forEach(function (el) { el.remove(); });
+    }, 6400);
+  }
+
+  /**
+   * 受注確定の演出。画面中央からの単発バーストではなく、画面内のランダムな
+   * 位置・ランダムなタイミングで複数回（5〜7箇所）バーストを起こす
+   * （現場からの要望）。位置は画面の上端・下端（ナビ・モーダル操作の邪魔に
+   * なりやすい）を避け、上半分〜中央寄りに限定している。
+   */
+  function triggerRandomBursts_() {
+    var shapes = ['star', 'circle', 'square', 'ribbon'];
+    var burstCount = 5 + Math.floor(Math.random() * 3);
+    for (var i = 0; i < burstCount; i++) {
+      (function () {
+        var x = 12 + Math.random() * 76;
+        var y = 14 + Math.random() * 55;
+        var delay = Math.random() * 900;
+        setTimeout(function () {
+          spawnParticleBurst_(shapes, 14 + Math.floor(Math.random() * 10), x, y);
+        }, delay);
+      })();
+    }
+  }
+
+  function fillOptions(select, options, includeBlank) {
+    select.innerHTML = '';
+    if (includeBlank) select.appendChild(new Option('', ''));
+    options.forEach(function (o) { select.appendChild(new Option(o, o)); });
+  }
+
+  function currentYearMonth() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+
+  /**
+   * コミッションの比較は必ずこの関数を通す（=== での直接比較は禁止）。
+   * サーバー側から届く車両データの commission は、スプレッドシートのコミッション
+   * セルがまだ「書式なしテキスト」になっていない場合、文字列ではなく数値（例: 2004）に
+   * なっていることがある（holdMatchesCommission_ 参照。同じ問題のクライアント版）。
+   * 一方、HTML要素の data-compare 等の属性値は常に文字列になるため、===で比較すると
+   * 型が一致せず「一致しないはずなのに一致しない」不具合になる（比較機能で
+   * 「この車両の情報が見つからない」と表示されてしまっていた不具合の原因）。
+   * 必ず文字列化してから比較することで、型の違いに影響されないようにする。
+   */
+  function commissionEquals_(a, b) {
+    return String(a) === String(b);
+  }
+
+  function formatDateTime(epochMs) {
+    if (!epochMs) return '-';
+    var d = new Date(epochMs);
+    return d.getFullYear() + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0') +
+      ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  }
+
+  function paidOptionsText(item) {
+    var keys = (state.bootstrap && state.bootstrap.paidOptionKeys) ||
+      ['paidOption1', 'paidOption2', 'paidOption3', 'paidOption4', 'paidOption5', 'paidOption6', 'paidOption7'];
+    var values = keys.map(function (k) { return item[k]; }).filter(function (v) { return v; });
+    return values.length ? values.join('、') : '-';
+  }
+
+  // ===== タブ切替 =====
+  // ホーム画面のモデル写真クリック（在庫リストへの遷移）からも同じ処理を使えるよう、
+  // ナビのクリックハンドラとは独立した関数にしておく。
+  function currentActiveTab_() {
+    var el = document.querySelector('.tabs__item.is-active');
+    return el ? el.dataset.tab : 'home';
+  }
+
+  // 「戻る」ボタン用の画面履歴（タブ名のみのスタック）。ホームのモデル/グレード
+  // クリックによる在庫リストへの遷移・メインタブのクリックなど、switchToTab_を
+  // 経由するすべての画面遷移で自動的に記録される。opts.skipHistoryは「戻る」
+  // ボタン自身がswitchToTab_を呼ぶ際に、戻った先をさらに履歴に積んでしまわない
+  // ようにするためのフラグ。
+  function switchToTab_(tabName, opts) {
+    opts = opts || {};
+    var current = currentActiveTab_();
+    if (!opts.skipHistory && current && current !== tabName) {
+      state.navHistory.push(current);
+      syncNavButtons_();
+    }
+    // ホームに戻ったら、在庫リストの検索条件を毎回リセットして「全在庫表示」の
+    // 状態に戻す。在庫リストで検索・絞り込みをしたまま他の画面へ移動すると、
+    // 次に在庫リストを開いたときに検索前のことを忘れて古い絞り込み条件のまま
+    // 表示されてしまう混乱を防ぐため。
+    if (tabName === 'home' && current !== 'home') {
+      resetInventoryFilters_();
+    }
+    document.querySelectorAll('.tabs__item').forEach(function (t) { t.classList.toggle('is-active', t.dataset.tab === tabName); });
+    document.querySelectorAll('main.view').forEach(function (v) { v.classList.remove('is-active'); });
+    $('view-' + tabName).classList.add('is-active');
+    // ホームタブの間だけ、PCビューの共通トップバーを非表示にし（Stylesheet.html
+    // 参照）、代わりにホーム画面自身の結合ヘッダー（#homeCombinedHeader、
+    // アプリ名見出し・型クイックナビ・戻る／更新ボタンをまとめて持つ）を使う。
+    // トップバーが非表示になるとoffsetHeightが0になるため、直後の
+    // syncFixedBars_()が--topbar-hを自動的に0へ更新し、#appの上余白も連動して
+    // 詰まる（手動での余白調整は不要）。
+    document.body.classList.toggle('is-home-tab', tabName === 'home');
+    // 全タブは同じ1つのdocument上でdisplay: none/blockを切り替えているだけの
+    // ため、スクロール位置はタブをまたいで共有されてしまう（例: ホームで
+    // スクロールした状態でモデルをクリックすると、在庫リストも同じスクロール
+    // 位置のまま表示され、ツールバー等が見えない状態で開いてしまう）。
+    // タブ切替のたびに常に一番上から表示されるよう、ページ全体を先頭へ
+    // スクロールする。
+    window.scrollTo(0, 0);
+    // 非表示（display: none）だった間はツールバーの実測高さが0になっているため、
+    // 表示状態に切り替わった直後に再計測してスペーサーの高さを補正する。
+    syncFixedBars_();
+  }
+
+  function resetInventoryFilters_() {
+    $('inventoryKeyword').value = '';
+    $('inventoryMonthFilter').value = '';
+    $('inventoryIncludeHold').checked = true;
+    state.homeGradeFilter = null;
+    loadInventory();
+  }
+
+  document.getElementById('mainTabs').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-tab]');
+    if (!btn) return;
+    switchToTab_(btn.dataset.tab);
+  });
+
+  // 左サイドバー（PCビューのみ表示。Stylesheet.html参照）のナビ項目も、
+  // mainTabsと同じswitchToTab_をそのまま呼ぶ。ボタン自体がmainTabsの各項目と
+  // 同じ.tabs__itemクラスを共有しているため、is-active状態の同期は
+  // switchToTab_側の一括トグル（document.querySelectorAll('.tabs__item')）で
+  // 自動的に行われる。
+  document.getElementById('sidebarNav').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-tab]');
+    if (!btn) return;
+    switchToTab_(btn.dataset.tab);
+  });
+
+  // 「戻る」「更新」ボタンは、共通トップバー側（#btnNavBack/#btnRefresh）と
+  // ホーム画面・右パネル自身のヘッダー側（#btnNavBackHome/#btnRefreshHome）の
+  // 2箇所に存在する（PCビューではホームタブの間だけ共通トップバーを隠し、
+  // 右パネル側のボタンに役目を譲るため。Index.html・Stylesheet.html参照）。
+  // どちらも同じ処理を呼ぶ共通ハンドラにし、有効/無効state・スピナー表示も
+  // 両方に同時に反映する。
+  function syncNavButtons_() {
+    var disabled = state.navHistory.length === 0;
+    $('btnNavBack').disabled = disabled;
+    $('btnNavBackHome').disabled = disabled;
+  }
+
+  function handleNavBackClick_() {
+    var prev = state.navHistory.pop();
+    if (!prev) return;
+    switchToTab_(prev, { skipHistory: true });
+    syncNavButtons_();
+  }
+  $('btnNavBack').addEventListener('click', handleNavBackClick_);
+  $('btnNavBackHome').addEventListener('click', handleNavBackClick_);
+
+  function handleRefreshClick_() {
+    var btns = [$('btnRefresh'), $('btnRefreshHome')];
+    btns.forEach(function (b) { b.disabled = true; b.classList.add('is-spinning'); });
+    reloadAll_().then(function () {
+      showToast('最新の情報に更新しました');
+    }).catch(function (err) {
+      showToast(err.message, true);
+    }).then(function () {
+      btns.forEach(function (b) { b.disabled = false; b.classList.remove('is-spinning'); });
+    });
+  }
+  $('btnRefresh').addEventListener('click', handleRefreshClick_);
+  $('btnRefreshHome').addEventListener('click', handleRefreshClick_);
+
+  // ===== モーダル共通 =====
+  document.querySelectorAll('[data-close-modal]').forEach(function (btn) {
+    btn.addEventListener('click', function () { closeModal(btn.closest('.modal')); });
+  });
+  document.querySelectorAll('.modal').forEach(function (modal) {
+    modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(modal); });
+  });
+  // モーダル表示中は背景（在庫リスト・受注リスト等）がスクロールされないよう、
+  // bodyのスクロールをロックする。複数のモーダルが続けて開閉される場合
+  // （詳細モーダルを閉じてすぐHold登録モーダルを開く等）でも正しく機能するよう、
+  // 開いているモーダルの数をカウントし、0件になったときだけロックを解除する。
+  var openModalCount = 0;
+  function openModal(modal) {
+    modal.classList.remove('hidden');
+    openModalCount++;
+    document.body.classList.add('modal-open');
+  }
+  function closeModal(modal) {
+    modal.classList.add('hidden');
+    openModalCount = Math.max(0, openModalCount - 1);
+    if (openModalCount === 0) document.body.classList.remove('modal-open');
+  }
+  // Escapeキーで開いているモーダルを閉じる（×ボタン・背景クリックと同じ操作感を
+  // キーボードでも提供する）。同時に複数開くことは無い想定だが、念のため開いている
+  // ものをすべて閉じる。
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    document.querySelectorAll('.modal:not(.hidden)').forEach(closeModal);
+  });
+
+  // ===== 在庫リスト =====
+  function loadInventory() {
+    var filters = {
+      keyword: $('inventoryKeyword').value,
+      includeHold: $('inventoryIncludeHold').checked
+    };
+    // ホームのベースモデル行クリックによるグレード絞り込み（state.homeGradeFilter）は、
+    // 利用者が検索キーワードを自分で入力した時点で解除する（意図しない絞り込みが
+    // 残り続けないようにするため）。
+    if (filters.keyword && filters.keyword.trim()) {
+      state.homeGradeFilter = null;
+    }
+    return gasRun('api_listInventory', filters).then(function (groups) {
+      var items = (groups && groups[0] && groups[0].items) || [];
+      if (state.homeGradeFilter) {
+        items = items.filter(function (v) { return state.homeGradeFilter.indexOf(v.model) !== -1; });
+      }
+      populateInventoryMonthFilter_(items);
+      var month = $('inventoryMonthFilter').value;
+      if (month) {
+        items = items.filter(function (v) { return v.registrableMonth === month; });
+      }
+      state.inventoryItems = items;
+      renderInventory();
+    }).catch(function (err) { showToast(err.message, true); });
+  }
+
+  // 可能月フィルタの選択肢は、現在の検索条件に該当する在庫の可能月から動的に作る
+  // （当月は在庫がなくても常に選べるようにする）。
+  function populateInventoryMonthFilter_(items) {
+    var select = $('inventoryMonthFilter');
+    var current = select.value;
+    var thisMonth = currentYearMonth();
+    var months = [];
+    items.forEach(function (v) {
+      if (v.registrableMonth && months.indexOf(v.registrableMonth) === -1) months.push(v.registrableMonth);
+    });
+    if (months.indexOf(thisMonth) === -1) months.push(thisMonth);
+    months.sort();
+    var options = ['<option value="">可能月：すべて</option>'].concat(months.map(function (m) {
+      var label = m + (m === thisMonth ? '（今月）' : '');
+      return '<option value="' + escapeHtml(m) + '">' + escapeHtml(label) + '</option>';
+    }));
+    select.innerHTML = options.join('');
+    select.value = months.indexOf(current) !== -1 ? current : '';
+  }
+
+  function isRegistrableThisMonth_(v) {
+    return !!v.registrableMonth && v.registrableMonth === currentYearMonth();
+  }
+
+  function metaRow_(label, value) {
+    return '<div><dt>' + label + '</dt><dd>' + escapeHtml(value || '-') + '</dd></div>';
+  }
+
+  // ===== Hold種別（通常／デモカーHOLD／他店HOLD）表示ヘルパー =====
+  // 管理者権限を持つ担当者のみ登録できるデモカーHOLD・他店HOLDは、通常のHold・2nd Holdとは
+  // 見分けがつくよう、バッジ・カード左罫線・Hold詳細ブロックすべてに専用の特別色
+  // （badge--holdSpecial 等）を使う（HoldService.gsのHOLD_TYPE参照）。
+  var HOLD_TYPE_LABELS_FALLBACK_ = { normal: '通常のHOLD', demo: 'デモカーHOLD', otherStore: '他店HOLD' };
+  function holdTypeLabel_(holdType) {
+    var map = (state.bootstrap && state.bootstrap.holdTypeLabels) || HOLD_TYPE_LABELS_FALLBACK_;
+    return map[holdType] || holdType;
+  }
+
+  function vehicleCardTone_(v) {
+    var isHold = v.holdStatus === 'hold';
+    var hasSecondHold = isHold && !!v.secondHoldCustomer;
+    var isSpecialHold = isHold && !!(v.holdHoldType && v.holdHoldType !== 'normal');
+    if (isSpecialHold) return 'card--holdSpecial';
+    if (hasSecondHold) return 'card--hold2';
+    if (isHold) return 'card--hold';
+    return 'card--available';
+  }
+
+  function vehicleBadgesHtml_(v) {
+    var isHold = v.holdStatus === 'hold';
+    var hasSecondHold = isHold && !!v.secondHoldCustomer;
+    var isSpecialHold = isHold && !!(v.holdHoldType && v.holdHoldType !== 'normal');
+    var badges;
+    if (isSpecialHold) {
+      badges = '<span class="badge badge--holdSpecial"><span class="badge__dot"></span>' +
+        escapeHtml(holdTypeLabel_(v.holdHoldType)) + '中' + (hasSecondHold ? '（2nd有）' : '') + '</span>';
+    } else if (isHold) {
+      badges = hasSecondHold
+        ? '<span class="badge badge--hold2"><span class="badge__dot"></span>Hold中（2nd有）</span>'
+        : '<span class="badge badge--hold"><span class="badge__dot"></span>Hold中</span>';
+    } else {
+      badges = '<span class="badge badge--available"><span class="badge__dot"></span>在庫あり</span>';
+    }
+    badges += v.stockDisclosure === '非開示'
+      ? '<span class="badge badge--undisclosed">非開示</span>'
+      : '<span class="badge badge--disclosed">開示</span>';
+    if (isRegistrableThisMonth_(v)) {
+      badges += '<span class="badge badge--thisMonth">当月登録可能</span>';
+    }
+    return badges;
+  }
+
+  /**
+   * カード上部（モデル・コミッション・比較ピンの行＋バッジの行）。2行に分けて
+   * 固定することで、バッジの個数（2個／3個）やモデル名・コミッションの文字数に
+   * よって折り返し方が変わり、カードごとに高さがバラつく問題を避ける（以前は
+   * 1つのflex-wrapコンテナに全部まとめていたため、組み合わせによって1行に
+   * 収まったり2行・3行になったりし、在庫あり／Hold中／Hold中（2nd有）で
+   * カードの高さが揃わなかった）。
+   */
+  function vehicleTopHtml_(v, comparePinHtml) {
+    return '<div class="card__top">' +
+      '<div class="card__topRow">' +
+      '<div><div class="card__model">' + escapeHtml(v.model) + '</div>' +
+      '<div class="card__commission">' + escapeHtml(v.commission) + '</div></div>' +
+      (comparePinHtml || '') +
+      '</div>' +
+      '<div class="card__badges">' + vehicleBadgesHtml_(v) + '</div>' +
+      '</div>';
+  }
+
+  // MP・カラーは折りたたまず常に表示する（現場の声を踏まえ、隠しすぎない）。
+  function vehicleQuickMetaHtml_(v) {
+    return '<dl class="card__metaGrid card__metaGrid--quick">' +
+      metaRow_('MP', v.mp) +
+      metaRow_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
+      '</dl>';
+  }
+
+  function vehicleSpecFieldsHtml_(v) {
+    return '<dl class="card__metaGrid">' +
+      metaRow_('ステア', v.steering) +
+      metaRow_('有償OP', paidOptionsText(v)) +
+      metaRow_('入港予定日', v.arrivalExpectedDate) +
+      metaRow_('可能月', v.registrableMonth) +
+      metaRow_('VPC', v.vpc) +
+      '</dl>';
+  }
+
+  function vehicleActionsHtml_(v) {
+    var isHold = v.holdStatus === 'hold';
+    var html = '<div class="card__actions">';
+    if (!isHold) {
+      html += '<button class="btn" data-hold="' + escapeHtml(v.commission) + '">Hold</button>';
+      html += '<button class="btn btn--primary" data-order="' + escapeHtml(v.commission) + '">受注</button>';
+    } else {
+      if (!v.secondHoldCustomer) {
+        html += '<button class="btn" data-second-hold="' + escapeHtml(v.commission) + '">2ND HOLD</button>';
+      }
+      html += '<button class="btn btn--primary" data-order-from-hold="' + escapeHtml(v.commission) + '">受注確定</button>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  /**
+   * 表示形式「カード」用のコンパクト版。モデル・コミッション・ステータス・MP・
+   * カラー・Hold要約（顧客名・タイマー）・操作ボタンだけを表示し、車両スペック
+   * （ステア・有償OP等）やHoldの詳細（リード番号等）はカード内では表示しない
+   * （「詳細を見る」から画面中央のモーダル・vehicleDetailHtml_で確認する）。
+   * これにより、在庫あり／Hold中／Hold中（2nd有）のどの状態でもカードの高さが
+   * 揃う（以前は車両スペックの折りたたみ・Hold詳細の折りたたみをカード内に
+   * 直接置いていたため、開閉のたびにカードが伸び縮みし、他のカードとサイズが
+   * 揃わなくなる不具合があった）。
+   */
+  function vehicleCardHtml(v) {
+    var hasSecondHold = v.holdStatus === 'hold' && !!v.secondHoldCustomer;
+    var isHold = v.holdStatus === 'hold';
+
+    // Hold状況の表示エリア（.card__holdArea）は、在庫あり・1st Holdのみ・
+    // 2nd Holdありのどの状態でも常に同じ高さに固定し、カードサイズが
+    // Holdの状態によって変わらないようにする。2nd Holdがある場合は、
+    // card__holdArea--splitで1st Hold（左）・2nd Hold（右）を縦積みではなく
+    // 横並びにする（詳細モーダル側・vehicleDetailHtml_と統一した見せ方。
+    // 横並びにすることで、固定高さの枠内に2nd Holdの内容もすべて収まる）。
+    var holdInfoHtml;
+    if (isHold) {
+      holdInfoHtml = '<div class="card__holdArea' + (hasSecondHold ? ' card__holdArea--split' : '') + '">' +
+        holdInfoBlockHtml_('1ST HOLD', v, 'hold', 'first', false) +
+        (v.secondHoldCustomer ? holdInfoBlockHtml_('2ND HOLD', v, 'secondHold', 'second', false) : '') +
+        '</div>';
+    } else {
+      holdInfoHtml = '<div class="card__holdArea card__holdArea--empty">' +
+        '<span class="card__holdArea__placeholder">現在Hold登録なし</span>' +
+        '</div>';
+    }
+
+    var isComparing = isComparingCommission_(v.commission);
+    var comparePinHtml = '<label class="card__comparePin">' +
+      '<input type="checkbox" data-compare="' + escapeHtml(v.commission) + '"' + (isComparing ? ' checked' : '') + '>比較</label>';
+
+    var cardTone = vehicleCardTone_(v);
+    // data-commissionをカード自体に持たせ、カードのどこをタップしても（ボタン・
+    // 入力・ラベル以外）詳細モーダルを開けるようにする（表示形式「表」の行タップと
+    // 同じ操作感に揃える。現場からの要望）。「▸ 詳細を見る」の文字自体は、タップ
+    // できる範囲があることを示すヒントとして残す。
+    return '<div class="card ' + cardTone + '" data-commission="' + escapeHtml(v.commission) + '">' +
+      vehicleTopHtml_(v, comparePinHtml) +
+      vehicleQuickMetaHtml_(v) +
+      '<button type="button" class="card__detailLink" data-detail="' + escapeHtml(v.commission) + '">▸ 詳細を見る</button>' +
+      holdInfoHtml +
+      vehicleActionsHtml_(v) +
+      '</div>';
+  }
+
+  /**
+   * 「詳細を見る」タップ・表示形式「表」の行タップで開く、画面中央のモーダル
+   * （#inventoryDetailModal）用のフル版。車両スペック・Holdの詳細（リード番号等）
+   * も省略せずすべて表示する（openInventoryDetailModal_参照）。
+   */
+  function vehicleDetailHtml_(v) {
+    var hasSecondHold = v.holdStatus === 'hold' && !!v.secondHoldCustomer;
+    var isHold = v.holdStatus === 'hold';
+
+    var holdInfoHtml;
+    if (isHold) {
+      holdInfoHtml = '<div class="card__holdArea card__holdArea--full' + (hasSecondHold ? ' card__holdArea--split' : '') + '">' +
+        holdInfoBlockHtml_('1ST HOLD', v, 'hold', 'first', true) +
+        (v.secondHoldCustomer ? holdInfoBlockHtml_('2ND HOLD', v, 'secondHold', 'second', true) : '') +
+        '</div>';
+    } else {
+      holdInfoHtml = '<div class="card__holdArea card__holdArea--empty card__holdArea--full">' +
+        '<span class="card__holdArea__placeholder">現在Hold登録なし</span>' +
+        '</div>';
+    }
+
+    var cardTone = vehicleCardTone_(v);
+    return '<div class="card ' + cardTone + '">' +
+      vehicleTopHtml_(v, '') +
+      vehicleQuickMetaHtml_(v) +
+      vehicleSpecFieldsHtml_(v) +
+      holdInfoHtml +
+      vehicleActionsHtml_(v) +
+      '</div>';
+  }
+
+  // ===== 車両比較（在庫リストのカード・表それぞれのピンから最大COMPARE_MAX台まで選び、
+  // スペックを並べて見比べる。商談中に似た条件の車両を比較する場面を想定した機能）。 =====
+  function isComparingCommission_(commission) {
+    return state.compareItems.some(function (v) { return commissionEquals_(v.commission, commission); });
+  }
+
+  function toggleCompare_(commission, checked) {
+    try {
+      if (checked) {
+        if (state.compareItems.length >= COMPARE_MAX) {
+          showToast('比較は最大' + COMPARE_MAX + '台までです', true);
+          document.querySelectorAll('[data-compare="' + commission + '"]').forEach(function (el) { el.checked = false; });
+          return;
+        }
+        var vehicle = findVehicleByCommission(commission);
+        if (!vehicle) {
+          showToast('この車両の情報が見つからないため比較に追加できません。検索条件を変えている場合は解除してからお試しください。', true);
+          document.querySelectorAll('[data-compare="' + commission + '"]').forEach(function (el) { el.checked = false; });
+          return;
+        }
+        state.compareItems.push(vehicle);
+      } else {
+        state.compareItems = state.compareItems.filter(function (v) { return !commissionEquals_(v.commission, commission); });
+      }
+      syncComparePins_();
+      renderCompareBar_();
+    } catch (e) {
+      showToast('比較の切り替えに失敗しました: ' + e.message, true);
+    }
+  }
+
+  function syncComparePins_() {
+    var activeSet = {};
+    state.compareItems.forEach(function (v) { activeSet[v.commission] = true; });
+    // マイページの「Hold中の車両」一覧（#myPageHoldList）も在庫リストと同じ
+    // 比較ピン（vehicleCardHtml）を再利用しているため、あわせて同期する。
+    document.querySelectorAll('#inventoryList [data-compare], #myPageHoldList [data-compare]').forEach(function (el) {
+      el.checked = !!activeSet[el.dataset.compare];
+    });
+  }
+
+  function renderCompareBar_() {
+    var items = state.compareItems;
+    $('compareBar').classList.toggle('hidden', items.length === 0);
+    $('compareBarChips').innerHTML = items.map(function (v) {
+      return '<span class="compareChip">' + escapeHtml(v.model) +
+        '<button type="button" data-compare-remove="' + escapeHtml(v.commission) + '" aria-label="比較から外す">&times;</button></span>';
+    }).join('');
+    $('btnCompareShow').disabled = items.length < 2;
+  }
+
+  var COMPARE_FIELDS = [
+    { label: 'モデル', get: function (v) { return v.model; } },
+    { label: 'コミッション', get: function (v) { return v.commission; } },
+    { label: '状態', get: function (v) { return v.holdStatus === 'hold' ? 'Hold中' : '在庫あり'; } },
+    { label: 'MP', get: function (v) { return v.mp; } },
+    { label: 'ステア', get: function (v) { return v.steering; } },
+    { label: '外装', get: function (v) { return v.exteriorColor; } },
+    { label: '内装', get: function (v) { return v.interiorColor; } },
+    { label: '有償OP', get: function (v) { return paidOptionsText(v); } },
+    { label: '入港予定日', get: function (v) { return v.arrivalExpectedDate; } },
+    { label: '可能月', get: function (v) { return v.registrableMonth; } },
+    { label: 'VPC', get: function (v) { return v.vpc; } },
+    { label: '在庫開示', get: function (v) { return v.stockDisclosure; } }
+  ];
+
+  function renderCompareTable_() {
+    var items = state.compareItems;
+    var table = $('compareTable');
+    if (!items.length) { table.innerHTML = ''; return; }
+    var headerCells = '<th></th>' + items.map(function (v) {
+      return '<th>' + escapeHtml(v.model) + '<div class="compareTable__sub">' + escapeHtml(v.commission) + '</div></th>';
+    }).join('');
+    var bodyRows = COMPARE_FIELDS.map(function (f) {
+      var values = items.map(function (v) { return f.get(v) || '-'; });
+      var isDiff = values.some(function (val) { return val !== values[0]; });
+      var cells = values.map(function (val) { return '<td>' + escapeHtml(val) + '</td>'; }).join('');
+      return '<tr class="' + (isDiff ? 'is-diff' : '') + '"><th>' + escapeHtml(f.label) + '</th>' + cells + '</tr>';
+    }).join('');
+    table.innerHTML = '<thead><tr>' + headerCells + '</tr></thead><tbody>' + bodyRows + '</tbody>';
+  }
+
+  $('compareBarChips').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-compare-remove]');
+    if (!btn) return;
+    toggleCompare_(btn.dataset.compareRemove, false);
+  });
+
+  $('btnCompareClear').addEventListener('click', function () {
+    state.compareItems = [];
+    syncComparePins_();
+    renderCompareBar_();
+  });
+
+  $('btnCompareShow').addEventListener('click', function () {
+    if (state.compareItems.length < 2) return;
+    try {
+      renderCompareTable_();
+      openModal($('compareModal'));
+    } catch (e) {
+      // 比較表の描画に失敗しても無反応にはせず、必ずトーストで知らせる。
+      showToast('比較表の表示に失敗しました: ' + e.message, true);
+    }
+  });
+
+  // ===== 在庫リストの表示形式切替（カード／表） =====
+  function syncViewToggle_() {
+    document.querySelectorAll('#inventoryViewToggle .viewToggle__item').forEach(function (btn) {
+      btn.classList.toggle('is-active', btn.dataset.view === state.inventoryViewMode);
+    });
+  }
+
+  $('inventoryViewToggle').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-view]');
+    if (!btn) return;
+    state.inventoryViewMode = btn.dataset.view;
+    safeLocalStorageSet_('inventoryViewMode', state.inventoryViewMode);
+    syncViewToggle_();
+    renderInventory();
+  });
+
+  function syncOrdersViewToggle_() {
+    document.querySelectorAll('#ordersViewToggle .viewToggle__item').forEach(function (btn) {
+      btn.classList.toggle('is-active', btn.dataset.view === state.ordersViewMode);
+    });
+  }
+
+  $('ordersViewToggle').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-view]');
+    if (!btn) return;
+    state.ordersViewMode = btn.dataset.view;
+    safeLocalStorageSet_('ordersViewMode', state.ordersViewMode);
+    syncOrdersViewToggle_();
+    renderOrders();
+  });
+
+  // 表示形式「表」: 多台数を一覧で見比べたい商談向けの高密度ビュー。現場から提示
+  // された参照UI（案A 表（横）HOLD）に合わせ、素のHTML <table> で「ステータス・
+  // 車種・コミッション・MP・ハンドル・カラー・有償OP・1ST HOLD・2ND HOLD・操作」の
+  // 10列を横一列に並べる（invTableRowsHtml_）。以前はカードグリッドと同じ「カード
+  // タイプUI」（角丸・影付きの行カード）でHold詳細を省略していたが、参照UIは
+  // 1ST HOLD・2ND HOLDの内容（担当者・タイマー）を列として直接見せる作り
+  // だったため、それに合わせて列として復活させた。操作列（Hold／受注／2ND HOLD／
+  // 受注確定＋比較チェック）は参照UIの「操作」列と同じく最右列に置く。
+
+  // 受注リスト・発注リスト・Gクラス予約リストの表示形式「表」用の共通ラベル+値
+  // フィールド（.rowCard__field、Stylesheet.html参照。在庫リストは表として
+  // vehicleTableRowHtml_専用の実装に切り替えたため、こちらは使わない）。
+  function rowField_(label, value) {
+    return '<div class="rowCard__field rowCard__field--center"><span class="rowCard__label">' + label + '</span>' +
+      '<span class="rowCard__value">' + escapeHtml(value || '-') + '</span></div>';
+  }
+
+  function invTableHoldCellHtml_(v, prefix, cancelRank) {
+    var present = prefix === 'hold' ? v.holdStatus === 'hold' : !!v.secondHoldCustomer;
+    if (!present) return '<span class="invHold__empty">未登録</span>';
+    var holdType = v[prefix + 'HoldType'] || 'normal';
+    var isSpecial = holdType !== 'normal';
+    var nameText = isSpecial ? holdTypeLabel_(holdType) : (v[prefix + 'Customer'] || '-');
+    var staff = v[prefix + 'Staff'];
+    var createdAt = v[prefix + 'CreatedAt'];
+    var expiresAt = v[prefix + 'ExpiresAt'];
+    return '<div class="invHold' + (isSpecial ? ' invHold--special' : '') + '">' +
+      '<div class="invHold__name">' + escapeHtml(nameText) + '</div>' +
+      '<div class="invHold__staff">担当者 ' + escapeHtml(staff || '-') + '</div>' +
+      holdTimerHtml_(createdAt, expiresAt, 'invHold__timer') +
+      '<button type="button" class="invHold__cancel" data-cancel-hold="' + escapeHtml(v.commission) + '" data-cancel-rank="' + cancelRank + '">解除</button>' +
+      '</div>';
+  }
+
+  function vehicleTableRowHtml_(v) {
+    var isHold = v.holdStatus === 'hold';
+    var hasSecondHold = isHold && !!v.secondHoldCustomer;
+    var isSpecialHold = isHold && !!(v.holdHoldType && v.holdHoldType !== 'normal');
+    var rowTone = isSpecialHold ? 'invTableRow--holdSpecial' : (hasSecondHold ? 'invTableRow--hold2' : (isHold ? 'invTableRow--hold' : 'invTableRow--available'));
+    var statusBadge = isSpecialHold
+      ? ('<span class="badge badge--holdSpecial"><span class="badge__dot"></span>' +
+          escapeHtml(holdTypeLabel_(v.holdHoldType)) + '中' + (hasSecondHold ? '（2nd有）' : '') + '</span>')
+      : (isHold
+          ? (hasSecondHold
+              ? '<span class="badge badge--hold2"><span class="badge__dot"></span>Hold中（2nd有）</span>'
+              : '<span class="badge badge--hold"><span class="badge__dot"></span>Hold中</span>')
+          : '<span class="badge badge--available"><span class="badge__dot"></span>在庫あり</span>');
+    var isComparing = isComparingCommission_(v.commission);
+    // 操作列は参照UIの最右列と同じ位置に置く。受注確定・2ND HOLD等、実際にできる
+    // 操作はカード表示（vehicleActionsHtml_）と同じ内容にする（参照UIの「編集・削除」
+    // ボタンは本アプリの実際の操作には存在しないため、実機能に合わせて置き換える）。
+    var actionsHtml = isHold
+      ? ('<button class="btn btn--small btn--primary" data-order-from-hold="' + escapeHtml(v.commission) + '">受注確定</button>' +
+         (!v.secondHoldCustomer ? '<button class="btn btn--small" data-second-hold="' + escapeHtml(v.commission) + '">2ND HOLD</button>' : ''))
+      : ('<button class="btn btn--small" data-hold="' + escapeHtml(v.commission) + '">Hold</button>' +
+         '<button class="btn btn--small btn--primary" data-order="' + escapeHtml(v.commission) + '">受注</button>');
+    var comparePinHtml = '<label class="invTable__comparePin"><input type="checkbox" data-compare="' + escapeHtml(v.commission) + '"' + (isComparing ? ' checked' : '') + '>比較</label>';
+
+    // 行タップ（チェックボックス・ボタン以外の箇所）で詳細モーダルを開けるよう
+    // data-commissionを行自体に持たせる（handleInventoryListClick_参照）。
+    return '<tr class="invTableRow ' + rowTone + '" data-commission="' + escapeHtml(v.commission) + '">' +
+      '<td class="invTableRow__status">' + statusBadge + '</td>' +
+      '<td class="invTableRow__ellipsis">' + escapeHtml(v.model) + '</td>' +
+      '<td class="invTableRow__ellipsis invTableRow__mono">' + escapeHtml(v.commission) + '</td>' +
+      '<td class="invTableRow__mono">' + escapeHtml(v.mp || '-') + '</td>' +
+      '<td class="invTableRow__center">' + escapeHtml(v.steering || '-') + '</td>' +
+      '<td class="invTableRow__ellipsis">' + escapeHtml((v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) + '</td>' +
+      '<td class="invTableRow__ellipsis">' + escapeHtml(paidOptionsText(v)) + '</td>' +
+      '<td>' + invTableHoldCellHtml_(v, 'hold', '1st') + '</td>' +
+      '<td>' + invTableHoldCellHtml_(v, 'secondHold', '2nd') + '</td>' +
+      '<td class="invTableRow__actions">' + actionsHtml + comparePinHtml + '</td>' +
+      '</tr>';
+  }
+
+  /** 表示形式「表」の行をタップした際、既存のカード表示と同じ見た目で
+   * 車両情報すべてを画面中央のモーダルに表示する。 */
+  function openInventoryDetailModal_(commission) {
+    var vehicle = findVehicleByCommission(commission);
+    if (!vehicle) return;
+    $('inventoryDetailBody').innerHTML = vehicleDetailHtml_(vehicle);
+    openModal($('inventoryDetailModal'));
+  }
+
+  function vehicleRowsHtml(items) {
+    if (!items.length) return '';
+    return '<div class="invTableWrap"><table class="invTable">' +
+      '<thead><tr>' +
+      '<th>ステータス</th><th>車種</th><th>コミッション</th><th>MP</th><th>ハンドル</th>' +
+      '<th>カラー</th><th>有償OP</th><th>1ST HOLD</th><th>2ND HOLD</th><th>操作</th>' +
+      '</tr></thead>' +
+      '<tbody>' + items.map(vehicleTableRowHtml_).join('') + '</tbody>' +
+      '</table></div>';
+  }
+
+  // Hold詳細ブロックは、常に見えている要約行（顧客・担当者・タイマー）と、
+  // 折りたたみ式の詳細（リード番号・登録月・下取車・OSS・保険）に分ける。
+  // これにより、2nd Holdが追加されてもカードが縦に伸びすぎず、サイズが揃う。
+  /**
+   * full=false（表示形式「カード」のコンパクト版）ではリード番号等の詳細を省略し、
+   * full=true（詳細モーダル・vehicleDetailHtml_）では折りたたまず常に表示する。
+   */
+  function holdInfoBlockHtml_(label, v, prefix, rank, full) {
+    var holdType = v[prefix + 'HoldType'] || 'normal';
+    var isSpecial = holdType !== 'normal';
+    var leadNumber = v[prefix + 'LeadNumber'];
+    var staff = v[prefix + 'Staff'];
+    var customer = v[prefix + 'Customer'];
+    var salesLocation = v[prefix + 'SalesLocation'];
+    var registeredMonth = v[prefix + 'RegisteredMonth'];
+    var tradeIn = v[prefix + 'TradeIn'];
+    var oss = v[prefix + 'Oss'];
+    var insurance = v[prefix + 'Insurance'];
+    var paymentMethod = v[prefix + 'PaymentMethod'];
+    var salesStore = v[prefix + 'SalesStore'];
+    var createdAt = v[prefix + 'CreatedAt'];
+    var expiresAt = v[prefix + 'ExpiresAt'];
+    var cancelRank = rank === 'first' ? '1st' : '2nd';
+
+    var summaryHtml;
+    var detailsHtml = '';
+    if (holdType === 'demo') {
+      summaryHtml = '<div class="card__holdInfo__row"><b>デモカーHOLD</b>（担当者 ' + escapeHtml(staff || '-') + '）</div>';
+      if (full) {
+        detailsHtml = '<div class="card__holdInfo__detailsBody card__holdInfo__detailsBody--flat">' +
+          'リード番号 ' + escapeHtml(leadNumber || '-') + ' / 登録月 ' + escapeHtml(registeredMonth || '-') +
+          '</div>';
+      }
+    } else if (holdType === 'otherStore') {
+      summaryHtml = '<div class="card__holdInfo__row"><b>他店HOLD</b>（担当者 ' + escapeHtml(staff || '-') + '）</div>';
+      if (full) {
+        detailsHtml = '<div class="card__holdInfo__detailsBody card__holdInfo__detailsBody--flat">' +
+          '販売店 ' + escapeHtml(salesStore || '-') +
+          '</div>';
+      }
+    } else {
+      summaryHtml = '<div class="card__holdInfo__row"><b>' + escapeHtml(customer || '-') + '</b>（担当者 ' + escapeHtml(staff || '-') + '・' + escapeHtml(salesLocation || '-') + '）</div>';
+      detailsHtml = full
+        ? '<div class="card__holdInfo__detailsBody card__holdInfo__detailsBody--flat">' +
+          'リード番号 ' + escapeHtml(leadNumber || '-') +
+          ' / 登録月 ' + escapeHtml(registeredMonth || '-') +
+          ' / 下取車 ' + escapeHtml(tradeIn || '-') + ' / OSS ' + escapeHtml(oss || '-') +
+          ' / 保険 ' + escapeHtml(insurance || '-') + ' / 支払方法 ' + escapeHtml(paymentMethod || '-') +
+          '</div>'
+        : '';
+    }
+
+    return '<div class="card__holdInfo card__holdInfo--' + rank + (isSpecial ? ' card__holdInfo--special' : '') + '">' +
+      '<div class="card__holdInfo__head">' +
+      '<span class="card__holdInfo__label">' + label + (isSpecial ? '（' + escapeHtml(holdTypeLabel_(holdType)) + '）' : '') + '</span>' +
+      '<button class="card__holdInfo__cancel" type="button" data-cancel-hold="' + escapeHtml(v.commission) + '" data-cancel-rank="' + cancelRank + '">解除</button>' +
+      '</div>' +
+      summaryHtml +
+      holdTimerHtml_(createdAt, expiresAt) +
+      detailsHtml +
+      '</div>';
+  }
+
+  // ===== Hold 72時間タイマー（視覚的なカウントダウン・進捗バー） =====
+  // デモカーHOLD・他店HOLDは期限が無期限（expiresAtがfalsy）のため、進捗バーは出さず
+  // 「無期限」の固定表示にする。updateHoldTimersは data-expires-at が空（falsy）の
+  // 要素を毎秒の更新対象から除外するため、この初期表示のまま変化しない。
+  function holdTimerHtml_(createdAt, expiresAt, extraClass) {
+    var cls = 'holdTimer' + (extraClass ? ' ' + extraClass : '');
+    if (!expiresAt) {
+      return '<div class="' + cls + ' holdTimer--indefinite" data-created-at="' + (createdAt || '') + '" data-expires-at="">' +
+        '<div class="holdTimer__text">無期限</div>' +
+        '</div>';
+    }
+    return '<div class="' + cls + '" data-created-at="' + (createdAt || '') + '" data-expires-at="' + expiresAt + '">' +
+      '<div class="holdTimer__bar"><div class="holdTimer__barFill"></div></div>' +
+      '<div class="holdTimer__text">-</div>' +
+      '</div>';
+  }
+
+  function formatDuration_(ms) {
+    var totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    var hours = Math.floor(totalSeconds / 3600);
+    var minutes = Math.floor((totalSeconds % 3600) / 60);
+    var seconds = totalSeconds % 60;
+    return String(hours).padStart(2, '0') + ':' + String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+  }
+
+  var HOLD_DURATION_MS_CLIENT = 72 * 60 * 60 * 1000; // サーバー側 HOLD_DURATION_MS と同じ値（表示用フォールバック）
+
+  var expiredRefreshTimer = null;
+  function scheduleExpiredRefresh_() {
+    if (expiredRefreshTimer) return;
+    expiredRefreshTimer = setTimeout(function () {
+      expiredRefreshTimer = null;
+      loadInventory();
+    }, 15000);
+  }
+
+  function updateHoldTimers() {
+    var now = Date.now();
+    var anyExpired = false;
+    document.querySelectorAll('.holdTimer').forEach(function (el) {
+      var expiresAt = Number(el.dataset.expiresAt);
+      if (!expiresAt) return;
+      var createdAt = Number(el.dataset.createdAt) || expiresAt - HOLD_DURATION_MS_CLIENT;
+      var fill = el.querySelector('.holdTimer__barFill');
+      var text = el.querySelector('.holdTimer__text');
+
+      if (now < createdAt) {
+        // 2nd Hold: 1st Holdの期間が終わるまでは、まだ自身の72時間は始まっていない
+        el.classList.remove('holdTimer--expired');
+        el.classList.remove('holdTimer--warning');
+        fill.style.width = '0%';
+        text.textContent = '1ST HOLD終了後に開始（あと ' + formatDuration_(createdAt - now) + '）';
+        return;
+      }
+
+      var total = expiresAt - createdAt;
+      var remaining = expiresAt - now;
+      if (remaining <= 0) {
+        anyExpired = true;
+        el.classList.add('holdTimer--expired');
+        el.classList.remove('holdTimer--warning');
+        fill.style.width = '0%';
+        text.textContent = '期限切れ（まもなく自動更新されます）';
+      } else {
+        var pct = total > 0 ? Math.max(0, Math.min(100, (remaining / total) * 100)) : 0;
+        fill.style.width = pct + '%';
+        el.classList.toggle('holdTimer--warning', remaining < 6 * 60 * 60 * 1000);
+        el.classList.remove('holdTimer--expired');
+        text.textContent = '残り ' + formatDuration_(remaining);
+      }
+    });
+    if (anyExpired) scheduleExpiredRefresh_();
+  }
+
+  setInterval(updateHoldTimers, 1000);
+
+  function renderInventory() {
+    var container = $('inventoryList');
+    var items = state.inventoryItems || [];
+    $('inventoryEmpty').classList.toggle('hidden', items.length > 0);
+    $('inventoryTotalCount').textContent = items.length ? '該当 ' + items.length + ' 台' : '';
+    container.innerHTML = state.inventoryViewMode === 'table'
+      ? vehicleRowsHtml(items)
+      : '<div class="cardGrid">' + items.map(vehicleCardHtml).join('') + '</div>';
+    syncComparePins_();
+    syncFixedBars_();
+  }
+
+  syncViewToggle_();
+  syncOrdersViewToggle_();
+  syncGClassViewToggle_();
+  syncPurchaseOrdersViewToggle_();
+  syncMyPageViewToggle_();
+
+  // 在庫リストのカード/行タップ操作（Hold・受注・比較・詳細）。マイページの
+  // 「Hold中の車両」一覧（#myPageHoldList）も同じカード（vehicleCardHtml）を
+  // 再利用しているため、同じ処理を共有できるよう名前付き関数にしている。
+  function handleInventoryListClick_(e) {
+    var target = e.target;
+    if (target.dataset.hold) openActionModal('hold', target.dataset.hold);
+    else if (target.dataset.secondHold) openActionModal('secondHold', target.dataset.secondHold);
+    else if (target.dataset.order) openActionModal('order', target.dataset.order);
+    else if (target.dataset.orderFromHold) openActionModal('orderFromHold', target.dataset.orderFromHold);
+    else if (target.dataset.cancelHold) openCancelHoldModal(target.dataset.cancelHold, target.dataset.cancelRank);
+    else if (target.dataset.compare) toggleCompare_(target.dataset.compare, target.checked);
+    else if (target.dataset.detail) {
+      // 表示形式「カード」の「詳細を見る」タップで、車両情報の詳細モーダルを開く
+      // （カード自体は伸ばさず、他のカードとサイズを揃えたままにする）。
+      openInventoryDetailModal_(target.dataset.detail);
+    } else {
+      // 表示形式「表」の行タップ・表示形式「カード」のカードタップ（どちらも
+      // チェックボックス・ボタン・ラベル以外の箇所）で車両情報の詳細モーダルを開く。
+      var tappable = target.closest('.invTableRow[data-commission], .card[data-commission]');
+      if (tappable && !target.closest('button, input, label')) {
+        openInventoryDetailModal_(tappable.dataset.commission);
+      }
+    }
+  }
+
+  document.getElementById('inventoryList').addEventListener('click', handleInventoryListClick_);
+
+  // 詳細モーダル内のHold/受注/比較等のボタンも、在庫リストと同じ操作ができるようにする。
+  // 操作系のボタン（Hold・受注・2nd Hold・受注確定・Hold解除）を押した場合は、
+  // 続けて別のモーダル（Hold登録等）を開く前に、この詳細モーダル自体は閉じておく。
+  $('inventoryDetailModal').addEventListener('click', function (e) {
+    var target = e.target;
+    if (target.dataset.hold) { closeModal($('inventoryDetailModal')); openActionModal('hold', target.dataset.hold); }
+    else if (target.dataset.secondHold) { closeModal($('inventoryDetailModal')); openActionModal('secondHold', target.dataset.secondHold); }
+    else if (target.dataset.order) { closeModal($('inventoryDetailModal')); openActionModal('order', target.dataset.order); }
+    else if (target.dataset.orderFromHold) { closeModal($('inventoryDetailModal')); openActionModal('orderFromHold', target.dataset.orderFromHold); }
+    else if (target.dataset.cancelHold) { closeModal($('inventoryDetailModal')); openCancelHoldModal(target.dataset.cancelHold, target.dataset.cancelRank); }
+    else if (target.dataset.compare) toggleCompare_(target.dataset.compare, target.checked);
+  });
+
+  ['inventoryKeyword', 'inventoryMonthFilter', 'inventoryIncludeHold'].forEach(function (id) {
+    $(id).addEventListener('input', debounce(loadInventory, 250));
+    $(id).addEventListener('change', loadInventory);
+  });
+
+  // ===== Hold / 2nd Hold / 受注 共通モーダル =====
+  var ACTION_LABELS = {
+    hold: { title: 'Hold登録', button: 'Holdする', busyLabel: 'Hold登録中...', tone: 'hold' },
+    secondHold: { title: '2ND HOLD登録', button: '2ND HOLDする', busyLabel: '登録中...', tone: 'hold' },
+    order: { title: '受注確定', button: '受注確定する', busyLabel: '受注確定中...', tone: 'order' },
+    orderFromHold: { title: '受注確定', button: '受注確定する', busyLabel: '受注確定中...', tone: 'order' }
+  };
+  var ORDER_TYPES = ['order', 'orderFromHold'];
+
+  function actionFieldId_(key) {
+    return 'action' + key.charAt(0).toUpperCase() + key.slice(1);
+  }
+
+  // ===== ログイン中のGoogleアカウントに紐づく担当者 =====
+  // 担当者マスタ（設定タブ）にメールアドレスを登録しておくと、ログイン中のGoogleアカウントの
+  // メールアドレスから自動的に担当者名が解決される（サーバー側 resolveStaffNameByEmail_ と
+  // 同じ照合をAPI側で行い、bootstrap.currentStaffName として渡ってくる）。
+  function currentStaffName_() {
+    return state.bootstrap && state.bootstrap.currentStaffName;
+  }
+
+  // ログイン中の担当者が担当者マスタに登録している拠点名（未登録ならnull）。
+  // Hold登録・2nd Hold登録・受注確定モーダルの「販売拠点」欄の初期値に使う。
+  function currentStaffLocation_() {
+    return (state.bootstrap && state.bootstrap.currentStaffLocation) || '';
+  }
+
+  function currentUserEmail_() {
+    return (state.bootstrap && state.bootstrap.currentUserEmail) || '';
+  }
+
+  // 本人確認は表示名ではなく必ずメールアドレスで行う（担当者マスタの表示名は
+  // 後から変更され得るため、名前同士の比較だと表示名を変えただけで自分自身の
+  // Holdを解除・受注確定できなくなる不具合の原因になる。サーバー側 canCancelHold_ /
+  // canConfirmOrder_ も同様にメールアドレスで判定する）。
+  function emailsMatch_(a, b) {
+    return !!a && !!b && String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+  }
+
+  function staffDisplayHtml_() {
+    var name = currentStaffName_();
+    var email = currentUserEmail_();
+    if (name) {
+      return '<b>' + escapeHtml(name) + '</b><span class="staffDisplay__email">' + escapeHtml(email) + '</span>';
+    }
+    return '<span class="staffDisplay__warn">担当者マスタ未登録（' + escapeHtml(email || '不明') + '）</span>';
+  }
+
+  function renderTopbarUser() {
+    var name = currentStaffName_();
+    var email = currentUserEmail_();
+    var el = $('topbarUser');
+    var infoHtml;
+    if (name) {
+      infoHtml = '<span class="topbar__userName">' + escapeHtml(name) + '</span>' +
+        '<span class="topbar__userEmail">' + escapeHtml(email) + '</span>';
+    } else {
+      infoHtml = '<span class="topbar__userWarn">担当者未登録: ' + escapeHtml(email || '不明') + '</span>';
+    }
+    el.innerHTML = infoHtml;
+    // 左サイドバー（PCビューのみ）のユーザー情報にも同じ内容を反映する。
+    // アバターは担当者名の先頭1文字（未登録の場合は「?」）を表示するのみの
+    // 簡易的なもの（画像アップロード等の機能は持たない）。
+    $('sidebarUserInfo').innerHTML = infoHtml;
+    $('sidebarUserAvatar').textContent = name ? name.charAt(0) : '?';
+  }
+
+  // ===== 在庫データ整合性チェック（アプリ起動時に1回だけ実行） =====
+  // 在庫の追加・編集はスプレッドシートへ直接行う運用のため、コミッションの重複貼り付けや
+  // モデル名の記入漏れ等、手作業ならではのミスが紛れ込むことがある。操作をブロックはせず、
+  // 画面上部のバナーで気づけるようにするだけにとどめる。
+  function checkIntegrity_() {
+    gasRun('api_checkInventoryIntegrity').then(function (issues) {
+      renderIntegrityBanner_(issues || []);
+    }).catch(function () {
+      // 整合性チェック自体の失敗は、通常の利用を妨げるべきではないため静かに無視する。
+    });
+  }
+
+  function renderIntegrityBanner_(issues) {
+    var banner = $('integrityBanner');
+    if (!issues.length) {
+      banner.classList.add('hidden');
+      $('integrityBannerList').classList.add('hidden');
+      syncFixedBars_();
+      return;
+    }
+    $('integrityBannerSummary').textContent = '在庫データに' + issues.length + '件の問題があります（スプレッドシートをご確認ください）';
+    $('integrityBannerList').innerHTML = issues.map(function (issue) {
+      return '<li>' + escapeHtml(issue.message) + '</li>';
+    }).join('');
+    banner.classList.remove('hidden');
+    syncFixedBars_();
+  }
+
+  $('btnIntegrityDetail').addEventListener('click', function () {
+    $('integrityBannerList').classList.toggle('hidden');
+    syncFixedBars_();
+  });
+
+  $('btnIntegrityClose').addEventListener('click', function () {
+    $('integrityBanner').classList.add('hidden');
+    $('integrityBannerList').classList.add('hidden');
+    syncFixedBars_();
+  });
+
+  // ===== 予約モーダルのステップ進捗（顧客情報→契約内容） =====
+  // スマホでの誤タップ・誤入力を減らすため、8項目を一度に出さず2ステップに分ける。
+  var ACTION_STEP1_KEYS = ['salesLocation', 'leadNumber', 'customer'];
+
+  /**
+   * 管理者権限を持つ担当者がHoldをタップした場合、通常の顧客情報入力（step 1/2）の前に
+   * Hold種別選択（'typePick'）を挟む。デモカーHOLD（'demo'）・他店HOLD（'otherStore'）は
+   * 通常の2ステップとは別の簡易フォーム1画面のみで完結する。
+   * stepは 'typePick' | 1 | 2 | 'demo' | 'otherStore' のいずれか。
+   */
+  function goToActionStep_(step) {
+    state.actionStep = step;
+    var showTypePick = step === 'typePick';
+    var showStep1 = step === 1;
+    var showStep2 = step === 2;
+    var showDemo = step === 'demo';
+    var showOtherStore = step === 'otherStore';
+    $('actionTypePickStep').classList.toggle('hidden', !showTypePick);
+    $('actionStep1').classList.toggle('hidden', !showStep1);
+    $('actionStep2').classList.toggle('hidden', !showStep2);
+    $('actionStepDemo').classList.toggle('hidden', !showDemo);
+    $('actionStepOtherStore').classList.toggle('hidden', !showOtherStore);
+
+    var isNormalSteps = showStep1 || showStep2;
+    $('actionStepFill').closest('.modal__stepBar').classList.toggle('hidden', !isNormalSteps);
+    if (isNormalSteps) {
+      $('actionStepFill').style.width = showStep1 ? '50%' : '100%';
+      $('actionStepLabel').textContent = showStep1 ? 'ステップ 1/2　顧客情報' : 'ステップ 2/2　契約内容';
+    }
+    // 「戻る」は、通常の2ステップ目からstep1へ、admin経由のstep1・簡易フォームからは
+    // Hold種別選択画面へ戻れるようにする（それ以外・通常ユーザーのHoldでは非表示のまま）。
+    var canGoBack = showStep2 || showDemo || showOtherStore || (showStep1 && !!(state.action && state.action.adminHoldFlow));
+    $('btnActionBack').classList.toggle('hidden', !canGoBack);
+    $('btnActionNext').classList.toggle('hidden', !showStep1);
+    $('btnActionSubmit').classList.toggle('hidden', !(showStep2 || showDemo || showOtherStore));
+    $('actionModalError').classList.add('hidden');
+  }
+
+  $('btnActionNext').addEventListener('click', function () {
+    var missing = missingRequiredFieldLabels_(ACTION_STEP1_KEYS);
+    if (missing.length) {
+      var errEl = $('actionModalError');
+      errEl.textContent = '次の項目を入力してください: ' + missing.join('、');
+      errEl.classList.remove('hidden');
+      return;
+    }
+    goToActionStep_(2);
+  });
+
+  $('btnActionBack').addEventListener('click', function () {
+    if (state.actionStep === 2) { goToActionStep_(1); }
+    else if (state.actionStep === 1 || state.actionStep === 'demo' || state.actionStep === 'otherStore') { goToActionStep_('typePick'); }
+  });
+
+  var ACTION_TYPE_PICK_TITLES = { normal: 'Hold登録', demo: 'デモカーHOLD登録', otherStore: '他店HOLD登録' };
+  var ACTION_TYPE_PICK_BUTTONS = { normal: 'Holdする', demo: 'デモカーHOLDする', otherStore: '他店HOLDする' };
+
+  $('actionModal').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-hold-type-pick]');
+    if (!btn) return;
+    var holdType = btn.dataset.holdTypePick;
+    state.action.holdType = holdType;
+    $('actionModalTitle').textContent = ACTION_TYPE_PICK_TITLES[holdType];
+    $('btnActionSubmit').textContent = ACTION_TYPE_PICK_BUTTONS[holdType];
+    if (holdType === 'normal') goToActionStep_(1);
+    else if (holdType === 'demo') goToActionStep_('demo');
+    else goToActionStep_('otherStore');
+  });
+
+  // 管理者権限を持つ担当者（SYSTEM_ADMIN_EMAILS）のみ、通常のHoldに加えてデモカーHOLD・
+  // 他店HOLDを登録できる。設定タブのシステムマスタ表示・非表示（renderSettings）と
+  // 同じ判定方法（state.bootstrap.isSystemAdmin）を使う。実際の権限チェックは
+  // サーバー側 normalizeHoldType_ で行うため、ここでの判定はUI表示の制御のみ。
+  function isSystemAdmin_() {
+    return !!(state.bootstrap && state.bootstrap.isSystemAdmin);
+  }
+
+  function openActionModal(type, commission) {
+    var currentStaff = currentStaffName_();
+    if (!currentStaff) {
+      showToast('担当者マスタに登録されていないため操作できません。設定タブでご自身のメールアドレスを登録してください（' + (currentUserEmail_() || '不明') + '）', true);
+      return;
+    }
+
+    // 管理者権限を持つ担当者が「Hold」（1st Hold）をタップした場合のみ、通常のHoldに
+    // 加えてデモカーHOLD・他店HOLDを選べるHold種別選択画面を挟む。2nd Hold・受注確定には
+    // この選択画面は出さない（デモカーHOLD・他店HOLDは1st Holdのみの機能のため）。
+    var isAdminHoldPick = type === 'hold' && isSystemAdmin_();
+    state.action = { type: type, commission: commission, holdType: 'normal', adminHoldFlow: isAdminHoldPick };
+    $('actionModalTitle').textContent = ACTION_LABELS[type].title;
+    var submitBtn = $('btnActionSubmit');
+    submitBtn.textContent = ACTION_LABELS[type].button;
+    delete submitBtn.dataset.originalLabel;
+    // Hold系（hold/secondHold）はオレンジ、受注系（order/orderFromHold）は青、と
+    // 一目で操作の種類が分かるようモーダル全体の差し色を切り替える。
+    var panel = document.querySelector('#actionModal .modal__panel');
+    panel.classList.remove('modal__panel--hold', 'modal__panel--order');
+    panel.classList.add('modal__panel--' + ACTION_LABELS[type].tone);
+    submitBtn.disabled = false;
+    $('actionModalError').classList.add('hidden');
+    $('actionDemoLeadNumber').value = '';
+    $('actionDemoRegisteredMonth').value = '';
+    $('actionSalesStore').value = '';
+    goToActionStep_(isAdminHoldPick ? 'typePick' : 1);
+
+    var vehicle = findVehicleByCommission(commission);
+    var isOrderFromHold = type === 'orderFromHold' && vehicle;
+    var prefill;
+    if (isOrderFromHold) {
+      prefill = {
+        // 入力欄には数字部分のみを表示する（「L-」は固定接頭辞として画面側に表示済み）
+        leadNumber: String(vehicle.holdLeadNumber || '').replace(/^L-/i, ''),
+        // 登録月はHold登録時点の月ではなく、受注確定を行う「今月」を既定値にする
+        // （Holdからしばらく経ってから受注確定するケースがあるため）。
+        registeredMonth: currentYearMonth(),
+        customer: vehicle.holdCustomer,
+        salesLocation: vehicle.holdSalesLocation,
+        tradeIn: vehicle.holdTradeIn,
+        oss: vehicle.holdOss,
+        insurance: vehicle.holdInsurance,
+        paymentMethod: vehicle.holdPaymentMethod
+      };
+    } else {
+      // Hold登録・2nd Hold登録・新規の受注確定は、担当者マスタに登録された
+      // ログイン中の担当者本人の拠点名を販売拠点欄の初期値にする（編集可）。
+      prefill = {
+        leadNumber: '', registeredMonth: currentYearMonth(), customer: '',
+        salesLocation: currentStaffLocation_(), tradeIn: '', oss: '', insurance: '', paymentMethod: ''
+      };
+    }
+
+    $('actionStaffDisplay').innerHTML = staffDisplayHtml_();
+
+    // Hold中の車両は、Holdを行った担当者のみ受注確定できる。ログイン中のメールアドレスが
+    // Hold担当者のメールアドレスと異なる場合は、送信前に気づけるようここで警告し送信を
+    // ブロックする（最終判定はサーバー側 canConfirmOrder_ で行う。表示名ではなく
+    // メールアドレスで比較する — emailsMatch_ 参照）。
+    var staffMismatch = isOrderFromHold && vehicle.holdStaffEmail && !emailsMatch_(vehicle.holdStaffEmail, currentUserEmail_());
+    if (staffMismatch) {
+      var errEl = $('actionModalError');
+      errEl.textContent = 'このHoldの担当者は「' + vehicle.holdStaff + '」です。ログイン中の担当者（' + currentStaff + '）では受注確定できません。';
+      errEl.classList.remove('hidden');
+    }
+    submitBtn.disabled = !!staffMismatch;
+
+    $('actionSalesLocation').value = prefill.salesLocation || '';
+    $('actionLeadNumber').value = prefill.leadNumber || '';
+    $('actionRegisteredMonth').value = prefill.registeredMonth || currentYearMonth();
+    $('actionCustomer').value = prefill.customer || '';
+    $('actionTradeIn').value = prefill.tradeIn || '';
+    $('actionOss').value = prefill.oss || '';
+    $('actionInsurance').value = prefill.insurance || '';
+    $('actionPaymentMethod').value = prefill.paymentMethod || '';
+
+    openModal($('actionModal'));
+  }
+
+  // リード番号は「L-」固定接頭辞＋数字のみで扱う。入力欄には数字部分のみを
+  // 持たせ、数字以外が入力されてもその場で取り除く。
+  $('actionLeadNumber').addEventListener('input', function () {
+    var digits = this.value.replace(/[^0-9]/g, '');
+    if (this.value !== digits) this.value = digits;
+  });
+
+  // デモカーHOLDのリード番号欄も同様（未入力のままでもよい）。
+  $('actionDemoLeadNumber').addEventListener('input', function () {
+    var digits = this.value.replace(/[^0-9]/g, '');
+    if (this.value !== digits) this.value = digits;
+  });
+
+  function findVehicleByCommission(commission) {
+    var found = (state.inventoryItems || []).find(function (v) { return commissionEquals_(v.commission, commission); });
+    if (found) return found;
+    // 在庫リストの検索・絞り込み条件で対象外になっていても（マイページ等、
+    // 別画面のカードから操作した場合など）見つけられるよう、フィルタに
+    // 左右されない全件キャッシュ（state.allInventoryItems）も探す。
+    return (state.allInventoryItems || []).find(function (v) { return commissionEquals_(v.commission, commission); }) || null;
+  }
+
+  // ===== Hold解除 =====
+  // 「解除しようとしているのは誰か」は、ログイン中のGoogleアカウントのメールアドレスと、
+  // Hold登録時の担当者のメールアドレスが一致するかで判定する（表示名の比較ではない）。
+  var cancelHoldState = null; // { commission, rank }
+
+  function openCancelHoldModal(commission, rank) {
+    var currentStaff = currentStaffName_();
+    if (!currentStaff) {
+      showToast('担当者マスタに登録されていないため操作できません。設定タブでご自身のメールアドレスを登録してください（' + (currentUserEmail_() || '不明') + '）', true);
+      return;
+    }
+    var vehicle = findVehicleByCommission(commission);
+    if (!vehicle) return;
+    var prefix = rank === '2nd' ? 'secondHold' : 'hold';
+    var holdStaff = vehicle[prefix + 'Staff'];
+    var holdStaffEmail = vehicle[prefix + 'StaffEmail'];
+    var holdCustomer = vehicle[prefix + 'Customer'];
+
+    cancelHoldState = { commission: commission, rank: rank };
+    $('cancelHoldModalTitle').textContent = (rank === '2nd' ? '2ND HOLD' : '1ST HOLD') + 'の解除';
+    $('cancelHoldModalDesc').textContent =
+      'この' + (rank === '2nd' ? '2ND HOLD' : '1ST HOLD') + '（顧客: ' + (holdCustomer || '-') + '）を登録した担当者「' +
+      (holdStaff || '-') + '」のみ解除できます。';
+    $('cancelHoldStaffDisplay').innerHTML = staffDisplayHtml_();
+    $('cancelHoldModalError').classList.add('hidden');
+
+    var submitBtn = $('btnCancelHoldSubmit');
+    delete submitBtn.dataset.originalLabel;
+    var staffMismatch = holdStaffEmail && !emailsMatch_(holdStaffEmail, currentUserEmail_());
+    if (staffMismatch) {
+      var errEl = $('cancelHoldModalError');
+      errEl.textContent = 'このHoldの担当者は「' + holdStaff + '」です。ログイン中の担当者（' + currentStaff + '）では解除できません。';
+      errEl.classList.remove('hidden');
+    }
+    submitBtn.disabled = !!staffMismatch;
+    openModal($('cancelHoldModal'));
+  }
+
+  $('btnCancelHoldSubmit').addEventListener('click', function () {
+    if (this.disabled || !cancelHoldState) return;
+    var btn = this;
+    var errEl = $('cancelHoldModalError');
+    errEl.classList.add('hidden');
+    setButtonBusy(btn, true, '解除中...');
+    gasRun('api_cancelHold', cancelHoldState.commission, cancelHoldState.rank).then(function () {
+      setButtonBusy(btn, false);
+      closeModal($('cancelHoldModal'));
+      showToast('Holdを解除しました');
+      loadInventory();
+      loadHomeModelCounts_();
+    }).catch(function (err) {
+      setButtonBusy(btn, false);
+      errEl.textContent = err.message;
+      errEl.classList.remove('hidden');
+    });
+  });
+
+  /**
+   * Hold登録・受注確定は全項目（販売拠点を含む）の入力が必須。
+   * 未入力の項目があればラベルを列挙して返す。担当者（staff）はログイン中の
+   * Googleアカウントから自動設定されるため、ここでの入力必須チェックからは除外する
+   * （openActionModalで別途チェック済み）。
+   */
+  function missingRequiredFieldLabels_(filterKeys) {
+    var missing = [];
+    var columns = (state.bootstrap && state.bootstrap.holdOrderInputColumns) || [];
+    columns.forEach(function (c) {
+      if (!c.required || c.key === 'staff') return;
+      if (filterKeys && filterKeys.indexOf(c.key) === -1) return;
+      var field = $(actionFieldId_(c.key));
+      if (!field || !field.value || !String(field.value).trim()) missing.push(c.label);
+    });
+    return missing;
+  }
+
+  function validateActionForm_() {
+    return missingRequiredFieldLabels_(null);
+  }
+
+  /**
+   * Hold登録・受注確定完了後の共通後処理（成功トースト代わりの演出・一覧の再読込）。
+   * デモカーHOLD・他店HOLD（簡易フォーム）と、通常のHold・2nd Hold・受注確定の
+   * どちらの完了後も同じ処理でよいため共通化している。
+   */
+  function finishActionSubmit_(btn) {
+    setButtonBusy(btn, false);
+    closeModal($('actionModal'));
+    showCelebration_(state.action.type);
+    loadInventory();
+    loadHomeModelCounts_();
+    if (ORDER_TYPES.indexOf(state.action.type) !== -1) loadOrders();
+  }
+
+  function handleActionSubmitError_(btn, err) {
+    setButtonBusy(btn, false);
+    var el = $('actionModalError');
+    el.textContent = err.message;
+    el.classList.remove('hidden');
+  }
+
+  $('btnActionSubmit').addEventListener('click', function () {
+    if (this.disabled) return;
+    var btn = this;
+    var action = state.action;
+
+    // デモカーHOLD・他店HOLDは、通常のHoldの入力項目（顧客・下取車の有無等）を
+    // 一切要求しない簡易フォームのため、通常フローの必須チェック（validateActionForm_）
+    // は行わずここで完結させる（管理者のみ到達できる。openActionModal参照）。
+    if (action.type === 'hold' && action.holdType === 'demo') {
+      var demoInfo = {
+        leadNumber: $('actionDemoLeadNumber').value.trim()
+          ? 'L-' + $('actionDemoLeadNumber').value.trim().replace(/[^0-9]/g, '')
+          : '',
+        registeredMonth: $('actionDemoRegisteredMonth').value || ''
+      };
+      $('actionModalError').classList.add('hidden');
+      setButtonBusy(btn, true, 'デモカーHOLD登録中...');
+      gasRun('api_registerHold', action.commission, demoInfo, 'demo')
+        .then(function () { finishActionSubmit_(btn); })
+        .catch(function (err) { handleActionSubmitError_(btn, err); });
+      return;
+    }
+    if (action.type === 'hold' && action.holdType === 'otherStore') {
+      var otherStoreInfo = { salesStore: $('actionSalesStore').value.trim() };
+      $('actionModalError').classList.add('hidden');
+      setButtonBusy(btn, true, '他店HOLD登録中...');
+      gasRun('api_registerHold', action.commission, otherStoreInfo, 'otherStore')
+        .then(function () { finishActionSubmit_(btn); })
+        .catch(function (err) { handleActionSubmitError_(btn, err); });
+      return;
+    }
+
+    var missing = validateActionForm_();
+    if (missing.length) {
+      var errEl = $('actionModalError');
+      errEl.textContent = '次の項目を入力してください: ' + missing.join('、');
+      errEl.classList.remove('hidden');
+      return;
+    }
+
+    // 1st Holdと同じ担当者は2nd Holdを登録できない（サーバー側でも検証するが、
+    // 送信前に気づけるようここでも確認する）。メールアドレスで同一人物かどうかを判定する。
+    if (action.type === 'secondHold') {
+      var vehicleForCheck = findVehicleByCommission(action.commission);
+      if (vehicleForCheck && vehicleForCheck.holdStaffEmail && emailsMatch_(vehicleForCheck.holdStaffEmail, currentUserEmail_())) {
+        var staffErrEl = $('actionModalError');
+        staffErrEl.textContent = '1ST HOLDと同じ担当者（' + vehicleForCheck.holdStaff + '）は2ND HOLDを登録できません';
+        staffErrEl.classList.remove('hidden');
+        return;
+      }
+    }
+
+    var info = {
+      salesLocation: $('actionSalesLocation').value.trim(),
+      // リード番号は「L-」固定接頭辞＋数字（入力欄には数字のみを持たせている）
+      leadNumber: 'L-' + $('actionLeadNumber').value.trim().replace(/[^0-9]/g, ''),
+      registeredMonth: $('actionRegisteredMonth').value,
+      customer: $('actionCustomer').value.trim(),
+      tradeIn: $('actionTradeIn').value,
+      oss: $('actionOss').value,
+      insurance: $('actionInsurance').value,
+      paymentMethod: $('actionPaymentMethod').value
+    };
+    var apiCall;
+    if (action.type === 'hold') apiCall = gasRun('api_registerHold', action.commission, info, 'normal');
+    else if (action.type === 'secondHold') apiCall = gasRun('api_registerSecondHold', action.commission, info);
+    else apiCall = gasRun('api_confirmOrder', action.commission, info);
+
+    $('actionModalError').classList.add('hidden');
+    setButtonBusy(btn, true, ACTION_LABELS[action.type].busyLabel);
+
+    apiCall.then(function () {
+      finishActionSubmit_(btn);
+    }).catch(function (err) {
+      handleActionSubmitError_(btn, err);
+    });
+  });
+
+  // ===== 受注リスト =====
+  function loadOrders() {
+    var filters = {
+      keyword: $('ordersKeyword').value,
+      salesLocation: $('ordersLocationFilter').value,
+      staff: $('ordersStaffFilter').value
+    };
+    var groupBy = $('ordersGroupBy').value;
+    return gasRun('api_listOrders', filters, groupBy).then(function (groups) {
+      state.ordersGroups = groups || [];
+      renderOrders();
+    }).catch(function (err) { showToast(err.message, true); });
+  }
+
+  /**
+   * 受注リストは「誰が・どの車種を買ったか」がひと目でわかればよく、それ以外の
+   * 契約内容（コミッション・MP・VPC・有償OP・登録月・下取車・OSS・保険・支払方法・
+   * 受注確定日時・リード番号）はカード内に表示せず、「詳細を見る」タップで画面中央の
+   * モーダル（#orderDetailModal・orderDetailHtml_）にまとめて表示する（在庫リストの
+   * vehicleCardHtml／vehicleDetailHtml_と同じパターン。以前はカード内の折りたたみ
+   * だったため、開閉のたびにカードが伸び縮みし、他のカードとサイズが揃わなくなる
+   * 不具合があった）。
+   */
+  function orderCardHtml(o) {
+    // data-commissionをカード自体に持たせ、カードのどこをタップしても（ボタン以外）
+    // 詳細モーダルを開けるようにする（在庫リストのvehicleCardHtmlと同じパターン）。
+    return '<div class="orderCard" data-commission="' + escapeHtml(o.commission) + '">' +
+      '<div class="orderCard__top">' +
+      '<div><div class="orderCard__model">' + escapeHtml(o.customer || '-') + '</div>' +
+      '<div class="orderCard__staff">担当者: ' + escapeHtml(o.staff || '-') + '</div>' +
+      '<div class="orderCard__vehicle">' + escapeHtml(o.model) + '</div></div>' +
+      '<div class="card__badges">' +
+      '<span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span>' +
+      '</div>' +
+      '</div>' +
+      '<button type="button" class="orderCard__detailLink" data-order-detail="' + escapeHtml(o.commission) + '">▸ 詳細を見る</button>' +
+      '</div>';
+  }
+
+  function orderDetailGridHtml_(o) {
+    return '<dl class="orderCard__grid">' +
+      '<div><dt>リード番号</dt><dd>' + escapeHtml(o.leadNumber || '-') + '</dd></div>' +
+      '<div><dt>コミッション</dt><dd>' + escapeHtml(o.commission) + '</dd></div>' +
+      '<div><dt>MP</dt><dd>' + escapeHtml(o.mp || '-') + '</dd></div>' +
+      '<div><dt>VPC</dt><dd>' + escapeHtml(o.vpc || '-') + '</dd></div>' +
+      '<div><dt>有償OP</dt><dd>' + escapeHtml(paidOptionsText(o)) + '</dd></div>' +
+      '<div><dt>登録月</dt><dd>' + escapeHtml(o.registeredMonth || '-') + '</dd></div>' +
+      '<div><dt>下取車の有無</dt><dd>' + escapeHtml(o.tradeIn || '-') + '</dd></div>' +
+      '<div><dt>OSS登録の可否</dt><dd>' + escapeHtml(o.oss || '-') + '</dd></div>' +
+      '<div><dt>保険加入の有無</dt><dd>' + escapeHtml(o.insurance || '-') + '</dd></div>' +
+      '<div><dt>支払方法</dt><dd>' + escapeHtml(o.paymentMethod || '-') + '</dd></div>' +
+      '<div><dt>受注確定日時</dt><dd>' + formatDateTime(o.orderedAt) + '</dd></div>' +
+      '</dl>';
+  }
+
+  function orderDetailHtml_(o) {
+    return '<div class="orderCard">' +
+      '<div class="orderCard__top">' +
+      '<div><div class="orderCard__model">' + escapeHtml(o.customer || '-') + '</div>' +
+      '<div class="orderCard__staff">担当者: ' + escapeHtml(o.staff || '-') + '</div>' +
+      '<div class="orderCard__vehicle">' + escapeHtml(o.model) + '</div></div>' +
+      '<div class="card__badges">' +
+      '<span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span>' +
+      '</div>' +
+      '</div>' +
+      orderDetailGridHtml_(o) +
+      '</div>';
+  }
+
+  function findOrderByCommission_(commission) {
+    var groups = state.ordersGroups || [];
+    for (var i = 0; i < groups.length; i++) {
+      var items = groups[i].items || [];
+      for (var j = 0; j < items.length; j++) {
+        if (commissionEquals_(items[j].commission, commission)) return items[j];
+      }
+    }
+    // 受注リストの検索・絞り込み条件で対象外になっていても（マイページ等、
+    // 別画面のカードから操作した場合など）見つけられるよう、フィルタに
+    // 左右されない全件キャッシュ（state.allOrders）も探す。
+    return (state.allOrders || []).find(function (o) { return commissionEquals_(o.commission, commission); }) || null;
+  }
+
+  function openOrderDetailModal_(commission) {
+    var order = findOrderByCommission_(commission);
+    if (!order) return;
+    $('orderDetailBody').innerHTML = orderDetailHtml_(order);
+    openModal($('orderDetailModal'));
+  }
+
+  // 受注リストの表示形式「表」: 在庫と同じ「行カード」パターンで、成約済みの案件を
+  // 一覧で見比べやすくする。比較ピン・操作ボタンは受注リストには不要なため専用の
+  // 項目構成にする。行に並べる項目は「顧客・コミッション・モデル・リード番号・
+  // MP・VPC・担当者・登録月・販売拠点」だけに絞り込み（現場からの指摘）、それ以外
+  // （下取車・OSS・保険・支払方法・有償OP・受注確定日時）は行タップで開く詳細
+  // モーダル（openOrderDetailModal_・orderDetailGridHtml_）でのみ確認する。
+  function orderRowCardHtml(o) {
+    return '<div class="rowCard rowCard--order" data-commission="' + escapeHtml(o.commission) + '">' +
+      '<div class="rowCard__inner">' +
+      '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(o.customer || '-') + '</span>' +
+      '<span class="rowCard__commission">' + escapeHtml(o.commission) + '</span></div>' +
+      rowField_('モデル', o.model) +
+      rowField_('リード番号', o.leadNumber) +
+      rowField_('MP', o.mp) +
+      rowField_('VPC', o.vpc) +
+      rowField_('担当者', o.staff) +
+      rowField_('登録月', o.registeredMonth) +
+      '<div class="rowCard__status"><span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span></div>' +
+      '</div>' +
+      '</div>';
+  }
+
+  function orderRowsHtml(items) {
+    return '<div class="rowCardList rowCardList--order">' +
+      items.map(orderRowCardHtml).join('') +
+      '</div>';
+  }
+
+  function renderOrders() {
+    var container = $('ordersGroups');
+    var groups = state.ordersGroups || [];
+    var totalItems = groups.reduce(function (n, g) { return n + g.items.length; }, 0);
+    $('ordersEmpty').classList.toggle('hidden', totalItems > 0);
+    $('ordersTotalCount').textContent = '該当 ' + totalItems + ' 台';
+    container.innerHTML = groups.map(function (g) {
+      var heading = g.key
+        ? '<h3 class="group__title">' + escapeHtml(g.key) + '<span class="group__count">' + g.items.length + '台</span></h3>'
+        : '';
+      var body = state.ordersViewMode === 'table'
+        ? orderRowsHtml(g.items)
+        : '<div class="orderList">' + g.items.map(orderCardHtml).join('') + '</div>';
+      return '<div class="group">' + heading + body + '</div>';
+    }).join('');
+    syncFixedBars_();
+  }
+
+  $('ordersGroups').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-order-detail]');
+    if (btn) { openOrderDetailModal_(btn.dataset.orderDetail); return; }
+    // 表示形式「表」の行タップ・表示形式「カード」のカードタップ（どちらもボタン・
+    // 入力以外の箇所）でも、カード表示の「詳細を見る」と同じ詳細モーダルを開く
+    // （在庫リストのhandleInventoryListClick_と同じパターン。行・カードに表示して
+    // いない項目・受注確定日時等を確認できるようにする）。
+    var tappable = e.target.closest('.rowCard--order[data-commission], .orderCard[data-commission]');
+    if (tappable && !e.target.closest('button, input, label')) {
+      openOrderDetailModal_(tappable.dataset.commission);
+    }
+  });
+
+  function populateOrdersStaffFilter_() {
+    var select = $('ordersStaffFilter');
+    var current = select.value;
+    var names = ((state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.staffList) || [])
+      .map(function (s) { return s.name; })
+      .filter(function (n) { return n; });
+    select.innerHTML = '';
+    select.appendChild(new Option('担当者：すべて', ''));
+    names.forEach(function (n) { select.appendChild(new Option(n, n)); });
+    if (names.indexOf(current) !== -1) select.value = current;
+  }
+
+  ['ordersKeyword', 'ordersGroupBy', 'ordersLocationFilter', 'ordersStaffFilter'].forEach(function (id) {
+    $(id).addEventListener('input', debounce(loadOrders, 250));
+    $(id).addEventListener('change', loadOrders);
+  });
+
+  // ===== 発注リスト =====
+  // 在庫リスト・受注リストのようなHold/受注のステータス管理・通知は持たない、
+  // 閲覧専用の一覧（現場からの要望で追加。受注リストとGクラス予約リストの間に
+  // 配置する）。登録・編集・削除はいずれもアプリ画面からは行わず、スプレッド
+  // シートへ直接入力する運用のため、カード・表のどちらにも編集導線は無い。
+  // 件数が多くなりすぎない想定のため、検索は在庫リスト・受注リストのように
+  // サーバーへ都度問い合わせず、一度読み込んだ全件（state.purchaseOrders）を
+  // クライアント側で絞り込む。マイページの「発注リスト」セクション
+  // （renderMyPagePurchaseOrders_）も同じstate.purchaseOrdersを担当者名で
+  // 絞り込んで再利用するため、読み込み後は両方の再描画を呼ぶ。
+  // カード・表とも受注リスト（orderCardHtml/orderRowCardHtml）と同じ「顧客名を
+  // 主役にした見た目」に揃えている。
+  function loadPurchaseOrders() {
+    return gasRun('api_listPurchaseOrders').then(function (items) {
+      state.purchaseOrders = items || [];
+      renderPurchaseOrders_();
+      renderMyPagePurchaseOrders_();
+    }).catch(function (err) { showToast(err.message, true); });
+  }
+
+  function purchaseOrderMatchesKeyword_(po, keyword) {
+    if (!keyword) return true;
+    var kw = keyword.trim().toLowerCase();
+    if (!kw) return true;
+    return [po.model, po.salesLocation, po.staff, po.customer, po.commission, po.leadNumber, po.mp, po.exteriorColor, po.interiorColor].some(function (v) {
+      return String(v || '').toLowerCase().indexOf(kw) !== -1;
+    });
+  }
+
+  /**
+   * MP・カラー（外装／内装）・有償OPは、在庫リストのvehicleQuickMetaHtml_ /
+   * vehicleSpecFieldsHtml_と同じ.card__metaGridを流用して表示する
+   * （スプレッドシートへ直接入力する任意項目のため、未入力なら'-'表示）。
+   */
+  function purchaseOrderCardHtml_(po) {
+    var subParts = [];
+    if (po.commission) subParts.push('コミッション: ' + escapeHtml(po.commission));
+    if (po.leadNumber) subParts.push('リード番号: ' + escapeHtml(po.leadNumber));
+    if (po.createdAt) subParts.push('登録日時: ' + formatDateTime(po.createdAt));
+    return '<div class="purchaseOrderCard">' +
+      '<div class="purchaseOrderCard__top">' +
+      '<div><div class="purchaseOrderCard__customer">' + escapeHtml(po.customer || '-') + '</div>' +
+      '<div class="purchaseOrderCard__staff">担当者: ' + escapeHtml(po.staff || '-') + '</div>' +
+      '<div class="purchaseOrderCard__vehicle">' + escapeHtml(po.model) + '</div></div>' +
+      '<span class="badge badge--location">' + escapeHtml(po.salesLocation || '-') + '</span>' +
+      '</div>' +
+      '<dl class="card__metaGrid card__metaGrid--quick">' +
+      metaRow_('MP', po.mp) +
+      metaRow_('カラー', (po.exteriorColor || '-') + ' / ' + (po.interiorColor || '-')) +
+      '</dl>' +
+      '<dl class="card__metaGrid">' +
+      metaRow_('有償OP', paidOptionsText(po)) +
+      '</dl>' +
+      (subParts.length ? '<div class="purchaseOrderCard__sub">' + subParts.join('　') + '</div>' : '') +
+      '</div>';
+  }
+
+  /**
+   * 表示形式「表」用の行カード（発注リストタブ本体・マイページの「発注リスト」
+   * セクションの両方で使う）。受注リストのorderRowCardHtmlと同じ列構成の
+   * 考え方（識別列→車両・契約情報→拠点バッジを最後尾に配置）に揃えている。
+   * 発注リストは閲覧専用のため、カード表示・表表示のどちらもボタン・行タップ
+   * での編集導線は持たない。
+   * 行に並べる項目は、ひと目で必要な項目だけに絞り込み画面幅にかかわらず
+   * 折り返し無しで1行に収まるようにする考え方（在庫リストのvehicleTableRowHtml_と
+   * 同じ）で「識別（顧客・コミッション）・モデル・MP・カラー・有償OP・
+   * 拠点」の6項目だけに絞り込んだ（以前はリード番号・担当者・登録日時も
+   * 並べていたが、項目数が多すぎて画面幅によっては折り返して2行になり、
+   * 在庫リストの行より縦に間延びして見えていたため。現場からの指摘）。
+   * それ以外の項目（リード番号・担当者・登録日時）は、在庫リスト・受注リストと
+   * 同じく行タップで開く詳細モーダル（openPurchaseOrderDetailModal_・
+   * purchaseOrderDetailHtml_）でのみ確認する。
+   */
+  function purchaseOrderRowCardHtml_(po) {
+    return '<div class="rowCard rowCard--purchaseOrder" data-purchase-order-id="' + escapeHtml(po.id) + '">' +
+      '<div class="rowCard__inner">' +
+      '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(po.customer || '-') + '</span>' +
+      '<span class="rowCard__commission">' + escapeHtml(po.commission || '-') + '</span></div>' +
+      rowField_('モデル', po.model) +
+      rowField_('MP', po.mp) +
+      rowField_('カラー', (po.exteriorColor || '-') + ' / ' + (po.interiorColor || '-')) +
+      rowField_('有償OP', paidOptionsText(po)) +
+      '<div class="rowCard__status"><span class="badge badge--location">' + escapeHtml(po.salesLocation || '-') + '</span></div>' +
+      '</div>' +
+      '</div>';
+  }
+
+  function purchaseOrderRowsHtml_(items) {
+    return '<div class="rowCardList">' +
+      items.map(purchaseOrderRowCardHtml_).join('') +
+      '</div>';
+  }
+
+  /**
+   * 表示形式「表」の行タップで開く、画面中央のモーダル（#purchaseOrderDetailModal）。
+   * 発注リストは表示形式「カード」（purchaseOrderCardHtml_）の時点で既にMP・カラー・
+   * 有償OP・リード番号・担当者・登録日時まですべて省略せず表示しているため、
+   * 詳細モーダルもカードと同じ内容をそのまま再利用する（在庫リスト・受注リストの
+   * ように「カードでは一部省略、詳細モーダルで残りを表示」という使い分けが不要）。
+   */
+  function findPurchaseOrderById_(id) {
+    return (state.purchaseOrders || []).find(function (po) { return po.id === id; }) || null;
+  }
+
+  function openPurchaseOrderDetailModal_(id) {
+    var po = findPurchaseOrderById_(id);
+    if (!po) return;
+    $('purchaseOrderDetailBody').innerHTML = purchaseOrderCardHtml_(po);
+    openModal($('purchaseOrderDetailModal'));
+  }
+
+  /**
+   * 発注リストタブ本体・マイページの「発注リスト」セクションの両方で使う、
+   * 表示形式「表」の行タップ（ボタン・入力以外の箇所）のクリック処理
+   * （在庫リストのhandleInventoryListClick_・受注リストの行タップと同じパターン）。
+   */
+  function handlePurchaseOrderListClick_(e) {
+    var rowEl = e.target.closest('.rowCard--purchaseOrder[data-purchase-order-id]');
+    if (rowEl && !e.target.closest('button, input, label')) {
+      openPurchaseOrderDetailModal_(rowEl.dataset.purchaseOrderId);
+    }
+  }
+
+  function syncPurchaseOrdersViewToggle_() {
+    document.querySelectorAll('#purchaseOrdersViewToggle .viewToggle__item').forEach(function (btn) {
+      btn.classList.toggle('is-active', btn.dataset.view === state.purchaseOrdersViewMode);
+    });
+  }
+
+  $('purchaseOrdersViewToggle').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-view]');
+    if (!btn) return;
+    state.purchaseOrdersViewMode = btn.dataset.view;
+    safeLocalStorageSet_('purchaseOrdersViewMode', state.purchaseOrdersViewMode);
+    syncPurchaseOrdersViewToggle_();
+    renderPurchaseOrders_();
+  });
+
+  function renderPurchaseOrders_() {
+    var keyword = $('purchaseOrdersKeyword').value;
+    var items = (state.purchaseOrders || []).filter(function (po) { return purchaseOrderMatchesKeyword_(po, keyword); });
+    $('purchaseOrdersEmpty').classList.toggle('hidden', items.length > 0);
+    $('purchaseOrdersTotalCount').textContent = items.length ? '該当 ' + items.length + ' 件' : '';
+    $('purchaseOrdersList').innerHTML = state.purchaseOrdersViewMode === 'table'
+      ? purchaseOrderRowsHtml_(items)
+      : '<div class="purchaseOrderList">' + items.map(purchaseOrderCardHtml_).join('') + '</div>';
+    syncFixedBars_();
+  }
+
+  $('purchaseOrdersKeyword').addEventListener('input', debounce(renderPurchaseOrders_, 200));
+  $('purchaseOrdersList').addEventListener('click', handlePurchaseOrderListClick_);
+
+  // ===== Gクラス予約リスト =====
+  // 通常の在庫リストに担当者・顧客・リード番号を加えただけの閲覧専用リスト
+  // （受注リストと同様、データの追加・編集はスプレッドシートへ直接行う運用）。
+  // Hold・受注確定の操作は一切ないため、在庫リストのカードから比較ピン・バッジ・
+  // 操作ボタンを取り除いた簡易版のカードで表示する。表示順（顧客→担当者→モデル）・
+  // カード/表の切り替えは受注リストと揃えている。
+  function loadGClassReservations() {
+    var filters = { keyword: $('gclassKeyword').value };
+    return gasRun('api_listGClassReservations', filters).then(function (items) {
+      state.gclassItems = items || [];
+      renderGClassList_();
+    }).catch(function (err) { showToast(err.message, true); });
+  }
+
+  // 受注リストのorderCardHtmlと同じ考え方で、トップに顧客名・次に担当者・
+  // 次にモデル（＋コミッション）の順で表示する。
+  function gclassCardHtml_(v) {
+    // Gクラス予約リストは在庫あり／Hold中のような実際の状態を持たない閲覧専用
+    // リストのため、状態色（card--available）ではなくテーマカラーに連動する
+    // card--themedを使う（現場からの要望）。
+    return '<div class="card card--themed">' +
+      '<div class="card__top"><div class="card__topRow">' +
+      '<div><div class="card__model">' + escapeHtml(v.customer || '-') + '</div>' +
+      '<div class="card__commission">担当者: ' + escapeHtml(v.staff || '-') + '</div>' +
+      '<div class="card__commission">' + escapeHtml(v.model) + '（' + escapeHtml(v.commission) + '）</div></div>' +
+      '</div></div>' +
+      '<dl class="card__metaGrid card__metaGrid--quick">' +
+      metaRow_('MP', v.mp) +
+      metaRow_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
+      metaRow_('リード番号', v.leadNumber) +
+      '</dl>' +
+      vehicleSpecFieldsHtml_(v) +
+      '</div>';
+  }
+
+  /**
+   * 表示形式「表」: ひと目で必要な項目だけに絞り込み、画面幅にかかわらず折り返し
+   * 無しで1行に収まるようにする考え方（在庫リストのvehicleTableRowHtml_と同じ）で
+   * 「識別（顧客・コミッション）・モデル・MP・ステア・カラー・有償OP・開示状況」の
+   * 7項目だけに絞り込んだ（在庫リストの7項目構成に、識別列（顧客）を1つ加えた形。
+   * 以前は担当者・入港予定日・可能月・VPC・リード番号も並べていたが、項目数が
+   * 多すぎて画面幅によっては折り返して2〜3行になり、在庫リストの行より縦に
+   * 間延びして見えていたため。現場からの指摘）。それ以外の項目（担当者・入港予定日・
+   * 可能月・VPC・リード番号）は、在庫リスト・受注リストと同じく行タップで開く
+   * 詳細モーダル（openGClassDetailModal_）でのみ確認する。
+   */
+  function gclassRowCardHtml_(v) {
+    // card--themedと同じ理由（実際の状態を持たないため、状態色ではなく
+    // テーマカラーに連動するrowCard--themedを使う）。
+    return '<div class="rowCard rowCard--themed rowCard--gclass" data-commission="' + escapeHtml(v.commission) + '">' +
+      '<div class="rowCard__inner">' +
+      '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(v.customer || '-') + '</span>' +
+      '<span class="rowCard__commission">' + escapeHtml(v.commission) + '</span></div>' +
+      rowField_('モデル', v.model) +
+      rowField_('MP', v.mp) +
+      rowField_('ステア', v.steering) +
+      rowField_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
+      rowField_('有償OP', paidOptionsText(v)) +
+      '<div class="rowCard__status"><span class="badge ' + (v.stockDisclosure === '非開示' ? 'badge--undisclosed' : 'badge--disclosed') + '">' + escapeHtml(v.stockDisclosure || '-') + '</span></div>' +
+      '</div>' +
+      '</div>';
+  }
+
+  function gclassRowsHtml_(items) {
+    return '<div class="rowCardList">' +
+      items.map(gclassRowCardHtml_).join('') +
+      '</div>';
+  }
+
+  /**
+   * 表示形式「表」の行タップで開く、画面中央のモーダル（#gclassDetailModal）。
+   * 表示形式「カード」（gclassCardHtml_）は既にすべての項目（担当者・入港予定日・
+   * 可能月・VPC・リード番号を含む）を省略せず表示しているため、詳細モーダルも
+   * カードと同じ内容をそのまま再利用する（発注リストと同じ考え方）。
+   */
+  function findGClassByCommission_(commission) {
+    return (state.gclassItems || []).find(function (v) { return commissionEquals_(v.commission, commission); }) ||
+      (state.allGClassItems || []).find(function (v) { return commissionEquals_(v.commission, commission); }) || null;
+  }
+
+  function openGClassDetailModal_(commission) {
+    var v = findGClassByCommission_(commission);
+    if (!v) return;
+    $('gclassDetailBody').innerHTML = gclassCardHtml_(v);
+    openModal($('gclassDetailModal'));
+  }
+
+  /**
+   * Gクラス予約リストタブ本体・マイページの「Gクラス予約リスト」セクションの
+   * 両方で使う、表示形式「表」の行タップのクリック処理（発注リストの
+   * handlePurchaseOrderListClick_と同じパターン）。
+   */
+  function handleGClassListClick_(e) {
+    var rowEl = e.target.closest('.rowCard--gclass[data-commission]');
+    if (rowEl && !e.target.closest('button, input, label')) {
+      openGClassDetailModal_(rowEl.dataset.commission);
+    }
+  }
+
+  function syncGClassViewToggle_() {
+    document.querySelectorAll('#gclassViewToggle .viewToggle__item').forEach(function (btn) {
+      btn.classList.toggle('is-active', btn.dataset.view === state.gclassViewMode);
+    });
+  }
+
+  $('gclassViewToggle').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-view]');
+    if (!btn) return;
+    state.gclassViewMode = btn.dataset.view;
+    safeLocalStorageSet_('gclassViewMode', state.gclassViewMode);
+    syncGClassViewToggle_();
+    renderGClassList_();
+  });
+
+  function renderGClassList_() {
+    var items = state.gclassItems || [];
+    $('gclassEmpty').classList.toggle('hidden', items.length > 0);
+    $('gclassTotalCount').textContent = items.length ? '該当 ' + items.length + ' 台' : '';
+    $('gclassList').innerHTML = state.gclassViewMode === 'table'
+      ? gclassRowsHtml_(items)
+      : '<div class="cardGrid">' + items.map(gclassCardHtml_).join('') + '</div>';
+    syncFixedBars_();
+  }
+
+  $('gclassKeyword').addEventListener('input', debounce(loadGClassReservations, 250));
+  $('gclassList').addEventListener('click', handleGClassListClick_);
+
+  // ===== 設定 =====
+  function renderSettings(settings) {
+    // システムマスタ（ロゴ・モデル写真・メール通知設定・担当者）は、コード上の
+    // SYSTEM_ADMIN_EMAILS（Constants.gs）に登録された利用者のみに表示する。
+    // サーバー側（Api.gs）でも非管理者の設定値は既に空にリダクトされているため
+    // （ロゴ・モデル写真は全利用者に表示する必要があるデータのため例外）、
+    // ここではUI上の表示・非表示のみを制御する（実データの保護自体はサーバー側で行っている）。
+    var isAdmin = !!(state.bootstrap && state.bootstrap.isSystemAdmin);
+    $('systemMasterGroupTitle').classList.toggle('hidden', !isAdmin);
+    $('systemMasterLogoCard').classList.toggle('hidden', !isAdmin);
+    $('systemMasterLoadingImageCard').classList.toggle('hidden', !isAdmin);
+    $('systemMasterAnnouncementCard').classList.toggle('hidden', !isAdmin);
+    $('systemMasterModelPhotosCard').classList.toggle('hidden', !isAdmin);
+    $('systemMasterNotifyCard').classList.toggle('hidden', !isAdmin);
+    $('systemMasterStaffCard').classList.toggle('hidden', !isAdmin);
+    $('systemMasterCelebrationCard').classList.toggle('hidden', !isAdmin);
+    renderCelebrationVariantSelects_(settings.celebrationVariants);
+
+    // ランダムテーマの抽選結果（resolvedRandomThemePreset_）は、ここ
+    // （renderSettingsは初回起動時・設定保存後の再取得時の両方で呼ばれる）では
+    // クリアしない。「ログインのたび（＝ページを開き直すたび）に変わる」という
+    // 仕様のため、同じページを開いている間（他の設定を保存した場合を含む）は
+    // 同じ抽選結果を使い続ける必要がある（テーマを選び直した場合の再抽選は
+    // #themePresetGridのクリックハンドラ側で行う）。
+    state.themeKey = settings.themeKey;
+    renderThemePresets_();
+    $('settingsLogoUrl').value = settings.logoUrl || '';
+    $('homeAnnouncementMax').textContent = (state.bootstrap && state.bootstrap.homeAnnouncementMax) || 60;
+    $('settingsHomeAnnouncement').value = settings.homeAnnouncement || '';
+    renderHomeAnnouncement_(settings.homeAnnouncement || '');
+    state.notifyHoldMailTo = (settings.notifyHoldMailTo || []).slice();
+    state.notifyOrderMailTo = (settings.notifyOrderMailTo || []).slice();
+    state.notifyErrorMailTo = (settings.notifyErrorMailTo || []).slice();
+    renderAllMailLists_();
+    $('settingsChatWebhookUrl').value = settings.notifyChatWebhookUrl || '';
+    applyTheme(settings.themeKey);
+    applyLogo(settings.logoUrl);
+    renderLogoPreview_(settings.logoUrl);
+    $('loadingImageUrlMax').textContent = (state.bootstrap && state.bootstrap.loadingImageUrlMax) || 1500;
+    $('settingsLoadingImageId').value = settings.loadingImageUrl || '';
+    applyLoadingImage_(settings.loadingImageUrl);
+    renderLoadingImagePreview_(settings.loadingImageUrl);
+
+    state.staffList = (settings.staffList || []).map(function (s) { return { name: s.name || '', email: s.email || '', location: s.location || '' }; });
+    $('staffListMax').textContent = (state.bootstrap && state.bootstrap.staffListMax) || 30;
+    renderStaffList();
+    populateOrdersStaffFilter_();
+
+    state.modelPhotos = (settings.modelPhotos || []).map(function (p) {
+      return { model: p.model || '', photoUrl: p.photoUrl || '', gradePrefix: p.gradePrefix || '', gradeMarker: p.gradeMarker || '', bodyType: p.bodyType || '' };
+    });
+    $('modelPhotosMax').textContent = (state.bootstrap && state.bootstrap.modelPhotosMax) || 40;
+    renderModelPhotoList_();
+    renderHomeGallery_();
+  }
+
+  /**
+   * Hold登録・2nd Hold登録・受注確定の演出バリエーション選択欄（設定タブ）を
+   * 描画する。選択肢・ラベルはサーバー側の1箇所（Constants.gsのCELEBRATION_
+   * VARIANT_OPTIONS/CELEBRATION_VARIANT_LABELS）から取得し、クライアント側では
+   * 重複定義しない。
+   */
+  function renderCelebrationVariantSelects_(celebrationVariants) {
+    var options = (state.bootstrap && state.bootstrap.celebrationVariantOptions) || ['A', 'B', 'C', 'D'];
+    var labels = (state.bootstrap && state.bootstrap.celebrationVariantLabels) || {};
+    var current = celebrationVariants || {};
+    [
+      ['celebrationVariantHold', 'hold'],
+      ['celebrationVariantSecondHold', 'secondHold'],
+      ['celebrationVariantOrder', 'order']
+    ].forEach(function (pair) {
+      var select = $(pair[0]);
+      var actionKey = pair[1];
+      var actionLabels = labels[actionKey] || {};
+      select.innerHTML = '';
+      options.forEach(function (o) { select.appendChild(new Option(actionLabels[o] || o, o)); });
+      select.value = current[actionKey] || 'A';
+    });
+  }
+
+  /**
+   * テーマ（着せ替え）プリセット一覧。Constants.gsのTHEME_PRESETSと同じ内容を
+   * クライアント側にも持ち、選択UIの描画とプレビュー適用（保存前のリアルタイム反映）に使う。
+   * primary/primaryDark/primaryTextはいずれもWCAG AA基準（ボタン塗り用途で白文字との
+   * コントラスト比4.5:1以上、文字用途で背景とのコントラスト比4.6:1以上）を確認済み。
+   * sidebarColorはPCビュー左端のサイドバーの背景色で、「サイドバーの色と表示設定は
+   * セットにしてほしい」という要望を受け、プリセット1つでアプリ全体の配色と
+   * サイドバーの配色の両方が一括で切り替わるようにしている。サイドバーの文字色は
+   * 固定せず、sidebarColorに対してコントラスト比の高いほう（白／濃色）を
+   * pickReadableSidebarTextColor_が毎回自動計算するため、値自体は個別の
+   * コントラスト検証をしていない（十分暗い色にしてあるため常に白文字側が選ばれる）。
+   */
+  var THEME_PRESETS = [
+    { key: 'steel', name: 'ブリリアントブルー', primary: '#2f6fae', primaryDark: '#102a43', primaryText: '#2f6fae', sidebarColor: '#1f3a5c' },
+    { key: 'graphite', name: 'グラファイトグレー', primary: '#55606b', primaryDark: '#424b53', primaryText: '#687787', sidebarColor: '#3a4149' },
+    { key: 'wine', name: 'ヒヤシンスレッド', primary: '#8c2f39', primaryDark: '#6d252c', primaryText: '#e32439', sidebarColor: '#4a1c22' },
+    { key: 'green', name: 'エメラルドグリーン', primary: '#1f6f4a', primaryDark: '#18573a', primaryText: '#258559', sidebarColor: '#163f2c' },
+    { key: 'amber', name: 'カラハリゴールド', primary: '#a06a1f', primaryDark: '#7d5318', primaryText: '#9f6a1f', sidebarColor: '#4a3413' },
+    { key: 'purple', name: 'アメジスト', primary: '#5b3a8c', primaryDark: '#472d6d', primaryText: '#904df5', sidebarColor: '#33224d' },
+    { key: 'petrol', name: 'カヴァンサイトブルー', primary: '#1f6f78', primaryDark: '#18575e', primaryText: '#24818a', sidebarColor: '#123f44' },
+    { key: 'mono', name: 'セレナイトグレー', primary: '#4a4e55', primaryDark: '#3a3d42', primaryText: '#6f7682', sidebarColor: '#2b2e33' },
+    { key: 'obsidian', name: 'オブシディアンブラック', primary: '#33383d', primaryDark: '#202327', primaryText: '#52585f', sidebarColor: '#18191b' },
+    { key: 'cardinal', name: 'カーディナルレッド', primary: '#b5222c', primaryDark: '#8c1a21', primaryText: '#b5222c', sidebarColor: '#4d1015' },
+    { key: 'denim', name: 'デニムブルー', primary: '#3d6690', primaryDark: '#2c4d70', primaryText: '#3d6690', sidebarColor: '#1c3247' }
+  ];
+  var DEFAULT_THEME_KEY = 'steel';
+  // 「ランダム（ログインのたび変化）」を表す特別なキー。THEME_PRESETSに実体を
+  // 持たず、選択中はページを開く（＝ログインする）たびにresolveThemePresetForSession_が
+  // THEME_PRESETSから毎回ランダムに1つ選ぶ（Constants.gsのRANDOM_THEME_KEYと同じ値）。
+  var RANDOM_THEME_KEY = 'random';
+
+  function themePresetByKey_(key) {
+    return THEME_PRESETS.find(function (p) { return p.key === key; })
+      || THEME_PRESETS.find(function (p) { return p.key === DEFAULT_THEME_KEY; });
+  }
+
+  // このページの読み込み（＝ログイン）中だけ有効なランダムテーマの抽選結果。
+  // 毎回の再描画のたびに選び直すと画面遷移のたびに配色が変わってしまうため、
+  // 1回だけ抽選してこの変数にキャッシュし、以降は同じ結果を使い続ける
+  // （次にページを開き直した＝再ログインした時だけ再抽選される）。
+  var resolvedRandomThemePreset_ = null;
+
+  /**
+   * 実際に適用するテーマプリセットを解決する（keyがRANDOM_THEME_KEYの場合は
+   * THEME_PRESETSからランダムに1つ選ぶ）。純粋関数ではない（ランダム性・
+   * セッション内キャッシュを持つ）ため、適用系（applyTheme）専用。
+   */
+  function resolveThemePresetForSession_(key) {
+    if (key !== RANDOM_THEME_KEY) return themePresetByKey_(key);
+    if (!resolvedRandomThemePreset_) {
+      resolvedRandomThemePreset_ = THEME_PRESETS[Math.floor(Math.random() * THEME_PRESETS.length)];
+    }
+    return resolvedRandomThemePreset_;
+  }
+
+  /**
+   * 設定タブのプリセット一覧（11色＋ランダム、計12マス）を描画する。ランダムの
+   * マスだけは単色のスウォッチではなく、全プリセットのprimaryを並べたグラデーション
+   * にして「毎回変わる」ことを視覚的に示す。
+   */
+  function renderThemePresets_() {
+    var container = $('themePresetGrid');
+    var current = state.themeKey || DEFAULT_THEME_KEY;
+    var presetTiles = THEME_PRESETS.map(function (p) {
+      return '<button type="button" class="themePreset' + (p.key === current ? ' is-selected' : '') +
+        '" data-theme-key="' + p.key + '" style="--swatch:' + p.primary + '" aria-pressed="' + (p.key === current) + '">' +
+        '<span class="themePreset__swatch"></span>' +
+        '<span class="themePreset__name">' + escapeHtml(p.name) + '</span>' +
+        '</button>';
+    }).join('');
+    var gradient = THEME_PRESETS.map(function (p) { return p.primary; }).join(', ');
+    var isRandom = current === RANDOM_THEME_KEY;
+    var randomTile = '<button type="button" class="themePreset' + (isRandom ? ' is-selected' : '') +
+      '" data-theme-key="' + RANDOM_THEME_KEY + '" style="--swatch:' + THEME_PRESETS[0].primary + '" aria-pressed="' + isRandom + '">' +
+      '<span class="themePreset__swatch" style="background:conic-gradient(' + gradient + ')"></span>' +
+      '<span class="themePreset__name">ランダム</span>' +
+      '</button>';
+    container.innerHTML = presetTiles + randomTile;
+  }
+
+  $('themePresetGrid').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-theme-key]');
+    if (!btn) return;
+    state.themeKey = btn.dataset.themeKey;
+    // テーマを選び直した場合、ランダムの抽選結果は次回ログイン時のものを
+    // 引きずらないよう都度クリアする（ランダムを選び直した場合は新しく抽選し直す）。
+    resolvedRandomThemePreset_ = null;
+    renderThemePresets_();
+    applyTheme(state.themeKey);
+  });
+
+  /**
+   * テーマプリセット（--primary系・--card-bg・--sidebar-bg系）を一括で適用する。
+   * 以前は1色から比率計算で派生色を導出していたが、色相・彩度によって必要な
+   * 明暗の差が異なりコントラスト比を一定に保てなかったため、プリセットごとに
+   * 個別にコントラスト比を検証済みの色を直接使う（Constants.gsのTHEME_PRESETS参照）。
+   * keyがランダムの場合はresolveThemePresetForSession_が実際に使うプリセットを
+   * 解決する（このページを開いている間は同じ結果を使い続ける）。
+   */
+  function applyTheme(key) {
+    var preset = resolveThemePresetForSession_(key);
+    var root = document.documentElement.style;
+    root.setProperty('--primary', preset.primary);
+    root.setProperty('--primary-dark', preset.primaryDark);
+    root.setProperty('--primary-text', preset.primaryText);
+    var rgb = hexToRgb_(preset.primary);
+    root.setProperty('--primary-bg', rgb ? 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',.18)' : preset.primary);
+    // ホーム画面のカード背景（--card-bg、PCビューのみ・Stylesheet.html参照）は、
+    // --primary-bgよりさらに薄く（6%）テーマカラーを帯びさせ、ページ背景・
+    // 写真プレースホルダーのどちらとも見分けがつく程度に留める。
+    root.setProperty('--card-bg', rgb ? 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',.06)' : preset.primary);
+    // 起動時ローディング画面（.appLoading、Stylesheet.html参照）の背景も、選択中の
+    // テーマのprimaryDarkに合わせる（現場からの要望で、テーマを切り替えると
+    // ローディング画面の背景色も連動して変わるようにしている）。
+    root.setProperty('--loading-bg', preset.primaryDark);
+    // スマホ表示時のヘッダー（.topbar、@media max-width: 600px、Stylesheet.html参照）の
+    // 背景も、選択中のテーマのprimaryに合わせる（現場からの要望）。primaryはボタンと
+    // 同じく白文字とのコントラスト比を確保できる明度のため、既存の白文字
+    // （--on-topbar）のまま流用できる。PCビュー・タブレットビューのヘッダーは
+    // これまでどおり固定のネイビー（--topbar-bg）のまま。
+    root.setProperty('--topbar-mobile-bg', preset.primary);
+    applySidebarColor_(preset.sidebarColor);
+  }
+
+  function hexToRgb_(hex) {
+    var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '');
+    return m ? { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) } : null;
+  }
+
+  // 濃色側の文字色は、白背景に対してWCAG AA基準を満たす--on-surfaceと同じ値にし、
+  // サイドバー以外の文字色（見出し・本文）とトーンを揃える。
+  var SIDEBAR_TEXT_LIGHT = '#ffffff';
+  var SIDEBAR_TEXT_DARK = '#1f2933';
+
+  // sRGBの1チャンネル分をWCAGの相対輝度計算用に線形化する。
+  function srgbChannelToLinear_(channel255) {
+    var c = channel255 / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  }
+
+  // WCAG 2.0の相対輝度（0〜1）。
+  function relativeLuminance_(rgb) {
+    return 0.2126 * srgbChannelToLinear_(rgb.r) + 0.7152 * srgbChannelToLinear_(rgb.g) + 0.0722 * srgbChannelToLinear_(rgb.b);
+  }
+
+  // WCAG 2.0のコントラスト比（1〜21）。
+  function contrastRatio_(rgbA, rgbB) {
+    var lumA = relativeLuminance_(rgbA) + 0.05;
+    var lumB = relativeLuminance_(rgbB) + 0.05;
+    return lumA > lumB ? lumA / lumB : lumB / lumA;
+  }
+
+  /**
+   * 背景色（サイドバーの色）に対して、白文字・濃色文字のうちコントラスト比が
+   * 高いほう（＝より読みやすいほう）を返す（純粋関数）。同点の場合は白を優先する。
+   * プリセットのsidebarColorはあらかじめ十分暗い色にしてあるため、実際には
+   * どのプリセットでも白文字側が選ばれる（将来sidebarColorを追加・変更した際の
+   * 保険として、この判定自体は残しておく）。
+   */
+  function pickReadableSidebarTextColor_(bgHex) {
+    var bgRgb = hexToRgb_(bgHex) || hexToRgb_(THEME_PRESETS[0].sidebarColor);
+    var contrastWithLight = contrastRatio_(bgRgb, hexToRgb_(SIDEBAR_TEXT_LIGHT));
+    var contrastWithDark = contrastRatio_(bgRgb, hexToRgb_(SIDEBAR_TEXT_DARK));
+    return contrastWithDark > contrastWithLight ? SIDEBAR_TEXT_DARK : SIDEBAR_TEXT_LIGHT;
+  }
+
+  /**
+   * サイドバーの背景色・文字色関連のCSS変数を一括で適用する（applyTheme専用の
+   * 内部処理。テーマプリセットのsidebarColorから呼ばれる）。文字色
+   * （--sidebar-fg）はpickReadableSidebarTextColor_で決めた色そのものを使い、
+   * 非選択ナビ項目の抑えた文字色・薄い罫線・ホバー背景（--sidebar-fg-muted /
+   * --sidebar-outline / --sidebar-hover-bg）は、その文字色を異なる不透明度で
+   * 重ねたrgba()として派生させる（白文字が選ばれれば白系の薄い重ね、濃色文字が
+   * 選ばれれば濃色系の薄い重ねになり、どちらの背景色でも馴染む）。
+   */
+  function applySidebarColor_(hex) {
+    var color = hexToRgb_(hex) ? hex : THEME_PRESETS[0].sidebarColor;
+    var root = document.documentElement.style;
+    root.setProperty('--sidebar-bg', color);
+    var fg = pickReadableSidebarTextColor_(color);
+    var fgRgb = hexToRgb_(fg);
+    root.setProperty('--sidebar-fg', fg);
+    root.setProperty('--sidebar-fg-muted', 'rgba(' + fgRgb.r + ',' + fgRgb.g + ',' + fgRgb.b + ',.68)');
+    root.setProperty('--sidebar-outline', 'rgba(' + fgRgb.r + ',' + fgRgb.g + ',' + fgRgb.b + ',.14)');
+    root.setProperty('--sidebar-hover-bg', 'rgba(' + fgRgb.r + ',' + fgRgb.g + ',' + fgRgb.b + ',.08)');
+  }
+
+  // ----- ロゴ設定（画面上部に表示する画像。URLを直接指定するか、小さい画像を
+  //       アップロードしてdata URLとして保存する。サーバー側の上限と合わせている） -----
+  var LOGO_URL_MAX_LENGTH_CLIENT = 9000;
+
+  function applyLogo(logoUrl) {
+    // 左サイドバー（PCビューのみ）のロゴにも同じ画像を反映する。
+    [$('topbarLogo'), $('sidebarLogo')].forEach(function (img) {
+      if (logoUrl) {
+        img.onload = syncFixedBars_;
+        img.src = logoUrl;
+        img.classList.remove('hidden');
+      } else {
+        img.removeAttribute('src');
+        img.classList.add('hidden');
+      }
+    });
+    syncFixedBars_();
+  }
+
+  function renderLogoPreview_(url) {
+    var el = $('settingsLogoPreview');
+    el.innerHTML = url
+      ? '<img src="' + escapeHtml(url) + '" alt="ロゴプレビュー">'
+      : '<span class="logoPreview__placeholder">ロゴなし</span>';
+  }
+
+  // ----- 起動時ローディング画面（#appLoading）の画像設定 -----
+  // ロゴ・モデル写真と異なり、管理者は「ドライブID」（ファイルIDのみの文字列）を
+  // 直接入力できる（normalizeLoadingImageUrl_、SettingsService.gs参照。変換は
+  // 保存時にサーバー側で行うため、設定タブの入力欄はドライブID／共有リンク／
+  // 外部URLのいずれかをそのまま受け付け、保存・再読み込み後に変換済みURLへ
+  // 置き換わる。ロゴ・モデル写真の設定項目と同じ「保存するまでは変換後の見た目を
+  // 確認できない」仕様に揃えている）。
+  function applyLoadingImage_(url) {
+    var img = $('appLoadingImage');
+    if (url) {
+      img.onload = function () { img.classList.add('is-visible'); };
+      img.onerror = function () { img.classList.remove('is-visible'); };
+      img.src = url;
+      img.classList.remove('hidden');
+    } else {
+      img.onload = null;
+      img.onerror = null;
+      img.removeAttribute('src');
+      img.classList.remove('is-visible');
+      img.classList.add('hidden');
+    }
+  }
+
+  /**
+   * 設定タブのプレビュー。入力値がドライブIDのみの場合はそのままでは画像として
+   * 表示できない（保存時にサーバー側でURLへ変換される）ため、読み込みに失敗した
+   * 場合は「保存後に確認できます」という案内に差し替える（壊れた画像アイコンの
+   * まま表示され続けるのを防ぐ）。
+   */
+  function renderLoadingImagePreview_(url) {
+    var el = $('settingsLoadingImagePreview');
+    if (!url) {
+      el.innerHTML = '<span class="logoPreview__placeholder">画像なし</span>';
+      return;
+    }
+    el.innerHTML = '<img alt="ローディング画像プレビュー">';
+    var img = el.querySelector('img');
+    img.onerror = function () {
+      el.innerHTML = '<span class="logoPreview__placeholder">プレビューを表示できません（ドライブIDの場合、保存後に変換されて表示されます）</span>';
+    };
+    img.src = url;
+  }
+
+  $('settingsLogoFile').addEventListener('change', function () {
+    var file = this.files && this.files[0];
+    if (!file) return;
+    $('settingsLogoError').classList.add('hidden');
+    var reader = new FileReader();
+    reader.onload = function () {
+      var dataUrl = String(reader.result || '');
+      if (dataUrl.length > LOGO_URL_MAX_LENGTH_CLIENT) {
+        $('settingsLogoError').textContent = '画像のデータが大きすぎます（' + dataUrl.length + '文字）。もっと小さい画像を使うか、外部にアップロードしてURLを指定してください。';
+        $('settingsLogoError').classList.remove('hidden');
+        return;
+      }
+      $('settingsLogoUrl').value = dataUrl;
+      renderLogoPreview_(dataUrl);
+    };
+    reader.onerror = function () {
+      $('settingsLogoError').textContent = '画像の読み込みに失敗しました。';
+      $('settingsLogoError').classList.remove('hidden');
+    };
+    reader.readAsDataURL(file);
+  });
+
+  $('settingsLogoUrl').addEventListener('input', function () {
+    renderLogoPreview_(this.value.trim());
+  });
+
+  $('btnClearLogo').addEventListener('click', function () {
+    $('settingsLogoUrl').value = '';
+    $('settingsLogoFile').value = '';
+    renderLogoPreview_('');
+    $('settingsLogoError').classList.add('hidden');
+  });
+
+  $('settingsLoadingImageId').addEventListener('input', function () {
+    renderLoadingImagePreview_(this.value.trim());
+  });
+
+  // ----- 設定タブの各種リスト（担当者・モデル写真・メール通知先）共通のドラッグ
+  //       ハンドルによる並び替え。行のドラッグハンドル（⠿、data-drag-index="i"を持つ
+  //       行の中にdraggable="true"で置く）を掴んでドロップすると、onReorder(from, to)を
+  //       呼び出す。掴む対象をハンドルだけに絞ることで、行内の<input>でのテキスト選択・
+  //       クリック操作とドラッグ操作が競合しないようにしている。 -----
+  function makeReorderable_(containerEl, onReorder) {
+    var dragIndex = null;
+    function clearDragOver() {
+      containerEl.querySelectorAll('.is-drag-over').forEach(function (el) { el.classList.remove('is-drag-over'); });
+    }
+    containerEl.addEventListener('dragstart', function (e) {
+      var row = e.target.closest('[data-drag-index]');
+      if (!row) return;
+      dragIndex = Number(row.dataset.dragIndex);
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', String(dragIndex)); } catch (err) { /* Safari等での互換用、失敗しても無視 */ }
+      row.classList.add('is-dragging');
+    });
+    containerEl.addEventListener('dragend', function (e) {
+      var row = e.target.closest('[data-drag-index]');
+      if (row) row.classList.remove('is-dragging');
+      dragIndex = null;
+      clearDragOver();
+    });
+    containerEl.addEventListener('dragover', function (e) {
+      var row = e.target.closest('[data-drag-index]');
+      if (!row || dragIndex === null) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (!row.classList.contains('is-drag-over')) {
+        clearDragOver();
+        row.classList.add('is-drag-over');
+      }
+    });
+    containerEl.addEventListener('drop', function (e) {
+      var row = e.target.closest('[data-drag-index]');
+      if (!row || dragIndex === null) return;
+      e.preventDefault();
+      var dropIndex = Number(row.dataset.dragIndex);
+      clearDragOver();
+      var from = dragIndex;
+      dragIndex = null;
+      if (dropIndex !== from) onReorder(from, dropIndex);
+    });
+  }
+
+  // ----- 担当者マスタ（名前・メールアドレスの組。メールアドレスでログイン中の
+  //       Googleアカウントと突き合わせ、担当者を自動判定する） -----
+  function renderStaffList() {
+    var container = $('staffList');
+    $('staffListCount').textContent = state.staffList.length;
+    if (!state.staffList.length) {
+      container.innerHTML = '<div class="staffList__empty">担当者が登録されていません</div>';
+    } else {
+      container.innerHTML = state.staffList.map(function (entry, i) {
+        return '<div class="staffList__row" data-drag-index="' + i + '">' +
+          '<span class="dragHandle" draggable="true" aria-label="ドラッグして並び替え">⠿</span>' +
+          '<input type="text" class="input" data-staff-index="' + i + '" data-staff-field="name" placeholder="名前" value="' + escapeHtml(entry.name || '') + '">' +
+          '<input type="email" class="input" data-staff-index="' + i + '" data-staff-field="email" placeholder="メールアドレス" value="' + escapeHtml(entry.email || '') + '">' +
+          '<input type="text" class="input" data-staff-index="' + i + '" data-staff-field="location" placeholder="拠点名" value="' + escapeHtml(entry.location || '') + '">' +
+          '<button class="btn btn--icon" data-remove-staff="' + i + '" type="button" aria-label="削除">&times;</button>' +
+          '</div>';
+      }).join('');
+    }
+    var max = (state.bootstrap && state.bootstrap.staffListMax) || 30;
+    $('btnAddStaff').disabled = state.staffList.length >= max;
+  }
+
+  $('staffList').addEventListener('input', function (e) {
+    var index = e.target.dataset.staffIndex;
+    var field = e.target.dataset.staffField;
+    if (index === undefined || !field) return;
+    state.staffList[Number(index)][field] = e.target.value;
+  });
+
+  $('staffList').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-remove-staff]');
+    if (!btn) return;
+    state.staffList.splice(Number(btn.dataset.removeStaff), 1);
+    renderStaffList();
+  });
+
+  $('btnAddStaff').addEventListener('click', function () {
+    var max = (state.bootstrap && state.bootstrap.staffListMax) || 30;
+    if (state.staffList.length >= max) return;
+    state.staffList.push({ name: '', email: '', location: '' });
+    renderStaffList();
+    var inputs = document.querySelectorAll('#staffList [data-staff-field="name"]');
+    if (inputs.length) inputs[inputs.length - 1].focus();
+  });
+
+  makeReorderable_($('staffList'), function (from, to) {
+    var moved = state.staffList.splice(from, 1)[0];
+    state.staffList.splice(to, 0, moved);
+    renderStaffList();
+  });
+
+  // ===== モデル写真（ホーム画面） =====
+  /**
+   * Googleドライブの共有リンクを直接画像URLに変換する（純粋関数）。
+   * SettingsService.gsのnormalizeModelPhotoUrl_と同じロジックで、設定画面の
+   * プレビューを保存前から正しく表示するために使う（実際に保存される値は
+   * サーバー側のnormalizeModelPhotoUrl_で変換される）。
+   */
+  function normalizeModelPhotoUrl_(url) {
+    url = String(url || '').trim();
+    if (!url || !/drive\.google\.com|docs\.google\.com/.test(url)) return url;
+    var match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (!match) return url;
+    return 'https://lh3.googleusercontent.com/d/' + match[1] + '=w1000';
+  }
+
+  function renderModelPhotoList_() {
+    var container = $('modelPhotoList');
+    $('modelPhotosCount').textContent = state.modelPhotos.length;
+    if (!state.modelPhotos.length) {
+      container.innerHTML = '<div class="modelPhotoList__empty">モデル写真が登録されていません</div>';
+    } else {
+      var bodyTypeOptions = (state.bootstrap && state.bootstrap.modelBodyTypeOptions) || [];
+      container.innerHTML = state.modelPhotos.map(function (entry, i) {
+        var preview = entry.photoUrl
+          ? '<img src="' + escapeHtml(normalizeModelPhotoUrl_(entry.photoUrl)) + '" alt="">'
+          : '<span class="logoPreview__placeholder">写真</span>';
+        var bodyTypeSelectHtml = '<select class="input" data-photo-index="' + i + '" data-photo-field="bodyType">' +
+          '<option value="">型：未設定</option>' +
+          bodyTypeOptions.map(function (t) {
+            return '<option value="' + escapeHtml(t) + '"' + (entry.bodyType === t ? ' selected' : '') + '>' + escapeHtml(t) + '</option>';
+          }).join('') +
+          '</select>';
+        return '<div class="modelPhotoList__row" data-drag-index="' + i + '">' +
+          '<span class="dragHandle" draggable="true" aria-label="ドラッグして並び替え">⠿</span>' +
+          '<div class="modelPhotoList__preview">' + preview + '</div>' +
+          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="model" placeholder="モデル名（例: Aクラス）" value="' + escapeHtml(entry.model || '') + '">' +
+          bodyTypeSelectHtml +
+          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="photoUrl" placeholder="写真URL" value="' + escapeHtml(entry.photoUrl || '') + '">' +
+          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="gradePrefix" placeholder="先頭の文字列（例: CLA）" title="在庫リストの「モデル」列の値がこの文字列で始まっていれば、このモデルのグレードとして自動集計します。空欄なら従来通りモデル名で直接照合します。" value="' + escapeHtml(entry.gradePrefix || '') + '">' +
+          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="gradeMarker" placeholder="対象の文字列（任意・例: T）" title="先頭の文字列より後ろの部分にこの文字列を含む場合のみ対象にします（例: CLA Shooting Brakeの「T」）。空欄なら、他のモデルの対象の文字列に一致しない残り全部を拾います。先頭の文字列が空欄の場合は使用されません。" value="' + escapeHtml(entry.gradeMarker || '') + '">' +
+          '<button class="btn btn--icon" data-remove-photo="' + i + '" type="button" aria-label="削除">&times;</button>' +
+          '</div>';
+      }).join('');
+    }
+    var max = (state.bootstrap && state.bootstrap.modelPhotosMax) || 40;
+    $('btnAddModelPhoto').disabled = state.modelPhotos.length >= max;
+  }
+
+  $('modelPhotoList').addEventListener('input', function (e) {
+    var index = e.target.dataset.photoIndex;
+    var field = e.target.dataset.photoField;
+    if (index === undefined || !field) return;
+    state.modelPhotos[Number(index)][field] = e.target.value;
+    if (field === 'photoUrl') {
+      // プレビュー画像はURL入力のたびに更新する（1文字ごとに全体を再描画すると
+      // 入力中のフォーカスが失われるため、対象行のプレビューだけ差し替える）。
+      var row = e.target.closest('.modelPhotoList__row');
+      var preview = row.querySelector('.modelPhotoList__preview');
+      var url = e.target.value.trim();
+      preview.innerHTML = url
+        ? '<img src="' + escapeHtml(normalizeModelPhotoUrl_(url)) + '" alt="">'
+        : '<span class="logoPreview__placeholder">写真</span>';
+    }
+  });
+
+  $('modelPhotoList').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-remove-photo]');
+    if (!btn) return;
+    state.modelPhotos.splice(Number(btn.dataset.removePhoto), 1);
+    renderModelPhotoList_();
+  });
+
+  $('btnAddModelPhoto').addEventListener('click', function () {
+    var max = (state.bootstrap && state.bootstrap.modelPhotosMax) || 40;
+    if (state.modelPhotos.length >= max) return;
+    state.modelPhotos.push({ model: '', photoUrl: '', grades: '', bodyType: '' });
+    renderModelPhotoList_();
+    var inputs = document.querySelectorAll('#modelPhotoList [data-photo-field="model"]');
+    if (inputs.length) inputs[inputs.length - 1].focus();
+  });
+
+  makeReorderable_($('modelPhotoList'), function (from, to) {
+    var moved = state.modelPhotos.splice(from, 1)[0];
+    state.modelPhotos.splice(to, 0, moved);
+    renderModelPhotoList_();
+  });
+
+  // ----- メール通知先（Hold時／受注確定時／システムエラー通知の3項目）。
+  //       以前は「,区切りの1つのテキスト欄」だったが、担当者マスタ・モデル写真と
+  //       同じ「1行1件のリスト形式（追加・削除・ドラッグでの並び替え）」に統一した。
+  //       3項目とも見た目・挙動が同じため、フィールド名とDOM要素IDの組だけを
+  //       MAIL_FIELDSに列挙し、共通の関数で描画・イベント登録する。 -----
+  var MAIL_FIELDS = [
+    { key: 'notifyHoldMailTo', listId: 'notifyHoldMailList', countId: 'notifyHoldMailCount', addBtnId: 'btnAddHoldMail' },
+    { key: 'notifyOrderMailTo', listId: 'notifyOrderMailList', countId: 'notifyOrderMailCount', addBtnId: 'btnAddOrderMail' },
+    { key: 'notifyErrorMailTo', listId: 'notifyErrorMailList', countId: 'notifyErrorMailCount', addBtnId: 'btnAddErrorMail' }
+  ];
+
+  function notifyMailListMax_() {
+    return (state.bootstrap && state.bootstrap.notifyMailListMax) || 20;
+  }
+
+  function renderMailList_(field) {
+    var container = $(field.listId);
+    var list = state[field.key] || [];
+    $(field.countId).textContent = list.length;
+    if (!list.length) {
+      container.innerHTML = '<div class="mailList__empty">宛先が登録されていません</div>';
+    } else {
+      container.innerHTML = list.map(function (email, i) {
+        return '<div class="mailList__row" data-drag-index="' + i + '">' +
+          '<span class="dragHandle" draggable="true" aria-label="ドラッグして並び替え">⠿</span>' +
+          '<input type="email" class="input" data-mail-index="' + i + '" placeholder="例: staff@example.com" value="' + escapeHtml(email || '') + '">' +
+          '<button class="btn btn--icon" data-remove-mail="' + i + '" type="button" aria-label="削除">&times;</button>' +
+          '</div>';
+      }).join('');
+    }
+    $(field.addBtnId).disabled = list.length >= notifyMailListMax_();
+  }
+
+  MAIL_FIELDS.forEach(function (field) {
+    var container = $(field.listId);
+    container.addEventListener('input', function (e) {
+      var index = e.target.dataset.mailIndex;
+      if (index === undefined) return;
+      state[field.key][Number(index)] = e.target.value;
+    });
+    container.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-remove-mail]');
+      if (!btn) return;
+      state[field.key].splice(Number(btn.dataset.removeMail), 1);
+      renderMailList_(field);
+    });
+    makeReorderable_(container, function (from, to) {
+      var moved = state[field.key].splice(from, 1)[0];
+      state[field.key].splice(to, 0, moved);
+      renderMailList_(field);
+    });
+    $(field.addBtnId).addEventListener('click', function () {
+      if (state[field.key].length >= notifyMailListMax_()) return;
+      state[field.key].push('');
+      renderMailList_(field);
+      var inputs = container.querySelectorAll('[data-mail-index]');
+      if (inputs.length) inputs[inputs.length - 1].focus();
+    });
+  });
+
+  function renderAllMailLists_() {
+    MAIL_FIELDS.forEach(renderMailList_);
+  }
+
+  // ===== ホーム画面（実務重視リスト型） =====
+  // モデル写真をクリックすると、在庫リストへ切り替えたうえで、そのモデル名を
+  // キーワード検索欄に入れて再検索する（searchInventory はモデル名の部分一致に
+  // 対応済みのため、サーバー側の変更は不要）。写真は小さめのサムネイルにとどめ、
+  // モデル名と在庫台数を横一列で見せることで、日常的に使う社内ツールとしての
+  // 情報密度を優先する（見た目の華やかさより、パッと見て台数がわかることを重視）。
+  /**
+   * 在庫リストの「モデル」列の値（グレード名。例:「CLA18」「CLA18T」「GLE350」）に対する、
+   * 指定エントリの自動判定条件の「具体性スコア」を計算する（純粋関数）。
+   * 条件を満たさない場合は-1（不一致）。条件を満たす場合のスコアは、
+   * gradeMarkerを設定していれば大きく加点したうえでgradePrefixの文字数を加える
+   * （gradeMarker設定済み同士・未設定同士のどちらでも、より長い＝具体的な
+   * gradePrefixほど優先される）。例えば「GLE」（3文字）は「G」（1文字）より
+   * 具体的なため、「GLE350」は先頭の文字列が短い「G」（G-Classのつもりで登録した
+   * 行）ではなく、より具体的な「GLE」の方に正しく割り当てられる。
+   */
+  function gradeRuleSpecificity_(modelValue, entry) {
+    if (!entry.gradePrefix || !modelValue) return -1;
+    if (modelValue.indexOf(entry.gradePrefix) !== 0) return -1;
+    if (entry.gradeMarker) {
+      var remainder = modelValue.slice(entry.gradePrefix.length);
+      if (remainder.indexOf(entry.gradeMarker) === -1) return -1;
+      return 10000 + entry.gradePrefix.length;
+    }
+    return entry.gradePrefix.length;
+  }
+
+  /**
+   * 在庫リストの「モデル」列の値が、指定エントリの自動判定条件に一致するかどうかを
+   * 判定する（純粋関数）。同じ値に複数のエントリの条件が一致しうる場合
+   * （例:「GLE350」はgradePrefix「G」の行にもgradePrefix「GLE」の行にも一致し、
+   * 「CLA18T」はgradePrefix「CLA」（gradeMarker無し）の行にもgradePrefix「CLA」+
+   * gradeMarker「T」の行にも一致する）、gradeRuleSpecificity_で最もスコアの高い
+   * （＝最も具体的な条件の）エントリだけがその値を拾い、他のエントリには
+   * 重複してカウントされないようにする。
+   */
+  function matchesGradeRule_(modelValue, entry, allEntries) {
+    var score = gradeRuleSpecificity_(modelValue, entry);
+    if (score < 0) return false;
+    var isMostSpecific = !(allEntries || []).some(function (other) {
+      return other !== entry && gradeRuleSpecificity_(modelValue, other) > score;
+    });
+    return isMostSpecific;
+  }
+
+  /**
+   * ベースモデル1件分の在庫台数を集計する（純粋関数）。gradePrefixが設定されている
+   * 場合は、在庫リストに実際にある型番のうちmatchesGradeRule_に一致するものを
+   * 自動的に拾い集め、型番ごとの内訳を計算する（グレードを手入力で列挙する必要がない）。
+   * gradePrefixが未設定の場合は、モデル名そのものを在庫リストのモデル列と直接照合する
+   * （グレードの概念を使わない、単一モデルの車種向けのフォールバック）。
+   * 実際に在庫が1台も無い型番は一覧に出てこない点に注意（手入力の列挙とは異なり、
+   * 在庫データから動的に検出するため、在庫0台の型番はそもそも検出できない）。
+   */
+  function gradeCountsForEntry_(entry, allItems, allModelPhotos) {
+    if (!entry.gradePrefix) {
+      var total = allItems.filter(function (v) { return v.model === entry.model; }).length;
+      return { total: total, byGrade: [] };
+    }
+    var counts = {};
+    var order = [];
+    allItems.forEach(function (v) {
+      if (!matchesGradeRule_(v.model, entry, allModelPhotos)) return;
+      if (!counts[v.model]) { counts[v.model] = 0; order.push(v.model); }
+      counts[v.model]++;
+    });
+    order.sort();
+    var byGrade = order.map(function (grade) { return { grade: grade, count: counts[grade] }; });
+    var total = byGrade.reduce(function (sum, g) { return sum + g.count; }, 0);
+    return { total: total, byGrade: byGrade };
+  }
+
+  /**
+   * グレードが設定されているモデルは、行をクリックすると即座に在庫リストへ
+   * 遷移するのではなく、その場でグレードタブ（A180・A200・A35・A45等）を
+   * 展開する。タブはベースモデル行の直下に、写真幅ぶんインデントし左に
+   * 罫線を添えて表示することで、「Aクラスの行から派生したタブである」ことが
+   * 視覚的にわかるようにしている。グレードタブ自体をクリックすると、その
+   * グレード1件に絞り込んだ在庫リストへ遷移する。グレード未設定のモデルは、
+   * 従来通り行クリックで直接在庫リストへ遷移する（展開の必要がないため）。
+   */
+  /**
+   * ホーム画面の在庫台数表示（純粋関数）。0台の場合は数字の「在庫0台」ではなく
+   * 「在庫がありません」という文言にし、在庫が無いことをひと目でわかるようにする
+   * （モデル一覧の行・右ペインの合計台数・グレードカードのいずれからも呼ぶ）。
+   */
+  function homeStockCountText_(total) {
+    return total === 0 ? '在庫がありません' : '在庫' + total + '台';
+  }
+
+  /**
+   * モデル1件分のタイル（+展開時のグレードタブ）のHTML。renderHomeGallery_から
+   * 型ごとにグループ化して呼び出す（元は1つの関数の中でmodelPhotosを直接map
+   * していたが、グループ化に伴い「1件分の描画」を切り出した）。
+   */
+  function homeModelTileHtml_(p, allItems, allModelPhotos) {
+    var result = gradeCountsForEntry_(p, allItems, allModelPhotos);
+    var hasGrades = result.byGrade.length > 0;
+    var isExpanded = hasGrades && state.homeExpandedModel === p.model;
+    // グレードのあるモデルは▸/▾（展開・折りたたみの状態）、無いモデルは→
+    // （タップすると直接在庫リストへ絞り込み遷移する合図）を、どちらも
+    // フッター行（.homeRow__footer）に常時表示する。900px以下のリスト表示
+    // では以前と同じ位置（モデル名の右）に見せるため、CSS側の
+    // .homeRow__footerがそのままメタ情報行としても機能する
+    // （Stylesheet.html参照）。
+    var chevronHtml = hasGrades
+      ? '<span class="homeRow__chevron">' + (isExpanded ? '▾' : '▸') + '</span>'
+      : '<span class="homeRow__chevron homeRow__chevron--nav">→</span>';
+    // グレードのあるモデルは、通常表示ではヘッダー行に件数タグを添える
+    // （展開中は代わりに「他のモデルを見る」ボタンを表示する）。
+    var gradesTagHtml = (hasGrades && !isExpanded)
+      ? '<span class="homeRow__gradesTag">' + result.byGrade.length + 'グレード</span>'
+      : '';
+    // 展開中のタイルには「他のモデルを見る」ボタン（.homeRow__backBtn）を
+    // 内側に持たせるため、<button>ではなく<div role="button">にする
+    // （<button>の中に<button>をネストするのはHTML仕様違反になるため）。
+    // キーボード操作（Enter/Space）は#homeGridのkeydown委譲で補っている。
+    var tag = isExpanded ? 'div' : 'button';
+    var tileAttrs = isExpanded
+      ? ' role="button" tabindex="0"'
+      : ' type="button"';
+    var backBtnHtml = isExpanded
+      ? '<button type="button" class="homeRow__backBtn">◂ 他のモデルを見る</button>'
+      : '';
+    // ヘッダー（モデル名＋件数タグ／戻るボタン）→写真→フッター（在庫台数＋矢印）
+    // の3ブロック構成。PCビューでは縦に積んだ「カードタイプUI」（写真は白背景の
+    // カード内に収める）、900px以下ではCSSのorderで横一列のリスト型に組み替える
+    // （Stylesheet.html参照。どちらも同じDOM構造をCSSだけで作り分けている）。
+    var rowHtml = '<' + tag + ' class="homeRow' + (isExpanded ? ' is-expanded' : '') + '"' +
+      tileAttrs +
+      ' data-home-model="' + escapeHtml(p.model) + '"' +
+      (hasGrades ? ' data-has-grades="true"' : '') + '>' +
+      '<div class="homeRow__header">' +
+      '<div class="homeRow__model">' + escapeHtml(p.model) + '</div>' +
+      gradesTagHtml + backBtnHtml +
+      '</div>' +
+      '<div class="homeRow__photo"><img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '"></div>' +
+      '<div class="homeRow__footer">' +
+      '<span class="badge badge--count' + (result.total === 0 ? ' badge--count--zero' : '') + '">' +
+      homeStockCountText_(result.total) + '</span>' +
+      chevronHtml +
+      '</div>' +
+      '</' + tag + '>';
+    var tabsHtml = '';
+    if (isExpanded) {
+      tabsHtml = '<div class="homeGradeTabs">' +
+        '<div class="homeGradeTabs__label">' + escapeHtml(p.model) + 'のグレード</div>' +
+        '<div class="homeGradeTabs__list">' +
+        result.byGrade.map(function (g) {
+          var countClass = 'homeGradeTab__count' + (g.count === 0 ? ' homeGradeTab__count--zero' : '');
+          return '<button type="button" class="homeGradeTab" data-home-model="' + escapeHtml(p.model) + '" data-home-grade="' + escapeHtml(g.grade) + '">' +
+            '<span class="homeGradeTab__name">' + escapeHtml(g.grade) + '</span>' +
+            '<span class="' + countClass + '">' + g.count + '台</span>' +
+            '</button>';
+        }).join('') +
+        '</div></div>';
+    }
+    return rowHtml + tabsHtml;
+  }
+
+  /**
+   * モデル写真一覧を、設定タブで割り当てたボディタイプ（型）ごとにグループ化する
+   * （純粋関数）。グループの並び順はMODEL_BODY_TYPE_OPTIONS（bootstrap経由）の
+   * 定義順（Constants.gsのMODEL_BODY_TYPE_OPTIONS参照）に固定し、型を割り当てて
+   * いないモデルは最後に「未設定」グループとしてまとめる。
+   * 1台もボディタイプが割り当てられていない場合は、そもそもグループ化を行わず
+   * （groupのlabelを空文字にし、見出しを表示しない）、機能追加前と同じ見た目に
+   * フォールバックする（運用を始めたばかりでまだ型を割り振っていない状態でも、
+   * 全モデルに「未設定」という見出しだけが表示される間延びした見た目にしないため）。
+   */
+  function groupModelPhotosByBodyType_(modelPhotos) {
+    var typeOrder = (state.bootstrap && state.bootstrap.modelBodyTypeOptions) || [];
+    var hasAnyType = modelPhotos.some(function (p) { return p.bodyType; });
+    if (!hasAnyType) {
+      return [{ type: '', label: '', items: modelPhotos }];
+    }
+    var byType = {};
+    typeOrder.forEach(function (t) { byType[t] = []; });
+    var untyped = [];
+    modelPhotos.forEach(function (p) {
+      if (p.bodyType && byType[p.bodyType]) byType[p.bodyType].push(p);
+      else untyped.push(p);
+    });
+    var groups = typeOrder
+      .map(function (t) { return { type: t, label: t, items: byType[t] }; })
+      .filter(function (g) { return g.items.length > 0; });
+    if (untyped.length) groups.push({ type: '', label: '未設定', items: untyped });
+    return groups;
+  }
+
+  /**
+   * グレードが設定されているモデルは、行をクリックすると即座に在庫リストへ
+   * 遷移するのではなく、その場でグレードタブ（A180・A200・A35・A45等）を
+   * 展開する。タブはベースモデル行の直下に、写真幅ぶんインデントし左に
+   * 罫線を添えて表示することで、「Aクラスの行から派生したタブである」ことが
+   * 視覚的にわかるようにしている。グレードタブ自体をクリックすると、その
+   * グレード1件に絞り込んだ在庫リストへ遷移する。グレード未設定のモデルは、
+   * 従来通り行クリックで直接在庫リストへ遷移する（展開の必要がないため）。
+   */
+  function renderHomeGallery_() {
+    var modelPhotos = state.modelPhotos || [];
+    $('homeEmpty').classList.toggle('hidden', modelPhotos.length > 0);
+    $('homeTypeNav').classList.toggle('hidden', modelPhotos.length === 0);
+    var allItems = state.allInventoryItems || [];
+    var groups = groupModelPhotosByBodyType_(modelPhotos);
+    if (state.homeTypeFilter) {
+      groups = groups.filter(function (g) { return g.type === state.homeTypeFilter; });
+    }
+    // 型で絞り込んだ結果、該当モデルが1件も無い場合は空のグリッドのまま放置せず、
+    // その旨をわかるようにする（モデル写真自体が0件の#homeEmptyとは別の状態）。
+    $('homeTypeEmpty').classList.toggle('hidden', !(modelPhotos.length > 0 && groups.length === 0));
+    if (isPcHomeLayout_()) {
+      // PCビューは、サイドバー＋1本のカードグリッド（3枚1行）というシンプルな構成
+      // にしたため（Index.html参照）、型グループの見出しは出さずフラットに並べ、
+      // 各カードに写真・在庫台数・（グレードがあれば）3列×2行のグレードカードを
+      // すべてタップ・クリックなしで見える形で埋め込む（homeModelCardHtml_参照）。
+      $('homeGrid').innerHTML = homeVisibleModelsFlat_()
+        .map(function (p) { return homeModelCardHtml_(p, allItems, modelPhotos); })
+        .join('');
+    } else {
+      // タブレット・スマホ幅は従来どおり、型ごとに横スクロールの1行
+      // （.homeTypeRow）で並べる。展開中のモデルがこのグループに含まれる場合は、
+      // その1件だけを横スクロール行の外に単独の全幅ブロックとして出し
+      // （グレードタブもその直後に続く）、残りのモデルはそのまま横スクロール行に
+      // 並べる（展開中でも同じ型の他のモデルを見失わないようにするため）。
+      $('homeGrid').innerHTML = groups.map(function (g) {
+        var headerHtml = g.label ? '<div class="homeTypeHeader">' + escapeHtml(g.label) + '</div>' : '';
+        var expandedItem = state.homeExpandedModel
+          ? g.items.filter(function (p) { return p.model === state.homeExpandedModel; })[0]
+          : null;
+        if (expandedItem) {
+          var restItems = g.items.filter(function (p) { return p !== expandedItem; });
+          var expandedHtml = homeModelTileHtml_(expandedItem, allItems, modelPhotos);
+          var restHtml = restItems.length
+            ? '<div class="homeTypeRow">' + restItems.map(function (p) { return homeModelTileHtml_(p, allItems, modelPhotos); }).join('') + '</div>'
+            : '';
+          return headerHtml + expandedHtml + restHtml;
+        }
+        return headerHtml + '<div class="homeTypeRow">' +
+          g.items.map(function (p) { return homeModelTileHtml_(p, allItems, modelPhotos); }).join('') +
+          '</div>';
+      }).join('');
+    }
+    renderHomeTypeNav_();
+    // #homeCombinedHeader・#homeTypeNavはposition: fixedのため、表示・非表示の
+    // 切り替えや折り返し行数の変化（絞り込みでボタンの活性状態が変わる、モデル
+    // 写真の登録数が変わる等）で高さが変わりうる。そのたびにスペーサーの高さも
+    // 実測し直さないと、後続のモデル一覧との間隔がずれてしまう。
+    syncFixedBars_();
+  }
+
+  /**
+   * PCビュー（901px以上）かどうかを判定する（純粋な画面幅の判定。サイドバー＋
+   * 1本のカードグリッドという構成はこの幅でのみ有効にしている。Stylesheet.htmlの
+   * @media (min-width: 901px)と同じブレークポイント）。
+   */
+  function isPcHomeLayout_() {
+    return window.matchMedia('(min-width: 901px)').matches;
+  }
+
+  /**
+   * 現在の型フィルタ（state.homeTypeFilter）を反映した、ホーム画面のモデル一覧の
+   * 表示順そのままのフラットな配列を返す（renderHomeGallery_のグループ化ロジックを
+   * 再利用する純粋関数）。PCビューのカードグリッドは型グループの見出しを出さず
+   * フラットに並べるため、その並び順の算出に使う。
+   */
+  function homeVisibleModelsFlat_() {
+    var groups = groupModelPhotosByBodyType_(state.modelPhotos || []);
+    if (state.homeTypeFilter) {
+      groups = groups.filter(function (g) { return g.type === state.homeTypeFilter; });
+    }
+    return groups.reduce(function (flat, g) { return flat.concat(g.items); }, []);
+  }
+
+  /**
+   * PCビューのホーム画面カード1件分のHTML（renderHomeGallery_からhomeVisibleModelsFlat_
+   * の順にフラットに呼び出す）。写真・モデル名・ボディタイプ・在庫台数バッジを
+   * すべてタップ・クリックなしでカード自体に表示し、グレードが設定されている
+   * モデルはさらに3列×2行のグレードカードをカード内に埋め込む（クリックすると
+   * そのグレード1件に絞り込んだ在庫リストへ遷移する。data-home-gradeは
+   * #homeGridのクリック委譲で処理する）。グレードが無いモデルはカード全体が
+   * ボタンになっており、クリックするとそのモデルに絞り込んだ在庫リストへ
+   * 遷移する。
+   */
+  function homeModelCardHtml_(p, allItems, allModelPhotos) {
+    var result = gradeCountsForEntry_(p, allItems, allModelPhotos);
+    var hasGrades = result.byGrade.length > 0;
+    var typeHtml = p.bodyType ? '<span class="homeCard__type">' + escapeHtml(p.bodyType) + '</span>' : '';
+    var stockClass = 'badge badge--stock' + (result.total === 0 ? ' badge--stock--zero' : '');
+    var stockHtml = '<span class="' + stockClass + '">' + homeStockCountText_(result.total) + '</span>';
+    var gradeGridHtml = hasGrades
+      ? '<div class="homeCard__gradeGrid">' +
+        result.byGrade.map(function (g) {
+          var countClass = 'homeCard__gradeCount' + (g.count === 0 ? ' homeCard__gradeCount--zero' : '');
+          return '<button type="button" class="homeCard__gradeChip" data-home-grade="' + escapeHtml(g.grade) + '">' +
+            '<span class="homeCard__gradeName">' + escapeHtml(g.grade) + '</span>' +
+            '<span class="' + countClass + '">' + homeStockCountText_(g.count) + '</span>' +
+            '</button>';
+        }).join('') +
+        '</div>'
+      : '';
+    // グレードが無いモデルは、カード自体をクリックすると在庫リストへ絞り込み
+    // 遷移する。グレードがあるモデルは、グレードカードの1つをクリックして
+    // 初めて遷移する構成のため、カード自体は非活性のままにする。どちらも
+    // <button>ではなく<div>で描画する（ブラウザのネイティブ<button>は
+    // padding: 0等で打ち消せない内部余白を持つため、写真をカード上端に
+    // ぴったり合わせられない。タブレット・スマホ幅の展開中タイル
+    // （.homeRow.is-expanded、homeModelTileHtml_参照）と同じ理由）。
+    // キーボード操作（Enter/Spaceキー）は#homeGridへのkeydown委譲リスナーで
+    // 別途対応する。
+    var tileAttrs = hasGrades ? '' : ' role="button" tabindex="0"';
+    return '<div class="homeCard' + (hasGrades ? '' : ' homeCard--clickable') + '"' +
+      tileAttrs +
+      ' data-home-model="' + escapeHtml(p.model) + '"' +
+      (hasGrades ? ' data-has-grades="true"' : '') + '>' +
+      '<div class="homeCard__photo"><img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '">' + stockHtml + '</div>' +
+      '<div class="homeCard__body">' +
+      '<div class="homeCard__headRow"><span class="homeCard__model">' + escapeHtml(p.model) + '</span>' + typeHtml + '</div>' +
+      gradeGridHtml +
+      '</div>' +
+      '</div>';
+  }
+
+  /**
+   * ホーム上部の、ボディタイプで絞り込むクイックナビ（型の名称を一列に並べた
+   * ボタン列）。「すべて」＋MODEL_BODY_TYPE_OPTIONSの全種類を常に表示する
+   * （実際にモデルが登録されているかどうかに関わらず。0件の型を押しても
+   * 単に「該当モデルがありません」の状態になるだけで、押せなくする必要は
+   * ないため）。押すとその型だけに絞り込んだ表示に切り替える。
+   */
+  function renderHomeTypeNav_() {
+    var nav = $('homeTypeNav');
+    var types = (state.bootstrap && state.bootstrap.modelBodyTypeOptions) || [];
+    if (!types.length) { nav.innerHTML = ''; return; }
+    var current = state.homeTypeFilter;
+    var allBtn = '<button type="button" class="homeTypeNav__item' + (!current ? ' is-active' : '') + '" data-home-type="">すべて</button>';
+    var typeBtns = types.map(function (t) {
+      return '<button type="button" class="homeTypeNav__item' + (current === t ? ' is-active' : '') + '" data-home-type="' + escapeHtml(t) + '">' + escapeHtml(t) + '</button>';
+    }).join('');
+    nav.innerHTML = allBtn + typeBtns;
+  }
+
+  /**
+   * ホーム画面の「販売可能リスト」の文字の上に表示するお知らせ（管理者が設定タブ
+   * から入力する自由記述、例:「限定車在庫3台あり」）。全利用者に表示する
+   * （設定の編集自体は管理者限定だが、値はredactSystemMasterSettings_で
+   * 非管理者にも渡される。SettingsService.gs参照）。未設定（空文字）の場合は
+   * 要素ごと非表示にし、他の固定バー（homeTypeNav等）の位置がずれないよう
+   * syncFixedBars_で高さを再計算する。
+   */
+  function renderHomeAnnouncement_(text) {
+    var el = $('homeAnnouncement');
+    var value = String(text || '').trim();
+    el.textContent = value;
+    el.classList.toggle('hidden', !value);
+    syncFixedBars_();
+  }
+
+  $('homeTypeNav').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-home-type]');
+    if (!btn) return;
+    state.homeTypeFilter = btn.dataset.homeType || null;
+    // 型を切り替えたのに、別の型で展開していたグレードタブだけが残っていると
+    // 混乱の元になるため、絞り込みを変えたら展開状態はリセットする。
+    state.homeExpandedModel = null;
+    renderHomeGallery_();
+  });
+
+  /**
+   * ホーム画面の在庫台数表示専用に、フィルタ無しで在庫リストを取得する。
+   * 在庫リストのツールバー（検索キーワード等）の状態に関わらず、常に全件の台数を
+   * 表示するため、state.inventoryItems（ツールバーの検索条件に連動）とは別に保持する。
+   * 補助的な表示のため、取得に失敗してもトースト等では知らせず、件数表示を省略するに留める。
+   */
+  function loadHomeModelCounts_() {
+    return gasRun('api_listInventory', { keyword: '', includeHold: true }).then(function (groups) {
+      state.allInventoryItems = (groups && groups[0] && groups[0].items) || [];
+      renderHomeGallery_();
+      renderMyPageHolds_();
+    }).catch(function () {});
+  }
+
+  /**
+   * マイページ用に、受注リストの検索・絞り込み条件に左右されない全件を取得する
+   * （loadHomeModelCounts_が在庫についてやっているのと同じ考え方）。
+   */
+  function loadMyPageOrders_() {
+    return gasRun('api_listOrders', {}, '').then(function (groups) {
+      state.allOrders = (groups && groups[0] && groups[0].items) || [];
+      renderMyPageOrders_();
+    }).catch(function () {});
+  }
+
+  /**
+   * マイページ: ログイン中のGoogleアカウント（担当者メールアドレス）に紐づく
+   * Hold中の車両・受注した車両・発注リスト・Gクラス予約リストだけを抜き出して
+   * 表示する。担当者マスタに未登録のアカウントの場合は、担当者を特定できず
+   * 突き合わせようがないため、案内メッセージのみ表示する。
+   */
+  function renderMyPageNoStaffState_() {
+    var hasStaff = !!currentStaffName_();
+    $('myPageNoStaff').classList.toggle('hidden', hasStaff);
+    $('myPageContent').classList.toggle('hidden', !hasStaff);
+    return hasStaff;
+  }
+
+  // ===== マイページの表示形式（カード／表）・自由検索 =====
+  // 在庫リスト・受注リストと同じ考え方で、マイページ全体（Hold中の車両・受注した
+  // 車両・発注リスト・Gクラス予約リスト）に一括で適用する。自分の案件だけで件数が
+  // 多くなりすぎない想定のため、検索はサーバーへ都度問い合わせず、各セクションが
+  // 既に持っている全件キャッシュ（state.allInventoryItems / state.allOrders /
+  // state.purchaseOrders / state.allGClassItems）をクライアント側で絞り込む。
+  function syncMyPageViewToggle_() {
+    document.querySelectorAll('#myPageViewToggle .viewToggle__item').forEach(function (btn) {
+      btn.classList.toggle('is-active', btn.dataset.view === state.myPageViewMode);
+    });
+  }
+
+  $('myPageViewToggle').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-view]');
+    if (!btn) return;
+    state.myPageViewMode = btn.dataset.view;
+    safeLocalStorageSet_('myPageViewMode', state.myPageViewMode);
+    syncMyPageViewToggle_();
+    renderMyPageAll_();
+  });
+
+  function myPageKeyword_() {
+    return $('myPageKeyword').value;
+  }
+
+  function matchesAnyField_(values, keyword) {
+    if (!keyword) return true;
+    var kw = keyword.trim().toLowerCase();
+    if (!kw) return true;
+    return values.some(function (v) { return String(v || '').toLowerCase().indexOf(kw) !== -1; });
+  }
+
+  function myPageVehicleMatchesKeyword_(v, keyword) {
+    return matchesAnyField_([v.model, v.commission, v.holdCustomer, v.secondHoldCustomer], keyword);
+  }
+
+  function myPageOrderMatchesKeyword_(o, keyword) {
+    return matchesAnyField_([o.model, o.commission, o.customer, o.leadNumber, o.salesLocation], keyword);
+  }
+
+  function myPageGClassMatchesKeyword_(v, keyword) {
+    return matchesAnyField_([v.model, v.commission, v.customer, v.leadNumber], keyword);
+  }
+
+  $('myPageKeyword').addEventListener('input', debounce(renderMyPageAll_, 200));
+
+  /**
+   * Hold中の車両カードは、在庫リストのvehicleCardHtml（比較ピン・Hold解除・
+   * 受注確定ボタン込み）／表示形式「表」ではvehicleRowsHtmlをそのまま再利用する。
+   * ボタン操作（openActionModal / openCancelHoldModal / toggleCompare_ の各lookup）は
+   * 在庫リストの検索・絞り込み条件に左右されない全件キャッシュ
+   * （state.allInventoryItems）へもフォールバックするようfindVehicleByCommission側で
+   * 対応済みのため、マイページのカードから操作しても在庫リスト側の絞り込み状態に
+   * 関わらず正しく動作する。
+   */
+  function renderMyPageHolds_() {
+    if (!renderMyPageNoStaffState_()) return;
+    var email = currentUserEmail_();
+    var keyword = myPageKeyword_();
+    var items = (state.allInventoryItems || []).filter(function (v) {
+      if (v.holdStatus !== 'hold') return false;
+      if (!(emailsMatch_(v.holdStaffEmail, email) || emailsMatch_(v.secondHoldStaffEmail, email))) return false;
+      return myPageVehicleMatchesKeyword_(v, keyword);
+    });
+    $('myPageHoldCount').textContent = items.length;
+    $('myPageHoldEmpty').classList.toggle('hidden', items.length > 0);
+    $('myPageHoldList').innerHTML = !items.length ? '' :
+      (state.myPageViewMode === 'table' ? vehicleRowsHtml(items) : '<div class="cardGrid">' + items.map(vehicleCardHtml).join('') + '</div>');
+    syncComparePins_();
+  }
+
+  /**
+   * 受注した車両カードは、受注リストのorderCardHtml／表示形式「表」では
+   * orderRowsHtmlをそのまま再利用する（「詳細を見る」・行タップどちらの
+   * lookupもfindOrderByCommission_側でフォールバック対応済み）。
+   */
+  function renderMyPageOrders_() {
+    if (!renderMyPageNoStaffState_()) return;
+    var email = currentUserEmail_();
+    var keyword = myPageKeyword_();
+    var items = (state.allOrders || []).filter(function (o) {
+      return emailsMatch_(o.staffEmail, email) && myPageOrderMatchesKeyword_(o, keyword);
+    });
+    $('myPageOrderCount').textContent = items.length;
+    $('myPageOrderEmpty').classList.toggle('hidden', items.length > 0);
+    $('myPageOrderList').innerHTML = !items.length ? '' :
+      (state.myPageViewMode === 'table' ? orderRowsHtml(items) : '<div class="orderList">' + items.map(orderCardHtml).join('') + '</div>');
+  }
+
+  /**
+   * マイページの「発注リスト」セクション: 発注リストタブと同じstate.purchaseOrders
+   * （検索条件に左右されない全件。loadPurchaseOrders参照）を、担当者名（staff列の
+   * テキスト）で絞り込む。発注情報には担当者メールの記録が無い（発注リスト自体が
+   * 手入力の台帳のため）ため、Gクラス予約リストと同じくstaffNameMatches_で
+   * 担当者マスタの表示名と突き合わせる。発注リストは閲覧専用のため、カード表示は
+   * 発注リストタブと同じpurchaseOrderCardHtml_、表示形式「表」はpurchaseOrderRowCardHtml_を
+   * 使い、どちらも編集・削除の導線は持たない。
+   */
+  function renderMyPagePurchaseOrders_() {
+    if (!renderMyPageNoStaffState_()) return;
+    var name = currentStaffName_();
+    var keyword = myPageKeyword_();
+    var items = (state.purchaseOrders || []).filter(function (po) {
+      return staffNameMatches_(po.staff, name) && purchaseOrderMatchesKeyword_(po, keyword);
+    });
+    $('myPagePurchaseOrderCount').textContent = items.length;
+    $('myPagePurchaseOrderEmpty').classList.toggle('hidden', items.length > 0);
+    $('myPagePurchaseOrderList').innerHTML = !items.length ? '' :
+      (state.myPageViewMode === 'table' ? purchaseOrderRowsHtml_(items) : '<div class="purchaseOrderList">' + items.map(purchaseOrderCardHtml_).join('') + '</div>');
+  }
+
+  /**
+   * マイページ用に、Gクラス予約リストの検索条件に左右されない全件を取得する
+   * （loadMyPageOrders_と同じ考え方）。
+   */
+  function loadMyPageGClass_() {
+    return gasRun('api_listGClassReservations', {}).then(function (items) {
+      state.allGClassItems = items || [];
+      renderMyPageGClass_();
+    }).catch(function () {});
+  }
+
+  /**
+   * Gクラス予約リストには担当者メール（staffEmail）の記録がない（閲覧専用・
+   * スプレッドシートへ直接入力する運用のため）。そのため、他のマイページ集計
+   * （Hold中・受注した車両）のようなメールアドレス一致ではなく、担当者マスタから
+   * 解決したログイン中担当者の表示名と、Gクラス予約リストの「担当者」列（テキスト）
+   * を突き合わせて自分の案件を抜き出す（発注リストと同じ考え方）。
+   */
+  function staffNameMatches_(a, b) {
+    return !!a && !!b && String(a).trim() === String(b).trim();
+  }
+
+  function renderMyPageGClass_() {
+    if (!renderMyPageNoStaffState_()) return;
+    var name = currentStaffName_();
+    var keyword = myPageKeyword_();
+    var items = (state.allGClassItems || []).filter(function (v) {
+      return staffNameMatches_(v.staff, name) && myPageGClassMatchesKeyword_(v, keyword);
+    });
+    $('myPageGClassCount').textContent = items.length;
+    $('myPageGClassEmpty').classList.toggle('hidden', items.length > 0);
+    $('myPageGClassList').innerHTML = !items.length ? '' :
+      (state.myPageViewMode === 'table' ? gclassRowsHtml_(items) : '<div class="cardGrid">' + items.map(gclassCardHtml_).join('') + '</div>');
+  }
+
+  /**
+   * マイページ全体（Hold中の車両・受注した車両・発注リスト・Gクラス予約リスト）を
+   * まとめて再描画する。表示形式（カード／表）の切り替え・自由検索キーワードの
+   * 入力のたびに呼ぶ。
+   */
+  function renderMyPageAll_() {
+    renderMyPageHolds_();
+    renderMyPageOrders_();
+    renderMyPagePurchaseOrders_();
+    renderMyPageGClass_();
+  }
+
+  $('myPageHoldList').addEventListener('click', handleInventoryListClick_);
+  $('myPageOrderList').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-order-detail]');
+    if (btn) { openOrderDetailModal_(btn.dataset.orderDetail); return; }
+    var rowEl = e.target.closest('.rowCard--order[data-commission]');
+    if (rowEl && !e.target.closest('button, input, label')) {
+      openOrderDetailModal_(rowEl.dataset.commission);
+    }
+  });
+  $('myPagePurchaseOrderList').addEventListener('click', handlePurchaseOrderListClick_);
+  $('myPageGClassList').addEventListener('click', handleGClassListClick_);
+  // グレードタブ（Aクラス行の展開で現れるA180・A200等）をクリックすると、
+  // そのグレード1件だけに絞り込んだ在庫リストへ遷移する（タブレット・スマホ幅の
+  // インライン展開でのみ発生。PCビューのグレードタブは#homeDetail側にあり、
+  // そちらの専用リスナーで処理する）。
+  // ベースモデル行は、PCビューでは常に右ペイン（#homeDetail）にそのモデルの
+  // 詳細を表示するだけで、その場での展開・在庫リストへの遷移は行わない
+  // （isPcHomeLayout_）。タブレット・スマホ幅では従来どおり、グレードが設定
+  // されていれば展開／折りたたみのトグルのみ行い（在庫リストへは遷移しない）、
+  // 未設定であれば従来通りモデル名をキーワード検索欄に入れて在庫リストへ遷移する。
+  $('homeGrid').addEventListener('click', function (e) {
+    var gradeTab = e.target.closest('[data-home-grade]');
+    if (gradeTab) {
+      switchToTab_('inventory');
+      state.homeGradeFilter = [gradeTab.dataset.homeGrade];
+      $('inventoryKeyword').value = '';
+      loadInventory();
+      return;
+    }
+    var tile = e.target.closest('[data-home-model]');
+    if (!tile) return;
+    if (isPcHomeLayout_()) {
+      // PCのグレード付きカードは非活性の<div>（グレードチップ以外の部分を
+      // クリックしても何も起きない。data-has-grades="true"は付けているが、
+      // タブレット・スマホ幅のようなその場での展開機能はPCには無いため）。
+      // グレード無しカードのみ<button>で、クリックするとそのモデルに
+      // 絞り込んだ在庫リストへ遷移する。
+      if (tile.dataset.hasGrades !== 'true') {
+        switchToTab_('inventory');
+        state.homeGradeFilter = null;
+        $('inventoryKeyword').value = tile.dataset.homeModel;
+        loadInventory();
+      }
+      return;
+    }
+    if (tile.dataset.hasGrades === 'true') {
+      var wasExpanding = state.homeExpandedModel !== tile.dataset.homeModel;
+      var modelName = tile.dataset.homeModel;
+      state.homeExpandedModel = wasExpanding ? modelName : null;
+      renderHomeGallery_();
+      // 展開した場合のみ、その車両写真・グレードタブが一画面に収まる位置まで
+      // 自動スクロールする（トップバー・型クイックナビの下、scroll-margin-top
+      // 参照）。折りたたむ場合はスクロールしない（タップした位置のまま）。
+      if (wasExpanding) {
+        var expandedTile = document.querySelector('.homeRow.is-expanded[data-home-model="' + CSS.escape(modelName) + '"]');
+        if (expandedTile) expandedTile.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      return;
+    }
+    switchToTab_('inventory');
+    state.homeGradeFilter = null;
+    $('inventoryKeyword').value = tile.dataset.homeModel;
+    loadInventory();
+  });
+
+  // 展開中のタイルは<button>ではなく<div role="button">にしているため
+  // （renderHomeGallery_参照）、ネイティブの<button>と違ってEnter/Spaceキーでは
+  // 自動的にクリックされない。キーボード操作でも同じ挙動になるよう、
+  // Enter/Spaceキー押下時にクリックイベントを発火させる。
+  $('homeGrid').addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var target = e.target.closest('[data-home-model]');
+    if (!target) return;
+    e.preventDefault();
+    target.click();
+  });
+
+  $('btnSaveSettings').addEventListener('click', function () {
+    if (this.disabled) return;
+    var btn = this;
+    var max = (state.bootstrap && state.bootstrap.staffListMax) || 30;
+    var cleaned = state.staffList
+      .map(function (s) {
+        return {
+          name: String((s && s.name) || '').trim(),
+          email: String((s && s.email) || '').trim().toLowerCase(),
+          location: String((s && s.location) || '').trim()
+        };
+      })
+      .filter(function (s) { return s.name && s.email; });
+    var seenEmails = {};
+    var uniqueStaffList = cleaned.filter(function (s) {
+      if (seenEmails[s.email]) return false;
+      seenEmails[s.email] = true;
+      return true;
+    });
+
+    $('settingsError').textContent = '';
+    if (uniqueStaffList.length > max) {
+      $('settingsError').textContent = '担当者マスタは最大' + max + '人までです（現在' + uniqueStaffList.length + '人）';
+      return;
+    }
+
+    var maxPhotos = (state.bootstrap && state.bootstrap.modelPhotosMax) || 40;
+    var cleanedPhotos = state.modelPhotos
+      .map(function (p) {
+        return {
+          model: String((p && p.model) || '').trim(),
+          photoUrl: String((p && p.photoUrl) || '').trim(),
+          gradePrefix: String((p && p.gradePrefix) || '').trim(),
+          gradeMarker: String((p && p.gradeMarker) || '').trim(),
+          bodyType: String((p && p.bodyType) || '').trim()
+        };
+      })
+      .filter(function (p) { return p.model && p.photoUrl; });
+    var seenModels = {};
+    var uniqueModelPhotos = cleanedPhotos.filter(function (p) {
+      if (seenModels[p.model]) return false;
+      seenModels[p.model] = true;
+      return true;
+    });
+    if (uniqueModelPhotos.length > maxPhotos) {
+      $('settingsError').textContent = 'モデル写真は最大' + maxPhotos + '件までです（現在' + uniqueModelPhotos.length + '件）';
+      return;
+    }
+
+    // メール通知先3項目も、担当者マスタ・モデル写真と同様に空欄除去・大文字小文字を
+    // 無視した重複除去・最大件数チェックをクライアント側でも行う（サーバー側の
+    // normalizeMailList_と同じ規則。保存前にエラーメッセージで気づけるようにするため）。
+    var maxMails = notifyMailListMax_();
+    var mailFieldLabels = { notifyHoldMailTo: 'Hold時', notifyOrderMailTo: '受注確定時', notifyErrorMailTo: 'システムエラー通知先' };
+    var cleanedMailLists = {};
+    for (var mi = 0; mi < MAIL_FIELDS.length; mi++) {
+      var mailKey = MAIL_FIELDS[mi].key;
+      var seenMails = {};
+      var uniqueMails = (state[mailKey] || [])
+        .map(function (m) { return String(m || '').trim(); })
+        .filter(function (m) { return m; })
+        .filter(function (m) {
+          var lower = m.toLowerCase();
+          if (seenMails[lower]) return false;
+          seenMails[lower] = true;
+          return true;
+        });
+      if (uniqueMails.length > maxMails) {
+        $('settingsError').textContent = 'メール通知先（' + mailFieldLabels[mailKey] + '）は最大' + maxMails + '件までです（現在' + uniqueMails.length + '件）';
+        return;
+      }
+      cleanedMailLists[mailKey] = uniqueMails;
+    }
+
+    // Google ChatのWebhook URLも、サーバー側のvalidateChatWebhookUrl_（SettingsService.gs）
+    // と同じ規則を保存前にクライアント側でもチェックし、往復せずにエラーへ気づけるようにする。
+    var chatWebhookUrl = $('settingsChatWebhookUrl').value.trim();
+    if (chatWebhookUrl && chatWebhookUrl.indexOf('https://') !== 0) {
+      $('settingsError').textContent = 'Google ChatのWebhook URLは https:// から始まるURLを指定してください。';
+      return;
+    }
+
+    // お知らせも、サーバー側のvalidateHomeAnnouncement_（SettingsService.gs）と
+    // 同じ規則を保存前にクライアント側でもチェックする。
+    var homeAnnouncement = $('settingsHomeAnnouncement').value.trim();
+    var maxAnnouncement = (state.bootstrap && state.bootstrap.homeAnnouncementMax) || 60;
+    if (homeAnnouncement.length > maxAnnouncement) {
+      $('settingsError').textContent = 'お知らせは最大' + maxAnnouncement + '文字までです（現在' + homeAnnouncement.length + '文字）';
+      return;
+    }
+
+    // ローディング画像も、サーバー側のvalidateLoadingImageUrl_（SettingsService.gs）と
+    // 同じ規則（変換後URLの最大文字数）を保存前にクライアント側でもチェックする。
+    // ドライブID・共有リンクを指定した場合、変換後は必ず短い固定形式のURLになるため、
+    // ここでの入力値（変換前）の文字数チェックで実質的に十分カバーできる
+    // （長すぎる外部URLを直接貼り付けた場合のみ引っかかる）。
+    var loadingImageId = $('settingsLoadingImageId').value.trim();
+    var maxLoadingImage = (state.bootstrap && state.bootstrap.loadingImageUrlMax) || 1500;
+    if (loadingImageId.length > maxLoadingImage) {
+      $('settingsError').textContent = 'ローディング画像のURLが長すぎます（' + loadingImageId.length + '文字）';
+      return;
+    }
+
+    var settings = {
+      themeKey: state.themeKey || DEFAULT_THEME_KEY,
+      logoUrl: $('settingsLogoUrl').value.trim(),
+      loadingImageUrl: loadingImageId,
+      homeAnnouncement: homeAnnouncement,
+      notifyHoldMailTo: cleanedMailLists.notifyHoldMailTo,
+      notifyOrderMailTo: cleanedMailLists.notifyOrderMailTo,
+      notifyErrorMailTo: cleanedMailLists.notifyErrorMailTo,
+      notifyChatWebhookUrl: chatWebhookUrl,
+      staffList: uniqueStaffList,
+      modelPhotos: uniqueModelPhotos,
+      celebrationVariants: {
+        hold: $('celebrationVariantHold').value,
+        secondHold: $('celebrationVariantSecondHold').value,
+        order: $('celebrationVariantOrder').value
+      }
+    };
+    setButtonBusy(btn, true, '保存中...');
+    gasRun('api_saveSettings', settings).then(function (saved) {
+      state.bootstrap.settings = saved;
+      // 担当者マスタが変わった可能性があるため、ログイン中のアカウントに対応する
+      // 担当者名（currentStaffName）を再取得してトップバー表示等に反映する。
+      return gasRun('api_getBootstrapData');
+    }).then(function (bootstrap) {
+      setButtonBusy(btn, false);
+      state.bootstrap = bootstrap;
+      renderSettings(bootstrap.settings);
+      renderTopbarUser();
+      showToast('設定を保存しました');
+    }).catch(function (err) {
+      setButtonBusy(btn, false);
+      $('settingsError').textContent = err.message;
+    });
+  });
+
+  // ===== ユーティリティ =====
+  function debounce(fn, wait) {
+    var timer = null;
+    return function () {
+      clearTimeout(timer);
+      var args = arguments;
+      timer = setTimeout(function () { fn.apply(null, args); }, wait);
+    };
+  }
+
+  // ===== ヘッダー・ツールバーの完全固定表示 =====
+  // トップバー・ツールバー（検索欄）はどちらも position: fixed で画面上部に固定する
+  // （position: stickyだとブラウザによってスクロール中にわずかに追従が遅れる/ずれる
+  // ことがあるため、位置計算をブラウザ任せにせず実測値で完全に固定する）。
+  // ツールバーは折り返しで高さが変わるため、実測してスペーサー（本来ツールバーが
+  // 占めていた場所を確保するダミー要素）の高さをその都度更新する。
+  function syncFixedBars_() {
+    var topbar = $('topbar');
+    if (topbar) {
+      document.documentElement.style.setProperty('--topbar-h', topbar.offsetHeight + 'px');
+    }
+    // ホームでモデルタイルを展開した際、scrollIntoView()で「トップバー＋型クイック
+    // ナビの下」まで自動スクロールできるよう、両方の固定要素の高さの合計を
+    // CSS変数として持っておく（homeModelTileHtml_のscroll-margin-topで使う。
+    // 下のhomeTypeNavSpacerとまったく同じ考え方で、都度実測して更新する）。
+    var homeTypeNav = $('homeTypeNav');
+    var homeTypeNavSpacer = $('homeTypeNavSpacer');
+    var homeAnnouncement = $('homeAnnouncement');
+    if (topbar && homeTypeNavSpacer) {
+      var homeOffset = topbar.offsetHeight + 16 +
+        (homeAnnouncement && !homeAnnouncement.classList.contains('hidden') ? homeAnnouncement.offsetHeight + 8 : 0) +
+        (homeTypeNav && !homeTypeNav.classList.contains('hidden') ? homeTypeNavSpacer.offsetHeight : 0);
+      document.documentElement.style.setProperty('--home-scroll-offset', homeOffset + 'px');
+    }
+    // お知らせ（#homeAnnouncement、タブレット・スマホ幅のみposition: fixed）が
+    // 表示されている場合、型クイックナビ（#homeTypeNav）はこの帯の高さぶん
+    // さらに下へずらす必要がある（Stylesheet.htmlの.homeTypeNavのtop参照）。
+    // お知らせが非表示（class="hidden"）ならoffsetHeightが0になるため、この
+    // 変数も自動的に0pxになる。
+    if (homeAnnouncement) {
+      document.documentElement.style.setProperty('--home-announcement-h', (homeAnnouncement.offsetHeight ? homeAnnouncement.offsetHeight + 8 : 0) + 'px');
+    }
+    // main.view自身の上余白（16px）が「ヘッダー〜固定バー間の余白」と同じ幅を
+    // 既に確保しているため、スペーサーは「固定バー自身の高さ＋固定バー〜
+    // 後続コンテンツ間の余白」分だけ確保すればよい（上下の余白が揃う）。
+    // ホームの型クイックナビ（#homeTypeNav）だけ後続余白を20pxにしているのは、
+    // 直後の.homeTypeHeader自身のmargin-top（4px）とあわせて24pxになるよう
+    // 揃えているため（.homeTypeHeaderのコメント参照。型ごとの見出しが無い場合
+    // でも、モデル一覧との間隔として同じ20pxがそのまま使われる）。
+    [
+      ['inventoryToolbar', 'inventoryToolbarSpacer', 16],
+      ['ordersToolbar', 'ordersToolbarSpacer', 16],
+      ['purchaseOrdersToolbar', 'purchaseOrdersToolbarSpacer', 16],
+      ['gclassToolbar', 'gclassToolbarSpacer', 16],
+      ['myPageToolbar', 'myPageToolbarSpacer', 16],
+      // お知らせ（#homeAnnouncement）はタブレット・スマホ幅のみposition: fixed
+      // （PCでは#homeCombinedHeader内の先頭要素として組み込まれ、そちらの
+      // スペーサーで高さを吸収するため、このスペーサー自体はPCではCSS側で
+      // display: noneにしている）。
+      ['homeAnnouncement', 'homeAnnouncementSpacer', 8],
+      ['homeTypeNav', 'homeTypeNavSpacer', 20],
+      // #homeCombinedHeaderはPCビューでのみposition: fixed（Stylesheet.html参照。
+      // タブレット・スマホ幅ではdisplay: contentsのためoffsetHeightは常に0になり、
+      // このスペーサー自体もCSS側でdisplay: noneのため実害はない）。
+      ['homeCombinedHeader', 'homeCombinedHeaderSpacer', 20]
+    ].forEach(function (pair) {
+      var toolbar = $(pair[0]);
+      var spacer = $(pair[1]);
+      if (toolbar && spacer) spacer.style.height = (toolbar.offsetHeight + pair[2]) + 'px';
+    });
+  }
+  window.addEventListener('resize', debounce(syncFixedBars_, 100));
+
+  // ===== モーダルをソフトウェアキーボードの上に収める =====
+  // 不具合修正: スマホでHold登録・受注確定モーダルの入力欄をタップすると、
+  // ソフトウェアキーボードが開いた分だけ画面下側が隠れ、モーダル（特に画面
+  // 下端に固定したボトムシート）の下側にある入力中の項目が見えなくなって
+  // しまっていた。100vh・window.innerHeightはレイアウトビューポート基準の
+  // ため、iOS Safari等ではキーボードが開いても値が変わらず、CSS側だけでは
+  // キーボードの高さを考慮できない。window.visualViewport（対応ブラウザ）は
+  // キーボード表示中の「実際に見えている」高さを返すため、レイアウト
+  // ビューポートの高さ（window.innerHeight）との差＝キーボードの高さを
+  // 都度測ってCSS変数（--app-keyboard-inset、Stylesheet.htmlの.modal参照）に
+  // 反映し、モーダルの下方向パディングに足すことでキーボードの上に押し
+  // 上げる。
+  // 不具合修正（前回試した方式の反省）: 最初は.modal自身のtop・heightを
+  // visualViewportの実測値に直接書き換える方式を試したが、iOS Safariでは
+  // position: fixed要素の位置・高さをJSから動的に書き換えるとレイアウトが
+  // 崩れて表示される不具合があった。.modal自体の位置・高さの計算方法は
+  // 変えず、paddingの増減だけで対応することで、この崩れを避けている。
+  function syncKeyboardInset_() {
+    var vv = window.visualViewport;
+    // キーボードが無い間は0（visualViewport非対応環境も常に0のまま＝
+    // 従来どおりレイアウトビューポート基準の表示になる）。
+    var inset = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
+    document.documentElement.style.setProperty('--app-keyboard-inset', inset + 'px');
+  }
+  if (window.visualViewport) {
+    syncKeyboardInset_();
+    // resizeはキーボードの開閉・端末回転で、scrollはキーボード表示中に
+    // ページがわずかにスクロールされた場合（visualViewportのoffsetTopが
+    // 変化する）で、それぞれ発火する。
+    window.visualViewport.addEventListener('resize', syncKeyboardInset_);
+    window.visualViewport.addEventListener('scroll', syncKeyboardInset_);
+  }
+
+  // モーダルの高さ自体をキーボードの上に収めても、.modal__body内部の
+  // スクロール位置までは追従しないことがあるため、モーダル内の入力欄に
+  // フォーカスが移ったら、キーボードの開閉アニメーションが落ち着く頃合いを
+  // 見て明示的にscrollIntoViewする（保険。visualViewport非対応環境でも
+  // 効果がある）。
+  document.addEventListener('focusin', function (e) {
+    var target = e.target;
+    if (!/^(INPUT|SELECT|TEXTAREA)$/.test(target.tagName)) return;
+    var modal = target.closest('.modal:not(.hidden)');
+    if (!modal) return;
+    setTimeout(function () {
+      target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 300);
+  });
+
+  function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  // ===== 初期化・更新 =====
+  // 起動時の読み込みと、「更新」ボタン（btnRefresh）による再読み込みの両方から呼ぶ
+  // 共通処理。設定・担当者判定・整合性チェック・在庫/受注/ホームの一覧をすべて
+  // サーバーから最新の状態に取り直す。
+  function reloadAll_() {
+    return gasRun('api_getBootstrapData').then(function (bootstrap) {
+      state.bootstrap = bootstrap;
+      fillOptions($('actionTradeIn'), bootstrap.yesNoOptions, true);
+      fillOptions($('actionOss'), bootstrap.ossOptions, true);
+      fillOptions($('actionInsurance'), bootstrap.yesNoOptions, true);
+      fillOptions($('actionPaymentMethod'), bootstrap.paymentMethodOptions, true);
+      renderSettings(bootstrap.settings);
+      renderTopbarUser();
+      checkIntegrity_();
+      return Promise.all([loadInventory(), loadOrders(), loadPurchaseOrders(), loadGClassReservations(), loadHomeModelCounts_(), loadMyPageOrders_(), loadMyPageGClass_()]);
+    });
+  }
+
+  function init() {
+    syncNavButtons_();
+    reloadAll_().catch(function (err) { showToast(err.message, true); }).then(function () {
+      // 起動時ローディング画面は初回の読み込み完了時のみフェードアウトする
+      // （更新ボタンからの再読み込みは、ボタン自体の回転アイコンで十分なため
+      // 全画面オーバーレイは出さない）。
+      var loading = $('appLoading');
+      if (loading) loading.classList.add('is-hidden');
+    });
+  }
+
+  // PWA対応：Service Workerを登録する（未対応ブラウザでは何もしない）。
+  // オフラインキャッシュは行わず、「ホーム画面に追加」の条件を満たすためだけの
+  // 最小限の登録（PwaService.gs参照）。Googleサイトへの埋め込み表示など、
+  // このページがiframe内にある場合はホーム画面への追加自体が機能しないため、
+  // 登録に失敗しても静かに無視する。
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('?resource=sw').catch(function () { /* 埋め込み表示等では失敗し得るため無視する */ });
+  }
+
+  init();
+})();
+</script>

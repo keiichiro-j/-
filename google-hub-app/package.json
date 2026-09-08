@@ -1,0 +1,18 @@
+{
+  "name": "google-hub-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Google連携統合管理アプリ（GAS + TypeScript + clasp）",
+  "scripts": {
+    "build": "node scripts/clean.js && tsc -p tsconfig.json && node scripts/copy-static.js",
+    "watch": "tsc -p tsconfig.json --watch",
+    "clasp:push": "npm run build && clasp push",
+    "clasp:open": "clasp open",
+    "test": "node tests/run.js"
+  },
+  "devDependencies": {
+    "@google/clasp": "^2.4.2",
+    "@types/google-apps-script": "^2.0.13",
+    "typescript": "^5.5.4"
+  }
+}
