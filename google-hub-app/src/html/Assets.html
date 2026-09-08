@@ -1039,14 +1039,20 @@
 
   .nav-item-settings-row { cursor: grab; }
   .nav-item-settings-row.is-dragging { opacity: 0.4; }
-  /* .link-row直下の名称ラッパーdivにflex:1を与え、左端(ドラッグハンドル)に詰めて表示する。
+  /* .link-name-wrap(名称ラッパー)にflex:1を与え、左端(ドラッグハンドル)に詰めて表示する。
      これが無いと、親の.mail-row/.link-row/.todo-row共通ルールのjustify-content:space-betweenにより、
      中身の大きさぶんの余白が両側に均等配分され、名称が行の中央寄りに浮いて見えてしまう
      （mail-row/todo-rowは中身側に既にflex:1相当の指定があるため影響を受けない）。 */
-  .link-row > div { flex: 1 1 auto; min-width: 0; }
+  .link-row > .link-name-wrap { flex: 1 1 auto; min-width: 0; }
   .link-row .name { font-weight: bold; }
   .link-row .desc { color: var(--content-muted); font-size: 12px; }
-  .link-row .link-meta { color: var(--content-muted); font-size: 11px; margin-top: 2px; }
+  /* アプリリンク集タブでは、名称と操作ボタンの間に生まれる余白を、Driveタブの.meta列と同じ
+     固定幅・右寄せの列として活用し、登録日時・最終確認日時を表示する
+     （ホームのコンパクトウィジェットでは.link-colごとCSSで非表示にする）。 */
+  .link-row .link-col {
+    flex: 0 0 auto; width: 84px; text-align: right;
+    color: var(--content-muted); font-size: 11px; white-space: nowrap;
+  }
   .status-badge {
     display: inline-block;
     padding: 2px 8px;
@@ -1614,7 +1620,8 @@
        ウィジェットでは縦幅を圧迫するだけで得るものが少ないため。 */
     #card-stack .app-link-search-row, #right-sidebar .app-link-search-row,
     #card-stack .app-link-count, #right-sidebar .app-link-count,
-    #card-stack .link-meta, #right-sidebar .link-meta { display: none; }
+    #card-stack .link-col, #right-sidebar .link-col,
+    #card-stack .btn-app-recheck, #right-sidebar .btn-app-recheck { display: none; }
 
     .card-stack #mail-list, .right-sidebar #mail-list,
     .card-stack #app-list, .right-sidebar #app-list,

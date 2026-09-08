@@ -1897,20 +1897,22 @@
     // 検索していない（＝全件表示中）ときだけドラッグ操作を許可する。
     var reorderable = !query;
     container.innerHTML = filtered.map(function (app) {
-      var metaParts = ['登録: ' + formatDateTime(app.addedAt)];
-      if (app.lastCheckedAt) metaParts.push('最終確認: ' + formatDateTime(app.lastCheckedAt));
       return '<div class="link-row" draggable="' + reorderable + '" data-app-id="' + escapeHtml(app.id) + '">' +
         (reorderable ? '<svg class="icon icon-sm widget-block-drag-handle app-drag-handle" title="ドラッグして並び替え"><use href="#icon-grip"></use></svg>' : '') +
-        '<div>' +
+        '<div class="link-name-wrap">' +
         '<div class="name"><a href="' + escapeHtml(app.url) + '" target="_blank" rel="noopener" title="' + escapeHtml(app.url) + '">' + escapeHtml(app.name) + '</a> ' +
         '<span class="status-badge ' + app.status + '">' + statusLabel(app.status) + '</span></div>' +
-        '<div class="link-meta">' + escapeHtml(metaParts.join(' ・ ')) + '</div>' +
         '<div class="name-edit-row" hidden>' +
         '<input type="text" class="name-edit-input" placeholder="登録名称">' +
         '<button type="button" class="btn-name-save">保存</button>' +
         '</div>' +
         '</div>' +
+        // 名称とボタン列の間にできる余白を活かし、アプリリンク集タブでのみ登録日時・最終確認日時を
+        // 列として表示する（Driveタブの一覧にある.meta列と同じ、固定幅・右寄せの考え方）。
+        '<div class="link-col link-added" title="登録日時">' + escapeHtml(formatDateTime(app.addedAt)) + '</div>' +
+        '<div class="link-col link-checked" title="最終確認日時">' + (app.lastCheckedAt ? escapeHtml(formatDateTime(app.lastCheckedAt)) : '未確認') + '</div>' +
         '<span>' +
+        '<button type="button" class="icon-only btn-app-recheck" aria-label="今すぐ確認" title="今すぐ確認"><svg class="icon icon-sm"><use href="#icon-refresh"></use></svg></button>' +
         '<button type="button" class="icon-only btn-app-name-edit" aria-label="名称を変更" title="名称を変更"><svg class="icon icon-sm"><use href="#icon-edit"></use></svg></button>' +
         '<button type="button" class="icon-only btn-app-delete" aria-label="削除" title="削除"><svg class="icon icon-sm"><use href="#icon-trash"></use></svg></button>' +
         '</span>' +
@@ -1918,6 +1920,14 @@
     }).join('');
 
     initAppDragDrop(container, filtered);
+    Array.prototype.forEach.call(container.querySelectorAll('.btn-app-recheck'), function (btn) {
+      btn.addEventListener('click', function (e) {
+        var id = btn.closest('[data-app-id]').getAttribute('data-app-id');
+        withSpinner(e.currentTarget, function () {
+          return gasRun('checkApp', id).then(replaceAppInState).catch(showError);
+        });
+      });
+    });
     Array.prototype.forEach.call(container.querySelectorAll('.btn-app-delete'), function (btn) {
       btn.addEventListener('click', function () {
         if (!window.confirm('このリンクを台帳から削除しますか？')) return;
