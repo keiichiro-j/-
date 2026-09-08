@@ -664,6 +664,10 @@
   }
   .card h2 .h2-label { display: flex; align-items: center; gap: 8px; }
   .card h2 .icon { color: var(--content-faint); }
+  /* primaryボタン(ToDoの追加ボタン等と同じ塗りつぶし丸ボタン)は背景に色が付くため、
+     上のルールで薄いグレーにされてしまうとアイコンが背景に埋もれて見づらい。
+     アクセントカラーの背景に対してはっきり見える文字色(--primary-text)に上書きする。 */
+  .card h2 .card-actions button.primary .icon { color: var(--primary-text); }
 
   .card .card-actions {
     display: flex;
@@ -1035,8 +1039,14 @@
 
   .nav-item-settings-row { cursor: grab; }
   .nav-item-settings-row.is-dragging { opacity: 0.4; }
+  /* .link-row直下の名称ラッパーdivにflex:1を与え、左端(ドラッグハンドル)に詰めて表示する。
+     これが無いと、親の.mail-row/.link-row/.todo-row共通ルールのjustify-content:space-betweenにより、
+     中身の大きさぶんの余白が両側に均等配分され、名称が行の中央寄りに浮いて見えてしまう
+     （mail-row/todo-rowは中身側に既にflex:1相当の指定があるため影響を受けない）。 */
+  .link-row > div { flex: 1 1 auto; min-width: 0; }
   .link-row .name { font-weight: bold; }
   .link-row .desc { color: var(--content-muted); font-size: 12px; }
+  .link-row .link-meta { color: var(--content-muted); font-size: 11px; margin-top: 2px; }
   .status-badge {
     display: inline-block;
     padding: 2px 8px;
@@ -1599,6 +1609,12 @@
        いても、コンパクト表示中は必ず#card-stackか#right-sidebarの直下にいるため、このセレクタで
        「タブへ移動する前かどうか」を判定できる。 */
     #card-stack .app-drag-handle, #right-sidebar .app-drag-handle { display: none; }
+    /* 名前検索・件数表示・登録日時等の詳細は、フルの「アプリリンク集」タブでのみ使う機能
+       （タブ表示時に充実させた機能一式）。理由は並び替えハンドルと同じで、コンパクト
+       ウィジェットでは縦幅を圧迫するだけで得るものが少ないため。 */
+    #card-stack .app-link-search-row, #right-sidebar .app-link-search-row,
+    #card-stack .app-link-count, #right-sidebar .app-link-count,
+    #card-stack .link-meta, #right-sidebar .link-meta { display: none; }
 
     .card-stack #mail-list, .right-sidebar #mail-list,
     .card-stack #app-list, .right-sidebar #app-list,

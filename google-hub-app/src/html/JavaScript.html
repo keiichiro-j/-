@@ -87,6 +87,9 @@
       mails: [], // 現在表示中フォルダの一覧（folderが'inbox'以外のときはstate.home.mailsと異なる）
       searchActive: false // 検索結果表示中かどうか。trueの間は更新ボタンが検索の再実行になる
     },
+    appLedger: {
+      searchQuery: '' // アプリリンク集タブの名前検索欄の入力値（ホームのコンパクトウィジェットでは検索欄自体を隠すため常に空文字）
+    },
     mailDetailThreadId: null, // メールウィジェットのポップアップで開いているスレッドID（返信用）
     viewHistory: [], // 「戻る」ボタン用の閲覧履歴（直前に居た画面を積んでいく）
     // 設定画面(テーマスウォッチ・ウィジェット配置エディタ・カスタムナビ一覧)はDOM構築量が多いため、
@@ -1864,18 +1867,44 @@
     return '未確認';
   }
 
+  // アプリリンク集タブ上部の件数表示。ホームのコンパクトウィジェットでは要素自体をCSSで隠している。
+  function updateAppLinkCount(shownCount, totalCount) {
+    var el = qs('app-link-count');
+    if (!el) return;
+    el.textContent = shownCount === totalCount
+      ? totalCount + '件のリンクが登録されています'
+      : shownCount + ' / ' + totalCount + '件を表示中';
+  }
+
   function renderAppList(apps) {
     var container = qs('app-list');
     if (apps.length === 0) {
       container.innerHTML = '<div class="empty-hint">URLを貼り付けて登録してください</div>';
+      updateAppLinkCount(0, 0);
       return;
     }
-    container.innerHTML = apps.map(function (app) {
-      return '<div class="link-row" draggable="true" data-app-id="' + escapeHtml(app.id) + '">' +
-        '<svg class="icon icon-sm widget-block-drag-handle app-drag-handle" title="ドラッグして並び替え"><use href="#icon-grip"></use></svg>' +
+    // 名前検索(アプリリンク集タブのみで使う機能。ホームのコンパクトウィジェットでは
+    // 検索欄自体を隠しているためstate.appLedger.searchQueryは常に空文字のまま)。
+    var query = state.appLedger.searchQuery.trim().toLowerCase();
+    var filtered = query ? apps.filter(function (app) { return app.name.toLowerCase().indexOf(query) !== -1; }) : apps;
+    updateAppLinkCount(filtered.length, apps.length);
+    if (filtered.length === 0) {
+      container.innerHTML = '<div class="empty-hint">該当するアプリがありません</div>';
+      return;
+    }
+    // 検索で絞り込み中は一覧が全体の一部だけになるため、ここで並び替えると絞り込みで隠れている
+    // 項目の順序を壊してしまう（reorderApps()は渡されたIDリストにない項目を末尾へ寄せるため）。
+    // 検索していない（＝全件表示中）ときだけドラッグ操作を許可する。
+    var reorderable = !query;
+    container.innerHTML = filtered.map(function (app) {
+      var metaParts = ['登録: ' + formatDateTime(app.addedAt)];
+      if (app.lastCheckedAt) metaParts.push('最終確認: ' + formatDateTime(app.lastCheckedAt));
+      return '<div class="link-row" draggable="' + reorderable + '" data-app-id="' + escapeHtml(app.id) + '">' +
+        (reorderable ? '<svg class="icon icon-sm widget-block-drag-handle app-drag-handle" title="ドラッグして並び替え"><use href="#icon-grip"></use></svg>' : '') +
         '<div>' +
         '<div class="name"><a href="' + escapeHtml(app.url) + '" target="_blank" rel="noopener" title="' + escapeHtml(app.url) + '">' + escapeHtml(app.name) + '</a> ' +
         '<span class="status-badge ' + app.status + '">' + statusLabel(app.status) + '</span></div>' +
+        '<div class="link-meta">' + escapeHtml(metaParts.join(' ・ ')) + '</div>' +
         '<div class="name-edit-row" hidden>' +
         '<input type="text" class="name-edit-input" placeholder="登録名称">' +
         '<button type="button" class="btn-name-save">保存</button>' +
@@ -1888,7 +1917,7 @@
         '</div>';
     }).join('');
 
-    initAppDragDrop(container, apps);
+    initAppDragDrop(container, filtered);
     Array.prototype.forEach.call(container.querySelectorAll('.btn-app-delete'), function (btn) {
       btn.addEventListener('click', function () {
         if (!window.confirm('このリンクを台帳から削除しますか？')) return;
@@ -2030,6 +2059,13 @@
     });
     qs('app-add-name').addEventListener('keydown', function (e) {
       if (e.key === 'Enter') qs('btn-app-add-save').click();
+    });
+
+    // 名前検索(アプリリンク集タブのみで使う機能。検索欄自体はホームのコンパクトウィジェットでは
+    // CSSで隠しているため、入力できるのはタブを開いているときだけ)。
+    qs('app-link-search').addEventListener('input', function () {
+      state.appLedger.searchQuery = qs('app-link-search').value;
+      renderAppList(state.home.apps);
     });
   }
 
