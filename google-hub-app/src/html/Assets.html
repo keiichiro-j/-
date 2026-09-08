@@ -1318,12 +1318,6 @@
     border-radius: 999px; background: var(--content-bg); flex: 0 0 auto; white-space: nowrap;
   }
   .todo-due-badge.overdue { color: #fff; background: var(--danger); }
-  .todo-detail-toggle { font-size: 11px; }
-  .todo-detail-row {
-    display: flex; gap: 8px; align-items: center; margin-top: 6px;
-    padding-top: 6px; border-top: 1px dashed var(--border-color); flex-wrap: wrap; width: 100%;
-  }
-  .todo-detail-row input[type="date"], .todo-detail-row select { width: auto; flex: 0 0 auto; }
 
   /* ===== メールタブ: 複数選択の一括操作 ===== */
   .mail-row .mail-row-check { width: auto; flex: 0 0 auto; }
@@ -1490,10 +1484,6 @@
        配置していても、コンパクト表示中は必ず#card-stackか#right-sidebarの直下にいるため、
        このセレクタで「タブへ移動する前かどうか」を判定できる。 */
     #card-stack .tag-filter-bar, #right-sidebar .tag-filter-bar { display: none; }
-    /* 登録時の名称欄も同様に、コンパクトウィジェットでは「URLを貼り付けるだけの簡易追加」を
-       優先し非表示にする（名称を指定したい場合はアプリリンク集タブから追加するか、追加後に
-       鉛筆アイコンから変更する）。 */
-    #card-stack #app-name-input, #right-sidebar #app-name-input { display: none; }
 
     .card-stack #mail-list, .right-sidebar #mail-list,
     .card-stack #app-list, .right-sidebar #app-list,

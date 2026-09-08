@@ -1891,23 +1891,27 @@
       });
     });
 
-    qs('btn-app-add').addEventListener('click', function () {
-      var input = qs('app-url-input');
-      var nameInput = qs('app-name-input');
-      var url = input.value.trim();
+    qs('btn-app-add-open').addEventListener('click', function () {
+      qs('app-add-url').value = '';
+      qs('app-add-name').value = '';
+      qs('app-add-modal').hidden = false;
+      qs('app-add-url').focus();
+    });
+    qs('btn-app-add-cancel').addEventListener('click', function () { qs('app-add-modal').hidden = true; });
+    qs('btn-app-add-save').addEventListener('click', function () {
+      var url = qs('app-add-url').value.trim();
       if (!url) { window.alert('URLを入力してください'); return; }
-      var name = nameInput.value.trim();
+      var name = qs('app-add-name').value.trim();
       gasRun('addApp', url, name).then(function () {
-        input.value = '';
-        nameInput.value = '';
+        qs('app-add-modal').hidden = true;
         return loadHome();
       }).catch(showError);
     });
-    qs('app-url-input').addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') qs('btn-app-add').click();
+    qs('app-add-url').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') qs('btn-app-add-save').click();
     });
-    qs('app-name-input').addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') qs('btn-app-add').click();
+    qs('app-add-name').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') qs('btn-app-add-save').click();
     });
   }
 
@@ -1974,31 +1978,54 @@
     });
   }
 
+  function addTodoAndRefresh(text, dueDate, priority) {
+    return gasRun('addTodo', text, dueDate, priority).then(function (todos) {
+      state.home.todos = todos;
+      renderTodoList(todos);
+      return loadCalendarForCurrentMode();
+    });
+  }
+
   function initTodo() {
     qs('btn-todo-viewall').addEventListener('click', function () { switchView('todo'); });
 
-    qs('btn-todo-detail-toggle').addEventListener('click', function () {
-      var row = qs('todo-detail-row');
-      row.hidden = !row.hidden;
-    });
-
+    // クイック追加: 期限日なし・優先度「中」で即座に追加する（Enterキー1つで完結する速さを優先）。
     qs('btn-todo-add').addEventListener('click', function () {
       var input = qs('todo-input');
       var text = input.value.trim();
       if (!text) { window.alert('内容を入力してください'); return; }
-      var dueDate = qs('todo-due-input').value || null;
-      var priority = qs('todo-priority-input').value;
-      gasRun('addTodo', text, dueDate, priority).then(function (todos) {
+      addTodoAndRefresh(text, null, 'medium').then(function () {
         input.value = '';
-        qs('todo-due-input').value = '';
-        qs('todo-priority-input').value = 'medium';
-        state.home.todos = todos;
-        renderTodoList(todos);
-        return loadCalendarForCurrentMode();
       }).catch(showError);
     });
     qs('todo-input').addEventListener('keydown', function (e) {
       if (e.key === 'Enter') qs('btn-todo-add').click();
+    });
+
+    // 期限日・優先度を指定して追加: ポップアップ側で入力する。以前はツールバー直下に隠しておいた
+    // 入力欄を展開する方式だったが、ホームのコンパクトウィジェットではカードの高さが小さく、
+    // 展開すると優先度の選択欄自体がカードの外側(overflow:hiddenでクリップされる領域)へ
+    // はみ出して操作できなくなってしまっていたため、カードの大きさに左右されないポップアップに変更した。
+    qs('btn-todo-detail-open').addEventListener('click', function () {
+      qs('todo-modal-text').value = qs('todo-input').value.trim();
+      qs('todo-modal-due').value = '';
+      qs('todo-modal-priority').value = 'medium';
+      qs('todo-add-modal').hidden = false;
+      qs('todo-modal-text').focus();
+    });
+    qs('btn-todo-modal-cancel').addEventListener('click', function () { qs('todo-add-modal').hidden = true; });
+    qs('btn-todo-modal-save').addEventListener('click', function () {
+      var text = qs('todo-modal-text').value.trim();
+      if (!text) { window.alert('内容を入力してください'); return; }
+      var dueDate = qs('todo-modal-due').value || null;
+      var priority = qs('todo-modal-priority').value;
+      addTodoAndRefresh(text, dueDate, priority).then(function () {
+        qs('todo-add-modal').hidden = true;
+        qs('todo-input').value = '';
+      }).catch(showError);
+    });
+    qs('todo-modal-text').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') qs('btn-todo-modal-save').click();
     });
 
     qs('btn-todo-clear-done').addEventListener('click', function (e) {
