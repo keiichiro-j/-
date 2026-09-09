@@ -481,10 +481,13 @@
       const targetMonth = currentDate.getMonth() + 1;
 
       // 2. 全データから「表示月と一致するデータ」を抽出
+      //    登録予定日は "yyyy-MM-dd" 文字列。new Date(文字列) はUTC基準で解釈されるため、
+      //    JST以外のタイムゾーンで開いた場合に日付がずれることがあるので、
+      //    Dateオブジェクトを介さず文字列のまま年月を取り出す。
       const currentMonthData = allRecords.filter(record => {
         if (!record.登録予定日) return false;
-        const recordDate = new Date(record.登録予定日);
-        return recordDate.getFullYear() === targetYear && (recordDate.getMonth() + 1) === targetMonth;
+        const [recordYear, recordMonth] = record.登録予定日.split('-').map(Number);
+        return recordYear === targetYear && recordMonth === targetMonth;
       });
 
       // 登録日未定（まだ日付が決まっていない）分も、当月の総台数に含める。
@@ -1018,7 +1021,8 @@
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      const dateStr = new Date().toISOString().split('T')[0];
+      const nowLocal = new Date();
+      const dateStr = `${nowLocal.getFullYear()}-${String(nowLocal.getMonth() + 1).padStart(2, '0')}-${String(nowLocal.getDate()).padStart(2, '0')}`;
       link.setAttribute("href", url);
       link.setAttribute("download", `registration_data_${dateStr}.csv`);
       document.body.appendChild(link);

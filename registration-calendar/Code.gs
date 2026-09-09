@@ -48,6 +48,17 @@ function getOrCreateDatabaseSheet(sheetName) {
   return sheet;
 }
 
+// ▼ セルの数式（=HYPERLINK(...) など）を保持したまま2次元配列を取得する。
+//   getValues() だけを使って一部のセルだけ書き換えてから丸ごと setValues() すると、
+//   数式が入っていた他のセルまで「計算結果の文字列」に置き換わって消えてしまう
+//   （＝車検証リンクのHYPERLINKが壊れる）ため、シートへの書き戻しを伴う処理は必ずこちらを使う。
+function getSheetDataPreservingFormulas_(sheet) {
+  const range = sheet.getDataRange();
+  const values = range.getValues();
+  const formulas = range.getFormulas();
+  return values.map((row, r) => row.map((val, c) => formulas[r][c] || val));
+}
+
 // ▼ スプレッドシートに直接入力した行はID列を空欄のまま保存されることが多く、
 //   前の行をコピーして作った場合はIDが他の行と重複することもある。
 //   ドラッグ&ドロップ等が必ず正しい行だけを指せるよう、データを読み込むたびに
@@ -56,7 +67,7 @@ function getOrCreateDatabaseSheet(sheetName) {
 function ensureUniqueIds_(sheets) {
   const seenIds = {};
   sheets.forEach(sheet => {
-    const data = sheet.getDataRange().getValues();
+    const data = getSheetDataPreservingFormulas_(sheet);
     if (data.length <= 1) return;
     const idColIndex = data[0].indexOf('ID');
     if (idColIndex === -1) return;
@@ -148,7 +159,9 @@ function saveRecord(record) {
     for (let s = 0; s < sheets.length; s++) {
       const sheet = sheets[s];
       if (sheet.getName().startsWith('db_登録データ')) {
-        const data = sheet.getDataRange().getValues();
+        // 数式（車検証リンクのHYPERLINK）を保持したまま読む。既存行の未変更列（車検証リンク等）は
+        // このexistingRowDataの値をそのまま書き戻すため、getValues()だけだと数式が消えてしまう。
+        const data = getSheetDataPreservingFormulas_(sheet);
         if (data.length <= 1) continue;
         const idIndex = data[0].indexOf('ID');
         for (let i = 1; i < data.length; i++) {
@@ -273,7 +286,9 @@ function autoLinkVehicleInspectionPDF() {
   }
 
   sheets.forEach(sheet => {
-    const data = sheet.getDataRange().getValues();
+    // 数式（他行の車検証リンクのHYPERLINK）を保持したまま読む。マッチした行以外は
+    // そのまま書き戻すため、getValues()だけだと他行のリンクが消えてしまう。
+    const data = getSheetDataPreservingFormulas_(sheet);
     if (data.length <= 1) return;
 
     const nameColIndex = data[0].indexOf("顧客名");
