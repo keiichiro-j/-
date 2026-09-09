@@ -177,7 +177,23 @@ function normalizeCustomerName(name) {
   return str;
 }
 
-// ▼ 全シートを巡回してPDFリンクを書き込む（部分一致）
+// フォルダ名が「2026.08」のような年.月形式かどうか
+const MONTH_FOLDER_PATTERN = /^\d{4}\.\d{2}$/;
+
+// ▼ 登録予定日から、それが属する月フォルダ名（例: 2026.08）を求める
+function getMonthFolderNameFromDate_(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+// ▼ 全シートを巡回してPDFリンクを書き込む。
+//   ・ファイル名は正規化した顧客名と完全一致するものだけを対象にする（部分一致だと「山田高」と
+//     「山田高市」のような別人を誤って同一視してしまうため）。
+//   ・PDFは「2026.08」のような月フォルダに格納されている前提で、同姓同名が複数いる場合は
+//     登録予定日が属する月フォルダのファイルを優先する。
+//   ・既にリンク済みの行は上書きしない（誤マッチにより後から空欄に戻ってしまうのを防ぐため）。
 function autoLinkVehicleInspectionPDF() {
   const rootFolderId = "1yED-JQK20jCBAOf_4v1jxlp6AN0rhNYC";
   const rootFolder = DriveApp.getFolderById(rootFolderId);
@@ -186,8 +202,8 @@ function autoLinkVehicleInspectionPDF() {
 
   if (sheets.length === 0) return;
 
-  const pdfList = [];
-  function getAllPdfFiles(folder) {
+  const pdfList = []; // { normalizedName, url, monthFolder(なければnull) }
+  function collectPdfFiles(folder, monthFolder) {
     const files = folder.getFiles();
     while (files.hasNext()) {
       const file = files.next();
@@ -196,17 +212,33 @@ function autoLinkVehicleInspectionPDF() {
         const fileName = rawName.replace(/\.pdf$/i, "");
         pdfList.push({
           normalizedName: normalizeCustomerName(fileName),
-          url: file.getUrl()
+          url: file.getUrl(),
+          monthFolder: monthFolder
         });
       }
     }
     const subFolders = folder.getFolders();
     while (subFolders.hasNext()) {
-      getAllPdfFiles(subFolders.next());
+      const sub = subFolders.next();
+      // 直下（またはその配下）が月フォルダに入ったら、そのフォルダ名を子階層にも引き継ぐ
+      const nextMonthFolder = monthFolder || (MONTH_FOLDER_PATTERN.test(sub.getName()) ? sub.getName() : null);
+      collectPdfFiles(sub, nextMonthFolder);
     }
   }
+  collectPdfFiles(rootFolder, null);
 
-  getAllPdfFiles(rootFolder);
+  // 正規化した顧客名が完全一致する候補の中から、対象月のフォルダのものを優先して1件選ぶ。
+  // 月フォルダで絞り込めず候補が複数残る場合は、誤リンクを避けるため空のままにする。
+  function findMatchedUrl(normalizedCustomerName, targetMonthFolder) {
+    const candidates = pdfList.filter(p => p.normalizedName === normalizedCustomerName);
+    if (candidates.length === 0) return "";
+    if (targetMonthFolder) {
+      const sameMonth = candidates.find(p => p.monthFolder === targetMonthFolder);
+      if (sameMonth) return sameMonth.url;
+    }
+    if (candidates.length === 1) return candidates[0].url;
+    return "";
+  }
 
   sheets.forEach(sheet => {
     const data = sheet.getDataRange().getValues();
@@ -214,22 +246,18 @@ function autoLinkVehicleInspectionPDF() {
 
     const nameColIndex = data[0].indexOf("顧客名");
     const linkColIndex = data[0].indexOf("車検証リンク");
+    const dateColIndex = data[0].indexOf("登録予定日");
     if (nameColIndex === -1 || linkColIndex === -1) return;
 
     let sheetMatchCount = 0;
     for (let i = 1; i < data.length; i++) {
       const customerName = data[i][nameColIndex];
-      if (customerName) {
+      if (customerName && !data[i][linkColIndex]) {
         const normalizedCustomerName = normalizeCustomerName(customerName);
         if (!normalizedCustomerName) continue;
 
-        let matchedUrl = "";
-        for (let j = 0; j < pdfList.length; j++) {
-          if (pdfList[j].normalizedName.indexOf(normalizedCustomerName) !== -1) {
-            matchedUrl = pdfList[j].url;
-            break;
-          }
-        }
+        const targetMonthFolder = dateColIndex !== -1 ? getMonthFolderNameFromDate_(data[i][dateColIndex]) : null;
+        const matchedUrl = findMatchedUrl(normalizedCustomerName, targetMonthFolder);
 
         if (matchedUrl) {
           // 生のURLではなくHYPERLINK関数で書き込む
@@ -242,4 +270,19 @@ function autoLinkVehicleInspectionPDF() {
       sheet.getRange(1, 1, data.length, data[0].length).setValues(data);
     }
   });
+}
+
+// ▼ autoLinkVehicleInspectionPDF を定期実行するトリガーを設置する。
+//   GASエディタからこの関数を一度だけ手動実行してください（重複設置は防止済み）。
+//   これにより、ドライブにPDFが追加されてから最大15分程度でカレンダー/リストに反映されます。
+function setupPdfLinkTrigger() {
+  const alreadyExists = ScriptApp.getProjectTriggers().some(
+    t => t.getHandlerFunction() === 'autoLinkVehicleInspectionPDF'
+  );
+  if (alreadyExists) return;
+
+  ScriptApp.newTrigger('autoLinkVehicleInspectionPDF')
+    .timeBased()
+    .everyMinutes(15)
+    .create();
 }
