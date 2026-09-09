@@ -247,8 +247,6 @@
           </h3>
           <span id="undecided-count" class="bg-[#F1F3F4] text-[#202124] border border-[#C4C7C5] text-[11px] px-2.5 py-1 rounded-full font-bold font-tech shrink-0">0</span>
         </div>
-        <p id="sidebarHintDesktop" class="hidden md:block text-[10px] text-[#5F6368] mb-2 font-bold tracking-wide">※カードをカレンダーへドラッグ＆ドロップ</p>
-        <p id="sidebarHintMobile" class="md:hidden text-[10px] text-[#5F6368] mb-2 font-bold tracking-wide">※カードをタップして登録日を確定</p>
         <div id="undecidedList" class="flex flex-col gap-1.5 md:overflow-y-auto flex-1 md:min-h-0 hide-scroll pb-2 lg:pb-0"></div>
       </div>
     </div>
@@ -406,9 +404,6 @@
         listTitle.onclick = null;
         listTitle.removeAttribute('title');
         listTitle.classList.remove('cursor-pointer', 'hover:text-[#1A73E8]');
-
-        document.getElementById('sidebarHintDesktop').textContent = '※閲覧のみのアカウントです（登録・編集不可）';
-        document.getElementById('sidebarHintMobile').textContent = '※閲覧のみのアカウントです（登録・編集不可）';
       }
     }
 
@@ -895,6 +890,43 @@
       modal.classList.remove('flex');
     }
 
+    function createUndecidedCard(r) {
+      const isOSS = r.OSS区分 === 'OSS';
+      const typeStyle = isOSS ? 'bg-[#E6F4EA] text-[#137333]' : 'bg-[#FCE8E6] text-[#C5221F]';
+      const bColor = branchColors[r.拠点] || branchColors['その他'];
+      const isDuplicate = duplicateNameSet.has(normalizeCustomerNameForDupeCheck(r.顧客名));
+      const card = document.createElement('div');
+
+      // 拠点・担当者は上のグループ見出しで分かるので、カード自体には出さない
+      card.className = `bg-white px-3 py-2 rounded-2xl border-y border-r border-l-4 ${isDuplicate ? 'border-l-amber-500' : bColor.border} border-[#C4C7C5] shadow-sm transition-all duration-200 hover:bg-[#F8F9FA] group flex flex-col gap-1 items-center text-center shrink-0 w-full ${IS_EDITOR ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`;
+
+      if (window.innerWidth >= 768 && IS_EDITOR) {
+        card.setAttribute('draggable', 'true');
+        card.ondragstart = (e) => {
+          e.dataTransfer.setData('text/plain', r.ID);
+          e.dataTransfer.effectAllowed = 'move';
+          setTimeout(() => card.classList.add('opacity-50', 'scale-95'), 0);
+        };
+        card.ondragend = () => card.classList.remove('opacity-50', 'scale-95');
+      }
+
+      card.onclick = () => openModal(r);
+
+      const dupeBadge = isDuplicate
+        ? `<i class="fa-solid fa-triangle-exclamation text-amber-500 text-[10px]" title="同姓同名の登録が複数あります。重複していないか確認してください"></i> `
+        : '';
+      card.innerHTML = `
+        <div class="flex items-center justify-end w-full pointer-events-none">
+          <span class="text-[9px] px-2 py-0.5 rounded-md font-bold tracking-wide font-tech ${typeStyle}">${isOSS ? 'OSS' : 'PAPER'}</span>
+        </div>
+        <div class="font-bold text-[#202124] text-sm truncate w-full leading-tight pointer-events-none">${dupeBadge}${r.顧客名} <span class="text-[10px] font-normal text-[#5F6368]">様</span></div>
+        <div class="flex items-center justify-center gap-1.5 text-[11px] text-[#5F6368] w-full font-tech pointer-events-none">
+          <i class="fa-solid fa-car text-[#80868B] text-[10px]"></i><span class="font-medium text-[#3C4043] truncate">${r.車種}</span>
+        </div>
+      `;
+      return card;
+    }
+
     function renderUndecidedList() {
       const listContainer = document.getElementById('undecidedList');
       listContainer.innerHTML = '';
@@ -907,42 +939,48 @@
         return;
       }
 
+      // ▼ 拠点ごと→担当者ごとにグループ化する。拠点は既定の並び順（岐阜/大垣/多治見/高山/AAA/デモカー/その他）を
+      //   優先し、それ以外の拠点名があれば末尾に追加する。担当者は登場順のまま。
+      const knownBranchOrder = Object.keys(branchColors);
+      const grouped = {}; // { 拠点: { 担当者: [record, ...] } }
+      const branchOrder = [];
       undecidedRecords.forEach(r => {
-        const isOSS = r.OSS区分 === 'OSS';
-        const typeStyle = isOSS ? 'bg-[#E6F4EA] text-[#137333]' : 'bg-[#FCE8E6] text-[#C5221F]';
-        const bColor = branchColors[r.拠点] || branchColors['その他'];
-        const isDuplicate = duplicateNameSet.has(normalizeCustomerNameForDupeCheck(r.顧客名));
-        const card = document.createElement('div');
+        const branch = r.拠点 || 'その他';
+        const sales = r.担当者 || '担当者未設定';
+        if (!grouped[branch]) { grouped[branch] = {}; branchOrder.push(branch); }
+        if (!grouped[branch][sales]) grouped[branch][sales] = [];
+        grouped[branch][sales].push(r);
+      });
+      const orderedBranches = [
+        ...knownBranchOrder.filter(b => grouped[b]),
+        ...branchOrder.filter(b => !knownBranchOrder.includes(b)),
+      ];
 
-        card.className = `bg-white px-3 py-2 rounded-2xl border-y border-r border-l-4 ${isDuplicate ? 'border-l-amber-500' : bColor.border} border-[#C4C7C5] shadow-sm transition-all duration-200 hover:bg-[#F8F9FA] group flex flex-col gap-1 items-center text-center shrink-0 w-full ${IS_EDITOR ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`;
+      orderedBranches.forEach(branch => {
+        const bColor = branchColors[branch] || branchColors['その他'];
+        const branchCount = Object.values(grouped[branch]).reduce((sum, arr) => sum + arr.length, 0);
+        const dotClass = bColor.border.replace('border-l-', 'bg-');
 
-        if (window.innerWidth >= 768 && IS_EDITOR) {
-          card.setAttribute('draggable', 'true');
-          card.ondragstart = (e) => {
-            e.dataTransfer.setData('text/plain', r.ID);
-            e.dataTransfer.effectAllowed = 'move';
-            setTimeout(() => card.classList.add('opacity-50', 'scale-95'), 0);
-          };
-          card.ondragend = () => card.classList.remove('opacity-50', 'scale-95');
-        }
-
-        card.onclick = () => openModal(r);
-
-        const dupeBadge = isDuplicate
-          ? `<i class="fa-solid fa-triangle-exclamation text-amber-500 text-[10px]" title="同姓同名の登録が複数あります。重複していないか確認してください"></i> `
-          : '';
-        card.innerHTML = `
-          <div class="flex items-center justify-between w-full pointer-events-none">
-            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${bColor.bg} ${bColor.text}">${r.拠点}</span>
-            <span class="text-[9px] px-2 py-0.5 rounded-md font-bold tracking-wide font-tech ${typeStyle}">${isOSS ? 'OSS' : 'PAPER'}</span>
-          </div>
-          <div class="font-bold text-[#202124] text-sm truncate w-full leading-tight pointer-events-none">${dupeBadge}${r.顧客名} <span class="text-[10px] font-normal text-[#5F6368]">様</span></div>
-          <div class="flex items-center justify-center gap-3 text-[11px] text-[#5F6368] w-full font-tech pointer-events-none">
-            <div class="flex items-center gap-1"><i class="fa-solid fa-car text-[#80868B] text-[10px]"></i><span class="font-medium text-[#3C4043] truncate max-w-[70px]">${r.車種}</span></div>
-            <div class="flex items-center gap-1"><i class="fa-solid fa-user text-[#80868B] text-[10px]"></i><span class="font-bold text-[#202124] text-[11px]">SALES: ${r.担当者}</span></div>
-          </div>
+        const branchHeader = document.createElement('div');
+        branchHeader.className = 'flex items-center justify-between gap-2 mt-3 first:mt-0 mb-1.5 w-full';
+        branchHeader.innerHTML = `
+          <span class="flex items-center gap-1.5 text-[11px] font-bold ${bColor.text} font-tech tracking-wide truncate">
+            <span class="w-2 h-2 rounded-full shrink-0 ${dotClass}"></span><span class="truncate">${branch}</span>
+          </span>
+          <span class="text-[9px] text-[#5F6368] font-tech font-bold shrink-0">${branchCount}件</span>
         `;
-        listContainer.appendChild(card);
+        listContainer.appendChild(branchHeader);
+
+        Object.keys(grouped[branch]).forEach(sales => {
+          const salesHeader = document.createElement('div');
+          salesHeader.className = 'flex items-center gap-1 text-[9px] font-bold text-[#80868B] tracking-wide font-tech mt-1 mb-1 w-full';
+          salesHeader.innerHTML = `<i class="fa-solid fa-user text-[8px]"></i><span class="truncate">${sales}</span>`;
+          listContainer.appendChild(salesHeader);
+
+          grouped[branch][sales].forEach(r => {
+            listContainer.appendChild(createUndecidedCard(r));
+          });
+        });
       });
     }
 
