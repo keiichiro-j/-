@@ -249,7 +249,7 @@
         </div>
         <p id="sidebarHintDesktop" class="hidden md:block text-[10px] text-[#5F6368] mb-2 font-bold tracking-wide">※カードをカレンダーへドラッグ＆ドロップ</p>
         <p id="sidebarHintMobile" class="md:hidden text-[10px] text-[#5F6368] mb-2 font-bold tracking-wide">※カードをタップして登録日を確定</p>
-        <div id="undecidedList" class="flex flex-col gap-2 md:overflow-y-auto flex-1 md:min-h-0 hide-scroll pb-2 lg:pb-0"></div>
+        <div id="undecidedList" class="flex flex-col gap-1.5 md:overflow-y-auto flex-1 md:min-h-0 hide-scroll pb-2 lg:pb-0"></div>
       </div>
     </div>
   </main>
@@ -268,6 +268,16 @@
       <span class="text-[10px] font-bold">未定リスト</span>
     </button>
   </nav>
+
+  <div id="dayListModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden justify-center items-center z-50 p-4">
+    <div class="bg-white border border-[#C4C7C5] rounded-3xl w-full max-w-md material-card-shadow overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[85vh] flex flex-col">
+      <div class="bg-[#F8F9FA] px-6 py-5 flex justify-between items-center border-b border-[#C4C7C5] shrink-0">
+        <h3 id="dayListModalTitle" class="text-sm font-bold text-[#202124] tracking-[0.05em] font-tech flex items-center gap-2"></h3>
+        <button onclick="closeDayListModal()" class="text-[#5F6368] hover:text-[#202124] transition cursor-pointer"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <div id="dayListModalBody" class="p-5 space-y-2 overflow-y-auto flex-1"></div>
+    </div>
+  </div>
 
   <div id="recordModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden justify-center items-center z-50 p-4">
     <div class="bg-white border border-[#C4C7C5] rounded-3xl w-full max-w-lg material-card-shadow overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto flex flex-col">
@@ -587,7 +597,7 @@
       if(isMobile) {
         grid.className = "grid grid-cols-7 gap-1 md:gap-3 flex-1 min-h-0 relative";
       } else {
-        grid.className = "grid grid-cols-1 md:grid-cols-7 gap-2 md:gap-3 flex-1 min-h-0 overflow-y-auto hide-scroll md:overflow-visible md:auto-rows-[132px]";
+        grid.className = "grid grid-cols-1 md:grid-cols-7 gap-2 md:gap-3 flex-1 min-h-0 overflow-y-auto hide-scroll md:overflow-visible md:auto-rows-[140px]";
       }
 
       for (let i = 0; i < firstDay; i++) {
@@ -657,9 +667,15 @@
         }
 
         const badgeContainer = document.createElement('div');
-        badgeContainer.className = "hidden md:flex flex-row md:flex-col gap-2 md:gap-0 md:space-y-1.5 mt-1 flex-1 min-h-0 overflow-x-auto md:overflow-x-hidden md:overflow-y-auto w-full justify-start pb-1 md:pb-0 hide-scroll";
+        badgeContainer.className = "hidden md:flex md:flex-col gap-1.5 mt-1 flex-1 min-h-0 w-full justify-start";
 
-        dayRecords.forEach(r => {
+        // マスの高さは登録件数によらず常に固定。表示するのは1件のみにし、
+        // 2件目以降は「+N件」ボタンからモーダルでまとめて見せる。
+        // 1件だけの日はこれまで通りの詳細カード、2件以上ある日はコンパクトなカード+ボタンにして
+        // マスからはみ出さないようにしている。
+        const VISIBLE_RECORDS_PER_CELL = 1;
+        const hasOverflow = dayRecords.length > VISIBLE_RECORDS_PER_CELL;
+        dayRecords.slice(0, VISIBLE_RECORDS_PER_CELL).forEach(r => {
           const badge = document.createElement('div');
           const isOSS = r.OSS区分 === 'OSS';
           const typeStyle = isPast ? 'bg-[#D2D6DC] text-[#3C4043]' : (isOSS ? 'bg-[#E6F4EA] text-[#137333]' : 'bg-[#FCE8E6] text-[#C5221F]');
@@ -670,25 +686,36 @@
             ? `<i class="fa-solid fa-file-pdf text-red-500 text-[13px] md:text-base ml-2" title="車検証あり"></i>`
             : '';
 
-          // 過去（登録済み）でもクリックできるように cursor-pointer を付与
-          badge.className = `pointer-events-auto p-2.5 rounded-xl transition-all hover:scale-[1.01] active:scale-95 cursor-pointer hover:border-[#1A73E8] flex flex-col gap-1.5 border-y border-r border-l-4 ${isPast ? 'border-l-stone-400 bg-white/70' : bColor.border + ' bg-white shadow-sm'} h-[86px] shrink-0 justify-between w-[220px] md:w-full`;
-          badge.innerHTML = `
-            <div class="flex justify-between items-start w-full">
-              <div class="text-center font-bold text-[#202124] text-sm leading-tight truncate flex-1">${r.顧客名}</div>
-              ${pdfIcon}
-            </div>
-            <div class="grid grid-cols-2 gap-x-1 pt-0.5 border-t border-[#F1F3F4] text-[10px] text-[#5F6368] font-tech leading-none mt-1">
-              <div class="truncate flex items-center justify-center gap-1"><i class="fa-solid fa-user text-[9px]"></i><span class="font-semibold text-[#202124] truncate">${r.担当者}</span></div>
-              <div class="truncate flex items-center justify-center gap-1"><i class="fa-solid fa-car text-[9px]"></i><span class="font-medium text-[#3C4043] truncate">${r.車種}</span></div>
-            </div>
-            <div class="grid grid-cols-2 gap-x-1 pt-0.5 border-t border-[#F1F3F4]/60 font-tech items-center leading-none mt-auto">
-              <div class="flex items-center justify-center"><span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${isPast ? 'bg-[#E8EAED] text-[#3C4043]' : bColor.bg + ' ' + bColor.text}">${r.拠点}</span></div>
-              <div class="flex items-center justify-center gap-1">
-                ${r.備考 ? `<i class="fa-solid fa-comment-dots text-amber-500 text-[9px]"></i>` : ''}
-                <span class="text-[9px] px-1.5 py-0.5 rounded-md font-bold border border-transparent ${typeStyle}"><i class="fa-solid ${isOSS ? 'fa-bolt' : 'fa-file-lines'} mr-0.5"></i>${isOSS ? 'OSS' : 'PAPER'}</span>
+          if (hasOverflow) {
+            // コンパクト表示：他にも件数があるマス用
+            badge.className = `pointer-events-auto p-1.5 rounded-xl transition-all hover:scale-[1.01] active:scale-95 cursor-pointer hover:border-[#1A73E8] flex flex-col justify-center gap-1 border-y border-r border-l-4 ${isPast ? 'border-l-stone-400 bg-white/70' : bColor.border + ' bg-white shadow-sm'} h-[46px] shrink-0 w-[220px] md:w-full`;
+            badge.innerHTML = `
+              <div class="text-center font-bold text-[#202124] text-[12px] leading-tight truncate">${r.顧客名}${pdfIcon}</div>
+              <div class="flex items-center justify-center gap-1.5 font-tech leading-none">
+                <span class="px-1.5 py-0.5 rounded text-[8px] font-bold ${isPast ? 'bg-[#E8EAED] text-[#3C4043]' : bColor.bg + ' ' + bColor.text}">${r.拠点}</span>
+                <span class="text-[8px] px-1.5 py-0.5 rounded-md font-bold ${typeStyle}"><i class="fa-solid ${isOSS ? 'fa-bolt' : 'fa-file-lines'} mr-0.5"></i>${isOSS ? 'OSS' : 'PAPER'}</span>
               </div>
-            </div>
-          `;
+            `;
+          } else {
+            badge.className = `pointer-events-auto p-2.5 rounded-xl transition-all hover:scale-[1.01] active:scale-95 cursor-pointer hover:border-[#1A73E8] flex flex-col gap-1.5 border-y border-r border-l-4 ${isPast ? 'border-l-stone-400 bg-white/70' : bColor.border + ' bg-white shadow-sm'} h-[86px] shrink-0 justify-between w-[220px] md:w-full`;
+            badge.innerHTML = `
+              <div class="flex justify-between items-start w-full">
+                <div class="text-center font-bold text-[#202124] text-sm leading-tight truncate flex-1">${r.顧客名}</div>
+                ${pdfIcon}
+              </div>
+              <div class="grid grid-cols-2 gap-x-1 pt-0.5 border-t border-[#F1F3F4] text-[10px] text-[#5F6368] font-tech leading-none mt-1">
+                <div class="truncate flex items-center justify-center gap-1"><i class="fa-solid fa-user text-[9px]"></i><span class="font-semibold text-[#202124] truncate">${r.担当者}</span></div>
+                <div class="truncate flex items-center justify-center gap-1"><i class="fa-solid fa-car text-[9px]"></i><span class="font-medium text-[#3C4043] truncate">${r.車種}</span></div>
+              </div>
+              <div class="grid grid-cols-2 gap-x-1 pt-0.5 border-t border-[#F1F3F4]/60 font-tech items-center leading-none mt-auto">
+                <div class="flex items-center justify-center"><span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${isPast ? 'bg-[#E8EAED] text-[#3C4043]' : bColor.bg + ' ' + bColor.text}">${r.拠点}</span></div>
+                <div class="flex items-center justify-center gap-1">
+                  ${r.備考 ? `<i class="fa-solid fa-comment-dots text-amber-500 text-[9px]"></i>` : ''}
+                  <span class="text-[9px] px-1.5 py-0.5 rounded-md font-bold border border-transparent ${typeStyle}"><i class="fa-solid ${isOSS ? 'fa-bolt' : 'fa-file-lines'} mr-0.5"></i>${isOSS ? 'OSS' : 'PAPER'}</span>
+                </div>
+              </div>
+            `;
+          }
 
           // ★ 登録済み(過去) ＋ PDFありなら別タブで開く、それ以外は編集モーダルを開く
           badge.onclick = (e) => {
@@ -701,6 +728,16 @@
           };
           badgeContainer.appendChild(badge);
         });
+
+        const overflowCount = dayRecords.length - VISIBLE_RECORDS_PER_CELL;
+        if (overflowCount > 0) {
+          const moreBtn = document.createElement('button');
+          moreBtn.type = 'button';
+          moreBtn.className = "shrink-0 w-full h-[24px] rounded-lg text-[10px] font-bold font-tech tracking-wide bg-[#E8F0FE] text-[#1A73E8] hover:bg-[#d7e6fc] transition-colors flex items-center justify-center gap-1.5";
+          moreBtn.innerHTML = `<i class="fa-solid fa-layer-group text-[9px]"></i> +${overflowCount}件 すべて見る`;
+          moreBtn.onclick = (e) => { e.stopPropagation(); openDayListModal(cellDateStr); };
+          badgeContainer.appendChild(moreBtn);
+        }
 
         cell.appendChild(badgeContainer);
 
@@ -718,6 +755,43 @@
         }
         grid.appendChild(cell);
       }
+    }
+
+    // ▼ 1件分の登録予定カード（スマホの日別リスト／PCの「+N件」モーダルで共用）
+    function createDayEntryCard(r, isPast) {
+      const isOSS = r.OSS区分 === 'OSS';
+      const bColor = branchColors[r.拠点] || branchColors['その他'];
+
+      const pdfIcon = (isPast && r.車検証リンク)
+        ? `<i class="fa-solid fa-file-pdf text-red-500 text-[16px] ml-3" title="車検証あり"></i>`
+        : '';
+
+      const card = document.createElement('div');
+      // 過去でもクリック可能に
+      card.className = `p-3.5 rounded-xl border-l-4 ${bColor.border} border border-[#C4C7C5] bg-white shadow-sm flex flex-col gap-1.5 hover:bg-[#F8F9FA] active:bg-[#F8F9FA] transition-colors cursor-pointer`;
+
+      // ★ 登録済み(過去) ＋ PDFありなら別タブで開く、それ以外は編集モーダルを開く
+      card.onclick = (e) => {
+        e.stopPropagation();
+        if (isPast && r.車検証リンク) {
+           window.open(r.車検証リンク, '_blank');
+        } else {
+           openModal(r);
+        }
+      };
+
+      card.innerHTML = `
+        <div class="flex justify-between items-center">
+          <div class="font-bold text-[#202124] text-sm flex items-center">${r.顧客名} <span class="font-normal text-[11px] text-[#5F6368] ml-1">様</span> ${pdfIcon}</div>
+          <span class="text-[10px] px-2 py-0.5 rounded-md font-bold tracking-wide font-tech ${isOSS ? 'bg-[#E6F4EA] text-[#137333]' : 'bg-[#FCE8E6] text-[#C5221F]'}">${isOSS ? 'OSS' : 'PAPER'}</span>
+        </div>
+        <div class="flex gap-4 text-[11px] text-[#5F6368] font-tech mt-1 pt-1.5 border-t border-[#F1F3F4]">
+          <div class="flex items-center gap-1"><span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${bColor.bg} ${bColor.text}">${r.拠点}</span></div>
+          <div class="flex items-center gap-1.5"><i class="fa-solid fa-car text-[#80868B]"></i> ${r.車種}</div>
+          <div class="flex items-center gap-1.5"><i class="fa-solid fa-user text-[#80868B]"></i> <span class="text-[#202124] font-semibold">${r.担当者}</span></div>
+        </div>
+      `;
+      return card;
     }
 
     function renderMobileDayList() {
@@ -744,42 +818,7 @@
       if (dayRecords.length === 0) {
         listEl.innerHTML = `<div class="text-center text-[#5F6368] text-xs py-5 bg-[#F8F9FA] rounded-xl font-tech">NO SCHEDULE</div>`;
       } else {
-        dayRecords.forEach(r => {
-          const isOSS = r.OSS区分 === 'OSS';
-          const bColor = branchColors[r.拠点] || branchColors['その他'];
-
-          // スマホリスト用のPDFアイコン
-          const pdfIcon = (isSelectedPast && r.車検証リンク)
-            ? `<i class="fa-solid fa-file-pdf text-red-500 text-[16px] ml-3" title="車検証あり"></i>`
-            : '';
-
-          const card = document.createElement('div');
-          // 過去でもクリック可能に
-          card.className = `p-3.5 rounded-xl border-l-4 ${bColor.border} border border-[#C4C7C5] bg-white shadow-sm flex flex-col gap-1.5 active:bg-[#F8F9FA] transition-colors cursor-pointer`;
-
-          // ★ 登録済み(過去) ＋ PDFありなら別タブで開く、それ以外は編集モーダルを開く
-          card.onclick = (e) => {
-            e.stopPropagation();
-            if (isSelectedPast && r.車検証リンク) {
-               window.open(r.車検証リンク, '_blank');
-            } else {
-               openModal(r);
-            }
-          };
-
-          card.innerHTML = `
-            <div class="flex justify-between items-center">
-              <div class="font-bold text-[#202124] text-sm flex items-center">${r.顧客名} <span class="font-normal text-[11px] text-[#5F6368] ml-1">様</span> ${pdfIcon}</div>
-              <span class="text-[10px] px-2 py-0.5 rounded-md font-bold tracking-wide font-tech ${isOSS ? 'bg-[#E6F4EA] text-[#137333]' : 'bg-[#FCE8E6] text-[#C5221F]'}">${isOSS ? 'OSS' : 'PAPER'}</span>
-            </div>
-            <div class="flex gap-4 text-[11px] text-[#5F6368] font-tech mt-1 pt-1.5 border-t border-[#F1F3F4]">
-              <div class="flex items-center gap-1"><span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${bColor.bg} ${bColor.text}">${r.拠点}</span></div>
-              <div class="flex items-center gap-1.5"><i class="fa-solid fa-car text-[#80868B]"></i> ${r.車種}</div>
-              <div class="flex items-center gap-1.5"><i class="fa-solid fa-user text-[#80868B]"></i> <span class="text-[#202124] font-semibold">${r.担当者}</span></div>
-            </div>
-          `;
-          listEl.appendChild(card);
-        });
+        dayRecords.forEach(r => listEl.appendChild(createDayEntryCard(r, isSelectedPast)));
       }
 
       if (!isSelectedPast && IS_EDITOR) {
@@ -789,6 +828,41 @@
         addBtn.onclick = () => openModal({ 登録予定日: mobileSelectedDate, ステータス: '登録日確定' });
         listEl.appendChild(addBtn);
       }
+    }
+
+    // ▼ PCでカレンダーのマスに入りきらない分（「+N件」）を一覧表示するモーダル。
+    //   マスの高さは登録件数によらず常に固定にしたいので、2件目以降はここに集約する。
+    function openDayListModal(dateStr) {
+      const [y, m, d] = dateStr.split('-');
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      const isSelectedPast = new Date(y, m - 1, d) < today;
+
+      const dayRecords = allRecords.filter(r => r.登録予定日 === dateStr && r.ステータス === '登録日確定');
+
+      document.getElementById('dayListModalTitle').innerHTML = `<i class="fa-regular fa-calendar-check text-[#1A73E8]"></i> ${y}/${m}/${d} の登録予定（${dayRecords.length}件）`;
+
+      const bodyEl = document.getElementById('dayListModalBody');
+      bodyEl.innerHTML = '';
+      dayRecords.forEach(r => bodyEl.appendChild(createDayEntryCard(r, isSelectedPast)));
+
+      if (!isSelectedPast && IS_EDITOR) {
+        const addBtn = document.createElement('button');
+        addBtn.className = "w-full py-3 bg-[#F8F9FA] text-[#1A73E8] border border-dashed border-[#1A73E8]/50 rounded-xl text-[12px] font-bold tracking-wide hover:bg-[#E8F0FE] transition-colors flex items-center justify-center gap-2";
+        addBtn.innerHTML = `<i class="fa-solid fa-plus"></i> 新規登録を追加`;
+        addBtn.onclick = () => { closeDayListModal(); openModal({ 登録予定日: dateStr, ステータス: '登録日確定' }); };
+        bodyEl.appendChild(addBtn);
+      }
+
+      const modal = document.getElementById('dayListModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeDayListModal() {
+      const modal = document.getElementById('dayListModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
     }
 
     function renderUndecidedList() {
@@ -809,7 +883,7 @@
         const bColor = branchColors[r.拠点] || branchColors['その他'];
         const card = document.createElement('div');
 
-        card.className = `bg-white h-[92px] px-4 py-2 rounded-2xl border-y border-r border-l-4 ${bColor.border} border-[#C4C7C5] shadow-sm transition-all duration-200 hover:bg-[#F8F9FA] group flex flex-col justify-between items-center text-center shrink-0 w-full ${IS_EDITOR ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`;
+        card.className = `bg-white px-3 py-2 rounded-2xl border-y border-r border-l-4 ${bColor.border} border-[#C4C7C5] shadow-sm transition-all duration-200 hover:bg-[#F8F9FA] group flex flex-col gap-1 items-center text-center shrink-0 w-full ${IS_EDITOR ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`;
 
         if (window.innerWidth >= 768 && IS_EDITOR) {
           card.setAttribute('draggable', 'true');
@@ -824,12 +898,12 @@
         card.onclick = () => openModal(r);
 
         card.innerHTML = `
-          <div class="flex items-center justify-between w-full border-b border-[#F1F3F4] pb-1 shrink-0 pointer-events-none">
+          <div class="flex items-center justify-between w-full pointer-events-none">
             <span class="px-2 py-0.5 rounded text-[10px] font-bold ${bColor.bg} ${bColor.text}">${r.拠点}</span>
             <span class="text-[9px] px-2 py-0.5 rounded-md font-bold tracking-wide font-tech ${typeStyle}">${isOSS ? 'OSS' : 'PAPER'}</span>
           </div>
-          <div class="font-bold text-[#202124] text-sm truncate w-full leading-none my-auto pointer-events-none">${r.顧客名} <span class="text-[10px] font-normal text-[#5F6368]">様</span></div>
-          <div class="flex items-center justify-center gap-3 text-[11px] text-[#5F6368] w-full font-tech border-t border-[#F1F3F4]/60 pt-1 shrink-0 pointer-events-none">
+          <div class="font-bold text-[#202124] text-sm truncate w-full leading-tight pointer-events-none">${r.顧客名} <span class="text-[10px] font-normal text-[#5F6368]">様</span></div>
+          <div class="flex items-center justify-center gap-3 text-[11px] text-[#5F6368] w-full font-tech pointer-events-none">
             <div class="flex items-center gap-1"><i class="fa-solid fa-car text-[#80868B] text-[10px]"></i><span class="font-medium text-[#3C4043] truncate max-w-[70px]">${r.車種}</span></div>
             <div class="flex items-center gap-1"><i class="fa-solid fa-user text-[#80868B] text-[10px]"></i><span class="font-bold text-[#202124] text-[11px]">SALES: ${r.担当者}</span></div>
           </div>
