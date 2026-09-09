@@ -115,27 +115,27 @@
         <h3 class="text-[11px] md:text-xs font-bold text-[#5F6368] tracking-[0.12em] mb-3 md:hidden font-tech flex items-center gap-2"><i class="fa-solid fa-chart-line text-[#1A73E8]"></i> OVERVIEW</h3>
         <section class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5">
           <div class="bg-white border border-[#C4C7C5] p-3.5 md:p-5 rounded-2xl material-shadow">
-            <p class="text-[10px] md:text-[11px] font-bold text-[#5F6368] tracking-wide uppercase font-tech leading-tight">TOTAL<br class="md:hidden"> REGISTRATIONS</p>
+            <p class="text-[10px] md:text-[11px] font-bold text-[#5F6368] tracking-wide font-tech leading-tight">登録台数</p>
             <div class="flex items-baseline space-x-1.5 mt-2 md:mt-1.5">
-              <span id="kpi-total" class="text-2xl md:text-3xl font-bold text-[#202124] font-tech">-</span><span class="text-[10px] md:text-[11px] text-[#5F6368] font-tech">UNITS</span>
+              <span id="kpi-total" class="text-2xl md:text-3xl font-bold text-[#202124] font-tech">-</span><span class="text-[10px] md:text-[11px] text-[#5F6368] font-tech">台</span>
             </div>
           </div>
           <div class="bg-white border border-[#C4C7C5] p-3.5 md:p-5 rounded-2xl material-shadow">
-            <p class="text-[10px] md:text-[11px] font-bold text-[#5F6368] tracking-wide uppercase font-tech leading-tight">OSS<br class="md:hidden"> RATE</p>
+            <p class="text-[10px] md:text-[11px] font-bold text-[#5F6368] tracking-wide font-tech leading-tight">OSS登録率</p>
             <div class="flex items-baseline space-x-1.5 mt-2 md:mt-1.5">
               <span id="kpi-oss-rate" class="text-2xl md:text-3xl font-bold text-[#137333] font-tech">-</span><span class="text-[10px] md:text-[11px] text-[#137333] font-tech">%</span>
             </div>
           </div>
           <div class="bg-white border border-[#C4C7C5] p-3.5 md:p-5 rounded-2xl material-shadow">
-            <p class="text-[10px] md:text-[11px] font-bold text-[#5F6368] tracking-wide uppercase font-tech leading-tight">OSS<br class="md:hidden"> COMPLETED</p>
+            <p class="text-[10px] md:text-[11px] font-bold text-[#5F6368] tracking-wide font-tech leading-tight">OSS登録件数</p>
             <div class="flex items-baseline space-x-1.5 mt-2 md:mt-1.5">
-              <span id="kpi-oss-count" class="text-2xl md:text-3xl font-bold text-[#137333] font-tech">-</span><span class="text-[10px] md:text-[11px] text-[#5F6368] font-tech">CASES</span>
+              <span id="kpi-oss-count" class="text-2xl md:text-3xl font-bold text-[#137333] font-tech">-</span><span class="text-[10px] md:text-[11px] text-[#5F6368] font-tech">件</span>
             </div>
           </div>
           <div class="bg-white border border-[#C4C7C5] p-3.5 md:p-5 rounded-2xl material-shadow">
-            <p class="text-[10px] md:text-[11px] font-bold text-[#5F6368] tracking-wide uppercase font-tech leading-tight">PAPER<br class="md:hidden"> PROCESS</p>
+            <p class="text-[10px] md:text-[11px] font-bold text-[#5F6368] tracking-wide font-tech leading-tight">紙登録件数</p>
             <div class="flex items-baseline space-x-1.5 mt-2 md:mt-1.5">
-              <span id="kpi-paper-count" class="text-2xl md:text-3xl font-bold text-[#C5221F] font-tech">-</span><span class="text-[10px] md:text-[11px] text-[#5F6368] font-tech">CASES</span>
+              <span id="kpi-paper-count" class="text-2xl md:text-3xl font-bold text-[#C5221F] font-tech">-</span><span class="text-[10px] md:text-[11px] text-[#5F6368] font-tech">件</span>
             </div>
           </div>
         </section>
@@ -357,6 +357,7 @@
     let currentViewMode = 'calendar';
     let sidebarOpen = false;
     let filteredListRecords = [];
+    let duplicateNameSet = new Set();
 
     const todayInit = new Date();
     let mobileSelectedDate = `${todayInit.getFullYear()}-${String(todayInit.getMonth()+1).padStart(2,'0')}-${String(todayInit.getDate()).padStart(2,'0')}`;
@@ -538,7 +539,32 @@
       }
     }
 
+    // ▼ Code.gs の normalizeCustomerName と同じ正規化ルール（全角→半角、空白除去、株式会社/有限会社表記ゆれ統一）。
+    //   ドラッグ&ドロップ・未定リストからの入力・スプレッドシート直接編集のどこから登録日を確定しても、
+    //   同一人物が2行に分かれていないかをこの正規化名で検出できるようにする。
+    function normalizeCustomerNameForDupeCheck(name) {
+      if (!name) return "";
+      let str = String(name);
+      str = str.replace(/[Ａ-Ｚａ-ｚ０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
+      str = str.replace(/[\s ]+/g, "");
+      str = str.replace(/㈱|\(株\)|（株）|株式会社/g, "株式会社");
+      str = str.replace(/㈲|\(有\)|（有）|有限会社/g, "有限会社");
+      return str;
+    }
+
+    // ▼ 同じ人物と思われる行（正規化した顧客名が一致する行が2件以上）を検出する
+    function computeDuplicateNames() {
+      const counts = {};
+      allRecords.forEach(r => {
+        const key = normalizeCustomerNameForDupeCheck(r.顧客名);
+        if (!key) return;
+        counts[key] = (counts[key] || 0) + 1;
+      });
+      duplicateNameSet = new Set(Object.keys(counts).filter(key => counts[key] > 1));
+    }
+
     function renderApp() {
+      computeDuplicateNames();
       renderCalendar();
       renderUndecidedList();
       if (currentViewMode === 'list') renderListView();
@@ -564,9 +590,10 @@
       updateDashboard();
     }
 
-    function handleDrop(customerName, dateStr) {
+    function handleDrop(recordId, dateStr) {
       if (!IS_EDITOR) return;
-      const targetRecord = allRecords.find(r => r.顧客名 === customerName);
+      // 顧客名ではなくIDで探す。同姓同名の別レコードが存在しても取り違えないようにするため
+      const targetRecord = allRecords.find(r => r.ID === recordId);
       if (!targetRecord) return alert("対象のデータが見つかりませんでした。");
 
       targetRecord.ステータス = '登録日確定';
@@ -646,8 +673,8 @@
           cell.ondragleave = () => { cell.classList.remove('drag-over-cell'); };
           cell.ondrop = (e) => {
             e.preventDefault(); e.stopPropagation(); cell.classList.remove('drag-over-cell');
-            const droppedName = e.dataTransfer.getData('text/plain');
-            if (droppedName) handleDrop(droppedName, cellDateStr);
+            const droppedId = e.dataTransfer.getData('text/plain');
+            if (droppedId) handleDrop(droppedId, cellDateStr);
           };
         }
 
@@ -881,14 +908,15 @@
         const isOSS = r.OSS区分 === 'OSS';
         const typeStyle = isOSS ? 'bg-[#E6F4EA] text-[#137333]' : 'bg-[#FCE8E6] text-[#C5221F]';
         const bColor = branchColors[r.拠点] || branchColors['その他'];
+        const isDuplicate = duplicateNameSet.has(normalizeCustomerNameForDupeCheck(r.顧客名));
         const card = document.createElement('div');
 
-        card.className = `bg-white px-3 py-2 rounded-2xl border-y border-r border-l-4 ${bColor.border} border-[#C4C7C5] shadow-sm transition-all duration-200 hover:bg-[#F8F9FA] group flex flex-col gap-1 items-center text-center shrink-0 w-full ${IS_EDITOR ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`;
+        card.className = `bg-white px-3 py-2 rounded-2xl border-y border-r border-l-4 ${isDuplicate ? 'border-l-amber-500' : bColor.border} border-[#C4C7C5] shadow-sm transition-all duration-200 hover:bg-[#F8F9FA] group flex flex-col gap-1 items-center text-center shrink-0 w-full ${IS_EDITOR ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`;
 
         if (window.innerWidth >= 768 && IS_EDITOR) {
           card.setAttribute('draggable', 'true');
           card.ondragstart = (e) => {
-            e.dataTransfer.setData('text/plain', r.顧客名);
+            e.dataTransfer.setData('text/plain', r.ID);
             e.dataTransfer.effectAllowed = 'move';
             setTimeout(() => card.classList.add('opacity-50', 'scale-95'), 0);
           };
@@ -897,12 +925,15 @@
 
         card.onclick = () => openModal(r);
 
+        const dupeBadge = isDuplicate
+          ? `<i class="fa-solid fa-triangle-exclamation text-amber-500 text-[10px]" title="同姓同名の登録が複数あります。重複していないか確認してください"></i> `
+          : '';
         card.innerHTML = `
           <div class="flex items-center justify-between w-full pointer-events-none">
             <span class="px-2 py-0.5 rounded text-[10px] font-bold ${bColor.bg} ${bColor.text}">${r.拠点}</span>
             <span class="text-[9px] px-2 py-0.5 rounded-md font-bold tracking-wide font-tech ${typeStyle}">${isOSS ? 'OSS' : 'PAPER'}</span>
           </div>
-          <div class="font-bold text-[#202124] text-sm truncate w-full leading-tight pointer-events-none">${r.顧客名} <span class="text-[10px] font-normal text-[#5F6368]">様</span></div>
+          <div class="font-bold text-[#202124] text-sm truncate w-full leading-tight pointer-events-none">${dupeBadge}${r.顧客名} <span class="text-[10px] font-normal text-[#5F6368]">様</span></div>
           <div class="flex items-center justify-center gap-3 text-[11px] text-[#5F6368] w-full font-tech pointer-events-none">
             <div class="flex items-center gap-1"><i class="fa-solid fa-car text-[#80868B] text-[10px]"></i><span class="font-medium text-[#3C4043] truncate max-w-[70px]">${r.車種}</span></div>
             <div class="flex items-center gap-1"><i class="fa-solid fa-user text-[#80868B] text-[10px]"></i><span class="font-bold text-[#202124] text-[11px]">SALES: ${r.担当者}</span></div>
@@ -952,10 +983,13 @@
 
         const dateDisplay = r.登録予定日 ? r.登録予定日 : '<span class="text-[#C5221F] text-[11px] bg-[#FCE8E6] px-2 py-0.5 rounded-md border border-[#FAD2CF] font-bold">未定</span>';
         const pdfIcon = r.車検証リンク ? ` <i class="js-pdf-link fa-solid fa-file-pdf text-red-500 ml-1 cursor-pointer" title="車検証PDFを開く"></i>` : '';
+        const dupeBadge = duplicateNameSet.has(normalizeCustomerNameForDupeCheck(r.顧客名))
+          ? `<i class="fa-solid fa-triangle-exclamation text-amber-500 ml-1.5" title="同姓同名の登録が複数あります。重複していないか確認してください"></i>`
+          : '';
 
         tr.innerHTML = `
           <td class="px-4 md:px-5 py-3 md:py-4 font-semibold text-[#202124] font-tech">${dateDisplay}</td>
-          <td class="px-4 md:px-5 py-3 md:py-4 font-bold text-[#202124] text-xs">${r.顧客名}${pdfIcon}</td>
+          <td class="px-4 md:px-5 py-3 md:py-4 font-bold text-[#202124] text-xs">${r.顧客名}${dupeBadge}${pdfIcon}</td>
           <td class="px-4 md:px-5 py-3 md:py-4"><span><span class="text-[9px] px-2 py-0.5 rounded-md font-bold tracking-wide font-tech ${typeStyle}">${isOSS ? 'OSS' : '紙登録'}</span></span></td>
           <td class="px-4 md:px-5 py-3 md:py-4 text-[#202124]"><span><span class="bg-[#F1F3F4] px-2 py-0.5 rounded text-[10px] mr-2 font-bold text-[#3C4043] border border-[#C4C7C5] font-tech">${r.拠点}</span></span>${r.担当者}</td>
           <td class="px-4 md:px-5 py-3 md:py-4 text-[#3C4043] font-medium font-tech">${r.車種}</td>
