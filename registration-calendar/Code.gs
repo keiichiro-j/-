@@ -48,44 +48,76 @@ function getOrCreateDatabaseSheet(sheetName) {
   return sheet;
 }
 
+// ▼ スプレッドシートに直接入力した行はID列を空欄のまま保存されることが多く、
+//   前の行をコピーして作った場合はIDが他の行と重複することもある。
+//   ドラッグ&ドロップ等が必ず正しい行だけを指せるよう、データを読み込むたびに
+//   ID列が空欄・重複している行へ新しいIDを振り直してシートへ書き戻す。
+//   → 直接シートに新規行を入力する際は、ID列は空欄のままで構わない。
+function ensureUniqueIds_(sheets) {
+  const seenIds = {};
+  sheets.forEach(sheet => {
+    const data = sheet.getDataRange().getValues();
+    if (data.length <= 1) return;
+    const idColIndex = data[0].indexOf('ID');
+    if (idColIndex === -1) return;
+
+    let changed = false;
+    for (let i = 1; i < data.length; i++) {
+      let id = data[i][idColIndex];
+      const hasContentInRow = data[i].some(cell => cell !== '' && cell !== null);
+      if (!hasContentInRow) continue; // 完全な空行はスキップ
+
+      if (!id || seenIds[id]) {
+        id = 'ID-' + Utilities.getUuid();
+        data[i][idColIndex] = id;
+        changed = true;
+      }
+      seenIds[id] = true;
+    }
+    if (changed) {
+      sheet.getRange(1, 1, data.length, data[0].length).setValues(data);
+    }
+  });
+}
+
 // ▼ 全ての月別シートからデータを結合してフロントへ送る
 function getRegistrationData() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheets = ss.getSheets();
+    const sheets = ss.getSheets().filter(s => s.getName().startsWith('db_登録データ'));
+    ensureUniqueIds_(sheets);
+
     let allData = [];
 
     sheets.forEach(sheet => {
-      if (sheet.getName().startsWith('db_登録データ')) {
-        const range = sheet.getDataRange();
-        const data = range.getValues();
-        const formulas = range.getFormulas(); // 数式も取得してHYPERLINK対策
+      const range = sheet.getDataRange();
+      const data = range.getValues();
+      const formulas = range.getFormulas(); // 数式も取得してHYPERLINK対策
 
-        if (data.length > 1) {
-          const headers = data[0];
-          const rows = data.slice(1);
-          const sheetData = rows.map((row, rowIndex) => {
-            let obj = {};
-            headers.forEach((header, index) => {
-              let val = row[index];
-              const formula = formulas[rowIndex + 1][index];
+      if (data.length > 1) {
+        const headers = data[0];
+        const rows = data.slice(1);
+        const sheetData = rows.map((row, rowIndex) => {
+          let obj = {};
+          headers.forEach((header, index) => {
+            let val = row[index];
+            const formula = formulas[rowIndex + 1][index];
 
-              // HYPERLINK関数の場合は中のURLだけを抽出する
-              if (formula && String(formula).toUpperCase().startsWith('=HYPERLINK')) {
-                const match = formula.match(/=HYPERLINK\("([^"]+)"/i);
-                if (match) {
-                  val = match[1];
-                }
-              } else if (val instanceof Date) {
-                val = Utilities.formatDate(val, Session.getScriptTimeZone(), "yyyy-MM-dd");
+            // HYPERLINK関数の場合は中のURLだけを抽出する
+            if (formula && String(formula).toUpperCase().startsWith('=HYPERLINK')) {
+              const match = formula.match(/=HYPERLINK\("([^"]+)"/i);
+              if (match) {
+                val = match[1];
               }
+            } else if (val instanceof Date) {
+              val = Utilities.formatDate(val, Session.getScriptTimeZone(), "yyyy-MM-dd");
+            }
 
-              obj[header] = val;
-            });
-            return obj;
+            obj[header] = val;
           });
-          allData = allData.concat(sheetData);
-        }
+          return obj;
+        });
+        allData = allData.concat(sheetData);
       }
     });
     return allData;
