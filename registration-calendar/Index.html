@@ -177,7 +177,7 @@
     </div>
 
     <div class="flex flex-col lg:flex-row gap-4 md:gap-6 items-start w-full mt-5">
-      <div id="calendar-wrapper" class="w-full transition-all duration-300 lg:h-[820px] shrink-0">
+      <div id="calendar-wrapper" class="w-full transition-all duration-300 lg:h-[820px] min-w-0">
 
         <!-- CALENDAR VIEW -->
         <div id="view-calendar-container" class="bg-white border border-[#C4C7C5] p-3 md:p-6 rounded-3xl material-card-shadow md:h-full flex flex-col md:overflow-hidden">
@@ -239,7 +239,7 @@
       </div>
 
       <!-- サイドバー (未定リスト) -->
-      <div id="sidebar-wrapper" class="hidden w-full lg:w-1/4 bg-white border border-[#C4C7C5] p-4 md:p-5 rounded-3xl material-card-shadow flex-col lg:h-[820px] min-w-0 shrink-0 transition-all duration-300">
+      <div id="sidebar-wrapper" class="hidden w-full lg:w-[272px] bg-white border border-[#C4C7C5] p-4 md:p-5 rounded-3xl material-card-shadow flex-col lg:h-[820px] min-w-0 shrink-0 transition-all duration-300">
         <div class="flex items-center justify-between pb-4 border-b border-[#C4C7C5] mb-4 gap-2 shrink-0">
           <h3 class="text-[10px] font-bold text-[#5F6368] tracking-wide uppercase flex items-center gap-1.5 font-tech min-w-0">
             <i class="fa-solid fa-circle-notch text-[#1A73E8] animate-spin-slow shrink-0"></i>
@@ -441,12 +441,12 @@
 
       if (sidebarOpen) {
         calendarWrapper.classList.remove('lg:w-full');
-        calendarWrapper.classList.add('lg:w-3/4');
+        calendarWrapper.classList.add('lg:flex-1');
         sidebarWrapper.classList.remove('hidden');
         sidebarWrapper.classList.add('md:flex');
         toggleText.innerText = "未定リスト: ON";
       } else {
-        calendarWrapper.classList.remove('lg:w-3/4');
+        calendarWrapper.classList.remove('lg:flex-1');
         calendarWrapper.classList.add('lg:w-full');
         sidebarWrapper.classList.add('hidden');
         sidebarWrapper.classList.remove('md:flex');
