@@ -718,8 +718,14 @@
     }).catch(function (err) { showToast(err.message, true); });
   }
 
+  // dd（値）はカード・詳細モーダルどちらでも折り返さず省略記号にする方針
+  // （.card__metaGrid dd、Stylesheet.html参照。折り返すとカードごとに高さが
+  // ばらつくため）。旧使用拠点・現展示拠点・オプション等、現場の入力次第で
+  // 長くなり得る項目は省略記号で見えなくなった部分が確認できないままになって
+  // しまうため、title属性でホバー時に全文を確認できるようにしておく。
   function metaRow_(label, value) {
-    return '<div><dt>' + label + '</dt><dd>' + escapeHtml(value || '-') + '</dd></div>';
+    var text = value || '-';
+    return '<div><dt>' + label + '</dt><dd title="' + escapeHtml(text) + '">' + escapeHtml(text) + '</dd></div>';
   }
 
   // ===== Hold種別（通常／業販HOLD）表示ヘルパー =====
@@ -3511,6 +3517,7 @@
     [
       ['inventoryToolbar', 'inventoryToolbarSpacer', 16],
       ['ordersToolbar', 'ordersToolbarSpacer', 16],
+      ['wholesaleOrdersToolbar', 'wholesaleOrdersToolbarSpacer', 16],
       ['myPageToolbar', 'myPageToolbarSpacer', 16],
       // お知らせ（#homeAnnouncement）はタブレット・スマホ幅のみposition: fixed
       // （PCでは#homeCombinedHeader内の先頭要素として組み込まれ、そちらの

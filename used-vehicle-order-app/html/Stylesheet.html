@@ -773,17 +773,25 @@
        してしまい、Hold詳細・操作ボタンのように幅を要する列が窮屈になって
        いた（現場からの指摘:「Hold情報が不鮮明」「受注確定・2ND HOLDの文字が
        見切れる」）。列ごとの実際の内容量に応じて明示的に配分する
-       （合計100%。vehicleRowsHtml・vehicleTableRowHtml_の列順と対応）。 */
-    .invTable th:nth-child(1), .invTable td:nth-child(1) { width: 8%; }  /* ステータス */
+       （合計100%。vehicleRowsHtml・vehicleTableRowHtml_の列順と対応）。
+       ステータス列は、実機での動作確認で「Hold中（2nd有）」「業販HOLD中」の
+       ように長いバッジ文言が列幅（旧8%）を超え、隣の車種列の文字に重なって
+       見えなくなる不具合が見つかったため、他列から幅を回してさらに広げてある
+       （.invTableRow__status .badge側の折り返し対応と合わせて二重に対策）。
+       走行距離・販売価格は、ステータス列の拡張のしわ寄せで一時7%/8%まで
+       削っていたが、それだと「45,210 km」のような値が列内で2行に折り返って
+       しまっていたため（これも見切れ・折り返しの一種）、カラー列から幅を
+       戻して8%/9%に広げ、1行に収まるようにしてある。 */
+    .invTable th:nth-child(1), .invTable td:nth-child(1) { width: 10%; } /* ステータス */
     .invTable th:nth-child(2), .invTable td:nth-child(2) { width: 12%; } /* 車種 */
     .invTable th:nth-child(3), .invTable td:nth-child(3) { width: 10%; } /* ＯＣＮ */
     .invTable th:nth-child(4), .invTable td:nth-child(4) { width: 5%; }  /* ハンドル */
-    .invTable th:nth-child(5), .invTable td:nth-child(5) { width: 10%; } /* カラー */
+    .invTable th:nth-child(5), .invTable td:nth-child(5) { width: 8%; }  /* カラー */
     .invTable th:nth-child(6), .invTable td:nth-child(6) { width: 8%; }  /* 走行距離 */
     .invTable th:nth-child(7), .invTable td:nth-child(7) { width: 9%; }  /* 販売価格 */
-    .invTable th:nth-child(8), .invTable td:nth-child(8) { width: 14%; } /* 1ST HOLD */
-    .invTable th:nth-child(9), .invTable td:nth-child(9) { width: 14%; } /* 2ND HOLD */
-    .invTable th:nth-child(10), .invTable td:nth-child(10) { width: 10%; } /* 操作 */
+    .invTable th:nth-child(8), .invTable td:nth-child(8) { width: 13%; } /* 1ST HOLD */
+    .invTable th:nth-child(9), .invTable td:nth-child(9) { width: 13%; } /* 2ND HOLD */
+    .invTable th:nth-child(10), .invTable td:nth-child(10) { width: 12%; } /* 操作 */
   }
   .invTable {
     width: 100%;
@@ -817,6 +825,17 @@
   /* 中古車サイトに掲載中の車両は、Hold状態の色（border-left-color）とは独立して
      行の背景色を変え、一目で区別できるようにする（.card.is-listedと同じ考え方）。 */
   .invTableRow.is-listed > td { background: var(--listed-bg); }
+  /* 不具合修正: .badge本体はwhite-space: nowrap（バッジらしい1行の見た目を保つ
+     ため）だが、ステータス列の幅（table-layout: fixed）を超える長さの文言
+     （「Hold中（2nd有）」「業販HOLD中」等）は、nowrapのまま隣の車種列へ
+     はみ出し、車種の文字と重なって読めなくなっていた（現場での動作確認で
+     発見）。列幅を広げただけでは今後さらに長い文言が増えた場合に再発するため、
+     ステータス列内のバッジに限り折り返しを許可する安全策も併用する。 */
+  .invTableRow__status .badge {
+    white-space: normal;
+    text-align: left;
+    max-width: 100%;
+  }
   /* モデル・コミッション・カラー・有償OPは、値が長い場合でも折り返さず省略記号に
      する（現場からの要望。折り返すと行の高さが車両ごとにばらつく）。 */
   .invTableRow__ellipsis {
@@ -937,6 +956,17 @@
        他のカードのサイズには影響しないようにする。 */
     align-items: start;
   }
+  /* 不具合修正: 実機確認で、タブレット・スマホ幅（.cardGridが
+     repeat(auto-fill, minmax(230px, 1fr))になる@media (max-width: 900px)
+     参照）で、長いモデル名やHold担当者・顧客名（white-space: nowrapで
+     省略記号にしている箇所）を含むカードがあると、ページ全体が横スクロール
+     してしまう不具合があった。minmax()の最小値が0ではない（230px）track
+     では、グリッドアイテム自身のmin-width（既定値auto）が中身の最小内容幅
+     （nowrap文字列の全長）まで膨らんでしまい、230pxという指定を無視して
+     カードごと大きく広がってしまうため（4列・3列時の.cardGrid
+     minmax(0, 1fr)ではこの現象が起きないのと対照的）。カード自身に
+     min-width: 0を指定し、中身の折り返し・省略記号（ellipsis）を優先して
+     カードの幅はグリッドの割り当てどおりに保たれるようにする。 */
   .card {
     background: var(--surface);
     border: 1px solid var(--outline);
@@ -947,6 +977,7 @@
     display: flex;
     flex-direction: column;
     gap: 14px;
+    min-width: 0;
     transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
   }
   /* data-commissionを持つカード（在庫リスト・マイページのHold中車両一覧。
@@ -1131,15 +1162,19 @@
     gap: 8px;
     margin-bottom: 4px;
   }
+  /* 不具合修正: 実機確認で、1st・2nd Holdが横並びになるカード（.card__holdArea--split。
+     PCの3〜4列カードグリッドだと1枠あたりの幅がさらにその半分になり、かなり
+     狭くなる）で、"1ST HOLD"／"2ND HOLD"という固定の短いラベルまでもが
+     nowrap+ellipsisで「1ST …」のように削れて何のラベルか分からなくなって
+     いた（業販HOLDの場合は末尾に「（業販HOLD）」も付き、さらに長くなる）。
+     ラベル自体は長い可変データではなく固定文言のため、省略記号で消すより
+     2行に折り返したほうが常に判読できる。 */
   .card__holdInfo__label {
     font-size: 11px;
     font-weight: 700;
     letter-spacing: .02em;
     text-transform: uppercase;
     min-width: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
   .card__holdInfo--first { border-left-color: var(--warning); }
   .card__holdInfo--first .card__holdInfo__label { color: var(--warning); }
@@ -1245,6 +1280,7 @@
     display: flex;
     flex-direction: column;
     gap: 14px;
+    min-width: 0; /* .cardと同じグリッド幅膨張対策。理由はそちらのコメント参照 */
     cursor: pointer;
     transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
   }
