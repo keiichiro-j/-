@@ -505,78 +505,6 @@
   .viewToggle__item .icon--inline { margin: 0; }
   .viewToggle__item.is-active { background: var(--surface); color: var(--primary-text); box-shadow: var(--shadow); }
 
-  /* ===== 車両比較（カード・表それぞれに置くピン、下部固定バー、比較モーダル） ===== */
-  .card__comparePin {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--on-surface-variant);
-    cursor: pointer;
-    margin-left: auto;
-  }
-  .card__top .card__comparePin { flex: none; }
-  .tableComparePin { display: flex; }
-
-  .compareBar {
-    position: fixed;
-    left: 50%;
-    bottom: 20px;
-    transform: translateX(-50%);
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    /* テーマ設定の文字色やベース背景色（--on-surface/--background/--surface）に
-       関わらず、常にネイビー基調の浮遊バーにする（メインネイビー。枠線も
-       --outlineではなく、ネイビー背景でも見える--dark-ui-outlineを使う）。 */
-    background: #102a43;
-    border: 1px solid var(--dark-ui-outline);
-    color: #fff;
-    padding: 10px 16px;
-    border-radius: 999px;
-    box-shadow: var(--shadow-elevated);
-    z-index: 40;
-    max-width: calc(100% - 32px);
-  }
-  .compareBar__label { font-size: 13px; font-weight: 700; flex: none; }
-  .compareBar__chips { display: flex; gap: 6px; flex-wrap: wrap; overflow-x: auto; max-width: 46vw; }
-  .compareBar__spacer { flex: 1; min-width: 8px; }
-  .compareChip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: rgba(255, 255, 255, .16);
-    padding: 4px 6px 4px 12px;
-    border-radius: 999px;
-    font-size: 12.5px;
-    white-space: nowrap;
-  }
-  .compareChip button {
-    border: none;
-    background: rgba(255, 255, 255, .2);
-    color: #fff;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    cursor: pointer;
-    font-size: 13px;
-    line-height: 1;
-  }
-  .compareBar .btn { padding: 7px 14px; font-size: 13px; flex: none; }
-  .compareBar .btn:not(.btn--primary) { background: rgba(255, 255, 255, .12); border-color: rgba(255, 255, 255, .3); color: #fff; }
-  .compareBar .btn:not(.btn--primary):hover { background: rgba(255, 255, 255, .2); }
-
-  .modal__panel.modal__panel--compare { max-width: 900px; }
-  .tableScroll { overflow-x: auto; }
-  .compareTable { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-  .compareTable th, .compareTable td { padding: 10px 14px; border-bottom: 1px solid var(--outline); text-align: left; white-space: nowrap; }
-  .compareTable thead th { color: var(--on-surface-variant); font-size: 12px; font-weight: 700; }
-  .compareTable thead th:first-child { background: var(--surface); }
-  .compareTable tbody th { font-size: 12.5px; font-weight: 700; color: var(--on-surface-variant); background: var(--background); }
-  .compareTable__sub { font-size: 11px; font-weight: 500; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; margin-top: 2px; }
-  .compareTable tr.is-diff td { background: var(--primary-bg); }
-
   /* ===== 受注・発注・Gクラス予約リストの表示形式「表」（多台数を一覧で見比べる
      商談向けビュー） =====
      素のtableではなく、カードグリッドと同じ「カードタイプUI」（角丸・影・ホバーで
@@ -774,24 +702,21 @@
        いた（現場からの指摘:「Hold情報が不鮮明」「受注確定・2ND HOLDの文字が
        見切れる」）。列ごとの実際の内容量に応じて明示的に配分する
        （合計100%。vehicleRowsHtml・vehicleTableRowHtml_の列順と対応）。
-       ステータス列は、実機での動作確認で「Hold中（2nd有）」「業販HOLD中」の
-       ように長いバッジ文言が列幅（旧8%）を超え、隣の車種列の文字に重なって
-       見えなくなる不具合が見つかったため、他列から幅を回してさらに広げてある
-       （.invTableRow__status .badge側の折り返し対応と合わせて二重に対策）。
-       走行距離・販売価格は、ステータス列の拡張のしわ寄せで一時7%/8%まで
-       削っていたが、それだと「45,210 km」のような値が列内で2行に折り返って
-       しまっていたため（これも見切れ・折り返しの一種）、カラー列から幅を
-       戻して8%/9%に広げ、1行に収まるようにしてある。 */
-    .invTable th:nth-child(1), .invTable td:nth-child(1) { width: 10%; } /* ステータス */
-    .invTable th:nth-child(2), .invTable td:nth-child(2) { width: 12%; } /* 車種 */
-    .invTable th:nth-child(3), .invTable td:nth-child(3) { width: 10%; } /* ＯＣＮ */
+       車種（MODEL列）は実際には「C20T」のように短い型番がほとんどのため
+       車種・カラー列は控えめにし、代わりにステータスバッジ・Hold詳細・
+       操作ボタン（いずれも縦折り返し禁止の要望あり）に幅を厚めに配分する。
+       比較機能の削除で操作列からチェックボックスが無くなった分もそのまま
+       操作列に還元してある。 */
+    .invTable th:nth-child(1), .invTable td:nth-child(1) { width: 12%; } /* ステータス */
+    .invTable th:nth-child(2), .invTable td:nth-child(2) { width: 7%; }  /* 車種 */
+    .invTable th:nth-child(3), .invTable td:nth-child(3) { width: 9%; }  /* ＯＣＮ */
     .invTable th:nth-child(4), .invTable td:nth-child(4) { width: 5%; }  /* ハンドル */
-    .invTable th:nth-child(5), .invTable td:nth-child(5) { width: 8%; }  /* カラー */
+    .invTable th:nth-child(5), .invTable td:nth-child(5) { width: 7%; }  /* カラー */
     .invTable th:nth-child(6), .invTable td:nth-child(6) { width: 8%; }  /* 走行距離 */
     .invTable th:nth-child(7), .invTable td:nth-child(7) { width: 9%; }  /* 販売価格 */
     .invTable th:nth-child(8), .invTable td:nth-child(8) { width: 13%; } /* 1ST HOLD */
     .invTable th:nth-child(9), .invTable td:nth-child(9) { width: 13%; } /* 2ND HOLD */
-    .invTable th:nth-child(10), .invTable td:nth-child(10) { width: 12%; } /* 操作 */
+    .invTable th:nth-child(10), .invTable td:nth-child(10) { width: 17%; } /* 操作 */
   }
   .invTable {
     width: 100%;
@@ -829,11 +754,14 @@
      ため）だが、ステータス列の幅（table-layout: fixed）を超える長さの文言
      （「Hold中（2nd有）」「業販HOLD中」等）は、nowrapのまま隣の車種列へ
      はみ出し、車種の文字と重なって読めなくなっていた（現場での動作確認で
-     発見）。列幅を広げただけでは今後さらに長い文言が増えた場合に再発するため、
-     ステータス列内のバッジに限り折り返しを許可する安全策も併用する。 */
+     発見）。ステータス・操作列（受注確定・2ND HOLD等）は縦に折り返さず常に
+     横一列で表示してほしいという要望のため、折り返しではなく列幅そのものを
+     広げる方向で対応し、バッジ自体は1行のまま（万一収まりきらない場合のみ
+     省略記号にする、あくまで保険）にしてある。 */
   .invTableRow__status .badge {
-    white-space: normal;
-    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     max-width: 100%;
   }
   /* モデル・コミッション・カラー・有償OPは、値が長い場合でも折り返さず省略記号に
@@ -853,26 +781,15 @@
   }
   .invTableRow__mono { font-variant-numeric: tabular-nums; }
   .invTableRow__center { text-align: center; }
-  /* 不具合修正: white-space: nowrapのまま列幅が足りないと、ボタンの文字が
-     列からはみ出し、PCビュー（overflow-x: hidden）では見切れて消えてしまって
-     いた（現場からの指摘）。nowrapをやめてflex-wrapで折り返せるようにし、
-     内容がすべて見える方を優先する（折り返した場合は行の高さが少し伸びるが、
-     文字が消えるよりはよい）。 */
+  /* 「受注確定」「2ND HOLD」等の操作ボタンは縦に折り返さず常に横一列で表示する
+     （現場からの要望）。比較機能の削除で操作列にチェックボックスが無くなった分、
+     ボタンだけなら列幅（nth-child(10)、下記@media参照）に十分収まる。 */
   .invTableRow__actions {
-    white-space: normal;
+    white-space: nowrap;
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
-    gap: 6px 8px;
-  }
-  .invTable__comparePin {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 11.5px;
-    font-weight: 500;
-    color: var(--on-surface-variant);
-    cursor: pointer;
+    gap: 8px;
   }
   /* 1ST HOLD・2ND HOLD列。Hold登録が無い場合は「未登録」の薄いグレーのピルのみ
      表示する（参照UI参照）。
@@ -1162,17 +1079,16 @@
     gap: 8px;
     margin-bottom: 4px;
   }
-  /* 不具合修正: 実機確認で、1st・2nd Holdが横並びになるカード（.card__holdArea--split。
-     PCの3〜4列カードグリッドだと1枠あたりの幅がさらにその半分になり、かなり
-     狭くなる）で、"1ST HOLD"／"2ND HOLD"という固定の短いラベルまでもが
-     nowrap+ellipsisで「1ST …」のように削れて何のラベルか分からなくなって
-     いた（業販HOLDの場合は末尾に「（業販HOLD）」も付き、さらに長くなる）。
-     ラベル自体は長い可変データではなく固定文言のため、省略記号で消すより
-     2行に折り返したほうが常に判読できる。 */
+  /* "1ST HOLD"／"2ND HOLD"は縦に折り返さず常に横一列のまま表示する（現場からの
+     要望）。省略記号（ellipsis）はあくまで、業販HOLDの「（業販HOLD）」suffix等で
+     万一収まりきらない場合の保険。 */
   .card__holdInfo__label {
     font-size: 11px;
     font-weight: 700;
     letter-spacing: .02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     text-transform: uppercase;
     min-width: 0;
   }
@@ -1238,8 +1154,25 @@
   .holdTimer--warning .holdTimer__text { color: var(--warning); }
   .holdTimer--expired .holdTimer__text { color: var(--danger); }
 
-  .card__actions { display: flex; gap: 10px; margin-top: auto; padding-top: 4px; flex-wrap: wrap; }
-  .card__actions .btn { flex: 1; min-height: 44px; }
+  .card__actions { display: flex; gap: 8px; margin-top: auto; padding-top: 4px; flex-wrap: wrap; }
+  /* 「2ND HOLD」「受注確定」等、ボタン内の文言は横一列表示を維持したい
+     （折り返して縦2行になると見づらいため）。flex: 1 の等分幅に対して
+     文字が収まりきらないケースに備え、min-width: 0 で必要なら縮められる
+     ようにしたうえで、白抜きなし（nowrap）＋ボタン内では省略記号を
+     フォールバックとして設定する。横幅に余裕を持たせるためパディングと
+     文字間隔（letter-spacing）も他のボタンよりやや詰めている。 */
+  .card__actions .btn {
+    flex: 1;
+    min-width: 0;
+    min-height: 44px;
+    padding-left: 10px;
+    padding-right: 10px;
+    font-size: 12.5px;
+    letter-spacing: .02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 
   .emptyState {
     display: flex;
@@ -2796,8 +2729,6 @@
     .orderCard { padding: 16px 18px; }
     .purchaseOrderList { gap: 12px; }
     .purchaseOrderCard { padding: 16px 18px; }
-    .compareBar { left: 10px; right: 10px; bottom: 10px; transform: none; max-width: none; flex-wrap: wrap; }
-    .compareBar__chips { max-width: 100%; }
   }
 
   @media (prefers-reduced-motion: reduce) {

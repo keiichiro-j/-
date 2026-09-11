@@ -25,7 +25,6 @@
     bootstrap: null,
     inventoryItems: [],
     inventoryViewMode: safeLocalStorageGet_('inventoryViewMode') || 'card', // 'card' | 'table'（在庫リストの表示形式。端末ごとにlocalStorageへ保存）
-    compareItems: [], // 比較中の車両（在庫リストのピンで選択。最大COMPARE_MAX台）
     ordersViewMode: safeLocalStorageGet_('ordersViewMode') || 'card', // 'card' | 'table'（受注リストの表示形式）
     ordersGroups: [],
     wholesaleOrdersViewMode: safeLocalStorageGet_('wholesaleOrdersViewMode') || 'card', // 'card' | 'table'（業販受注リストの表示形式）
@@ -43,7 +42,6 @@
     allOrders: [], // マイページ集計専用（受注リストの検索・絞り込み条件に左右されない全件）
     myPageViewMode: safeLocalStorageGet_('myPageViewMode') || 'card' // 'card' | 'table'（マイページ全体の表示形式）
   };
-  var COMPARE_MAX = 3;
 
   // ===== google.script.run を Promise 化するヘルパー =====
   // サーバー側が応答しない場合にボタンやモーダルが固まって見えないよう、
@@ -772,19 +770,18 @@
   }
 
   /**
-   * カード上部（モデル・コミッション・比較ピンの行＋バッジの行）。2行に分けて
+   * カード上部（モデル・コミッションの行＋バッジの行）。2行に分けて
    * 固定することで、バッジの個数（2個／3個）やモデル名・コミッションの文字数に
    * よって折り返し方が変わり、カードごとに高さがバラつく問題を避ける（以前は
    * 1つのflex-wrapコンテナに全部まとめていたため、組み合わせによって1行に
    * 収まったり2行・3行になったりし、在庫あり／Hold中／Hold中（2nd有）で
    * カードの高さが揃わなかった）。
    */
-  function vehicleTopHtml_(v, comparePinHtml) {
+  function vehicleTopHtml_(v) {
     return '<div class="card__top">' +
       '<div class="card__topRow">' +
       '<div><div class="card__model">' + escapeHtml(v.model) + '</div>' +
       '<div class="card__commission">' + escapeHtml(v.commission) + '</div></div>' +
-      (comparePinHtml || '') +
       '</div>' +
       '<div class="card__badges">' + vehicleBadgesHtml_(v) + '</div>' +
       '</div>';
@@ -884,17 +881,13 @@
         '</div>';
     }
 
-    var isComparing = isComparingCommission_(v.commission);
-    var comparePinHtml = '<label class="card__comparePin">' +
-      '<input type="checkbox" data-compare="' + escapeHtml(v.commission) + '"' + (isComparing ? ' checked' : '') + '>比較</label>';
-
     var cardTone = vehicleCardTone_(v);
     // data-commissionをカード自体に持たせ、カードのどこをタップしても（ボタン・
     // 入力・ラベル以外）詳細モーダルを開けるようにする（表示形式「表」の行タップと
     // 同じ操作感に揃える。現場からの要望）。「▸ 詳細を見る」の文字自体は、タップ
     // できる範囲があることを示すヒントとして残す。
     return '<div class="card ' + cardTone + '" data-commission="' + escapeHtml(v.commission) + '">' +
-      vehicleTopHtml_(v, comparePinHtml) +
+      vehicleTopHtml_(v) +
       vehicleQuickMetaHtml_(v) +
       '<button type="button" class="card__detailLink" data-detail="' + escapeHtml(v.commission) + '">▸ 詳細を見る</button>' +
       holdInfoHtml +
@@ -925,128 +918,13 @@
 
     var cardTone = vehicleCardTone_(v);
     return '<div class="card ' + cardTone + '">' +
-      vehicleTopHtml_(v, '') +
+      vehicleTopHtml_(v) +
       vehicleQuickMetaHtml_(v) +
       vehicleSpecFieldsHtml_(v) +
       holdInfoHtml +
       vehicleActionsHtml_(v) +
       '</div>';
   }
-
-  // ===== 車両比較（在庫リストのカード・表それぞれのピンから最大COMPARE_MAX台まで選び、
-  // スペックを並べて見比べる。商談中に似た条件の車両を比較する場面を想定した機能）。 =====
-  function isComparingCommission_(commission) {
-    return state.compareItems.some(function (v) { return commissionEquals_(v.commission, commission); });
-  }
-
-  function toggleCompare_(commission, checked) {
-    try {
-      if (checked) {
-        if (state.compareItems.length >= COMPARE_MAX) {
-          showToast('比較は最大' + COMPARE_MAX + '台までです', true);
-          document.querySelectorAll('[data-compare="' + commission + '"]').forEach(function (el) { el.checked = false; });
-          return;
-        }
-        var vehicle = findVehicleByCommission(commission);
-        if (!vehicle) {
-          showToast('この車両の情報が見つからないため比較に追加できません。検索条件を変えている場合は解除してからお試しください。', true);
-          document.querySelectorAll('[data-compare="' + commission + '"]').forEach(function (el) { el.checked = false; });
-          return;
-        }
-        state.compareItems.push(vehicle);
-      } else {
-        state.compareItems = state.compareItems.filter(function (v) { return !commissionEquals_(v.commission, commission); });
-      }
-      syncComparePins_();
-      renderCompareBar_();
-    } catch (e) {
-      showToast('比較の切り替えに失敗しました: ' + e.message, true);
-    }
-  }
-
-  function syncComparePins_() {
-    var activeSet = {};
-    state.compareItems.forEach(function (v) { activeSet[v.commission] = true; });
-    // マイページの「Hold中の車両」一覧（#myPageHoldList）も在庫リストと同じ
-    // 比較ピン（vehicleCardHtml）を再利用しているため、あわせて同期する。
-    document.querySelectorAll('#inventoryList [data-compare], #myPageHoldList [data-compare]').forEach(function (el) {
-      el.checked = !!activeSet[el.dataset.compare];
-    });
-  }
-
-  function renderCompareBar_() {
-    var items = state.compareItems;
-    $('compareBar').classList.toggle('hidden', items.length === 0);
-    $('compareBarChips').innerHTML = items.map(function (v) {
-      return '<span class="compareChip">' + escapeHtml(v.model) +
-        '<button type="button" data-compare-remove="' + escapeHtml(v.commission) + '" aria-label="比較から外す">&times;</button></span>';
-    }).join('');
-    $('btnCompareShow').disabled = items.length < 2;
-  }
-
-  var COMPARE_FIELDS = [
-    { label: 'モデル', get: function (v) { return v.model; } },
-    { label: 'コミッション', get: function (v) { return v.commission; } },
-    { label: '状態', get: function (v) { return v.holdStatus === 'hold' ? 'Hold中' : '在庫あり'; } },
-    { label: '区分', get: function (v) { return v.category; } },
-    { label: 'ＯＣＮ', get: function (v) { return v.ocn; } },
-    { label: 'ステア', get: function (v) { return v.steering; } },
-    { label: '外装色', get: function (v) { return v.exteriorColor; } },
-    { label: '内装色', get: function (v) { return v.interiorColor; } },
-    { label: '登録番号', get: function (v) { return plateText_(v); } },
-    { label: '型式', get: function (v) { return v.modelCode; } },
-    { label: '車台番号下４桁', get: function (v) { return v.chassisNumberLast4; } },
-    { label: '初年度登録日', get: function (v) { return v.firstRegistrationDate; } },
-    { label: '走行距離', get: function (v) { return formatNumberUnit_(v.mileage, ' km'); } },
-    { label: '車検満了日', get: function (v) { return v.inspectionExpiryDate; } },
-    { label: '販売価格', get: function (v) { return formatNumberUnit_(v.salePrice, ' 円'); } },
-    { label: 'ﾘｻｲｸﾙ料', get: function (v) { return formatNumberUnit_(v.recycleFee, ' 円'); } },
-    { label: '旧使用拠点', get: function (v) { return v.previousLocation; } },
-    { label: 'CCC入庫日', get: function (v) { return v.cccArrivalDate; } },
-    { label: '経過月', get: function (v) { return formatNumberUnit_(v.elapsedMonths, ' ヶ月'); } },
-    { label: '現展示拠点', get: function (v) { return v.currentDisplayLocation; } },
-    { label: 'オプション', get: function (v) { return v.option; } },
-    { label: '現名義', get: function (v) { return v.currentOwnerName; } }
-  ];
-
-  function renderCompareTable_() {
-    var items = state.compareItems;
-    var table = $('compareTable');
-    if (!items.length) { table.innerHTML = ''; return; }
-    var headerCells = '<th></th>' + items.map(function (v) {
-      return '<th>' + escapeHtml(v.model) + '<div class="compareTable__sub">' + escapeHtml(v.commission) + '</div></th>';
-    }).join('');
-    var bodyRows = COMPARE_FIELDS.map(function (f) {
-      var values = items.map(function (v) { return f.get(v) || '-'; });
-      var isDiff = values.some(function (val) { return val !== values[0]; });
-      var cells = values.map(function (val) { return '<td>' + escapeHtml(val) + '</td>'; }).join('');
-      return '<tr class="' + (isDiff ? 'is-diff' : '') + '"><th>' + escapeHtml(f.label) + '</th>' + cells + '</tr>';
-    }).join('');
-    table.innerHTML = '<thead><tr>' + headerCells + '</tr></thead><tbody>' + bodyRows + '</tbody>';
-  }
-
-  on('compareBarChips','click', function (e) {
-    var btn = e.target.closest('[data-compare-remove]');
-    if (!btn) return;
-    toggleCompare_(btn.dataset.compareRemove, false);
-  });
-
-  on('btnCompareClear','click', function () {
-    state.compareItems = [];
-    syncComparePins_();
-    renderCompareBar_();
-  });
-
-  on('btnCompareShow','click', function () {
-    if (state.compareItems.length < 2) return;
-    try {
-      renderCompareTable_();
-      openModal($('compareModal'));
-    } catch (e) {
-      // 比較表の描画に失敗しても無反応にはせず、必ずトーストで知らせる。
-      showToast('比較表の表示に失敗しました: ' + e.message, true);
-    }
-  });
 
   // ===== 在庫リストの表示形式切替（カード／表） =====
   function syncViewToggle_() {
@@ -1142,7 +1020,6 @@
               ? '<span class="badge badge--hold2"><span class="badge__dot"></span>Hold中（2nd有）</span>'
               : '<span class="badge badge--hold"><span class="badge__dot"></span>Hold中</span>')
           : '<span class="badge badge--available"><span class="badge__dot"></span>在庫あり</span>');
-    var isComparing = isComparingCommission_(v.commission);
     // 操作列は参照UIの最右列と同じ位置に置く。受注確定・2ND HOLD等、実際にできる
     // 操作はカード表示（vehicleActionsHtml_）と同じ内容にする（参照UIの「編集・削除」
     // ボタンは本アプリの実際の操作には存在しないため、実機能に合わせて置き換える）。
@@ -1151,9 +1028,8 @@
          (!v.secondHoldCustomer ? '<button class="btn btn--small" data-second-hold="' + escapeHtml(v.commission) + '">2ND HOLD</button>' : ''))
       : ('<button class="btn btn--small" data-hold="' + escapeHtml(v.commission) + '">Hold</button>' +
          '<button class="btn btn--small btn--primary" data-order="' + escapeHtml(v.commission) + '">受注</button>');
-    var comparePinHtml = '<label class="invTable__comparePin"><input type="checkbox" data-compare="' + escapeHtml(v.commission) + '"' + (isComparing ? ' checked' : '') + '>比較</label>';
 
-    // 行タップ（チェックボックス・ボタン以外の箇所）で詳細モーダルを開けるよう
+    // 行タップ（ボタン以外の箇所）で詳細モーダルを開けるよう
     // data-commissionを行自体に持たせる（handleInventoryListClick_参照）。
     return '<tr class="invTableRow ' + rowTone + '" data-commission="' + escapeHtml(v.commission) + '">' +
       '<td class="invTableRow__status">' + statusBadge + '</td>' +
@@ -1165,7 +1041,7 @@
       '<td class="invTableRow__mono">' + escapeHtml(formatNumberUnit_(v.salePrice, ' 円') || '-') + '</td>' +
       '<td>' + invTableHoldCellHtml_(v, 'hold', '1st') + '</td>' +
       '<td>' + invTableHoldCellHtml_(v, 'secondHold', '2nd') + '</td>' +
-      '<td class="invTableRow__actions">' + actionsHtml + comparePinHtml + '</td>' +
+      '<td class="invTableRow__actions">' + actionsHtml + '</td>' +
       '</tr>';
   }
 
@@ -1329,7 +1205,6 @@
     container.innerHTML = state.inventoryViewMode === 'table'
       ? vehicleRowsHtml(items)
       : '<div class="cardGrid">' + items.map(vehicleCardHtml).join('') + '</div>';
-    syncComparePins_();
     syncFixedBars_();
   }
 
@@ -1338,7 +1213,7 @@
   syncWholesaleOrdersViewToggle_();
   syncMyPageViewToggle_();
 
-  // 在庫リストのカード/行タップ操作（Hold・受注・比較・詳細）。マイページの
+  // 在庫リストのカード/行タップ操作（Hold・受注・詳細）。マイページの
   // 「Hold中の車両」一覧（#myPageHoldList）も同じカード（vehicleCardHtml）を
   // 再利用しているため、同じ処理を共有できるよう名前付き関数にしている。
   function handleInventoryListClick_(e) {
@@ -1348,7 +1223,6 @@
     else if (target.dataset.order) openActionModal('order', target.dataset.order);
     else if (target.dataset.orderFromHold) openActionModal('orderFromHold', target.dataset.orderFromHold);
     else if (target.dataset.cancelHold) openCancelHoldModal(target.dataset.cancelHold, target.dataset.cancelRank);
-    else if (target.dataset.compare) toggleCompare_(target.dataset.compare, target.checked);
     else if (target.dataset.detail) {
       // 表示形式「カード」の「詳細を見る」タップで、車両情報の詳細モーダルを開く
       // （カード自体は伸ばさず、他のカードとサイズを揃えたままにする）。
@@ -1365,7 +1239,7 @@
 
   on('inventoryList','click', handleInventoryListClick_);
 
-  // 詳細モーダル内のHold/受注/比較等のボタンも、在庫リストと同じ操作ができるようにする。
+  // 詳細モーダル内のHold/受注等のボタンも、在庫リストと同じ操作ができるようにする。
   // 操作系のボタン（Hold・受注・2nd Hold・受注確定・Hold解除）を押した場合は、
   // 続けて別のモーダル（Hold登録等）を開く前に、この詳細モーダル自体は閉じておく。
   on('inventoryDetailModal','click', function (e) {
@@ -1375,7 +1249,6 @@
     else if (target.dataset.order) { closeModal($('inventoryDetailModal')); openActionModal('order', target.dataset.order); }
     else if (target.dataset.orderFromHold) { closeModal($('inventoryDetailModal')); openActionModal('orderFromHold', target.dataset.orderFromHold); }
     else if (target.dataset.cancelHold) { closeModal($('inventoryDetailModal')); openCancelHoldModal(target.dataset.cancelHold, target.dataset.cancelRank); }
-    else if (target.dataset.compare) toggleCompare_(target.dataset.compare, target.checked);
   });
 
   ['inventoryKeyword', 'inventoryIncludeHold'].forEach(function (id) {
@@ -3215,9 +3088,9 @@
   on('myPageKeyword','input', debounce(renderMyPageAll_, 200));
 
   /**
-   * Hold中の車両カードは、在庫リストのvehicleCardHtml（比較ピン・Hold解除・
-   * 受注確定ボタン込み）／表示形式「表」ではvehicleRowsHtmlをそのまま再利用する。
-   * ボタン操作（openActionModal / openCancelHoldModal / toggleCompare_ の各lookup）は
+   * Hold中の車両カードは、在庫リストのvehicleCardHtml（Hold解除・受注確定
+   * ボタン込み）／表示形式「表」ではvehicleRowsHtmlをそのまま再利用する。
+   * ボタン操作（openActionModal / openCancelHoldModal の各lookup）は
    * 在庫リストの検索・絞り込み条件に左右されない全件キャッシュ
    * （state.allInventoryItems）へもフォールバックするようfindVehicleByCommission側で
    * 対応済みのため、マイページのカードから操作しても在庫リスト側の絞り込み状態に
@@ -3236,7 +3109,6 @@
     $('myPageHoldEmpty').classList.toggle('hidden', items.length > 0);
     $('myPageHoldList').innerHTML = !items.length ? '' :
       (state.myPageViewMode === 'table' ? vehicleRowsHtml(items) : '<div class="cardGrid">' + items.map(vehicleCardHtml).join('') + '</div>');
-    syncComparePins_();
   }
 
   /**
