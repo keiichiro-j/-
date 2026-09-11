@@ -2975,6 +2975,7 @@
         ? '<div class="homeTypeRow">' + modelPhotos.map(function (p) { return homeModelTileHtml_(p, allItems, modelPhotos); }).join('') + '</div>'
         : '';
     }
+    equalizeHomeCardHeights_();
     // #homeCombinedHeaderはposition: fixedのため、表示・非表示の切り替えや
     // 折り返し行数の変化（モデル写真の登録数が変わる等）で高さが変わりうる。
     // そのたびにスペーサーの高さも実測し直さないと、後続のモデル一覧との間隔が
@@ -2992,19 +2993,85 @@
   }
 
   /**
+   * PCビューのホームカードグリッドは、グレードチップの有無・件数によってカードごとの
+   * 自然な高さが異なる（グレードの無いモデルは短く、グレードの多いモデルは長い）。
+   * CSS Gridの既定（align-items: stretch）では同じ行の中でしか高さが揃わないため、
+   * 行をまたぐと（例:グレードの多いモデルが1行目、無いモデルが2行目）カードの
+   * 大きさがバラついて見えてしまっていた（現場からの指摘「モデルカードサイズは
+   * 均等にしてください（在庫のないモデルもあるモデルに）」）。全カードの実際の
+   * 高さのうち最大値を測り、全カードのmin-heightとして揃えることで、行をまたいでも
+   * 見た目の大きさが常に一致するようにする（renderHomeGallery_の末尾・resize時に
+   * 呼ぶ）。
+   */
+  function equalizeHomeCardHeights_() {
+    if (!isPcHomeLayout_()) return;
+    var cards = document.querySelectorAll('#homeGrid .homeCard');
+    if (!cards.length) return;
+    var maxHeight = 0;
+    cards.forEach(function (c) {
+      c.style.minHeight = '';
+      maxHeight = Math.max(maxHeight, c.getBoundingClientRect().height);
+    });
+    cards.forEach(function (c) { c.style.minHeight = maxHeight + 'px'; });
+  }
+
+  /**
    * PCビューのホーム画面カード1件分のHTML（renderHomeGallery_から呼ぶ）。
    * 写真・モデル名・在庫台数バッジをタップ・クリックなしでカード自体に表示する。
-   * カード全体がボタンになっており、クリックするとそのモデル名で絞り込んだ
-   * 在庫リストへ遷移する。
+   *
+   * グレード（gradePrefix・gradeMarker、SettingsService.gs参照）で複数の型番を
+   * まとめて登録している場合は、型番ごとの在庫数を横並びのチップ（.homeCard__gradeGrid、
+   * 現場の要望「モデルカード上部に型の一覧を横並びで、ボタンで対象の車両のみ表示」）で
+   * 表示し、チップ単体をクリックするとその型番だけに絞り込んだ在庫リストへ遷移する
+   * （data-home-grade、on('homeGrid','click', ...)参照）。この場合、カード全体では
+   * なく車両写真をクリックしたときに、そのモデルの全グレードへ絞り込んだ在庫リストへ
+   * 遷移する（data-home-model）。
+   * グレードが1件以下（gradePrefix未設定、または実在庫が1型番のみ）の場合は、チップの
+   * 一覧を出さず、従来どおりカード全体をクリック対象にする。
+   * どちらの場合も、対象の在庫が0台なら（在庫のないモデル・グレードを押しても在庫
+   * リストへ遷移してしまわないよう）クリック対象にしない（現場からの指摘）。
    */
   function homeModelCardHtml_(p, allItems, allModelPhotos) {
+    var grades = matchedModelsForEntry_(p, allItems, allModelPhotos);
     var total = modelCountForEntry_(p, allItems, allModelPhotos);
+    var hasGrades = grades.length > 1;
+    var canNavigateAll = total > 0;
     var stockClass = 'badge badge--stock' + (total === 0 ? ' badge--stock--zero' : '');
     var stockHtml = '<span class="' + stockClass + '">' + homeStockCountText_(total) + '</span>';
-    return '<div class="homeCard homeCard--clickable" role="button" tabindex="0" data-home-model="' + escapeHtml(p.model) + '">' +
-      '<div class="homeCard__photo"><img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '">' + stockHtml + '</div>' +
+
+    var gradeGridHtml = '';
+    if (hasGrades) {
+      gradeGridHtml = '<div class="homeCard__gradeGrid">' + grades.map(function (gradeModel) {
+        var count = allItems.filter(function (v) { return v.model === gradeModel; }).length;
+        var zero = count === 0;
+        return '<button type="button" class="homeCard__gradeChip"' +
+          (zero ? ' disabled' : ' data-home-grade="' + escapeHtml(gradeModel) + '"') + '>' +
+          '<span class="homeCard__gradeName">' + escapeHtml(gradeModel) + '</span>' +
+          '<span class="homeCard__gradeCount' + (zero ? ' homeCard__gradeCount--zero' : '') + '">' + count + '台</span>' +
+          '</button>';
+      }).join('') + '</div>';
+    }
+
+    var photoInner = '<img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '">' + stockHtml;
+    var photoHtml;
+    if (hasGrades) {
+      photoHtml = canNavigateAll
+        ? '<div class="homeCard__photo homeCard__photo--clickable" role="button" tabindex="0" data-home-model="' + escapeHtml(p.model) + '">' + photoInner + '</div>'
+        : '<div class="homeCard__photo">' + photoInner + '</div>';
+    } else {
+      // グレードが無いモデルはカード全体がクリック対象のため、写真自体には属性を付けない。
+      photoHtml = '<div class="homeCard__photo">' + photoInner + '</div>';
+    }
+
+    var cardClickable = !hasGrades && canNavigateAll;
+    var cardClass = 'homeCard' + (cardClickable ? ' homeCard--clickable' : '');
+    var cardAttrs = cardClickable ? ' role="button" tabindex="0" data-home-model="' + escapeHtml(p.model) + '"' : '';
+
+    return '<div class="' + cardClass + '"' + cardAttrs + '>' +
+      photoHtml +
       '<div class="homeCard__body">' +
       '<div class="homeCard__headRow"><span class="homeCard__model">' + escapeHtml(p.model) + '</span></div>' +
+      gradeGridHtml +
       '</div>' +
       '</div>';
   }
@@ -3189,7 +3256,22 @@
     loadInventory();
   }
 
+  /**
+   * モデルカード内のグレードチップ（homeModelCardHtml_のdata-home-grade）を
+   * クリックした場合、そのモデル全体ではなく型番1件だけに絞り込んだ在庫リストへ
+   * 遷移する（handleHomeModelClick_はモデル1件分の全グレードに絞り込むのに対し、
+   * こちらはグレード1件のみ）。
+   */
+  function handleHomeGradeClick_(chip) {
+    switchToTab_('inventory');
+    $('inventoryKeyword').value = '';
+    state.homeModelFilter = [chip.dataset.homeGrade];
+    loadInventory();
+  }
+
   on('homeGrid','click', function (e) {
+    var gradeChip = e.target.closest('[data-home-grade]');
+    if (gradeChip) { handleHomeGradeClick_(gradeChip); return; }
     var tile = e.target.closest('[data-home-model]');
     if (!tile) return;
     handleHomeModelClick_(tile);
@@ -3197,7 +3279,7 @@
 
   on('homeGrid','keydown', function (e) {
     if (e.key !== 'Enter' && e.key !== ' ') return;
-    var target = e.target.closest('[data-home-model]');
+    var target = e.target.closest('[data-home-grade], [data-home-model]');
     if (!target) return;
     e.preventDefault();
     target.click();
@@ -3482,6 +3564,7 @@
     });
   }
   window.addEventListener('resize', debounce(syncFixedBars_, 100));
+  window.addEventListener('resize', debounce(equalizeHomeCardHeights_, 100));
 
   // ===== モーダルをソフトウェアキーボードの上に収める =====
   // 不具合修正: スマホでHold登録・受注確定モーダルの入力欄をタップすると、

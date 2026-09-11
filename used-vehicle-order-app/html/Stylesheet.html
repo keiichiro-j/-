@@ -712,10 +712,10 @@
     .invTable th:nth-child(3), .invTable td:nth-child(3) { width: 9%; }  /* ＯＣＮ */
     .invTable th:nth-child(4), .invTable td:nth-child(4) { width: 5%; }  /* ハンドル */
     .invTable th:nth-child(5), .invTable td:nth-child(5) { width: 7%; }  /* カラー */
-    .invTable th:nth-child(6), .invTable td:nth-child(6) { width: 9%; }  /* 販売価格 */
+    .invTable th:nth-child(6), .invTable td:nth-child(6) { width: 12%; } /* 販売価格 */
     .invTable th:nth-child(7), .invTable td:nth-child(7) { width: 13%; } /* 1ST HOLD */
     .invTable th:nth-child(8), .invTable td:nth-child(8) { width: 17%; } /* 2ND HOLD */
-    .invTable th:nth-child(9), .invTable td:nth-child(9) { width: 21%; } /* 操作 */
+    .invTable th:nth-child(9), .invTable td:nth-child(9) { width: 18%; } /* 操作 */
   }
   .invTable {
     width: 100%;
@@ -778,7 +778,11 @@
   @media (min-width: 901px) {
     .invTableRow__ellipsis { max-width: none; }
   }
-  .invTableRow__mono { font-variant-numeric: tabular-nums; }
+  /* 不具合修正: 販売価格セルに白抜き（white-space: nowrap）が無く、列幅に収まらない
+     場合に金額と「円」の間で折り返されて2行になってしまっていた（現場からの
+     指摘）。1行で必ず読み取れるよう折り返しを禁止し、上のnth-child幅の見直し
+     （販売価格 9%→12%）とあわせて、実際の金額表示が収まるようにする。 */
+  .invTableRow__mono { font-variant-numeric: tabular-nums; white-space: nowrap; }
   .invTableRow__center { text-align: center; }
   /* 「受注確定」「2ND HOLD」等の操作ボタンは縦に折り返さず常に横一列で表示する
      （現場からの要望）。ボタンだけなら列幅（nth-child(9)、下記@media参照）に
@@ -2229,6 +2233,24 @@
     /* 在庫0台のグレードは、Hold中も無くまとまった在庫の当てがないことがひと目で
        わかるよう、件数を赤文字にする（.homeGradeTab__count--zeroと同じ考え方）。 */
     .homeCard__gradeCount--zero { color: var(--danger); font-weight: 700; }
+    /* 在庫0台のグレードチップはdisabledにしてクリックできないようにしている
+     （在庫の無いグレードを押しても在庫リストへ遷移しない、現場からの要望）。
+       クリックできないことが見た目でも分かるよう、薄く表示しホバー演出も
+       打ち消す。 */
+    .homeCard__gradeChip:disabled {
+      cursor: not-allowed;
+      opacity: .55;
+      box-shadow: none;
+      border-color: transparent;
+      transform: none;
+    }
+    /* グレードのあるモデルは写真タップで全グレードへ絞り込む（在庫が無ければ
+       この属性・クラス自体を付けない、homeModelCardHtml_参照）。カード全体の
+       ホバー演出（.homeCard--clickable）とは別に、写真だけが対象であることが
+       分かる控えめな演出（画像のわずかな拡大）にする。 */
+    .homeCard__photo--clickable { cursor: pointer; }
+    .homeCard__photo--clickable img { transition: transform .18s ease; }
+    .homeCard__photo--clickable:hover img { transform: scale(1.04); }
   }
 
   /* ===== リード番号入力（「L-」固定接頭辞＋数字。Google×Tesla風の見出し扱いにする） ===== */
