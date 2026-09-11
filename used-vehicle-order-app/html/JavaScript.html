@@ -1218,13 +1218,29 @@
   // 在庫リストのカード/行タップ操作（Hold・受注・詳細）。マイページの
   // 「Hold中の車両」一覧（#myPageHoldList）も同じカード（vehicleCardHtml）を
   // 再利用しているため、同じ処理を共有できるよう名前付き関数にしている。
+  /**
+   * Hold・2nd Hold・受注・受注確定・Hold解除ボタンのdata属性からコミッションを
+   * 取り出す。コミッション列は任意入力（Constants.gsのVEHICLE_COLUMNS参照）の
+   * ため、値が空欄の車両ではボタン自体は表示されてもdata属性の値が空文字になり、
+   * クリックしてもエラーも出ないまま無反応になっていた不具合があった（現場からの
+   * 指摘）。呼び出し側は`'hold' in target.dataset`のように属性の「有無」でボタンが
+   * クリックされたかどうかを判定したうえでこの関数を呼び、値が空ならここで
+   * 分かりやすいエラーを表示する。
+   */
+  function requireActionCommission_(commission) {
+    if (commission) return commission;
+    showToast('この車両は「コミッション」が未入力のため操作できません。スプレッドシートでコミッションを入力してから、画面を更新してもう一度お試しください。', true);
+    return null;
+  }
+
   function handleInventoryListClick_(e) {
     var target = e.target;
-    if (target.dataset.hold) openActionModal('hold', target.dataset.hold);
-    else if (target.dataset.secondHold) openActionModal('secondHold', target.dataset.secondHold);
-    else if (target.dataset.order) openActionModal('order', target.dataset.order);
-    else if (target.dataset.orderFromHold) openActionModal('orderFromHold', target.dataset.orderFromHold);
-    else if (target.dataset.cancelHold) openCancelHoldModal(target.dataset.cancelHold, target.dataset.cancelRank);
+    var commission;
+    if ('hold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.hold))) openActionModal('hold', commission); }
+    else if ('secondHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.secondHold))) openActionModal('secondHold', commission); }
+    else if ('order' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.order))) openActionModal('order', commission); }
+    else if ('orderFromHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.orderFromHold))) openActionModal('orderFromHold', commission); }
+    else if ('cancelHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.cancelHold))) openCancelHoldModal(commission, target.dataset.cancelRank); }
     else if (target.dataset.detail) {
       // 表示形式「カード」の「詳細を見る」タップで、車両情報の詳細モーダルを開く
       // （カード自体は伸ばさず、他のカードとサイズを揃えたままにする）。
@@ -1246,11 +1262,12 @@
   // 続けて別のモーダル（Hold登録等）を開く前に、この詳細モーダル自体は閉じておく。
   on('inventoryDetailModal','click', function (e) {
     var target = e.target;
-    if (target.dataset.hold) { closeModal($('inventoryDetailModal')); openActionModal('hold', target.dataset.hold); }
-    else if (target.dataset.secondHold) { closeModal($('inventoryDetailModal')); openActionModal('secondHold', target.dataset.secondHold); }
-    else if (target.dataset.order) { closeModal($('inventoryDetailModal')); openActionModal('order', target.dataset.order); }
-    else if (target.dataset.orderFromHold) { closeModal($('inventoryDetailModal')); openActionModal('orderFromHold', target.dataset.orderFromHold); }
-    else if (target.dataset.cancelHold) { closeModal($('inventoryDetailModal')); openCancelHoldModal(target.dataset.cancelHold, target.dataset.cancelRank); }
+    var commission;
+    if ('hold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.hold))) { closeModal($('inventoryDetailModal')); openActionModal('hold', commission); } }
+    else if ('secondHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.secondHold))) { closeModal($('inventoryDetailModal')); openActionModal('secondHold', commission); } }
+    else if ('order' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.order))) { closeModal($('inventoryDetailModal')); openActionModal('order', commission); } }
+    else if ('orderFromHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.orderFromHold))) { closeModal($('inventoryDetailModal')); openActionModal('orderFromHold', commission); } }
+    else if ('cancelHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.cancelHold))) { closeModal($('inventoryDetailModal')); openCancelHoldModal(commission, target.dataset.cancelRank); } }
   });
 
   ['inventoryKeyword', 'inventoryIncludeHold'].forEach(function (id) {
