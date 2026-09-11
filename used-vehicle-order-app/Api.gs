@@ -26,6 +26,7 @@ function api_getBootstrapData() {
     modelPhotoGradeRuleMaxLength: MODEL_PHOTO_GRADE_RULE_MAX_LENGTH,
     modelBodyTypeOptions: MODEL_BODY_TYPE_OPTIONS,
     homeAnnouncementMax: HOME_ANNOUNCEMENT_MAX_LENGTH,
+    appTitleMax: APP_TITLE_MAX_LENGTH,
     logoUrlMax: LOGO_URL_MAX_LENGTH,
     loadingImageUrlMax: LOADING_IMAGE_URL_MAX_LENGTH,
     notifyMailListMax: NOTIFY_MAIL_LIST_MAX,

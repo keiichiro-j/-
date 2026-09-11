@@ -41,6 +41,7 @@ function getRawSettings_() {
     modelPhotos: getModelPhotos_(),
     celebrationVariants: getCelebrationVariants_(),
     homeAnnouncement: props.getProperty(PROP_KEYS.HOME_ANNOUNCEMENT) || '',
+    appTitle: props.getProperty(PROP_KEYS.APP_TITLE) || '',
     // 保存済みの値が変換前のドライブ共有リンク／ファイルIDのままだった場合
     // （この変換機能が無かった頃に登録されたものなど）でも、保存し直さなくても
     // 表示できるよう、読み出し時にも変換する（getModelPhotos_と同じ考え方。
@@ -103,6 +104,7 @@ function saveRawSettings_(settings) {
   props.setProperty(PROP_KEYS.MODEL_PHOTOS, JSON.stringify(normalizeModelPhotos_(settings.modelPhotos)));
   props.setProperty(PROP_KEYS.CELEBRATION_VARIANTS, JSON.stringify(normalizeCelebrationVariants_(settings.celebrationVariants)));
   props.setProperty(PROP_KEYS.HOME_ANNOUNCEMENT, validateHomeAnnouncement_(settings.homeAnnouncement));
+  props.setProperty(PROP_KEYS.APP_TITLE, validateAppTitle_(settings.appTitle));
   props.setProperty(PROP_KEYS.LOADING_IMAGE_URL, validateLoadingImageUrl_(settings.loadingImageUrl));
   return getRawSettings_();
 }
@@ -208,6 +210,32 @@ function validateHomeAnnouncement_(text) {
     throw new Error('お知らせが長すぎます（' + value.length + '文字）。' + HOME_ANNOUNCEMENT_MAX_LENGTH + '文字以内で入力してください。');
   }
   return value;
+}
+
+/**
+ * アプリタイトル設定値（純粋関数）。空欄（未設定）はそのまま空文字で保存を許可する
+ * （既定値DEFAULT_APP_TITLEへのフォールバックは、表示・利用する側
+ * （currentAppTitle_、Code.gs、PwaService.gs）で行う）。
+ */
+function validateAppTitle_(text) {
+  var value = String(text || '').trim();
+  if (value.length > APP_TITLE_MAX_LENGTH) {
+    throw new Error('タイトルが長すぎます（' + value.length + '文字）。' + APP_TITLE_MAX_LENGTH + '文字以内で入力してください。');
+  }
+  return value;
+}
+
+/**
+ * ブラウザのタブ名・サイドバー/トップバーの見出し・PWAの名称として使う、現在の
+ * アプリタイトル。管理者が設定タブで上書きしていなければDEFAULT_APP_TITLEに
+ * フォールバックする。doGet（Code.gs）・マニフェスト生成（PwaService.gs）・
+ * Index.htmlのテンプレート（apple-mobile-web-app-title等）から、クライアントの
+ * 初回読み込み完了を待たずに同期的に呼べるようにするためのヘルパー
+ * （getRawSettings_は担当者マッチング等も行うためやや重いが、設定値の読み出し自体は
+ * 同期的なScript Propertiesアクセスのみのため、doGetから呼んでも問題ない）。
+ */
+function currentAppTitle_() {
+  return getRawSettings_().appTitle || DEFAULT_APP_TITLE;
 }
 
 /**
@@ -609,7 +637,11 @@ function redactSystemMasterSettings_(settings, isAdmin) {
     homeAnnouncement: settings.homeAnnouncement,
     // ローディング画像も、起動時に全利用者の画面（#appLoading）へ表示する値の
     // ため、編集画面は管理者限定にしつつ値自体は非管理者にも渡す。
-    loadingImageUrl: settings.loadingImageUrl
+    loadingImageUrl: settings.loadingImageUrl,
+    // アプリタイトルも、ブラウザのタブ名・サイドバー/トップバーの見出しとして
+    // 全利用者の画面に表示する値のため、編集画面は管理者限定にしつつ値自体は
+    // 非管理者にも渡す。
+    appTitle: settings.appTitle
   };
 }
 
@@ -636,6 +668,7 @@ function applySystemMasterGuard_(incoming, current, isAdmin) {
     modelPhotos: current.modelPhotos,
     celebrationVariants: current.celebrationVariants,
     homeAnnouncement: current.homeAnnouncement,
-    loadingImageUrl: current.loadingImageUrl
+    loadingImageUrl: current.loadingImageUrl,
+    appTitle: current.appTitle
   };
 }

@@ -19,7 +19,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="販売可能リスト">
+  <meta name="apple-mobile-web-app-title" content="<?= currentAppTitle_() ?>">
   <link rel="apple-touch-icon" href="<?!= appleTouchIconDataUri_() ?>">
   <?!= include('html/Stylesheet'); ?>
 </head>
@@ -138,7 +138,7 @@
     <nav class="sidebar" id="sidebar" aria-label="メインナビゲーション">
       <div class="sidebar__brand">
         <img id="sidebarLogo" class="sidebar__logo hidden" alt="ロゴ">
-        <span class="sidebar__brandText">販売可能リスト</span>
+        <span class="sidebar__brandText" id="sidebarBrandText"><?= currentAppTitle_() ?></span>
       </div>
       <div class="sidebarNav" id="sidebarNav" role="tablist" aria-label="画面切替">
         <button class="tabs__item sidebarNav__item is-active" data-tab="home" type="button">
@@ -192,7 +192,7 @@
              非表示にする。 -->
         <div class="topbar__brand">
           <img id="topbarLogo" class="topbar__logo hidden" alt="ロゴ">
-          <span class="topbar__brandText">販売可能リスト</span>
+          <span class="topbar__brandText" id="topbarBrandText"><?= currentAppTitle_() ?></span>
         </div>
         <div class="topbar__user" id="topbarUser"></div>
       </div>
@@ -247,7 +247,7 @@
       <div class="homeCombinedHeader" id="homeCombinedHeader">
         <div class="homeAnnouncement hidden" id="homeAnnouncement"></div>
         <div class="homeCombinedHeader__topRow">
-          <div class="homeCombinedHeader__title">販売可能リスト</div>
+          <div class="homeCombinedHeader__title" id="homeCombinedHeaderTitle"><?= currentAppTitle_() ?></div>
           <div class="homeCombinedHeader__actions">
             <button type="button" class="topbar__navBtn" id="btnNavBackHome" title="戻る" aria-label="1つ前の画面に戻る" disabled>
               <svg class="icon"><use href="#icon-back"></use></svg>
@@ -430,6 +430,21 @@
             <svg class="icon icon--inline"><use href="#icon-lock"></use></svg>
             システムマスタ
             <span class="settingsGroupTitle__badge">管理者限定</span>
+          </div>
+
+          <!-- アプリタイトル: ブラウザのタブ名・サイドバー/トップバーの見出しに使う
+               タイトル文字列。同じアプリを複数のスプレッドシート（拠点・店舗違い等）に
+               ひも付けて別々にデプロイした場合でも、タブや見出しの文字列でどちらを
+               開いているか区別できるようにするための項目（currentAppTitle_、
+               SettingsService.gs参照）。空欄にすると既定の「販売可能リスト」表記に
+               戻る。 -->
+          <div class="settingsCard hidden" id="systemMasterAppTitleCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>アプリタイトル</h2>
+            <p class="settingsSection__desc">ブラウザのタブ名、サイドバー・上部バーの見出しに表示するタイトルです。同じアプリを複数のスプレッドシートにひも付けて別々に使っている場合、それぞれ分かりやすい名前を付けて区別できます（例:「販売可能リスト（本社）」）。空欄にすると既定の「販売可能リスト」表記になります（最大<span id="appTitleMax"></span>文字）。</p>
+            <div class="formField">
+              <label>タイトル</label>
+              <input type="text" id="settingsAppTitle" class="input" placeholder="例: 販売可能リスト（本社）">
+            </div>
           </div>
 
           <!-- ロゴ・起動時ローディング画面（#appLoading）の画像を1つの設定項目に

@@ -13,7 +13,11 @@ function doGet(e) {
 
   return HtmlService.createTemplateFromFile('html/Index')
     .evaluate()
-    .setTitle('販売可能リスト')
+    // ブラウザのタブ名は、管理者が設定タブから上書きしていればその値、
+    // 未設定ならDEFAULT_APP_TITLE（Constants.gs）になる（currentAppTitle_、
+    // SettingsService.gs参照。同じアプリを複数のスプレッドシートにひも付けて
+    // 別々にデプロイした場合でも、タブ名でどちらを開いているか区別できる）。
+    .setTitle(currentAppTitle_())
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     // Googleサイトへの埋め込みで利用するためALLOWALLにしている。DEFAULT
     // （同一オリジンのみiframe許可）にすると、Googleサイト側のページに埋め込んだ

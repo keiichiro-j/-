@@ -46,9 +46,12 @@ function servePwaResource_(e) {
 
 function buildWebAppManifestJson_() {
   var startUrl = ScriptApp.getService().getUrl();
+  // ホーム画面に追加した際のアプリ名も、doGet（Code.gs）のタブ名と同じく
+  // currentAppTitle_（SettingsService.gs）に揃える。
+  var appTitle = currentAppTitle_();
   var manifest = {
-    name: '販売可能リスト',
-    short_name: '販売可能リスト',
+    name: appTitle,
+    short_name: appTitle,
     start_url: startUrl,
     scope: startUrl,
     display: 'standalone',

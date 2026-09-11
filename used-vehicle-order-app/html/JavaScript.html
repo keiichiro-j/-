@@ -1043,7 +1043,7 @@
       '<td class="invTableRow__mono">' + escapeHtml(formatNumberUnit_(v.salePrice, ' 円') || '-') + '</td>' +
       '<td>' + invTableHoldCellHtml_(v, 'hold', '1st') + '</td>' +
       '<td>' + invTableHoldCellHtml_(v, 'secondHold', '2nd') + '</td>' +
-      '<td class="invTableRow__actions">' + actionsHtml + '</td>' +
+      '<td class="invTableRow__actions"><div class="invTableRow__actionsInner">' + actionsHtml + '</div></td>' +
       '</tr>';
   }
 
@@ -2173,6 +2173,7 @@
     // ここではUI上の表示・非表示のみを制御する（実データの保護自体はサーバー側で行っている）。
     var isAdmin = !!(state.bootstrap && state.bootstrap.isSystemAdmin);
     $('systemMasterGroupTitle').classList.toggle('hidden', !isAdmin);
+    $('systemMasterAppTitleCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterLogoCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterAnnouncementCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterModelPhotosCard').classList.toggle('hidden', !isAdmin);
@@ -2195,6 +2196,9 @@
     // #themePresetGridのクリックハンドラ側で行う）。
     state.themeKey = settings.themeKey;
     renderThemePresets_();
+    $('appTitleMax').textContent = (state.bootstrap && state.bootstrap.appTitleMax) || 40;
+    $('settingsAppTitle').value = settings.appTitle || '';
+    applyAppTitle_(settings.appTitle);
     $('logoUrlMax').textContent = (state.bootstrap && state.bootstrap.logoUrlMax) || 1500;
     $('settingsLogoUrl').value = settings.logoUrl || '';
     $('homeAnnouncementMax').textContent = (state.bootstrap && state.bootstrap.homeAnnouncementMax) || 60;
@@ -2438,6 +2442,20 @@
     root.setProperty('--sidebar-fg-muted', 'rgba(' + fgRgb.r + ',' + fgRgb.g + ',' + fgRgb.b + ',.68)');
     root.setProperty('--sidebar-outline', 'rgba(' + fgRgb.r + ',' + fgRgb.g + ',' + fgRgb.b + ',.14)');
     root.setProperty('--sidebar-hover-bg', 'rgba(' + fgRgb.r + ',' + fgRgb.g + ',' + fgRgb.b + ',.08)');
+  }
+
+  // ----- アプリタイトル（ブラウザのタブ名・サイドバー/トップバーの見出し） -----
+  // サーバー側のDEFAULT_APP_TITLE（Constants.gs）と同じ既定値。Index.htmlの
+  // テンプレート（<?= currentAppTitle_() ?>）で初回表示時から既にこの値
+  // （または管理者が設定した値）になっているため、この関数は主に「設定タブで
+  // 保存した直後に、ページを再読み込みしなくても即座に反映する」ために使う。
+  var DEFAULT_APP_TITLE = '販売可能リスト';
+  function applyAppTitle_(appTitle) {
+    var title = appTitle || DEFAULT_APP_TITLE;
+    document.title = title;
+    [$('sidebarBrandText'), $('topbarBrandText'), $('homeCombinedHeaderTitle')].forEach(function (el) {
+      el.textContent = title;
+    });
   }
 
   // ----- ロゴ設定（画面上部に表示する画像。ローディング画像と同じく、ドライブID／
@@ -3292,6 +3310,15 @@
       return;
     }
 
+    // アプリタイトルも、サーバー側のvalidateAppTitle_（SettingsService.gs）と
+    // 同じ規則を保存前にクライアント側でもチェックする。
+    var appTitle = $('settingsAppTitle').value.trim();
+    var maxAppTitle = (state.bootstrap && state.bootstrap.appTitleMax) || 40;
+    if (appTitle.length > maxAppTitle) {
+      $('settingsError').textContent = 'タイトルは最大' + maxAppTitle + '文字までです（現在' + appTitle.length + '文字）';
+      return;
+    }
+
     // ロゴ・ローディング画像も、サーバー側のvalidateLogoUrl_・validateLoadingImageUrl_
     // （SettingsService.gs）と同じ規則（変換後URLの最大文字数）を保存前にクライアント
     // 側でもチェックする。ドライブID・共有リンクを指定した場合、変換後は必ず短い
@@ -3312,6 +3339,7 @@
 
     var settings = {
       themeKey: state.themeKey || DEFAULT_THEME_KEY,
+      appTitle: appTitle,
       logoUrl: logoUrlInput,
       loadingImageUrl: loadingImageId,
       homeAnnouncement: homeAnnouncement,

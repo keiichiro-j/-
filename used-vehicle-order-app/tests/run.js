@@ -701,6 +701,22 @@ test('ドライブIDのみの入力も直接画像URLに変換される', () => 
   );
 });
 
+console.log('== SettingsService: validateAppTitle_（アプリタイトル設定値の検証） ==');
+test('通常の文字列はそのまま返る', () => {
+  assert.strictEqual(sandbox.validateAppTitle_('販売可能リスト（本社）'), '販売可能リスト（本社）');
+});
+test('前後の空白はトリムされる', () => {
+  assert.strictEqual(sandbox.validateAppTitle_('  販売可能リスト  '), '販売可能リスト');
+});
+test('空文字・未指定は空文字のまま（既定値へのフォールバックはcurrentAppTitle_側で行う）', () => {
+  assert.strictEqual(sandbox.validateAppTitle_(''), '');
+  assert.strictEqual(sandbox.validateAppTitle_(undefined), '');
+});
+test('上限文字数を超えるとエラー', () => {
+  const tooLong = 'あ'.repeat(sandbox.APP_TITLE_MAX_LENGTH + 1);
+  assert.throws(() => sandbox.validateAppTitle_(tooLong), /長すぎます/);
+});
+
 console.log('== SettingsService: validateChatWebhookUrl_（Google Chat通知先Webhook URLの検証） ==');
 test('httpsから始まるURLはそのまま返る', () => {
   assert.strictEqual(
@@ -792,9 +808,9 @@ test('管理者にはそのまま返る', () => {
   assert.strictEqual(result.notifyHoldMailTo, 'a@example.com');
   assert.strictEqual(result.staffList.length, 1);
 });
-test('非管理者には通知先・担当者が空になる（テーマ・ロゴ・モデル写真・演出バリエーションはそのまま）', () => {
+test('非管理者には通知先・担当者が空になる（テーマ・ロゴ・モデル写真・演出バリエーション・アプリタイトルはそのまま）', () => {
   const settings = {
-    themeKey: 'wine', logoUrl: 'https://logo.png',
+    themeKey: 'wine', logoUrl: 'https://logo.png', appTitle: '販売可能リスト（本社）',
     notifyHoldMailTo: ['a@example.com'], notifyOrderMailTo: ['b@example.com'], notifyErrorMailTo: ['c@example.com'],
     notifyChatWebhookUrl: 'https://chat.googleapis.com/v1/spaces/AAA/messages?key=xxx',
     staffList: [{ name: '佐藤' }], modelPhotos: [{ model: 'Cクラス' }],
@@ -803,6 +819,7 @@ test('非管理者には通知先・担当者が空になる（テーマ・ロ�
   const result = sandbox.redactSystemMasterSettings_(settings, false);
   assert.strictEqual(result.themeKey, 'wine');
   assert.strictEqual(result.logoUrl, 'https://logo.png');
+  assert.strictEqual(result.appTitle, '販売可能リスト（本社）');
   assert.strictEqual(result.modelPhotos.length, 1);
   assert.strictEqual(result.notifyHoldMailTo.length, 0);
   assert.strictEqual(result.notifyOrderMailTo.length, 0);
@@ -821,15 +838,15 @@ test('管理者からの保存はそのまま反映される', () => {
   assert.strictEqual(result.staffList[0].name, '新規');
   assert.strictEqual(result.logoUrl, 'https://new-logo.png');
 });
-test('非管理者からの保存は、ロゴ・モデル写真・通知先・担当者が既存値のまま維持される（テーマは反映される）', () => {
+test('非管理者からの保存は、ロゴ・アプリタイトル・モデル写真・通知先・担当者が既存値のまま維持される（テーマは反映される）', () => {
   const incoming = {
-    themeKey: 'amber', logoUrl: 'https://tampered-logo.png',
+    themeKey: 'amber', logoUrl: 'https://tampered-logo.png', appTitle: '改ざんタイトル',
     notifyHoldMailTo: 'tampered@example.com', notifyOrderMailTo: '', notifyErrorMailTo: '',
     notifyChatWebhookUrl: 'https://tampered-webhook.example.com',
     staffList: [], modelPhotos: [{ model: 'Eクラス' }]
   };
   const current = {
-    logoUrl: 'https://real-logo.png',
+    logoUrl: 'https://real-logo.png', appTitle: '本物のタイトル',
     notifyHoldMailTo: 'real@example.com', notifyOrderMailTo: 'real2@example.com', notifyErrorMailTo: 'real3@example.com',
     notifyChatWebhookUrl: 'https://chat.googleapis.com/v1/spaces/REAL/messages?key=xxx',
     staffList: [{ name: '本物の担当者', email: 'staff@example.com' }],
@@ -839,6 +856,7 @@ test('非管理者からの保存は、ロゴ・モデル写真・通知先・�
   const result = sandbox.applySystemMasterGuard_(incoming, current, false);
   assert.strictEqual(result.themeKey, 'amber');
   assert.strictEqual(result.logoUrl, 'https://real-logo.png');
+  assert.strictEqual(result.appTitle, '本物のタイトル');
   assert.strictEqual(result.modelPhotos.length, 1);
   assert.strictEqual(result.modelPhotos[0].model, '本物のモデル');
   assert.strictEqual(result.notifyHoldMailTo, 'real@example.com');

@@ -781,10 +781,19 @@
   .invTableRow__mono { font-variant-numeric: tabular-nums; }
   .invTableRow__center { text-align: center; }
   /* 「受注確定」「2ND HOLD」等の操作ボタンは縦に折り返さず常に横一列で表示する
-     （現場からの要望）。比較機能の削除で操作列にチェックボックスが無くなった分、
-     ボタンだけなら列幅（nth-child(10)、下記@media参照）に十分収まる。 */
-  .invTableRow__actions {
-    white-space: nowrap;
+     （現場からの要望）。ボタンだけなら列幅（nth-child(9)、下記@media参照）に
+     十分収まる。
+     不具合修正: display: flexを<td>自体（.invTableRow__actions）に直接
+     指定すると、そのセルはtable-cellとしての既定の伸縮（vertical-align:
+     middleによる行の高さいっぱいまでの拡張）をしなくなり、自分自身の内容量
+     ぶんの高さ（他の列より低い）に縮んでしまう。border-collapse: collapseの
+     もとではセルごとの border-bottom がそのセル自身の（縮んだ）高さの位置に
+     出るため、行の本来の高さより手前に区切り線がずれて見える不具合になって
+     いた（現場からの指摘）。<td>自体はtable-cellのまま（＝行の高さいっぱいに
+     伸びる）にし、内側の.invTableRow__actionsInnerというdivにdisplay: flexを
+     移すことで、セル自体は行の高さに揃えたまま中身だけを横一列に並べる。 */
+  .invTableRow__actions { white-space: nowrap; }
+  .invTableRow__actionsInner {
     display: flex;
     flex-wrap: nowrap;
     align-items: center;

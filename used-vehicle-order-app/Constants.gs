@@ -293,8 +293,21 @@ var PROP_KEYS = {
   MODEL_PHOTOS: 'MODEL_PHOTOS',
   CELEBRATION_VARIANTS: 'CELEBRATION_VARIANTS',
   HOME_ANNOUNCEMENT: 'HOME_ANNOUNCEMENT',
-  LOADING_IMAGE_URL: 'LOADING_IMAGE_URL'
+  LOADING_IMAGE_URL: 'LOADING_IMAGE_URL',
+  APP_TITLE: 'APP_TITLE'
 };
+
+// アプリのタイトル（ブラウザのタブ名・サイドバー/トップバーの見出し・ホーム画面へ
+// 追加した場合のアイコン名として使う）の既定値。同じアプリを複数のスプレッドシート
+// （拠点・店舗違い等）にひも付けて別々にデプロイした場合でも、タブや見出しの文字列で
+// どちらを開いているか区別できるよう、管理者が設定タブから上書きできるようにしている
+// （APP_TITLE、SettingsService.gsのcurrentAppTitle_参照）。未設定（空欄）の場合は
+// この既定値のままになる。
+var DEFAULT_APP_TITLE = '販売可能リスト';
+
+// アプリタイトルの最大文字数。タブ名・見出しとして1行で収まる長さに収める
+// （validateAppTitle_、SettingsService.gs参照）。
+var APP_TITLE_MAX_LENGTH = 40;
 
 /**
  * Hold登録・2nd Hold登録・受注確定それぞれの完了時に表示する演出（絵柄の
