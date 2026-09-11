@@ -53,18 +53,8 @@ function normalizeLeadNumber_(value) {
 }
 
 /**
- * デモカーHOLD用のリード番号正規化。デモカーHOLDはリード番号が未入力でも
- * 登録できるため、normalizeLeadNumber_と異なり空欄はエラーにせずそのまま
- * 空文字を返す（純粋関数）。
- */
-function normalizeLeadNumberOptional_(value) {
-  var digits = String(value || '').replace(/^L-/i, '').replace(/[^0-9]/g, '');
-  return digits ? 'L-' + digits : '';
-}
-
-/**
  * Hold種別を検証・正規化する（純粋関数ではなく、SYSTEM_ADMIN_EMAILSの判定に
- * isSystemAdmin_を使うため管理者判定に依存する）。デモカーHOLD・他店HOLDは
+ * isSystemAdmin_を使うため管理者判定に依存する）。業販HOLDは
  * 管理者権限を持つ担当者のみ登録できる（権限チェックはこの関数の中で行い、
  * Api.gsやクライアント側の表示制御に頼らない）。
  * @param {string} holdType 省略時は通常のHold（HOLD_TYPE.NORMAL）として扱う
@@ -76,7 +66,7 @@ function normalizeHoldType_(holdType, staffEmail) {
     throw new Error('不正なHold種別です: ' + type);
   }
   if (type !== HOLD_TYPE.NORMAL && !isSystemAdmin_(staffEmail)) {
-    throw new Error('デモカーHOLD・他店HOLDは管理者権限を持つ担当者のみ登録できます');
+    throw new Error('業販HOLDは管理者権限を持つ担当者のみ登録できます');
   }
   return type;
 }
@@ -165,7 +155,7 @@ function decideExpiryAction_(info, now) {
  * staffEmail は HOLD_ORDER_INPUT_COLUMNS には含まれない（クライアント入力ではなく
  * サーバー側で確定させるため）ため、別途 info.staffEmail から詰める。
  * holdTypeは省略時 HOLD_TYPE.NORMAL とする（2nd Hold登録は常に通常のHoldのみのため、
- * registerSecondHold からの呼び出しでは指定しない）。salesStoreは他店HOLD専用の項目。
+ * registerSecondHold からの呼び出しでは指定しない）。salesStoreは業販HOLD専用の項目。
  */
 function buildHoldRecord_(commission, rank, info, createdAt, expiresAt, holdType) {
   var record = {
@@ -218,7 +208,7 @@ function findInventoryVehicleWithHolds_(commission) {
  * 1st Hold を登録する。
  * @param {string} commission
  * @param {Object} info { leadNumber, registeredMonth, staff, customer, tradeIn, oss, insurance, salesStore }
- * @param {string} [holdType] HOLD_TYPE.NORMAL(既定)／DEMO／OTHER_STORE。DEMO・OTHER_STOREは
+ * @param {string} [holdType] HOLD_TYPE.NORMAL(既定)/WHOLESALE。WHOLESALEは
  *   管理者権限を持つ担当者のみ指定できる（normalizeHoldType_参照）。
  */
 function registerHold(commission, info, holdType) {
@@ -231,11 +221,11 @@ function registerHold(commission, info, holdType) {
     if (!inputCheck.ok) throw new Error(inputCheck.reason);
     info.leadNumber = normalizeLeadNumber_(info.leadNumber);
   } else {
-    // デモカーHOLD（リード番号・登録月のみ、共に任意入力）／他店HOLD（販売店のみ、任意入力）は、
-    // 通常のHoldの入力項目（顧客・下取車の有無等）を一切要求しない。
-    info.leadNumber = holdType === HOLD_TYPE.DEMO ? normalizeLeadNumberOptional_(info.leadNumber) : '';
-    info.registeredMonth = holdType === HOLD_TYPE.DEMO ? (info.registeredMonth || '') : '';
-    info.salesStore = holdType === HOLD_TYPE.OTHER_STORE ? (info.salesStore || '') : '';
+    // 業販HOLD（販売先のみ、任意入力）は、通常のHoldの入力項目（顧客・下取車の有無等）を
+    // 一切要求しない。
+    info.salesStore = info.salesStore || '';
+    info.leadNumber = '';
+    info.registeredMonth = '';
     info.salesLocation = '';
     info.customer = '';
     info.tradeIn = '';
@@ -259,7 +249,7 @@ function registerHold(commission, info, holdType) {
     if (!check.ok) throw new Error(check.reason);
 
     var now = new Date().getTime();
-    // デモカーHOLD・他店HOLDはHold期限が無期限（expiresAtがnull）。decideExpiryAction_は
+    // 業販HOLDはHold期限が無期限（expiresAtがnull）。decideExpiryAction_は
     // expiresAtが偽値の場合は常に'none'を返すため、期限切れ処理側の変更は不要。
     var expiresAt = holdType === HOLD_TYPE.NORMAL ? now + HOLD_DURATION_MS : null;
     var record = buildHoldRecord_(commission, HOLD_RANK.FIRST, info, now, expiresAt, holdType);
@@ -274,9 +264,7 @@ function registerHold(commission, info, holdType) {
     notifyHoldRegistered(updated, false);
     var detail = holdType === HOLD_TYPE.NORMAL
       ? 'リード番号 ' + info.leadNumber
-      : HOLD_TYPE_LABELS[holdType] + (holdType === HOLD_TYPE.OTHER_STORE
-        ? '（販売店: ' + (info.salesStore || '未入力') + '）'
-        : '（リード番号: ' + (info.leadNumber || '未入力') + '）');
+      : HOLD_TYPE_LABELS[holdType] + '（販売先: ' + (info.salesStore || '未入力') + '）';
     appendAuditLog_(buildAuditLogEntry_('Hold登録', commission, vehicle.model, currentStaff, detail, now));
     return updated;
   } finally {

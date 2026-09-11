@@ -150,6 +150,11 @@
         <button class="tabs__item sidebarNav__item" data-tab="orders" type="button">
           <svg class="icon"><use href="#icon-table"></use></svg><span>受注リスト</span>
         </button>
+        <!-- 業販受注リスト: 管理者権限を持つ担当者にのみ表示する（renderSettingsと
+             同じisSystemAdmin判定でhiddenを切り替える、JavaScript.html参照）。 -->
+        <button class="tabs__item sidebarNav__item hidden" id="sidebarNavWholesaleOrders" data-tab="wholesaleOrders" type="button">
+          <svg class="icon"><use href="#icon-table"></use></svg><span>業販受注リスト</span>
+        </button>
         <button class="tabs__item sidebarNav__item" data-tab="mypage" type="button">
           <svg class="icon"><use href="#icon-people"></use></svg><span>マイページ</span>
         </button>
@@ -195,6 +200,7 @@
         <button class="tabs__item is-active" data-tab="home">ホーム</button>
         <button class="tabs__item" data-tab="inventory">在庫リスト</button>
         <button class="tabs__item" data-tab="orders">受注リスト</button>
+        <button class="tabs__item hidden" id="mainTabWholesaleOrders" data-tab="wholesaleOrders">業販受注リスト</button>
         <button class="tabs__item" data-tab="mypage">マイページ</button>
         <button class="tabs__item" data-tab="settings">設定</button>
       </nav>
@@ -315,6 +321,39 @@
       <div class="emptyState hidden" id="ordersEmpty">
         <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
         <p>該当する受注がありません</p>
+      </div>
+    </main>
+
+    <!-- 業販受注リスト: 業販HOLD（HoldService.gsのHOLD_TYPE.WHOLESALE）から
+         受注確定した車両の一覧。管理者権限を持つ担当者にのみ表示する
+         （サイドバー・上部タブとも#sidebarNavWholesaleOrders/#mainTabWholesaleOrders
+         参照）。通常の受注リストと異なり、リード番号・下取車の有無・保険加入の
+         有無・支払方法は持たず、顧客の代わりに「販売先」で検索する。 -->
+    <main class="view" id="view-wholesaleOrders">
+      <div class="toolbar" id="wholesaleOrdersToolbar">
+        <input type="search" id="wholesaleOrdersKeyword" class="input input--search" placeholder="自由検索（モデル・コミッション・販売先・担当・拠点）">
+        <select id="wholesaleOrdersLocationFilter" class="input">
+          <option value="">拠点：すべて</option>
+        </select>
+        <select id="wholesaleOrdersStaffFilter" class="input"></select>
+        <select id="wholesaleOrdersGroupBy" class="input">
+          <option value="">グループ表示なし</option>
+          <option value="orderedMonth">月ごと</option>
+          <option value="salesLocation">販売拠点ごと</option>
+          <option value="model">モデルごと</option>
+        </select>
+        <div class="toolbar__spacer"></div>
+        <div class="viewToggle" id="wholesaleOrdersViewToggle">
+          <button type="button" class="viewToggle__item" data-view="card" title="カード表示" aria-label="カード表示"><svg class="icon icon--inline"><use href="#icon-grid"></use></svg></button>
+          <button type="button" class="viewToggle__item" data-view="table" title="表表示" aria-label="表表示"><svg class="icon icon--inline"><use href="#icon-table"></use></svg></button>
+        </div>
+        <span class="toolbar__count" id="wholesaleOrdersTotalCount"></span>
+      </div>
+      <div class="toolbarSpacer" id="wholesaleOrdersToolbarSpacer"></div>
+      <div id="wholesaleOrdersGroups"></div>
+      <div class="emptyState hidden" id="wholesaleOrdersEmpty">
+        <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
+        <p>該当する業販受注がありません</p>
       </div>
     </main>
 
@@ -537,7 +576,7 @@
         <p class="modal__requiredNote"><span class="req">*</span> は必須項目です</p>
 
         <!-- 管理者権限を持つ担当者がHoldをタップした場合のみ表示するHold種別選択
-             （通常のHold／デモカーHOLD／他店HOLD）。openActionModal参照。 -->
+             （通常のHold／業販HOLD）。openActionModal参照。 -->
         <div class="modal__step hidden" id="actionTypePickStep">
           <p class="actionTypePick__intro">Hold種別を選択してください</p>
           <div class="actionTypePick">
@@ -545,44 +584,39 @@
               <span class="actionTypePick__btnTitle">通常のHOLD</span>
               <span class="actionTypePick__btnDesc">顧客情報・契約内容を入力して登録します（期限72時間）</span>
             </button>
-            <button type="button" class="actionTypePick__btn actionTypePick__btn--demo" data-hold-type-pick="demo">
-              <span class="actionTypePick__btnTitle">デモカーHOLD</span>
-              <span class="actionTypePick__btnDesc">リード番号・登録月のみ（任意入力）。期限は無期限です</span>
-            </button>
-            <button type="button" class="actionTypePick__btn actionTypePick__btn--otherStore" data-hold-type-pick="otherStore">
-              <span class="actionTypePick__btnTitle">他店HOLD</span>
-              <span class="actionTypePick__btnDesc">販売店のみ（任意入力）。期限は無期限です</span>
+            <button type="button" class="actionTypePick__btn actionTypePick__btn--wholesale" data-hold-type-pick="wholesale">
+              <span class="actionTypePick__btnTitle">業販HOLD</span>
+              <span class="actionTypePick__btnDesc">販売先のみ（任意入力）。期限は無期限です</span>
             </button>
           </div>
         </div>
 
-        <!-- デモカーHOLD用の簡易入力（リード番号・登録月のみ、どちらも任意入力） -->
-        <div class="modal__step hidden" id="actionStepDemo">
-          <div class="modal__grid">
-            <div class="formField">
-              <label>リード番号</label>
-              <div class="leadNumberField">
-                <span class="leadNumberField__prefix">L-</span>
-                <input type="text" id="actionDemoLeadNumber" class="input leadNumberField__input" inputmode="numeric" pattern="[0-9]*" maxlength="14">
-              </div>
-            </div>
-            <div class="formField">
-              <label>登録月</label>
-              <input type="month" id="actionDemoRegisteredMonth" class="input">
-            </div>
-          </div>
-          <p class="modal__hint">デモカーHOLDはリード番号・登録月とも未入力のまま登録できます。Hold期限は無期限です。</p>
-        </div>
-
-        <!-- 他店HOLD用の簡易入力（販売店のみ、任意入力） -->
-        <div class="modal__step hidden" id="actionStepOtherStore">
+        <!-- 業販HOLD用の簡易入力（販売先のみ、任意入力） -->
+        <div class="modal__step hidden" id="actionStepWholesale">
           <div class="modal__grid">
             <div class="formField formField--span2">
-              <label>販売店</label>
+              <label>販売先</label>
               <input type="text" id="actionSalesStore" class="input">
             </div>
           </div>
-          <p class="modal__hint">他店HOLDは販売店未入力のまま登録できます。Hold期限は無期限です。</p>
+          <p class="modal__hint">業販HOLDは販売先未入力のまま登録できます。Hold期限は無期限です。</p>
+        </div>
+
+        <!-- 業販HOLDから受注確定する場合の簡易入力（販売先・登録月のみ、両方必須）。
+             openActionModalがvehicle.holdHoldTypeを見て、通常の受注確定モーダルの
+             代わりにこちらへ分岐する。 -->
+        <div class="modal__step hidden" id="actionStepWholesaleOrder">
+          <div class="modal__grid">
+            <div class="formField formField--span2">
+              <label>販売先<span class="req">*</span></label>
+              <input type="text" id="actionWholesaleSalesStore" class="input">
+            </div>
+            <div class="formField">
+              <label>登録月<span class="req">*</span></label>
+              <input type="month" id="actionWholesaleRegisteredMonth" class="input">
+            </div>
+          </div>
+          <p class="modal__hint">業販HOLDからの受注確定は、販売先・登録月のみの入力で完結します。</p>
         </div>
 
         <div class="modal__step" id="actionStep1">
@@ -703,6 +737,18 @@
         <button class="btn--icon" data-close-modal>&times;</button>
       </div>
       <div class="modal__body" id="orderDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- 業販受注リストで「詳細を見る」タップした際、契約内容を画面中央に表示する
+       モーダル（orderDetailModalと同じパターン）。 -->
+  <div class="modal hidden" id="wholesaleOrderDetailModal">
+    <div class="modal__panel">
+      <div class="modal__header">
+        <h2>業販受注情報</h2>
+        <button class="btn--icon" data-close-modal>&times;</button>
+      </div>
+      <div class="modal__body" id="wholesaleOrderDetailBody"></div>
     </div>
   </div>
 

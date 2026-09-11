@@ -276,41 +276,25 @@ test('applyHoldFieldsToVehicle_ はholdType未設定のHold行を通常のHold�
   assert.strictEqual(vehicle.holdHoldType, 'normal');
   assert.strictEqual(vehicle.holdSalesStore, undefined);
 });
-test('applyHoldFieldsToVehicle_ はデモカーHOLD・他店HOLDのholdType・salesStoreも反映する', () => {
+test('applyHoldFieldsToVehicle_ は業販HOLDのholdType・salesStoreも反映する', () => {
   const vehicle = { commission: 'C-996' };
-  const demoRow = Object.assign({ createdAt: 1000, expiresAt: null, holdType: 'demo' }, fullInfo);
-  sandbox.applyHoldFieldsToVehicle_(vehicle, demoRow, 'hold');
-  assert.strictEqual(vehicle.holdHoldType, 'demo');
-
-  const otherRow = Object.assign({ createdAt: 1000, expiresAt: null, holdType: 'otherStore', salesStore: '横浜店' }, fullInfo);
-  sandbox.applyHoldFieldsToVehicle_(vehicle, otherRow, 'secondHold');
-  assert.strictEqual(vehicle.secondHoldHoldType, 'otherStore');
+  const wholesaleRow = Object.assign({ createdAt: 1000, expiresAt: null, holdType: 'wholesale', salesStore: '横浜店' }, fullInfo);
+  sandbox.applyHoldFieldsToVehicle_(vehicle, wholesaleRow, 'secondHold');
+  assert.strictEqual(vehicle.secondHoldHoldType, 'wholesale');
   assert.strictEqual(vehicle.secondHoldSalesStore, '横浜店');
 });
 
-console.log('== HoldService: normalizeLeadNumberOptional_（デモカーHOLD用。未入力はエラーにせず空文字） ==');
-test('数字のみ入力すると「L-」が付与される', () => {
-  assert.strictEqual(sandbox.normalizeLeadNumberOptional_('12345678'), 'L-12345678');
-});
-test('未入力・数字なしは空文字（エラーにしない）', () => {
-  assert.strictEqual(sandbox.normalizeLeadNumberOptional_(''), '');
-  assert.strictEqual(sandbox.normalizeLeadNumberOptional_(null), '');
-  assert.strictEqual(sandbox.normalizeLeadNumberOptional_('L-'), '');
-});
-
-console.log('== HoldService: normalizeHoldType_（デモカーHOLD・他店HOLDは管理者権限を持つ担当者のみ） ==');
+console.log('== HoldService: normalizeHoldType_（業販HOLDは管理者権限を持つ担当者のみ） ==');
 const ADMIN_EMAIL = sandbox.SYSTEM_ADMIN_EMAILS[0];
 test('未指定は通常のHold（normal）になる（誰でも可）', () => {
   assert.strictEqual(sandbox.normalizeHoldType_(undefined, 'other@example.com'), 'normal');
   assert.strictEqual(sandbox.normalizeHoldType_('normal', 'other@example.com'), 'normal');
 });
-test('管理者はデモカーHOLD・他店HOLDを指定できる', () => {
-  assert.strictEqual(sandbox.normalizeHoldType_('demo', ADMIN_EMAIL), 'demo');
-  assert.strictEqual(sandbox.normalizeHoldType_('otherStore', ADMIN_EMAIL), 'otherStore');
+test('管理者は業販HOLDを指定できる', () => {
+  assert.strictEqual(sandbox.normalizeHoldType_('wholesale', ADMIN_EMAIL), 'wholesale');
 });
-test('非管理者がデモカーHOLD・他店HOLDを指定しようとするとエラー', () => {
-  assert.throws(() => sandbox.normalizeHoldType_('demo', 'other@example.com'), /管理者権限/);
-  assert.throws(() => sandbox.normalizeHoldType_('otherStore', 'other@example.com'), /管理者権限/);
+test('非管理者が業販HOLDを指定しようとするとエラー', () => {
+  assert.throws(() => sandbox.normalizeHoldType_('wholesale', 'other@example.com'), /管理者権限/);
 });
 test('不正なHold種別はエラー', () => {
   assert.throws(() => sandbox.normalizeHoldType_('bogus', ADMIN_EMAIL), /不正なHold種別/);
@@ -322,17 +306,14 @@ test('holdType省略時はnormalになり、salesStoreは空文字になる', ()
   assert.strictEqual(record.holdType, 'normal');
   assert.strictEqual(record.salesStore, '');
 });
-test('holdType・salesStoreを指定すると反映される（デモカーHOLD・他店HOLDは期限がnullでも組み立てられる）', () => {
-  const demoRecord = sandbox.buildHoldRecord_('C-102', sandbox.HOLD_RANK.FIRST, { staffEmail: 'admin@example.com' }, 1000, null, 'demo');
-  assert.strictEqual(demoRecord.holdType, 'demo');
-  assert.strictEqual(demoRecord.expiresAt, null);
-
-  const otherRecord = sandbox.buildHoldRecord_(
+test('holdType・salesStoreを指定すると反映される（業販HOLDは期限がnullでも組み立てられる）', () => {
+  const wholesaleRecord = sandbox.buildHoldRecord_(
     'C-103', sandbox.HOLD_RANK.FIRST,
-    { staffEmail: 'admin@example.com', salesStore: '横浜店' }, 1000, null, 'otherStore'
+    { staffEmail: 'admin@example.com', salesStore: '横浜店' }, 1000, null, 'wholesale'
   );
-  assert.strictEqual(otherRecord.holdType, 'otherStore');
-  assert.strictEqual(otherRecord.salesStore, '横浜店');
+  assert.strictEqual(wholesaleRecord.holdType, 'wholesale');
+  assert.strictEqual(wholesaleRecord.expiresAt, null);
+  assert.strictEqual(wholesaleRecord.salesStore, '横浜店');
 });
 
 console.log('== SearchService: searchInventory / searchOrders ==');
@@ -898,20 +879,27 @@ test('ＯＣＮが重複している行を検出する', () => {
   assert.strictEqual(issues[0].type, 'duplicateOcn');
   assert.strictEqual(issues[0].ocn, 'O-001');
 });
-test('コミッションが重複している行を検出する（コミッションは任意入力でもチェックする）', () => {
+test('コミッションが重複している行は検出しない（コミッションは任意入力で重複し得るため）', () => {
   const vehicles = [
     { ocn: 'O-001', commission: 'C-001', model: 'A4', holdStatus: 'available' },
     { ocn: 'O-002', commission: 'C-001', model: 'A4 (別グレード)', holdStatus: 'available' }
   ];
+  assert.strictEqual(sandbox.checkInventoryIntegrity_(vehicles).length, 0);
+});
+test('登録番号（地域＋分類番号＋ひらがな＋一連番号）が重複している行を検出する', () => {
+  const vehicles = [
+    { ocn: 'O-001', commission: 'C-001', model: 'A4', holdStatus: 'available', plateRegion: '岐阜', plateClass: '300', plateKana: 'あ', plateNumber: '1111' },
+    { ocn: 'O-002', commission: 'C-002', model: 'A4 (別グレード)', holdStatus: 'available', plateRegion: '岐阜', plateClass: '300', plateKana: 'あ', plateNumber: '1111' }
+  ];
   const issues = sandbox.checkInventoryIntegrity_(vehicles);
   assert.strictEqual(issues.length, 1);
-  assert.strictEqual(issues[0].type, 'duplicateCommission');
-  assert.ok(issues[0].message.indexOf('C-001') !== -1);
+  assert.strictEqual(issues[0].type, 'duplicatePlateNumber');
+  assert.ok(issues[0].message.indexOf('岐阜 300 あ 1111') !== -1);
 });
-test('コミッションが空欄の行同士は重複扱いにしない（任意入力のため）', () => {
+test('登録番号が空欄（4マスすべて未入力）の行同士は重複扱いにしない', () => {
   const vehicles = [
-    { ocn: 'O-001', commission: '', model: 'A4', holdStatus: 'available' },
-    { ocn: 'O-002', commission: '', model: 'A6', holdStatus: 'available' }
+    { ocn: 'O-001', commission: 'C-001', model: 'A4', holdStatus: 'available' },
+    { ocn: 'O-002', commission: 'C-002', model: 'A6', holdStatus: 'available' }
   ];
   assert.strictEqual(sandbox.checkInventoryIntegrity_(vehicles).length, 0);
 });
@@ -937,15 +925,15 @@ test('holdStatusが空欄・未設定は不整合として扱わない', () => {
 });
 test('複数の問題は種類ごとにすべて列挙される', () => {
   const vehicles = [
-    { ocn: 'O-001', commission: 'C-001', model: 'A4', holdStatus: 'available' },
-    { ocn: 'O-001', commission: 'C-001', model: 'A4', holdStatus: 'available' },
-    { ocn: 'O-002', commission: 'C-002', model: '', holdStatus: 'unknown_status' }
+    { ocn: 'O-001', commission: 'C-001', model: 'A4', holdStatus: 'available', plateRegion: '岐阜', plateClass: '300', plateKana: 'あ', plateNumber: '1111' },
+    { ocn: 'O-001', commission: 'C-002', model: 'A4', holdStatus: 'available', plateRegion: '岐阜', plateClass: '300', plateKana: 'あ', plateNumber: '1111' },
+    { ocn: 'O-002', commission: 'C-003', model: '', holdStatus: 'unknown_status' }
   ];
   const issues = sandbox.checkInventoryIntegrity_(vehicles);
   assert.strictEqual(issues.length, 4);
   const types = [];
   for (let i = 0; i < issues.length; i++) types.push(issues[i].type);
-  assert.strictEqual(types.sort().join(','), 'duplicateCommission,duplicateOcn,missingModel,unknownHoldStatus');
+  assert.strictEqual(types.sort().join(','), 'duplicateOcn,duplicatePlateNumber,missingModel,unknownHoldStatus');
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

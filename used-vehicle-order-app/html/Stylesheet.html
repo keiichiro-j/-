@@ -45,12 +45,18 @@
        JS実行前の目安値としてDEFAULT_THEME_KEY「steel」のprimary #2f6faeを
        6%の濃さで混ぜた値をここに置いている）。 */
     --card-bg: rgba(47, 111, 174, .06);
-    /* 管理者権限を持つ担当者のみ登録できるデモカーHOLD・他店HOLD専用の特別色。
+    /* 管理者権限を持つ担当者のみ登録できる業販HOLD専用の特別色。
        通常のHold（--warning・アンバー）・2nd Hold（--danger・レッド／--primary・ブルー）
        のどれとも重ならない紫系にし、テーマ設定（着せ替え）の影響を受けない固定色にする
-       （デモカーHOLD・他店HOLDである、という見分けやすさを最優先するため）。 */
+       （業販HOLDである、という見分けやすさを最優先するため）。 */
     --hold-special: #6d28d9;
     --hold-special-bg: rgba(124, 58, 237, .14);
+    /* 中古車サイトに掲載中（在庫リストのvehicleQuickMetaHtml_「掲載」列が
+       「あり」）の車両を、在庫あり／Hold中等のステータス色（border-left-color）
+       とは独立してひと目で区別するための背景色（is-listed、Stylesheet.html内の
+       .card.is-listed・.invTableRow.is-listedルール参照）。ステータス色（成功の
+       緑・警告のアンバー・危険の赤・業販HOLDの紫）と重ならないティール系にする。 */
+    --listed-bg: rgba(20, 184, 166, .14);
     --shadow: 0 1px 2px rgba(16, 31, 51, .10);
     --shadow-elevated: 0 16px 40px rgba(16, 31, 51, .16);
     /* 公式サイトはカードの角丸をあまり強調しないフラットな見た目のため、
@@ -763,6 +769,21 @@
   @media (min-width: 901px) {
     .invTableWrap { overflow-x: hidden; }
     .invTable { table-layout: fixed; width: 100%; }
+    /* 不具合修正: table-layout: fixedは列幅の指定が無いと全10列を均等割りに
+       してしまい、Hold詳細・操作ボタンのように幅を要する列が窮屈になって
+       いた（現場からの指摘:「Hold情報が不鮮明」「受注確定・2ND HOLDの文字が
+       見切れる」）。列ごとの実際の内容量に応じて明示的に配分する
+       （合計100%。vehicleRowsHtml・vehicleTableRowHtml_の列順と対応）。 */
+    .invTable th:nth-child(1), .invTable td:nth-child(1) { width: 8%; }  /* ステータス */
+    .invTable th:nth-child(2), .invTable td:nth-child(2) { width: 12%; } /* 車種 */
+    .invTable th:nth-child(3), .invTable td:nth-child(3) { width: 10%; } /* ＯＣＮ */
+    .invTable th:nth-child(4), .invTable td:nth-child(4) { width: 5%; }  /* ハンドル */
+    .invTable th:nth-child(5), .invTable td:nth-child(5) { width: 10%; } /* カラー */
+    .invTable th:nth-child(6), .invTable td:nth-child(6) { width: 8%; }  /* 走行距離 */
+    .invTable th:nth-child(7), .invTable td:nth-child(7) { width: 9%; }  /* 販売価格 */
+    .invTable th:nth-child(8), .invTable td:nth-child(8) { width: 14%; } /* 1ST HOLD */
+    .invTable th:nth-child(9), .invTable td:nth-child(9) { width: 14%; } /* 2ND HOLD */
+    .invTable th:nth-child(10), .invTable td:nth-child(10) { width: 10%; } /* 操作 */
   }
   .invTable {
     width: 100%;
@@ -793,6 +814,9 @@
   .invTableRow--hold > td:first-child { border-left-color: var(--warning); }
   .invTableRow--hold2 > td:first-child { border-left-color: var(--danger); }
   .invTableRow--holdSpecial > td:first-child { border-left-color: var(--hold-special); }
+  /* 中古車サイトに掲載中の車両は、Hold状態の色（border-left-color）とは独立して
+     行の背景色を変え、一目で区別できるようにする（.card.is-listedと同じ考え方）。 */
+  .invTableRow.is-listed > td { background: var(--listed-bg); }
   /* モデル・コミッション・カラー・有償OPは、値が長い場合でも折り返さず省略記号に
      する（現場からの要望。折り返すと行の高さが車両ごとにばらつく）。 */
   .invTableRow__ellipsis {
@@ -810,8 +834,18 @@
   }
   .invTableRow__mono { font-variant-numeric: tabular-nums; }
   .invTableRow__center { text-align: center; }
-  .invTableRow__actions { white-space: nowrap; }
-  .invTableRow__actions .btn { margin-right: 8px; }
+  /* 不具合修正: white-space: nowrapのまま列幅が足りないと、ボタンの文字が
+     列からはみ出し、PCビュー（overflow-x: hidden）では見切れて消えてしまって
+     いた（現場からの指摘）。nowrapをやめてflex-wrapで折り返せるようにし、
+     内容がすべて見える方を優先する（折り返した場合は行の高さが少し伸びるが、
+     文字が消えるよりはよい）。 */
+  .invTableRow__actions {
+    white-space: normal;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+  }
   .invTable__comparePin {
     display: inline-flex;
     align-items: center;
@@ -851,14 +885,25 @@
     height: 64px;
     overflow: hidden;
   }
+  /* 不具合修正: 固定px（旧170px）だと、列幅を実際の内容量に合わせて配分し
+     直した後（table-layout: fixedのnth-child幅ルール参照）は列幅と合わず、
+     狭い環境では列からはみ出して.invTableWrapのoverflow-x: hiddenに見切れる
+     一方、広い環境では逆に狭く省略されすぎていた。列（セル）の実際の幅を
+     そのまま使うことで、どちらの環境でも列幅いっぱいまで表示できるようにする。 */
   .invHold__name {
     font-size: 13px; font-weight: 700; color: var(--on-surface);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
   }
   .invHold--special .invHold__name { color: var(--hold-special); }
   .invHold__staff {
     font-size: 11px; color: var(--on-surface-variant);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+  }
+  /* PCビュー（901px以上、table-layout: fixed）では、列幅は上のnth-child幅
+     ルールで既に確定しているため、130pxの下限は不要（あるとかえって列幅との
+     ズレで見切れの原因になる。上の不具合修正コメント参照）。 */
+  @media (min-width: 901px) {
+    .invHold { min-width: 0; width: 100%; }
   }
   /* 参照UIのタイマー表記は簡潔な文字だけのため、既存のholdTimer（進捗バー付き）の
      バーは非表示にし、テキストだけをコンパクトに見せる（holdTimerHtml_の
@@ -923,9 +968,14 @@
   /* 1st・2nd Holdの両方が埋まっている車両は、これ以上の受け皿がない分、他より
      目立たせる（現場の声を踏まえ、Hold1件のみとは別の色にする）。 */
   .card--hold2 { border-left-color: var(--danger); }
-  /* デモカーHOLD・他店HOLDは、通常のHold・2nd Holdとひと目で見分けられるよう
+  /* 業販HOLDは、通常のHold・2nd Holdとひと目で見分けられるよう
      専用の特別色にする（管理者権限を持つ担当者のみ登録できる。HOLD_TYPE参照）。 */
   .card--holdSpecial { border-left-color: var(--hold-special); }
+  /* 中古車サイトに掲載中の車両は、Hold状態の色（border-left-color）とは独立して
+     背景色を変え、一覧上で一目で区別できるようにする（現場からの要望。
+     isVehicleListed_、JavaScript.html参照）。border-left-colorによる状態色と
+     衝突しないよう、変えるのはbackgroundのみにする。 */
+  .card.is-listed { background: var(--listed-bg); }
   /* モデル・コミッション・比較ピンの行と、バッジの行を常に別々の固定行にする。
      以前は1つのflex-wrapコンテナに全部まとめていたため、バッジの個数
      （2個／3個）やモデル名・コミッションの文字数の組み合わせによって折り返し方
@@ -1095,7 +1145,7 @@
   .card__holdInfo--first .card__holdInfo__label { color: var(--warning); }
   .card__holdInfo--second { border-left-color: var(--primary); background: var(--primary-bg); }
   .card__holdInfo--second .card__holdInfo__label { color: var(--primary-text); }
-  /* デモカーHOLD・他店HOLDは、順番（1st/2nd）に関わらずこの特別色で上書きする
+  /* 業販HOLDは、順番（1st/2nd）に関わらずこの特別色で上書きする
      （--first/--secondと同時に付与されるクラスのため、後に書くことで優先させる）。 */
   .card__holdInfo--special { border-left-color: var(--hold-special); background: var(--hold-special-bg); }
   .card__holdInfo--special .card__holdInfo__label { color: var(--hold-special); }
@@ -1140,7 +1190,7 @@
   }
   .holdTimer--warning .holdTimer__barFill { background: var(--warning); }
   .holdTimer--expired .holdTimer__barFill { background: var(--danger); width: 0% !important; }
-  /* デモカーHOLD・他店HOLDはHold期限が無期限のため、進捗バーは出さず「無期限」の
+  /* 業販HOLDはHold期限が無期限のため、進捗バーは出さず「無期限」の
      固定表示のみにする（holdTimerHtml_、JavaScript.html参照）。 */
   .holdTimer--indefinite .holdTimer__text { margin-top: 0; color: var(--hold-special); font-weight: 700; }
   .holdTimer__text {
@@ -2316,7 +2366,7 @@
   .modal__hint { margin: 10px 0 0; font-size: 12.5px; color: var(--on-surface-variant); line-height: 1.6; }
 
   /* ===== Hold種別選択（管理者権限を持つ担当者が「Hold」タップ時のみ表示）=====
-     通常のHold／デモカーHOLD／他店HOLDの3択。デモカーHOLD・他店HOLDは専用の
+     通常のHold／業販HOLDの2択。業販HOLDは専用の
      特別色（--hold-special）でボタンの左罫線を色分けし、選ぶ前から見分けやすくする。 */
   .actionTypePick__intro { margin: 0 0 14px; font-size: 13.5px; color: var(--on-surface-variant); }
   .actionTypePick { display: flex; flex-direction: column; gap: 10px; }
@@ -2336,8 +2386,7 @@
     transition: box-shadow .15s ease, transform .15s ease;
   }
   .actionTypePick__btn:hover { box-shadow: var(--shadow-elevated); transform: translateY(-1px); }
-  .actionTypePick__btn--demo,
-  .actionTypePick__btn--otherStore { border-left-color: var(--hold-special); }
+  .actionTypePick__btn--wholesale { border-left-color: var(--hold-special); }
   .actionTypePick__btnTitle { font-size: 15px; font-weight: 700; }
   .actionTypePick__btnDesc { font-size: 12.5px; color: var(--on-surface-variant); }
 

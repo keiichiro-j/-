@@ -1,16 +1,16 @@
 /**
  * SetupService.gs
  * スプレッドシートの初期セットアップ（在庫リスト・Holdリスト・受注リスト・
- * 変更履歴の4タブを自動生成）。
+ * 業販受注リスト・変更履歴の5タブを自動生成）。
  *
  * 元データスプレッドシート（xlsx）を手作業でアップロード・貼り付けする代わりに、
  * 任意の空のGoogleスプレッドシートに本プロジェクトをコンテナバインドした状態で
- * setupSpreadsheet_() を一度実行するだけで、必要な4タブ・ヘッダー・入力規則
+ * setupSpreadsheet_() を一度実行するだけで、必要な5タブ・ヘッダー・入力規則
  * （選択式の列のドロップダウン）・列ヘッダーの説明メモ・コミッション列の書式
  * （先頭0保持）・時間主導トリガーまで一括で整えられる（Constants.gsの
- * INVENTORY_COLUMNS / HOLD_COLUMNS / ORDER_COLUMNS / AUDIT_LOG_COLUMNSの
- * 列定義から自動生成するため、今後アプリ側に列が追加された場合もコード変更は
- * Constants.gs側だけで済む）。
+ * INVENTORY_COLUMNS / HOLD_COLUMNS / ORDER_COLUMNS / WHOLESALE_ORDER_COLUMNS /
+ * AUDIT_LOG_COLUMNSの列定義から自動生成するため、今後アプリ側に列が追加された
+ * 場合もコード変更は Constants.gs側だけで済む）。
  *
  * 既存のシートがある場合は作り直さない（getOrCreateSheet_ はシートが無いときだけ
  * ヘッダー・入力規則・説明メモを書き込むため、既存データ・書式はそのまま保持される）。
@@ -19,19 +19,20 @@
  */
 
 /**
- * 在庫リスト・Holdリスト・受注リスト・変更履歴を作成し、Hold期限チェックの
- * 時間主導トリガーをセットアップする。GASエディタから手動実行するか、
- * スプレッドシートのメニュー「販売可能リスト」→「初期セットアップ」からも
- * 実行できる（onOpen参照）。
+ * 在庫リスト・Holdリスト・受注リスト・業販受注リスト・変更履歴を作成し、
+ * Hold期限チェックの時間主導トリガーをセットアップする。GASエディタから
+ * 手動実行するか、スプレッドシートのメニュー「販売可能リスト」→
+ * 「初期セットアップ」からも実行できる（onOpen参照）。
  */
 function setupSpreadsheet_() {
   getInventorySheet_();
   getHoldsSheet_();
   getOrderSheet_();
+  getWholesaleOrderSheet_();
   getAuditLogSheet_();
   setupTimeDrivenTriggers_();
 
-  var message = '在庫リスト・Holdリスト・受注リスト・変更履歴の4タブを準備しました' +
+  var message = '在庫リスト・Holdリスト・受注リスト・業販受注リスト・変更履歴の5タブを準備しました' +
     '（既存のシートがあればそのまま利用し、上書きはしていません）。' +
     '選択式の列にはドロップダウンの入力規則を、列見出しには入力形式の説明メモを' +
     '設定済みです。Hold期限チェックの時間主導トリガーも設定済みです。';
@@ -42,13 +43,14 @@ function setupSpreadsheet_() {
 /**
  * 既存のスプレッドシートの「ステア」列に保存済みの「右」「左」を「R」「L」へ
  * 一括変換する一回限りのメンテナンス関数（formatCommissionColumnsAsText_と同じ
- * 位置づけ）。ステア列を持つ在庫リスト・受注リストが対象。「右」「左」以外の値
- * （空欄・既にR/Lへ変換済み等）はそのまま変更しない。
+ * 位置づけ）。ステア列を持つ在庫リスト・受注リスト・業販受注リストが対象。
+ * 「右」「左」以外の値（空欄・既にR/Lへ変換済み等）はそのまま変更しない。
  */
 function migrateSteeringToRL_() {
   var targets = [
     [getInventorySheet_(), INVENTORY_COLUMNS],
-    [getOrderSheet_(), ORDER_COLUMNS]
+    [getOrderSheet_(), ORDER_COLUMNS],
+    [getWholesaleOrderSheet_(), WHOLESALE_ORDER_COLUMNS]
   ];
   var converted = 0;
   targets.forEach(function (pair) {
@@ -67,7 +69,7 @@ function migrateSteeringToRL_() {
   });
 
   var message = 'ステア列の「右」「左」を「R」「L」へ' + converted + '件変換しました' +
-    '（在庫リスト・受注リストが対象）。';
+    '（在庫リスト・受注リスト・業販受注リストが対象）。';
   Logger.log(message);
   return message;
 }
@@ -86,13 +88,14 @@ function applySelectValidationsAndNotes_() {
     [getInventorySheet_(), INVENTORY_COLUMNS],
     [getHoldsSheet_(), HOLD_COLUMNS],
     [getOrderSheet_(), ORDER_COLUMNS],
+    [getWholesaleOrderSheet_(), WHOLESALE_ORDER_COLUMNS],
     [getAuditLogSheet_(), AUDIT_LOG_COLUMNS]
   ].forEach(function (pair) {
     applySelectValidations_(pair[0], pair[1]);
     applyHeaderNotes_(pair[0], pair[1]);
   });
 
-  var message = '在庫リスト・Holdリスト・受注リスト・変更履歴の入力規則・列見出しの説明メモを設定しました。';
+  var message = '在庫リスト・Holdリスト・受注リスト・業販受注リスト・変更履歴の入力規則・列見出しの説明メモを設定しました。';
   Logger.log(message);
   return message;
 }
@@ -252,7 +255,7 @@ function finishDiagnosis_(lines) {
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('販売可能リスト')
-    .addItem('初期セットアップ（4タブを作成）', 'setupSpreadsheet_')
+    .addItem('初期セットアップ（5タブを作成）', 'setupSpreadsheet_')
     .addItem('在庫データの読み込み状況を確認', 'diagnoseInventoryData_')
     .addItem('入力規則・列見出しの説明メモを再設定', 'applySelectValidationsAndNotes_')
     .addItem('ＯＣＮ・コミッション列を書式なしテキストに再設定', 'formatCommissionColumnsAsText_')

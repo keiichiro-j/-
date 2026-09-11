@@ -30,8 +30,8 @@ function notifyHoldRegistered(vehicle, isSecondHold) {
     'モデル: ' + vehicle.model,
     'Hold種別: ' + (HOLD_TYPE_LABELS[holdType] || holdType)
   ];
-  if (holdType === HOLD_TYPE.OTHER_STORE) {
-    bodyLines.push('販売店: ' + (salesStore || '-'));
+  if (holdType === HOLD_TYPE.WHOLESALE) {
+    bodyLines.push('販売先: ' + (salesStore || '-'));
   } else {
     bodyLines.push('リード番号: ' + (input.leadNumber || '-'));
     bodyLines.push('登録月: ' + (input.registeredMonth || '-'));
@@ -89,6 +89,40 @@ function notifyOrderConfirmed(order) {
     sent = true;
   }
   if (sendChatNotification_('*【販売可能リスト】受注確定のお知らせ*\n' + body)) sent = true;
+  return sent;
+}
+
+/**
+ * 業販Holdからの受注確定（confirmWholesaleOrder、OrderService.gs参照）の通知。
+ * 通常の受注確定（notifyOrderConfirmed）と異なり、リード番号・下取車の有無・
+ * 保険加入の有無・支払方法は持たないため、対応する項目のみ通知する。
+ */
+function notifyWholesaleOrderConfirmed(order) {
+  var mailTo = getMailList_(PROP_KEYS.NOTIFY_ORDER_MAIL_TO).join(',');
+
+  var bodyLines = [
+    '業販受注が確定しました。',
+    '',
+    'コミッション: ' + order.commission,
+    'モデル: ' + order.model,
+    '販売拠点: ' + order.salesLocation,
+    '販売先: ' + order.salesStore,
+    '登録月: ' + order.registeredMonth,
+    '担当者: ' + order.staff,
+    '受注確定日時: ' + formatDateTime_(order.orderedAt)
+  ];
+  var body = bodyLines.join('\n');
+
+  var sent = false;
+  if (mailTo) {
+    MailApp.sendEmail({
+      to: mailTo,
+      subject: '【販売可能リスト】業販受注確定のお知らせ',
+      body: body
+    });
+    sent = true;
+  }
+  if (sendChatNotification_('*【販売可能リスト】業販受注確定のお知らせ*\n' + body)) sent = true;
   return sent;
 }
 

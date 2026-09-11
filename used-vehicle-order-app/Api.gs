@@ -60,7 +60,7 @@ function api_checkInventoryIntegrity() {
 
 // ===== Hold機能 =====
 // holdTypeは省略時 HOLD_TYPE.NORMAL として扱われる（registerHold内のnormalizeHoldType_参照）。
-// デモカーHOLD・他店HOLDを指定できるのは管理者権限を持つ担当者のみで、この権限チェック自体は
+// 業販HOLDを指定できるのは管理者権限を持つ担当者のみで、この権限チェック自体は
 // クライアントの表示制御ではなくサーバー側のnormalizeHoldType_で行う（Api.gsは薄いレイヤーの
 // ため、ここでは権限チェックを行わない）。
 function api_registerHold(commission, info, holdType) {
@@ -92,6 +92,29 @@ function api_listOrders(filters, groupBy) {
     return o;
   });
   var result = searchOrders(orders, filters);
+  return groupBy ? groupByField_(result, groupBy) : [{ key: '', items: result }];
+}
+
+function api_confirmWholesaleOrder(commission, info) {
+  return confirmWholesaleOrder(commission, info);
+}
+
+/**
+ * 業販受注リスト一覧。コントロールパネルには管理者権限を持つ担当者にのみ
+ * このタブ自体を表示するが（renderSettingsと同じisSystemAdmin判定、
+ * JavaScript.html参照）、直接APIを呼ばれた場合の保険として、サーバー側でも
+ * 非管理者には常に空配列を返す。
+ */
+function api_listWholesaleOrders(filters, groupBy) {
+  var email = Session.getActiveUser().getEmail();
+  if (!isSystemAdmin_(email)) return [{ key: '', items: [] }];
+  var orders = listWholesaleOrders().map(function (o) {
+    o.orderedMonth = o.orderedAt
+      ? Utilities.formatDate(new Date(o.orderedAt), Session.getScriptTimeZone(), 'yyyy-MM')
+      : '';
+    return o;
+  });
+  var result = searchWholesaleOrders(orders, filters);
   return groupBy ? groupByField_(result, groupBy) : [{ key: '', items: result }];
 }
 

@@ -28,6 +28,8 @@
     compareItems: [], // 比較中の車両（在庫リストのピンで選択。最大COMPARE_MAX台）
     ordersViewMode: safeLocalStorageGet_('ordersViewMode') || 'card', // 'card' | 'table'（受注リストの表示形式）
     ordersGroups: [],
+    wholesaleOrdersViewMode: safeLocalStorageGet_('wholesaleOrdersViewMode') || 'card', // 'card' | 'table'（業販受注リストの表示形式）
+    wholesaleOrdersGroups: [],
     action: null, // { type: 'hold' | 'secondHold' | 'order' | 'orderFromHold', commission }
     staffList: [], // 設定タブで編集中の担当者マスタ（作業用コピー）
     modelPhotos: [], // 設定タブで編集中のモデル写真（作業用コピー）
@@ -720,24 +722,29 @@
     return '<div><dt>' + label + '</dt><dd>' + escapeHtml(value || '-') + '</dd></div>';
   }
 
-  // ===== Hold種別（通常／デモカーHOLD／他店HOLD）表示ヘルパー =====
-  // 管理者権限を持つ担当者のみ登録できるデモカーHOLD・他店HOLDは、通常のHold・2nd Holdとは
+  // ===== Hold種別（通常／業販HOLD）表示ヘルパー =====
+  // 管理者権限を持つ担当者のみ登録できる業販HOLDは、通常のHold・2nd Holdとは
   // 見分けがつくよう、バッジ・カード左罫線・Hold詳細ブロックすべてに専用の特別色
   // （badge--holdSpecial 等）を使う（HoldService.gsのHOLD_TYPE参照）。
-  var HOLD_TYPE_LABELS_FALLBACK_ = { normal: '通常のHOLD', demo: 'デモカーHOLD', otherStore: '他店HOLD' };
+  var HOLD_TYPE_LABELS_FALLBACK_ = { normal: '通常のHOLD', wholesale: '業販HOLD' };
   function holdTypeLabel_(holdType) {
     var map = (state.bootstrap && state.bootstrap.holdTypeLabels) || HOLD_TYPE_LABELS_FALLBACK_;
     return map[holdType] || holdType;
+  }
+
+  // 中古車サイトに掲載中（v.listedが「あり」）の車両は、在庫あり／Hold中等の
+  // ステータス色（border-left-color）とは独立して、カード・行の背景色を変えて
+  // 一目で区別できるようにする（is-listed、Stylesheet.html参照）。
+  function isVehicleListed_(v) {
+    return v.listed === 'あり';
   }
 
   function vehicleCardTone_(v) {
     var isHold = v.holdStatus === 'hold';
     var hasSecondHold = isHold && !!v.secondHoldCustomer;
     var isSpecialHold = isHold && !!(v.holdHoldType && v.holdHoldType !== 'normal');
-    if (isSpecialHold) return 'card--holdSpecial';
-    if (hasSecondHold) return 'card--hold2';
-    if (isHold) return 'card--hold';
-    return 'card--available';
+    var tone = isSpecialHold ? 'card--holdSpecial' : (hasSecondHold ? 'card--hold2' : (isHold ? 'card--hold' : 'card--available'));
+    return isVehicleListed_(v) ? tone + ' is-listed' : tone;
   }
 
   function vehicleBadgesHtml_(v) {
@@ -790,19 +797,16 @@
     return parts.length ? parts.join(' ') : '';
   }
 
-  function linkRow_(label, url) {
-    var dd = url ? '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener">掲載ページを開く</a>' : '-';
-    return '<div><dt>' + label + '</dt><dd>' + dd + '</dd></div>';
-  }
-
-  // 区分・走行距離・カラー・販売価格は折りたたまず常に表示する（現場の声を
-  // 踏まえ、隠しすぎない）。
+  // 区分・走行距離・カラー・販売価格・掲載は折りたたまず常に表示する（現場の声を
+  // 踏まえ、隠しすぎない）。「掲載」は中古車サイトへの掲載有無で、カード・行の
+  // 背景色（is-listed、vehicleCardTone_・vehicleTableRowHtml_参照）と対になる項目。
   function vehicleQuickMetaHtml_(v) {
     return '<dl class="card__metaGrid card__metaGrid--quick">' +
       metaRow_('区分', v.category) +
       metaRow_('走行距離', formatNumberUnit_(v.mileage, ' km')) +
       metaRow_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
       metaRow_('販売価格', formatNumberUnit_(v.salePrice, ' 円')) +
+      metaRow_('掲載', v.listed || 'なし') +
       '</dl>';
   }
 
@@ -822,7 +826,6 @@
       metaRow_('現展示拠点', v.currentDisplayLocation) +
       metaRow_('オプション', v.option) +
       metaRow_('現名義', v.currentOwnerName) +
-      linkRow_('掲載リンク', v.listingUrl) +
       '</dl>';
   }
 
@@ -1061,6 +1064,21 @@
     });
   }
 
+  function syncWholesaleOrdersViewToggle_() {
+    document.querySelectorAll('#wholesaleOrdersViewToggle .viewToggle__item').forEach(function (btn) {
+      btn.classList.toggle('is-active', btn.dataset.view === state.wholesaleOrdersViewMode);
+    });
+  }
+
+  on('wholesaleOrdersViewToggle','click', function (e) {
+    var btn = e.target.closest('[data-view]');
+    if (!btn) return;
+    state.wholesaleOrdersViewMode = btn.dataset.view;
+    safeLocalStorageSet_('wholesaleOrdersViewMode', state.wholesaleOrdersViewMode);
+    syncWholesaleOrdersViewToggle_();
+    renderWholesaleOrders();
+  });
+
   on('ordersViewToggle','click', function (e) {
     var btn = e.target.closest('[data-view]');
     if (!btn) return;
@@ -1109,6 +1127,7 @@
     var hasSecondHold = isHold && !!v.secondHoldCustomer;
     var isSpecialHold = isHold && !!(v.holdHoldType && v.holdHoldType !== 'normal');
     var rowTone = isSpecialHold ? 'invTableRow--holdSpecial' : (hasSecondHold ? 'invTableRow--hold2' : (isHold ? 'invTableRow--hold' : 'invTableRow--available'));
+    if (isVehicleListed_(v)) rowTone += ' is-listed';
     var statusBadge = isSpecialHold
       ? ('<span class="badge badge--holdSpecial"><span class="badge__dot"></span>' +
           escapeHtml(holdTypeLabel_(v.holdHoldType)) + '中' + (hasSecondHold ? '（2nd有）' : '') + '</span>')
@@ -1190,18 +1209,11 @@
 
     var summaryHtml;
     var detailsHtml = '';
-    if (holdType === 'demo') {
-      summaryHtml = '<div class="card__holdInfo__row"><b>デモカーHOLD</b>（担当者 ' + escapeHtml(staff || '-') + '）</div>';
+    if (holdType === 'wholesale') {
+      summaryHtml = '<div class="card__holdInfo__row"><b>業販HOLD</b>（担当者 ' + escapeHtml(staff || '-') + '）</div>';
       if (full) {
         detailsHtml = '<div class="card__holdInfo__detailsBody card__holdInfo__detailsBody--flat">' +
-          'リード番号 ' + escapeHtml(leadNumber || '-') + ' / 登録月 ' + escapeHtml(registeredMonth || '-') +
-          '</div>';
-      }
-    } else if (holdType === 'otherStore') {
-      summaryHtml = '<div class="card__holdInfo__row"><b>他店HOLD</b>（担当者 ' + escapeHtml(staff || '-') + '）</div>';
-      if (full) {
-        detailsHtml = '<div class="card__holdInfo__detailsBody card__holdInfo__detailsBody--flat">' +
-          '販売店 ' + escapeHtml(salesStore || '-') +
+          '販売先 ' + escapeHtml(salesStore || '-') +
           '</div>';
       }
     } else {
@@ -1228,7 +1240,7 @@
   }
 
   // ===== Hold 72時間タイマー（視覚的なカウントダウン・進捗バー） =====
-  // デモカーHOLD・他店HOLDは期限が無期限（expiresAtがfalsy）のため、進捗バーは出さず
+  // 業販HOLDは期限が無期限（expiresAtがfalsy）のため、進捗バーは出さず
   // 「無期限」の固定表示にする。updateHoldTimersは data-expires-at が空（falsy）の
   // 要素を毎秒の更新対象から除外するため、この初期表示のまま変化しない。
   function holdTimerHtml_(createdAt, expiresAt, extraClass) {
@@ -1317,6 +1329,7 @@
 
   syncViewToggle_();
   syncOrdersViewToggle_();
+  syncWholesaleOrdersViewToggle_();
   syncMyPageViewToggle_();
 
   // 在庫リストのカード/行タップ操作（Hold・受注・比較・詳細）。マイページの
@@ -1486,22 +1499,24 @@
 
   /**
    * 管理者権限を持つ担当者がHoldをタップした場合、通常の顧客情報入力（step 1/2）の前に
-   * Hold種別選択（'typePick'）を挟む。デモカーHOLD（'demo'）・他店HOLD（'otherStore'）は
-   * 通常の2ステップとは別の簡易フォーム1画面のみで完結する。
-   * stepは 'typePick' | 1 | 2 | 'demo' | 'otherStore' のいずれか。
+   * Hold種別選択（'typePick'）を挟む。業販HOLD（'wholesale'）は通常の2ステップとは
+   * 別の簡易フォーム1画面のみで完結する。業販HOLDが掛かっている車両から受注確定を
+   * タップした場合は、typePickを経由せずいきなり'wholesaleOrder'（販売先・登録月の
+   * みの簡易フォーム）へ入る（openActionModal参照）。
+   * stepは 'typePick' | 1 | 2 | 'wholesale' | 'wholesaleOrder' のいずれか。
    */
   function goToActionStep_(step) {
     state.actionStep = step;
     var showTypePick = step === 'typePick';
     var showStep1 = step === 1;
     var showStep2 = step === 2;
-    var showDemo = step === 'demo';
-    var showOtherStore = step === 'otherStore';
+    var showWholesale = step === 'wholesale';
+    var showWholesaleOrder = step === 'wholesaleOrder';
     $('actionTypePickStep').classList.toggle('hidden', !showTypePick);
     $('actionStep1').classList.toggle('hidden', !showStep1);
     $('actionStep2').classList.toggle('hidden', !showStep2);
-    $('actionStepDemo').classList.toggle('hidden', !showDemo);
-    $('actionStepOtherStore').classList.toggle('hidden', !showOtherStore);
+    $('actionStepWholesale').classList.toggle('hidden', !showWholesale);
+    $('actionStepWholesaleOrder').classList.toggle('hidden', !showWholesaleOrder);
 
     var isNormalSteps = showStep1 || showStep2;
     $('actionStepFill').closest('.modal__stepBar').classList.toggle('hidden', !isNormalSteps);
@@ -1509,12 +1524,13 @@
       $('actionStepFill').style.width = showStep1 ? '50%' : '100%';
       $('actionStepLabel').textContent = showStep1 ? 'ステップ 1/2　顧客情報' : 'ステップ 2/2　契約内容';
     }
-    // 「戻る」は、通常の2ステップ目からstep1へ、admin経由のstep1・簡易フォームからは
-    // Hold種別選択画面へ戻れるようにする（それ以外・通常ユーザーのHoldでは非表示のまま）。
-    var canGoBack = showStep2 || showDemo || showOtherStore || (showStep1 && !!(state.action && state.action.adminHoldFlow));
+    // 「戻る」は、通常の2ステップ目からstep1へ、admin経由のstep1・業販HOLD簡易フォームからは
+    // Hold種別選択画面へ戻れるようにする（それ以外・通常ユーザーのHold、業販HOLDからの
+    // 受注確定では非表示のまま）。
+    var canGoBack = showStep2 || showWholesale || (showStep1 && !!(state.action && state.action.adminHoldFlow));
     $('btnActionBack').classList.toggle('hidden', !canGoBack);
     $('btnActionNext').classList.toggle('hidden', !showStep1);
-    $('btnActionSubmit').classList.toggle('hidden', !(showStep2 || showDemo || showOtherStore));
+    $('btnActionSubmit').classList.toggle('hidden', !(showStep2 || showWholesale || showWholesaleOrder));
     $('actionModalError').classList.add('hidden');
   }
 
@@ -1531,11 +1547,11 @@
 
   on('btnActionBack','click', function () {
     if (state.actionStep === 2) { goToActionStep_(1); }
-    else if (state.actionStep === 1 || state.actionStep === 'demo' || state.actionStep === 'otherStore') { goToActionStep_('typePick'); }
+    else if (state.actionStep === 1 || state.actionStep === 'wholesale') { goToActionStep_('typePick'); }
   });
 
-  var ACTION_TYPE_PICK_TITLES = { normal: 'Hold登録', demo: 'デモカーHOLD登録', otherStore: '他店HOLD登録' };
-  var ACTION_TYPE_PICK_BUTTONS = { normal: 'Holdする', demo: 'デモカーHOLDする', otherStore: '他店HOLDする' };
+  var ACTION_TYPE_PICK_TITLES = { normal: 'Hold登録', wholesale: '業販HOLD登録' };
+  var ACTION_TYPE_PICK_BUTTONS = { normal: 'Holdする', wholesale: '業販HOLDする' };
 
   on('actionModal','click', function (e) {
     var btn = e.target.closest('[data-hold-type-pick]');
@@ -1545,12 +1561,11 @@
     $('actionModalTitle').textContent = ACTION_TYPE_PICK_TITLES[holdType];
     $('btnActionSubmit').textContent = ACTION_TYPE_PICK_BUTTONS[holdType];
     if (holdType === 'normal') goToActionStep_(1);
-    else if (holdType === 'demo') goToActionStep_('demo');
-    else goToActionStep_('otherStore');
+    else goToActionStep_('wholesale');
   });
 
-  // 管理者権限を持つ担当者（SYSTEM_ADMIN_EMAILS）のみ、通常のHoldに加えてデモカーHOLD・
-  // 他店HOLDを登録できる。設定タブのシステムマスタ表示・非表示（renderSettings）と
+  // 管理者権限を持つ担当者（SYSTEM_ADMIN_EMAILS）のみ、通常のHoldに加えて業販HOLDを
+  // 登録できる。設定タブのシステムマスタ表示・非表示（renderSettings）と
   // 同じ判定方法（state.bootstrap.isSystemAdmin）を使う。実際の権限チェックは
   // サーバー側 normalizeHoldType_ で行うため、ここでの判定はUI表示の制御のみ。
   function isSystemAdmin_() {
@@ -1564,14 +1579,25 @@
       return;
     }
 
+    var vehicle = findVehicleByCommission(commission);
+    var isOrderFromHold = type === 'orderFromHold' && vehicle;
+    // 業販HOLD（HoldService.gsのHOLD_TYPE.WHOLESALE）が掛かっている車両からの
+    // 受注確定は、通常の2ステップ・Hold種別選択を経由せず、「販売先」「登録月」の
+    // みの簡易フォーム（'wholesaleOrder'）で完結する。
+    var isWholesaleOrderFromHold = isOrderFromHold && vehicle.holdHoldType === 'wholesale';
+
     // 管理者権限を持つ担当者が「Hold」（1st Hold）をタップした場合のみ、通常のHoldに
-    // 加えてデモカーHOLD・他店HOLDを選べるHold種別選択画面を挟む。2nd Hold・受注確定には
-    // この選択画面は出さない（デモカーHOLD・他店HOLDは1st Holdのみの機能のため）。
+    // 加えて業販HOLDを選べるHold種別選択画面を挟む。2nd Hold・受注確定には
+    // この選択画面は出さない（業販HOLDは1st Holdのみの機能のため）。
     var isAdminHoldPick = type === 'hold' && isSystemAdmin_();
-    state.action = { type: type, commission: commission, holdType: 'normal', adminHoldFlow: isAdminHoldPick };
-    $('actionModalTitle').textContent = ACTION_LABELS[type].title;
+    state.action = {
+      type: type, commission: commission,
+      holdType: isWholesaleOrderFromHold ? 'wholesale' : 'normal',
+      adminHoldFlow: isAdminHoldPick
+    };
+    $('actionModalTitle').textContent = isWholesaleOrderFromHold ? '業販受注確定' : ACTION_LABELS[type].title;
     var submitBtn = $('btnActionSubmit');
-    submitBtn.textContent = ACTION_LABELS[type].button;
+    submitBtn.textContent = isWholesaleOrderFromHold ? '業販受注確定する' : ACTION_LABELS[type].button;
     delete submitBtn.dataset.originalLabel;
     // Hold系（hold/secondHold）はオレンジ、受注系（order/orderFromHold）は青、と
     // 一目で操作の種類が分かるようモーダル全体の差し色を切り替える。
@@ -1580,13 +1606,30 @@
     panel.classList.add('modal__panel--' + ACTION_LABELS[type].tone);
     submitBtn.disabled = false;
     $('actionModalError').classList.add('hidden');
-    $('actionDemoLeadNumber').value = '';
-    $('actionDemoRegisteredMonth').value = '';
     $('actionSalesStore').value = '';
+    $('actionWholesaleSalesStore').value = '';
+    $('actionWholesaleRegisteredMonth').value = '';
+
+    if (isWholesaleOrderFromHold) {
+      $('actionWholesaleSalesStore').value = vehicle.holdSalesStore || '';
+      $('actionWholesaleRegisteredMonth').value = currentYearMonth();
+      $('actionStaffDisplay').innerHTML = staffDisplayHtml_();
+      // Hold中の車両は、業販HOLDを行った担当者のみ受注確定できる（通常の受注確定と
+      // 同じ制約。canConfirmOrder_参照）。
+      var wholesaleStaffMismatch = vehicle.holdStaffEmail && !emailsMatch_(vehicle.holdStaffEmail, currentUserEmail_());
+      if (wholesaleStaffMismatch) {
+        var wholesaleErrEl = $('actionModalError');
+        wholesaleErrEl.textContent = 'このHoldの担当者は「' + vehicle.holdStaff + '」です。ログイン中の担当者（' + currentStaff + '）では受注確定できません。';
+        wholesaleErrEl.classList.remove('hidden');
+      }
+      submitBtn.disabled = !!wholesaleStaffMismatch;
+      goToActionStep_('wholesaleOrder');
+      openModal($('actionModal'));
+      return;
+    }
+
     goToActionStep_(isAdminHoldPick ? 'typePick' : 1);
 
-    var vehicle = findVehicleByCommission(commission);
-    var isOrderFromHold = type === 'orderFromHold' && vehicle;
     var prefill;
     if (isOrderFromHold) {
       prefill = {
@@ -1640,12 +1683,6 @@
   // リード番号は「L-」固定接頭辞＋数字のみで扱う。入力欄には数字部分のみを
   // 持たせ、数字以外が入力されてもその場で取り除く。
   on('actionLeadNumber','input', function () {
-    var digits = this.value.replace(/[^0-9]/g, '');
-    if (this.value !== digits) this.value = digits;
-  });
-
-  // デモカーHOLDのリード番号欄も同様（未入力のままでもよい）。
-  on('actionDemoLeadNumber','input', function () {
     var digits = this.value.replace(/[^0-9]/g, '');
     if (this.value !== digits) this.value = digits;
   });
@@ -1740,7 +1777,7 @@
 
   /**
    * Hold登録・受注確定完了後の共通後処理（成功トースト代わりの演出・一覧の再読込）。
-   * デモカーHOLD・他店HOLD（簡易フォーム）と、通常のHold・2nd Hold・受注確定の
+   * 業販HOLD登録・業販受注確定（簡易フォーム）と、通常のHold・2nd Hold・受注確定の
    * どちらの完了後も同じ処理でよいため共通化している。
    */
   function finishActionSubmit_(btn) {
@@ -1750,6 +1787,7 @@
     loadInventory();
     loadHomeModelCounts_();
     if (ORDER_TYPES.indexOf(state.action.type) !== -1) loadOrders();
+    if (state.action.type === 'orderFromHold' && state.action.holdType === 'wholesale') loadWholesaleOrders();
   }
 
   function handleActionSubmitError_(btn, err) {
@@ -1764,28 +1802,36 @@
     var btn = this;
     var action = state.action;
 
-    // デモカーHOLD・他店HOLDは、通常のHoldの入力項目（顧客・下取車の有無等）を
-    // 一切要求しない簡易フォームのため、通常フローの必須チェック（validateActionForm_）
-    // は行わずここで完結させる（管理者のみ到達できる。openActionModal参照）。
-    if (action.type === 'hold' && action.holdType === 'demo') {
-      var demoInfo = {
-        leadNumber: $('actionDemoLeadNumber').value.trim()
-          ? 'L-' + $('actionDemoLeadNumber').value.trim().replace(/[^0-9]/g, '')
-          : '',
-        registeredMonth: $('actionDemoRegisteredMonth').value || ''
-      };
+    // 業販HOLDは、通常のHoldの入力項目（顧客・下取車の有無等）を一切要求しない
+    // 簡易フォームのため、通常フローの必須チェック（validateActionForm_）は行わず
+    // ここで完結させる（管理者のみ到達できる。openActionModal参照）。
+    if (action.type === 'hold' && action.holdType === 'wholesale') {
+      var wholesaleHoldInfo = { salesStore: $('actionSalesStore').value.trim() };
       $('actionModalError').classList.add('hidden');
-      setButtonBusy(btn, true, 'デモカーHOLD登録中...');
-      gasRun('api_registerHold', action.commission, demoInfo, 'demo')
+      setButtonBusy(btn, true, '業販HOLD登録中...');
+      gasRun('api_registerHold', action.commission, wholesaleHoldInfo, 'wholesale')
         .then(function () { finishActionSubmit_(btn); })
         .catch(function (err) { handleActionSubmitError_(btn, err); });
       return;
     }
-    if (action.type === 'hold' && action.holdType === 'otherStore') {
-      var otherStoreInfo = { salesStore: $('actionSalesStore').value.trim() };
+
+    // 業販HOLDからの受注確定は、「販売先」「登録月」のみの簡易フォームのため、
+    // 通常フローの必須チェック（validateActionForm_）とは別に、ここで完結させる
+    // （openActionModal参照）。
+    if (action.type === 'orderFromHold' && action.holdType === 'wholesale') {
+      var wholesaleOrderInfo = {
+        salesStore: $('actionWholesaleSalesStore').value.trim(),
+        registeredMonth: $('actionWholesaleRegisteredMonth').value || ''
+      };
+      if (!wholesaleOrderInfo.salesStore || !wholesaleOrderInfo.registeredMonth) {
+        var wholesaleOrderErrEl = $('actionModalError');
+        wholesaleOrderErrEl.textContent = '次の項目を入力してください: 販売先、登録月';
+        wholesaleOrderErrEl.classList.remove('hidden');
+        return;
+      }
       $('actionModalError').classList.add('hidden');
-      setButtonBusy(btn, true, '他店HOLD登録中...');
-      gasRun('api_registerHold', action.commission, otherStoreInfo, 'otherStore')
+      setButtonBusy(btn, true, '業販受注確定中...');
+      gasRun('api_confirmWholesaleOrder', action.commission, wholesaleOrderInfo)
         .then(function () { finishActionSubmit_(btn); })
         .catch(function (err) { handleActionSubmitError_(btn, err); });
       return;
@@ -1989,8 +2035,137 @@
     }
   });
 
-  function populateOrdersStaffFilter_() {
-    var select = $('ordersStaffFilter');
+  // ===== 業販受注リスト =====
+  // 業販HOLD（HoldService.gsのHOLD_TYPE.WHOLESALE）から受注確定した車両の一覧。
+  // 通常の受注リスト（orderCardHtml等）とほぼ同じパターンだが、顧客の代わりに
+  // 「販売先」を見出しに使い、リード番号・下取車の有無・保険加入の有無・支払方法は
+  // 持たない（通常の受注リストと異なる項目構成のため、専用の描画関数を用意する）。
+  // このタブ自体、管理者権限を持つ担当者にしか表示しないが（renderSettings参照）、
+  // サーバー側api_listWholesaleOrdersも非管理者には常に空配列を返すため、
+  // 万一呼ばれても安全。
+  function loadWholesaleOrders() {
+    var filters = {
+      keyword: $('wholesaleOrdersKeyword').value,
+      salesLocation: $('wholesaleOrdersLocationFilter').value,
+      staff: $('wholesaleOrdersStaffFilter').value
+    };
+    var groupBy = $('wholesaleOrdersGroupBy').value;
+    return gasRun('api_listWholesaleOrders', filters, groupBy).then(function (groups) {
+      state.wholesaleOrdersGroups = groups || [];
+      renderWholesaleOrders();
+    }).catch(function (err) { showToast(err.message, true); });
+  }
+
+  function wholesaleOrderCardHtml(o) {
+    return '<div class="orderCard" data-commission="' + escapeHtml(o.commission) + '">' +
+      '<div class="orderCard__top">' +
+      '<div><div class="orderCard__model">' + escapeHtml(o.salesStore || '-') + '</div>' +
+      '<div class="orderCard__staff">担当者: ' + escapeHtml(o.staff || '-') + '</div>' +
+      '<div class="orderCard__vehicle">' + escapeHtml(o.model) + '</div></div>' +
+      '<div class="card__badges">' +
+      '<span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span>' +
+      '</div>' +
+      '</div>' +
+      '<button type="button" class="orderCard__detailLink" data-wholesale-order-detail="' + escapeHtml(o.commission) + '">▸ 詳細を見る</button>' +
+      '</div>';
+  }
+
+  function wholesaleOrderDetailGridHtml_(o) {
+    return '<dl class="orderCard__grid">' +
+      '<div><dt>コミッション</dt><dd>' + escapeHtml(o.commission) + '</dd></div>' +
+      '<div><dt>区分</dt><dd>' + escapeHtml(o.category || '-') + '</dd></div>' +
+      '<div><dt>車台番号下４桁</dt><dd>' + escapeHtml(o.chassisNumberLast4 || '-') + '</dd></div>' +
+      '<div><dt>登録番号</dt><dd>' + escapeHtml(plateText_(o) || '-') + '</dd></div>' +
+      '<div><dt>走行距離</dt><dd>' + escapeHtml(formatNumberUnit_(o.mileage, ' km') || '-') + '</dd></div>' +
+      '<div><dt>販売価格</dt><dd>' + escapeHtml(formatNumberUnit_(o.salePrice, ' 円') || '-') + '</dd></div>' +
+      '<div><dt>オプション</dt><dd>' + escapeHtml(o.option || '-') + '</dd></div>' +
+      '<div><dt>登録月</dt><dd>' + escapeHtml(o.registeredMonth || '-') + '</dd></div>' +
+      '<div><dt>受注確定日時</dt><dd>' + formatDateTime(o.orderedAt) + '</dd></div>' +
+      '</dl>';
+  }
+
+  function wholesaleOrderDetailHtml_(o) {
+    return '<div class="orderCard">' +
+      '<div class="orderCard__top">' +
+      '<div><div class="orderCard__model">' + escapeHtml(o.salesStore || '-') + '</div>' +
+      '<div class="orderCard__staff">担当者: ' + escapeHtml(o.staff || '-') + '</div>' +
+      '<div class="orderCard__vehicle">' + escapeHtml(o.model) + '</div></div>' +
+      '<div class="card__badges">' +
+      '<span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span>' +
+      '</div>' +
+      '</div>' +
+      wholesaleOrderDetailGridHtml_(o) +
+      '</div>';
+  }
+
+  function findWholesaleOrderByCommission_(commission) {
+    var groups = state.wholesaleOrdersGroups || [];
+    for (var i = 0; i < groups.length; i++) {
+      var items = groups[i].items || [];
+      for (var j = 0; j < items.length; j++) {
+        if (commissionEquals_(items[j].commission, commission)) return items[j];
+      }
+    }
+    return null;
+  }
+
+  function openWholesaleOrderDetailModal_(commission) {
+    var order = findWholesaleOrderByCommission_(commission);
+    if (!order) return;
+    $('wholesaleOrderDetailBody').innerHTML = wholesaleOrderDetailHtml_(order);
+    openModal($('wholesaleOrderDetailModal'));
+  }
+
+  function wholesaleOrderRowCardHtml(o) {
+    return '<div class="rowCard rowCard--order" data-commission="' + escapeHtml(o.commission) + '">' +
+      '<div class="rowCard__inner">' +
+      '<div class="rowCard__field"><span class="rowCard__model">' + escapeHtml(o.salesStore || '-') + '</span>' +
+      '<span class="rowCard__commission">' + escapeHtml(o.commission) + '</span></div>' +
+      rowField_('モデル', o.model) +
+      rowField_('走行距離', formatNumberUnit_(o.mileage, ' km')) +
+      rowField_('販売価格', formatNumberUnit_(o.salePrice, ' 円')) +
+      rowField_('担当者', o.staff) +
+      rowField_('登録月', o.registeredMonth) +
+      '<div class="rowCard__status"><span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span></div>' +
+      '</div>' +
+      '</div>';
+  }
+
+  function wholesaleOrderRowsHtml(items) {
+    return '<div class="rowCardList rowCardList--order">' +
+      items.map(wholesaleOrderRowCardHtml).join('') +
+      '</div>';
+  }
+
+  function renderWholesaleOrders() {
+    var container = $('wholesaleOrdersGroups');
+    var groups = state.wholesaleOrdersGroups || [];
+    var totalItems = groups.reduce(function (n, g) { return n + g.items.length; }, 0);
+    $('wholesaleOrdersEmpty').classList.toggle('hidden', totalItems > 0);
+    $('wholesaleOrdersTotalCount').textContent = '該当 ' + totalItems + ' 台';
+    container.innerHTML = groups.map(function (g) {
+      var heading = g.key
+        ? '<h3 class="group__title">' + escapeHtml(g.key) + '<span class="group__count">' + g.items.length + '台</span></h3>'
+        : '';
+      var body = state.wholesaleOrdersViewMode === 'table'
+        ? wholesaleOrderRowsHtml(g.items)
+        : '<div class="orderList">' + g.items.map(wholesaleOrderCardHtml).join('') + '</div>';
+      return '<div class="group">' + heading + body + '</div>';
+    }).join('');
+    syncFixedBars_();
+  }
+
+  on('wholesaleOrdersGroups','click', function (e) {
+    var btn = e.target.closest('[data-wholesale-order-detail]');
+    if (btn) { openWholesaleOrderDetailModal_(btn.dataset.wholesaleOrderDetail); return; }
+    var tappable = e.target.closest('.rowCard--order[data-commission], .orderCard[data-commission]');
+    if (tappable && !e.target.closest('button, input, label')) {
+      openWholesaleOrderDetailModal_(tappable.dataset.commission);
+    }
+  });
+
+  function populateStaffFilter_(selectId) {
+    var select = $(selectId);
     var current = select.value;
     var names = ((state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.staffList) || [])
       .map(function (s) { return s.name; })
@@ -2006,8 +2181,8 @@
    * （担当者マスタの拠点は、Hold登録・受注確定の「販売拠点」欄の初期値としても
    * 使われる同じ値のため、実際に使われうる拠点名の一覧として流用できる）。
    */
-  function populateOrdersLocationFilter_() {
-    var select = $('ordersLocationFilter');
+  function populateLocationFilter_(selectId) {
+    var select = $(selectId);
     var current = select.value;
     var locations = [];
     ((state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.staffList) || []).forEach(function (s) {
@@ -2020,9 +2195,17 @@
     if (locations.indexOf(current) !== -1) select.value = current;
   }
 
+  function populateOrdersStaffFilter_() { populateStaffFilter_('ordersStaffFilter'); }
+  function populateOrdersLocationFilter_() { populateLocationFilter_('ordersLocationFilter'); }
+
   ['ordersKeyword', 'ordersGroupBy', 'ordersLocationFilter', 'ordersStaffFilter'].forEach(function (id) {
     on(id, 'input', debounce(loadOrders, 250));
     on(id, 'change', loadOrders);
+  });
+
+  ['wholesaleOrdersKeyword', 'wholesaleOrdersGroupBy', 'wholesaleOrdersLocationFilter', 'wholesaleOrdersStaffFilter'].forEach(function (id) {
+    on(id, 'input', debounce(loadWholesaleOrders, 250));
+    on(id, 'change', loadWholesaleOrders);
   });
 
   // ===== 設定 =====
@@ -2041,6 +2224,12 @@
     $('systemMasterNotifyCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterStaffCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterCelebrationCard').classList.toggle('hidden', !isAdmin);
+    // 業販受注リストのタブ（サイドバー・上部タブとも）も、システムマスタと同じく
+    // 管理者権限を持つ担当者にのみ表示する。非管理者がタブ自体を切り替えられて
+    // しまうと、api_listWholesaleOrdersが空配列を返すだけの空の画面になって
+    // 混乱するため、そもそもタブを見せない。
+    $('sidebarNavWholesaleOrders').classList.toggle('hidden', !isAdmin);
+    $('mainTabWholesaleOrders').classList.toggle('hidden', !isAdmin);
     renderCelebrationVariantSelects_(settings.celebrationVariants);
 
     // ランダムテーマの抽選結果（resolvedRandomThemePreset_）は、ここ
@@ -2073,6 +2262,8 @@
     renderStaffList();
     populateOrdersStaffFilter_();
     populateOrdersLocationFilter_();
+    populateStaffFilter_('wholesaleOrdersStaffFilter');
+    populateLocationFilter_('wholesaleOrdersLocationFilter');
 
     state.modelPhotos = (settings.modelPhotos || []).map(function (p) {
       return { model: p.model || '', photoUrl: p.photoUrl || '', gradePrefix: p.gradePrefix || '', gradeMarker: p.gradeMarker || '', bodyType: p.bodyType || '' };
@@ -3385,7 +3576,7 @@
       console.error('[used-vehicle-order-app] 起動時データ（設定・ログインアカウント情報）の取得に失敗しました:', err);
       showToast('起動時データの取得に失敗しました: ' + err.message, true);
     });
-    return Promise.all([bootstrapPromise, loadInventory(), loadOrders(), loadHomeModelCounts_(), loadMyPageOrders_()]);
+    return Promise.all([bootstrapPromise, loadInventory(), loadOrders(), loadWholesaleOrders(), loadHomeModelCounts_(), loadMyPageOrders_()]);
   }
 
   function init() {

@@ -14,6 +14,7 @@ var SHEET_NAMES = {
   INVENTORY: '在庫リスト',
   HOLDS: 'Holdリスト',
   ORDERS: '受注リスト',
+  WHOLESALE_ORDERS: '業販受注リスト',
   AUDIT_LOG: '変更履歴'
 };
 
@@ -32,21 +33,18 @@ var HOLD_RANK = {
 
 /**
  * Hold種別。管理者権限を持つ担当者（SYSTEM_ADMIN_EMAILS）のみ、通常のHoldに加えて
- * デモカーHOLD・他店HOLDを登録できる（normalizeHoldType_、HoldService.gs参照）。
- * デモカーHOLD・他店HOLDは、通常のHold・2nd Holdと異なりHold期限が無期限（expiresAtがnull）で、
- * カレンダーイベントも作成しない。入力項目もデモカーHOLDは「リード番号・登録月」のみ、
- * 他店HOLDは「販売店」のみで、どちらも未入力のままHold登録できる。
+ * 業販HOLDを登録できる（normalizeHoldType_、HoldService.gs参照）。業販HOLDは、
+ * 通常のHold・2nd Holdと異なりHold期限が無期限（expiresAtがnull）で、カレンダー
+ * イベントも作成しない。入力項目も「販売先」のみで、未入力のままHold登録できる。
  */
 var HOLD_TYPE = {
   NORMAL: 'normal',
-  DEMO: 'demo',
-  OTHER_STORE: 'otherStore'
+  WHOLESALE: 'wholesale'
 };
 
 var HOLD_TYPE_LABELS = {
   normal: '通常のHOLD',
-  demo: 'デモカーHOLD',
-  otherStore: '他店HOLD'
+  wholesale: '業販HOLD'
 };
 
 // ===== 選択肢 =====
@@ -70,7 +68,7 @@ var NOTIFY_MAIL_MAX_LENGTH = 254; // メールアドレス1件あたりの最大
  * 車両情報（在庫リスト・受注リストで共通）の列定義。中古車1台ごとに固有の
  * 管理項目（区分・OCN・型式・車台番号・初年度登録日・走行距離・車検満了日・
  * 販売価格・リサイクル料・旧使用拠点・CCC入庫日・経過月・現展示拠点・
- * オプション・現名義・掲載リンク）を持つ。
+ * オプション・現名義・掲載）を持つ。
  */
 var VEHICLE_COLUMNS = [
   { key: 'category', label: '区分', type: 'text', required: true },
@@ -111,7 +109,11 @@ var VEHICLE_COLUMNS = [
   },
   { key: 'option', label: 'オプション', type: 'text' },
   { key: 'currentOwnerName', label: '現名義', type: 'text' },
-  { key: 'listingUrl', label: '掲載リンク', type: 'link' }
+  {
+    key: 'listed', label: '掲載', type: 'select', options: YES_NO_OPTIONS,
+    note: '中古車サイトに掲載中かどうかです。「あり」の車両は、在庫リストの背景色を' +
+      '変えて一目で区別できるようにします。'
+  }
 ];
 
 /**
@@ -157,23 +159,23 @@ var HOLD_COLUMNS = [
   { key: 'rank', label: '順番', type: 'select', options: [HOLD_RANK.FIRST, HOLD_RANK.SECOND], required: true },
   {
     key: 'holdType', label: 'Hold種別', type: 'select',
-    options: [HOLD_TYPE.NORMAL, HOLD_TYPE.DEMO, HOLD_TYPE.OTHER_STORE],
-    note: '管理者権限を持つ担当者が登録した「デモカーHOLD」「他店HOLD」かどうかを示します。' +
+    options: [HOLD_TYPE.NORMAL, HOLD_TYPE.WHOLESALE],
+    note: '管理者権限を持つ担当者が登録した「業販HOLD」かどうかを示します。' +
       '空欄は通常のHold（normal）として扱われます。アプリからの操作でのみ設定されるため、' +
       '通常は手動編集しないでください。'
   }
 ].concat(HOLD_ORDER_INPUT_COLUMNS).concat([
   {
-    key: 'salesStore', label: '販売店', type: 'text',
-    note: '他店HOLD（holdTypeがotherStore）の場合のみ使用する、販売先の店舗名です。' +
+    key: 'salesStore', label: '販売先', type: 'text',
+    note: '業販HOLD（holdTypeがwholesale）の場合のみ使用する、販売先の名前です。' +
       '未入力でもHold登録できます。'
   },
-  // 担当者メール（staffEmail）は表示名「担当者」ではなく、ログイン中のGoogleアカウントの
-  // メールアドレスで本人確認を行うための識別キー（canConfirmOrder_ / canCancelHold_ /
-  // canRegisterSecondHold_ 参照）。「担当者」名は表示用の別名に過ぎず編集され得るため、
-  // 権限判定には必ずこちらを使う。
+  // 担当者ID（staffEmail、スプレッドシート上のラベルは「担当者ID」）は表示名「担当者」
+  // ではなく、ログイン中のGoogleアカウントのメールアドレスで本人確認を行うための
+  // 識別キー（canConfirmOrder_ / canCancelHold_ / canRegisterSecondHold_ 参照）。
+  // 「担当者」名は表示用の別名に過ぎず編集され得るため、権限判定には必ずこちらを使う。
   {
-    key: 'staffEmail', label: '担当者メール', type: 'text',
+    key: 'staffEmail', label: '担当者ID', type: 'text',
     note: 'Hold解除・受注確定の本人確認に使う内部用の列です（表示名ではなくこちらで' +
       '照合します）。アプリからの操作でのみ設定されるため、通常は手動編集しないで' +
       'ください。やむを得ず手動で修正する場合も、前後の空白を入れないでください' +
@@ -196,8 +198,30 @@ var HOLD_COLUMNS = [
  */
 var ORDER_COLUMNS = VEHICLE_COLUMNS.concat(HOLD_ORDER_INPUT_COLUMNS).concat([
   {
-    key: 'staffEmail', label: '担当者メール', type: 'text',
-    note: '受注確定を行った担当者の内部識別用の列です。アプリからの操作でのみ設定されるため、通常は手動編集しないでください。'
+    key: 'staffEmail', label: '担当者ID', type: 'text',
+    note: '受注確定を行った担当者の内部識別用の列です（内容はメールアドレス）。アプリからの操作でのみ設定されるため、通常は手動編集しないでください。'
+  },
+  { key: 'orderedAt', label: '受注確定日時', type: 'datetime', note: 'アプリが自動記録する値です。手動編集しないでください。' }
+]);
+
+/**
+ * 業販受注リスト列定義。車両情報＋「販売先」「登録月」（業販Holdから受注確定する際に
+ * 入力が必要な項目はこの2つのみ）＋販売拠点・担当者（ログイン中の担当者情報から
+ * 自動設定）＋受注確定日時。通常の受注リスト（ORDER_COLUMNS）と異なり、リード番号・
+ * 下取車の有無・保険加入の有無・支払方法は持たない（業販＝業者向け卸売のため、
+ * 通常の小売受注とは性質が異なる。現場からの要望）。
+ */
+var WHOLESALE_ORDER_COLUMNS = VEHICLE_COLUMNS.concat([
+  { key: 'salesLocation', label: '販売拠点', type: 'text', note: '受注確定を行った担当者本人の拠点名が自動設定されます。' },
+  { key: 'salesStore', label: '販売先', type: 'text', required: true },
+  {
+    key: 'registeredMonth', label: '登録月', type: 'text', required: true,
+    note: '「YYYY-MM」形式で入力してください（例: 2026-08）。'
+  },
+  { key: 'staff', label: '担当者', type: 'text' },
+  {
+    key: 'staffEmail', label: '担当者ID', type: 'text',
+    note: '受注確定を行った担当者の内部識別用の列です（内容はメールアドレス）。アプリからの操作でのみ設定されるため、通常は手動編集しないでください。'
   },
   { key: 'orderedAt', label: '受注確定日時', type: 'datetime', note: 'アプリが自動記録する値です。手動編集しないでください。' }
 ]);
@@ -213,13 +237,14 @@ var AUDIT_LOG_COLUMNS = [
   { key: 'commission', label: 'コミッション', type: 'text' },
   { key: 'model', label: 'モデル', type: 'text' },
   { key: 'staffName', label: '担当者', type: 'text' },
-  { key: 'staffEmail', label: '担当者メール', type: 'text' },
+  { key: 'staffEmail', label: '担当者ID', type: 'text' },
   { key: 'detail', label: '詳細', type: 'text' }
 ];
 
 var INVENTORY_COL_INDEX = buildColIndex_(INVENTORY_COLUMNS);
 var HOLD_COL_INDEX = buildColIndex_(HOLD_COLUMNS);
 var ORDER_COL_INDEX = buildColIndex_(ORDER_COLUMNS);
+var WHOLESALE_ORDER_COL_INDEX = buildColIndex_(WHOLESALE_ORDER_COLUMNS);
 var AUDIT_LOG_COL_INDEX = buildColIndex_(AUDIT_LOG_COLUMNS);
 
 function buildColIndex_(columns) {
@@ -238,6 +263,10 @@ function holdColIndex1(key) {
 
 function orderColIndex1(key) {
   return ORDER_COL_INDEX[key] + 1;
+}
+
+function wholesaleOrderColIndex1(key) {
+  return WHOLESALE_ORDER_COL_INDEX[key] + 1;
 }
 
 function auditLogColIndex1(key) {

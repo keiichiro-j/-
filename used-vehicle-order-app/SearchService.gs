@@ -70,6 +70,26 @@ function searchOrders(orders, filters) {
   });
 }
 
+/**
+ * 業販受注リストの検索・絞り込み。通常の受注リスト（searchOrders）と異なり、
+ * 顧客名の代わりに「販売先」でキーワード検索する。
+ * @param {Array<Object>} orders
+ * @param {Object} filters {
+ *   keyword: string,        // モデル・コミッション・販売先・担当・販売拠点に部分一致（自由検索）
+ *   salesLocation: string,  // 販売拠点に部分一致（拠点ごとの検索）
+ *   staff: string           // 担当者に完全一致（担当者マスタから選択。担当者ごとの検索）
+ * }
+ */
+function searchWholesaleOrders(orders, filters) {
+  filters = filters || {};
+  return orders.filter(function (o) {
+    if (filters.keyword && !matchesAnyField_(o, filters.keyword, ['model', 'commission', 'salesStore', 'staff', 'salesLocation'])) return false;
+    if (filters.salesLocation && !fieldContains_(o.salesLocation, filters.salesLocation)) return false;
+    if (filters.staff && o.staff !== filters.staff) return false;
+    return true;
+  });
+}
+
 function matchesAnyField_(item, keyword, fields) {
   var kw = String(keyword).trim();
   if (!kw) return true;

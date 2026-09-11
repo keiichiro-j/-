@@ -91,6 +91,10 @@ function getOrderSheet_() {
   return getOrCreateSheet_(SHEET_NAMES.ORDERS, ORDER_COLUMNS, [orderColIndex1('ocn'), orderColIndex1('commission')]);
 }
 
+function getWholesaleOrderSheet_() {
+  return getOrCreateSheet_(SHEET_NAMES.WHOLESALE_ORDERS, WHOLESALE_ORDER_COLUMNS, [wholesaleOrderColIndex1('ocn'), wholesaleOrderColIndex1('commission')]);
+}
+
 /**
  * 既存のスプレッドシートに対して、ＯＣＮ・コミッション列を書式なしテキストへ
  * 設定し直す一回限りのメンテナンス関数。スクリプトエディタから手動で一度だけ
@@ -102,6 +106,7 @@ function formatCommissionColumnsAsText_() {
   applyTextColumnFormat_(getInventorySheet_(), [inventoryColIndex1('ocn'), inventoryColIndex1('commission')]);
   applyTextColumnFormat_(getHoldsSheet_(), [holdColIndex1('commission')]);
   applyTextColumnFormat_(getOrderSheet_(), [orderColIndex1('ocn'), orderColIndex1('commission')]);
+  applyTextColumnFormat_(getWholesaleOrderSheet_(), [wholesaleOrderColIndex1('ocn'), wholesaleOrderColIndex1('commission')]);
 }
 
 /**
@@ -320,5 +325,19 @@ function appendOrder_(order) {
   // 消えることがあるため、書き込み直前に対象セルの書式を明示的に設定する。
   sheet.getRange(newRow, orderColIndex1('commission'), 1, 1).setNumberFormat('@');
   sheet.getRange(newRow, 1, 1, ORDER_COLUMNS.length).setValues([objectToRow_(order, ORDER_COLUMNS)]);
+  return order;
+}
+
+// ===== 業販受注リスト =====
+
+function listWholesaleOrders() {
+  return readAllRows_(getWholesaleOrderSheet_(), WHOLESALE_ORDER_COLUMNS, 'commission');
+}
+
+function appendWholesaleOrder_(order) {
+  var sheet = getWholesaleOrderSheet_();
+  var newRow = sheet.getLastRow() + 1;
+  sheet.getRange(newRow, wholesaleOrderColIndex1('commission'), 1, 1).setNumberFormat('@');
+  sheet.getRange(newRow, 1, 1, WHOLESALE_ORDER_COLUMNS.length).setValues([objectToRow_(order, WHOLESALE_ORDER_COLUMNS)]);
   return order;
 }
