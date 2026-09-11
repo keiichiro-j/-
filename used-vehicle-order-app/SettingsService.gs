@@ -28,7 +28,11 @@ function getRawSettings_() {
     // ため、従来どおりgetScriptProperties()（スクリプト単位）から読む
     // （getCurrentUserThemeKey_参照）。
     themeKey: getCurrentUserThemeKey_(),
-    logoUrl: props.getProperty(PROP_KEYS.LOGO_URL) || '',
+    // 保存済みの値が変換前のドライブ共有リンク／ファイルID、または旧仕様の
+    // アップロードdata URLのままだった場合でも、保存し直さなくても表示できるよう、
+    // 読み出し時にも変換する（getModelPhotos_・loadingImageUrlと同じ考え方。
+    // normalizeLogoUrl_は既に直接画像URLやdata URLの場合は何もしない純粋関数）。
+    logoUrl: normalizeLogoUrl_(props.getProperty(PROP_KEYS.LOGO_URL) || ''),
     notifyHoldMailTo: getMailList_(PROP_KEYS.NOTIFY_HOLD_MAIL_TO),
     notifyOrderMailTo: getMailList_(PROP_KEYS.NOTIFY_ORDER_MAIL_TO),
     notifyErrorMailTo: getMailList_(PROP_KEYS.NOTIFY_ERROR_MAIL_TO),
@@ -155,19 +159,19 @@ function setCurrentUserThemeKey_(themeKey) {
 }
 
 /**
- * ロゴ設定値（純粋関数）。画像URL、またはアップロード時に変換されたdata URLの
- * どちらかを想定している。Script Propertiesの1プロパティあたりの上限（9KB）を
- * 超える場合はエラーにする（大きな画像は外部にアップロードしてURLで指定してもらう）。
+ * ロゴ設定値（純粋関数）。ローディング画像と同じ規則で、normalizeLogoUrl_で
+ * 直接画像URLに変換したうえで、長すぎる場合（想定外の長い外部URLを直接指定した
+ * 場合等）はエラーにする。
  */
 function validateLogoUrl_(logoUrl) {
-  var value = String(logoUrl || '').trim();
-  if (value.length > LOGO_URL_MAX_LENGTH) {
+  var url = normalizeLogoUrl_(logoUrl);
+  if (url.length > LOGO_URL_MAX_LENGTH) {
     throw new Error(
-      'ロゴ画像のデータが大きすぎます（' + value.length + '文字）。' +
-      'もっと小さい画像を使うか、画像を外部にアップロードしてそのURLを指定してください。'
+      'ロゴ画像のURLが長すぎます（' + url.length + '文字）。' +
+      'ドライブIDまたはより短いURLを指定してください。'
     );
   }
-  return value;
+  return url;
 }
 
 /**
@@ -365,26 +369,34 @@ function normalizeModelPhotoUrl_(url) {
 }
 
 /**
- * 起動時ローディング画面（#appLoading）用の画像設定値を、<img>タグでそのまま
- * 表示できる直接画像URLに変換する（純粋関数）。normalizeModelPhotoUrl_との違いは、
- * 管理者が共有リンクの全文ではなく「ドライブID」（ファイルIDのみの文字列）を
- * 直接入力できるようにしている点（現場からの要望）。入力値が
+ * ロゴ・ローディング画像に共通の、Googleドライブの共有リンク／ファイルIDを
+ * <img>タグでそのまま表示できる直接画像URLに変換する処理（純粋関数）。
+ * normalizeModelPhotoUrl_との違いは、管理者が共有リンクの全文ではなく
+ * 「ドライブID」（ファイルIDのみの文字列）を直接入力できるようにしている点
+ * （現場からの要望）。入力値が
  * ①ドライブの共有リンク（https://drive.google.com/file/d/{ID}/view?usp=sharing 等）
  * ならファイルIDを抜き出す、②スラッシュ・コロンを含まない英数字・ハイフン・
  * アンダースコアのみの文字列（＝ファイルIDそのものを直接貼り付けた場合）なら
  * そのままファイルIDとして扱う、③どちらでもなければドライブ以外の外部画像URLを
  * 直接指定したものとみなしそのまま返す（変換しない）。①②はGoogleの画像配信
- * ドメイン（lh3.googleusercontent.com）のURLに変換し、末尾に
- * `=w{LOADING_IMAGE_DISPLAY_WIDTH}`を付けることで、管理者が画像のサイズ・
- * アスペクト比を気にせず登録できるようにする。
+ * ドメイン（lh3.googleusercontent.com）のURLに変換し、末尾に`=w{displayWidth}`を
+ * 付けることで、管理者が画像のサイズ・アスペクト比を気にせず登録できるようにする。
  */
-function normalizeLoadingImageUrl_(value) {
+function normalizeDriveImageUrl_(value, displayWidth) {
   value = String(value || '').trim();
   if (!value) return '';
   var match = value.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || value.match(/[?&]id=([a-zA-Z0-9_-]+)/);
   var fileId = match ? match[1] : (/^[a-zA-Z0-9_-]+$/.test(value) ? value : '');
   if (!fileId) return value;
-  return 'https://lh3.googleusercontent.com/d/' + fileId + '=w' + LOADING_IMAGE_DISPLAY_WIDTH;
+  return 'https://lh3.googleusercontent.com/d/' + fileId + '=w' + displayWidth;
+}
+
+function normalizeLoadingImageUrl_(value) {
+  return normalizeDriveImageUrl_(value, LOADING_IMAGE_DISPLAY_WIDTH);
+}
+
+function normalizeLogoUrl_(value) {
+  return normalizeDriveImageUrl_(value, LOGO_DISPLAY_WIDTH);
 }
 
 /**

@@ -378,10 +378,11 @@ var RANDOM_THEME_KEY = 'random';
 // TODO: 実際のシステム管理者のメールアドレスに差し替えてください。
 var SYSTEM_ADMIN_EMAILS = ['jimny.girl.2000@gmail.com'];
 
-// ロゴ（画像URL、またはアップロード時のdata URL）の最大文字数。
-// Script Propertiesは1プロパティあたり9KB（=9216文字程度）が上限のため、
-// 余裕を持ってこの文字数を超える場合は保存時にエラーにする（SettingsService.gs参照）。
-var LOGO_URL_MAX_LENGTH = 9000;
+// ロゴ画像URLの最大文字数。ローディング画像と同様、Googleドライブの共有リンク／
+// ファイルIDから直接画像URLに変換したうえで保存するため、data URL（ローカル
+// ファイルのアップロード）ではなく変換後の外部URLの利用を前提とする
+// （normalizeLogoUrl_、SettingsService.gs参照）。
+var LOGO_URL_MAX_LENGTH = 1500;
 
 // Google ChatのWebhook URL（受信Webhook）の最大文字数。実際のURLは200文字前後だが、
 // 余裕を持った上限にしている（validateChatWebhookUrl_、SettingsService.gs参照）。
@@ -438,3 +439,8 @@ var LOADING_IMAGE_URL_MAX_LENGTH = 1500;
 // （MODEL_PHOTO_DISPLAY_WIDTH）より大きめの解像度にしている
 // （normalizeLoadingImageUrl_参照）。
 var LOADING_IMAGE_DISPLAY_WIDTH = 1600;
+
+// Googleドライブの共有リンク／ファイルIDを直接画像URLに変換する際に指定する幅
+// （px）。ロゴは画面上部・サイドバーに小さく表示されるだけのため、ローディング画像
+// より控えめな解像度で十分（normalizeLogoUrl_参照）。
+var LOGO_DISPLAY_WIDTH = 800;

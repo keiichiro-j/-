@@ -432,44 +432,30 @@
             <span class="settingsGroupTitle__badge">管理者限定</span>
           </div>
 
-          <div class="settingsCard hidden" id="systemMasterLogoCard">
-            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-image"></use></svg>ロゴ</h2>
-            <p class="settingsSection__desc">画面上部に表示するロゴ画像です。画像ファイルをアップロードするか、画像のURLを直接指定してください。アップロードした画像はこの設定項目内にそのまま保存されるため、なるべく小さいサイズ（数十KB程度まで）の画像をお使いください。大きな画像を使いたい場合は、外部（Googleドライブの共有リンク等）にアップロードしたうえでURLを指定してください。</p>
-            <div class="formField">
-              <label>ロゴ画像</label>
-              <div class="logoField">
-                <div class="logoPreview" id="settingsLogoPreview">
-                  <span class="logoPreview__placeholder">ロゴなし</span>
-                </div>
-                <div class="logoField__controls">
-                  <input type="file" id="settingsLogoFile" accept="image/*">
-                  <button class="btn btn--text" type="button" id="btnClearLogo">ロゴを削除</button>
-                </div>
-              </div>
-            </div>
-            <div class="formField">
-              <label>ロゴ画像URL</label>
-              <input type="text" id="settingsLogoUrl" class="input" placeholder="https://... または、上のアップロード欄から選択">
-            </div>
-            <div class="modal__error hidden" id="settingsLogoError"></div>
-          </div>
-
-          <!-- 起動時ローディング画面（#appLoading）に表示する画像。編集画面はロゴ等と
-               同様に管理者限定だが、値自体は起動時に全利用者の画面へ表示する
-               （applyLoadingImage_、JavaScript.html参照）。ロゴ・モデル写真と異なり、
+          <!-- ロゴ・起動時ローディング画面（#appLoading）の画像を1つの設定項目に
+               まとめている（見た目・入力方法が同じ2項目を別カードに分けておく
+               意味が薄いという指摘を受け統合）。編集画面は管理者限定だが、値自体は
+               ロゴ・ローディング画像ともに全利用者の画面へ表示する
+               （applyLogo・applyLoadingImage_、JavaScript.html参照）。どちらも
                ファイルアップロードではなく「ドライブID」（またはドライブの共有リンク・
                外部画像URL）を直接入力する方式にしている（現場からの要望。
-               normalizeLoadingImageUrl_、SettingsService.gs参照）。 -->
-          <div class="settingsCard hidden" id="systemMasterLoadingImageCard">
-            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-image"></use></svg>ローディング画像</h2>
-            <p class="settingsSection__desc">アプリを開いたときのローディング画面（読み込み中…）に表示する画像です。Googleドライブにアップロードした画像の「ドライブID」（共有リンクの一部）、共有リンクそのもの、または画像の外部URLのいずれかを指定してください。画像はうっすらと現れ、読み込み完了後はローディング画面ごとうっすらと消えます。空欄にすると画像なし（スピナーのみ）になります。</p>
+               normalizeLogoUrl_・normalizeLoadingImageUrl_、SettingsService.gs参照）。 -->
+          <div class="settingsCard hidden" id="systemMasterLogoCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-image"></use></svg>ロゴ・ローディング画像</h2>
+            <p class="settingsSection__desc">画面上部に表示するロゴ、およびアプリを開いたときのローディング画面（読み込み中…）に表示する画像です。どちらもGoogleドライブにアップロードした画像の「ドライブID」（共有リンクの一部）、共有リンクそのもの、または画像の外部URLのいずれかを指定してください。</p>
             <div class="formField">
-              <label>ドライブID または 画像URL</label>
-              <input type="text" id="settingsLoadingImageId" class="input" placeholder="例: 1AbCdEfGhIjKlMnOpQrStUvWxYz1234567 または https://...">
-              <p class="formField__hint">ドライブIDは、Googleドライブでファイルを右クリック→「リンクを取得」で得られる共有リンク（https://drive.google.com/file/d/【ここがドライブID】/view?usp=sharing）の【ここがドライブID】の部分です（最大<span id="loadingImageUrlMax"></span>文字）。</p>
+              <label>ロゴ画像：ドライブID または 画像URL</label>
+              <input type="text" id="settingsLogoUrl" class="input" placeholder="例: 1AbCdEfGhIjKlMnOpQrStUvWxYz1234567 または https://...">
+              <p class="formField__hint">ドライブIDは、Googleドライブでファイルを右クリック→「リンクを取得」で得られる共有リンク（https://drive.google.com/file/d/【ここがドライブID】/view?usp=sharing）の【ここがドライブID】の部分です（最大<span id="logoUrlMax"></span>文字）。空欄にするとロゴなしになります。</p>
+              <div class="logoPreview" id="settingsLogoPreview">
+                <span class="logoPreview__placeholder">ロゴなし</span>
+              </div>
             </div>
+            <div class="modal__error hidden" id="settingsLogoError"></div>
             <div class="formField">
-              <label>プレビュー</label>
+              <label>ローディング画像：ドライブID または 画像URL</label>
+              <input type="text" id="settingsLoadingImageId" class="input" placeholder="例: 1AbCdEfGhIjKlMnOpQrStUvWxYz1234567 または https://...">
+              <p class="formField__hint">画像はうっすらと現れ、読み込み完了後はローディング画面ごとうっすらと消えます（最大<span id="loadingImageUrlMax"></span>文字）。空欄にすると画像なし（スピナーのみ）になります。</p>
               <div class="logoPreview" id="settingsLoadingImagePreview">
                 <span class="logoPreview__placeholder">画像なし</span>
               </div>

@@ -684,8 +684,21 @@ test('空文字・未指定は空文字のまま', () => {
   assert.strictEqual(sandbox.validateLogoUrl_(undefined), '');
 });
 test('上限文字数を超えるとエラー', () => {
-  const tooLong = 'data:image/png;base64,' + 'A'.repeat(9000);
-  assert.throws(() => sandbox.validateLogoUrl_(tooLong), /大きすぎます/);
+  const tooLong = 'https://example.com/' + 'a'.repeat(1500) + '.png';
+  assert.throws(() => sandbox.validateLogoUrl_(tooLong), /長すぎます/);
+});
+test('ドライブの共有リンクは直接画像URLに変換される', () => {
+  const shared = 'https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrStUvWxYz1234567/view?usp=sharing';
+  assert.strictEqual(
+    sandbox.validateLogoUrl_(shared),
+    'https://lh3.googleusercontent.com/d/1AbCdEfGhIjKlMnOpQrStUvWxYz1234567=w' + sandbox.LOGO_DISPLAY_WIDTH
+  );
+});
+test('ドライブIDのみの入力も直接画像URLに変換される', () => {
+  assert.strictEqual(
+    sandbox.validateLogoUrl_('1AbCdEfGhIjKlMnOpQrStUvWxYz1234567'),
+    'https://lh3.googleusercontent.com/d/1AbCdEfGhIjKlMnOpQrStUvWxYz1234567=w' + sandbox.LOGO_DISPLAY_WIDTH
+  );
 });
 
 console.log('== SettingsService: validateChatWebhookUrl_（Google Chat通知先Webhook URLの検証） ==');
