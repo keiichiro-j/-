@@ -800,13 +800,15 @@
     return parts.length ? parts.join(' ') : '';
   }
 
-  // 区分・走行距離・カラー・販売価格・掲載は折りたたまず常に表示する（現場の声を
+  // 区分・カラー・販売価格・掲載は折りたたまず常に表示する（現場の声を
   // 踏まえ、隠しすぎない）。「掲載」は中古車サイトへの掲載有無で、カード・行の
   // 背景色（is-listed、vehicleCardTone_・vehicleTableRowHtml_参照）と対になる項目。
+  // 走行距離はここには出さず、詳細を見る（vehicleSpecFieldsHtml_）に回している
+  // （在庫リストの一覧では2ND HOLD・受注確定の表示スペースを優先するため。
+  // タップすれば詳細モーダルで確認できる）。
   function vehicleQuickMetaHtml_(v) {
     return '<dl class="card__metaGrid card__metaGrid--quick">' +
       metaRow_('区分', v.category) +
-      metaRow_('走行距離', formatNumberUnit_(v.mileage, ' km')) +
       metaRow_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
       metaRow_('販売価格', formatNumberUnit_(v.salePrice, ' 円')) +
       metaRow_('掲載', v.listed || 'なし') +
@@ -816,6 +818,7 @@
   function vehicleSpecFieldsHtml_(v) {
     return '<dl class="card__metaGrid">' +
       metaRow_('ＯＣＮ', v.ocn) +
+      metaRow_('走行距離', formatNumberUnit_(v.mileage, ' km')) +
       metaRow_('ステア', v.steering) +
       metaRow_('登録番号', plateText_(v)) +
       metaRow_('型式', v.modelCode) +
@@ -850,8 +853,8 @@
 
   /**
    * 表示形式「カード」用のコンパクト版。モデル・コミッション・ステータス・区分・
-   * 走行距離・カラー・販売価格・Hold要約（顧客名・タイマー）・操作ボタンだけを
-   * 表示し、その他の車両情報（登録番号・型式・車台番号等）やHoldの詳細
+   * カラー・販売価格・Hold要約（顧客名・タイマー）・操作ボタンだけを
+   * 表示し、その他の車両情報（走行距離・登録番号・型式・車台番号等）やHoldの詳細
    * （リード番号等）はカード内では表示しない
    * （「詳細を見る」から画面中央のモーダル・vehicleDetailHtml_で確認する）。
    * これにより、在庫あり／Hold中／Hold中（2nd有）のどの状態でもカードの高さが
@@ -974,12 +977,12 @@
 
   // 表示形式「表」: 多台数を一覧で見比べたい商談向けの高密度ビュー。素のHTML
   // <table>で「ステータス・車種・ＯＣＮ・ハンドル・カラー・
-  // 走行距離・販売価格・1ST HOLD・2ND HOLD・操作」の10列を横一列に並べる
-  // （vehicleRowsHtml）。区分・コミッションはこの一覧では表示せず、行タップで
-  // 開く詳細モーダル（vehicleDetailHtml_）でのみ確認する（現場からの要望で、
-  // PCビューで横スクロールが発生しない列数に絞り込んだ）。1ST HOLD・2ND HOLDの
-  // 内容（担当者・タイマー）は列として直接見せる。操作列（Hold／受注／2ND HOLD／
-  // 受注確定＋比較チェック）は最右列に置く。
+  // 販売価格・1ST HOLD・2ND HOLD・操作」の9列を横一列に並べる
+  // （vehicleRowsHtml）。区分・コミッション・走行距離はこの一覧では表示せず、
+  // 行タップで開く詳細モーダル（vehicleDetailHtml_）でのみ確認する（現場からの
+  // 要望で、PCビューで横スクロールが発生しない列数に絞り込み、2ND HOLD・操作列
+  // に幅を優先配分している）。1ST HOLD・2ND HOLDの内容（担当者・タイマー）は
+  // 列として直接見せる。操作列（Hold／受注／2ND HOLD／受注確定）は最右列に置く。
 
   // 受注リスト・発注リスト・Gクラス予約リストの表示形式「表」用の共通ラベル+値
   // フィールド（.rowCard__field、Stylesheet.html参照。在庫リストは表として
@@ -1037,7 +1040,6 @@
       '<td class="invTableRow__ellipsis invTableRow__mono">' + escapeHtml(v.ocn || '-') + '</td>' +
       '<td class="invTableRow__center">' + escapeHtml(v.steering || '-') + '</td>' +
       '<td class="invTableRow__ellipsis">' + escapeHtml((v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) + '</td>' +
-      '<td class="invTableRow__mono">' + escapeHtml(formatNumberUnit_(v.mileage, ' km') || '-') + '</td>' +
       '<td class="invTableRow__mono">' + escapeHtml(formatNumberUnit_(v.salePrice, ' 円') || '-') + '</td>' +
       '<td>' + invTableHoldCellHtml_(v, 'hold', '1st') + '</td>' +
       '<td>' + invTableHoldCellHtml_(v, 'secondHold', '2nd') + '</td>' +
@@ -1059,7 +1061,7 @@
     return '<div class="invTableWrap"><table class="invTable">' +
       '<thead><tr>' +
       '<th>ステータス</th><th>車種</th><th>ＯＣＮ</th><th>ハンドル</th>' +
-      '<th>カラー</th><th>走行距離</th><th>販売価格</th><th>1ST HOLD</th><th>2ND HOLD</th><th>操作</th>' +
+      '<th>カラー</th><th>販売価格</th><th>1ST HOLD</th><th>2ND HOLD</th><th>操作</th>' +
       '</tr></thead>' +
       '<tbody>' + items.map(vehicleTableRowHtml_).join('') + '</tbody>' +
       '</table></div>';

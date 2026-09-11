@@ -697,7 +697,7 @@
   @media (min-width: 901px) {
     .invTableWrap { overflow-x: hidden; }
     .invTable { table-layout: fixed; width: 100%; }
-    /* 不具合修正: table-layout: fixedは列幅の指定が無いと全10列を均等割りに
+    /* 不具合修正: table-layout: fixedは列幅の指定が無いと全9列を均等割りに
        してしまい、Hold詳細・操作ボタンのように幅を要する列が窮屈になって
        いた（現場からの指摘:「Hold情報が不鮮明」「受注確定・2ND HOLDの文字が
        見切れる」）。列ごとの実際の内容量に応じて明示的に配分する
@@ -705,18 +705,17 @@
        車種（MODEL列）は実際には「C20T」のように短い型番がほとんどのため
        車種・カラー列は控えめにし、代わりにステータスバッジ・Hold詳細・
        操作ボタン（いずれも縦折り返し禁止の要望あり）に幅を厚めに配分する。
-       比較機能の削除で操作列からチェックボックスが無くなった分もそのまま
-       操作列に還元してある。 */
+       走行距離は列自体を削除し（詳細モーダルで確認可能）、浮いた分は
+       2ND HOLD・操作（受注確定）列にそのまま還元してある。 */
     .invTable th:nth-child(1), .invTable td:nth-child(1) { width: 12%; } /* ステータス */
     .invTable th:nth-child(2), .invTable td:nth-child(2) { width: 7%; }  /* 車種 */
     .invTable th:nth-child(3), .invTable td:nth-child(3) { width: 9%; }  /* ＯＣＮ */
     .invTable th:nth-child(4), .invTable td:nth-child(4) { width: 5%; }  /* ハンドル */
     .invTable th:nth-child(5), .invTable td:nth-child(5) { width: 7%; }  /* カラー */
-    .invTable th:nth-child(6), .invTable td:nth-child(6) { width: 8%; }  /* 走行距離 */
-    .invTable th:nth-child(7), .invTable td:nth-child(7) { width: 9%; }  /* 販売価格 */
-    .invTable th:nth-child(8), .invTable td:nth-child(8) { width: 13%; } /* 1ST HOLD */
-    .invTable th:nth-child(9), .invTable td:nth-child(9) { width: 13%; } /* 2ND HOLD */
-    .invTable th:nth-child(10), .invTable td:nth-child(10) { width: 17%; } /* 操作 */
+    .invTable th:nth-child(6), .invTable td:nth-child(6) { width: 9%; }  /* 販売価格 */
+    .invTable th:nth-child(7), .invTable td:nth-child(7) { width: 13%; } /* 1ST HOLD */
+    .invTable th:nth-child(8), .invTable td:nth-child(8) { width: 17%; } /* 2ND HOLD */
+    .invTable th:nth-child(9), .invTable td:nth-child(9) { width: 21%; } /* 操作 */
   }
   .invTable {
     width: 100%;
