@@ -699,6 +699,31 @@
     </div>
   </div>
 
+  <!-- 受注キャンセルモーダル: 管理者権限を持つ担当者のみ操作できる（renderSettingsと
+       同じisSystemAdmin判定で、受注リストのカンセルボタン自体を非表示にする。
+       cancelHoldModalと同じ確認モーダルのパターン）。受注確定を取り消し、在庫を
+       受注が入る前の状態（在庫あり・Holdなし）に戻す。 -->
+  <div class="modal hidden" id="cancelOrderModal">
+    <div class="modal__panel">
+      <div class="modal__header">
+        <h2>受注キャンセル</h2>
+        <button class="btn--icon" data-close-modal>&times;</button>
+      </div>
+      <div class="modal__body">
+        <p class="modal__desc" id="cancelOrderModalDesc"></p>
+        <div class="modal__error hidden" id="cancelOrderModalError"></div>
+        <div class="formField">
+          <label>キャンセル操作者（ログイン中のアカウント）</label>
+          <div class="staffDisplay" id="cancelOrderStaffDisplay"></div>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn" data-close-modal>閉じる</button>
+        <button class="btn btn--danger" id="btnCancelOrderSubmit">受注キャンセルする</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 車両比較モーダル -->
   <div class="modal hidden" id="compareModal">
     <div class="modal__panel modal__panel--wide modal__panel--compare">

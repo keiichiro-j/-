@@ -81,6 +81,14 @@ function api_confirmOrder(commission, info) {
 }
 
 /**
+ * 受注キャンセル（管理者権限を持つ担当者限定）。権限チェック自体はcancelOrder
+ * （OrderService.gs）の中で行うため、ここでは呼び出すだけでよい。
+ */
+function api_cancelOrder(commission) {
+  return cancelOrder(commission);
+}
+
+/**
  * 受注リスト一覧。受注確定日時（orderedAt）から「2026-08」形式の orderedMonth を
  * 付与し、月ごとのグループ表示・トータル台数の把握に使えるようにする。
  */

@@ -1753,6 +1753,54 @@
     });
   });
 
+  // ===== 受注キャンセル（管理者限定） =====
+  // 誤って受注確定してしまった場合等に、受注を取り消して在庫リストへ戻す訂正機能。
+  // 実際の権限チェックはサーバー側cancelOrder（OrderService.gs）で行うため、
+  // ここでのisSystemAdmin_判定はボタンの表示・非表示のみを制御する。
+  var cancelOrderState = null; // { commission }
+
+  function openCancelOrderModal_(commission) {
+    var order = findOrderByCommission_(commission);
+    if (!order) return;
+    cancelOrderState = { commission: commission };
+    $('cancelOrderModalDesc').textContent =
+      'この受注（顧客: ' + (order.customer || '-') + '・' + (order.model || '-') + '）を取り消し、' +
+      '在庫リストへ「在庫あり」の状態で戻します。受注確定時のHold情報（担当者・期限等）は復元されません。';
+    $('cancelOrderStaffDisplay').innerHTML = staffDisplayHtml_();
+    $('cancelOrderModalError').classList.add('hidden');
+    var submitBtn = $('btnCancelOrderSubmit');
+    delete submitBtn.dataset.originalLabel;
+    submitBtn.disabled = false;
+    openModal($('cancelOrderModal'));
+  }
+
+  on('btnCancelOrderSubmit','click', function () {
+    if (this.disabled || !cancelOrderState) return;
+    var btn = this;
+    var errEl = $('cancelOrderModalError');
+    errEl.classList.add('hidden');
+    setButtonBusy(btn, true, 'キャンセル中...');
+    gasRun('api_cancelOrder', cancelOrderState.commission).then(function () {
+      setButtonBusy(btn, false);
+      closeModal($('cancelOrderModal'));
+      showToast('受注をキャンセルし、在庫リストへ戻しました');
+      loadInventory();
+      loadOrders();
+      loadHomeModelCounts_();
+    }).catch(function (err) {
+      setButtonBusy(btn, false);
+      errEl.textContent = err.message;
+      errEl.classList.remove('hidden');
+    });
+  });
+
+  on('orderDetailModal','click', function (e) {
+    var btn = e.target.closest('[data-order-cancel]');
+    if (!btn) return;
+    closeModal($('orderDetailModal'));
+    openCancelOrderModal_(btn.dataset.orderCancel);
+  });
+
   /**
    * Hold登録・受注確定は全項目（販売拠点を含む）の入力が必須。
    * 未入力の項目があればラベルを列挙して返す。担当者（staff）はログイン中の
@@ -1941,6 +1989,9 @@
       '</dl>';
   }
 
+  // 「受注キャンセル」は、誤って受注確定してしまった場合等に受注を取り消し、
+  // 在庫リストへ戻す管理者限定の訂正機能。カード・行の一覧には出さず、詳細モーダルの
+  // 中にのみ表示する（頻繁に使う操作ではないため、一覧の見た目を崩さないようにする）。
   function orderDetailHtml_(o) {
     return '<div class="orderCard">' +
       '<div class="orderCard__top">' +
@@ -1952,6 +2003,9 @@
       '</div>' +
       '</div>' +
       orderDetailGridHtml_(o) +
+      (isSystemAdmin_()
+        ? '<div class="card__actions"><button type="button" class="btn btn--danger" data-order-cancel="' + escapeHtml(o.commission) + '">受注キャンセル</button></div>'
+        : '') +
       '</div>';
   }
 

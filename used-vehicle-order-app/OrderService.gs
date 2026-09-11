@@ -124,3 +124,45 @@ function confirmWholesaleOrder(commission, info) {
     lock.releaseLock();
   }
 }
+
+/**
+ * 受注確定を取り消し、受注リストの行を在庫リストへ戻す（管理者権限を持つ
+ * 担当者限定の訂正機能。誤って受注確定してしまった場合等を想定しており、
+ * 業務上の契約キャンセルそのものを表す機能ではない）。
+ * 在庫の状態は、受注が入る前の「在庫あり（HOLD_STATUS.AVAILABLE）」に戻す。
+ * 受注確定時に削除されたHold情報（担当者・期限等）は復元しない
+ * （期限などの時間情報を含み、後から意味のある形で復元できないため）。
+ * @param {string} commission
+ */
+function cancelOrder(commission) {
+  var currentStaff = requireCurrentStaff_();
+  if (!isSystemAdmin_(currentStaff.email)) {
+    throw new Error('受注キャンセルは管理者権限を持つ担当者のみ操作できます');
+  }
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var orderSheet = getOrderSheet_();
+    var rowNumber = findOrderRowNumber_(orderSheet, commission);
+    if (!rowNumber) throw new Error('該当する受注が見つかりません（コミッション: ' + commission + '）');
+    var order = rowToObject_(
+      orderSheet.getRange(rowNumber, 1, 1, ORDER_COLUMNS.length).getValues()[0],
+      ORDER_COLUMNS,
+      rowNumber
+    );
+
+    var vehicle = { holdStatus: HOLD_STATUS.AVAILABLE };
+    VEHICLE_COLUMNS.forEach(function (col) { vehicle[col.key] = order[col.key]; });
+    createInventoryVehicle_(vehicle);
+    deleteOrderRow_(orderSheet, rowNumber);
+
+    appendAuditLog_(buildAuditLogEntry_(
+      '受注キャンセル', commission, order.model, currentStaff,
+      '受注確定を取り消し、在庫リストへ戻しました（在庫あり）', new Date().getTime()
+    ));
+    return vehicle;
+  } finally {
+    lock.releaseLock();
+  }
+}

@@ -202,6 +202,24 @@ function findInventoryVehicle(commission) {
   );
 }
 
+/**
+ * 在庫リストへ新しい行を追加する。通常の運用では在庫の追加はスプレッドシートへ
+ * 直接行うが、受注キャンセル（cancelOrder、OrderService.gs参照）は受注リストから
+ * 削除した行を在庫リストへ書き戻す必要があるため、アプリ側からの追加もこの関数で
+ * 行う。
+ */
+function createInventoryVehicle_(vehicle) {
+  var sheet = getInventorySheet_();
+  var newRow = sheet.getLastRow() + 1;
+  // appendOrder_・createHoldRow_と同様、appendRowだけに頼ると数字のみのＯＣＮ・
+  // コミッションの先頭0が消えることがあるため、書き込み直前に対象セルの書式を
+  // 明示的に設定する。
+  sheet.getRange(newRow, inventoryColIndex1('ocn'), 1, 1).setNumberFormat('@');
+  sheet.getRange(newRow, inventoryColIndex1('commission'), 1, 1).setNumberFormat('@');
+  sheet.getRange(newRow, 1, 1, INVENTORY_COLUMNS.length).setValues([objectToRow_(vehicle, INVENTORY_COLUMNS)]);
+  return vehicle;
+}
+
 function updateInventoryVehicle_(sheet, rowNumber, patch) {
   var current = rowToObject_(
     sheet.getRange(rowNumber, 1, 1, INVENTORY_COLUMNS.length).getValues()[0],
@@ -326,6 +344,14 @@ function appendOrder_(order) {
   sheet.getRange(newRow, orderColIndex1('commission'), 1, 1).setNumberFormat('@');
   sheet.getRange(newRow, 1, 1, ORDER_COLUMNS.length).setValues([objectToRow_(order, ORDER_COLUMNS)]);
   return order;
+}
+
+function findOrderRowNumber_(sheet, commission) {
+  return findRowByKey_(sheet, ORDER_COLUMNS, 'commission', commission);
+}
+
+function deleteOrderRow_(sheet, rowNumber) {
+  sheet.deleteRow(rowNumber);
 }
 
 // ===== 業販受注リスト =====
