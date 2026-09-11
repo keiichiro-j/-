@@ -38,6 +38,7 @@
     themeKey: null, // 設定タブで選択中のテーマ（着せ替え）プリセットキー。サイドバーの色もこれとセットで決まる（THEME_PRESETSのsidebarColor参照）
     navHistory: [], // 「戻る」ボタン用の画面履歴（タブ名のスタック）
     homeModelFilter: null, // ホームのモデル写真タイルクリックで設定される、絞り込み対象の型番（MODEL列の値）の配列
+    homeBodyTypeFilter: null, // ホーム画面上部の型クイックナビ（#homeTypeNav）で選択中の型（未選択＝「すべて」はnull）
     allInventoryItems: [], // ホーム画面の在庫台数集計専用（ツールバーの検索条件に左右されない全件）
     allOrders: [], // マイページ集計専用（受注リストの検索・絞り込み条件に左右されない全件）
     myPageViewMode: safeLocalStorageGet_('myPageViewMode') || 'card' // 'card' | 'table'（マイページ全体の表示形式）
@@ -2951,28 +2952,64 @@
   }
 
   /**
-   * 中古車は1台ごとに個体差があるため、型ごとのグループ化やタブ展開は行わず、
-   * 登録されたモデル写真をそのままフラットに並べるだけのシンプルな構成にしている。
-   * タップすると、その写真の自動判定条件（gradePrefix・gradeMarker）に一致する
-   * 車両だけに絞り込んだ在庫リストへ遷移する（handleHomeModelClick_参照）。
+   * ホーム画面上部の型クイックナビ（#homeTypeNav、現場の要望「モデルカードの
+   * 上に型のボタンを横一列に配置し、押すとその型のモデルだけを表示する」）。
+   * 「すべて」＋設定タブのモデル写真で選べる型（MODEL_BODY_TYPE_OPTIONS、
+   * Constants.gs）を、登録状況に関わらず常に同じ並びで表示する（型を1件も
+   * 割り当てていない運用開始直後でも迷わないよう、固定の選択肢にしている）。
+   * クリックするとstate.homeBodyTypeFilterを更新し、renderHomeGallery_を
+   * 呼び直してモデル一覧を絞り込む。
+   */
+  function renderHomeTypeNav_() {
+    var options = (state.bootstrap && state.bootstrap.modelBodyTypeOptions) || [];
+    var current = state.homeBodyTypeFilter;
+    var itemsHtml = '<button type="button" class="homeTypeNav__item' + (!current ? ' is-active' : '') +
+      '" data-home-type="">すべて</button>' +
+      options.map(function (t) {
+        return '<button type="button" class="homeTypeNav__item' + (current === t ? ' is-active' : '') +
+          '" data-home-type="' + escapeHtml(t) + '">' + escapeHtml(t) + '</button>';
+      }).join('');
+    $('homeTypeNav').innerHTML = itemsHtml;
+    $('homeTypeNav').classList.remove('hidden');
+  }
+
+  on('homeTypeNav','click', function (e) {
+    var btn = e.target.closest('[data-home-type]');
+    if (!btn) return;
+    state.homeBodyTypeFilter = btn.dataset.homeType || null;
+    renderHomeGallery_();
+  });
+
+  /**
+   * 中古車は1台ごとに個体差があるため、グレードタブへの展開は行わず、登録された
+   * モデル写真をそのままフラットに並べるだけのシンプルな構成にしている。タップ
+   * すると、その写真の自動判定条件（gradePrefix・gradeMarker）に一致する車両
+   * だけに絞り込んだ在庫リストへ遷移する（handleHomeModelClick_参照）。
+   * 上部の型クイックナビ（renderHomeTypeNav_、state.homeBodyTypeFilter）で型を
+   * 選択している場合は、その型（bodyType）が一致するモデル写真だけに絞り込む
+   * （1件もモデル写真が登録されていない場合は#homeEmptyを、型は登録されている
+   * が選択した型に一致するモデルが無い場合は#homeTypeEmptyを表示する）。
    */
   function renderHomeGallery_() {
-    var modelPhotos = state.modelPhotos || [];
-    $('homeEmpty').classList.toggle('hidden', modelPhotos.length > 0);
-    $('homeTypeNav').classList.add('hidden');
-    $('homeTypeEmpty').classList.add('hidden');
+    var allModelPhotos = state.modelPhotos || [];
+    renderHomeTypeNav_();
+    var modelPhotos = state.homeBodyTypeFilter
+      ? allModelPhotos.filter(function (p) { return p.bodyType === state.homeBodyTypeFilter; })
+      : allModelPhotos;
+    $('homeEmpty').classList.toggle('hidden', allModelPhotos.length > 0);
+    $('homeTypeEmpty').classList.toggle('hidden', !(allModelPhotos.length > 0 && modelPhotos.length === 0));
     var allItems = state.allInventoryItems || [];
     if (isPcHomeLayout_()) {
       // PCビューは、サイドバー＋1本のカードグリッド（3枚1行）というシンプルな構成
       // にしたため（Index.html参照）、各カードに写真・在庫台数をタップ・クリック
       // なしで見える形で埋め込む（homeModelCardHtml_参照）。
       $('homeGrid').innerHTML = modelPhotos
-        .map(function (p) { return homeModelCardHtml_(p, allItems, modelPhotos); })
+        .map(function (p) { return homeModelCardHtml_(p, allItems, allModelPhotos); })
         .join('');
     } else {
       // タブレット・スマホ幅は横一列のリスト型（.homeTypeRow）で並べる。
       $('homeGrid').innerHTML = modelPhotos.length
-        ? '<div class="homeTypeRow">' + modelPhotos.map(function (p) { return homeModelTileHtml_(p, allItems, modelPhotos); }).join('') + '</div>'
+        ? '<div class="homeTypeRow">' + modelPhotos.map(function (p) { return homeModelTileHtml_(p, allItems, allModelPhotos); }).join('') + '</div>'
         : '';
     }
     equalizeHomeCardHeights_();
@@ -3067,10 +3104,12 @@
     var cardClass = 'homeCard' + (cardClickable ? ' homeCard--clickable' : '');
     var cardAttrs = cardClickable ? ' role="button" tabindex="0" data-home-model="' + escapeHtml(p.model) + '"' : '';
 
+    var typeHtml = p.bodyType ? '<span class="homeCard__type">' + escapeHtml(p.bodyType) + '</span>' : '';
+
     return '<div class="' + cardClass + '"' + cardAttrs + '>' +
       photoHtml +
       '<div class="homeCard__body">' +
-      '<div class="homeCard__headRow"><span class="homeCard__model">' + escapeHtml(p.model) + '</span></div>' +
+      '<div class="homeCard__headRow"><span class="homeCard__model">' + escapeHtml(p.model) + '</span>' + typeHtml + '</div>' +
       gradeGridHtml +
       '</div>' +
       '</div>';
