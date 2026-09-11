@@ -226,6 +226,23 @@ function validateAppTitle_(text) {
 }
 
 /**
+ * スプレッドシート自体のタイトル（Googleドライブ上のファイル名）設定値（純粋関数）。
+ * ドライブのファイル名として使われるため、空欄は許可しない（Spreadsheet.rename()
+ * 自体は空文字も受け付けてしまうが、ファイル名が消えたように見えて分かりにくく
+ * なるため、ここで防ぐ）。
+ */
+function validateSpreadsheetTitle_(text) {
+  var value = String(text || '').trim();
+  if (!value) {
+    throw new Error('スプレッドシートのタイトルを入力してください。');
+  }
+  if (value.length > SPREADSHEET_TITLE_MAX_LENGTH) {
+    throw new Error('スプレッドシートのタイトルが長すぎます（' + value.length + '文字）。' + SPREADSHEET_TITLE_MAX_LENGTH + '文字以内で入力してください。');
+  }
+  return value;
+}
+
+/**
  * ブラウザのタブ名・サイドバー/トップバーの見出し・PWAの名称として使う、現在の
  * アプリタイトル。管理者が設定タブで上書きしていなければDEFAULT_APP_TITLEに
  * フォールバックする。doGet（Code.gs）・マニフェスト生成（PwaService.gs）・

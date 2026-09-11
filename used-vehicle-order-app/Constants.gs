@@ -309,6 +309,14 @@ var DEFAULT_APP_TITLE = '販売可能リスト';
 // （validateAppTitle_、SettingsService.gs参照）。
 var APP_TITLE_MAX_LENGTH = 40;
 
+// スプレッドシート自体のタイトル（Googleドライブ上のファイル名。本プロジェクトは
+// コンテナバインド型のため、SpreadsheetApp.getActiveSpreadsheet()で直接取得・変更
+// できる）の最大文字数。Googleドライブのファイル名としての実用上の長さに収める
+// （validateSpreadsheetTitle_、SettingsService.gs参照。上のAPP_TITLEとは別物：
+// APP_TITLEはこのウェブアプリ画面内の表示だけを変える設定で、スプレッドシート
+// ファイル自体の名前は変更しない）。
+var SPREADSHEET_TITLE_MAX_LENGTH = 100;
+
 /**
  * Hold登録・2nd Hold登録・受注確定それぞれの完了時に表示する演出（絵柄の
  * アクション）の選択肢キー。管理者（SYSTEM_ADMIN_EMAILS）が設定タブから

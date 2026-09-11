@@ -432,15 +432,34 @@
             <span class="settingsGroupTitle__badge">管理者限定</span>
           </div>
 
+          <!-- スプレッドシートのタイトル: 本プロジェクトがコンテナバインドされている
+               Googleスプレッドシート自体のファイル名（Googleドライブ上での表示名）を
+               直接変更する。下の「アプリタイトル」（このウェブアプリ画面内だけの
+               表示文字列）とは異なり、SpreadsheetApp.getActiveSpreadsheet().rename()
+               でドライブ上のファイル自体の名前を書き換える（api_renameSpreadsheet、
+               Api.gs参照）。他の設定項目のように「保存」ボタンでまとめて保存するのでは
+               なく、このカード専用の「変更する」ボタンで即座に反映する。 -->
+          <div class="settingsCard hidden" id="systemMasterSpreadsheetTitleCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>スプレッドシートのタイトル</h2>
+            <p class="settingsSection__desc">このアプリにつながっているGoogleスプレッドシート自体の名前（Googleドライブ上のファイル名）です。他の設定とは別に、この項目だけ「変更する」ボタンですぐに反映されます（最大<span id="spreadsheetTitleMax"></span>文字）。</p>
+            <div class="formField">
+              <label>タイトル</label>
+              <input type="text" id="settingsSpreadsheetTitle" class="input" placeholder="例: 販売可能リスト在庫管理（本社）">
+            </div>
+            <div class="modal__error hidden" id="settingsSpreadsheetTitleError"></div>
+            <button class="btn btn--primary" type="button" id="btnRenameSpreadsheet">変更する</button>
+          </div>
+
           <!-- アプリタイトル: ブラウザのタブ名・サイドバー/トップバーの見出しに使う
-               タイトル文字列。同じアプリを複数のスプレッドシート（拠点・店舗違い等）に
-               ひも付けて別々にデプロイした場合でも、タブや見出しの文字列でどちらを
-               開いているか区別できるようにするための項目（currentAppTitle_、
-               SettingsService.gs参照）。空欄にすると既定の「販売可能リスト」表記に
-               戻る。 -->
+               タイトル文字列（このウェブアプリ画面内だけの表示で、上の「スプレッドシートの
+               タイトル」とは異なりスプレッドシートファイル自体の名前は変更しない）。
+               同じアプリを複数のスプレッドシート（拠点・店舗違い等）にひも付けて別々に
+               デプロイした場合でも、タブや見出しの文字列でどちらを開いているか区別
+               できるようにするための項目（currentAppTitle_、SettingsService.gs参照）。
+               空欄にすると既定の「販売可能リスト」表記に戻る。 -->
           <div class="settingsCard hidden" id="systemMasterAppTitleCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>アプリタイトル</h2>
-            <p class="settingsSection__desc">ブラウザのタブ名、サイドバー・上部バーの見出しに表示するタイトルです。同じアプリを複数のスプレッドシートにひも付けて別々に使っている場合、それぞれ分かりやすい名前を付けて区別できます（例:「販売可能リスト（本社）」）。空欄にすると既定の「販売可能リスト」表記になります（最大<span id="appTitleMax"></span>文字）。</p>
+            <p class="settingsSection__desc">ブラウザのタブ名、サイドバー・上部バーの見出しに表示するタイトルです（スプレッドシートファイル自体の名前は変更しません）。空欄にすると既定の「販売可能リスト」表記になります（最大<span id="appTitleMax"></span>文字）。</p>
             <div class="formField">
               <label>タイトル</label>
               <input type="text" id="settingsAppTitle" class="input" placeholder="例: 販売可能リスト（本社）">

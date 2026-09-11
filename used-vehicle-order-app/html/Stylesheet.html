@@ -805,11 +805,16 @@
      高さが変わると、表の行の高さも車両ごとにばらついてしまう（現場からの指摘）。
      .invHold・.invHold__emptyの両方に同じ高さを固定で持たせることで、Hold状態に
      関わらず行の高さが常に一定になるようにする（overflow: hiddenで、想定を超える
-     長さの内容が入った場合の保険とする）。 */
+     長さの内容が入った場合の保険とする）。
+     不具合修正: 固定高さが64pxだったが、実際の中身（顧客名・担当者・タイマー・
+     解除リンクの4行、gap込み）は約70〜73pxあり、64pxでは足りずoverflow: hiddenで
+     一番下の行が見切れてしまっていた（現場からの指摘:「HOLDしている人等の情報が
+     潰れてしまっている」）。実測の自然な高さに余裕を持たせた78pxに引き上げて
+     解消する。 */
   .invHold__empty {
     display: flex;
     align-items: center;
-    height: 64px;
+    height: 78px;
   }
   .invHold__empty__pill {
     display: inline-block;
@@ -826,7 +831,7 @@
     justify-content: center;
     gap: 2px;
     min-width: 130px;
-    height: 64px;
+    height: 78px;
     overflow: hidden;
   }
   /* 不具合修正: 固定px（旧170px）だと、列幅を実際の内容量に合わせて配分し

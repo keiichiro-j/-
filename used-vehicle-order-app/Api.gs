@@ -30,6 +30,12 @@ function api_getBootstrapData() {
     logoUrlMax: LOGO_URL_MAX_LENGTH,
     loadingImageUrlMax: LOADING_IMAGE_URL_MAX_LENGTH,
     notifyMailListMax: NOTIFY_MAIL_LIST_MAX,
+    // 現在つながっているスプレッドシート自体のタイトル（Googleドライブ上の
+    // ファイル名）。設定タブ「スプレッドシートのタイトル」欄の初期値として使う
+    // （api_renameSpreadsheet参照。Script Propertiesではなくスプレッドシート
+    // ファイル自体が持つ値のため、settingsオブジェクトとは別に都度取得する）。
+    spreadsheetTitle: SpreadsheetApp.getActiveSpreadsheet().getName(),
+    spreadsheetTitleMax: SPREADSHEET_TITLE_MAX_LENGTH,
     celebrationVariantOptions: CELEBRATION_VARIANT_OPTIONS,
     celebrationVariantLabels: CELEBRATION_VARIANT_LABELS,
     // 設定タブの「システムマスタ」（メール通知設定・担当者）を表示・操作できるか。
@@ -43,6 +49,26 @@ function api_getBootstrapData() {
     currentStaffName: staffMatch ? staffMatch.name : null,
     currentStaffLocation: staffMatch ? (staffMatch.location || '') : null
   };
+}
+
+/**
+ * 現在つながっているスプレッドシート自体のタイトル（Googleドライブ上の
+ * ファイル名）を変更する。設定タブの他の項目（Script Propertiesへの保存、
+ * saveSettings）とは異なり、スプレッドシートというファイル自体の名前を
+ * 書き換える操作のため、独立したAPIにしている（保存のタイミング・粒度を
+ * 他の設定項目と分け、他の設定と一緒に保存されるまで待たせない）。
+ * 本プロジェクトはコンテナバインド型のため、SpreadsheetApp.getActiveSpreadsheet()
+ * で直接、実行元のスプレッドシートを変更できる。管理者限定
+ * （SYSTEM_ADMIN_EMAILSのみ、SettingsService.gsのisSystemAdmin_参照）。
+ */
+function api_renameSpreadsheet(newTitle) {
+  var email = Session.getActiveUser().getEmail();
+  if (!isSystemAdmin_(email)) {
+    throw new Error('スプレッドシートのタイトル変更は管理者権限を持つ担当者のみ操作できます');
+  }
+  var title = validateSpreadsheetTitle_(newTitle);
+  SpreadsheetApp.getActiveSpreadsheet().rename(title);
+  return title;
 }
 
 // ===== 在庫リスト一覧 =====

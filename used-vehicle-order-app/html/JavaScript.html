@@ -2173,6 +2173,7 @@
     // ここではUI上の表示・非表示のみを制御する（実データの保護自体はサーバー側で行っている）。
     var isAdmin = !!(state.bootstrap && state.bootstrap.isSystemAdmin);
     $('systemMasterGroupTitle').classList.toggle('hidden', !isAdmin);
+    $('systemMasterSpreadsheetTitleCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterAppTitleCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterLogoCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterAnnouncementCard').classList.toggle('hidden', !isAdmin);
@@ -2196,6 +2197,9 @@
     // #themePresetGridのクリックハンドラ側で行う）。
     state.themeKey = settings.themeKey;
     renderThemePresets_();
+    $('spreadsheetTitleMax').textContent = (state.bootstrap && state.bootstrap.spreadsheetTitleMax) || 100;
+    $('settingsSpreadsheetTitle').value = (state.bootstrap && state.bootstrap.spreadsheetTitle) || '';
+    $('settingsSpreadsheetTitleError').classList.add('hidden');
     $('appTitleMax').textContent = (state.bootstrap && state.bootstrap.appTitleMax) || 40;
     $('settingsAppTitle').value = settings.appTitle || '';
     applyAppTitle_(settings.appTitle);
@@ -3197,6 +3201,40 @@
     if (!target) return;
     e.preventDefault();
     target.click();
+  });
+
+  // スプレッドシート自体のタイトル（Googleドライブ上のファイル名）の変更は、
+  // 他の設定項目（保存ボタンでまとめて保存、Script Propertiesへの書き込み）とは
+  // 別の専用ボタン・専用API（api_renameSpreadsheet）で即座に反映する
+  // （Api.gs参照）。
+  on('btnRenameSpreadsheet','click', function () {
+    if (this.disabled) return;
+    var btn = this;
+    var errEl = $('settingsSpreadsheetTitleError');
+    errEl.classList.add('hidden');
+    var title = $('settingsSpreadsheetTitle').value.trim();
+    var max = (state.bootstrap && state.bootstrap.spreadsheetTitleMax) || 100;
+    if (!title) {
+      errEl.textContent = 'スプレッドシートのタイトルを入力してください。';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    if (title.length > max) {
+      errEl.textContent = 'タイトルは最大' + max + '文字までです（現在' + title.length + '文字）';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    setButtonBusy(btn, true, '変更中...');
+    gasRun('api_renameSpreadsheet', title).then(function (savedTitle) {
+      setButtonBusy(btn, false);
+      state.bootstrap.spreadsheetTitle = savedTitle;
+      $('settingsSpreadsheetTitle').value = savedTitle;
+      showToast('スプレッドシートのタイトルを変更しました');
+    }).catch(function (err) {
+      setButtonBusy(btn, false);
+      errEl.textContent = err.message;
+      errEl.classList.remove('hidden');
+    });
   });
 
   on('btnSaveSettings','click', function () {

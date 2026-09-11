@@ -717,6 +717,23 @@ test('上限文字数を超えるとエラー', () => {
   assert.throws(() => sandbox.validateAppTitle_(tooLong), /長すぎます/);
 });
 
+console.log('== SettingsService: validateSpreadsheetTitle_（スプレッドシート自体のタイトルの検証） ==');
+test('通常の文字列はそのまま返る', () => {
+  assert.strictEqual(sandbox.validateSpreadsheetTitle_('販売可能リスト在庫管理（本社）'), '販売可能リスト在庫管理（本社）');
+});
+test('前後の空白はトリムされる', () => {
+  assert.strictEqual(sandbox.validateSpreadsheetTitle_('  在庫管理  '), '在庫管理');
+});
+test('空文字・未指定はエラー（ドライブのファイル名を空にはできない）', () => {
+  assert.throws(() => sandbox.validateSpreadsheetTitle_(''), /入力してください/);
+  assert.throws(() => sandbox.validateSpreadsheetTitle_(undefined), /入力してください/);
+  assert.throws(() => sandbox.validateSpreadsheetTitle_('   '), /入力してください/);
+});
+test('上限文字数を超えるとエラー', () => {
+  const tooLong = 'あ'.repeat(sandbox.SPREADSHEET_TITLE_MAX_LENGTH + 1);
+  assert.throws(() => sandbox.validateSpreadsheetTitle_(tooLong), /長すぎます/);
+});
+
 console.log('== SettingsService: validateChatWebhookUrl_（Google Chat通知先Webhook URLの検証） ==');
 test('httpsから始まるURLはそのまま返る', () => {
   assert.strictEqual(
