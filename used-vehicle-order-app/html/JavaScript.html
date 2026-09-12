@@ -895,6 +895,13 @@
   }
 
   function vehicleSpecFieldsHtml_(v) {
+    // オプションは複数の装備をまとめて自由記述するため長くなりがちで、他の項目と
+    // 同じ省略記号（ellipsis）表示だと全文を確認しづらい（現場からの要望）。
+    // 値をそのまま表示せず、ボタンを押した先の共通ポップアップ（textInfoModal、
+    // openOptionsModal_参照）で全文を確認できるようにする。
+    var optionRowHtml = '<div><dt>オプション</dt><dd class="dd--action">' +
+      '<button type="button" class="btn btn--small" data-options="' + escapeHtml(v.commission) + '">オプションを見る</button>' +
+      '</dd></div>';
     return '<dl class="card__metaGrid">' +
       metaRow_('ＯＣＮ', v.ocn) +
       metaRow_('走行距離', formatNumberUnit_(v.mileage, ' km')) +
@@ -909,7 +916,7 @@
       metaRow_('CCC入庫日', v.cccArrivalDate) +
       metaRow_('経過月', formatNumberUnit_(v.elapsedMonths, ' ヶ月')) +
       metaRow_('現展示拠点', v.currentDisplayLocation) +
-      metaRow_('オプション', v.option) +
+      optionRowHtml +
       metaRow_('現名義', v.currentOwnerName) +
       '</dl>';
   }
@@ -1000,7 +1007,7 @@
 
     var cardTone = vehicleCardTone_(v);
     // 「備考」はスプレッドシートに直接入力する自由記述欄のため、詳細ポップアップの
-    // 車両情報の中に直接表示せず、ボタンを押した先の別ポップアップ（remarksModal）で
+    // 車両情報の中に直接表示せず、ボタンを押した先の別ポップアップ（textInfoModal）で
     // 確認する形にする（内容が長い・整形されていない場合があり、そのまま並べると
     // 他の項目が見づらくなるため。現場からの要望）。アプリからの書き込み機能はない
     // （openRemarksModal_参照）。
@@ -1017,14 +1024,27 @@
   }
 
   /**
-   * 「備考を見る」ボタンで開く、備考欄専用のポップアップ（#remarksModal）。
-   * 備考はスプレッドシートに直接入力する運用のため、表示のみで編集機能はない。
+   * 「備考を見る」「オプションを見る」ボタンで開く、長文項目を全文表示するための
+   * 共通ポップアップ（#textInfoModal）。オプション・備考とも省略記号（ellipsis）や
+   * 折り返しでは読み切れないことがあるため、別ポップアップで全文を確認できるように
+   * する（現場からの要望）。どちらも表示のみで、アプリからの編集機能はない。
    */
+  function openTextInfoModal_(title, text, emptyMessage) {
+    $('textInfoModalTitle').textContent = title;
+    $('textInfoModalBody').textContent = text || emptyMessage;
+    openModal($('textInfoModal'));
+  }
+
   function openRemarksModal_(commission) {
     var vehicle = findVehicleByCommission(commission);
     if (!vehicle) return;
-    $('remarksModalBody').textContent = vehicle.remarks || '備考はありません。';
-    openModal($('remarksModal'));
+    openTextInfoModal_('備考', vehicle.remarks, '備考はありません。');
+  }
+
+  function openOptionsModal_(commission) {
+    var vehicle = findVehicleByCommission(commission);
+    if (!vehicle) return;
+    openTextInfoModal_('オプション', vehicle.option, 'オプションの登録はありません。');
   }
 
   // ===== 在庫リストの表示形式切替（カード／表） =====
@@ -1366,9 +1386,10 @@
     else if ('order' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.order))) { closeModal($('inventoryDetailModal')); openActionModal('order', commission); } }
     else if ('orderFromHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.orderFromHold))) { closeModal($('inventoryDetailModal')); openActionModal('orderFromHold', commission); } }
     else if ('cancelHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.cancelHold))) { closeModal($('inventoryDetailModal')); openCancelHoldModal(commission, target.dataset.cancelRank); } }
-    // 「備考を見る」は車両情報ポップアップの上に重ねて表示するだけなので、
-    // 他のボタンと異なりinventoryDetailModal自体は閉じない。
+    // 「備考を見る」「オプションを見る」は車両情報ポップアップの上に重ねて表示する
+    // だけなので、他のボタンと異なりinventoryDetailModal自体は閉じない。
     else if ('remarks' in target.dataset) { openRemarksModal_(target.dataset.remarks); }
+    else if ('options' in target.dataset) { openOptionsModal_(target.dataset.options); }
   });
 
   ['inventoryKeyword', 'inventoryIncludeHold'].forEach(function (id) {

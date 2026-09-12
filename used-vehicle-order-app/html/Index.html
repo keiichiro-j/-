@@ -805,18 +805,18 @@
     </div>
   </div>
 
-  <!-- 在庫リストの詳細ポップアップ（inventoryDetailModal）にある「備考」ボタンで
-       開く、備考欄専用のポップアップ（inventoryDetailModalと同じパターン）。
-       備考はスプレッドシートに直接入力する運用のため、アプリ側からの編集は
-       できず、表示のみ（openRemarksModal_参照）。 -->
-  <div class="modal hidden" id="remarksModal">
+  <!-- 在庫リストの詳細ポップアップ（inventoryDetailModal）にある「備考を見る」
+       「オプションを見る」ボタンで開く、長文項目を全文表示するための共通ポップアップ
+       （inventoryDetailModalと同じパターン）。タイトル・本文はopenTextInfoModal_で
+       都度差し替える。どちらも表示のみで、アプリ側からの編集はできない。 -->
+  <div class="modal hidden" id="textInfoModal">
     <div class="modal__panel">
       <div class="modal__header">
-        <h2>備考</h2>
+        <h2 id="textInfoModalTitle"></h2>
         <button class="btn--icon" data-close-modal>&times;</button>
       </div>
       <div class="modal__body">
-        <p class="remarksModal__body" id="remarksModalBody"></p>
+        <p class="textInfoModal__body" id="textInfoModalBody"></p>
       </div>
     </div>
   </div>
