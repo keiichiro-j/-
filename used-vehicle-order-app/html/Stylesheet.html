@@ -81,9 +81,12 @@
     --dark-ui-outline: rgba(255, 255, 255, .14);
     /* 起動時ローディング画面（.appLoading）専用の背景色。テーマ設定（表示設定）で
        選んだテーマのprimaryDarkに、JS実行後applyTheme（JavaScript.html参照）が
-       都度合わせる。ここでの値はJS実行前の初期表示用で、DEFAULT_THEME_KEY「steel」の
-       primaryDark（--primary-darkと同じ#102a43）に揃えてある。 */
-    --loading-bg: #102a43;
+       都度合わせる。ここでの値はJS実行前（テーマ切替前）の初期表示専用で、
+       以前はDEFAULT_THEME_KEY「steel」のprimaryDark（ネイビー#102a43）に揃えて
+       いたが、選んだテーマに関わらず起動直後の一瞬は常に黒で統一してほしいという
+       要望を受け、黒に固定した（JS実行後、選んだテーマの色に上書きされる一瞬までの
+       表示専用のため、この値自体はテーマ設定の影響を受けない）。 */
+    --loading-bg: #000000;
     /* スマホ表示（@media max-width: 600px）専用のヘッダー背景色。PCビュー・
        タブレットビューのヘッダーは、他のダークUIパーツ（比較バー・トースト）と
        揃えるためあえて固定のネイビー（--topbar-bg）のままにしているが、スマホ
@@ -118,6 +121,14 @@
        （syncKeyboardInset_）がwindow.visualViewportで実測し、キーボード表示中は
        その高さに更新する（.modal参照。キーボードが無い間は0のまま）。 */
     --app-keyboard-inset: 0px;
+    /* UI全体のモーション（ホバー・出現アニメーション等）で共通して使うイージング。
+       --easeはCSS標準のease相当の滑らかな加減速だが減速側をやや強めにし、状態変化
+       （ホバー時の色・影の変化等）が唐突に止まらず自然に収まるようにする。--ease-outは
+       モーダル・トースト等の「出現」アニメーション専用で、勢いよく現れて滑らかに
+       収まる、より減速を強調したカーブにする。速度そのもの（duration）は既存のまま
+       残し、カーブだけ統一している。 */
+    --ease: cubic-bezier(.4, 0, .2, 1);
+    --ease-out: cubic-bezier(.16, 1, .3, 1);
   }
 
   * { box-sizing: border-box; }
@@ -190,7 +201,7 @@
     gap: 16px;
     background: var(--loading-bg, var(--topbar-bg));
     color: #eaf1f8;
-    transition: opacity .3s ease, background-color .3s ease;
+    transition: opacity .3s var(--ease), background-color .3s var(--ease);
   }
   .appLoading.is-hidden { opacity: 0; pointer-events: none; }
   /* 管理者が設定タブから登録した画像（任意。#appLoadingImage、
@@ -208,7 +219,7 @@
     height: auto;
     border-radius: 12px;
     opacity: 0;
-    transition: opacity 1.1s ease;
+    transition: opacity 1.1s var(--ease);
   }
   .appLoading__image.is-visible { opacity: 1; }
   @media (prefers-reduced-motion: reduce) {
@@ -306,7 +317,7 @@
     text-transform: uppercase;
     cursor: pointer;
     white-space: nowrap;
-    transition: opacity .15s ease, border-color .15s ease;
+    transition: opacity .15s var(--ease), border-color .15s var(--ease);
   }
   .tabs__item:hover { opacity: .85; }
   .tabs__item.is-active { opacity: 1; border-bottom-color: var(--primary); }
@@ -364,7 +375,7 @@
      display: noneからの復帰にtransitionは効かないため、animationを使う
      （animationは要素が描画された瞬間から再生されるため、display: none明けでも
      機能する）。 */
-  .view.is-active { display: block; animation: viewFadeIn .22s ease; }
+  .view.is-active { display: block; animation: viewFadeIn .24s var(--ease-out); }
   @keyframes viewFadeIn {
     from { opacity: 0; transform: translateY(6px); }
     to { opacity: 1; transform: translateY(0); }
@@ -424,7 +435,7 @@
     letter-spacing: .06em;
     text-transform: uppercase;
     cursor: pointer;
-    transition: background-color .15s ease, border-color .15s ease;
+    transition: background-color .15s var(--ease), border-color .15s var(--ease);
   }
   /* アウトラインボタンは、公式サイトのCTAによくある「ホバーで反転（塗りつぶし）」
      の挙動にする。 */
@@ -555,7 +566,7 @@
     box-shadow: var(--shadow);
     padding: 14px 20px;
     cursor: pointer;
-    transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
+    transition: box-shadow .18s var(--ease), transform .18s var(--ease), border-color .18s var(--ease);
   }
   .rowCard__inner {
     display: flex;
@@ -912,7 +923,7 @@
     flex-direction: column;
     gap: 14px;
     min-width: 0;
-    transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
+    transition: box-shadow .18s var(--ease), transform .18s var(--ease), border-color .18s var(--ease);
   }
   /* data-commissionを持つカード（在庫リスト・マイページのHold中車両一覧。
      vehicleCardHtml参照）は、カードのどこをタップしても（ボタン・入力・ラベル
@@ -1232,7 +1243,7 @@
     gap: 14px;
     min-width: 0; /* .cardと同じグリッド幅膨張対策。理由はそちらのコメント参照 */
     cursor: pointer;
-    transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
+    transition: box-shadow .18s var(--ease), transform .18s var(--ease), border-color .18s var(--ease);
   }
   /* card:hover と同じ理由で、border-left-color（アクセントカラー）はホバー時も維持する。 */
   .orderCard:hover { box-shadow: var(--shadow-elevated); transform: translateY(-3px); border-top-color: transparent; border-right-color: transparent; border-bottom-color: transparent; }
@@ -1621,7 +1632,7 @@
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
-    transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+    transition: background-color .15s var(--ease), color .15s var(--ease), border-color .15s var(--ease);
   }
   .homeTypeNav__item:hover { border-color: var(--primary); color: var(--on-surface); }
   .homeTypeNav__item.is-active { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
@@ -1680,7 +1691,7 @@
     color: var(--on-surface);
     cursor: pointer;
     text-align: left;
-    transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease, background-color .18s ease;
+    transition: box-shadow .18s var(--ease), transform .18s var(--ease), border-color .18s var(--ease), background-color .18s var(--ease);
   }
   .homeRow:hover { box-shadow: var(--shadow-elevated); transform: translateY(-2px); border-color: var(--primary); }
   /* タブレット・スマホ幅のインライン展開（state.homeExpandedModel）専用。
@@ -1843,7 +1854,7 @@
     cursor: pointer;
     font-size: 13px;
     font-weight: 600;
-    transition: background-color .15s ease, border-color .15s ease;
+    transition: background-color .15s var(--ease), border-color .15s var(--ease);
   }
   .homeGradeTab:hover { background: rgba(31, 41, 51, .05); border-color: var(--primary); }
   .homeGradeTab__count { color: var(--on-surface-variant); font-weight: 500; font-variant-numeric: tabular-nums; }
@@ -1930,7 +1941,7 @@
       letter-spacing: normal;
       text-align: left;
       cursor: pointer;
-      transition: background-color .15s ease, color .15s ease;
+      transition: background-color .15s var(--ease), color .15s var(--ease);
     }
     .sidebarNav__item .icon { flex: none; }
     .sidebarNav__item:hover { background: var(--sidebar-hover-bg); color: var(--sidebar-fg); opacity: 1; }
@@ -2141,7 +2152,7 @@
       text-align: left;
       color: var(--on-surface);
       padding: 0;
-      transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease;
+      transition: box-shadow .18s var(--ease), transform .18s var(--ease), border-color .18s var(--ease);
     }
     /* グレードが無いモデルはカード全体が<button>で、クリックすると在庫リストへ
        絞り込み遷移する（グレードがあるモデルは非活性の<div>のため、この
@@ -2225,7 +2236,7 @@
       color: var(--primary-text);
       cursor: pointer;
       text-align: center;
-      transition: box-shadow .15s ease, border-color .15s ease, transform .15s ease;
+      transition: box-shadow .15s var(--ease), border-color .15s var(--ease), transform .15s var(--ease);
     }
     .homeCard__gradeChip:hover { box-shadow: var(--shadow-elevated); border-color: var(--primary); transform: translateY(-2px); }
     .homeCard__gradeName { font-size: 13px; font-weight: 700; }
@@ -2249,7 +2260,7 @@
        ホバー演出（.homeCard--clickable）とは別に、写真だけが対象であることが
        分かる控えめな演出（画像のわずかな拡大）にする。 */
     .homeCard__photo--clickable { cursor: pointer; }
-    .homeCard__photo--clickable img { transition: transform .18s ease; }
+    .homeCard__photo--clickable img { transition: transform .18s var(--ease); }
     .homeCard__photo--clickable:hover img { transform: scale(1.04); }
   }
 
@@ -2261,7 +2272,7 @@
     border-radius: 10px;
     overflow: hidden;
     background: var(--surface);
-    transition: border-color .15s ease, box-shadow .15s ease;
+    transition: border-color .15s var(--ease), box-shadow .15s var(--ease);
   }
   .leadNumberField:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }
   .leadNumberField__prefix {
@@ -2310,6 +2321,25 @@
     position: fixed; inset: 0; background: rgba(32, 33, 36, .5);
     display: flex; align-items: center; justify-content: center; z-index: 100;
     padding: 16px 16px calc(16px + var(--app-keyboard-inset, 0px));
+    /* 開閉が一切アニメーションせず一瞬でポップ／消失していたのを、背景の
+       フェード＋パネルのフェード＆わずかな拡大・縮小に差し替える（自然な出現・
+       消失に見せるため）。閉じる際はJS（openModal/closeModal）が.is-closingを
+       付けてからdisplay: noneのタイミングを遅らせることで、消えるアニメーションも
+       再生されるようにしている。 */
+    animation: modalOverlayIn .18s var(--ease-out);
+  }
+  .modal.is-closing { animation: modalOverlayOut .16s var(--ease) forwards; }
+  .modal .modal__panel { animation: modalPanelIn .24s var(--ease-out); }
+  .modal.is-closing .modal__panel { animation: modalPanelOut .16s var(--ease) forwards; }
+  @keyframes modalOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes modalOverlayOut { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes modalPanelIn {
+    from { opacity: 0; transform: translateY(14px) scale(.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes modalPanelOut {
+    from { opacity: 1; transform: translateY(0) scale(1); }
+    to { opacity: 0; transform: translateY(8px) scale(.98); }
   }
   /* ヘッダー・ステップ進捗・フッターは固定し、modal__bodyだけをスクロール
      させる（display: flex; flex-direction: columnで、modal__bodyのみ
@@ -2362,7 +2392,7 @@
      入力の手間自体は増えない。 */
   .modal__stepBar { flex: none; padding: 12px 20px 0; }
   .modal__stepBar__track { height: 4px; border-radius: 999px; background: var(--outline); overflow: hidden; }
-  .modal__stepBar__fill { height: 100%; width: 50%; background: var(--primary); border-radius: 999px; transition: width .2s ease; }
+  .modal__stepBar__fill { height: 100%; width: 50%; background: var(--primary); border-radius: 999px; transition: width .2s var(--ease); }
   .modal__panel--hold .modal__stepBar__fill { background: var(--warning); }
   .modal__stepBar__label { margin-top: 6px; font-size: 12px; font-weight: 600; color: var(--on-surface-variant); }
   .modal__footer { flex: none; display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--outline); }
@@ -2390,7 +2420,7 @@
     border-radius: var(--radius);
     background: var(--surface);
     cursor: pointer;
-    transition: box-shadow .15s ease, transform .15s ease;
+    transition: box-shadow .15s var(--ease), transform .15s var(--ease);
   }
   .actionTypePick__btn:hover { box-shadow: var(--shadow-elevated); transform: translateY(-1px); }
   .actionTypePick__btn--wholesale { border-left-color: var(--hold-special); }
@@ -2403,8 +2433,22 @@
     /* ネイビーサブ（比較バーのメインネイビーより少し明るく、奥行きを付ける）。 */
     background: #243b53; border: 1px solid var(--dark-ui-outline); color: #fff; padding: 12px 20px; border-radius: 8px;
     font-size: 14px; box-shadow: var(--shadow-elevated); z-index: 200;
+    /* 表示・非表示が一瞬で切り替わっていたのを、下からわずかに浮かび上がる／
+       沈んで消えるフェードに差し替える（JS側showToastが表示時はクラスの
+       再設定でこのanimationを再生させ、消える際は.is-closingを付けてから
+       hiddenを付与するタイミングを遅らせる）。 */
+    animation: toastIn .2s var(--ease-out);
   }
+  .toast.is-closing { animation: toastOut .16s var(--ease) forwards; }
   .toast--error { background: var(--danger); }
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+  }
+  @keyframes toastOut {
+    from { opacity: 1; transform: translateX(-50%) translateY(0); }
+    to { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  }
 
   /* ===== 受注確定時の紙吹雪演出（文字・カードなし。紙吹雪のみ盛大に降らせる） ===== */
   .confettiLayer { position: fixed; inset: 0; z-index: 310; overflow: hidden; pointer-events: none; }
@@ -2416,7 +2460,7 @@
     inset: 0;
     background: radial-gradient(circle at 50% 42%, rgba(255, 255, 255, .55), rgba(255, 255, 255, 0) 60%);
     opacity: 0;
-    transition: opacity .5s ease;
+    transition: opacity .5s var(--ease);
   }
   .confettiLayer.is-flashing::before { opacity: 1; }
   .confettiPiece {
@@ -2585,7 +2629,7 @@
     max-width: min(90vw, 480px);
     opacity: 0;
     pointer-events: none;
-    transition: opacity .35s ease, transform .35s ease;
+    transition: opacity .35s var(--ease), transform .35s var(--ease);
   }
   .celebrationBanner.is-active { opacity: 1; transform: translate(-50%, -50%); }
   .celebrationBanner p { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.5; }
@@ -2778,5 +2822,6 @@
     .view.is-active { animation: none; }
     .celebParticle, .celebFlash, .celebShockwave, .celebEnergyCore { display: none; }
     .celebrationBanner { transition: none; }
+    .modal, .modal .modal__panel, .toast { animation: none; }
   }
 </style>

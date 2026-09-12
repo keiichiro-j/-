@@ -6,16 +6,18 @@
  * 元データスプレッドシート（xlsx）を手作業でアップロード・貼り付けする代わりに、
  * 任意の空のGoogleスプレッドシートに本プロジェクトをコンテナバインドした状態で
  * setupSpreadsheet_() を一度実行するだけで、必要な5タブ・ヘッダー・入力規則
- * （選択式の列のドロップダウン）・列ヘッダーの説明メモ・コミッション列の書式
- * （先頭0保持）・時間主導トリガーまで一括で整えられる（Constants.gsの
- * INVENTORY_COLUMNS / HOLD_COLUMNS / ORDER_COLUMNS / WHOLESALE_ORDER_COLUMNS /
- * AUDIT_LOG_COLUMNSの列定義から自動生成するため、今後アプリ側に列が追加された
- * 場合もコード変更は Constants.gs側だけで済む）。
+ * （選択式の列のドロップダウン＋ヘルプテキスト）・列ヘッダーの説明メモ・
+ * コミッション列の書式（先頭0保持）・タブの色分けやヘッダーの装飾等の見た目
+ * （SheetService.gsのapplySheetDesign_）・時間主導トリガーまで一括で整えられる
+ * （Constants.gsのINVENTORY_COLUMNS / HOLD_COLUMNS / ORDER_COLUMNS /
+ * WHOLESALE_ORDER_COLUMNS / AUDIT_LOG_COLUMNSの列定義から自動生成するため、
+ * 今後アプリ側に列が追加された場合もコード変更は Constants.gs側だけで済む）。
  *
  * 既存のシートがある場合は作り直さない（getOrCreateSheet_ はシートが無いときだけ
- * ヘッダー・入力規則・説明メモを書き込むため、既存データ・書式はそのまま保持される）。
- * 本機能追加より前にセットアップ済みの既存スプレッドシートに、入力規則・説明メモ
- * だけを後から反映したい場合は applySelectValidationsAndNotes_ を使う。
+ * ヘッダー・入力規則・説明メモ・見た目を書き込むため、既存データはそのまま
+ * 保持される）。本機能追加より前にセットアップ済みの既存スプレッドシートに、
+ * 入力規則・説明メモ・見た目だけを後から反映したい場合は
+ * applySelectValidationsAndNotes_ を使う。
  */
 
 /**
@@ -34,8 +36,9 @@ function setupSpreadsheet_() {
 
   var message = '在庫リスト・Holdリスト・受注リスト・業販受注リスト・変更履歴の5タブを準備しました' +
     '（既存のシートがあればそのまま利用し、上書きはしていません）。' +
-    '選択式の列にはドロップダウンの入力規則を、列見出しには入力形式の説明メモを' +
-    '設定済みです。Hold期限チェックの時間主導トリガーも設定済みです。';
+    '選択式の列にはドロップダウンの入力規則（ヘルプテキスト付き）を、列見出しには' +
+    '入力形式の説明メモを設定済みです。タブの色分け・ヘッダーの装飾・列幅の自動調整・' +
+    '1行おきの背景色も設定済みです。Hold期限チェックの時間主導トリガーも設定済みです。';
   Logger.log(message);
   return message;
 }
@@ -75,27 +78,29 @@ function migrateSteeringToRL_() {
 }
 
 /**
- * 既存のスプレッドシートに対して、選択式の列の入力規則（ドロップダウン）と
- * 列見出しの説明メモを後から反映し直す一回限りのメンテナンス関数
- * （formatCommissionColumnsAsText_と同じ位置づけ）。本機能追加より前に
- * setupSpreadsheet_() を実行済みだったスプレッドシートは、これらが無いまま
- * 作成されているため、スクリプトエディタまたはスプレッドシートのメニューから
- * 一度だけ実行する。既存のシート・データは変更しない（ヘッダー行のメモと、
- * 2行目以降の入力規則のみを追加・上書きする）。
+ * 既存のスプレッドシートに対して、選択式の列の入力規則（ドロップダウン＋ヘルプ
+ * テキスト）・列見出しの説明メモ・タブの色分けやヘッダーの装飾などの見た目を
+ * 後から反映し直す一回限りのメンテナンス関数（formatCommissionColumnsAsText_と
+ * 同じ位置づけ）。本機能追加より前にsetupSpreadsheet_() を実行済みだった
+ * スプレッドシートは、これらが無いまま作成されているため、スクリプトエディタ
+ * またはスプレッドシートのメニューから一度だけ実行する。既存のデータ自体は
+ * 変更しない（ヘッダー行の見た目・メモと、2行目以降の入力規則のみを追加・
+ * 上書きする）。
  */
 function applySelectValidationsAndNotes_() {
   [
-    [getInventorySheet_(), INVENTORY_COLUMNS],
-    [getHoldsSheet_(), HOLD_COLUMNS],
-    [getOrderSheet_(), ORDER_COLUMNS],
-    [getWholesaleOrderSheet_(), WHOLESALE_ORDER_COLUMNS],
-    [getAuditLogSheet_(), AUDIT_LOG_COLUMNS]
+    [getInventorySheet_(), SHEET_NAMES.INVENTORY, INVENTORY_COLUMNS],
+    [getHoldsSheet_(), SHEET_NAMES.HOLDS, HOLD_COLUMNS],
+    [getOrderSheet_(), SHEET_NAMES.ORDERS, ORDER_COLUMNS],
+    [getWholesaleOrderSheet_(), SHEET_NAMES.WHOLESALE_ORDERS, WHOLESALE_ORDER_COLUMNS],
+    [getAuditLogSheet_(), SHEET_NAMES.AUDIT_LOG, AUDIT_LOG_COLUMNS]
   ].forEach(function (pair) {
-    applySelectValidations_(pair[0], pair[1]);
-    applyHeaderNotes_(pair[0], pair[1]);
+    applySelectValidations_(pair[0], pair[2]);
+    applyHeaderNotes_(pair[0], pair[2]);
+    applySheetDesign_(pair[0], pair[1], pair[2]);
   });
 
-  var message = '在庫リスト・Holdリスト・受注リスト・業販受注リスト・変更履歴の入力規則・列見出しの説明メモを設定しました。';
+  var message = '在庫リスト・Holdリスト・受注リスト・業販受注リスト・変更履歴の入力規則・列見出しの説明メモ・タブの見た目を設定しました。';
   Logger.log(message);
   return message;
 }
@@ -257,7 +262,7 @@ function onOpen() {
     .createMenu('販売可能リスト')
     .addItem('初期セットアップ（5タブを作成）', 'setupSpreadsheet_')
     .addItem('在庫データの読み込み状況を確認', 'diagnoseInventoryData_')
-    .addItem('入力規則・列見出しの説明メモを再設定', 'applySelectValidationsAndNotes_')
+    .addItem('入力規則・説明メモ・タブの見た目を再設定', 'applySelectValidationsAndNotes_')
     .addItem('ＯＣＮ・コミッション列を書式なしテキストに再設定', 'formatCommissionColumnsAsText_')
     .addItem('ステア列の「右/左」を「R/L」へ一括変換', 'migrateSteeringToRL_')
     .addToUi();

@@ -18,6 +18,19 @@ var SHEET_NAMES = {
   AUDIT_LOG: '変更履歴'
 };
 
+/**
+ * タブごとの見出し色（タブの色・ヘッダー行の背景色の両方に使う）。5つのタブを
+ * 開いたときに、どのタブを見ているか色だけで直感的に区別できるようにする
+ * （SheetService.gsのapplySheetDesign_参照）。色はアプリ本体のテーマプリセット
+ * （Constants.gsのTHEME_PRESETS）から流用し、アプリの配色と統一感を持たせている。
+ */
+var SHEET_TAB_COLORS = {};
+SHEET_TAB_COLORS[SHEET_NAMES.INVENTORY] = '#2f6fae';
+SHEET_TAB_COLORS[SHEET_NAMES.HOLDS] = '#a06a1f';
+SHEET_TAB_COLORS[SHEET_NAMES.ORDERS] = '#1f6f4a';
+SHEET_TAB_COLORS[SHEET_NAMES.WHOLESALE_ORDERS] = '#5b3a8c';
+SHEET_TAB_COLORS[SHEET_NAMES.AUDIT_LOG] = '#55606b';
+
 // ===== Hold 関連 =====
 var HOLD_DURATION_MS = 72 * 60 * 60 * 1000; // Hold期間 72時間
 
@@ -71,7 +84,7 @@ var NOTIFY_MAIL_MAX_LENGTH = 254; // メールアドレス1件あたりの最大
  * オプション・現名義・掲載）を持つ。
  */
 var VEHICLE_COLUMNS = [
-  { key: 'category', label: '区分', type: 'text', required: true },
+  { key: 'category', label: '区分', type: 'text', required: true, note: '車両の区分を入力してください（必須項目）。' },
   {
     key: 'ocn', label: 'ＯＣＮ', type: 'text', required: true,
     note: '在庫の有無を判定するキー列です。この列が空欄の行は、在庫リストに表示されません' +
@@ -79,27 +92,27 @@ var VEHICLE_COLUMNS = [
       'この列全体を「書式なしテキスト」に設定しています。Number型に戻すと先頭の0が' +
       '消えてしまうため、書式は変更しないでください。'
   },
-  { key: 'model', label: 'MODEL', type: 'text', required: true },
-  { key: 'steering', label: 'ステア', type: 'select', options: STEERING_OPTIONS },
-  { key: 'exteriorColor', label: '外装色', type: 'text' },
-  { key: 'interiorColor', label: '内装色', type: 'text' },
+  { key: 'model', label: 'MODEL', type: 'text', required: true, note: '型式・グレード名を表す値です（必須）。ホーム画面のモデル写真との紐付けにも使われます。' },
+  { key: 'steering', label: 'ステア', type: 'select', options: STEERING_OPTIONS, note: 'ハンドル位置を「R」（右）または「L」（左）で選択してください。' },
+  { key: 'exteriorColor', label: '外装色', type: 'text', note: '外装色を入力してください。' },
+  { key: 'interiorColor', label: '内装色', type: 'text', note: '内装色を入力してください。' },
   // 登録番号（ナンバープレート）は「地域名／分類番号／ひらがな／一連指定番号」の
   // 4マスに分けて管理する（例: 岐阜／303／た／1247）。
-  { key: 'plateRegion', label: '登録番号（地域）', type: 'text' },
-  { key: 'plateClass', label: '登録番号（分類番号）', type: 'text' },
-  { key: 'plateKana', label: '登録番号（ひらがな）', type: 'text' },
-  { key: 'plateNumber', label: '登録番号（一連番号）', type: 'text' },
-  { key: 'modelCode', label: '型式', type: 'text' },
-  { key: 'chassisNumberLast4', label: '車台番号下４桁', type: 'text' },
-  { key: 'firstRegistrationDate', label: '初年度登録日', type: 'date' },
-  { key: 'mileage', label: '走行距離', type: 'number' },
-  { key: 'inspectionExpiryDate', label: '車検満了日', type: 'date' },
-  { key: 'salePrice', label: '販売価格', type: 'number' },
-  { key: 'recycleFee', label: 'ﾘｻｲｸﾙ料', type: 'number' },
-  { key: 'previousLocation', label: '旧使用拠点', type: 'text' },
-  { key: 'cccArrivalDate', label: 'CCC入庫日', type: 'date' },
-  { key: 'elapsedMonths', label: '経過月', type: 'number' },
-  { key: 'currentDisplayLocation', label: '現展示拠点', type: 'text' },
+  { key: 'plateRegion', label: '登録番号（地域）', type: 'text', note: '登録番号（ナンバープレート）の地域名です（例: 岐阜）。分類番号・ひらがな・一連番号は隣の列に分けて入力します。' },
+  { key: 'plateClass', label: '登録番号（分類番号）', type: 'text', note: '登録番号の分類番号です（例: 303）。' },
+  { key: 'plateKana', label: '登録番号（ひらがな）', type: 'text', note: '登録番号のひらがな1文字です（例: た）。' },
+  { key: 'plateNumber', label: '登録番号（一連番号）', type: 'text', note: '登録番号の一連指定番号です（例: 1247）。' },
+  { key: 'modelCode', label: '型式', type: 'text', note: '車両の型式コードを入力してください。' },
+  { key: 'chassisNumberLast4', label: '車台番号下４桁', type: 'text', note: '車台番号の下4桁を入力してください。' },
+  { key: 'firstRegistrationDate', label: '初年度登録日', type: 'date', note: '日付形式で入力してください（例: 2024-08-01）。' },
+  { key: 'mileage', label: '走行距離', type: 'number', note: '走行距離を数値（km）で入力してください。' },
+  { key: 'inspectionExpiryDate', label: '車検満了日', type: 'date', note: '日付形式で入力してください（例: 2026-08-01）。' },
+  { key: 'salePrice', label: '販売価格', type: 'number', note: '販売価格を数値（円）で入力してください。' },
+  { key: 'recycleFee', label: 'ﾘｻｲｸﾙ料', type: 'number', note: 'リサイクル料を数値（円）で入力してください。' },
+  { key: 'previousLocation', label: '旧使用拠点', type: 'text', note: '車両の旧使用拠点名を入力してください。' },
+  { key: 'cccArrivalDate', label: 'CCC入庫日', type: 'date', note: '日付形式で入力してください（例: 2026-01-15）。' },
+  { key: 'elapsedMonths', label: '経過月', type: 'number', note: '入庫からの経過月数を数値で入力してください。' },
+  { key: 'currentDisplayLocation', label: '現展示拠点', type: 'text', note: '現在車両を展示している拠点名を入力してください。' },
   {
     key: 'commission', label: 'コミッション', type: 'text',
     note: '車両を特定する社内ID（任意入力）。入力する場合、先頭が0で始まる値' +
@@ -107,8 +120,8 @@ var VEHICLE_COLUMNS = [
       '設定しています。Number型に戻すと先頭の0が消えてしまうため、書式は変更' +
       'しないでください。'
   },
-  { key: 'option', label: 'オプション', type: 'text' },
-  { key: 'currentOwnerName', label: '現名義', type: 'text' },
+  { key: 'option', label: 'オプション', type: 'text', note: '装備されているオプションを入力してください（複数ある場合はカンマ等で区切ります）。' },
+  { key: 'currentOwnerName', label: '現名義', type: 'text', note: '現在の車両名義人を入力してください。' },
   {
     key: 'listed', label: '掲載', type: 'select', options: YES_NO_OPTIONS,
     note: '中古車サイトに掲載中かどうかです。「あり」の車両は、在庫リストの背景色を' +
@@ -124,7 +137,10 @@ var VEHICLE_COLUMNS = [
  * 入力される（編集可。JavaScript.html の currentStaffLocation_ 参照）。
  */
 var HOLD_ORDER_INPUT_COLUMNS = [
-  { key: 'salesLocation', label: '販売拠点', type: 'text', required: true },
+  {
+    key: 'salesLocation', label: '販売拠点', type: 'text', required: true,
+    note: 'Hold登録時に担当者本人の拠点名が自動入力されます（必須・編集可）。'
+  },
   {
     key: 'leadNumber', label: 'リード番号', type: 'text', required: true,
     note: '「L-」＋数字で保存されます（例: L-12345）。アプリからの入力では数字のみで' +
@@ -134,12 +150,12 @@ var HOLD_ORDER_INPUT_COLUMNS = [
     key: 'registeredMonth', label: '登録月', type: 'text', required: true,
     note: '「YYYY-MM」形式で入力してください（例: 2026-08）。'
   },
-  { key: 'staff', label: '担当者', type: 'text', required: true }, // 担当者マスタから選択（SettingsService参照）
-  { key: 'customer', label: '顧客', type: 'text', required: true },
-  { key: 'tradeIn', label: '下取車の有無', type: 'select', options: YES_NO_OPTIONS, required: true },
-  { key: 'oss', label: 'OSS登録の可否', type: 'select', options: OSS_OPTIONS, required: true },
-  { key: 'insurance', label: '保険加入の有無', type: 'select', options: YES_NO_OPTIONS, required: true },
-  { key: 'paymentMethod', label: '支払方法', type: 'select', options: PAYMENT_METHOD_OPTIONS, required: true }
+  { key: 'staff', label: '担当者', type: 'text', required: true, note: '担当者マスタに登録されている担当者名を入力してください（必須）。' }, // 担当者マスタから選択（SettingsService参照）
+  { key: 'customer', label: '顧客', type: 'text', required: true, note: '顧客名を入力してください（必須）。' },
+  { key: 'tradeIn', label: '下取車の有無', type: 'select', options: YES_NO_OPTIONS, required: true, note: '下取車の有無を「あり」または「なし」で選択してください（必須）。' },
+  { key: 'oss', label: 'OSS登録の可否', type: 'select', options: OSS_OPTIONS, required: true, note: 'OSS（ワンストップサービス）登録の可否を「可」または「不可」で選択してください（必須）。' },
+  { key: 'insurance', label: '保険加入の有無', type: 'select', options: YES_NO_OPTIONS, required: true, note: '保険加入の有無を「あり」または「なし」で選択してください（必須）。' },
+  { key: 'paymentMethod', label: '支払方法', type: 'select', options: PAYMENT_METHOD_OPTIONS, required: true, note: '支払方法を「現金」「ローン」「リース」から選択してください（必須）。' }
 ];
 
 /**
@@ -147,7 +163,11 @@ var HOLD_ORDER_INPUT_COLUMNS = [
  * 車両情報＋Holdステータスのみ。Holdの詳細はHoldリストで別管理する。
  */
 var INVENTORY_COLUMNS = VEHICLE_COLUMNS.concat([
-  { key: 'holdStatus', label: 'Holdステータス', type: 'select', options: [HOLD_STATUS.AVAILABLE, HOLD_STATUS.HOLD] }
+  {
+    key: 'holdStatus', label: 'Holdステータス', type: 'select', options: [HOLD_STATUS.AVAILABLE, HOLD_STATUS.HOLD],
+    note: 'アプリがHold登録・解除・受注確定のたびに自動更新する値です（available＝在庫あり、' +
+      'hold＝Hold中）。手動編集しないでください。'
+  }
 ]);
 
 /**
@@ -155,8 +175,12 @@ var INVENTORY_COLUMNS = VEHICLE_COLUMNS.concat([
  * commission + rank で一意に特定する。
  */
 var HOLD_COLUMNS = [
-  { key: 'commission', label: 'コミッション', type: 'text', required: true },
-  { key: 'rank', label: '順番', type: 'select', options: [HOLD_RANK.FIRST, HOLD_RANK.SECOND], required: true },
+  {
+    key: 'commission', label: 'コミッション', type: 'text', required: true,
+    note: '対象車両のコミッション（在庫リストと同じ値）です。1台につき1st・2nd Holdで' +
+      'それぞれ1行になります。'
+  },
+  { key: 'rank', label: '順番', type: 'select', options: [HOLD_RANK.FIRST, HOLD_RANK.SECOND], required: true, note: '「1st」または「2nd」を選択してください。' },
   {
     key: 'holdType', label: 'Hold種別', type: 'select',
     options: [HOLD_TYPE.NORMAL, HOLD_TYPE.WHOLESALE],
@@ -213,12 +237,12 @@ var ORDER_COLUMNS = VEHICLE_COLUMNS.concat(HOLD_ORDER_INPUT_COLUMNS).concat([
  */
 var WHOLESALE_ORDER_COLUMNS = VEHICLE_COLUMNS.concat([
   { key: 'salesLocation', label: '販売拠点', type: 'text', note: '受注確定を行った担当者本人の拠点名が自動設定されます。' },
-  { key: 'salesStore', label: '販売先', type: 'text', required: true },
+  { key: 'salesStore', label: '販売先', type: 'text', required: true, note: '業販の販売先（業者名）を入力してください（必須）。' },
   {
     key: 'registeredMonth', label: '登録月', type: 'text', required: true,
     note: '「YYYY-MM」形式で入力してください（例: 2026-08）。'
   },
-  { key: 'staff', label: '担当者', type: 'text' },
+  { key: 'staff', label: '担当者', type: 'text', note: '受注確定を行った担当者本人の氏名が自動設定されます。' },
   {
     key: 'staffEmail', label: '担当者ID', type: 'text',
     note: '受注確定を行った担当者の内部識別用の列です（内容はメールアドレス）。アプリからの操作でのみ設定されるため、通常は手動編集しないでください。'
@@ -232,13 +256,13 @@ var WHOLESALE_ORDER_COLUMNS = VEHICLE_COLUMNS.concat([
  * （AuditLogService.gs参照）。
  */
 var AUDIT_LOG_COLUMNS = [
-  { key: 'timestamp', label: '日時', type: 'datetime' },
-  { key: 'action', label: '操作', type: 'text' },
-  { key: 'commission', label: 'コミッション', type: 'text' },
-  { key: 'model', label: 'モデル', type: 'text' },
-  { key: 'staffName', label: '担当者', type: 'text' },
-  { key: 'staffEmail', label: '担当者ID', type: 'text' },
-  { key: 'detail', label: '詳細', type: 'text' }
+  { key: 'timestamp', label: '日時', type: 'datetime', note: 'アプリが自動記録する日時です。手動編集しないでください。' },
+  { key: 'action', label: '操作', type: 'text', note: 'アプリが自動記録する操作種別です（Hold登録・受注確定 等）。手動編集しないでください。' },
+  { key: 'commission', label: 'コミッション', type: 'text', note: '対象車両のコミッションです。アプリが自動記録します。' },
+  { key: 'model', label: 'モデル', type: 'text', note: '対象車両のモデルです。アプリが自動記録します。' },
+  { key: 'staffName', label: '担当者', type: 'text', note: '操作を行った担当者名です。アプリが自動記録します。' },
+  { key: 'staffEmail', label: '担当者ID', type: 'text', note: '操作を行った担当者のメールアドレスです。アプリが自動記録します。' },
+  { key: 'detail', label: '詳細', type: 'text', note: '操作の詳細内容です。アプリが自動記録します。' }
 ];
 
 var INVENTORY_COL_INDEX = buildColIndex_(INVENTORY_COLUMNS);

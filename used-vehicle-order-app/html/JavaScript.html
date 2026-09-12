@@ -44,6 +44,42 @@
     myPageViewMode: safeLocalStorageGet_('myPageViewMode') || 'card' // 'card' | 'table'（マイページ全体の表示形式）
   };
 
+  /**
+   * サーバー側（Apps Script）で想定外の例外が起きると、err.messageに
+   * 「Exception: You do not have permission to call ...」「TypeError: Cannot
+   * read properties of undefined」のような、英語の技術的なエラーコード相当の
+   * 文字列がそのまま入ってくることがある（GAS内部・Googleサービス側の例外や、
+   * コード側の想定外のバグ）。一方、アプリが意図して投げているエラー
+   * （HoldService.gs・OrderService.gs・SettingsService.gs等のthrow new Error(...)）は
+   * すべて日本語のメッセージにしてある。この関数は、メッセージに日本語（ひらがな・
+   * カタカナ・漢字）が含まれていればそのまま表示し、含まれていない（＝アプリが
+   * 意図していない技術的なエラー）場合だけ、分かりやすい日本語の代替メッセージに
+   * 差し替える。元の技術的なメッセージは開発者が追えるようconsole.errorに残す。
+   */
+  function translateErrorMessage_(rawMessage) {
+    var message = rawMessage == null ? '' : String(rawMessage);
+    if (/[぀-ヿ㐀-鿿]/.test(message)) return message;
+    console.error('[used-vehicle-order-app] 想定外のエラーメッセージを日本語表示に置き換えました。元のメッセージ:', message);
+    if (!message) return '不明なエラーが発生しました。もう一度お試しください。';
+    var lower = message.toLowerCase();
+    if (lower.indexOf('permission') !== -1 || lower.indexOf('authoriz') !== -1) {
+      return 'この操作を行う権限がありません。心当たりがない場合は管理者にご確認ください。';
+    }
+    if (lower.indexOf('timeout') !== -1 || lower.indexOf('timed out') !== -1) {
+      return '処理がタイムアウトしました。通信環境をご確認のうえ、もう一度お試しください。';
+    }
+    if (lower.indexOf('quota') !== -1 || lower.indexOf('limit exceeded') !== -1 || lower.indexOf('rate limit') !== -1) {
+      return 'Googleサービスの利用上限に達しました。しばらくしてからもう一度お試しください。';
+    }
+    if (lower.indexOf('network') !== -1 || lower.indexOf('fetch') !== -1 || lower.indexOf('offline') !== -1 || lower.indexOf('failed to connect') !== -1) {
+      return 'サーバーに接続できませんでした。通信環境をご確認のうえ、もう一度お試しください。';
+    }
+    if (lower.indexOf('not found') !== -1) {
+      return '対象のデータが見つかりませんでした。画面を更新してもう一度お試しください。';
+    }
+    return '予期しないエラーが発生しました。しばらくしてから再度お試しください（解消しない場合は管理者にご連絡ください）。';
+  }
+
   // ===== google.script.run を Promise 化するヘルパー =====
   // サーバー側が応答しない場合にボタンやモーダルが固まって見えないよう、
   // 一定時間で必ずエラーとして解決させるタイムアウトを設ける。
@@ -70,7 +106,10 @@
           if (settled) return;
           settled = true;
           clearTimeout(timer);
-          reject(new Error(err && err.message ? err.message : String(err)));
+          // すべてのサーバー呼び出しがこの1箇所を通るため、ここで日本語化しておけば
+          // 呼び出し元（.catch(err => showToast(err.message))等）は何も意識せずに
+          // 常に日本語メッセージだけを表示できる。
+          reject(new Error(translateErrorMessage_(err && err.message ? err.message : err)));
         })
         [fnName].apply(null, args);
     });
@@ -113,9 +152,18 @@
   function showToast(message, isError) {
     var toast = $('toast');
     toast.textContent = message;
+    // classNameを丸ごと入れ替えることでhidden・is-closingも一緒に外れ、
+    // Stylesheet.htmlのtoastInアニメーションが表示のたびに再生される。
     toast.className = 'toast' + (isError ? ' toast--error' : '');
     clearTimeout(showToast._t);
-    showToast._t = setTimeout(function () { toast.classList.add('hidden'); }, 3200);
+    clearTimeout(showToast._closeT);
+    showToast._t = setTimeout(function () {
+      toast.classList.add('is-closing');
+      showToast._closeT = setTimeout(function () {
+        toast.classList.remove('is-closing');
+        toast.classList.add('hidden');
+      }, 160); // Stylesheet.htmlのtoastOutのdurationと合わせる
+    }, 3200);
   }
 
   // ===== Hold登録・2nd Hold登録・受注確定 完了時の演出 =====
@@ -677,13 +725,25 @@
   // （詳細モーダルを閉じてすぐHold登録モーダルを開く等）でも正しく機能するよう、
   // 開いているモーダルの数をカウントし、0件になったときだけロックを解除する。
   var openModalCount = 0;
+  // モーダルを閉じる際、CSSのフェード＆縮小アニメーション（.is-closing、
+  // Stylesheet.html参照）が最後まで再生されてからdisplay: noneにする（hiddenを
+  // 付ける）ことで、消える瞬間も自然に見えるようにする。MODAL_CLOSE_ANIM_MSは
+  // Stylesheet.htmlのmodalOverlayOut/modalPanelOutのdurationと合わせること。
+  var MODAL_CLOSE_ANIM_MS = 160;
   function openModal(modal) {
+    clearTimeout(modal._closeTimer);
+    modal.classList.remove('is-closing');
     modal.classList.remove('hidden');
     openModalCount++;
     document.body.classList.add('modal-open');
   }
   function closeModal(modal) {
-    modal.classList.add('hidden');
+    if (modal.classList.contains('hidden')) return; // 既に閉じている
+    modal.classList.add('is-closing');
+    modal._closeTimer = setTimeout(function () {
+      modal.classList.remove('is-closing');
+      modal.classList.add('hidden');
+    }, MODAL_CLOSE_ANIM_MS);
     openModalCount = Math.max(0, openModalCount - 1);
     if (openModalCount === 0) document.body.classList.remove('modal-open');
   }

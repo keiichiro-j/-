@@ -8,9 +8,9 @@ function getSpreadsheet_() {
 }
 
 /**
- * シートが無ければ、列定義（columns）から一括で作成する（ヘッダー行・入力規則
- * （選択式の列のドロップダウン）・列ヘッダーの説明メモ・コミッション列の書式まで）。
- * 既存のシートがある場合は何もしない（既存データ・書式を壊さないため）。
+ * シートが無ければ、列定義（columns）から一括で作成する（ヘッダー行・見た目の装飾・
+ * 入力規則（選択式の列のドロップダウン）・列ヘッダーの説明メモ・コミッション列の
+ * 書式まで）。既存のシートがある場合は何もしない（既存データ・書式を壊さないため）。
  * 既存シートに後からこれらを反映したい場合は、SetupService.gsの
  * applySelectValidationsAndNotes_（スプレッドシートのメニューから実行可能）を使う。
  */
@@ -25,8 +25,43 @@ function getOrCreateSheet_(sheetName, columns, textColumnIndexes1) {
     applyTextColumnFormat_(sheet, textColumnIndexes1);
     applySelectValidations_(sheet, columns);
     applyHeaderNotes_(sheet, columns);
+    applySheetDesign_(sheet, sheetName, columns);
   }
   return sheet;
+}
+
+/**
+ * タブを開いた瞬間にどのリストか・どこまでがデータかが一目で分かるよう、
+ * 見た目を整える（現場から「スプレッドシートが見づらい」という声があったため）。
+ *   ・タブの色とヘッダー行の背景色を、リストの種類ごとに揃える（SHEET_TAB_COLORS、
+ *     Constants.gs参照）。ブラウザ上部のタブを見ただけで今どのリストを開いているか
+ *     判別できる。
+ *   ・ヘッダー行を太字・白文字・行の高さを少し高くして、データ行と明確に区別する
+ *     （setFrozenRowsによる行固定と合わせて、スクロールしても常に見出しが分かる）。
+ *   ・列幅をラベル・内容量に応じて自動調整する。
+ *   ・データ行に1行おきの背景色（バンディング）を付け、横に長い行でも視線が
+ *     ズレにくいようにする。
+ * 既存シート（applySelectValidationsAndNotes_経由）に対しても再実行できるよう、
+ * バンディングが既に設定されている等で例外が出ても致命的にはせず無視する。
+ */
+function applySheetDesign_(sheet, sheetName, columns) {
+  var numCols = columns.length;
+  var tabColor = SHEET_TAB_COLORS[sheetName] || '#55606b';
+  try { sheet.setTabColor(tabColor); } catch (e) { /* 古いスプレッドシート版等でsetTabColorが無い場合は無視 */ }
+
+  var headerRange = sheet.getRange(1, 1, 1, numCols);
+  headerRange.setFontWeight('bold').setFontColor('#ffffff').setBackground(tabColor).setVerticalAlignment('middle');
+  sheet.setRowHeight(1, 32);
+
+  try { sheet.autoResizeColumns(1, numCols); } catch (e) { /* 列数超過等で失敗しても致命的ではないため無視 */ }
+
+  try {
+    var numRows = Math.max(sheet.getMaxRows() - 1, 1000);
+    // ヘッダー行（1行目）は上ですでに専用の色を設定済みのため、バンディングは
+    // データ行（2行目以降）だけを対象にし、showHeaderをfalseにしてヘッダー色を
+    // 上書きしないようにする。
+    sheet.getRange(2, 1, numRows, numCols).applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false);
+  } catch (e) { /* 既にバンディングが設定されている場合など、再実行時に失敗しても無視する */ }
 }
 
 /**
@@ -61,6 +96,11 @@ function applySelectValidations_(sheet, columns) {
     var rule = SpreadsheetApp.newDataValidation()
       .requireValueInList(col.options, true)
       .setAllowInvalid(false)
+      // 無効な値を入力しようとした瞬間に表示されるヘルプテキスト。ヘッダーの
+      // メモ（applyHeaderNotes_）は見出しにカーソルを合わせないと見えないが、
+      // こちらは入力中のセルにその場で表示されるため、選択肢をど忘れしたときに
+      // 気づきやすい。
+      .setHelpText('次のいずれかを選択してください： ' + col.options.join('、'))
       .build();
     sheet.getRange(2, i + 1, numRows, 1).setDataValidation(rule);
   });
