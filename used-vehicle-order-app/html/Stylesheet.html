@@ -293,6 +293,20 @@
     .topbar__user { font-size: 14px; }
     .topbar__userEmail { font-size: 12.5px; }
   }
+  /* 不具合修正: アプリタイトル（設定タブで変更可能）を長めの文字列にすると、
+     position: absoluteで中央配置しているこのブロックが実際の文字数ぶんそのまま
+     横に広がってしまい、タブレット・スマホ幅では左の「戻る」「更新」ボタンと
+     重なって見えてしまっていた（現場からの指摘）。PCビュー（901px以上）は
+     ボタン・ユーザー情報がサイドバーへ移り、トップバーにはボタン2つしか
+     残らないためこの不具合は起きず、上のmin-width: 901pxブロックも変更して
+     いない。タブレット・スマホ幅だけ、左右のボタン領域と重ならない幅に上限を
+     設け、収まりきらない場合は末尾を省略記号にする（ロゴ画像はテキストより先に
+     縮んで潰れて見えることのないよう、flex: noneで実寸のまま維持する）。 */
+  @media (max-width: 900px) {
+    .topbar__brand { max-width: calc(100% - 190px); }
+    .topbar__logo { flex: none; }
+    .topbar__brandText { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  }
   /* ===== ナビゲーション =====
      ブランド行の下に、独立した行として中央寄せで配置する。塗りつぶしの
      ピル型タブではなく、公式サイトのグローバルナビのような「テキスト＋
@@ -1861,6 +1875,10 @@
   /* 在庫0台のグレードは、Hold中も無くまとまった在庫の当てがないことがひと目で
      わかるよう、件数を赤文字にする。 */
   .homeGradeTab__count--zero { color: var(--danger); font-weight: 700; }
+  /* 在庫0台のグレードはdisabledにしてクリックできないようにする
+     （.homeCard__gradeChip:disabledと同じ考え方。在庫の無いグレードを押しても
+     在庫リストへ遷移しないようにするため）。 */
+  .homeGradeTab:disabled { cursor: not-allowed; opacity: .55; }
 
   /* ===== PC専用: 左サイドバーナビゲーション =====
      901px以上でのみ表示する（タブレット・スマホ幅では従来どおりtopbar内の

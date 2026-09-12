@@ -39,6 +39,7 @@
     navHistory: [], // 「戻る」ボタン用の画面履歴（タブ名のスタック）
     homeModelFilter: null, // ホームのモデル写真タイルクリックで設定される、絞り込み対象の型番（MODEL列の値）の配列
     homeBodyTypeFilter: null, // ホーム画面上部の型クイックナビ（#homeTypeNav）で選択中の型（未選択＝「すべて」はnull）
+    homeExpandedModel: null, // タブレット・スマホ幅のホーム画面で、グレード一覧をインライン展開中のモデル名（未展開はnull。homeModelTileHtml_参照）
     allInventoryItems: [], // ホーム画面の在庫台数集計専用（ツールバーの検索条件に左右されない全件）
     allOrders: [], // マイページ集計専用（受注リストの検索・絞り込み条件に左右されない全件）
     myPageViewMode: safeLocalStorageGet_('myPageViewMode') || 'card' // 'card' | 'table'（マイページ全体の表示形式）
@@ -2985,9 +2986,26 @@
 
   /**
    * モデル写真1件分のタイルのHTML。renderHomeGallery_から呼び出す。
+   *
+   * gradePrefixを設定したモデル（実際に複数の型番をまとめて管理している場合）は、
+   * タップすると即座に在庫リストへ遷移するのではなく、PCビューの
+   * .homeCard__gradeGrid相当のグレード一覧（名前＋在庫数のボタン）をタイルの
+   * 直下にインライン展開する（現場の要望「スマホビューでもPCビューのように
+   * グレードと台数を表示してボタンで在庫へ飛べるように」）。展開中かどうかは
+   * state.homeExpandedModel（単一のモデル名。同時に複数展開はしないアコーディオン
+   * 方式）で管理し、同じタイルを再度タップすると閉じる
+   * （on('homeGrid','click', ...)参照）。グレードが無い（gradePrefix未設定、または
+   * 実在庫が0型番）モデルは、従来どおりタップで即座に在庫リストへ遷移する。
+   * 展開時の見た目（.is-expanded・.homeGradeTabsのインデント表示）は、元の新車
+   * 注文アプリ由来の未使用CSSをそのまま流用している（Stylesheet.html参照）。
    */
   function homeModelTileHtml_(p, allItems, allModelPhotos) {
+    var grades = matchedModelsForEntry_(p, allItems, allModelPhotos);
     var total = modelCountForEntry_(p, allItems, allModelPhotos);
+    // PCビューのhomeModelCardHtml_と同じ判定基準（gradePrefix設定済みかつ
+    // 実在庫の型番が1つ以上あれば、1グレードのみでもグレード表示の対象にする）。
+    var hasGrades = !!p.gradePrefix && grades.length > 0;
+    var isExpanded = hasGrades && state.homeExpandedModel === p.model;
     // 900px以下のリスト表示では以前と同じ位置（モデル名の右）に見せるため、
     // CSS側の.homeRow__footerがそのままメタ情報行としても機能する
     // （Stylesheet.html参照）。
@@ -2995,10 +3013,14 @@
     // ヘッダー（モデル名）→写真→フッター（在庫台数＋矢印）の3ブロック構成。
     // PCビューでは縦に積んだ「カードタイプUI」（写真は白背景のカード内に収める）、
     // 900px以下ではCSSのorderで横一列のリスト型に組み替える（Stylesheet.html参照。
-    // どちらも同じDOM構造をCSSだけで作り分けている）。タップすると、この写真の
+    // どちらも同じDOM構造をCSSだけで作り分けている）。タップすると、グレードが
+    // あるモデルはグレード一覧をインライン展開し（下記）、無ければこの写真の
     // 自動判定条件（gradePrefix・gradeMarker、無ければモデル名の完全一致）に
-    // 一致する車両だけに絞り込んだ在庫リストへ遷移する（handleHomeModelClick_参照）。
-    return '<button type="button" class="homeRow" data-home-model="' + escapeHtml(p.model) + '">' +
+    // 一致する車両だけに絞り込んだ在庫リストへ即座に遷移する
+    // （handleHomeModelClick_参照）。
+    var rowHtml = '<button type="button" class="homeRow' + (isExpanded ? ' is-expanded' : '') +
+      '" data-home-model="' + escapeHtml(p.model) + '"' +
+      (hasGrades ? ' data-home-has-grades="1"' : '') + '>' +
       '<div class="homeRow__header">' +
       '<div class="homeRow__model">' + escapeHtml(p.model) + '</div>' +
       '</div>' +
@@ -3009,6 +3031,23 @@
       chevronHtml +
       '</div>' +
       '</button>';
+
+    if (!isExpanded) return rowHtml;
+
+    var gradeTabsHtml = '<div class="homeGradeTabs">' +
+      '<div class="homeGradeTabs__label">グレードを選択</div>' +
+      '<div class="homeGradeTabs__list">' + grades.map(function (gradeModel) {
+        var count = allItems.filter(function (v) { return v.model === gradeModel; }).length;
+        var zero = count === 0;
+        return '<button type="button" class="homeGradeTab"' +
+          (zero ? ' disabled' : ' data-home-grade="' + escapeHtml(gradeModel) + '"') + '>' +
+          '<span>' + escapeHtml(gradeModel) + '</span>' +
+          '<span class="homeGradeTab__count' + (zero ? ' homeGradeTab__count--zero' : '') + '">' + count + '台</span>' +
+          '</button>';
+      }).join('') + '</div>' +
+      '</div>';
+
+    return rowHtml + gradeTabsHtml;
   }
 
   /**
@@ -3377,6 +3416,19 @@
     if (gradeChip) { handleHomeGradeClick_(gradeChip); return; }
     var tile = e.target.closest('[data-home-model]');
     if (!tile) return;
+    // タブレット・スマホ幅（PCビューのカードグリッドではなく横一列リスト表示）で、
+    // グレードを持つモデルをタップした場合は、在庫リストへ即座に遷移せず、
+    // グレード一覧をタイル直下にインライン展開する（homeModelTileHtml_参照。
+    // 同じタイルを再度タップすると閉じるトグル動作）。PCビューは
+    // homeModelCardHtml_が常にグレード一覧を表示済みのため、この分岐自体を
+    // 通らない（isPcHomeLayout_()がtrueの間は従来どおりhandleHomeModelClick_の
+    // 即時遷移のみ）。
+    if (!isPcHomeLayout_() && tile.dataset.homeHasGrades === '1') {
+      var tappedModel = tile.dataset.homeModel;
+      state.homeExpandedModel = state.homeExpandedModel === tappedModel ? null : tappedModel;
+      renderHomeGallery_();
+      return;
+    }
     handleHomeModelClick_(tile);
   });
 
