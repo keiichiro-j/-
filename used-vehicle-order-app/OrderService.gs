@@ -40,6 +40,9 @@ function confirmOrder(commission, info) {
     HOLD_ORDER_INPUT_COLUMNS.forEach(function (c) { order[c.key] = info[c.key]; });
     order.staffEmail = info.staffEmail;
     VEHICLE_COLUMNS.forEach(function (col) { order[col.key] = vehicle[col.key]; });
+    // 受注キャンセル（cancelOrder）で元の位置へ車両を復元できるよう、在庫リスト上の
+    // 行番号を控えておく（createInventoryVehicle_のpreferredRowNumber参照）。
+    order.inventoryRowNumber = rowNumber;
 
     // Hold中だった場合、1st Holdは受注確定を行った本人（＝canConfirmOrder_により
     // 1st Hold担当者のみ受注確定できる）が登録したものなので、そのカレンダーイベントは
@@ -137,6 +140,12 @@ function confirmWholesaleOrder(commission, info) {
  * 在庫の状態は、受注が入る前の「在庫あり（HOLD_STATUS.AVAILABLE）」に戻す。
  * 受注確定時に削除されたHold情報（担当者・期限等）は復元しない
  * （期限などの時間情報を含み、後から意味のある形で復元できないため）。
+ * 在庫リスト上の位置は、受注確定時に控えておいた元の行番号（ORDER_COLUMNSの
+ * inventoryRowNumber、confirmOrder参照）へできるだけ近い位置に復元する（末尾に
+ * 追加されると、スプレッドシートを手作業で並べ替えている場合に元の並び順が
+ * 崩れてしまうため）。この値が無い場合（この機能追加より前の受注データ）や、
+ * 行の増減で元の位置が既に存在しない場合は、従来どおり末尾へ追加する
+ * （createInventoryVehicle_参照）。
  * @param {string} commission
  */
 function cancelOrder(commission) {
@@ -159,7 +168,10 @@ function cancelOrder(commission) {
 
     var vehicle = { holdStatus: HOLD_STATUS.AVAILABLE };
     VEHICLE_COLUMNS.forEach(function (col) { vehicle[col.key] = order[col.key]; });
-    createInventoryVehicle_(vehicle);
+    // 受注確定時に控えておいた元の行番号へ、できるだけ近い位置に車両を復元する
+    // （createInventoryVehicle_参照。行の増減で位置がずれている・古い受注データで
+    // この値が無い場合は、従来どおり末尾へ追加される）。
+    createInventoryVehicle_(vehicle, order.inventoryRowNumber);
     deleteOrderRow_(orderSheet, rowNumber);
 
     appendAuditLog_(buildAuditLogEntry_(

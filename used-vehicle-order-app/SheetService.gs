@@ -247,10 +247,25 @@ function findInventoryVehicle(commission) {
  * 直接行うが、受注キャンセル（cancelOrder、OrderService.gs参照）は受注リストから
  * 削除した行を在庫リストへ書き戻す必要があるため、アプリ側からの追加もこの関数で
  * 行う。
+ * @param {Object} vehicle
+ * @param {number} [preferredRowNumber] 1-indexed（ヘッダー込みの実シート行番号）。
+ *   指定すると、末尾への追加ではなくその行の位置に挿入する（受注キャンセル時、
+ *   受注確定前の元の位置へできるだけ近い位置に車両を復元するために使う。
+ *   ORDER_COLUMNSのinventoryRowNumber参照）。現在のシートの範囲内（ヘッダー行より
+ *   後ろ、かつ最終行以前）でなければ、従来どおり末尾への追加にフォールバックする
+ *   （この列が無かった頃の受注データや、行の増減で位置がずれてしまった場合でも
+ *   安全に動作する）。省略時は常に末尾に追加する。
  */
-function createInventoryVehicle_(vehicle) {
+function createInventoryVehicle_(vehicle, preferredRowNumber) {
   var sheet = getInventorySheet_();
-  var newRow = sheet.getLastRow() + 1;
+  var lastRow = sheet.getLastRow();
+  var newRow;
+  if (preferredRowNumber && preferredRowNumber >= 2 && preferredRowNumber <= lastRow) {
+    sheet.insertRowBefore(preferredRowNumber);
+    newRow = preferredRowNumber;
+  } else {
+    newRow = lastRow + 1;
+  }
   // appendOrder_・createHoldRow_と同様、appendRowだけに頼ると数字のみのＯＣＮ・
   // コミッションの先頭0が消えることがあるため、書き込み直前に対象セルの書式を
   // 明示的に設定する。
