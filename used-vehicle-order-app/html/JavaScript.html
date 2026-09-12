@@ -3123,15 +3123,19 @@
    * （data-home-grade、on('homeGrid','click', ...)参照）。この場合、カード全体では
    * なく車両写真をクリックしたときに、そのモデルの全グレードへ絞り込んだ在庫リストへ
    * 遷移する（data-home-model）。
-   * グレードが1件以下（gradePrefix未設定、または実在庫が1型番のみ）の場合は、チップの
-   * 一覧を出さず、従来どおりカード全体をクリック対象にする。
+   * gradePrefix未設定（グレードという概念自体を使わない、1台ずつ個別登録した
+   * モデル）の場合は、チップの一覧を出さず、従来どおりカード全体をクリック対象にする。
+   * gradePrefixを設定している場合は、実在庫が1型番のみ（グレードが実質1種類）でも
+   * チップを1件表示する（現場からの要望。グレード数によって見た目が変わらないよう
+   * 統一する）。実在庫が0型番（マッチする車両が無い）の場合はチップを出しようが
+   * ないため、この場合のみグレード無し扱いにする。
    * どちらの場合も、対象の在庫が0台なら（在庫のないモデル・グレードを押しても在庫
    * リストへ遷移してしまわないよう）クリック対象にしない（現場からの指摘）。
    */
   function homeModelCardHtml_(p, allItems, allModelPhotos) {
     var grades = matchedModelsForEntry_(p, allItems, allModelPhotos);
     var total = modelCountForEntry_(p, allItems, allModelPhotos);
-    var hasGrades = grades.length > 1;
+    var hasGrades = !!p.gradePrefix && grades.length > 0;
     var canNavigateAll = total > 0;
     var stockClass = 'badge badge--stock' + (total === 0 ? ' badge--stock--zero' : '');
     var stockHtml = '<span class="' + stockClass + '">' + homeStockCountText_(total) + '</span>';
