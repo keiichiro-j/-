@@ -160,13 +160,21 @@ var HOLD_ORDER_INPUT_COLUMNS = [
 
 /**
  * 在庫リスト列定義（順序 = スプレッドシートの列順）。
- * 車両情報＋Holdステータスのみ。Holdの詳細はHoldリストで別管理する。
+ * 車両情報＋Holdステータス＋備考のみ。Holdの詳細はHoldリストで別管理する。
  */
 var INVENTORY_COLUMNS = VEHICLE_COLUMNS.concat([
   {
     key: 'holdStatus', label: 'Holdステータス', type: 'select', options: [HOLD_STATUS.AVAILABLE, HOLD_STATUS.HOLD],
     note: 'アプリがHold登録・解除・受注確定のたびに自動更新する値です（available＝在庫あり、' +
       'hold＝Hold中）。手動編集しないでください。'
+  },
+  {
+    key: 'remarks', label: '備考', type: 'text',
+    note: '在庫についての自由記述メモです。この列はスプレッドシートに直接入力してください' +
+      '（アプリの画面からは書き込めません）。アプリ側では、在庫リストの詳細ポップアップに' +
+      'ある「備考」ボタンを押すと、この内容がそのままポップアップで表示されます。' +
+      'INVENTORY_COLUMNSの末尾に追加した列のため、既存のスプレッドシートには' +
+      '自動では追加されません（SetupService.gsのaddRemarksColumnToInventory_参照）。'
   }
 ]);
 

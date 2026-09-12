@@ -999,13 +999,32 @@
     }
 
     var cardTone = vehicleCardTone_(v);
+    // 「備考」はスプレッドシートに直接入力する自由記述欄のため、詳細ポップアップの
+    // 車両情報の中に直接表示せず、ボタンを押した先の別ポップアップ（remarksModal）で
+    // 確認する形にする（内容が長い・整形されていない場合があり、そのまま並べると
+    // 他の項目が見づらくなるため。現場からの要望）。アプリからの書き込み機能はない
+    // （openRemarksModal_参照）。
     return '<div class="card ' + cardTone + '">' +
       vehicleTopHtml_(v) +
       vehicleQuickMetaHtml_(v, true) +
       vehicleSpecFieldsHtml_(v) +
+      '<div class="card__remarksRow">' +
+      '<button type="button" class="btn btn--small" data-remarks="' + escapeHtml(v.commission) + '">備考を見る</button>' +
+      '</div>' +
       holdInfoHtml +
       vehicleActionsHtml_(v) +
       '</div>';
+  }
+
+  /**
+   * 「備考を見る」ボタンで開く、備考欄専用のポップアップ（#remarksModal）。
+   * 備考はスプレッドシートに直接入力する運用のため、表示のみで編集機能はない。
+   */
+  function openRemarksModal_(commission) {
+    var vehicle = findVehicleByCommission(commission);
+    if (!vehicle) return;
+    $('remarksModalBody').textContent = vehicle.remarks || '備考はありません。';
+    openModal($('remarksModal'));
   }
 
   // ===== 在庫リストの表示形式切替（カード／表） =====
@@ -1347,6 +1366,9 @@
     else if ('order' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.order))) { closeModal($('inventoryDetailModal')); openActionModal('order', commission); } }
     else if ('orderFromHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.orderFromHold))) { closeModal($('inventoryDetailModal')); openActionModal('orderFromHold', commission); } }
     else if ('cancelHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.cancelHold))) { closeModal($('inventoryDetailModal')); openCancelHoldModal(commission, target.dataset.cancelRank); } }
+    // 「備考を見る」は車両情報ポップアップの上に重ねて表示するだけなので、
+    // 他のボタンと異なりinventoryDetailModal自体は閉じない。
+    else if ('remarks' in target.dataset) { openRemarksModal_(target.dataset.remarks); }
   });
 
   ['inventoryKeyword', 'inventoryIncludeHold'].forEach(function (id) {
@@ -2351,7 +2373,9 @@
     applyLoadingImage_(settings.loadingImageUrl);
     renderLoadingImagePreview_(settings.loadingImageUrl);
 
-    state.staffList = (settings.staffList || []).map(function (s) { return { name: s.name || '', email: s.email || '', location: s.location || '' }; });
+    // _expandedは折りたたみ表示（renderStaffList参照）の開閉状態を持つ、画面表示専用の
+    // プロパティ。保存時（btnSaveSettingsのcleaned）には含めないため、サーバーへは送らない。
+    state.staffList = (settings.staffList || []).map(function (s) { return { name: s.name || '', email: s.email || '', location: s.location || '', _expanded: false }; });
     $('staffListMax').textContent = (state.bootstrap && state.bootstrap.staffListMax) || 30;
     renderStaffList();
     populateOrdersStaffFilter_();
@@ -2729,6 +2753,18 @@
 
   // ----- 担当者マスタ（名前・メールアドレスの組。メールアドレスでログイン中の
   //       Googleアカウントと突き合わせ、担当者を自動判定する） -----
+  // 担当者が多いと3項目（名前・メールアドレス・拠点名）×人数分の入力欄が
+  // 常に全部開いた状態になり縦に長くなりすぎるため、各行を折りたたみ式にし、
+  // 普段は名前・拠点・メールアドレスの要約1行だけを表示する（現場からの要望）。
+  // 開閉状態はentry._expandedという画面表示専用のプロパティで持つ（保存時の
+  // cleaned（btnSaveSettings参照）には含めないため、サーバーへは送らない）。
+  function staffSummaryName_(entry) {
+    return entry.name || entry.email || '（未入力）';
+  }
+  function staffSummarySub_(entry) {
+    return [entry.location, entry.email].filter(Boolean).join(' ・ ') || '未入力';
+  }
+
   function renderStaffList() {
     var container = $('staffList');
     $('staffListCount').textContent = state.staffList.length;
@@ -2736,12 +2772,24 @@
       container.innerHTML = '<div class="staffList__empty">担当者が登録されていません</div>';
     } else {
       container.innerHTML = state.staffList.map(function (entry, i) {
-        return '<div class="staffList__row" data-drag-index="' + i + '">' +
+        var isExpanded = !!entry._expanded;
+        return '<div class="staffList__item' + (isExpanded ? ' is-expanded' : '') + '" data-drag-index="' + i + '">' +
+          '<div class="staffList__header">' +
           '<span class="dragHandle" draggable="true" aria-label="ドラッグして並び替え">⠿</span>' +
+          '<button type="button" class="staffList__summary" data-toggle-staff="' + i + '" aria-expanded="' + isExpanded + '">' +
+          '<span class="staffList__summaryText">' +
+          '<span class="staffList__summaryName">' + escapeHtml(staffSummaryName_(entry)) + '</span>' +
+          '<span class="staffList__summarySub">' + escapeHtml(staffSummarySub_(entry)) + '</span>' +
+          '</span>' +
+          '<span class="staffList__chevron" aria-hidden="true">' + (isExpanded ? '▾' : '▸') + '</span>' +
+          '</button>' +
+          '<button class="btn btn--icon" data-remove-staff="' + i + '" type="button" aria-label="削除">&times;</button>' +
+          '</div>' +
+          '<div class="staffList__body' + (isExpanded ? '' : ' hidden') + '">' +
           '<input type="text" class="input" data-staff-index="' + i + '" data-staff-field="name" placeholder="名前" value="' + escapeHtml(entry.name || '') + '">' +
           '<input type="email" class="input" data-staff-index="' + i + '" data-staff-field="email" placeholder="メールアドレス" value="' + escapeHtml(entry.email || '') + '">' +
           '<input type="text" class="input" data-staff-index="' + i + '" data-staff-field="location" placeholder="拠点名" value="' + escapeHtml(entry.location || '') + '">' +
-          '<button class="btn btn--icon" data-remove-staff="' + i + '" type="button" aria-label="削除">&times;</button>' +
+          '</div>' +
           '</div>';
       }).join('');
     }
@@ -2749,24 +2797,47 @@
     $('btnAddStaff').disabled = state.staffList.length >= max;
   }
 
+  // 要約行（折りたたみ中に見える名前・拠点・メールアドレス）は、入力のたびに
+  // renderStaffList()を丸ごと呼び直すとinput要素が作り直されてフォーカス・
+  // カーソル位置が失われるため、対象行の要約テキストだけをその場で書き換える。
+  function updateStaffSummary_(index, entry) {
+    var item = document.querySelector('#staffList [data-drag-index="' + index + '"]');
+    if (!item) return;
+    var nameEl = item.querySelector('.staffList__summaryName');
+    var subEl = item.querySelector('.staffList__summarySub');
+    if (nameEl) nameEl.textContent = staffSummaryName_(entry);
+    if (subEl) subEl.textContent = staffSummarySub_(entry);
+  }
+
   on('staffList','input', function (e) {
     var index = e.target.dataset.staffIndex;
     var field = e.target.dataset.staffField;
     if (index === undefined || !field) return;
-    state.staffList[Number(index)][field] = e.target.value;
+    var entry = state.staffList[Number(index)];
+    entry[field] = e.target.value;
+    updateStaffSummary_(Number(index), entry);
   });
 
   on('staffList','click', function (e) {
-    var btn = e.target.closest('[data-remove-staff]');
-    if (!btn) return;
-    state.staffList.splice(Number(btn.dataset.removeStaff), 1);
-    renderStaffList();
+    var removeBtn = e.target.closest('[data-remove-staff]');
+    if (removeBtn) {
+      state.staffList.splice(Number(removeBtn.dataset.removeStaff), 1);
+      renderStaffList();
+      return;
+    }
+    var toggleBtn = e.target.closest('[data-toggle-staff]');
+    if (toggleBtn) {
+      var entry = state.staffList[Number(toggleBtn.dataset.toggleStaff)];
+      entry._expanded = !entry._expanded;
+      renderStaffList();
+    }
   });
 
   on('btnAddStaff','click', function () {
     var max = (state.bootstrap && state.bootstrap.staffListMax) || 30;
     if (state.staffList.length >= max) return;
-    state.staffList.push({ name: '', email: '', location: '' });
+    // 追加直後は名前等が未入力で分かりにくいため、新規行だけは最初から開いておく。
+    state.staffList.push({ name: '', email: '', location: '', _expanded: true });
     renderStaffList();
     var inputs = document.querySelectorAll('#staffList [data-staff-field="name"]');
     if (inputs.length) inputs[inputs.length - 1].focus();

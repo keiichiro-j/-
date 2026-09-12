@@ -78,6 +78,35 @@ function migrateSteeringToRL_() {
 }
 
 /**
+ * 既存の在庫リストに「備考」列（Constants.gsのINVENTORY_COLUMNSの末尾に追加した
+ * 自由記述欄）が無い場合、ヘッダー行の末尾に追加する一回限りのメンテナンス関数
+ * （migrateSteeringToRL_と同じ位置づけ）。新規にセットアップしたスプレッドシート
+ * （setupSpreadsheet_）には最初から入っているため、この関数を実行する必要はない。
+ * 既存データの位置はそのまま、末尾に列を1つ追加するだけなので、途中の列がずれる
+ * 心配はない。既に「備考」列がある場合は何もしない（何度実行しても安全）。
+ */
+function addRemarksColumnToInventory_() {
+  var sheet = getInventorySheet_();
+  var remarksCol1 = INVENTORY_COLUMNS.length; // 末尾の列（1-indexed）
+  var currentHeader = sheet.getLastColumn() >= remarksCol1
+    ? sheet.getRange(1, remarksCol1).getValue()
+    : '';
+  if (String(currentHeader).trim() === '備考') {
+    var alreadyMessage = '在庫リストに「備考」列は既にあります。何もしませんでした。';
+    Logger.log(alreadyMessage);
+    return alreadyMessage;
+  }
+
+  sheet.getRange(1, remarksCol1).setValue('備考');
+  applyHeaderNotes_(sheet, INVENTORY_COLUMNS);
+  applySheetDesign_(sheet, SHEET_NAMES.INVENTORY, INVENTORY_COLUMNS);
+
+  var message = '在庫リストの末尾（' + remarksCol1 + '列目）に「備考」列を追加しました。';
+  Logger.log(message);
+  return message;
+}
+
+/**
  * 既存のスプレッドシートに対して、選択式の列の入力規則（ドロップダウン＋ヘルプ
  * テキスト）・列見出しの説明メモ・タブの色分けやヘッダーの装飾などの見た目を
  * 後から反映し直す一回限りのメンテナンス関数（formatCommissionColumnsAsText_と
@@ -265,5 +294,6 @@ function onOpen() {
     .addItem('入力規則・説明メモ・タブの見た目を再設定', 'applySelectValidationsAndNotes_')
     .addItem('ＯＣＮ・コミッション列を書式なしテキストに再設定', 'formatCommissionColumnsAsText_')
     .addItem('ステア列の「右/左」を「R/L」へ一括変換', 'migrateSteeringToRL_')
+    .addItem('在庫リストに「備考」列を追加', 'addRemarksColumnToInventory_')
     .addToUi();
 }

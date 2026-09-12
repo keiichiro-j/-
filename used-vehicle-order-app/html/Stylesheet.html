@@ -1201,6 +1201,11 @@
   .holdTimer--warning .holdTimer__text { color: var(--warning); }
   .holdTimer--expired .holdTimer__text { color: var(--danger); }
 
+  /* 「備考を見る」ボタン専用の行。card__actions（margin-top: autoでカード下部へ
+     押し付ける）とは別物として扱う。詳細ポップアップ内でスペック情報とHold情報
+     の間に置くだけの、ごく普通の余白付き行でよいため。 */
+  .card__remarksRow { margin-top: 8px; }
+
   .card__actions { display: flex; gap: 8px; margin-top: auto; padding-top: 4px; flex-wrap: wrap; }
   /* 「2ND HOLD」「受注確定」等、ボタン内の文言は横一列表示を維持したい
      （折り返して縦2行になると見づらいため）。flex: 1 の等分幅に対して
@@ -1536,12 +1541,32 @@
     border-radius: 8px;
   }
 
-  /* ===== 担当者マスタ ===== */
+  /* ===== 担当者マスタ（折りたたみ式） =====
+     人数が多いと3項目（名前・メールアドレス・拠点名）の入力欄が常に全部
+     開いた状態になり縦に長くなりすぎるため、各行を折りたたみ式にしている。
+     普段はstaffList__header（要約1行）だけが見え、タップするとstaffList__body
+     （実際の入力欄）が開く（JavaScript.htmlのrenderStaffList参照）。 */
   .staffList { display: flex; flex-direction: column; gap: 6px; }
-  .staffList__row { display: flex; gap: 8px; align-items: center; }
-  .staffList__row .input[data-staff-field="name"] { flex: 0 0 22%; min-width: 80px; }
-  .staffList__row .input[data-staff-field="email"] { flex: 1 1 40%; min-width: 0; }
-  .staffList__row .input[data-staff-field="location"] { flex: 0 0 22%; min-width: 90px; }
+  .staffList__item { border: 1px solid var(--outline); border-radius: 8px; overflow: hidden; }
+  .staffList__item.is-expanded { border-color: var(--primary); }
+  .staffList__header { display: flex; align-items: center; gap: 4px; padding: 2px 4px; }
+  .staffList__summary {
+    flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px;
+    background: none; border: none; padding: 8px 6px; text-align: left;
+    font: inherit; color: inherit; cursor: pointer; border-radius: 6px;
+  }
+  .staffList__summary:hover { background: var(--background); }
+  .staffList__summaryText { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .staffList__summaryName, .staffList__summarySub {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+  }
+  .staffList__summaryName { font-size: 13.5px; font-weight: 600; }
+  .staffList__summarySub { font-size: 12px; color: var(--on-surface-variant); }
+  .staffList__chevron { flex: none; font-size: 12px; color: var(--on-surface-variant); }
+  .staffList__body { display: flex; gap: 8px; padding: 0 8px 10px; flex-wrap: wrap; }
+  .staffList__body .input[data-staff-field="name"] { flex: 0 0 22%; min-width: 80px; }
+  .staffList__body .input[data-staff-field="email"] { flex: 1 1 40%; min-width: 0; }
+  .staffList__body .input[data-staff-field="location"] { flex: 0 0 22%; min-width: 90px; }
   .staffList__empty { font-size: 13px; color: var(--on-surface-variant); }
 
   /* ===== モデル写真（ホーム画面） ===== */
@@ -2424,6 +2449,10 @@
   .modal__requiredNote { margin: 0 0 4px; font-size: 12px; color: var(--on-surface-variant); }
   .req { color: var(--danger); margin-left: 2px; }
   .modal__hint { margin: 10px 0 0; font-size: 12.5px; color: var(--on-surface-variant); line-height: 1.6; }
+  /* 備考欄ポップアップ（remarksModal）の本文。スプレッドシートに直接入力される
+     自由記述のため、改行・連続スペースをそのまま見た目に反映する
+     （white-space: pre-wrap）。長文でも折り返す（word-break）。 */
+  .remarksModal__body { margin: 0; font-size: 13.5px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
 
   /* ===== Hold種別選択（管理者権限を持つ担当者が「Hold」タップ時のみ表示）=====
      通常のHold／業販HOLDの2択。業販HOLDは専用の
@@ -2802,10 +2831,9 @@
        独立して中央配置されているため、ユーザー情報の表示可否からは影響を
        受けない）。 */
     .topbar__user { display: none; }
-    .staffList__row { flex-wrap: wrap; }
-    .staffList__row .input[data-staff-field="name"],
-    .staffList__row .input[data-staff-field="email"],
-    .staffList__row .input[data-staff-field="location"] { flex: 1 1 100%; }
+    .staffList__body .input[data-staff-field="name"],
+    .staffList__body .input[data-staff-field="email"],
+    .staffList__body .input[data-staff-field="location"] { flex: 1 1 100%; }
     .modelPhotoList__row { flex-wrap: wrap; }
     .modelPhotoList__row .input[data-photo-field="model"],
     .modelPhotoList__row .input[data-photo-field="bodyType"],

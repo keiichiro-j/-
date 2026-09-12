@@ -545,7 +545,7 @@
 
           <div class="settingsCard hidden" id="systemMasterStaffCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-people"></use></svg>担当者</h2>
-            <p class="settingsSection__desc">拠点・名前・Googleアカウントのメールアドレスを登録してください（最大<span id="staffListMax"></span>人・現在<span id="staffListCount">0</span>人登録中）。ログイン中のアカウントに応じて、Hold登録・受注確定時の担当者・販売拠点が自動入力されます。ドラッグハンドル（⠿）で表示順を並び替えできます。</p>
+            <p class="settingsSection__desc">拠点・名前・Googleアカウントのメールアドレスを登録してください（最大<span id="staffListMax"></span>人・現在<span id="staffListCount">0</span>人登録中）。ログイン中のアカウントに応じて、Hold登録・受注確定時の担当者・販売拠点が自動入力されます。ドラッグハンドル（⠿）で表示順を並び替えできます。各行は折りたたまれています。タップして開くと入力欄が表示されます。</p>
             <div class="staffList" id="staffList"></div>
             <button class="btn" id="btnAddStaff" type="button">＋ 担当者を追加</button>
           </div>
@@ -802,6 +802,22 @@
         <button class="btn--icon" data-close-modal>&times;</button>
       </div>
       <div class="modal__body" id="wholesaleOrderDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- 在庫リストの詳細ポップアップ（inventoryDetailModal）にある「備考」ボタンで
+       開く、備考欄専用のポップアップ（inventoryDetailModalと同じパターン）。
+       備考はスプレッドシートに直接入力する運用のため、アプリ側からの編集は
+       できず、表示のみ（openRemarksModal_参照）。 -->
+  <div class="modal hidden" id="remarksModal">
+    <div class="modal__panel">
+      <div class="modal__header">
+        <h2>備考</h2>
+        <button class="btn--icon" data-close-modal>&times;</button>
+      </div>
+      <div class="modal__body">
+        <p class="remarksModal__body" id="remarksModalBody"></p>
+      </div>
     </div>
   </div>
 
