@@ -422,3 +422,11 @@ function appendWholesaleOrder_(order) {
   sheet.getRange(newRow, 1, 1, WHOLESALE_ORDER_COLUMNS.length).setValues([objectToRow_(order, WHOLESALE_ORDER_COLUMNS)]);
   return order;
 }
+
+function findWholesaleOrderRowNumber_(sheet, commission) {
+  return findRowByKey_(sheet, WHOLESALE_ORDER_COLUMNS, 'commission', commission);
+}
+
+function deleteWholesaleOrderRow_(sheet, rowNumber) {
+  sheet.deleteRow(rowNumber);
+}

@@ -109,6 +109,9 @@ function confirmWholesaleOrder(commission, info) {
       staffEmail: currentStaff.email
     };
     VEHICLE_COLUMNS.forEach(function (col) { order[col.key] = vehicle[col.key]; });
+    // 業販受注キャンセル（cancelWholesaleOrder）で元の位置へ車両を復元できるよう、
+    // 在庫リスト上の行番号を控えておく（createInventoryVehicle_のpreferredRowNumber参照）。
+    order.inventoryRowNumber = rowNumber;
 
     // 業販HOLDはカレンダーイベントを作成しないため、calendarEventIdは常に空だが、
     // deleteHoldCalendarEvent_は空文字を渡しても何もしない（安全に呼べる）。
@@ -177,6 +180,49 @@ function cancelOrder(commission) {
     appendAuditLog_(buildAuditLogEntry_(
       '受注キャンセル', commission, order.model, currentStaff,
       '受注確定を取り消し、在庫リストへ戻しました（在庫あり）', new Date().getTime()
+    ));
+    return vehicle;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * 業販受注確定を取り消し、業販受注リストの行を在庫リストへ戻す（cancelOrderと
+ * まったく同じ位置づけ・同じ制約の訂正機能。業販受注リスト専用のシート・列定義
+ * （WHOLESALE_ORDER_COLUMNS）を使う点だけが異なる）。権限チェック（管理者限定・
+ * 確定した担当者を問わない）・在庫の状態（HOLD_STATUS.AVAILABLEに戻す）・
+ * 在庫リスト上の位置の復元方法（confirmWholesaleOrderが控えておいた
+ * inventoryRowNumberへできるだけ近い位置に復元し、無ければ末尾へ追加）は
+ * cancelOrderと同様。
+ * @param {string} commission
+ */
+function cancelWholesaleOrder(commission) {
+  var currentStaff = requireCurrentStaff_();
+  if (!isSystemAdmin_(currentStaff.email)) {
+    throw new Error('業販受注キャンセルは管理者権限を持つ担当者のみ操作できます');
+  }
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var orderSheet = getWholesaleOrderSheet_();
+    var rowNumber = findWholesaleOrderRowNumber_(orderSheet, commission);
+    if (!rowNumber) throw new Error('該当する業販受注が見つかりません（コミッション: ' + commission + '）');
+    var order = rowToObject_(
+      orderSheet.getRange(rowNumber, 1, 1, WHOLESALE_ORDER_COLUMNS.length).getValues()[0],
+      WHOLESALE_ORDER_COLUMNS,
+      rowNumber
+    );
+
+    var vehicle = { holdStatus: HOLD_STATUS.AVAILABLE };
+    VEHICLE_COLUMNS.forEach(function (col) { vehicle[col.key] = order[col.key]; });
+    createInventoryVehicle_(vehicle, order.inventoryRowNumber);
+    deleteWholesaleOrderRow_(orderSheet, rowNumber);
+
+    appendAuditLog_(buildAuditLogEntry_(
+      '業販受注キャンセル', commission, order.model, currentStaff,
+      '業販受注確定を取り消し、在庫リストへ戻しました（在庫あり）', new Date().getTime()
     ));
     return vehicle;
   } finally {

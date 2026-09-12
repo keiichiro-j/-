@@ -788,6 +788,15 @@
     return '<div><dt>' + label + '</dt><dd title="' + escapeHtml(text) + '">' + escapeHtml(text) + '</dd></div>';
   }
 
+  // metaRow_と異なり省略記号にせず、値を折り返してでも全文表示する
+  // （在庫リストの詳細モーダルの外装色・内装色専用、Stylesheet.htmlの
+  // .card__metaGrid dd.is-fullText参照。現場からの要望「在庫リストポップアップ
+  // 表示時のみカラーを全て表示してほしい」）。
+  function metaRowFull_(label, value) {
+    var text = value || '-';
+    return '<div><dt>' + label + '</dt><dd class="is-fullText" title="' + escapeHtml(text) + '">' + escapeHtml(text) + '</dd></div>';
+  }
+
   // ===== Hold種別（通常／業販HOLD）表示ヘルパー =====
   // 管理者権限を持つ担当者のみ登録できる業販HOLDは、通常のHold・2nd Holdとは
   // 見分けがつくよう、バッジ・カード左罫線・Hold詳細ブロックすべてに専用の特別色
@@ -868,10 +877,18 @@
   // 走行距離はここには出さず、詳細を見る（vehicleSpecFieldsHtml_）に回している
   // （在庫リストの一覧では2ND HOLD・受注確定の表示スペースを優先するため。
   // タップすれば詳細モーダルで確認できる）。
-  function vehicleQuickMetaHtml_(v) {
+  // カラー（外装色・内装色）は、一覧のカード表示ではこれまでどおり「外装色 / 内装色」の
+  // 1行・省略記号にしてカードの高さを揃えるが、詳細モーダル（vehicleDetailHtml_、
+  // fullColors=true）では長い色名でも見切れないよう、外装色・内装色を別々の行
+  // （上段が外装色・下段が内装色）にして全文表示する（現場からの要望「在庫リスト
+  // ポップアップ表示時のみカラーを全て表示してほしい」）。
+  function vehicleQuickMetaHtml_(v, fullColors) {
+    var colorRowsHtml = fullColors
+      ? metaRowFull_('外装色', v.exteriorColor) + metaRowFull_('内装色', v.interiorColor)
+      : metaRow_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-'));
     return '<dl class="card__metaGrid card__metaGrid--quick">' +
       metaRow_('区分', v.category) +
-      metaRow_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
+      colorRowsHtml +
       metaRow_('販売価格', formatNumberUnit_(v.salePrice, ' 円')) +
       metaRow_('掲載', v.listed || 'なし') +
       '</dl>';
@@ -984,7 +1001,7 @@
     var cardTone = vehicleCardTone_(v);
     return '<div class="card ' + cardTone + '">' +
       vehicleTopHtml_(v) +
-      vehicleQuickMetaHtml_(v) +
+      vehicleQuickMetaHtml_(v, true) +
       vehicleSpecFieldsHtml_(v) +
       holdInfoHtml +
       vehicleActionsHtml_(v) +
@@ -1765,6 +1782,52 @@
     openCancelOrderModal_(btn.dataset.orderCancel);
   });
 
+  // ===== 業販受注キャンセル（管理者限定） =====
+  // cancelOrderState・openCancelOrderModal_と同じパターン（業販受注リスト専用）。
+  var cancelWholesaleOrderState = null; // { commission }
+
+  function openCancelWholesaleOrderModal_(commission) {
+    var order = findWholesaleOrderByCommission_(commission);
+    if (!order) return;
+    cancelWholesaleOrderState = { commission: commission };
+    $('cancelWholesaleOrderModalDesc').textContent =
+      'この業販受注（販売先: ' + (order.salesStore || '-') + '・' + (order.model || '-') + '）を取り消し、' +
+      '在庫リストへ「在庫あり」の状態で戻します。受注確定時のHold情報（担当者・期限等）は復元されません。';
+    $('cancelWholesaleOrderStaffDisplay').innerHTML = staffDisplayHtml_();
+    $('cancelWholesaleOrderModalError').classList.add('hidden');
+    var submitBtn = $('btnCancelWholesaleOrderSubmit');
+    delete submitBtn.dataset.originalLabel;
+    submitBtn.disabled = false;
+    openModal($('cancelWholesaleOrderModal'));
+  }
+
+  on('btnCancelWholesaleOrderSubmit','click', function () {
+    if (this.disabled || !cancelWholesaleOrderState) return;
+    var btn = this;
+    var errEl = $('cancelWholesaleOrderModalError');
+    errEl.classList.add('hidden');
+    setButtonBusy(btn, true, 'キャンセル中...');
+    gasRun('api_cancelWholesaleOrder', cancelWholesaleOrderState.commission).then(function () {
+      setButtonBusy(btn, false);
+      closeModal($('cancelWholesaleOrderModal'));
+      showToast('業販受注をキャンセルし、在庫リストへ戻しました');
+      loadInventory();
+      loadWholesaleOrders();
+      loadHomeModelCounts_();
+    }).catch(function (err) {
+      setButtonBusy(btn, false);
+      errEl.textContent = err.message;
+      errEl.classList.remove('hidden');
+    });
+  });
+
+  on('wholesaleOrderDetailModal','click', function (e) {
+    var btn = e.target.closest('[data-wholesale-order-cancel]');
+    if (!btn) return;
+    closeModal($('wholesaleOrderDetailModal'));
+    openCancelWholesaleOrderModal_(btn.dataset.wholesaleOrderCancel);
+  });
+
   /**
    * Hold登録・受注確定は全項目（販売拠点を含む）の入力が必須。
    * 未入力の項目があればラベルを列挙して返す。担当者（staff）はログイン中の
@@ -2102,6 +2165,8 @@
       '</dl>';
   }
 
+  // 「業販受注キャンセル」は、orderDetailHtml_の受注キャンセルと同じ位置づけの
+  // 管理者限定の訂正機能。カード・行の一覧には出さず、詳細モーダルの中にのみ表示する。
   function wholesaleOrderDetailHtml_(o) {
     return '<div class="orderCard">' +
       '<div class="orderCard__top">' +
@@ -2113,6 +2178,9 @@
       '</div>' +
       '</div>' +
       wholesaleOrderDetailGridHtml_(o) +
+      (isSystemAdmin_()
+        ? '<div class="card__actions"><button type="button" class="btn btn--danger" data-wholesale-order-cancel="' + escapeHtml(o.commission) + '">業販受注キャンセル</button></div>'
+        : '') +
       '</div>';
   }
 

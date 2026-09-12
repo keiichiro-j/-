@@ -136,6 +136,15 @@ function api_confirmWholesaleOrder(commission, info) {
 }
 
 /**
+ * 業販受注キャンセル（管理者権限を持つ担当者限定）。権限チェック自体は
+ * cancelWholesaleOrder（OrderService.gs）の中で行うため、ここでは呼び出す
+ * だけでよい。
+ */
+function api_cancelWholesaleOrder(commission) {
+  return cancelWholesaleOrder(commission);
+}
+
+/**
  * 業販受注リスト一覧。コントロールパネルには管理者権限を持つ担当者にのみ
  * このタブ自体を表示するが（renderSettingsと同じisSystemAdmin判定、
  * JavaScript.html参照）、直接APIを呼ばれた場合の保険として、サーバー側でも

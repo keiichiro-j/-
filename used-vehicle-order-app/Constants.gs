@@ -253,7 +253,13 @@ var WHOLESALE_ORDER_COLUMNS = VEHICLE_COLUMNS.concat([
     key: 'staffEmail', label: '担当者ID', type: 'text',
     note: '受注確定を行った担当者の内部識別用の列です（内容はメールアドレス）。アプリからの操作でのみ設定されるため、通常は手動編集しないでください。'
   },
-  { key: 'orderedAt', label: '受注確定日時', type: 'datetime', note: 'アプリが自動記録する値です。手動編集しないでください。' }
+  { key: 'orderedAt', label: '受注確定日時', type: 'datetime', note: 'アプリが自動記録する値です。手動編集しないでください。' },
+  {
+    key: 'inventoryRowNumber', label: '在庫リストの元の行番号', type: 'number',
+    note: '受注確定時点で在庫リストにあった行番号です。業販受注キャンセル（cancelWholesaleOrder、' +
+      'OrderService.gs参照）で、できるだけ元の位置へ車両を復元するために使う内部用の' +
+      '値です。アプリが自動記録するため、手動編集しないでください。'
+  }
 ]);
 
 /**

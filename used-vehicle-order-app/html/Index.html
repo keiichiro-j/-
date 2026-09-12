@@ -744,6 +744,30 @@
     </div>
   </div>
 
+  <!-- 業販受注キャンセルモーダル: cancelOrderModalと同じパターン（管理者権限を持つ
+       担当者のみ操作できる。業販受注確定を取り消し、在庫を受注が入る前の状態
+       （在庫あり・Holdなし）に戻す）。 -->
+  <div class="modal hidden" id="cancelWholesaleOrderModal">
+    <div class="modal__panel">
+      <div class="modal__header">
+        <h2>業販受注キャンセル</h2>
+        <button class="btn--icon" data-close-modal>&times;</button>
+      </div>
+      <div class="modal__body">
+        <p class="modal__desc" id="cancelWholesaleOrderModalDesc"></p>
+        <div class="modal__error hidden" id="cancelWholesaleOrderModalError"></div>
+        <div class="formField">
+          <label>キャンセル操作者（ログイン中のアカウント）</label>
+          <div class="staffDisplay" id="cancelWholesaleOrderStaffDisplay"></div>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn" data-close-modal>閉じる</button>
+        <button class="btn btn--danger" id="btnCancelWholesaleOrderSubmit">業販受注キャンセルする</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 在庫リストで「詳細を見る」タップ・表示形式「表」で行（カード）をタップした際、
        車両情報を画面中央にカードタイプ（既存の.cardと同じ見た目）で表示するモーダル。
        カード自体は伸ばさず、他のカードとサイズを揃えたままにする。 -->
