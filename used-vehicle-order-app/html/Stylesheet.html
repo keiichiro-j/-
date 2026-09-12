@@ -1610,14 +1610,11 @@
      管理者が設定タブ「お知らせ」カードから登録した任意の文言（例:「限定車在庫3台
      あり」）を、ホームのアプリ名表記のすぐ上に目立つアクセントカラーの帯として
      表示する（renderHomeAnnouncement_、JavaScript.html参照。未設定の場合は
-     hiddenのまま何も表示しない）。タブレット・スマホ幅では型クイックナビ
-     （.homeTypeNav）と同様position: fixedで独立して固定し、型クイックナビは
-     この帯の高さぶんさらに下へずらす（--home-announcement-h、syncFixedBars_
-     参照）。PC（901px以上）では下のmin-width: 901pxブロックでposition: static
-     に戻し、#homeCombinedHeader内の先頭要素（見出し行のすぐ上）として表示する
-     （このとき#homeCombinedHeaderSpacer自体の高さ実測に自動的に含まれるため、
-     専用のスペーサーはPCでは不要＝下で.homeAnnouncementSpacerをdisplay: noneに
-     している）。 */
+     hiddenのまま何も表示しない）。画面幅に関わらず（PC・タブレット・スマホ共通）
+     型クイックナビ（.homeTypeNav）と同様position: fixedで独立して固定し、
+     型クイックナビはこの帯の高さぶんさらに下へずらす（--home-announcement-h、
+     syncFixedBars_参照）。以前はPC（901px以上）だけ挙動が異なっていたが、
+     サイドバー廃止に伴いPCもタブレット・スマホ幅と同じ挙動に統一した。 */
   .homeAnnouncement {
     position: fixed;
     top: calc(var(--topbar-h) + 16px);
@@ -1645,9 +1642,10 @@
      完全固定し、上下スクロール中も常に押せる状態を保つ（現場からの指摘。
      position: stickyだとブラウザによってスクロール中にわずかに追従が
      遅れる/ずれることがあるため、他の固定要素と同じくJavaScript.htmlの
-     syncFixedBars_で実測値を使って完全に固定している）。すぐ下に高さ
-     実測済みのスペーサー（.homeTypeNavSpacer）を置き、後続のモデル一覧が
-     隠れないようにしている（.toolbar / .toolbarSpacerと同じ仕組み）。
+     syncFixedBars_で実測値を使って完全に固定している。画面幅に関わらず
+     （PC・タブレット・スマホ共通）同じ挙動）。すぐ下に高さ実測済みの
+     スペーサー（.homeTypeNavSpacer）を置き、後続のモデル一覧が隠れない
+     ようにしている（.toolbar / .toolbarSpacerと同じ仕組み）。
      このため、直後の.homeTypeHeader（型ごとの見出し）との間隔は、この
      要素自身のmargin-bottomではなく、spacerの高さ（syncFixedBars_で
      「この要素の高さ＋20px」を設定）で確保している。--home-announcement-hは
@@ -1854,17 +1852,18 @@
   .homeTypeRow { display: contents; }
 
   /* ===== ホームの結合ヘッダー（アプリ名見出し＋型クイックナビ＋戻る／更新
-     ボタン。PC専用のサイドバー＋1本のカードグリッド構成の一部） =====
-     タブレット・スマホ幅では、この要素自体をdisplay: contentsにして箱を消し、
-     中の#homeTypeNav（position: fixedの型クイックナビ、それらの幅でも従来どおり
-     画面上部に固定表示する）だけをそのまま残す。#homeCombinedHeader__topRow
-     （見出し・戻る／更新ボタン）は、それらの幅では共通トップバーが従来どおり
-     アプリ名・戻る／更新ボタンを表示するため、二重表示を防ぐために非表示にする。 */
+     ボタン）=====
+     以前はPC（サイドバー構成）専用にposition: fixedの結合ヘッダーへ
+     組み替えていたが、サイドバー廃止に伴いPCもタブレット・スマホ幅と同じ
+     構成に統一した。画面幅に関わらず、この要素自体をdisplay: contentsにして
+     箱を消し、中の#homeTypeNav（position: fixedの型クイックナビ、画面上部に
+     固定表示する）だけをそのまま残す。#homeCombinedHeader__topRow
+     （見出し・戻る／更新ボタン）は、共通トップバーが従来どおりアプリ名・
+     戻る／更新ボタンを表示するため、二重表示を防ぐために非表示にする。 */
   #homeCombinedHeader { display: contents; }
   .homeCombinedHeader__topRow { display: none; }
-  /* PCビュー専用のスペーサー（position: fixedの#homeCombinedHeaderの高さぶんの
-     余白を確保する）。タブレット・スマホ幅では#homeCombinedHeader自体が
-     display: contentsで固定表示されないため不要。 */
+  /* #homeCombinedHeader自体がdisplay: contentsで固定表示されないため、
+     専用のスペーサーは不要。 */
   .homeCombinedHeaderSpacer { display: none; }
 
   /* ===== ホームのグレードタブ（グレードが設定されたモデル行を展開すると現れる） =====
@@ -1914,269 +1913,36 @@
      在庫リストへ遷移しないようにするため）。 */
   .homeGradeTab:disabled { cursor: not-allowed; opacity: .55; }
 
-  /* ===== PC専用: 左サイドバーナビゲーション =====
-     901px以上でのみ表示する（タブレット・スマホ幅では従来どおりtopbar内の
-     .tabsを使う。サイドバー方式は狭い画面では畳む必要が生じ、既存の実務向け
-     レイアウトを壊してしまうため、PCビューのみに限定した）。ナビ項目・
-     ユーザー情報の実体はIndex.html参照。ロゴ・担当者情報はJavaScript.htmlの
-     applyLogo/renderTopbarUserがtopbar側と共通の内容を反映する。
-     デフォルトでは非表示にし、下のメディアクエリでのみ表示する。 */
+  /* ===== 左サイドバーナビゲーション（廃止） =====
+     以前はPCビュー（901px以上）でのみ、左に固定幅（232px）のサイドバーを
+     表示し、ロゴ・ナビ・担当者情報をそこにまとめ、代わりにトップバーは
+     「戻る／更新」ボタンだけのスリムな帯にしていた。しかし、サイドバーの
+     ぶん常に横幅が削られてしまい、在庫リストの表（.invTable）等で
+     横幅を確保しづらいという現場からの指摘があったため廃止し、PCビューでも
+     タブレット・スマホ幅と同じ「トップバーにロゴ・水平タブ・担当者情報を
+     まとめる」構成に統一した（横幅をすべてコンテンツに使えるようになる）。
+     ナビ項目・担当者情報のマークアップ自体はIndex.htmlに残っているが、
+     このルールで常に非表示にする（削除すると、renderTopbarUser等が
+     参照する要素が無くなりJSエラーになるため、マークアップは残したまま
+     CSSで隠すだけにしている）。 */
   .sidebar { display: none; }
 
   @media (min-width: 901px) {
-    :root { --sidebar-w: 232px; }
-
-    #app { padding-left: var(--sidebar-w); }
-
-    .sidebar {
-      display: flex;
-      flex-direction: column;
-      position: fixed;
-      top: 0; left: 0; bottom: 0;
-      width: var(--sidebar-w);
-      /* 左の項目タブゾーン。背景は明るいまま一番左のナビだけを濃色にするため、
-         トップバー等と共有の--topbar-bgではなく専用の--sidebar-bgを使う
-         （設定タブの表示設定（着せ替え）プリセットとセットで決まる。
-         THEME_PRESETSのsidebarColor・JavaScript.htmlのapplySidebarColor_参照）。
-         文字色・罫線・ホバー背景も--on-topbar・--dark-ui-outlineは使わず、
-         背景色に応じて読みやすいほうへ自動的に切り替わる専用トークン
-         （--sidebar-fg系）を使う。 */
-      background: var(--sidebar-bg);
-      border-right: 1px solid var(--sidebar-outline);
-      padding: 20px 0;
-      z-index: 32;
-    }
-    .sidebar__brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 0 20px 18px;
-      margin-bottom: 8px;
-      border-bottom: 1px solid var(--sidebar-outline);
-    }
-    .sidebar__logo { height: 28px; width: auto; max-width: 100%; object-fit: contain; }
-    .sidebar__brandText {
-      font-size: 13.5px;
-      font-weight: 700;
-      letter-spacing: .06em;
-      color: var(--sidebar-fg);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    /* ロゴを設定した場合は、サイドバーの見出しはロゴ画像だけにする（アプリ名の
-       文字表記は中央ヘッダーの.topbar__brandTextに役割を譲るため、ロゴがある
-       場合にここで重複表示しない。未設定時はこれまでどおりテキストのみ表示する）。 */
-    .sidebar__logo:not(.hidden) ~ .sidebar__brandText { display: none; }
-
-    .sidebarNav { display: flex; flex-direction: column; gap: 2px; padding: 0 12px; flex: 1; overflow-y: auto; }
-    /* .tabs__itemの大文字・トラッキング広め・下線アクティブ表示は水平タブ用の
-       スタイルのため、サイドバーの縦積みリスト用に上書きする
-       （border: noneでborder-styleをnoneにするため、.tabs__item.is-activeの
-       border-bottom-colorが後から効いても実際には描画されない）。 */
-    .sidebarNav__item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 12px;
-      border: none;
-      border-radius: 8px;
-      background: none;
-      /* 選んだサイドバー背景色に対して読みやすいほうの文字色（--sidebar-fg）を
-         少し抑えた濃さ（--sidebar-fg-muted）にする（.icon・テキスト双方に
-         効くcurrentColor）。 */
-      color: var(--sidebar-fg-muted);
-      opacity: 1;
-      font-size: 13.5px;
-      font-weight: 600;
-      text-transform: none;
-      letter-spacing: normal;
-      text-align: left;
-      cursor: pointer;
-      transition: background-color .15s var(--ease), color .15s var(--ease);
-    }
-    .sidebarNav__item .icon { flex: none; }
-    .sidebarNav__item:hover { background: var(--sidebar-hover-bg); color: var(--sidebar-fg); opacity: 1; }
-    /* 選択中の項目は、テーマカラーを帯びた明るいピル（--primary-bg/--primary-text）で
-       ダークネイビーの地から浮き上がらせる。 */
-    .sidebarNav__item.is-active {
-      background: var(--primary-bg);
-      color: var(--primary-text);
-      border-bottom-color: transparent;
-    }
-
-    .sidebarUser {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 16px 16px 0;
-      margin-top: 8px;
-      border-top: 1px solid var(--sidebar-outline);
-    }
-    .sidebarUser__avatar {
-      flex: none;
-      width: 34px; height: 34px;
-      border-radius: 50%;
-      background: var(--primary-bg);
-      color: var(--primary-text);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 13px; font-weight: 700;
-    }
-    .sidebarUser__info { min-width: 0; font-size: 11.5px; line-height: 1.5; }
-    .sidebarUser__info .topbar__userName {
-      display: block; font-weight: 600; font-size: 12.5px; color: var(--sidebar-fg);
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .sidebarUser__info .topbar__userEmail {
-      display: block; color: var(--sidebar-fg-muted); font-size: 11px;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .sidebarUser__info .topbar__userWarn { font-size: 10.5px; padding: 3px 8px; }
-
-    /* トップバー: ナビ・ユーザー情報はサイドバーに移るため、「戻る／更新」ボタンと
-       中央のアプリ名見出しだけが残るスリムなヘッダーになる。ロゴ画像は
-       サイドバー側（.sidebar__brand）だけに表示すれば十分なため、ここでは
-       文字のみ表示し.topbar__logoは非表示にする（.topbar__brandText参照）。 */
-    .topbar {
-      left: var(--sidebar-w);
-      background: var(--surface);
-      color: var(--on-surface);
-      border-bottom: 1px solid var(--outline);
-      box-shadow: none;
-    }
-    .topbar__brandRow { padding: 20px 32px; }
-    .topbar__logo, .topbar__user, .tabs { display: none; }
-    /* .topbar__brandTextの文字色（--on-topbar、白）はモバイル/タブレットの
-       ネイビー地のトップバー向けのため、PCのホワイト地トップバーでは
-       --on-surface（濃色）に上書きしないと白文字のまま見えなくなる。 */
-    .topbar__brandText { color: var(--on-surface); }
-    .topbar__navBtn { border-color: var(--outline); color: var(--on-surface-variant); }
-    .topbar__navBtn:hover { background: var(--background); }
-    .topbar__navBtn:disabled:hover { background: transparent; }
-    /* ホームタブの間は、この共通トップバーを非表示にする。アプリ名見出し・
-       型クイックナビ・戻る／更新ボタンは、結合ヘッダー（#homeCombinedHeader）
-       にそれぞれ役目を譲るため（サイドバー＋1本のカードグリッドという構成に
-       する。JavaScript.htmlのswitchToTab_参照）。非表示になるとoffsetHeightが
-       0になるため、直後のsyncFixedBars_()が--topbar-hを自動的に0へ更新し、
-       #appの上余白も連動して詰まる。 */
-    body.is-home-tab .topbar { display: none; }
-
-    /* main.viewは全幅を使い、position: fixedのトップバー・ツールバー同様
-       サイドバー幅ぶんのpaddingは#app側で既に確保済みのため、ここでは
-       中央寄せ用のmax-width/marginを解除するだけでよい。 */
-    main.view { max-width: none; margin: 0; padding: 24px 32px 40px; }
-
     /* 検索欄（在庫リスト・受注リスト・Gクラス予約リストのツールバー）は
        position: fixedで画面上部に固定しているため（left: 50% +
-       transform: translateX(-50%)で全幅中央寄せ）、サイドバーぶん左に
-       寄せて、コンテンツ列と同じ横幅に揃える。 */
+       transform: translateX(-50%)で全幅中央寄せ）、サイドバー廃止後は
+       画面幅いっぱいを使えるよう左右の余白だけを揃える。 */
     .toolbar {
-      left: calc(var(--sidebar-w) + 24px);
+      left: 24px;
       right: 24px;
       transform: none;
       width: auto;
       max-width: none;
     }
 
-    /* ホームの結合ヘッダー: アプリ名見出し・戻る／更新ボタン・ボディタイプ
-       絞り込みナビを1本にまとめ、参照UIで「Car Listings」の見出し＋操作
-       ボタンがあった位置に対応させている（結合ヘッダーの全幅を使うため、
-       型の種類が多くても横スクロール・2段折り返しなしで1行に収まりやすい）。
-       カードグリッド（#homeGrid）自体は通常のページとして縦スクロールする
-       構成にしたため、ヘッダーは他のタブのツールバー（.toolbar）と同様
-       position: fixedで画面上部に固定し、後続のカードグリッドが隠れないよう
-       #homeCombinedHeaderSpacerで高さぶんの余白を確保する（syncFixedBars_が
-       実測して高さを反映する。他の.toolbar/.toolbarSpacerペアと同じ考え方）。 */
-    #homeCombinedHeader {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      background: var(--surface);
-      border: 1px solid var(--outline);
-      border-radius: var(--radius);
-      padding: 16px 18px;
-      position: fixed;
-      top: calc(var(--topbar-h) + 16px);
-      left: calc(var(--sidebar-w) + 24px);
-      right: 24px;
-      z-index: 25;
-      box-shadow: var(--shadow);
-    }
-    .homeCombinedHeaderSpacer { display: block; }
-    /* お知らせ（.homeAnnouncement）は、PCでは独立したposition: fixedをやめ、
-       #homeCombinedHeader内の先頭要素として通常のフローに戻す（見出し行の
-       すぐ上に表示される）。#homeCombinedHeaderSpacer自体の高さ実測（上記）に
-       自動的に含まれるため、専用のスペーサー（.homeAnnouncementSpacer）は
-       PCでは不要にする。 */
-    .homeAnnouncement {
-      position: static;
-      top: auto;
-      left: auto;
-      transform: none;
-      width: auto;
-      max-width: none;
-      z-index: auto;
-      box-shadow: none;
-    }
-    .homeAnnouncementSpacer { display: none; }
-    .homeCombinedHeader__topRow {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-    .homeCombinedHeader__title {
-      font-size: 18px;
-      font-weight: 700;
-      letter-spacing: .02em;
-      color: var(--on-surface);
-    }
-    .homeCombinedHeader__actions {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-left: auto;
-    }
-    .homeTypeNav {
-      display: flex;
-      /* 横スクロールは使わない（PCビューでは横スクロールが必要な画面を作らない
-         方針のため）。結合ヘッダーの全幅（中央・右パネル2列ぶん）とこの
-         ブレークポイント専用のコンパクトな.homeTypeNav__itemサイズを
-         組み合わせれば、PCビューの最小幅（901px）でも9個（「すべて」＋
-         MODEL_BODY_TYPE_OPTIONSの8種類、「限定車」追加後）すべてが1行に
-         収まる。それでも収まらない極端に狭い状況に備えたフォールバックとしてのみ
-         flex-wrap: wrapにしておく（横スクロールより、必要な時だけ2行に
-         折り返す方を優先する）。 */
-      flex-wrap: wrap;
-      overflow: visible;
-      gap: 5px;
-      position: static;
-      background: none;
-      margin: 0;
-      padding: 0;
-      border-bottom: none;
-      border-radius: 0;
-      box-shadow: none;
-      transform: none;
-      width: auto;
-      max-width: none;
-    }
-    /* PCビューの最小幅（901px）で9個（「すべて」＋型8種類、「限定車」追加後）の
-       タブが1行に収まる最小サイズ（padding: 4.5px 7px、font-size: 9.5px）を
-       下限に、画面が広がるほど結合ヘッダーの空きスペースに合わせてタブも
-       大きくする（901pxちょうどのときに隙間なく収まっていたサイズのまま広い
-       画面でも使うと、ヘッダー幅の割にタブが小さく余白ばかり目立ってしまう
-       ため。現場からの指摘）。vw（ビューポート幅）に比例して滑らかに拡大し、
-       1440px幅でタブレット・スマホ幅と共通のピル型サイズ（font-size: 13.5px、
-       padding: 8px 16px寄り）に達したところで頭打ちにする（それ以上大きくすると
-       他の画面の文字サイズと不釣り合いになるため）。901px・1440pxそれぞれの
-       サイズから逆算した一次関数をclamp()で挟んでいる（「限定車」追加で8→9個に
-       増えた際、901pxでの最小サイズをこの下限まで縮小しないと1行に収まらなく
-       なったため再計算した）。 */
-    .homeTypeNav__item {
-      padding: clamp(4.5px, calc(0.4638vw + 0.321px), 7px) clamp(7px, calc(1.1132vw - 3.030px), 13px);
-      font-size: clamp(9.5px, calc(0.7421vw + 2.813px), 13.5px);
-    }
-    .homeTypeNavSpacer { display: none; }
+    /* main.viewはサイドバーが無くなった分、画面幅いっぱいを使う
+       （中央寄せ用のmax-width/marginを解除するだけでよい）。 */
+    main.view { max-width: none; margin: 0; padding: 24px 32px 40px; }
 
     /* ===== PC専用: ホームのカードグリッド（3枚1行） =====
        参照UIの「Car Listings」パネルに合わせ、型グループの見出しは出さず

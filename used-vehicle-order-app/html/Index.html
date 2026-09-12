@@ -128,13 +128,13 @@
   </script>
 
   <div id="app">
-    <!-- 左サイドバー: PCビュー（901px以上）のみ表示する（Stylesheet.html参照）。
-         タブレット・スマホ幅は従来どおりtopbar内の.tabs（水平タブ）を使うため、
-         このsidebarはCSSで非表示にしたまま何もレンダリングに影響しない。
-         ナビ項目は既存の.tabs__itemクラスを共有して付与し、switchToTab_
-         （JavaScript.html）がdocument.querySelectorAll('.tabs__item')で
-         is-activeを一括トグルする既存の仕組みにそのまま乗せている
-         （mainTabsの各ボタンと状態が自動的に同期する）。 -->
+    <!-- 左サイドバー（廃止・常時非表示）: 以前はPCビュー（901px以上）でロゴ・ナビ・
+         担当者情報をここにまとめていたが、常にサイドバー幅ぶん横幅が削られて
+         しまうという指摘を受け廃止した（Stylesheet.htmlの「左サイドバー
+         ナビゲーション（廃止）」参照）。PC・タブレット・スマホすべてtopbar内の
+         .tabs（水平タブ）に統一したため、このsidebarはCSSで常時非表示にしたまま
+         何もレンダリングに影響しない（削除するとrenderTopbarUser等が参照する
+         要素が無くなりJSエラーになるため、マークアップ自体は残している）。 -->
     <nav class="sidebar" id="sidebar" aria-label="メインナビゲーション">
       <div class="sidebar__brand">
         <img id="sidebarLogo" class="sidebar__logo hidden" alt="ロゴ">
@@ -405,19 +405,17 @@
       <div class="settingsWrap">
         <div class="settingsGrid">
           <div class="settingsGroupTitle">テーマ</div>
-          <!-- 表示設定（着せ替え）: アプリ全体の配色（--primary系）とPCビュー左端の
-               サイドバーの配色（--sidebar-bg系）は、1つのプリセットでセットになって
-               切り替わる（「サイドバーの色と表示設定は別々ではなく組にしてほしい」
-               という要望を受け、以前は独立したカラーピッカーだったサイドバーの色を
-               THEME_PRESETSのsidebarColorに統合した）。サイドバーの文字色は選んだ
-               sidebarColorに対して読みやすいほう（白／濃色）へ自動的に切り替わる
-               （pickReadableSidebarTextColor_、JavaScript.html参照）ため、プリセット
-               追加時にサイドバー側の可読性を個別に検証する必要はない。11色（メルセデス・
+          <!-- 表示設定（着せ替え）: アプリ全体の配色（--primary系）は1つのプリセットで
+               まとめて切り替わる。THEME_PRESETSは元々、独立したカラーピッカーだった
+               PC左サイドバー専用の色（sidebarColor）も内包していたが、サイドバー
+               自体を廃止した後も、このプロパティは他の内部処理（--sidebar-bg系の
+               CSS変数は今は使われる場所が無い）のために残したままにしてある
+               （削除してもテーマの見た目自体には影響しない）。11色（メルセデス・
                ベンツのボディカラー名にちなむ）＋「ランダム（ログインのたび変化。
                THEME_PRESETSから毎回無作為に1つ選ぶ）」の計12種類から選べる。 -->
           <div class="settingsCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>表示設定</h2>
-            <p class="settingsSection__desc">アプリ全体とサイドバーの配色を、視覚的に確認済みの11種類（着せ替え）＋ランダム（ログインのたび変化）から選べます。</p>
+            <p class="settingsSection__desc">アプリ全体の配色を、視覚的に確認済みの11種類（着せ替え）＋ランダム（ログインのたび変化）から選べます。</p>
             <div class="themePresetGrid" id="themePresetGrid"></div>
           </div>
 
