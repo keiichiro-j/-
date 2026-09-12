@@ -710,7 +710,15 @@
      PCビュー（901px以上）では、列数を絞り込んだことで通常は全列が画面幅に収まるため、
      横スクロールを発生させない（現場からの要望。下のmin-width: 901pxブロックで
      overflow-xを打ち消す）。タブレット・スマホ幅では従来どおり、画面に収まりきらない
-     場合は.invTableWrapのoverflow-x: autoで横スクロールする。 */
+     場合は.invTableWrapのoverflow-x: autoで横スクロールする。
+     車種・カラー・登録番号・HOLD顧客名は、1行の省略記号だとタップしないと全部
+     読めないという不満があったため（現場からの要望「タップしなくても情報が
+     見えるようにしたい・文字が見切れるのをやめてほしい」）、最大2行までの
+     折り返しを許可している（invTableRow__wrap・invHold__name）。行の高さは
+     車両ごとに一定に揃えたいため、完全に自由な折り返しにはせず、行の高さの
+     基準となるHOLD列（.invHold）に合わせて100pxに固定し、それでも収まりきら
+     ない場合のみ2行目の末尾を省略記号にする。あわせて、列と列の間に縦の区切り
+     線（border-right）を入れ、情報量が増えても列の境目が分かりやすいようにした。 */
   .invTableWrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -729,17 +737,17 @@
        車種（MODEL列）は実際には「C20T」のように短い型番がほとんどのため
        控えめにし、代わりにステータスバッジ・HOLD詳細・操作ボタン
        （いずれも縦折り返し禁止の要望あり）に幅を厚めに配分する。 */
-    .invTable th:nth-child(1), .invTable td:nth-child(1) { width: 13%; } /* ステータス（「業販HOLD中」等が見切れないよう厚めに配分） */
-    .invTable th:nth-child(2), .invTable td:nth-child(2) { width: 8%; }  /* 車種 */
-    .invTable th:nth-child(3), .invTable td:nth-child(3) { width: 9%; }  /* ＯＣＮ */
-    .invTable th:nth-child(4), .invTable td:nth-child(4) { width: 6%; }  /* 区分 */
-    .invTable th:nth-child(5), .invTable td:nth-child(5) { width: 8%; }  /* カラー */
+    .invTable th:nth-child(1), .invTable td:nth-child(1) { width: 14%; } /* ステータス（「業販HOLD中」「片方のみ掲載」の2バッジが2段でも見切れない幅） */
+    .invTable th:nth-child(2), .invTable td:nth-child(2) { width: 8%; }  /* 車種（invTableRow__wrapで折り返し。幅より内容優先で行数は可変） */
+    .invTable th:nth-child(3), .invTable td:nth-child(3) { width: 10%; } /* ＯＣＮ（10桁のコミッションが1行で収まる幅） */
+    .invTable th:nth-child(4), .invTable td:nth-child(4) { width: 4%; }  /* 区分 */
+    .invTable th:nth-child(5), .invTable td:nth-child(5) { width: 8%; }  /* カラー（invTableRow__wrapで最大2行） */
     .invTable th:nth-child(6), .invTable td:nth-child(6) { width: 9%; }  /* 販売価格 */
-    .invTable th:nth-child(7), .invTable td:nth-child(7) { width: 6%; }  /* 年式 */
+    .invTable th:nth-child(7), .invTable td:nth-child(7) { width: 9%; }  /* 年式（「2021-04-01」が1行で収まる幅） */
     .invTable th:nth-child(8), .invTable td:nth-child(8) { width: 7%; }  /* 走行距離 */
-    .invTable th:nth-child(9), .invTable td:nth-child(9) { width: 9%; }  /* 登録番号 */
-    .invTable th:nth-child(10), .invTable td:nth-child(10) { width: 11%; } /* HOLD */
-    .invTable th:nth-child(11), .invTable td:nth-child(11) { width: 14%; } /* 操作 */
+    .invTable th:nth-child(9), .invTable td:nth-child(9) { width: 8%; }  /* 登録番号（invTableRow__wrapで最大2行） */
+    .invTable th:nth-child(10), .invTable td:nth-child(10) { width: 10%; } /* HOLD */
+    .invTable th:nth-child(11), .invTable td:nth-child(11) { width: 13%; } /* 操作（Hold＋受注の2ボタンが横並びで収まる幅） */
   }
   .invTable {
     width: 100%;
@@ -751,6 +759,11 @@
     text-align: left;
     vertical-align: middle;
     border-bottom: 1px solid var(--outline);
+  }
+  /* 列と列の間に縦の区切り線を入れ、情報量が増えた行でも列の境目が
+     一目で分かるようにする（現場からの要望）。 */
+  .invTable th:not(:last-child), .invTable td:not(:last-child) {
+    border-right: 1px solid var(--outline);
   }
   .invTable thead th {
     color: var(--on-surface-variant);
@@ -772,21 +785,26 @@
   /* 中古車サイトに掲載中の車両は、Hold状態の色（border-left-color）とは独立して
      行の背景色を変え、一目で区別できるようにする（.card.is-listedと同じ考え方）。 */
   .invTableRow.is-listed > td { background: var(--listed-bg); }
-  /* 不具合修正: .badge本体はwhite-space: nowrap（バッジらしい1行の見た目を保つ
-     ため）だが、ステータス列の幅（table-layout: fixed）を超える長さの文言
-     （「業販HOLD中」等）は、nowrapのまま隣の車種列へはみ出し、車種の文字と
-     重なって読めなくなっていた（現場での動作確認で発見）。ステータス・操作列
-     （受注確定等）は縦に折り返さず常に横一列で表示してほしいという要望のため、
-     折り返しではなく列幅そのものを広げる方向で対応し、バッジ自体は1行のまま
-     （万一収まりきらない場合のみ省略記号にする、あくまで保険）にしてある。 */
+  /* ステータス列は、ステータスバッジ＋掲載バッジ（listedBadgeHtml_、
+     invTableStatusHtml_参照）の2つが並ぶことがあるため、セル自体をflexにして
+     折り返しを許可する（バッジ自体はnowrapのまま。1つのバッジの中で文字が
+     折り返されることはない）。バッジが2つになって収まらない場合は自動的に
+     2段になり、行の高さもそれに応じて広がる（現場からの要望「タップしなくても
+     掲載状況が見えるようにしたい」）。 */
+  .invTableRow__status {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+  }
   .invTableRow__status .badge {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
   }
-  /* モデル・コミッション・カラー・有償OPは、値が長い場合でも折り返さず省略記号に
-     する（現場からの要望。折り返すと行の高さが車両ごとにばらつく）。 */
+  /* ＯＣＮ・区分・年式は、桁数・書式が決まっている短い値のため、これまでどおり
+     1行の省略記号にする（折り返しても情報量が増えるわけではないため）。 */
   .invTableRow__ellipsis {
     max-width: 220px;
     white-space: nowrap;
@@ -799,6 +817,23 @@
      そのまま残す。 */
   @media (min-width: 901px) {
     .invTableRow__ellipsis { max-width: none; }
+  }
+  /* 車種・カラー・登録番号は値が長くなりやすく、以前は1行の省略記号で見切れて
+     しまい「タップしないと全部読めない」という不満があった（現場からの要望
+     「文字が見切れるのをやめてほしい・タップしなくても情報が見えるように
+     したい・行の高さが多少大きくなってもいい」）。行数を2行等に制限すると、
+     実際のモデル名・カラー名・登録番号の長さによっては結局省略されてしまう
+     ことが分かったため、行数の上限を設けず必要なだけ折り返す。行の高さは
+     table自体の仕組み（同じ<tr>内で最も内容が多いセルに他のセルが揃う）に
+     任せるため、車両ごとに内容量が違えば行の高さも変わる（現場からの要望どおり、
+     情報が全部見えることを優先し、行の高さが車両ごとに不揃いになることは許容する）。 */
+  .invTableRow__wrap {
+    white-space: normal;
+    word-break: break-word;
+    max-width: 220px;
+  }
+  @media (min-width: 901px) {
+    .invTableRow__wrap { max-width: none; }
   }
   /* 不具合修正: 販売価格セルに白抜き（white-space: nowrap）が無く、列幅に収まらない
      場合に金額と「円」の間で折り返されて2行になってしまっていた（現場からの
@@ -826,20 +861,15 @@
     gap: 8px;
   }
   /* HOLD列。Hold登録が無い場合は「未登録」の薄いグレーのピルのみ表示する。
-     不具合修正: Hold登録の有無（未登録・1件・詳細内容の長さ）によってこのセルの
-     高さが変わると、表の行の高さも車両ごとにばらついてしまう（現場からの指摘）。
-     .invHold・.invHold__emptyの両方に同じ高さを固定で持たせることで、Hold状態に
-     関わらず行の高さが常に一定になるようにする（overflow: hiddenで、想定を超える
-     長さの内容が入った場合の保険とする）。
-     不具合修正: 固定高さが64pxだったが、実際の中身（顧客名・担当者・タイマー・
-     解除リンクの4行、gap込み）は約70〜73pxあり、64pxでは足りずoverflow: hiddenで
-     一番下の行が見切れてしまっていた（現場からの指摘:「HOLDしている人等の情報が
-     潰れてしまっている」）。実測の自然な高さに余裕を持たせた78pxに引き上げて
-     解消する。 */
+     以前は顧客名を1行の省略記号にしたうえでセルの高さも固定していたが、
+     「タップしないと全部読めない・行の高さが多少大きくなってもいいので
+     見切れるのをやめてほしい」という現場からの要望を受け、顧客名は行数の
+     上限を設けず折り返すようにし、高さも固定せずmin-heightのみにした
+     （短いHoldは100px、長い顧客名のHoldはその分だけ自然に高くなる）。 */
   .invHold__empty {
     display: flex;
     align-items: center;
-    height: 78px;
+    min-height: 100px;
   }
   .invHold__empty__pill {
     display: inline-block;
@@ -856,8 +886,7 @@
     justify-content: center;
     gap: 2px;
     min-width: 130px;
-    height: 78px;
-    overflow: hidden;
+    min-height: 100px;
   }
   /* 不具合修正: 固定px（旧170px）だと、列幅を実際の内容量に合わせて配分し
      直した後（table-layout: fixedのnth-child幅ルール参照）は列幅と合わず、
@@ -865,13 +894,13 @@
      一方、広い環境では逆に狭く省略されすぎていた。列（セル）の実際の幅を
      そのまま使うことで、どちらの環境でも列幅いっぱいまで表示できるようにする。 */
   .invHold__name {
-    font-size: 13px; font-weight: 700; color: var(--on-surface);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+    font-size: 13px; font-weight: 700; color: var(--on-surface); max-width: 100%;
+    white-space: normal; word-break: break-word; line-height: 1.25;
   }
   .invHold--special .invHold__name { color: var(--hold-special); }
   .invHold__staff {
-    font-size: 11px; color: var(--on-surface-variant);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+    font-size: 11px; color: var(--on-surface-variant); max-width: 100%;
+    white-space: normal; word-break: break-word;
   }
   /* PCビュー（901px以上、table-layout: fixed）では、列幅は上のnth-child幅
      ルールで既に確定しているため、130pxの下限は不要（あるとかえって列幅との

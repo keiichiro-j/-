@@ -1046,17 +1046,28 @@
       '</div>';
   }
 
-  function vehicleTableRowHtml_(v) {
-    var isHold = v.holdStatus === 'hold';
-    var isSpecialHold = isHold && !!(v.holdHoldType && v.holdHoldType !== 'normal');
-    var rowTone = isSpecialHold ? 'invTableRow--holdSpecial' : (isHold ? 'invTableRow--hold' : 'invTableRow--available');
-    if (isVehicleListed_(v)) rowTone += ' is-listed';
+  /**
+   * 表示形式「表」のステータス列。ステータスバッジに加え、掲載バッジ
+   * （listedBadgeHtml_、カード表示のvehicleBadgesHtml_と同じもの）も表示し、
+   * タップ（行タップ・詳細モーダル）しなくても掲載状況が分かるようにする
+   * （現場からの要望）。バッジが2つ並ぶ場合は折り返して2段に表示してよい
+   * （.invTableRow__status、Stylesheet.html参照）。
+   */
+  function invTableStatusHtml_(v, isSpecialHold, isHold) {
     var statusBadge = isSpecialHold
       ? ('<span class="badge badge--holdSpecial"><span class="badge__dot"></span>' +
           escapeHtml(holdTypeLabel_(v.holdHoldType)) + '中</span>')
       : (isHold
           ? '<span class="badge badge--hold"><span class="badge__dot"></span>Hold中</span>'
           : '<span class="badge badge--available"><span class="badge__dot"></span>在庫あり</span>');
+    return statusBadge + listedBadgeHtml_(v);
+  }
+
+  function vehicleTableRowHtml_(v) {
+    var isHold = v.holdStatus === 'hold';
+    var isSpecialHold = isHold && !!(v.holdHoldType && v.holdHoldType !== 'normal');
+    var rowTone = isSpecialHold ? 'invTableRow--holdSpecial' : (isHold ? 'invTableRow--hold' : 'invTableRow--available');
+    if (isVehicleListed_(v)) rowTone += ' is-listed';
     // 操作列は参照UIの最右列と同じ位置に置く。受注確定等、実際にできる
     // 操作はカード表示（vehicleActionsHtml_）と同じ内容にする（参照UIの「編集・削除」
     // ボタンは本アプリの実際の操作には存在しないため、実機能に合わせて置き換える）。
@@ -1067,16 +1078,27 @@
 
     // 行タップ（ボタン以外の箇所）で詳細モーダルを開けるよう
     // data-commissionを行自体に持たせる（handleInventoryListClick_参照）。
+    // 車種・カラー・登録番号は値が長くなりやすいため、1行の省略記号ではなく
+    // 最大2行まで折り返して表示し（invTableRow__wrap）、タップしなくても
+    // できるだけ内容を読めるようにする（現場からの要望「文字が見切れるのを
+    // やめてほしい・タップしなくても情報が見えるようにしたい」）。行の高さは
+    // HOLD列（invHold、Stylesheet.html参照）に合わせて自動的に揃う。
+    // 不具合修正: <td>自体にdisplay: flex／-webkit-box（折り返し・バッジ横並び用）を
+    // 直接指定すると、ブラウザによってはtable-cellとしてのレイアウトと衝突し、
+    // 文字が1文字ずつ縦に積み重なって表示される不具合が起きた（実機確認で発見。
+    // .invHold__nameのように、<td>は素のまま・中身の<div>にレイアウト用の
+    // クラスを付ける形にすれば問題ない）。そのため、ステータス列・折り返し列は
+    // いずれも<td>直下に専用の<div>を1枚挟み、その<div>にクラスを付ける。
     return '<tr class="invTableRow ' + rowTone + '" data-commission="' + escapeHtml(v.commission) + '">' +
-      '<td class="invTableRow__status">' + statusBadge + '</td>' +
-      '<td class="invTableRow__ellipsis">' + escapeHtml(v.model) + '</td>' +
+      '<td><div class="invTableRow__status">' + invTableStatusHtml_(v, isSpecialHold, isHold) + '</div></td>' +
+      '<td><div class="invTableRow__wrap">' + escapeHtml(v.model) + '</div></td>' +
       '<td class="invTableRow__ellipsis invTableRow__mono">' + escapeHtml(v.ocn || '-') + '</td>' +
       '<td class="invTableRow__ellipsis">' + escapeHtml(v.category || '-') + '</td>' +
-      '<td class="invTableRow__ellipsis">' + escapeHtml((v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) + '</td>' +
+      '<td><div class="invTableRow__wrap">' + escapeHtml((v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) + '</div></td>' +
       '<td class="invTableRow__mono">' + escapeHtml(formatNumberUnit_(v.salePrice, ' 円') || '-') + '</td>' +
       '<td class="invTableRow__ellipsis">' + escapeHtml(v.firstRegistrationDate || '-') + '</td>' +
       '<td class="invTableRow__mono">' + escapeHtml(formatNumberUnit_(v.mileage, ' km') || '-') + '</td>' +
-      '<td class="invTableRow__ellipsis">' + escapeHtml(plateText_(v) || '-') + '</td>' +
+      '<td><div class="invTableRow__wrap">' + escapeHtml(plateText_(v) || '-') + '</div></td>' +
       '<td>' + invTableHoldCellHtml_(v) + '</td>' +
       '<td class="invTableRow__actions"><div class="invTableRow__actionsInner">' + actionsHtml + '</div></td>' +
       '</tr>';
