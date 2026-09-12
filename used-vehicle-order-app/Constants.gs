@@ -69,11 +69,6 @@ var YES_NO_OPTIONS = ['あり', 'なし'];
 var OSS_OPTIONS = ['可', '不可'];
 var PAYMENT_METHOD_OPTIONS = ['現金', 'ローン', 'リース'];
 var STAFF_LIST_MAX = 30; // 担当者マスタの最大登録人数
-var MODEL_PHOTOS_MAX = 40; // ホーム画面のモデル写真の最大登録数
-// モデル写真1件ごとに割り当てられる「型（ボディタイプ）」の選択肢。ホーム画面
-// 上部の型クイックナビ（#homeTypeNav）のボタン・カード内の型バッジに使う
-// （JavaScript.htmlのrenderHomeTypeNav_・state.homeBodyTypeFilter参照）。
-var MODEL_BODY_TYPE_OPTIONS = ['Sedan', 'SUV', 'Station Wagon', 'Compact', 'Coupe', 'Cabriolet/Roadster', 'Mini Van', '限定車'];
 var NOTIFY_MAIL_LIST_MAX = 20; // メール通知先（Hold時／受注確定時／エラー通知）1項目あたりの最大登録件数
 var NOTIFY_MAIL_MAX_LENGTH = 254; // メールアドレス1件あたりの最大文字数（RFC 5321の実務上の上限に合わせる）
 
@@ -340,9 +335,7 @@ var PROP_KEYS = {
   NOTIFY_ERROR_MAIL_TO: 'NOTIFY_ERROR_MAIL_TO',
   NOTIFY_CHAT_WEBHOOK_URL: 'NOTIFY_CHAT_WEBHOOK_URL',
   STAFF_LIST: 'STAFF_LIST',
-  MODEL_PHOTOS: 'MODEL_PHOTOS',
   CELEBRATION_VARIANTS: 'CELEBRATION_VARIANTS',
-  HOME_ANNOUNCEMENT: 'HOME_ANNOUNCEMENT',
   LOADING_IMAGE_URL: 'LOADING_IMAGE_URL',
   APP_TITLE: 'APP_TITLE'
 };
@@ -455,46 +448,6 @@ var LOGO_URL_MAX_LENGTH = 1500;
 // 余裕を持った上限にしている（validateChatWebhookUrl_、SettingsService.gs参照）。
 var CHAT_WEBHOOK_URL_MAX_LENGTH = 1000;
 
-// モデル写真1件あたりのURLの最大文字数（署名付きURL等、長めの共有リンクにも
-// 対応できるようある程度余裕を持たせている。data URLではなく外部URLの利用を
-// 前提とする。SettingsService.gs参照）。
-var MODEL_PHOTO_URL_MAX_LENGTH = 1500;
-
-// Googleドライブの共有リンクを直接画像URLに変換する際に指定する幅（px）。
-// ホーム画面のモデル写真タイルは最大でも480px幅（クローズアップ表示時）のため、
-// 高解像度ディスプレイ（2倍相当）でも十分な解像度になるよう余裕を持たせている
-// （normalizeModelPhotoUrl_、SettingsService.gs参照）。
-var MODEL_PHOTO_DISPLAY_WIDTH = 1000;
-
-// モデル写真1件（例: 「C」＝Cクラス全般）に紐づけられる、在庫リストのMODEL列の値
-// （型番。例: 「C200」「C220d」「C18T」「C18TZ」「CLA18」「CLA18T」）を自動判定
-// するための条件（gradePrefix・gradeMarker）1件あたりの最大文字数。型番を手入力で
-// 列挙する代わりに、「①型番先頭のアルファベット連続部分（クラス名）がgradePrefixと
-// 完全一致する」「②設定されていれば、それに続く部分にgradeMarkerがどこかに
-// 含まれている」の2条件だけで、ホーム画面がその場で在庫リストと突き合わせて台数を
-// 計算する（SettingsService.gs / JavaScript.htmlのleadingAlphaPrefix_・
-// gradeCountsForEntry_・matchesGradeRule_参照。①②とも大文字小文字は区別しない）。
-// ①を単純な前方一致ではなく完全一致にしているのは、「C」が「CLA18」まで拾って
-// しまい「C20」と「CLA18」を区別できなくなるのを防ぐため。②は「含まれていれば
-// 優先的に一致する」方式にすることで、gradeMarker「T」が「C18T」「C18TZ」
-// 「C63T」のように位置を問わずTを含む型番をまとめて拾える一方、「CLA18」
-// （Tを含まない）と「CLA18T」（Tを含む）のような、片方がもう片方に文字を継ぎ足した
-// だけの型番同士も、gradeMarker「T」を設定すれば自動的に区別できる。
-var MODEL_PHOTO_GRADE_RULE_MAX_LENGTH = 30;
-
-// モデル写真設定全体（JSON化した状態）の最大文字数。最大MODEL_PHOTOS_MAX件分の
-// URLをまとめて1つのScript Propertyへ保存するため、1件あたりの上限だけでは
-// 「件数×上限文字数」が実際の保存上限（1プロパティあたり9KB＝9216文字程度）を
-// 超えてしまう可能性がある。そのため合計文字数についても余裕を持った上限で
-// 別途チェックする（SettingsService.gs参照）。
-var MODEL_PHOTOS_TOTAL_MAX_LENGTH = 8000;
-
-// お知らせ（管理者が設定タブから入力し、ホーム画面の「販売可能リスト」の文字の上に
-// 全利用者向けに表示する案内文。例:「限定車在庫3台あり」）の最大文字数。1行で
-// 目立たせて表示する想定のため短めの上限にしている（validateHomeAnnouncement_、
-// SettingsService.gs参照）。
-var HOME_ANNOUNCEMENT_MAX_LENGTH = 60;
-
 // 起動時ローディング画面（#appLoading）に表示する画像のURLの最大文字数。
 // モデル写真と同様、Googleドライブの共有リンク／ファイルIDから直接画像URLに
 // 変換したうえで保存するため、data URLではなく変換後の外部URLの利用を前提とする
@@ -502,8 +455,7 @@ var HOME_ANNOUNCEMENT_MAX_LENGTH = 60;
 var LOADING_IMAGE_URL_MAX_LENGTH = 1500;
 
 // Googleドライブの共有リンク／ファイルIDを直接画像URLに変換する際に指定する幅
-// （px）。ローディング画面は全画面表示になり得るため、モデル写真
-// （MODEL_PHOTO_DISPLAY_WIDTH）より大きめの解像度にしている
+// （px）。ローディング画面は全画面表示になり得るため、大きめの解像度にしている
 // （normalizeLoadingImageUrl_参照）。
 var LOADING_IMAGE_DISPLAY_WIDTH = 1600;
 

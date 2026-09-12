@@ -31,16 +31,12 @@
     wholesaleOrdersGroups: [],
     action: null, // { type: 'hold' | 'order' | 'orderFromHold', commission }
     staffList: [], // 設定タブで編集中の担当者マスタ（作業用コピー）
-    modelPhotos: [], // 設定タブで編集中のモデル写真（作業用コピー）
     notifyHoldMailTo: [], // 設定タブで編集中のメール通知先（Hold時、作業用コピー）
     notifyOrderMailTo: [], // 設定タブで編集中のメール通知先（受注確定時、作業用コピー）
     notifyErrorMailTo: [], // 設定タブで編集中のメール通知先（システムエラー通知、作業用コピー）
     themeKey: null, // 設定タブで選択中のテーマ（着せ替え）プリセットキー。サイドバーの色もこれとセットで決まる（THEME_PRESETSのsidebarColor参照）
     navHistory: [], // 「戻る」ボタン用の画面履歴（タブ名のスタック）
-    homeModelFilter: null, // ホームのモデル写真タイルクリックで設定される、絞り込み対象の型番（MODEL列の値）の配列
-    homeBodyTypeFilter: null, // ホーム画面上部の型クイックナビ（#homeTypeNav）で選択中の型（未選択＝「すべて」はnull）
-    homeExpandedModel: null, // タブレット・スマホ幅のホーム画面で、グレード一覧をインライン展開中のモデル名（未展開はnull。homeModelTileHtml_参照）
-    allInventoryItems: [], // ホーム画面の在庫台数集計専用（ツールバーの検索条件に左右されない全件）
+    allInventoryItems: [], // マイページ（Hold中の車両一覧）専用。ツールバーの検索条件に左右されない全件
     allOrders: [], // マイページ集計専用（受注リストの検索・絞り込み条件に左右されない全件）
     myPageViewMode: safeLocalStorageGet_('myPageViewMode') || 'card' // 'card' | 'table'（マイページ全体の表示形式）
   };
@@ -546,17 +542,14 @@
   }
 
   // ===== タブ切替 =====
-  // ホーム画面のモデル写真クリック（在庫リストへの遷移）からも同じ処理を使えるよう、
-  // ナビのクリックハンドラとは独立した関数にしておく。
   function currentActiveTab_() {
     var el = document.querySelector('.tabs__item.is-active');
-    return el ? el.dataset.tab : 'home';
+    return el ? el.dataset.tab : 'inventory';
   }
 
-  // 「戻る」ボタン用の画面履歴（タブ名のみのスタック）。ホームのモデル/グレード
-  // クリックによる在庫リストへの遷移・メインタブのクリックなど、switchToTab_を
-  // 経由するすべての画面遷移で自動的に記録される。opts.skipHistoryは「戻る」
-  // ボタン自身がswitchToTab_を呼ぶ際に、戻った先をさらに履歴に積んでしまわない
+  // 「戻る」ボタン用の画面履歴（タブ名のみのスタック）。メインタブのクリックなど、
+  // switchToTab_を経由するすべての画面遷移で自動的に記録される。opts.skipHistoryは
+  // 「戻る」ボタン自身がswitchToTab_を呼ぶ際に、戻った先をさらに履歴に積んでしまわない
   // ようにするためのフラグ。
   function switchToTab_(tabName, opts) {
     opts = opts || {};
@@ -565,26 +558,12 @@
       state.navHistory.push(current);
       syncNavButtons_();
     }
-    // ホームに戻ったら、在庫リストの検索条件を毎回リセットして「全在庫表示」の
-    // 状態に戻す。在庫リストで検索・絞り込みをしたまま他の画面へ移動すると、
-    // 次に在庫リストを開いたときに検索前のことを忘れて古い絞り込み条件のまま
-    // 表示されてしまう混乱を防ぐため。
-    if (tabName === 'home' && current !== 'home') {
-      resetInventoryFilters_();
-    }
     document.querySelectorAll('.tabs__item').forEach(function (t) { t.classList.toggle('is-active', t.dataset.tab === tabName); });
     document.querySelectorAll('main.view').forEach(function (v) { v.classList.remove('is-active'); });
     $('view-' + tabName).classList.add('is-active');
-    // ホームタブの間だけ、PCビューの共通トップバーを非表示にし（Stylesheet.html
-    // 参照）、代わりにホーム画面自身の結合ヘッダー（#homeCombinedHeader、
-    // アプリ名見出し・型クイックナビ・戻る／更新ボタンをまとめて持つ）を使う。
-    // トップバーが非表示になるとoffsetHeightが0になるため、直後の
-    // syncFixedBars_()が--topbar-hを自動的に0へ更新し、#appの上余白も連動して
-    // 詰まる（手動での余白調整は不要）。
-    document.body.classList.toggle('is-home-tab', tabName === 'home');
     // 全タブは同じ1つのdocument上でdisplay: none/blockを切り替えているだけの
-    // ため、スクロール位置はタブをまたいで共有されてしまう（例: ホームで
-    // スクロールした状態でモデルをクリックすると、在庫リストも同じスクロール
+    // ため、スクロール位置はタブをまたいで共有されてしまう（例: 在庫リストで
+    // スクロールした状態で他のタブへ移動すると、次のタブも同じスクロール
     // 位置のまま表示され、ツールバー等が見えない状態で開いてしまう）。
     // タブ切替のたびに常に一番上から表示されるよう、ページ全体を先頭へ
     // スクロールする。
@@ -592,13 +571,6 @@
     // 非表示（display: none）だった間はツールバーの実測高さが0になっているため、
     // 表示状態に切り替わった直後に再計測してスペーサーの高さを補正する。
     syncFixedBars_();
-  }
-
-  function resetInventoryFilters_() {
-    $('inventoryKeyword').value = '';
-    $('inventoryIncludeHold').checked = true;
-    state.homeModelFilter = null;
-    loadInventory();
   }
 
   on('mainTabs','click', function (e) {
@@ -618,16 +590,9 @@
     switchToTab_(btn.dataset.tab);
   });
 
-  // 「戻る」「更新」ボタンは、共通トップバー側（#btnNavBack/#btnRefresh）と
-  // ホーム画面・右パネル自身のヘッダー側（#btnNavBackHome/#btnRefreshHome）の
-  // 2箇所に存在する（PCビューではホームタブの間だけ共通トップバーを隠し、
-  // 右パネル側のボタンに役目を譲るため。Index.html・Stylesheet.html参照）。
-  // どちらも同じ処理を呼ぶ共通ハンドラにし、有効/無効state・スピナー表示も
-  // 両方に同時に反映する。
   function syncNavButtons_() {
     var disabled = state.navHistory.length === 0;
     $('btnNavBack').disabled = disabled;
-    $('btnNavBackHome').disabled = disabled;
   }
 
   function handleNavBackClick_() {
@@ -637,10 +602,9 @@
     syncNavButtons_();
   }
   on('btnNavBack','click', handleNavBackClick_);
-  on('btnNavBackHome','click', handleNavBackClick_);
 
   function handleRefreshClick_() {
-    var btns = [$('btnRefresh'), $('btnRefreshHome')];
+    var btns = [$('btnRefresh')];
     btns.forEach(function (b) { b.disabled = true; b.classList.add('is-spinning'); });
     reloadAll_().then(function () {
       showToast('最新の情報に更新しました');
@@ -651,7 +615,6 @@
     });
   }
   on('btnRefresh','click', handleRefreshClick_);
-  on('btnRefreshHome','click', handleRefreshClick_);
 
   // ===== モーダル共通 =====
   document.querySelectorAll('[data-close-modal]').forEach(function (btn) {
@@ -701,17 +664,8 @@
       keyword: $('inventoryKeyword').value,
       includeHold: $('inventoryIncludeHold').checked
     };
-    // ホームのモデル写真タイルクリックによる絞り込み（state.homeModelFilter、
-    // handleHomeModelClick_参照）は、利用者が検索キーワードを自分で入力した
-    // 時点で解除する（意図しない絞り込みが残り続けないようにするため）。
-    if (filters.keyword && filters.keyword.trim()) {
-      state.homeModelFilter = null;
-    }
     return gasRun('api_listInventory', filters).then(function (groups) {
       var items = (groups && groups[0] && groups[0].items) || [];
-      if (state.homeModelFilter) {
-        items = items.filter(function (v) { return state.homeModelFilter.indexOf(v.model) !== -1; });
-      }
       state.inventoryItems = items;
       renderInventory();
     }).catch(function (err) { showToast(err.message, true); });
@@ -1689,7 +1643,7 @@
       closeModal($('cancelHoldModal'));
       showToast('Holdを解除しました');
       loadInventory();
-      loadHomeModelCounts_();
+      loadAllInventoryItems_();
     }).catch(function (err) {
       setButtonBusy(btn, false);
       errEl.textContent = err.message;
@@ -1734,7 +1688,7 @@
       showToast('受注をキャンセルし、在庫リストへ戻しました');
       loadInventory();
       loadOrders();
-      loadHomeModelCounts_();
+      loadAllInventoryItems_();
     }).catch(function (err) {
       setButtonBusy(btn, false);
       errEl.textContent = err.message;
@@ -1780,7 +1734,7 @@
       showToast('業販受注をキャンセルし、在庫リストへ戻しました');
       loadInventory();
       loadWholesaleOrders();
-      loadHomeModelCounts_();
+      loadAllInventoryItems_();
     }).catch(function (err) {
       setButtonBusy(btn, false);
       errEl.textContent = err.message;
@@ -1827,7 +1781,7 @@
     closeModal($('actionModal'));
     showCelebration_(state.action.type);
     loadInventory();
-    loadHomeModelCounts_();
+    loadAllInventoryItems_();
     if (ORDER_TYPES.indexOf(state.action.type) !== -1) loadOrders();
     if (state.action.type === 'orderFromHold' && state.action.holdType === 'wholesale') loadWholesaleOrders();
   }
@@ -2250,18 +2204,16 @@
 
   // ===== 設定 =====
   function renderSettings(settings) {
-    // システムマスタ（ロゴ・モデル写真・メール通知設定・担当者）は、コード上の
+    // システムマスタ（ロゴ・メール通知設定・担当者）は、コード上の
     // SYSTEM_ADMIN_EMAILS（Constants.gs）に登録された利用者のみに表示する。
     // サーバー側（Api.gs）でも非管理者の設定値は既に空にリダクトされているため
-    // （ロゴ・モデル写真は全利用者に表示する必要があるデータのため例外）、
+    // （ロゴは全利用者に表示する必要があるデータのため例外）、
     // ここではUI上の表示・非表示のみを制御する（実データの保護自体はサーバー側で行っている）。
     var isAdmin = !!(state.bootstrap && state.bootstrap.isSystemAdmin);
     $('systemMasterGroupTitle').classList.toggle('hidden', !isAdmin);
     $('systemMasterSpreadsheetTitleCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterAppTitleCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterLogoCard').classList.toggle('hidden', !isAdmin);
-    $('systemMasterAnnouncementCard').classList.toggle('hidden', !isAdmin);
-    $('systemMasterModelPhotosCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterNotifyCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterStaffCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterCelebrationCard').classList.toggle('hidden', !isAdmin);
@@ -2289,9 +2241,6 @@
     applyAppTitle_(settings.appTitle);
     $('logoUrlMax').textContent = (state.bootstrap && state.bootstrap.logoUrlMax) || 1500;
     $('settingsLogoUrl').value = settings.logoUrl || '';
-    $('homeAnnouncementMax').textContent = (state.bootstrap && state.bootstrap.homeAnnouncementMax) || 60;
-    $('settingsHomeAnnouncement').value = settings.homeAnnouncement || '';
-    renderHomeAnnouncement_(settings.homeAnnouncement || '');
     state.notifyHoldMailTo = (settings.notifyHoldMailTo || []).slice();
     state.notifyOrderMailTo = (settings.notifyOrderMailTo || []).slice();
     state.notifyErrorMailTo = (settings.notifyErrorMailTo || []).slice();
@@ -2314,13 +2263,6 @@
     populateOrdersLocationFilter_();
     populateStaffFilter_('wholesaleOrdersStaffFilter');
     populateLocationFilter_('wholesaleOrdersLocationFilter');
-
-    state.modelPhotos = (settings.modelPhotos || []).map(function (p) {
-      return { model: p.model || '', photoUrl: p.photoUrl || '', gradePrefix: p.gradePrefix || '', gradeMarker: p.gradeMarker || '', bodyType: p.bodyType || '' };
-    });
-    $('modelPhotosMax').textContent = (state.bootstrap && state.bootstrap.modelPhotosMax) || 40;
-    renderModelPhotoList_();
-    renderHomeGallery_();
   }
 
   /**
@@ -2438,7 +2380,7 @@
   });
 
   /**
-   * テーマプリセット（--primary系・--card-bg・--sidebar-bg系）を一括で適用する。
+   * テーマプリセット（--primary系・--sidebar-bg系）を一括で適用する。
    * 以前は1色から比率計算で派生色を導出していたが、色相・彩度によって必要な
    * 明暗の差が異なりコントラスト比を一定に保てなかったため、プリセットごとに
    * 個別にコントラスト比を検証済みの色を直接使う（Constants.gsのTHEME_PRESETS参照）。
@@ -2453,10 +2395,6 @@
     root.setProperty('--primary-text', preset.primaryText);
     var rgb = hexToRgb_(preset.primary);
     root.setProperty('--primary-bg', rgb ? 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',.18)' : preset.primary);
-    // ホーム画面のカード背景（--card-bg、PCビューのみ・Stylesheet.html参照）は、
-    // --primary-bgよりさらに薄く（6%）テーマカラーを帯びさせ、ページ背景・
-    // 写真プレースホルダーのどちらとも見分けがつく程度に留める。
-    root.setProperty('--card-bg', rgb ? 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',.06)' : preset.primary);
     // 起動時ローディング画面（.appLoading、Stylesheet.html参照）の背景も、選択中の
     // テーマのprimaryDarkに合わせる（現場からの要望で、テーマを切り替えると
     // ローディング画面の背景色も連動して変わるようにしている）。
@@ -2542,7 +2480,7 @@
   function applyAppTitle_(appTitle) {
     var title = appTitle || DEFAULT_APP_TITLE;
     document.title = title;
-    [$('sidebarBrandText'), $('topbarBrandText'), $('homeCombinedHeaderTitle')].forEach(function (el) {
+    [$('sidebarBrandText'), $('topbarBrandText')].forEach(function (el) {
       el.textContent = title;
     });
   }
@@ -2780,95 +2718,8 @@
     renderStaffList();
   });
 
-  // ===== モデル写真（ホーム画面） =====
-  /**
-   * Googleドライブの共有リンクを直接画像URLに変換する（純粋関数）。
-   * SettingsService.gsのnormalizeModelPhotoUrl_と同じロジックで、設定画面の
-   * プレビューを保存前から正しく表示するために使う（実際に保存される値は
-   * サーバー側のnormalizeModelPhotoUrl_で変換される）。
-   */
-  function normalizeModelPhotoUrl_(url) {
-    url = String(url || '').trim();
-    if (!url || !/drive\.google\.com|docs\.google\.com/.test(url)) return url;
-    var match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-    if (!match) return url;
-    return 'https://lh3.googleusercontent.com/d/' + match[1] + '=w1000';
-  }
-
-  function renderModelPhotoList_() {
-    var container = $('modelPhotoList');
-    $('modelPhotosCount').textContent = state.modelPhotos.length;
-    if (!state.modelPhotos.length) {
-      container.innerHTML = '<div class="modelPhotoList__empty">モデル写真が登録されていません</div>';
-    } else {
-      var bodyTypeOptions = (state.bootstrap && state.bootstrap.modelBodyTypeOptions) || [];
-      container.innerHTML = state.modelPhotos.map(function (entry, i) {
-        var preview = entry.photoUrl
-          ? '<img src="' + escapeHtml(normalizeModelPhotoUrl_(entry.photoUrl)) + '" alt="">'
-          : '<span class="logoPreview__placeholder">写真</span>';
-        var bodyTypeSelectHtml = '<select class="input" data-photo-index="' + i + '" data-photo-field="bodyType">' +
-          '<option value="">型：未設定</option>' +
-          bodyTypeOptions.map(function (t) {
-            return '<option value="' + escapeHtml(t) + '"' + (entry.bodyType === t ? ' selected' : '') + '>' + escapeHtml(t) + '</option>';
-          }).join('') +
-          '</select>';
-        return '<div class="modelPhotoList__row" data-drag-index="' + i + '">' +
-          '<span class="dragHandle" draggable="true" aria-label="ドラッグして並び替え">⠿</span>' +
-          '<div class="modelPhotoList__preview">' + preview + '</div>' +
-          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="model" placeholder="表示名（例: Cクラス）" value="' + escapeHtml(entry.model || '') + '">' +
-          bodyTypeSelectHtml +
-          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="gradePrefix" placeholder="先頭の文字列（例: C）" value="' + escapeHtml(entry.gradePrefix || '') + '">' +
-          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="gradeMarker" placeholder="含む文字列（例: T）" value="' + escapeHtml(entry.gradeMarker || '') + '">' +
-          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="photoUrl" placeholder="写真URL" value="' + escapeHtml(entry.photoUrl || '') + '">' +
-          '<button class="btn btn--icon" data-remove-photo="' + i + '" type="button" aria-label="削除">&times;</button>' +
-          '</div>';
-      }).join('');
-    }
-    var max = (state.bootstrap && state.bootstrap.modelPhotosMax) || 40;
-    $('btnAddModelPhoto').disabled = state.modelPhotos.length >= max;
-  }
-
-  on('modelPhotoList','input', function (e) {
-    var index = e.target.dataset.photoIndex;
-    var field = e.target.dataset.photoField;
-    if (index === undefined || !field) return;
-    state.modelPhotos[Number(index)][field] = e.target.value;
-    if (field === 'photoUrl') {
-      // プレビュー画像はURL入力のたびに更新する（1文字ごとに全体を再描画すると
-      // 入力中のフォーカスが失われるため、対象行のプレビューだけ差し替える）。
-      var row = e.target.closest('.modelPhotoList__row');
-      var preview = row.querySelector('.modelPhotoList__preview');
-      var url = e.target.value.trim();
-      preview.innerHTML = url
-        ? '<img src="' + escapeHtml(normalizeModelPhotoUrl_(url)) + '" alt="">'
-        : '<span class="logoPreview__placeholder">写真</span>';
-    }
-  });
-
-  on('modelPhotoList','click', function (e) {
-    var btn = e.target.closest('[data-remove-photo]');
-    if (!btn) return;
-    state.modelPhotos.splice(Number(btn.dataset.removePhoto), 1);
-    renderModelPhotoList_();
-  });
-
-  on('btnAddModelPhoto','click', function () {
-    var max = (state.bootstrap && state.bootstrap.modelPhotosMax) || 40;
-    if (state.modelPhotos.length >= max) return;
-    state.modelPhotos.push({ model: '', photoUrl: '', gradePrefix: '', gradeMarker: '', bodyType: '' });
-    renderModelPhotoList_();
-    var inputs = document.querySelectorAll('#modelPhotoList [data-photo-field="model"]');
-    if (inputs.length) inputs[inputs.length - 1].focus();
-  });
-
-  makeReorderable_($('modelPhotoList'), function (from, to) {
-    var moved = state.modelPhotos.splice(from, 1)[0];
-    state.modelPhotos.splice(to, 0, moved);
-    renderModelPhotoList_();
-  });
-
   // ----- メール通知先（Hold時／受注確定時／システムエラー通知の3項目）。
-  //       以前は「,区切りの1つのテキスト欄」だったが、担当者マスタ・モデル写真と
+  //       以前は「,区切りの1つのテキスト欄」だったが、担当者マスタと
   //       同じ「1行1件のリスト形式（追加・削除・ドラッグでの並び替え）」に統一した。
   //       3項目とも見た目・挙動が同じため、フィールド名とDOM要素IDの組だけを
   //       MAIL_FIELDSに列挙し、共通の関数で描画・イベント登録する。 -----
@@ -2935,397 +2786,28 @@
     MAIL_FIELDS.forEach(renderMailList_);
   }
 
-  // ===== ホーム画面（実務重視リスト型） =====
-  // モデル写真をクリックすると、在庫リストへ切り替えたうえで、そのモデル名を
-  // キーワード検索欄に入れて再検索する（searchInventory はモデル名の部分一致に
-  // 対応済みのため、サーバー側の変更は不要）。写真は小さめのサムネイルにとどめ、
-  // モデル名と在庫台数を横一列で見せることで、日常的に使う社内ツールとしての
-  // 情報密度を優先する（見た目の華やかさより、パッと見て台数がわかることを重視）。
   /**
-   * 型番（在庫リストのMODEL列の値。例:「C200」「C43T」「CLA18」「GLC2DC」）の
-   * 先頭にあるアルファベットの連続部分だけを取り出す（純粋関数）。Mercedes系の
-   * 型番は「クラス名（アルファベット）＋グレード番号（数字）＋任意のサフィックス」
-   * という構成のため、これでクラス名部分（「C」「CLA」「GLC」等）を正確に切り出せる。
+   * マイページ（Hold中の車両一覧）専用に、フィルタ無しで在庫リストを取得する。
+   * 在庫リストのツールバー（検索キーワード等）の状態に関わらず、常に全件から
+   * Hold中の車両を拾えるようにするため、state.inventoryItems（ツールバーの
+   * 検索条件に連動）とは別に保持する。補助的な表示のため、取得に失敗しても
+   * トースト等では知らせず、表示を省略するに留める。
    */
-  function leadingAlphaPrefix_(modelValue) {
-    var m = String(modelValue || '').match(/^[A-Za-z]+/);
-    return m ? m[0] : '';
-  }
-
-  /**
-   * 在庫リストの「MODEL」列の値（型番。例:「C200」「C220d」「C18T」「C18TZ」
-   * 「CLA18」「CLA18T」）に対する、指定エントリの自動判定条件の「具体性スコア」を
-   * 計算する（純粋関数）。条件を満たさない場合は-1（不一致）。
-   *
-   * 不具合修正: 以前はgradePrefixを単純な前方一致（modelValue.indexOf(prefix)===0）で
-   * 判定していたため、先頭の文字列を「C」と登録すると、文字として「C」で始まる
-   * 「CLA18」「CLA18T」まで誤って一致してしまい、「C20」（Cクラス）と「CLA18」
-   * （CLAクラス）を区別できなかった（現場からの指摘）。gradePrefixは、型番先頭の
-   * アルファベット連続部分（leadingAlphaPrefix_）と「完全一致」（大文字小文字は
-   * 区別しない）した場合のみ一致とすることで、「C」は「C」で始まりかつクラス名が
-   * ちょうど「C」である型番（C20・C43T等）だけに一致し、クラス名が「CLA」である
-   * 型番（CLA18・CLA18T等）には一致しないようにする。
-   *
-   * gradeMarker（含む文字列）は、プレフィックスを除いた残りの部分に「その文字列が
-   * どこかに含まれていれば」一致とする（大文字小文字は区別しない。「C220d」の
-   * ディーゼル記号のような小文字表記にも対応するため）。例えば「T」を登録すれば、
-   * 「C18T」「C18TZ」「C63T」のように途中・末尾どこにTがあっても優先的に一致し、
-   * 同じ「Tが付くグレード」を1枚の写真にまとめられる。gradeMarkerが異なれば
-   * （例:「T」と「D」）互いに一致しないため、Tのグループ・Dのグループは区別される。
-   * 「CLA18」（残りが「18」）と「CLA18T」（残りが「18T」）のような、片方がもう片方に
-   * 文字を継ぎ足しただけの別車両を区別したい場合は、gradeMarkerを「T」のように
-   * 設定すれば、Tを含まない「CLA18」は受け皿（gradeMarker未設定）の側に、Tを含む
-   * 「CLA18T」はgradeMarker「T」の側に、それぞれ自動的に振り分けられる。
-   *
-   * 条件を満たす場合のスコアは、gradeMarkerを設定していれば大きく加点したうえで
-   * gradeMarkerの文字数も加える（gradeMarker設定済みのエントリを、同じgradePrefixを
-   * 持つ未設定のエントリより優先し、gradeMarker同士では、より長い＝具体的な文字列を
-   * 持つ方を優先する。例えば「T」と「18T」の両方が「C18T」に一致しうる場合、より
-   * 具体的な「18T」の登録を優先し、「T」側には重複してカウントしない）。
-   */
-  function gradeRuleSpecificity_(modelValue, entry) {
-    if (!entry.gradePrefix || !modelValue) return -1;
-    if (leadingAlphaPrefix_(modelValue).toLowerCase() !== entry.gradePrefix.toLowerCase()) return -1;
-    if (entry.gradeMarker) {
-      var remainder = modelValue.slice(entry.gradePrefix.length);
-      if (remainder.toLowerCase().indexOf(entry.gradeMarker.toLowerCase()) === -1) return -1;
-      return 10000 + entry.gradePrefix.length + entry.gradeMarker.length;
-    }
-    return entry.gradePrefix.length;
-  }
-
-  /**
-   * 在庫リストの「MODEL」列の値が、指定エントリの自動判定条件に一致するかどうかを
-   * 判定する（純粋関数）。同じ値に複数のエントリの条件が一致しうる場合
-   * （例:「C18T」はgradePrefix「C」（gradeMarker無し・受け皿）の行にも、
-   * gradePrefix「C」+gradeMarker「T」（含む文字列）の行にも一致する）、
-   * gradeRuleSpecificity_で最もスコアの高い（＝最も具体的な条件の）エントリだけが
-   * その値を拾い、他のエントリには重複してカウントされないようにする。
-   */
-  function matchesGradeRule_(modelValue, entry, allEntries) {
-    var score = gradeRuleSpecificity_(modelValue, entry);
-    if (score < 0) return false;
-    var isMostSpecific = !(allEntries || []).some(function (other) {
-      return other !== entry && gradeRuleSpecificity_(modelValue, other) > score;
-    });
-    return isMostSpecific;
-  }
-
-  /**
-   * モデル1件分の在庫台数を集計する（純粋関数）。gradePrefixが設定されている
-   * 場合は、在庫リストに実際にある型番のうちmatchesGradeRule_に一致するものを
-   * 自動的に拾い集めて数える（型番を手入力で列挙する必要がない）。
-   * gradePrefixが未設定の場合は、モデル名そのものを在庫リストのMODEL列と直接
-   * 照合する（従来どおり、グレードの概念を使わない単一モデルの車種向けの
-   * フォールバック）。
-   */
-  function modelCountForEntry_(entry, allItems, allModelPhotos) {
-    if (!entry.gradePrefix) {
-      return allItems.filter(function (v) { return v.model === entry.model; }).length;
-    }
-    return allItems.filter(function (v) { return matchesGradeRule_(v.model, entry, allModelPhotos); }).length;
-  }
-
-  /**
-   * モデル1件分の自動判定条件に一致する、在庫リストに実際にある型番の一覧を
-   * 重複なく返す（純粋関数）。ホームのタイル・カードをクリックした際、その
-   * 条件に一致する車両だけへ在庫リストを絞り込むために使う
-   * （state.homeModelFilter、on('homeGrid','click', ...)参照）。
-   */
-  function matchedModelsForEntry_(entry, allItems, allModelPhotos) {
-    if (!entry.gradePrefix) return [entry.model];
-    var seen = {};
-    var result = [];
-    allItems.forEach(function (v) {
-      if (!matchesGradeRule_(v.model, entry, allModelPhotos)) return;
-      if (seen[v.model]) return;
-      seen[v.model] = true;
-      result.push(v.model);
-    });
-    return result;
-  }
-
-  /**
-   * ホーム画面の在庫台数表示（純粋関数）。0台の場合は数字の「在庫0台」ではなく
-   * 「在庫がありません」という文言にし、在庫が無いことをひと目でわかるようにする
-   * （モデル一覧の行・右ペインの合計台数・グレードカードのいずれからも呼ぶ）。
-   */
-  function homeStockCountText_(total) {
-    return total === 0 ? '在庫がありません' : '在庫' + total + '台';
-  }
-
-  /**
-   * モデル写真1件分のタイルのHTML。renderHomeGallery_から呼び出す。
-   *
-   * gradePrefixを設定したモデル（実際に複数の型番をまとめて管理している場合）は、
-   * タップすると即座に在庫リストへ遷移するのではなく、PCビューの
-   * .homeCard__gradeGrid相当のグレード一覧（名前＋在庫数のボタン）をタイルの
-   * 直下にインライン展開する（現場の要望「スマホビューでもPCビューのように
-   * グレードと台数を表示してボタンで在庫へ飛べるように」）。展開中かどうかは
-   * state.homeExpandedModel（単一のモデル名。同時に複数展開はしないアコーディオン
-   * 方式）で管理し、同じタイルを再度タップすると閉じる
-   * （on('homeGrid','click', ...)参照）。グレードが無い（gradePrefix未設定、または
-   * 実在庫が0型番）モデルは、従来どおりタップで即座に在庫リストへ遷移する。
-   * 展開時の見た目（.is-expanded・.homeGradeTabsのインデント表示）は、元の新車
-   * 注文アプリ由来の未使用CSSをそのまま流用している（Stylesheet.html参照）。
-   */
-  function homeModelTileHtml_(p, allItems, allModelPhotos) {
-    var grades = matchedModelsForEntry_(p, allItems, allModelPhotos);
-    var total = modelCountForEntry_(p, allItems, allModelPhotos);
-    // PCビューのhomeModelCardHtml_と同じ判定基準（gradePrefix設定済みかつ
-    // 実在庫の型番が1つ以上あれば、1グレードのみでもグレード表示の対象にする）。
-    var hasGrades = !!p.gradePrefix && grades.length > 0;
-    var isExpanded = hasGrades && state.homeExpandedModel === p.model;
-    // 900px以下のリスト表示では以前と同じ位置（モデル名の右）に見せるため、
-    // CSS側の.homeRow__footerがそのままメタ情報行としても機能する
-    // （Stylesheet.html参照）。
-    var chevronHtml = '<span class="homeRow__chevron homeRow__chevron--nav">→</span>';
-    // ヘッダー（モデル名）→写真→フッター（在庫台数＋矢印）の3ブロック構成。
-    // PCビューでは縦に積んだ「カードタイプUI」（写真は白背景のカード内に収める）、
-    // 900px以下ではCSSのorderで横一列のリスト型に組み替える（Stylesheet.html参照。
-    // どちらも同じDOM構造をCSSだけで作り分けている）。タップすると、グレードが
-    // あるモデルはグレード一覧をインライン展開し（下記）、無ければこの写真の
-    // 自動判定条件（gradePrefix・gradeMarker、無ければモデル名の完全一致）に
-    // 一致する車両だけに絞り込んだ在庫リストへ即座に遷移する
-    // （handleHomeModelClick_参照）。
-    var rowHtml = '<button type="button" class="homeRow' + (isExpanded ? ' is-expanded' : '') +
-      '" data-home-model="' + escapeHtml(p.model) + '"' +
-      (hasGrades ? ' data-home-has-grades="1"' : '') + '>' +
-      '<div class="homeRow__header">' +
-      '<div class="homeRow__model">' + escapeHtml(p.model) + '</div>' +
-      '</div>' +
-      '<div class="homeRow__photo"><img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '"></div>' +
-      '<div class="homeRow__footer">' +
-      '<span class="badge badge--count' + (total === 0 ? ' badge--count--zero' : '') + '">' +
-      homeStockCountText_(total) + '</span>' +
-      chevronHtml +
-      '</div>' +
-      '</button>';
-
-    if (!isExpanded) return rowHtml;
-
-    var gradeTabsHtml = '<div class="homeGradeTabs">' +
-      '<div class="homeGradeTabs__label">グレードを選択</div>' +
-      '<div class="homeGradeTabs__list">' + grades.map(function (gradeModel) {
-        var count = allItems.filter(function (v) { return v.model === gradeModel; }).length;
-        var zero = count === 0;
-        return '<button type="button" class="homeGradeTab"' +
-          (zero ? ' disabled' : ' data-home-grade="' + escapeHtml(gradeModel) + '"') + '>' +
-          '<span>' + escapeHtml(gradeModel) + '</span>' +
-          '<span class="homeGradeTab__count' + (zero ? ' homeGradeTab__count--zero' : '') + '">' + count + '台</span>' +
-          '</button>';
-      }).join('') + '</div>' +
-      '</div>';
-
-    return rowHtml + gradeTabsHtml;
-  }
-
-  /**
-   * ホーム画面上部の型クイックナビ（#homeTypeNav、現場の要望「モデルカードの
-   * 上に型のボタンを横一列に配置し、押すとその型のモデルだけを表示する」）。
-   * 「すべて」＋設定タブのモデル写真で選べる型（MODEL_BODY_TYPE_OPTIONS、
-   * Constants.gs）を、登録状況に関わらず常に同じ並びで表示する（型を1件も
-   * 割り当てていない運用開始直後でも迷わないよう、固定の選択肢にしている）。
-   * クリックするとstate.homeBodyTypeFilterを更新し、renderHomeGallery_を
-   * 呼び直してモデル一覧を絞り込む。
-   */
-  function renderHomeTypeNav_() {
-    var options = (state.bootstrap && state.bootstrap.modelBodyTypeOptions) || [];
-    var current = state.homeBodyTypeFilter;
-    var itemsHtml = '<button type="button" class="homeTypeNav__item' + (!current ? ' is-active' : '') +
-      '" data-home-type="">すべて</button>' +
-      options.map(function (t) {
-        return '<button type="button" class="homeTypeNav__item' + (current === t ? ' is-active' : '') +
-          '" data-home-type="' + escapeHtml(t) + '">' + escapeHtml(t) + '</button>';
-      }).join('');
-    $('homeTypeNav').innerHTML = itemsHtml;
-    $('homeTypeNav').classList.remove('hidden');
-  }
-
-  on('homeTypeNav','click', function (e) {
-    var btn = e.target.closest('[data-home-type]');
-    if (!btn) return;
-    state.homeBodyTypeFilter = btn.dataset.homeType || null;
-    renderHomeGallery_();
-  });
-
-  /**
-   * 中古車は1台ごとに個体差があるため、グレードタブへの展開は行わず、登録された
-   * モデル写真をそのままフラットに並べるだけのシンプルな構成にしている。タップ
-   * すると、その写真の自動判定条件（gradePrefix・gradeMarker）に一致する車両
-   * だけに絞り込んだ在庫リストへ遷移する（handleHomeModelClick_参照）。
-   * 上部の型クイックナビ（renderHomeTypeNav_、state.homeBodyTypeFilter）で型を
-   * 選択している場合は、その型（bodyType）が一致するモデル写真だけに絞り込む
-   * （1件もモデル写真が登録されていない場合は#homeEmptyを、型は登録されている
-   * が選択した型に一致するモデルが無い場合は#homeTypeEmptyを表示する）。
-   */
-  function renderHomeGallery_() {
-    var allModelPhotos = state.modelPhotos || [];
-    renderHomeTypeNav_();
-    var modelPhotos = state.homeBodyTypeFilter
-      ? allModelPhotos.filter(function (p) { return p.bodyType === state.homeBodyTypeFilter; })
-      : allModelPhotos;
-    $('homeEmpty').classList.toggle('hidden', allModelPhotos.length > 0);
-    $('homeTypeEmpty').classList.toggle('hidden', !(allModelPhotos.length > 0 && modelPhotos.length === 0));
-    var allItems = state.allInventoryItems || [];
-    if (isPcHomeLayout_()) {
-      // PCビューは、サイドバー＋1本のカードグリッド（3枚1行）というシンプルな構成
-      // にしたため（Index.html参照）、各カードに写真・在庫台数をタップ・クリック
-      // なしで見える形で埋め込む（homeModelCardHtml_参照）。
-      $('homeGrid').innerHTML = modelPhotos
-        .map(function (p) { return homeModelCardHtml_(p, allItems, allModelPhotos); })
-        .join('');
-    } else {
-      // タブレット・スマホ幅は横一列のリスト型（.homeTypeRow）で並べる。
-      $('homeGrid').innerHTML = modelPhotos.length
-        ? '<div class="homeTypeRow">' + modelPhotos.map(function (p) { return homeModelTileHtml_(p, allItems, allModelPhotos); }).join('') + '</div>'
-        : '';
-    }
-    equalizeHomeCardHeights_();
-    // #homeCombinedHeaderはposition: fixedのため、表示・非表示の切り替えや
-    // 折り返し行数の変化（モデル写真の登録数が変わる等）で高さが変わりうる。
-    // そのたびにスペーサーの高さも実測し直さないと、後続のモデル一覧との間隔が
-    // ずれてしまう。
-    syncFixedBars_();
-  }
-
-  /**
-   * PCビュー（901px以上）かどうかを判定する（純粋な画面幅の判定。サイドバー＋
-   * 1本のカードグリッドという構成はこの幅でのみ有効にしている。Stylesheet.htmlの
-   * @media (min-width: 901px)と同じブレークポイント）。
-   */
-  function isPcHomeLayout_() {
-    return window.matchMedia('(min-width: 901px)').matches;
-  }
-
-  /**
-   * PCビューのホームカードグリッドは、グレードチップの有無・件数によってカードごとの
-   * 自然な高さが異なる（グレードの無いモデルは短く、グレードの多いモデルは長い）。
-   * CSS Gridの既定（align-items: stretch）では同じ行の中でしか高さが揃わないため、
-   * 行をまたぐと（例:グレードの多いモデルが1行目、無いモデルが2行目）カードの
-   * 大きさがバラついて見えてしまっていた（現場からの指摘「モデルカードサイズは
-   * 均等にしてください（在庫のないモデルもあるモデルに）」）。全カードの実際の
-   * 高さのうち最大値を測り、全カードのmin-heightとして揃えることで、行をまたいでも
-   * 見た目の大きさが常に一致するようにする（renderHomeGallery_の末尾・resize時に
-   * 呼ぶ）。
-   */
-  function equalizeHomeCardHeights_() {
-    if (!isPcHomeLayout_()) return;
-    var cards = document.querySelectorAll('#homeGrid .homeCard');
-    if (!cards.length) return;
-    var maxHeight = 0;
-    cards.forEach(function (c) {
-      c.style.minHeight = '';
-      maxHeight = Math.max(maxHeight, c.getBoundingClientRect().height);
-    });
-    cards.forEach(function (c) { c.style.minHeight = maxHeight + 'px'; });
-  }
-
-  /**
-   * PCビューのホーム画面カード1件分のHTML（renderHomeGallery_から呼ぶ）。
-   * 写真・モデル名・在庫台数バッジをタップ・クリックなしでカード自体に表示する。
-   *
-   * グレード（gradePrefix・gradeMarker、SettingsService.gs参照）で複数の型番を
-   * まとめて登録している場合は、型番ごとの在庫数を横並びのチップ（.homeCard__gradeGrid、
-   * 現場の要望「モデルカード上部に型の一覧を横並びで、ボタンで対象の車両のみ表示」）で
-   * 表示し、チップ単体をクリックするとその型番だけに絞り込んだ在庫リストへ遷移する
-   * （data-home-grade、on('homeGrid','click', ...)参照）。この場合、カード全体では
-   * なく車両写真をクリックしたときに、そのモデルの全グレードへ絞り込んだ在庫リストへ
-   * 遷移する（data-home-model）。
-   * gradePrefix未設定（グレードという概念自体を使わない、1台ずつ個別登録した
-   * モデル）の場合は、チップの一覧を出さず、従来どおりカード全体をクリック対象にする。
-   * gradePrefixを設定している場合は、実在庫が1型番のみ（グレードが実質1種類）でも
-   * チップを1件表示する（現場からの要望。グレード数によって見た目が変わらないよう
-   * 統一する）。実在庫が0型番（マッチする車両が無い）の場合はチップを出しようが
-   * ないため、この場合のみグレード無し扱いにする。
-   * どちらの場合も、対象の在庫が0台なら（在庫のないモデル・グレードを押しても在庫
-   * リストへ遷移してしまわないよう）クリック対象にしない（現場からの指摘）。
-   */
-  function homeModelCardHtml_(p, allItems, allModelPhotos) {
-    var grades = matchedModelsForEntry_(p, allItems, allModelPhotos);
-    var total = modelCountForEntry_(p, allItems, allModelPhotos);
-    var hasGrades = !!p.gradePrefix && grades.length > 0;
-    var canNavigateAll = total > 0;
-    var stockClass = 'badge badge--stock' + (total === 0 ? ' badge--stock--zero' : '');
-    var stockHtml = '<span class="' + stockClass + '">' + homeStockCountText_(total) + '</span>';
-
-    var gradeGridHtml = '';
-    if (hasGrades) {
-      gradeGridHtml = '<div class="homeCard__gradeGrid">' + grades.map(function (gradeModel) {
-        var count = allItems.filter(function (v) { return v.model === gradeModel; }).length;
-        var zero = count === 0;
-        return '<button type="button" class="homeCard__gradeChip"' +
-          (zero ? ' disabled' : ' data-home-grade="' + escapeHtml(gradeModel) + '"') + '>' +
-          '<span class="homeCard__gradeName">' + escapeHtml(gradeModel) + '</span>' +
-          '<span class="homeCard__gradeCount' + (zero ? ' homeCard__gradeCount--zero' : '') + '">' + count + '台</span>' +
-          '</button>';
-      }).join('') + '</div>';
-    }
-
-    var photoInner = '<img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '">' + stockHtml;
-    var photoHtml;
-    if (hasGrades) {
-      photoHtml = canNavigateAll
-        ? '<div class="homeCard__photo homeCard__photo--clickable" role="button" tabindex="0" data-home-model="' + escapeHtml(p.model) + '">' + photoInner + '</div>'
-        : '<div class="homeCard__photo">' + photoInner + '</div>';
-    } else {
-      // グレードが無いモデルはカード全体がクリック対象のため、写真自体には属性を付けない。
-      photoHtml = '<div class="homeCard__photo">' + photoInner + '</div>';
-    }
-
-    var cardClickable = !hasGrades && canNavigateAll;
-    var cardClass = 'homeCard' + (cardClickable ? ' homeCard--clickable' : '');
-    var cardAttrs = cardClickable ? ' role="button" tabindex="0" data-home-model="' + escapeHtml(p.model) + '"' : '';
-
-    var typeHtml = p.bodyType ? '<span class="homeCard__type">' + escapeHtml(p.bodyType) + '</span>' : '';
-
-    return '<div class="' + cardClass + '"' + cardAttrs + '>' +
-      photoHtml +
-      '<div class="homeCard__body">' +
-      '<div class="homeCard__headRow"><span class="homeCard__model">' + escapeHtml(p.model) + '</span>' + typeHtml + '</div>' +
-      gradeGridHtml +
-      '</div>' +
-      '</div>';
-  }
-
-  /**
-   * ホーム画面の「販売可能リスト」の文字の上に表示するお知らせ（管理者が設定タブ
-   * から入力する自由記述、例:「限定車在庫3台あり」）。全利用者に表示する
-   * （設定の編集自体は管理者限定だが、値はredactSystemMasterSettings_で
-   * 非管理者にも渡される。SettingsService.gs参照）。未設定（空文字）の場合は
-   * 要素ごと非表示にし、他の固定バー（homeTypeNav等）の位置がずれないよう
-   * syncFixedBars_で高さを再計算する。
-   */
-  function renderHomeAnnouncement_(text) {
-    var el = $('homeAnnouncement');
-    var value = String(text || '').trim();
-    el.textContent = value;
-    el.classList.toggle('hidden', !value);
-    syncFixedBars_();
-  }
-
-  /**
-   * ホーム画面の在庫台数表示専用に、フィルタ無しで在庫リストを取得する。
-   * 在庫リストのツールバー（検索キーワード等）の状態に関わらず、常に全件の台数を
-   * 表示するため、state.inventoryItems（ツールバーの検索条件に連動）とは別に保持する。
-   * 補助的な表示のため、取得に失敗してもトースト等では知らせず、件数表示を省略するに留める。
-   */
-  function loadHomeModelCounts_() {
+  function loadAllInventoryItems_() {
     return gasRun('api_listInventory', { keyword: '', includeHold: true }).then(function (groups) {
       state.allInventoryItems = (groups && groups[0] && groups[0].items) || [];
-      renderHomeGallery_();
       renderMyPageHolds_();
     }).catch(function (err) {
       // 補助的な表示のためトースト等では知らせないが、原因調査ができるよう
       // コンソールには必ず残す（以前はここで完全にエラーを握りつぶしていたため、
-      // ホーム画面・在庫台数が表示されない不具合の原因がまったく分からなかった）。
-      console.error('[used-vehicle-order-app] ホーム画面の在庫台数取得でエラーが発生しました:', err);
+      // マイページのHold中車両一覧が表示されない不具合の原因がまったく分からなかった）。
+      console.error('[used-vehicle-order-app] 在庫全件の取得でエラーが発生しました:', err);
     });
   }
 
   /**
    * マイページ用に、受注リストの検索・絞り込み条件に左右されない全件を取得する
-   * （loadHomeModelCounts_が在庫についてやっているのと同じ考え方）。
+   * （loadAllInventoryItems_が在庫についてやっているのと同じ考え方）。
    */
   function loadMyPageOrders_() {
     return gasRun('api_listOrders', {}, '').then(function (groups) {
@@ -3450,65 +2932,6 @@
       openOrderDetailModal_(rowEl.dataset.commission);
     }
   });
-  /**
-   * モデル写真タイルをクリックすると、その写真の自動判定条件（gradePrefix・
-   * gradeMarker）に一致する型番だけに絞り込んだ在庫リストへ遷移する
-   * （homeModelTileHtml_・homeModelCardHtml_参照）。gradePrefix未設定の場合は
-   * モデル名そのものを絞り込み対象にする（従来どおりの挙動）。絞り込みは
-   * キーワード検索欄への文字入力ではなく、実際に一致する型番の一覧
-   * （state.homeModelFilter）で行うため、「C」と「CLA」のように片方がもう片方の
-   * 部分文字列になっているモデル同士でも取り違えが起きない。
-   */
-  function handleHomeModelClick_(tile) {
-    var entry = (state.modelPhotos || []).find(function (p) { return p.model === tile.dataset.homeModel; });
-    var allItems = state.allInventoryItems || [];
-    switchToTab_('inventory');
-    $('inventoryKeyword').value = '';
-    state.homeModelFilter = entry ? matchedModelsForEntry_(entry, allItems, state.modelPhotos) : [tile.dataset.homeModel];
-    loadInventory();
-  }
-
-  /**
-   * モデルカード内のグレードチップ（homeModelCardHtml_のdata-home-grade）を
-   * クリックした場合、そのモデル全体ではなく型番1件だけに絞り込んだ在庫リストへ
-   * 遷移する（handleHomeModelClick_はモデル1件分の全グレードに絞り込むのに対し、
-   * こちらはグレード1件のみ）。
-   */
-  function handleHomeGradeClick_(chip) {
-    switchToTab_('inventory');
-    $('inventoryKeyword').value = '';
-    state.homeModelFilter = [chip.dataset.homeGrade];
-    loadInventory();
-  }
-
-  on('homeGrid','click', function (e) {
-    var gradeChip = e.target.closest('[data-home-grade]');
-    if (gradeChip) { handleHomeGradeClick_(gradeChip); return; }
-    var tile = e.target.closest('[data-home-model]');
-    if (!tile) return;
-    // タブレット・スマホ幅（PCビューのカードグリッドではなく横一列リスト表示）で、
-    // グレードを持つモデルをタップした場合は、在庫リストへ即座に遷移せず、
-    // グレード一覧をタイル直下にインライン展開する（homeModelTileHtml_参照。
-    // 同じタイルを再度タップすると閉じるトグル動作）。PCビューは
-    // homeModelCardHtml_が常にグレード一覧を表示済みのため、この分岐自体を
-    // 通らない（isPcHomeLayout_()がtrueの間は従来どおりhandleHomeModelClick_の
-    // 即時遷移のみ）。
-    if (!isPcHomeLayout_() && tile.dataset.homeHasGrades === '1') {
-      var tappedModel = tile.dataset.homeModel;
-      state.homeExpandedModel = state.homeExpandedModel === tappedModel ? null : tappedModel;
-      renderHomeGallery_();
-      return;
-    }
-    handleHomeModelClick_(tile);
-  });
-
-  on('homeGrid','keydown', function (e) {
-    if (e.key !== 'Enter' && e.key !== ' ') return;
-    var target = e.target.closest('[data-home-grade], [data-home-model]');
-    if (!target) return;
-    e.preventDefault();
-    target.click();
-  });
 
   // スプレッドシート自体のタイトル（Googleドライブ上のファイル名）の変更は、
   // 他の設定項目（保存ボタンでまとめて保存、Script Propertiesへの書き込み）とは
@@ -3570,50 +2993,7 @@
       return;
     }
 
-    var maxPhotos = (state.bootstrap && state.bootstrap.modelPhotosMax) || 40;
-    var maxGradeRuleLength = (state.bootstrap && state.bootstrap.modelPhotoGradeRuleMaxLength) || 30;
-    var cleanedPhotos = state.modelPhotos
-      .map(function (p) {
-        var gradePrefix = String((p && p.gradePrefix) || '').trim();
-        return {
-          model: String((p && p.model) || '').trim(),
-          photoUrl: String((p && p.photoUrl) || '').trim(),
-          // gradePrefixが空欄の場合、gradeMarkerを入力していても意味を持たないため
-          // 空文字にそろえる（サーバー側normalizeModelPhotos_と同じ規則）。
-          gradePrefix: gradePrefix,
-          gradeMarker: gradePrefix ? String((p && p.gradeMarker) || '').trim() : '',
-          bodyType: String((p && p.bodyType) || '').trim()
-        };
-      })
-      .filter(function (p) { return p.model && p.photoUrl; });
-    var seenModels = {};
-    var uniqueModelPhotos = cleanedPhotos.filter(function (p) {
-      if (seenModels[p.model]) return false;
-      seenModels[p.model] = true;
-      return true;
-    });
-    if (uniqueModelPhotos.length > maxPhotos) {
-      $('settingsError').textContent = 'モデル写真は最大' + maxPhotos + '件までです（現在' + uniqueModelPhotos.length + '件）';
-      return;
-    }
-    var gradeRuleFieldError = null;
-    uniqueModelPhotos.some(function (p) {
-      if (p.gradePrefix.length > maxGradeRuleLength) {
-        gradeRuleFieldError = 'モデル「' + p.model + '」の先頭の文字列「' + p.gradePrefix + '」が長すぎます（' + p.gradePrefix.length + '文字）。';
-        return true;
-      }
-      if (p.gradeMarker.length > maxGradeRuleLength) {
-        gradeRuleFieldError = 'モデル「' + p.model + '」の含む文字列「' + p.gradeMarker + '」が長すぎます（' + p.gradeMarker.length + '文字）。';
-        return true;
-      }
-      return false;
-    });
-    if (gradeRuleFieldError) {
-      $('settingsError').textContent = gradeRuleFieldError;
-      return;
-    }
-
-    // メール通知先3項目も、担当者マスタ・モデル写真と同様に空欄除去・大文字小文字を
+    // メール通知先3項目も、担当者マスタと同様に空欄除去・大文字小文字を
     // 無視した重複除去・最大件数チェックをクライアント側でも行う（サーバー側の
     // normalizeMailList_と同じ規則。保存前にエラーメッセージで気づけるようにするため）。
     var maxMails = notifyMailListMax_();
@@ -3643,15 +3023,6 @@
     var chatWebhookUrl = $('settingsChatWebhookUrl').value.trim();
     if (chatWebhookUrl && chatWebhookUrl.indexOf('https://') !== 0) {
       $('settingsError').textContent = 'Google ChatのWebhook URLは https:// から始まるURLを指定してください。';
-      return;
-    }
-
-    // お知らせも、サーバー側のvalidateHomeAnnouncement_（SettingsService.gs）と
-    // 同じ規則を保存前にクライアント側でもチェックする。
-    var homeAnnouncement = $('settingsHomeAnnouncement').value.trim();
-    var maxAnnouncement = (state.bootstrap && state.bootstrap.homeAnnouncementMax) || 60;
-    if (homeAnnouncement.length > maxAnnouncement) {
-      $('settingsError').textContent = 'お知らせは最大' + maxAnnouncement + '文字までです（現在' + homeAnnouncement.length + '文字）';
       return;
     }
 
@@ -3687,13 +3058,11 @@
       appTitle: appTitle,
       logoUrl: logoUrlInput,
       loadingImageUrl: loadingImageId,
-      homeAnnouncement: homeAnnouncement,
       notifyHoldMailTo: cleanedMailLists.notifyHoldMailTo,
       notifyOrderMailTo: cleanedMailLists.notifyOrderMailTo,
       notifyErrorMailTo: cleanedMailLists.notifyErrorMailTo,
       notifyChatWebhookUrl: chatWebhookUrl,
       staffList: uniqueStaffList,
-      modelPhotos: uniqueModelPhotos,
       celebrationVariants: {
         hold: $('celebrationVariantHold').value,
         order: $('celebrationVariantOrder').value
@@ -3738,49 +3107,14 @@
     if (topbar) {
       document.documentElement.style.setProperty('--topbar-h', topbar.offsetHeight + 'px');
     }
-    // ホームでモデルタイルを展開した際、scrollIntoView()で「トップバー＋型クイック
-    // ナビの下」まで自動スクロールできるよう、両方の固定要素の高さの合計を
-    // CSS変数として持っておく（homeModelTileHtml_のscroll-margin-topで使う。
-    // 下のhomeTypeNavSpacerとまったく同じ考え方で、都度実測して更新する）。
-    var homeTypeNav = $('homeTypeNav');
-    var homeTypeNavSpacer = $('homeTypeNavSpacer');
-    var homeAnnouncement = $('homeAnnouncement');
-    if (topbar && homeTypeNavSpacer) {
-      var homeOffset = topbar.offsetHeight + 16 +
-        (homeAnnouncement && !homeAnnouncement.classList.contains('hidden') ? homeAnnouncement.offsetHeight + 8 : 0) +
-        (homeTypeNav && !homeTypeNav.classList.contains('hidden') ? homeTypeNavSpacer.offsetHeight : 0);
-      document.documentElement.style.setProperty('--home-scroll-offset', homeOffset + 'px');
-    }
-    // お知らせ（#homeAnnouncement、タブレット・スマホ幅のみposition: fixed）が
-    // 表示されている場合、型クイックナビ（#homeTypeNav）はこの帯の高さぶん
-    // さらに下へずらす必要がある（Stylesheet.htmlの.homeTypeNavのtop参照）。
-    // お知らせが非表示（class="hidden"）ならoffsetHeightが0になるため、この
-    // 変数も自動的に0pxになる。
-    if (homeAnnouncement) {
-      document.documentElement.style.setProperty('--home-announcement-h', (homeAnnouncement.offsetHeight ? homeAnnouncement.offsetHeight + 8 : 0) + 'px');
-    }
     // main.view自身の上余白（16px）が「ヘッダー〜固定バー間の余白」と同じ幅を
     // 既に確保しているため、スペーサーは「固定バー自身の高さ＋固定バー〜
     // 後続コンテンツ間の余白」分だけ確保すればよい（上下の余白が揃う）。
-    // ホームの型クイックナビ（#homeTypeNav）だけ後続余白を20pxにしているのは、
-    // 直後の.homeTypeHeader自身のmargin-top（4px）とあわせて24pxになるよう
-    // 揃えているため（.homeTypeHeaderのコメント参照。型ごとの見出しが無い場合
-    // でも、モデル一覧との間隔として同じ20pxがそのまま使われる）。
     [
       ['inventoryToolbar', 'inventoryToolbarSpacer', 16],
       ['ordersToolbar', 'ordersToolbarSpacer', 16],
       ['wholesaleOrdersToolbar', 'wholesaleOrdersToolbarSpacer', 16],
-      ['myPageToolbar', 'myPageToolbarSpacer', 16],
-      // お知らせ（#homeAnnouncement）はタブレット・スマホ幅のみposition: fixed
-      // （PCでは#homeCombinedHeader内の先頭要素として組み込まれ、そちらの
-      // スペーサーで高さを吸収するため、このスペーサー自体はPCではCSS側で
-      // display: noneにしている）。
-      ['homeAnnouncement', 'homeAnnouncementSpacer', 8],
-      ['homeTypeNav', 'homeTypeNavSpacer', 20],
-      // #homeCombinedHeaderはPCビューでのみposition: fixed（Stylesheet.html参照。
-      // タブレット・スマホ幅ではdisplay: contentsのためoffsetHeightは常に0になり、
-      // このスペーサー自体もCSS側でdisplay: noneのため実害はない）。
-      ['homeCombinedHeader', 'homeCombinedHeaderSpacer', 20]
+      ['myPageToolbar', 'myPageToolbarSpacer', 16]
     ].forEach(function (pair) {
       var toolbar = $(pair[0]);
       var spacer = $(pair[1]);
@@ -3788,7 +3122,6 @@
     });
   }
   window.addEventListener('resize', debounce(syncFixedBars_, 100));
-  window.addEventListener('resize', debounce(equalizeHomeCardHeights_, 100));
 
   // ===== モーダルをソフトウェアキーボードの上に収める =====
   // 不具合修正: スマホでHold登録・受注確定モーダルの入力欄をタップすると、
@@ -3872,11 +3205,10 @@
    * 別々のサーバー呼び出しであり、本来どちらかがどちらかを待つ理由が無い。
    * 以前はbootstrap取得が完了する（.then内で）まで在庫等の読み込みを一切
    * 開始しない直列構造になっており、bootstrap側（api_getBootstrapData自体の
-   * 失敗・タイムアウト等）が何か1つでも失敗すると、在庫・受注・ホーム・
+   * 失敗・タイムアウト等）が何か1つでも失敗すると、在庫・受注・
    * マイページ・ログインアカウント表示のすべてが道連れで真っ白になっていた。
    * 両者を最初から並行して走らせることで、片方が失敗してももう片方は
-   * 影響を受けず表示できるようにする（bootstrapが遅れて解決した場合も、
-   * renderSettings内で改めてrenderHomeGallery_を呼び直すため表示は正しく揃う）。
+   * 影響を受けず表示できるようにする。
    */
   function reloadAll_() {
     var bootstrapPromise = gasRun('api_getBootstrapData').then(function (bootstrap) {
@@ -3894,7 +3226,7 @@
       console.error('[used-vehicle-order-app] 起動時データ（設定・ログインアカウント情報）の取得に失敗しました:', err);
       showToast('起動時データの取得に失敗しました: ' + err.message, true);
     });
-    return Promise.all([bootstrapPromise, loadInventory(), loadOrders(), loadWholesaleOrders(), loadHomeModelCounts_(), loadMyPageOrders_()]);
+    return Promise.all([bootstrapPromise, loadInventory(), loadOrders(), loadWholesaleOrders(), loadAllInventoryItems_(), loadMyPageOrders_()]);
   }
 
   function init() {

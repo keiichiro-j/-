@@ -30,22 +30,20 @@ function getRawSettings_() {
     themeKey: getCurrentUserThemeKey_(),
     // 保存済みの値が変換前のドライブ共有リンク／ファイルID、または旧仕様の
     // アップロードdata URLのままだった場合でも、保存し直さなくても表示できるよう、
-    // 読み出し時にも変換する（getModelPhotos_・loadingImageUrlと同じ考え方。
-    // normalizeLogoUrl_は既に直接画像URLやdata URLの場合は何もしない純粋関数）。
+    // 読み出し時にも変換する（loadingImageUrlと同じ考え方。normalizeLogoUrl_は
+    // 既に直接画像URLやdata URLの場合は何もしない純粋関数）。
     logoUrl: normalizeLogoUrl_(props.getProperty(PROP_KEYS.LOGO_URL) || ''),
     notifyHoldMailTo: getMailList_(PROP_KEYS.NOTIFY_HOLD_MAIL_TO),
     notifyOrderMailTo: getMailList_(PROP_KEYS.NOTIFY_ORDER_MAIL_TO),
     notifyErrorMailTo: getMailList_(PROP_KEYS.NOTIFY_ERROR_MAIL_TO),
     notifyChatWebhookUrl: props.getProperty(PROP_KEYS.NOTIFY_CHAT_WEBHOOK_URL) || '',
     staffList: getStaffList_(),
-    modelPhotos: getModelPhotos_(),
     celebrationVariants: getCelebrationVariants_(),
-    homeAnnouncement: props.getProperty(PROP_KEYS.HOME_ANNOUNCEMENT) || '',
     appTitle: props.getProperty(PROP_KEYS.APP_TITLE) || '',
     // 保存済みの値が変換前のドライブ共有リンク／ファイルIDのままだった場合
     // （この変換機能が無かった頃に登録されたものなど）でも、保存し直さなくても
-    // 表示できるよう、読み出し時にも変換する（getModelPhotos_と同じ考え方。
-    // normalizeLoadingImageUrl_は既に直接画像URLの場合は何もしない純粋関数）。
+    // 表示できるよう、読み出し時にも変換する（normalizeLoadingImageUrl_は
+    // 既に直接画像URLの場合は何もしない純粋関数）。
     loadingImageUrl: normalizeLoadingImageUrl_(props.getProperty(PROP_KEYS.LOADING_IMAGE_URL) || '')
   };
 }
@@ -101,9 +99,7 @@ function saveRawSettings_(settings) {
   props.setProperty(PROP_KEYS.NOTIFY_ERROR_MAIL_TO, JSON.stringify(normalizeMailList_(settings.notifyErrorMailTo)));
   props.setProperty(PROP_KEYS.NOTIFY_CHAT_WEBHOOK_URL, validateChatWebhookUrl_(settings.notifyChatWebhookUrl));
   props.setProperty(PROP_KEYS.STAFF_LIST, JSON.stringify(normalizeStaffList_(settings.staffList)));
-  props.setProperty(PROP_KEYS.MODEL_PHOTOS, JSON.stringify(normalizeModelPhotos_(settings.modelPhotos)));
   props.setProperty(PROP_KEYS.CELEBRATION_VARIANTS, JSON.stringify(normalizeCelebrationVariants_(settings.celebrationVariants)));
-  props.setProperty(PROP_KEYS.HOME_ANNOUNCEMENT, validateHomeAnnouncement_(settings.homeAnnouncement));
   props.setProperty(PROP_KEYS.APP_TITLE, validateAppTitle_(settings.appTitle));
   props.setProperty(PROP_KEYS.LOADING_IMAGE_URL, validateLoadingImageUrl_(settings.loadingImageUrl));
   return getRawSettings_();
@@ -161,6 +157,52 @@ function setCurrentUserThemeKey_(themeKey) {
 }
 
 /**
+ * ロゴ・ローディング画像に共通の、Googleドライブの共有リンク／ファイルIDを
+ * <img>タグでそのまま表示できる直接画像URLに変換する処理（純粋関数）。
+ * 管理者が共有リンクの全文ではなく「ドライブID」（ファイルIDのみの文字列）を
+ * 直接入力できるようにしている点が特徴（現場からの要望）。入力値が
+ * ①ドライブの共有リンク（https://drive.google.com/file/d/{ID}/view?usp=sharing 等）
+ * ならファイルIDを抜き出す、②スラッシュ・コロンを含まない英数字・ハイフン・
+ * アンダースコアのみの文字列（＝ファイルIDそのものを直接貼り付けた場合）なら
+ * そのままファイルIDとして扱う、③どちらでもなければドライブ以外の外部画像URLを
+ * 直接指定したものとみなしそのまま返す（変換しない）。①②はGoogleの画像配信
+ * ドメイン（lh3.googleusercontent.com）のURLに変換し、末尾に`=w{displayWidth}`を
+ * 付けることで、管理者が画像のサイズ・アスペクト比を気にせず登録できるようにする。
+ */
+function normalizeDriveImageUrl_(value, displayWidth) {
+  value = String(value || '').trim();
+  if (!value) return '';
+  var match = value.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || value.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  var fileId = match ? match[1] : (/^[a-zA-Z0-9_-]+$/.test(value) ? value : '');
+  if (!fileId) return value;
+  return 'https://lh3.googleusercontent.com/d/' + fileId + '=w' + displayWidth;
+}
+
+function normalizeLoadingImageUrl_(value) {
+  return normalizeDriveImageUrl_(value, LOADING_IMAGE_DISPLAY_WIDTH);
+}
+
+function normalizeLogoUrl_(value) {
+  return normalizeDriveImageUrl_(value, LOGO_DISPLAY_WIDTH);
+}
+
+/**
+ * ローディング画像設定値（純粋関数）。normalizeLoadingImageUrl_で直接画像URLに
+ * 変換したうえで、長すぎる場合（想定外の長い外部URLを直接指定した場合等）は
+ * エラーにする。
+ */
+function validateLoadingImageUrl_(value) {
+  var url = normalizeLoadingImageUrl_(value);
+  if (url.length > LOADING_IMAGE_URL_MAX_LENGTH) {
+    throw new Error(
+      'ローディング画像のURLが長すぎます（' + url.length + '文字）。' +
+      'ドライブIDまたはより短いURLを指定してください。'
+    );
+  }
+  return url;
+}
+
+/**
  * ロゴ設定値（純粋関数）。ローディング画像と同じ規則で、normalizeLogoUrl_で
  * 直接画像URLに変換したうえで、長すぎる場合（想定外の長い外部URLを直接指定した
  * 場合等）はエラーにする。
@@ -193,21 +235,6 @@ function validateChatWebhookUrl_(url) {
   }
   if (!/^https:\/\//.test(value)) {
     throw new Error('Google ChatのWebhook URLは https:// から始まるURLを指定してください。');
-  }
-  return value;
-}
-
-/**
- * お知らせ設定値（純粋関数）。ホーム画面の「販売可能リスト」の文字の上に
- * 全利用者向けに表示する、管理者が入力する自由記述の案内文
- * （例:「限定車在庫3台あり」）。1行で目立たせて表示する想定のため、
- * 最大文字数（HOME_ANNOUNCEMENT_MAX_LENGTH）を超える場合はエラーにする。
- * 空文字であれば単に表示しない（JavaScript.htmlのrenderHomeAnnouncement_参照）。
- */
-function validateHomeAnnouncement_(text) {
-  var value = String(text || '').trim();
-  if (value.length > HOME_ANNOUNCEMENT_MAX_LENGTH) {
-    throw new Error('お知らせが長すぎます（' + value.length + '文字）。' + HOME_ANNOUNCEMENT_MAX_LENGTH + '文字以内で入力してください。');
   }
   return value;
 }
@@ -332,189 +359,6 @@ function normalizeMailList_(list) {
   return result;
 }
 
-/**
- * ホーム画面のモデル写真設定を { model, photoUrl, gradePrefix, gradeMarker } の
- * 配列で返す。中古車は同じ「MODEL」表記の中にも型番違いの車両が混在しうる
- * （例:「C200」「C300」「C43 AMG」を、まとめて登録した1枚の代表写真では
- * 区別できない）。gradePrefix・gradeMarkerは、在庫リストの「MODEL」列に実際に
- * 入力される値（例: 「C20」「C220d」「C18T」「C18TZ」「CLA18」「CLA18T」）を自動判定
- * するための条件で、「①型番先頭のアルファベット連続部分（クラス名）がgradePrefixと
- * 完全一致する」「②設定されていれば、gradePrefixに続く部分にgradeMarkerがどこかに
- * 含まれている」の2条件だけで、ホーム画面がその場で在庫リストと突き合わせて台数を
- * 計算する（JavaScript.htmlのleadingAlphaPrefix_・gradeCountsForEntry_・
- * matchesGradeRule_参照。①②とも大文字小文字は区別しない）。
- * ①を単純な前方一致ではなく「先頭のアルファベット連続部分との完全一致」にしているのは、
- * gradePrefix「C」が文字として「C」で始まる「CLA18」まで誤って拾ってしまい、
- * 「C20」（Cクラス）と「CLA18」（CLAクラス）を区別できなくなる不具合を防ぐため
- * （現場からの指摘）。
- * ②は「含まれていれば優先的に一致する」方式にしている。これにより、gradeMarker
- * 「T」は「C18T」「C18TZ」「C63T」のように、位置を問わずTを含む型番であれば
- * まとめて拾える（同じ「Tが付くグレード」をまとめて1枚の写真で管理したい場合。
- * 現場からの要望）。一方、「CLA18」（残りが「18」でTを含まない）と「CLA18T」
- * （残りが「18T」でTを含む）のように、片方がもう片方の型番に文字を継ぎ足した
- * だけの別車両を区別したい場合は、gradeMarkerを「T」のように設定すれば、
- * Tを含まない「CLA18」は受け皿（gradeMarker未設定）の側に、Tを含む「CLA18T」は
- * gradeMarker「T」の側に、自動的に振り分けられる（後述のgradeRuleSpecificity_の
- * 具体性スコアにより、gradeMarker設定済みの登録が優先されるため、重複して
- * カウントされない）。
- * gradePrefixが未設定（空文字）の場合は、モデル名そのものを在庫リストのMODEL列と
- * 直接照合する従来どおりの挙動にフォールバックする（1台ずつ個別に登録したい場合は、
- * gradePrefix・gradeMarkerを空欄のまま、modelに在庫リストのMODEL列の値そのものを
- * 入力すればよい）。
- * bodyTypeは在庫の自動判定には使わず、ホーム画面での表示グループ分け専用の
- * 任意項目（MODEL_BODY_TYPE_OPTIONSのいずれか、または未設定の空文字）。
- */
-function getModelPhotos_() {
-  var raw = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.MODEL_PHOTOS);
-  if (!raw) return [];
-  var list;
-  try {
-    list = JSON.parse(raw);
-  } catch (e) {
-    return [];
-  }
-  if (!Array.isArray(list)) return [];
-  return list.map(function (entry) {
-    return {
-      model: (entry && entry.model) || '',
-      // 保存済みの値がGoogleドライブの共有リンクのままだった場合（この変換機能が
-      // 無かった頃に登録されたものなど）でも、保存し直さなくても表示できるよう、
-      // 読み出し時にも変換する（normalizeModelPhotoUrl_はドライブの共有リンク
-      // 以外の値には何もしない純粋関数のため、既に直接画像URLの場合や他の
-      // ホスティングサービスのURLの場合はそのまま返る）。
-      photoUrl: normalizeModelPhotoUrl_((entry && entry.photoUrl) || ''),
-      gradePrefix: (entry && entry.gradePrefix) || '',
-      gradeMarker: (entry && entry.gradeMarker) || '',
-      bodyType: (entry && entry.bodyType) || ''
-    };
-  });
-}
-
-/**
- * Googleドライブの共有リンク（ファイルを右クリック→「リンクを取得」で得られる、
- * ブラウザ用のHTMLビューアページのURL）を、<img>タグでそのまま表示できる直接画像
- * URLに変換する（純粋関数）。共有リンクは以下のような形式：
- *   https://drive.google.com/file/d/{ファイルID}/view?usp=sharing
- *   https://drive.google.com/open?id={ファイルID}
- * これらをそのまま<img src>に指定してもHTMLページが読み込まれるだけで画像としては
- * 表示されないため、ファイルIDを抜き出し、Googleの画像配信ドメイン
- * （lh3.googleusercontent.com）のURLに変換する。末尾に`=w{MODEL_PHOTO_DISPLAY_WIDTH}`
- * を付けることで、Google側のサーバーがその幅にリサイズ済みの画像を返してくれるため、
- * 管理者が写真を登録する際に画像のサイズ・アスペクト比を気にして事前に加工する
- * 必要がない（ホーム画面側は`object-fit: cover`で表示するため、正方形以外の
- * 画像でも問題なくタイルに収まる）。ドライブの共有リンクでない値（他の画像
- * ホスティングサービスのURLや、data URL等）はそのまま返す（変換しない）。
- */
-function normalizeModelPhotoUrl_(url) {
-  url = String(url || '').trim();
-  if (!url || !/drive\.google\.com|docs\.google\.com/.test(url)) return url;
-  var match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-  if (!match) return url;
-  return 'https://lh3.googleusercontent.com/d/' + match[1] + '=w' + MODEL_PHOTO_DISPLAY_WIDTH;
-}
-
-/**
- * ロゴ・ローディング画像に共通の、Googleドライブの共有リンク／ファイルIDを
- * <img>タグでそのまま表示できる直接画像URLに変換する処理（純粋関数）。
- * normalizeModelPhotoUrl_との違いは、管理者が共有リンクの全文ではなく
- * 「ドライブID」（ファイルIDのみの文字列）を直接入力できるようにしている点
- * （現場からの要望）。入力値が
- * ①ドライブの共有リンク（https://drive.google.com/file/d/{ID}/view?usp=sharing 等）
- * ならファイルIDを抜き出す、②スラッシュ・コロンを含まない英数字・ハイフン・
- * アンダースコアのみの文字列（＝ファイルIDそのものを直接貼り付けた場合）なら
- * そのままファイルIDとして扱う、③どちらでもなければドライブ以外の外部画像URLを
- * 直接指定したものとみなしそのまま返す（変換しない）。①②はGoogleの画像配信
- * ドメイン（lh3.googleusercontent.com）のURLに変換し、末尾に`=w{displayWidth}`を
- * 付けることで、管理者が画像のサイズ・アスペクト比を気にせず登録できるようにする。
- */
-function normalizeDriveImageUrl_(value, displayWidth) {
-  value = String(value || '').trim();
-  if (!value) return '';
-  var match = value.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || value.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-  var fileId = match ? match[1] : (/^[a-zA-Z0-9_-]+$/.test(value) ? value : '');
-  if (!fileId) return value;
-  return 'https://lh3.googleusercontent.com/d/' + fileId + '=w' + displayWidth;
-}
-
-function normalizeLoadingImageUrl_(value) {
-  return normalizeDriveImageUrl_(value, LOADING_IMAGE_DISPLAY_WIDTH);
-}
-
-function normalizeLogoUrl_(value) {
-  return normalizeDriveImageUrl_(value, LOGO_DISPLAY_WIDTH);
-}
-
-/**
- * ローディング画像設定値（純粋関数）。normalizeLoadingImageUrl_で直接画像URLに
- * 変換したうえで、長すぎる場合（想定外の長い外部URLを直接指定した場合等）は
- * エラーにする。
- */
-function validateLoadingImageUrl_(value) {
-  var url = normalizeLoadingImageUrl_(value);
-  if (url.length > LOADING_IMAGE_URL_MAX_LENGTH) {
-    throw new Error(
-      'ローディング画像のURLが長すぎます（' + url.length + '文字）。' +
-      'ドライブIDまたはより短いURLを指定してください。'
-    );
-  }
-  return url;
-}
-
-/**
- * モデル写真設定の正規化（純粋関数）。モデル名・写真URLがともに入力されている行のみ残し、
- * モデル名で重複除去したうえ、最大件数（MODEL_PHOTOS_MAX）を超えていればエラー。
- * 写真URLはGoogleドライブの共有リンクであれば直接画像URLに変換する
- * （normalizeModelPhotoUrl_参照）。変換後も長すぎる場合（data URLを直接貼り付けた
- * 場合等）はエラーにする（大きな画像は外部にアップロードしてURLを指定する）。
- * gradePrefix・gradeMarkerも同様にトリムし、1件あたりの最大文字数
- * （MODEL_PHOTO_GRADE_RULE_MAX_LENGTH）をチェックする。gradePrefixが空文字の場合は
- * gradeMarkerも意味を持たないため空文字にそろえる。さらに、件数が多いと合計文字数が
- * Script Propertiesの実際の保存上限を超えうるため、JSON化した全体の文字数
- * （MODEL_PHOTOS_TOTAL_MAX_LENGTH）も別途チェックする。
- */
-function normalizeModelPhotos_(list) {
-  list = Array.isArray(list) ? list : [];
-  var seenModels = {};
-  var result = [];
-  list.forEach(function (entry) {
-    var model = String((entry && entry.model) || '').trim();
-    var photoUrl = normalizeModelPhotoUrl_((entry && entry.photoUrl) || '');
-    if (!model || !photoUrl) return;
-    if (seenModels[model]) return;
-    seenModels[model] = true;
-    if (photoUrl.length > MODEL_PHOTO_URL_MAX_LENGTH) {
-      throw new Error(
-        'モデル「' + model + '」の写真URLが長すぎます（' + photoUrl.length + '文字）。' +
-        '画像を外部（Googleドライブの共有リンク等）にアップロードしたうえでURLを指定してください。'
-      );
-    }
-    var gradePrefix = String((entry && entry.gradePrefix) || '').trim();
-    var gradeMarker = gradePrefix ? String((entry && entry.gradeMarker) || '').trim() : '';
-    [
-      { label: '先頭の文字列', value: gradePrefix },
-      { label: '含む文字列', value: gradeMarker }
-    ].forEach(function (field) {
-      if (field.value.length > MODEL_PHOTO_GRADE_RULE_MAX_LENGTH) {
-        throw new Error(
-          'モデル「' + model + '」の' + field.label + '「' + field.value + '」が長すぎます（' + field.value.length + '文字）。'
-        );
-      }
-    });
-    var bodyType = MODEL_BODY_TYPE_OPTIONS.indexOf((entry && entry.bodyType) || '') !== -1 ? entry.bodyType : '';
-    result.push({ model: model, photoUrl: photoUrl, gradePrefix: gradePrefix, gradeMarker: gradeMarker, bodyType: bodyType });
-  });
-  if (result.length > MODEL_PHOTOS_MAX) {
-    throw new Error('モデル写真は最大' + MODEL_PHOTOS_MAX + '件までです（現在' + result.length + '件）');
-  }
-  var totalLength = JSON.stringify(result).length;
-  if (totalLength > MODEL_PHOTOS_TOTAL_MAX_LENGTH) {
-    throw new Error(
-      'モデル写真の登録内容が大きすぎて保存できません（合計' + totalLength + '文字）。' +
-      '件数を減らすか、写真URLをより短いもの（短縮URL等）に変更してください。'
-    );
-  }
-  return result;
-}
 
 /**
  * Hold登録・受注確定それぞれの完了時に表示する演出（絵柄の
@@ -623,11 +467,11 @@ function isSystemAdmin_(email) {
 }
 
 /**
- * システムマスタ（ロゴ・モデル写真・メール通知設定・担当者）を、管理者以外の
- * ブラウザには送らないようにする（純粋関数）……という処理だが、ロゴ・モデル写真は
- * 例外で、非管理者にも実際の値をそのまま渡す。ロゴはトップバー、モデル写真は
- * ホーム画面のギャラリーとして「全利用者に表示される」データであり、編集画面を
- * 管理者限定にしても表示自体は全員に必要なため（メール通知先・担当者一覧のような
+ * システムマスタ（ロゴ・メール通知設定・担当者）を、管理者以外の
+ * ブラウザには送らないようにする（純粋関数）……という処理だが、ロゴは
+ * 例外で、非管理者にも実際の値をそのまま渡す。ロゴはトップバーとして
+ * 「全利用者に表示される」データであり、編集画面を管理者限定にしても
+ * 表示自体は全員に必要なため（メール通知先・担当者一覧のような
  * 非公開データとは性質が異なる）。UI上でカードを隠すだけでなく、非管理者の
  * 端末にそもそもメールアドレス等のデータ自体を渡さないための処理
  * （Api.gs参照）。
@@ -643,19 +487,14 @@ function redactSystemMasterSettings_(settings, isAdmin) {
     notifyErrorMailTo: [],
     notifyChatWebhookUrl: '',
     staffList: [],
-    modelPhotos: settings.modelPhotos,
-    // Hold登録等の演出バリエーションは、ロゴ・モデル写真と同様に全利用者の
+    // Hold登録等の演出バリエーションは、ロゴと同様に全利用者の
     // 画面で使う（演出を実際に表示するのは操作した本人のブラウザのため）。
     // 編集画面（設定タブ）自体は管理者限定にするが、値自体は非管理者にも渡す。
     celebrationVariants: settings.celebrationVariants,
-    // お知らせも、ロゴ・モデル写真・演出バリエーションと同様に全利用者の
-    // ホーム画面に表示する値のため、編集画面は管理者限定にしつつ値自体は
-    // 非管理者にも渡す。
-    homeAnnouncement: settings.homeAnnouncement,
     // ローディング画像も、起動時に全利用者の画面（#appLoading）へ表示する値の
     // ため、編集画面は管理者限定にしつつ値自体は非管理者にも渡す。
     loadingImageUrl: settings.loadingImageUrl,
-    // アプリタイトルも、ブラウザのタブ名・サイドバー/トップバーの見出しとして
+    // アプリタイトルも、ブラウザのタブ名・トップバーの見出しとして
     // 全利用者の画面に表示する値のため、編集画面は管理者限定にしつつ値自体は
     // 非管理者にも渡す。
     appTitle: settings.appTitle
@@ -663,7 +502,7 @@ function redactSystemMasterSettings_(settings, isAdmin) {
 }
 
 /**
- * 保存時、システムマスタ（ロゴ・モデル写真・メール通知設定・担当者）は管理者以外
+ * 保存時、システムマスタ（ロゴ・メール通知設定・担当者）は管理者以外
  * からの変更を無視し、既存の保存値（current）をそのまま維持する（純粋関数）。
  * テーマ（着せ替えプリセット）は管理者限定にしていないため、非管理者からの
  * 変更もそのまま反映する。管理者判定はコード上のSYSTEM_ADMIN_EMAILSのみで
@@ -682,9 +521,7 @@ function applySystemMasterGuard_(incoming, current, isAdmin) {
     notifyErrorMailTo: current.notifyErrorMailTo,
     notifyChatWebhookUrl: current.notifyChatWebhookUrl,
     staffList: current.staffList,
-    modelPhotos: current.modelPhotos,
     celebrationVariants: current.celebrationVariants,
-    homeAnnouncement: current.homeAnnouncement,
     loadingImageUrl: current.loadingImageUrl,
     appTitle: current.appTitle
   };

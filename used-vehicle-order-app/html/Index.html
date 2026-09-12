@@ -23,7 +23,7 @@
   <link rel="apple-touch-icon" href="<?!= appleTouchIconDataUri_() ?>">
   <?!= include('html/Stylesheet'); ?>
 </head>
-<body class="is-home-tab">
+<body>
   <!-- Google/Teslaのようなミニマルな線画アイコン一式（外部アイコンライブラリ非依存。
        個々の絵文字アイコンの代わりに使う。<use>で参照する）。 -->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -67,11 +67,6 @@
         <path d="M12 4.2L21 19.5H3L12 4.2z" stroke-linejoin="round"/>
         <line x1="12" y1="10.3" x2="12" y2="14.3"/>
         <circle cx="12" cy="16.8" r="1" fill="currentColor" stroke="none"/>
-      </symbol>
-      <symbol id="icon-home" viewBox="0 0 24 24">
-        <path d="M4 11.5L12 4.5l8 7" stroke-linejoin="round"/>
-        <path d="M5.5 10v9h13v-9" stroke-linejoin="round"/>
-        <path d="M10 19v-5.5h4V19"/>
       </symbol>
       <symbol id="icon-lock" viewBox="0 0 24 24">
         <rect x="5" y="11" width="14" height="9" rx="2"/>
@@ -141,10 +136,7 @@
         <span class="sidebar__brandText" id="sidebarBrandText"><?= currentAppTitle_() ?></span>
       </div>
       <div class="sidebarNav" id="sidebarNav" role="tablist" aria-label="画面切替">
-        <button class="tabs__item sidebarNav__item is-active" data-tab="home" type="button">
-          <svg class="icon"><use href="#icon-home"></use></svg><span>ホーム</span>
-        </button>
-        <button class="tabs__item sidebarNav__item" data-tab="inventory" type="button">
+        <button class="tabs__item sidebarNav__item is-active" data-tab="inventory" type="button">
           <svg class="icon"><use href="#icon-grid"></use></svg><span>在庫リスト</span>
         </button>
         <button class="tabs__item sidebarNav__item" data-tab="orders" type="button">
@@ -172,11 +164,6 @@
 
     <header class="topbar" id="topbar">
       <div class="topbar__brandRow">
-        <!-- PCビューではロゴ・ナビ・ユーザー情報がサイドバーに移るため、topbarには
-             戻る／更新ボタンだけが残る（見出しテキストは表示しない。サイドバーの
-             .sidebar__brandTextと重複させないため。ホームタブでは、この見出しが
-             あった場所に#homeTypeNavが重なって表示される（現在は空要素で非表示）。
-             Stylesheet.html参照）。 -->
         <div class="topbar__left">
           <button type="button" class="topbar__navBtn" id="btnNavBack" title="戻る" aria-label="1つ前の画面に戻る" disabled>
             <svg class="icon"><use href="#icon-back"></use></svg>
@@ -197,8 +184,7 @@
         <div class="topbar__user" id="topbarUser"></div>
       </div>
       <nav class="tabs" id="mainTabs" role="tablist" aria-label="画面切替">
-        <button class="tabs__item is-active" data-tab="home">ホーム</button>
-        <button class="tabs__item" data-tab="inventory">在庫リスト</button>
+        <button class="tabs__item is-active" data-tab="inventory">在庫リスト</button>
         <button class="tabs__item" data-tab="orders">受注リスト</button>
         <button class="tabs__item hidden" id="mainTabWholesaleOrders" data-tab="wholesaleOrders">業販受注リスト</button>
         <button class="tabs__item" data-tab="mypage">マイページ</button>
@@ -214,67 +200,8 @@
       <ul class="integrityBanner__list hidden" id="integrityBannerList"></ul>
     </header>
 
-    <!-- ホーム -->
-    <main class="view is-active" id="view-home">
-      <!-- PCビューは、サイドバー＋1本のカードグリッド（3枚1行）というシンプルな
-           構成にする（車両画像・在庫台数をカード自体に埋め込んだ。Stylesheet.html
-           参照）。タブレット・スマホ幅では従来どおりモデル一覧のみを横一列で表示する
-           （JavaScript.htmlのisPcHomeLayout_参照）。中古車は1台ごとに個体差があり
-           グレードという概念を持たないため、モデルタップで即座に在庫リストへ
-           絞り込み遷移する（グレードタブへの展開機能は無い）。
-           PCビューでは、共通のトップバー（戻る／更新ボタン＋アプリ名見出し）を
-           ホームタブの間だけ非表示にし（body.is-home-tab、Stylesheet.html参照）、
-           代わりに結合ヘッダー（#homeCombinedHeader）にアプリ名見出し・戻る／更新
-           ボタンをまとめて持たせる。結合ヘッダーは他のタブのツールバーと同様
-           position: fixedで画面上部に固定し（#homeCombinedHeaderSpacerで
-           後続のカードグリッドが隠れないようにする）、カードグリッド自体は
-           ページとして通常どおり縦スクロールする。
-           戻る／更新ボタン（#btnNavBackHome/#btnRefreshHome）は、共通トップバー側の
-           ボタン（#btnNavBack/#btnRefresh）と同じ処理を呼ぶ別要素（JavaScript.html
-           のhandleNavBackClick_/handleRefreshClick_・syncNavButtons_参照）。
-           タブレット・スマホ幅では#homeCombinedHeader自体をdisplay: contentsにして
-           自身の箱を消す。それ以外の子要素（見出し・戻る／更新ボタン）は
-           タブレット・スマホ幅では非表示にし、共通トップバーのボタンだけが
-           使われる（Stylesheet.html参照）。
-
-           #homeAnnouncement（お知らせ）は、管理者が設定タブから登録した任意の
-           お知らせ文言（例:「限定車在庫3台あり」）を、アプリ名見出しのすぐ上に
-           表示する（renderHomeAnnouncement_、JavaScript.html参照）。未設定の
-           場合はhiddenのまま。PCでは#homeCombinedHeader内の先頭要素として
-           見出し行の直前に表示され、タブレット・スマホ幅では#homeTypeNavと
-           同様position: fixedで独立して固定表示する（#homeAnnouncementSpacer
-           で後続要素が隠れないようにする。Stylesheet.html参照）。 -->
-      <div class="homeCombinedHeader" id="homeCombinedHeader">
-        <div class="homeAnnouncement hidden" id="homeAnnouncement"></div>
-        <div class="homeCombinedHeader__topRow">
-          <div class="homeCombinedHeader__title" id="homeCombinedHeaderTitle"><?= currentAppTitle_() ?></div>
-          <div class="homeCombinedHeader__actions">
-            <button type="button" class="topbar__navBtn" id="btnNavBackHome" title="戻る" aria-label="1つ前の画面に戻る" disabled>
-              <svg class="icon"><use href="#icon-back"></use></svg>
-            </button>
-            <button type="button" class="topbar__navBtn topbar__navBtn--refresh" id="btnRefreshHome" title="更新" aria-label="最新の情報に更新">
-              <svg class="icon"><use href="#icon-refresh"></use></svg>
-            </button>
-          </div>
-        </div>
-        <div class="homeTypeNav hidden" id="homeTypeNav" role="tablist" aria-label="絞り込みナビ"></div>
-      </div>
-      <div class="homeCombinedHeaderSpacer" id="homeCombinedHeaderSpacer"></div>
-      <div class="homeAnnouncementSpacer" id="homeAnnouncementSpacer"></div>
-      <div class="homeTypeNavSpacer" id="homeTypeNavSpacer"></div>
-      <div class="homeList" id="homeGrid"></div>
-      <div class="emptyState hidden" id="homeEmpty">
-        <svg class="icon emptyState__icon"><use href="#icon-image"></use></svg>
-        <p>モデル写真がまだ登録されていません。設定タブの「モデル写真」から登録できます。</p>
-      </div>
-      <div class="emptyState hidden" id="homeTypeEmpty">
-        <svg class="icon emptyState__icon"><use href="#icon-tune"></use></svg>
-        <p>該当する区分のモデルが登録されていません。</p>
-      </div>
-    </main>
-
     <!-- 在庫リスト -->
-    <main class="view" id="view-inventory">
+    <main class="view is-active" id="view-inventory">
       <div class="toolbar" id="inventoryToolbar">
         <input type="search" id="inventoryKeyword" class="input input--search" placeholder="モデル・ＯＣＮ・コミッション・車台番号下４桁・登録番号で検索">
         <label class="checkboxField">
@@ -495,25 +422,6 @@
             <div class="modal__error hidden" id="settingsLoadingImageError"></div>
           </div>
 
-          <!-- お知らせ：ホーム画面の「販売可能リスト」の文字の上に、全利用者向けに
-               表示する管理者入力の案内文（例:「限定車在庫3台あり」）。編集画面は
-               ロゴ等と同様に管理者限定だが、値自体はホーム画面で全利用者に表示する
-               （renderHomeAnnouncement_、JavaScript.html参照）。 -->
-          <div class="settingsCard hidden" id="systemMasterAnnouncementCard">
-            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>お知らせ</h2>
-            <p class="settingsSection__desc">ホーム画面の「販売可能リスト」の文字の上に、目立つ形で全利用者に表示するお知らせです（例:「限定車在庫3台あり」）。空欄にすると非表示になります（最大<span id="homeAnnouncementMax"></span>文字）。</p>
-            <div class="formField">
-              <label>お知らせ内容</label>
-              <input type="text" id="settingsHomeAnnouncement" class="input" placeholder="例: 限定車在庫3台あり">
-            </div>
-          </div>
-
-          <div class="settingsCard hidden" id="systemMasterModelPhotosCard">
-            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-image"></use></svg>モデル写真（ホーム画面）</h2>
-            <p class="settingsSection__desc">ホーム画面に並べるモデルの代表写真です（最大<span id="modelPhotosMax"></span>件・現在<span id="modelPhotosCount">0</span>件登録中）。1台ずつ登録する場合は「MODEL」欄に型番をそのまま入力してください。複数の型番をまとめて1枚の写真で管理したい場合は、「先頭の文字列」（クラス名。例:「C」）と、必要に応じて「含む文字列」（例:「T」でC18T等のTが付く型番だけをまとめる）を指定すると自動的にグループ化されます。「型」はホーム画面での表示分類用の任意項目です。画像はGoogleドライブの共有リンク等、外部の画像URLを指定してください。ドラッグハンドル（⠿）で表示順を並び替えできます。</p>
-            <div class="modelPhotoList" id="modelPhotoList"></div>
-            <button class="btn" id="btnAddModelPhoto" type="button">＋ モデル写真を追加</button>
-          </div>
 
           <div class="settingsCard hidden" id="systemMasterNotifyCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-mail"></use></svg>メール通知設定</h2>

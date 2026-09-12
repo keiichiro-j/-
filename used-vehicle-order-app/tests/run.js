@@ -470,124 +470,6 @@ test('配列以外が渡されても空配列として扱われる', () => {
   assert.strictEqual(sandbox.normalizeMailList_(undefined).length, 0);
 });
 
-console.log('== SettingsService: normalizeModelPhotoUrl_（Googleドライブの共有リンク→直接画像URLへの変換） ==');
-test('/file/d/{ID}/view形式の共有リンクを直接画像URLに変換する', () => {
-  const url = sandbox.normalizeModelPhotoUrl_('https://drive.google.com/file/d/1AbC-xyz_123/view?usp=sharing');
-  assert.strictEqual(url, 'https://lh3.googleusercontent.com/d/1AbC-xyz_123=w1000');
-});
-test('open?id={ID}形式の共有リンクを直接画像URLに変換する', () => {
-  const url = sandbox.normalizeModelPhotoUrl_('https://drive.google.com/open?id=1AbC-xyz_123');
-  assert.strictEqual(url, 'https://lh3.googleusercontent.com/d/1AbC-xyz_123=w1000');
-});
-test('uc?id={ID}&export=download形式の共有リンクも変換する', () => {
-  const url = sandbox.normalizeModelPhotoUrl_('https://drive.google.com/uc?id=1AbC-xyz_123&export=download');
-  assert.strictEqual(url, 'https://lh3.googleusercontent.com/d/1AbC-xyz_123=w1000');
-});
-test('ドライブ以外のURL（他の画像ホスティングサービス等）はそのまま返る', () => {
-  assert.strictEqual(sandbox.normalizeModelPhotoUrl_('https://example.com/c.jpg'), 'https://example.com/c.jpg');
-});
-test('既に変換済みのURL（lh3.googleusercontent.com）はそのまま返る', () => {
-  const url = 'https://lh3.googleusercontent.com/d/1AbC-xyz_123=w1000';
-  assert.strictEqual(sandbox.normalizeModelPhotoUrl_(url), url);
-});
-test('前後の空白は無視される', () => {
-  const url = sandbox.normalizeModelPhotoUrl_('  https://drive.google.com/file/d/1AbC-xyz_123/view?usp=sharing  ');
-  assert.strictEqual(url, 'https://lh3.googleusercontent.com/d/1AbC-xyz_123=w1000');
-});
-test('空文字・未指定はそのまま返る', () => {
-  assert.strictEqual(sandbox.normalizeModelPhotoUrl_(''), '');
-  assert.strictEqual(sandbox.normalizeModelPhotoUrl_(null), '');
-  assert.strictEqual(sandbox.normalizeModelPhotoUrl_(undefined), '');
-});
-test('ドライブのドメインでもファイルIDを抽出できない形式はそのまま返る', () => {
-  const url = 'https://drive.google.com/drive/folders/1AbC-xyz_123';
-  assert.strictEqual(sandbox.normalizeModelPhotoUrl_(url), url);
-});
-
-console.log('== SettingsService: normalizeModelPhotos_（ホーム画面のモデル写真最大40件・{model,photoUrl,gradePrefix,gradeMarker}形式） ==');
-test('モデル名・写真URLがともに入力されている行のみ残り、モデル名重複は除去される', () => {
-  const list = sandbox.normalizeModelPhotos_([
-    { model: 'Cクラス', photoUrl: 'https://example.com/c.jpg' },
-    { model: '', photoUrl: 'https://example.com/empty-model.jpg' }, // モデル名未入力は除去
-    { model: 'Eクラス', photoUrl: '' }, // 写真URL未入力は除去
-    { model: 'Cクラス', photoUrl: 'https://example.com/c-dup.jpg' }, // モデル名重複は除去（先勝ち）
-    { model: ' 3シリーズ ', photoUrl: ' https://example.com/3.jpg ' }
-  ]);
-  assert.strictEqual(list.length, 2);
-  assert.strictEqual(list[0].model, 'Cクラス');
-  assert.strictEqual(list[0].photoUrl, 'https://example.com/c.jpg');
-  assert.strictEqual(list[1].model, '3シリーズ');
-  assert.strictEqual(list[1].photoUrl, 'https://example.com/3.jpg');
-});
-test('写真URLにGoogleドライブの共有リンクを指定すると、直接画像URLに変換されて保存される', () => {
-  const list = sandbox.normalizeModelPhotos_([
-    { model: 'Aクラス', photoUrl: 'https://drive.google.com/file/d/1AbC-xyz_123/view?usp=sharing' }
-  ]);
-  assert.strictEqual(list[0].photoUrl, 'https://lh3.googleusercontent.com/d/1AbC-xyz_123=w1000');
-});
-test('40件まではそのまま登録できる', () => {
-  const list = Array.from({ length: 40 }, (_, i) => ({ model: 'モデル' + i, photoUrl: 'https://example.com/' + i + '.jpg' }));
-  assert.strictEqual(sandbox.normalizeModelPhotos_(list).length, 40);
-});
-test('41件以上はエラーになる', () => {
-  const list = Array.from({ length: 41 }, (_, i) => ({ model: 'モデル' + i, photoUrl: 'https://example.com/' + i + '.jpg' }));
-  assert.throws(() => sandbox.normalizeModelPhotos_(list), /最大40件/);
-});
-test('写真URLが長すぎる場合はエラーになる（data URL直接貼り付け対策）', () => {
-  const list = [{ model: 'Cクラス', photoUrl: 'x'.repeat(1501) }];
-  assert.throws(() => sandbox.normalizeModelPhotos_(list), /長すぎます/);
-});
-test('1件あたりは上限内でも、合計文字数が大きすぎる場合はエラーになる', () => {
-  // 30件 × 1500文字（1件あたりの上限ぎりぎり）はいずれも単体では通るが、
-  // 合計するとScript Propertiesの実際の保存上限を超えるため弾かれる
-  const list = Array.from({ length: 30 }, (_, i) => ({
-    model: 'モデル' + i,
-    photoUrl: 'https://example.com/' + 'a'.repeat(1450) + i
-  }));
-  assert.throws(() => sandbox.normalizeModelPhotos_(list), /大きすぎて保存できません/);
-});
-test('配列以外が渡されても空配列として扱われる', () => {
-  assert.strictEqual(sandbox.normalizeModelPhotos_(null).length, 0);
-  assert.strictEqual(sandbox.normalizeModelPhotos_(undefined).length, 0);
-});
-test('gradePrefix・gradeMarkerも保存される（型番の自動判定条件）', () => {
-  const list = sandbox.normalizeModelPhotos_([
-    { model: 'Cクラス', photoUrl: 'https://example.com/c.jpg', gradePrefix: 'C', gradeMarker: '43' }
-  ]);
-  assert.deepStrictEqual(Object.keys(list[0]).sort(), ['bodyType', 'gradeMarker', 'gradePrefix', 'model', 'photoUrl']);
-  assert.strictEqual(list[0].gradePrefix, 'C');
-  assert.strictEqual(list[0].gradeMarker, '43');
-});
-test('gradePrefixが未入力の場合、gradeMarkerが入力されていても空文字にそろえられる', () => {
-  const list = sandbox.normalizeModelPhotos_([
-    { model: 'Cクラス', photoUrl: 'https://example.com/c.jpg', gradePrefix: '', gradeMarker: '43' }
-  ]);
-  assert.strictEqual(list[0].gradePrefix, '');
-  assert.strictEqual(list[0].gradeMarker, '');
-});
-test('gradePrefix・gradeMarkerが長すぎる場合はエラーになる', () => {
-  const list = [{ model: 'Cクラス', photoUrl: 'https://example.com/c.jpg', gradePrefix: 'x'.repeat(31) }];
-  assert.throws(() => sandbox.normalizeModelPhotos_(list), /長すぎます/);
-});
-test('bodyTypeは選択肢のいずれかであれば保存される', () => {
-  const list = sandbox.normalizeModelPhotos_([
-    { model: 'Cクラス', photoUrl: 'https://example.com/c.jpg', bodyType: 'Sedan' }
-  ]);
-  assert.strictEqual(list[0].bodyType, 'Sedan');
-});
-test('bodyTypeが選択肢にない値の場合は空文字にそろえられる（改ざん・不正値対策）', () => {
-  const list = sandbox.normalizeModelPhotos_([
-    { model: 'Cクラス', photoUrl: 'https://example.com/c.jpg', bodyType: '存在しない型' }
-  ]);
-  assert.strictEqual(list[0].bodyType, '');
-});
-test('bodyTypeが未入力の場合は空文字になる', () => {
-  const list = sandbox.normalizeModelPhotos_([
-    { model: 'Cクラス', photoUrl: 'https://example.com/c.jpg' }
-  ]);
-  assert.strictEqual(list[0].bodyType, '');
-});
-
 console.log('== SettingsService: resolveStaffNameByEmail_（ログインメールから担当者名を解決） ==');
 const staffListWithEmails = [
   { name: '佐藤', email: 'sato@example.com' },
@@ -776,19 +658,18 @@ test('管理者にはそのまま返る', () => {
   assert.strictEqual(result.notifyHoldMailTo, 'a@example.com');
   assert.strictEqual(result.staffList.length, 1);
 });
-test('非管理者には通知先・担当者が空になる（テーマ・ロゴ・モデル写真・演出バリエーション・アプリタイトルはそのまま）', () => {
+test('非管理者には通知先・担当者が空になる（テーマ・ロゴ・演出バリエーション・アプリタイトルはそのまま）', () => {
   const settings = {
     themeKey: 'wine', logoUrl: 'https://logo.png', appTitle: '販売可能リスト（本社）',
     notifyHoldMailTo: ['a@example.com'], notifyOrderMailTo: ['b@example.com'], notifyErrorMailTo: ['c@example.com'],
     notifyChatWebhookUrl: 'https://chat.googleapis.com/v1/spaces/AAA/messages?key=xxx',
-    staffList: [{ name: '佐藤' }], modelPhotos: [{ model: 'Cクラス' }],
+    staffList: [{ name: '佐藤' }],
     celebrationVariants: { hold: 'B', order: 'C' }
   };
   const result = sandbox.redactSystemMasterSettings_(settings, false);
   assert.strictEqual(result.themeKey, 'wine');
   assert.strictEqual(result.logoUrl, 'https://logo.png');
   assert.strictEqual(result.appTitle, '販売可能リスト（本社）');
-  assert.strictEqual(result.modelPhotos.length, 1);
   assert.strictEqual(result.notifyHoldMailTo.length, 0);
   assert.strictEqual(result.notifyOrderMailTo.length, 0);
   assert.strictEqual(result.notifyErrorMailTo.length, 0);
@@ -797,36 +678,33 @@ test('非管理者には通知先・担当者が空になる（テーマ・ロ�
   assert.deepStrictEqual(result.celebrationVariants, { hold: 'B', order: 'C' });
 });
 
-console.log('== SettingsService: applySystemMasterGuard_（非管理者による保存時、ロゴ・モデル写真・通知先・担当者は既存値を維持） ==');
+console.log('== SettingsService: applySystemMasterGuard_（非管理者による保存時、ロゴ・通知先・担当者は既存値を維持） ==');
 test('管理者からの保存はそのまま反映される', () => {
-  const incoming = { themeKey: 'petrol', logoUrl: 'https://new-logo.png', notifyHoldMailTo: 'new@example.com', staffList: [{ name: '新規' }], modelPhotos: [{ model: '新モデル' }] };
+  const incoming = { themeKey: 'petrol', logoUrl: 'https://new-logo.png', notifyHoldMailTo: 'new@example.com', staffList: [{ name: '新規' }] };
   const current = { notifyHoldMailTo: 'old@example.com', staffList: [{ name: '旧' }] };
   const result = sandbox.applySystemMasterGuard_(incoming, current, true);
   assert.strictEqual(result.notifyHoldMailTo, 'new@example.com');
   assert.strictEqual(result.staffList[0].name, '新規');
   assert.strictEqual(result.logoUrl, 'https://new-logo.png');
 });
-test('非管理者からの保存は、ロゴ・アプリタイトル・モデル写真・通知先・担当者が既存値のまま維持される（テーマは反映される）', () => {
+test('非管理者からの保存は、ロゴ・アプリタイトル・通知先・担当者が既存値のまま維持される（テーマは反映される）', () => {
   const incoming = {
     themeKey: 'amber', logoUrl: 'https://tampered-logo.png', appTitle: '改ざんタイトル',
     notifyHoldMailTo: 'tampered@example.com', notifyOrderMailTo: '', notifyErrorMailTo: '',
     notifyChatWebhookUrl: 'https://tampered-webhook.example.com',
-    staffList: [], modelPhotos: [{ model: 'Eクラス' }]
+    staffList: []
   };
   const current = {
     logoUrl: 'https://real-logo.png', appTitle: '本物のタイトル',
     notifyHoldMailTo: 'real@example.com', notifyOrderMailTo: 'real2@example.com', notifyErrorMailTo: 'real3@example.com',
     notifyChatWebhookUrl: 'https://chat.googleapis.com/v1/spaces/REAL/messages?key=xxx',
     staffList: [{ name: '本物の担当者', email: 'staff@example.com' }],
-    modelPhotos: [{ model: '本物のモデル' }],
     celebrationVariants: { hold: 'A', order: 'A' }
   };
   const result = sandbox.applySystemMasterGuard_(incoming, current, false);
   assert.strictEqual(result.themeKey, 'amber');
   assert.strictEqual(result.logoUrl, 'https://real-logo.png');
   assert.strictEqual(result.appTitle, '本物のタイトル');
-  assert.strictEqual(result.modelPhotos.length, 1);
-  assert.strictEqual(result.modelPhotos[0].model, '本物のモデル');
   assert.strictEqual(result.notifyHoldMailTo, 'real@example.com');
   assert.strictEqual(result.notifyOrderMailTo, 'real2@example.com');
   assert.strictEqual(result.notifyErrorMailTo, 'real3@example.com');
