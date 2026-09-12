@@ -44,7 +44,7 @@ function api_getBootstrapData() {
     settings: redactSystemMasterSettings_(settings, isAdmin),
     currentUserEmail: email,
     // ログイン中のGoogleアカウントに対応する担当者名・登録拠点（未登録ならどちらもnull）。
-    // Hold登録・2nd Hold登録・受注確定・Hold解除の担当者欄、および販売拠点欄の初期値は
+    // Hold登録・受注確定・Hold解除の担当者欄、および販売拠点欄の初期値は
     // これらを自動的に使う。
     currentStaffName: staffMatch ? staffMatch.name : null,
     currentStaffLocation: staffMatch ? (staffMatch.location || '') : null
@@ -95,12 +95,8 @@ function api_registerHold(commission, info, holdType) {
   return registerHold(commission, info, holdType);
 }
 
-function api_registerSecondHold(commission, info) {
-  return registerSecondHold(commission, info);
-}
-
-function api_cancelHold(commission, rank) {
-  return cancelHold(commission, rank);
+function api_cancelHold(commission) {
+  return cancelHold(commission);
 }
 
 // ===== 受注機能 =====

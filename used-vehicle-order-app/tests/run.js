@@ -73,11 +73,11 @@ test('片方が空・未指定の場合は同一人物と判定しない', () =>
   assert.strictEqual(sandbox.emailsMatch_(undefined, undefined), false);
 });
 
-console.log('== HoldService: canRegisterHold_ / canRegisterSecondHold_ ==');
+console.log('== HoldService: canRegisterHold_ ==');
 test('在庫あり車両にはHold登録可', () => {
   assert.strictEqual(sandbox.canRegisterHold_({ holdStatus: 'available' }).ok, true);
 });
-test('Hold中の車両には1st Hold登録不可', () => {
+test('Hold中の車両にはHold登録不可', () => {
   assert.strictEqual(sandbox.canRegisterHold_({ holdStatus: 'hold' }).ok, false);
 });
 test('存在しない車両にはHold登録不可', () => {
@@ -86,29 +86,6 @@ test('存在しない車両にはHold登録不可', () => {
 test('holdStatusが空欄（スプレッドシートへ直接貼り付けた行）でもHold登録可', () => {
   assert.strictEqual(sandbox.canRegisterHold_({ holdStatus: '' }).ok, true);
   assert.strictEqual(sandbox.canRegisterHold_({ holdStatus: undefined }).ok, true);
-});
-
-test('Hold中で2nd Hold未登録なら2nd Hold登録可', () => {
-  assert.strictEqual(sandbox.canRegisterSecondHold_({ holdStatus: 'hold' }, false).ok, true);
-});
-test('在庫あり車両には2nd Hold登録不可', () => {
-  assert.strictEqual(sandbox.canRegisterSecondHold_({ holdStatus: 'available' }, false).ok, false);
-});
-test('2nd Hold登録済みなら3人目のHoldは不可', () => {
-  assert.strictEqual(sandbox.canRegisterSecondHold_({ holdStatus: 'hold' }, true).ok, false);
-});
-test('1st Holdと異なる担当者（メールアドレスが異なる）なら2nd Hold登録可', () => {
-  const result = sandbox.canRegisterSecondHold_({ holdStatus: 'hold' }, false, 'sato@example.com', 'suzuki@example.com');
-  assert.strictEqual(result.ok, true);
-});
-test('1st Holdと同じ担当者（メールアドレスが同じ）は2nd Hold登録不可', () => {
-  const result = sandbox.canRegisterSecondHold_({ holdStatus: 'hold' }, false, 'sato@example.com', 'sato@example.com');
-  assert.strictEqual(result.ok, false);
-  assert.ok(result.reason.includes('同じ担当者'));
-});
-test('1st Holdの担当者メールに大文字小文字・前後の空白の違いがあっても同一人物として2nd Hold登録不可にする（スプレッドシート側での手動編集等による表記ゆれ対策）', () => {
-  const result = sandbox.canRegisterSecondHold_({ holdStatus: 'hold' }, false, ' Sato@Example.com ', 'sato@example.com');
-  assert.strictEqual(result.ok, false);
 });
 
 console.log('== HoldService: canConfirmOrder_（Hold担当者のみ受注確定可・メールアドレスで判定） ==');
@@ -150,14 +127,6 @@ test('Holdリストのstaffemail列に前後の空白・大文字小文字の違
 test('該当のHold行がなければ解除できない', () => {
   const result = sandbox.canCancelHold_(null, 'sato@example.com');
   assert.strictEqual(result.ok, false);
-});
-test('2nd Holdを解除する場合はremoveSecond', () => {
-  assert.strictEqual(sandbox.decideCancelAction_(sandbox.HOLD_RANK.SECOND, true), 'removeSecond');
-  assert.strictEqual(sandbox.decideCancelAction_(sandbox.HOLD_RANK.SECOND, false), 'removeSecond');
-});
-test('1st Holdを解除する場合、2nd Holdがあれば繰り上げ(promote)、なければ解放(release)', () => {
-  assert.strictEqual(sandbox.decideCancelAction_(sandbox.HOLD_RANK.FIRST, true), 'promote');
-  assert.strictEqual(sandbox.decideCancelAction_(sandbox.HOLD_RANK.FIRST, false), 'release');
 });
 
 console.log('== HoldService: validateRequiredInfo_（全項目入力チェック） ==');
@@ -218,21 +187,14 @@ test('在庫あり車両は対象外', () => {
 });
 test('Hold期限前は対象外', () => {
   const now = 1000;
-  assert.strictEqual(sandbox.decideExpiryAction_({ holdStatus: 'hold', expiresAt: 2000, hasSecondHold: false }, now), 'none');
+  assert.strictEqual(sandbox.decideExpiryAction_({ holdStatus: 'hold', expiresAt: 2000 }, now), 'none');
 });
-test('Hold期限経過・2nd Holdなしは解放', () => {
+test('Hold期限経過は解放', () => {
   const now = 3000;
-  assert.strictEqual(sandbox.decideExpiryAction_({ holdStatus: 'hold', expiresAt: 2000, hasSecondHold: false }, now), 'release');
-});
-test('Hold期限経過・2nd Holdありは昇格', () => {
-  const now = 3000;
-  assert.strictEqual(
-    sandbox.decideExpiryAction_({ holdStatus: 'hold', expiresAt: 2000, hasSecondHold: true }, now),
-    'promote'
-  );
+  assert.strictEqual(sandbox.decideExpiryAction_({ holdStatus: 'hold', expiresAt: 2000 }, now), 'release');
 });
 
-console.log('== HoldService: buildHoldRecord_ / attachHoldInfo_（2nd Holdは1st Hold終了時から起算） ==');
+console.log('== HoldService: buildHoldRecord_ / attachHoldInfo_ ==');
 test('buildHoldRecord_ が入力項目一式を1行分のレコードに詰める（担当者メールも含む）', () => {
   const record = sandbox.buildHoldRecord_('C-001', sandbox.HOLD_RANK.FIRST, fullInfo, 1000, 1000 + sandbox.HOLD_DURATION_MS);
   assert.strictEqual(record.commission, 'C-001');
@@ -242,15 +204,6 @@ test('buildHoldRecord_ が入力項目一式を1行分のレコードに詰め�
   assert.strictEqual(record.staffEmail, 'sato@example.com');
   assert.strictEqual(record.createdAt, 1000);
   assert.strictEqual(record.expiresAt, 1000 + sandbox.HOLD_DURATION_MS);
-});
-test('2nd Holdの開始・期限は1st Holdの期限を起点に組み立てられる想定になっている', () => {
-  // registerSecondHold の実装方針の確認: createdAt = 1st Holdのexpiresat, expiresAt = createdAt + 72h
-  const firstHoldExpiresAt = 5_000_000;
-  const secondCreatedAt = firstHoldExpiresAt;
-  const secondExpiresAt = secondCreatedAt + sandbox.HOLD_DURATION_MS;
-  const record = sandbox.buildHoldRecord_('C-002', sandbox.HOLD_RANK.SECOND, fullInfo, secondCreatedAt, secondExpiresAt);
-  assert.strictEqual(record.createdAt, firstHoldExpiresAt);
-  assert.strictEqual(record.expiresAt, firstHoldExpiresAt + sandbox.HOLD_DURATION_MS);
 });
 test('applyHoldFieldsToVehicle_ はHold行がない場合すべてnullを設定する', () => {
   const vehicle = { commission: 'C-999' };
@@ -279,9 +232,9 @@ test('applyHoldFieldsToVehicle_ はholdType未設定のHold行を通常のHold�
 test('applyHoldFieldsToVehicle_ は業販HOLDのholdType・salesStoreも反映する', () => {
   const vehicle = { commission: 'C-996' };
   const wholesaleRow = Object.assign({ createdAt: 1000, expiresAt: null, holdType: 'wholesale', salesStore: '横浜店' }, fullInfo);
-  sandbox.applyHoldFieldsToVehicle_(vehicle, wholesaleRow, 'secondHold');
-  assert.strictEqual(vehicle.secondHoldHoldType, 'wholesale');
-  assert.strictEqual(vehicle.secondHoldSalesStore, '横浜店');
+  sandbox.applyHoldFieldsToVehicle_(vehicle, wholesaleRow, 'hold');
+  assert.strictEqual(vehicle.holdHoldType, 'wholesale');
+  assert.strictEqual(vehicle.holdSalesStore, '横浜店');
 });
 
 console.log('== HoldService: normalizeHoldType_（業販HOLDは管理者権限を持つ担当者のみ） ==');
@@ -790,11 +743,10 @@ test('存在しないキー・未指定はDEFAULT_THEME_KEYにフォールバッ
   assert.strictEqual(sandbox.normalizeThemeKey_('#3870b0'), sandbox.DEFAULT_THEME_KEY);
 });
 
-console.log('== SettingsService: normalizeCelebrationVariants_（Hold/2nd Hold/受注確定の演出バリエーション検証） ==');
+console.log('== SettingsService: normalizeCelebrationVariants_（Hold/受注確定の演出バリエーション検証） ==');
 test('CELEBRATION_VARIANT_OPTIONSに存在する値はそのまま返る', () => {
-  const result = sandbox.normalizeCelebrationVariants_({ hold: 'B', secondHold: 'C', order: 'A' });
+  const result = sandbox.normalizeCelebrationVariants_({ hold: 'B', order: 'A' });
   assert.strictEqual(result.hold, 'B');
-  assert.strictEqual(result.secondHold, 'C');
   assert.strictEqual(result.order, 'A');
 });
 test('存在しない値・未指定はDEFAULT_CELEBRATION_VARIANTSにフォールバックする', () => {
@@ -805,14 +757,13 @@ test('未指定（undefined）を渡してもエラーにならずすべて既�
   const result = sandbox.normalizeCelebrationVariants_(undefined);
   assert.deepStrictEqual(result, sandbox.DEFAULT_CELEBRATION_VARIANTS);
 });
-test('D（最も派手な演出）はhold/secondHold/orderいずれも有効な値として通る', () => {
-  const result = sandbox.normalizeCelebrationVariants_({ hold: 'D', secondHold: 'D', order: 'D' });
+test('D（最も派手な演出）はhold/orderいずれも有効な値として通る', () => {
+  const result = sandbox.normalizeCelebrationVariants_({ hold: 'D', order: 'D' });
   assert.strictEqual(result.hold, 'D');
-  assert.strictEqual(result.secondHold, 'D');
   assert.strictEqual(result.order, 'D');
 });
-test('CELEBRATION_VARIANT_LABELSはhold/secondHold/orderのすべてにDのラベルを持つ', () => {
-  ['hold', 'secondHold', 'order'].forEach((key) => {
+test('CELEBRATION_VARIANT_LABELSはhold/orderのすべてにDのラベルを持つ', () => {
+  ['hold', 'order'].forEach((key) => {
     assert.strictEqual(typeof sandbox.CELEBRATION_VARIANT_LABELS[key].D, 'string');
     assert.ok(sandbox.CELEBRATION_VARIANT_LABELS[key].D.length > 0);
   });
@@ -831,7 +782,7 @@ test('非管理者には通知先・担当者が空になる（テーマ・ロ�
     notifyHoldMailTo: ['a@example.com'], notifyOrderMailTo: ['b@example.com'], notifyErrorMailTo: ['c@example.com'],
     notifyChatWebhookUrl: 'https://chat.googleapis.com/v1/spaces/AAA/messages?key=xxx',
     staffList: [{ name: '佐藤' }], modelPhotos: [{ model: 'Cクラス' }],
-    celebrationVariants: { hold: 'B', secondHold: 'A', order: 'C' }
+    celebrationVariants: { hold: 'B', order: 'C' }
   };
   const result = sandbox.redactSystemMasterSettings_(settings, false);
   assert.strictEqual(result.themeKey, 'wine');
@@ -843,7 +794,7 @@ test('非管理者には通知先・担当者が空になる（テーマ・ロ�
   assert.strictEqual(result.notifyErrorMailTo.length, 0);
   assert.strictEqual(result.notifyChatWebhookUrl, '');
   assert.strictEqual(result.staffList.length, 0);
-  assert.deepStrictEqual(result.celebrationVariants, { hold: 'B', secondHold: 'A', order: 'C' });
+  assert.deepStrictEqual(result.celebrationVariants, { hold: 'B', order: 'C' });
 });
 
 console.log('== SettingsService: applySystemMasterGuard_（非管理者による保存時、ロゴ・モデル写真・通知先・担当者は既存値を維持） ==');
@@ -868,7 +819,7 @@ test('非管理者からの保存は、ロゴ・アプリタイトル・モデ�
     notifyChatWebhookUrl: 'https://chat.googleapis.com/v1/spaces/REAL/messages?key=xxx',
     staffList: [{ name: '本物の担当者', email: 'staff@example.com' }],
     modelPhotos: [{ model: '本物のモデル' }],
-    celebrationVariants: { hold: 'A', secondHold: 'A', order: 'A' }
+    celebrationVariants: { hold: 'A', order: 'A' }
   };
   const result = sandbox.applySystemMasterGuard_(incoming, current, false);
   assert.strictEqual(result.themeKey, 'amber');
@@ -882,7 +833,7 @@ test('非管理者からの保存は、ロゴ・アプリタイトル・モデ�
   assert.strictEqual(result.notifyChatWebhookUrl, 'https://chat.googleapis.com/v1/spaces/REAL/messages?key=xxx');
   assert.strictEqual(result.staffList.length, 1);
   assert.strictEqual(result.staffList[0].name, '本物の担当者');
-  assert.deepStrictEqual(result.celebrationVariants, { hold: 'A', secondHold: 'A', order: 'A' });
+  assert.deepStrictEqual(result.celebrationVariants, { hold: 'A', order: 'A' });
 });
 
 console.log('== AuditLogService: buildAuditLogEntry_（変更履歴1行分の組み立て） ==');

@@ -46,16 +46,16 @@
        6%の濃さで混ぜた値をここに置いている）。 */
     --card-bg: rgba(47, 111, 174, .06);
     /* 管理者権限を持つ担当者のみ登録できる業販HOLD専用の特別色。
-       通常のHold（--warning・アンバー）・2nd Hold（--danger・レッド／--primary・ブルー）
-       のどれとも重ならない紫系にし、テーマ設定（着せ替え）の影響を受けない固定色にする
-       （業販HOLDである、という見分けやすさを最優先するため）。 */
+       通常のHold（--warning・アンバー）とは重ならない紫系にし、テーマ設定
+       （着せ替え）の影響を受けない固定色にする（業販HOLDである、という
+       見分けやすさを最優先するため）。 */
     --hold-special: #6d28d9;
     --hold-special-bg: rgba(124, 58, 237, .14);
     /* 中古車サイトに掲載中（在庫リストのvehicleQuickMetaHtml_「掲載」列が
        「あり」）の車両を、在庫あり／Hold中等のステータス色（border-left-color）
        とは独立してひと目で区別するための背景色（is-listed、Stylesheet.html内の
        .card.is-listed・.invTableRow.is-listedルール参照）。ステータス色（成功の
-       緑・警告のアンバー・危険の赤・業販HOLDの紫）と重ならないティール系にする。 */
+       緑・警告のアンバー・業販HOLDの紫）と重ならないティール系にする。 */
     --listed-bg: rgba(20, 184, 166, .14);
     --shadow: 0 1px 2px rgba(16, 31, 51, .10);
     --shadow-elevated: 0 16px 40px rgba(16, 31, 51, .16);
@@ -698,15 +698,15 @@
   .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(6) { flex: 0 0 130px; } /* 拠点 */
   .btn--small { padding: 6px 12px; font-size: 12.5px; }
 
-  /* ===== 在庫リストの表示形式「表」（現場から提示された参照UI「案A 表（横）HOLD」に
-     合わせた、素のHTML <table>） =====
-     「ステータス・車種・ＯＣＮ・ハンドル・カラー・走行距離・販売価格・1ST HOLD・
-     2ND HOLD・操作」の10列を横一列に並べる（vehicleTableRowHtml_、JavaScript.html
-     参照）。区分・コミッションは一覧には出さず行タップで開く詳細モーダルでのみ
-     確認する（現場からの要望）。受注・発注・Gクラス予約リストの表示形式「表」は
-     引き続き.rowCard（角丸・影付きの行カード）のままだが、在庫リストだけは
-     参照UIの「Hold詳細（担当者・タイマー）を列として直接見せる、素朴な表」という
-     見た目に合わせて本物の<table>に切り替えた。
+  /* ===== 在庫リストの表示形式「表」（素のHTML <table>） =====
+     「ステータス・車種・ＯＣＮ・区分・カラー・販売価格・年式・走行距離・
+     登録番号・HOLD・操作」の11列を横一列に並べる（vehicleTableRowHtml_、
+     JavaScript.html参照）。2nd Hold廃止で空いたスペースを使い、年式・走行距離・
+     登録番号を詳細モーダルを開かなくても確認できるようにしている（現場からの
+     要望）。受注・発注・Gクラス予約リストの表示形式「表」は引き続き.rowCard
+     （角丸・影付きの行カード）のままだが、在庫リストだけは「Hold詳細（担当者・
+     タイマー）を列として直接見せる、素朴な表」という見た目に合わせて本物の
+     <table>に切り替えた。
      PCビュー（901px以上）では、列数を絞り込んだことで通常は全列が画面幅に収まるため、
      横スクロールを発生させない（現場からの要望。下のmin-width: 901pxブロックで
      overflow-xを打ち消す）。タブレット・スマホ幅では従来どおり、画面に収まりきらない
@@ -722,25 +722,24 @@
   @media (min-width: 901px) {
     .invTableWrap { overflow-x: hidden; }
     .invTable { table-layout: fixed; width: 100%; }
-    /* 不具合修正: table-layout: fixedは列幅の指定が無いと全9列を均等割りに
-       してしまい、Hold詳細・操作ボタンのように幅を要する列が窮屈になって
-       いた（現場からの指摘:「Hold情報が不鮮明」「受注確定・2ND HOLDの文字が
-       見切れる」）。列ごとの実際の内容量に応じて明示的に配分する
+    /* 不具合修正: table-layout: fixedは列幅の指定が無いと全列を均等割りに
+       してしまい、HOLD詳細・操作ボタンのように幅を要する列が窮屈になって
+       しまう。列ごとの実際の内容量に応じて明示的に配分する
        （合計100%。vehicleRowsHtml・vehicleTableRowHtml_の列順と対応）。
        車種（MODEL列）は実際には「C20T」のように短い型番がほとんどのため
-       車種・カラー列は控えめにし、代わりにステータスバッジ・Hold詳細・
-       操作ボタン（いずれも縦折り返し禁止の要望あり）に幅を厚めに配分する。
-       走行距離は列自体を削除し（詳細モーダルで確認可能）、浮いた分は
-       2ND HOLD・操作（受注確定）列にそのまま還元してある。 */
-    .invTable th:nth-child(1), .invTable td:nth-child(1) { width: 12%; } /* ステータス */
-    .invTable th:nth-child(2), .invTable td:nth-child(2) { width: 7%; }  /* 車種 */
+       控えめにし、代わりにステータスバッジ・HOLD詳細・操作ボタン
+       （いずれも縦折り返し禁止の要望あり）に幅を厚めに配分する。 */
+    .invTable th:nth-child(1), .invTable td:nth-child(1) { width: 13%; } /* ステータス（「業販HOLD中」等が見切れないよう厚めに配分） */
+    .invTable th:nth-child(2), .invTable td:nth-child(2) { width: 8%; }  /* 車種 */
     .invTable th:nth-child(3), .invTable td:nth-child(3) { width: 9%; }  /* ＯＣＮ */
-    .invTable th:nth-child(4), .invTable td:nth-child(4) { width: 5%; }  /* ハンドル */
-    .invTable th:nth-child(5), .invTable td:nth-child(5) { width: 7%; }  /* カラー */
-    .invTable th:nth-child(6), .invTable td:nth-child(6) { width: 12%; } /* 販売価格 */
-    .invTable th:nth-child(7), .invTable td:nth-child(7) { width: 13%; } /* 1ST HOLD */
-    .invTable th:nth-child(8), .invTable td:nth-child(8) { width: 17%; } /* 2ND HOLD */
-    .invTable th:nth-child(9), .invTable td:nth-child(9) { width: 18%; } /* 操作 */
+    .invTable th:nth-child(4), .invTable td:nth-child(4) { width: 6%; }  /* 区分 */
+    .invTable th:nth-child(5), .invTable td:nth-child(5) { width: 8%; }  /* カラー */
+    .invTable th:nth-child(6), .invTable td:nth-child(6) { width: 9%; }  /* 販売価格 */
+    .invTable th:nth-child(7), .invTable td:nth-child(7) { width: 6%; }  /* 年式 */
+    .invTable th:nth-child(8), .invTable td:nth-child(8) { width: 7%; }  /* 走行距離 */
+    .invTable th:nth-child(9), .invTable td:nth-child(9) { width: 9%; }  /* 登録番号 */
+    .invTable th:nth-child(10), .invTable td:nth-child(10) { width: 11%; } /* HOLD */
+    .invTable th:nth-child(11), .invTable td:nth-child(11) { width: 14%; } /* 操作 */
   }
   .invTable {
     width: 100%;
@@ -769,19 +768,17 @@
   .invTableRow > td:first-child { border-left: 4px solid transparent; }
   .invTableRow--available > td:first-child { border-left-color: var(--success); }
   .invTableRow--hold > td:first-child { border-left-color: var(--warning); }
-  .invTableRow--hold2 > td:first-child { border-left-color: var(--danger); }
   .invTableRow--holdSpecial > td:first-child { border-left-color: var(--hold-special); }
   /* 中古車サイトに掲載中の車両は、Hold状態の色（border-left-color）とは独立して
      行の背景色を変え、一目で区別できるようにする（.card.is-listedと同じ考え方）。 */
   .invTableRow.is-listed > td { background: var(--listed-bg); }
   /* 不具合修正: .badge本体はwhite-space: nowrap（バッジらしい1行の見た目を保つ
      ため）だが、ステータス列の幅（table-layout: fixed）を超える長さの文言
-     （「Hold中（2nd有）」「業販HOLD中」等）は、nowrapのまま隣の車種列へ
-     はみ出し、車種の文字と重なって読めなくなっていた（現場での動作確認で
-     発見）。ステータス・操作列（受注確定・2ND HOLD等）は縦に折り返さず常に
-     横一列で表示してほしいという要望のため、折り返しではなく列幅そのものを
-     広げる方向で対応し、バッジ自体は1行のまま（万一収まりきらない場合のみ
-     省略記号にする、あくまで保険）にしてある。 */
+     （「業販HOLD中」等）は、nowrapのまま隣の車種列へはみ出し、車種の文字と
+     重なって読めなくなっていた（現場での動作確認で発見）。ステータス・操作列
+     （受注確定等）は縦に折り返さず常に横一列で表示してほしいという要望のため、
+     折り返しではなく列幅そのものを広げる方向で対応し、バッジ自体は1行のまま
+     （万一収まりきらない場合のみ省略記号にする、あくまで保険）にしてある。 */
   .invTableRow__status .badge {
     white-space: nowrap;
     overflow: hidden;
@@ -809,8 +806,8 @@
      （販売価格 9%→12%）とあわせて、実際の金額表示が収まるようにする。 */
   .invTableRow__mono { font-variant-numeric: tabular-nums; white-space: nowrap; }
   .invTableRow__center { text-align: center; }
-  /* 「受注確定」「2ND HOLD」等の操作ボタンは縦に折り返さず常に横一列で表示する
-     （現場からの要望）。ボタンだけなら列幅（nth-child(9)、下記@media参照）に
+  /* 「受注確定」等の操作ボタンは縦に折り返さず常に横一列で表示する
+     （現場からの要望）。ボタンだけなら列幅（nth-child(11)、上記@media参照）に
      十分収まる。
      不具合修正: display: flexを<td>自体（.invTableRow__actions）に直接
      指定すると、そのセルはtable-cellとしての既定の伸縮（vertical-align:
@@ -828,8 +825,7 @@
     align-items: center;
     gap: 8px;
   }
-  /* 1ST HOLD・2ND HOLD列。Hold登録が無い場合は「未登録」の薄いグレーのピルのみ
-     表示する（参照UI参照）。
+  /* HOLD列。Hold登録が無い場合は「未登録」の薄いグレーのピルのみ表示する。
      不具合修正: Hold登録の有無（未登録・1件・詳細内容の長さ）によってこのセルの
      高さが変わると、表の行の高さも車両ごとにばらついてしまう（現場からの指摘）。
      .invHold・.invHold__emptyの両方に同じ高さを固定で持たせることで、Hold状態に
@@ -955,10 +951,7 @@
      このカードの左罫線も連動して変わる）。 */
   .card--themed { border-left-color: var(--primary); }
   .card--hold { border-left-color: var(--warning); }
-  /* 1st・2nd Holdの両方が埋まっている車両は、これ以上の受け皿がない分、他より
-     目立たせる（現場の声を踏まえ、Hold1件のみとは別の色にする）。 */
-  .card--hold2 { border-left-color: var(--danger); }
-  /* 業販HOLDは、通常のHold・2nd Holdとひと目で見分けられるよう
+  /* 業販HOLDは、通常のHoldとひと目で見分けられるよう
      専用の特別色にする（管理者権限を持つ担当者のみ登録できる。HOLD_TYPE参照）。 */
   .card--holdSpecial { border-left-color: var(--hold-special); }
   /* 中古車サイトに掲載中の車両は、Hold状態の色（border-left-color）とは独立して
@@ -966,14 +959,14 @@
      isVehicleListed_、JavaScript.html参照）。border-left-colorによる状態色と
      衝突しないよう、変えるのはbackgroundのみにする。 */
   .card.is-listed { background: var(--listed-bg); }
-  /* モデル・コミッション・比較ピンの行と、バッジの行を常に別々の固定行にする。
-     以前は1つのflex-wrapコンテナに全部まとめていたため、バッジの個数
-     （2個／3個）やモデル名・コミッションの文字数の組み合わせによって折り返し方
-     が変わり、在庫あり／Hold中／Hold中（2nd有）でカードの高さが揃わなかった。
-     2行に固定することで、組み合わせに関わらず常に同じ高さになる。 */
+  /* 【上枠】車種・ＯＣＮの行と、ステータス（＋掲載）バッジの行を常に別々の
+     固定行にする。以前は1つのflex-wrapコンテナに全部まとめていたため、バッジの
+     個数やモデル名・ＯＣＮの文字数の組み合わせによって折り返し方が変わり、
+     カードの高さが揃わなかった。2行に固定することで、組み合わせに関わらず
+     常に同じ高さになる。 */
   .card__top { display: flex; flex-direction: column; gap: 8px; }
   .card__topRow { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-  /* モデル名・コミッションを常に1行に収める（折り返し無し。現場からの要望）。
+  /* モデル名・ＯＣＮを常に1行に収める（折り返し無し。現場からの要望）。
      直接の子要素（無名のdiv）は、flexアイテムの既定値min-width: autoのままだと
      内容ぶんの幅までしか縮まず、隣（比較ピン）を押し出したり右側でオーバーフロー
      したりするため、min-width: 0で縮小を許可し、ellipsisが実際に働くようにする。 */
@@ -1002,8 +995,11 @@
   .badge__dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
   .badge--available { background: var(--success-bg); color: var(--success); }
   .badge--hold { background: var(--warning-bg); color: var(--warning); }
-  .badge--hold2 { background: var(--danger-bg); color: var(--danger); }
   .badge--holdSpecial { background: var(--hold-special-bg); color: var(--hold-special); }
+  /* 掲載バッジ（未掲載／片方のみ掲載／両方掲載）。ステータスバッジと並べて
+     表示するため、行・カードの背景色（is-listed）と重ならないティール系にする
+     （listedBadgeHtml_、JavaScript.html参照。未掲載の場合はバッジ自体を出さない）。 */
+  .badge--listed { background: var(--listed-bg); color: #0f766e; }
   .badge--disclosed { background: var(--success-bg); color: var(--success); font-weight: 500; }
   .badge--undisclosed { background: rgba(31, 41, 51, .06); color: var(--on-surface-variant); font-weight: 500; }
   .badge--thisMonth { background: var(--primary-bg); color: var(--primary-text); font-weight: 500; }
@@ -1012,8 +1008,8 @@
 
   /* 車両スペック・Hold詳細はカード内に表示せず、「詳細を見る」タップで画面中央の
      モーダル（vehicleDetailHtml_）にまとめて表示する。以前はカード内の折りたたみ
-     （<details>）だったが、開閉のたびにカードが伸び縮みし、在庫あり／Hold中／
-     Hold中（2nd有）で高さが揃わなくなっていたため。 */
+     （<details>）だったが、開閉のたびにカードが伸び縮みし、在庫あり／Hold中で
+     高さが揃わなくなっていたため。 */
   .card__detailLink {
     margin: 0;
     width: 100%;
@@ -1042,7 +1038,8 @@
     margin: 0;
     padding: 12px 0 0;
   }
-  /* MP・カラーは折りたたまず常に表示するため、card__topのすぐ下に独自の区切り線を持つ */
+  /* 【下枠】（区分・カラー・販売価格・年式・走行距離・登録番号）は折りたたまず
+     常に表示するため、card__topのすぐ下に独自の区切り線を持つ */
   .card__metaGrid--quick { border-top: 1px solid var(--outline); padding-top: 14px; }
   .card__metaGrid dt {
     color: var(--on-surface-variant);
@@ -1066,13 +1063,9 @@
      テキスト用の省略記号設定（white-space: nowrap等）を解除する。 */
   .card__metaGrid dd.dd--action { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1; }
 
-  /* Hold状況エリアは高さ固定・内部スクロール。Hold/2nd Holdが増えてもここで吸収し、
-     カード自体の高さは在庫あり／Hold／2nd Holdのどの状態でも常に一定に保たれる。 */
-  /* 高さは在庫あり／1st Holdのみ／2nd Holdありのどの状態でも常に同じ150pxに
-     固定する（2nd Holdが横並び表示に収まる高さを基準に、在庫あり・1st Holdのみ
-     の場合も同じ高さにすることで、カードサイズがHoldの状態によって変わらない
-     ようにしている）。想定を超える長さの内容が入った場合の保険として、
-     内部スクロールも残す。 */
+  /* Hold状況エリアは高さ固定・内部スクロール。カード自体の高さは在庫あり／Hold中の
+     どちらの状態でも常に一定に保たれる。想定を超える長さの内容が入った場合の
+     保険として、内部スクロールも残す。 */
   .card__holdArea {
     height: 150px;
     display: flex;
@@ -1083,25 +1076,6 @@
   /* 詳細モーダル（vehicleDetailHtml_）は、カードグリッドの行の高さを揃える
      必要が無いため、高さ固定・内部スクロールにせず内容ぶんそのまま表示する。 */
   .card__holdArea--full { height: auto; overflow: visible; }
-  /* 2nd Holdがある場合、1st Hold（左）・2nd Hold（右）を縦積みではなく
-     横並びにする（カード表示・詳細モーダル・マイページで共通。アプリ全体で
-     統一した見せ方にする）。 */
-  .card__holdArea--split { flex-direction: row; align-items: stretch; }
-  /* 不具合修正: min-width: 0だけでは、ブラウザ（特にSafari/iOS）によっては
-     各Hold情報ボックス（.card__holdInfo）の内容量に応じた自動最小サイズが
-     stretchによる高さ（.card__holdAreaの150px固定を参照）より優先されてしまい、
-     文字数の多いHold（担当者名・拠点名・リード番号が長い等）で「無期限」の
-     表記がボックスの背景（角丸・紫の枠）からはみ出して見える不具合があった
-     （親要素.card__holdAreaのoverflow-y: autoだけでは、行方向（flex-direction:
-     row）にstretchされた子要素自身の自動最小サイズには効かないため）。
-     子要素自身にもmin-height: 0（自動最小サイズを無効化）とoverflow-y: auto
-     （収まりきらない内容はボックス自身の内側でスクロール）を指定することで、
-     1st Hold・2nd Holdどちらのボックスも必ず親と同じ高さに収まるようにした。
-     これにより、2nd Holdがあるカードの高さも1st Holdのみのカードと常に
-     揃うようになる（.card__holdArea自体の高さは元々どちらも150pxで同じだが、
-     この不具合でボックスの内容がはみ出すぶんカード全体の見た目の高さが
-     ずれて見えていた）。 */
-  .card__holdArea--split .card__holdInfo { flex: 1 1 0; min-width: 0; min-height: 0; overflow-y: auto; }
   .card__holdArea--empty {
     align-items: center;
     justify-content: center;
@@ -1129,7 +1103,7 @@
     gap: 8px;
     margin-bottom: 4px;
   }
-  /* "1ST HOLD"／"2ND HOLD"は縦に折り返さず常に横一列のまま表示する（現場からの
+  /* "HOLD"は縦に折り返さず常に横一列のまま表示する（現場からの
      要望）。省略記号（ellipsis）はあくまで、業販HOLDの「（業販HOLD）」suffix等で
      万一収まりきらない場合の保険。 */
   .card__holdInfo__label {
@@ -1142,12 +1116,10 @@
     text-transform: uppercase;
     min-width: 0;
   }
-  .card__holdInfo--first { border-left-color: var(--warning); }
-  .card__holdInfo--first .card__holdInfo__label { color: var(--warning); }
-  .card__holdInfo--second { border-left-color: var(--primary); background: var(--primary-bg); }
-  .card__holdInfo--second .card__holdInfo__label { color: var(--primary-text); }
-  /* 業販HOLDは、順番（1st/2nd）に関わらずこの特別色で上書きする
-     （--first/--secondと同時に付与されるクラスのため、後に書くことで優先させる）。 */
+  .card__holdInfo--hold { border-left-color: var(--warning); }
+  .card__holdInfo--hold .card__holdInfo__label { color: var(--warning); }
+  /* 業販HOLDはこの特別色で上書きする（--holdと同時に付与されるクラスのため、
+     後に書くことで優先させる）。 */
   .card__holdInfo--special { border-left-color: var(--hold-special); background: var(--hold-special-bg); }
   .card__holdInfo--special .card__holdInfo__label { color: var(--hold-special); }
   /* 顧客名・担当者名・拠点名は現場の入力次第で長くなり得るため、折り返さず
@@ -1210,7 +1182,7 @@
   .card__remarksRow { margin-top: 8px; }
 
   .card__actions { display: flex; gap: 8px; margin-top: auto; padding-top: 4px; flex-wrap: wrap; }
-  /* 「2ND HOLD」「受注確定」等、ボタン内の文言は横一列表示を維持したい
+  /* 「受注確定」等、ボタン内の文言は横一列表示を維持したい
      （折り返して縦2行になると見づらいため）。flex: 1 の等分幅に対して
      文字が収まりきらないケースに備え、min-width: 0 で必要なら縮められる
      ようにしたうえで、白抜きなし（nowrap）＋ボタン内では省略記号を
@@ -2409,7 +2381,7 @@
   .modal__header { flex: none; display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--outline); }
   .modal__header h2 { font-size: 17px; font-weight: 500; margin: 0; display: flex; align-items: center; }
 
-  /* Hold登録・2nd Hold登録はオレンジ、受注確定はブルーで、操作の種類が一目で
+  /* Hold登録はオレンジ、受注確定はブルーで、操作の種類が一目で
      分かるようにする（Hold中バッジ＝オレンジ、受注確定ボタン＝ブルー、と既存の
      配色ルールに合わせている）。 */
   .modal__panel--hold { border-top: 4px solid var(--warning); }
@@ -2432,7 +2404,7 @@
     flex: none;
   }
   .modal__body { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
-  /* 予約（Hold/2nd Hold/受注）入力モーダルは2列グリッドにして、デスクトップでは
+  /* 予約（Hold/受注）入力モーダルは2列グリッドにして、デスクトップでは
      スクロールなしで全項目を入力できるようにする。 */
   .modal__grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 20px; }
   .formField--span2 { grid-column: 1 / -1; }
@@ -2531,7 +2503,7 @@
     100% { transform: translate(var(--drift, 0), 112vh) rotate(var(--rot, 720deg)); opacity: .85; }
   }
 
-  /* ===== Hold登録・2nd Hold登録・受注確定 完了時の演出 =====
+  /* ===== Hold登録・受注確定 完了時の演出 =====
      showCelebration_（JavaScript.html）が、固定の案内メッセージ（.celebrationBanner）と
      アクションごとに専用のド派手な演出（.celebrationLayerにCSSで描いた図形
      パーツ・発光エフェクトを生成）を組み合わせて表示する。絵文字はフォント・
@@ -2612,59 +2584,7 @@
     65% { opacity: .45; }
     100% { transform: scale(11); opacity: 0; }
   }
-  /* 2nd Hold登録の演出: 画面中央で脈動する発光エネルギーコア（回転するリング
-     ＋脈動する光る球＋広がるリップル2つ）。「もう少し待ってください」という
-     文言に合わせ、力を蓄えているような期待感のある見た目にしている。
-     topを62%（画面中央よりやや下）にしているのは、.celebrationBanner（38%、
-     画面中央よりやや上）との重なりを避けるため。画面の垂直中央を挟んで上下
-     対称に振り分けることで、単体で見ても・組み合わせて見ても「画面中央」に
-     まとまって見えるようにしている。%指定のため、スマホ・PCなどビューの
-     サイズが変わっても自動的に追従する。 */
-  .celebEnergyCore {
-    position: fixed;
-    top: 62%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 311;
-    pointer-events: none;
-    width: 140px;
-    height: 140px;
-  }
-  .celebEnergyCore__orb {
-    position: absolute;
-    inset: 32px;
-    border-radius: 50%;
-    background: radial-gradient(circle at 34% 30%, #fff, #7dd3fc 42%, #1a73e8 78%);
-    box-shadow: 0 0 44px 14px rgba(26, 115, 232, .6);
-    animation: celebOrbPulse 1.4s ease-in-out infinite;
-  }
-  @keyframes celebOrbPulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.14); }
-  }
-  .celebEnergyCore__ring {
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    border: 3px solid transparent;
-    border-top-color: #1a73e8;
-    border-right-color: #7dd3fc;
-    animation: celebSpin 1.6s linear infinite;
-  }
-  @keyframes celebSpin { to { transform: rotate(360deg); } }
-  .celebEnergyCore__ripple {
-    position: absolute;
-    inset: 18px;
-    border-radius: 50%;
-    border: 2px solid rgba(26, 115, 232, .55);
-    animation: celebRipplePulse 1.8s ease-out infinite;
-  }
-  .celebEnergyCore__ripple--delay { animation-delay: .6s; }
-  @keyframes celebRipplePulse {
-    0% { transform: scale(.5); opacity: .8; }
-    100% { transform: scale(2.4); opacity: 0; }
-  }
-  /* 案内メッセージのバナー。画面中央（やや上寄り、topは.celebEnergyCore参照）に
+  /* 案内メッセージのバナー。画面中央（やや上寄り）に
      大きめの文字で表示し、一定時間で自動的にフェードアウトする
      （showCelebrationBanner_参照）。top・max-widthともに%・vw基準のため、
      PC・タブレット・スマホいずれの画面サイズでも自動的に追従し、中央付近に
@@ -2875,7 +2795,7 @@
     .card, .orderCard { transition: none; }
     .topbar__navBtn--refresh.is-spinning .icon { animation: none; }
     .view.is-active { animation: none; }
-    .celebParticle, .celebFlash, .celebShockwave, .celebEnergyCore { display: none; }
+    .celebParticle, .celebFlash, .celebShockwave { display: none; }
     .celebrationBanner { transition: none; }
     .modal, .modal .modal__panel, .toast { animation: none; }
   }

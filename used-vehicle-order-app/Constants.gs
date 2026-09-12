@@ -4,7 +4,7 @@
  *
  * スプレッドシートは4タブ構成：
  *   在庫リスト … 車両情報＋Holdステータスのみ
- *   Holdリスト … Hold（1st/2nd）の入力項目・開始日時・期限（車両情報とは別テーブル）
+ *   Holdリスト … Holdの入力項目・開始日時・期限（車両情報とは別テーブル）
  *   受注リスト … 受注確定時に転記される車両情報＋入力項目
  *   変更履歴 … 監査ログ
  */
@@ -123,9 +123,14 @@ var VEHICLE_COLUMNS = [
   { key: 'option', label: 'オプション', type: 'text', note: '装備されているオプションを入力してください（複数ある場合はカンマ等で区切ります）。' },
   { key: 'currentOwnerName', label: '現名義', type: 'text', note: '現在の車両名義人を入力してください。' },
   {
-    key: 'listed', label: '掲載', type: 'select', options: YES_NO_OPTIONS,
-    note: '中古車サイトに掲載中かどうかです。「あり」の車両は、在庫リストの背景色を' +
-      '変えて一目で区別できるようにします。'
+    key: 'listedCarsensor', label: 'カーセンサー', type: 'checkbox',
+    note: '中古車サイト「カーセンサー」に掲載中かどうかです。チェックを入れると掲載中として扱います。' +
+      'この列とグーネット列のチェック状況に応じて、在庫リストの掲載欄（未掲載／片方のみ掲載／両方掲載）に自動で反映されます。'
+  },
+  {
+    key: 'listedGoonet', label: 'グーネット', type: 'checkbox',
+    note: '中古車サイト「グーネット」に掲載中かどうかです。チェックを入れると掲載中として扱います。' +
+      'この列とカーセンサー列のチェック状況に応じて、在庫リストの掲載欄（未掲載／片方のみ掲載／両方掲載）に自動で反映されます。'
   }
 ];
 
@@ -179,16 +184,17 @@ var INVENTORY_COLUMNS = VEHICLE_COLUMNS.concat([
 ]);
 
 /**
- * Holdリスト列定義。1台の車両につき 1st Hold・2nd Hold それぞれ1行（最大2行）。
- * commission + rank で一意に特定する。
+ * Holdリスト列定義。1台の車両につきHold中は1行のみ存在する。commissionで一意に特定する。
  */
 var HOLD_COLUMNS = [
   {
     key: 'commission', label: 'コミッション', type: 'text', required: true,
-    note: '対象車両のコミッション（在庫リストと同じ値）です。1台につき1st・2nd Holdで' +
-      'それぞれ1行になります。'
+    note: '対象車両のコミッション（在庫リストと同じ値）です。Hold中の車両1台につき1行になります。'
   },
-  { key: 'rank', label: '順番', type: 'select', options: [HOLD_RANK.FIRST, HOLD_RANK.SECOND], required: true, note: '「1st」または「2nd」を選択してください。' },
+  {
+    key: 'rank', label: '順番', type: 'select', options: [HOLD_RANK.FIRST, HOLD_RANK.SECOND], required: true,
+    note: '常に「1st」が設定されます（2nd Holdは廃止されたため、アプリが新規に書き込む値ではありません）。過去のデータ互換のため列自体は残していますが、手動編集は不要です。'
+  },
   {
     key: 'holdType', label: 'Hold種別', type: 'select',
     options: [HOLD_TYPE.NORMAL, HOLD_TYPE.WHOLESALE],
@@ -204,7 +210,7 @@ var HOLD_COLUMNS = [
   },
   // 担当者ID（staffEmail、スプレッドシート上のラベルは「担当者ID」）は表示名「担当者」
   // ではなく、ログイン中のGoogleアカウントのメールアドレスで本人確認を行うための
-  // 識別キー（canConfirmOrder_ / canCancelHold_ / canRegisterSecondHold_ 参照）。
+  // 識別キー（canConfirmOrder_ / canCancelHold_ 参照）。
   // 「担当者」名は表示用の別名に過ぎず編集され得るため、権限判定には必ずこちらを使う。
   {
     key: 'staffEmail', label: '担当者ID', type: 'text',
@@ -271,8 +277,8 @@ var WHOLESALE_ORDER_COLUMNS = VEHICLE_COLUMNS.concat([
 ]);
 
 /**
- * 変更履歴（監査ログ）列定義。Hold登録・2nd Hold登録・Hold解除（手動・自動）・
- * 受注確定のたびに1行追記する。「誰が・いつ・何を」の記録専用で、更新・削除は行わない
+ * 変更履歴（監査ログ）列定義。Hold登録・Hold解除（手動・自動）・受注確定のたびに
+ * 1行追記する。「誰が・いつ・何を」の記録専用で、更新・削除は行わない
  * （AuditLogService.gs参照）。
  */
 var AUDIT_LOG_COLUMNS = [
@@ -362,7 +368,7 @@ var APP_TITLE_MAX_LENGTH = 40;
 var SPREADSHEET_TITLE_MAX_LENGTH = 100;
 
 /**
- * Hold登録・2nd Hold登録・受注確定それぞれの完了時に表示する演出（絵柄の
+ * Hold登録・受注確定それぞれの完了時に表示する演出（絵柄の
  * アクション）の選択肢キー。管理者（SYSTEM_ADMIN_EMAILS）が設定タブから
  * 選べるようにする（CELEBRATION_VARIANT_LABELS・SettingsService.gsの
  * normalizeCelebrationVariants_参照。案内メッセージ自体は固定で、絵柄の
@@ -370,7 +376,7 @@ var SPREADSHEET_TITLE_MAX_LENGTH = 100;
  * （JavaScript.htmlのCELEBRATION_EFFECTS）で定義する）。
  */
 var CELEBRATION_VARIANT_OPTIONS = ['A', 'B', 'C', 'D'];
-var DEFAULT_CELEBRATION_VARIANTS = { hold: 'A', secondHold: 'A', order: 'A' };
+var DEFAULT_CELEBRATION_VARIANTS = { hold: 'A', order: 'A' };
 // 設定タブのプルダウンに表示するラベル（クライアント側のCELEBRATION_EFFECTSと
 // 対応させておくこと）。D はどのアクションでも既存の演出パーツを最も多く
 // 重ね掛けした、最も派手な演出にしている（JavaScript.htmlのCELEBRATION_EFFECTS参照）。
@@ -378,10 +384,6 @@ var CELEBRATION_VARIANT_LABELS = {
   hold: {
     A: 'エール（応援の掛け声）', B: '応援フラッグ', C: 'ガッツポーズ',
     D: '全力エール'
-  },
-  secondHold: {
-    A: '砂時計', B: 'コーヒーブレイク', C: '少々お待ちを',
-    D: '大歓声で応援'
   },
   order: {
     A: '紙吹雪＋風船（既定）', B: '花火', C: '祝福シャワー',

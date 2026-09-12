@@ -24,6 +24,7 @@ function getOrCreateSheet_(sheetName, columns, textColumnIndexes1) {
     sheet.setFrozenRows(1);
     applyTextColumnFormat_(sheet, textColumnIndexes1);
     applySelectValidations_(sheet, columns);
+    applyCheckboxValidations_(sheet, columns);
     applyHeaderNotes_(sheet, columns);
     applySheetDesign_(sheet, sheetName, columns);
   }
@@ -103,6 +104,21 @@ function applySelectValidations_(sheet, columns) {
       .setHelpText('次のいずれかを選択してください： ' + col.options.join('、'))
       .build();
     sheet.getRange(2, i + 1, numRows, 1).setDataValidation(rule);
+  });
+}
+
+/**
+ * チェックボックス式（type: 'checkbox'）の列に、ネイティブのチェックボックス
+ * （Range.insertCheckboxes）を設定する。「カーセンサー」「グーネット」のように、
+ * スプシ側で直接レ点（チェック）を打つ運用の列に使う（Constants.gsの
+ * VEHICLE_COLUMNS参照）。値はboolean（true=チェック済み）でrowToObject_・
+ * objectToRow_を経由してそのまま読み書きされる。
+ */
+function applyCheckboxValidations_(sheet, columns) {
+  var numRows = Math.max(sheet.getMaxRows() - 1, 1000);
+  columns.forEach(function (col, i) {
+    if (col.type !== 'checkbox') return;
+    sheet.getRange(2, i + 1, numRows, 1).insertCheckboxes();
   });
 }
 
@@ -319,13 +335,14 @@ function listHoldsForCommission_(commission) {
 }
 
 /**
- * 指定コミッションの Hold行を { first, second } の形で返す（見つからなければ null）。
+ * 指定コミッションの Hold行を { first } の形で返す（見つからなければ null）。
+ * 2nd Holdは廃止済みのため、過去データにまれに残り得る2nd Hold行（rankが
+ * HOLD_RANK.SECOND）は無視する。
  */
 function getHoldsForCommission_(commission) {
   var rows = listHoldsForCommission_(commission);
   return {
-    first: rows.find(function (h) { return h.rank === HOLD_RANK.FIRST; }) || null,
-    second: rows.find(function (h) { return h.rank === HOLD_RANK.SECOND; }) || null
+    first: rows.find(function (h) { return h.rank === HOLD_RANK.FIRST; }) || null
   };
 }
 

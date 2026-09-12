@@ -107,6 +107,59 @@ function addRemarksColumnToInventory_() {
 }
 
 /**
+ * 既存のスプレッドシートの「掲載」列（あり／なしの選択式）を、「カーセンサー」
+ * 「グーネット」の2列（チェックボックス）に分割する一回限りのメンテナンス関数
+ * （addRemarksColumnToInventory_と同じ位置づけ）。「掲載」列を持つ在庫リスト・
+ * 受注リスト・業販受注リストが対象。
+ * 「掲載」列の右隣に新しい列を1つ挿入し（既存の「掲載」列自体は「カーセンサー」に
+ * 転用する）、既存の「あり」はカーセンサーのチェック済みとして引き継ぐ
+ * （グーネット側の実際の掲載状況は元データに無いため、新設列は未チェックで
+ * 追加される。必要であればスプシ側で個別にチェックし直してください）。
+ * 既に「掲載」列が見つからない場合（既に実行済み等）は何もしない
+ * （何度実行しても安全）。
+ */
+function migrateListedColumnToCheckboxes_() {
+  var targets = [
+    [getInventorySheet_(), SHEET_NAMES.INVENTORY, INVENTORY_COLUMNS],
+    [getOrderSheet_(), SHEET_NAMES.ORDERS, ORDER_COLUMNS],
+    [getWholesaleOrderSheet_(), SHEET_NAMES.WHOLESALE_ORDERS, WHOLESALE_ORDER_COLUMNS]
+  ];
+  var messages = [];
+  targets.forEach(function (triple) {
+    var sheet = triple[0];
+    var sheetName = triple[1];
+    var columns = triple[2];
+    var lastCol = sheet.getLastColumn();
+    var headers = lastCol ? sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(String) : [];
+    var oldListedCol1 = headers.indexOf('掲載') + 1; // 見つからなければ0
+    if (!oldListedCol1) {
+      messages.push(sheetName + ': 「掲載」列が見つからないため、何もしませんでした（既に移行済みの可能性があります）。');
+      return;
+    }
+
+    sheet.insertColumnAfter(oldListedCol1);
+    var newGoonetCol1 = oldListedCol1 + 1;
+    var lastRow = sheet.getLastRow();
+    if (lastRow >= 2) {
+      var oldRange = sheet.getRange(2, oldListedCol1, lastRow - 1, 1);
+      var carsensorValues = oldRange.getValues().map(function (row) { return [row[0] === 'あり']; });
+      oldRange.setValues(carsensorValues);
+      sheet.getRange(2, newGoonetCol1, lastRow - 1, 1).setValue(false);
+    }
+    sheet.getRange(1, oldListedCol1).setValue('カーセンサー');
+    sheet.getRange(1, newGoonetCol1).setValue('グーネット');
+    applyCheckboxValidations_(sheet, columns);
+    applyHeaderNotes_(sheet, columns);
+    applySheetDesign_(sheet, sheetName, columns);
+    messages.push(sheetName + ': 「掲載」列を「カーセンサー」「グーネット」の2列（チェックボックス）に変換しました。');
+  });
+
+  var message = messages.join('\n');
+  Logger.log(message);
+  return message;
+}
+
+/**
  * 既存のスプレッドシートに対して、選択式の列の入力規則（ドロップダウン＋ヘルプ
  * テキスト）・列見出しの説明メモ・タブの色分けやヘッダーの装飾などの見た目を
  * 後から反映し直す一回限りのメンテナンス関数（formatCommissionColumnsAsText_と
@@ -125,6 +178,7 @@ function applySelectValidationsAndNotes_() {
     [getAuditLogSheet_(), SHEET_NAMES.AUDIT_LOG, AUDIT_LOG_COLUMNS]
   ].forEach(function (pair) {
     applySelectValidations_(pair[0], pair[2]);
+    applyCheckboxValidations_(pair[0], pair[2]);
     applyHeaderNotes_(pair[0], pair[2]);
     applySheetDesign_(pair[0], pair[1], pair[2]);
   });
@@ -295,5 +349,6 @@ function onOpen() {
     .addItem('ＯＣＮ・コミッション列を書式なしテキストに再設定', 'formatCommissionColumnsAsText_')
     .addItem('ステア列の「右/左」を「R/L」へ一括変換', 'migrateSteeringToRL_')
     .addItem('在庫リストに「備考」列を追加', 'addRemarksColumnToInventory_')
+    .addItem('「掲載」列を「カーセンサー」「グーネット」の2列に分割', 'migrateListedColumnToCheckboxes_')
     .addToUi();
 }

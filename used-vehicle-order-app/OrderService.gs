@@ -44,10 +44,9 @@ function confirmOrder(commission, info) {
     // 行番号を控えておく（createInventoryVehicle_のpreferredRowNumber参照）。
     order.inventoryRowNumber = rowNumber;
 
-    // Hold中だった場合、1st Holdは受注確定を行った本人（＝canConfirmOrder_により
-    // 1st Hold担当者のみ受注確定できる）が登録したものなので、そのカレンダーイベントは
-    // ここで削除できる。2nd Holdが同時に存在した場合、その担当者のイベントは別人の
-    // カレンダーにあるため、この実行コンテキストからは削除できない（CalendarService.gs参照）。
+    // Hold中だった場合、そのHoldは受注確定を行った本人（＝canConfirmOrder_により
+    // Hold担当者のみ受注確定できる）が登録したものなので、そのカレンダーイベントは
+    // ここで削除できる（CalendarService.gs参照）。
     if (holds.first) deleteHoldCalendarEvent_(holds.first.calendarEventId);
 
     appendOrder_(order);
@@ -64,7 +63,7 @@ function confirmOrder(commission, info) {
 /**
  * 業販Holdからの受注確定。通常の受注確定（confirmOrder）と異なり、入力が必要な
  * 項目は「販売先」「登録月」の2つのみ（業販＝業者向け卸売のため、リード番号・
- * 下取車の有無・保険加入の有無・支払方法は収集しない）。業販Hold（1st Holdの
+ * 下取車の有無・保険加入の有無・支払方法は収集しない）。業販Hold（Holdの
  * holdTypeがHOLD_TYPE.WHOLESALE）が掛かっている車両のみ対象で、通常のHold・
  * Hold無しの車両はこの関数では受注確定できない（通常どおりconfirmOrderを使う）。
  * 権限は通常の受注確定と同じく、Holdを行った担当者本人のみ（canConfirmOrder_）。

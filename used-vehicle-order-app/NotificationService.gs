@@ -7,19 +7,19 @@
  * どちらか一方だけの設定でも動作する。sendChatNotification_参照）。
  */
 
-function notifyHoldRegistered(vehicle, isSecondHold) {
+function notifyHoldRegistered(vehicle) {
   var mailTo = getMailList_(PROP_KEYS.NOTIFY_HOLD_MAIL_TO).join(',');
 
-  var label = isSecondHold ? '2nd Hold' : 'Hold';
-  var prefix = isSecondHold ? 'secondHold' : 'hold';
+  var label = 'Hold';
+  var prefix = 'hold';
   var input = {};
   HOLD_ORDER_INPUT_COLUMNS.forEach(function (c) {
     var key = prefix + c.key.charAt(0).toUpperCase() + c.key.slice(1);
     input[c.key] = vehicle[key];
   });
-  var expiresAt = isSecondHold ? vehicle.secondHoldExpiresAt : vehicle.holdExpiresAt;
-  // 2nd Holdは常に通常のHoldのため、holdTypeはvehicle[prefix + 'HoldType']が未設定の場合も
-  // HOLD_TYPE.NORMAL扱いにする（applyHoldFieldsToVehicle_参照）。
+  var expiresAt = vehicle.holdExpiresAt;
+  // holdTypeはvehicle[prefix + 'HoldType']が未設定の場合もHOLD_TYPE.NORMAL扱いにする
+  // （applyHoldFieldsToVehicle_参照）。
   var holdType = vehicle[prefix + 'HoldType'] || HOLD_TYPE.NORMAL;
   var salesStore = vehicle[prefix + 'SalesStore'];
 

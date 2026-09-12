@@ -550,20 +550,16 @@
             <button class="btn" id="btnAddStaff" type="button">＋ 担当者を追加</button>
           </div>
 
-          <!-- Hold登録・2nd Hold登録・受注確定それぞれの完了時に表示する演出
+          <!-- Hold登録・受注確定それぞれの完了時に表示する演出
                （絵柄のアクション）のバリエーション選択（A〜D、4種類ずつ）。
                案内メッセージ自体は固定で、絵柄の演出だけを切り替える
                （showCelebration_・CELEBRATION_EFFECTS、JavaScript.html参照）。 -->
           <div class="settingsCard hidden" id="systemMasterCelebrationCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>Hold・受注確定の演出</h2>
-            <p class="settingsSection__desc">Hold登録・2ND HOLD登録・受注確定が完了したときに表示する「絵柄のアクション」を選べます（案内メッセージ自体は固定です）。</p>
+            <p class="settingsSection__desc">Hold登録・受注確定が完了したときに表示する「絵柄のアクション」を選べます（案内メッセージ自体は固定です）。</p>
             <div class="formField">
               <label>Hold登録時</label>
               <select id="celebrationVariantHold" class="input"></select>
-            </div>
-            <div class="formField">
-              <label>2ND HOLD登録時</label>
-              <select id="celebrationVariantSecondHold" class="input"></select>
             </div>
             <div class="formField">
               <label>受注確定時</label>
@@ -580,7 +576,7 @@
     </main>
   </div>
 
-  <!-- Hold / 2nd Hold / 受注 共通入力モーダル（顧客情報→契約内容の2ステップ） -->
+  <!-- Hold / 受注 共通入力モーダル（顧客情報→契約内容の2ステップ） -->
   <div class="modal hidden" id="actionModal">
     <div class="modal__panel modal__panel--wide">
       <div class="modal__header">
@@ -823,14 +819,14 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <!-- 受注確定・Hold登録・2nd Hold登録の演出レイヤー（confettiLayer・
+  <!-- 受注確定・Hold登録の演出レイヤー（confettiLayer・
        celebrationLayer・celebrationBanner）をまとめるラッパー。現在は
        単なるグルーピング用で、このラッパー自体に演出上の効果はない。 -->
   <div id="celebrationShakeStage">
     <!-- 受注確定時の紙吹雪演出（文字・カードなし。confettiLayerに紙吹雪だけを降らせる） -->
     <div class="confettiLayer" id="confettiLayer"></div>
 
-    <!-- Hold登録・2nd Hold登録・受注確定 完了時の演出（showCelebration_、JavaScript.html参照）。
+    <!-- Hold登録・受注確定 完了時の演出（showCelebration_、JavaScript.html参照）。
          celebrationLayerにはCSSで描いた図形・発光エフェクト（バリエーションA〜Dで内容が
          切り替わる）を、celebrationBannerには固定の案内メッセージを表示する。 -->
     <div class="celebrationLayer" id="celebrationLayer"></div>

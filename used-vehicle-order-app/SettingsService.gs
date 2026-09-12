@@ -5,7 +5,7 @@
  * 担当者マスタは { name, email } の配列。email はログイン中のGoogleアカウント
  * （Session.getActiveUser().getEmail()）と突き合わせて「今操作している担当者」を
  * 自動判定するために使う（resolveStaffNameByEmail_ / getCurrentStaffName_）。
- * これにより、Hold登録・2nd Hold登録・受注確定・Hold解除で担当者を手入力/選択する
+ * これにより、Hold登録・受注確定・Hold解除で担当者を手入力/選択する
  * 必要がなくなる（Api.gs, HoldService.gs, OrderService.gs参照）。
  */
 
@@ -517,8 +517,8 @@ function normalizeModelPhotos_(list) {
 }
 
 /**
- * Hold登録・2nd Hold登録・受注確定それぞれの完了時に表示する演出（絵柄の
- * アクション）の選択中バリエーション（{ hold, secondHold, order }、各値は
+ * Hold登録・受注確定それぞれの完了時に表示する演出（絵柄の
+ * アクション）の選択中バリエーション（{ hold, order }、各値は
  * CELEBRATION_VARIANT_OPTIONSのいずれか）を返す。未設定・改ざん・過去バージョンで
  * 保存された値は、normalizeThemeKey_と同じ考え方ですべてDEFAULT_CELEBRATION_VARIANTS
  * にフォールバックする。
@@ -571,7 +571,7 @@ function resolveStaffNameByEmail_(staffList, email) {
 
 /**
  * 現在ログイン中のGoogleアカウントに対応する担当者名を返す（見つからなければ null）。
- * Hold登録・2nd Hold登録・受注確定・Hold解除は、この値を「担当者」として自動的に使う。
+ * Hold登録・受注確定・Hold解除は、この値を「担当者」として自動的に使う。
  *
  * 動作条件: Webアプリのデプロイ設定が「実行するユーザー: アプリにアクセスするユーザー」、
  * かつ「アクセスできるユーザー」が同一Google Workspace組織内（またはユーザーを限定）に
@@ -585,7 +585,7 @@ function getCurrentStaffName_() {
 
 /**
  * ログイン中のGoogleアカウントに対応する担当者を { name, email } で返す。
- * 見つからなければエラーを投げる。Hold登録・2nd Hold登録・受注確定・Hold解除の
+ * 見つからなければエラーを投げる。Hold登録・受注確定・Hold解除の
  * 入口で使い、担当者をサーバー側で確定させる（クライアントからの担当者入力は
  * 信用しない）。
  *
