@@ -80,6 +80,10 @@
         <path d="M5.5 8a7.5 7.5 0 0112.7-3.8M19 3.6v4.4h-4.4"/>
         <path d="M18.5 16a7.5 7.5 0 01-12.7 3.8M5 20.4V16h4.4"/>
       </symbol>
+      <symbol id="icon-search" viewBox="0 0 24 24">
+        <circle cx="10.5" cy="10.5" r="6.5"/>
+        <line x1="15.3" y1="15.3" x2="20.5" y2="20.5"/>
+      </symbol>
     </defs>
   </svg>
 
@@ -200,54 +204,128 @@
       <ul class="integrityBanner__list hidden" id="integrityBannerList"></ul>
     </header>
 
-    <!-- 在庫リスト -->
+    <!-- 在庫リスト: 左の絞り込みサイドバー（既存項目のみで構成、新規スプレッドシート
+         列は追加しない）＋番号付きの一覧行という構成に統一する。カード／表の表示形式
+         切り替えは廃止し、この1デザインに一本化する（現場の要望「参照画像のような
+         レイアウトにしたい」への対応。ROUND H フェーズ2）。キーワード検索は
+         これまでどおりサーバー側（searchInventory）でも絞り込むが、区分・状態・
+         掲載状況・モデル・年式・価格帯・走行距離はJavaScript.html側で取得済みの
+         一覧をクライアント側だけで絞り込む（サーバー側の検索仕様は変更していない）。 -->
     <main class="view is-active" id="view-inventory">
       <div class="toolbar" id="inventoryToolbar">
-        <input type="search" id="inventoryKeyword" class="input input--search" placeholder="モデル・ＯＣＮ・コミッション・車台番号下４桁・登録番号で検索">
-        <label class="checkboxField">
-          <input type="checkbox" id="inventoryIncludeHold" checked> Hold済みを含む
-        </label>
+        <div class="toolbar__title">在庫リスト<span class="toolbar__count" id="inventoryTotalCount"></span></div>
         <div class="toolbar__spacer"></div>
-        <div class="viewToggle" id="inventoryViewToggle">
-          <button type="button" class="viewToggle__item" data-view="card" title="カード表示" aria-label="カード表示"><svg class="icon icon--inline"><use href="#icon-grid"></use></svg></button>
-          <button type="button" class="viewToggle__item" data-view="table" title="表表示" aria-label="表表示"><svg class="icon icon--inline"><use href="#icon-table"></use></svg></button>
-        </div>
-        <span class="toolbar__count" id="inventoryTotalCount"></span>
+        <label class="sortField">並び替え
+          <select id="inventorySort" class="input"></select>
+        </label>
       </div>
       <div class="toolbarSpacer" id="inventoryToolbarSpacer"></div>
-      <div id="inventoryList"></div>
-      <div class="emptyState hidden" id="inventoryEmpty">
-        <svg class="icon emptyState__icon"><use href="#icon-grid"></use></svg>
-        <p>該当する在庫がありません</p>
+      <div class="listBody">
+        <aside class="filterSidebar" aria-label="在庫リストの絞り込み">
+          <p class="filterSidebar__title">絞り込み</p>
+          <div class="filterSidebar__field">
+            <div class="filterSidebar__search">
+              <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
+              <input type="search" id="inventoryKeyword" placeholder="モデル・ＯＣＮ・コミッション・車台番号下４桁・登録番号">
+            </div>
+          </div>
+          <hr class="filterSidebar__rule">
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">区分</label>
+            <div id="inventoryCategoryFilter"></div>
+          </div>
+          <hr class="filterSidebar__rule">
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">状態</label>
+            <div id="inventoryStatusFilter">
+              <label class="filterCheck"><input type="checkbox" value="available"> 在庫あり</label>
+              <label class="filterCheck"><input type="checkbox" value="hold"> Hold中</label>
+              <label class="filterCheck"><input type="checkbox" value="wholesale"> 業販HOLD中</label>
+            </div>
+          </div>
+          <hr class="filterSidebar__rule">
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">掲載状況</label>
+            <div id="inventoryListedFilter">
+              <label class="filterCheck"><input type="checkbox" value="carsensor"> カーセンサー掲載中</label>
+              <label class="filterCheck"><input type="checkbox" value="goonet"> グーネット掲載中</label>
+              <label class="filterCheck"><input type="checkbox" value="unlisted"> 未掲載</label>
+            </div>
+          </div>
+          <hr class="filterSidebar__rule">
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">モデル</label>
+            <select id="inventoryModelFilter" class="input"><option value="">指定なし</option></select>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">年式</label>
+            <select id="inventoryYearFilter" class="input"></select>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">価格帯</label>
+            <select id="inventoryPriceFilter" class="input"></select>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">走行距離</label>
+            <select id="inventoryMileageFilter" class="input"></select>
+          </div>
+          <button type="button" class="filterSidebar__clearBtn" id="btnInventoryFilterClear">条件をクリア</button>
+        </aside>
+        <div>
+          <div id="inventoryList"></div>
+          <div class="emptyState hidden" id="inventoryEmpty">
+            <svg class="icon emptyState__icon"><use href="#icon-grid"></use></svg>
+            <p>該当する在庫がありません</p>
+          </div>
+        </div>
       </div>
     </main>
 
-    <!-- 受注リスト -->
+    <!-- 受注リスト: 在庫リストと同じ「絞り込みサイドバー＋番号付き一覧」の見た目に
+         揃える（ROUND H フェーズ2）。フィルタ項目自体は既存のキーワード・拠点・
+         担当者のみで、サーバー側の検索・グループ表示（searchOrders・groupByField_）は
+         変更していない。 -->
     <main class="view" id="view-orders">
       <div class="toolbar" id="ordersToolbar">
-        <input type="search" id="ordersKeyword" class="input input--search" placeholder="自由検索（モデル・コミッション・顧客名・担当・拠点）">
-        <select id="ordersLocationFilter" class="input">
-          <option value="">拠点：すべて</option>
-        </select>
-        <select id="ordersStaffFilter" class="input"></select>
-        <select id="ordersGroupBy" class="input">
-          <option value="">グループ表示なし</option>
-          <option value="orderedMonth">月ごと</option>
-          <option value="salesLocation">販売拠点ごと</option>
-          <option value="model">モデルごと</option>
-        </select>
+        <div class="toolbar__title">受注リスト<span class="toolbar__count" id="ordersTotalCount"></span></div>
         <div class="toolbar__spacer"></div>
-        <div class="viewToggle" id="ordersViewToggle">
-          <button type="button" class="viewToggle__item" data-view="card" title="カード表示" aria-label="カード表示"><svg class="icon icon--inline"><use href="#icon-grid"></use></svg></button>
-          <button type="button" class="viewToggle__item" data-view="table" title="表表示" aria-label="表表示"><svg class="icon icon--inline"><use href="#icon-table"></use></svg></button>
-        </div>
-        <span class="toolbar__count" id="ordersTotalCount"></span>
+        <label class="sortField">グループ化
+          <select id="ordersGroupBy" class="input">
+            <option value="">なし</option>
+            <option value="orderedMonth">月ごと</option>
+            <option value="salesLocation">販売拠点ごと</option>
+            <option value="model">モデルごと</option>
+          </select>
+        </label>
       </div>
       <div class="toolbarSpacer" id="ordersToolbarSpacer"></div>
-      <div id="ordersGroups"></div>
-      <div class="emptyState hidden" id="ordersEmpty">
-        <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
-        <p>該当する受注がありません</p>
+      <div class="listBody">
+        <aside class="filterSidebar" aria-label="受注リストの絞り込み">
+          <p class="filterSidebar__title">絞り込み</p>
+          <div class="filterSidebar__field">
+            <div class="filterSidebar__search">
+              <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
+              <input type="search" id="ordersKeyword" placeholder="モデル・コミッション・顧客名・担当・拠点">
+            </div>
+          </div>
+          <hr class="filterSidebar__rule">
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">拠点</label>
+            <select id="ordersLocationFilter" class="input"><option value="">拠点：すべて</option></select>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">担当者</label>
+            <select id="ordersStaffFilter" class="input"></select>
+          </div>
+          <button type="button" class="filterSidebar__clearBtn" id="btnOrdersFilterClear">条件をクリア</button>
+        </aside>
+        <div>
+          <div id="ordersGroups"></div>
+          <div class="emptyState hidden" id="ordersEmpty">
+            <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
+            <p>該当する受注がありません</p>
+          </div>
+        </div>
       </div>
     </main>
 
@@ -258,29 +336,45 @@
          有無・支払方法は持たず、顧客の代わりに「販売先」で検索する。 -->
     <main class="view" id="view-wholesaleOrders">
       <div class="toolbar" id="wholesaleOrdersToolbar">
-        <input type="search" id="wholesaleOrdersKeyword" class="input input--search" placeholder="自由検索（モデル・コミッション・販売先・担当・拠点）">
-        <select id="wholesaleOrdersLocationFilter" class="input">
-          <option value="">拠点：すべて</option>
-        </select>
-        <select id="wholesaleOrdersStaffFilter" class="input"></select>
-        <select id="wholesaleOrdersGroupBy" class="input">
-          <option value="">グループ表示なし</option>
-          <option value="orderedMonth">月ごと</option>
-          <option value="salesLocation">販売拠点ごと</option>
-          <option value="model">モデルごと</option>
-        </select>
+        <div class="toolbar__title">業販受注リスト<span class="toolbar__count" id="wholesaleOrdersTotalCount"></span></div>
         <div class="toolbar__spacer"></div>
-        <div class="viewToggle" id="wholesaleOrdersViewToggle">
-          <button type="button" class="viewToggle__item" data-view="card" title="カード表示" aria-label="カード表示"><svg class="icon icon--inline"><use href="#icon-grid"></use></svg></button>
-          <button type="button" class="viewToggle__item" data-view="table" title="表表示" aria-label="表表示"><svg class="icon icon--inline"><use href="#icon-table"></use></svg></button>
-        </div>
-        <span class="toolbar__count" id="wholesaleOrdersTotalCount"></span>
+        <label class="sortField">グループ化
+          <select id="wholesaleOrdersGroupBy" class="input">
+            <option value="">なし</option>
+            <option value="orderedMonth">月ごと</option>
+            <option value="salesLocation">販売拠点ごと</option>
+            <option value="model">モデルごと</option>
+          </select>
+        </label>
       </div>
       <div class="toolbarSpacer" id="wholesaleOrdersToolbarSpacer"></div>
-      <div id="wholesaleOrdersGroups"></div>
-      <div class="emptyState hidden" id="wholesaleOrdersEmpty">
-        <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
-        <p>該当する業販受注がありません</p>
+      <div class="listBody">
+        <aside class="filterSidebar" aria-label="業販受注リストの絞り込み">
+          <p class="filterSidebar__title">絞り込み</p>
+          <div class="filterSidebar__field">
+            <div class="filterSidebar__search">
+              <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
+              <input type="search" id="wholesaleOrdersKeyword" placeholder="モデル・コミッション・販売先・担当・拠点">
+            </div>
+          </div>
+          <hr class="filterSidebar__rule">
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">拠点</label>
+            <select id="wholesaleOrdersLocationFilter" class="input"><option value="">拠点：すべて</option></select>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">担当者</label>
+            <select id="wholesaleOrdersStaffFilter" class="input"></select>
+          </div>
+          <button type="button" class="filterSidebar__clearBtn" id="btnWholesaleOrdersFilterClear">条件をクリア</button>
+        </aside>
+        <div>
+          <div id="wholesaleOrdersGroups"></div>
+          <div class="emptyState hidden" id="wholesaleOrdersEmpty">
+            <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
+            <p>該当する業販受注がありません</p>
+          </div>
+        </div>
       </div>
     </main>
 
@@ -289,17 +383,13 @@
          自分の案件だけをすぐ確認したい場面向け）。担当者マスタに未登録の
          Googleアカウントの場合は、その旨を案内するメッセージのみ表示する
          （#myPageNoStaff、JavaScript.htmlのrenderMyPageNoStaffState_参照）。
-         在庫リスト・受注リストと同様、表示形式（カード／表）の切り替えと自由検索欄を
-         ツールバーに持たせ、マイページ全体（4セクションすべて）に一括で適用する
-         （#myPageViewToggle・#myPageKeyword、renderMyPageAll_参照）。 -->
+         在庫リスト・受注リストと同じ番号付き一覧デザインに統一し（カード／表の
+         切り替えは廃止）、自由検索欄だけをツールバーに持たせて、マイページ全体
+         （2セクションとも）に一括で適用する（#myPageKeyword、renderMyPageAll_参照）。 -->
     <main class="view" id="view-mypage">
       <div class="toolbar" id="myPageToolbar">
         <input type="search" id="myPageKeyword" class="input input--search" placeholder="自由検索（モデル・コミッション・顧客・リード番号等）">
         <div class="toolbar__spacer"></div>
-        <div class="viewToggle" id="myPageViewToggle">
-          <button type="button" class="viewToggle__item" data-view="card" title="カード表示" aria-label="カード表示"><svg class="icon icon--inline"><use href="#icon-grid"></use></svg></button>
-          <button type="button" class="viewToggle__item" data-view="table" title="表表示" aria-label="表表示"><svg class="icon icon--inline"><use href="#icon-table"></use></svg></button>
-        </div>
       </div>
       <div class="toolbarSpacer" id="myPageToolbarSpacer"></div>
       <div class="emptyState hidden" id="myPageNoStaff">

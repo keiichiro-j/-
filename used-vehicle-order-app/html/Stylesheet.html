@@ -44,10 +44,10 @@
        見分けやすさを最優先するため）。 */
     --hold-special: #6d28d9;
     --hold-special-bg: rgba(124, 58, 237, .14);
-    /* 中古車サイトに掲載中（在庫リストのvehicleQuickMetaHtml_「掲載」列が
-       「あり」）の車両を、在庫あり／Hold中等のステータス色（border-left-color）
-       とは独立してひと目で区別するための背景色（is-listed、Stylesheet.html内の
-       .card.is-listed・.invTableRow.is-listedルール参照）。ステータス色（成功の
+    /* 中古車サイトに掲載中（カーセンサー・グーネットのいずれか）の車両を、
+       在庫あり／Hold中等のステータス色（border-left-color）とは独立して
+       ひと目で区別するための背景色（is-listed、Stylesheet.html内の
+       .card.is-listedルール参照。詳細モーダル専用）。ステータス色（成功の
        緑・警告のアンバー・業販HOLDの紫）と重ならないティール系にする。 */
     --listed-bg: rgba(20, 184, 166, .14);
     --shadow: 0 1px 2px rgba(16, 31, 51, .10);
@@ -469,15 +469,14 @@
      :focus-visible を使う。ブランドカラー（--primary-text）で統一する。 */
   .btn:focus-visible,
   .tabs__item:focus-visible,
-  .viewToggle__item:focus-visible,
   .themePreset:focus-visible {
     outline: 2px solid var(--primary-text);
     outline-offset: 2px;
   }
 
   /* ===== マイページ: ログイン中の担当者本人がHold中／受注した車両だけの一覧 =====
-     カード自体は在庫リスト・受注リストと同じ.cardGrid／.orderListをそのまま
-     再利用する（見た目・操作感を統一するため、専用のカードデザインは作らない）。 */
+     行自体は在庫リスト・受注リストと同じ.rowListをそのまま再利用する
+     （見た目・操作感を統一するため、専用のデザインは作らない）。 */
   .myPageSection { margin-bottom: 32px; }
   .myPageSection__title {
     font-size: 15px;
@@ -503,445 +502,166 @@
     color: var(--primary-text);
   }
   .toolbar__count { font-size: 13.5px; color: var(--on-surface-variant); font-weight: 600; white-space: nowrap; }
+  /* 在庫リスト・受注リスト・業販受注リストのツールバー見出し（タブ名＋件数）。
+     以前はここに検索欄・表示形式切替を置いていたが、絞り込みサイドバー
+     （.filterSidebar）への一本化にともない、見出しと並び替え／グループ化の
+     セレクトだけが残るシンプルな帯になった（ROUND H フェーズ2）。 */
+  .toolbar__title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+  .sortField { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--on-surface-variant); white-space: nowrap; }
+  .sortField select { font-size: 13px; }
 
-  /* ===== 表示形式切替（カード／表）・在庫リストのツールバーに置くセグメントコントロール ===== */
-  .viewToggle { display: flex; gap: 4px; background: var(--background); border-radius: 999px; padding: 3px; flex: none; }
-  .viewToggle__item {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    background: transparent;
-    color: var(--on-surface-variant);
-    width: 34px;
-    height: 30px;
-    border-radius: 999px;
-    cursor: pointer;
-  }
-  .viewToggle__item .icon--inline { margin: 0; }
-  .viewToggle__item.is-active { background: var(--surface); color: var(--primary-text); box-shadow: var(--shadow); }
-
-  /* ===== 受注・発注・Gクラス予約リストの表示形式「表」（多台数を一覧で見比べる
-     商談向けビュー） =====
-     素のtableではなく、カードグリッドと同じ「カードタイプUI」（角丸・影・ホバーで
-     浮き上がる）を保ったまま、1台=横1行のカードとして並べる。在庫リストの表示
-     形式「表」（.invTable、下部参照）は現場から提示された参照UIに合わせて素の
-     <table>に切り替えたが、この.rowCardベースの行カードは受注・発注・Gクラス
-     予約リストでは引き続き使う（在庫リストと違い、これら3つは操作ボタン列を
-     持たない閲覧中心の一覧のため、行カードの見た目のままで支障が無い）。
-     PCビュー（901px以上）では横スクロールを一切発生させない方針のため、各項目（列）は
-     display: flex; flex-wrap: wrapで並べ、画面幅に収まりきらない項目は
-     横スクロールではなく次の行へ折り返す（以前はdisplay: gridで固定列幅の
-     1行に並べ、.tableScroll（overflow-x: auto）で横スクロールさせていたが、
-     現場からの「PCビューでは横スクロール自体を禁止したい」という要望を受けて
-     変更した）。各項目の横幅は以前のgrid-template-columnsと同じ値を
-     :nth-child()で個別に指定しており、広い画面では1行に、狭い画面では
-     複数行に自然に収まる（画面幅によって項目の折り返し位置は変わるが、
-     すべての行で列構成・列幅は同じため、行をまたいだ縦の位置揃えは保たれる）。
-     タブレット・スマホ幅（900px以下）ではこの折り返し方針を逆転させ、
-     flex-wrap: nowrap＋横スクロールに戻す（下の@media (max-width: 900px)内の
-     .rowCard／.rowCard__innerルール参照。スクロールはカードの額縁である.rowCard
-     自身に持たせ、実際の項目を並べる.rowCard__innerがその中で横に広がる）。
-     狭い画面でPCと同じ折り返し方針のままだと1台ぶんの行が3〜4行にも縦へ間延び
-     してしまうため、スマホでの操作に慣れた横スワイプで「表」らしい単一行の
-     見た目を保つ狙い。 */
-  .rowCardList { display: flex; flex-direction: column; gap: 10px; width: 100%; min-width: 0; }
-  /* .rowCardは「カードの額縁」（背景・罫線・角丸・影）だけを担当し、常に
-     ビューポート（.rowCardListの幅）ぴったりのまま変わらない。実際の項目
-     （ステータス・モデル……操作ボタン）の配置・折り返し・横スクロールは、
-     この中の.rowCard__inner側に切り出している。
-     不具合修正: 以前は.rowCard自身がflexコンテナも兼ねており、タブレット・
-     スマホ幅では画面に収まりきらない項目ぶんだけ.rowCard自身をalign-self:
-     flex-start + min-width: 100%でビューポート幅より広げ、.tableScroll
-     （祖先の overflow-x: auto）でスクロールさせていた。この方式は、角丸・影付きの
-     ビューポート幅を超えるボックスをスクロールコンテナ内でスクロールさせる形に
-     なるため、iOS Safariでスクロール中に背景・罫線の再描画がレイアウトに
-     追従せず、操作ボタン等の内容だけがカードの背景・枠の外（無地のページ背景の
-     上）に取り残されて見える不具合があった（PC Chromeでは再現しないWebKit固有の
-     再描画バグ）。カード自身（.rowCard）の幅を常にビューポート内に固定し、
-     スクロールもカード自身（.rowCard、@media (max-width: 900px)参照）にだけ
-     持たせ、内側の.rowCard__innerだけがその中でスクロールする構成に変えることで、
-     カードの背景・枠は常にビューポート幅のまま描画され、この種の再描画バグが
-     起こり得なくなる。 */
-  .rowCard {
-    background: var(--surface);
-    border: 1px solid var(--outline);
-    border-left: 4px solid transparent;
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    padding: 14px 20px;
-    cursor: pointer;
-    transition: box-shadow .18s var(--ease), transform .18s var(--ease), border-color .18s var(--ease);
-  }
-  .rowCard__inner {
-    display: flex;
-    flex-wrap: wrap;
-    /* 折り返した行の間隔（10px）は列間の間隔（16px）より詰め、複数行になっても
-       1枚のカードとしてのまとまりが保たれるようにする。 */
-    row-gap: 10px;
-    column-gap: 16px;
-    /* start にする。center だと「Hold中（2nd有）」で解除リンクが2本に増えて
-       状態列が縦に伸びた分だけ、1本しか無い操作ボタン（受注確定）が引っ張られて
-       ずれてしまうため（現場からの指摘で判明）。start にして全項目を上端に
-       揃えることで、状態列の行数（解除リンクの本数）に関係なく、バッジ・
-       操作ボタン・他の項目が常に同じ高さで揃う。 */
-    align-items: flex-start;
-  }
-  /* border-color: transparent ではなく上・右・下のみ指定する。border-color（4辺一括）だと
-     border-left-color（アクセントカラー・状態色）まで打ち消してしまい、ホバー時に
-     色が消えて見えてしまうため（.rowCard--themed・.rowCard.rowCard--order 等は
-     このルールより先に書かれているが、:hover は詳細度が高く上書きしてしまう）。 */
-  .rowCard:hover { box-shadow: var(--shadow-elevated); transform: translateY(-2px); border-top-color: transparent; border-right-color: transparent; border-bottom-color: transparent; }
-  /* Gクラス予約リストの行は実際の状態（在庫あり／Hold中等）を持たないため、
-     状態色ではなくテーマカラーを装飾として使う（card--themedと同じ理由）。 */
-  .rowCard--themed { border-left-color: var(--primary); }
-  /* 横スクロールが必要な列（有償OP等の車両情報・rowCard__status）は画面幅によっては
-     スクロールしないと見えないため、行（カード）自体をタップすると、既存のカード表示と
-     同じ見た目で情報すべてを画面中央のモーダルに表示する（受注リストのopenOrderDetailModal_・
-     発注リストのopenPurchaseOrderDetailModal_・GクラスのopenGClassDetailModal_、
-     JavaScript.html参照）。チェックボックス・操作ボタン自体は個別にクリックできるよう、
-     cursor はタップ可能であることを示すのみに留める（cursor: pointer自体は上の
-     .rowCard本体の宣言に含めている）。 */
-  .rowCard__field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-  /* MP・VPC等の英数字（Latin書体）とステア・カラー等の日本語（CJK書体）を
-     同じ.rowCard__valueで混在表示すると、フォントのフォールバック先が異なり
-     行の高さ（line-height）がブラウザの自動計算でわずかに変わってしまい、
-     値の上下位置が項目によって数px揃わなくなっていた（現場からの指摘で判明）。
-     line-heightを明示的に固定することで、どちらの書体でも同じ高さになる。 */
-  .rowCard__label { font-size: 9.5px; line-height: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--on-surface-variant); }
-  .rowCard__value {
-    font-size: 13.5px; line-height: 17px; font-weight: 600; color: var(--on-surface);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-  }
-  /* 在庫リストの車両情報（MP・ステア・カラー・有償OP・入港予定日・可能月・VPC）は
-     モデル名・コミッションの列（左端の識別列）や状態・操作ボタンの列（右端）とは
-     区別して、カード中央の列としてラベル・値ともに中央揃えにする（現場からの
-     指摘で判明）。 */
-  .rowCard__field--center .rowCard__label,
-  .rowCard__field--center .rowCard__value {
-    text-align: center;
-  }
-  .rowCard__model { font-size: 15px; font-weight: 700; letter-spacing: -.005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .rowCard__commission { font-size: 11px; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  /* 受注リストの表示形式「表」で、拠点バッジ（1個のみ）を表示する列。
-     不具合修正: 以前は在庫リスト（別実装。現在は<table>に切り替え済み）向けの
-     「高さ固定・内部スクロール」ルール（height: 72px）を流用していたが、受注リストの
-     この列はバッジ1個しか置かないため、他の列（顧客・モデル等）よりカードの縦幅を
-     大きく取ってしまい、カード全体に不要な余白が生まれていた（現場からの指摘）。
-     高さを固定せず、他の項目と同じ行の高さに収まるようにする。 */
-  .rowCard__status { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-width: 0; }
-
-  /* 受注リストの表示形式「表」: 比較ピン・操作ボタンが無く、顧客・担当者・
-     リード番号などを表示するため、専用の項目幅にする。顧客名の列も
-     以前210pxにしていたが、実際のコンテンツ（顧客名・コミッション）は最大でも
-     60px程度しか使っておらず、左詰めの文字の右側に無駄な余白が生まれ、顧客名→モデルの
-     間だけ他の列間より大きく間延びして見えていたため（現場からの指摘で判明）、
-     110pxまで縮めている。行に並べる項目は「顧客・コミッション・モデル・リード番号・
-     MP・VPC・担当者・登録月・販売拠点」だけに絞り込み（現場からの指摘）、それ以外
-     （下取車・OSS・保険・支払方法・有償OP・受注確定日時）は行タップで開く詳細モーダル
-     （orderDetailGridHtml_）でのみ確認する。display: flex; flex-wrapで並べ、
-     画面幅に収まりきらない項目は横スクロールではなく次の行へ折り返す
-     （orderRowCardHtmlのDOM出力順に対応するpositionalな:nth-child()指定）。 */
-  .rowCard.rowCard--order { border-left-color: var(--primary); }
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(1) { flex: 0 0 110px; } /* 顧客＋コミッション */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(2) { flex: 0 0 120px; } /* モデル */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(3) { flex: 0 0 110px; } /* リード番号 */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(4) { flex: 0 0 68px; } /* MP */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(5) { flex: 0 0 88px; } /* VPC */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(6) { flex: 0 0 90px; } /* 担当者 */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(7) { flex: 0 0 80px; } /* 登録月 */
-  .rowCard.rowCard--order > .rowCard__inner > *:nth-child(8) { flex: 0 0 130px; } /* 販売拠点 */
-
-  /* Gクラス予約リストの表示形式「表」: 在庫リストの表「ステータス・モデル・MP・
-     ステア・カラー・有償OP」の考え方を踏襲し、識別列を「モデル」から
-     「顧客＋コミッション」に差し替えた7項目構成にする（gclassRowCardHtml_の
-     DOM出力順に対応するpositionalな:nth-child()指定。区別のため専用の
-     rowCard--gclassクラスを付けている）。以前は担当者・
-     入港予定日・可能月・VPC・リード番号も加えた12項目構成にしていたが、項目数が
-     多すぎて画面幅によっては折り返して2〜3行になり、在庫リストの行より縦に
-     間延びして見えていたため絞り込んだ（現場からの指摘）。それ以外の項目は
-     行タップで開く詳細モーダル（openGClassDetailModal_）でのみ確認する。 */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(1) { flex: 0 0 110px; } /* 顧客＋コミッション */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(2) { flex: 0 0 120px; } /* モデル */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(3) { flex: 0 0 68px; } /* MP */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(4) { flex: 0 0 46px; } /* ステア */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(5) { flex: 0 0 150px; } /* カラー */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(6) { flex: 0 0 170px; } /* 有償OP */
-  .rowCard--gclass > .rowCard__inner > *:nth-child(7) { flex: 0 0 130px; } /* 開示状況 */
-
-  /* 発注リストの表示形式「表」（発注リストタブ本体・マイページの「発注リスト」
-     セクションの両方で使う。purchaseOrderRowCardHtml_のDOM出力順に対応する
-     positionalな:nth-child()指定。MP・カラー・有償OPは在庫リストの表（.invTable）の
-     対応列と同じ幅にしている。読み取り専用のため
-     操作ボタン列は無く、受注リスト（.rowCard--order）と同じく最後の列に
-     拠点バッジを置く。以前はリード番号・担当者・登録日時も加えた9項目構成に
-     していたが、項目数が多すぎて画面幅によっては折り返して2行になり、在庫
-     リストの行より縦に間延びして見えていたため、識別・モデル・MP・カラー・
-     有償OP・拠点の6項目に絞り込んだ（現場からの指摘）。それ以外の項目は行タップで
-     開く詳細モーダル（openPurchaseOrderDetailModal_）でのみ確認する。 */
-  .rowCard.rowCard--purchaseOrder { border-left-color: var(--primary); }
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(1) { flex: 0 0 110px; } /* 顧客＋コミッション */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(2) { flex: 0 0 120px; } /* モデル */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(3) { flex: 0 0 68px; } /* MP */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(4) { flex: 0 0 150px; } /* カラー */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(5) { flex: 0 0 170px; } /* 有償OP */
-  .rowCard--purchaseOrder > .rowCard__inner > *:nth-child(6) { flex: 0 0 130px; } /* 拠点 */
   .btn--small { padding: 6px 12px; font-size: 12.5px; }
 
-  /* ===== 在庫リストの表示形式「表」（素のHTML <table>） =====
-     「ステータス・車種・ＯＣＮ・区分・カラー・販売価格・年式・走行距離・
-     登録番号・HOLD・操作」の11列を横一列に並べる（vehicleTableRowHtml_、
-     JavaScript.html参照）。2nd Hold廃止で空いたスペースを使い、年式・走行距離・
-     登録番号を詳細モーダルを開かなくても確認できるようにしている（現場からの
-     要望）。受注・発注・Gクラス予約リストの表示形式「表」は引き続き.rowCard
-     （角丸・影付きの行カード）のままだが、在庫リストだけは「Hold詳細（担当者・
-     タイマー）を列として直接見せる、素朴な表」という見た目に合わせて本物の
-     <table>に切り替えた。
-     PCビュー（901px以上）では、列数を絞り込んだことで通常は全列が画面幅に収まるため、
-     横スクロールを発生させない（現場からの要望。下のmin-width: 901pxブロックで
-     overflow-xを打ち消す）。タブレット・スマホ幅では従来どおり、画面に収まりきらない
-     場合は.invTableWrapのoverflow-x: autoで横スクロールする。
-     車種・カラー・登録番号・HOLD顧客名は、1行の省略記号だとタップしないと全部
-     読めないという不満があったため（現場からの要望「タップしなくても情報が
-     見えるようにしたい・文字が見切れるのをやめてほしい」）、最大2行までの
-     折り返しを許可している（invTableRow__wrap・invHold__name）。行の高さは
-     車両ごとに一定に揃えたいため、完全に自由な折り返しにはせず、行の高さの
-     基準となるHOLD列（.invHold）に合わせて100pxに固定し、それでも収まりきら
-     ない場合のみ2行目の末尾を省略記号にする。あわせて、列と列の間に縦の区切り
-     線（border-right）を入れ、情報量が増えても列の境目が分かりやすいようにした。 */
-  .invTableWrap {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+  /* ===== 絞り込みサイドバー（在庫リスト・受注リスト・業販受注リスト共通） =====
+     参照UI「THE STUDY」のレイアウトに、既存のスプレッドシート列・既存の検索
+     フィルタをそのまま当てはめたもの（新規列の追加はしていない。ROUND H
+     フェーズ2）。ツールバーの下、一覧の左に固定幅（268px）で置く。 */
+  .listBody {
+    display: grid;
+    /* minmax(0, 1fr)にする理由は.card__metaGrid等と同じ（1fr単独だと、検索欄の
+       placeholderのような長い内容がある場合にトラック自体がその内容ぶんまで
+       広がってしまい、スマホ幅でページ全体が横スクロールしてしまう）。 */
+    grid-template-columns: 268px minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+  /* グリッドアイテム自身のmin-width（既定値auto=中身の最小内容幅）も、
+     トラック側のminmax(0, 1fr)とは別に明示的に0へ上書きしないと、一覧行の中の
+     折り返さない文字列（Hold要約のnowrap等）が長い場合にアイテムごと広がって
+     しまう（.cardGrid内の.cardと同じ理由。一覧側は#inventoryList等を包む
+     無名divのため、直接のクラスではなく構造セレクタで指定する）。 */
+  .listBody > :last-child { min-width: 0; }
+  .filterSidebar {
     background: var(--surface);
     border: 1px solid var(--outline);
     border-radius: var(--radius);
-    box-shadow: var(--shadow);
-  }
-  @media (min-width: 901px) {
-    .invTableWrap { overflow-x: hidden; }
-    .invTable { table-layout: fixed; width: 100%; }
-    /* 不具合修正: table-layout: fixedは列幅の指定が無いと全列を均等割りに
-       してしまい、HOLD詳細・操作ボタンのように幅を要する列が窮屈になって
-       しまう。列ごとの実際の内容量に応じて明示的に配分する
-       （合計100%。vehicleRowsHtml・vehicleTableRowHtml_の列順と対応）。
-       車種（MODEL列）は実際には「C20T」のように短い型番がほとんどのため
-       控えめにし、代わりにステータスバッジ・HOLD詳細・操作ボタン
-       （いずれも縦折り返し禁止の要望あり）に幅を厚めに配分する。 */
-    .invTable th:nth-child(1), .invTable td:nth-child(1) { width: 14%; } /* ステータス（「業販HOLD中」「片方のみ掲載」の2バッジが2段でも見切れない幅） */
-    .invTable th:nth-child(2), .invTable td:nth-child(2) { width: 8%; }  /* 車種（invTableRow__wrapで折り返し。幅より内容優先で行数は可変） */
-    .invTable th:nth-child(3), .invTable td:nth-child(3) { width: 10%; } /* ＯＣＮ（10桁のコミッションが1行で収まる幅） */
-    .invTable th:nth-child(4), .invTable td:nth-child(4) { width: 4%; }  /* 区分 */
-    .invTable th:nth-child(5), .invTable td:nth-child(5) { width: 8%; }  /* カラー（invTableRow__wrapで最大2行） */
-    .invTable th:nth-child(6), .invTable td:nth-child(6) { width: 9%; }  /* 販売価格 */
-    .invTable th:nth-child(7), .invTable td:nth-child(7) { width: 9%; }  /* 年式（「2021-04-01」が1行で収まる幅） */
-    .invTable th:nth-child(8), .invTable td:nth-child(8) { width: 7%; }  /* 走行距離 */
-    .invTable th:nth-child(9), .invTable td:nth-child(9) { width: 8%; }  /* 登録番号（invTableRow__wrapで最大2行） */
-    .invTable th:nth-child(10), .invTable td:nth-child(10) { width: 10%; } /* HOLD */
-    .invTable th:nth-child(11), .invTable td:nth-child(11) { width: 13%; } /* 操作（Hold＋受注の2ボタンが横並びで収まる幅） */
-  }
-  .invTable {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13.5px;
-  }
-  .invTable th, .invTable td {
-    padding: 12px 14px;
-    text-align: left;
-    vertical-align: middle;
-    border-bottom: 1px solid var(--outline);
-  }
-  /* 列と列の間に縦の区切り線を入れ、情報量が増えた行でも列の境目が
-     一目で分かるようにする（現場からの要望）。 */
-  .invTable th:not(:last-child), .invTable td:not(:last-child) {
-    border-right: 1px solid var(--outline);
-  }
-  .invTable thead th {
-    color: var(--on-surface-variant);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: .04em;
-    white-space: nowrap;
-    background: var(--background);
-  }
-  .invTable tbody tr:last-child td { border-bottom: none; }
-  .invTable tbody tr:hover td { background: var(--background); }
-  .invTableRow { cursor: pointer; }
-  /* ステータス列の左端に状態色の帯を付ける（参照UIの左罫線に相当）。trへの
-     border-leftはブラウザによって描画が安定しないため、先頭セル（td）に付ける。 */
-  .invTableRow > td:first-child { border-left: 4px solid transparent; }
-  .invTableRow--available > td:first-child { border-left-color: var(--success); }
-  .invTableRow--hold > td:first-child { border-left-color: var(--warning); }
-  .invTableRow--holdSpecial > td:first-child { border-left-color: var(--hold-special); }
-  /* 中古車サイトに掲載中の車両は、Hold状態の色（border-left-color）とは独立して
-     行の背景色を変え、一目で区別できるようにする（.card.is-listedと同じ考え方）。 */
-  .invTableRow.is-listed > td { background: var(--listed-bg); }
-  /* ステータス列は、ステータスバッジ＋掲載バッジ（listedBadgeHtml_、
-     invTableStatusHtml_参照）の2つが並ぶことがあるため、セル自体をflexにして
-     折り返しを許可する（バッジ自体はnowrapのまま。1つのバッジの中で文字が
-     折り返されることはない）。バッジが2つになって収まらない場合は自動的に
-     2段になり、行の高さもそれに応じて広がる（現場からの要望「タップしなくても
-     掲載状況が見えるようにしたい」）。 */
-  .invTableRow__status {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px;
-  }
-  .invTableRow__status .badge {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
-  }
-  /* ＯＣＮ・区分・年式は、桁数・書式が決まっている短い値のため、これまでどおり
-     1行の省略記号にする（折り返しても情報量が増えるわけではないため）。 */
-  .invTableRow__ellipsis {
-    max-width: 220px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  /* PCビュー（901px以上）ではtable-layout: fixedにより列幅自体が既に固定される
-     ため、この220pxの上限は不要（あるとかえって列内で不自然な余白ができる
-     ことがある）。ellipsis化に必要なoverflow/text-overflow/white-spaceは
-     そのまま残す。 */
-  @media (min-width: 901px) {
-    .invTableRow__ellipsis { max-width: none; }
-  }
-  /* 車種・カラー・登録番号は値が長くなりやすく、以前は1行の省略記号で見切れて
-     しまい「タップしないと全部読めない」という不満があった（現場からの要望
-     「文字が見切れるのをやめてほしい・タップしなくても情報が見えるように
-     したい・行の高さが多少大きくなってもいい」）。行数を2行等に制限すると、
-     実際のモデル名・カラー名・登録番号の長さによっては結局省略されてしまう
-     ことが分かったため、行数の上限を設けず必要なだけ折り返す。行の高さは
-     table自体の仕組み（同じ<tr>内で最も内容が多いセルに他のセルが揃う）に
-     任せるため、車両ごとに内容量が違えば行の高さも変わる（現場からの要望どおり、
-     情報が全部見えることを優先し、行の高さが車両ごとに不揃いになることは許容する）。 */
-  .invTableRow__wrap {
-    white-space: normal;
-    word-break: break-word;
-    max-width: 220px;
-  }
-  @media (min-width: 901px) {
-    .invTableRow__wrap { max-width: none; }
-  }
-  /* 不具合修正: 販売価格セルに白抜き（white-space: nowrap）が無く、列幅に収まらない
-     場合に金額と「円」の間で折り返されて2行になってしまっていた（現場からの
-     指摘）。1行で必ず読み取れるよう折り返しを禁止し、上のnth-child幅の見直し
-     （販売価格 9%→12%）とあわせて、実際の金額表示が収まるようにする。 */
-  .invTableRow__mono { font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .invTableRow__center { text-align: center; }
-  /* 「受注確定」等の操作ボタンは縦に折り返さず常に横一列で表示する
-     （現場からの要望）。ボタンだけなら列幅（nth-child(11)、上記@media参照）に
-     十分収まる。
-     不具合修正: display: flexを<td>自体（.invTableRow__actions）に直接
-     指定すると、そのセルはtable-cellとしての既定の伸縮（vertical-align:
-     middleによる行の高さいっぱいまでの拡張）をしなくなり、自分自身の内容量
-     ぶんの高さ（他の列より低い）に縮んでしまう。border-collapse: collapseの
-     もとではセルごとの border-bottom がそのセル自身の（縮んだ）高さの位置に
-     出るため、行の本来の高さより手前に区切り線がずれて見える不具合になって
-     いた（現場からの指摘）。<td>自体はtable-cellのまま（＝行の高さいっぱいに
-     伸びる）にし、内側の.invTableRow__actionsInnerというdivにdisplay: flexを
-     移すことで、セル自体は行の高さに揃えたまま中身だけを横一列に並べる。 */
-  .invTableRow__actions { white-space: nowrap; }
-  .invTableRow__actionsInner {
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: center;
-    gap: 8px;
-  }
-  /* HOLD列。Hold登録が無い場合は「未登録」の薄いグレーのピルのみ表示する。
-     以前は顧客名を1行の省略記号にしたうえでセルの高さも固定していたが、
-     「タップしないと全部読めない・行の高さが多少大きくなってもいいので
-     見切れるのをやめてほしい」という現場からの要望を受け、顧客名は行数の
-     上限を設けず折り返すようにし、高さも固定せずmin-heightのみにした
-     （短いHoldは100px、長い顧客名のHoldはその分だけ自然に高くなる）。 */
-  .invHold__empty {
-    display: flex;
-    align-items: center;
-    min-height: 100px;
-  }
-  .invHold__empty__pill {
-    display: inline-block;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--on-surface-variant);
-    background: rgba(31, 41, 51, .06);
-    padding: 3px 10px;
-    border-radius: 999px;
-  }
-  .invHold {
+    padding: 20px 18px;
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    gap: 2px;
-    min-width: 130px;
-    min-height: 100px;
+    gap: 16px;
+    min-width: 0;
   }
-  /* 不具合修正: 固定px（旧170px）だと、列幅を実際の内容量に合わせて配分し
-     直した後（table-layout: fixedのnth-child幅ルール参照）は列幅と合わず、
-     狭い環境では列からはみ出して.invTableWrapのoverflow-x: hiddenに見切れる
-     一方、広い環境では逆に狭く省略されすぎていた。列（セル）の実際の幅を
-     そのまま使うことで、どちらの環境でも列幅いっぱいまで表示できるようにする。 */
-  .invHold__name {
-    font-size: 13px; font-weight: 700; color: var(--on-surface); max-width: 100%;
-    white-space: normal; word-break: break-word; line-height: 1.25;
+  .filterSidebar__title { font-size: 13px; font-weight: 700; margin: 0; }
+  .filterSidebar__rule { border: none; border-top: 1px solid var(--outline); margin: 0; }
+  .filterSidebar__field { display: flex; flex-direction: column; gap: 8px; }
+  .filterSidebar__groupLabel {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--on-surface-variant);
+    letter-spacing: .04em;
+    text-transform: uppercase;
   }
-  .invHold--special .invHold__name { color: var(--hold-special); }
-  .invHold__staff {
-    font-size: 11px; color: var(--on-surface-variant); max-width: 100%;
-    white-space: normal; word-break: break-word;
+  .filterSidebar__search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--outline);
+    border-radius: 9px;
+    padding: 8px 12px;
+    color: var(--on-surface-variant);
   }
-  /* PCビュー（901px以上、table-layout: fixed）では、列幅は上のnth-child幅
-     ルールで既に確定しているため、130pxの下限は不要（あるとかえって列幅との
-     ズレで見切れの原因になる。上の不具合修正コメント参照）。 */
-  @media (min-width: 901px) {
-    .invHold { min-width: 0; width: 100%; }
+  .filterSidebar__search:focus-within { border-color: var(--primary); }
+  .filterSidebar__search input {
+    border: none;
+    outline: none;
+    background: none;
+    font-size: 14px;
+    color: var(--on-surface);
+    width: 100%;
+    min-width: 0;
   }
-  /* 参照UIのタイマー表記は簡潔な文字だけのため、既存のholdTimer（進捗バー付き）の
-     バーは非表示にし、テキストだけをコンパクトに見せる（holdTimerHtml_の
-     第3引数extraClassでinvHold__timerを付与、JavaScript.html参照）。バーを
-     隠すだけで更新ロジック（updateHoldTimers）自体はそのまま使えるため、タイマーは
-     これまでどおり毎秒自動更新される。 */
-  .invHold__timer .holdTimer__bar { display: none; }
-  .invHold__timer .holdTimer__text { margin-top: 0; font-size: 11.5px; }
-  .invHold__cancel {
-    align-self: flex-start;
-    border: none; background: none; color: var(--danger); font-size: 11px; font-weight: 700;
-    cursor: pointer; padding: 2px 0;
+  .filterSidebar__search .icon--inline { flex: none; color: var(--on-surface-variant); }
+  .filterSidebar select.input { width: 100%; }
+  .filterCheck {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 13px;
+    color: var(--on-surface);
+    cursor: pointer;
   }
-  .invHold__cancel:hover { text-decoration: underline; }
+  .filterCheck input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: var(--primary); cursor: pointer; flex: none; }
+  .filterCheck__cnt { margin-left: auto; font-size: 11.5px; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; }
+  .filterSidebar__clearBtn {
+    border: none;
+    background: none;
+    color: var(--on-surface-variant);
+    font-size: 12.5px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+    padding: 0;
+    text-align: left;
+  }
+  .filterSidebar__clearBtn:hover { color: var(--on-surface); }
 
-  /* ===== カードグリッド（PCビューで3列固定。Google Material×Teslaの余白多め・
-     高コントラストな見出しでの「カードタイプUI」） ===== */
-  .cardGrid {
-    display: grid;
-    /* 1frだけだと各トラックの下限が「内容物のmin-content幅」になり、
-       カードの内容（コミッション番号やバッジ等）が想定より長い場合に
-       グリッド自体がコンテナ幅を超えてページ全体の横スクロールを
-       引き起こすことがある。minmax(0, 1fr)にして、必要なときはカードの
-       方が縮む（内部でテキストが折り返す）ようにする。 */
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 20px;
-    /* align-items: stretch（デフォルト）だと、1台だけ「車両スペックを見る」等の
-       詳細を開いて縦に伸びたときに、同じグリッド行の他のカードまで背が
-       伸びてしまう（グリッド行の高さは行内で最も高いカードに揃うため）。
-       start にすることで、各カードは自分自身の内容量ぶんの高さのみを取り、
-       他のカードのサイズには影響しないようにする。 */
-    align-items: start;
+  /* ===== 番号付き一覧行（在庫リスト・受注リスト・業販受注リスト・マイページ共通） =====
+     カード／表の表示形式切り替えは廃止し、この1デザインに一本化する
+     （ROUND H フェーズ2）。行の左端の色付き罫線はHold状況（在庫リストのみ）を
+     表す。ラウンドFで確定した「文字を見切れさせない・行の高さは可変」の方針を
+     そのまま踏襲する。 */
+  .rowList { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--outline); border-radius: var(--radius); overflow: hidden; }
+  .rowItem {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--outline);
+    border-left: 3px solid transparent;
+    cursor: pointer;
+    transition: background-color .15s var(--ease);
   }
-  /* 不具合修正: 実機確認で、タブレット・スマホ幅（.cardGridが
-     repeat(auto-fill, minmax(230px, 1fr))になる@media (max-width: 900px)
-     参照）で、長いモデル名やHold担当者・顧客名（white-space: nowrapで
-     省略記号にしている箇所）を含むカードがあると、ページ全体が横スクロール
-     してしまう不具合があった。minmax()の最小値が0ではない（230px）track
-     では、グリッドアイテム自身のmin-width（既定値auto）が中身の最小内容幅
-     （nowrap文字列の全長）まで膨らんでしまい、230pxという指定を無視して
-     カードごと大きく広がってしまうため（4列・3列時の.cardGrid
-     minmax(0, 1fr)ではこの現象が起きないのと対照的）。カード自身に
-     min-width: 0を指定し、中身の折り返し・省略記号（ellipsis）を優先して
-     カードの幅はグリッドの割り当てどおりに保たれるようにする。 */
+  .rowList > .rowItem:last-child { border-bottom: none; }
+  .rowItem:hover { background: var(--background); }
+  .rowItem--hold { border-left-color: var(--warning); }
+  .rowItem--holdSpecial { border-left-color: var(--hold-special); }
+  .rowItem__num {
+    flex: 0 0 30px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--on-surface-variant);
+    font-variant-numeric: tabular-nums;
+  }
+  .rowItem__main { flex: 1 1 auto; min-width: 0; }
+  .rowItem__head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 6px; }
+  .rowItem__model { font-size: 15.5px; font-weight: 700; letter-spacing: -.005em; }
+  .tag {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    background: var(--background);
+    color: var(--on-surface-variant);
+    border: 1px solid var(--outline);
+    border-radius: 5px;
+    padding: 2px 7px;
+    flex: none;
+  }
+  .rowItem__meta { font-size: 12.5px; color: var(--on-surface-variant); display: flex; flex-wrap: wrap; gap: 4px 10px; }
+  .rowItem__meta .dot::before { content: "・"; color: var(--on-surface-variant); }
+  .rowItem__sub { font-size: 11px; color: var(--on-surface-variant); margin-top: 5px; font-variant-numeric: tabular-nums; }
+  .rowItem__holdInfo { margin-top: 8px; max-width: 480px; }
+  .rowItem__price {
+    flex: 0 0 auto;
+    min-width: 110px;
+    text-align: right;
+    font-size: 16.5px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  /* .card__actions のボタン（.btn）は元々カード幅いっぱいに均等分割する
+     flex: 1レイアウト（カード内で1行を専有）を前提にしているため、一覧行の
+     ようにボタン列自体の幅が内容量ぶんしか無い（shrink-to-fit）場所に置くと、
+     flex: 1のままではボタンが潰れて文字が省略されてしまう。一覧行では
+     ボタンを内容量なりの自然な幅で並べるだけでよいため、flex: noneで
+     打ち消す。 */
+  .rowItem .card__actions { flex: 0 0 auto; margin: 0; }
+  .rowItem .card__actions .btn { flex: none; padding: 9px 16px; font-size: 12px; }
+  .rowItem__chev { flex: 0 0 16px; color: var(--on-surface-variant); font-size: 15px; text-align: center; }
+
+  /* ===== 車両情報カード（詳細モーダル・#inventoryDetailModal専用） =====
+     一覧の行（.rowItem）とは別に、行タップで開く詳細ポップアップの中身だけに
+     使う。長いモデル名・コミッション等でもポップアップ自体が横に広がらないよう
+     min-width: 0で折り返し・省略記号を優先する。 */
   .card {
     background: var(--surface);
     border: 1px solid var(--outline);
@@ -955,15 +675,6 @@
     min-width: 0;
     transition: box-shadow .18s var(--ease), transform .18s var(--ease), border-color .18s var(--ease);
   }
-  /* data-commissionを持つカード（在庫リスト・マイページのHold中車両一覧。
-     vehicleCardHtml参照）は、カードのどこをタップしても（ボタン・入力・ラベル
-     以外）詳細モーダルを開けるため、クリック可能であることを示すポインタカーソルに
-     する（handleInventoryListClick_参照）。属性で絞るのは、同じ.cardクラスを使う
-     Gクラス予約リストのカード（タップ操作を持たない。全情報を最初から表示済みの
-     ため詳細モーダル自体が無い）にまでポインタカーソルが付いて誤解を招かないため。 */
-  .card[data-commission] { cursor: pointer; }
-  /* rowCard:hover と同じ理由で、border-left-color（在庫状況の色）はホバー時も維持する。 */
-  .card:hover { box-shadow: var(--shadow-elevated); transform: translateY(-3px); border-top-color: transparent; border-right-color: transparent; border-bottom-color: transparent; }
   .card--available { border-left-color: var(--success); }
   /* Gクラス予約リストのカード用。在庫あり／Hold中のような実際の状態を持たない
      閲覧専用リストのため、状態色（--success等）ではなく選択中のテーマカラー
@@ -1026,33 +737,13 @@
   .badge--location { background: var(--primary-bg); color: var(--primary-text); font-weight: 500; }
   .card__badges { display: flex; gap: 6px; flex-wrap: wrap; }
 
-  /* 車両スペック・Hold詳細はカード内に表示せず、「詳細を見る」タップで画面中央の
-     モーダル（vehicleDetailHtml_）にまとめて表示する。以前はカード内の折りたたみ
-     （<details>）だったが、開閉のたびにカードが伸び縮みし、在庫あり／Hold中で
-     高さが揃わなくなっていたため。 */
-  .card__detailLink {
-    margin: 0;
-    width: 100%;
-    padding: 12px 0 0;
-    border: none;
-    border-top: 1px solid var(--outline);
-    border-radius: 0;
-    background: none;
-    text-align: left;
-    cursor: pointer;
-    font-size: 12.5px;
-    font-weight: 600;
-    color: var(--primary-text);
-  }
-  .card__detailLink:hover { color: var(--primary); }
-
   /* メタ情報は2列のミニグリッドで表示。ラベルは小さく大文字寄り・トラッキング広め、
      値は大きく太くというメリハリのある「テスラ風」の見出し表現で視認性を高める。 */
   .card__metaGrid {
     display: grid;
-    /* minmax(0, 1fr)にする理由は.cardGridと同じ（1fr単独だと、値が長い場合に
-       トラック自体がその内容ぶんまで広がってしまい、下のdd（値）に指定した
-       ellipsisが効かず、カードの外へはみ出してしまう）。 */
+    /* minmax(0, 1fr)にする理由は.rowItemの折り返しと同じ（1fr単独だと、値が
+       長い場合にトラック自体がその内容ぶんまで広がってしまい、下のdd（値）に
+       指定したellipsisが効かず、カードの外へはみ出してしまう）。 */
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px 16px;
     margin: 0;
@@ -1241,15 +932,9 @@
     color: var(--outline);
   }
 
-  /* ===== 受注リスト（在庫リストと揃えたカードタイプUI。PCビューで1行3列） ===== */
-  .orderList {
-    display: grid;
-    /* minmax(0, 1fr)にする理由は.cardGridと同じ（1fr単独だと内容量が多い
-       カードがある場合にグリッド自体がコンテナ幅を超えてしまうため）。 */
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 20px;
-    align-items: start;
-  }
+  /* ===== 受注カード（詳細モーダル・#orderDetailModal / #wholesaleOrderDetailModal
+     専用） ===== 一覧の行（.rowItem）とは別に、行タップで開く詳細ポップアップの
+     中身だけに使う。 */
   .orderCard {
     background: var(--surface);
     border: 1px solid var(--outline);
@@ -1260,12 +945,8 @@
     display: flex;
     flex-direction: column;
     gap: 14px;
-    min-width: 0; /* .cardと同じグリッド幅膨張対策。理由はそちらのコメント参照 */
-    cursor: pointer;
-    transition: box-shadow .18s var(--ease), transform .18s var(--ease), border-color .18s var(--ease);
+    min-width: 0;
   }
-  /* card:hover と同じ理由で、border-left-color（アクセントカラー）はホバー時も維持する。 */
-  .orderCard:hover { box-shadow: var(--shadow-elevated); transform: translateY(-3px); border-top-color: transparent; border-right-color: transparent; border-bottom-color: transparent; }
   /* 顧客名・担当者名・車種は現場の入力次第で長くなり得るため折り返さず、
      拠点バッジは常に右端に固定表示する（現場からの要望。折り返すとカードの
      高さが案件ごとにばらつく）。flex-wrap: nowrap＋左側（顧客名側）に
@@ -1286,26 +967,6 @@
     color: var(--on-surface);
     margin-top: 4px;
   }
-  /* 契約内容（コミッション・MP・VPC・有償OP・登録月・下取車・OSS・保険・支払方法・
-     受注確定日時・リード番号）はカード内に表示せず、「詳細を見る」タップで画面中央の
-     モーダル（orderDetailHtml_）にまとめて表示する。顧客名・担当者・車種だけで
-     対象案件を判断できる（以前はカード内の折りたたみだったが、開閉のたびに
-     カードが伸び縮みしていたため。card__detailLinkと同じパターン）。 */
-  .orderCard__detailLink {
-    margin: 0;
-    width: 100%;
-    padding: 12px 0 0;
-    border: none;
-    border-top: 1px solid var(--outline);
-    border-radius: 0;
-    background: none;
-    text-align: left;
-    cursor: pointer;
-    font-size: 12.5px;
-    font-weight: 600;
-    color: var(--primary-text);
-  }
-  .orderCard__detailLink:hover { color: var(--primary); }
   .orderCard__grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -1576,7 +1237,7 @@
      以前はPCビュー（901px以上）でのみ、左に固定幅（232px）のサイドバーを
      表示し、ロゴ・ナビ・担当者情報をそこにまとめ、代わりにトップバーは
      「戻る／更新」ボタンだけのスリムな帯にしていた。しかし、サイドバーの
-     ぶん常に横幅が削られてしまい、在庫リストの表（.invTable）等で
+     ぶん常に横幅が削られてしまい、在庫リストの一覧等で
      横幅を確保しづらいという現場からの指摘があったため廃止し、PCビューでも
      タブレット・スマホ幅と同じ「トップバーにロゴ・水平タブ・担当者情報を
      まとめる」構成に統一した（横幅をすべてコンテンツに使えるようになる）。
@@ -1929,55 +1590,29 @@
   .celebrationBanner p { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.5; }
   .celebrationBanner p:first-child { font-size: 18px; color: var(--primary-text); }
 
-  /* ===== ノートPC幅（在庫リストは4列だとカードが窮屈になるため3列に落とす。
-     受注リストはもともと1行3列のため、このブレークポイントでは変更しない） ===== */
-  @media (max-width: 1400px) {
-    .cardGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  }
-
   /* ===== タブレット ===== */
   @media (max-width: 900px) {
     main.view { padding: 14px; }
-    .cardGrid { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
     .settingsWrap { max-width: 100%; }
-    /* 受注カードは項目数が多いため、タブレット幅では1列にして読みやすさを優先する */
-    .orderList { grid-template-columns: 1fr; }
     .purchaseOrderList { grid-template-columns: 1fr; }
 
-    /* 表示形式「表」（在庫・受注・Gクラス・マイページ）: PCビューでは横スクロールを
-       禁止し折り返す方針（.rowCardの基本ルール参照）だが、タブレット・スマホ幅では
-       逆に折り返しを禁止し、1行=横スクロール（.tableScrollのoverflow-x: auto）で
-       見せる。PCと同じ折り返し方針のままタブレット・スマホ幅に持ち込むと、狭い画面
-       幅に収まりきらない項目が3〜4行にも折り返され、1台ぶんのカードが縦に間延び
-       して「表」としての一覧性が失われてしまう（現場からの指摘で判明）。横スクロール
-       にすることで、各行は常に単一行（列位置がどの車両でも揃う本来の「表」の見た目）
-       を保ち、画面外の項目はスマホ操作で慣れた横スワイプで確認できるようにする。
-       各項目の横幅（:nth-child()、flex-shrink: 0）は変更しないため、スクロール中も
-       列幅は常に一定に保たれる。
-       不具合修正（iOS Safariでカードの背景・罫線が内容から取り残される問題）:
-       以前は.rowCard自身がflexコンテナ・スクロール対象の両方を兼ねており、
-       align-self: flex-start + min-width: 100%で.rowCard自身をビューポート幅より
-       内容ぶん広げ、祖先の.tableScroll（overflow-x: auto）でスクロールさせていた。
-       この方式だと、角丸・影付きのビューポート幅を超えるボックスをスクロール
-       コンテナ内でスクロールさせる形になり、iOS Safariでスクロール中に背景・罫線の
-       再描画がレイアウトに追従せず、操作ボタン等の内容だけがカードの背景・枠の外
-       （無地のページ背景の上）に取り残されて見える不具合があった（PC Chromeでは
-       再現しないWebKit固有の再描画バグ）。.rowCard自身は常にビューポート幅の
-       ままにし（角丸・影付きの背景ボックスの幅が変わらないようにする）、代わりに
-       .rowCard自身にoverflow-x: autoを持たせてスクロールコンテナ化し、内側の
-       .rowCard__inner（実際に画面に収まりきらない幅まで広がる要素）だけをその中で
-       スクロールさせる構成に変えた。カードの背景・枠は常にビューポート幅のまま
-       描画されるため、この種の再描画バグが起こり得なくなる。 */
-    .rowCard {
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-    }
-    .rowCard__inner {
-      flex-wrap: nowrap;
-      min-width: 100%;
-    }
-    .tableScroll { -webkit-overflow-scrolling: touch; }
+    /* 絞り込みサイドバー（在庫リスト・受注リスト・業販受注リスト）は、PCビューでは
+       一覧の左に固定幅で並ぶが、タブレット・スマホ幅では横に置く余裕が無いため
+       一覧の上に積む1カラム構成に切り替える（ROUND H フェーズ2）。 */
+    .listBody { grid-template-columns: minmax(0, 1fr); gap: 16px; }
 
+    /* 番号付き一覧行も、タブレット・スマホ幅では列を維持したまま折り返す
+       （行の高さが案件ごとに伸び縮みしてもよい方針。ラウンドFの「文字を
+       見切れさせない」方針をそのまま踏襲する）。モデル名・メタ情報の
+       .rowItem__mainを1行ぶん占有させ、価格・操作ボタンはその下に回す。
+       チェブロン（›）は狭い画面では行全体タップの妨げになりやすいため隠す
+       （行タップ自体は引き続き有効）。 */
+    .rowItem { flex-wrap: wrap; gap: 10px 18px; }
+    .rowItem__main { flex: 1 1 100%; order: 1; }
+    .rowItem__num { order: 0; }
+    .rowItem__price { order: 2; margin-left: 48px; }
+    .rowItem .card__actions { order: 3; margin-left: 48px; }
+    .rowItem__chev { display: none; }
   }
 
   /* ===== スマートフォン ===== */
@@ -2001,9 +1636,10 @@
     main.view { padding: 10px; }
     .toolbar { padding: 10px; width: calc(100% - 20px); }
     .toolbar .input, .toolbar .checkboxField { flex: 1 1 auto; }
-    .cardGrid { grid-template-columns: 1fr; gap: 12px; }
     .settingsCard, .settingsActions { padding: 18px 16px; }
     .card { padding: 16px 18px; }
+    .rowItem { padding: 14px 16px; }
+    .rowItem__price, .rowItem .card__actions { margin-left: 0; }
     /* スマホ幅は画面下端固定のボトムシートにする。左右・上のpaddingは0のまま、
        下方向だけキーボードの高さぶん動的に足す（上の.modalの基本ルール参照）。 */
     .modal { padding: 0 0 var(--app-keyboard-inset, 0px); align-items: flex-end; }
@@ -2011,7 +1647,6 @@
     .modal__grid { grid-template-columns: 1fr; }
     .formField--span2 { grid-column: auto; }
     .modal__footer .btn { flex: 1; min-height: 44px; }
-    .orderList { gap: 12px; }
     .orderCard { padding: 16px 18px; }
     .purchaseOrderList { gap: 12px; }
     .purchaseOrderCard { padding: 16px 18px; }
