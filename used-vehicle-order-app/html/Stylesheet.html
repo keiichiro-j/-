@@ -745,10 +745,11 @@
      文字ではなく縦罫線で区切り、データ表の列のように見た目をはっきり
      分ける（現場からの要望「区切りを入れたいのは車両情報」）。 */
   .rowItem__metaSep { flex: none; width: 1px; height: 11px; background: var(--outline); }
-  /* 金額も車両情報（年式・走行距離・登録番号）と同じメタ情報行に含める
-     （現場からの要望「価格も車両情報側に含めてほしい」）。他の項目より
-     目立たせたいので太字・本文色にする。 */
-  .rowItem__metaPrice { font-weight: 700; color: var(--on-surface); font-variant-numeric: tabular-nums; }
+  /* 販売価格も車両情報（年式・走行距離・登録番号）と同じメタ情報行に含める
+     （現場からの要望「価格も車両情報側に含めてほしい」）。色・太さも他の
+     項目と揃え、目立たせる特別扱いはしない（現場からの要望「金額の色も
+     他の車両情報と同じカラーにしてほしい」）。 */
+  .rowItem__metaPrice { font-variant-numeric: tabular-nums; }
   .rowItem__sub { font-size: 11px; color: var(--on-surface-variant); margin-top: 5px; font-variant-numeric: tabular-nums; }
   /* ===== 状態列（.rowItem__status） =====
      以前は見出し行（タグ・モデル名）に状態バッジを詰め込んでいたため、
@@ -788,12 +789,24 @@
      ようにボタン列自体の幅が内容量ぶんしか無い（shrink-to-fit）場所に置くと、
      flex: 1のままではボタンが潰れて文字が省略されてしまう。一覧行では
      ボタンを内容量なりの自然な幅で並べるだけでよいため、flex: noneで
-     打ち消す。 */
+     打ち消す。ボタン自体もmin-widthを揃え、「Hold／受注」（在庫あり車両）と
+     「解除／受注確定」（Hold中車両）とでラベルの文字数が違っても同じ幅になる
+     ようにする（現場からの要望「受注確定やホールドなども綺麗に並べて
+     ほしい」）。 */
   .rowItem .card__actions { flex: 0 0 auto; margin: 0; }
-  .rowItem .card__actions .btn { flex: none; padding: 9px 16px; font-size: 12px; }
+  .rowItem .card__actions .btn { flex: none; min-width: 82px; padding: 9px 12px; font-size: 12px; text-align: center; }
   /* Hold解除ボタンは.card__actions（受注確定ボタン）とは別に、行の直接の
      子要素として置く（vehicleRowItemHtml_参照）。同じ見た目・サイズに揃える。 */
-  .rowItem__cancelHoldBtn { flex: none; padding: 9px 16px; font-size: 12px; }
+  .rowItem__cancelHoldBtn { flex: none; min-width: 82px; padding: 9px 12px; font-size: 12px; text-align: center; }
+  /* ===== 操作ボタン列（.rowItem__actions） =====
+     状態列（.rowItem__status）と同じく、常に同じ幅の専用列にする。以前は
+     解除ボタンの有無・ボタンの組み合わせによって操作ボタン列全体の幅が
+     車両ごとに変わり、その手前にあるモデル名（flex: 1で余った幅を埋める
+     .rowItem__main）の実際の幅も車両ごとに変わってしまっていた。これが、
+     状態バッジの開始位置が車両によってズレて見えていた原因（現場からの
+     指摘「ステータス列がバラバラ」）。操作ボタン列を固定幅にすることで、
+     状態列・操作ボタン列とも車両やHold状態に関わらず必ず同じ位置に揃う。 */
+  .rowItem__actions { flex: 0 0 190px; display: flex; align-items: center; gap: 8px; min-width: 0; }
   .rowItem__chev { flex: 0 0 16px; color: var(--on-surface-variant); font-size: 15px; text-align: center; }
 
   /* ===== 車両情報カード（詳細モーダル・#inventoryDetailModal専用） =====
@@ -1769,8 +1782,7 @@
        行に並べても車両ごとに高さがバラつく心配はない。 */
     .rowItem__status { order: 2; flex: 0 1 auto; margin-left: 48px; }
     .rowItem__price { order: 3; flex: 1 1 100%; margin-left: 48px; text-align: left; }
-    .rowItem .card__actions { order: 3; margin-left: 48px; }
-    .rowItem__cancelHoldBtn { order: 3; margin-left: 8px; }
+    .rowItem__actions { order: 3; flex: 0 1 auto; margin-left: 48px; }
     .rowItem__chev { display: none; }
   }
 
@@ -1794,7 +1806,7 @@
     .settingsCard, .settingsActions { padding: 18px 16px; }
     .card { padding: 16px 18px; }
     .rowItem { padding: 14px 16px; }
-    .rowItem__status, .rowItem__price, .rowItem .card__actions, .rowItem__cancelHoldBtn { margin-left: 0; }
+    .rowItem__status, .rowItem__price, .rowItem__actions { margin-left: 0; }
     /* スマホ幅は画面下端固定のボトムシートにする。左右・上のpaddingは0のまま、
        下方向だけキーボードの高さぶん動的に足す（上の.modalの基本ルール参照）。 */
     .modal { padding: 0 0 var(--app-keyboard-inset, 0px); align-items: flex-end; }

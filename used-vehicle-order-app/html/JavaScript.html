@@ -1035,7 +1035,7 @@
 
   /**
    * 在庫リストの一覧行。見出し行は区分タグ・モデル名だけ、メタ情報行には
-   * 年式・走行距離・登録番号・金額をまとめ、各項目の間には縦罫線
+   * 年式・走行距離・登録番号・販売価格をまとめ、各項目の間には縦罫線
    * （rowItem__metaSep）を入れて区切る（現場からの要望「価格も車両情報側に
    * 含めてほしい」「区切りを入れたいのは車両情報の方」）。状態列
    * （rowItem__status、幅固定）にはHold中でも状態バッジのみを表示し、顧客名・
@@ -1071,12 +1071,11 @@
       '<span class="rowItem__metaSep"></span>' +
       '<span>登録番号 ' + escapeHtml(plateText_(v) || '-') + '</span>' +
       '<span class="rowItem__metaSep"></span>' +
-      '<span class="rowItem__metaPrice">金額 ' + escapeHtml(formatNumberUnit_(v.salePrice, ' 円') || '-') + '</span>' +
+      '<span class="rowItem__metaPrice">販売価格 ' + escapeHtml(formatNumberUnit_(v.salePrice, ' 円') || '-') + '</span>' +
       '</div>' +
       '</div>' +
       '<div class="rowItem__status">' + vehicleBadgesHtml_(v, false) + '</div>' +
-      cancelHoldBtnHtml +
-      vehicleActionsHtml_(v) +
+      '<div class="rowItem__actions">' + cancelHoldBtnHtml + vehicleActionsHtml_(v) + '</div>' +
       '<div class="rowItem__chev">›</div>' +
       '</div>';
   }
