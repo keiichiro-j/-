@@ -706,7 +706,7 @@
      min-width: 0＋text-overflow: ellipsis）になるため、モデル名が極端に長い
      車両だけ見出し行が2行になって他の車両と行の高さが揃わない、という問題を
      避けられる（現場からの要望「車両によってカードサイズが変わらないように」）。 */
-  .rowItem__head { display: flex; align-items: center; gap: 9px; flex-wrap: nowrap; margin-bottom: 6px; min-width: 0; }
+  .rowItem__head { display: flex; align-items: center; gap: 9px; flex-wrap: nowrap; margin-bottom: 6px; min-width: 0; overflow: hidden; }
   .rowItem__model {
     font-size: 15.5px;
     font-weight: 700;
@@ -728,24 +728,56 @@
     padding: 2px 7px;
     flex: none;
   }
-  .rowItem__meta { font-size: 12.5px; color: var(--on-surface-variant); display: flex; flex-wrap: wrap; gap: 4px 10px; }
+  /* flex-wrap: nowrap＋overflow: hiddenにする理由は.rowItem__headと同じ
+     （車両（登録番号や日付の桁数等）によって内容の長さが変わり、ある車両だけ
+     このメタ行が2行に折り返って他の車両とカードサイズが揃わなくなっていた。
+     現場からの要望「車両によってカードサイズが変わらないように」）。 */
+  .rowItem__meta { font-size: 12.5px; color: var(--on-surface-variant); display: flex; flex-wrap: nowrap; overflow: hidden; gap: 4px 10px; }
+  /* コンテナ側をflex-wrap: nowrapにしただけでは、中の各span自体（年式の
+     日付のハイフン等）が改行され得る場所で内部的に折り返ってしまい、行の
+     高さが車両（日付・登録番号の文字数）によって変わってしまっていた。
+     各span自体もnowrapにして、はみ出す分はコンテナのoverflow: hiddenで
+     切り詰める。 */
+  .rowItem__meta > span { white-space: nowrap; flex: none; }
   .rowItem__meta .dot::before { content: "・"; color: var(--on-surface-variant); }
   .rowItem__sub { font-size: 11px; color: var(--on-surface-variant); margin-top: 5px; font-variant-numeric: tabular-nums; }
-  .rowItem__holdInfo { margin-top: 8px; max-width: 480px; }
-  /* 一覧行は既に左罫線の色（.rowItem--hold/--holdSpecial）でHold状態を示している
-     ため、詳細モーダル用の箱型スタイル（背景色・角丸・自前の左罫線）をそのまま
-     使うと、行の中にもう1枚カードが浮いているように見え、行同士の余白が
-     不揃いに感じられる原因になっていた。一覧行内では背景・枠を消してフラットな
-     地続きの表示にし、区切りは罫線1本だけにする（現場からの「カード同士の
-     隙間を無くしたい」という要望）。 */
-  .rowItem__holdInfo .card__holdInfo {
-    background: transparent;
-    border-left: none;
-    border-radius: 0;
-    padding: 8px 0 0;
-    margin-top: 2px;
-    border-top: 1px dashed var(--outline);
+  /* Hold要約（顧客名・タイマー）は見出し行に収まる小さなチップとして表示する
+     （vehicleRowItemHtml_参照）。以前は行の下に箱型のブロックを追加表示して
+     いたが、その分だけHold中の行だけ他の車両より背が高くなってしまっていた
+     （現場からの要望「Hold中もカードサイズが変わらないようにしてほしい」）。
+     見出し行は既にflex-wrap: nowrap（.rowItem__head）のため、ここに足しても
+     行が2行になることはない。 */
+  .rowItem__holdWho {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--on-surface-variant);
   }
+  .holdTimer--pill {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 1 auto;
+    min-width: 34px;
+    background: var(--background);
+    border: 1px solid var(--outline);
+    border-radius: 999px;
+    padding: 3px 10px;
+  }
+  .holdTimer--pill .holdTimer__bar { display: none; }
+  .holdTimer--pill .holdTimer__text {
+    margin-top: 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11.5px;
+  }
+  .holdTimer--pill.holdTimer--indefinite { border-color: var(--hold-special); }
   .rowItem__price {
     flex: 0 0 auto;
     min-width: 110px;
@@ -772,6 +804,9 @@
      打ち消す。 */
   .rowItem .card__actions { flex: 0 0 auto; margin: 0; }
   .rowItem .card__actions .btn { flex: none; padding: 9px 16px; font-size: 12px; }
+  /* Hold解除ボタンは.card__actions（受注確定ボタン）とは別に、行の直接の
+     子要素として置く（vehicleRowItemHtml_参照）。同じ見た目・サイズに揃える。 */
+  .rowItem__cancelHoldBtn { flex: none; padding: 9px 16px; font-size: 12px; }
   .rowItem__chev { flex: 0 0 16px; color: var(--on-surface-variant); font-size: 15px; text-align: center; }
 
   /* ===== 車両情報カード（詳細モーダル・#inventoryDetailModal専用） =====
@@ -1743,6 +1778,7 @@
     .rowItem__num { order: 0; }
     .rowItem__price { order: 2; margin-left: 48px; }
     .rowItem .card__actions { order: 3; margin-left: 48px; }
+    .rowItem__cancelHoldBtn { order: 3; margin-left: 8px; }
     .rowItem__chev { display: none; }
   }
 
@@ -1766,7 +1802,7 @@
     .settingsCard, .settingsActions { padding: 18px 16px; }
     .card { padding: 16px 18px; }
     .rowItem { padding: 14px 16px; }
-    .rowItem__price, .rowItem .card__actions { margin-left: 0; }
+    .rowItem__price, .rowItem .card__actions, .rowItem__cancelHoldBtn { margin-left: 0; }
     /* スマホ幅は画面下端固定のボトムシートにする。左右・上のpaddingは0のまま、
        下方向だけキーボードの高さぶん動的に足す（上の.modalの基本ルール参照）。 */
     .modal { padding: 0 0 var(--app-keyboard-inset, 0px); align-items: flex-end; }

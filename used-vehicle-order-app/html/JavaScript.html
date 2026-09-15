@@ -904,7 +904,17 @@
     return isVehicleListed_(v) ? tone + ' is-listed' : tone;
   }
 
-  function vehicleBadgesHtml_(v) {
+  /**
+   * includeListed=falseで掲載バッジ（listedBadgeHtml_）を省く。一覧行
+   * （vehicleRowItemHtml_）では、状態バッジに加えてHold要約（顧客名・タイマー）も
+   * 同じ見出し行の1行に収める必要があり、掲載バッジまで含めると車両（バッジの
+   * 有無・文字数）によって行がはみ出したり折り返したりして、車両ごとに
+   * カードサイズが揃わなくなってしまう（現場からの要望「Hold中もカードサイズが
+   * 変わらないようにしてほしい」）。掲載状況は詳細モーダルで確認できるため、
+   * 一覧行では省く。詳細モーダル（vehicleTopHtml_）では引き続き表示する
+   * （呼び出し側で引数を省略、デフォルトtrue）。
+   */
+  function vehicleBadgesHtml_(v, includeListed) {
     var isHold = v.holdStatus === 'hold';
     var isSpecialHold = isHold && !!(v.holdHoldType && v.holdHoldType !== 'normal');
     var statusBadge;
@@ -916,7 +926,7 @@
     } else {
       statusBadge = '<span class="badge badge--available"><span class="badge__dot"></span>在庫あり</span>';
     }
-    return statusBadge + listedBadgeHtml_(v);
+    return statusBadge + (includeListed === false ? '' : listedBadgeHtml_(v));
   }
 
   /**
@@ -1040,8 +1050,23 @@
     var isSpecialHold = isHold && !!(v.holdHoldType && v.holdHoldType !== 'normal');
     var rowTone = isSpecialHold ? 'rowItem--holdSpecial' : (isHold ? 'rowItem--hold' : '');
 
-    var holdInfoHtml = isHold
-      ? '<div class="rowItem__holdInfo">' + holdInfoBlockHtml_('HOLD', v, 'hold', false) + '</div>'
+    // Hold要約（顧客名・タイマー）は、以前は行の下にブロックとして追加表示して
+    // いたが、その分だけHold中の行だけ他の車両より背が高くなり、車両によって
+    // カードサイズが変わってしまっていた（現場からの要望「Hold中もカードサイズが
+    // 変わらないようにしてほしい」）。見出し行（タグ・モデル名・バッジ）と同じ
+    // 1行に収まる小さなチップとして表示することで、行の高さを増やさずに要約を
+    // 残す。詳細（リード番号・登録月等の全項目）は従来どおり詳細モーダル
+    // （vehicleDetailHtml_、full=trueのholdInfoBlockHtml_）でのみ確認する。
+    var holdSummaryHtml = '';
+    if (isHold) {
+      var holdWho = isSpecialHold ? (v.holdStaff || '-') : (v.holdCustomer || '-');
+      holdSummaryHtml = '<span class="rowItem__holdWho" title="' + escapeHtml(holdWho) + '">' + escapeHtml(holdWho) + '</span>' +
+        holdTimerHtml_(v.holdCreatedAt, v.holdExpiresAt, 'holdTimer--pill');
+    }
+    // 解除（Hold取消）ボタンも同じ理由で、以前のブロック内ヘッダーから行の操作
+    // ボタン列（vehicleActionsHtml_の受注確定ボタンの隣）に移した。
+    var cancelHoldBtnHtml = isHold
+      ? '<button type="button" class="btn btn--danger rowItem__cancelHoldBtn" data-cancel-hold="' + escapeHtml(v.commission) + '">解除</button>'
       : '';
 
     return '<div class="rowItem ' + rowTone + '" data-commission="' + escapeHtml(v.commission) + '">' +
@@ -1050,16 +1075,17 @@
       '<div class="rowItem__head">' +
       '<span class="tag">' + escapeHtml(v.category || '-') + '</span>' +
       '<span class="rowItem__model" title="' + escapeHtml(v.model) + '">' + escapeHtml(v.model) + '</span>' +
-      vehicleBadgesHtml_(v) +
+      vehicleBadgesHtml_(v, false) +
+      holdSummaryHtml +
       '</div>' +
       '<div class="rowItem__meta">' +
       '<span>年式 ' + escapeHtml(v.firstRegistrationDate || '-') + '</span>' +
       '<span class="dot">走行距離 ' + escapeHtml(formatNumberUnit_(v.mileage, ' km') || '-') + '</span>' +
       '<span class="dot">登録番号 ' + escapeHtml(plateText_(v) || '-') + '</span>' +
       '</div>' +
-      holdInfoHtml +
       '</div>' +
       '<div class="rowItem__price"><span class="rowItem__priceLabel">金額</span>' + escapeHtml(formatNumberUnit_(v.salePrice, ' 円') || '-') + '</div>' +
+      cancelHoldBtnHtml +
       vehicleActionsHtml_(v) +
       '<div class="rowItem__chev">›</div>' +
       '</div>';
