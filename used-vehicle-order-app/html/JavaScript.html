@@ -574,16 +574,15 @@
     // タブ切替のたびに常に一番上から表示されるよう、ページ全体を先頭へ
     // スクロールする。
     window.scrollTo(0, 0);
-    // ヘッダー内の状態タブ（在庫リストのみ）・自由検索欄（マイページ・設定
-    // タブ以外）は、表示中タブによって表示・非表示が切り替わり、ヘッダーの
-    // 実測高さ（--topbar-h）に直接影響する。どちらもsyncFixedBars_より先に
-    // 呼ばないと、切替後のタブでは中身が変わる前の（1つ前のタブの）高さの
-    // まま--topbar-hが更新されてしまい、ツールバー・絞り込みサイドバーの
-    // 位置が実際のヘッダー下端とずれてしまう（案Cのサイドバー・ツールバーは
-    // どちらも--topbar-hを基準に位置決めしているため、このずれでボタンが
-    // ヘッダーの下に隠れてクリックできなくなる不具合があった）。
+    // ヘッダー内の状態タブ（在庫リストのみ）は、表示中タブによって表示・
+    // 非表示が切り替わり、ヘッダーの実測高さ（--topbar-h）に直接影響する。
+    // syncFixedBars_より先に呼ばないと、切替後のタブでは中身が変わる前の
+    // （1つ前のタブの）高さのまま--topbar-hが更新されてしまい、ツールバー・
+    // 絞り込みサイドバーの位置が実際のヘッダー下端とずれてしまう
+    // （案Cのサイドバー・ツールバーはどちらも--topbar-hを基準に位置決めして
+    // いるため、このずれでボタンがヘッダーの下に隠れてクリックできなくなる
+    // 不具合があった）。
     syncHeaderStatusTabs_();
-    syncGlobalSearch_();
     syncChromeLayout_();
     // 非表示（display: none）だった間はツールバーの実測高さが0になっているため、
     // 表示状態に切り替わった直後（かつヘッダーの中身が確定した後）に
@@ -599,46 +598,19 @@
     $('inventoryStatusTabs').classList.toggle('hidden', currentActiveTab_() !== 'inventory');
   }
 
-  // ヘッダーと絞り込みサイドバーを継ぎ目のない1枚の色面（案C：L字型の
-  // 一体フレーム）として見せるため、絞り込みサイドバーを持つタブ
-  // （在庫・受注・業販受注リスト。GLOBAL_SEARCH_TARGETS_のキーと同じ3タブ）を
-  // 表示中かどうかをbody要素のクラスとして持たせる（Stylesheet.html参照）。
+  // 絞り込みサイドバーを持つ3タブ（在庫・受注・業販受注リスト）。自由検索欄は
+  // 各サイドバーの一番上に直接置く形に戻したため（Index.html参照。以前は
+  // ヘッダーの検索欄からGLOBAL_SEARCH_TARGETS_経由で中継していたが、その
+  // 中継処理ごと廃止した）、ここではヘッダーと絞り込みサイドバーを継ぎ目の
+  // ない1枚の色面（案C：L字型の一体フレーム）として見せるためのbodyクラス
+  // 切替（syncChromeLayout_、Stylesheet.html参照）だけに使う。
+  var FILTER_SIDEBAR_TABS_ = { inventory: true, orders: true, wholesaleOrders: true };
+
   // サイドバーの無いタブ（マイページ・設定）ではヘッダー下端の区切り線を
   // 通常どおり全幅に表示する。
   function syncChromeLayout_() {
-    document.body.classList.toggle('has-filter-sidebar', !!GLOBAL_SEARCH_TARGETS_[currentActiveTab_()]);
+    document.body.classList.toggle('has-filter-sidebar', !!FILTER_SIDEBAR_TABS_[currentActiveTab_()]);
   }
-
-  // ===== ヘッダーの自由検索（#globalSearchInput） =====
-  // 参照UIに合わせ、在庫・受注・業販受注リストの絞り込みサイドバーにあった
-  // キーワード検索欄をヘッダーに集約した。検索対象・検索方法自体（サーバー
-  // 側検索か、クライアント側の絞り込みか等）はタブごとに元々違うため、ここでは
-  // 新しい検索ロジックを作らず、表示中タブの既存のキーワード入力欄
-  // （#inventoryKeyword等、非表示のまま残している）に値を中継して同じ
-  // input イベントを発火させるだけにする。マイページ・設定タブには対応する
-  // 絞り込みサイドバーが無いため、ヘッダーの検索欄自体を隠す
-  // （マイページは専用の検索欄を別に持っている）。
-  var GLOBAL_SEARCH_TARGETS_ = {
-    inventory: { input: 'inventoryKeyword', placeholder: 'モデル・ＯＣＮ・コミッション・車台番号下４桁・登録番号で検索' },
-    orders: { input: 'ordersKeyword', placeholder: 'モデル・コミッション・顧客名・担当・拠点で検索' },
-    wholesaleOrders: { input: 'wholesaleOrdersKeyword', placeholder: 'モデル・コミッション・販売先・担当・拠点で検索' }
-  };
-  function syncGlobalSearch_() {
-    var box = $('topbarSearch');
-    var input = $('globalSearchInput');
-    var target = GLOBAL_SEARCH_TARGETS_[currentActiveTab_()];
-    if (!target) { box.classList.add('hidden'); return; }
-    box.classList.remove('hidden');
-    input.placeholder = target.placeholder;
-    input.value = $(target.input).value;
-  }
-  on('globalSearchInput', 'input', function () {
-    var target = GLOBAL_SEARCH_TARGETS_[currentActiveTab_()];
-    if (!target) return;
-    var targetInput = $(target.input);
-    targetInput.value = this.value;
-    targetInput.dispatchEvent(new Event('input', { bubbles: true }));
-  });
 
   on('mainTabs','click', function (e) {
     var btn = e.target.closest('[data-tab]');
@@ -3440,7 +3412,6 @@
 
   function init() {
     syncNavButtons_();
-    syncGlobalSearch_();
     syncHeaderStatusTabs_();
     syncChromeLayout_();
     reloadAll_().catch(function (err) { showToast(err.message, true); }).then(function () {

@@ -305,35 +305,6 @@
   .tabs__item:hover { opacity: .85; }
   .tabs__item.is-active { opacity: 1; border-bottom-color: var(--primary); }
 
-  /* ===== ヘッダーの自由検索（#topbarSearch） =====
-     以前は在庫・受注・業販受注リストそれぞれの絞り込みサイドバーにあった
-     キーワード検索欄を、参照UIに合わせてヘッダーに1つだけ置く形に変更した
-     （検索対象・検索方法は変更していない。syncGlobalSearch_、
-     JavaScript.html参照）。タブレット・スマホ幅ではタブの下に独立した行として
-     全幅で置き、PCビューでは下のmin-width: 901pxブロックでタブのすぐ右に
-     並べる。 */
-  .topbarSearch {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0 28px 14px;
-    padding: 8px 14px;
-    border: 1px solid var(--dark-ui-outline);
-    border-radius: 8px;
-    color: var(--on-surface-variant);
-  }
-  .topbarSearch .icon--inline { flex: none; }
-  .topbarSearch input {
-    flex: 1 1 auto;
-    min-width: 0;
-    border: none;
-    outline: none;
-    background: none;
-    font-size: 16px;
-    color: var(--on-topbar);
-  }
-  .topbarSearch input::placeholder { color: var(--on-surface-variant); }
-
   /* ===== PCビュー（901px以上）のトップバー: 単一行レイアウト =====
      参照UI「THE STUDY」に合わせ、アプリ名（左）＋タブ（左、アプリ名のすぐ右）
      ……右端に戻る／更新ボタンとユーザー情報、という1行構成にする（タブレット・
@@ -344,9 +315,11 @@
      残り幅いっぱいまで伸ばし、中の見出しは左詰めのままにすることで、
      アプリ名＋タブのすぐ右から右端のボタン群までの間が自然な余白になる）。 */
   @media (min-width: 901px) {
-    /* ヘッダーに状態タブ・検索欄まで統合したぶん1行に収める要素が増えたため、
+    /* ヘッダーに状態タブまで統合したぶん1行に収める要素が増えたため、
        flex-wrapにして、幅が足りない場合はヘッダー自身の中で折り返す（ページ
-       全体の横スクロールは発生させない）。 */
+       全体の横スクロールは発生させない）。自由検索欄は絞り込みサイドバーの
+       一番上へ移したため（Index.html参照）、ヘッダー側の折り返しには余裕が
+       できている。 */
     .topbar { flex-direction: row; flex-wrap: wrap; align-items: center; padding: 16px 32px; gap: 10px 28px; }
     .topbar__brandRow { display: contents; }
     .topbar__brand {
@@ -356,9 +329,8 @@
     }
     .statusTabs { order: 3; }
     .topbar__flexSpacer { order: 4; flex: 1 0 20px; }
-    .topbarSearch { order: 5; flex: 0 1 240px; margin: 0; }
-    .topbar__left { order: 6; }
-    .topbar__user { order: 7; margin-left: 4px; }
+    .topbar__left { order: 5; }
+    .topbar__user { order: 6; margin-left: 4px; }
     .tabs {
       order: 2;
       flex: 0 1 auto;

@@ -202,15 +202,6 @@
            （renderInventoryStatusTabs_）自体は変更していない。 -->
       <div class="statusTabs" id="inventoryStatusTabs" role="tablist" aria-label="状態で絞り込み"></div>
       <div class="topbar__flexSpacer" aria-hidden="true"></div>
-      <!-- 在庫・受注・業販受注リストの自由検索。以前は各リストの絞り込み
-           サイドバー内にあったキーワード検索欄を、参照UIに合わせてヘッダーに
-           まとめた（検索対象・検索方法自体は変更していない。切り替えて
-           表示中のリストに応じて対象のキーワード欄へ中継するだけ。
-           syncGlobalSearch_、JavaScript.html参照）。 -->
-      <div class="topbarSearch" id="topbarSearch">
-        <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
-        <input type="search" id="globalSearchInput" placeholder="検索">
-      </div>
       <div class="integrityBanner hidden" id="integrityBanner">
         <svg class="icon icon--inline"><use href="#icon-alert"></use></svg>
         <span id="integrityBannerSummary"></span>
@@ -242,18 +233,16 @@
       <div class="toolbarSpacer" id="inventoryToolbarSpacer"></div>
       <div class="listBody">
         <aside class="filterSidebar" aria-label="在庫リストの絞り込み">
-          <div class="filterSidebar__head">
-            <p class="filterSidebar__title">絞り込み</p>
-            <button type="button" class="filterSidebar__clearBtn" id="btnInventoryFilterClear">クリア</button>
-          </div>
-          <!-- 自由検索はヘッダーの検索欄（#globalSearchInput）に統合したため、
-               ここでは非表示。入力欄自体（#inventoryKeyword）は既存の検索
-               処理（renderInventory等）がそのまま参照するため残す。 -->
-          <div class="filterSidebar__field hidden">
+          <!-- 自由検索は絞り込み機能の一番上に置く（現場からの要望）。 -->
+          <div class="filterSidebar__field">
             <div class="filterSidebar__search">
               <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
               <input type="search" id="inventoryKeyword" placeholder="モデル・ＯＣＮ・コミッション・車台番号下４桁・登録番号">
             </div>
+          </div>
+          <div class="filterSidebar__head">
+            <p class="filterSidebar__title">絞り込み</p>
+            <button type="button" class="filterSidebar__clearBtn" id="btnInventoryFilterClear">クリア</button>
           </div>
           <div class="filterSidebar__field">
             <label class="filterSidebar__groupLabel">区分</label>
@@ -328,15 +317,15 @@
       <div class="toolbarSpacer" id="ordersToolbarSpacer"></div>
       <div class="listBody">
         <aside class="filterSidebar" aria-label="受注リストの絞り込み">
-          <div class="filterSidebar__head">
-            <p class="filterSidebar__title">絞り込み</p>
-            <button type="button" class="filterSidebar__clearBtn" id="btnOrdersFilterClear">クリア</button>
-          </div>
-          <div class="filterSidebar__field hidden">
+          <div class="filterSidebar__field">
             <div class="filterSidebar__search">
               <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
               <input type="search" id="ordersKeyword" placeholder="モデル・コミッション・顧客名・担当・拠点">
             </div>
+          </div>
+          <div class="filterSidebar__head">
+            <p class="filterSidebar__title">絞り込み</p>
+            <button type="button" class="filterSidebar__clearBtn" id="btnOrdersFilterClear">クリア</button>
           </div>
           <div class="filterSidebar__field">
             <label class="filterSidebar__groupLabel">拠点</label>
@@ -381,15 +370,15 @@
       <div class="toolbarSpacer" id="wholesaleOrdersToolbarSpacer"></div>
       <div class="listBody">
         <aside class="filterSidebar" aria-label="業販受注リストの絞り込み">
-          <div class="filterSidebar__head">
-            <p class="filterSidebar__title">絞り込み</p>
-            <button type="button" class="filterSidebar__clearBtn" id="btnWholesaleOrdersFilterClear">クリア</button>
-          </div>
-          <div class="filterSidebar__field hidden">
+          <div class="filterSidebar__field">
             <div class="filterSidebar__search">
               <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
               <input type="search" id="wholesaleOrdersKeyword" placeholder="モデル・コミッション・販売先・担当・拠点">
             </div>
+          </div>
+          <div class="filterSidebar__head">
+            <p class="filterSidebar__title">絞り込み</p>
+            <button type="button" class="filterSidebar__clearBtn" id="btnWholesaleOrdersFilterClear">クリア</button>
           </div>
           <div class="filterSidebar__field">
             <label class="filterSidebar__groupLabel">拠点</label>
