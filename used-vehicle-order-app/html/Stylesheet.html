@@ -300,6 +300,35 @@
   .tabs__item:hover { opacity: .85; }
   .tabs__item.is-active { opacity: 1; border-bottom-color: var(--primary); }
 
+  /* ===== ヘッダーの自由検索（#topbarSearch） =====
+     以前は在庫・受注・業販受注リストそれぞれの絞り込みサイドバーにあった
+     キーワード検索欄を、参照UIに合わせてヘッダーに1つだけ置く形に変更した
+     （検索対象・検索方法は変更していない。syncGlobalSearch_、
+     JavaScript.html参照）。タブレット・スマホ幅ではタブの下に独立した行として
+     全幅で置き、PCビューでは下のmin-width: 901pxブロックでタブのすぐ右に
+     並べる。 */
+  .topbarSearch {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 28px 14px;
+    padding: 8px 14px;
+    border: 1px solid var(--dark-ui-outline);
+    border-radius: 8px;
+    color: var(--on-surface-variant);
+  }
+  .topbarSearch .icon--inline { flex: none; }
+  .topbarSearch input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: none;
+    font-size: 16px;
+    color: var(--on-topbar);
+  }
+  .topbarSearch input::placeholder { color: var(--on-surface-variant); }
+
   /* ===== PCビュー（901px以上）のトップバー: 単一行レイアウト =====
      参照UI「THE STUDY」に合わせ、アプリ名（左）＋タブ（左、アプリ名のすぐ右）
      ……右端に戻る／更新ボタンとユーザー情報、という1行構成にする（タブレット・
@@ -317,8 +346,9 @@
       transform: none;
       order: 1;
     }
-    .topbar__left { order: 3; }
-    .topbar__user { order: 4; margin-left: 4px; }
+    .topbarSearch { order: 3; flex: 0 1 260px; margin: 0; }
+    .topbar__left { order: 4; }
+    .topbar__user { order: 5; margin-left: 4px; }
     .tabs {
       order: 2;
       flex: 1;
@@ -336,11 +366,30 @@
 
   .topbar__user {
     flex: none;
-    text-align: right;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-size: 12.5px;
     line-height: 1.5;
     white-space: nowrap;
   }
+  /* 参照UIのユーザーアバター（頭文字入りの丸いチップ）に合わせる。
+     テーマカラー（--primary）を使う数少ない箇所の一つ（小さな機能的な
+     アクセントのみに使う方針。applyTheme、JavaScript.html参照）。 */
+  .topbar__userAvatar {
+    flex: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    background: var(--primary);
+    color: var(--on-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11.5px;
+    font-weight: 700;
+  }
+  .topbar__userText { text-align: left; }
   .topbar__userName { display: block; font-weight: 500; }
   .topbar__userEmail { display: block; opacity: .8; font-size: 11.5px; }
   .topbar__userWarn { display: block; color: var(--warning); background: rgba(242, 169, 60, .16); padding: 4px 10px; border-radius: 8px; font-size: 11.5px; }
@@ -729,6 +778,19 @@
     border-radius: 5px;
     padding: 2px 7px;
     flex: none;
+  }
+  /* 参照UI「THE STUDY」のモデル名の下にある仕様サブテキスト（HSE／ディーゼル／
+     4WD／AT等）と同じ位置に、外装色・内装色を表示する（現場からの要望
+     「モデル名の横に内外装の色を配置したい」）。全車両で必ず1行増えるだけ
+     なので、車両ごとに行の高さが変わることはない（現場からの要望
+     「車両によってカードサイズが変わらないように」は引き続き有効）。 */
+  .rowItem__colorSub {
+    font-size: 12px;
+    color: var(--on-surface-variant);
+    margin-bottom: 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   /* flex-wrap: nowrap＋overflow: hiddenにする理由は.rowItem__headと同じ
      （車両（登録番号や日付の桁数等）によって内容の長さが変わり、ある車両だけ
@@ -1424,9 +1486,16 @@
        max-heightで絞り込み、収まりきらない場合はサイドバー自身の中だけで
        スクロールできるようにする（ページ全体としてスクロールできるのは
        一覧側だけ、という要望に対する保険）。 */
+    /* 受注リスト・業販受注リストは絞り込み項目自体が少なく（キーワード・拠点・
+       担当者のみ）、在庫リストより中身が短いぶんサイドバーの箱も低くなって
+       見えていた。min-heightをmax-heightと同じ値にして、中身の量に関わらず
+       常に画面いっぱいの高さ（在庫リストと同じ高さ）まで箱を伸ばす（現場からの
+       要望「受注リストや業販リストの絞り込み機能欄の高さを在庫リストと
+       同様の高さにしてほしい」）。 */
     .filterSidebar {
       position: sticky;
       top: calc(var(--topbar-h, 0px) + var(--toolbar-h, 60px) + 32px);
+      min-height: calc(100vh - var(--topbar-h, 0px) - var(--toolbar-h, 60px) - 48px);
       max-height: calc(100vh - var(--topbar-h, 0px) - var(--toolbar-h, 60px) - 48px);
       overflow-y: auto;
     }

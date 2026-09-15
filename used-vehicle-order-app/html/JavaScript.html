@@ -577,7 +577,39 @@
     // 非表示（display: none）だった間はツールバーの実測高さが0になっているため、
     // 表示状態に切り替わった直後に再計測してスペーサーの高さを補正する。
     syncFixedBars_();
+    syncGlobalSearch_();
   }
+
+  // ===== ヘッダーの自由検索（#globalSearchInput） =====
+  // 参照UIに合わせ、在庫・受注・業販受注リストの絞り込みサイドバーにあった
+  // キーワード検索欄をヘッダーに集約した。検索対象・検索方法自体（サーバー
+  // 側検索か、クライアント側の絞り込みか等）はタブごとに元々違うため、ここでは
+  // 新しい検索ロジックを作らず、表示中タブの既存のキーワード入力欄
+  // （#inventoryKeyword等、非表示のまま残している）に値を中継して同じ
+  // input イベントを発火させるだけにする。マイページ・設定タブには対応する
+  // 絞り込みサイドバーが無いため、ヘッダーの検索欄自体を隠す
+  // （マイページは専用の検索欄を別に持っている）。
+  var GLOBAL_SEARCH_TARGETS_ = {
+    inventory: { input: 'inventoryKeyword', placeholder: 'モデル・ＯＣＮ・コミッション・車台番号下４桁・登録番号で検索' },
+    orders: { input: 'ordersKeyword', placeholder: 'モデル・コミッション・顧客名・担当・拠点で検索' },
+    wholesaleOrders: { input: 'wholesaleOrdersKeyword', placeholder: 'モデル・コミッション・販売先・担当・拠点で検索' }
+  };
+  function syncGlobalSearch_() {
+    var box = $('topbarSearch');
+    var input = $('globalSearchInput');
+    var target = GLOBAL_SEARCH_TARGETS_[currentActiveTab_()];
+    if (!target) { box.classList.add('hidden'); return; }
+    box.classList.remove('hidden');
+    input.placeholder = target.placeholder;
+    input.value = $(target.input).value;
+  }
+  on('globalSearchInput', 'input', function () {
+    var target = GLOBAL_SEARCH_TARGETS_[currentActiveTab_()];
+    if (!target) return;
+    var targetInput = $(target.input);
+    targetInput.value = this.value;
+    targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+  });
 
   on('mainTabs','click', function (e) {
     var btn = e.target.closest('[data-tab]');
@@ -1064,6 +1096,8 @@
       '<span class="tag">' + escapeHtml(v.category || '-') + '</span>' +
       '<span class="rowItem__model" title="' + escapeHtml(v.model) + '">' + escapeHtml(v.model) + '</span>' +
       '</div>' +
+      '<div class="rowItem__colorSub" title="' + escapeHtml((v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) + '">' +
+      escapeHtml((v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) + '</div>' +
       '<div class="rowItem__meta">' +
       '<span>年式 ' + escapeHtml(v.firstRegistrationDate || '-') + '</span>' +
       '<span class="rowItem__metaSep"></span>' +
@@ -1486,14 +1520,25 @@
     return '<span class="staffDisplay__warn">担当者マスタ未登録（' + escapeHtml(email || '不明') + '）</span>';
   }
 
+  // 担当者名からアバターの頭文字（最大2文字）を作る。「姓 名」の
+  // スペース区切りが一般的なため、区切りがあれば姓・名それぞれの頭文字
+  // （例: 「佐藤 一郎」→「佐一」）、無ければ先頭2文字を使う。
+  function staffInitials_(name) {
+    if (!name) return '?';
+    var parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) return parts[0].charAt(0) + parts[1].charAt(0);
+    return name.trim().slice(0, 2);
+  }
+
   function renderTopbarUser() {
     var name = currentStaffName_();
     var email = currentUserEmail_();
     var el = $('topbarUser');
     var infoHtml;
     if (name) {
-      infoHtml = '<span class="topbar__userName">' + escapeHtml(name) + '</span>' +
-        '<span class="topbar__userEmail">' + escapeHtml(email) + '</span>';
+      infoHtml = '<span class="topbar__userAvatar">' + escapeHtml(staffInitials_(name)) + '</span>' +
+        '<span class="topbar__userText"><span class="topbar__userName">' + escapeHtml(name) + '</span>' +
+        '<span class="topbar__userEmail">' + escapeHtml(email) + '</span></span>';
     } else if (email) {
       // メールアドレスは取得できているが、担当者マスタに未登録の場合。
       infoHtml = '<span class="topbar__userWarn">担当者未登録: ' + escapeHtml(email) + '</span>';
@@ -3353,6 +3398,7 @@
 
   function init() {
     syncNavButtons_();
+    syncGlobalSearch_();
     reloadAll_().catch(function (err) { showToast(err.message, true); }).then(function () {
       // 起動時ローディング画面は初回の読み込み完了時のみフェードアウトする
       // （更新ボタンからの再読み込みは、ボタン自体の回転アイコンで十分なため
