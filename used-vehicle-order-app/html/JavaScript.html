@@ -1050,21 +1050,28 @@
     var isSpecialHold = isHold && !!(v.holdHoldType && v.holdHoldType !== 'normal');
     var rowTone = isSpecialHold ? 'rowItem--holdSpecial' : (isHold ? 'rowItem--hold' : '');
 
-    // Hold要約（顧客名・タイマー）は、以前は行の下にブロックとして追加表示して
-    // いたが、その分だけHold中の行だけ他の車両より背が高くなり、車両によって
-    // カードサイズが変わってしまっていた（現場からの要望「Hold中もカードサイズが
-    // 変わらないようにしてほしい」）。見出し行（タグ・モデル名・バッジ）と同じ
-    // 1行に収まる小さなチップとして表示することで、行の高さを増やさずに要約を
-    // 残す。詳細（リード番号・登録月等の全項目）は従来どおり詳細モーダル
+    // Hold中は、状態バッジ・顧客名（プレーンな文字）・タイマー（罫線だけの別ピル）が
+    // それぞれ違う見た目のままバラバラに並んでいて、情報が散らかって見えていた
+    // （現場からの要望「情報が散乱しているので区切りを入れてわかりやすく」）。
+    // 3つを1つの帯（rowItem__holdChip）にまとめ、中を縦罫線（rowItem__holdChip__seg
+    // のborder-left）で区切ることで、色・背景がひと続きの「Hold情報のかたまり」
+    // として一目でわかるようにした。以前は個別のflexアイテムだったため折り返し方
+    // 次第で高さが変わり得たが、1つの帯にまとめたことでその心配もない。詳細
+    // （リード番号・登録月等の全項目）は従来どおり詳細モーダル
     // （vehicleDetailHtml_、full=trueのholdInfoBlockHtml_）でのみ確認する。
-    var holdSummaryHtml = '';
+    var statusAreaHtml;
     if (isHold) {
       var holdWho = isSpecialHold ? (v.holdStaff || '-') : (v.holdCustomer || '-');
-      holdSummaryHtml = '<span class="rowItem__holdWho" title="' + escapeHtml(holdWho) + '">' + escapeHtml(holdWho) + '</span>' +
-        holdTimerHtml_(v.holdCreatedAt, v.holdExpiresAt, 'holdTimer--pill');
+      var holdLabel = isSpecialHold ? holdTypeLabel_(v.holdHoldType) + '中' : 'Hold中';
+      statusAreaHtml = '<span class="rowItem__holdChip' + (isSpecialHold ? ' rowItem__holdChip--special' : '') + '">' +
+        '<span class="rowItem__holdChip__seg"><span class="badge__dot"></span>' + escapeHtml(holdLabel) + '</span>' +
+        '<span class="rowItem__holdChip__seg" title="' + escapeHtml(holdWho) + '">' + escapeHtml(holdWho) + '</span>' +
+        '<span class="rowItem__holdChip__seg">' + holdTimerHtml_(v.holdCreatedAt, v.holdExpiresAt, 'holdTimer--chipSeg') + '</span>' +
+        '</span>';
+    } else {
+      statusAreaHtml = vehicleBadgesHtml_(v, false);
     }
-    // 解除（Hold取消）ボタンも同じ理由で、以前のブロック内ヘッダーから行の操作
-    // ボタン列（vehicleActionsHtml_の受注確定ボタンの隣）に移した。
+    // 解除（Hold取消）ボタンは行の操作ボタン列（受注確定の隣）に置く。
     var cancelHoldBtnHtml = isHold
       ? '<button type="button" class="btn btn--danger rowItem__cancelHoldBtn" data-cancel-hold="' + escapeHtml(v.commission) + '">解除</button>'
       : '';
@@ -1075,8 +1082,8 @@
       '<div class="rowItem__head">' +
       '<span class="tag">' + escapeHtml(v.category || '-') + '</span>' +
       '<span class="rowItem__model" title="' + escapeHtml(v.model) + '">' + escapeHtml(v.model) + '</span>' +
-      vehicleBadgesHtml_(v, false) +
-      holdSummaryHtml +
+      '<span class="rowItem__headSep"></span>' +
+      statusAreaHtml +
       '</div>' +
       '<div class="rowItem__meta">' +
       '<span>年式 ' + escapeHtml(v.firstRegistrationDate || '-') + '</span>' +

@@ -741,41 +741,59 @@
   .rowItem__meta > span { white-space: nowrap; flex: none; }
   .rowItem__meta .dot::before { content: "・"; color: var(--on-surface-variant); }
   .rowItem__sub { font-size: 11px; color: var(--on-surface-variant); margin-top: 5px; font-variant-numeric: tabular-nums; }
-  /* Hold要約（顧客名・タイマー）は見出し行に収まる小さなチップとして表示する
-     （vehicleRowItemHtml_参照）。以前は行の下に箱型のブロックを追加表示して
-     いたが、その分だけHold中の行だけ他の車両より背が高くなってしまっていた
-     （現場からの要望「Hold中もカードサイズが変わらないようにしてほしい」）。
-     見出し行は既にflex-wrap: nowrap（.rowItem__head）のため、ここに足しても
-     行が2行になることはない。 */
-  .rowItem__holdWho {
+  /* タグ・モデル名の「車両そのものの情報」と、状態バッジ／Hold帯の「今の状態」を
+     視覚的に区切る縦罫線（現場からの要望「情報が散乱しているので区切りを
+     入れてわかりやすく」）。 */
+  .rowItem__headSep { flex: none; width: 1px; height: 16px; background: var(--outline); }
+  /* Hold要約（状態・顧客名・タイマー）は見出し行に収まる1つの帯（チップ）として
+     表示する（vehicleRowItemHtml_参照）。以前は状態バッジ・プレーンな文字・
+     別ピルのタイマーがそれぞれ違う見た目のままバラバラに並んでいて、情報が
+     散らかって見えていた（現場からの要望）。背景色・枠線をひと続きにし、中は
+     縦罫線（rowItem__holdChip__segのborder-left）だけで区切ることで、
+     「Hold情報のかたまり」だと一目でわかるようにした。見出し行は既に
+     flex-wrap: nowrap（.rowItem__head）のため、ここに足しても行が2行に
+     なることはない。 */
+  .rowItem__holdChip {
+    display: inline-flex;
+    align-items: stretch;
     flex: 0 1 auto;
     min-width: 0;
-    max-width: 120px;
+    background: var(--warning-bg);
+    border: 1px solid rgba(165, 103, 11, .28);
+    border-radius: 999px;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 12.5px;
-    font-weight: 600;
-    color: var(--on-surface-variant);
   }
-  .holdTimer--pill {
+  .rowItem__holdChip--special { background: var(--hold-special-bg); border-color: rgba(109, 40, 217, .28); }
+  .rowItem__holdChip__seg {
     display: inline-flex;
     align-items: center;
-    flex: 0 1 auto;
-    min-width: 34px;
-    background: var(--background);
-    border: 1px solid var(--outline);
-    border-radius: 999px;
-    padding: 3px 10px;
+    gap: 5px;
+    min-width: 0;
+    max-width: 150px;
+    padding: 4px 10px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--warning);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  .holdTimer--pill .holdTimer__bar { display: none; }
-  .holdTimer--pill .holdTimer__text {
+  .rowItem__holdChip--special .rowItem__holdChip__seg { color: var(--hold-special); }
+  .rowItem__holdChip__seg + .rowItem__holdChip__seg { border-left: 1px solid rgba(0, 0, 0, .12); font-weight: 600; }
+  /* 状態（Hold中／業販HOLD中）は最も重要な情報のため、幅が狭いときも他の
+     セグメント（顧客名・タイマー）より先に縮んで読めなくなることがないよう
+     縮小させない。顧客名・タイマーの方を先に省略記号で詰める。 */
+  .rowItem__holdChip__seg:first-child { flex-shrink: 0; }
+  .rowItem__holdChip .badge__dot { flex: none; }
+  .rowItem__holdChip .holdTimer--chipSeg { display: contents; }
+  .rowItem__holdChip .holdTimer--chipSeg .holdTimer__bar { display: none; }
+  .rowItem__holdChip .holdTimer--chipSeg .holdTimer__text {
     margin-top: 0;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
   }
   .holdTimer--pill.holdTimer--indefinite { border-color: var(--hold-special); }
   .rowItem__price {
