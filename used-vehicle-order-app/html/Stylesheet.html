@@ -676,6 +676,20 @@
   .rowItem__meta .dot::before { content: "・"; color: var(--on-surface-variant); }
   .rowItem__sub { font-size: 11px; color: var(--on-surface-variant); margin-top: 5px; font-variant-numeric: tabular-nums; }
   .rowItem__holdInfo { margin-top: 8px; max-width: 480px; }
+  /* 一覧行は既に左罫線の色（.rowItem--hold/--holdSpecial）でHold状態を示している
+     ため、詳細モーダル用の箱型スタイル（背景色・角丸・自前の左罫線）をそのまま
+     使うと、行の中にもう1枚カードが浮いているように見え、行同士の余白が
+     不揃いに感じられる原因になっていた。一覧行内では背景・枠を消してフラットな
+     地続きの表示にし、区切りは罫線1本だけにする（現場からの「カード同士の
+     隙間を無くしたい」という要望）。 */
+  .rowItem__holdInfo .card__holdInfo {
+    background: transparent;
+    border-left: none;
+    border-radius: 0;
+    padding: 8px 0 0;
+    margin-top: 2px;
+    border-top: 1px dashed var(--outline);
+  }
   .rowItem__price {
     flex: 0 0 auto;
     min-width: 110px;
