@@ -244,6 +244,41 @@
             <p class="filterSidebar__title">絞り込み</p>
             <button type="button" class="filterSidebar__clearBtn" id="btnInventoryFilterClear">クリア</button>
           </div>
+          <!-- 車両そのものの条件（モデル・ボディタイプ・カラー・年式・価格帯・
+               走行距離）と、業務上のステータス（区分・状態・掲載状況）は、性質が
+               異なるため見出しで分けて配置する（現場からの要望）。 -->
+          <p class="filterSidebar__sectionLabel">車両条件</p>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">モデル</label>
+            <select id="inventoryModelFilter" class="input"><option value="">指定なし</option></select>
+          </div>
+          <!-- モデル名に含まれるキーワードとボディタイプ（Sedan・SUV等）の紐付けは
+               設定タブ（管理者限定）で登録する（modelBodyTypeRules、
+               SettingsService.gs参照）。選択肢自体は登録済みルールの有無に
+               関わらずMODEL_BODY_TYPE_OPTIONSの7種類を常に表示する
+               （renderInventoryFilterSidebar_、JavaScript.html参照）。 -->
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">ボディタイプ</label>
+            <div id="inventoryBodyTypeFilter"></div>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">カラー</label>
+            <select id="inventoryColorFilter" class="input"><option value="">指定なし</option></select>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">年式</label>
+            <select id="inventoryYearFilter" class="input"></select>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">価格帯</label>
+            <select id="inventoryPriceFilter" class="input"></select>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">走行距離</label>
+            <select id="inventoryMileageFilter" class="input"></select>
+          </div>
+          <hr class="filterSidebar__rule">
+          <p class="filterSidebar__sectionLabel">ステータス</p>
           <div class="filterSidebar__field">
             <label class="filterSidebar__groupLabel">区分</label>
             <div id="inventoryCategoryFilter"></div>
@@ -265,23 +300,6 @@
               <label class="filterCheck"><input type="checkbox" value="goonet"> グーネット掲載中</label>
               <label class="filterCheck"><input type="checkbox" value="unlisted"> 未掲載</label>
             </div>
-          </div>
-          <hr class="filterSidebar__rule">
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">モデル</label>
-            <select id="inventoryModelFilter" class="input"><option value="">指定なし</option></select>
-          </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">年式</label>
-            <select id="inventoryYearFilter" class="input"></select>
-          </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">価格帯</label>
-            <select id="inventoryPriceFilter" class="input"></select>
-          </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">走行距離</label>
-            <select id="inventoryMileageFilter" class="input"></select>
           </div>
         </aside>
         <div>
@@ -565,6 +583,18 @@
             <p class="settingsSection__desc">拠点・名前・Googleアカウントのメールアドレスを登録してください（最大<span id="staffListMax"></span>人・現在<span id="staffListCount">0</span>人登録中）。ログイン中のアカウントに応じて、Hold登録・受注確定時の担当者・販売拠点が自動入力されます。ドラッグハンドル（⠿）で表示順を並び替えできます。各行は折りたたまれています。タップして開くと入力欄が表示されます。</p>
             <div class="staffList" id="staffList"></div>
             <button class="btn" id="btnAddStaff" type="button">＋ 担当者を追加</button>
+          </div>
+
+          <!-- モデル名に含まれるキーワードとボディタイプ（Sedan・SUV等）の紐付け。
+               在庫リストの絞り込みサイドバー「ボディタイプ」（在庫あり・状態等と
+               同じ絞り込み条件）で使う（modelBodyTypesOf_、JavaScript.html参照）。
+               1行1件のリスト形式（担当者マスタ・メール通知先と同じ考え方だが、
+               並び順自体は絞り込みに影響しないためドラッグ並び替えは無し）。 -->
+          <div class="settingsCard hidden" id="systemMasterBodyTypeCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>ボディタイプの紐付け</h2>
+            <p class="settingsSection__desc">モデル名に含まれるキーワードとボディタイプを紐付けると、在庫リストの絞り込みサイドバーで型ごとに検索できます（例: キーワード「GLC」→SUV）。1台のモデルが複数のキーワードに一致してもかまいません（最大<span id="modelBodyTypeRulesMax"></span>件・現在<span id="modelBodyTypeRulesCount">0</span>件登録中）。</p>
+            <div class="mailList" id="modelBodyTypeRuleList"></div>
+            <button class="btn" id="btnAddModelBodyTypeRule" type="button">＋ ルールを追加</button>
           </div>
 
           <!-- Hold登録・受注確定それぞれの完了時に表示する演出

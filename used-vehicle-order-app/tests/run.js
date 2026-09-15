@@ -440,6 +440,41 @@ test('配列以外が渡されても空配列として扱われる', () => {
   assert.strictEqual(sandbox.normalizeStaffList_(undefined).length, 0);
 });
 
+console.log('== SettingsService: normalizeModelBodyTypeRules_（ボディタイプの紐付けルール最大200件、{keyword,bodyType}形式） ==');
+test('キーワード空欄・未知のbodyTypeの行は除去され、重複（キーワード大文字小文字違い×同じbodyType）も除去される', () => {
+  const list = sandbox.normalizeModelBodyTypeRules_([
+    { keyword: 'GLC', bodyType: 'SUV' },
+    { keyword: '', bodyType: 'Sedan' }, // キーワード空欄は除去
+    { keyword: 'Cクラス', bodyType: 'Minivan' }, // MODEL_BODY_TYPE_OPTIONSに無い値は除去
+    { keyword: 'glc', bodyType: 'SUV' }, // 大文字小文字違いの重複は除去
+    { keyword: ' S500 ', bodyType: 'Sedan' }
+  ]);
+  assert.strictEqual(list.length, 2);
+  assert.strictEqual(list[0].keyword, 'GLC');
+  assert.strictEqual(list[0].bodyType, 'SUV');
+  assert.strictEqual(list[1].keyword, 'S500');
+  assert.strictEqual(list[1].bodyType, 'Sedan');
+});
+test('同じキーワードを複数のボディタイプに登録することは許可される', () => {
+  const list = sandbox.normalizeModelBodyTypeRules_([
+    { keyword: 'GLC', bodyType: 'SUV' },
+    { keyword: 'GLC', bodyType: 'Coupe' }
+  ]);
+  assert.strictEqual(list.length, 2);
+});
+test('200件まではそのまま登録できる', () => {
+  const list = Array.from({ length: 200 }, (_, i) => ({ keyword: 'kw' + i, bodyType: 'SUV' }));
+  assert.strictEqual(sandbox.normalizeModelBodyTypeRules_(list).length, 200);
+});
+test('201件以上はエラーになる', () => {
+  const list = Array.from({ length: 201 }, (_, i) => ({ keyword: 'kw' + i, bodyType: 'SUV' }));
+  assert.throws(() => sandbox.normalizeModelBodyTypeRules_(list), /最大200件/);
+});
+test('配列以外が渡されても空配列として扱われる', () => {
+  assert.strictEqual(sandbox.normalizeModelBodyTypeRules_(null).length, 0);
+  assert.strictEqual(sandbox.normalizeModelBodyTypeRules_(undefined).length, 0);
+});
+
 console.log('== SettingsService: normalizeMailList_（メール通知先1項目分・最大20件、順序を保った配列） ==');
 test('空文字・重複（大文字小文字違い含む）は除去され、順序は保たれる', () => {
   const list = sandbox.normalizeMailList_([

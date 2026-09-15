@@ -22,6 +22,8 @@ function api_getBootstrapData() {
     holdOrderInputColumns: HOLD_ORDER_INPUT_COLUMNS,
     holdTypeLabels: HOLD_TYPE_LABELS,
     staffListMax: STAFF_LIST_MAX,
+    modelBodyTypeOptions: MODEL_BODY_TYPE_OPTIONS,
+    modelBodyTypeRulesMax: MODEL_BODY_TYPE_RULES_MAX,
     appTitleMax: APP_TITLE_MAX_LENGTH,
     logoUrlMax: LOGO_URL_MAX_LENGTH,
     loadingImageUrlMax: LOADING_IMAGE_URL_MAX_LENGTH,

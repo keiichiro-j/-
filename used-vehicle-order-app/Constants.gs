@@ -73,6 +73,16 @@ var NOTIFY_MAIL_LIST_MAX = 20; // メール通知先（Hold時／受注確定時
 var NOTIFY_MAIL_MAX_LENGTH = 254; // メールアドレス1件あたりの最大文字数（RFC 5321の実務上の上限に合わせる）
 
 /**
+ * ボディタイプ（型）の選択肢。MODEL列の値に含まれるキーワードを管理者が
+ * 設定タブから登録し、一致した車両をそのボディタイプとして扱う
+ * （modelBodyTypeRules、SettingsService.gsのgetModelBodyTypeRules_・
+ * normalizeModelBodyTypeRules_参照）。在庫の自動判定には使わず、在庫リストの
+ * 絞り込みサイドバー専用の分類。
+ */
+var MODEL_BODY_TYPE_OPTIONS = ['Sedan', 'SUV', 'Station Wagon', 'Compact', 'Coupe', 'Cabriolet/Roadster', 'Mini Van'];
+var MODEL_BODY_TYPE_RULES_MAX = 200; // ボディタイプの紐付けルール最大登録件数
+
+/**
  * 車両情報（在庫リスト・受注リストで共通）の列定義。中古車1台ごとに固有の
  * 管理項目（区分・OCN・型式・車台番号・初年度登録日・走行距離・車検満了日・
  * 販売価格・リサイクル料・旧使用拠点・CCC入庫日・経過月・現展示拠点・
@@ -337,7 +347,8 @@ var PROP_KEYS = {
   STAFF_LIST: 'STAFF_LIST',
   CELEBRATION_VARIANTS: 'CELEBRATION_VARIANTS',
   LOADING_IMAGE_URL: 'LOADING_IMAGE_URL',
-  APP_TITLE: 'APP_TITLE'
+  APP_TITLE: 'APP_TITLE',
+  MODEL_BODY_TYPE_RULES: 'MODEL_BODY_TYPE_RULES'
 };
 
 // アプリのタイトル（ブラウザのタブ名・サイドバー/トップバーの見出し・ホーム画面へ

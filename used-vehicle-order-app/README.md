@@ -274,11 +274,18 @@ Hold登録・受注確定のタイミングで、設定タブに登録したメ�
 自動判定条件（または個別登録した場合はその型番）に一致する在庫だけに絞り込んだ
 在庫リストへ遷移します。
 
-各モデル写真には任意で `bodyType`（型）を設定できます。選択肢はSedan・SUV・
-Station Wagon・Compact・Coupe・Cabriolet/Roadster・Mini Vanの7種類です
-（`MODEL_BODY_TYPE_OPTIONS`、Constants.gs参照）。`bodyType` は在庫の自動判定には
-使わず、現時点ではホーム画面の表示グループ分けにも未使用の分類用の項目です
-（将来、型ごとのグループ表示・絞り込みに利用する想定）。
+## ボディタイプ（Sedan・SUV等）の紐付け・絞り込み
+
+設定タブ（管理者限定）の「ボディタイプの紐付け」で、MODEL列の値に含まれる
+キーワードとボディタイプを組にして登録できます（例: キーワード「GLC」→SUV）。
+選択肢はSedan・SUV・Station Wagon・Compact・Coupe・Cabriolet/Roadster・Mini Van
+の7種類です（`MODEL_BODY_TYPE_OPTIONS`、Constants.gs参照）。登録したルールは
+`modelBodyTypeRules`（`{ keyword, bodyType }` の配列）として全利用者に配信され、
+在庫リストの絞り込みサイドバー「ボディタイプ」（区分・状態と同じ、選択肢固定＋
+件数付きのチェックボックス）で使われます（`modelBodyTypesOf_`、JavaScript.html
+参照。MODEL列の値にキーワードが部分一致すれば該当し、大文字小文字は区別しません。
+1つのモデルが複数のキーワードに一致してもかまいません）。在庫の自動判定（在庫
+有無の判定等）には使わない、絞り込み専用の分類です。
 
 ## 表示設定（テーマ）・ロゴ・起動時ローディング画像・お知らせ
 

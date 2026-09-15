@@ -38,6 +38,7 @@ function getRawSettings_() {
     notifyErrorMailTo: getMailList_(PROP_KEYS.NOTIFY_ERROR_MAIL_TO),
     notifyChatWebhookUrl: props.getProperty(PROP_KEYS.NOTIFY_CHAT_WEBHOOK_URL) || '',
     staffList: getStaffList_(),
+    modelBodyTypeRules: getModelBodyTypeRules_(),
     celebrationVariants: getCelebrationVariants_(),
     appTitle: props.getProperty(PROP_KEYS.APP_TITLE) || '',
     // 保存済みの値が変換前のドライブ共有リンク／ファイルIDのままだった場合
@@ -99,6 +100,7 @@ function saveRawSettings_(settings) {
   props.setProperty(PROP_KEYS.NOTIFY_ERROR_MAIL_TO, JSON.stringify(normalizeMailList_(settings.notifyErrorMailTo)));
   props.setProperty(PROP_KEYS.NOTIFY_CHAT_WEBHOOK_URL, validateChatWebhookUrl_(settings.notifyChatWebhookUrl));
   props.setProperty(PROP_KEYS.STAFF_LIST, JSON.stringify(normalizeStaffList_(settings.staffList)));
+  props.setProperty(PROP_KEYS.MODEL_BODY_TYPE_RULES, JSON.stringify(normalizeModelBodyTypeRules_(settings.modelBodyTypeRules)));
   props.setProperty(PROP_KEYS.CELEBRATION_VARIANTS, JSON.stringify(normalizeCelebrationVariants_(settings.celebrationVariants)));
   props.setProperty(PROP_KEYS.APP_TITLE, validateAppTitle_(settings.appTitle));
   props.setProperty(PROP_KEYS.LOADING_IMAGE_URL, validateLoadingImageUrl_(settings.loadingImageUrl));
@@ -332,6 +334,53 @@ function normalizeStaffList_(list) {
 }
 
 /**
+ * ボディタイプの紐付けルールを { keyword, bodyType } の配列で返す
+ * （MODEL列に含まれるキーワードと、MODEL_BODY_TYPE_OPTIONSのいずれかを組で
+ * 登録する。在庫リストの絞り込みサイドバー「ボディタイプ」用、JavaScript.htmlの
+ * modelBodyTypesOf_参照）。
+ */
+function getModelBodyTypeRules_() {
+  var raw = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.MODEL_BODY_TYPE_RULES);
+  if (!raw) return [];
+  var list;
+  try {
+    list = JSON.parse(raw);
+  } catch (e) {
+    return [];
+  }
+  if (!Array.isArray(list)) return [];
+  return normalizeModelBodyTypeRules_(list);
+}
+
+/**
+ * ボディタイプの紐付けルールの正規化（純粋関数）。
+ * キーワードが空欄、またはbodyTypeがMODEL_BODY_TYPE_OPTIONSに存在しない行は除去し、
+ * （キーワード（大文字小文字を無視）×bodyType）の組で重複除去したうえ、最大件数
+ * （MODEL_BODY_TYPE_RULES_MAX）を超えていればエラー。同じキーワードを複数の
+ * ボディタイプに登録すること自体は許可する（1つのモデルが複数の型に該当する
+ * 特殊なケースを想定。絞り込み時はいずれか一致すれば対象になる、
+ * modelBodyTypesOf_・JavaScript.html参照）。
+ */
+function normalizeModelBodyTypeRules_(list) {
+  list = Array.isArray(list) ? list : [];
+  var seen = {};
+  var result = [];
+  list.forEach(function (entry) {
+    var keyword = String((entry && entry.keyword) || '').trim();
+    var bodyType = String((entry && entry.bodyType) || '').trim();
+    if (!keyword || MODEL_BODY_TYPE_OPTIONS.indexOf(bodyType) === -1) return;
+    var key = keyword.toLowerCase() + ' ' + bodyType;
+    if (seen[key]) return;
+    seen[key] = true;
+    result.push({ keyword: keyword, bodyType: bodyType });
+  });
+  if (result.length > MODEL_BODY_TYPE_RULES_MAX) {
+    throw new Error('ボディタイプの紐付けは最大' + MODEL_BODY_TYPE_RULES_MAX + '件までです（現在' + result.length + '件）');
+  }
+  return result;
+}
+
+/**
  * メール通知先1項目分（Hold時／受注確定時／システムエラー通知のいずれか）の正規化
  * （純粋関数）。空文字は除去し、大文字小文字を無視して重複除去したうえ、最大件数
  * （NOTIFY_MAIL_LIST_MAX）・1件あたりの最大文字数（NOTIFY_MAIL_MAX_LENGTH）を超えて
@@ -487,6 +536,11 @@ function redactSystemMasterSettings_(settings, isAdmin) {
     notifyErrorMailTo: [],
     notifyChatWebhookUrl: '',
     staffList: [],
+    // ボディタイプの紐付けルールは、担当者マスタとは異なり非公開データではなく、
+    // 在庫リストの絞り込みサイドバー（全利用者）が参照する値のため、編集画面
+    // （設定タブ）は管理者限定にしつつ値自体は非管理者にも渡す
+    // （celebrationVariants・loadingImageUrlと同じ考え方）。
+    modelBodyTypeRules: settings.modelBodyTypeRules,
     // Hold登録等の演出バリエーションは、ロゴと同様に全利用者の
     // 画面で使う（演出を実際に表示するのは操作した本人のブラウザのため）。
     // 編集画面（設定タブ）自体は管理者限定にするが、値自体は非管理者にも渡す。
@@ -521,6 +575,7 @@ function applySystemMasterGuard_(incoming, current, isAdmin) {
     notifyErrorMailTo: current.notifyErrorMailTo,
     notifyChatWebhookUrl: current.notifyChatWebhookUrl,
     staffList: current.staffList,
+    modelBodyTypeRules: current.modelBodyTypeRules,
     celebrationVariants: current.celebrationVariants,
     loadingImageUrl: current.loadingImageUrl,
     appTitle: current.appTitle

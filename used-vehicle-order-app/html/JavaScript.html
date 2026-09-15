@@ -32,12 +32,13 @@
     // いずれも既存のスプレッドシート列から算出するだけで、新規列の追加はしていない
     // （ROUND H フェーズ2。キーワード検索はこれとは別にサーバー側searchInventoryで
     // 行うため、ここには含めない）。
-    inventoryFilters: { category: [], status: [], listed: [], model: '', yearBucket: '', priceBucket: '', mileageBucket: '' },
+    inventoryFilters: { category: [], status: [], listed: [], model: '', bodyType: [], color: '', yearBucket: '', priceBucket: '', mileageBucket: '' },
     inventorySort: '', // 並び替え（空文字は取得順のまま）
     ordersGroups: [],
     wholesaleOrdersGroups: [],
     action: null, // { type: 'hold' | 'order' | 'orderFromHold', commission }
     staffList: [], // 設定タブで編集中の担当者マスタ（作業用コピー）
+    modelBodyTypeRules: [], // 設定タブで編集中のボディタイプ紐付けルール（作業用コピー）
     notifyHoldMailTo: [], // 設定タブで編集中のメール通知先（Hold時、作業用コピー）
     notifyOrderMailTo: [], // 設定タブで編集中のメール通知先（受注確定時、作業用コピー）
     notifyErrorMailTo: [], // 設定タブで編集中のメール通知先（システムエラー通知、作業用コピー）
@@ -789,6 +790,23 @@
     { value: 'mileageAsc', label: '走行距離が少ない順' }
   ];
 
+  // モデル名（v.model）に含まれるキーワードから、設定タブ（管理者限定）で
+  // 登録済みのボディタイプ紐付けルール（state.bootstrap.settings.
+  // modelBodyTypeRules、大文字小文字を区別せず部分一致）に基づいて該当する
+  // ボディタイプ（複数可）を返す（純粋関数）。ルール未登録・一致無しなら
+  // 空配列。
+  function modelBodyTypesOf_(model) {
+    var m = String(model || '').toLowerCase();
+    var rules = (state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.modelBodyTypeRules) || [];
+    var types = [];
+    rules.forEach(function (r) {
+      if (r && r.keyword && m.indexOf(String(r.keyword).toLowerCase()) !== -1 && types.indexOf(r.bodyType) === -1) {
+        types.push(r.bodyType);
+      }
+    });
+    return types;
+  }
+
   function applyInventoryFilters_(items) {
     var f = state.inventoryFilters;
     return items.filter(function (v) {
@@ -799,6 +817,11 @@
         if (!keys.some(function (k) { return f.listed.indexOf(k) !== -1; })) return false;
       }
       if (f.model && v.model !== f.model) return false;
+      if (f.bodyType.length) {
+        var vTypes = modelBodyTypesOf_(v.model);
+        if (!vTypes.some(function (t) { return f.bodyType.indexOf(t) !== -1; })) return false;
+      }
+      if (f.color && (v.exteriorColor || '') !== f.color) return false;
       if (f.yearBucket && yearBucketOf_(v) !== f.yearBucket) return false;
       if (f.priceBucket && priceBucketOf_(v) !== f.priceBucket) return false;
       if (f.mileageBucket && mileageBucketOf_(v) !== f.mileageBucket) return false;
@@ -863,6 +886,36 @@
     }).join('');
     modelSelect.value = models.indexOf(currentModel) !== -1 ? currentModel : '';
     if (modelSelect.value !== currentModel) state.inventoryFilters.model = modelSelect.value;
+
+    // ボディタイプは、設定タブで登録済みのルール件数に関わらず、常に
+    // MODEL_BODY_TYPE_OPTIONSの7種類すべてを表示する（区分・状態と同じ、
+    // 選択肢固定＋件数だけ動的なチェックボックス）。
+    var bodyTypeOptions = (state.bootstrap && state.bootstrap.modelBodyTypeOptions) || [];
+    var bodyTypeCounts = {};
+    bodyTypeOptions.forEach(function (t) { bodyTypeCounts[t] = 0; });
+    items.forEach(function (v) {
+      modelBodyTypesOf_(v.model).forEach(function (t) {
+        if (bodyTypeCounts[t] === undefined) bodyTypeCounts[t] = 0;
+        bodyTypeCounts[t]++;
+      });
+    });
+    var checkedBodyTypes = state.inventoryFilters.bodyType;
+    $('inventoryBodyTypeFilter').innerHTML = bodyTypeOptions.map(function (t) {
+      var checked = checkedBodyTypes.indexOf(t) !== -1;
+      return '<label class="filterCheck"><input type="checkbox" value="' + escapeHtml(t) + '"' + (checked ? ' checked' : '') + '> ' +
+        escapeHtml(t) + '<span class="filterCheck__cnt">' + bodyTypeCounts[t] + '</span></label>';
+    }).join('');
+
+    var colors = [];
+    items.forEach(function (v) { if (v.exteriorColor && colors.indexOf(v.exteriorColor) === -1) colors.push(v.exteriorColor); });
+    colors.sort();
+    var colorSelect = $('inventoryColorFilter');
+    var currentColor = state.inventoryFilters.color;
+    colorSelect.innerHTML = '<option value="">指定なし</option>' + colors.map(function (c) {
+      return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>';
+    }).join('');
+    colorSelect.value = colors.indexOf(currentColor) !== -1 ? currentColor : '';
+    if (colorSelect.value !== currentColor) state.inventoryFilters.color = colorSelect.value;
   }
 
   function fillStaticSelectOptions_(id, options, current) {
@@ -1430,8 +1483,9 @@
   bindInventoryCheckboxFilter_('inventoryCategoryFilter', 'category');
   bindInventoryCheckboxFilter_('inventoryStatusFilter', 'status');
   bindInventoryCheckboxFilter_('inventoryListedFilter', 'listed');
+  bindInventoryCheckboxFilter_('inventoryBodyTypeFilter', 'bodyType');
 
-  [['inventoryModelFilter', 'model'], ['inventoryYearFilter', 'yearBucket'], ['inventoryPriceFilter', 'priceBucket'], ['inventoryMileageFilter', 'mileageBucket']].forEach(function (pair) {
+  [['inventoryModelFilter', 'model'], ['inventoryColorFilter', 'color'], ['inventoryYearFilter', 'yearBucket'], ['inventoryPriceFilter', 'priceBucket'], ['inventoryMileageFilter', 'mileageBucket']].forEach(function (pair) {
     on(pair[0], 'change', function () {
       state.inventoryFilters[pair[1]] = this.value;
       renderInventory();
@@ -1444,11 +1498,11 @@
   });
 
   on('btnInventoryFilterClear', 'click', function () {
-    state.inventoryFilters = { category: [], status: [], listed: [], model: '', yearBucket: '', priceBucket: '', mileageBucket: '' };
+    state.inventoryFilters = { category: [], status: [], listed: [], model: '', bodyType: [], color: '', yearBucket: '', priceBucket: '', mileageBucket: '' };
     state.inventorySort = '';
     $('inventoryKeyword').value = '';
-    ['inventoryModelFilter', 'inventoryYearFilter', 'inventoryPriceFilter', 'inventoryMileageFilter', 'inventorySort'].forEach(function (id) { $(id).value = ''; });
-    document.querySelectorAll('#inventoryCategoryFilter input, #inventoryStatusFilter input, #inventoryListedFilter input').forEach(function (el) { el.checked = false; });
+    ['inventoryModelFilter', 'inventoryColorFilter', 'inventoryYearFilter', 'inventoryPriceFilter', 'inventoryMileageFilter', 'inventorySort'].forEach(function (id) { $(id).value = ''; });
+    document.querySelectorAll('#inventoryCategoryFilter input, #inventoryStatusFilter input, #inventoryListedFilter input, #inventoryBodyTypeFilter input').forEach(function (el) { el.checked = false; });
     loadInventory();
   });
 
@@ -2400,6 +2454,7 @@
     $('systemMasterLogoCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterNotifyCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterStaffCard').classList.toggle('hidden', !isAdmin);
+    $('systemMasterBodyTypeCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterCelebrationCard').classList.toggle('hidden', !isAdmin);
     // 業販受注リストのタブ（サイドバー・上部タブとも）も、システムマスタと同じく
     // 管理者権限を持つ担当者にのみ表示する。非管理者がタブ自体を切り替えられて
@@ -2443,6 +2498,9 @@
     state.staffList = (settings.staffList || []).map(function (s) { return { name: s.name || '', email: s.email || '', location: s.location || '', _expanded: false }; });
     $('staffListMax').textContent = (state.bootstrap && state.bootstrap.staffListMax) || 30;
     renderStaffList();
+    state.modelBodyTypeRules = (settings.modelBodyTypeRules || []).map(function (r) { return { keyword: r.keyword || '', bodyType: r.bodyType || '' }; });
+    $('modelBodyTypeRulesMax').textContent = (state.bootstrap && state.bootstrap.modelBodyTypeRulesMax) || 200;
+    renderModelBodyTypeRuleList_();
     populateOrdersStaffFilter_();
     populateOrdersLocationFilter_();
     populateStaffFilter_('wholesaleOrdersStaffFilter');
@@ -2977,6 +3035,60 @@
     MAIL_FIELDS.forEach(renderMailList_);
   }
 
+  // ----- ボディタイプの紐付けルール（設定タブ、管理者限定）。メール通知先と
+  //       見た目・構造はほぼ同じ「1行1件のリスト」だが、1行あたりキーワード
+  //       （テキスト）とボディタイプ（プルダウン）の2つの入力欄を持つ点が異なる。
+  //       並び順自体は絞り込み結果に影響しないため、ドラッグ並び替えは付けない。 -----
+  function modelBodyTypeRulesMax_() {
+    return (state.bootstrap && state.bootstrap.modelBodyTypeRulesMax) || 200;
+  }
+
+  function renderModelBodyTypeRuleList_() {
+    var container = $('modelBodyTypeRuleList');
+    var list = state.modelBodyTypeRules || [];
+    var options = (state.bootstrap && state.bootstrap.modelBodyTypeOptions) || [];
+    $('modelBodyTypeRulesCount').textContent = list.length;
+    if (!list.length) {
+      container.innerHTML = '<div class="mailList__empty">ルールが登録されていません</div>';
+    } else {
+      container.innerHTML = list.map(function (rule, i) {
+        return '<div class="mailList__row">' +
+          '<input type="text" class="input" data-rule-index="' + i + '" data-rule-field="keyword" placeholder="例: GLC" value="' + escapeHtml(rule.keyword || '') + '">' +
+          '<select class="input" data-rule-index="' + i + '" data-rule-field="bodyType">' +
+          options.map(function (o) { return '<option value="' + escapeHtml(o) + '"' + (rule.bodyType === o ? ' selected' : '') + '>' + escapeHtml(o) + '</option>'; }).join('') +
+          '</select>' +
+          '<button class="btn btn--icon" data-remove-rule="' + i + '" type="button" aria-label="削除">&times;</button>' +
+          '</div>';
+      }).join('');
+    }
+    $('btnAddModelBodyTypeRule').disabled = list.length >= modelBodyTypeRulesMax_();
+  }
+
+  on('modelBodyTypeRuleList', 'input', function (e) {
+    var index = e.target.dataset.ruleIndex;
+    if (index === undefined) return;
+    state.modelBodyTypeRules[Number(index)].keyword = e.target.value;
+  });
+  on('modelBodyTypeRuleList', 'change', function (e) {
+    var index = e.target.dataset.ruleIndex;
+    if (index === undefined || e.target.dataset.ruleField !== 'bodyType') return;
+    state.modelBodyTypeRules[Number(index)].bodyType = e.target.value;
+  });
+  on('modelBodyTypeRuleList', 'click', function (e) {
+    var btn = e.target.closest('[data-remove-rule]');
+    if (!btn) return;
+    state.modelBodyTypeRules.splice(Number(btn.dataset.removeRule), 1);
+    renderModelBodyTypeRuleList_();
+  });
+  on('btnAddModelBodyTypeRule', 'click', function () {
+    if (state.modelBodyTypeRules.length >= modelBodyTypeRulesMax_()) return;
+    var options = (state.bootstrap && state.bootstrap.modelBodyTypeOptions) || [];
+    state.modelBodyTypeRules.push({ keyword: '', bodyType: options[0] || '' });
+    renderModelBodyTypeRuleList_();
+    var inputs = $('modelBodyTypeRuleList').querySelectorAll('[data-rule-field="keyword"]');
+    if (inputs.length) inputs[inputs.length - 1].focus();
+  });
+
   /**
    * マイページ（Hold中の車両一覧）専用に、フィルタ無しで在庫リストを取得する。
    * 在庫リストのツールバー（検索キーワード等）の状態に関わらず、常に全件から
@@ -3225,6 +3337,27 @@
       return;
     }
 
+    // ボディタイプの紐付けルールも、サーバー側のnormalizeModelBodyTypeRules_
+    // （SettingsService.gs）と同じ規則（キーワード空欄の行を除去・
+    // キーワード×ボディタイプの組で重複除去・最大件数チェック）を保存前に
+    // クライアント側でも行う。
+    var bodyTypeOptions = (state.bootstrap && state.bootstrap.modelBodyTypeOptions) || [];
+    var seenRules = {};
+    var uniqueBodyTypeRules = (state.modelBodyTypeRules || [])
+      .map(function (r) { return { keyword: String((r && r.keyword) || '').trim(), bodyType: String((r && r.bodyType) || '').trim() }; })
+      .filter(function (r) { return r.keyword && bodyTypeOptions.indexOf(r.bodyType) !== -1; })
+      .filter(function (r) {
+        var key = r.keyword.toLowerCase() + ' ' + r.bodyType;
+        if (seenRules[key]) return false;
+        seenRules[key] = true;
+        return true;
+      });
+    var maxBodyTypeRules = modelBodyTypeRulesMax_();
+    if (uniqueBodyTypeRules.length > maxBodyTypeRules) {
+      $('settingsError').textContent = 'ボディタイプの紐付けは最大' + maxBodyTypeRules + '件までです（現在' + uniqueBodyTypeRules.length + '件）';
+      return;
+    }
+
     var settings = {
       themeKey: state.themeKey || DEFAULT_THEME_KEY,
       appTitle: appTitle,
@@ -3235,6 +3368,7 @@
       notifyErrorMailTo: cleanedMailLists.notifyErrorMailTo,
       notifyChatWebhookUrl: chatWebhookUrl,
       staffList: uniqueStaffList,
+      modelBodyTypeRules: uniqueBodyTypeRules,
       celebrationVariants: {
         hold: $('celebrationVariantHold').value,
         order: $('celebrationVariantOrder').value
