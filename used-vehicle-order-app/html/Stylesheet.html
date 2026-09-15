@@ -1264,6 +1264,21 @@
        （中央寄せ用のmax-width/marginを解除するだけでよい）。 */
     main.view { max-width: none; margin: 0; padding: 24px 32px 40px; }
 
+    /* 絞り込みサイドバー（在庫リスト・受注リスト・業販受注リスト）はPCビューでは
+       position: stickyで画面に固定し、右側の一覧（.rowList）だけがページと一緒に
+       スクロールするようにする（現場の要望）。topの値は、固定表示のトップバー・
+       ツールバーの下にちょうど揃う高さ（--topbar-h・--toolbar-h、どちらも
+       JavaScript.htmlのsyncFixedBars_が実測して都度更新する）＋前後の余白16px×2。
+       ビューポートが低い環境でもサイドバー自体が画面からはみ出さないよう、
+       max-heightで絞り込み、収まりきらない場合はサイドバー自身の中だけで
+       スクロールできるようにする（ページ全体としてスクロールできるのは
+       一覧側だけ、という要望に対する保険）。 */
+    .filterSidebar {
+      position: sticky;
+      top: calc(var(--topbar-h, 0px) + var(--toolbar-h, 60px) + 32px);
+      max-height: calc(100vh - var(--topbar-h, 0px) - var(--toolbar-h, 60px) - 48px);
+      overflow-y: auto;
+    }
   }
 
   /* ===== リード番号入力（「L-」固定接頭辞＋数字。Google×Tesla風の見出し扱いにする） ===== */

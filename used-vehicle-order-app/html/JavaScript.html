@@ -3138,6 +3138,15 @@
       var spacer = $(pair[1]);
       if (toolbar && spacer) spacer.style.height = (toolbar.offsetHeight + pair[2]) + 'px';
     });
+    // 絞り込みサイドバー（.filterSidebar、在庫・受注・業販受注リスト）をPCビューで
+    // position: stickyにより固定表示するための高さ。現在表示中のタブのツールバーの
+    // 実測高さを都度反映することで、タブ間でツールバーの高さが多少違っても
+    // サイドバーがトップバー・ツールバーの下にぴったり揃う（Stylesheet.htmlの
+    // .filterSidebar参照）。
+    var activeToolbar = document.querySelector('main.view.is-active .toolbar');
+    if (activeToolbar) {
+      document.documentElement.style.setProperty('--toolbar-h', activeToolbar.offsetHeight + 'px');
+    }
   }
   window.addEventListener('resize', debounce(syncFixedBars_, 100));
 
