@@ -55,23 +55,18 @@
     /* 公式サイトはカードの角丸をあまり強調しないフラットな見た目のため、
        従来の14pxより控えめな角丸にして「エンジニアリングされた精密さ」を出す。 */
     --radius: 8px;
-    /* トップバー・比較バー・トーストは、テーマ設定のテーマカラー／文字色や
-       ベース背景色（--background/--surface）に関わらず、常にネイビー基調で
-       統一する（ブランドカラーやページのベース色を載せる帯ではなく、アプリの
-       「額縁」として固定のネイビーにすることで、どのテーマカラー・ベース配色を
-       選んでも重厚なネイビー基調の外観が崩れない）。ダークネイビー（最も暗い＝
-       ヘッダー）／メインネイビー（比較バー）／ネイビーサブ（トースト）の順で
-       少しずつ明るくし、旧配色（黒／#1a1a1d／#2a2a2e）と同じ奥行きの付け方を
-       踏襲している。このネイビー基調のUI自体の文字色・枠線色は、ベース配色が
-       白系になっても白文字のまま保てるよう、--on-surface / --outline とは別に
-       --on-topbar / --dark-ui-outline を用意している。
-       例外: スマホ表示（@media max-width: 600px）のヘッダーだけは、現場からの
-       要望でこの「常にネイビー」の方針から外し、--topbar-mobile-bgでテーマカラーに
-       連動させている（下部の--topbar-mobile-bg・スマートフォン用メディアクエリ参照。
-       比較バー・トーストや、PCビュー・タブレットビューのヘッダーはこれまでどおり）。 */
-    --topbar-bg: #0b1f33;
-    --on-topbar: #ffffff;
-    --dark-ui-outline: rgba(255, 255, 255, .14);
+    /* トップバーは「THE STUDY」参照UIに合わせ、常時ネイビーの帯だった旧仕様から
+       白ベースの帯に変更した（ROUND H フェーズ2続き。現場の要望「添付デザインと
+       全く同じに」）。テーマカラー（--primary）は帯全体を塗る用途からは外し、
+       アクティブタブの下線・ボタンの塗り・小さなドット等、機能的なアクセント
+       箇所だけに使う（「テーマの反映箇所を改める」対応）。--on-topbar /
+       --dark-ui-outlineという変数名自体は、白ベースになった後も「トップバー
+       専用の文字色・枠線色」という役割のまま残している（他の白背景要素の
+       --on-surface / --outlineと完全に同じ値でも、意味的に独立させておくことで
+       今後トップバーだけ配色を変えたくなった場合に影響範囲を分離できるため）。 */
+    --topbar-bg: #ffffff;
+    --on-topbar: #1f2933;
+    --dark-ui-outline: #d8e1e8;
     /* 起動時ローディング画面（.appLoading）専用の背景色。テーマ設定（表示設定）で
        選んだテーマのprimaryDarkに、JS実行後applyTheme（JavaScript.html参照）が
        都度合わせる。ここでの値はJS実行前（テーマ切替前）の初期表示専用で、
@@ -80,15 +75,6 @@
        要望を受け、黒に固定した（JS実行後、選んだテーマの色に上書きされる一瞬までの
        表示専用のため、この値自体はテーマ設定の影響を受けない）。 */
     --loading-bg: #000000;
-    /* スマホ表示（@media max-width: 600px）専用のヘッダー背景色。PCビュー・
-       タブレットビューのヘッダーは、他のダークUIパーツ（比較バー・トースト）と
-       揃えるためあえて固定のネイビー（--topbar-bg）のままにしているが、スマホ
-       ビューのヘッダーだけは選んだテーマのprimaryに、JS実行後applyTheme
-       （JavaScript.html参照）が都度合わせる（現場からの要望）。primaryは
-       白文字とのコントラスト比を確保できる明度に調整済みのため、既存の白文字
-       （--on-topbar）のまま流用できる。ここでの値はJS実行前の初期表示用で、
-       DEFAULT_THEME_KEY「steel」のprimaryに揃えてある。 */
-    --topbar-mobile-bg: #2f6fae;
     /* PC専用の左サイドバー（.sidebar）だけに使うグレー背景。以前は--topbar-bg
        （ダークネイビー）を流用していたが、トップバー・比較バー・トーストと違い
        サイドバーは「常に紺色の額縁」という統一を必要としない単独のナビ帯の
@@ -155,10 +141,8 @@
   /* ===== ヘッダー / タブ =====
      position: fixed で画面上部に完全固定する（position: stickyだとスクロール中に
      わずかに追従が遅れて見えることがあるため、実測値ベースで確実に固定する。
-     JavaScript.html の syncFixedBars_ 参照）。背景色はPCビュー・タブレットビューでは
-     固定のネイビー（--topbar-bg）のままだが、スマホ表示（@media max-width: 600px）
-     だけはテーマカラーに連動する（--topbar-mobile-bg、下のスマートフォン用
-     メディアクエリ参照。現場からの要望）。 */
+     JavaScript.html の syncFixedBars_ 参照）。背景色は画面幅に関わらず常に白
+     （--topbar-bg）で統一する。 */
   #app { padding-top: var(--topbar-h); }
   .topbar {
     background: var(--topbar-bg);
@@ -264,7 +248,7 @@
     background: transparent; border: 1px solid var(--dark-ui-outline); border-radius: 50%;
     color: var(--on-topbar); cursor: pointer;
   }
-  .topbar__navBtn:hover { background: rgba(255, 255, 255, .08); }
+  .topbar__navBtn:hover { background: rgba(31, 41, 51, .06); }
   .topbar__navBtn:disabled { opacity: .3; cursor: default; }
   .topbar__navBtn:disabled:hover { background: transparent; }
   /* 「更新」ボタンは「戻る」ボタンと見た目を統一し（同じアウトライン円形）、
@@ -272,38 +256,25 @@
   .topbar__navBtn--refresh.is-spinning .icon { animation: navRefreshSpin .8s linear infinite; }
   @keyframes navRefreshSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   .topbar__logo { height: 28px; width: auto; max-width: 140px; object-fit: contain; }
-  /* PCビュー（901px以上）のみ、ヘッダーを少し大きくする。タブレット・スマホ幅
-     （@media max-width:900px / 600px）は従来どおりのコンパクトなサイズのまま
-     据え置く。トップバーの実測高さはJS側のsyncFixedBars_が都度反映するため、
-     ここでpaddingやボタンサイズを変えるだけで、下に続くツールバー等の
-     固定要素の位置も自動的に追従する。 */
-  @media (min-width: 901px) {
-    .topbar__brandRow { padding: 22px 32px; }
-    .topbar__navBtn { width: 44px; height: 44px; }
-    .topbar__navBtn .icon { width: 22px; height: 22px; }
-    .topbar__logo { height: 34px; max-width: 160px; }
-    .topbar__brandText { font-size: 18px; }
-    .topbar__user { font-size: 14px; }
-    .topbar__userEmail { font-size: 12.5px; }
-  }
   /* 不具合修正: アプリタイトル（設定タブで変更可能）を長めの文字列にすると、
      position: absoluteで中央配置しているこのブロックが実際の文字数ぶんそのまま
-     横に広がってしまい、タブレット・スマホ幅では左の「戻る」「更新」ボタンと
-     重なって見えてしまっていた（現場からの指摘）。PCビュー（901px以上）は
-     ボタン・ユーザー情報がサイドバーへ移り、トップバーにはボタン2つしか
-     残らないためこの不具合は起きず、上のmin-width: 901pxブロックも変更して
-     いない。タブレット・スマホ幅だけ、左右のボタン領域と重ならない幅に上限を
-     設け、収まりきらない場合は末尾を省略記号にする（ロゴ画像はテキストより先に
-     縮んで潰れて見えることのないよう、flex: noneで実寸のまま維持する）。 */
+     横に広がってしまい、左の「戻る」「更新」ボタンと重なって見えてしまっていた
+     （現場からの指摘）。タブレット・スマホ幅だけ、左右のボタン領域と重ならない
+     幅に上限を設け、収まりきらない場合は末尾を省略記号にする（ロゴ画像は
+     テキストより先に縮んで潰れて見えることのないよう、flex: noneで実寸の
+     まま維持する）。PCビューは下のmin-width: 901pxブロックで単一行レイアウトに
+     組み替えるため、この上限は不要（.topbar__brand参照）。 */
   @media (max-width: 900px) {
     .topbar__brand { max-width: calc(100% - 190px); }
     .topbar__logo { flex: none; }
     .topbar__brandText { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   }
   /* ===== ナビゲーション =====
-     ブランド行の下に、独立した行として中央寄せで配置する。塗りつぶしの
-     ピル型タブではなく、公式サイトのグローバルナビのような「テキスト＋
-     アクティブ時の下線」のミニマルな水平ナビにする。 */
+     タブレット・スマホ幅では、ブランド行の下に独立した行として中央寄せで
+     配置する。塗りつぶしのピル型タブではなく、参照UIのグローバルナビのような
+     「テキスト＋アクティブ時の下線」のミニマルな水平ナビにする（下線の色
+     （--primary）だけがテーマカラーを反映する箇所で、帯全体を塗るような
+     大きな面には使わない）。 */
   .tabs {
     display: flex;
     justify-content: center;
@@ -328,6 +299,40 @@
   }
   .tabs__item:hover { opacity: .85; }
   .tabs__item.is-active { opacity: 1; border-bottom-color: var(--primary); }
+
+  /* ===== PCビュー（901px以上）のトップバー: 単一行レイアウト =====
+     参照UI「THE STUDY」に合わせ、アプリ名（左）＋タブ（左、アプリ名のすぐ右）
+     ……右端に戻る／更新ボタンとユーザー情報、という1行構成にする（タブレット・
+     スマホ幅は上の中央寄せ・2段構成のまま変更しない）。DOM構造自体は変えず、
+     .topbar__brandRowをdisplay: contentsにしてその子要素（戻る/更新ボタン・
+     アプリ名・ユーザー情報）を.topbar直下のフレックスアイテムとして展開し、
+     兄弟要素の.tabsと合わせてorderで並び替える（.tabsをflex: 1にして
+     残り幅いっぱいまで伸ばし、中の見出しは左詰めのままにすることで、
+     アプリ名＋タブのすぐ右から右端のボタン群までの間が自然な余白になる）。 */
+  @media (min-width: 901px) {
+    .topbar { flex-direction: row; align-items: center; padding: 20px 32px; gap: 28px; }
+    .topbar__brandRow { display: contents; }
+    .topbar__brand {
+      position: static;
+      transform: none;
+      order: 1;
+    }
+    .topbar__left { order: 3; }
+    .topbar__user { order: 4; margin-left: 4px; }
+    .tabs {
+      order: 2;
+      flex: 1;
+      justify-content: flex-start;
+      padding: 0;
+      gap: 28px;
+    }
+    .topbar__navBtn { width: 38px; height: 38px; }
+    .topbar__navBtn .icon { width: 20px; height: 20px; }
+    .topbar__logo { height: 30px; max-width: 150px; }
+    .topbar__brandText { font-size: 17px; }
+    .topbar__user { font-size: 13px; }
+    .topbar__userEmail { font-size: 11.5px; }
+  }
 
   .topbar__user {
     flex: none;
@@ -506,7 +511,7 @@
      以前はここに検索欄・表示形式切替を置いていたが、絞り込みサイドバー
      （.filterSidebar）への一本化にともない、見出しと並び替え／グループ化の
      セレクトだけが残るシンプルな帯になった（ROUND H フェーズ2）。 */
-  .toolbar__title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+  .toolbar__title { font-size: 22px; font-weight: 800; letter-spacing: -.01em; display: flex; align-items: baseline; gap: 10px; white-space: nowrap; }
   .sortField { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--on-surface-variant); white-space: nowrap; }
   .sortField select { font-size: 13px; }
 
@@ -541,7 +546,8 @@
     gap: 16px;
     min-width: 0;
   }
-  .filterSidebar__title { font-size: 13px; font-weight: 700; margin: 0; }
+  .filterSidebar__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .filterSidebar__title { font-size: 14px; font-weight: 700; margin: 0; }
   .filterSidebar__rule { border: none; border-top: 1px solid var(--outline); margin: 0; }
   .filterSidebar__field { display: flex; flex-direction: column; gap: 8px; }
   .filterSidebar__groupLabel {
@@ -591,7 +597,7 @@
     text-underline-offset: 3px;
     cursor: pointer;
     padding: 0;
-    text-align: left;
+    flex: none;
   }
   .filterSidebar__clearBtn:hover { color: var(--on-surface); }
 
@@ -1632,10 +1638,6 @@
 
   /* ===== スマートフォン ===== */
   @media (max-width: 600px) {
-    /* スマホ表示のヘッダーだけ、選んだテーマカラー（--topbar-mobile-bg）に
-       連動させる（現場からの要望。PCビュー・タブレットビューのヘッダーは
-       他のダークUIパーツと揃えるため固定のネイビーのまま）。 */
-    .topbar { background: var(--topbar-mobile-bg); }
     .topbar__brandRow { padding: 12px; gap: 8px; }
     .tabs { padding: 0 12px 10px; gap: 20px; }
     .integrityBanner { padding: 8px 12px; font-size: 12.5px; flex-wrap: wrap; }

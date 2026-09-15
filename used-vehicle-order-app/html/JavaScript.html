@@ -2436,12 +2436,6 @@
     // テーマのprimaryDarkに合わせる（現場からの要望で、テーマを切り替えると
     // ローディング画面の背景色も連動して変わるようにしている）。
     root.setProperty('--loading-bg', preset.primaryDark);
-    // スマホ表示時のヘッダー（.topbar、@media max-width: 600px、Stylesheet.html参照）の
-    // 背景も、選択中のテーマのprimaryに合わせる（現場からの要望）。primaryはボタンと
-    // 同じく白文字とのコントラスト比を確保できる明度のため、既存の白文字
-    // （--on-topbar）のまま流用できる。PCビュー・タブレットビューのヘッダーは
-    // これまでどおり固定のネイビー（--topbar-bg）のまま。
-    root.setProperty('--topbar-mobile-bg', preset.primary);
     applySidebarColor_(preset.sidebarColor);
   }
 
