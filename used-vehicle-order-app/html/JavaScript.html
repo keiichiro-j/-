@@ -578,6 +578,15 @@
     // 表示状態に切り替わった直後に再計測してスペーサーの高さを補正する。
     syncFixedBars_();
     syncGlobalSearch_();
+    syncHeaderStatusTabs_();
+  }
+
+  // ヘッダーへ統合した状態タブ（#inventoryStatusTabs）は在庫リスト専用の
+  // ため、在庫リスト表示中のみ見せる。中身自体（件数・絞り込み処理）は
+  // renderInventoryStatusTabs_が担当し、ここではヘッダー内での表示・
+  // 非表示だけを切り替える。
+  function syncHeaderStatusTabs_() {
+    $('inventoryStatusTabs').classList.toggle('hidden', currentActiveTab_() !== 'inventory');
   }
 
   // ===== ヘッダーの自由検索（#globalSearchInput） =====
@@ -2582,7 +2591,7 @@
     // テーマのprimaryDarkに合わせる（現場からの要望で、テーマを切り替えると
     // ローディング画面の背景色も連動して変わるようにしている）。
     root.setProperty('--loading-bg', preset.primaryDark);
-    applySidebarColor_(preset.sidebarColor);
+    applyChromeColor_(preset.sidebarColor);
   }
 
   function hexToRgb_(hex) {
@@ -2628,24 +2637,37 @@
   }
 
   /**
-   * サイドバーの背景色・文字色関連のCSS変数を一括で適用する（applyTheme専用の
-   * 内部処理。テーマプリセットのsidebarColorから呼ばれる）。文字色
-   * （--sidebar-fg）はpickReadableSidebarTextColor_で決めた色そのものを使い、
-   * 非選択ナビ項目の抑えた文字色・薄い罫線・ホバー背景（--sidebar-fg-muted /
-   * --sidebar-outline / --sidebar-hover-bg）は、その文字色を異なる不透明度で
-   * 重ねたrgba()として派生させる（白文字が選ばれれば白系の薄い重ね、濃色文字が
-   * 選ばれれば濃色系の薄い重ねになり、どちらの背景色でも馴染む）。
+   * サイドバー・ヘッダー（トップバー）の背景色・文字色関連のCSS変数を
+   * 一括で適用する（applyTheme専用の内部処理。テーマプリセットの
+   * sidebarColorから呼ばれる）。以前はサイドバーだけに使っていたが、
+   * 「テーマの変更が及ぶ範囲を拡大し、ガラッと変わるようにしてほしい」
+   * という要望を受け、ヘッダーにも同じ色を塗って統一した「濃色の額縁」に
+   * なるようにした（一覧・詳細等のデータ表示部分は引き続き白背景のまま
+   * とし、可読性を優先する）。文字色（--sidebar-fg／--on-topbar）は
+   * pickReadableSidebarTextColor_で背景色に対するコントラスト比が高い
+   * ほう（白／濃色）を都度計算し直して使うため、どのテーマ色を選んでも
+   * 文字が読みにくくなることはない（「文字の見やすさに注意」への対応）。
+   * 非選択ナビ項目の抑えた文字色・薄い罫線・ホバー背景は、その文字色を
+   * 異なる不透明度で重ねたrgba()として派生させる。
    */
-  function applySidebarColor_(hex) {
+  function applyChromeColor_(hex) {
     var color = hexToRgb_(hex) ? hex : THEME_PRESETS[0].sidebarColor;
     var root = document.documentElement.style;
-    root.setProperty('--sidebar-bg', color);
     var fg = pickReadableSidebarTextColor_(color);
     var fgRgb = hexToRgb_(fg);
+    var muted = 'rgba(' + fgRgb.r + ',' + fgRgb.g + ',' + fgRgb.b + ',.68)';
+    var outline = 'rgba(' + fgRgb.r + ',' + fgRgb.g + ',' + fgRgb.b + ',.14)';
+    var hoverBg = 'rgba(' + fgRgb.r + ',' + fgRgb.g + ',' + fgRgb.b + ',.08)';
+
+    root.setProperty('--sidebar-bg', color);
     root.setProperty('--sidebar-fg', fg);
-    root.setProperty('--sidebar-fg-muted', 'rgba(' + fgRgb.r + ',' + fgRgb.g + ',' + fgRgb.b + ',.68)');
-    root.setProperty('--sidebar-outline', 'rgba(' + fgRgb.r + ',' + fgRgb.g + ',' + fgRgb.b + ',.14)');
-    root.setProperty('--sidebar-hover-bg', 'rgba(' + fgRgb.r + ',' + fgRgb.g + ',' + fgRgb.b + ',.08)');
+    root.setProperty('--sidebar-fg-muted', muted);
+    root.setProperty('--sidebar-outline', outline);
+    root.setProperty('--sidebar-hover-bg', hoverBg);
+
+    root.setProperty('--topbar-bg', color);
+    root.setProperty('--on-topbar', fg);
+    root.setProperty('--dark-ui-outline', outline);
   }
 
   // ----- アプリタイトル（ブラウザのタブ名・サイドバー/トップバーの見出し） -----
@@ -3399,6 +3421,7 @@
   function init() {
     syncNavButtons_();
     syncGlobalSearch_();
+    syncHeaderStatusTabs_();
     reloadAll_().catch(function (err) { showToast(err.message, true); }).then(function () {
       // 起動時ローディング画面は初回の読み込み完了時のみフェードアウトする
       // （更新ボタンからの再読み込みは、ボタン自体の回転アイコンで十分なため

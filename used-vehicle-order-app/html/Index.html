@@ -194,6 +194,14 @@
         <button class="tabs__item" data-tab="mypage">マイページ</button>
         <button class="tabs__item" data-tab="settings">設定</button>
       </nav>
+      <!-- 状態タブ（すべて／在庫あり／Hold中／業販HOLD中）は在庫リストの
+           ツールバー内にあったが、ヘッダーに統合してツールバーの行数を減らし、
+           一覧の表示領域（在庫の表示件数）を少しでも広く取れるようにした
+           （現場からの要望）。在庫リスト表示中のみ見える（syncHeaderStatusTabs_、
+           JavaScript.html参照）。中身の描画・件数集計・クリック時の絞り込み処理
+           （renderInventoryStatusTabs_）自体は変更していない。 -->
+      <div class="statusTabs" id="inventoryStatusTabs" role="tablist" aria-label="状態で絞り込み"></div>
+      <div class="topbar__flexSpacer" aria-hidden="true"></div>
       <!-- 在庫・受注・業販受注リストの自由検索。以前は各リストの絞り込み
            サイドバー内にあったキーワード検索欄を、参照UIに合わせてヘッダーに
            まとめた（検索対象・検索方法自体は変更していない。切り替えて
@@ -230,7 +238,6 @@
         <label class="sortField">並び替え
           <select id="inventorySort" class="input"></select>
         </label>
-        <div class="statusTabs" id="inventoryStatusTabs" role="tablist" aria-label="状態で絞り込み"></div>
       </div>
       <div class="toolbarSpacer" id="inventoryToolbarSpacer"></div>
       <div class="listBody">
