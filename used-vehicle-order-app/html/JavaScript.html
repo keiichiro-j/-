@@ -1249,6 +1249,52 @@
 
   setInterval(updateHoldTimers, 1000);
 
+  // 状態タブ（すべて／在庫あり／Hold中／業販HOLD中）の定義。ラベル・絞り込み
+  // サイドバーの状態チェックボックス（#inventoryStatusFilter）の値・件数の
+  // 集計方法をひとまとめにしておくことで、タブとチェックボックスが常に同じ
+  // 状態区分（inventoryStatusOf_の3値）を指すようにする。
+  var INVENTORY_STATUS_TABS_ = [
+    { value: '', label: 'すべて' },
+    { value: 'available', label: '在庫あり' },
+    { value: 'hold', label: 'Hold中' },
+    { value: 'wholesale', label: '業販HOLD中' }
+  ];
+
+  function renderInventoryStatusTabs_(all) {
+    var el = $('inventoryStatusTabs');
+    if (!el) return;
+    var activeStatus = (state.inventoryFilters.status && state.inventoryFilters.status.length === 1)
+      ? state.inventoryFilters.status[0]
+      : '';
+    var isAllActive = !state.inventoryFilters.status || state.inventoryFilters.status.length === 0;
+    el.innerHTML = INVENTORY_STATUS_TABS_.map(function (tab) {
+      var cnt = tab.value ? all.filter(function (v) { return inventoryStatusOf_(v) === tab.value; }).length : all.length;
+      var isActive = tab.value ? activeStatus === tab.value : isAllActive;
+      return '<button type="button" class="statusTabs__item' + (isActive ? ' is-active' : '') + '" ' +
+        'role="tab" aria-selected="' + (isActive ? 'true' : 'false') + '" data-status-tab="' + escapeHtml(tab.value) + '">' +
+        escapeHtml(tab.label) + '<span class="statusTabs__cnt">' + cnt + '</span></button>';
+    }).join('');
+  }
+
+  // チェックボックス（#inventoryStatusFilter）を、タブ操作後のstate.inventoryFilters.statusと
+  // 一致させる（タブから操作した場合も、絞り込みサイドバーを開けば同じ状態が
+  // 見えるようにするため）。
+  function syncInventoryStatusCheckboxes_() {
+    var active = state.inventoryFilters.status || [];
+    document.querySelectorAll('#inventoryStatusFilter input[type="checkbox"]').forEach(function (el) {
+      el.checked = active.indexOf(el.value) !== -1;
+    });
+  }
+
+  on('inventoryStatusTabs', 'click', function (e) {
+    var btn = e.target.closest('[data-status-tab]');
+    if (!btn) return;
+    var value = btn.dataset.statusTab;
+    state.inventoryFilters.status = value ? [value] : [];
+    syncInventoryStatusCheckboxes_();
+    renderInventory();
+  });
+
   function renderInventory() {
     var container = $('inventoryList');
     var all = state.inventoryItems || [];
@@ -1257,6 +1303,7 @@
     $('inventoryTotalCount').textContent = all.length
       ? '該当 ' + filtered.length + '台 ／ 全' + all.length + '台'
       : '';
+    renderInventoryStatusTabs_(all);
     container.innerHTML = rowListHtml_(filtered, vehicleRowItemHtml_);
     syncFixedBars_();
   }

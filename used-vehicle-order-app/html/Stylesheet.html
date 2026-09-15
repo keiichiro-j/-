@@ -416,6 +416,31 @@
   }
   .toolbar__spacer { flex: 1; }
 
+  /* ===== 状態タブ（在庫リストのツールバー内。参照UI「THE STUDY」のステータス
+     タブに相当）。既存の「状態」チェックボックス（#inventoryStatusFilter、
+     絞り込みサイドバー）と同じstate.inventoryFilters.statusを操作する、単一選択の
+     ショートカットにすぎない（新しい状態区分は増やしていない）。ツールバー自体が
+     flex-wrapのため、flex-basis: 100%で強制的に新しい行へ折り返す。 */
+  .statusTabs { flex-basis: 100%; display: flex; gap: 22px; padding-top: 2px; overflow-x: auto; }
+  .statusTabs__item {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 4px 1px 9px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--on-surface-variant);
+    cursor: pointer;
+    white-space: nowrap;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+  .statusTabs__item:hover { color: var(--on-surface); }
+  .statusTabs__item.is-active { color: var(--on-surface); border-bottom-color: var(--primary); }
+  .statusTabs__cnt { font-size: 11.5px; font-weight: 700; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; }
+  .statusTabs__item.is-active .statusTabs__cnt { color: var(--primary-text); }
+
   .input {
     border: 1px solid var(--outline);
     border-radius: 8px;
@@ -566,9 +591,16 @@
      しまう（.cardGrid内の.cardと同じ理由。一覧側は#inventoryList等を包む
      無名divのため、直接のクラスではなく構造セレクタで指定する）。 */
   .listBody > :last-child { min-width: 0; }
+  /* 背景・文字色は、設定タブのテーマ（着せ替え）ごとに用意されている
+     --sidebar-bg / --sidebar-fg 系トークン（THEME_PRESETSのsidebarColor、
+     applySidebarColor_、JavaScript.html参照）をそのまま使う。これらのトークンは
+     元々PC専用の左ナビ（.sidebar、現在は非表示）向けに用意されていたが、
+     現場から改めて依頼のあった「参照UIのような濃色サイドバー」に、既存の
+     テーマ設定機能をそのまま転用する形で対応した（新しい配色の仕組みを
+     追加する必要がない）。 */
   .filterSidebar {
-    background: var(--surface);
-    border: 1px solid var(--outline);
+    background: var(--sidebar-bg);
+    border: 1px solid var(--sidebar-outline);
     border-radius: var(--radius);
     padding: 20px 18px;
     display: flex;
@@ -577,13 +609,13 @@
     min-width: 0;
   }
   .filterSidebar__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .filterSidebar__title { font-size: 14px; font-weight: 700; margin: 0; }
-  .filterSidebar__rule { border: none; border-top: 1px solid var(--outline); margin: 0; }
+  .filterSidebar__title { font-size: 14px; font-weight: 700; margin: 0; color: var(--sidebar-fg); }
+  .filterSidebar__rule { border: none; border-top: 1px solid var(--sidebar-outline); margin: 0; }
   .filterSidebar__field { display: flex; flex-direction: column; gap: 8px; }
   .filterSidebar__groupLabel {
     font-size: 11px;
     font-weight: 700;
-    color: var(--on-surface-variant);
+    color: var(--sidebar-fg-muted);
     letter-spacing: .04em;
     text-transform: uppercase;
   }
@@ -591,37 +623,46 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    border: 1px solid var(--outline);
+    border: 1px solid var(--sidebar-outline);
     border-radius: 9px;
     padding: 8px 12px;
-    color: var(--on-surface-variant);
+    background: var(--sidebar-hover-bg);
+    color: var(--sidebar-fg-muted);
   }
-  .filterSidebar__search:focus-within { border-color: var(--primary); }
+  .filterSidebar__search:focus-within { border-color: var(--sidebar-fg-muted); }
   .filterSidebar__search input {
     border: none;
     outline: none;
     background: none;
     font-size: 14px;
-    color: var(--on-surface);
+    color: var(--sidebar-fg);
     width: 100%;
     min-width: 0;
   }
-  .filterSidebar__search .icon--inline { flex: none; color: var(--on-surface-variant); }
-  .filterSidebar select.input { width: 100%; }
+  .filterSidebar__search input::placeholder { color: var(--sidebar-fg-muted); }
+  .filterSidebar__search .icon--inline { flex: none; color: var(--sidebar-fg-muted); }
+  .filterSidebar select.input,
+  .filterSidebar .input {
+    width: 100%;
+    background: var(--sidebar-hover-bg);
+    border-color: var(--sidebar-outline);
+    color: var(--sidebar-fg);
+  }
+  .filterSidebar .input:focus { outline-color: var(--sidebar-fg-muted); }
   .filterCheck {
     display: flex;
     align-items: center;
     gap: 9px;
     font-size: 13px;
-    color: var(--on-surface);
+    color: var(--sidebar-fg);
     cursor: pointer;
   }
   .filterCheck input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: var(--primary); cursor: pointer; flex: none; }
-  .filterCheck__cnt { margin-left: auto; font-size: 11.5px; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; }
+  .filterCheck__cnt { margin-left: auto; font-size: 11.5px; color: var(--sidebar-fg-muted); font-variant-numeric: tabular-nums; }
   .filterSidebar__clearBtn {
     border: none;
     background: none;
-    color: var(--on-surface-variant);
+    color: var(--sidebar-fg-muted);
     font-size: 12.5px;
     text-decoration: underline;
     text-underline-offset: 3px;
@@ -629,7 +670,7 @@
     padding: 0;
     flex: none;
   }
-  .filterSidebar__clearBtn:hover { color: var(--on-surface); }
+  .filterSidebar__clearBtn:hover { color: var(--sidebar-fg); }
 
   /* ===== 番号付き一覧行（在庫リスト・受注リスト・業販受注リスト・マイページ共通） =====
      カード／表の表示形式切り替えは廃止し、この1デザインに一本化する
