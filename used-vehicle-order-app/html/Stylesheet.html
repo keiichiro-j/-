@@ -739,6 +739,16 @@
     font-weight: 700;
     font-variant-numeric: tabular-nums;
   }
+  /* 登録番号・走行距離等は既にラベル付きだが、金額だけラベルが無く何の数字か
+     一目で分かりにくかったため、他の項目と同じく小さなラベルを添える
+     （現場からの要望）。金額自体の見た目（サイズ・太さ・右寄せ）は変えない。 */
+  .rowItem__priceLabel {
+    display: block;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--on-surface-variant);
+    letter-spacing: .03em;
+  }
   /* .card__actions のボタン（.btn）は元々カード幅いっぱいに均等分割する
      flex: 1レイアウト（カード内で1行を専有）を前提にしているため、一覧行の
      ようにボタン列自体の幅が内容量ぶんしか無い（shrink-to-fit）場所に置くと、

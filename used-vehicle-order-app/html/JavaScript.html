@@ -1052,12 +1052,12 @@
       '<span>年式 ' + escapeHtml(v.firstRegistrationDate || '-') + '</span>' +
       '<span class="dot">走行距離 ' + escapeHtml(formatNumberUnit_(v.mileage, ' km') || '-') + '</span>' +
       '<span class="dot">' + escapeHtml((v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) + '</span>' +
-      '<span class="dot">' + escapeHtml(plateText_(v) || '-') + '</span>' +
+      '<span class="dot">登録番号 ' + escapeHtml(plateText_(v) || '-') + '</span>' +
       '<span class="dot">ＯＣＮ ' + escapeHtml(v.ocn || '-') + '</span>' +
       '</div>' +
       holdInfoHtml +
       '</div>' +
-      '<div class="rowItem__price">' + escapeHtml(formatNumberUnit_(v.salePrice, ' 円') || '-') + '</div>' +
+      '<div class="rowItem__price"><span class="rowItem__priceLabel">金額</span>' + escapeHtml(formatNumberUnit_(v.salePrice, ' 円') || '-') + '</div>' +
       vehicleActionsHtml_(v) +
       '<div class="rowItem__chev">›</div>' +
       '</div>';
@@ -2048,7 +2048,7 @@
       '<span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span>' +
       '</div>' +
       '<div class="rowItem__meta">' +
-      '<span>' + escapeHtml(o.model) + '</span>' +
+      '<span>モデル ' + escapeHtml(o.model) + '</span>' +
       '<span class="dot">担当 ' + escapeHtml(o.staff || '-') + '</span>' +
       '<span class="dot">登録月 ' + escapeHtml(o.registeredMonth || '-') + '</span>' +
       '<span class="dot">走行距離 ' + escapeHtml(formatNumberUnit_(o.mileage, ' km') || '-') + '</span>' +
@@ -2056,7 +2056,7 @@
       '<div class="rowItem__sub">コミッション ' + escapeHtml(o.commission) +
       (o.leadNumber ? ' ・ リード番号 ' + escapeHtml(o.leadNumber) : '') + '</div>' +
       '</div>' +
-      '<div class="rowItem__price">' + escapeHtml(formatNumberUnit_(o.salePrice, ' 円') || '-') + '</div>' +
+      '<div class="rowItem__price"><span class="rowItem__priceLabel">金額</span>' + escapeHtml(formatNumberUnit_(o.salePrice, ' 円') || '-') + '</div>' +
       '<div class="rowItem__chev">›</div>' +
       '</div>';
   }
@@ -2180,14 +2180,14 @@
       '<span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span>' +
       '</div>' +
       '<div class="rowItem__meta">' +
-      '<span>' + escapeHtml(o.model) + '</span>' +
+      '<span>モデル ' + escapeHtml(o.model) + '</span>' +
       '<span class="dot">担当 ' + escapeHtml(o.staff || '-') + '</span>' +
       '<span class="dot">登録月 ' + escapeHtml(o.registeredMonth || '-') + '</span>' +
       '<span class="dot">走行距離 ' + escapeHtml(formatNumberUnit_(o.mileage, ' km') || '-') + '</span>' +
       '</div>' +
       '<div class="rowItem__sub">コミッション ' + escapeHtml(o.commission) + '</div>' +
       '</div>' +
-      '<div class="rowItem__price">' + escapeHtml(formatNumberUnit_(o.salePrice, ' 円') || '-') + '</div>' +
+      '<div class="rowItem__price"><span class="rowItem__priceLabel">金額</span>' + escapeHtml(formatNumberUnit_(o.salePrice, ' 円') || '-') + '</div>' +
       '<div class="rowItem__chev">›</div>' +
       '</div>';
   }
