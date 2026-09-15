@@ -372,6 +372,26 @@
     .topbar__brandText { font-size: 17px; }
     .topbar__user { font-size: 13px; }
     .topbar__userEmail { font-size: 11.5px; }
+
+    /* ===== ヘッダーと絞り込みサイドバーを継ぎ目なく繋げる（案C：L字型の一体フレーム） =====
+       絞り込みサイドバーを持つタブ（在庫・受注・業販受注リスト。bodyに付く
+       has-filter-sidebarクラス、JavaScript.htmlのsyncChromeLayout_参照）表示中は、
+       ヘッダー本体の下端の区切り線・影をやめ、代わりに::afterでサイドバーの
+       右側（白背景の一覧エリアの真上、left: 268px以降）だけに区切り線を描く。
+       サイドバーの真上（左268px分）には何も線を引かないため、同じ背景色の
+       ヘッダーとサイドバーが1枚の板のようにつながって見える。サイドバー自体を
+       一時的に隠している間（is-filter-hidden）はその左268pxに何も無くなる
+       ため、通常どおりヘッダー全幅に区切り線を戻す。 */
+    body.has-filter-sidebar:not(.is-filter-hidden) .topbar { border-bottom: none; box-shadow: none; }
+    body.has-filter-sidebar:not(.is-filter-hidden) .topbar::after {
+      content: '';
+      position: absolute;
+      left: 268px;
+      right: 0;
+      bottom: -1px;
+      height: 1px;
+      background: var(--dark-ui-outline);
+    }
   }
 
   .topbar__user {
@@ -1505,17 +1525,44 @@
        一覧側だけ、という要望に対する保険）。 */
     /* 受注リスト・業販受注リストは絞り込み項目自体が少なく（キーワード・拠点・
        担当者のみ）、在庫リストより中身が短いぶんサイドバーの箱も低くなって
-       見えていた。min-heightをmax-heightと同じ値にして、中身の量に関わらず
-       常に画面いっぱいの高さ（在庫リストと同じ高さ）まで箱を伸ばす（現場からの
-       要望「受注リストや業販リストの絞り込み機能欄の高さを在庫リストと
-       同様の高さにしてほしい」）。 */
+       見えていた。以前はposition: stickyでツールバーの下から画面いっぱいの
+       高さまで伸ばして対応していたが（min-height=max-height）、案C（L字型の
+       一体フレーム）では position: fixed にしてヘッダーの真下（--topbar-h）から
+       画面下端まで隙間なく伸ばすため、高さは自動的に画面いっぱいになる
+       （min-height/max-heightの計算が不要になった）。 */
     .filterSidebar {
-      position: sticky;
-      top: calc(var(--topbar-h, 0px) + var(--toolbar-h, 60px) + 32px);
-      min-height: calc(100vh - var(--topbar-h, 0px) - var(--toolbar-h, 60px) - 48px);
-      max-height: calc(100vh - var(--topbar-h, 0px) - var(--toolbar-h, 60px) - 48px);
+      position: fixed;
+      left: 0;
+      top: var(--topbar-h, 0px);
+      bottom: 0;
+      width: 268px;
+      margin: 0;
+      border: none;
+      border-right: 1px solid var(--sidebar-outline);
+      border-radius: 0;
+      box-shadow: none;
       overflow-y: auto;
+      z-index: 20;
     }
+    /* サイドバーがposition: fixedになり、.listBodyのグリッドトラックとしては
+       幅を持たなくなった（左端は常にビューポートのx:0）ため、一覧側
+       （.listBody > :last-child、無名divなので構造セレクタで指定）を
+       サイドバー幅（268px）＋以前のgapと同じ余白（24px）ぶん右へずらす。
+       main.view自体の左パディング（通常32px）はサイドバーが埋めるため0にし、
+       二重に余白ができないようにする。サイドバーを一時的に隠している間
+       （is-filter-hidden）は、他の辺と揃うよう32pxのパディングへ戻す。 */
+    body.has-filter-sidebar main.view { padding-left: 0; }
+    body.has-filter-sidebar .listBody { grid-template-columns: minmax(0, 1fr); }
+    body.has-filter-sidebar .listBody > :last-child { margin-left: 292px; }
+    body.has-filter-sidebar.is-filter-hidden .listBody > :last-child { margin-left: 32px; }
+
+    /* ツールバー（絞り込みトグル・件数・並び替え）はposition: fixedで画面幅
+       ほぼいっぱい（left/right: 24px）に浮かせているが、サイドバーが
+       ヘッダー直下まで伸びたことで、そのままだとサイドバーの上に重なって
+       しまう（サイドバーの色面の上に白いツールバーの帯が浮いて見える）。
+       サイドバー表示中は左端をサイドバーの右側（一覧側と同じ292px＝
+       268px＋余白24px）まで下げ、サイドバーの真上には置かないようにする。 */
+    body.has-filter-sidebar:not(.is-filter-hidden) .toolbar { left: 292px; }
   }
 
   /* ===== リード番号入力（「L-」固定接頭辞＋数字。Google×Tesla風の見出し扱いにする） ===== */

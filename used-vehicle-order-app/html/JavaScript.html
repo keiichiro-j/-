@@ -574,11 +574,21 @@
     // タブ切替のたびに常に一番上から表示されるよう、ページ全体を先頭へ
     // スクロールする。
     window.scrollTo(0, 0);
-    // 非表示（display: none）だった間はツールバーの実測高さが0になっているため、
-    // 表示状態に切り替わった直後に再計測してスペーサーの高さを補正する。
-    syncFixedBars_();
-    syncGlobalSearch_();
+    // ヘッダー内の状態タブ（在庫リストのみ）・自由検索欄（マイページ・設定
+    // タブ以外）は、表示中タブによって表示・非表示が切り替わり、ヘッダーの
+    // 実測高さ（--topbar-h）に直接影響する。どちらもsyncFixedBars_より先に
+    // 呼ばないと、切替後のタブでは中身が変わる前の（1つ前のタブの）高さの
+    // まま--topbar-hが更新されてしまい、ツールバー・絞り込みサイドバーの
+    // 位置が実際のヘッダー下端とずれてしまう（案Cのサイドバー・ツールバーは
+    // どちらも--topbar-hを基準に位置決めしているため、このずれでボタンが
+    // ヘッダーの下に隠れてクリックできなくなる不具合があった）。
     syncHeaderStatusTabs_();
+    syncGlobalSearch_();
+    syncChromeLayout_();
+    // 非表示（display: none）だった間はツールバーの実測高さが0になっているため、
+    // 表示状態に切り替わった直後（かつヘッダーの中身が確定した後）に
+    // 再計測してスペーサーの高さを補正する。
+    syncFixedBars_();
   }
 
   // ヘッダーへ統合した状態タブ（#inventoryStatusTabs）は在庫リスト専用の
@@ -587,6 +597,16 @@
   // 非表示だけを切り替える。
   function syncHeaderStatusTabs_() {
     $('inventoryStatusTabs').classList.toggle('hidden', currentActiveTab_() !== 'inventory');
+  }
+
+  // ヘッダーと絞り込みサイドバーを継ぎ目のない1枚の色面（案C：L字型の
+  // 一体フレーム）として見せるため、絞り込みサイドバーを持つタブ
+  // （在庫・受注・業販受注リスト。GLOBAL_SEARCH_TARGETS_のキーと同じ3タブ）を
+  // 表示中かどうかをbody要素のクラスとして持たせる（Stylesheet.html参照）。
+  // サイドバーの無いタブ（マイページ・設定）ではヘッダー下端の区切り線を
+  // 通常どおり全幅に表示する。
+  function syncChromeLayout_() {
+    document.body.classList.toggle('has-filter-sidebar', !!GLOBAL_SEARCH_TARGETS_[currentActiveTab_()]);
   }
 
   // ===== ヘッダーの自由検索（#globalSearchInput） =====
@@ -3300,11 +3320,11 @@
       var spacer = $(pair[1]);
       if (toolbar && spacer) spacer.style.height = (toolbar.offsetHeight + pair[2]) + 'px';
     });
-    // 絞り込みサイドバー（.filterSidebar、在庫・受注・業販受注リスト）をPCビューで
-    // position: stickyにより固定表示するための高さ。現在表示中のタブのツールバーの
-    // 実測高さを都度反映することで、タブ間でツールバーの高さが多少違っても
-    // サイドバーがトップバー・ツールバーの下にぴったり揃う（Stylesheet.htmlの
-    // .filterSidebar参照）。
+    // ツールバー（検索欄）はposition: fixedで画面上部に固定しているため、
+    // その真下に揃えるための高さ。絞り込みサイドバー（.filterSidebar）は
+    // 案C（L字型の一体フレーム）でヘッダー直下（--topbar-h）から画面下端まで
+    // 伸ばす形に変わったため、こちらの実測値には依存しなくなった
+    // （Stylesheet.htmlの.filterSidebar参照）。
     var activeToolbar = document.querySelector('main.view.is-active .toolbar');
     if (activeToolbar) {
       document.documentElement.style.setProperty('--toolbar-h', activeToolbar.offsetHeight + 'px');
@@ -3422,6 +3442,7 @@
     syncNavButtons_();
     syncGlobalSearch_();
     syncHeaderStatusTabs_();
+    syncChromeLayout_();
     reloadAll_().catch(function (err) { showToast(err.message, true); }).then(function () {
       // 起動時ローディング画面は初回の読み込み完了時のみフェードアウトする
       // （更新ボタンからの再読み込みは、ボタン自体の回転アイコンで十分なため
