@@ -245,7 +245,7 @@
   .topbar__navBtn {
     display: flex; align-items: center; justify-content: center;
     width: 36px; height: 36px; padding: 0; flex: none;
-    background: transparent; border: 1px solid var(--dark-ui-outline); border-radius: 50%;
+    background: transparent; border: 1px solid var(--dark-ui-outline); border-radius: 10px;
     color: var(--on-topbar); cursor: pointer;
   }
   .topbar__navBtn:hover { background: rgba(31, 41, 51, .06); }
@@ -343,7 +343,7 @@
   }
   .topbar__userName { display: block; font-weight: 500; }
   .topbar__userEmail { display: block; opacity: .8; font-size: 11.5px; }
-  .topbar__userWarn { display: block; color: var(--warning); background: rgba(242, 169, 60, .16); padding: 4px 10px; border-radius: 999px; font-size: 11.5px; }
+  .topbar__userWarn { display: block; color: var(--warning); background: rgba(242, 169, 60, .16); padding: 4px 10px; border-radius: 8px; font-size: 11.5px; }
 
   /* ===== 在庫データ整合性チェックの警告バナー（アプリ起動時、問題があれば表示） =====
      トップバーの子要素として置くことで、表示・非表示による高さの変化を
@@ -366,9 +366,9 @@
     cursor: pointer;
     font-family: inherit;
   }
-  .integrityBanner__toggle { padding: 4px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 500; flex: none; }
+  .integrityBanner__toggle { padding: 4px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 500; flex: none; }
   .integrityBanner__toggle:hover { background: rgba(255, 255, 255, .3); }
-  .integrityBanner__close { width: 26px; height: 26px; border-radius: 50%; font-size: 16px; line-height: 1; flex: none; }
+  .integrityBanner__close { width: 26px; height: 26px; border-radius: 8px; font-size: 16px; line-height: 1; flex: none; }
   .integrityBanner__close:hover { background: rgba(255, 255, 255, .3); }
   .integrityBanner__list {
     list-style: none;
@@ -459,13 +459,15 @@
 
   .checkboxField { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--on-surface-variant); }
 
-  /* 公式サイトのCTAボタンのような、フル角丸＋大文字＋広めのレタースペーシングの
-     ピル型ボタンにする（塗り／アウトラインどちらも同じ形状で統一）。 */
+  /* 大文字＋広めのレタースペーシングのCTAボタン（塗り／アウトラインどちらも
+     同じ形状で統一）。角丸はフルピル（999px）ではなく、バッジ・アイコン
+     ボタン等アプリ全体と揃えた控えめな角丸にしている（現場からの要望
+     「ステータスアイコン含むアプリ全体のアイコンの丸みを抑えて」）。 */
   .btn {
     border: 1px solid var(--outline);
     background: var(--surface);
     color: var(--on-surface);
-    border-radius: 999px;
+    border-radius: 8px;
     padding: 11px 22px;
     font-size: 13px;
     font-weight: 600;
@@ -490,7 +492,7 @@
      見た目上のアイコン自体は従来通り20pxのまま据え置く。 */
   .btn--icon {
     border: none; background: transparent; font-size: 20px; line-height: 1;
-    width: 44px; height: 44px; border-radius: 50%; cursor: pointer; color: var(--on-surface-variant);
+    width: 44px; height: 44px; border-radius: 12px; cursor: pointer; color: var(--on-surface-variant);
   }
   .btn--icon:hover { background: rgba(31, 41, 51, .06); }
 
@@ -544,7 +546,7 @@
     border: 1px solid var(--outline);
     background: var(--surface);
     color: var(--on-surface-variant);
-    border-radius: 999px;
+    border-radius: 8px;
     padding: 7px 14px;
     font-size: 12.5px;
     font-weight: 600;
@@ -743,50 +745,25 @@
      文字ではなく縦罫線で区切り、データ表の列のように見た目をはっきり
      分ける（現場からの要望「区切りを入れたいのは車両情報」）。 */
   .rowItem__metaSep { flex: none; width: 1px; height: 11px; background: var(--outline); }
+  /* 金額も車両情報（年式・走行距離・登録番号）と同じメタ情報行に含める
+     （現場からの要望「価格も車両情報側に含めてほしい」）。他の項目より
+     目立たせたいので太字・本文色にする。 */
+  .rowItem__metaPrice { font-weight: 700; color: var(--on-surface); font-variant-numeric: tabular-nums; }
   .rowItem__sub { font-size: 11px; color: var(--on-surface-variant); margin-top: 5px; font-variant-numeric: tabular-nums; }
   /* ===== 状態列（.rowItem__status） =====
-     以前は見出し行（タグ・モデル名）に状態バッジやHold要約（顧客名・
-     タイマー）まで詰め込んでいたため、モデル名が長い車両ほど圧迫され、
-     情報がバラバラに散らかって見えていた。参照UI「THE STUDY」のステータス
-     列のように、状態は常に同じ幅の専用列に分離した（現場からの要望
-     「Hold中の表示の仕方を根本から変えてほしい」）。在庫あり車両はバッジ
-     1行だけ、Hold車両はバッジ＋顧客名・タイマー（rowItem__statusHoldInfo）の
-     2行になるが、見出し行＋メタ情報行も元々2行ぶんの高さがあるため、行
-     全体の高さは変わらない（align-items: centerで縦方向は中央寄せ）。 */
+     以前は見出し行（タグ・モデル名）に状態バッジを詰め込んでいたため、
+     モデル名が長い車両ほど圧迫されて見えていた。参照UI「THE STUDY」の
+     ステータス列のように、状態は常に同じ幅の専用列に分離した（現場からの
+     要望「Hold中の表示の仕方を根本から変えてほしい」）。Hold中も状態
+     バッジのみを表示し、顧客名・担当者・残り時間は出さない（現場からの
+     要望「HOLD状況はステータスのみで大丈夫、詳細情報にて担当者・顧客・
+     残り時間がわかるようにしてほしい」）。これらは元々詳細モーダル
+     （vehicleDetailHtml_のholdInfoBlockHtml_、full=true）に含まれている。 */
   .rowItem__status {
     flex: 0 0 168px;
     display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 4px;
+    align-items: center;
     min-width: 0;
-  }
-  .rowItem__status .badge { align-self: flex-start; }
-  .rowItem__statusHoldInfo {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-    min-width: 0;
-    font-size: 11.5px;
-    color: var(--on-surface-variant);
-  }
-  .rowItem__holdWho {
-    flex: 1 1 auto;
-    min-width: 0;
-    max-width: 100px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-weight: 600;
-    color: var(--on-surface);
-  }
-  .holdTimer--inline { flex: none; }
-  .holdTimer--inline .holdTimer__bar { display: none; }
-  .holdTimer--inline .holdTimer__text {
-    margin-top: 0;
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-    font-weight: 600;
   }
   .rowItem__price {
     flex: 0 0 auto;
@@ -881,10 +858,10 @@
     font-weight: 700;
     letter-spacing: .01em;
     padding: 5px 12px;
-    border-radius: 999px;
+    border-radius: 8px;
     white-space: nowrap;
   }
-  .badge__dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+  .badge__dot { width: 7px; height: 7px; border-radius: 2px; background: currentColor; flex: none; }
   .badge--available { background: var(--success-bg); color: var(--success); }
   .badge--hold { background: var(--warning-bg); color: var(--warning); }
   .badge--holdSpecial { background: var(--hold-special-bg); color: var(--hold-special); }
@@ -1022,14 +999,14 @@
   /* ===== Hold 72時間タイマー ===== */
   .holdTimer__bar {
     height: 5px;
-    border-radius: 999px;
+    border-radius: 3px;
     background: var(--outline);
     overflow: hidden;
   }
   .holdTimer__barFill {
     height: 100%;
     width: 100%;
-    border-radius: 999px;
+    border-radius: 3px;
     background: var(--primary);
     transition: width 1s linear;
   }
@@ -1218,7 +1195,7 @@
     background: var(--warning-bg);
     color: var(--warning);
     padding: 3px 10px;
-    border-radius: 999px;
+    border-radius: 6px;
   }
   .settingsCard {
     background: var(--surface);
@@ -1271,7 +1248,7 @@
     background: var(--warning-bg);
     color: var(--warning);
     padding: 2px 7px;
-    border-radius: 999px;
+    border-radius: 6px;
     margin-left: 4px;
   }
   .formField .input { width: 100%; }
@@ -1554,7 +1531,7 @@
     content: '';
     width: 9px;
     height: 9px;
-    border-radius: 50%;
+    border-radius: 2px;
     margin-right: 9px;
     flex: none;
   }
@@ -1569,8 +1546,8 @@
      担当者はログインアカウントから自動判定済みのため、ステップが増えても
      入力の手間自体は増えない。 */
   .modal__stepBar { flex: none; padding: 12px 20px 0; }
-  .modal__stepBar__track { height: 4px; border-radius: 999px; background: var(--outline); overflow: hidden; }
-  .modal__stepBar__fill { height: 100%; width: 50%; background: var(--primary); border-radius: 999px; transition: width .2s var(--ease); }
+  .modal__stepBar__track { height: 4px; border-radius: 3px; background: var(--outline); overflow: hidden; }
+  .modal__stepBar__fill { height: 100%; width: 50%; background: var(--primary); border-radius: 3px; transition: width .2s var(--ease); }
   .modal__panel--hold .modal__stepBar__fill { background: var(--warning); }
   .modal__stepBar__label { margin-top: 6px; font-size: 12px; font-weight: 600; color: var(--on-surface-variant); }
   .modal__footer { flex: none; display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--outline); }
@@ -1787,29 +1764,13 @@
     .rowItem__main { flex: 1 1 100%; order: 1; }
     .rowItem__num { order: 0; }
     /* 状態列（.rowItem__status）は幅固定のPC用レイアウトをやめ、モデル名の
-       下に自分の行として折り返す。PCビューではバッジとHold要約（顧客名・
-       タイマー）を縦2段にして横幅を抑えていたが、この幅では横1列に並べ替え、
-       在庫あり車両と同じ1行ぶんの高さにする（現場からの要望「Hold中も
-       カードサイズが変わらないように」は引き続き有効）。
-       価格・操作ボタンと同じ行に収めようとすると、顧客名の長さ次第で
-       同じ行に収まる車両と、はみ出して行が増える車両とで全体の高さが
-       車両ごとに変わってしまう。状態列・価格・操作ボタンをそれぞれ
-       flex-basis: 100%で必ず別の行にすることで、車両やHold状態に
-       関わらず「見出し→メタ→状態→価格→操作ボタン」の5行構成を固定し、
-       内容の長さによって行数が変わらないようにしている。 */
-    .rowItem__status {
-      order: 2;
-      flex: 1 1 100%;
-      margin-left: 48px;
-      flex-direction: row;
-      align-items: center;
-      gap: 8px;
-      overflow: hidden;
-    }
-    .rowItem__holdWho { max-width: 200px; }
+       下に自分の行として折り返す。状態バッジ（在庫あり／Hold中／業販HOLD中の
+       いずれか）だけのため、幅は車両によらずほぼ一定で、操作ボタンと同じ
+       行に並べても車両ごとに高さがバラつく心配はない。 */
+    .rowItem__status { order: 2; flex: 0 1 auto; margin-left: 48px; }
     .rowItem__price { order: 3; flex: 1 1 100%; margin-left: 48px; text-align: left; }
-    .rowItem .card__actions { order: 4; margin-top: 4px; margin-left: 48px; }
-    .rowItem__cancelHoldBtn { order: 4; margin-top: 4px; margin-left: 48px; }
+    .rowItem .card__actions { order: 3; margin-left: 48px; }
+    .rowItem__cancelHoldBtn { order: 3; margin-left: 8px; }
     .rowItem__chev { display: none; }
   }
 

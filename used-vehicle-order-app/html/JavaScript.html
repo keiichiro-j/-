@@ -1034,43 +1034,24 @@
   function rowNum_(n) { return n < 10 ? '0' + n : String(n); }
 
   /**
-   * 在庫リストの一覧行。見出し行は区分タグ・モデル名だけのシンプルな構成にし、
-   * 状態バッジ・Hold要約（顧客名・タイマー）は右側の専用列（rowItem__status、
-   * 幅固定）にまとめて表示する（現場からの要望「Hold中の表示の仕方を根本から
-   * 変えてほしい」「区切りを入れたいのは車両情報（タグ・モデル名・年式・
-   * 走行距離・登録番号）の方」）。以前は見出し行にタグ・モデル名・バッジ・
-   * Hold要約まで全部詰め込んでいたため、モデル名が長い車両ほど圧迫されて
-   * 読みにくくなっていたが、状態列を分離したことで見出し行はモデル名の
-   * 表示に専念できる。状態列は常に同じ幅（rowItem__statusの固定flex-basis）
-   * のため、参照UI「THE STUDY」のステータス列のように車両によって幅が
-   * ガタつくこともない。メタ情報行（年式・走行距離・登録番号）の各項目間には
-   * 縦罫線（rowItem__metaSep）を入れ、車両情報のまとまりを区切ってわかり
-   * やすくした。金額は続けて別枠で表示する。カラー・ＯＣＮは車両ごとに
-   * 文字数の差が大きく、一覧行の高さがバラつく原因になっていたため一覧行
-   * からは外し、詳細モーダル（vehicleDetailHtml_、変更なし）でのみ確認する
-   * 形にしている。詳細モーダル用のvehicleDetailHtml_は変更していない（行
-   * タップ・チェブロンどちらでも同じモーダルを開く。handleInventoryListClick_
-   * 参照）。
+   * 在庫リストの一覧行。見出し行は区分タグ・モデル名だけ、メタ情報行には
+   * 年式・走行距離・登録番号・金額をまとめ、各項目の間には縦罫線
+   * （rowItem__metaSep）を入れて区切る（現場からの要望「価格も車両情報側に
+   * 含めてほしい」「区切りを入れたいのは車両情報の方」）。状態列
+   * （rowItem__status、幅固定）にはHold中でも状態バッジのみを表示し、顧客名・
+   * 担当者・残り時間は出さない（現場からの要望「HOLD状況はステータスのみで
+   * 大丈夫、詳細情報にて担当者・顧客・残り時間がわかるようにしてほしい」）。
+   * これらは元々詳細モーダル（vehicleDetailHtml_のholdInfoBlockHtml_、
+   * full=true）に含まれているため、一覧行から削っても詳細は失われない。
+   * カラー・ＯＣＮも同様に一覧行には出さず、詳細モーダルでのみ確認する
+   * 形にしている（行タップ・チェブロンどちらでも同じモーダルを開く。
+   * handleInventoryListClick_参照）。
    */
   function vehicleRowItemHtml_(v, num) {
     var isHold = v.holdStatus === 'hold';
     var isSpecialHold = isHold && !!(v.holdHoldType && v.holdHoldType !== 'normal');
     var rowTone = isSpecialHold ? 'rowItem--holdSpecial' : (isHold ? 'rowItem--hold' : '');
 
-    var statusColHtml;
-    if (isHold) {
-      var holdWho = isSpecialHold ? (v.holdStaff || '-') : (v.holdCustomer || '-');
-      var holdLabel = isSpecialHold ? holdTypeLabel_(v.holdHoldType) + '中' : 'Hold中';
-      statusColHtml =
-        '<span class="badge ' + (isSpecialHold ? 'badge--holdSpecial' : 'badge--hold') + '">' +
-        '<span class="badge__dot"></span>' + escapeHtml(holdLabel) + '</span>' +
-        '<div class="rowItem__statusHoldInfo">' +
-        '<span class="rowItem__holdWho" title="' + escapeHtml(holdWho) + '">' + escapeHtml(holdWho) + '</span>' +
-        holdTimerHtml_(v.holdCreatedAt, v.holdExpiresAt, 'holdTimer--inline') +
-        '</div>';
-    } else {
-      statusColHtml = vehicleBadgesHtml_(v, false);
-    }
     // 解除（Hold取消）ボタンは行の操作ボタン列（受注確定の隣）に置く。
     var cancelHoldBtnHtml = isHold
       ? '<button type="button" class="btn btn--danger rowItem__cancelHoldBtn" data-cancel-hold="' + escapeHtml(v.commission) + '">解除</button>'
@@ -1089,10 +1070,11 @@
       '<span>走行距離 ' + escapeHtml(formatNumberUnit_(v.mileage, ' km') || '-') + '</span>' +
       '<span class="rowItem__metaSep"></span>' +
       '<span>登録番号 ' + escapeHtml(plateText_(v) || '-') + '</span>' +
+      '<span class="rowItem__metaSep"></span>' +
+      '<span class="rowItem__metaPrice">金額 ' + escapeHtml(formatNumberUnit_(v.salePrice, ' 円') || '-') + '</span>' +
       '</div>' +
       '</div>' +
-      '<div class="rowItem__status' + (isHold ? ' rowItem__status--hold' : '') + '">' + statusColHtml + '</div>' +
-      '<div class="rowItem__price"><span class="rowItem__priceLabel">金額</span>' + escapeHtml(formatNumberUnit_(v.salePrice, ' 円') || '-') + '</div>' +
+      '<div class="rowItem__status">' + vehicleBadgesHtml_(v, false) + '</div>' +
       cancelHoldBtnHtml +
       vehicleActionsHtml_(v) +
       '<div class="rowItem__chev">›</div>' +
