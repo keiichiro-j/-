@@ -700,8 +700,23 @@
     font-variant-numeric: tabular-nums;
   }
   .rowItem__main { flex: 1 1 auto; min-width: 0; }
-  .rowItem__head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 6px; }
-  .rowItem__model { font-size: 15.5px; font-weight: 700; letter-spacing: -.005em; }
+  /* flex-wrap: nowrapにして、区分タグ・状態バッジ・掲載バッジは常に1行に収まる
+     幅のまま保つ（タグ・バッジは元々中身の文字数なりの幅しか無く、折り返しの
+     必要がない）。モデル名だけが伸縮するflexアイテム（.rowItem__model、
+     min-width: 0＋text-overflow: ellipsis）になるため、モデル名が極端に長い
+     車両だけ見出し行が2行になって他の車両と行の高さが揃わない、という問題を
+     避けられる（現場からの要望「車両によってカードサイズが変わらないように」）。 */
+  .rowItem__head { display: flex; align-items: center; gap: 9px; flex-wrap: nowrap; margin-bottom: 6px; min-width: 0; }
+  .rowItem__model {
+    font-size: 15.5px;
+    font-weight: 700;
+    letter-spacing: -.005em;
+    flex: 1 1 auto;
+    min-width: 40px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .tag {
     font-size: 11px;
     font-weight: 700;

@@ -1025,11 +1025,15 @@
 
   /**
    * 在庫リストの一覧行。見出し行に区分タグ・モデル名・状態バッジ・掲載バッジを
-   * まとめ、年式・走行距離・カラー・登録番号は折りたたまずメタ情報行に並べる
-   * （vehicleBadgesHtml_・plateText_・formatNumberUnit_はこれまでの実装をそのまま
-   * 再利用）。Hold中は要約（顧客名・タイマー）を行内に表示する。詳細モーダル用の
-   * vehicleDetailHtml_は変更していない（行タップ・チェブロンどちらでも同じ
-   * モーダルを開く。handleInventoryListClick_参照）。
+   * まとめ、メタ情報行には年式・走行距離・登録番号だけを並べる（vehicleBadgesHtml_・
+   * plateText_・formatNumberUnit_はこれまでの実装をそのまま再利用）。金額は
+   * 右側に別枠で表示する。カラー・ＯＣＮは車両ごとに文字数の差が大きく、一覧行が
+   * 折り返して車両ごとに高さがバラつく原因になっていたため一覧行からは外し、
+   * 詳細モーダル（vehicleDetailHtml_、変更なし）でのみ確認する形にした（現場からの
+   * 要望「モデル名・年式・登録番号・距離数・金額だけ分かればよい、車両によって
+   * カードサイズが変わらないようにしてほしい」）。Hold中は要約（顧客名・タイマー）を
+   * 行内に表示する。詳細モーダル用のvehicleDetailHtml_は変更していない（行タップ・
+   * チェブロンどちらでも同じモーダルを開く。handleInventoryListClick_参照）。
    */
   function vehicleRowItemHtml_(v, num) {
     var isHold = v.holdStatus === 'hold';
@@ -1045,15 +1049,13 @@
       '<div class="rowItem__main">' +
       '<div class="rowItem__head">' +
       '<span class="tag">' + escapeHtml(v.category || '-') + '</span>' +
-      '<span class="rowItem__model">' + escapeHtml(v.model) + '</span>' +
+      '<span class="rowItem__model" title="' + escapeHtml(v.model) + '">' + escapeHtml(v.model) + '</span>' +
       vehicleBadgesHtml_(v) +
       '</div>' +
       '<div class="rowItem__meta">' +
       '<span>年式 ' + escapeHtml(v.firstRegistrationDate || '-') + '</span>' +
       '<span class="dot">走行距離 ' + escapeHtml(formatNumberUnit_(v.mileage, ' km') || '-') + '</span>' +
-      '<span class="dot">' + escapeHtml((v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) + '</span>' +
       '<span class="dot">登録番号 ' + escapeHtml(plateText_(v) || '-') + '</span>' +
-      '<span class="dot">ＯＣＮ ' + escapeHtml(v.ocn || '-') + '</span>' +
       '</div>' +
       holdInfoHtml +
       '</div>' +
@@ -2044,7 +2046,7 @@
       '<div class="rowItem__num">' + rowNum_(num) + '</div>' +
       '<div class="rowItem__main">' +
       '<div class="rowItem__head">' +
-      '<span class="rowItem__model">' + escapeHtml(o.customer || '-') + '</span>' +
+      '<span class="rowItem__model" title="' + escapeHtml(o.customer || '-') + '">' + escapeHtml(o.customer || '-') + '</span>' +
       '<span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span>' +
       '</div>' +
       '<div class="rowItem__meta">' +
@@ -2176,7 +2178,7 @@
       '<div class="rowItem__num">' + rowNum_(num) + '</div>' +
       '<div class="rowItem__main">' +
       '<div class="rowItem__head">' +
-      '<span class="rowItem__model">' + escapeHtml(o.salesStore || '-') + '</span>' +
+      '<span class="rowItem__model" title="' + escapeHtml(o.salesStore || '-') + '">' + escapeHtml(o.salesStore || '-') + '</span>' +
       '<span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span>' +
       '</div>' +
       '<div class="rowItem__meta">' +
