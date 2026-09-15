@@ -883,9 +883,13 @@
     return listedSiteCount_(v) > 0;
   }
   // 在庫リストの掲載欄（badge__badges内の掲載バッジ）に表示するテキスト。
+  // 「片方のみ掲載」「両方掲載」ではどのサイトかが分からず現場が困るため、
+  // 掲載中のサイト名をそのまま表示する（現場からの要望）。
   function listedStatusText_(v) {
-    var count = listedSiteCount_(v);
-    return count === 0 ? '未掲載' : (count === 1 ? '片方のみ掲載' : '両方掲載');
+    var sites = [];
+    if (v.listedGoonet) sites.push('グーネット');
+    if (v.listedCarsensor) sites.push('カーセンサー');
+    return sites.length ? sites.join('・') + '掲載' : '未掲載';
   }
   function listedBadgeHtml_(v) {
     var count = listedSiteCount_(v);
@@ -1049,8 +1053,8 @@
       '<span class="dot">走行距離 ' + escapeHtml(formatNumberUnit_(v.mileage, ' km') || '-') + '</span>' +
       '<span class="dot">' + escapeHtml((v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) + '</span>' +
       '<span class="dot">' + escapeHtml(plateText_(v) || '-') + '</span>' +
+      '<span class="dot">ＯＣＮ ' + escapeHtml(v.ocn || '-') + '</span>' +
       '</div>' +
-      '<div class="rowItem__sub">ＯＣＮ ' + escapeHtml(v.ocn || '-') + '</div>' +
       holdInfoHtml +
       '</div>' +
       '<div class="rowItem__price">' + escapeHtml(formatNumberUnit_(v.salePrice, ' 円') || '-') + '</div>' +
