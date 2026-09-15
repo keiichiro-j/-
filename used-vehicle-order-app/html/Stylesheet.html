@@ -700,12 +700,12 @@
     font-variant-numeric: tabular-nums;
   }
   .rowItem__main { flex: 1 1 auto; min-width: 0; }
-  /* flex-wrap: nowrapにして、区分タグ・状態バッジ・掲載バッジは常に1行に収まる
-     幅のまま保つ（タグ・バッジは元々中身の文字数なりの幅しか無く、折り返しの
-     必要がない）。モデル名だけが伸縮するflexアイテム（.rowItem__model、
-     min-width: 0＋text-overflow: ellipsis）になるため、モデル名が極端に長い
-     車両だけ見出し行が2行になって他の車両と行の高さが揃わない、という問題を
-     避けられる（現場からの要望「車両によってカードサイズが変わらないように」）。 */
+  /* 状態バッジ・Hold要約は右側の専用列（.rowItem__status）に分離したため、
+     見出し行はタグ・モデル名だけになった。flex-wrap: nowrapにして、モデル名
+     だけが伸縮するflexアイテム（.rowItem__model、min-width: 0＋
+     text-overflow: ellipsis）になるようにし、モデル名が極端に長い車両だけ
+     見出し行が2行になって他の車両と行の高さが揃わない、という問題を避ける
+     （現場からの要望「車両によってカードサイズが変わらないように」）。 */
   .rowItem__head { display: flex; align-items: center; gap: 9px; flex-wrap: nowrap; margin-bottom: 6px; min-width: 0; overflow: hidden; }
   .rowItem__model {
     font-size: 15.5px;
@@ -732,70 +732,62 @@
      （車両（登録番号や日付の桁数等）によって内容の長さが変わり、ある車両だけ
      このメタ行が2行に折り返って他の車両とカードサイズが揃わなくなっていた。
      現場からの要望「車両によってカードサイズが変わらないように」）。 */
-  .rowItem__meta { font-size: 12.5px; color: var(--on-surface-variant); display: flex; flex-wrap: nowrap; overflow: hidden; gap: 4px 10px; }
+  .rowItem__meta { font-size: 12.5px; color: var(--on-surface-variant); display: flex; align-items: center; flex-wrap: nowrap; overflow: hidden; gap: 8px; }
   /* コンテナ側をflex-wrap: nowrapにしただけでは、中の各span自体（年式の
      日付のハイフン等）が改行され得る場所で内部的に折り返ってしまい、行の
      高さが車両（日付・登録番号の文字数）によって変わってしまっていた。
      各span自体もnowrapにして、はみ出す分はコンテナのoverflow: hiddenで
      切り詰める。 */
   .rowItem__meta > span { white-space: nowrap; flex: none; }
-  .rowItem__meta .dot::before { content: "・"; color: var(--on-surface-variant); }
+  /* 年式・走行距離・登録番号は同じ車両情報のひとかたまりのため、「・」の
+     文字ではなく縦罫線で区切り、データ表の列のように見た目をはっきり
+     分ける（現場からの要望「区切りを入れたいのは車両情報」）。 */
+  .rowItem__metaSep { flex: none; width: 1px; height: 11px; background: var(--outline); }
   .rowItem__sub { font-size: 11px; color: var(--on-surface-variant); margin-top: 5px; font-variant-numeric: tabular-nums; }
-  /* タグ・モデル名の「車両そのものの情報」と、状態バッジ／Hold帯の「今の状態」を
-     視覚的に区切る縦罫線（現場からの要望「情報が散乱しているので区切りを
-     入れてわかりやすく」）。 */
-  .rowItem__headSep { flex: none; width: 1px; height: 16px; background: var(--outline); }
-  /* Hold要約（状態・顧客名・タイマー）は見出し行に収まる1つの帯（チップ）として
-     表示する（vehicleRowItemHtml_参照）。以前は状態バッジ・プレーンな文字・
-     別ピルのタイマーがそれぞれ違う見た目のままバラバラに並んでいて、情報が
-     散らかって見えていた（現場からの要望）。背景色・枠線をひと続きにし、中は
-     縦罫線（rowItem__holdChip__segのborder-left）だけで区切ることで、
-     「Hold情報のかたまり」だと一目でわかるようにした。見出し行は既に
-     flex-wrap: nowrap（.rowItem__head）のため、ここに足しても行が2行に
-     なることはない。 */
-  .rowItem__holdChip {
-    display: inline-flex;
-    align-items: stretch;
-    flex: 0 1 auto;
+  /* ===== 状態列（.rowItem__status） =====
+     以前は見出し行（タグ・モデル名）に状態バッジやHold要約（顧客名・
+     タイマー）まで詰め込んでいたため、モデル名が長い車両ほど圧迫され、
+     情報がバラバラに散らかって見えていた。参照UI「THE STUDY」のステータス
+     列のように、状態は常に同じ幅の専用列に分離した（現場からの要望
+     「Hold中の表示の仕方を根本から変えてほしい」）。在庫あり車両はバッジ
+     1行だけ、Hold車両はバッジ＋顧客名・タイマー（rowItem__statusHoldInfo）の
+     2行になるが、見出し行＋メタ情報行も元々2行ぶんの高さがあるため、行
+     全体の高さは変わらない（align-items: centerで縦方向は中央寄せ）。 */
+  .rowItem__status {
+    flex: 0 0 168px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
     min-width: 0;
-    background: var(--warning-bg);
-    border: 1px solid rgba(165, 103, 11, .28);
-    border-radius: 999px;
-    overflow: hidden;
   }
-  .rowItem__holdChip--special { background: var(--hold-special-bg); border-color: rgba(109, 40, 217, .28); }
-  .rowItem__holdChip__seg {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
+  .rowItem__status .badge { align-self: flex-start; }
+  .rowItem__statusHoldInfo {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
     min-width: 0;
-    max-width: 150px;
-    padding: 4px 10px;
     font-size: 11.5px;
-    font-weight: 700;
-    color: var(--warning);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    color: var(--on-surface-variant);
   }
-  .rowItem__holdChip--special .rowItem__holdChip__seg { color: var(--hold-special); }
-  .rowItem__holdChip__seg + .rowItem__holdChip__seg { border-left: 1px solid rgba(0, 0, 0, .12); font-weight: 600; }
-  /* 状態（Hold中／業販HOLD中）は最も重要な情報のため、幅が狭いときも他の
-     セグメント（顧客名・タイマー）より先に縮んで読めなくなることがないよう
-     縮小させない。顧客名・タイマーの方を先に省略記号で詰める。 */
-  .rowItem__holdChip__seg:first-child { flex-shrink: 0; }
-  .rowItem__holdChip .badge__dot { flex: none; }
-  .rowItem__holdChip .holdTimer--chipSeg { display: contents; }
-  .rowItem__holdChip .holdTimer--chipSeg .holdTimer__bar { display: none; }
-  .rowItem__holdChip .holdTimer--chipSeg .holdTimer__text {
-    margin-top: 0;
+  .rowItem__holdWho {
+    flex: 1 1 auto;
     min-width: 0;
+    max-width: 100px;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+    color: var(--on-surface);
+  }
+  .holdTimer--inline { flex: none; }
+  .holdTimer--inline .holdTimer__bar { display: none; }
+  .holdTimer--inline .holdTimer__text {
+    margin-top: 0;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
+    font-weight: 600;
   }
-  .holdTimer--pill.holdTimer--indefinite { border-color: var(--hold-special); }
   .rowItem__price {
     flex: 0 0 auto;
     min-width: 110px;
@@ -1794,9 +1786,30 @@
     .rowItem { flex-wrap: wrap; gap: 10px 18px; }
     .rowItem__main { flex: 1 1 100%; order: 1; }
     .rowItem__num { order: 0; }
-    .rowItem__price { order: 2; margin-left: 48px; }
-    .rowItem .card__actions { order: 3; margin-left: 48px; }
-    .rowItem__cancelHoldBtn { order: 3; margin-left: 8px; }
+    /* 状態列（.rowItem__status）は幅固定のPC用レイアウトをやめ、モデル名の
+       下に自分の行として折り返す。PCビューではバッジとHold要約（顧客名・
+       タイマー）を縦2段にして横幅を抑えていたが、この幅では横1列に並べ替え、
+       在庫あり車両と同じ1行ぶんの高さにする（現場からの要望「Hold中も
+       カードサイズが変わらないように」は引き続き有効）。
+       価格・操作ボタンと同じ行に収めようとすると、顧客名の長さ次第で
+       同じ行に収まる車両と、はみ出して行が増える車両とで全体の高さが
+       車両ごとに変わってしまう。状態列・価格・操作ボタンをそれぞれ
+       flex-basis: 100%で必ず別の行にすることで、車両やHold状態に
+       関わらず「見出し→メタ→状態→価格→操作ボタン」の5行構成を固定し、
+       内容の長さによって行数が変わらないようにしている。 */
+    .rowItem__status {
+      order: 2;
+      flex: 1 1 100%;
+      margin-left: 48px;
+      flex-direction: row;
+      align-items: center;
+      gap: 8px;
+      overflow: hidden;
+    }
+    .rowItem__holdWho { max-width: 200px; }
+    .rowItem__price { order: 3; flex: 1 1 100%; margin-left: 48px; text-align: left; }
+    .rowItem .card__actions { order: 4; margin-top: 4px; margin-left: 48px; }
+    .rowItem__cancelHoldBtn { order: 4; margin-top: 4px; margin-left: 48px; }
     .rowItem__chev { display: none; }
   }
 
@@ -1820,7 +1833,7 @@
     .settingsCard, .settingsActions { padding: 18px 16px; }
     .card { padding: 16px 18px; }
     .rowItem { padding: 14px 16px; }
-    .rowItem__price, .rowItem .card__actions, .rowItem__cancelHoldBtn { margin-left: 0; }
+    .rowItem__status, .rowItem__price, .rowItem .card__actions, .rowItem__cancelHoldBtn { margin-left: 0; }
     /* スマホ幅は画面下端固定のボトムシートにする。左右・上のpaddingは0のまま、
        下方向だけキーボードの高さぶん動的に足す（上の.modalの基本ルール参照）。 */
     .modal { padding: 0 0 var(--app-keyboard-inset, 0px); align-items: flex-end; }
