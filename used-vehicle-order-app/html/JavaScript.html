@@ -14,8 +14,19 @@
     if (loading) loading.classList.add('is-hidden');
   });
 
+  function safeLocalStorageGet_(key) {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+  }
+  function safeLocalStorageSet_(key, value) {
+    try { localStorage.setItem(key, value); } catch (e) { /* 保存できない環境では無視する */ }
+  }
+
   var state = {
     bootstrap: null,
+    // 絞り込みサイドバー（在庫・受注・業販受注リスト共通）を表示するかどうか。
+    // 端末ごとにlocalStorageへ保存し、次回開いたときも同じ状態にする
+    // （syncFilterSidebarVisibility_参照）。
+    filterSidebarVisible: safeLocalStorageGet_('filterSidebarVisible') !== '0',
     inventoryItems: [], // キーワード検索のみサーバー側で絞り込み済みの一覧（区分・状態等はrenderInventory側でさらに絞り込む）
     // 在庫リストの絞り込み条件（区分・状態・掲載状況・モデル・年式・価格帯・走行距離）。
     // いずれも既存のスプレッドシート列から算出するだけで、新規列の追加はしていない
@@ -1337,6 +1348,28 @@
     document.querySelectorAll('#inventoryCategoryFilter input, #inventoryStatusFilter input, #inventoryListedFilter input').forEach(function (el) { el.checked = false; });
     loadInventory();
   });
+
+  /**
+   * 絞り込みサイドバー（在庫・受注・業販受注リスト共通）の表示・非表示。
+   * 3つのツールバーそれぞれにあるボタン（.filterToggleBtn、Index.html参照）は
+   * 同じ1つの状態を共有し、どのタブで切り替えてもタブをまたいで引き継がれる
+   * （body.is-filter-hiddenで一括して非表示にする、Stylesheet.html参照）。
+   */
+  function syncFilterSidebarVisibility_() {
+    document.body.classList.toggle('is-filter-hidden', !state.filterSidebarVisible);
+    document.querySelectorAll('[data-filter-toggle]').forEach(function (btn) {
+      btn.setAttribute('aria-pressed', state.filterSidebarVisible ? 'true' : 'false');
+    });
+    syncFixedBars_();
+  }
+  document.querySelectorAll('[data-filter-toggle]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      state.filterSidebarVisible = !state.filterSidebarVisible;
+      safeLocalStorageSet_('filterSidebarVisible', state.filterSidebarVisible ? '1' : '0');
+      syncFilterSidebarVisibility_();
+    });
+  });
+  syncFilterSidebarVisibility_();
 
   // ===== Hold / 受注 共通モーダル =====
   var ACTION_LABELS = {

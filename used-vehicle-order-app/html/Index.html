@@ -213,7 +213,10 @@
          一覧をクライアント側だけで絞り込む（サーバー側の検索仕様は変更していない）。 -->
     <main class="view is-active" id="view-inventory">
       <div class="toolbar" id="inventoryToolbar">
-        <div class="toolbar__title">在庫リスト<span class="toolbar__count" id="inventoryTotalCount"></span></div>
+        <button type="button" class="filterToggleBtn" data-filter-toggle aria-pressed="true" aria-label="絞り込みの表示切替">
+          <svg class="icon icon--inline"><use href="#icon-tune"></use></svg>絞り込み
+        </button>
+        <span class="toolbar__count" id="inventoryTotalCount"></span>
         <div class="toolbar__spacer"></div>
         <label class="sortField">並び替え
           <select id="inventorySort" class="input"></select>
@@ -289,7 +292,10 @@
          変更していない。 -->
     <main class="view" id="view-orders">
       <div class="toolbar" id="ordersToolbar">
-        <div class="toolbar__title">受注リスト<span class="toolbar__count" id="ordersTotalCount"></span></div>
+        <button type="button" class="filterToggleBtn" data-filter-toggle aria-pressed="true" aria-label="絞り込みの表示切替">
+          <svg class="icon icon--inline"><use href="#icon-tune"></use></svg>絞り込み
+        </button>
+        <span class="toolbar__count" id="ordersTotalCount"></span>
         <div class="toolbar__spacer"></div>
         <label class="sortField">グループ化
           <select id="ordersGroupBy" class="input">
@@ -340,7 +346,10 @@
          有無・支払方法は持たず、顧客の代わりに「販売先」で検索する。 -->
     <main class="view" id="view-wholesaleOrders">
       <div class="toolbar" id="wholesaleOrdersToolbar">
-        <div class="toolbar__title">業販受注リスト<span class="toolbar__count" id="wholesaleOrdersTotalCount"></span></div>
+        <button type="button" class="filterToggleBtn" data-filter-toggle aria-pressed="true" aria-label="絞り込みの表示切替">
+          <svg class="icon icon--inline"><use href="#icon-tune"></use></svg>絞り込み
+        </button>
+        <span class="toolbar__count" id="wholesaleOrdersTotalCount"></span>
         <div class="toolbar__spacer"></div>
         <label class="sortField">グループ化
           <select id="wholesaleOrdersGroupBy" class="input">

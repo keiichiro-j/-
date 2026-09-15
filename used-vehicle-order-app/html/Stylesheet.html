@@ -506,16 +506,46 @@
     font-size: 12.5px;
     color: var(--primary-text);
   }
-  .toolbar__count { font-size: 13.5px; color: var(--on-surface-variant); font-weight: 600; white-space: nowrap; }
-  /* 在庫リスト・受注リスト・業販受注リストのツールバー見出し（タブ名＋件数）。
-     以前はここに検索欄・表示形式切替を置いていたが、絞り込みサイドバー
-     （.filterSidebar）への一本化にともない、見出しと並び替え／グループ化の
-     セレクトだけが残るシンプルな帯になった（ROUND H フェーズ2）。 */
-  .toolbar__title { font-size: 22px; font-weight: 800; letter-spacing: -.01em; display: flex; align-items: baseline; gap: 10px; white-space: nowrap; }
+  /* 在庫リスト・受注リスト・業販受注リストのツールバー。以前は先頭に「在庫
+     リスト」等のタブ名を表示していたが、上部タブの選択状態だけで画面が
+     判別できるため冗長と判断し廃止した（現場の要望）。件数（.toolbar__count）と、
+     絞り込みサイドバーの表示・非表示を切り替えるボタン（.filterToggleBtn）だけを
+     左側に置く。 */
+  .toolbar__count { font-size: 14px; color: var(--on-surface); font-weight: 700; white-space: nowrap; }
+  .filterToggleBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--outline);
+    background: var(--surface);
+    color: var(--on-surface-variant);
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    flex: none;
+    transition: background-color .15s var(--ease), color .15s var(--ease), border-color .15s var(--ease);
+  }
+  .filterToggleBtn .icon--inline { margin: 0; }
+  .filterToggleBtn:hover { border-color: var(--primary); color: var(--on-surface); }
+  /* aria-pressed="true"＝絞り込みサイドバーを表示中（既定状態）。押し込まれた
+     ような見た目（背景を塗る）にして、非表示中（false）との違いを一目で
+     わかるようにする。 */
+  .filterToggleBtn[aria-pressed="true"] { background: var(--primary-bg); border-color: var(--primary-bg); color: var(--primary-text); }
   .sortField { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--on-surface-variant); white-space: nowrap; }
   .sortField select { font-size: 13px; }
 
   .btn--small { padding: 6px 12px; font-size: 12.5px; }
+
+  /* ===== 絞り込みサイドバーの表示・非表示切替 =====
+     .filterToggleBtn（ツールバー、Index.html参照）で切り替える。bodyにクラスを
+     付けるのは、在庫・受注・業販受注リストいずれのツールバーのボタンを押しても
+     同じ1つの状態（表示するかどうか）を共有し、タブを切り替えても設定が
+     引き継がれるようにするため（JavaScript.htmlのsyncFilterSidebarVisibility_
+     参照。localStorageにも保存し、次回開いたときも状態を保つ）。 */
+  body.is-filter-hidden .filterSidebar { display: none; }
+  body.is-filter-hidden .listBody { grid-template-columns: minmax(0, 1fr); }
 
   /* ===== 絞り込みサイドバー（在庫リスト・受注リスト・業販受注リスト共通） =====
      参照UI「THE STUDY」のレイアウトに、既存のスプレッドシート列・既存の検索
