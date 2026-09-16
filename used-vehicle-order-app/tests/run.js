@@ -475,6 +475,64 @@ test('配列以外が渡されても空配列として扱われる', () => {
   assert.strictEqual(sandbox.normalizeModelBodyTypeRules_(undefined).length, 0);
 });
 
+console.log('== SettingsService: normalizeModelPhotos_（ホーム画面の車両画像、最大40件） ==');
+test('モデル名・写真URLがともに無い行は除去され、モデル名で重複除去される', () => {
+  const list = sandbox.normalizeModelPhotos_([
+    { model: 'Cクラス', photoUrl: 'https://example.com/c.jpg' },
+    { model: '', photoUrl: 'https://example.com/none.jpg' }, // モデル名空欄は除去
+    { model: 'Eクラス', photoUrl: '' }, // 写真URL空欄は除去
+    { model: 'Cクラス', photoUrl: 'https://example.com/dup.jpg' } // モデル名の重複は除去（先勝ち）
+  ]);
+  assert.strictEqual(list.length, 1);
+  assert.strictEqual(list[0].model, 'Cクラス');
+  assert.strictEqual(list[0].photoUrl, 'https://example.com/c.jpg');
+});
+test('Googleドライブの共有リンクは直接画像URLに変換される', () => {
+  const shared = 'https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrStUvWxYz1234567/view?usp=sharing';
+  const list = sandbox.normalizeModelPhotos_([{ model: 'Cクラス', photoUrl: shared }]);
+  assert.strictEqual(
+    list[0].photoUrl,
+    'https://lh3.googleusercontent.com/d/1AbCdEfGhIjKlMnOpQrStUvWxYz1234567=w' + sandbox.MODEL_PHOTO_DISPLAY_WIDTH
+  );
+});
+test('gradePrefix・gradeMarkerはトリムされ、gradePrefixが空ならgradeMarkerも空にそろえられる', () => {
+  const list = sandbox.normalizeModelPhotos_([
+    { model: 'Cクラス', photoUrl: 'https://example.com/c.jpg', gradePrefix: ' C ', gradeMarker: ' T ' },
+    { model: 'Aクラス', photoUrl: 'https://example.com/a.jpg', gradePrefix: '', gradeMarker: 'T' }
+  ]);
+  assert.strictEqual(list[0].gradePrefix, 'C');
+  assert.strictEqual(list[0].gradeMarker, 'T');
+  assert.strictEqual(list[1].gradePrefix, '');
+  assert.strictEqual(list[1].gradeMarker, '');
+});
+test('MODEL_BODY_TYPE_OPTIONSに無いbodyTypeは空文字にフォールバックする', () => {
+  const list = sandbox.normalizeModelPhotos_([
+    { model: 'Cクラス', photoUrl: 'https://example.com/c.jpg', bodyType: 'Minivan' },
+    { model: 'GLCクラス', photoUrl: 'https://example.com/glc.jpg', bodyType: 'SUV' }
+  ]);
+  assert.strictEqual(list[0].bodyType, '');
+  assert.strictEqual(list[1].bodyType, 'SUV');
+});
+test('gradePrefix・gradeMarkerが30文字を超えるとエラー', () => {
+  const longValue = 'x'.repeat(31);
+  assert.throws(
+    () => sandbox.normalizeModelPhotos_([{ model: 'Cクラス', photoUrl: 'https://example.com/c.jpg', gradePrefix: longValue }]),
+    /長すぎます/
+  );
+});
+test('40件まではそのまま登録できる', () => {
+  const list = Array.from({ length: 40 }, (_, i) => ({ model: 'model' + i, photoUrl: 'https://example.com/' + i + '.jpg' }));
+  assert.strictEqual(sandbox.normalizeModelPhotos_(list).length, 40);
+});
+test('41件以上はエラーになる', () => {
+  const list = Array.from({ length: 41 }, (_, i) => ({ model: 'model' + i, photoUrl: 'https://example.com/' + i + '.jpg' }));
+  assert.throws(() => sandbox.normalizeModelPhotos_(list), /最大40件/);
+});
+test('配列以外が渡されても空配列として扱われる', () => {
+  assert.strictEqual(sandbox.normalizeModelPhotos_(null).length, 0);
+  assert.strictEqual(sandbox.normalizeModelPhotos_(undefined).length, 0);
+});
+
 console.log('== SettingsService: normalizeMailList_（メール通知先1項目分・最大20件、順序を保った配列） ==');
 test('空文字・重複（大文字小文字違い含む）は除去され、順序は保たれる', () => {
   const list = sandbox.normalizeMailList_([

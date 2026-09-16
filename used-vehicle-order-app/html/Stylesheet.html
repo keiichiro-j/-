@@ -428,6 +428,78 @@
   .statusTabs__cnt { font-size: 11px; font-weight: 800; color: inherit; opacity: .75; font-variant-numeric: tabular-nums; }
   .statusTabs__item.is-active .statusTabs__cnt { opacity: 1; }
 
+  /* ===== ホーム（車両画像ギャラリー） =====
+     以前あった「車両画像ギャラリー」を、現在のコマンドバー構成に合わせて
+     再実装したもの。型（ボディタイプ）クイックナビは状態タブ（.statusTabs__item）と
+     同じ見た目のピル型ボタンにし、他の画面のコマンドバーと視覚的に揃える。
+     グリッド自体はauto-fillでPC・タブレット・スマホすべて同じCSSのまま列数だけ
+     自然に変わる（旧実装のようなPC/スマホでHTML構造を出し分ける仕組みは廃止）。 */
+  .homeTypeNav__item {
+    flex: none;
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--on-surface-variant);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .homeTypeNav__item:hover { border-color: var(--on-surface-variant); color: var(--on-surface); }
+  .homeTypeNav__item.is-active { background: var(--on-surface); border-color: var(--on-surface); color: var(--surface); }
+
+  .homeGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    padding: 4px 24px 24px;
+  }
+  .homeCard {
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    transition: box-shadow .18s var(--ease), transform .18s var(--ease);
+  }
+  .homeCard--clickable { cursor: pointer; }
+  .homeCard--clickable:hover { box-shadow: var(--shadow-elevated); transform: translateY(-2px); }
+  .homeCard__photo { position: relative; aspect-ratio: 4 / 3; background: var(--background); overflow: hidden; }
+  .homeCard__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .homeCard__photo--clickable { cursor: pointer; }
+  .homeCard__stock {
+    position: absolute; top: 10px; right: 10px;
+    background: var(--success-bg); color: var(--success);
+  }
+  .homeCard__stock.badge--stock--zero { background: rgba(31, 41, 51, .55); color: var(--surface); }
+  .homeCard__body { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .homeCard__headRow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .homeCard__model { font-size: 16px; font-weight: 700; letter-spacing: -.01em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .homeCard__type { flex: none; font-size: 11px; font-weight: 600; color: var(--on-surface-variant); border: 1px solid var(--outline); border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+  .homeCard__gradeGrid { display: flex; flex-wrap: wrap; gap: 6px; }
+  .homeCard__gradeChip {
+    appearance: none; border: 1px solid var(--outline); background: var(--background);
+    border-radius: 8px; padding: 6px 10px; display: flex; flex-direction: column; gap: 2px;
+    cursor: pointer; font-family: inherit; text-align: left;
+  }
+  .homeCard__gradeChip:hover { border-color: var(--primary); }
+  .homeCard__gradeChip:disabled { opacity: .4; cursor: not-allowed; }
+  .homeCard__gradeName { font-size: 11.5px; font-weight: 700; color: var(--on-surface); }
+  .homeCard__gradeCount { font-size: 10.5px; color: var(--success); font-weight: 700; }
+  .homeCard__gradeCount--zero { color: var(--on-surface-variant); }
+
+  /* 設定タブの車両画像リストのサムネイル（.staffList__summaryをそのまま再利用し、
+     要約テキストの前に小さなサムネイルだけ追加する）。 */
+  .staffList__summaryThumb {
+    flex: none; width: 36px; height: 36px; border-radius: 6px; overflow: hidden;
+    background: var(--background); border: 1px solid var(--outline);
+  }
+  .staffList__summaryThumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
   /* ===== 絞り込みチップ ===== */
   .chip-wrap { position: relative; flex: none; }
   .chip {
@@ -1320,6 +1392,14 @@
   .staffList__body .input[data-staff-field="location"] { flex: 0 0 22%; min-width: 90px; }
   .staffList__empty { font-size: 13px; color: var(--on-surface-variant); }
 
+  /* 車両画像リスト（#modelPhotoList）も担当者マスタと同じ.staffList/.staffList__body
+     を再利用する。フィールド数が多いため、写真URLを最も広く取り、残りを均等割りにする。 */
+  .staffList__body .input[data-photo-field="photoUrl"] { flex: 1 1 45%; min-width: 160px; }
+  .staffList__body .input[data-photo-field="model"] { flex: 0 0 16%; min-width: 90px; }
+  .staffList__body .input[data-photo-field="gradePrefix"] { flex: 0 0 12%; min-width: 70px; }
+  .staffList__body .input[data-photo-field="gradeMarker"] { flex: 0 0 12%; min-width: 70px; }
+  .staffList__body select[data-photo-field="bodyType"] { flex: 0 0 16%; min-width: 110px; }
+
   /* ===== メール通知先（Hold時／受注確定時／システムエラー通知） =====
      以前は「,区切りの1テキスト欄」だったが、担当者マスタと統一した
      「1行1件・追加/削除/ドラッグ並び替え」のリスト形式に変更した。 */
@@ -1725,6 +1805,11 @@
     .staffList__body .input[data-staff-field="name"],
     .staffList__body .input[data-staff-field="email"],
     .staffList__body .input[data-staff-field="location"] { flex: 1 1 100%; }
+    .staffList__body .input[data-photo-field="photoUrl"],
+    .staffList__body .input[data-photo-field="model"],
+    .staffList__body .input[data-photo-field="gradePrefix"],
+    .staffList__body .input[data-photo-field="gradeMarker"],
+    .staffList__body select[data-photo-field="bodyType"] { flex: 1 1 100%; }
     main.view { padding: 10px; }
     .settingsCard, .settingsActions { padding: 18px 16px; }
     .card { padding: 16px 18px; }

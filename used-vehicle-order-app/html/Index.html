@@ -28,6 +28,11 @@
        個々の絵文字アイコンの代わりに使う。<use>で参照する）。 -->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
     <defs>
+      <symbol id="icon-home" viewBox="0 0 24 24">
+        <path d="M4 11.5L12 4l8 7.5" stroke-linejoin="round"/>
+        <path d="M6 10v8.5a1 1 0 001 1h10a1 1 0 001-1V10" stroke-linejoin="round"/>
+        <path d="M10 19.5v-5h4v5"/>
+      </symbol>
       <symbol id="icon-tune" viewBox="0 0 24 24">
         <line x1="4" y1="7" x2="20" y2="7"/>
         <line x1="4" y1="12" x2="20" y2="12"/>
@@ -143,6 +148,9 @@
         </svg>
       </div>
       <div class="rail__nav">
+        <button class="navBtn railBtn" data-tab="home" type="button" aria-label="ホーム">
+          <svg class="icon"><use href="#icon-home"></use></svg><span class="tip">ホーム</span>
+        </button>
         <button class="navBtn railBtn is-active" data-tab="inventory" type="button" aria-label="在庫リスト">
           <svg class="icon"><use href="#icon-grid"></use></svg><span class="tip">在庫リスト</span>
         </button>
@@ -170,6 +178,9 @@
 
     <!-- ===== 画面切替：アイコン＋ラベルの下タブバー（タブレット・スマホ幅） ===== -->
     <nav class="tabbar" id="tabbar" aria-label="画面切替">
+      <button class="navBtn tabbarBtn" data-tab="home" type="button">
+        <svg class="icon"><use href="#icon-home"></use></svg>ホーム
+      </button>
       <button class="navBtn tabbarBtn is-active" data-tab="inventory" type="button">
         <svg class="icon"><use href="#icon-grid"></use></svg>在庫
       </button>
@@ -217,6 +228,31 @@
         <button type="button" class="integrityBanner__close" id="btnIntegrityClose" aria-label="閉じる">&times;</button>
       </div>
       <ul class="integrityBanner__list hidden" id="integrityBannerList"></ul>
+
+    <!-- ホーム: 以前あった「車両画像ギャラリー」を、現在のヘッダー・コマンドバー構成に
+         合わせて再実装したもの。設定タブ（管理者限定）で登録した車両画像を、型
+         （ボディタイプ）クイックナビで絞り込みながらグリッドで並べる。写真・モデル名・
+         在庫台数をタップ・クリックなしでカードに表示し、カード（またはグレードチップ）を
+         タップすると、その画像の自動判定条件に一致する車両のキーワードで在庫リストへ
+         遷移する（handleHomeCardClick_、JavaScript.html参照。在庫リスト自体の絞り込み・
+         検索の仕組みは変更していない）。 -->
+    <main class="view" id="view-home">
+      <div class="commandbar">
+        <div class="scroller homeTypeNav" id="homeTypeNav" role="tablist" aria-label="型で絞り込み"></div>
+      </div>
+      <div class="toolbar2">
+        <span class="toolbar2__count" id="homeTotalCount"></span>
+      </div>
+      <div id="homeGrid" class="homeGrid"></div>
+      <div class="emptyState hidden" id="homeEmpty">
+        <svg class="icon emptyState__icon"><use href="#icon-home"></use></svg>
+        <p>車両画像が登録されていません。設定タブの「車両画像」から登録してください。</p>
+      </div>
+      <div class="emptyState hidden" id="homeTypeEmpty">
+        <svg class="icon emptyState__icon"><use href="#icon-home"></use></svg>
+        <p>この型に該当する車両画像がありません</p>
+      </div>
+    </main>
 
     <!-- 在庫リスト: ヘッダーの下に「検索＋クイック状態＋絞り込みチップ」の
          コマンドバーを置き、番号付きの一覧行を画面幅いっぱいに表示する
@@ -626,6 +662,19 @@
             <p class="settingsSection__desc">モデル名に含まれるキーワードとボディタイプを紐付けると、在庫リストの絞り込みサイドバーで型ごとに検索できます（例: キーワード「GLC」→SUV）。1台のモデルが複数のキーワードに一致してもかまいません（最大<span id="modelBodyTypeRulesMax"></span>件・現在<span id="modelBodyTypeRulesCount">0</span>件登録中）。</p>
             <div class="mailList" id="modelBodyTypeRuleList"></div>
             <button class="btn" id="btnAddModelBodyTypeRule" type="button">＋ ルールを追加</button>
+          </div>
+
+          <!-- 車両画像: ホーム画面のギャラリーに表示する写真の登録。「先頭の文字列」
+               「含む文字列」は、在庫リストのMODEL列の値（型番）を自動判定するための
+               条件（leadingAlphaPrefix_・matchesGradeRule_、JavaScript.html参照）。
+               空欄のままなら「モデル表示名」そのものをMODEL列の値と直接照合する
+               （1台ずつ個別に登録したい場合向け）。担当者マスタと同じ折りたたみ式の
+               行にし、普段は写真サムネイル・モデル名・条件の要約だけを表示する。 -->
+          <div class="settingsCard hidden" id="systemMasterModelPhotoCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-image"></use></svg>車両画像</h2>
+            <p class="settingsSection__desc">ホーム画面のギャラリーに表示する車両画像です（最大<span id="modelPhotosMax"></span>件・現在<span id="modelPhotosCount">0</span>件登録中）。画像はGoogleドライブにアップロードした画像の「ドライブID」（共有リンクの一部）、共有リンクそのもの、または外部URLのいずれかを指定してください。「先頭の文字列」「含む文字列」を設定すると、在庫リストのMODEL列（型番）から自動的に該当車両を拾って在庫台数を表示します（例: 先頭の文字列「C」＋含む文字列「T」→「C18T」「C63T」等をまとめて1枚の写真で管理）。空欄のままなら「モデル表示名」を在庫リストのMODEL列と直接照合します。</p>
+            <div class="staffList" id="modelPhotoList"></div>
+            <button class="btn" id="btnAddModelPhoto" type="button">＋ 車両画像を追加</button>
           </div>
 
           <!-- Hold登録・受注確定それぞれの完了時に表示する演出

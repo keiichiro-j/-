@@ -82,6 +82,39 @@ var NOTIFY_MAIL_MAX_LENGTH = 254; // メールアドレス1件あたりの最大
 var MODEL_BODY_TYPE_OPTIONS = ['Sedan', 'SUV', 'Station Wagon', 'Compact', 'Coupe', 'Cabriolet/Roadster', 'Mini Van'];
 var MODEL_BODY_TYPE_RULES_MAX = 200; // ボディタイプの紐付けルール最大登録件数
 
+var MODEL_PHOTOS_MAX = 40; // ホーム画面の車両画像の最大登録数
+
+/**
+ * 車両画像1件あたりの自動判定条件（gradePrefix・gradeMarker）1件あたりの
+ * 最大文字数。在庫リストのMODEL列の値（型番。例:「C200」「C220d」「C18T」
+ * 「CLA18」「CLA18T」）を、型番を手入力で列挙する代わりに、「①型番先頭の
+ * アルファベット連続部分（クラス名）がgradePrefixと完全一致する」「②設定
+ * されていれば、それに続く部分にgradeMarkerがどこかに含まれている」の2条件
+ * だけで自動的に拾う（SettingsService.gs / JavaScript.htmlのleadingAlphaPrefix_・
+ * matchesGradeRule_参照。①②とも大文字小文字は区別しない）。gradePrefixが
+ * 空欄の場合は、モデル名（model）そのものを在庫リストのMODEL列と直接照合する
+ * 従来どおりの挙動にフォールバックする。
+ */
+var MODEL_PHOTO_GRADE_RULE_MAX_LENGTH = 30;
+
+// 車両画像1件あたりのURLの最大文字数（署名付きURL等、長めの共有リンクにも
+// 対応できるようある程度余裕を持たせている。data URLではなく外部URLの利用を
+// 前提とする。SettingsService.gs参照）。
+var MODEL_PHOTO_URL_MAX_LENGTH = 1500;
+
+// Googleドライブの共有リンクを直接画像URLに変換する際に指定する幅（px）。
+// ホーム画面の車両画像タイルは最大でも480px幅程度のため、高解像度ディスプレイ
+// （2倍相当）でも十分な解像度になるよう余裕を持たせている
+// （normalizeDriveImageUrl_、SettingsService.gs参照）。
+var MODEL_PHOTO_DISPLAY_WIDTH = 1000;
+
+// 車両画像設定全体（JSON化した状態）の最大文字数。最大MODEL_PHOTOS_MAX件分の
+// URLをまとめて1つのScript Propertyへ保存するため、1件あたりの上限だけでは
+// 「件数×上限文字数」が実際の保存上限（1プロパティあたり9KB＝9216文字程度）を
+// 超えてしまう可能性がある。そのため合計文字数についても余裕を持った上限で
+// 別途チェックする（SettingsService.gs参照）。
+var MODEL_PHOTOS_TOTAL_MAX_LENGTH = 8000;
+
 /**
  * 車両情報（在庫リスト・受注リストで共通）の列定義。中古車1台ごとに固有の
  * 管理項目（区分・OCN・型式・車台番号・初年度登録日・走行距離・車検満了日・
@@ -346,7 +379,8 @@ var PROP_KEYS = {
   CELEBRATION_VARIANTS: 'CELEBRATION_VARIANTS',
   LOADING_IMAGE_URL: 'LOADING_IMAGE_URL',
   APP_TITLE: 'APP_TITLE',
-  MODEL_BODY_TYPE_RULES: 'MODEL_BODY_TYPE_RULES'
+  MODEL_BODY_TYPE_RULES: 'MODEL_BODY_TYPE_RULES',
+  MODEL_PHOTOS: 'MODEL_PHOTOS'
 };
 
 // アプリのタイトル（ブラウザのタブ名・サイドバー/トップバーの見出し・ホーム画面へ

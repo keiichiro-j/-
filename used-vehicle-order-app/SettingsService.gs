@@ -39,6 +39,7 @@ function getRawSettings_() {
     notifyChatWebhookUrl: props.getProperty(PROP_KEYS.NOTIFY_CHAT_WEBHOOK_URL) || '',
     staffList: getStaffList_(),
     modelBodyTypeRules: getModelBodyTypeRules_(),
+    modelPhotos: getModelPhotos_(),
     celebrationVariants: getCelebrationVariants_(),
     appTitle: props.getProperty(PROP_KEYS.APP_TITLE) || '',
     // 保存済みの値が変換前のドライブ共有リンク／ファイルIDのままだった場合
@@ -101,6 +102,7 @@ function saveRawSettings_(settings) {
   props.setProperty(PROP_KEYS.NOTIFY_CHAT_WEBHOOK_URL, validateChatWebhookUrl_(settings.notifyChatWebhookUrl));
   props.setProperty(PROP_KEYS.STAFF_LIST, JSON.stringify(normalizeStaffList_(settings.staffList)));
   props.setProperty(PROP_KEYS.MODEL_BODY_TYPE_RULES, JSON.stringify(normalizeModelBodyTypeRules_(settings.modelBodyTypeRules)));
+  props.setProperty(PROP_KEYS.MODEL_PHOTOS, JSON.stringify(normalizeModelPhotos_(settings.modelPhotos)));
   props.setProperty(PROP_KEYS.CELEBRATION_VARIANTS, JSON.stringify(normalizeCelebrationVariants_(settings.celebrationVariants)));
   props.setProperty(PROP_KEYS.APP_TITLE, validateAppTitle_(settings.appTitle));
   props.setProperty(PROP_KEYS.LOADING_IMAGE_URL, validateLoadingImageUrl_(settings.loadingImageUrl));
@@ -381,6 +383,96 @@ function normalizeModelBodyTypeRules_(list) {
 }
 
 /**
+ * ホーム画面の車両画像設定を { model, photoUrl, gradePrefix, gradeMarker, bodyType }
+ * の配列で返す。中古車は同じ「MODEL」表記の中にも型番違いの車両が混在しうる
+ * （例:「C200」「C300」「C43 AMG」を、まとめて登録した1枚の代表写真では
+ * 区別できない）。gradePrefix・gradeMarkerの自動判定条件はMODEL_PHOTO_GRADE_RULE_MAX_LENGTH
+ * のコメント（Constants.gs）参照。bodyTypeは在庫の自動判定には使わず、ホーム画面での
+ * 型クイックナビ（MODEL_BODY_TYPE_OPTIONSのいずれか、または未設定の空文字）専用の任意項目。
+ */
+function getModelPhotos_() {
+  var raw = PropertiesService.getScriptProperties().getProperty(PROP_KEYS.MODEL_PHOTOS);
+  if (!raw) return [];
+  var list;
+  try {
+    list = JSON.parse(raw);
+  } catch (e) {
+    return [];
+  }
+  if (!Array.isArray(list)) return [];
+  return list.map(function (entry) {
+    return {
+      model: (entry && entry.model) || '',
+      // 保存済みの値がGoogleドライブの共有リンクのままだった場合（この変換機能が
+      // 無かった頃に登録されたものなど）でも、保存し直さなくても表示できるよう、
+      // 読み出し時にも変換する（normalizeDriveImageUrl_はドライブの共有リンク
+      // 以外の値には何もしない純粋関数のため、既に直接画像URLの場合や他の
+      // ホスティングサービスのURLの場合はそのまま返る）。
+      photoUrl: normalizeDriveImageUrl_((entry && entry.photoUrl) || '', MODEL_PHOTO_DISPLAY_WIDTH),
+      gradePrefix: (entry && entry.gradePrefix) || '',
+      gradeMarker: (entry && entry.gradeMarker) || '',
+      bodyType: (entry && entry.bodyType) || ''
+    };
+  });
+}
+
+/**
+ * 車両画像設定の正規化（純粋関数）。モデル名・写真URLがともに入力されている行のみ残し、
+ * モデル名で重複除去したうえ、最大件数（MODEL_PHOTOS_MAX）を超えていればエラー。
+ * 写真URLはGoogleドライブの共有リンク／ファイルIDであれば直接画像URLに変換する
+ * （normalizeDriveImageUrl_参照）。変換後も長すぎる場合（data URLを直接貼り付けた
+ * 場合等）はエラーにする（大きな画像は外部にアップロードしてURLを指定する）。
+ * gradePrefix・gradeMarkerも同様にトリムし、1件あたりの最大文字数
+ * （MODEL_PHOTO_GRADE_RULE_MAX_LENGTH）をチェックする。gradePrefixが空文字の場合は
+ * gradeMarkerも意味を持たないため空文字にそろえる。さらに、件数が多いと合計文字数が
+ * Script Propertiesの実際の保存上限を超えうるため、JSON化した全体の文字数
+ * （MODEL_PHOTOS_TOTAL_MAX_LENGTH）も別途チェックする。
+ */
+function normalizeModelPhotos_(list) {
+  list = Array.isArray(list) ? list : [];
+  var seenModels = {};
+  var result = [];
+  list.forEach(function (entry) {
+    var model = String((entry && entry.model) || '').trim();
+    var photoUrl = normalizeDriveImageUrl_((entry && entry.photoUrl) || '', MODEL_PHOTO_DISPLAY_WIDTH);
+    if (!model || !photoUrl) return;
+    if (seenModels[model]) return;
+    seenModels[model] = true;
+    if (photoUrl.length > MODEL_PHOTO_URL_MAX_LENGTH) {
+      throw new Error(
+        'モデル「' + model + '」の写真URLが長すぎます（' + photoUrl.length + '文字）。' +
+        '画像を外部（Googleドライブの共有リンク等）にアップロードしたうえでURLを指定してください。'
+      );
+    }
+    var gradePrefix = String((entry && entry.gradePrefix) || '').trim();
+    var gradeMarker = gradePrefix ? String((entry && entry.gradeMarker) || '').trim() : '';
+    [
+      { label: '先頭の文字列', value: gradePrefix },
+      { label: '含む文字列', value: gradeMarker }
+    ].forEach(function (field) {
+      if (field.value.length > MODEL_PHOTO_GRADE_RULE_MAX_LENGTH) {
+        throw new Error(
+          'モデル「' + model + '」の' + field.label + '「' + field.value + '」が長すぎます（' + field.value.length + '文字）。'
+        );
+      }
+    });
+    var bodyType = MODEL_BODY_TYPE_OPTIONS.indexOf((entry && entry.bodyType) || '') !== -1 ? entry.bodyType : '';
+    result.push({ model: model, photoUrl: photoUrl, gradePrefix: gradePrefix, gradeMarker: gradeMarker, bodyType: bodyType });
+  });
+  if (result.length > MODEL_PHOTOS_MAX) {
+    throw new Error('車両画像は最大' + MODEL_PHOTOS_MAX + '件までです（現在' + result.length + '件）');
+  }
+  var totalLength = JSON.stringify(result).length;
+  if (totalLength > MODEL_PHOTOS_TOTAL_MAX_LENGTH) {
+    throw new Error(
+      '車両画像の登録内容が大きすぎて保存できません（合計' + totalLength + '文字）。' +
+      '件数を減らすか、写真URLをより短いもの（短縮URL等）に変更してください。'
+    );
+  }
+  return result;
+}
+
+/**
  * メール通知先1項目分（Hold時／受注確定時／システムエラー通知のいずれか）の正規化
  * （純粋関数）。空文字は除去し、大文字小文字を無視して重複除去したうえ、最大件数
  * （NOTIFY_MAIL_LIST_MAX）・1件あたりの最大文字数（NOTIFY_MAIL_MAX_LENGTH）を超えて
@@ -541,6 +633,10 @@ function redactSystemMasterSettings_(settings, isAdmin) {
     // （設定タブ）は管理者限定にしつつ値自体は非管理者にも渡す
     // （celebrationVariants・loadingImageUrlと同じ考え方）。
     modelBodyTypeRules: settings.modelBodyTypeRules,
+    // 車両画像も、ボディタイプの紐付けルールと同様に非公開データではなく、
+    // ホーム画面（全利用者）が表示する値のため、編集画面（設定タブ）は管理者
+    // 限定にしつつ値自体は非管理者にも渡す。
+    modelPhotos: settings.modelPhotos,
     // Hold登録等の演出バリエーションは、ロゴと同様に全利用者の
     // 画面で使う（演出を実際に表示するのは操作した本人のブラウザのため）。
     // 編集画面（設定タブ）自体は管理者限定にするが、値自体は非管理者にも渡す。
@@ -576,6 +672,7 @@ function applySystemMasterGuard_(incoming, current, isAdmin) {
     notifyChatWebhookUrl: current.notifyChatWebhookUrl,
     staffList: current.staffList,
     modelBodyTypeRules: current.modelBodyTypeRules,
+    modelPhotos: current.modelPhotos,
     celebrationVariants: current.celebrationVariants,
     loadingImageUrl: current.loadingImageUrl,
     appTitle: current.appTitle

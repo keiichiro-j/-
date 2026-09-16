@@ -35,6 +35,8 @@
     action: null, // { type: 'hold' | 'order' | 'orderFromHold', commission }
     staffList: [], // 設定タブで編集中の担当者マスタ（作業用コピー）
     modelBodyTypeRules: [], // 設定タブで編集中のボディタイプ紐付けルール（作業用コピー）
+    modelPhotos: [], // 設定タブで編集中の車両画像（作業用コピー）
+    homeBodyTypeFilter: '', // ホーム画面の型クイックナビで選択中の型（空文字は「すべて」）
     notifyHoldMailTo: [], // 設定タブで編集中のメール通知先（Hold時、作業用コピー）
     notifyOrderMailTo: [], // 設定タブで編集中のメール通知先（受注確定時、作業用コピー）
     notifyErrorMailTo: [], // 設定タブで編集中のメール通知先（システムエラー通知、作業用コピー）
@@ -556,6 +558,7 @@
   // コンテンツヘッダー（#contentHeader、全画面共通の1つの要素）のタイトルに
   // 表示するラベル。
   var CONTENT_TITLES_ = {
+    home: 'ホーム',
     inventory: '在庫リスト',
     orders: '受注リスト',
     wholesaleOrders: '業販受注リスト',
@@ -795,6 +798,98 @@
       }
     });
     return types;
+  }
+
+  /**
+   * 型番（在庫リストのMODEL列の値。例:「C200」「C43T」「CLA18」「GLC2DC」）の
+   * 先頭にあるアルファベットの連続部分だけを取り出す（純粋関数）。Mercedes系の
+   * 型番は「クラス名（アルファベット）＋グレード番号（数字）＋任意のサフィックス」
+   * という構成のため、これでクラス名部分（「C」「CLA」「GLC」等）を正確に切り出せる。
+   */
+  function leadingAlphaPrefix_(modelValue) {
+    var m = String(modelValue || '').match(/^[A-Za-z]+/);
+    return m ? m[0] : '';
+  }
+
+  /**
+   * 在庫リストの「MODEL」列の値に対する、指定の車両画像エントリの自動判定条件の
+   * 「具体性スコア」を計算する（純粋関数）。条件を満たさない場合は-1（不一致）。
+   * gradePrefixは、型番先頭のアルファベット連続部分（leadingAlphaPrefix_）と
+   * 「完全一致」（大文字小文字は区別しない）した場合のみ一致とする（単純な前方一致
+   * にすると、gradePrefix「C」が「CLA18」まで拾ってしまい「C20」と「CLA18」を
+   * 区別できなくなるため）。gradeMarker（含む文字列）は、プレフィックスを除いた
+   * 残りの部分に「その文字列がどこかに含まれていれば」一致とする（大文字小文字は
+   * 区別しない）。スコアは、gradeMarkerを設定していれば大きく加点したうえで
+   * gradeMarkerの文字数も加える（gradeMarker設定済みのエントリを、同じgradePrefixを
+   * 持つ未設定のエントリより優先し、gradeMarker同士では、より長い＝具体的な文字列を
+   * 持つ方を優先する）。
+   */
+  function gradeRuleSpecificity_(modelValue, entry) {
+    if (!entry.gradePrefix || !modelValue) return -1;
+    if (leadingAlphaPrefix_(modelValue).toLowerCase() !== entry.gradePrefix.toLowerCase()) return -1;
+    if (entry.gradeMarker) {
+      var remainder = modelValue.slice(entry.gradePrefix.length);
+      if (remainder.toLowerCase().indexOf(entry.gradeMarker.toLowerCase()) === -1) return -1;
+      return 10000 + entry.gradePrefix.length + entry.gradeMarker.length;
+    }
+    return entry.gradePrefix.length;
+  }
+
+  /**
+   * 在庫リストの「MODEL」列の値が、指定の車両画像エントリの自動判定条件に一致
+   * するかどうかを判定する（純粋関数）。同じ値に複数のエントリの条件が一致しうる
+   * 場合（例:「C18T」はgradePrefix「C」（gradeMarker無し・受け皿）の行にも、
+   * gradePrefix「C」+gradeMarker「T」の行にも一致する）、gradeRuleSpecificity_で
+   * 最もスコアの高い（＝最も具体的な条件の）エントリだけがその値を拾い、他の
+   * エントリには重複してカウントされないようにする。
+   */
+  function matchesGradeRule_(modelValue, entry, allEntries) {
+    var score = gradeRuleSpecificity_(modelValue, entry);
+    if (score < 0) return false;
+    var isMostSpecific = !(allEntries || []).some(function (other) {
+      return other !== entry && gradeRuleSpecificity_(modelValue, other) > score;
+    });
+    return isMostSpecific;
+  }
+
+  /**
+   * 車両画像1件分の在庫台数を集計する（純粋関数）。gradePrefixが設定されている
+   * 場合は、在庫リストに実際にある型番のうちmatchesGradeRule_に一致するものを
+   * 自動的に拾い集めて数える。gradePrefixが未設定の場合は、モデル表示名そのものを
+   * 在庫リストのMODEL列と直接照合する（グレードの概念を使わない単一モデル向けの
+   * フォールバック）。
+   */
+  function modelCountForEntry_(entry, allItems, allModelPhotos) {
+    if (!entry.gradePrefix) {
+      return allItems.filter(function (v) { return v.model === entry.model; }).length;
+    }
+    return allItems.filter(function (v) { return matchesGradeRule_(v.model, entry, allModelPhotos); }).length;
+  }
+
+  /**
+   * 車両画像1件分の自動判定条件に一致する、在庫リストに実際にある型番の一覧を
+   * 重複なく返す（純粋関数）。ホームのカード内のグレードチップ・クリック時の
+   * 在庫リストへの絞り込みに使う。
+   */
+  function matchedModelsForEntry_(entry, allItems, allModelPhotos) {
+    if (!entry.gradePrefix) return [entry.model];
+    var seen = {};
+    var result = [];
+    allItems.forEach(function (v) {
+      if (!matchesGradeRule_(v.model, entry, allModelPhotos)) return;
+      if (seen[v.model]) return;
+      seen[v.model] = true;
+      result.push(v.model);
+    });
+    return result;
+  }
+
+  /**
+   * ホーム画面の在庫台数表示（純粋関数）。0台の場合は数字の「在庫0台」ではなく
+   * 「在庫がありません」という文言にし、在庫が無いことをひと目でわかるようにする。
+   */
+  function homeStockCountText_(total) {
+    return total === 0 ? '在庫がありません' : '在庫' + total + '台';
   }
 
   function applyInventoryFilters_(items) {
@@ -2503,6 +2598,7 @@
     $('systemMasterNotifyCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterStaffCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterBodyTypeCard').classList.toggle('hidden', !isAdmin);
+    $('systemMasterModelPhotoCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterCelebrationCard').classList.toggle('hidden', !isAdmin);
     // 業販受注リストのタブ（レール・下タブバーとも.navBtn--wholesale）も、
     // システムマスタと同じく管理者権限を持つ担当者にのみ表示する。非管理者が
@@ -2548,6 +2644,14 @@
     state.modelBodyTypeRules = (settings.modelBodyTypeRules || []).map(function (r) { return { keyword: r.keyword || '', bodyType: r.bodyType || '' }; });
     $('modelBodyTypeRulesMax').textContent = (state.bootstrap && state.bootstrap.modelBodyTypeRulesMax) || 200;
     renderModelBodyTypeRuleList_();
+    // _expandedは折りたたみ表示（renderModelPhotoList_参照）の開閉状態を持つ、
+    // 画面表示専用のプロパティ。保存時（btnSaveSettingsのcleaned）には含めないため
+    // サーバーへは送らない。
+    state.modelPhotos = (settings.modelPhotos || []).map(function (p) {
+      return { model: p.model || '', photoUrl: p.photoUrl || '', gradePrefix: p.gradePrefix || '', gradeMarker: p.gradeMarker || '', bodyType: p.bodyType || '', _expanded: false };
+    });
+    $('modelPhotosMax').textContent = (state.bootstrap && state.bootstrap.modelPhotosMax) || 40;
+    renderModelPhotoList_();
     populateOrdersStaffFilter_();
     populateOrdersLocationFilter_();
     populateStaffFilter_('wholesaleOrdersStaffFilter');
@@ -3061,6 +3165,114 @@
     if (inputs.length) inputs[inputs.length - 1].focus();
   });
 
+  // ----- 車両画像（ホーム画面のギャラリーに表示する写真）。担当者マスタ・
+  //       modelBodyTypeRuleListと同じく折りたたみ式の行にし、普段は写真
+  //       サムネイル・モデル名・自動判定条件の要約1行だけを表示する。 -----
+  function modelPhotosMax_() {
+    return (state.bootstrap && state.bootstrap.modelPhotosMax) || 40;
+  }
+  function photoSummaryName_(entry) {
+    return entry.model || '（未入力）';
+  }
+  function photoSummarySub_(entry) {
+    var parts = [];
+    if (entry.gradePrefix) {
+      parts.push('先頭「' + entry.gradePrefix + '」' + (entry.gradeMarker ? ' ・含む「' + entry.gradeMarker + '」' : ''));
+    } else {
+      parts.push('個別登録（モデル名で照合）');
+    }
+    if (entry.bodyType) parts.push(entry.bodyType);
+    return parts.join(' ・ ');
+  }
+
+  function renderModelPhotoList_() {
+    var container = $('modelPhotoList');
+    var options = (state.bootstrap && state.bootstrap.modelBodyTypeOptions) || [];
+    $('modelPhotosCount').textContent = state.modelPhotos.length;
+    if (!state.modelPhotos.length) {
+      container.innerHTML = '<div class="staffList__empty">車両画像が登録されていません</div>';
+    } else {
+      container.innerHTML = state.modelPhotos.map(function (entry, i) {
+        var isExpanded = !!entry._expanded;
+        var thumbHtml = entry.photoUrl
+          ? '<span class="staffList__summaryThumb"><img src="' + escapeHtml(entry.photoUrl) + '" alt="" loading="lazy"></span>'
+          : '<span class="staffList__summaryThumb"></span>';
+        return '<div class="staffList__item' + (isExpanded ? ' is-expanded' : '') + '" data-drag-index="' + i + '">' +
+          '<div class="staffList__header">' +
+          '<button type="button" class="staffList__summary" data-toggle-photo="' + i + '" aria-expanded="' + isExpanded + '">' +
+          thumbHtml +
+          '<span class="staffList__summaryText">' +
+          '<span class="staffList__summaryName">' + escapeHtml(photoSummaryName_(entry)) + '</span>' +
+          '<span class="staffList__summarySub">' + escapeHtml(photoSummarySub_(entry)) + '</span>' +
+          '</span>' +
+          '<span class="staffList__chevron" aria-hidden="true">' + (isExpanded ? '▾' : '▸') + '</span>' +
+          '</button>' +
+          '<button class="btn btn--icon" data-remove-photo="' + i + '" type="button" aria-label="削除">&times;</button>' +
+          '</div>' +
+          '<div class="staffList__body' + (isExpanded ? '' : ' hidden') + '">' +
+          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="photoUrl" placeholder="写真：ドライブID または 画像URL" value="' + escapeHtml(entry.photoUrl || '') + '">' +
+          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="model" placeholder="モデル表示名（例: Cクラス）" value="' + escapeHtml(entry.model || '') + '">' +
+          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="gradePrefix" placeholder="先頭の文字列（例: C）" value="' + escapeHtml(entry.gradePrefix || '') + '">' +
+          '<input type="text" class="input" data-photo-index="' + i + '" data-photo-field="gradeMarker" placeholder="含む文字列（例: T）" value="' + escapeHtml(entry.gradeMarker || '') + '">' +
+          '<select class="input" data-photo-index="' + i + '" data-photo-field="bodyType">' +
+          '<option value="">型を選択しない</option>' +
+          options.map(function (o) { return '<option value="' + escapeHtml(o) + '"' + (entry.bodyType === o ? ' selected' : '') + '>' + escapeHtml(o) + '</option>'; }).join('') +
+          '</select>' +
+          '</div>' +
+          '</div>';
+      }).join('');
+    }
+    $('btnAddModelPhoto').disabled = state.modelPhotos.length >= modelPhotosMax_();
+  }
+
+  function updatePhotoSummary_(index, entry) {
+    var item = document.querySelector('#modelPhotoList [data-drag-index="' + index + '"]');
+    if (!item) return;
+    var nameEl = item.querySelector('.staffList__summaryName');
+    var subEl = item.querySelector('.staffList__summarySub');
+    var thumbEl = item.querySelector('.staffList__summaryThumb');
+    if (nameEl) nameEl.textContent = photoSummaryName_(entry);
+    if (subEl) subEl.textContent = photoSummarySub_(entry);
+    if (thumbEl) thumbEl.innerHTML = entry.photoUrl ? '<img src="' + escapeHtml(entry.photoUrl) + '" alt="" loading="lazy">' : '';
+  }
+
+  on('modelPhotoList', 'input', function (e) {
+    var index = e.target.dataset.photoIndex;
+    var field = e.target.dataset.photoField;
+    if (index === undefined || !field) return;
+    var entry = state.modelPhotos[Number(index)];
+    entry[field] = e.target.value;
+    updatePhotoSummary_(Number(index), entry);
+  });
+  on('modelPhotoList', 'change', function (e) {
+    var index = e.target.dataset.photoIndex;
+    if (index === undefined || e.target.dataset.photoField !== 'bodyType') return;
+    var entry = state.modelPhotos[Number(index)];
+    entry.bodyType = e.target.value;
+    updatePhotoSummary_(Number(index), entry);
+  });
+  on('modelPhotoList', 'click', function (e) {
+    var removeBtn = e.target.closest('[data-remove-photo]');
+    if (removeBtn) {
+      state.modelPhotos.splice(Number(removeBtn.dataset.removePhoto), 1);
+      renderModelPhotoList_();
+      return;
+    }
+    var toggleBtn = e.target.closest('[data-toggle-photo]');
+    if (toggleBtn) {
+      var entry = state.modelPhotos[Number(toggleBtn.dataset.togglePhoto)];
+      entry._expanded = !entry._expanded;
+      renderModelPhotoList_();
+    }
+  });
+  on('btnAddModelPhoto', 'click', function () {
+    if (state.modelPhotos.length >= modelPhotosMax_()) return;
+    state.modelPhotos.push({ model: '', photoUrl: '', gradePrefix: '', gradeMarker: '', bodyType: '', _expanded: true });
+    renderModelPhotoList_();
+    var inputs = $('modelPhotoList').querySelectorAll('[data-photo-field="model"]');
+    if (inputs.length) inputs[inputs.length - 1].focus();
+  });
+
   /**
    * マイページ（Hold中の車両一覧）専用に、フィルタ無しで在庫リストを取得する。
    * 在庫リストのツールバー（検索キーワード等）の状態に関わらず、常に全件から
@@ -3072,6 +3284,7 @@
     return gasRun('api_listInventory', { keyword: '', includeHold: true }).then(function (groups) {
       state.allInventoryItems = (groups && groups[0] && groups[0].items) || [];
       renderMyPageHolds_();
+      renderHomeGallery_();
     }).catch(function (err) {
       // 補助的な表示のためトースト等では知らせないが、原因調査ができるよう
       // コンソールには必ず残す（以前はここで完全にエラーを握りつぶしていたため、
@@ -3079,6 +3292,145 @@
       console.error('[used-vehicle-order-app] 在庫全件の取得でエラーが発生しました:', err);
     });
   }
+
+  /**
+   * ホーム画面上部の型クイックナビ（#homeTypeNav）。「すべて」＋設定タブの車両画像で
+   * 選べる型（MODEL_BODY_TYPE_OPTIONS、Constants.gs）を、登録状況に関わらず常に
+   * 同じ並びで表示する（型を1件も割り当てていない運用開始直後でも迷わないよう、
+   * 固定の選択肢にしている）。クリックするとstate.homeBodyTypeFilterを更新し、
+   * renderHomeGallery_を呼び直してカード一覧を絞り込む。
+   */
+  function renderHomeTypeNav_() {
+    var options = (state.bootstrap && state.bootstrap.modelBodyTypeOptions) || [];
+    var current = state.homeBodyTypeFilter;
+    var itemsHtml = '<button type="button" class="homeTypeNav__item' + (!current ? ' is-active' : '') +
+      '" data-home-type="">すべて</button>' +
+      options.map(function (t) {
+        return '<button type="button" class="homeTypeNav__item' + (current === t ? ' is-active' : '') +
+          '" data-home-type="' + escapeHtml(t) + '">' + escapeHtml(t) + '</button>';
+      }).join('');
+    $('homeTypeNav').innerHTML = itemsHtml;
+  }
+
+  on('homeTypeNav', 'click', function (e) {
+    var btn = e.target.closest('[data-home-type]');
+    if (!btn) return;
+    state.homeBodyTypeFilter = btn.dataset.homeType || '';
+    renderHomeGallery_();
+  });
+
+  /**
+   * ホーム画面カード1件分のHTML。写真・モデル名・在庫台数バッジをタップ・
+   * クリックなしでカード自体に表示する。
+   * グレード（gradePrefix・gradeMarker）で複数の型番をまとめて登録している場合は、
+   * 型番ごとの在庫数を横並びのチップ（.homeCard__gradeGrid）で表示し、チップ単体を
+   * クリックするとその型番だけに絞り込んだ在庫リストへ遷移する（data-home-grade）。
+   * この場合、カード全体ではなく写真をクリックしたときに、そのモデルの全グレードへ
+   * 絞り込んだ在庫リストへ遷移する（data-home-model）。gradePrefix未設定（グレードと
+   * いう概念自体を使わない、1台ずつ個別登録したモデル）の場合は、チップの一覧を
+   * 出さず、従来どおりカード全体をクリック対象にする。対象の在庫が0台の場合は
+   * （在庫のないモデル・グレードを押しても在庫リストへ遷移してしまわないよう）
+   * クリック対象にしない。
+   */
+  function homeModelCardHtml_(p, allItems, allModelPhotos) {
+    var grades = matchedModelsForEntry_(p, allItems, allModelPhotos);
+    var total = modelCountForEntry_(p, allItems, allModelPhotos);
+    var hasGrades = !!p.gradePrefix && grades.length > 0;
+    var canNavigateAll = total > 0;
+    var stockClass = 'badge homeCard__stock' + (total === 0 ? ' badge--stock--zero' : '');
+    var stockHtml = '<span class="' + stockClass + '">' + homeStockCountText_(total) + '</span>';
+
+    var gradeGridHtml = '';
+    if (hasGrades) {
+      gradeGridHtml = '<div class="homeCard__gradeGrid">' + grades.map(function (gradeModel) {
+        var count = allItems.filter(function (v) { return v.model === gradeModel; }).length;
+        var zero = count === 0;
+        return '<button type="button" class="homeCard__gradeChip"' +
+          (zero ? ' disabled' : ' data-home-grade="' + escapeHtml(gradeModel) + '"') + '>' +
+          '<span class="homeCard__gradeName">' + escapeHtml(gradeModel) + '</span>' +
+          '<span class="homeCard__gradeCount' + (zero ? ' homeCard__gradeCount--zero' : '') + '">' + count + '台</span>' +
+          '</button>';
+      }).join('') + '</div>';
+    }
+
+    var photoInner = '<img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '" loading="lazy">' + stockHtml;
+    var photoHtml;
+    if (hasGrades) {
+      photoHtml = canNavigateAll
+        ? '<div class="homeCard__photo homeCard__photo--clickable" role="button" tabindex="0" data-home-model="' + escapeHtml(p.model) + '">' + photoInner + '</div>'
+        : '<div class="homeCard__photo">' + photoInner + '</div>';
+    } else {
+      photoHtml = '<div class="homeCard__photo">' + photoInner + '</div>';
+    }
+
+    var cardClickable = !hasGrades && canNavigateAll;
+    var cardClass = 'homeCard' + (cardClickable ? ' homeCard--clickable' : '');
+    var cardAttrs = cardClickable ? ' role="button" tabindex="0" data-home-model="' + escapeHtml(p.model) + '"' : '';
+
+    var typeHtml = p.bodyType ? '<span class="homeCard__type">' + escapeHtml(p.bodyType) + '</span>' : '';
+
+    return '<div class="' + cardClass + '"' + cardAttrs + '>' +
+      photoHtml +
+      '<div class="homeCard__body">' +
+      '<div class="homeCard__headRow"><span class="homeCard__model">' + escapeHtml(p.model) + '</span>' + typeHtml + '</div>' +
+      gradeGridHtml +
+      '</div>' +
+      '</div>';
+  }
+
+  /**
+   * ホーム画面本体。中古車は1台ごとに個体差があるため、グレードタブへの展開は
+   * 行わず、登録された車両画像をそのままカードグリッドに並べるだけのシンプルな
+   * 構成にしている（PC・タブレット・スマホともに同じ#homeGrid・.homeCardをCSSの
+   * auto-fillだけで列数を変える。旧実装にあったPC/スマホでHTML構造を出し分ける
+   * 仕組みは廃止）。上部の型クイックナビ（renderHomeTypeNav_、
+   * state.homeBodyTypeFilter）で型を選択している場合は、その型（bodyType）が
+   * 一致する車両画像だけに絞り込む（1件も車両画像が登録されていない場合は
+   * #homeEmptyを、型は登録されているが選択した型に一致するモデルが無い場合は
+   * #homeTypeEmptyを表示する）。
+   */
+  function renderHomeGallery_() {
+    var allModelPhotos = (state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.modelPhotos) || [];
+    renderHomeTypeNav_();
+    var modelPhotos = state.homeBodyTypeFilter
+      ? allModelPhotos.filter(function (p) { return p.bodyType === state.homeBodyTypeFilter; })
+      : allModelPhotos;
+    $('homeEmpty').classList.toggle('hidden', allModelPhotos.length > 0);
+    $('homeTypeEmpty').classList.toggle('hidden', !(allModelPhotos.length > 0 && modelPhotos.length === 0));
+    var allItems = state.allInventoryItems || [];
+    $('homeTotalCount').textContent = modelPhotos.length ? modelPhotos.length + '件の車両画像' : '';
+    $('homeGrid').innerHTML = modelPhotos
+      .map(function (p) { return homeModelCardHtml_(p, allItems, allModelPhotos); })
+      .join('');
+  }
+
+  /**
+   * ホーム画面のカード（またはグレードチップ）クリック時、その車両画像の自動判定
+   * 条件に一致する車両のキーワードで在庫リストへ遷移する。在庫リストのキーワード
+   * 検索欄はサーバー側searchInventoryでモデル名の部分一致に対応済みのため、
+   * gradePrefix（クラス名）をそのままキーワードとして渡せば、そのクラスに属する
+   * すべての型番がまとめてヒットする。在庫リスト自体の絞り込み・検索の仕組みは
+   * 変更していない。
+   */
+  function navigateHomeToInventory_(keyword) {
+    $('inventoryKeyword').value = keyword;
+    switchToTab_('inventory');
+    loadInventory();
+  }
+
+  on('homeGrid', 'click', function (e) {
+    var gradeBtn = e.target.closest('[data-home-grade]');
+    if (gradeBtn) {
+      navigateHomeToInventory_(gradeBtn.dataset.homeGrade);
+      return;
+    }
+    var modelEl = e.target.closest('[data-home-model]');
+    if (modelEl) {
+      var allModelPhotos = (state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.modelPhotos) || [];
+      var entry = allModelPhotos.filter(function (p) { return p.model === modelEl.dataset.homeModel; })[0];
+      navigateHomeToInventory_(entry && entry.gradePrefix ? entry.gradePrefix : modelEl.dataset.homeModel);
+    }
+  });
 
   /**
    * マイページ用に、受注リストの検索・絞り込み条件に左右されない全件を取得する
@@ -3330,6 +3682,34 @@
       return;
     }
 
+    // 車両画像も、サーバー側のnormalizeModelPhotos_（SettingsService.gs）と同じ
+    // 規則（モデル名・写真URLがともに入力されている行のみ残す・モデル名で重複
+    // 除去・最大件数チェック）を保存前にクライアント側でも行う。gradePrefix・
+    // gradeMarkerの文字数上限は往復してもエラーが分かりやすいため、サーバー側の
+    // チェックにまかせる。
+    var seenPhotoModels = {};
+    var uniqueModelPhotos = (state.modelPhotos || [])
+      .map(function (p) {
+        return {
+          model: String((p && p.model) || '').trim(),
+          photoUrl: String((p && p.photoUrl) || '').trim(),
+          gradePrefix: String((p && p.gradePrefix) || '').trim(),
+          gradeMarker: String((p && p.gradeMarker) || '').trim(),
+          bodyType: String((p && p.bodyType) || '').trim()
+        };
+      })
+      .filter(function (p) { return p.model && p.photoUrl; })
+      .filter(function (p) {
+        if (seenPhotoModels[p.model]) return false;
+        seenPhotoModels[p.model] = true;
+        return true;
+      });
+    var maxModelPhotos = modelPhotosMax_();
+    if (uniqueModelPhotos.length > maxModelPhotos) {
+      $('settingsError').textContent = '車両画像は最大' + maxModelPhotos + '件までです（現在' + uniqueModelPhotos.length + '件）';
+      return;
+    }
+
     var settings = {
       themeKey: state.themeKey || DEFAULT_THEME_KEY,
       appTitle: appTitle,
@@ -3341,6 +3721,7 @@
       notifyChatWebhookUrl: chatWebhookUrl,
       staffList: uniqueStaffList,
       modelBodyTypeRules: uniqueBodyTypeRules,
+      modelPhotos: uniqueModelPhotos,
       celebrationVariants: {
         hold: $('celebrationVariantHold').value,
         order: $('celebrationVariantOrder').value
@@ -3357,6 +3738,7 @@
       state.bootstrap = bootstrap;
       renderSettings(bootstrap.settings);
       renderTopbarUser();
+      renderHomeGallery_();
       showToast('設定を保存しました');
     }).catch(function (err) {
       setButtonBusy(btn, false);
@@ -3472,6 +3854,7 @@
       });
       runInitStep_('設定タブの描画', function () { renderSettings(bootstrap.settings); });
       runInitStep_('ユーザー情報の描画', renderTopbarUser);
+      runInitStep_('ホーム画面の描画', renderHomeGallery_);
       runInitStep_('在庫データの整合性チェック', checkIntegrity_);
     }).catch(function (err) {
       console.error('[used-vehicle-order-app] 起動時データ（設定・ログインアカウント情報）の取得に失敗しました:', err);
