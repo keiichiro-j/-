@@ -132,94 +132,43 @@
   </script>
 
   <div id="app">
-    <!-- ===== 画面切替：アイコンのみの左レール（PCビュー） =====
-         横タブ・色付きサイドバーは廃止し、Slack/Notion等と同じ「アイコンのみの
-         細い左レール」に統一した（現場の要望「画期的な案」への対応）。ロゴ・
-         アプリ名は.rail__markのtitle属性（ホバーで表示）に集約し、レール自体は
-         常に中立色（配色テーマの影響を受けない）にする。ログイン中の担当者情報は
-         レール下端のアバター（ホバーで氏名・メール表示）に集約する
-         （renderTopbarUser_、JavaScript.html参照）。タブレット・スマホ幅では
-         非表示にし、代わりに画面下固定の.tabbarを使う（Stylesheet.html参照）。 -->
-    <nav class="rail" id="rail" aria-label="画面切替">
-      <div class="rail__mark" id="railMark" title="<?= currentAppTitle_() ?>">
-        <img id="railLogo" class="rail__logo hidden" alt="ロゴ">
-        <svg class="rail__markIcon" id="railMarkIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-          <path d="M3 13l1.5-5A2 2 0 016.4 6.5h11.2A2 2 0 0119.5 8l1.5 5"/><rect x="2.5" y="13" width="19" height="6" rx="1.6"/><circle cx="7" cy="19.5" r="1.6"/><circle cx="17" cy="19.5" r="1.6"/>
-        </svg>
-      </div>
-      <div class="rail__nav">
-        <button class="navBtn railBtn" data-tab="home" type="button" aria-label="ホーム">
-          <svg class="icon"><use href="#icon-home"></use></svg><span class="tip">ホーム</span>
-        </button>
-        <button class="navBtn railBtn is-active" data-tab="inventory" type="button" aria-label="在庫リスト">
-          <svg class="icon"><use href="#icon-grid"></use></svg><span class="tip">在庫リスト</span>
-        </button>
-        <button class="navBtn railBtn" data-tab="orders" type="button" aria-label="受注リスト">
-          <svg class="icon"><use href="#icon-table"></use></svg><span class="tip">受注リスト</span>
-        </button>
-        <!-- 業販受注リスト: 管理者権限を持つ担当者にのみ表示する（renderSettingsが
-             .navBtn--wholesaleクラス全体のhiddenを一括で切り替える、JavaScript.html参照）。 -->
-        <button class="navBtn railBtn navBtn--wholesale hidden" data-tab="wholesaleOrders" type="button" aria-label="業販受注リスト">
-          <svg class="icon"><use href="#icon-table"></use></svg><span class="tip">業販受注リスト</span>
-        </button>
-        <button class="navBtn railBtn" data-tab="mypage" type="button" aria-label="マイページ">
-          <svg class="icon"><use href="#icon-people"></use></svg><span class="tip">マイページ</span>
-        </button>
-        <button class="navBtn railBtn" data-tab="settings" type="button" aria-label="設定">
-          <svg class="icon"><use href="#icon-tune"></use></svg><span class="tip">設定</span>
-        </button>
-      </div>
-      <div class="rail__spacer"></div>
-      <button type="button" class="rail__avatar" id="railAvatar">
-        <span id="railAvatarInitials">?</span>
-        <span class="tip rail__avatarTip" id="railAvatarTip"></span>
-      </button>
-    </nav>
-
-    <!-- ===== 画面切替：アイコン＋ラベルの下タブバー（タブレット・スマホ幅） ===== -->
-    <nav class="tabbar" id="tabbar" aria-label="画面切替">
-      <button class="navBtn tabbarBtn" data-tab="home" type="button">
-        <svg class="icon"><use href="#icon-home"></use></svg>ホーム
-      </button>
-      <button class="navBtn tabbarBtn is-active" data-tab="inventory" type="button">
-        <svg class="icon"><use href="#icon-grid"></use></svg>在庫
-      </button>
-      <button class="navBtn tabbarBtn" data-tab="orders" type="button">
-        <svg class="icon"><use href="#icon-table"></use></svg>受注
-      </button>
-      <button class="navBtn tabbarBtn navBtn--wholesale hidden" data-tab="wholesaleOrders" type="button">
-        <svg class="icon"><use href="#icon-table"></use></svg>業販
-      </button>
-      <button class="navBtn tabbarBtn" data-tab="mypage" type="button">
-        <svg class="icon"><use href="#icon-people"></use></svg>マイページ
-      </button>
-      <button class="navBtn tabbarBtn" data-tab="settings" type="button">
-        <svg class="icon"><use href="#icon-tune"></use></svg>設定
-      </button>
-    </nav>
-
-    <div class="content">
-      <!-- ===== コンテンツヘッダー：全画面共通の1つの要素 =====
-           表示中のタブに応じてタイトルだけをJS（switchToTab_）が書き換える
-           （戻る／更新ボタン・アプリ名・担当者情報は画面をまたいで同じ1つの
-           要素のため、5画面ぶん複製する必要が無い）。高さは--content-header-h
-           で固定し、各画面の.commandbarをその真下にposition: stickyで
-           重ねられるようにする（Stylesheet.html参照。JSでの高さ実測は不要）。 -->
-      <header class="contentHeader" id="contentHeader">
-        <button type="button" class="iconbtn" id="btnNavBack" title="戻る" aria-label="1つ前の画面に戻る" disabled>
-          <svg class="icon"><use href="#icon-back"></use></svg>
-        </button>
-        <div class="contentHeader__titles">
-          <p class="contentHeader__eyebrow" id="contentAppTitle"><?= currentAppTitle_() ?></p>
-          <h1 class="contentHeader__title" id="contentTitle">在庫リスト</h1>
+    <!-- ===== コントロールパネル（ロゴ・ナビ・担当者情報を上部に統一） =====
+         以前あった、ロゴ・アプリ名・画面切替タブ・担当者情報を1本の帯にまとめた
+         「コントロールパネル」を、現在の配色トークン・アイコンで作り直したもの
+         （アイコンのみの左レール＋下タブバーは廃止）。PC・タブレット・スマホ
+         すべて同じ1つの帯で、画面切替は水平タブ（.tabs）の横スクロールで
+         対応する。position: stickyで画面上部に固定し、以前あった
+         position: fixed＋JS実測スペーサー（syncFixedBars_）は使わない
+         （固定の高さで十分なため）。 -->
+    <header class="topbar" id="topbar">
+      <div class="topbar__brandRow">
+        <div class="topbar__left">
+          <button type="button" class="topbar__navBtn" id="btnNavBack" title="戻る" aria-label="1つ前の画面に戻る" disabled>
+            <svg class="icon"><use href="#icon-back"></use></svg>
+          </button>
+          <button type="button" class="topbar__navBtn topbar__navBtn--refresh" id="btnRefresh" title="更新" aria-label="最新の情報に更新">
+            <svg class="icon"><use href="#icon-refresh"></use></svg>
+          </button>
         </div>
-        <button type="button" class="iconbtn" id="btnRefresh" title="更新" aria-label="最新の情報に更新">
-          <svg class="icon"><use href="#icon-refresh"></use></svg>
-        </button>
-        <!-- スマホ・タブレット幅専用（レールが無いため）。PCビューではレール下端の
-             アバターと重複するためCSSで非表示にする。 -->
-        <button type="button" class="contentHeader__account" id="contentAccount">?</button>
-      </header>
+        <div class="topbar__brand" id="topbarBrand" title="<?= currentAppTitle_() ?>">
+          <img id="topbarLogo" class="topbar__logo hidden" alt="ロゴ">
+          <svg class="topbar__markIcon" id="topbarMarkIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M3 13l1.5-5A2 2 0 016.4 6.5h11.2A2 2 0 0119.5 8l1.5 5"/><rect x="2.5" y="13" width="19" height="6" rx="1.6"/><circle cx="7" cy="19.5" r="1.6"/><circle cx="17" cy="19.5" r="1.6"/>
+          </svg>
+          <span class="topbar__brandText" id="topbarBrandText"><?= currentAppTitle_() ?></span>
+        </div>
+        <div class="topbar__user" id="topbarUser">?</div>
+      </div>
+      <nav class="tabs" id="topbarTabs" role="tablist" aria-label="画面切替">
+        <button class="navBtn tabs__item" data-tab="home" type="button">ホーム</button>
+        <button class="navBtn tabs__item is-active" data-tab="inventory" type="button">在庫リスト</button>
+        <button class="navBtn tabs__item" data-tab="orders" type="button">受注リスト</button>
+        <!-- 業販受注リスト: 管理者権限を持つ担当者にのみ表示する（renderSettingsが
+             .navBtn--wholesaleクラスのhiddenを切り替える、JavaScript.html参照）。 -->
+        <button class="navBtn tabs__item navBtn--wholesale hidden" data-tab="wholesaleOrders" type="button">業販受注リスト</button>
+        <button class="navBtn tabs__item" data-tab="mypage" type="button">マイページ</button>
+        <button class="navBtn tabs__item" data-tab="settings" type="button">設定</button>
+      </nav>
       <div class="integrityBanner hidden" id="integrityBanner">
         <svg class="icon icon--inline"><use href="#icon-alert"></use></svg>
         <span id="integrityBannerSummary"></span>
@@ -228,6 +177,7 @@
         <button type="button" class="integrityBanner__close" id="btnIntegrityClose" aria-label="閉じる">&times;</button>
       </div>
       <ul class="integrityBanner__list hidden" id="integrityBannerList"></ul>
+    </header>
 
     <!-- ホーム: 以前あった「車両画像ギャラリー」を、現在のヘッダー・コマンドバー構成に
          合わせて再実装したもの。設定タブ（管理者限定）で登録した車両画像を、型
@@ -237,6 +187,10 @@
          遷移する（handleHomeCardClick_、JavaScript.html参照。在庫リスト自体の絞り込み・
          検索の仕組みは変更していない）。 -->
     <main class="view" id="view-home">
+      <!-- お知らせ: 管理者が設定タブから入力した案内文（例:「限定車在庫3台あり」）を
+           全利用者向けに表示する（renderHomeAnnouncement_、JavaScript.html参照）。
+           未設定の場合は要素ごと非表示。 -->
+      <div class="homeAnnouncement hidden" id="homeAnnouncement"></div>
       <div class="commandbar">
         <div class="scroller homeTypeNav" id="homeTypeNav" role="tablist" aria-label="型で絞り込み"></div>
       </div>
@@ -677,6 +631,18 @@
             <button class="btn" id="btnAddModelPhoto" type="button">＋ 車両画像を追加</button>
           </div>
 
+          <!-- お知らせ: ホーム画面の上部に全利用者向けに表示する案内文
+               （例:「限定車在庫3台あり」）。renderHomeAnnouncement_、
+               JavaScript.html参照。空欄にすると表示しない。 -->
+          <div class="settingsCard hidden" id="systemMasterAnnouncementCard">
+            <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-alert"></use></svg>お知らせ</h2>
+            <p class="settingsSection__desc">ホーム画面の上部に全利用者向けに表示する案内文です（最大<span id="homeAnnouncementMax"></span>文字）。空欄にすると表示しません。</p>
+            <div class="formField">
+              <label>お知らせ文言</label>
+              <input type="text" id="settingsHomeAnnouncement" class="input" placeholder="例: 限定車在庫3台あり">
+            </div>
+          </div>
+
           <!-- Hold登録・受注確定それぞれの完了時に表示する演出
                （絵柄のアクション）のバリエーション選択（A〜D、4種類ずつ）。
                案内メッセージ自体は固定で、絵柄の演出だけを切り替える
@@ -701,7 +667,6 @@
         </div>
       </div>
     </main>
-    </div>
   </div>
 
   <!-- Hold / 受注 共通入力モーダル（顧客情報→契約内容の2ステップ） -->

@@ -40,6 +40,7 @@ function getRawSettings_() {
     staffList: getStaffList_(),
     modelBodyTypeRules: getModelBodyTypeRules_(),
     modelPhotos: getModelPhotos_(),
+    homeAnnouncement: props.getProperty(PROP_KEYS.HOME_ANNOUNCEMENT) || '',
     celebrationVariants: getCelebrationVariants_(),
     appTitle: props.getProperty(PROP_KEYS.APP_TITLE) || '',
     // 保存済みの値が変換前のドライブ共有リンク／ファイルIDのままだった場合
@@ -103,6 +104,7 @@ function saveRawSettings_(settings) {
   props.setProperty(PROP_KEYS.STAFF_LIST, JSON.stringify(normalizeStaffList_(settings.staffList)));
   props.setProperty(PROP_KEYS.MODEL_BODY_TYPE_RULES, JSON.stringify(normalizeModelBodyTypeRules_(settings.modelBodyTypeRules)));
   props.setProperty(PROP_KEYS.MODEL_PHOTOS, JSON.stringify(normalizeModelPhotos_(settings.modelPhotos)));
+  props.setProperty(PROP_KEYS.HOME_ANNOUNCEMENT, validateHomeAnnouncement_(settings.homeAnnouncement));
   props.setProperty(PROP_KEYS.CELEBRATION_VARIANTS, JSON.stringify(normalizeCelebrationVariants_(settings.celebrationVariants)));
   props.setProperty(PROP_KEYS.APP_TITLE, validateAppTitle_(settings.appTitle));
   props.setProperty(PROP_KEYS.LOADING_IMAGE_URL, validateLoadingImageUrl_(settings.loadingImageUrl));
@@ -473,6 +475,20 @@ function normalizeModelPhotos_(list) {
 }
 
 /**
+ * お知らせ設定値（純粋関数）。ホーム画面の上部に全利用者向けに表示する、管理者が
+ * 入力する自由記述の案内文（例:「限定車在庫3台あり」）。1行で目立たせて表示する
+ * 想定のため、最大文字数（HOME_ANNOUNCEMENT_MAX_LENGTH）を超える場合はエラーに
+ * する。空文字であれば単に表示しない（JavaScript.htmlのrenderHomeAnnouncement_参照）。
+ */
+function validateHomeAnnouncement_(text) {
+  var value = String(text || '').trim();
+  if (value.length > HOME_ANNOUNCEMENT_MAX_LENGTH) {
+    throw new Error('お知らせが長すぎます（' + value.length + '文字）。' + HOME_ANNOUNCEMENT_MAX_LENGTH + '文字以内で入力してください。');
+  }
+  return value;
+}
+
+/**
  * メール通知先1項目分（Hold時／受注確定時／システムエラー通知のいずれか）の正規化
  * （純粋関数）。空文字は除去し、大文字小文字を無視して重複除去したうえ、最大件数
  * （NOTIFY_MAIL_LIST_MAX）・1件あたりの最大文字数（NOTIFY_MAIL_MAX_LENGTH）を超えて
@@ -637,6 +653,9 @@ function redactSystemMasterSettings_(settings, isAdmin) {
     // ホーム画面（全利用者）が表示する値のため、編集画面（設定タブ）は管理者
     // 限定にしつつ値自体は非管理者にも渡す。
     modelPhotos: settings.modelPhotos,
+    // お知らせも、ロゴ・車両画像と同様に全利用者のホーム画面に表示する値のため、
+    // 編集画面は管理者限定にしつつ値自体は非管理者にも渡す。
+    homeAnnouncement: settings.homeAnnouncement,
     // Hold登録等の演出バリエーションは、ロゴと同様に全利用者の
     // 画面で使う（演出を実際に表示するのは操作した本人のブラウザのため）。
     // 編集画面（設定タブ）自体は管理者限定にするが、値自体は非管理者にも渡す。
@@ -673,6 +692,7 @@ function applySystemMasterGuard_(incoming, current, isAdmin) {
     staffList: current.staffList,
     modelBodyTypeRules: current.modelBodyTypeRules,
     modelPhotos: current.modelPhotos,
+    homeAnnouncement: current.homeAnnouncement,
     celebrationVariants: current.celebrationVariants,
     loadingImageUrl: current.loadingImageUrl,
     appTitle: current.appTitle

@@ -63,14 +63,19 @@
        要望を受け、黒に固定した（JS実行後、選んだテーマの色に上書きされる一瞬までの
        表示専用のため、この値自体はテーマ設定の影響を受けない）。 */
     --loading-bg: #000000;
-    /* アイコンのみの左レール（PCビュー）の幅、およびヘッダー
-       （.contentHeader）の高さ。どちらも中身に応じて変わらない固定値にして
-       おくことで、.commandbar側のposition: sticky（top: var(--content-header-h)）を
-       JSでの実測無しに正しく重ねられるようにしている（以前のposition: fixed＋
-       JS実測スペーサー方式から、position: stickyだけで完結する方式に変更した。
-       Stylesheet.html内の.rail・.contentHeader・.commandbar参照）。 */
-    --rail-w: 68px;
-    --content-header-h: 60px;
+    /* コントロールパネル（.topbar、ブランド行＋水平タブの2段）の高さ。中身に
+       応じて変わらない固定値にしておくことで、.commandbar側のposition: sticky
+       （top: var(--topbar-h)）をJSでの実測無しに正しく重ねられる（以前の
+       position: fixed＋JS実測スペーサー方式は使わない。Stylesheet.html内の
+       .topbar・.commandbar参照）。901px以上はボタン・ロゴを一回り大きくする分、
+       高さも合わせて変える。 */
+    --topbar-h: 106px;
+    /* コントロールパネル（.topbar）専用の固定色（配色テーマ「表示設定」の
+       影響を受けない）。以前の「コントロールパネル」時代と同じダークネイビーに
+       戻した（<meta name="theme-color">とも合わせてある）。 */
+    --topbar-bg: #0b1f33;
+    --on-topbar: #ffffff;
+    --dark-ui-outline: rgba(255, 255, 255, .14);
     /* ソフトウェアキーボードが画面下側を覆っている高さ。JS
        （syncKeyboardInset_）がwindow.visualViewportで実測し、キーボード表示中は
        その高さに更新する（.modal参照。キーボードが無い間は0のまま）。 */
@@ -113,140 +118,115 @@
   }
   .icon--inline { width: 14px; height: 14px; vertical-align: -2px; }
 
-  /* ===== レイアウト全体：アイコンレール（左）＋コンテンツ（右） =====
-     横タブ・色付きサイドバーは廃止し、Slack/Notion等と同じ「アイコンのみの
-     細い左レール」＋「検索・絞り込みチップをまとめたコマンドバー」に統一した
-     （現場の要望「画期的な案」への対応）。以前のposition: fixed＋JS実測
-     スペーサー方式（syncFixedBars_）はもう使わず、position: sticky＋固定の
-     高さ変数（--rail-w・--content-header-h、:root参照）だけで完結させている。 */
-  #app { display: grid; grid-template-columns: var(--rail-w) minmax(0, 1fr); align-items: start; }
-  .content { min-width: 0; }
+  /* ===== レイアウト全体：コントロールパネル（上部）＋コンテンツ =====
+     ロゴ・アプリ名・画面切替タブ・担当者情報を1本の帯（.topbar）にまとめた
+     「コントロールパネル」に統一する（アイコンのみの左レール・下タブバーは
+     廃止。以前ホーム画面があった頃の構成に戻した）。PC・タブレット・スマホ
+     すべて同じ1つの帯で、画面切替は水平タブ（.tabs）の横スクロールに対応する。
+     position: sticky＋固定の高さ変数（--topbar-h、:root参照）で、以前の
+     position: fixed＋JS実測スペーサー方式（syncFixedBars_）は使わない。 */
+  #app { display: block; }
 
-  /* ===== 左レール（アイコンのみ。PCビュー専用、901px未満は.tabbarに切り替える） =====
-     height: 100vh + position: stickyにするだけで、JSでの高さ実測なしに
-     スクロール中も画面の左端に張り付いたままになる（#appの行の高さは
-     一覧の中身ぶん100vhよりずっと高くなるが、position: stickyはその範囲内で
-     top: 0の位置に留まり続ける）。 */
-  .rail {
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    padding: 14px 0 12px;
-    background: var(--surface);
-    border-right: 1px solid var(--outline);
-    position: sticky;
-    top: 0;
-    height: 100vh;
-  }
-  .rail__mark {
-    width: 36px; height: 36px; border-radius: 10px; flex: none;
-    background: var(--primary-bg); color: var(--primary-text);
-    display: flex; align-items: center; justify-content: center;
-    margin-bottom: 16px;
-  }
-  .rail__logo { max-width: 24px; max-height: 24px; object-fit: contain; }
-  .rail__markIcon { width: 20px; height: 20px; }
-  .rail__nav { display: flex; flex-direction: column; gap: 4px; width: 100%; align-items: center; }
-  .railBtn {
-    position: relative;
-    display: flex; align-items: center; justify-content: center;
-    width: 46px; height: 46px; padding: 0; border-radius: 11px; flex: none;
-    background: none; border: none; color: var(--on-surface-variant); cursor: pointer;
-  }
-  .railBtn:hover { background: var(--background); color: var(--on-surface); }
-  .railBtn.is-active { background: var(--primary-bg); color: var(--primary-text); }
-  .railBtn.is-active::before {
-    content: ''; position: absolute; left: -12px; top: 50%; transform: translateY(-50%);
-    width: 3px; height: 18px; border-radius: 3px; background: var(--primary);
-  }
-  /* ツールチップ（ホバー時のみ表示）。アイコンのみのレールでも各項目名・
-     担当者名がわかるようにする。 */
-  .railBtn .tip, .rail__avatarTip {
-    position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%);
-    background: var(--on-surface); color: var(--surface); font-size: 11.5px; font-weight: 700;
-    padding: 5px 9px; border-radius: 6px; white-space: nowrap; opacity: 0; pointer-events: none;
-    transition: opacity .12s var(--ease); z-index: 40;
-  }
-  .railBtn:hover .tip, .railBtn:focus-visible .tip,
-  .rail__avatar:hover .rail__avatarTip, .rail__avatar:focus-visible .rail__avatarTip { opacity: 1; }
-  .rail__spacer { flex: 1; }
-  .rail__avatar {
-    position: relative;
-    width: 38px; height: 38px; border-radius: 10px; flex: none;
-    background: var(--primary); color: var(--on-primary); border: none; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 12px; font-weight: 700;
-  }
-  .rail__avatarTip { left: auto; right: calc(100% + 10px); bottom: 0; top: auto; transform: none; text-align: left; line-height: 1.6; }
-  .rail__avatarTip b { display: block; font-size: 12px; }
-  .rail__avatarTip span { display: block; font-weight: 500; opacity: .8; font-size: 10.5px; }
-  .rail__avatarTip.is-warn { background: var(--warning); }
-
-  /* ===== 下タブバー（タブレット・スマホ幅。レールの代わり） =====
-     位置・表示はStylesheet.html末尾の@media(max-width: 900px)ブロックで
-     まとめて定義する。ここではPCビューで確実に隠すためのデフォルトのみ置く。 */
-  .tabbar { display: none; }
-
-  /* ===== コンテンツヘッダー：全画面共通の1つの要素 =====
-     表示中のタブに応じてタイトルだけをJS（switchToTab_）が書き換える。
-     戻る／更新ボタン・アプリ名・（スマホ幅のみ）担当者情報は画面をまたいで
-     同じ1つの要素のため、画面ごとに複製する必要が無い。高さはvar(--content-header-h)で
-     固定し、各画面の.commandbarをその真下にposition: stickyで重ねる
-     （JSでの高さ実測は不要）。 */
-  .contentHeader {
-    height: var(--content-header-h);
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 0 20px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--outline);
+  /* ===== コントロールパネル（.topbar） =====
+     ダークネイビー固定色（配色テーマの影響を受けない）。ブランド行（戻る／
+     更新ボタン・ロゴ＋アプリ名・担当者情報）と、その下の水平タブ行の2段構成。 */
+  .topbar {
+    background: var(--topbar-bg);
+    color: var(--on-topbar);
     position: sticky;
     top: 0;
     z-index: 15;
   }
-  .contentHeader__titles { flex: 1 1 auto; min-width: 0; }
-  .contentHeader__eyebrow {
-    margin: 0;
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-    color: var(--on-surface-variant);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  .topbar__brandRow {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 20px;
   }
-  .contentHeader__title {
-    margin: 2px 0 0;
-    font-size: 18px;
-    font-weight: 800;
-    color: var(--on-surface);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  .topbar__left { display: flex; align-items: center; gap: 8px; flex: none; }
+  .topbar__navBtn {
+    display: flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px; padding: 0; flex: none;
+    background: transparent; border: 1px solid var(--dark-ui-outline); border-radius: 50%;
+    color: var(--on-topbar); cursor: pointer;
   }
-  .iconbtn {
-    display: flex; align-items: center; justify-content: center; flex: none;
-    width: 36px; height: 36px; padding: 0;
-    background: transparent; border: 1px solid var(--outline); border-radius: 10px;
-    color: var(--on-surface-variant); cursor: pointer;
-  }
-  .iconbtn:hover { background: var(--background); color: var(--on-surface); }
-  .iconbtn:disabled { opacity: .3; cursor: default; }
-  .iconbtn:disabled:hover { background: transparent; }
-  /* 「更新」ボタンは読み込み中はアイコンを回転させることだけでフィードバックする。 */
-  .iconbtn.is-spinning .icon { animation: navRefreshSpin .8s linear infinite; }
+  .topbar__navBtn:hover { background: rgba(255, 255, 255, .08); }
+  .topbar__navBtn:disabled { opacity: .3; cursor: default; }
+  .topbar__navBtn:disabled:hover { background: transparent; }
+  .topbar__navBtn--refresh.is-spinning .icon { animation: navRefreshSpin .8s linear infinite; }
   @keyframes navRefreshSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-  /* スマホ・タブレット幅専用（レールが無いためヘッダー内にアカウント情報を
-     置く）。PCビューではレール下端のアバターと重複するため非表示にする
-     （下の@media(max-width: 900px)ブロック参照）。 */
-  .contentHeader__account {
-    display: none;
-    flex: none; width: 32px; height: 32px; border-radius: 9px; padding: 0;
-    background: var(--primary); color: var(--on-primary); border: none; cursor: pointer;
-    align-items: center; justify-content: center; font-size: 11px; font-weight: 700;
+  /* アプリ名表記。左右のボタン・ユーザー情報の幅に関わらず画面中央に来るよう、
+     .topbar__brandRow（position: relative）を基準にposition: absoluteで
+     中央配置する。 */
+  .topbar__brand {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    display: flex; align-items: center; gap: 8px; white-space: nowrap;
+    max-width: calc(100% - 190px);
+  }
+  .topbar__logo { height: 26px; max-width: 140px; width: auto; object-fit: contain; flex: none; }
+  .topbar__markIcon { width: 22px; height: 22px; flex: none; }
+  .topbar__brandText {
+    font-size: 14px; font-weight: 700; letter-spacing: .08em; color: var(--on-topbar);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+  }
+  .topbar__user {
+    flex: none; text-align: right; font-size: 12px; line-height: 1.5; white-space: nowrap;
+    max-width: 140px; overflow: hidden; text-overflow: ellipsis;
+  }
+  .topbar__userName { display: block; font-weight: 600; }
+  .topbar__userEmail { display: block; opacity: .75; font-size: 10.5px; }
+  .topbar__userWarn { display: block; color: #ffd479; font-size: 11px; }
+
+  /* ===== 画面切替：水平タブ（ブランド行の下、中央寄せの下線タブ） =====
+     塗りつぶしのピル型ではなく、テキスト＋アクティブ時の下線のミニマルな
+     ナビにする。6項目が並ぶ幅の狭い画面では折り返さず横スクロールする。
+     不具合修正: justify-content: centerのままだと、内容が幅からはみ出した際に
+     先頭（ホーム）側が画面外に隠れ、スクロールしても戻れないことがあった
+     （center揃えのオーバーフローはブラウザにより両端が均等に見切れる）。
+     safe centerにすることで、はみ出す場合だけ自動的に先頭揃えにフォールバック
+     させ、常に最初のタブから確実にスクロールで辿り着けるようにする。 */
+  .tabs {
+    display: flex;
+    justify-content: safe center;
+    gap: 24px;
+    padding: 0 20px 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs__item {
+    flex: none;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--on-topbar);
+    opacity: .62;
+    padding: 6px 1px;
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity .15s var(--ease), border-color .15s var(--ease);
+  }
+  .tabs__item:hover { opacity: .85; }
+  .tabs__item.is-active { opacity: 1; border-bottom-color: #ffffff; }
+
+  @media (min-width: 901px) {
+    /* ブランド行・タブ行のpaddingを広げる分、.commandbar側のsticky offset
+       （top: var(--topbar-h)）もこの実測値に合わせて更新する（ズレると
+       スクロール時に隙間または重なりが出る）。 */
+    :root { --topbar-h: 128px; }
+    .topbar__brandRow { padding: 20px 32px; }
+    .topbar__navBtn { width: 42px; height: 42px; }
+    .topbar__logo { height: 30px; max-width: 160px; }
+    .topbar__brandText { font-size: 16px; }
+    .topbar__user { font-size: 13px; max-width: 220px; }
+    .topbar__userEmail { font-size: 11.5px; }
+    .tabs { gap: 32px; padding: 0 32px 14px; }
+    .tabs__item { font-size: 13px; }
   }
 
   /* ===== 起動時ローディング画面 =====
@@ -296,7 +276,7 @@
   }
 
   /* ===== 在庫データ整合性チェックの警告バナー（アプリ起動時、問題があれば表示） =====
-     .contentHeaderのすぐ下に置く（コンテンツ列の中、レールの右側）。 */
+     .topbarの子要素として置く（コントロールパネルの一部）。 */
   .integrityBanner {
     display: flex;
     align-items: center;
@@ -350,13 +330,13 @@
   /* ===== コマンドバー：検索＋クイック状態＋絞り込みチップ =====
      以前は「絞り込み」ボタンで開閉する左サイドバーに、区分・状態・掲載状況・
      モデル・年式・価格帯・走行距離・カラー・ボディタイプの各項目を並べていたが、
-     タップで開くチップに置き換え、一覧を画面幅いっぱいに表示できるようにした
-     （現場の要望「画期的な案」への対応）。.contentHeaderの真下に
-     position: stickyで重ね、スクロール中も検索・チップが見えたままにする
-     （--content-header-h、:root参照。JSでの高さ実測は不要）。 */
+     タップで開くチップに置き換え、一覧を画面幅いっぱいに表示できるようにした。
+     コントロールパネル（.topbar）の真下にposition: stickyで重ね、スクロール中も
+     検索・チップが見えたままにする（--topbar-h、:root参照。JSでの高さ実測は
+     不要）。 */
   .commandbar {
     position: sticky;
-    top: var(--content-header-h);
+    top: var(--topbar-h);
     z-index: 12;
     background: var(--surface);
     border-bottom: 1px solid var(--outline);
@@ -449,11 +429,31 @@
   .homeTypeNav__item:hover { border-color: var(--on-surface-variant); color: var(--on-surface); }
   .homeTypeNav__item.is-active { background: var(--on-surface); border-color: var(--on-surface); color: var(--surface); }
 
+  /* お知らせ（#homeAnnouncement）。管理者が設定タブから登録した案内文を、
+     ホーム画面の一番上に目立たせて表示する（未設定時は要素ごとhidden）。 */
+  .homeAnnouncement {
+    background: var(--primary-bg);
+    color: var(--primary-text);
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+    padding: 10px 20px;
+  }
+
+  /* 写真を小さくし、PC幅では横一列に4枚並ぶ固定4列グリッドにする（現場からの
+     要望）。タブレット・スマホ幅は列数を段階的に減らし、写真は小さくても
+     欠けずに見えるようauto-fillで自然に折り返す。 */
   .homeGrid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 12px;
     padding: 4px 24px 24px;
+  }
+  @media (min-width: 481px) {
+    .homeGrid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+  }
+  @media (min-width: 901px) {
+    .homeGrid { grid-template-columns: repeat(4, 1fr); gap: 16px; padding: 16px 24px 24px; }
   }
   .homeCard {
     background: var(--surface);
@@ -472,24 +472,25 @@
   .homeCard__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .homeCard__photo--clickable { cursor: pointer; }
   .homeCard__stock {
-    position: absolute; top: 10px; right: 10px;
+    position: absolute; top: 6px; right: 6px;
     background: var(--success-bg); color: var(--success);
+    font-size: 10px; padding: 3px 8px;
   }
   .homeCard__stock.badge--stock--zero { background: rgba(31, 41, 51, .55); color: var(--surface); }
-  .homeCard__body { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
-  .homeCard__headRow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .homeCard__model { font-size: 16px; font-weight: 700; letter-spacing: -.01em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .homeCard__type { flex: none; font-size: 11px; font-weight: 600; color: var(--on-surface-variant); border: 1px solid var(--outline); border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
-  .homeCard__gradeGrid { display: flex; flex-wrap: wrap; gap: 6px; }
+  .homeCard__body { padding: 10px 12px; display: flex; flex-direction: column; gap: 7px; }
+  .homeCard__headRow { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+  .homeCard__model { font-size: 13.5px; font-weight: 700; letter-spacing: -.01em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .homeCard__type { flex: none; font-size: 10px; font-weight: 600; color: var(--on-surface-variant); border: 1px solid var(--outline); border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
+  .homeCard__gradeGrid { display: flex; flex-wrap: wrap; gap: 5px; }
   .homeCard__gradeChip {
     appearance: none; border: 1px solid var(--outline); background: var(--background);
-    border-radius: 8px; padding: 6px 10px; display: flex; flex-direction: column; gap: 2px;
+    border-radius: 7px; padding: 4px 7px; display: flex; flex-direction: column; gap: 1px;
     cursor: pointer; font-family: inherit; text-align: left;
   }
   .homeCard__gradeChip:hover { border-color: var(--primary); }
   .homeCard__gradeChip:disabled { opacity: .4; cursor: not-allowed; }
-  .homeCard__gradeName { font-size: 11.5px; font-weight: 700; color: var(--on-surface); }
-  .homeCard__gradeCount { font-size: 10.5px; color: var(--success); font-weight: 700; }
+  .homeCard__gradeName { font-size: 10.5px; font-weight: 700; color: var(--on-surface); }
+  .homeCard__gradeCount { font-size: 9.5px; color: var(--success); font-weight: 700; }
   .homeCard__gradeCount--zero { color: var(--on-surface-variant); }
 
   /* 設定タブの車両画像リストのサムネイル（.staffList__summaryをそのまま再利用し、
@@ -1747,34 +1748,6 @@
     .settingsWrap { max-width: 100%; }
     .purchaseOrderList { grid-template-columns: 1fr; }
 
-    /* アイコンのみの左レール（PCビュー専用）は非表示にし、代わりに画面下
-       固定のアイコン＋ラベルの.tabbarに切り替える（レール自体の基本
-       スタイルはファイル冒頭のレイアウトセクション参照）。#appはレールが
-       無くなったぶん1カラムのグリッドに戻す。 */
-    #app { grid-template-columns: minmax(0, 1fr); padding-bottom: 62px; }
-    .tabbar {
-      display: flex;
-      position: fixed;
-      left: 0; right: 0; bottom: 0;
-      z-index: 40;
-      background: var(--surface);
-      border-top: 1px solid var(--outline);
-      padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
-    }
-    .tabbarBtn {
-      flex: 1 1 0;
-      appearance: none; border: none; background: none; cursor: pointer;
-      display: flex; flex-direction: column; align-items: center; gap: 3px;
-      padding: 5px 2px;
-      color: var(--on-surface-variant);
-      font-family: inherit; font-size: 10px; font-weight: 700;
-    }
-    .tabbarBtn .icon { width: 20px; height: 20px; }
-    .tabbarBtn.is-active { color: var(--primary-text); }
-    /* レールが無いぶん、担当者情報はコンテンツヘッダーの右端に小さな
-       アバターとして表示する（タップで氏名・メールをtitle属性で確認できる）。 */
-    .contentHeader__account { display: flex; }
-    .contentHeader { padding: 0 16px; }
     .commandbar { padding: 12px 16px; }
     .toolbar2 { padding: 10px 16px; }
 
@@ -1799,7 +1772,6 @@
 
   /* ===== スマートフォン ===== */
   @media (max-width: 600px) {
-    .contentHeader__titles { min-width: 0; }
     .integrityBanner { padding: 8px 12px; font-size: 12.5px; flex-wrap: wrap; }
     .integrityBanner__list { padding: 8px 12px 10px; }
     .staffList__body .input[data-staff-field="name"],
@@ -1832,7 +1804,7 @@
     .confettiPiece { display: none; }
     .confettiLayer::before { transition: none; }
     .card, .orderCard { transition: none; }
-    .iconbtn.is-spinning .icon { animation: none; }
+    .topbar__navBtn--refresh.is-spinning .icon { animation: none; }
     .view.is-active { animation: none; }
     .celebParticle, .celebFlash, .celebShockwave { display: none; }
     .celebrationBanner { transition: none; }

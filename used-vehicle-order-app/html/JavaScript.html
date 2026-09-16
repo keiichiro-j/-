@@ -555,21 +555,6 @@
     return el ? el.dataset.tab : 'inventory';
   }
 
-  // コンテンツヘッダー（#contentHeader、全画面共通の1つの要素）のタイトルに
-  // 表示するラベル。
-  var CONTENT_TITLES_ = {
-    home: 'ホーム',
-    inventory: '在庫リスト',
-    orders: '受注リスト',
-    wholesaleOrders: '業販受注リスト',
-    mypage: 'マイページ',
-    settings: '設定'
-  };
-  function syncContentTitle_(tabName) {
-    var el = $('contentTitle');
-    if (el) el.textContent = CONTENT_TITLES_[tabName] || '';
-  }
-
   // 「戻る」ボタン用の画面履歴（タブ名のみのスタック）。メインタブのクリックなど、
   // switchToTab_を経由するすべての画面遷移で自動的に記録される。opts.skipHistoryは
   // 「戻る」ボタン自身がswitchToTab_を呼ぶ際に、戻った先をさらに履歴に積んでしまわない
@@ -584,7 +569,6 @@
     document.querySelectorAll('.navBtn').forEach(function (t) { t.classList.toggle('is-active', t.dataset.tab === tabName); });
     document.querySelectorAll('main.view').forEach(function (v) { v.classList.remove('is-active'); });
     $('view-' + tabName).classList.add('is-active');
-    syncContentTitle_(tabName);
     // 全タブは同じ1つのdocument上でdisplay: none/blockを切り替えているだけの
     // ため、スクロール位置はタブをまたいで共有されてしまう（例: 在庫リストで
     // スクロールした状態で他のタブへ移動すると、次のタブも同じスクロール
@@ -606,18 +590,10 @@
     $('inventoryStatusTabs').classList.toggle('hidden', currentActiveTab_() !== 'inventory');
   }
 
-  on('rail','click', function (e) {
-    var btn = e.target.closest('[data-tab]');
-    if (!btn) return;
-    switchToTab_(btn.dataset.tab);
-  });
-
-  // 画面下固定のタブバー（タブレット・スマホ幅、Stylesheet.html参照）も、
-  // レールと同じswitchToTab_をそのまま呼ぶ。ボタン自体がレールの各項目と
-  // 同じ.navBtnクラスを共有しているため、is-active状態の同期は
-  // switchToTab_側の一括トグル（document.querySelectorAll('.navBtn')）で
-  // 自動的に行われる。
-  on('tabbar','click', function (e) {
+  // コントロールパネル（.topbar）の水平タブ。以前のホームがあった頃の
+  // コントロールパネルと同じ、1本の水平ナビにまとめている（アイコンのみの
+  // 左レール・下タブバーは廃止）。
+  on('topbarTabs', 'click', function (e) {
     var btn = e.target.closest('[data-tab]');
     if (!btn) return;
     switchToTab_(btn.dataset.tab);
@@ -1694,34 +1670,19 @@
     return '<span class="staffDisplay__warn">担当者マスタ未登録（' + escapeHtml(email || '不明') + '）</span>';
   }
 
-  // 担当者名からアバターの頭文字（最大2文字）を作る。「姓 名」の
-  // スペース区切りが一般的なため、区切りがあれば姓・名それぞれの頭文字
-  // （例: 「佐藤 一郎」→「佐一」）、無ければ先頭2文字を使う。
-  function staffInitials_(name) {
-    if (!name) return '?';
-    var parts = name.trim().split(/\s+/);
-    if (parts.length >= 2) return parts[0].charAt(0) + parts[1].charAt(0);
-    return name.trim().slice(0, 2);
-  }
-
-  // ログイン中の担当者情報を、レール下端のアバター（PCビュー、ホバーで氏名・
-  // メールをツールチップ表示）と、コンテンツヘッダーのアカウントチップ
-  // （タブレット・スマホ幅。レールが無いため、こちらはtitle属性のネイティブ
-  // ツールチップで確認する）の両方に反映する。
+  // ログイン中の担当者情報を、コントロールパネル右端（#topbarUser）に
+  // 氏名・メールアドレスのテキストとして表示する（以前のコントロールパネルと
+  // 同じ見た目。アバター画像・ホバーツールチップは持たない簡易表示）。
   function renderTopbarUser() {
     var name = currentStaffName_();
     var email = currentUserEmail_();
-    var initials = name ? staffInitials_(name) : '?';
-    var tipHtml, titleText, isWarn;
+    var infoHtml;
     if (name) {
-      tipHtml = '<b>' + escapeHtml(name) + '</b><span>' + escapeHtml(email) + '</span>';
-      titleText = name + '\n' + email;
-      isWarn = false;
+      infoHtml = '<span class="topbar__userName">' + escapeHtml(name) + '</span>' +
+        '<span class="topbar__userEmail">' + escapeHtml(email) + '</span>';
     } else if (email) {
       // メールアドレスは取得できているが、担当者マスタに未登録の場合。
-      tipHtml = '<b>担当者未登録</b><span>' + escapeHtml(email) + '</span>';
-      titleText = '担当者未登録: ' + email;
-      isWarn = true;
+      infoHtml = '<span class="topbar__userWarn">担当者未登録: ' + escapeHtml(email) + '</span>';
     } else {
       // メールアドレス自体が空の場合。ほとんどの場合、Webアプリのデプロイ設定
       // （「実行するユーザー」「アクセスできるユーザー」）が原因で
@@ -1729,16 +1690,10 @@
       // （個人のGoogleアカウントで運用する場合、「アクセスできるユーザー」を
       // 「Googleアカウントを持つ全員」にする必要がある。「全員（匿名ユーザーを
       // 含む）」だとログイン自体が不要になり、アカウント情報を取得できない）。
-      tipHtml = '<b>ログイン情報を取得できません</b><span>デプロイ設定をご確認ください</span>';
-      titleText = 'ログイン情報を取得できません（Webアプリのデプロイ設定をご確認ください）';
-      isWarn = true;
+      infoHtml = '<span class="topbar__userWarn" title="Webアプリのデプロイ設定（実行するユーザー・アクセスできるユーザー）をご確認ください">' +
+        'ログイン情報を取得できません</span>';
     }
-    $('railAvatarInitials').textContent = initials;
-    $('railAvatarTip').innerHTML = tipHtml;
-    $('railAvatarTip').classList.toggle('is-warn', isWarn);
-    var accountChip = $('contentAccount');
-    accountChip.textContent = initials;
-    accountChip.title = titleText;
+    $('topbarUser').innerHTML = infoHtml;
   }
 
   // ===== 在庫データ整合性チェック（アプリ起動時に1回だけ実行） =====
@@ -2599,6 +2554,7 @@
     $('systemMasterStaffCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterBodyTypeCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterModelPhotoCard').classList.toggle('hidden', !isAdmin);
+    $('systemMasterAnnouncementCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterCelebrationCard').classList.toggle('hidden', !isAdmin);
     // 業販受注リストのタブ（レール・下タブバーとも.navBtn--wholesale）も、
     // システムマスタと同じく管理者権限を持つ担当者にのみ表示する。非管理者が
@@ -2652,6 +2608,8 @@
     });
     $('modelPhotosMax').textContent = (state.bootstrap && state.bootstrap.modelPhotosMax) || 40;
     renderModelPhotoList_();
+    $('homeAnnouncementMax').textContent = (state.bootstrap && state.bootstrap.homeAnnouncementMax) || 60;
+    $('settingsHomeAnnouncement').value = settings.homeAnnouncement || '';
     populateOrdersStaffFilter_();
     populateOrdersLocationFilter_();
     populateStaffFilter_('wholesaleOrdersStaffFilter');
@@ -2805,18 +2763,19 @@
   function applyAppTitle_(appTitle) {
     var title = appTitle || DEFAULT_APP_TITLE;
     document.title = title;
-    var mark = $('railMark');
-    if (mark) mark.title = title;
-    var eyebrow = $('contentAppTitle');
-    if (eyebrow) eyebrow.textContent = title;
+    var brand = $('topbarBrand');
+    if (brand) brand.title = title;
+    var text = $('topbarBrandText');
+    if (text) text.textContent = title;
   }
 
-  // ----- ロゴ設定（レールのブランドマークに表示する画像。ローディング画像と
-  //       同じく、ドライブID／共有リンク／外部URLのいずれかを直接入力する。
-  //       変換はnormalizeLogoUrl_で保存時にサーバー側で行う） -----
+  // ----- ロゴ設定（コントロールパネルのブランドマークに表示する画像。
+  //       ローディング画像と同じく、ドライブID／共有リンク／外部URLの
+  //       いずれかを直接入力する。変換はnormalizeLogoUrl_で保存時に
+  //       サーバー側で行う） -----
   function applyLogo(logoUrl) {
-    var img = $('railLogo');
-    var icon = $('railMarkIcon');
+    var img = $('topbarLogo');
+    var icon = $('topbarMarkIcon');
     if (logoUrl) {
       img.src = logoUrl;
       img.classList.remove('hidden');
@@ -3402,6 +3361,20 @@
     $('homeGrid').innerHTML = modelPhotos
       .map(function (p) { return homeModelCardHtml_(p, allItems, allModelPhotos); })
       .join('');
+    renderHomeAnnouncement_((state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.homeAnnouncement) || '');
+  }
+
+  /**
+   * ホーム画面の一番上に表示するお知らせ（管理者が設定タブから入力する自由記述の
+   * 案内文、例:「限定車在庫3台あり」）。全利用者に表示する（設定の編集自体は
+   * 管理者限定だが、値はredactSystemMasterSettings_で非管理者にも渡される。
+   * SettingsService.gs参照）。未設定（空文字）の場合は要素ごと非表示にする。
+   */
+  function renderHomeAnnouncement_(text) {
+    var el = $('homeAnnouncement');
+    var value = String(text || '').trim();
+    el.textContent = value;
+    el.classList.toggle('hidden', !value);
   }
 
   /**
@@ -3710,6 +3683,15 @@
       return;
     }
 
+    // お知らせも、サーバー側のvalidateHomeAnnouncement_（SettingsService.gs）と
+    // 同じ規則（最大文字数）を保存前にクライアント側でもチェックする。
+    var homeAnnouncement = $('settingsHomeAnnouncement').value.trim();
+    var maxHomeAnnouncement = (state.bootstrap && state.bootstrap.homeAnnouncementMax) || 60;
+    if (homeAnnouncement.length > maxHomeAnnouncement) {
+      $('settingsError').textContent = 'お知らせは最大' + maxHomeAnnouncement + '文字までです（現在' + homeAnnouncement.length + '文字）';
+      return;
+    }
+
     var settings = {
       themeKey: state.themeKey || DEFAULT_THEME_KEY,
       appTitle: appTitle,
@@ -3722,6 +3704,7 @@
       staffList: uniqueStaffList,
       modelBodyTypeRules: uniqueBodyTypeRules,
       modelPhotos: uniqueModelPhotos,
+      homeAnnouncement: homeAnnouncement,
       celebrationVariants: {
         hold: $('celebrationVariantHold').value,
         order: $('celebrationVariantOrder').value

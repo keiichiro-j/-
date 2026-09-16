@@ -645,6 +645,22 @@ test('上限文字数を超えるとエラー', () => {
   assert.throws(() => sandbox.validateAppTitle_(tooLong), /長すぎます/);
 });
 
+console.log('== SettingsService: validateHomeAnnouncement_（ホーム画面のお知らせ設定値の検証） ==');
+test('通常の文字列はそのまま返る', () => {
+  assert.strictEqual(sandbox.validateHomeAnnouncement_('限定車在庫3台あり'), '限定車在庫3台あり');
+});
+test('前後の空白はトリムされる', () => {
+  assert.strictEqual(sandbox.validateHomeAnnouncement_('  限定車在庫3台あり  '), '限定車在庫3台あり');
+});
+test('空文字・未指定は空文字のまま（未設定時は表示しない）', () => {
+  assert.strictEqual(sandbox.validateHomeAnnouncement_(''), '');
+  assert.strictEqual(sandbox.validateHomeAnnouncement_(undefined), '');
+});
+test('上限文字数を超えるとエラー', () => {
+  const tooLong = 'あ'.repeat(sandbox.HOME_ANNOUNCEMENT_MAX_LENGTH + 1);
+  assert.throws(() => sandbox.validateHomeAnnouncement_(tooLong), /長すぎます/);
+});
+
 console.log('== SettingsService: validateSpreadsheetTitle_（スプレッドシート自体のタイトルの検証） ==');
 test('通常の文字列はそのまま返る', () => {
   assert.strictEqual(sandbox.validateSpreadsheetTitle_('販売可能リスト在庫管理（本社）'), '販売可能リスト在庫管理（本社）');

@@ -115,6 +115,11 @@ var MODEL_PHOTO_DISPLAY_WIDTH = 1000;
 // 別途チェックする（SettingsService.gs参照）。
 var MODEL_PHOTOS_TOTAL_MAX_LENGTH = 8000;
 
+// お知らせ（管理者が設定タブから入力し、ホーム画面の上部に全利用者向けに表示する
+// 案内文。例:「限定車在庫3台あり」）の最大文字数。1行で目立たせて表示する想定の
+// ため短めの上限にしている（validateHomeAnnouncement_、SettingsService.gs参照）。
+var HOME_ANNOUNCEMENT_MAX_LENGTH = 60;
+
 /**
  * 車両情報（在庫リスト・受注リストで共通）の列定義。中古車1台ごとに固有の
  * 管理項目（区分・OCN・型式・車台番号・初年度登録日・走行距離・車検満了日・
@@ -380,7 +385,8 @@ var PROP_KEYS = {
   LOADING_IMAGE_URL: 'LOADING_IMAGE_URL',
   APP_TITLE: 'APP_TITLE',
   MODEL_BODY_TYPE_RULES: 'MODEL_BODY_TYPE_RULES',
-  MODEL_PHOTOS: 'MODEL_PHOTOS'
+  MODEL_PHOTOS: 'MODEL_PHOTOS',
+  HOME_ANNOUNCEMENT: 'HOME_ANNOUNCEMENT'
 };
 
 // アプリのタイトル（ブラウザのタブ名・サイドバー/トップバーの見出し・ホーム画面へ
