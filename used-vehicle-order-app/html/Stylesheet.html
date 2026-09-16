@@ -308,11 +308,10 @@
   }
   .integrityBanner__list li { padding: 3px 0; }
 
-  /* main.viewは.contentの直下、コンテンツヘッダーの下に続く各画面。検索・
-     絞り込みチップを持つ在庫・受注・業販受注リストは.view--listを併記し、
-     コマンドバー・一覧行を画面幅いっぱいに使えるよう左右のパディングを
-     0にする（マイページ・設定はカード状のUIのため、通常どおり左右の余白を
-     持たせる）。 */
+  /* main.viewはコントロールパネルの下に続く各画面。検索・絞り込みサイドバーを
+     持つ在庫・受注・業販受注リストは.view--listを併記し、コマンドバー・
+     一覧行を画面幅いっぱいに使えるよう左右のパディングを0にする（マイページ・
+     設定はカード状のUIのため、通常どおり左右の余白を持たせる）。 */
   main.view { max-width: 1680px; margin: 0 auto; padding: 16px; }
   main.view.view--list { max-width: none; margin: 0; padding: 0; }
   .view { display: none; }
@@ -327,13 +326,11 @@
     to { opacity: 1; transform: translateY(0); }
   }
 
-  /* ===== コマンドバー：検索＋クイック状態＋絞り込みチップ =====
-     以前は「絞り込み」ボタンで開閉する左サイドバーに、区分・状態・掲載状況・
-     モデル・年式・価格帯・走行距離・カラー・ボディタイプの各項目を並べていたが、
-     タップで開くチップに置き換え、一覧を画面幅いっぱいに表示できるようにした。
-     コントロールパネル（.topbar）の真下にposition: stickyで重ね、スクロール中も
-     検索・チップが見えたままにする（--topbar-h、:root参照。JSでの高さ実測は
-     不要）。 */
+  /* ===== コマンドバー：検索＋クイック状態タブ =====
+     詳細な絞り込み項目は左サイドバー（.filterSidebar）にまとめ、ここには
+     自由検索とクイック状態タブだけを置く。コントロールパネル（.topbar）の
+     真下にposition: stickyで重ね、スクロール中も検索・状態タブが見えた
+     ままにする（--topbar-h、:root参照。JSでの高さ実測は不要）。 */
   .commandbar {
     position: sticky;
     top: var(--topbar-h);
@@ -365,9 +362,9 @@
   }
   .searchbox input::placeholder { color: var(--on-surface-variant); }
 
-  /* 検索・状態タブ・絞り込みチップの行は、項目数が多い場合でも折り返さず
-     横スクロールにする（スマホ幅でも縦に場所を取らないようにするため。
-     スクロールバー自体は視覚的にじゃまなので隠す）。 */
+  /* 検索・状態タブの行は、項目数が多い場合でも折り返さず横スクロールにする
+     （スマホ幅でも縦に場所を取らないようにするため。スクロールバー自体は
+     視覚的にじゃまなので隠す）。 */
   .scroller {
     display: flex;
     gap: 8px;
@@ -376,12 +373,6 @@
     scrollbar-width: none;
   }
   .scroller::-webkit-scrollbar { display: none; }
-
-  /* 絞り込みチップの行は.scroller（横スクロール）にはしない。overflow-x: auto
-     を指定すると仕様上overflow-yも暗黙にauto（＝はみ出しをクリップ）になり、
-     チップの真下に出すポップオーバーが見えなくなってしまうため
-     （実際に発生した不具合）。折り返し（flex-wrap: wrap）で対応する。 */
-  .chiprow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 
   /* ===== 状態タブ（クイック状態切替） =====
      既存の「状態」チェックボックス（#inventoryStatusFilter、チップの中）と
@@ -501,77 +492,69 @@
   }
   .staffList__summaryThumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-  /* ===== 絞り込みチップ ===== */
-  .chip-wrap { position: relative; flex: none; }
-  .chip {
-    appearance: none;
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 12.5px;
-    font-weight: 700;
-    border: 1px solid var(--outline);
-    background: var(--surface);
-    color: var(--on-surface);
-    border-radius: 999px;
-    padding: 8px 12px 8px 14px;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    white-space: nowrap;
+  /* ===== 絞り込みサイドバー（在庫リスト・受注リスト・業販受注リスト共通） =====
+     タップで開くチップ＋ポップオーバー方式は廃止し、常時表示の左サイドバーに
+     戻した（現場の要望）。項目・絞り込みロジック自体は変更していない。
+     ツールバー（.toolbar2）の下、一覧の左に固定幅で置く。align-items: start＋
+     position: stickyで、一覧を下スクロールしてもサイドバーは画面内に留まる
+     （以前のような開閉トグル・JS実測のposition: fixedは使わない）。 */
+  .listBody {
+    display: grid;
+    /* minmax(0, 1fr)にする理由は.card__metaGrid等と同じ（1fr単独だと、
+       検索欄のplaceholderのような長い内容がある場合にトラック自体がその
+       内容ぶんまで広がってしまい、スマホ幅でページ全体が横スクロールして
+       しまう）。 */
+    grid-template-columns: 260px minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+    padding: 20px 24px 24px;
   }
-  .chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); display: none; flex: none; }
-  .chip.has-value { border-color: var(--primary); background: var(--primary-bg); color: var(--primary-text); }
-  .chip.has-value .dot { display: block; }
-  .chip .caret { width: 12px; height: 12px; color: var(--on-surface-variant); transition: transform .15s var(--ease); flex: none; }
-  .chip[aria-expanded="true"] .caret { transform: rotate(180deg); }
-
-  .clearlink {
-    appearance: none;
+  .listBody__main { min-width: 0; }
+  .filterSidebar {
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-radius: var(--radius);
+    padding: 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+    position: sticky;
+    top: calc(var(--topbar-h) + 74px);
+    max-height: calc(100vh - var(--topbar-h) - 90px);
+    overflow-y: auto;
+  }
+  .filterSidebar__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .filterSidebar__title { font-size: 14px; font-weight: 700; margin: 0; color: var(--on-surface); }
+  .filterSidebar__rule { border: none; border-top: 1px solid var(--outline); margin: 0; }
+  .filterSidebar__field { display: flex; flex-direction: column; gap: 8px; }
+  .filterSidebar__groupLabel {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--on-surface-variant);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  /* 車両条件（モデル・ボディタイプ・カラー等）とステータス（区分・状態・
+     掲載状況）という2つのまとまりを見出しで分ける。.filterSidebar__groupLabel
+     （各項目1つずつのラベル）より一段階目立たせ、セクション全体の見出しだと
+     分かるようにする。 */
+  .filterSidebar__sectionLabel { font-size: 13px; font-weight: 700; color: var(--on-surface); margin: 0; }
+  .filterSidebar select.input,
+  .filterSidebar .input { width: 100%; }
+  .filterSidebar__clearBtn {
     border: none;
     background: none;
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 12px;
-    font-weight: 700;
     color: var(--on-surface-variant);
+    font-size: 12.5px;
+    font-weight: 700;
     text-decoration: underline;
     text-underline-offset: 3px;
-    padding: 8px 2px;
+    cursor: pointer;
+    padding: 0;
     flex: none;
   }
-  .clearlink:hover { color: var(--on-surface); }
-
-  .popover {
-    position: absolute;
-    top: calc(100% + 8px);
-    left: 0;
-    z-index: 20;
-    width: max-content;
-    min-width: 220px;
-    max-width: min(84vw, 280px);
-    background: var(--surface);
-    border: 1px solid var(--outline);
-    border-radius: 12px;
-    box-shadow: var(--shadow-elevated);
-    padding: 14px;
-  }
-  .popover[hidden] { display: none; }
-  /* チップが画面右寄りにある場合、既定のleft: 0基準だとポップオーバーが
-     画面外にはみ出してしまう（スマホ幅で特に起きやすい）。JS側
-     （closeAllChipPopovers_の開閉処理参照）が実際の位置を見て、はみ出す
-     場合だけこのクラスを付け、chip-wrapの右端に揃える。 */
-  .popover--right { left: auto; right: 0; }
-  .popover--wide { max-width: min(84vw, 320px); }
-  .popover__section + .popover__section { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--outline); }
-  .popover__label {
-    font-size: 10.5px;
-    font-weight: 800;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-    color: var(--on-surface-variant);
-    margin: 0 0 8px;
-  }
-  .popover select { width: 100%; }
+  .filterSidebar__clearBtn:hover { color: var(--on-surface); }
 
   .filterCheck { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--on-surface); cursor: pointer; padding: 3px 0; }
   .filterCheck input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: var(--primary); cursor: pointer; flex: none; }
@@ -1750,6 +1733,12 @@
 
     .commandbar { padding: 12px 16px; }
     .toolbar2 { padding: 10px 16px; }
+
+    /* タブレット・スマホ幅では固定幅の2カラムをやめ、絞り込みサイドバーを
+       一覧の上に積む1カラムにする（position: stickyもこの幅では解除し、
+       通常の縦スクロールに戻す）。 */
+    .listBody { grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 14px 16px 16px; }
+    .filterSidebar { position: static; max-height: none; }
 
     /* 番号付き一覧行も、タブレット・スマホ幅では列を維持したまま折り返す
        （行の高さが案件ごとに伸び縮みしてもよい方針。ラウンドFの「文字を

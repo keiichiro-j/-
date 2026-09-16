@@ -579,7 +579,6 @@
     // ヘッダー内の状態タブ（在庫リストのみ）は、表示中タブによって表示・
     // 非表示を切り替える。
     syncHeaderStatusTabs_();
-    closeAllChipPopovers_();
   }
 
   // ヘッダーへ統合した状態タブ（#inventoryStatusTabs）は在庫リスト専用の
@@ -978,18 +977,13 @@
     colorSelect.value = colors.indexOf(currentColor) !== -1 ? currentColor : '';
     if (colorSelect.value !== currentColor) state.inventoryFilters.color = colorSelect.value;
 
-    syncInventoryChipState_();
+    syncInventoryFilterClearVisibility_();
   }
 
-  // チップ（.chip、Index.html参照）の塗り分け（.has-value）と「絞り込みを
-  // クリア」リンクの表示・非表示を、現在の絞り込み状態に合わせて更新する
-  // （見た目上、どの絞り込みが効いているか一目でわかるようにするため）。
-  function syncInventoryChipState_() {
+  // 「絞り込みをクリア」リンクの表示・非表示を、現在の絞り込み状態に合わせて
+  // 更新する（何か1つでも絞り込みが効いていれば表示する）。
+  function syncInventoryFilterClearVisibility_() {
     var f = state.inventoryFilters;
-    updateChipState_('chipBodyType', f.bodyType.length > 0);
-    updateChipState_('chipColor', !!f.color);
-    updateChipState_('chipStatus', f.status.length > 0 || f.category.length > 0 || f.listed.length > 0);
-    updateChipState_('chipMore', !!f.model || !!f.yearBucket || !!f.priceBucket || !!f.mileageBucket);
     var hasAny = f.bodyType.length > 0 || !!f.color || f.status.length > 0 || f.category.length > 0 ||
       f.listed.length > 0 || !!f.model || !!f.yearBucket || !!f.priceBucket || !!f.mileageBucket;
     $('btnInventoryFilterClear').classList.toggle('hidden', !hasAny);
@@ -1487,7 +1481,7 @@
       : '';
     renderInventoryStatusTabs_(all);
     container.innerHTML = rowListHtml_(filtered, vehicleRowItemHtml_);
-    syncInventoryChipState_();
+    syncInventoryFilterClearVisibility_();
   }
 
   // 在庫リストの行タップ操作（Hold・受注・詳細）。マイページの
@@ -1581,46 +1575,6 @@
     ['inventoryModelFilter', 'inventoryColorFilter', 'inventoryYearFilter', 'inventoryPriceFilter', 'inventoryMileageFilter', 'inventorySort'].forEach(function (id) { $(id).value = ''; });
     document.querySelectorAll('#inventoryCategoryFilter input, #inventoryStatusFilter input, #inventoryListedFilter input, #inventoryBodyTypeFilter input').forEach(function (el) { el.checked = false; });
     loadInventory();
-  });
-
-  /**
-   * 絞り込みチップ（在庫・受注・業販受注リスト共通）の開閉。
-   * チップ（.chip、Index.html参照）をクリックすると、同じ.chip-wrap内の
-   * .popoverを開閉する。他のチップが開いていれば先に閉じ、同時に2つ以上
-   * 開かないようにする。ポップオーバーの外側をクリックした場合は
-   * すべて閉じる（タブ切替時もcloseAllChipPopovers_で閉じる、switchToTab_参照）。
-   */
-  function closeAllChipPopovers_() {
-    document.querySelectorAll('.popover').forEach(function (p) { p.hidden = true; p.classList.remove('popover--right'); });
-    document.querySelectorAll('.chip[aria-expanded="true"]').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); });
-  }
-  document.addEventListener('click', function (e) {
-    var wrap = e.target.closest('.chip-wrap');
-    if (wrap) {
-      var btn = wrap.querySelector('.chip');
-      if (e.target.closest('.chip') === btn) {
-        var pop = wrap.querySelector('.popover');
-        var willOpen = pop.hidden;
-        closeAllChipPopovers_();
-        if (willOpen) {
-          pop.hidden = false;
-          btn.setAttribute('aria-expanded', 'true');
-          // チップが画面右寄りにあると、既定のleft: 0基準では画面外に
-          // はみ出してしまう（スマホ幅で特に起きやすい）。ポップオーバーの
-          // 右端が画面幅を超える場合は、右揃え（chip-wrapの右端に合わせる）に
-          // 切り替える。
-          var wrapRect = wrap.getBoundingClientRect();
-          if (wrapRect.left + pop.offsetWidth > window.innerWidth) {
-            pop.classList.add('popover--right');
-          }
-        }
-        return;
-      }
-      // ポップオーバー内部（チェックボックス・セレクト等）のクリックでは
-      // 閉じない。
-      return;
-    }
-    closeAllChipPopovers_();
   });
 
   // ===== Hold / 受注 共通モーダル =====
@@ -2206,18 +2160,11 @@
   });
 
   // ===== 受注リスト =====
-  // チップ（.chip、Index.html参照）の塗り分け（.has-value）と「絞り込みを
-  // クリア」リンクの表示・非表示を、現在の拠点・担当者の選択状態に合わせて
-  // 更新する（見た目上、どの絞り込みが効いているか一目でわかるようにするため）。
-  function updateChipState_(chipId, hasValue) {
-    var chip = $(chipId);
-    if (chip) chip.classList.toggle('has-value', !!hasValue);
-  }
-  function syncOrdersChipState_() {
+  // 「絞り込みをクリア」リンクの表示・非表示を、現在の拠点・担当者の選択状態に
+  // 合わせて更新する。
+  function syncOrdersFilterClearVisibility_() {
     var hasLocation = !!$('ordersLocationFilter').value;
     var hasStaff = !!$('ordersStaffFilter').value;
-    updateChipState_('chipOrdersLocation', hasLocation);
-    updateChipState_('chipOrdersStaff', hasStaff);
     $('btnOrdersFilterClear').classList.toggle('hidden', !(hasLocation || hasStaff));
   }
   function loadOrders() {
@@ -2227,7 +2174,7 @@
       staff: $('ordersStaffFilter').value
     };
     var groupBy = $('ordersGroupBy').value;
-    syncOrdersChipState_();
+    syncOrdersFilterClearVisibility_();
     return gasRun('api_listOrders', filters, groupBy).then(function (groups) {
       state.ordersGroups = groups || [];
       renderOrders();
@@ -2362,11 +2309,9 @@
   // このタブ自体、管理者権限を持つ担当者にしか表示しないが（renderSettings参照）、
   // サーバー側api_listWholesaleOrdersも非管理者には常に空配列を返すため、
   // 万一呼ばれても安全。
-  function syncWholesaleOrdersChipState_() {
+  function syncWholesaleOrdersFilterClearVisibility_() {
     var hasLocation = !!$('wholesaleOrdersLocationFilter').value;
     var hasStaff = !!$('wholesaleOrdersStaffFilter').value;
-    updateChipState_('chipWholesaleLocation', hasLocation);
-    updateChipState_('chipWholesaleStaff', hasStaff);
     $('btnWholesaleOrdersFilterClear').classList.toggle('hidden', !(hasLocation || hasStaff));
   }
   function loadWholesaleOrders() {
@@ -2376,7 +2321,7 @@
       staff: $('wholesaleOrdersStaffFilter').value
     };
     var groupBy = $('wholesaleOrdersGroupBy').value;
-    syncWholesaleOrdersChipState_();
+    syncWholesaleOrdersFilterClearVisibility_();
     return gasRun('api_listWholesaleOrders', filters, groupBy).then(function (groups) {
       state.wholesaleOrdersGroups = groups || [];
       renderWholesaleOrders();

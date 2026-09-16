@@ -227,91 +227,6 @@
              クリック時の絞り込み処理（renderInventoryStatusTabs_、JavaScript.html参照）
              自体は変更していない。 -->
         <div class="scroller statusTabs" id="inventoryStatusTabs" role="tablist" aria-label="状態で絞り込み"></div>
-        <div class="chiprow">
-          <div class="chip-wrap" data-chip>
-            <button type="button" class="chip" id="chipBodyType" aria-expanded="false">
-              <span class="dot"></span><span class="chip__label">ボディタイプ</span>
-              <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
-            </button>
-            <div class="popover" hidden>
-              <!-- モデル名に含まれるキーワードとボディタイプ（Sedan・SUV等）の紐付けは
-                   設定タブ（管理者限定）で登録する（modelBodyTypeRules、
-                   SettingsService.gs参照）。選択肢自体は登録済みルールの有無に
-                   関わらずMODEL_BODY_TYPE_OPTIONSの7種類を常に表示する
-                   （renderInventoryFilterSidebar_、JavaScript.html参照）。 -->
-              <div id="inventoryBodyTypeFilter"></div>
-            </div>
-          </div>
-          <div class="chip-wrap" data-chip>
-            <button type="button" class="chip" id="chipColor" aria-expanded="false">
-              <span class="dot"></span><span class="chip__label">カラー</span>
-              <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
-            </button>
-            <div class="popover" hidden>
-              <p class="popover__label">カラー</p>
-              <select id="inventoryColorFilter" class="input"><option value="">指定なし</option></select>
-            </div>
-          </div>
-          <div class="chip-wrap" data-chip>
-            <button type="button" class="chip" id="chipStatus" aria-expanded="false">
-              <span class="dot"></span><span class="chip__label">ステータス</span>
-              <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
-            </button>
-            <!-- 状態（在庫あり／Hold中／業販HOLD中）は、上のクイック状態タブ
-                 （#inventoryStatusTabs、単一選択の早見用）とは別に、こちらでは
-                 複数選択（例:「在庫あり」と「Hold中」を同時に見る）ができるように
-                 している。どちらも同じstate.inventoryFilters.statusを共有し、
-                 操作するとタブ側の見た目も連動する（syncInventoryStatusCheckboxes_、
-                 JavaScript.html参照）。 -->
-            <div class="popover" hidden>
-              <div class="popover__section">
-                <p class="popover__label">状態（複数選択可）</p>
-                <div id="inventoryStatusFilter">
-                  <label class="filterCheck"><input type="checkbox" value="available"> 在庫あり</label>
-                  <label class="filterCheck"><input type="checkbox" value="hold"> Hold中</label>
-                  <label class="filterCheck"><input type="checkbox" value="wholesale"> 業販HOLD中</label>
-                </div>
-              </div>
-              <div class="popover__section">
-                <p class="popover__label">区分</p>
-                <div id="inventoryCategoryFilter"></div>
-              </div>
-              <div class="popover__section">
-                <p class="popover__label">掲載状況</p>
-                <div id="inventoryListedFilter">
-                  <label class="filterCheck"><input type="checkbox" value="carsensor"> カーセンサー掲載中</label>
-                  <label class="filterCheck"><input type="checkbox" value="goonet"> グーネット掲載中</label>
-                  <label class="filterCheck"><input type="checkbox" value="unlisted"> 未掲載</label>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="chip-wrap" data-chip>
-            <button type="button" class="chip" id="chipMore" aria-expanded="false">
-              <span class="dot"></span><span class="chip__label">その他の条件</span>
-              <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
-            </button>
-            <div class="popover popover--wide" hidden>
-              <div class="popover__section">
-                <p class="popover__label">モデル</p>
-                <select id="inventoryModelFilter" class="input"><option value="">指定なし</option></select>
-              </div>
-              <div class="popover__section">
-                <p class="popover__label">年式</p>
-                <select id="inventoryYearFilter" class="input"></select>
-              </div>
-              <div class="popover__section">
-                <p class="popover__label">価格帯</p>
-                <select id="inventoryPriceFilter" class="input"></select>
-              </div>
-              <div class="popover__section">
-                <p class="popover__label">走行距離</p>
-                <select id="inventoryMileageFilter" class="input"></select>
-              </div>
-            </div>
-          </div>
-          <button type="button" class="clearlink hidden" id="btnInventoryFilterClear">絞り込みをクリア</button>
-        </div>
       </div>
       <div class="toolbar2">
         <span class="toolbar2__count" id="inventoryTotalCount"></span>
@@ -319,10 +234,86 @@
           <select id="inventorySort" class="input"></select>
         </label>
       </div>
-      <div id="inventoryList"></div>
-      <div class="emptyState hidden" id="inventoryEmpty">
-        <svg class="icon emptyState__icon"><use href="#icon-grid"></use></svg>
-        <p>該当する在庫がありません</p>
+      <!-- 絞り込み機能は左サイドの常時表示パネルにまとめる（チップ＋ポップオーバー
+           方式は廃止）。項目自体・絞り込みロジック（applyInventoryFilters_、
+           JavaScript.html）は変更していない。 -->
+      <div class="listBody">
+        <aside class="filterSidebar" aria-label="在庫リストの絞り込み">
+          <div class="filterSidebar__head">
+            <p class="filterSidebar__title">絞り込み</p>
+            <button type="button" class="filterSidebar__clearBtn hidden" id="btnInventoryFilterClear">クリア</button>
+          </div>
+          <!-- 車両そのものの条件（モデル・ボディタイプ・カラー・年式・価格帯・
+               走行距離）と、業務上のステータス（区分・状態・掲載状況）は、性質が
+               異なるため見出しで分けて配置する。 -->
+          <p class="filterSidebar__sectionLabel">車両条件</p>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">モデル</label>
+            <select id="inventoryModelFilter" class="input"><option value="">指定なし</option></select>
+          </div>
+          <!-- モデル名に含まれるキーワードとボディタイプ（Sedan・SUV等）の紐付けは
+               設定タブ（管理者限定）で登録する（modelBodyTypeRules、
+               SettingsService.gs参照）。選択肢自体は登録済みルールの有無に
+               関わらずMODEL_BODY_TYPE_OPTIONSの7種類を常に表示する
+               （renderInventoryFilterSidebar_、JavaScript.html参照）。 -->
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">ボディタイプ</label>
+            <div id="inventoryBodyTypeFilter"></div>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">カラー</label>
+            <select id="inventoryColorFilter" class="input"><option value="">指定なし</option></select>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">年式</label>
+            <select id="inventoryYearFilter" class="input"></select>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">価格帯</label>
+            <select id="inventoryPriceFilter" class="input"></select>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">走行距離</label>
+            <select id="inventoryMileageFilter" class="input"></select>
+          </div>
+          <hr class="filterSidebar__rule">
+          <p class="filterSidebar__sectionLabel">ステータス</p>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">区分</label>
+            <div id="inventoryCategoryFilter"></div>
+          </div>
+          <hr class="filterSidebar__rule">
+          <!-- 状態（在庫あり／Hold中／業販HOLD中）は、上のクイック状態タブ
+               （#inventoryStatusTabs、単一選択の早見用）とは別に、こちらでは
+               複数選択（例:「在庫あり」と「Hold中」を同時に見る）ができるように
+               している。どちらも同じstate.inventoryFilters.statusを共有し、
+               操作するとタブ側の見た目も連動する（syncInventoryStatusCheckboxes_、
+               JavaScript.html参照）。 -->
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">状態（複数選択可）</label>
+            <div id="inventoryStatusFilter">
+              <label class="filterCheck"><input type="checkbox" value="available"> 在庫あり</label>
+              <label class="filterCheck"><input type="checkbox" value="hold"> Hold中</label>
+              <label class="filterCheck"><input type="checkbox" value="wholesale"> 業販HOLD中</label>
+            </div>
+          </div>
+          <hr class="filterSidebar__rule">
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">掲載状況</label>
+            <div id="inventoryListedFilter">
+              <label class="filterCheck"><input type="checkbox" value="carsensor"> カーセンサー掲載中</label>
+              <label class="filterCheck"><input type="checkbox" value="goonet"> グーネット掲載中</label>
+              <label class="filterCheck"><input type="checkbox" value="unlisted"> 未掲載</label>
+            </div>
+          </div>
+        </aside>
+        <div class="listBody__main">
+          <div id="inventoryList"></div>
+          <div class="emptyState hidden" id="inventoryEmpty">
+            <svg class="icon emptyState__icon"><use href="#icon-grid"></use></svg>
+            <p>該当する在庫がありません</p>
+          </div>
+        </div>
       </div>
     </main>
 
@@ -338,29 +329,6 @@
             <input type="search" id="ordersKeyword" placeholder="モデル・コミッション・顧客名・担当・拠点で検索">
           </div>
         </div>
-        <div class="chiprow">
-          <div class="chip-wrap" data-chip>
-            <button type="button" class="chip" id="chipOrdersLocation" aria-expanded="false">
-              <span class="dot"></span><span class="chip__label">拠点</span>
-              <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
-            </button>
-            <div class="popover" hidden>
-              <p class="popover__label">拠点</p>
-              <select id="ordersLocationFilter" class="input"><option value="">拠点：すべて</option></select>
-            </div>
-          </div>
-          <div class="chip-wrap" data-chip>
-            <button type="button" class="chip" id="chipOrdersStaff" aria-expanded="false">
-              <span class="dot"></span><span class="chip__label">担当者</span>
-              <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
-            </button>
-            <div class="popover" hidden>
-              <p class="popover__label">担当者</p>
-              <select id="ordersStaffFilter" class="input"></select>
-            </div>
-          </div>
-          <button type="button" class="clearlink hidden" id="btnOrdersFilterClear">絞り込みをクリア</button>
-        </div>
       </div>
       <div class="toolbar2">
         <span class="toolbar2__count" id="ordersTotalCount"></span>
@@ -373,16 +341,34 @@
           </select>
         </label>
       </div>
-      <div id="ordersGroups"></div>
-      <div class="emptyState hidden" id="ordersEmpty">
-        <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
-        <p>該当する受注がありません</p>
+      <div class="listBody">
+        <aside class="filterSidebar" aria-label="受注リストの絞り込み">
+          <div class="filterSidebar__head">
+            <p class="filterSidebar__title">絞り込み</p>
+            <button type="button" class="filterSidebar__clearBtn hidden" id="btnOrdersFilterClear">クリア</button>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">拠点</label>
+            <select id="ordersLocationFilter" class="input"><option value="">拠点：すべて</option></select>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">担当者</label>
+            <select id="ordersStaffFilter" class="input"></select>
+          </div>
+        </aside>
+        <div class="listBody__main">
+          <div id="ordersGroups"></div>
+          <div class="emptyState hidden" id="ordersEmpty">
+            <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
+            <p>該当する受注がありません</p>
+          </div>
+        </div>
       </div>
     </main>
 
     <!-- 業販受注リスト: 業販HOLD（HoldService.gsのHOLD_TYPE.WHOLESALE）から
          受注確定した車両の一覧。管理者権限を持つ担当者にのみ表示する
-         （レール・下タブバーとも.navBtn--wholesaleクラスで一括制御、
+         （コントロールパネルの水平タブも.navBtn--wholesaleクラスで一括制御、
          JavaScript.html参照）。通常の受注リストと異なり、リード番号・下取車の
          有無・保険加入の有無・支払方法は持たず、顧客の代わりに「販売先」で検索する。 -->
     <main class="view view--list" id="view-wholesaleOrders">
@@ -392,29 +378,6 @@
             <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
             <input type="search" id="wholesaleOrdersKeyword" placeholder="モデル・コミッション・販売先・担当・拠点で検索">
           </div>
-        </div>
-        <div class="chiprow">
-          <div class="chip-wrap" data-chip>
-            <button type="button" class="chip" id="chipWholesaleLocation" aria-expanded="false">
-              <span class="dot"></span><span class="chip__label">拠点</span>
-              <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
-            </button>
-            <div class="popover" hidden>
-              <p class="popover__label">拠点</p>
-              <select id="wholesaleOrdersLocationFilter" class="input"><option value="">拠点：すべて</option></select>
-            </div>
-          </div>
-          <div class="chip-wrap" data-chip>
-            <button type="button" class="chip" id="chipWholesaleStaff" aria-expanded="false">
-              <span class="dot"></span><span class="chip__label">担当者</span>
-              <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
-            </button>
-            <div class="popover" hidden>
-              <p class="popover__label">担当者</p>
-              <select id="wholesaleOrdersStaffFilter" class="input"></select>
-            </div>
-          </div>
-          <button type="button" class="clearlink hidden" id="btnWholesaleOrdersFilterClear">絞り込みをクリア</button>
         </div>
       </div>
       <div class="toolbar2">
@@ -428,10 +391,28 @@
           </select>
         </label>
       </div>
-      <div id="wholesaleOrdersGroups"></div>
-      <div class="emptyState hidden" id="wholesaleOrdersEmpty">
-        <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
-        <p>該当する業販受注がありません</p>
+      <div class="listBody">
+        <aside class="filterSidebar" aria-label="業販受注リストの絞り込み">
+          <div class="filterSidebar__head">
+            <p class="filterSidebar__title">絞り込み</p>
+            <button type="button" class="filterSidebar__clearBtn hidden" id="btnWholesaleOrdersFilterClear">クリア</button>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">拠点</label>
+            <select id="wholesaleOrdersLocationFilter" class="input"><option value="">拠点：すべて</option></select>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">担当者</label>
+            <select id="wholesaleOrdersStaffFilter" class="input"></select>
+          </div>
+        </aside>
+        <div class="listBody__main">
+          <div id="wholesaleOrdersGroups"></div>
+          <div class="emptyState hidden" id="wholesaleOrdersEmpty">
+            <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
+            <p>該当する業販受注がありません</p>
+          </div>
+        </div>
       </div>
     </main>
 
