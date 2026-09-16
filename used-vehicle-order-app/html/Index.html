@@ -127,81 +127,88 @@
   </script>
 
   <div id="app">
-    <!-- 左サイドバー（廃止・常時非表示）: 以前はPCビュー（901px以上）でロゴ・ナビ・
-         担当者情報をここにまとめていたが、常にサイドバー幅ぶん横幅が削られて
-         しまうという指摘を受け廃止した（Stylesheet.htmlの「左サイドバー
-         ナビゲーション（廃止）」参照）。PC・タブレット・スマホすべてtopbar内の
-         .tabs（水平タブ）に統一したため、このsidebarはCSSで常時非表示にしたまま
-         何もレンダリングに影響しない（削除するとrenderTopbarUser等が参照する
-         要素が無くなりJSエラーになるため、マークアップ自体は残している）。 -->
-    <nav class="sidebar" id="sidebar" aria-label="メインナビゲーション">
-      <div class="sidebar__brand">
-        <img id="sidebarLogo" class="sidebar__logo hidden" alt="ロゴ">
-        <span class="sidebar__brandText" id="sidebarBrandText"><?= currentAppTitle_() ?></span>
+    <!-- ===== 画面切替：アイコンのみの左レール（PCビュー） =====
+         横タブ・色付きサイドバーは廃止し、Slack/Notion等と同じ「アイコンのみの
+         細い左レール」に統一した（現場の要望「画期的な案」への対応）。ロゴ・
+         アプリ名は.rail__markのtitle属性（ホバーで表示）に集約し、レール自体は
+         常に中立色（配色テーマの影響を受けない）にする。ログイン中の担当者情報は
+         レール下端のアバター（ホバーで氏名・メール表示）に集約する
+         （renderTopbarUser_、JavaScript.html参照）。タブレット・スマホ幅では
+         非表示にし、代わりに画面下固定の.tabbarを使う（Stylesheet.html参照）。 -->
+    <nav class="rail" id="rail" aria-label="画面切替">
+      <div class="rail__mark" id="railMark" title="<?= currentAppTitle_() ?>">
+        <img id="railLogo" class="rail__logo hidden" alt="ロゴ">
+        <svg class="rail__markIcon" id="railMarkIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M3 13l1.5-5A2 2 0 016.4 6.5h11.2A2 2 0 0119.5 8l1.5 5"/><rect x="2.5" y="13" width="19" height="6" rx="1.6"/><circle cx="7" cy="19.5" r="1.6"/><circle cx="17" cy="19.5" r="1.6"/>
+        </svg>
       </div>
-      <div class="sidebarNav" id="sidebarNav" role="tablist" aria-label="画面切替">
-        <button class="tabs__item sidebarNav__item is-active" data-tab="inventory" type="button">
-          <svg class="icon"><use href="#icon-grid"></use></svg><span>在庫リスト</span>
+      <div class="rail__nav">
+        <button class="navBtn railBtn is-active" data-tab="inventory" type="button" aria-label="在庫リスト">
+          <svg class="icon"><use href="#icon-grid"></use></svg><span class="tip">在庫リスト</span>
         </button>
-        <button class="tabs__item sidebarNav__item" data-tab="orders" type="button">
-          <svg class="icon"><use href="#icon-table"></use></svg><span>受注リスト</span>
+        <button class="navBtn railBtn" data-tab="orders" type="button" aria-label="受注リスト">
+          <svg class="icon"><use href="#icon-table"></use></svg><span class="tip">受注リスト</span>
         </button>
-        <!-- 業販受注リスト: 管理者権限を持つ担当者にのみ表示する（renderSettingsと
-             同じisSystemAdmin判定でhiddenを切り替える、JavaScript.html参照）。 -->
-        <button class="tabs__item sidebarNav__item hidden" id="sidebarNavWholesaleOrders" data-tab="wholesaleOrders" type="button">
-          <svg class="icon"><use href="#icon-table"></use></svg><span>業販受注リスト</span>
+        <!-- 業販受注リスト: 管理者権限を持つ担当者にのみ表示する（renderSettingsが
+             .navBtn--wholesaleクラス全体のhiddenを一括で切り替える、JavaScript.html参照）。 -->
+        <button class="navBtn railBtn navBtn--wholesale hidden" data-tab="wholesaleOrders" type="button" aria-label="業販受注リスト">
+          <svg class="icon"><use href="#icon-table"></use></svg><span class="tip">業販受注リスト</span>
         </button>
-        <button class="tabs__item sidebarNav__item" data-tab="mypage" type="button">
-          <svg class="icon"><use href="#icon-people"></use></svg><span>マイページ</span>
+        <button class="navBtn railBtn" data-tab="mypage" type="button" aria-label="マイページ">
+          <svg class="icon"><use href="#icon-people"></use></svg><span class="tip">マイページ</span>
         </button>
-        <button class="tabs__item sidebarNav__item" data-tab="settings" type="button">
-          <svg class="icon"><use href="#icon-tune"></use></svg><span>設定</span>
+        <button class="navBtn railBtn" data-tab="settings" type="button" aria-label="設定">
+          <svg class="icon"><use href="#icon-tune"></use></svg><span class="tip">設定</span>
         </button>
       </div>
-      <!-- ログイン中の担当者情報。topbar__userと同じ内容をrenderTopbarUser
-           （JavaScript.html）が両方に描画する。 -->
-      <div class="sidebarUser" id="sidebarUser">
-        <div class="sidebarUser__avatar" id="sidebarUserAvatar" aria-hidden="true"></div>
-        <div class="sidebarUser__info" id="sidebarUserInfo"></div>
-      </div>
+      <div class="rail__spacer"></div>
+      <button type="button" class="rail__avatar" id="railAvatar">
+        <span id="railAvatarInitials">?</span>
+        <span class="tip rail__avatarTip" id="railAvatarTip"></span>
+      </button>
     </nav>
 
-    <header class="topbar" id="topbar">
-      <div class="topbar__brandRow">
-        <div class="topbar__left">
-          <button type="button" class="topbar__navBtn" id="btnNavBack" title="戻る" aria-label="1つ前の画面に戻る" disabled>
-            <svg class="icon"><use href="#icon-back"></use></svg>
-          </button>
-          <button type="button" class="topbar__navBtn topbar__navBtn--refresh" id="btnRefresh" title="更新" aria-label="最新の情報に更新">
-            <svg class="icon"><use href="#icon-refresh"></use></svg>
-          </button>
+    <!-- ===== 画面切替：アイコン＋ラベルの下タブバー（タブレット・スマホ幅） ===== -->
+    <nav class="tabbar" id="tabbar" aria-label="画面切替">
+      <button class="navBtn tabbarBtn is-active" data-tab="inventory" type="button">
+        <svg class="icon"><use href="#icon-grid"></use></svg>在庫
+      </button>
+      <button class="navBtn tabbarBtn" data-tab="orders" type="button">
+        <svg class="icon"><use href="#icon-table"></use></svg>受注
+      </button>
+      <button class="navBtn tabbarBtn navBtn--wholesale hidden" data-tab="wholesaleOrders" type="button">
+        <svg class="icon"><use href="#icon-table"></use></svg>業販
+      </button>
+      <button class="navBtn tabbarBtn" data-tab="mypage" type="button">
+        <svg class="icon"><use href="#icon-people"></use></svg>マイページ
+      </button>
+      <button class="navBtn tabbarBtn" data-tab="settings" type="button">
+        <svg class="icon"><use href="#icon-tune"></use></svg>設定
+      </button>
+    </nav>
+
+    <div class="content">
+      <!-- ===== コンテンツヘッダー：全画面共通の1つの要素 =====
+           表示中のタブに応じてタイトルだけをJS（switchToTab_）が書き換える
+           （戻る／更新ボタン・アプリ名・担当者情報は画面をまたいで同じ1つの
+           要素のため、5画面ぶん複製する必要が無い）。高さは--content-header-h
+           で固定し、各画面の.commandbarをその真下にposition: stickyで
+           重ねられるようにする（Stylesheet.html参照。JSでの高さ実測は不要）。 -->
+      <header class="contentHeader" id="contentHeader">
+        <button type="button" class="iconbtn" id="btnNavBack" title="戻る" aria-label="1つ前の画面に戻る" disabled>
+          <svg class="icon"><use href="#icon-back"></use></svg>
+        </button>
+        <div class="contentHeader__titles">
+          <p class="contentHeader__eyebrow" id="contentAppTitle"><?= currentAppTitle_() ?></p>
+          <h1 class="contentHeader__title" id="contentTitle">在庫リスト</h1>
         </div>
-        <!-- アプリ名表記。左右のボタン・ユーザー情報の幅に関わらず画面中央に来るよう、
-             .topbar__brandRow(position: relative)を基準にposition: absoluteで
-             中央配置する（Stylesheet.html参照）。タブレット・スマホ幅のみで表示し、
-             PCビューではサイドバーのロゴ表記（.sidebar__brand）に役割を譲って
-             非表示にする。 -->
-        <div class="topbar__brand">
-          <img id="topbarLogo" class="topbar__logo hidden" alt="ロゴ">
-          <span class="topbar__brandText" id="topbarBrandText"><?= currentAppTitle_() ?></span>
-        </div>
-        <div class="topbar__user" id="topbarUser"></div>
-      </div>
-      <nav class="tabs" id="mainTabs" role="tablist" aria-label="画面切替">
-        <button class="tabs__item is-active" data-tab="inventory">在庫リスト</button>
-        <button class="tabs__item" data-tab="orders">受注リスト</button>
-        <button class="tabs__item hidden" id="mainTabWholesaleOrders" data-tab="wholesaleOrders">業販受注リスト</button>
-        <button class="tabs__item" data-tab="mypage">マイページ</button>
-        <button class="tabs__item" data-tab="settings">設定</button>
-      </nav>
-      <!-- 状態タブ（すべて／在庫あり／Hold中／業販HOLD中）は在庫リストの
-           ツールバー内にあったが、ヘッダーに統合してツールバーの行数を減らし、
-           一覧の表示領域（在庫の表示件数）を少しでも広く取れるようにした
-           （現場からの要望）。在庫リスト表示中のみ見える（syncHeaderStatusTabs_、
-           JavaScript.html参照）。中身の描画・件数集計・クリック時の絞り込み処理
-           （renderInventoryStatusTabs_）自体は変更していない。 -->
-      <div class="statusTabs" id="inventoryStatusTabs" role="tablist" aria-label="状態で絞り込み"></div>
-      <div class="topbar__flexSpacer" aria-hidden="true"></div>
+        <button type="button" class="iconbtn" id="btnRefresh" title="更新" aria-label="最新の情報に更新">
+          <svg class="icon"><use href="#icon-refresh"></use></svg>
+        </button>
+        <!-- スマホ・タブレット幅専用（レールが無いため）。PCビューではレール下端の
+             アバターと重複するためCSSで非表示にする。 -->
+        <button type="button" class="contentHeader__account" id="contentAccount">?</button>
+      </header>
       <div class="integrityBanner hidden" id="integrityBanner">
         <svg class="icon icon--inline"><use href="#icon-alert"></use></svg>
         <span id="integrityBannerSummary"></span>
@@ -210,105 +217,122 @@
         <button type="button" class="integrityBanner__close" id="btnIntegrityClose" aria-label="閉じる">&times;</button>
       </div>
       <ul class="integrityBanner__list hidden" id="integrityBannerList"></ul>
-    </header>
 
-    <!-- 在庫リスト: 左の絞り込みサイドバー（既存項目のみで構成、新規スプレッドシート
-         列は追加しない）＋番号付きの一覧行という構成に統一する。カード／表の表示形式
-         切り替えは廃止し、この1デザインに一本化する（現場の要望「参照画像のような
-         レイアウトにしたい」への対応。ROUND H フェーズ2）。キーワード検索は
-         これまでどおりサーバー側（searchInventory）でも絞り込むが、区分・状態・
-         掲載状況・モデル・年式・価格帯・走行距離はJavaScript.html側で取得済みの
-         一覧をクライアント側だけで絞り込む（サーバー側の検索仕様は変更していない）。 -->
-    <main class="view is-active" id="view-inventory">
-      <div class="toolbar" id="inventoryToolbar">
-        <button type="button" class="filterToggleBtn" data-filter-toggle aria-pressed="true" aria-label="絞り込みの表示切替">
-          <svg class="icon icon--inline"><use href="#icon-tune"></use></svg>絞り込み
-        </button>
-        <span class="toolbar__count" id="inventoryTotalCount"></span>
-        <div class="toolbar__spacer"></div>
+    <!-- 在庫リスト: ヘッダーの下に「検索＋クイック状態＋絞り込みチップ」の
+         コマンドバーを置き、番号付きの一覧行を画面幅いっぱいに表示する
+         （左に固定幅のサイドバーを置いていた旧デザインを廃止。現場の要望
+         「画期的な案」への対応）。絞り込み項目自体・キーワード検索の方式
+         （サーバー側searchInventory＋クライアント側絞り込みの併用）は変更していない。
+         区分・状態・掲載状況・モデル・年式・価格帯・走行距離・カラー・ボディタイプの
+         各要素（id）はそのままチップのポップオーバーの中身として再利用する。 -->
+    <main class="view view--list is-active" id="view-inventory">
+      <div class="commandbar">
+        <div class="searchrow">
+          <div class="searchbox">
+            <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
+            <input type="search" id="inventoryKeyword" placeholder="モデル・ＯＣＮ・コミッション・車台番号下４桁・登録番号で検索">
+          </div>
+        </div>
+        <!-- 状態タブ（すべて／在庫あり／Hold中／業販HOLD中）。中身の描画・件数集計・
+             クリック時の絞り込み処理（renderInventoryStatusTabs_、JavaScript.html参照）
+             自体は変更していない。 -->
+        <div class="scroller statusTabs" id="inventoryStatusTabs" role="tablist" aria-label="状態で絞り込み"></div>
+        <div class="chiprow">
+          <div class="chip-wrap" data-chip>
+            <button type="button" class="chip" id="chipBodyType" aria-expanded="false">
+              <span class="dot"></span><span class="chip__label">ボディタイプ</span>
+              <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="popover" hidden>
+              <!-- モデル名に含まれるキーワードとボディタイプ（Sedan・SUV等）の紐付けは
+                   設定タブ（管理者限定）で登録する（modelBodyTypeRules、
+                   SettingsService.gs参照）。選択肢自体は登録済みルールの有無に
+                   関わらずMODEL_BODY_TYPE_OPTIONSの7種類を常に表示する
+                   （renderInventoryFilterSidebar_、JavaScript.html参照）。 -->
+              <div id="inventoryBodyTypeFilter"></div>
+            </div>
+          </div>
+          <div class="chip-wrap" data-chip>
+            <button type="button" class="chip" id="chipColor" aria-expanded="false">
+              <span class="dot"></span><span class="chip__label">カラー</span>
+              <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="popover" hidden>
+              <p class="popover__label">カラー</p>
+              <select id="inventoryColorFilter" class="input"><option value="">指定なし</option></select>
+            </div>
+          </div>
+          <div class="chip-wrap" data-chip>
+            <button type="button" class="chip" id="chipStatus" aria-expanded="false">
+              <span class="dot"></span><span class="chip__label">ステータス</span>
+              <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <!-- 状態（在庫あり／Hold中／業販HOLD中）は、上のクイック状態タブ
+                 （#inventoryStatusTabs、単一選択の早見用）とは別に、こちらでは
+                 複数選択（例:「在庫あり」と「Hold中」を同時に見る）ができるように
+                 している。どちらも同じstate.inventoryFilters.statusを共有し、
+                 操作するとタブ側の見た目も連動する（syncInventoryStatusCheckboxes_、
+                 JavaScript.html参照）。 -->
+            <div class="popover" hidden>
+              <div class="popover__section">
+                <p class="popover__label">状態（複数選択可）</p>
+                <div id="inventoryStatusFilter">
+                  <label class="filterCheck"><input type="checkbox" value="available"> 在庫あり</label>
+                  <label class="filterCheck"><input type="checkbox" value="hold"> Hold中</label>
+                  <label class="filterCheck"><input type="checkbox" value="wholesale"> 業販HOLD中</label>
+                </div>
+              </div>
+              <div class="popover__section">
+                <p class="popover__label">区分</p>
+                <div id="inventoryCategoryFilter"></div>
+              </div>
+              <div class="popover__section">
+                <p class="popover__label">掲載状況</p>
+                <div id="inventoryListedFilter">
+                  <label class="filterCheck"><input type="checkbox" value="carsensor"> カーセンサー掲載中</label>
+                  <label class="filterCheck"><input type="checkbox" value="goonet"> グーネット掲載中</label>
+                  <label class="filterCheck"><input type="checkbox" value="unlisted"> 未掲載</label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="chip-wrap" data-chip>
+            <button type="button" class="chip" id="chipMore" aria-expanded="false">
+              <span class="dot"></span><span class="chip__label">その他の条件</span>
+              <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="popover popover--wide" hidden>
+              <div class="popover__section">
+                <p class="popover__label">モデル</p>
+                <select id="inventoryModelFilter" class="input"><option value="">指定なし</option></select>
+              </div>
+              <div class="popover__section">
+                <p class="popover__label">年式</p>
+                <select id="inventoryYearFilter" class="input"></select>
+              </div>
+              <div class="popover__section">
+                <p class="popover__label">価格帯</p>
+                <select id="inventoryPriceFilter" class="input"></select>
+              </div>
+              <div class="popover__section">
+                <p class="popover__label">走行距離</p>
+                <select id="inventoryMileageFilter" class="input"></select>
+              </div>
+            </div>
+          </div>
+          <button type="button" class="clearlink hidden" id="btnInventoryFilterClear">絞り込みをクリア</button>
+        </div>
+      </div>
+      <div class="toolbar2">
+        <span class="toolbar2__count" id="inventoryTotalCount"></span>
         <label class="sortField">並び替え
           <select id="inventorySort" class="input"></select>
         </label>
       </div>
-      <div class="toolbarSpacer" id="inventoryToolbarSpacer"></div>
-      <div class="listBody">
-        <aside class="filterSidebar" aria-label="在庫リストの絞り込み">
-          <!-- 自由検索は絞り込み機能の一番上に置く（現場からの要望）。 -->
-          <div class="filterSidebar__field">
-            <div class="filterSidebar__search">
-              <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
-              <input type="search" id="inventoryKeyword" placeholder="モデル・ＯＣＮ・コミッション・車台番号下４桁・登録番号">
-            </div>
-          </div>
-          <div class="filterSidebar__head">
-            <p class="filterSidebar__title">絞り込み</p>
-            <button type="button" class="filterSidebar__clearBtn" id="btnInventoryFilterClear">クリア</button>
-          </div>
-          <!-- 車両そのものの条件（モデル・ボディタイプ・カラー・年式・価格帯・
-               走行距離）と、業務上のステータス（区分・状態・掲載状況）は、性質が
-               異なるため見出しで分けて配置する（現場からの要望）。 -->
-          <p class="filterSidebar__sectionLabel">車両条件</p>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">モデル</label>
-            <select id="inventoryModelFilter" class="input"><option value="">指定なし</option></select>
-          </div>
-          <!-- モデル名に含まれるキーワードとボディタイプ（Sedan・SUV等）の紐付けは
-               設定タブ（管理者限定）で登録する（modelBodyTypeRules、
-               SettingsService.gs参照）。選択肢自体は登録済みルールの有無に
-               関わらずMODEL_BODY_TYPE_OPTIONSの7種類を常に表示する
-               （renderInventoryFilterSidebar_、JavaScript.html参照）。 -->
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">ボディタイプ</label>
-            <div id="inventoryBodyTypeFilter"></div>
-          </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">カラー</label>
-            <select id="inventoryColorFilter" class="input"><option value="">指定なし</option></select>
-          </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">年式</label>
-            <select id="inventoryYearFilter" class="input"></select>
-          </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">価格帯</label>
-            <select id="inventoryPriceFilter" class="input"></select>
-          </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">走行距離</label>
-            <select id="inventoryMileageFilter" class="input"></select>
-          </div>
-          <hr class="filterSidebar__rule">
-          <p class="filterSidebar__sectionLabel">ステータス</p>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">区分</label>
-            <div id="inventoryCategoryFilter"></div>
-          </div>
-          <hr class="filterSidebar__rule">
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">状態</label>
-            <div id="inventoryStatusFilter">
-              <label class="filterCheck"><input type="checkbox" value="available"> 在庫あり</label>
-              <label class="filterCheck"><input type="checkbox" value="hold"> Hold中</label>
-              <label class="filterCheck"><input type="checkbox" value="wholesale"> 業販HOLD中</label>
-            </div>
-          </div>
-          <hr class="filterSidebar__rule">
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">掲載状況</label>
-            <div id="inventoryListedFilter">
-              <label class="filterCheck"><input type="checkbox" value="carsensor"> カーセンサー掲載中</label>
-              <label class="filterCheck"><input type="checkbox" value="goonet"> グーネット掲載中</label>
-              <label class="filterCheck"><input type="checkbox" value="unlisted"> 未掲載</label>
-            </div>
-          </div>
-        </aside>
-        <div>
-          <div id="inventoryList"></div>
-          <div class="emptyState hidden" id="inventoryEmpty">
-            <svg class="icon emptyState__icon"><use href="#icon-grid"></use></svg>
-            <p>該当する在庫がありません</p>
-          </div>
-        </div>
+      <div id="inventoryList"></div>
+      <div class="emptyState hidden" id="inventoryEmpty">
+        <svg class="icon emptyState__icon"><use href="#icon-grid"></use></svg>
+        <p>該当する在庫がありません</p>
       </div>
     </main>
 
@@ -316,13 +340,40 @@
          揃える（ROUND H フェーズ2）。フィルタ項目自体は既存のキーワード・拠点・
          担当者のみで、サーバー側の検索・グループ表示（searchOrders・groupByField_）は
          変更していない。 -->
-    <main class="view" id="view-orders">
-      <div class="toolbar" id="ordersToolbar">
-        <button type="button" class="filterToggleBtn" data-filter-toggle aria-pressed="true" aria-label="絞り込みの表示切替">
-          <svg class="icon icon--inline"><use href="#icon-tune"></use></svg>絞り込み
-        </button>
-        <span class="toolbar__count" id="ordersTotalCount"></span>
-        <div class="toolbar__spacer"></div>
+    <main class="view view--list" id="view-orders">
+      <div class="commandbar">
+        <div class="searchrow">
+          <div class="searchbox">
+            <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
+            <input type="search" id="ordersKeyword" placeholder="モデル・コミッション・顧客名・担当・拠点で検索">
+          </div>
+        </div>
+        <div class="chiprow">
+          <div class="chip-wrap" data-chip>
+            <button type="button" class="chip" id="chipOrdersLocation" aria-expanded="false">
+              <span class="dot"></span><span class="chip__label">拠点</span>
+              <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="popover" hidden>
+              <p class="popover__label">拠点</p>
+              <select id="ordersLocationFilter" class="input"><option value="">拠点：すべて</option></select>
+            </div>
+          </div>
+          <div class="chip-wrap" data-chip>
+            <button type="button" class="chip" id="chipOrdersStaff" aria-expanded="false">
+              <span class="dot"></span><span class="chip__label">担当者</span>
+              <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="popover" hidden>
+              <p class="popover__label">担当者</p>
+              <select id="ordersStaffFilter" class="input"></select>
+            </div>
+          </div>
+          <button type="button" class="clearlink hidden" id="btnOrdersFilterClear">絞り込みをクリア</button>
+        </div>
+      </div>
+      <div class="toolbar2">
+        <span class="toolbar2__count" id="ordersTotalCount"></span>
         <label class="sortField">グループ化
           <select id="ordersGroupBy" class="input">
             <option value="">なし</option>
@@ -332,50 +383,52 @@
           </select>
         </label>
       </div>
-      <div class="toolbarSpacer" id="ordersToolbarSpacer"></div>
-      <div class="listBody">
-        <aside class="filterSidebar" aria-label="受注リストの絞り込み">
-          <div class="filterSidebar__field">
-            <div class="filterSidebar__search">
-              <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
-              <input type="search" id="ordersKeyword" placeholder="モデル・コミッション・顧客名・担当・拠点">
-            </div>
-          </div>
-          <div class="filterSidebar__head">
-            <p class="filterSidebar__title">絞り込み</p>
-            <button type="button" class="filterSidebar__clearBtn" id="btnOrdersFilterClear">クリア</button>
-          </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">拠点</label>
-            <select id="ordersLocationFilter" class="input"><option value="">拠点：すべて</option></select>
-          </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">担当者</label>
-            <select id="ordersStaffFilter" class="input"></select>
-          </div>
-        </aside>
-        <div>
-          <div id="ordersGroups"></div>
-          <div class="emptyState hidden" id="ordersEmpty">
-            <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
-            <p>該当する受注がありません</p>
-          </div>
-        </div>
+      <div id="ordersGroups"></div>
+      <div class="emptyState hidden" id="ordersEmpty">
+        <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
+        <p>該当する受注がありません</p>
       </div>
     </main>
 
     <!-- 業販受注リスト: 業販HOLD（HoldService.gsのHOLD_TYPE.WHOLESALE）から
          受注確定した車両の一覧。管理者権限を持つ担当者にのみ表示する
-         （サイドバー・上部タブとも#sidebarNavWholesaleOrders/#mainTabWholesaleOrders
-         参照）。通常の受注リストと異なり、リード番号・下取車の有無・保険加入の
-         有無・支払方法は持たず、顧客の代わりに「販売先」で検索する。 -->
-    <main class="view" id="view-wholesaleOrders">
-      <div class="toolbar" id="wholesaleOrdersToolbar">
-        <button type="button" class="filterToggleBtn" data-filter-toggle aria-pressed="true" aria-label="絞り込みの表示切替">
-          <svg class="icon icon--inline"><use href="#icon-tune"></use></svg>絞り込み
-        </button>
-        <span class="toolbar__count" id="wholesaleOrdersTotalCount"></span>
-        <div class="toolbar__spacer"></div>
+         （レール・下タブバーとも.navBtn--wholesaleクラスで一括制御、
+         JavaScript.html参照）。通常の受注リストと異なり、リード番号・下取車の
+         有無・保険加入の有無・支払方法は持たず、顧客の代わりに「販売先」で検索する。 -->
+    <main class="view view--list" id="view-wholesaleOrders">
+      <div class="commandbar">
+        <div class="searchrow">
+          <div class="searchbox">
+            <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
+            <input type="search" id="wholesaleOrdersKeyword" placeholder="モデル・コミッション・販売先・担当・拠点で検索">
+          </div>
+        </div>
+        <div class="chiprow">
+          <div class="chip-wrap" data-chip>
+            <button type="button" class="chip" id="chipWholesaleLocation" aria-expanded="false">
+              <span class="dot"></span><span class="chip__label">拠点</span>
+              <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="popover" hidden>
+              <p class="popover__label">拠点</p>
+              <select id="wholesaleOrdersLocationFilter" class="input"><option value="">拠点：すべて</option></select>
+            </div>
+          </div>
+          <div class="chip-wrap" data-chip>
+            <button type="button" class="chip" id="chipWholesaleStaff" aria-expanded="false">
+              <span class="dot"></span><span class="chip__label">担当者</span>
+              <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div class="popover" hidden>
+              <p class="popover__label">担当者</p>
+              <select id="wholesaleOrdersStaffFilter" class="input"></select>
+            </div>
+          </div>
+          <button type="button" class="clearlink hidden" id="btnWholesaleOrdersFilterClear">絞り込みをクリア</button>
+        </div>
+      </div>
+      <div class="toolbar2">
+        <span class="toolbar2__count" id="wholesaleOrdersTotalCount"></span>
         <label class="sortField">グループ化
           <select id="wholesaleOrdersGroupBy" class="input">
             <option value="">なし</option>
@@ -385,35 +438,10 @@
           </select>
         </label>
       </div>
-      <div class="toolbarSpacer" id="wholesaleOrdersToolbarSpacer"></div>
-      <div class="listBody">
-        <aside class="filterSidebar" aria-label="業販受注リストの絞り込み">
-          <div class="filterSidebar__field">
-            <div class="filterSidebar__search">
-              <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
-              <input type="search" id="wholesaleOrdersKeyword" placeholder="モデル・コミッション・販売先・担当・拠点">
-            </div>
-          </div>
-          <div class="filterSidebar__head">
-            <p class="filterSidebar__title">絞り込み</p>
-            <button type="button" class="filterSidebar__clearBtn" id="btnWholesaleOrdersFilterClear">クリア</button>
-          </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">拠点</label>
-            <select id="wholesaleOrdersLocationFilter" class="input"><option value="">拠点：すべて</option></select>
-          </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">担当者</label>
-            <select id="wholesaleOrdersStaffFilter" class="input"></select>
-          </div>
-        </aside>
-        <div>
-          <div id="wholesaleOrdersGroups"></div>
-          <div class="emptyState hidden" id="wholesaleOrdersEmpty">
-            <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
-            <p>該当する業販受注がありません</p>
-          </div>
-        </div>
+      <div id="wholesaleOrdersGroups"></div>
+      <div class="emptyState hidden" id="wholesaleOrdersEmpty">
+        <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
+        <p>該当する業販受注がありません</p>
       </div>
     </main>
 
@@ -426,11 +454,14 @@
          切り替えは廃止）、自由検索欄だけをツールバーに持たせて、マイページ全体
          （2セクションとも）に一括で適用する（#myPageKeyword、renderMyPageAll_参照）。 -->
     <main class="view" id="view-mypage">
-      <div class="toolbar" id="myPageToolbar">
-        <input type="search" id="myPageKeyword" class="input input--search" placeholder="自由検索（モデル・コミッション・顧客・リード番号等）">
-        <div class="toolbar__spacer"></div>
+      <div class="commandbar">
+        <div class="searchrow">
+          <div class="searchbox">
+            <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
+            <input type="search" id="myPageKeyword" placeholder="自由検索（モデル・コミッション・顧客・リード番号等）">
+          </div>
+        </div>
       </div>
-      <div class="toolbarSpacer" id="myPageToolbarSpacer"></div>
       <div class="emptyState hidden" id="myPageNoStaff">
         <svg class="icon emptyState__icon"><use href="#icon-people"></use></svg>
         <p>ご利用中のGoogleアカウントが担当者マスタに登録されていないため、マイページを表示できません。
@@ -621,6 +652,7 @@
         </div>
       </div>
     </main>
+    </div>
   </div>
 
   <!-- Hold / 受注 共通入力モーダル（顧客情報→契約内容の2ステップ） -->

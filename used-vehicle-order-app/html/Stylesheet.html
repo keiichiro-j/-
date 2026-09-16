@@ -55,18 +55,6 @@
     /* 公式サイトはカードの角丸をあまり強調しないフラットな見た目のため、
        従来の14pxより控えめな角丸にして「エンジニアリングされた精密さ」を出す。 */
     --radius: 8px;
-    /* トップバーは「THE STUDY」参照UIに合わせ、常時ネイビーの帯だった旧仕様から
-       白ベースの帯に変更した（ROUND H フェーズ2続き。現場の要望「添付デザインと
-       全く同じに」）。テーマカラー（--primary）は帯全体を塗る用途からは外し、
-       アクティブタブの下線・ボタンの塗り・小さなドット等、機能的なアクセント
-       箇所だけに使う（「テーマの反映箇所を改める」対応）。--on-topbar /
-       --dark-ui-outlineという変数名自体は、白ベースになった後も「トップバー
-       専用の文字色・枠線色」という役割のまま残している（他の白背景要素の
-       --on-surface / --outlineと完全に同じ値でも、意味的に独立させておくことで
-       今後トップバーだけ配色を変えたくなった場合に影響範囲を分離できるため）。 */
-    --topbar-bg: #ffffff;
-    --on-topbar: #1f2933;
-    --dark-ui-outline: #d8e1e8;
     /* 起動時ローディング画面（.appLoading）専用の背景色。テーマ設定（表示設定）で
        選んだテーマのprimaryDarkに、JS実行後applyTheme（JavaScript.html参照）が
        都度合わせる。ここでの値はJS実行前（テーマ切替前）の初期表示専用で、
@@ -75,27 +63,14 @@
        要望を受け、黒に固定した（JS実行後、選んだテーマの色に上書きされる一瞬までの
        表示専用のため、この値自体はテーマ設定の影響を受けない）。 */
     --loading-bg: #000000;
-    /* PC専用の左サイドバー（.sidebar）だけに使うグレー背景。以前は--topbar-bg
-       （ダークネイビー）を流用していたが、トップバー・比較バー・トーストと違い
-       サイドバーは「常に紺色の額縁」という統一を必要としない単独のナビ帯の
-       ため、独立したトークンにして他のダークUIパーツに影響を与えずに変更できる
-       ようにした（現場の要望で、背景は明るいまま一番左のナビだけをグレーにする
-       ため）。 */
-    --sidebar-bg: #4b5563;
-    /* サイドバーの文字色・薄い罫線・ホバー背景。設定タブでサイドバーの背景色
-       （--sidebar-bg）を自由に指定できるようにしたため（他のダークUIパーツと違い
-       固定のネイビー・白文字前提にできない）、背景色に対して読みやすいほう
-       （白／濃色）をJS側で毎回計算し直す（pickReadableSidebarTextColor_・
-       applySidebarColor_、JavaScript.html参照）。ここでの値は既定のグレー背景
-       （--sidebar-bg初期値）に対する目安値で、JS実行前のレイアウトずれを防ぐ
-       ためのものに過ぎない。 */
-    --sidebar-fg: #ffffff;
-    --sidebar-fg-muted: rgba(255, 255, 255, .68);
-    --sidebar-outline: rgba(255, 255, 255, .14);
-    --sidebar-hover-bg: rgba(255, 255, 255, .08);
-    /* トップバーの実高さ。JS（syncFixedBars_）が実測して上書きする。初期値は
-       JS実行前のレイアウトずれを防ぐための目安値。 */
-    --topbar-h: 108px;
+    /* アイコンのみの左レール（PCビュー）の幅、およびヘッダー
+       （.contentHeader）の高さ。どちらも中身に応じて変わらない固定値にして
+       おくことで、.commandbar側のposition: sticky（top: var(--content-header-h)）を
+       JSでの実測無しに正しく重ねられるようにしている（以前のposition: fixed＋
+       JS実測スペーサー方式から、position: stickyだけで完結する方式に変更した。
+       Stylesheet.html内の.rail・.contentHeader・.commandbar参照）。 */
+    --rail-w: 68px;
+    --content-header-h: 60px;
     /* ソフトウェアキーボードが画面下側を覆っている高さ。JS
        （syncKeyboardInset_）がwindow.visualViewportで実測し、キーボード表示中は
        その高さに更新する（.modal参照。キーボードが無い間は0のまま）。 */
@@ -138,24 +113,140 @@
   }
   .icon--inline { width: 14px; height: 14px; vertical-align: -2px; }
 
-  /* ===== ヘッダー / タブ =====
-     position: fixed で画面上部に完全固定する（position: stickyだとスクロール中に
-     わずかに追従が遅れて見えることがあるため、実測値ベースで確実に固定する。
-     JavaScript.html の syncFixedBars_ 参照）。背景色は画面幅に関わらず常に白
-     （--topbar-bg）で統一する。 */
-  #app { padding-top: var(--topbar-h); }
-  .topbar {
-    background: var(--topbar-bg);
-    color: var(--on-topbar);
-    display: flex;
+  /* ===== レイアウト全体：アイコンレール（左）＋コンテンツ（右） =====
+     横タブ・色付きサイドバーは廃止し、Slack/Notion等と同じ「アイコンのみの
+     細い左レール」＋「検索・絞り込みチップをまとめたコマンドバー」に統一した
+     （現場の要望「画期的な案」への対応）。以前のposition: fixed＋JS実測
+     スペーサー方式（syncFixedBars_）はもう使わず、position: sticky＋固定の
+     高さ変数（--rail-w・--content-header-h、:root参照）だけで完結させている。 */
+  #app { display: grid; grid-template-columns: var(--rail-w) minmax(0, 1fr); align-items: start; }
+  .content { min-width: 0; }
+
+  /* ===== 左レール（アイコンのみ。PCビュー専用、901px未満は.tabbarに切り替える） =====
+     height: 100vh + position: stickyにするだけで、JSでの高さ実測なしに
+     スクロール中も画面の左端に張り付いたままになる（#appの行の高さは
+     一覧の中身ぶん100vhよりずっと高くなるが、position: stickyはその範囲内で
+     top: 0の位置に留まり続ける）。 */
+  .rail {
+    display: none;
     flex-direction: column;
-    border-bottom: 1px solid var(--dark-ui-outline);
-    box-shadow: var(--shadow);
-    position: fixed;
+    align-items: center;
+    gap: 4px;
+    padding: 14px 0 12px;
+    background: var(--surface);
+    border-right: 1px solid var(--outline);
+    position: sticky;
     top: 0;
-    left: 0;
-    right: 0;
-    z-index: 30;
+    height: 100vh;
+  }
+  .rail__mark {
+    width: 36px; height: 36px; border-radius: 10px; flex: none;
+    background: var(--primary-bg); color: var(--primary-text);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 16px;
+  }
+  .rail__logo { max-width: 24px; max-height: 24px; object-fit: contain; }
+  .rail__markIcon { width: 20px; height: 20px; }
+  .rail__nav { display: flex; flex-direction: column; gap: 4px; width: 100%; align-items: center; }
+  .railBtn {
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    width: 46px; height: 46px; padding: 0; border-radius: 11px; flex: none;
+    background: none; border: none; color: var(--on-surface-variant); cursor: pointer;
+  }
+  .railBtn:hover { background: var(--background); color: var(--on-surface); }
+  .railBtn.is-active { background: var(--primary-bg); color: var(--primary-text); }
+  .railBtn.is-active::before {
+    content: ''; position: absolute; left: -12px; top: 50%; transform: translateY(-50%);
+    width: 3px; height: 18px; border-radius: 3px; background: var(--primary);
+  }
+  /* ツールチップ（ホバー時のみ表示）。アイコンのみのレールでも各項目名・
+     担当者名がわかるようにする。 */
+  .railBtn .tip, .rail__avatarTip {
+    position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%);
+    background: var(--on-surface); color: var(--surface); font-size: 11.5px; font-weight: 700;
+    padding: 5px 9px; border-radius: 6px; white-space: nowrap; opacity: 0; pointer-events: none;
+    transition: opacity .12s var(--ease); z-index: 40;
+  }
+  .railBtn:hover .tip, .railBtn:focus-visible .tip,
+  .rail__avatar:hover .rail__avatarTip, .rail__avatar:focus-visible .rail__avatarTip { opacity: 1; }
+  .rail__spacer { flex: 1; }
+  .rail__avatar {
+    position: relative;
+    width: 38px; height: 38px; border-radius: 10px; flex: none;
+    background: var(--primary); color: var(--on-primary); border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+  }
+  .rail__avatarTip { left: auto; right: calc(100% + 10px); bottom: 0; top: auto; transform: none; text-align: left; line-height: 1.6; }
+  .rail__avatarTip b { display: block; font-size: 12px; }
+  .rail__avatarTip span { display: block; font-weight: 500; opacity: .8; font-size: 10.5px; }
+  .rail__avatarTip.is-warn { background: var(--warning); }
+
+  /* ===== 下タブバー（タブレット・スマホ幅。レールの代わり） =====
+     位置・表示はStylesheet.html末尾の@media(max-width: 900px)ブロックで
+     まとめて定義する。ここではPCビューで確実に隠すためのデフォルトのみ置く。 */
+  .tabbar { display: none; }
+
+  /* ===== コンテンツヘッダー：全画面共通の1つの要素 =====
+     表示中のタブに応じてタイトルだけをJS（switchToTab_）が書き換える。
+     戻る／更新ボタン・アプリ名・（スマホ幅のみ）担当者情報は画面をまたいで
+     同じ1つの要素のため、画面ごとに複製する必要が無い。高さはvar(--content-header-h)で
+     固定し、各画面の.commandbarをその真下にposition: stickyで重ねる
+     （JSでの高さ実測は不要）。 */
+  .contentHeader {
+    height: var(--content-header-h);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--outline);
+    position: sticky;
+    top: 0;
+    z-index: 15;
+  }
+  .contentHeader__titles { flex: 1 1 auto; min-width: 0; }
+  .contentHeader__eyebrow {
+    margin: 0;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--on-surface-variant);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .contentHeader__title {
+    margin: 2px 0 0;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--on-surface);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .iconbtn {
+    display: flex; align-items: center; justify-content: center; flex: none;
+    width: 36px; height: 36px; padding: 0;
+    background: transparent; border: 1px solid var(--outline); border-radius: 10px;
+    color: var(--on-surface-variant); cursor: pointer;
+  }
+  .iconbtn:hover { background: var(--background); color: var(--on-surface); }
+  .iconbtn:disabled { opacity: .3; cursor: default; }
+  .iconbtn:disabled:hover { background: transparent; }
+  /* 「更新」ボタンは読み込み中はアイコンを回転させることだけでフィードバックする。 */
+  .iconbtn.is-spinning .icon { animation: navRefreshSpin .8s linear infinite; }
+  @keyframes navRefreshSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  /* スマホ・タブレット幅専用（レールが無いためヘッダー内にアカウント情報を
+     置く）。PCビューではレール下端のアバターと重複するため非表示にする
+     （下の@media(max-width: 900px)ブロック参照）。 */
+  .contentHeader__account {
+    display: none;
+    flex: none; width: 32px; height: 32px; border-radius: 9px; padding: 0;
+    background: var(--primary); color: var(--on-primary); border: none; cursor: pointer;
+    align-items: center; justify-content: center; font-size: 11px; font-weight: 700;
   }
 
   /* ===== 起動時ローディング画面 =====
@@ -176,7 +267,7 @@
     align-items: center;
     justify-content: center;
     gap: 16px;
-    background: var(--loading-bg, var(--topbar-bg));
+    background: var(--loading-bg);
     color: #eaf1f8;
     transition: opacity .3s var(--ease), background-color .3s var(--ease);
   }
@@ -204,202 +295,8 @@
     .appLoading__image { transition: none; }
   }
 
-  /* ===== ブランド表記の行 =====
-     左側は「戻る」「更新」ボタン、右側はログイン中のユーザー情報。アプリ名
-     「販売可能リスト」＋ロゴは、左右のブロックの幅に関わらず常に画面中央に
-     来るよう、.topbar__brandRow を position: relative にし、.topbar__brand を
-     position: absolute + left: 50% / transform: translate(-50%, -50%) で
-     中央配置している（左右を1fr auto 1frのグリッドで揃える方式だと、左右の
-     内容量が変わるたびに調整が必要になるため、中央配置専用の要素を絶対配置
-     する方式に変更した）。 */
-  .topbar__brandRow {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 14px 28px;
-  }
-  .topbar__left { display: flex; align-items: center; gap: 10px; }
-  .topbar__brand {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    white-space: nowrap;
-  }
-  /* ロゴとテキストが干渉しないよう、テキストのサイズをロゴの高さに近い
-     スケールに揃える（PCビュー・タブレット/スマホビューそれぞれの
-     .topbar__logoの高さに合わせて、下のmin-width: 901pxブロック内でも
-     調整している）。 */
-  .topbar__brandText {
-    font-size: 15px;
-    font-weight: 700;
-    letter-spacing: .1em;
-    color: var(--on-topbar);
-    white-space: nowrap;
-  }
-  .topbar__navBtn {
-    display: flex; align-items: center; justify-content: center;
-    width: 36px; height: 36px; padding: 0; flex: none;
-    background: transparent; border: 1px solid var(--dark-ui-outline); border-radius: 10px;
-    color: var(--on-topbar); cursor: pointer;
-  }
-  /* ヘッダーの背景色はテーマに応じて変わる（--topbar-bg、applyChromeColor_
-     参照）ため、ホバー時の重ね色も固定の暗色ではなく、サイドバーと同じ
-     「背景色に対して読みやすい文字色を薄く重ねる」方式（--sidebar-hover-bg）
-     を流用する。文字色が白なら白の薄い重ね、濃色ならその濃色の薄い重ねに
-     なり、どのテーマ色でもホバーが自然になじむ。 */
-  .topbar__navBtn:hover { background: var(--sidebar-hover-bg); }
-  .topbar__navBtn:disabled { opacity: .3; cursor: default; }
-  .topbar__navBtn:disabled:hover { background: transparent; }
-  /* 「更新」ボタンは「戻る」ボタンと見た目を統一し（同じアウトライン円形）、
-     読み込み中はアイコンを回転させることだけでフィードバックする。 */
-  .topbar__navBtn--refresh.is-spinning .icon { animation: navRefreshSpin .8s linear infinite; }
-  @keyframes navRefreshSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-  .topbar__logo { height: 28px; width: auto; max-width: 140px; object-fit: contain; }
-  /* 不具合修正: アプリタイトル（設定タブで変更可能）を長めの文字列にすると、
-     position: absoluteで中央配置しているこのブロックが実際の文字数ぶんそのまま
-     横に広がってしまい、左の「戻る」「更新」ボタンと重なって見えてしまっていた
-     （現場からの指摘）。タブレット・スマホ幅だけ、左右のボタン領域と重ならない
-     幅に上限を設け、収まりきらない場合は末尾を省略記号にする（ロゴ画像は
-     テキストより先に縮んで潰れて見えることのないよう、flex: noneで実寸の
-     まま維持する）。PCビューは下のmin-width: 901pxブロックで単一行レイアウトに
-     組み替えるため、この上限は不要（.topbar__brand参照）。 */
-  @media (max-width: 900px) {
-    .topbar__brand { max-width: calc(100% - 190px); }
-    .topbar__logo { flex: none; }
-    .topbar__brandText { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-  }
-  /* ===== ナビゲーション =====
-     タブレット・スマホ幅では、ブランド行の下に独立した行として中央寄せで
-     配置する。塗りつぶしのピル型タブではなく、参照UIのグローバルナビのような
-     「テキスト＋アクティブ時の下線」のミニマルな水平ナビにする（下線の色
-     （--primary）だけがテーマカラーを反映する箇所で、帯全体を塗るような
-     大きな面には使わない）。 */
-  .tabs {
-    display: flex;
-    justify-content: center;
-    gap: 32px;
-    padding: 0 28px 14px;
-    overflow-x: auto;
-  }
-  .tabs__item {
-    background: transparent;
-    border: none;
-    border-bottom: 2px solid transparent;
-    color: var(--on-topbar);
-    opacity: .6;
-    padding: 6px 1px;
-    font-size: 12.5px;
-    font-weight: 600;
-    letter-spacing: .1em;
-    text-transform: uppercase;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: opacity .15s var(--ease), border-color .15s var(--ease);
-  }
-  .tabs__item:hover { opacity: .85; }
-  .tabs__item.is-active { opacity: 1; border-bottom-color: var(--primary); }
-
-  /* ===== PCビュー（901px以上）のトップバー: 単一行レイアウト =====
-     参照UI「THE STUDY」に合わせ、アプリ名（左）＋タブ（左、アプリ名のすぐ右）
-     ……右端に戻る／更新ボタンとユーザー情報、という1行構成にする（タブレット・
-     スマホ幅は上の中央寄せ・2段構成のまま変更しない）。DOM構造自体は変えず、
-     .topbar__brandRowをdisplay: contentsにしてその子要素（戻る/更新ボタン・
-     アプリ名・ユーザー情報）を.topbar直下のフレックスアイテムとして展開し、
-     兄弟要素の.tabsと合わせてorderで並び替える（.tabsをflex: 1にして
-     残り幅いっぱいまで伸ばし、中の見出しは左詰めのままにすることで、
-     アプリ名＋タブのすぐ右から右端のボタン群までの間が自然な余白になる）。 */
-  @media (min-width: 901px) {
-    /* ヘッダーに状態タブまで統合したぶん1行に収める要素が増えたため、
-       flex-wrapにして、幅が足りない場合はヘッダー自身の中で折り返す（ページ
-       全体の横スクロールは発生させない）。自由検索欄は絞り込みサイドバーの
-       一番上へ移したため（Index.html参照）、ヘッダー側の折り返しには余裕が
-       できている。 */
-    .topbar { flex-direction: row; flex-wrap: wrap; align-items: center; padding: 16px 32px; gap: 10px 28px; }
-    .topbar__brandRow { display: contents; }
-    .topbar__brand {
-      position: static;
-      transform: none;
-      order: 1;
-    }
-    .statusTabs { order: 3; }
-    .topbar__flexSpacer { order: 4; flex: 1 0 20px; }
-    .topbar__left { order: 5; }
-    .topbar__user { order: 6; margin-left: 4px; }
-    .tabs {
-      order: 2;
-      flex: 0 1 auto;
-      justify-content: flex-start;
-      padding: 0;
-      gap: 24px;
-    }
-    .topbar__navBtn { width: 38px; height: 38px; }
-    .topbar__navBtn .icon { width: 20px; height: 20px; }
-    .topbar__logo { height: 30px; max-width: 150px; }
-    .topbar__brandText { font-size: 17px; }
-    .topbar__user { font-size: 13px; }
-    .topbar__userEmail { font-size: 11.5px; }
-
-    /* ===== ヘッダーと絞り込みサイドバーを継ぎ目なく繋げる（案C：L字型の一体フレーム） =====
-       絞り込みサイドバーを持つタブ（在庫・受注・業販受注リスト。bodyに付く
-       has-filter-sidebarクラス、JavaScript.htmlのsyncChromeLayout_参照）表示中は、
-       ヘッダー本体の下端の区切り線・影をやめ、代わりに::afterでサイドバーの
-       右側（白背景の一覧エリアの真上、left: 268px以降）だけに区切り線を描く。
-       サイドバーの真上（左268px分）には何も線を引かないため、同じ背景色の
-       ヘッダーとサイドバーが1枚の板のようにつながって見える。サイドバー自体を
-       一時的に隠している間（is-filter-hidden）はその左268pxに何も無くなる
-       ため、通常どおりヘッダー全幅に区切り線を戻す。 */
-    body.has-filter-sidebar:not(.is-filter-hidden) .topbar { border-bottom: none; box-shadow: none; }
-    body.has-filter-sidebar:not(.is-filter-hidden) .topbar::after {
-      content: '';
-      position: absolute;
-      left: 268px;
-      right: 0;
-      bottom: -1px;
-      height: 1px;
-      background: var(--dark-ui-outline);
-    }
-  }
-
-  .topbar__user {
-    flex: none;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12.5px;
-    line-height: 1.5;
-    white-space: nowrap;
-  }
-  /* 参照UIのユーザーアバター（頭文字入りの丸いチップ）に合わせる。
-     テーマカラー（--primary）を使う数少ない箇所の一つ（小さな機能的な
-     アクセントのみに使う方針。applyTheme、JavaScript.html参照）。 */
-  .topbar__userAvatar {
-    flex: none;
-    width: 30px;
-    height: 30px;
-    border-radius: 10px;
-    background: var(--primary);
-    color: var(--on-primary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11.5px;
-    font-weight: 700;
-  }
-  .topbar__userText { text-align: left; }
-  .topbar__userName { display: block; font-weight: 500; }
-  .topbar__userEmail { display: block; opacity: .8; font-size: 11.5px; }
-  .topbar__userWarn { display: block; color: var(--warning); background: rgba(242, 169, 60, .16); padding: 4px 10px; border-radius: 8px; font-size: 11.5px; }
-
   /* ===== 在庫データ整合性チェックの警告バナー（アプリ起動時、問題があれば表示） =====
-     トップバーの子要素として置くことで、表示・非表示による高さの変化を
-     syncFixedBars_ の --topbar-h 実測にそのまま反映させる（ツールバーの
-     固定位置がずれないようにするため）。 */
+     .contentHeaderのすぐ下に置く（コンテンツ列の中、レールの右側）。 */
   .integrityBanner {
     display: flex;
     align-items: center;
@@ -431,7 +328,13 @@
   }
   .integrityBanner__list li { padding: 3px 0; }
 
+  /* main.viewは.contentの直下、コンテンツヘッダーの下に続く各画面。検索・
+     絞り込みチップを持つ在庫・受注・業販受注リストは.view--listを併記し、
+     コマンドバー・一覧行を画面幅いっぱいに使えるよう左右のパディングを
+     0にする（マイページ・設定はカード状のUIのため、通常どおり左右の余白を
+     持たせる）。 */
   main.view { max-width: 1680px; margin: 0 auto; padding: 16px; }
+  main.view.view--list { max-width: none; margin: 0; padding: 0; }
   .view { display: none; }
   /* タブ切替時、瞬間的にコンテンツが入れ替わるだけだと素っ気ないため、
      切替後の画面にごく軽いフェードイン（+わずかな上方向スライド）を付ける。
@@ -444,60 +347,165 @@
     to { opacity: 1; transform: translateY(0); }
   }
 
-  /* ===== ツールバー（検索欄を含む） =====
-     トップバーと同様に position: fixed で完全固定する。折り返しで高さが変わるため、
-     すぐ下に高さ実測済みのスペーサー（.toolbarSpacer）を置いて、後続コンテンツが
-     隠れないようにする（JavaScript.html の syncFixedBars_ 参照）。 */
-  .toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    align-items: center;
+  /* ===== コマンドバー：検索＋クイック状態＋絞り込みチップ =====
+     以前は「絞り込み」ボタンで開閉する左サイドバーに、区分・状態・掲載状況・
+     モデル・年式・価格帯・走行距離・カラー・ボディタイプの各項目を並べていたが、
+     タップで開くチップに置き換え、一覧を画面幅いっぱいに表示できるようにした
+     （現場の要望「画期的な案」への対応）。.contentHeaderの真下に
+     position: stickyで重ね、スクロール中も検索・チップが見えたままにする
+     （--content-header-h、:root参照。JSでの高さ実測は不要）。 */
+  .commandbar {
+    position: sticky;
+    top: var(--content-header-h);
+    z-index: 12;
     background: var(--surface);
-    padding: 12px 16px;
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    position: fixed;
-    top: calc(var(--topbar-h) + 16px); /* ツールバーの下（次のカードまで）と同じ余白をヘッダーとの間にも確保する */
-    left: 50%;
-    transform: translateX(-50%);
-    width: calc(100% - 32px);
-    max-width: 1648px; /* main.view の max-width(1680px) から左右padding(32px)を引いた値 */
-    z-index: 25;
+    border-bottom: 1px solid var(--outline);
+    padding: 14px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
   }
-  .toolbar__spacer { flex: 1; }
+  .searchrow { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .searchbox {
+    flex: 1 1 320px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    border: 1px solid var(--outline);
+    border-radius: 10px;
+    padding: 9px 14px;
+    background: var(--surface);
+    transition: border-color .15s var(--ease), box-shadow .15s var(--ease);
+  }
+  .searchbox:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }
+  .searchbox .icon--inline { flex: none; color: var(--on-surface-variant); }
+  .searchbox input {
+    border: none; outline: none; background: none; width: 100%;
+    font-size: 16px; color: var(--on-surface);
+  }
+  .searchbox input::placeholder { color: var(--on-surface-variant); }
 
-  /* ===== 状態タブ（ヘッダー内。参照UI「THE STUDY」のステータスタブに相当） =====
-     既存の「状態」チェックボックス（#inventoryStatusFilter、絞り込み
-     サイドバー）と同じstate.inventoryFilters.statusを操作する、単一選択の
-     ショートカットにすぎない（新しい状態区分は増やしていない）。以前は
-     在庫リストのツールバー内にあったが、ヘッダーに統合してツールバーの
-     行数を減らし、一覧の表示領域を少しでも広く取れるようにした（現場からの
-     要望）。在庫リスト表示中のみ見える（syncHeaderStatusTabs_参照）。 */
-  .statusTabs { display: flex; align-items: center; gap: 18px; overflow-x: auto; }
+  /* 検索・状態タブ・絞り込みチップの行は、項目数が多い場合でも折り返さず
+     横スクロールにする（スマホ幅でも縦に場所を取らないようにするため。
+     スクロールバー自体は視覚的にじゃまなので隠す）。 */
+  .scroller {
+    display: flex;
+    gap: 8px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .scroller::-webkit-scrollbar { display: none; }
+
+  /* 絞り込みチップの行は.scroller（横スクロール）にはしない。overflow-x: auto
+     を指定すると仕様上overflow-yも暗黙にauto（＝はみ出しをクリップ）になり、
+     チップの真下に出すポップオーバーが見えなくなってしまうため
+     （実際に発生した不具合）。折り返し（flex-wrap: wrap）で対応する。 */
+  .chiprow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+  /* ===== 状態タブ（クイック状態切替） =====
+     既存の「状態」チェックボックス（#inventoryStatusFilter、チップの中）と
+     同じstate.inventoryFilters.statusを操作する、単一選択のショートカットに
+     すぎない（新しい状態区分は増やしていない）。中身の描画・件数集計・
+     クリック時の絞り込み処理（renderInventoryStatusTabs_）自体は変更していない。 */
   .statusTabs__item {
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    padding: 4px 1px;
+    flex: none;
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-radius: 999px;
+    padding: 8px 14px;
     font-size: 12.5px;
-    font-weight: 600;
-    color: var(--on-topbar);
-    opacity: .65;
+    font-weight: 700;
+    color: var(--on-surface-variant);
     cursor: pointer;
     white-space: nowrap;
     display: flex;
     align-items: baseline;
     gap: 6px;
   }
-  .statusTabs__item:hover { opacity: 1; }
-  .statusTabs__item.is-active { opacity: 1; border-bottom-color: var(--primary); }
-  .statusTabs__cnt { font-size: 11px; font-weight: 700; color: inherit; opacity: .8; font-variant-numeric: tabular-nums; }
-  .statusTabs__item.is-active .statusTabs__cnt { color: var(--primary-text); opacity: 1; }
-  /* ヘッダー内でタブ群・状態タブを左詰めのまま、右側の検索・アイコン・
-     ユーザー情報だけを右端へ寄せるための伸縮スペーサー（PCビューのみ、
-     下のmin-width: 901pxブロックでflex: 1にする）。 */
-  .topbar__flexSpacer { flex: none; }
+  .statusTabs__item:hover { border-color: var(--on-surface-variant); color: var(--on-surface); }
+  .statusTabs__item.is-active { background: var(--on-surface); border-color: var(--on-surface); color: var(--surface); }
+  .statusTabs__cnt { font-size: 11px; font-weight: 800; color: inherit; opacity: .75; font-variant-numeric: tabular-nums; }
+  .statusTabs__item.is-active .statusTabs__cnt { opacity: 1; }
+
+  /* ===== 絞り込みチップ ===== */
+  .chip-wrap { position: relative; flex: none; }
+  .chip {
+    appearance: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    border: 1px solid var(--outline);
+    background: var(--surface);
+    color: var(--on-surface);
+    border-radius: 999px;
+    padding: 8px 12px 8px 14px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    white-space: nowrap;
+  }
+  .chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); display: none; flex: none; }
+  .chip.has-value { border-color: var(--primary); background: var(--primary-bg); color: var(--primary-text); }
+  .chip.has-value .dot { display: block; }
+  .chip .caret { width: 12px; height: 12px; color: var(--on-surface-variant); transition: transform .15s var(--ease); flex: none; }
+  .chip[aria-expanded="true"] .caret { transform: rotate(180deg); }
+
+  .clearlink {
+    appearance: none;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--on-surface-variant);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    padding: 8px 2px;
+    flex: none;
+  }
+  .clearlink:hover { color: var(--on-surface); }
+
+  .popover {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    z-index: 20;
+    width: max-content;
+    min-width: 220px;
+    max-width: min(84vw, 280px);
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-radius: 12px;
+    box-shadow: var(--shadow-elevated);
+    padding: 14px;
+  }
+  .popover[hidden] { display: none; }
+  /* チップが画面右寄りにある場合、既定のleft: 0基準だとポップオーバーが
+     画面外にはみ出してしまう（スマホ幅で特に起きやすい）。JS側
+     （closeAllChipPopovers_の開閉処理参照）が実際の位置を見て、はみ出す
+     場合だけこのクラスを付け、chip-wrapの右端に揃える。 */
+  .popover--right { left: auto; right: 0; }
+  .popover--wide { max-width: min(84vw, 320px); }
+  .popover__section + .popover__section { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--outline); }
+  .popover__label {
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--on-surface-variant);
+    margin: 0 0 8px;
+  }
+  .popover select { width: 100%; }
+
+  .filterCheck { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--on-surface); cursor: pointer; padding: 3px 0; }
+  .filterCheck input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: var(--primary); cursor: pointer; flex: none; }
+  .filterCheck__cnt { margin-left: auto; font-size: 11.5px; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; }
+
+  .toolbar2 { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 24px; flex-wrap: wrap; }
+  .toolbar2__count { font-size: 13px; font-weight: 700; color: var(--on-surface-variant); }
 
   .input {
     border: 1px solid var(--outline);
@@ -558,7 +566,7 @@
      マウス操作時には表示されず、キーボードでのTab移動時のみ表示される
      :focus-visible を使う。ブランドカラー（--primary-text）で統一する。 */
   .btn:focus-visible,
-  .tabs__item:focus-visible,
+  .navBtn:focus-visible,
   .themePreset:focus-visible {
     outline: 2px solid var(--primary-text);
     outline-offset: 2px;
@@ -591,156 +599,10 @@
     font-size: 12.5px;
     color: var(--primary-text);
   }
-  /* 在庫リスト・受注リスト・業販受注リストのツールバー。以前は先頭に「在庫
-     リスト」等のタブ名を表示していたが、上部タブの選択状態だけで画面が
-     判別できるため冗長と判断し廃止した（現場の要望）。件数（.toolbar__count）と、
-     絞り込みサイドバーの表示・非表示を切り替えるボタン（.filterToggleBtn）だけを
-     左側に置く。 */
-  .toolbar__count { font-size: 14px; color: var(--on-surface); font-weight: 700; white-space: nowrap; }
-  .filterToggleBtn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    border: 1px solid var(--outline);
-    background: var(--surface);
-    color: var(--on-surface-variant);
-    border-radius: 8px;
-    padding: 7px 14px;
-    font-size: 12.5px;
-    font-weight: 600;
-    cursor: pointer;
-    flex: none;
-    transition: background-color .15s var(--ease), color .15s var(--ease), border-color .15s var(--ease);
-  }
-  .filterToggleBtn .icon--inline { margin: 0; }
-  .filterToggleBtn:hover { border-color: var(--primary); color: var(--on-surface); }
-  /* aria-pressed="true"＝絞り込みサイドバーを表示中（既定状態）。押し込まれた
-     ような見た目（背景を塗る）にして、非表示中（false）との違いを一目で
-     わかるようにする。 */
-  .filterToggleBtn[aria-pressed="true"] { background: var(--primary-bg); border-color: var(--primary-bg); color: var(--primary-text); }
   .sortField { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--on-surface-variant); white-space: nowrap; }
   .sortField select { font-size: 13px; }
 
   .btn--small { padding: 6px 12px; font-size: 12.5px; }
-
-  /* ===== 絞り込みサイドバーの表示・非表示切替 =====
-     .filterToggleBtn（ツールバー、Index.html参照）で切り替える。bodyにクラスを
-     付けるのは、在庫・受注・業販受注リストいずれのツールバーのボタンを押しても
-     同じ1つの状態（表示するかどうか）を共有し、タブを切り替えても設定が
-     引き継がれるようにするため（JavaScript.htmlのsyncFilterSidebarVisibility_
-     参照。localStorageにも保存し、次回開いたときも状態を保つ）。 */
-  body.is-filter-hidden .filterSidebar { display: none; }
-  body.is-filter-hidden .listBody { grid-template-columns: minmax(0, 1fr); }
-
-  /* ===== 絞り込みサイドバー（在庫リスト・受注リスト・業販受注リスト共通） =====
-     参照UI「THE STUDY」のレイアウトに、既存のスプレッドシート列・既存の検索
-     フィルタをそのまま当てはめたもの（新規列の追加はしていない。ROUND H
-     フェーズ2）。ツールバーの下、一覧の左に固定幅（268px）で置く。 */
-  .listBody {
-    display: grid;
-    /* minmax(0, 1fr)にする理由は.card__metaGrid等と同じ（1fr単独だと、検索欄の
-       placeholderのような長い内容がある場合にトラック自体がその内容ぶんまで
-       広がってしまい、スマホ幅でページ全体が横スクロールしてしまう）。 */
-    grid-template-columns: 268px minmax(0, 1fr);
-    gap: 24px;
-    align-items: start;
-  }
-  /* グリッドアイテム自身のmin-width（既定値auto=中身の最小内容幅）も、
-     トラック側のminmax(0, 1fr)とは別に明示的に0へ上書きしないと、一覧行の中の
-     折り返さない文字列（Hold要約のnowrap等）が長い場合にアイテムごと広がって
-     しまう（.cardGrid内の.cardと同じ理由。一覧側は#inventoryList等を包む
-     無名divのため、直接のクラスではなく構造セレクタで指定する）。 */
-  .listBody > :last-child { min-width: 0; }
-  /* 背景・文字色は、設定タブのテーマ（着せ替え）ごとに用意されている
-     --sidebar-bg / --sidebar-fg 系トークン（THEME_PRESETSのsidebarColor、
-     applySidebarColor_、JavaScript.html参照）をそのまま使う。これらのトークンは
-     元々PC専用の左ナビ（.sidebar、現在は非表示）向けに用意されていたが、
-     現場から改めて依頼のあった「参照UIのような濃色サイドバー」に、既存の
-     テーマ設定機能をそのまま転用する形で対応した（新しい配色の仕組みを
-     追加する必要がない）。 */
-  .filterSidebar {
-    background: var(--sidebar-bg);
-    border: 1px solid var(--sidebar-outline);
-    border-radius: var(--radius);
-    padding: 20px 18px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    min-width: 0;
-  }
-  .filterSidebar__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .filterSidebar__title { font-size: 14px; font-weight: 700; margin: 0; color: var(--sidebar-fg); }
-  .filterSidebar__rule { border: none; border-top: 1px solid var(--sidebar-outline); margin: 0; }
-  .filterSidebar__field { display: flex; flex-direction: column; gap: 8px; }
-  .filterSidebar__groupLabel {
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--sidebar-fg-muted);
-    letter-spacing: .04em;
-    text-transform: uppercase;
-  }
-  /* 車両条件（モデル・ボディタイプ・カラー等）とステータス（区分・状態・
-     掲載状況）という2つのまとまりを見出しで分ける（現場からの要望）。
-     .filterSidebar__groupLabel（各項目1つずつのラベル）より一段階目立たせ、
-     セクション全体の見出しだと分かるようにする。 */
-  .filterSidebar__sectionLabel {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--sidebar-fg);
-    margin: 0;
-  }
-  .filterSidebar__search {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    border: 1px solid var(--sidebar-outline);
-    border-radius: 9px;
-    padding: 8px 12px;
-    background: var(--sidebar-hover-bg);
-    color: var(--sidebar-fg-muted);
-  }
-  .filterSidebar__search:focus-within { border-color: var(--sidebar-fg-muted); }
-  .filterSidebar__search input {
-    border: none;
-    outline: none;
-    background: none;
-    font-size: 14px;
-    color: var(--sidebar-fg);
-    width: 100%;
-    min-width: 0;
-  }
-  .filterSidebar__search input::placeholder { color: var(--sidebar-fg-muted); }
-  .filterSidebar__search .icon--inline { flex: none; color: var(--sidebar-fg-muted); }
-  .filterSidebar select.input,
-  .filterSidebar .input {
-    width: 100%;
-    background: var(--sidebar-hover-bg);
-    border-color: var(--sidebar-outline);
-    color: var(--sidebar-fg);
-  }
-  .filterSidebar .input:focus { outline-color: var(--sidebar-fg-muted); }
-  .filterCheck {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    font-size: 13px;
-    color: var(--sidebar-fg);
-    cursor: pointer;
-  }
-  .filterCheck input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: var(--primary); cursor: pointer; flex: none; }
-  .filterCheck__cnt { margin-left: auto; font-size: 11.5px; color: var(--sidebar-fg-muted); font-variant-numeric: tabular-nums; }
-  .filterSidebar__clearBtn {
-    border: none;
-    background: none;
-    color: var(--sidebar-fg-muted);
-    font-size: 12.5px;
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    cursor: pointer;
-    padding: 0;
-    flex: none;
-  }
-  .filterSidebar__clearBtn:hover { color: var(--sidebar-fg); }
 
   /* ===== 番号付き一覧行（在庫リスト・受注リスト・業販受注リスト・マイページ共通） =====
      カード／表の表示形式切り替えは廃止し、この1デザインに一本化する
@@ -1354,8 +1216,9 @@
      コントラスト比が不足する懸念があったため、視覚的に確認済みの11色＋
      ランダム（ログインのたび変化。renderThemePresets_参照）から選ぶスウォッチ
      形式に変更した（洋服・スマホケースの色を選ぶイメージ）。プリセット1つで
-     アプリ全体の配色とサイドバーの配色の両方がセットで切り替わる
-     （--sidebar-bg系、.sidebar参照）。 */
+     ボタン・アクティブ状態の下線・アイコン等、アプリ全体の--primary系の
+     配色が一括で切り替わる（ヘッダー・レール自体は中立色で固定のため、
+     配色テーマの影響を受けない）。 */
   .themePresetGrid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -1465,86 +1328,13 @@
   .mailList__row .input { flex: 1 1 auto; min-width: 0; }
   .mailList__empty { font-size: 13px; color: var(--on-surface-variant); margin-bottom: 4px; }
 
-  /* ===== 左サイドバーナビゲーション（廃止） =====
-     以前はPCビュー（901px以上）でのみ、左に固定幅（232px）のサイドバーを
-     表示し、ロゴ・ナビ・担当者情報をそこにまとめ、代わりにトップバーは
-     「戻る／更新」ボタンだけのスリムな帯にしていた。しかし、サイドバーの
-     ぶん常に横幅が削られてしまい、在庫リストの一覧等で
-     横幅を確保しづらいという現場からの指摘があったため廃止し、PCビューでも
-     タブレット・スマホ幅と同じ「トップバーにロゴ・水平タブ・担当者情報を
-     まとめる」構成に統一した（横幅をすべてコンテンツに使えるようになる）。
-     ナビ項目・担当者情報のマークアップ自体はIndex.htmlに残っているが、
-     このルールで常に非表示にする（削除すると、renderTopbarUser等が
-     参照する要素が無くなりJSエラーになるため、マークアップは残したまま
-     CSSで隠すだけにしている）。 */
-  .sidebar { display: none; }
-
+  /* ===== 左レールの表示切替 =====
+     アイコンのみの左レール（.rail、基本スタイルはファイル冒頭のレイアウト
+     セクション参照）はPCビュー（901px以上）でのみ表示する。901px未満は
+     .tabbar（画面下固定のアイコン＋ラベルのタブバー）に切り替える
+     （下の@media(max-width: 900px)ブロック参照）。 */
   @media (min-width: 901px) {
-    /* 検索欄（在庫リスト・受注リスト・Gクラス予約リストのツールバー）は
-       position: fixedで画面上部に固定しているため（left: 50% +
-       transform: translateX(-50%)で全幅中央寄せ）、サイドバー廃止後は
-       画面幅いっぱいを使えるよう左右の余白だけを揃える。 */
-    .toolbar {
-      left: 24px;
-      right: 24px;
-      transform: none;
-      width: auto;
-      max-width: none;
-    }
-
-    /* main.viewはサイドバーが無くなった分、画面幅いっぱいを使う
-       （中央寄せ用のmax-width/marginを解除するだけでよい）。 */
-    main.view { max-width: none; margin: 0; padding: 24px 32px 40px; }
-
-    /* 絞り込みサイドバー（在庫リスト・受注リスト・業販受注リスト）はPCビューでは
-       position: stickyで画面に固定し、右側の一覧（.rowList）だけがページと一緒に
-       スクロールするようにする（現場の要望）。topの値は、固定表示のトップバー・
-       ツールバーの下にちょうど揃う高さ（--topbar-h・--toolbar-h、どちらも
-       JavaScript.htmlのsyncFixedBars_が実測して都度更新する）＋前後の余白16px×2。
-       ビューポートが低い環境でもサイドバー自体が画面からはみ出さないよう、
-       max-heightで絞り込み、収まりきらない場合はサイドバー自身の中だけで
-       スクロールできるようにする（ページ全体としてスクロールできるのは
-       一覧側だけ、という要望に対する保険）。 */
-    /* 受注リスト・業販受注リストは絞り込み項目自体が少なく（キーワード・拠点・
-       担当者のみ）、在庫リストより中身が短いぶんサイドバーの箱も低くなって
-       見えていた。以前はposition: stickyでツールバーの下から画面いっぱいの
-       高さまで伸ばして対応していたが（min-height=max-height）、案C（L字型の
-       一体フレーム）では position: fixed にしてヘッダーの真下（--topbar-h）から
-       画面下端まで隙間なく伸ばすため、高さは自動的に画面いっぱいになる
-       （min-height/max-heightの計算が不要になった）。 */
-    .filterSidebar {
-      position: fixed;
-      left: 0;
-      top: var(--topbar-h, 0px);
-      bottom: 0;
-      width: 268px;
-      margin: 0;
-      border: none;
-      border-right: 1px solid var(--sidebar-outline);
-      border-radius: 0;
-      box-shadow: none;
-      overflow-y: auto;
-      z-index: 20;
-    }
-    /* サイドバーがposition: fixedになり、.listBodyのグリッドトラックとしては
-       幅を持たなくなった（左端は常にビューポートのx:0）ため、一覧側
-       （.listBody > :last-child、無名divなので構造セレクタで指定）を
-       サイドバー幅（268px）＋以前のgapと同じ余白（24px）ぶん右へずらす。
-       main.view自体の左パディング（通常32px）はサイドバーが埋めるため0にし、
-       二重に余白ができないようにする。サイドバーを一時的に隠している間
-       （is-filter-hidden）は、他の辺と揃うよう32pxのパディングへ戻す。 */
-    body.has-filter-sidebar main.view { padding-left: 0; }
-    body.has-filter-sidebar .listBody { grid-template-columns: minmax(0, 1fr); }
-    body.has-filter-sidebar .listBody > :last-child { margin-left: 292px; }
-    body.has-filter-sidebar.is-filter-hidden .listBody > :last-child { margin-left: 32px; }
-
-    /* ツールバー（絞り込みトグル・件数・並び替え）はposition: fixedで画面幅
-       ほぼいっぱい（left/right: 24px）に浮かせているが、サイドバーが
-       ヘッダー直下まで伸びたことで、そのままだとサイドバーの上に重なって
-       しまう（サイドバーの色面の上に白いツールバーの帯が浮いて見える）。
-       サイドバー表示中は左端をサイドバーの右側（一覧側と同じ292px＝
-       268px＋余白24px）まで下げ、サイドバーの真上には置かないようにする。 */
-    body.has-filter-sidebar:not(.is-filter-hidden) .toolbar { left: 292px; }
+    .rail { display: flex; }
   }
 
   /* ===== リード番号入力（「L-」固定接頭辞＋数字。Google×Tesla風の見出し扱いにする） ===== */
@@ -1719,7 +1509,7 @@
   .toast {
     position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
     /* ネイビーサブ（比較バーのメインネイビーより少し明るく、奥行きを付ける）。 */
-    background: #243b53; border: 1px solid var(--dark-ui-outline); color: #fff; padding: 12px 20px; border-radius: 8px;
+    background: #243b53; border: 1px solid rgba(255, 255, 255, .14); color: #fff; padding: 12px 20px; border-radius: 8px;
     font-size: 14px; box-shadow: var(--shadow-elevated); z-index: 200;
     /* 表示・非表示が一瞬で切り替わっていたのを、下からわずかに浮かび上がる／
        沈んで消えるフェードに差し替える（JS側showToastが表示時はクラスの
@@ -1877,10 +1667,36 @@
     .settingsWrap { max-width: 100%; }
     .purchaseOrderList { grid-template-columns: 1fr; }
 
-    /* 絞り込みサイドバー（在庫リスト・受注リスト・業販受注リスト）は、PCビューでは
-       一覧の左に固定幅で並ぶが、タブレット・スマホ幅では横に置く余裕が無いため
-       一覧の上に積む1カラム構成に切り替える（ROUND H フェーズ2）。 */
-    .listBody { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+    /* アイコンのみの左レール（PCビュー専用）は非表示にし、代わりに画面下
+       固定のアイコン＋ラベルの.tabbarに切り替える（レール自体の基本
+       スタイルはファイル冒頭のレイアウトセクション参照）。#appはレールが
+       無くなったぶん1カラムのグリッドに戻す。 */
+    #app { grid-template-columns: minmax(0, 1fr); padding-bottom: 62px; }
+    .tabbar {
+      display: flex;
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      z-index: 40;
+      background: var(--surface);
+      border-top: 1px solid var(--outline);
+      padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+    }
+    .tabbarBtn {
+      flex: 1 1 0;
+      appearance: none; border: none; background: none; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      padding: 5px 2px;
+      color: var(--on-surface-variant);
+      font-family: inherit; font-size: 10px; font-weight: 700;
+    }
+    .tabbarBtn .icon { width: 20px; height: 20px; }
+    .tabbarBtn.is-active { color: var(--primary-text); }
+    /* レールが無いぶん、担当者情報はコンテンツヘッダーの右端に小さな
+       アバターとして表示する（タップで氏名・メールをtitle属性で確認できる）。 */
+    .contentHeader__account { display: flex; }
+    .contentHeader { padding: 0 16px; }
+    .commandbar { padding: 12px 16px; }
+    .toolbar2 { padding: 10px 16px; }
 
     /* 番号付き一覧行も、タブレット・スマホ幅では列を維持したまま折り返す
        （行の高さが案件ごとに伸び縮みしてもよい方針。ラウンドFの「文字を
@@ -1903,21 +1719,13 @@
 
   /* ===== スマートフォン ===== */
   @media (max-width: 600px) {
-    .topbar__brandRow { padding: 12px; gap: 8px; }
-    .tabs { padding: 0 12px 10px; gap: 20px; }
+    .contentHeader__titles { min-width: 0; }
     .integrityBanner { padding: 8px 12px; font-size: 12.5px; flex-wrap: wrap; }
     .integrityBanner__list { padding: 8px 12px 10px; }
-    /* メールアドレスの長さ次第では折り返し等で崩れやすいため、ユーザー情報は
-       スマホ幅では非表示にする（中央のアプリ名表記はposition: absoluteで
-       独立して中央配置されているため、ユーザー情報の表示可否からは影響を
-       受けない）。 */
-    .topbar__user { display: none; }
     .staffList__body .input[data-staff-field="name"],
     .staffList__body .input[data-staff-field="email"],
     .staffList__body .input[data-staff-field="location"] { flex: 1 1 100%; }
     main.view { padding: 10px; }
-    .toolbar { padding: 10px; width: calc(100% - 20px); }
-    .toolbar .input, .toolbar .checkboxField { flex: 1 1 auto; }
     .settingsCard, .settingsActions { padding: 18px 16px; }
     .card { padding: 16px 18px; }
     .rowItem { padding: 14px 16px; }
@@ -1939,7 +1747,7 @@
     .confettiPiece { display: none; }
     .confettiLayer::before { transition: none; }
     .card, .orderCard { transition: none; }
-    .topbar__navBtn--refresh.is-spinning .icon { animation: none; }
+    .iconbtn.is-spinning .icon { animation: none; }
     .view.is-active { animation: none; }
     .celebParticle, .celebFlash, .celebShockwave { display: none; }
     .celebrationBanner { transition: none; }

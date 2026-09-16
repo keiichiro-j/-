@@ -646,9 +646,11 @@ test('THEME_PRESETSに存在するキーはそのまま返る', () => {
 test('THEME_PRESETSは11種類（メルセデス・ベンツのボディカラー名）ある', () => {
   assert.strictEqual(sandbox.THEME_PRESETS.length, 11);
 });
-test('各プリセットはsidebarColorを持つ（サイドバーの色とセットで切り替わる）', () => {
+test('各プリセットはprimary/primaryDark/primaryTextを持つ（16進カラーコード）', () => {
   sandbox.THEME_PRESETS.forEach((p) => {
-    assert.match(p.sidebarColor, /^#[0-9a-f]{6}$/i);
+    assert.match(p.primary, /^#[0-9a-f]{6}$/i);
+    assert.match(p.primaryDark, /^#[0-9a-f]{6}$/i);
+    assert.match(p.primaryText, /^#[0-9a-f]{6}$/i);
   });
 });
 test('RANDOM_THEME_KEY（ランダム・ログインのたび変化）はそのまま有効なキーとして返る', () => {

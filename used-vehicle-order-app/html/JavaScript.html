@@ -23,10 +23,6 @@
 
   var state = {
     bootstrap: null,
-    // 絞り込みサイドバー（在庫・受注・業販受注リスト共通）を表示するかどうか。
-    // 端末ごとにlocalStorageへ保存し、次回開いたときも同じ状態にする
-    // （syncFilterSidebarVisibility_参照）。
-    filterSidebarVisible: safeLocalStorageGet_('filterSidebarVisible') !== '0',
     inventoryItems: [], // キーワード検索のみサーバー側で絞り込み済みの一覧（区分・状態等はrenderInventory側でさらに絞り込む）
     // 在庫リストの絞り込み条件（区分・状態・掲載状況・モデル・年式・価格帯・走行距離）。
     // いずれも既存のスプレッドシート列から算出するだけで、新規列の追加はしていない
@@ -549,9 +545,26 @@
   }
 
   // ===== タブ切替 =====
+  // アイコンのみの左レール（PCビュー、#rail）と画面下固定のタブバー
+  // （タブレット・スマホ幅、#tabbar）は、どちらも同じ.navBtnクラスと
+  // data-tab属性を共有するボタンで構成する（Stylesheet.html参照）。
   function currentActiveTab_() {
-    var el = document.querySelector('.tabs__item.is-active');
+    var el = document.querySelector('.navBtn.is-active');
     return el ? el.dataset.tab : 'inventory';
+  }
+
+  // コンテンツヘッダー（#contentHeader、全画面共通の1つの要素）のタイトルに
+  // 表示するラベル。
+  var CONTENT_TITLES_ = {
+    inventory: '在庫リスト',
+    orders: '受注リスト',
+    wholesaleOrders: '業販受注リスト',
+    mypage: 'マイページ',
+    settings: '設定'
+  };
+  function syncContentTitle_(tabName) {
+    var el = $('contentTitle');
+    if (el) el.textContent = CONTENT_TITLES_[tabName] || '';
   }
 
   // 「戻る」ボタン用の画面履歴（タブ名のみのスタック）。メインタブのクリックなど、
@@ -565,30 +578,21 @@
       state.navHistory.push(current);
       syncNavButtons_();
     }
-    document.querySelectorAll('.tabs__item').forEach(function (t) { t.classList.toggle('is-active', t.dataset.tab === tabName); });
+    document.querySelectorAll('.navBtn').forEach(function (t) { t.classList.toggle('is-active', t.dataset.tab === tabName); });
     document.querySelectorAll('main.view').forEach(function (v) { v.classList.remove('is-active'); });
     $('view-' + tabName).classList.add('is-active');
+    syncContentTitle_(tabName);
     // 全タブは同じ1つのdocument上でdisplay: none/blockを切り替えているだけの
     // ため、スクロール位置はタブをまたいで共有されてしまう（例: 在庫リストで
     // スクロールした状態で他のタブへ移動すると、次のタブも同じスクロール
-    // 位置のまま表示され、ツールバー等が見えない状態で開いてしまう）。
+    // 位置のまま表示され、コマンドバー等が見えない状態で開いてしまう）。
     // タブ切替のたびに常に一番上から表示されるよう、ページ全体を先頭へ
     // スクロールする。
     window.scrollTo(0, 0);
     // ヘッダー内の状態タブ（在庫リストのみ）は、表示中タブによって表示・
-    // 非表示が切り替わり、ヘッダーの実測高さ（--topbar-h）に直接影響する。
-    // syncFixedBars_より先に呼ばないと、切替後のタブでは中身が変わる前の
-    // （1つ前のタブの）高さのまま--topbar-hが更新されてしまい、ツールバー・
-    // 絞り込みサイドバーの位置が実際のヘッダー下端とずれてしまう
-    // （案Cのサイドバー・ツールバーはどちらも--topbar-hを基準に位置決めして
-    // いるため、このずれでボタンがヘッダーの下に隠れてクリックできなくなる
-    // 不具合があった）。
+    // 非表示を切り替える。
     syncHeaderStatusTabs_();
-    syncChromeLayout_();
-    // 非表示（display: none）だった間はツールバーの実測高さが0になっているため、
-    // 表示状態に切り替わった直後（かつヘッダーの中身が確定した後）に
-    // 再計測してスペーサーの高さを補正する。
-    syncFixedBars_();
+    closeAllChipPopovers_();
   }
 
   // ヘッダーへ統合した状態タブ（#inventoryStatusTabs）は在庫リスト専用の
@@ -599,32 +603,18 @@
     $('inventoryStatusTabs').classList.toggle('hidden', currentActiveTab_() !== 'inventory');
   }
 
-  // 絞り込みサイドバーを持つ3タブ（在庫・受注・業販受注リスト）。自由検索欄は
-  // 各サイドバーの一番上に直接置く形に戻したため（Index.html参照。以前は
-  // ヘッダーの検索欄からGLOBAL_SEARCH_TARGETS_経由で中継していたが、その
-  // 中継処理ごと廃止した）、ここではヘッダーと絞り込みサイドバーを継ぎ目の
-  // ない1枚の色面（案C：L字型の一体フレーム）として見せるためのbodyクラス
-  // 切替（syncChromeLayout_、Stylesheet.html参照）だけに使う。
-  var FILTER_SIDEBAR_TABS_ = { inventory: true, orders: true, wholesaleOrders: true };
-
-  // サイドバーの無いタブ（マイページ・設定）ではヘッダー下端の区切り線を
-  // 通常どおり全幅に表示する。
-  function syncChromeLayout_() {
-    document.body.classList.toggle('has-filter-sidebar', !!FILTER_SIDEBAR_TABS_[currentActiveTab_()]);
-  }
-
-  on('mainTabs','click', function (e) {
+  on('rail','click', function (e) {
     var btn = e.target.closest('[data-tab]');
     if (!btn) return;
     switchToTab_(btn.dataset.tab);
   });
 
-  // 左サイドバー（PCビューのみ表示。Stylesheet.html参照）のナビ項目も、
-  // mainTabsと同じswitchToTab_をそのまま呼ぶ。ボタン自体がmainTabsの各項目と
-  // 同じ.tabs__itemクラスを共有しているため、is-active状態の同期は
-  // switchToTab_側の一括トグル（document.querySelectorAll('.tabs__item')）で
+  // 画面下固定のタブバー（タブレット・スマホ幅、Stylesheet.html参照）も、
+  // レールと同じswitchToTab_をそのまま呼ぶ。ボタン自体がレールの各項目と
+  // 同じ.navBtnクラスを共有しているため、is-active状態の同期は
+  // switchToTab_側の一括トグル（document.querySelectorAll('.navBtn')）で
   // 自動的に行われる。
-  on('sidebarNav','click', function (e) {
+  on('tabbar','click', function (e) {
     var btn = e.target.closest('[data-tab]');
     if (!btn) return;
     switchToTab_(btn.dataset.tab);
@@ -916,6 +906,22 @@
     }).join('');
     colorSelect.value = colors.indexOf(currentColor) !== -1 ? currentColor : '';
     if (colorSelect.value !== currentColor) state.inventoryFilters.color = colorSelect.value;
+
+    syncInventoryChipState_();
+  }
+
+  // チップ（.chip、Index.html参照）の塗り分け（.has-value）と「絞り込みを
+  // クリア」リンクの表示・非表示を、現在の絞り込み状態に合わせて更新する
+  // （見た目上、どの絞り込みが効いているか一目でわかるようにするため）。
+  function syncInventoryChipState_() {
+    var f = state.inventoryFilters;
+    updateChipState_('chipBodyType', f.bodyType.length > 0);
+    updateChipState_('chipColor', !!f.color);
+    updateChipState_('chipStatus', f.status.length > 0 || f.category.length > 0 || f.listed.length > 0);
+    updateChipState_('chipMore', !!f.model || !!f.yearBucket || !!f.priceBucket || !!f.mileageBucket);
+    var hasAny = f.bodyType.length > 0 || !!f.color || f.status.length > 0 || f.category.length > 0 ||
+      f.listed.length > 0 || !!f.model || !!f.yearBucket || !!f.priceBucket || !!f.mileageBucket;
+    $('btnInventoryFilterClear').classList.toggle('hidden', !hasAny);
   }
 
   function fillStaticSelectOptions_(id, options, current) {
@@ -1410,7 +1416,7 @@
       : '';
     renderInventoryStatusTabs_(all);
     container.innerHTML = rowListHtml_(filtered, vehicleRowItemHtml_);
-    syncFixedBars_();
+    syncInventoryChipState_();
   }
 
   // 在庫リストの行タップ操作（Hold・受注・詳細）。マイページの
@@ -1507,26 +1513,44 @@
   });
 
   /**
-   * 絞り込みサイドバー（在庫・受注・業販受注リスト共通）の表示・非表示。
-   * 3つのツールバーそれぞれにあるボタン（.filterToggleBtn、Index.html参照）は
-   * 同じ1つの状態を共有し、どのタブで切り替えてもタブをまたいで引き継がれる
-   * （body.is-filter-hiddenで一括して非表示にする、Stylesheet.html参照）。
+   * 絞り込みチップ（在庫・受注・業販受注リスト共通）の開閉。
+   * チップ（.chip、Index.html参照）をクリックすると、同じ.chip-wrap内の
+   * .popoverを開閉する。他のチップが開いていれば先に閉じ、同時に2つ以上
+   * 開かないようにする。ポップオーバーの外側をクリックした場合は
+   * すべて閉じる（タブ切替時もcloseAllChipPopovers_で閉じる、switchToTab_参照）。
    */
-  function syncFilterSidebarVisibility_() {
-    document.body.classList.toggle('is-filter-hidden', !state.filterSidebarVisible);
-    document.querySelectorAll('[data-filter-toggle]').forEach(function (btn) {
-      btn.setAttribute('aria-pressed', state.filterSidebarVisible ? 'true' : 'false');
-    });
-    syncFixedBars_();
+  function closeAllChipPopovers_() {
+    document.querySelectorAll('.popover').forEach(function (p) { p.hidden = true; p.classList.remove('popover--right'); });
+    document.querySelectorAll('.chip[aria-expanded="true"]').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); });
   }
-  document.querySelectorAll('[data-filter-toggle]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      state.filterSidebarVisible = !state.filterSidebarVisible;
-      safeLocalStorageSet_('filterSidebarVisible', state.filterSidebarVisible ? '1' : '0');
-      syncFilterSidebarVisibility_();
-    });
+  document.addEventListener('click', function (e) {
+    var wrap = e.target.closest('.chip-wrap');
+    if (wrap) {
+      var btn = wrap.querySelector('.chip');
+      if (e.target.closest('.chip') === btn) {
+        var pop = wrap.querySelector('.popover');
+        var willOpen = pop.hidden;
+        closeAllChipPopovers_();
+        if (willOpen) {
+          pop.hidden = false;
+          btn.setAttribute('aria-expanded', 'true');
+          // チップが画面右寄りにあると、既定のleft: 0基準では画面外に
+          // はみ出してしまう（スマホ幅で特に起きやすい）。ポップオーバーの
+          // 右端が画面幅を超える場合は、右揃え（chip-wrapの右端に合わせる）に
+          // 切り替える。
+          var wrapRect = wrap.getBoundingClientRect();
+          if (wrapRect.left + pop.offsetWidth > window.innerWidth) {
+            pop.classList.add('popover--right');
+          }
+        }
+        return;
+      }
+      // ポップオーバー内部（チェックボックス・セレクト等）のクリックでは
+      // 閉じない。
+      return;
+    }
+    closeAllChipPopovers_();
   });
-  syncFilterSidebarVisibility_();
 
   // ===== Hold / 受注 共通モーダル =====
   var ACTION_LABELS = {
@@ -1585,18 +1609,24 @@
     return name.trim().slice(0, 2);
   }
 
+  // ログイン中の担当者情報を、レール下端のアバター（PCビュー、ホバーで氏名・
+  // メールをツールチップ表示）と、コンテンツヘッダーのアカウントチップ
+  // （タブレット・スマホ幅。レールが無いため、こちらはtitle属性のネイティブ
+  // ツールチップで確認する）の両方に反映する。
   function renderTopbarUser() {
     var name = currentStaffName_();
     var email = currentUserEmail_();
-    var el = $('topbarUser');
-    var infoHtml;
+    var initials = name ? staffInitials_(name) : '?';
+    var tipHtml, titleText, isWarn;
     if (name) {
-      infoHtml = '<span class="topbar__userAvatar">' + escapeHtml(staffInitials_(name)) + '</span>' +
-        '<span class="topbar__userText"><span class="topbar__userName">' + escapeHtml(name) + '</span>' +
-        '<span class="topbar__userEmail">' + escapeHtml(email) + '</span></span>';
+      tipHtml = '<b>' + escapeHtml(name) + '</b><span>' + escapeHtml(email) + '</span>';
+      titleText = name + '\n' + email;
+      isWarn = false;
     } else if (email) {
       // メールアドレスは取得できているが、担当者マスタに未登録の場合。
-      infoHtml = '<span class="topbar__userWarn">担当者未登録: ' + escapeHtml(email) + '</span>';
+      tipHtml = '<b>担当者未登録</b><span>' + escapeHtml(email) + '</span>';
+      titleText = '担当者未登録: ' + email;
+      isWarn = true;
     } else {
       // メールアドレス自体が空の場合。ほとんどの場合、Webアプリのデプロイ設定
       // （「実行するユーザー」「アクセスできるユーザー」）が原因で
@@ -1604,15 +1634,16 @@
       // （個人のGoogleアカウントで運用する場合、「アクセスできるユーザー」を
       // 「Googleアカウントを持つ全員」にする必要がある。「全員（匿名ユーザーを
       // 含む）」だとログイン自体が不要になり、アカウント情報を取得できない）。
-      infoHtml = '<span class="topbar__userWarn" title="Webアプリのデプロイ設定（実行するユーザー・アクセスできるユーザー）をご確認ください">' +
-        'ログイン情報を取得できません</span>';
+      tipHtml = '<b>ログイン情報を取得できません</b><span>デプロイ設定をご確認ください</span>';
+      titleText = 'ログイン情報を取得できません（Webアプリのデプロイ設定をご確認ください）';
+      isWarn = true;
     }
-    el.innerHTML = infoHtml;
-    // 左サイドバー（PCビューのみ）のユーザー情報にも同じ内容を反映する。
-    // アバターは担当者名の先頭1文字（未登録の場合は「?」）を表示するのみの
-    // 簡易的なもの（画像アップロード等の機能は持たない）。
-    $('sidebarUserInfo').innerHTML = infoHtml;
-    $('sidebarUserAvatar').textContent = name ? name.charAt(0) : '?';
+    $('railAvatarInitials').textContent = initials;
+    $('railAvatarTip').innerHTML = tipHtml;
+    $('railAvatarTip').classList.toggle('is-warn', isWarn);
+    var accountChip = $('contentAccount');
+    accountChip.textContent = initials;
+    accountChip.title = titleText;
   }
 
   // ===== 在庫データ整合性チェック（アプリ起動時に1回だけ実行） =====
@@ -1632,7 +1663,6 @@
     if (!issues.length) {
       banner.classList.add('hidden');
       $('integrityBannerList').classList.add('hidden');
-      syncFixedBars_();
       return;
     }
     $('integrityBannerSummary').textContent = '在庫データに' + issues.length + '件の問題があります（スプレッドシートをご確認ください）';
@@ -1640,18 +1670,15 @@
       return '<li>' + escapeHtml(issue.message) + '</li>';
     }).join('');
     banner.classList.remove('hidden');
-    syncFixedBars_();
   }
 
   on('btnIntegrityDetail','click', function () {
     $('integrityBannerList').classList.toggle('hidden');
-    syncFixedBars_();
   });
 
   on('btnIntegrityClose','click', function () {
     $('integrityBanner').classList.add('hidden');
     $('integrityBannerList').classList.add('hidden');
-    syncFixedBars_();
   });
 
   // ===== 予約モーダルのステップ進捗（顧客情報→契約内容） =====
@@ -2129,6 +2156,20 @@
   });
 
   // ===== 受注リスト =====
+  // チップ（.chip、Index.html参照）の塗り分け（.has-value）と「絞り込みを
+  // クリア」リンクの表示・非表示を、現在の拠点・担当者の選択状態に合わせて
+  // 更新する（見た目上、どの絞り込みが効いているか一目でわかるようにするため）。
+  function updateChipState_(chipId, hasValue) {
+    var chip = $(chipId);
+    if (chip) chip.classList.toggle('has-value', !!hasValue);
+  }
+  function syncOrdersChipState_() {
+    var hasLocation = !!$('ordersLocationFilter').value;
+    var hasStaff = !!$('ordersStaffFilter').value;
+    updateChipState_('chipOrdersLocation', hasLocation);
+    updateChipState_('chipOrdersStaff', hasStaff);
+    $('btnOrdersFilterClear').classList.toggle('hidden', !(hasLocation || hasStaff));
+  }
   function loadOrders() {
     var filters = {
       keyword: $('ordersKeyword').value,
@@ -2136,6 +2177,7 @@
       staff: $('ordersStaffFilter').value
     };
     var groupBy = $('ordersGroupBy').value;
+    syncOrdersChipState_();
     return gasRun('api_listOrders', filters, groupBy).then(function (groups) {
       state.ordersGroups = groups || [];
       renderOrders();
@@ -2250,7 +2292,6 @@
         : '';
       return '<div class="group">' + heading + rowListHtml_(g.items, orderRowItemHtml_) + '</div>';
     }).join('');
-    syncFixedBars_();
   }
 
   on('ordersGroups','click', function (e) {
@@ -2271,6 +2312,13 @@
   // このタブ自体、管理者権限を持つ担当者にしか表示しないが（renderSettings参照）、
   // サーバー側api_listWholesaleOrdersも非管理者には常に空配列を返すため、
   // 万一呼ばれても安全。
+  function syncWholesaleOrdersChipState_() {
+    var hasLocation = !!$('wholesaleOrdersLocationFilter').value;
+    var hasStaff = !!$('wholesaleOrdersStaffFilter').value;
+    updateChipState_('chipWholesaleLocation', hasLocation);
+    updateChipState_('chipWholesaleStaff', hasStaff);
+    $('btnWholesaleOrdersFilterClear').classList.toggle('hidden', !(hasLocation || hasStaff));
+  }
   function loadWholesaleOrders() {
     var filters = {
       keyword: $('wholesaleOrdersKeyword').value,
@@ -2278,6 +2326,7 @@
       staff: $('wholesaleOrdersStaffFilter').value
     };
     var groupBy = $('wholesaleOrdersGroupBy').value;
+    syncWholesaleOrdersChipState_();
     return gasRun('api_listWholesaleOrders', filters, groupBy).then(function (groups) {
       state.wholesaleOrdersGroups = groups || [];
       renderWholesaleOrders();
@@ -2372,7 +2421,6 @@
         : '';
       return '<div class="group">' + heading + rowListHtml_(g.items, wholesaleOrderRowItemHtml_) + '</div>';
     }).join('');
-    syncFixedBars_();
   }
 
   on('wholesaleOrdersGroups','click', function (e) {
@@ -2456,12 +2504,11 @@
     $('systemMasterStaffCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterBodyTypeCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterCelebrationCard').classList.toggle('hidden', !isAdmin);
-    // 業販受注リストのタブ（サイドバー・上部タブとも）も、システムマスタと同じく
-    // 管理者権限を持つ担当者にのみ表示する。非管理者がタブ自体を切り替えられて
-    // しまうと、api_listWholesaleOrdersが空配列を返すだけの空の画面になって
-    // 混乱するため、そもそもタブを見せない。
-    $('sidebarNavWholesaleOrders').classList.toggle('hidden', !isAdmin);
-    $('mainTabWholesaleOrders').classList.toggle('hidden', !isAdmin);
+    // 業販受注リストのタブ（レール・下タブバーとも.navBtn--wholesale）も、
+    // システムマスタと同じく管理者権限を持つ担当者にのみ表示する。非管理者が
+    // タブ自体を切り替えられてしまうと、api_listWholesaleOrdersが空配列を
+    // 返すだけの空の画面になって混乱するため、そもそもタブを見せない。
+    document.querySelectorAll('.navBtn--wholesale').forEach(function (el) { el.classList.toggle('hidden', !isAdmin); });
     renderCelebrationVariantSelects_(settings.celebrationVariants);
 
     // ランダムテーマの抽選結果（resolvedRandomThemePreset_）は、ここ
@@ -2535,25 +2582,21 @@
    * クライアント側にも持ち、選択UIの描画とプレビュー適用（保存前のリアルタイム反映）に使う。
    * primary/primaryDark/primaryTextはいずれもWCAG AA基準（ボタン塗り用途で白文字との
    * コントラスト比4.5:1以上、文字用途で背景とのコントラスト比4.6:1以上）を確認済み。
-   * sidebarColorはPCビュー左端のサイドバーの背景色で、「サイドバーの色と表示設定は
-   * セットにしてほしい」という要望を受け、プリセット1つでアプリ全体の配色と
-   * サイドバーの配色の両方が一括で切り替わるようにしている。サイドバーの文字色は
-   * 固定せず、sidebarColorに対してコントラスト比の高いほう（白／濃色）を
-   * pickReadableSidebarTextColor_が毎回自動計算するため、値自体は個別の
-   * コントラスト検証をしていない（十分暗い色にしてあるため常に白文字側が選ばれる）。
+   * ヘッダー・レール自体は中立色（テーマの影響を受けない）のため、プリセットが
+   * 変えるのはボタンの塗り・アクティブ状態の下線・アイコン等の--primary系のみ。
    */
   var THEME_PRESETS = [
-    { key: 'steel', name: 'ブリリアントブルー', primary: '#2f6fae', primaryDark: '#102a43', primaryText: '#2f6fae', sidebarColor: '#1f3a5c' },
-    { key: 'graphite', name: 'グラファイトグレー', primary: '#55606b', primaryDark: '#424b53', primaryText: '#687787', sidebarColor: '#3a4149' },
-    { key: 'wine', name: 'ヒヤシンスレッド', primary: '#8c2f39', primaryDark: '#6d252c', primaryText: '#e32439', sidebarColor: '#4a1c22' },
-    { key: 'green', name: 'エメラルドグリーン', primary: '#1f6f4a', primaryDark: '#18573a', primaryText: '#258559', sidebarColor: '#163f2c' },
-    { key: 'amber', name: 'カラハリゴールド', primary: '#a06a1f', primaryDark: '#7d5318', primaryText: '#9f6a1f', sidebarColor: '#4a3413' },
-    { key: 'purple', name: 'アメジスト', primary: '#5b3a8c', primaryDark: '#472d6d', primaryText: '#904df5', sidebarColor: '#33224d' },
-    { key: 'petrol', name: 'カヴァンサイトブルー', primary: '#1f6f78', primaryDark: '#18575e', primaryText: '#24818a', sidebarColor: '#123f44' },
-    { key: 'mono', name: 'セレナイトグレー', primary: '#4a4e55', primaryDark: '#3a3d42', primaryText: '#6f7682', sidebarColor: '#2b2e33' },
-    { key: 'obsidian', name: 'オブシディアンブラック', primary: '#33383d', primaryDark: '#202327', primaryText: '#52585f', sidebarColor: '#18191b' },
-    { key: 'cardinal', name: 'カーディナルレッド', primary: '#b5222c', primaryDark: '#8c1a21', primaryText: '#b5222c', sidebarColor: '#4d1015' },
-    { key: 'denim', name: 'デニムブルー', primary: '#3d6690', primaryDark: '#2c4d70', primaryText: '#3d6690', sidebarColor: '#1c3247' }
+    { key: 'steel', name: 'ブリリアントブルー', primary: '#2f6fae', primaryDark: '#102a43', primaryText: '#2f6fae' },
+    { key: 'graphite', name: 'グラファイトグレー', primary: '#55606b', primaryDark: '#424b53', primaryText: '#687787' },
+    { key: 'wine', name: 'ヒヤシンスレッド', primary: '#8c2f39', primaryDark: '#6d252c', primaryText: '#e32439' },
+    { key: 'green', name: 'エメラルドグリーン', primary: '#1f6f4a', primaryDark: '#18573a', primaryText: '#258559' },
+    { key: 'amber', name: 'カラハリゴールド', primary: '#a06a1f', primaryDark: '#7d5318', primaryText: '#9f6a1f' },
+    { key: 'purple', name: 'アメジスト', primary: '#5b3a8c', primaryDark: '#472d6d', primaryText: '#904df5' },
+    { key: 'petrol', name: 'カヴァンサイトブルー', primary: '#1f6f78', primaryDark: '#18575e', primaryText: '#24818a' },
+    { key: 'mono', name: 'セレナイトグレー', primary: '#4a4e55', primaryDark: '#3a3d42', primaryText: '#6f7682' },
+    { key: 'obsidian', name: 'オブシディアンブラック', primary: '#33383d', primaryDark: '#202327', primaryText: '#52585f' },
+    { key: 'cardinal', name: 'カーディナルレッド', primary: '#b5222c', primaryDark: '#8c1a21', primaryText: '#b5222c' },
+    { key: 'denim', name: 'デニムブルー', primary: '#3d6690', primaryDark: '#2c4d70', primaryText: '#3d6690' }
   ];
   var DEFAULT_THEME_KEY = 'steel';
   // 「ランダム（ログインのたび変化）」を表す特別なキー。THEME_PRESETSに実体を
@@ -2641,7 +2684,6 @@
     // テーマのprimaryDarkに合わせる（現場からの要望で、テーマを切り替えると
     // ローディング画面の背景色も連動して変わるようにしている）。
     root.setProperty('--loading-bg', preset.primaryDark);
-    applyChromeColor_(preset.sidebarColor);
   }
 
   function hexToRgb_(hex) {
@@ -2649,78 +2691,8 @@
     return m ? { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) } : null;
   }
 
-  // 濃色側の文字色は、白背景に対してWCAG AA基準を満たす--on-surfaceと同じ値にし、
-  // サイドバー以外の文字色（見出し・本文）とトーンを揃える。
-  var SIDEBAR_TEXT_LIGHT = '#ffffff';
-  var SIDEBAR_TEXT_DARK = '#1f2933';
-
-  // sRGBの1チャンネル分をWCAGの相対輝度計算用に線形化する。
-  function srgbChannelToLinear_(channel255) {
-    var c = channel255 / 255;
-    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-  }
-
-  // WCAG 2.0の相対輝度（0〜1）。
-  function relativeLuminance_(rgb) {
-    return 0.2126 * srgbChannelToLinear_(rgb.r) + 0.7152 * srgbChannelToLinear_(rgb.g) + 0.0722 * srgbChannelToLinear_(rgb.b);
-  }
-
-  // WCAG 2.0のコントラスト比（1〜21）。
-  function contrastRatio_(rgbA, rgbB) {
-    var lumA = relativeLuminance_(rgbA) + 0.05;
-    var lumB = relativeLuminance_(rgbB) + 0.05;
-    return lumA > lumB ? lumA / lumB : lumB / lumA;
-  }
-
-  /**
-   * 背景色（サイドバーの色）に対して、白文字・濃色文字のうちコントラスト比が
-   * 高いほう（＝より読みやすいほう）を返す（純粋関数）。同点の場合は白を優先する。
-   * プリセットのsidebarColorはあらかじめ十分暗い色にしてあるため、実際には
-   * どのプリセットでも白文字側が選ばれる（将来sidebarColorを追加・変更した際の
-   * 保険として、この判定自体は残しておく）。
-   */
-  function pickReadableSidebarTextColor_(bgHex) {
-    var bgRgb = hexToRgb_(bgHex) || hexToRgb_(THEME_PRESETS[0].sidebarColor);
-    var contrastWithLight = contrastRatio_(bgRgb, hexToRgb_(SIDEBAR_TEXT_LIGHT));
-    var contrastWithDark = contrastRatio_(bgRgb, hexToRgb_(SIDEBAR_TEXT_DARK));
-    return contrastWithDark > contrastWithLight ? SIDEBAR_TEXT_DARK : SIDEBAR_TEXT_LIGHT;
-  }
-
-  /**
-   * サイドバー・ヘッダー（トップバー）の背景色・文字色関連のCSS変数を
-   * 一括で適用する（applyTheme専用の内部処理。テーマプリセットの
-   * sidebarColorから呼ばれる）。以前はサイドバーだけに使っていたが、
-   * 「テーマの変更が及ぶ範囲を拡大し、ガラッと変わるようにしてほしい」
-   * という要望を受け、ヘッダーにも同じ色を塗って統一した「濃色の額縁」に
-   * なるようにした（一覧・詳細等のデータ表示部分は引き続き白背景のまま
-   * とし、可読性を優先する）。文字色（--sidebar-fg／--on-topbar）は
-   * pickReadableSidebarTextColor_で背景色に対するコントラスト比が高い
-   * ほう（白／濃色）を都度計算し直して使うため、どのテーマ色を選んでも
-   * 文字が読みにくくなることはない（「文字の見やすさに注意」への対応）。
-   * 非選択ナビ項目の抑えた文字色・薄い罫線・ホバー背景は、その文字色を
-   * 異なる不透明度で重ねたrgba()として派生させる。
-   */
-  function applyChromeColor_(hex) {
-    var color = hexToRgb_(hex) ? hex : THEME_PRESETS[0].sidebarColor;
-    var root = document.documentElement.style;
-    var fg = pickReadableSidebarTextColor_(color);
-    var fgRgb = hexToRgb_(fg);
-    var muted = 'rgba(' + fgRgb.r + ',' + fgRgb.g + ',' + fgRgb.b + ',.68)';
-    var outline = 'rgba(' + fgRgb.r + ',' + fgRgb.g + ',' + fgRgb.b + ',.14)';
-    var hoverBg = 'rgba(' + fgRgb.r + ',' + fgRgb.g + ',' + fgRgb.b + ',.08)';
-
-    root.setProperty('--sidebar-bg', color);
-    root.setProperty('--sidebar-fg', fg);
-    root.setProperty('--sidebar-fg-muted', muted);
-    root.setProperty('--sidebar-outline', outline);
-    root.setProperty('--sidebar-hover-bg', hoverBg);
-
-    root.setProperty('--topbar-bg', color);
-    root.setProperty('--on-topbar', fg);
-    root.setProperty('--dark-ui-outline', outline);
-  }
-
-  // ----- アプリタイトル（ブラウザのタブ名・サイドバー/トップバーの見出し） -----
+  // ----- アプリタイトル（ブラウザのタブ名・レールのツールチップ・コンテンツ
+  //       ヘッダーの見出し上の小さなラベル） -----
   // サーバー側のDEFAULT_APP_TITLE（Constants.gs）と同じ既定値。Index.htmlの
   // テンプレート（<?= currentAppTitle_() ?>）で初回表示時から既にこの値
   // （または管理者が設定した値）になっているため、この関数は主に「設定タブで
@@ -2729,27 +2701,27 @@
   function applyAppTitle_(appTitle) {
     var title = appTitle || DEFAULT_APP_TITLE;
     document.title = title;
-    [$('sidebarBrandText'), $('topbarBrandText')].forEach(function (el) {
-      el.textContent = title;
-    });
+    var mark = $('railMark');
+    if (mark) mark.title = title;
+    var eyebrow = $('contentAppTitle');
+    if (eyebrow) eyebrow.textContent = title;
   }
 
-  // ----- ロゴ設定（画面上部に表示する画像。ローディング画像と同じく、ドライブID／
-  //       共有リンク／外部URLのいずれかを直接入力する。変換はnormalizeLogoUrl_で
-  //       保存時にサーバー側で行う） -----
+  // ----- ロゴ設定（レールのブランドマークに表示する画像。ローディング画像と
+  //       同じく、ドライブID／共有リンク／外部URLのいずれかを直接入力する。
+  //       変換はnormalizeLogoUrl_で保存時にサーバー側で行う） -----
   function applyLogo(logoUrl) {
-    // 左サイドバー（PCビューのみ）のロゴにも同じ画像を反映する。
-    [$('topbarLogo'), $('sidebarLogo')].forEach(function (img) {
-      if (logoUrl) {
-        img.onload = syncFixedBars_;
-        img.src = logoUrl;
-        img.classList.remove('hidden');
-      } else {
-        img.removeAttribute('src');
-        img.classList.add('hidden');
-      }
-    });
-    syncFixedBars_();
+    var img = $('railLogo');
+    var icon = $('railMarkIcon');
+    if (logoUrl) {
+      img.src = logoUrl;
+      img.classList.remove('hidden');
+      icon.classList.add('hidden');
+    } else {
+      img.removeAttribute('src');
+      img.classList.add('hidden');
+      icon.classList.remove('hidden');
+    }
   }
 
   /**
@@ -3402,42 +3374,6 @@
     };
   }
 
-  // ===== ヘッダー・ツールバーの完全固定表示 =====
-  // トップバー・ツールバー（検索欄）はどちらも position: fixed で画面上部に固定する
-  // （position: stickyだとブラウザによってスクロール中にわずかに追従が遅れる/ずれる
-  // ことがあるため、位置計算をブラウザ任せにせず実測値で完全に固定する）。
-  // ツールバーは折り返しで高さが変わるため、実測してスペーサー（本来ツールバーが
-  // 占めていた場所を確保するダミー要素）の高さをその都度更新する。
-  function syncFixedBars_() {
-    var topbar = $('topbar');
-    if (topbar) {
-      document.documentElement.style.setProperty('--topbar-h', topbar.offsetHeight + 'px');
-    }
-    // main.view自身の上余白（16px）が「ヘッダー〜固定バー間の余白」と同じ幅を
-    // 既に確保しているため、スペーサーは「固定バー自身の高さ＋固定バー〜
-    // 後続コンテンツ間の余白」分だけ確保すればよい（上下の余白が揃う）。
-    [
-      ['inventoryToolbar', 'inventoryToolbarSpacer', 16],
-      ['ordersToolbar', 'ordersToolbarSpacer', 16],
-      ['wholesaleOrdersToolbar', 'wholesaleOrdersToolbarSpacer', 16],
-      ['myPageToolbar', 'myPageToolbarSpacer', 16]
-    ].forEach(function (pair) {
-      var toolbar = $(pair[0]);
-      var spacer = $(pair[1]);
-      if (toolbar && spacer) spacer.style.height = (toolbar.offsetHeight + pair[2]) + 'px';
-    });
-    // ツールバー（検索欄）はposition: fixedで画面上部に固定しているため、
-    // その真下に揃えるための高さ。絞り込みサイドバー（.filterSidebar）は
-    // 案C（L字型の一体フレーム）でヘッダー直下（--topbar-h）から画面下端まで
-    // 伸ばす形に変わったため、こちらの実測値には依存しなくなった
-    // （Stylesheet.htmlの.filterSidebar参照）。
-    var activeToolbar = document.querySelector('main.view.is-active .toolbar');
-    if (activeToolbar) {
-      document.documentElement.style.setProperty('--toolbar-h', activeToolbar.offsetHeight + 'px');
-    }
-  }
-  window.addEventListener('resize', debounce(syncFixedBars_, 100));
-
   // ===== モーダルをソフトウェアキーボードの上に収める =====
   // 不具合修正: スマホでHold登録・受注確定モーダルの入力欄をタップすると、
   // ソフトウェアキーボードが開いた分だけ画面下側が隠れ、モーダル（特に画面
@@ -3547,7 +3483,6 @@
   function init() {
     syncNavButtons_();
     syncHeaderStatusTabs_();
-    syncChromeLayout_();
     reloadAll_().catch(function (err) { showToast(err.message, true); }).then(function () {
       // 起動時ローディング画面は初回の読み込み完了時のみフェードアウトする
       // （更新ボタンからの再読み込みは、ボタン自体の回転アイコンで十分なため
