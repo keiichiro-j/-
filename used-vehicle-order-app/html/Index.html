@@ -3,12 +3,15 @@
 <head>
   <base target="_top">
   <meta charset="utf-8">
-  <!-- 公式サイト風の細身・ジオメトリックなサンセリフ体（Barlow）。和文はBarlowに
-       グリフが無いため、自動的に既存のフォールバック（游ゴシック等）にフォントが
-       切り替わる（Stylesheet.htmlのfont-family参照）。 -->
+  <!-- 公式サイト風の細身・ジオメトリックなサンセリフ体（欧文はBarlow）。
+       不具合修正: 以前は和文のWebフォントを指定しておらず、OS標準
+       （Windowsは游ゴシック、Macはヒラギノ角ゴ）にフォールバックしていたため、
+       太さ・字幅がBarlowと噛み合わず、閲覧環境によって印象が変わっていた。
+       Noto Sans JPを明示指定することで、和文まで含めてどの端末でも同じ見た目に
+       揃える（Stylesheet.htmlのfont-family参照）。 -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
   <!-- PWA対応（ホーム画面に追加してアプリのように起動できるようにする）。
        manifest・Service Workerの実体はPwaService.gs参照。ウェブアプリの
        URL（.../exec）に直接アクセスした場合にのみ機能し、Googleサイトへの
@@ -24,70 +27,52 @@
   <?!= include('html/Stylesheet'); ?>
 </head>
 <body>
-  <!-- Google/Teslaのようなミニマルな線画アイコン一式（外部アイコンライブラリ非依存。
-       個々の絵文字アイコンの代わりに使う。<use>で参照する）。 -->
+  <!-- アイコン一式（Phosphorアイコン、regularウェイト。MIT License。
+       https://github.com/phosphor-icons/core。個々の絵文字アイコンの代わりに
+       使う。<use>で参照する）。以前は自作の手描き線画（ストロークベース）
+       だったが、現場からの要望「アイコンを洗練されたセットに揃えたい」を
+       受けて差し替えた。Phosphorはビルドツール経由の利用が一般的だが、この
+       アプリはApps Script（外部ビルド不可）のため、公式パッケージ
+       （@phosphor-icons/core）のSVGパスをそのまま埋め込む形にしている
+       （塗りつぶしのパス1本で構成されるfillベースのアイコンのため、
+       Stylesheet.htmlの.iconはfill: currentColorのみで色を制御する）。 -->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
     <defs>
-      <symbol id="icon-home" viewBox="0 0 24 24">
-        <path d="M4 11.5L12 4l8 7.5" stroke-linejoin="round"/>
-        <path d="M6 10v8.5a1 1 0 001 1h10a1 1 0 001-1V10" stroke-linejoin="round"/>
-        <path d="M10 19.5v-5h4v5"/>
+      <symbol id="icon-home" viewBox="0 0 256 256">
+        <path d="M219.31,108.68l-80-80a16,16,0,0,0-22.62,0l-80,80A15.87,15.87,0,0,0,32,120v96a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V160h32v56a8,8,0,0,0,8,8h64a8,8,0,0,0,8-8V120A15.87,15.87,0,0,0,219.31,108.68ZM208,208H160V152a8,8,0,0,0-8-8H104a8,8,0,0,0-8,8v56H48V120l80-80,80,80Z"/>
       </symbol>
-      <symbol id="icon-tune" viewBox="0 0 24 24">
-        <line x1="4" y1="7" x2="20" y2="7"/>
-        <line x1="4" y1="12" x2="20" y2="12"/>
-        <line x1="4" y1="17" x2="20" y2="17"/>
-        <circle cx="15" cy="7" r="1.8" fill="currentColor" stroke="none"/>
-        <circle cx="9" cy="12" r="1.8" fill="currentColor" stroke="none"/>
-        <circle cx="13" cy="17" r="1.8" fill="currentColor" stroke="none"/>
+      <symbol id="icon-tune" viewBox="0 0 256 256">
+        <path d="M64,105V40a8,8,0,0,0-16,0v65a32,32,0,0,0,0,62v49a8,8,0,0,0,16,0V167a32,32,0,0,0,0-62Zm-8,47a16,16,0,1,1,16-16A16,16,0,0,1,56,152Zm80-95V40a8,8,0,0,0-16,0V57a32,32,0,0,0,0,62v97a8,8,0,0,0,16,0V119a32,32,0,0,0,0-62Zm-8,47a16,16,0,1,1,16-16A16,16,0,0,1,128,104Zm104,64a32.06,32.06,0,0,0-24-31V40a8,8,0,0,0-16,0v97a32,32,0,0,0,0,62v17a8,8,0,0,0,16,0V199A32.06,32.06,0,0,0,232,168Zm-32,16a16,16,0,1,1,16-16A16,16,0,0,1,200,184Z"/>
       </symbol>
-      <symbol id="icon-image" viewBox="0 0 24 24">
-        <rect x="3.5" y="5" width="17" height="14" rx="2.5"/>
-        <circle cx="9" cy="10.5" r="1.6"/>
-        <path d="M4 16.5l4.3-4.3a1.5 1.5 0 012.1 0l1.4 1.4 3.4-3.4a1.5 1.5 0 012.1 0L20 13"/>
+      <symbol id="icon-image" viewBox="0 0 256 256">
+        <path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,16V158.75l-26.07-26.06a16,16,0,0,0-22.63,0l-20,20-44-44a16,16,0,0,0-22.62,0L40,149.37V56ZM40,172l52-52,80,80H40Zm176,28H194.63l-36-36,20-20L216,181.38V200ZM144,100a12,12,0,1,1,12,12A12,12,0,0,1,144,100Z"/>
       </symbol>
-      <symbol id="icon-mail" viewBox="0 0 24 24">
-        <rect x="3.5" y="5.5" width="17" height="13" rx="2"/>
-        <path d="M4 7l8 6 8-6"/>
+      <symbol id="icon-mail" viewBox="0 0 256 256">
+        <path d="M224,48H32a8,8,0,0,0-8,8V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A8,8,0,0,0,224,48Zm-96,85.15L52.57,64H203.43ZM98.71,128,40,181.81V74.19Zm11.84,10.85,12,11.05a8,8,0,0,0,10.82,0l12-11.05,58,53.15H52.57ZM157.29,128,216,74.18V181.82Z"/>
       </symbol>
-      <symbol id="icon-people" viewBox="0 0 24 24">
-        <circle cx="9" cy="8.2" r="2.7"/>
-        <path d="M4 19c0-3 2.3-5 5-5s5 2 5 5"/>
-        <circle cx="17" cy="9" r="2.1"/>
-        <path d="M14.7 19c.3-2.2 1.6-3.7 3.1-4.3"/>
+      <symbol id="icon-people" viewBox="0 0 256 256">
+        <path d="M117.25,157.92a60,60,0,1,0-66.5,0A95.83,95.83,0,0,0,3.53,195.63a8,8,0,1,0,13.4,8.74,80,80,0,0,1,134.14,0,8,8,0,0,0,13.4-8.74A95.83,95.83,0,0,0,117.25,157.92ZM40,108a44,44,0,1,1,44,44A44.05,44.05,0,0,1,40,108Zm210.14,98.7a8,8,0,0,1-11.07-2.33A79.83,79.83,0,0,0,172,168a8,8,0,0,1,0-16,44,44,0,1,0-16.34-84.87,8,8,0,1,1-5.94-14.85,60,60,0,0,1,55.53,105.64,95.83,95.83,0,0,1,47.22,37.71A8,8,0,0,1,250.14,206.7Z"/>
       </symbol>
-      <symbol id="icon-grid" viewBox="0 0 24 24">
-        <rect x="4" y="4" width="7" height="7" rx="1.3"/>
-        <rect x="13" y="4" width="7" height="7" rx="1.3"/>
-        <rect x="4" y="13" width="7" height="7" rx="1.3"/>
-        <rect x="13" y="13" width="7" height="7" rx="1.3"/>
+      <symbol id="icon-grid" viewBox="0 0 256 256">
+        <path d="M104,40H56A16,16,0,0,0,40,56v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V56A16,16,0,0,0,104,40Zm0,64H56V56h48v48Zm96-64H152a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V56A16,16,0,0,0,200,40Zm0,64H152V56h48v48Zm-96,32H56a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V152A16,16,0,0,0,104,136Zm0,64H56V152h48v48Zm96-64H152a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V152A16,16,0,0,0,200,136Zm0,64H152V152h48v48Z"/>
       </symbol>
-      <symbol id="icon-table" viewBox="0 0 24 24">
-        <rect x="4" y="5" width="16" height="14" rx="1.5"/>
-        <line x1="4" y1="10" x2="20" y2="10"/>
-        <line x1="4" y1="14.5" x2="20" y2="14.5"/>
-        <line x1="10.5" y1="5" x2="10.5" y2="19"/>
+      <symbol id="icon-table" viewBox="0 0 256 256">
+        <path d="M224,48H32a8,8,0,0,0-8,8V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A8,8,0,0,0,224,48ZM40,112H80v32H40Zm56,0H216v32H96ZM216,64V96H40V64ZM40,160H80v32H40Zm176,32H96V160H216v32Z"/>
       </symbol>
-      <symbol id="icon-alert" viewBox="0 0 24 24">
-        <path d="M12 4.2L21 19.5H3L12 4.2z" stroke-linejoin="round"/>
-        <line x1="12" y1="10.3" x2="12" y2="14.3"/>
-        <circle cx="12" cy="16.8" r="1" fill="currentColor" stroke="none"/>
+      <symbol id="icon-alert" viewBox="0 0 256 256">
+        <path d="M236.8,188.09,149.35,36.22h0a24.76,24.76,0,0,0-42.7,0L19.2,188.09a23.51,23.51,0,0,0,0,23.72A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.19A23.51,23.51,0,0,0,236.8,188.09ZM222.93,203.8a8.5,8.5,0,0,1-7.48,4.2H40.55a8.5,8.5,0,0,1-7.48-4.2,7.59,7.59,0,0,1,0-7.72L120.52,44.21a8.75,8.75,0,0,1,15,0l87.45,151.87A7.59,7.59,0,0,1,222.93,203.8ZM120,144V104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm20,36a12,12,0,1,1-12-12A12,12,0,0,1,140,180Z"/>
       </symbol>
-      <symbol id="icon-lock" viewBox="0 0 24 24">
-        <rect x="5" y="11" width="14" height="9" rx="2"/>
-        <path d="M8 11V8a4 4 0 018 0v3"/>
-        <circle cx="12" cy="15.2" r="1.2" fill="currentColor" stroke="none"/>
+      <symbol id="icon-lock" viewBox="0 0 256 256">
+        <path d="M208,80H176V56a48,48,0,0,0-96,0V80H48A16,16,0,0,0,32,96V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V96A16,16,0,0,0,208,80ZM96,56a32,32,0,0,1,64,0V80H96ZM208,208H48V96H208V208Zm-68-56a12,12,0,1,1-12-12A12,12,0,0,1,140,152Z"/>
       </symbol>
-      <symbol id="icon-back" viewBox="0 0 24 24">
-        <path d="M14.5 5L7 12l7.5 7" stroke-linejoin="round"/>
+      <symbol id="icon-back" viewBox="0 0 256 256">
+        <path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"/>
       </symbol>
-      <symbol id="icon-refresh" viewBox="0 0 24 24">
-        <path d="M5.5 8a7.5 7.5 0 0112.7-3.8M19 3.6v4.4h-4.4"/>
-        <path d="M18.5 16a7.5 7.5 0 01-12.7 3.8M5 20.4V16h4.4"/>
+      <symbol id="icon-refresh" viewBox="0 0 256 256">
+        <path d="M240,56v48a8,8,0,0,1-8,8H184a8,8,0,0,1,0-16H211.4L184.81,71.64l-.25-.24a80,80,0,1,0-1.67,114.78,8,8,0,0,1,11,11.63A95.44,95.44,0,0,1,128,224h-1.32A96,96,0,1,1,195.75,60L224,85.8V56a8,8,0,1,1,16,0Z"/>
       </symbol>
-      <symbol id="icon-search" viewBox="0 0 24 24">
-        <circle cx="10.5" cy="10.5" r="6.5"/>
-        <line x1="15.3" y1="15.3" x2="20.5" y2="20.5"/>
+      <symbol id="icon-search" viewBox="0 0 256 256">
+        <path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"/>
       </symbol>
     </defs>
   </svg>
@@ -152,8 +137,8 @@
         </div>
         <div class="topbar__brand" id="topbarBrand" title="<?= currentAppTitle_() ?>">
           <img id="topbarLogo" class="topbar__logo hidden" alt="ロゴ">
-          <svg class="topbar__markIcon" id="topbarMarkIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <path d="M3 13l1.5-5A2 2 0 016.4 6.5h11.2A2 2 0 0119.5 8l1.5 5"/><rect x="2.5" y="13" width="19" height="6" rx="1.6"/><circle cx="7" cy="19.5" r="1.6"/><circle cx="17" cy="19.5" r="1.6"/>
+          <svg class="topbar__markIcon" id="topbarMarkIcon" viewBox="0 0 256 256" fill="currentColor">
+            <path d="M240,104H229.2L201.42,41.5A16,16,0,0,0,186.8,32H69.2a16,16,0,0,0-14.62,9.5L26.8,104H16a8,8,0,0,0,0,16h8v80a16,16,0,0,0,16,16H64a16,16,0,0,0,16-16V184h96v16a16,16,0,0,0,16,16h24a16,16,0,0,0,16-16V120h8a8,8,0,0,0,0-16ZM69.2,48H186.8l24.89,56H44.31ZM64,200H40V184H64Zm128,0V184h24v16Zm24-32H40V120H216ZM56,144a8,8,0,0,1,8-8H80a8,8,0,0,1,0,16H64A8,8,0,0,1,56,144Zm112,0a8,8,0,0,1,8-8h16a8,8,0,0,1,0,16H176A8,8,0,0,1,168,144Z"/>
           </svg>
           <span class="topbar__brandText" id="topbarBrandText"><?= currentAppTitle_() ?></span>
         </div>
@@ -198,11 +183,11 @@
       </div>
       <div id="homeGrid" class="homeGrid"></div>
       <div class="emptyState hidden" id="homeEmpty">
-        <svg class="icon emptyState__icon"><use href="#icon-home"></use></svg>
+        <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-home"></use></svg></span>
         <p>車両画像が登録されていません。設定タブの「車両画像」から登録してください。</p>
       </div>
       <div class="emptyState hidden" id="homeTypeEmpty">
-        <svg class="icon emptyState__icon"><use href="#icon-home"></use></svg>
+        <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-home"></use></svg></span>
         <p>この型に該当する車両画像がありません</p>
       </div>
     </main>
@@ -279,7 +264,7 @@
         <div class="listBody__main">
           <div id="inventoryList"></div>
           <div class="emptyState hidden" id="inventoryEmpty">
-            <svg class="icon emptyState__icon"><use href="#icon-grid"></use></svg>
+            <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-grid"></use></svg></span>
             <p>該当する在庫がありません</p>
           </div>
         </div>
@@ -326,7 +311,7 @@
         <div class="listBody__main">
           <div id="ordersGroups"></div>
           <div class="emptyState hidden" id="ordersEmpty">
-            <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
+            <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-table"></use></svg></span>
             <p>該当する受注がありません</p>
           </div>
         </div>
@@ -376,7 +361,7 @@
         <div class="listBody__main">
           <div id="wholesaleOrdersGroups"></div>
           <div class="emptyState hidden" id="wholesaleOrdersEmpty">
-            <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
+            <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-table"></use></svg></span>
             <p>該当する業販受注がありません</p>
           </div>
         </div>
@@ -401,7 +386,7 @@
         </div>
       </div>
       <div class="emptyState hidden" id="myPageNoStaff">
-        <svg class="icon emptyState__icon"><use href="#icon-people"></use></svg>
+        <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-people"></use></svg></span>
         <p>ご利用中のGoogleアカウントが担当者マスタに登録されていないため、マイページを表示できません。
         設定タブの「担当者」にご自身のメールアドレスを登録してください。</p>
       </div>
@@ -410,7 +395,7 @@
           <h2 class="myPageSection__title">Hold中の車両（<span id="myPageHoldCount">0</span>台）</h2>
           <div id="myPageHoldList"></div>
           <div class="emptyState hidden" id="myPageHoldEmpty">
-            <svg class="icon emptyState__icon"><use href="#icon-lock"></use></svg>
+            <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-lock"></use></svg></span>
             <p>現在Hold中の車両はありません</p>
           </div>
         </section>
@@ -418,7 +403,7 @@
           <h2 class="myPageSection__title">受注した車両（<span id="myPageOrderCount">0</span>台）</h2>
           <div id="myPageOrderList"></div>
           <div class="emptyState hidden" id="myPageOrderEmpty">
-            <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
+            <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-table"></use></svg></span>
             <p>受注した車両はありません</p>
           </div>
         </section>

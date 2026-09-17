@@ -166,6 +166,21 @@
    * --fade-l／--fade-rのCSS変数を持たせ、実際にその方向へスクロールできる
    * ときだけフェードさせる。
    */
+  /**
+   * ページが実際にスクロールされて先頭でなくなったときだけ、固定ヘッダー
+   * （.topbar・.commandbar）に薄い影を足す（body.is-scrolled、Stylesheet.html
+   * 参照）。PC・タブレット幅の在庫/受注/業販受注リストは「アプリシェル」化
+   * されておりwindow自体はスクロールしないため、この場合は常にfalseのまま
+   * （常に影なし）で問題ない。
+   */
+  function initScrollElevation_() {
+    function sync() {
+      document.body.classList.toggle('is-scrolled', window.scrollY > 0);
+    }
+    window.addEventListener('scroll', sync, { passive: true });
+    sync();
+  }
+
   function initScrollFade_(id) {
     var el = $(id);
     if (!el) return;
@@ -2640,9 +2655,13 @@
   }
 
   /**
-   * 設定タブのプリセット一覧（11色＋ランダム、計12マス）を描画する。ランダムの
-   * マスだけは単色のスウォッチではなく、全プリセットのprimaryを並べたグラデーション
-   * にして「毎回変わる」ことを視覚的に示す。
+   * 設定タブのプリセット一覧（11色＋ランダム、計12マス）を描画する。
+   * 不具合修正/現場からの要望「選んだ色が実際のUIにどう映るか、選ぶ時点で
+   * わかるようにしたい」を受け、単色の丸いスウォッチではなく、ヘッダー帯
+   * （primaryDark）＋ボタン（primary）を模したミニプレビューにした
+   * （themePreset__preview、下のCSS参照）。ランダムのマスだけは単色ではなく、
+   * 全プリセットのprimaryDark／primaryをそれぞれ並べたグラデーションにして
+   * 「毎回変わる」ことを視覚的に示す。
    */
   function renderThemePresets_() {
     var container = $('themePresetGrid');
@@ -2650,15 +2669,22 @@
     var presetTiles = THEME_PRESETS.map(function (p) {
       return '<button type="button" class="themePreset' + (p.key === current ? ' is-selected' : '') +
         '" data-theme-key="' + p.key + '" style="--swatch:' + p.primary + '" aria-pressed="' + (p.key === current) + '">' +
-        '<span class="themePreset__swatch"></span>' +
+        '<span class="themePreset__preview">' +
+        '<span class="themePreset__previewBar" style="background:' + p.primaryDark + '"></span>' +
+        '<span class="themePreset__previewBody"><span class="themePreset__previewBtn" style="background:' + p.primary + '"></span></span>' +
+        '</span>' +
         '<span class="themePreset__name">' + escapeHtml(p.name) + '</span>' +
         '</button>';
     }).join('');
+    var darkGradient = THEME_PRESETS.map(function (p) { return p.primaryDark; }).join(', ');
     var gradient = THEME_PRESETS.map(function (p) { return p.primary; }).join(', ');
     var isRandom = current === RANDOM_THEME_KEY;
     var randomTile = '<button type="button" class="themePreset' + (isRandom ? ' is-selected' : '') +
       '" data-theme-key="' + RANDOM_THEME_KEY + '" style="--swatch:' + THEME_PRESETS[0].primary + '" aria-pressed="' + isRandom + '">' +
-      '<span class="themePreset__swatch" style="background:conic-gradient(' + gradient + ')"></span>' +
+      '<span class="themePreset__preview">' +
+      '<span class="themePreset__previewBar" style="background:conic-gradient(' + darkGradient + ')"></span>' +
+      '<span class="themePreset__previewBody"><span class="themePreset__previewBtn" style="background:conic-gradient(' + gradient + ')"></span></span>' +
+      '</span>' +
       '<span class="themePreset__name">ランダム</span>' +
       '</button>';
     container.innerHTML = presetTiles + randomTile;
@@ -3829,6 +3855,7 @@
   function init() {
     syncNavButtons_();
     initScrollFade_('topbarTabs');
+    initScrollElevation_();
     reloadAll_().catch(function (err) { showToast(err.message, true); }).then(function () {
       // 起動時ローディング画面は初回の読み込み完了時のみフェードアウトする
       // （更新ボタンからの再読み込みは、ボタン自体の回転アイコンで十分なため

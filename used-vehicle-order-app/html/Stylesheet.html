@@ -50,8 +50,14 @@
        .card.is-listedルール参照。詳細モーダル専用）。ステータス色（成功の
        緑・警告のアンバー・業販HOLDの紫）と重ならないティール系にする。 */
     --listed-bg: rgba(20, 184, 166, .14);
-    --shadow: 0 1px 2px rgba(16, 31, 51, .10);
-    --shadow-elevated: 0 16px 40px rgba(16, 31, 51, .16);
+    /* カード・バッジ等の通常時の影。近い光源による輪郭のはっきりした影
+       （1層目）と、遠くから回り込む柔らかい影（2層目）を重ねることで、
+       単層の影よりも自然な「紙が浮いている」奥行きを出す（現場からの要望
+       「影の付け方に奥行きを持たせたい」）。 */
+    --shadow: 0 1px 2px rgba(16, 31, 51, .09), 0 4px 10px rgba(16, 31, 51, .07);
+    /* ホバー時等、さらに持ち上がった状態の影。--shadowと同じ2層構成のまま、
+       それぞれの層を強めている。 */
+    --shadow-elevated: 0 4px 10px rgba(16, 31, 51, .12), 0 16px 40px rgba(16, 31, 51, .16);
     /* 公式サイトはカードの角丸をあまり強調しないフラットな見た目のため、
        従来の14pxより控えめな角丸にして「エンジニアリングされた精密さ」を出す。 */
     --radius: 8px;
@@ -94,9 +100,15 @@
   }
 
   * { box-sizing: border-box; }
+  /* 不具合修正: 以前は和文フォントを指定していなかったため、OS標準
+     （Windowsは游ゴシック、Macはヒラギノ角ゴ）に任せることになり、太さ・
+     字幅がBarlowと噛み合わず閲覧環境によって印象が変わっていた。Noto Sans JP
+     （Index.htmlでGoogle Fontsから読み込み）を明示することで、和文まで含めて
+     どの端末でも同じ見た目に揃える（欧文はBarlowが優先され、和文グリフが
+     無い文字だけNoto Sans JPにフォールバックする）。 */
   html, body {
     margin: 0;
-    font-family: 'Barlow', 'Roboto', 'Helvetica Neue', Arial, 'Hiragino Sans', 'Yu Gothic', sans-serif;
+    font-family: 'Barlow', 'Noto Sans JP', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
     background: var(--background);
     color: var(--on-surface);
     -webkit-font-smoothing: antialiased;
@@ -107,15 +119,17 @@
    （openModal/closeModal、JavaScript.html参照）。 */
   body.modal-open { overflow: hidden; }
 
-  /* ===== ミニマルな線画アイコン（Google/Tesla調。絵文字アイコンの代わりに使う） ===== */
+  /* ===== アイコン（Phosphorアイコンセット、regularウェイト。MIT License） =====
+     不具合修正/現場からの要望「アイコンを洗練されたセットに揃えたい」を受け、
+     以前の自作の手描き線画（ストロークベース）から、統一感のあるPhosphor
+     アイコン（塗りつぶしのパス1本で構成される、fillベース）に差し替えた。
+     そのため以前のstroke系プロパティ（fill: none / stroke: currentColor 等）は
+     不要になり、fill: currentColorのみで色を制御する（Index.htmlの<symbol>群、
+     およびtopbar__markIconの車アイコンも同じPhosphorのパスに揃えてある）。 */
   .icon {
     width: 20px;
     height: 20px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.8;
-    stroke-linecap: round;
-    stroke-linejoin: round;
+    fill: currentColor;
     flex: none;
     vertical-align: -5px;
   }
@@ -140,7 +154,17 @@
     position: sticky;
     top: 0;
     z-index: 15;
+    transition: box-shadow .2s var(--ease);
   }
+  /* 不具合修正/現場からの要望「スクロール中のヘッダーに奥行きを持たせたい」:
+     以前は固定ヘッダー（.topbar・.commandbar）が境界線のみでフラットだった。
+     ページが実際にスクロールされて先頭でなくなったときだけ、ごく薄い影を
+     足すことで、コンテンツの上に浮いている感覚を出す（syncScrollElevation_、
+     JavaScript.html参照）。PC・タブレット幅の在庫/受注/業販受注リスト
+     （「アプリシェル」化されておりページ自体はスクロールしない構造、
+     Stylesheet.html内の@media (min-width: 901px)ブロック参照）では
+     window.scrollYが常に0のままのため、この影は付かない。 */
+  body.is-scrolled .topbar { box-shadow: 0 2px 10px rgba(16, 31, 51, .18); }
   .topbar__brandRow {
     position: relative;
     display: flex;
@@ -361,7 +385,9 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+    transition: box-shadow .2s var(--ease);
   }
+  body.is-scrolled .commandbar { box-shadow: 0 2px 10px rgba(16, 31, 51, .08); }
   .searchrow { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
   .searchbox {
     flex: 1 1 320px;
@@ -430,8 +456,10 @@
     color: var(--on-surface-variant);
     cursor: pointer;
     white-space: nowrap;
+    transition: background-color .15s var(--ease), border-color .15s var(--ease), transform .1s var(--ease);
   }
   .homeTypeNav__item:hover { border-color: var(--primary); color: var(--on-surface); }
+  .homeTypeNav__item:active { transform: scale(.96); }
   .homeTypeNav__item.is-active { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
 
   /* お知らせ（#homeAnnouncement）。管理者が設定タブから登録した案内文を、
@@ -477,6 +505,7 @@
   }
   .homeCard--clickable { cursor: pointer; }
   .homeCard--clickable:hover { box-shadow: var(--shadow-elevated); transform: translateY(-2px); }
+  .homeCard--clickable:active { transform: translateY(-2px) scale(.99); }
   /* 車両画像枠にも選択中のテーマ（表示設定）を反映する。写真自体（img）は
      object-fit: coverで枠いっぱいに敷き詰められるため、テーマカラーの縁取りを
      枠の内側に描き、写真の外周に「テーマカラーの額縁」が見えるようにする
@@ -509,7 +538,7 @@
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
     color: var(--on-surface-variant);
   }
-  .homeCard__photoMissingIcon { width: 28px; height: 28px; stroke-width: 1.3; opacity: .55; }
+  .homeCard__photoMissingIcon { width: 28px; height: 28px; opacity: .55; }
   .homeCard__photoMissingLabel { font-size: 11px; font-weight: 600; }
   /* 不具合修正: 以前は半透明の--success-bg（緑系の薄い塗り）を背景にしていたため、
      写真プレースホルダー（本番では車両写真）が緑系の色だとバッジの文字がほぼ
@@ -531,8 +560,10 @@
     appearance: none; border: 1px solid var(--outline); background: var(--background);
     border-radius: 7px; padding: 4px 7px; display: flex; flex-direction: column; gap: 1px;
     cursor: pointer; font-family: inherit; text-align: left;
+    transition: border-color .15s var(--ease), transform .1s var(--ease);
   }
   .homeCard__gradeChip:hover { border-color: var(--primary); }
+  .homeCard__gradeChip:active:not(:disabled) { transform: scale(.96); }
   .homeCard__gradeChip:disabled { opacity: .4; cursor: not-allowed; }
   /* 不具合修正: グレード名の文字数は車種ごとにまちまちで、特に長い名前が
      3行以上に折り返すと、そのグレードチップだけが極端に縦長になり、
@@ -706,16 +737,21 @@
     letter-spacing: .06em;
     text-transform: uppercase;
     cursor: pointer;
-    transition: background-color .15s var(--ease), border-color .15s var(--ease);
+    transition: background-color .15s var(--ease), border-color .15s var(--ease), transform .1s var(--ease);
   }
   /* アウトラインボタンは、公式サイトのCTAによくある「ホバーで反転（塗りつぶし）」
      の挙動にする。 */
   .btn:hover { background: var(--on-surface); border-color: var(--on-surface); color: var(--background); }
+  /* 不具合修正: クリック/タップした瞬間の反応（押した感）が無く、ボタンを
+     押せたのかどうかが視覚的に伝わりにくかった。押している間だけわずかに
+     縮めることで、タップへの即時フィードバックを出す（現場からの要望）。 */
+  .btn:active:not(:disabled) { transform: scale(.97); }
   .btn--primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
   .btn--primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); color: var(--on-primary); }
   /* ロゴ削除等の添え書きリンクは、CTAボタンと区別できるよう大文字化・反転させない */
   .btn--text { border: none; background: none; color: var(--primary-text); padding: 8px 10px; text-transform: none; letter-spacing: normal; }
   .btn--text:hover { background: none; color: var(--primary-text); text-decoration: underline; }
+  .btn--text:active:not(:disabled) { transform: none; }
   .btn--danger { color: var(--danger); border-color: var(--danger); }
   .btn--danger:hover { background: var(--danger); border-color: var(--danger); color: #fff; }
   .btn--block { width: 100%; }
@@ -725,8 +761,10 @@
   .btn--icon {
     border: none; background: transparent; font-size: 20px; line-height: 1;
     width: 44px; height: 44px; border-radius: 12px; cursor: pointer; color: var(--on-surface-variant);
+    transition: background-color .15s var(--ease), transform .1s var(--ease);
   }
   .btn--icon:hover { background: rgba(31, 41, 51, .06); }
+  .btn--icon:active:not(:disabled) { transform: scale(.92); }
 
   /* ===== フォーカスリング（キーボード操作時の視認性確保） =====
      マウス操作時には表示されず、キーボードでのTab移動時のみ表示される
@@ -792,6 +830,7 @@
   }
   .rowList > .rowItem:last-child { border-bottom: none; }
   .rowItem:hover { background: var(--background); }
+  .rowItem:active { background: var(--primary-bg); }
   .rowItem--hold { border-left-color: var(--warning); }
   .rowItem--holdSpecial { border-left-color: var(--hold-special); }
   .rowItem__num {
@@ -1187,12 +1226,28 @@
     font-size: 14px;
   }
   .emptyState p { margin: 0; max-width: 46ch; line-height: 1.7; }
-  /* 単なる文字だけの寂しい印象にならないよう、既存の線画アイコン一式から
-     文脈に合うものを添える（新規アイコンライブラリは追加しない）。 */
+  /* 単なる文字だけの寂しい印象にならないよう、Phosphorアイコン一式から
+     文脈に合うものを添える。アイコン単体だと素っ気ないため、淡い円形の
+     バッジで包み、専用イラストに近い見え方にする（新規イラスト素材は
+     用意していないが、円＋アイコンの組み合わせだけでも「作り込まれた
+     空状態」の印象になる）。 */
+  .emptyState__iconWrap {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    /* 不具合修正: 背景にvar(--background)（ページ自体の背景色と同じ）を
+       指定していたため、円が周囲に溶け込んでほぼ見えなくなっていた。
+       ページ背景と区別のつくvar(--surface)（白）にする。 */
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+  }
   .emptyState__icon {
-    width: 34px;
-    height: 34px;
-    stroke-width: 1.3;
+    width: 30px;
+    height: 30px;
     color: var(--outline);
   }
 
@@ -1406,18 +1461,36 @@
     cursor: pointer;
     color: var(--on-surface-variant);
     font-size: 12px;
+    transition: border-color .15s var(--ease), transform .1s var(--ease);
   }
   .themePreset:hover { border-color: var(--swatch); }
   .themePreset.is-selected { border-color: var(--swatch); background: rgba(31, 41, 51, .04); color: var(--on-surface); }
-  .themePreset__swatch {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: var(--swatch);
-    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .15);
+  .themePreset:active { transform: scale(.97); }
+  /* 不具合修正: 以前は単色の丸いスウォッチだけで、選んだ色が実際の画面
+     （ヘッダー・ボタン）にどう反映されるかは選択後でないとわからなかった。
+     ヘッダー帯（上段、primaryDark）＋ボタン（下段中央、primary）を模した
+     ミニプレビューにすることで、選ぶ時点で仕上がりが伝わるようにする
+     （現場からの要望）。 */
+  .themePreset__preview {
+    width: 48px;
+    height: 36px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--outline);
+    display: flex;
+    flex-direction: column;
   }
-  .themePreset.is-selected .themePreset__swatch {
-    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .15), 0 0 0 3px var(--surface), 0 0 0 5px var(--swatch);
+  .themePreset__previewBar { height: 11px; flex: none; }
+  .themePreset__previewBody {
+    flex: 1;
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .themePreset__previewBtn { width: 24px; height: 8px; border-radius: 3px; }
+  .themePreset.is-selected .themePreset__preview {
+    box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--swatch);
   }
   /* 不具合修正: 名称（「ブリリアントブルー」等）は文字数が項目ごとに異なり、
      幅が狭いスマホでは単語の途中で強制的に2行に折り返される項目とされない
