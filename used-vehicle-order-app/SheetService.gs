@@ -9,10 +9,18 @@ function getSpreadsheet_() {
 
 /**
  * シートが無ければ、列定義（columns）から一括で作成する（ヘッダー行・見た目の装飾・
- * 入力規則（選択式の列のドロップダウン）・列ヘッダーの説明メモ・コミッション列の
- * 書式まで）。既存のシートがある場合は何もしない（既存データ・書式を壊さないため）。
- * 既存シートに後からこれらを反映したい場合は、SetupService.gsの
- * applySelectValidationsAndNotes_（スプレッドシートのメニューから実行可能）を使う。
+ * チェックボックス列・列ヘッダーの説明メモ・コミッション列の書式まで）。既存のシートが
+ * ある場合は何もしない（既存データ・書式を壊さないため）。
+ * 選択式（type: 'select'）の列には、あえてドロップダウンの入力規則を設定しない
+ * （不具合修正: setAllowInvalid(false)の入力規則は、スプレッドシートのUIからの
+ * 手入力だけでなくApps Script側のsetValues()による書き込みにも適用され、
+ * 想定外の値（例: 業販HOLDでは収集しない下取車の有無・保険加入の有無を空欄で
+ * 書き込む）を弾いて「Exception: 次のいずれかを選択してください：あり、なし」を
+ * 投げ、Hold登録・受注確定そのものが失敗する不具合の原因になっていた。手入力の
+ * 表記ゆれ防止より、アプリ自体の動作を優先し、選択式の列には入力規則を付けない
+ * 方針にした。既存シートに残っている入力規則を取り除きたい場合は、
+ * SetupService.gsのremoveSelectValidationsAndRefreshNotes_（スプレッドシートの
+ * メニューから実行可能）を使う。
  */
 function getOrCreateSheet_(sheetName, columns, textColumnIndexes1) {
   var ss = getSpreadsheet_();
@@ -23,7 +31,6 @@ function getOrCreateSheet_(sheetName, columns, textColumnIndexes1) {
     sheet.getRange(1, 1, 1, headerRow.length).setValues([headerRow]);
     sheet.setFrozenRows(1);
     applyTextColumnFormat_(sheet, textColumnIndexes1);
-    applySelectValidations_(sheet, columns);
     applyCheckboxValidations_(sheet, columns);
     applyHeaderNotes_(sheet, columns);
     applySheetDesign_(sheet, sheetName, columns);
@@ -42,7 +49,7 @@ function getOrCreateSheet_(sheetName, columns, textColumnIndexes1) {
  *   ・列幅をラベル・内容量に応じて自動調整する。
  *   ・データ行に1行おきの背景色（バンディング）を付け、横に長い行でも視線が
  *     ズレにくいようにする。
- * 既存シート（applySelectValidationsAndNotes_経由）に対しても再実行できるよう、
+ * 既存シート（removeSelectValidationsAndRefreshNotes_経由）に対しても再実行できるよう、
  * バンディングが既に設定されている等で例外が出ても致命的にはせず無視する。
  */
 function applySheetDesign_(sheet, sheetName, columns) {
@@ -81,29 +88,23 @@ function applyTextColumnFormat_(sheet, columnIndexes1) {
 }
 
 /**
- * 選択式（type: 'select'）の列に、その選択肢（options）のみを許可するデータ入力規則
- * （プルダウン）を設定する。スプレッドシートを直接編集する運用担当者が、想定外の
- * 値（表記ゆれ・入力ミス）を入力してしまうのを防ぐ（IntegrityService.gsの
- * checkInventoryIntegrity_が検出する「不明なHoldステータス」等の不整合は、
- * そもそもこの入力規則で未然に防げる）。無効な値は保存時に拒否する
- * （setAllowInvalid(false)）。なお、この入力規則はスプレッドシートのUIから
- * 手入力する場合にのみ働き、Apps Script側のsetValues()による書き込み
- * （アプリ自体の動作）には影響しない。
+ * 選択式（type: 'select'）の列から、データ入力規則（プルダウン）を取り除く。
+ * 不具合修正: 以前はrequireValueInList + setAllowInvalid(false)でドロップダウンを
+ * 設定していたが、この「無効な値は拒否する」設定は、スプレッドシートのUIからの
+ * 手入力だけでなくApps Script側のsetValues()による書き込みにも適用されることが
+ * 判明した。業販HOLD・業販受注確定は下取車の有無・保険加入の有無・支払方法を
+ * 収集しない仕様のため、これらの列へ空欄を書き込んだ瞬間に
+ * 「Exception: 次のいずれかを選択してください：あり、なし」が投げられ、
+ * Hold登録・受注確定そのものが失敗していた。表記ゆれ防止よりアプリの動作を
+ * 優先し、選択式の列には入力規則を付けない方針にしたため、この関数は既存の
+ * 入力規則を取り除くためだけに使う（新規作成するシートにはそもそも設定しない。
+ * getOrCreateSheet_参照）。
  */
-function applySelectValidations_(sheet, columns) {
+function removeSelectValidations_(sheet, columns) {
   var numRows = Math.max(sheet.getMaxRows() - 1, 1000);
   columns.forEach(function (col, i) {
-    if (col.type !== 'select' || !Array.isArray(col.options) || !col.options.length) return;
-    var rule = SpreadsheetApp.newDataValidation()
-      .requireValueInList(col.options, true)
-      .setAllowInvalid(false)
-      // 無効な値を入力しようとした瞬間に表示されるヘルプテキスト。ヘッダーの
-      // メモ（applyHeaderNotes_）は見出しにカーソルを合わせないと見えないが、
-      // こちらは入力中のセルにその場で表示されるため、選択肢をど忘れしたときに
-      // 気づきやすい。
-      .setHelpText('次のいずれかを選択してください： ' + col.options.join('、'))
-      .build();
-    sheet.getRange(2, i + 1, numRows, 1).setDataValidation(rule);
+    if (col.type !== 'select') return;
+    sheet.getRange(2, i + 1, numRows, 1).clearDataValidations();
   });
 }
 

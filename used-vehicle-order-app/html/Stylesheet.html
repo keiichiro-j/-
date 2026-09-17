@@ -70,9 +70,12 @@
        .topbar・.commandbar参照）。901px以上はボタン・ロゴを一回り大きくする分、
        高さも合わせて変える。 */
     --topbar-h: 106px;
-    /* コントロールパネル（.topbar）専用の固定色（配色テーマ「表示設定」の
-       影響を受けない）。以前の「コントロールパネル」時代と同じダークネイビーに
-       戻した（<meta name="theme-color">とも合わせてある）。 */
+    /* コントロールパネル（.topbar）の背景色。JS実行前（テーマ適用前）の初期値で、
+       以前の「コントロールパネル」時代と同じダークネイビー（<meta name="theme-color">とも
+       合わせてある）。JS実行後は、選択中のテーマプリセットのprimaryDarkに
+       書き換わる（applyTheme、JavaScript.html参照。テーマの効果がヘッダー・
+       ホーム画面にも及ぶようにするため。不具合修正: 以前はテーマの影響を
+       受けない固定色だった）。 */
     --topbar-bg: #0b1f33;
     --on-topbar: #ffffff;
     --dark-ui-outline: rgba(255, 255, 255, .14);
@@ -128,8 +131,9 @@
   #app { display: block; }
 
   /* ===== コントロールパネル（.topbar） =====
-     ダークネイビー固定色（配色テーマの影響を受けない）。ブランド行（戻る／
-     更新ボタン・ロゴ＋アプリ名・担当者情報）と、その下の水平タブ行の2段構成。 */
+     背景色は選択中のテーマ（表示設定）に連動する（--topbar-bg、:root・
+     applyTheme参照）。ブランド行（戻る／更新ボタン・ロゴ＋アプリ名・担当者情報）と、
+     その下の水平タブ行の2段構成。 */
   .topbar {
     background: var(--topbar-bg);
     color: var(--on-topbar);
@@ -355,6 +359,13 @@
     transition: border-color .15s var(--ease), box-shadow .15s var(--ease);
   }
   .searchbox:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }
+  /* 受注リスト・業販受注リストの絞り込みサイドバーは、自由検索欄を
+     .filterSidebar__field（display: flex; flex-direction: column）の中に置く。
+     .searchboxのflex: 1 1 320pxはコマンドバー内の横並びレイアウト前提の値
+     のため、縦方向のflexコンテナ内ではflex-basis（320px）が高さの基準に
+     なってしまい、検索欄が縦に間延びする不具合が起きる。サイドバー内では
+     打ち消して自然な高さにする。 */
+  .filterSidebar .searchbox { flex: none; width: 100%; }
   .searchbox .icon--inline { flex: none; color: var(--on-surface-variant); }
   .searchbox input {
     border: none; outline: none; background: none; width: 100%;
@@ -417,18 +428,22 @@
     cursor: pointer;
     white-space: nowrap;
   }
-  .homeTypeNav__item:hover { border-color: var(--on-surface-variant); color: var(--on-surface); }
-  .homeTypeNav__item.is-active { background: var(--on-surface); border-color: var(--on-surface); color: var(--surface); }
+  .homeTypeNav__item:hover { border-color: var(--primary); color: var(--on-surface); }
+  .homeTypeNav__item.is-active { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
 
   /* お知らせ（#homeAnnouncement）。管理者が設定タブから登録した案内文を、
-     ホーム画面の一番上に目立たせて表示する（未設定時は要素ごとhidden）。 */
+     ホーム画面の一番上に目立たせて表示する（未設定時は要素ごとhidden）。型
+     クイックナビ（.homeTypeNav）と同じ.commandbar（position: sticky）の中に
+     置くことで、スクロールしても常に画面上部に固定表示されるようにしている
+     （現場からの要望「お知らせも型選択と同様に固定してほしい」）。 */
   .homeAnnouncement {
     background: var(--primary-bg);
     color: var(--primary-text);
     font-size: 13px;
     font-weight: 700;
     text-align: center;
-    padding: 10px 20px;
+    padding: 8px 16px;
+    border-radius: 8px;
   }
 
   /* 写真を小さくし、PC幅では横一列に4枚並ぶ固定4列グリッドにする（現場からの
@@ -462,13 +477,16 @@
   .homeCard__photo { position: relative; aspect-ratio: 4 / 3; background: var(--background); overflow: hidden; }
   .homeCard__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .homeCard__photo--clickable { cursor: pointer; }
-  .homeCard__stock {
-    position: absolute; top: 6px; right: 6px;
-    background: var(--success-bg); color: var(--success);
-    font-size: 10px; padding: 3px 8px;
-  }
-  .homeCard__stock.badge--stock--zero { background: rgba(31, 41, 51, .55); color: var(--surface); }
   .homeCard__body { padding: 10px 12px; display: flex; flex-direction: column; gap: 7px; }
+  /* 台数表記: モデル名の直下に中央寄せで表示する（現場からの要望
+     「例）A20DB／5台」。以前は写真右上に重ねたバッジ表示だった）。 */
+  .homeCard__stock {
+    text-align: center;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--success);
+  }
+  .homeCard__stock.homeCard__stock--zero { color: var(--on-surface-variant); }
   .homeCard__headRow { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
   .homeCard__model { font-size: 13.5px; font-weight: 700; letter-spacing: -.01em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .homeCard__type { flex: none; font-size: 10px; font-weight: 600; color: var(--on-surface-variant); border: 1px solid var(--outline); border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
@@ -495,19 +513,22 @@
   /* ===== 絞り込みサイドバー（在庫リスト・受注リスト・業販受注リスト共通） =====
      タップで開くチップ＋ポップオーバー方式は廃止し、常時表示の左サイドバーに
      戻した（現場の要望）。項目・絞り込みロジック自体は変更していない。
-     ツールバー（.toolbar2）の下、一覧の左に固定幅で置く。align-items: start＋
-     position: stickyで、一覧を下スクロールしてもサイドバーは画面内に留まる
-     （以前のような開閉トグル・JS実測のposition: fixedは使わない）。 */
+     モバイル幅（下の@media (max-width: 900px)）ではサイドバー・一覧とも
+     ページ本文と一緒に普通に縦スクロールする1カラムのシンプルな配置にする。
+     PC・タブレット幅（下の@media (min-width: 901px)）では、サイドバーと一覧を
+     ヘッダー・コマンドバーの下に固定した「アプリシェル」レイアウトにし、
+     サイドバー自体は動かさず、一覧（.listBody__main）側だけが内部スクロールする
+     （不具合修正: 以前はposition: sticky＋手計算のtopオフセットでサイドバーを
+     浮かせていたが、コマンドバーの実際の高さとオフセットの数値がわずかに
+     ズレており、スクロール開始時にサイドバーが少し画面につられて動いて
+     見える不具合があった。「絞り込みバナーは固定にしてほしい」という現場からの
+     要望を受け、オフセット計算に頼らない構造に変更した）。 */
   .listBody {
     display: grid;
-    /* minmax(0, 1fr)にする理由は.card__metaGrid等と同じ（1fr単独だと、
-       検索欄のplaceholderのような長い内容がある場合にトラック自体がその
-       内容ぶんまで広がってしまい、スマホ幅でページ全体が横スクロールして
-       しまう）。 */
-    grid-template-columns: 260px minmax(0, 1fr);
-    gap: 24px;
-    align-items: start;
-    padding: 20px 24px 24px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    padding: 14px 16px 16px;
+    min-width: 0;
   }
   .listBody__main { min-width: 0; }
   .filterSidebar {
@@ -519,13 +540,17 @@
     flex-direction: column;
     gap: 14px;
     min-width: 0;
-    position: sticky;
-    top: calc(var(--topbar-h) + 74px);
-    max-height: calc(100vh - var(--topbar-h) - 90px);
-    overflow-y: auto;
   }
-  .filterSidebar__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  /* 見出し（条件検索）・該当台数は左寄せでひとまとまりにし、クリアボタンだけを
+     margin-left: autoで右端に離す（現場からの要望「該当台数は見出しの右に」）。 */
+  .filterSidebar__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .filterSidebar__title { font-size: 14px; font-weight: 700; margin: 0; color: var(--on-surface); }
+  .filterSidebar__count {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--on-surface-variant);
+    font-variant-numeric: tabular-nums;
+  }
   .filterSidebar__rule { border: none; border-top: 1px solid var(--outline); margin: 0; }
   .filterSidebar__field { display: flex; flex-direction: column; gap: 8px; }
   .filterSidebar__groupLabel {
@@ -535,11 +560,6 @@
     letter-spacing: .04em;
     text-transform: uppercase;
   }
-  /* 車両条件（モデル・ボディタイプ・カラー等）とステータス（区分・状態・
-     掲載状況）という2つのまとまりを見出しで分ける。.filterSidebar__groupLabel
-     （各項目1つずつのラベル）より一段階目立たせ、セクション全体の見出しだと
-     分かるようにする。 */
-  .filterSidebar__sectionLabel { font-size: 13px; font-weight: 700; color: var(--on-surface); margin: 0; }
   .filterSidebar select.input,
   .filterSidebar .input { width: 100%; }
   .filterSidebar__clearBtn {
@@ -553,8 +573,40 @@
     cursor: pointer;
     padding: 0;
     flex: none;
+    margin-left: auto;
   }
   .filterSidebar__clearBtn:hover { color: var(--on-surface); }
+
+  /* ===== PC・タブレット幅: 在庫・受注・業販受注リストを「アプリシェル」化 =====
+     コマンドバーの下（.listBody）を、ヘッダー・コマンドバーの高さぶんを差し引いた
+     残り全部の高さを持つ、それ自体はスクロールしないボックスにし、その中の
+     サイドバー（.filterSidebar）と一覧（.listBody__main）だけがそれぞれ独立して
+     縦スクロールするようにする。不具合修正: 以前はposition: sticky＋手計算の
+     topオフセットでサイドバーを浮かせていたが、実際のコマンドバーの高さと
+     ズレて少し画面につられて動く不具合があったため、オフセット計算に頼らない
+     この構造に変更した（「絞り込みバナーは固定・一覧だけスクロール」という
+     現場からの要望）。900px以下（下の@media (max-width: 900px)参照）では、
+     サイドバー・一覧とも通常のページスクロールに戻す1カラム表示のまま。 */
+  @media (min-width: 901px) {
+    main.view.view--list.is-active {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - var(--topbar-h));
+    }
+    .view--list .commandbar { position: static; flex: none; }
+    .view--list .listBody {
+      display: grid;
+      /* minmax(0, 1fr)にする理由は.card__metaGrid等と同じ（1fr単独だと、内容が
+         長い場合にトラック自体がその内容ぶんまで広がってしまうため）。 */
+      grid-template-columns: 260px minmax(0, 1fr);
+      gap: 24px;
+      padding: 20px 24px 24px;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+    .view--list .filterSidebar { height: 100%; overflow-y: auto; }
+    .view--list .listBody__main { height: 100%; overflow-y: auto; }
+  }
 
   .filterCheck { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--on-surface); cursor: pointer; padding: 3px 0; }
   .filterCheck input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: var(--primary); cursor: pointer; flex: none; }
@@ -562,6 +614,14 @@
 
   .toolbar2 { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 24px; flex-wrap: wrap; }
   .toolbar2__count { font-size: 13px; font-weight: 700; color: var(--on-surface-variant); }
+
+  /* ===== 在庫リストのクイック行（ボディタイプのクイックナビ＋該当台数・並び替え） =====
+     ホーム画面と同じ.homeTypeNav__itemのクイックナビを流用し、以前の状態タブ
+     （.statusTabs、廃止）に代わって置く。右端に該当台数・並び替えをまとめる
+     （現場からの要望「該当台数・並び替えはボディタイプの右端に」）。 */
+  .quickRow { display: flex; align-items: center; gap: 16px; }
+  .quickRow .scroller { flex: 1 1 auto; min-width: 0; }
+  .quickRow__right { display: flex; align-items: center; gap: 16px; flex: none; }
 
   .input {
     border: 1px solid var(--outline);
@@ -631,6 +691,10 @@
   /* ===== マイページ: ログイン中の担当者本人がHold中／受注した車両だけの一覧 =====
      行自体は在庫リスト・受注リストと同じ.rowListをそのまま再利用する
      （見た目・操作感を統一するため、専用のデザインは作らない）。 */
+  /* 不具合修正: 自由検索欄（.commandbar）のすぐ下に「Hold中の車両」の見出しが
+     詰まって見えていたため、マイページ本体の先頭に上余白を設ける（現場からの
+     要望）。 */
+  #myPageContent { margin-top: 24px; }
   .myPageSection { margin-bottom: 32px; }
   .myPageSection__title {
     font-size: 15px;
@@ -1733,12 +1797,7 @@
 
     .commandbar { padding: 12px 16px; }
     .toolbar2 { padding: 10px 16px; }
-
-    /* タブレット・スマホ幅では固定幅の2カラムをやめ、絞り込みサイドバーを
-       一覧の上に積む1カラムにする（position: stickyもこの幅では解除し、
-       通常の縦スクロールに戻す）。 */
-    .listBody { grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 14px 16px 16px; }
-    .filterSidebar { position: static; max-height: none; }
+    .quickRow { flex-wrap: wrap; row-gap: 8px; }
 
     /* 番号付き一覧行も、タブレット・スマホ幅では列を維持したまま折り返す
        （行の高さが案件ごとに伸び縮みしてもよい方針。ラウンドFの「文字を

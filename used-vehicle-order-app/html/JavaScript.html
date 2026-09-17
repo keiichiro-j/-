@@ -24,12 +24,16 @@
   var state = {
     bootstrap: null,
     inventoryItems: [], // キーワード検索のみサーバー側で絞り込み済みの一覧（区分・状態等はrenderInventory側でさらに絞り込む）
-    // 在庫リストの絞り込み条件（区分・状態・掲載状況・モデル・年式・価格帯・走行距離）。
+    // 在庫リストの絞り込み条件（区分・掲載状況・年式・価格帯・走行距離・カラー）。
     // いずれも既存のスプレッドシート列から算出するだけで、新規列の追加はしていない
     // （ROUND H フェーズ2。キーワード検索はこれとは別にサーバー側searchInventoryで
-    // 行うため、ここには含めない）。
-    inventoryFilters: { category: [], status: [], listed: [], model: '', bodyType: [], color: '', yearBucket: '', priceBucket: '', mileageBucket: '' },
+    // 行うため、ここには含めない）。モデル・ボディタイプ・状態は、絞り込みサイドバーを
+    // シンプルにするため専用の絞り込みUIを廃止した（モデルは上の自由検索で、
+    // ボディタイプは下のinventoryBodyTypeFilterで、状態は代わりに使わない方針。
+    // 現場からの要望）。
+    inventoryFilters: { category: [], listed: [], color: '', yearBucket: '', priceBucket: '', mileageBucket: '' },
     inventorySort: '', // 並び替え（空文字は取得順のまま）
+    inventoryBodyTypeFilter: '', // 在庫リストのボディタイプクイックナビで選択中の型（空文字は「すべて」）
     ordersGroups: [],
     wholesaleOrdersGroups: [],
     action: null, // { type: 'hold' | 'order' | 'orderFromHold', commission }
@@ -547,12 +551,12 @@
   }
 
   // ===== タブ切替 =====
-  // アイコンのみの左レール（PCビュー、#rail）と画面下固定のタブバー
-  // （タブレット・スマホ幅、#tabbar）は、どちらも同じ.navBtnクラスと
-  // data-tab属性を共有するボタンで構成する（Stylesheet.html参照）。
+  // コントロールパネル（.topbar）の水平タブ（.navBtn、data-tab属性）が唯一の
+  // 画面切替ナビ。起動時はIndex.html側で「ホーム」に.is-activeを付けてある
+  // （アプリ起動時はホーム画面から始める、という仕様）。
   function currentActiveTab_() {
     var el = document.querySelector('.navBtn.is-active');
-    return el ? el.dataset.tab : 'inventory';
+    return el ? el.dataset.tab : 'home';
   }
 
   // 「戻る」ボタン用の画面履歴（タブ名のみのスタック）。メインタブのクリックなど、
@@ -576,17 +580,6 @@
     // タブ切替のたびに常に一番上から表示されるよう、ページ全体を先頭へ
     // スクロールする。
     window.scrollTo(0, 0);
-    // ヘッダー内の状態タブ（在庫リストのみ）は、表示中タブによって表示・
-    // 非表示を切り替える。
-    syncHeaderStatusTabs_();
-  }
-
-  // ヘッダーへ統合した状態タブ（#inventoryStatusTabs）は在庫リスト専用の
-  // ため、在庫リスト表示中のみ見せる。中身自体（件数・絞り込み処理）は
-  // renderInventoryStatusTabs_が担当し、ここではヘッダー内での表示・
-  // 非表示だけを切り替える。
-  function syncHeaderStatusTabs_() {
-    $('inventoryStatusTabs').classList.toggle('hidden', currentActiveTab_() !== 'inventory');
   }
 
   // コントロールパネル（.topbar）の水平タブ。以前のホームがあった頃の
@@ -860,27 +853,25 @@
   }
 
   /**
-   * ホーム画面の在庫台数表示（純粋関数）。0台の場合は数字の「在庫0台」ではなく
-   * 「在庫がありません」という文言にし、在庫が無いことをひと目でわかるようにする。
+   * ホーム画面の在庫台数表示（純粋関数）。モデル名の下に中央寄せで表示する
+   * （現場からの要望「例）A20DB／5台」のように、モデル名の直下に台数だけを
+   * シンプルに示す）。0台の場合は数字の「0台」ではなく「在庫がありません」という
+   * 文言にし、在庫が無いことをひと目でわかるようにする。
    */
   function homeStockCountText_(total) {
-    return total === 0 ? '在庫がありません' : '在庫' + total + '台';
+    return total === 0 ? '在庫がありません' : total + '台';
   }
 
   function applyInventoryFilters_(items) {
     var f = state.inventoryFilters;
+    var bodyType = state.inventoryBodyTypeFilter;
     return items.filter(function (v) {
       if (f.category.length && f.category.indexOf(v.category || '') === -1) return false;
-      if (f.status.length && f.status.indexOf(inventoryStatusOf_(v)) === -1) return false;
       if (f.listed.length) {
         var keys = inventoryListedKeys_(v);
         if (!keys.some(function (k) { return f.listed.indexOf(k) !== -1; })) return false;
       }
-      if (f.model && v.model !== f.model) return false;
-      if (f.bodyType.length) {
-        var vTypes = modelBodyTypesOf_(v.model);
-        if (!vTypes.some(function (t) { return f.bodyType.indexOf(t) !== -1; })) return false;
-      }
+      if (bodyType && modelBodyTypesOf_(v.model).indexOf(bodyType) === -1) return false;
       if (f.color && (v.exteriorColor || '') !== f.color) return false;
       if (f.yearBucket && yearBucketOf_(v) !== f.yearBucket) return false;
       if (f.priceBucket && priceBucketOf_(v) !== f.priceBucket) return false;
@@ -916,9 +907,11 @@
 
   /**
    * 絞り込みサイドバーのうち、実データから動的に選択肢を作る「区分」（チェック
-   * ボックス・件数付き）と「モデル」（ドロップダウン）を、在庫リスト取得のたびに
-   * 作り直す。状態・掲載状況・年式・価格帯・走行距離は固定の選択肢のため
-   * Index.html側に直接書いており、ここでは触らない。
+   * ボックス・件数付き）を、在庫リスト取得のたびに作り直す。掲載状況・年式・
+   * 価格帯・走行距離は固定の選択肢のためIndex.html側に直接書いており、ここでは
+   * 触らない。モデル・ボディタイプの絞り込みはサイドバーから廃止した
+   * （モデルは上の自由検索、ボディタイプは.commandbarのクイックナビへ移動。
+   * 現場からの要望「サイドの絞り込みをシンプルにしてほしい」）。
    */
   function renderInventoryFilterSidebar_() {
     var items = state.inventoryItems || [];
@@ -936,36 +929,6 @@
         escapeHtml(c) + '<span class="filterCheck__cnt">' + categoryCounts[c] + '</span></label>';
     }).join('');
 
-    var models = [];
-    items.forEach(function (v) { if (v.model && models.indexOf(v.model) === -1) models.push(v.model); });
-    models.sort();
-    var modelSelect = $('inventoryModelFilter');
-    var currentModel = state.inventoryFilters.model;
-    modelSelect.innerHTML = '<option value="">指定なし</option>' + models.map(function (m) {
-      return '<option value="' + escapeHtml(m) + '">' + escapeHtml(m) + '</option>';
-    }).join('');
-    modelSelect.value = models.indexOf(currentModel) !== -1 ? currentModel : '';
-    if (modelSelect.value !== currentModel) state.inventoryFilters.model = modelSelect.value;
-
-    // ボディタイプは、設定タブで登録済みのルール件数に関わらず、常に
-    // MODEL_BODY_TYPE_OPTIONSの7種類すべてを表示する（区分・状態と同じ、
-    // 選択肢固定＋件数だけ動的なチェックボックス）。
-    var bodyTypeOptions = (state.bootstrap && state.bootstrap.modelBodyTypeOptions) || [];
-    var bodyTypeCounts = {};
-    bodyTypeOptions.forEach(function (t) { bodyTypeCounts[t] = 0; });
-    items.forEach(function (v) {
-      modelBodyTypesOf_(v.model).forEach(function (t) {
-        if (bodyTypeCounts[t] === undefined) bodyTypeCounts[t] = 0;
-        bodyTypeCounts[t]++;
-      });
-    });
-    var checkedBodyTypes = state.inventoryFilters.bodyType;
-    $('inventoryBodyTypeFilter').innerHTML = bodyTypeOptions.map(function (t) {
-      var checked = checkedBodyTypes.indexOf(t) !== -1;
-      return '<label class="filterCheck"><input type="checkbox" value="' + escapeHtml(t) + '"' + (checked ? ' checked' : '') + '> ' +
-        escapeHtml(t) + '<span class="filterCheck__cnt">' + bodyTypeCounts[t] + '</span></label>';
-    }).join('');
-
     var colors = [];
     items.forEach(function (v) { if (v.exteriorColor && colors.indexOf(v.exteriorColor) === -1) colors.push(v.exteriorColor); });
     colors.sort();
@@ -980,12 +943,12 @@
     syncInventoryFilterClearVisibility_();
   }
 
-  // 「絞り込みをクリア」リンクの表示・非表示を、現在の絞り込み状態に合わせて
-  // 更新する（何か1つでも絞り込みが効いていれば表示する）。
+  // 「クリア」リンクの表示・非表示を、現在の絞り込み状態に合わせて更新する
+  // （何か1つでも絞り込みが効いていれば表示する）。
   function syncInventoryFilterClearVisibility_() {
     var f = state.inventoryFilters;
-    var hasAny = f.bodyType.length > 0 || !!f.color || f.status.length > 0 || f.category.length > 0 ||
-      f.listed.length > 0 || !!f.model || !!f.yearBucket || !!f.priceBucket || !!f.mileageBucket;
+    var hasAny = !!state.inventoryBodyTypeFilter || !!f.color || f.category.length > 0 ||
+      f.listed.length > 0 || !!f.yearBucket || !!f.priceBucket || !!f.mileageBucket;
     $('btnInventoryFilterClear').classList.toggle('hidden', !hasAny);
   }
 
@@ -1425,49 +1388,27 @@
 
   setInterval(updateHoldTimers, 1000);
 
-  // 状態タブ（すべて／在庫あり／Hold中／業販HOLD中）の定義。ラベル・絞り込み
-  // サイドバーの状態チェックボックス（#inventoryStatusFilter）の値・件数の
-  // 集計方法をひとまとめにしておくことで、タブとチェックボックスが常に同じ
-  // 状態区分（inventoryStatusOf_の3値）を指すようにする。
-  var INVENTORY_STATUS_TABS_ = [
-    { value: '', label: 'すべて' },
-    { value: 'available', label: '在庫あり' },
-    { value: 'hold', label: 'Hold中' },
-    { value: 'wholesale', label: '業販HOLD中' }
-  ];
-
-  function renderInventoryStatusTabs_(all) {
-    var el = $('inventoryStatusTabs');
-    if (!el) return;
-    var activeStatus = (state.inventoryFilters.status && state.inventoryFilters.status.length === 1)
-      ? state.inventoryFilters.status[0]
-      : '';
-    var isAllActive = !state.inventoryFilters.status || state.inventoryFilters.status.length === 0;
-    el.innerHTML = INVENTORY_STATUS_TABS_.map(function (tab) {
-      var cnt = tab.value ? all.filter(function (v) { return inventoryStatusOf_(v) === tab.value; }).length : all.length;
-      var isActive = tab.value ? activeStatus === tab.value : isAllActive;
-      return '<button type="button" class="statusTabs__item' + (isActive ? ' is-active' : '') + '" ' +
-        'role="tab" aria-selected="' + (isActive ? 'true' : 'false') + '" data-status-tab="' + escapeHtml(tab.value) + '">' +
-        escapeHtml(tab.label) + '<span class="statusTabs__cnt">' + cnt + '</span></button>';
-    }).join('');
+  // 不具合修正: 以前は自由検索欄の下に「状態（在庫あり／Hold中／業販HOLD中）」の
+  // クイックタブを置いていたが、現場からの要望でホーム画面と同じ「ボディタイプ」の
+  // クイックナビ（単一選択、.homeTypeNav__itemを流用）に差し替えた。状態そのものの
+  // 絞り込みは（ホームと同じ発想で）廃止し、区分・掲載状況・年式・価格帯・走行距離は
+  // 引き続き左の絞り込みサイドバーで扱う。
+  function renderInventoryBodyTypeNav_() {
+    var options = (state.bootstrap && state.bootstrap.modelBodyTypeOptions) || [];
+    var current = state.inventoryBodyTypeFilter;
+    var itemsHtml = '<button type="button" class="homeTypeNav__item' + (!current ? ' is-active' : '') +
+      '" data-inventory-body-type="">すべて</button>' +
+      options.map(function (t) {
+        return '<button type="button" class="homeTypeNav__item' + (current === t ? ' is-active' : '') +
+          '" data-inventory-body-type="' + escapeHtml(t) + '">' + escapeHtml(t) + '</button>';
+      }).join('');
+    $('inventoryBodyTypeNav').innerHTML = itemsHtml;
   }
 
-  // チェックボックス（#inventoryStatusFilter）を、タブ操作後のstate.inventoryFilters.statusと
-  // 一致させる（タブから操作した場合も、絞り込みサイドバーを開けば同じ状態が
-  // 見えるようにするため）。
-  function syncInventoryStatusCheckboxes_() {
-    var active = state.inventoryFilters.status || [];
-    document.querySelectorAll('#inventoryStatusFilter input[type="checkbox"]').forEach(function (el) {
-      el.checked = active.indexOf(el.value) !== -1;
-    });
-  }
-
-  on('inventoryStatusTabs', 'click', function (e) {
-    var btn = e.target.closest('[data-status-tab]');
+  on('inventoryBodyTypeNav', 'click', function (e) {
+    var btn = e.target.closest('[data-inventory-body-type]');
     if (!btn) return;
-    var value = btn.dataset.statusTab;
-    state.inventoryFilters.status = value ? [value] : [];
-    syncInventoryStatusCheckboxes_();
+    state.inventoryBodyTypeFilter = btn.dataset.inventoryBodyType || '';
     renderInventory();
   });
 
@@ -1479,7 +1420,10 @@
     $('inventoryTotalCount').textContent = all.length
       ? '該当 ' + filtered.length + '台 ／ 全' + all.length + '台'
       : '';
-    renderInventoryStatusTabs_(all);
+    // 絞り込みサイドバー（条件検索）見出しの右にも該当台数を表示する
+    // （現場からの要望）。
+    $('inventoryFilterCount').textContent = all.length ? '該当 ' + filtered.length + '台' : '';
+    renderInventoryBodyTypeNav_();
     container.innerHTML = rowListHtml_(filtered, vehicleRowItemHtml_);
     syncInventoryFilterClearVisibility_();
   }
@@ -1538,9 +1482,9 @@
 
   on('inventoryKeyword', 'input', debounce(loadInventory, 250));
 
-  // ----- 絞り込みサイドバーの各項目（区分・状態・掲載状況・モデル・年式・価格帯・
-  //       走行距離）は、キーワードと異なりサーバーへ問い合わせず、既に取得済みの
-  //       一覧（state.inventoryItems）をクライアントだけで絞り込み直す
+  // ----- 絞り込みサイドバーの各項目（区分・掲載状況・年式・価格帯・走行距離）は、
+  //       キーワードと異なりサーバーへ問い合わせず、既に取得済みの一覧
+  //       （state.inventoryItems）をクライアントだけで絞り込み直す
   //       （renderInventory参照。即座に反映されるため操作感が良い）。 -----
   function bindInventoryCheckboxFilter_(containerId, filterKey) {
     on(containerId, 'change', function (e) {
@@ -1552,11 +1496,9 @@
     });
   }
   bindInventoryCheckboxFilter_('inventoryCategoryFilter', 'category');
-  bindInventoryCheckboxFilter_('inventoryStatusFilter', 'status');
   bindInventoryCheckboxFilter_('inventoryListedFilter', 'listed');
-  bindInventoryCheckboxFilter_('inventoryBodyTypeFilter', 'bodyType');
 
-  [['inventoryModelFilter', 'model'], ['inventoryColorFilter', 'color'], ['inventoryYearFilter', 'yearBucket'], ['inventoryPriceFilter', 'priceBucket'], ['inventoryMileageFilter', 'mileageBucket']].forEach(function (pair) {
+  [['inventoryColorFilter', 'color'], ['inventoryYearFilter', 'yearBucket'], ['inventoryPriceFilter', 'priceBucket'], ['inventoryMileageFilter', 'mileageBucket']].forEach(function (pair) {
     on(pair[0], 'change', function () {
       state.inventoryFilters[pair[1]] = this.value;
       renderInventory();
@@ -1569,11 +1511,12 @@
   });
 
   on('btnInventoryFilterClear', 'click', function () {
-    state.inventoryFilters = { category: [], status: [], listed: [], model: '', bodyType: [], color: '', yearBucket: '', priceBucket: '', mileageBucket: '' };
+    state.inventoryFilters = { category: [], listed: [], color: '', yearBucket: '', priceBucket: '', mileageBucket: '' };
+    state.inventoryBodyTypeFilter = '';
     state.inventorySort = '';
     $('inventoryKeyword').value = '';
-    ['inventoryModelFilter', 'inventoryColorFilter', 'inventoryYearFilter', 'inventoryPriceFilter', 'inventoryMileageFilter', 'inventorySort'].forEach(function (id) { $(id).value = ''; });
-    document.querySelectorAll('#inventoryCategoryFilter input, #inventoryStatusFilter input, #inventoryListedFilter input, #inventoryBodyTypeFilter input').forEach(function (el) { el.checked = false; });
+    ['inventoryColorFilter', 'inventoryYearFilter', 'inventoryPriceFilter', 'inventoryMileageFilter', 'inventorySort'].forEach(function (id) { $(id).value = ''; });
+    document.querySelectorAll('#inventoryCategoryFilter input, #inventoryListedFilter input').forEach(function (el) { el.checked = false; });
     loadInventory();
   });
 
@@ -1716,6 +1659,9 @@
       $('actionStepFill').style.width = showStep1 ? '50%' : '100%';
       $('actionStepLabel').textContent = showStep1 ? 'ステップ 1/2　顧客情報' : 'ステップ 2/2　契約内容';
     }
+    // ステップ2（契約内容）に入った直後は、先頭の「下取車の有無」に入力カーソルを
+    // 合わせる（現場からの要望。スマホでは自動的にキーボード操作から続けられる）。
+    if (showStep2) $('actionTradeIn').focus();
     // 「戻る」は、通常の2ステップ目からstep1へ、admin経由のstep1・業販HOLD簡易フォームからは
     // Hold種別選択画面へ戻れるようにする（それ以外・通常ユーザーのHold、業販HOLDからの
     // 受注確定では非表示のまま）。
@@ -2160,8 +2106,15 @@
   });
 
   // ===== 受注リスト =====
-  // 「絞り込みをクリア」リンクの表示・非表示を、現在の拠点・担当者の選択状態に
-  // 合わせて更新する。
+  // ラジオボタン群（グループ化等、単一選択かつ「それぞれ項目を分けて配置」したい
+  // 場合に使う。.filterCheckの見た目をそのままtype="radio"で流用する）から、
+  // 選択中の値を取り出す。
+  function checkedRadioValue_(containerId) {
+    var el = document.querySelector('#' + containerId + ' input[type="radio"]:checked');
+    return el ? el.value : '';
+  }
+
+  // 「クリア」の表示・非表示を、現在の拠点・担当者の選択状態に合わせて更新する。
   function syncOrdersFilterClearVisibility_() {
     var hasLocation = !!$('ordersLocationFilter').value;
     var hasStaff = !!$('ordersStaffFilter').value;
@@ -2173,7 +2126,7 @@
       salesLocation: $('ordersLocationFilter').value,
       staff: $('ordersStaffFilter').value
     };
-    var groupBy = $('ordersGroupBy').value;
+    var groupBy = checkedRadioValue_('ordersGroupByFilter');
     syncOrdersFilterClearVisibility_();
     return gasRun('api_listOrders', filters, groupBy).then(function (groups) {
       state.ordersGroups = groups || [];
@@ -2311,16 +2264,16 @@
   // 万一呼ばれても安全。
   function syncWholesaleOrdersFilterClearVisibility_() {
     var hasLocation = !!$('wholesaleOrdersLocationFilter').value;
-    var hasStaff = !!$('wholesaleOrdersStaffFilter').value;
-    $('btnWholesaleOrdersFilterClear').classList.toggle('hidden', !(hasLocation || hasStaff));
+    var hasSalesStore = !!$('wholesaleOrdersSalesStoreFilter').value;
+    $('btnWholesaleOrdersFilterClear').classList.toggle('hidden', !(hasLocation || hasSalesStore));
   }
   function loadWholesaleOrders() {
     var filters = {
       keyword: $('wholesaleOrdersKeyword').value,
       salesLocation: $('wholesaleOrdersLocationFilter').value,
-      staff: $('wholesaleOrdersStaffFilter').value
+      salesStore: $('wholesaleOrdersSalesStoreFilter').value
     };
-    var groupBy = $('wholesaleOrdersGroupBy').value;
+    var groupBy = checkedRadioValue_('wholesaleOrdersGroupByFilter');
     syncWholesaleOrdersFilterClearVisibility_();
     return gasRun('api_listWholesaleOrders', filters, groupBy).then(function (groups) {
       state.wholesaleOrdersGroups = groups || [];
@@ -2459,27 +2412,33 @@
   function populateOrdersStaffFilter_() { populateStaffFilter_('ordersStaffFilter'); }
   function populateOrdersLocationFilter_() { populateLocationFilter_('ordersLocationFilter'); }
 
-  ['ordersKeyword', 'ordersGroupBy', 'ordersLocationFilter', 'ordersStaffFilter'].forEach(function (id) {
+  ['ordersKeyword', 'ordersLocationFilter', 'ordersStaffFilter'].forEach(function (id) {
     on(id, 'input', debounce(loadOrders, 250));
     on(id, 'change', loadOrders);
   });
+  on('ordersGroupByFilter', 'change', loadOrders);
 
   on('btnOrdersFilterClear', 'click', function () {
     $('ordersKeyword').value = '';
     $('ordersLocationFilter').value = '';
     $('ordersStaffFilter').value = '';
+    var defaultGroupBy = document.querySelector('#ordersGroupByFilter input[value=""]');
+    if (defaultGroupBy) defaultGroupBy.checked = true;
     loadOrders();
   });
 
-  ['wholesaleOrdersKeyword', 'wholesaleOrdersGroupBy', 'wholesaleOrdersLocationFilter', 'wholesaleOrdersStaffFilter'].forEach(function (id) {
+  ['wholesaleOrdersKeyword', 'wholesaleOrdersLocationFilter', 'wholesaleOrdersSalesStoreFilter'].forEach(function (id) {
     on(id, 'input', debounce(loadWholesaleOrders, 250));
     on(id, 'change', loadWholesaleOrders);
   });
+  on('wholesaleOrdersGroupByFilter', 'change', loadWholesaleOrders);
 
   on('btnWholesaleOrdersFilterClear', 'click', function () {
     $('wholesaleOrdersKeyword').value = '';
     $('wholesaleOrdersLocationFilter').value = '';
-    $('wholesaleOrdersStaffFilter').value = '';
+    $('wholesaleOrdersSalesStoreFilter').value = '';
+    var defaultWholesaleGroupBy = document.querySelector('#wholesaleOrdersGroupByFilter input[value=""]');
+    if (defaultWholesaleGroupBy) defaultWholesaleGroupBy.checked = true;
     loadWholesaleOrders();
   });
 
@@ -2557,7 +2516,6 @@
     $('settingsHomeAnnouncement').value = settings.homeAnnouncement || '';
     populateOrdersStaffFilter_();
     populateOrdersLocationFilter_();
-    populateStaffFilter_('wholesaleOrdersStaffFilter');
     populateLocationFilter_('wholesaleOrdersLocationFilter');
   }
 
@@ -2672,12 +2630,20 @@
   });
 
   /**
-   * テーマプリセット（--primary系・--sidebar-bg系）を一括で適用する。
+   * テーマプリセット（--primary系・--topbar-bg系）を一括で適用する。
    * 以前は1色から比率計算で派生色を導出していたが、色相・彩度によって必要な
    * 明暗の差が異なりコントラスト比を一定に保てなかったため、プリセットごとに
    * 個別にコントラスト比を検証済みの色を直接使う（Constants.gsのTHEME_PRESETS参照）。
    * keyがランダムの場合はresolveThemePresetForSession_が実際に使うプリセットを
    * 解決する（このページを開いている間は同じ結果を使い続ける）。
+   * 不具合修正: 以前はコントロールパネル（.topbar、ヘッダー）が常に固定の
+   * ダークネイビーで、テーマ（表示設定）を切り替えても見た目に反映される範囲が
+   * ボタン・リンク等の--primary系だけに限られており、特にホーム画面はほとんど
+   * 配色の変化を感じられなかった（現場からの要望「テーマが影響する範囲を
+   * 拡大してほしい」）。ヘッダーの背景（--topbar-bg）もprimaryDarkに合わせて
+   * 切り替わるようにする（各プリセットのprimaryDarkは、白文字（--on-topbar）との
+   * コントラスト比を確保できる明度で統一されているため、どのテーマでも読みやすさは
+   * 変わらない）。
    */
   function applyTheme(key) {
     var preset = resolveThemePresetForSession_(key);
@@ -2687,6 +2653,9 @@
     root.setProperty('--primary-text', preset.primaryText);
     var rgb = hexToRgb_(preset.primary);
     root.setProperty('--primary-bg', rgb ? 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',.18)' : preset.primary);
+    // コントロールパネル（ヘッダー）の背景も選択中のテーマに連動させる
+    // （ホーム画面を含むアプリ全体で、テーマの効果が感じられるようにするため）。
+    root.setProperty('--topbar-bg', preset.primaryDark);
     // 起動時ローディング画面（.appLoading、Stylesheet.html参照）の背景も、選択中の
     // テーマのprimaryDarkに合わせる（現場からの要望で、テーマを切り替えると
     // ローディング画面の背景色も連動して変わるようにしている）。
@@ -3241,8 +3210,10 @@
     var total = modelCountForEntry_(p, allItems, allModelPhotos);
     var hasGrades = !!p.gradePrefix && grades.length > 0;
     var canNavigateAll = total > 0;
-    var stockClass = 'badge homeCard__stock' + (total === 0 ? ' badge--stock--zero' : '');
-    var stockHtml = '<span class="' + stockClass + '">' + homeStockCountText_(total) + '</span>';
+    // 不具合修正: 以前は写真右上に台数バッジを重ねていたが、現場からの要望で
+    // モデル名の直下・中央寄せの表示（例:「A20DB」の下に「5台」）に変更した。
+    var stockClass = 'homeCard__stock' + (total === 0 ? ' homeCard__stock--zero' : '');
+    var stockHtml = '<div class="' + stockClass + '">' + homeStockCountText_(total) + '</div>';
 
     var gradeGridHtml = '';
     if (hasGrades) {
@@ -3257,7 +3228,7 @@
       }).join('') + '</div>';
     }
 
-    var photoInner = '<img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '" loading="lazy">' + stockHtml;
+    var photoInner = '<img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '" loading="lazy">';
     var photoHtml;
     if (hasGrades) {
       photoHtml = canNavigateAll
@@ -3277,6 +3248,7 @@
       photoHtml +
       '<div class="homeCard__body">' +
       '<div class="homeCard__headRow"><span class="homeCard__model">' + escapeHtml(p.model) + '</span>' + typeHtml + '</div>' +
+      stockHtml +
       gradeGridHtml +
       '</div>' +
       '</div>';
@@ -3302,7 +3274,6 @@
     $('homeEmpty').classList.toggle('hidden', allModelPhotos.length > 0);
     $('homeTypeEmpty').classList.toggle('hidden', !(allModelPhotos.length > 0 && modelPhotos.length === 0));
     var allItems = state.allInventoryItems || [];
-    $('homeTotalCount').textContent = modelPhotos.length ? modelPhotos.length + '件の車両画像' : '';
     $('homeGrid').innerHTML = modelPhotos
       .map(function (p) { return homeModelCardHtml_(p, allItems, allModelPhotos); })
       .join('');
@@ -3793,7 +3764,6 @@
 
   function init() {
     syncNavButtons_();
-    syncHeaderStatusTabs_();
     reloadAll_().catch(function (err) { showToast(err.message, true); }).then(function () {
       // 起動時ローディング画面は初回の読み込み完了時のみフェードアウトする
       // （更新ボタンからの再読み込みは、ボタン自体の回転アイコンで十分なため

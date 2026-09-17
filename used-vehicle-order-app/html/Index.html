@@ -160,8 +160,8 @@
         <div class="topbar__user" id="topbarUser">?</div>
       </div>
       <nav class="tabs" id="topbarTabs" role="tablist" aria-label="画面切替">
-        <button class="navBtn tabs__item" data-tab="home" type="button">ホーム</button>
-        <button class="navBtn tabs__item is-active" data-tab="inventory" type="button">在庫リスト</button>
+        <button class="navBtn tabs__item is-active" data-tab="home" type="button">ホーム</button>
+        <button class="navBtn tabs__item" data-tab="inventory" type="button">在庫リスト</button>
         <button class="navBtn tabs__item" data-tab="orders" type="button">受注リスト</button>
         <!-- 業販受注リスト: 管理者権限を持つ担当者にのみ表示する（renderSettingsが
              .navBtn--wholesaleクラスのhiddenを切り替える、JavaScript.html参照）。 -->
@@ -186,16 +186,15 @@
          タップすると、その画像の自動判定条件に一致する車両のキーワードで在庫リストへ
          遷移する（handleHomeCardClick_、JavaScript.html参照。在庫リスト自体の絞り込み・
          検索の仕組みは変更していない）。 -->
-    <main class="view" id="view-home">
-      <!-- お知らせ: 管理者が設定タブから入力した案内文（例:「限定車在庫3台あり」）を
-           全利用者向けに表示する（renderHomeAnnouncement_、JavaScript.html参照）。
-           未設定の場合は要素ごと非表示。 -->
-      <div class="homeAnnouncement hidden" id="homeAnnouncement"></div>
+    <main class="view is-active" id="view-home">
+      <!-- お知らせ・型クイックナビは、どちらも画面上部に固定表示したいため（現場からの
+           要望）、同じ.commandbar（position: sticky、Stylesheet.html参照）の中に
+           まとめて置く。お知らせ: 管理者が設定タブから入力した案内文
+           （例:「限定車在庫3台あり」）を全利用者向けに表示する
+           （renderHomeAnnouncement_、JavaScript.html参照）。未設定の場合は要素ごと非表示。 -->
       <div class="commandbar">
+        <div class="homeAnnouncement hidden" id="homeAnnouncement"></div>
         <div class="scroller homeTypeNav" id="homeTypeNav" role="tablist" aria-label="型で絞り込み"></div>
-      </div>
-      <div class="toolbar2">
-        <span class="toolbar2__count" id="homeTotalCount"></span>
       </div>
       <div id="homeGrid" class="homeGrid"></div>
       <div class="emptyState hidden" id="homeEmpty">
@@ -208,14 +207,14 @@
       </div>
     </main>
 
-    <!-- 在庫リスト: ヘッダーの下に「検索＋クイック状態＋絞り込みチップ」の
-         コマンドバーを置き、番号付きの一覧行を画面幅いっぱいに表示する
-         （左に固定幅のサイドバーを置いていた旧デザインを廃止。現場の要望
-         「画期的な案」への対応）。絞り込み項目自体・キーワード検索の方式
-         （サーバー側searchInventory＋クライアント側絞り込みの併用）は変更していない。
-         区分・状態・掲載状況・モデル・年式・価格帯・走行距離・カラー・ボディタイプの
-         各要素（id）はそのままチップのポップオーバーの中身として再利用する。 -->
-    <main class="view view--list is-active" id="view-inventory">
+    <!-- 在庫リスト: ヘッダーの下に「検索＋ボディタイプ＋並び替え」のコマンドバーを
+         固定表示し、その下は左の絞り込みサイドバー（条件検索）＋番号付き一覧の
+         2カラム。絞り込み項目自体・キーワード検索の方式（サーバー側searchInventory＋
+         クライアント側絞り込みの併用）は変更していない。区分・掲載状況・年式・
+         価格帯・走行距離・カラーはサイドバーで、ボディタイプはホームと同じ
+         クイックナビ（.commandbar内）で絞り込む（現場からの要望でモデル・状態の
+         絞り込みは廃止し、シンプルにした）。 -->
+    <main class="view view--list" id="view-inventory">
       <div class="commandbar">
         <div class="searchrow">
           <div class="searchbox">
@@ -223,42 +222,27 @@
             <input type="search" id="inventoryKeyword" placeholder="モデル・ＯＣＮ・コミッション・車台番号下４桁・登録番号で検索">
           </div>
         </div>
-        <!-- 状態タブ（すべて／在庫あり／Hold中／業販HOLD中）。中身の描画・件数集計・
-             クリック時の絞り込み処理（renderInventoryStatusTabs_、JavaScript.html参照）
-             自体は変更していない。 -->
-        <div class="scroller statusTabs" id="inventoryStatusTabs" role="tablist" aria-label="状態で絞り込み"></div>
+        <!-- ボディタイプのクイックナビ（ホームの型クイックナビと同じ単一選択、
+             .homeTypeNav__itemを流用。renderInventoryBodyTypeNav_、
+             JavaScript.html参照）＋その右端に該当台数・並び替え。 -->
+        <div class="quickRow">
+          <div class="scroller homeTypeNav" id="inventoryBodyTypeNav" role="tablist" aria-label="ボディタイプで絞り込み"></div>
+          <div class="quickRow__right">
+            <span class="toolbar2__count" id="inventoryTotalCount"></span>
+            <label class="sortField">並び替え
+              <select id="inventorySort" class="input"></select>
+            </label>
+          </div>
+        </div>
       </div>
-      <div class="toolbar2">
-        <span class="toolbar2__count" id="inventoryTotalCount"></span>
-        <label class="sortField">並び替え
-          <select id="inventorySort" class="input"></select>
-        </label>
-      </div>
-      <!-- 絞り込み機能は左サイドの常時表示パネルにまとめる（チップ＋ポップオーバー
-           方式は廃止）。項目自体・絞り込みロジック（applyInventoryFilters_、
-           JavaScript.html）は変更していない。 -->
+      <!-- 絞り込み機能は左サイドの常時表示パネルにまとめる。項目自体・絞り込み
+           ロジック（applyInventoryFilters_、JavaScript.html）は変更していない。 -->
       <div class="listBody">
         <aside class="filterSidebar" aria-label="在庫リストの絞り込み">
           <div class="filterSidebar__head">
-            <p class="filterSidebar__title">絞り込み</p>
+            <p class="filterSidebar__title">条件検索</p>
+            <span class="filterSidebar__count" id="inventoryFilterCount"></span>
             <button type="button" class="filterSidebar__clearBtn hidden" id="btnInventoryFilterClear">クリア</button>
-          </div>
-          <!-- 車両そのものの条件（モデル・ボディタイプ・カラー・年式・価格帯・
-               走行距離）と、業務上のステータス（区分・状態・掲載状況）は、性質が
-               異なるため見出しで分けて配置する。 -->
-          <p class="filterSidebar__sectionLabel">車両条件</p>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">モデル</label>
-            <select id="inventoryModelFilter" class="input"><option value="">指定なし</option></select>
-          </div>
-          <!-- モデル名に含まれるキーワードとボディタイプ（Sedan・SUV等）の紐付けは
-               設定タブ（管理者限定）で登録する（modelBodyTypeRules、
-               SettingsService.gs参照）。選択肢自体は登録済みルールの有無に
-               関わらずMODEL_BODY_TYPE_OPTIONSの7種類を常に表示する
-               （renderInventoryFilterSidebar_、JavaScript.html参照）。 -->
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">ボディタイプ</label>
-            <div id="inventoryBodyTypeFilter"></div>
           </div>
           <div class="filterSidebar__field">
             <label class="filterSidebar__groupLabel">カラー</label>
@@ -277,25 +261,9 @@
             <select id="inventoryMileageFilter" class="input"></select>
           </div>
           <hr class="filterSidebar__rule">
-          <p class="filterSidebar__sectionLabel">ステータス</p>
           <div class="filterSidebar__field">
             <label class="filterSidebar__groupLabel">区分</label>
             <div id="inventoryCategoryFilter"></div>
-          </div>
-          <hr class="filterSidebar__rule">
-          <!-- 状態（在庫あり／Hold中／業販HOLD中）は、上のクイック状態タブ
-               （#inventoryStatusTabs、単一選択の早見用）とは別に、こちらでは
-               複数選択（例:「在庫あり」と「Hold中」を同時に見る）ができるように
-               している。どちらも同じstate.inventoryFilters.statusを共有し、
-               操作するとタブ側の見た目も連動する（syncInventoryStatusCheckboxes_、
-               JavaScript.html参照）。 -->
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">状態（複数選択可）</label>
-            <div id="inventoryStatusFilter">
-              <label class="filterCheck"><input type="checkbox" value="available"> 在庫あり</label>
-              <label class="filterCheck"><input type="checkbox" value="hold"> Hold中</label>
-              <label class="filterCheck"><input type="checkbox" value="wholesale"> 業販HOLD中</label>
-            </div>
           </div>
           <hr class="filterSidebar__rule">
           <div class="filterSidebar__field">
@@ -317,36 +285,34 @@
       </div>
     </main>
 
-    <!-- 受注リスト: 在庫リストと同じ「絞り込みサイドバー＋番号付き一覧」の見た目に
-         揃える（ROUND H フェーズ2）。フィルタ項目自体は既存のキーワード・拠点・
-         担当者のみで、サーバー側の検索・グループ表示（searchOrders・groupByField_）は
-         変更していない。 -->
+    <!-- 受注リスト: 在庫リストと同じ「絞り込みサイドバー（条件検索）＋番号付き一覧」の
+         見た目に揃える。自由検索・グループ化・該当台数もサイドバーにまとめて置く
+         （現場からの要望）。フィルタ項目自体は既存のキーワード・拠点・担当者のみで、
+         サーバー側の検索・グループ表示（searchOrders・groupByField_）は変更していない。 -->
     <main class="view view--list" id="view-orders">
-      <div class="commandbar">
-        <div class="searchrow">
-          <div class="searchbox">
-            <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
-            <input type="search" id="ordersKeyword" placeholder="モデル・コミッション・顧客名・担当・拠点で検索">
-          </div>
-        </div>
-      </div>
-      <div class="toolbar2">
-        <span class="toolbar2__count" id="ordersTotalCount"></span>
-        <label class="sortField">グループ化
-          <select id="ordersGroupBy" class="input">
-            <option value="">なし</option>
-            <option value="orderedMonth">月ごと</option>
-            <option value="salesLocation">販売拠点ごと</option>
-            <option value="model">モデルごと</option>
-          </select>
-        </label>
-      </div>
       <div class="listBody">
         <aside class="filterSidebar" aria-label="受注リストの絞り込み">
           <div class="filterSidebar__head">
-            <p class="filterSidebar__title">絞り込み</p>
+            <p class="filterSidebar__title">条件検索</p>
+            <span class="filterSidebar__count" id="ordersTotalCount"></span>
             <button type="button" class="filterSidebar__clearBtn hidden" id="btnOrdersFilterClear">クリア</button>
           </div>
+          <div class="filterSidebar__field">
+            <div class="searchbox">
+              <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
+              <input type="search" id="ordersKeyword" placeholder="モデル・コミッション・顧客名・担当・拠点で検索">
+            </div>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">グループ化</label>
+            <div id="ordersGroupByFilter">
+              <label class="filterCheck"><input type="radio" name="ordersGroupBy" value="" checked> なし</label>
+              <label class="filterCheck"><input type="radio" name="ordersGroupBy" value="orderedMonth"> 月ごと</label>
+              <label class="filterCheck"><input type="radio" name="ordersGroupBy" value="salesLocation"> 販売拠点ごと</label>
+              <label class="filterCheck"><input type="radio" name="ordersGroupBy" value="model"> モデルごと</label>
+            </div>
+          </div>
+          <hr class="filterSidebar__rule">
           <div class="filterSidebar__field">
             <label class="filterSidebar__groupLabel">拠点</label>
             <select id="ordersLocationFilter" class="input"><option value="">拠点：すべて</option></select>
@@ -370,40 +336,40 @@
          受注確定した車両の一覧。管理者権限を持つ担当者にのみ表示する
          （コントロールパネルの水平タブも.navBtn--wholesaleクラスで一括制御、
          JavaScript.html参照）。通常の受注リストと異なり、リード番号・下取車の
-         有無・保険加入の有無・支払方法は持たず、顧客の代わりに「販売先」で検索する。 -->
+         有無・保険加入の有無・支払方法は持たず、顧客の代わりに「販売先」で検索する。
+         業販は担当者があらかじめ決まっている運用のため担当者の絞り込みは設けず、
+         代わりに販売先での絞り込みを設ける（現場からの要望）。 -->
     <main class="view view--list" id="view-wholesaleOrders">
-      <div class="commandbar">
-        <div class="searchrow">
-          <div class="searchbox">
-            <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
-            <input type="search" id="wholesaleOrdersKeyword" placeholder="モデル・コミッション・販売先・担当・拠点で検索">
-          </div>
-        </div>
-      </div>
-      <div class="toolbar2">
-        <span class="toolbar2__count" id="wholesaleOrdersTotalCount"></span>
-        <label class="sortField">グループ化
-          <select id="wholesaleOrdersGroupBy" class="input">
-            <option value="">なし</option>
-            <option value="orderedMonth">月ごと</option>
-            <option value="salesLocation">販売拠点ごと</option>
-            <option value="model">モデルごと</option>
-          </select>
-        </label>
-      </div>
       <div class="listBody">
         <aside class="filterSidebar" aria-label="業販受注リストの絞り込み">
           <div class="filterSidebar__head">
-            <p class="filterSidebar__title">絞り込み</p>
+            <p class="filterSidebar__title">条件検索</p>
+            <span class="filterSidebar__count" id="wholesaleOrdersTotalCount"></span>
             <button type="button" class="filterSidebar__clearBtn hidden" id="btnWholesaleOrdersFilterClear">クリア</button>
           </div>
+          <div class="filterSidebar__field">
+            <div class="searchbox">
+              <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
+              <input type="search" id="wholesaleOrdersKeyword" placeholder="モデル・コミッション・販売先・担当・拠点で検索">
+            </div>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">グループ化</label>
+            <div id="wholesaleOrdersGroupByFilter">
+              <label class="filterCheck"><input type="radio" name="wholesaleOrdersGroupBy" value="" checked> なし</label>
+              <label class="filterCheck"><input type="radio" name="wholesaleOrdersGroupBy" value="orderedMonth"> 月ごと</label>
+              <label class="filterCheck"><input type="radio" name="wholesaleOrdersGroupBy" value="salesLocation"> 販売拠点ごと</label>
+              <label class="filterCheck"><input type="radio" name="wholesaleOrdersGroupBy" value="model"> モデルごと</label>
+            </div>
+          </div>
+          <hr class="filterSidebar__rule">
           <div class="filterSidebar__field">
             <label class="filterSidebar__groupLabel">拠点</label>
             <select id="wholesaleOrdersLocationFilter" class="input"><option value="">拠点：すべて</option></select>
           </div>
           <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">担当者</label>
-            <select id="wholesaleOrdersStaffFilter" class="input"></select>
+            <label class="filterSidebar__groupLabel">販売先</label>
+            <input type="text" id="wholesaleOrdersSalesStoreFilter" class="input" placeholder="販売先で絞り込み">
           </div>
         </aside>
         <div class="listBody__main">
