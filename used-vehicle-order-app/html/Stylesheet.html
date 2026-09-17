@@ -459,7 +459,12 @@
   }
   .homeCard--clickable { cursor: pointer; }
   .homeCard--clickable:hover { box-shadow: var(--shadow-elevated); transform: translateY(-2px); }
-  .homeCard__photo { position: relative; aspect-ratio: 4 / 3; background: var(--background); overflow: hidden; }
+  /* 車両画像枠にも選択中のテーマ（表示設定）を反映する。写真自体（img）は
+     object-fit: coverで枠いっぱいに敷き詰められるため、テーマカラーの縁取りを
+     枠の内側に描き、写真の外周に「テーマカラーの額縁」が見えるようにする
+     （現場からの要望「ホームの車両画像枠にもテーマを反映させてほしい」。
+     *{box-sizing:border-box}のため、borderぶんimgが内側に収まる）。 */
+  .homeCard__photo { position: relative; aspect-ratio: 4 / 3; background: var(--background); overflow: hidden; border: 3px solid var(--primary); }
   .homeCard__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .homeCard__photo--clickable { cursor: pointer; }
   .homeCard__stock {
