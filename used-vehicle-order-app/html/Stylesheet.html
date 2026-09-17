@@ -693,7 +693,12 @@
   }
 
   .filterCheck { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--on-surface); cursor: pointer; padding: 3px 0; }
-  .filterCheck input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: var(--primary); cursor: pointer; flex: none; }
+  /* 不具合修正: チェックボックスはaccent-colorでテーマカラーに揃えていたが、
+     同じ.filterCheckを使うラジオボタン（受注/業販受注リストのグループ化選択）
+     には同じ指定がなく、ブラウザ既定の小さい黒丸のままになっていた。
+     チェックボックスと同じサイズ・色に揃える。 */
+  .filterCheck input[type="checkbox"],
+  .filterCheck input[type="radio"] { width: 16px; height: 16px; margin: 0; accent-color: var(--primary); cursor: pointer; flex: none; }
   .filterCheck__cnt { margin-left: auto; font-size: 11.5px; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; }
 
   /* ===== 在庫リストのクイック行（ボディタイプのクイックナビ＋該当台数・並び替え） =====
@@ -719,6 +724,24 @@
   .input:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
   .input--search { min-width: 220px; flex: 1 1 220px; }
   .input:disabled { background: var(--background); color: var(--on-surface-variant); cursor: not-allowed; }
+  /* 不具合修正: <select>だけOSの既定デザイン（既定のドロップダウン矢印）の
+     ままで、他をすべてカスタムデザインしたアプリの中で浮いて見えていた
+     （現場からの要望「セレクトボックスも他のUIパーツと見た目を揃えたい」）。
+     appearance: noneで既定の矢印を消し、Phosphorのcaret-downアイコンを
+     背景画像として右側に配置する。色はvar(--on-surface-variant)を使いたい
+     ところだが、data URI内のfillはCSS変数を解決できないため、同じ色を
+     16進数で直接埋め込んでいる（配色テーマの影響を受けない中立グレーの
+     ため、テーマ変更時もズレは生じない）。 */
+  select.input {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='%236b7785'%3E%3Cpath d='M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 14px 14px;
+    padding-right: 32px;
+  }
 
   .checkboxField { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--on-surface-variant); }
 
