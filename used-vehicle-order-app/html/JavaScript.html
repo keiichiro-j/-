@@ -877,6 +877,33 @@
   }
 
   /**
+   * 在庫リストのMODEL列にある値のうち、どの車両画像エントリの自動判定条件にも
+   * 一致しないもの（＝代表写真がまだ登録されていないモデル）を、写真無しの
+   * プレースホルダーエントリとして返す（純粋関数）。販売モデルの数が限られて
+   * いるという運用前提（現場からの要望）のもと、写真の用意が追いついていない
+   * モデルもホームから漏れなく見えるようにする。gradePrefixは持たせず、在庫
+   * リストのMODEL値そのものをモデル名として直接照合する単一モデル扱いにする
+   * （元の型番をそのまま表示名にする以上、意味のあるグレード分類はできないため）。
+   */
+  function unphotographedModelEntries_(allItems, allModelPhotos) {
+    var seen = {};
+    var result = [];
+    allItems.forEach(function (v) {
+      var model = v.model;
+      if (!model || seen[model]) return;
+      seen[model] = true;
+      var covered = allModelPhotos.some(function (entry) {
+        return entry.gradePrefix
+          ? matchesGradeRule_(model, entry, allModelPhotos)
+          : entry.model === model;
+      });
+      if (covered) return;
+      result.push({ model: model, photoUrl: '', gradePrefix: '', gradeMarker: '', bodyType: '' });
+    });
+    return result;
+  }
+
+  /**
    * ホーム画面の在庫台数表示（純粋関数）。0台の場合は数字の「在庫0台」ではなく
    * 「在庫がありません」という文言にし、在庫が無いことをひと目でわかるようにする。
    */
@@ -3250,15 +3277,26 @@
     // is-loadedを付け、キャッシュ済み・低速回線のどちらでも画像が消えたままに
     // ならないようにする。HTML属性内のためJS文字列リテラルの引用符（'）は
     // 文字実体参照（&#39;）で書く。
-    var photoInner = '<img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) +
-      '" loading="lazy" onload="this.classList.add(&#39;is-loaded&#39;)" onerror="this.classList.add(&#39;is-loaded&#39;)">' + stockHtml;
+    // photoUrlが無い場合（unphotographedModelEntries_で追加した、代表写真が
+    // まだ登録されていないモデル）は、壊れた画像として見えてしまう<img>では
+    // なく、専用のプレースホルダー（写真アイコン＋「写真未登録」）を出す
+    // （現場からの要望：写真が無くても在庫があるモデルはホームから漏れなく
+    // 見えるようにしたい）。
+    var photoInner = p.photoUrl
+      ? '<img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) +
+        '" loading="lazy" onload="this.classList.add(&#39;is-loaded&#39;)" onerror="this.classList.add(&#39;is-loaded&#39;)">' + stockHtml
+      : '<div class="homeCard__photoMissing">' +
+        '<svg class="icon homeCard__photoMissingIcon"><use href="#icon-image"></use></svg>' +
+        '<span class="homeCard__photoMissingLabel">写真未登録</span>' +
+        '</div>' + stockHtml;
+    var photoClass = 'homeCard__photo' + (p.photoUrl ? '' : ' homeCard__photo--empty');
     var photoHtml;
     if (hasGrades) {
       photoHtml = canNavigateAll
-        ? '<div class="homeCard__photo homeCard__photo--clickable" role="button" tabindex="0" data-home-model="' + escapeHtml(p.model) + '">' + photoInner + '</div>'
-        : '<div class="homeCard__photo">' + photoInner + '</div>';
+        ? '<div class="' + photoClass + ' homeCard__photo--clickable" role="button" tabindex="0" data-home-model="' + escapeHtml(p.model) + '">' + photoInner + '</div>'
+        : '<div class="' + photoClass + '">' + photoInner + '</div>';
     } else {
-      photoHtml = '<div class="homeCard__photo">' + photoInner + '</div>';
+      photoHtml = '<div class="' + photoClass + '">' + photoInner + '</div>';
     }
 
     var cardClickable = !hasGrades && canNavigateAll;
@@ -3283,20 +3321,24 @@
    * auto-fillだけで列数を変える。旧実装にあったPC/スマホでHTML構造を出し分ける
    * 仕組みは廃止）。上部の型クイックナビ（renderHomeTypeNav_、
    * state.homeBodyTypeFilter）で型を選択している場合は、その型（bodyType）が
-   * 一致する車両画像だけに絞り込む（1件も車両画像が登録されていない場合は
-   * #homeEmptyを、型は登録されているが選択した型に一致するモデルが無い場合は
-   * #homeTypeEmptyを表示する）。
+   * 一致する車両画像だけに絞り込む（1件もカード（登録済み写真＋写真未登録の
+   * プレースホルダー）が無い場合は#homeEmptyを、型は登録されているが選択した
+   * 型に一致するカードが無い場合は#homeTypeEmptyを表示する）。
+   * 代表写真が未登録でも在庫があるモデルは、unphotographedModelEntries_で
+   * 生成したプレースホルダーエントリとして末尾に追加し、漏れなく見えるように
+   * する（現場からの要望。管理者が写真を用意し次第、通常のカードに切り替わる）。
    */
   function renderHomeGallery_() {
     var allModelPhotos = (state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.modelPhotos) || [];
     renderHomeTypeNav_();
-    var modelPhotos = state.homeBodyTypeFilter
-      ? allModelPhotos.filter(function (p) { return p.bodyType === state.homeBodyTypeFilter; })
-      : allModelPhotos;
-    $('homeEmpty').classList.toggle('hidden', allModelPhotos.length > 0);
-    $('homeTypeEmpty').classList.toggle('hidden', !(allModelPhotos.length > 0 && modelPhotos.length === 0));
     var allItems = state.allInventoryItems || [];
-    $('homeGrid').innerHTML = modelPhotos
+    var allEntries = allModelPhotos.concat(unphotographedModelEntries_(allItems, allModelPhotos));
+    var entries = state.homeBodyTypeFilter
+      ? allEntries.filter(function (p) { return p.bodyType === state.homeBodyTypeFilter; })
+      : allEntries;
+    $('homeEmpty').classList.toggle('hidden', allEntries.length > 0);
+    $('homeTypeEmpty').classList.toggle('hidden', !(allEntries.length > 0 && entries.length === 0));
+    $('homeGrid').innerHTML = entries
       .map(function (p) { return homeModelCardHtml_(p, allItems, allModelPhotos); })
       .join('');
     renderHomeAnnouncement_((state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.homeAnnouncement) || '');
