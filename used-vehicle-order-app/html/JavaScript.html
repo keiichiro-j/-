@@ -1038,6 +1038,18 @@
     return '<div><dt>' + label + '</dt><dd title="' + escapeHtml(text) + '">' + escapeHtml(text) + '</dd></div>';
   }
 
+  /**
+   * 一覧行（.rowItem__meta）内の1項目分。ラベルを上・値を下に置いた角丸タイル
+   * （.rowItem__metaItem、Stylesheet.html参照）で、車両情報ポップアップの
+   * card__metaGridと同じ見た目に揃える（現場からの要望「各項目を四角（角に
+   * 若干の丸みあり）で表示したい」。在庫リスト・受注リスト・業販受注リストの
+   * 一覧行すべてで共通利用する）。
+   */
+  function rowMetaItemHtml_(label, value) {
+    var text = value || '-';
+    return '<div class="rowItem__metaItem"><dt>' + escapeHtml(label) + '</dt><dd>' + escapeHtml(text) + '</dd></div>';
+  }
+
   // metaRow_と異なり省略記号にせず、値を折り返してでも全文表示する
   // （在庫リストの詳細モーダルの外装色・内装色専用、Stylesheet.htmlの
   // .card__metaGrid dd.is-fullText参照。現場からの要望「在庫リストポップアップ
@@ -1171,6 +1183,9 @@
     var colorRowsHtml = fullColors
       ? metaRowFull_('外装色', v.exteriorColor) + metaRowFull_('内装色', v.interiorColor)
       : metaRow_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-'));
+    // MPは「登録番号の右に表示してほしい」という現場からの要望を受け、登録番号の
+    // 直後に置く（2列グリッドのため、登録番号が奇数番目＝左列に来た場合はその
+    // 右隣に、偶数番目＝右列に来た場合は次の行の左列に並ぶ）。
     return '<dl class="card__metaGrid card__metaGrid--quick">' +
       metaRow_('区分', v.category) +
       colorRowsHtml +
@@ -1178,6 +1193,7 @@
       metaRow_('年式', v.firstRegistrationDate) +
       metaRow_('走行距離', formatNumberUnit_(v.mileage, ' km')) +
       metaRow_('登録番号', plateText_(v)) +
+      metaRow_('MP', v.mp) +
       '</dl>';
   }
 
@@ -1232,9 +1248,10 @@
 
   /**
    * 在庫リストの一覧行。見出し行は区分タグ・モデル名だけ、メタ情報行には
-   * 年式・走行距離・登録番号・販売価格をまとめ、各項目の間には縦罫線
-   * （rowItem__metaSep）を入れて区切る（現場からの要望「価格も車両情報側に
-   * 含めてほしい」「区切りを入れたいのは車両情報の方」）。状態列
+   * 年式・走行距離・登録番号・販売価格・MP（メーカーの定めた年式仕様）をまとめ、
+   * 各項目を角丸タイル（rowMetaItemHtml_）で区切る（現場からの要望「価格も
+   * 車両情報側に含めてほしい」「各項目を四角（角に若干の丸みあり）で表示
+   * したい」）。MPは販売価格の直後に置く（現場からの要望）。状態列
    * （rowItem__status、幅固定）にはHold中でも状態バッジのみを表示し、顧客名・
    * 担当者・残り時間は出さない（現場からの要望「HOLD状況はステータスのみで
    * 大丈夫、詳細情報にて担当者・顧客・残り時間がわかるようにしてほしい」）。
@@ -1264,13 +1281,11 @@
       '<div class="rowItem__colorSub" title="' + escapeHtml((v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) + '">' +
       escapeHtml((v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) + '</div>' +
       '<div class="rowItem__meta">' +
-      '<span>年式 ' + escapeHtml(v.firstRegistrationDate || '-') + '</span>' +
-      '<span class="rowItem__metaSep"></span>' +
-      '<span>走行距離 ' + escapeHtml(formatNumberUnit_(v.mileage, ' km') || '-') + '</span>' +
-      '<span class="rowItem__metaSep"></span>' +
-      '<span>登録番号 ' + escapeHtml(plateText_(v) || '-') + '</span>' +
-      '<span class="rowItem__metaSep"></span>' +
-      '<span class="rowItem__metaPrice">販売価格 ' + escapeHtml(formatNumberUnit_(v.salePrice, ' 円') || '-') + '</span>' +
+      rowMetaItemHtml_('年式', v.firstRegistrationDate) +
+      rowMetaItemHtml_('走行距離', formatNumberUnit_(v.mileage, ' km')) +
+      rowMetaItemHtml_('登録番号', plateText_(v)) +
+      rowMetaItemHtml_('販売価格', formatNumberUnit_(v.salePrice, ' 円')) +
+      rowMetaItemHtml_('MP', v.mp) +
       '</div>' +
       '</div>' +
       '<div class="rowItem__status">' + vehicleBadgesHtml_(v, false) + '</div>' +
@@ -2209,10 +2224,10 @@
       '<span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span>' +
       '</div>' +
       '<div class="rowItem__meta">' +
-      '<span>モデル ' + escapeHtml(o.model) + '</span>' +
-      '<span class="dot">担当 ' + escapeHtml(o.staff || '-') + '</span>' +
-      '<span class="dot">登録月 ' + escapeHtml(o.registeredMonth || '-') + '</span>' +
-      '<span class="dot">走行距離 ' + escapeHtml(formatNumberUnit_(o.mileage, ' km') || '-') + '</span>' +
+      rowMetaItemHtml_('モデル', o.model) +
+      rowMetaItemHtml_('担当', o.staff) +
+      rowMetaItemHtml_('登録月', o.registeredMonth) +
+      rowMetaItemHtml_('走行距離', formatNumberUnit_(o.mileage, ' km')) +
       '</div>' +
       '<div class="rowItem__sub">コミッション ' + escapeHtml(o.commission) +
       (o.leadNumber ? ' ・ リード番号 ' + escapeHtml(o.leadNumber) : '') + '</div>' +
@@ -2346,10 +2361,10 @@
       '<span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span>' +
       '</div>' +
       '<div class="rowItem__meta">' +
-      '<span>モデル ' + escapeHtml(o.model) + '</span>' +
-      '<span class="dot">担当 ' + escapeHtml(o.staff || '-') + '</span>' +
-      '<span class="dot">登録月 ' + escapeHtml(o.registeredMonth || '-') + '</span>' +
-      '<span class="dot">走行距離 ' + escapeHtml(formatNumberUnit_(o.mileage, ' km') || '-') + '</span>' +
+      rowMetaItemHtml_('モデル', o.model) +
+      rowMetaItemHtml_('担当', o.staff) +
+      rowMetaItemHtml_('登録月', o.registeredMonth) +
+      rowMetaItemHtml_('走行距離', formatNumberUnit_(o.mileage, ' km')) +
       '</div>' +
       '<div class="rowItem__sub">コミッション ' + escapeHtml(o.commission) + '</div>' +
       '</div>' +

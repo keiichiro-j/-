@@ -223,6 +223,12 @@ var INVENTORY_COLUMNS = VEHICLE_COLUMNS.concat([
       'ある「備考」ボタンを押すと、この内容がそのままポップアップで表示されます。' +
       'INVENTORY_COLUMNSの末尾に追加した列のため、既存のスプレッドシートには' +
       '自動では追加されません（SetupService.gsのaddRemarksColumnToInventory_参照）。'
+  },
+  {
+    key: 'mp', label: 'MP', type: 'text',
+    note: 'メーカーの定めた年式仕様を入力してください。INVENTORY_COLUMNSの末尾に追加した' +
+      '列のため、既存のスプレッドシートには自動では追加されません' +
+      '（SetupService.gsのaddMpColumnToVehicleSheets_参照）。'
   }
 ]);
 
@@ -288,6 +294,12 @@ var ORDER_COLUMNS = VEHICLE_COLUMNS.concat(HOLD_ORDER_INPUT_COLUMNS).concat([
     note: '受注確定時点で在庫リストにあった行番号です。受注キャンセル（cancelOrder、' +
       'OrderService.gs参照）で、できるだけ元の位置へ車両を復元するために使う内部用の' +
       '値です。アプリが自動記録するため、手動編集しないでください。'
+  },
+  {
+    key: 'mp', label: 'MP', type: 'text',
+    note: 'メーカーの定めた年式仕様を入力してください。ORDER_COLUMNSの末尾に追加した' +
+      '列のため、既存のスプレッドシートには自動では追加されません' +
+      '（SetupService.gsのaddMpColumnToVehicleSheets_参照）。'
   }
 ]);
 
@@ -316,6 +328,12 @@ var WHOLESALE_ORDER_COLUMNS = VEHICLE_COLUMNS.concat([
     note: '受注確定時点で在庫リストにあった行番号です。業販受注キャンセル（cancelWholesaleOrder、' +
       'OrderService.gs参照）で、できるだけ元の位置へ車両を復元するために使う内部用の' +
       '値です。アプリが自動記録するため、手動編集しないでください。'
+  },
+  {
+    key: 'mp', label: 'MP', type: 'text',
+    note: 'メーカーの定めた年式仕様を入力してください。WHOLESALE_ORDER_COLUMNSの末尾に' +
+      '追加した列のため、既存のスプレッドシートには自動では追加されません' +
+      '（SetupService.gsのaddMpColumnToVehicleSheets_参照）。'
   }
 ]);
 

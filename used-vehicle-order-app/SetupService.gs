@@ -111,6 +111,45 @@ function addRemarksColumnToInventory_() {
 }
 
 /**
+ * 既存の在庫リスト・受注リスト・業販受注リストに「MP」列（メーカーの定めた
+ * 年式仕様。Constants.gsのINVENTORY_COLUMNS／ORDER_COLUMNS／
+ * WHOLESALE_ORDER_COLUMNSそれぞれの末尾に追加した自由記述欄）が無い場合、
+ * ヘッダー行の末尾に追加する一回限りのメンテナンス関数（addRemarksColumnToInventory_と
+ * 同じ位置づけ）。新規にセットアップしたスプレッドシート（setupSpreadsheet_）には
+ * 最初から入っているため、この関数を実行する必要はない。既存データの位置は
+ * そのまま、各シートの末尾に列を1つ追加するだけなので、途中の列がずれる心配は
+ * ない。既に「MP」列があるシートは何もしない（何度実行しても安全）。
+ */
+function addMpColumnToVehicleSheets_() {
+  var targets = [
+    { name: SHEET_NAMES.INVENTORY, sheet: getInventorySheet_(), columns: INVENTORY_COLUMNS },
+    { name: SHEET_NAMES.ORDERS, sheet: getOrderSheet_(), columns: ORDER_COLUMNS },
+    { name: SHEET_NAMES.WHOLESALE_ORDERS, sheet: getWholesaleOrderSheet_(), columns: WHOLESALE_ORDER_COLUMNS }
+  ];
+  var added = [];
+  var skipped = [];
+  targets.forEach(function (t) {
+    var mpCol1 = t.columns.length; // 末尾の列（1-indexed）
+    var currentHeader = t.sheet.getLastColumn() >= mpCol1
+      ? t.sheet.getRange(1, mpCol1).getValue()
+      : '';
+    if (String(currentHeader).trim() === 'MP') {
+      skipped.push(t.name);
+      return;
+    }
+    t.sheet.getRange(1, mpCol1).setValue('MP');
+    applyHeaderNotes_(t.sheet, t.columns);
+    applySheetDesign_(t.sheet, t.name, t.columns);
+    added.push(t.name);
+  });
+
+  var message = (added.length ? added.join('・') + 'の末尾に「MP」列を追加しました。' : '') +
+    (skipped.length ? (added.length ? ' ' : '') + skipped.join('・') + 'には既に「MP」列がありました。' : '');
+  Logger.log(message);
+  return message;
+}
+
+/**
  * 既存のスプレッドシートの「掲載」列（あり／なしの選択式）を、「カーセンサー」
  * 「グーネット」の2列（チェックボックス）に分割する一回限りのメンテナンス関数
  * （addRemarksColumnToInventory_と同じ位置づけ）。「掲載」列を持つ在庫リスト・
@@ -358,6 +397,7 @@ function onOpen() {
     .addItem('ＯＣＮ・コミッション列を書式なしテキストに再設定', 'formatCommissionColumnsAsText_')
     .addItem('ステア列の「右/左」を「R/L」へ一括変換', 'migrateSteeringToRL_')
     .addItem('在庫リストに「備考」列を追加', 'addRemarksColumnToInventory_')
+    .addItem('在庫・受注・業販受注リストに「MP」列を追加', 'addMpColumnToVehicleSheets_')
     .addItem('「掲載」列を「カーセンサー」「グーネット」の2列に分割', 'migrateListedColumnToCheckboxes_')
     .addToUi();
 }

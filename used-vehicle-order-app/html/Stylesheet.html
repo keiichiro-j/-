@@ -927,22 +927,40 @@
      （車両（登録番号や日付の桁数等）によって内容の長さが変わり、ある車両だけ
      このメタ行が2行に折り返って他の車両とカードサイズが揃わなくなっていた。
      現場からの要望「車両によってカードサイズが変わらないように」）。 */
-  .rowItem__meta { font-size: 12.5px; color: var(--on-surface-variant); display: flex; align-items: center; flex-wrap: nowrap; overflow: hidden; gap: 8px; }
-  /* コンテナ側をflex-wrap: nowrapにしただけでは、中の各span自体（年式の
-     日付のハイフン等）が改行され得る場所で内部的に折り返ってしまい、行の
-     高さが車両（日付・登録番号の文字数）によって変わってしまっていた。
-     各span自体もnowrapにして、はみ出す分はコンテナのoverflow: hiddenで
-     切り詰める。 */
-  .rowItem__meta > span { white-space: nowrap; flex: none; }
-  /* 年式・走行距離・登録番号は同じ車両情報のひとかたまりのため、「・」の
-     文字ではなく縦罫線で区切り、データ表の列のように見た目をはっきり
-     分ける（現場からの要望「区切りを入れたいのは車両情報」）。 */
-  .rowItem__metaSep { flex: none; width: 1px; height: 11px; background: var(--outline); }
-  /* 販売価格も車両情報（年式・走行距離・登録番号）と同じメタ情報行に含める
-     （現場からの要望「価格も車両情報側に含めてほしい」）。色・太さも他の
-     項目と揃え、目立たせる特別扱いはしない（現場からの要望「金額の色も
-     他の車両情報と同じカラーにしてほしい」）。 */
-  .rowItem__metaPrice { font-variant-numeric: tabular-nums; }
+  .rowItem__meta { font-size: 12.5px; color: var(--on-surface-variant); display: flex; align-items: stretch; flex-wrap: nowrap; overflow: hidden; gap: 8px; }
+  /* 不具合修正: 以前は縦罫線（rowItem__metaSep）だけの区切りで、項目の境目が
+     わかりにくかった。車両情報ポップアップ（card__metaGrid）と同じ「ラベルを
+     上、値を下に置いた角丸の四角タイル」に統一し、一覧行とポップアップの
+     見た目を揃える（現場からの要望「各項目を四角（角に若干の丸みあり）で
+     表示したい」。それぞれの項目の境目がタイルの枠線でひと目にわかる）。
+     flex: noneで縮めず、はみ出す分はコンテナのoverflow: hiddenで切り詰める
+     （車両ごとに行の高さが変わらないようにするため。従来の方針を踏襲）。 */
+  .rowItem__metaItem {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex: none;
+    white-space: nowrap;
+    border: 1px solid var(--outline);
+    border-radius: 8px;
+    padding: 3px 9px;
+    background: var(--surface);
+  }
+  .rowItem__metaItem dt {
+    margin: 0;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--on-surface-variant);
+  }
+  .rowItem__metaItem dd {
+    margin: 0;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--on-surface);
+    font-variant-numeric: tabular-nums;
+  }
   .rowItem__sub { font-size: 11px; color: var(--on-surface-variant); margin-top: 5px; font-variant-numeric: tabular-nums; }
   /* ===== 状態列（.rowItem__status） =====
      以前は見出し行（タグ・モデル名）に状態バッジを詰め込んでいたため、
@@ -1094,14 +1112,25 @@
   .card__badges { display: flex; gap: 6px; flex-wrap: wrap; }
 
   /* メタ情報は2列のミニグリッドで表示。ラベルは小さく大文字寄り・トラッキング広め、
-     値は大きく太くというメリハリのある「テスラ風」の見出し表現で視認性を高める。 */
+     値は大きく太くというメリハリのある「テスラ風」の見出し表現で視認性を高める。
+     不具合修正: 以前は項目同士の区切りが無く、どこからどこまでが1項目か
+     見づらかった。項目ひとつひとつを角丸の四角（枠線＋白背景）で囲み、
+     独立したタイルとして見せる（現場からの要望「各項目を四角（角に若干の
+     丸みあり）で表示したい」）。 */
+  .card__metaGrid > div {
+    border: 1px solid var(--outline);
+    border-radius: 10px;
+    padding: 8px 10px;
+    background: var(--surface);
+    min-width: 0;
+  }
   .card__metaGrid {
     display: grid;
     /* minmax(0, 1fr)にする理由は.rowItemの折り返しと同じ（1fr単独だと、値が
        長い場合にトラック自体がその内容ぶんまで広がってしまい、下のdd（値）に
        指定したellipsisが効かず、カードの外へはみ出してしまう）。 */
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px 16px;
+    gap: 10px;
     margin: 0;
     padding: 12px 0 0;
   }
@@ -1248,11 +1277,15 @@
      @media (min-width: 901px)参照）表示スペースに余裕ができたため、ボタン＋
      別ポップアップをやめてこの場に直接表示する（現場からの要望）。見た目は
      card__holdInfoと同じ「淡い背景＋左罫線」の情報ボックスに揃える。 */
+  /* 不具合修正: 以前は背景色（var(--background)）・左罫線アクセントのみの
+     見た目で、他の車両情報タイル（card__metaGrid）と背景色が揃っていなかった。
+     区分・年式等の他の項目タイルと同じ枠線・角丸・背景色に揃える（現場からの
+     要望「オプション・備考欄も背景は他の情報と同じカラーにしてほしい」）。 */
   .card__noteBlock {
-    background: var(--background);
+    background: var(--surface);
+    border: 1px solid var(--outline);
     border-radius: 10px;
-    border-left: 3px solid var(--outline);
-    padding: 10px 12px;
+    padding: 8px 10px;
   }
   .card__noteBlock__label {
     margin: 0 0 4px;
