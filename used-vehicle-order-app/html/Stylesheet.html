@@ -598,7 +598,12 @@
      浮かせていたが、コマンドバーの実際の高さとオフセットの数値がわずかに
      ズレており、スクロール開始時にサイドバーが少し画面につられて動いて
      見える不具合があった。「絞り込みバナーは固定にしてほしい」という現場からの
-     要望を受け、オフセット計算に頼らない構造に変更した）。 */
+     要望を受け、オフセット計算に頼らない構造に変更した）。
+     不具合修正: サイドバー自体も以前はheight: 100% + overflow-y: autoで
+     一覧側と同じく内部スクロールさせていたが、項目数の割にサイドバー内で
+     さらにスクロールが必要になるのは煩わしいという現場からの指摘を受け、
+     文字・余白を詰めて全項目が収まりやすい密度にしたうえで、サイドバーは
+     内部スクロールさせず常に全項目を表示する（下のauto幅指定を参照）。 */
   .listBody {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -611,26 +616,26 @@
     background: var(--surface);
     border: 1px solid var(--outline);
     border-radius: var(--radius);
-    padding: 18px 16px;
+    padding: 14px 14px;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 10px;
     min-width: 0;
   }
   /* 見出し（条件検索）・該当台数は左寄せでひとまとまりにし、クリアボタンだけを
      margin-left: autoで右端に離す（現場からの要望「該当台数は見出しの右に」）。 */
   .filterSidebar__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .filterSidebar__title { font-size: 14px; font-weight: 700; margin: 0; color: var(--on-surface); }
+  .filterSidebar__title { font-size: 13px; font-weight: 700; margin: 0; color: var(--on-surface); }
   .filterSidebar__count {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     color: var(--on-surface-variant);
     font-variant-numeric: tabular-nums;
   }
   .filterSidebar__rule { border: none; border-top: 1px solid var(--outline); margin: 0; }
-  .filterSidebar__field { display: flex; flex-direction: column; gap: 8px; }
+  .filterSidebar__field { display: flex; flex-direction: column; gap: 6px; }
   .filterSidebar__groupLabel {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
     color: var(--on-surface-variant);
     letter-spacing: .04em;
@@ -638,11 +643,15 @@
   }
   .filterSidebar select.input,
   .filterSidebar .input { width: 100%; }
+  /* セレクトの縦paddingだけを詰めて1項目あたりの高さを抑える（不具合修正の
+     一環）。font-sizeは.inputの16px基準（iOS Safariのフォーカス時自動ズーム
+     回避のため）を変えず、paddingのみ調整する。 */
+  .filterSidebar select.input { padding-top: 7px; padding-bottom: 7px; }
   .filterSidebar__clearBtn {
     border: none;
     background: none;
     color: var(--on-surface-variant);
-    font-size: 12.5px;
+    font-size: 12px;
     font-weight: 700;
     text-decoration: underline;
     text-underline-offset: 3px;
@@ -656,13 +665,19 @@
   /* ===== PC・タブレット幅: 在庫・受注・業販受注リストを「アプリシェル」化 =====
      コマンドバーの下（.listBody）を、ヘッダー・コマンドバーの高さぶんを差し引いた
      残り全部の高さを持つ、それ自体はスクロールしないボックスにし、その中の
-     サイドバー（.filterSidebar）と一覧（.listBody__main）だけがそれぞれ独立して
-     縦スクロールするようにする。不具合修正: 以前はposition: sticky＋手計算の
-     topオフセットでサイドバーを浮かせていたが、実際のコマンドバーの高さと
-     ズレて少し画面につられて動く不具合があったため、オフセット計算に頼らない
-     この構造に変更した（「絞り込みバナーは固定・一覧だけスクロール」という
-     現場からの要望）。900px以下（下の@media (max-width: 900px)参照）では、
-     サイドバー・一覧とも通常のページスクロールに戻す1カラム表示のまま。 */
+     一覧（.listBody__main）側だけが独立して縦スクロールするようにする。
+     不具合修正: 以前はposition: sticky＋手計算のtopオフセットでサイドバーを
+     浮かせていたが、実際のコマンドバーの高さとズレて少し画面につられて動く
+     不具合があったため、オフセット計算に頼らないこの構造に変更した
+     （「絞り込みバナーは固定・一覧だけスクロール」という現場からの要望）。
+     900px以下（下の@media (max-width: 900px)参照）では、サイドバー・一覧とも
+     通常のページスクロールに戻す1カラム表示のまま。
+     不具合修正: サイドバー（.filterSidebar）は以前height: 100% +
+     overflow-y: autoで一覧側と同じく内部スクロールさせていたが、項目数の
+     割にサイドバーの中でさらにスクロールが必要になるのは煩わしいという
+     現場からの指摘を受けて廃止した。align-self: startでグリッドの行いっぱいに
+     伸ばすのをやめ、中身（文字・余白を詰めた条件検索一式）の高さぶんだけに
+     留めることで、内部スクロール無しに全項目を常に表示する。 */
   @media (min-width: 901px) {
     main.view.view--list.is-active {
       display: flex;
@@ -680,7 +695,7 @@
       flex: 1 1 auto;
       min-height: 0;
     }
-    .view--list .filterSidebar { height: 100%; overflow-y: auto; }
+    .view--list .filterSidebar { align-self: start; }
     /* 不具合修正: 「該当する受注がありません」等の空状態は、以前は単なる
        固定paddingのブロックとして一覧の先頭に置かれていたため、一覧エリアの
        高さ（画面いっぱい）に対して上に偏り、下に大きな空白だけが残っていた。
@@ -692,14 +707,14 @@
     .view--list .listBody__main > .emptyState { flex: 1 0 auto; justify-content: center; min-height: 0; }
   }
 
-  .filterCheck { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--on-surface); cursor: pointer; padding: 3px 0; }
+  .filterCheck { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--on-surface); cursor: pointer; padding: 2px 0; }
   /* 不具合修正: チェックボックスはaccent-colorでテーマカラーに揃えていたが、
      同じ.filterCheckを使うラジオボタン（受注/業販受注リストのグループ化選択）
      には同じ指定がなく、ブラウザ既定の小さい黒丸のままになっていた。
      チェックボックスと同じサイズ・色に揃える。 */
   .filterCheck input[type="checkbox"],
-  .filterCheck input[type="radio"] { width: 16px; height: 16px; margin: 0; accent-color: var(--primary); cursor: pointer; flex: none; }
-  .filterCheck__cnt { margin-left: auto; font-size: 11.5px; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; }
+  .filterCheck input[type="radio"] { width: 15px; height: 15px; margin: 0; accent-color: var(--primary); cursor: pointer; flex: none; }
+  .filterCheck__cnt { margin-left: auto; font-size: 11px; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; }
 
   /* ===== 在庫リストのクイック行（ボディタイプのクイックナビ＋該当台数・並び替え） =====
      ホーム画面と同じ.homeTypeNav__itemのクイックナビを流用し、以前の状態タブ
