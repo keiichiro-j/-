@@ -385,42 +385,17 @@
   }
   .scroller::-webkit-scrollbar { display: none; }
 
-  /* ===== 状態タブ（クイック状態切替） =====
-     既存の「状態」チェックボックス（#inventoryStatusFilter、チップの中）と
-     同じstate.inventoryFilters.statusを操作する、単一選択のショートカットに
-     すぎない（新しい状態区分は増やしていない）。中身の描画・件数集計・
-     クリック時の絞り込み処理（renderInventoryStatusTabs_）自体は変更していない。 */
-  .statusTabs__item {
-    flex: none;
-    background: var(--surface);
-    border: 1px solid var(--outline);
-    border-radius: 999px;
-    padding: 8px 14px;
-    font-size: 12.5px;
-    font-weight: 700;
-    color: var(--on-surface-variant);
-    cursor: pointer;
-    white-space: nowrap;
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-  }
-  .statusTabs__item:hover { border-color: var(--on-surface-variant); color: var(--on-surface); }
-  .statusTabs__item.is-active { background: var(--on-surface); border-color: var(--on-surface); color: var(--surface); }
-  .statusTabs__cnt { font-size: 11px; font-weight: 800; color: inherit; opacity: .75; font-variant-numeric: tabular-nums; }
-  .statusTabs__item.is-active .statusTabs__cnt { opacity: 1; }
-
-  /* ===== ホーム（車両画像ギャラリー） =====
-     以前あった「車両画像ギャラリー」を、現在のコマンドバー構成に合わせて
-     再実装したもの。型（ボディタイプ）クイックナビは状態タブ（.statusTabs__item）と
-     同じ見た目のピル型ボタンにし、他の画面のコマンドバーと視覚的に揃える。
-     グリッド自体はauto-fillでPC・タブレット・スマホすべて同じCSSのまま列数だけ
-     自然に変わる（旧実装のようなPC/スマホでHTML構造を出し分ける仕組みは廃止）。 */
+  /* ===== ホーム・在庫リストのクイックナビ（型／ボディタイプ） =====
+     ホーム画面の型クイックナビ、在庫リストのボディタイプクイックナビが共通で
+     使う見た目。グリッド自体はauto-fillでPC・タブレット・スマホすべて同じ
+     CSSのまま列数だけ自然に変わる。 */
   .homeTypeNav__item {
     flex: none;
     background: var(--surface);
     border: 1px solid var(--outline);
-    border-radius: 999px;
+    /* 現場からの要望: ピル型（フル丸め）ではなく、わずかな丸みだけを残した
+       四角寄りの形にする（アプリ全体の他のボタン・カードと同じ--radiusに揃える）。 */
+    border-radius: var(--radius);
     padding: 8px 14px;
     font-size: 12.5px;
     font-weight: 700;
