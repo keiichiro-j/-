@@ -483,7 +483,20 @@
      （現場からの要望「ホームの車両画像枠にもテーマを反映させてほしい」。
      *{box-sizing:border-box}のため、borderぶんimgが内側に収まる）。 */
   .homeCard__photo { position: relative; aspect-ratio: 4 / 3; background: var(--background); overflow: hidden; border: 3px solid var(--primary); }
-  .homeCard__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  /* ホームの車両画像は、車種ごとの代表写真を管理者が厳選して登録する
+     「ショールーム」的な位置づけ（1台ごとの実車写真ではない。現場からの
+     要望どおり、車種数が限られているためこの構成のまま活かす）。厳選された
+     写真だからこそ見せ方の質を上げる：読み込み完了時にふわっと現れる
+     フェードイン（homeModelCardHtml_のonload、JavaScript.html参照）と、
+     カードにカーソルを乗せたときのわずかな拡大（ズーム）で、写真自体を
+     「見せる」演出にする。 */
+  .homeCard__photo img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    opacity: 0; transition: opacity .35s var(--ease), transform .3s var(--ease);
+  }
+  .homeCard__photo img.is-loaded { opacity: 1; }
+  .homeCard--clickable:hover .homeCard__photo img,
+  .homeCard__photo--clickable:hover img { transform: scale(1.045); }
   .homeCard__photo--clickable { cursor: pointer; }
   /* 不具合修正: 以前は半透明の--success-bg（緑系の薄い塗り）を背景にしていたため、
      写真プレースホルダー（本番では車両写真）が緑系の色だとバッジの文字がほぼ

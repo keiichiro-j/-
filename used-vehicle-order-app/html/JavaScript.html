@@ -3245,7 +3245,13 @@
       }).join('') + '</div>';
     }
 
-    var photoInner = '<img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '" loading="lazy">' + stockHtml;
+    // 厳選された代表写真を「ふわっと」表示する演出（Stylesheet.htmlの
+    // .homeCard__photo img参照）。読み込み完了（またはURL誤り等での失敗）で
+    // is-loadedを付け、キャッシュ済み・低速回線のどちらでも画像が消えたままに
+    // ならないようにする。HTML属性内のためJS文字列リテラルの引用符（'）は
+    // 文字実体参照（&#39;）で書く。
+    var photoInner = '<img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) +
+      '" loading="lazy" onload="this.classList.add(&#39;is-loaded&#39;)" onerror="this.classList.add(&#39;is-loaded&#39;)">' + stockHtml;
     var photoHtml;
     if (hasGrades) {
       photoHtml = canNavigateAll
