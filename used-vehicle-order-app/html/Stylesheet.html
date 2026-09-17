@@ -318,6 +318,16 @@
      設定はカード状のUIのため、通常どおり左右の余白を持たせる）。 */
   main.view { max-width: 1680px; margin: 0 auto; padding: 16px; }
   main.view.view--list { max-width: none; margin: 0; padding: 0; }
+  /* 不具合修正: ホーム画面は#view-home自身に固定のsticky commandbarを
+     持つが、main.viewの上パディング（16px）ぶん、コマンドバーが本来の
+     固定位置（--topbar-hぴったり）より下にずれた位置から始まっていた。
+     スクロール開始直後にこの16px分だけ一瞬で追いつくため、ヘッダーが
+     画面のスクロールにつられて少し動くように見えていた（現場からの指摘）。
+     .view--listと同じくpaddingを0にし、コマンドバーを最初からtopbarの
+     直下（--topbar-h）に固定することで、スクロール量に関わらずヘッダーが
+     一切動かないようにする（内側の要素はcommandbar・homeGrid自身が
+     必要な余白を持っているため、外側のpaddingが無くても見た目は崩れない）。 */
+  main.view#view-home { max-width: none; margin: 0; padding: 0; }
   .view { display: none; }
   /* タブ切替時、瞬間的にコンテンツが入れ替わるだけだと素っ気ないため、
      切替後の画面にごく軽いフェードイン（+わずかな上方向スライド）を付ける。
@@ -452,16 +462,13 @@
   .homeCard__photo { position: relative; aspect-ratio: 4 / 3; background: var(--background); overflow: hidden; }
   .homeCard__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .homeCard__photo--clickable { cursor: pointer; }
-  .homeCard__body { padding: 10px 12px; display: flex; flex-direction: column; gap: 7px; }
-  /* 台数表記: モデル名の直下に中央寄せで表示する（現場からの要望
-     「例）A20DB／5台」。以前は写真右上に重ねたバッジ表示だった）。 */
   .homeCard__stock {
-    text-align: center;
-    font-size: 12.5px;
-    font-weight: 700;
-    color: var(--success);
+    position: absolute; top: 6px; right: 6px;
+    background: var(--success-bg); color: var(--success);
+    font-size: 10px; padding: 3px 8px;
   }
-  .homeCard__stock.homeCard__stock--zero { color: var(--on-surface-variant); }
+  .homeCard__stock.badge--stock--zero { background: rgba(31, 41, 51, .55); color: var(--surface); }
+  .homeCard__body { padding: 10px 12px; display: flex; flex-direction: column; gap: 7px; }
   .homeCard__headRow { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
   .homeCard__model { font-size: 13.5px; font-weight: 700; letter-spacing: -.01em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .homeCard__type { flex: none; font-size: 10px; font-weight: 600; color: var(--on-surface-variant); border: 1px solid var(--outline); border-radius: 999px; padding: 1px 7px; white-space: nowrap; }

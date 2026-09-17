@@ -853,13 +853,11 @@
   }
 
   /**
-   * ホーム画面の在庫台数表示（純粋関数）。モデル名の下に中央寄せで表示する
-   * （現場からの要望「例）A20DB／5台」のように、モデル名の直下に台数だけを
-   * シンプルに示す）。0台の場合は数字の「0台」ではなく「在庫がありません」という
-   * 文言にし、在庫が無いことをひと目でわかるようにする。
+   * ホーム画面の在庫台数表示（純粋関数）。0台の場合は数字の「在庫0台」ではなく
+   * 「在庫がありません」という文言にし、在庫が無いことをひと目でわかるようにする。
    */
   function homeStockCountText_(total) {
-    return total === 0 ? '在庫がありません' : total + '台';
+    return total === 0 ? '在庫がありません' : '在庫' + total + '台';
   }
 
   function applyInventoryFilters_(items) {
@@ -3210,10 +3208,8 @@
     var total = modelCountForEntry_(p, allItems, allModelPhotos);
     var hasGrades = !!p.gradePrefix && grades.length > 0;
     var canNavigateAll = total > 0;
-    // 不具合修正: 以前は写真右上に台数バッジを重ねていたが、現場からの要望で
-    // モデル名の直下・中央寄せの表示（例:「A20DB」の下に「5台」）に変更した。
-    var stockClass = 'homeCard__stock' + (total === 0 ? ' homeCard__stock--zero' : '');
-    var stockHtml = '<div class="' + stockClass + '">' + homeStockCountText_(total) + '</div>';
+    var stockClass = 'badge homeCard__stock' + (total === 0 ? ' badge--stock--zero' : '');
+    var stockHtml = '<span class="' + stockClass + '">' + homeStockCountText_(total) + '</span>';
 
     var gradeGridHtml = '';
     if (hasGrades) {
@@ -3228,7 +3224,7 @@
       }).join('') + '</div>';
     }
 
-    var photoInner = '<img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '" loading="lazy">';
+    var photoInner = '<img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '" loading="lazy">' + stockHtml;
     var photoHtml;
     if (hasGrades) {
       photoHtml = canNavigateAll
@@ -3248,7 +3244,6 @@
       photoHtml +
       '<div class="homeCard__body">' +
       '<div class="homeCard__headRow"><span class="homeCard__model">' + escapeHtml(p.model) + '</span>' + typeHtml + '</div>' +
-      stockHtml +
       gradeGridHtml +
       '</div>' +
       '</div>';
