@@ -224,11 +224,12 @@
         </div>
         <!-- ボディタイプのクイックナビ（ホームの型クイックナビと同じ単一選択、
              .homeTypeNav__itemを流用。renderInventoryBodyTypeNav_、
-             JavaScript.html参照）＋その右端に該当台数・並び替え。 -->
+             JavaScript.html参照）＋その右端に並び替え。該当台数は左サイドの
+             「条件検索」見出し（#inventoryFilterCount）に一本化しており、
+             ここには重複して置かない（以前は両方に同じ情報が出ていた）。 -->
         <div class="quickRow">
           <div class="scroller homeTypeNav" id="inventoryBodyTypeNav" role="tablist" aria-label="ボディタイプで絞り込み"></div>
           <div class="quickRow__right">
-            <span class="toolbar2__count" id="inventoryTotalCount"></span>
             <label class="sortField">並び替え
               <select id="inventorySort" class="input"></select>
             </label>

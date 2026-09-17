@@ -180,7 +180,13 @@
     max-width: 140px; overflow: hidden; text-overflow: ellipsis;
   }
   .topbar__userName { display: block; font-weight: 600; }
-  .topbar__userEmail { display: block; opacity: .75; font-size: 10.5px; }
+  /* 不具合修正: 以前はスマホ幅でもメールアドレスを常に表示していたが、
+     幅140pxの枠に収めるためフォントサイズが10.5pxまで縮み、画面右端に
+     ほぼ余白なく詰め込まれて実用上判読できなくなっていた。スマホ幅では
+     氏名だけで「誰としてログイン中か」は十分伝わるため、メールアドレスは
+     PC・タブレット幅（下の@media (min-width: 901px)、十分な余白がある）
+     でのみ表示する。 */
+  .topbar__userEmail { display: none; opacity: .75; font-size: 10.5px; }
   .topbar__userWarn { display: block; color: #ffd479; font-size: 11px; }
 
   /* ===== 画面切替：水平タブ（ブランド行の下、中央寄せの下線タブ） =====
@@ -228,7 +234,7 @@
     .topbar__logo { height: 30px; max-width: 160px; }
     .topbar__brandText { font-size: 16px; }
     .topbar__user { font-size: 13px; max-width: 220px; }
-    .topbar__userEmail { font-size: 11.5px; }
+    .topbar__userEmail { display: block; font-size: 11.5px; }
     .tabs { gap: 32px; padding: 0 32px 14px; }
     .tabs__item { font-size: 13px; }
   }
@@ -394,6 +400,18 @@
     scrollbar-width: none;
   }
   .scroller::-webkit-scrollbar { display: none; }
+  /* 不具合修正: 横スクロール可能な行は、端で項目が中途半端に切れているだけで
+     「まだ続きがある」ことが伝わらなかった。initScrollFade_（JavaScript.html）が
+     実際にスクロールできる側だけ--fade-l／--fade-rを広げるので、その方向にだけ
+     縁がフェードして見える（背景色ではなくmask-imageなので、テーマで背景色が
+     変わっても常に正しく効く）。 */
+  .scroller,
+  .tabs {
+    --fade-l: 0px;
+    --fade-r: 0px;
+    -webkit-mask-image: linear-gradient(to right, transparent, black var(--fade-l), black calc(100% - var(--fade-r)), transparent);
+    mask-image: linear-gradient(to right, transparent, black var(--fade-l), black calc(100% - var(--fade-r)), transparent);
+  }
 
   /* ===== ホーム・在庫リストのクイックナビ（型／ボディタイプ） =====
      ホーム画面の型クイックナビ、在庫リストのボディタイプクイックナビが共通で
@@ -467,12 +485,17 @@
   .homeCard__photo { position: relative; aspect-ratio: 4 / 3; background: var(--background); overflow: hidden; border: 3px solid var(--primary); }
   .homeCard__photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .homeCard__photo--clickable { cursor: pointer; }
+  /* 不具合修正: 以前は半透明の--success-bg（緑系の薄い塗り）を背景にしていたため、
+     写真プレースホルダー（本番では車両写真）が緑系の色だとバッジの文字がほぼ
+     読めなくなっていた。背景色に写真の色を持ち込まない不透明な背景＋影に
+     変更し、どんな写真の上でも視認できるようにする。 */
   .homeCard__stock {
     position: absolute; top: 6px; right: 6px;
-    background: var(--success-bg); color: var(--success);
-    font-size: 10px; padding: 3px 8px;
+    background: var(--surface); color: var(--success);
+    font-size: 10px; font-weight: 700; padding: 3px 8px;
+    box-shadow: var(--shadow);
   }
-  .homeCard__stock.badge--stock--zero { background: rgba(31, 41, 51, .55); color: var(--surface); }
+  .homeCard__stock.badge--stock--zero { background: rgba(31, 41, 51, .82); color: var(--surface); box-shadow: var(--shadow); }
   .homeCard__body { padding: 10px 12px; display: flex; flex-direction: column; gap: 7px; }
   .homeCard__headRow { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
   .homeCard__model { font-size: 13.5px; font-weight: 700; letter-spacing: -.01em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -485,7 +508,16 @@
   }
   .homeCard__gradeChip:hover { border-color: var(--primary); }
   .homeCard__gradeChip:disabled { opacity: .4; cursor: not-allowed; }
-  .homeCard__gradeName { font-size: 10.5px; font-weight: 700; color: var(--on-surface); }
+  /* 不具合修正: グレード名の文字数は車種ごとにまちまちで、特に長い名前が
+     3行以上に折り返すと、そのグレードチップだけが極端に縦長になり、
+     同じグリッド行の隣のカードとの間に大きな余白の差が生まれ、グリッド全体が
+     ガタついて見えていた（CSS Gridは同じ行の高さを最も高い項目に揃えるため）。
+     2行までに丸めることで、極端な差が出ないようにする。 */
+  .homeCard__gradeName {
+    font-size: 10.5px; font-weight: 700; color: var(--on-surface);
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
   .homeCard__gradeCount { font-size: 9.5px; color: var(--success); font-weight: 700; }
   .homeCard__gradeCount--zero { color: var(--on-surface-variant); }
 
@@ -592,15 +624,20 @@
       min-height: 0;
     }
     .view--list .filterSidebar { height: 100%; overflow-y: auto; }
-    .view--list .listBody__main { height: 100%; overflow-y: auto; }
+    /* 不具合修正: 「該当する受注がありません」等の空状態は、以前は単なる
+       固定paddingのブロックとして一覧の先頭に置かれていたため、一覧エリアの
+       高さ（画面いっぱい）に対して上に偏り、下に大きな空白だけが残っていた。
+       listBody__mainをflex縦並びにし、空状態（.emptyState）側にflex: 1 +
+       justify-content: centerを与えることで、一覧エリアの残り高さいっぱいに
+       広がった上でその中央に表示されるようにする（実データがある通常時は
+       .emptyStateがhiddenのままなので影響しない）。 */
+    .view--list .listBody__main { height: 100%; overflow-y: auto; display: flex; flex-direction: column; }
+    .view--list .listBody__main > .emptyState { flex: 1 0 auto; justify-content: center; min-height: 0; }
   }
 
   .filterCheck { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--on-surface); cursor: pointer; padding: 3px 0; }
   .filterCheck input[type="checkbox"] { width: 16px; height: 16px; margin: 0; accent-color: var(--primary); cursor: pointer; flex: none; }
   .filterCheck__cnt { margin-left: auto; font-size: 11.5px; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; }
-
-  .toolbar2 { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 24px; flex-wrap: wrap; }
-  .toolbar2__count { font-size: 13px; font-weight: 700; color: var(--on-surface-variant); }
 
   /* ===== 在庫リストのクイック行（ボディタイプのクイックナビ＋該当台数・並び替え） =====
      ホーム画面と同じ.homeTypeNav__itemのクイックナビを流用し、以前の状態タブ
@@ -1356,9 +1393,18 @@
   .themePreset.is-selected .themePreset__swatch {
     box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .15), 0 0 0 3px var(--surface), 0 0 0 5px var(--swatch);
   }
-  .themePreset__name { text-align: center; line-height: 1.3; }
+  /* 不具合修正: 名称（「ブリリアントブルー」等）は文字数が項目ごとに異なり、
+     幅が狭いスマホでは単語の途中で強制的に2行に折り返される項目とされない
+     項目が混在し、グリッドの高さが項目ごとにガタついて見えていた。
+     折り返し方自体は変えず、2行ぶんのmin-heightを確保して縦位置を中央に
+     揃えることで、1行で収まる項目も2行に折り返す項目も見た目の高さを揃える。 */
+  .themePreset__name {
+    text-align: center; line-height: 1.3; min-height: 2.6em;
+    display: flex; align-items: center; justify-content: center;
+  }
   @media (max-width: 480px) {
     .themePresetGrid { grid-template-columns: repeat(3, 1fr); }
+    .themePreset__name { font-size: 11px; }
   }
 
   /* ===== ロゴ設定 ===== */
@@ -1783,7 +1829,6 @@
     .purchaseOrderList { grid-template-columns: 1fr; }
 
     .commandbar { padding: 12px 16px; }
-    .toolbar2 { padding: 10px 16px; }
     .quickRow { flex-wrap: wrap; row-gap: 8px; }
 
     /* 番号付き一覧行も、タブレット・スマホ幅では列を維持したまま折り返す

@@ -155,6 +155,30 @@
     el.addEventListener(evt, handler);
   }
 
+  /**
+   * 横スクロール可能な行（画面切替タブ、型／ボディタイプのクイックナビ）に、
+   * 「まだ左右に続きがある」ことを示す縁のフェードを付ける。
+   * 不具合修正: 以前はフェードが一切なく、端で文字が中途半端に切れて
+   * 終わっているように見えるだけだったため、特にスマホでマイページ・設定
+   * タブや一部のボディタイプが横スクロールで隠れていることに気づきにくかった。
+   * 背景色に色を重ねるのではなくCSSのmask-imageで実現しているため、テーマ
+   * （表示設定）で背景色が変わっても常に正しく見える。要素自身に
+   * --fade-l／--fade-rのCSS変数を持たせ、実際にその方向へスクロールできる
+   * ときだけフェードさせる。
+   */
+  function initScrollFade_(id) {
+    var el = $(id);
+    if (!el) return;
+    function sync() {
+      var max = el.scrollWidth - el.clientWidth;
+      el.style.setProperty('--fade-l', el.scrollLeft > 2 ? '24px' : '0px');
+      el.style.setProperty('--fade-r', el.scrollLeft < max - 2 ? '24px' : '0px');
+    }
+    el.addEventListener('scroll', sync, { passive: true });
+    window.addEventListener('resize', sync);
+    sync();
+  }
+
   function showToast(message, isError) {
     var toast = $('toast');
     toast.textContent = message;
@@ -1415,12 +1439,9 @@
     var all = state.inventoryItems || [];
     var filtered = sortInventoryItems_(applyInventoryFilters_(all));
     $('inventoryEmpty').classList.toggle('hidden', filtered.length > 0);
-    $('inventoryTotalCount').textContent = all.length
-      ? '該当 ' + filtered.length + '台 ／ 全' + all.length + '台'
-      : '';
-    // 絞り込みサイドバー（条件検索）見出しの右にも該当台数を表示する
-    // （現場からの要望）。
-    $('inventoryFilterCount').textContent = all.length ? '該当 ' + filtered.length + '台' : '';
+    // 該当台数は絞り込みサイドバー（条件検索）見出しの右にのみ表示する
+    // （不具合修正: 以前はクイックナビ行の右側にも同じ情報を重複表示していた）。
+    $('inventoryFilterCount').textContent = all.length ? '該当 ' + filtered.length + '台 ／ 全' + all.length + '台' : '';
     renderInventoryBodyTypeNav_();
     container.innerHTML = rowListHtml_(filtered, vehicleRowItemHtml_);
     syncInventoryFilterClearVisibility_();
@@ -3759,12 +3780,17 @@
 
   function init() {
     syncNavButtons_();
+    initScrollFade_('topbarTabs');
     reloadAll_().catch(function (err) { showToast(err.message, true); }).then(function () {
       // 起動時ローディング画面は初回の読み込み完了時のみフェードアウトする
       // （更新ボタンからの再読み込みは、ボタン自体の回転アイコンで十分なため
       // 全画面オーバーレイは出さない）。
       var loading = $('appLoading');
       if (loading) loading.classList.add('is-hidden');
+      // 型／ボディタイプのクイックナビはreloadAll_内のrender*_で中身が
+      // 入った後でないと横幅（scrollWidth）が確定しないため、ここで初期化する。
+      initScrollFade_('homeTypeNav');
+      initScrollFade_('inventoryBodyTypeNav');
     });
   }
 
