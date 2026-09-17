@@ -197,21 +197,18 @@
       </div>
     </main>
 
-    <!-- 在庫リスト: ヘッダーの下に「検索＋ボディタイプ＋並び替え」のコマンドバーを
+    <!-- 在庫リスト: ヘッダーの下に「ボディタイプ＋並び替え」のコマンドバーを
          固定表示し、その下は左の絞り込みサイドバー（条件検索）＋番号付き一覧の
          2カラム。絞り込み項目自体・キーワード検索の方式（サーバー側searchInventory＋
          クライアント側絞り込みの併用）は変更していない。区分・掲載状況・年式・
          価格帯・走行距離・カラーはサイドバーで、ボディタイプはホームと同じ
          クイックナビ（.commandbar内）で絞り込む（現場からの要望でモデル・状態の
-         絞り込みは廃止し、シンプルにした）。 -->
+         絞り込みは廃止し、シンプルにした）。不具合修正: 自由検索欄は以前
+         コマンドバー側にあったが、受注リスト・業販受注リストの絞り込みサイドバーと
+         同じく「条件検索」見出しのすぐ下に統一した（現場からの要望「自由検索は
+         条件検索の下に置いてほしい」）。 -->
     <main class="view view--list" id="view-inventory">
       <div class="commandbar">
-        <div class="searchrow">
-          <div class="searchbox">
-            <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
-            <input type="search" id="inventoryKeyword" placeholder="モデル・ＯＣＮ・コミッション・車台番号下４桁・登録番号で検索">
-          </div>
-        </div>
         <!-- ボディタイプのクイックナビ（ホームの型クイックナビと同じ単一選択、
              .homeTypeNav__itemを流用。renderInventoryBodyTypeNav_、
              JavaScript.html参照）＋その右端に並び替え。該当台数は左サイドの
@@ -234,6 +231,12 @@
             <p class="filterSidebar__title">条件検索</p>
             <span class="filterSidebar__count" id="inventoryFilterCount"></span>
             <button type="button" class="filterSidebar__clearBtn hidden" id="btnInventoryFilterClear">クリア</button>
+          </div>
+          <div class="filterSidebar__field">
+            <div class="searchbox">
+              <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
+              <input type="search" id="inventoryKeyword" placeholder="モデル・ＯＣＮ・コミッション・車台番号下４桁・登録番号で検索">
+            </div>
           </div>
           <div class="filterSidebar__field">
             <label class="filterSidebar__groupLabel">カラー</label>
@@ -797,9 +800,13 @@
 
   <!-- 在庫リストで「詳細を見る」タップ・表示形式「表」で行（カード）をタップした際、
        車両情報を画面中央にカードタイプ（既存の.cardと同じ見た目）で表示するモーダル。
-       カード自体は伸ばさず、他のカードとサイズを揃えたままにする。 -->
+       スマホ幅では他のモーダルと同じ縦長パネルのまま、PC・タブレット幅
+       （modal__panel--vehicle、Stylesheet.html内の@media (min-width: 901px)参照）
+       では、画面全体よりひと回り小さい横長の長方形にし、車両情報を概要・詳細スペック・
+       Hold状況の3カラムでまとめて見渡せるようにする（現場からの要望「車両情報の
+       ポップアップは縦長ではなく横長で、情報を見やすく並べてほしい」）。 -->
   <div class="modal hidden" id="inventoryDetailModal">
-    <div class="modal__panel">
+    <div class="modal__panel modal__panel--vehicle">
       <div class="modal__header">
         <h2>車両情報</h2>
         <button class="btn--icon" data-close-modal>&times;</button>
@@ -829,22 +836,6 @@
         <button class="btn--icon" data-close-modal>&times;</button>
       </div>
       <div class="modal__body" id="wholesaleOrderDetailBody"></div>
-    </div>
-  </div>
-
-  <!-- 在庫リストの詳細ポップアップ（inventoryDetailModal）にある「備考を見る」
-       「オプションを見る」ボタンで開く、長文項目を全文表示するための共通ポップアップ
-       （inventoryDetailModalと同じパターン）。タイトル・本文はopenTextInfoModal_で
-       都度差し替える。どちらも表示のみで、アプリ側からの編集はできない。 -->
-  <div class="modal hidden" id="textInfoModal">
-    <div class="modal__panel">
-      <div class="modal__header">
-        <h2 id="textInfoModalTitle"></h2>
-        <button class="btn--icon" data-close-modal>&times;</button>
-      </div>
-      <div class="modal__body">
-        <p class="textInfoModal__body" id="textInfoModalBody"></p>
-      </div>
     </div>
   </div>
 

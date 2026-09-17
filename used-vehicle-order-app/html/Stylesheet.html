@@ -1031,6 +1031,14 @@
      isVehicleListed_、JavaScript.html参照）。border-left-colorによる状態色と
      衝突しないよう、変えるのはbackgroundのみにする。 */
   .card.is-listed { background: var(--listed-bg); }
+  /* ===== 詳細モーダルの3カラム（概要／詳細スペック／Hold状況・操作） =====
+     vehicleDetailHtml_（JavaScript.html）が生成する3つのcard__detailCol。
+     スマホ・タブレット幅（900px以下）では.card自体がdisplay: flex;
+     flex-direction: columnのままのため、この3つのdivは単純に上から順に
+     縦積みされるだけ（以前の縦長モーダルと同じ表示順）。PC・タブレット幅の
+     横長レイアウト（.modal__panel--vehicle、下の@media (min-width: 901px)参照）
+     でのみ、この3つがCSS Gridの列として横に並ぶ。 */
+  .card__detailCol { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
   /* 【上枠】車種・ＯＣＮの行と、ステータス（＋掲載）バッジの行を常に別々の
      固定行にする。以前は1つのflex-wrapコンテナに全部まとめていたため、バッジの
      個数やモデル名・ＯＣＮの文字数の組み合わせによって折り返し方が変わり、
@@ -1043,8 +1051,12 @@
      内容ぶんの幅までしか縮まず、隣（比較ピン）を押し出したり右側でオーバーフロー
      したりするため、min-width: 0で縮小を許可し、ellipsisが実際に働くようにする。 */
   .card__topRow > div:first-child { min-width: 0; }
-  .card__model, .card__commission { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .card__model { font-size: 21px; font-weight: 500; letter-spacing: -.01em; line-height: 1.25; }
+  .card__commission { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* 不具合修正: 以前はcard__commissionと同じくnowrap＋ellipsisで、長いモデル名が
+     途中で見切れてもホバー等で全文を確認する手段が無かった（title属性を持たない）。
+     3カラムの横長レイアウト（.modal__panel--vehicle）でカラム幅が狭くなり、より
+     見切れやすくなったのを機に、折り返して全文を表示する方式に変更した。 */
+  .card__model { font-size: 21px; font-weight: 500; letter-spacing: -.01em; line-height: 1.25; white-space: normal; overflow-wrap: break-word; }
   .card__commission {
     font-size: 12.5px;
     font-weight: 500;
@@ -1111,9 +1123,6 @@
      要望「在庫リストポップアップ表示時のみカラーを全て表示してほしい」。一覧の
      カード表示は他の項目と高さを揃えるため、これまでどおり省略記号のまま）。 */
   .card__metaGrid dd.is-fullText { white-space: normal; overflow: visible; text-overflow: clip; word-break: break-word; }
-  /* オプション欄（vehicleSpecFieldsHtml_）専用。値の代わりにボタンを置くため、
-     テキスト用の省略記号設定（white-space: nowrap等）を解除する。 */
-  .card__metaGrid dd.dd--action { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1; }
 
   /* Hold状況エリアは高さ固定・内部スクロール。カード自体の高さは在庫あり／Hold中の
      どちらの状態でも常に一定に保たれる。想定を超える長さの内容が入った場合の
@@ -1228,10 +1237,38 @@
   .holdTimer--warning .holdTimer__text { color: var(--warning); }
   .holdTimer--expired .holdTimer__text { color: var(--danger); }
 
-  /* 「備考を見る」ボタン専用の行。card__actions（margin-top: autoでカード下部へ
-     押し付ける）とは別物として扱う。詳細ポップアップ内でスペック情報とHold情報
-     の間に置くだけの、ごく普通の余白付き行でよいため。 */
-  .card__remarksRow { margin-top: 8px; }
+  /* ===== オプション・備考の全文表示ブロック（noteBlockHtml_、JavaScript.html参照） =====
+     不具合修正: 以前はどちらもボタン表示にし、押した先の別ポップアップ
+     （textInfoModal、廃止）で全文を確認する形だったが、詳細ポップアップ自体を
+     PC幅で横長・3カラムに広げ（.modal__panel--vehicle、下の
+     @media (min-width: 901px)参照）表示スペースに余裕ができたため、ボタン＋
+     別ポップアップをやめてこの場に直接表示する（現場からの要望）。見た目は
+     card__holdInfoと同じ「淡い背景＋左罫線」の情報ボックスに揃える。 */
+  .card__noteBlock {
+    background: var(--background);
+    border-radius: 10px;
+    border-left: 3px solid var(--outline);
+    padding: 10px 12px;
+  }
+  .card__noteBlock__label {
+    margin: 0 0 4px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--on-surface-variant);
+  }
+  /* 備考・オプションはスプレッドシートに直接入力される自由記述のため、
+     改行・連続スペースをそのまま見た目に反映する（white-space: pre-wrap）。
+     長文でも折り返す（word-break）。 */
+  .card__noteBlock__body {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--on-surface);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
 
   .card__actions { display: flex; gap: 8px; margin-top: auto; padding-top: 4px; flex-wrap: wrap; }
   /* 「受注確定」等、ボタン内の文言は横一列表示を維持したい
@@ -1752,6 +1789,36 @@
     flex: none;
   }
   .modal__body { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+
+  /* ===== 車両情報ポップアップ（#inventoryDetailModal）のPC・タブレット幅レイアウト =====
+     スマホ幅（900px以下）は他のモーダルと同じ縦長パネル（max-width: 460px）の
+     ままで、.card（display: flex; flex-direction: column）の中の3つの
+     card__detailColが単純に縦積みされる（以前の見た目のまま）。
+     PC・タブレット幅では、画面全体よりひと回り小さい横長の長方形にし、
+     3つのcard__detailColをCSS Gridの列として横に並べる（現場からの要望
+     「車両情報のポップアップは縦長ではなく横長で見やすく」）。各カラムは
+     必要な場合のみ内部スクロールし、ポップアップ全体（.modal__body）は
+     スクロールさせない（.card自体の高さをモーダルの高さいっぱいに固定する
+     ため）。 */
+  @media (min-width: 901px) {
+    .modal__panel--vehicle {
+      max-width: min(90vw, 1160px);
+      width: 100%;
+      height: min(82vh, 700px);
+    }
+    .modal__panel--vehicle .modal__body { overflow: hidden; }
+    .modal__panel--vehicle .card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, .85fr);
+      height: 100%;
+      overflow: hidden;
+    }
+    .modal__panel--vehicle .card__detailCol { overflow-y: auto; padding: 0 22px; }
+    .modal__panel--vehicle .card__detailCol--overview { padding-left: 0; border-right: 1px solid var(--outline); }
+    .modal__panel--vehicle .card__detailCol--spec { border-right: 1px solid var(--outline); }
+    .modal__panel--vehicle .card__detailCol--hold { padding-right: 0; }
+  }
+
   /* 予約（Hold/受注）入力モーダルは2列グリッドにして、デスクトップでは
      スクロールなしで全項目を入力できるようにする。 */
   .modal__grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 20px; }
@@ -1772,11 +1839,6 @@
   .modal__requiredNote { margin: 0 0 4px; font-size: 12px; color: var(--on-surface-variant); }
   .req { color: var(--danger); margin-left: 2px; }
   .modal__hint { margin: 10px 0 0; font-size: 12.5px; color: var(--on-surface-variant); line-height: 1.6; }
-  /* 備考・オプションの全文表示ポップアップ（textInfoModal）の本文。備考は
-     スプレッドシートに直接入力される自由記述のため、改行・連続スペースを
-     そのまま見た目に反映する（white-space: pre-wrap）。長文でも折り返す
-     （word-break）。 */
-  .textInfoModal__body { margin: 0; font-size: 13.5px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
 
   /* ===== Hold種別選択（管理者権限を持つ担当者が「Hold」タップ時のみ表示）=====
      通常のHold／業販HOLDの2択。業販HOLDは専用の

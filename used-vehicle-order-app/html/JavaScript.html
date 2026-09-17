@@ -1047,6 +1047,22 @@
     return '<div><dt>' + label + '</dt><dd class="is-fullText" title="' + escapeHtml(text) + '">' + escapeHtml(text) + '</dd></div>';
   }
 
+  /**
+   * オプション・備考のような自由記述の長文項目専用のブロック（在庫リストの
+   * 詳細モーダル・vehicleDetailHtml_専用）。不具合修正: 以前はこれらの項目を
+   * ボタン表示にし、押した先の別ポップアップ（textInfoModal、廃止）で全文を
+   * 確認する形だったが、詳細モーダル自体をPC幅で横長・3カラムに広げたことで
+   * 十分な表示スペースが確保できるようになったため、ボタン＋別ポップアップを
+   * やめてこの場で直接全文を表示する（現場からの要望「オプションや備考も
+   * ボタンではなく、その場で綺麗に見えるようにしてほしい」）。折り返して
+   * 全文表示する（.card__noteBlock__body、Stylesheet.html参照）。 */
+  function noteBlockHtml_(label, text, emptyMessage) {
+    return '<div class="card__noteBlock">' +
+      '<p class="card__noteBlock__label">' + escapeHtml(label) + '</p>' +
+      '<p class="card__noteBlock__body">' + escapeHtml(text || emptyMessage) + '</p>' +
+      '</div>';
+  }
+
   // ===== Hold種別（通常／業販HOLD）表示ヘルパー =====
   // 管理者権限を持つ担当者のみ登録できる業販HOLDは、通常のHoldとは
   // 見分けがつくよう、バッジ・カード左罫線・Hold詳細ブロックすべてに専用の特別色
@@ -1166,15 +1182,12 @@
   }
 
   function vehicleSpecFieldsHtml_(v) {
-    // オプションは複数の装備をまとめて自由記述するため長くなりがちで、他の項目と
-    // 同じ省略記号（ellipsis）表示だと全文を確認しづらい（現場からの要望）。
-    // 値をそのまま表示せず、ボタンを押した先の共通ポップアップ（textInfoModal、
-    // openOptionsModal_参照）で全文を確認できるようにする。
     // ＯＣＮ・年式・走行距離・登録番号は【上枠】【下枠】（vehicleTopHtml_・
     // vehicleQuickMetaHtml_）で常に表示済みのため、ここでは重複させない。
-    var optionRowHtml = '<div><dt>オプション</dt><dd class="dd--action">' +
-      '<button type="button" class="btn btn--small" data-options="' + escapeHtml(v.commission) + '">オプションを見る</button>' +
-      '</dd></div>';
+    // オプションは複数の装備をまとめて自由記述するため長くなりがちで、他の項目と
+    // 同じ省略記号（ellipsis）表示だと全文を確認しづらい（現場からの要望）。
+    // 以前はボタンを押した先の別ポップアップで全文を確認する形だったが、
+    // noteBlockHtml_（上記）に統一し、このグリッドの下にそのまま全文表示する。
     return '<dl class="card__metaGrid">' +
       metaRow_('ステア', v.steering) +
       metaRow_('型式', v.modelCode) +
@@ -1185,9 +1198,9 @@
       metaRow_('CCC入庫日', v.cccArrivalDate) +
       metaRow_('経過月', formatNumberUnit_(v.elapsedMonths, ' ヶ月')) +
       metaRow_('現展示拠点', v.currentDisplayLocation) +
-      optionRowHtml +
       metaRow_('現名義', v.currentOwnerName) +
-      '</dl>';
+      '</dl>' +
+      noteBlockHtml_('オプション', v.option, 'オプションの登録はありません。');
   }
 
   function vehicleActionsHtml_(v) {
@@ -1270,7 +1283,14 @@
    * 「詳細を見る」タップ・表示形式「表」の行タップで開く、画面中央のモーダル
    * （#inventoryDetailModal）用のフル版。車両スペック・Holdの詳細（リード番号等）
    * も省略せずすべて表示する（openInventoryDetailModal_参照）。
-   */
+   *
+   * PC・タブレット幅（modal__panel--vehicle、Stylesheet.html内の
+   * @media (min-width: 901px)参照）では、画面全体よりひと回り小さい横長の
+   * 長方形ポップアップの中で、内容を「概要」「詳細スペック」「Hold状況・操作」の
+   * 3カラムに分けて一度に見渡せるようにする（現場からの要望）。card__detailCol
+   * の3つのdivがそのままCSS Gridの列になる。スマホ幅（900px以下）では、この
+   * 3つのdivは単純に上から順に縦積みされるだけなので、以前の縦長モーダルと
+   * 同じ表示順のまま変わらない。 */
   function vehicleDetailHtml_(v) {
     var isHold = v.holdStatus === 'hold';
 
@@ -1281,45 +1301,20 @@
         '</div>';
 
     var cardTone = vehicleCardTone_(v);
-    // 「備考」はスプレッドシートに直接入力する自由記述欄のため、詳細ポップアップの
-    // 車両情報の中に直接表示せず、ボタンを押した先の別ポップアップ（textInfoModal）で
-    // 確認する形にする（内容が長い・整形されていない場合があり、そのまま並べると
-    // 他の項目が見づらくなるため。現場からの要望）。アプリからの書き込み機能はない
-    // （openRemarksModal_参照）。
     return '<div class="card ' + cardTone + '">' +
+      '<div class="card__detailCol card__detailCol--overview">' +
       vehicleTopHtml_(v) +
       vehicleQuickMetaHtml_(v, true) +
-      vehicleSpecFieldsHtml_(v) +
-      '<div class="card__remarksRow">' +
-      '<button type="button" class="btn btn--small" data-remarks="' + escapeHtml(v.commission) + '">備考を見る</button>' +
       '</div>' +
+      '<div class="card__detailCol card__detailCol--spec">' +
+      vehicleSpecFieldsHtml_(v) +
+      noteBlockHtml_('備考', v.remarks, '備考はありません。') +
+      '</div>' +
+      '<div class="card__detailCol card__detailCol--hold">' +
       holdInfoHtml +
       vehicleActionsHtml_(v) +
+      '</div>' +
       '</div>';
-  }
-
-  /**
-   * 「備考を見る」「オプションを見る」ボタンで開く、長文項目を全文表示するための
-   * 共通ポップアップ（#textInfoModal）。オプション・備考とも省略記号（ellipsis）や
-   * 折り返しでは読み切れないことがあるため、別ポップアップで全文を確認できるように
-   * する（現場からの要望）。どちらも表示のみで、アプリからの編集機能はない。
-   */
-  function openTextInfoModal_(title, text, emptyMessage) {
-    $('textInfoModalTitle').textContent = title;
-    $('textInfoModalBody').textContent = text || emptyMessage;
-    openModal($('textInfoModal'));
-  }
-
-  function openRemarksModal_(commission) {
-    var vehicle = findVehicleByCommission(commission);
-    if (!vehicle) return;
-    openTextInfoModal_('備考', vehicle.remarks, '備考はありません。');
-  }
-
-  function openOptionsModal_(commission) {
-    var vehicle = findVehicleByCommission(commission);
-    if (!vehicle) return;
-    openTextInfoModal_('オプション', vehicle.option, 'オプションの登録はありません。');
   }
 
   /** 一覧行タップ・チェブロンタップのどちらでも、車両情報すべてを画面中央の
@@ -1535,10 +1530,6 @@
     else if ('order' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.order))) { closeModal($('inventoryDetailModal')); openActionModal('order', commission); } }
     else if ('orderFromHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.orderFromHold))) { closeModal($('inventoryDetailModal')); openActionModal('orderFromHold', commission); } }
     else if ('cancelHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.cancelHold))) { closeModal($('inventoryDetailModal')); openCancelHoldModal(commission); } }
-    // 「備考を見る」「オプションを見る」は車両情報ポップアップの上に重ねて表示する
-    // だけなので、他のボタンと異なりinventoryDetailModal自体は閉じない。
-    else if ('remarks' in target.dataset) { openRemarksModal_(target.dataset.remarks); }
-    else if ('options' in target.dataset) { openOptionsModal_(target.dataset.options); }
   });
 
   on('inventoryKeyword', 'input', debounce(loadInventory, 250));
