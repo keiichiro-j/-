@@ -373,7 +373,7 @@ function normalizeModelBodyTypeRules_(list) {
     var keyword = String((entry && entry.keyword) || '').trim();
     var bodyType = String((entry && entry.bodyType) || '').trim();
     if (!keyword || MODEL_BODY_TYPE_OPTIONS.indexOf(bodyType) === -1) return;
-    var key = keyword.toLowerCase() + ' ' + bodyType;
+    var key = keyword.toLowerCase() + '\u0000' + bodyType;
     if (seen[key]) return;
     seen[key] = true;
     result.push({ keyword: keyword, bodyType: bodyType });

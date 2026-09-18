@@ -3656,7 +3656,7 @@
       .map(function (r) { return { keyword: String((r && r.keyword) || '').trim(), bodyType: String((r && r.bodyType) || '').trim() }; })
       .filter(function (r) { return r.keyword && bodyTypeOptions.indexOf(r.bodyType) !== -1; })
       .filter(function (r) {
-        var key = r.keyword.toLowerCase() + ' ' + r.bodyType;
+        var key = r.keyword.toLowerCase() + '\u0000' + r.bodyType;
         if (seenRules[key]) return false;
         seenRules[key] = true;
         return true;
