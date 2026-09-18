@@ -2223,11 +2223,21 @@
       '<span class="rowItem__model" title="' + escapeHtml(o.customer || '-') + '">' + escapeHtml(o.customer || '-') + '</span>' +
       '<span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span>' +
       '</div>' +
+      // 不具合修正: 以前は「モデル」もメタタイルの1つとして表示していたが、
+      // 車種名は他のタイルよりずっと長い文字列になりがちで、そのタイルだけが
+      // 行の大半の横幅を占め、残りのタイル（担当・登録月等）を圧迫したうえで
+      // 行の右側に大きな空白を残していた。見出し（顧客名）の下にモデル名だけの
+      // サブテキストとして独立させ（在庫リストのrowItem__colorSubと同じ
+      // 「見出し下の1行」パターンを流用）、メタタイル欄は登録番号・MP等の
+      // 短い項目だけにすることで、行内の余白を減らし情報量を増やす
+      // （現場からの要望「受注リスト内に空白が多いので表示する情報を増やして」）。
+      '<div class="rowItem__colorSub" title="' + escapeHtml(o.model) + '">' + escapeHtml(o.model) + '</div>' +
       '<div class="rowItem__meta">' +
-      rowMetaItemHtml_('モデル', o.model) +
       rowMetaItemHtml_('担当', o.staff) +
       rowMetaItemHtml_('登録月', o.registeredMonth) +
       rowMetaItemHtml_('走行距離', formatNumberUnit_(o.mileage, ' km')) +
+      rowMetaItemHtml_('登録番号', plateText_(o)) +
+      rowMetaItemHtml_('MP', o.mp) +
       '</div>' +
       '<div class="rowItem__sub">コミッション ' + escapeHtml(o.commission) +
       (o.leadNumber ? ' ・ リード番号 ' + escapeHtml(o.leadNumber) : '') + '</div>' +
@@ -2246,6 +2256,7 @@
       '<div><dt>登録番号</dt><dd>' + escapeHtml(plateText_(o) || '-') + '</dd></div>' +
       '<div><dt>走行距離</dt><dd>' + escapeHtml(formatNumberUnit_(o.mileage, ' km') || '-') + '</dd></div>' +
       '<div><dt>販売価格</dt><dd>' + escapeHtml(formatNumberUnit_(o.salePrice, ' 円') || '-') + '</dd></div>' +
+      '<div><dt>MP</dt><dd>' + escapeHtml(o.mp || '-') + '</dd></div>' +
       '<div><dt>オプション</dt><dd>' + escapeHtml(o.option || '-') + '</dd></div>' +
       '<div><dt>登録月</dt><dd>' + escapeHtml(o.registeredMonth || '-') + '</dd></div>' +
       '<div><dt>下取車の有無</dt><dd>' + escapeHtml(o.tradeIn || '-') + '</dd></div>' +
@@ -2360,11 +2371,16 @@
       '<span class="rowItem__model" title="' + escapeHtml(o.salesStore || '-') + '">' + escapeHtml(o.salesStore || '-') + '</span>' +
       '<span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span>' +
       '</div>' +
+      // 不具合修正: orderRowItemHtml_と同じ理由（モデル名は他のメタタイルより
+      // 長くなりがちで、行内の余白が目立つ原因になっていた）で、見出し下の
+      // サブテキストとして独立させる。
+      '<div class="rowItem__colorSub" title="' + escapeHtml(o.model) + '">' + escapeHtml(o.model) + '</div>' +
       '<div class="rowItem__meta">' +
-      rowMetaItemHtml_('モデル', o.model) +
       rowMetaItemHtml_('担当', o.staff) +
       rowMetaItemHtml_('登録月', o.registeredMonth) +
       rowMetaItemHtml_('走行距離', formatNumberUnit_(o.mileage, ' km')) +
+      rowMetaItemHtml_('登録番号', plateText_(o)) +
+      rowMetaItemHtml_('MP', o.mp) +
       '</div>' +
       '<div class="rowItem__sub">コミッション ' + escapeHtml(o.commission) + '</div>' +
       '</div>' +
@@ -2381,6 +2397,7 @@
       '<div><dt>登録番号</dt><dd>' + escapeHtml(plateText_(o) || '-') + '</dd></div>' +
       '<div><dt>走行距離</dt><dd>' + escapeHtml(formatNumberUnit_(o.mileage, ' km') || '-') + '</dd></div>' +
       '<div><dt>販売価格</dt><dd>' + escapeHtml(formatNumberUnit_(o.salePrice, ' 円') || '-') + '</dd></div>' +
+      '<div><dt>MP</dt><dd>' + escapeHtml(o.mp || '-') + '</dd></div>' +
       '<div><dt>オプション</dt><dd>' + escapeHtml(o.option || '-') + '</dd></div>' +
       '<div><dt>登録月</dt><dd>' + escapeHtml(o.registeredMonth || '-') + '</dd></div>' +
       '<div><dt>受注確定日時</dt><dd>' + formatDateTime(o.orderedAt) + '</dd></div>' +
