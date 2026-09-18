@@ -2112,6 +2112,23 @@
     .rowItem__price { order: 3; flex: 1 1 100%; margin-left: 48px; text-align: left; }
     .rowItem__actions { order: 3; flex: 0 1 auto; margin-left: 48px; }
     .rowItem__chev { display: none; }
+
+    /* 不具合修正: .rowItem__meta（年式・走行距離・登録番号・販売価格・MP等の
+       角丸タイル）は、PC幅では余裕をもって全項目が1行に収まる設計だが、
+       900px以下ではタイルの数によって末尾の項目（MP等）がoverflow: hiddenで
+       見えないまま切り詰められてしまっていた（現場からの要望「モバイルも
+       対応してほしい」）。車両ごとに行の高さが変わらないよう折り返しはさせない
+       方針は維持したまま、この幅だけ横スクロールを許可し、右端に薄いフェードを
+       常時つけて「まだ続きがある」ことが伝わるようにする（アプリ他所の
+       .scroller・.tabsと同じ「横スクロールできる行」の見せ方に揃えている）。 */
+    .rowItem__meta {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      mask-image: linear-gradient(to right, black calc(100% - 20px), transparent);
+      -webkit-mask-image: linear-gradient(to right, black calc(100% - 20px), transparent);
+    }
+    .rowItem__meta::-webkit-scrollbar { display: none; }
   }
 
   /* ===== スマートフォン ===== */
