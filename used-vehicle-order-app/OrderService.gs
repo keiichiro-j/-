@@ -40,6 +40,11 @@ function confirmOrder(commission, info) {
     HOLD_ORDER_INPUT_COLUMNS.forEach(function (c) { order[c.key] = info[c.key]; });
     order.staffEmail = info.staffEmail;
     VEHICLE_COLUMNS.forEach(function (col) { order[col.key] = vehicle[col.key]; });
+    // MPはVEHICLE_COLUMNS（在庫・受注・業販受注で共通の基本項目）には含まれず、
+    // INVENTORY_COLUMNS/ORDER_COLUMNSそれぞれの末尾に個別に追加した項目のため、
+    // 上のVEHICLE_COLUMNSのコピーでは引き継がれない。ここで明示的にコピーする
+    // （不具合修正: 受注確定してもMPが受注リストのスプレッドシートに反映されなかった）。
+    order.mp = vehicle.mp;
     // 受注キャンセル（cancelOrder）で元の位置へ車両を復元できるよう、在庫リスト上の
     // 行番号を控えておく（createInventoryVehicle_のpreferredRowNumber参照）。
     order.inventoryRowNumber = rowNumber;
@@ -108,6 +113,10 @@ function confirmWholesaleOrder(commission, info) {
       staffEmail: currentStaff.email
     };
     VEHICLE_COLUMNS.forEach(function (col) { order[col.key] = vehicle[col.key]; });
+    // MPはVEHICLE_COLUMNSには含まれず、INVENTORY_COLUMNS/WHOLESALE_ORDER_COLUMNS
+    // それぞれの末尾に個別に追加した項目のため、上のVEHICLE_COLUMNSのコピーでは
+    // 引き継がれない。ここで明示的にコピーする（不具合修正: confirmOrderと同じ問題）。
+    order.mp = vehicle.mp;
     // 業販受注キャンセル（cancelWholesaleOrder）で元の位置へ車両を復元できるよう、
     // 在庫リスト上の行番号を控えておく（createInventoryVehicle_のpreferredRowNumber参照）。
     order.inventoryRowNumber = rowNumber;
@@ -170,6 +179,10 @@ function cancelOrder(commission) {
 
     var vehicle = { holdStatus: HOLD_STATUS.AVAILABLE };
     VEHICLE_COLUMNS.forEach(function (col) { vehicle[col.key] = order[col.key]; });
+    // MPはVEHICLE_COLUMNSに含まれないため、上のコピーでは引き継がれない
+    // （confirmOrderのMP不具合修正と対になる箇所。受注キャンセルで在庫リストへ
+    // 戻す際もMPを引き継ぐ）。
+    vehicle.mp = order.mp;
     // 受注確定時に控えておいた元の行番号へ、できるだけ近い位置に車両を復元する
     // （createInventoryVehicle_参照。行の増減で位置がずれている・古い受注データで
     // この値が無い場合は、従来どおり末尾へ追加される）。
@@ -216,6 +229,9 @@ function cancelWholesaleOrder(commission) {
 
     var vehicle = { holdStatus: HOLD_STATUS.AVAILABLE };
     VEHICLE_COLUMNS.forEach(function (col) { vehicle[col.key] = order[col.key]; });
+    // MPはVEHICLE_COLUMNSに含まれないため、上のコピーでは引き継がれない
+    // （cancelOrderと同じ理由）。
+    vehicle.mp = order.mp;
     createInventoryVehicle_(vehicle, order.inventoryRowNumber);
     deleteWholesaleOrderRow_(orderSheet, rowNumber);
 
