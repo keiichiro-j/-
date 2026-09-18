@@ -816,9 +816,12 @@
   </div>
 
   <!-- 受注リストで「詳細を見る」タップした際、契約内容を画面中央に表示するモーダル
-       （inventoryDetailModalと同じパターン）。 -->
+       （inventoryDetailModalと同じパターン。現場からの要望「受注リストをタップした
+       際も在庫リストのようなポップアップ形式にしてほしい」を受け、modal__panel--vehicle
+       を適用してPC・タブレット幅では同じ横長3カラム表示にする。orderDetailHtml_・
+       JavaScript.html参照）。 -->
   <div class="modal hidden" id="orderDetailModal">
-    <div class="modal__panel">
+    <div class="modal__panel modal__panel--vehicle">
       <div class="modal__header">
         <h2>受注情報</h2>
         <button class="btn--icon" data-close-modal>&times;</button>
@@ -830,7 +833,7 @@
   <!-- 業販受注リストで「詳細を見る」タップした際、契約内容を画面中央に表示する
        モーダル（orderDetailModalと同じパターン）。 -->
   <div class="modal hidden" id="wholesaleOrderDetailModal">
-    <div class="modal__panel">
+    <div class="modal__panel modal__panel--vehicle">
       <div class="modal__header">
         <h2>業販受注情報</h2>
         <button class="btn--icon" data-close-modal>&times;</button>

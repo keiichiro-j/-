@@ -1033,9 +1033,10 @@
   // ばらつくため）。旧使用拠点・現展示拠点・オプション等、現場の入力次第で
   // 長くなり得る項目は省略記号で見えなくなった部分が確認できないままになって
   // しまうため、title属性でホバー時に全文を確認できるようにしておく。
-  function metaRow_(label, value) {
+  function metaRow_(label, value, extraClass) {
     var text = value || '-';
-    return '<div><dt>' + label + '</dt><dd title="' + escapeHtml(text) + '">' + escapeHtml(text) + '</dd></div>';
+    var cls = extraClass ? ' class="' + extraClass + '"' : '';
+    return '<div' + cls + '><dt>' + label + '</dt><dd title="' + escapeHtml(text) + '">' + escapeHtml(text) + '</dd></div>';
   }
 
   /**
@@ -1045,9 +1046,30 @@
    * 若干の丸みあり）で表示したい」。在庫リスト・受注リスト・業販受注リストの
    * 一覧行すべてで共通利用する）。
    */
-  function rowMetaItemHtml_(label, value) {
+  function rowMetaItemHtml_(label, value, extraClass) {
     var text = value || '-';
-    return '<div class="rowItem__metaItem"><dt>' + escapeHtml(label) + '</dt><dd>' + escapeHtml(text) + '</dd></div>';
+    var cls = 'rowItem__metaItem' + (extraClass ? ' ' + extraClass : '');
+    return '<div class="' + cls + '"><dt>' + escapeHtml(label) + '</dt><dd>' + escapeHtml(text) + '</dd></div>';
+  }
+
+  /**
+   * 車検満了日が近い車両は、更新手続きの見落としを防ぐため、タイル・枠の色を
+   * 変えて目立たせる（現場からの要望）。しきい値は業務上の目安として、満了日
+   * まで30日以内（既に満了済みを含む）を赤（is-danger）、90日以内を黄
+   * （is-warning）とし、それ以外は通常表示のまま（''）にする。しきい値を
+   * 変更したい場合はこの関数だけ調整すればよい。
+   */
+  function inspectionExpiryTone_(dateStr) {
+    if (!dateStr) return '';
+    var expiry = new Date(dateStr);
+    if (isNaN(expiry.getTime())) return '';
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    expiry.setHours(0, 0, 0, 0);
+    var daysLeft = Math.round((expiry.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+    if (daysLeft <= 30) return 'is-danger';
+    if (daysLeft <= 90) return 'is-warning';
+    return '';
   }
 
   // metaRow_と異なり省略記号にせず、値を折り返してでも全文表示する
@@ -1208,7 +1230,7 @@
       metaRow_('ステア', v.steering) +
       metaRow_('型式', v.modelCode) +
       metaRow_('車台番号下４桁', v.chassisNumberLast4) +
-      metaRow_('車検満了日', v.inspectionExpiryDate) +
+      metaRow_('車検満了日', v.inspectionExpiryDate, inspectionExpiryTone_(v.inspectionExpiryDate)) +
       metaRow_('ﾘｻｲｸﾙ料', formatNumberUnit_(v.recycleFee, ' 円')) +
       metaRow_('旧使用拠点', v.previousLocation) +
       metaRow_('CCC入庫日', v.cccArrivalDate) +
@@ -1282,7 +1304,9 @@
       escapeHtml((v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) + '</div>' +
       '<div class="rowItem__meta">' +
       rowMetaItemHtml_('年式', v.firstRegistrationDate) +
+      rowMetaItemHtml_('型式', v.modelCode) +
       rowMetaItemHtml_('走行距離', formatNumberUnit_(v.mileage, ' km')) +
+      rowMetaItemHtml_('車検満了日', v.inspectionExpiryDate, inspectionExpiryTone_(v.inspectionExpiryDate)) +
       rowMetaItemHtml_('登録番号', plateText_(v)) +
       rowMetaItemHtml_('販売価格', formatNumberUnit_(v.salePrice, ' 円')) +
       rowMetaItemHtml_('MP', v.mp) +
@@ -2247,43 +2271,56 @@
       '</div>';
   }
 
-  function orderDetailGridHtml_(o) {
-    return '<dl class="orderCard__grid">' +
-      '<div><dt>リード番号</dt><dd>' + escapeHtml(o.leadNumber || '-') + '</dd></div>' +
-      '<div><dt>コミッション</dt><dd>' + escapeHtml(o.commission) + '</dd></div>' +
-      '<div><dt>区分</dt><dd>' + escapeHtml(o.category || '-') + '</dd></div>' +
-      '<div><dt>車台番号下４桁</dt><dd>' + escapeHtml(o.chassisNumberLast4 || '-') + '</dd></div>' +
-      '<div><dt>登録番号</dt><dd>' + escapeHtml(plateText_(o) || '-') + '</dd></div>' +
-      '<div><dt>走行距離</dt><dd>' + escapeHtml(formatNumberUnit_(o.mileage, ' km') || '-') + '</dd></div>' +
-      '<div><dt>販売価格</dt><dd>' + escapeHtml(formatNumberUnit_(o.salePrice, ' 円') || '-') + '</dd></div>' +
-      '<div><dt>MP</dt><dd>' + escapeHtml(o.mp || '-') + '</dd></div>' +
-      '<div><dt>オプション</dt><dd>' + escapeHtml(o.option || '-') + '</dd></div>' +
-      '<div><dt>登録月</dt><dd>' + escapeHtml(o.registeredMonth || '-') + '</dd></div>' +
-      '<div><dt>下取車の有無</dt><dd>' + escapeHtml(o.tradeIn || '-') + '</dd></div>' +
-      '<div><dt>OSS登録の可否</dt><dd>' + escapeHtml(o.oss || '-') + '</dd></div>' +
-      '<div><dt>保険加入の有無</dt><dd>' + escapeHtml(o.insurance || '-') + '</dd></div>' +
-      '<div><dt>支払方法</dt><dd>' + escapeHtml(o.paymentMethod || '-') + '</dd></div>' +
-      '<div><dt>受注確定日時</dt><dd>' + formatDateTime(o.orderedAt) + '</dd></div>' +
-      '</dl>';
-  }
-
-  // 「受注キャンセル」は、誤って受注確定してしまった場合等に受注を取り消し、
-  // 在庫リストへ戻す管理者限定の訂正機能。カード・行の一覧には出さず、詳細モーダルの
-  // 中にのみ表示する（頻繁に使う操作ではないため、一覧の見た目を崩さないようにする）。
+  /**
+   * 受注情報の詳細ポップアップ。在庫リストの車両詳細モーダル（vehicleDetailHtml_）と
+   * 同じ「概要／詳細スペック／受注状況」の3カラムレイアウトに統一する（現場からの
+   * 要望「受注リストをタップした際も在庫リストのようなポップアップ形式にしてほしい」。
+   * modal__panel--vehicleをorderDetailModalにも適用することでPC・タブレット幅の
+   * 横長3カラム表示になる。Index.html参照）。「受注キャンセル」は、誤って受注確定
+   * してしまった場合等に受注を取り消し、在庫リストへ戻す管理者限定の訂正機能。
+   */
   function orderDetailHtml_(o) {
-    return '<div class="orderCard">' +
-      '<div class="orderCard__top">' +
-      '<div><div class="orderCard__model">' + escapeHtml(o.customer || '-') + '</div>' +
-      '<div class="orderCard__staff">担当者: ' + escapeHtml(o.staff || '-') + '</div>' +
-      '<div class="orderCard__vehicle">' + escapeHtml(o.model) + '</div></div>' +
-      '<div class="card__badges">' +
-      '<span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span>' +
+    return '<div class="card">' +
+      '<div class="card__detailCol card__detailCol--overview">' +
+      '<div class="card__top">' +
+      '<div class="card__topRow">' +
+      '<div><div class="card__model">' + escapeHtml(o.customer || '-') + '</div>' +
+      '<div class="card__commission">担当者 ' + escapeHtml(o.staff || '-') + '</div></div>' +
       '</div>' +
+      '<div class="card__badges"><span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span></div>' +
       '</div>' +
-      orderDetailGridHtml_(o) +
+      '<dl class="card__metaGrid card__metaGrid--quick">' +
+      metaRow_('モデル', o.model) +
+      metaRow_('コミッション', o.commission) +
+      metaRow_('登録番号', plateText_(o)) +
+      metaRow_('走行距離', formatNumberUnit_(o.mileage, ' km')) +
+      metaRow_('販売価格', formatNumberUnit_(o.salePrice, ' 円')) +
+      metaRow_('MP', o.mp) +
+      '</dl>' +
+      '</div>' +
+      '<div class="card__detailCol card__detailCol--spec">' +
+      '<dl class="card__metaGrid">' +
+      metaRow_('区分', o.category) +
+      metaRow_('型式', o.modelCode) +
+      metaRow_('車台番号下４桁', o.chassisNumberLast4) +
+      metaRow_('車検満了日', o.inspectionExpiryDate, inspectionExpiryTone_(o.inspectionExpiryDate)) +
+      '</dl>' +
+      noteBlockHtml_('オプション', o.option, 'オプションの登録はありません。') +
+      '</div>' +
+      '<div class="card__detailCol card__detailCol--hold">' +
+      '<dl class="card__metaGrid">' +
+      metaRow_('リード番号', o.leadNumber) +
+      metaRow_('登録月', o.registeredMonth) +
+      metaRow_('下取車の有無', o.tradeIn) +
+      metaRow_('OSS登録の可否', o.oss) +
+      metaRow_('保険加入の有無', o.insurance) +
+      metaRow_('支払方法', o.paymentMethod) +
+      metaRow_('受注確定日時', formatDateTime(o.orderedAt)) +
+      '</dl>' +
       (isSystemAdmin_()
         ? '<div class="card__actions"><button type="button" class="btn btn--danger" data-order-cancel="' + escapeHtml(o.commission) + '">受注キャンセル</button></div>'
         : '') +
+      '</div>' +
       '</div>';
   }
 
@@ -2389,37 +2426,50 @@
       '</div>';
   }
 
-  function wholesaleOrderDetailGridHtml_(o) {
-    return '<dl class="orderCard__grid">' +
-      '<div><dt>コミッション</dt><dd>' + escapeHtml(o.commission) + '</dd></div>' +
-      '<div><dt>区分</dt><dd>' + escapeHtml(o.category || '-') + '</dd></div>' +
-      '<div><dt>車台番号下４桁</dt><dd>' + escapeHtml(o.chassisNumberLast4 || '-') + '</dd></div>' +
-      '<div><dt>登録番号</dt><dd>' + escapeHtml(plateText_(o) || '-') + '</dd></div>' +
-      '<div><dt>走行距離</dt><dd>' + escapeHtml(formatNumberUnit_(o.mileage, ' km') || '-') + '</dd></div>' +
-      '<div><dt>販売価格</dt><dd>' + escapeHtml(formatNumberUnit_(o.salePrice, ' 円') || '-') + '</dd></div>' +
-      '<div><dt>MP</dt><dd>' + escapeHtml(o.mp || '-') + '</dd></div>' +
-      '<div><dt>オプション</dt><dd>' + escapeHtml(o.option || '-') + '</dd></div>' +
-      '<div><dt>登録月</dt><dd>' + escapeHtml(o.registeredMonth || '-') + '</dd></div>' +
-      '<div><dt>受注確定日時</dt><dd>' + formatDateTime(o.orderedAt) + '</dd></div>' +
-      '</dl>';
-  }
-
-  // 「業販受注キャンセル」は、orderDetailHtml_の受注キャンセルと同じ位置づけの
-  // 管理者限定の訂正機能。カード・行の一覧には出さず、詳細モーダルの中にのみ表示する。
+  /**
+   * 業販受注情報の詳細ポップアップ。orderDetailHtml_と同じ「概要／詳細スペック／
+   * 受注状況」の3カラムレイアウトに統一する（wholesaleOrderDetailModalにも
+   * modal__panel--vehicleを適用。Index.html参照）。業販受注はリード番号・
+   * 下取車の有無・保険加入の有無・支払方法を持たないため、受注状況カラムは
+   * 登録月・受注確定日時のみになる。
+   */
   function wholesaleOrderDetailHtml_(o) {
-    return '<div class="orderCard">' +
-      '<div class="orderCard__top">' +
-      '<div><div class="orderCard__model">' + escapeHtml(o.salesStore || '-') + '</div>' +
-      '<div class="orderCard__staff">担当者: ' + escapeHtml(o.staff || '-') + '</div>' +
-      '<div class="orderCard__vehicle">' + escapeHtml(o.model) + '</div></div>' +
-      '<div class="card__badges">' +
-      '<span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span>' +
+    return '<div class="card">' +
+      '<div class="card__detailCol card__detailCol--overview">' +
+      '<div class="card__top">' +
+      '<div class="card__topRow">' +
+      '<div><div class="card__model">' + escapeHtml(o.salesStore || '-') + '</div>' +
+      '<div class="card__commission">担当者 ' + escapeHtml(o.staff || '-') + '</div></div>' +
       '</div>' +
+      '<div class="card__badges"><span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span></div>' +
       '</div>' +
-      wholesaleOrderDetailGridHtml_(o) +
+      '<dl class="card__metaGrid card__metaGrid--quick">' +
+      metaRow_('モデル', o.model) +
+      metaRow_('コミッション', o.commission) +
+      metaRow_('登録番号', plateText_(o)) +
+      metaRow_('走行距離', formatNumberUnit_(o.mileage, ' km')) +
+      metaRow_('販売価格', formatNumberUnit_(o.salePrice, ' 円')) +
+      metaRow_('MP', o.mp) +
+      '</dl>' +
+      '</div>' +
+      '<div class="card__detailCol card__detailCol--spec">' +
+      '<dl class="card__metaGrid">' +
+      metaRow_('区分', o.category) +
+      metaRow_('型式', o.modelCode) +
+      metaRow_('車台番号下４桁', o.chassisNumberLast4) +
+      metaRow_('車検満了日', o.inspectionExpiryDate, inspectionExpiryTone_(o.inspectionExpiryDate)) +
+      '</dl>' +
+      noteBlockHtml_('オプション', o.option, 'オプションの登録はありません。') +
+      '</div>' +
+      '<div class="card__detailCol card__detailCol--hold">' +
+      '<dl class="card__metaGrid">' +
+      metaRow_('登録月', o.registeredMonth) +
+      metaRow_('受注確定日時', formatDateTime(o.orderedAt)) +
+      '</dl>' +
       (isSystemAdmin_()
         ? '<div class="card__actions"><button type="button" class="btn btn--danger" data-wholesale-order-cancel="' + escapeHtml(o.commission) + '">業販受注キャンセル</button></div>'
         : '') +
+      '</div>' +
       '</div>';
   }
 
