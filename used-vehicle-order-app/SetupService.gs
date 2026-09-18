@@ -384,6 +384,55 @@ function finishDiagnosis_(lines) {
 }
 
 /**
+ * 不具合修正: createHoldRow_・appendOrder_・appendWholesaleOrder_・
+ * appendAuditLog_・createInventoryVehicle_は以前、書き込み先の行を
+ * sheet.getLastRow() + 1 で決めていた。getLastRow()は値だけでなく
+ * 「書式（背景色等）が設定されているだけのセル」も内容ありとみなすことがあり、
+ * applySheetDesign_がシート新規作成時に1000行分の縞模様（バンディング）を
+ * あらかじめ適用するため、実データが1件も無い段階でgetLastRow()が1000前後を
+ * 返してしまうことがあった。その結果、この不具合が直る前に追加されたデータは、
+ * ヘッダー行のすぐ下ではなく画面のはるか下（1000行目付近）に書き込まれており、
+ * シートを開いても見つからず「反映されない」ように見えていた
+ * （nextAppendRow_参照。この関数自体は新規追記の書き込み先だけを直すもので、
+ * 既に的外れな位置へ書き込まれてしまった過去のデータは動かさない）。
+ * この一回限りのメンテナンス関数は、対象シートごとにヘッダー直後（2行目）から
+ * 実データ（キー列に値がある行）までの間にある空行（＝書式だけの幽霊行）を
+ * まとめて削除し、既存データを画面上部の見える位置まで詰め直す。データの内容・
+ * 順序自体は変更しない。空行が無い（詰まっている）シートは何もしない
+ * （何度実行しても安全）。
+ */
+function compactMisplacedDataRows_() {
+  var targets = [
+    { name: SHEET_NAMES.INVENTORY, sheet: getInventorySheet_(), keyCol1: inventoryColIndex1('ocn') },
+    { name: SHEET_NAMES.HOLDS, sheet: getHoldsSheet_(), keyCol1: holdColIndex1('commission') },
+    { name: SHEET_NAMES.ORDERS, sheet: getOrderSheet_(), keyCol1: orderColIndex1('commission') },
+    { name: SHEET_NAMES.WHOLESALE_ORDERS, sheet: getWholesaleOrderSheet_(), keyCol1: wholesaleOrderColIndex1('commission') },
+    { name: SHEET_NAMES.AUDIT_LOG, sheet: getAuditLogSheet_(), keyCol1: auditLogColIndex1('commission') }
+  ];
+  var fixed = [];
+  var clean = [];
+  targets.forEach(function (t) {
+    var maxRows = t.sheet.getMaxRows();
+    if (maxRows < 2) { clean.push(t.name); return; }
+    var keyValues = t.sheet.getRange(2, t.keyCol1, maxRows - 1, 1).getValues();
+    var firstDataOffset = -1;
+    for (var i = 0; i < keyValues.length; i++) {
+      if (keyValues[i][0] !== '' && keyValues[i][0] !== null) { firstDataOffset = i; break; }
+    }
+    // firstDataOffsetが-1（実データ無し）でもfirstDataOffsetが0（詰まっている）
+    // でも、削除すべき空行は無い。
+    if (firstDataOffset <= 0) { clean.push(t.name); return; }
+    t.sheet.deleteRows(2, firstDataOffset);
+    fixed.push(t.name + '（' + firstDataOffset + '行）');
+  });
+
+  var message = (fixed.length ? fixed.join('・') + 'の空行を削除し、データを詰め直しました。' : '') +
+    (clean.length ? (fixed.length ? ' ' : '') + clean.join('・') + 'は空行がありませんでした。' : '');
+  Logger.log(message);
+  return message;
+}
+
+/**
  * コンテナバインドのスプレッドシートを開いたときに、セットアップ用のメニューを追加する
  * （単純トリガー）。スタンドアロン運用の場合は動作しないため、GASエディタから
  * setupSpreadsheet_() を直接実行すればよい。
@@ -399,5 +448,6 @@ function onOpen() {
     .addItem('在庫リストに「備考」列を追加', 'addRemarksColumnToInventory_')
     .addItem('在庫・受注・業販受注リストに「MP」列を追加', 'addMpColumnToVehicleSheets_')
     .addItem('「掲載」列を「カーセンサー」「グーネット」の2列に分割', 'migrateListedColumnToCheckboxes_')
+    .addItem('各リストの空行を削除し、データを画面上部に詰め直す', 'compactMisplacedDataRows_')
     .addToUi();
 }

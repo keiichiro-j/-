@@ -234,6 +234,29 @@ function findRowByKey_(sheet, columns, keyField, keyValue) {
   return null;
 }
 
+/**
+ * 新しい行を書き込むべき実シート行番号を、キー列の実際の値から求める。
+ * 不具合修正: createHoldRow_・appendOrder_・appendWholesaleOrder_・
+ * appendAuditLog_は以前 sheet.getLastRow() + 1 を書き込み先として使っていたが、
+ * getLastRow()は値だけでなく「書式（背景色等）が設定されているだけのセル」も
+ * 内容ありとみなすことがある。applySheetDesign_はシート新規作成時に1000行分の
+ * 縞模様（バンディング）をあらかじめ適用するため、実データが1件も無い段階で
+ * getLastRow()が1000前後を返してしまい、以降の追記がすべて画面のはるか下
+ * （1000行目以降）に書き込まれてしまうことがあった。ユーザーがシートを開いても
+ * 新しい行が見当たらず「受注リストに反映されない」ように見える不具合の原因
+ * だったため、書式に惑わされず、キー列（コミッション等）に実際の値が入っている
+ * 最終行を直接調べて、その次の行を返す。
+ */
+function nextAppendRow_(sheet, keyColIndex1) {
+  var maxRows = sheet.getMaxRows();
+  if (maxRows < 2) return 2;
+  var keyValues = sheet.getRange(2, keyColIndex1, maxRows - 1, 1).getValues();
+  for (var i = keyValues.length - 1; i >= 0; i--) {
+    if (keyValues[i][0] !== '' && keyValues[i][0] !== null) return i + 3; // i+2が最終データ行、その次
+  }
+  return 2;
+}
+
 // ===== 在庫リスト =====
 
 function listInventory() {
@@ -281,7 +304,10 @@ function createInventoryVehicle_(vehicle, preferredRowNumber) {
     sheet.insertRowBefore(preferredRowNumber);
     newRow = preferredRowNumber;
   } else {
-    newRow = lastRow + 1;
+    // 不具合修正: 以前は lastRow + 1（getLastRow()由来）をそのまま使っており、
+    // nextAppendRow_と同じ理由（書式だけの行に惑わされる）で、末尾追加のはずが
+    // 画面のはるか下に書き込まれることがあった。
+    newRow = nextAppendRow_(sheet, inventoryColIndex1('ocn'));
   }
   // appendOrder_・createHoldRow_と同様、appendRowだけに頼ると数字のみのＯＣＮ・
   // コミッションの先頭0が消えることがあるため、書き込み直前に対象セルの書式を
@@ -361,7 +387,7 @@ function findHoldRowNumber_(sheet, commission, rank) {
 
 function createHoldRow_(holdRecord) {
   var sheet = getHoldsSheet_();
-  var newRow = sheet.getLastRow() + 1;
+  var newRow = nextAppendRow_(sheet, holdColIndex1('commission'));
   // appendRow経由の書き込みは、シート作成時に設定した「書式なしテキスト」が
   // 効かず数字のみのコミッション（例: 0583911111）の先頭0が消えてしまうことが
   // あるため、書き込み先の行を明示的に確保して直前に書式を再設定する
@@ -411,7 +437,7 @@ function listOrders() {
 
 function appendOrder_(order) {
   var sheet = getOrderSheet_();
-  var newRow = sheet.getLastRow() + 1;
+  var newRow = nextAppendRow_(sheet, orderColIndex1('commission'));
   // createHoldRow_と同様、appendRowだけに頼ると数字のみのコミッションの先頭0が
   // 消えることがあるため、書き込み直前に対象セルの書式を明示的に設定する。
   sheet.getRange(newRow, orderColIndex1('commission'), 1, 1).setNumberFormat('@');
@@ -435,7 +461,7 @@ function listWholesaleOrders() {
 
 function appendWholesaleOrder_(order) {
   var sheet = getWholesaleOrderSheet_();
-  var newRow = sheet.getLastRow() + 1;
+  var newRow = nextAppendRow_(sheet, wholesaleOrderColIndex1('commission'));
   sheet.getRange(newRow, wholesaleOrderColIndex1('commission'), 1, 1).setNumberFormat('@');
   sheet.getRange(newRow, 1, 1, WHOLESALE_ORDER_COLUMNS.length).setValues([objectToRow_(order, WHOLESALE_ORDER_COLUMNS)]);
   return order;

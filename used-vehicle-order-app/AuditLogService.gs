@@ -45,7 +45,7 @@ function buildAuditLogEntry_(action, commission, model, staff, detail, now) {
 function appendAuditLog_(entry) {
   try {
     var sheet = getAuditLogSheet_();
-    var newRow = sheet.getLastRow() + 1;
+    var newRow = nextAppendRow_(sheet, auditLogColIndex1('commission'));
     // 他シートのappendRow系書き込みと同様、コミッションの先頭0が消えないよう
     // 書き込み直前に対象セルの書式をテキストへ明示的に設定する。
     sheet.getRange(newRow, auditLogColIndex1('commission'), 1, 1).setNumberFormat('@');
