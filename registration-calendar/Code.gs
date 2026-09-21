@@ -23,6 +23,7 @@ function doGet() {
   template.userEmail = userEmail;
   template.initialTheme = getUserTheme();
   template.initialSideIconUrl = getSideIconUrl();
+  template.initialSideIconFolderId = getSideIconFolderId();
   template.linkedName = getMyLinkedName_(userEmail);
 
   return template.evaluate()
@@ -41,9 +42,26 @@ const THEME_KEYS = ['indigo', 'green', 'charcoal', 'amber', 'rose', 'teal', 'pur
 const MYPAGE_LINK_SHEET_NAME = 'settings_マイページ連携';
 
 // ▼ サイドパネルアイコンの画像をアップロードして保存するGoogleドライブのフォルダID。
-//   Googleドライブでフォルダを開いたときのURL(https://drive.google.com/drive/folders/【この部分】)
-//   をここに貼り付けてください。未設定のままだとアップロードはエラーになります。
-const SIDE_ICON_FOLDER_ID = "PASTE_YOUR_DRIVE_FOLDER_ID_HERE";
+//   コードを直接編集する必要はなく、設定ページの「サイドパネルアイコン設定」から
+//   Driveフォルダのリンクに含まれるIDを入力して保存できる（権限者のみ）。
+function getSideIconFolderId() {
+  return PropertiesService.getScriptProperties().getProperty('sideIconFolderId') || '';
+}
+function saveSideIconFolderId(folderId) {
+  const userEmail = Session.getActiveUser().getEmail();
+  if (!isEditorEmail_(userEmail)) {
+    return { success: false, message: '権限者のみ変更できます。' };
+  }
+  const trimmed = String(folderId || '').trim();
+  if (!trimmed) return { success: false, message: 'フォルダIDを入力してください。' };
+  try {
+    DriveApp.getFolderById(trimmed); // 存在・アクセス可否を軽く確認する
+  } catch (e) {
+    return { success: false, message: '指定されたフォルダにアクセスできません。IDを確認してください。' };
+  }
+  PropertiesService.getScriptProperties().setProperty('sideIconFolderId', trimmed);
+  return { success: true };
+}
 
 function getOrCreateMypageLinkSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -116,11 +134,12 @@ function saveSideIconImage(base64Data, mimeType) {
   if (!isEditorEmail_(userEmail)) {
     return { success: false, message: '権限者のみ変更できます。' };
   }
-  if (!SIDE_ICON_FOLDER_ID || SIDE_ICON_FOLDER_ID.indexOf('PASTE_') === 0) {
-    return { success: false, message: 'アイコン画像の保存先フォルダが設定されていません。Code.gs の SIDE_ICON_FOLDER_ID を設定してください。' };
+  const folderId = getSideIconFolderId();
+  if (!folderId) {
+    return { success: false, message: 'アイコン画像の保存先フォルダが未設定です。設定画面の「サイドパネルアイコン設定」で先にDriveフォルダIDを保存してください。' };
   }
   try {
-    const folder = DriveApp.getFolderById(SIDE_ICON_FOLDER_ID);
+    const folder = DriveApp.getFolderById(folderId);
     const bytes = Utilities.base64Decode(base64Data);
     const blob = Utilities.newBlob(bytes, mimeType, 'side-icon-' + new Date().getTime());
 

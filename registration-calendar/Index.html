@@ -217,6 +217,7 @@
     const CURRENT_USER_EMAIL = <?!= JSON.stringify(userEmail || '') ?>;
     const INITIAL_THEME = <?!= JSON.stringify(initialTheme || 'indigo') ?>;
     const INITIAL_SIDE_ICON_URL = <?!= JSON.stringify(initialSideIconUrl || '') ?>;
+    const INITIAL_SIDE_ICON_FOLDER_ID = <?!= JSON.stringify(initialSideIconFolderId || '') ?>;
     const LINKED_NAME = <?!= JSON.stringify(linkedName || '') ?>;
 
     const branchColors = {
@@ -249,6 +250,7 @@
     let pendingTheme = currentTheme;
     let themeMessage = '';
     let sidePanelIconUrl = INITIAL_SIDE_ICON_URL;
+    let sideIconFolderId = INITIAL_SIDE_ICON_FOLDER_ID;
 
     function applyTheme(key) {
       const t = THEMES[key];
@@ -400,7 +402,7 @@
       const isToday = d.getTime() === today.getTime();
       const holiday = holidayName(year, month, day);
       const entries = dayEntries[day] || [];
-      const visible = entries.slice(0, 3);
+      const visible = entries.slice(0, 8);
       const overflow = entries.length - visible.length;
       const dateStr = dateStrOf(year, month, day);
 
@@ -414,7 +416,7 @@
 
       const content = entries.length === 0
         ? ``
-        : `<div style="display:flex;flex-wrap:wrap;gap:9px;">${visible.map(entryCard).join('')}${overflow > 0 ? `<button type="button" class="overflow-chip js-day-overflow" data-date="${dateStr}"><i class="fa-solid fa-layer-group"></i>+${overflow}件</button>` : ''}</div>`;
+        : `<div style="display:flex;flex-wrap:wrap;gap:6px 8px;align-content:flex-start;">${visible.map(entryCard).join('')}${overflow > 0 ? `<button type="button" class="overflow-chip js-day-overflow" data-date="${dateStr}"><i class="fa-solid fa-layer-group"></i>+${overflow}件</button>` : ''}</div>`;
 
       return `<div data-day="${day}" data-today="${isToday}" class="date-row${extraClass}" style="${rowBg ? `background:${rowBg};` : ''}">
         <div class="date-col">
@@ -749,6 +751,14 @@
         <div class="settings-card">
           <h2 class="settings-card-title"><i class="fa-solid fa-icons"></i>サイドパネルアイコン設定</h2>
           <p class="settings-card-desc">左サイドパネル上部中央に表示するアイコン画像をアップロードできます。大きな画像を選んでも自動的に一定サイズの円形アイコンとして表示されます。全ユーザーの画面に反映されます。この項目は権限者としてログインした場合のみ表示されます。</p>
+          <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--hairline);">
+            <label style="font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;display:block;">画像の保存先 Drive フォルダ ID</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <input type="text" id="iconFolderIdInput" class="settings-input" placeholder="DriveフォルダのURLに含まれるID" value="${escapeAttr(sideIconFolderId)}" style="flex:1;min-width:220px;">
+              <button type="button" class="settings-add-btn" id="saveFolderIdBtn">保存</button>
+            </div>
+            <p id="folderIdMsg" style="font-size:11px;font-weight:600;margin-top:6px;color:var(--muted);">${sideIconFolderId ? '' : 'アップロード前に、保存先のDriveフォルダIDを入力して保存してください。'}</p>
+          </div>
           <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
             <div class="cp-icon-mark" style="width:56px;height:56px;font-size:22px;margin-bottom:0;">${previewInner}</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -962,6 +972,30 @@
           .withSuccessHandler(res => { if (res && res.success) { sidePanelIconUrl = ''; render(); } else if (res) alert(res.message); })
           .withFailureHandler(e => alert('失敗しました: ' + (e && e.message ? e.message : e)))
           .resetSideIcon();
+      };
+      const saveFolderIdBtn = document.getElementById('saveFolderIdBtn');
+      if (saveFolderIdBtn) saveFolderIdBtn.onclick = () => {
+        const input = document.getElementById('iconFolderIdInput');
+        const val = input ? input.value.trim() : '';
+        const msg = document.getElementById('folderIdMsg');
+        if (msg) { msg.textContent = '保存中…'; msg.style.color = 'var(--muted)'; }
+        if (typeof google === 'undefined') return;
+        google.script.run
+          .withSuccessHandler(res => {
+            const m = document.getElementById('folderIdMsg');
+            if (res && res.success) {
+              sideIconFolderId = val;
+              if (m) { m.textContent = '保存しました'; m.style.color = 'var(--oss)'; }
+            } else if (m) {
+              m.textContent = res ? res.message : '保存に失敗しました。';
+              m.style.color = 'var(--paper)';
+            }
+          })
+          .withFailureHandler(e => {
+            const m = document.getElementById('folderIdMsg');
+            if (m) { m.textContent = '通信エラー: ' + (e && e.message ? e.message : e); m.style.color = 'var(--paper)'; }
+          })
+          .saveSideIconFolderId(val);
       };
 
       const addLinkBtn = document.getElementById('addLinkBtn');
