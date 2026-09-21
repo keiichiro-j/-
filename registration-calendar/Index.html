@@ -154,7 +154,9 @@
       background: var(--surface); color: var(--ink-2); font-size: 12px; font-weight: 700;
       padding: 6px 12px; border-radius: 6px; box-shadow: var(--shadow-sm); border: 1px solid var(--border);
       cursor: pointer; transition: border-color .12s ease, color .12s ease, background .12s ease;
+      margin-left: 8px; position: relative;
     }
+    .pending-toggle-btn::before { content: ''; position: absolute; left: -9px; top: 50%; transform: translateY(-50%); width: 1px; height: 16px; background: var(--hairline); }
     .pending-toggle-btn:hover { border-color: var(--accent); color: var(--accent-ink); }
     .pending-toggle-btn.open { color: var(--accent-ink); background: var(--accent-bg); border-color: var(--accent); }
     .pending-toggle-count { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums slashed-zero; font-size: 10.5px; font-weight: 800; background: var(--surface-2); border-radius: 5px; padding: 2px 7px; }
