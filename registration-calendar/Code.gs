@@ -20,11 +20,95 @@ function doGet() {
   const template = HtmlService.createTemplateFromFile('Index');
   template.isEditor = isEditor;
   template.userEmail = userEmail;
+  template.initialTheme = getUserTheme();
+  template.initialSideIcon = getSideIcon();
+  template.linkedName = getMyLinkedName_(userEmail);
 
   return template.evaluate()
     .setTitle('登録カレンダー')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+// ============================================================
+// ▼ マイページ連携設定・テーマ・サイドパネルアイコン
+//   ここでいう「マイページ連携設定」は、マイページを自分の担当分だけ表示するための
+//   「氏名(フルネーム) ⇔ Googleアカウント」の対応表であり、編集権限(EDITOR_EMAILS)とは
+//   別物。ここに登録しても編集権限は付与されない。
+// ============================================================
+const THEME_KEYS = ['indigo', 'green', 'charcoal', 'amber', 'rose', 'teal', 'purple', 'slate'];
+const SIDE_ICON_KEYS = ['car', 'calendar-days', 'building', 'star', 'bolt', 'gauge-high'];
+const MYPAGE_LINK_SHEET_NAME = 'settings_マイページ連携';
+
+function getOrCreateMypageLinkSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(MYPAGE_LINK_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(MYPAGE_LINK_SHEET_NAME);
+    sheet.getRange(1, 1, 1, 2).setValues([['氏名(フルネーム)', 'Googleアカウント']]);
+    sheet.getRange(1, 1, 1, 2).setFontWeight('bold').setBackground('#E8F0FE');
+  }
+  return sheet;
+}
+
+// ▼ 氏名⇔Googleアカウントの対応表を取得する（マイページ連携用）
+function getMypageLinks() {
+  const sheet = getOrCreateMypageLinkSheet_();
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return [];
+  return data.slice(1)
+    .filter(row => row[0] || row[1])
+    .map(row => ({ name: String(row[0] || ''), email: String(row[1] || '') }));
+}
+
+// ▼ 対応表を丸ごと保存する（権限者のみ）
+function saveMypageLinks(links) {
+  const userEmail = Session.getActiveUser().getEmail();
+  if (!isEditorEmail_(userEmail)) {
+    return { success: false, message: '権限者のみ変更できます。' };
+  }
+  const sheet = getOrCreateMypageLinkSheet_();
+  const lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    sheet.getRange(2, 1, lastRow - 1, 2).clearContent();
+  }
+  const rows = (links || []).filter(l => l && (l.name || l.email)).map(l => [l.name || '', l.email || '']);
+  if (rows.length > 0) {
+    sheet.getRange(2, 1, rows.length, 2).setValues(rows);
+  }
+  return { success: true };
+}
+
+// ▼ 指定のGoogleアカウントに紐づく氏名を1件返す（無ければ空文字）
+function getMyLinkedName_(email) {
+  if (!email) return '';
+  const target = String(email).trim().toLowerCase();
+  const found = getMypageLinks().find(l => String(l.email).trim().toLowerCase() === target);
+  return found ? found.name : '';
+}
+
+// ▼ テーマは個人ごとの見た目設定なので、アクセスしているGoogleアカウントごとに保存する
+function getUserTheme() {
+  return PropertiesService.getUserProperties().getProperty('theme') || 'indigo';
+}
+function saveUserTheme(themeKey) {
+  if (THEME_KEYS.indexOf(themeKey) === -1) return { success: false, message: '不正なテーマです。' };
+  PropertiesService.getUserProperties().setProperty('theme', themeKey);
+  return { success: true };
+}
+
+// ▼ サイドパネルのアイコンは全員共通の見た目設定。権限者だけが変更できる
+function getSideIcon() {
+  return PropertiesService.getScriptProperties().getProperty('sideIcon') || 'car';
+}
+function saveSideIcon(iconKey) {
+  const userEmail = Session.getActiveUser().getEmail();
+  if (!isEditorEmail_(userEmail)) {
+    return { success: false, message: '権限者のみ変更できます。' };
+  }
+  if (SIDE_ICON_KEYS.indexOf(iconKey) === -1) return { success: false, message: '不正なアイコンです。' };
+  PropertiesService.getScriptProperties().setProperty('sideIcon', iconKey);
+  return { success: true };
 }
 
 // ▼ 日付からシート名を生成（例：db_登録データ_2026_8月）
