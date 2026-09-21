@@ -59,7 +59,8 @@ function doGet() {
   const linkedInfo = getMyLinkedInfo_(userEmail);
   template.linkedName = linkedInfo.name;
   template.linkedCarType = linkedInfo.carType;
-  template.initialAnnouncements = getAnnouncements();
+  template.initialAnnouncementsNew = getAnnouncements('新車');
+  template.initialAnnouncementsUsed = getAnnouncements('中古車');
   template.initialPdfFolderNew = getPdfFolderId('新車');
   template.initialPdfFolderUsed = getPdfFolderId('中古車');
 
@@ -152,10 +153,11 @@ function savePdfFolderId(carType, folderId) {
   return { success: true };
 }
 
-// ▼ 画面上部に表示する「お知らせ」。全ユーザー共通で、権限者のみ編集できる。
-const ANNOUNCEMENTS_PROP_KEY = 'announcements';
-function getAnnouncements() {
-  const raw = PropertiesService.getScriptProperties().getProperty(ANNOUNCEMENTS_PROP_KEY);
+// ▼ 画面上部に表示する「お知らせ」。新車・中古車それぞれ別に設定でき、権限者のみ編集できる。
+const ANNOUNCEMENTS_PROP_PREFIX = 'announcements_';
+function getAnnouncements(carType) {
+  const type = CAR_TYPES.indexOf(carType) !== -1 ? carType : '新車';
+  const raw = PropertiesService.getScriptProperties().getProperty(ANNOUNCEMENTS_PROP_PREFIX + type);
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);
@@ -164,16 +166,17 @@ function getAnnouncements() {
     return [];
   }
 }
-function saveAnnouncements(list) {
+function saveAnnouncements(carType, list) {
   const userEmail = Session.getActiveUser().getEmail();
   if (!isEditorEmail_(userEmail)) {
     return { success: false, message: '権限者のみ変更できます。' };
   }
+  if (CAR_TYPES.indexOf(carType) === -1) return { success: false, message: '不正な車両区分です。' };
   const cleaned = (list || [])
     .filter(a => a && String(a.text || '').trim())
     .map(a => ({ text: String(a.text).trim() }))
     .slice(0, 20);
-  PropertiesService.getScriptProperties().setProperty(ANNOUNCEMENTS_PROP_KEY, JSON.stringify(cleaned));
+  PropertiesService.getScriptProperties().setProperty(ANNOUNCEMENTS_PROP_PREFIX + carType, JSON.stringify(cleaned));
   return { success: true };
 }
 

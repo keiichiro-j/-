@@ -25,7 +25,7 @@
     * { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; }
     body { font-family: 'Plus Jakarta Sans', 'Noto Sans JP', sans-serif; background: var(--canvas); color: var(--ink); }
-    .font-num { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+    .font-num { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums slashed-zero; }
 
     .app-shell-outer { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
     .app-shell { flex: 1; min-height: 0; overflow: hidden; }
@@ -58,12 +58,14 @@
     .cp-logo { font-size: 13px; font-weight: 800; color: var(--ink); margin-bottom: 2px; letter-spacing: -0.005em; }
     .cp-logo-sub { font-size: 10.5px; color: var(--muted); font-weight: 600; }
     .cp-nav { display: flex; flex-direction: column; gap: 3px; flex: 1; }
-    .cp-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--ink-2); text-align: left; border: none; background: transparent; cursor: pointer; width: 100%; }
+    .cp-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 7px; font-size: 13px; font-weight: 600; color: var(--ink-2); text-align: left; border: none; background: transparent; cursor: pointer; width: 100%; transition: background .12s ease, color .12s ease; }
     .cp-nav-item i { width: 15px; text-align: center; font-size: 13px; color: var(--muted); }
-    .cp-nav-item.active { background: var(--accent-bg); color: var(--accent-ink); }
+    .cp-nav-item:hover { background: var(--surface); color: var(--ink); }
+    .cp-nav-item.active { background: var(--accent-bg); color: var(--accent-ink); box-shadow: inset 3px 0 0 var(--accent); }
     .cp-nav-item.active i { color: var(--accent-ink); }
     .cp-subnav { display: flex; flex-direction: column; gap: 1px; padding: 2px 4px 8px 31px; }
-    .cp-subnav-item { border: none; background: transparent; text-align: left; font-size: 11.5px; font-weight: 600; color: var(--muted); padding: 5px 8px; border-radius: 6px; cursor: pointer; }
+    .cp-subnav-item { border: none; background: transparent; text-align: left; font-size: 11.5px; font-weight: 600; color: var(--muted); padding: 5px 8px; border-radius: 5px; cursor: pointer; transition: background .12s ease, color .12s ease; }
+    .cp-subnav-item:hover { color: var(--ink-2); }
     .cp-subnav-item.active { color: var(--accent-ink); font-weight: 700; background: var(--accent-bg); }
     .cp-footer { padding-top: 14px; margin-top: 14px; border-top: 1px solid var(--hairline); }
     .cp-user { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
@@ -79,13 +81,17 @@
     .page-title { font-size: 17px; font-weight: 800; color: var(--ink); letter-spacing: -0.005em; }
     .page-sub { font-size: 11.5px; color: var(--muted); margin-top: 2px; font-weight: 500; }
 
-    .tabbar { display: inline-flex; gap: 2px; background: var(--surface-2); border-radius: 8px; padding: 3px; }
-    .tab { font-size: 12px; font-weight: 600; border-radius: 6px; padding: 6px 14px; cursor: pointer; color: var(--muted); border: none; background: transparent; }
-    .tab-active { background: var(--surface); color: var(--accent-ink); box-shadow: var(--shadow-sm); }
-    .nav-btn { font-size: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 6px 10px; color: var(--ink-2); cursor: pointer; }
-    .today-btn { font-size: 11px; font-weight: 600; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 6px 11px; color: var(--ink-2); cursor: pointer; }
-    .action-btn { font-size: 11px; font-weight: 700; background: var(--accent); color: #fff; border: none; border-radius: 7px; padding: 7px 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
-    .cartype-pill { font-size: 10.5px; font-weight: 700; padding: 5px 11px; border-radius: 999px; background: var(--accent-bg); color: var(--accent-ink); display: inline-flex; align-items: center; gap: 5px; }
+    .tabbar { display: inline-flex; gap: 2px; background: var(--surface-2); border-radius: 7px; padding: 3px; border: 1px solid var(--hairline); }
+    .tab { font-size: 12px; font-weight: 600; border-radius: 5px; padding: 6px 14px; cursor: pointer; color: var(--muted); border: none; background: transparent; transition: background .12s ease, color .12s ease; }
+    .tab:hover { color: var(--ink-2); }
+    .tab-active { background: var(--surface); color: var(--accent-ink); font-weight: 700; box-shadow: var(--shadow-sm); }
+    .nav-btn { font-size: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; color: var(--ink-2); cursor: pointer; transition: background .12s ease, border-color .12s ease; }
+    .nav-btn:hover { background: var(--surface-2); border-color: var(--ink-2); }
+    .today-btn { font-size: 11px; font-weight: 600; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 11px; color: var(--ink-2); cursor: pointer; transition: background .12s ease, border-color .12s ease; }
+    .today-btn:hover { background: var(--surface-2); border-color: var(--ink-2); }
+    .action-btn { font-size: 11px; font-weight: 700; background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 7px 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: filter .12s ease; }
+    .action-btn:hover { filter: brightness(0.92); }
+    .cartype-pill { font-size: 10.5px; font-weight: 800; letter-spacing: .01em; padding: 6px 12px; border-radius: 6px; background: var(--accent); color: #fff; display: inline-flex; align-items: center; gap: 6px; }
 
     /* -- KPIタイル -- */
     .kpi-section { flex: 0 0 auto; }
@@ -96,7 +102,7 @@
     .kpi-tile { background: var(--surface); border-radius: 10px; padding: 10px 14px; box-shadow: var(--shadow-sm); }
     .kpi-tile-accent { background: var(--accent-bg); }
     .kpi-label { font-size: 10.5px; font-weight: 700; color: var(--muted); display: flex; align-items: center; gap: 5px; }
-    .kpi-value { font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 700; color: var(--ink); margin-top: 4px; }
+    .kpi-value { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums slashed-zero; font-size: 20px; font-weight: 700; color: var(--ink); margin-top: 4px; }
     .kpi-unit { font-size: 10.5px; font-weight: 600; color: var(--muted); margin-left: 3px; font-family: 'Plus Jakarta Sans',sans-serif; }
 
     /* -- カレンダー行 -- */
@@ -108,7 +114,7 @@
     .content-col::-webkit-scrollbar { display: none; }
     .day-entries-track { display: flex; gap: 8px; align-items: center; }
     .date-badge { position: relative; text-align: center; border-radius: 8px; padding: 5px 8px; }
-    .date-badge .d-num { font-family: 'JetBrains Mono', monospace; font-size: 15.5px; font-weight: 700; line-height: 1; }
+    .date-badge .d-num { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums slashed-zero; font-size: 15.5px; font-weight: 700; line-height: 1; }
     .date-badge .d-dow { font-size: 9px; font-weight: 600; margin-top: 3px; }
     .date-badge .d-tag { font-size: 8px; font-weight: 700; margin-top: 2px; opacity: 0.9; }
     .date-row.is-today { background: var(--accent-bg); }
@@ -116,7 +122,8 @@
     .day-notice-banner i { flex: 0 0 auto; }
 
     /* -- 登録カード -- */
-    .entry-card { background: var(--surface); border-radius: 8px; padding: 8px 11px; flex: 0 0 178px; width: 178px; box-shadow: var(--shadow-sm); position: relative; overflow: hidden; cursor: pointer; scroll-snap-align: start; }
+    .entry-card { background: var(--surface); border-radius: 7px; padding: 8px 11px; flex: 0 0 178px; width: 178px; box-shadow: var(--shadow-sm); position: relative; overflow: hidden; cursor: pointer; scroll-snap-align: start; border: 1px solid var(--hairline); transition: box-shadow .12s ease, border-color .12s ease; }
+    .entry-card:hover { box-shadow: var(--shadow-md); border-color: var(--border); }
     .entry-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--bar-color, var(--accent)); }
     .entry-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding-left: 5px; }
     .entry-row + .entry-row { margin-top: 4px; }
@@ -130,27 +137,32 @@
     .slide-hint { position: sticky; right: 2px; flex: 0 0 30px; width: 30px; height: 30px; border-radius: 50%; background: var(--surface); box-shadow: var(--shadow-md); border: none; color: var(--accent-ink); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12px; }
 
     /* -- カレンダーカード / オーバーレイ未定リスト -- */
-    .calendar-card { position: relative; background: var(--surface); border-radius: 14px; padding: 16px 18px; overflow: hidden; box-shadow: var(--shadow-md); display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    .calendar-row-wrap { display: flex; align-items: stretch; gap: 10px; flex: 1; min-height: 0; }
+    .calendar-card { position: relative; background: var(--surface); border-radius: 12px; padding: 16px 18px; overflow: hidden; box-shadow: var(--shadow-md); display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; border: 1px solid var(--hairline); }
     .rowscroll-wrap { position: relative; flex: 1; min-height: 0; display: flex; }
     .cal-overlay-backdrop { position: absolute; inset: 0; background: rgba(26,31,54,0.32); z-index: 5; }
     .cal-overlay-panel { position: absolute; top: 0; right: 0; bottom: 0; width: 216px; background: var(--surface); box-shadow: var(--shadow-lg); z-index: 6; padding: 14px; display: flex; flex-direction: column; border-left: 1px solid var(--hairline); }
     .sales-tag { font-size: 10px; font-weight: 600; color: #9AA1B0; display: flex; align-items: center; gap: 5px; margin: 9px 0 6px; text-transform: uppercase; letter-spacing: .03em; }
-    .pending-toggle-row { display: flex; justify-content: flex-end; margin: -2px 2px 8px; flex: 0 0 auto; }
+    .pending-toggle-col { flex: 0 0 auto; display: flex; align-items: flex-start; }
     .pending-toggle-btn {
-      display: inline-flex; align-items: center; gap: 8px;
-      background: var(--surface); color: var(--ink-2); font-size: 11.5px; font-weight: 700;
-      padding: 7px 13px; border-radius: 8px; box-shadow: var(--shadow-sm); border: 1px solid var(--border);
-      cursor: pointer;
+      width: 78px; display: flex; flex-direction: column; align-items: center; gap: 7px;
+      background: var(--surface); color: var(--ink-2); font-size: 11px; font-weight: 700; line-height: 1.25;
+      padding: 14px 8px; border-radius: 10px; box-shadow: var(--shadow-sm); border: 1px solid var(--border);
+      cursor: pointer; text-align: center;
     }
+    .pending-toggle-btn:hover { border-color: var(--accent); color: var(--accent-ink); }
+    .pending-toggle-icon { font-size: 16px; color: var(--muted); }
+    .pending-toggle-btn:hover .pending-toggle-icon, .pending-toggle-btn.open .pending-toggle-icon { color: var(--accent-ink); }
     .pending-toggle-btn.open { color: var(--accent-ink); background: var(--accent-bg); border-color: var(--accent); }
-    .pending-toggle-count { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 700; background: var(--surface-2); border-radius: 6px; padding: 2px 7px; }
-    .pending-toggle-btn.open .pending-toggle-count { background: rgba(255,255,255,0.6); }
+    .pending-toggle-count { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums slashed-zero; font-size: 11px; font-weight: 800; background: var(--surface-2); border-radius: 5px; padding: 2px 8px; }
+    .pending-toggle-btn.open .pending-toggle-count { background: rgba(255,255,255,0.65); }
 
     /* -- マイページ -- */
     .mp-list { display: flex; flex-direction: column; gap: 5px; }
-    .mp-row { display: flex; align-items: center; gap: 14px; background: var(--surface); border-radius: 10px; padding: 10px 14px; box-shadow: var(--shadow-sm); cursor: pointer; }
+    .mp-row { display: flex; align-items: center; gap: 14px; background: var(--surface); border-radius: 8px; padding: 10px 14px; box-shadow: var(--shadow-sm); cursor: pointer; border: 1px solid var(--hairline); transition: box-shadow .12s ease, border-color .12s ease; }
+    .mp-row:hover { box-shadow: var(--shadow-md); border-color: var(--border); }
     .mp-col { flex: 1; min-width: 0; display: flex; align-items: center; }
-    .mp-date-chip { font-size: 10.5px; font-weight: 700; font-family: 'JetBrains Mono', monospace; text-align: center; border-radius: 6px; padding: 5px 10px; }
+    .mp-date-chip { font-size: 10.5px; font-weight: 700; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums slashed-zero; text-align: center; border-radius: 6px; padding: 5px 10px; }
     .mp-name { font-size: 12.5px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
     .mp-model { font-size: 11.5px; color: var(--ink-2); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
     .mp-pdf-btn { font-size: 10.5px; font-weight: 700; border-radius: 7px; padding: 6px 12px; display: flex; align-items: center; gap: 6px; border: none; white-space: nowrap; }
@@ -166,39 +178,45 @@
     .list-table td { padding: 10px 12px; vertical-align: middle; }
 
     /* -- 設定ページ -- */
-    .settings-card { background: var(--surface); border-radius: 14px; padding: 20px 22px; box-shadow: var(--shadow-md); }
+    .settings-card { background: var(--surface); border-radius: 12px; padding: 20px 22px; box-shadow: var(--shadow-md); border: 1px solid var(--hairline); }
     .settings-card-title { font-size: 13.5px; font-weight: 800; color: var(--ink); display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
     .settings-card-title i { color: var(--accent-ink); font-size: 12.5px; }
     .settings-card-desc { font-size: 11.5px; color: var(--muted); line-height: 1.65; margin-bottom: 15px; }
     .settings-group-label { margin-bottom: 6px; font-size: 10.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
     .settings-list { display: flex; flex-direction: column; gap: 5px; }
-    .settings-row { display: flex; align-items: center; gap: 14px; background: var(--surface-2); border-radius: 8px; padding: 9px 13px; }
+    .settings-row { display: flex; align-items: center; gap: 14px; background: var(--surface-2); border-radius: 7px; padding: 9px 13px; }
     .settings-row .s-name { font-size: 12px; font-weight: 700; color: var(--ink); flex: 1; min-width: 0; }
     .settings-row .s-email { font-size: 11.5px; color: var(--muted); font-weight: 500; flex: 1.4; min-width: 0; }
     .settings-row .s-branch { font-size: 11.5px; font-weight: 700; color: var(--ink-2); flex: 0 0 72px; }
-    .settings-remove { border: none; background: transparent; color: #C3C8D2; cursor: pointer; font-size: 12px; flex: 0 0 auto; }
+    .settings-remove { border: none; background: transparent; color: #B7BDC9; cursor: pointer; font-size: 12px; flex: 0 0 auto; width: 22px; height: 22px; border-radius: 5px; transition: background .12s ease, color .12s ease; }
+    .settings-remove:hover { background: var(--paper-bg); color: var(--paper); }
     .settings-add-row { display: flex; gap: 8px; margin-top: 13px; flex-wrap: wrap; }
-    .settings-input { font-size: 12px; border: 1px solid var(--hairline); background: var(--surface); border-radius: 7px; padding: 8px 11px; color: var(--ink); font-family: inherit; }
-    .settings-add-btn { font-size: 12px; font-weight: 700; background: var(--accent); color: #fff; border: none; border-radius: 7px; padding: 8px 15px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
-    .settings-add-btn:disabled { background: #E2E5EB; color: #A6ACB8; cursor: default; }
+    .settings-input { font-size: 12px; border: 1px solid var(--border); background: var(--surface); border-radius: 6px; padding: 8px 11px; color: var(--ink); font-family: inherit; }
+    .settings-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+    .settings-add-btn { font-size: 12px; font-weight: 700; background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 8px 15px; display: flex; align-items: center; gap: 6px; cursor: pointer; transition: filter .12s ease; }
+    .settings-add-btn:hover { filter: brightness(0.92); }
+    .settings-add-btn:disabled { background: #E2E5EB; color: #A6ACB8; cursor: default; filter: none; }
     .settings-subblock { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--hairline); }
     .settings-subblock:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
     .theme-swatches { display: flex; gap: 9px; flex-wrap: wrap; margin-bottom: 15px; }
-    .theme-swatch { display: flex; align-items: center; gap: 8px; border: 1px solid var(--hairline); border-radius: 8px; padding: 9px 14px; font-size: 12px; font-weight: 600; color: var(--ink-2); background: var(--surface); cursor: pointer; }
-    .theme-swatch.active { color: var(--accent-ink); background: var(--accent-bg); border-color: var(--accent); }
-    .theme-dot { width: 13px; height: 13px; border-radius: 50%; flex: 0 0 auto; }
+    .theme-swatch { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 7px; padding: 9px 14px; font-size: 12px; font-weight: 600; color: var(--ink-2); background: var(--surface); cursor: pointer; transition: border-color .12s ease, background .12s ease; }
+    .theme-swatch:hover { border-color: var(--ink-2); }
+    .theme-swatch.active { color: var(--accent-ink); background: var(--accent-bg); border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .theme-dot { width: 13px; height: 13px; border-radius: 4px; flex: 0 0 auto; }
     .theme-save-row { display: flex; align-items: center; gap: 12px; padding-top: 15px; border-top: 1px solid var(--hairline); flex-wrap: wrap; }
-    .theme-save-btn { font-size: 12.5px; font-weight: 700; background: var(--accent); color: #fff; border: none; border-radius: 7px; padding: 9px 18px; cursor: pointer; }
+    .theme-save-btn { font-size: 12.5px; font-weight: 700; background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 9px 18px; cursor: pointer; transition: filter .12s ease; }
+    .theme-save-btn:hover:not(:disabled) { filter: brightness(0.92); }
     .theme-save-btn:disabled { background: #E2E5EB; color: #A6ACB8; cursor: default; }
     .theme-msg { font-size: 11.5px; font-weight: 700; }
     .theme-msg.saved { color: var(--oss); }
     .theme-msg.dirty { color: #B4620D; }
-    .btn-secondary { background: var(--surface-2); color: var(--ink); border: 1px solid var(--hairline); padding: 9px 16px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .btn-secondary { background: var(--surface-2); color: var(--ink); border: 1px solid var(--border); padding: 9px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; transition: background .12s ease, border-color .12s ease; }
+    .btn-secondary:hover { background: var(--surface); border-color: var(--ink-2); }
 
     /* -- モーダル(詳細表示、お知らせ) -- */
     .modal-backdrop { position: fixed; inset: 0; background: rgba(26,31,54,0.4); display: none; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
     .modal-backdrop.flex { display: flex; }
-    .modal-box { background: var(--surface); border-radius: 18px; width: 100%; box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; }
+    .modal-box { background: var(--surface); border-radius: 12px; width: 100%; box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; }
     .modal-head { background: var(--surface-2); padding: 18px 22px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--hairline); position: sticky; top: 0; }
     .modal-title { font-size: 14px; font-weight: 800; color: var(--ink); }
     .modal-close { border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 16px; }
@@ -249,7 +267,8 @@
     const INITIAL_SIDE_ICON_FOLDER_ID = <?!= JSON.stringify(initialSideIconFolderId || '') ?>;
     const LINKED_NAME = <?!= JSON.stringify(linkedName || '') ?>;
     const LINKED_CAR_TYPE = <?!= JSON.stringify(linkedCarType || '') ?>;
-    const INITIAL_ANNOUNCEMENTS = <?!= JSON.stringify(initialAnnouncements || []) ?>;
+    const INITIAL_ANNOUNCEMENTS_NEW = <?!= JSON.stringify(initialAnnouncementsNew || []) ?>;
+    const INITIAL_ANNOUNCEMENTS_USED = <?!= JSON.stringify(initialAnnouncementsUsed || []) ?>;
     const INITIAL_PDF_FOLDER_NEW = <?!= JSON.stringify(initialPdfFolderNew || '') ?>;
     const INITIAL_PDF_FOLDER_USED = <?!= JSON.stringify(initialPdfFolderUsed || '') ?>;
 
@@ -359,9 +378,11 @@
     let mypageLinksDirty = false;
     let mypageLinksMsg = '';
 
-    let announcements = INITIAL_ANNOUNCEMENTS.slice();
+    // お知らせは新車・中古車で別々に保持する。バナーには現在表示中のcarTypeの分だけを出す。
+    let announcementsByType = { '新車': INITIAL_ANNOUNCEMENTS_NEW.slice(), '中古車': INITIAL_ANNOUNCEMENTS_USED.slice() };
     let announceBarVisible = true;
-    let pendingAnnouncements = INITIAL_ANNOUNCEMENTS.slice();
+    let announceEditCarType = carType; // 設定ページ「お知らせ設定」で編集対象に選んでいる車両区分
+    let pendingAnnouncements = announcementsByType[announceEditCarType].slice();
     let announceDirty = false;
     let announceMsg = '';
 
@@ -631,13 +652,14 @@
       `;
     }
 
-    function pendingToggleRowHTML() {
+    function pendingToggleColHTML() {
       return `
-        <div class="pending-toggle-row">
-          <button type="button" class="pending-toggle-btn${sidebarOpen ? ' open' : ''}" id="sideTabToggle">
-            <i class="fa-solid fa-circle-notch"></i>未定リスト
+        <div class="pending-toggle-col">
+          <button type="button" class="pending-toggle-btn${sidebarOpen ? ' open' : ''}" id="sideTabToggle" title="未定リストの表示切り替え">
+            <i class="fa-solid fa-layer-group pending-toggle-icon"></i>
+            <span>未定<br>リスト</span>
             <span class="pending-toggle-count">${pendingRecords().length}</span>
-            <i class="fa-solid fa-chevron-${sidebarOpen ? 'up' : 'down'}"></i>
+            <i class="fa-solid fa-chevron-${sidebarOpen ? 'up' : 'down'}" style="font-size:9px;color:var(--muted);"></i>
           </button>
         </div>
       `;
@@ -655,13 +677,15 @@
       }
       return `
         ${heroSummaryHTML()}
-        ${pendingToggleRowHTML()}
+        <div class="calendar-row-wrap">
         <div class="calendar-card" id="calCard">
           ${calendarHeaderHTML()}
           <div class="rowscroll-wrap">
             <div class="row-scroll" id="rowScroll" style="flex:1;min-height:0;display:flex;flex-direction:column;">${calendarRowsHTML()}</div>
             ${sidebarOpen ? `<div class="cal-overlay-backdrop" id="overlayBackdrop"></div><div class="cal-overlay-panel">${pendingPanelHTML()}</div>` : ''}
           </div>
+        </div>
+        ${pendingToggleColHTML()}
         </div>
       `;
     }
@@ -767,11 +791,13 @@
     function renderMpResults() {
       const box = document.getElementById('mpResults');
       if (!box) return;
+      const prevScrollTop = box.scrollTop; // 入力のたびに再構築しても、スクロール位置が先頭に戻らないようにする
       const { confirmed, undecided } = myRecordsForOffset(myPageMonthOffset);
       const records = mpApplyFilters(confirmed.concat(undecided))
         .sort((a, b) => (a.登録予定日 || 'z').localeCompare(b.登録予定日 || 'z'));
       const rowsHtml = records.map(mpRowHTML).join('');
       box.innerHTML = `${mpTheadHTML()}<div class="mp-list">${rowsHtml || `<p style="font-size:12px;color:var(--muted);padding:16px 14px;">該当する登録データがありません。</p>`}</div>`;
+      box.scrollTop = prevScrollTop;
       wireRecordClicks_(box);
     }
 
@@ -909,7 +935,12 @@
       return `
         <div class="settings-card">
           <h2 class="settings-card-title"><i class="fa-solid fa-bullhorn"></i>お知らせ設定</h2>
-          <p class="settings-card-desc">画面上部のバナーに表示するお知らせを管理します。全ユーザーの画面に表示されます。</p>
+          <p class="settings-card-desc">画面上部のバナーに表示するお知らせを管理します。新車・中古車で別々に設定でき、それぞれのカレンダーを表示しているときだけそのお知らせが表示されます。</p>
+          <div style="margin-bottom:14px;">
+            <select id="announceCarType" class="settings-input">
+              ${CAR_TYPES.map(t => `<option value="${t}" ${announceEditCarType === t ? 'selected' : ''}>${t}のお知らせを編集</option>`).join('')}
+            </select>
+          </div>
           <div class="settings-list" id="announceList">
             ${pendingAnnouncements.map((a, i) => `
               <div class="settings-row">
@@ -1061,8 +1092,9 @@
     }
 
     function announceBannerHTML() {
-      if (!announceBarVisible || !announcements.length) return '';
-      const itemsHtml = announcements.map(a => `<span class="announce-item">${escapeHtml(a.text)}</span>`).join('<span class="announce-sep">・</span>');
+      const currentAnnouncements = announcementsByType[carType] || [];
+      if (!announceBarVisible || !currentAnnouncements.length) return '';
+      const itemsHtml = currentAnnouncements.map(a => `<span class="announce-item">${escapeHtml(a.text)}</span>`).join('<span class="announce-sep">・</span>');
       return `<div class="announce-bar" id="announceBar">
         <i class="fa-solid fa-bullhorn" style="flex:0 0 auto;"></i>
         <div class="announce-track"><div class="announce-track-inner"><span class="announce-copy">${itemsHtml}</span><span class="announce-copy">${itemsHtml}</span></div></div>
@@ -1171,6 +1203,17 @@
           const scroller = btn.closest('.content-col');
           if (scroller) scroller.scrollBy({ left: 360, behavior: 'smooth' });
         };
+      });
+      // 横スライドで先端まで到達したら、もう先がないことがわかるよう矢印を消す
+      root.querySelectorAll('.content-col').forEach(col => {
+        const hint = col.querySelector('.slide-hint');
+        if (!hint) return;
+        const updateHint = () => {
+          const atEnd = col.scrollLeft + col.clientWidth >= col.scrollWidth - 2;
+          hint.style.display = atEnd ? 'none' : '';
+        };
+        updateHint();
+        col.addEventListener('scroll', updateHint, { passive: true });
       });
       wireRecordClicks_(root);
 
@@ -1291,6 +1334,13 @@
         };
       });
 
+      const announceCarType = document.getElementById('announceCarType');
+      if (announceCarType) announceCarType.onchange = (ev) => {
+        announceEditCarType = ev.target.value;
+        pendingAnnouncements = announcementsByType[announceEditCarType].slice();
+        announceDirty = false; announceMsg = '';
+        render();
+      };
       const addAnnounceBtn = document.getElementById('addAnnounceBtn');
       if (addAnnounceBtn) addAnnounceBtn.onclick = () => {
         const input = document.getElementById('newAnnounceText');
@@ -1308,11 +1358,13 @@
         if (typeof google === 'undefined') return;
         google.script.run
           .withSuccessHandler(res => {
-            if (res && res.success) { announcements = pendingAnnouncements.slice(); announceDirty = false; announceMsg = '保存しました'; render(); }
-            else if (res) alert(res.message);
+            if (res && res.success) {
+              announcementsByType[announceEditCarType] = pendingAnnouncements.slice();
+              announceDirty = false; announceMsg = '保存しました'; render();
+            } else if (res) alert(res.message);
           })
           .withFailureHandler(e => alert('保存に失敗しました: ' + (e && e.message ? e.message : e)))
-          .saveAnnouncements(pendingAnnouncements);
+          .saveAnnouncements(announceEditCarType, pendingAnnouncements);
       };
 
       const calSetCarType = document.getElementById('calSetCarType');
@@ -1385,7 +1437,9 @@
       // 検索入力中はフォーカスを保つため、フィルター行より下のテーブル部分のみ再構築
       const card = document.querySelector('.calendar-card .page-fill-area');
       if (!card) { render(); return; }
+      const prevScrollTop = card.scrollTop; // 再構築のたびにスクロール位置が先頭に戻らないようにする
       card.innerHTML = listViewHTML();
+      card.scrollTop = prevScrollTop;
       wireRecordClicks_(card);
       const exportBtn = document.getElementById('btnExportCsv');
       if (exportBtn) exportBtn.onclick = downloadCSV;
