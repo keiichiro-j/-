@@ -63,10 +63,17 @@
     .cp-nav-item:hover { background: var(--surface); color: var(--ink); }
     .cp-nav-item.active { background: var(--accent-bg); color: var(--accent-ink); box-shadow: inset 3px 0 0 var(--accent); }
     .cp-nav-item.active i { color: var(--accent-ink); }
-    .cp-subnav { display: flex; flex-direction: column; gap: 1px; padding: 2px 4px 8px 31px; }
-    .cp-subnav-item { border: none; background: transparent; text-align: left; font-size: 11.5px; font-weight: 600; color: var(--muted); padding: 5px 8px; border-radius: 5px; cursor: pointer; transition: background .12s ease, color .12s ease; }
+    .cp-subnav { position: relative; display: flex; flex-direction: column; gap: 1px; padding: 2px 4px 8px 31px; }
+    .cp-subnav::before {
+      content: ''; position: absolute; left: 18px; top: -4px; bottom: 21px; width: 1px; background: var(--border);
+    }
+    .cp-subnav-item { position: relative; border: none; background: transparent; text-align: left; font-size: 11.5px; font-weight: 600; color: var(--muted); padding: 5px 8px; border-radius: 5px; cursor: pointer; transition: background .12s ease, color .12s ease; }
+    .cp-subnav-item::before {
+      content: ''; position: absolute; left: -13px; top: 50%; width: 9px; height: 1px; background: var(--border);
+    }
     .cp-subnav-item:hover { color: var(--ink-2); }
     .cp-subnav-item.active { color: var(--accent-ink); font-weight: 700; background: var(--accent-bg); }
+    .cp-subnav-item.active::before { background: var(--accent); }
     .cp-footer { padding-top: 14px; margin-top: 14px; border-top: 1px solid var(--hairline); }
     .cp-user { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
     .cp-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex: 0 0 28px; }
@@ -137,24 +144,20 @@
     .slide-hint { position: sticky; right: 2px; flex: 0 0 30px; width: 30px; height: 30px; border-radius: 50%; background: var(--surface); box-shadow: var(--shadow-md); border: none; color: var(--accent-ink); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12px; }
 
     /* -- カレンダーカード / オーバーレイ未定リスト -- */
-    .calendar-row-wrap { display: flex; align-items: stretch; gap: 10px; flex: 1; min-height: 0; }
     .calendar-card { position: relative; background: var(--surface); border-radius: 12px; padding: 16px 18px; overflow: hidden; box-shadow: var(--shadow-md); display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; border: 1px solid var(--hairline); }
     .rowscroll-wrap { position: relative; flex: 1; min-height: 0; display: flex; }
     .cal-overlay-backdrop { position: absolute; inset: 0; background: rgba(26,31,54,0.32); z-index: 5; }
     .cal-overlay-panel { position: absolute; top: 0; right: 0; bottom: 0; width: 216px; background: var(--surface); box-shadow: var(--shadow-lg); z-index: 6; padding: 14px; display: flex; flex-direction: column; border-left: 1px solid var(--hairline); }
     .sales-tag { font-size: 10px; font-weight: 600; color: #9AA1B0; display: flex; align-items: center; gap: 5px; margin: 9px 0 6px; text-transform: uppercase; letter-spacing: .03em; }
-    .pending-toggle-col { flex: 0 0 auto; display: flex; align-items: flex-start; }
     .pending-toggle-btn {
-      width: 78px; display: flex; flex-direction: column; align-items: center; gap: 7px;
-      background: var(--surface); color: var(--ink-2); font-size: 11px; font-weight: 700; line-height: 1.25;
-      padding: 14px 8px; border-radius: 10px; box-shadow: var(--shadow-sm); border: 1px solid var(--border);
-      cursor: pointer; text-align: center;
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--surface); color: var(--ink-2); font-size: 12px; font-weight: 700;
+      padding: 6px 12px; border-radius: 6px; box-shadow: var(--shadow-sm); border: 1px solid var(--border);
+      cursor: pointer; transition: border-color .12s ease, color .12s ease, background .12s ease;
     }
     .pending-toggle-btn:hover { border-color: var(--accent); color: var(--accent-ink); }
-    .pending-toggle-icon { font-size: 16px; color: var(--muted); }
-    .pending-toggle-btn:hover .pending-toggle-icon, .pending-toggle-btn.open .pending-toggle-icon { color: var(--accent-ink); }
     .pending-toggle-btn.open { color: var(--accent-ink); background: var(--accent-bg); border-color: var(--accent); }
-    .pending-toggle-count { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums slashed-zero; font-size: 11px; font-weight: 800; background: var(--surface-2); border-radius: 5px; padding: 2px 8px; }
+    .pending-toggle-count { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums slashed-zero; font-size: 10.5px; font-weight: 800; background: var(--surface-2); border-radius: 5px; padding: 2px 7px; }
     .pending-toggle-btn.open .pending-toggle-count { background: rgba(255,255,255,0.65); }
 
     /* -- マイページ -- */
@@ -235,6 +238,7 @@
       .cp-logo-sub { display: none; }
       .cp-nav { flex-direction: row; flex: 0 0 auto; }
       .cp-subnav { flex-direction: row; padding: 0 0 0 6px; }
+      .cp-subnav::before, .cp-subnav-item::before { display: none; }
       .cp-footer { display: none; }
       .main-col { height: auto; overflow: visible; padding: 16px; }
       .page-fill-area { overflow-y: visible; }
@@ -547,8 +551,14 @@
       </div>`;
     }
 
-    function calendarHeaderHTML() {
+    function calendarHeaderHTML(showPendingToggle) {
       const year = currentDate.getFullYear(), month = currentDate.getMonth();
+      const pendingToggleBtn = showPendingToggle ? `
+        <button type="button" class="pending-toggle-btn${sidebarOpen ? ' open' : ''}" id="sideTabToggle" title="未定リストの表示切り替え">
+          <i class="fa-solid fa-layer-group"></i>未定リスト
+          <span class="pending-toggle-count">${pendingRecords().length}</span>
+        </button>
+      ` : '';
       return `
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -558,11 +568,12 @@
               <button type="button" class="tab ${calendarViewMode === 'list' ? 'tab-active' : ''}" data-viewmode="list">リスト</button>
             </div>
           </div>
-          <div style="display:flex;align-items:center;gap:10px;">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
             <span class="font-num" style="font-size:18px;font-weight:700;">${month + 1}<span style="font-size:12px;font-weight:600;color:var(--muted);margin:0 6px 0 1px;font-family:'Plus Jakarta Sans',sans-serif;">月</span><span style="font-size:12px;font-weight:600;color:var(--muted);font-family:'Plus Jakarta Sans',sans-serif;">${year}</span></span>
             <button type="button" class="today-btn" id="btnToday">今日</button>
             <button type="button" class="nav-btn" id="btnPrevMonth"><i class="fa-solid fa-chevron-left"></i></button>
             <button type="button" class="nav-btn" id="btnNextMonth"><i class="fa-solid fa-chevron-right"></i></button>
+            ${pendingToggleBtn}
           </div>
         </div>
       `;
@@ -580,7 +591,8 @@
     function heroSummaryHTML() {
       const year = currentDate.getFullYear(), month = currentDate.getMonth();
       const { total, ossCount, ossRate, perBranch } = computeSummaryStats(year, month);
-      const branchTiles = branchOrderFor(carType).map(b => {
+      const branchList = branchOrderFor(carType);
+      const branchTiles = branchList.map(b => {
         const c = branchColors[b];
         return `<div class="kpi-tile">
           <div class="kpi-label"><span style="width:7px;height:7px;border-radius:50%;background:${c.c};display:inline-block;"></span>${b}</div>
@@ -604,7 +616,7 @@
             </div>
           </div>
           <div class="kpi-row-label">拠点別登録台数</div>
-          <div class="kpi-row kpi-row-bottom">${branchTiles}</div>
+          <div class="kpi-row kpi-row-bottom" style="grid-template-columns:repeat(${branchList.length}, 1fr);">${branchTiles}</div>
         </div>
       `;
     }
@@ -652,40 +664,24 @@
       `;
     }
 
-    function pendingToggleColHTML() {
-      return `
-        <div class="pending-toggle-col">
-          <button type="button" class="pending-toggle-btn${sidebarOpen ? ' open' : ''}" id="sideTabToggle" title="未定リストの表示切り替え">
-            <i class="fa-solid fa-layer-group pending-toggle-icon"></i>
-            <span>未定<br>リスト</span>
-            <span class="pending-toggle-count">${pendingRecords().length}</span>
-            <i class="fa-solid fa-chevron-${sidebarOpen ? 'up' : 'down'}" style="font-size:9px;color:var(--muted);"></i>
-          </button>
-        </div>
-      `;
-    }
-
     function calendarPageHTML() {
       if (calendarViewMode === 'list') {
         return `
           ${heroSummaryHTML()}
           <div class="calendar-card">
-            ${calendarHeaderHTML()}
+            ${calendarHeaderHTML(false)}
             <div class="page-fill-area">${listViewHTML()}</div>
           </div>
         `;
       }
       return `
         ${heroSummaryHTML()}
-        <div class="calendar-row-wrap">
         <div class="calendar-card" id="calCard">
-          ${calendarHeaderHTML()}
+          ${calendarHeaderHTML(true)}
           <div class="rowscroll-wrap">
             <div class="row-scroll" id="rowScroll" style="flex:1;min-height:0;display:flex;flex-direction:column;">${calendarRowsHTML()}</div>
             ${sidebarOpen ? `<div class="cal-overlay-backdrop" id="overlayBackdrop"></div><div class="cal-overlay-panel">${pendingPanelHTML()}</div>` : ''}
           </div>
-        </div>
-        ${pendingToggleColHTML()}
         </div>
       `;
     }
