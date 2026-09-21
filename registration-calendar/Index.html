@@ -34,10 +34,18 @@
     .row-scroll::-webkit-scrollbar { width: 6px; }
     .row-scroll::-webkit-scrollbar-thumb { background: #D7DAE2; border-radius: 10px; }
 
-    /* -- お知らせバナー -- */
+    /* -- お知らせバナー(左から右へ自動的に流れる) -- */
     .announce-bar { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; background: var(--notice); color: #fff; padding: 8px 16px; font-size: 12px; font-weight: 700; }
-    .announce-track { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
-    .announce-track::-webkit-scrollbar { display: none; }
+    .announce-track { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; }
+    .announce-track-inner { display: inline-flex; white-space: nowrap; animation: announce-marquee 24s linear infinite; }
+    .announce-copy { display: inline-flex; align-items: center; padding-right: 48px; }
+    @keyframes announce-marquee {
+      from { transform: translateX(-50%); }
+      to { transform: translateX(0%); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .announce-track-inner { animation: none; }
+    }
     .announce-item { margin-right: 4px; }
     .announce-sep { opacity: .55; margin: 0 10px; }
     .announce-close { border: none; background: rgba(255,255,255,0.2); color: #fff; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; font-size: 9px; }
@@ -93,7 +101,9 @@
 
     /* -- カレンダー行 -- */
     .date-row { display: flex; align-items: stretch; min-height: 76px; border-bottom: 1px solid var(--hairline); }
+    .date-row.has-notice { min-height: 96px; }
     .date-col { width: 58px; flex: 0 0 58px; display: flex; align-items: center; justify-content: center; }
+    .content-col-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
     .content-col { flex: 1; min-width: 0; padding: 10px 10px; display: flex; align-items: center; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; scroll-behavior: smooth; }
     .content-col::-webkit-scrollbar { display: none; }
     .day-entries-track { display: flex; gap: 8px; align-items: center; }
@@ -102,7 +112,8 @@
     .date-badge .d-dow { font-size: 9px; font-weight: 600; margin-top: 3px; }
     .date-badge .d-tag { font-size: 8px; font-weight: 700; margin-top: 2px; opacity: 0.9; }
     .date-row.is-today { background: var(--accent-bg); }
-    .notice-flag { position: absolute; top: -6px; right: -6px; width: 17px; height: 17px; border-radius: 50%; background: var(--notice); color: #fff; border: none; font-size: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: var(--shadow-sm); padding: 0; }
+    .day-notice-banner { flex: 0 0 auto; display: flex; align-items: center; gap: 7px; background: var(--notice-bg); color: var(--notice); font-size: 11px; font-weight: 700; line-height: 1.4; padding: 5px 12px; border-radius: 7px; margin: 8px 10px 0; }
+    .day-notice-banner i { flex: 0 0 auto; }
 
     /* -- 登録カード -- */
     .entry-card { background: var(--surface); border-radius: 8px; padding: 8px 11px; flex: 0 0 178px; width: 178px; box-shadow: var(--shadow-sm); position: relative; overflow: hidden; cursor: pointer; scroll-snap-align: start; }
@@ -124,20 +135,25 @@
     .cal-overlay-backdrop { position: absolute; inset: 0; background: rgba(26,31,54,0.32); z-index: 5; }
     .cal-overlay-panel { position: absolute; top: 0; right: 0; bottom: 0; width: 216px; background: var(--surface); box-shadow: var(--shadow-lg); z-index: 6; padding: 14px; display: flex; flex-direction: column; border-left: 1px solid var(--hairline); }
     .sales-tag { font-size: 10px; font-weight: 600; color: #9AA1B0; display: flex; align-items: center; gap: 5px; margin: 9px 0 6px; text-transform: uppercase; letter-spacing: .03em; }
-    .side-tab {
-      position: absolute; top: 16px; transform: translateX(-100%);
-      background: var(--accent); color: #fff; font-size: 10.5px; font-weight: 600;
-      padding: 11px 7px; border-radius: 8px 0 0 8px; box-shadow: var(--shadow-sm);
-      writing-mode: vertical-rl; letter-spacing: 0.06em; cursor: pointer; z-index: 7; border: none;
+    .pending-toggle-row { display: flex; justify-content: flex-end; margin: -2px 2px 8px; flex: 0 0 auto; }
+    .pending-toggle-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--surface); color: var(--ink-2); font-size: 11.5px; font-weight: 700;
+      padding: 7px 13px; border-radius: 8px; box-shadow: var(--shadow-sm); border: 1px solid var(--border);
+      cursor: pointer;
     }
+    .pending-toggle-btn.open { color: var(--accent-ink); background: var(--accent-bg); border-color: var(--accent); }
+    .pending-toggle-count { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 700; background: var(--surface-2); border-radius: 6px; padding: 2px 7px; }
+    .pending-toggle-btn.open .pending-toggle-count { background: rgba(255,255,255,0.6); }
 
     /* -- マイページ -- */
     .mp-list { display: flex; flex-direction: column; gap: 5px; }
     .mp-row { display: flex; align-items: center; gap: 14px; background: var(--surface); border-radius: 10px; padding: 10px 14px; box-shadow: var(--shadow-sm); cursor: pointer; }
-    .mp-date-chip { font-size: 10.5px; font-weight: 700; font-family: 'JetBrains Mono', monospace; text-align: center; border-radius: 6px; padding: 5px 0; width: 52px; flex: 0 0 52px; }
-    .mp-name { font-size: 12.5px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1.3; min-width: 0; }
-    .mp-model { font-size: 11.5px; color: var(--ink-2); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
-    .mp-pdf-btn { font-size: 10.5px; font-weight: 700; border-radius: 7px; padding: 6px 12px; display: flex; align-items: center; gap: 6px; border: none; flex: 0 0 auto; white-space: nowrap; }
+    .mp-col { flex: 1; min-width: 0; display: flex; align-items: center; }
+    .mp-date-chip { font-size: 10.5px; font-weight: 700; font-family: 'JetBrains Mono', monospace; text-align: center; border-radius: 6px; padding: 5px 10px; }
+    .mp-name { font-size: 12.5px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+    .mp-model { font-size: 11.5px; color: var(--ink-2); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+    .mp-pdf-btn { font-size: 10.5px; font-weight: 700; border-radius: 7px; padding: 6px 12px; display: flex; align-items: center; gap: 6px; border: none; white-space: nowrap; }
     .mp-pdf-btn.ready { background: var(--accent-bg); color: var(--accent-ink); }
     .mp-pdf-btn.waiting { background: var(--surface-2); color: #B3B8C2; cursor: default; }
     .mp-thead-row { display: flex; align-items: center; gap: 14px; padding: 4px 14px; font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
@@ -224,17 +240,6 @@
     </div>
   </div>
 
-  <!-- カレンダー案内(お知らせ)の詳細表示 -->
-  <div id="noticeModal" class="modal-backdrop">
-    <div class="modal-box" style="max-width: 380px;">
-      <div class="modal-head">
-        <h3 id="noticeModalTitle" class="modal-title"></h3>
-        <button class="modal-close" onclick="closeNoticeModal()"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-      <div id="noticeModalBody" style="padding: 8px 22px 20px;"></div>
-    </div>
-  </div>
-
   <script>
     // ▼ サーバー(Code.gs)がテンプレート変数として埋め込む値
     const IS_EDITOR = <?!= isEditor ? 'true' : 'false' ?>;
@@ -243,6 +248,7 @@
     const INITIAL_SIDE_ICON_URL = <?!= JSON.stringify(initialSideIconUrl || '') ?>;
     const INITIAL_SIDE_ICON_FOLDER_ID = <?!= JSON.stringify(initialSideIconFolderId || '') ?>;
     const LINKED_NAME = <?!= JSON.stringify(linkedName || '') ?>;
+    const LINKED_CAR_TYPE = <?!= JSON.stringify(linkedCarType || '') ?>;
     const INITIAL_ANNOUNCEMENTS = <?!= JSON.stringify(initialAnnouncements || []) ?>;
     const INITIAL_PDF_FOLDER_NEW = <?!= JSON.stringify(initialPdfFolderNew || '') ?>;
     const INITIAL_PDF_FOLDER_USED = <?!= JSON.stringify(initialPdfFolderUsed || '') ?>;
@@ -336,16 +342,18 @@
     }
 
     // ---- データ ----
-    let carType = '新車';
+    // 担当者マスタで担当車両区分が紐づいていれば、アプリを開いた瞬間からそのカレンダーを表示する
+    let carType = CAR_TYPES.indexOf(LINKED_CAR_TYPE) !== -1 ? LINKED_CAR_TYPE : '新車';
     let allRecords = [];
     let currentDate = new Date();
     let currentPage = 'calendar';
     let calendarViewMode = 'calendar'; // calendar | list
-    let sidebarOpen = true;
+    let sidebarOpen = false; // 未定リストは開いた直後は非表示
     let listSearch = { keyword: '', branch: 'ALL', method: 'ALL' };
 
     let myPageMonthOffset = 0;
     let mpSearch = { name: '', method: '全て' };
+    let mypageRecords = []; // マイページは新車・中古車を横断して表示する
 
     let mypageLinks = [];
     let mypageLinksDirty = false;
@@ -397,6 +405,21 @@
           alert("データの取得に失敗しました: " + (error && error.message ? error.message : error));
         })
         .getRegistrationData(carType);
+    }
+
+    // ▼ マイページは新車・中古車を横断して表示するため、カレンダー側のcarType切り替えとは
+    //   独立して、両方の車両区分をまとめたデータを一度だけ取得する。
+    function loadMypageData() {
+      if (typeof google === 'undefined') return;
+      google.script.run
+        .withSuccessHandler(function (data) {
+          mypageRecords = data || [];
+          if (currentPage === 'mypage') renderMpResults();
+        })
+        .withFailureHandler(function (error) {
+          console.error("マイページデータの取得に失敗しました: ", error);
+        })
+        .getAllRegistrationData();
     }
 
     function loadCalendarNotices() {
@@ -483,20 +506,23 @@
       const content = entries.length === 0
         ? ``
         : `<div class="day-entries-track">${entries.map(entryCard).join('')}${hintBtn}</div>`;
-      const noticeFlag = notices.length
-        ? `<button type="button" class="notice-flag js-open-notice" data-date="${dateStr}" title="この日の案内があります"><i class="fa-solid fa-clipboard"></i></button>`
+      const hasNotice = notices.length > 0;
+      const noticeBanner = hasNotice
+        ? `<div class="day-notice-banner"><i class="fa-solid fa-clipboard-list"></i><span>${notices.map(n => escapeHtml(n.text)).join('　・　')}</span></div>`
         : '';
 
-      return `<div data-day="${day}" data-today="${isToday}" class="date-row${extraClass}" style="${rowBg ? `background:${rowBg};` : ''}">
+      return `<div data-day="${day}" data-today="${isToday}" class="date-row${extraClass}${hasNotice ? ' has-notice' : ''}" style="${rowBg ? `background:${rowBg};` : ''}">
         <div class="date-col">
           <div class="date-badge" style="background:${badgeFill};">
             <div class="d-num" style="color:${badgeTextColor};">${day}</div>
             <div class="d-dow" style="color:${isToday ? 'rgba(255,255,255,0.85)' : ink};">${dow[dowIdx]}</div>
             ${tagText ? `<div class="d-tag" style="color:${isToday ? 'rgba(255,255,255,0.85)' : ink};">祝</div>` : ''}
-            ${noticeFlag}
           </div>
         </div>
-        <div class="content-col">${content}</div>
+        <div class="content-col-wrap">
+          ${noticeBanner}
+          <div class="content-col">${content}</div>
+        </div>
       </div>`;
     }
 
@@ -605,6 +631,18 @@
       `;
     }
 
+    function pendingToggleRowHTML() {
+      return `
+        <div class="pending-toggle-row">
+          <button type="button" class="pending-toggle-btn${sidebarOpen ? ' open' : ''}" id="sideTabToggle">
+            <i class="fa-solid fa-circle-notch"></i>未定リスト
+            <span class="pending-toggle-count">${pendingRecords().length}</span>
+            <i class="fa-solid fa-chevron-${sidebarOpen ? 'up' : 'down'}"></i>
+          </button>
+        </div>
+      `;
+    }
+
     function calendarPageHTML() {
       if (calendarViewMode === 'list') {
         return `
@@ -617,12 +655,12 @@
       }
       return `
         ${heroSummaryHTML()}
+        ${pendingToggleRowHTML()}
         <div class="calendar-card" id="calCard">
           ${calendarHeaderHTML()}
           <div class="rowscroll-wrap">
             <div class="row-scroll" id="rowScroll" style="flex:1;min-height:0;display:flex;flex-direction:column;">${calendarRowsHTML()}</div>
             ${sidebarOpen ? `<div class="cal-overlay-backdrop" id="overlayBackdrop"></div><div class="cal-overlay-panel">${pendingPanelHTML()}</div>` : ''}
-            <button type="button" class="side-tab" id="sideTabToggle" style="right:${sidebarOpen ? '216px' : '0'};">${sidebarOpen ? '閉じる ▶' : '◀ 未定リスト'}</button>
           </div>
         </div>
       `;
@@ -683,44 +721,38 @@
     // ---- マイページ ----
     function mpMonthDate(offset) { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() + offset, 1); }
     function mpTheadHTML() {
-      return `<div class="mp-thead-row">
-        <span style="width:52px;flex:0 0 52px;">日付</span>
-        <span style="flex:1.3;">顧客名</span>
-        <span style="width:74px;flex:0 0 74px;">拠点</span>
-        <span style="width:96px;flex:0 0 96px;">ステータス</span>
-        <span style="flex:1;">モデル</span>
-        <span style="width:64px;flex:0 0 64px;">方法</span>
-        <span style="width:128px;flex:0 0 128px;">車検証</span>
-      </div>`;
+      const heads = ['日付', '区分', '顧客名', 'モデル', '登録方法', 'ステータス', '車検証'];
+      return `<div class="mp-thead-row">${heads.map(h => `<span class="mp-col">${h}</span>`).join('')}</div>`;
     }
     function mpRowHTML(r) {
-      const c = branchColors[r.拠点] || branchColors['その他'];
       const monthLabel = r.登録予定日 ? r.登録予定日.slice(5).replace('-', '/') : null;
       const dateChip = monthLabel
         ? `<span class="mp-date-chip" style="background:var(--surface-2);color:var(--ink-2);">${monthLabel}</span>`
         : `<span class="mp-date-chip" style="background:var(--accent-bg);color:var(--accent-ink);">未定</span>`;
+      const isUsed = r.車両区分 === '中古車';
+      const typeChip = `<span class="branch-pill" style="background:${isUsed ? 'var(--notice-bg)' : 'var(--accent-bg)'};color:${isUsed ? 'var(--notice)' : 'var(--accent-ink)'};">${escapeHtml(r.車両区分 || '-')}</span>`;
       const pdfBtn = hasPdfLink(r)
         ? `<button type="button" class="mp-pdf-btn ready js-pdf-link" data-url="${escapeAttr(r.車検証リンク)}"><i class="fa-regular fa-file-pdf"></i>車検証PDF</button>`
         : `<button type="button" class="mp-pdf-btn waiting" disabled><i class="fa-regular fa-clock"></i>未アップロード</button>`;
       return `<div class="mp-row js-open-record" ${recordDataAttr(r)}>
-        ${dateChip}
-        <span class="mp-name">${escapeHtml(r.顧客名)} 様</span>
-        <span style="width:74px;flex:0 0 74px;"><span class="branch-pill" style="background:${c.bg};color:${c.c};">${r.拠点}</span></span>
-        <span style="width:96px;flex:0 0 96px;"><span class="status-pill">${escapeHtml(r.ステータス || '-')}</span></span>
-        <span class="mp-model">${escapeHtml(r.車種 || '')}</span>
-        <span style="width:64px;flex:0 0 64px;">${methodPill(isOssRecord(r))}</span>
-        <span style="width:128px;flex:0 0 128px;">${pdfBtn}</span>
+        <span class="mp-col">${dateChip}</span>
+        <span class="mp-col">${typeChip}</span>
+        <span class="mp-col mp-name">${escapeHtml(r.顧客名)} 様</span>
+        <span class="mp-col mp-model">${escapeHtml(r.車種 || '')}</span>
+        <span class="mp-col">${methodPill(isOssRecord(r))}</span>
+        <span class="mp-col"><span class="status-pill">${escapeHtml(r.ステータス || '-')}</span></span>
+        <span class="mp-col">${pdfBtn}</span>
       </div>`;
     }
     function myRecordsForOffset(offset) {
       const monthDate = mpMonthDate(offset);
       const y = monthDate.getFullYear(), m = monthDate.getMonth();
-      const confirmed = allRecords.filter(r => {
+      const confirmed = mypageRecords.filter(r => {
         if (r.担当者 !== LINKED_NAME || !r.登録予定日 || !isConfirmedStatus(r.ステータス)) return false;
         const p = parseYMD(r.登録予定日);
         return p.y === y && p.m === m;
       });
-      const undecided = offset === 0 ? allRecords.filter(r => r.担当者 === LINKED_NAME && !isConfirmedStatus(r.ステータス)) : [];
+      const undecided = offset === 0 ? mypageRecords.filter(r => r.担当者 === LINKED_NAME && !isConfirmedStatus(r.ステータス)) : [];
       return { confirmed, undecided };
     }
     function mpApplyFilters(records) {
@@ -768,7 +800,7 @@
             <div class="cp-avatar" style="width:38px;height:38px;flex:0 0 38px;font-size:14px;">${LINKED_NAME[0] || '?'}</div>
             <div>
               <h1 class="page-title">マイページ</h1>
-              <p class="page-sub">${escapeHtml(LINKED_NAME)} さんの受注・登録状況（${carType}）</p>
+              <p class="page-sub">${escapeHtml(LINKED_NAME)} さんの受注・登録状況（新車・中古車 合算）</p>
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
@@ -949,12 +981,13 @@
           <span class="s-name">${escapeHtml(u.name)}</span>
           <span class="s-email">${escapeHtml(u.email)}</span>
           <span class="s-branch">${escapeHtml(u.branch || '-')}</span>
+          <span class="s-branch">${escapeHtml(u.carType || '未設定')}</span>
           <button type="button" class="settings-remove" data-idx="${mypageLinks.indexOf(u)}" data-role="link-remove"><i class="fa-solid fa-xmark"></i></button>
         </div>`;
       return `
         <div class="settings-card">
           <h2 class="settings-card-title"><i class="fa-solid fa-user-shield"></i>担当者マスタ</h2>
-          <p class="settings-card-desc">Googleアカウントごとにフルネームと拠点を登録します。マイページはこの氏名と、登録データの「担当者」欄(フルネーム入力)を照合して自分の担当案件を表示します。スプレッドシート側でも、ここに登録のない担当者名を入力すると入力セルに警告表示が出ます。<b>編集権限(EDITOR_EMAILS)とは別の設定</b>で、アプリからの編集はできないため、権限者ログインアカウントとそのほかのアカウントに分けて表示しています。この項目は権限者としてログインした場合のみ表示されます。</p>
+          <p class="settings-card-desc">Googleアカウントごとにフルネームと拠点を登録します。マイページはこの氏名と、登録データの「担当者」欄(フルネーム入力)を照合して自分の担当案件を表示します。スプレッドシート側でも、ここに登録のない担当者名を入力すると入力セルに警告表示が出ます。「担当車両区分」を設定すると、そのアカウントでアプリを開いたときに新車/中古車どちらのカレンダーを最初に表示するかが自動で切り替わります。<b>編集権限(EDITOR_EMAILS)とは別の設定</b>で、アプリからの編集はできないため、権限者ログインアカウントとそのほかのアカウントに分けて表示しています。この項目は権限者としてログインした場合のみ表示されます。</p>
           <div class="settings-group-label">権限者ログインアカウント</div>
           <div class="settings-list" style="margin-bottom:14px;">
             ${editors.map(rowHtml).join('') || `<p style="font-size:12px;color:var(--muted);padding:4px 2px;">権限者アカウントの登録はまだありません。</p>`}
@@ -969,6 +1002,10 @@
             <select id="newLinkBranch" class="settings-input">
               <option value="">拠点を選択</option>
               ${branchOrder.map(b => `<option value="${b}">${b}</option>`).join('')}
+            </select>
+            <select id="newLinkCarType" class="settings-input">
+              <option value="">初期カレンダー: 未設定</option>
+              ${CAR_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}
             </select>
             <button type="button" id="addLinkBtn" class="settings-add-btn"><i class="fa-solid fa-plus"></i>追加</button>
           </div>
@@ -1025,9 +1062,10 @@
 
     function announceBannerHTML() {
       if (!announceBarVisible || !announcements.length) return '';
+      const itemsHtml = announcements.map(a => `<span class="announce-item">${escapeHtml(a.text)}</span>`).join('<span class="announce-sep">・</span>');
       return `<div class="announce-bar" id="announceBar">
         <i class="fa-solid fa-bullhorn" style="flex:0 0 auto;"></i>
-        <div class="announce-track">${announcements.map(a => `<span class="announce-item">${escapeHtml(a.text)}</span>`).join('<span class="announce-sep">・</span>')}</div>
+        <div class="announce-track"><div class="announce-track-inner"><span class="announce-copy">${itemsHtml}</span><span class="announce-copy">${itemsHtml}</span></div></div>
         <button type="button" class="announce-close" id="announceCloseBtn" title="閉じる"><i class="fa-solid fa-xmark"></i></button>
       </div>`;
     }
@@ -1134,10 +1172,6 @@
           if (scroller) scroller.scrollBy({ left: 360, behavior: 'smooth' });
         };
       });
-      root.querySelectorAll('.js-open-notice').forEach(el => {
-        el.onclick = (e) => { e.stopPropagation(); openNoticeModal(el.dataset.date); };
-      });
-
       wireRecordClicks_(root);
 
       // 検索/フィルター(入力中は結果だけ再描画してフォーカスを保つ)
@@ -1325,8 +1359,9 @@
         const name = document.getElementById('newLinkName').value.trim();
         const email = document.getElementById('newLinkEmail').value.trim();
         const branch = document.getElementById('newLinkBranch').value;
+        const linkCarType = document.getElementById('newLinkCarType').value;
         if (!name || !email) return;
-        mypageLinks.push({ name, email, branch, isEditor: false });
+        mypageLinks.push({ name, email, branch, carType: linkCarType, isEditor: false });
         mypageLinksDirty = true; mypageLinksMsg = '';
         render();
       };
@@ -1381,17 +1416,6 @@
         .withFailureHandler(() => { calSettingsNotices = []; render(); })
         .getCalendarNotices(calSettingsCarType, calSettingsYear, calSettingsMonth);
     }
-
-    // ---- カレンダー案内モーダル ----
-    function openNoticeModal(dateStr) {
-      const notices = calendarNoticesForDate(dateStr);
-      document.getElementById('noticeModalTitle').textContent = dateStr + ' のお知らせ';
-      document.getElementById('noticeModalBody').innerHTML = notices.map(n =>
-        `<p style="font-size:13px;font-weight:600;color:var(--ink);padding:8px 0;border-bottom:1px solid var(--hairline);">${escapeHtml(n.text)}</p>`
-      ).join('') || `<p style="font-size:12px;color:var(--muted);">お知らせはありません。</p>`;
-      document.getElementById('noticeModal').classList.add('flex');
-    }
-    function closeNoticeModal() { document.getElementById('noticeModal').classList.remove('flex'); }
 
     // ---- 登録内容の詳細表示（閲覧専用。登録・編集はスプレッドシートで行う） ----
     function detailRow_(label, valueHtml) {
@@ -1450,7 +1474,7 @@
       document.body.removeChild(link);
     }
 
-    window.onload = function () { render(); loadData(); loadCalendarNotices(); };
+    window.onload = function () { render(); loadData(); loadCalendarNotices(); if (LINKED_NAME) loadMypageData(); };
   </script>
 </body>
 </html>

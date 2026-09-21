@@ -14,6 +14,38 @@ function isEditorEmail_(email) {
   return EDITOR_EMAILS.some(e => String(e).trim().toLowerCase() === target);
 }
 
+// ============================================================
+// ▼ スプレッドシート画面のカスタムメニュー（メニューバーの「ヘルプ」の横に追加される）
+//   スプレッドシートを開くたびに自動実行される。新車・中古車それぞれのシート操作を分けて置く。
+// ============================================================
+function onOpen() {
+  const ui = SpreadsheetApp.getUi();
+  ui.createMenu('シート設定')
+    .addItem('新車: 翌月のシートを作成', 'menuCreateNextMonthSheetNewCar_')
+    .addItem('中古車: 翌月のシートを作成', 'menuCreateNextMonthSheetUsedCar_')
+    .addSeparator()
+    .addItem('新車・中古車 全シートにテンプレートを再適用', 'menuRefreshAllSheetTemplates_')
+    .addSeparator()
+    .addItem('車検証PDF自動リンクの定期実行を設定', 'menuSetupPdfLinkTrigger_')
+    .addToUi();
+}
+function menuCreateNextMonthSheetNewCar_() {
+  createNextMonthSheet('新車');
+  SpreadsheetApp.getUi().alert('新車の翌月シートを作成しました（既にあれば変更ありません）。');
+}
+function menuCreateNextMonthSheetUsedCar_() {
+  createNextMonthSheetUsedCar();
+  SpreadsheetApp.getUi().alert('中古車の翌月シートを作成しました（既にあれば変更ありません）。');
+}
+function menuRefreshAllSheetTemplates_() {
+  refreshAllSheetTemplates();
+  SpreadsheetApp.getUi().alert('新車・中古車の全シートにテンプレート（注釈・入力規則・警告表示）を再適用しました。');
+}
+function menuSetupPdfLinkTrigger_() {
+  setupPdfLinkTrigger();
+  SpreadsheetApp.getUi().alert('車検証PDF自動リンクの定期実行トリガーを設定しました（既に設定済みの場合は変更ありません）。');
+}
+
 function doGet() {
   const userEmail = Session.getActiveUser().getEmail();
   const isEditor = isEditorEmail_(userEmail);
@@ -24,7 +56,9 @@ function doGet() {
   template.initialTheme = getUserTheme();
   template.initialSideIconUrl = getSideIconUrl();
   template.initialSideIconFolderId = getSideIconFolderId();
-  template.linkedName = getMyLinkedName_(userEmail);
+  const linkedInfo = getMyLinkedInfo_(userEmail);
+  template.linkedName = linkedInfo.name;
+  template.linkedCarType = linkedInfo.carType;
   template.initialAnnouncements = getAnnouncements();
   template.initialPdfFolderNew = getPdfFolderId('新車');
   template.initialPdfFolderUsed = getPdfFolderId('中古車');
@@ -172,22 +206,31 @@ function saveCalendarNotices(carType, year, month, notices) {
   return { success: true };
 }
 
+const MYPAGE_LINK_HEADERS = ['氏名(フルネーム)', 'Googleアカウント', '拠点', '担当車両区分'];
+
 function getOrCreateMypageLinkSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(MYPAGE_LINK_SHEET_NAME);
+  const colCount = MYPAGE_LINK_HEADERS.length;
   if (!sheet) {
     sheet = ss.insertSheet(MYPAGE_LINK_SHEET_NAME);
-    sheet.getRange(1, 1, 1, 3).setValues([['氏名(フルネーム)', 'Googleアカウント', '拠点']]);
-    sheet.getRange(1, 1, 1, 3).setFontWeight('bold').setBackground('#E8F0FE');
-  } else if (sheet.getLastColumn() < 3) {
-    // 旧バージョン（氏名・メールのみ）のシートに拠点列を追い足す
-    sheet.getRange(1, 3).setValue('拠点');
-    sheet.getRange(1, 3).setFontWeight('bold').setBackground('#E8F0FE');
+    sheet.getRange(1, 1, 1, colCount).setValues([MYPAGE_LINK_HEADERS]);
+    sheet.getRange(1, 1, 1, colCount).setFontWeight('bold').setBackground('#E8F0FE');
+  } else if (sheet.getLastColumn() < colCount) {
+    // 旧バージョン（列が少ないシート）に不足している見出し列を追い足す
+    for (let c = sheet.getLastColumn() + 1; c <= colCount; c++) {
+      sheet.getRange(1, c).setValue(MYPAGE_LINK_HEADERS[c - 1]);
+      sheet.getRange(1, c).setFontWeight('bold').setBackground('#E8F0FE');
+    }
   }
+  // 担当車両区分列に入力規則(プルダウン)を付けておく（空欄＝未設定も許可）
+  const carTypeColIndex = MYPAGE_LINK_HEADERS.indexOf('担当車両区分') + 1;
+  const rule = SpreadsheetApp.newDataValidation().requireValueInList(CAR_TYPES, true).setAllowInvalid(true).build();
+  sheet.getRange(2, carTypeColIndex, 500, 1).setDataValidation(rule);
   return sheet;
 }
 
-// ▼ 氏名⇔Googleアカウント⇔拠点の対応表（担当者マスタ）を取得する
+// ▼ 氏名⇔Googleアカウント⇔拠点⇔担当車両区分の対応表（担当者マスタ）を取得する
 function getMypageLinks() {
   const sheet = getOrCreateMypageLinkSheet_();
   const data = sheet.getDataRange().getValues();
@@ -198,6 +241,7 @@ function getMypageLinks() {
       name: String(row[0] || ''),
       email: String(row[1] || ''),
       branch: String(row[2] || ''),
+      carType: String(row[3] || ''),
       isEditor: isEditorEmail_(row[1]),
     }));
 }
@@ -209,23 +253,24 @@ function saveMypageLinks(links) {
     return { success: false, message: '権限者のみ変更できます。' };
   }
   const sheet = getOrCreateMypageLinkSheet_();
+  const colCount = MYPAGE_LINK_HEADERS.length;
   const lastRow = sheet.getLastRow();
   if (lastRow > 1) {
-    sheet.getRange(2, 1, lastRow - 1, 3).clearContent();
+    sheet.getRange(2, 1, lastRow - 1, colCount).clearContent();
   }
-  const rows = (links || []).filter(l => l && (l.name || l.email)).map(l => [l.name || '', l.email || '', l.branch || '']);
+  const rows = (links || []).filter(l => l && (l.name || l.email)).map(l => [l.name || '', l.email || '', l.branch || '', l.carType || '']);
   if (rows.length > 0) {
-    sheet.getRange(2, 1, rows.length, 3).setValues(rows);
+    sheet.getRange(2, 1, rows.length, colCount).setValues(rows);
   }
   return { success: true };
 }
 
-// ▼ 指定のGoogleアカウントに紐づく氏名を1件返す（無ければ空文字）
-function getMyLinkedName_(email) {
-  if (!email) return '';
+// ▼ 指定のGoogleアカウントに紐づく氏名・担当車両区分を返す（無ければ空文字）
+function getMyLinkedInfo_(email) {
+  if (!email) return { name: '', carType: '' };
   const target = String(email).trim().toLowerCase();
   const found = getMypageLinks().find(l => String(l.email).trim().toLowerCase() === target);
-  return found ? found.name : '';
+  return found ? { name: found.name, carType: found.carType || '' } : { name: '', carType: '' };
 }
 
 // ▼ テーマは個人ごとの見た目設定なので、アクセスしているGoogleアカウントごとに保存する
@@ -484,6 +529,7 @@ function getRegistrationData(carType) {
             if (LEGACY_CONFIRMED_STATUSES.indexOf(obj['ステータス']) !== -1) {
               obj['ステータス'] = STATUS_CONFIRMED;
             }
+            obj['車両区分'] = type;
             return obj;
           });
         allData = allData.concat(sheetData);
@@ -493,6 +539,13 @@ function getRegistrationData(carType) {
   } catch(e) {
     return [];
   }
+}
+
+// ▼ マイページは新車・中古車を横断して表示するため、両方の車両区分をまとめて返す。
+function getAllRegistrationData() {
+  let all = [];
+  CAR_TYPES.forEach(t => { all = all.concat(getRegistrationData(t)); });
+  return all;
 }
 
 function normalizeCustomerName(name) {
