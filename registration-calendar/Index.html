@@ -6,8 +6,6 @@
   <title>登録カレンダー</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- スマホでのドラッグ＆ドロップ対応 -->
-  <script src="https://bernardo-castilho.github.io/DragDropTouch/DragDropTouch.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -37,7 +35,8 @@
     /* -- コントロールパネル -- */
     .control-panel { width: 212px; flex: 0 0 212px; background: var(--surface-2); padding: 22px 14px; display: flex; flex-direction: column; box-shadow: 1px 0 0 var(--hairline); position: relative; z-index: 2; height: 100%; overflow-y: auto; }
     .cp-header { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 22px; }
-    .cp-icon-mark { width: 42px; height: 42px; border-radius: 50%; background: var(--accent); box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 17px; margin-bottom: 8px; }
+    .cp-icon-mark { width: 42px; height: 42px; border-radius: 50%; background: var(--accent); box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 17px; margin-bottom: 8px; overflow: hidden; }
+    .cp-icon-mark img { width: 100%; height: 100%; object-fit: cover; }
     .cp-logo { font-size: 13px; font-weight: 800; color: var(--ink); margin-bottom: 2px; letter-spacing: -0.005em; }
     .cp-logo-sub { font-size: 10.5px; color: var(--muted); font-weight: 600; }
     .cp-nav { display: flex; flex-direction: column; gap: 3px; flex: 1; }
@@ -64,7 +63,7 @@
     .tab-active { background: var(--surface); color: var(--accent-ink); box-shadow: var(--shadow-sm); }
     .nav-btn { font-size: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 6px 10px; color: var(--ink-2); cursor: pointer; }
     .today-btn { font-size: 11px; font-weight: 600; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 6px 11px; color: var(--ink-2); cursor: pointer; }
-    .new-entry-btn { font-size: 11px; font-weight: 700; background: var(--accent); color: #fff; border: none; border-radius: 7px; padding: 7px 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+    .action-btn { font-size: 11px; font-weight: 700; background: var(--accent); color: #fff; border: none; border-radius: 7px; padding: 7px 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
 
     /* -- KPIタイル -- */
     .kpi-section { flex: 0 0 auto; }
@@ -87,7 +86,6 @@
     .date-badge .d-dow { font-size: 9px; font-weight: 600; margin-top: 3px; }
     .date-badge .d-tag { font-size: 8px; font-weight: 700; margin-top: 2px; opacity: 0.9; }
     .date-row.is-today { background: var(--accent-bg); }
-    .date-row.drag-over { background: var(--accent-bg); box-shadow: inset 0 0 0 2px var(--accent); }
 
     /* -- 登録カード -- */
     .entry-card { background: var(--surface); border-radius: 8px; padding: 8px 11px; flex: 0 0 178px; width: 178px; box-shadow: var(--shadow-sm); position: relative; overflow: hidden; cursor: pointer; }
@@ -99,17 +97,15 @@
     .entry-model { font-size: 10.5px; font-weight: 500; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 0 auto; max-width: 76px; }
     .branch-pill { font-size: 9.5px; font-weight: 600; padding: 2px 7px; border-radius: 4px; }
     .method-pill { font-size: 9px; font-weight: 600; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; }
+    .status-pill { font-size: 9px; font-weight: 600; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; background: var(--surface-2); color: var(--ink-2); }
     .pdf-icon-btn { color: var(--paper); font-size: 12px; flex: 0 0 auto; cursor: pointer; }
-    .dupe-badge { color: #C2790E; font-size: 10px; flex: 0 0 auto; }
     .overflow-chip { flex: 0 0 auto; padding: 0 12px; border-radius: 8px; background: var(--accent-bg); color: var(--accent-ink); font-size: 11px; font-weight: 600; border: none; display: flex; align-items: center; gap: 6px; height: 46px; cursor: pointer; }
-    .row-empty-add { font-size: 11px; color: var(--muted); font-weight: 600; cursor: pointer; }
-    .row-empty-add:hover { color: var(--accent-ink); }
 
     /* -- カレンダーカード / オーバーレイ未定リスト -- */
     .calendar-card { position: relative; background: var(--surface); border-radius: 14px; padding: 16px 18px; overflow: hidden; box-shadow: var(--shadow-md); display: flex; flex-direction: column; flex: 1; min-height: 0; }
     .rowscroll-wrap { position: relative; flex: 1; min-height: 0; display: flex; }
     .cal-overlay-backdrop { position: absolute; inset: 0; background: rgba(26,31,54,0.32); z-index: 5; }
-    .cal-overlay-panel { position: absolute; top: 0; right: 0; bottom: 0; width: 284px; background: var(--surface); box-shadow: var(--shadow-lg); z-index: 6; padding: 16px; display: flex; flex-direction: column; border-left: 1px solid var(--hairline); }
+    .cal-overlay-panel { position: absolute; top: 0; right: 0; bottom: 0; width: 216px; background: var(--surface); box-shadow: var(--shadow-lg); z-index: 6; padding: 14px; display: flex; flex-direction: column; border-left: 1px solid var(--hairline); }
     .sales-tag { font-size: 10px; font-weight: 600; color: #9AA1B0; display: flex; align-items: center; gap: 5px; margin: 9px 0 6px; text-transform: uppercase; letter-spacing: .03em; }
     .side-tab {
       position: absolute; top: 16px; transform: translateX(-100%);
@@ -159,20 +155,19 @@
     .theme-msg { font-size: 11.5px; font-weight: 700; }
     .theme-msg.saved { color: var(--oss); }
     .theme-msg.dirty { color: #B4620D; }
+    .btn-secondary { background: var(--surface-2); color: var(--ink); border: 1px solid var(--hairline); padding: 9px 16px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; }
 
-    /* -- モーダル(新規登録/編集、+N件) -- */
+    /* -- モーダル(詳細表示、+N件) -- */
     .modal-backdrop { position: fixed; inset: 0; background: rgba(26,31,54,0.4); display: none; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
     .modal-backdrop.flex { display: flex; }
     .modal-box { background: var(--surface); border-radius: 18px; width: 100%; box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; }
     .modal-head { background: var(--surface-2); padding: 18px 22px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--hairline); position: sticky; top: 0; }
     .modal-title { font-size: 14px; font-weight: 800; color: var(--ink); }
     .modal-close { border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 16px; }
-    .form-label { font-size: 10.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 6px; display: block; }
-    .form-input { width: 100%; background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 8px; padding: 10px 12px; font-size: 13px; color: var(--ink); font-family: inherit; }
-    .form-input:disabled { opacity: 0.6; }
-    .btn-secondary { background: var(--surface-2); color: var(--ink); border: 1px solid var(--hairline); padding: 9px 16px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; }
-    .btn-primary { background: var(--accent); color: #fff; border: none; padding: 9px 18px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; }
-    .btn-primary:disabled { opacity: 0.6; cursor: default; }
+    .detail-row { display: flex; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--hairline); }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-label { flex: 0 0 92px; font-size: 10.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; padding-top: 2px; }
+    .detail-value { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; color: var(--ink); word-break: break-word; }
 
     @media (max-width: 860px) {
       .app-shell { height: auto; overflow: visible; }
@@ -188,7 +183,6 @@
       .calendar-card { flex: 0 0 auto; }
       .rowscroll-wrap { flex: 0 0 auto; }
       #rowScroll { max-height: 60vh; }
-      .cal-overlay-panel { width: 240px; }
     }
   </style>
 </head>
@@ -206,72 +200,14 @@
     </div>
   </div>
 
-  <!-- 新規登録/編集モーダル -->
+  <!-- 登録内容の詳細表示（閲覧専用。登録・編集はスプレッドシートで行います） -->
   <div id="recordModal" class="modal-backdrop">
-    <div class="modal-box" style="max-width: 520px;">
+    <div class="modal-box" style="max-width: 460px;">
       <div class="modal-head">
-        <h3 id="modalTitle" class="modal-title"></h3>
+        <h3 class="modal-title">登録内容</h3>
         <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <div id="readonlyNotice" style="display:none;margin:16px 22px 0;padding:10px 14px;border-radius:8px;background:var(--paper-bg);color:var(--paper);font-size:11.5px;font-weight:700;align-items:center;gap:8px;">
-        <i class="fa-solid fa-lock"></i> 閲覧のみのアカウントです。登録・編集はできません。
-      </div>
-      <form id="recordForm" onsubmit="submitForm(event)" style="padding: 20px 22px; display:flex; flex-direction:column; gap:16px;">
-        <input type="hidden" id="form_ID">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-          <div>
-            <label class="form-label">ステータス</label>
-            <select id="form_ステータス" onchange="toggleDateInput()" class="form-input">
-              <option value="登録日未定">登録日未定(書類到着済)</option>
-              <option value="登録日確定">登録日確定</option>
-              <option value="書類準備中">書類準備中</option>
-              <option value="書類完了">書類完了</option>
-              <option value="登録完了">登録完了</option>
-            </select>
-          </div>
-          <div id="dateInputGroup">
-            <label class="form-label">登録予定日</label>
-            <input type="date" id="form_登録予定日" class="form-input">
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-          <div>
-            <label class="form-label">拠点</label>
-            <select id="form_拠点" class="form-input">
-              <option value="岐阜">岐阜</option><option value="大垣">大垣</option><option value="多治見">多治見</option>
-              <option value="高山">高山</option><option value="AAA">AAA</option><option value="デモカー">デモカー</option><option value="その他">その他</option>
-            </select>
-          </div>
-          <div>
-            <label class="form-label">担当者</label>
-            <input type="text" id="form_担当者" required class="form-input" placeholder="例: 山田太郎(フルネーム)">
-          </div>
-        </div>
-        <div>
-          <label class="form-label">顧客名</label>
-          <input type="text" id="form_顧客名" required class="form-input" placeholder="例: 幾田 昌美">
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-          <div>
-            <label class="form-label">車種</label>
-            <input type="text" id="form_車種" required class="form-input" placeholder="例: GLC220d">
-          </div>
-          <div>
-            <label class="form-label">登録方法</label>
-            <select id="form_OSS区分" class="form-input">
-              <option value="OSS">OSS</option><option value="紙登録">紙登録</option>
-            </select>
-          </div>
-        </div>
-        <div>
-          <label class="form-label">備考</label>
-          <textarea id="form_備考" rows="2" class="form-input" placeholder="補足事項など"></textarea>
-        </div>
-        <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:6px;border-top:1px solid var(--hairline);">
-          <button type="button" class="btn-secondary" onclick="closeModal()">閉じる</button>
-          <button type="submit" id="submit-btn" class="btn-primary">保存する</button>
-        </div>
-      </form>
+      <div id="recordDetailBody" style="padding: 8px 22px 20px;"></div>
     </div>
   </div>
 
@@ -280,7 +216,7 @@
     const IS_EDITOR = <?!= isEditor ? 'true' : 'false' ?>;
     const CURRENT_USER_EMAIL = <?!= JSON.stringify(userEmail || '') ?>;
     const INITIAL_THEME = <?!= JSON.stringify(initialTheme || 'indigo') ?>;
-    const INITIAL_SIDE_ICON = <?!= JSON.stringify(initialSideIcon || 'car') ?>;
+    const INITIAL_SIDE_ICON_URL = <?!= JSON.stringify(initialSideIconUrl || '') ?>;
     const LINKED_NAME = <?!= JSON.stringify(linkedName || '') ?>;
 
     const branchColors = {
@@ -290,6 +226,13 @@
     };
     const branchOrder = Object.keys(branchColors);
     const dow = ['日', '月', '火', '水', '木', '金', '土'];
+
+    // ステータス(スプレッドシート側のプルダウンと一致させること)。「登録予定日確定」以外は未定リスト扱い。
+    const STATUS_CONFIRMED = '登録予定日確定';
+    const LEGACY_CONFIRMED_STATUSES = ['登録日確定']; // 移行期間中の旧ステータス名もカレンダーに表示する
+    function isConfirmedStatus(status) {
+      return status === STATUS_CONFIRMED || LEGACY_CONFIRMED_STATUSES.indexOf(status) !== -1;
+    }
 
     const THEMES = {
       indigo: { name: 'インディゴ', accent: '#3B4FD1', accentBg: '#EEF1FD', accentInk: '#2E3FB0' },
@@ -301,12 +244,11 @@
       purple: { name: 'パープル', accent: '#7C3AED', accentBg: '#F2ECFC', accentInk: '#6425C7' },
       slate: { name: 'スレート', accent: '#4B5468', accentBg: '#EEF0F3', accentInk: '#333A4A' },
     };
-    const SIDE_ICON_OPTIONS = ['car', 'calendar-days', 'building', 'star', 'bolt', 'gauge-high'];
 
     let currentTheme = THEMES[INITIAL_THEME] ? INITIAL_THEME : 'indigo';
     let pendingTheme = currentTheme;
     let themeMessage = '';
-    let sidePanelIcon = SIDE_ICON_OPTIONS.includes(INITIAL_SIDE_ICON) ? INITIAL_SIDE_ICON : 'car';
+    let sidePanelIconUrl = INITIAL_SIDE_ICON_URL;
 
     function applyTheme(key) {
       const t = THEMES[key];
@@ -361,7 +303,6 @@
 
     // ---- データ ----
     let allRecords = [];
-    let duplicateNameSet = new Set();
     let currentDate = new Date();
     let currentPage = 'calendar';
     let calendarViewMode = 'calendar'; // calendar | list
@@ -384,25 +325,11 @@
     }
     function pad2(n) { return String(n).padStart(2, '0'); }
     function dateStrOf(y, m, d) { return `${y}-${pad2(m + 1)}-${pad2(d)}`; }
-
-    function normalizeCustomerNameForDupeCheck(name) {
-      if (!name) return "";
-      let str = String(name);
-      str = str.replace(/[Ａ-Ｚａ-ｚ０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
-      str = str.replace(/[\s ]+/g, "");
-      str = str.replace(/㈱|\(株\)|（株）|株式会社/g, "株式会社");
-      str = str.replace(/㈲|\(有\)|（有）|有限会社/g, "有限会社");
-      return str;
+    function escapeHtml(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
-    function computeDuplicateNames() {
-      const counts = {};
-      allRecords.forEach(r => {
-        const key = normalizeCustomerNameForDupeCheck(r.顧客名);
-        if (!key) return;
-        counts[key] = (counts[key] || 0) + 1;
-      });
-      duplicateNameSet = new Set(Object.keys(counts).filter(key => counts[key] > 1));
-    }
+    function escapeAttr(s) { return escapeHtml(s); }
+    function recordDataAttr(r) { return `data-record="${escapeAttr(JSON.stringify(r))}"`; }
 
     // ---- データ取得 ----
     function loadData() {
@@ -410,7 +337,6 @@
       google.script.run
         .withSuccessHandler(function (data) {
           allRecords = data || [];
-          computeDuplicateNames();
           render();
         })
         .withFailureHandler(function (error) {
@@ -423,7 +349,7 @@
     function buildDayEntries(year, month) {
       const map = {};
       allRecords.forEach(r => {
-        if (r.ステータス !== '登録日確定' || !r.登録予定日) return;
+        if (!isConfirmedStatus(r.ステータス) || !r.登録予定日) return;
         const { y, m, d } = parseYMD(r.登録予定日);
         if (y !== year || m !== month) return;
         map[d] = map[d] || [];
@@ -431,7 +357,7 @@
       });
       return map;
     }
-    function pendingRecords() { return allRecords.filter(r => r.ステータス === '登録日未定'); }
+    function pendingRecords() { return allRecords.filter(r => !isConfirmedStatus(r.ステータス)); }
 
     function computeSummaryStats(year, month) {
       const monthData = allRecords.filter(r => {
@@ -452,14 +378,12 @@
 
     function entryCard(r) {
       const c = branchColors[r.拠点] || branchColors['その他'];
-      const dupeBadge = duplicateNameSet.has(normalizeCustomerNameForDupeCheck(r.顧客名))
-        ? `<i class="fa-solid fa-triangle-exclamation dupe-badge" title="同姓同名の登録が複数あります。重複していないか確認してください"></i>` : '';
       const pdfIcon = hasPdfLink(r)
         ? `<span class="js-pdf-link pdf-icon-btn" title="車検証PDFを開く" data-url="${escapeAttr(r.車検証リンク)}"><i class="fa-solid fa-file-pdf"></i></span>` : '';
-      return `<div class="entry-card js-open-record" data-id="${escapeAttr(r.ID)}" style="--bar-color:${c.c};">
+      return `<div class="entry-card js-open-record" ${recordDataAttr(r)} style="--bar-color:${c.c};">
         <div class="entry-row">
           <span class="entry-name">${escapeHtml(r.顧客名)}</span>
-          ${dupeBadge}${pdfIcon}
+          ${pdfIcon}
           ${methodPill(isOssRecord(r))}
         </div>
         <div class="entry-row">
@@ -469,22 +393,16 @@
       </div>`;
     }
 
-    function escapeHtml(s) {
-      return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    }
-    function escapeAttr(s) { return escapeHtml(s); }
-
     function dateRowHTML(dayEntries, year, month, day) {
       const d = new Date(year, month, day);
       const dowIdx = d.getDay();
-      const dateStr = dateStrOf(year, month, day);
       const today = new Date(); today.setHours(0, 0, 0, 0);
       const isToday = d.getTime() === today.getTime();
-      const isPast = d.getTime() < today.getTime();
       const holiday = holidayName(year, month, day);
       const entries = dayEntries[day] || [];
       const visible = entries.slice(0, 3);
       const overflow = entries.length - visible.length;
+      const dateStr = dateStrOf(year, month, day);
 
       let rowBg = '', ink = 'var(--ink-2)', tagText = '', badgeFill = 'transparent', badgeTextColor;
       if (dowIdx === 6) { rowBg = 'var(--sat-bg)'; ink = 'var(--sat-ink)'; }
@@ -494,18 +412,11 @@
       let extraClass = '';
       if (isToday) { extraClass = ' is-today'; ink = 'var(--accent-ink)'; badgeFill = 'var(--accent)'; badgeTextColor = '#fff'; rowBg = ''; }
 
-      let content;
-      if (entries.length === 0) {
-        content = (!isPast && IS_EDITOR)
-          ? `<span class="row-empty-add js-add-on-date" data-date="${dateStr}"><i class="fa-solid fa-plus" style="margin-right:5px;"></i>登録を追加</span>`
-          : ``;
-      } else {
-        content = `<div style="display:flex;flex-wrap:wrap;gap:9px;">${visible.map(entryCard).join('')}${overflow > 0 ? `<button type="button" class="overflow-chip js-day-overflow" data-date="${dateStr}"><i class="fa-solid fa-layer-group"></i>+${overflow}件</button>` : ''}</div>`;
-      }
+      const content = entries.length === 0
+        ? ``
+        : `<div style="display:flex;flex-wrap:wrap;gap:9px;">${visible.map(entryCard).join('')}${overflow > 0 ? `<button type="button" class="overflow-chip js-day-overflow" data-date="${dateStr}"><i class="fa-solid fa-layer-group"></i>+${overflow}件</button>` : ''}</div>`;
 
-      const dragAttrs = (!isPast && IS_EDITOR) ? `data-droppable="1" data-date="${dateStr}"` : '';
-
-      return `<div data-day="${day}" data-today="${isToday}" class="date-row${extraClass}" ${dragAttrs} style="${rowBg ? `background:${rowBg};` : ''}">
+      return `<div data-day="${day}" data-today="${isToday}" class="date-row${extraClass}" style="${rowBg ? `background:${rowBg};` : ''}">
         <div class="date-col">
           <div class="date-badge" style="background:${badgeFill};">
             <div class="d-num" style="color:${badgeTextColor};">${day}</div>
@@ -519,15 +430,11 @@
 
     function calendarHeaderHTML() {
       const year = currentDate.getFullYear(), month = currentDate.getMonth();
-      const newBtn = IS_EDITOR ? `<button type="button" class="new-entry-btn" id="btnNewEntry"><i class="fa-solid fa-plus"></i>新規登録</button>` : '';
       return `
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <div class="tabbar">
-              <button type="button" class="tab ${calendarViewMode === 'calendar' ? 'tab-active' : ''}" data-viewmode="calendar">カレンダー</button>
-              <button type="button" class="tab ${calendarViewMode === 'list' ? 'tab-active' : ''}" data-viewmode="list">リスト</button>
-            </div>
-            ${newBtn}
+          <div class="tabbar">
+            <button type="button" class="tab ${calendarViewMode === 'calendar' ? 'tab-active' : ''}" data-viewmode="calendar">カレンダー</button>
+            <button type="button" class="tab ${calendarViewMode === 'list' ? 'tab-active' : ''}" data-viewmode="list">リスト</button>
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
             <span class="font-num" style="font-size:18px;font-weight:700;">${month + 1}<span style="font-size:12px;font-weight:600;color:var(--muted);margin:0 6px 0 1px;font-family:'Plus Jakarta Sans',sans-serif;">月</span><span style="font-size:12px;font-weight:600;color:var(--muted);font-family:'Plus Jakarta Sans',sans-serif;">${year}</span></span>
@@ -582,11 +489,8 @@
 
     function pendingCardHTML(p) {
       const c = branchColors[p.拠点] || branchColors['その他'];
-      const dupeBadge = duplicateNameSet.has(normalizeCustomerNameForDupeCheck(p.顧客名))
-        ? `<i class="fa-solid fa-triangle-exclamation dupe-badge" title="同姓同名の登録が複数あります。重複していないか確認してください"></i>` : '';
-      const draggable = IS_EDITOR ? `draggable="true" data-drag-id="${escapeAttr(p.ID)}"` : '';
-      return `<div class="entry-card js-open-record" data-id="${escapeAttr(p.ID)}" ${draggable} style="--bar-color:${c.c};margin-bottom:8px;cursor:${IS_EDITOR ? 'grab' : 'pointer'};">
-        <div class="entry-row"><span class="entry-name">${escapeHtml(p.顧客名)}</span>${dupeBadge}${methodPill(isOssRecord(p))}</div>
+      return `<div class="entry-card js-open-record" ${recordDataAttr(p)} style="--bar-color:${c.c};margin-bottom:8px;">
+        <div class="entry-row"><span class="entry-name">${escapeHtml(p.顧客名)}</span>${methodPill(isOssRecord(p))}</div>
         <div class="entry-row"><span class="entry-sales"><i class="fa-solid fa-user" style="font-size:8px;margin-right:3px;"></i>${escapeHtml(p.担当者 || '-')}</span><span class="entry-model">${escapeHtml(p.車種 || '')}</span></div>
       </div>`;
     }
@@ -643,7 +547,7 @@
           <div class="rowscroll-wrap">
             <div class="row-scroll" id="rowScroll" style="flex:1;min-height:0;display:flex;flex-direction:column;">${calendarRowsHTML()}</div>
             ${sidebarOpen ? `<div class="cal-overlay-backdrop" id="overlayBackdrop"></div><div class="cal-overlay-panel">${pendingPanelHTML()}</div>` : ''}
-            <button type="button" class="side-tab" id="sideTabToggle" style="right:${sidebarOpen ? '284px' : '0'};">${sidebarOpen ? '閉じる ▶' : '◀ 未定リスト'}</button>
+            <button type="button" class="side-tab" id="sideTabToggle" style="right:${sidebarOpen ? '216px' : '0'};">${sidebarOpen ? '閉じる ▶' : '◀ 未定リスト'}</button>
           </div>
         </div>
       `;
@@ -668,13 +572,11 @@
 
       const body = rows.map(r => {
         const c = branchColors[r.拠点] || branchColors['その他'];
-        const dupeBadge = duplicateNameSet.has(normalizeCustomerNameForDupeCheck(r.顧客名))
-          ? `<i class="fa-solid fa-triangle-exclamation dupe-badge" title="同姓同名の登録が複数あります"></i>` : '';
         const pdfIcon = hasPdfLink(r) ? `<span class="js-pdf-link pdf-icon-btn" data-url="${escapeAttr(r.車検証リンク)}"><i class="fa-solid fa-file-pdf"></i></span>` : '';
         const dateDisplay = r.登録予定日 ? r.登録予定日 : `<span class="method-pill" style="background:var(--paper-bg);color:var(--paper);">未定</span>`;
-        return `<tr class="js-open-record" data-id="${escapeAttr(r.ID)}">
+        return `<tr class="js-open-record" ${recordDataAttr(r)}>
           <td class="font-num">${dateDisplay}</td>
-          <td>${escapeHtml(r.顧客名)} ${dupeBadge} ${pdfIcon}</td>
+          <td>${escapeHtml(r.顧客名)} ${pdfIcon}</td>
           <td>${methodPill(isOssRecord(r))}</td>
           <td><span class="branch-pill" style="background:${c.bg};color:${c.c};">${r.拠点}</span> ${escapeHtml(r.担当者 || '')}</td>
           <td>${escapeHtml(r.車種 || '')}</td>
@@ -684,7 +586,7 @@
 
       return `
         <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px;">
-          <button type="button" class="new-entry-btn" id="btnExportCsv" style="background:var(--oss);"><i class="fa-solid fa-file-csv"></i>CSV出力</button>
+          <button type="button" class="action-btn" id="btnExportCsv" style="background:var(--oss);"><i class="fa-solid fa-file-csv"></i>CSV出力</button>
           <input type="text" id="listSearchInput" class="settings-input" placeholder="顧客・車種で検索" value="${escapeAttr(listSearch.keyword)}" style="flex:1;min-width:160px;">
           <select id="listBranchFilter" class="settings-input">
             <option value="ALL" ${listSearch.branch === 'ALL' ? 'selected' : ''}>拠点: すべて</option>
@@ -717,7 +619,7 @@
       const pdfBtn = hasPdfLink(r)
         ? `<button type="button" class="mp-pdf-btn ready js-pdf-link" data-url="${escapeAttr(r.車検証リンク)}"><i class="fa-regular fa-file-pdf"></i>車検証PDF</button>`
         : `<button type="button" class="mp-pdf-btn waiting" disabled><i class="fa-regular fa-clock"></i>未アップロード</button>`;
-      return `<div class="mp-row js-open-record" data-id="${escapeAttr(r.ID)}">
+      return `<div class="mp-row js-open-record" ${recordDataAttr(r)}>
         ${dateChip}
         <span class="mp-name">${escapeHtml(r.顧客名)} 様</span>
         <span style="width:74px;flex:0 0 74px;"><span class="branch-pill" style="background:${c.bg};color:${c.c};">${r.拠点}</span></span>
@@ -730,11 +632,11 @@
       const monthDate = mpMonthDate(offset);
       const y = monthDate.getFullYear(), m = monthDate.getMonth();
       const confirmed = allRecords.filter(r => {
-        if (r.担当者 !== LINKED_NAME || !r.登録予定日) return false;
+        if (r.担当者 !== LINKED_NAME || !r.登録予定日 || !isConfirmedStatus(r.ステータス)) return false;
         const p = parseYMD(r.登録予定日);
         return p.y === y && p.m === m;
       });
-      const undecided = offset === 0 ? allRecords.filter(r => r.担当者 === LINKED_NAME && r.ステータス === '登録日未定') : [];
+      const undecided = offset === 0 ? allRecords.filter(r => r.担当者 === LINKED_NAME && !isConfirmedStatus(r.ステータス)) : [];
       return { confirmed, undecided };
     }
     function mpApplyFilters(records) {
@@ -755,6 +657,7 @@
         .sort((a, b) => (a.登録予定日 || 'z').localeCompare(b.登録予定日 || 'z'));
       const rowsHtml = records.map(mpRowHTML).join('');
       box.innerHTML = `${mpTheadHTML()}<div class="mp-list">${rowsHtml || `<p style="font-size:12px;color:var(--muted);padding:16px 14px;">該当する登録データがありません。</p>`}</div>`;
+      wireRecordClicks_(box);
     }
 
     function mypagePageHTML() {
@@ -766,7 +669,7 @@
           </div>
           <div class="settings-card">
             <h2 class="settings-card-title"><i class="fa-solid fa-triangle-exclamation"></i>マイページ未連携です</h2>
-            <p class="settings-card-desc">このGoogleアカウントは、まだ「マイページ連携設定」でフルネームと紐づけられていません。権限者に依頼して、設定ページから氏名とこのアカウントを登録してもらってください。登録データの「担当者」欄には、登録されるフルネームと同じ表記を入力する必要があります。</p>
+            <p class="settings-card-desc">このGoogleアカウントは、まだ「マイページ連携設定」でフルネームと紐づけられていません。権限者に依頼して、設定画面から氏名とこのアカウントを登録してもらってください。登録データの「担当者」欄には、登録されるフルネームと同じ表記を入力する必要があります。</p>
           </div>
         `;
       }
@@ -839,17 +742,24 @@
     }
     function iconSectionHTML() {
       if (!IS_EDITOR) return '';
+      const previewInner = sidePanelIconUrl
+        ? `<img src="${escapeAttr(sidePanelIconUrl)}" alt="">`
+        : `<i class="fa-solid fa-car"></i>`;
       return `
         <div class="settings-card">
           <h2 class="settings-card-title"><i class="fa-solid fa-icons"></i>サイドパネルアイコン設定</h2>
-          <p class="settings-card-desc">左サイドパネル上部中央に表示するアイコンを選べます。全ユーザーの画面に反映されます。この項目は権限者としてログインした場合のみ表示されます。</p>
-          <div class="theme-swatches">
-            ${SIDE_ICON_OPTIONS.map(icon => `
-              <button type="button" class="theme-swatch ${sidePanelIcon === icon ? 'active' : ''}" data-icon="${icon}" style="padding:10px 16px;">
-                <i class="fa-solid fa-${icon}"></i>
-              </button>
-            `).join('')}
+          <p class="settings-card-desc">左サイドパネル上部中央に表示するアイコン画像をアップロードできます。大きな画像を選んでも自動的に一定サイズの円形アイコンとして表示されます。全ユーザーの画面に反映されます。この項目は権限者としてログインした場合のみ表示されます。</p>
+          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+            <div class="cp-icon-mark" style="width:56px;height:56px;font-size:22px;margin-bottom:0;">${previewInner}</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <label class="settings-add-btn" style="cursor:pointer;">
+                <i class="fa-solid fa-upload"></i>画像をアップロード
+                <input type="file" id="iconFileInput" accept="image/*" style="display:none;">
+              </label>
+              <button type="button" class="btn-secondary" id="iconResetBtn">デフォルトに戻す</button>
+            </div>
           </div>
+          <p id="iconUploadMsg" style="font-size:11.5px;font-weight:700;margin-top:10px;"></p>
         </div>
       `;
     }
@@ -858,7 +768,7 @@
       return `
         <div class="settings-card">
           <h2 class="settings-card-title"><i class="fa-solid fa-user-shield"></i>マイページ連携設定</h2>
-          <p class="settings-card-desc">Googleアカウントごとにフルネームを登録します。マイページはこの氏名と、登録データの「担当者」欄(フルネーム入力)を照合して自分の担当案件を表示します。<b>編集権限とは別の設定です</b>(編集権限はGASのEDITOR_EMAILSで管理しています)。この項目は権限者としてログインした場合のみ表示されます。</p>
+          <p class="settings-card-desc">Googleアカウントごとにフルネームを登録します。マイページはこの氏名と、登録データの「担当者」欄(フルネーム入力)を照合して自分の担当案件を表示します。<b>編集権限とは別の設定です</b>(EDITOR_EMAILSとは別管理)。この項目は権限者としてログインした場合のみ表示されます。</p>
           <div class="settings-list" id="mypageLinkList">
             ${mypageLinks.map((u, i) => `
               <div class="settings-row">
@@ -892,9 +802,10 @@
     // ---- 全体レイアウト ----
     function controlPanelHTML() {
       const navItem = (page, icon, label) => `<button type="button" class="cp-nav-item ${currentPage === page ? 'active' : ''}" data-page="${page}"><i class="fa-solid ${icon}"></i>${label}</button>`;
+      const iconInner = sidePanelIconUrl ? `<img src="${escapeAttr(sidePanelIconUrl)}" alt="">` : `<i class="fa-solid fa-car"></i>`;
       return `
         <div class="cp-header">
-          <div class="cp-icon-mark"><i class="fa-solid fa-${sidePanelIcon}"></i></div>
+          <div class="cp-icon-mark">${iconInner}</div>
           <div class="cp-logo">AU NEW CAR</div>
           <div class="cp-logo-sub">登録カレンダー</div>
         </div>
@@ -908,7 +819,7 @@
             <div class="cp-avatar">${(LINKED_NAME || CURRENT_USER_EMAIL || '?')[0]}</div>
             <div><div class="cp-user-name">${escapeHtml(LINKED_NAME || CURRENT_USER_EMAIL || '未ログイン')}</div><div class="cp-user-email">${escapeHtml(CURRENT_USER_EMAIL || '')}</div></div>
           </div>
-          <span class="cp-role-badge ${IS_EDITOR ? 'editor' : 'general'}">${IS_EDITOR ? '権限者(編集可)' : '一般(閲覧のみ)'}</span>
+          <span class="cp-role-badge ${IS_EDITOR ? 'editor' : 'general'}">${IS_EDITOR ? '権限者' : '一般'}</span>
         </div>
       `;
     }
@@ -943,12 +854,28 @@
       });
     }
 
+    // ▼ 詳細モーダル・PDFボタンのクリックを、指定したコンテナ内の要素へまとめて割り当てる。
+    //   (メインの render() 後だけでなく、検索結果だけを差し替えた後にも呼べるよう分離している)
+    function wireRecordClicks_(container) {
+      container.querySelectorAll('.js-open-record').forEach(el => {
+        el.onclick = (e) => {
+          if (e.target.closest('.js-pdf-link')) return;
+          try { openModal(JSON.parse(el.dataset.record)); } catch (err) { /* ignore */ }
+        };
+      });
+      container.querySelectorAll('.js-pdf-link').forEach(el => {
+        el.onclick = (e) => { e.stopPropagation(); window.open(el.dataset.url, '_blank'); };
+      });
+    }
+
     function wireEvents() {
-      document.querySelectorAll('.cp-nav-item').forEach(btn => {
+      const root = document.getElementById('app-root');
+
+      root.querySelectorAll('.cp-nav-item').forEach(btn => {
         btn.onclick = () => { currentPage = btn.dataset.page; sidebarOpen = false; if (currentPage === 'settings') loadMypageLinksIfNeeded(); render(); };
       });
 
-      document.querySelectorAll('[data-viewmode]').forEach(btn => {
+      root.querySelectorAll('[data-viewmode]').forEach(btn => {
         btn.onclick = () => { calendarViewMode = btn.dataset.viewmode; render(); };
       });
 
@@ -963,41 +890,10 @@
       if (btnPrev) btnPrev.onclick = () => { currentDate.setMonth(currentDate.getMonth() - 1); render(); };
       const btnNext = document.getElementById('btnNextMonth');
       if (btnNext) btnNext.onclick = () => { currentDate.setMonth(currentDate.getMonth() + 1); render(); };
-      const btnNewEntry = document.getElementById('btnNewEntry');
-      if (btnNewEntry) btnNewEntry.onclick = () => openModal();
 
-      document.querySelectorAll('.js-open-record').forEach(el => {
-        el.onclick = (e) => {
-          if (e.target.closest('.js-pdf-link')) return;
-          const rec = allRecords.find(r => r.ID === el.dataset.id);
-          if (rec) openModal(rec);
-        };
-      });
-      document.querySelectorAll('.js-pdf-link').forEach(el => {
-        el.onclick = (e) => { e.stopPropagation(); window.open(el.dataset.url, '_blank'); };
-      });
-      document.querySelectorAll('.js-day-overflow').forEach(el => {
+      wireRecordClicks_(root);
+      root.querySelectorAll('.js-day-overflow').forEach(el => {
         el.onclick = (e) => { e.stopPropagation(); openDayListModal(el.dataset.date); };
-      });
-      document.querySelectorAll('.js-add-on-date').forEach(el => {
-        el.onclick = (e) => { e.stopPropagation(); openModal({ 登録予定日: el.dataset.date, ステータス: '登録日確定' }); };
-      });
-
-      // ドラッグ&ドロップ(未定リスト→カレンダー行)
-      document.querySelectorAll('[data-drag-id]').forEach(el => {
-        el.ondragstart = (e) => {
-          e.dataTransfer.setData('text/plain', el.dataset.dragId);
-          e.dataTransfer.effectAllowed = 'move';
-        };
-      });
-      document.querySelectorAll('[data-droppable="1"]').forEach(row => {
-        row.ondragover = (e) => { e.preventDefault(); row.classList.add('drag-over'); };
-        row.ondragleave = () => row.classList.remove('drag-over');
-        row.ondrop = (e) => {
-          e.preventDefault(); row.classList.remove('drag-over');
-          const droppedId = e.dataTransfer.getData('text/plain');
-          if (droppedId) handleDrop(droppedId, row.dataset.date);
-        };
       });
 
       // 検索/フィルター(入力中は結果だけ再描画してフォーカスを保つ)
@@ -1021,7 +917,7 @@
       const mpMethod = document.getElementById('mpSearchMethod');
       if (mpMethod) mpMethod.onchange = (ev) => { mpSearch.method = ev.target.value; renderMpResults(); };
 
-      document.querySelectorAll('.theme-swatch[data-theme]').forEach(btn => {
+      root.querySelectorAll('.theme-swatch[data-theme]').forEach(btn => {
         btn.onclick = () => { pendingTheme = btn.dataset.theme; themeMessage = ''; render(); };
       });
       const themeSaveBtn = document.getElementById('themeSaveBtn');
@@ -1033,18 +929,40 @@
           google.script.run.withFailureHandler(e => console.error(e)).saveUserTheme(currentTheme);
         }
       };
-      document.querySelectorAll('.theme-swatch[data-icon]').forEach(btn => {
-        btn.onclick = () => {
-          sidePanelIcon = btn.dataset.icon;
-          render();
-          if (typeof google !== 'undefined') {
-            google.script.run
-              .withSuccessHandler(res => { if (res && res.success === false) alert(res.message); })
-              .withFailureHandler(e => alert('保存に失敗しました: ' + (e && e.message ? e.message : e)))
-              .saveSideIcon(sidePanelIcon);
-          }
+
+      const iconFileInput = document.getElementById('iconFileInput');
+      if (iconFileInput) iconFileInput.onchange = (ev) => {
+        const file = ev.target.files[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) { alert('画像ファイルを選択してください。'); return; }
+        if (file.size > 8 * 1024 * 1024) { alert('画像サイズが大きすぎます。8MB以内のファイルを選択してください。'); return; }
+        const msg = document.getElementById('iconUploadMsg');
+        if (msg) { msg.textContent = 'アップロード中…'; msg.style.color = 'var(--muted)'; }
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = String(reader.result).split(',')[1];
+          if (typeof google === 'undefined') return;
+          google.script.run
+            .withSuccessHandler(res => {
+              if (res && res.success) { sidePanelIconUrl = res.url; render(); }
+              else { const m = document.getElementById('iconUploadMsg'); if (m) { m.textContent = res ? res.message : 'アップロードに失敗しました。'; m.style.color = 'var(--paper)'; } }
+            })
+            .withFailureHandler(e => {
+              const m = document.getElementById('iconUploadMsg');
+              if (m) { m.textContent = '通信エラー: ' + (e && e.message ? e.message : e); m.style.color = 'var(--paper)'; }
+            })
+            .saveSideIconImage(base64, file.type);
         };
-      });
+        reader.readAsDataURL(file);
+      };
+      const iconResetBtn = document.getElementById('iconResetBtn');
+      if (iconResetBtn) iconResetBtn.onclick = () => {
+        if (typeof google === 'undefined') return;
+        google.script.run
+          .withSuccessHandler(res => { if (res && res.success) { sidePanelIconUrl = ''; render(); } else if (res) alert(res.message); })
+          .withFailureHandler(e => alert('失敗しました: ' + (e && e.message ? e.message : e)))
+          .resetSideIcon();
+      };
 
       const addLinkBtn = document.getElementById('addLinkBtn');
       if (addLinkBtn) addLinkBtn.onclick = () => {
@@ -1055,7 +973,7 @@
         saveMypageLinksToServer();
         render();
       };
-      document.querySelectorAll('.settings-remove').forEach(btn => {
+      root.querySelectorAll('.settings-remove').forEach(btn => {
         btn.onclick = () => { mypageLinks.splice(Number(btn.dataset.idx), 1); saveMypageLinksToServer(); render(); };
       });
     }
@@ -1065,16 +983,34 @@
       const card = document.querySelector('.calendar-card .page-fill-area');
       if (!card) { render(); return; }
       card.innerHTML = listViewHTML();
-      // 差し替え後、テーブル行のイベントとCSVボタン・フィルターを再アタッチ
-      wireEvents();
+      wireRecordClicks_(card);
+      const exportBtn = document.getElementById('btnExportCsv');
+      if (exportBtn) exportBtn.onclick = downloadCSV;
+      const branchFilter = document.getElementById('listBranchFilter');
+      if (branchFilter) branchFilter.onchange = (ev) => { listSearch.branch = ev.target.value; render(); };
+      const methodFilter = document.getElementById('listMethodFilter');
+      if (methodFilter) methodFilter.onchange = (ev) => { listSearch.method = ev.target.value; render(); };
       const searchInput = document.getElementById('listSearchInput');
-      if (searchInput) { searchInput.focus(); searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length); }
+      if (searchInput) {
+        searchInput.oninput = (ev) => { listSearch.keyword = ev.target.value; renderListResultsOnly(); };
+        searchInput.focus();
+        searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+      }
     }
 
     function loadMypageLinksIfNeeded() {
       if (!IS_EDITOR || typeof google === 'undefined') return;
       google.script.run
-        .withSuccessHandler(links => { mypageLinks = links || []; const list = document.getElementById('mypageLinkList'); if (list) { list.innerHTML = mypageLinks.map((u, i) => `<div class="settings-row"><span class="s-name">${escapeHtml(u.name)}</span><span class="s-email">${escapeHtml(u.email)}</span><button type="button" class="settings-remove" data-idx="${i}"><i class="fa-solid fa-xmark"></i></button></div>`).join(''); wireEvents(); } })
+        .withSuccessHandler(links => {
+          mypageLinks = links || [];
+          const list = document.getElementById('mypageLinkList');
+          if (list) {
+            list.innerHTML = mypageLinks.map((u, i) => `<div class="settings-row"><span class="s-name">${escapeHtml(u.name)}</span><span class="s-email">${escapeHtml(u.email)}</span><button type="button" class="settings-remove" data-idx="${i}"><i class="fa-solid fa-xmark"></i></button></div>`).join('');
+            list.querySelectorAll('.settings-remove').forEach(btn => {
+              btn.onclick = () => { mypageLinks.splice(Number(btn.dataset.idx), 1); saveMypageLinksToServer(); render(); };
+            });
+          }
+        })
         .withFailureHandler(e => console.error(e))
         .getMypageLinks();
     }
@@ -1086,139 +1022,51 @@
         .saveMypageLinks(mypageLinks);
     }
 
-    // ---- ドラッグ&ドロップで日付確定 ----
-    function handleDrop(recordId, dateStr) {
-      if (!IS_EDITOR) return;
-      const targetRecord = allRecords.find(r => r.ID === recordId);
-      if (!targetRecord) return alert("対象のデータが見つかりませんでした。");
-      targetRecord.ステータス = '登録日確定';
-      targetRecord.登録予定日 = dateStr;
-      render();
-      if (typeof google !== 'undefined') {
-        google.script.run
-          .withSuccessHandler(res => { if (res && res.success === false) { alert(res.message); loadData(); } })
-          .withFailureHandler(error => { alert("保存に失敗しました: " + (error && error.message ? error.message : error)); loadData(); })
-          .saveRecord({ ...targetRecord });
-      }
-    }
-
     // ---- +N件モーダル ----
     function openDayListModal(dateStr) {
       const { y, m, d } = parseYMD(dateStr);
-      const dayRecords = allRecords.filter(r => r.登録予定日 === dateStr && r.ステータス === '登録日確定');
+      const dayRecords = allRecords.filter(r => r.登録予定日 === dateStr && isConfirmedStatus(r.ステータス));
       document.getElementById('dayListModalTitle').innerHTML = `${y}/${m + 1}/${d} の登録予定(${dayRecords.length}件)`;
       const body = document.getElementById('dayListModalBody');
       body.innerHTML = dayRecords.map(entryCard).join('') || `<p style="font-size:12px;color:var(--muted);">登録予定はありません。</p>`;
       body.querySelectorAll('.js-open-record').forEach(el => {
-        el.onclick = (e) => { if (e.target.closest('.js-pdf-link')) return; closeDayListModal(); const rec = allRecords.find(r => r.ID === el.dataset.id); if (rec) openModal(rec); };
+        el.onclick = (e) => {
+          if (e.target.closest('.js-pdf-link')) return;
+          closeDayListModal();
+          try { openModal(JSON.parse(el.dataset.record)); } catch (err) { /* ignore */ }
+        };
       });
       body.querySelectorAll('.js-pdf-link').forEach(el => { el.onclick = (e) => { e.stopPropagation(); window.open(el.dataset.url, '_blank'); }; });
-      const modal = document.getElementById('dayListModal');
-      modal.classList.add('flex');
+      document.getElementById('dayListModal').classList.add('flex');
     }
     function closeDayListModal() { document.getElementById('dayListModal').classList.remove('flex'); }
 
-    // ---- 新規登録/編集モーダル ----
-    function toggleDateInput() {
-      const status = document.getElementById('form_ステータス').value;
-      const dateGroup = document.getElementById('dateInputGroup');
-      if (status !== '登録日未定') {
-        dateGroup.style.display = '';
-        document.getElementById('form_登録予定日').required = true;
-      } else {
-        dateGroup.style.display = 'none';
-        document.getElementById('form_登録予定日').required = false;
-      }
+    // ---- 登録内容の詳細表示（閲覧専用。登録・編集はスプレッドシートで行う） ----
+    function detailRow_(label, valueHtml) {
+      return `<div class="detail-row"><div class="detail-label">${label}</div><div class="detail-value">${valueHtml}</div></div>`;
     }
     function openModal(record) {
-      const isNewEntry = !(record && (record.ID || record.顧客名));
-      if (isNewEntry && !IS_EDITOR) return;
-
-      const modal = document.getElementById('recordModal');
-      const form = document.getElementById('recordForm');
-      form.reset();
-      const submitBtn = document.getElementById('submit-btn');
-      submitBtn.disabled = false; submitBtn.innerText = "保存する";
-
-      if (!isNewEntry) {
-        document.getElementById('modalTitle').innerText = IS_EDITOR ? '登録内容を編集' : '登録内容';
-        document.getElementById('form_ID').value = record.ID || '';
-        document.getElementById('form_ステータス').value = record.ステータス || '登録日確定';
-        document.getElementById('form_登録予定日').value = record.登録予定日 || '';
-        document.getElementById('form_拠点').value = record.拠点;
-        document.getElementById('form_担当者').value = record.担当者;
-        document.getElementById('form_車種').value = record.車種;
-        document.getElementById('form_OSS区分').value = (record.OSS区分 === 'OSS対象外' || record.OSS区分 === '紙登録') ? '紙登録' : 'OSS';
-        document.getElementById('form_顧客名').value = record.顧客名;
-        document.getElementById('form_備考').value = record.備考 || '';
-      } else {
-        document.getElementById('modalTitle').innerText = '新規登録';
-        document.getElementById('form_ID').value = '';
-        if (record) {
-          if (record.登録予定日) document.getElementById('form_登録予定日').value = record.登録予定日;
-          if (record.ステータス) document.getElementById('form_ステータス').value = record.ステータス;
-        }
-      }
-
-      const readonlyNotice = document.getElementById('readonlyNotice');
-      if (IS_EDITOR) {
-        readonlyNotice.style.display = 'none';
-        form.querySelectorAll('input, select, textarea').forEach(el => el.disabled = false);
-        submitBtn.style.display = '';
-      } else {
-        readonlyNotice.style.display = 'flex';
-        form.querySelectorAll('input, select, textarea').forEach(el => el.disabled = true);
-        submitBtn.style.display = 'none';
-      }
-
-      toggleDateInput();
-      modal.classList.add('flex');
+      if (!record) return;
+      const c = branchColors[record.拠点] || branchColors['その他'];
+      const pdfBtn = hasPdfLink(record)
+        ? `<button type="button" class="action-btn js-pdf-link" data-url="${escapeAttr(record.車検証リンク)}"><i class="fa-solid fa-file-pdf"></i>車検証PDFを開く</button>`
+        : `<span style="font-size:12px;color:var(--muted);">未アップロード</span>`;
+      const body = document.getElementById('recordDetailBody');
+      body.innerHTML = [
+        detailRow_('顧客名', `${escapeHtml(record.顧客名)} 様`),
+        detailRow_('ステータス', `<span class="status-pill">${escapeHtml(record.ステータス || '-')}</span>`),
+        detailRow_('登録予定日', record.登録予定日 ? escapeHtml(record.登録予定日) : '<span style="color:var(--muted);">未定</span>'),
+        detailRow_('拠点', `<span class="branch-pill" style="background:${c.bg};color:${c.c};">${escapeHtml(record.拠点 || '')}</span>`),
+        detailRow_('担当者', escapeHtml(record.担当者 || '-')),
+        detailRow_('車種', escapeHtml(record.車種 || '-')),
+        detailRow_('登録方法', methodPill(isOssRecord(record))),
+        detailRow_('備考', record.備考 ? escapeHtml(record.備考) : '<span style="color:var(--muted);">-</span>'),
+        detailRow_('車検証', pdfBtn),
+      ].join('');
+      body.querySelectorAll('.js-pdf-link').forEach(el => { el.onclick = () => window.open(el.dataset.url, '_blank'); });
+      document.getElementById('recordModal').classList.add('flex');
     }
     function closeModal() { document.getElementById('recordModal').classList.remove('flex'); }
-
-    function submitForm(e) {
-      if (e) e.preventDefault();
-      if (!IS_EDITOR) return;
-      const recordId = document.getElementById('form_ID').value;
-      const customerName = document.getElementById('form_顧客名').value.trim();
-      const carModel = document.getElementById('form_車種').value.trim();
-
-      const isDuplicate = allRecords.some(r => r.顧客名 === customerName && r.車種 === carModel && r.ID !== recordId);
-      if (isDuplicate && !recordId) {
-        if (!confirm("同じ顧客名と車種のデータが既に存在します。\n重複している可能性がありますが、本当に登録してよろしいですか？")) return;
-      }
-
-      const submitBtn = document.getElementById('submit-btn');
-      submitBtn.disabled = true; submitBtn.innerText = "保存中...";
-
-      const record = {
-        ID: recordId,
-        ステータス: document.getElementById('form_ステータス').value,
-        登録予定日: document.getElementById('form_ステータス').value !== '登録日未定' ? document.getElementById('form_登録予定日').value : '',
-        拠点: document.getElementById('form_拠点').value,
-        担当者: document.getElementById('form_担当者').value,
-        車種: carModel,
-        OSS区分: document.getElementById('form_OSS区分').value,
-        顧客名: customerName,
-        備考: document.getElementById('form_備考').value
-      };
-
-      if (typeof google !== 'undefined') {
-        google.script.run
-          .withSuccessHandler(function (response) {
-            if (response && response.success) { closeModal(); loadData(); }
-            else {
-              alert(response ? response.message : "保存に失敗しました。");
-              submitBtn.disabled = false; submitBtn.innerText = "保存する";
-            }
-          })
-          .withFailureHandler(function (error) {
-            alert("通信エラーが発生しました: " + (error && error.message ? error.message : error));
-            submitBtn.disabled = false; submitBtn.innerText = "保存する";
-          })
-          .saveRecord(record);
-      }
-    }
 
     // ---- CSV出力 ----
     function downloadCSV() {

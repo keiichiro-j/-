@@ -1,7 +1,8 @@
 const DEFAULT_ADMIN_EMAIL = "k-toda@gifuyanase.co.jp";
 
-// ▼ 編集を許可するGoogleアカウント一覧
-//   ここに登録されたアカウントでアクセスした人だけが登録・編集できます。
+// ▼ 権限者（設定ページの「サイドパネルアイコン設定」「マイページ連携設定」を変更できるアカウント）一覧。
+//   登録・編集はスプレッドシートを直接編集する運用に変わったため、ここはアプリの管理設定を
+//   触れる人の一覧という意味になっている（＝スプレッドシートの編集権限そのものとは別物）。
 //   追加/削除したい場合はこの配列にメールアドレスを追記・削除してください（要デプロイ更新）。
 const EDITOR_EMAILS = [
   DEFAULT_ADMIN_EMAIL,
@@ -21,7 +22,7 @@ function doGet() {
   template.isEditor = isEditor;
   template.userEmail = userEmail;
   template.initialTheme = getUserTheme();
-  template.initialSideIcon = getSideIcon();
+  template.initialSideIconUrl = getSideIconUrl();
   template.linkedName = getMyLinkedName_(userEmail);
 
   return template.evaluate()
@@ -32,13 +33,17 @@ function doGet() {
 
 // ============================================================
 // ▼ マイページ連携設定・テーマ・サイドパネルアイコン
-//   ここでいう「マイページ連携設定」は、マイページを自分の担当分だけ表示するための
-//   「氏名(フルネーム) ⇔ Googleアカウント」の対応表であり、編集権限(EDITOR_EMAILS)とは
-//   別物。ここに登録しても編集権限は付与されない。
+//   「マイページ連携設定」は、マイページを自分の担当分だけ表示するための
+//   「氏名(フルネーム) ⇔ Googleアカウント」の対応表であり、上の権限者一覧(EDITOR_EMAILS)とは
+//   別物。ここに登録しても設定ページの管理項目は操作できるようにならない。
 // ============================================================
 const THEME_KEYS = ['indigo', 'green', 'charcoal', 'amber', 'rose', 'teal', 'purple', 'slate'];
-const SIDE_ICON_KEYS = ['car', 'calendar-days', 'building', 'star', 'bolt', 'gauge-high'];
 const MYPAGE_LINK_SHEET_NAME = 'settings_マイページ連携';
+
+// ▼ サイドパネルアイコンの画像をアップロードして保存するGoogleドライブのフォルダID。
+//   Googleドライブでフォルダを開いたときのURL(https://drive.google.com/drive/folders/【この部分】)
+//   をここに貼り付けてください。未設定のままだとアップロードはエラーになります。
+const SIDE_ICON_FOLDER_ID = "PASTE_YOUR_DRIVE_FOLDER_ID_HERE";
 
 function getOrCreateMypageLinkSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -97,18 +102,139 @@ function saveUserTheme(themeKey) {
   return { success: true };
 }
 
-// ▼ サイドパネルのアイコンは全員共通の見た目設定。権限者だけが変更できる
-function getSideIcon() {
-  return PropertiesService.getScriptProperties().getProperty('sideIcon') || 'car';
+// ▼ サイドパネルのアイコンは画像アップロード方式。全員共通の見た目設定で、権限者だけが変更できる。
+//   画像自体はDrive上のファイルとして保存し、表示側はDriveのサムネイル配信URLを使うことで、
+//   大きな画像をアップロードしてもアプリ側では常に一定サイズのアイコンとして表示される。
+function getSideIconUrl() {
+  const fileId = PropertiesService.getScriptProperties().getProperty('sideIconFileId');
+  if (!fileId) return '';
+  return `https://drive.google.com/thumbnail?id=${fileId}&sz=w200`;
 }
-function saveSideIcon(iconKey) {
+
+function saveSideIconImage(base64Data, mimeType) {
   const userEmail = Session.getActiveUser().getEmail();
   if (!isEditorEmail_(userEmail)) {
     return { success: false, message: '権限者のみ変更できます。' };
   }
-  if (SIDE_ICON_KEYS.indexOf(iconKey) === -1) return { success: false, message: '不正なアイコンです。' };
-  PropertiesService.getScriptProperties().setProperty('sideIcon', iconKey);
+  if (!SIDE_ICON_FOLDER_ID || SIDE_ICON_FOLDER_ID.indexOf('PASTE_') === 0) {
+    return { success: false, message: 'アイコン画像の保存先フォルダが設定されていません。Code.gs の SIDE_ICON_FOLDER_ID を設定してください。' };
+  }
+  try {
+    const folder = DriveApp.getFolderById(SIDE_ICON_FOLDER_ID);
+    const bytes = Utilities.base64Decode(base64Data);
+    const blob = Utilities.newBlob(bytes, mimeType, 'side-icon-' + new Date().getTime());
+
+    // 古いアイコン画像が残っていれば削除してから新しいものを保存する
+    const oldFileId = PropertiesService.getScriptProperties().getProperty('sideIconFileId');
+    if (oldFileId) {
+      try { DriveApp.getFileById(oldFileId).setTrashed(true); } catch (e) { /* 既に削除済みなら無視 */ }
+    }
+
+    const file = folder.createFile(blob);
+    // アプリのアクセス範囲(ドメイン内)に合わせて、ドメイン内なら誰でも閲覧できるようにする
+    file.setSharing(DriveApp.Access.DOMAIN_WITH_LINK, DriveApp.Permission.VIEW);
+    PropertiesService.getScriptProperties().setProperty('sideIconFileId', file.getId());
+    return { success: true, url: `https://drive.google.com/thumbnail?id=${file.getId()}&sz=w200` };
+  } catch (e) {
+    return { success: false, message: 'アップロードに失敗しました: ' + e.message };
+  }
+}
+
+function resetSideIcon() {
+  const userEmail = Session.getActiveUser().getEmail();
+  if (!isEditorEmail_(userEmail)) {
+    return { success: false, message: '権限者のみ変更できます。' };
+  }
+  const oldFileId = PropertiesService.getScriptProperties().getProperty('sideIconFileId');
+  if (oldFileId) {
+    try { DriveApp.getFileById(oldFileId).setTrashed(true); } catch (e) { /* 既に削除済みなら無視 */ }
+  }
+  PropertiesService.getScriptProperties().deleteProperty('sideIconFileId');
   return { success: true };
+}
+
+// ============================================================
+// ▼ スプレッドシート側のテンプレート(見出し・注釈・入力規則・重複チェック)
+//   登録データの入力はアプリからではなく、このスプレッドシートを直接編集して行う。
+//   新しい月のシートを作るときは createNextMonthSheet() を、既存シートに最新のテンプレート
+//   (注釈・入力規則・重複チェックの書式)を当て直したいときは refreshAllSheetTemplates() を
+//   GASエディタの関数選択メニューから手動実行してください。
+// ============================================================
+const BRANCH_OPTIONS = ['岐阜', '大垣', '多治見', '高山', 'AAA', 'デモカー', 'その他'];
+const OSS_OPTIONS = ['OSS', '紙登録'];
+// ステータスの選択肢。「登録予定日確定」以外は、登録予定日が未定のものとして未定リストに表示される。
+const STATUS_OPTIONS = ['登録書類到着待', '登録書類到着済', '登録予定日確定'];
+const STATUS_CONFIRMED = '登録予定日確定';
+// 旧仕様（IDや旧ステータス名があった頃）からのデータ移行期間中も、カレンダーに正しく
+// 表示され続けるように、旧ステータス名も「確定」扱いとして読み替える。
+const LEGACY_CONFIRMED_STATUSES = ['登録日確定'];
+
+const HEADER_NOTES = {
+  'ステータス': '次の3つから選択してください。\n・登録書類到着待\n・登録書類到着済\n・登録予定日確定\n\n「登録予定日確定」を選択すると、登録予定日を入力した日付でカレンダーに表示されます。それ以外は「未定リスト」に表示されます。',
+  '登録予定日': 'ステータスが「登録予定日確定」の場合に入力してください（yyyy-mm-dd）。未定の間は空欄のままで構いません。',
+  '拠点': '次から選択してください。\n岐阜 / 大垣 / 多治見 / 高山 / AAA / デモカー / その他',
+  '担当者': 'フルネームで入力してください。「設定」画面の「マイページ連携設定」に登録されているフルネームと文字が完全に一致しないと、その担当者のマイページに反映されません（全角/半角や旧姓などの表記ゆれに注意）。',
+  '車種': '自由入力です。',
+  'OSS区分': '「OSS」または「紙登録」を選択してください。',
+  '顧客名': 'このセルの背景色が薄いオレンジになっている場合、同じシート内に同姓同名の顧客が他にもいます。誤って重複登録していないか確認してください（同月に同名で2台登録される正当なケースもあるため、問題なければそのままで構いません）。',
+  '備考': '任意入力です。',
+  '車検証リンク': 'この列は自動反映されます。手動で入力しないでください（Google Drive内の車検証PDFフォルダを自動巡回し、顧客名が一致するPDFのリンクを自動で貼り付けます）。',
+};
+
+function columnToLetter_(col) {
+  let letter = '';
+  while (col > 0) {
+    const rem = (col - 1) % 26;
+    letter = String.fromCharCode(65 + rem) + letter;
+    col = Math.floor((col - 1) / 26);
+  }
+  return letter;
+}
+
+// ▼ 見出しの注釈・入力規則(プルダウン)・同姓同名の重複チェック書式を、指定シートへまとめて適用する。
+//   何度実行しても安全（既存の規則を上書きするだけで、他の手動書式には影響しない）。
+function applySheetGuidance_(sheet) {
+  const lastCol = sheet.getLastColumn();
+  if (lastCol === 0) return;
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  const templateRowCount = 500; // 入力規則・重複チェックを適用しておく行数の目安
+
+  headers.forEach((h, i) => {
+    if (HEADER_NOTES[h]) sheet.getRange(1, i + 1).setNote(HEADER_NOTES[h]);
+  });
+
+  function applyDropdown_(headerName, options, allowInvalid) {
+    const colIndex = headers.indexOf(headerName);
+    if (colIndex === -1) return;
+    const rule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(options, true)
+      .setAllowInvalid(!!allowInvalid)
+      .build();
+    sheet.getRange(2, colIndex + 1, templateRowCount, 1).setDataValidation(rule);
+  }
+  applyDropdown_('ステータス', STATUS_OPTIONS, false);
+  applyDropdown_('拠点', BRANCH_OPTIONS, true);
+  applyDropdown_('OSS区分', OSS_OPTIONS, false);
+
+  // 顧客名列: 同じシート内に同姓同名（完全一致）が2件以上あるセルを薄いオレンジで塗る
+  const nameColIndex = headers.indexOf('顧客名');
+  if (nameColIndex !== -1) {
+    const colLetter = columnToLetter_(nameColIndex + 1);
+    const range = sheet.getRange(2, nameColIndex + 1, templateRowCount, 1);
+    const formula = `=AND($${colLetter}2<>"", COUNTIF($${colLetter}$2:$${colLetter}$${templateRowCount + 1}, $${colLetter}2) > 1)`;
+    const dupeRule = SpreadsheetApp.newConditionalFormatRule()
+      .whenFormulaSatisfied(formula)
+      .setBackground('#FDE9CB')
+      .setRanges([range])
+      .build();
+    const targetA1 = range.getA1Notation();
+    const existingRules = sheet.getConditionalFormatRules().filter(r => {
+      const ranges = r.getRanges();
+      return !(ranges.length === 1 && ranges[0].getA1Notation() === targetA1);
+    });
+    existingRules.push(dupeRule);
+    sheet.setConditionalFormatRules(existingRules);
+  }
 }
 
 // ▼ 日付からシート名を生成（例：db_登録データ_2026_8月）
@@ -122,14 +248,33 @@ function getSheetNameFromDate(dateStr) {
 function getOrCreateDatabaseSheet(sheetName) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(sheetName);
-  const requiredHeaders = ['ID', 'ステータス', '登録予定日', '拠点', '担当者', '車種', 'OSS区分', '顧客名', '備考', '車検証リンク'];
+  const requiredHeaders = ['ステータス', '登録予定日', '拠点', '担当者', '車種', 'OSS区分', '顧客名', '備考', '車検証リンク'];
 
   if (!sheet) {
     sheet = ss.insertSheet(sheetName);
     sheet.getRange(1, 1, 1, requiredHeaders.length).setValues([requiredHeaders]);
     sheet.getRange(1, 1, 1, requiredHeaders.length).setFontWeight('bold').setBackground('#E8F0FE');
+    sheet.setFrozenRows(1);
+    applySheetGuidance_(sheet);
   }
   return sheet;
+}
+
+// ▼ 翌月分のシートを、見出し・注釈・入力規則つきであらかじめ作成する。
+//   GASエディタの関数選択メニューからこの関数を選んで実行してください。
+function createNextMonthSheet() {
+  const now = new Date();
+  const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const sheetName = `db_登録データ_${next.getFullYear()}_${next.getMonth() + 1}月`;
+  getOrCreateDatabaseSheet(sheetName);
+}
+
+// ▼ 既存の db_登録データ シートすべてに、最新の注釈・入力規則・重複チェック書式を当て直す。
+//   仕様変更後や、シートをコピーして新しい月を作った直後などに手動実行してください。
+function refreshAllSheetTemplates() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheets = ss.getSheets().filter(s => s.getName().startsWith('db_登録データ'));
+  sheets.forEach(sheet => applySheetGuidance_(sheet));
 }
 
 // ▼ セルの数式（=HYPERLINK(...) など）を保持したまま2次元配列を取得する。
@@ -143,44 +288,11 @@ function getSheetDataPreservingFormulas_(sheet) {
   return values.map((row, r) => row.map((val, c) => formulas[r][c] || val));
 }
 
-// ▼ スプレッドシートに直接入力した行はID列を空欄のまま保存されることが多く、
-//   前の行をコピーして作った場合はIDが他の行と重複することもある。
-//   ドラッグ&ドロップ等が必ず正しい行だけを指せるよう、データを読み込むたびに
-//   ID列が空欄・重複している行へ新しいIDを振り直してシートへ書き戻す。
-//   → 直接シートに新規行を入力する際は、ID列は空欄のままで構わない。
-function ensureUniqueIds_(sheets) {
-  const seenIds = {};
-  sheets.forEach(sheet => {
-    const data = getSheetDataPreservingFormulas_(sheet);
-    if (data.length <= 1) return;
-    const idColIndex = data[0].indexOf('ID');
-    if (idColIndex === -1) return;
-
-    let changed = false;
-    for (let i = 1; i < data.length; i++) {
-      let id = data[i][idColIndex];
-      const hasContentInRow = data[i].some(cell => cell !== '' && cell !== null);
-      if (!hasContentInRow) continue; // 完全な空行はスキップ
-
-      if (!id || seenIds[id]) {
-        id = 'ID-' + Utilities.getUuid();
-        data[i][idColIndex] = id;
-        changed = true;
-      }
-      seenIds[id] = true;
-    }
-    if (changed) {
-      sheet.getRange(1, 1, data.length, data[0].length).setValues(data);
-    }
-  });
-}
-
 // ▼ 全ての月別シートからデータを結合してフロントへ送る
 function getRegistrationData() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheets = ss.getSheets().filter(s => s.getName().startsWith('db_登録データ'));
-    ensureUniqueIds_(sheets);
 
     let allData = [];
 
@@ -192,26 +304,32 @@ function getRegistrationData() {
       if (data.length > 1) {
         const headers = data[0];
         const rows = data.slice(1);
-        const sheetData = rows.map((row, rowIndex) => {
-          let obj = {};
-          headers.forEach((header, index) => {
-            let val = row[index];
-            const formula = formulas[rowIndex + 1][index];
+        const sheetData = rows
+          .filter(row => row.some(cell => cell !== '' && cell !== null)) // 完全な空行は除外
+          .map((row, rowIndex) => {
+            let obj = {};
+            headers.forEach((header, index) => {
+              let val = row[index];
+              const formula = formulas[rowIndex + 1][index];
 
-            // HYPERLINK関数の場合は中のURLだけを抽出する
-            if (formula && String(formula).toUpperCase().startsWith('=HYPERLINK')) {
-              const match = formula.match(/=HYPERLINK\("([^"]+)"/i);
-              if (match) {
-                val = match[1];
+              // HYPERLINK関数の場合は中のURLだけを抽出する
+              if (formula && String(formula).toUpperCase().startsWith('=HYPERLINK')) {
+                const match = formula.match(/=HYPERLINK\("([^"]+)"/i);
+                if (match) {
+                  val = match[1];
+                }
+              } else if (val instanceof Date) {
+                val = Utilities.formatDate(val, Session.getScriptTimeZone(), "yyyy-MM-dd");
               }
-            } else if (val instanceof Date) {
-              val = Utilities.formatDate(val, Session.getScriptTimeZone(), "yyyy-MM-dd");
-            }
 
-            obj[header] = val;
+              obj[header] = val;
+            });
+            // 旧ステータス名（登録日確定）が残っている行も、カレンダー上は確定扱いにする
+            if (LEGACY_CONFIRMED_STATUSES.indexOf(obj['ステータス']) !== -1) {
+              obj['ステータス'] = STATUS_CONFIRMED;
+            }
+            return obj;
           });
-          return obj;
-        });
         allData = allData.concat(sheetData);
       }
     });
@@ -219,79 +337,6 @@ function getRegistrationData() {
   } catch(e) {
     return [];
   }
-}
-
-// ▼ 保存処理（月が変わった場合のシート間引っ越し対応）
-// 編集権限はアクセス中のGoogleアカウントが EDITOR_EMAILS に含まれるかどうかで判定する。
-function saveRecord(record) {
-  const userEmail = Session.getActiveUser().getEmail();
-  if (!isEditorEmail_(userEmail)) {
-    return { success: false, message: `編集権限がありません。（現在のアカウント: ${userEmail || '不明'}）\n担当者用のGoogleアカウントでアクセスしてください。` };
-  }
-
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const targetSheetName = getSheetNameFromDate(record.登録予定日);
-  const targetSheet = getOrCreateDatabaseSheet(targetSheetName);
-  const headers = targetSheet.getRange(1, 1, 1, targetSheet.getLastColumn()).getValues()[0];
-
-  let existingRowData = [];
-  let foundSheet = null;
-  let foundRowIndex = -1;
-
-  if (record.ID) {
-    const sheets = ss.getSheets();
-    for (let s = 0; s < sheets.length; s++) {
-      const sheet = sheets[s];
-      if (sheet.getName().startsWith('db_登録データ')) {
-        // 数式（車検証リンクのHYPERLINK）を保持したまま読む。既存行の未変更列（車検証リンク等）は
-        // このexistingRowDataの値をそのまま書き戻すため、getValues()だけだと数式が消えてしまう。
-        const data = getSheetDataPreservingFormulas_(sheet);
-        if (data.length <= 1) continue;
-        const idIndex = data[0].indexOf('ID');
-        for (let i = 1; i < data.length; i++) {
-          if (data[i][idIndex] == record.ID) {
-            foundSheet = sheet;
-            foundRowIndex = i + 1;
-            existingRowData = data[i];
-            break;
-          }
-        }
-        if (foundSheet) break;
-      }
-    }
-  } else {
-    record.ID = 'ID-' + new Date().getTime();
-  }
-
-  const rowData = headers.map((header, index) => {
-    if (record.hasOwnProperty(header)) {
-      let value = record[header] || '';
-
-      // ヘッダー名が「車検証リンク」で、かつ値が空でない場合にHYPERLINK化する
-      if (header === '車検証リンク' && value !== '') {
-        if (!String(value).startsWith('=')) {
-          value = `=HYPERLINK("${value}", "車検証リンク")`;
-        }
-      }
-
-      return value;
-    } else {
-      return (existingRowData.length > index && existingRowData[index] !== undefined) ? existingRowData[index] : '';
-    }
-  });
-
-  if (foundSheet && foundRowIndex > 0) {
-    if (foundSheet.getName() === targetSheetName) {
-      foundSheet.getRange(foundRowIndex, 1, 1, rowData.length).setValues([rowData]);
-    } else {
-      foundSheet.deleteRow(foundRowIndex);
-      targetSheet.appendRow(rowData);
-    }
-  } else {
-    targetSheet.appendRow(rowData);
-  }
-
-  return { success: true };
 }
 
 function normalizeCustomerName(name) {
