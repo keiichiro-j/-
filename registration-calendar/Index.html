@@ -6,26 +6,29 @@
   <title>登録カレンダー</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@700;900&family=Noto+Sans+JP:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --ink: #1A1F36; --ink-2: #4B5468; --muted: #8790A3; --border: #D9DEE5;
-      --canvas: #F3F4F7; --surface: #FFFFFF; --surface-2: #F7F8FA; --hairline: #E6E8EE;
-      --accent: #3B4FD1; --accent-bg: #EEF1FD; --accent-ink: #2E3FB0; --panel-bg: #F7F8FE;
-      --oss: #16924F; --oss-bg: #E7F7EE;
-      --paper: #D6392E; --paper-bg: #FCEAE8;
-      --sat-bg: #E8F0FE; --sat-ink: #2A5BD1;
-      --sun-bg: #FCE9F1; --sun-ink: #C93E77;
-      --holi-bg: #E7F7EE; --holi-ink: #189255;
-      --notice: #C2790E; --notice-bg: #FBEFDD;
-      --shadow-sm: 0 1px 2px rgba(26,31,54,0.05), 0 1px 4px rgba(26,31,54,0.04);
-      --shadow-md: 0 2px 6px rgba(26,31,54,0.05), 0 10px 24px -10px rgba(26,31,54,0.16);
-      --shadow-lg: 0 6px 16px rgba(26,31,54,0.06), 0 20px 48px -16px rgba(26,31,54,0.22);
+      --ink: #14171F; --ink-2: #3C4353; --muted: #6B7386; --border: #CBD0D9;
+      --canvas: #E7E9ED; --surface: #FFFFFF; --surface-2: #EDEFF3; --hairline: #DEE1E7;
+      --accent: #3B4FD1; --accent-bg: #EEF1FD; --accent-ink: #2E3FB0; --accent-on-dark: #7C90F5;
+      --side-bg: #171A21; --side-bg-2: #20242E; --side-ink: #EDEFF4; --side-muted: #8891A3;
+      --side-hairline: rgba(255,255,255,0.1); --side-hover: rgba(255,255,255,0.06);
+      --oss: #16924F; --oss-bg: #E3F5EA;
+      --paper: #C7392E; --paper-bg: #FAE7E5;
+      --sat-bg: #E4EDFE; --sat-ink: #2A5BD1;
+      --sun-bg: #FAE6EE; --sun-ink: #C93E77;
+      --holi-bg: #E3F5EA; --holi-ink: #189255;
+      --notice: #B06A0C; --notice-bg: #F7EADA;
+      --shadow-sm: 0 1px 2px rgba(15,17,24,0.06);
+      --shadow-md: 0 2px 4px rgba(15,17,24,0.06), 0 8px 16px -10px rgba(15,17,24,0.16);
+      --shadow-lg: 0 8px 20px -6px rgba(15,17,24,0.26), 0 24px 48px -20px rgba(15,17,24,0.3);
     }
     * { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; }
     body { font-family: 'Noto Sans JP', sans-serif; background: var(--canvas); color: var(--ink); }
     .font-num { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums slashed-zero; }
+    .font-heading { font-family: 'Zen Kaku Gothic New', 'Noto Sans JP', sans-serif; }
 
     .app-shell-outer { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
     .app-shell { flex: 1; min-height: 0; overflow: hidden; }
@@ -50,48 +53,48 @@
     .announce-sep { opacity: .55; margin: 0 10px; }
     .announce-close { border: none; background: rgba(255,255,255,0.2); color: #fff; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; font-size: 9px; }
 
-    /* -- コントロールパネル -- */
-    .control-panel { width: 212px; flex: 0 0 212px; background: var(--panel-bg); padding: 22px 14px; display: flex; flex-direction: column; box-shadow: 1px 0 0 var(--hairline); position: relative; z-index: 2; height: 100%; overflow-y: auto; }
-    .cp-header { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 22px; }
-    .cp-icon-mark { width: 42px; height: 42px; border-radius: 50%; background: var(--accent); box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 17px; margin-bottom: 8px; overflow: hidden; }
+    /* -- コントロールパネル(重厚感のある濃色サイドバー) -- */
+    .control-panel { width: 212px; flex: 0 0 212px; background: var(--side-bg); padding: 22px 14px; display: flex; flex-direction: column; position: relative; z-index: 2; height: 100%; overflow-y: auto; }
+    .cp-header { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--side-hairline); }
+    .cp-icon-mark { width: 42px; height: 42px; border-radius: 8px; background: var(--accent); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 17px; margin-bottom: 10px; overflow: hidden; }
     .cp-icon-mark img { width: 100%; height: 100%; object-fit: cover; }
-    .cp-logo { font-size: 13px; font-weight: 800; color: var(--ink); margin-bottom: 2px; letter-spacing: -0.005em; }
-    .cp-logo-sub { font-size: 10.5px; color: var(--muted); font-weight: 600; }
+    .cp-logo { font-family: 'Zen Kaku Gothic New', 'Noto Sans JP', sans-serif; font-size: 13.5px; font-weight: 900; color: var(--side-ink); margin-bottom: 2px; letter-spacing: .01em; }
+    .cp-logo-sub { font-size: 10px; color: var(--side-muted); font-weight: 600; letter-spacing: .03em; }
     .cp-nav { display: flex; flex-direction: column; gap: 3px; flex: 1; }
-    .cp-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 7px; font-size: 13px; font-weight: 600; color: var(--ink-2); text-align: left; border: none; background: transparent; cursor: pointer; width: 100%; transition: background .12s ease, color .12s ease; }
-    .cp-nav-item i { width: 15px; text-align: center; font-size: 13px; color: var(--muted); }
-    .cp-nav-item:hover { background: var(--surface); color: var(--ink); }
-    .cp-nav-item.active { background: var(--accent-bg); color: var(--accent-ink); box-shadow: inset 3px 0 0 var(--accent); }
-    .cp-nav-item.active i { color: var(--accent-ink); }
+    .cp-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 6px; font-size: 13px; font-weight: 600; color: var(--side-muted); text-align: left; border: none; background: transparent; cursor: pointer; width: 100%; transition: background .12s ease, color .12s ease; }
+    .cp-nav-item i { width: 15px; text-align: center; font-size: 13px; color: var(--side-muted); }
+    .cp-nav-item:hover { background: var(--side-hover); color: var(--side-ink); }
+    .cp-nav-item.active { background: var(--side-bg-2); color: var(--accent-on-dark); box-shadow: inset 3px 0 0 var(--accent-on-dark); }
+    .cp-nav-item.active i { color: var(--accent-on-dark); }
     .cp-subnav { position: relative; display: flex; flex-direction: column; gap: 1px; padding: 2px 4px 8px 31px; }
     .cp-subnav::before {
-      content: ''; position: absolute; left: 18px; top: -4px; bottom: 21px; width: 1px; background: var(--border);
+      content: ''; position: absolute; left: 18px; top: -4px; bottom: 21px; width: 1px; background: var(--side-hairline);
     }
-    .cp-subnav-item { position: relative; border: none; background: transparent; text-align: left; font-size: 11.5px; font-weight: 600; color: var(--muted); padding: 5px 8px; border-radius: 5px; cursor: pointer; transition: background .12s ease, color .12s ease; }
+    .cp-subnav-item { position: relative; border: none; background: transparent; text-align: left; font-size: 11.5px; font-weight: 600; color: var(--side-muted); padding: 5px 8px; border-radius: 5px; cursor: pointer; transition: background .12s ease, color .12s ease; }
     .cp-subnav-item::before {
-      content: ''; position: absolute; left: -13px; top: 50%; width: 9px; height: 1px; background: var(--border);
+      content: ''; position: absolute; left: -13px; top: 50%; width: 9px; height: 1px; background: var(--side-hairline);
     }
-    .cp-subnav-item:hover { color: var(--ink-2); }
-    .cp-subnav-item.active { color: var(--accent-ink); font-weight: 700; background: var(--accent-bg); }
-    .cp-subnav-item.active::before { background: var(--accent); }
-    .cp-footer { padding-top: 14px; margin-top: 14px; border-top: 1px solid var(--hairline); }
+    .cp-subnav-item:hover { color: var(--side-ink); }
+    .cp-subnav-item.active { color: var(--accent-on-dark); font-weight: 700; background: var(--side-bg-2); }
+    .cp-subnav-item.active::before { background: var(--accent-on-dark); }
+    .cp-footer { padding-top: 14px; margin-top: 14px; border-top: 1px solid var(--side-hairline); }
     .cp-user { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
-    .cp-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex: 0 0 28px; }
-    .cp-user-name { font-size: 11.5px; font-weight: 700; color: var(--ink); line-height: 1.3; word-break: break-all; }
-    .cp-user-email { font-size: 9px; color: var(--muted); line-height: 1.3; word-break: break-all; }
-    .cp-role-badge { font-size: 9.5px; font-weight: 700; border-radius: 6px; padding: 5px 9px; display: block; width: 100%; text-align: left; }
+    .cp-avatar { width: 28px; height: 28px; border-radius: 7px; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex: 0 0 28px; }
+    .cp-user-name { font-size: 11.5px; font-weight: 700; color: var(--side-ink); line-height: 1.3; word-break: break-all; }
+    .cp-user-email { font-size: 9px; color: var(--side-muted); line-height: 1.3; word-break: break-all; }
+    .cp-role-badge { font-size: 9.5px; font-weight: 700; border-radius: 5px; padding: 5px 9px; display: block; width: 100%; text-align: left; }
     .cp-role-badge.editor { background: var(--oss-bg); color: var(--oss); }
     .cp-role-badge.general { background: #EEF0F3; color: #7C8496; }
 
     .main-col { flex: 1; min-width: 0; padding: 20px 24px 20px; display: flex; flex-direction: column; height: 100%; overflow: hidden; gap: 12px; }
     .page-fill-area { flex: 1; min-height: 0; overflow-y: auto; }
-    .page-title { font-size: 17px; font-weight: 800; color: var(--ink); letter-spacing: -0.005em; }
+    .page-title { font-family: 'Zen Kaku Gothic New', 'Noto Sans JP', sans-serif; font-size: 18px; font-weight: 900; color: var(--ink); letter-spacing: 0; }
     .page-sub { font-size: 11.5px; color: var(--muted); margin-top: 2px; font-weight: 500; }
 
-    .tabbar { display: inline-flex; gap: 2px; background: var(--surface-2); border-radius: 7px; padding: 3px; border: 1px solid var(--hairline); }
+    .tabbar { display: inline-flex; gap: 2px; background: var(--surface-2); border-radius: 7px; padding: 3px; border: 1px solid var(--border); }
     .tab { font-size: 12px; font-weight: 600; border-radius: 5px; padding: 6px 14px; cursor: pointer; color: var(--muted); border: none; background: transparent; transition: background .12s ease, color .12s ease; }
     .tab:hover { color: var(--ink-2); }
-    .tab-active { background: var(--surface); color: var(--accent-ink); font-weight: 700; box-shadow: var(--shadow-sm); }
+    .tab-active { background: var(--surface); color: var(--accent-ink); font-weight: 700; }
     .nav-btn { font-size: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; color: var(--ink-2); cursor: pointer; transition: background .12s ease, border-color .12s ease, color .12s ease; }
     .nav-btn:hover { background: var(--accent-bg); border-color: var(--accent); color: var(--accent-ink); }
     .today-btn { font-size: 11px; font-weight: 600; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 11px; color: var(--ink-2); cursor: pointer; transition: background .12s ease, border-color .12s ease, color .12s ease; }
@@ -106,8 +109,8 @@
     .kpi-row-top { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin-bottom: 10px; }
     .kpi-row-bottom { grid-template-columns: repeat(7, 1fr); }
     .kpi-row-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin: 0 2px 6px; }
-    .kpi-tile { background: var(--surface); border-radius: 10px; padding: 10px 14px; box-shadow: var(--shadow-sm); }
-    .kpi-tile-accent { background: var(--accent-bg); }
+    .kpi-tile { background: var(--surface); border-radius: 8px; padding: 10px 14px; border: 1px solid var(--border); }
+    .kpi-tile-accent { background: var(--accent-bg); border-color: var(--accent-bg); }
     .kpi-label { font-size: 10.5px; font-weight: 700; color: var(--muted); display: flex; align-items: center; gap: 5px; }
     .kpi-value { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums slashed-zero; font-size: 20px; font-weight: 700; color: var(--ink); margin-top: 4px; }
     .kpi-unit { font-size: 10.5px; font-weight: 600; color: var(--muted); margin-left: 3px; font-family: 'Noto Sans JP',sans-serif; }
@@ -129,30 +132,30 @@
     .day-notice-banner i { flex: 0 0 auto; }
 
     /* -- 登録カード -- */
-    .entry-card { background: var(--surface); border-radius: 7px; padding: 8px 11px; flex: 0 0 178px; width: 178px; box-shadow: var(--shadow-sm); position: relative; overflow: hidden; cursor: pointer; scroll-snap-align: start; border: 1px solid var(--hairline); transition: box-shadow .12s ease, border-color .12s ease; }
-    .entry-card:hover { box-shadow: var(--shadow-md); border-color: var(--border); }
+    .entry-card { background: var(--surface); border-radius: 6px; padding: 8px 11px; flex: 0 0 178px; width: 178px; position: relative; overflow: hidden; cursor: pointer; scroll-snap-align: start; border: 1px solid var(--border); transition: box-shadow .12s ease, border-color .12s ease; }
+    .entry-card:hover { box-shadow: var(--shadow-sm); border-color: var(--ink-2); }
     .entry-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--bar-color, var(--accent)); }
     .entry-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding-left: 5px; }
     .entry-row + .entry-row { margin-top: 4px; }
     .entry-name { font-size: 12.5px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
     .entry-sales { font-size: 10.5px; font-weight: 500; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
     .entry-model { font-size: 10.5px; font-weight: 500; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 0 auto; max-width: 76px; }
-    .branch-pill { font-size: 9.5px; font-weight: 600; padding: 2px 7px; border-radius: 4px; }
-    .method-pill { font-size: 9px; font-weight: 600; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; }
-    .status-pill { font-size: 9px; font-weight: 600; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; background: var(--surface-2); color: var(--ink-2); white-space: nowrap; }
+    .branch-pill { font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 4px; }
+    .method-pill { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; letter-spacing: .02em; }
+    .status-pill { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; background: var(--surface-2); color: var(--ink-2); white-space: nowrap; border: 1px solid var(--border); }
     .pdf-icon-btn { color: var(--paper); font-size: 12px; flex: 0 0 auto; cursor: pointer; }
-    .slide-hint { position: sticky; right: 2px; flex: 0 0 30px; width: 30px; height: 30px; border-radius: 50%; background: var(--surface); box-shadow: var(--shadow-md); border: none; color: var(--accent-ink); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12px; }
+    .slide-hint { position: sticky; right: 2px; flex: 0 0 30px; width: 30px; height: 30px; border-radius: 50%; background: var(--surface); box-shadow: var(--shadow-sm); border: 1px solid var(--border); color: var(--accent-ink); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12px; }
 
     /* -- カレンダーカード / オーバーレイ未定リスト -- */
-    .calendar-card { position: relative; background: var(--surface); border-radius: 12px; padding: 16px 18px; overflow: hidden; box-shadow: var(--shadow-md); display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; border: 1px solid var(--hairline); }
+    .calendar-card { position: relative; background: var(--surface); border-radius: 10px; padding: 16px 18px; overflow: hidden; display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; border: 1px solid var(--border); }
     .rowscroll-wrap { position: relative; flex: 1; min-height: 0; display: flex; }
-    .cal-overlay-backdrop { position: absolute; inset: 0; background: rgba(26,31,54,0.32); z-index: 5; }
-    .cal-overlay-panel { position: absolute; top: 0; right: 0; bottom: 0; width: 216px; background: var(--surface); box-shadow: var(--shadow-lg); z-index: 6; padding: 14px; display: flex; flex-direction: column; border-left: 1px solid var(--hairline); }
-    .sales-tag { font-size: 10px; font-weight: 600; color: #9AA1B0; display: flex; align-items: center; gap: 5px; margin: 9px 0 6px; text-transform: uppercase; letter-spacing: .03em; }
+    .cal-overlay-backdrop { position: absolute; inset: 0; background: rgba(15,17,24,0.4); z-index: 5; }
+    .cal-overlay-panel { position: absolute; top: 0; right: 0; bottom: 0; width: 216px; background: var(--surface); box-shadow: var(--shadow-lg); z-index: 6; padding: 14px; display: flex; flex-direction: column; border-left: 1px solid var(--border); }
+    .sales-tag { font-size: 10px; font-weight: 700; color: var(--muted); display: flex; align-items: center; gap: 5px; margin: 9px 0 6px; text-transform: uppercase; letter-spacing: .03em; }
     .pending-toggle-btn {
       display: inline-flex; align-items: center; gap: 8px;
       background: var(--surface); color: var(--ink-2); font-size: 12px; font-weight: 700;
-      padding: 6px 12px; border-radius: 6px; box-shadow: var(--shadow-sm); border: 1px solid var(--border);
+      padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border);
       cursor: pointer; transition: border-color .12s ease, color .12s ease, background .12s ease;
       margin-left: 8px; position: relative;
     }
@@ -164,8 +167,8 @@
 
     /* -- マイページ -- */
     .mp-list { display: flex; flex-direction: column; gap: 5px; }
-    .mp-row { display: flex; align-items: center; gap: 14px; background: var(--surface); border-radius: 8px; padding: 10px 14px; box-shadow: var(--shadow-sm); cursor: pointer; border: 1px solid var(--hairline); transition: box-shadow .12s ease, border-color .12s ease; }
-    .mp-row:hover { box-shadow: var(--shadow-md); border-color: var(--border); }
+    .mp-row { display: flex; align-items: center; gap: 14px; background: var(--surface); border-radius: 7px; padding: 10px 14px; cursor: pointer; border: 1px solid var(--border); transition: box-shadow .12s ease, border-color .12s ease; }
+    .mp-row:hover { box-shadow: var(--shadow-sm); border-color: var(--ink-2); }
     .mp-col { flex: 1; min-width: 0; display: flex; align-items: center; }
     .mp-date-chip { font-size: 10.5px; font-weight: 700; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums slashed-zero; text-align: center; border-radius: 6px; padding: 5px 10px; }
     .mp-name { font-size: 12.5px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
@@ -183,8 +186,8 @@
     .list-table td { padding: 10px 12px; vertical-align: middle; }
 
     /* -- 設定ページ -- */
-    .settings-card { background: var(--surface); border-radius: 12px; padding: 20px 22px; box-shadow: var(--shadow-md); border: 1px solid var(--hairline); }
-    .settings-card-title { font-size: 13.5px; font-weight: 800; color: var(--ink); display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .settings-card { background: var(--surface); border-radius: 10px; padding: 20px 22px; border: 1px solid var(--border); }
+    .settings-card-title { font-family: 'Zen Kaku Gothic New', 'Noto Sans JP', sans-serif; font-size: 14px; font-weight: 900; color: var(--ink); display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
     .settings-card-title i { color: var(--accent-ink); font-size: 12.5px; }
     .settings-card-desc { font-size: 11.5px; color: var(--muted); line-height: 1.65; margin-bottom: 15px; }
     .settings-group-label { margin-bottom: 6px; font-size: 10.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
@@ -221,9 +224,9 @@
     /* -- モーダル(詳細表示、お知らせ) -- */
     .modal-backdrop { position: fixed; inset: 0; background: rgba(26,31,54,0.4); display: none; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
     .modal-backdrop.flex { display: flex; }
-    .modal-box { background: var(--surface); border-radius: 12px; width: 100%; box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; border-top: 3px solid var(--accent); }
-    .modal-head { background: var(--surface-2); padding: 18px 22px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--hairline); position: sticky; top: 0; }
-    .modal-title { font-size: 14px; font-weight: 800; color: var(--ink); }
+    .modal-box { background: var(--surface); border-radius: 10px; width: 100%; box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; border-top: 3px solid var(--accent); }
+    .modal-head { background: var(--surface-2); padding: 18px 22px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); position: sticky; top: 0; }
+    .modal-title { font-family: 'Zen Kaku Gothic New', 'Noto Sans JP', sans-serif; font-size: 14.5px; font-weight: 900; color: var(--ink); }
     .modal-close { border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 16px; }
     .detail-row { display: flex; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--hairline); }
     .detail-row:last-child { border-bottom: none; }
@@ -235,7 +238,7 @@
       .app-shell { height: auto; overflow: visible; }
       .app-row { flex-direction: column; height: auto; }
       .control-panel { width: 100%; flex: 0 0 auto; height: auto; flex-direction: row; align-items: center; padding: 12px 14px; overflow-x: auto; }
-      .cp-header { flex-direction: row; margin-bottom: 0; margin-right: 16px; }
+      .cp-header { flex-direction: row; margin-bottom: 0; margin-right: 16px; padding-bottom: 0; border-bottom: none; }
       .cp-icon-mark { margin-bottom: 0; margin-right: 8px; width: 32px; height: 32px; font-size: 13px; }
       .cp-logo-sub { display: none; }
       .cp-nav { flex-direction: row; flex: 0 0 auto; }
@@ -298,18 +301,18 @@
       return status === STATUS_CONFIRMED || LEGACY_CONFIRMED_STATUSES.indexOf(status) !== -1;
     }
 
-    // panelBg: コントロールパネル全体に敷く、accentBgよりさらに薄いテーマ色の下地。
-    // これによりアクティブなナビ項目(accentBg)との2段階の濃淡差が生まれ、パネル全体が
-    // テーマカラーで染まって見えるようになる。
+    // accentOnDark: 濃色サイドバー上で使う、アクセントカラーを明るくした派生色。
+    // サイドバーの背景色自体はテーマに関わらず一定(重厚感の核)だが、アクティブなナビ項目の
+    // 強調表示にはこの色を使うことで、サイドバーにもテーマの効果が及ぶようにしている。
     const THEMES = {
-      indigo: { name: 'インディゴ', accent: '#3B4FD1', accentBg: '#EEF1FD', accentInk: '#2E3FB0', panelBg: '#F7F8FE' },
-      green: { name: 'グリーン', accent: '#16924F', accentBg: '#E7F7EE', accentInk: '#0F7A3D', panelBg: '#F4FBF7' },
-      charcoal: { name: 'チャコール', accent: '#33333D', accentBg: '#E9E9EC', accentInk: '#202027', panelBg: '#F6F6F7' },
-      amber: { name: 'アンバー', accent: '#C2790E', accentBg: '#FBEFDD', accentInk: '#9C610A', panelBg: '#FDF7EE' },
-      rose: { name: 'ローズ', accent: '#C93E77', accentBg: '#FBEAF1', accentInk: '#A62D60', panelBg: '#FDF4F7' },
-      teal: { name: 'ティール', accent: '#0C7C8C', accentBg: '#E6F4F6', accentInk: '#0A6672', panelBg: '#F2F9FA' },
-      purple: { name: 'パープル', accent: '#7C3AED', accentBg: '#F2ECFC', accentInk: '#6425C7', panelBg: '#F8F5FE' },
-      slate: { name: 'スレート', accent: '#4B5468', accentBg: '#EEF0F3', accentInk: '#333A4A', panelBg: '#F6F7F9' },
+      indigo: { name: 'インディゴ', accent: '#3B4FD1', accentBg: '#EEF1FD', accentInk: '#2E3FB0', accentOnDark: '#8C9DF7' },
+      green: { name: 'グリーン', accent: '#16924F', accentBg: '#E7F7EE', accentInk: '#0F7A3D', accentOnDark: '#4CC98A' },
+      charcoal: { name: 'チャコール', accent: '#33333D', accentBg: '#E9E9EC', accentInk: '#202027', accentOnDark: '#ACB0BC' },
+      amber: { name: 'アンバー', accent: '#C2790E', accentBg: '#FBEFDD', accentInk: '#9C610A', accentOnDark: '#F0A93D' },
+      rose: { name: 'ローズ', accent: '#C93E77', accentBg: '#FBEAF1', accentInk: '#A62D60', accentOnDark: '#F27BA3' },
+      teal: { name: 'ティール', accent: '#0C7C8C', accentBg: '#E6F4F6', accentInk: '#0A6672', accentOnDark: '#4DC3D3' },
+      purple: { name: 'パープル', accent: '#7C3AED', accentBg: '#F2ECFC', accentInk: '#6425C7', accentOnDark: '#A98BFA' },
+      slate: { name: 'スレート', accent: '#4B5468', accentBg: '#EEF0F3', accentInk: '#333A4A', accentOnDark: '#9CA6BC' },
     };
 
     let currentTheme = THEMES[INITIAL_THEME] ? INITIAL_THEME : 'indigo';
@@ -324,7 +327,7 @@
       root.setProperty('--accent', t.accent);
       root.setProperty('--accent-bg', t.accentBg);
       root.setProperty('--accent-ink', t.accentInk);
-      root.setProperty('--panel-bg', t.panelBg);
+      root.setProperty('--accent-on-dark', t.accentOnDark);
     }
 
     // ---- 日本の祝日判定(固定日＋ハッピーマンデー＋春分/秋分＋振替休日/国民の休日) ----
