@@ -74,7 +74,6 @@
     .cp-subnav-item:hover { color: var(--ink-2); }
     .cp-subnav-item.active { color: var(--accent-ink); font-weight: 700; background: var(--accent-bg); }
     .cp-subnav-item.active::before { background: var(--accent); }
-    .mobile-only-nav { display: none; }
     .cp-footer { padding-top: 14px; margin-top: 14px; border-top: 1px solid var(--hairline); }
     .cp-user { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
     .cp-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex: 0 0 28px; }
@@ -83,6 +82,10 @@
     .cp-role-badge { font-size: 9.5px; font-weight: 700; border-radius: 6px; padding: 5px 9px; display: block; width: 100%; text-align: left; }
     .cp-role-badge.editor { background: var(--oss-bg); color: var(--oss); }
     .cp-role-badge.general { background: #EEF0F3; color: #7C8496; }
+    .mobile-account-card { display: none; }
+
+    /* -- ボトムタブバー(スマホ専用) -- */
+    .bottom-tab-bar { display: none; }
 
     .main-col { flex: 1; min-width: 0; padding: 20px 24px 20px; display: flex; flex-direction: column; height: 100%; overflow: hidden; gap: 12px; }
     .page-fill-area { flex: 1; min-height: 0; overflow-y: auto; }
@@ -100,6 +103,8 @@
     .action-btn { font-size: 11px; font-weight: 700; background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 7px 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: filter .12s ease; }
     .action-btn:hover { filter: brightness(0.92); }
     .cartype-pill { font-size: 10.5px; font-weight: 800; letter-spacing: .01em; padding: 6px 12px; border-radius: 6px; background: var(--accent); color: #fff; display: inline-flex; align-items: center; gap: 6px; }
+    .calhead-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
+    .calhead-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
     /* -- KPIタイル -- */
     .kpi-section { flex: 0 0 auto; }
@@ -182,6 +187,14 @@
     .list-table tbody tr { border-bottom: 1px solid var(--hairline); cursor: pointer; }
     .list-table tbody tr:hover { background: var(--surface-2); }
     .list-table td { padding: 10px 12px; vertical-align: middle; }
+    .list-card-wrap { display: none; flex-direction: column; gap: 8px; }
+    .list-card { background: var(--surface); border-radius: 12px; padding: 12px 14px; box-shadow: var(--shadow-sm); border: 1px solid var(--hairline); cursor: pointer; }
+    .list-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 7px; }
+    .list-card-name { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+    .list-card-date { font-size: 11px; font-weight: 700; color: var(--ink-2); white-space: nowrap; flex: 0 0 auto; }
+    .list-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    .list-card-meta span { font-size: 11.5px; }
+    .list-card-note { font-size: 11.5px; color: var(--muted); margin-top: 7px; padding-top: 7px; border-top: 1px solid var(--hairline); }
 
     /* -- 設定ページ -- */
     .settings-card { background: var(--surface); border-radius: 12px; padding: 20px 22px; box-shadow: var(--shadow-md); border: 1px solid var(--hairline); }
@@ -235,27 +248,71 @@
       .app-shell-outer { height: auto; overflow: visible; }
       .app-shell { height: auto; overflow: visible; }
       .app-row { flex-direction: column; height: auto; }
-      .control-panel { width: 100%; flex: 0 0 auto; height: auto; flex-direction: row; align-items: center; padding: 12px 14px; overflow-x: auto; }
-      .cp-header { flex-direction: row; margin-bottom: 0; margin-right: 16px; }
+
+      /* -- 上部バー: ロゴ＋車両区分の切り替えのみを表示するアプリ風ヘッダーに簡略化 -- */
+      .control-panel { width: 100%; flex: 0 0 auto; height: auto; flex-direction: row; align-items: center; justify-content: space-between; padding: 10px 14px; overflow-x: visible; position: sticky; top: 0; z-index: 15; box-shadow: 0 1px 0 var(--hairline), var(--shadow-sm); }
+      .cp-header { flex-direction: row; margin-bottom: 0; margin-right: 0; }
       .cp-icon-mark { margin-bottom: 0; margin-right: 8px; width: 32px; height: 32px; font-size: 13px; }
       .cp-logo-sub { display: none; }
       .cp-nav { flex-direction: row; flex: 0 0 auto; }
-      .cp-subnav { flex-direction: row; padding: 0 0 0 6px; }
+      .cp-nav > .cp-nav-item { display: none; } /* ページナビは下部のタブバーに置き換え */
+      .cp-subnav { flex-direction: row; padding: 0; }
       .cp-subnav::before, .cp-subnav-item::before { display: none; }
       .cp-footer { display: none; }
-      .mobile-only-nav { display: flex; }
       .calendar-hero { display: none; }
-      .main-col { height: auto; overflow: visible; padding: 16px; }
+      .main-col { height: auto; overflow: visible; padding: 14px 14px calc(78px + env(safe-area-inset-bottom)); }
       .page-fill-area { overflow-y: visible; }
-      .calendar-card { flex: 0 0 auto; }
+      .calendar-card { flex: 0 0 auto; border-radius: 14px; }
       .rowscroll-wrap { flex: 0 0 auto; }
       #rowScroll { max-height: 60vh; }
-      .list-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-      .list-table { min-width: 640px; }
+
+      /* -- カレンダーヘッダーを縦積みにして操作ボタンの取りこぼしを防ぐ -- */
+      .calhead-row { flex-direction: column; align-items: stretch; }
+      .calhead-right { justify-content: space-between; }
+      .pending-toggle-btn { flex: 1 1 100%; margin-left: 0; justify-content: center; }
+      .pending-toggle-btn::before { display: none; }
+
+      /* -- 未定リストはサイド固定パネルではなく、下からせり上がるボトムシートに -- */
+      .cal-overlay-backdrop { position: fixed; z-index: 25; }
+      .cal-overlay-panel { position: fixed; left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 75vh; border-left: none; border-radius: 16px 16px 0 0; box-shadow: 0 -8px 24px rgba(26,31,54,0.18); z-index: 26; padding: 10px 16px calc(16px + env(safe-area-inset-bottom)); }
+      .cal-overlay-panel::before { content: ''; display: block; width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 10px; flex: 0 0 auto; }
+
+      /* -- リスト表示: テーブルの代わりにカード一覧 -- */
+      .list-table-wrap { display: none; }
+      .list-card-wrap { display: flex; }
+
+      /* -- マイページ: 横並び7列の代わりに2列カードレイアウト -- */
       .mp-thead-row { display: none; }
-      .mp-row { flex-wrap: wrap; gap: 8px 10px; }
-      .mp-col { flex: 1 1 45%; min-width: 110px; }
-      .mp-col.mp-name, .mp-col.mp-model { flex: 1 1 100%; }
+      .mp-row {
+        display: grid; grid-template-columns: 1fr 1fr;
+        grid-template-areas: "date status" "name name" "model model" "type method" "pdf pdf";
+        gap: 6px 10px; padding: 14px; align-items: center;
+      }
+      .mp-col-date { grid-area: date; }
+      .mp-col-status { grid-area: status; justify-self: end; }
+      .mp-name { grid-area: name; font-size: 14px; }
+      .mp-model { grid-area: model; font-size: 12.5px; }
+      .mp-col-type { grid-area: type; }
+      .mp-col-method { grid-area: method; justify-self: end; }
+      .mp-col-pdf { grid-area: pdf; margin-top: 4px; }
+      .mp-col-pdf .mp-pdf-btn { width: 100%; justify-content: center; }
+
+      /* -- 拠点別タイルは3列に収めて可読性を確保 -- */
+      .kpi-row-bottom { grid-template-columns: repeat(3, 1fr) !important; }
+
+      /* -- 設定ページに、非表示になったサイドバーのアカウント情報を移設 -- */
+      .mobile-account-card { display: flex; align-items: center; gap: 12px; background: var(--surface); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow-sm); border: 1px solid var(--hairline); }
+
+      /* -- ボトムタブバー(アプリのタブナビゲーション風) -- */
+      .bottom-tab-bar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; background: var(--surface); border-top: 1px solid var(--hairline); box-shadow: 0 -2px 10px rgba(26,31,54,0.08); z-index: 20; padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
+      .bottom-tab-item { flex: 1; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 3px; width: auto; padding: 6px 2px; border-radius: 10px; font-size: 10px; font-weight: 600; color: var(--muted); }
+      .bottom-tab-item i { font-size: 17px; width: auto; }
+      .bottom-tab-item.active { color: var(--accent-ink); background: var(--accent-bg); box-shadow: none; }
+      .bottom-tab-item.active i { color: var(--accent-ink); }
+
+      /* -- タップしやすいようフォーム部品を拡大 -- */
+      .settings-input, .nav-btn, .today-btn, .action-btn, .tab, .theme-swatch, .settings-add-btn, .btn-secondary { min-height: 40px; }
+      .tabbar { padding: 3px; }
     }
   </style>
 </head>
@@ -582,15 +639,15 @@
         </button>
       ` : '';
       return `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div class="calhead-row">
+          <div class="calhead-group calhead-left">
             <span class="cartype-pill"><i class="fa-solid ${carType === '中古車' ? 'fa-car-side' : 'fa-car'}"></i>${carType}</span>
             <div class="tabbar">
               <button type="button" class="tab ${calendarViewMode === 'calendar' ? 'tab-active' : ''}" data-viewmode="calendar">カレンダー</button>
               <button type="button" class="tab ${calendarViewMode === 'list' ? 'tab-active' : ''}" data-viewmode="list">リスト</button>
             </div>
           </div>
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <div class="calhead-group calhead-right">
             <span class="font-num" style="font-size:18px;font-weight:700;">${month + 1}<span style="font-size:12px;font-weight:600;color:var(--muted);margin:0 6px 0 1px;font-family:'Noto Sans JP',sans-serif;">月</span><span style="font-size:12px;font-weight:600;color:var(--muted);font-family:'Noto Sans JP',sans-serif;">${year}</span></span>
             <button type="button" class="today-btn" id="btnToday">今日</button>
             <button type="button" class="nav-btn" id="btnPrevMonth"><i class="fa-solid fa-chevron-left"></i></button>
@@ -724,11 +781,12 @@
         return a.登録予定日 < b.登録予定日 ? -1 : (a.登録予定日 > b.登録予定日 ? 1 : 0);
       });
 
-      const body = rows.map(r => {
+      let tableBody = '', cardBody = '';
+      rows.forEach(r => {
         const c = branchColors[r.拠点] || branchColors['その他'];
         const pdfIcon = hasPdfLink(r) ? `<span class="js-pdf-link pdf-icon-btn" data-url="${escapeAttr(r.車検証リンク)}"><i class="fa-solid fa-file-pdf"></i></span>` : '';
         const dateDisplay = r.登録予定日 ? r.登録予定日 : `<span class="method-pill" style="background:var(--paper-bg);color:var(--paper);">未定</span>`;
-        return `<tr class="js-open-record" ${recordDataAttr(r)}>
+        tableBody += `<tr class="js-open-record" ${recordDataAttr(r)}>
           <td class="font-num">${dateDisplay}</td>
           <td>${escapeHtml(r.顧客名)} ${pdfIcon}</td>
           <td>${methodPill(isOssRecord(r))}</td>
@@ -736,7 +794,21 @@
           <td>${escapeHtml(r.車種 || '')}</td>
           <td style="color:var(--muted);max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(r.備考 || '-')}</td>
         </tr>`;
-      }).join('');
+        cardBody += `<div class="list-card js-open-record" ${recordDataAttr(r)}>
+          <div class="list-card-top">
+            <span class="list-card-name">${escapeHtml(r.顧客名)} 様 ${pdfIcon}</span>
+            <span class="list-card-date font-num">${dateDisplay}</span>
+          </div>
+          <div class="list-card-meta">
+            ${methodPill(isOssRecord(r))}
+            <span class="branch-pill" style="background:${c.bg};color:${c.c};">${r.拠点}</span>
+            <span style="color:var(--ink-2);font-weight:600;">${escapeHtml(r.担当者 || '')}</span>
+            ${r.車種 ? `<span style="color:var(--ink-2);">${escapeHtml(r.車種)}</span>` : ''}
+          </div>
+          ${r.備考 ? `<div class="list-card-note">${escapeHtml(r.備考)}</div>` : ''}
+        </div>`;
+      });
+      const emptyMsg = '該当するデータがありません。';
 
       return `
         <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px;">
@@ -755,8 +827,11 @@
         <div class="list-table-wrap">
           <table class="list-table">
             <thead><tr><th>日付</th><th>顧客名</th><th>方法</th><th>拠点/担当者</th><th>車種</th><th>備考</th></tr></thead>
-            <tbody>${body || `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">該当するデータがありません。</td></tr>`}</tbody>
+            <tbody>${tableBody || `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">${emptyMsg}</td></tr>`}</tbody>
           </table>
+        </div>
+        <div class="list-card-wrap">
+          ${cardBody || `<p style="text-align:center;color:var(--muted);padding:24px;font-size:12.5px;">${emptyMsg}</p>`}
         </div>
       `;
     }
@@ -778,13 +853,13 @@
         ? `<button type="button" class="mp-pdf-btn ready js-pdf-link" data-url="${escapeAttr(r.車検証リンク)}"><i class="fa-regular fa-file-pdf"></i>車検証PDF</button>`
         : `<button type="button" class="mp-pdf-btn waiting" disabled><i class="fa-regular fa-clock"></i>未アップロード</button>`;
       return `<div class="mp-row js-open-record" ${recordDataAttr(r)}>
-        <span class="mp-col">${dateChip}</span>
-        <span class="mp-col">${typeChip}</span>
+        <span class="mp-col mp-col-date">${dateChip}</span>
+        <span class="mp-col mp-col-type">${typeChip}</span>
         <span class="mp-col mp-name">${escapeHtml(r.顧客名)} 様</span>
         <span class="mp-col mp-model">${escapeHtml(r.車種 || '')}</span>
-        <span class="mp-col">${methodPill(isOssRecord(r))}</span>
-        <span class="mp-col"><span class="status-pill">${escapeHtml(r.ステータス || '-')}</span></span>
-        <span class="mp-col">${pdfBtn}</span>
+        <span class="mp-col mp-col-method">${methodPill(isOssRecord(r))}</span>
+        <span class="mp-col mp-col-status"><span class="status-pill">${escapeHtml(r.ステータス || '-')}</span></span>
+        <span class="mp-col mp-col-pdf">${pdfBtn}</span>
       </div>`;
     }
     function myRecordsForOffset(offset) {
@@ -1073,6 +1148,14 @@
           <p class="page-sub">${IS_EDITOR ? '各種設定を管理します' : 'テーマを設定できます'}</p>
         </div>
         <div class="page-fill-area" style="display:flex;flex-direction:column;gap:16px;">
+          <div class="mobile-account-card">
+            <div class="cp-avatar" style="width:40px;height:40px;flex:0 0 40px;font-size:15px;">${(LINKED_NAME || CURRENT_USER_EMAIL || '?')[0]}</div>
+            <div style="flex:1;min-width:0;">
+              <div class="cp-user-name" style="font-size:13px;">${escapeHtml(LINKED_NAME || CURRENT_USER_EMAIL || '未ログイン')}</div>
+              <div class="cp-user-email" style="font-size:10.5px;">${escapeHtml(CURRENT_USER_EMAIL || '')}</div>
+            </div>
+            <span class="cp-role-badge ${IS_EDITOR ? 'editor' : 'general'}" style="width:auto;flex:0 0 auto;">${IS_EDITOR ? '権限者' : '一般'}</span>
+          </div>
           ${themeSectionHTML()}
           ${iconSectionHTML()}
           ${pdfFolderSectionHTML()}
@@ -1097,7 +1180,6 @@
         <div class="cp-nav">
           ${navItem('calendar', 'fa-calendar-days', 'カレンダー')}
           ${carTypeSubNav}
-          <button type="button" class="cp-nav-item mobile-only-nav ${currentPage === 'dashboard' ? 'active' : ''}" data-page="dashboard"><i class="fa-solid fa-gauge-high"></i>ダッシュボード</button>
           ${navItem('mypage', 'fa-user', 'マイページ')}
           ${navItem('settings', 'fa-gear', '設定')}
         </div>
@@ -1108,6 +1190,20 @@
           </div>
           <span class="cp-role-badge ${IS_EDITOR ? 'editor' : 'general'}">${IS_EDITOR ? '権限者' : '一般'}</span>
         </div>
+      `;
+    }
+
+    // ▼ スマホ表示専用のボトムタブバー。コントロールパネルの主要ページナビと同じ
+    //   data-page属性を使い、wireEvents()の既存の委譲ハンドラでそのまま動作する。
+    function bottomTabBarHTML() {
+      const item = (page, icon, label) => `<button type="button" class="cp-nav-item bottom-tab-item ${currentPage === page ? 'active' : ''}" data-page="${page}"><i class="fa-solid ${icon}"></i><span>${label}</span></button>`;
+      return `
+        <nav class="bottom-tab-bar">
+          ${item('calendar', 'fa-calendar-days', 'カレンダー')}
+          ${item('dashboard', 'fa-gauge-high', 'ダッシュボード')}
+          ${item('mypage', 'fa-user', 'マイページ')}
+          ${item('settings', 'fa-gear', '設定')}
+        </nav>
       `;
     }
 
@@ -1155,6 +1251,7 @@
               <div class="main-col">${pageBody()}</div>
             </div>
           </div>
+          ${bottomTabBarHTML()}
         </div>
       `;
       applyTheme(currentTheme);
