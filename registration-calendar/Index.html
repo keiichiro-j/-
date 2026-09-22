@@ -124,7 +124,7 @@
     .date-row.has-notice { min-height: 96px; }
     .date-col { width: 58px; flex: 0 0 58px; display: flex; align-items: center; justify-content: center; }
     .content-col-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
-    .content-col { flex: 1; min-width: 0; padding: 10px 10px; display: flex; align-items: center; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; scroll-behavior: smooth; }
+    .content-col { flex: 1; min-width: 0; padding: 10px 34px 10px 10px; display: flex; align-items: center; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; scroll-behavior: smooth; }
     .content-col::-webkit-scrollbar { display: none; }
     .day-entries-track { display: flex; gap: 8px; align-items: center; }
     .date-badge { position: relative; text-align: center; border-radius: 8px; padding: 5px 8px; }
@@ -270,8 +270,7 @@
       .cp-footer { display: none; }
       .main-col { padding: 14px; }
       /* 登録カードは横に2件分だけ表示し、それ以降は横スクロール(→矢印あり)にする */
-      .content-col { padding-right: 34px; }
-      .day-entries-track .entry-card { flex: 0 0 calc(50vw - 81px); width: calc(50vw - 81px); }
+      .day-entries-track .entry-card { flex: 0 0 calc(50vw - 87px); width: calc(50vw - 87px); }
 
       /* -- カレンダーヘッダー: 拠点/表示切替と、月移動+未定リストの2段に -- */
       .calhead-row { flex-direction: column; align-items: stretch; }
@@ -282,7 +281,7 @@
       #btnNextMonth { order: 3; }
       .calhead-year-suffix { display: inline; }
       .pending-toggle-desktop-slot { display: none; } /* PC位置のボタンは隠す */
-      .pending-toggle-mobile-slot { display: inline-flex; margin-left: auto; }
+      .pending-toggle-mobile-slot { display: inline-flex; }
       .pending-toggle-mobile-slot::before { display: none; }
 
       /* -- リスト表示: テーブルの代わりにカード一覧 -- */
@@ -353,6 +352,18 @@
       /* -- テーマ設定は2色×4段のグリッドに -- */
       .theme-swatches { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
       .theme-swatch { justify-content: center; }
+
+      /* -- 設定ページの管理者向けフォーム行: 横並びだと項目が収まらず横スクロールに
+            なってしまうため、折り返し・縦積みにする -- */
+      .settings-card { padding: 16px; }
+      .settings-row { flex-wrap: wrap; gap: 8px 10px; }
+      .js-cal-notice-date { flex: 1 1 130px !important; }
+      .js-cal-notice-text { flex: 1 1 160px !important; min-width: 0 !important; }
+      .settings-row .s-name, .settings-row .s-email {
+        flex: 1 1 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .settings-row .s-branch { flex: 0 0 auto; }
+      .settings-row .settings-remove { margin-left: auto; }
 
       /* -- ボトムタブバー(アプリのタブナビゲーション風)。固定シェルの一番下に収まる
             通常のフレックス項目として配置するため、position:fixedは使わない -- */
@@ -785,7 +796,11 @@
         grouped[branch][sales] = grouped[branch][sales] || [];
         grouped[branch][sales].push(p);
       });
-      const orderedBranches = branchOrder.filter(b => grouped[b]);
+      // carTypeに応じた並び順を基本にしつつ、その一覧に含まれない拠点(データ入力の都合で
+      // 中古車に「デモカー」が付いている等)のデータも取りこぼさないよう末尾に追加する
+      const branchList = branchOrderFor(carType);
+      const orderedBranches = branchList.filter(b => grouped[b])
+        .concat(Object.keys(grouped).filter(b => !branchList.includes(b)));
       return `
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;padding-bottom:13px;border-bottom:1px solid var(--hairline);flex:0 0 auto;">
           <span style="font-size:11px;font-weight:600;color:var(--ink-2);"><i class="fa-solid fa-circle-notch" style="color:var(--accent);margin-right:6px;"></i>未定リスト</span>
@@ -888,7 +903,7 @@
           <input type="text" id="listSearchInput" class="settings-input" placeholder="顧客・車種で検索" value="${escapeAttr(listSearch.keyword)}" style="flex:1;min-width:160px;">
           <select id="listBranchFilter" class="settings-input">
             <option value="ALL" ${listSearch.branch === 'ALL' ? 'selected' : ''}>拠点: すべて</option>
-            ${branchOrder.map(b => `<option value="${b}" ${listSearch.branch === b ? 'selected' : ''}>${b}</option>`).join('')}
+            ${branchOrderFor(carType).map(b => `<option value="${b}" ${listSearch.branch === b ? 'selected' : ''}>${b}</option>`).join('')}
           </select>
           <select id="listMethodFilter" class="settings-input">
             <option value="ALL" ${listSearch.method === 'ALL' ? 'selected' : ''}>方法: すべて</option>
@@ -1360,6 +1375,9 @@
             const t = btn.dataset.cartype;
             if (t === carType && currentPage === 'calendar') return;
             carType = t; currentPage = 'calendar'; sidebarOpen = false;
+            // 拠点フィルターが新しい車両区分では選べない拠点(例: 中古車のデモカー)を
+            // 指しているままだと、選択肢が消えて実際の絞り込みと表示がずれるため戻す
+            if (listSearch.branch !== 'ALL' && !branchOrderFor(t).includes(listSearch.branch)) listSearch.branch = 'ALL';
             render();
             loadData();
             loadCalendarNotices();
@@ -1380,9 +1398,9 @@
       const btnToday = document.getElementById('btnToday');
       if (btnToday) btnToday.onclick = () => { const now = new Date(); currentDate = new Date(now.getFullYear(), now.getMonth(), 1); render(); loadCalendarNotices(); };
       const btnPrev = document.getElementById('btnPrevMonth');
-      if (btnPrev) btnPrev.onclick = () => { currentDate.setMonth(currentDate.getMonth() - 1); render(); loadCalendarNotices(); };
+      if (btnPrev) btnPrev.onclick = () => { currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1); render(); loadCalendarNotices(); };
       const btnNext = document.getElementById('btnNextMonth');
-      if (btnNext) btnNext.onclick = () => { currentDate.setMonth(currentDate.getMonth() + 1); render(); loadCalendarNotices(); };
+      if (btnNext) btnNext.onclick = () => { currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1); render(); loadCalendarNotices(); };
 
       const announceClose = document.getElementById('announceCloseBtn');
       if (announceClose) announceClose.onclick = () => { announceBarVisible = false; render(); };
@@ -1616,7 +1634,7 @@
         if (typeof google === 'undefined') return;
         google.script.run
           .withSuccessHandler(res => {
-            if (res && res.success) { mypageLinksMsg = '保存しました'; loadMypageLinksIfNeeded(); }
+            if (res && res.success) { mypageLinksDirty = false; mypageLinksMsg = '保存しました'; render(); }
             else if (res) alert(res.message);
           })
           .withFailureHandler(e => alert('保存に失敗しました: ' + (e && e.message ? e.message : e)))

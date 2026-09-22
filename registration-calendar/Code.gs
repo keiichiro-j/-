@@ -552,6 +552,7 @@ function getRegistrationData(carType) {
     });
     return allData;
   } catch(e) {
+    Logger.log('getRegistrationData failed for carType=%s: %s', carType, e && e.stack ? e.stack : e);
     return [];
   }
 }
