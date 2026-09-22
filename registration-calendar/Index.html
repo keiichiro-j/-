@@ -297,8 +297,24 @@
       .mp-col-pdf { grid-area: pdf; margin-top: 4px; }
       .mp-col-pdf .mp-pdf-btn { width: 100%; justify-content: center; }
 
-      /* -- 拠点別タイルは3列に収めて可読性を確保 -- */
-      .kpi-row-bottom { grid-template-columns: repeat(3, 1fr) !important; }
+      /* -- KPI表示をスマホ向けに変更: 個別タイルの箱・余白をやめ、1枚のカードを
+            仕切り線で区切る「統計ストリップ」形式にして折り返し・無駄な空白をなくす -- */
+      .kpi-row-top, .kpi-row-bottom {
+        display: flex !important; grid-template-columns: none !important;
+        background: var(--surface); border-radius: 12px; box-shadow: var(--shadow-sm);
+        padding: 8px 2px; margin-bottom: 8px; overflow-x: auto; scrollbar-width: none;
+      }
+      .kpi-row-top::-webkit-scrollbar, .kpi-row-bottom::-webkit-scrollbar { display: none; }
+      .kpi-row-top .kpi-tile, .kpi-row-bottom .kpi-tile {
+        flex: 1 0 auto; min-width: 84px; background: transparent; box-shadow: none;
+        border-radius: 0; padding: 4px 10px; border-right: 1px solid var(--hairline); text-align: center;
+      }
+      .kpi-row-top .kpi-tile:last-child, .kpi-row-bottom .kpi-tile:last-child { border-right: none; }
+      .kpi-row-top .kpi-tile-accent { background: transparent; }
+      .kpi-row-top .kpi-label, .kpi-row-bottom .kpi-label {
+        justify-content: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 9.5px;
+      }
+      .kpi-row-top .kpi-value, .kpi-row-bottom .kpi-value { font-size: 17px; white-space: nowrap; }
 
       /* -- 設定ページに、非表示になったサイドバーのアカウント情報を移設 -- */
       .mobile-account-card { display: flex; align-items: center; gap: 12px; background: var(--surface); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow-sm); border: 1px solid var(--hairline); }
@@ -310,9 +326,12 @@
       .bottom-tab-item.active { color: var(--accent-ink); background: var(--accent-bg); box-shadow: none; }
       .bottom-tab-item.active i { color: var(--accent-ink); }
 
-      /* -- タップしやすいようフォーム部品を拡大 -- */
-      .settings-input, .nav-btn, .today-btn, .action-btn, .tab, .theme-swatch, .settings-add-btn, .btn-secondary { min-height: 40px; }
-      .tabbar { padding: 3px; }
+      /* -- ボタン類は余白を詰めてコンパクトに(押しにくくない範囲で最小限のサイズへ) -- */
+      .nav-btn, .today-btn { padding: 5px 9px; }
+      .tab { padding: 5px 11px; }
+      .action-btn { padding: 6px 11px; }
+      .pending-toggle-btn { padding: 5px 10px; }
+      .settings-input { padding: 6px 9px; }
     }
   </style>
 </head>
@@ -1229,7 +1248,6 @@
         </div>
         <div class="page-fill-area" style="display:flex;flex-direction:column;gap:14px;">
           ${heroSummaryHTML()}
-          <div class="calendar-card" style="padding:14px;">${pendingPanelHTML()}</div>
         </div>
       `;
     }
