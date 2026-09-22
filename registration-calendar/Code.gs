@@ -492,6 +492,15 @@ function getSheetDataPreservingFormulas_(sheet) {
   return values.map((row, r) => row.map((val, c) => formulas[r][c] || val));
 }
 
+// ▼ シート名（例: "db_登録データ_2026_9月"）から年・月を抽出する。
+//   月次シートでなければ（＝「未定」シートなど）nullを返す。
+//   月はJSのDate.getMonth()と揃えるため0始まりで返す。
+function parseSheetMonth_(sheetName) {
+  const match = String(sheetName).match(/_(\d{4})_(\d{1,2})月$/);
+  if (!match) return null;
+  return { year: Number(match[1]), month: Number(match[2]) - 1 };
+}
+
 // ▼ 指定した車両区分の月別シートからデータを結合してフロントへ送る
 function getRegistrationData(carType) {
   try {
@@ -501,6 +510,7 @@ function getRegistrationData(carType) {
     let allData = [];
 
     sheets.forEach(sheet => {
+      const sheetMonth = parseSheetMonth_(sheet.getName());
       const range = sheet.getDataRange();
       const data = range.getValues();
       const formulas = range.getFormulas(); // 数式も取得してHYPERLINK対策
@@ -533,6 +543,8 @@ function getRegistrationData(carType) {
               obj['ステータス'] = STATUS_CONFIRMED;
             }
             obj['車両区分'] = type;
+            obj['_sheetYear'] = sheetMonth ? sheetMonth.year : null;
+            obj['_sheetMonth'] = sheetMonth ? sheetMonth.month : null;
             return obj;
           });
         allData = allData.concat(sheetData);

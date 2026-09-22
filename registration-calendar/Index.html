@@ -74,13 +74,7 @@
     .cp-subnav-item:hover { color: var(--ink-2); }
     .cp-subnav-item.active { color: var(--accent-ink); font-weight: 700; background: var(--accent-bg); }
     .cp-subnav-item.active::before { background: var(--accent); }
-    .cp-summary { margin-top: 16px; padding: 13px 13px 10px; background: var(--surface); border-radius: 10px; box-shadow: var(--shadow-sm); }
-    .cp-summary-label { font-size: 9.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 9px; display: flex; align-items: center; gap: 6px; }
-    .cp-summary-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 6px 0; border-top: 1px solid var(--hairline); }
-    .cp-summary-row:first-of-type { border-top: none; }
-    .cp-summary-name { font-size: 11px; font-weight: 600; color: var(--ink-2); }
-    .cp-summary-value { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums slashed-zero; font-size: 15px; font-weight: 700; color: var(--accent-ink); }
-    .cp-summary-value small { font-family: 'Noto Sans JP', sans-serif; font-size: 9.5px; font-weight: 600; color: var(--muted); margin-left: 2px; }
+    .mobile-only-nav { display: none; }
     .cp-footer { padding-top: 14px; margin-top: 14px; border-top: 1px solid var(--hairline); }
     .cp-user { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
     .cp-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex: 0 0 28px; }
@@ -183,6 +177,7 @@
     .mp-thead-row { display: flex; align-items: center; gap: 14px; padding: 4px 14px; font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
 
     /* -- リスト表示 -- */
+    .list-table-wrap { width: 100%; overflow-x: auto; }
     .list-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
     .list-table thead th { text-align: left; font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; padding: 8px 12px; border-bottom: 1px solid var(--hairline); position: sticky; top: 0; background: var(--surface); }
     .list-table tbody tr { border-bottom: 1px solid var(--hairline); cursor: pointer; }
@@ -248,13 +243,20 @@
       .cp-nav { flex-direction: row; flex: 0 0 auto; }
       .cp-subnav { flex-direction: row; padding: 0 0 0 6px; }
       .cp-subnav::before, .cp-subnav-item::before { display: none; }
-      .cp-summary { display: none; }
       .cp-footer { display: none; }
+      .mobile-only-nav { display: flex; }
+      .calendar-hero { display: none; }
       .main-col { height: auto; overflow: visible; padding: 16px; }
       .page-fill-area { overflow-y: visible; }
       .calendar-card { flex: 0 0 auto; }
       .rowscroll-wrap { flex: 0 0 auto; }
       #rowScroll { max-height: 60vh; }
+      .list-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .list-table { min-width: 640px; }
+      .mp-thead-row { display: none; }
+      .mp-row { flex-wrap: wrap; gap: 8px 10px; }
+      .mp-col { flex: 1 1 45%; min-width: 110px; }
+      .mp-col.mp-name, .mp-col.mp-model { flex: 1 1 100%; }
     }
   </style>
 </head>
@@ -482,7 +484,14 @@
       });
       return map;
     }
-    function pendingRecords() { return allRecords.filter(r => !isConfirmedStatus(r.ステータス)); }
+    function pendingRecords() {
+      const year = currentDate.getFullYear(), month = currentDate.getMonth();
+      return allRecords.filter(r => {
+        if (isConfirmedStatus(r.ステータス)) return false;
+        if (r._sheetYear == null || r._sheetMonth == null) return true;
+        return r._sheetYear === year && r._sheetMonth === month;
+      });
+    }
 
     function computeSummaryStats(year, month) {
       const monthData = allRecords.filter(r => {
@@ -604,15 +613,7 @@
 
     function heroSummaryHTML() {
       const year = currentDate.getFullYear(), month = currentDate.getMonth();
-      const { total, ossCount, ossRate, perBranch } = computeSummaryStats(year, month);
-      const branchList = branchOrderFor(carType);
-      const branchTiles = branchList.map(b => {
-        const c = branchColors[b];
-        return `<div class="kpi-tile">
-          <div class="kpi-label"><span style="width:7px;height:7px;border-radius:50%;background:${c.c};display:inline-block;"></span>${b}</div>
-          <div class="kpi-value" style="color:${c.c};">${perBranch[b]}<span class="kpi-unit">台</span></div>
-        </div>`;
-      }).join('');
+      const { total, ossCount, ossRate } = computeSummaryStats(year, month);
       return `
         <div class="kpi-section">
           <div class="kpi-row kpi-row-top">
@@ -629,6 +630,23 @@
               <div class="kpi-value">${ossRate}<span class="kpi-unit">%</span></div>
             </div>
           </div>
+        </div>
+      `;
+    }
+
+    function branchSummaryHTML() {
+      const year = currentDate.getFullYear(), month = currentDate.getMonth();
+      const { perBranch } = computeSummaryStats(year, month);
+      const branchList = branchOrderFor(carType);
+      const branchTiles = branchList.map(b => {
+        const c = branchColors[b];
+        return `<div class="kpi-tile">
+          <div class="kpi-label"><span style="width:7px;height:7px;border-radius:50%;background:${c.c};display:inline-block;"></span>${b}</div>
+          <div class="kpi-value" style="color:${c.c};">${perBranch[b]}<span class="kpi-unit">台</span></div>
+        </div>`;
+      }).join('');
+      return `
+        <div class="kpi-section">
           <div class="kpi-row-label">拠点別登録台数</div>
           <div class="kpi-row kpi-row-bottom" style="grid-template-columns:repeat(${branchList.length}, 1fr);">${branchTiles}</div>
         </div>
@@ -681,7 +699,7 @@
     function calendarPageHTML() {
       if (calendarViewMode === 'list') {
         return `
-          ${heroSummaryHTML()}
+          <div class="calendar-hero">${heroSummaryHTML()}</div>
           <div class="calendar-card">
             ${calendarHeaderHTML(false)}
             <div class="page-fill-area">${listViewHTML()}</div>
@@ -689,7 +707,7 @@
         `;
       }
       return `
-        ${heroSummaryHTML()}
+        <div class="calendar-hero">${heroSummaryHTML()}</div>
         <div class="calendar-card" id="calCard">
           ${calendarHeaderHTML(true)}
           <div class="rowscroll-wrap">
@@ -733,7 +751,7 @@
 
       return `
         <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px;">
-          <button type="button" class="action-btn" id="btnExportCsv" style="background:var(--oss);"><i class="fa-solid fa-file-csv"></i>CSV出力</button>
+          ${IS_EDITOR ? `<button type="button" class="action-btn" id="btnExportCsv" style="background:var(--oss);"><i class="fa-solid fa-file-csv"></i>CSV出力</button>` : ''}
           <input type="text" id="listSearchInput" class="settings-input" placeholder="顧客・車種で検索" value="${escapeAttr(listSearch.keyword)}" style="flex:1;min-width:160px;">
           <select id="listBranchFilter" class="settings-input">
             <option value="ALL" ${listSearch.branch === 'ALL' ? 'selected' : ''}>拠点: すべて</option>
@@ -745,10 +763,12 @@
             <option value="PAPER" ${listSearch.method === 'PAPER' ? 'selected' : ''}>紙登録</option>
           </select>
         </div>
-        <table class="list-table">
-          <thead><tr><th>日付</th><th>顧客名</th><th>方法</th><th>拠点/担当者</th><th>車種</th><th>備考</th></tr></thead>
-          <tbody>${body || `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">該当するデータがありません。</td></tr>`}</tbody>
-        </table>
+        <div class="list-table-wrap">
+          <table class="list-table">
+            <thead><tr><th>日付</th><th>顧客名</th><th>方法</th><th>拠点/担当者</th><th>車種</th><th>備考</th></tr></thead>
+            <tbody>${body || `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">該当するデータがありません。</td></tr>`}</tbody>
+          </table>
+        </div>
       `;
     }
 
@@ -1075,31 +1095,6 @@
     }
 
     // ---- 全体レイアウト ----
-    // ▼ コントロールパネル下部に表示する簡易サマリー。現在選択中の車両区分・年月を対象に、
-    //   どのページを開いていても主要な数字が常時見えるようにする。
-    function cpSummaryHTML() {
-      const year = currentDate.getFullYear(), month = currentDate.getMonth();
-      const { total, ossRate } = computeSummaryStats(year, month);
-      const pendingCount = pendingRecords().length;
-      return `
-        <div class="cp-summary">
-          <div class="cp-summary-label"><i class="fa-solid fa-chart-simple"></i>${month + 1}月 サマリー</div>
-          <div class="cp-summary-row">
-            <span class="cp-summary-name">総登録台数</span>
-            <span class="cp-summary-value">${total}<small>台</small></span>
-          </div>
-          <div class="cp-summary-row">
-            <span class="cp-summary-name">OSS登録率</span>
-            <span class="cp-summary-value">${ossRate}<small>%</small></span>
-          </div>
-          <div class="cp-summary-row">
-            <span class="cp-summary-name">未定</span>
-            <span class="cp-summary-value">${pendingCount}<small>件</small></span>
-          </div>
-        </div>
-      `;
-    }
-
     function controlPanelHTML() {
       const navItem = (page, icon, label) => `<button type="button" class="cp-nav-item ${currentPage === page ? 'active' : ''}" data-page="${page}"><i class="fa-solid ${icon}"></i>${label}</button>`;
       const iconInner = sidePanelIconUrl ? `<img src="${escapeAttr(sidePanelIconUrl)}" alt="">` : `<i class="fa-solid fa-car"></i>`;
@@ -1113,10 +1108,10 @@
         <div class="cp-nav">
           ${navItem('calendar', 'fa-calendar-days', 'カレンダー')}
           ${carTypeSubNav}
+          <button type="button" class="cp-nav-item mobile-only-nav ${currentPage === 'dashboard' ? 'active' : ''}" data-page="dashboard"><i class="fa-solid fa-gauge-high"></i>ダッシュボード</button>
           ${navItem('mypage', 'fa-user', 'マイページ')}
           ${navItem('settings', 'fa-gear', '設定')}
         </div>
-        ${cpSummaryHTML()}
         <div class="cp-footer">
           <div class="cp-user">
             <div class="cp-avatar">${(LINKED_NAME || CURRENT_USER_EMAIL || '?')[0]}</div>
@@ -1138,9 +1133,27 @@
       </div>`;
     }
 
+    // ---- ダッシュボード（スマホ専用） ----
+    // ▼ スマホ表示ではヘッダーのサマリーを非表示にする代わりに、登録台数・拠点別台数・
+    //   未定リストをまとめて確認できるページを別途用意する。
+    function dashboardPageHTML() {
+      return `
+        <div>
+          <h1 class="page-title">ダッシュボード</h1>
+          <p class="page-sub">${carType} ・ ${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月の状況</p>
+        </div>
+        <div class="page-fill-area" style="display:flex;flex-direction:column;gap:14px;">
+          ${heroSummaryHTML()}
+          ${branchSummaryHTML()}
+          <div class="calendar-card" style="padding:14px;">${pendingPanelHTML()}</div>
+        </div>
+      `;
+    }
+
     function pageBody() {
       if (currentPage === 'mypage') return mypagePageHTML();
       if (currentPage === 'settings') return settingsPageHTML();
+      if (currentPage === 'dashboard') return dashboardPageHTML();
       return calendarPageHTML();
     }
 
@@ -1536,6 +1549,7 @@
 
     // ---- CSV出力 ----
     function downloadCSV() {
+      if (!IS_EDITOR) return;
       const kw = listSearch.keyword.toLowerCase().trim();
       const rows = allRecords.filter(r => {
         const matchSearch = kw === '' || (r.顧客名 || '').toLowerCase().includes(kw) || (r.車種 || '').toLowerCase().includes(kw);
