@@ -106,7 +106,6 @@
     .kpi-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
     .kpi-row-top { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin-bottom: 10px; }
     .kpi-row-bottom { grid-template-columns: repeat(7, 1fr); }
-    .kpi-row-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin: 0 2px 6px; }
     .kpi-tile { background: var(--surface); border-radius: 10px; padding: 10px 14px; box-shadow: var(--shadow-sm); }
     .kpi-tile-accent { background: var(--accent-bg); }
     .kpi-label { font-size: 10.5px; font-weight: 700; color: var(--muted); display: flex; align-items: center; gap: 5px; }
@@ -613,7 +612,15 @@
 
     function heroSummaryHTML() {
       const year = currentDate.getFullYear(), month = currentDate.getMonth();
-      const { total, ossCount, ossRate } = computeSummaryStats(year, month);
+      const { total, ossCount, ossRate, perBranch } = computeSummaryStats(year, month);
+      const branchList = branchOrderFor(carType);
+      const branchTiles = branchList.map(b => {
+        const c = branchColors[b];
+        return `<div class="kpi-tile">
+          <div class="kpi-label"><span style="width:7px;height:7px;border-radius:50%;background:${c.c};display:inline-block;"></span>${b}</div>
+          <div class="kpi-value" style="color:${c.c};">${perBranch[b]}<span class="kpi-unit">台</span></div>
+        </div>`;
+      }).join('');
       return `
         <div class="kpi-section">
           <div class="kpi-row kpi-row-top">
@@ -630,24 +637,6 @@
               <div class="kpi-value">${ossRate}<span class="kpi-unit">%</span></div>
             </div>
           </div>
-        </div>
-      `;
-    }
-
-    function branchSummaryHTML() {
-      const year = currentDate.getFullYear(), month = currentDate.getMonth();
-      const { perBranch } = computeSummaryStats(year, month);
-      const branchList = branchOrderFor(carType);
-      const branchTiles = branchList.map(b => {
-        const c = branchColors[b];
-        return `<div class="kpi-tile">
-          <div class="kpi-label"><span style="width:7px;height:7px;border-radius:50%;background:${c.c};display:inline-block;"></span>${b}</div>
-          <div class="kpi-value" style="color:${c.c};">${perBranch[b]}<span class="kpi-unit">台</span></div>
-        </div>`;
-      }).join('');
-      return `
-        <div class="kpi-section">
-          <div class="kpi-row-label">拠点別登録台数</div>
           <div class="kpi-row kpi-row-bottom" style="grid-template-columns:repeat(${branchList.length}, 1fr);">${branchTiles}</div>
         </div>
       `;
@@ -1144,7 +1133,6 @@
         </div>
         <div class="page-fill-area" style="display:flex;flex-direction:column;gap:14px;">
           ${heroSummaryHTML()}
-          ${branchSummaryHTML()}
           <div class="calendar-card" style="padding:14px;">${pendingPanelHTML()}</div>
         </div>
       `;
