@@ -78,6 +78,13 @@
     .cp-subnav-item:hover { color: var(--side-ink); }
     .cp-subnav-item.active { color: var(--accent-on-dark); font-weight: 700; background: var(--side-bg-2); }
     .cp-subnav-item.active::before { background: var(--accent-on-dark); }
+    .cp-summary { margin-top: 16px; padding: 13px 13px 10px; background: var(--side-bg-2); border-radius: 8px; }
+    .cp-summary-label { font-size: 9.5px; font-weight: 700; color: var(--side-muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 9px; display: flex; align-items: center; gap: 6px; }
+    .cp-summary-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 6px 0; border-top: 1px solid var(--side-hairline); }
+    .cp-summary-row:first-of-type { border-top: none; }
+    .cp-summary-name { font-size: 11px; font-weight: 600; color: var(--side-muted); }
+    .cp-summary-value { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums slashed-zero; font-size: 15px; font-weight: 700; color: var(--accent-on-dark); }
+    .cp-summary-value small { font-family: 'Noto Sans JP', sans-serif; font-size: 9.5px; font-weight: 600; color: var(--side-muted); margin-left: 2px; }
     .cp-footer { padding-top: 14px; margin-top: 14px; border-top: 1px solid var(--side-hairline); }
     .cp-user { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
     .cp-avatar { width: 28px; height: 28px; border-radius: 7px; background: var(--accent-on-dark); color: var(--side-bg); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex: 0 0 28px; }
@@ -246,6 +253,7 @@
       .cp-nav { flex-direction: row; flex: 0 0 auto; }
       .cp-subnav { flex-direction: row; padding: 0 0 0 6px; }
       .cp-subnav::before, .cp-subnav-item::before { display: none; }
+      .cp-summary { display: none; }
       .cp-footer { display: none; }
       .main-col { height: auto; overflow: visible; padding: 16px; }
       .page-fill-area { overflow-y: visible; }
@@ -1075,6 +1083,31 @@
     }
 
     // ---- 全体レイアウト ----
+    // ▼ コントロールパネル下部に表示する簡易サマリー。現在選択中の車両区分・年月を対象に、
+    //   どのページを開いていても主要な数字が常時見えるようにする。
+    function cpSummaryHTML() {
+      const year = currentDate.getFullYear(), month = currentDate.getMonth();
+      const { total, ossRate } = computeSummaryStats(year, month);
+      const pendingCount = pendingRecords().length;
+      return `
+        <div class="cp-summary">
+          <div class="cp-summary-label"><i class="fa-solid fa-chart-simple"></i>${month + 1}月 サマリー</div>
+          <div class="cp-summary-row">
+            <span class="cp-summary-name">総登録台数</span>
+            <span class="cp-summary-value">${total}<small>台</small></span>
+          </div>
+          <div class="cp-summary-row">
+            <span class="cp-summary-name">OSS登録率</span>
+            <span class="cp-summary-value">${ossRate}<small>%</small></span>
+          </div>
+          <div class="cp-summary-row">
+            <span class="cp-summary-name">未定</span>
+            <span class="cp-summary-value">${pendingCount}<small>件</small></span>
+          </div>
+        </div>
+      `;
+    }
+
     function controlPanelHTML() {
       const navItem = (page, icon, label) => `<button type="button" class="cp-nav-item ${currentPage === page ? 'active' : ''}" data-page="${page}"><i class="fa-solid ${icon}"></i>${label}</button>`;
       const iconInner = sidePanelIconUrl ? `<img src="${escapeAttr(sidePanelIconUrl)}" alt="">` : `<i class="fa-solid fa-car"></i>`;
@@ -1091,6 +1124,7 @@
           ${navItem('mypage', 'fa-user', 'マイページ')}
           ${navItem('settings', 'fa-gear', '設定')}
         </div>
+        ${cpSummaryHTML()}
         <div class="cp-footer">
           <div class="cp-user">
             <div class="cp-avatar">${(LINKED_NAME || CURRENT_USER_EMAIL || '?')[0]}</div>
