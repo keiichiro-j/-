@@ -106,6 +106,7 @@
     .cartype-pill { font-size: 10.5px; font-weight: 800; letter-spacing: .01em; padding: 6px 12px; border-radius: 6px; background: var(--accent); color: #fff; display: inline-flex; align-items: center; gap: 6px; }
     .calhead-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
     .calhead-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .calhead-year-suffix { display: none; }
 
     /* -- KPIタイル -- */
     .kpi-section { flex: 0 0 auto; }
@@ -165,12 +166,18 @@
       margin-left: 8px; position: relative;
     }
     .pending-toggle-btn::before { content: ''; position: absolute; left: -9px; top: 50%; transform: translateY(-50%); width: 1px; height: 16px; background: var(--hairline); }
+    .pending-toggle-mobile-slot { display: none; }
     .pending-toggle-btn:hover { border-color: var(--accent); color: var(--accent-ink); }
     .pending-toggle-btn.open { color: var(--accent-ink); background: var(--accent-bg); border-color: var(--accent); }
     .pending-toggle-count { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums slashed-zero; font-size: 10.5px; font-weight: 800; background: var(--surface-2); border-radius: 5px; padding: 2px 7px; }
     .pending-toggle-btn.open .pending-toggle-count { background: rgba(255,255,255,0.65); }
 
     /* -- マイページ -- */
+    .mp-header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+    .mp-header-id { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .mp-header-text { flex: 1; min-width: 0; }
+    .mp-header-nav { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+    .mp-kpi-row .slide-hint { display: none; }
     .mp-list { display: flex; flex-direction: column; gap: 5px; }
     .mp-row { display: flex; align-items: center; gap: 14px; background: var(--surface); border-radius: 8px; padding: 10px 14px; box-shadow: var(--shadow-sm); cursor: pointer; border: 1px solid var(--hairline); transition: box-shadow .12s ease, border-color .12s ease; }
     .mp-row:hover { box-shadow: var(--shadow-md); border-color: var(--border); }
@@ -248,12 +255,11 @@
     .detail-value { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; color: var(--ink); word-break: break-word; }
 
     @media (max-width: 860px) {
-      .app-shell-outer { height: auto; overflow: visible; }
-      .app-shell { height: auto; overflow: visible; }
-      .app-row { flex-direction: column; height: auto; }
+      .app-row { flex-direction: column; }
 
-      /* -- 上部バー: ロゴ＋車両区分の切り替えのみを表示するアプリ風ヘッダーに簡略化 -- */
-      .control-panel { width: 100%; flex: 0 0 auto; height: auto; flex-direction: row; align-items: center; justify-content: space-between; padding: 10px 14px; overflow-x: visible; position: sticky; top: 0; z-index: 15; box-shadow: 0 1px 0 var(--hairline), var(--shadow-sm); }
+      /* -- 上部バー: ロゴ＋車両区分の切り替えのみを表示するアプリ風ヘッダーに簡略化。
+            page-fill-areaだけがスクロールする固定シェルの一部になるため、position:stickyは不要 -- */
+      .control-panel { width: 100%; flex: 0 0 auto; height: auto; flex-direction: row; align-items: center; justify-content: space-between; padding: 10px 14px; overflow-x: visible; border-bottom: 1px solid var(--hairline); }
       .cp-header { flex-direction: row; margin-bottom: 0; margin-right: 0; }
       .cp-icon-mark { margin-bottom: 0; margin-right: 8px; width: 32px; height: 32px; font-size: 13px; }
       .cp-logo-sub { display: none; }
@@ -262,29 +268,50 @@
       .cp-subnav { flex-direction: row; padding: 0; }
       .cp-subnav::before, .cp-subnav-item::before { display: none; }
       .cp-footer { display: none; }
-      .main-col { height: auto; overflow: visible; padding: 14px 14px calc(78px + env(safe-area-inset-bottom)); }
-      .page-fill-area { overflow-y: visible; }
-      .calendar-card { flex: 0 0 auto; border-radius: 14px; padding: 12px; }
-      .rowscroll-wrap { flex: 0 0 auto; }
-      #rowScroll { max-height: 60vh; }
+      .main-col { padding: 14px; }
       /* 登録カードは横に2件分だけ表示し、それ以降は横スクロール(→矢印あり)にする */
       .content-col { padding-right: 34px; }
       .day-entries-track .entry-card { flex: 0 0 calc(50vw - 81px); width: calc(50vw - 81px); }
 
-      /* -- カレンダーヘッダーを縦積みにして操作ボタンの取りこぼしを防ぐ -- */
+      /* -- カレンダーヘッダー: 拠点/表示切替と、月移動+未定リストの2段に -- */
       .calhead-row { flex-direction: column; align-items: stretch; }
-      .calhead-right { justify-content: space-between; }
-      .pending-toggle-btn { flex: 1 1 100%; margin-left: 0; justify-content: center; }
-      .pending-toggle-btn::before { display: none; }
-
-      /* -- 未定リストはサイド固定パネルではなく、下からせり上がるボトムシートに -- */
-      .cal-overlay-backdrop { position: fixed; z-index: 25; }
-      .cal-overlay-panel { position: fixed; left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 75vh; border-left: none; border-radius: 16px 16px 0 0; box-shadow: 0 -8px 24px rgba(26,31,54,0.18); z-index: 26; padding: 10px 16px calc(16px + env(safe-area-inset-bottom)); }
-      .cal-overlay-panel::before { content: ''; display: block; width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 10px; flex: 0 0 auto; }
+      .calhead-right { justify-content: center; }
+      .today-btn { display: none; } /* ログイン時に自動で今日が最上部に来るため不要 */
+      .calhead-monthlabel { order: 2; }
+      #btnPrevMonth { order: 1; }
+      #btnNextMonth { order: 3; }
+      .calhead-year-suffix { display: inline; }
+      .pending-toggle-desktop-slot { display: none; } /* PC位置のボタンは隠す */
+      .pending-toggle-mobile-slot { display: inline-flex; margin-left: auto; }
+      .pending-toggle-mobile-slot::before { display: none; }
 
       /* -- リスト表示: テーブルの代わりにカード一覧 -- */
       .list-table-wrap { display: none; }
       .list-card-wrap { display: flex; }
+
+      /* -- マイページヘッダー: 縦積みにして折り返しを防止 -- */
+      .mp-header-row { flex-direction: column; align-items: stretch; }
+      .mp-header-id { width: 100%; }
+      .mp-header-nav { justify-content: center; }
+      .mp-subtitle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+      /* -- マイページKPI: カレンダーのKPIと同じ「統計ストリップ」形式にして折り返し・はみ出しを防止 -- */
+      .mp-kpi-row {
+        display: flex !important; grid-template-columns: none !important;
+        background: var(--surface); border-radius: 12px; box-shadow: var(--shadow-sm);
+        padding: 8px 34px 8px 2px !important; margin-bottom: 10px !important; overflow-x: auto; scrollbar-width: none;
+      }
+      .mp-kpi-row::-webkit-scrollbar { display: none; }
+      .mp-kpi-row .kpi-tile {
+        flex: 1 0 auto; min-width: 78px; background: transparent; box-shadow: none;
+        border-radius: 0; padding: 4px 8px; border-right: 1px solid var(--hairline); text-align: center;
+      }
+      .mp-kpi-row .kpi-tile:last-child { border-right: none; }
+      .mp-kpi-row .kpi-label {
+        justify-content: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 9px;
+      }
+      .mp-kpi-row .kpi-value { font-size: 16px; white-space: nowrap; }
+      .mp-kpi-row .slide-hint { display: flex; }
 
       /* -- マイページ: 横長の1行レイアウト。各列は必要最小幅にして折り返しをやめ、
             顧客名/モデルだけを可変幅にして省略記号で収める -- */
@@ -327,8 +354,9 @@
       .theme-swatches { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
       .theme-swatch { justify-content: center; }
 
-      /* -- ボトムタブバー(アプリのタブナビゲーション風) -- */
-      .bottom-tab-bar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; background: var(--surface); border-top: 1px solid var(--hairline); box-shadow: 0 -2px 10px rgba(26,31,54,0.08); z-index: 20; padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
+      /* -- ボトムタブバー(アプリのタブナビゲーション風)。固定シェルの一番下に収まる
+            通常のフレックス項目として配置するため、position:fixedは使わない -- */
+      .bottom-tab-bar { display: flex; flex: 0 0 auto; background: var(--surface); border-top: 1px solid var(--hairline); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
       .bottom-tab-item { flex: 1; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 3px; width: auto; padding: 6px 2px; border-radius: 10px; font-size: 10px; font-weight: 600; color: var(--muted); }
       .bottom-tab-item i { font-size: 17px; width: auto; }
       .bottom-tab-item.active { color: var(--accent-ink); background: var(--accent-bg); box-shadow: none; }
@@ -339,7 +367,7 @@
       .tab i { display: inline-block; font-size: 13px; }
 
       /* -- ボタン類は余白を詰めてコンパクトに(押しにくくない範囲で最小限のサイズへ) -- */
-      .nav-btn, .today-btn { padding: 5px 9px; }
+      .nav-btn { padding: 5px 9px; }
       .tab { padding: 7px 13px; }
       .action-btn { padding: 6px 11px; }
       .pending-toggle-btn { padding: 5px 10px; }
@@ -665,8 +693,12 @@
 
     function calendarHeaderHTML() {
       const year = currentDate.getFullYear(), month = currentDate.getMonth();
-      const pendingToggleBtn = `
-        <button type="button" class="pending-toggle-btn${sidebarOpen ? ' open' : ''}" id="sideTabToggle" title="未定リストの表示切り替え">
+      // ▼ 未定リストのボタンはPC表示では月移動ボタンの並びに、スマホ表示では
+      //   カレンダー/リスト切り替えタブの横に表示する。同じ内容を2箇所に描画し、
+      //   どちらを見せるかはCSS(.pending-toggle-desktop-slot/.pending-toggle-mobile-slot)で
+      //   切り替える(クリックは共通クラスjs-pending-toggleで一括配線)。
+      const pendingToggleBtn = (slotClass) => `
+        <button type="button" class="pending-toggle-btn js-pending-toggle ${slotClass}${sidebarOpen ? ' open' : ''}" title="未定リストの表示切り替え">
           <i class="fa-solid fa-layer-group"></i>未定リスト
           <span class="pending-toggle-count">${pendingRecords().length}</span>
         </button>
@@ -679,13 +711,14 @@
               <button type="button" class="tab ${calendarViewMode === 'calendar' ? 'tab-active' : ''}" data-viewmode="calendar" title="カレンダー"><i class="fa-solid fa-calendar-days"></i><span class="tab-label">カレンダー</span></button>
               <button type="button" class="tab ${calendarViewMode === 'list' ? 'tab-active' : ''}" data-viewmode="list" title="リスト"><i class="fa-solid fa-list-ul"></i><span class="tab-label">リスト</span></button>
             </div>
+            ${pendingToggleBtn('pending-toggle-mobile-slot')}
           </div>
           <div class="calhead-group calhead-right">
-            <span class="font-num" style="font-size:18px;font-weight:700;">${month + 1}<span style="font-size:12px;font-weight:600;color:var(--muted);margin:0 6px 0 1px;font-family:'Noto Sans JP',sans-serif;">月</span><span style="font-size:12px;font-weight:600;color:var(--muted);font-family:'Noto Sans JP',sans-serif;">${year}</span></span>
+            <span class="font-num calhead-monthlabel" style="font-size:18px;font-weight:700;">${month + 1}<span style="font-size:12px;font-weight:600;color:var(--muted);margin:0 6px 0 1px;font-family:'Noto Sans JP',sans-serif;">月</span><span style="font-size:12px;font-weight:600;color:var(--muted);font-family:'Noto Sans JP',sans-serif;">${year}<span class="calhead-year-suffix">年</span></span></span>
             <button type="button" class="today-btn" id="btnToday">今日</button>
             <button type="button" class="nav-btn" id="btnPrevMonth"><i class="fa-solid fa-chevron-left"></i></button>
             <button type="button" class="nav-btn" id="btnNextMonth"><i class="fa-solid fa-chevron-right"></i></button>
-            ${pendingToggleBtn}
+            ${pendingToggleBtn('pending-toggle-desktop-slot')}
           </div>
         </div>
       `;
@@ -784,8 +817,10 @@
           <div class="calendar-hero">${heroSummaryHTML()}</div>
           <div class="calendar-card">
             ${calendarHeaderHTML()}
-            <div class="page-fill-area">${listViewHTML()}</div>
-            ${overlay}
+            <div class="rowscroll-wrap">
+              <div class="page-fill-area">${listViewHTML()}</div>
+              ${overlay}
+            </div>
           </div>
         `;
       }
@@ -952,25 +987,26 @@
       const ossRate = total > 0 ? Math.round(confirmed.concat(undecided).filter(isOssRecord).length / total * 100) : 0;
 
       return `
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
-          <div style="display:flex;align-items:center;gap:12px;">
+        <div class="mp-header-row">
+          <div class="mp-header-id">
             <div class="cp-avatar" style="width:38px;height:38px;flex:0 0 38px;font-size:14px;">${LINKED_NAME[0] || '?'}</div>
-            <div>
+            <div class="mp-header-text">
               <h1 class="page-title">マイページ</h1>
-              <p class="page-sub">${escapeHtml(LINKED_NAME)} さんの受注・登録状況（新車・中古車 合算）</p>
+              <p class="page-sub mp-subtitle">${escapeHtml(LINKED_NAME)} さんの受注・登録状況（新車・中古車 合算）</p>
             </div>
           </div>
-          <div style="display:flex;align-items:center;gap:10px;">
+          <div class="mp-header-nav">
             <button type="button" class="nav-btn" id="mpPrev"><i class="fa-solid fa-chevron-left"></i></button>
             <span class="font-num" style="font-size:14px;font-weight:700;min-width:92px;text-align:center;display:inline-block;">${monthLabel}</span>
             <button type="button" class="nav-btn" id="mpNext"><i class="fa-solid fa-chevron-right"></i></button>
           </div>
         </div>
-        <div class="grid grid-cols-4 gap-3 mb-4">
+        <div class="grid grid-cols-4 gap-3 mb-4 mp-kpi-row">
           <div class="kpi-tile"><div class="kpi-label">受注台数</div><div class="kpi-value">${total}<span class="kpi-unit">台</span></div></div>
           <div class="kpi-tile"><div class="kpi-label">登録済み</div><div class="kpi-value" style="color:var(--accent-ink);">${confirmed.length}<span class="kpi-unit">件</span></div></div>
           <div class="kpi-tile"><div class="kpi-label">未定</div><div class="kpi-value" style="color:#B4620D;">${undecided.length}<span class="kpi-unit">件</span></div></div>
           <div class="kpi-tile"><div class="kpi-label">OSS登録率</div><div class="kpi-value">${ossRate}<span class="kpi-unit">%</span></div></div>
+          <button type="button" class="slide-hint" title="横にスライドしてさらに表示"><i class="fa-solid fa-chevron-right"></i></button>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
           <input id="mpSearchName" class="settings-input" placeholder="顧客名で絞り込み" value="${escapeAttr(mpSearch.name)}" style="flex:1;min-width:160px;">
@@ -1335,8 +1371,9 @@
         btn.onclick = () => { calendarViewMode = btn.dataset.viewmode; render(); };
       });
 
-      const sideTab = document.getElementById('sideTabToggle');
-      if (sideTab) sideTab.onclick = () => { sidebarOpen = !sidebarOpen; render(); };
+      root.querySelectorAll('.js-pending-toggle').forEach(btn => {
+        btn.onclick = () => { sidebarOpen = !sidebarOpen; render(); };
+      });
       const backdrop = document.getElementById('overlayBackdrop');
       if (backdrop) backdrop.onclick = () => { sidebarOpen = false; render(); };
 
