@@ -11,9 +11,9 @@
     :root {
       --ink: #14171F; --ink-2: #3C4353; --muted: #6B7386; --border: #CBD0D9;
       --canvas: #E7E9ED; --surface: #FFFFFF; --surface-2: #EDEFF3; --hairline: #DEE1E7;
-      --accent: #3B4FD1; --accent-bg: #EEF1FD; --accent-ink: #2E3FB0; --accent-on-dark: #7C90F5;
-      --side-bg: #171A21; --side-bg-2: #20242E; --side-ink: #EDEFF4; --side-muted: #8891A3;
-      --side-hairline: rgba(255,255,255,0.1); --side-hover: rgba(255,255,255,0.06);
+      --accent: #3B4FD1; --accent-bg: #EEF1FD; --accent-ink: #2E3FB0; --accent-on-dark: #8C9DF7;
+      --side-bg: #171B2C; --side-bg-2: #202545; --side-ink: #EDEFF4; --side-muted: #99A1B3;
+      --side-hairline: rgba(255,255,255,0.1); --side-hover: rgba(255,255,255,0.07);
       --oss: #16924F; --oss-bg: #E3F5EA;
       --paper: #C7392E; --paper-bg: #FAE7E5;
       --sat-bg: #E4EDFE; --sat-ink: #2A5BD1;
@@ -56,8 +56,9 @@
     /* -- コントロールパネル(重厚感のある濃色サイドバー) -- */
     .control-panel { width: 212px; flex: 0 0 212px; background: var(--side-bg); padding: 22px 14px; display: flex; flex-direction: column; position: relative; z-index: 2; height: 100%; overflow-y: auto; }
     .cp-header { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 22px; padding-bottom: 18px; border-bottom: 1px solid var(--side-hairline); }
-    .cp-icon-mark { width: 42px; height: 42px; border-radius: 8px; background: var(--accent); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 17px; margin-bottom: 10px; overflow: hidden; }
-    .cp-icon-mark img { width: 100%; height: 100%; object-fit: cover; }
+    .cp-icon-mark { width: 42px; height: 42px; border-radius: 8px; background: var(--accent-on-dark); display: flex; align-items: center; justify-content: center; color: var(--side-bg); font-size: 17px; margin-bottom: 10px; overflow: hidden; }
+    .cp-icon-mark img, .icon-mark-light img { width: 100%; height: 100%; object-fit: cover; }
+    .icon-mark-light { border-radius: 8px; background: var(--accent); display: flex; align-items: center; justify-content: center; color: #fff; overflow: hidden; }
     .cp-logo { font-family: 'Zen Kaku Gothic New', 'Noto Sans JP', sans-serif; font-size: 13.5px; font-weight: 900; color: var(--side-ink); margin-bottom: 2px; letter-spacing: .01em; }
     .cp-logo-sub { font-size: 10px; color: var(--side-muted); font-weight: 600; letter-spacing: .03em; }
     .cp-nav { display: flex; flex-direction: column; gap: 3px; flex: 1; }
@@ -79,7 +80,8 @@
     .cp-subnav-item.active::before { background: var(--accent-on-dark); }
     .cp-footer { padding-top: 14px; margin-top: 14px; border-top: 1px solid var(--side-hairline); }
     .cp-user { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
-    .cp-avatar { width: 28px; height: 28px; border-radius: 7px; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex: 0 0 28px; }
+    .cp-avatar { width: 28px; height: 28px; border-radius: 7px; background: var(--accent-on-dark); color: var(--side-bg); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex: 0 0 28px; }
+    .avatar-badge { border-radius: 7px; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; }
     .cp-user-name { font-size: 11.5px; font-weight: 700; color: var(--side-ink); line-height: 1.3; word-break: break-all; }
     .cp-user-email { font-size: 9px; color: var(--side-muted); line-height: 1.3; word-break: break-all; }
     .cp-role-badge { font-size: 9.5px; font-weight: 700; border-radius: 5px; padding: 5px 9px; display: block; width: 100%; text-align: left; }
@@ -301,18 +303,19 @@
       return status === STATUS_CONFIRMED || LEGACY_CONFIRMED_STATUSES.indexOf(status) !== -1;
     }
 
-    // accentOnDark: 濃色サイドバー上で使う、アクセントカラーを明るくした派生色。
-    // サイドバーの背景色自体はテーマに関わらず一定(重厚感の核)だが、アクティブなナビ項目の
-    // 強調表示にはこの色を使うことで、サイドバーにもテーマの効果が及ぶようにしている。
+    // sideBg/sideBg2: サイドバー自体の背景色を、テーマの色相を帯びた濃色にする。
+    // accentOnDark: そのサイドバー背景の上で、アクティブ項目やロゴマークに使う明るい派生色。
+    // いずれも「暗い背景の上で文字・アイコン・ボタンが十分なコントラストで読める」ことを
+    // 優先して個別に調整している（単純に元のアクセント色を暗くしただけの値ではない）。
     const THEMES = {
-      indigo: { name: 'インディゴ', accent: '#3B4FD1', accentBg: '#EEF1FD', accentInk: '#2E3FB0', accentOnDark: '#8C9DF7' },
-      green: { name: 'グリーン', accent: '#16924F', accentBg: '#E7F7EE', accentInk: '#0F7A3D', accentOnDark: '#4CC98A' },
-      charcoal: { name: 'チャコール', accent: '#33333D', accentBg: '#E9E9EC', accentInk: '#202027', accentOnDark: '#ACB0BC' },
-      amber: { name: 'アンバー', accent: '#C2790E', accentBg: '#FBEFDD', accentInk: '#9C610A', accentOnDark: '#F0A93D' },
-      rose: { name: 'ローズ', accent: '#C93E77', accentBg: '#FBEAF1', accentInk: '#A62D60', accentOnDark: '#F27BA3' },
-      teal: { name: 'ティール', accent: '#0C7C8C', accentBg: '#E6F4F6', accentInk: '#0A6672', accentOnDark: '#4DC3D3' },
-      purple: { name: 'パープル', accent: '#7C3AED', accentBg: '#F2ECFC', accentInk: '#6425C7', accentOnDark: '#A98BFA' },
-      slate: { name: 'スレート', accent: '#4B5468', accentBg: '#EEF0F3', accentInk: '#333A4A', accentOnDark: '#9CA6BC' },
+      indigo: { name: 'インディゴ', accent: '#3B4FD1', accentBg: '#EEF1FD', accentInk: '#2E3FB0', accentOnDark: '#8C9DF7', sideBg: '#171B2C', sideBg2: '#202545' },
+      green: { name: 'グリーン', accent: '#16924F', accentBg: '#E7F7EE', accentInk: '#0F7A3D', accentOnDark: '#4CC98A', sideBg: '#131F1A', sideBg2: '#1B2D25' },
+      charcoal: { name: 'チャコール', accent: '#33333D', accentBg: '#E9E9EC', accentInk: '#202027', accentOnDark: '#B7BBC6', sideBg: '#1A1A1D', sideBg2: '#242428' },
+      amber: { name: 'アンバー', accent: '#C2790E', accentBg: '#FBEFDD', accentInk: '#9C610A', accentOnDark: '#F0A93D', sideBg: '#201409', sideBg2: '#2E1D0D' },
+      rose: { name: 'ローズ', accent: '#C93E77', accentBg: '#FBEAF1', accentInk: '#A62D60', accentOnDark: '#F27BA3', sideBg: '#200F17', sideBg2: '#2E1622' },
+      teal: { name: 'ティール', accent: '#0C7C8C', accentBg: '#E6F4F6', accentInk: '#0A6672', accentOnDark: '#4DC3D3', sideBg: '#0E1B1D', sideBg2: '#16292C' },
+      purple: { name: 'パープル', accent: '#7C3AED', accentBg: '#F2ECFC', accentInk: '#6425C7', accentOnDark: '#A98BFA', sideBg: '#180F24', sideBg2: '#241536' },
+      slate: { name: 'スレート', accent: '#4B5468', accentBg: '#EEF0F3', accentInk: '#333A4A', accentOnDark: '#9CA6BC', sideBg: '#14161C', sideBg2: '#1D2028' },
     };
 
     let currentTheme = THEMES[INITIAL_THEME] ? INITIAL_THEME : 'indigo';
@@ -328,6 +331,8 @@
       root.setProperty('--accent-bg', t.accentBg);
       root.setProperty('--accent-ink', t.accentInk);
       root.setProperty('--accent-on-dark', t.accentOnDark);
+      root.setProperty('--side-bg', t.sideBg);
+      root.setProperty('--side-bg-2', t.sideBg2);
     }
 
     // ---- 日本の祝日判定(固定日＋ハッピーマンデー＋春分/秋分＋振替休日/国民の休日) ----
@@ -828,7 +833,7 @@
       return `
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
           <div style="display:flex;align-items:center;gap:12px;">
-            <div class="cp-avatar" style="width:38px;height:38px;flex:0 0 38px;font-size:14px;">${LINKED_NAME[0] || '?'}</div>
+            <div class="avatar-badge" style="width:38px;height:38px;flex:0 0 38px;font-size:14px;">${LINKED_NAME[0] || '?'}</div>
             <div>
               <h1 class="page-title">マイページ</h1>
               <p class="page-sub">${escapeHtml(LINKED_NAME)} さんの受注・登録状況（新車・中古車 合算）</p>
@@ -900,7 +905,7 @@
             <p id="folderIdMsg" style="font-size:11px;font-weight:600;margin-top:6px;color:var(--muted);">${sideIconFolderId ? '' : 'アップロード前に、保存先のDriveフォルダIDを入力して保存してください。'}</p>
           </div>
           <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-            <div class="cp-icon-mark" style="width:56px;height:56px;font-size:22px;margin-bottom:0;">${previewInner}</div>
+            <div class="icon-mark-light" style="width:56px;height:56px;font-size:22px;">${previewInner}</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               <label class="settings-add-btn" style="cursor:pointer;">
                 <i class="fa-solid fa-upload"></i>画像をアップロード
