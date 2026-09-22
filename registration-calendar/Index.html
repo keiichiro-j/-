@@ -94,6 +94,7 @@
 
     .tabbar { display: inline-flex; gap: 2px; background: var(--surface-2); border-radius: 7px; padding: 3px; border: 1px solid var(--hairline); }
     .tab { font-size: 12px; font-weight: 600; border-radius: 5px; padding: 6px 14px; cursor: pointer; color: var(--muted); border: none; background: transparent; transition: background .12s ease, color .12s ease; }
+    .tab i { display: none; }
     .tab:hover { color: var(--ink-2); }
     .tab-active { background: var(--surface); color: var(--accent-ink); font-weight: 700; box-shadow: var(--shadow-sm); }
     .nav-btn { font-size: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; color: var(--ink-2); cursor: pointer; transition: background .12s ease, border-color .12s ease, color .12s ease; }
@@ -116,25 +117,6 @@
     .kpi-label { font-size: 10.5px; font-weight: 700; color: var(--muted); display: flex; align-items: center; gap: 5px; }
     .kpi-value { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums slashed-zero; font-size: 20px; font-weight: 700; color: var(--ink); margin-top: 4px; }
     .kpi-unit { font-size: 10.5px; font-weight: 600; color: var(--muted); margin-left: 3px; font-family: 'Noto Sans JP',sans-serif; }
-
-    /* -- ダッシュボード専用ウィジェット(スマホビューオリジナル) -- */
-    .dash-section { background: var(--surface); border-radius: 12px; padding: 13px 14px; box-shadow: var(--shadow-sm); }
-    .dash-section-title { font-size: 10.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 10px; }
-    .method-bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--paper-bg); margin-bottom: 10px; }
-    .method-bar-oss { background: var(--oss); height: 100%; border-radius: 5px; }
-    .method-legend { display: flex; align-items: center; gap: 16px; font-size: 11.5px; font-weight: 600; color: var(--ink-2); }
-    .method-legend b { font-weight: 700; color: var(--ink); margin-left: 5px; }
-    .method-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
-    .method-legend-pct { margin-left: auto; font-size: 13px; font-weight: 700; color: var(--ink); }
-    .day-chart { display: flex; align-items: flex-end; gap: 7px; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; padding-bottom: 1px; padding-right: 36px; }
-    .day-chart::-webkit-scrollbar { display: none; }
-    .day-chart-bar { flex: 0 0 20px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-    .day-chart-bar-count { font-size: 8.5px; font-weight: 700; color: var(--ink-2); height: 11px; }
-    .day-chart-bar-col { width: 12px; height: 52px; display: flex; align-items: flex-end; }
-    .day-chart-bar-fill { width: 100%; border-radius: 3px 3px 1px 1px; background: var(--accent-bg); }
-    .day-chart-bar.is-today .day-chart-bar-fill { background: var(--accent); }
-    .day-chart-bar-day { font-size: 8.5px; color: var(--muted); }
-    .day-chart-bar.is-today .day-chart-bar-day { color: var(--accent-ink); font-weight: 700; }
 
     /* -- カレンダー行 -- */
     .date-row { display: flex; align-items: stretch; min-height: 76px; border-bottom: 1px solid var(--hairline); }
@@ -280,7 +262,6 @@
       .cp-subnav { flex-direction: row; padding: 0; }
       .cp-subnav::before, .cp-subnav-item::before { display: none; }
       .cp-footer { display: none; }
-      .calendar-hero { display: none; }
       .main-col { height: auto; overflow: visible; padding: 14px 14px calc(78px + env(safe-area-inset-bottom)); }
       .page-fill-area { overflow-y: visible; }
       .calendar-card { flex: 0 0 auto; border-radius: 14px; padding: 12px; }
@@ -353,9 +334,13 @@
       .bottom-tab-item.active { color: var(--accent-ink); background: var(--accent-bg); box-shadow: none; }
       .bottom-tab-item.active i { color: var(--accent-ink); }
 
+      /* -- カレンダー/リスト切り替えはアイコンのみに -- */
+      .tab-label { display: none; }
+      .tab i { display: inline-block; font-size: 13px; }
+
       /* -- ボタン類は余白を詰めてコンパクトに(押しにくくない範囲で最小限のサイズへ) -- */
       .nav-btn, .today-btn { padding: 5px 9px; }
-      .tab { padding: 5px 11px; }
+      .tab { padding: 7px 13px; }
       .action-btn { padding: 6px 11px; }
       .pending-toggle-btn { padding: 5px 10px; }
       .settings-input { padding: 6px 9px; }
@@ -678,21 +663,21 @@
       </div>`;
     }
 
-    function calendarHeaderHTML(showPendingToggle) {
+    function calendarHeaderHTML() {
       const year = currentDate.getFullYear(), month = currentDate.getMonth();
-      const pendingToggleBtn = showPendingToggle ? `
+      const pendingToggleBtn = `
         <button type="button" class="pending-toggle-btn${sidebarOpen ? ' open' : ''}" id="sideTabToggle" title="未定リストの表示切り替え">
           <i class="fa-solid fa-layer-group"></i>未定リスト
           <span class="pending-toggle-count">${pendingRecords().length}</span>
         </button>
-      ` : '';
+      `;
       return `
         <div class="calhead-row">
           <div class="calhead-group calhead-left">
             <span class="cartype-pill"><i class="fa-solid ${carType === '中古車' ? 'fa-car-side' : 'fa-car'}"></i>${carType}</span>
             <div class="tabbar">
-              <button type="button" class="tab ${calendarViewMode === 'calendar' ? 'tab-active' : ''}" data-viewmode="calendar">カレンダー</button>
-              <button type="button" class="tab ${calendarViewMode === 'list' ? 'tab-active' : ''}" data-viewmode="list">リスト</button>
+              <button type="button" class="tab ${calendarViewMode === 'calendar' ? 'tab-active' : ''}" data-viewmode="calendar" title="カレンダー"><i class="fa-solid fa-calendar-days"></i><span class="tab-label">カレンダー</span></button>
+              <button type="button" class="tab ${calendarViewMode === 'list' ? 'tab-active' : ''}" data-viewmode="list" title="リスト"><i class="fa-solid fa-list-ul"></i><span class="tab-label">リスト</span></button>
             </div>
           </div>
           <div class="calhead-group calhead-right">
@@ -793,22 +778,24 @@
     }
 
     function calendarPageHTML() {
+      const overlay = sidebarOpen ? `<div class="cal-overlay-backdrop" id="overlayBackdrop"></div><div class="cal-overlay-panel">${pendingPanelHTML()}</div>` : '';
       if (calendarViewMode === 'list') {
         return `
           <div class="calendar-hero">${heroSummaryHTML()}</div>
           <div class="calendar-card">
-            ${calendarHeaderHTML(false)}
+            ${calendarHeaderHTML()}
             <div class="page-fill-area">${listViewHTML()}</div>
+            ${overlay}
           </div>
         `;
       }
       return `
         <div class="calendar-hero">${heroSummaryHTML()}</div>
         <div class="calendar-card" id="calCard">
-          ${calendarHeaderHTML(true)}
+          ${calendarHeaderHTML()}
           <div class="rowscroll-wrap">
             <div class="row-scroll" id="rowScroll" style="flex:1;min-height:0;display:flex;flex-direction:column;">${calendarRowsHTML()}</div>
-            ${sidebarOpen ? `<div class="cal-overlay-backdrop" id="overlayBackdrop"></div><div class="cal-overlay-panel">${pendingPanelHTML()}</div>` : ''}
+            ${overlay}
           </div>
         </div>
       `;
@@ -1250,7 +1237,6 @@
       return `
         <nav class="bottom-tab-bar">
           ${item('calendar', 'fa-calendar-days', 'カレンダー')}
-          ${item('dashboard', 'fa-gauge-high', 'ダッシュボード')}
           ${item('mypage', 'fa-user', 'マイページ')}
           ${item('settings', 'fa-gear', '設定')}
         </nav>
@@ -1268,90 +1254,9 @@
       </div>`;
     }
 
-    // ---- ダッシュボード（スマホ専用） ----
-    // ▼ スマホ表示ではヘッダーのサマリーを非表示にする代わりに、登録台数・拠点別台数・
-    //   未定リストをまとめて確認できるページを別途用意する。
-    // ▼ ダッシュボード専用(スマホビューオリジナル): 表示中の月・車両区分について、
-    //   日ごとの確定登録件数を集計する。
-    function dailyCountsForMonth(year, month) {
-      const daysInMonth = new Date(year, month + 1, 0).getDate();
-      const counts = new Array(daysInMonth + 1).fill(0); // 1始まり
-      allRecords.forEach(r => {
-        if (!isConfirmedStatus(r.ステータス) || !r.登録予定日) return;
-        const { y, m, d } = parseYMD(r.登録予定日);
-        if (y === year && m === month && d >= 1 && d <= daysInMonth) counts[d] += 1;
-      });
-      return counts;
-    }
-
-    // ▼ ダッシュボード専用(スマホビューオリジナル): 登録方法(OSS/紙)の内訳を
-    //   1本の割合バー+凡例で表示する。
-    function methodBreakdownHTML() {
-      const year = currentDate.getFullYear(), month = currentDate.getMonth();
-      const { total, ossCount } = computeSummaryStats(year, month);
-      const paperCount = total - ossCount;
-      const ossPct = total > 0 ? Math.round(ossCount / total * 100) : 0;
-      return `
-        <div class="dash-section">
-          <div class="dash-section-title">登録方法の内訳</div>
-          <div class="method-bar">${total > 0 ? `<div class="method-bar-oss" style="width:${ossPct}%;"></div>` : ''}</div>
-          <div class="method-legend">
-            <span><span class="method-dot" style="background:var(--oss);"></span>OSS<b class="font-num">${ossCount}件</b></span>
-            <span><span class="method-dot" style="background:var(--paper);"></span>紙<b class="font-num">${paperCount}件</b></span>
-            <span class="method-legend-pct font-num">${ossPct}%</span>
-          </div>
-        </div>
-      `;
-    }
-
-    // ▼ ダッシュボード専用(スマホビューオリジナル): 日別の登録件数を横スクロールの
-    //   棒グラフで表示する。
-    function dayChartHTML() {
-      const year = currentDate.getFullYear(), month = currentDate.getMonth();
-      const counts = dailyCountsForMonth(year, month);
-      const daysInMonth = counts.length - 1;
-      const maxCount = Math.max(1, ...counts.slice(1));
-      const today = new Date();
-      const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
-      const maxBarPx = 52;
-      let bars = '';
-      for (let d = 1; d <= daysInMonth; d++) {
-        const c = counts[d] || 0;
-        const h = c === 0 ? 2 : Math.max(6, Math.round(c / maxCount * maxBarPx));
-        const isToday = isCurrentMonth && today.getDate() === d;
-        bars += `<div class="day-chart-bar${isToday ? ' is-today' : ''}">
-          <span class="day-chart-bar-count font-num">${c > 0 ? c : ''}</span>
-          <div class="day-chart-bar-col"><div class="day-chart-bar-fill" style="height:${h}px;"></div></div>
-          <span class="day-chart-bar-day font-num">${d}</span>
-        </div>`;
-      }
-      const hint = `<button type="button" class="slide-hint" title="横にスライドしてさらに表示"><i class="fa-solid fa-chevron-right"></i></button>`;
-      return `
-        <div class="dash-section">
-          <div class="dash-section-title">日別登録件数</div>
-          <div class="day-chart">${bars}${hint}</div>
-        </div>
-      `;
-    }
-
-    function dashboardPageHTML() {
-      return `
-        <div>
-          <h1 class="page-title">ダッシュボード</h1>
-          <p class="page-sub">${carType} ・ ${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月の状況</p>
-        </div>
-        <div class="page-fill-area" style="display:flex;flex-direction:column;gap:10px;">
-          ${heroSummaryHTML()}
-          ${methodBreakdownHTML()}
-          ${dayChartHTML()}
-        </div>
-      `;
-    }
-
     function pageBody() {
       if (currentPage === 'mypage') return mypagePageHTML();
       if (currentPage === 'settings') return settingsPageHTML();
-      if (currentPage === 'dashboard') return dashboardPageHTML();
       return calendarPageHTML();
     }
 
@@ -1445,7 +1350,7 @@
       const announceClose = document.getElementById('announceCloseBtn');
       if (announceClose) announceClose.onclick = () => { announceBarVisible = false; render(); };
 
-      const HSCROLL_SELECTOR = '.content-col, .kpi-row-top, .kpi-row-bottom, .day-chart';
+      const HSCROLL_SELECTOR = '.content-col, .kpi-row-top, .kpi-row-bottom';
       root.querySelectorAll('.slide-hint').forEach(btn => {
         btn.onclick = (e) => {
           e.stopPropagation();
