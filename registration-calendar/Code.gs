@@ -171,9 +171,31 @@ function getAnnouncements(carType) {
     return [];
   }
 }
-// ▼ 文字色として保存してよい値か（HTML属性に埋め込むため、#RRGGBB形式のみ許可する）
-function isValidHexColor_(color) {
-  return /^#[0-9A-Fa-f]{6}$/.test(String(color || ''));
+// ▼ お知らせ・カレンダー案内の「部分書式(太字・文字色)」を安全に保存するためのサニタイザ。
+//   許可するのは <b>...</b> と、色指定だけを持つ <span style="color:#RRGGBB;">...</span> のみ。
+//   Apps ScriptのV8ランタイムにはDOMParserが無く、本物のHTMLパーサでサニタイズすることは
+//   できないため、「まず全体をHTMLエスケープしてから、許可した書式の並びだけを実際のタグに
+//   戻す」という方式にしている。この方式では、たとえ元の値に <span style="color:#F00;"
+//   onclick="..."> のような余計な属性が混ざっていても、正規表現が完全一致しないため
+//   エスケープされたまま(＝無害なテキストとして)残る。UIを経由しない直接呼び出し
+//   （google.script.runの不正利用）であっても、蓄積型XSSにつながらないようにするための対策。
+function sanitizeRichText_(html) {
+  const escaped = String(html || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+  const restored = escaped
+    .replace(/&lt;b&gt;/g, '<b>')
+    .replace(/&lt;\/b&gt;/g, '</b>')
+    .replace(/&lt;span style=&quot;color:(#[0-9A-Fa-f]{6});&quot;&gt;/g, '<span style="color:$1;">')
+    .replace(/&lt;\/span&gt;/g, '</span>');
+  // タグの開閉数が一致しない場合は壊れた書式とみなし、安全側(プレーンテキスト)に倒す
+  const countMatches_ = (s, re) => (s.match(re) || []).length;
+  const bBalanced = countMatches_(restored, /<b>/g) === countMatches_(restored, /<\/b>/g);
+  const spanBalanced = countMatches_(restored, /<span style="color:#[0-9A-Fa-f]{6};">/g) === countMatches_(restored, /<\/span>/g);
+  return (bBalanced && spanBalanced) ? restored : escaped;
 }
 function saveAnnouncements(carType, list) {
   const userEmail = Session.getActiveUser().getEmail();
@@ -183,11 +205,10 @@ function saveAnnouncements(carType, list) {
   if (CAR_TYPES.indexOf(carType) === -1) return { success: false, message: '不正な車両区分です。' };
   const cleaned = (list || [])
     .filter(a => a && String(a.text || '').trim())
-    .map(a => {
-      const item = { text: String(a.text).trim() };
-      if (isValidHexColor_(a.color)) item.color = String(a.color);
-      return item;
-    })
+    .map(a => ({
+      text: String(a.text).trim(),
+      html: sanitizeRichText_(a.html || a.text),
+    }))
     .slice(0, 20);
   PropertiesService.getScriptProperties().setProperty(ANNOUNCEMENTS_PROP_PREFIX + carType, JSON.stringify(cleaned));
   return { success: true };
@@ -216,11 +237,11 @@ function saveCalendarNotices(carType, year, month, notices) {
   if (CAR_TYPES.indexOf(carType) === -1) return { success: false, message: '不正な車両区分です。' };
   const cleaned = (notices || [])
     .filter(n => n && n.date && String(n.text || '').trim())
-    .map(n => {
-      const item = { date: String(n.date), text: String(n.text).trim() };
-      if (isValidHexColor_(n.color)) item.color = String(n.color);
-      return item;
-    })
+    .map(n => ({
+      date: String(n.date),
+      text: String(n.text).trim(),
+      html: sanitizeRichText_(n.html || n.text),
+    }))
     .slice(0, CALENDAR_NOTICE_MAX);
   PropertiesService.getScriptProperties().setProperty(calendarNoticeKey_(carType, year, month), JSON.stringify(cleaned));
   return { success: true };

@@ -225,7 +225,15 @@
     .settings-add-row { display: flex; gap: 8px; margin-top: 13px; flex-wrap: wrap; }
     .settings-input { font-size: 12px; border: 1px solid var(--border); background: var(--surface); border-radius: 6px; padding: 8px 11px; color: var(--ink); font-family: inherit; }
     .settings-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
-    .settings-color-input { flex: 0 0 30px; width: 30px; height: 30px; padding: 2px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); cursor: pointer; }
+    .rich-edit-wrap { flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: 5px; }
+    .rich-toolbar { display: flex; align-items: center; gap: 6px; }
+    .rich-btn { border: 1px solid var(--border); background: var(--surface); color: var(--ink-2); width: 26px; height: 26px; flex: 0 0 auto; border-radius: 5px; cursor: pointer; font-size: 11px; display: flex; align-items: center; justify-content: center; transition: background .12s ease, color .12s ease; }
+    .rich-btn:hover { background: var(--accent-bg); color: var(--accent-ink); }
+    .rich-color-input { flex: 0 0 26px; width: 26px; height: 26px; padding: 2px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); cursor: pointer; }
+    .rich-editable { font-size: 12px; border: 1px solid var(--border); background: var(--surface); border-radius: 6px; padding: 8px 11px; color: var(--ink); font-family: inherit; min-height: 36px; line-height: 1.5; }
+    .rich-editable:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+    .rich-editable b { font-weight: 800; }
+    .settings-row.rich-row { align-items: flex-start; }
     .settings-add-btn { font-size: 12px; font-weight: 700; background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 8px 15px; display: flex; align-items: center; gap: 6px; cursor: pointer; transition: filter .12s ease; }
     .settings-add-btn:hover { filter: brightness(0.92); }
     .settings-add-btn:disabled { background: #E2E5EB; color: #A6ACB8; cursor: default; filter: none; }
@@ -362,7 +370,7 @@
       .settings-card { padding: 16px; }
       .settings-row { flex-wrap: wrap; gap: 8px 10px; }
       .js-cal-notice-date { flex: 1 1 130px !important; }
-      .js-cal-notice-text { flex: 1 1 160px !important; min-width: 0 !important; }
+      .rich-row .rich-edit-wrap { flex: 1 1 100%; }
       .settings-row .s-name, .settings-row .s-email {
         flex: 1 1 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       }
@@ -531,7 +539,7 @@
     let mypageLinksMsg = '';
 
     // お知らせは新車・中古車で別々に保持する。バナーには現在表示中のcarTypeの分だけを出す。
-    let announcementsByType = { '新車': INITIAL_ANNOUNCEMENTS_NEW.slice(), '中古車': INITIAL_ANNOUNCEMENTS_USED.slice() };
+    let announcementsByType = { '新車': INITIAL_ANNOUNCEMENTS_NEW.map(migrateRichItem_), '中古車': INITIAL_ANNOUNCEMENTS_USED.map(migrateRichItem_) };
     let announceBarVisible = true;
     let announceEditCarType = carType; // 設定ページ「お知らせ設定」で編集対象に選んでいる車両区分
     let pendingAnnouncements = announcementsByType[announceEditCarType].slice();
@@ -566,6 +574,83 @@
     function escapeAttr(s) { return escapeHtml(s); }
     function recordDataAttr(r) { return `data-record="${escapeAttr(JSON.stringify(r))}"`; }
 
+    // ---- お知らせ・カレンダー案内の部分書式(太字・文字色)まわり ----
+    // 旧仕様（項目全体に1色だけ設定できた{text, color}）のデータを、新仕様の{html, text}に変換する。
+    // 既にhtmlを持つ新仕様のデータはそのまま返す。
+    function migrateRichItem_(item) {
+      if (!item) return item;
+      if (item.html != null) return item;
+      const text = String(item.text || '');
+      const html = item.color ? `<span style="color:${escapeAttr(item.color)};">${escapeHtml(text)}</span>` : escapeHtml(text);
+      const migrated = { html: html, text: text };
+      if (item.date != null) migrated.date = item.date;
+      return migrated;
+    }
+    // 許可するのは<b>と、色指定だけを持つ<span style="color:#RRGGBB;">のみ。
+    // それ以外のタグ・属性は、貼り付け等で紛れ込んでも中身のテキストだけ残して取り除く
+    // （保存時にはCode.gs側でも同じ考え方のサニタイズを行っており、こちらは表示側の保険）。
+    function sanitizeRichHtmlClient_(html) {
+      const container = document.createElement('div');
+      container.innerHTML = html;
+      const colorStyleRe = /^color:\s*#[0-9A-Fa-f]{6};?$/;
+      (function clean(node) {
+        Array.prototype.slice.call(node.childNodes).forEach(child => {
+          if (child.nodeType === 1) {
+            const tag = child.tagName;
+            if (tag !== 'B' && tag !== 'SPAN') {
+              while (child.firstChild) node.insertBefore(child.firstChild, child);
+              node.removeChild(child);
+              return;
+            }
+            Array.prototype.slice.call(child.attributes).forEach(attr => {
+              if (!(tag === 'SPAN' && attr.name === 'style' && colorStyleRe.test(attr.value.trim()))) {
+                child.removeAttribute(attr.name);
+              }
+            });
+            clean(child);
+          } else if (child.nodeType !== 3) {
+            node.removeChild(child);
+          }
+        });
+      })(container);
+      return container.innerHTML;
+    }
+    // 選択範囲を保持する（ツールバーのボタン/カラーピッカーをクリックするとcontenteditableの
+    // フォーカスが外れて選択が失われうるため、mouseup/keyupのたびに保存しておく）
+    let richSavedRange = null;
+    function captureRichSelection_(editableEl) {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+      const range = sel.getRangeAt(0);
+      if (range.collapsed) return;
+      if (!editableEl.contains(range.commonAncestorContainer)) return;
+      richSavedRange = range.cloneRange();
+    }
+    function wrapSelectionInTag_(range, tag, styleAttr) {
+      const wrapper = document.createElement(tag);
+      if (styleAttr) wrapper.setAttribute('style', styleAttr);
+      const frag = range.extractContents();
+      wrapper.appendChild(frag);
+      range.insertNode(wrapper);
+      range.selectNodeContents(wrapper);
+    }
+    // 保存しておいた選択範囲に対して書式を適用し、変更後のHTMLをonChangeへ渡す
+    function applyRichFormat_(editableEl, tag, styleAttr, onChange) {
+      if (!richSavedRange || !editableEl.contains(richSavedRange.commonAncestorContainer)) return;
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(richSavedRange);
+      wrapSelectionInTag_(richSavedRange, tag, styleAttr);
+      captureRichSelection_(editableEl);
+      onChange(sanitizeRichHtmlClient_(editableEl.innerHTML));
+    }
+    // contenteditable内へのペーストは、外部からの書式付きHTMLが紛れ込まないよう常にプレーンテキストにする
+    function forcePlainTextPaste_(ev) {
+      ev.preventDefault();
+      const text = (ev.clipboardData || window.clipboardData).getData('text/plain');
+      document.execCommand('insertText', false, text);
+    }
+
     // ---- データ取得 ----
     function loadData() {
       if (typeof google === 'undefined') return;
@@ -599,7 +684,7 @@
       if (typeof google === 'undefined') return;
       const year = currentDate.getFullYear(), month = currentDate.getMonth();
       google.script.run
-        .withSuccessHandler(function (list) { calendarNotices = list || []; render(); })
+        .withSuccessHandler(function (list) { calendarNotices = (list || []).map(migrateRichItem_); render(); })
         .withFailureHandler(function () { calendarNotices = []; })
         .getCalendarNotices(carType, year, month);
     }
@@ -690,7 +775,7 @@
         : `<div class="day-entries-track">${entries.map(entryCard).join('')}${hintBtn}</div>`;
       const hasNotice = notices.length > 0;
       const noticeBanner = hasNotice
-        ? `<div class="day-notice-banner"><i class="fa-solid fa-clipboard-list"></i><span>${notices.map(n => `<span${n.color ? ` style="color:${escapeAttr(n.color)};"` : ''}>${escapeHtml(n.text)}</span>`).join('　・　')}</span></div>`
+        ? `<div class="day-notice-banner"><i class="fa-solid fa-clipboard-list"></i><span>${notices.map(n => `<span>${n.html || escapeHtml(n.text || '')}</span>`).join('　・　')}</span></div>`
         : '';
 
       return `<div data-day="${day}" data-today="${isToday}" class="date-row${extraClass}${hasNotice ? ' has-notice' : ''}" style="${rowBg ? `background:${rowBg};` : ''}">
@@ -1123,7 +1208,7 @@
       return `
         <div class="settings-card">
           <h2 class="settings-card-title"><i class="fa-solid fa-bullhorn"></i>お知らせ設定</h2>
-          <p class="settings-card-desc">画面上部のバナーに表示するお知らせを管理します。新車・中古車で別々に設定でき、それぞれのカレンダーを表示しているときだけそのお知らせが表示されます。</p>
+          <p class="settings-card-desc">画面上部のバナーに表示するお知らせを管理します。新車・中古車で別々に設定でき、それぞれのカレンダーを表示しているときだけそのお知らせが表示されます。文章の一部だけ選択してから<i class="fa-solid fa-bold"></i>や色のボタンを押すと、その部分だけ太字・文字色を変更できます。</p>
           <div style="margin-bottom:14px;">
             <select id="announceCarType" class="settings-input">
               ${CAR_TYPES.map(t => `<option value="${t}" ${announceEditCarType === t ? 'selected' : ''}>${t}のお知らせを編集</option>`).join('')}
@@ -1131,15 +1216,19 @@
           </div>
           <div class="settings-list" id="announceList">
             ${pendingAnnouncements.map((a, i) => `
-              <div class="settings-row">
-                <input type="color" class="settings-color-input js-announce-color" data-idx="${i}" value="${escapeAttr(a.color || '#FFFFFF')}" title="文字色">
-                <span class="s-name">${escapeHtml(a.text)}</span>
+              <div class="settings-row rich-row">
+                <div class="rich-edit-wrap">
+                  <div class="rich-toolbar">
+                    <button type="button" class="rich-btn" data-role="announce-bold" data-idx="${i}" title="選択した文字を太字にする"><i class="fa-solid fa-bold"></i></button>
+                    <input type="color" class="rich-color-input" data-role="announce-color" data-idx="${i}" value="#C2790E" title="選択した文字にこの色を適用する">
+                  </div>
+                  <div class="rich-editable" contenteditable="true" data-role="announce-html" data-idx="${i}">${a.html || escapeHtml(a.text || '')}</div>
+                </div>
                 <button type="button" class="settings-remove" data-idx="${i}" data-role="announce-remove"><i class="fa-solid fa-xmark"></i></button>
               </div>
             `).join('') || `<p style="font-size:12px;color:var(--muted);padding:8px 2px;">お知らせはありません。</p>`}
           </div>
           <div class="settings-add-row">
-            <input type="color" id="newAnnounceColor" class="settings-color-input" value="#FFFFFF" title="文字色">
             <input id="newAnnounceText" class="settings-input" placeholder="お知らせ内容" style="flex:1;min-width:220px;">
             <button type="button" id="addAnnounceBtn" class="settings-add-btn"><i class="fa-solid fa-plus"></i>追加</button>
           </div>
@@ -1159,7 +1248,7 @@
       return `
         <div class="settings-card">
           <h2 class="settings-card-title"><i class="fa-solid fa-calendar-days"></i>カレンダー設定</h2>
-          <p class="settings-card-desc">指定した月のカレンダーに表示する案内（書類提出締切日など）を、日付ごとに最大10件まで設定できます。カレンダー画面では日付の右上に案内アイコンが表示され、タップすると内容を確認できます。</p>
+          <p class="settings-card-desc">指定した月のカレンダーに表示する案内（書類提出締切日など）を、日付ごとに最大10件まで設定できます。カレンダー画面では日付の右上に案内アイコンが表示され、タップすると内容を確認できます。文章の一部だけ選択してから<i class="fa-solid fa-bold"></i>や色のボタンを押すと、その部分だけ太字・文字色を変更できます。</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
             <select id="calSetCarType" class="settings-input">
               ${CAR_TYPES.map(t => `<option value="${t}" ${calSettingsCarType === t ? 'selected' : ''}>${t}</option>`).join('')}
@@ -1173,10 +1262,15 @@
           </div>
           <div class="settings-list" id="calNoticeList">
             ${calSettingsNotices.map((n, i) => `
-              <div class="settings-row">
+              <div class="settings-row rich-row">
                 <input type="date" class="settings-input js-cal-notice-date" data-idx="${i}" value="${escapeAttr(n.date || '')}" style="flex:0 0 150px;">
-                <input type="text" class="settings-input js-cal-notice-text" data-idx="${i}" value="${escapeAttr(n.text || '')}" placeholder="案内内容（例：書類提出締切）" style="flex:1;min-width:160px;">
-                <input type="color" class="settings-color-input js-cal-notice-color" data-idx="${i}" value="${escapeAttr(n.color || '#C2790E')}" title="文字色">
+                <div class="rich-edit-wrap">
+                  <div class="rich-toolbar">
+                    <button type="button" class="rich-btn" data-role="calnotice-bold" data-idx="${i}" title="選択した文字を太字にする"><i class="fa-solid fa-bold"></i></button>
+                    <input type="color" class="rich-color-input" data-role="calnotice-color" data-idx="${i}" value="#C2790E" title="選択した文字にこの色を適用する">
+                  </div>
+                  <div class="rich-editable" contenteditable="true" data-role="calnotice-html" data-idx="${i}">${n.html || escapeHtml(n.text || '')}</div>
+                </div>
                 <button type="button" class="settings-remove" data-idx="${i}" data-role="calnotice-remove"><i class="fa-solid fa-xmark"></i></button>
               </div>
             `).join('') || `<p style="font-size:12px;color:var(--muted);padding:8px 2px;">案内はまだ設定されていません。</p>`}
@@ -1306,7 +1400,7 @@
     function announceBannerHTML() {
       const currentAnnouncements = announcementsByType[carType] || [];
       if (!announceBarVisible || !currentAnnouncements.length) return '';
-      const itemsHtml = currentAnnouncements.map(a => `<span class="announce-item"${a.color ? ` style="color:${escapeAttr(a.color)};"` : ''}>${escapeHtml(a.text)}</span>`).join('<span class="announce-sep">・</span>');
+      const itemsHtml = currentAnnouncements.map(a => `<span class="announce-item">${a.html || escapeHtml(a.text || '')}</span>`).join('<span class="announce-sep">・</span>');
       return `<div class="announce-bar" id="announceBar">
         <i class="fa-solid fa-bullhorn" style="flex:0 0 auto;"></i>
         <div class="announce-track"><div class="announce-track-inner"><span class="announce-copy">${itemsHtml}</span></div></div>
@@ -1577,18 +1671,52 @@
       const addAnnounceBtn = document.getElementById('addAnnounceBtn');
       if (addAnnounceBtn) addAnnounceBtn.onclick = () => {
         const input = document.getElementById('newAnnounceText');
-        const colorInput = document.getElementById('newAnnounceColor');
         const text = input.value.trim();
         if (!text) return;
-        pendingAnnouncements.push({ text, color: colorInput ? colorInput.value : '#FFFFFF' });
+        pendingAnnouncements.push({ html: escapeHtml(text), text });
         announceDirty = true; announceMsg = '';
         render();
       };
       root.querySelectorAll('[data-role="announce-remove"]').forEach(btn => {
         btn.onclick = () => { pendingAnnouncements.splice(Number(btn.dataset.idx), 1); announceDirty = true; announceMsg = ''; render(); };
       });
-      root.querySelectorAll('.js-announce-color').forEach(inp => {
-        inp.oninput = (ev) => { pendingAnnouncements[Number(inp.dataset.idx)].color = ev.target.value; announceDirty = true; announceMsg = ''; markDirtyBtn_('announceSaveBtn'); };
+      root.querySelectorAll('[data-role="announce-html"]').forEach(el => {
+        el.addEventListener('mouseup', () => captureRichSelection_(el));
+        el.addEventListener('keyup', () => captureRichSelection_(el));
+        el.addEventListener('paste', forcePlainTextPaste_);
+        el.addEventListener('input', () => {
+          const idx = Number(el.dataset.idx);
+          pendingAnnouncements[idx].html = sanitizeRichHtmlClient_(el.innerHTML);
+          pendingAnnouncements[idx].text = el.textContent;
+          announceDirty = true; announceMsg = '';
+          markDirtyBtn_('announceSaveBtn');
+        });
+      });
+      root.querySelectorAll('[data-role="announce-bold"]').forEach(btn => {
+        btn.onclick = () => {
+          const idx = Number(btn.dataset.idx);
+          const el = root.querySelector(`[data-role="announce-html"][data-idx="${idx}"]`);
+          if (!el) return;
+          applyRichFormat_(el, 'b', null, (html) => {
+            pendingAnnouncements[idx].html = html;
+            pendingAnnouncements[idx].text = el.textContent;
+            announceDirty = true; announceMsg = '';
+            markDirtyBtn_('announceSaveBtn');
+          });
+        };
+      });
+      root.querySelectorAll('[data-role="announce-color"]').forEach(inp => {
+        inp.oninput = (ev) => {
+          const idx = Number(inp.dataset.idx);
+          const el = root.querySelector(`[data-role="announce-html"][data-idx="${idx}"]`);
+          if (!el) return;
+          applyRichFormat_(el, 'span', `color:${ev.target.value};`, (html) => {
+            pendingAnnouncements[idx].html = html;
+            pendingAnnouncements[idx].text = el.textContent;
+            announceDirty = true; announceMsg = '';
+            markDirtyBtn_('announceSaveBtn');
+          });
+        };
       });
       const announceSaveBtn = document.getElementById('announceSaveBtn');
       if (announceSaveBtn) announceSaveBtn.onclick = () => {
@@ -1613,21 +1741,53 @@
       root.querySelectorAll('.js-cal-notice-date').forEach(inp => {
         inp.oninput = (ev) => { calSettingsNotices[Number(inp.dataset.idx)].date = ev.target.value; calSettingsDirty = true; markDirtyBtn_('calNoticeSaveBtn'); };
       });
-      root.querySelectorAll('.js-cal-notice-text').forEach(inp => {
-        inp.oninput = (ev) => { calSettingsNotices[Number(inp.dataset.idx)].text = ev.target.value; calSettingsDirty = true; markDirtyBtn_('calNoticeSaveBtn'); };
-      });
-      root.querySelectorAll('.js-cal-notice-color').forEach(inp => {
-        inp.oninput = (ev) => { calSettingsNotices[Number(inp.dataset.idx)].color = ev.target.value; calSettingsDirty = true; markDirtyBtn_('calNoticeSaveBtn'); };
-      });
       const addCalNoticeBtn = document.getElementById('addCalNoticeBtn');
       if (addCalNoticeBtn) addCalNoticeBtn.onclick = () => {
         if (calSettingsNotices.length >= 10) return;
-        calSettingsNotices.push({ date: '', text: '', color: '#C2790E' });
+        calSettingsNotices.push({ date: '', html: '', text: '' });
         calSettingsDirty = true; calSettingsMsg = '';
         render();
       };
       root.querySelectorAll('[data-role="calnotice-remove"]').forEach(btn => {
         btn.onclick = () => { calSettingsNotices.splice(Number(btn.dataset.idx), 1); calSettingsDirty = true; calSettingsMsg = ''; render(); };
+      });
+      root.querySelectorAll('[data-role="calnotice-html"]').forEach(el => {
+        el.addEventListener('mouseup', () => captureRichSelection_(el));
+        el.addEventListener('keyup', () => captureRichSelection_(el));
+        el.addEventListener('paste', forcePlainTextPaste_);
+        el.addEventListener('input', () => {
+          const idx = Number(el.dataset.idx);
+          calSettingsNotices[idx].html = sanitizeRichHtmlClient_(el.innerHTML);
+          calSettingsNotices[idx].text = el.textContent;
+          calSettingsDirty = true; calSettingsMsg = '';
+          markDirtyBtn_('calNoticeSaveBtn');
+        });
+      });
+      root.querySelectorAll('[data-role="calnotice-bold"]').forEach(btn => {
+        btn.onclick = () => {
+          const idx = Number(btn.dataset.idx);
+          const el = root.querySelector(`[data-role="calnotice-html"][data-idx="${idx}"]`);
+          if (!el) return;
+          applyRichFormat_(el, 'b', null, (html) => {
+            calSettingsNotices[idx].html = html;
+            calSettingsNotices[idx].text = el.textContent;
+            calSettingsDirty = true; calSettingsMsg = '';
+            markDirtyBtn_('calNoticeSaveBtn');
+          });
+        };
+      });
+      root.querySelectorAll('[data-role="calnotice-color"]').forEach(inp => {
+        inp.oninput = (ev) => {
+          const idx = Number(inp.dataset.idx);
+          const el = root.querySelector(`[data-role="calnotice-html"][data-idx="${idx}"]`);
+          if (!el) return;
+          applyRichFormat_(el, 'span', `color:${ev.target.value};`, (html) => {
+            calSettingsNotices[idx].html = html;
+            calSettingsNotices[idx].text = el.textContent;
+            calSettingsDirty = true; calSettingsMsg = '';
+            markDirtyBtn_('calNoticeSaveBtn');
+          });
+        };
       });
       const calNoticeSaveBtn = document.getElementById('calNoticeSaveBtn');
       if (calNoticeSaveBtn) calNoticeSaveBtn.onclick = () => {
@@ -1706,7 +1866,7 @@
     function loadCalSettingsNotices() {
       if (!IS_EDITOR || typeof google === 'undefined') return;
       google.script.run
-        .withSuccessHandler(list => { calSettingsNotices = list || []; calSettingsDirty = false; calSettingsMsg = ''; render(); })
+        .withSuccessHandler(list => { calSettingsNotices = (list || []).map(migrateRichItem_); calSettingsDirty = false; calSettingsMsg = ''; render(); })
         .withFailureHandler(() => { calSettingsNotices = []; render(); })
         .getCalendarNotices(calSettingsCarType, calSettingsYear, calSettingsMonth);
     }
