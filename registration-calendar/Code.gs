@@ -28,6 +28,7 @@ function onOpen() {
     .addSeparator()
     .addItem('車検証PDF自動リンクの定期実行を設定', 'menuSetupPdfLinkTrigger_')
     .addItem('登録予定日確定時のカレンダー自動反映を設定', 'menuSetupCalendarSyncTrigger_')
+    .addItem('登録予定日確定時のカレンダー反映を今すぐ実行（結果・原因を確認）', 'menuRunCalendarSyncNow_')
     .addToUi();
 }
 function menuCreateNextMonthSheetNewCar_() {
@@ -68,6 +69,7 @@ function doGet() {
   template.initialAnnouncementsUsed = getAnnouncements('中古車');
   template.initialPdfFolderNew = getPdfFolderId('新車');
   template.initialPdfFolderUsed = getPdfFolderId('中古車');
+  template.initialBranches = getBranches();
 
   return template.evaluate()
     .setTitle('登録カレンダー')
@@ -247,6 +249,52 @@ function saveCalendarNotices(carType, year, month, notices) {
   return { success: true };
 }
 
+// ▼ 拠点マスタ（拠点名・KPIタイルやリストで使う色）。権限者が設定ページから編集できる。
+//   同じアプリのコードを複数店舗で使い回す際、拠点名をコードに直書きせずここで管理することで、
+//   コードを一切変更せずに拠点構成だけを店舗ごとに変えられるようにしている。
+const BRANCHES_PROP_KEY = 'branches';
+const DEFAULT_BRANCHES = [
+  { name: '岐阜', color: '#3B4FD1' },
+  { name: '大垣', color: '#16924F' },
+  { name: '多治見', color: '#7C3AED' },
+  { name: '高山', color: '#C2790E' },
+  { name: 'AAA', color: '#C93E77' },
+  { name: 'デモカー', color: '#0C7C8C' },
+];
+function isValidHexColor_(color) {
+  return /^#[0-9A-Fa-f]{6}$/.test(String(color || ''));
+}
+function getBranches() {
+  const raw = PropertiesService.getScriptProperties().getProperty(BRANCHES_PROP_KEY);
+  if (!raw) return DEFAULT_BRANCHES.slice();
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length ? parsed : DEFAULT_BRANCHES.slice();
+  } catch (e) {
+    return DEFAULT_BRANCHES.slice();
+  }
+}
+// ▼ スプレッドシート側（拠点のプルダウン入力規則など）から参照するための、拠点名だけの配列
+function getBranchNames_() {
+  return getBranches().map(b => b.name);
+}
+function saveBranches(branches) {
+  const userEmail = Session.getActiveUser().getEmail();
+  if (!isEditorEmail_(userEmail)) {
+    return { success: false, message: '権限者のみ変更できます。' };
+  }
+  const cleaned = (branches || [])
+    .filter(b => b && String(b.name || '').trim())
+    .map(b => ({
+      name: String(b.name).trim(),
+      color: isValidHexColor_(b.color) ? String(b.color) : '#66707E',
+    }))
+    .slice(0, 30);
+  if (!cleaned.length) return { success: false, message: '拠点を1件以上登録してください。' };
+  PropertiesService.getScriptProperties().setProperty(BRANCHES_PROP_KEY, JSON.stringify(cleaned));
+  return { success: true };
+}
+
 const MYPAGE_LINK_HEADERS = ['氏名(フルネーム)', 'Googleアカウント', '拠点', '担当車両区分'];
 
 function getOrCreateMypageLinkSheet_() {
@@ -383,7 +431,6 @@ function resetSideIcon() {
 //   (注釈・入力規則・重複チェックの書式)を当て直したいときは refreshAllSheetTemplates() を
 //   GASエディタの関数選択メニューから手動実行してください。
 // ============================================================
-const BRANCH_OPTIONS = ['岐阜', '大垣', '多治見', '高山', 'AAA', 'デモカー', 'その他'];
 const OSS_OPTIONS = ['OSS', '紙登録'];
 // ステータスの選択肢。「登録予定日確定」以外は、登録予定日が未定のものとして未定リストに表示される。
 const STATUS_OPTIONS = ['登録書類到着待', '登録書類到着済', '登録予定日確定'];
@@ -395,7 +442,6 @@ const LEGACY_CONFIRMED_STATUSES = ['登録日確定'];
 const HEADER_NOTES = {
   'ステータス': '次の3つから選択してください。\n・登録書類到着待\n・登録書類到着済\n・登録予定日確定\n\n「登録予定日確定」を選択すると、登録予定日を入力した日付でカレンダーに表示されます。それ以外は「未定リスト」に表示されます。',
   '登録予定日': 'ステータスが「登録予定日確定」の場合に入力してください（yyyy-mm-dd）。未定の間は空欄のままで構いません。',
-  '拠点': '次から選択してください。\n岐阜 / 大垣 / 多治見 / 高山 / AAA / デモカー / その他',
   '担当者': 'フルネームで入力してください。設定画面の「担当者マスタ」に登録されているフルネームと文字が完全に一致しないと、その担当者のマイページに反映されません（全角/半角や旧姓などの表記ゆれに注意）。このセルの背景色が薄い赤になっている場合、担当者マスタに登録のない名前が入力されています。',
   '車種': '自由入力です。',
   'OSS区分': '「OSS」または「紙登録」を選択してください。',
@@ -445,9 +491,15 @@ function applySheetGuidance_(sheet) {
   const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
   const templateRowCount = 500; // 入力規則・重複チェックを適用しておく行数の目安
 
+  const branchNames = getBranchNames_();
+
   headers.forEach((h, i) => {
     if (HEADER_NOTES[h]) sheet.getRange(1, i + 1).setNote(HEADER_NOTES[h]);
   });
+  const branchColIndex = headers.indexOf('拠点');
+  if (branchColIndex !== -1) {
+    sheet.getRange(1, branchColIndex + 1).setNote('次から選択してください。\n' + branchNames.join(' / ') + '\n\n拠点の追加・変更は設定ページの「拠点設定」から行えます。');
+  }
 
   function applyDropdown_(headerName, options, allowInvalid) {
     const colIndex = headers.indexOf(headerName);
@@ -459,7 +511,7 @@ function applySheetGuidance_(sheet) {
     sheet.getRange(2, colIndex + 1, templateRowCount, 1).setDataValidation(rule);
   }
   applyDropdown_('ステータス', STATUS_OPTIONS, false);
-  applyDropdown_('拠点', BRANCH_OPTIONS, true);
+  applyDropdown_('拠点', branchNames, true);
   applyDropdown_('OSS区分', OSS_OPTIONS, false);
 
   // 顧客名列: 同じシート内に同姓同名（完全一致）が2件以上あるセルを薄いオレンジで塗る
@@ -782,10 +834,12 @@ function ensureCalendarSyncColumn_(sheet, headers) {
 }
 
 // ▼ 指定した車両区分の全シートを巡回し、登録予定日確定済みでまだカレンダー未反映の行を
-//   担当者のGoogleカレンダーに反映する。
+//   担当者のGoogleカレンダーに反映する。原因調査(メニューからの手動実行)に使えるよう、
+//   反映件数・スキップ理由別の件数・詳細メッセージをまとめて返す。
 function syncConfirmedRegistrationsToCalendar_(carType) {
+  const stats = { synced: 0, skippedNoLink: 0, skippedNoCalendar: 0, details: [] };
   const sheets = getDbSheetsForCarType_(carType);
-  if (sheets.length === 0) return;
+  if (sheets.length === 0) return stats;
 
   const emailByName = {};
   getMypageLinks().forEach(l => { if (l.name && l.email) emailByName[l.name] = l.email; });
@@ -811,11 +865,11 @@ function syncConfirmedRegistrationsToCalendar_(carType) {
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
       if (!row.some(cell => cell !== '' && cell !== null)) continue; // 空行はスキップ
-      if (row[syncCol]) continue; // 反映済み
+      if (row[syncCol]) continue; // 反映済み(スキップ理由の集計対象にもしない)
 
       const rawStatus = row[statusCol];
       const status = LEGACY_CONFIRMED_STATUSES.indexOf(rawStatus) !== -1 ? STATUS_CONFIRMED : rawStatus;
-      if (status !== STATUS_CONFIRMED) continue;
+      if (status !== STATUS_CONFIRMED) continue; // 未確定行は対象外(スキップ理由の集計対象にもしない)
 
       const dateVal = row[dateCol];
       if (!dateVal) continue;
@@ -824,11 +878,19 @@ function syncConfirmedRegistrationsToCalendar_(carType) {
 
       const repName = row[repCol];
       const email = repName ? emailByName[String(repName)] : null;
-      if (!email) continue; // 担当者マスタに未登録の担当者は対象外
+      if (!email) {
+        stats.skippedNoLink++;
+        stats.details.push(`${sheet.getName()} ${i + 1}行目: 担当者「${repName || '(空欄)'}」が担当者マスタに未登録`);
+        continue;
+      }
 
       try {
         const calendar = CalendarApp.getCalendarById(email);
-        if (!calendar) continue; // 共有されていない等でアクセスできない場合はスキップ
+        if (!calendar) {
+          stats.skippedNoCalendar++;
+          stats.details.push(`${sheet.getName()} ${i + 1}行目: ${email} のカレンダーが見つかりません(共有設定を確認してください)`);
+          continue;
+        }
         const customerName = String(row[nameCol] || '');
         const model = modelCol !== -1 ? String(row[modelCol] || '') : '';
         const method = ossCol !== -1 ? String(row[ossCol] || '') : '';
@@ -837,7 +899,11 @@ function syncConfirmedRegistrationsToCalendar_(carType) {
         const event = calendar.createAllDayEvent(title, eventDate, { description: description });
         row[syncCol] = event.getId();
         changed = true;
+        stats.synced++;
       } catch (e) {
+        stats.skippedNoCalendar++;
+        const msg = e && e.message ? e.message : e;
+        stats.details.push(`${sheet.getName()} ${i + 1}行目: ${email} への反映でエラー(${msg})`);
         Logger.log('calendar sync failed (sheet=%s, row=%s, email=%s): %s', sheet.getName(), i + 1, email, e && e.stack ? e.stack : e);
       }
     }
@@ -845,12 +911,34 @@ function syncConfirmedRegistrationsToCalendar_(carType) {
       sheet.getRange(1, 1, data.length, data[0].length).setValues(data);
     }
   });
+  return stats;
 }
 function syncConfirmedRegistrationsToCalendarNewCar() {
   syncConfirmedRegistrationsToCalendar_('新車');
 }
 function syncConfirmedRegistrationsToCalendarUsedCar() {
   syncConfirmedRegistrationsToCalendar_('中古車');
+}
+// ▼ トリガーの実行(最大15分間隔)を待たずに今すぐ反映を試し、反映件数とスキップ理由を
+//   アラートで表示する（原因調査用）。スプレッドシートのメニュー「シート設定」から実行できる。
+function menuRunCalendarSyncNow_() {
+  const statsNew = syncConfirmedRegistrationsToCalendar_('新車');
+  const statsUsed = syncConfirmedRegistrationsToCalendar_('中古車');
+  const triggerInstalled = ScriptApp.getProjectTriggers().some(t =>
+    ['syncConfirmedRegistrationsToCalendarNewCar', 'syncConfirmedRegistrationsToCalendarUsedCar'].indexOf(t.getHandlerFunction()) !== -1
+  );
+  const fmt = (label, s) => {
+    const lines = [`【${label}】反映: ${s.synced}件 / 担当者マスタ未登録でスキップ: ${s.skippedNoLink}件 / カレンダーにアクセスできずスキップ: ${s.skippedNoCalendar}件`];
+    if (s.details.length) {
+      const shown = s.details.slice(0, 8);
+      lines.push(shown.join('\n') + (s.details.length > shown.length ? `\n…ほか${s.details.length - shown.length}件` : ''));
+    }
+    return lines.join('\n');
+  };
+  const triggerMsg = triggerInstalled
+    ? '定期実行トリガー: 設定済みです(以後15分間隔で自動実行されます)。'
+    : '定期実行トリガー: まだ設定されていません。「登録予定日確定時のカレンダー自動反映を設定」を実行してください（これを実行しないと定期的な自動反映は行われません）。';
+  SpreadsheetApp.getUi().alert(fmt('新車', statsNew) + '\n\n' + fmt('中古車', statsUsed) + '\n\n' + triggerMsg);
 }
 
 // ▼ 新車・中古車それぞれのカレンダー自動反映を定期実行するトリガーを設置する。

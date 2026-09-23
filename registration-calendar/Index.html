@@ -37,21 +37,11 @@
     .row-scroll::-webkit-scrollbar { width: 6px; }
     .row-scroll::-webkit-scrollbar-thumb { background: #D7DAE2; border-radius: 10px; }
 
-    /* -- お知らせバナー(左から右へ自動的に流れる) -- */
-    .announce-bar { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; background: var(--notice); color: #fff; padding: 8px 16px; font-size: 12px; font-weight: 700; }
-    .announce-track { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; position: relative; height: 16px; }
-    .announce-track-inner { position: absolute; top: 0; left: 100%; white-space: nowrap; animation: announce-marquee 15s linear infinite; }
-    .announce-copy { display: inline-flex; align-items: center; }
-    @keyframes announce-marquee {
-      from { transform: translateX(0); }
-      to { transform: translateX(calc(-100% - var(--announce-track-w, 100vw))); }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .announce-track-inner { animation: none; }
-    }
-    .announce-item { margin-right: 4px; }
+    /* -- お知らせバナー(ヘッダー内に常時・中央固定で表示。個人では閉じられない) -- */
+    .announce-bar { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 10px; background: var(--notice); color: #fff; padding: 16px 20px; font-size: 16px; font-weight: 700; line-height: 1.5; text-align: center; }
+    .announce-track { flex: 0 1 auto; min-width: 0; }
+    .announce-item { margin: 0 4px; }
     .announce-sep { opacity: .55; margin: 0 10px; }
-    .announce-close { border: none; background: rgba(255,255,255,0.2); color: #fff; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; font-size: 9px; }
 
     /* -- コントロールパネル -- */
     .control-panel { width: 212px; flex: 0 0 212px; background: var(--panel-bg); padding: 22px 14px; display: flex; flex-direction: column; box-shadow: 1px 0 0 var(--hairline); position: relative; z-index: 2; height: 100%; overflow-y: auto; }
@@ -425,15 +415,29 @@
     const INITIAL_ANNOUNCEMENTS_USED = <?!= JSON.stringify(initialAnnouncementsUsed || []) ?>;
     const INITIAL_PDF_FOLDER_NEW = <?!= JSON.stringify(initialPdfFolderNew || '') ?>;
     const INITIAL_PDF_FOLDER_USED = <?!= JSON.stringify(initialPdfFolderUsed || '') ?>;
+    const INITIAL_BRANCHES = <?!= JSON.stringify(initialBranches || []) ?>;
 
     const CAR_TYPES = ['新車', '中古車'];
 
-    const branchColors = {
-      '岐阜': { c: '#3B4FD1', bg: '#EEF1FD' }, '大垣': { c: '#16924F', bg: '#E7F7EE' },
-      '多治見': { c: '#7C3AED', bg: '#F2ECFC' }, '高山': { c: '#C2790E', bg: '#FBEFDD' },
-      'AAA': { c: '#C93E77', bg: '#FBEAF1' }, 'デモカー': { c: '#0C7C8C', bg: '#E6F4F6' }, 'その他': { c: '#66707E', bg: '#EFF1F3' },
-    };
-    const branchOrder = Object.keys(branchColors);
+    // ▼ 拠点マスタ(設定ページ「拠点設定」で編集可能)。拠点名や店舗数が異なる別アプリへ
+    //   このコードを流用する際も、ここを直接書き換える必要が無いようにするための仕組み。
+    const FALLBACK_BRANCH = { name: 'その他', c: '#66707E', bg: '#EFF1F3' }; // 拠点マスタに無い拠点名の受け皿(常に存在する)
+    function lightenHex_(hex, amount) {
+      const h = String(hex || FALLBACK_BRANCH.c).replace('#', '');
+      const r = parseInt(h.substring(0, 2), 16) || 0, g = parseInt(h.substring(2, 4), 16) || 0, b = parseInt(h.substring(4, 6), 16) || 0;
+      const mix = (c) => Math.round(c + (255 - c) * amount);
+      const toHex = (c) => c.toString(16).padStart(2, '0').toUpperCase();
+      return '#' + toHex(mix(r)) + toHex(mix(g)) + toHex(mix(b));
+    }
+    function buildBranchColors_(list) {
+      const map = {};
+      list.forEach(b => { map[b.name] = { c: b.color, bg: lightenHex_(b.color, 0.92) }; });
+      map[FALLBACK_BRANCH.name] = { c: FALLBACK_BRANCH.c, bg: FALLBACK_BRANCH.bg };
+      return map;
+    }
+    let branches = (INITIAL_BRANCHES && INITIAL_BRANCHES.length ? INITIAL_BRANCHES : [{ name: '岐阜', color: '#3B4FD1' }]).slice();
+    let branchColors = buildBranchColors_(branches);
+    let branchOrder = branches.map(b => b.name).concat([FALLBACK_BRANCH.name]);
     function branchOrderFor(type) {
       return type === '中古車' ? branchOrder.filter(b => b !== 'デモカー') : branchOrder;
     }
@@ -540,13 +544,16 @@
 
     // お知らせは新車・中古車で別々に保持する。バナーには現在表示中のcarTypeの分だけを出す。
     let announcementsByType = { '新車': INITIAL_ANNOUNCEMENTS_NEW.map(migrateRichItem_), '中古車': INITIAL_ANNOUNCEMENTS_USED.map(migrateRichItem_) };
-    let announceBarVisible = true;
     let announceEditCarType = carType; // 設定ページ「お知らせ設定」で編集対象に選んでいる車両区分
     let pendingAnnouncements = announcementsByType[announceEditCarType].slice();
     let announceDirty = false;
     let announceMsg = '';
 
     let pdfFolderIds = { '新車': INITIAL_PDF_FOLDER_NEW, '中古車': INITIAL_PDF_FOLDER_USED };
+
+    let pendingBranches = branches.slice();
+    let branchesDirty = false;
+    let branchesMsg = '';
 
     let calendarNotices = []; // 現在表示中のカレンダー(carType×年月)の案内一覧
 
@@ -1200,6 +1207,36 @@
         </div>
       `;
     }
+    function branchSectionHTML() {
+      if (!IS_EDITOR) return '';
+      let msg = '';
+      if (branchesMsg) msg = `<span class="theme-msg saved"><i class="fa-solid fa-circle-check"></i> ${branchesMsg}</span>`;
+      else if (branchesDirty) msg = `<span class="theme-msg dirty"><i class="fa-solid fa-circle-exclamation"></i> 未保存の変更があります</span>`;
+      return `
+        <div class="settings-card">
+          <h2 class="settings-card-title"><i class="fa-solid fa-store"></i>拠点設定</h2>
+          <p class="settings-card-desc">カレンダー画面のKPIタイルや、リスト表示・担当者マスタの拠点選択などで使う拠点名と色を管理します。ここで登録した拠点は、スプレッドシート側「拠点」列のプルダウン選択肢にも自動的に反映されます（既存シートには「シート設定 &gt; 全シートにテンプレートを再適用」で反映してください）。「その他」はどの拠点にも一致しないデータの受け皿として常に用意されており、ここで管理する必要はありません。</p>
+          <div class="settings-list" id="branchList">
+            ${pendingBranches.map((b, i) => `
+              <div class="settings-row">
+                <input type="color" class="rich-color-input" data-idx="${i}" data-role="branch-color" value="${escapeAttr(b.color || '#66707E')}" title="この拠点の色">
+                <input type="text" class="settings-input js-branch-name" data-idx="${i}" value="${escapeAttr(b.name || '')}" placeholder="拠点名" style="flex:1;min-width:140px;">
+                <button type="button" class="settings-remove" data-idx="${i}" data-role="branch-remove"><i class="fa-solid fa-xmark"></i></button>
+              </div>
+            `).join('') || `<p style="font-size:12px;color:var(--muted);padding:8px 2px;">拠点が登録されていません。</p>`}
+          </div>
+          <div class="settings-add-row">
+            <input type="color" id="newBranchColor" class="rich-color-input" value="#3B4FD1" title="この拠点の色">
+            <input id="newBranchName" class="settings-input" placeholder="拠点名" style="flex:1;min-width:140px;">
+            <button type="button" id="addBranchBtn" class="settings-add-btn"><i class="fa-solid fa-plus"></i>追加</button>
+          </div>
+          <div class="theme-save-row">
+            <button type="button" class="theme-save-btn" id="branchSaveBtn" ${branchesDirty ? '' : 'disabled'}>保存</button>
+            ${msg}
+          </div>
+        </div>
+      `;
+    }
     function announcementsSectionHTML() {
       if (!IS_EDITOR) return '';
       let msg = '';
@@ -1350,6 +1387,7 @@
           ${themeSectionHTML()}
           ${iconSectionHTML()}
           ${pdfFolderSectionHTML()}
+          ${branchSectionHTML()}
           ${announcementsSectionHTML()}
           ${calendarSettingsSectionHTML()}
           ${mypageLinkSectionHTML()}
@@ -1399,27 +1437,12 @@
 
     function announceBannerHTML() {
       const currentAnnouncements = announcementsByType[carType] || [];
-      if (!announceBarVisible || !currentAnnouncements.length) return '';
+      if (!currentAnnouncements.length) return '';
       const itemsHtml = currentAnnouncements.map(a => `<span class="announce-item">${a.html || escapeHtml(a.text || '')}</span>`).join('<span class="announce-sep">・</span>');
       return `<div class="announce-bar" id="announceBar">
         <i class="fa-solid fa-bullhorn" style="flex:0 0 auto;"></i>
-        <div class="announce-track"><div class="announce-track-inner"><span class="announce-copy">${itemsHtml}</span></div></div>
-        <button type="button" class="announce-close" id="announceCloseBtn" title="閉じる"><i class="fa-solid fa-xmark"></i></button>
+        <div class="announce-track">${itemsHtml}</div>
       </div>`;
-    }
-    // お知らせの文章量に関わらず、必ず画面を一列分横切ってからループするよう、
-    // トラック幅を測って --announce-track-w に反映し、距離に応じて速度(表示秒数)を揃える。
-    function setupAnnounceMarquee() {
-      const track = document.querySelector('.announce-track');
-      const inner = document.querySelector('.announce-track-inner');
-      if (!track || !inner) return;
-      const trackW = track.clientWidth;
-      const contentW = inner.scrollWidth;
-      track.style.setProperty('--announce-track-w', trackW + 'px');
-      const distance = trackW + contentW;
-      const speedPxPerSec = 70;
-      const duration = Math.max(8, Math.min(40, distance / speedPxPerSec));
-      inner.style.animationDuration = duration + 's';
     }
 
     function pageBody() {
@@ -1444,7 +1467,6 @@
       applyTheme(currentTheme);
       wireEvents();
       scrollTodayToTop();
-      setupAnnounceMarquee();
       if (currentPage === 'mypage' && LINKED_NAME) renderMpResults();
     }
 
@@ -1519,9 +1541,6 @@
       if (btnPrev) btnPrev.onclick = () => { currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1); render(); loadCalendarNotices(); };
       const btnNext = document.getElementById('btnNextMonth');
       if (btnNext) btnNext.onclick = () => { currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1); render(); loadCalendarNotices(); };
-
-      const announceClose = document.getElementById('announceCloseBtn');
-      if (announceClose) announceClose.onclick = () => { announceBarVisible = false; render(); };
 
       const HSCROLL_SELECTOR = '.content-col, .kpi-row-top, .kpi-row-bottom';
       root.querySelectorAll('.slide-hint').forEach(btn => {
@@ -1660,6 +1679,41 @@
             .savePdfFolderId(t, val);
         };
       });
+
+      root.querySelectorAll('.js-branch-name').forEach(inp => {
+        inp.oninput = (ev) => { pendingBranches[Number(inp.dataset.idx)].name = ev.target.value; branchesDirty = true; branchesMsg = ''; markDirtyBtn_('branchSaveBtn'); };
+      });
+      root.querySelectorAll('[data-role="branch-color"]').forEach(inp => {
+        inp.oninput = (ev) => { pendingBranches[Number(inp.dataset.idx)].color = ev.target.value; branchesDirty = true; branchesMsg = ''; markDirtyBtn_('branchSaveBtn'); };
+      });
+      root.querySelectorAll('[data-role="branch-remove"]').forEach(btn => {
+        btn.onclick = () => { pendingBranches.splice(Number(btn.dataset.idx), 1); branchesDirty = true; branchesMsg = ''; render(); };
+      });
+      const addBranchBtn = document.getElementById('addBranchBtn');
+      if (addBranchBtn) addBranchBtn.onclick = () => {
+        const nameInput = document.getElementById('newBranchName');
+        const colorInput = document.getElementById('newBranchColor');
+        const name = nameInput.value.trim();
+        if (!name) return;
+        pendingBranches.push({ name, color: colorInput ? colorInput.value : '#3B4FD1' });
+        branchesDirty = true; branchesMsg = '';
+        render();
+      };
+      const branchSaveBtn = document.getElementById('branchSaveBtn');
+      if (branchSaveBtn) branchSaveBtn.onclick = () => {
+        if (typeof google === 'undefined') return;
+        google.script.run
+          .withSuccessHandler(res => {
+            if (res && res.success) {
+              branches = pendingBranches.slice();
+              branchColors = buildBranchColors_(branches);
+              branchOrder = branches.map(b => b.name).concat([FALLBACK_BRANCH.name]);
+              branchesDirty = false; branchesMsg = '保存しました。既存のシートには「シート設定 > 全シートにテンプレートを再適用」を実行すると拠点プルダウンが反映されます'; render();
+            } else if (res) alert(res.message);
+          })
+          .withFailureHandler(e => alert('保存に失敗しました: ' + (e && e.message ? e.message : e)))
+          .saveBranches(pendingBranches);
+      };
 
       const announceCarType = document.getElementById('announceCarType');
       if (announceCarType) announceCarType.onchange = (ev) => {
