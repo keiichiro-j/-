@@ -36,12 +36,12 @@
 
     /* -- お知らせバナー(左から右へ自動的に流れる) -- */
     .announce-bar { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; background: var(--notice); color: #fff; padding: 8px 16px; font-size: 12px; font-weight: 700; }
-    .announce-track { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; }
-    .announce-track-inner { display: inline-flex; white-space: nowrap; animation: announce-marquee 24s linear infinite; }
-    .announce-copy { display: inline-flex; align-items: center; padding-right: 48px; }
+    .announce-track { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; position: relative; height: 16px; }
+    .announce-track-inner { position: absolute; top: 0; left: 100%; white-space: nowrap; animation: announce-marquee 15s linear infinite; }
+    .announce-copy { display: inline-flex; align-items: center; }
     @keyframes announce-marquee {
-      from { transform: translateX(-50%); }
-      to { transform: translateX(0%); }
+      from { transform: translateX(0); }
+      to { transform: translateX(calc(-100% - var(--announce-track-w, 100vw))); }
     }
     @media (prefers-reduced-motion: reduce) {
       .announce-track-inner { animation: none; }
@@ -222,6 +222,7 @@
     .settings-add-row { display: flex; gap: 8px; margin-top: 13px; flex-wrap: wrap; }
     .settings-input { font-size: 12px; border: 1px solid var(--border); background: var(--surface); border-radius: 6px; padding: 8px 11px; color: var(--ink); font-family: inherit; }
     .settings-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+    .settings-color-input { flex: 0 0 30px; width: 30px; height: 30px; padding: 2px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); cursor: pointer; }
     .settings-add-btn { font-size: 12px; font-weight: 700; background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 8px 15px; display: flex; align-items: center; gap: 6px; cursor: pointer; transition: filter .12s ease; }
     .settings-add-btn:hover { filter: brightness(0.92); }
     .settings-add-btn:disabled { background: #E2E5EB; color: #A6ACB8; cursor: default; filter: none; }
@@ -446,6 +447,8 @@
       teal: { name: 'ティール', accent: '#0C7C8C', accentBg: '#E6F4F6', accentInk: '#0A6672', panelBg: '#F2F9FA' },
       purple: { name: 'パープル', accent: '#7C3AED', accentBg: '#F2ECFC', accentInk: '#6425C7', panelBg: '#F8F5FE' },
       slate: { name: 'スレート', accent: '#4B5468', accentBg: '#EEF0F3', accentInk: '#333A4A', panelBg: '#F6F7F9' },
+      navy: { name: 'ネイビー', accent: '#2B4C7E', accentBg: '#EAF0F8', accentInk: '#1F3A63', panelBg: '#F5F8FC' },
+      terracotta: { name: 'テラコッタ', accent: '#C1622D', accentBg: '#FCEEE3', accentInk: '#9C4D22', panelBg: '#FDF8F3' },
     };
 
     let currentTheme = THEMES[INITIAL_THEME] ? INITIAL_THEME : 'indigo';
@@ -684,7 +687,7 @@
         : `<div class="day-entries-track">${entries.map(entryCard).join('')}${hintBtn}</div>`;
       const hasNotice = notices.length > 0;
       const noticeBanner = hasNotice
-        ? `<div class="day-notice-banner"><i class="fa-solid fa-clipboard-list"></i><span>${notices.map(n => escapeHtml(n.text)).join('　・　')}</span></div>`
+        ? `<div class="day-notice-banner"><i class="fa-solid fa-clipboard-list"></i><span>${notices.map(n => `<span${n.color ? ` style="color:${escapeAttr(n.color)};"` : ''}>${escapeHtml(n.text)}</span>`).join('　・　')}</span></div>`
         : '';
 
       return `<div data-day="${day}" data-today="${isToday}" class="date-row${extraClass}${hasNotice ? ' has-notice' : ''}" style="${rowBg ? `background:${rowBg};` : ''}">
@@ -1126,12 +1129,14 @@
           <div class="settings-list" id="announceList">
             ${pendingAnnouncements.map((a, i) => `
               <div class="settings-row">
+                <input type="color" class="settings-color-input js-announce-color" data-idx="${i}" value="${escapeAttr(a.color || '#FFFFFF')}" title="文字色">
                 <span class="s-name">${escapeHtml(a.text)}</span>
                 <button type="button" class="settings-remove" data-idx="${i}" data-role="announce-remove"><i class="fa-solid fa-xmark"></i></button>
               </div>
             `).join('') || `<p style="font-size:12px;color:var(--muted);padding:8px 2px;">お知らせはありません。</p>`}
           </div>
           <div class="settings-add-row">
+            <input type="color" id="newAnnounceColor" class="settings-color-input" value="#FFFFFF" title="文字色">
             <input id="newAnnounceText" class="settings-input" placeholder="お知らせ内容" style="flex:1;min-width:220px;">
             <button type="button" id="addAnnounceBtn" class="settings-add-btn"><i class="fa-solid fa-plus"></i>追加</button>
           </div>
@@ -1168,6 +1173,7 @@
               <div class="settings-row">
                 <input type="date" class="settings-input js-cal-notice-date" data-idx="${i}" value="${escapeAttr(n.date || '')}" style="flex:0 0 150px;">
                 <input type="text" class="settings-input js-cal-notice-text" data-idx="${i}" value="${escapeAttr(n.text || '')}" placeholder="案内内容（例：書類提出締切）" style="flex:1;min-width:160px;">
+                <input type="color" class="settings-color-input js-cal-notice-color" data-idx="${i}" value="${escapeAttr(n.color || '#C2790E')}" title="文字色">
                 <button type="button" class="settings-remove" data-idx="${i}" data-role="calnotice-remove"><i class="fa-solid fa-xmark"></i></button>
               </div>
             `).join('') || `<p style="font-size:12px;color:var(--muted);padding:8px 2px;">案内はまだ設定されていません。</p>`}
@@ -1297,12 +1303,26 @@
     function announceBannerHTML() {
       const currentAnnouncements = announcementsByType[carType] || [];
       if (!announceBarVisible || !currentAnnouncements.length) return '';
-      const itemsHtml = currentAnnouncements.map(a => `<span class="announce-item">${escapeHtml(a.text)}</span>`).join('<span class="announce-sep">・</span>');
+      const itemsHtml = currentAnnouncements.map(a => `<span class="announce-item"${a.color ? ` style="color:${escapeAttr(a.color)};"` : ''}>${escapeHtml(a.text)}</span>`).join('<span class="announce-sep">・</span>');
       return `<div class="announce-bar" id="announceBar">
         <i class="fa-solid fa-bullhorn" style="flex:0 0 auto;"></i>
-        <div class="announce-track"><div class="announce-track-inner"><span class="announce-copy">${itemsHtml}</span><span class="announce-copy">${itemsHtml}</span></div></div>
+        <div class="announce-track"><div class="announce-track-inner"><span class="announce-copy">${itemsHtml}</span></div></div>
         <button type="button" class="announce-close" id="announceCloseBtn" title="閉じる"><i class="fa-solid fa-xmark"></i></button>
       </div>`;
+    }
+    // お知らせの文章量に関わらず、必ず画面を一列分横切ってからループするよう、
+    // トラック幅を測って --announce-track-w に反映し、距離に応じて速度(表示秒数)を揃える。
+    function setupAnnounceMarquee() {
+      const track = document.querySelector('.announce-track');
+      const inner = document.querySelector('.announce-track-inner');
+      if (!track || !inner) return;
+      const trackW = track.clientWidth;
+      const contentW = inner.scrollWidth;
+      track.style.setProperty('--announce-track-w', trackW + 'px');
+      const distance = trackW + contentW;
+      const speedPxPerSec = 70;
+      const duration = Math.max(8, Math.min(40, distance / speedPxPerSec));
+      inner.style.animationDuration = duration + 's';
     }
 
     function pageBody() {
@@ -1327,6 +1347,7 @@
       applyTheme(currentTheme);
       wireEvents();
       scrollTodayToTop();
+      setupAnnounceMarquee();
       if (currentPage === 'mypage' && LINKED_NAME) renderMpResults();
     }
 
@@ -1553,14 +1574,18 @@
       const addAnnounceBtn = document.getElementById('addAnnounceBtn');
       if (addAnnounceBtn) addAnnounceBtn.onclick = () => {
         const input = document.getElementById('newAnnounceText');
+        const colorInput = document.getElementById('newAnnounceColor');
         const text = input.value.trim();
         if (!text) return;
-        pendingAnnouncements.push({ text });
+        pendingAnnouncements.push({ text, color: colorInput ? colorInput.value : '#FFFFFF' });
         announceDirty = true; announceMsg = '';
         render();
       };
       root.querySelectorAll('[data-role="announce-remove"]').forEach(btn => {
         btn.onclick = () => { pendingAnnouncements.splice(Number(btn.dataset.idx), 1); announceDirty = true; announceMsg = ''; render(); };
+      });
+      root.querySelectorAll('.js-announce-color').forEach(inp => {
+        inp.oninput = (ev) => { pendingAnnouncements[Number(inp.dataset.idx)].color = ev.target.value; announceDirty = true; announceMsg = ''; markDirtyBtn_('announceSaveBtn'); };
       });
       const announceSaveBtn = document.getElementById('announceSaveBtn');
       if (announceSaveBtn) announceSaveBtn.onclick = () => {
@@ -1588,10 +1613,13 @@
       root.querySelectorAll('.js-cal-notice-text').forEach(inp => {
         inp.oninput = (ev) => { calSettingsNotices[Number(inp.dataset.idx)].text = ev.target.value; calSettingsDirty = true; markDirtyBtn_('calNoticeSaveBtn'); };
       });
+      root.querySelectorAll('.js-cal-notice-color').forEach(inp => {
+        inp.oninput = (ev) => { calSettingsNotices[Number(inp.dataset.idx)].color = ev.target.value; calSettingsDirty = true; markDirtyBtn_('calNoticeSaveBtn'); };
+      });
       const addCalNoticeBtn = document.getElementById('addCalNoticeBtn');
       if (addCalNoticeBtn) addCalNoticeBtn.onclick = () => {
         if (calSettingsNotices.length >= 10) return;
-        calSettingsNotices.push({ date: '', text: '' });
+        calSettingsNotices.push({ date: '', text: '', color: '#C2790E' });
         calSettingsDirty = true; calSettingsMsg = '';
         render();
       };

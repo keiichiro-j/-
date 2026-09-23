@@ -27,6 +27,7 @@ function onOpen() {
     .addItem('新車・中古車 全シートにテンプレートを再適用', 'menuRefreshAllSheetTemplates_')
     .addSeparator()
     .addItem('車検証PDF自動リンクの定期実行を設定', 'menuSetupPdfLinkTrigger_')
+    .addItem('登録予定日確定時のカレンダー自動反映を設定', 'menuSetupCalendarSyncTrigger_')
     .addToUi();
 }
 function menuCreateNextMonthSheetNewCar_() {
@@ -44,6 +45,10 @@ function menuRefreshAllSheetTemplates_() {
 function menuSetupPdfLinkTrigger_() {
   setupPdfLinkTrigger();
   SpreadsheetApp.getUi().alert('車検証PDF自動リンクの定期実行トリガーを設定しました（既に設定済みの場合は変更ありません）。');
+}
+function menuSetupCalendarSyncTrigger_() {
+  setupCalendarSyncTrigger();
+  SpreadsheetApp.getUi().alert('登録予定日確定時のカレンダー自動反映トリガーを設定しました（既に設定済みの場合は変更ありません）。\n反映先は担当者マスタに登録済みのアカウントのみで、かつ各担当者がこのトリガーの実行アカウントにカレンダーの変更権限を共有している必要があります。');
 }
 
 function doGet() {
@@ -99,7 +104,7 @@ function getDbSheetsForCarType_(carType) {
 //   「氏名(フルネーム) ⇔ Googleアカウント ⇔ 拠点」の対応表であり、上の権限者一覧(EDITOR_EMAILS)とは
 //   別物。ここに登録しても設定ページの管理項目は操作できるようにならない。
 // ============================================================
-const THEME_KEYS = ['indigo', 'green', 'charcoal', 'amber', 'rose', 'teal', 'purple', 'slate'];
+const THEME_KEYS = ['indigo', 'green', 'charcoal', 'amber', 'rose', 'teal', 'purple', 'slate', 'navy', 'terracotta'];
 const MYPAGE_LINK_SHEET_NAME = 'settings_マイページ連携';
 
 // ▼ サイドパネルアイコンの画像をアップロードして保存するGoogleドライブのフォルダID。
@@ -166,6 +171,10 @@ function getAnnouncements(carType) {
     return [];
   }
 }
+// ▼ 文字色として保存してよい値か（HTML属性に埋め込むため、#RRGGBB形式のみ許可する）
+function isValidHexColor_(color) {
+  return /^#[0-9A-Fa-f]{6}$/.test(String(color || ''));
+}
 function saveAnnouncements(carType, list) {
   const userEmail = Session.getActiveUser().getEmail();
   if (!isEditorEmail_(userEmail)) {
@@ -174,7 +183,11 @@ function saveAnnouncements(carType, list) {
   if (CAR_TYPES.indexOf(carType) === -1) return { success: false, message: '不正な車両区分です。' };
   const cleaned = (list || [])
     .filter(a => a && String(a.text || '').trim())
-    .map(a => ({ text: String(a.text).trim() }))
+    .map(a => {
+      const item = { text: String(a.text).trim() };
+      if (isValidHexColor_(a.color)) item.color = String(a.color);
+      return item;
+    })
     .slice(0, 20);
   PropertiesService.getScriptProperties().setProperty(ANNOUNCEMENTS_PROP_PREFIX + carType, JSON.stringify(cleaned));
   return { success: true };
@@ -203,7 +216,11 @@ function saveCalendarNotices(carType, year, month, notices) {
   if (CAR_TYPES.indexOf(carType) === -1) return { success: false, message: '不正な車両区分です。' };
   const cleaned = (notices || [])
     .filter(n => n && n.date && String(n.text || '').trim())
-    .map(n => ({ date: String(n.date), text: String(n.text).trim() }))
+    .map(n => {
+      const item = { date: String(n.date), text: String(n.text).trim() };
+      if (isValidHexColor_(n.color)) item.color = String(n.color);
+      return item;
+    })
     .slice(0, CALENDAR_NOTICE_MAX);
   PropertiesService.getScriptProperties().setProperty(calendarNoticeKey_(carType, year, month), JSON.stringify(cleaned));
   return { success: true };
@@ -364,6 +381,7 @@ const HEADER_NOTES = {
   '顧客名': 'このセルの背景色が薄いオレンジになっている場合、同じシート内に同姓同名の顧客が他にもいます。誤って重複登録していないか確認してください（同月に同名で2台登録される正当なケースもあるため、問題なければそのままで構いません）。',
   '備考': '任意入力です。',
   '車検証リンク': 'この列は自動反映されます。手動で入力しないでください（Google Drive内の車検証PDFフォルダを自動巡回し、顧客名が一致するPDFのリンクを自動で貼り付けます）。',
+  '登録カレンダー反映': 'この列は自動反映されます。手動で入力しないでください（ステータスが「登録予定日確定」になった行について、担当者マスタで紐づいたGoogleアカウントのカレンダーに顧客名・車種・登録方法を自動反映した記録用です）。',
 };
 
 function columnToLetter_(col) {
@@ -447,7 +465,7 @@ function getSheetNameFromDate(dateStr, carType) {
 function getOrCreateDatabaseSheet(sheetName) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(sheetName);
-  const requiredHeaders = ['ステータス', '登録予定日', '拠点', '担当者', '車種', 'OSS区分', '顧客名', '備考', '車検証リンク'];
+  const requiredHeaders = ['ステータス', '登録予定日', '拠点', '担当者', '車種', 'OSS区分', '顧客名', '備考', '車検証リンク', '登録カレンダー反映'];
 
   if (!sheet) {
     sheet = ss.insertSheet(sheetName);
@@ -701,6 +719,126 @@ function autoLinkVehicleInspectionPDFUsedCar() {
 //     関数名変更に伴い古いトリガーが無効化されるため、GASエディタの「トリガー」画面から削除してください。
 function setupPdfLinkTrigger() {
   ['autoLinkVehicleInspectionPDFNewCar', 'autoLinkVehicleInspectionPDFUsedCar'].forEach(fnName => {
+    const alreadyExists = ScriptApp.getProjectTriggers().some(
+      t => t.getHandlerFunction() === fnName
+    );
+    if (alreadyExists) return;
+    ScriptApp.newTrigger(fnName)
+      .timeBased()
+      .everyMinutes(15)
+      .create();
+  });
+}
+
+// ============================================================
+// ▼ 登録予定日確定時の自動カレンダー反映
+//   ステータスが「登録予定日確定」になった行について、担当者マスタ(settings_マイページ連携)で
+//   紐づいているGoogleアカウントのカレンダーに、顧客名・車種・登録方法(OSS区分)を自動反映する。
+//   ・「車検証PDF自動リンク」と同じ考え方で、定期実行トリガー(15分間隔)で動作する
+//     (スプレッドシート編集時に即時実行するonEditトリガーは使わない。onEditは編集した
+//     本人の権限で動くため、他の担当者のカレンダーへは書き込めない)。
+//   ・反映先は担当者マスタに登録済みのアカウントのみ。未登録の担当者名の行は対象外。
+//   ・反映先カレンダーは、このトリガーを設置したアカウントに対して、各担当者が
+//     Googleカレンダーの共有設定で「予定の変更権限」を付与しておく必要がある(要・事前設定)。
+//     共有されていない/カレンダーが見つからない場合はその行だけスキップし、
+//     他の行の処理やトリガー自体は止めない。
+//   ・二重登録を防ぐため、シートに「登録カレンダー反映」列を自動追加し、作成したイベントの
+//     IDを記録する。この列が埋まっている行は再反映しない(手動で編集しないでください)。
+// ============================================================
+const CALENDAR_SYNC_COLUMN = '登録カレンダー反映';
+
+// ▼ 指定シートに「登録カレンダー反映」列が無ければ追加し、その列インデックス(0始まり)を返す。
+//   headers引数(そのシートの見出し配列)は、追加した場合その場で更新する。
+function ensureCalendarSyncColumn_(sheet, headers) {
+  let colIndex = headers.indexOf(CALENDAR_SYNC_COLUMN);
+  if (colIndex !== -1) return colIndex;
+  colIndex = headers.length;
+  sheet.getRange(1, colIndex + 1).setValue(CALENDAR_SYNC_COLUMN);
+  sheet.getRange(1, colIndex + 1).setFontWeight('bold').setBackground('#E8F0FE');
+  if (HEADER_NOTES[CALENDAR_SYNC_COLUMN]) sheet.getRange(1, colIndex + 1).setNote(HEADER_NOTES[CALENDAR_SYNC_COLUMN]);
+  headers.push(CALENDAR_SYNC_COLUMN);
+  return colIndex;
+}
+
+// ▼ 指定した車両区分の全シートを巡回し、登録予定日確定済みでまだカレンダー未反映の行を
+//   担当者のGoogleカレンダーに反映する。
+function syncConfirmedRegistrationsToCalendar_(carType) {
+  const sheets = getDbSheetsForCarType_(carType);
+  if (sheets.length === 0) return;
+
+  const emailByName = {};
+  getMypageLinks().forEach(l => { if (l.name && l.email) emailByName[l.name] = l.email; });
+
+  sheets.forEach(sheet => {
+    const lastCol = sheet.getLastColumn();
+    if (lastCol === 0) return;
+    const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    const statusCol = headers.indexOf('ステータス');
+    const dateCol = headers.indexOf('登録予定日');
+    const nameCol = headers.indexOf('顧客名');
+    const modelCol = headers.indexOf('車種');
+    const ossCol = headers.indexOf('OSS区分');
+    const repCol = headers.indexOf('担当者');
+    if (statusCol === -1 || dateCol === -1 || nameCol === -1 || repCol === -1) return;
+    const syncCol = ensureCalendarSyncColumn_(sheet, headers); // 列追加時はheadersがこの場で伸びる
+
+    // 列追加が発生した可能性があるため、シートの現在の内容を(数式を保持したまま)改めて読み直す
+    const data = getSheetDataPreservingFormulas_(sheet);
+    if (data.length <= 1) return;
+
+    let changed = false;
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      if (!row.some(cell => cell !== '' && cell !== null)) continue; // 空行はスキップ
+      if (row[syncCol]) continue; // 反映済み
+
+      const rawStatus = row[statusCol];
+      const status = LEGACY_CONFIRMED_STATUSES.indexOf(rawStatus) !== -1 ? STATUS_CONFIRMED : rawStatus;
+      if (status !== STATUS_CONFIRMED) continue;
+
+      const dateVal = row[dateCol];
+      if (!dateVal) continue;
+      const eventDate = dateVal instanceof Date ? dateVal : new Date(dateVal);
+      if (isNaN(eventDate.getTime())) continue;
+
+      const repName = row[repCol];
+      const email = repName ? emailByName[String(repName)] : null;
+      if (!email) continue; // 担当者マスタに未登録の担当者は対象外
+
+      try {
+        const calendar = CalendarApp.getCalendarById(email);
+        if (!calendar) continue; // 共有されていない等でアクセスできない場合はスキップ
+        const customerName = String(row[nameCol] || '');
+        const model = modelCol !== -1 ? String(row[modelCol] || '') : '';
+        const method = ossCol !== -1 ? String(row[ossCol] || '') : '';
+        const title = `【登録予定】${customerName}`;
+        const description = `顧客名: ${customerName}\nモデル: ${model}\n登録方法: ${method}\n担当者: ${repName}`;
+        const event = calendar.createAllDayEvent(title, eventDate, { description: description });
+        row[syncCol] = event.getId();
+        changed = true;
+      } catch (e) {
+        Logger.log('calendar sync failed (sheet=%s, row=%s, email=%s): %s', sheet.getName(), i + 1, email, e && e.stack ? e.stack : e);
+      }
+    }
+    if (changed) {
+      sheet.getRange(1, 1, data.length, data[0].length).setValues(data);
+    }
+  });
+}
+function syncConfirmedRegistrationsToCalendarNewCar() {
+  syncConfirmedRegistrationsToCalendar_('新車');
+}
+function syncConfirmedRegistrationsToCalendarUsedCar() {
+  syncConfirmedRegistrationsToCalendar_('中古車');
+}
+
+// ▼ 新車・中古車それぞれのカレンダー自動反映を定期実行するトリガーを設置する。
+//   GASエディタ、またはスプレッドシートのメニュー「シート設定 > 登録予定日確定時のカレンダー
+//   自動反映を設定」から一度だけ実行してください(重複設置は防止済み)。トリガーを設置した
+//   アカウントに対して、各担当者が事前にGoogleカレンダーの共有設定で「予定の変更権限」を
+//   付与しておく必要があります(付与されていない担当者の分はスキップされます)。
+function setupCalendarSyncTrigger() {
+  ['syncConfirmedRegistrationsToCalendarNewCar', 'syncConfirmedRegistrationsToCalendarUsedCar'].forEach(fnName => {
     const alreadyExists = ScriptApp.getProjectTriggers().some(
       t => t.getHandlerFunction() === fnName
     );
