@@ -272,6 +272,14 @@
 - **事前設定が必要です**：この機能はトリガーを設置したアカウント（Googleカレンダーの標準的な共有機能を使う都合上、通常は管理者アカウント）から各担当者のカレンダーへイベントを作成する仕組みのため、**各担当者は自分のGoogleカレンダーを、トリガー設置アカウントに対して「予定の変更権限」付きで共有しておく必要があります**。共有されていない担当者や、担当者マスタに未登録の担当者名が入力された行はスキップされ、他の行の処理やトリガー自体は止まりません（`appsscript.json`に`https://www.googleapis.com/auth/calendar`のスコープを追加しています）。
 - 本番のGoogleカレンダーへの書き込みはサンドボックス環境では実行・確認できないため、ロジック面（対象行の抽出条件、担当者マスタとの突合、二重登録防止の列追加処理）はコードレビューと構文チェックで確認済みですが、実際のカレンダー共有権限まわりの動作は、上記の事前設定を行った上で運用環境で一度ご確認いただくことをおすすめします。
 
+### 29. アプリ全体のフォントをiOS Human Interface Guidelinesに準拠したシステムフォントに変更
+
+「アプリ全体の文字体をiOS Human Interface Design にしてください」というご依頼を受け、Google Fontsから読み込んでいた「Noto Sans JP」（本文）と「JetBrains Mono」（KPI数値・日付・時刻などの数字表示）を廃止し、iOS Human Interface GuidelinesがネイティブUIの標準としているSan Francisco（システムフォント）を使うフォントスタックに切り替えました。
+
+- 新しく`--font-ios`というCSSカスタムプロパティを定義し、`-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic Medium", "Yu Gothic", "Segoe UI", Meiryo, Roboto, sans-serif`というフォントスタックを指定しました。`-apple-system`/`BlinkMacSystemFont`はiOS・macOS・Safari上でSan Francisco（システムフォント）そのものに解決されるキーワードで、iOS Human Interface Guidelinesが推奨する「OS標準フォントをそのまま使う」という考え方に沿っています。San FranciscoはCJK（日本語）グリフを含まないため、AppleデバイスのCJK表示で標準的に使われる「ヒラギノ角ゴシック」をすぐ後ろに続け、それ以外のOS（Windows／Android）でも違和感のないよう各OS標準フォント（Segoe UI・Yu Gothic・Meiryo・Roboto）にフォールバックするようにしています。
+- 本文（`body`）だけでなく、KPI数値・日付バッジの数字・未定リストの件数バッジ・マイページの日付チップ・カレンダーヘッダーの月/年表示など、以前「JetBrains Mono」で等幅表示していた数字系の要素もすべて同じ`--font-ios`に統一しました（桁揃えのための`font-variant-numeric: tabular-nums`指定はそのまま残しており、San Francisco自身が持つ等幅数字機能で引き続き桁が揃います）。
+- 外部フォント（Google Fonts）の読み込み自体をやめたため、`<head>`内の該当`<link>`タグも削除しました。これによりフォントファイルのダウンロード待ちがなくなり、初回表示がわずかに速くなる副次効果もあります。
+
 ## ファイル構成
 
 | ファイル | 内容 |
