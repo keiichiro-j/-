@@ -1486,7 +1486,6 @@
       if (!currentAnnouncements.length) return '';
       const itemsHtml = currentAnnouncements.map(a => `<span class="announce-item">${a.html || escapeHtml(a.text || '')}</span>`).join('<span class="announce-sep">・</span>');
       return `<div class="announce-bar" id="announceBar">
-        <i class="fa-solid fa-bullhorn" style="flex:0 0 auto;"></i>
         <div class="announce-track">${itemsHtml}</div>
       </div>`;
     }
@@ -1514,6 +1513,17 @@
       wireEvents();
       scrollTodayToTop();
       if (currentPage === 'mypage' && LINKED_NAME) renderMpResults();
+    }
+
+    // 設定ページの一覧(拠点/お知らせ/カレンダー案内/担当者マスタ)で項目を追加・削除すると
+    // render()がページ全体を作り直すため、スクロール位置が先頭に戻ってしまう。
+    // それを防ぐため、再描画の前後でスクロール位置を保持する。
+    function renderKeepingSettingsScroll_() {
+      const scroller = document.querySelector('.page-fill-area');
+      const prevScrollTop = scroller ? scroller.scrollTop : 0;
+      render();
+      const newScroller = document.querySelector('.page-fill-area');
+      if (newScroller) newScroller.scrollTop = prevScrollTop;
     }
 
     function scrollTodayToTop() {
@@ -1741,7 +1751,7 @@
         inp.oninput = (ev) => { pendingBranches[Number(inp.dataset.idx)].color = ev.target.value; branchesDirty = true; branchesMsg = ''; markDirtyBtn_('branchSaveBtn'); };
       });
       root.querySelectorAll('[data-role="branch-remove"]').forEach(btn => {
-        btn.onclick = () => { pendingBranches.splice(Number(btn.dataset.idx), 1); branchesDirty = true; branchesMsg = ''; render(); };
+        btn.onclick = () => { pendingBranches.splice(Number(btn.dataset.idx), 1); branchesDirty = true; branchesMsg = ''; renderKeepingSettingsScroll_(); };
       });
       const addBranchBtn = document.getElementById('addBranchBtn');
       if (addBranchBtn) addBranchBtn.onclick = () => {
@@ -1751,7 +1761,7 @@
         if (!name) return;
         pendingBranches.push({ name, color: colorInput ? colorInput.value : '#3B4FD1' });
         branchesDirty = true; branchesMsg = '';
-        render();
+        renderKeepingSettingsScroll_();
       };
       const branchSaveBtn = document.getElementById('branchSaveBtn');
       if (branchSaveBtn) branchSaveBtn.onclick = () => {
@@ -1783,10 +1793,10 @@
         if (!text) return;
         pendingAnnouncements.push({ html: escapeHtml(text), text });
         announceDirty = true; announceMsg = '';
-        render();
+        renderKeepingSettingsScroll_();
       };
       root.querySelectorAll('[data-role="announce-remove"]').forEach(btn => {
-        btn.onclick = () => { pendingAnnouncements.splice(Number(btn.dataset.idx), 1); announceDirty = true; announceMsg = ''; render(); };
+        btn.onclick = () => { pendingAnnouncements.splice(Number(btn.dataset.idx), 1); announceDirty = true; announceMsg = ''; renderKeepingSettingsScroll_(); };
       });
       root.querySelectorAll('[data-role="announce-html"]').forEach(el => {
         el.addEventListener('mouseup', () => captureRichSelection_(el));
@@ -1854,10 +1864,10 @@
         if (calSettingsNotices.length >= 10) return;
         calSettingsNotices.push({ date: '', html: '', text: '' });
         calSettingsDirty = true; calSettingsMsg = '';
-        render();
+        renderKeepingSettingsScroll_();
       };
       root.querySelectorAll('[data-role="calnotice-remove"]').forEach(btn => {
-        btn.onclick = () => { calSettingsNotices.splice(Number(btn.dataset.idx), 1); calSettingsDirty = true; calSettingsMsg = ''; render(); };
+        btn.onclick = () => { calSettingsNotices.splice(Number(btn.dataset.idx), 1); calSettingsDirty = true; calSettingsMsg = ''; renderKeepingSettingsScroll_(); };
       });
       root.querySelectorAll('[data-role="calnotice-html"]').forEach(el => {
         el.addEventListener('mouseup', () => captureRichSelection_(el));
@@ -1923,10 +1933,10 @@
         if (!name || !email) return;
         mypageLinks.push({ name, email, branch, carType: linkCarType, isEditor: false });
         mypageLinksDirty = true; mypageLinksMsg = '';
-        render();
+        renderKeepingSettingsScroll_();
       };
       root.querySelectorAll('[data-role="link-remove"]').forEach(btn => {
-        btn.onclick = () => { mypageLinks.splice(Number(btn.dataset.idx), 1); mypageLinksDirty = true; mypageLinksMsg = ''; render(); };
+        btn.onclick = () => { mypageLinks.splice(Number(btn.dataset.idx), 1); mypageLinksDirty = true; mypageLinksMsg = ''; renderKeepingSettingsScroll_(); };
       });
       const linkSaveBtn = document.getElementById('linkSaveBtn');
       if (linkSaveBtn) linkSaveBtn.onclick = () => {
