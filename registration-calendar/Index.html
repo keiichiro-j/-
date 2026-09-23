@@ -38,7 +38,7 @@
     .row-scroll::-webkit-scrollbar-thumb { background: #D7DAE2; border-radius: 10px; }
 
     /* -- お知らせバナー(ヘッダー内に常時・中央固定で表示。個人では閉じられない) -- */
-    .announce-bar { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 10px; background: var(--notice); color: #fff; padding: 16px 20px; font-size: 16px; font-weight: 700; line-height: 1.5; text-align: center; }
+    .announce-bar { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 10px; background: var(--accent); color: var(--announce-ink, #fff); padding: 16px 20px; font-size: 16px; font-weight: 700; line-height: 1.5; text-align: center; }
     .announce-track { flex: 0 1 auto; min-width: 0; }
     .announce-item { margin: 0 4px; }
     .announce-sep { opacity: .55; margin: 0 10px; }
@@ -415,12 +415,14 @@
     const INITIAL_ANNOUNCEMENTS_USED = <?!= JSON.stringify(initialAnnouncementsUsed || []) ?>;
     const INITIAL_PDF_FOLDER_NEW = <?!= JSON.stringify(initialPdfFolderNew || '') ?>;
     const INITIAL_PDF_FOLDER_USED = <?!= JSON.stringify(initialPdfFolderUsed || '') ?>;
-    const INITIAL_BRANCHES = <?!= JSON.stringify(initialBranches || []) ?>;
+    const INITIAL_BRANCHES_NEW = <?!= JSON.stringify(initialBranchesNew || []) ?>;
+    const INITIAL_BRANCHES_USED = <?!= JSON.stringify(initialBranchesUsed || []) ?>;
 
     const CAR_TYPES = ['新車', '中古車'];
 
-    // ▼ 拠点マスタ(設定ページ「拠点設定」で編集可能)。拠点名や店舗数が異なる別アプリへ
-    //   このコードを流用する際も、ここを直接書き換える必要が無いようにするための仕組み。
+    // ▼ 拠点マスタ(設定ページ「拠点設定」で編集可能。新車・中古車それぞれ別に設定できる)。
+    //   拠点名や店舗数が異なる別アプリへこのコードを流用する際も、ここを直接書き換える
+    //   必要が無いようにするための仕組み。
     const FALLBACK_BRANCH = { name: 'その他', c: '#66707E', bg: '#EFF1F3' }; // 拠点マスタに無い拠点名の受け皿(常に存在する)
     function lightenHex_(hex, amount) {
       const h = String(hex || FALLBACK_BRANCH.c).replace('#', '');
@@ -435,11 +437,37 @@
       map[FALLBACK_BRANCH.name] = { c: FALLBACK_BRANCH.c, bg: FALLBACK_BRANCH.bg };
       return map;
     }
-    let branches = (INITIAL_BRANCHES && INITIAL_BRANCHES.length ? INITIAL_BRANCHES : [{ name: '岐阜', color: '#3B4FD1' }]).slice();
-    let branchColors = buildBranchColors_(branches);
-    let branchOrder = branches.map(b => b.name).concat([FALLBACK_BRANCH.name]);
+    function normalizeBranchList_(list) {
+      return (list && list.length ? list : [{ name: '岐阜', color: '#3B4FD1' }]).slice();
+    }
+    let branchesByType = {
+      '新車': normalizeBranchList_(INITIAL_BRANCHES_NEW),
+      '中古車': normalizeBranchList_(INITIAL_BRANCHES_USED),
+    };
+    let branchColorsByType = {
+      '新車': buildBranchColors_(branchesByType['新車']),
+      '中古車': buildBranchColors_(branchesByType['中古車']),
+    };
+    // 現在表示中の車両区分(carType)に連動する「今使う」拠点情報。carType切り替え時・
+    // 拠点設定の保存時にsyncBranchesForCurrentType_()で更新する（下のcarType宣言直後にも呼ぶ）。
+    let branches, branchColors, branchOrder;
+    function syncBranchesForCurrentType_() {
+      branches = branchesByType[carType];
+      branchColors = branchColorsByType[carType];
+      branchOrder = branches.map(b => b.name).concat([FALLBACK_BRANCH.name]);
+    }
+    // carTypeが「現在表示中」かどうかによらず、指定した車両区分の拠点順を返す
+    // （車両区分を切り替える処理の途中など、まだcarTypeが更新される前でも正しい値を返せるようにするため）。
     function branchOrderFor(type) {
-      return type === '中古車' ? branchOrder.filter(b => b !== 'デモカー') : branchOrder;
+      const order = (branchesByType[type] || branches).map(b => b.name).concat([FALLBACK_BRANCH.name]);
+      return type === '中古車' ? order.filter(b => b !== 'デモカー') : order;
+    }
+    // 担当者マスタの拠点選択は車両区分に紐づかないため、新車・中古車両方の拠点名をまとめて出す
+    function allBranchNamesUnion_() {
+      const set = new Set();
+      CAR_TYPES.forEach(t => { (branchesByType[t] || []).forEach(b => set.add(b.name)); });
+      set.add(FALLBACK_BRANCH.name);
+      return Array.from(set);
     }
     const dow = ['日', '月', '火', '水', '木', '金', '土'];
 
@@ -472,6 +500,14 @@
     let sidePanelIconUrl = INITIAL_SIDE_ICON_URL;
     let sideIconFolderId = INITIAL_SIDE_ICON_FOLDER_ID;
 
+    // ▼ 背景色(hex)に対して、黒文字・白文字のどちらが見やすいかをおおまかな輝度で判定する。
+    //   お知らせ帯のテーマ連動色は明るいテーマ色が来る可能性もあるため、白固定にせずここで判定する。
+    function readableInkFor_(hex) {
+      const h = String(hex || '#000000').replace('#', '');
+      const r = parseInt(h.substring(0, 2), 16) || 0, g = parseInt(h.substring(2, 4), 16) || 0, b = parseInt(h.substring(4, 6), 16) || 0;
+      const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+      return luminance > 0.6 ? '#1A1F36' : '#FFFFFF';
+    }
     function applyTheme(key) {
       const t = THEMES[key];
       const root = document.documentElement.style;
@@ -479,6 +515,9 @@
       root.setProperty('--accent-bg', t.accentBg);
       root.setProperty('--accent-ink', t.accentInk);
       root.setProperty('--panel-bg', t.panelBg);
+      // お知らせ帯はテーマのアクセントカラーを背景に使うため、文字色(個別に色指定が無い部分)も
+      // 背景の明暗に応じて自動的に読みやすい方(黒 or 白)に切り替える
+      root.setProperty('--announce-ink', readableInkFor_(t.accent));
     }
 
     // ---- 日本の祝日判定(固定日＋ハッピーマンデー＋春分/秋分＋振替休日/国民の休日) ----
@@ -527,6 +566,7 @@
     // ---- データ ----
     // 担当者マスタで担当車両区分が紐づいていれば、アプリを開いた瞬間からそのカレンダーを表示する
     let carType = CAR_TYPES.indexOf(LINKED_CAR_TYPE) !== -1 ? LINKED_CAR_TYPE : '新車';
+    syncBranchesForCurrentType_();
     let allRecords = [];
     let currentDate = new Date();
     let currentPage = 'calendar';
@@ -551,7 +591,8 @@
 
     let pdfFolderIds = { '新車': INITIAL_PDF_FOLDER_NEW, '中古車': INITIAL_PDF_FOLDER_USED };
 
-    let pendingBranches = branches.slice();
+    let branchEditCarType = carType; // 設定ページ「拠点設定」で編集対象に選んでいる車両区分
+    let pendingBranches = branchesByType[branchEditCarType].slice();
     let branchesDirty = false;
     let branchesMsg = '';
 
@@ -1215,7 +1256,12 @@
       return `
         <div class="settings-card">
           <h2 class="settings-card-title"><i class="fa-solid fa-store"></i>拠点設定</h2>
-          <p class="settings-card-desc">カレンダー画面のKPIタイルや、リスト表示・担当者マスタの拠点選択などで使う拠点名と色を管理します。ここで登録した拠点は、スプレッドシート側「拠点」列のプルダウン選択肢にも自動的に反映されます（既存シートには「シート設定 &gt; 全シートにテンプレートを再適用」で反映してください）。「その他」はどの拠点にも一致しないデータの受け皿として常に用意されており、ここで管理する必要はありません。</p>
+          <p class="settings-card-desc">カレンダー画面のKPIタイルや、リスト表示・担当者マスタの拠点選択などで使う拠点名と色を管理します。新車・中古車で別々に設定でき、それぞれのシート「拠点」列のプルダウン選択肢にも自動的に反映されます（既存シートには「シート設定 &gt; 全シートにテンプレートを再適用」で反映してください）。「その他」はどの拠点にも一致しないデータの受け皿として常に用意されており、ここで管理する必要はありません。</p>
+          <div style="margin-bottom:14px;">
+            <select id="branchEditCarType" class="settings-input">
+              ${CAR_TYPES.map(t => `<option value="${t}" ${branchEditCarType === t ? 'selected' : ''}>${t}の拠点を編集</option>`).join('')}
+            </select>
+          </div>
           <div class="settings-list" id="branchList">
             ${pendingBranches.map((b, i) => `
               <div class="settings-row">
@@ -1354,7 +1400,7 @@
             <input id="newLinkEmail" class="settings-input" placeholder="Googleアカウント" style="flex:1.6;min-width:180px;">
             <select id="newLinkBranch" class="settings-input">
               <option value="">拠点を選択</option>
-              ${branchOrder.map(b => `<option value="${b}">${b}</option>`).join('')}
+              ${allBranchNamesUnion_().map(b => `<option value="${b}">${b}</option>`).join('')}
             </select>
             <select id="newLinkCarType" class="settings-input">
               <option value="">初期カレンダー: 未設定</option>
@@ -1515,6 +1561,7 @@
             const t = btn.dataset.cartype;
             if (t === carType && currentPage === 'calendar') return;
             carType = t; currentPage = 'calendar'; sidebarOpen = false;
+            syncBranchesForCurrentType_();
             // 拠点フィルターが新しい車両区分では選べない拠点(例: 中古車のデモカー)を
             // 指しているままだと、選択肢が消えて実際の絞り込みと表示がずれるため戻す
             if (listSearch.branch !== 'ALL' && !branchOrderFor(t).includes(listSearch.branch)) listSearch.branch = 'ALL';
@@ -1680,6 +1727,13 @@
         };
       });
 
+      const branchEditCarTypeSel = document.getElementById('branchEditCarType');
+      if (branchEditCarTypeSel) branchEditCarTypeSel.onchange = (ev) => {
+        branchEditCarType = ev.target.value;
+        pendingBranches = branchesByType[branchEditCarType].slice();
+        branchesDirty = false; branchesMsg = '';
+        render();
+      };
       root.querySelectorAll('.js-branch-name').forEach(inp => {
         inp.oninput = (ev) => { pendingBranches[Number(inp.dataset.idx)].name = ev.target.value; branchesDirty = true; branchesMsg = ''; markDirtyBtn_('branchSaveBtn'); };
       });
@@ -1705,14 +1759,14 @@
         google.script.run
           .withSuccessHandler(res => {
             if (res && res.success) {
-              branches = pendingBranches.slice();
-              branchColors = buildBranchColors_(branches);
-              branchOrder = branches.map(b => b.name).concat([FALLBACK_BRANCH.name]);
+              branchesByType[branchEditCarType] = pendingBranches.slice();
+              branchColorsByType[branchEditCarType] = buildBranchColors_(branchesByType[branchEditCarType]);
+              if (branchEditCarType === carType) syncBranchesForCurrentType_();
               branchesDirty = false; branchesMsg = '保存しました。既存のシートには「シート設定 > 全シートにテンプレートを再適用」を実行すると拠点プルダウンが反映されます'; render();
             } else if (res) alert(res.message);
           })
           .withFailureHandler(e => alert('保存に失敗しました: ' + (e && e.message ? e.message : e)))
-          .saveBranches(pendingBranches);
+          .saveBranches(branchEditCarType, pendingBranches);
       };
 
       const announceCarType = document.getElementById('announceCarType');
@@ -1931,7 +1985,8 @@
     }
     function openModal(record) {
       if (!record) return;
-      const c = branchColors[record.拠点] || branchColors['その他'];
+      const recordBranchColors = branchColorsByType[record.車両区分] || branchColors;
+      const c = recordBranchColors[record.拠点] || recordBranchColors[FALLBACK_BRANCH.name];
       const pdfBtn = hasPdfLink(record)
         ? `<button type="button" class="action-btn js-pdf-link" data-url="${escapeAttr(record.車検証リンク)}"><i class="fa-solid fa-file-pdf"></i>車検証PDFを開く</button>`
         : `<span style="font-size:12px;color:var(--muted);">未アップロード</span>`;

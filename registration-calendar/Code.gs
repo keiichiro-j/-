@@ -69,7 +69,8 @@ function doGet() {
   template.initialAnnouncementsUsed = getAnnouncements('中古車');
   template.initialPdfFolderNew = getPdfFolderId('新車');
   template.initialPdfFolderUsed = getPdfFolderId('中古車');
-  template.initialBranches = getBranches();
+  template.initialBranchesNew = getBranches('新車');
+  template.initialBranchesUsed = getBranches('中古車');
 
   return template.evaluate()
     .setTitle('登録カレンダー')
@@ -249,10 +250,11 @@ function saveCalendarNotices(carType, year, month, notices) {
   return { success: true };
 }
 
-// ▼ 拠点マスタ（拠点名・KPIタイルやリストで使う色）。権限者が設定ページから編集できる。
-//   同じアプリのコードを複数店舗で使い回す際、拠点名をコードに直書きせずここで管理することで、
-//   コードを一切変更せずに拠点構成だけを店舗ごとに変えられるようにしている。
-const BRANCHES_PROP_KEY = 'branches';
+// ▼ 拠点マスタ（拠点名・KPIタイルやリストで使う色）。新車・中古車それぞれ別に、
+//   権限者が設定ページから編集できる。同じアプリのコードを複数店舗で使い回す際、拠点名を
+//   コードに直書きせずここで管理することで、コードを一切変更せずに拠点構成だけを
+//   店舗ごとに変えられるようにしている。
+const BRANCHES_PROP_PREFIX = 'branches_';
 const DEFAULT_BRANCHES = [
   { name: '岐阜', color: '#3B4FD1' },
   { name: '大垣', color: '#16924F' },
@@ -264,8 +266,9 @@ const DEFAULT_BRANCHES = [
 function isValidHexColor_(color) {
   return /^#[0-9A-Fa-f]{6}$/.test(String(color || ''));
 }
-function getBranches() {
-  const raw = PropertiesService.getScriptProperties().getProperty(BRANCHES_PROP_KEY);
+function getBranches(carType) {
+  const type = CAR_TYPES.indexOf(carType) !== -1 ? carType : '新車';
+  const raw = PropertiesService.getScriptProperties().getProperty(BRANCHES_PROP_PREFIX + type);
   if (!raw) return DEFAULT_BRANCHES.slice();
   try {
     const parsed = JSON.parse(raw);
@@ -275,14 +278,20 @@ function getBranches() {
   }
 }
 // ▼ スプレッドシート側（拠点のプルダウン入力規則など）から参照するための、拠点名だけの配列
-function getBranchNames_() {
-  return getBranches().map(b => b.name);
+function getBranchNames_(carType) {
+  return getBranches(carType).map(b => b.name);
 }
-function saveBranches(branches) {
+// ▼ シート名(例: "db_登録データ_中古_2026_9月")から、そのシートが新車・中古車どちらの
+//   拠点マスタを使うべきかを判定する
+function carTypeForSheetName_(sheetName) {
+  return String(sheetName).startsWith(USED_CAR_SHEET_PREFIX) ? '中古車' : '新車';
+}
+function saveBranches(carType, branches) {
   const userEmail = Session.getActiveUser().getEmail();
   if (!isEditorEmail_(userEmail)) {
     return { success: false, message: '権限者のみ変更できます。' };
   }
+  if (CAR_TYPES.indexOf(carType) === -1) return { success: false, message: '不正な車両区分です。' };
   const cleaned = (branches || [])
     .filter(b => b && String(b.name || '').trim())
     .map(b => ({
@@ -291,7 +300,7 @@ function saveBranches(branches) {
     }))
     .slice(0, 30);
   if (!cleaned.length) return { success: false, message: '拠点を1件以上登録してください。' };
-  PropertiesService.getScriptProperties().setProperty(BRANCHES_PROP_KEY, JSON.stringify(cleaned));
+  PropertiesService.getScriptProperties().setProperty(BRANCHES_PROP_PREFIX + carType, JSON.stringify(cleaned));
   return { success: true };
 }
 
@@ -491,7 +500,7 @@ function applySheetGuidance_(sheet) {
   const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
   const templateRowCount = 500; // 入力規則・重複チェックを適用しておく行数の目安
 
-  const branchNames = getBranchNames_();
+  const branchNames = getBranchNames_(carTypeForSheetName_(sheet.getName()));
 
   headers.forEach((h, i) => {
     if (HEADER_NOTES[h]) sheet.getRange(1, i + 1).setNote(HEADER_NOTES[h]);
