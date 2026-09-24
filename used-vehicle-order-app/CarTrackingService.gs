@@ -32,12 +32,23 @@
  */
 
 /**
+ * 在庫リストの区分（category）の値と、対象区分（デモカー／サービス）を比較する。
+ * 区分は自由記述のテキスト列のため、スプレッドシート側で前後に空白が入って
+ * しまっていても正しく一致と判定できるよう、前後の空白を無視して比較する
+ * （不具合修正: 空白が原因で「デモカー」と完全一致せず、区分デモカーの車両が
+ * 一件もデモカーリストに反映されないという事象があったため）。
+ */
+function categoryMatchesCarTracking_(category, targetValue) {
+  return String(category || '').trim() === targetValue;
+}
+
+/**
  * 区分の値から、対象のデモカーリスト／サービス代車リストのシートを返す
  * （対象外の区分の場合はnull）。
  */
 function carTrackingSheetForCategory_(category) {
-  if (category === DEMO_CAR_CATEGORY_VALUE) return getDemoCarListSheet_();
-  if (category === SERVICE_CAR_CATEGORY_VALUE) return getServiceCarListSheet_();
+  if (categoryMatchesCarTracking_(category, DEMO_CAR_CATEGORY_VALUE)) return getDemoCarListSheet_();
+  if (categoryMatchesCarTracking_(category, SERVICE_CAR_CATEGORY_VALUE)) return getServiceCarListSheet_();
   return null;
 }
 
@@ -63,7 +74,7 @@ function markCarTrackingIfApplicable_(vehicle, saleStatus) {
  * しまうことを避ける）。
  */
 function syncCarTrackingFromInventory_(sheet, categoryValue) {
-  var liveVehicles = listInventory().filter(function (v) { return v.category === categoryValue; });
+  var liveVehicles = listInventory().filter(function (v) { return categoryMatchesCarTracking_(v.category, categoryValue); });
   liveVehicles.forEach(function (v) {
     upsertCarTrackingRow_(sheet, v, CAR_TRACKING_STATUS.IN_STOCK);
   });

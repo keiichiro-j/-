@@ -470,6 +470,69 @@ function syncCarTrackingListsManually_() {
 }
 
 /**
+ * 「在庫リストを編集しても、デモカーリスト・サービス代車リストに自動で
+ * 反映されない」という問い合わせ向けの診断関数（diagnoseInventoryData_と
+ * 同じ位置づけ）。考えられる主な原因を、実際のデータから機械的に切り分ける:
+ *   (1) 在庫リスト編集時の自動反映トリガー（triggerInventoryEdited、
+ *       Triggers.gs参照）が実際には作成されていない（初期セットアップが
+ *       最新のコードで実行されていない等）。
+ *   (2) デモカーリスト・サービス代車リストのシート自体が存在しない。
+ *   (3) 在庫リストの区分の件数と、各シートへ反映済みの件数が食い違っている
+ *       （区分の表記ゆれ・トリガーが動いていない等の可能性）。
+ * スプレッドシートのメニュー「販売可能リスト」→「デモカー/サービス代車リスト
+ * 自動反映の動作確認」から実行できる。
+ */
+function diagnoseCarTrackingTriggers_() {
+  var lines = [];
+
+  var editTrigger = ScriptApp.getProjectTriggers().find(function (t) {
+    return t.getHandlerFunction() === 'triggerInventoryEdited' && t.getEventType() === ScriptApp.EventType.ON_EDIT;
+  });
+  if (editTrigger) {
+    lines.push('✅ 在庫リスト編集時の自動反映トリガー（triggerInventoryEdited）は設定されています。');
+  } else {
+    lines.push('❌ 在庫リスト編集時の自動反映トリガーが見つかりません。');
+    lines.push('対処: 「初期セットアップ（7タブを作成）」を実行してください（既存データは変更されず、');
+    lines.push('トリガーのみ作り直されます）。それでも直らない場合は、Apps Scriptエディタ左側の');
+    lines.push('「トリガー」（時計アイコン）画面を開き、triggerInventoryEditedのエラーの有無を確認してください。');
+  }
+  lines.push('');
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  [
+    { categoryValue: DEMO_CAR_CATEGORY_VALUE, sheetName: SHEET_NAMES.DEMO_CAR_LIST },
+    { categoryValue: SERVICE_CAR_CATEGORY_VALUE, sheetName: SHEET_NAMES.SERVICE_CAR_LIST }
+  ].forEach(function (t) {
+    var sheet = ss.getSheetByName(t.sheetName);
+    if (!sheet) {
+      lines.push('❌ 「' + t.sheetName + '」タブが見つかりません。初期セットアップを実行してください。');
+      return;
+    }
+    var liveCount = listInventory().filter(function (v) { return categoryMatchesCarTracking_(v.category, t.categoryValue); }).length;
+    var trackedCount = listCarTracking_(sheet).length;
+    lines.push('✅ 「' + t.sheetName + '」タブが見つかりました。');
+    lines.push('　　在庫リストの区分「' + t.categoryValue + '」: ' + liveCount + '件 ／ ' + t.sheetName + 'に反映済み: ' + trackedCount + '件');
+    if (liveCount !== trackedCount) {
+      lines.push('　　⚠️ 件数が一致していません。区分の値が「' + t.categoryValue + '」と完全一致しているか');
+      lines.push('　　　（全角半角・前後の空白の違いにご注意ください）、ご確認のうえ、下記の対処をお試しください。');
+    }
+  });
+  lines.push('');
+  lines.push('件数が食い違う場合は、メニュー「デモカーリスト・サービス代車リストを在庫リストの内容で');
+  lines.push('更新」を実行すると、その場で最新の内容に同期されます（このボタン自体は常に動作します。');
+  lines.push('トリガーの有無に関わらず、在庫リストの最新内容へ即座に同期し直せます）。');
+
+  var message = lines.join('\n');
+  Logger.log(message);
+  try {
+    SpreadsheetApp.getUi().alert('デモカー/サービス代車リスト 自動反映の診断結果', message, SpreadsheetApp.getUi().ButtonSet.OK);
+  } catch (e) {
+    // Apps Scriptエディタから直接実行した場合はUIが無いため、ここには来るが無視してよい。
+  }
+  return message;
+}
+
+/**
  * コンテナバインドのスプレッドシートを開いたときに、セットアップ用のメニューを追加する
  * （単純トリガー）。スタンドアロン運用の場合は動作しないため、GASエディタから
  * setupSpreadsheet_() を直接実行すればよい。
@@ -479,6 +542,7 @@ function onOpen() {
     .createMenu('販売可能リスト')
     .addItem('初期セットアップ（7タブを作成）', 'setupSpreadsheet_')
     .addItem('デモカーリスト・サービス代車リストを在庫リストの内容で更新', 'syncCarTrackingListsManually_')
+    .addItem('デモカー/サービス代車リスト 自動反映の動作確認', 'diagnoseCarTrackingTriggers_')
     .addItem('在庫データの読み込み状況を確認', 'diagnoseInventoryData_')
     .addItem('入力規則を解除し、説明メモ・タブの見た目を再設定', 'removeSelectValidationsAndRefreshNotes_')
     .addItem('ＯＣＮ・コミッション列を書式なしテキストに再設定', 'formatCommissionColumnsAsText_')
