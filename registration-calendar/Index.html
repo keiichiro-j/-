@@ -47,7 +47,7 @@
     /* -- コントロールパネル -- */
     .control-panel { width: 212px; flex: 0 0 212px; background: var(--panel-bg); padding: 22px 14px; display: flex; flex-direction: column; box-shadow: 1px 0 0 var(--hairline); position: relative; z-index: 2; height: 100%; overflow-y: auto; }
     .cp-header { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 22px; }
-    .cp-icon-mark { width: 42px; height: 42px; border-radius: 50%; background: var(--accent); box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 17px; margin-bottom: 8px; overflow: hidden; }
+    .cp-icon-mark { width: 60px; height: 60px; border-radius: 50%; background: var(--accent); box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 24px; margin-bottom: 8px; overflow: hidden; flex: none; }
     .cp-icon-mark img { width: 100%; height: 100%; object-fit: cover; }
     .cp-logo { font-size: 13px; font-weight: 800; color: var(--ink); margin-bottom: 2px; letter-spacing: -0.005em; }
     .cp-logo-sub { font-size: 10.5px; color: var(--muted); font-weight: 600; }
@@ -265,7 +265,7 @@
             page-fill-areaだけがスクロールする固定シェルの一部になるため、position:stickyは不要 -- */
       .control-panel { width: 100%; flex: 0 0 auto; height: auto; flex-direction: row; align-items: center; justify-content: space-between; padding: 10px 14px; overflow-x: visible; border-bottom: 1px solid var(--hairline); }
       .cp-header { flex-direction: row; margin-bottom: 0; margin-right: 0; }
-      .cp-icon-mark { margin-bottom: 0; margin-right: 8px; width: 32px; height: 32px; font-size: 13px; }
+      .cp-icon-mark { margin-bottom: 0; margin-right: 8px; width: 42px; height: 42px; font-size: 16px; }
       .cp-logo-sub { display: none; }
       .cp-nav { flex-direction: row; flex: 0 0 auto; }
       .cp-nav > .cp-nav-item { display: none; } /* ページナビは下部のタブバーに置き換え */
@@ -410,6 +410,7 @@
     const INITIAL_THEME = <?!= JSON.stringify(initialTheme || 'indigo') ?>;
     const INITIAL_SIDE_ICON_URL = <?!= JSON.stringify(initialSideIconUrl || '') ?>;
     const INITIAL_SIDE_ICON_FOLDER_ID = <?!= JSON.stringify(initialSideIconFolderId || '') ?>;
+    const INITIAL_SIDE_ICON_EXTERNAL_URL = <?!= JSON.stringify(initialSideIconExternalUrl || '') ?>;
     const LINKED_NAME = <?!= JSON.stringify(linkedName || '') ?>;
     const LINKED_CAR_TYPE = <?!= JSON.stringify(linkedCarType || '') ?>;
     const LINKED_BRANCH = <?!= JSON.stringify(linkedBranch || '') ?>;
@@ -505,6 +506,7 @@
     let themeMessage = '';
     let sidePanelIconUrl = INITIAL_SIDE_ICON_URL;
     let sideIconFolderId = INITIAL_SIDE_ICON_FOLDER_ID;
+    let sideIconExternalUrlValue = INITIAL_SIDE_ICON_EXTERNAL_URL;
 
     // ▼ 背景色(hex)に対して、黒文字・白文字のどちらが見やすいかをおおまかな輝度で判定する。
     //   お知らせ帯のテーマ連動色は明るいテーマ色が来る可能性もあるため、白固定にせずここで判定する。
@@ -832,7 +834,13 @@
       if (isPast) { rowBg = 'var(--past-bg)'; }
       badgeTextColor = ink;
       let extraClass = '';
-      if (isToday) { extraClass = ' is-today'; ink = 'var(--accent-ink)'; badgeFill = 'var(--accent)'; badgeTextColor = '#fff'; rowBg = ''; }
+      if (isToday) {
+        extraClass = ' is-today';
+        ink = 'var(--accent-ink)'; badgeFill = 'var(--accent)'; badgeTextColor = '#fff';
+        // 当日18:00以降は、実質その日の受付が終わっていることが多いため背景だけグレーにする。
+        // 「今日」を示す枠(is-todayのアクセント縁取り)はそのまま残し、背景色だけ上書きする。
+        rowBg = (new Date().getHours() >= 18) ? 'var(--past-bg)' : '';
+      }
 
       const hintBtn = hasOverflow ? `<button type="button" class="slide-hint" title="横にスライドしてさらに表示"><i class="fa-solid fa-chevron-right"></i></button>` : '';
       const content = entries.length === 0
@@ -1240,26 +1248,35 @@
       return `
         <div class="settings-card">
           <h2 class="settings-card-title"><i class="fa-solid fa-icons"></i>サイドパネルアイコン設定</h2>
-          <p class="settings-card-desc">左サイドパネル上部中央に表示するアイコン画像をアップロードできます。大きな画像を選んでも、アップロード時に自動で縮小されるため、常に一定サイズの円形アイコンとして表示されます。全ユーザーの画面に反映されます。この項目は権限者としてログインした場合のみ表示されます。</p>
-          <div class="settings-subblock">
-            <label style="font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;display:block;">画像の保存先 Drive フォルダ</label>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <input type="text" id="iconFolderIdInput" class="settings-input" placeholder="DriveフォルダのURL、またはIDのみ" value="${escapeAttr(sideIconFolderId)}" style="flex:1;min-width:220px;">
-              <button type="button" class="settings-add-btn" id="saveFolderIdBtn">保存</button>
-            </div>
-            <p id="folderIdMsg" style="font-size:11px;font-weight:600;margin-top:6px;color:var(--muted);">${sideIconFolderId ? '' : 'アップロード前に、保存先のDriveフォルダIDを入力して保存してください。'}</p>
+          <p class="settings-card-desc">左サイドパネル上部中央に表示するアイコンを、画像のアップロードか、画像URLの直接指定のどちらかで設定できます。大きな画像を選んでも、アップロード時に自動で縮小されるため、常に一定サイズの円形アイコンとして表示されます。全ユーザーの画面に反映されます。この項目は権限者としてログインした場合のみ表示されます。</p>
+          <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:16px;">
+            <div class="cp-icon-mark" style="width:84px;height:84px;font-size:32px;margin-bottom:0;">${previewInner}</div>
+            <button type="button" class="btn-secondary" id="iconResetBtn">デフォルトに戻す</button>
           </div>
-          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-            <div class="cp-icon-mark" style="width:56px;height:56px;font-size:22px;margin-bottom:0;">${previewInner}</div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <div class="settings-subblock">
+            <label style="font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;display:block;">方法1: 画像をアップロード</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <input type="text" id="iconFolderIdInput" class="settings-input" placeholder="保存先 Drive フォルダのURL、またはIDのみ" value="${escapeAttr(sideIconFolderId)}" style="flex:1;min-width:220px;">
+              <button type="button" class="settings-add-btn" id="saveFolderIdBtn">フォルダを保存</button>
+            </div>
+            <p id="folderIdMsg" style="font-size:11px;font-weight:600;margin-top:6px;color:var(--muted);">${sideIconFolderId ? '' : 'アップロード前に、保存先のDriveフォルダを入力して保存してください。'}</p>
+            <div style="margin-top:10px;">
               <label class="settings-add-btn" style="cursor:pointer;">
                 <i class="fa-solid fa-upload"></i>画像をアップロード
                 <input type="file" id="iconFileInput" accept="image/*" style="display:none;">
               </label>
-              <button type="button" class="btn-secondary" id="iconResetBtn">デフォルトに戻す</button>
             </div>
+            <p id="iconUploadMsg" style="font-size:11.5px;font-weight:700;margin-top:8px;"></p>
           </div>
-          <p id="iconUploadMsg" style="font-size:11.5px;font-weight:700;margin-top:10px;"></p>
+          <div class="settings-subblock" style="border-bottom:none;padding-bottom:0;margin-bottom:0;">
+            <label style="font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;display:block;">方法2: 画像URLを直接指定</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <input type="text" id="iconUrlInput" class="settings-input" placeholder="https://..." value="${escapeAttr(sideIconExternalUrlValue)}" style="flex:1;min-width:220px;">
+              <button type="button" class="settings-add-btn" id="saveIconUrlBtn">URLを保存</button>
+            </div>
+            <p class="settings-card-desc" style="margin-top:6px;">既に社内の別システムなどで公開されている画像を、そのままアイコンとして使いたい場合に利用してください。https:// から始まるURLのみ利用できます。</p>
+            <p id="iconUrlMsg" style="font-size:11.5px;font-weight:700;margin-top:6px;"></p>
+          </div>
         </div>
       `;
     }
@@ -1704,8 +1721,13 @@
           if (typeof google === 'undefined') return;
           google.script.run
             .withSuccessHandler(res => {
-              if (res && res.success) { sidePanelIconUrl = res.url; render(); }
-              else { const m = document.getElementById('iconUploadMsg'); if (m) { m.textContent = res ? res.message : 'アップロードに失敗しました。'; m.style.color = 'var(--paper)'; } }
+              if (res && res.success) {
+                sidePanelIconUrl = res.url;
+                sideIconExternalUrlValue = ''; // アップロードにより、URL指定は自動的に無効化されるため
+                render();
+              } else {
+                const m = document.getElementById('iconUploadMsg'); if (m) { m.textContent = res ? res.message : 'アップロードに失敗しました。'; m.style.color = 'var(--paper)'; }
+              }
             })
             .withFailureHandler(e => {
               const m = document.getElementById('iconUploadMsg');
@@ -1724,9 +1746,38 @@
       if (iconResetBtn) iconResetBtn.onclick = () => {
         if (typeof google === 'undefined') return;
         google.script.run
-          .withSuccessHandler(res => { if (res && res.success) { sidePanelIconUrl = ''; render(); } else if (res) alert(res.message); })
+          .withSuccessHandler(res => {
+            if (res && res.success) { sidePanelIconUrl = ''; sideIconExternalUrlValue = ''; render(); }
+            else if (res) alert(res.message);
+          })
           .withFailureHandler(e => alert('失敗しました: ' + (e && e.message ? e.message : e)))
           .resetSideIcon();
+      };
+      const saveIconUrlBtn = document.getElementById('saveIconUrlBtn');
+      if (saveIconUrlBtn) saveIconUrlBtn.onclick = () => {
+        const input = document.getElementById('iconUrlInput');
+        const val = input ? input.value.trim() : '';
+        const msg = document.getElementById('iconUrlMsg');
+        if (msg) { msg.textContent = '保存中…'; msg.style.color = 'var(--muted)'; }
+        if (typeof google === 'undefined') return;
+        google.script.run
+          .withSuccessHandler(res => {
+            const m = document.getElementById('iconUrlMsg');
+            if (res && res.success) {
+              sideIconExternalUrlValue = res.url || val;
+              sidePanelIconUrl = res.url || val;
+              if (m) { m.textContent = '保存しました'; m.style.color = 'var(--oss)'; }
+              render();
+            } else if (m) {
+              m.textContent = res ? res.message : '保存に失敗しました。';
+              m.style.color = 'var(--paper)';
+            }
+          })
+          .withFailureHandler(e => {
+            const m = document.getElementById('iconUrlMsg');
+            if (m) { m.textContent = '通信エラー: ' + (e && e.message ? e.message : e); m.style.color = 'var(--paper)'; }
+          })
+          .saveSideIconUrl(val);
       };
       const saveFolderIdBtn = document.getElementById('saveFolderIdBtn');
       if (saveFolderIdBtn) saveFolderIdBtn.onclick = () => {
