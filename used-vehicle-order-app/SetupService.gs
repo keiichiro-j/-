@@ -54,7 +54,8 @@ function setupSpreadsheet_() {
     'あえてドロップダウンの入力規則は設定していません）。タブの色分け・ヘッダーの装飾・' +
     '列幅の自動調整・1行おきの背景色も設定済みです。既存の在庫を区分で判断してデモカー' +
     'リスト・サービス代車リストへ反映しました。今後は在庫リストを直接編集するたびに' +
-    '自動で反映されます（Hold期限チェック・在庫リスト編集時の自動反映、いずれの' +
+    '自動で反映され、万一その反映が働かない場合でも5分おきの定期同期で必ず反映されます' +
+    '（Hold期限チェック・在庫リスト編集時の自動反映・5分おきの定期同期、いずれの' +
     'トリガーも設定済みです）。';
   Logger.log(message);
   return message;
@@ -472,29 +473,47 @@ function syncCarTrackingListsManually_() {
 /**
  * 「在庫リストを編集しても、デモカーリスト・サービス代車リストに自動で
  * 反映されない」という問い合わせ向けの診断関数（diagnoseInventoryData_と
- * 同じ位置づけ）。考えられる主な原因を、実際のデータから機械的に切り分ける:
- *   (1) 在庫リスト編集時の自動反映トリガー（triggerInventoryEdited、
- *       Triggers.gs参照）が実際には作成されていない（初期セットアップが
- *       最新のコードで実行されていない等）。
+ * 同じ位置づけ）。まずsyncAllCarTrackingLists_でその場で同期し直してから
+ * （＝この関数を実行するだけで必ず最新の状態になる）、考えられる主な原因を
+ * 機械的に切り分けて報告する:
+ *   (1) 在庫リスト編集時の自動反映トリガー（triggerInventoryEdited）・
+ *       5分おきの定期同期トリガー（triggerCarTrackingPeriodicSync、
+ *       いずれもTriggers.gs参照）が実際には作成されていない。
  *   (2) デモカーリスト・サービス代車リストのシート自体が存在しない。
- *   (3) 在庫リストの区分の件数と、各シートへ反映済みの件数が食い違っている
- *       （区分の表記ゆれ・トリガーが動いていない等の可能性）。
+ *   (3) 同期し直した直後にもかかわらず、在庫リストの区分の件数と各シートの
+ *       件数が食い違っている（区分の表記ゆれの可能性）。
  * スプレッドシートのメニュー「販売可能リスト」→「デモカー/サービス代車リスト
  * 自動反映の動作確認」から実行できる。
  */
 function diagnoseCarTrackingTriggers_() {
   var lines = [];
 
-  var editTrigger = ScriptApp.getProjectTriggers().find(function (t) {
+  syncAllCarTrackingLists_();
+  lines.push('在庫リストの現在の内容へ同期しました（この診断を実行するだけで、常に最新の状態になります）。');
+  lines.push('');
+
+  var triggers = ScriptApp.getProjectTriggers();
+  var editTrigger = triggers.find(function (t) {
     return t.getHandlerFunction() === 'triggerInventoryEdited' && t.getEventType() === ScriptApp.EventType.ON_EDIT;
+  });
+  var periodicTrigger = triggers.find(function (t) {
+    return t.getHandlerFunction() === 'triggerCarTrackingPeriodicSync';
   });
   if (editTrigger) {
     lines.push('✅ 在庫リスト編集時の自動反映トリガー（triggerInventoryEdited）は設定されています。');
   } else {
     lines.push('❌ 在庫リスト編集時の自動反映トリガーが見つかりません。');
+  }
+  if (periodicTrigger) {
+    lines.push('✅ 5分おきの定期同期トリガー（triggerCarTrackingPeriodicSync）は設定されています' +
+      '（編集時トリガーが何らかの理由で動かなくても、これにより最大5分以内には反映されます）。');
+  } else {
+    lines.push('❌ 5分おきの定期同期トリガーが見つかりません。');
+  }
+  if (!editTrigger || !periodicTrigger) {
     lines.push('対処: 「初期セットアップ（7タブを作成）」を実行してください（既存データは変更されず、');
     lines.push('トリガーのみ作り直されます）。それでも直らない場合は、Apps Scriptエディタ左側の');
-    lines.push('「トリガー」（時計アイコン）画面を開き、triggerInventoryEditedのエラーの有無を確認してください。');
+    lines.push('「トリガー」（時計アイコン）画面を開き、該当トリガーのエラーの有無を確認してください。');
   }
   lines.push('');
 
@@ -513,14 +532,10 @@ function diagnoseCarTrackingTriggers_() {
     lines.push('✅ 「' + t.sheetName + '」タブが見つかりました。');
     lines.push('　　在庫リストの区分「' + t.categoryValue + '」: ' + liveCount + '件 ／ ' + t.sheetName + 'に反映済み: ' + trackedCount + '件');
     if (liveCount !== trackedCount) {
-      lines.push('　　⚠️ 件数が一致していません。区分の値が「' + t.categoryValue + '」と完全一致しているか');
-      lines.push('　　　（全角半角・前後の空白の違いにご注意ください）、ご確認のうえ、下記の対処をお試しください。');
+      lines.push('　　⚠️ 同期し直した直後にもかかわらず件数が一致していません。区分の値が「' +
+        t.categoryValue + '」と完全一致しているか（全角半角の違いにご注意ください）、ご確認ください。');
     }
   });
-  lines.push('');
-  lines.push('件数が食い違う場合は、メニュー「デモカーリスト・サービス代車リストを在庫リストの内容で');
-  lines.push('更新」を実行すると、その場で最新の内容に同期されます（このボタン自体は常に動作します。');
-  lines.push('トリガーの有無に関わらず、在庫リストの最新内容へ即座に同期し直せます）。');
 
   var message = lines.join('\n');
   Logger.log(message);

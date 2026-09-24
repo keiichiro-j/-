@@ -28,6 +28,15 @@ function setupTimeDrivenTriggers_() {
     .forSpreadsheet(SpreadsheetApp.getActiveSpreadsheet())
     .onEdit()
     .create();
+
+  // 上記onEditトリガーだけに頼らない保険として、5分おきにも必ず在庫リストの
+  // 最新内容へ同期し直す（triggerCarTrackingPeriodicSync参照）。編集の種類や
+  // 環境によってはonEditが発火しないケースが稀にあり得るため、たとえonEditが
+  // 何らかの理由で機能しなくても、最大5分以内には確実に反映されるようにする。
+  ScriptApp.newTrigger('triggerCarTrackingPeriodicSync')
+    .timeBased()
+    .everyMinutes(5)
+    .create();
 }
 
 function deleteAllTriggers_() {
@@ -54,6 +63,29 @@ function triggerInventoryEdited(e) {
     syncAllCarTrackingLists_();
   } catch (err) {
     notifySystemError_('在庫リスト編集時のデモカーリスト・サービス代車リスト自動反映', err);
+  }
+}
+
+/**
+ * 在庫リスト編集時のonEditトリガー（triggerInventoryEdited）だけに頼らない、
+ * デモカーリスト・サービス代車リスト自動反映の保険。5分おきに必ず
+ * syncAllCarTrackingLists_（CarTrackingService.gs参照）を実行し、在庫リストの
+ * 最新内容へ同期し直す。onEditが何らかの理由（貼り付けの種類・実行環境の違い等）
+ * で発火しなかった場合でも、この定期実行により最大5分以内には確実に反映される。
+ * triggerHoldExpiryCheckと同じく、失敗時は1回だけ即時リトライし、それでも
+ * 失敗した場合は管理者へメール通知する。
+ */
+function triggerCarTrackingPeriodicSync() {
+  try {
+    syncAllCarTrackingLists_();
+    return;
+  } catch (e) {
+    Utilities.sleep(2000);
+  }
+  try {
+    syncAllCarTrackingLists_();
+  } catch (e2) {
+    notifySystemError_('デモカーリスト・サービス代車リストの定期同期', e2);
   }
 }
 
