@@ -20,6 +20,7 @@
       --sat-bg: #E8F0FE; --sat-ink: #2A5BD1;
       --sun-bg: #FCE9F1; --sun-ink: #C93E77;
       --holi-bg: #E7F7EE; --holi-ink: #189255;
+      --past-bg: #E7E8EC;
       --notice: #C2790E; --notice-bg: #FBEFDD;
       --shadow-sm: 0 1px 2px rgba(26,31,54,0.05), 0 1px 4px rgba(26,31,54,0.04);
       --shadow-md: 0 2px 6px rgba(26,31,54,0.05), 0 10px 24px -10px rgba(26,31,54,0.16);
@@ -51,7 +52,7 @@
     .cp-logo { font-size: 13px; font-weight: 800; color: var(--ink); margin-bottom: 2px; letter-spacing: -0.005em; }
     .cp-logo-sub { font-size: 10.5px; color: var(--muted); font-weight: 600; }
     .cp-nav { display: flex; flex-direction: column; gap: 3px; flex: 1; }
-    .cp-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 7px; font-size: 13px; font-weight: 600; color: var(--ink-2); text-align: left; border: none; background: transparent; cursor: pointer; width: 100%; transition: background .12s ease, color .12s ease; }
+    .cp-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 7px; font-size: 13px; font-weight: 600; color: var(--ink-2); text-align: left; text-decoration: none; border: none; background: transparent; cursor: pointer; width: 100%; box-sizing: border-box; transition: background .12s ease, color .12s ease; }
     .cp-nav-item i { width: 15px; text-align: center; font-size: 13px; color: var(--muted); }
     .cp-nav-item:hover { background: var(--surface); color: var(--ink); }
     .cp-nav-item.active { background: var(--accent-bg); color: var(--accent-ink); box-shadow: inset 3px 0 0 var(--accent); }
@@ -140,7 +141,6 @@
     .branch-pill { font-size: 9.5px; font-weight: 600; padding: 2px 7px; border-radius: 4px; }
     .method-pill { font-size: 9px; font-weight: 600; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; }
     .status-pill { font-size: 9px; font-weight: 600; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; background: var(--surface-2); color: var(--ink-2); white-space: nowrap; }
-    .pdf-icon-btn { color: var(--paper); font-size: 12px; flex: 0 0 auto; cursor: pointer; }
     .slide-hint { position: sticky; right: 2px; flex: 0 0 30px; width: 30px; height: 30px; border-radius: 50%; background: var(--surface); box-shadow: var(--shadow-md); border: none; color: var(--accent-ink); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12px; }
     /* KPI行はPC表示ではグリッド(スクロールなし)のため、矢印はスマホ表示のみ有効にする */
     .kpi-row-top .slide-hint, .kpi-row-bottom .slide-hint { display: none; }
@@ -178,9 +178,6 @@
     .mp-date-chip { font-size: 10.5px; font-weight: 700; font-family: var(--font-ios); font-variant-numeric: tabular-nums slashed-zero; text-align: center; border-radius: 6px; padding: 5px 10px; }
     .mp-name { font-size: 12.5px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
     .mp-model { font-size: 11.5px; color: var(--ink-2); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
-    .mp-pdf-btn { font-size: 10.5px; font-weight: 700; border-radius: 7px; padding: 6px 12px; display: flex; align-items: center; gap: 6px; border: none; white-space: nowrap; }
-    .mp-pdf-btn.ready { background: var(--accent-bg); color: var(--accent-ink); }
-    .mp-pdf-btn.waiting { background: var(--surface-2); color: #B3B8C2; cursor: default; }
     .mp-thead-row { display: flex; align-items: center; gap: 14px; padding: 4px 14px; font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
 
     /* -- リスト表示 -- */
@@ -325,8 +322,6 @@
       .mp-col-date .mp-date-chip { padding: 4px 7px; font-size: 9.5px; }
       .mp-col-type .branch-pill { padding: 2px 6px; font-size: 9px; white-space: nowrap; }
       .mp-col-status { display: none; } /* 幅優先のため省略。詳細はタップして確認 */
-      .mp-col-pdf .mp-pdf-label { display: none; }
-      .mp-col-pdf .mp-pdf-btn { padding: 7px 8px; }
 
       /* -- KPI表示をスマホ向けに変更: 個別タイルの箱・余白をやめ、1枚のカードを
             仕切り線で区切る「統計ストリップ」形式にして折り返し・無駄な空白をなくす -- */
@@ -413,8 +408,7 @@
     const LINKED_CAR_TYPE = <?!= JSON.stringify(linkedCarType || '') ?>;
     const INITIAL_ANNOUNCEMENTS_NEW = <?!= JSON.stringify(initialAnnouncementsNew || []) ?>;
     const INITIAL_ANNOUNCEMENTS_USED = <?!= JSON.stringify(initialAnnouncementsUsed || []) ?>;
-    const INITIAL_PDF_FOLDER_NEW = <?!= JSON.stringify(initialPdfFolderNew || '') ?>;
-    const INITIAL_PDF_FOLDER_USED = <?!= JSON.stringify(initialPdfFolderUsed || '') ?>;
+    const INITIAL_VEHICLE_INSPECTION_APP_URL = <?!= JSON.stringify(initialVehicleInspectionAppUrl || '') ?>;
     const INITIAL_BRANCHES_NEW = <?!= JSON.stringify(initialBranchesNew || []) ?>;
     const INITIAL_BRANCHES_USED = <?!= JSON.stringify(initialBranchesUsed || []) ?>;
 
@@ -434,11 +428,17 @@
     function buildBranchColors_(list) {
       const map = {};
       list.forEach(b => { map[b.name] = { c: b.color, bg: lightenHex_(b.color, 0.92) }; });
-      map[FALLBACK_BRANCH.name] = { c: FALLBACK_BRANCH.c, bg: FALLBACK_BRANCH.bg };
+      if (!map[FALLBACK_BRANCH.name]) map[FALLBACK_BRANCH.name] = { c: FALLBACK_BRANCH.c, bg: FALLBACK_BRANCH.bg };
       return map;
     }
+    // 「その他」が一覧に含まれていなければ末尾に補う(通常はCode.gs側で保証されるが、保険として)
+    function ensureFallbackBranchInList_(list) {
+      const has = list.some(b => b && b.name === FALLBACK_BRANCH.name);
+      return has ? list : list.concat([{ name: FALLBACK_BRANCH.name, color: FALLBACK_BRANCH.c }]);
+    }
     function normalizeBranchList_(list) {
-      return (list && list.length ? list : [{ name: '岐阜', color: '#3B4FD1' }]).slice();
+      const base = (list && list.length ? list : [{ name: '岐阜', color: '#3B4FD1' }]).slice();
+      return ensureFallbackBranchInList_(base);
     }
     let branchesByType = {
       '新車': normalizeBranchList_(INITIAL_BRANCHES_NEW),
@@ -454,19 +454,18 @@
     function syncBranchesForCurrentType_() {
       branches = branchesByType[carType];
       branchColors = branchColorsByType[carType];
-      branchOrder = branches.map(b => b.name).concat([FALLBACK_BRANCH.name]);
+      branchOrder = branches.map(b => b.name); // 「その他」は既にリスト末尾に含まれている
     }
     // carTypeが「現在表示中」かどうかによらず、指定した車両区分の拠点順を返す
     // （車両区分を切り替える処理の途中など、まだcarTypeが更新される前でも正しい値を返せるようにするため）。
     function branchOrderFor(type) {
-      const order = (branchesByType[type] || branches).map(b => b.name).concat([FALLBACK_BRANCH.name]);
+      const order = (branchesByType[type] || branches).map(b => b.name);
       return type === '中古車' ? order.filter(b => b !== 'デモカー') : order;
     }
     // 担当者マスタの拠点選択は車両区分に紐づかないため、新車・中古車両方の拠点名をまとめて出す
     function allBranchNamesUnion_() {
       const set = new Set();
       CAR_TYPES.forEach(t => { (branchesByType[t] || []).forEach(b => set.add(b.name)); });
-      set.add(FALLBACK_BRANCH.name);
       return Array.from(set);
     }
     const dow = ['日', '月', '火', '水', '木', '金', '土'];
@@ -589,7 +588,8 @@
     let announceDirty = false;
     let announceMsg = '';
 
-    let pdfFolderIds = { '新車': INITIAL_PDF_FOLDER_NEW, '中古車': INITIAL_PDF_FOLDER_USED };
+    let vehicleInspectionAppUrl = INITIAL_VEHICLE_INSPECTION_APP_URL;
+    let vehicleInspectionAppUrlMsg = '';
 
     let branchEditCarType = carType; // 設定ページ「拠点設定」で編集対象に選んでいる車両区分
     let pendingBranches = branchesByType[branchEditCarType].slice();
@@ -606,7 +606,6 @@
     let calSettingsMsg = '';
 
     function isOssRecord(r) { return r.OSS区分 === 'OSS'; }
-    function hasPdfLink(r) { return !!r.車検証リンク; }
     function methodPill(oss) {
       return `<span class="method-pill" style="background:${oss ? 'var(--oss-bg)' : 'var(--paper-bg)'};color:${oss ? 'var(--oss)' : 'var(--paper)'};"><i class="fa-solid ${oss ? 'fa-bolt' : 'fa-file-lines'}"></i>${oss ? 'OSS' : '紙'}</span>`;
     }
@@ -781,12 +780,9 @@
 
     function entryCard(r) {
       const c = branchColors[r.拠点] || branchColors['その他'];
-      const pdfIcon = hasPdfLink(r)
-        ? `<span class="js-pdf-link pdf-icon-btn" title="車検証PDFを開く" data-url="${escapeAttr(r.車検証リンク)}"><i class="fa-solid fa-file-pdf"></i></span>` : '';
       return `<div class="entry-card js-open-record" ${recordDataAttr(r)} style="--bar-color:${c.c};">
         <div class="entry-row">
           <span class="entry-name">${escapeHtml(r.顧客名)}</span>
-          ${pdfIcon}
           ${methodPill(isOssRecord(r))}
         </div>
         <div class="entry-row">
@@ -809,10 +805,14 @@
       const dateStr = dateStrOf(year, month, day);
       const notices = calendarNoticesForDate(dateStr);
 
+      const isPast = d.getTime() < today.getTime(); // 当日は含まない(過ぎた日のみ)
       let rowBg = '', ink = 'var(--ink-2)', tagText = '', badgeFill = 'transparent', badgeTextColor;
       if (dowIdx === 6) { rowBg = 'var(--sat-bg)'; ink = 'var(--sat-ink)'; }
       if (dowIdx === 0) { rowBg = 'var(--sun-bg)'; ink = 'var(--sun-ink)'; }
       if (holiday) { rowBg = 'var(--holi-bg)'; ink = 'var(--holi-ink)'; tagText = holiday; }
+      // 登録状況が一目でわかるよう、登録が終わった(登録予定日が過ぎた)日は背景をグレーにする。
+      // 曜日・祝日の色より優先して「終わったこと」を示す。
+      if (isPast) { rowBg = 'var(--past-bg)'; }
       badgeTextColor = ink;
       let extraClass = '';
       if (isToday) { extraClass = ' is-today'; ink = 'var(--accent-ink)'; badgeFill = 'var(--accent)'; badgeTextColor = '#fff'; rowBg = ''; }
@@ -1010,11 +1010,10 @@
       let tableBody = '', cardBody = '';
       rows.forEach(r => {
         const c = branchColors[r.拠点] || branchColors['その他'];
-        const pdfIcon = hasPdfLink(r) ? `<span class="js-pdf-link pdf-icon-btn" data-url="${escapeAttr(r.車検証リンク)}"><i class="fa-solid fa-file-pdf"></i></span>` : '';
         const dateDisplay = r.登録予定日 ? r.登録予定日 : `<span class="method-pill" style="background:var(--paper-bg);color:var(--paper);">未定</span>`;
         tableBody += `<tr class="js-open-record" ${recordDataAttr(r)}>
           <td class="font-num">${dateDisplay}</td>
-          <td>${escapeHtml(r.顧客名)} ${pdfIcon}</td>
+          <td>${escapeHtml(r.顧客名)}</td>
           <td>${methodPill(isOssRecord(r))}</td>
           <td><span class="branch-pill" style="background:${c.bg};color:${c.c};">${r.拠点}</span> ${escapeHtml(r.担当者 || '')}</td>
           <td>${escapeHtml(r.車種 || '')}</td>
@@ -1022,7 +1021,7 @@
         </tr>`;
         cardBody += `<div class="list-card js-open-record" ${recordDataAttr(r)}>
           <div class="list-card-top">
-            <span class="list-card-name">${escapeHtml(r.顧客名)} 様 ${pdfIcon}</span>
+            <span class="list-card-name">${escapeHtml(r.顧客名)} 様</span>
             <span class="list-card-date font-num">${dateDisplay}</span>
           </div>
           <div class="list-card-meta">
@@ -1065,7 +1064,7 @@
     // ---- マイページ ----
     function mpMonthDate(offset) { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() + offset, 1); }
     function mpTheadHTML() {
-      const heads = ['日付', '区分', '顧客名', 'モデル', '登録方法', 'ステータス', '車検証'];
+      const heads = ['日付', '区分', '顧客名', 'モデル', '登録方法', 'ステータス'];
       return `<div class="mp-thead-row">${heads.map(h => `<span class="mp-col">${h}</span>`).join('')}</div>`;
     }
     function mpRowHTML(r) {
@@ -1075,9 +1074,6 @@
         : `<span class="mp-date-chip" style="background:var(--accent-bg);color:var(--accent-ink);">未定</span>`;
       const isUsed = r.車両区分 === '中古車';
       const typeChip = `<span class="branch-pill" style="background:${isUsed ? 'var(--notice-bg)' : 'var(--accent-bg)'};color:${isUsed ? 'var(--notice)' : 'var(--accent-ink)'};">${escapeHtml(r.車両区分 || '-')}</span>`;
-      const pdfBtn = hasPdfLink(r)
-        ? `<button type="button" class="mp-pdf-btn ready js-pdf-link" data-url="${escapeAttr(r.車検証リンク)}"><i class="fa-regular fa-file-pdf"></i><span class="mp-pdf-label">車検証PDF</span></button>`
-        : `<button type="button" class="mp-pdf-btn waiting" disabled><i class="fa-regular fa-clock"></i><span class="mp-pdf-label">未アップロード</span></button>`;
       return `<div class="mp-row js-open-record" ${recordDataAttr(r)}>
         <span class="mp-col mp-col-date">${dateChip}</span>
         <span class="mp-col mp-col-type">${typeChip}</span>
@@ -1085,7 +1081,6 @@
         <span class="mp-col mp-model">${escapeHtml(r.車種 || '')}</span>
         <span class="mp-col mp-col-method">${methodPill(isOssRecord(r))}</span>
         <span class="mp-col mp-col-status"><span class="status-pill">${escapeHtml(r.ステータス || '-')}</span></span>
-        <span class="mp-col mp-col-pdf">${pdfBtn}</span>
       </div>`;
     }
     function myRecordsForOffset(offset) {
@@ -1229,22 +1224,20 @@
         </div>
       `;
     }
-    function pdfFolderSectionHTML() {
+    function vehicleInspectionAppUrlSectionHTML() {
       if (!IS_EDITOR) return '';
+      let msg = '';
+      if (vehicleInspectionAppUrlMsg) msg = `<span class="theme-msg saved"><i class="fa-solid fa-circle-check"></i> ${vehicleInspectionAppUrlMsg}</span>`;
       return `
         <div class="settings-card">
-          <h2 class="settings-card-title"><i class="fa-solid fa-folder-open"></i>車検証ファイル設定</h2>
-          <p class="settings-card-desc">車検証PDFを自動でリンクする際に探すDriveフォルダを、新車・中古車それぞれ指定します。指定したフォルダの配下は何階層あっても自動で探索し、「2026.09」や「2026.9」のような年.月フォルダの中から、顧客名が一致するPDFを見つけてリンクします。</p>
-          ${CAR_TYPES.map(t => `
-            <div class="settings-subblock">
-              <label style="font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;display:block;">${t}の車検証保管フォルダ ID</label>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                <input type="text" class="settings-input js-pdf-folder-input" data-cartype="${t}" placeholder="DriveフォルダのURLに含まれるID" value="${escapeAttr(pdfFolderIds[t] || '')}" style="flex:1;min-width:220px;">
-                <button type="button" class="settings-add-btn js-pdf-folder-save" data-cartype="${t}">保存</button>
-              </div>
-              <p class="js-pdf-folder-msg" data-cartype="${t}" style="font-size:11px;font-weight:600;margin-top:6px;color:var(--muted);"></p>
-            </div>
-          `).join('')}
+          <h2 class="settings-card-title"><i class="fa-solid fa-car-side"></i>車検証アプリ設定</h2>
+          <p class="settings-card-desc">左のコントロールパネル（スマホはボトムタブ）に表示される「車検証アプリ」から、別タブで開くリンク先を設定します。空欄で保存すると、リンク項目自体が非表示になります。</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <input type="text" id="vehicleInspectionAppUrlInput" class="settings-input" placeholder="https://..." value="${escapeAttr(vehicleInspectionAppUrl)}" style="flex:1;min-width:260px;">
+            <button type="button" id="saveVehicleInspectionAppUrlBtn" class="settings-add-btn">保存</button>
+          </div>
+          <p id="vehicleInspectionAppUrlErr" style="font-size:11px;font-weight:600;margin-top:6px;color:var(--paper);"></p>
+          <div class="theme-save-row" style="margin-top:6px;">${msg}</div>
         </div>
       `;
     }
@@ -1256,20 +1249,25 @@
       return `
         <div class="settings-card">
           <h2 class="settings-card-title"><i class="fa-solid fa-store"></i>拠点設定</h2>
-          <p class="settings-card-desc">カレンダー画面のKPIタイルや、リスト表示・担当者マスタの拠点選択などで使う拠点名と色を管理します。新車・中古車で別々に設定でき、それぞれのシート「拠点」列のプルダウン選択肢にも自動的に反映されます（既存シートには「シート設定 &gt; 全シートにテンプレートを再適用」で反映してください）。「その他」はどの拠点にも一致しないデータの受け皿として常に用意されており、ここで管理する必要はありません。</p>
+          <p class="settings-card-desc">カレンダー画面のKPIタイルや、リスト表示・担当者マスタの拠点選択などで使う拠点名と色を管理します。新車・中古車で別々に設定でき、それぞれのシート「拠点」列のプルダウン選択肢にも自動的に反映されます（既存シートには「シート設定 &gt; 全シートにテンプレートを再適用」で反映してください）。「その他」はどの拠点にも一致しないデータの受け皿として常に一覧の最後に用意されており、名前は変更できませんが色は変更できます。</p>
           <div style="margin-bottom:14px;">
             <select id="branchEditCarType" class="settings-input">
               ${CAR_TYPES.map(t => `<option value="${t}" ${branchEditCarType === t ? 'selected' : ''}>${t}の拠点を編集</option>`).join('')}
             </select>
           </div>
           <div class="settings-list" id="branchList">
-            ${pendingBranches.map((b, i) => `
+            ${pendingBranches.map((b, i) => {
+              const isFallback = b.name === FALLBACK_BRANCH.name;
+              return `
               <div class="settings-row">
                 <input type="color" class="rich-color-input" data-idx="${i}" data-role="branch-color" value="${escapeAttr(b.color || '#66707E')}" title="この拠点の色">
-                <input type="text" class="settings-input js-branch-name" data-idx="${i}" value="${escapeAttr(b.name || '')}" placeholder="拠点名" style="flex:1;min-width:140px;">
-                <button type="button" class="settings-remove" data-idx="${i}" data-role="branch-remove"><i class="fa-solid fa-xmark"></i></button>
+                ${isFallback
+                  ? `<span class="s-name" style="flex:1;min-width:140px;">${escapeHtml(b.name)}<span style="margin-left:8px;font-size:10px;font-weight:700;color:var(--muted);background:var(--surface-2);padding:2px 7px;border-radius:5px;">固定</span></span>`
+                  : `<input type="text" class="settings-input js-branch-name" data-idx="${i}" value="${escapeAttr(b.name || '')}" placeholder="拠点名" style="flex:1;min-width:140px;">`}
+                ${isFallback ? '' : `<button type="button" class="settings-remove" data-idx="${i}" data-role="branch-remove"><i class="fa-solid fa-xmark"></i></button>`}
               </div>
-            `).join('') || `<p style="font-size:12px;color:var(--muted);padding:8px 2px;">拠点が登録されていません。</p>`}
+            `;
+            }).join('') || `<p style="font-size:12px;color:var(--muted);padding:8px 2px;">拠点が登録されていません。</p>`}
           </div>
           <div class="settings-add-row">
             <input type="color" id="newBranchColor" class="rich-color-input" value="#3B4FD1" title="この拠点の色">
@@ -1432,7 +1430,7 @@
           </div>
           ${themeSectionHTML()}
           ${iconSectionHTML()}
-          ${pdfFolderSectionHTML()}
+          ${vehicleInspectionAppUrlSectionHTML()}
           ${branchSectionHTML()}
           ${announcementsSectionHTML()}
           ${calendarSettingsSectionHTML()}
@@ -1446,6 +1444,8 @@
       const navItem = (page, icon, label) => `<button type="button" class="cp-nav-item ${currentPage === page ? 'active' : ''}" data-page="${page}"><i class="fa-solid ${icon}"></i>${label}</button>`;
       const iconInner = sidePanelIconUrl ? `<img src="${escapeAttr(sidePanelIconUrl)}" alt="">` : `<i class="fa-solid fa-car"></i>`;
       const carTypeSubNav = `<div class="cp-subnav">${CAR_TYPES.map(t => `<button type="button" class="cp-subnav-item ${currentPage === 'calendar' && carType === t ? 'active' : ''}" data-cartype="${t}">${t}</button>`).join('')}</div>`;
+      const vehicleInspectionNav = vehicleInspectionAppUrl
+        ? `<a class="cp-nav-item" href="${escapeAttr(vehicleInspectionAppUrl)}" target="_blank" rel="noopener"><i class="fa-solid fa-car-side"></i>車検証アプリ</a>` : '';
       return `
         <div class="cp-header">
           <div class="cp-icon-mark">${iconInner}</div>
@@ -1455,6 +1455,7 @@
         <div class="cp-nav">
           ${navItem('calendar', 'fa-calendar-days', 'カレンダー')}
           ${carTypeSubNav}
+          ${vehicleInspectionNav}
           ${navItem('mypage', 'fa-user', 'マイページ')}
           ${navItem('settings', 'fa-gear', '設定')}
         </div>
@@ -1472,9 +1473,12 @@
     //   data-page属性を使い、wireEvents()の既存の委譲ハンドラでそのまま動作する。
     function bottomTabBarHTML() {
       const item = (page, icon, label) => `<button type="button" class="cp-nav-item bottom-tab-item ${currentPage === page ? 'active' : ''}" data-page="${page}"><i class="fa-solid ${icon}"></i><span>${label}</span></button>`;
+      const vehicleInspectionTab = vehicleInspectionAppUrl
+        ? `<a class="cp-nav-item bottom-tab-item" href="${escapeAttr(vehicleInspectionAppUrl)}" target="_blank" rel="noopener"><i class="fa-solid fa-car-side"></i><span>車検証アプリ</span></a>` : '';
       return `
         <nav class="bottom-tab-bar">
           ${item('calendar', 'fa-calendar-days', 'カレンダー')}
+          ${vehicleInspectionTab}
           ${item('mypage', 'fa-user', 'マイページ')}
           ${item('settings', 'fa-gear', '設定')}
         </nav>
@@ -1535,17 +1539,13 @@
       });
     }
 
-    // ▼ 詳細モーダル・PDFボタンのクリックを、指定したコンテナ内の要素へまとめて割り当てる。
+    // ▼ 詳細モーダルを開くクリックを、指定したコンテナ内の要素へまとめて割り当てる。
     //   (メインの render() 後だけでなく、検索結果だけを差し替えた後にも呼べるよう分離している)
     function wireRecordClicks_(container) {
       container.querySelectorAll('.js-open-record').forEach(el => {
-        el.onclick = (e) => {
-          if (e.target.closest('.js-pdf-link')) return;
+        el.onclick = () => {
           try { openModal(JSON.parse(el.dataset.record)); } catch (err) { /* ignore */ }
         };
-      });
-      container.querySelectorAll('.js-pdf-link').forEach(el => {
-        el.onclick = (e) => { e.stopPropagation(); window.open(el.dataset.url, '_blank'); };
       });
     }
 
@@ -1710,32 +1710,30 @@
           .saveSideIconFolderId(val);
       };
 
-      root.querySelectorAll('.js-pdf-folder-save').forEach(btn => {
-        btn.onclick = () => {
-          const t = btn.dataset.cartype;
-          const input = root.querySelector(`.js-pdf-folder-input[data-cartype="${t}"]`);
-          const val = input ? input.value.trim() : '';
-          const msg = root.querySelector(`.js-pdf-folder-msg[data-cartype="${t}"]`);
-          if (msg) { msg.textContent = '保存中…'; msg.style.color = 'var(--muted)'; }
-          if (typeof google === 'undefined') return;
-          google.script.run
-            .withSuccessHandler(res => {
-              const m = document.querySelector(`.js-pdf-folder-msg[data-cartype="${t}"]`);
-              if (res && res.success) {
-                pdfFolderIds[t] = val;
-                if (m) { m.textContent = '保存しました'; m.style.color = 'var(--oss)'; }
-              } else if (m) {
-                m.textContent = res ? res.message : '保存に失敗しました。';
-                m.style.color = 'var(--paper)';
-              }
-            })
-            .withFailureHandler(e => {
-              const m = document.querySelector(`.js-pdf-folder-msg[data-cartype="${t}"]`);
-              if (m) { m.textContent = '通信エラー: ' + (e && e.message ? e.message : e); m.style.color = 'var(--paper)'; }
-            })
-            .savePdfFolderId(t, val);
-        };
-      });
+      const saveVehicleInspectionAppUrlBtn = document.getElementById('saveVehicleInspectionAppUrlBtn');
+      if (saveVehicleInspectionAppUrlBtn) saveVehicleInspectionAppUrlBtn.onclick = () => {
+        const input = document.getElementById('vehicleInspectionAppUrlInput');
+        const errEl = document.getElementById('vehicleInspectionAppUrlErr');
+        const val = input ? input.value.trim() : '';
+        if (errEl) errEl.textContent = '';
+        if (typeof google === 'undefined') return;
+        google.script.run
+          .withSuccessHandler(res => {
+            if (res && res.success) {
+              vehicleInspectionAppUrl = val;
+              vehicleInspectionAppUrlMsg = '保存しました';
+              render();
+            } else if (res) {
+              const e = document.getElementById('vehicleInspectionAppUrlErr');
+              if (e) e.textContent = res.message;
+            }
+          })
+          .withFailureHandler(e => {
+            const errEl2 = document.getElementById('vehicleInspectionAppUrlErr');
+            if (errEl2) errEl2.textContent = '通信エラー: ' + (e && e.message ? e.message : e);
+          })
+          .saveVehicleInspectionAppUrl(val);
+      };
 
       const branchEditCarTypeSel = document.getElementById('branchEditCarType');
       if (branchEditCarTypeSel) branchEditCarTypeSel.onchange = (ev) => {
@@ -1758,7 +1756,7 @@
         const nameInput = document.getElementById('newBranchName');
         const colorInput = document.getElementById('newBranchColor');
         const name = nameInput.value.trim();
-        if (!name) return;
+        if (!name || name === FALLBACK_BRANCH.name) return; // 「その他」は既に固定で存在するため追加不可
         pendingBranches.push({ name, color: colorInput ? colorInput.value : '#3B4FD1' });
         branchesDirty = true; branchesMsg = '';
         renderKeepingSettingsScroll_();
@@ -1997,9 +1995,6 @@
       if (!record) return;
       const recordBranchColors = branchColorsByType[record.車両区分] || branchColors;
       const c = recordBranchColors[record.拠点] || recordBranchColors[FALLBACK_BRANCH.name];
-      const pdfBtn = hasPdfLink(record)
-        ? `<button type="button" class="action-btn js-pdf-link" data-url="${escapeAttr(record.車検証リンク)}"><i class="fa-solid fa-file-pdf"></i>車検証PDFを開く</button>`
-        : `<span style="font-size:12px;color:var(--muted);">未アップロード</span>`;
       const body = document.getElementById('recordDetailBody');
       body.innerHTML = [
         detailRow_('顧客名', `${escapeHtml(record.顧客名)} 様`),
@@ -2010,9 +2005,7 @@
         detailRow_('車種', escapeHtml(record.車種 || '-')),
         detailRow_('登録方法', methodPill(isOssRecord(record))),
         detailRow_('備考', record.備考 ? escapeHtml(record.備考) : '<span style="color:var(--muted);">-</span>'),
-        detailRow_('車検証', pdfBtn),
       ].join('');
-      body.querySelectorAll('.js-pdf-link').forEach(el => { el.onclick = () => window.open(el.dataset.url, '_blank'); });
       document.getElementById('recordModal').classList.add('flex');
     }
     function closeModal() { document.getElementById('recordModal').classList.remove('flex'); }

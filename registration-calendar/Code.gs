@@ -26,7 +26,6 @@ function onOpen() {
     .addSeparator()
     .addItem('新車・中古車 全シートにテンプレートを再適用', 'menuRefreshAllSheetTemplates_')
     .addSeparator()
-    .addItem('車検証PDF自動リンクの定期実行を設定', 'menuSetupPdfLinkTrigger_')
     .addItem('登録予定日確定時のカレンダー自動反映を設定', 'menuSetupCalendarSyncTrigger_')
     .addItem('登録予定日確定時のカレンダー反映を今すぐ実行（結果・原因を確認）', 'menuRunCalendarSyncNow_')
     .addToUi();
@@ -42,10 +41,6 @@ function menuCreateNextMonthSheetUsedCar_() {
 function menuRefreshAllSheetTemplates_() {
   refreshAllSheetTemplates();
   SpreadsheetApp.getUi().alert('新車・中古車の全シートにテンプレート（注釈・入力規則・警告表示）を再適用しました。');
-}
-function menuSetupPdfLinkTrigger_() {
-  setupPdfLinkTrigger();
-  SpreadsheetApp.getUi().alert('車検証PDF自動リンクの定期実行トリガーを設定しました（既に設定済みの場合は変更ありません）。');
 }
 function menuSetupCalendarSyncTrigger_() {
   setupCalendarSyncTrigger();
@@ -67,10 +62,9 @@ function doGet() {
   template.linkedCarType = linkedInfo.carType;
   template.initialAnnouncementsNew = getAnnouncements('新車');
   template.initialAnnouncementsUsed = getAnnouncements('中古車');
-  template.initialPdfFolderNew = getPdfFolderId('新車');
-  template.initialPdfFolderUsed = getPdfFolderId('中古車');
   template.initialBranchesNew = getBranches('新車');
   template.initialBranchesUsed = getBranches('中古車');
+  template.initialVehicleInspectionAppUrl = getVehicleInspectionAppUrl();
 
   return template.evaluate()
     .setTitle('登録カレンダー')
@@ -132,32 +126,21 @@ function saveSideIconFolderId(folderId) {
   return { success: true };
 }
 
-// ▼ 車検証PDFの保管フォルダID（新車・中古車それぞれ）。
-//   設定ページの「車検証ファイル設定」から、コードを編集せずに保存できる（権限者のみ）。
-//   「新車」は移行期間中、未設定であればこれまでハードコードしていたフォルダIDにフォールバックする。
-const PDF_FOLDER_PROP_PREFIX = 'pdfFolderId_';
-const DEFAULT_NEW_CAR_PDF_FOLDER_ID = '1yED-JQK20jCBAOf_4v1jxlp6AN0rhNYC';
-
-function getPdfFolderId(carType) {
-  const stored = PropertiesService.getScriptProperties().getProperty(PDF_FOLDER_PROP_PREFIX + carType);
-  if (stored) return stored;
-  if (carType === '新車') return DEFAULT_NEW_CAR_PDF_FOLDER_ID;
-  return '';
+// ▼ コントロールパネルの「車検証アプリ」から別タブで開く外部リンク。権限者が設定ページから変更できる。
+const VEHICLE_INSPECTION_APP_URL_PROP = 'vehicleInspectionAppUrl';
+function getVehicleInspectionAppUrl() {
+  return PropertiesService.getScriptProperties().getProperty(VEHICLE_INSPECTION_APP_URL_PROP) || '';
 }
-function savePdfFolderId(carType, folderId) {
+function saveVehicleInspectionAppUrl(url) {
   const userEmail = Session.getActiveUser().getEmail();
   if (!isEditorEmail_(userEmail)) {
     return { success: false, message: '権限者のみ変更できます。' };
   }
-  if (CAR_TYPES.indexOf(carType) === -1) return { success: false, message: '不正な車両区分です。' };
-  const trimmed = String(folderId || '').trim();
-  if (!trimmed) return { success: false, message: 'フォルダIDを入力してください。' };
-  try {
-    DriveApp.getFolderById(trimmed);
-  } catch (e) {
-    return { success: false, message: '指定されたフォルダにアクセスできません。IDを確認してください。' };
+  const trimmed = String(url || '').trim();
+  if (trimmed && !/^https?:\/\//i.test(trimmed)) {
+    return { success: false, message: 'http:// または https:// から始まるURLを入力してください。' };
   }
-  PropertiesService.getScriptProperties().setProperty(PDF_FOLDER_PROP_PREFIX + carType, trimmed);
+  PropertiesService.getScriptProperties().setProperty(VEHICLE_INSPECTION_APP_URL_PROP, trimmed);
   return { success: true };
 }
 
@@ -255,6 +238,9 @@ function saveCalendarNotices(carType, year, month, notices) {
 //   コードに直書きせずここで管理することで、コードを一切変更せずに拠点構成だけを
 //   店舗ごとに変えられるようにしている。
 const BRANCHES_PROP_PREFIX = 'branches_';
+// ▼ どの拠点にも一致しないデータの受け皿として、常に一覧の最後に存在させる拠点名。
+//   アプリ側のKPI集計などでも同じ名前を特別扱いしているため、変更しないこと。
+const FALLBACK_BRANCH_NAME = 'その他';
 const DEFAULT_BRANCHES = [
   { name: '岐阜', color: '#3B4FD1' },
   { name: '大垣', color: '#16924F' },
@@ -262,9 +248,15 @@ const DEFAULT_BRANCHES = [
   { name: '高山', color: '#C2790E' },
   { name: 'AAA', color: '#C93E77' },
   { name: 'デモカー', color: '#0C7C8C' },
+  { name: FALLBACK_BRANCH_NAME, color: '#66707E' },
 ];
 function isValidHexColor_(color) {
   return /^#[0-9A-Fa-f]{6}$/.test(String(color || ''));
+}
+// ▼ 「その他」が一覧に含まれていなければ末尾に補って返す（常に一覧に表示・編集できるようにするため）
+function ensureFallbackBranch_(list) {
+  const hasFallback = list.some(b => b && b.name === FALLBACK_BRANCH_NAME);
+  return hasFallback ? list : list.concat([{ name: FALLBACK_BRANCH_NAME, color: '#66707E' }]);
 }
 function getBranches(carType) {
   const type = CAR_TYPES.indexOf(carType) !== -1 ? carType : '新車';
@@ -272,7 +264,7 @@ function getBranches(carType) {
   if (!raw) return DEFAULT_BRANCHES.slice();
   try {
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length ? parsed : DEFAULT_BRANCHES.slice();
+    return Array.isArray(parsed) && parsed.length ? ensureFallbackBranch_(parsed) : DEFAULT_BRANCHES.slice();
   } catch (e) {
     return DEFAULT_BRANCHES.slice();
   }
@@ -292,13 +284,13 @@ function saveBranches(carType, branches) {
     return { success: false, message: '権限者のみ変更できます。' };
   }
   if (CAR_TYPES.indexOf(carType) === -1) return { success: false, message: '不正な車両区分です。' };
-  const cleaned = (branches || [])
+  const cleaned = ensureFallbackBranch_((branches || [])
     .filter(b => b && String(b.name || '').trim())
     .map(b => ({
       name: String(b.name).trim(),
       color: isValidHexColor_(b.color) ? String(b.color) : '#66707E',
     }))
-    .slice(0, 30);
+    .slice(0, 30));
   if (!cleaned.length) return { success: false, message: '拠点を1件以上登録してください。' };
   PropertiesService.getScriptProperties().setProperty(BRANCHES_PROP_PREFIX + carType, JSON.stringify(cleaned));
   return { success: true };
@@ -451,12 +443,11 @@ const LEGACY_CONFIRMED_STATUSES = ['登録日確定'];
 const HEADER_NOTES = {
   'ステータス': '次の3つから選択してください。\n・登録書類到着待\n・登録書類到着済\n・登録予定日確定\n\n「登録予定日確定」を選択すると、登録予定日を入力した日付でカレンダーに表示されます。それ以外は「未定リスト」に表示されます。',
   '登録予定日': 'ステータスが「登録予定日確定」の場合に入力してください（yyyy-mm-dd）。未定の間は空欄のままで構いません。',
-  '担当者': 'フルネームで入力してください。設定画面の「担当者マスタ」に登録されているフルネームと文字が完全に一致しないと、その担当者のマイページに反映されません（全角/半角や旧姓などの表記ゆれに注意）。このセルの背景色が薄い赤になっている場合、担当者マスタに登録のない名前が入力されています。',
+  '担当者': 'フルネームで入力してください。設定画面の「担当者マスタ」に登録されているフルネームと文字が完全に一致しないと、その担当者のマイページに反映されません（全角/半角や旧姓などの表記ゆれに注意）。このセルの背景色が薄い赤になっている場合、担当者マスタに登録のない名前が入力されています。担当者マスタに登録済みの名前を入力すると、同じ行の「拠点」列にその担当者の拠点が自動で反映されます。',
   '車種': '自由入力です。',
   'OSS区分': '「OSS」または「紙登録」を選択してください。',
   '顧客名': 'このセルの背景色が薄いオレンジになっている場合、同じシート内に同姓同名の顧客が他にもいます。誤って重複登録していないか確認してください（同月に同名で2台登録される正当なケースもあるため、問題なければそのままで構いません）。',
   '備考': '任意入力です。',
-  '車検証リンク': 'この列は自動反映されます。手動で入力しないでください（Google Drive内の車検証PDFフォルダを自動巡回し、顧客名が一致するPDFのリンクを自動で貼り付けます）。',
   '登録カレンダー反映': 'この列は自動反映されます。手動で入力しないでください（ステータスが「登録予定日確定」になった行について、担当者マスタで紐づいたGoogleアカウントのカレンダーに顧客名・車種・登録方法を自動反映した記録用です）。',
 };
 
@@ -533,6 +524,82 @@ function applySheetGuidance_(sheet) {
   applyColumnHighlight_(sheet, headers, '担当者', templateRowCount, (colLetter) => {
     return `=AND($${colLetter}2<>"", COUNTIF('${MYPAGE_LINK_SHEET_NAME}'!$A:$A, $${colLetter}2)=0)`;
   }, '#FCEAE8');
+
+  // 登録予定日が過ぎている(当日は含まない)行は、登録状況が一目でわかるよう行全体をグレーで塗る。
+  // 上の2つの強調表示より後に追加しているため、顧客名重複・担当者未登録の色の方が優先して見える。
+  applyPastRegistrationDateRowHighlight_(sheet, headers, templateRowCount, lastCol);
+}
+
+function applyPastRegistrationDateRowHighlight_(sheet, headers, templateRowCount, lastCol) {
+  const dateColIndex = headers.indexOf('登録予定日');
+  if (dateColIndex === -1) return;
+  const dateColLetter = columnToLetter_(dateColIndex + 1);
+  const range = sheet.getRange(2, 1, templateRowCount, lastCol);
+  const formula = `=AND($${dateColLetter}2<>"", $${dateColLetter}2<TODAY())`;
+  const rule = SpreadsheetApp.newConditionalFormatRule()
+    .whenFormulaSatisfied(formula)
+    .setBackground('#E7E8EC')
+    .setRanges([range])
+    .build();
+  const targetA1 = range.getA1Notation();
+  const existingRules = sheet.getConditionalFormatRules().filter(r => {
+    const ranges = r.getRanges();
+    return !(ranges.length === 1 && ranges[0].getA1Notation() === targetA1);
+  });
+  existingRules.push(rule);
+  sheet.setConditionalFormatRules(existingRules);
+}
+
+// ============================================================
+// ▼ 担当者マスタからの拠点自動反映
+//   db_登録データ系シートの「担当者」列に入力・変更があったとき、担当者マスタ
+//   (settings_マイページ連携シート)に登録済みの氏名と一致すれば、その担当者の拠点を
+//   同じ行の「拠点」列へ自動で反映する。単純トリガー(onEdit)なのでインストール操作は不要。
+// ============================================================
+function onEdit(e) {
+  try {
+    autoFillBranchFromRepMaster_(e);
+  } catch (err) {
+    Logger.log('onEdit failed: %s', err && err.stack ? err.stack : err);
+  }
+}
+function autoFillBranchFromRepMaster_(e) {
+  if (!e || !e.range) return;
+  const sheet = e.range.getSheet();
+  if (!sheet.getName().startsWith(NEW_CAR_SHEET_PREFIX)) return; // db_登録データ系(新車・中古車とも)のみ対象
+  const range = e.range;
+  if (range.getRow() < 2) return; // 見出し行の編集は対象外
+
+  const lastCol = sheet.getLastColumn();
+  if (lastCol === 0) return;
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  const repCol = headers.indexOf('担当者');
+  const branchCol = headers.indexOf('拠点');
+  if (repCol === -1 || branchCol === -1) return;
+
+  // 編集範囲が「担当者」列を含んでいなければ何もしない（複数セル同時貼り付けにも対応する）
+  const editStartCol = range.getColumn(), editEndCol = range.getColumn() + range.getNumColumns() - 1;
+  if (repCol + 1 < editStartCol || repCol + 1 > editEndCol) return;
+
+  const branchByName = {};
+  getMypageLinks().forEach(l => { if (l.name) branchByName[l.name] = l.branch; });
+
+  const startRow = Math.max(range.getRow(), 2);
+  const numRows = range.getRow() + range.getNumRows() - startRow;
+  if (numRows <= 0) return;
+  const repValues = sheet.getRange(startRow, repCol + 1, numRows, 1).getValues();
+  const branchRange = sheet.getRange(startRow, branchCol + 1, numRows, 1);
+  const branchValues = branchRange.getValues();
+  let changed = false;
+  for (let i = 0; i < repValues.length; i++) {
+    const repName = String(repValues[i][0] || '').trim();
+    if (!repName) continue;
+    const branch = branchByName[repName];
+    if (!branch) continue;
+    branchValues[i][0] = branch;
+    changed = true;
+  }
+  if (changed) branchRange.setValues(branchValues);
 }
 
 // ▼ 日付・車両区分からシート名を生成（例：db_登録データ_2026_8月 / db_登録データ_中古_2026_8月）
@@ -547,7 +614,7 @@ function getSheetNameFromDate(dateStr, carType) {
 function getOrCreateDatabaseSheet(sheetName) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(sheetName);
-  const requiredHeaders = ['ステータス', '登録予定日', '拠点', '担当者', '車種', 'OSS区分', '顧客名', '備考', '車検証リンク', '登録カレンダー反映'];
+  const requiredHeaders = ['ステータス', '登録予定日', '拠点', '担当者', '車種', 'OSS区分', '顧客名', '備考', '登録カレンダー反映'];
 
   if (!sheet) {
     sheet = ss.insertSheet(sheetName);
@@ -662,154 +729,6 @@ function getAllRegistrationData() {
   let all = [];
   CAR_TYPES.forEach(t => { all = all.concat(getRegistrationData(t)); });
   return all;
-}
-
-function normalizeCustomerName(name) {
-  if (!name) return "";
-  let str = String(name);
-  str = str.replace(/[Ａ-Ｚａ-ｚ０-９]/g, function(s) {
-    return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
-  });
-  str = str.replace(/[\s ]+/g, "");
-  str = str.replace(/㈱|\(株\)|（株）|株式会社/g, "株式会社");
-  str = str.replace(/㈲|\(有\)|（有）|有限会社/g, "有限会社");
-  return str;
-}
-
-// ▼ フォルダ名が「2026.08」「2026.8」のような年.月形式かどうかを判定し、
-//   月の0埋め有無に関わらず比較できるよう "2026-8" のような正規化キーを返す（該当しなければnull）。
-function normalizeMonthFolderKey_(name) {
-  const m = /^(\d{4})\.(\d{1,2})$/.exec(String(name).trim());
-  if (!m) return null;
-  const year = m[1];
-  const month = parseInt(m[2], 10);
-  if (month < 1 || month > 12) return null;
-  return `${year}-${month}`;
-}
-
-// ▼ 登録予定日から、それが属する月フォルダの正規化キー（例: "2026-8"）を求める
-function getMonthFolderKeyFromDate_(dateStr) {
-  if (!dateStr) return null;
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return null;
-  return `${d.getFullYear()}-${d.getMonth() + 1}`;
-}
-
-// ▼ 指定した車両区分の全シートを巡回してPDFリンクを書き込む。
-//   ・rootFolderId 配下は何階層でも再帰的に探索する（サブフォルダの深さは問わない）。
-//   ・ファイル名は正規化した顧客名と完全一致するものだけを対象にする（部分一致だと「山田高」と
-//     「山田高市」のような別人を誤って同一視してしまうため）。
-//   ・PDFは「2026.08」または「2026.8」のような月フォルダに格納されている前提で、同姓同名が
-//     複数いる場合は登録予定日が属する月フォルダのファイルを優先する。
-//   ・既にリンク済みの行は上書きしない（誤マッチにより後から空欄に戻ってしまうのを防ぐため）。
-function autoLinkVehicleInspectionPDF_(carType) {
-  const rootFolderId = getPdfFolderId(carType);
-  if (!rootFolderId) return; // 未設定の車両区分は何もしない
-
-  let rootFolder;
-  try {
-    rootFolder = DriveApp.getFolderById(rootFolderId);
-  } catch (e) {
-    return; // 設定されたIDにアクセスできない場合は何もしない
-  }
-
-  const sheets = getDbSheetsForCarType_(carType);
-  if (sheets.length === 0) return;
-
-  const pdfList = []; // { normalizedName, url, monthFolderKey(なければnull) }
-  function collectPdfFiles(folder, monthFolderKey) {
-    const files = folder.getFiles();
-    while (files.hasNext()) {
-      const file = files.next();
-      const rawName = file.getName();
-      if (rawName.toLowerCase().endsWith(".pdf")) {
-        const fileName = rawName.replace(/\.pdf$/i, "");
-        pdfList.push({
-          normalizedName: normalizeCustomerName(fileName),
-          url: file.getUrl(),
-          monthFolderKey: monthFolderKey
-        });
-      }
-    }
-    const subFolders = folder.getFolders();
-    while (subFolders.hasNext()) {
-      const sub = subFolders.next();
-      // 直下（またはその配下）が月フォルダに入ったら、そのキーを子階層にも引き継ぐ
-      const nextMonthFolderKey = monthFolderKey || normalizeMonthFolderKey_(sub.getName());
-      collectPdfFiles(sub, nextMonthFolderKey);
-    }
-  }
-  collectPdfFiles(rootFolder, null);
-
-  // 正規化した顧客名が完全一致する候補の中から、対象月のフォルダのものを優先して1件選ぶ。
-  // 月フォルダで絞り込めず候補が複数残る場合は、誤リンクを避けるため空のままにする。
-  function findMatchedUrl(normalizedCustomerName, targetMonthFolderKey) {
-    const candidates = pdfList.filter(p => p.normalizedName === normalizedCustomerName);
-    if (candidates.length === 0) return "";
-    if (targetMonthFolderKey) {
-      const sameMonth = candidates.find(p => p.monthFolderKey === targetMonthFolderKey);
-      if (sameMonth) return sameMonth.url;
-    }
-    if (candidates.length === 1) return candidates[0].url;
-    return "";
-  }
-
-  sheets.forEach(sheet => {
-    // 数式（他行の車検証リンクのHYPERLINK）を保持したまま読む。マッチした行以外は
-    // そのまま書き戻すため、getValues()だけだと他行のリンクが消えてしまう。
-    const data = getSheetDataPreservingFormulas_(sheet);
-    if (data.length <= 1) return;
-
-    const nameColIndex = data[0].indexOf("顧客名");
-    const linkColIndex = data[0].indexOf("車検証リンク");
-    const dateColIndex = data[0].indexOf("登録予定日");
-    if (nameColIndex === -1 || linkColIndex === -1) return;
-
-    let sheetMatchCount = 0;
-    for (let i = 1; i < data.length; i++) {
-      const customerName = data[i][nameColIndex];
-      if (customerName && !data[i][linkColIndex]) {
-        const normalizedCustomerName = normalizeCustomerName(customerName);
-        if (!normalizedCustomerName) continue;
-
-        const targetMonthFolderKey = dateColIndex !== -1 ? getMonthFolderKeyFromDate_(data[i][dateColIndex]) : null;
-        const matchedUrl = findMatchedUrl(normalizedCustomerName, targetMonthFolderKey);
-
-        if (matchedUrl) {
-          // 生のURLではなくHYPERLINK関数で書き込む
-          data[i][linkColIndex] = `=HYPERLINK("${matchedUrl}", "車検証リンク")`;
-          sheetMatchCount++;
-        }
-      }
-    }
-    if (sheetMatchCount > 0) {
-      sheet.getRange(1, 1, data.length, data[0].length).setValues(data);
-    }
-  });
-}
-function autoLinkVehicleInspectionPDFNewCar() {
-  autoLinkVehicleInspectionPDF_('新車');
-}
-function autoLinkVehicleInspectionPDFUsedCar() {
-  autoLinkVehicleInspectionPDF_('中古車');
-}
-
-// ▼ 新車・中古車それぞれのPDF自動リンクを定期実行するトリガーを設置する。
-//   GASエディタからこの関数を一度だけ手動実行してください（重複設置は防止済み）。
-//   これにより、ドライブにPDFが追加されてから最大15分程度でカレンダー/リストに反映されます。
-//   ※以前のバージョンで `autoLinkVehicleInspectionPDF` という名前のトリガーを設置済みの場合は、
-//     関数名変更に伴い古いトリガーが無効化されるため、GASエディタの「トリガー」画面から削除してください。
-function setupPdfLinkTrigger() {
-  ['autoLinkVehicleInspectionPDFNewCar', 'autoLinkVehicleInspectionPDFUsedCar'].forEach(fnName => {
-    const alreadyExists = ScriptApp.getProjectTriggers().some(
-      t => t.getHandlerFunction() === fnName
-    );
-    if (alreadyExists) return;
-    ScriptApp.newTrigger(fnName)
-      .timeBased()
-      .everyMinutes(15)
-      .create();
-  });
 }
 
 // ============================================================
