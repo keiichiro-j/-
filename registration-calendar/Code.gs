@@ -456,8 +456,8 @@ const LEGACY_CONFIRMED_STATUSES = ['登録日確定'];
 
 const HEADER_NOTES = {
   'ステータス': '次の3つから選択してください。\n・登録書類到着待\n・登録書類到着済\n・登録予定日確定\n\n「登録予定日確定」を選択すると、登録予定日を入力した日付でカレンダーに表示されます。それ以外は「未定リスト」に表示されます。',
-  '登録予定日': 'ステータスが「登録予定日確定」の場合に入力してください（yyyy-mm-dd）。未定の間は空欄のままで構いません。',
-  '担当者': 'フルネームで入力してください。設定画面の「担当者マスタ」に登録されているフルネームと文字が完全に一致しないと、その担当者のマイページに反映されません（全角/半角や旧姓などの表記ゆれに注意）。このセルの背景色が薄い赤になっている場合、担当者マスタに登録のない名前が入力されています。担当者マスタに登録済みの名前を入力すると、同じ行の「拠点」列にその担当者の拠点が自動で反映されます。',
+  '登録予定日': 'ステータスが「登録予定日確定」の場合に入力してください。セルをクリックするとカレンダーが表示され、日付を選択できます（手入力の場合はyyyy-mm-dd形式）。未定の間は空欄のままで構いません。',
+  '担当者': 'セルをクリックし、プルダウンから選択してください（設定画面の「担当者マスタ」に登録されているフルネームの一覧です）。選択すると、同じ行の「拠点」列にその担当者の拠点が自動で反映されます。一覧にない名前を直接入力した場合はマイページに反映されず、このセルの背景色も薄い赤になります。担当者マスタへの追加は設定画面から行ってください。',
   '車種': '自由入力です。',
   'OSS区分': '「OSS」または「紙登録」を選択してください。',
   '顧客名': 'このセルの背景色が薄いオレンジになっている場合、同じシート内に同姓同名の顧客が他にもいます。誤って重複登録していないか確認してください（同月に同名で2台登録される正当なケースもあるため、問題なければそのままで構いません）。',
@@ -528,13 +528,34 @@ function applySheetGuidance_(sheet) {
   applyDropdown_('拠点', branchNames, true);
   applyDropdown_('OSS区分', OSS_OPTIONS, false);
 
+  // 担当者列: 自由入力ではなく、担当者マスタ(settings_マイページ連携シート)の氏名一覧から
+  // プルダウンで選択する方式にする。参照が「範囲」なので、担当者マスタの登録内容が
+  // 変わっても、この選択肢はテンプレートを再適用しなくても自動的に最新の状態になる。
+  const mypageSheet = getOrCreateMypageLinkSheet_();
+  const repNameColIndex = MYPAGE_LINK_HEADERS.indexOf('氏名(フルネーム)') + 1;
+  const repMasterRange = mypageSheet.getRange(2, repNameColIndex, templateRowCount, 1);
+  const repColIndex = headers.indexOf('担当者');
+  if (repColIndex !== -1) {
+    const repRule = SpreadsheetApp.newDataValidation().requireValueInRange(repMasterRange, true).setAllowInvalid(true).build();
+    sheet.getRange(2, repColIndex + 1, templateRowCount, 1).setDataValidation(repRule);
+  }
+
+  // 登録予定日列: セルをクリックするとカレンダーから日付を選べるようにする(日付の入力規則を
+  // 付けると、Googleスプレッドシートが自動でカレンダーピッカーを表示する)。
+  const dateColIndex = headers.indexOf('登録予定日');
+  if (dateColIndex !== -1) {
+    sheet.getRange(2, dateColIndex + 1, templateRowCount, 1).setNumberFormat('yyyy-mm-dd');
+    const dateRule = SpreadsheetApp.newDataValidation().requireDate().setAllowInvalid(true).build();
+    sheet.getRange(2, dateColIndex + 1, templateRowCount, 1).setDataValidation(dateRule);
+  }
+
   // 顧客名列: 同じシート内に同姓同名（完全一致）が2件以上あるセルを薄いオレンジで塗る
   applyColumnHighlight_(sheet, headers, '顧客名', templateRowCount, (colLetter) => {
     return `=AND($${colLetter}2<>"", COUNTIF($${colLetter}$2:$${colLetter}$${templateRowCount + 1}, $${colLetter}2) > 1)`;
   }, '#FDE9CB');
 
   // 担当者マスタ(settings_マイページ連携シート)に登録のない担当者名を薄い赤で塗る
-  getOrCreateMypageLinkSheet_(); // 参照先シートが存在することを保証しておく
+  // (プルダウン以外の値が直接入力・貼り付けされた場合の保険)
   applyColumnHighlight_(sheet, headers, '担当者', templateRowCount, (colLetter) => {
     return `=AND($${colLetter}2<>"", COUNTIF('${MYPAGE_LINK_SHEET_NAME}'!$A:$A, $${colLetter}2)=0)`;
   }, '#FCEAE8');

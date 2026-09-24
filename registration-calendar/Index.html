@@ -13,7 +13,7 @@
          それ以外のOSでも各プラットフォームの標準UIフォントにフォールバックする。 */
       --font-ios: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic Medium", "Yu Gothic", "Segoe UI", Meiryo, Roboto, sans-serif;
       --ink: #1A1F36; --ink-2: #4B5468; --muted: #8790A3; --border: #D9DEE5;
-      --canvas: #F3F4F7; --surface: #FFFFFF; --surface-2: #F7F8FA; --hairline: #E6E8EE;
+      --canvas: #F3F4F7; --surface: #FFFFFF; --surface-2: #F7F8FA; --hairline: #E6E8EE; --cal-line: #D6D9E1;
       --accent: #3B4FD1; --accent-bg: #EEF1FD; --accent-ink: #2E3FB0; --panel-bg: #F7F8FE;
       --oss: #16924F; --oss-bg: #E7F7EE;
       --paper: #D6392E; --paper-bg: #FCEAE8;
@@ -114,7 +114,7 @@
     .kpi-unit { font-size: 10.5px; font-weight: 600; color: var(--muted); margin-left: 3px; font-family: var(--font-ios); }
 
     /* -- カレンダー行 -- */
-    .date-row { display: flex; align-items: stretch; min-height: 76px; border-bottom: 1px solid var(--hairline); }
+    .date-row { display: flex; align-items: stretch; min-height: 76px; border-bottom: 1px solid var(--cal-line); }
     .date-row.has-notice { min-height: 96px; }
     .date-col { width: 58px; flex: 0 0 58px; display: flex; align-items: center; justify-content: center; }
     .content-col-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
@@ -172,7 +172,7 @@
     .mp-header-nav { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
     .mp-kpi-group { margin-bottom: 10px; }
     .mp-kpi-group-label { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 6px; }
-    .mp-kpi-row { margin-bottom: 0; }
+    .mp-kpi-row { margin-bottom: 0; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); }
     .mp-kpi-row .slide-hint { display: none; }
     .mp-list { display: flex; flex-direction: column; gap: 5px; }
     .mp-row { display: flex; align-items: center; gap: 14px; background: var(--surface); border-radius: 8px; padding: 10px 14px; box-shadow: var(--shadow-sm); cursor: pointer; border: 1px solid var(--hairline); transition: box-shadow .12s ease, border-color .12s ease; }
@@ -786,16 +786,27 @@
       return calendarNotices.filter(n => n.date === dateStr);
     }
 
+    // ▼ 備考欄のキーワードに応じてカードの背景色を変える。
+    //   「完成検査切れ」=注意喚起の黄色、「〜県登録」(例:愛知県登録)=登録先の目印の緑。
+    //   どちらも通常のカードより濃い背景になるため、文字色も専用の濃い色に切り替えて視認性を保つ。
+    function remarkCardStyle_(r) {
+      const remark = String(r.備考 || '');
+      if (remark.includes('完成検査切れ')) return { bg: '#FDE68A', ink: '#6B4E00' };
+      if (remark.includes('県登録')) return { bg: '#BBEFC7', ink: '#14532D' };
+      return null;
+    }
     function entryCard(r) {
       const c = branchColors[r.拠点] || branchColors['その他'];
-      return `<div class="entry-card js-open-record" ${recordDataAttr(r)} style="--bar-color:${c.c};">
+      const rs = remarkCardStyle_(r);
+      const inkStyle = rs ? `color:${rs.ink};` : '';
+      return `<div class="entry-card js-open-record" ${recordDataAttr(r)} style="--bar-color:${c.c};${rs ? `background:${rs.bg};` : ''}">
         <div class="entry-row">
-          <span class="entry-name">${escapeHtml(r.顧客名)}</span>
+          <span class="entry-name" style="${inkStyle}">${escapeHtml(r.顧客名)}</span>
           ${methodPill(isOssRecord(r))}
         </div>
         <div class="entry-row">
-          <span class="entry-sales"><i class="fa-solid fa-user" style="font-size:8px;margin-right:3px;"></i>${escapeHtml(r.担当者 || '-')}</span>
-          <span class="entry-model">${escapeHtml(r.車種 || '')}</span>
+          <span class="entry-sales" style="${inkStyle}"><i class="fa-solid fa-user" style="font-size:8px;margin-right:3px;"></i>${escapeHtml(r.担当者 || '-')}</span>
+          <span class="entry-model" style="${inkStyle}">${escapeHtml(r.車種 || '')}</span>
         </div>
       </div>`;
     }
@@ -927,9 +938,11 @@
 
     function pendingCardHTML(p) {
       const c = branchColors[p.拠点] || branchColors['その他'];
-      return `<div class="entry-card js-open-record" ${recordDataAttr(p)} style="--bar-color:${c.c};margin-bottom:8px;">
-        <div class="entry-row"><span class="entry-name">${escapeHtml(p.顧客名)}</span>${methodPill(isOssRecord(p))}</div>
-        <div class="entry-row"><span class="entry-sales"><i class="fa-solid fa-user" style="font-size:8px;margin-right:3px;"></i>${escapeHtml(p.担当者 || '-')}</span><span class="entry-model">${escapeHtml(p.車種 || '')}</span></div>
+      const rs = remarkCardStyle_(p);
+      const inkStyle = rs ? `color:${rs.ink};` : '';
+      return `<div class="entry-card js-open-record" ${recordDataAttr(p)} style="--bar-color:${c.c};margin-bottom:8px;${rs ? `background:${rs.bg};` : ''}">
+        <div class="entry-row"><span class="entry-name" style="${inkStyle}">${escapeHtml(p.顧客名)}</span>${methodPill(isOssRecord(p))}</div>
+        <div class="entry-row"><span class="entry-sales" style="${inkStyle}"><i class="fa-solid fa-user" style="font-size:8px;margin-right:3px;"></i>${escapeHtml(p.担当者 || '-')}</span><span class="entry-model" style="${inkStyle}">${escapeHtml(p.車種 || '')}</span></div>
       </div>`;
     }
 
