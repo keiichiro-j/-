@@ -72,7 +72,18 @@ function api_renameSpreadsheet(newTitle) {
 }
 
 // ===== 在庫リスト一覧 =====
+/**
+ * 不具合修正: 期限切れのHoldは本来5分おきの時間主導トリガー
+ * （triggerHoldExpiryCheck、Triggers.gs参照）が自動解放するが、そのトリガーが
+ * 何らかの理由（未設定・実行エラー等）で動いていない環境では、期限が過ぎても
+ * 「Hold中」のまま在庫が解放されない不具合になっていた。在庫リストを表示する
+ * たびにも必ずチェックし直すことで、アプリを開く・更新するだけで確実に
+ * 解放されるようにする（triggerHoldExpiryCheckは1回リトライ・失敗時は管理者へ
+ * 通知したうえで例外を投げずに戻るため、ここで呼んでも在庫リスト自体の表示を
+ * 妨げない）。
+ */
 function api_listInventory(filters, groupBy) {
+  triggerHoldExpiryCheck();
   var vehicles = searchInventory(listInventory(), filters);
   return groupBy ? groupByField_(vehicles, groupBy) : [{ key: '', items: vehicles }];
 }
