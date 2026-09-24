@@ -34,9 +34,12 @@ function setupSpreadsheet_() {
   getOrderSheet_();
   getWholesaleOrderSheet_();
   getAuditLogSheet_();
+  getDemoCarListSheet_();
+  getServiceCarListSheet_();
   setupTimeDrivenTriggers_();
 
-  var message = '在庫リスト・Holdリスト・受注リスト・業販受注リスト・変更履歴の5タブを準備しました' +
+  var message = '在庫リスト・Holdリスト・受注リスト・業販受注リスト・変更履歴・デモカーリスト・' +
+    'サービス代車リストの7タブを準備しました' +
     '（既存のシートがあればそのまま利用し、上書きはしていません）。' +
     'チェックボックス列（カーセンサー・グーネット等）、列見出しには入力形式の説明メモを' +
     '設定済みです（選択式の列は、Hold登録・受注確定が失敗する不具合の原因になるため、' +
@@ -223,7 +226,9 @@ function removeSelectValidationsAndRefreshNotes_() {
     [getHoldsSheet_(), SHEET_NAMES.HOLDS, HOLD_COLUMNS],
     [getOrderSheet_(), SHEET_NAMES.ORDERS, ORDER_COLUMNS],
     [getWholesaleOrderSheet_(), SHEET_NAMES.WHOLESALE_ORDERS, WHOLESALE_ORDER_COLUMNS],
-    [getAuditLogSheet_(), SHEET_NAMES.AUDIT_LOG, AUDIT_LOG_COLUMNS]
+    [getAuditLogSheet_(), SHEET_NAMES.AUDIT_LOG, AUDIT_LOG_COLUMNS],
+    [getDemoCarListSheet_(), SHEET_NAMES.DEMO_CAR_LIST, CAR_TRACKING_COLUMNS],
+    [getServiceCarListSheet_(), SHEET_NAMES.SERVICE_CAR_LIST, CAR_TRACKING_COLUMNS]
   ].forEach(function (pair) {
     removeSelectValidations_(pair[0], pair[2]);
     applyCheckboxValidations_(pair[0], pair[2]);
@@ -231,7 +236,7 @@ function removeSelectValidationsAndRefreshNotes_() {
     applySheetDesign_(pair[0], pair[1], pair[2]);
   });
 
-  var message = '在庫リスト・Holdリスト・受注リスト・業販受注リスト・変更履歴のドロップダウン入力規則を解除し（Hold登録・受注確定が失敗する不具合の原因のため）、列見出しの説明メモ・タブの見た目を再設定しました。';
+  var message = '在庫リスト・Holdリスト・受注リスト・業販受注リスト・変更履歴・デモカーリスト・サービス代車リストのドロップダウン入力規則を解除し（Hold登録・受注確定が失敗する不具合の原因のため）、列見出しの説明メモ・タブの見た目を再設定しました。';
   Logger.log(message);
   return message;
 }
@@ -407,7 +412,9 @@ function compactMisplacedDataRows_() {
     { name: SHEET_NAMES.HOLDS, sheet: getHoldsSheet_(), keyCol1: holdColIndex1('commission') },
     { name: SHEET_NAMES.ORDERS, sheet: getOrderSheet_(), keyCol1: orderColIndex1('commission') },
     { name: SHEET_NAMES.WHOLESALE_ORDERS, sheet: getWholesaleOrderSheet_(), keyCol1: wholesaleOrderColIndex1('commission') },
-    { name: SHEET_NAMES.AUDIT_LOG, sheet: getAuditLogSheet_(), keyCol1: auditLogColIndex1('commission') }
+    { name: SHEET_NAMES.AUDIT_LOG, sheet: getAuditLogSheet_(), keyCol1: auditLogColIndex1('commission') },
+    { name: SHEET_NAMES.DEMO_CAR_LIST, sheet: getDemoCarListSheet_(), keyCol1: carTrackingColIndex1('ocn') },
+    { name: SHEET_NAMES.SERVICE_CAR_LIST, sheet: getServiceCarListSheet_(), keyCol1: carTrackingColIndex1('ocn') }
   ];
   var fixed = [];
   var clean = [];
@@ -440,7 +447,7 @@ function compactMisplacedDataRows_() {
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('販売可能リスト')
-    .addItem('初期セットアップ（5タブを作成）', 'setupSpreadsheet_')
+    .addItem('初期セットアップ（7タブを作成）', 'setupSpreadsheet_')
     .addItem('在庫データの読み込み状況を確認', 'diagnoseInventoryData_')
     .addItem('入力規則を解除し、説明メモ・タブの見た目を再設定', 'removeSelectValidationsAndRefreshNotes_')
     .addItem('ＯＣＮ・コミッション列を書式なしテキストに再設定', 'formatCommissionColumnsAsText_')

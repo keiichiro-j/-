@@ -2,11 +2,14 @@
  * Constants.gs
  * 中古車販売可能リスト 共通定数定義
  *
- * スプレッドシートは4タブ構成：
+ * スプレッドシートは7タブ構成：
  *   在庫リスト … 車両情報＋Holdステータスのみ
  *   Holdリスト … Holdの入力項目・開始日時・期限（車両情報とは別テーブル）
  *   受注リスト … 受注確定時に転記される車両情報＋入力項目
+ *   業販受注リスト … 業販HOLDから受注確定した車両情報＋入力項目
  *   変更履歴 … 監査ログ
+ *   デモカーリスト … 在庫リストの区分「デモカー」の車両を反映する管理者限定リスト
+ *   サービス代車リスト … 在庫リストの区分「サービス」の車両を反映する管理者限定リスト
  */
 
 // ===== シート名 =====
@@ -15,7 +18,9 @@ var SHEET_NAMES = {
   HOLDS: 'Holdリスト',
   ORDERS: '受注リスト',
   WHOLESALE_ORDERS: '業販受注リスト',
-  AUDIT_LOG: '変更履歴'
+  AUDIT_LOG: '変更履歴',
+  DEMO_CAR_LIST: 'デモカーリスト',
+  SERVICE_CAR_LIST: 'サービス代車リスト'
 };
 
 /**
@@ -30,6 +35,8 @@ SHEET_TAB_COLORS[SHEET_NAMES.HOLDS] = '#a06a1f';
 SHEET_TAB_COLORS[SHEET_NAMES.ORDERS] = '#1f6f4a';
 SHEET_TAB_COLORS[SHEET_NAMES.WHOLESALE_ORDERS] = '#5b3a8c';
 SHEET_TAB_COLORS[SHEET_NAMES.AUDIT_LOG] = '#55606b';
+SHEET_TAB_COLORS[SHEET_NAMES.DEMO_CAR_LIST] = '#b5222c';
+SHEET_TAB_COLORS[SHEET_NAMES.SERVICE_CAR_LIST] = '#0f766e';
 
 // ===== Hold 関連 =====
 var HOLD_DURATION_MS = 72 * 60 * 60 * 1000; // Hold期間 72時間
@@ -233,6 +240,42 @@ var INVENTORY_COLUMNS = VEHICLE_COLUMNS.concat([
 ]);
 
 /**
+ * デモカーリスト／サービス代車リストで対象にする「区分」（VEHICLE_COLUMNSの
+ * category列）の値。区分がこの値と完全一致する在庫リストの車両を、それぞれの
+ * 専用シートへ反映する（CarTrackingService.gs参照）。
+ */
+var DEMO_CAR_CATEGORY_VALUE = 'デモカー';
+var SERVICE_CAR_CATEGORY_VALUE = 'サービス';
+
+/**
+ * デモカーリスト／サービス代車リストの「販売状況」列の値。在庫リストに
+ * まだある間は在庫中、受注確定により在庫リストから除外されると販売済みに
+ * なる（CarTrackingService.gs参照）。
+ */
+var CAR_TRACKING_STATUS = {
+  IN_STOCK: '在庫中',
+  SOLD: '販売済み'
+};
+
+/**
+ * デモカーリスト／サービス代車リスト列定義。車両情報（VEHICLE_COLUMNS）＋
+ * 販売状況のみ（在庫リストと異なり、Holdステータス・備考・MPは持たない。
+ * MPは在庫リストの詳細ポップアップと同じ並びに揃えるため保持する）。
+ * 2つのシートは同じ列構成を共有する（区分の値が異なるだけ）。
+ */
+var CAR_TRACKING_COLUMNS = VEHICLE_COLUMNS.concat([
+  {
+    key: 'mp', label: 'MP', type: 'text',
+    note: 'メーカーの定めた年式仕様です。在庫リストの値をアプリが自動反映します。手動編集しないでください。'
+  },
+  {
+    key: 'saleStatus', label: '販売状況', type: 'select', options: [CAR_TRACKING_STATUS.IN_STOCK, CAR_TRACKING_STATUS.SOLD],
+    note: 'アプリが自動更新する値です（在庫中＝在庫リストにまだある、販売済み＝在庫リストから' +
+      '受注確定により除外された）。手動編集しないでください。'
+  }
+]);
+
+/**
  * Holdリスト列定義。1台の車両につきHold中は1行のみ存在する。commissionで一意に特定する。
  */
 var HOLD_COLUMNS = [
@@ -357,6 +400,7 @@ var HOLD_COL_INDEX = buildColIndex_(HOLD_COLUMNS);
 var ORDER_COL_INDEX = buildColIndex_(ORDER_COLUMNS);
 var WHOLESALE_ORDER_COL_INDEX = buildColIndex_(WHOLESALE_ORDER_COLUMNS);
 var AUDIT_LOG_COL_INDEX = buildColIndex_(AUDIT_LOG_COLUMNS);
+var CAR_TRACKING_COL_INDEX = buildColIndex_(CAR_TRACKING_COLUMNS);
 
 function buildColIndex_(columns) {
   var map = {};
@@ -382,6 +426,12 @@ function wholesaleOrderColIndex1(key) {
 
 function auditLogColIndex1(key) {
   return AUDIT_LOG_COL_INDEX[key] + 1;
+}
+
+// デモカーリスト・サービス代車リストは同じ列構成（CAR_TRACKING_COLUMNS）を
+// 共有するため、1つの関数で両シート共通に使う。
+function carTrackingColIndex1(key) {
+  return CAR_TRACKING_COL_INDEX[key] + 1;
 }
 
 // ===== 設定機能のプロパティキー =====

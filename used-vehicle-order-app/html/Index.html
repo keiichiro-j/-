@@ -153,10 +153,14 @@
         <button class="navBtn tabs__item is-active" data-tab="home" type="button">ホーム</button>
         <button class="navBtn tabs__item" data-tab="inventory" type="button">在庫リスト</button>
         <button class="navBtn tabs__item" data-tab="orders" type="button">受注リスト</button>
-        <!-- 業販受注リスト: 管理者権限を持つ担当者にのみ表示する（renderSettingsが
-             .navBtn--wholesaleクラスのhiddenを切り替える、JavaScript.html参照）。 -->
-        <button class="navBtn tabs__item navBtn--wholesale hidden" data-tab="wholesaleOrders" type="button">業販受注リスト</button>
+        <!-- 業販受注リスト・デモカーリスト・サービス代車リストは、管理者権限を持つ
+             担当者にのみ表示する（renderSettingsが.navBtn--adminOnlyクラスの
+             hiddenを一括で切り替える、JavaScript.html参照）。デモカーリスト・
+             サービス代車リストは設定タブの直前に表示する（現場からの要望）。 -->
+        <button class="navBtn tabs__item navBtn--adminOnly hidden" data-tab="wholesaleOrders" type="button">業販受注リスト</button>
         <button class="navBtn tabs__item" data-tab="mypage" type="button">マイページ</button>
+        <button class="navBtn tabs__item navBtn--adminOnly hidden" data-tab="demoCarList" type="button">デモカーリスト</button>
+        <button class="navBtn tabs__item navBtn--adminOnly hidden" data-tab="serviceCarList" type="button">サービス代車リスト</button>
         <button class="navBtn tabs__item" data-tab="settings" type="button">設定</button>
       </nav>
       <div class="integrityBanner hidden" id="integrityBanner">
@@ -328,7 +332,7 @@
 
     <!-- 業販受注リスト: 業販HOLD（HoldService.gsのHOLD_TYPE.WHOLESALE）から
          受注確定した車両の一覧。管理者権限を持つ担当者にのみ表示する
-         （コントロールパネルの水平タブも.navBtn--wholesaleクラスで一括制御、
+         （コントロールパネルの水平タブも.navBtn--adminOnlyクラスで一括制御、
          JavaScript.html参照）。通常の受注リストと異なり、リード番号・下取車の
          有無・保険加入の有無・支払方法は持たず、顧客の代わりに「販売先」で検索する。
          業販は担当者があらかじめ決まっている運用のため担当者の絞り込みは設けず、
@@ -415,6 +419,50 @@
             <p>受注した車両はありません</p>
           </div>
         </section>
+      </div>
+    </main>
+
+    <!-- デモカーリスト: 在庫リストの区分「デモカー」の車両を、在庫リストとは別の
+         専用スプレッドシート（CarTrackingService.gs参照）で管理する一覧。管理者
+         権限を持つ担当者にのみ表示する（コントロールパネルの水平タブも
+         .navBtn--adminOnlyクラスで一括制御、JavaScript.html参照）。区分デモカーの
+         車両は、これまでどおり在庫リストにも変わらず表示され続ける（このリストは
+         追加の管理用ビュー）。在庫リストから受注確定された場合も一覧からは消えず、
+         「販売済み」の表示に変わる。Hold・受注操作は行わない閲覧専用の一覧のため、
+         絞り込みサイドバーは持たず自由検索のみ（現場からの要望）。 -->
+    <main class="view" id="view-demoCarList">
+      <div class="commandbar">
+        <div class="searchrow">
+          <div class="searchbox">
+            <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
+            <input type="search" id="demoCarListKeyword" placeholder="モデル・ＯＣＮ・コミッション・登録番号で検索">
+          </div>
+          <span class="filterSidebar__count" id="demoCarListTotalCount"></span>
+        </div>
+      </div>
+      <div id="demoCarListBody"></div>
+      <div class="emptyState hidden" id="demoCarListEmpty">
+        <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-grid"></use></svg></span>
+        <p>区分「デモカー」の車両はありません</p>
+      </div>
+    </main>
+
+    <!-- サービス代車リスト: デモカーリストと同じ位置づけ（区分「サービス」の
+         車両が対象）。 -->
+    <main class="view" id="view-serviceCarList">
+      <div class="commandbar">
+        <div class="searchrow">
+          <div class="searchbox">
+            <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
+            <input type="search" id="serviceCarListKeyword" placeholder="モデル・ＯＣＮ・コミッション・登録番号で検索">
+          </div>
+          <span class="filterSidebar__count" id="serviceCarListTotalCount"></span>
+        </div>
+      </div>
+      <div id="serviceCarListBody"></div>
+      <div class="emptyState hidden" id="serviceCarListEmpty">
+        <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-grid"></use></svg></span>
+        <p>区分「サービス」の車両はありません</p>
       </div>
     </main>
 
@@ -839,6 +887,32 @@
         <button class="btn--icon" data-close-modal>&times;</button>
       </div>
       <div class="modal__body" id="wholesaleOrderDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- デモカーリスト／サービス代車リストで行タップした際、車両情報を画面中央に
+       表示するモーダル（inventoryDetailModalと同じパターン。carTrackingDetailHtml_、
+       JavaScript.html参照）。Hold・受注操作は行わない閲覧専用のため、操作ボタンは
+       持たない。 -->
+  <div class="modal hidden" id="demoCarListDetailModal">
+    <div class="modal__panel modal__panel--vehicle">
+      <div class="modal__header">
+        <h2>デモカー情報</h2>
+        <button class="btn--icon" data-close-modal>&times;</button>
+      </div>
+      <div class="modal__body" id="demoCarListDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- サービス代車リストで行タップした際の詳細モーダル（demoCarListDetailModalと
+       同じパターン）。 -->
+  <div class="modal hidden" id="serviceCarListDetailModal">
+    <div class="modal__panel modal__panel--vehicle">
+      <div class="modal__header">
+        <h2>サービス代車情報</h2>
+        <button class="btn--icon" data-close-modal>&times;</button>
+      </div>
+      <div class="modal__body" id="serviceCarListDetailBody"></div>
     </div>
   </div>
 

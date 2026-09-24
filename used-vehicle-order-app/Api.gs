@@ -159,6 +159,26 @@ function api_listWholesaleOrders(filters, groupBy) {
   return groupBy ? groupByField_(result, groupBy) : [{ key: '', items: result }];
 }
 
+// ===== デモカーリスト／サービス代車リスト =====
+// コントロールパネルには管理者権限を持つ担当者にのみこのタブ自体を表示するが
+// （業販受注リストと同じ判定、JavaScript.html参照）、直接APIを呼ばれた場合の
+// 保険として、サーバー側でも非管理者には常に空配列を返す。
+// keyword検索は在庫リストと同じsearchInventory（SearchService.gs）を流用する
+// （モデル・コミッション・ＯＣＮ・車台番号下４桁・登録番号への部分一致）。
+// includeHoldはデモカーリスト・サービス代車リストのデータにはholdStatusが
+// 無いため常に無視される（filters.includeHold === falseの分岐が素通りする）。
+function api_listDemoCarList(filters) {
+  var email = Session.getActiveUser().getEmail();
+  if (!isSystemAdmin_(email)) return [];
+  return searchInventory(listCarTrackingList_(getDemoCarListSheet_(), DEMO_CAR_CATEGORY_VALUE), filters);
+}
+
+function api_listServiceCarList(filters) {
+  var email = Session.getActiveUser().getEmail();
+  if (!isSystemAdmin_(email)) return [];
+  return searchInventory(listCarTrackingList_(getServiceCarListSheet_(), SERVICE_CAR_CATEGORY_VALUE), filters);
+}
+
 // ===== 設定機能（3.6） =====
 // 管理者判定・リダクト・システムマスタ項目のガードは、いずれも
 // SettingsService.gsのgetSettings()/saveSettings()自体の中で完結しているため、

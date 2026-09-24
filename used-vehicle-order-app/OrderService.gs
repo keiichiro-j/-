@@ -57,6 +57,10 @@ function confirmOrder(commission, info) {
     appendOrder_(order);
     deleteInventoryRow_(sheet, rowNumber);
     deleteAllHoldRowsForCommission_(commission);
+    // 区分がデモカー・サービスの車両は、在庫リストからの除外と同時に
+    // デモカーリスト／サービス代車リストの販売状況を「販売済み」に更新する
+    // （対象外の区分の車両には何もしない。CarTrackingService.gs参照）。
+    markCarTrackingIfApplicable_(vehicle, CAR_TRACKING_STATUS.SOLD);
     notifyOrderConfirmed(order);
     appendAuditLog_(buildAuditLogEntry_('受注確定', commission, vehicle.model, currentStaff, '顧客: ' + info.customer, order.orderedAt));
     return order;
@@ -128,6 +132,9 @@ function confirmWholesaleOrder(commission, info) {
     appendWholesaleOrder_(order);
     deleteInventoryRow_(sheet, rowNumber);
     deleteAllHoldRowsForCommission_(commission);
+    // confirmOrderと同様、区分がデモカー・サービスの車両は販売状況を
+    // 「販売済み」に更新する。
+    markCarTrackingIfApplicable_(vehicle, CAR_TRACKING_STATUS.SOLD);
     notifyWholesaleOrderConfirmed(order);
     appendAuditLog_(buildAuditLogEntry_(
       '業販受注確定', commission, vehicle.model, currentStaff,
@@ -188,6 +195,9 @@ function cancelOrder(commission) {
     // この値が無い場合は、従来どおり末尾へ追加される）。
     createInventoryVehicle_(vehicle, order.inventoryRowNumber);
     deleteOrderRow_(orderSheet, rowNumber);
+    // 受注確定時に「販売済み」へ更新した分を、在庫リストへの復元とあわせて
+    // 「在庫中」へ戻す（対象外の区分の車両には何もしない）。
+    markCarTrackingIfApplicable_(vehicle, CAR_TRACKING_STATUS.IN_STOCK);
 
     appendAuditLog_(buildAuditLogEntry_(
       '受注キャンセル', commission, order.model, currentStaff,
@@ -234,6 +244,8 @@ function cancelWholesaleOrder(commission) {
     vehicle.mp = order.mp;
     createInventoryVehicle_(vehicle, order.inventoryRowNumber);
     deleteWholesaleOrderRow_(orderSheet, rowNumber);
+    // cancelOrderと同様、対象区分の車両は販売状況を「在庫中」へ戻す。
+    markCarTrackingIfApplicable_(vehicle, CAR_TRACKING_STATUS.IN_STOCK);
 
     appendAuditLog_(buildAuditLogEntry_(
       '業販受注キャンセル', commission, order.model, currentStaff,

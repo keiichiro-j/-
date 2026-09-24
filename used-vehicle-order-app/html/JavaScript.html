@@ -36,6 +36,8 @@
     inventoryBodyTypeFilter: '', // 在庫リストのボディタイプクイックナビで選択中の型（空文字は「すべて」）
     ordersGroups: [],
     wholesaleOrdersGroups: [],
+    demoCarListItems: [], // デモカーリスト（区分「デモカー」）。グループ化は行わないフラットな一覧
+    serviceCarListItems: [], // サービス代車リスト（区分「サービス」）。同上
     action: null, // { type: 'hold' | 'order' | 'orderFromHold', commission }
     staffList: [], // 設定タブで編集中の担当者マスタ（作業用コピー）
     modelBodyTypeRules: [], // 設定タブで編集中のボディタイプ紐付けルール（作業用コピー）
@@ -1365,6 +1367,70 @@
     openModal($('inventoryDetailModal'));
   }
 
+  // ===== デモカーリスト／サービス代車リスト共通の表示ヘルパー =====
+  // 在庫リストの区分「デモカー」「サービス」の車両を、在庫リストとは別の専用
+  // シートで管理する閲覧専用の一覧（CarTrackingService.gs参照）。Hold・受注の
+  // 概念を持たないため、行・詳細モーダルとも在庫リストの表示（vehicleRowItemHtml_・
+  // vehicleDetailHtml_）を土台にしつつ、状態バッジ・操作ボタンはこの一覧専用の
+  // ものに差し替える。デモカーリスト・サービス代車リストは列構成が同じ
+  // （CAR_TRACKING_COLUMNS）ため、行・詳細のHTML生成関数はどちらの一覧にも
+  // 共通で使う。
+  function carTrackingBadgeHtml_(v) {
+    return v.saleStatus === '販売済み'
+      ? '<span class="badge badge--sold"><span class="badge__dot"></span>販売済み</span>'
+      : '<span class="badge badge--available"><span class="badge__dot"></span>在庫中</span>';
+  }
+
+  function carTrackingRowItemHtml_(v, num) {
+    var isSold = v.saleStatus === '販売済み';
+    return '<div class="rowItem' + (isSold ? ' rowItem--sold' : '') + '" data-ocn="' + escapeHtml(v.ocn) + '">' +
+      '<div class="rowItem__num">' + rowNum_(num) + '</div>' +
+      '<div class="rowItem__main">' +
+      '<div class="rowItem__head">' +
+      '<span class="tag">' + escapeHtml(v.category || '-') + '</span>' +
+      '<span class="rowItem__model" title="' + escapeHtml(v.model) + '">' + escapeHtml(v.model) + '</span>' +
+      '</div>' +
+      '<div class="rowItem__colorSub" title="' + escapeHtml((v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) + '">' +
+      escapeHtml((v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) + '</div>' +
+      '<div class="rowItem__meta">' +
+      rowMetaItemHtml_('年式', v.firstRegistrationDate) +
+      rowMetaItemHtml_('型式', v.modelCode) +
+      rowMetaItemHtml_('走行距離', formatNumberUnit_(v.mileage, ' km')) +
+      rowMetaItemHtml_('車検満了日', v.inspectionExpiryDate, inspectionExpiryTone_(v.inspectionExpiryDate)) +
+      rowMetaItemHtml_('登録番号', plateText_(v)) +
+      rowMetaItemHtml_('MP', v.mp) +
+      '</div>' +
+      '</div>' +
+      '<div class="rowItem__status">' + carTrackingBadgeHtml_(v) + '</div>' +
+      '<div class="rowItem__chev">›</div>' +
+      '</div>';
+  }
+
+  function carTrackingDetailHtml_(v) {
+    var isSold = v.saleStatus === '販売済み';
+    return '<div class="card ' + (isSold ? 'card--sold' : 'card--available') + '">' +
+      '<div class="card__detailCol card__detailCol--overview">' +
+      '<div class="card__top">' +
+      '<div class="card__topRow">' +
+      '<div><div class="card__model">' + escapeHtml(v.model) + '</div>' +
+      '<div class="card__commission">ＯＣＮ ' + escapeHtml(v.ocn || '-') + '</div></div>' +
+      '</div>' +
+      '<div class="card__badges">' + carTrackingBadgeHtml_(v) + '</div>' +
+      '</div>' +
+      vehicleQuickMetaHtml_(v, true) +
+      '</div>' +
+      '<div class="card__detailCol card__detailCol--spec">' +
+      vehicleSpecFieldsHtml_(v) +
+      noteBlockHtml_('備考', v.remarks, '備考はありません。') +
+      '</div>' +
+      '<div class="card__detailCol card__detailCol--hold">' +
+      '<div class="card__holdArea card__holdArea--empty card__holdArea--full">' +
+      '<span class="card__holdArea__placeholder">' + (isSold ? 'この車両は受注確定済み（販売済み）です。' : '在庫リストに在庫があります。') + '</span>' +
+      '</div>' +
+      '</div>' +
+      '</div>';
+  }
+
   // Hold詳細ブロックは、常に見えている要約行（顧客・担当者・タイマー）と、
   // 折りたたみ式の詳細（リード番号・登録月・下取車・OSS・保険）に分ける。
   /**
@@ -2576,6 +2642,67 @@
     loadWholesaleOrders();
   });
 
+  // ===== デモカーリスト／サービス代車リスト =====
+  // 在庫リストの区分「デモカー」「サービス」の車両を、在庫リストとは別の専用
+  // シートで一覧表示する（CarTrackingService.gs参照）。管理者権限を持つ担当者に
+  // のみタブ自体を表示するが（renderSettings参照）、直接呼ばれた場合の保険として
+  // サーバー側api_listDemoCarList・api_listServiceCarListも非管理者には常に
+  // 空配列を返す。Hold・受注確定などの操作は行わない閲覧専用の一覧のため、
+  // グループ化・詳細な絞り込みサイドバーは持たず、自由検索のみのシンプルな
+  // 一覧にする。デモカーリスト・サービス代車リストはまったく同じ構造のため、
+  // makeCarTrackingController_で共通のロード・描画・行クリック処理をまとめて
+  // 生成する（区分の値・要素IDだけが異なる）。
+  function makeCarTrackingController_(opts) {
+    function load() {
+      var filters = { keyword: $(opts.keywordId).value };
+      return gasRun(opts.apiFn, filters).then(function (items) {
+        state[opts.stateKey] = items || [];
+        render();
+      }).catch(function (err) { showToast(err.message, true); });
+    }
+
+    function render() {
+      var items = state[opts.stateKey] || [];
+      $(opts.emptyId).classList.toggle('hidden', items.length > 0);
+      $(opts.countId).textContent = '該当 ' + items.length + ' 台';
+      $(opts.bodyId).innerHTML = rowListHtml_(items, carTrackingRowItemHtml_);
+    }
+
+    function findByOcn(ocn) {
+      return (state[opts.stateKey] || []).find(function (v) { return String(v.ocn) === String(ocn); }) || null;
+    }
+
+    function openDetail(ocn) {
+      var v = findByOcn(ocn);
+      if (!v) return;
+      $(opts.detailBodyId).innerHTML = carTrackingDetailHtml_(v);
+      openModal($(opts.detailModalId));
+    }
+
+    on(opts.bodyId, 'click', function (e) {
+      var tappable = e.target.closest('.rowItem[data-ocn]');
+      if (tappable) openDetail(tappable.dataset.ocn);
+    });
+    on(opts.keywordId, 'input', debounce(load, 250));
+
+    return { load: load };
+  }
+
+  var demoCarListController_ = makeCarTrackingController_({
+    apiFn: 'api_listDemoCarList', stateKey: 'demoCarListItems',
+    keywordId: 'demoCarListKeyword', countId: 'demoCarListTotalCount',
+    bodyId: 'demoCarListBody', emptyId: 'demoCarListEmpty',
+    detailModalId: 'demoCarListDetailModal', detailBodyId: 'demoCarListDetailBody'
+  });
+  var serviceCarListController_ = makeCarTrackingController_({
+    apiFn: 'api_listServiceCarList', stateKey: 'serviceCarListItems',
+    keywordId: 'serviceCarListKeyword', countId: 'serviceCarListTotalCount',
+    bodyId: 'serviceCarListBody', emptyId: 'serviceCarListEmpty',
+    detailModalId: 'serviceCarListDetailModal', detailBodyId: 'serviceCarListDetailBody'
+  });
+  function loadDemoCarList() { return demoCarListController_.load(); }
+  function loadServiceCarList() { return serviceCarListController_.load(); }
+
   // ===== 設定 =====
   function renderSettings(settings) {
     // システムマスタ（ロゴ・メール通知設定・担当者）は、コード上の
@@ -2594,11 +2721,12 @@
     $('systemMasterModelPhotoCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterAnnouncementCard').classList.toggle('hidden', !isAdmin);
     $('systemMasterCelebrationCard').classList.toggle('hidden', !isAdmin);
-    // 業販受注リストのタブ（レール・下タブバーとも.navBtn--wholesale）も、
+    // 業販受注リスト・デモカーリスト・サービス代車リストのタブ（.navBtn--adminOnly）も、
     // システムマスタと同じく管理者権限を持つ担当者にのみ表示する。非管理者が
-    // タブ自体を切り替えられてしまうと、api_listWholesaleOrdersが空配列を
-    // 返すだけの空の画面になって混乱するため、そもそもタブを見せない。
-    document.querySelectorAll('.navBtn--wholesale').forEach(function (el) { el.classList.toggle('hidden', !isAdmin); });
+    // タブ自体を切り替えられてしまうと、対応するAPI（api_listWholesaleOrders・
+    // api_listDemoCarList・api_listServiceCarList）が空配列を返すだけの空の画面に
+    // なって混乱するため、そもそもタブを見せない。
+    document.querySelectorAll('.navBtn--adminOnly').forEach(function (el) { el.classList.toggle('hidden', !isAdmin); });
     renderCelebrationVariantSelects_(settings.celebrationVariants);
 
     // ランダムテーマの抽選結果（resolvedRandomThemePreset_）は、ここ
@@ -3922,7 +4050,10 @@
       console.error('[used-vehicle-order-app] 起動時データ（設定・ログインアカウント情報）の取得に失敗しました:', err);
       showToast('起動時データの取得に失敗しました: ' + err.message, true);
     });
-    return Promise.all([bootstrapPromise, loadInventory(), loadOrders(), loadWholesaleOrders(), loadAllInventoryItems_(), loadMyPageOrders_()]);
+    return Promise.all([
+      bootstrapPromise, loadInventory(), loadOrders(), loadWholesaleOrders(),
+      loadAllInventoryItems_(), loadMyPageOrders_(), loadDemoCarList(), loadServiceCarList()
+    ]);
   }
 
   function init() {

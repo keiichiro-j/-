@@ -874,6 +874,10 @@
   .rowItem:active { background: var(--primary-bg); }
   .rowItem--hold { border-left-color: var(--warning); }
   .rowItem--holdSpecial { border-left-color: var(--hold-special); }
+  /* デモカーリスト・サービス代車リスト専用（carTrackingRowItemHtml_、JavaScript.html参照）。
+     販売済みの行は、在庫あり・Hold中のような業務上のステータス色ではなく、
+     中立のグレーで「対象外になった」ことだけを示す。 */
+  .rowItem--sold { border-left-color: var(--on-surface-variant); }
   .rowItem__num {
     flex: 0 0 30px;
     font-size: 13px;
@@ -1069,6 +1073,9 @@
   /* 業販HOLDは、通常のHoldとひと目で見分けられるよう
      専用の特別色にする（管理者権限を持つ担当者のみ登録できる。HOLD_TYPE参照）。 */
   .card--holdSpecial { border-left-color: var(--hold-special); }
+  /* デモカーリスト・サービス代車リストの詳細モーダル（carTrackingDetailHtml_）用。
+     .rowItem--soldと同じ考え方で、販売済みは中立のグレーにする。 */
+  .card--sold { border-left-color: var(--on-surface-variant); }
   /* 中古車サイトに掲載中の車両は、Hold状態の色（border-left-color）とは独立して
      背景色を変え、一覧上で一目で区別できるようにする（現場からの要望。
      isVehicleListed_、JavaScript.html参照）。border-left-colorによる状態色と
@@ -1123,6 +1130,9 @@
   .badge--available { background: var(--success-bg); color: var(--success); }
   .badge--hold { background: var(--warning-bg); color: var(--warning); }
   .badge--holdSpecial { background: var(--hold-special-bg); color: var(--hold-special); }
+  /* デモカーリスト・サービス代車リストの「販売済み」バッジ（carTrackingBadgeHtml_、
+     JavaScript.html参照）。「在庫中」はbadge--availableをそのまま流用する。 */
+  .badge--sold { background: rgba(31, 41, 51, .06); color: var(--on-surface-variant); }
   /* 掲載バッジ（未掲載／片方のみ掲載／両方掲載）。ステータスバッジと並べて
      表示するため、行・カードの背景色（is-listed）と重ならないティール系にする
      （listedBadgeHtml_、JavaScript.html参照。未掲載の場合はバッジ自体を出さない）。 */
