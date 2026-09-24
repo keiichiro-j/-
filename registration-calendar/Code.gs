@@ -65,6 +65,8 @@ function doGet() {
   const linkedInfo = getMyLinkedInfo_(userEmail);
   template.linkedName = linkedInfo.name;
   template.linkedCarType = linkedInfo.carType;
+  template.linkedBranch = linkedInfo.branch;
+  template.linkedIsBranchManager = linkedInfo.isBranchManager;
   template.initialAnnouncementsNew = getAnnouncements('新車');
   template.initialAnnouncementsUsed = getAnnouncements('中古車');
   template.initialBranchesNew = getBranches('新車');
@@ -301,7 +303,7 @@ function saveBranches(carType, branches) {
   return { success: true };
 }
 
-const MYPAGE_LINK_HEADERS = ['氏名(フルネーム)', 'Googleアカウント', '拠点', '担当車両区分'];
+const MYPAGE_LINK_HEADERS = ['氏名(フルネーム)', 'Googleアカウント', '拠点', '担当車両区分', '拠点長'];
 
 function getOrCreateMypageLinkSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -322,10 +324,14 @@ function getOrCreateMypageLinkSheet_() {
   const carTypeColIndex = MYPAGE_LINK_HEADERS.indexOf('担当車両区分') + 1;
   const rule = SpreadsheetApp.newDataValidation().requireValueInList(CAR_TYPES, true).setAllowInvalid(true).build();
   sheet.getRange(2, carTypeColIndex, 500, 1).setDataValidation(rule);
+  // 拠点長列はチェックボックスにしておく
+  const branchManagerColIndex = MYPAGE_LINK_HEADERS.indexOf('拠点長') + 1;
+  const checkboxRule = SpreadsheetApp.newDataValidation().requireCheckbox().build();
+  sheet.getRange(2, branchManagerColIndex, 500, 1).setDataValidation(checkboxRule);
   return sheet;
 }
 
-// ▼ 氏名⇔Googleアカウント⇔拠点⇔担当車両区分の対応表（担当者マスタ）を取得する
+// ▼ 氏名⇔Googleアカウント⇔拠点⇔担当車両区分⇔拠点長フラグの対応表（担当者マスタ）を取得する
 function getMypageLinks() {
   const sheet = getOrCreateMypageLinkSheet_();
   const data = sheet.getDataRange().getValues();
@@ -337,6 +343,7 @@ function getMypageLinks() {
       email: String(row[1] || ''),
       branch: String(row[2] || ''),
       carType: String(row[3] || ''),
+      isBranchManager: row[4] === true || String(row[4]).toUpperCase() === 'TRUE',
       isEditor: isEditorEmail_(row[1]),
     }));
 }
@@ -353,19 +360,21 @@ function saveMypageLinks(links) {
   if (lastRow > 1) {
     sheet.getRange(2, 1, lastRow - 1, colCount).clearContent();
   }
-  const rows = (links || []).filter(l => l && (l.name || l.email)).map(l => [l.name || '', l.email || '', l.branch || '', l.carType || '']);
+  const rows = (links || []).filter(l => l && (l.name || l.email)).map(l => [l.name || '', l.email || '', l.branch || '', l.carType || '', !!l.isBranchManager]);
   if (rows.length > 0) {
     sheet.getRange(2, 1, rows.length, colCount).setValues(rows);
   }
   return { success: true };
 }
 
-// ▼ 指定のGoogleアカウントに紐づく氏名・担当車両区分を返す（無ければ空文字）
+// ▼ 指定のGoogleアカウントに紐づく氏名・担当車両区分・拠点・拠点長フラグを返す（無ければ空）
 function getMyLinkedInfo_(email) {
-  if (!email) return { name: '', carType: '' };
+  if (!email) return { name: '', carType: '', branch: '', isBranchManager: false };
   const target = String(email).trim().toLowerCase();
   const found = getMypageLinks().find(l => String(l.email).trim().toLowerCase() === target);
-  return found ? { name: found.name, carType: found.carType || '' } : { name: '', carType: '' };
+  return found
+    ? { name: found.name, carType: found.carType || '', branch: found.branch || '', isBranchManager: !!found.isBranchManager }
+    : { name: '', carType: '', branch: '', isBranchManager: false };
 }
 
 // ▼ テーマは個人ごとの見た目設定なので、アクセスしているGoogleアカウントごとに保存する

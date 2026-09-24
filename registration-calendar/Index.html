@@ -210,6 +210,8 @@
     .settings-remove { border: none; background: transparent; color: #B7BDC9; cursor: pointer; font-size: 12px; flex: 0 0 auto; width: 22px; height: 22px; border-radius: 5px; transition: background .12s ease, color .12s ease; }
     .settings-remove:hover { background: var(--paper-bg); color: var(--paper); }
     .settings-add-row { display: flex; gap: 8px; margin-top: 13px; flex-wrap: wrap; }
+    .settings-checkbox-label { display: flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: var(--ink-2); white-space: nowrap; cursor: pointer; flex: 0 0 auto; }
+    .settings-checkbox-label input { cursor: pointer; }
     .settings-input { font-size: 12px; border: 1px solid var(--border); background: var(--surface); border-radius: 6px; padding: 8px 11px; color: var(--ink); font-family: inherit; }
     .settings-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
     .rich-edit-wrap { flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: 5px; }
@@ -322,6 +324,7 @@
       .mp-col-date .mp-date-chip { padding: 4px 7px; font-size: 9.5px; }
       .mp-col-type .branch-pill { padding: 2px 6px; font-size: 9px; white-space: nowrap; }
       .mp-col-status { display: none; } /* 幅優先のため省略。詳細はタップして確認 */
+      .mp-col-rep { display: none; } /* 拠点長表示の担当者列も幅優先で省略。詳細はタップして確認 */
 
       /* -- KPI表示をスマホ向けに変更: 個別タイルの箱・余白をやめ、1枚のカードを
             仕切り線で区切る「統計ストリップ」形式にして折り返し・無駄な空白をなくす -- */
@@ -406,6 +409,8 @@
     const INITIAL_SIDE_ICON_FOLDER_ID = <?!= JSON.stringify(initialSideIconFolderId || '') ?>;
     const LINKED_NAME = <?!= JSON.stringify(linkedName || '') ?>;
     const LINKED_CAR_TYPE = <?!= JSON.stringify(linkedCarType || '') ?>;
+    const LINKED_BRANCH = <?!= JSON.stringify(linkedBranch || '') ?>;
+    const LINKED_IS_BRANCH_MANAGER = <?!= linkedIsBranchManager ? 'true' : 'false' ?>;
     const INITIAL_ANNOUNCEMENTS_NEW = <?!= JSON.stringify(initialAnnouncementsNew || []) ?>;
     const INITIAL_ANNOUNCEMENTS_USED = <?!= JSON.stringify(initialAnnouncementsUsed || []) ?>;
     const INITIAL_VEHICLE_INSPECTION_APP_URL = <?!= JSON.stringify(initialVehicleInspectionAppUrl || '') ?>;
@@ -1064,7 +1069,9 @@
     // ---- マイページ ----
     function mpMonthDate(offset) { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() + offset, 1); }
     function mpTheadHTML() {
-      const heads = ['日付', '区分', '顧客名', 'モデル', '登録方法', 'ステータス'];
+      const heads = LINKED_IS_BRANCH_MANAGER
+        ? ['日付', '区分', '顧客名', '担当者', 'モデル', '登録方法', 'ステータス']
+        : ['日付', '区分', '顧客名', 'モデル', '登録方法', 'ステータス'];
       return `<div class="mp-thead-row">${heads.map(h => `<span class="mp-col">${h}</span>`).join('')}</div>`;
     }
     function mpRowHTML(r) {
@@ -1074,30 +1081,36 @@
         : `<span class="mp-date-chip" style="background:var(--accent-bg);color:var(--accent-ink);">未定</span>`;
       const isUsed = r.車両区分 === '中古車';
       const typeChip = `<span class="branch-pill" style="background:${isUsed ? 'var(--notice-bg)' : 'var(--accent-bg)'};color:${isUsed ? 'var(--notice)' : 'var(--accent-ink)'};">${escapeHtml(r.車両区分 || '-')}</span>`;
+      const repCol = LINKED_IS_BRANCH_MANAGER ? `<span class="mp-col mp-col-rep">${escapeHtml(r.担当者 || '-')}</span>` : '';
       return `<div class="mp-row js-open-record" ${recordDataAttr(r)}>
         <span class="mp-col mp-col-date">${dateChip}</span>
         <span class="mp-col mp-col-type">${typeChip}</span>
         <span class="mp-col mp-name">${escapeHtml(r.顧客名)} 様</span>
+        ${repCol}
         <span class="mp-col mp-model">${escapeHtml(r.車種 || '')}</span>
         <span class="mp-col mp-col-method">${methodPill(isOssRecord(r))}</span>
         <span class="mp-col mp-col-status"><span class="status-pill">${escapeHtml(r.ステータス || '-')}</span></span>
       </div>`;
     }
+    // 拠点長アカウントは自分の担当分だけでなく、自分の拠点の登録状況を丸ごと見られるようにする
+    function isMyMpRecord_(r) {
+      return LINKED_IS_BRANCH_MANAGER ? r.拠点 === LINKED_BRANCH : r.担当者 === LINKED_NAME;
+    }
     function myRecordsForOffset(offset) {
       const monthDate = mpMonthDate(offset);
       const y = monthDate.getFullYear(), m = monthDate.getMonth();
       const confirmed = mypageRecords.filter(r => {
-        if (r.担当者 !== LINKED_NAME || !r.登録予定日 || !isConfirmedStatus(r.ステータス)) return false;
+        if (!isMyMpRecord_(r) || !r.登録予定日 || !isConfirmedStatus(r.ステータス)) return false;
         const p = parseYMD(r.登録予定日);
         return p.y === y && p.m === m;
       });
-      const undecided = offset === 0 ? mypageRecords.filter(r => r.担当者 === LINKED_NAME && !isConfirmedStatus(r.ステータス)) : [];
+      const undecided = offset === 0 ? mypageRecords.filter(r => isMyMpRecord_(r) && !isConfirmedStatus(r.ステータス)) : [];
       return { confirmed, undecided };
     }
     function mpApplyFilters(records) {
       const keyword = mpSearch.name.trim();
       return records.filter(r => {
-        if (keyword && !(r.顧客名 || '').includes(keyword)) return false;
+        if (keyword && !(r.顧客名 || '').includes(keyword) && !(r.担当者 || '').includes(keyword)) return false;
         if (mpSearch.method === 'OSS' && !isOssRecord(r)) return false;
         if (mpSearch.method === '紙' && isOssRecord(r)) return false;
         return true;
@@ -1141,7 +1154,9 @@
             <div class="cp-avatar" style="width:38px;height:38px;flex:0 0 38px;font-size:14px;">${LINKED_NAME[0] || '?'}</div>
             <div class="mp-header-text">
               <h1 class="page-title">マイページ</h1>
-              <p class="page-sub mp-subtitle">${escapeHtml(LINKED_NAME)} さんの受注・登録状況（新車・中古車 合算）</p>
+              <p class="page-sub mp-subtitle">${LINKED_IS_BRANCH_MANAGER
+                ? `${escapeHtml(LINKED_NAME)} さん（${escapeHtml(LINKED_BRANCH)} 拠点長）の拠点全体の受注・登録状況（新車・中古車 合算）`
+                : `${escapeHtml(LINKED_NAME)} さんの受注・登録状況（新車・中古車 合算）`}</p>
             </div>
           </div>
           <div class="mp-header-nav">
@@ -1158,7 +1173,7 @@
           <button type="button" class="slide-hint" title="横にスライドしてさらに表示"><i class="fa-solid fa-chevron-right"></i></button>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
-          <input id="mpSearchName" class="settings-input" placeholder="顧客名で絞り込み" value="${escapeAttr(mpSearch.name)}" style="flex:1;min-width:160px;">
+          <input id="mpSearchName" class="settings-input" placeholder="${LINKED_IS_BRANCH_MANAGER ? '顧客名・担当者名で絞り込み' : '顧客名で絞り込み'}" value="${escapeAttr(mpSearch.name)}" style="flex:1;min-width:160px;">
           <select id="mpSearchMethod" class="settings-input">
             <option ${mpSearch.method === '全て' ? 'selected' : ''}>全て</option>
             <option ${mpSearch.method === 'OSS' ? 'selected' : ''}>OSS</option>
@@ -1379,12 +1394,15 @@
           <span class="s-email">${escapeHtml(u.email)}</span>
           <span class="s-branch">${escapeHtml(u.branch || '-')}</span>
           <span class="s-branch">${escapeHtml(u.carType || '未設定')}</span>
+          <label class="settings-checkbox-label">
+            <input type="checkbox" data-idx="${mypageLinks.indexOf(u)}" data-role="link-branchmanager" ${u.isBranchManager ? 'checked' : ''}>拠点長
+          </label>
           <button type="button" class="settings-remove" data-idx="${mypageLinks.indexOf(u)}" data-role="link-remove"><i class="fa-solid fa-xmark"></i></button>
         </div>`;
       return `
         <div class="settings-card">
           <h2 class="settings-card-title"><i class="fa-solid fa-user-shield"></i>担当者マスタ</h2>
-          <p class="settings-card-desc">Googleアカウントごとにフルネームと拠点を登録します。マイページはこの氏名と、登録データの「担当者」欄(フルネーム入力)を照合して自分の担当案件を表示します。スプレッドシート側でも、ここに登録のない担当者名を入力すると入力セルに警告表示が出ます。「担当車両区分」を設定すると、そのアカウントでアプリを開いたときに新車/中古車どちらのカレンダーを最初に表示するかが自動で切り替わります。<b>編集権限(EDITOR_EMAILS)とは別の設定</b>で、アプリからの編集はできないため、権限者ログインアカウントとそのほかのアカウントに分けて表示しています。この項目は権限者としてログインした場合のみ表示されます。</p>
+          <p class="settings-card-desc">Googleアカウントごとにフルネームと拠点を登録します。マイページはこの氏名と、登録データの「担当者」欄(フルネーム入力)を照合して自分の担当案件を表示します。スプレッドシート側でも、ここに登録のない担当者名を入力すると入力セルに警告表示が出ます。「担当車両区分」を設定すると、そのアカウントでアプリを開いたときに新車/中古車どちらのカレンダーを最初に表示するかが自動で切り替わります。「拠点長」にチェックすると、そのアカウントのマイページには自分の担当分だけでなく、選択した拠点全体の登録状況が表示されます（拠点が未設定だと何も表示されません）。<b>編集権限(EDITOR_EMAILS)とは別の設定</b>で、アプリからの編集はできないため、権限者ログインアカウントとそのほかのアカウントに分けて表示しています。この項目は権限者としてログインした場合のみ表示されます。</p>
           <div class="settings-group-label">権限者ログインアカウント</div>
           <div class="settings-list" style="margin-bottom:14px;">
             ${editors.map(rowHtml).join('') || `<p style="font-size:12px;color:var(--muted);padding:4px 2px;">権限者アカウントの登録はまだありません。</p>`}
@@ -1404,6 +1422,9 @@
               <option value="">初期カレンダー: 未設定</option>
               ${CAR_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}
             </select>
+            <label class="settings-checkbox-label">
+              <input type="checkbox" id="newLinkIsBranchManager">拠点長
+            </label>
             <button type="button" id="addLinkBtn" class="settings-add-btn"><i class="fa-solid fa-plus"></i>追加</button>
           </div>
           <div class="theme-save-row">
@@ -1928,13 +1949,17 @@
         const email = document.getElementById('newLinkEmail').value.trim();
         const branch = document.getElementById('newLinkBranch').value;
         const linkCarType = document.getElementById('newLinkCarType').value;
+        const isBranchManager = document.getElementById('newLinkIsBranchManager').checked;
         if (!name || !email) return;
-        mypageLinks.push({ name, email, branch, carType: linkCarType, isEditor: false });
+        mypageLinks.push({ name, email, branch, carType: linkCarType, isBranchManager, isEditor: false });
         mypageLinksDirty = true; mypageLinksMsg = '';
         renderKeepingSettingsScroll_();
       };
       root.querySelectorAll('[data-role="link-remove"]').forEach(btn => {
         btn.onclick = () => { mypageLinks.splice(Number(btn.dataset.idx), 1); mypageLinksDirty = true; mypageLinksMsg = ''; renderKeepingSettingsScroll_(); };
+      });
+      root.querySelectorAll('[data-role="link-branchmanager"]').forEach(inp => {
+        inp.onchange = (ev) => { mypageLinks[Number(inp.dataset.idx)].isBranchManager = ev.target.checked; mypageLinksDirty = true; mypageLinksMsg = ''; markDirtyBtn_('linkSaveBtn'); };
       });
       const linkSaveBtn = document.getElementById('linkSaveBtn');
       if (linkSaveBtn) linkSaveBtn.onclick = () => {
