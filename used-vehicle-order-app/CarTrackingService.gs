@@ -8,16 +8,27 @@
  * 車両自体は、これまでどおり在庫リストにも変わらず表示され続ける（このシートは
  * 追加の管理用ビューであり、在庫リストからは何も除外しない）。
  *
- * 反映のタイミングは2種類:
- *   1. 新規追加・情報更新: 在庫は基本的にスプレッドシートへ直接追加・編集される
- *      運用のため、アプリが変更のタイミングを直接検知できない。そのため、
- *      デモカーリスト／サービス代車リストを一覧取得するたび（listCarTrackingList_）に、
- *      その時点の在庫リストの内容へ同期する（在庫中の車両を追加・最新情報に更新）。
- *   2. 販売済みへの変更・在庫への復帰: 受注確定（在庫リストからの除外）・
+ * 反映のタイミングは3種類:
+ *   1. 在庫リストの直接編集（新規行の追加・区分の変更・情報修正）: インストール型の
+ *      onEditトリガー（Triggers.gsのtriggerInventoryEdited参照）が、在庫リストへの
+ *      編集のたびにsyncAllCarTrackingLists_を呼び出し、その時点の在庫リストの内容へ
+ *      自動同期する。誰が編集してもオーナー権限で確実に動くよう、簡易トリガーでは
+ *      なくインストール型にしている。
+ *   2. デモカーリスト／サービス代車リストをアプリで開いたとき: 一覧取得のたび
+ *      （listCarTrackingList_）にも同期する。onEditトリガーが未設定・何らかの
+ *      理由で取りこぼした場合の保険を兼ねる。
+ *   3. 販売済みへの変更・在庫への復帰: 受注確定（在庫リストからの除外）・
  *      受注キャンセル（在庫リストへの復元）はアプリが完全に制御する操作のため、
  *      その瞬間に正確に反映できる。OrderService.gsのconfirmOrder・
  *      confirmWholesaleOrder・cancelOrder・cancelWholesaleOrderから
  *      markCarTrackingIfApplicable_を呼び出す。
+ *
+ * 既存の在庫（この機能を追加する前から在庫リストにあった車両）も、上記1〜2の
+ * いずれかのタイミング（次回の在庫リスト編集、またはデモカーリスト／サービス代車
+ * リストをアプリで開いたとき）で自動的に反映される。今すぐ反映したい場合は、
+ * スプレッドシートのメニュー「販売可能リスト」→「デモカーリスト・サービス代車
+ * リストを在庫リストの内容で更新」（SetupService.gsのsyncCarTrackingListsManually_）
+ * を実行するか、初期セットアップ（setupSpreadsheet_）を再実行する。
  */
 
 /**
@@ -71,4 +82,22 @@ function listCarTrackingList_(sheet, categoryValue) {
     lock.releaseLock();
   }
   return listCarTracking_(sheet);
+}
+
+/**
+ * デモカーリスト・サービス代車リスト双方を、現在の在庫リストの内容へ同期する。
+ * 在庫リスト編集時のonEditトリガー（Triggers.gsのtriggerInventoryEdited）・
+ * 初期セットアップ実行時（SetupService.gsのsetupSpreadsheet_）・手動同期メニュー
+ * （SetupService.gsのsyncCarTrackingListsManually_）のいずれからも呼び出す
+ * 共通処理。
+ */
+function syncAllCarTrackingLists_() {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    syncCarTrackingFromInventory_(getDemoCarListSheet_(), DEMO_CAR_CATEGORY_VALUE);
+    syncCarTrackingFromInventory_(getServiceCarListSheet_(), SERVICE_CAR_CATEGORY_VALUE);
+  } finally {
+    lock.releaseLock();
+  }
 }

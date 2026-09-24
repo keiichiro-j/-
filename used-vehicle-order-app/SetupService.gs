@@ -23,10 +23,14 @@
  */
 
 /**
- * 在庫リスト・Holdリスト・受注リスト・業販受注リスト・変更履歴を作成し、
- * Hold期限チェックの時間主導トリガーをセットアップする。GASエディタから
- * 手動実行するか、スプレッドシートのメニュー「販売可能リスト」→
+ * 在庫リスト・Holdリスト・受注リスト・業販受注リスト・変更履歴・デモカーリスト・
+ * サービス代車リストを作成し、Hold期限チェック・在庫リスト編集時の自動反映
+ * （デモカーリスト・サービス代車リスト向け）の各トリガーをセットアップする。
+ * GASエディタから手動実行するか、スプレッドシートのメニュー「販売可能リスト」→
  * 「初期セットアップ」からも実行できる（onOpen参照）。
+ * 既にデモカーリスト・サービス代車リストが存在する状態で再実行した場合も、
+ * syncAllCarTrackingLists_により既存の在庫（区分デモカー・サービス）を
+ * 直ちに反映し直す（何度実行しても安全）。
  */
 function setupSpreadsheet_() {
   getInventorySheet_();
@@ -36,6 +40,10 @@ function setupSpreadsheet_() {
   getAuditLogSheet_();
   getDemoCarListSheet_();
   getServiceCarListSheet_();
+  // 既存の在庫（この機能追加より前から在庫リストにあった車両を含む）を、
+  // 区分デモカー・サービスで判断してデモカーリスト・サービス代車リストへ
+  // 直ちに反映する（CarTrackingService.gs参照）。
+  syncAllCarTrackingLists_();
   setupTimeDrivenTriggers_();
 
   var message = '在庫リスト・Holdリスト・受注リスト・業販受注リスト・変更履歴・デモカーリスト・' +
@@ -44,8 +52,10 @@ function setupSpreadsheet_() {
     'チェックボックス列（カーセンサー・グーネット等）、列見出しには入力形式の説明メモを' +
     '設定済みです（選択式の列は、Hold登録・受注確定が失敗する不具合の原因になるため、' +
     'あえてドロップダウンの入力規則は設定していません）。タブの色分け・ヘッダーの装飾・' +
-    '列幅の自動調整・1行おきの背景色も設定済みです。Hold期限チェックの時間主導トリガーも' +
-    '設定済みです。';
+    '列幅の自動調整・1行おきの背景色も設定済みです。既存の在庫を区分で判断してデモカー' +
+    'リスト・サービス代車リストへ反映しました。今後は在庫リストを直接編集するたびに' +
+    '自動で反映されます（Hold期限チェック・在庫リスト編集時の自動反映、いずれの' +
+    'トリガーも設定済みです）。';
   Logger.log(message);
   return message;
 }
@@ -440,6 +450,26 @@ function compactMisplacedDataRows_() {
 }
 
 /**
+ * デモカーリスト・サービス代車リストを、現在の在庫リストの内容（区分「デモカー」
+ * 「サービス」）へ手動で同期し直す。通常は在庫リスト編集時のonEditトリガー
+ * （Triggers.gsのtriggerInventoryEdited）・アプリでこれらのタブを開いた際
+ * （Api.gsのapi_listDemoCarList・api_listServiceCarList）の両方で自動的に
+ * 同期されるため、この項目を手動実行する必要は基本的に無いが、トリガーが
+ * 未設定・何らかの理由で反映が遅れている場合の保険として用意する。
+ */
+function syncCarTrackingListsManually_() {
+  syncAllCarTrackingLists_();
+  var message = 'デモカーリスト・サービス代車リストを、現在の在庫リストの内容（区分「デモカー」「サービス」）へ同期しました。';
+  Logger.log(message);
+  try {
+    SpreadsheetApp.getUi().alert(message);
+  } catch (e) {
+    // Apps Scriptエディタから直接実行した場合はUIが無いため、ここには来るが無視してよい。
+  }
+  return message;
+}
+
+/**
  * コンテナバインドのスプレッドシートを開いたときに、セットアップ用のメニューを追加する
  * （単純トリガー）。スタンドアロン運用の場合は動作しないため、GASエディタから
  * setupSpreadsheet_() を直接実行すればよい。
@@ -448,6 +478,7 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('販売可能リスト')
     .addItem('初期セットアップ（7タブを作成）', 'setupSpreadsheet_')
+    .addItem('デモカーリスト・サービス代車リストを在庫リストの内容で更新', 'syncCarTrackingListsManually_')
     .addItem('在庫データの読み込み状況を確認', 'diagnoseInventoryData_')
     .addItem('入力規則を解除し、説明メモ・タブの見た目を再設定', 'removeSelectValidationsAndRefreshNotes_')
     .addItem('ＯＣＮ・コミッション列を書式なしテキストに再設定', 'formatCommissionColumnsAsText_')
