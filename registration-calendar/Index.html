@@ -20,7 +20,7 @@
       --sat-bg: #E8F0FE; --sat-ink: #2A5BD1;
       --sun-bg: #FCE9F1; --sun-ink: #C93E77;
       --holi-bg: #E7F7EE; --holi-ink: #189255;
-      --past-bg: #E7E8EC;
+      --past-bg: #F0F1F5;
       --notice: #C2790E; --notice-bg: #FBEFDD;
       --shadow-sm: 0 1px 2px rgba(26,31,54,0.05), 0 1px 4px rgba(26,31,54,0.04);
       --shadow-md: 0 2px 6px rgba(26,31,54,0.05), 0 10px 24px -10px rgba(26,31,54,0.16);
@@ -125,7 +125,7 @@
     .date-badge .d-num { font-family: var(--font-ios); font-variant-numeric: tabular-nums slashed-zero; font-size: 15.5px; font-weight: 700; line-height: 1; }
     .date-badge .d-dow { font-size: 9px; font-weight: 600; margin-top: 3px; }
     .date-badge .d-tag { font-size: 8px; font-weight: 700; margin-top: 2px; opacity: 0.9; }
-    .date-row.is-today { background: var(--accent-bg); }
+    .date-row.is-today { background: var(--accent-bg); background: color-mix(in srgb, var(--accent) 20%, var(--surface)); box-shadow: inset 0 0 0 1.5px var(--accent); position: relative; z-index: 1; }
     .day-notice-banner { flex: 0 0 auto; display: flex; align-items: center; gap: 7px; background: var(--notice-bg); color: var(--notice); font-size: 11px; font-weight: 700; line-height: 1.4; padding: 5px 12px; border-radius: 7px; margin: 8px 10px 0; }
     .day-notice-banner i { flex: 0 0 auto; }
 
@@ -416,7 +416,6 @@
     const LINKED_IS_BRANCH_MANAGER = <?!= linkedIsBranchManager ? 'true' : 'false' ?>;
     const INITIAL_ANNOUNCEMENTS_NEW = <?!= JSON.stringify(initialAnnouncementsNew || []) ?>;
     const INITIAL_ANNOUNCEMENTS_USED = <?!= JSON.stringify(initialAnnouncementsUsed || []) ?>;
-    const INITIAL_VEHICLE_INSPECTION_APP_URL = <?!= JSON.stringify(initialVehicleInspectionAppUrl || '') ?>;
     const INITIAL_BRANCHES_NEW = <?!= JSON.stringify(initialBranchesNew || []) ?>;
     const INITIAL_BRANCHES_USED = <?!= JSON.stringify(initialBranchesUsed || []) ?>;
 
@@ -595,9 +594,6 @@
     let pendingAnnouncements = announcementsByType[announceEditCarType].slice();
     let announceDirty = false;
     let announceMsg = '';
-
-    let vehicleInspectionAppUrl = INITIAL_VEHICLE_INSPECTION_APP_URL;
-    let vehicleInspectionAppUrlMsg = '';
 
     let branchEditCarType = carType; // 設定ページ「拠点設定」で編集対象に選んでいる車両区分
     let pendingBranches = branchesByType[branchEditCarType].slice();
@@ -787,12 +783,14 @@
     }
 
     // ▼ 備考欄のキーワードに応じてカードの背景色を変える。
-    //   「完成検査切れ」=注意喚起の黄色、「〜県登録」(例:愛知県登録)=登録先の目印の緑。
-    //   どちらも通常のカードより濃い背景になるため、文字色も専用の濃い色に切り替えて視認性を保つ。
+    //   「完成検査切れ」=注意喚起の黄色、「〜県登録」(例:愛知県登録)=登録先の目印の緑、
+    //   「中古車新規」「中古車継続」=区分の目印のピンク。
+    //   いずれも通常のカードより濃い背景になるため、文字色も専用の濃い色に切り替えて視認性を保つ。
     function remarkCardStyle_(r) {
       const remark = String(r.備考 || '');
       if (remark.includes('完成検査切れ')) return { bg: '#FDE68A', ink: '#6B4E00' };
       if (remark.includes('県登録')) return { bg: '#BBEFC7', ink: '#14532D' };
+      if (remark.includes('中古車新規') || remark.includes('中古車継続')) return { bg: '#F9C3DE', ink: '#831843' };
       return null;
     }
     function entryCard(r) {
@@ -1242,11 +1240,11 @@
       return `
         <div class="settings-card">
           <h2 class="settings-card-title"><i class="fa-solid fa-icons"></i>サイドパネルアイコン設定</h2>
-          <p class="settings-card-desc">左サイドパネル上部中央に表示するアイコン画像をアップロードできます。大きな画像を選んでも自動的に一定サイズの円形アイコンとして表示されます。全ユーザーの画面に反映されます。この項目は権限者としてログインした場合のみ表示されます。</p>
+          <p class="settings-card-desc">左サイドパネル上部中央に表示するアイコン画像をアップロードできます。大きな画像を選んでも、アップロード時に自動で縮小されるため、常に一定サイズの円形アイコンとして表示されます。全ユーザーの画面に反映されます。この項目は権限者としてログインした場合のみ表示されます。</p>
           <div class="settings-subblock">
-            <label style="font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;display:block;">画像の保存先 Drive フォルダ ID</label>
+            <label style="font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;display:block;">画像の保存先 Drive フォルダ</label>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <input type="text" id="iconFolderIdInput" class="settings-input" placeholder="DriveフォルダのURLに含まれるID" value="${escapeAttr(sideIconFolderId)}" style="flex:1;min-width:220px;">
+              <input type="text" id="iconFolderIdInput" class="settings-input" placeholder="DriveフォルダのURL、またはIDのみ" value="${escapeAttr(sideIconFolderId)}" style="flex:1;min-width:220px;">
               <button type="button" class="settings-add-btn" id="saveFolderIdBtn">保存</button>
             </div>
             <p id="folderIdMsg" style="font-size:11px;font-weight:600;margin-top:6px;color:var(--muted);">${sideIconFolderId ? '' : 'アップロード前に、保存先のDriveフォルダIDを入力して保存してください。'}</p>
@@ -1262,23 +1260,6 @@
             </div>
           </div>
           <p id="iconUploadMsg" style="font-size:11.5px;font-weight:700;margin-top:10px;"></p>
-        </div>
-      `;
-    }
-    function vehicleInspectionAppUrlSectionHTML() {
-      if (!IS_EDITOR) return '';
-      let msg = '';
-      if (vehicleInspectionAppUrlMsg) msg = `<span class="theme-msg saved"><i class="fa-solid fa-circle-check"></i> ${vehicleInspectionAppUrlMsg}</span>`;
-      return `
-        <div class="settings-card">
-          <h2 class="settings-card-title"><i class="fa-solid fa-car-side"></i>車検証アプリ設定</h2>
-          <p class="settings-card-desc">左のコントロールパネル（スマホはボトムタブ）に表示される「車検証アプリ」から、別タブで開くリンク先を設定します。空欄で保存すると、リンク項目自体が非表示になります。</p>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <input type="text" id="vehicleInspectionAppUrlInput" class="settings-input" placeholder="https://..." value="${escapeAttr(vehicleInspectionAppUrl)}" style="flex:1;min-width:260px;">
-            <button type="button" id="saveVehicleInspectionAppUrlBtn" class="settings-add-btn">保存</button>
-          </div>
-          <p id="vehicleInspectionAppUrlErr" style="font-size:11px;font-weight:600;margin-top:6px;color:var(--paper);"></p>
-          <div class="theme-save-row" style="margin-top:6px;">${msg}</div>
         </div>
       `;
     }
@@ -1477,7 +1458,6 @@
           </div>
           ${themeSectionHTML()}
           ${iconSectionHTML()}
-          ${vehicleInspectionAppUrlSectionHTML()}
           ${branchSectionHTML()}
           ${announcementsSectionHTML()}
           ${calendarSettingsSectionHTML()}
@@ -1491,8 +1471,6 @@
       const navItem = (page, icon, label) => `<button type="button" class="cp-nav-item ${currentPage === page ? 'active' : ''}" data-page="${page}"><i class="fa-solid ${icon}"></i>${label}</button>`;
       const iconInner = sidePanelIconUrl ? `<img src="${escapeAttr(sidePanelIconUrl)}" alt="">` : `<i class="fa-solid fa-car"></i>`;
       const carTypeSubNav = `<div class="cp-subnav">${CAR_TYPES.map(t => `<button type="button" class="cp-subnav-item ${currentPage === 'calendar' && carType === t ? 'active' : ''}" data-cartype="${t}">${t}</button>`).join('')}</div>`;
-      const vehicleInspectionNav = vehicleInspectionAppUrl
-        ? `<a class="cp-nav-item" href="${escapeAttr(vehicleInspectionAppUrl)}" target="_blank" rel="noopener"><i class="fa-solid fa-car-side"></i>車検証アプリ</a>` : '';
       return `
         <div class="cp-header">
           <div class="cp-icon-mark">${iconInner}</div>
@@ -1502,7 +1480,6 @@
         <div class="cp-nav">
           ${navItem('calendar', 'fa-calendar-days', 'カレンダー')}
           ${carTypeSubNav}
-          ${vehicleInspectionNav}
           ${navItem('mypage', 'fa-user', 'マイページ')}
           ${navItem('settings', 'fa-gear', '設定')}
         </div>
@@ -1520,12 +1497,9 @@
     //   data-page属性を使い、wireEvents()の既存の委譲ハンドラでそのまま動作する。
     function bottomTabBarHTML() {
       const item = (page, icon, label) => `<button type="button" class="cp-nav-item bottom-tab-item ${currentPage === page ? 'active' : ''}" data-page="${page}"><i class="fa-solid ${icon}"></i><span>${label}</span></button>`;
-      const vehicleInspectionTab = vehicleInspectionAppUrl
-        ? `<a class="cp-nav-item bottom-tab-item" href="${escapeAttr(vehicleInspectionAppUrl)}" target="_blank" rel="noopener"><i class="fa-solid fa-car-side"></i><span>車検証アプリ</span></a>` : '';
       return `
         <nav class="bottom-tab-bar">
           ${item('calendar', 'fa-calendar-days', 'カレンダー')}
-          ${vehicleInspectionTab}
           ${item('mypage', 'fa-user', 'マイページ')}
           ${item('settings', 'fa-gear', '設定')}
         </nav>
@@ -1700,16 +1674,33 @@
       };
 
       const iconFileInput = document.getElementById('iconFileInput');
+      // ▼ アイコンは最終的に小さな円形表示になるため、アップロード前にブラウザ側で
+      //   一辺512pxまでに自動で縮小してから送信する。大きな写真をそのまま選んでも、
+      //   保存されるファイル・通信量は常に一定サイズに収まる。
+      const ICON_MAX_DIM = 512;
       if (iconFileInput) iconFileInput.onchange = (ev) => {
         const file = ev.target.files[0];
         if (!file) return;
         if (!file.type.startsWith('image/')) { alert('画像ファイルを選択してください。'); return; }
         if (file.size > 8 * 1024 * 1024) { alert('画像サイズが大きすぎます。8MB以内のファイルを選択してください。'); return; }
         const msg = document.getElementById('iconUploadMsg');
-        if (msg) { msg.textContent = 'アップロード中…'; msg.style.color = 'var(--muted)'; }
-        const reader = new FileReader();
-        reader.onload = () => {
-          const base64 = String(reader.result).split(',')[1];
+        if (msg) { msg.textContent = '画像を処理中…'; msg.style.color = 'var(--muted)'; }
+        const objectUrl = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          URL.revokeObjectURL(objectUrl);
+          let width = img.naturalWidth, height = img.naturalHeight;
+          if (width > ICON_MAX_DIM || height > ICON_MAX_DIM) {
+            const scale = Math.min(ICON_MAX_DIM / width, ICON_MAX_DIM / height);
+            width = Math.max(1, Math.round(width * scale));
+            height = Math.max(1, Math.round(height * scale));
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+          const base64 = canvas.toDataURL('image/png').split(',')[1];
+          if (msg) { msg.textContent = 'アップロード中…'; }
           if (typeof google === 'undefined') return;
           google.script.run
             .withSuccessHandler(res => {
@@ -1720,9 +1711,14 @@
               const m = document.getElementById('iconUploadMsg');
               if (m) { m.textContent = '通信エラー: ' + (e && e.message ? e.message : e); m.style.color = 'var(--paper)'; }
             })
-            .saveSideIconImage(base64, file.type);
+            .saveSideIconImage(base64, 'image/png');
         };
-        reader.readAsDataURL(file);
+        img.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          const m = document.getElementById('iconUploadMsg');
+          if (m) { m.textContent = '画像の読み込みに失敗しました。'; m.style.color = 'var(--paper)'; }
+        };
+        img.src = objectUrl;
       };
       const iconResetBtn = document.getElementById('iconResetBtn');
       if (iconResetBtn) iconResetBtn.onclick = () => {
@@ -1743,8 +1739,9 @@
           .withSuccessHandler(res => {
             const m = document.getElementById('folderIdMsg');
             if (res && res.success) {
-              sideIconFolderId = val;
+              sideIconFolderId = res.folderId || val;
               if (m) { m.textContent = '保存しました'; m.style.color = 'var(--oss)'; }
+              render();
             } else if (m) {
               m.textContent = res ? res.message : '保存に失敗しました。';
               m.style.color = 'var(--paper)';
@@ -1755,31 +1752,6 @@
             if (m) { m.textContent = '通信エラー: ' + (e && e.message ? e.message : e); m.style.color = 'var(--paper)'; }
           })
           .saveSideIconFolderId(val);
-      };
-
-      const saveVehicleInspectionAppUrlBtn = document.getElementById('saveVehicleInspectionAppUrlBtn');
-      if (saveVehicleInspectionAppUrlBtn) saveVehicleInspectionAppUrlBtn.onclick = () => {
-        const input = document.getElementById('vehicleInspectionAppUrlInput');
-        const errEl = document.getElementById('vehicleInspectionAppUrlErr');
-        const val = input ? input.value.trim() : '';
-        if (errEl) errEl.textContent = '';
-        if (typeof google === 'undefined') return;
-        google.script.run
-          .withSuccessHandler(res => {
-            if (res && res.success) {
-              vehicleInspectionAppUrl = val;
-              vehicleInspectionAppUrlMsg = '保存しました';
-              render();
-            } else if (res) {
-              const e = document.getElementById('vehicleInspectionAppUrlErr');
-              if (e) e.textContent = res.message;
-            }
-          })
-          .withFailureHandler(e => {
-            const errEl2 = document.getElementById('vehicleInspectionAppUrlErr');
-            if (errEl2) errEl2.textContent = '通信エラー: ' + (e && e.message ? e.message : e);
-          })
-          .saveVehicleInspectionAppUrl(val);
       };
 
       const branchEditCarTypeSel = document.getElementById('branchEditCarType');

@@ -71,7 +71,6 @@ function doGet() {
   template.initialAnnouncementsUsed = getAnnouncements('中古車');
   template.initialBranchesNew = getBranches('新車');
   template.initialBranchesUsed = getBranches('中古車');
-  template.initialVehicleInspectionAppUrl = getVehicleInspectionAppUrl();
 
   return template.evaluate()
     .setTitle('登録カレンダー')
@@ -117,38 +116,27 @@ const MYPAGE_LINK_SHEET_NAME = 'settings_マイページ連携';
 function getSideIconFolderId() {
   return PropertiesService.getScriptProperties().getProperty('sideIconFolderId') || '';
 }
+// ▼ 「.../folders/<ID>」の形のフルURLが貼り付けられた場合はIDだけを取り出す。
+//   IDが直接入力された場合（URLの形をしていない場合）はそのまま返す。
+function extractDriveFolderId_(input) {
+  const trimmed = String(input || '').trim();
+  const match = trimmed.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : trimmed;
+}
 function saveSideIconFolderId(folderId) {
   const userEmail = Session.getActiveUser().getEmail();
   if (!isEditorEmail_(userEmail)) {
     return { success: false, message: '権限者のみ変更できます。' };
   }
-  const trimmed = String(folderId || '').trim();
+  const trimmed = extractDriveFolderId_(folderId);
   if (!trimmed) return { success: false, message: 'フォルダIDを入力してください。' };
   try {
     DriveApp.getFolderById(trimmed); // 存在・アクセス可否を軽く確認する
   } catch (e) {
-    return { success: false, message: '指定されたフォルダにアクセスできません。IDを確認してください。' };
+    return { success: false, message: '指定されたフォルダにアクセスできません。IDまたはURLを確認してください。' };
   }
   PropertiesService.getScriptProperties().setProperty('sideIconFolderId', trimmed);
-  return { success: true };
-}
-
-// ▼ コントロールパネルの「車検証アプリ」から別タブで開く外部リンク。権限者が設定ページから変更できる。
-const VEHICLE_INSPECTION_APP_URL_PROP = 'vehicleInspectionAppUrl';
-function getVehicleInspectionAppUrl() {
-  return PropertiesService.getScriptProperties().getProperty(VEHICLE_INSPECTION_APP_URL_PROP) || '';
-}
-function saveVehicleInspectionAppUrl(url) {
-  const userEmail = Session.getActiveUser().getEmail();
-  if (!isEditorEmail_(userEmail)) {
-    return { success: false, message: '権限者のみ変更できます。' };
-  }
-  const trimmed = String(url || '').trim();
-  if (trimmed && !/^https?:\/\//i.test(trimmed)) {
-    return { success: false, message: 'http:// または https:// から始まるURLを入力してください。' };
-  }
-  PropertiesService.getScriptProperties().setProperty(VEHICLE_INSPECTION_APP_URL_PROP, trimmed);
-  return { success: true };
+  return { success: true, folderId: trimmed };
 }
 
 // ▼ 画面上部に表示する「お知らせ」。新車・中古車それぞれ別に設定でき、権限者のみ編集できる。
