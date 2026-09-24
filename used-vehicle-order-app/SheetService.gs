@@ -109,6 +109,25 @@ function removeSelectValidations_(sheet, columns) {
 }
 
 /**
+ * 書き込み直前に、選択式（type: 'select'）の列のうち、書き込み対象の行だけ
+ * データ入力規則を取り除く。不具合修正: removeSelectValidations_は
+ * メンテナンス関数（removeSelectValidationsAndRefreshNotes_、スプレッドシートの
+ * メニューから手動実行）でのみ呼ばれるため、実行し忘れた場合や、実行環境の
+ * 違いで反映されていなかった場合、Hold登録・受注確定の書き込み自体が
+ * 「Exception: 次のいずれかを選択してください：あり、なし」で失敗し続けていた。
+ * Hold・在庫・受注・デモカー/サービス代車リストの各行を書き込むたびに、
+ * その行の選択式列だけ自動的に入力規則を取り除いてから書き込むことで、
+ * メンテナンス関数の実行有無に関わらず常に安全に書き込めるようにする
+ * （1行だけが対象のため負荷は無視できる）。
+ */
+function clearSelectValidationsForRow_(sheet, rowNumber, columns) {
+  columns.forEach(function (col, i) {
+    if (col.type !== 'select') return;
+    sheet.getRange(rowNumber, i + 1, 1, 1).clearDataValidations();
+  });
+}
+
+/**
  * チェックボックス式（type: 'checkbox'）の列に、ネイティブのチェックボックス
  * （Range.insertCheckboxes）を設定する。「カーセンサー」「グーネット」のように、
  * スプシ側で直接レ点（チェック）を打つ運用の列に使う（Constants.gsの
@@ -324,6 +343,7 @@ function createInventoryVehicle_(vehicle, preferredRowNumber) {
   // 明示的に設定する。
   sheet.getRange(newRow, inventoryColIndex1('ocn'), 1, 1).setNumberFormat('@');
   sheet.getRange(newRow, inventoryColIndex1('commission'), 1, 1).setNumberFormat('@');
+  clearSelectValidationsForRow_(sheet, newRow, INVENTORY_COLUMNS);
   sheet.getRange(newRow, 1, 1, INVENTORY_COLUMNS.length).setValues([objectToRow_(vehicle, INVENTORY_COLUMNS)]);
   return vehicle;
 }
@@ -341,6 +361,7 @@ function updateInventoryVehicle_(sheet, rowNumber, patch) {
   // 既存シート等）、数字のみのコミッション（例: 0583911111）の先頭0が、Hold登録の
   // たびに消えてしまう（createHoldRow_・appendOrder_と同じ対策をここにも適用する）。
   sheet.getRange(rowNumber, inventoryColIndex1('commission'), 1, 1).setNumberFormat('@');
+  clearSelectValidationsForRow_(sheet, rowNumber, INVENTORY_COLUMNS);
   sheet.getRange(rowNumber, 1, 1, INVENTORY_COLUMNS.length).setValues([objectToRow_(merged, INVENTORY_COLUMNS)]);
   return merged;
 }
@@ -403,6 +424,7 @@ function createHoldRow_(holdRecord) {
   // あるため、書き込み先の行を明示的に確保して直前に書式を再設定する
   // （createInventoryVehicle と同じ対策）。
   sheet.getRange(newRow, holdColIndex1('commission'), 1, 1).setNumberFormat('@');
+  clearSelectValidationsForRow_(sheet, newRow, HOLD_COLUMNS);
   sheet.getRange(newRow, 1, 1, HOLD_COLUMNS.length).setValues([objectToRow_(holdRecord, HOLD_COLUMNS)]);
   return holdRecord;
 }
@@ -417,6 +439,7 @@ function updateHoldRow_(sheet, rowNumber, patch) {
   // updateInventoryVehicle_ と同様、行全体を書き直す前にコミッション欄の書式を
   // 明示的にテキストへ再設定する（2nd Hold昇格・Hold解除時などにも先頭0を消さない）。
   sheet.getRange(rowNumber, holdColIndex1('commission'), 1, 1).setNumberFormat('@');
+  clearSelectValidationsForRow_(sheet, rowNumber, HOLD_COLUMNS);
   sheet.getRange(rowNumber, 1, 1, HOLD_COLUMNS.length).setValues([objectToRow_(merged, HOLD_COLUMNS)]);
   return merged;
 }
@@ -451,6 +474,7 @@ function appendOrder_(order) {
   // createHoldRow_と同様、appendRowだけに頼ると数字のみのコミッションの先頭0が
   // 消えることがあるため、書き込み直前に対象セルの書式を明示的に設定する。
   sheet.getRange(newRow, orderColIndex1('commission'), 1, 1).setNumberFormat('@');
+  clearSelectValidationsForRow_(sheet, newRow, ORDER_COLUMNS);
   sheet.getRange(newRow, 1, 1, ORDER_COLUMNS.length).setValues([objectToRow_(order, ORDER_COLUMNS)]);
   return order;
 }
@@ -473,6 +497,7 @@ function appendWholesaleOrder_(order) {
   var sheet = getWholesaleOrderSheet_();
   var newRow = nextAppendRow_(sheet, wholesaleOrderColIndex1('commission'));
   sheet.getRange(newRow, wholesaleOrderColIndex1('commission'), 1, 1).setNumberFormat('@');
+  clearSelectValidationsForRow_(sheet, newRow, WHOLESALE_ORDER_COLUMNS);
   sheet.getRange(newRow, 1, 1, WHOLESALE_ORDER_COLUMNS.length).setValues([objectToRow_(order, WHOLESALE_ORDER_COLUMNS)]);
   return order;
 }
@@ -512,11 +537,13 @@ function upsertCarTrackingRow_(sheet, vehicle, saleStatus) {
   var rowNumber = findRowByKey_(sheet, CAR_TRACKING_COLUMNS, 'ocn', vehicle.ocn);
   if (rowNumber) {
     sheet.getRange(rowNumber, carTrackingColIndex1('commission'), 1, 1).setNumberFormat('@');
+    clearSelectValidationsForRow_(sheet, rowNumber, CAR_TRACKING_COLUMNS);
     sheet.getRange(rowNumber, 1, 1, CAR_TRACKING_COLUMNS.length).setValues([objectToRow_(record, CAR_TRACKING_COLUMNS)]);
     return;
   }
   var newRow = nextAppendRow_(sheet, carTrackingColIndex1('ocn'));
   sheet.getRange(newRow, carTrackingColIndex1('ocn'), 1, 1).setNumberFormat('@');
   sheet.getRange(newRow, carTrackingColIndex1('commission'), 1, 1).setNumberFormat('@');
+  clearSelectValidationsForRow_(sheet, newRow, CAR_TRACKING_COLUMNS);
   sheet.getRange(newRow, 1, 1, CAR_TRACKING_COLUMNS.length).setValues([objectToRow_(record, CAR_TRACKING_COLUMNS)]);
 }
