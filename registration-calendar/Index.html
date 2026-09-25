@@ -49,6 +49,9 @@
     .cp-header { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 22px; }
     .cp-icon-mark { width: 60px; height: 60px; border-radius: 50%; background: var(--accent); box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 24px; margin-bottom: 8px; overflow: hidden; flex: none; }
     .cp-icon-mark img { width: 100%; height: 100%; object-fit: cover; }
+    /* 画像を設定したときは背景・影・丸い切り抜きをなくし、画像をそのままの形で全体表示する */
+    .cp-icon-mark.has-image { background: transparent; box-shadow: none; border-radius: 0; }
+    .cp-icon-mark.has-image img { object-fit: contain; }
     .cp-logo { font-size: 13px; font-weight: 800; color: var(--ink); margin-bottom: 2px; letter-spacing: -0.005em; }
     .cp-logo-sub { font-size: 10.5px; color: var(--muted); font-weight: 600; }
     .cp-nav { display: flex; flex-direction: column; gap: 3px; flex: 1; }
@@ -424,7 +427,7 @@
     const CURRENT_USER_EMAIL = <?!= JSON.stringify(userEmail || '') ?>;
     const INITIAL_THEME = <?!= JSON.stringify(initialTheme || 'indigo') ?>;
     // ▼ Code.gs の APP_VERSION と同じ値にする。設定ページ下部で両者を比べ、貼り替え漏れ・デプロイ漏れを知らせる。
-    const CLIENT_VERSION = '2026.09.25-icon';
+    const CLIENT_VERSION = '2026.09.25-2';
     const SERVER_VERSION = <?!= JSON.stringify(typeof appVersion !== 'undefined' ? appVersion : '') ?>;
     const INITIAL_SIDE_ICON_URL = <?!= JSON.stringify(initialSideIconUrl || '') ?>;
     const INITIAL_SIDE_ICON_EXTERNAL_URL = <?!= JSON.stringify(initialSideIconExternalUrl || '') ?>;
@@ -1278,7 +1281,7 @@
           <h2 class="settings-card-title"><i class="fa-solid fa-icons"></i>サイドパネルアイコン設定</h2>
           <p class="settings-card-desc">コントロールパネル上部のアイコンを設定します。画像は自動で縮小され、全員の画面に反映されます。</p>
           <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:8px;">
-            <div class="cp-icon-mark" style="width:84px;height:84px;font-size:32px;margin-bottom:0;">${previewInner}</div>
+            <div class="cp-icon-mark ${sidePanelIconUrl ? 'has-image' : ''}" style="width:84px;height:84px;font-size:32px;margin-bottom:0;">${previewInner}</div>
             <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start;">
               <span style="font-size:11.5px;font-weight:700;color:var(--ink-2);">現在: ${status}</span>
               <button type="button" class="btn-secondary" id="iconResetBtn">デフォルトに戻す</button>
@@ -1558,7 +1561,7 @@
       const appLinks = visibleExternalApps_().map(a => `<a class="cp-nav-item cp-app-link" href="${escapeAttr(a.url)}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-up-right-from-square"></i><span class="cp-app-name">${escapeHtml(a.name)}</span></a>`).join('');
       return `
         <div class="cp-header">
-          <div class="cp-icon-mark">${iconInner}</div>
+          <div class="cp-icon-mark ${sidePanelIconUrl ? 'has-image' : ''}">${iconInner}</div>
           <div class="cp-logo">AU NEW CAR</div>
           <div class="cp-logo-sub">登録カレンダー</div>
         </div>
