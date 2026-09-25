@@ -4,8 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>登録カレンダー</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- 外部のCSS・スクリプトは、届くのが遅い・届かない環境でも画面の表示を止めないよう、読み込みを待たずに進める
+       （待つ形だと、その間ずっと画面が真っ白になる）。届いた時点で見た目・アイコンに反映される。 -->
+  <script async src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
   <style>
     :root {
       /* iOS Human Interface Guidelines に準拠したフォントスタック。
@@ -479,7 +482,29 @@
   </style>
 </head>
 <body>
-  <div id="app-root"></div>
+  <div id="app-root"><div id="boot-status" style="padding:40px 24px;text-align:center;color:#6B7280;font-size:14px;">読み込み中…</div></div>
+
+  <script>
+    // ▼ 起動時の不具合で画面が真っ白のままにならないよう、アプリが表示される前に起きたエラーは画面に出す
+    //   （この下のメインのスクリプトとは別にしているので、メイン側に構文エラーがあっても動く）。
+    (function () {
+      function showBootError(message) {
+        var box = document.getElementById('boot-status');
+        if (!box) return; // アプリが表示済みなら画面は壊さない
+        box.style.textAlign = 'left';
+        box.style.color = '#991B1B';
+        box.innerHTML = '<div style="max-width:640px;margin:0 auto;background:#FEF2F2;border:1px solid #FCA5A5;border-radius:10px;padding:16px 18px;line-height:1.7;">'
+          + '<b>画面の表示中にエラーが発生しました。</b><br>'
+          + 'Code.gs と Index.html の両方を最新にして「新バージョン」でデプロイし直し、ページを再読み込みしてください。解決しない場合は、下の内容を管理者に伝えてください。'
+          + '<pre id="boot-error-detail" style="white-space:pre-wrap;word-break:break-all;margin:10px 0 0;font-size:12px;color:#7F1D1D;"></pre></div>';
+        document.getElementById('boot-error-detail').textContent = message;
+      }
+      window.__showBootError = showBootError;
+      window.addEventListener('error', function (e) {
+        showBootError(String(e.message || e.error || 'Unknown error') + (e.lineno ? ' (line ' + e.lineno + ')' : ''));
+      });
+    })();
+  </script>
 
   <!-- 登録内容の詳細表示（閲覧専用。登録・編集はスプレッドシートで行います） -->
   <div id="recordModal" class="modal-backdrop">
@@ -500,7 +525,7 @@
     const INITIAL_THEME_SATURATION = <?!= JSON.stringify(typeof initialThemeSaturation !== 'undefined' ? initialThemeSaturation : 'standard') ?>;
     const INITIAL_DISPLAY_PREFS = <?!= JSON.stringify(typeof initialDisplayPrefs !== 'undefined' ? initialDisplayPrefs : {}) ?>;
     // ▼ Code.gs の APP_VERSION と同じ値にする。設定ページ下部で両者を比べ、貼り替え漏れ・デプロイ漏れを知らせる。
-    const CLIENT_VERSION = '2026.09.25-7';
+    const CLIENT_VERSION = '2026.09.25-8';
     const SERVER_VERSION = <?!= JSON.stringify(typeof appVersion !== 'undefined' ? appVersion : '') ?>;
     const INITIAL_SIDE_ICON_URL = <?!= JSON.stringify(initialSideIconUrl || '') ?>;
     const INITIAL_SIDE_ICON_EXTERNAL_URL = <?!= JSON.stringify(initialSideIconExternalUrl || '') ?>;
@@ -2584,7 +2609,14 @@
       document.body.removeChild(link);
     }
 
-    window.onload = function () { render(); loadData(); loadCalendarNotices(); if (LINKED_NAME) loadMypageData(); };
+    // ▼ すぐに起動する（以前は window.onload で、外部のアイコン用CSS・フォントの読み込み完了まで待っていたため、
+    //   それらが遅い・届かない環境では画面が真っ白のままになっていた）。このスクリプトは body の最後にあるので、
+    //   この時点で画面の要素はそろっている。
+    try {
+      render(); loadData(); loadCalendarNotices(); if (LINKED_NAME) loadMypageData();
+    } catch (e) {
+      window.__showBootError && window.__showBootError(String(e && e.stack || e));
+    }
   </script>
 </body>
 </html>
