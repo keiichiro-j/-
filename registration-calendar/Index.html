@@ -501,7 +501,22 @@
       }
       window.__showBootError = showBootError;
       window.addEventListener('error', function (e) {
-        showBootError(String(e.message || e.error || 'Unknown error') + (e.lineno ? ' (line ' + e.lineno + ')' : ''));
+        var detail = String(e.message || e.error || 'Unknown error') + (e.lineno ? ' (line ' + e.lineno + (e.colno ? ':' + e.colno : '') + ')' : '');
+        // メインのスクリプトで起きたエラーなら、ブラウザが実際に受け取ったその行のコードも添える（原因の特定用）
+        try {
+          var main = document.getElementById('main-script');
+          var start = window.__mainScriptLine || 0;
+          if (main && start && e.lineno >= start) {
+            var lines = main.textContent.split('\n');
+            var idx = e.lineno - start;
+            for (var k = Math.max(0, idx - 2); k <= Math.min(lines.length - 1, idx + 2); k++) {
+              var text = lines[k].replace(/^\s+/, '');
+              if (k === idx && e.colno && text.length > 240) text = lines[k].slice(Math.max(0, e.colno - 120), e.colno + 120);
+              detail += '\n' + (k === idx ? '>> ' : '   ') + (k + 1) + ': ' + text.slice(0, 240);
+            }
+          }
+        } catch (err) { showBootError(detail); return; }
+        showBootError(detail);
       });
     })();
   </script>
@@ -517,7 +532,8 @@
     </div>
   </div>
 
-  <script>
+  <script>window.__mainScriptLine = (function () { try { throw new Error('line'); } catch (e) { var m = /:(\d+):\d+/.exec(String(e.stack || '')); return m ? Number(m[1]) + 1 : 0; } })();</script>
+  <script id="main-script">
     // ▼ サーバー(Code.gs)がテンプレート変数として埋め込む値
     const IS_EDITOR = <?!= isEditor ? 'true' : 'false' ?>;
     const CURRENT_USER_EMAIL = <?!= JSON.stringify(userEmail || '') ?>;
@@ -525,7 +541,7 @@
     const INITIAL_THEME_SATURATION = <?!= JSON.stringify(typeof initialThemeSaturation !== 'undefined' ? initialThemeSaturation : 'standard') ?>;
     const INITIAL_DISPLAY_PREFS = <?!= JSON.stringify(typeof initialDisplayPrefs !== 'undefined' ? initialDisplayPrefs : {}) ?>;
     // ▼ Code.gs の APP_VERSION と同じ値にする。設定ページ下部で両者を比べ、貼り替え漏れ・デプロイ漏れを知らせる。
-    const CLIENT_VERSION = '2026.09.25-8';
+    const CLIENT_VERSION = '2026.09.25-9';
     const SERVER_VERSION = <?!= JSON.stringify(typeof appVersion !== 'undefined' ? appVersion : '') ?>;
     const INITIAL_SIDE_ICON_URL = <?!= JSON.stringify(initialSideIconUrl || '') ?>;
     const INITIAL_SIDE_ICON_EXTERNAL_URL = <?!= JSON.stringify(initialSideIconExternalUrl || '') ?>;
@@ -1932,7 +1948,7 @@
     function wireRecordClicks_(container) {
       container.querySelectorAll('.js-open-record').forEach(el => {
         el.onclick = () => {
-          try { openModal(JSON.parse(el.dataset.record)); } catch (err) { /* ignore */ }
+          try { openModal(JSON.parse(el.dataset.record)); } catch (err) { console.warn(err); }
         };
       });
     }
