@@ -532,7 +532,8 @@
     </div>
   </div>
 
-  <script>window.__mainScriptLine = (function () { try { throw new Error('line'); } catch (e) { var m = /:(\d+):\d+/.exec(String(e.stack || '')); return m ? Number(m[1]) + 1 : 0; } })();</script>
+  <!-- 下のメインのスクリプトが何行目から始まるか（エラー行の特定用）。行番号がスクリプトごとに1から数えられる環境（Apps Script）では 1 になる -->
+  <script>window.__mainScriptLine = (function () { try { throw new Error('line'); } catch (e) { var m = /:(\d+):\d+/.exec(String(e.stack || '')); if (!m) return 0; var n = Number(m[1]); return n === 1 ? 1 : n + 1; } })();</script>
   <script id="main-script">
     // ▼ サーバー(Code.gs)がテンプレート変数として埋め込む値
     const IS_EDITOR = <?!= isEditor ? 'true' : 'false' ?>;
@@ -541,7 +542,7 @@
     const INITIAL_THEME_SATURATION = <?!= JSON.stringify(typeof initialThemeSaturation !== 'undefined' ? initialThemeSaturation : 'standard') ?>;
     const INITIAL_DISPLAY_PREFS = <?!= JSON.stringify(typeof initialDisplayPrefs !== 'undefined' ? initialDisplayPrefs : {}) ?>;
     // ▼ Code.gs の APP_VERSION と同じ値にする。設定ページ下部で両者を比べ、貼り替え漏れ・デプロイ漏れを知らせる。
-    const CLIENT_VERSION = '2026.09.25-9';
+    const CLIENT_VERSION = '2026.09.25-10';
     const SERVER_VERSION = <?!= JSON.stringify(typeof appVersion !== 'undefined' ? appVersion : '') ?>;
     const INITIAL_SIDE_ICON_URL = <?!= JSON.stringify(initialSideIconUrl || '') ?>;
     const INITIAL_SIDE_ICON_EXTERNAL_URL = <?!= JSON.stringify(initialSideIconExternalUrl || '') ?>;
@@ -1558,7 +1559,7 @@
           <div class="settings-subblock" style="border-bottom:none;padding-bottom:0;margin-bottom:0;">
             <label style="font-size: calc(10.5px * var(--fs, 1));font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;display:block;">方法2: 画像URLを直接指定</label>
             <p class="settings-card-desc" style="margin-bottom:6px;">ドライブの画像の共有リンク、または公開されている画像のURLを貼り付けてください。</p>
-            <textarea id="iconUrlInput" class="settings-input icon-url-input" rows="3" placeholder="https://drive.google.com/file/d/..." spellcheck="false">${escapeHtml(sideIconExternalUrlValue)}</textarea>
+            <textarea id="iconUrlInput" class="settings-input icon-url-input" rows="3" placeholder="https:\/\/drive.google.com\/file\/d\/..." spellcheck="false">${escapeHtml(sideIconExternalUrlValue)}</textarea>
             <div class="theme-save-row" style="border-top:none;padding-top:10px;">
               <button type="button" class="theme-save-btn" id="saveIconUrlBtn">保存</button>
             </div>
@@ -1595,7 +1596,7 @@
               <div class="settings-row">
                 ${iconPicker(appIconClass_(a), `data-idx="${i}" data-role="app-icon"`)}
                 <input type="text" class="settings-input js-app-name" data-idx="${i}" value="${escapeAttr(a.name || '')}" placeholder="アプリ名" maxlength="20" style="flex:0 1 170px;min-width:110px;">
-                <input type="text" class="settings-input js-app-url" data-idx="${i}" value="${escapeAttr(a.url || '')}" placeholder="https://..." style="flex:1;min-width:180px;">
+                <input type="text" class="settings-input js-app-url" data-idx="${i}" value="${escapeAttr(a.url || '')}" placeholder="https:\/\/..." style="flex:1;min-width:180px;">
                 ${moveButtonsHTML_('app', i, i > 0, i < pendingApps.length - 1)}
                 <button type="button" class="settings-remove" data-idx="${i}" data-role="app-remove"><i class="fa-solid fa-xmark"></i></button>
               </div>
@@ -1604,7 +1605,7 @@
           <div class="settings-add-row">
             ${iconPicker(APP_ICONS[0].cls, `id="newAppIcon" ${full ? 'disabled' : ''}`)}
             <input id="newAppName" class="settings-input" placeholder="アプリ名（例: 車検証アプリ）" maxlength="20" style="flex:0 1 200px;min-width:140px;" ${full ? 'disabled' : ''}>
-            <input id="newAppUrl" class="settings-input" placeholder="https://..." style="flex:1;min-width:180px;" ${full ? 'disabled' : ''}>
+            <input id="newAppUrl" class="settings-input" placeholder="https:\/\/..." style="flex:1;min-width:180px;" ${full ? 'disabled' : ''}>
             <button type="button" id="addAppBtn" class="settings-add-btn" ${full ? 'disabled' : ''}><i class="fa-solid fa-plus"></i>追加（${pendingApps.length}/${EXTERNAL_APPS_MAX}）</button>
           </div>
           <p id="appsErr" style="font-size: calc(11px * var(--fs, 1));font-weight:600;margin-top:6px;color:var(--paper);"></p>
@@ -1883,7 +1884,7 @@
 
     // ▼ 表示してよい追加アプリだけを返す（http/https以外のURLは念のため表示しない）
     function visibleExternalApps_() {
-      return externalApps.filter(a => a && a.name && /^https?:\/\//i.test(a.url || ''));
+      return externalApps.filter(a => a && a.name && /^https?:\/{2}/i.test(a.url || ''));
     }
 
     function announceBannerHTML() {
@@ -2212,7 +2213,7 @@
         if (typeof google === 'undefined') return;
         // Googleドライブのリンクは画像そのもののURLではないため、そのままでは表示できない。
         // 画像データを取り込み、アップロードと同じ方法で保存する。
-        if (/^https:\/\/(drive|docs)\.google\.com\//i.test(val) || /^https:\/\/lh3\.googleusercontent\.com\/d\//i.test(val)) {
+        if (/^https:\/{2}(drive|docs)\.google\.com\/(?:)/i.test(val) || /^https:\/{2}lh3\.googleusercontent\.com\/d\/(?:)/i.test(val)) {
           setIconMsg_('ドライブから画像を読み込み中…', 'var(--muted)');
           google.script.run
             .withSuccessHandler(res => {
@@ -2464,7 +2465,7 @@
         const url = document.getElementById('newAppUrl').value.trim();
         const errEl = document.getElementById('appsErr');
         if (!name || !url) { if (errEl) errEl.textContent = 'アプリ名とURLを入力してください。'; return; }
-        if (!/^https?:\/\/\S+$/i.test(url)) { if (errEl) errEl.textContent = 'URLは http:// または https:// から入力してください。'; return; }
+        if (!/^https?:\/{2}\S+$/i.test(url)) { if (errEl) errEl.textContent = 'URLは http:\/\/ または https:\/\/ から入力してください。'; return; }
         if (pendingApps.length >= EXTERNAL_APPS_MAX) return;
         const iconSel = document.getElementById('newAppIcon');
         pendingApps.push({ name, url, icon: iconSel ? iconSel.value : APP_ICONS[0].cls });
