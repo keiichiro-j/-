@@ -2,7 +2,7 @@ const DEFAULT_ADMIN_EMAIL = "k-toda@gifuyanase.co.jp";
 
 // ▼ 設定ページの一番下に表示するバージョン。Index.html側のバージョンと一致しているかで、
 //   コードの貼り替えと「新しいバージョンでのデプロイ」が両方済んでいるかを確認できる。
-const APP_VERSION = '2026.09.25-10';
+const APP_VERSION = '2026.09.25-11';
 
 // ▼ 権限者（設定ページの各種管理項目を変更できるアカウント）一覧。最大5名まで登録できます。
 //   登録・編集はスプレッドシートを直接編集する運用に変わったため、ここはアプリの管理設定を
@@ -66,6 +66,7 @@ function doGet() {
   template.initialTheme = getUserTheme();
   template.initialThemeSaturation = getUserThemeSaturation();
   template.initialDisplayPrefs = getUserDisplayPrefs();
+  template.initialMypageLayout = getUserMypageLayout();
   template.appVersion = APP_VERSION;
   template.initialSideIconUrl = getSideIconUrl();
   template.initialSideIconExternalUrl = getSideIconExternalUrl();
@@ -421,6 +422,47 @@ function saveUserDisplayPrefs(prefs) {
   const cleaned = { highlightMine: p.highlightMine !== false, fontSize: p.fontSize === 'large' ? 'large' : 'normal' };
   PropertiesService.getUserProperties().setProperty('displayPrefs', JSON.stringify(cleaned));
   return { success: true, prefs: cleaned };
+}
+// ▼ マイページのレイアウト（個人ごと）。パーツの並び順・幅（全幅/半分）・表示/非表示だけを保存する。
+//   未設定（または初期状態と同じ）の人は保存せず、画面側で従来どおりの並びを使う。
+//   ヘッダー（月の切り替え）と案件一覧は、マイページとして欠かせないため非表示にはできない。
+const MYPAGE_LAYOUT_PARTS = ['header', 'kpiNew', 'kpiUsed', 'search', 'list'];
+const MYPAGE_LAYOUT_HIDEABLE = ['kpiNew', 'kpiUsed', 'search'];
+function normalizeMypageLayout_(layout) {
+  const src = layout && Array.isArray(layout.items) ? layout.items : [];
+  const seen = {};
+  const items = [];
+  src.forEach(it => {
+    const id = String((it && it.id) || '');
+    if (MYPAGE_LAYOUT_PARTS.indexOf(id) === -1 || seen[id]) return;
+    seen[id] = true;
+    items.push({
+      id: id,
+      w: it.w === 'half' ? 'half' : 'full',
+      hidden: MYPAGE_LAYOUT_HIDEABLE.indexOf(id) !== -1 && it.hidden === true,
+    });
+  });
+  // 保存後に増えたパーツなど、足りないものは末尾に全幅で補う
+  MYPAGE_LAYOUT_PARTS.forEach(id => { if (!seen[id]) items.push({ id: id, w: 'full', hidden: false }); });
+  return { items: items };
+}
+function isDefaultMypageLayout_(layout) {
+  return layout.items.every((it, i) => it.id === MYPAGE_LAYOUT_PARTS[i] && it.w === 'full' && !it.hidden);
+}
+function getUserMypageLayout() {
+  const raw = PropertiesService.getUserProperties().getProperty('mypageLayout');
+  if (!raw) return null;
+  try { return normalizeMypageLayout_(JSON.parse(raw)); } catch (e) { return null; }
+}
+function saveUserMypageLayout(layout) {
+  const props = PropertiesService.getUserProperties();
+  const cleaned = normalizeMypageLayout_(layout);
+  if (isDefaultMypageLayout_(cleaned)) {
+    props.deleteProperty('mypageLayout');
+    return { success: true, layout: null };
+  }
+  props.setProperty('mypageLayout', JSON.stringify(cleaned));
+  return { success: true, layout: cleaned };
 }
 function saveUserTheme(themeKey, saturation) {
   if (THEME_KEYS.indexOf(themeKey) === -1) return { success: false, message: '不正なテーマです。' };

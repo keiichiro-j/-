@@ -215,6 +215,53 @@
     .mp-name { font-size: calc(12.5px * var(--fs, 1)); font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
     .mp-model { font-size: calc(11.5px * var(--fs, 1)); color: var(--ink-2); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
     .mp-thead-row { display: flex; align-items: center; gap: 14px; padding: 4px 14px; font-size: calc(10px * var(--fs, 1)); font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+    /* ---- マイページのレイアウト: パーツを行に並べる（全幅は1行を占め、半分幅は2つで1行）。
+            一覧が一番下の行にあるときは、一覧を画面の下まで広げて一覧の中だけをスクロールさせ（従来どおり）、
+            一覧の下にもパーツがあるときは、ページ全体をスクロールさせる ---- */
+    .mp-layout { display: flex; flex-direction: column; gap: 22px; flex: 1; min-height: 0; }
+    .mp-layout.is-scroll { overflow-y: auto; }
+    .mp-lrow { display: flex; gap: 16px; align-items: flex-start; min-width: 0; }
+    .mp-layout.is-fill > .mp-lrow.has-list:last-child { flex: 1; min-height: 0; align-items: stretch; }
+    .mp-lcell { flex: 1 1 0; min-width: 0; container: mpcell / inline-size; }
+    .mp-lcell.is-list { display: flex; flex-direction: column; min-height: 0; }
+    .mp-layout.is-fill .mp-lcell.is-list .mp-results { flex: 1; min-height: 0; overflow-y: auto; }
+    .mp-lcell[data-part="header"] { padding-bottom: 6px; }
+    .mp-lcell .mp-header-row, .mp-lcell .mp-kpi-group { margin-bottom: 0; }
+    .mp-search-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    /* 半分幅など、パーツの置き場所が狭いときは、スマホと同じ詰めた表示に切り替える（画面幅ではなく置き場所の幅で判定） */
+    @container mpcell (max-width: 440px) {
+      .mp-header-row { flex-direction: column; align-items: stretch; }
+      .mp-header-id { width: 100%; }
+      .mp-header-nav { justify-content: center; }
+      .mp-subtitle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+    }
+    @container mpcell (max-width: 470px) {
+      .mp-kpi-row {
+        display: flex !important; grid-template-columns: none !important;
+        background: var(--surface); border-radius: 12px; box-shadow: var(--shadow-sm);
+        padding: 8px 34px 8px 2px !important; margin-bottom: 10px !important; overflow-x: auto; scrollbar-width: none;
+      }
+      .mp-kpi-row::-webkit-scrollbar { display: none; }
+      .mp-kpi-row .kpi-tile {
+        flex: 1 0 auto; min-width: 78px; background: transparent; box-shadow: none;
+        border-radius: 0; padding: 4px 8px; border-right: 1px solid var(--hairline); text-align: center;
+      }
+      .mp-kpi-row .kpi-tile:last-child { border-right: none; }
+      .mp-kpi-row .kpi-label { justify-content: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: calc(9px * var(--fs, 1)); }
+      .mp-kpi-row .kpi-value { font-size: calc(16px * var(--fs, 1)); white-space: nowrap; }
+      .mp-kpi-row .slide-hint { display: flex; }
+    }
+    @container mpcell (max-width: 640px) {
+      .mp-thead-row { display: none; }
+      .mp-row { flex-wrap: nowrap; gap: 6px; padding: 10px 12px; }
+      .mp-col { flex: 0 0 auto; min-width: 0; }
+      .mp-name, .mp-model { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+      .mp-name { flex-grow: 1.2; font-size: calc(12.5px * var(--fs, 1)); }
+      .mp-model { font-size: calc(11px * var(--fs, 1)); }
+      .mp-col-date .mp-date-chip { padding: 4px 7px; font-size: calc(9.5px * var(--fs, 1)); }
+      .mp-col-type .branch-pill { padding: 2px 6px; font-size: calc(9px * var(--fs, 1)); white-space: nowrap; }
+      .mp-col-status, .mp-col-rep { display: none; }
+    }
 
     /* -- リスト表示 -- */
     .list-table-wrap { width: 100%; overflow-x: auto; }
@@ -295,26 +342,6 @@
     .theme-sat-btn:hover { color: var(--ink-2); }
     .theme-sat-btn.active { background: var(--surface); color: var(--accent-ink); font-weight: 700; box-shadow: var(--shadow-sm); }
     .theme-sat-btn:disabled { opacity: .45; cursor: default; }
-    .theme-preview-label { font-size: calc(10.5px * var(--fs, 1)); font-weight: 700; color: var(--muted); margin-bottom: 6px; }
-    .theme-preview { display: flex; max-width: 480px; border: 1px solid var(--hairline); border-radius: 10px; overflow: hidden; margin-bottom: 15px; background: var(--canvas); font-size: calc(10.5px * var(--fs, 1)); line-height: 1.3; }
-    .tp-panel { flex: 0 0 104px; padding: 12px 8px; display: flex; flex-direction: column; gap: 3px; background: var(--accent-ink); background: color-mix(in srgb, var(--accent) 42%, #0D1120); }
-    .tp-logo { width: 26px; height: 26px; border-radius: 50%; background: rgba(255,255,255,.16); margin: 0 auto 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-    .tp-logo.has-image { background: transparent; border-radius: 0; width: auto; max-width: 88px; }
-    .tp-logo img { max-width: 88px; max-height: 26px; object-fit: contain; display: block; }
-    .tp-nav { color: rgba(255,255,255,.82); padding: 5px 7px; border-radius: 4px; font-weight: 600; white-space: nowrap; }
-    .tp-nav.active { background: rgba(255,255,255,.14); color: #fff; box-shadow: inset 2px 0 0 #fff; }
-    .tp-main { flex: 1; min-width: 0; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
-    .tp-kpis { display: flex; gap: 6px; }
-    .tp-kpi { flex: 1; min-width: 0; background: var(--surface); border: 1px solid var(--hairline); border-radius: 6px; padding: 5px 8px; color: var(--muted); font-weight: 700; display: flex; flex-direction: column; }
-    .tp-kpi b { color: var(--ink); font-size: 1.45em; }
-    .tp-kpi small { font-size: .6em; color: var(--muted); margin-left: 2px; }
-    .tp-row { display: flex; align-items: center; gap: 6px; min-width: 0; background: var(--surface); border-radius: 6px; padding: 5px 6px; }
-    .tp-row.tp-today { background: var(--accent-bg); background: color-mix(in srgb, var(--accent) 20%, var(--surface)); box-shadow: inset 0 0 0 1px var(--accent); }
-    .tp-badge { flex: none; background: var(--accent); color: #fff; border-radius: 4px; padding: 2px 6px; font-weight: 700; }
-    .tp-date { flex: none; color: var(--ink-2); font-weight: 700; padding: 2px 6px; }
-    .tp-card { min-width: 0; background: var(--surface); border: 1px solid var(--hairline); border-left: 3px solid var(--accent); border-radius: 4px; padding: 3px 7px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .tp-card.is-mine { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
-    .tp-btn { align-self: flex-start; background: var(--accent); color: #fff; border-radius: 5px; padding: 4px 14px; font-weight: 700; }
     .app-icon-pick { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; }
     .app-icon-preview { width: 30px; height: 30px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: calc(13px * var(--fs, 1)); background: var(--accent-ink); background: color-mix(in srgb, var(--accent) 42%, #0D1120); }
     .app-icon-select { width: auto; min-width: 128px; }
@@ -328,6 +355,83 @@
     .theme-save-btn { font-size: calc(12.5px * var(--fs, 1)); font-weight: 700; background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 9px 18px; cursor: pointer; transition: filter .12s ease; }
     .theme-save-btn:hover:not(:disabled) { filter: brightness(0.92); }
     .theme-save-btn:disabled { background: #E2E5EB; color: #A6ACB8; cursor: default; }
+    /* ---- 設定: マイページのレイアウト（PC・スマホの実寸の画面を縮小して表示し、その上でパーツをドラッグする） ---- */
+    .lp-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+    .lp-view-toggle { display: none; }
+    #lpCard.is-narrow .lp-view-toggle { display: inline-flex; }
+    .lp-sample-note { font-size: calc(10.5px * var(--fs, 1)); color: var(--muted); font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+    .lp-stage { display: flex; gap: 24px; align-items: flex-start; }
+    .lp-device { min-width: 0; }
+    .lp-pc { flex: 1 1 0; }
+    .lp-phone { flex: 0 0 214px; }
+    #lpCard.is-narrow .lp-device { display: none; }
+    #lpCard.is-narrow .lp-stage.view-pc .lp-pc, #lpCard.is-narrow .lp-stage.view-phone .lp-phone { display: block; flex: 1 1 auto; }
+    #lpCard.is-narrow .lp-stage.view-phone .lp-phone { max-width: 280px; margin: 0 auto; }
+    .lp-device-label { font-size: calc(10.5px * var(--fs, 1)); font-weight: 700; color: var(--muted); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+    .lp-frame { position: relative; overflow: hidden; }
+    .lp-pc .lp-frame { border-radius: 12px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 14px 34px -16px rgba(15,23,42,.35), 0 2px 6px rgba(15,23,42,.06); }
+    .lp-browser-bar { display: flex; align-items: center; gap: 6px; padding: 7px 10px; background: var(--surface-2); border-bottom: 1px solid var(--hairline); }
+    .lp-browser-bar .lp-dot { width: 8px; height: 8px; border-radius: 50%; background: #DADDE4; flex: none; }
+    .lp-browser-bar .lp-url { flex: 1; min-width: 0; margin-left: 8px; background: var(--surface); border: 1px solid var(--hairline); border-radius: 6px; font-size: calc(10px * var(--fs, 1)); color: var(--muted); padding: 3px 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .lp-phone .lp-frame { border-radius: 32px; border: 7px solid #15171D; background: #15171D; box-shadow: 0 16px 34px -14px rgba(15,23,42,.45); }
+    .lp-phone .lp-frame::before { content: ''; position: absolute; top: 7px; left: 50%; width: 62px; height: 17px; transform: translateX(-50%); background: #15171D; border-radius: 10px; z-index: 5; }
+    .lp-screen { width: 100%; overflow: hidden; position: relative; background: var(--canvas); }
+    .lp-phone .lp-screen { border-radius: 25px; }
+    .lp-app { display: flex; width: 100%; height: 100%; background: var(--canvas); color: var(--ink); font-family: var(--font-ios); text-align: left; }
+    .lp-app-phone { flex-direction: column; }
+    .lp-cp { flex: 0 0 212px; padding: 22px 14px; display: flex; flex-direction: column; gap: 3px; background: var(--accent-ink); background: color-mix(in srgb, var(--accent) 42%, #0D1120); }
+    .lp-cp-logo { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 20px; color: #fff; font-weight: 800; font-size: 13px; }
+    .lp-cp-logo .lp-mark { width: 52px; height: 52px; border-radius: 50%; background: rgba(255,255,255,.16); display: flex; align-items: center; justify-content: center; font-size: 20px; }
+    .lp-cp-logo img { max-width: 150px; max-height: 60px; object-fit: contain; }
+    .lp-cp-item { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 7px; font-size: 13px; font-weight: 600; color: rgba(255,255,255,.82); }
+    .lp-cp-item i { width: 16px; text-align: center; color: rgba(255,255,255,.55); }
+    .lp-cp-item.active { background: rgba(255,255,255,.14); color: #fff; box-shadow: inset 3px 0 0 #fff; }
+    .lp-cp-item.active i { color: #fff; }
+    .lp-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 20px 24px; }
+    .lp-app-phone .lp-main { padding: 14px; }
+    .lp-topbar { flex: 0 0 auto; display: flex; align-items: center; gap: 9px; padding: 40px 16px 12px; color: #fff; font-weight: 800; font-size: 14px; background: var(--accent-ink); background: color-mix(in srgb, var(--accent) 42%, #0D1120); }
+    .lp-topbar .lp-mark { width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,.16); display: flex; align-items: center; justify-content: center; }
+    .lp-topbar img { max-width: 110px; max-height: 34px; object-fit: contain; }
+    .lp-tabbar { flex: 0 0 auto; display: flex; background: var(--surface); border-top: 1px solid var(--hairline); padding: 6px 4px 22px; }
+    .lp-tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px; border-radius: 10px; font-size: 10px; font-weight: 600; color: var(--muted); }
+    .lp-tab i { font-size: 17px; }
+    .lp-tab.active { color: var(--accent-ink); background: var(--accent-bg); }
+    /* スマホのプレビューは、実際のスマホと同じく1列に並べる */
+    .lp-app-phone .mp-lrow { flex-direction: column; align-items: stretch; gap: 22px; }
+    .lp-app-phone .mp-lrow > .mp-lcell { flex: 0 0 auto; }
+    .lp-app-phone .mp-layout.is-fill > .mp-lrow.has-list:last-child > .mp-lcell.is-list { flex: 1 1 auto; min-height: 0; }
+    .lp-app-phone .mp-lcell.is-empty { display: none; }
+    .mp-layout.is-preview .mp-row { cursor: inherit; }
+    /* パーツ: 枠と、上端に重ねる「つまみ」「幅」「非表示」のボタン。ボタン類は縮小せず実寸で表示する（--lp-inv） */
+    .lp-part { position: relative; border-radius: 10px; outline: 3px dashed transparent; outline-offset: 6px; transition: outline-color .15s ease; cursor: grab; }
+    .lp-part:hover, .lp-part.is-dragging { outline-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+    .lp-part.is-dragging { outline-color: var(--accent); }
+    .lp-part-body { display: contents; pointer-events: none; }
+    .lp-part.is-dragging > .lp-part-body > * { opacity: .28; }
+    .lp-part-chrome { position: absolute; top: -13px; left: -4px; right: -4px; display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; zoom: var(--lp-inv, 1); pointer-events: none; z-index: 4; }
+    .lp-chip, .lp-chip-btn { pointer-events: auto; display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px; border-radius: 11px; font-size: calc(10.5px * var(--fs, 1)); font-weight: 700; font-family: var(--font-ios); background: var(--surface); color: var(--ink-2); border: 1px solid var(--border); box-shadow: 0 2px 5px rgba(15,23,42,.12); white-space: nowrap; line-height: 1; }
+    .lp-grip { background: var(--accent); color: #fff; border-color: transparent; cursor: grab; touch-action: none; }
+    .lp-grip i { opacity: .85; }
+    .lp-chip-group { display: inline-flex; gap: 4px; transition: opacity .15s ease; }
+    @media (hover: hover) { .lp-part:not(:hover) .lp-chip-group { opacity: 0; } body.lp-dragging .lp-chip-group { opacity: 0; } }
+    .lp-chip-btn { cursor: pointer; }
+    .lp-chip-btn:hover { border-color: var(--accent); color: var(--accent-ink); }
+    .lp-empty { align-self: stretch; min-height: 70px; border: 3px dashed color-mix(in srgb, var(--accent) 30%, var(--border)); border-radius: 12px; background: color-mix(in srgb, var(--accent) 5%, transparent); display: flex; align-items: center; justify-content: center; }
+    .lp-empty-inner { zoom: var(--lp-inv, 1); display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: calc(10.5px * var(--fs, 1)); font-weight: 700; color: var(--muted); text-align: center; padding: 4px 8px; }
+    .lp-empty-inner small { font-weight: 600; font-size: .92em; }
+    .lp-ghost { position: fixed; left: 0; top: 0; z-index: 9999; pointer-events: none; display: flex; align-items: center; gap: 7px; background: var(--accent); color: #fff; padding: 7px 12px; border-radius: 9px; font-size: calc(12px * var(--fs, 1)); font-weight: 700; box-shadow: 0 12px 26px -8px rgba(15,23,42,.5); }
+    body.lp-dragging, body.lp-dragging * { cursor: grabbing !important; user-select: none; -webkit-user-select: none; }
+    .lp-notes { list-style: none; margin: 16px 0 0; padding: 12px 14px; background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .lp-notes li { display: flex; gap: 8px; font-size: calc(11.5px * var(--fs, 1)); color: var(--ink-2); line-height: 1.55; }
+    .lp-notes li i { flex: 0 0 14px; margin-top: 3px; color: var(--accent-ink); text-align: center; }
+    .lp-hidden { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 12px 0 15px; }
+    .lp-hidden-label { font-size: calc(11px * var(--fs, 1)); font-weight: 700; color: var(--muted); }
+    .lp-hidden-none { font-size: calc(11px * var(--fs, 1)); color: var(--muted); }
+    .lp-hidden-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px dashed var(--border); background: var(--surface); border-radius: 16px; padding: 5px 12px; font-size: calc(11.5px * var(--fs, 1)); font-weight: 600; color: var(--ink-2); cursor: pointer; font-family: inherit; }
+    .lp-hidden-chip:hover { border-color: var(--accent); color: var(--accent-ink); border-style: solid; }
+    .lp-reset-btn { font-size: calc(12px * var(--fs, 1)); font-weight: 700; background: var(--surface); color: var(--ink-2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 14px; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; }
+    .lp-reset-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-ink); }
+    .lp-reset-btn:disabled { opacity: .45; cursor: default; }
     .theme-msg { font-size: calc(11.5px * var(--fs, 1)); font-weight: 700; }
     .theme-msg.saved { color: var(--oss); }
     .theme-msg.dirty { color: #B4620D; }
@@ -383,41 +487,47 @@
       .list-card-wrap { display: flex; }
 
       /* -- マイページヘッダー: 縦積みにして折り返しを防止 -- */
-      .mp-header-row { flex-direction: column; align-items: stretch; }
-      .mp-header-id { width: 100%; }
-      .mp-header-nav { justify-content: center; }
-      .mp-subtitle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+      .mp-layout.is-live .mp-header-row { flex-direction: column; align-items: stretch; }
+      .mp-layout.is-live .mp-header-id { width: 100%; }
+      .mp-layout.is-live .mp-header-nav { justify-content: center; }
+      .mp-layout.is-live .mp-subtitle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 
       /* -- マイページKPI: カレンダーのKPIと同じ「統計ストリップ」形式にして折り返し・はみ出しを防止 -- */
-      .mp-kpi-row {
+      .mp-layout.is-live .mp-kpi-row {
         display: flex !important; grid-template-columns: none !important;
         background: var(--surface); border-radius: 12px; box-shadow: var(--shadow-sm);
         padding: 8px 34px 8px 2px !important; margin-bottom: 10px !important; overflow-x: auto; scrollbar-width: none;
       }
-      .mp-kpi-row::-webkit-scrollbar { display: none; }
-      .mp-kpi-row .kpi-tile {
+      .mp-layout.is-live .mp-kpi-row::-webkit-scrollbar { display: none; }
+      .mp-layout.is-live .mp-kpi-row .kpi-tile {
         flex: 1 0 auto; min-width: 78px; background: transparent; box-shadow: none;
         border-radius: 0; padding: 4px 8px; border-right: 1px solid var(--hairline); text-align: center;
       }
-      .mp-kpi-row .kpi-tile:last-child { border-right: none; }
-      .mp-kpi-row .kpi-label {
+      .mp-layout.is-live .mp-kpi-row .kpi-tile:last-child { border-right: none; }
+      .mp-layout.is-live .mp-kpi-row .kpi-label {
         justify-content: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: calc(9px * var(--fs, 1));
       }
-      .mp-kpi-row .kpi-value { font-size: calc(16px * var(--fs, 1)); white-space: nowrap; }
-      .mp-kpi-row .slide-hint { display: flex; }
+      .mp-layout.is-live .mp-kpi-row .kpi-value { font-size: calc(16px * var(--fs, 1)); white-space: nowrap; }
+      .mp-layout.is-live .mp-kpi-row .slide-hint { display: flex; }
 
       /* -- マイページ: 横長の1行レイアウト。各列は必要最小幅にして折り返しをやめ、
             顧客名/モデルだけを可変幅にして省略記号で収める -- */
-      .mp-thead-row { display: none; }
-      .mp-row { flex-wrap: nowrap; gap: 6px; padding: 10px 12px; }
-      .mp-col { flex: 0 0 auto; min-width: 0; }
-      .mp-name, .mp-model { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
-      .mp-name { flex-grow: 1.2; font-size: calc(12.5px * var(--fs, 1)); }
-      .mp-model { font-size: calc(11px * var(--fs, 1)); }
-      .mp-col-date .mp-date-chip { padding: 4px 7px; font-size: calc(9.5px * var(--fs, 1)); }
-      .mp-col-type .branch-pill { padding: 2px 6px; font-size: calc(9px * var(--fs, 1)); white-space: nowrap; }
-      .mp-col-status { display: none; } /* 幅優先のため省略。詳細はタップして確認 */
-      .mp-col-rep { display: none; } /* 拠点長表示の担当者列も幅優先で省略。詳細はタップして確認 */
+      .mp-layout.is-live .mp-thead-row { display: none; }
+      .mp-layout.is-live .mp-row { flex-wrap: nowrap; gap: 6px; padding: 10px 12px; }
+      .mp-layout.is-live .mp-col { flex: 0 0 auto; min-width: 0; }
+      .mp-layout.is-live .mp-name, .mp-layout.is-live .mp-model { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+      .mp-layout.is-live .mp-name { flex-grow: 1.2; font-size: calc(12.5px * var(--fs, 1)); }
+      .mp-layout.is-live .mp-model { font-size: calc(11px * var(--fs, 1)); }
+      .mp-layout.is-live .mp-col-date .mp-date-chip { padding: 4px 7px; font-size: calc(9.5px * var(--fs, 1)); }
+      .mp-layout.is-live .mp-col-type .branch-pill { padding: 2px 6px; font-size: calc(9px * var(--fs, 1)); white-space: nowrap; }
+      .mp-layout.is-live .mp-col-status { display: none; } /* 幅優先のため省略。詳細はタップして確認 */
+      .mp-layout.is-live .mp-col-rep { display: none; } /* 拠点長表示の担当者列も幅優先で省略。詳細はタップして確認 */
+      /* -- マイページのレイアウト: スマホでは幅の設定に関係なく、並び順どおりに1列で表示する -- */
+      .mp-layout.is-live .mp-lrow { flex-direction: column; align-items: stretch; gap: 22px; }
+      .mp-layout.is-live .mp-lrow > .mp-lcell { flex: 0 0 auto; }
+      .mp-layout.is-live.is-fill > .mp-lrow.has-list:last-child > .mp-lcell.is-list { flex: 1 1 auto; min-height: 0; }
+      .mp-layout.is-live .mp-lcell.is-empty { display: none; }
+
 
       /* -- KPI表示をスマホ向けに変更: 個別タイルの箱・余白をやめ、1枚のカードを
             仕切り線で区切る「統計ストリップ」形式にして折り返し・無駄な空白をなくす -- */
@@ -541,8 +651,9 @@
     const INITIAL_THEME = <?!= JSON.stringify(initialTheme || 'indigo') ?>;
     const INITIAL_THEME_SATURATION = <?!= JSON.stringify(typeof initialThemeSaturation !== 'undefined' ? initialThemeSaturation : 'standard') ?>;
     const INITIAL_DISPLAY_PREFS = <?!= JSON.stringify(typeof initialDisplayPrefs !== 'undefined' ? initialDisplayPrefs : {}) ?>;
+    const INITIAL_MYPAGE_LAYOUT = <?!= JSON.stringify(typeof initialMypageLayout !== 'undefined' ? initialMypageLayout : null) ?>;
     // ▼ Code.gs の APP_VERSION と同じ値にする。設定ページ下部で両者を比べ、貼り替え漏れ・デプロイ漏れを知らせる。
-    const CLIENT_VERSION = '2026.09.25-10';
+    const CLIENT_VERSION = '2026.09.25-11';
     const SERVER_VERSION = <?!= JSON.stringify(typeof appVersion !== 'undefined' ? appVersion : '') ?>;
     const INITIAL_SIDE_ICON_URL = <?!= JSON.stringify(initialSideIconUrl || '') ?>;
     const INITIAL_SIDE_ICON_EXTERNAL_URL = <?!= JSON.stringify(initialSideIconExternalUrl || '') ?>;
@@ -679,6 +790,54 @@
     };
     let pendingDisplayPrefs = { ...displayPrefs };
     let displayPrefsMsg = { text: '', error: false };
+
+    // ▼ マイページのレイアウト（個人ごと）。未設定なら従来どおりの縦並び。設定画面でドラッグして並べ替え、「保存」で確定する。
+    //   ヘッダー（月の切り替え）と案件一覧は欠かせないため非表示にはできない（Code.gs の MYPAGE_LAYOUT_HIDEABLE と同じ）。
+    const MP_PARTS = {
+      header: { name: 'ヘッダー', desc: '名前・月の切り替え', icon: 'fa-id-badge', hideable: false },
+      kpiNew: { name: '新車の数字', desc: '受注台数・登録済み・未定・OSS登録率', icon: 'fa-car', hideable: true },
+      kpiUsed: { name: '中古車の数字', desc: '受注台数・登録済み・未定・OSS登録率', icon: 'fa-car-side', hideable: true },
+      search: { name: '絞り込み', desc: '顧客名・登録方法', icon: 'fa-magnifying-glass', hideable: true },
+      list: { name: '案件一覧', desc: '担当案件の一覧', icon: 'fa-list-ul', hideable: false },
+    };
+    const MP_PART_IDS = Object.keys(MP_PARTS);
+    function defaultMpLayout_() { return { items: MP_PART_IDS.map(id => ({ id, w: 'full', hidden: false })) }; }
+    function normalizeMpLayout_(layout) {
+      const seen = {};
+      const items = [];
+      ((layout && Array.isArray(layout.items)) ? layout.items : []).forEach(it => {
+        const id = String((it && it.id) || '');
+        if (!MP_PARTS[id] || seen[id]) return;
+        seen[id] = true;
+        items.push({ id, w: it.w === 'half' ? 'half' : 'full', hidden: MP_PARTS[id].hideable && it.hidden === true });
+      });
+      MP_PART_IDS.forEach(id => { if (!seen[id]) items.push({ id, w: 'full', hidden: false }); });
+      return { items };
+    }
+    function cloneMpLayout_(layout) { return { items: layout.items.map(it => ({ ...it })) }; }
+    function sameMpLayout_(a, b) { return JSON.stringify(a.items) === JSON.stringify(b.items); }
+    function mpPartVisible_(layout, id) { const it = layout.items.find(i => i.id === id); return !!it && !it.hidden; }
+    // 並び順どおりに行へ詰める。半分幅は次の半分幅と1行に並び、相手がいなければ右側を空けたままにする。
+    function mpLayoutRows_(layout) {
+      const rows = [];
+      let half = null;
+      layout.items.filter(it => !it.hidden).forEach(it => {
+        if (it.w === 'half') {
+          if (half) { rows.push([half, it]); half = null; } else half = it;
+          return;
+        }
+        if (half) { rows.push([half, { empty: true, after: half.id }]); half = null; }
+        rows.push([it]);
+      });
+      if (half) rows.push([half, { empty: true, after: half.id }]);
+      return rows;
+    }
+    function mpListIsLast_(rows) { const last = rows[rows.length - 1]; return !!last && last.some(c => c.id === 'list'); }
+    let mypageLayout = normalizeMpLayout_(INITIAL_MYPAGE_LAYOUT);
+    let pendingMypageLayout = cloneMpLayout_(mypageLayout);
+    let mpLayoutMsg = { text: '', error: false };
+    let lpView = 'pc';   // 狭い画面の設定ページで、PC・スマホどちらのプレビューを見せるか
+    let lpDrag = null;   // ドラッグ中の状態
     function applyDisplayPrefs_() {
       const prefs = currentPage === 'settings' ? pendingDisplayPrefs : displayPrefs;
       document.documentElement.style.setProperty('--fs', String(FONT_SCALES[prefs.fontSize] || 1));
@@ -1353,6 +1512,7 @@
       return { confirmed, undecided };
     }
     function mpApplyFilters(records) {
+      if (!mpPartVisible_(mypageLayout, 'search')) return records; // 絞り込みを非表示にしている間は全件表示
       const keyword = mpSearch.name.trim();
       return records.filter(r => {
         if (keyword && !(r.顧客名 || '').includes(keyword) && !(r.担当者 || '').includes(keyword)) return false;
@@ -1388,11 +1548,41 @@
         `;
       }
       const monthDate = mpMonthDate(myPageMonthOffset);
-      const monthLabel = `${monthDate.getFullYear()}年${monthDate.getMonth() + 1}月`;
       const { confirmed, undecided } = myRecordsForOffset(myPageMonthOffset);
-      const mpKpiGroupHTML = (carType) => {
-        const c = confirmed.filter(r => r.車両区分 === carType);
-        const u = undecided.filter(r => r.車両区分 === carType);
+      return mpLayoutHTML_(mypageLayout, {
+        preview: false, name: LINKED_NAME, isManager: LINKED_IS_BRANCH_MANAGER, branch: LINKED_BRANCH,
+        monthLabel: `${monthDate.getFullYear()}年${monthDate.getMonth() + 1}月`, confirmed, undecided,
+      });
+    }
+
+    // ▼ マイページの各パーツ。実際のマイページと、設定画面のレイアウトのプレビュー（ctx.preview）の両方で使う。
+    //   プレビューでは id を付けず（実際の画面の要素と重複させない）、入力欄も操作できないようにする。
+    function mpPartHTML_(id, ctx, fill) {
+      const idAttr = (value) => (ctx.preview ? '' : `id="${value}"`);
+      if (id === 'header') {
+        return `
+          <div class="mp-header-row">
+            <div class="mp-header-id">
+              <div class="cp-avatar" style="width:38px;height:38px;flex:0 0 38px;font-size: calc(14px * var(--fs, 1));">${escapeHtml(ctx.name[0] || '?')}</div>
+              <div class="mp-header-text">
+                <h1 class="page-title">マイページ</h1>
+                <p class="page-sub mp-subtitle">${ctx.isManager
+                  ? `${escapeHtml(ctx.name)} さん（${escapeHtml(ctx.branch)} 拠点長）の拠点全体の受注・登録状況`
+                  : `${escapeHtml(ctx.name)} さんの受注・登録状況`}</p>
+              </div>
+            </div>
+            <div class="mp-header-nav">
+              <button type="button" class="nav-btn" ${idAttr('mpPrev')} ${ctx.preview ? 'tabindex="-1"' : ''}><i class="fa-solid fa-chevron-left"></i></button>
+              <span class="font-num" style="font-size: calc(14px * var(--fs, 1));font-weight:700;min-width:92px;text-align:center;display:inline-block;">${ctx.monthLabel}</span>
+              <button type="button" class="nav-btn" ${idAttr('mpNext')} ${ctx.preview ? 'tabindex="-1"' : ''}><i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+          </div>
+        `;
+      }
+      if (id === 'kpiNew' || id === 'kpiUsed') {
+        const carType = id === 'kpiNew' ? '新車' : '中古車';
+        const c = ctx.confirmed.filter(r => r.車両区分 === carType);
+        const u = ctx.undecided.filter(r => r.車両区分 === carType);
         const total = c.length + u.length;
         const ossRate = total > 0 ? Math.round(c.concat(u).filter(isOssRecord).length / total * 100) : 0;
         return `
@@ -1403,39 +1593,46 @@
               <div class="kpi-tile"><div class="kpi-label">登録済み</div><div class="kpi-value" style="color:var(--accent-ink);">${c.length}<span class="kpi-unit">件</span></div></div>
               <div class="kpi-tile"><div class="kpi-label">未定</div><div class="kpi-value" style="color:#B4620D;">${u.length}<span class="kpi-unit">件</span></div></div>
               <div class="kpi-tile"><div class="kpi-label">OSS登録率</div><div class="kpi-value">${ossRate}<span class="kpi-unit">%</span></div></div>
-              <button type="button" class="slide-hint" title="横にスライドしてさらに表示"><i class="fa-solid fa-chevron-right"></i></button>
+              <button type="button" class="slide-hint" title="横にスライドしてさらに表示" ${ctx.preview ? 'tabindex="-1"' : ''}><i class="fa-solid fa-chevron-right"></i></button>
             </div>
           </div>
         `;
-      };
+      }
+      if (id === 'search') {
+        const search = ctx.preview ? { name: '', method: '全て' } : mpSearch;
+        const off = ctx.preview ? 'tabindex="-1" readonly' : '';
+        return `
+          <div class="mp-search-row">
+            <input ${idAttr('mpSearchName')} class="settings-input" placeholder="${ctx.isManager ? '顧客名・担当者名で絞り込み' : '顧客名で絞り込み'}" value="${escapeAttr(search.name)}" style="flex:1;min-width:160px;" ${off}>
+            <select ${idAttr('mpSearchMethod')} class="settings-input" ${ctx.preview ? 'tabindex="-1"' : ''}>
+              ${['全て', 'OSS', '紙'].map(m => `<option ${search.method === m ? 'selected' : ''}>${m}</option>`).join('')}
+            </select>
+          </div>
+        `;
+      }
+      // 案件一覧。実際の画面では中身を renderMpResults() が後から差し込む。
+      // fill: 一覧が一番下の行にあるときは、画面の下まで広げて一覧の中だけをスクロールさせる
+      if (ctx.preview) {
+        const records = ctx.confirmed.concat(ctx.undecided).sort((a, b) => (a.登録予定日 || 'z').localeCompare(b.登録予定日 || 'z'));
+        return `<div class="mp-results ${fill ? 'is-fill' : ''}">${mpTheadHTML()}<div class="mp-list">${records.map(mpRowHTML).join('')}</div></div>`;
+      }
+      return `<div id="mpResults" class="mp-results ${fill ? 'page-fill-area' : ''}"></div>`;
+    }
 
+    // ▼ レイアウトどおりにパーツを並べる。decorate はプレビュー用（パーツに操作用のつまみ等を重ねる）。
+    function mpLayoutHTML_(layout, ctx, decorate) {
+      const rows = mpLayoutRows_(layout);
+      const fill = mpListIsLast_(rows);
+      const cellHTML = (c) => {
+        if (c.empty) return decorate ? decorate.empty(c) : '<div class="mp-lcell w-half is-empty"></div>';
+        const inner = mpPartHTML_(c.id, ctx, fill && c.id === 'list');
+        const cls = `mp-lcell w-${c.w} ${c.id === 'list' ? 'is-list' : ''} ${decorate ? 'lp-part' : ''}`;
+        return `<div class="${cls}" data-part="${c.id}">${decorate ? decorate.part(c, inner) : inner}</div>`;
+      };
       return `
-        <div class="mp-header-row">
-          <div class="mp-header-id">
-            <div class="cp-avatar" style="width:38px;height:38px;flex:0 0 38px;font-size: calc(14px * var(--fs, 1));">${LINKED_NAME[0] || '?'}</div>
-            <div class="mp-header-text">
-              <h1 class="page-title">マイページ</h1>
-              <p class="page-sub mp-subtitle">${LINKED_IS_BRANCH_MANAGER
-                ? `${escapeHtml(LINKED_NAME)} さん（${escapeHtml(LINKED_BRANCH)} 拠点長）の拠点全体の受注・登録状況`
-                : `${escapeHtml(LINKED_NAME)} さんの受注・登録状況`}</p>
-            </div>
-          </div>
-          <div class="mp-header-nav">
-            <button type="button" class="nav-btn" id="mpPrev"><i class="fa-solid fa-chevron-left"></i></button>
-            <span class="font-num" style="font-size: calc(14px * var(--fs, 1));font-weight:700;min-width:92px;text-align:center;display:inline-block;">${monthLabel}</span>
-            <button type="button" class="nav-btn" id="mpNext"><i class="fa-solid fa-chevron-right"></i></button>
-          </div>
+        <div class="mp-layout ${fill ? 'is-fill' : 'is-scroll'} ${ctx.preview ? 'is-preview' : 'is-live'}">
+          ${rows.map(row => `<div class="mp-lrow ${row.some(c => c.id === 'list') ? 'has-list' : ''}">${row.map(cellHTML).join('')}</div>`).join('')}
         </div>
-        ${CAR_TYPES.map(mpKpiGroupHTML).join('')}
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
-          <input id="mpSearchName" class="settings-input" placeholder="${LINKED_IS_BRANCH_MANAGER ? '顧客名・担当者名で絞り込み' : '顧客名で絞り込み'}" value="${escapeAttr(mpSearch.name)}" style="flex:1;min-width:160px;">
-          <select id="mpSearchMethod" class="settings-input">
-            <option ${mpSearch.method === '全て' ? 'selected' : ''}>全て</option>
-            <option ${mpSearch.method === 'OSS' ? 'selected' : ''}>OSS</option>
-            <option ${mpSearch.method === '紙' ? 'selected' : ''}>紙</option>
-          </select>
-        </div>
-        <div id="mpResults" class="page-fill-area"></div>
       `;
     }
 
@@ -1462,7 +1659,6 @@
               ${Object.keys(THEME_SATURATIONS).map(key => `<button type="button" class="theme-sat-btn ${pendingSaturation === key ? 'active' : ''}" data-saturation="${key}">${THEME_SATURATIONS[key].name}</button>`).join('')}
             </div>
           </div>
-          ${themePreviewHTML()}
           <div class="theme-save-row">
             <button type="button" class="theme-save-btn" id="themeSaveBtn" ${isDirty ? '' : 'disabled'}>保存</button>
             ${msg}
@@ -1470,31 +1666,352 @@
         </div>
       `;
     }
-    // ▼ テーマ設定の中に出す、カレンダー画面の縮小イメージ。色は実際の画面と同じCSS変数を使うため、
-    //   テーマ・鮮やかさを選んだ時点（保存前）の見た目がそのまま映る。
-    function themePreviewHTML() {
-      const logo = sidePanelIconUrl ? `<img src="${escapeAttr(sidePanelIconUrl)}" alt="">` : '';
+    // ▼ マイページのレイアウト設定（誰でも・自分のGoogleアカウントごとに保存）。
+    //   プレビューは、実際のマイページと同じ部品を実寸（PC 1320×760 / スマホ 390×780）で組み立て、枠に合わせて縮小して表示する。
+    //   そのため、幅を半分にしたときの詰まった表示や、スマホで1列になる様子が実際の画面と同じように確認できる。
+    const LP_SCREENS = { pc: { w: 1320, h: 760 }, phone: { w: 390, h: 780 } };
+    function mpSampleCtx_() {
+      const d = mpMonthDate(0);
+      const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const name = LINKED_NAME || '山田 太郎';
+      const mk = (day, type, customer, model, oss, status, rep) => ({
+        登録予定日: day ? `${ym}-${String(day).padStart(2, '0')}` : '', 車両区分: type, 顧客名: customer, 車種: model,
+        OSS区分: oss ? 'OSS' : '紙', ステータス: status, 担当者: rep || name, 拠点: LINKED_BRANCH || '',
+      });
+      const confirmed = [
+        mk(4, '新車', '佐藤 健一', 'C 200 アバンギャルド', true, STATUS_CONFIRMED),
+        mk(9, '新車', '鈴木 美穂', 'GLC 220 d 4MATIC', true, STATUS_CONFIRMED, '伊藤 翔'),
+        mk(12, '中古車', '高橋 誠', 'E 300 エクスクルーシブ', false, STATUS_CONFIRMED),
+        mk(18, '新車', '田中 由紀', 'A 180 スタイル', true, STATUS_CONFIRMED),
+        mk(22, '中古車', '渡辺 大輔', 'GLA 200 d', true, STATUS_CONFIRMED, '伊藤 翔'),
+        mk(27, '新車', '中村 彩', 'EQA 250+', false, STATUS_CONFIRMED),
+      ];
+      const undecided = [
+        mk(0, '新車', '小林 直樹', 'S 500 4MATIC', true, '書類準備中'),
+        mk(0, '中古車', '加藤 恵', 'CLA 200 d', false, '受注済み'),
+      ];
+      return {
+        preview: true, name, isManager: LINKED_IS_BRANCH_MANAGER, branch: LINKED_BRANCH || '本店',
+        monthLabel: `${d.getFullYear()}年${d.getMonth() + 1}月`, confirmed, undecided,
+      };
+    }
+    // プレビュー用: パーツに重ねるボタン類と、半分幅の隣の空き
+    function lpDecorate_(frame) {
+      return {
+        part: (c, inner) => {
+          const meta = MP_PARTS[c.id];
+          const controls = frame === 'pc' ? `
+            <span class="lp-chip-group">
+              <button type="button" class="lp-chip-btn" data-lp-width="${c.id}" title="幅を切り替える（全幅／半分）">
+                <i class="fa-solid ${c.w === 'half' ? 'fa-table-columns' : 'fa-square-full'}"></i>${c.w === 'half' ? '半分' : '全幅'}
+              </button>
+              ${meta.hideable ? `<button type="button" class="lp-chip-btn" data-lp-hide="${c.id}" title="このパーツを非表示にする"><i class="fa-solid fa-eye-slash"></i></button>` : ''}
+            </span>` : '';
+          return `
+            <div class="lp-part-body">${inner}</div>
+            <div class="lp-part-chrome">
+              <span class="lp-chip lp-grip" title="ドラッグして移動"><i class="fa-solid fa-grip-vertical"></i>${meta.name}</span>
+              ${controls}
+            </div>`;
+        },
+        empty: (c) => `
+          <div class="mp-lcell w-half is-empty lp-empty" data-after="${c.after}">
+            <div class="lp-empty-inner">空き<small>半分幅のパーツを置けます</small></div>
+          </div>`,
+      };
+    }
+    function lpDeviceHTML_(frame, ctx) {
+      const logo = sidePanelIconUrl ? `<img src="${escapeAttr(sidePanelIconUrl)}" alt="">` : '<span class="lp-mark"><i class="fa-solid fa-car"></i></span>';
+      const layout = mpLayoutHTML_(pendingMypageLayout, ctx, lpDecorate_(frame));
+      const screen = LP_SCREENS[frame];
+      const app = frame === 'pc' ? `
+        <div class="lp-app">
+          <div class="lp-cp">
+            <div class="lp-cp-logo">${logo}${sidePanelIconUrl ? '' : '<span>AU NEW CAR</span>'}</div>
+            <div class="lp-cp-item"><i class="fa-solid fa-calendar-days"></i>カレンダー</div>
+            <div class="lp-cp-item active"><i class="fa-solid fa-user"></i>マイページ</div>
+            <div class="lp-cp-item"><i class="fa-solid fa-gear"></i>設定</div>
+          </div>
+          <div class="lp-main">${layout}</div>
+        </div>` : `
+        <div class="lp-app lp-app-phone">
+          <div class="lp-topbar">${logo}${sidePanelIconUrl ? '' : '<span>AU NEW CAR</span>'}</div>
+          <div class="lp-main">${layout}</div>
+          <div class="lp-tabbar">
+            <div class="lp-tab"><i class="fa-solid fa-calendar-days"></i>カレンダー</div>
+            <div class="lp-tab active"><i class="fa-solid fa-user"></i>マイページ</div>
+            <div class="lp-tab"><i class="fa-solid fa-gear"></i>設定</div>
+          </div>
+        </div>`;
       return `
-        <div class="theme-preview-label">プレビュー（カレンダー画面のイメージ）</div>
-        <div class="theme-preview" aria-hidden="true">
-          <div class="tp-panel">
-            <div class="tp-logo ${logo ? 'has-image' : ''}">${logo}</div>
-            <div class="tp-nav active">カレンダー</div>
-            <div class="tp-nav">マイページ</div>
-            <div class="tp-nav">設定</div>
-          </div>
-          <div class="tp-main">
-            <div class="tp-kpis">
-              <div class="tp-kpi">総登録台数<b>12<small>台</small></b></div>
-              <div class="tp-kpi">OSS登録率<b>67<small>%</small></b></div>
+        <div class="lp-device lp-${frame}" data-frame="${frame}">
+          <div class="lp-device-label"><i class="fa-solid ${frame === 'pc' ? 'fa-desktop' : 'fa-mobile-screen-button'}"></i>${frame === 'pc' ? 'PC' : 'スマホ'}</div>
+          <div class="lp-frame">
+            ${frame === 'pc' ? '<div class="lp-browser-bar"><span class="lp-dot"></span><span class="lp-dot"></span><span class="lp-dot"></span><span class="lp-url">登録カレンダー — マイページ</span></div>' : ''}
+            <div class="lp-screen" data-vw="${screen.w}" data-vh="${screen.h}">
+              <div class="lp-zoom" style="width:${screen.w}px;height:${screen.h}px;">${app}</div>
             </div>
-            <div class="tp-row tp-today"><span class="tp-badge">25</span><span class="tp-card is-mine">山本 花子</span><span class="tp-card">田中 次郎</span></div>
-            <div class="tp-row"><span class="tp-date">26</span><span class="tp-card">佐藤 三郎</span></div>
-            <div class="tp-btn">保存</div>
           </div>
+        </div>`;
+    }
+    // 今の並びで画面がどう見えるかを、文章でも添える
+    function lpNotesHTML_(layout) {
+      const rows = mpLayoutRows_(layout);
+      const name = (id) => MP_PARTS[id].name;
+      const notes = [];
+      rows.forEach(row => {
+        if (row.length < 2) return;
+        if (row[1].empty) notes.push(['fa-table-columns', `「${name(row[0].id)}」の右側が空いています。半分幅のパーツを隣に置くと、横に並べられます。`]);
+        else notes.push(['fa-table-columns', `PCでは「${name(row[0].id)}」と「${name(row[1].id)}」が横に並びます。`]);
+      });
+      notes.push(mpListIsLast_(rows)
+        ? ['fa-arrows-up-down', '案件一覧が一番下にあるため、一覧が画面の下まで広がり、一覧の中だけがスクロールします（上のパーツは常に見えます）。']
+        : ['fa-arrows-up-down', '案件一覧の下にもパーツがあるため、一覧は全件をそのまま表示し、ページ全体がスクロールします。']);
+      notes.push(['fa-mobile-screen-button', 'スマホでは幅の設定に関係なく、上から順に1列で表示されます。']);
+      if (!mpPartVisible_(layout, 'search')) notes.push(['fa-circle-info', '絞り込みを非表示にしている間は、案件一覧に全件が表示されます。']);
+      return `<ul class="lp-notes">${notes.map(([icon, text]) => `<li><i class="fa-solid ${icon}"></i><span>${text}</span></li>`).join('')}</ul>`;
+    }
+    function mpLayoutCardInnerHTML_() {
+      const isDirty = !sameMpLayout_(pendingMypageLayout, mypageLayout);
+      const isDefault = sameMpLayout_(pendingMypageLayout, defaultMpLayout_());
+      let msg = '';
+      if (isDirty) msg = `<span class="theme-msg dirty"><i class="fa-solid fa-circle-exclamation"></i> 未保存の変更があります</span>`;
+      else if (mpLayoutMsg.text) msg = `<span class="theme-msg ${mpLayoutMsg.error ? 'dirty' : 'saved'}"><i class="fa-solid ${mpLayoutMsg.error ? 'fa-circle-exclamation' : 'fa-circle-check'}"></i> ${escapeHtml(mpLayoutMsg.text)}</span>`;
+      const hidden = pendingMypageLayout.items.filter(it => it.hidden);
+      const ctx = mpSampleCtx_();
+      return `
+        <h2 class="settings-card-title"><i class="fa-solid fa-table-cells-large"></i>マイページのレイアウト</h2>
+        <p class="settings-card-desc">パーツをドラッグして並べ替えられます。右上のボタンで幅（全幅／半分）と表示を切り替え、見え方を確かめてから保存してください。自分のマイページだけに反映されます。</p>
+        <div class="lp-toolbar">
+          <div class="theme-sat-options lp-view-toggle">
+            <button type="button" class="theme-sat-btn ${lpView === 'pc' ? 'active' : ''}" data-lp-view="pc"><i class="fa-solid fa-desktop"></i> PC</button>
+            <button type="button" class="theme-sat-btn ${lpView === 'phone' ? 'active' : ''}" data-lp-view="phone"><i class="fa-solid fa-mobile-screen-button"></i> スマホ</button>
+          </div>
+          <span class="lp-sample-note"><i class="fa-regular fa-eye"></i>サンプルのデータで表示しています</span>
+        </div>
+        <div class="lp-stage view-${lpView}" id="lpStage">
+          ${lpDeviceHTML_('pc', ctx)}
+          ${lpDeviceHTML_('phone', ctx)}
+        </div>
+        ${lpNotesHTML_(pendingMypageLayout)}
+        <div class="lp-hidden">
+          <span class="lp-hidden-label">非表示のパーツ</span>
+          ${hidden.length
+            ? hidden.map(it => `<button type="button" class="lp-hidden-chip" data-lp-show="${it.id}" title="表示する"><i class="fa-solid fa-plus"></i>${MP_PARTS[it.id].name}</button>`).join('')
+            : '<span class="lp-hidden-none">なし（各パーツの <i class="fa-solid fa-eye-slash"></i> で非表示にできます）</span>'}
+        </div>
+        <div class="theme-save-row">
+          <button type="button" class="theme-save-btn" id="lpSaveBtn" ${isDirty ? '' : 'disabled'}>保存</button>
+          <button type="button" class="lp-reset-btn" id="lpResetBtn" ${isDefault ? 'disabled' : ''}><i class="fa-solid fa-rotate-left"></i>初期状態に戻す</button>
+          ${msg}
         </div>
       `;
     }
+    function mpLayoutSectionHTML() {
+      return `<div class="settings-card" id="lpCard">${mpLayoutCardInnerHTML_()}</div>`;
+    }
+    // 縮小率を枠の幅から決める（ボタン類は --lp-inv で実寸に戻す）。狭い画面ではPC・スマホを切り替えて1つずつ表示する。
+    function fitLayoutPreview_() {
+      const card = document.getElementById('lpCard');
+      if (!card) return;
+      card.classList.toggle('is-narrow', card.clientWidth < 700);
+      card.querySelectorAll('.lp-screen').forEach(screen => {
+        const width = screen.clientWidth;
+        if (!width) return;
+        const zoom = width / Number(screen.dataset.vw);
+        const inner = screen.querySelector('.lp-zoom');
+        inner.style.zoom = String(zoom);
+        inner.style.setProperty('--lp-inv', String(1 / zoom));
+        screen.style.height = `${Math.round(Number(screen.dataset.vh) * zoom)}px`;
+      });
+    }
+    function lpPartRects_() {
+      const rects = {};
+      document.querySelectorAll('#lpStage .lp-part').forEach(el => {
+        rects[`${el.closest('[data-frame]').dataset.frame}:${el.dataset.part}`] = el.getBoundingClientRect();
+      });
+      return rects;
+    }
+    // 並びが変わったとき、各パーツが元の位置から新しい位置へ滑らかに動くようにする
+    function lpAnimateFrom_(before) {
+      document.querySelectorAll('#lpStage .lp-part').forEach(el => {
+        const from = before[`${el.closest('[data-frame]').dataset.frame}:${el.dataset.part}`];
+        if (!from || !el.animate) return;
+        const to = el.getBoundingClientRect();
+        const zoom = parseFloat(el.closest('.lp-zoom').style.zoom) || 1;
+        const dx = (from.left - to.left) / zoom;
+        const dy = (from.top - to.top) / zoom;
+        if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+        el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 200, easing: 'cubic-bezier(.2,.7,.3,1)' });
+      });
+    }
+    function rerenderLayoutCard_(animate) {
+      const card = document.getElementById('lpCard');
+      if (!card) return;
+      const before = animate ? lpPartRects_() : null;
+      card.innerHTML = mpLayoutCardInnerHTML_();
+      wireLayoutEditor_();
+      if (before) lpAnimateFrom_(before);
+    }
+    function lpChanged_() { mpLayoutMsg = { text: '', error: false }; rerenderLayoutCard_(true); }
+    function wireLayoutEditor_() {
+      const card = document.getElementById('lpCard');
+      if (!card) return;
+      fitLayoutPreview_();
+      card.querySelectorAll('[data-lp-view]').forEach(btn => {
+        btn.onclick = () => { lpView = btn.dataset.lpView; rerenderLayoutCard_(); };
+      });
+      card.querySelectorAll('[data-lp-width]').forEach(btn => {
+        btn.onclick = () => {
+          const it = pendingMypageLayout.items.find(i => i.id === btn.dataset.lpWidth);
+          it.w = it.w === 'half' ? 'full' : 'half';
+          lpChanged_();
+        };
+      });
+      card.querySelectorAll('[data-lp-hide]').forEach(btn => {
+        btn.onclick = () => { pendingMypageLayout.items.find(i => i.id === btn.dataset.lpHide).hidden = true; lpChanged_(); };
+      });
+      card.querySelectorAll('[data-lp-show]').forEach(btn => {
+        btn.onclick = () => { pendingMypageLayout.items.find(i => i.id === btn.dataset.lpShow).hidden = false; lpChanged_(); };
+      });
+      const resetBtn = document.getElementById('lpResetBtn');
+      if (resetBtn) resetBtn.onclick = () => { pendingMypageLayout = defaultMpLayout_(); lpChanged_(); };
+      const saveBtn = document.getElementById('lpSaveBtn');
+      if (saveBtn) saveBtn.onclick = () => {
+        const toSave = cloneMpLayout_(pendingMypageLayout);
+        mypageLayout = cloneMpLayout_(toSave);
+        mpLayoutMsg = { text: '保存しました', error: false };
+        rerenderLayoutCard_();
+        if (typeof google === 'undefined') return;
+        google.script.run
+          .withSuccessHandler(res => {
+            if (res && res.success) return;
+            mpLayoutMsg = { text: '保存に失敗しました', error: true };
+            rerenderLayoutCard_();
+          })
+          .withFailureHandler(e => {
+            mpLayoutMsg = { text: '保存に失敗しました: ' + (e && e.message ? e.message : e), error: true };
+            rerenderLayoutCard_();
+          })
+          .saveUserMypageLayout(toSave);
+      };
+      card.querySelectorAll('.lp-part').forEach(el => { el.onpointerdown = lpPointerDown_; });
+      if (lpDrag && lpDrag.active) {
+        card.querySelectorAll(`.lp-part[data-part="${lpDrag.id}"]`).forEach(el => el.classList.add('is-dragging'));
+      }
+    }
+    // ---- ドラッグ（マウス・タッチ共通。タッチでは画面のスクロールと両立させるため、名前のつまみからだけ動かす） ----
+    function lpPointerDown_(ev) {
+      if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+      if (ev.target.closest('button')) return;
+      if (ev.pointerType !== 'mouse' && !ev.target.closest('.lp-grip')) return;
+      ev.preventDefault();
+      lpDrag = { id: ev.currentTarget.dataset.part, startX: ev.clientX, startY: ev.clientY, active: false, ghost: null, lastTarget: null };
+      window.addEventListener('pointermove', lpPointerMove_);
+      window.addEventListener('pointerup', lpPointerUp_);
+      window.addEventListener('pointercancel', lpPointerUp_);
+    }
+    function lpPointerMove_(ev) {
+      if (!lpDrag) return;
+      if (!lpDrag.active) {
+        if (Math.hypot(ev.clientX - lpDrag.startX, ev.clientY - lpDrag.startY) < 5) return;
+        lpDrag.active = true;
+        const meta = MP_PARTS[lpDrag.id];
+        const ghost = document.createElement('div');
+        ghost.className = 'lp-ghost';
+        ghost.innerHTML = `<i class="fa-solid ${meta.icon}"></i>${escapeHtml(meta.name)}`;
+        document.body.appendChild(ghost);
+        lpDrag.ghost = ghost;
+        document.body.classList.add('lp-dragging');
+        document.querySelectorAll(`#lpStage .lp-part[data-part="${lpDrag.id}"]`).forEach(el => el.classList.add('is-dragging'));
+      }
+      lpDrag.ghost.style.transform = `translate(${ev.clientX + 14}px, ${ev.clientY + 14}px)`;
+      lpDrag.x = ev.clientX;
+      lpDrag.y = ev.clientY;
+      lpAutoScroll_();
+      lpEvaluateDrop_();
+    }
+    // 画面の上端・下端の近くまでドラッグしたら、設定画面を自動でスクロールする（スマホでプレビューが画面に収まらないときのため）
+    function lpAutoScroll_() {
+      if (!lpDrag || !lpDrag.active || lpDrag.scrolling) return;
+      const scroller = document.querySelector('.main-col > .page-fill-area');
+      if (!scroller) return;
+      const step = () => {
+        if (!lpDrag || !lpDrag.active) return;
+        const r = scroller.getBoundingClientRect();
+        const edge = 56;
+        let dy = 0;
+        if (lpDrag.y < r.top + edge) dy = -Math.ceil((r.top + edge - lpDrag.y) / 4);
+        else if (lpDrag.y > r.bottom - edge) dy = Math.ceil((lpDrag.y - (r.bottom - edge)) / 4);
+        const before = scroller.scrollTop;
+        if (dy) scroller.scrollTop = before + dy;
+        if (!dy || scroller.scrollTop === before) { lpDrag.scrolling = false; return; }
+        lpEvaluateDrop_();
+        requestAnimationFrame(step);
+      };
+      lpDrag.scrolling = true;
+      requestAnimationFrame(step);
+    }
+    // ポインタの位置から、ドラッグ中のパーツを入れる場所を決める。
+    // 並べ替えた直後はパーツが動いている途中なので、動き終わってから（止まっていても）もう一度判定する。
+    function lpEvaluateDrop_() {
+      if (!lpDrag || !lpDrag.active) return;
+      const wait = (lpDrag.settleUntil || 0) - Date.now();
+      if (wait > 0) {
+        if (!lpDrag.timer) lpDrag.timer = setTimeout(() => { if (lpDrag) { lpDrag.timer = null; lpEvaluateDrop_(); } }, wait + 10);
+        return;
+      }
+      const hit = document.elementFromPoint(lpDrag.x, lpDrag.y);
+      const target = hit && hit.closest('#lpStage .lp-part, #lpStage .lp-empty');
+      if (!target || target.dataset.part === lpDrag.id) { lpDrag.lastTarget = null; return; }
+      const items = pendingMypageLayout.items;
+      const order = items.slice();
+      const moving = order.splice(order.findIndex(i => i.id === lpDrag.id), 1)[0];
+      let targetKey;
+      if (target.dataset.after) {
+        targetKey = 'after:' + target.dataset.after;
+        order.splice(order.findIndex(i => i.id === target.dataset.after) + 1, 0, moving);
+      } else {
+        const frame = target.closest('[data-frame]').dataset.frame;
+        const targetItem = items.find(i => i.id === target.dataset.part);
+        const r = target.getBoundingClientRect();
+        // PCで半分幅のパーツに重ねたときは左右、それ以外は上下の半分で、前に入れるか後ろに入れるかを決める
+        const after = (frame === 'pc' && targetItem.w === 'half')
+          ? lpDrag.x > r.left + r.width / 2
+          : lpDrag.y > r.top + r.height / 2;
+        targetKey = targetItem.id + (after ? ':after' : ':before');
+        const idx = order.findIndex(i => i.id === targetItem.id);
+        order.splice(after ? idx + 1 : idx, 0, moving);
+      }
+      if (targetKey === lpDrag.lastTarget) return; // 入れ替えた直後に同じ相手と行ったり来たりしないようにする
+      if (order.every((it, i) => it === items[i])) return;
+      pendingMypageLayout = { items: order };
+      lpDrag.lastTarget = targetKey;
+      lpDrag.settleUntil = Date.now() + 230;
+      lpChanged_();
+    }
+    function lpPointerUp_(ev) {
+      // 指を離した位置で最後にもう一度判定する（並べ替えの直後にすぐ離した場合も、見えている位置どおりに置く）
+      if (lpDrag && lpDrag.active && ev && ev.type === 'pointerup') {
+        if (lpDrag.timer) { clearTimeout(lpDrag.timer); lpDrag.timer = null; }
+        lpDrag.x = ev.clientX;
+        lpDrag.y = ev.clientY;
+        lpDrag.settleUntil = 0;
+        lpEvaluateDrop_();
+      }
+      window.removeEventListener('pointermove', lpPointerMove_);
+      window.removeEventListener('pointerup', lpPointerUp_);
+      window.removeEventListener('pointercancel', lpPointerUp_);
+      if (!lpDrag) return;
+      const wasActive = lpDrag.active;
+      if (lpDrag.ghost) lpDrag.ghost.remove();
+      if (lpDrag.timer) clearTimeout(lpDrag.timer);
+      lpDrag = null;
+      document.body.classList.remove('lp-dragging');
+      if (wasActive) rerenderLayoutCard_();
+    }
+    window.addEventListener('resize', () => { if (currentPage === 'settings') fitLayoutPreview_(); });
+
     // ▼ 表示設定（権限者以外も使える個人ごとの設定）。選ぶとその場で試せて、「保存」で確定する。
     function displayPrefsSectionHTML() {
       const seg = (pref, value, label, disabled) => `<button type="button" class="theme-sat-btn ${String(pendingDisplayPrefs[pref]) === String(value) ? 'active' : ''}" data-pref="${pref}" data-value="${value}" ${disabled ? 'disabled' : ''}>${label}</button>`;
@@ -1806,6 +2323,7 @@
             <span class="cp-role-badge ${IS_EDITOR ? 'editor' : 'general'}" style="width:auto;flex:0 0 auto;">${IS_EDITOR ? '権限者' : '一般'}</span>
           </div>
           ${themeSectionHTML()}
+          ${mpLayoutSectionHTML()}
           ${displayPrefsSectionHTML()}
           ${iconSectionHTML()}
           ${appsSectionHTML()}
@@ -1920,6 +2438,7 @@
       else applyTheme(currentTheme, currentSaturation);
       applyDisplayPrefs_();
       wireEvents();
+      if (currentPage === 'settings') wireLayoutEditor_();
       scrollTodayToTop();
       if (currentPage === 'mypage' && LINKED_NAME) renderMpResults();
     }
