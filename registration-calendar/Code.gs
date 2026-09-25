@@ -1,5 +1,9 @@
 const DEFAULT_ADMIN_EMAIL = "k-toda@gifuyanase.co.jp";
 
+// ▼ 設定ページの一番下に表示するバージョン。Index.html側のバージョンと一致しているかで、
+//   コードの貼り替えと「新しいバージョンでのデプロイ」が両方済んでいるかを確認できる。
+const APP_VERSION = '2026.09.25-icon';
+
 // ▼ 権限者（設定ページの各種管理項目を変更できるアカウント）一覧。最大5名まで登録できます。
 //   登録・編集はスプレッドシートを直接編集する運用に変わったため、ここはアプリの管理設定を
 //   触れる人の一覧という意味になっている（＝スプレッドシートの編集権限そのものとは別物）。
@@ -60,8 +64,8 @@ function doGet() {
   template.isEditor = isEditor;
   template.userEmail = userEmail;
   template.initialTheme = getUserTheme();
+  template.appVersion = APP_VERSION;
   template.initialSideIconUrl = getSideIconUrl();
-  template.initialSideIconFolderId = getSideIconFolderId();
   template.initialSideIconExternalUrl = getSideIconExternalUrl();
   template.initialExternalApps = getExternalApps();
   const linkedInfo = getMyLinkedInfo_(userEmail);
@@ -112,34 +116,6 @@ function getDbSheetsForCarType_(carType) {
 const THEME_KEYS = ['indigo', 'green', 'charcoal', 'amber', 'rose', 'teal', 'purple', 'slate', 'navy', 'terracotta'];
 const MYPAGE_LINK_SHEET_NAME = 'settings_マイページ連携';
 
-// ▼ サイドパネルアイコンの画像をアップロードして保存するGoogleドライブのフォルダID。
-//   コードを直接編集する必要はなく、設定ページの「サイドパネルアイコン設定」から
-//   Driveフォルダのリンクに含まれるIDを入力して保存できる（権限者のみ）。
-function getSideIconFolderId() {
-  return PropertiesService.getScriptProperties().getProperty('sideIconFolderId') || '';
-}
-// ▼ 「.../folders/<ID>」の形のフルURLが貼り付けられた場合はIDだけを取り出す。
-//   IDが直接入力された場合（URLの形をしていない場合）はそのまま返す。
-function extractDriveFolderId_(input) {
-  const trimmed = String(input || '').trim();
-  const match = trimmed.match(/\/folders\/([a-zA-Z0-9_-]+)/);
-  return match ? match[1] : trimmed;
-}
-function saveSideIconFolderId(folderId) {
-  const userEmail = Session.getActiveUser().getEmail();
-  if (!isEditorEmail_(userEmail)) {
-    return { success: false, message: '権限者のみ変更できます。' };
-  }
-  const trimmed = extractDriveFolderId_(folderId);
-  if (!trimmed) return { success: false, message: 'フォルダIDを入力してください。' };
-  try {
-    DriveApp.getFolderById(trimmed); // 存在・アクセス可否を軽く確認する
-  } catch (e) {
-    return { success: false, message: '指定されたフォルダにアクセスできません。IDまたはURLを確認してください。' };
-  }
-  PropertiesService.getScriptProperties().setProperty('sideIconFolderId', trimmed);
-  return { success: true, folderId: trimmed };
-}
 
 // ▼ コントロールパネルに並べる他アプリへのリンク（最大5件、並び順どおりに表示）。権限者のみ編集できる。
 const EXTERNAL_APPS_PROP = 'externalApps';
@@ -419,28 +395,38 @@ function saveUserTheme(themeKey) {
 
 // ▼ サイドパネルのアイコンは「画像アップロード」または「画像URLを直接指定」のどちらかで設定できる。
 //   全員共通の見た目設定で、権限者だけが変更できる。
-//   以前はアップロードした画像をDriveのサムネイル配信URL(drive.google.com/thumbnail?id=...)で
-//   表示していたが、閲覧側の認証状態やドメイン設定によっては読み込めないことがあった
-//   （＝「アイコン設定がうまくいかない」の主因）。そのため、アップロード画像は表示のたびに
-//   Driveから読み込んでdata URI（画像データを直接埋め込んだ文字列）に変換して返すようにし、
-//   ページの読み込みだけで確実に表示されるようにしている（Drive側の公開設定に左右されない）。
+//   アップロード画像はブラウザ側で一辺256px以下に縮小したdata URI（画像データを埋め込んだ文字列）を、
+//   Googleドライブではなくスクリプトプロパティに分割して保存する。以前のDrive保存方式では、
+//   ・ファイル作成後の共有設定(setSharing)が組織の共有ポリシーで拒否されると、ファイルだけ残って
+//     アイコンの設定が更新されない（＝「保存はできるのに反映されない」）
+//   ・アプリは閲覧者ごとの権限で動くため、表示のたびに閲覧者のDrive権限に左右される
+//   という問題があった。プロパティ保存ならDriveの権限・共有設定に一切左右されない。
+const SIDE_ICON_CHUNK_SIZE = 8000;   // 1プロパティの上限(9KB)に収まる長さで分割する
+const SIDE_ICON_MAX_CHARS = 100000;  // 画像データ全体の上限（ブラウザ側は90,000文字以内に収める）
+const SIDE_ICON_DATA_RE = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+\/]+={0,2}$/;
+
 function getSideIconUrl() {
-  const props = PropertiesService.getScriptProperties();
-  const source = props.getProperty('sideIconSource') || '';
+  const all = PropertiesService.getScriptProperties().getProperties();
+  const source = all.sideIconSource || '';
+  if (source === 'data') {
+    const count = Number(all.sideIconDataCount || 0);
+    let data = '';
+    for (let i = 0; i < count; i++) data += all['sideIconData_' + i] || '';
+    return SIDE_ICON_DATA_RE.test(data) ? data : '';
+  }
   if (source === 'url') {
-    const url = props.getProperty('sideIconExternalUrl') || '';
+    const url = all.sideIconExternalUrl || '';
     // Driveの共有リンクは画像そのものではなくプレビュー画面のURLで<img>に表示できないため、
     // 以前に保存されたものは壊れた画像を出さずに既定のアイコンに戻す
     return extractDriveFileId_(url) ? '' : url;
   }
-  const fileId = props.getProperty('sideIconFileId');
+  // 旧方式（Driveに保存した画像）で設定済みの場合は、再設定されるまでそのまま表示を試みる
+  const fileId = all.sideIconFileId;
   if (!fileId) return '';
   try {
     const blob = DriveApp.getFileById(fileId).getBlob();
-    const base64 = Utilities.base64Encode(blob.getBytes());
-    return `data:${blob.getContentType()};base64,${base64}`;
+    return `data:${blob.getContentType()};base64,${Utilities.base64Encode(blob.getBytes())}`;
   } catch (e) {
-    // ファイルが見つからない・アクセスできない場合は既定のアイコンにフォールバックする
     return '';
   }
 }
@@ -449,36 +435,43 @@ function getSideIconExternalUrl() {
   return PropertiesService.getScriptProperties().getProperty('sideIconExternalUrl') || '';
 }
 
-function saveSideIconImage(base64Data, mimeType) {
+// ▼ 保存済みのアイコン画像データ（分割保存分）と、旧方式のDriveファイルの参照を消す
+function clearSideIconData_(props) {
+  const count = Number(props.getProperty('sideIconDataCount') || 0);
+  for (let i = 0; i < count; i++) props.deleteProperty('sideIconData_' + i);
+  props.deleteProperty('sideIconDataCount');
+  const oldFileId = props.getProperty('sideIconFileId');
+  if (oldFileId) {
+    try { DriveApp.getFileById(oldFileId).setTrashed(true); } catch (e) { /* 既に削除済み・権限なしなら無視 */ }
+    props.deleteProperty('sideIconFileId');
+  }
+}
+
+function saveSideIconData(dataUri) {
   const userEmail = Session.getActiveUser().getEmail();
   if (!isEditorEmail_(userEmail)) {
     return { success: false, message: '権限者のみ変更できます。' };
   }
-  const folderId = getSideIconFolderId();
-  try {
-    // 保存先フォルダが未設定なら、操作した権限者のマイドライブ直下に保存する
-    const folder = folderId ? DriveApp.getFolderById(folderId) : DriveApp.getRootFolder();
-    const bytes = Utilities.base64Decode(base64Data);
-    const blob = Utilities.newBlob(bytes, mimeType, 'side-icon-' + new Date().getTime());
-
-    // 古いアイコン画像が残っていれば削除してから新しいものを保存する
-    const props = PropertiesService.getScriptProperties();
-    const oldFileId = props.getProperty('sideIconFileId');
-    if (oldFileId) {
-      try { DriveApp.getFileById(oldFileId).setTrashed(true); } catch (e) { /* 既に削除済みなら無視 */ }
-    }
-
-    const file = folder.createFile(blob);
-    // 表示はdata URIで行うため、この共有設定はDrive上でファイルを直接開いた場合の保険。
-    file.setSharing(DriveApp.Access.DOMAIN_WITH_LINK, DriveApp.Permission.VIEW);
-    props.setProperty('sideIconFileId', file.getId());
-    props.setProperty('sideIconSource', 'upload');
-    props.deleteProperty('sideIconExternalUrl');
-    // アップロード直後の画面反映は、Driveへ読みに行かず今送信されたデータからそのまま作る
-    return { success: true, url: `data:${mimeType};base64,${base64Data}` };
-  } catch (e) {
-    return { success: false, message: 'アップロードに失敗しました: ' + e.message };
+  const data = String(dataUri || '');
+  if (!SIDE_ICON_DATA_RE.test(data)) {
+    return { success: false, message: '画像データの形式が正しくありません。PNGかJPEGの画像でお試しください。' };
   }
+  if (data.length > SIDE_ICON_MAX_CHARS) {
+    return { success: false, message: '画像のデータが大きすぎます。別の画像でお試しください。' };
+  }
+  const props = PropertiesService.getScriptProperties();
+  clearSideIconData_(props);
+  const chunks = {};
+  let count = 0;
+  for (let i = 0; i < data.length; i += SIDE_ICON_CHUNK_SIZE) {
+    chunks['sideIconData_' + count] = data.slice(i, i + SIDE_ICON_CHUNK_SIZE);
+    count++;
+  }
+  chunks.sideIconDataCount = String(count);
+  chunks.sideIconSource = 'data';
+  props.setProperties(chunks);
+  props.deleteProperty('sideIconExternalUrl');
+  return { success: true, url: data };
 }
 
 // ▼ Googleドライブのファイルを指すURL（共有リンク・open?id=・uc?id=・lh3.googleusercontent.com/d/ など）
@@ -494,7 +487,7 @@ function extractDriveFileId_(input) {
 // ▼ ドライブ上の画像をアイコンとして取り込むため、権限者の権限で画像データを読み出して返す。
 //   アプリは閲覧者ごとの権限で動く(executeAs: USER_ACCESSING)ため、元の画像を直接表示すると
 //   その画像を見る権限のない人には表示されない。そこでブラウザ側で縮小したうえで
-//   saveSideIconImage（アップロードと同じ保存処理）に渡し、全員が見られる複製として保存する。
+//   saveSideIconData（アップロードと同じ保存処理）に渡し、全員が見られる形で保存する。
 function getDriveImageForIcon(url) {
   const userEmail = Session.getActiveUser().getEmail();
   if (!isEditorEmail_(userEmail)) {
@@ -534,6 +527,7 @@ function saveSideIconUrl(url) {
     return { success: false, message: 'GoogleドライブのリンクはURLのままでは表示できません。画面を再読み込みしてから、もう一度保存してください。' };
   }
   const props = PropertiesService.getScriptProperties();
+  clearSideIconData_(props);
   props.setProperty('sideIconExternalUrl', trimmed);
   props.setProperty('sideIconSource', 'url');
   return { success: true, url: trimmed };
@@ -545,11 +539,7 @@ function resetSideIcon() {
     return { success: false, message: '権限者のみ変更できます。' };
   }
   const props = PropertiesService.getScriptProperties();
-  const oldFileId = props.getProperty('sideIconFileId');
-  if (oldFileId) {
-    try { DriveApp.getFileById(oldFileId).setTrashed(true); } catch (e) { /* 既に削除済みなら無視 */ }
-  }
-  props.deleteProperty('sideIconFileId');
+  clearSideIconData_(props);
   props.deleteProperty('sideIconExternalUrl');
   props.deleteProperty('sideIconSource');
   return { success: true };
