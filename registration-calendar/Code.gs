@@ -2,7 +2,7 @@ const DEFAULT_ADMIN_EMAIL = "k-toda@gifuyanase.co.jp";
 
 // ▼ 設定ページの一番下に表示するバージョン。Index.html側のバージョンと一致しているかで、
 //   コードの貼り替えと「新しいバージョンでのデプロイ」が両方済んでいるかを確認できる。
-const APP_VERSION = '2026.09.25-5';
+const APP_VERSION = '2026.09.25-6';
 
 // ▼ 権限者（設定ページの各種管理項目を変更できるアカウント）一覧。最大5名まで登録できます。
 //   登録・編集はスプレッドシートを直接編集する運用に変わったため、ここはアプリの管理設定を
@@ -65,6 +65,7 @@ function doGet() {
   template.userEmail = userEmail;
   template.initialTheme = getUserTheme();
   template.initialThemeSaturation = getUserThemeSaturation();
+  template.initialDisplayPrefs = getUserDisplayPrefs();
   template.appVersion = APP_VERSION;
   template.initialSideIconUrl = getSideIconUrl();
   template.initialSideIconExternalUrl = getSideIconExternalUrl();
@@ -394,6 +395,22 @@ function getUserThemeSaturation() {
   const value = PropertiesService.getUserProperties().getProperty('themeSaturation');
   return THEME_SATURATION_KEYS.indexOf(value) !== -1 ? value : 'standard';
 }
+// ▼ 表示に関する個人設定（自分の担当案件を目立たせる・文字の大きさ）。テーマと同じく個人ごとに保存する。
+function getUserDisplayPrefs() {
+  const raw = PropertiesService.getUserProperties().getProperty('displayPrefs');
+  let saved = {};
+  try { saved = raw ? JSON.parse(raw) : {}; } catch (e) { saved = {}; }
+  return {
+    highlightMine: typeof saved.highlightMine === 'boolean' ? saved.highlightMine : true,
+    fontSize: saved.fontSize === 'large' ? 'large' : 'normal',
+  };
+}
+function saveUserDisplayPrefs(prefs) {
+  const p = prefs || {};
+  const cleaned = { highlightMine: p.highlightMine !== false, fontSize: p.fontSize === 'large' ? 'large' : 'normal' };
+  PropertiesService.getUserProperties().setProperty('displayPrefs', JSON.stringify(cleaned));
+  return { success: true, prefs: cleaned };
+}
 function saveUserTheme(themeKey, saturation) {
   if (THEME_KEYS.indexOf(themeKey) === -1) return { success: false, message: '不正なテーマです。' };
   if (saturation !== undefined && THEME_SATURATION_KEYS.indexOf(saturation) === -1) {
@@ -678,20 +695,35 @@ function applySheetGuidance_(sheet) {
     return `=AND($${colLetter}2<>"", COUNTIF('${MYPAGE_LINK_SHEET_NAME}'!$A:$A, $${colLetter}2)=0)`;
   }, '#FCEAE8');
 
-  // 登録予定日が過ぎている(当日は含まない)行は、登録状況が一目でわかるよう行全体をグレーで塗る。
+  // 登録予定日が過ぎた行（当日は18:00以降）は、登録状況が一目でわかるよう行全体をグレーで塗る。
   // 上の2つの強調表示より後に追加しているため、顧客名重複・担当者未登録の色の方が優先して見える。
   applyPastRegistrationDateRowHighlight_(sheet, headers, templateRowCount, lastCol);
+
+  // 行の高さの自動調節: 長い備考などはセル内で折り返し、行の高さを内容に合わせる。
+  // 高さが変わった行でも読みやすいよう、縦位置は中央にそろえる。
+  sheet.getRange(2, 1, templateRowCount, lastCol)
+    .setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP)
+    .setVerticalAlignment('middle');
+  const usedRows = Math.min(templateRowCount, Math.max(sheet.getLastRow() - 1, 1));
+  sheet.autoResizeRows(2, usedRows);
 }
 
 function applyPastRegistrationDateRowHighlight_(sheet, headers, templateRowCount, lastCol) {
   const dateColIndex = headers.indexOf('登録予定日');
   if (dateColIndex === -1) return;
-  const dateColLetter = columnToLetter_(dateColIndex + 1);
+  const c = '$' + columnToLetter_(dateColIndex + 1) + '2';
   const range = sheet.getRange(2, 1, templateRowCount, lastCol);
-  const formula = `=AND($${dateColLetter}2<>"", $${dateColLetter}2<TODAY())`;
+  // 登録予定日が過ぎた行に加え、当日の行もカレンダーと同じく18:00以降はグレーにする。
+  // 日付が文字列（例: "2026-09-25"）で入っている行もDATEVALUEで日付として判定する。
+  const pastOrAfter6pm = (d) => `OR(${d}<TODAY(), AND(${d}=TODAY(), HOUR(NOW())>=18))`;
+  const formula = `=OR(AND(ISNUMBER(${c}), ${pastOrAfter6pm(`INT(${c})`)}), AND(ISTEXT(${c}), IFERROR(${pastOrAfter6pm(`DATEVALUE(${c})`)}, FALSE)))`;
+  // NOW()（18:00の判定）が、シートを開いたままでも時間どおりに切り替わるよう、1分ごとに再計算させる
+  try {
+    sheet.getParent().setRecalculationInterval(SpreadsheetApp.RecalculationInterval.MINUTE);
+  } catch (e) { /* 設定できない環境でも書式の適用は続ける */ }
   const rule = SpreadsheetApp.newConditionalFormatRule()
     .whenFormulaSatisfied(formula)
-    .setBackground('#E7E8EC')
+    .setBackground('#EEEFF2') // 文字が読みやすい薄めのグレー（文字色は変えない）
     .setRanges([range])
     .build();
   const targetA1 = range.getA1Notation();
@@ -715,6 +747,20 @@ function onEdit(e) {
   } catch (err) {
     Logger.log('onEdit failed: %s', err && err.stack ? err.stack : err);
   }
+  try {
+    autoResizeEditedRows_(e);
+  } catch (err) {
+    Logger.log('onEdit autoResize failed: %s', err && err.stack ? err.stack : err);
+  }
+}
+// ▼ 編集・貼り付けした行の高さを内容に合わせ直す（以前に手動で高さを変えた行も自動調節に戻す）
+function autoResizeEditedRows_(e) {
+  if (!e || !e.range) return;
+  const sheet = e.range.getSheet();
+  if (!sheet.getName().startsWith(NEW_CAR_SHEET_PREFIX)) return; // db_登録データ系(新車・中古車とも)のみ対象
+  const startRow = Math.max(e.range.getRow(), 2);
+  const numRows = e.range.getRow() + e.range.getNumRows() - startRow;
+  if (numRows > 0) sheet.autoResizeRows(startRow, numRows);
 }
 function autoFillBranchFromRepMaster_(e) {
   if (!e || !e.range) return;

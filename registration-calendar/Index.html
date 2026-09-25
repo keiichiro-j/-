@@ -13,6 +13,7 @@
          それ以外のOSでも各プラットフォームの標準UIフォントにフォールバックする。 */
       --font-ios: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic Medium", "Yu Gothic", "Segoe UI", Meiryo, Roboto, sans-serif;
       --ink: #1A1F36; --ink-2: #4B5468; --muted: #8790A3; --border: #D9DEE5;
+      --fs: 1; /* 文字の大きさの倍率（表示設定の「大きめ」で1.15になる） */
       --canvas: #F3F4F7; --surface: #FFFFFF; --surface-2: #F7F8FA; --hairline: #E6E8EE; --cal-line: #D6D9E1;
       --accent: #3B4FD1; --accent-bg: #EEF1FD; --accent-ink: #2E3FB0;
       --oss: #16924F; --oss-bg: #E7F7EE;
@@ -39,7 +40,7 @@
     .row-scroll::-webkit-scrollbar-thumb { background: #D7DAE2; border-radius: 10px; }
 
     /* -- お知らせバナー(ヘッダー内に常時・中央固定で表示。個人では閉じられない) -- */
-    .announce-bar { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 10px; background: var(--accent); color: var(--announce-ink, #fff); padding: 16px 20px; font-size: 16px; font-weight: 700; line-height: 1.5; text-align: center; }
+    .announce-bar { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 10px; background: var(--accent); color: var(--announce-ink, #fff); padding: 16px 20px; font-size: calc(16px * var(--fs, 1)); font-weight: 700; line-height: 1.5; text-align: center; }
     .announce-track { flex: 0 1 auto; min-width: 0; }
     .announce-item { margin: 0 4px; }
     .announce-sep { opacity: .55; margin: 0 10px; }
@@ -47,17 +48,17 @@
     /* -- コントロールパネル -- */
     .control-panel { width: 212px; flex: 0 0 212px; padding: 22px 14px; display: flex; flex-direction: column; box-shadow: 1px 0 0 var(--hairline); position: relative; z-index: 2; height: 100%; overflow-y: auto; }
     .cp-header { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 22px; }
-    .cp-icon-mark { width: 60px; height: 60px; border-radius: 50%; background: var(--accent); box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 24px; margin-bottom: 8px; overflow: hidden; flex: none; }
+    .cp-icon-mark { width: 60px; height: 60px; border-radius: 50%; background: var(--accent); box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: center; color: #fff; font-size: calc(24px * var(--fs, 1)); margin-bottom: 8px; overflow: hidden; flex: none; }
     .cp-icon-mark img { width: 100%; height: 100%; object-fit: cover; }
     /* 画像を設定したときは背景・影・丸い切り抜きをなくし、画像をそのままの形で全体表示する */
     /* 枠は画像の形に合わせ、パネルの幅(184px)・高さ88pxまでの範囲で縦横比を保って大きく表示する */
     .cp-icon-mark.has-image { background: transparent; box-shadow: none; border-radius: 0; width: auto; height: auto; }
     .cp-icon-mark.has-image img { display: block; width: auto; height: auto; max-width: 184px; max-height: 88px; object-fit: contain; }
-    .cp-logo { font-size: 13px; font-weight: 800; color: var(--ink); margin-bottom: 2px; letter-spacing: -0.005em; }
-    .cp-logo-sub { font-size: 10.5px; color: var(--muted); font-weight: 600; }
+    .cp-logo { font-size: calc(13px * var(--fs, 1)); font-weight: 800; color: var(--ink); margin-bottom: 2px; letter-spacing: -0.005em; }
+    .cp-logo-sub { font-size: calc(10.5px * var(--fs, 1)); color: var(--muted); font-weight: 600; }
     .cp-nav { display: flex; flex-direction: column; gap: 3px; flex: 1; }
-    .cp-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 7px; font-size: 13px; font-weight: 600; color: var(--ink-2); text-align: left; text-decoration: none; border: none; background: transparent; cursor: pointer; width: 100%; box-sizing: border-box; transition: background .12s ease, color .12s ease; }
-    .cp-nav-item i { width: 15px; text-align: center; font-size: 13px; color: var(--muted); }
+    .cp-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 7px; font-size: calc(13px * var(--fs, 1)); font-weight: 600; color: var(--ink-2); text-align: left; text-decoration: none; border: none; background: transparent; cursor: pointer; width: 100%; box-sizing: border-box; transition: background .12s ease, color .12s ease; }
+    .cp-nav-item i { width: 15px; text-align: center; font-size: calc(13px * var(--fs, 1)); color: var(--muted); }
     .cp-nav-item:hover { background: var(--surface); color: var(--ink); }
     .cp-nav-item.active { background: var(--accent-bg); color: var(--accent-ink); box-shadow: inset 3px 0 0 var(--accent); }
     .cp-nav-item.active i { color: var(--accent-ink); }
@@ -65,7 +66,7 @@
     .cp-subnav::before {
       content: ''; position: absolute; left: 18px; top: -4px; bottom: 21px; width: 1px; background: var(--border);
     }
-    .cp-subnav-item { position: relative; border: none; background: transparent; text-align: left; font-size: 11.5px; font-weight: 600; color: var(--muted); padding: 5px 8px; border-radius: 5px; cursor: pointer; transition: background .12s ease, color .12s ease; }
+    .cp-subnav-item { position: relative; border: none; background: transparent; text-align: left; font-size: calc(11.5px * var(--fs, 1)); font-weight: 600; color: var(--muted); padding: 5px 8px; border-radius: 5px; cursor: pointer; transition: background .12s ease, color .12s ease; }
     .cp-subnav-item::before {
       content: ''; position: absolute; left: -13px; top: 50%; width: 9px; height: 1px; background: var(--border);
     }
@@ -74,10 +75,10 @@
     .cp-subnav-item.active::before { background: var(--accent); }
     .cp-footer { padding-top: 14px; margin-top: 14px; border-top: 1px solid var(--hairline); }
     .cp-user { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
-    .cp-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex: 0 0 28px; }
-    .cp-user-name { font-size: 11.5px; font-weight: 700; color: var(--ink); line-height: 1.3; word-break: break-all; }
-    .cp-user-email { font-size: 9px; color: var(--muted); line-height: 1.3; word-break: break-all; }
-    .cp-role-badge { font-size: 9.5px; font-weight: 700; border-radius: 6px; padding: 5px 9px; display: block; width: 100%; text-align: left; }
+    .cp-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: calc(11px * var(--fs, 1)); font-weight: 700; flex: 0 0 28px; }
+    .cp-user-name { font-size: calc(11.5px * var(--fs, 1)); font-weight: 700; color: var(--ink); line-height: 1.3; word-break: break-all; }
+    .cp-user-email { font-size: calc(9px * var(--fs, 1)); color: var(--muted); line-height: 1.3; word-break: break-all; }
+    .cp-role-badge { font-size: calc(9.5px * var(--fs, 1)); font-weight: 700; border-radius: 6px; padding: 5px 9px; display: block; width: 100%; text-align: left; }
     .cp-role-badge.editor { background: var(--oss-bg); color: var(--oss); }
     .cp-role-badge.general { background: #EEF0F3; color: #7C8496; }
     /* -- コントロールパネルはテーマ色を濃くした下地に白文字にする（透過PNGの白系ロゴも見えるように）。
@@ -110,21 +111,21 @@
 
     .main-col { flex: 1; min-width: 0; padding: 20px 24px 20px; display: flex; flex-direction: column; height: 100%; overflow: hidden; gap: 12px; }
     .page-fill-area { flex: 1; min-height: 0; overflow-y: auto; }
-    .page-title { font-size: 17px; font-weight: 800; color: var(--ink); letter-spacing: -0.005em; }
-    .page-sub { font-size: 11.5px; color: var(--muted); margin-top: 2px; font-weight: 500; }
+    .page-title { font-size: calc(17px * var(--fs, 1)); font-weight: 800; color: var(--ink); letter-spacing: -0.005em; }
+    .page-sub { font-size: calc(11.5px * var(--fs, 1)); color: var(--muted); margin-top: 2px; font-weight: 500; }
 
     .tabbar { display: inline-flex; gap: 2px; background: var(--surface-2); border-radius: 7px; padding: 3px; border: 1px solid var(--hairline); }
-    .tab { font-size: 12px; font-weight: 600; border-radius: 5px; padding: 6px 14px; cursor: pointer; color: var(--muted); border: none; background: transparent; transition: background .12s ease, color .12s ease; }
+    .tab { font-size: calc(12px * var(--fs, 1)); font-weight: 600; border-radius: 5px; padding: 6px 14px; cursor: pointer; color: var(--muted); border: none; background: transparent; transition: background .12s ease, color .12s ease; }
     .tab i { display: none; }
     .tab:hover { color: var(--ink-2); }
     .tab-active { background: var(--surface); color: var(--accent-ink); font-weight: 700; box-shadow: var(--shadow-sm); }
-    .nav-btn { font-size: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; color: var(--ink-2); cursor: pointer; transition: background .12s ease, border-color .12s ease, color .12s ease; }
+    .nav-btn { font-size: calc(12px * var(--fs, 1)); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; color: var(--ink-2); cursor: pointer; transition: background .12s ease, border-color .12s ease, color .12s ease; }
     .nav-btn:hover { background: var(--accent-bg); border-color: var(--accent); color: var(--accent-ink); }
-    .today-btn { font-size: 11px; font-weight: 600; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 11px; color: var(--ink-2); cursor: pointer; transition: background .12s ease, border-color .12s ease, color .12s ease; }
+    .today-btn { font-size: calc(11px * var(--fs, 1)); font-weight: 600; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 11px; color: var(--ink-2); cursor: pointer; transition: background .12s ease, border-color .12s ease, color .12s ease; }
     .today-btn:hover { background: var(--accent-bg); border-color: var(--accent); color: var(--accent-ink); }
-    .action-btn { font-size: 11px; font-weight: 700; background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 7px 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: filter .12s ease; }
+    .action-btn { font-size: calc(11px * var(--fs, 1)); font-weight: 700; background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 7px 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: filter .12s ease; }
     .action-btn:hover { filter: brightness(0.92); }
-    .cartype-pill { font-size: 10.5px; font-weight: 800; letter-spacing: .01em; padding: 6px 12px; border-radius: 6px; background: var(--accent); color: #fff; display: inline-flex; align-items: center; gap: 6px; }
+    .cartype-pill { font-size: calc(10.5px * var(--fs, 1)); font-weight: 800; letter-spacing: .01em; padding: 6px 12px; border-radius: 6px; background: var(--accent); color: #fff; display: inline-flex; align-items: center; gap: 6px; }
     .calhead-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
     .calhead-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .calhead-year-suffix { display: none; }
@@ -136,9 +137,9 @@
     .kpi-row-bottom { grid-template-columns: repeat(7, 1fr); }
     .kpi-tile { background: var(--surface); border-radius: 10px; padding: 10px 14px; box-shadow: var(--shadow-sm); }
     .kpi-tile-accent { background: var(--accent-bg); }
-    .kpi-label { font-size: 10.5px; font-weight: 700; color: var(--muted); display: flex; align-items: center; gap: 5px; }
-    .kpi-value { font-family: var(--font-ios); font-variant-numeric: tabular-nums slashed-zero; font-size: 20px; font-weight: 700; color: var(--ink); margin-top: 4px; }
-    .kpi-unit { font-size: 10.5px; font-weight: 600; color: var(--muted); margin-left: 3px; font-family: var(--font-ios); }
+    .kpi-label { font-size: calc(10.5px * var(--fs, 1)); font-weight: 700; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+    .kpi-value { font-family: var(--font-ios); font-variant-numeric: tabular-nums slashed-zero; font-size: calc(20px * var(--fs, 1)); font-weight: 700; color: var(--ink); margin-top: 4px; }
+    .kpi-unit { font-size: calc(10.5px * var(--fs, 1)); font-weight: 600; color: var(--muted); margin-left: 3px; font-family: var(--font-ios); }
 
     /* -- カレンダー行 -- */
     .date-row { display: flex; align-items: stretch; min-height: 76px; border-bottom: 1px solid var(--cal-line); }
@@ -149,26 +150,29 @@
     .content-col::-webkit-scrollbar { display: none; }
     .day-entries-track { display: flex; gap: 8px; align-items: center; }
     .date-badge { position: relative; text-align: center; border-radius: 8px; padding: 5px 8px; }
-    .date-badge .d-num { font-family: var(--font-ios); font-variant-numeric: tabular-nums slashed-zero; font-size: 15.5px; font-weight: 700; line-height: 1; }
-    .date-badge .d-dow { font-size: 9px; font-weight: 600; margin-top: 3px; }
-    .date-badge .d-tag { font-size: 8px; font-weight: 700; margin-top: 2px; opacity: 0.9; }
+    .date-badge .d-num { font-family: var(--font-ios); font-variant-numeric: tabular-nums slashed-zero; font-size: calc(15.5px * var(--fs, 1)); font-weight: 700; line-height: 1; }
+    .date-badge .d-dow { font-size: calc(9px * var(--fs, 1)); font-weight: 600; margin-top: 3px; }
+    .date-badge .d-tag { font-size: calc(8px * var(--fs, 1)); font-weight: 700; margin-top: 2px; opacity: 0.9; }
     .date-row.is-today { background: var(--accent-bg); background: color-mix(in srgb, var(--accent) 20%, var(--surface)); box-shadow: inset 0 0 0 1.5px var(--accent); position: relative; z-index: 1; }
-    .day-notice-banner { flex: 0 0 auto; display: flex; align-items: center; gap: 7px; background: var(--notice-bg); color: var(--notice); font-size: 11px; font-weight: 700; line-height: 1.4; padding: 5px 12px; border-radius: 7px; margin: 8px 10px 0; }
+    .day-notice-banner { flex: 0 0 auto; display: flex; align-items: center; gap: 7px; background: var(--notice-bg); color: var(--notice); font-size: calc(11px * var(--fs, 1)); font-weight: 700; line-height: 1.4; padding: 5px 12px; border-radius: 7px; margin: 8px 10px 0; }
     .day-notice-banner i { flex: 0 0 auto; }
 
     /* -- 登録カード -- */
-    .entry-card { background: var(--surface); border-radius: 7px; padding: 8px 11px; flex: 0 0 178px; width: 178px; box-shadow: var(--shadow-sm); position: relative; overflow: hidden; cursor: pointer; scroll-snap-align: start; border: 1px solid var(--hairline); transition: box-shadow .12s ease, border-color .12s ease; }
+    .entry-card { background: var(--surface); border-radius: 7px; padding: 8px 11px; flex: 0 0 calc(178px * var(--fs, 1)); width: calc(178px * var(--fs, 1)); box-shadow: var(--shadow-sm); position: relative; overflow: hidden; cursor: pointer; scroll-snap-align: start; border: 1px solid var(--hairline); transition: box-shadow .12s ease, border-color .12s ease; }
     .entry-card:hover { box-shadow: var(--shadow-md); border-color: var(--border); }
+    /* 自分の担当案件（表示設定でオンのとき）。横スクロールの枠で外側が欠けないよう、内側に2pxの枠を描く */
+    .entry-card.is-mine, .entry-card.is-mine:hover { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent), var(--shadow-sm); }
+    .entry-card.is-mine .entry-sales { color: var(--accent-ink); font-weight: 800; }
     .entry-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--bar-color, var(--accent)); }
     .entry-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding-left: 5px; }
     .entry-row + .entry-row { margin-top: 4px; }
-    .entry-name { font-size: 12.5px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
-    .entry-sales { font-size: 10.5px; font-weight: 500; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
-    .entry-model { font-size: 10.5px; font-weight: 500; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 0 auto; max-width: 76px; }
-    .branch-pill { font-size: 9.5px; font-weight: 600; padding: 2px 7px; border-radius: 4px; }
-    .method-pill { font-size: 9px; font-weight: 600; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; }
-    .status-pill { font-size: 9px; font-weight: 600; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; background: var(--surface-2); color: var(--ink-2); white-space: nowrap; }
-    .slide-hint { position: sticky; right: 2px; flex: 0 0 30px; width: 30px; height: 30px; border-radius: 50%; background: var(--surface); box-shadow: var(--shadow-md); border: none; color: var(--accent-ink); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12px; }
+    .entry-name { font-size: calc(12.5px * var(--fs, 1)); font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+    .entry-sales { font-size: calc(10.5px * var(--fs, 1)); font-weight: 500; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+    .entry-model { font-size: calc(10.5px * var(--fs, 1)); font-weight: 500; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 0 auto; max-width: 76px; }
+    .branch-pill { font-size: calc(9.5px * var(--fs, 1)); font-weight: 600; padding: 2px 7px; border-radius: 4px; }
+    .method-pill { font-size: calc(9px * var(--fs, 1)); font-weight: 600; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; }
+    .status-pill { font-size: calc(9px * var(--fs, 1)); font-weight: 600; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; background: var(--surface-2); color: var(--ink-2); white-space: nowrap; }
+    .slide-hint { position: sticky; right: 2px; flex: 0 0 30px; width: 30px; height: 30px; border-radius: 50%; background: var(--surface); box-shadow: var(--shadow-md); border: none; color: var(--accent-ink); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: calc(12px * var(--fs, 1)); }
     /* KPI行はPC表示ではグリッド(スクロールなし)のため、矢印はスマホ表示のみ有効にする */
     .kpi-row-top .slide-hint, .kpi-row-bottom .slide-hint { display: none; }
 
@@ -177,10 +181,10 @@
     .rowscroll-wrap { position: relative; flex: 1; min-height: 0; display: flex; }
     .cal-overlay-backdrop { position: absolute; inset: 0; background: rgba(26,31,54,0.32); z-index: 5; }
     .cal-overlay-panel { position: absolute; top: 0; right: 0; bottom: 0; width: 216px; background: var(--surface); box-shadow: var(--shadow-lg); z-index: 6; padding: 14px; display: flex; flex-direction: column; border-left: 1px solid var(--hairline); }
-    .sales-tag { font-size: 10px; font-weight: 600; color: #9AA1B0; display: flex; align-items: center; gap: 5px; margin: 9px 0 6px; text-transform: uppercase; letter-spacing: .03em; }
+    .sales-tag { font-size: calc(10px * var(--fs, 1)); font-weight: 600; color: #9AA1B0; display: flex; align-items: center; gap: 5px; margin: 9px 0 6px; text-transform: uppercase; letter-spacing: .03em; }
     .pending-toggle-btn {
       display: inline-flex; align-items: center; gap: 8px;
-      background: var(--surface); color: var(--ink-2); font-size: 12px; font-weight: 700;
+      background: var(--surface); color: var(--ink-2); font-size: calc(12px * var(--fs, 1)); font-weight: 700;
       padding: 6px 12px; border-radius: 6px; box-shadow: var(--shadow-sm); border: 1px solid var(--border);
       cursor: pointer; transition: border-color .12s ease, color .12s ease, background .12s ease;
       margin-left: 8px; position: relative;
@@ -189,7 +193,7 @@
     .pending-toggle-mobile-slot { display: none; }
     .pending-toggle-btn:hover { border-color: var(--accent); color: var(--accent-ink); }
     .pending-toggle-btn.open { color: var(--accent-ink); background: var(--accent-bg); border-color: var(--accent); }
-    .pending-toggle-count { font-family: var(--font-ios); font-variant-numeric: tabular-nums slashed-zero; font-size: 10.5px; font-weight: 800; background: var(--surface-2); border-radius: 5px; padding: 2px 7px; }
+    .pending-toggle-count { font-family: var(--font-ios); font-variant-numeric: tabular-nums slashed-zero; font-size: calc(10.5px * var(--fs, 1)); font-weight: 800; background: var(--surface-2); border-radius: 5px; padding: 2px 7px; }
     .pending-toggle-btn.open .pending-toggle-count { background: rgba(255,255,255,0.65); }
 
     /* -- マイページ -- */
@@ -198,96 +202,101 @@
     .mp-header-text { flex: 1; min-width: 0; }
     .mp-header-nav { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
     .mp-kpi-group { margin-bottom: 10px; }
-    .mp-kpi-group-label { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 6px; }
+    .mp-kpi-group-label { font-size: calc(11px * var(--fs, 1)); font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 6px; }
     .mp-kpi-row { margin-bottom: 0; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); }
     .mp-kpi-row .slide-hint { display: none; }
     .mp-list { display: flex; flex-direction: column; gap: 5px; }
     .mp-row { display: flex; align-items: center; gap: 14px; background: var(--surface); border-radius: 8px; padding: 10px 14px; box-shadow: var(--shadow-sm); cursor: pointer; border: 1px solid var(--hairline); transition: box-shadow .12s ease, border-color .12s ease; }
     .mp-row:hover { box-shadow: var(--shadow-md); border-color: var(--border); }
     .mp-col { flex: 1; min-width: 0; display: flex; align-items: center; }
-    .mp-date-chip { font-size: 10.5px; font-weight: 700; font-family: var(--font-ios); font-variant-numeric: tabular-nums slashed-zero; text-align: center; border-radius: 6px; padding: 5px 10px; }
-    .mp-name { font-size: 12.5px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
-    .mp-model { font-size: 11.5px; color: var(--ink-2); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
-    .mp-thead-row { display: flex; align-items: center; gap: 14px; padding: 4px 14px; font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+    .mp-date-chip { font-size: calc(10.5px * var(--fs, 1)); font-weight: 700; font-family: var(--font-ios); font-variant-numeric: tabular-nums slashed-zero; text-align: center; border-radius: 6px; padding: 5px 10px; }
+    .mp-name { font-size: calc(12.5px * var(--fs, 1)); font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+    .mp-model { font-size: calc(11.5px * var(--fs, 1)); color: var(--ink-2); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+    .mp-thead-row { display: flex; align-items: center; gap: 14px; padding: 4px 14px; font-size: calc(10px * var(--fs, 1)); font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
 
     /* -- リスト表示 -- */
     .list-table-wrap { width: 100%; overflow-x: auto; }
-    .list-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-    .list-table thead th { text-align: left; font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; padding: 8px 12px; border-bottom: 1px solid var(--hairline); position: sticky; top: 0; background: var(--surface); }
+    .list-table { width: 100%; border-collapse: collapse; font-size: calc(12.5px * var(--fs, 1)); }
+    .list-table thead th { text-align: left; font-size: calc(10px * var(--fs, 1)); font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; padding: 8px 12px; border-bottom: 1px solid var(--hairline); position: sticky; top: 0; background: var(--surface); }
     .list-table tbody tr { border-bottom: 1px solid var(--hairline); cursor: pointer; }
     .list-table tbody tr:hover { background: var(--surface-2); }
     .list-table td { padding: 10px 12px; vertical-align: middle; }
     .list-card-wrap { display: none; flex-direction: column; gap: 8px; }
     .list-card { background: var(--surface); border-radius: 12px; padding: 12px 14px; box-shadow: var(--shadow-sm); border: 1px solid var(--hairline); cursor: pointer; }
     .list-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 7px; }
-    .list-card-name { font-size: 13.5px; font-weight: 700; color: var(--ink); }
-    .list-card-date { font-size: 11px; font-weight: 700; color: var(--ink-2); white-space: nowrap; flex: 0 0 auto; }
+    .list-card-name { font-size: calc(13.5px * var(--fs, 1)); font-weight: 700; color: var(--ink); }
+    .list-card-date { font-size: calc(11px * var(--fs, 1)); font-weight: 700; color: var(--ink-2); white-space: nowrap; flex: 0 0 auto; }
     .list-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-    .list-card-meta span { font-size: 11.5px; }
-    .list-card-note { font-size: 11.5px; color: var(--muted); margin-top: 7px; padding-top: 7px; border-top: 1px solid var(--hairline); }
+    .list-card-meta span { font-size: calc(11.5px * var(--fs, 1)); }
+    .list-card-note { font-size: calc(11.5px * var(--fs, 1)); color: var(--muted); margin-top: 7px; padding-top: 7px; border-top: 1px solid var(--hairline); }
 
     /* -- 設定ページ -- */
     .settings-card { background: var(--surface); border-radius: 12px; padding: 20px 22px; box-shadow: var(--shadow-md); border: 1px solid var(--hairline); }
-    .settings-card-title { font-size: 13.5px; font-weight: 800; color: var(--ink); display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-    .settings-card-title i { color: var(--accent-ink); font-size: 12.5px; }
-    .settings-card-desc { font-size: 11.5px; color: var(--muted); line-height: 1.65; margin-bottom: 15px; }
+    .settings-card-title { font-size: calc(13.5px * var(--fs, 1)); font-weight: 800; color: var(--ink); display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .settings-card-title i { color: var(--accent-ink); font-size: calc(12.5px * var(--fs, 1)); }
+    .settings-card-desc { font-size: calc(11.5px * var(--fs, 1)); color: var(--muted); line-height: 1.65; margin-bottom: 15px; }
     .settings-list { display: flex; flex-direction: column; gap: 5px; }
     .settings-row { display: flex; align-items: center; gap: 14px; background: var(--surface-2); border-radius: 7px; padding: 9px 13px; }
-    .settings-row .s-name { font-size: 12px; font-weight: 700; color: var(--ink); flex: 1; min-width: 0; }
-    .s-editor-tag { margin-left: 7px; font-size: 10px; font-weight: 700; color: var(--accent-ink); background: var(--accent-bg); padding: 1px 6px; border-radius: 5px; vertical-align: 1px; }
-    .settings-row .s-email { font-size: 11.5px; color: var(--muted); font-weight: 500; flex: 1.4; min-width: 0; }
-    .settings-row .s-branch { font-size: 11.5px; font-weight: 700; color: var(--ink-2); flex: 0 0 72px; }
-    .settings-remove { border: none; background: transparent; color: #B7BDC9; cursor: pointer; font-size: 12px; flex: 0 0 auto; width: 22px; height: 22px; border-radius: 5px; transition: background .12s ease, color .12s ease; }
+    .settings-row .s-name { font-size: calc(12px * var(--fs, 1)); font-weight: 700; color: var(--ink); flex: 1; min-width: 0; }
+    .s-editor-tag { margin-left: 7px; font-size: calc(10px * var(--fs, 1)); font-weight: 700; color: var(--accent-ink); background: var(--accent-bg); padding: 1px 6px; border-radius: 5px; vertical-align: 1px; }
+    .settings-row .s-email { font-size: calc(11.5px * var(--fs, 1)); color: var(--muted); font-weight: 500; flex: 1.4; min-width: 0; }
+    .settings-row .s-branch { font-size: calc(11.5px * var(--fs, 1)); font-weight: 700; color: var(--ink-2); flex: 0 0 72px; }
+    .settings-remove { border: none; background: transparent; color: #B7BDC9; cursor: pointer; font-size: calc(12px * var(--fs, 1)); flex: 0 0 auto; width: 22px; height: 22px; border-radius: 5px; transition: background .12s ease, color .12s ease; }
     .settings-remove:hover { background: var(--paper-bg); color: var(--paper); }
     .settings-move { display: inline-flex; gap: 2px; flex: 0 0 auto; }
-    .settings-move-btn { border: 1px solid var(--hairline); background: var(--surface); color: var(--ink-2); cursor: pointer; font-size: 9px; line-height: 1; padding: 0; width: 26px; height: 26px; border-radius: 5px; transition: background .12s ease, color .12s ease; }
+    .settings-move-btn { border: 1px solid var(--hairline); background: var(--surface); color: var(--ink-2); cursor: pointer; font-size: calc(9px * var(--fs, 1)); line-height: 1; padding: 0; width: 26px; height: 26px; border-radius: 5px; transition: background .12s ease, color .12s ease; }
     .settings-move-btn:hover:not(:disabled) { background: var(--accent-bg); color: var(--accent-ink); border-color: var(--accent); }
     .settings-move-btn:disabled { opacity: .35; cursor: default; }
     .cp-app-link .cp-app-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .apps-menu-backdrop { position: fixed; inset: 0; z-index: 1; }
     .apps-menu { position: absolute; right: 8px; bottom: calc(100% + 8px); z-index: 2; min-width: 200px; max-width: calc(100vw - 16px); background: var(--surface); border: 1px solid var(--hairline); border-radius: 12px; box-shadow: var(--shadow-lg); padding: 6px; display: flex; flex-direction: column; gap: 2px; }
-    .apps-menu-item { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--ink); text-decoration: none; }
-    .apps-menu-item i { color: var(--muted); font-size: 12px; width: 14px; text-align: center; }
+    .apps-menu-item { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 8px; font-size: calc(13px * var(--fs, 1)); font-weight: 600; color: var(--ink); text-decoration: none; }
+    .apps-menu-item i { color: var(--muted); font-size: calc(12px * var(--fs, 1)); width: 14px; text-align: center; }
     .apps-menu-item span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .apps-menu-item:hover, .apps-menu-item:active { background: var(--surface-2); }
     .settings-add-row { display: flex; gap: 8px; margin-top: 13px; flex-wrap: wrap; }
-    .settings-checkbox-label { display: flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: var(--ink-2); white-space: nowrap; cursor: pointer; flex: 0 0 auto; }
+    .settings-checkbox-label { display: flex; align-items: center; gap: 5px; font-size: calc(11.5px * var(--fs, 1)); font-weight: 700; color: var(--ink-2); white-space: nowrap; cursor: pointer; flex: 0 0 auto; }
     .settings-checkbox-label input { cursor: pointer; }
-    .settings-input { font-size: 12px; border: 1px solid var(--border); background: var(--surface); border-radius: 6px; padding: 8px 11px; color: var(--ink); font-family: inherit; }
+    .settings-input { font-size: calc(12px * var(--fs, 1)); border: 1px solid var(--border); background: var(--surface); border-radius: 6px; padding: 8px 11px; color: var(--ink); font-family: inherit; }
     .settings-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
     .rich-edit-wrap { flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: 5px; }
     .rich-toolbar { display: flex; align-items: center; gap: 6px; }
-    .rich-btn { border: 1px solid var(--border); background: var(--surface); color: var(--ink-2); width: 26px; height: 26px; flex: 0 0 auto; border-radius: 5px; cursor: pointer; font-size: 11px; display: flex; align-items: center; justify-content: center; transition: background .12s ease, color .12s ease; }
+    .rich-btn { border: 1px solid var(--border); background: var(--surface); color: var(--ink-2); width: 26px; height: 26px; flex: 0 0 auto; border-radius: 5px; cursor: pointer; font-size: calc(11px * var(--fs, 1)); display: flex; align-items: center; justify-content: center; transition: background .12s ease, color .12s ease; }
     .rich-btn:hover { background: var(--accent-bg); color: var(--accent-ink); }
     .rich-color-input { flex: 0 0 26px; width: 26px; height: 26px; padding: 2px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); cursor: pointer; }
-    .rich-editable { font-size: 12px; border: 1px solid var(--border); background: var(--surface); border-radius: 6px; padding: 8px 11px; color: var(--ink); font-family: inherit; min-height: 36px; line-height: 1.5; }
+    .rich-editable { font-size: calc(12px * var(--fs, 1)); border: 1px solid var(--border); background: var(--surface); border-radius: 6px; padding: 8px 11px; color: var(--ink); font-family: inherit; min-height: 36px; line-height: 1.5; }
     .rich-editable:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
     .rich-editable b { font-weight: 800; }
     .settings-row.rich-row { align-items: flex-start; }
-    .settings-add-btn { font-size: 12px; font-weight: 700; background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 8px 15px; display: flex; align-items: center; gap: 6px; cursor: pointer; transition: filter .12s ease; }
+    .settings-add-btn { font-size: calc(12px * var(--fs, 1)); font-weight: 700; background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 8px 15px; display: flex; align-items: center; gap: 6px; cursor: pointer; transition: filter .12s ease; }
     .settings-add-btn:hover { filter: brightness(0.92); }
     .settings-add-btn:disabled { background: #E2E5EB; color: #A6ACB8; cursor: default; filter: none; }
     .settings-subblock { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--hairline); }
     .settings-subblock:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
     .theme-swatches { display: flex; gap: 9px; flex-wrap: wrap; margin-bottom: 15px; }
-    .theme-swatch { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 7px; padding: 9px 14px; font-size: 12px; font-weight: 600; color: var(--ink-2); background: var(--surface); cursor: pointer; transition: border-color .12s ease, background .12s ease; }
+    .theme-swatch { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 7px; padding: 9px 14px; font-size: calc(12px * var(--fs, 1)); font-weight: 600; color: var(--ink-2); background: var(--surface); cursor: pointer; transition: border-color .12s ease, background .12s ease; }
     .theme-swatch:hover { border-color: var(--ink-2); }
     .theme-swatch.active { color: var(--accent-ink); background: var(--accent-bg); border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
     .theme-sat-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 4px 0 15px; }
-    .theme-sat-label { font-size: 11.5px; font-weight: 700; color: var(--ink-2); }
+    .theme-sat-label { font-size: calc(11.5px * var(--fs, 1)); font-weight: 700; color: var(--ink-2); }
     .theme-sat-options { display: inline-flex; gap: 2px; background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 7px; padding: 3px; }
-    .theme-sat-btn { border: none; background: transparent; padding: 6px 16px; border-radius: 5px; font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; font-family: inherit; }
+    .theme-sat-btn { border: none; background: transparent; padding: 6px 16px; border-radius: 5px; font-size: calc(12px * var(--fs, 1)); font-weight: 600; color: var(--muted); cursor: pointer; font-family: inherit; }
     .theme-sat-btn:hover { color: var(--ink-2); }
     .theme-sat-btn.active { background: var(--surface); color: var(--accent-ink); font-weight: 700; box-shadow: var(--shadow-sm); }
+    .theme-sat-btn:disabled { opacity: .45; cursor: default; }
+    .pref-row { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; padding: 12px 0; border-bottom: 1px solid var(--hairline); }
+    .pref-row:first-of-type { padding-top: 0; }
+    .pref-label { font-size: calc(12.5px * var(--fs, 1)); font-weight: 700; color: var(--ink); }
+    .pref-hint { font-size: calc(11px * var(--fs, 1)); color: var(--muted); margin-top: 3px; line-height: 1.5; }
     .theme-dot { width: 13px; height: 13px; border-radius: 4px; flex: 0 0 auto; }
     .theme-save-row { display: flex; align-items: center; gap: 12px; padding-top: 15px; border-top: 1px solid var(--hairline); flex-wrap: wrap; }
-    .theme-save-btn { font-size: 12.5px; font-weight: 700; background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 9px 18px; cursor: pointer; transition: filter .12s ease; }
+    .theme-save-btn { font-size: calc(12.5px * var(--fs, 1)); font-weight: 700; background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 9px 18px; cursor: pointer; transition: filter .12s ease; }
     .theme-save-btn:hover:not(:disabled) { filter: brightness(0.92); }
     .theme-save-btn:disabled { background: #E2E5EB; color: #A6ACB8; cursor: default; }
-    .theme-msg { font-size: 11.5px; font-weight: 700; }
+    .theme-msg { font-size: calc(11.5px * var(--fs, 1)); font-weight: 700; }
     .theme-msg.saved { color: var(--oss); }
     .theme-msg.dirty { color: #B4620D; }
-    .btn-secondary { background: var(--surface-2); color: var(--ink); border: 1px solid var(--border); padding: 9px 16px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; transition: background .12s ease, border-color .12s ease; }
+    .btn-secondary { background: var(--surface-2); color: var(--ink); border: 1px solid var(--border); padding: 9px 16px; border-radius: 6px; font-size: calc(12px * var(--fs, 1)); font-weight: 700; cursor: pointer; transition: background .12s ease, border-color .12s ease; }
     .btn-secondary:hover { background: var(--surface); border-color: var(--ink-2); }
 
     /* -- モーダル(詳細表示、お知らせ) -- */
@@ -295,12 +304,12 @@
     .modal-backdrop.flex { display: flex; }
     .modal-box { background: var(--surface); border-radius: 12px; width: 100%; box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; border-top: 3px solid var(--accent); }
     .modal-head { background: var(--surface-2); padding: 18px 22px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--hairline); position: sticky; top: 0; }
-    .modal-title { font-size: 14px; font-weight: 800; color: var(--ink); }
-    .modal-close { border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 16px; }
+    .modal-title { font-size: calc(14px * var(--fs, 1)); font-weight: 800; color: var(--ink); }
+    .modal-close { border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: calc(16px * var(--fs, 1)); }
     .detail-row { display: flex; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--hairline); }
     .detail-row:last-child { border-bottom: none; }
-    .detail-label { flex: 0 0 92px; font-size: 10.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; padding-top: 2px; }
-    .detail-value { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; color: var(--ink); word-break: break-word; }
+    .detail-label { flex: 0 0 92px; font-size: calc(10.5px * var(--fs, 1)); font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; padding-top: 2px; }
+    .detail-value { flex: 1; min-width: 0; font-size: calc(13.5px * var(--fs, 1)); font-weight: 600; color: var(--ink); word-break: break-word; }
 
     @media (max-width: 860px) {
       .app-row { flex-direction: column; }
@@ -309,7 +318,7 @@
             page-fill-areaだけがスクロールする固定シェルの一部になるため、position:stickyは不要 -- */
       .control-panel { width: 100%; flex: 0 0 auto; height: auto; flex-direction: row; align-items: center; justify-content: space-between; padding: 10px 14px; overflow-x: visible; border-bottom: none; }
       .cp-header { flex-direction: row; margin-bottom: 0; margin-right: 0; }
-      .cp-icon-mark { margin-bottom: 0; margin-right: 8px; width: 42px; height: 42px; font-size: 16px; }
+      .cp-icon-mark { margin-bottom: 0; margin-right: 8px; width: 42px; height: 42px; font-size: calc(16px * var(--fs, 1)); }
       .cp-icon-mark.has-image { width: auto; height: auto; }
       .cp-icon-mark.has-image img { max-width: 120px; max-height: 40px; }
       .cp-logo-sub { display: none; }
@@ -357,9 +366,9 @@
       }
       .mp-kpi-row .kpi-tile:last-child { border-right: none; }
       .mp-kpi-row .kpi-label {
-        justify-content: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 9px;
+        justify-content: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: calc(9px * var(--fs, 1));
       }
-      .mp-kpi-row .kpi-value { font-size: 16px; white-space: nowrap; }
+      .mp-kpi-row .kpi-value { font-size: calc(16px * var(--fs, 1)); white-space: nowrap; }
       .mp-kpi-row .slide-hint { display: flex; }
 
       /* -- マイページ: 横長の1行レイアウト。各列は必要最小幅にして折り返しをやめ、
@@ -368,10 +377,10 @@
       .mp-row { flex-wrap: nowrap; gap: 6px; padding: 10px 12px; }
       .mp-col { flex: 0 0 auto; min-width: 0; }
       .mp-name, .mp-model { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
-      .mp-name { flex-grow: 1.2; font-size: 12.5px; }
-      .mp-model { font-size: 11px; }
-      .mp-col-date .mp-date-chip { padding: 4px 7px; font-size: 9.5px; }
-      .mp-col-type .branch-pill { padding: 2px 6px; font-size: 9px; white-space: nowrap; }
+      .mp-name { flex-grow: 1.2; font-size: calc(12.5px * var(--fs, 1)); }
+      .mp-model { font-size: calc(11px * var(--fs, 1)); }
+      .mp-col-date .mp-date-chip { padding: 4px 7px; font-size: calc(9.5px * var(--fs, 1)); }
+      .mp-col-type .branch-pill { padding: 2px 6px; font-size: calc(9px * var(--fs, 1)); white-space: nowrap; }
       .mp-col-status { display: none; } /* 幅優先のため省略。詳細はタップして確認 */
       .mp-col-rep { display: none; } /* 拠点長表示の担当者列も幅優先で省略。詳細はタップして確認 */
 
@@ -390,9 +399,9 @@
       .kpi-row-top .kpi-tile:last-child, .kpi-row-bottom .kpi-tile:last-child { border-right: none; }
       .kpi-row-top .kpi-tile-accent { background: transparent; }
       .kpi-row-top .kpi-label, .kpi-row-bottom .kpi-label {
-        justify-content: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 9.5px;
+        justify-content: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: calc(9.5px * var(--fs, 1));
       }
-      .kpi-row-top .kpi-value, .kpi-row-bottom .kpi-value { font-size: 17px; white-space: nowrap; }
+      .kpi-row-top .kpi-value, .kpi-row-bottom .kpi-value { font-size: calc(17px * var(--fs, 1)); white-space: nowrap; }
       .kpi-row-top .slide-hint, .kpi-row-bottom .slide-hint { display: flex; }
 
       /* -- 設定ページに、非表示になったサイドバーのアカウント情報を移設 -- */
@@ -420,15 +429,15 @@
       /* -- ボトムタブバー(アプリのタブナビゲーション風)。固定シェルの一番下に収まる
             通常のフレックス項目として配置するため、position:fixedは使わない -- */
       .bottom-tab-bar { display: flex; flex: 0 0 auto; background: var(--surface); border-top: 1px solid var(--hairline); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); position: relative; z-index: 20; }
-      .bottom-tab-item { flex: 1; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 3px; width: auto; min-width: 0; padding: 6px 2px; border-radius: 10px; font-size: 10px; font-weight: 600; color: var(--muted); }
+      .bottom-tab-item { flex: 1; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 3px; width: auto; min-width: 0; padding: 6px 2px; border-radius: 10px; font-size: calc(10px * var(--fs, 1)); font-weight: 600; color: var(--muted); }
       .bottom-tab-item span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .bottom-tab-item i { font-size: 17px; width: auto; }
+      .bottom-tab-item i { font-size: calc(17px * var(--fs, 1)); width: auto; }
       .bottom-tab-item.active { color: var(--accent-ink); background: var(--accent-bg); box-shadow: none; }
       .bottom-tab-item.active i { color: var(--accent-ink); }
 
       /* -- カレンダー/リスト切り替えはアイコンのみに -- */
       .tab-label { display: none; }
-      .tab i { display: inline-block; font-size: 13px; }
+      .tab i { display: inline-block; font-size: calc(13px * var(--fs, 1)); }
 
       /* -- ボタン類は余白を詰めてコンパクトに(押しにくくない範囲で最小限のサイズへ) -- */
       .nav-btn { padding: 5px 9px; }
@@ -459,8 +468,9 @@
     const CURRENT_USER_EMAIL = <?!= JSON.stringify(userEmail || '') ?>;
     const INITIAL_THEME = <?!= JSON.stringify(initialTheme || 'indigo') ?>;
     const INITIAL_THEME_SATURATION = <?!= JSON.stringify(typeof initialThemeSaturation !== 'undefined' ? initialThemeSaturation : 'standard') ?>;
+    const INITIAL_DISPLAY_PREFS = <?!= JSON.stringify(typeof initialDisplayPrefs !== 'undefined' ? initialDisplayPrefs : {}) ?>;
     // ▼ Code.gs の APP_VERSION と同じ値にする。設定ページ下部で両者を比べ、貼り替え漏れ・デプロイ漏れを知らせる。
-    const CLIENT_VERSION = '2026.09.25-5';
+    const CLIENT_VERSION = '2026.09.25-6';
     const SERVER_VERSION = <?!= JSON.stringify(typeof appVersion !== 'undefined' ? appVersion : '') ?>;
     const INITIAL_SIDE_ICON_URL = <?!= JSON.stringify(initialSideIconUrl || '') ?>;
     const INITIAL_SIDE_ICON_EXTERNAL_URL = <?!= JSON.stringify(initialSideIconExternalUrl || '') ?>;
@@ -565,6 +575,23 @@
     let pendingTheme = currentTheme;
     let currentSaturation = THEME_SATURATIONS[INITIAL_THEME_SATURATION] ? INITIAL_THEME_SATURATION : 'standard';
     let pendingSaturation = currentSaturation;
+    // ▼ 表示設定（個人ごと）。変更はその場で反映・保存する。
+    const FONT_SCALES = { normal: 1, large: 1.15 };
+    let displayPrefs = {
+      highlightMine: INITIAL_DISPLAY_PREFS.highlightMine !== false,
+      fontSize: INITIAL_DISPLAY_PREFS.fontSize === 'large' ? 'large' : 'normal',
+    };
+    let displayPrefsMsg = { text: '', error: false };
+    function applyDisplayPrefs_() {
+      document.documentElement.style.setProperty('--fs', String(FONT_SCALES[displayPrefs.fontSize] || 1));
+    }
+    // ▼ 担当者が自分の案件か（担当者マスタで紐づいた氏名と「担当者」欄を照合する。マイページと同じ考え方）
+    function isMine_(r) {
+      return !!LINKED_NAME && String(r.担当者 || '').trim() === LINKED_NAME.trim();
+    }
+    function mineClass_(r) {
+      return displayPrefs.highlightMine && isMine_(r) ? ' is-mine' : '';
+    }
     let themeMessage = '';
     let sidePanelIconUrl = INITIAL_SIDE_ICON_URL;
     let iconMsg = { text: '', color: 'var(--muted)' }; // アイコン設定の結果メッセージ（再描画しても消えないよう状態で持つ）
@@ -896,13 +923,13 @@
       const c = branchColors[r.拠点] || branchColors['その他'];
       const rs = remarkCardStyle_(r);
       const inkStyle = rs ? `color:${rs.ink};` : '';
-      return `<div class="entry-card js-open-record" ${recordDataAttr(r)} style="--bar-color:${c.c};${rs ? `background:${rs.bg};` : ''}">
+      return `<div class="entry-card js-open-record${mineClass_(r)}" ${recordDataAttr(r)} style="--bar-color:${c.c};${rs ? `background:${rs.bg};` : ''}">
         <div class="entry-row">
           <span class="entry-name" style="${inkStyle}">${escapeHtml(r.顧客名)}</span>
           ${methodPill(isOssRecord(r))}
         </div>
         <div class="entry-row">
-          <span class="entry-sales" style="${inkStyle}"><i class="fa-solid fa-user" style="font-size:8px;margin-right:3px;"></i>${escapeHtml(r.担当者 || '-')}</span>
+          <span class="entry-sales" style="${inkStyle}"><i class="fa-solid fa-user" style="font-size: calc(8px * var(--fs, 1));margin-right:3px;"></i>${escapeHtml(r.担当者 || '-')}</span>
           <span class="entry-model" style="${inkStyle}">${escapeHtml(r.車種 || '')}</span>
         </div>
       </div>`;
@@ -986,7 +1013,7 @@
             ${pendingToggleBtn('pending-toggle-mobile-slot')}
           </div>
           <div class="calhead-group calhead-right">
-            <span class="font-num calhead-monthlabel" style="font-size:18px;font-weight:700;">${month + 1}<span style="font-size:12px;font-weight:600;color:var(--muted);margin:0 6px 0 1px;font-family:var(--font-ios);">月</span><span style="font-size:12px;font-weight:600;color:var(--muted);font-family:var(--font-ios);">${year}<span class="calhead-year-suffix">年</span></span></span>
+            <span class="font-num calhead-monthlabel" style="font-size: calc(18px * var(--fs, 1));font-weight:700;">${month + 1}<span style="font-size: calc(12px * var(--fs, 1));font-weight:600;color:var(--muted);margin:0 6px 0 1px;font-family:var(--font-ios);">月</span><span style="font-size: calc(12px * var(--fs, 1));font-weight:600;color:var(--muted);font-family:var(--font-ios);">${year}<span class="calhead-year-suffix">年</span></span></span>
             <button type="button" class="today-btn" id="btnToday">今日</button>
             <button type="button" class="nav-btn" id="btnPrevMonth"><i class="fa-solid fa-chevron-left"></i></button>
             <button type="button" class="nav-btn" id="btnNextMonth"><i class="fa-solid fa-chevron-right"></i></button>
@@ -1043,9 +1070,9 @@
       const c = branchColors[p.拠点] || branchColors['その他'];
       const rs = remarkCardStyle_(p);
       const inkStyle = rs ? `color:${rs.ink};` : '';
-      return `<div class="entry-card js-open-record" ${recordDataAttr(p)} style="--bar-color:${c.c};margin-bottom:8px;${rs ? `background:${rs.bg};` : ''}">
+      return `<div class="entry-card js-open-record${mineClass_(p)}" ${recordDataAttr(p)} style="--bar-color:${c.c};margin-bottom:8px;${rs ? `background:${rs.bg};` : ''}">
         <div class="entry-row"><span class="entry-name" style="${inkStyle}">${escapeHtml(p.顧客名)}</span>${methodPill(isOssRecord(p))}</div>
-        <div class="entry-row"><span class="entry-sales" style="${inkStyle}"><i class="fa-solid fa-user" style="font-size:8px;margin-right:3px;"></i>${escapeHtml(p.担当者 || '-')}</span><span class="entry-model" style="${inkStyle}">${escapeHtml(p.車種 || '')}</span></div>
+        <div class="entry-row"><span class="entry-sales" style="${inkStyle}"><i class="fa-solid fa-user" style="font-size: calc(8px * var(--fs, 1));margin-right:3px;"></i>${escapeHtml(p.担当者 || '-')}</span><span class="entry-model" style="${inkStyle}">${escapeHtml(p.車種 || '')}</span></div>
       </div>`;
     }
 
@@ -1066,20 +1093,20 @@
         .concat(Object.keys(grouped).filter(b => !branchList.includes(b)));
       return `
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;padding-bottom:13px;border-bottom:1px solid var(--hairline);flex:0 0 auto;">
-          <span style="font-size:11px;font-weight:600;color:var(--ink-2);"><i class="fa-solid fa-circle-notch" style="color:var(--accent);margin-right:6px;"></i>未定リスト</span>
-          <span class="font-num" style="font-size:11px;font-weight:700;background:var(--surface-2);border-radius:6px;padding:4px 10px;color:var(--ink-2);">${pending.length}件</span>
+          <span style="font-size: calc(11px * var(--fs, 1));font-weight:600;color:var(--ink-2);"><i class="fa-solid fa-circle-notch" style="color:var(--accent);margin-right:6px;"></i>未定リスト</span>
+          <span class="font-num" style="font-size: calc(11px * var(--fs, 1));font-weight:700;background:var(--surface-2);border-radius:6px;padding:4px 10px;color:var(--ink-2);">${pending.length}件</span>
         </div>
         <div class="row-scroll" style="flex:1;min-height:0;">
-          ${orderedBranches.length === 0 ? `<p style="font-size:12px;color:var(--muted);padding:12px 2px;">未定の登録はありません。</p>` : orderedBranches.map(branch => {
+          ${orderedBranches.length === 0 ? `<p style="font-size: calc(12px * var(--fs, 1));color:var(--muted);padding:12px 2px;">未定の登録はありません。</p>` : orderedBranches.map(branch => {
             const c = branchColors[branch];
             const branchCount = Object.values(grouped[branch]).reduce((s, a) => s + a.length, 0);
             return `
               <div style="display:flex;align-items:center;justify-content:space-between;margin:10px 2px 8px;">
-                <span style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:${c.c};"><span style="width:7px;height:7px;border-radius:50%;background:${c.c};"></span>${branch}</span>
-                <span class="font-num" style="font-size:10px;color:var(--muted);font-weight:600;">${branchCount}件</span>
+                <span style="display:flex;align-items:center;gap:6px;font-size: calc(12px * var(--fs, 1));font-weight:600;color:${c.c};"><span style="width:7px;height:7px;border-radius:50%;background:${c.c};"></span>${branch}</span>
+                <span class="font-num" style="font-size: calc(10px * var(--fs, 1));color:var(--muted);font-weight:600;">${branchCount}件</span>
               </div>
               ${Object.keys(grouped[branch]).map(sales => `
-                <div class="sales-tag"><i class="fa-solid fa-user" style="font-size:8px;"></i>${escapeHtml(sales)}</div>
+                <div class="sales-tag"><i class="fa-solid fa-user" style="font-size: calc(8px * var(--fs, 1));"></i>${escapeHtml(sales)}</div>
                 ${grouped[branch][sales].map(pendingCardHTML).join('')}
               `).join('')}
             `;
@@ -1180,7 +1207,7 @@
           </table>
         </div>
         <div class="list-card-wrap">
-          ${cardBody || `<p style="text-align:center;color:var(--muted);padding:24px;font-size:12.5px;">${emptyMsg}</p>`}
+          ${cardBody || `<p style="text-align:center;color:var(--muted);padding:24px;font-size: calc(12.5px * var(--fs, 1));">${emptyMsg}</p>`}
         </div>
       `;
     }
@@ -1243,7 +1270,7 @@
       const records = mpApplyFilters(confirmed.concat(undecided))
         .sort((a, b) => (a.登録予定日 || 'z').localeCompare(b.登録予定日 || 'z'));
       const rowsHtml = records.map(mpRowHTML).join('');
-      box.innerHTML = `${mpTheadHTML()}<div class="mp-list">${rowsHtml || `<p style="font-size:12px;color:var(--muted);padding:16px 14px;">該当する登録データがありません。</p>`}</div>`;
+      box.innerHTML = `${mpTheadHTML()}<div class="mp-list">${rowsHtml || `<p style="font-size: calc(12px * var(--fs, 1));color:var(--muted);padding:16px 14px;">該当する登録データがありません。</p>`}</div>`;
       box.scrollTop = prevScrollTop;
       wireRecordClicks_(box);
     }
@@ -1286,7 +1313,7 @@
       return `
         <div class="mp-header-row">
           <div class="mp-header-id">
-            <div class="cp-avatar" style="width:38px;height:38px;flex:0 0 38px;font-size:14px;">${LINKED_NAME[0] || '?'}</div>
+            <div class="cp-avatar" style="width:38px;height:38px;flex:0 0 38px;font-size: calc(14px * var(--fs, 1));">${LINKED_NAME[0] || '?'}</div>
             <div class="mp-header-text">
               <h1 class="page-title">マイページ</h1>
               <p class="page-sub mp-subtitle">${LINKED_IS_BRANCH_MANAGER
@@ -1296,7 +1323,7 @@
           </div>
           <div class="mp-header-nav">
             <button type="button" class="nav-btn" id="mpPrev"><i class="fa-solid fa-chevron-left"></i></button>
-            <span class="font-num" style="font-size:14px;font-weight:700;min-width:92px;text-align:center;display:inline-block;">${monthLabel}</span>
+            <span class="font-num" style="font-size: calc(14px * var(--fs, 1));font-weight:700;min-width:92px;text-align:center;display:inline-block;">${monthLabel}</span>
             <button type="button" class="nav-btn" id="mpNext"><i class="fa-solid fa-chevron-right"></i></button>
           </div>
         </div>
@@ -1343,6 +1370,35 @@
         </div>
       `;
     }
+    // ▼ 表示設定（権限者以外も使える個人ごとの設定）。押した時点で反映・保存する。
+    function displayPrefsSectionHTML() {
+      const seg = (pref, value, label, disabled) => `<button type="button" class="theme-sat-btn ${String(displayPrefs[pref]) === String(value) ? 'active' : ''}" data-pref="${pref}" data-value="${value}" ${disabled ? 'disabled' : ''}>${label}</button>`;
+      const msg = displayPrefsMsg.text
+        ? `<p class="pref-hint" style="margin-top:10px;font-weight:700;color:${displayPrefsMsg.error ? 'var(--paper)' : 'var(--oss)'};">${escapeHtml(displayPrefsMsg.text)}</p>` : '';
+      return `
+        <div class="settings-card">
+          <h2 class="settings-card-title"><i class="fa-solid fa-sliders"></i>表示設定</h2>
+          <p class="settings-card-desc">自分の画面だけに反映されます。押すとすぐに保存されます。</p>
+          <div class="pref-row">
+            <div>
+              <div class="pref-label">自分の担当案件を目立たせる</div>
+              <div class="pref-hint">${LINKED_NAME
+                ? 'カレンダーと未定リストで、担当者が自分の案件を枠で囲みます。'
+                : '担当者マスタに氏名が登録されていないため使えません。権限者に登録を依頼してください。'}</div>
+            </div>
+            <div class="theme-sat-options">${seg('highlightMine', true, 'オン', !LINKED_NAME)}${seg('highlightMine', false, 'オフ', !LINKED_NAME)}</div>
+          </div>
+          <div class="pref-row" style="border-bottom:none;padding-bottom:0;">
+            <div>
+              <div class="pref-label">文字の大きさ</div>
+              <div class="pref-hint">「大きめ」にすると、画面全体の文字が少し大きくなります。</div>
+            </div>
+            <div class="theme-sat-options">${seg('fontSize', 'normal', '標準')}${seg('fontSize', 'large', '大きめ')}</div>
+          </div>
+          ${msg}
+        </div>
+      `;
+    }
     function iconSectionHTML() {
       if (!IS_EDITOR) return '';
       const previewInner = sidePanelIconUrl
@@ -1356,22 +1412,22 @@
           <h2 class="settings-card-title"><i class="fa-solid fa-icons"></i>サイドパネルアイコン設定</h2>
           <p class="settings-card-desc">コントロールパネル上部のアイコンを設定します。画像は自動で縮小され、全員の画面に反映されます。</p>
           <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:8px;">
-            <div class="icon-preview-stage"><div class="cp-icon-mark ${sidePanelIconUrl ? 'has-image' : ''}" style="${sidePanelIconUrl ? '' : 'width:84px;height:84px;font-size:32px;'}margin-bottom:0;">${previewInner}</div></div>
+            <div class="icon-preview-stage"><div class="cp-icon-mark ${sidePanelIconUrl ? 'has-image' : ''}" style="${sidePanelIconUrl ? '' : 'width:84px;height:84px;font-size: calc(32px * var(--fs, 1));'}margin-bottom:0;">${previewInner}</div></div>
             <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start;">
-              <span style="font-size:11.5px;font-weight:700;color:var(--ink-2);">現在: ${status}</span>
+              <span style="font-size: calc(11.5px * var(--fs, 1));font-weight:700;color:var(--ink-2);">現在: ${status}</span>
               <button type="button" class="btn-secondary" id="iconResetBtn">デフォルトに戻す</button>
             </div>
           </div>
-          <p id="iconMsg" style="font-size:11.5px;font-weight:700;margin-bottom:14px;min-height:1em;color:${iconMsg.color};">${escapeHtml(iconMsg.text)}</p>
+          <p id="iconMsg" style="font-size: calc(11.5px * var(--fs, 1));font-weight:700;margin-bottom:14px;min-height:1em;color:${iconMsg.color};">${escapeHtml(iconMsg.text)}</p>
           <div class="settings-subblock">
-            <label style="font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;display:block;">方法1: 画像をアップロード</label>
+            <label style="font-size: calc(10.5px * var(--fs, 1));font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;display:block;">方法1: 画像をアップロード</label>
             <label class="settings-add-btn" style="cursor:pointer;">
               <i class="fa-solid fa-upload"></i>画像を選ぶ
               <input type="file" id="iconFileInput" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none;">
             </label>
           </div>
           <div class="settings-subblock" style="border-bottom:none;padding-bottom:0;margin-bottom:0;">
-            <label style="font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;display:block;">方法2: 画像URLを直接指定</label>
+            <label style="font-size: calc(10.5px * var(--fs, 1));font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;display:block;">方法2: 画像URLを直接指定</label>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               <input type="text" id="iconUrlInput" class="settings-input" placeholder="https://..." value="${escapeAttr(sideIconExternalUrlValue)}" style="flex:1;min-width:220px;">
               <button type="button" class="settings-add-btn" id="saveIconUrlBtn">URLを保存</button>
@@ -1406,14 +1462,14 @@
                 ${moveButtonsHTML_('app', i, i > 0, i < pendingApps.length - 1)}
                 <button type="button" class="settings-remove" data-idx="${i}" data-role="app-remove"><i class="fa-solid fa-xmark"></i></button>
               </div>
-            `).join('') || `<p style="font-size:12px;color:var(--muted);padding:8px 2px;">アプリは登録されていません。</p>`}
+            `).join('') || `<p style="font-size: calc(12px * var(--fs, 1));color:var(--muted);padding:8px 2px;">アプリは登録されていません。</p>`}
           </div>
           <div class="settings-add-row">
             <input id="newAppName" class="settings-input" placeholder="アプリ名（例: 車検証アプリ）" maxlength="20" style="flex:0 1 200px;min-width:140px;" ${full ? 'disabled' : ''}>
             <input id="newAppUrl" class="settings-input" placeholder="https://..." style="flex:1;min-width:180px;" ${full ? 'disabled' : ''}>
             <button type="button" id="addAppBtn" class="settings-add-btn" ${full ? 'disabled' : ''}><i class="fa-solid fa-plus"></i>追加（${pendingApps.length}/${EXTERNAL_APPS_MAX}）</button>
           </div>
-          <p id="appsErr" style="font-size:11px;font-weight:600;margin-top:6px;color:var(--paper);"></p>
+          <p id="appsErr" style="font-size: calc(11px * var(--fs, 1));font-weight:600;margin-top:6px;color:var(--paper);"></p>
           <div class="theme-save-row">
             <button type="button" class="theme-save-btn" id="appsSaveBtn" ${appsDirty ? '' : 'disabled'}>保存</button>
             ${msg}
@@ -1442,12 +1498,12 @@
               <div class="settings-row">
                 <input type="color" class="rich-color-input" data-idx="${i}" data-role="branch-color" value="${escapeAttr(b.color || '#66707E')}" title="この拠点の色">
                 ${isFallback
-                  ? `<span class="s-name" style="flex:1;min-width:140px;">${escapeHtml(b.name)}<span style="margin-left:8px;font-size:10px;font-weight:700;color:var(--muted);background:var(--surface-2);padding:2px 7px;border-radius:5px;">固定</span></span>`
+                  ? `<span class="s-name" style="flex:1;min-width:140px;">${escapeHtml(b.name)}<span style="margin-left:8px;font-size: calc(10px * var(--fs, 1));font-weight:700;color:var(--muted);background:var(--surface-2);padding:2px 7px;border-radius:5px;">固定</span></span>`
                   : `<input type="text" class="settings-input js-branch-name" data-idx="${i}" value="${escapeAttr(b.name || '')}" placeholder="拠点名" style="flex:1;min-width:140px;">`}
                 ${isFallback ? '' : `<button type="button" class="settings-remove" data-idx="${i}" data-role="branch-remove"><i class="fa-solid fa-xmark"></i></button>`}
               </div>
             `;
-            }).join('') || `<p style="font-size:12px;color:var(--muted);padding:8px 2px;">拠点が登録されていません。</p>`}
+            }).join('') || `<p style="font-size: calc(12px * var(--fs, 1));color:var(--muted);padding:8px 2px;">拠点が登録されていません。</p>`}
           </div>
           <div class="settings-add-row">
             <input type="color" id="newBranchColor" class="rich-color-input" value="#3B4FD1" title="この拠点の色">
@@ -1487,7 +1543,7 @@
                 </div>
                 <button type="button" class="settings-remove" data-idx="${i}" data-role="announce-remove"><i class="fa-solid fa-xmark"></i></button>
               </div>
-            `).join('') || `<p style="font-size:12px;color:var(--muted);padding:8px 2px;">お知らせはありません。</p>`}
+            `).join('') || `<p style="font-size: calc(12px * var(--fs, 1));color:var(--muted);padding:8px 2px;">お知らせはありません。</p>`}
           </div>
           <div class="settings-add-row">
             <input id="newAnnounceText" class="settings-input" placeholder="お知らせ内容" style="flex:1;min-width:220px;">
@@ -1534,7 +1590,7 @@
                 </div>
                 <button type="button" class="settings-remove" data-idx="${i}" data-role="calnotice-remove"><i class="fa-solid fa-xmark"></i></button>
               </div>
-            `).join('') || `<p style="font-size:12px;color:var(--muted);padding:8px 2px;">案内はまだ設定されていません。</p>`}
+            `).join('') || `<p style="font-size: calc(12px * var(--fs, 1));color:var(--muted);padding:8px 2px;">案内はまだ設定されていません。</p>`}
           </div>
           <div class="settings-add-row">
             <button type="button" id="addCalNoticeBtn" class="settings-add-btn" ${calSettingsNotices.length >= 10 ? 'disabled' : ''}><i class="fa-solid fa-plus"></i>行を追加（${calSettingsNotices.length}/10）</button>
@@ -1570,7 +1626,7 @@
           <h2 class="settings-card-title"><i class="fa-solid fa-user-shield"></i>担当者マスタ</h2>
           <p class="settings-card-desc">アカウントごとに氏名・拠点を登録します（氏名は登録データの「担当者」と照合）。拠点長はマイページに拠点全体を表示します。▲▼の並び順はシートの担当者プルダウンにも反映されます。</p>
           <div class="settings-list" id="mypageLinkList">
-            ${mypageLinks.map(rowHtml).join('') || `<p style="font-size:12px;color:var(--muted);padding:4px 2px;">登録はまだありません。</p>`}
+            ${mypageLinks.map(rowHtml).join('') || `<p style="font-size: calc(12px * var(--fs, 1));color:var(--muted);padding:4px 2px;">登録はまだありません。</p>`}
           </div>
           <div class="settings-add-row">
             <input id="newLinkName" class="settings-input" placeholder="氏名(フルネーム)" style="flex:1;min-width:120px;">
@@ -1603,14 +1659,15 @@
         </div>
         <div class="page-fill-area" style="display:flex;flex-direction:column;gap:16px;">
           <div class="mobile-account-card">
-            <div class="cp-avatar" style="width:40px;height:40px;flex:0 0 40px;font-size:15px;">${(LINKED_NAME || CURRENT_USER_EMAIL || '?')[0]}</div>
+            <div class="cp-avatar" style="width:40px;height:40px;flex:0 0 40px;font-size: calc(15px * var(--fs, 1));">${(LINKED_NAME || CURRENT_USER_EMAIL || '?')[0]}</div>
             <div style="flex:1;min-width:0;">
-              <div class="cp-user-name" style="font-size:13px;">${escapeHtml(LINKED_NAME || CURRENT_USER_EMAIL || '未ログイン')}</div>
-              <div class="cp-user-email" style="font-size:10.5px;">${escapeHtml(CURRENT_USER_EMAIL || '')}</div>
+              <div class="cp-user-name" style="font-size: calc(13px * var(--fs, 1));">${escapeHtml(LINKED_NAME || CURRENT_USER_EMAIL || '未ログイン')}</div>
+              <div class="cp-user-email" style="font-size: calc(10.5px * var(--fs, 1));">${escapeHtml(CURRENT_USER_EMAIL || '')}</div>
             </div>
             <span class="cp-role-badge ${IS_EDITOR ? 'editor' : 'general'}" style="width:auto;flex:0 0 auto;">${IS_EDITOR ? '権限者' : '一般'}</span>
           </div>
           ${themeSectionHTML()}
+          ${displayPrefsSectionHTML()}
           ${iconSectionHTML()}
           ${appsSectionHTML()}
           ${branchSectionHTML()}
@@ -1625,7 +1682,7 @@
     function versionInfoHTML() {
       const matched = SERVER_VERSION === CLIENT_VERSION;
       const warn = matched ? '' : `<div style="margin-top:4px;color:var(--paper);font-weight:700;">Code.gs（${escapeHtml(SERVER_VERSION || '不明')}）とIndex.htmlのバージョンが一致していません。両方のファイルを最新にして、新しいバージョンでデプロイしてください。</div>`;
-      return `<div style="font-size:10.5px;color:var(--muted);padding:4px 2px 8px;">アプリのバージョン: ${escapeHtml(CLIENT_VERSION)}${warn}</div>`;
+      return `<div style="font-size: calc(10.5px * var(--fs, 1));color:var(--muted);padding:4px 2px 8px;">アプリのバージョン: ${escapeHtml(CLIENT_VERSION)}${warn}</div>`;
     }
 
     // ---- 全体レイアウト ----
@@ -1722,6 +1779,7 @@
       // 設定ページでは、選んだだけ（未保存）のテーマ・鮮やかさをその場で試せるようにする。他のページでは保存済みの設定を使う。
       if (currentPage === 'settings') applyTheme(pendingTheme, pendingSaturation);
       else applyTheme(currentTheme, currentSaturation);
+      applyDisplayPrefs_();
       wireEvents();
       scrollTodayToTop();
       if (currentPage === 'mypage' && LINKED_NAME) renderMpResults();
@@ -1859,6 +1917,18 @@
 
       root.querySelectorAll('.theme-swatch[data-theme]').forEach(btn => {
         btn.onclick = () => { pendingTheme = btn.dataset.theme; themeMessage = ''; renderKeepingSettingsScroll_(); };
+      });
+      root.querySelectorAll('.theme-sat-btn[data-pref]').forEach(btn => {
+        btn.onclick = () => {
+          const pref = btn.dataset.pref;
+          displayPrefs[pref] = pref === 'highlightMine' ? btn.dataset.value === 'true' : btn.dataset.value;
+          displayPrefsMsg = { text: '保存しました', error: false };
+          renderKeepingSettingsScroll_();
+          if (typeof google === 'undefined') return;
+          google.script.run
+            .withFailureHandler(e => { displayPrefsMsg = { text: '保存に失敗しました: ' + (e && e.message ? e.message : e), error: true }; renderKeepingSettingsScroll_(); })
+            .saveUserDisplayPrefs(displayPrefs);
+        };
       });
       root.querySelectorAll('.theme-sat-btn[data-saturation]').forEach(btn => {
         btn.onclick = () => { pendingSaturation = btn.dataset.saturation; themeMessage = ''; renderKeepingSettingsScroll_(); };
