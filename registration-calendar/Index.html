@@ -50,8 +50,9 @@
     .cp-icon-mark { width: 60px; height: 60px; border-radius: 50%; background: var(--accent); box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 24px; margin-bottom: 8px; overflow: hidden; flex: none; }
     .cp-icon-mark img { width: 100%; height: 100%; object-fit: cover; }
     /* 画像を設定したときは背景・影・丸い切り抜きをなくし、画像をそのままの形で全体表示する */
-    .cp-icon-mark.has-image { background: transparent; box-shadow: none; border-radius: 0; }
-    .cp-icon-mark.has-image img { object-fit: contain; }
+    /* 枠は画像の形に合わせ、パネルの幅(184px)・高さ88pxまでの範囲で縦横比を保って大きく表示する */
+    .cp-icon-mark.has-image { background: transparent; box-shadow: none; border-radius: 0; width: auto; height: auto; }
+    .cp-icon-mark.has-image img { display: block; width: auto; height: auto; max-width: 184px; max-height: 88px; object-fit: contain; }
     .cp-logo { font-size: 13px; font-weight: 800; color: var(--ink); margin-bottom: 2px; letter-spacing: -0.005em; }
     .cp-logo-sub { font-size: 10.5px; color: var(--muted); font-weight: 600; }
     .cp-nav { display: flex; flex-direction: column; gap: 3px; flex: 1; }
@@ -303,6 +304,8 @@
       .control-panel { width: 100%; flex: 0 0 auto; height: auto; flex-direction: row; align-items: center; justify-content: space-between; padding: 10px 14px; overflow-x: visible; border-bottom: none; }
       .cp-header { flex-direction: row; margin-bottom: 0; margin-right: 0; }
       .cp-icon-mark { margin-bottom: 0; margin-right: 8px; width: 42px; height: 42px; font-size: 16px; }
+      .cp-icon-mark.has-image { width: auto; height: auto; }
+      .cp-icon-mark.has-image img { max-width: 120px; max-height: 40px; }
       .cp-logo-sub { display: none; }
       .cp-nav { flex-direction: row; flex: 0 0 auto; }
       .cp-nav > .cp-nav-item { display: none; } /* ページナビは下部のタブバーに置き換え */
@@ -450,7 +453,7 @@
     const CURRENT_USER_EMAIL = <?!= JSON.stringify(userEmail || '') ?>;
     const INITIAL_THEME = <?!= JSON.stringify(initialTheme || 'indigo') ?>;
     // ▼ Code.gs の APP_VERSION と同じ値にする。設定ページ下部で両者を比べ、貼り替え漏れ・デプロイ漏れを知らせる。
-    const CLIENT_VERSION = '2026.09.25-3';
+    const CLIENT_VERSION = '2026.09.25-4';
     const SERVER_VERSION = <?!= JSON.stringify(typeof appVersion !== 'undefined' ? appVersion : '') ?>;
     const INITIAL_SIDE_ICON_URL = <?!= JSON.stringify(initialSideIconUrl || '') ?>;
     const INITIAL_SIDE_ICON_EXTERNAL_URL = <?!= JSON.stringify(initialSideIconExternalUrl || '') ?>;
@@ -1301,7 +1304,7 @@
           <h2 class="settings-card-title"><i class="fa-solid fa-icons"></i>サイドパネルアイコン設定</h2>
           <p class="settings-card-desc">コントロールパネル上部のアイコンを設定します。画像は自動で縮小され、全員の画面に反映されます。</p>
           <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:8px;">
-            <div class="icon-preview-stage"><div class="cp-icon-mark ${sidePanelIconUrl ? 'has-image' : ''}" style="width:84px;height:84px;font-size:32px;margin-bottom:0;">${previewInner}</div></div>
+            <div class="icon-preview-stage"><div class="cp-icon-mark ${sidePanelIconUrl ? 'has-image' : ''}" style="${sidePanelIconUrl ? '' : 'width:84px;height:84px;font-size:32px;'}margin-bottom:0;">${previewInner}</div></div>
             <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start;">
               <span style="font-size:11.5px;font-weight:700;color:var(--ink-2);">現在: ${status}</span>
               <button type="button" class="btn-secondary" id="iconResetBtn">デフォルトに戻す</button>
@@ -1814,7 +1817,7 @@
       };
 
       const iconFileInput = document.getElementById('iconFileInput');
-      // ▼ アイコンは小さな円形表示なので、ブラウザ側で一辺256pxまでに縮小してから保存する。
+      // ▼ アイコンはブラウザ側で透明な余白を切り取り、一辺384pxまでに縮小してから保存する。
       //   サーバー側ではGoogleドライブを使わずスクリプトプロパティに保存するため、データ量を
       //   ICON_DATA_MAX_CHARS以内に収める（写真などPNGで収まらない場合はJPEGに切り替える）。
       const ICON_DATA_MAX_CHARS = 90000;
@@ -1823,20 +1826,58 @@
         const m = document.getElementById('iconMsg');
         if (m) { m.textContent = text; m.style.color = color; }
       };
+      // ▼ 周囲の透明な余白を切り取ったキャンバスを返す。余白が残っているとロゴが枠の中で小さく見えるため。
+      //   大きな画像でも処理が重くならないよう、一辺1024pxまで縮小してから透明部分を調べる。
+      function trimTransparentMargins_(img) {
+        const scale = Math.min(1, 1024 / Math.max(img.naturalWidth, img.naturalHeight));
+        const w = Math.max(1, Math.round(img.naturalWidth * scale));
+        const h = Math.max(1, Math.round(img.naturalHeight * scale));
+        const src = document.createElement('canvas');
+        src.width = w; src.height = h;
+        const ctx = src.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        const alpha = ctx.getImageData(0, 0, w, h).data;
+        let minX = w, minY = h, maxX = -1, maxY = -1;
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            if (alpha[(y * w + x) * 4 + 3] > 8) {
+              if (x < minX) minX = x;
+              if (x > maxX) maxX = x;
+              if (y < minY) minY = y;
+              if (y > maxY) maxY = y;
+            }
+          }
+        }
+        if (maxX < 0) return img; // 全体が透明な画像はそのまま
+        // 縁のなめらかな部分を削らないよう1pxだけ余裕を持たせ、元の解像度の画像から切り取る（画質を落とさないため）
+        minX = Math.max(0, minX - 1); minY = Math.max(0, minY - 1);
+        maxX = Math.min(w - 1, maxX + 1); maxY = Math.min(h - 1, maxY + 1);
+        if (minX === 0 && minY === 0 && maxX === w - 1 && maxY === h - 1) return img;
+        const sx = minX / scale, sy = minY / scale;
+        const sw = Math.min(img.naturalWidth - sx, (maxX - minX + 1) / scale);
+        const sh = Math.min(img.naturalHeight - sy, (maxY - minY + 1) / scale);
+        const out = document.createElement('canvas');
+        out.width = Math.max(1, Math.round(sw)); out.height = Math.max(1, Math.round(sh));
+        out.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, out.width, out.height);
+        return out;
+      }
       function encodeIconDataUrl_(img) {
+        const source = trimTransparentMargins_(img); // 画像そのもの、または余白を切り取ったキャンバス
+        const srcW = source.naturalWidth || source.width, srcH = source.naturalHeight || source.height;
         const draw = (maxDim, type) => {
-          const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
-          const w = Math.max(1, Math.round(img.naturalWidth * scale));
-          const h = Math.max(1, Math.round(img.naturalHeight * scale));
+          const scale = Math.min(1, maxDim / Math.max(srcW, srcH));
+          const w = Math.max(1, Math.round(srcW * scale));
+          const h = Math.max(1, Math.round(srcH * scale));
           const canvas = document.createElement('canvas');
           canvas.width = w;
           canvas.height = h;
           const ctx = canvas.getContext('2d');
           if (type === 'image/jpeg') { ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, w, h); } // JPEGは透過できないため白で下塗り
-          ctx.drawImage(img, 0, 0, w, h);
+          ctx.drawImage(source, 0, 0, w, h);
           return canvas.toDataURL(type, 0.88);
         };
-        for (const [maxDim, type] of [[256, 'image/png'], [256, 'image/jpeg'], [160, 'image/jpeg']]) {
+        // 表示は最大184px幅。高解像度の画面でもぼやけないよう、まずは一辺384pxで保存を試みる
+        for (const [maxDim, type] of [[384, 'image/png'], [256, 'image/png'], [384, 'image/jpeg'], [256, 'image/jpeg'], [160, 'image/jpeg']]) {
           const dataUrl = draw(maxDim, type);
           if (dataUrl.length <= ICON_DATA_MAX_CHARS) return dataUrl;
         }
