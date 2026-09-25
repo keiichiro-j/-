@@ -14,7 +14,7 @@
       --font-ios: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic Medium", "Yu Gothic", "Segoe UI", Meiryo, Roboto, sans-serif;
       --ink: #1A1F36; --ink-2: #4B5468; --muted: #8790A3; --border: #D9DEE5;
       --canvas: #F3F4F7; --surface: #FFFFFF; --surface-2: #F7F8FA; --hairline: #E6E8EE; --cal-line: #D6D9E1;
-      --accent: #3B4FD1; --accent-bg: #EEF1FD; --accent-ink: #2E3FB0; --panel-bg: #F7F8FE;
+      --accent: #3B4FD1; --accent-bg: #EEF1FD; --accent-ink: #2E3FB0;
       --oss: #16924F; --oss-bg: #E7F7EE;
       --paper: #D6392E; --paper-bg: #FCEAE8;
       --sat-bg: #E8F0FE; --sat-ink: #2A5BD1;
@@ -45,7 +45,7 @@
     .announce-sep { opacity: .55; margin: 0 10px; }
 
     /* -- コントロールパネル -- */
-    .control-panel { width: 212px; flex: 0 0 212px; background: var(--panel-bg); padding: 22px 14px; display: flex; flex-direction: column; box-shadow: 1px 0 0 var(--hairline); position: relative; z-index: 2; height: 100%; overflow-y: auto; }
+    .control-panel { width: 212px; flex: 0 0 212px; padding: 22px 14px; display: flex; flex-direction: column; box-shadow: 1px 0 0 var(--hairline); position: relative; z-index: 2; height: 100%; overflow-y: auto; }
     .cp-header { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 22px; }
     .cp-icon-mark { width: 60px; height: 60px; border-radius: 50%; background: var(--accent); box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 24px; margin-bottom: 8px; overflow: hidden; flex: none; }
     .cp-icon-mark img { width: 100%; height: 100%; object-fit: cover; }
@@ -79,6 +79,29 @@
     .cp-role-badge { font-size: 9.5px; font-weight: 700; border-radius: 6px; padding: 5px 9px; display: block; width: 100%; text-align: left; }
     .cp-role-badge.editor { background: var(--oss-bg); color: var(--oss); }
     .cp-role-badge.general { background: #EEF0F3; color: #7C8496; }
+    /* -- コントロールパネルはテーマ色を濃くした下地に白文字にする（透過PNGの白系ロゴも見えるように）。
+          同じクラスをマイページ・設定の白いカードや明るいボトムタブでも使っているため、.control-panel 内に限定する。
+          設定画面のアイコンのプレビュー（.icon-preview-stage）も同じ下地にして、実際の見え方を確認できるようにする。 -- */
+    .control-panel, .icon-preview-stage { background: var(--accent-ink); background: color-mix(in srgb, var(--accent) 42%, #0D1120); }
+    .control-panel { box-shadow: none; }
+    .control-panel .cp-logo { color: #fff; }
+    .control-panel .cp-logo-sub { color: rgba(255,255,255,.62); }
+    .control-panel .cp-nav-item { color: rgba(255,255,255,.82); }
+    .control-panel .cp-nav-item i { color: rgba(255,255,255,.55); }
+    .control-panel .cp-nav-item:hover { background: rgba(255,255,255,.08); color: #fff; }
+    .control-panel .cp-nav-item.active { background: rgba(255,255,255,.14); color: #fff; box-shadow: inset 3px 0 0 #fff; }
+    .control-panel .cp-nav-item.active i { color: #fff; }
+    .control-panel .cp-subnav::before, .control-panel .cp-subnav-item::before { background: rgba(255,255,255,.22); }
+    .control-panel .cp-subnav-item { color: rgba(255,255,255,.74); }
+    .control-panel .cp-subnav-item:hover { color: #fff; }
+    .control-panel .cp-subnav-item.active { color: #fff; background: rgba(255,255,255,.14); }
+    .control-panel .cp-subnav-item.active::before { background: #fff; }
+    .control-panel .cp-footer { border-top-color: rgba(255,255,255,.14); }
+    .control-panel .cp-avatar { background: rgba(255,255,255,.18); }
+    .control-panel .cp-user-name { color: #fff; }
+    .control-panel .cp-user-email { color: rgba(255,255,255,.6); }
+    .control-panel .cp-icon-mark:not(.has-image), .icon-preview-stage .cp-icon-mark:not(.has-image) { background: rgba(255,255,255,.16); box-shadow: none; }
+    .icon-preview-stage { display: inline-flex; padding: 12px; border-radius: 12px; }
     .mobile-account-card { display: none; }
 
     /* -- ボトムタブバー(スマホ専用) -- */
@@ -277,7 +300,7 @@
 
       /* -- 上部バー: ロゴ＋車両区分の切り替えのみを表示するアプリ風ヘッダーに簡略化。
             page-fill-areaだけがスクロールする固定シェルの一部になるため、position:stickyは不要 -- */
-      .control-panel { width: 100%; flex: 0 0 auto; height: auto; flex-direction: row; align-items: center; justify-content: space-between; padding: 10px 14px; overflow-x: visible; border-bottom: 1px solid var(--hairline); }
+      .control-panel { width: 100%; flex: 0 0 auto; height: auto; flex-direction: row; align-items: center; justify-content: space-between; padding: 10px 14px; overflow-x: visible; border-bottom: none; }
       .cp-header { flex-direction: row; margin-bottom: 0; margin-right: 0; }
       .cp-icon-mark { margin-bottom: 0; margin-right: 8px; width: 42px; height: 42px; font-size: 16px; }
       .cp-logo-sub { display: none; }
@@ -427,7 +450,7 @@
     const CURRENT_USER_EMAIL = <?!= JSON.stringify(userEmail || '') ?>;
     const INITIAL_THEME = <?!= JSON.stringify(initialTheme || 'indigo') ?>;
     // ▼ Code.gs の APP_VERSION と同じ値にする。設定ページ下部で両者を比べ、貼り替え漏れ・デプロイ漏れを知らせる。
-    const CLIENT_VERSION = '2026.09.25-2';
+    const CLIENT_VERSION = '2026.09.25-3';
     const SERVER_VERSION = <?!= JSON.stringify(typeof appVersion !== 'undefined' ? appVersion : '') ?>;
     const INITIAL_SIDE_ICON_URL = <?!= JSON.stringify(initialSideIconUrl || '') ?>;
     const INITIAL_SIDE_ICON_EXTERNAL_URL = <?!= JSON.stringify(initialSideIconExternalUrl || '') ?>;
@@ -507,20 +530,18 @@
       return status === STATUS_CONFIRMED || LEGACY_CONFIRMED_STATUSES.indexOf(status) !== -1;
     }
 
-    // panelBg: コントロールパネル全体に敷く、accentBgよりさらに薄いテーマ色の下地。
-    // これによりアクティブなナビ項目(accentBg)との2段階の濃淡差が生まれ、パネル全体が
-    // テーマカラーで染まって見えるようになる。
+    // コントロールパネルの下地は、accent を濃くした色を CSS（.control-panel）で自動的に作っている。
     const THEMES = {
-      indigo: { name: 'インディゴ', accent: '#3B4FD1', accentBg: '#EEF1FD', accentInk: '#2E3FB0', panelBg: '#F7F8FE' },
-      green: { name: 'グリーン', accent: '#16924F', accentBg: '#E7F7EE', accentInk: '#0F7A3D', panelBg: '#F4FBF7' },
-      charcoal: { name: 'チャコール', accent: '#33333D', accentBg: '#E9E9EC', accentInk: '#202027', panelBg: '#F6F6F7' },
-      amber: { name: 'アンバー', accent: '#C2790E', accentBg: '#FBEFDD', accentInk: '#9C610A', panelBg: '#FDF7EE' },
-      rose: { name: 'ローズ', accent: '#C93E77', accentBg: '#FBEAF1', accentInk: '#A62D60', panelBg: '#FDF4F7' },
-      teal: { name: 'ティール', accent: '#0C7C8C', accentBg: '#E6F4F6', accentInk: '#0A6672', panelBg: '#F2F9FA' },
-      purple: { name: 'パープル', accent: '#7C3AED', accentBg: '#F2ECFC', accentInk: '#6425C7', panelBg: '#F8F5FE' },
-      slate: { name: 'スレート', accent: '#4B5468', accentBg: '#EEF0F3', accentInk: '#333A4A', panelBg: '#F6F7F9' },
-      navy: { name: 'ネイビー', accent: '#2B4C7E', accentBg: '#EAF0F8', accentInk: '#1F3A63', panelBg: '#F5F8FC' },
-      terracotta: { name: 'テラコッタ', accent: '#C1622D', accentBg: '#FCEEE3', accentInk: '#9C4D22', panelBg: '#FDF8F3' },
+      indigo: { name: 'インディゴ', accent: '#3B4FD1', accentBg: '#EEF1FD', accentInk: '#2E3FB0' },
+      green: { name: 'グリーン', accent: '#16924F', accentBg: '#E7F7EE', accentInk: '#0F7A3D' },
+      charcoal: { name: 'チャコール', accent: '#33333D', accentBg: '#E9E9EC', accentInk: '#202027' },
+      amber: { name: 'アンバー', accent: '#C2790E', accentBg: '#FBEFDD', accentInk: '#9C610A' },
+      rose: { name: 'ローズ', accent: '#C93E77', accentBg: '#FBEAF1', accentInk: '#A62D60' },
+      teal: { name: 'ティール', accent: '#0C7C8C', accentBg: '#E6F4F6', accentInk: '#0A6672' },
+      purple: { name: 'パープル', accent: '#7C3AED', accentBg: '#F2ECFC', accentInk: '#6425C7' },
+      slate: { name: 'スレート', accent: '#4B5468', accentBg: '#EEF0F3', accentInk: '#333A4A' },
+      navy: { name: 'ネイビー', accent: '#2B4C7E', accentBg: '#EAF0F8', accentInk: '#1F3A63' },
+      terracotta: { name: 'テラコッタ', accent: '#C1622D', accentBg: '#FCEEE3', accentInk: '#9C4D22' },
     };
 
     let currentTheme = THEMES[INITIAL_THEME] ? INITIAL_THEME : 'indigo';
@@ -544,7 +565,6 @@
       root.setProperty('--accent', t.accent);
       root.setProperty('--accent-bg', t.accentBg);
       root.setProperty('--accent-ink', t.accentInk);
-      root.setProperty('--panel-bg', t.panelBg);
       // お知らせ帯はテーマのアクセントカラーを背景に使うため、文字色(個別に色指定が無い部分)も
       // 背景の明暗に応じて自動的に読みやすい方(黒 or 白)に切り替える
       root.setProperty('--announce-ink', readableInkFor_(t.accent));
@@ -1281,7 +1301,7 @@
           <h2 class="settings-card-title"><i class="fa-solid fa-icons"></i>サイドパネルアイコン設定</h2>
           <p class="settings-card-desc">コントロールパネル上部のアイコンを設定します。画像は自動で縮小され、全員の画面に反映されます。</p>
           <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:8px;">
-            <div class="cp-icon-mark ${sidePanelIconUrl ? 'has-image' : ''}" style="width:84px;height:84px;font-size:32px;margin-bottom:0;">${previewInner}</div>
+            <div class="icon-preview-stage"><div class="cp-icon-mark ${sidePanelIconUrl ? 'has-image' : ''}" style="width:84px;height:84px;font-size:32px;margin-bottom:0;">${previewInner}</div></div>
             <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start;">
               <span style="font-size:11.5px;font-weight:700;color:var(--ink-2);">現在: ${status}</span>
               <button type="button" class="btn-secondary" id="iconResetBtn">デフォルトに戻す</button>
