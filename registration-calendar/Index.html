@@ -204,10 +204,10 @@
     .settings-card-title { font-size: 13.5px; font-weight: 800; color: var(--ink); display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
     .settings-card-title i { color: var(--accent-ink); font-size: 12.5px; }
     .settings-card-desc { font-size: 11.5px; color: var(--muted); line-height: 1.65; margin-bottom: 15px; }
-    .settings-group-label { margin-bottom: 6px; font-size: 10.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
     .settings-list { display: flex; flex-direction: column; gap: 5px; }
     .settings-row { display: flex; align-items: center; gap: 14px; background: var(--surface-2); border-radius: 7px; padding: 9px 13px; }
     .settings-row .s-name { font-size: 12px; font-weight: 700; color: var(--ink); flex: 1; min-width: 0; }
+    .s-editor-tag { margin-left: 7px; font-size: 10px; font-weight: 700; color: var(--accent-ink); background: var(--accent-bg); padding: 1px 6px; border-radius: 5px; vertical-align: 1px; }
     .settings-row .s-email { font-size: 11.5px; color: var(--muted); font-weight: 500; flex: 1.4; min-width: 0; }
     .settings-row .s-branch { font-size: 11.5px; font-weight: 700; color: var(--ink-2); flex: 0 0 72px; }
     .settings-remove { border: none; background: transparent; color: #B7BDC9; cursor: pointer; font-size: 12px; flex: 0 0 auto; width: 22px; height: 22px; border-radius: 5px; transition: background .12s ease, color .12s ease; }
@@ -1470,38 +1470,29 @@
     }
     function mypageLinkSectionHTML() {
       if (!IS_EDITOR) return '';
-      const editors = mypageLinks.filter(u => u.isEditor);
-      const general = mypageLinks.filter(u => !u.isEditor);
       let msg = '';
       if (mypageLinksMsg) msg = `<span class="theme-msg saved"><i class="fa-solid fa-circle-check"></i> ${mypageLinksMsg}</span>`;
       else if (mypageLinksDirty) msg = `<span class="theme-msg dirty"><i class="fa-solid fa-circle-exclamation"></i> 未保存の変更があります</span>`;
-      // 並び替えは「権限者ログインアカウント」「そのほかのアカウント」それぞれのグループ内で行う
-      const rowHtml = (u, gi, group) => {
-        const idx = mypageLinks.indexOf(u);
-        return `
+      // 表示順＝シートの行順（＝担当者プルダウンの順）になるよう、権限者も分けずに1つの一覧で表示する。
+      // 権限者かどうかはコード(EDITOR_EMAILS)で管理しているため、ここでは目印として表示するだけ。
+      const rowHtml = (u, idx) => `
         <div class="settings-row">
-          <span class="s-name">${escapeHtml(u.name)}</span>
+          <span class="s-name">${escapeHtml(u.name)}${u.isEditor ? '<span class="s-editor-tag">権限者</span>' : ''}</span>
           <span class="s-email">${escapeHtml(u.email)}</span>
           <span class="s-branch">${escapeHtml(u.branch || '-')}</span>
           <span class="s-branch">${escapeHtml(u.carType || '未設定')}</span>
           <label class="settings-checkbox-label">
             <input type="checkbox" data-idx="${idx}" data-role="link-branchmanager" ${u.isBranchManager ? 'checked' : ''}>拠点長
           </label>
-          ${moveButtonsHTML_('link', idx, gi > 0, gi < group.length - 1)}
+          ${moveButtonsHTML_('link', idx, idx > 0, idx < mypageLinks.length - 1)}
           <button type="button" class="settings-remove" data-idx="${idx}" data-role="link-remove"><i class="fa-solid fa-xmark"></i></button>
         </div>`;
-      };
       return `
         <div class="settings-card">
           <h2 class="settings-card-title"><i class="fa-solid fa-user-shield"></i>担当者マスタ</h2>
           <p class="settings-card-desc">アカウントごとに氏名・拠点を登録します（氏名は登録データの「担当者」と照合）。拠点長はマイページに拠点全体を表示します。▲▼の並び順はシートの担当者プルダウンにも反映されます。</p>
-          <div class="settings-group-label">権限者ログインアカウント</div>
-          <div class="settings-list" style="margin-bottom:14px;">
-            ${editors.map(rowHtml).join('') || `<p style="font-size:12px;color:var(--muted);padding:4px 2px;">権限者アカウントの登録はまだありません。</p>`}
-          </div>
-          <div class="settings-group-label">そのほかのアカウント</div>
           <div class="settings-list" id="mypageLinkList">
-            ${general.map(rowHtml).join('') || `<p style="font-size:12px;color:var(--muted);padding:4px 2px;">登録はまだありません。</p>`}
+            ${mypageLinks.map(rowHtml).join('') || `<p style="font-size:12px;color:var(--muted);padding:4px 2px;">登録はまだありません。</p>`}
           </div>
           <div class="settings-add-row">
             <input id="newLinkName" class="settings-input" placeholder="氏名(フルネーム)" style="flex:1;min-width:120px;">
@@ -2178,11 +2169,8 @@
       root.querySelectorAll('[data-role="link-branchmanager"]').forEach(inp => {
         inp.onchange = (ev) => { mypageLinks[Number(inp.dataset.idx)].isBranchManager = ev.target.checked; mypageLinksDirty = true; mypageLinksMsg = ''; markDirtyBtn_('linkSaveBtn'); };
       });
-      // 同じグループ（権限者 / そのほか）の中で、1つ前または後ろの担当者と入れ替える
       const moveLink_ = (idx, dir) => {
-        const isEditorGroup = mypageLinks[idx].isEditor;
-        let j = idx + dir;
-        while (j >= 0 && j < mypageLinks.length && mypageLinks[j].isEditor !== isEditorGroup) j += dir;
+        const j = idx + dir;
         if (j < 0 || j >= mypageLinks.length) return;
         [mypageLinks[idx], mypageLinks[j]] = [mypageLinks[j], mypageLinks[idx]];
         mypageLinksDirty = true; mypageLinksMsg = '';
