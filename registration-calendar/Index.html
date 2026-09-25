@@ -1259,7 +1259,7 @@
               <input type="text" id="iconFolderIdInput" class="settings-input" placeholder="保存先 Drive フォルダのURL、またはIDのみ" value="${escapeAttr(sideIconFolderId)}" style="flex:1;min-width:220px;">
               <button type="button" class="settings-add-btn" id="saveFolderIdBtn">フォルダを保存</button>
             </div>
-            <p id="folderIdMsg" style="font-size:11px;font-weight:600;margin-top:6px;color:var(--muted);">${sideIconFolderId ? '' : 'アップロード前に、保存先のDriveフォルダを入力して保存してください。'}</p>
+            <p id="folderIdMsg" style="font-size:11px;font-weight:600;margin-top:6px;color:var(--muted);">${sideIconFolderId ? '' : '未設定の場合、画像は保存した人のマイドライブ直下に保存されます。'}</p>
             <div style="margin-top:10px;">
               <label class="settings-add-btn" style="cursor:pointer;">
                 <i class="fa-solid fa-upload"></i>画像をアップロード
@@ -1274,7 +1274,7 @@
               <input type="text" id="iconUrlInput" class="settings-input" placeholder="https://..." value="${escapeAttr(sideIconExternalUrlValue)}" style="flex:1;min-width:220px;">
               <button type="button" class="settings-add-btn" id="saveIconUrlBtn">URLを保存</button>
             </div>
-            <p class="settings-card-desc" style="margin-top:6px;">既に社内の別システムなどで公開されている画像を、そのままアイコンとして使いたい場合に利用してください。https:// から始まるURLのみ利用できます。</p>
+            <p class="settings-card-desc" style="margin-top:6px;">Googleドライブに保存済みの画像の共有リンク（drive.google.com/file/d/…）を貼り付けると、その画像を取り込んでアイコンにします。元の画像の共有設定は変更しません。社内の別システムなどで公開されている画像のURL（https://）もそのまま使えます。</p>
             <p id="iconUrlMsg" style="font-size:11.5px;font-weight:700;margin-top:6px;"></p>
           </div>
         </div>
@@ -1695,17 +1695,12 @@
       //   一辺512pxまでに自動で縮小してから送信する。大きな写真をそのまま選んでも、
       //   保存されるファイル・通信量は常に一定サイズに収まる。
       const ICON_MAX_DIM = 512;
-      if (iconFileInput) iconFileInput.onchange = (ev) => {
-        const file = ev.target.files[0];
-        if (!file) return;
-        if (!file.type.startsWith('image/')) { alert('画像ファイルを選択してください。'); return; }
-        if (file.size > 8 * 1024 * 1024) { alert('画像サイズが大きすぎます。8MB以内のファイルを選択してください。'); return; }
-        const msg = document.getElementById('iconUploadMsg');
-        if (msg) { msg.textContent = '画像を処理中…'; msg.style.color = 'var(--muted)'; }
-        const objectUrl = URL.createObjectURL(file);
+      const setIconMsg_ = (id, text, color) => { const m = document.getElementById(id); if (m) { m.textContent = text; m.style.color = color; } };
+      // ▼ ファイル選択・ドライブからの取り込みのどちらも、ここで縮小・PNG化してから保存する
+      function resizeAndSaveIcon_(src, msgId, cleanup) {
         const img = new Image();
         img.onload = () => {
-          URL.revokeObjectURL(objectUrl);
+          if (cleanup) cleanup();
           let width = img.naturalWidth, height = img.naturalHeight;
           if (width > ICON_MAX_DIM || height > ICON_MAX_DIM) {
             const scale = Math.min(ICON_MAX_DIM / width, ICON_MAX_DIM / height);
@@ -1717,30 +1712,35 @@
           canvas.height = height;
           canvas.getContext('2d').drawImage(img, 0, 0, width, height);
           const base64 = canvas.toDataURL('image/png').split(',')[1];
-          if (msg) { msg.textContent = 'アップロード中…'; }
+          setIconMsg_(msgId, '保存中…', 'var(--muted)');
           if (typeof google === 'undefined') return;
           google.script.run
             .withSuccessHandler(res => {
               if (res && res.success) {
                 sidePanelIconUrl = res.url;
-                sideIconExternalUrlValue = ''; // アップロードにより、URL指定は自動的に無効化されるため
+                sideIconExternalUrlValue = ''; // 画像として保存したので、URL指定は自動的に無効化される
                 render();
               } else {
-                const m = document.getElementById('iconUploadMsg'); if (m) { m.textContent = res ? res.message : 'アップロードに失敗しました。'; m.style.color = 'var(--paper)'; }
+                setIconMsg_(msgId, res ? res.message : '保存に失敗しました。', 'var(--paper)');
               }
             })
-            .withFailureHandler(e => {
-              const m = document.getElementById('iconUploadMsg');
-              if (m) { m.textContent = '通信エラー: ' + (e && e.message ? e.message : e); m.style.color = 'var(--paper)'; }
-            })
+            .withFailureHandler(e => setIconMsg_(msgId, '通信エラー: ' + (e && e.message ? e.message : e), 'var(--paper)'))
             .saveSideIconImage(base64, 'image/png');
         };
         img.onerror = () => {
-          URL.revokeObjectURL(objectUrl);
-          const m = document.getElementById('iconUploadMsg');
-          if (m) { m.textContent = '画像の読み込みに失敗しました。'; m.style.color = 'var(--paper)'; }
+          if (cleanup) cleanup();
+          setIconMsg_(msgId, '画像の読み込みに失敗しました。HEICなど一部の形式は使えないため、PNGかJPEGでお試しください。', 'var(--paper)');
         };
-        img.src = objectUrl;
+        img.src = src;
+      }
+      if (iconFileInput) iconFileInput.onchange = (ev) => {
+        const file = ev.target.files[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) { alert('画像ファイルを選択してください。'); return; }
+        if (file.size > 8 * 1024 * 1024) { alert('画像サイズが大きすぎます。8MB以内のファイルを選択してください。'); return; }
+        setIconMsg_('iconUploadMsg', '画像を処理中…', 'var(--muted)');
+        const objectUrl = URL.createObjectURL(file);
+        resizeAndSaveIcon_(objectUrl, 'iconUploadMsg', () => URL.revokeObjectURL(objectUrl));
       };
       const iconResetBtn = document.getElementById('iconResetBtn');
       if (iconResetBtn) iconResetBtn.onclick = () => {
@@ -1757,9 +1757,21 @@
       if (saveIconUrlBtn) saveIconUrlBtn.onclick = () => {
         const input = document.getElementById('iconUrlInput');
         const val = input ? input.value.trim() : '';
-        const msg = document.getElementById('iconUrlMsg');
-        if (msg) { msg.textContent = '保存中…'; msg.style.color = 'var(--muted)'; }
         if (typeof google === 'undefined') return;
+        // Googleドライブのリンクは画像そのもののURLではないため、そのままでは表示できない。
+        // 画像データを取り込み、アップロードと同じ方法で保存する。
+        if (/^https:\/\/(drive|docs)\.google\.com\//i.test(val) || /^https:\/\/lh3\.googleusercontent\.com\/d\//i.test(val)) {
+          setIconMsg_('iconUrlMsg', 'ドライブから画像を読み込み中…', 'var(--muted)');
+          google.script.run
+            .withSuccessHandler(res => {
+              if (res && res.success) resizeAndSaveIcon_(`data:${res.mimeType};base64,${res.base64}`, 'iconUrlMsg');
+              else setIconMsg_('iconUrlMsg', res ? res.message : '読み込みに失敗しました。', 'var(--paper)');
+            })
+            .withFailureHandler(e => setIconMsg_('iconUrlMsg', '通信エラー: ' + (e && e.message ? e.message : e), 'var(--paper)'))
+            .getDriveImageForIcon(val);
+          return;
+        }
+        setIconMsg_('iconUrlMsg', '保存中…', 'var(--muted)');
         google.script.run
           .withSuccessHandler(res => {
             const m = document.getElementById('iconUrlMsg');

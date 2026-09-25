@@ -387,7 +387,10 @@ function getSideIconUrl() {
   const props = PropertiesService.getScriptProperties();
   const source = props.getProperty('sideIconSource') || '';
   if (source === 'url') {
-    return props.getProperty('sideIconExternalUrl') || '';
+    const url = props.getProperty('sideIconExternalUrl') || '';
+    // Driveの共有リンクは画像そのものではなくプレビュー画面のURLで<img>に表示できないため、
+    // 以前に保存されたものは壊れた画像を出さずに既定のアイコンに戻す
+    return extractDriveFileId_(url) ? '' : url;
   }
   const fileId = props.getProperty('sideIconFileId');
   if (!fileId) return '';
@@ -411,11 +414,9 @@ function saveSideIconImage(base64Data, mimeType) {
     return { success: false, message: '権限者のみ変更できます。' };
   }
   const folderId = getSideIconFolderId();
-  if (!folderId) {
-    return { success: false, message: 'アイコン画像の保存先フォルダが未設定です。設定画面の「サイドパネルアイコン設定」で先にDriveフォルダIDを保存してください。' };
-  }
   try {
-    const folder = DriveApp.getFolderById(folderId);
+    // 保存先フォルダが未設定なら、操作した権限者のマイドライブ直下に保存する
+    const folder = folderId ? DriveApp.getFolderById(folderId) : DriveApp.getRootFolder();
     const bytes = Utilities.base64Decode(base64Data);
     const blob = Utilities.newBlob(bytes, mimeType, 'side-icon-' + new Date().getTime());
 
@@ -439,6 +440,43 @@ function saveSideIconImage(base64Data, mimeType) {
   }
 }
 
+// ▼ Googleドライブのファイルを指すURL（共有リンク・open?id=・uc?id=・lh3.googleusercontent.com/d/ など）
+//   からファイルIDを取り出す。Drive以外のURLなら空文字を返す。
+function extractDriveFileId_(input) {
+  const s = String(input || '').trim();
+  const isDrive = /^https:\/\/(drive|docs)\.google\.com\//i.test(s) || /^https:\/\/lh3\.googleusercontent\.com\/d\//i.test(s);
+  if (!isDrive) return '';
+  const m = s.match(/\/d\/([a-zA-Z0-9_-]{10,})/) || s.match(/[?&]id=([a-zA-Z0-9_-]{10,})/);
+  return m ? m[1] : '';
+}
+
+// ▼ ドライブ上の画像をアイコンとして取り込むため、権限者の権限で画像データを読み出して返す。
+//   アプリは閲覧者ごとの権限で動く(executeAs: USER_ACCESSING)ため、元の画像を直接表示すると
+//   その画像を見る権限のない人には表示されない。そこでブラウザ側で縮小したうえで
+//   saveSideIconImage（アップロードと同じ保存処理）に渡し、全員が見られる複製として保存する。
+function getDriveImageForIcon(url) {
+  const userEmail = Session.getActiveUser().getEmail();
+  if (!isEditorEmail_(userEmail)) {
+    return { success: false, message: '権限者のみ変更できます。' };
+  }
+  const fileId = extractDriveFileId_(url);
+  if (!fileId) return { success: false, message: 'GoogleドライブのファイルのURLを入力してください。' };
+  let file;
+  try {
+    file = DriveApp.getFileById(fileId);
+  } catch (e) {
+    return { success: false, message: 'ドライブのファイルを開けませんでした。ご自身のアカウントで閲覧できるファイルか確認してください。' };
+  }
+  const mimeType = file.getMimeType();
+  if (!/^image\//.test(mimeType)) {
+    return { success: false, message: '画像ファイル（PNG・JPEGなど）のURLを指定してください。' };
+  }
+  if (file.getSize() > 8 * 1024 * 1024) {
+    return { success: false, message: '画像サイズが大きすぎます。8MB以内の画像を指定してください。' };
+  }
+  return { success: true, base64: Utilities.base64Encode(file.getBlob().getBytes()), mimeType: mimeType };
+}
+
 // ▼ Drive経由のアップロードの代わりに、外部の画像URLを直接アイコンとして使う。
 //   社内の別システムやブランドサイトで既に公開されている画像をそのまま使いたい場合などに利用する。
 function saveSideIconUrl(url) {
@@ -450,6 +488,9 @@ function saveSideIconUrl(url) {
   if (!trimmed) return { success: false, message: '画像のURLを入力してください。' };
   if (!/^https:\/\//i.test(trimmed)) {
     return { success: false, message: 'https:// から始まるURLを入力してください。' };
+  }
+  if (extractDriveFileId_(trimmed)) {
+    return { success: false, message: 'GoogleドライブのリンクはURLのままでは表示できません。画面を再読み込みしてから、もう一度保存してください。' };
   }
   const props = PropertiesService.getScriptProperties();
   props.setProperty('sideIconExternalUrl', trimmed);
