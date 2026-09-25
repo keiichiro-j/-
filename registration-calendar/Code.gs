@@ -2,7 +2,7 @@ const DEFAULT_ADMIN_EMAIL = "k-toda@gifuyanase.co.jp";
 
 // ▼ 設定ページの一番下に表示するバージョン。Index.html側のバージョンと一致しているかで、
 //   コードの貼り替えと「新しいバージョンでのデプロイ」が両方済んでいるかを確認できる。
-const APP_VERSION = '2026.09.25-4';
+const APP_VERSION = '2026.09.25-5';
 
 // ▼ 権限者（設定ページの各種管理項目を変更できるアカウント）一覧。最大5名まで登録できます。
 //   登録・編集はスプレッドシートを直接編集する運用に変わったため、ここはアプリの管理設定を
@@ -64,6 +64,7 @@ function doGet() {
   template.isEditor = isEditor;
   template.userEmail = userEmail;
   template.initialTheme = getUserTheme();
+  template.initialThemeSaturation = getUserThemeSaturation();
   template.appVersion = APP_VERSION;
   template.initialSideIconUrl = getSideIconUrl();
   template.initialSideIconExternalUrl = getSideIconExternalUrl();
@@ -387,9 +388,20 @@ function getMyLinkedInfo_(email) {
 function getUserTheme() {
   return PropertiesService.getUserProperties().getProperty('theme') || 'indigo';
 }
-function saveUserTheme(themeKey) {
+// ▼ テーマ色の鮮やかさ（彩度）。未設定の人は「標準」（従来よりやや落ち着いた色）になる。
+const THEME_SATURATION_KEYS = ['muted', 'standard', 'vivid'];
+function getUserThemeSaturation() {
+  const value = PropertiesService.getUserProperties().getProperty('themeSaturation');
+  return THEME_SATURATION_KEYS.indexOf(value) !== -1 ? value : 'standard';
+}
+function saveUserTheme(themeKey, saturation) {
   if (THEME_KEYS.indexOf(themeKey) === -1) return { success: false, message: '不正なテーマです。' };
-  PropertiesService.getUserProperties().setProperty('theme', themeKey);
+  if (saturation !== undefined && THEME_SATURATION_KEYS.indexOf(saturation) === -1) {
+    return { success: false, message: '不正な設定です。' };
+  }
+  const props = PropertiesService.getUserProperties();
+  props.setProperty('theme', themeKey);
+  if (saturation !== undefined) props.setProperty('themeSaturation', saturation);
   return { success: true };
 }
 

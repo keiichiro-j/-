@@ -273,6 +273,12 @@
     .theme-swatch { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 7px; padding: 9px 14px; font-size: 12px; font-weight: 600; color: var(--ink-2); background: var(--surface); cursor: pointer; transition: border-color .12s ease, background .12s ease; }
     .theme-swatch:hover { border-color: var(--ink-2); }
     .theme-swatch.active { color: var(--accent-ink); background: var(--accent-bg); border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .theme-sat-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 4px 0 15px; }
+    .theme-sat-label { font-size: 11.5px; font-weight: 700; color: var(--ink-2); }
+    .theme-sat-options { display: inline-flex; gap: 2px; background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 7px; padding: 3px; }
+    .theme-sat-btn { border: none; background: transparent; padding: 6px 16px; border-radius: 5px; font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; font-family: inherit; }
+    .theme-sat-btn:hover { color: var(--ink-2); }
+    .theme-sat-btn.active { background: var(--surface); color: var(--accent-ink); font-weight: 700; box-shadow: var(--shadow-sm); }
     .theme-dot { width: 13px; height: 13px; border-radius: 4px; flex: 0 0 auto; }
     .theme-save-row { display: flex; align-items: center; gap: 12px; padding-top: 15px; border-top: 1px solid var(--hairline); flex-wrap: wrap; }
     .theme-save-btn { font-size: 12.5px; font-weight: 700; background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 9px 18px; cursor: pointer; transition: filter .12s ease; }
@@ -452,8 +458,9 @@
     const IS_EDITOR = <?!= isEditor ? 'true' : 'false' ?>;
     const CURRENT_USER_EMAIL = <?!= JSON.stringify(userEmail || '') ?>;
     const INITIAL_THEME = <?!= JSON.stringify(initialTheme || 'indigo') ?>;
+    const INITIAL_THEME_SATURATION = <?!= JSON.stringify(typeof initialThemeSaturation !== 'undefined' ? initialThemeSaturation : 'standard') ?>;
     // ▼ Code.gs の APP_VERSION と同じ値にする。設定ページ下部で両者を比べ、貼り替え漏れ・デプロイ漏れを知らせる。
-    const CLIENT_VERSION = '2026.09.25-4';
+    const CLIENT_VERSION = '2026.09.25-5';
     const SERVER_VERSION = <?!= JSON.stringify(typeof appVersion !== 'undefined' ? appVersion : '') ?>;
     const INITIAL_SIDE_ICON_URL = <?!= JSON.stringify(initialSideIconUrl || '') ?>;
     const INITIAL_SIDE_ICON_EXTERNAL_URL = <?!= JSON.stringify(initialSideIconExternalUrl || '') ?>;
@@ -547,8 +554,17 @@
       terracotta: { name: 'テラコッタ', accent: '#C1622D', accentBg: '#FCEEE3', accentInk: '#9C4D22' },
     };
 
+    // ▼ テーマ色の鮮やかさ。各テーマの色の彩度に factor を掛けて使う（明るさは変えない）。
+    //   コントロールパネルの濃い下地もテーマ色から作っているため、ここを下げるとパネルも落ち着いた色になる。
+    const THEME_SATURATIONS = {
+      muted: { name: '控えめ', factor: 0.55 },
+      standard: { name: '標準', factor: 0.78 },
+      vivid: { name: '鮮やか', factor: 1 },
+    };
     let currentTheme = THEMES[INITIAL_THEME] ? INITIAL_THEME : 'indigo';
     let pendingTheme = currentTheme;
+    let currentSaturation = THEME_SATURATIONS[INITIAL_THEME_SATURATION] ? INITIAL_THEME_SATURATION : 'standard';
+    let pendingSaturation = currentSaturation;
     let themeMessage = '';
     let sidePanelIconUrl = INITIAL_SIDE_ICON_URL;
     let iconMsg = { text: '', color: 'var(--muted)' }; // アイコン設定の結果メッセージ（再描画しても消えないよう状態で持つ）
@@ -562,12 +578,42 @@
       const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
       return luminance > 0.6 ? '#1A1F36' : '#FFFFFF';
     }
-    function applyTheme(key) {
-      const t = THEMES[key];
+    // ▼ 色の彩度だけを変える（#RRGGBB → HSL → 彩度×factor → #RRGGBB）
+    function withSaturation_(hex, factor) {
+      const h = String(hex).replace('#', '');
+      const r = parseInt(h.substring(0, 2), 16) / 255, g = parseInt(h.substring(2, 4), 16) / 255, b = parseInt(h.substring(4, 6), 16) / 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min;
+      let hue = 0, s = 0;
+      if (d !== 0) {
+        s = d / (1 - Math.abs(2 * l - 1));
+        hue = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+        hue *= 60;
+        if (hue < 0) hue += 360; // 赤〜赤紫（ローズなど）は負の角度になるため0〜360°に直す
+      }
+      s = Math.min(1, s * factor);
+      const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs(((hue / 60) % 2) - 1)), m = l - c / 2;
+      const [r1, g1, b1] = hue < 60 ? [c, x, 0] : hue < 120 ? [x, c, 0] : hue < 180 ? [0, c, x] : hue < 240 ? [0, x, c] : hue < 300 ? [x, 0, c] : [c, 0, x];
+      const toHex = v => Math.round(Math.max(0, Math.min(1, v + m)) * 255).toString(16).padStart(2, '0');
+      return '#' + toHex(r1) + toHex(g1) + toHex(b1);
+    }
+    // ▼ 2色を割合で混ぜる（ページ全体の下地に、テーマ色をごくわずかに混ぜるために使う）
+    function mixHex_(hexA, hexB, ratioA) {
+      const p = (hex, i) => parseInt(String(hex).replace('#', '').substring(i, i + 2), 16);
+      return '#' + [0, 2, 4].map(i => Math.round(p(hexA, i) * ratioA + p(hexB, i) * (1 - ratioA)).toString(16).padStart(2, '0')).join('');
+    }
+    function themeColors_(key, saturationKey) {
+      const t = THEMES[key] || THEMES.indigo;
+      const f = (THEME_SATURATIONS[saturationKey] || THEME_SATURATIONS.standard).factor;
+      return { accent: withSaturation_(t.accent, f), accentBg: withSaturation_(t.accentBg, f), accentInk: withSaturation_(t.accentInk, f) };
+    }
+    function applyTheme(key, saturationKey) {
+      const t = themeColors_(key, saturationKey);
       const root = document.documentElement.style;
       root.setProperty('--accent', t.accent);
       root.setProperty('--accent-bg', t.accentBg);
       root.setProperty('--accent-ink', t.accentInk);
+      // 濃いコントロールパネルと本文側がばらばらに見えないよう、ページの下地にもテーマ色を5%だけ混ぜる
+      root.setProperty('--canvas', mixHex_(t.accent, '#F3F4F7', 0.05));
       // お知らせ帯はテーマのアクセントカラーを背景に使うため、文字色(個別に色指定が無い部分)も
       // 背景の明暗に応じて自動的に読みやすい方(黒 or 白)に切り替える
       root.setProperty('--announce-ink', readableInkFor_(t.accent));
@@ -1269,20 +1315,26 @@
 
     // ---- 設定ページ ----
     function themeSectionHTML() {
-      const isDirty = pendingTheme !== currentTheme;
+      const isDirty = pendingTheme !== currentTheme || pendingSaturation !== currentSaturation;
       let msg = '';
       if (isDirty) msg = `<span class="theme-msg dirty"><i class="fa-solid fa-circle-exclamation"></i> 未保存の変更があります</span>`;
       else if (themeMessage) msg = `<span class="theme-msg saved"><i class="fa-solid fa-circle-check"></i> ${themeMessage}</span>`;
       return `
         <div class="settings-card">
           <h2 class="settings-card-title"><i class="fa-solid fa-palette"></i>テーマ設定</h2>
-          <p class="settings-card-desc">アクセントカラーを選んで保存します。自分の画面だけに反映されます。</p>
+          <p class="settings-card-desc">色と鮮やかさを選ぶと、この画面ですぐに試せます。保存すると自分の画面だけに反映されます。</p>
           <div class="theme-swatches">
             ${Object.keys(THEMES).map(key => `
               <button type="button" class="theme-swatch ${pendingTheme === key ? 'active' : ''}" data-theme="${key}">
-                <span class="theme-dot" style="background:${THEMES[key].accent};"></span>${THEMES[key].name}
+                <span class="theme-dot" style="background:${themeColors_(key, pendingSaturation).accent};"></span>${THEMES[key].name}
               </button>
             `).join('')}
+          </div>
+          <div class="theme-sat-row">
+            <span class="theme-sat-label">色の鮮やかさ</span>
+            <div class="theme-sat-options">
+              ${Object.keys(THEME_SATURATIONS).map(key => `<button type="button" class="theme-sat-btn ${pendingSaturation === key ? 'active' : ''}" data-saturation="${key}">${THEME_SATURATIONS[key].name}</button>`).join('')}
+            </div>
           </div>
           <div class="theme-save-row">
             <button type="button" class="theme-save-btn" id="themeSaveBtn" ${isDirty ? '' : 'disabled'}>保存</button>
@@ -1667,7 +1719,9 @@
           ${bottomTabBarHTML()}
         </div>
       `;
-      applyTheme(currentTheme);
+      // 設定ページでは、選んだだけ（未保存）のテーマ・鮮やかさをその場で試せるようにする。他のページでは保存済みの設定を使う。
+      if (currentPage === 'settings') applyTheme(pendingTheme, pendingSaturation);
+      else applyTheme(currentTheme, currentSaturation);
       wireEvents();
       scrollTodayToTop();
       if (currentPage === 'mypage' && LINKED_NAME) renderMpResults();
@@ -1804,15 +1858,19 @@
       if (mpMethod) mpMethod.onchange = (ev) => { mpSearch.method = ev.target.value; renderMpResults(); };
 
       root.querySelectorAll('.theme-swatch[data-theme]').forEach(btn => {
-        btn.onclick = () => { pendingTheme = btn.dataset.theme; themeMessage = ''; render(); };
+        btn.onclick = () => { pendingTheme = btn.dataset.theme; themeMessage = ''; renderKeepingSettingsScroll_(); };
+      });
+      root.querySelectorAll('.theme-sat-btn[data-saturation]').forEach(btn => {
+        btn.onclick = () => { pendingSaturation = btn.dataset.saturation; themeMessage = ''; renderKeepingSettingsScroll_(); };
       });
       const themeSaveBtn = document.getElementById('themeSaveBtn');
       if (themeSaveBtn) themeSaveBtn.onclick = () => {
         currentTheme = pendingTheme;
+        currentSaturation = pendingSaturation;
         themeMessage = '保存しました';
-        render();
+        renderKeepingSettingsScroll_();
         if (typeof google !== 'undefined') {
-          google.script.run.withFailureHandler(e => console.error(e)).saveUserTheme(currentTheme);
+          google.script.run.withFailureHandler(e => console.error(e)).saveUserTheme(currentTheme, currentSaturation);
         }
       };
 
