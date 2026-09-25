@@ -2,7 +2,7 @@ const DEFAULT_ADMIN_EMAIL = "k-toda@gifuyanase.co.jp";
 
 // ▼ 設定ページの一番下に表示するバージョン。Index.html側のバージョンと一致しているかで、
 //   コードの貼り替えと「新しいバージョンでのデプロイ」が両方済んでいるかを確認できる。
-const APP_VERSION = '2026.09.25-6';
+const APP_VERSION = '2026.09.25-7';
 
 // ▼ 権限者（設定ページの各種管理項目を変更できるアカウント）一覧。最大5名まで登録できます。
 //   登録・編集はスプレッドシートを直接編集する運用に変わったため、ここはアプリの管理設定を
@@ -115,13 +115,20 @@ function getDbSheetsForCarType_(carType) {
 //   「氏名(フルネーム) ⇔ Googleアカウント ⇔ 拠点」の対応表であり、上の権限者一覧(EDITOR_EMAILS)とは
 //   別物。ここに登録しても設定ページの管理項目は操作できるようにならない。
 // ============================================================
-const THEME_KEYS = ['indigo', 'green', 'charcoal', 'amber', 'rose', 'teal', 'purple', 'slate', 'navy', 'terracotta'];
+const THEME_KEYS = ['indigo', 'green', 'charcoal', 'black', 'amber', 'rose', 'teal', 'purple', 'slate', 'navy', 'terracotta'];
 const MYPAGE_LINK_SHEET_NAME = 'settings_マイページ連携';
 
 
 // ▼ コントロールパネルに並べる他アプリへのリンク（最大5件、並び順どおりに表示）。権限者のみ編集できる。
 const EXTERNAL_APPS_PROP = 'externalApps';
 const EXTERNAL_APPS_MAX = 5;
+// ▼ アプリごとに選べるアイコン（Font Awesome のクラス名）。Index.html の APP_ICONS と同じ並び・内容にすること。
+//   画面ではこの値を class 属性に使うため、ここに無い値は保存しない。
+const EXTERNAL_APP_ICONS = [
+  'fa-up-right-from-square', 'fa-car-side', 'fa-id-card', 'fa-file-lines', 'fa-folder-open', 'fa-calendar-check',
+  'fa-chart-line', 'fa-users', 'fa-envelope', 'fa-comments', 'fa-phone', 'fa-location-dot',
+  'fa-clipboard-list', 'fa-screwdriver-wrench', 'fa-yen-sign', 'fa-house',
+];
 // 以前の「車検証アプリ」単独設定。追加アプリが一度も保存されていなければ、1件目として引き継ぐ。
 const LEGACY_VEHICLE_INSPECTION_APP_URL_PROP = 'vehicleInspectionAppUrl';
 function getExternalApps() {
@@ -129,7 +136,7 @@ function getExternalApps() {
   const raw = props.getProperty(EXTERNAL_APPS_PROP);
   if (raw === null) {
     const legacyUrl = props.getProperty(LEGACY_VEHICLE_INSPECTION_APP_URL_PROP);
-    return legacyUrl ? [{ name: '車検証アプリ', url: legacyUrl }] : [];
+    return legacyUrl ? [{ name: '車検証アプリ', url: legacyUrl, icon: 'fa-id-card' }] : [];
   }
   try {
     const parsed = JSON.parse(raw);
@@ -144,7 +151,11 @@ function saveExternalApps(apps) {
     return { success: false, message: '権限者のみ変更できます。' };
   }
   const cleaned = (apps || [])
-    .map(a => ({ name: String((a && a.name) || '').trim().slice(0, 20), url: String((a && a.url) || '').trim() }))
+    .map(a => ({
+      name: String((a && a.name) || '').trim().slice(0, 20),
+      url: String((a && a.url) || '').trim(),
+      icon: EXTERNAL_APP_ICONS.indexOf(String((a && a.icon) || '')) !== -1 ? a.icon : EXTERNAL_APP_ICONS[0],
+    }))
     .filter(a => a.name || a.url);
   if (cleaned.length > EXTERNAL_APPS_MAX) {
     return { success: false, message: `登録できるアプリは${EXTERNAL_APPS_MAX}件までです。` };

@@ -136,7 +136,6 @@
     .kpi-row-top { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin-bottom: 10px; }
     .kpi-row-bottom { grid-template-columns: repeat(7, 1fr); }
     .kpi-tile { background: var(--surface); border-radius: 10px; padding: 10px 14px; box-shadow: var(--shadow-sm); }
-    .kpi-tile-accent { background: var(--accent-bg); }
     .kpi-label { font-size: calc(10.5px * var(--fs, 1)); font-weight: 700; color: var(--muted); display: flex; align-items: center; gap: 5px; }
     .kpi-value { font-family: var(--font-ios); font-variant-numeric: tabular-nums slashed-zero; font-size: calc(20px * var(--fs, 1)); font-weight: 700; color: var(--ink); margin-top: 4px; }
     .kpi-unit { font-size: calc(10.5px * var(--fs, 1)); font-weight: 600; color: var(--muted); margin-left: 3px; font-family: var(--font-ios); }
@@ -273,8 +272,17 @@
     .settings-add-btn:disabled { background: #E2E5EB; color: #A6ACB8; cursor: default; filter: none; }
     .settings-subblock { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--hairline); }
     .settings-subblock:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
-    .theme-swatches { display: flex; gap: 9px; flex-wrap: wrap; margin-bottom: 15px; }
-    .theme-swatch { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 7px; padding: 9px 14px; font-size: calc(12px * var(--fs, 1)); font-weight: 600; color: var(--ink-2); background: var(--surface); cursor: pointer; transition: border-color .12s ease, background .12s ease; }
+    /* テーマは同じ幅のマス目に並べる。入りきる幅なら全11色を1列に、入らなければ 6+5 → 4+4+3 → 2列 と
+       段の数がそろう列数に切り替える（カードの幅で判定）。各マスは文字が収まる最小幅(96px×文字倍率)を下回らず、
+       文字を「大きめ」にして入りきらないときは自動で列を減らす。 */
+    .theme-swatches-wrap { container-type: inline-size; }
+    .theme-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(max(calc(96px * var(--fs, 1)), calc((100% - 60px) / 11)), 1fr)); gap: 6px; margin-bottom: 15px; }
+    /* 文字「大きめ」では11色が1列に入りきらないため、広い画面でも 6+5 にそろえる */
+    @container (min-width: 1116px) { .font-large .theme-swatches { grid-template-columns: repeat(auto-fill, minmax(max(calc(96px * var(--fs, 1)), calc((100% - 30px) / 6)), 1fr)); } }
+    @container (max-width: 1115px) { .theme-swatches { grid-template-columns: repeat(auto-fill, minmax(max(calc(96px * var(--fs, 1)), calc((100% - 30px) / 6)), 1fr)); } }
+    @container (max-width: 619px) { .theme-swatches { grid-template-columns: repeat(auto-fill, minmax(max(calc(96px * var(--fs, 1)), calc((100% - 18px) / 4)), 1fr)); } }
+    @container (max-width: 399px) { .theme-swatches { grid-template-columns: repeat(2, 1fr); gap: 8px; } }
+    .theme-swatch { display: flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; min-width: 0; border: 1px solid var(--border); border-radius: 7px; padding: 9px 6px; font-size: calc(12px * var(--fs, 1)); font-weight: 600; color: var(--ink-2); background: var(--surface); cursor: pointer; transition: border-color .12s ease, background .12s ease; }
     .theme-swatch:hover { border-color: var(--ink-2); }
     .theme-swatch.active { color: var(--accent-ink); background: var(--accent-bg); border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
     .theme-sat-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 4px 0 15px; }
@@ -284,6 +292,30 @@
     .theme-sat-btn:hover { color: var(--ink-2); }
     .theme-sat-btn.active { background: var(--surface); color: var(--accent-ink); font-weight: 700; box-shadow: var(--shadow-sm); }
     .theme-sat-btn:disabled { opacity: .45; cursor: default; }
+    .theme-preview-label { font-size: calc(10.5px * var(--fs, 1)); font-weight: 700; color: var(--muted); margin-bottom: 6px; }
+    .theme-preview { display: flex; max-width: 480px; border: 1px solid var(--hairline); border-radius: 10px; overflow: hidden; margin-bottom: 15px; background: var(--canvas); font-size: calc(10.5px * var(--fs, 1)); line-height: 1.3; }
+    .tp-panel { flex: 0 0 104px; padding: 12px 8px; display: flex; flex-direction: column; gap: 3px; background: var(--accent-ink); background: color-mix(in srgb, var(--accent) 42%, #0D1120); }
+    .tp-logo { width: 26px; height: 26px; border-radius: 50%; background: rgba(255,255,255,.16); margin: 0 auto 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .tp-logo.has-image { background: transparent; border-radius: 0; width: auto; max-width: 88px; }
+    .tp-logo img { max-width: 88px; max-height: 26px; object-fit: contain; display: block; }
+    .tp-nav { color: rgba(255,255,255,.82); padding: 5px 7px; border-radius: 4px; font-weight: 600; white-space: nowrap; }
+    .tp-nav.active { background: rgba(255,255,255,.14); color: #fff; box-shadow: inset 2px 0 0 #fff; }
+    .tp-main { flex: 1; min-width: 0; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .tp-kpis { display: flex; gap: 6px; }
+    .tp-kpi { flex: 1; min-width: 0; background: var(--surface); border: 1px solid var(--hairline); border-radius: 6px; padding: 5px 8px; color: var(--muted); font-weight: 700; display: flex; flex-direction: column; }
+    .tp-kpi b { color: var(--ink); font-size: 1.45em; }
+    .tp-kpi small { font-size: .6em; color: var(--muted); margin-left: 2px; }
+    .tp-row { display: flex; align-items: center; gap: 6px; min-width: 0; background: var(--surface); border-radius: 6px; padding: 5px 6px; }
+    .tp-row.tp-today { background: var(--accent-bg); background: color-mix(in srgb, var(--accent) 20%, var(--surface)); box-shadow: inset 0 0 0 1px var(--accent); }
+    .tp-badge { flex: none; background: var(--accent); color: #fff; border-radius: 4px; padding: 2px 6px; font-weight: 700; }
+    .tp-date { flex: none; color: var(--ink-2); font-weight: 700; padding: 2px 6px; }
+    .tp-card { min-width: 0; background: var(--surface); border: 1px solid var(--hairline); border-left: 3px solid var(--accent); border-radius: 4px; padding: 3px 7px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tp-card.is-mine { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+    .tp-btn { align-self: flex-start; background: var(--accent); color: #fff; border-radius: 5px; padding: 4px 14px; font-weight: 700; }
+    .app-icon-pick { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+    .app-icon-preview { width: 30px; height: 30px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: calc(13px * var(--fs, 1)); background: var(--accent-ink); background: color-mix(in srgb, var(--accent) 42%, #0D1120); }
+    .app-icon-select { width: auto; min-width: 128px; }
+    .icon-url-input { display: block; width: 100%; box-sizing: border-box; resize: vertical; min-height: 64px; line-height: 1.5; word-break: break-all; font-family: inherit; }
     .pref-row { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; padding: 12px 0; border-bottom: 1px solid var(--hairline); }
     .pref-row:first-of-type { padding-top: 0; }
     .pref-label { font-size: calc(12.5px * var(--fs, 1)); font-weight: 700; color: var(--ink); }
@@ -397,7 +429,6 @@
         border-radius: 0; padding: 4px 10px; border-right: 1px solid var(--hairline); text-align: center;
       }
       .kpi-row-top .kpi-tile:last-child, .kpi-row-bottom .kpi-tile:last-child { border-right: none; }
-      .kpi-row-top .kpi-tile-accent { background: transparent; }
       .kpi-row-top .kpi-label, .kpi-row-bottom .kpi-label {
         justify-content: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: calc(9.5px * var(--fs, 1));
       }
@@ -408,7 +439,6 @@
       .mobile-account-card { display: flex; align-items: center; gap: 12px; background: var(--surface); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow-sm); border: 1px solid var(--hairline); }
 
       /* -- テーマ設定は2色×4段のグリッドに -- */
-      .theme-swatches { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
       .theme-swatch { justify-content: center; }
 
       /* -- 設定ページの管理者向けフォーム行: 横並びだと項目が収まらず横スクロールに
@@ -470,12 +500,35 @@
     const INITIAL_THEME_SATURATION = <?!= JSON.stringify(typeof initialThemeSaturation !== 'undefined' ? initialThemeSaturation : 'standard') ?>;
     const INITIAL_DISPLAY_PREFS = <?!= JSON.stringify(typeof initialDisplayPrefs !== 'undefined' ? initialDisplayPrefs : {}) ?>;
     // ▼ Code.gs の APP_VERSION と同じ値にする。設定ページ下部で両者を比べ、貼り替え漏れ・デプロイ漏れを知らせる。
-    const CLIENT_VERSION = '2026.09.25-6';
+    const CLIENT_VERSION = '2026.09.25-7';
     const SERVER_VERSION = <?!= JSON.stringify(typeof appVersion !== 'undefined' ? appVersion : '') ?>;
     const INITIAL_SIDE_ICON_URL = <?!= JSON.stringify(initialSideIconUrl || '') ?>;
     const INITIAL_SIDE_ICON_EXTERNAL_URL = <?!= JSON.stringify(initialSideIconExternalUrl || '') ?>;
     const INITIAL_EXTERNAL_APPS = <?!= JSON.stringify(initialExternalApps || []) ?>;
     const EXTERNAL_APPS_MAX = 5;
+    // ▼ アプリリンクに選べるアイコン。Code.gs の EXTERNAL_APP_ICONS と同じ並び・内容にすること。
+    const APP_ICONS = [
+      { cls: 'fa-up-right-from-square', label: 'リンク' },
+      { cls: 'fa-car-side', label: '車' },
+      { cls: 'fa-id-card', label: '車検証・証明書' },
+      { cls: 'fa-file-lines', label: '書類' },
+      { cls: 'fa-folder-open', label: 'フォルダ' },
+      { cls: 'fa-calendar-check', label: 'カレンダー' },
+      { cls: 'fa-chart-line', label: 'グラフ・実績' },
+      { cls: 'fa-users', label: '人・顧客' },
+      { cls: 'fa-envelope', label: 'メール' },
+      { cls: 'fa-comments', label: 'チャット' },
+      { cls: 'fa-phone', label: '電話' },
+      { cls: 'fa-location-dot', label: '地図・拠点' },
+      { cls: 'fa-clipboard-list', label: 'チェックリスト' },
+      { cls: 'fa-screwdriver-wrench', label: '整備・工具' },
+      { cls: 'fa-yen-sign', label: 'お金・見積' },
+      { cls: 'fa-house', label: 'ホーム' },
+    ];
+    // 一覧にないアイコン名は使わない（class属性に入れるため）
+    function appIconClass_(a) {
+      return APP_ICONS.some(i => i.cls === (a && a.icon)) ? a.icon : APP_ICONS[0].cls;
+    }
     const LINKED_NAME = <?!= JSON.stringify(linkedName || '') ?>;
     const LINKED_CAR_TYPE = <?!= JSON.stringify(linkedCarType || '') ?>;
     const LINKED_BRANCH = <?!= JSON.stringify(linkedBranch || '') ?>;
@@ -555,6 +608,7 @@
       indigo: { name: 'インディゴ', accent: '#3B4FD1', accentBg: '#EEF1FD', accentInk: '#2E3FB0' },
       green: { name: 'グリーン', accent: '#16924F', accentBg: '#E7F7EE', accentInk: '#0F7A3D' },
       charcoal: { name: 'チャコール', accent: '#33333D', accentBg: '#E9E9EC', accentInk: '#202027' },
+      black: { name: 'ブラック', accent: '#1C1C21', accentBg: '#ECECEE', accentInk: '#111114' },
       amber: { name: 'アンバー', accent: '#C2790E', accentBg: '#FBEFDD', accentInk: '#9C610A' },
       rose: { name: 'ローズ', accent: '#C93E77', accentBg: '#FBEAF1', accentInk: '#A62D60' },
       teal: { name: 'ティール', accent: '#0C7C8C', accentBg: '#E6F4F6', accentInk: '#0A6672' },
@@ -575,15 +629,18 @@
     let pendingTheme = currentTheme;
     let currentSaturation = THEME_SATURATIONS[INITIAL_THEME_SATURATION] ? INITIAL_THEME_SATURATION : 'standard';
     let pendingSaturation = currentSaturation;
-    // ▼ 表示設定（個人ごと）。変更はその場で反映・保存する。
+    // ▼ 表示設定（個人ごと）。テーマと同じく、選ぶと設定画面でその場で試せて、「保存」で確定する。
     const FONT_SCALES = { normal: 1, large: 1.15 };
     let displayPrefs = {
       highlightMine: INITIAL_DISPLAY_PREFS.highlightMine !== false,
       fontSize: INITIAL_DISPLAY_PREFS.fontSize === 'large' ? 'large' : 'normal',
     };
+    let pendingDisplayPrefs = { ...displayPrefs };
     let displayPrefsMsg = { text: '', error: false };
     function applyDisplayPrefs_() {
-      document.documentElement.style.setProperty('--fs', String(FONT_SCALES[displayPrefs.fontSize] || 1));
+      const prefs = currentPage === 'settings' ? pendingDisplayPrefs : displayPrefs;
+      document.documentElement.style.setProperty('--fs', String(FONT_SCALES[prefs.fontSize] || 1));
+      document.documentElement.classList.toggle('font-large', prefs.fontSize === 'large');
     }
     // ▼ 担当者が自分の案件か（担当者マスタで紐づいた氏名と「担当者」欄を照合する。マイページと同じ考え方）
     function isMine_(r) {
@@ -1047,7 +1104,7 @@
       return `
         <div class="kpi-section">
           <div class="kpi-row kpi-row-top">
-            <div class="kpi-tile kpi-tile-accent">
+            <div class="kpi-tile">
               <div class="kpi-label">${month + 1}月 総登録台数</div>
               <div class="kpi-value">${total}<span class="kpi-unit">台</span></div>
             </div>
@@ -1350,19 +1407,20 @@
         <div class="settings-card">
           <h2 class="settings-card-title"><i class="fa-solid fa-palette"></i>テーマ設定</h2>
           <p class="settings-card-desc">色と鮮やかさを選ぶと、この画面ですぐに試せます。保存すると自分の画面だけに反映されます。</p>
-          <div class="theme-swatches">
+          <div class="theme-swatches-wrap"><div class="theme-swatches">
             ${Object.keys(THEMES).map(key => `
               <button type="button" class="theme-swatch ${pendingTheme === key ? 'active' : ''}" data-theme="${key}">
                 <span class="theme-dot" style="background:${themeColors_(key, pendingSaturation).accent};"></span>${THEMES[key].name}
               </button>
             `).join('')}
-          </div>
+          </div></div>
           <div class="theme-sat-row">
             <span class="theme-sat-label">色の鮮やかさ</span>
             <div class="theme-sat-options">
               ${Object.keys(THEME_SATURATIONS).map(key => `<button type="button" class="theme-sat-btn ${pendingSaturation === key ? 'active' : ''}" data-saturation="${key}">${THEME_SATURATIONS[key].name}</button>`).join('')}
             </div>
           </div>
+          ${themePreviewHTML()}
           <div class="theme-save-row">
             <button type="button" class="theme-save-btn" id="themeSaveBtn" ${isDirty ? '' : 'disabled'}>保存</button>
             ${msg}
@@ -1370,15 +1428,42 @@
         </div>
       `;
     }
-    // ▼ 表示設定（権限者以外も使える個人ごとの設定）。押した時点で反映・保存する。
+    // ▼ テーマ設定の中に出す、カレンダー画面の縮小イメージ。色は実際の画面と同じCSS変数を使うため、
+    //   テーマ・鮮やかさを選んだ時点（保存前）の見た目がそのまま映る。
+    function themePreviewHTML() {
+      const logo = sidePanelIconUrl ? `<img src="${escapeAttr(sidePanelIconUrl)}" alt="">` : '';
+      return `
+        <div class="theme-preview-label">プレビュー（カレンダー画面のイメージ）</div>
+        <div class="theme-preview" aria-hidden="true">
+          <div class="tp-panel">
+            <div class="tp-logo ${logo ? 'has-image' : ''}">${logo}</div>
+            <div class="tp-nav active">カレンダー</div>
+            <div class="tp-nav">マイページ</div>
+            <div class="tp-nav">設定</div>
+          </div>
+          <div class="tp-main">
+            <div class="tp-kpis">
+              <div class="tp-kpi">総登録台数<b>12<small>台</small></b></div>
+              <div class="tp-kpi">OSS登録率<b>67<small>%</small></b></div>
+            </div>
+            <div class="tp-row tp-today"><span class="tp-badge">25</span><span class="tp-card is-mine">山本 花子</span><span class="tp-card">田中 次郎</span></div>
+            <div class="tp-row"><span class="tp-date">26</span><span class="tp-card">佐藤 三郎</span></div>
+            <div class="tp-btn">保存</div>
+          </div>
+        </div>
+      `;
+    }
+    // ▼ 表示設定（権限者以外も使える個人ごとの設定）。選ぶとその場で試せて、「保存」で確定する。
     function displayPrefsSectionHTML() {
-      const seg = (pref, value, label, disabled) => `<button type="button" class="theme-sat-btn ${String(displayPrefs[pref]) === String(value) ? 'active' : ''}" data-pref="${pref}" data-value="${value}" ${disabled ? 'disabled' : ''}>${label}</button>`;
-      const msg = displayPrefsMsg.text
-        ? `<p class="pref-hint" style="margin-top:10px;font-weight:700;color:${displayPrefsMsg.error ? 'var(--paper)' : 'var(--oss)'};">${escapeHtml(displayPrefsMsg.text)}</p>` : '';
+      const seg = (pref, value, label, disabled) => `<button type="button" class="theme-sat-btn ${String(pendingDisplayPrefs[pref]) === String(value) ? 'active' : ''}" data-pref="${pref}" data-value="${value}" ${disabled ? 'disabled' : ''}>${label}</button>`;
+      const isDirty = pendingDisplayPrefs.highlightMine !== displayPrefs.highlightMine || pendingDisplayPrefs.fontSize !== displayPrefs.fontSize;
+      let msg = '';
+      if (isDirty) msg = `<span class="theme-msg dirty"><i class="fa-solid fa-circle-exclamation"></i> 未保存の変更があります</span>`;
+      else if (displayPrefsMsg.text) msg = `<span class="theme-msg ${displayPrefsMsg.error ? 'dirty' : 'saved'}"><i class="fa-solid ${displayPrefsMsg.error ? 'fa-circle-exclamation' : 'fa-circle-check'}"></i> ${escapeHtml(displayPrefsMsg.text)}</span>`;
       return `
         <div class="settings-card">
           <h2 class="settings-card-title"><i class="fa-solid fa-sliders"></i>表示設定</h2>
-          <p class="settings-card-desc">自分の画面だけに反映されます。押すとすぐに保存されます。</p>
+          <p class="settings-card-desc">選ぶとこの画面ですぐに試せます。保存すると自分の画面だけに反映されます。</p>
           <div class="pref-row">
             <div>
               <div class="pref-label">自分の担当案件を目立たせる</div>
@@ -1395,7 +1480,10 @@
             </div>
             <div class="theme-sat-options">${seg('fontSize', 'normal', '標準')}${seg('fontSize', 'large', '大きめ')}</div>
           </div>
-          ${msg}
+          <div class="theme-save-row" style="margin-top:14px;">
+            <button type="button" class="theme-save-btn" id="displayPrefsSaveBtn" ${isDirty ? '' : 'disabled'}>保存</button>
+            ${msg}
+          </div>
         </div>
       `;
     }
@@ -1428,11 +1516,11 @@
           </div>
           <div class="settings-subblock" style="border-bottom:none;padding-bottom:0;margin-bottom:0;">
             <label style="font-size: calc(10.5px * var(--fs, 1));font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;display:block;">方法2: 画像URLを直接指定</label>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <input type="text" id="iconUrlInput" class="settings-input" placeholder="https://..." value="${escapeAttr(sideIconExternalUrlValue)}" style="flex:1;min-width:220px;">
-              <button type="button" class="settings-add-btn" id="saveIconUrlBtn">URLを保存</button>
+            <p class="settings-card-desc" style="margin-bottom:6px;">ドライブの画像の共有リンク、または公開されている画像のURLを貼り付けてください。</p>
+            <textarea id="iconUrlInput" class="settings-input icon-url-input" rows="3" placeholder="https://drive.google.com/file/d/..." spellcheck="false">${escapeHtml(sideIconExternalUrlValue)}</textarea>
+            <div class="theme-save-row" style="border-top:none;padding-top:10px;">
+              <button type="button" class="theme-save-btn" id="saveIconUrlBtn">保存</button>
             </div>
-            <p class="settings-card-desc" style="margin-top:6px;margin-bottom:0;">ドライブの画像の共有リンク、または公開されている画像のURLを貼り付けてください。</p>
           </div>
         </div>
       `;
@@ -1450,13 +1538,21 @@
       if (appsMsg) msg = `<span class="theme-msg saved"><i class="fa-solid fa-circle-check"></i> ${appsMsg}</span>`;
       else if (appsDirty) msg = `<span class="theme-msg dirty"><i class="fa-solid fa-circle-exclamation"></i> 未保存の変更があります</span>`;
       const full = pendingApps.length >= EXTERNAL_APPS_MAX;
+      const iconPicker = (current, attrs) => `
+        <span class="app-icon-pick">
+          <span class="app-icon-preview"><i class="fa-solid ${current}"></i></span>
+          <select class="settings-input app-icon-select" ${attrs} title="コントロールパネルに表示するアイコン">
+            ${APP_ICONS.map(ic => `<option value="${ic.cls}" ${ic.cls === current ? 'selected' : ''}>${ic.label}</option>`).join('')}
+          </select>
+        </span>`;
       return `
         <div class="settings-card">
           <h2 class="settings-card-title"><i class="fa-solid fa-up-right-from-square"></i>アプリリンク設定</h2>
-          <p class="settings-card-desc">コントロールパネルに表示する他アプリへのリンクを最大${EXTERNAL_APPS_MAX}件設定します。リンクは別タブで開きます。▲▼で表示順を変更できます。</p>
+          <p class="settings-card-desc">コントロールパネルに表示する他アプリへのリンクを最大${EXTERNAL_APPS_MAX}件設定します。アイコンを選べます。リンクは別タブで開きます。▲▼で表示順を変更できます。</p>
           <div class="settings-list" id="appList">
             ${pendingApps.map((a, i) => `
               <div class="settings-row">
+                ${iconPicker(appIconClass_(a), `data-idx="${i}" data-role="app-icon"`)}
                 <input type="text" class="settings-input js-app-name" data-idx="${i}" value="${escapeAttr(a.name || '')}" placeholder="アプリ名" maxlength="20" style="flex:0 1 170px;min-width:110px;">
                 <input type="text" class="settings-input js-app-url" data-idx="${i}" value="${escapeAttr(a.url || '')}" placeholder="https://..." style="flex:1;min-width:180px;">
                 ${moveButtonsHTML_('app', i, i > 0, i < pendingApps.length - 1)}
@@ -1465,6 +1561,7 @@
             `).join('') || `<p style="font-size: calc(12px * var(--fs, 1));color:var(--muted);padding:8px 2px;">アプリは登録されていません。</p>`}
           </div>
           <div class="settings-add-row">
+            ${iconPicker(APP_ICONS[0].cls, `id="newAppIcon" ${full ? 'disabled' : ''}`)}
             <input id="newAppName" class="settings-input" placeholder="アプリ名（例: 車検証アプリ）" maxlength="20" style="flex:0 1 200px;min-width:140px;" ${full ? 'disabled' : ''}>
             <input id="newAppUrl" class="settings-input" placeholder="https://..." style="flex:1;min-width:180px;" ${full ? 'disabled' : ''}>
             <button type="button" id="addAppBtn" class="settings-add-btn" ${full ? 'disabled' : ''}><i class="fa-solid fa-plus"></i>追加（${pendingApps.length}/${EXTERNAL_APPS_MAX}）</button>
@@ -1690,7 +1787,7 @@
       const navItem = (page, icon, label) => `<button type="button" class="cp-nav-item ${currentPage === page ? 'active' : ''}" data-page="${page}"><i class="fa-solid ${icon}"></i>${label}</button>`;
       const iconInner = sidePanelIconUrl ? `<img src="${escapeAttr(sidePanelIconUrl)}" alt="">` : `<i class="fa-solid fa-car"></i>`;
       const carTypeSubNav = `<div class="cp-subnav">${CAR_TYPES.map(t => `<button type="button" class="cp-subnav-item ${currentPage === 'calendar' && carType === t ? 'active' : ''}" data-cartype="${t}">${t}</button>`).join('')}</div>`;
-      const appLinks = visibleExternalApps_().map(a => `<a class="cp-nav-item cp-app-link" href="${escapeAttr(a.url)}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-up-right-from-square"></i><span class="cp-app-name">${escapeHtml(a.name)}</span></a>`).join('');
+      const appLinks = visibleExternalApps_().map(a => `<a class="cp-nav-item cp-app-link" href="${escapeAttr(a.url)}" target="_blank" rel="noopener noreferrer"><i class="fa-solid ${appIconClass_(a)}"></i><span class="cp-app-name">${escapeHtml(a.name)}</span></a>`).join('');
       return `
         <div class="cp-header">
           <div class="cp-icon-mark ${sidePanelIconUrl ? 'has-image' : ''}">${iconInner}</div>
@@ -1721,7 +1818,7 @@
     function bottomTabBarHTML() {
       const item = (page, icon, label) => `<button type="button" class="cp-nav-item bottom-tab-item ${currentPage === page ? 'active' : ''}" data-page="${page}"><i class="fa-solid ${icon}"></i><span>${label}</span></button>`;
       const apps = visibleExternalApps_();
-      const appLink = (a, cls) => `<a class="${cls}" href="${escapeAttr(a.url)}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-up-right-from-square"></i><span>${escapeHtml(a.name)}</span></a>`;
+      const appLink = (a, cls) => `<a class="${cls}" href="${escapeAttr(a.url)}" target="_blank" rel="noopener noreferrer"><i class="fa-solid ${appIconClass_(a)}"></i><span>${escapeHtml(a.name)}</span></a>`;
       let appsTab = '';
       if (apps.length === 1) {
         appsTab = appLink(apps[0], 'cp-nav-item bottom-tab-item');
@@ -1921,15 +2018,21 @@
       root.querySelectorAll('.theme-sat-btn[data-pref]').forEach(btn => {
         btn.onclick = () => {
           const pref = btn.dataset.pref;
-          displayPrefs[pref] = pref === 'highlightMine' ? btn.dataset.value === 'true' : btn.dataset.value;
-          displayPrefsMsg = { text: '保存しました', error: false };
+          pendingDisplayPrefs[pref] = pref === 'highlightMine' ? btn.dataset.value === 'true' : btn.dataset.value;
+          displayPrefsMsg = { text: '', error: false };
           renderKeepingSettingsScroll_();
-          if (typeof google === 'undefined') return;
-          google.script.run
-            .withFailureHandler(e => { displayPrefsMsg = { text: '保存に失敗しました: ' + (e && e.message ? e.message : e), error: true }; renderKeepingSettingsScroll_(); })
-            .saveUserDisplayPrefs(displayPrefs);
         };
       });
+      const displayPrefsSaveBtn = document.getElementById('displayPrefsSaveBtn');
+      if (displayPrefsSaveBtn) displayPrefsSaveBtn.onclick = () => {
+        displayPrefs = { ...pendingDisplayPrefs };
+        displayPrefsMsg = { text: '保存しました', error: false };
+        renderKeepingSettingsScroll_();
+        if (typeof google === 'undefined') return;
+        google.script.run
+          .withFailureHandler(e => { displayPrefsMsg = { text: '保存に失敗しました: ' + (e && e.message ? e.message : e), error: true }; renderKeepingSettingsScroll_(); })
+          .saveUserDisplayPrefs(displayPrefs);
+      };
       root.querySelectorAll('.theme-sat-btn[data-saturation]').forEach(btn => {
         btn.onclick = () => { pendingSaturation = btn.dataset.saturation; themeMessage = ''; renderKeepingSettingsScroll_(); };
       });
@@ -2064,7 +2167,7 @@
       const saveIconUrlBtn = document.getElementById('saveIconUrlBtn');
       if (saveIconUrlBtn) saveIconUrlBtn.onclick = () => {
         const input = document.getElementById('iconUrlInput');
-        const val = input ? input.value.trim() : '';
+        const val = input ? input.value.replace(/\s+/g, '') : ''; // 貼り付け時に紛れた改行・空白を除く（URLに空白は含まれない）
         if (typeof google === 'undefined') return;
         // Googleドライブのリンクは画像そのもののURLではないため、そのままでは表示できない。
         // 画像データを取り込み、アップロードと同じ方法で保存する。
@@ -2287,6 +2390,18 @@
       root.querySelectorAll('.js-app-name').forEach(inp => {
         inp.oninput = (ev) => { pendingApps[Number(inp.dataset.idx)].name = ev.target.value; setAppsDirty_(); markDirtyBtn_('appsSaveBtn'); };
       });
+      // アイコンを選んだら、横のプレビューもその場で切り替える
+      root.querySelectorAll('.app-icon-select').forEach(sel => {
+        sel.onchange = () => {
+          const preview = sel.parentElement.querySelector('.app-icon-preview i');
+          if (preview) preview.className = 'fa-solid ' + appIconClass_({ icon: sel.value });
+          if (sel.dataset.role === 'app-icon') {
+            pendingApps[Number(sel.dataset.idx)].icon = sel.value;
+            setAppsDirty_();
+            markDirtyBtn_('appsSaveBtn');
+          }
+        };
+      });
       root.querySelectorAll('.js-app-url').forEach(inp => {
         inp.oninput = (ev) => { pendingApps[Number(inp.dataset.idx)].url = ev.target.value; setAppsDirty_(); markDirtyBtn_('appsSaveBtn'); };
       });
@@ -2310,7 +2425,8 @@
         if (!name || !url) { if (errEl) errEl.textContent = 'アプリ名とURLを入力してください。'; return; }
         if (!/^https?:\/\/\S+$/i.test(url)) { if (errEl) errEl.textContent = 'URLは http:// または https:// から入力してください。'; return; }
         if (pendingApps.length >= EXTERNAL_APPS_MAX) return;
-        pendingApps.push({ name, url });
+        const iconSel = document.getElementById('newAppIcon');
+        pendingApps.push({ name, url, icon: iconSel ? iconSel.value : APP_ICONS[0].cls });
         setAppsDirty_();
         renderKeepingSettingsScroll_();
       };
