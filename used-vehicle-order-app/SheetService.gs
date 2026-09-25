@@ -521,29 +521,62 @@ function listCarTracking_(sheet) {
 /**
  * デモカーリスト／サービス代車リストへ、指定した車両情報を1行分反映する
  * （ＯＣＮで既存行を検索し、あれば内容と販売状況を上書き、無ければ追記する）。
- * 区分「デモカー」「サービス」の車両の在庫リスト上での状態変化（新規追加・
- * 受注確定による販売・受注キャンセルによる在庫復帰）を、この専用シートへ
- * 反映するために使う（CarTrackingService.gs参照）。
+ * 受注確定・受注キャンセルの瞬間、対象車両1台だけを反映するために使う
+ * （CarTrackingService.gsのmarkCarTrackingIfApplicable_参照）。内部的には
+ * upsertCarTrackingRows_（複数件まとめ版）に1件だけ渡すのと同じ処理。
  * @param {Sheet} sheet デモカーリスト or サービス代車リストのシート
  * @param {Object} vehicle VEHICLE_COLUMNS＋mpのキーを持つ車両情報
  * @param {string} saleStatus CAR_TRACKING_STATUS.IN_STOCK または .SOLD
  */
 function upsertCarTrackingRow_(sheet, vehicle, saleStatus) {
-  var record = {};
-  VEHICLE_COLUMNS.forEach(function (c) { record[c.key] = vehicle[c.key]; });
-  record.mp = vehicle.mp;
-  record.saleStatus = saleStatus;
+  upsertCarTrackingRows_(sheet, [{ vehicle: vehicle, saleStatus: saleStatus }]);
+}
 
-  var rowNumber = findRowByKey_(sheet, CAR_TRACKING_COLUMNS, 'ocn', vehicle.ocn);
-  if (rowNumber) {
-    sheet.getRange(rowNumber, carTrackingColIndex1('commission'), 1, 1).setNumberFormat('@');
-    clearSelectValidationsForRow_(sheet, rowNumber, CAR_TRACKING_COLUMNS);
-    sheet.getRange(rowNumber, 1, 1, CAR_TRACKING_COLUMNS.length).setValues([objectToRow_(record, CAR_TRACKING_COLUMNS)]);
-    return;
-  }
-  var newRow = nextAppendRow_(sheet, carTrackingColIndex1('ocn'));
-  sheet.getRange(newRow, carTrackingColIndex1('ocn'), 1, 1).setNumberFormat('@');
-  sheet.getRange(newRow, carTrackingColIndex1('commission'), 1, 1).setNumberFormat('@');
-  clearSelectValidationsForRow_(sheet, newRow, CAR_TRACKING_COLUMNS);
-  sheet.getRange(newRow, 1, 1, CAR_TRACKING_COLUMNS.length).setValues([objectToRow_(record, CAR_TRACKING_COLUMNS)]);
+/**
+ * デモカーリスト／サービス代車リストへ、複数車両分をまとめて反映する。
+ * 不具合修正: 以前は車両1台ごとにupsertCarTrackingRow_（シートのＯＣＮ列全体を
+ * 毎回読み直して該当行を検索＋その1行だけ書き込み）を呼び出しており、
+ * 在庫リストの区分デモカー・サービスの車両数が多いと、1回の同期（在庫リストの
+ * 全体同期・一覧表示のたび）でSheets APIの呼び出しが車両数×数回にのぼり、
+ * デモカーリスト・サービス代車リストの表示自体がクライアント側のタイムアウト
+ * （JavaScript.htmlのGAS_CALL_TIMEOUT_MS＝25秒）を超えて「サーバーからの応答が
+ * ありません」になってしまっていた。シート全体の読み込み・書き込みをそれぞれ
+ * 1回にまとめることで、対象車両数に関わらず高速に同期できるようにする
+ * （CarTrackingService.gsのsyncCarTrackingFromInventory_から、在庫リストの区分
+ * デモカー／サービスの車両全件をまとめて渡して呼び出す）。
+ * @param {Sheet} sheet デモカーリスト or サービス代車リストのシート
+ * @param {Array<{vehicle: Object, saleStatus: string}>} entries
+ */
+function upsertCarTrackingRows_(sheet, entries) {
+  if (!entries.length) return;
+  var lastRow = sheet.getLastRow();
+  var rows = lastRow >= 2
+    ? sheet.getRange(2, 1, lastRow - 1, CAR_TRACKING_COLUMNS.length).getValues()
+    : [];
+  var ocnIndex0 = carTrackingColIndex1('ocn') - 1;
+  var rowIndexByOcn = {}; // ＯＣＮ → rows配列内のインデックス（既存行の高速検索用）
+  rows.forEach(function (row, i) {
+    if (row[ocnIndex0] !== '' && row[ocnIndex0] !== null) rowIndexByOcn[String(row[ocnIndex0])] = i;
+  });
+
+  entries.forEach(function (entry) {
+    var record = {};
+    VEHICLE_COLUMNS.forEach(function (c) { record[c.key] = entry.vehicle[c.key]; });
+    record.mp = entry.vehicle.mp;
+    record.saleStatus = entry.saleStatus;
+    var rowValues = objectToRow_(record, CAR_TRACKING_COLUMNS);
+    var ocnKey = String(entry.vehicle.ocn);
+    if (rowIndexByOcn.hasOwnProperty(ocnKey)) {
+      rows[rowIndexByOcn[ocnKey]] = rowValues;
+    } else {
+      rows.push(rowValues);
+      rowIndexByOcn[ocnKey] = rows.length - 1;
+    }
+  });
+
+  if (!rows.length) return;
+  sheet.getRange(2, 1, rows.length, CAR_TRACKING_COLUMNS.length).setValues(rows);
+  applyTextColumnFormat_(sheet, [carTrackingColIndex1('ocn'), carTrackingColIndex1('commission')]);
+  var saleStatusCol1 = carTrackingColIndex1('saleStatus');
+  sheet.getRange(2, saleStatusCol1, rows.length, 1).clearDataValidations();
 }

@@ -80,9 +80,14 @@ function markCarTrackingIfApplicable_(vehicle, saleStatus) {
  */
 function syncCarTrackingFromInventory_(sheet, categoryValue) {
   var liveVehicles = listInventory().filter(function (v) { return categoryMatchesCarTracking_(v.category, categoryValue); });
-  liveVehicles.forEach(function (v) {
-    upsertCarTrackingRow_(sheet, v, CAR_TRACKING_STATUS.IN_STOCK);
-  });
+  if (!liveVehicles.length) return;
+  // 不具合修正: 以前は車両1台ごとにupsertCarTrackingRow_を呼び出しており、対象車両が
+  // 多いとSheets APIの呼び出し回数が車両数に比例して増え、デモカーリスト・
+  // サービス代車リストの表示がタイムアウトする不具合の原因だった（SheetService.gsの
+  // upsertCarTrackingRows_参照）。まとめて1回のシート読み込み・書き込みで反映する。
+  upsertCarTrackingRows_(sheet, liveVehicles.map(function (v) {
+    return { vehicle: v, saleStatus: CAR_TRACKING_STATUS.IN_STOCK };
+  }));
 }
 
 /**
