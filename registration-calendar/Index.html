@@ -212,6 +212,17 @@
     .settings-row .s-branch { font-size: 11.5px; font-weight: 700; color: var(--ink-2); flex: 0 0 72px; }
     .settings-remove { border: none; background: transparent; color: #B7BDC9; cursor: pointer; font-size: 12px; flex: 0 0 auto; width: 22px; height: 22px; border-radius: 5px; transition: background .12s ease, color .12s ease; }
     .settings-remove:hover { background: var(--paper-bg); color: var(--paper); }
+    .settings-move { display: inline-flex; gap: 2px; flex: 0 0 auto; }
+    .settings-move-btn { border: 1px solid var(--hairline); background: var(--surface); color: var(--ink-2); cursor: pointer; font-size: 9px; line-height: 1; padding: 0; width: 26px; height: 26px; border-radius: 5px; transition: background .12s ease, color .12s ease; }
+    .settings-move-btn:hover:not(:disabled) { background: var(--accent-bg); color: var(--accent-ink); border-color: var(--accent); }
+    .settings-move-btn:disabled { opacity: .35; cursor: default; }
+    .cp-app-link .cp-app-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .apps-menu-backdrop { position: fixed; inset: 0; z-index: 1; }
+    .apps-menu { position: absolute; right: 8px; bottom: calc(100% + 8px); z-index: 2; min-width: 200px; max-width: calc(100vw - 16px); background: var(--surface); border: 1px solid var(--hairline); border-radius: 12px; box-shadow: var(--shadow-lg); padding: 6px; display: flex; flex-direction: column; gap: 2px; }
+    .apps-menu-item { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--ink); text-decoration: none; }
+    .apps-menu-item i { color: var(--muted); font-size: 12px; width: 14px; text-align: center; }
+    .apps-menu-item span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .apps-menu-item:hover, .apps-menu-item:active { background: var(--surface-2); }
     .settings-add-row { display: flex; gap: 8px; margin-top: 13px; flex-wrap: wrap; }
     .settings-checkbox-label { display: flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: var(--ink-2); white-space: nowrap; cursor: pointer; flex: 0 0 auto; }
     .settings-checkbox-label input { cursor: pointer; }
@@ -367,11 +378,15 @@
       }
       .settings-row .s-branch { flex: 0 0 auto; }
       .settings-row .settings-remove { margin-left: auto; }
+      .settings-row .settings-move { margin-left: auto; }
+      .settings-row .settings-move + .settings-remove { margin-left: 0; }
+      .settings-row .js-app-name, .settings-row .js-app-url { flex: 1 1 100% !important; }
 
       /* -- ボトムタブバー(アプリのタブナビゲーション風)。固定シェルの一番下に収まる
             通常のフレックス項目として配置するため、position:fixedは使わない -- */
-      .bottom-tab-bar { display: flex; flex: 0 0 auto; background: var(--surface); border-top: 1px solid var(--hairline); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); }
-      .bottom-tab-item { flex: 1; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 3px; width: auto; padding: 6px 2px; border-radius: 10px; font-size: 10px; font-weight: 600; color: var(--muted); }
+      .bottom-tab-bar { display: flex; flex: 0 0 auto; background: var(--surface); border-top: 1px solid var(--hairline); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); position: relative; z-index: 20; }
+      .bottom-tab-item { flex: 1; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 3px; width: auto; min-width: 0; padding: 6px 2px; border-radius: 10px; font-size: 10px; font-weight: 600; color: var(--muted); }
+      .bottom-tab-item span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .bottom-tab-item i { font-size: 17px; width: auto; }
       .bottom-tab-item.active { color: var(--accent-ink); background: var(--accent-bg); box-shadow: none; }
       .bottom-tab-item.active i { color: var(--accent-ink); }
@@ -411,6 +426,8 @@
     const INITIAL_SIDE_ICON_URL = <?!= JSON.stringify(initialSideIconUrl || '') ?>;
     const INITIAL_SIDE_ICON_FOLDER_ID = <?!= JSON.stringify(initialSideIconFolderId || '') ?>;
     const INITIAL_SIDE_ICON_EXTERNAL_URL = <?!= JSON.stringify(initialSideIconExternalUrl || '') ?>;
+    const INITIAL_EXTERNAL_APPS = <?!= JSON.stringify(initialExternalApps || []) ?>;
+    const EXTERNAL_APPS_MAX = 5;
     const LINKED_NAME = <?!= JSON.stringify(linkedName || '') ?>;
     const LINKED_CAR_TYPE = <?!= JSON.stringify(linkedCarType || '') ?>;
     const LINKED_BRANCH = <?!= JSON.stringify(linkedBranch || '') ?>;
@@ -589,6 +606,12 @@
     let mypageLinks = [];
     let mypageLinksDirty = false;
     let mypageLinksMsg = '';
+
+    let externalApps = INITIAL_EXTERNAL_APPS.slice(); // 保存済み（コントロールパネルに表示する内容）
+    let pendingApps = externalApps.map(a => ({ ...a })); // 設定ページで編集中の内容
+    let appsDirty = false;
+    let appsMsg = '';
+    let appsMenuOpen = false; // スマホのボトムタブで「アプリ」メニューを開いているか
 
     // お知らせは新車・中古車で別々に保持する。バナーには現在表示中のcarTypeの分だけを出す。
     let announcementsByType = { '新車': INITIAL_ANNOUNCEMENTS_NEW.map(migrateRichItem_), '中古車': INITIAL_ANNOUNCEMENTS_USED.map(migrateRichItem_) };
@@ -1225,7 +1248,7 @@
       return `
         <div class="settings-card">
           <h2 class="settings-card-title"><i class="fa-solid fa-palette"></i>テーマ設定</h2>
-          <p class="settings-card-desc">お好みのアクセントカラーを選び、「保存」を押すと反映されます。選択内容はご自身のアカウントにのみ適用され、他のユーザーには影響しません。</p>
+          <p class="settings-card-desc">アクセントカラーを選んで保存します。自分の画面だけに反映されます。</p>
           <div class="theme-swatches">
             ${Object.keys(THEMES).map(key => `
               <button type="button" class="theme-swatch ${pendingTheme === key ? 'active' : ''}" data-theme="${key}">
@@ -1248,7 +1271,7 @@
       return `
         <div class="settings-card">
           <h2 class="settings-card-title"><i class="fa-solid fa-icons"></i>サイドパネルアイコン設定</h2>
-          <p class="settings-card-desc">左サイドパネル上部中央に表示するアイコンを、画像のアップロードか、画像URLの直接指定のどちらかで設定できます。大きな画像を選んでも、アップロード時に自動で縮小されるため、常に一定サイズの円形アイコンとして表示されます。全ユーザーの画面に反映されます。この項目は権限者としてログインした場合のみ表示されます。</p>
+          <p class="settings-card-desc">コントロールパネル上部のアイコンを設定します。画像は自動で縮小され、全員の画面に反映されます。</p>
           <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-bottom:16px;">
             <div class="cp-icon-mark" style="width:84px;height:84px;font-size:32px;margin-bottom:0;">${previewInner}</div>
             <button type="button" class="btn-secondary" id="iconResetBtn">デフォルトに戻す</button>
@@ -1274,8 +1297,48 @@
               <input type="text" id="iconUrlInput" class="settings-input" placeholder="https://..." value="${escapeAttr(sideIconExternalUrlValue)}" style="flex:1;min-width:220px;">
               <button type="button" class="settings-add-btn" id="saveIconUrlBtn">URLを保存</button>
             </div>
-            <p class="settings-card-desc" style="margin-top:6px;">Googleドライブに保存済みの画像の共有リンク（drive.google.com/file/d/…）を貼り付けると、その画像を取り込んでアイコンにします。元の画像の共有設定は変更しません。社内の別システムなどで公開されている画像のURL（https://）もそのまま使えます。</p>
+            <p class="settings-card-desc" style="margin-top:6px;">ドライブの画像の共有リンク、または公開されている画像のURLを貼り付けてください。</p>
             <p id="iconUrlMsg" style="font-size:11.5px;font-weight:700;margin-top:6px;"></p>
+          </div>
+        </div>
+      `;
+    }
+    // ▼ 並び替え用の▲▼ボタン。role は data-role の接頭辞（"link" → "link-up" / "link-down"）
+    function moveButtonsHTML_(role, idx, canUp, canDown) {
+      return `<span class="settings-move">
+        <button type="button" class="settings-move-btn" data-role="${role}-up" data-idx="${idx}" ${canUp ? '' : 'disabled'} title="上へ移動" aria-label="上へ移動">▲</button>
+        <button type="button" class="settings-move-btn" data-role="${role}-down" data-idx="${idx}" ${canDown ? '' : 'disabled'} title="下へ移動" aria-label="下へ移動">▼</button>
+      </span>`;
+    }
+    function appsSectionHTML() {
+      if (!IS_EDITOR) return '';
+      let msg = '';
+      if (appsMsg) msg = `<span class="theme-msg saved"><i class="fa-solid fa-circle-check"></i> ${appsMsg}</span>`;
+      else if (appsDirty) msg = `<span class="theme-msg dirty"><i class="fa-solid fa-circle-exclamation"></i> 未保存の変更があります</span>`;
+      const full = pendingApps.length >= EXTERNAL_APPS_MAX;
+      return `
+        <div class="settings-card">
+          <h2 class="settings-card-title"><i class="fa-solid fa-up-right-from-square"></i>アプリリンク設定</h2>
+          <p class="settings-card-desc">コントロールパネルに表示する他アプリへのリンクを最大${EXTERNAL_APPS_MAX}件設定します。リンクは別タブで開きます。▲▼で表示順を変更できます。</p>
+          <div class="settings-list" id="appList">
+            ${pendingApps.map((a, i) => `
+              <div class="settings-row">
+                <input type="text" class="settings-input js-app-name" data-idx="${i}" value="${escapeAttr(a.name || '')}" placeholder="アプリ名" maxlength="20" style="flex:0 1 170px;min-width:110px;">
+                <input type="text" class="settings-input js-app-url" data-idx="${i}" value="${escapeAttr(a.url || '')}" placeholder="https://..." style="flex:1;min-width:180px;">
+                ${moveButtonsHTML_('app', i, i > 0, i < pendingApps.length - 1)}
+                <button type="button" class="settings-remove" data-idx="${i}" data-role="app-remove"><i class="fa-solid fa-xmark"></i></button>
+              </div>
+            `).join('') || `<p style="font-size:12px;color:var(--muted);padding:8px 2px;">アプリは登録されていません。</p>`}
+          </div>
+          <div class="settings-add-row">
+            <input id="newAppName" class="settings-input" placeholder="アプリ名（例: 車検証アプリ）" maxlength="20" style="flex:0 1 200px;min-width:140px;" ${full ? 'disabled' : ''}>
+            <input id="newAppUrl" class="settings-input" placeholder="https://..." style="flex:1;min-width:180px;" ${full ? 'disabled' : ''}>
+            <button type="button" id="addAppBtn" class="settings-add-btn" ${full ? 'disabled' : ''}><i class="fa-solid fa-plus"></i>追加（${pendingApps.length}/${EXTERNAL_APPS_MAX}）</button>
+          </div>
+          <p id="appsErr" style="font-size:11px;font-weight:600;margin-top:6px;color:var(--paper);"></p>
+          <div class="theme-save-row">
+            <button type="button" class="theme-save-btn" id="appsSaveBtn" ${appsDirty ? '' : 'disabled'}>保存</button>
+            ${msg}
           </div>
         </div>
       `;
@@ -1288,7 +1351,7 @@
       return `
         <div class="settings-card">
           <h2 class="settings-card-title"><i class="fa-solid fa-store"></i>拠点設定</h2>
-          <p class="settings-card-desc">カレンダー画面のKPIタイルや、リスト表示・担当者マスタの拠点選択などで使う拠点名と色を管理します。新車・中古車で別々に設定でき、それぞれのシート「拠点」列のプルダウン選択肢にも自動的に反映されます（既存シートには「シート設定 &gt; 全シートにテンプレートを再適用」で反映してください）。「その他」はどの拠点にも一致しないデータの受け皿として常に一覧の最後に用意されており、名前は変更できませんが色は変更できます。</p>
+          <p class="settings-card-desc">拠点名と色を新車・中古車ごとに設定します。シートの「拠点」列の選択肢にも反映されます。「その他」は名前を変更できません。</p>
           <div style="margin-bottom:14px;">
             <select id="branchEditCarType" class="settings-input">
               ${CAR_TYPES.map(t => `<option value="${t}" ${branchEditCarType === t ? 'selected' : ''}>${t}の拠点を編集</option>`).join('')}
@@ -1328,7 +1391,7 @@
       return `
         <div class="settings-card">
           <h2 class="settings-card-title"><i class="fa-solid fa-bullhorn"></i>お知らせ設定</h2>
-          <p class="settings-card-desc">画面上部のバナーに表示するお知らせを管理します。新車・中古車で別々に設定でき、それぞれのカレンダーを表示しているときだけそのお知らせが表示されます。文章の一部だけ選択してから<i class="fa-solid fa-bold"></i>や色のボタンを押すと、その部分だけ太字・文字色を変更できます。</p>
+          <p class="settings-card-desc">画面上部のお知らせを新車・中古車ごとに設定します。文字を選択して太字・色を変えられます。</p>
           <div style="margin-bottom:14px;">
             <select id="announceCarType" class="settings-input">
               ${CAR_TYPES.map(t => `<option value="${t}" ${announceEditCarType === t ? 'selected' : ''}>${t}のお知らせを編集</option>`).join('')}
@@ -1368,7 +1431,7 @@
       return `
         <div class="settings-card">
           <h2 class="settings-card-title"><i class="fa-solid fa-calendar-days"></i>カレンダー設定</h2>
-          <p class="settings-card-desc">指定した月のカレンダーに表示する案内（書類提出締切日など）を、日付ごとに最大10件まで設定できます。カレンダー画面では日付の右上に案内アイコンが表示され、タップすると内容を確認できます。文章の一部だけ選択してから<i class="fa-solid fa-bold"></i>や色のボタンを押すと、その部分だけ太字・文字色を変更できます。</p>
+          <p class="settings-card-desc">カレンダーの日付に表示する案内（締切日など）を月ごとに最大10件設定します。文字を選択して太字・色を変えられます。</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
             <select id="calSetCarType" class="settings-input">
               ${CAR_TYPES.map(t => `<option value="${t}" ${calSettingsCarType === t ? 'selected' : ''}>${t}</option>`).join('')}
@@ -1412,21 +1475,26 @@
       let msg = '';
       if (mypageLinksMsg) msg = `<span class="theme-msg saved"><i class="fa-solid fa-circle-check"></i> ${mypageLinksMsg}</span>`;
       else if (mypageLinksDirty) msg = `<span class="theme-msg dirty"><i class="fa-solid fa-circle-exclamation"></i> 未保存の変更があります</span>`;
-      const rowHtml = (u) => `
+      // 並び替えは「権限者ログインアカウント」「そのほかのアカウント」それぞれのグループ内で行う
+      const rowHtml = (u, gi, group) => {
+        const idx = mypageLinks.indexOf(u);
+        return `
         <div class="settings-row">
           <span class="s-name">${escapeHtml(u.name)}</span>
           <span class="s-email">${escapeHtml(u.email)}</span>
           <span class="s-branch">${escapeHtml(u.branch || '-')}</span>
           <span class="s-branch">${escapeHtml(u.carType || '未設定')}</span>
           <label class="settings-checkbox-label">
-            <input type="checkbox" data-idx="${mypageLinks.indexOf(u)}" data-role="link-branchmanager" ${u.isBranchManager ? 'checked' : ''}>拠点長
+            <input type="checkbox" data-idx="${idx}" data-role="link-branchmanager" ${u.isBranchManager ? 'checked' : ''}>拠点長
           </label>
-          <button type="button" class="settings-remove" data-idx="${mypageLinks.indexOf(u)}" data-role="link-remove"><i class="fa-solid fa-xmark"></i></button>
+          ${moveButtonsHTML_('link', idx, gi > 0, gi < group.length - 1)}
+          <button type="button" class="settings-remove" data-idx="${idx}" data-role="link-remove"><i class="fa-solid fa-xmark"></i></button>
         </div>`;
+      };
       return `
         <div class="settings-card">
           <h2 class="settings-card-title"><i class="fa-solid fa-user-shield"></i>担当者マスタ</h2>
-          <p class="settings-card-desc">Googleアカウントごとにフルネームと拠点を登録します。マイページはこの氏名と、登録データの「担当者」欄(フルネーム入力)を照合して自分の担当案件を表示します。スプレッドシート側でも、ここに登録のない担当者名を入力すると入力セルに警告表示が出ます。「担当車両区分」を設定すると、そのアカウントでアプリを開いたときに新車/中古車どちらのカレンダーを最初に表示するかが自動で切り替わります。「拠点長」にチェックすると、そのアカウントのマイページには自分の担当分だけでなく、選択した拠点全体の登録状況が表示されます（拠点が未設定だと何も表示されません）。<b>編集権限(EDITOR_EMAILS)とは別の設定</b>で、アプリからの編集はできないため、権限者ログインアカウントとそのほかのアカウントに分けて表示しています。この項目は権限者としてログインした場合のみ表示されます。</p>
+          <p class="settings-card-desc">アカウントごとに氏名・拠点を登録します（氏名は登録データの「担当者」と照合）。拠点長はマイページに拠点全体を表示します。▲▼の並び順はシートの担当者プルダウンにも反映されます。</p>
           <div class="settings-group-label">権限者ログインアカウント</div>
           <div class="settings-list" style="margin-bottom:14px;">
             ${editors.map(rowHtml).join('') || `<p style="font-size:12px;color:var(--muted);padding:4px 2px;">権限者アカウントの登録はまだありません。</p>`}
@@ -1475,6 +1543,7 @@
           </div>
           ${themeSectionHTML()}
           ${iconSectionHTML()}
+          ${appsSectionHTML()}
           ${branchSectionHTML()}
           ${announcementsSectionHTML()}
           ${calendarSettingsSectionHTML()}
@@ -1488,6 +1557,7 @@
       const navItem = (page, icon, label) => `<button type="button" class="cp-nav-item ${currentPage === page ? 'active' : ''}" data-page="${page}"><i class="fa-solid ${icon}"></i>${label}</button>`;
       const iconInner = sidePanelIconUrl ? `<img src="${escapeAttr(sidePanelIconUrl)}" alt="">` : `<i class="fa-solid fa-car"></i>`;
       const carTypeSubNav = `<div class="cp-subnav">${CAR_TYPES.map(t => `<button type="button" class="cp-subnav-item ${currentPage === 'calendar' && carType === t ? 'active' : ''}" data-cartype="${t}">${t}</button>`).join('')}</div>`;
+      const appLinks = visibleExternalApps_().map(a => `<a class="cp-nav-item cp-app-link" href="${escapeAttr(a.url)}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-up-right-from-square"></i><span class="cp-app-name">${escapeHtml(a.name)}</span></a>`).join('');
       return `
         <div class="cp-header">
           <div class="cp-icon-mark">${iconInner}</div>
@@ -1498,6 +1568,7 @@
           ${navItem('calendar', 'fa-calendar-days', 'カレンダー')}
           ${carTypeSubNav}
           ${navItem('mypage', 'fa-user', 'マイページ')}
+          ${appLinks}
           ${navItem('settings', 'fa-gear', '設定')}
         </div>
         <div class="cp-footer">
@@ -1512,15 +1583,36 @@
 
     // ▼ スマホ表示専用のボトムタブバー。コントロールパネルの主要ページナビと同じ
     //   data-page属性を使い、wireEvents()の既存の委譲ハンドラでそのまま動作する。
+    //   追加アプリは、1件ならそのままタブに、2件以上なら「アプリ」タブにまとめてメニューで開く
+    //   （最大5件をすべてタブにすると、スマホの幅ではタブが押しにくくなるため）。
     function bottomTabBarHTML() {
       const item = (page, icon, label) => `<button type="button" class="cp-nav-item bottom-tab-item ${currentPage === page ? 'active' : ''}" data-page="${page}"><i class="fa-solid ${icon}"></i><span>${label}</span></button>`;
+      const apps = visibleExternalApps_();
+      const appLink = (a, cls) => `<a class="${cls}" href="${escapeAttr(a.url)}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-up-right-from-square"></i><span>${escapeHtml(a.name)}</span></a>`;
+      let appsTab = '';
+      if (apps.length === 1) {
+        appsTab = appLink(apps[0], 'cp-nav-item bottom-tab-item');
+      } else if (apps.length > 1) {
+        appsTab = `<button type="button" class="cp-nav-item bottom-tab-item js-apps-menu-toggle ${appsMenuOpen ? 'active' : ''}"><i class="fa-solid fa-table-cells-large"></i><span>アプリ</span></button>`;
+      }
+      const appsMenu = (appsMenuOpen && apps.length > 1)
+        ? `<div class="apps-menu-backdrop js-apps-menu-close"></div>
+           <div class="apps-menu">${apps.map(a => appLink(a, 'apps-menu-item js-apps-menu-close')).join('')}</div>`
+        : '';
       return `
         <nav class="bottom-tab-bar">
           ${item('calendar', 'fa-calendar-days', 'カレンダー')}
           ${item('mypage', 'fa-user', 'マイページ')}
+          ${appsTab}
           ${item('settings', 'fa-gear', '設定')}
+          ${appsMenu}
         </nav>
       `;
+    }
+
+    // ▼ 表示してよい追加アプリだけを返す（http/https以外のURLは念のため表示しない）
+    function visibleExternalApps_() {
+      return externalApps.filter(a => a && a.name && /^https?:\/\//i.test(a.url || ''));
     }
 
     function announceBannerHTML() {
@@ -1595,10 +1687,12 @@
     function wireEvents() {
       const root = document.getElementById('app-root');
 
-      root.querySelectorAll('.cp-nav-item').forEach(btn => {
+      // data-page を持つページ切り替えボタンだけが対象（アプリへのリンクは除外）
+      root.querySelectorAll('.cp-nav-item[data-page]').forEach(btn => {
         btn.onclick = () => {
           currentPage = btn.dataset.page;
           sidebarOpen = false;
+          appsMenuOpen = false;
           if (currentPage === 'settings') { loadMypageLinksIfNeeded(); loadCalSettingsNotices(); }
           render();
         };
@@ -1618,6 +1712,14 @@
             loadCalendarNotices();
           };
         }
+      });
+
+      root.querySelectorAll('.js-apps-menu-toggle').forEach(btn => {
+        btn.onclick = () => { appsMenuOpen = !appsMenuOpen; render(); };
+      });
+      root.querySelectorAll('.js-apps-menu-close').forEach(el => {
+        // リンクを別タブで開く既定動作を妨げないよう、メニューを閉じる再描画はクリック処理の後に行う
+        el.addEventListener('click', () => { appsMenuOpen = false; setTimeout(render, 0); });
       });
 
       root.querySelectorAll('[data-viewmode]').forEach(btn => {
@@ -2004,6 +2106,60 @@
           .saveCalendarNotices(calSettingsCarType, calSettingsYear, calSettingsMonth, calSettingsNotices);
       };
 
+      // ---- アプリリンク設定 ----
+      const setAppsDirty_ = () => { appsDirty = true; appsMsg = ''; };
+      root.querySelectorAll('.js-app-name').forEach(inp => {
+        inp.oninput = (ev) => { pendingApps[Number(inp.dataset.idx)].name = ev.target.value; setAppsDirty_(); markDirtyBtn_('appsSaveBtn'); };
+      });
+      root.querySelectorAll('.js-app-url').forEach(inp => {
+        inp.oninput = (ev) => { pendingApps[Number(inp.dataset.idx)].url = ev.target.value; setAppsDirty_(); markDirtyBtn_('appsSaveBtn'); };
+      });
+      const moveApp_ = (idx, dir) => {
+        const j = idx + dir;
+        if (j < 0 || j >= pendingApps.length) return;
+        [pendingApps[idx], pendingApps[j]] = [pendingApps[j], pendingApps[idx]];
+        setAppsDirty_();
+        renderKeepingSettingsScroll_();
+      };
+      root.querySelectorAll('[data-role="app-up"]').forEach(btn => { btn.onclick = () => moveApp_(Number(btn.dataset.idx), -1); });
+      root.querySelectorAll('[data-role="app-down"]').forEach(btn => { btn.onclick = () => moveApp_(Number(btn.dataset.idx), 1); });
+      root.querySelectorAll('[data-role="app-remove"]').forEach(btn => {
+        btn.onclick = () => { pendingApps.splice(Number(btn.dataset.idx), 1); setAppsDirty_(); renderKeepingSettingsScroll_(); };
+      });
+      const addAppBtn = document.getElementById('addAppBtn');
+      if (addAppBtn) addAppBtn.onclick = () => {
+        const name = document.getElementById('newAppName').value.trim();
+        const url = document.getElementById('newAppUrl').value.trim();
+        const errEl = document.getElementById('appsErr');
+        if (!name || !url) { if (errEl) errEl.textContent = 'アプリ名とURLを入力してください。'; return; }
+        if (!/^https?:\/\/\S+$/i.test(url)) { if (errEl) errEl.textContent = 'URLは http:// または https:// から入力してください。'; return; }
+        if (pendingApps.length >= EXTERNAL_APPS_MAX) return;
+        pendingApps.push({ name, url });
+        setAppsDirty_();
+        renderKeepingSettingsScroll_();
+      };
+      const appsSaveBtn = document.getElementById('appsSaveBtn');
+      if (appsSaveBtn) appsSaveBtn.onclick = () => {
+        if (typeof google === 'undefined') return;
+        google.script.run
+          .withSuccessHandler(res => {
+            if (res && res.success) {
+              externalApps = res.apps || [];
+              pendingApps = externalApps.map(a => ({ ...a }));
+              appsDirty = false; appsMsg = '保存しました';
+              renderKeepingSettingsScroll_();
+            } else {
+              const errEl = document.getElementById('appsErr');
+              if (errEl) errEl.textContent = res ? res.message : '保存に失敗しました。';
+            }
+          })
+          .withFailureHandler(e => {
+            const errEl = document.getElementById('appsErr');
+            if (errEl) errEl.textContent = '通信エラー: ' + (e && e.message ? e.message : e);
+          })
+          .saveExternalApps(pendingApps);
+      };
+
       const addLinkBtn = document.getElementById('addLinkBtn');
       if (addLinkBtn) addLinkBtn.onclick = () => {
         const name = document.getElementById('newLinkName').value.trim();
@@ -2022,6 +2178,18 @@
       root.querySelectorAll('[data-role="link-branchmanager"]').forEach(inp => {
         inp.onchange = (ev) => { mypageLinks[Number(inp.dataset.idx)].isBranchManager = ev.target.checked; mypageLinksDirty = true; mypageLinksMsg = ''; markDirtyBtn_('linkSaveBtn'); };
       });
+      // 同じグループ（権限者 / そのほか）の中で、1つ前または後ろの担当者と入れ替える
+      const moveLink_ = (idx, dir) => {
+        const isEditorGroup = mypageLinks[idx].isEditor;
+        let j = idx + dir;
+        while (j >= 0 && j < mypageLinks.length && mypageLinks[j].isEditor !== isEditorGroup) j += dir;
+        if (j < 0 || j >= mypageLinks.length) return;
+        [mypageLinks[idx], mypageLinks[j]] = [mypageLinks[j], mypageLinks[idx]];
+        mypageLinksDirty = true; mypageLinksMsg = '';
+        renderKeepingSettingsScroll_();
+      };
+      root.querySelectorAll('[data-role="link-up"]').forEach(btn => { btn.onclick = () => moveLink_(Number(btn.dataset.idx), -1); });
+      root.querySelectorAll('[data-role="link-down"]').forEach(btn => { btn.onclick = () => moveLink_(Number(btn.dataset.idx), 1); });
       const linkSaveBtn = document.getElementById('linkSaveBtn');
       if (linkSaveBtn) linkSaveBtn.onclick = () => {
         if (typeof google === 'undefined') return;

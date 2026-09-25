@@ -63,6 +63,7 @@ function doGet() {
   template.initialSideIconUrl = getSideIconUrl();
   template.initialSideIconFolderId = getSideIconFolderId();
   template.initialSideIconExternalUrl = getSideIconExternalUrl();
+  template.initialExternalApps = getExternalApps();
   const linkedInfo = getMyLinkedInfo_(userEmail);
   template.linkedName = linkedInfo.name;
   template.linkedCarType = linkedInfo.carType;
@@ -138,6 +139,46 @@ function saveSideIconFolderId(folderId) {
   }
   PropertiesService.getScriptProperties().setProperty('sideIconFolderId', trimmed);
   return { success: true, folderId: trimmed };
+}
+
+// ▼ コントロールパネルに並べる他アプリへのリンク（最大5件、並び順どおりに表示）。権限者のみ編集できる。
+const EXTERNAL_APPS_PROP = 'externalApps';
+const EXTERNAL_APPS_MAX = 5;
+// 以前の「車検証アプリ」単独設定。追加アプリが一度も保存されていなければ、1件目として引き継ぐ。
+const LEGACY_VEHICLE_INSPECTION_APP_URL_PROP = 'vehicleInspectionAppUrl';
+function getExternalApps() {
+  const props = PropertiesService.getScriptProperties();
+  const raw = props.getProperty(EXTERNAL_APPS_PROP);
+  if (raw === null) {
+    const legacyUrl = props.getProperty(LEGACY_VEHICLE_INSPECTION_APP_URL_PROP);
+    return legacyUrl ? [{ name: '車検証アプリ', url: legacyUrl }] : [];
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+function saveExternalApps(apps) {
+  const userEmail = Session.getActiveUser().getEmail();
+  if (!isEditorEmail_(userEmail)) {
+    return { success: false, message: '権限者のみ変更できます。' };
+  }
+  const cleaned = (apps || [])
+    .map(a => ({ name: String((a && a.name) || '').trim().slice(0, 20), url: String((a && a.url) || '').trim() }))
+    .filter(a => a.name || a.url);
+  if (cleaned.length > EXTERNAL_APPS_MAX) {
+    return { success: false, message: `登録できるアプリは${EXTERNAL_APPS_MAX}件までです。` };
+  }
+  const invalid = cleaned.find(a => !a.name || !/^https?:\/\/\S+$/i.test(a.url));
+  if (invalid) {
+    return { success: false, message: `「${invalid.name || invalid.url}」の入力を確認してください。アプリ名と、http:// または https:// から始まるURLの両方が必要です。` };
+  }
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty(EXTERNAL_APPS_PROP, JSON.stringify(cleaned));
+  props.deleteProperty(LEGACY_VEHICLE_INSPECTION_APP_URL_PROP);
+  return { success: true, apps: cleaned };
 }
 
 // ▼ 画面上部に表示する「お知らせ」。新車・中古車それぞれ別に設定でき、権限者のみ編集できる。
