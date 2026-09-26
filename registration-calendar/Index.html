@@ -176,6 +176,8 @@
     .status-pill { font-size: calc(9px * var(--fs, 1)); font-weight: 600; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; background: var(--surface-2); color: var(--ink-2); white-space: nowrap; }
     .slide-hint { position: sticky; right: 2px; flex: 0 0 30px; width: 30px; height: 30px; border-radius: 50%; background: var(--surface); box-shadow: var(--shadow-md); border: none; color: var(--accent-ink); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: calc(12px * var(--fs, 1)); }
     /* 戻る（←）ボタン: 左端に重ねて表示し、場所を取らない（出し入れで中身がずれないようにする）。先頭にいるときは隠す */
+    .list-month-note { display: flex; align-items: center; gap: 6px; margin: -2px 0 10px; font-size: calc(11.5px * var(--fs, 1)); color: var(--muted); font-weight: 600; }
+    .list-month-note b { color: var(--ink); font-size: 1.1em; }
     .slide-hint-prev { right: auto; left: 2px; z-index: 2; margin-right: -38px; transition: opacity .15s ease; } /* 幅30px＋間隔8px 分だけ戻す */
     .slide-hint-prev.is-off { opacity: 0; pointer-events: none; }
     /* KPI行はPC表示ではグリッド(スクロールなし)のため、矢印はスマホ表示のみ有効にする */
@@ -747,7 +749,7 @@
     const INITIAL_DISPLAY_PREFS = <?!= JSON.stringify(typeof initialDisplayPrefs !== 'undefined' ? initialDisplayPrefs : {}) ?>;
     const INITIAL_MYPAGE_LAYOUT = <?!= JSON.stringify(typeof initialMypageLayout !== 'undefined' ? initialMypageLayout : null) ?>;
     // ▼ Code.gs の APP_VERSION と同じ値にする。設定ページ下部で両者を比べ、貼り替え漏れ・デプロイ漏れを知らせる。
-    const CLIENT_VERSION = '2026.09.26-3';
+    const CLIENT_VERSION = '2026.09.26-4';
     const SERVER_VERSION = <?!= JSON.stringify(typeof appVersion !== 'undefined' ? appVersion : '') ?>;
     const INITIAL_SIDE_ICON_URL = <?!= JSON.stringify(initialSideIconUrl || '') ?>;
     const INITIAL_SIDE_ICON_EXTERNAL_URL = <?!= JSON.stringify(initialSideIconExternalUrl || '') ?>;
@@ -1259,14 +1261,19 @@
       });
     }
 
-    function computeSummaryStats(year, month) {
+    // ▼ 表示中の月の案件: 登録予定日がその月の案件＋その月の未定リストの案件（カレンダー表示と同じ範囲）。
+    //   未定の案件に登録予定日が入っている場合に二重に数えないよう、同じ案件は1つにまとめる。
+    function monthRecords_(year, month) {
       const monthData = allRecords.filter(r => {
         if (!r.登録予定日) return false;
         const { y, m } = parseYMD(r.登録予定日);
         return y === year && m === month;
       });
-      const undecided = pendingRecords();
-      const combined = monthData.concat(undecided);
+      const undecided = pendingRecords().filter(r => monthData.indexOf(r) === -1);
+      return monthData.concat(undecided);
+    }
+    function computeSummaryStats(year, month) {
+      const combined = monthRecords_(year, month);
       const total = combined.length;
       const ossCount = combined.filter(isOssRecord).length;
       const ossRate = total > 0 ? Math.round((ossCount / total) * 100) : 0;
@@ -1515,9 +1522,9 @@
       `;
     }
 
-    function listViewHTML() {
+    function listRecords_() {
       const kw = listSearch.keyword.toLowerCase().trim();
-      let rows = allRecords.filter(r => {
+      return monthRecords_(currentDate.getFullYear(), currentDate.getMonth()).filter(r => {
         const matchSearch = kw === '' || (r.顧客名 || '').toLowerCase().includes(kw) || (r.車種 || '').toLowerCase().includes(kw);
         const matchBranch = listSearch.branch === 'ALL' || r.拠点 === listSearch.branch;
         let matchMethod = true;
@@ -1531,7 +1538,9 @@
         if (!b.登録予定日) return -1;
         return a.登録予定日 < b.登録予定日 ? -1 : (a.登録予定日 > b.登録予定日 ? 1 : 0);
       });
-
+    }
+    function listViewHTML() {
+      const rows = listRecords_();
       let tableBody = '', cardBody = '';
       rows.forEach(r => {
         const c = branchColors[r.拠点] || branchColors['その他'];
@@ -1558,7 +1567,9 @@
           ${r.備考 ? `<div class="list-card-note">${escapeHtml(r.備考)}</div>` : ''}
         </div>`;
       });
-      const emptyMsg = '該当するデータがありません。';
+      const emptyMsg = `${currentDate.getMonth() + 1}月の該当する案件はありません。`;
+      const undecidedCount = rows.filter(r => !r.登録予定日).length;
+      const monthNote = `<div class="list-month-note"><i class="fa-regular fa-calendar"></i>${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月の案件 <b>${rows.length}</b>件${undecidedCount ? `（登録日未定 ${undecidedCount}件を含む）` : ''}</div>`;
 
       return `
         <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px;">
@@ -1574,6 +1585,7 @@
             <option value="PAPER" ${listSearch.method === 'PAPER' ? 'selected' : ''}>紙登録</option>
           </select>
         </div>
+        ${monthNote}
         <div class="list-table-wrap">
           <table class="list-table">
             <thead><tr><th>日付</th><th>顧客名</th><th>方法</th><th>拠点/担当者</th><th>車種</th><th>備考</th></tr></thead>
@@ -3475,14 +3487,7 @@
     // ---- CSV出力 ----
     function downloadCSV() {
       if (!IS_EDITOR) return;
-      const kw = listSearch.keyword.toLowerCase().trim();
-      const rows = allRecords.filter(r => {
-        const matchSearch = kw === '' || (r.顧客名 || '').toLowerCase().includes(kw) || (r.車種 || '').toLowerCase().includes(kw);
-        const matchBranch = listSearch.branch === 'ALL' || r.拠点 === listSearch.branch;
-        let matchMethod = true;
-        if (listSearch.method !== 'ALL') matchMethod = listSearch.method === 'OSS' ? isOssRecord(r) : !isOssRecord(r);
-        return matchSearch && matchBranch && matchMethod;
-      });
+      const rows = listRecords_(); // 画面のリストと同じ（表示中の月＋検索・絞り込み）
       if (rows.length === 0) { alert("出力するデータがありません。"); return; }
       let csvContent = "﻿";
       const headers = ["登録予定日", "ステータス", "顧客名", "OSS区分", "拠点", "担当者", "車種", "備考"];
@@ -3497,7 +3502,8 @@
       const now = new Date();
       const dateStr = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
       link.setAttribute("href", url);
-      link.setAttribute("download", `registration_data_${carType}_${dateStr}.csv`);
+      const ym = `${currentDate.getFullYear()}-${pad2(currentDate.getMonth() + 1)}`;
+      link.setAttribute("download", `registration_data_${carType}_${ym}_${dateStr}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
