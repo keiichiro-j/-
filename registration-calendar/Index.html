@@ -175,6 +175,9 @@
     .method-pill { font-size: calc(9px * var(--fs, 1)); font-weight: 600; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; }
     .status-pill { font-size: calc(9px * var(--fs, 1)); font-weight: 600; padding: 2px 7px; border-radius: 4px; display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; background: var(--surface-2); color: var(--ink-2); white-space: nowrap; }
     .slide-hint { position: sticky; right: 2px; flex: 0 0 30px; width: 30px; height: 30px; border-radius: 50%; background: var(--surface); box-shadow: var(--shadow-md); border: none; color: var(--accent-ink); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: calc(12px * var(--fs, 1)); }
+    /* 戻る（←）ボタン: 左端に重ねて表示し、場所を取らない（出し入れで中身がずれないようにする）。先頭にいるときは隠す */
+    .slide-hint-prev { right: auto; left: 2px; z-index: 2; margin-right: -38px; transition: opacity .15s ease; } /* 幅30px＋間隔8px 分だけ戻す */
+    .slide-hint-prev.is-off { opacity: 0; pointer-events: none; }
     /* KPI行はPC表示ではグリッド(スクロールなし)のため、矢印はスマホ表示のみ有効にする */
     .kpi-row-top .slide-hint, .kpi-row-bottom .slide-hint { display: none; }
 
@@ -744,7 +747,7 @@
     const INITIAL_DISPLAY_PREFS = <?!= JSON.stringify(typeof initialDisplayPrefs !== 'undefined' ? initialDisplayPrefs : {}) ?>;
     const INITIAL_MYPAGE_LAYOUT = <?!= JSON.stringify(typeof initialMypageLayout !== 'undefined' ? initialMypageLayout : null) ?>;
     // ▼ Code.gs の APP_VERSION と同じ値にする。設定ページ下部で両者を比べ、貼り替え漏れ・デプロイ漏れを知らせる。
-    const CLIENT_VERSION = '2026.09.26-2';
+    const CLIENT_VERSION = '2026.09.26-3';
     const SERVER_VERSION = <?!= JSON.stringify(typeof appVersion !== 'undefined' ? appVersion : '') ?>;
     const INITIAL_SIDE_ICON_URL = <?!= JSON.stringify(initialSideIconUrl || '') ?>;
     const INITIAL_SIDE_ICON_EXTERNAL_URL = <?!= JSON.stringify(initialSideIconExternalUrl || '') ?>;
@@ -1338,7 +1341,7 @@
       const hintBtn = hasOverflow ? `<button type="button" class="slide-hint" title="横にスライドしてさらに表示"><i class="fa-solid fa-chevron-right"></i></button>` : '';
       const content = entries.length === 0
         ? ``
-        : `<div class="day-entries-track">${entries.map(entryCard).join('')}${hintBtn}</div>`;
+        : `<div class="day-entries-track">${hasOverflow ? `<button type="button" class="slide-hint slide-hint-prev is-off" title="前に戻る"><i class="fa-solid fa-chevron-left"></i></button>` : ''}${entries.map(entryCard).join('')}${hintBtn}</div>`;
       const hasNotice = notices.length > 0;
       const noticeBanner = hasNotice
         ? `<div class="day-notice-banner"><i class="fa-solid fa-clipboard-list"></i><span>${notices.map(n => `<span>${n.html || escapeHtml(n.text || '')}</span>`).join('　・　')}</span></div>`
@@ -1413,9 +1416,11 @@
         </div>`;
       }).join('');
       const hint = `<button type="button" class="slide-hint" title="横にスライドしてさらに表示"><i class="fa-solid fa-chevron-right"></i></button>`;
+      const hintPrev = `<button type="button" class="slide-hint slide-hint-prev is-off" title="前に戻る"><i class="fa-solid fa-chevron-left"></i></button>`;
       return `
         <div class="kpi-section">
           <div class="kpi-row kpi-row-top">
+            ${hintPrev}
             <div class="kpi-tile">
               <div class="kpi-label">${month + 1}月 総登録台数</div>
               <div class="kpi-value">${total}<span class="kpi-unit">台</span></div>
@@ -1430,7 +1435,7 @@
             </div>
             ${hint}
           </div>
-          <div class="kpi-row kpi-row-bottom" style="grid-template-columns:repeat(${branchList.length}, 1fr);">${branchTiles}${hint}</div>
+          <div class="kpi-row kpi-row-bottom" style="grid-template-columns:repeat(${branchList.length}, 1fr);">${hintPrev}${branchTiles}${hint}</div>
         </div>
       `;
     }
@@ -1705,6 +1710,7 @@
           <div class="mp-kpi-group">
             <div class="mp-kpi-group-label">${carType}</div>
             <div class="kpi-row mp-kpi-row">
+              <button type="button" class="slide-hint slide-hint-prev is-off" title="前に戻る" ${ctx.preview ? 'tabindex="-1"' : ''}><i class="fa-solid fa-chevron-left"></i></button>
               <div class="kpi-tile"><div class="kpi-label">受注台数</div><div class="kpi-value">${total}<span class="kpi-unit">台</span></div></div>
               <div class="kpi-tile"><div class="kpi-label">登録済み</div><div class="kpi-value" style="color:var(--accent-ink);">${c.length}<span class="kpi-unit">件</span></div></div>
               <div class="kpi-tile"><div class="kpi-label">未定</div><div class="kpi-value" style="color:#B4620D;">${u.length}<span class="kpi-unit">件</span></div></div>
@@ -2879,16 +2885,19 @@
         btn.onclick = (e) => {
           e.stopPropagation();
           const scroller = btn.closest(HSCROLL_SELECTOR);
-          if (scroller) scroller.scrollBy({ left: scroller.clientWidth * 0.8, behavior: 'smooth' });
+          const dir = btn.classList.contains('slide-hint-prev') ? -1 : 1;
+          if (scroller) scroller.scrollBy({ left: dir * scroller.clientWidth * 0.8, behavior: 'smooth' });
         };
       });
-      // 横スライドで先端まで到達したら、もう先がないことがわかるよう矢印を消す
+      // 横スライドで先端まで到達したら → を、先頭にいるときは ← を消して、どちらに動かせるかがわかるようにする
       root.querySelectorAll(HSCROLL_SELECTOR).forEach(col => {
-        const hint = col.querySelector('.slide-hint');
-        if (!hint) return;
+        const hint = col.querySelector('.slide-hint:not(.slide-hint-prev)');
+        const prev = col.querySelector('.slide-hint-prev');
+        if (!hint && !prev) return;
         const updateHint = () => {
           const atEnd = col.scrollLeft + col.clientWidth >= col.scrollWidth - 2;
-          hint.style.display = atEnd ? 'none' : '';
+          if (hint) hint.style.display = atEnd ? 'none' : '';
+          if (prev) prev.classList.toggle('is-off', col.scrollLeft <= 2);
         };
         updateHint();
         col.addEventListener('scroll', updateHint, { passive: true });
