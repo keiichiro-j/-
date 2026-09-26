@@ -2,7 +2,7 @@ const DEFAULT_ADMIN_EMAIL = "k-toda@gifuyanase.co.jp";
 
 // ▼ 設定ページの一番下に表示するバージョン。Index.html側のバージョンと一致しているかで、
 //   コードの貼り替えと「新しいバージョンでのデプロイ」が両方済んでいるかを確認できる。
-const APP_VERSION = '2026.09.26-1';
+const APP_VERSION = '2026.09.26-2';
 
 // ▼ 権限者（設定ページの各種管理項目を変更できるアカウント）一覧。最大5名まで登録できます。
 //   登録・編集はスプレッドシートを直接編集する運用に変わったため、ここはアプリの管理設定を
@@ -423,37 +423,78 @@ function saveUserDisplayPrefs(prefs) {
   PropertiesService.getUserProperties().setProperty('displayPrefs', JSON.stringify(cleaned));
   return { success: true, prefs: cleaned };
 }
-// ▼ マイページのレイアウト（個人ごと）。パーツの並び順・幅（全幅/半分）・表示/非表示だけを保存する。
-//   未設定（または初期状態と同じ）の人は保存せず、画面側で従来どおりの並びを使う。
-//   ヘッダー（月の切り替え）と案件一覧は、マイページとして欠かせないため非表示にはできない。
-//   後から追加したパーツ（今週の登録予定・未定の案件・ミニカレンダー）は、最初は非表示にしておき、
-//   使いたい人だけが設定画面で表示する（何もしなければマイページの見た目は変わらない）。
-const MYPAGE_LAYOUT_PARTS = ['header', 'kpiNew', 'kpiUsed', 'search', 'list', 'week', 'pending', 'minical'];
-const MYPAGE_LAYOUT_HIDEABLE = ['kpiNew', 'kpiUsed', 'search', 'week', 'pending', 'minical'];
-const MYPAGE_LAYOUT_DEFAULT_HIDDEN = ['week', 'pending', 'minical'];
+// ▼ マイページのレイアウト（個人ごと）。PCのマイページを「横2列×縦5段」のマス目に分け、
+//   各パーツの位置（x: 列 0〜1, y: 段 0〜4）と大きさ（w: 横1〜2マス, h: 縦1〜5マス）を保存する。
+//   マス目に置いていないパーツは非表示。ヘッダー（月の切り替え）と案件一覧は欠かせないため必ず置く。
+//   未設定（または初期状態と同じ）の人は保存せず、画面側で初期の配置を使う。
+const MYPAGE_GRID_COLS = 2;
+const MYPAGE_GRID_ROWS = 5;
+// 各パーツの最小の大きさ（中身が読める大きさ。これより大きければ、入りきらない分はパーツの中でスクロールする）
+const MYPAGE_PART_MIN = {
+  header: { w: 1, h: 1 }, kpiNew: { w: 1, h: 1 }, kpiUsed: { w: 1, h: 1 }, list: { w: 1, h: 2 },
+  week: { w: 1, h: 1 }, pending: { w: 1, h: 1 }, minical: { w: 1, h: 2 },
+};
+const MYPAGE_REQUIRED_PARTS = ['header', 'list'];
+const MYPAGE_DEFAULT_LAYOUT = [
+  { id: 'header', x: 0, y: 0, w: 2, h: 1 },
+  { id: 'kpiNew', x: 0, y: 1, w: 2, h: 1 },
+  { id: 'kpiUsed', x: 0, y: 2, w: 2, h: 1 },
+  { id: 'list', x: 0, y: 3, w: 2, h: 2 },
+];
+function defaultMypageLayout_() { return { v: 2, items: MYPAGE_DEFAULT_LAYOUT.map(it => Object.assign({}, it)) }; }
+// マス目の範囲内・最小サイズ以上・他と重ならないものだけを残す。必須パーツが欠ける場合は初期配置に戻す。
 function normalizeMypageLayout_(layout) {
-  const src = layout && Array.isArray(layout.items) ? layout.items : [];
-  const seen = {};
+  if (!layout || !Array.isArray(layout.items)) return defaultMypageLayout_();
+  if (layout.items.length && layout.items.every(it => it && typeof it.x !== 'number')) return convertRowLayout_(layout);
+  const used = {};
   const items = [];
-  src.forEach(it => {
+  layout.items.forEach(it => {
     const id = String((it && it.id) || '');
-    if (MYPAGE_LAYOUT_PARTS.indexOf(id) === -1 || seen[id]) return;
-    seen[id] = true;
-    items.push({
-      id: id,
-      w: it.w === 'half' ? 'half' : 'full',
-      hidden: MYPAGE_LAYOUT_HIDEABLE.indexOf(id) !== -1 && it.hidden === true,
-    });
+    const min = MYPAGE_PART_MIN[id];
+    if (!min || items.some(o => o.id === id)) return;
+    const x = Number(it.x), y = Number(it.y), w = Number(it.w), h = Number(it.h);
+    if ([x, y, w, h].some(n => !isFinite(n) || Math.floor(n) !== n)) return;
+    if (x < 0 || y < 0 || w < min.w || h < min.h || x + w > MYPAGE_GRID_COLS || y + h > MYPAGE_GRID_ROWS) return;
+    const cells = [];
+    for (let r = y; r < y + h; r++) for (let c = x; c < x + w; c++) cells.push(r + ':' + c);
+    if (cells.some(k => used[k])) return;
+    cells.forEach(k => { used[k] = true; });
+    items.push({ id: id, x: x, y: y, w: w, h: h });
   });
-  // 保存後に増えたパーツなど、足りないものは末尾に全幅で補う（新しいパーツは非表示のまま）
-  MYPAGE_LAYOUT_PARTS.forEach(id => {
-    if (!seen[id]) items.push({ id: id, w: 'full', hidden: MYPAGE_LAYOUT_DEFAULT_HIDDEN.indexOf(id) !== -1 });
+  if (MYPAGE_REQUIRED_PARTS.some(id => !items.some(it => it.id === id))) return defaultMypageLayout_();
+  items.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+  return { v: 2, items: items };
+}
+// 以前の形式（上から順の並び＋全幅/半分）で保存されたレイアウトを、同じ並びのマス目に置き直す。
+// 「絞り込み」は案件一覧に統合したため除く。5段に入りきらないパーツは非表示にする。
+function convertRowLayout_(layout) {
+  const rows = [];
+  let half = null;
+  layout.items.forEach(it => {
+    const id = String((it && it.id) || '');
+    if (!MYPAGE_PART_MIN[id] || it.hidden) return;
+    if (it.w === 'half') {
+      if (half) { rows.push([half, id]); half = null; } else half = id;
+      return;
+    }
+    if (half) { rows.push([half]); half = null; }
+    rows.push([id, null]);
   });
-  return { items: items };
+  if (half) rows.push([half]);
+  const items = [];
+  let y = 0;
+  rows.forEach(row => {
+    const full = row.length === 2 && row[1] === null;
+    const ids = row.filter(Boolean);
+    const h = Math.max.apply(null, ids.map(id => MYPAGE_PART_MIN[id].h));
+    if (y + h > MYPAGE_GRID_ROWS) return;
+    ids.forEach((id, i) => items.push({ id: id, x: full ? 0 : i, y: y, w: full ? 2 : 1, h: h }));
+    y += h;
+  });
+  return normalizeMypageLayout_({ items: items });
 }
 function isDefaultMypageLayout_(layout) {
-  return layout.items.every((it, i) => it.id === MYPAGE_LAYOUT_PARTS[i] && it.w === 'full'
-    && it.hidden === (MYPAGE_LAYOUT_DEFAULT_HIDDEN.indexOf(it.id) !== -1));
+  return JSON.stringify(layout.items) === JSON.stringify(defaultMypageLayout_().items);
 }
 function getUserMypageLayout() {
   const raw = PropertiesService.getUserProperties().getProperty('mypageLayout');

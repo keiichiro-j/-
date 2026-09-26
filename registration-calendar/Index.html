@@ -215,23 +215,39 @@
     .mp-name { font-size: calc(12.5px * var(--fs, 1)); font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
     .mp-model { font-size: calc(11.5px * var(--fs, 1)); color: var(--ink-2); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
     .mp-thead-row { display: flex; align-items: center; gap: 14px; padding: 4px 14px; font-size: calc(10px * var(--fs, 1)); font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
-    /* ---- マイページのレイアウト: パーツを行に並べる（全幅は1行を占め、半分幅は2つで1行）。
-            一覧が一番下の行にあるときは、一覧を画面の下まで広げて一覧の中だけをスクロールさせ（従来どおり）、
-            一覧の下にもパーツがあるときは、ページ全体をスクロールさせる ---- */
-    .mp-layout { display: flex; flex-direction: column; gap: 22px; flex: 1; min-height: 0; }
-    .mp-layout.is-scroll { overflow-y: auto; }
-    .mp-lrow { display: flex; gap: 16px; align-items: flex-start; min-width: 0; }
-    .mp-layout.is-fill > .mp-lrow.has-list:last-child { flex: 1; min-height: 0; align-items: stretch; }
-    .mp-lcell { flex: 1 1 0; min-width: 0; container: mpcell / inline-size; }
-    .mp-lcell.is-list { display: flex; flex-direction: column; min-height: 0; }
-    .mp-layout.is-fill .mp-lcell.is-list .mp-results { flex: 1; min-height: 0; overflow-y: auto; }
-    .mp-lcell[data-part="header"] { padding-bottom: 6px; }
-    .mp-lcell .mp-header-row, .mp-lcell .mp-kpi-group { margin-bottom: 0; }
-    .mp-search-row { display: flex; gap: 10px; flex-wrap: wrap; }
-    /* 追加パーツを表示しているときは、案件一覧が押しつぶされないよう最低限の高さを確保し、足りなければページ全体をスクロールさせる */
-    .mp-layout.is-fill.has-extra { overflow-y: auto; }
-    .mp-layout.is-fill.has-extra > .mp-lrow.has-list:last-child { min-height: 320px; }
-    .mp-layout.is-fill > .mp-lrow.has-list:last-child > .mp-lcell:not(.is-list):not(.is-empty) { overflow-y: auto; min-height: 0; }
+    /* ---- マイページのレイアウト: PCでは画面の高さを5等分した「横2列×縦5段」のマス目に、各パーツを
+            位置と大きさ（横1〜2マス×縦1〜5マス）を指定して置く。パーツの中身が入りきらないときは、パーツの中でスクロールする ---- */
+    .mp-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(5, minmax(0, 1fr)); gap: 14px 16px; }
+    .mp-gcell { position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; container: mpcell / size; }
+    .mp-gcell-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: auto; margin: -3px; padding: 3px; }
+    .mp-gcell[data-part="header"] .mp-gcell-body { justify-content: center; }
+    .mp-gcell .mp-header-row { margin-bottom: 0; }
+    .mp-gcell .mp-kpi-group { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-bottom: 0; }
+    .mp-gcell .mp-kpi-row { flex: 1; min-height: 0; grid-auto-rows: 1fr; }
+    .mp-gcell .mp-kpi-row .kpi-tile { display: flex; flex-direction: column; justify-content: center; }
+    .mp-grid .mp-gcell .mp-kpi-group .mp-kpi-row { margin-bottom: 0 !important; }
+    /* マスが高いときは、数字を大きく見せる（マスの高さで判定） */
+    @container mpcell (min-height: 125px) and (min-width: 471px) {
+      .mp-kpi-row .kpi-tile { padding-left: 18px; padding-right: 18px; }
+      .mp-kpi-row .kpi-label { font-size: calc(11.5px * var(--fs, 1)); }
+      .mp-kpi-row .kpi-value { font-size: calc(30px * var(--fs, 1)); margin-top: 6px; }
+      .mp-kpi-row .kpi-unit { font-size: calc(13px * var(--fs, 1)); }
+    }
+    @container mpcell (min-height: 125px) and (max-width: 470px) {
+      .mp-kpi-row .kpi-value { font-size: calc(22px * var(--fs, 1)); }
+      .mp-kpi-row .kpi-label { font-size: calc(10px * var(--fs, 1)); }
+    }
+    .mp-list-part { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+    .mp-results { flex: 1; min-height: 0; overflow-y: auto; }
+    .mp-results .mp-thead-row { position: sticky; top: 0; z-index: 1; background: var(--canvas); }
+    .mp-search-row { display: flex; gap: 10px; flex-wrap: wrap; flex: 0 0 auto; }
+    .mp-gcell .mp-card { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .mp-gcell .mp-mini-list { flex: 1; min-height: 0; max-height: none; }
+    .mp-gcell .mp-cal-grid { flex: 1; min-height: 0; grid-auto-rows: minmax(20px, 1fr); }
+    .mp-gcell .mp-cal-cell { height: auto; min-height: 20px; }
+    /* スマホ（とスマホのプレビュー）: 左上から順に1列に並べ、高さは縦のマス数に応じる（1マス140px） */
+    .lp-app-phone .mp-grid { display: flex; flex-direction: column; gap: 14px; overflow-y: auto; overflow-x: hidden; margin: 0 -3px; padding: 0 3px; }
+    .lp-app-phone .mp-grid > .mp-gcell { flex: 0 0 auto; height: calc(var(--h) * 140px * var(--fs, 1) + (var(--h) - 1) * 14px); }
     /* ---- マイページの追加パーツ（今週の登録予定・未定の案件・ミニカレンダー） ---- */
     .mp-card { background: var(--surface); border: 1px solid var(--hairline); border-radius: 12px; box-shadow: var(--shadow-sm); padding: 14px 16px 12px; min-width: 0; }
     .mp-card-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
@@ -445,30 +461,57 @@
     .lp-tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px; border-radius: 10px; font-size: 10px; font-weight: 600; color: var(--muted); }
     .lp-tab i { font-size: 17px; }
     .lp-tab.active { color: var(--accent-ink); background: var(--accent-bg); }
-    /* スマホのプレビューは、実際のスマホと同じく1列に並べる */
-    .lp-app-phone .mp-lrow { flex-direction: column; align-items: stretch; gap: 22px; }
-    .lp-app-phone .mp-lrow > .mp-lcell { flex: 0 0 auto; }
-    .lp-app-phone .mp-layout.is-fill > .mp-lrow.has-list:last-child > .mp-lcell.is-list { flex: 1 1 auto; min-height: 0; }
-    .lp-app-phone .mp-lcell.is-empty { display: none; }
-    .mp-layout.is-preview .mp-row { cursor: inherit; }
+    .mp-grid.is-preview .mp-row { cursor: inherit; }
     /* パーツ: 枠と、上端に重ねる「つまみ」「幅」「非表示」のボタン。ボタン類は縮小せず実寸で表示する（--lp-inv） */
-    .lp-part { position: relative; border-radius: 10px; outline: 3px dashed transparent; outline-offset: 6px; transition: outline-color .15s ease; cursor: grab; }
-    .lp-part:hover, .lp-part.is-dragging { outline-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+    .lp-part { outline: 3px dashed transparent; outline-offset: 4px; border-radius: 10px; transition: outline-color .15s ease; cursor: grab; }
+    .lp-part:hover { outline-color: color-mix(in srgb, var(--accent) 55%, transparent); }
     .lp-part.is-dragging { outline-color: var(--accent); }
-    .lp-part-body { display: contents; pointer-events: none; }
-    .lp-part.is-dragging > .lp-part-body > * { opacity: .28; }
-    .lp-part-chrome { position: absolute; top: -13px; left: -4px; right: -4px; display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; zoom: var(--lp-inv, 1); pointer-events: none; z-index: 4; }
-    .mp-layout > .mp-lrow:first-child .lp-part-chrome { top: -3px; } /* 一番上のパーツは、つまみが画面の上端で切れないよう内側に置く */
+    .lp-app-phone .lp-part { cursor: default; outline: none; }
+    .lp-part.is-selected { outline: 3px solid var(--accent); }
+    /* 狭い画面（スマホで設定を開いたとき）は、プレビューには名前だけを出し、大きさ・表示の操作は下のバーで行う */
+    #lpCard.is-narrow .lp-pc .lp-chip-group, #lpCard.is-narrow .lp-pc .lp-resize { display: none; }
+    #lpCard.is-narrow .lp-chip { height: 20px; padding: 0 7px; font-size: calc(9.5px * var(--fs, 1)); }
+    .lp-selbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; padding: 10px 12px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--surface); }
+    .lp-selbar-name { display: inline-flex; align-items: center; gap: 7px; font-size: calc(12.5px * var(--fs, 1)); font-weight: 800; color: var(--ink); margin-right: auto; }
+    .lp-selbar-name i { color: var(--accent-ink); }
+    .lp-selbar-name small { font-size: .82em; font-weight: 600; color: var(--muted); }
+    .lp-selbar-hint { font-size: calc(11.5px * var(--fs, 1)); color: var(--muted); }
+    .lp-part .mp-gcell-body { pointer-events: none; }
+    .lp-part.is-dragging .mp-gcell-body { opacity: .28; }
+    .lp-part-chrome { position: absolute; top: -12px; left: -4px; right: -4px; display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; zoom: var(--lp-inv, 1); pointer-events: none; z-index: 4; }
+    .lp-part.is-top .lp-part-chrome { top: -2px; } /* 一番上の段は、つまみが画面の上端で切れないよう内側に置く */
+    .lp-app-phone .lp-part-chrome .lp-chip { pointer-events: none; }
     .lp-chip, .lp-chip-btn { pointer-events: auto; display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px; border-radius: 11px; font-size: calc(10.5px * var(--fs, 1)); font-weight: 700; font-family: var(--font-ios); background: var(--surface); color: var(--ink-2); border: 1px solid var(--border); box-shadow: 0 2px 5px rgba(15,23,42,.12); white-space: nowrap; line-height: 1; }
     .lp-grip { background: var(--accent); color: #fff; border-color: transparent; cursor: grab; touch-action: none; }
     .lp-grip i { opacity: .85; }
     .lp-chip-group { display: inline-flex; gap: 4px; transition: opacity .15s ease; }
-    @media (hover: hover) { .lp-part:not(:hover) .lp-chip-group { opacity: 0; } body.lp-dragging .lp-chip-group { opacity: 0; } }
+    @media (hover: hover) { .lp-part:not(:hover) .lp-chip-group, .lp-part:not(:hover) .lp-resize { opacity: 0; } body.lp-dragging .lp-chip-group, body.lp-dragging .lp-resize { opacity: 0; } }
     .lp-chip-btn { cursor: pointer; }
     .lp-chip-btn:hover { border-color: var(--accent); color: var(--accent-ink); }
-    .lp-empty { align-self: stretch; min-height: 70px; border: 3px dashed color-mix(in srgb, var(--accent) 30%, var(--border)); border-radius: 12px; background: color-mix(in srgb, var(--accent) 5%, transparent); display: flex; align-items: center; justify-content: center; }
-    .lp-empty-inner { zoom: var(--lp-inv, 1); display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: calc(10.5px * var(--fs, 1)); font-weight: 700; color: var(--muted); text-align: center; padding: 4px 8px; }
-    .lp-empty-inner small { font-weight: 600; font-size: .92em; }
+    .lp-size-chip b { font-variant-numeric: tabular-nums; }
+    /* 右下の角: つまんで広げる／縮める */
+    .lp-resize { position: absolute; right: -7px; bottom: -7px; width: 18px; height: 18px; zoom: var(--lp-inv, 1); z-index: 5; border-radius: 6px; background: var(--accent); box-shadow: 0 2px 6px rgba(15,23,42,.3); cursor: nwse-resize; touch-action: none; transition: opacity .15s ease; }
+    .lp-resize::before, .lp-resize::after { content: ''; position: absolute; right: 4px; bottom: 4px; border-right: 2px solid #fff; border-bottom: 2px solid #fff; }
+    .lp-resize::before { width: 8px; height: 8px; }
+    .lp-resize::after { width: 3px; height: 3px; }
+    /* 空いているマスと、ドラッグ中の置き場所の表示 */
+    .lp-slot { border: 3px dashed color-mix(in srgb, var(--accent) 22%, var(--border)); border-radius: 12px; background: color-mix(in srgb, var(--accent) 4%, transparent); display: flex; align-items: center; justify-content: center; }
+    .lp-slot-label { zoom: var(--lp-inv, 1); font-size: calc(10.5px * var(--fs, 1)); font-weight: 700; color: var(--muted); }
+    .lp-drop { z-index: 6; border-radius: 12px; border: 3px solid #16A34A; background: rgba(22,163,74,.12); display: flex; align-items: center; justify-content: center; pointer-events: none; }
+    .lp-drop.is-ng { border-color: #DC2626; background: rgba(220,38,38,.10); }
+    .lp-drop-label { zoom: var(--lp-inv, 1); padding: 4px 10px; border-radius: 8px; background: #16A34A; color: #fff; font-size: calc(11px * var(--fs, 1)); font-weight: 800; box-shadow: 0 2px 6px rgba(15,23,42,.2); white-space: nowrap; }
+    .lp-drop.is-ng .lp-drop-label { background: #DC2626; }
+    /* 大きさをマス目で選ぶ小窓 */
+    .lp-size-pop { position: fixed; z-index: 9998; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 16px 34px -12px rgba(15,23,42,.4); padding: 12px; width: 196px; font-family: var(--font-ios); }
+    .lp-size-pop-title { font-size: calc(11.5px * var(--fs, 1)); font-weight: 800; color: var(--ink); margin-bottom: 2px; }
+    .lp-size-pop-sub { font-size: calc(10px * var(--fs, 1)); color: var(--muted); margin-bottom: 8px; }
+    .lp-size-board { display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(5, 26px); gap: 4px; }
+    .lp-size-cell { border: 1px solid var(--border); border-radius: 5px; background: var(--surface-2); padding: 0; cursor: pointer; font-family: inherit; }
+    .lp-size-cell:disabled { cursor: not-allowed; background: repeating-linear-gradient(45deg, #EEF0F4, #EEF0F4 4px, #E3E6EC 4px, #E3E6EC 8px); border-color: transparent; }
+    .lp-size-cell.is-origin { border-color: var(--accent); }
+    .lp-size-cell.is-current { background: color-mix(in srgb, var(--accent) 30%, var(--surface)); border-color: var(--accent); }
+    .lp-size-cell.is-hover { background: var(--accent); border-color: var(--accent); }
+    .lp-size-pop-foot { margin-top: 8px; font-size: calc(10.5px * var(--fs, 1)); font-weight: 700; color: var(--accent-ink); min-height: 1.4em; }
     .lp-ghost { position: fixed; left: 0; top: 0; z-index: 9999; pointer-events: none; display: flex; align-items: center; gap: 7px; background: var(--accent); color: #fff; padding: 7px 12px; border-radius: 9px; font-size: calc(12px * var(--fs, 1)); font-weight: 700; box-shadow: 0 12px 26px -8px rgba(15,23,42,.5); }
     body.lp-dragging, body.lp-dragging * { cursor: grabbing !important; user-select: none; -webkit-user-select: none; }
     .lp-notes { list-style: none; margin: 16px 0 0; padding: 12px 14px; background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 10px; display: flex; flex-direction: column; gap: 6px; }
@@ -537,46 +580,44 @@
       .list-card-wrap { display: flex; }
 
       /* -- マイページヘッダー: 縦積みにして折り返しを防止 -- */
-      .mp-layout.is-live .mp-header-row { flex-direction: column; align-items: stretch; }
-      .mp-layout.is-live .mp-header-id { width: 100%; }
-      .mp-layout.is-live .mp-header-nav { justify-content: center; }
-      .mp-layout.is-live .mp-subtitle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+      .mp-grid.is-live .mp-header-row { flex-direction: column; align-items: stretch; }
+      .mp-grid.is-live .mp-header-id { width: 100%; }
+      .mp-grid.is-live .mp-header-nav { justify-content: center; }
+      .mp-grid.is-live .mp-subtitle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 
       /* -- マイページKPI: カレンダーのKPIと同じ「統計ストリップ」形式にして折り返し・はみ出しを防止 -- */
-      .mp-layout.is-live .mp-kpi-row {
+      .mp-grid.is-live .mp-kpi-row {
         display: flex !important; grid-template-columns: none !important;
         background: var(--surface); border-radius: 12px; box-shadow: var(--shadow-sm);
         padding: 8px 34px 8px 2px !important; margin-bottom: 10px !important; overflow-x: auto; scrollbar-width: none;
       }
-      .mp-layout.is-live .mp-kpi-row::-webkit-scrollbar { display: none; }
-      .mp-layout.is-live .mp-kpi-row .kpi-tile {
+      .mp-grid.is-live .mp-kpi-row::-webkit-scrollbar { display: none; }
+      .mp-grid.is-live .mp-kpi-row .kpi-tile {
         flex: 1 0 auto; min-width: 78px; background: transparent; box-shadow: none;
         border-radius: 0; padding: 4px 8px; border-right: 1px solid var(--hairline); text-align: center;
       }
-      .mp-layout.is-live .mp-kpi-row .kpi-tile:last-child { border-right: none; }
-      .mp-layout.is-live .mp-kpi-row .kpi-label {
+      .mp-grid.is-live .mp-kpi-row .kpi-tile:last-child { border-right: none; }
+      .mp-grid.is-live .mp-kpi-row .kpi-label {
         justify-content: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: calc(9px * var(--fs, 1));
       }
-      .mp-layout.is-live .mp-kpi-row .kpi-value { font-size: calc(16px * var(--fs, 1)); white-space: nowrap; }
-      .mp-layout.is-live .mp-kpi-row .slide-hint { display: flex; }
+      .mp-grid.is-live .mp-kpi-row .kpi-value { font-size: calc(16px * var(--fs, 1)); white-space: nowrap; }
+      .mp-grid.is-live .mp-kpi-row .slide-hint { display: flex; }
 
       /* -- マイページ: 横長の1行レイアウト。各列は必要最小幅にして折り返しをやめ、
             顧客名/モデルだけを可変幅にして省略記号で収める -- */
-      .mp-layout.is-live .mp-thead-row { display: none; }
-      .mp-layout.is-live .mp-row { flex-wrap: nowrap; gap: 6px; padding: 10px 12px; }
-      .mp-layout.is-live .mp-col { flex: 0 0 auto; min-width: 0; }
-      .mp-layout.is-live .mp-name, .mp-layout.is-live .mp-model { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
-      .mp-layout.is-live .mp-name { flex-grow: 1.2; font-size: calc(12.5px * var(--fs, 1)); }
-      .mp-layout.is-live .mp-model { font-size: calc(11px * var(--fs, 1)); }
-      .mp-layout.is-live .mp-col-date .mp-date-chip { padding: 4px 7px; font-size: calc(9.5px * var(--fs, 1)); }
-      .mp-layout.is-live .mp-col-type .branch-pill { padding: 2px 6px; font-size: calc(9px * var(--fs, 1)); white-space: nowrap; }
-      .mp-layout.is-live .mp-col-status { display: none; } /* 幅優先のため省略。詳細はタップして確認 */
-      .mp-layout.is-live .mp-col-rep { display: none; } /* 拠点長表示の担当者列も幅優先で省略。詳細はタップして確認 */
-      /* -- マイページのレイアウト: スマホでは幅の設定に関係なく、並び順どおりに1列で表示する -- */
-      .mp-layout.is-live .mp-lrow { flex-direction: column; align-items: stretch; gap: 22px; }
-      .mp-layout.is-live .mp-lrow > .mp-lcell { flex: 0 0 auto; }
-      .mp-layout.is-live.is-fill > .mp-lrow.has-list:last-child > .mp-lcell.is-list { flex: 1 1 auto; min-height: 0; }
-      .mp-layout.is-live .mp-lcell.is-empty { display: none; }
+      .mp-grid.is-live .mp-thead-row { display: none; }
+      .mp-grid.is-live .mp-row { flex-wrap: nowrap; gap: 6px; padding: 10px 12px; }
+      .mp-grid.is-live .mp-col { flex: 0 0 auto; min-width: 0; }
+      .mp-grid.is-live .mp-name, .mp-grid.is-live .mp-model { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+      .mp-grid.is-live .mp-name { flex-grow: 1.2; font-size: calc(12.5px * var(--fs, 1)); }
+      .mp-grid.is-live .mp-model { font-size: calc(11px * var(--fs, 1)); }
+      .mp-grid.is-live .mp-col-date .mp-date-chip { padding: 4px 7px; font-size: calc(9.5px * var(--fs, 1)); }
+      .mp-grid.is-live .mp-col-type .branch-pill { padding: 2px 6px; font-size: calc(9px * var(--fs, 1)); white-space: nowrap; }
+      .mp-grid.is-live .mp-col-status { display: none; } /* 幅優先のため省略。詳細はタップして確認 */
+      .mp-grid.is-live .mp-col-rep { display: none; } /* 拠点長表示の担当者列も幅優先で省略。詳細はタップして確認 */
+      /* -- マイページのレイアウト: スマホでは左上から順に1列に並べ、高さは縦のマス数に応じる（1マス140px） -- */
+      .mp-grid.is-live { display: flex; flex-direction: column; gap: 14px; overflow-y: auto; overflow-x: hidden; margin: 0 -3px; padding: 0 3px; } /* 影が切れないよう、パーツの外側3pxまで表示する */
+      .mp-grid.is-live > .mp-gcell { flex: 0 0 auto; height: calc(var(--h) * 140px * var(--fs, 1) + (var(--h) - 1) * 14px); }
 
 
       /* -- KPI表示をスマホ向けに変更: 個別タイルの箱・余白をやめ、1枚のカードを
@@ -703,7 +744,7 @@
     const INITIAL_DISPLAY_PREFS = <?!= JSON.stringify(typeof initialDisplayPrefs !== 'undefined' ? initialDisplayPrefs : {}) ?>;
     const INITIAL_MYPAGE_LAYOUT = <?!= JSON.stringify(typeof initialMypageLayout !== 'undefined' ? initialMypageLayout : null) ?>;
     // ▼ Code.gs の APP_VERSION と同じ値にする。設定ページ下部で両者を比べ、貼り替え漏れ・デプロイ漏れを知らせる。
-    const CLIENT_VERSION = '2026.09.26-1';
+    const CLIENT_VERSION = '2026.09.26-2';
     const SERVER_VERSION = <?!= JSON.stringify(typeof appVersion !== 'undefined' ? appVersion : '') ?>;
     const INITIAL_SIDE_ICON_URL = <?!= JSON.stringify(initialSideIconUrl || '') ?>;
     const INITIAL_SIDE_ICON_EXTERNAL_URL = <?!= JSON.stringify(initialSideIconExternalUrl || '') ?>;
@@ -841,57 +882,72 @@
     let pendingDisplayPrefs = { ...displayPrefs };
     let displayPrefsMsg = { text: '', error: false };
 
-    // ▼ マイページのレイアウト（個人ごと）。未設定なら従来どおりの縦並び。設定画面でドラッグして並べ替え、「保存」で確定する。
-    //   ヘッダー（月の切り替え）と案件一覧は欠かせないため非表示にはできない（Code.gs の MYPAGE_LAYOUT_HIDEABLE と同じ）。
+    // ▼ マイページのレイアウト（個人ごと）。PCのマイページを「横2列×縦5段」のマス目に分け、各パーツの位置（x: 列, y: 段）と
+    //   大きさ（w: 横1〜2マス, h: 縦1〜5マス）を決める。マス目に置いていないパーツは非表示。
+    //   ヘッダー（月の切り替え）と案件一覧は欠かせないため必ず置く。内容は Code.gs の MYPAGE_* と同じにすること。
+    const MP_GRID = { cols: 2, rows: 5 };
     const MP_PARTS = {
-      header: { name: 'ヘッダー', desc: '名前・月の切り替え', icon: 'fa-id-badge', hideable: false },
-      kpiNew: { name: '新車の数字', desc: '受注台数・登録済み・未定・OSS登録率', icon: 'fa-car', hideable: true },
-      kpiUsed: { name: '中古車の数字', desc: '受注台数・登録済み・未定・OSS登録率', icon: 'fa-car-side', hideable: true },
-      search: { name: '絞り込み', desc: '顧客名・登録方法', icon: 'fa-magnifying-glass', hideable: true },
-      list: { name: '案件一覧', desc: '担当案件の一覧', icon: 'fa-list-ul', hideable: false },
-      // ▼ 後から追加したパーツ。最初は非表示（defaultHidden）で、使いたい人が設定画面で表示する（Code.gs の MYPAGE_LAYOUT_DEFAULT_HIDDEN と同じ）
-      week: { name: '今週の登録予定', desc: '今日から7日間の登録予定', icon: 'fa-calendar-week', hideable: true, defaultHidden: true },
-      pending: { name: '未定の案件', desc: '登録日が決まっていない案件', icon: 'fa-hourglass-half', hideable: true, defaultHidden: true },
-      minical: { name: 'ミニカレンダー', desc: '登録のある日が分かる月のカレンダー', icon: 'fa-calendar-days', hideable: true, defaultHidden: true },
+      header: { name: 'ヘッダー', icon: 'fa-id-badge', min: { w: 1, h: 1 }, add: { w: 2, h: 1 }, required: true },
+      kpiNew: { name: '新車の数字', icon: 'fa-car', min: { w: 1, h: 1 }, add: { w: 1, h: 1 } },
+      kpiUsed: { name: '中古車の数字', icon: 'fa-car-side', min: { w: 1, h: 1 }, add: { w: 1, h: 1 } },
+      list: { name: '案件一覧', icon: 'fa-list-ul', min: { w: 1, h: 2 }, add: { w: 2, h: 2 }, required: true },
+      week: { name: '今週の登録予定', icon: 'fa-calendar-week', min: { w: 1, h: 1 }, add: { w: 1, h: 2 } },
+      pending: { name: '未定の案件', icon: 'fa-hourglass-half', min: { w: 1, h: 1 }, add: { w: 1, h: 2 } },
+      minical: { name: 'ミニカレンダー', icon: 'fa-calendar-days', min: { w: 1, h: 2 }, add: { w: 1, h: 2 } },
     };
     const MP_PART_IDS = Object.keys(MP_PARTS);
-    function defaultMpLayout_() { return { items: MP_PART_IDS.map(id => ({ id, w: 'full', hidden: !!MP_PARTS[id].defaultHidden })) }; }
+    const MP_DEFAULT_ITEMS = [
+      { id: 'header', x: 0, y: 0, w: 2, h: 1 },
+      { id: 'kpiNew', x: 0, y: 1, w: 2, h: 1 },
+      { id: 'kpiUsed', x: 0, y: 2, w: 2, h: 1 },
+      { id: 'list', x: 0, y: 3, w: 2, h: 2 },
+    ];
+    function defaultMpLayout_() { return { items: MP_DEFAULT_ITEMS.map(it => ({ ...it })) }; }
+    function mpOverlap_(a, b) { return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h; }
+    // cand をマス目に置けるか（範囲内・最小サイズ以上・他のパーツと重ならない）。ignore に挙げたパーツとの重なりは見ない。
+    function mpCanPlace_(items, cand, ignore) {
+      const min = MP_PARTS[cand.id].min;
+      if (cand.x < 0 || cand.y < 0 || cand.w < min.w || cand.h < min.h) return false;
+      if (cand.x + cand.w > MP_GRID.cols || cand.y + cand.h > MP_GRID.rows) return false;
+      return !items.some(o => o.id !== cand.id && (!ignore || ignore.indexOf(o.id) === -1) && mpOverlap_(o, cand));
+    }
     function normalizeMpLayout_(layout) {
-      const seen = {};
+      if (!layout || !Array.isArray(layout.items)) return defaultMpLayout_();
       const items = [];
-      ((layout && Array.isArray(layout.items)) ? layout.items : []).forEach(it => {
+      layout.items.forEach(it => {
         const id = String((it && it.id) || '');
-        if (!MP_PARTS[id] || seen[id]) return;
-        seen[id] = true;
-        items.push({ id, w: it.w === 'half' ? 'half' : 'full', hidden: MP_PARTS[id].hideable && it.hidden === true });
+        if (!MP_PARTS[id] || items.some(o => o.id === id)) return;
+        const cand = { id, x: Number(it.x), y: Number(it.y), w: Number(it.w), h: Number(it.h) };
+        if ([cand.x, cand.y, cand.w, cand.h].some(n => !Number.isInteger(n))) return;
+        if (mpCanPlace_(items, cand)) items.push(cand);
       });
-      MP_PART_IDS.forEach(id => { if (!seen[id]) items.push({ id, w: 'full', hidden: !!MP_PARTS[id].defaultHidden }); });
-      return { items };
+      if (MP_PART_IDS.some(id => MP_PARTS[id].required && !items.some(it => it.id === id))) return defaultMpLayout_();
+      return { items: mpSortItems_(items) };
     }
+    function mpSortItems_(items) { return items.slice().sort((a, b) => (a.y - b.y) || (a.x - b.x)); }
     function cloneMpLayout_(layout) { return { items: layout.items.map(it => ({ ...it })) }; }
-    function sameMpLayout_(a, b) { return JSON.stringify(a.items) === JSON.stringify(b.items); }
-    function mpPartVisible_(layout, id) { const it = layout.items.find(i => i.id === id); return !!it && !it.hidden; }
-    // 並び順どおりに行へ詰める。半分幅は次の半分幅と1行に並び、相手がいなければ右側を空けたままにする。
-    function mpLayoutRows_(layout) {
-      const rows = [];
-      let half = null;
-      layout.items.filter(it => !it.hidden).forEach(it => {
-        if (it.w === 'half') {
-          if (half) { rows.push([half, it]); half = null; } else half = it;
-          return;
-        }
-        if (half) { rows.push([half, { empty: true, after: half.id }]); half = null; }
-        rows.push([it]);
-      });
-      if (half) rows.push([half, { empty: true, after: half.id }]);
-      return rows;
+    function sameMpLayout_(a, b) { return JSON.stringify(mpSortItems_(a.items)) === JSON.stringify(mpSortItems_(b.items)); }
+    function mpPartVisible_(layout, id) { return layout.items.some(i => i.id === id); }
+    function mpFreeCells_(items) {
+      const free = [];
+      for (let y = 0; y < MP_GRID.rows; y++) for (let x = 0; x < MP_GRID.cols; x++) {
+        if (!items.some(o => mpOverlap_(o, { x, y, w: 1, h: 1 }))) free.push({ x, y });
+      }
+      return free;
     }
-    function mpListIsLast_(rows) { const last = rows[rows.length - 1]; return !!last && last.some(c => c.id === 'list'); }
+    // 空いているところで、指定の大きさが入る最初の場所（左上から順に探す）
+    function mpFindSpot_(items, id, w, h) {
+      for (let y = 0; y < MP_GRID.rows; y++) for (let x = 0; x < MP_GRID.cols; x++) {
+        if (mpCanPlace_(items, { id, x, y, w, h })) return { x, y };
+      }
+      return null;
+    }
     let mypageLayout = normalizeMpLayout_(INITIAL_MYPAGE_LAYOUT);
     let pendingMypageLayout = cloneMpLayout_(mypageLayout);
     let mpLayoutMsg = { text: '', error: false };
     let lpView = 'pc';   // 狭い画面の設定ページで、PC・スマホどちらのプレビューを見せるか
     let lpDrag = null;   // ドラッグ中の状態
+    let lpSelected = ''; // 設定画面のプレビューで選んでいるパーツ
     let mpDayFilter = ''; // ミニカレンダーで選んだ日（'YYYY-MM-DD'）。案件一覧をその日だけに絞り込む
     function applyDisplayPrefs_() {
       const prefs = currentPage === 'settings' ? pendingDisplayPrefs : displayPrefs;
@@ -1568,7 +1624,6 @@
     }
     function mpApplyFilters(records) {
       if (mpDayFilter && mpPartVisible_(mypageLayout, 'minical')) records = records.filter(r => r.登録予定日 === mpDayFilter);
-      if (!mpPartVisible_(mypageLayout, 'search')) return records; // 絞り込みを非表示にしている間は全件表示
       const keyword = mpSearch.name.trim();
       return records.filter(r => {
         if (keyword && !(r.顧客名 || '').includes(keyword) && !(r.担当者 || '').includes(keyword)) return false;
@@ -1606,7 +1661,7 @@
       const monthDate = mpMonthDate(myPageMonthOffset);
       const { confirmed, undecided } = myRecordsForOffset(myPageMonthOffset);
       const mine = mypageRecords.filter(isMyMpRecord_);
-      return mpLayoutHTML_(mypageLayout, {
+      return mpGridHTML_(mypageLayout, {
         preview: false, name: LINKED_NAME, isManager: LINKED_IS_BRANCH_MANAGER, branch: LINKED_BRANCH,
         monthLabel: `${monthDate.getFullYear()}年${monthDate.getMonth() + 1}月`, confirmed, undecided,
         year: monthDate.getFullYear(), month: monthDate.getMonth(), dayFilter: mpDayFilter,
@@ -1618,7 +1673,7 @@
 
     // ▼ マイページの各パーツ。実際のマイページと、設定画面のレイアウトのプレビュー（ctx.preview）の両方で使う。
     //   プレビューでは id を付けず（実際の画面の要素と重複させない）、入力欄も操作できないようにする。
-    function mpPartHTML_(id, ctx, fill) {
+    function mpPartHTML_(id, ctx) {
       const idAttr = (value) => (ctx.preview ? '' : `id="${value}"`);
       if (id === 'header') {
         return `
@@ -1659,28 +1714,23 @@
           </div>
         `;
       }
-      if (id === 'search') {
-        const search = ctx.preview ? { name: '', method: '全て' } : mpSearch;
-        const off = ctx.preview ? 'tabindex="-1" readonly' : '';
-        return `
-          <div class="mp-search-row">
-            <input ${idAttr('mpSearchName')} class="settings-input" placeholder="${ctx.isManager ? '顧客名・担当者名で絞り込み' : '顧客名で絞り込み'}" value="${escapeAttr(search.name)}" style="flex:1;min-width:160px;" ${off}>
-            <select ${idAttr('mpSearchMethod')} class="settings-input" ${ctx.preview ? 'tabindex="-1"' : ''}>
-              ${['全て', 'OSS', '紙'].map(m => `<option ${search.method === m ? 'selected' : ''}>${m}</option>`).join('')}
-            </select>
-          </div>
-        `;
-      }
       if (id === 'week') return mpWeekPartHTML_(ctx);
       if (id === 'pending') return mpPendingPartHTML_(ctx);
       if (id === 'minical') return mpMiniCalPartHTML_(ctx);
-      // 案件一覧。実際の画面では中身を renderMpResults() が後から差し込む。
-      // fill: 一覧が一番下の行にあるときは、画面の下まで広げて一覧の中だけをスクロールさせる
+      // 案件一覧（上に絞り込みを含む）。実際の画面では一覧の中身を renderMpResults() が後から差し込む。
+      const search = ctx.preview ? { name: '', method: '全て' } : mpSearch;
+      const searchRow = `
+        <div class="mp-search-row">
+          <input ${idAttr('mpSearchName')} class="settings-input" placeholder="${ctx.isManager ? '顧客名・担当者名で絞り込み' : '顧客名で絞り込み'}" value="${escapeAttr(search.name)}" style="flex:1;min-width:140px;" ${ctx.preview ? 'tabindex="-1" readonly' : ''}>
+          <select ${idAttr('mpSearchMethod')} class="settings-input" ${ctx.preview ? 'tabindex="-1"' : ''}>
+            ${['全て', 'OSS', '紙'].map(m => `<option ${search.method === m ? 'selected' : ''}>${m}</option>`).join('')}
+          </select>
+        </div>`;
       if (ctx.preview) {
         const records = ctx.confirmed.concat(ctx.undecided).sort((a, b) => (a.登録予定日 || 'z').localeCompare(b.登録予定日 || 'z'));
-        return `<div class="mp-results ${fill ? 'is-fill' : ''}">${mpTheadHTML()}<div class="mp-list">${records.map(mpRowHTML).join('')}</div></div>`;
+        return `<div class="mp-list-part">${searchRow}<div class="mp-results">${mpTheadHTML()}<div class="mp-list">${records.map(mpRowHTML).join('')}</div></div></div>`;
       }
-      return `<div id="mpResults" class="mp-results ${fill ? 'page-fill-area' : ''}"></div>`;
+      return `<div class="mp-list-part">${searchRow}<div id="mpResults" class="mp-results"></div></div>`;
     }
 
     // ▼ 今日から7日間（今日を含む）の登録予定を日付順に返す
@@ -1786,21 +1836,15 @@
         </div>`;
     }
 
-    // ▼ レイアウトどおりにパーツを並べる。decorate はプレビュー用（パーツに操作用のつまみ等を重ねる）。
-    function mpLayoutHTML_(layout, ctx, decorate) {
-      const rows = mpLayoutRows_(layout);
-      const fill = mpListIsLast_(rows);
-      const cellHTML = (c) => {
-        if (c.empty) return decorate ? decorate.empty(c) : '<div class="mp-lcell w-half is-empty"></div>';
-        const inner = mpPartHTML_(c.id, ctx, fill && c.id === 'list');
-        const cls = `mp-lcell w-${c.w} ${c.id === 'list' ? 'is-list' : ''} ${decorate ? 'lp-part' : ''}`;
-        return `<div class="${cls}" data-part="${c.id}">${decorate ? decorate.part(c, inner) : inner}</div>`;
-      };
-      return `
-        <div class="mp-layout ${fill ? 'is-fill' : 'is-scroll'} ${ctx.preview ? 'is-preview' : 'is-live'} ${['week', 'pending', 'minical'].some(id => mpPartVisible_(layout, id)) ? 'has-extra' : ''}">
-          ${rows.map(row => `<div class="mp-lrow ${row.some(c => c.id === 'list') ? 'has-list' : ''}">${row.map(cellHTML).join('')}</div>`).join('')}
-        </div>
-      `;
+    // ▼ マス目どおりにパーツを置く。スマホでは同じ要素を左上から順（order）に1列で並べ、高さは縦のマス数（--h）に応じる。
+    //   decorate はプレビュー用（パーツに操作用のつまみ等を重ね、空いているマスを表示する）。
+    function mpGridHTML_(layout, ctx, decorate) {
+      const cells = mpSortItems_(layout.items).map(it => {
+        const style = `grid-column:${it.x + 1} / span ${it.w};grid-row:${it.y + 1} / span ${it.h};--h:${it.h};order:${it.y * MP_GRID.cols + it.x};`;
+        const body = `<div class="mp-gcell-body">${mpPartHTML_(it.id, ctx)}</div>`;
+        return `<div class="mp-gcell ${decorate ? 'lp-part' : ''} ${decorate && it.y === 0 ? 'is-top' : ''} ${decorate && decorate.selected === it.id ? 'is-selected' : ''}" data-part="${it.id}" style="${style}">${body}${decorate ? decorate.part(it) : ''}</div>`;
+      }).join('');
+      return `<div class="mp-grid ${ctx.preview ? 'is-preview' : 'is-live'}">${decorate ? decorate.slots(layout) : ''}${cells}</div>`;
     }
 
     // ---- 設定ページ ----
@@ -1871,34 +1915,30 @@
         year: d.getFullYear(), month: d.getMonth(), dayFilter: '', week, pendingAll: undecided,
       };
     }
-    // プレビュー用: パーツに重ねるボタン類と、半分幅の隣の空き
+    // プレビュー用: パーツに重ねるボタン類（PCのみ操作できる）と、空いているマス
     function lpDecorate_(frame) {
       return {
-        part: (c, inner) => {
-          const meta = MP_PARTS[c.id];
-          const controls = frame === 'pc' ? `
-            <span class="lp-chip-group">
-              <button type="button" class="lp-chip-btn" data-lp-width="${c.id}" title="幅を切り替える（全幅／半分）">
-                <i class="fa-solid ${c.w === 'half' ? 'fa-table-columns' : 'fa-square-full'}"></i>${c.w === 'half' ? '半分' : '全幅'}
-              </button>
-              ${meta.hideable ? `<button type="button" class="lp-chip-btn" data-lp-hide="${c.id}" title="このパーツを非表示にする"><i class="fa-solid fa-eye-slash"></i></button>` : ''}
-            </span>` : '';
+        selected: frame === 'pc' ? lpSelected : '',
+        part: (it) => {
+          const meta = MP_PARTS[it.id];
+          if (frame !== 'pc') return `<div class="lp-part-chrome"><span class="lp-chip lp-grip"><i class="fa-solid ${meta.icon}"></i>${meta.name}</span></div>`;
           return `
-            <div class="lp-part-body">${inner}</div>
             <div class="lp-part-chrome">
               <span class="lp-chip lp-grip" title="ドラッグして移動"><i class="fa-solid fa-grip-vertical"></i>${meta.name}</span>
-              ${controls}
-            </div>`;
+              <span class="lp-chip-group">
+                <button type="button" class="lp-chip-btn lp-size-chip" data-lp-size="${it.id}" title="大きさをマス目で選ぶ">横<b>${it.w}</b>×縦<b>${it.h}</b></button>
+                ${meta.required ? '' : `<button type="button" class="lp-chip-btn" data-lp-hide="${it.id}" title="このパーツを非表示にする"><i class="fa-solid fa-eye-slash"></i></button>`}
+              </span>
+            </div>
+            <span class="lp-resize" data-lp-resize="${it.id}" title="ドラッグして大きさを変える"></span>`;
         },
-        empty: (c) => `
-          <div class="mp-lcell w-half is-empty lp-empty" data-after="${c.after}">
-            <div class="lp-empty-inner">空き<small>半分幅のパーツを置けます</small></div>
-          </div>`,
+        slots: (layout) => (frame !== 'pc' ? '' : mpFreeCells_(layout.items)
+          .map(c => `<div class="lp-slot" style="grid-column:${c.x + 1};grid-row:${c.y + 1};"><span class="lp-slot-label">空き</span></div>`).join('')),
       };
     }
     function lpDeviceHTML_(frame, ctx) {
       const logo = sidePanelIconUrl ? `<img src="${escapeAttr(sidePanelIconUrl)}" alt="">` : '<span class="lp-mark"><i class="fa-solid fa-car"></i></span>';
-      const layout = mpLayoutHTML_(pendingMypageLayout, ctx, lpDecorate_(frame));
+      const grid = mpGridHTML_(pendingMypageLayout, ctx, lpDecorate_(frame));
       const screen = LP_SCREENS[frame];
       const app = frame === 'pc' ? `
         <div class="lp-app">
@@ -1908,11 +1948,11 @@
             <div class="lp-cp-item active"><i class="fa-solid fa-user"></i>マイページ</div>
             <div class="lp-cp-item"><i class="fa-solid fa-gear"></i>設定</div>
           </div>
-          <div class="lp-main">${layout}</div>
+          <div class="lp-main">${grid}</div>
         </div>` : `
         <div class="lp-app lp-app-phone">
           <div class="lp-topbar">${logo}${sidePanelIconUrl ? '' : '<span>AU NEW CAR</span>'}</div>
-          <div class="lp-main">${layout}</div>
+          <div class="lp-main">${grid}</div>
           <div class="lp-tabbar">
             <div class="lp-tab"><i class="fa-solid fa-calendar-days"></i>カレンダー</div>
             <div class="lp-tab active"><i class="fa-solid fa-user"></i>マイページ</div>
@@ -1921,7 +1961,7 @@
         </div>`;
       return `
         <div class="lp-device lp-${frame}" data-frame="${frame}">
-          <div class="lp-device-label"><i class="fa-solid ${frame === 'pc' ? 'fa-desktop' : 'fa-mobile-screen-button'}"></i>${frame === 'pc' ? 'PC' : 'スマホ'}</div>
+          <div class="lp-device-label"><i class="fa-solid ${frame === 'pc' ? 'fa-desktop' : 'fa-mobile-screen-button'}"></i>${frame === 'pc' ? 'PC（ここで配置を編集します）' : 'スマホ（左上から順に1列）'}</div>
           <div class="lp-frame">
             ${frame === 'pc' ? '<div class="lp-browser-bar"><span class="lp-dot"></span><span class="lp-dot"></span><span class="lp-dot"></span><span class="lp-url">登録カレンダー — マイページ</span></div>' : ''}
             <div class="lp-screen" data-vw="${screen.w}" data-vh="${screen.h}">
@@ -1930,34 +1970,27 @@
           </div>
         </div>`;
     }
-    // 今の並びで画面がどう見えるかを、文章でも添える
+    // 今の配置で画面がどう見えるかを、文章でも添える
     function lpNotesHTML_(layout) {
-      const rows = mpLayoutRows_(layout);
-      const name = (id) => MP_PARTS[id].name;
-      const notes = [];
-      rows.forEach(row => {
-        if (row.length < 2) return;
-        if (row[1].empty) notes.push(['fa-table-columns', `「${name(row[0].id)}」の右側が空いています。半分幅のパーツを隣に置くと、横に並べられます。`]);
-        else notes.push(['fa-table-columns', `PCでは「${name(row[0].id)}」と「${name(row[1].id)}」が横に並びます。`]);
-      });
-      notes.push(mpListIsLast_(rows)
-        ? ['fa-arrows-up-down', '案件一覧が一番下にあるため、一覧が画面の下まで広がり、一覧の中だけがスクロールします（上のパーツは常に見えます）。']
-        : ['fa-arrows-up-down', '案件一覧の下にもパーツがあるため、一覧は全件をそのまま表示し、ページ全体がスクロールします。']);
-      notes.push(['fa-mobile-screen-button', 'スマホでは幅の設定に関係なく、上から順に1列で表示されます。']);
-      if (!mpPartVisible_(layout, 'search')) notes.push(['fa-circle-info', '絞り込みを非表示にしている間は、案件一覧に全件が表示されます。']);
-      return `<ul class="lp-notes">${notes.map(([icon, text]) => `<li><i class="fa-solid ${icon}"></i><span>${text}</span></li>`).join('')}</ul>`;
+      const notes = [['fa-table-cells-large', 'PCでは画面の高さを5等分したマス目に表示されます。1マスの高さは画面の大きさで変わります（高さ900pxの画面で約160px）。']];
+      const free = mpFreeCells_(layout.items).length;
+      if (free) notes.push(['fa-square', `空いているマスが${free}マスあります。マイページでは空白になります。`]);
+      notes.push(['fa-arrows-up-down', '中身が入りきらないパーツは、パーツの中でスクロールします。', 'lpOverflowNote']);
+      notes.push(['fa-mobile-screen-button', 'スマホでは左上から順に1列で表示され、高さは縦のマス数に応じます（1マス140px）。']);
+      return `<ul class="lp-notes">${notes.map(([icon, text, id]) => `<li${id ? ` id="${id}"` : ''}><i class="fa-solid ${icon}"></i><span>${text}</span></li>`).join('')}</ul>`;
     }
     function mpLayoutCardInnerHTML_() {
       const isDirty = !sameMpLayout_(pendingMypageLayout, mypageLayout);
       const isDefault = sameMpLayout_(pendingMypageLayout, defaultMpLayout_());
       let msg = '';
-      if (isDirty) msg = `<span class="theme-msg dirty"><i class="fa-solid fa-circle-exclamation"></i> 未保存の変更があります</span>`;
-      else if (mpLayoutMsg.text) msg = `<span class="theme-msg ${mpLayoutMsg.error ? 'dirty' : 'saved'}"><i class="fa-solid ${mpLayoutMsg.error ? 'fa-circle-exclamation' : 'fa-circle-check'}"></i> ${escapeHtml(mpLayoutMsg.text)}</span>`;
-      const hidden = pendingMypageLayout.items.filter(it => it.hidden);
+      if (mpLayoutMsg.error) msg = `<span class="theme-msg dirty"><i class="fa-solid fa-circle-exclamation"></i> ${escapeHtml(mpLayoutMsg.text)}</span>`;
+      else if (isDirty) msg = `<span class="theme-msg dirty"><i class="fa-solid fa-circle-exclamation"></i> 未保存の変更があります</span>`;
+      else if (mpLayoutMsg.text) msg = `<span class="theme-msg saved"><i class="fa-solid fa-circle-check"></i> ${escapeHtml(mpLayoutMsg.text)}</span>`;
+      const hidden = MP_PART_IDS.filter(id => !mpPartVisible_(pendingMypageLayout, id));
       const ctx = mpSampleCtx_();
       return `
         <h2 class="settings-card-title"><i class="fa-solid fa-table-cells-large"></i>マイページのレイアウト</h2>
-        <p class="settings-card-desc">パーツをドラッグして並べ替えられます。右上のボタンで幅（全幅／半分）と表示を切り替え、見え方を確かめてから保存してください。自分のマイページだけに反映されます。</p>
+        <p class="settings-card-desc">横2列×縦5段のマス目にパーツを配置します。ドラッグで移動、右下の角で大きさを変更できます。パーツを押すと、下のバーから大きさや表示も変えられます。自分のマイページだけに反映されます。</p>
         <div class="lp-toolbar">
           <div class="theme-sat-options lp-view-toggle">
             <button type="button" class="theme-sat-btn ${lpView === 'pc' ? 'active' : ''}" data-lp-view="pc"><i class="fa-solid fa-desktop"></i> PC</button>
@@ -1969,11 +2002,12 @@
           ${lpDeviceHTML_('pc', ctx)}
           ${lpDeviceHTML_('phone', ctx)}
         </div>
+        ${lpSelBarHTML_()}
         ${lpNotesHTML_(pendingMypageLayout)}
         <div class="lp-hidden">
-          <span class="lp-hidden-label">非表示のパーツ（押すと表示）</span>
+          <span class="lp-hidden-label">非表示のパーツ（押すと空いているマスに置きます）</span>
           ${hidden.length
-            ? hidden.map(it => `<button type="button" class="lp-hidden-chip" data-lp-show="${it.id}" title="表示する"><i class="fa-solid fa-plus"></i>${MP_PARTS[it.id].name}</button>`).join('')
+            ? hidden.map(id => `<button type="button" class="lp-hidden-chip" data-lp-show="${id}" title="空いているマスに置く"><i class="fa-solid fa-plus"></i>${MP_PARTS[id].name}</button>`).join('')
             : '<span class="lp-hidden-none">なし（各パーツの <i class="fa-solid fa-eye-slash"></i> で非表示にできます）</span>'}
         </div>
         <div class="theme-save-row">
@@ -1982,6 +2016,18 @@
           ${msg}
         </div>
       `;
+    }
+    // 選んでいるパーツの操作バー（狭い画面では、大きさ・表示の操作はここだけで行う）
+    function lpSelBarHTML_() {
+      const it = pendingMypageLayout.items.find(i => i.id === lpSelected);
+      if (!it) return '<div class="lp-selbar"><span class="lp-selbar-hint"><i class="fa-regular fa-hand-pointer"></i> PCのプレビューでパーツを押すと選択でき、ここで大きさや表示を変えられます。</span></div>';
+      const meta = MP_PARTS[it.id];
+      return `
+        <div class="lp-selbar">
+          <span class="lp-selbar-name"><i class="fa-solid ${meta.icon}"></i>${meta.name}<small>横${it.w}×縦${it.h}（左から${it.x + 1}列目・上から${it.y + 1}段目）</small></span>
+          <button type="button" class="lp-reset-btn" data-lp-size="${it.id}"><i class="fa-solid fa-up-right-and-down-left-from-center"></i>大きさを選ぶ</button>
+          ${meta.required ? '' : `<button type="button" class="lp-reset-btn" data-lp-hide="${it.id}"><i class="fa-solid fa-eye-slash"></i>非表示にする</button>`}
+        </div>`;
     }
     function mpLayoutSectionHTML() {
       return `<div class="settings-card" id="lpCard">${mpLayoutCardInnerHTML_()}</div>`;
@@ -2000,6 +2046,17 @@
         inner.style.setProperty('--lp-inv', String(1 / zoom));
         screen.style.height = `${Math.round(Number(screen.dataset.vh) * zoom)}px`;
       });
+      // PCのプレビューで中身が入りきらないパーツを挙げる
+      const note = document.getElementById('lpOverflowNote');
+      const pc = card.querySelector('.lp-pc');
+      if (note && pc && pc.offsetParent !== null) {
+        const over = [...pc.querySelectorAll('.lp-part')].filter(part =>
+          [...part.querySelectorAll('.mp-gcell-body, .mp-results, .mp-mini-list')].some(el => el.scrollHeight > el.clientHeight + 2)
+        ).map(part => `「${MP_PARTS[part.dataset.part].name}」`);
+        note.querySelector('span').textContent = over.length
+          ? `このプレビューの画面では、${over.join('')}の中身が入りきらないため、パーツの中でスクロールします。`
+          : '中身が入りきらないパーツは、パーツの中でスクロールします（このプレビューの画面では、すべて収まっています）。';
+      }
     }
     function lpPartRects_() {
       const rects = {};
@@ -2008,7 +2065,7 @@
       });
       return rects;
     }
-    // 並びが変わったとき、各パーツが元の位置から新しい位置へ滑らかに動くようにする
+    // 配置が変わったとき、各パーツが元の位置から新しい位置へ滑らかに動くようにする
     function lpAnimateFrom_(before) {
       document.querySelectorAll('#lpStage .lp-part').forEach(el => {
         const from = before[`${el.closest('[data-frame]').dataset.frame}:${el.dataset.part}`];
@@ -2024,12 +2081,20 @@
     function rerenderLayoutCard_(animate) {
       const card = document.getElementById('lpCard');
       if (!card) return;
+      lpCloseSizePicker_();
       const before = animate ? lpPartRects_() : null;
       card.innerHTML = mpLayoutCardInnerHTML_();
       wireLayoutEditor_();
       if (before) lpAnimateFrom_(before);
     }
     function lpChanged_() { mpLayoutMsg = { text: '', error: false }; rerenderLayoutCard_(true); }
+    function lpApply_(changes) {
+      changes.forEach(ch => {
+        const it = pendingMypageLayout.items.find(i => i.id === ch.id);
+        Object.assign(it, { x: ch.x, y: ch.y, w: ch.w, h: ch.h });
+      });
+      lpChanged_();
+    }
     function wireLayoutEditor_() {
       const card = document.getElementById('lpCard');
       if (!card) return;
@@ -2037,26 +2102,30 @@
       card.querySelectorAll('[data-lp-view]').forEach(btn => {
         btn.onclick = () => { lpView = btn.dataset.lpView; rerenderLayoutCard_(); };
       });
-      card.querySelectorAll('[data-lp-width]').forEach(btn => {
+      card.querySelectorAll('[data-lp-hide]').forEach(btn => {
         btn.onclick = () => {
-          const it = pendingMypageLayout.items.find(i => i.id === btn.dataset.lpWidth);
-          it.w = it.w === 'half' ? 'full' : 'half';
+          pendingMypageLayout.items = pendingMypageLayout.items.filter(i => i.id !== btn.dataset.lpHide);
           lpChanged_();
         };
-      });
-      card.querySelectorAll('[data-lp-hide]').forEach(btn => {
-        btn.onclick = () => { pendingMypageLayout.items.find(i => i.id === btn.dataset.lpHide).hidden = true; lpChanged_(); };
       });
       card.querySelectorAll('[data-lp-show]').forEach(btn => {
         btn.onclick = () => {
+          const id = btn.dataset.lpShow;
+          const meta = MP_PARTS[id];
           const items = pendingMypageLayout.items;
-          const idx = items.findIndex(i => i.id === btn.dataset.lpShow);
-          items[idx].hidden = false;
-          // 案件一覧より後ろにあると一覧が一番下でなくなるため、表示したパーツは一覧のすぐ上に置く
-          const listIdx = items.findIndex(i => i.id === 'list');
-          if (idx > listIdx) items.splice(listIdx, 0, items.splice(idx, 1)[0]);
+          // 追加するときの大きさが入らなければ、最小の大きさで空いているところを探す
+          const size = [meta.add, meta.min].find(sz => mpFindSpot_(items, id, sz.w, sz.h));
+          if (!size) {
+            mpLayoutMsg = { text: `空いているマスが足りないため「${meta.name}」を置けません（縦${meta.min.h}マス以上の空きが必要です）。ほかのパーツを小さくするか、非表示にしてください。`, error: true };
+            rerenderLayoutCard_();
+            return;
+          }
+          items.push({ id, ...mpFindSpot_(items, id, size.w, size.h), w: size.w, h: size.h });
           lpChanged_();
         };
+      });
+      card.querySelectorAll('[data-lp-size]').forEach(btn => {
+        btn.onclick = (ev) => { ev.stopPropagation(); lpOpenSizePicker_(btn.dataset.lpSize, btn); };
       });
       const resetBtn = document.getElementById('lpResetBtn');
       if (resetBtn) resetBtn.onclick = () => { pendingMypageLayout = defaultMpLayout_(); lpChanged_(); };
@@ -2079,43 +2148,174 @@
           })
           .saveUserMypageLayout(toSave);
       };
-      card.querySelectorAll('.lp-part').forEach(el => { el.onpointerdown = lpPointerDown_; });
-      if (lpDrag && lpDrag.active) {
-        card.querySelectorAll(`.lp-part[data-part="${lpDrag.id}"]`).forEach(el => el.classList.add('is-dragging'));
-      }
+      if (lpSelected && !mpPartVisible_(pendingMypageLayout, lpSelected)) lpSelected = '';
+      card.querySelectorAll('.lp-pc .lp-part').forEach(el => {
+        el.onpointerdown = lpPointerDown_;
+        el.onclick = (ev) => {
+          if (ev.target.closest('button, .lp-resize')) return;
+          lpSelected = el.dataset.part;
+          rerenderLayoutCard_();
+        };
+      });
+      card.querySelectorAll('.lp-pc [data-lp-resize]').forEach(el => { el.onpointerdown = lpResizeDown_; });
     }
-    // ---- ドラッグ（マウス・タッチ共通。タッチでは画面のスクロールと両立させるため、名前のつまみからだけ動かす） ----
-    function lpPointerDown_(ev) {
-      if (ev.pointerType === 'mouse' && ev.button !== 0) return;
-      if (ev.target.closest('button')) return;
-      if (ev.pointerType !== 'mouse' && !ev.target.closest('.lp-grip')) return;
+
+    // ---- 大きさをマス目で選ぶ小窓（左上のマスは固定。押したマスまでの大きさになる） ----
+    function lpCloseSizePicker_() {
+      const pop = document.getElementById('lpSizePop');
+      if (pop) pop.remove();
+      document.removeEventListener('pointerdown', lpSizePickerOutside_, true);
+      document.removeEventListener('keydown', lpSizePickerKey_);
+    }
+    function lpSizePickerOutside_(ev) { if (!ev.target.closest('#lpSizePop, [data-lp-size]')) lpCloseSizePicker_(); }
+    function lpSizePickerKey_(ev) { if (ev.key === 'Escape') lpCloseSizePicker_(); }
+    function lpOpenSizePicker_(id, anchor) {
+      lpCloseSizePicker_();
+      const items = pendingMypageLayout.items;
+      const it = items.find(i => i.id === id);
+      const min = MP_PARTS[id].min;
+      let cells = '';
+      for (let r = 0; r < MP_GRID.rows; r++) for (let c = 0; c < MP_GRID.cols; c++) {
+        const w = c - it.x + 1, h = r - it.y + 1;
+        const ok = w >= min.w && h >= min.h && mpCanPlace_(items, { ...it, w, h });
+        const current = c >= it.x && c < it.x + it.w && r >= it.y && r < it.y + it.h;
+        cells += `<button type="button" class="lp-size-cell ${c === it.x && r === it.y ? 'is-origin' : ''} ${current ? 'is-current' : ''}" data-c="${c}" data-r="${r}" data-w="${w}" data-h="${h}" ${ok ? '' : 'disabled'} title="${ok ? `横${w}×縦${h}` : '選べません'}"></button>`;
+      }
+      const pop = document.createElement('div');
+      pop.className = 'lp-size-pop';
+      pop.id = 'lpSizePop';
+      pop.innerHTML = `
+        <div class="lp-size-pop-title">「${MP_PARTS[id].name}」の大きさ</div>
+        <div class="lp-size-pop-sub">枠の付いたマス（左上）から、押したマスまでの大きさになります</div>
+        <div class="lp-size-board">${cells}</div>
+        <div class="lp-size-pop-foot">いまの大きさ: 横${it.w}×縦${it.h}</div>`;
+      document.body.appendChild(pop);
+      const a = anchor.getBoundingClientRect();
+      const pw = pop.offsetWidth, ph = pop.offsetHeight;
+      pop.style.left = `${Math.max(8, Math.min(a.right - pw, innerWidth - pw - 8))}px`;
+      pop.style.top = `${a.bottom + 6 + ph > innerHeight - 8 ? Math.max(8, a.top - ph - 6) : a.bottom + 6}px`;
+      const foot = pop.querySelector('.lp-size-pop-foot');
+      const highlight = (btn) => {
+        pop.querySelectorAll('.lp-size-cell').forEach(el => {
+          const c = Number(el.dataset.c), r = Number(el.dataset.r);
+          el.classList.toggle('is-hover', !!btn && c >= it.x && c <= Number(btn.dataset.c) && r >= it.y && r <= Number(btn.dataset.r));
+        });
+        foot.textContent = btn ? `横${btn.dataset.w}×縦${btn.dataset.h}にする` : `いまの大きさ: 横${it.w}×縦${it.h}`;
+      };
+      pop.querySelectorAll('.lp-size-cell:not(:disabled)').forEach(btn => {
+        btn.onmouseenter = () => highlight(btn);
+        btn.onmouseleave = () => highlight(null);
+        btn.onclick = () => { lpCloseSizePicker_(); lpApply_([{ ...it, w: Number(btn.dataset.w), h: Number(btn.dataset.h) }]); };
+      });
+      setTimeout(() => {
+        document.addEventListener('pointerdown', lpSizePickerOutside_, true);
+        document.addEventListener('keydown', lpSizePickerKey_);
+      }, 0);
+    }
+
+    // ---- ドラッグで移動・大きさ変更（マウス・タッチ共通。タッチでは画面のスクロールと両立させるため、名前のつまみと右下の角からだけ動かす） ----
+    function lpGridInfo_() {
+      const grid = document.querySelector('#lpStage .lp-pc .mp-grid');
+      if (!grid) return null;
+      const r = grid.getBoundingClientRect();
+      return { grid, r, cw: r.width / MP_GRID.cols, rh: r.height / MP_GRID.rows };
+    }
+    function lpClamp_(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+    function lpCellAt_(g, x, y) {
+      return {
+        c: lpClamp_(Math.floor((x - g.r.left) / g.cw), 0, MP_GRID.cols - 1),
+        r: lpClamp_(Math.floor((y - g.r.top) / g.rh), 0, MP_GRID.rows - 1),
+      };
+    }
+    function lpStartDrag_(ev, drag) {
       ev.preventDefault();
-      lpDrag = { id: ev.currentTarget.dataset.part, startX: ev.clientX, startY: ev.clientY, active: false, ghost: null, lastTarget: null };
+      lpCloseSizePicker_();
+      lpDrag = { ...drag, startX: ev.clientX, startY: ev.clientY, x: ev.clientX, y: ev.clientY, active: false, ghost: null, plan: null };
       window.addEventListener('pointermove', lpPointerMove_);
       window.addEventListener('pointerup', lpPointerUp_);
       window.addEventListener('pointercancel', lpPointerUp_);
     }
+    function lpPointerDown_(ev) {
+      if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+      if (ev.target.closest('button, .lp-resize')) return;
+      if (ev.pointerType !== 'mouse' && !ev.target.closest('.lp-grip')) return;
+      const it = pendingMypageLayout.items.find(i => i.id === ev.currentTarget.dataset.part);
+      const cell = lpCellAt_(lpGridInfo_(), ev.clientX, ev.clientY);
+      // つかんだマスがパーツの中のどこか（パーツの左上からのずれ）を覚えておき、置き場所の計算に使う
+      lpStartDrag_(ev, { mode: 'move', id: it.id, offC: lpClamp_(cell.c - it.x, 0, it.w - 1), offR: lpClamp_(cell.r - it.y, 0, it.h - 1) });
+    }
+    function lpResizeDown_(ev) {
+      if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+      ev.stopPropagation();
+      lpStartDrag_(ev, { mode: 'resize', id: ev.currentTarget.dataset.lpResize });
+    }
     function lpPointerMove_(ev) {
       if (!lpDrag) return;
+      lpDrag.x = ev.clientX;
+      lpDrag.y = ev.clientY;
       if (!lpDrag.active) {
         if (Math.hypot(ev.clientX - lpDrag.startX, ev.clientY - lpDrag.startY) < 5) return;
         lpDrag.active = true;
-        const meta = MP_PARTS[lpDrag.id];
-        const ghost = document.createElement('div');
-        ghost.className = 'lp-ghost';
-        ghost.innerHTML = `<i class="fa-solid ${meta.icon}"></i>${escapeHtml(meta.name)}`;
-        document.body.appendChild(ghost);
-        lpDrag.ghost = ghost;
         document.body.classList.add('lp-dragging');
-        document.querySelectorAll(`#lpStage .lp-part[data-part="${lpDrag.id}"]`).forEach(el => el.classList.add('is-dragging'));
+        if (lpDrag.mode === 'move') {
+          const meta = MP_PARTS[lpDrag.id];
+          const ghost = document.createElement('div');
+          ghost.className = 'lp-ghost';
+          ghost.innerHTML = `<i class="fa-solid ${meta.icon}"></i>${escapeHtml(meta.name)}`;
+          document.body.appendChild(ghost);
+          lpDrag.ghost = ghost;
+          document.querySelectorAll(`#lpStage .lp-pc .lp-part[data-part="${lpDrag.id}"]`).forEach(el => el.classList.add('is-dragging'));
+        }
       }
-      lpDrag.ghost.style.transform = `translate(${ev.clientX + 14}px, ${ev.clientY + 14}px)`;
-      lpDrag.x = ev.clientX;
-      lpDrag.y = ev.clientY;
+      if (lpDrag.ghost) lpDrag.ghost.style.transform = `translate(${ev.clientX + 14}px, ${ev.clientY + 14}px)`;
+      lpUpdatePlan_();
       lpAutoScroll_();
-      lpEvaluateDrop_();
     }
-    // 画面の上端・下端の近くまでドラッグしたら、設定画面を自動でスクロールする（スマホでプレビューが画面に収まらないときのため）
+    // ポインタの位置から、移動先（または新しい大きさ）と、そこに置けるかを決めて表示する
+    function lpUpdatePlan_() {
+      const g = lpGridInfo_();
+      if (!lpDrag || !lpDrag.active || !g) return;
+      const items = pendingMypageLayout.items;
+      const it = items.find(i => i.id === lpDrag.id);
+      const cell = lpCellAt_(g, lpDrag.x, lpDrag.y);
+      let plan;
+      if (lpDrag.mode === 'move') {
+        const moved = { ...it, x: lpClamp_(cell.c - lpDrag.offC, 0, MP_GRID.cols - it.w), y: lpClamp_(cell.r - lpDrag.offR, 0, MP_GRID.rows - it.h) };
+        const hits = items.filter(o => o.id !== it.id && mpOverlap_(o, moved));
+        if (moved.x === it.x && moved.y === it.y) {
+          plan = { rect: moved, ok: true, label: '元の位置', changes: [] };
+        } else if (!hits.length) {
+          plan = { rect: moved, ok: true, label: 'ここに移動', changes: [moved] };
+        } else if (hits.length === 1) {
+          // 重なるパーツが1つだけなら、そのパーツを元の位置へ移して入れ替える（入る場合のみ）
+          const other = hits[0];
+          const swapped = { ...other, x: it.x, y: it.y };
+          const rest = items.filter(o => o.id !== it.id && o.id !== other.id);
+          const ok = mpCanPlace_(rest, moved) && mpCanPlace_(rest.concat([moved]), swapped);
+          plan = { rect: moved, ok, label: ok ? `「${MP_PARTS[other.id].name}」と入れ替え` : '置けません', changes: ok ? [moved, swapped] : [] };
+        } else {
+          plan = { rect: moved, ok: false, label: '置けません', changes: [] };
+        }
+      } else {
+        const min = MP_PARTS[it.id].min;
+        const resized = { ...it, w: lpClamp_(cell.c - it.x + 1, min.w, MP_GRID.cols - it.x), h: lpClamp_(cell.r - it.y + 1, min.h, MP_GRID.rows - it.y) };
+        const ok = mpCanPlace_(items, resized);
+        plan = { rect: resized, ok, label: `横${resized.w}×縦${resized.h}${ok ? '' : '（ほかのパーツと重なります）'}`, changes: ok ? [resized] : [] };
+      }
+      lpDrag.plan = plan;
+      let drop = g.grid.querySelector('.lp-drop');
+      if (!drop) {
+        drop = document.createElement('div');
+        drop.className = 'lp-drop';
+        drop.innerHTML = '<span class="lp-drop-label"></span>';
+        g.grid.appendChild(drop);
+      }
+      drop.style.gridColumn = `${plan.rect.x + 1} / span ${plan.rect.w}`;
+      drop.style.gridRow = `${plan.rect.y + 1} / span ${plan.rect.h}`;
+      drop.classList.toggle('is-ng', !plan.ok);
+      drop.firstElementChild.textContent = plan.label;
+    }
+    // 画面の上端・下端の近くまでドラッグしたら、設定画面を自動でスクロールする
     function lpAutoScroll_() {
       if (!lpDrag || !lpDrag.active || lpDrag.scrolling) return;
       const scroller = document.querySelector('.main-col > .page-fill-area');
@@ -2130,71 +2330,28 @@
         const before = scroller.scrollTop;
         if (dy) scroller.scrollTop = before + dy;
         if (!dy || scroller.scrollTop === before) { lpDrag.scrolling = false; return; }
-        lpEvaluateDrop_();
+        lpUpdatePlan_();
         requestAnimationFrame(step);
       };
       lpDrag.scrolling = true;
       requestAnimationFrame(step);
     }
-    // ポインタの位置から、ドラッグ中のパーツを入れる場所を決める。
-    // 並べ替えた直後はパーツが動いている途中なので、動き終わってから（止まっていても）もう一度判定する。
-    function lpEvaluateDrop_() {
-      if (!lpDrag || !lpDrag.active) return;
-      const wait = (lpDrag.settleUntil || 0) - Date.now();
-      if (wait > 0) {
-        if (!lpDrag.timer) lpDrag.timer = setTimeout(() => { if (lpDrag) { lpDrag.timer = null; lpEvaluateDrop_(); } }, wait + 10);
-        return;
-      }
-      const hit = document.elementFromPoint(lpDrag.x, lpDrag.y);
-      const target = hit && hit.closest('#lpStage .lp-part, #lpStage .lp-empty');
-      if (!target || target.dataset.part === lpDrag.id) { lpDrag.lastTarget = null; return; }
-      const items = pendingMypageLayout.items;
-      const order = items.slice();
-      const moving = order.splice(order.findIndex(i => i.id === lpDrag.id), 1)[0];
-      let targetKey;
-      if (target.dataset.after) {
-        targetKey = 'after:' + target.dataset.after;
-        order.splice(order.findIndex(i => i.id === target.dataset.after) + 1, 0, moving);
-      } else {
-        const frame = target.closest('[data-frame]').dataset.frame;
-        const targetItem = items.find(i => i.id === target.dataset.part);
-        const r = target.getBoundingClientRect();
-        // PCで半分幅のパーツに重ねたときは左右、それ以外は上下の半分で、前に入れるか後ろに入れるかを決める
-        const after = (frame === 'pc' && targetItem.w === 'half')
-          ? lpDrag.x > r.left + r.width / 2
-          : lpDrag.y > r.top + r.height / 2;
-        targetKey = targetItem.id + (after ? ':after' : ':before');
-        const idx = order.findIndex(i => i.id === targetItem.id);
-        order.splice(after ? idx + 1 : idx, 0, moving);
-      }
-      if (targetKey === lpDrag.lastTarget) return; // 入れ替えた直後に同じ相手と行ったり来たりしないようにする
-      if (order.every((it, i) => it === items[i])) return;
-      pendingMypageLayout = { items: order };
-      lpDrag.lastTarget = targetKey;
-      lpDrag.settleUntil = Date.now() + 230;
-      lpChanged_();
-    }
     function lpPointerUp_(ev) {
-      // 指を離した位置で最後にもう一度判定する（並べ替えの直後にすぐ離した場合も、見えている位置どおりに置く）
-      if (lpDrag && lpDrag.active && ev && ev.type === 'pointerup') {
-        if (lpDrag.timer) { clearTimeout(lpDrag.timer); lpDrag.timer = null; }
-        lpDrag.x = ev.clientX;
-        lpDrag.y = ev.clientY;
-        lpDrag.settleUntil = 0;
-        lpEvaluateDrop_();
-      }
       window.removeEventListener('pointermove', lpPointerMove_);
       window.removeEventListener('pointerup', lpPointerUp_);
       window.removeEventListener('pointercancel', lpPointerUp_);
       if (!lpDrag) return;
-      const wasActive = lpDrag.active;
-      if (lpDrag.ghost) lpDrag.ghost.remove();
-      if (lpDrag.timer) clearTimeout(lpDrag.timer);
+      const drag = lpDrag;
+      if (drag.active && ev && ev.type === 'pointerup') { drag.x = ev.clientX; drag.y = ev.clientY; lpUpdatePlan_(); }
+      if (drag.ghost) drag.ghost.remove();
       lpDrag = null;
       document.body.classList.remove('lp-dragging');
-      if (wasActive) rerenderLayoutCard_();
+      if (!drag.active) return;
+      lpSelected = drag.id;
+      if (drag.plan && drag.plan.ok && drag.plan.changes.length) lpApply_(drag.plan.changes);
+      else rerenderLayoutCard_();
     }
-    window.addEventListener('resize', () => { if (currentPage === 'settings') fitLayoutPreview_(); });
+    window.addEventListener('resize', () => { if (currentPage === 'settings') { lpCloseSizePicker_(); fitLayoutPreview_(); } });
 
     // ▼ 表示設定（権限者以外も使える個人ごとの設定）。選ぶとその場で試せて、「保存」で確定する。
     function displayPrefsSectionHTML() {
@@ -2752,7 +2909,7 @@
       if (mpPrev) mpPrev.onclick = () => { myPageMonthOffset -= 1; mpDayFilter = ''; render(); };
       const mpNext = document.getElementById('mpNext');
       if (mpNext) mpNext.onclick = () => { myPageMonthOffset += 1; mpDayFilter = ''; render(); };
-      const liveLayout = root.querySelector('.mp-layout.is-live');
+      const liveLayout = root.querySelector('.mp-grid.is-live');
       if (liveLayout) {
         liveLayout.querySelectorAll('[data-mp-day]').forEach(btn => {
           btn.onclick = () => { mpDayFilter = mpDayFilter === btn.dataset.mpDay ? '' : btn.dataset.mpDay; render(); };
