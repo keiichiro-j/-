@@ -228,6 +228,55 @@
     .mp-lcell[data-part="header"] { padding-bottom: 6px; }
     .mp-lcell .mp-header-row, .mp-lcell .mp-kpi-group { margin-bottom: 0; }
     .mp-search-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    /* 追加パーツを表示しているときは、案件一覧が押しつぶされないよう最低限の高さを確保し、足りなければページ全体をスクロールさせる */
+    .mp-layout.is-fill.has-extra { overflow-y: auto; }
+    .mp-layout.is-fill.has-extra > .mp-lrow.has-list:last-child { min-height: 320px; }
+    .mp-layout.is-fill > .mp-lrow.has-list:last-child > .mp-lcell:not(.is-list):not(.is-empty) { overflow-y: auto; min-height: 0; }
+    /* ---- マイページの追加パーツ（今週の登録予定・未定の案件・ミニカレンダー） ---- */
+    .mp-card { background: var(--surface); border: 1px solid var(--hairline); border-radius: 12px; box-shadow: var(--shadow-sm); padding: 14px 16px 12px; min-width: 0; }
+    .mp-card-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+    .mp-card-title { display: inline-flex; align-items: center; gap: 7px; font-size: calc(12.5px * var(--fs, 1)); font-weight: 800; color: var(--ink); }
+    .mp-card-title i { color: var(--accent-ink); }
+    .mp-card-count { font-size: calc(15px * var(--fs, 1)); font-weight: 800; color: var(--accent-ink); font-family: var(--font-ios); font-variant-numeric: tabular-nums; }
+    .mp-card-count small { font-size: .62em; color: var(--muted); margin-left: 2px; font-weight: 700; }
+    .mp-card-sub { margin-left: auto; font-size: calc(10.5px * var(--fs, 1)); color: var(--muted); font-weight: 600; }
+    .mp-card-empty { display: flex; align-items: center; gap: 8px; padding: 12px 4px 6px; font-size: calc(12px * var(--fs, 1)); color: var(--muted); }
+    .mp-mini-list { display: flex; flex-direction: column; max-height: calc(290px * var(--fs, 1)); overflow-y: auto; }
+    .mp-mini-row { display: flex; align-items: center; gap: 12px; padding: 7px 6px; border-top: 1px solid var(--hairline); border-radius: 6px; cursor: pointer; }
+    .mp-mini-row:first-child { border-top: none; }
+    .mp-mini-row:hover { background: var(--surface-2); }
+    .mp-mini-date { flex: 0 0 auto; width: calc(46px * var(--fs, 1)); height: calc(40px * var(--fs, 1)); border-radius: 8px; background: var(--surface-2); color: var(--ink-2); display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.15; }
+    .mp-mini-date b { font-size: calc(12.5px * var(--fs, 1)); font-weight: 800; }
+    .mp-mini-date span { font-size: calc(9.5px * var(--fs, 1)); font-weight: 700; }
+    .mp-mini-date.is-sat { background: var(--sat-bg); color: var(--sat-ink); }
+    .mp-mini-date.is-sun { background: var(--sun-bg); color: var(--sun-ink); }
+    .mp-mini-date.is-today { background: var(--accent); color: #fff; }
+    .mp-mini-date.is-pending { background: #FEF3E2; color: #B4620D; font-size: calc(14px * var(--fs, 1)); }
+    .mp-mini-main { flex: 1; min-width: 0; }
+    .mp-mini-name { font-size: calc(12.5px * var(--fs, 1)); font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mp-mini-meta { margin-top: 2px; font-size: calc(10.5px * var(--fs, 1)); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mp-when { display: inline-block; margin-left: 7px; padding: 2px 6px; border-radius: 4px; background: var(--accent-bg); color: var(--accent-ink); font-size: calc(9.5px * var(--fs, 1)); font-weight: 800; vertical-align: 1px; }
+    .mp-when.is-today { background: var(--accent); color: #fff; }
+    .mp-type-dot { display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%; background: var(--accent); vertical-align: 1px; }
+    .mp-type-dot.is-used { background: var(--notice); }
+    .mp-pending-status { flex: 0 1 auto; max-width: 45%; padding: 3px 8px; border-radius: 5px; background: #FEF3E2; color: #B4620D; font-size: calc(10px * var(--fs, 1)); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mp-cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+    .mp-cal-dow { padding-bottom: 3px; text-align: center; font-size: calc(9.5px * var(--fs, 1)); font-weight: 700; color: var(--muted); }
+    .mp-cal-dow.is-sat, .mp-cal-cell.is-sat { color: var(--sat-ink); }
+    .mp-cal-dow.is-sun, .mp-cal-cell.is-sun { color: var(--sun-ink); }
+    .mp-cal-cell { position: relative; height: calc(34px * var(--fs, 1)); padding: 0; border: none; border-radius: 7px; background: transparent; color: var(--ink-2); font-family: inherit; display: flex; align-items: center; justify-content: center; }
+    .mp-cal-num { font-size: calc(11.5px * var(--fs, 1)); font-weight: 600; }
+    .mp-cal-cell.has-reg { background: var(--accent-bg); color: var(--accent-ink); cursor: pointer; }
+    .mp-cal-cell.has-reg .mp-cal-num { font-weight: 800; }
+    .mp-cal-cell.has-reg:hover { box-shadow: inset 0 0 0 1px var(--accent); }
+    .mp-cal-cell.is-today { box-shadow: inset 0 0 0 2px var(--accent); }
+    .mp-cal-cell.is-selected { background: var(--accent); color: #fff; }
+    .mp-cal-badge { position: absolute; top: 2px; right: 3px; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 7px; background: var(--accent); color: #fff; font-size: calc(9px * var(--fs, 1)); font-weight: 800; line-height: 14px; text-align: center; }
+    .mp-cal-cell.is-selected .mp-cal-badge { background: #fff; color: var(--accent-ink); }
+    .mp-cal-foot { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; font-size: calc(10.5px * var(--fs, 1)); color: var(--muted); }
+    .mp-cal-foot.is-active { color: var(--accent-ink); font-weight: 700; }
+    .mp-cal-clear { margin-left: auto; padding: 3px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--ink-2); font-size: calc(10.5px * var(--fs, 1)); font-weight: 700; font-family: inherit; cursor: pointer; }
+    .mp-cal-clear:hover { border-color: var(--accent); color: var(--accent-ink); }
     /* 半分幅など、パーツの置き場所が狭いときは、スマホと同じ詰めた表示に切り替える（画面幅ではなく置き場所の幅で判定） */
     @container mpcell (max-width: 440px) {
       .mp-header-row { flex-direction: column; align-items: stretch; }
@@ -409,6 +458,7 @@
     .lp-part-body { display: contents; pointer-events: none; }
     .lp-part.is-dragging > .lp-part-body > * { opacity: .28; }
     .lp-part-chrome { position: absolute; top: -13px; left: -4px; right: -4px; display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; zoom: var(--lp-inv, 1); pointer-events: none; z-index: 4; }
+    .mp-layout > .mp-lrow:first-child .lp-part-chrome { top: -3px; } /* 一番上のパーツは、つまみが画面の上端で切れないよう内側に置く */
     .lp-chip, .lp-chip-btn { pointer-events: auto; display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 9px; border-radius: 11px; font-size: calc(10.5px * var(--fs, 1)); font-weight: 700; font-family: var(--font-ios); background: var(--surface); color: var(--ink-2); border: 1px solid var(--border); box-shadow: 0 2px 5px rgba(15,23,42,.12); white-space: nowrap; line-height: 1; }
     .lp-grip { background: var(--accent); color: #fff; border-color: transparent; cursor: grab; touch-action: none; }
     .lp-grip i { opacity: .85; }
@@ -653,7 +703,7 @@
     const INITIAL_DISPLAY_PREFS = <?!= JSON.stringify(typeof initialDisplayPrefs !== 'undefined' ? initialDisplayPrefs : {}) ?>;
     const INITIAL_MYPAGE_LAYOUT = <?!= JSON.stringify(typeof initialMypageLayout !== 'undefined' ? initialMypageLayout : null) ?>;
     // ▼ Code.gs の APP_VERSION と同じ値にする。設定ページ下部で両者を比べ、貼り替え漏れ・デプロイ漏れを知らせる。
-    const CLIENT_VERSION = '2026.09.25-11';
+    const CLIENT_VERSION = '2026.09.26-1';
     const SERVER_VERSION = <?!= JSON.stringify(typeof appVersion !== 'undefined' ? appVersion : '') ?>;
     const INITIAL_SIDE_ICON_URL = <?!= JSON.stringify(initialSideIconUrl || '') ?>;
     const INITIAL_SIDE_ICON_EXTERNAL_URL = <?!= JSON.stringify(initialSideIconExternalUrl || '') ?>;
@@ -799,9 +849,13 @@
       kpiUsed: { name: '中古車の数字', desc: '受注台数・登録済み・未定・OSS登録率', icon: 'fa-car-side', hideable: true },
       search: { name: '絞り込み', desc: '顧客名・登録方法', icon: 'fa-magnifying-glass', hideable: true },
       list: { name: '案件一覧', desc: '担当案件の一覧', icon: 'fa-list-ul', hideable: false },
+      // ▼ 後から追加したパーツ。最初は非表示（defaultHidden）で、使いたい人が設定画面で表示する（Code.gs の MYPAGE_LAYOUT_DEFAULT_HIDDEN と同じ）
+      week: { name: '今週の登録予定', desc: '今日から7日間の登録予定', icon: 'fa-calendar-week', hideable: true, defaultHidden: true },
+      pending: { name: '未定の案件', desc: '登録日が決まっていない案件', icon: 'fa-hourglass-half', hideable: true, defaultHidden: true },
+      minical: { name: 'ミニカレンダー', desc: '登録のある日が分かる月のカレンダー', icon: 'fa-calendar-days', hideable: true, defaultHidden: true },
     };
     const MP_PART_IDS = Object.keys(MP_PARTS);
-    function defaultMpLayout_() { return { items: MP_PART_IDS.map(id => ({ id, w: 'full', hidden: false })) }; }
+    function defaultMpLayout_() { return { items: MP_PART_IDS.map(id => ({ id, w: 'full', hidden: !!MP_PARTS[id].defaultHidden })) }; }
     function normalizeMpLayout_(layout) {
       const seen = {};
       const items = [];
@@ -811,7 +865,7 @@
         seen[id] = true;
         items.push({ id, w: it.w === 'half' ? 'half' : 'full', hidden: MP_PARTS[id].hideable && it.hidden === true });
       });
-      MP_PART_IDS.forEach(id => { if (!seen[id]) items.push({ id, w: 'full', hidden: false }); });
+      MP_PART_IDS.forEach(id => { if (!seen[id]) items.push({ id, w: 'full', hidden: !!MP_PARTS[id].defaultHidden }); });
       return { items };
     }
     function cloneMpLayout_(layout) { return { items: layout.items.map(it => ({ ...it })) }; }
@@ -838,6 +892,7 @@
     let mpLayoutMsg = { text: '', error: false };
     let lpView = 'pc';   // 狭い画面の設定ページで、PC・スマホどちらのプレビューを見せるか
     let lpDrag = null;   // ドラッグ中の状態
+    let mpDayFilter = ''; // ミニカレンダーで選んだ日（'YYYY-MM-DD'）。案件一覧をその日だけに絞り込む
     function applyDisplayPrefs_() {
       const prefs = currentPage === 'settings' ? pendingDisplayPrefs : displayPrefs;
       document.documentElement.style.setProperty('--fs', String(FONT_SCALES[prefs.fontSize] || 1));
@@ -1107,7 +1162,7 @@
       google.script.run
         .withSuccessHandler(function (data) {
           mypageRecords = data || [];
-          if (currentPage === 'mypage') renderMpResults();
+          if (currentPage === 'mypage') render(); // 数字・今週の登録予定なども含めて描き直す
         })
         .withFailureHandler(function (error) {
           console.error("マイページデータの取得に失敗しました: ", error);
@@ -1512,6 +1567,7 @@
       return { confirmed, undecided };
     }
     function mpApplyFilters(records) {
+      if (mpDayFilter && mpPartVisible_(mypageLayout, 'minical')) records = records.filter(r => r.登録予定日 === mpDayFilter);
       if (!mpPartVisible_(mypageLayout, 'search')) return records; // 絞り込みを非表示にしている間は全件表示
       const keyword = mpSearch.name.trim();
       return records.filter(r => {
@@ -1549,9 +1605,14 @@
       }
       const monthDate = mpMonthDate(myPageMonthOffset);
       const { confirmed, undecided } = myRecordsForOffset(myPageMonthOffset);
+      const mine = mypageRecords.filter(isMyMpRecord_);
       return mpLayoutHTML_(mypageLayout, {
         preview: false, name: LINKED_NAME, isManager: LINKED_IS_BRANCH_MANAGER, branch: LINKED_BRANCH,
         monthLabel: `${monthDate.getFullYear()}年${monthDate.getMonth() + 1}月`, confirmed, undecided,
+        year: monthDate.getFullYear(), month: monthDate.getMonth(), dayFilter: mpDayFilter,
+        // 今週の登録予定・未定の案件は、表示中の月に関係なく「今」を基準にする
+        week: mpWeekRecords_(mine.filter(r => isConfirmedStatus(r.ステータス))),
+        pendingAll: mine.filter(r => !isConfirmedStatus(r.ステータス)),
       });
     }
 
@@ -1610,6 +1671,9 @@
           </div>
         `;
       }
+      if (id === 'week') return mpWeekPartHTML_(ctx);
+      if (id === 'pending') return mpPendingPartHTML_(ctx);
+      if (id === 'minical') return mpMiniCalPartHTML_(ctx);
       // 案件一覧。実際の画面では中身を renderMpResults() が後から差し込む。
       // fill: 一覧が一番下の行にあるときは、画面の下まで広げて一覧の中だけをスクロールさせる
       if (ctx.preview) {
@@ -1617,6 +1681,109 @@
         return `<div class="mp-results ${fill ? 'is-fill' : ''}">${mpTheadHTML()}<div class="mp-list">${records.map(mpRowHTML).join('')}</div></div>`;
       }
       return `<div id="mpResults" class="mp-results ${fill ? 'page-fill-area' : ''}"></div>`;
+    }
+
+    // ▼ 今日から7日間（今日を含む）の登録予定を日付順に返す
+    function mpWeekRecords_(records) {
+      const t = new Date();
+      const start = dateStrOf(t.getFullYear(), t.getMonth(), t.getDate());
+      const e = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 6);
+      const end = dateStrOf(e.getFullYear(), e.getMonth(), e.getDate());
+      return records.filter(r => r.登録予定日 && r.登録予定日 >= start && r.登録予定日 <= end)
+        .sort((a, b) => a.登録予定日.localeCompare(b.登録予定日));
+    }
+    function mpCardHeadHTML_(icon, title, count, sub) {
+      return `
+        <div class="mp-card-head">
+          <span class="mp-card-title"><i class="fa-solid ${icon}"></i>${title}</span>
+          <span class="mp-card-count">${count}<small>件</small></span>
+          ${sub ? `<span class="mp-card-sub">${sub}</span>` : ''}
+        </div>`;
+    }
+    function mpWeekPartHTML_(ctx) {
+      const t = new Date();
+      const todayStr = dateStrOf(t.getFullYear(), t.getMonth(), t.getDate());
+      const tm = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1);
+      const tomorrowStr = dateStrOf(tm.getFullYear(), tm.getMonth(), tm.getDate());
+      const e = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 6);
+      const range = `${t.getMonth() + 1}/${t.getDate()}〜${e.getMonth() + 1}/${e.getDate()}`;
+      const rows = ctx.week.map(r => {
+        const p = parseYMD(r.登録予定日);
+        const dIdx = new Date(p.y, p.m, p.d).getDay();
+        const holiday = holidayName(p.y, p.m, p.d);
+        const dayCls = holiday || dIdx === 0 ? 'is-sun' : (dIdx === 6 ? 'is-sat' : '');
+        const tag = r.登録予定日 === todayStr ? '<span class="mp-when is-today">今日</span>'
+          : (r.登録予定日 === tomorrowStr ? '<span class="mp-when">明日</span>' : '');
+        return `
+          <div class="mp-mini-row js-open-record" ${recordDataAttr(r)}>
+            <div class="mp-mini-date ${dayCls} ${r.登録予定日 === todayStr ? 'is-today' : ''}"><b class="font-num">${p.m + 1}/${p.d}</b><span>${dow[dIdx]}</span></div>
+            <div class="mp-mini-main">
+              <div class="mp-mini-name">${escapeHtml(r.顧客名)} 様${tag}</div>
+              <div class="mp-mini-meta">${escapeHtml(r.車種 || '')}${ctx.isManager && r.担当者 ? ` ・ ${escapeHtml(r.担当者)}` : ''}</div>
+            </div>
+            ${methodPill(isOssRecord(r))}
+          </div>`;
+      }).join('');
+      return `
+        <div class="mp-card">
+          ${mpCardHeadHTML_('fa-calendar-week', '今週の登録予定', ctx.week.length, range)}
+          ${rows ? `<div class="mp-mini-list">${rows}</div>` : '<div class="mp-card-empty"><i class="fa-regular fa-calendar-check"></i>今週の登録予定はありません</div>'}
+        </div>`;
+    }
+    function mpPendingPartHTML_(ctx) {
+      const rows = ctx.pendingAll.map(r => {
+        const isUsed = r.車両区分 === '中古車';
+        return `
+          <div class="mp-mini-row js-open-record" ${recordDataAttr(r)}>
+            <div class="mp-mini-date is-pending"><i class="fa-solid fa-hourglass-half"></i></div>
+            <div class="mp-mini-main">
+              <div class="mp-mini-name">${escapeHtml(r.顧客名)} 様</div>
+              <div class="mp-mini-meta"><span class="mp-type-dot ${isUsed ? 'is-used' : ''}"></span>${escapeHtml(r.車両区分 || '')}${r.車種 ? ` ・ ${escapeHtml(r.車種)}` : ''}${ctx.isManager && r.担当者 ? ` ・ ${escapeHtml(r.担当者)}` : ''}</div>
+            </div>
+            <span class="mp-pending-status">${escapeHtml(r.ステータス || '未定')}</span>
+          </div>`;
+      }).join('');
+      return `
+        <div class="mp-card">
+          ${mpCardHeadHTML_('fa-hourglass-half', '未定の案件', ctx.pendingAll.length, '登録日が決まっていない案件')}
+          ${rows ? `<div class="mp-mini-list">${rows}</div>` : '<div class="mp-card-empty"><i class="fa-regular fa-circle-check"></i>未定の案件はありません</div>'}
+        </div>`;
+    }
+    function mpMiniCalPartHTML_(ctx) {
+      const y = ctx.year, m = ctx.month;
+      const counts = {};
+      ctx.confirmed.forEach(r => { if (r.登録予定日) counts[r.登録予定日] = (counts[r.登録予定日] || 0) + 1; });
+      const t = new Date();
+      const todayStr = dateStrOf(t.getFullYear(), t.getMonth(), t.getDate());
+      const first = new Date(y, m, 1).getDay();
+      const days = new Date(y, m + 1, 0).getDate();
+      let cells = '';
+      for (let i = 0; i < first; i++) cells += '<span class="mp-cal-cell is-blank"></span>';
+      for (let d = 1; d <= days; d++) {
+        const ds = dateStrOf(y, m, d);
+        const dIdx = (first + d - 1) % 7;
+        const cls = [
+          holidayName(y, m, d) || dIdx === 0 ? 'is-sun' : (dIdx === 6 ? 'is-sat' : ''),
+          ds === todayStr ? 'is-today' : '', counts[ds] ? 'has-reg' : '', ctx.dayFilter === ds ? 'is-selected' : '',
+        ].join(' ');
+        const inner = `<span class="mp-cal-num font-num">${d}</span>${counts[ds] ? `<span class="mp-cal-badge">${counts[ds]}</span>` : ''}`;
+        cells += counts[ds]
+          ? `<button type="button" class="mp-cal-cell ${cls}" data-mp-day="${ds}" title="${m + 1}/${d} の登録 ${counts[ds]}件（押すと案件一覧をこの日に絞り込み）" ${ctx.preview ? 'tabindex="-1"' : ''}>${inner}</button>`
+          : `<span class="mp-cal-cell ${cls}">${inner}</span>`;
+      }
+      const total = Object.keys(counts).reduce((n, k) => n + counts[k], 0);
+      const foot = ctx.dayFilter
+        ? `<div class="mp-cal-foot is-active"><i class="fa-solid fa-filter"></i>${Number(ctx.dayFilter.slice(5, 7))}/${Number(ctx.dayFilter.slice(8))} の案件だけを表示中<button type="button" class="mp-cal-clear" data-mp-day-clear>解除</button></div>`
+        : '<div class="mp-cal-foot">数字のある日を押すと、案件一覧をその日に絞り込みます</div>';
+      return `
+        <div class="mp-card">
+          ${mpCardHeadHTML_('fa-calendar-days', `${y}年${m + 1}月`, total, '登録予定日が確定した案件')}
+          <div class="mp-cal-grid">
+            ${dow.map((w, i) => `<span class="mp-cal-dow ${i === 0 ? 'is-sun' : (i === 6 ? 'is-sat' : '')}">${w}</span>`).join('')}
+            ${cells}
+          </div>
+          ${foot}
+        </div>`;
     }
 
     // ▼ レイアウトどおりにパーツを並べる。decorate はプレビュー用（パーツに操作用のつまみ等を重ねる）。
@@ -1630,7 +1797,7 @@
         return `<div class="${cls}" data-part="${c.id}">${decorate ? decorate.part(c, inner) : inner}</div>`;
       };
       return `
-        <div class="mp-layout ${fill ? 'is-fill' : 'is-scroll'} ${ctx.preview ? 'is-preview' : 'is-live'}">
+        <div class="mp-layout ${fill ? 'is-fill' : 'is-scroll'} ${ctx.preview ? 'is-preview' : 'is-live'} ${['week', 'pending', 'minical'].some(id => mpPartVisible_(layout, id)) ? 'has-extra' : ''}">
           ${rows.map(row => `<div class="mp-lrow ${row.some(c => c.id === 'list') ? 'has-list' : ''}">${row.map(cellHTML).join('')}</div>`).join('')}
         </div>
       `;
@@ -1690,9 +1857,18 @@
         mk(0, '新車', '小林 直樹', 'S 500 4MATIC', true, '書類準備中'),
         mk(0, '中古車', '加藤 恵', 'CLA 200 d', false, '受注済み'),
       ];
+      // 今週の登録予定のサンプルは、今日・明日・3日後に置く（プレビューを開いた日に合わせて変わる）
+      const t = new Date();
+      const around = (plus, customer, model, oss) => {
+        const x = new Date(t.getFullYear(), t.getMonth(), t.getDate() + plus);
+        return { ...mk(0, '新車', customer, model, oss, STATUS_CONFIRMED), 登録予定日: dateStrOf(x.getFullYear(), x.getMonth(), x.getDate()) };
+      };
+      const week = [around(0, '森 翔太', 'GLE 450 d', true), around(1, '池田 真理', 'C 220 d ワゴン', false), around(3, '山口 亮', 'CLE 200 カブリオレ', true)];
+      undecided.push(mk(0, '新車', '松本 千尋', 'G 450 d', true, '登録書類到着待'));
       return {
         preview: true, name, isManager: LINKED_IS_BRANCH_MANAGER, branch: LINKED_BRANCH || '本店',
         monthLabel: `${d.getFullYear()}年${d.getMonth() + 1}月`, confirmed, undecided,
+        year: d.getFullYear(), month: d.getMonth(), dayFilter: '', week, pendingAll: undecided,
       };
     }
     // プレビュー用: パーツに重ねるボタン類と、半分幅の隣の空き
@@ -1795,7 +1971,7 @@
         </div>
         ${lpNotesHTML_(pendingMypageLayout)}
         <div class="lp-hidden">
-          <span class="lp-hidden-label">非表示のパーツ</span>
+          <span class="lp-hidden-label">非表示のパーツ（押すと表示）</span>
           ${hidden.length
             ? hidden.map(it => `<button type="button" class="lp-hidden-chip" data-lp-show="${it.id}" title="表示する"><i class="fa-solid fa-plus"></i>${MP_PARTS[it.id].name}</button>`).join('')
             : '<span class="lp-hidden-none">なし（各パーツの <i class="fa-solid fa-eye-slash"></i> で非表示にできます）</span>'}
@@ -1872,7 +2048,15 @@
         btn.onclick = () => { pendingMypageLayout.items.find(i => i.id === btn.dataset.lpHide).hidden = true; lpChanged_(); };
       });
       card.querySelectorAll('[data-lp-show]').forEach(btn => {
-        btn.onclick = () => { pendingMypageLayout.items.find(i => i.id === btn.dataset.lpShow).hidden = false; lpChanged_(); };
+        btn.onclick = () => {
+          const items = pendingMypageLayout.items;
+          const idx = items.findIndex(i => i.id === btn.dataset.lpShow);
+          items[idx].hidden = false;
+          // 案件一覧より後ろにあると一覧が一番下でなくなるため、表示したパーツは一覧のすぐ上に置く
+          const listIdx = items.findIndex(i => i.id === 'list');
+          if (idx > listIdx) items.splice(listIdx, 0, items.splice(idx, 1)[0]);
+          lpChanged_();
+        };
       });
       const resetBtn = document.getElementById('lpResetBtn');
       if (resetBtn) resetBtn.onclick = () => { pendingMypageLayout = defaultMpLayout_(); lpChanged_(); };
@@ -2565,9 +2749,17 @@
       if (exportBtn) exportBtn.onclick = downloadCSV;
 
       const mpPrev = document.getElementById('mpPrev');
-      if (mpPrev) mpPrev.onclick = () => { myPageMonthOffset -= 1; render(); };
+      if (mpPrev) mpPrev.onclick = () => { myPageMonthOffset -= 1; mpDayFilter = ''; render(); };
       const mpNext = document.getElementById('mpNext');
-      if (mpNext) mpNext.onclick = () => { myPageMonthOffset += 1; render(); };
+      if (mpNext) mpNext.onclick = () => { myPageMonthOffset += 1; mpDayFilter = ''; render(); };
+      const liveLayout = root.querySelector('.mp-layout.is-live');
+      if (liveLayout) {
+        liveLayout.querySelectorAll('[data-mp-day]').forEach(btn => {
+          btn.onclick = () => { mpDayFilter = mpDayFilter === btn.dataset.mpDay ? '' : btn.dataset.mpDay; render(); };
+        });
+        liveLayout.querySelectorAll('[data-mp-day-clear]').forEach(btn => { btn.onclick = () => { mpDayFilter = ''; render(); }; });
+        wireRecordClicks_(liveLayout); // 今週の登録予定・未定の案件の行を押すと、詳細を開く
+      }
       const mpName = document.getElementById('mpSearchName');
       if (mpName) mpName.oninput = (ev) => { mpSearch.name = ev.target.value; renderMpResults(); };
       const mpMethod = document.getElementById('mpSearchMethod');

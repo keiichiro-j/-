@@ -2,7 +2,7 @@ const DEFAULT_ADMIN_EMAIL = "k-toda@gifuyanase.co.jp";
 
 // ▼ 設定ページの一番下に表示するバージョン。Index.html側のバージョンと一致しているかで、
 //   コードの貼り替えと「新しいバージョンでのデプロイ」が両方済んでいるかを確認できる。
-const APP_VERSION = '2026.09.25-11';
+const APP_VERSION = '2026.09.26-1';
 
 // ▼ 権限者（設定ページの各種管理項目を変更できるアカウント）一覧。最大5名まで登録できます。
 //   登録・編集はスプレッドシートを直接編集する運用に変わったため、ここはアプリの管理設定を
@@ -426,8 +426,11 @@ function saveUserDisplayPrefs(prefs) {
 // ▼ マイページのレイアウト（個人ごと）。パーツの並び順・幅（全幅/半分）・表示/非表示だけを保存する。
 //   未設定（または初期状態と同じ）の人は保存せず、画面側で従来どおりの並びを使う。
 //   ヘッダー（月の切り替え）と案件一覧は、マイページとして欠かせないため非表示にはできない。
-const MYPAGE_LAYOUT_PARTS = ['header', 'kpiNew', 'kpiUsed', 'search', 'list'];
-const MYPAGE_LAYOUT_HIDEABLE = ['kpiNew', 'kpiUsed', 'search'];
+//   後から追加したパーツ（今週の登録予定・未定の案件・ミニカレンダー）は、最初は非表示にしておき、
+//   使いたい人だけが設定画面で表示する（何もしなければマイページの見た目は変わらない）。
+const MYPAGE_LAYOUT_PARTS = ['header', 'kpiNew', 'kpiUsed', 'search', 'list', 'week', 'pending', 'minical'];
+const MYPAGE_LAYOUT_HIDEABLE = ['kpiNew', 'kpiUsed', 'search', 'week', 'pending', 'minical'];
+const MYPAGE_LAYOUT_DEFAULT_HIDDEN = ['week', 'pending', 'minical'];
 function normalizeMypageLayout_(layout) {
   const src = layout && Array.isArray(layout.items) ? layout.items : [];
   const seen = {};
@@ -442,12 +445,15 @@ function normalizeMypageLayout_(layout) {
       hidden: MYPAGE_LAYOUT_HIDEABLE.indexOf(id) !== -1 && it.hidden === true,
     });
   });
-  // 保存後に増えたパーツなど、足りないものは末尾に全幅で補う
-  MYPAGE_LAYOUT_PARTS.forEach(id => { if (!seen[id]) items.push({ id: id, w: 'full', hidden: false }); });
+  // 保存後に増えたパーツなど、足りないものは末尾に全幅で補う（新しいパーツは非表示のまま）
+  MYPAGE_LAYOUT_PARTS.forEach(id => {
+    if (!seen[id]) items.push({ id: id, w: 'full', hidden: MYPAGE_LAYOUT_DEFAULT_HIDDEN.indexOf(id) !== -1 });
+  });
   return { items: items };
 }
 function isDefaultMypageLayout_(layout) {
-  return layout.items.every((it, i) => it.id === MYPAGE_LAYOUT_PARTS[i] && it.w === 'full' && !it.hidden);
+  return layout.items.every((it, i) => it.id === MYPAGE_LAYOUT_PARTS[i] && it.w === 'full'
+    && it.hidden === (MYPAGE_LAYOUT_DEFAULT_HIDDEN.indexOf(it.id) !== -1));
 }
 function getUserMypageLayout() {
   const raw = PropertiesService.getUserProperties().getProperty('mypageLayout');
