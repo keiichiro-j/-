@@ -4,7 +4,10 @@
  */
 
 var THEME_PREFERENCE_PROP_KEY = 'themePreference';
-var THEME_OPTIONS = ['mono', 'sand', 'forest', 'rose', 'dark', 'navy', 'amber', 'teal'];
+var THEME_OPTIONS = [
+  'mono', 'sand', 'forest', 'rose', 'sky', 'lavender',
+  'dark', 'navy', 'amber', 'teal', 'indigo', 'crimson'
+];
 
 /**
  * ログイン中のGoogleアカウントに紐づくテーマの好みを返す(未設定・不正なら空文字)。

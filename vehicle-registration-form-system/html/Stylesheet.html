@@ -40,7 +40,7 @@
      html/JavaScript.htmlのapplyTheme_/THEME_OPTIONS_参照)----------
      背景・文字色・アクセントすべてを含む独立した配色を8種類用意し、選ぶだけで雰囲気が
      大きく変わるようにしている(アクセントカラーだけの差し替えにしない)。
-     success/warning/shu(エラー)は「明るい配色系」4色・「暗い配色系」4色でそれぞれ共通の
+     success/warning/shu(エラー)は「明るい配色系」6色・「暗い配色系」6色でそれぞれ共通の
      値を使い、可読性を保ちながら定義を単純にしている。
      data-theme属性が付く前(初回描画の一瞬)のフォールバックとして、ベースの:rootにも
      「mono」と同じ値を重複定義している。 */
@@ -59,9 +59,10 @@
     --solid-bg: #1A1A1A; --solid-bg-hover: #000000; --solid-ink: #FFFFFF;
   }
 
-  /* ---- 明るい配色系(4色)共通のsuccess/warning/shu ---- */
+  /* ---- 明るい配色系(6色)共通のsuccess/warning/shu ---- */
   :root[data-theme="mono"], :root[data-theme="sand"],
-  :root[data-theme="forest"], :root[data-theme="rose"] {
+  :root[data-theme="forest"], :root[data-theme="rose"],
+  :root[data-theme="sky"], :root[data-theme="lavender"] {
     color-scheme: light;
     --success: #22A06B; --success-soft: #E7F6EF;
     --warning: #B5790A; --warning-soft: #FBF2DF; --warning-ink: #7A5B12;
@@ -70,9 +71,10 @@
     --shadow-md: 0 4px 16px rgba(16, 24, 40, 0.08);
   }
 
-  /* ---- 暗い配色系(4色)共通のsuccess/warning/shu ---- */
+  /* ---- 暗い配色系(6色)共通のsuccess/warning/shu ---- */
   :root[data-theme="dark"], :root[data-theme="navy"],
-  :root[data-theme="amber"], :root[data-theme="teal"] {
+  :root[data-theme="amber"], :root[data-theme="teal"],
+  :root[data-theme="indigo"], :root[data-theme="crimson"] {
     color-scheme: dark;
     --success: #34C98C; --success-soft: rgba(52, 201, 140, 0.16);
     --warning: #E3AC4C; --warning-soft: rgba(227, 172, 76, 0.16); --warning-ink: #FFD98A;
@@ -151,6 +153,42 @@
     --accent: #2DD4BF; --accent-dark: #5EEADA; --accent-soft: rgba(45, 212, 191, 0.18);
     --line: #1E3833; --line-soft: #172B27;
     --solid-bg: #E4F5F1; --solid-bg-hover: #FFFFFF; --solid-ink: #0A1817;
+  }
+
+  /* 9) sky: 淡い水色の背景に紺のインク・青のアクセント(清潔感・爽やか) */
+  :root[data-theme="sky"] {
+    --bg: #F1F8FB; --surface: #FFFFFF; --surface-alt: #E3F1F7;
+    --ink: #0F2E3D; --ink-soft: #3A6577; --muted: #7FA3B3;
+    --accent: #0E86B8; --accent-dark: #0A6690; --accent-soft: #DCEFF6;
+    --line: #CFE6EE; --line-soft: #E5F2F6;
+    --solid-bg: #0F2E3D; --solid-bg-hover: #082029; --solid-ink: #F1F8FB;
+  }
+
+  /* 10) lavender: 淡い藤色の背景に紫インク・紫のアクセント(柔らか・クリエイティブ) */
+  :root[data-theme="lavender"] {
+    --bg: #F8F5FB; --surface: #FFFFFF; --surface-alt: #EFE7F5;
+    --ink: #2E1F3D; --ink-soft: #5B4A70; --muted: #9484A8;
+    --accent: #7B4FA6; --accent-dark: #5E3A80; --accent-soft: #EBE0F3;
+    --line: #E1D3EC; --line-soft: #EEE5F5;
+    --solid-bg: #2E1F3D; --solid-bg-hover: #1D1327; --solid-ink: #F8F5FB;
+  }
+
+  /* 11) indigo: 濃い藍色の背景に紫アクセント(モダン・上質) */
+  :root[data-theme="indigo"] {
+    --bg: #12102A; --surface: #191540; --surface-alt: #211B4F;
+    --ink: #ECE9FB; --ink-soft: #B6ADD9; --muted: #7C71A8;
+    --accent: #8B7CF6; --accent-dark: #A99BFF; --accent-soft: rgba(139, 124, 246, 0.20);
+    --line: #322A63; --line-soft: #251F4D;
+    --solid-bg: #ECE9FB; --solid-bg-hover: #FFFFFF; --solid-ink: #12102A;
+  }
+
+  /* 12) crimson: 黒に近い背景に深紅のアクセント(力強い・ドラマチック) */
+  :root[data-theme="crimson"] {
+    --bg: #1A0E10; --surface: #241417; --surface-alt: #2D181C;
+    --ink: #F7E7E9; --ink-soft: #CBA0A4; --muted: #8F6669;
+    --accent: #E0435B; --accent-dark: #EF6B80; --accent-soft: rgba(224, 67, 91, 0.20);
+    --line: #3D2226; --line-soft: #2F1A1D;
+    --solid-bg: #F7E7E9; --solid-bg-hover: #FFFFFF; --solid-ink: #1A0E10;
   }
 
   * { box-sizing: border-box; }
@@ -439,16 +477,22 @@
   }
   .segBtn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
 
-  /* ---------- テーマの色見本(設定画面。--sw-bg/--sw-accentは各ボタンにインラインで指定) ---------- */
+  /* ---------- テーマの色見本(設定画面)----------
+     単色の丸ではなく、そのテーマの実際の画面に近い小さなミニプレビュー(ヘッダー帯+本文+
+     アクセントの見出し線+ボタン)を表示し、選ぶ前に雰囲気が伝わるようにしている。
+     --sw-bg/--sw-surface/--sw-ink/--sw-accentは各ボタンにインラインで指定する。 */
 
-  .themeSwatches { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
+  .themeSwatches {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+    gap: var(--sp-3);
+    max-width: 820px;
+  }
   .themeSwatch {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    width: 84px;
-    padding: var(--sp-2) 4px;
+    gap: 8px;
+    padding: 8px;
     font-family: inherit;
     background: var(--surface);
     border: 1px solid var(--line);
@@ -459,16 +503,51 @@
   .themeSwatch:hover { border-color: var(--muted); }
   .themeSwatch.is-active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
   .themeSwatch:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
-  .themeSwatch__dot {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
+
+  .themeSwatch__preview {
+    position: relative;
+    height: 58px;
+    border-radius: var(--r-sm);
     background: var(--sw-bg);
-    border: 1px solid var(--line);
-    box-shadow: inset 0 0 0 9px var(--sw-accent);
+    border: 1px solid rgba(127, 127, 127, 0.25);
+    overflow: hidden;
   }
-  .themeSwatch__label { font-size: var(--fs-2xs); font-weight: 600; color: var(--ink-soft); }
+  .themeSwatch__previewHead {
+    height: 14px;
+    background: var(--sw-surface);
+    border-bottom: 1px solid rgba(127, 127, 127, 0.18);
+  }
+  .themeSwatch__previewLine {
+    position: absolute;
+    left: 8px;
+    top: 24px;
+    width: 55%;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--sw-ink);
+    opacity: 0.7;
+  }
+  .themeSwatch__previewLine--short {
+    top: 34px;
+    width: 32%;
+    opacity: 0.4;
+  }
+  .themeSwatch__previewBtn {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    width: 34px;
+    height: 9px;
+    border-radius: var(--r-pill);
+    background: var(--sw-accent);
+  }
+
+  .themeSwatch__label { font-size: var(--fs-2xs); font-weight: 600; color: var(--ink-soft); text-align: center; }
   .themeSwatch.is-active .themeSwatch__label { color: var(--ink); }
+
+  @media (max-width: 700px) {
+    .themeSwatches { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); }
+  }
 
   /* ---------- 入力欄 ---------- */
 
