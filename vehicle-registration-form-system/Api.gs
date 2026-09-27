@@ -155,20 +155,38 @@ function getManagerForCurrentUser() {
 }
 
 /**
- * 「設定」画面の他システム連携表示用。転記先スプレッドシートのIDを返す(未設定なら空文字)。
- * @return {string}
+ * 「設定」画面の他システム連携表示用。ブランドごとの転記先スプレッドシート一覧を返す
+ * (未設定なら空配列)。
+ * @return {Array<{brand: string, sheetId: string}>}
  */
-function getExternalSyncSheetId() {
-  return getExternalSyncSheetId_();
+function getExternalSyncSheets() {
+  return getExternalSyncSheets_();
 }
 
 /**
  * 「設定」画面の他システム連携保存ボタン用。
- * @param {string} idOrUrl
- * @return {string} 保存後のスプレッドシートID
+ * @param {Array<{brand: string, sheetId: string}>} rows
+ * @return {Array<{brand: string, sheetId: string}>}
  */
-function saveExternalSyncSheetId(idOrUrl) {
-  return saveExternalSyncSheetId_(idOrUrl);
+function saveExternalSyncSheets(rows) {
+  return saveExternalSyncSheets_(rows);
+}
+
+/**
+ * 「設定」画面のブランド設定表示用。
+ * @return {Array<string>}
+ */
+function getBrandOptions() {
+  return getBrandOptions_();
+}
+
+/**
+ * 「設定」画面のブランド設定保存ボタン用。
+ * @param {Array<string>} brands
+ * @return {Array<string>}
+ */
+function saveBrandOptions(brands) {
+  return saveBrandOptions_(brands);
 }
 
 // 二重送信防止用トークンのキャッシュ保持時間(秒)。ボタン連打やネットワーク遅延による
@@ -235,9 +253,10 @@ function processFormData(formData) {
 
     var regDateStr = (formData.type === TYPE_OSS) ? car.indivRegDate : formData.regDateCommon;
     if (!isValidDateStr_(regDateStr)) return; // 登録日未定などは転記のしようがないためスキップ
+    if (!car.brand) return; // ブランド未選択では転記先を特定できないためスキップ(ブランドは任意項目のため)
     try {
       var typeLabel = (formData.type === TYPE_OSS) ? 'OSS' : '紙登録';
-      syncRegistrationToExternalSheet_(car.userName, parseDateOnly_(regDateStr), typeLabel);
+      syncRegistrationToExternalSheet_(car.userName, parseDateOnly_(regDateStr), typeLabel, car.brand);
     } catch (e) {
       transcriptionWarnings.push((car.userName || (i + 1) + '台目') + ': ' + e.message);
     }

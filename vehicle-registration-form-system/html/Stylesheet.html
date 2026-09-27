@@ -678,9 +678,11 @@
 
   /* ---------- 設定画面: 担当者マスタ ---------- */
 
-  #staffMasterTable { min-width: 0; }
-  #staffMasterTable th:first-child, #staffMasterTable td:first-child { width: 40%; }
-  #staffMasterTable td input { width: 100%; text-align: center; }
+  .staffMasterTable { min-width: 0; }
+  .staffMasterTable th:first-child, .staffMasterTable td:first-child { width: 40%; }
+  .staffMasterTable td input, .staffMasterTable td select { width: 100%; text-align: center; }
+  /* 他システム連携の表はブランド列を狭く、URL列を広く取る(3列構成のため40%指定を上書き) */
+  #externalSyncTable th:first-child, #externalSyncTable td:first-child { width: 140px; }
   .btnRemoveStaffRow {
     border: none;
     background: transparent;

@@ -75,7 +75,7 @@ function validateVehicle_(car, no, type) {
   }
 
   // ブランド区分は任意項目。入力されている場合のみ選択肢内かを検証する。
-  if (car.brand && BRAND_OPTIONS.indexOf(car.brand) === -1) {
+  if (car.brand && getBrandOptions_().indexOf(car.brand) === -1) {
     errors.push(no + '台目: ブランドの指定が不正です');
   }
 

@@ -34,8 +34,14 @@
     return '<td><select class="' + cls + '"><option value=""></option><option value="〇">〇</option></select></td>';
   }
 
+  // ブランドの選択肢は「設定」画面で変更できるため、ページ埋め込みのBRAND_OPTIONS_
+  // (Index.html参照)から動的に組み立てる。
   function brandCell_() {
-    return '<td><select class="v-brand"><option value=""></option><option value="MB">MB</option><option value="AU">AU</option></select></td>';
+    var opts = '<option value=""></option>';
+    (window.BRAND_OPTIONS_ || []).forEach(function (b) {
+      opts += '<option value="' + escapeHtml_(b) + '">' + escapeHtml_(b) + '</option>';
+    });
+    return '<td><select class="v-brand">' + opts + '</select></td>';
   }
 
   function renumberRows() {
@@ -126,6 +132,19 @@
       dl.appendChild(opt);
     });
   }
+
+  // 履歴確認画面の「ブランド」絞り込みも、ページ埋め込みのBRAND_OPTIONS_から組み立てる
+  // (「すべて」はIndex.html側に静的に用意済み)。
+  function populateHistoryBrandOptions_() {
+    var select = document.getElementById('historyBrand');
+    (window.BRAND_OPTIONS_ || []).forEach(function (b) {
+      var opt = document.createElement('option');
+      opt.value = b;
+      opt.textContent = b;
+      select.appendChild(opt);
+    });
+  }
+  populateHistoryBrandOptions_();
 
   function collectVehicles_() {
     var rows = document.querySelectorAll('#vehicleTableBody .vehicleRow');
@@ -371,7 +390,8 @@
     loadMailRecipients_();
     loadManagerForCurrentUser_();
     loadStaffMaster_();
-    loadExternalSyncSheet_();
+    loadBrandOptions_();
+    loadExternalSyncSheets_();
     loadAutoMailStatus_();
     document.querySelectorAll('.tableScroll').forEach(function (el) {
       updateScrollShadow_(el);
@@ -1190,46 +1210,200 @@
       .saveStaffMaster(rows);
   });
 
-  // ---------- 設定画面: 他システム(外部スプレッドシート)への連携 ----------
+  // ---------- 設定画面: ブランド設定 ----------
 
-  function loadExternalSyncSheet_() {
+  function createBrandRow_(value) {
+    var tr = document.createElement('tr');
+    tr.className = 'staffMasterRow';
+    tr.innerHTML =
+      '<td><input type="text" class="brand-value" autocomplete="off"></td>' +
+      '<td><button type="button" class="btnRemoveStaffRow" title="この行を削除" aria-label="この行を削除">&times;</button></td>';
+    tr.querySelector('.brand-value').value = value || '';
+    return tr;
+  }
+
+  function addBrandRow_(value) {
+    document.getElementById('brandOptionsBody').appendChild(createBrandRow_(value));
+  }
+
+  document.getElementById('btnAddBrandRow').addEventListener('click', function () { addBrandRow_(''); });
+
+  document.getElementById('brandOptionsBody').addEventListener('click', function (e) {
+    if (!e.target.classList.contains('btnRemoveStaffRow')) return;
+    var body = document.getElementById('brandOptionsBody');
+    if (body.querySelectorAll('.staffMasterRow').length <= 1) {
+      e.target.closest('tr').querySelector('.brand-value').value = '';
+      return;
+    }
+    e.target.closest('tr').remove();
+  });
+
+  function collectBrandRows_() {
+    var rows = document.querySelectorAll('#brandOptionsBody .staffMasterRow');
+    var list = [];
+    rows.forEach(function (row) {
+      var value = row.querySelector('.brand-value').value.trim();
+      if (value) list.push(value);
+    });
+    return list;
+  }
+
+  function renderBrandOptions_(brands) {
+    var body = document.getElementById('brandOptionsBody');
+    body.innerHTML = '';
+    (brands && brands.length ? brands : ['']).forEach(function (b) { addBrandRow_(b); });
+  }
+
+  function loadBrandOptions_() {
     google.script.run
-      .withSuccessHandler(function (id) {
-        document.getElementById('externalSyncSheetUrlInput').value = id || '';
+      .withSuccessHandler(function (brands) {
+        BRAND_OPTIONS_ = brands || [];
+        renderBrandOptions_(brands);
+        populateHistoryBrandOptions_(); // 起動直後に埋め込んだ初期値から、最新の内容に更新し直す
       })
-      .getExternalSyncSheetId();
+      .getBrandOptions();
   }
 
-  function setExternalSyncSheetResult_(text, kind) {
-    var el = document.getElementById('externalSyncSheetResult');
+  function setBrandOptionsResult_(text, kind) {
+    var el = document.getElementById('brandOptionsResult');
     el.className = 'result' + (kind ? ' -' + kind : '');
-    document.getElementById('externalSyncSheetResultText').innerHTML = text;
+    document.getElementById('brandOptionsResultText').innerHTML = text;
   }
 
-  function setExternalSyncSheetProcessing_(on) {
-    document.getElementById('externalSyncSheetSpinner').classList.toggle('is-hidden', !on);
+  function setBrandOptionsProcessing_(on) {
+    document.getElementById('brandOptionsSpinner').classList.toggle('is-hidden', !on);
   }
 
-  document.getElementById('btnSaveExternalSyncSheet').addEventListener('click', function () {
-    var value = document.getElementById('externalSyncSheetUrlInput').value.trim();
-    var btn = document.getElementById('btnSaveExternalSyncSheet');
+  document.getElementById('btnSaveBrandOptions').addEventListener('click', function () {
+    var brands = collectBrandRows_();
+    var btn = document.getElementById('btnSaveBrandOptions');
     btn.disabled = true;
-    setExternalSyncSheetProcessing_(true);
-    setExternalSyncSheetResult_('保存しています…', 'pending');
+    setBrandOptionsProcessing_(true);
+    setBrandOptionsResult_('保存しています…', 'pending');
 
     google.script.run
-      .withSuccessHandler(function (savedId) {
+      .withSuccessHandler(function (saved) {
         btn.disabled = false;
-        setExternalSyncSheetProcessing_(false);
-        document.getElementById('externalSyncSheetUrlInput').value = savedId || '';
-        setExternalSyncSheetResult_(savedId ? '保存しました(転記が有効になります)' : '保存しました(転記しない設定にしました)', 'success');
+        setBrandOptionsProcessing_(false);
+        BRAND_OPTIONS_ = saved;
+        renderBrandOptions_(saved);
+        populateHistoryBrandOptions_(); // ※既存の履歴確認画面の選択中の値はリセットされる
+        setBrandOptionsResult_('保存しました', 'success');
       })
       .withFailureHandler(function (error) {
         btn.disabled = false;
-        setExternalSyncSheetProcessing_(false);
-        setExternalSyncSheetResult_('保存に失敗しました:\n' + error.message, 'error');
+        setBrandOptionsProcessing_(false);
+        setBrandOptionsResult_('保存に失敗しました:\n' + error.message, 'error');
       })
-      .saveExternalSyncSheetId(value);
+      .saveBrandOptions(brands);
+  });
+
+  // ---------- 設定画面: 他システム(外部スプレッドシート)への連携(ブランド別・最大5件) ----------
+
+  var EXTERNAL_SYNC_MAX_ROWS_ = 5;
+
+  function externalSyncBrandOptionsHtml_(selected) {
+    var opts = '<option value=""></option>';
+    (window.BRAND_OPTIONS_ || []).forEach(function (b) {
+      opts += '<option value="' + escapeHtml_(b) + '"' + (b === selected ? ' selected' : '') + '>' + escapeHtml_(b) + '</option>';
+    });
+    return opts;
+  }
+
+  function createExternalSyncRow_(brand, sheetId) {
+    var tr = document.createElement('tr');
+    tr.className = 'externalSyncRow';
+    tr.innerHTML =
+      '<td><select class="ext-brand">' + externalSyncBrandOptionsHtml_(brand) + '</select></td>' +
+      '<td><input type="text" class="ext-sheetid" placeholder="https://docs.google.com/spreadsheets/d/..." autocomplete="off"></td>' +
+      '<td><button type="button" class="btnRemoveStaffRow" title="この行を削除" aria-label="この行を削除">&times;</button></td>';
+    tr.querySelector('.ext-sheetid').value = sheetId || '';
+    return tr;
+  }
+
+  function updateAddExternalSyncRowButtonState_() {
+    var count = document.querySelectorAll('#externalSyncBody .externalSyncRow').length;
+    var btn = document.getElementById('btnAddExternalSyncRow');
+    btn.disabled = count >= EXTERNAL_SYNC_MAX_ROWS_;
+  }
+
+  function addExternalSyncRow_(brand, sheetId) {
+    if (document.querySelectorAll('#externalSyncBody .externalSyncRow').length >= EXTERNAL_SYNC_MAX_ROWS_) return;
+    document.getElementById('externalSyncBody').appendChild(createExternalSyncRow_(brand, sheetId));
+    updateAddExternalSyncRowButtonState_();
+  }
+
+  document.getElementById('btnAddExternalSyncRow').addEventListener('click', function () { addExternalSyncRow_('', ''); });
+
+  document.getElementById('externalSyncBody').addEventListener('click', function (e) {
+    if (!e.target.classList.contains('btnRemoveStaffRow')) return;
+    var body = document.getElementById('externalSyncBody');
+    if (body.querySelectorAll('.externalSyncRow').length <= 1) {
+      e.target.closest('tr').querySelector('.ext-brand').value = '';
+      e.target.closest('tr').querySelector('.ext-sheetid').value = '';
+      return;
+    }
+    e.target.closest('tr').remove();
+    updateAddExternalSyncRowButtonState_();
+  });
+
+  function collectExternalSyncRows_() {
+    var rows = document.querySelectorAll('#externalSyncBody .externalSyncRow');
+    var list = [];
+    rows.forEach(function (row) {
+      var brand = row.querySelector('.ext-brand').value.trim();
+      var sheetId = row.querySelector('.ext-sheetid').value.trim();
+      if (brand || sheetId) list.push({ brand: brand, sheetId: sheetId });
+    });
+    return list;
+  }
+
+  function renderExternalSyncRows_(rows) {
+    var body = document.getElementById('externalSyncBody');
+    body.innerHTML = '';
+    (rows && rows.length ? rows : [{ brand: '', sheetId: '' }]).forEach(function (row) {
+      body.appendChild(createExternalSyncRow_(row.brand, row.sheetId));
+    });
+    updateAddExternalSyncRowButtonState_();
+  }
+
+  function loadExternalSyncSheets_() {
+    google.script.run
+      .withSuccessHandler(function (rows) { renderExternalSyncRows_(rows); })
+      .withFailureHandler(function () { renderExternalSyncRows_([]); })
+      .getExternalSyncSheets();
+  }
+
+  function setExternalSyncResult_(text, kind) {
+    var el = document.getElementById('externalSyncResult');
+    el.className = 'result' + (kind ? ' -' + kind : '');
+    document.getElementById('externalSyncResultText').innerHTML = text;
+  }
+
+  function setExternalSyncProcessing_(on) {
+    document.getElementById('externalSyncSpinner').classList.toggle('is-hidden', !on);
+  }
+
+  document.getElementById('btnSaveExternalSync').addEventListener('click', function () {
+    var rows = collectExternalSyncRows_();
+    var btn = document.getElementById('btnSaveExternalSync');
+    btn.disabled = true;
+    setExternalSyncProcessing_(true);
+    setExternalSyncResult_('保存しています…', 'pending');
+
+    google.script.run
+      .withSuccessHandler(function (saved) {
+        btn.disabled = false;
+        setExternalSyncProcessing_(false);
+        renderExternalSyncRows_(saved);
+        setExternalSyncResult_(saved.length ? '保存しました(' + saved.length + '件)' : '保存しました(転記しない設定にしました)', 'success');
+      })
+      .withFailureHandler(function (error) {
+        btn.disabled = false;
+        setExternalSyncProcessing_(false);
+        setExternalSyncResult_('保存に失敗しました:\n' + error.message, 'error');
+      })
+      .saveExternalSyncSheets(rows);
   });
 
   // ---------- 設定画面: ロゴ画像 ----------

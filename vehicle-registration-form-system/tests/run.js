@@ -102,7 +102,7 @@ const sandbox = {
 };
 vm.createContext(sandbox);
 
-const FILES = ['Constants.gs', 'ValidationService.gs', 'HistoryService.gs', 'TemplateService.gs', 'EmailService.gs', 'SettingsService.gs', 'ExternalSyncService.gs'];
+const FILES = ['Constants.gs', 'ValidationService.gs', 'HistoryService.gs', 'TemplateService.gs', 'EmailService.gs', 'SettingsService.gs', 'BrandService.gs', 'ExternalSyncService.gs'];
 FILES.forEach((file) => {
   const code = fs.readFileSync(path.join(ROOT, file), 'utf8');
   vm.runInContext(code, sandbox, { filename: file });
@@ -763,7 +763,27 @@ test('ログインアカウントを取得できない場合も空文字を返�
   assert.strictEqual(sandbox.getManagerForCurrentUser_(), '');
 });
 
-console.log('== ExternalSyncService: 転記先スプレッドシートの設定 ==');
+console.log('== BrandService: ブランドの選択肢 ==');
+test('未設定なら初期値(MB/AU)を返す', () => {
+  delete fakeScriptProperties[sandbox.BRAND_OPTIONS_PROP_KEY];
+  assert.deepStrictEqual(Array.from(sandbox.getBrandOptions_()), ['MB', 'AU']);
+});
+test('保存した内容を取得できる(前後の空白除去・重複除去)', () => {
+  const saved = sandbox.saveBrandOptions_([' MB ', 'AU', 'AU', ' VW ']);
+  assert.deepStrictEqual(Array.from(saved), ['MB', 'AU', 'VW']);
+  assert.deepStrictEqual(Array.from(sandbox.getBrandOptions_()), ['MB', 'AU', 'VW']);
+});
+test('空の行は無視して保存できる', () => {
+  const saved = sandbox.saveBrandOptions_(['MB', '', '  ']);
+  assert.deepStrictEqual(Array.from(saved), ['MB']);
+});
+test('1件も残らない場合はエラーになり保存されない', () => {
+  sandbox.saveBrandOptions_(['MB']);
+  assert.throws(() => sandbox.saveBrandOptions_(['', '  ']), /1つ以上登録/);
+  assert.deepStrictEqual(Array.from(sandbox.getBrandOptions_()), ['MB']); // 変更されない
+});
+
+console.log('== ExternalSyncService: ブランド別の転記先スプレッドシートの設定 ==');
 
 // 画像で提供された実物シートのヘッダー(A:ステータス〜H:備考)に合わせたフェイクSpreadsheet。
 // tabs は { タブ名: dataRows(A〜H, ヘッダー除く) } の形。
@@ -776,31 +796,61 @@ function makeExternalSheetSpreadsheet(tabs) {
   return { getSheetByName: (name) => sheets[name] || null };
 }
 
-test('未設定なら空文字を返す', () => {
-  delete fakeScriptProperties[sandbox.EXTERNAL_SYNC_SHEET_ID_PROP_KEY];
-  assert.strictEqual(sandbox.getExternalSyncSheetId_(), '');
+test('未設定なら空配列を返す', () => {
+  delete fakeScriptProperties[sandbox.EXTERNAL_SYNC_SHEETS_PROP_KEY];
+  assert.deepStrictEqual(Array.from(sandbox.getExternalSyncSheets_()), []);
 });
-test('IDをそのまま保存・取得できる(開けることを確認した上で)', () => {
-  fakeExternalSpreadsheets['SHEET_ID_1'] = makeExternalSheetSpreadsheet({});
-  const saved = sandbox.saveExternalSyncSheetId_('SHEET_ID_1');
-  assert.strictEqual(saved, 'SHEET_ID_1');
-  assert.strictEqual(sandbox.getExternalSyncSheetId_(), 'SHEET_ID_1');
+test('ブランドごとにIDをそのまま保存・取得できる(開けることを確認した上で)', () => {
+  fakeExternalSpreadsheets['SHEET_MB'] = makeExternalSheetSpreadsheet({});
+  fakeExternalSpreadsheets['SHEET_AU'] = makeExternalSheetSpreadsheet({});
+  const saved = sandbox.saveExternalSyncSheets_([
+    { brand: 'MB', sheetId: 'SHEET_MB' },
+    { brand: 'AU', sheetId: 'SHEET_AU' }
+  ]);
+  const plain = Array.from(saved, (r) => ({ brand: r.brand, sheetId: r.sheetId }));
+  assert.deepStrictEqual(plain, [{ brand: 'MB', sheetId: 'SHEET_MB' }, { brand: 'AU', sheetId: 'SHEET_AU' }]);
 });
 test('URLで貼り付けてもIDだけ取り出して保存できる', () => {
-  fakeExternalSpreadsheets['SHEET_ID_2'] = makeExternalSheetSpreadsheet({});
-  const saved = sandbox.saveExternalSyncSheetId_('https://docs.google.com/spreadsheets/d/SHEET_ID_2/edit?gid=855142272#gid=855142272');
-  assert.strictEqual(saved, 'SHEET_ID_2');
+  fakeExternalSpreadsheets['SHEET_URL'] = makeExternalSheetSpreadsheet({});
+  const saved = sandbox.saveExternalSyncSheets_([
+    { brand: 'MB', sheetId: 'https://docs.google.com/spreadsheets/d/SHEET_URL/edit?gid=855142272#gid=855142272' }
+  ]);
+  assert.strictEqual(saved[0].sheetId, 'SHEET_URL');
 });
 test('開けない(共有されていない・存在しない)IDはエラーになり保存されない', () => {
-  sandbox.saveExternalSyncSheetId_('SHEET_ID_1');
-  assert.throws(() => sandbox.saveExternalSyncSheetId_('NOT_EXIST_ID'), /開けませんでした/);
-  assert.strictEqual(sandbox.getExternalSyncSheetId_(), 'SHEET_ID_1'); // 変更されない
+  fakeExternalSpreadsheets['SHEET_OK'] = makeExternalSheetSpreadsheet({});
+  sandbox.saveExternalSyncSheets_([{ brand: 'MB', sheetId: 'SHEET_OK' }]);
+  assert.throws(
+    () => sandbox.saveExternalSyncSheets_([{ brand: 'MB', sheetId: 'NOT_EXIST_ID' }]),
+    /開けませんでした/
+  );
+  assert.strictEqual(sandbox.getExternalSyncSheets_()[0].sheetId, 'SHEET_OK'); // 変更されない
 });
-test('空欄で保存すると転記しない設定(空文字)に戻せる', () => {
-  sandbox.saveExternalSyncSheetId_('SHEET_ID_1');
-  const saved = sandbox.saveExternalSyncSheetId_('   ');
-  assert.strictEqual(saved, '');
-  assert.strictEqual(sandbox.getExternalSyncSheetId_(), '');
+test('片方だけ入力されている行はエラーになり保存されない', () => {
+  assert.throws(() => sandbox.saveExternalSyncSheets_([{ brand: 'MB', sheetId: '' }]), /両方入力/);
+});
+test('同じブランドが複数あるとエラーになる', () => {
+  fakeExternalSpreadsheets['SHEET_DUP1'] = makeExternalSheetSpreadsheet({});
+  fakeExternalSpreadsheets['SHEET_DUP2'] = makeExternalSheetSpreadsheet({});
+  assert.throws(
+    () => sandbox.saveExternalSyncSheets_([
+      { brand: 'MB', sheetId: 'SHEET_DUP1' },
+      { brand: 'MB', sheetId: 'SHEET_DUP2' }
+    ]),
+    /複数設定されています/
+  );
+});
+test('最大5件を超えるとエラーになる', () => {
+  fakeExternalSpreadsheets['SHEET_MANY'] = makeExternalSheetSpreadsheet({});
+  const rows = ['MB', 'AU', 'VW', 'BMW', 'AUDI', 'PORSCHE'].map((b) => ({ brand: b, sheetId: 'SHEET_MANY' }));
+  assert.throws(() => sandbox.saveExternalSyncSheets_(rows), /最大5件/);
+});
+test('全て空欄で保存すると転記しない設定(空配列)に戻せる', () => {
+  fakeExternalSpreadsheets['SHEET_TMP'] = makeExternalSheetSpreadsheet({});
+  sandbox.saveExternalSyncSheets_([{ brand: 'MB', sheetId: 'SHEET_TMP' }]);
+  const saved = sandbox.saveExternalSyncSheets_([{ brand: '', sheetId: '' }]);
+  assert.deepStrictEqual(Array.from(saved), []);
+  assert.deepStrictEqual(Array.from(sandbox.getExternalSyncSheets_()), []);
 });
 
 console.log('== ExternalSyncService: タブ名の組み立て ==');
@@ -809,12 +859,12 @@ test('登録日の年月から "db_登録データ_YYYY_M月" 形式のタブ名
   assert.strictEqual(sandbox.externalSyncTabName_(new Date(2026, 0, 5)), 'db_登録データ_2026_1月');
 });
 
-console.log('== ExternalSyncService: 使用者名をキーにした登録日・OSS区分の転記 ==');
-test('転記先スプレッドシートが未設定なら何もしない(エラーにしない)', () => {
-  delete fakeScriptProperties[sandbox.EXTERNAL_SYNC_SHEET_ID_PROP_KEY];
-  assert.doesNotThrow(() => sandbox.syncRegistrationToExternalSheet_('橋本美咲', new Date(2026, 9, 2), 'OSS'));
+console.log('== ExternalSyncService: 使用者名をキーにしたステータス・登録日・OSS区分の転記 ==');
+test('転記先が1件も設定されていなければ何もしない(エラーにしない)', () => {
+  delete fakeScriptProperties[sandbox.EXTERNAL_SYNC_SHEETS_PROP_KEY];
+  assert.doesNotThrow(() => sandbox.syncRegistrationToExternalSheet_('橋本美咲', new Date(2026, 9, 2), 'OSS', 'MB'));
 });
-test('使用者名と一致する行のB列(登録予定日)・F列(OSS区分)を更新する', () => {
+test('使用者名と一致する行のA列(ステータス)・B列(登録予定日)・F列(OSS区分)を更新する', () => {
   const ss = makeExternalSheetSpreadsheet({
     'db_登録データ_2026_10月': [
       ['登録予定日確認中', '', '岐阜', '戸田圭市朗', '', '', '橋本美咲', ''],
@@ -822,32 +872,41 @@ test('使用者名と一致する行のB列(登録予定日)・F列(OSS区分)�
     ]
   });
   fakeExternalSpreadsheets['SHEET_MATCH'] = ss;
-  sandbox.saveExternalSyncSheetId_('SHEET_MATCH');
+  sandbox.saveExternalSyncSheets_([{ brand: 'MB', sheetId: 'SHEET_MATCH' }]);
 
-  sandbox.syncRegistrationToExternalSheet_('橋本美咲', new Date(2026, 9, 2), 'OSS');
+  sandbox.syncRegistrationToExternalSheet_('橋本美咲', new Date(2026, 9, 2), 'OSS', 'MB');
 
   const sheet = ss.getSheetByName('db_登録データ_2026_10月');
-  assert.strictEqual(sheet._rows[1][1], '2026-10-02'); // B列(1行目はヘッダーなので2行目=配列index1)
+  assert.strictEqual(sheet._rows[1][0], '登録予定日確定'); // A列(1行目はヘッダーなので2行目=配列index1)
+  assert.strictEqual(sheet._rows[1][1], '2026-10-02'); // B列
   assert.strictEqual(sheet._rows[1][5], 'OSS'); // F列
-  assert.strictEqual(sheet._rows[2][1], ''); // 一致しない行は変更されない
+  assert.strictEqual(sheet._rows[2][0], '登録予定日確認中'); // 一致しない行は変更されない
 });
 test('紙登録は"紙登録"という文字列を書き込む', () => {
   const ss = makeExternalSheetSpreadsheet({
     'db_登録データ_2026_11月': [['', '', '', '', '', '', '鈴木一郎', '']]
   });
   fakeExternalSpreadsheets['SHEET_PAPER'] = ss;
-  sandbox.saveExternalSyncSheetId_('SHEET_PAPER');
+  sandbox.saveExternalSyncSheets_([{ brand: 'AU', sheetId: 'SHEET_PAPER' }]);
 
-  sandbox.syncRegistrationToExternalSheet_('鈴木一郎', new Date(2026, 10, 15), '紙登録');
+  sandbox.syncRegistrationToExternalSheet_('鈴木一郎', new Date(2026, 10, 15), '紙登録', 'AU');
 
   const sheet = ss.getSheetByName('db_登録データ_2026_11月');
   assert.strictEqual(sheet._rows[1][5], '紙登録');
 });
+test('ブランドに対応する転記先が設定されていない場合はエラーになる', () => {
+  fakeExternalSpreadsheets['SHEET_MB2'] = makeExternalSheetSpreadsheet({});
+  sandbox.saveExternalSyncSheets_([{ brand: 'MB', sheetId: 'SHEET_MB2' }]);
+  assert.throws(
+    () => sandbox.syncRegistrationToExternalSheet_('橋本美咲', new Date(2026, 9, 2), 'OSS', 'AU'),
+    /ブランド「AU」の転記先スプレッドシートが設定されていません/
+  );
+});
 test('対象タブが存在しない場合はエラーになる', () => {
   fakeExternalSpreadsheets['SHEET_NO_TAB'] = makeExternalSheetSpreadsheet({});
-  sandbox.saveExternalSyncSheetId_('SHEET_NO_TAB');
+  sandbox.saveExternalSyncSheets_([{ brand: 'MB', sheetId: 'SHEET_NO_TAB' }]);
   assert.throws(
-    () => sandbox.syncRegistrationToExternalSheet_('橋本美咲', new Date(2026, 9, 2), 'OSS'),
+    () => sandbox.syncRegistrationToExternalSheet_('橋本美咲', new Date(2026, 9, 2), 'OSS', 'MB'),
     /db_登録データ_2026_10月.*タブが見つかりません/
   );
 });
@@ -856,9 +915,9 @@ test('使用者名と一致する行が見つからない場合はエラーに�
     'db_登録データ_2026_10月': [['', '', '', '', '', '', '別人の名前', '']]
   });
   fakeExternalSpreadsheets['SHEET_NO_MATCH'] = ss;
-  sandbox.saveExternalSyncSheetId_('SHEET_NO_MATCH');
+  sandbox.saveExternalSyncSheets_([{ brand: 'MB', sheetId: 'SHEET_NO_MATCH' }]);
   assert.throws(
-    () => sandbox.syncRegistrationToExternalSheet_('橋本美咲', new Date(2026, 9, 2), 'OSS'),
+    () => sandbox.syncRegistrationToExternalSheet_('橋本美咲', new Date(2026, 9, 2), 'OSS', 'MB'),
     /一致する行が見つかりませんでした/
   );
 });

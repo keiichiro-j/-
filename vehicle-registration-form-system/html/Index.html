@@ -19,6 +19,12 @@
     <p class="loadingOverlay__text">Now Loading</p>
   </div>
 
+  <script>
+    // ブランドの選択肢(設定画面で変更可能)はページ生成時に埋め込む。車両行の1行目を
+    // 描画する時点(JavaScript.html内)で必要なため、google.script.runの往復を待たない。
+    var BRAND_OPTIONS_ = <?!= brandOptionsJson ?>;
+  </script>
+
   <div id="confettiLayer" class="confettiLayer" aria-hidden="true"></div>
 
   <header class="masthead">
@@ -180,8 +186,6 @@
             <label class="filterGroup__label" for="historyBrand">ブランド</label>
             <select id="historyBrand">
               <option value="">すべて</option>
-              <option value="MB">MB</option>
-              <option value="AU">AU</option>
             </select>
           </div>
 
@@ -230,7 +234,7 @@
         <div class="calendarLegend">
           <span class="calendarLegend__item"><span class="calEntry__type is-oss">OSS</span> 電子申請</span>
           <span class="calendarLegend__item"><span class="calEntry__type is-paper">紙</span> 従来申請</span>
-          <span class="calendarLegend__item"><span class="calEntry__brand">MB / AU</span> ブランド</span>
+          <span class="calendarLegend__item"><span class="calEntry__brand">例: MB</span> ブランド</span>
         </div>
 
         <div class="tableScroll">
@@ -382,23 +386,58 @@
           </div>
         </section>
 
+        <section class="card bento--span-6">
+          <div class="card__head">
+            <h2>ブランド設定</h2>
+            <p class="muted">車両データの「ブランド」欄の選択肢です。申請フォーム・履歴確認の絞り込み・他システムへの連携(ブランド別の転記先)で使われます。</p>
+          </div>
+
+          <div class="tableScroll">
+            <table id="brandOptionsTable" class="staffMasterTable">
+              <thead>
+                <tr>
+                  <th>ブランド</th>
+                  <th class="colDel"></th>
+                </tr>
+              </thead>
+              <tbody id="brandOptionsBody"></tbody>
+            </table>
+          </div>
+
+          <button type="button" id="btnAddBrandRow" class="btn btn--ghost">＋ 行を追加</button>
+          <button type="button" id="btnSaveBrandOptions" class="btn btn--primary">ブランド設定を保存する</button>
+          <div id="brandOptionsResult" class="result" role="status" aria-live="polite">
+            <span id="brandOptionsSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+            <span id="brandOptionsResultText"></span>
+          </div>
+        </section>
+
         <section class="card bento--span-12">
           <div class="card__head">
             <h2>他システムへの連携</h2>
             <p class="muted">
-              このアプリで新車の申請を登録すると、指定したスプレッドシートの該当タブ(登録日の年月から自動判定)に、その使用者名(顧客名)と一致する行を探して「登録予定日」「OSS区分」を転記します。転記先スプレッドシートのURL、またはIDを入力してください。空欄のまま保存すると転記しない設定に戻せます。一致する行が見つからない場合は、PDF発行自体は完了した上でエラー内容が画面に表示されます。
+              このアプリで新車の申請を登録すると、車両の「ブランド」に対応するスプレッドシートの該当タブ(登録日の年月から自動判定)に、使用者名(顧客名)と一致する行を探して「ステータス」「登録予定日」「OSS区分」を転記します。ブランドごとに転記先スプレッドシートのURL(またはID)を、最大5件まで登録できます。行ごと空欄のまま保存すると、そのブランドは転記しない設定になります(全て空欄なら機能そのものがOFFになります)。一致する行が見つからない場合は、PDF発行自体は完了した上でエラー内容が画面に表示されます。
             </p>
           </div>
 
-          <div class="field">
-            <label for="externalSyncSheetUrlInput">転記先スプレッドシートのURL(またはID)</label>
-            <input type="text" id="externalSyncSheetUrlInput" placeholder="https://docs.google.com/spreadsheets/d/..." autocomplete="off">
+          <div class="tableScroll">
+            <table id="externalSyncTable" class="staffMasterTable">
+              <thead>
+                <tr>
+                  <th>ブランド</th>
+                  <th>転記先スプレッドシートのURL(またはID)</th>
+                  <th class="colDel"></th>
+                </tr>
+              </thead>
+              <tbody id="externalSyncBody"></tbody>
+            </table>
           </div>
 
-          <button type="button" id="btnSaveExternalSyncSheet" class="btn btn--primary">保存する</button>
-          <div id="externalSyncSheetResult" class="result" role="status" aria-live="polite">
-            <span id="externalSyncSheetSpinner" class="spinner is-hidden" aria-hidden="true"></span>
-            <span id="externalSyncSheetResultText"></span>
+          <button type="button" id="btnAddExternalSyncRow" class="btn btn--ghost">＋ 行を追加(最大5件)</button>
+          <button type="button" id="btnSaveExternalSync" class="btn btn--primary">保存する</button>
+          <div id="externalSyncResult" class="result" role="status" aria-live="polite">
+            <span id="externalSyncSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+            <span id="externalSyncResultText"></span>
           </div>
         </section>
 
