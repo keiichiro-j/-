@@ -329,7 +329,6 @@
     setHidaFlag_(false);
     document.getElementById('vehicleTableBody').innerHTML = '';
     for (var i = 0; i < INITIAL_VEHICLE_ROWS; i++) addVehicleRow();
-    applyDefaultFormValues_();
     document.getElementById('sendDate').value = formatDateInput_(new Date());
     applyManagerAutofill_();
   }
@@ -366,7 +365,6 @@
     initPdfDefaultRange_();
     document.getElementById('mailSendDate').value = formatDateInput_(new Date());
     loadMailRecipients_();
-    loadDefaultFormValues_();
     loadManagerForCurrentUser_();
     loadStaffMaster_();
     loadAutoMailStatus_();
@@ -1077,64 +1075,6 @@
       .setDailyMailTriggerEnabled(next);
   });
 
-  // ---------- 設定画面: 申請フォームの既定値 ----------
-
-  var defaultFormValues_ = { company: '', manager: '' };
-
-  // 申請フォームの依頼会社名・担当責任者が空欄のときだけ、既定値を差し込む(既存の入力を上書きしない)
-  function applyDefaultFormValues_() {
-    var companyEl = document.getElementById('company');
-    var managerEl = document.getElementById('manager');
-    if (defaultFormValues_.company && !companyEl.value) companyEl.value = defaultFormValues_.company;
-    if (defaultFormValues_.manager && !managerEl.value) managerEl.value = defaultFormValues_.manager;
-  }
-
-  function loadDefaultFormValues_() {
-    google.script.run
-      .withSuccessHandler(function (values) {
-        defaultFormValues_ = values || { company: '', manager: '' };
-        document.getElementById('defaultCompany').value = defaultFormValues_.company;
-        document.getElementById('defaultManager').value = defaultFormValues_.manager;
-        applyDefaultFormValues_();
-      })
-      .getDefaultFormValues();
-  }
-
-  function setDefaultsResult_(text, kind) {
-    var el = document.getElementById('defaultsResult');
-    el.className = 'result' + (kind ? ' -' + kind : '');
-    document.getElementById('defaultsResultText').innerHTML = text;
-  }
-
-  function setDefaultsProcessing_(on) {
-    document.getElementById('defaultsSpinner').classList.toggle('is-hidden', !on);
-  }
-
-  document.getElementById('btnSaveDefaults').addEventListener('click', function () {
-    var values = {
-      company: document.getElementById('defaultCompany').value.trim(),
-      manager: document.getElementById('defaultManager').value.trim()
-    };
-    var btn = document.getElementById('btnSaveDefaults');
-    btn.disabled = true;
-    setDefaultsProcessing_(true);
-    setDefaultsResult_('保存しています…', 'pending');
-
-    google.script.run
-      .withSuccessHandler(function (saved) {
-        btn.disabled = false;
-        setDefaultsProcessing_(false);
-        defaultFormValues_ = saved;
-        setDefaultsResult_('保存しました', 'success');
-      })
-      .withFailureHandler(function (error) {
-        btn.disabled = false;
-        setDefaultsProcessing_(false);
-        setDefaultsResult_('保存に失敗しました:\n' + error.message, 'error');
-      })
-      .saveDefaultFormValues(values);
-  });
-
   // ---------- 申請フォーム: ログインユーザーに応じた担当責任者の自動入力 ----------
   // 担当者マスタ(下記の設定画面)にログイン中のGoogleアカウントが登録されていれば、
   // その担当者名を「担当責任者」欄に自動で入力する(既定値より優先する)。
@@ -1399,12 +1339,12 @@
       .saveLoadingImageUrl(url);
   });
 
-  // ---------- 設定画面: テーマ(ライト/ダーク/自動 + 春夏秋冬) ----------
+  // ---------- 設定画面: テーマ(ライト/ダーク/自動) ----------
 
   var THEME_STORAGE_KEY = 'vrfsThemePreference';
-  var THEME_BUTTON_IDS = ['themeLight', 'themeDark', 'themeSystem', 'themeSpring', 'themeSummer', 'themeAutumn', 'themeWinter'];
+  var THEME_BUTTON_IDS = ['themeLight', 'themeDark', 'themeSystem'];
   // data-theme属性として実際に設定する値(「自動」はdata-theme属性なしでOS設定に従うため含まない)。
-  var THEME_DATA_VALUES_ = ['light', 'dark', 'spring', 'summer', 'autumn', 'winter'];
+  var THEME_DATA_VALUES_ = ['light', 'dark'];
 
   function applyTheme_(theme) {
     var root = document.documentElement;

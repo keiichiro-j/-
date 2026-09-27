@@ -85,23 +85,6 @@ function setDailyMailTriggerEnabled(enabled) {
 }
 
 /**
- * 「設定」画面・申請フォーム双方から呼ばれる。申請フォームの既定値(依頼会社名・担当責任者)を返す。
- * @return {{company: string, manager: string}}
- */
-function getDefaultFormValues() {
-  return getDefaultFormValues_();
-}
-
-/**
- * 「設定」画面の既定値保存ボタン用。
- * @param {{company: string, manager: string}} values
- * @return {{company: string, manager: string}}
- */
-function saveDefaultFormValues(values) {
-  return saveDefaultFormValues_(values);
-}
-
-/**
  * 画面上部の常時アクティビティ表示用。本日の送付件数・直近の申請情報を返す。
  * @return {{todayCount: number, latestCompany: string, latestSentAt: string}}
  */

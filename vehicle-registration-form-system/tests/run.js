@@ -625,24 +625,6 @@ test('宛先が1件も保存されていない状態でONにしようとする�
   assert.strictEqual(fakeTriggers.length, 0);
 });
 
-console.log('== SettingsService: 申請フォームの既定値 ==');
-test('未設定なら空文字を返す', () => {
-  delete fakeScriptProperties[sandbox.DEFAULT_FORM_VALUES_PROP_KEY];
-  const result = sandbox.getDefaultFormValues_();
-  assert.deepStrictEqual({ company: result.company, manager: result.manager }, { company: '', manager: '' });
-});
-test('前後の空白を除いて保存し、取得できる', () => {
-  const saved = sandbox.saveDefaultFormValues_({ company: ' 岐阜ヤナセ株式会社 ', manager: ' 戸田 圭市朗 ' });
-  assert.deepStrictEqual({ company: saved.company, manager: saved.manager }, { company: '岐阜ヤナセ株式会社', manager: '戸田 圭市朗' });
-
-  const loaded = sandbox.getDefaultFormValues_();
-  assert.deepStrictEqual({ company: loaded.company, manager: loaded.manager }, { company: '岐阜ヤナセ株式会社', manager: '戸田 圭市朗' });
-});
-test('片方だけ空欄でも保存できる', () => {
-  const saved = sandbox.saveDefaultFormValues_({ company: '岐阜ヤナセ株式会社', manager: '' });
-  assert.deepStrictEqual({ company: saved.company, manager: saved.manager }, { company: '岐阜ヤナセ株式会社', manager: '' });
-});
-
 console.log('== SettingsService: ヘッダーのロゴ画像URL ==');
 test('未設定なら空文字を返す(ロゴ非表示)', () => {
   delete fakeScriptProperties[sandbox.LOGO_URL_PROP_KEY];

@@ -109,36 +109,6 @@
     }
   }
 
-  /* ---------- 季節のテーマ(アクセントカラーのみ変更。背景・文字色はライト/ダークのまま) ---------- */
-
-  :root[data-theme="spring"] {
-    --accent: #B8447A;
-    --accent-dark: #8F3560;
-    --accent-soft: #FBEAF1;
-    --surface-alt: #FDF4F7;
-  }
-
-  :root[data-theme="summer"] {
-    --accent: #086C93;
-    --accent-dark: #06546F;
-    --accent-soft: #E3F3F8;
-    --surface-alt: #EFFAFC;
-  }
-
-  :root[data-theme="autumn"] {
-    --accent: #A8451A;
-    --accent-dark: #833614;
-    --accent-soft: #FBEBE1;
-    --surface-alt: #FBF3EC;
-  }
-
-  :root[data-theme="winter"] {
-    --accent: #3D5C8A;
-    --accent-dark: #2C4568;
-    --accent-soft: #E9EEF6;
-    --surface-alt: #F1F4F9;
-  }
-
   * { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; }
 
@@ -578,6 +548,19 @@
     border-radius: var(--r-xs);
   }
   td input:focus, td select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+
+  /* 「使用者名」欄はブラウザが「ユーザー名」入力欄と誤認識し、autocomplete="off"でも
+     自動入力用の白/黄色っぽい背景を独自に描画することがある。他の車両データ欄と背景色を
+     揃えるため、オートフィル時の背景色描画を透明(実質的にセルの背景色)で上書きする。 */
+  .v-userName:-webkit-autofill,
+  .v-userName:-webkit-autofill:hover,
+  .v-userName:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--ink);
+    -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+    box-shadow: 0 0 0 1000px var(--surface) inset;
+    transition: background-color 999999s ease-in-out 0s;
+  }
+
   .v-autoTax, .v-envTax, .v-weightTax { text-align: right; }
   .colNo { width: 28px; color: var(--muted); }
   .colWide { min-width: 140px; }
@@ -697,7 +680,7 @@
 
   #staffMasterTable { min-width: 0; }
   #staffMasterTable th:first-child, #staffMasterTable td:first-child { width: 40%; }
-  #staffMasterTable td input { width: 100%; text-align: left; }
+  #staffMasterTable td input { width: 100%; text-align: center; }
   .btnRemoveStaffRow {
     border: none;
     background: transparent;
