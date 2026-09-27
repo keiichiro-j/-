@@ -12,18 +12,20 @@ const assert = require('assert');
 
 const ROOT = path.join(__dirname, '..');
 
-// Utilities.formatDate は本テストで使う 'yyyy-MM' / 'yyyyMMdd_HHmmss' パターンのみ最小実装する。
+// Utilities.formatDate は本テストで使う 'yyyy-MM' / 'yyyyMMdd_HHmmss' / 'M'(ゼロ埋めなし月)
+// パターンのみ最小実装する。'MM'は'M'より先に判定させる(regex内の順序に依存)。
 function pad(n, len) { return String(n).padStart(len || 2, '0'); }
 function formatDateStub(date, tz, pattern) {
   const map = {
     yyyy: date.getFullYear(),
     MM: pad(date.getMonth() + 1),
+    M: date.getMonth() + 1,
     dd: pad(date.getDate()),
     HH: pad(date.getHours()),
     mm: pad(date.getMinutes()),
     ss: pad(date.getSeconds())
   };
-  return pattern.replace(/yyyy|MM|dd|HH|mm|ss/g, (token) => map[token]);
+  return pattern.replace(/yyyy|MM|M|dd|HH|mm|ss/g, (token) => map[token]);
 }
 
 // EmailService.gs用の最小フェイク。MailAppは送信内容を capturedMails に積むだけ、
@@ -32,6 +34,7 @@ function formatDateStub(date, tz, pattern) {
 const capturedMails = [];
 const fakeScriptProperties = {};
 const fakeTriggers = [];
+const fakeExternalSpreadsheets = {}; // id -> フェイクSpreadsheetオブジェクト(ExternalSyncService.gs用)
 
 const sandbox = {
   Utilities: {
@@ -86,11 +89,20 @@ const sandbox = {
   Session: {
     getActiveUser: () => ({ getEmail: () => sandbox.currentUserEmail || '' })
   },
-  currentUserEmail: ''
+  currentUserEmail: '',
+  // ExternalSyncService.gs用。fakeExternalSpreadsheets の id -> フェイクSpreadsheetオブジェクト
+  // をテストごとに差し替えて、転記先スプレッドシートの状態を模する。
+  SpreadsheetApp: {
+    openById: (id) => {
+      const ss = fakeExternalSpreadsheets[id];
+      if (!ss) throw new Error('スプレッドシートが見つかりません: ' + id);
+      return ss;
+    }
+  }
 };
 vm.createContext(sandbox);
 
-const FILES = ['Constants.gs', 'ValidationService.gs', 'HistoryService.gs', 'TemplateService.gs', 'EmailService.gs', 'SettingsService.gs'];
+const FILES = ['Constants.gs', 'ValidationService.gs', 'HistoryService.gs', 'TemplateService.gs', 'EmailService.gs', 'SettingsService.gs', 'ExternalSyncService.gs'];
 FILES.forEach((file) => {
   const code = fs.readFileSync(path.join(ROOT, file), 'utf8');
   vm.runInContext(code, sandbox, { filename: file });
@@ -749,6 +761,106 @@ test('ログインアカウントを取得できない場合も空文字を返�
   sandbox.saveStaffMaster_([{ name: '山田太郎', email: 'yamada@example.com' }]);
   sandbox.currentUserEmail = '';
   assert.strictEqual(sandbox.getManagerForCurrentUser_(), '');
+});
+
+console.log('== ExternalSyncService: 転記先スプレッドシートの設定 ==');
+
+// 画像で提供された実物シートのヘッダー(A:ステータス〜H:備考)に合わせたフェイクSpreadsheet。
+// tabs は { タブ名: dataRows(A〜H, ヘッダー除く) } の形。
+function makeExternalSheetSpreadsheet(tabs) {
+  const header = ['ステータス', '登録予定日', '拠点', '担当者', '車種', 'OSS区分', '顧客名', '備考'];
+  const sheets = {};
+  Object.keys(tabs).forEach((tabName) => {
+    sheets[tabName] = makeMutableSheet(tabName, header, tabs[tabName]);
+  });
+  return { getSheetByName: (name) => sheets[name] || null };
+}
+
+test('未設定なら空文字を返す', () => {
+  delete fakeScriptProperties[sandbox.EXTERNAL_SYNC_SHEET_ID_PROP_KEY];
+  assert.strictEqual(sandbox.getExternalSyncSheetId_(), '');
+});
+test('IDをそのまま保存・取得できる(開けることを確認した上で)', () => {
+  fakeExternalSpreadsheets['SHEET_ID_1'] = makeExternalSheetSpreadsheet({});
+  const saved = sandbox.saveExternalSyncSheetId_('SHEET_ID_1');
+  assert.strictEqual(saved, 'SHEET_ID_1');
+  assert.strictEqual(sandbox.getExternalSyncSheetId_(), 'SHEET_ID_1');
+});
+test('URLで貼り付けてもIDだけ取り出して保存できる', () => {
+  fakeExternalSpreadsheets['SHEET_ID_2'] = makeExternalSheetSpreadsheet({});
+  const saved = sandbox.saveExternalSyncSheetId_('https://docs.google.com/spreadsheets/d/SHEET_ID_2/edit?gid=855142272#gid=855142272');
+  assert.strictEqual(saved, 'SHEET_ID_2');
+});
+test('開けない(共有されていない・存在しない)IDはエラーになり保存されない', () => {
+  sandbox.saveExternalSyncSheetId_('SHEET_ID_1');
+  assert.throws(() => sandbox.saveExternalSyncSheetId_('NOT_EXIST_ID'), /開けませんでした/);
+  assert.strictEqual(sandbox.getExternalSyncSheetId_(), 'SHEET_ID_1'); // 変更されない
+});
+test('空欄で保存すると転記しない設定(空文字)に戻せる', () => {
+  sandbox.saveExternalSyncSheetId_('SHEET_ID_1');
+  const saved = sandbox.saveExternalSyncSheetId_('   ');
+  assert.strictEqual(saved, '');
+  assert.strictEqual(sandbox.getExternalSyncSheetId_(), '');
+});
+
+console.log('== ExternalSyncService: タブ名の組み立て ==');
+test('登録日の年月から "db_登録データ_YYYY_M月" 形式のタブ名を組み立てる(月はゼロ埋めしない)', () => {
+  assert.strictEqual(sandbox.externalSyncTabName_(new Date(2026, 9, 2)), 'db_登録データ_2026_10月');
+  assert.strictEqual(sandbox.externalSyncTabName_(new Date(2026, 0, 5)), 'db_登録データ_2026_1月');
+});
+
+console.log('== ExternalSyncService: 使用者名をキーにした登録日・OSS区分の転記 ==');
+test('転記先スプレッドシートが未設定なら何もしない(エラーにしない)', () => {
+  delete fakeScriptProperties[sandbox.EXTERNAL_SYNC_SHEET_ID_PROP_KEY];
+  assert.doesNotThrow(() => sandbox.syncRegistrationToExternalSheet_('橋本美咲', new Date(2026, 9, 2), 'OSS'));
+});
+test('使用者名と一致する行のB列(登録予定日)・F列(OSS区分)を更新する', () => {
+  const ss = makeExternalSheetSpreadsheet({
+    'db_登録データ_2026_10月': [
+      ['登録予定日確認中', '', '岐阜', '戸田圭市朗', '', '', '橋本美咲', ''],
+      ['登録予定日確認中', '', '', '', '', '', '山田花子', '']
+    ]
+  });
+  fakeExternalSpreadsheets['SHEET_MATCH'] = ss;
+  sandbox.saveExternalSyncSheetId_('SHEET_MATCH');
+
+  sandbox.syncRegistrationToExternalSheet_('橋本美咲', new Date(2026, 9, 2), 'OSS');
+
+  const sheet = ss.getSheetByName('db_登録データ_2026_10月');
+  assert.strictEqual(sheet._rows[1][1], '2026-10-02'); // B列(1行目はヘッダーなので2行目=配列index1)
+  assert.strictEqual(sheet._rows[1][5], 'OSS'); // F列
+  assert.strictEqual(sheet._rows[2][1], ''); // 一致しない行は変更されない
+});
+test('紙登録は"紙登録"という文字列を書き込む', () => {
+  const ss = makeExternalSheetSpreadsheet({
+    'db_登録データ_2026_11月': [['', '', '', '', '', '', '鈴木一郎', '']]
+  });
+  fakeExternalSpreadsheets['SHEET_PAPER'] = ss;
+  sandbox.saveExternalSyncSheetId_('SHEET_PAPER');
+
+  sandbox.syncRegistrationToExternalSheet_('鈴木一郎', new Date(2026, 10, 15), '紙登録');
+
+  const sheet = ss.getSheetByName('db_登録データ_2026_11月');
+  assert.strictEqual(sheet._rows[1][5], '紙登録');
+});
+test('対象タブが存在しない場合はエラーになる', () => {
+  fakeExternalSpreadsheets['SHEET_NO_TAB'] = makeExternalSheetSpreadsheet({});
+  sandbox.saveExternalSyncSheetId_('SHEET_NO_TAB');
+  assert.throws(
+    () => sandbox.syncRegistrationToExternalSheet_('橋本美咲', new Date(2026, 9, 2), 'OSS'),
+    /db_登録データ_2026_10月.*タブが見つかりません/
+  );
+});
+test('使用者名と一致する行が見つからない場合はエラーになる', () => {
+  const ss = makeExternalSheetSpreadsheet({
+    'db_登録データ_2026_10月': [['', '', '', '', '', '', '別人の名前', '']]
+  });
+  fakeExternalSpreadsheets['SHEET_NO_MATCH'] = ss;
+  sandbox.saveExternalSyncSheetId_('SHEET_NO_MATCH');
+  assert.throws(
+    () => sandbox.syncRegistrationToExternalSheet_('橋本美咲', new Date(2026, 9, 2), 'OSS'),
+    /一致する行が見つかりませんでした/
+  );
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

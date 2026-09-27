@@ -271,16 +271,20 @@
     setResult_('処理中です。履歴に記録し、PDFを作成しています…', 'pending');
 
     google.script.run
-      .withSuccessHandler(function (pdfUrl) {
+      .withSuccessHandler(function (result) {
+        var pdfUrl = result.pdfUrl;
         isSubmitting = false;
         btn.disabled = false;
         setProcessing_(false);
         historyHeader_ = []; // 次に履歴確認画面を開いたとき、今回の登録を含めて再取得させる
         submissionToken_ = generateSubmissionToken_(); // 次回送信用のトークンを発行し直す
-        setResult_(
-          '完了しました。PDFを自動で開きます。<br>開かない場合は <a href="' + pdfUrl + '" target="_blank">こちら</a> をクリックしてください。',
-          'success'
-        );
+        var message =
+          '完了しました。PDFを自動で開きます。<br>開かない場合は <a href="' + pdfUrl + '" target="_blank">こちら</a> をクリックしてください。';
+        if (result.transcriptionWarnings && result.transcriptionWarnings.length) {
+          message += '<span class="result__warning">他システムへの転記でエラーがありました(PDF発行・履歴記録は完了しています):<br>' +
+            result.transcriptionWarnings.map(escapeHtml_).join('<br>') + '</span>';
+        }
+        setResult_(message, 'success');
         document.getElementById('resultPdfPreviewFrame').src = buildPdfPreviewUrl_(pdfUrl);
         document.getElementById('resultPdfPreview').classList.remove('is-hidden');
         window.open(pdfUrl, '_blank');
@@ -367,6 +371,7 @@
     loadMailRecipients_();
     loadManagerForCurrentUser_();
     loadStaffMaster_();
+    loadExternalSyncSheet_();
     loadAutoMailStatus_();
     document.querySelectorAll('.tableScroll').forEach(function (el) {
       updateScrollShadow_(el);
@@ -1183,6 +1188,48 @@
         setStaffMasterResult_('保存に失敗しました:\n' + error.message, 'error');
       })
       .saveStaffMaster(rows);
+  });
+
+  // ---------- 設定画面: 他システム(外部スプレッドシート)への連携 ----------
+
+  function loadExternalSyncSheet_() {
+    google.script.run
+      .withSuccessHandler(function (id) {
+        document.getElementById('externalSyncSheetUrlInput').value = id || '';
+      })
+      .getExternalSyncSheetId();
+  }
+
+  function setExternalSyncSheetResult_(text, kind) {
+    var el = document.getElementById('externalSyncSheetResult');
+    el.className = 'result' + (kind ? ' -' + kind : '');
+    document.getElementById('externalSyncSheetResultText').innerHTML = text;
+  }
+
+  function setExternalSyncSheetProcessing_(on) {
+    document.getElementById('externalSyncSheetSpinner').classList.toggle('is-hidden', !on);
+  }
+
+  document.getElementById('btnSaveExternalSyncSheet').addEventListener('click', function () {
+    var value = document.getElementById('externalSyncSheetUrlInput').value.trim();
+    var btn = document.getElementById('btnSaveExternalSyncSheet');
+    btn.disabled = true;
+    setExternalSyncSheetProcessing_(true);
+    setExternalSyncSheetResult_('保存しています…', 'pending');
+
+    google.script.run
+      .withSuccessHandler(function (savedId) {
+        btn.disabled = false;
+        setExternalSyncSheetProcessing_(false);
+        document.getElementById('externalSyncSheetUrlInput').value = savedId || '';
+        setExternalSyncSheetResult_(savedId ? '保存しました(転記が有効になります)' : '保存しました(転記しない設定にしました)', 'success');
+      })
+      .withFailureHandler(function (error) {
+        btn.disabled = false;
+        setExternalSyncSheetProcessing_(false);
+        setExternalSyncSheetResult_('保存に失敗しました:\n' + error.message, 'error');
+      })
+      .saveExternalSyncSheetId(value);
   });
 
   // ---------- 設定画面: ロゴ画像 ----------

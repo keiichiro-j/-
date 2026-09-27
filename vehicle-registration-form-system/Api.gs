@@ -154,6 +154,23 @@ function getManagerForCurrentUser() {
   return getManagerForCurrentUser_();
 }
 
+/**
+ * 「設定」画面の他システム連携表示用。転記先スプレッドシートのIDを返す(未設定なら空文字)。
+ * @return {string}
+ */
+function getExternalSyncSheetId() {
+  return getExternalSyncSheetId_();
+}
+
+/**
+ * 「設定」画面の他システム連携保存ボタン用。
+ * @param {string} idOrUrl
+ * @return {string} 保存後のスプレッドシートID
+ */
+function saveExternalSyncSheetId(idOrUrl) {
+  return saveExternalSyncSheetId_(idOrUrl);
+}
+
 // 二重送信防止用トークンのキャッシュ保持時間(秒)。ボタン連打やネットワーク遅延による
 // 再送はほぼ数秒以内に発生するため、余裕をみて5分にしている。
 var SUBMISSION_TOKEN_TTL_SEC = 300;
@@ -165,7 +182,10 @@ var SUBMISSION_TOKEN_TTL_SEC = 300;
  * 2. LockServiceでテンプレート複製のみを保護
  * 3. 複製先へ値を書き込み → PDFエクスポート → Drive月別フォルダへ保存 → 一時シート削除
  * 4. 車両ごとに、登録日が属する年月の履歴タブへ追記
- * @return {string} 発行されたPDFのURL
+ * 5. 車両ごとに、他システム(外部スプレッドシート、設定済みの場合のみ)へ登録日・申請方法を
+ *    転記する。この転記は本アプリの主処理(PDF発行・履歴記録)には影響させず、失敗しても
+ *    1台ごとにその旨を警告として集めて返すだけにする(ExternalSyncService.gs参照)。
+ * @return {{pdfUrl: string, transcriptionWarnings: Array<string>}}
  */
 function processFormData(formData) {
   var cache = CacheService.getScriptCache();
@@ -209,9 +229,19 @@ function processFormData(formData) {
   }
 
   var pdfUrl = file.getUrl();
+  var transcriptionWarnings = [];
   activeVehicles.forEach(function (car, i) {
     appendHistoryRow_(ss, formData.type, car, formData, submissionId, i + 1, timestamp, pdfUrl);
+
+    var regDateStr = (formData.type === TYPE_OSS) ? car.indivRegDate : formData.regDateCommon;
+    if (!isValidDateStr_(regDateStr)) return; // 登録日未定などは転記のしようがないためスキップ
+    try {
+      var typeLabel = (formData.type === TYPE_OSS) ? 'OSS' : '紙登録';
+      syncRegistrationToExternalSheet_(car.userName, parseDateOnly_(regDateStr), typeLabel);
+    } catch (e) {
+      transcriptionWarnings.push((car.userName || (i + 1) + '台目') + ': ' + e.message);
+    }
   });
 
-  return pdfUrl;
+  return { pdfUrl: pdfUrl, transcriptionWarnings: transcriptionWarnings };
 }

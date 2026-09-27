@@ -382,6 +382,26 @@
           </div>
         </section>
 
+        <section class="card bento--span-12">
+          <div class="card__head">
+            <h2>他システムへの連携</h2>
+            <p class="muted">
+              このアプリで新車の申請を登録すると、指定したスプレッドシートの該当タブ(登録日の年月から自動判定)に、その使用者名(顧客名)と一致する行を探して「登録予定日」「OSS区分」を転記します。転記先スプレッドシートのURL、またはIDを入力してください。空欄のまま保存すると転記しない設定に戻せます。一致する行が見つからない場合は、PDF発行自体は完了した上でエラー内容が画面に表示されます。
+            </p>
+          </div>
+
+          <div class="field">
+            <label for="externalSyncSheetUrlInput">転記先スプレッドシートのURL(またはID)</label>
+            <input type="text" id="externalSyncSheetUrlInput" placeholder="https://docs.google.com/spreadsheets/d/..." autocomplete="off">
+          </div>
+
+          <button type="button" id="btnSaveExternalSyncSheet" class="btn btn--primary">保存する</button>
+          <div id="externalSyncSheetResult" class="result" role="status" aria-live="polite">
+            <span id="externalSyncSheetSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+            <span id="externalSyncSheetResultText"></span>
+          </div>
+        </section>
+
         <section class="card bento--span-6">
           <div class="card__head">
             <h2>テーマ</h2>
