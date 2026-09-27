@@ -32,6 +32,23 @@
     --r-lg: 10px;
     --r-pill: 999px;
 
+    /* ---------- タイポグラフィ・余白のスケール(サイズをここに集約し、ページ全体で統一する) ---------- */
+    --fs-2xs: 10.5px;  /* テーブル見出し・カレンダーの小バッジなど、最も小さい注記 */
+    --fs-xs: 11.5px;   /* フィールドラベル・バッジ・小さめの補足 */
+    --fs-sm: 12.5px;   /* muted本文・テーブルセル・ボタン(ghost/sm) */
+    --fs-base: 13.5px; /* 入力欄・通常の本文 */
+    --fs-md: 15px;     /* カード見出し */
+    --fs-lg: 18px;     /* 画面タイトル相当の強調 */
+    --fs-xl: 24px;     /* ページ最上部のh1 */
+
+    --sp-1: 4px;
+    --sp-2: 8px;
+    --sp-3: 12px;
+    --sp-4: 16px;
+    --sp-5: 20px;
+    --sp-6: 24px;
+    --sp-7: 32px;
+
     --ease: cubic-bezier(0.4, 0, 0.2, 1);
 
     --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
@@ -41,7 +58,6 @@
     --solid-bg: #1A1A1A;
     --solid-bg-hover: #000000;
     --solid-ink: #FFFFFF;
-    --solid-ripple: rgba(255, 255, 255, 0.35);
   }
 
   /* ---------- ダークテーマ(設定画面から切り替え。html/JavaScript.htmlのapplyTheme_参照) ---------- */
@@ -73,7 +89,6 @@
     --solid-bg: #F2F2F3;
     --solid-bg-hover: #FFFFFF;
     --solid-ink: #121214;
-    --solid-ripple: rgba(0, 0, 0, 0.18);
   }
 
   /* 「自動」選択時(data-theme属性なし)は端末のダークモード設定に従う */
@@ -105,7 +120,6 @@
       --solid-bg: #F2F2F3;
       --solid-bg-hover: #FFFFFF;
       --solid-ink: #121214;
-      --solid-ripple: rgba(0, 0, 0, 0.18);
     }
   }
 
@@ -184,54 +198,27 @@
     .loadingOverlay__img { animation: none; opacity: 1; transform: none; filter: none; }
   }
 
-  /* ---------- masthead(白地・太字ロゴタイプ・下線アクセント。YANASE公式サイトのヘッダーを参考) ---------- */
+  /* ---------- masthead(白地・シンプルなヘッダー) ---------- */
 
   .masthead {
     background: var(--surface);
     border-bottom: 1px solid var(--line);
   }
-  .masthead__inner { max-width: none; margin: 0; padding: 34px 32px; }
-  .masthead__row { display: flex; align-items: center; gap: 22px; }
-  .masthead__logo { flex: none; height: 48px; width: auto; max-width: 180px; object-fit: contain; border-radius: var(--r-xs); }
+  .masthead__inner { max-width: none; margin: 0; padding: var(--sp-5) var(--sp-7); }
+  .masthead__row { display: flex; align-items: center; gap: var(--sp-4); }
+  .masthead__logo { flex: none; height: 36px; width: auto; max-width: 160px; object-fit: contain; border-radius: var(--r-xs); }
   .masthead__text { flex: 1; min-width: 0; }
   @media (max-width: 700px) {
-    .masthead__logo { height: 36px; max-width: 120px; }
+    .masthead__logo { height: 30px; max-width: 120px; }
   }
 
-  .eyebrow {
-    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin: 0 0 10px;
-  }
   h1 {
-    font-size: clamp(19px, 4.6vw, 25px);
-    font-weight: 800;
+    font-size: clamp(20px, 3.2vw, var(--fs-xl));
+    font-weight: 700;
     color: var(--ink);
-    margin: 0 0 12px;
+    margin: 0;
     letter-spacing: -0.01em;
     overflow-wrap: break-word;
-  }
-  h1::after {
-    content: "";
-    display: block;
-    width: 44px;
-    height: 3px;
-    background: var(--ink);
-    margin-top: 12px;
-  }
-  .lead {
-    margin: 0;
-    color: var(--ink-soft);
-    font-size: 13.5px;
-    white-space: nowrap;
-    overflow-wrap: break-word;
-  }
-  @media (max-width: 700px) {
-    .lead { white-space: normal; }
   }
 
   /* ---------- layout ---------- */
@@ -239,7 +226,7 @@
   .page {
     max-width: none;
     margin: 0;
-    padding: 0 32px 88px;
+    padding: 0 var(--sp-7) 88px;
   }
 
   .is-hidden { display: none !important; }
@@ -249,13 +236,13 @@
   .viewSwitch {
     display: flex;
     flex-wrap: wrap;
-    border-bottom: 2px solid var(--ink);
+    border-bottom: 1px solid var(--line);
     gap: 2px;
-    margin-bottom: 24px;
+    margin-bottom: var(--sp-6);
   }
   .viewSwitchBtn {
     font-family: inherit;
-    font-size: 13px;
+    font-size: var(--fs-sm);
     font-weight: 700;
     color: var(--ink-soft);
     background: transparent;
@@ -273,6 +260,19 @@
   .viewSwitchBtn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
   @media (max-width: 560px) {
     .viewSwitchBtn { padding: 10px 14px; font-size: 12px; }
+  }
+
+  /* ---------- 設定画面: グループ見出し(関連する設定カードをまとめる) ---------- */
+
+  .settingsGroup { margin-bottom: var(--sp-7); }
+  .settingsGroup:last-child { margin-bottom: 0; }
+  .settingsGroup__title {
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 var(--sp-4);
   }
 
   /* ---------- ベントグリッド ---------- */
@@ -299,40 +299,28 @@
     border: 1px solid var(--line);
     border-radius: var(--r-lg);
     box-shadow: var(--shadow-sm);
-    padding: 32px;
-    margin-bottom: 20px;
+    padding: var(--sp-7);
+    margin-bottom: var(--sp-5);
     position: relative;
     min-width: 0;
-    transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
-  }
-  .card:hover {
-    border-color: var(--muted);
-    box-shadow: var(--shadow-md);
   }
 
-  .card__head { margin-bottom: 22px; }
-  .card__head--split { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .card__head { margin-bottom: var(--sp-5); }
+  .card__head--split { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); }
   .card__head h2 {
-    display: inline-block;
-    font-size: 12.5px;
+    font-size: var(--fs-md);
     font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    margin: 0 0 8px;
-    padding-bottom: 8px;
+    margin: 0 0 4px;
     color: var(--ink);
-    border-bottom: 2px solid var(--ink);
   }
-  .muted { color: var(--ink-soft); font-size: 12px; margin: 0; overflow-wrap: break-word; }
+  .muted { color: var(--ink-soft); font-size: var(--fs-sm); margin: 0; overflow-wrap: break-word; }
 
   .badge {
     flex: none;
-    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    font-size: 11px;
+    font-size: var(--fs-xs);
     font-weight: 700;
-    color: var(--ink);
+    color: var(--ink-soft);
     background: var(--surface-alt);
-    border: 1px solid var(--line);
     padding: 4px 12px;
     border-radius: var(--r-pill);
     white-space: nowrap;
@@ -341,20 +329,18 @@
   .fieldRow {
     display: flex;
     flex-wrap: wrap;
-    gap: 16px;
-    margin-bottom: 4px;
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-1);
   }
   .field { flex: 1; min-width: 200px; }
   .field label {
     display: block;
-    font-size: 11px;
+    font-size: var(--fs-xs);
     font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 8px;
+    color: var(--ink-soft);
+    margin-bottom: var(--sp-2);
   }
-  .field .req { color: var(--shu); font-weight: 700; font-size: 10px; letter-spacing: 0; text-transform: none; }
+  .field .req { color: var(--shu); font-weight: 700; font-size: var(--fs-2xs); }
 
   /* ---------- 入力ヒントアイコン(車台番号・税額欄の見出しに付ける軽いツールチップ) ---------- */
 
@@ -392,7 +378,7 @@
   .segBtn {
     flex: 1;
     font-family: inherit;
-    font-size: 12.5px;
+    font-size: var(--fs-sm);
     font-weight: 600;
     color: var(--ink-soft);
     background: transparent;
@@ -416,7 +402,7 @@
   input, select {
     width: 100%;
     padding: 10px 12px;
-    font-size: 13.5px;
+    font-size: var(--fs-base);
     font-family: inherit;
     color: var(--ink);
     background: var(--surface);
@@ -441,7 +427,7 @@
     width: 100%;
     padding: 10px 12px;
     font-family: inherit;
-    font-size: 13px;
+    font-size: var(--fs-base);
     font-weight: 700;
     border: 1px solid var(--line);
     border-radius: var(--r-sm);
@@ -499,7 +485,7 @@
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    font-size: 13px;
+    font-size: var(--fs-base);
     font-weight: 700;
     color: var(--muted);
   }
@@ -522,16 +508,14 @@
   th, td {
     padding: 10px 6px;
     text-align: center;
-    font-size: 12.5px;
+    font-size: var(--fs-sm);
     border-bottom: 1px solid var(--line-soft);
   }
   thead th {
     background: var(--surface-alt);
     color: var(--ink-soft);
     font-weight: 600;
-    font-size: 10px;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
+    font-size: var(--fs-2xs);
     white-space: nowrap;
     position: sticky;
     top: 0;
@@ -542,7 +526,7 @@
   tbody tr:hover td { background: var(--surface-alt); }
   td input, td select {
     padding: 6px;
-    font-size: 12.5px;
+    font-size: var(--fs-sm);
     text-align: center;
     border: 1px solid transparent;
     border-radius: var(--r-xs);
@@ -612,21 +596,19 @@
   .filterGroup { display: flex; flex-direction: column; gap: 7px; }
   .filterGroup--grow { flex: 1; min-width: 180px; }
   .filterGroup__label {
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    font-size: var(--fs-xs);
+    font-weight: 600;
     color: var(--ink-soft);
   }
   .filterGroup__row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .filterGroup__row input[type="date"] { width: 150px; max-width: 100%; background: var(--surface); }
-  .filterBar__sep { color: var(--muted); font-size: 12px; }
+  .filterBar__sep { color: var(--muted); font-size: var(--fs-sm); }
   .filterBar select { background: var(--surface); }
   .filterCheck {
     display: flex;
     align-items: center;
     gap: 7px;
-    font-size: 12.5px;
+    font-size: var(--fs-sm);
     font-weight: 500;
     color: var(--ink-soft);
     cursor: pointer;
@@ -657,7 +639,7 @@
   }
   .pdfLink:hover { text-decoration: underline; }
 
-  .btn--sm { padding: 6px 14px; font-size: 12px; }
+  .btn--sm { padding: 6px 14px; font-size: var(--fs-sm); }
 
   @media (max-width: 700px) {
     .filterBar { flex-direction: column; align-items: stretch; }
@@ -701,10 +683,9 @@
     position: relative;
     overflow: hidden;
     font-family: inherit;
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.01em;
-    padding: 11px 22px;
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    padding: 10px 18px;
     border-radius: var(--r-sm);
     cursor: pointer;
     transition: background-color 0.15s var(--ease), border-color 0.15s var(--ease), box-shadow 0.15s var(--ease), transform 0.1s var(--ease);
@@ -713,19 +694,19 @@
   .btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
   .btn--ghost {
     background: var(--surface);
-    border: 1px solid var(--ink);
+    border: 1px solid var(--line);
     color: var(--ink);
   }
-  .btn--ghost:hover { background: var(--surface-alt); }
+  .btn--ghost:hover { background: var(--surface-alt); border-color: var(--muted); }
 
   .btn--primary {
     background: var(--solid-bg);
     color: var(--solid-ink);
-    padding: 14px 24px;
-    font-size: 14px;
+    padding: 12px 22px;
+    font-size: var(--fs-base);
     font-weight: 700;
     border: 1px solid var(--solid-bg);
-    box-shadow: var(--shadow-sm);
+    box-shadow: none;
   }
   .btn--primary:hover { background: var(--solid-bg-hover); border-color: var(--solid-bg-hover); }
   .btn--primary:disabled {
@@ -736,29 +717,13 @@
     cursor: not-allowed;
   }
 
-  .ripple {
-    position: absolute;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.12);
-    transform: scale(0);
-    animation: rippleAnim 0.6s var(--ease);
-    pointer-events: none;
-  }
-  .btn--primary .ripple { background: var(--solid-ripple); }
-  @keyframes rippleAnim {
-    to { transform: scale(2.6); opacity: 0; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .ripple { display: none; }
-  }
-
   .submitBar { margin-top: 4px; }
   .submitBar__row { display: flex; gap: 12px; }
   .submitBar__row .btn--primary { flex: 1; }
-  .submitBar__row .btn--ghost { flex: none; padding: 14px 24px; }
+  .submitBar__row .btn--ghost { flex: none; padding: 12px 22px; }
   .result {
-    margin-top: 16px;
-    font-size: 13px;
+    margin-top: var(--sp-4);
+    font-size: var(--fs-sm);
     text-align: center;
     overflow-wrap: anywhere;
   }

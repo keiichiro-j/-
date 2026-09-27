@@ -404,7 +404,6 @@
     google.script.run.withSuccessHandler(populateSuggestions).getSuggestions();
     loadLogoUrl_();
     loadLoadingImagePreview_();
-    initRipple_();
   };
 
   // ---------- スマホ対応: 横スクロールする車両テーブルの操作性補助 ----------
@@ -473,25 +472,6 @@
 
   function setCountBadge_(el, count, suffix) {
     animateCount_(el, count, function (v) { return v + suffix; });
-  }
-
-  // ---------- ボタンのリップル演出 ----------
-
-  // ボタン押下位置を起点に波紋が広がる演出(.btnクラスすべてに共通、イベント委譲で1リスナーのみ)。
-  function initRipple_() {
-    document.addEventListener('click', function (e) {
-      var btn = e.target.closest('.btn');
-      if (!btn || btn.disabled) return;
-      var rect = btn.getBoundingClientRect();
-      var size = Math.max(rect.width, rect.height);
-      var span = document.createElement('span');
-      span.className = 'ripple';
-      span.style.width = span.style.height = size + 'px';
-      span.style.left = (e.clientX - rect.left - size / 2) + 'px';
-      span.style.top = (e.clientY - rect.top - size / 2) + 'px';
-      btn.appendChild(span);
-      setTimeout(function () { span.remove(); }, 650);
-    });
   }
 
   // ---------- 申請 / 履歴確認 / 送付書PDF 画面切り替え ----------

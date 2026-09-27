@@ -316,50 +316,58 @@
     </div>
 
     <div id="viewSettings" class="is-hidden">
-      <div class="bento">
-        <section class="card bento--span-6">
-          <div class="card__head">
-            <h2>メール送信先</h2>
-            <p class="muted">「送付書PDF」画面でメール送信する際の宛先です（最大4件・1件以上必須）。ここで保存した内容が送信時に使用されます。</p>
-          </div>
 
-          <div class="mailRecipients">
-            <div class="mailRecipients__grid">
-              <input type="email" class="mailRecipientInput" id="mailTo1" placeholder="宛先1（例: you@example.com）" autocomplete="off">
-              <input type="email" class="mailRecipientInput" id="mailTo2" placeholder="宛先2" autocomplete="off">
-              <input type="email" class="mailRecipientInput" id="mailTo3" placeholder="宛先3" autocomplete="off">
-              <input type="email" class="mailRecipientInput" id="mailTo4" placeholder="宛先4" autocomplete="off">
+      <div class="settingsGroup">
+        <h3 class="settingsGroup__title">メール</h3>
+        <div class="bento">
+          <section class="card bento--span-6">
+            <div class="card__head">
+              <h2>送信先</h2>
+              <p class="muted">「送付書PDF」画面でメール送信する際の宛先です（最大4件・1件以上必須）。</p>
             </div>
-          </div>
 
-          <button type="button" id="btnSaveMailRecipients" class="btn btn--primary">宛先を保存する</button>
-          <div id="mailSettingsResult" class="result" role="status" aria-live="polite">
-            <span id="mailSettingsSpinner" class="spinner is-hidden" aria-hidden="true"></span>
-            <span id="mailSettingsResultText"></span>
-          </div>
-        </section>
+            <div class="mailRecipients">
+              <div class="mailRecipients__grid">
+                <input type="email" class="mailRecipientInput" id="mailTo1" placeholder="宛先1（例: you@example.com）" autocomplete="off">
+                <input type="email" class="mailRecipientInput" id="mailTo2" placeholder="宛先2" autocomplete="off">
+                <input type="email" class="mailRecipientInput" id="mailTo3" placeholder="宛先3" autocomplete="off">
+                <input type="email" class="mailRecipientInput" id="mailTo4" placeholder="宛先4" autocomplete="off">
+              </div>
+            </div>
 
-        <section class="card bento--span-6">
-          <div class="card__head">
-            <h2>自動メール送信</h2>
-            <p class="muted">毎日17時台に、その日が送付日の送付書PDFを上の宛先へ自動でメール送信します。</p>
-          </div>
-          <div class="switchRow">
-            <button type="button" id="autoMailToggle" class="switch" role="switch" aria-checked="false">
-              <span class="switch__track"><span class="switch__knob"></span></span>
-            </button>
-            <span class="switchRow__label is-off" id="autoMailStatusLabel">
-              <span class="switchRow__dot"></span>
-              <span id="autoMailStatusText">OFF（自動送信は停止中）</span>
-            </span>
-          </div>
-          <div id="autoMailResult" class="result" role="status" aria-live="polite">
-            <span id="autoMailSpinner" class="spinner is-hidden" aria-hidden="true"></span>
-            <span id="autoMailResultText"></span>
-          </div>
-        </section>
+            <button type="button" id="btnSaveMailRecipients" class="btn btn--primary">宛先を保存する</button>
+            <div id="mailSettingsResult" class="result" role="status" aria-live="polite">
+              <span id="mailSettingsSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+              <span id="mailSettingsResultText"></span>
+            </div>
+          </section>
 
-        <section class="card bento--span-12">
+          <section class="card bento--span-6">
+            <div class="card__head">
+              <h2>自動送信</h2>
+              <p class="muted">毎日17時台に、その日が送付日の送付書PDFを上の宛先へ自動でメール送信します。</p>
+            </div>
+            <div class="switchRow">
+              <button type="button" id="autoMailToggle" class="switch" role="switch" aria-checked="false">
+                <span class="switch__track"><span class="switch__knob"></span></span>
+              </button>
+              <span class="switchRow__label is-off" id="autoMailStatusLabel">
+                <span class="switchRow__dot"></span>
+                <span id="autoMailStatusText">OFF（自動送信は停止中）</span>
+              </span>
+            </div>
+            <div id="autoMailResult" class="result" role="status" aria-live="polite">
+              <span id="autoMailSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+              <span id="autoMailResultText"></span>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div class="settingsGroup">
+        <h3 class="settingsGroup__title">申請フォーム</h3>
+
+        <section class="card">
           <div class="card__head">
             <h2>担当者マスタ</h2>
             <p class="muted">担当者名とGoogleアカウント(メールアドレス)を登録しておくと、そのアカウントでログインした人が申請フォームを開いたときに「担当責任者」欄へ自動で入力されます。</p>
@@ -386,7 +394,7 @@
           </div>
         </section>
 
-        <section class="card bento--span-6">
+        <section class="card">
           <div class="card__head">
             <h2>ブランド設定</h2>
             <p class="muted">車両データの「ブランド」欄の選択肢です。申請フォーム・履歴確認の絞り込み・他システムへの連携(ブランド別の転記先)で使われます。</p>
@@ -411,12 +419,16 @@
             <span id="brandOptionsResultText"></span>
           </div>
         </section>
+      </div>
 
-        <section class="card bento--span-12">
+      <div class="settingsGroup">
+        <h3 class="settingsGroup__title">他システム連携</h3>
+
+        <section class="card">
           <div class="card__head">
-            <h2>他システムへの連携</h2>
+            <h2>ブランド別の転記先</h2>
             <p class="muted">
-              このアプリで新車の申請を登録すると、車両の「ブランド」に対応するスプレッドシートの該当タブ(登録日の年月から自動判定)に、使用者名(顧客名)と一致する行を探して「ステータス」「登録予定日」「OSS区分」を転記します。ブランドごとに転記先スプレッドシートのURL(またはID)を、最大5件まで登録できます。行ごと空欄のまま保存すると、そのブランドは転記しない設定になります(全て空欄なら機能そのものがOFFになります)。一致する行が見つからない場合は、PDF発行自体は完了した上でエラー内容が画面に表示されます。
+              新車の申請を登録すると、車両の「ブランド」に対応するスプレッドシートの該当タブ(登録日の年月から自動判定)に、使用者名(顧客名)と一致する行を探して「ステータス」「登録予定日」「OSS区分」を転記します。ブランドごとに転記先スプレッドシートのURL(またはID)を、最大5件まで登録できます。行ごと空欄のまま保存すると、そのブランドは転記しない設定になります(全て空欄なら機能そのものがOFFになります)。一致する行が見つからない場合は、PDF発行自体は完了した上でエラー内容が画面に表示されます。
             </p>
           </div>
 
@@ -440,14 +452,18 @@
             <span id="externalSyncResultText"></span>
           </div>
         </section>
+      </div>
 
-        <section class="card bento--span-6">
+      <div class="settingsGroup">
+        <h3 class="settingsGroup__title">表示</h3>
+
+        <section class="card">
           <div class="card__head">
             <h2>テーマ</h2>
             <p class="muted">画面の配色を選べます。「自動」を選ぶとお使いの端末の設定に従います。</p>
           </div>
 
-          <div class="field">
+          <div class="field" style="max-width:320px">
             <label>配色モード</label>
             <div class="segmented" role="tablist" aria-label="テーマ設定">
               <button type="button" class="segBtn" id="themeLight" role="tab" data-theme-value="light">ライト</button>
@@ -457,11 +473,11 @@
           </div>
         </section>
 
-        <section class="card bento--span-12">
+        <section class="card">
           <div class="card__head">
             <h2>ロゴ画像</h2>
             <p class="muted">
-              ヘッダーに表示するロゴ画像のURLを設定できます。Googleドライブに画像をアップロードし、共有設定を「リンクを知っている全員」に変更した上で、共有リンクのURL（例: https://drive.google.com/file/d/.../view?usp=... の形式）をそのまま貼り付けてください。表示用の形式に自動で変換されます。空欄のまま保存すると、ロゴを表示しない状態に戻せます。
+              ヘッダーに表示するロゴ画像のURLを設定できます。Googleドライブに画像をアップロードし、共有設定を「リンクを知っている全員」に変更した上で、共有リンクのURL（例: https://drive.google.com/file/d/.../view?usp=... の形式）をそのまま貼り付けてください。空欄のまま保存すると、ロゴを表示しない状態に戻せます。
             </p>
           </div>
 
@@ -482,11 +498,11 @@
           </div>
         </section>
 
-        <section class="card bento--span-12">
+        <section class="card">
           <div class="card__head">
             <h2>起動画面（ローディング画面）</h2>
             <p class="muted">
-              アプリを開いたときに一瞬表示される画面に、お好きな画像を表示できます。Googleドライブに画像をアップロードし、共有設定を「リンクを知っている全員」に変更した上で、共有リンクのURL（例: https://drive.google.com/file/d/.../view?usp=... の形式）をそのまま貼り付けてください。表示用の形式に自動で変換されます。空欄のまま保存すると、画像を表示しない状態に戻せます。
+              アプリを開いたときに一瞬表示される画面に、お好きな画像を表示できます。Googleドライブに画像をアップロードし、共有設定を「リンクを知っている全員」に変更した上で、共有リンクのURL（例: https://drive.google.com/file/d/.../view?usp=... の形式）をそのまま貼り付けてください。空欄のまま保存すると、画像を表示しない状態に戻せます。
             </p>
           </div>
 
@@ -507,6 +523,7 @@
           </div>
         </section>
       </div>
+
     </div>
   </div>
 
