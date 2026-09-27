@@ -81,7 +81,12 @@ const sandbox = {
       if (idx !== -1) fakeTriggers.splice(idx, 1);
     }
   },
-  Logger: { log: () => {} }
+  Logger: { log: () => {} },
+  // getManagerForCurrentUser_ 用。テストごとに currentUserEmail を書き換えてログイン状態を模する。
+  Session: {
+    getActiveUser: () => ({ getEmail: () => sandbox.currentUserEmail || '' })
+  },
+  currentUserEmail: ''
 };
 vm.createContext(sandbox);
 
@@ -706,6 +711,62 @@ test('Googleドライブの共有リンク(open?id=<ID>)も表示用サムネイ
 test('ドライブ共有リンク以外の直接画像URLはそのまま保存される', () => {
   const saved = sandbox.saveLoadingImageUrl_('https://drive.google.com/thumbnail?id=XYZ&sz=w500');
   assert.strictEqual(saved, 'https://drive.google.com/thumbnail?id=XYZ&sz=w500');
+});
+
+// vmサンドボックス(別Realm)から返る配列/オブジェクトは、そのままだとdeepStrictEqualで
+// 「構造は同じだが参照が別」というエラーになるため、このRealムのプレーンオブジェクトに詰め替える。
+function plainStaffRows(rows) {
+  return Array.from(rows).map((row) => ({ name: row.name, email: row.email }));
+}
+
+console.log('== SettingsService: 担当者マスタ ==');
+test('未設定なら空配列を返す', () => {
+  delete fakeScriptProperties[sandbox.STAFF_MASTER_PROP_KEY];
+  assert.deepStrictEqual(plainStaffRows(sandbox.getStaffMaster_()), []);
+});
+test('保存した内容(前後の空白除去・メール小文字化)を取得できる', () => {
+  const saved = sandbox.saveStaffMaster_([
+    { name: ' 山田太郎 ', email: ' Yamada@Example.com ' },
+    { name: '鈴木花子', email: 'suzuki@example.com' }
+  ]);
+  assert.deepStrictEqual(plainStaffRows(saved), [
+    { name: '山田太郎', email: 'yamada@example.com' },
+    { name: '鈴木花子', email: 'suzuki@example.com' }
+  ]);
+  assert.deepStrictEqual(plainStaffRows(sandbox.getStaffMaster_()), plainStaffRows(saved));
+});
+test('両方空の行は無視して保存できる', () => {
+  const saved = sandbox.saveStaffMaster_([
+    { name: '山田太郎', email: 'yamada@example.com' },
+    { name: '', email: '' }
+  ]);
+  assert.strictEqual(saved.length, 1);
+});
+test('片方だけ入力されている行はエラーになり保存されない', () => {
+  sandbox.saveStaffMaster_([{ name: '既存太郎', email: 'existing@example.com' }]);
+  assert.throws(() => sandbox.saveStaffMaster_([{ name: '山田太郎', email: '' }]), /両方入力/);
+  assert.strictEqual(sandbox.getStaffMaster_().length, 1); // 変更されない
+});
+test('メール形式が不正な行はエラーになり保存されない', () => {
+  sandbox.saveStaffMaster_([{ name: '既存太郎', email: 'existing@example.com' }]);
+  assert.throws(() => sandbox.saveStaffMaster_([{ name: '山田太郎', email: 'not-an-email' }]), /形式が正しくありません/);
+});
+
+console.log('== SettingsService: ログインユーザーに対応する担当責任者の判定 ==');
+test('担当者マスタに一致するアカウントがあれば担当者名を返す', () => {
+  sandbox.saveStaffMaster_([{ name: '山田太郎', email: 'yamada@example.com' }]);
+  sandbox.currentUserEmail = 'Yamada@Example.com'; // 大文字小文字は区別しない
+  assert.strictEqual(sandbox.getManagerForCurrentUser_(), '山田太郎');
+});
+test('一致するアカウントがなければ空文字を返す', () => {
+  sandbox.saveStaffMaster_([{ name: '山田太郎', email: 'yamada@example.com' }]);
+  sandbox.currentUserEmail = 'unknown@example.com';
+  assert.strictEqual(sandbox.getManagerForCurrentUser_(), '');
+});
+test('ログインアカウントを取得できない場合も空文字を返す(エラーにしない)', () => {
+  sandbox.saveStaffMaster_([{ name: '山田太郎', email: 'yamada@example.com' }]);
+  sandbox.currentUserEmail = '';
+  assert.strictEqual(sandbox.getManagerForCurrentUser_(), '');
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

@@ -145,6 +145,32 @@ function saveLoadingImageUrl(url) {
   return saveLoadingImageUrl_(url);
 }
 
+/**
+ * 「設定」画面の担当者マスタ表示用。
+ * @return {Array<{name: string, email: string}>}
+ */
+function getStaffMaster() {
+  return getStaffMaster_();
+}
+
+/**
+ * 「設定」画面の担当者マスタ保存ボタン用。
+ * @param {Array<{name: string, email: string}>} rows
+ * @return {Array<{name: string, email: string}>}
+ */
+function saveStaffMaster(rows) {
+  return saveStaffMaster_(rows);
+}
+
+/**
+ * 申請フォーム初期表示用。ログイン中のGoogleアカウントに対応する担当責任者名を返す
+ * (担当者マスタに未登録・アカウント取得不可の場合は空文字)。
+ * @return {string}
+ */
+function getManagerForCurrentUser() {
+  return getManagerForCurrentUser_();
+}
+
 // 二重送信防止用トークンのキャッシュ保持時間(秒)。ボタン連打やネットワーク遅延による
 // 再送はほぼ数秒以内に発生するため、余裕をみて5分にしている。
 var SUBMISSION_TOKEN_TTL_SEC = 300;

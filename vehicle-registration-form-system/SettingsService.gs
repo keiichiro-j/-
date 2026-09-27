@@ -105,3 +105,78 @@ function saveLoadingImageUrl_(url) {
   PropertiesService.getScriptProperties().setProperty(LOADING_IMAGE_URL_PROP_KEY, trimmed);
   return trimmed;
 }
+
+var STAFF_MASTER_PROP_KEY = 'staffMaster';
+
+/**
+ * 担当者マスタ(担当者名 <-> Googleアカウントの対応表)を返す。未設定・不正なら空配列。
+ * @return {Array<{name: string, email: string}>}
+ */
+function getStaffMaster_() {
+  var raw = PropertiesService.getScriptProperties().getProperty(STAFF_MASTER_PROP_KEY);
+  if (!raw) return [];
+  try {
+    var parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map(function (row) {
+        return {
+          name: typeof row.name === 'string' ? row.name.trim() : '',
+          email: typeof row.email === 'string' ? row.email.trim().toLowerCase() : ''
+        };
+      })
+      .filter(function (row) { return row.name && row.email; });
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
+ * 「設定」画面の担当者マスタ保存ボタン用。担当者名・Googleアカウントのどちらも
+ * 空の行は無視して保存する。片方だけ入力されている行や、メール形式が不正な行はエラーにする。
+ * @param {Array<{name: string, email: string}>} rows
+ * @return {Array<{name: string, email: string}>} 保存後の内容(トリム済み)
+ */
+function saveStaffMaster_(rows) {
+  var cleaned = (rows || [])
+    .map(function (row) {
+      return {
+        name: String((row && row.name) || '').trim(),
+        email: String((row && row.email) || '').trim().toLowerCase()
+      };
+    })
+    .filter(function (row) { return row.name || row.email; });
+
+  cleaned.forEach(function (row) {
+    if (!row.name || !row.email) {
+      throw new Error('担当者名・Googleアカウントは両方入力してください(' + (row.name || row.email) + ')');
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.email)) {
+      throw new Error('Googleアカウントの形式が正しくありません: ' + row.email);
+    }
+  });
+
+  PropertiesService.getScriptProperties().setProperty(STAFF_MASTER_PROP_KEY, JSON.stringify(cleaned));
+  return cleaned;
+}
+
+/**
+ * 現在ログイン中のユーザーのGoogleアカウントを担当者マスタと照合し、一致する担当者名を返す。
+ * アカウントが取得できない場合・マスタに登録がない場合は空文字(呼び出し側で既定値や手入力に
+ * フォールバックする)。Webアプリの公開設定が「アクセスしたユーザーとして実行」でないと、
+ * 常に空文字(または実行者自身のアカウント)になる点に注意。
+ * @return {string}
+ */
+function getManagerForCurrentUser_() {
+  var email = '';
+  try {
+    email = Session.getActiveUser().getEmail() || '';
+  } catch (e) {
+    email = '';
+  }
+  if (!email) return '';
+  email = email.trim().toLowerCase();
+
+  var match = getStaffMaster_().filter(function (row) { return row.email === email; })[0];
+  return match ? match.name : '';
+}
