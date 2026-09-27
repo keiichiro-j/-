@@ -59,6 +59,9 @@
     body.appendChild(createVehicleRow());
     renumberRows();
     updateAddRowButtonState();
+    // 新しく追加した行にも、現在の出力フォーマット(OSS/紙)に応じた登録日欄の表示状態を反映する
+    // (これをしないと、初期表示分より後に追加した行だけ登録日欄が消えず、列がずれて見えてしまう)。
+    toggleRegDateMode();
   }
 
   function updateAddRowButtonState() {
