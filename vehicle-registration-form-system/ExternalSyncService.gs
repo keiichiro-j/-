@@ -19,6 +19,11 @@
  * (行の新規作成は行わない。他システム側で事前に顧客の行が用意されている前提)。
  * 転記できた行の「ステータス」は "登録予定日確定" に上書きする。
  *
+ * 顧客名の一致判定は完全一致ではなく normalizeCustomerName_() を通した表記ゆれ吸収比較を行う
+ * (スペースの有無・全角/半角・「株式会社」表記ゆれ・末尾の敬称を無視する)。ただし文字自体が
+ * 異なる別人(例: 「山田優」と「山田優作」)を誤って同一視することはない。
+ * 同じ正規化後の名前が複数行にある場合は最初に見つかった行だけを更新する。
+ *
  * ブランドに対応する転記先が1件も設定されていない(=機能が完全にOFF)場合は何もしない。
  * ブランドは設定されているが、その車両のブランドに対応する転記先が無い・タブや該当行が
  * 見つからない場合はエラーを投げる(呼び出し側のApi.gsで1台ごとにcatchし、PDF発行・履歴
@@ -115,6 +120,30 @@ function externalSyncTabName_(regDate) {
 }
 
 /**
+ * 使用者名の表記ゆれを吸収して比較できるようにする。
+ * - 全角英数記号(全角パーレンを含む)を半角に統一する
+ * - 半角/全角スペースは、有無・数を問わず無視する(「山田太郎」「山田 太郎」「山田　太郎」を同一視)
+ * - 「株式会社」「(株)」「㈱」の表記ゆれを吸収する(位置は問わない。「(有)」等の他の法人格とは
+ *   混同しないよう、あくまで「株式会社」系のみを対象にする)
+ * - 末尾の敬称(様・殿)は名前の一部ではないため無視する
+ * - 英字の大文字・小文字を無視する
+ * あくまで「同じ名前の表記ゆれ」を吸収するためのもので、「山田優」と「山田優作」のように
+ * 文字そのものが異なる別人を誤って同一視することはない。
+ * @param {string} name
+ * @return {string}
+ */
+function normalizeCustomerName_(name) {
+  var s = String(name || '');
+  s = s.replace(/[！-～]/g, function (c) {
+    return String.fromCharCode(c.charCodeAt(0) - 0xFEE0);
+  });
+  s = s.replace(/　/g, ' ').replace(/\s+/g, '');
+  s = s.replace(/(株式会社|\(株\)|㈱)/g, '');
+  s = s.replace(/(様|殿)$/, '');
+  return s.toLowerCase();
+}
+
+/**
  * 使用者名(=転記先の「顧客名」)をキーに該当行を探し、ステータス・登録日・申請方法(OSS/紙登録)
  * を転記する。ブランドに対応する転記先が1件も設定されていない場合は何もしない(機能OFF)。
  * @param {string} userName 使用者名(顧客名)
@@ -128,6 +157,8 @@ function syncRegistrationToExternalSheet_(userName, regDate, typeLabel, brand) {
 
   var name = String(userName || '').trim();
   if (!name) return;
+  var normalizedName = normalizeCustomerName_(name);
+  if (!normalizedName) return; // 敬称のみ等、正規化すると空になる場合はマッチのしようがない
 
   var brandTrimmed = String(brand || '').trim();
   var match = sheets.filter(function (s) { return s.brand === brandTrimmed; })[0];
@@ -157,7 +188,7 @@ function syncRegistrationToExternalSheet_(userName, regDate, typeLabel, brand) {
 
   var matchedRow = -1;
   for (var i = 0; i < names.length; i++) {
-    if (String(names[i][0] || '').trim() === name) {
+    if (normalizeCustomerName_(names[i][0]) === normalizedName) {
       matchedRow = EXTERNAL_SYNC_HEADER_ROW + 1 + i;
       break;
     }

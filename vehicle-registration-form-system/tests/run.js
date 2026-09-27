@@ -958,5 +958,65 @@ test('使用者名と一致する行が見つからない場合はエラーに�
   );
 });
 
+console.log('== ExternalSyncService: 使用者名の表記ゆれ吸収(normalizeCustomerName_) ==');
+test('前後・途中のスペース(全角/半角)の有無を無視する', () => {
+  assert.strictEqual(sandbox.normalizeCustomerName_('山田 太郎'), sandbox.normalizeCustomerName_('山田太郎'));
+  assert.strictEqual(sandbox.normalizeCustomerName_('山田　太郎'), sandbox.normalizeCustomerName_('山田太郎'));
+});
+test('「株式会社」「(株)」「㈱」「（株）」の表記ゆれを吸収する(位置も問わない)', () => {
+  const base = sandbox.normalizeCustomerName_('高菜');
+  assert.strictEqual(sandbox.normalizeCustomerName_('株式会社高菜'), base);
+  assert.strictEqual(sandbox.normalizeCustomerName_('高菜株式会社'), base);
+  assert.strictEqual(sandbox.normalizeCustomerName_('（株）高菜'), base);
+  assert.strictEqual(sandbox.normalizeCustomerName_('(株)高菜'), base);
+  assert.strictEqual(sandbox.normalizeCustomerName_('㈱高菜'), base);
+});
+test('末尾の敬称(様・殿)を無視する', () => {
+  assert.strictEqual(sandbox.normalizeCustomerName_('山田太郎様'), sandbox.normalizeCustomerName_('山田太郎'));
+  assert.strictEqual(sandbox.normalizeCustomerName_('山田太郎殿'), sandbox.normalizeCustomerName_('山田太郎'));
+});
+test('別人(文字自体が異なる名前)は同一視しない', () => {
+  assert.notStrictEqual(sandbox.normalizeCustomerName_('山田優'), sandbox.normalizeCustomerName_('山田優作'));
+  assert.notStrictEqual(sandbox.normalizeCustomerName_('山田太郎'), sandbox.normalizeCustomerName_('山田次郎'));
+});
+
+console.log('== ExternalSyncService: 表記ゆれがあっても転記できる ==');
+test('顧客名にスペースが入っていても(全角/半角問わず)一致して転記できる', () => {
+  const ss = makeExternalSheetSpreadsheet({
+    'db_登録データ_2026_10月': [['', '', '', '', '', '', '山田　太郎', '']]
+  });
+  fakeExternalSpreadsheets['SHEET_SPACE'] = ss;
+  sandbox.saveExternalSyncSheets_([{ brand: 'MB', sheetId: 'SHEET_SPACE' }]);
+
+  sandbox.syncRegistrationToExternalSheet_('山田 太郎', new Date(2026, 9, 2), 'OSS', 'MB');
+
+  const sheet = ss.getSheetByName('db_登録データ_2026_10月');
+  assert.strictEqual(sheet._rows[1][5], 'OSS');
+});
+test('「株式会社」の表記が違っても一致して転記できる', () => {
+  const ss = makeExternalSheetSpreadsheet({
+    'db_登録データ_2026_10月': [['', '', '', '', '', '', '株式会社高菜', '']]
+  });
+  fakeExternalSpreadsheets['SHEET_KK'] = ss;
+  sandbox.saveExternalSyncSheets_([{ brand: 'MB', sheetId: 'SHEET_KK' }]);
+
+  sandbox.syncRegistrationToExternalSheet_('（株）高菜', new Date(2026, 9, 2), 'OSS', 'MB');
+
+  const sheet = ss.getSheetByName('db_登録データ_2026_10月');
+  assert.strictEqual(sheet._rows[1][5], 'OSS');
+});
+test('文字が異なる別人(山田優 と 山田優作)は誤って一致させない', () => {
+  const ss = makeExternalSheetSpreadsheet({
+    'db_登録データ_2026_10月': [['', '', '', '', '', '', '山田優作', '']]
+  });
+  fakeExternalSpreadsheets['SHEET_DIFF_PERSON'] = ss;
+  sandbox.saveExternalSyncSheets_([{ brand: 'MB', sheetId: 'SHEET_DIFF_PERSON' }]);
+
+  assert.throws(
+    () => sandbox.syncRegistrationToExternalSheet_('山田優', new Date(2026, 9, 2), 'OSS', 'MB'),
+    /一致する行が見つかりませんでした/
+  );
+});
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail > 0 ? 1 : 0);
