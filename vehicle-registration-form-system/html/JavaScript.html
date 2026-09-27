@@ -389,6 +389,7 @@
     document.getElementById('mailSendDate').value = formatDateInput_(new Date());
     loadMailRecipients_();
     loadCurrentUserAccount_();
+    syncThemeFromServer_();
     loadManagerForCurrentUser_();
     loadStaffMaster_();
     loadBrandOptions_();
@@ -1554,21 +1555,18 @@
       .saveLoadingImageUrl(url);
   });
 
-  // ---------- 設定画面: テーマ(ライト/ダーク/自動) ----------
+  // ---------- 設定画面: テーマ(全8色。Googleアカウントごとにサーバー側へ保存) ----------
+  // localStorageには「表示中の端末ですぐ反映するためのキャッシュ」として保存し、
+  // 実体はサーバー側(PropertiesService.getUserProperties、ログイン中のGoogleアカウントに
+  // 紐づく)に保存する。別の端末・ブラウザで開いたときも同じアカウントなら同じテーマになる。
 
   var THEME_STORAGE_KEY = 'vrfsThemePreference';
-  var THEME_BUTTON_IDS = ['themeLight', 'themeDark', 'themeSystem'];
-  // data-theme属性として実際に設定する値(「自動」はdata-theme属性なしでOS設定に従うため含まない)。
-  var THEME_DATA_VALUES_ = ['light', 'dark'];
+  var THEME_BUTTON_IDS = ['themeMono', 'themeSand', 'themeForest', 'themeRose', 'themeDark', 'themeNavy', 'themeAmber', 'themeTeal'];
+  var THEME_DEFAULT_ = 'mono';
 
   function applyTheme_(theme) {
     var root = document.documentElement;
-    if (THEME_DATA_VALUES_.indexOf(theme) !== -1) {
-      root.setAttribute('data-theme', theme);
-    } else {
-      root.removeAttribute('data-theme');
-      theme = 'system';
-    }
+    root.setAttribute('data-theme', theme);
     THEME_BUTTON_IDS.forEach(function (id) {
       var btn = document.getElementById(id);
       var isActive = btn.dataset.themeValue === theme;
@@ -1577,14 +1575,29 @@
     });
   }
 
+  // クリック操作用: 即座に画面へ反映しつつ、端末キャッシュとサーバー(アカウント紐付け)の
+  // 両方へ保存する。
   function setTheme_(theme) {
     localStorage.setItem(THEME_STORAGE_KEY, theme);
     applyTheme_(theme);
+    google.script.run.saveThemePreference(theme); // 結果を待たずに反映させる(失敗しても表示は変わらない)
   }
 
+  // ページ読み込み直後(window.onloadを待たず)に、端末キャッシュがあればまず即座に適用し
+  // ちらつきを抑える。その後、サーバー側の保存値(アカウントの正)を取得できたら
+  // 差分がある場合だけ上書きする(別の端末で最後に選んだテーマに揃える)。
   function initTheme_() {
-    var saved = localStorage.getItem(THEME_STORAGE_KEY) || 'light';
-    applyTheme_(saved);
+    applyTheme_(localStorage.getItem(THEME_STORAGE_KEY) || THEME_DEFAULT_);
+  }
+
+  function syncThemeFromServer_() {
+    google.script.run
+      .withSuccessHandler(function (theme) {
+        if (!theme || theme === localStorage.getItem(THEME_STORAGE_KEY)) return;
+        localStorage.setItem(THEME_STORAGE_KEY, theme);
+        applyTheme_(theme);
+      })
+      .getThemePreference();
   }
 
   THEME_BUTTON_IDS.forEach(function (id) {

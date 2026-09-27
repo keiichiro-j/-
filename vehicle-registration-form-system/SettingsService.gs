@@ -3,6 +3,33 @@
  * 「設定」画面向けの各種設定値の取得・保存。
  */
 
+var THEME_PREFERENCE_PROP_KEY = 'themePreference';
+var THEME_OPTIONS = ['mono', 'sand', 'forest', 'rose', 'dark', 'navy', 'amber', 'teal'];
+
+/**
+ * ログイン中のGoogleアカウントに紐づくテーマの好みを返す(未設定・不正なら空文字)。
+ * PropertiesService.getUserProperties() は実行ユーザーごとに独立したストレージなので、
+ * 同じアプリを複数人で使っても他人の設定を読み書きすることはない。
+ * @return {string}
+ */
+function getThemePreference_() {
+  var value = PropertiesService.getUserProperties().getProperty(THEME_PREFERENCE_PROP_KEY) || '';
+  return THEME_OPTIONS.indexOf(value) !== -1 ? value : '';
+}
+
+/**
+ * 「設定」画面のテーマ選択用。ログイン中のGoogleアカウントに紐づけて保存する。
+ * @param {string} theme THEME_OPTIONSのいずれか
+ * @return {string} 保存したテーマ
+ */
+function saveThemePreference_(theme) {
+  if (THEME_OPTIONS.indexOf(theme) === -1) {
+    throw new Error('不正なテーマです: ' + theme);
+  }
+  PropertiesService.getUserProperties().setProperty(THEME_PREFERENCE_PROP_KEY, theme);
+  return theme;
+}
+
 var LOGO_URL_PROP_KEY = 'logoUrl';
 
 /**

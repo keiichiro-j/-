@@ -163,6 +163,23 @@ function getCurrentUserEmail() {
 }
 
 /**
+ * 「設定」画面のテーマ表示用。ログイン中のGoogleアカウントに紐づく保存済みテーマを返す。
+ * @return {string}
+ */
+function getThemePreference() {
+  return getThemePreference_();
+}
+
+/**
+ * 「設定」画面のテーマ選択用。
+ * @param {string} theme
+ * @return {string}
+ */
+function saveThemePreference(theme) {
+  return saveThemePreference_(theme);
+}
+
+/**
  * 「設定」画面の他システム連携表示用。ブランドごとの転記先スプレッドシート一覧を返す
  * (未設定なら空配列)。
  * @return {Array<{brand: string, sheetId: string}>}

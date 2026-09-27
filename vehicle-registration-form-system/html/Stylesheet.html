@@ -2,30 +2,6 @@
   :root {
     color-scheme: light;
 
-    /* ---------- Design tokens: "Editorial Monochrome"(YANASE公式サイトの雰囲気を参考) ---------- */
-    --bg: #FFFFFF;
-    --surface: #FFFFFF;
-    --surface-alt: #F4F4F5;
-
-    --ink: #1A1A1A;
-    --ink-soft: #55565B;
-    --muted: #8B8C92;
-
-    --accent: #1A56DB;
-    --accent-dark: #123F9E;
-    --accent-soft: #EAF1FE;
-
-    --success: #22A06B;
-    --success-soft: #E7F6EF;
-    --warning: #B5790A;
-    --warning-soft: #FBF2DF;
-    --warning-ink: #7A5B12;
-    --shu: #D0342C;
-    --shu-soft: #FCEAEA;
-
-    --line: #E3E4E7;
-    --line-soft: #EFEFF1;
-
     --r-xs: 4px;
     --r-sm: 6px;
     --r-md: 8px;
@@ -60,67 +36,121 @@
     --solid-ink: #FFFFFF;
   }
 
-  /* ---------- ダークテーマ(設定画面から切り替え。html/JavaScript.htmlのapplyTheme_参照) ---------- */
+  /* ---------- テーマ(全8色。設定画面から切り替え、Googleアカウントごとに保存される。
+     html/JavaScript.htmlのapplyTheme_/THEME_OPTIONS_参照)----------
+     背景・文字色・アクセントすべてを含む独立した配色を8種類用意し、選ぶだけで雰囲気が
+     大きく変わるようにしている(アクセントカラーだけの差し替えにしない)。
+     success/warning/shu(エラー)は「明るい配色系」4色・「暗い配色系」4色でそれぞれ共通の
+     値を使い、可読性を保ちながら定義を単純にしている。
+     data-theme属性が付く前(初回描画の一瞬)のフォールバックとして、ベースの:rootにも
+     「mono」と同じ値を重複定義している。 */
 
-  :root[data-theme="dark"] {
-    color-scheme: dark;
-    --bg: #121214;
-    --surface: #1C1C1F;
-    --surface-alt: #242427;
-    --ink: #F2F2F3;
-    --ink-soft: #B4B5BA;
-    --muted: #797A80;
-    --accent: #5B8DF7;
-    --accent-dark: #82ABFA;
-    --accent-soft: rgba(91, 141, 247, 0.18);
-    --success: #34C98C;
-    --success-soft: rgba(52, 201, 140, 0.16);
-    --warning: #E3AC4C;
-    --warning-soft: rgba(227, 172, 76, 0.16);
-    --warning-ink: #FFD98A;
-    --shu: #F17272;
-    --shu-soft: rgba(241, 114, 114, 0.16);
-    --line: #303034;
-    --line-soft: #28282B;
-
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
-
-    --solid-bg: #F2F2F3;
-    --solid-bg-hover: #FFFFFF;
-    --solid-ink: #121214;
+  :root {
+    /* mono(既定値のフォールバック) */
+    --bg: #FFFFFF; --surface: #FFFFFF; --surface-alt: #F4F4F5;
+    --ink: #1A1A1A; --ink-soft: #55565B; --muted: #8B8C92;
+    --accent: #1A56DB; --accent-dark: #123F9E; --accent-soft: #EAF1FE;
+    --line: #E3E4E7; --line-soft: #EFEFF1;
+    --success: #22A06B; --success-soft: #E7F6EF;
+    --warning: #B5790A; --warning-soft: #FBF2DF; --warning-ink: #7A5B12;
+    --shu: #D0342C; --shu-soft: #FCEAEA;
+    --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+    --shadow-md: 0 4px 16px rgba(16, 24, 40, 0.08);
+    --solid-bg: #1A1A1A; --solid-bg-hover: #000000; --solid-ink: #FFFFFF;
   }
 
-  /* 「自動」選択時(data-theme属性なし)は端末のダークモード設定に従う */
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme]) {
-      color-scheme: dark;
-      --bg: #121214;
-      --surface: #1C1C1F;
-      --surface-alt: #242427;
-      --ink: #F2F2F3;
-      --ink-soft: #B4B5BA;
-      --muted: #797A80;
-      --accent: #5B8DF7;
-      --accent-dark: #82ABFA;
-      --accent-soft: rgba(91, 141, 247, 0.18);
-      --success: #34C98C;
-      --success-soft: rgba(52, 201, 140, 0.16);
-      --warning: #E3AC4C;
-      --warning-soft: rgba(227, 172, 76, 0.16);
-      --warning-ink: #FFD98A;
-      --shu: #F17272;
-      --shu-soft: rgba(241, 114, 114, 0.16);
-      --line: #303034;
-      --line-soft: #28282B;
+  /* ---- 明るい配色系(4色)共通のsuccess/warning/shu ---- */
+  :root[data-theme="mono"], :root[data-theme="sand"],
+  :root[data-theme="forest"], :root[data-theme="rose"] {
+    color-scheme: light;
+    --success: #22A06B; --success-soft: #E7F6EF;
+    --warning: #B5790A; --warning-soft: #FBF2DF; --warning-ink: #7A5B12;
+    --shu: #D0342C; --shu-soft: #FCEAEA;
+    --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+    --shadow-md: 0 4px 16px rgba(16, 24, 40, 0.08);
+  }
 
-      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-      --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
+  /* ---- 暗い配色系(4色)共通のsuccess/warning/shu ---- */
+  :root[data-theme="dark"], :root[data-theme="navy"],
+  :root[data-theme="amber"], :root[data-theme="teal"] {
+    color-scheme: dark;
+    --success: #34C98C; --success-soft: rgba(52, 201, 140, 0.16);
+    --warning: #E3AC4C; --warning-soft: rgba(227, 172, 76, 0.16); --warning-ink: #FFD98A;
+    --shu: #F17272; --shu-soft: rgba(241, 114, 114, 0.16);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
+  }
 
-      --solid-bg: #F2F2F3;
-      --solid-bg-hover: #FFFFFF;
-      --solid-ink: #121214;
-    }
+  /* 1) mono: 白地に黒文字・青アクセント(既定) */
+  :root[data-theme="mono"] {
+    --bg: #FFFFFF; --surface: #FFFFFF; --surface-alt: #F4F4F5;
+    --ink: #1A1A1A; --ink-soft: #55565B; --muted: #8B8C92;
+    --accent: #1A56DB; --accent-dark: #123F9E; --accent-soft: #EAF1FE;
+    --line: #E3E4E7; --line-soft: #EFEFF1;
+    --solid-bg: #1A1A1A; --solid-bg-hover: #000000; --solid-ink: #FFFFFF;
+  }
+
+  /* 2) sand: 生成り色の背景に焦げ茶インク・テラコッタのアクセント(温かみ) */
+  :root[data-theme="sand"] {
+    --bg: #FBF6EE; --surface: #FFFFFF; --surface-alt: #F5EDDD;
+    --ink: #3A2E1F; --ink-soft: #6B5A44; --muted: #9C8A6E;
+    --accent: #B5691E; --accent-dark: #8F5116; --accent-soft: #F6E4CE;
+    --line: #E8DCC4; --line-soft: #F0E6D2;
+    --solid-bg: #3A2E1F; --solid-bg-hover: #241B10; --solid-ink: #FBF6EE;
+  }
+
+  /* 3) forest: 淡いグリーンの背景に深緑インク・グリーンのアクセント(自然・落ち着き) */
+  :root[data-theme="forest"] {
+    --bg: #F3F7F2; --surface: #FFFFFF; --surface-alt: #E8F0E6;
+    --ink: #1E3324; --ink-soft: #3F5A48; --muted: #7C9484;
+    --accent: #2E7D4F; --accent-dark: #1F5C39; --accent-soft: #DCEFE1;
+    --line: #D3E2D6; --line-soft: #E6EFE7;
+    --solid-bg: #1E3324; --solid-bg-hover: #12211A; --solid-ink: #F3F7F2;
+  }
+
+  /* 4) rose: 淡いローズの背景にワインレッドインク・ローズのアクセント(上品・華やか) */
+  :root[data-theme="rose"] {
+    --bg: #FBF2F3; --surface: #FFFFFF; --surface-alt: #F5E3E6;
+    --ink: #3A1620; --ink-soft: #6B3542; --muted: #9C7480;
+    --accent: #A63A52; --accent-dark: #7E2A3E; --accent-soft: #F3DCE1;
+    --line: #EBD3D8; --line-soft: #F2E1E4;
+    --solid-bg: #3A1620; --solid-bg-hover: #240D14; --solid-ink: #FBF2F3;
+  }
+
+  /* 5) dark: 黒地に白文字・青アクセント(既定のダーク) */
+  :root[data-theme="dark"] {
+    --bg: #121214; --surface: #1C1C1F; --surface-alt: #242427;
+    --ink: #F2F2F3; --ink-soft: #B4B5BA; --muted: #797A80;
+    --accent: #5B8DF7; --accent-dark: #82ABFA; --accent-soft: rgba(91, 141, 247, 0.18);
+    --line: #303034; --line-soft: #28282B;
+    --solid-bg: #F2F2F3; --solid-bg-hover: #FFFFFF; --solid-ink: #121214;
+  }
+
+  /* 6) navy: 濃紺の背景に水色アクセント(クール・端正) */
+  :root[data-theme="navy"] {
+    --bg: #0B1526; --surface: #10203A; --surface-alt: #16294A;
+    --ink: #EAF1FC; --ink-soft: #AFC2DE; --muted: #7890B3;
+    --accent: #5AA9FF; --accent-dark: #8AC4FF; --accent-soft: rgba(90, 169, 255, 0.20);
+    --line: #223A5E; --line-soft: #1B2E4C;
+    --solid-bg: #EAF1FC; --solid-bg-hover: #FFFFFF; --solid-ink: #0B1526;
+  }
+
+  /* 7) amber: 焦げ茶〜黒の背景に琥珀色アクセント(高級感・ショールーム) */
+  :root[data-theme="amber"] {
+    --bg: #16130F; --surface: #211C16; --surface-alt: #2A231C;
+    --ink: #F5EDE1; --ink-soft: #C9B8A0; --muted: #8F7D66;
+    --accent: #D99A3F; --accent-dark: #F0B25E; --accent-soft: rgba(217, 154, 63, 0.20);
+    --line: #3A3127; --line-soft: #2E271F;
+    --solid-bg: #F5EDE1; --solid-bg-hover: #FFFFFF; --solid-ink: #16130F;
+  }
+
+  /* 8) teal: 深緑がかった黒の背景にティールのアクセント(モダン・テック) */
+  :root[data-theme="teal"] {
+    --bg: #0A1817; --surface: #10221F; --surface-alt: #16302B;
+    --ink: #E4F5F1; --ink-soft: #A9CFC7; --muted: #6E9A90;
+    --accent: #2DD4BF; --accent-dark: #5EEADA; --accent-soft: rgba(45, 212, 191, 0.18);
+    --line: #1E3833; --line-soft: #172B27;
+    --solid-bg: #E4F5F1; --solid-bg-hover: #FFFFFF; --solid-ink: #0A1817;
   }
 
   * { box-sizing: border-box; }
@@ -409,6 +439,37 @@
   }
   .segBtn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
 
+  /* ---------- テーマの色見本(設定画面。--sw-bg/--sw-accentは各ボタンにインラインで指定) ---------- */
+
+  .themeSwatches { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
+  .themeSwatch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 84px;
+    padding: var(--sp-2) 4px;
+    font-family: inherit;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    cursor: pointer;
+    transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+  }
+  .themeSwatch:hover { border-color: var(--muted); }
+  .themeSwatch.is-active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  .themeSwatch:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+  .themeSwatch__dot {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--sw-bg);
+    border: 1px solid var(--line);
+    box-shadow: inset 0 0 0 9px var(--sw-accent);
+  }
+  .themeSwatch__label { font-size: var(--fs-2xs); font-weight: 600; color: var(--ink-soft); }
+  .themeSwatch.is-active .themeSwatch__label { color: var(--ink); }
+
   /* ---------- 入力欄 ---------- */
 
   input, select {
@@ -576,19 +637,20 @@
   .tableScroll { position: relative; }
   .tableScroll.has-overflow-right { box-shadow: inset -14px 0 10px -10px rgba(16, 24, 40, 0.14); }
 
-  /* スマホ幅では「No.」「使用者名」列を横スクロール時も画面に固定表示する */
+  /* スマホ幅では「No.」「使用者名」列を横スクロール時も画面に固定表示する。
+     ヘッダー側は他の見出しセルと同じ背景(--surface-alt)、データ側は他のデータセルと
+     同じ背景(--surface)にする(以前はここだけ--surfaceになっており、使用者名の見出し
+     だけ白く浮いて見えるバグがあった)。 */
   @media (max-width: 900px) {
-    thead .colNo, tbody .cell-no {
+    thead .colNo, thead .colWide, tbody .cell-no, tbody .cell-username {
       position: sticky;
-      left: 0;
       z-index: 2;
-      background: var(--surface-alt);
     }
+    thead .colNo, thead .colWide { background: var(--surface-alt); }
+    tbody .cell-no, tbody .cell-username { background: var(--surface); }
+    thead .colNo, tbody .cell-no { left: 0; }
     thead .colWide, tbody .cell-username {
-      position: sticky;
       left: var(--sticky-username-left, 28px);
-      z-index: 2;
-      background: var(--surface);
       box-shadow: 2px 0 4px rgba(16, 24, 40, 0.08);
     }
     tbody tr:hover .cell-no, tbody tr:hover .cell-username { background: var(--surface-alt); }

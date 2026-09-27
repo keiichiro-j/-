@@ -33,6 +33,7 @@ function formatDateStub(date, tz, pattern) {
 // オブジェクトで代用する。ScriptAppはメモリ上のトリガー一覧を操作する最小実装。
 const capturedMails = [];
 const fakeScriptProperties = {};
+const fakeUserProperties = {}; // getThemePreference_/saveThemePreference_用
 const fakeTriggers = [];
 const fakeExternalSpreadsheets = {}; // id -> フェイクSpreadsheetオブジェクト(ExternalSyncService.gs用)
 
@@ -61,6 +62,13 @@ const sandbox = {
       getProperty: (key) => (key in fakeScriptProperties ? fakeScriptProperties[key] : null),
       setProperty: (key, value) => { fakeScriptProperties[key] = value; },
       deleteProperty: (key) => { delete fakeScriptProperties[key]; }
+    }),
+    // テーマ設定(getThemePreference_/saveThemePreference_)用。実際はGoogleアカウントごとに
+    // 独立したストレージだが、テストでは fakeUserProperties を都度クリアして模擬する。
+    getUserProperties: () => ({
+      getProperty: (key) => (key in fakeUserProperties ? fakeUserProperties[key] : null),
+      setProperty: (key, value) => { fakeUserProperties[key] = value; },
+      deleteProperty: (key) => { delete fakeUserProperties[key]; }
     })
   },
   ScriptApp: {
@@ -769,6 +777,26 @@ test('getCurrentUserEmail_はログイン中のアカウントをそのまま返
 test('getCurrentUserEmail_はアカウントを取得できない場合は空文字を返す', () => {
   sandbox.currentUserEmail = '';
   assert.strictEqual(sandbox.getCurrentUserEmail_(), '');
+});
+
+console.log('== SettingsService: テーマ設定(Googleアカウントごとに保存) ==');
+test('未設定なら空文字を返す', () => {
+  delete fakeUserProperties[sandbox.THEME_PREFERENCE_PROP_KEY];
+  assert.strictEqual(sandbox.getThemePreference_(), '');
+});
+test('保存した内容を取得できる', () => {
+  const saved = sandbox.saveThemePreference_('navy');
+  assert.strictEqual(saved, 'navy');
+  assert.strictEqual(sandbox.getThemePreference_(), 'navy');
+});
+test('不正なテーマはエラーになり保存されない', () => {
+  sandbox.saveThemePreference_('mono');
+  assert.throws(() => sandbox.saveThemePreference_('rainbow'), /不正なテーマ/);
+  assert.strictEqual(sandbox.getThemePreference_(), 'mono'); // 変更されない
+});
+test('プロパティの値が壊れている場合(選択肢にない値)は空文字を返す', () => {
+  fakeUserProperties[sandbox.THEME_PREFERENCE_PROP_KEY] = 'not-a-real-theme';
+  assert.strictEqual(sandbox.getThemePreference_(), '');
 });
 
 console.log('== BrandService: ブランドの選択肢 ==');
