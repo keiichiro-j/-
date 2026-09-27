@@ -228,7 +228,7 @@ var SUBMISSION_TOKEN_TTL_SEC = 300;
  * 5. 車両ごとに、他システム(外部スプレッドシート、設定済みの場合のみ)へ登録日・申請方法を
  *    転記する。この転記は本アプリの主処理(PDF発行・履歴記録)には影響させず、失敗しても
  *    1台ごとにその旨を警告として集めて返すだけにする(ExternalSyncService.gs参照)。
- * @return {{pdfUrl: string, transcriptionWarnings: Array<string>}}
+ * @return {{pdfUrl: string, transcriptionWarnings: Array<string>, transcriptionSuccessCount: number}}
  */
 function processFormData(formData) {
   var cache = CacheService.getScriptCache();
@@ -273,6 +273,7 @@ function processFormData(formData) {
 
   var pdfUrl = file.getUrl();
   var transcriptionWarnings = [];
+  var transcriptionSuccessCount = 0;
   activeVehicles.forEach(function (car, i) {
     appendHistoryRow_(ss, formData.type, car, formData, submissionId, i + 1, timestamp, pdfUrl);
 
@@ -281,11 +282,13 @@ function processFormData(formData) {
     if (!car.brand) return; // ブランド未選択では転記先を特定できないためスキップ(ブランドは任意項目のため)
     try {
       var typeLabel = (formData.type === TYPE_OSS) ? 'OSS' : '紙登録';
-      syncRegistrationToExternalSheet_(car.userName, parseDateOnly_(regDateStr), typeLabel, car.brand);
+      if (syncRegistrationToExternalSheet_(car.userName, parseDateOnly_(regDateStr), typeLabel, car.brand)) {
+        transcriptionSuccessCount++;
+      }
     } catch (e) {
       transcriptionWarnings.push((car.userName || (i + 1) + '台目') + ': ' + e.message);
     }
   });
 
-  return { pdfUrl: pdfUrl, transcriptionWarnings: transcriptionWarnings };
+  return { pdfUrl: pdfUrl, transcriptionWarnings: transcriptionWarnings, transcriptionSuccessCount: transcriptionSuccessCount };
 }

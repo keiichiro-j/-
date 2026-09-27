@@ -964,12 +964,13 @@ test('前後・途中のスペース(全角/半角)の有無を無視する', ()
   assert.strictEqual(sandbox.normalizeCustomerName_('山田　太郎'), sandbox.normalizeCustomerName_('山田太郎'));
 });
 test('「株式会社」「(株)」「㈱」「（株）」の表記ゆれを吸収する(位置も問わない)', () => {
-  const base = sandbox.normalizeCustomerName_('高菜');
-  assert.strictEqual(sandbox.normalizeCustomerName_('株式会社高菜'), base);
+  const base = sandbox.normalizeCustomerName_('株式会社高菜');
   assert.strictEqual(sandbox.normalizeCustomerName_('高菜株式会社'), base);
   assert.strictEqual(sandbox.normalizeCustomerName_('（株）高菜'), base);
   assert.strictEqual(sandbox.normalizeCustomerName_('(株)高菜'), base);
   assert.strictEqual(sandbox.normalizeCustomerName_('㈱高菜'), base);
+  // 法人格が付いていない裸の名前とは区別する
+  assert.notStrictEqual(sandbox.normalizeCustomerName_('高菜'), base);
 });
 test('末尾の敬称(様・殿)を無視する', () => {
   assert.strictEqual(sandbox.normalizeCustomerName_('山田太郎様'), sandbox.normalizeCustomerName_('山田太郎'));
@@ -1016,6 +1017,72 @@ test('文字が異なる別人(山田優 と 山田優作)は誤って一致さ�
     () => sandbox.syncRegistrationToExternalSheet_('山田優', new Date(2026, 9, 2), 'OSS', 'MB'),
     /一致する行が見つかりませんでした/
   );
+});
+
+console.log('== ExternalSyncService: 有限会社・弁護士法人など他の法人格の表記ゆれ ==');
+test('「有限会社」「(有)」「㈲」「（有）」の表記ゆれを吸収する', () => {
+  const base = sandbox.normalizeCustomerName_('有限会社高菜');
+  assert.strictEqual(sandbox.normalizeCustomerName_('高菜有限会社'), base);
+  assert.strictEqual(sandbox.normalizeCustomerName_('（有）高菜'), base);
+  assert.strictEqual(sandbox.normalizeCustomerName_('(有)高菜'), base);
+  assert.strictEqual(sandbox.normalizeCustomerName_('㈲高菜'), base);
+  // 法人格が付いていない裸の名前とは区別する(同じ会社と決めつけない)
+  assert.notStrictEqual(sandbox.normalizeCustomerName_('高菜'), base);
+});
+test('「弁護士法人」「(弁)」の表記ゆれを吸収する', () => {
+  const base = sandbox.normalizeCustomerName_('弁護士法人高菜');
+  assert.strictEqual(sandbox.normalizeCustomerName_('（弁）高菜'), base);
+  assert.strictEqual(sandbox.normalizeCustomerName_('(弁)高菜'), base);
+});
+test('「株式会社」と「有限会社」は法人格が違うので同一視しない', () => {
+  assert.notStrictEqual(sandbox.normalizeCustomerName_('株式会社高菜'), sandbox.normalizeCustomerName_('有限会社高菜'));
+});
+
+console.log('== ExternalSyncService: 転記の成否・同姓同名の優先度 ==');
+test('転記に成功するとtrueを返す', () => {
+  const ss = makeExternalSheetSpreadsheet({
+    'db_登録データ_2026_10月': [['', '', '', '', '', '', '橋本美咲', '']]
+  });
+  fakeExternalSpreadsheets['SHEET_RETURN_TRUE'] = ss;
+  sandbox.saveExternalSyncSheets_([{ brand: 'MB', sheetId: 'SHEET_RETURN_TRUE' }]);
+
+  const result = sandbox.syncRegistrationToExternalSheet_('橋本美咲', new Date(2026, 9, 2), 'OSS', 'MB');
+  assert.strictEqual(result, true);
+});
+test('転記先が1件も設定されていない場合はundefinedを返す(成功メッセージを出さないため)', () => {
+  delete fakeScriptProperties[sandbox.EXTERNAL_SYNC_SHEETS_PROP_KEY];
+  const result = sandbox.syncRegistrationToExternalSheet_('橋本美咲', new Date(2026, 9, 2), 'OSS', 'MB');
+  assert.strictEqual(result, undefined);
+});
+test('同姓同名が複数行ある場合、まだ確定していない行を優先して更新する', () => {
+  const ss = makeExternalSheetSpreadsheet({
+    'db_登録データ_2026_10月': [
+      ['登録予定日確定', '2026-01-01', '', '', '', 'OSS', '山田太郎', ''], // 既に確定済み(過去の登録)
+      ['登録予定日確認中', '', '', '', '', '', '山田太郎', '']            // 今回一致させたい行
+    ]
+  });
+  fakeExternalSpreadsheets['SHEET_DUP_NAME'] = ss;
+  sandbox.saveExternalSyncSheets_([{ brand: 'MB', sheetId: 'SHEET_DUP_NAME' }]);
+
+  sandbox.syncRegistrationToExternalSheet_('山田太郎', new Date(2026, 9, 2), 'OSS', 'MB');
+
+  const sheet = ss.getSheetByName('db_登録データ_2026_10月');
+  assert.strictEqual(sheet._rows[1][1], '2026-01-01'); // 確定済みの行は変更されない
+  assert.strictEqual(sheet._rows[2][1], '2026-10-02'); // 未確定の行が更新される
+});
+test('一致する行が全て確定済みの場合は、最初に見つかった行を使う', () => {
+  const ss = makeExternalSheetSpreadsheet({
+    'db_登録データ_2026_10月': [
+      ['登録予定日確定', '2026-01-01', '', '', '', 'OSS', '山田太郎', '']
+    ]
+  });
+  fakeExternalSpreadsheets['SHEET_ALL_CONFIRMED'] = ss;
+  sandbox.saveExternalSyncSheets_([{ brand: 'MB', sheetId: 'SHEET_ALL_CONFIRMED' }]);
+
+  sandbox.syncRegistrationToExternalSheet_('山田太郎', new Date(2026, 9, 2), 'OSS', 'MB');
+
+  const sheet = ss.getSheetByName('db_登録データ_2026_10月');
+  assert.strictEqual(sheet._rows[1][1], '2026-10-02');
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

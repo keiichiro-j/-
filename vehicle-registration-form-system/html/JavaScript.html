@@ -299,6 +299,9 @@
         submissionToken_ = generateSubmissionToken_(); // 次回送信用のトークンを発行し直す
         var message =
           '完了しました。PDFを自動で開きます。<br>開かない場合は <a href="' + pdfUrl + '" target="_blank">こちら</a> をクリックしてください。';
+        if (result.transcriptionSuccessCount) {
+          message += '<span class="result__note">登録カレンダーに反映しました</span>';
+        }
         if (result.transcriptionWarnings && result.transcriptionWarnings.length) {
           message += '<span class="result__warning">他システムへの転記でエラーがありました(PDF発行・履歴記録は完了しています):<br>' +
             result.transcriptionWarnings.map(escapeHtml_).join('<br>') + '</span>';

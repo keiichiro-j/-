@@ -20,9 +20,10 @@
  * 転記できた行の「ステータス」は "登録予定日確定" に上書きする。
  *
  * 顧客名の一致判定は完全一致ではなく normalizeCustomerName_() を通した表記ゆれ吸収比較を行う
- * (スペースの有無・全角/半角・「株式会社」表記ゆれ・末尾の敬称を無視する)。ただし文字自体が
+ * (スペースの有無・全角/半角・法人格の表記ゆれ・末尾の敬称を無視する)。ただし文字自体が
  * 異なる別人(例: 「山田優」と「山田優作」)を誤って同一視することはない。
- * 同じ正規化後の名前が複数行にある場合は最初に見つかった行だけを更新する。
+ * 同じ正規化後の名前が複数行ある場合は、まだ「登録予定日確定」になっていない行を優先して
+ * 更新する(同姓同名の再来店等で過去の確定済み行を誤って上書きしにくくするため)。
  *
  * ブランドに対応する転記先が1件も設定されていない(=機能が完全にOFF)場合は何もしない。
  * ブランドは設定されているが、その車両のブランドに対応する転記先が無い・タブや該当行が
@@ -119,16 +120,47 @@ function externalSyncTabName_(regDate) {
   return EXTERNAL_SYNC_TAB_PREFIX + year + '_' + month + '月';
 }
 
+// 法人格ごとの表記ゆれ(正式名称・括弧書きの略称・丸囲み文字)をまとめたグループ。
+// 「株式会社」と「有限会社」のように法人格そのものが異なる場合は別法人として区別したいため、
+// 表記ゆれは吸収しつつも法人格の種類(key)自体は最後まで残す(=単純に全部消してしまわない)。
+// 「事業協同組合」は「協同組合」の文字列を含むため、判定時は先に調べる(配列の順序に依存)。
+var LEGAL_ENTITY_GROUPS_ = [
+  { key: '株式会社', pattern: /(株式会社|\(株\)|㈱)/g },
+  { key: '有限会社', pattern: /(有限会社|\(有\)|㈲)/g },
+  { key: '合同会社', pattern: /(合同会社|\(同\)|㈾)/g },
+  { key: '合名会社', pattern: /(合名会社|\(名\)|㈴)/g },
+  { key: '合資会社', pattern: /(合資会社|\(資\)|㈵)/g },
+  { key: '弁護士法人', pattern: /(弁護士法人|\(弁\))/g },
+  { key: '税理士法人', pattern: /(税理士法人|\(税\))/g },
+  { key: '司法書士法人', pattern: /(司法書士法人|\(司\))/g },
+  { key: '行政書士法人', pattern: /(行政書士法人|\(行\))/g },
+  { key: '社会保険労務士法人', pattern: /(社会保険労務士法人|\(労\))/g },
+  { key: '医療法人', pattern: /(医療法人|\(医\))/g },
+  { key: '学校法人', pattern: /(学校法人|\(学\))/g },
+  { key: '宗教法人', pattern: /(宗教法人|\(宗\))/g },
+  { key: '社会福祉法人', pattern: /(社会福祉法人|\(福\))/g },
+  { key: '一般社団法人', pattern: /(一般社団法人|\(一社\))/g },
+  { key: '一般財団法人', pattern: /(一般財団法人|\(一財\))/g },
+  { key: '公益社団法人', pattern: /(公益社団法人|\(公社\))/g },
+  { key: '公益財団法人', pattern: /(公益財団法人|\(公財\))/g },
+  { key: '特定非営利活動法人', pattern: /(特定非営利活動法人|NPO法人|\(特非\))/gi },
+  { key: '事業協同組合', pattern: /事業協同組合/g },
+  { key: '協同組合', pattern: /(協同組合|\(協\))/g }
+];
+
 /**
  * 使用者名の表記ゆれを吸収して比較できるようにする。
  * - 全角英数記号(全角パーレンを含む)を半角に統一する
  * - 半角/全角スペースは、有無・数を問わず無視する(「山田太郎」「山田 太郎」「山田　太郎」を同一視)
- * - 「株式会社」「(株)」「㈱」の表記ゆれを吸収する(位置は問わない。「(有)」等の他の法人格とは
- *   混同しないよう、あくまで「株式会社」系のみを対象にする)
+ * - 法人格(株式会社・有限会社・弁護士法人 等、LEGAL_ENTITY_GROUPS_参照)は、正式名称・括弧書きの
+ *   略称(「(株)」等)・丸囲み文字(㈱等)のどれで書かれていても同じ法人格として扱い、名前中の
+ *   位置(前後どちらでも)を問わず取り出す。ただし「株式会社」と「有限会社」のように法人格の
+ *   種類そのものが異なる場合は、引き続き別法人として区別する(法人格を消してしまうのではなく、
+ *   種類ごとに区別できる形にそろえるだけ)
  * - 末尾の敬称(様・殿)は名前の一部ではないため無視する
  * - 英字の大文字・小文字を無視する
- * あくまで「同じ名前の表記ゆれ」を吸収するためのもので、「山田優」と「山田優作」のように
- * 文字そのものが異なる別人を誤って同一視することはない。
+ * あくまで「同じ名前・同じ法人の表記ゆれ」を吸収するためのもので、「山田優」と「山田優作」の
+ * ように文字そのものが異なる別人や、法人格の種類が異なる別法人を誤って同一視することはない。
  * @param {string} name
  * @return {string}
  */
@@ -138,9 +170,24 @@ function normalizeCustomerName_(name) {
     return String.fromCharCode(c.charCodeAt(0) - 0xFEE0);
   });
   s = s.replace(/　/g, ' ').replace(/\s+/g, '');
-  s = s.replace(/(株式会社|\(株\)|㈱)/g, '');
   s = s.replace(/(様|殿)$/, '');
-  return s.toLowerCase();
+
+  var entityTag = '';
+  for (var i = 0; i < LEGAL_ENTITY_GROUPS_.length; i++) {
+    var group = LEGAL_ENTITY_GROUPS_[i];
+    var found = false;
+    var stripped = s.replace(group.pattern, function () {
+      found = true;
+      return '';
+    });
+    if (found) {
+      s = stripped;
+      entityTag = group.key;
+      break; // 1つの名前に複数の法人格が付くことは通常ないため、最初に見つかったものだけ使う
+    }
+  }
+
+  return entityTag + ':' + s.toLowerCase();
 }
 
 /**
@@ -150,6 +197,8 @@ function normalizeCustomerName_(name) {
  * @param {Date} regDate 登録日(タブの年月の特定にも使う)
  * @param {string} typeLabel 転記する申請方法('OSS' または '紙登録')
  * @param {string} brand 車両のブランド(転記先スプレッドシートの選択に使う)
+ * @return {boolean|undefined} 実際に転記できた場合はtrue。機能OFF・使用者名未入力などで
+ *   何もしなかった場合はundefined(成功メッセージの表示可否の判定に使う)。
  */
 function syncRegistrationToExternalSheet_(userName, regDate, typeLabel, brand) {
   var sheets = getExternalSyncSheets_();
@@ -178,21 +227,23 @@ function syncRegistrationToExternalSheet_(userName, regDate, typeLabel, brand) {
     throw new Error('転記先「' + tabName + '」にデータ行がありません');
   }
 
-  var nameRange = sheet.getRange(
-    EXTERNAL_SYNC_HEADER_ROW + 1,
-    EXTERNAL_SYNC_COLUMNS.customerName,
-    lastRow - EXTERNAL_SYNC_HEADER_ROW,
-    1
-  );
-  var names = nameRange.getValues();
+  var rowCount = lastRow - EXTERNAL_SYNC_HEADER_ROW;
+  var names = sheet.getRange(EXTERNAL_SYNC_HEADER_ROW + 1, EXTERNAL_SYNC_COLUMNS.customerName, rowCount, 1).getValues();
+  var statuses = sheet.getRange(EXTERNAL_SYNC_HEADER_ROW + 1, EXTERNAL_SYNC_COLUMNS.status, rowCount, 1).getValues();
 
+  // 同じ名前の行が複数ある場合(同姓同名の再来店等)、まだ「登録予定日確定」になっていない
+  // 行を優先して更新する。該当が無ければ、最初に見つかった行(既に確定済みでも)を使う。
   var matchedRow = -1;
+  var fallbackRow = -1;
   for (var i = 0; i < names.length; i++) {
-    if (normalizeCustomerName_(names[i][0]) === normalizedName) {
+    if (normalizeCustomerName_(names[i][0]) !== normalizedName) continue;
+    if (fallbackRow === -1) fallbackRow = EXTERNAL_SYNC_HEADER_ROW + 1 + i;
+    if (String(statuses[i][0] || '').trim() !== EXTERNAL_SYNC_STATUS_CONFIRMED) {
       matchedRow = EXTERNAL_SYNC_HEADER_ROW + 1 + i;
       break;
     }
   }
+  if (matchedRow === -1) matchedRow = fallbackRow;
   if (matchedRow === -1) {
     throw new Error('転記先「' + tabName + '」に使用者名「' + name + '」と一致する行が見つかりませんでした');
   }
@@ -200,4 +251,5 @@ function syncRegistrationToExternalSheet_(userName, regDate, typeLabel, brand) {
   sheet.getRange(matchedRow, EXTERNAL_SYNC_COLUMNS.status).setValue(EXTERNAL_SYNC_STATUS_CONFIRMED);
   sheet.getRange(matchedRow, EXTERNAL_SYNC_COLUMNS.regDate).setValue(Utilities.formatDate(regDate, TIMEZONE, 'yyyy-MM-dd'));
   sheet.getRange(matchedRow, EXTERNAL_SYNC_COLUMNS.ossKind).setValue(typeLabel);
+  return true; // 実際に転記できたことを呼び出し側(Api.gs)へ知らせる(成功メッセージの表示に使う)
 }
