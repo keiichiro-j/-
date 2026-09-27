@@ -27,13 +27,14 @@
     // 在庫リストの絞り込み条件（区分・掲載状況・年式・価格帯・走行距離・カラー）。
     // いずれも既存のスプレッドシート列から算出するだけで、新規列の追加はしていない
     // （ROUND H フェーズ2。キーワード検索はこれとは別にサーバー側searchInventoryで
-    // 行うため、ここには含めない）。モデル・ボディタイプ・状態は、絞り込みサイドバーを
-    // シンプルにするため専用の絞り込みUIを廃止した（モデルは上の自由検索で、
-    // ボディタイプは下のinventoryBodyTypeFilterで、状態は代わりに使わない方針。
-    // 現場からの要望）。
+    // 行うため、ここには含めない）。モデル・状態は、絞り込みサイドバーをシンプルに
+    // するため専用の絞り込みUIを廃止した（モデルは上の自由検索で、状態は代わりに
+    // 使わない方針。現場からの要望）。ボディタイプでの絞り込みも、以前は
+    // inventoryBodyTypeFilterとしてここに持っていたが、現場からの要望「型検索は
+    // 無くしてほしい」により廃止した（ホーム画面の型クイックナビ用の
+    // homeBodyTypeFilterはそのまま残る）。
     inventoryFilters: { category: [], listed: [], color: '', yearBucket: '', priceBucket: '', mileageBucket: '' },
     inventorySort: '', // 並び替え（空文字は取得順のまま）
-    inventoryBodyTypeFilter: '', // 在庫リストのボディタイプクイックナビで選択中の型（空文字は「すべて」）
     ordersGroups: [],
     wholesaleOrdersGroups: [],
     demoCarListItems: [], // デモカーリスト（区分「デモカー」）。グループ化は行わないフラットな一覧
@@ -930,14 +931,12 @@
 
   function applyInventoryFilters_(items) {
     var f = state.inventoryFilters;
-    var bodyType = state.inventoryBodyTypeFilter;
     return items.filter(function (v) {
       if (f.category.length && f.category.indexOf(v.category || '') === -1) return false;
       if (f.listed.length) {
         var keys = inventoryListedKeys_(v);
         if (!keys.some(function (k) { return f.listed.indexOf(k) !== -1; })) return false;
       }
-      if (bodyType && modelBodyTypesOf_(v.model).indexOf(bodyType) === -1) return false;
       if (f.color && (v.exteriorColor || '') !== f.color) return false;
       if (f.yearBucket && yearBucketOf_(v) !== f.yearBucket) return false;
       if (f.priceBucket && priceBucketOf_(v) !== f.priceBucket) return false;
@@ -1013,7 +1012,7 @@
   // （何か1つでも絞り込みが効いていれば表示する）。
   function syncInventoryFilterClearVisibility_() {
     var f = state.inventoryFilters;
-    var hasAny = !!state.inventoryBodyTypeFilter || !!f.color || f.category.length > 0 ||
+    var hasAny = !!f.color || f.category.length > 0 ||
       f.listed.length > 0 || !!f.yearBucket || !!f.priceBucket || !!f.mileageBucket;
     $('btnInventoryFilterClear').classList.toggle('hidden', !hasAny);
   }
@@ -1552,30 +1551,10 @@
 
   setInterval(updateHoldTimers, 1000);
 
-  // 不具合修正: 以前は自由検索欄の下に「状態（在庫あり／Hold中／業販HOLD中）」の
-  // クイックタブを置いていたが、現場からの要望でホーム画面と同じ「ボディタイプ」の
-  // クイックナビ（単一選択、.homeTypeNav__itemを流用）に差し替えた。状態そのものの
-  // 絞り込みは（ホームと同じ発想で）廃止し、区分・掲載状況・年式・価格帯・走行距離は
-  // 引き続き左の絞り込みサイドバーで扱う。
-  function renderInventoryBodyTypeNav_() {
-    var options = (state.bootstrap && state.bootstrap.modelBodyTypeOptions) || [];
-    var current = state.inventoryBodyTypeFilter;
-    var itemsHtml = '<button type="button" class="homeTypeNav__item' + (!current ? ' is-active' : '') +
-      '" data-inventory-body-type="">すべて</button>' +
-      options.map(function (t) {
-        return '<button type="button" class="homeTypeNav__item' + (current === t ? ' is-active' : '') +
-          '" data-inventory-body-type="' + escapeHtml(t) + '">' + escapeHtml(t) + '</button>';
-      }).join('');
-    $('inventoryBodyTypeNav').innerHTML = itemsHtml;
-  }
-
-  on('inventoryBodyTypeNav', 'click', function (e) {
-    var btn = e.target.closest('[data-inventory-body-type]');
-    if (!btn) return;
-    state.inventoryBodyTypeFilter = btn.dataset.inventoryBodyType || '';
-    renderInventory();
-  });
-
+  // 不具合修正: 在庫リストの「型（ボディタイプ）」でのクイックナビ絞り込みは
+  // 現場からの要望「型検索は無くしてほしい」により廃止した。区分・掲載状況・
+  // 年式・価格帯・走行距離は引き続き左の絞り込みサイドバーで扱う（ホーム画面の
+  // 型クイックナビ・renderHomeTypeNav_はこの変更の影響を受けず、従来どおり）。
   function renderInventory() {
     var container = $('inventoryList');
     var all = state.inventoryItems || [];
@@ -1584,7 +1563,6 @@
     // 該当台数は絞り込みサイドバー（条件検索）見出しの右にのみ表示する
     // （不具合修正: 以前はクイックナビ行の右側にも同じ情報を重複表示していた）。
     $('inventoryFilterCount').textContent = all.length ? '該当 ' + filtered.length + '台 ／ 全' + all.length + '台' : '';
-    renderInventoryBodyTypeNav_();
     container.innerHTML = rowListHtml_(filtered, vehicleRowItemHtml_);
     syncInventoryFilterClearVisibility_();
   }
@@ -1669,7 +1647,6 @@
 
   on('btnInventoryFilterClear', 'click', function () {
     state.inventoryFilters = { category: [], listed: [], color: '', yearBucket: '', priceBucket: '', mileageBucket: '' };
-    state.inventoryBodyTypeFilter = '';
     state.inventorySort = '';
     $('inventoryKeyword').value = '';
     ['inventoryColorFilter', 'inventoryYearFilter', 'inventoryPriceFilter', 'inventoryMileageFilter', 'inventorySort'].forEach(function (id) { $(id).value = ''; });
@@ -4066,10 +4043,10 @@
       // 全画面オーバーレイは出さない）。
       var loading = $('appLoading');
       if (loading) loading.classList.add('is-hidden');
-      // 型／ボディタイプのクイックナビはreloadAll_内のrender*_で中身が
-      // 入った後でないと横幅（scrollWidth）が確定しないため、ここで初期化する。
+      // 型のクイックナビ（ホーム画面のみ。在庫リスト側は廃止済み）は
+      // reloadAll_内のrender*_で中身が入った後でないと横幅（scrollWidth）が
+      // 確定しないため、ここで初期化する。
       initScrollFade_('homeTypeNav');
-      initScrollFade_('inventoryBodyTypeNav');
     });
   }
 

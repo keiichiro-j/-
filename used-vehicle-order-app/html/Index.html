@@ -201,25 +201,23 @@
       </div>
     </main>
 
-    <!-- 在庫リスト: ヘッダーの下に「ボディタイプ＋並び替え」のコマンドバーを
-         固定表示し、その下は左の絞り込みサイドバー（条件検索）＋番号付き一覧の
-         2カラム。絞り込み項目自体・キーワード検索の方式（サーバー側searchInventory＋
+    <!-- 在庫リスト: ヘッダーの下に「並び替え」のコマンドバーを固定表示し、
+         その下は左の絞り込みサイドバー（条件検索）＋番号付き一覧の2カラム。
+         絞り込み項目自体・キーワード検索の方式（サーバー側searchInventory＋
          クライアント側絞り込みの併用）は変更していない。区分・掲載状況・年式・
-         価格帯・走行距離・カラーはサイドバーで、ボディタイプはホームと同じ
-         クイックナビ（.commandbar内）で絞り込む（現場からの要望でモデル・状態の
-         絞り込みは廃止し、シンプルにした）。不具合修正: 自由検索欄は以前
+         価格帯・走行距離・カラーはサイドバーで扱う。不具合修正: 自由検索欄は以前
          コマンドバー側にあったが、受注リスト・業販受注リストの絞り込みサイドバーと
          同じく「条件検索」見出しのすぐ下に統一した（現場からの要望「自由検索は
-         条件検索の下に置いてほしい」）。 -->
+         条件検索の下に置いてほしい」）。
+         不具合修正: 「型（ボディタイプ）」でのクイックナビ絞り込みは現場からの
+         要望で廃止した（renderInventoryBodyTypeNav_・#inventoryBodyTypeNav等は
+         削除済み）。ホーム画面の型クイックナビ（#homeTypeNav）は従来どおり
+         そのまま残しており、この変更の影響を受けない。 -->
     <main class="view view--list" id="view-inventory">
       <div class="commandbar">
-        <!-- ボディタイプのクイックナビ（ホームの型クイックナビと同じ単一選択、
-             .homeTypeNav__itemを流用。renderInventoryBodyTypeNav_、
-             JavaScript.html参照）＋その右端に並び替え。該当台数は左サイドの
-             「条件検索」見出し（#inventoryFilterCount）に一本化しており、
-             ここには重複して置かない（以前は両方に同じ情報が出ていた）。 -->
-        <div class="quickRow">
-          <div class="scroller homeTypeNav" id="inventoryBodyTypeNav" role="tablist" aria-label="ボディタイプで絞り込み"></div>
+        <!-- 該当台数は左サイドの「条件検索」見出し（#inventoryFilterCount）に
+             一本化しており、ここには重複して置かない。 -->
+        <div class="quickRow quickRow--sortOnly">
           <div class="quickRow__right">
             <label class="sortField">並び替え
               <select id="inventorySort" class="input"></select>

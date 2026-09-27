@@ -719,12 +719,14 @@
   .filterCheck input[type="radio"] { width: 15px; height: 15px; margin: 0; accent-color: var(--primary); cursor: pointer; flex: none; }
   .filterCheck__cnt { margin-left: auto; font-size: 11px; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; }
 
-  /* ===== 在庫リストのクイック行（ボディタイプのクイックナビ＋該当台数・並び替え） =====
-     ホーム画面と同じ.homeTypeNav__itemのクイックナビを流用し、以前の状態タブ
-     （.statusTabs、廃止）に代わって置く。右端に該当台数・並び替えをまとめる
-     （現場からの要望「該当台数・並び替えはボディタイプの右端に」）。 */
+  /* ===== 在庫リストのクイック行（並び替え） =====
+     以前はここにボディタイプ（型）のクイックナビも並べていたが、現場からの
+     要望で在庫リストの型での絞り込みは廃止した（ホーム画面の型クイックナビ
+     .homeTypeNavはそのまま残っている）。並び替えだけになったため、
+     .quickRow--sortOnlyで右寄せにする。 */
   .quickRow { display: flex; align-items: center; gap: 16px; }
   .quickRow .scroller { flex: 1 1 auto; min-width: 0; }
+  .quickRow--sortOnly { justify-content: flex-end; }
   .quickRow__right { display: flex; align-items: center; gap: 16px; flex: none; }
 
   .input {
