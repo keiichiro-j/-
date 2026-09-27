@@ -133,16 +133,27 @@ function saveStaffMaster_(rows) {
  * 常に空文字(または実行者自身のアカウント)になる点に注意。
  * @return {string}
  */
-function getManagerForCurrentUser_() {
-  var email = '';
+/**
+ * 現在ログイン中のユーザーのGoogleアカウント(メールアドレス)を返す。取得できない場合は空文字。
+ * Webアプリの公開設定が「アクセスしたユーザーとして実行」でないと、常に空文字(または
+ * 実行者自身のアカウント)になる点に注意。
+ * @return {string}
+ */
+function getCurrentUserEmail_() {
   try {
-    email = Session.getActiveUser().getEmail() || '';
+    return Session.getActiveUser().getEmail() || '';
   } catch (e) {
-    email = '';
+    return '';
   }
+}
+
+function getManagerForCurrentUser_() {
+  var email = getCurrentUserEmail_();
   if (!email) return '';
   email = email.trim().toLowerCase();
 
   var match = getStaffMaster_().filter(function (row) { return row.email === email; })[0];
-  return match ? match.name : '';
+  // 担当者マスタに未登録でも、ログインユーザーが担当責任者になるようメールアドレス自体を
+  // フォールバックとして返す(空欄のままにしない)。
+  return match ? match.name : email;
 }

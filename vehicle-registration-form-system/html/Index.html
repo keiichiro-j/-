@@ -34,6 +34,7 @@
         <div class="masthead__text">
           <h1>新車新規登録依頼書 発行システム</h1>
         </div>
+        <span class="masthead__account is-hidden" id="mastheadAccount"></span>
       </div>
     </div>
   </header>
@@ -366,59 +367,60 @@
 
       <div class="settingsGroup">
         <h3 class="settingsGroup__title">申請フォーム</h3>
+        <div class="bento">
+          <section class="card bento--span-6">
+            <div class="card__head">
+              <h2>担当者マスタ</h2>
+              <p class="muted">担当者名とGoogleアカウントを登録しておくと、そのアカウントでログインした人が「担当責任者」欄へ自動で入力されます。</p>
+            </div>
 
-        <section class="card">
-          <div class="card__head">
-            <h2>担当者マスタ</h2>
-            <p class="muted">担当者名とGoogleアカウント(メールアドレス)を登録しておくと、そのアカウントでログインした人が申請フォームを開いたときに「担当責任者」欄へ自動で入力されます。</p>
-          </div>
+            <div class="tableScroll">
+              <table id="staffMasterTable" class="staffMasterTable">
+                <thead>
+                  <tr>
+                    <th>担当者名</th>
+                    <th>Googleアカウント</th>
+                    <th class="colDel"></th>
+                  </tr>
+                </thead>
+                <tbody id="staffMasterBody"></tbody>
+              </table>
+            </div>
 
-          <div class="tableScroll">
-            <table id="staffMasterTable" class="staffMasterTable">
-              <thead>
-                <tr>
-                  <th>担当者名</th>
-                  <th>Googleアカウント(メールアドレス)</th>
-                  <th class="colDel"></th>
-                </tr>
-              </thead>
-              <tbody id="staffMasterBody"></tbody>
-            </table>
-          </div>
+            <button type="button" id="btnAddStaffRow" class="btn btn--ghost">＋ 行を追加</button>
+            <button type="button" id="btnSaveStaffMaster" class="btn btn--primary">保存する</button>
+            <div id="staffMasterResult" class="result" role="status" aria-live="polite">
+              <span id="staffMasterSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+              <span id="staffMasterResultText"></span>
+            </div>
+          </section>
 
-          <button type="button" id="btnAddStaffRow" class="btn btn--ghost">＋ 行を追加</button>
-          <button type="button" id="btnSaveStaffMaster" class="btn btn--primary">担当者マスタを保存する</button>
-          <div id="staffMasterResult" class="result" role="status" aria-live="polite">
-            <span id="staffMasterSpinner" class="spinner is-hidden" aria-hidden="true"></span>
-            <span id="staffMasterResultText"></span>
-          </div>
-        </section>
+          <section class="card bento--span-6">
+            <div class="card__head">
+              <h2>ブランド設定</h2>
+              <p class="muted">車両データの「ブランド」欄の選択肢です。申請フォーム・履歴確認・他システム連携で使われます。</p>
+            </div>
 
-        <section class="card">
-          <div class="card__head">
-            <h2>ブランド設定</h2>
-            <p class="muted">車両データの「ブランド」欄の選択肢です。申請フォーム・履歴確認の絞り込み・他システムへの連携(ブランド別の転記先)で使われます。</p>
-          </div>
+            <div class="tableScroll">
+              <table id="brandOptionsTable" class="staffMasterTable">
+                <thead>
+                  <tr>
+                    <th>ブランド</th>
+                    <th class="colDel"></th>
+                  </tr>
+                </thead>
+                <tbody id="brandOptionsBody"></tbody>
+              </table>
+            </div>
 
-          <div class="tableScroll">
-            <table id="brandOptionsTable" class="staffMasterTable">
-              <thead>
-                <tr>
-                  <th>ブランド</th>
-                  <th class="colDel"></th>
-                </tr>
-              </thead>
-              <tbody id="brandOptionsBody"></tbody>
-            </table>
-          </div>
-
-          <button type="button" id="btnAddBrandRow" class="btn btn--ghost">＋ 行を追加</button>
-          <button type="button" id="btnSaveBrandOptions" class="btn btn--primary">ブランド設定を保存する</button>
-          <div id="brandOptionsResult" class="result" role="status" aria-live="polite">
-            <span id="brandOptionsSpinner" class="spinner is-hidden" aria-hidden="true"></span>
-            <span id="brandOptionsResultText"></span>
-          </div>
-        </section>
+            <button type="button" id="btnAddBrandRow" class="btn btn--ghost">＋ 行を追加</button>
+            <button type="button" id="btnSaveBrandOptions" class="btn btn--primary">保存する</button>
+            <div id="brandOptionsResult" class="result" role="status" aria-live="polite">
+              <span id="brandOptionsSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+              <span id="brandOptionsResultText"></span>
+            </div>
+          </section>
+        </div>
       </div>
 
       <div class="settingsGroup">
@@ -475,51 +477,48 @@
 
         <section class="card">
           <div class="card__head">
-            <h2>ロゴ画像</h2>
+            <h2>画像設定</h2>
             <p class="muted">
-              ヘッダーに表示するロゴ画像のURLを設定できます。Googleドライブに画像をアップロードし、共有設定を「リンクを知っている全員」に変更した上で、共有リンクのURL（例: https://drive.google.com/file/d/.../view?usp=... の形式）をそのまま貼り付けてください。空欄のまま保存すると、ロゴを表示しない状態に戻せます。
+              ヘッダーのロゴ・起動画面(ローディング画面)の画像を設定できます。Googleドライブに画像をアップロードし、共有設定を「リンクを知っている全員」に変更した上で、共有リンクのURL（例: https://drive.google.com/file/d/.../view?usp=... の形式）を貼り付けてください。空欄のまま保存すると、それぞれ表示しない状態に戻せます。
             </p>
           </div>
 
-          <div class="field">
-            <label for="logoUrlInput">ロゴ画像URL</label>
-            <input type="url" id="logoUrlInput" placeholder="https://..." autocomplete="off">
-          </div>
+          <div class="imageSettingsGrid">
+            <div class="imageSettingsGrid__item">
+              <div class="field">
+                <label for="logoUrlInput">ロゴ画像URL</label>
+                <input type="url" id="logoUrlInput" placeholder="https://..." autocomplete="off">
+              </div>
 
-          <div class="logoPreview" id="logoPreviewWrap">
-            <img id="logoPreviewImg" class="logoPreview__img is-hidden" alt="プレビュー" onerror="this.classList.add('is-hidden')">
-            <span class="muted" id="logoPreviewEmpty">プレビュー: 画像URLを入力すると表示されます</span>
-          </div>
+              <div class="logoPreview" id="logoPreviewWrap">
+                <img id="logoPreviewImg" class="logoPreview__img is-hidden" alt="プレビュー" onerror="this.classList.add('is-hidden')">
+                <span class="muted" id="logoPreviewEmpty">プレビュー: 画像URLを入力すると表示されます</span>
+              </div>
 
-          <button type="button" id="btnSaveLogo" class="btn btn--primary">ロゴを保存する</button>
-          <div id="logoResult" class="result" role="status" aria-live="polite">
-            <span id="logoSpinner" class="spinner is-hidden" aria-hidden="true"></span>
-            <span id="logoResultText"></span>
-          </div>
-        </section>
+              <button type="button" id="btnSaveLogo" class="btn btn--primary">ロゴを保存する</button>
+              <div id="logoResult" class="result" role="status" aria-live="polite">
+                <span id="logoSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+                <span id="logoResultText"></span>
+              </div>
+            </div>
 
-        <section class="card">
-          <div class="card__head">
-            <h2>起動画面（ローディング画面）</h2>
-            <p class="muted">
-              アプリを開いたときに一瞬表示される画面に、お好きな画像を表示できます。Googleドライブに画像をアップロードし、共有設定を「リンクを知っている全員」に変更した上で、共有リンクのURL（例: https://drive.google.com/file/d/.../view?usp=... の形式）をそのまま貼り付けてください。空欄のまま保存すると、画像を表示しない状態に戻せます。
-            </p>
-          </div>
+            <div class="imageSettingsGrid__item">
+              <div class="field">
+                <label for="loadingImageUrlInput">起動画面の画像URL</label>
+                <input type="url" id="loadingImageUrlInput" placeholder="https://..." autocomplete="off">
+              </div>
 
-          <div class="field">
-            <label for="loadingImageUrlInput">起動画面の画像URL</label>
-            <input type="url" id="loadingImageUrlInput" placeholder="https://..." autocomplete="off">
-          </div>
+              <div class="logoPreview" id="loadingImagePreviewWrap">
+                <img id="loadingImagePreviewImg" class="logoPreview__img is-hidden" alt="プレビュー" onerror="this.classList.add('is-hidden')">
+                <span class="muted" id="loadingImagePreviewEmpty">プレビュー: 画像URLを入力すると表示されます</span>
+              </div>
 
-          <div class="logoPreview" id="loadingImagePreviewWrap">
-            <img id="loadingImagePreviewImg" class="logoPreview__img is-hidden" alt="プレビュー" onerror="this.classList.add('is-hidden')">
-            <span class="muted" id="loadingImagePreviewEmpty">プレビュー: 画像URLを入力すると表示されます</span>
-          </div>
-
-          <button type="button" id="btnSaveLoadingImage" class="btn btn--primary">この画像を保存する</button>
-          <div id="loadingImageResult" class="result" role="status" aria-live="polite">
-            <span id="loadingImageSpinner" class="spinner is-hidden" aria-hidden="true"></span>
-            <span id="loadingImageResultText"></span>
+              <button type="button" id="btnSaveLoadingImage" class="btn btn--primary">この画像を保存する</button>
+              <div id="loadingImageResult" class="result" role="status" aria-live="polite">
+                <span id="loadingImageSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+                <span id="loadingImageResultText"></span>
+              </div>
+            </div>
           </div>
         </section>
       </div>

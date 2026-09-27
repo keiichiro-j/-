@@ -155,6 +155,14 @@ function getManagerForCurrentUser() {
 }
 
 /**
+ * 画面上部にログイン中のアカウントを表示するために使う。
+ * @return {string}
+ */
+function getCurrentUserEmail() {
+  return getCurrentUserEmail_();
+}
+
+/**
  * 「設定」画面の他システム連携表示用。ブランドごとの転記先スプレッドシート一覧を返す
  * (未設定なら空配列)。
  * @return {Array<{brand: string, sheetId: string}>}

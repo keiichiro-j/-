@@ -208,6 +208,18 @@
   .masthead__row { display: flex; align-items: center; gap: var(--sp-4); }
   .masthead__logo { flex: none; height: 36px; width: auto; max-width: 160px; object-fit: contain; border-radius: var(--r-xs); }
   .masthead__text { flex: 1; min-width: 0; }
+  .masthead__account {
+    flex: none;
+    font-size: var(--fs-xs);
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 260px;
+  }
+  @media (max-width: 700px) {
+    .masthead__account { display: none; }
+  }
   @media (max-width: 700px) {
     .masthead__logo { height: 30px; max-width: 120px; }
   }
@@ -226,7 +238,7 @@
   .page {
     max-width: none;
     margin: 0;
-    padding: 0 var(--sp-7) 88px;
+    padding: var(--sp-5) var(--sp-7) 48px;
   }
 
   .is-hidden { display: none !important; }
@@ -238,7 +250,7 @@
     flex-wrap: wrap;
     border-bottom: 1px solid var(--line);
     gap: 2px;
-    margin-bottom: var(--sp-6);
+    margin-bottom: var(--sp-5);
   }
   .viewSwitchBtn {
     font-family: inherit;
@@ -264,7 +276,7 @@
 
   /* ---------- 設定画面: グループ見出し(関連する設定カードをまとめる) ---------- */
 
-  .settingsGroup { margin-bottom: var(--sp-7); }
+  .settingsGroup { margin-bottom: var(--sp-6); }
   .settingsGroup:last-child { margin-bottom: 0; }
   .settingsGroup__title {
     font-size: var(--fs-xs);
@@ -280,8 +292,8 @@
   .bento {
     display: grid;
     grid-template-columns: repeat(12, 1fr);
-    gap: 20px;
-    margin-bottom: 20px;
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-4);
   }
   .bento > .card { margin-bottom: 0; }
   .bento--span-12 { grid-column: span 12; }
@@ -299,13 +311,13 @@
     border: 1px solid var(--line);
     border-radius: var(--r-lg);
     box-shadow: var(--shadow-sm);
-    padding: var(--sp-7);
-    margin-bottom: var(--sp-5);
+    padding: var(--sp-6);
+    margin-bottom: var(--sp-4);
     position: relative;
     min-width: 0;
   }
 
-  .card__head { margin-bottom: var(--sp-5); }
+  .card__head { margin-bottom: var(--sp-4); }
   .card__head--split { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); }
   .card__head h2 {
     font-size: var(--fs-md);
@@ -421,6 +433,20 @@
     box-shadow: 0 0 0 3px var(--shu-soft);
   }
 
+  /* ブラウザが「使用者名」等の欄をログイン用ユーザー名欄と誤認識し、autocomplete="off"でも
+     自動入力用の白/黄色っぽい背景を独自に描画することがある。すべての入力欄で他の項目と
+     背景色を揃えるため、オートフィル時の背景色描画を透明(実質的に周囲と同じ背景色)で
+     上書きする(Chrome/Safari/Edge向けの:-webkit-autofillとFirefox向けの:autofillの両方に対応)。 */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:autofill {
+    -webkit-text-fill-color: var(--ink);
+    -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+    box-shadow: 0 0 0 1000px var(--surface) inset;
+    transition: background-color 999999s ease-in-out 0s;
+  }
+
   /* ---------- 飛騨登録トグルボタン ---------- */
 
   .toggleBtn {
@@ -532,18 +558,6 @@
     border-radius: var(--r-xs);
   }
   td input:focus, td select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
-
-  /* 「使用者名」欄はブラウザが「ユーザー名」入力欄と誤認識し、autocomplete="off"でも
-     自動入力用の白/黄色っぽい背景を独自に描画することがある。他の車両データ欄と背景色を
-     揃えるため、オートフィル時の背景色描画を透明(実質的にセルの背景色)で上書きする。 */
-  .v-userName:-webkit-autofill,
-  .v-userName:-webkit-autofill:hover,
-  .v-userName:-webkit-autofill:focus {
-    -webkit-text-fill-color: var(--ink);
-    -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
-    box-shadow: 0 0 0 1000px var(--surface) inset;
-    transition: background-color 999999s ease-in-out 0s;
-  }
 
   .v-autoTax, .v-envTax, .v-weightTax { text-align: right; }
   .colNo { width: 28px; color: var(--muted); }
@@ -927,6 +941,27 @@
   }
   .calEntry__name { font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
   .calEntry__person { color: var(--ink-soft); overflow-wrap: anywhere; }
+
+  /* ---------- 設定画面: 画像設定(ロゴ・起動画面を1カードにまとめ、2カラムで表示) ---------- */
+
+  .imageSettingsGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--sp-6);
+  }
+  .imageSettingsGrid__item + .imageSettingsGrid__item {
+    border-left: 1px solid var(--line);
+    padding-left: var(--sp-6);
+  }
+  @media (max-width: 700px) {
+    .imageSettingsGrid { grid-template-columns: 1fr; gap: var(--sp-5); }
+    .imageSettingsGrid__item + .imageSettingsGrid__item {
+      border-left: none;
+      padding-left: 0;
+      border-top: 1px solid var(--line);
+      padding-top: var(--sp-5);
+    }
+  }
 
   /* ---------- 設定画面: ロゴ画像プレビュー ---------- */
 

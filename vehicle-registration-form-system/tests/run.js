@@ -752,15 +752,23 @@ test('担当者マスタに一致するアカウントがあれば担当者名�
   sandbox.currentUserEmail = 'Yamada@Example.com'; // 大文字小文字は区別しない
   assert.strictEqual(sandbox.getManagerForCurrentUser_(), '山田太郎');
 });
-test('一致するアカウントがなければ空文字を返す', () => {
+test('一致するアカウントがなければメールアドレス自体を返す(未登録でも空欄にしない)', () => {
   sandbox.saveStaffMaster_([{ name: '山田太郎', email: 'yamada@example.com' }]);
   sandbox.currentUserEmail = 'unknown@example.com';
-  assert.strictEqual(sandbox.getManagerForCurrentUser_(), '');
+  assert.strictEqual(sandbox.getManagerForCurrentUser_(), 'unknown@example.com');
 });
 test('ログインアカウントを取得できない場合も空文字を返す(エラーにしない)', () => {
   sandbox.saveStaffMaster_([{ name: '山田太郎', email: 'yamada@example.com' }]);
   sandbox.currentUserEmail = '';
   assert.strictEqual(sandbox.getManagerForCurrentUser_(), '');
+});
+test('getCurrentUserEmail_はログイン中のアカウントをそのまま返す', () => {
+  sandbox.currentUserEmail = 'yamada@example.com';
+  assert.strictEqual(sandbox.getCurrentUserEmail_(), 'yamada@example.com');
+});
+test('getCurrentUserEmail_はアカウントを取得できない場合は空文字を返す', () => {
+  sandbox.currentUserEmail = '';
+  assert.strictEqual(sandbox.getCurrentUserEmail_(), '');
 });
 
 console.log('== BrandService: ブランドの選択肢 ==');

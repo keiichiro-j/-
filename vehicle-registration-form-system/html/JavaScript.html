@@ -388,6 +388,7 @@
     initPdfDefaultRange_();
     document.getElementById('mailSendDate').value = formatDateInput_(new Date());
     loadMailRecipients_();
+    loadCurrentUserAccount_();
     loadManagerForCurrentUser_();
     loadStaffMaster_();
     loadBrandOptions_();
@@ -1090,6 +1091,19 @@
   function applyManagerAutofill_() {
     if (!loginManagerName_) return;
     document.getElementById('manager').value = loginManagerName_;
+  }
+
+  // 画面上部にログイン中のGoogleアカウントを表示する(「誰としてログインしているか」を
+  // 一目でわかるようにするための軽い表示。取得できない場合は何も表示しない)。
+  function loadCurrentUserAccount_() {
+    google.script.run
+      .withSuccessHandler(function (email) {
+        var el = document.getElementById('mastheadAccount');
+        if (!email) { el.classList.add('is-hidden'); return; }
+        el.textContent = email;
+        el.classList.remove('is-hidden');
+      })
+      .getCurrentUserEmail();
   }
 
   function loadManagerForCurrentUser_() {
