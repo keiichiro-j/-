@@ -53,17 +53,20 @@ function sendPdfsByEmail(sendDate, recipients) {
 
 /**
  * メール送信フォームの初期表示用。前回送信時に使った宛先を返す(入力の手間を減らすため)。
+ * 「送付書PDF」画面のメール送信機能でも同じ宛先欄を使うため、権限者以外でも取得できる
+ * 必要がある(宛先の変更・保存(saveMailRecipients)自体は権限者のみに制限している)。
  */
 function getMailRecipients() {
   return getSavedMailRecipients_();
 }
 
 /**
- * 「設定」画面のメール送信先保存ボタン用。送信は行わず、宛先の検証と保存だけを行う。
+ * 「設定」画面のメール送信先保存ボタン用(権限者のみ)。送信は行わず、宛先の検証と保存だけを行う。
  * @param {Array<string>} recipients
  * @return {{recipientCount: number}}
  */
 function saveMailRecipients(recipients) {
+  assertAuthorizedAdmin_();
   return saveMailRecipientsOnly_(recipients);
 }
 
@@ -76,11 +79,12 @@ function getDailyMailTriggerStatus() {
 }
 
 /**
- * 「設定」画面の自動送信トグル用。トリガーの作成/削除を行い、切り替え後の状態を返す。
+ * 「設定」画面の自動送信トグル用(権限者のみ)。トリガーの作成/削除を行い、切り替え後の状態を返す。
  * @param {boolean} enabled
  * @return {boolean}
  */
 function setDailyMailTriggerEnabled(enabled) {
+  assertAuthorizedAdmin_();
   return setDailyMailTriggerEnabled_(!!enabled);
 }
 
@@ -102,11 +106,12 @@ function getLogoUrl() {
 }
 
 /**
- * 「設定」画面のロゴ画像URL保存ボタン用。
+ * 「設定」画面のロゴ画像URL保存ボタン用(権限者のみ)。
  * @param {string} url
  * @return {string}
  */
 function saveLogoUrl(url) {
+  assertAuthorizedAdmin_();
   return saveLogoUrl_(url);
 }
 
@@ -119,29 +124,32 @@ function getLoadingImageUrl() {
 }
 
 /**
- * 「設定」画面の起動画面(ローディング画面)画像URL保存用。ロゴ画像URLと同じく
+ * 「設定」画面の起動画面(ローディング画面)画像URL保存用(権限者のみ)。ロゴ画像URLと同じく
  * Googleドライブの共有リンクを表示用URLへ自動変換する。空欄で保存すると画像なしに戻せる。
  * @param {string} url
  * @return {string} 保存後のURL(変換・トリム済み)
  */
 function saveLoadingImageUrl(url) {
+  assertAuthorizedAdmin_();
   return saveLoadingImageUrl_(url);
 }
 
 /**
- * 「設定」画面の担当者マスタ表示用。
+ * 「設定」画面の担当者マスタ表示用(権限者のみ)。
  * @return {Array<{name: string, email: string}>}
  */
 function getStaffMaster() {
+  assertAuthorizedAdmin_();
   return getStaffMaster_();
 }
 
 /**
- * 「設定」画面の担当者マスタ保存ボタン用。
+ * 「設定」画面の担当者マスタ保存ボタン用(権限者のみ)。
  * @param {Array<{name: string, email: string}>} rows
  * @return {Array<{name: string, email: string}>}
  */
 function saveStaffMaster(rows) {
+  assertAuthorizedAdmin_();
   return saveStaffMaster_(rows);
 }
 
@@ -180,25 +188,28 @@ function saveThemePreference(theme) {
 }
 
 /**
- * 「設定」画面の他システム連携表示用。ブランドごとの転記先スプレッドシート一覧を返す
+ * 「設定」画面の他システム連携表示用(権限者のみ)。ブランドごとの転記先スプレッドシート一覧を返す
  * (未設定なら空配列)。
  * @return {Array<{brand: string, sheetId: string}>}
  */
 function getExternalSyncSheets() {
+  assertAuthorizedAdmin_();
   return getExternalSyncSheets_();
 }
 
 /**
- * 「設定」画面の他システム連携保存ボタン用。
+ * 「設定」画面の他システム連携保存ボタン用(権限者のみ)。
  * @param {Array<{brand: string, sheetId: string}>} rows
  * @return {Array<{brand: string, sheetId: string}>}
  */
 function saveExternalSyncSheets(rows) {
+  assertAuthorizedAdmin_();
   return saveExternalSyncSheets_(rows);
 }
 
 /**
- * 「設定」画面のブランド設定表示用。
+ * 「設定」画面のブランド設定表示用。申請フォームのブランド選択候補としても使うため
+ * 権限者以外でも取得できる必要がある。
  * @return {Array<string>}
  */
 function getBrandOptions() {
@@ -206,12 +217,21 @@ function getBrandOptions() {
 }
 
 /**
- * 「設定」画面のブランド設定保存ボタン用。
+ * 「設定」画面のブランド設定保存ボタン用(権限者のみ)。
  * @param {Array<string>} brands
  * @return {Array<string>}
  */
 function saveBrandOptions(brands) {
+  assertAuthorizedAdmin_();
   return saveBrandOptions_(brands);
+}
+
+/**
+ * 「設定」画面の表示切り替え用。ログイン中のGoogleアカウントが権限者かどうかを返す。
+ * @return {boolean}
+ */
+function isAuthorizedAdmin() {
+  return isAuthorizedAdmin_();
 }
 
 // 二重送信防止用トークンのキャッシュ保持時間(秒)。ボタン連打やネットワーク遅延による

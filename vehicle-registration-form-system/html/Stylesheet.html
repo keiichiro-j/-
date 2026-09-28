@@ -271,6 +271,9 @@
   .masthead {
     background: var(--surface);
     border-bottom: 1px solid var(--line);
+    position: sticky;
+    top: 0;
+    z-index: 110;
   }
   .masthead__inner { max-width: none; margin: 0; padding: var(--sp-5) var(--sp-7); }
   .masthead__row { display: flex; align-items: center; gap: var(--sp-4); }
@@ -319,6 +322,10 @@
     border-bottom: 1px solid var(--line);
     gap: 2px;
     margin-bottom: var(--sp-5);
+    position: sticky;
+    top: var(--masthead-height, 77px);
+    z-index: 100;
+    background: var(--bg);
   }
   .viewSwitchBtn {
     font-family: inherit;
@@ -344,6 +351,7 @@
 
   /* ---------- 設定画面: グループ見出し(関連する設定カードをまとめる) ---------- */
 
+  .settingsAdminNotice { margin-bottom: var(--sp-5); }
   .settingsGroup { margin-bottom: var(--sp-6); }
   .settingsGroup:last-child { margin-bottom: 0; }
   .settingsGroup__title {
@@ -484,9 +492,8 @@
 
   .themeSwatches {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+    grid-template-columns: repeat(12, 1fr);
     gap: var(--sp-3);
-    max-width: 820px;
   }
   .themeSwatch {
     display: flex;
@@ -545,8 +552,14 @@
   .themeSwatch__label { font-size: var(--fs-2xs); font-weight: 600; color: var(--ink-soft); text-align: center; }
   .themeSwatch.is-active .themeSwatch__label { color: var(--ink); }
 
-  @media (max-width: 700px) {
-    .themeSwatches { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); }
+  @media (max-width: 900px) {
+    /* 画面が狭くても2段組みにはせず、横スクロールで1列表示を保つ */
+    .themeSwatches {
+      display: flex;
+      overflow-x: auto;
+      padding-bottom: var(--sp-2);
+    }
+    .themeSwatch { flex: none; width: 92px; }
   }
 
   /* ---------- 入力欄 ---------- */

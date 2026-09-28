@@ -394,10 +394,7 @@
     loadCurrentUserAccount_();
     syncThemeFromServer_();
     loadManagerForCurrentUser_();
-    loadStaffMaster_();
-    loadBrandOptions_();
-    loadExternalSyncSheets_();
-    loadAutoMailStatus_();
+    loadAdminSettings_();
     document.querySelectorAll('.tableScroll').forEach(function (el) {
       updateScrollShadow_(el);
       el.addEventListener('scroll', function () { updateScrollShadow_(el); });
@@ -420,6 +417,14 @@
     var noEl = document.querySelector('#vehicleTable thead .colNo');
     var width = noEl ? noEl.getBoundingClientRect().width : 0;
     document.documentElement.style.setProperty('--sticky-username-left', width + 'px');
+
+    // タイトル(masthead)の実際の高さを取得し、その直下に画面切り替えタブが
+    // 隙間なく固定表示されるようにする(--masthead-heightはStylesheet.htmlの
+    // .viewSwitchのtopオフセットとして使う)。
+    var masthead = document.querySelector('.masthead');
+    if (masthead) {
+      document.documentElement.style.setProperty('--masthead-height', masthead.getBoundingClientRect().height + 'px');
+    }
   }
 
   // 横スクロールできる余地がまだ右側にあるとき、その旨をうっすらとした影で示す(スマホでの見切れ対策)。
@@ -1099,13 +1104,25 @@
 
   // 画面上部にログイン中のGoogleアカウントを表示する(「誰としてログインしているか」を
   // 一目でわかるようにするための軽い表示。取得できない場合は何も表示しない)。
+  // 担当者マスタに登録済みのアカウントであれば、担当者名も合わせて表示する。
+  var currentUserEmail_ = '';
+
+  function renderMastheadAccount_() {
+    var el = document.getElementById('mastheadAccount');
+    if (!currentUserEmail_) { el.classList.add('is-hidden'); return; }
+    var text = currentUserEmail_;
+    if (loginManagerName_ && loginManagerName_ !== currentUserEmail_) {
+      text = loginManagerName_ + '（' + currentUserEmail_ + '）';
+    }
+    el.textContent = text;
+    el.classList.remove('is-hidden');
+  }
+
   function loadCurrentUserAccount_() {
     google.script.run
       .withSuccessHandler(function (email) {
-        var el = document.getElementById('mastheadAccount');
-        if (!email) { el.classList.add('is-hidden'); return; }
-        el.textContent = email;
-        el.classList.remove('is-hidden');
+        currentUserEmail_ = email || '';
+        renderMastheadAccount_();
       })
       .getCurrentUserEmail();
   }
@@ -1115,8 +1132,41 @@
       .withSuccessHandler(function (name) {
         loginManagerName_ = name || '';
         applyManagerAutofill_();
+        renderMastheadAccount_();
       })
       .getManagerForCurrentUser();
+  }
+
+  // ---------- 設定画面: 権限者(admin)判定によるテーマ以外の設定項目の表示制御 ----------
+  // 「設定」画面のテーマ以外の項目(メール・申請フォーム・他システム連携・画像設定)は、
+  // AuthService.gsに直接メールアドレスを登録した権限者でログインした場合のみ表示する
+  // (保存系APIもサーバー側で同様にチェックしているため、UIを非表示にするだけでなく
+  // 実際にも操作できない)。
+
+  function applyAdminVisibility_(isAdmin) {
+    ['settingsGroupMail', 'settingsGroupForm', 'settingsGroupExternal', 'cardImageSettings'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.toggle('is-hidden', !isAdmin);
+    });
+    var notice = document.getElementById('settingsAdminNotice');
+    if (notice) notice.classList.toggle('is-hidden', isAdmin);
+  }
+
+  function loadAdminSettings_() {
+    google.script.run
+      .withSuccessHandler(function (isAdmin) {
+        applyAdminVisibility_(!!isAdmin);
+        if (isAdmin) {
+          loadStaffMaster_();
+          loadBrandOptions_();
+          loadExternalSyncSheets_();
+          loadAutoMailStatus_();
+        }
+      })
+      .withFailureHandler(function () {
+        applyAdminVisibility_(false);
+      })
+      .isAuthorizedAdmin();
   }
 
   // ---------- 設定画面: 担当者マスタ(担当者名 <-> Googleアカウント) ----------

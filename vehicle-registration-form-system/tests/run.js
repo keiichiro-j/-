@@ -110,7 +110,7 @@ const sandbox = {
 };
 vm.createContext(sandbox);
 
-const FILES = ['Constants.gs', 'ValidationService.gs', 'HistoryService.gs', 'TemplateService.gs', 'EmailService.gs', 'SettingsService.gs', 'BrandService.gs', 'ExternalSyncService.gs'];
+const FILES = ['Constants.gs', 'ValidationService.gs', 'HistoryService.gs', 'TemplateService.gs', 'EmailService.gs', 'SettingsService.gs', 'BrandService.gs', 'ExternalSyncService.gs', 'AuthService.gs'];
 FILES.forEach((file) => {
   const code = fs.readFileSync(path.join(ROOT, file), 'utf8');
   vm.runInContext(code, sandbox, { filename: file });
@@ -777,6 +777,60 @@ test('getCurrentUserEmail_はログイン中のアカウントをそのまま返
 test('getCurrentUserEmail_はアカウントを取得できない場合は空文字を返す', () => {
   sandbox.currentUserEmail = '';
   assert.strictEqual(sandbox.getCurrentUserEmail_(), '');
+});
+
+console.log('== AuthService: 権限者判定 ==');
+test('AUTHORIZED_ADMIN_EMAILS_は初期状態では空(誰も権限者ではない)', () => {
+  assert.strictEqual(sandbox.AUTHORIZED_ADMIN_EMAILS_.length, 0);
+});
+test('権限者リストに含まれるアカウントはisAuthorizedAdmin_がtrueを返す', () => {
+  sandbox.AUTHORIZED_ADMIN_EMAILS_.push('admin@example.com');
+  try {
+    sandbox.currentUserEmail = 'admin@example.com';
+    assert.strictEqual(sandbox.isAuthorizedAdmin_(), true);
+  } finally {
+    sandbox.AUTHORIZED_ADMIN_EMAILS_.length = 0;
+  }
+});
+test('大文字小文字・前後の空白が違っても同一メールアドレスとみなす', () => {
+  sandbox.AUTHORIZED_ADMIN_EMAILS_.push(' Admin@Example.com ');
+  try {
+    sandbox.currentUserEmail = 'admin@example.com';
+    assert.strictEqual(sandbox.isAuthorizedAdmin_(), true);
+  } finally {
+    sandbox.AUTHORIZED_ADMIN_EMAILS_.length = 0;
+  }
+});
+test('権限者リストに含まれないアカウントはisAuthorizedAdmin_がfalseを返す', () => {
+  sandbox.AUTHORIZED_ADMIN_EMAILS_.push('admin@example.com');
+  try {
+    sandbox.currentUserEmail = 'other@example.com';
+    assert.strictEqual(sandbox.isAuthorizedAdmin_(), false);
+  } finally {
+    sandbox.AUTHORIZED_ADMIN_EMAILS_.length = 0;
+  }
+});
+test('ログインアカウントを取得できない場合はisAuthorizedAdmin_がfalseを返す', () => {
+  sandbox.AUTHORIZED_ADMIN_EMAILS_.push('admin@example.com');
+  try {
+    sandbox.currentUserEmail = '';
+    assert.strictEqual(sandbox.isAuthorizedAdmin_(), false);
+  } finally {
+    sandbox.AUTHORIZED_ADMIN_EMAILS_.length = 0;
+  }
+});
+test('assertAuthorizedAdmin_は権限者なら何もしない', () => {
+  sandbox.AUTHORIZED_ADMIN_EMAILS_.push('admin@example.com');
+  try {
+    sandbox.currentUserEmail = 'admin@example.com';
+    assert.doesNotThrow(() => sandbox.assertAuthorizedAdmin_());
+  } finally {
+    sandbox.AUTHORIZED_ADMIN_EMAILS_.length = 0;
+  }
+});
+test('assertAuthorizedAdmin_は権限者でなければ例外を投げる', () => {
+  sandbox.currentUserEmail = 'other@example.com';
+  assert.throws(() => sandbox.assertAuthorizedAdmin_(), /権限がありません/);
 });
 
 console.log('== SettingsService: テーマ設定(Googleアカウントごとに保存) ==');
