@@ -417,14 +417,6 @@
     var noEl = document.querySelector('#vehicleTable thead .colNo');
     var width = noEl ? noEl.getBoundingClientRect().width : 0;
     document.documentElement.style.setProperty('--sticky-username-left', width + 'px');
-
-    // タイトル(masthead)の実際の高さを取得し、その直下に画面切り替えタブが
-    // 隙間なく固定表示されるようにする(--masthead-heightはStylesheet.htmlの
-    // .viewSwitchのtopオフセットとして使う)。
-    var masthead = document.querySelector('.masthead');
-    if (masthead) {
-      document.documentElement.style.setProperty('--masthead-height', masthead.getBoundingClientRect().height + 'px');
-    }
   }
 
   // 横スクロールできる余地がまだ右側にあるとき、その旨をうっすらとした影で示す(スマホでの見切れ対策)。
@@ -1110,11 +1102,11 @@
   function renderMastheadAccount_() {
     var el = document.getElementById('mastheadAccount');
     if (!currentUserEmail_) { el.classList.add('is-hidden'); return; }
-    var text = currentUserEmail_;
-    if (loginManagerName_ && loginManagerName_ !== currentUserEmail_) {
-      text = loginManagerName_ + '（' + currentUserEmail_ + '）';
-    }
-    el.textContent = text;
+    document.getElementById('mastheadAccountEmail').textContent = currentUserEmail_;
+    var managerEl = document.getElementById('mastheadAccountManager');
+    var hasManagerName = loginManagerName_ && loginManagerName_ !== currentUserEmail_;
+    managerEl.textContent = hasManagerName ? loginManagerName_ : '';
+    managerEl.classList.toggle('is-hidden', !hasManagerName);
     el.classList.remove('is-hidden');
   }
 

@@ -268,26 +268,39 @@
 
   /* ---------- masthead(白地・シンプルなヘッダー) ---------- */
 
+  /* ヘッダー(タイトル行+画面切り替えタブ)をまとめて1つの固定表示ブロックにする
+     (下にスクロールしても常に画面上部から動かない。全ページ共通)。
+     タブを含めてheader要素ごとposition: stickyにすることで、タブ側で個別に
+     ヘッダーの高さをJSから計算・同期する必要がなくなり、ズレが起きない。 */
   .masthead {
     background: var(--surface);
-    border-bottom: 1px solid var(--line);
     position: sticky;
     top: 0;
     z-index: 110;
+    margin-bottom: var(--sp-5);
   }
-  .masthead__inner { max-width: none; margin: 0; padding: var(--sp-5) var(--sp-7); }
+  .masthead__inner { max-width: none; margin: 0; padding: var(--sp-5) var(--sp-7); border-bottom: 1px solid var(--line); }
   .masthead__row { display: flex; align-items: center; gap: var(--sp-4); }
   .masthead__logo { flex: none; height: 36px; width: auto; max-width: 160px; object-fit: contain; border-radius: var(--r-xs); }
   .masthead__text { flex: 1; min-width: 0; }
   .masthead__account {
     flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
     font-size: var(--fs-xs);
     color: var(--muted);
+    max-width: 260px;
+  }
+  .masthead__accountEmail, .masthead__accountManager {
+    max-width: 100%;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 260px;
   }
+  .masthead__accountManager { font-weight: 700; color: var(--ink-soft); }
+  .masthead__accountManager.is-hidden { display: none; }
   @media (max-width: 700px) {
     .masthead__account { display: none; }
   }
@@ -309,23 +322,21 @@
   .page {
     max-width: none;
     margin: 0;
-    padding: var(--sp-5) var(--sp-7) 48px;
+    padding: 0 var(--sp-7) 48px;
   }
 
   .is-hidden { display: none !important; }
 
-  /* ---------- 画面切り替え(申請 / 履歴確認 / 送付書PDF / 設定) ---------- */
+  /* ---------- 画面切り替え(申請 / 履歴確認 / 送付書PDF / 設定) ----------
+     masthead(ヘッダー)の内側に置き、header要素ごとposition: stickyにすることで
+     タイトルとタブが常に隙間なく一体で固定表示されるようにしている。 */
 
   .viewSwitch {
     display: flex;
     flex-wrap: wrap;
     border-bottom: 1px solid var(--line);
     gap: 2px;
-    margin-bottom: var(--sp-5);
-    position: sticky;
-    top: var(--masthead-height, 77px);
-    z-index: 100;
-    background: var(--bg);
+    padding: var(--sp-5) var(--sp-7) 0;
   }
   .viewSwitchBtn {
     font-family: inherit;
@@ -1185,6 +1196,7 @@
 
   @media (max-width: 700px) {
     .masthead__inner { padding: 24px; }
+    .viewSwitch { padding: 0 16px 0; }
     .page { padding: 0 16px 64px; }
     .card { padding: 20px; }
     .submitBar__row { flex-direction: column-reverse; }
@@ -1198,6 +1210,7 @@
 
   @media (max-width: 400px) {
     .masthead__inner { padding: 18px 16px; }
+    .viewSwitch { padding: 0 12px 0; }
     .page { padding: 0 12px 56px; }
     .card { padding: 16px; }
   }
