@@ -3,6 +3,36 @@
  * 「設定」画面向けの各種設定値の取得・保存(申請フォームの既定値・ロゴ画像URL)。
  */
 
+var THEME_PREFERENCE_PROP_KEY = 'themePreference';
+var THEME_OPTIONS = [
+  'mono', 'sand', 'forest', 'rose', 'sky', 'lavender',
+  'dark', 'navy', 'amber', 'teal', 'indigo', 'crimson'
+];
+
+/**
+ * ログイン中のGoogleアカウントに紐づくテーマの好みを返す(未設定・不正なら空文字)。
+ * PropertiesService.getUserProperties() は実行ユーザーごとに独立したストレージなので、
+ * 同じアプリを複数人で使っても他人の設定を読み書きすることはない。
+ * @return {string}
+ */
+function getThemePreference_() {
+  var value = PropertiesService.getUserProperties().getProperty(THEME_PREFERENCE_PROP_KEY) || '';
+  return THEME_OPTIONS.indexOf(value) !== -1 ? value : '';
+}
+
+/**
+ * 「設定」画面のテーマ選択用。ログイン中のGoogleアカウントに紐づけて保存する。
+ * @param {string} theme THEME_OPTIONSのいずれか
+ * @return {string} 保存したテーマ
+ */
+function saveThemePreference_(theme) {
+  if (THEME_OPTIONS.indexOf(theme) === -1) {
+    throw new Error('不正なテーマです: ' + theme);
+  }
+  PropertiesService.getUserProperties().setProperty(THEME_PREFERENCE_PROP_KEY, theme);
+  return theme;
+}
+
 var DEFAULT_FORM_VALUES_PROP_KEY = 'defaultFormValues';
 
 /**
@@ -100,4 +130,88 @@ function saveLoadingImageUrl_(url) {
   }
   PropertiesService.getScriptProperties().setProperty(LOADING_IMAGE_URL_PROP_KEY, trimmed);
   return trimmed;
+}
+
+var STAFF_MASTER_PROP_KEY = 'staffMaster';
+
+/**
+ * 担当者マスタ(担当者名 <-> Googleアカウントの対応表)を返す。未設定・不正なら空配列。
+ * @return {Array<{name: string, email: string}>}
+ */
+function getStaffMaster_() {
+  var raw = PropertiesService.getScriptProperties().getProperty(STAFF_MASTER_PROP_KEY);
+  if (!raw) return [];
+  try {
+    var parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map(function (row) {
+        return {
+          name: typeof row.name === 'string' ? row.name.trim() : '',
+          email: typeof row.email === 'string' ? row.email.trim().toLowerCase() : ''
+        };
+      })
+      .filter(function (row) { return row.name && row.email; });
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
+ * 「設定」画面の担当者マスタ保存ボタン用。担当者名・Googleアカウントのどちらも
+ * 空の行は無視して保存する。片方だけ入力されている行や、メール形式が不正な行はエラーにする。
+ * @param {Array<{name: string, email: string}>} rows
+ * @return {Array<{name: string, email: string}>} 保存後の内容(トリム済み)
+ */
+function saveStaffMaster_(rows) {
+  var cleaned = (rows || [])
+    .map(function (row) {
+      return {
+        name: String((row && row.name) || '').trim(),
+        email: String((row && row.email) || '').trim().toLowerCase()
+      };
+    })
+    .filter(function (row) { return row.name || row.email; });
+
+  cleaned.forEach(function (row) {
+    if (!row.name || !row.email) {
+      throw new Error('担当者名・Googleアカウントは両方入力してください(' + (row.name || row.email) + ')');
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.email)) {
+      throw new Error('Googleアカウントの形式が正しくありません: ' + row.email);
+    }
+  });
+
+  PropertiesService.getScriptProperties().setProperty(STAFF_MASTER_PROP_KEY, JSON.stringify(cleaned));
+  return cleaned;
+}
+
+/**
+ * 現在ログイン中のユーザーのGoogleアカウント(メールアドレス)を返す。取得できない場合は空文字。
+ * Webアプリの公開設定が「アクセスしたユーザーとして実行」でないと、常に空文字(または
+ * 実行者自身のアカウント)になる点に注意。
+ * @return {string}
+ */
+function getCurrentUserEmail_() {
+  try {
+    return Session.getActiveUser().getEmail() || '';
+  } catch (e) {
+    return '';
+  }
+}
+
+/**
+ * 現在ログイン中のユーザーのGoogleアカウントを担当者マスタと照合し、一致する担当者名を返す。
+ * 一致しない場合は空文字を返す(新車新規登録依頼書 発行システムと異なり、本アプリには
+ * 「申請フォームの既定値」機能が既にあるため、未登録時はメールアドレス自体を返さず、
+ * 呼び出し側でその既定値・手入力へフォールバックできるようにしている)。
+ * @return {string}
+ */
+function getManagerForCurrentUser_() {
+  var email = getCurrentUserEmail_();
+  if (!email) return '';
+  email = email.trim().toLowerCase();
+
+  var match = getStaffMaster_().filter(function (row) { return row.email === email; })[0];
+  return match ? match.name : '';
 }

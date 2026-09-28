@@ -28,15 +28,11 @@
           <h1>中間登録書類送付書 発行システム</h1>
           <p class="lead">登録証明・名義変更・抹消・番号変更の依頼内容を入力すると、履歴に記録した上でPDFを発行します。</p>
         </div>
+        <span class="masthead__account is-hidden" id="mastheadAccount">
+          <span class="masthead__accountEmail" id="mastheadAccountEmail"></span>
+          <span class="masthead__accountManager" id="mastheadAccountManager"></span>
+        </span>
       </div>
-    </div>
-  </header>
-
-  <div class="page">
-    <div class="statusBar" id="statusBar">
-      <span class="statusBar__item"><span class="liveDot" aria-hidden="true"></span>本日の送付 <strong id="statusTodayCount">-</strong> 件</span>
-      <span class="statusBar__sep">・</span>
-      <span class="statusBar__item" id="statusLatest">最新の状況を取得しています…</span>
     </div>
 
     <nav class="viewSwitch" role="tablist" aria-label="画面切り替え">
@@ -45,6 +41,14 @@
       <button type="button" class="viewSwitchBtn" id="navPdf" role="tab" aria-selected="false">送付書PDF</button>
       <button type="button" class="viewSwitchBtn" id="navSettings" role="tab" aria-selected="false">設定</button>
     </nav>
+  </header>
+
+  <div class="page">
+    <div class="statusBar" id="statusBar">
+      <span class="statusBar__item"><span class="liveDot" aria-hidden="true"></span>本日の送付 <strong id="statusTodayCount">-</strong> 件</span>
+      <span class="statusBar__sep">・</span>
+      <span class="statusBar__item" id="statusLatest">最新の状況を取得しています…</span>
+    </div>
 
     <div id="viewForm">
     <form id="mainForm" novalidate>
@@ -302,139 +306,281 @@
     </div>
 
     <div id="viewSettings" class="is-hidden">
-      <div class="bento">
-        <section class="card bento--span-6">
-          <div class="card__head">
-            <h2>メール送信先</h2>
-            <p class="muted">「送付書PDF」画面でメール送信する際の宛先です（最大4件・1件以上必須）。ここで保存した内容が送信時に使用されます。</p>
-          </div>
 
-          <div class="mailRecipients">
-            <div class="mailRecipients__grid">
-              <input type="email" class="mailRecipientInput" id="mailTo1" placeholder="宛先1（例: you@example.com）" autocomplete="off">
-              <input type="email" class="mailRecipientInput" id="mailTo2" placeholder="宛先2" autocomplete="off">
-              <input type="email" class="mailRecipientInput" id="mailTo3" placeholder="宛先3" autocomplete="off">
-              <input type="email" class="mailRecipientInput" id="mailTo4" placeholder="宛先4" autocomplete="off">
+      <p class="muted settingsAdminNotice is-hidden" id="settingsAdminNotice">テーマ以外の設定は権限者のみ表示・変更できます。</p>
+
+      <div class="settingsGroup" id="settingsGroupMail">
+        <h3 class="settingsGroup__title">メール</h3>
+        <div class="bento">
+          <section class="card bento--span-6">
+            <div class="card__head">
+              <h2>送信先</h2>
+              <p class="muted">「送付書PDF」画面でメール送信する際の宛先です（最大4件・1件以上必須）。ここで保存した内容が送信時に使用されます。</p>
             </div>
-          </div>
 
-          <button type="button" id="btnSaveMailRecipients" class="btn btn--primary">宛先を保存する</button>
-          <div id="mailSettingsResult" class="result" role="status" aria-live="polite">
-            <span id="mailSettingsSpinner" class="spinner is-hidden" aria-hidden="true"></span>
-            <span id="mailSettingsResultText"></span>
-          </div>
-        </section>
-
-        <section class="card bento--span-6">
-          <div class="card__head">
-            <h2>自動メール送信</h2>
-            <p class="muted">毎日17時台に、その日が送付日の送付書PDFを上の宛先へ自動でメール送信します。</p>
-          </div>
-          <div class="switchRow">
-            <button type="button" id="autoMailToggle" class="switch" role="switch" aria-checked="false">
-              <span class="switch__track"><span class="switch__knob"></span></span>
-            </button>
-            <span class="switchRow__label is-off" id="autoMailStatusLabel">
-              <span class="switchRow__dot"></span>
-              <span id="autoMailStatusText">OFF（自動送信は停止中）</span>
-            </span>
-          </div>
-          <div id="autoMailResult" class="result" role="status" aria-live="polite">
-            <span id="autoMailSpinner" class="spinner is-hidden" aria-hidden="true"></span>
-            <span id="autoMailResultText"></span>
-          </div>
-        </section>
-
-        <section class="card bento--span-6">
-          <div class="card__head">
-            <h2>申請フォームの既定値</h2>
-            <p class="muted">よく使う依頼会社名・担当者名を登録しておくと、申請フォームを開いたときに自動で入力されます（空欄の項目は自動入力しません）。</p>
-          </div>
-
-          <div class="fieldRow">
-            <div class="field">
-              <label for="defaultCompany">依頼会社名</label>
-              <input type="text" id="defaultCompany" autocomplete="off">
+            <div class="mailRecipients">
+              <div class="mailRecipients__grid">
+                <input type="email" class="mailRecipientInput" id="mailTo1" placeholder="宛先1（例: you@example.com）" autocomplete="off">
+                <input type="email" class="mailRecipientInput" id="mailTo2" placeholder="宛先2" autocomplete="off">
+                <input type="email" class="mailRecipientInput" id="mailTo3" placeholder="宛先3" autocomplete="off">
+                <input type="email" class="mailRecipientInput" id="mailTo4" placeholder="宛先4" autocomplete="off">
+              </div>
             </div>
-            <div class="field">
-              <label for="defaultManager">担当者名</label>
-              <input type="text" id="defaultManager" autocomplete="off">
+
+            <button type="button" id="btnSaveMailRecipients" class="btn btn--primary">宛先を保存する</button>
+            <div id="mailSettingsResult" class="result" role="status" aria-live="polite">
+              <span id="mailSettingsSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+              <span id="mailSettingsResultText"></span>
             </div>
-          </div>
+          </section>
 
-          <button type="button" id="btnSaveDefaults" class="btn btn--primary">既定値を保存する</button>
-          <div id="defaultsResult" class="result" role="status" aria-live="polite">
-            <span id="defaultsSpinner" class="spinner is-hidden" aria-hidden="true"></span>
-            <span id="defaultsResultText"></span>
-          </div>
-        </section>
+          <section class="card bento--span-6">
+            <div class="card__head">
+              <h2>自動送信</h2>
+              <p class="muted">毎日17時台に、その日が送付日の送付書PDFを上の宛先へ自動でメール送信します。</p>
+            </div>
+            <div class="switchRow">
+              <button type="button" id="autoMailToggle" class="switch" role="switch" aria-checked="false">
+                <span class="switch__track"><span class="switch__knob"></span></span>
+              </button>
+              <span class="switchRow__label is-off" id="autoMailStatusLabel">
+                <span class="switchRow__dot"></span>
+                <span id="autoMailStatusText">OFF（自動送信は停止中）</span>
+              </span>
+            </div>
+            <div id="autoMailResult" class="result" role="status" aria-live="polite">
+              <span id="autoMailSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+              <span id="autoMailResultText"></span>
+            </div>
+          </section>
+        </div>
+      </div>
 
-        <section class="card bento--span-6">
+      <div class="settingsGroup" id="settingsGroupForm">
+        <h3 class="settingsGroup__title">申請フォーム</h3>
+        <div class="bento">
+          <section class="card bento--span-6">
+            <div class="card__head">
+              <h2>担当者マスタ</h2>
+              <p class="muted">担当者名とGoogleアカウントを登録しておくと、そのアカウントでログインした人が「担当者名」欄へ自動で入力されます（未登録のアカウントは、下の「申請フォームの既定値」が使われます）。</p>
+            </div>
+
+            <div class="tableScroll">
+              <table id="staffMasterTable" class="staffMasterTable">
+                <thead>
+                  <tr>
+                    <th>担当者名</th>
+                    <th>Googleアカウント</th>
+                    <th class="colDel"></th>
+                  </tr>
+                </thead>
+                <tbody id="staffMasterBody"></tbody>
+              </table>
+            </div>
+
+            <button type="button" id="btnAddStaffRow" class="btn btn--ghost">＋ 行を追加</button>
+            <button type="button" id="btnSaveStaffMaster" class="btn btn--primary">保存する</button>
+            <div id="staffMasterResult" class="result" role="status" aria-live="polite">
+              <span id="staffMasterSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+              <span id="staffMasterResultText"></span>
+            </div>
+          </section>
+
+          <section class="card bento--span-6">
+            <div class="card__head">
+              <h2>申請フォームの既定値</h2>
+              <p class="muted">よく使う依頼会社名・担当者名を登録しておくと、申請フォームを開いたときに自動で入力されます（空欄の項目は自動入力しません。担当者マスタに一致するアカウントでログインした場合は、そちらが優先されます）。</p>
+            </div>
+
+            <div class="fieldRow">
+              <div class="field">
+                <label for="defaultCompany">依頼会社名</label>
+                <input type="text" id="defaultCompany" autocomplete="off">
+              </div>
+              <div class="field">
+                <label for="defaultManager">担当者名</label>
+                <input type="text" id="defaultManager" autocomplete="off">
+              </div>
+            </div>
+
+            <button type="button" id="btnSaveDefaults" class="btn btn--primary">既定値を保存する</button>
+            <div id="defaultsResult" class="result" role="status" aria-live="polite">
+              <span id="defaultsSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+              <span id="defaultsResultText"></span>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div class="settingsGroup" id="settingsGroupExternal">
+        <h3 class="settingsGroup__title">他システム連携</h3>
+        <div class="bento">
+          <section class="card bento--span-6">
+            <div class="card__head">
+              <h2>ブランド設定</h2>
+              <p class="muted">「名義変更」の明細の備考欄に入力する、使用者名の末尾に付けるブランドコードの一覧です（例: 備考欄に「田中太郎MB」のように入力すると、末尾の「MB」がブランドコードとして認識されます）。他システム連携の転記先の判定に使います。</p>
+            </div>
+
+            <div class="tableScroll">
+              <table id="brandOptionsTable" class="staffMasterTable">
+                <thead>
+                  <tr>
+                    <th>ブランドコード</th>
+                    <th class="colDel"></th>
+                  </tr>
+                </thead>
+                <tbody id="brandOptionsBody"></tbody>
+              </table>
+            </div>
+
+            <button type="button" id="btnAddBrandRow" class="btn btn--ghost">＋ 行を追加</button>
+            <button type="button" id="btnSaveBrandOptions" class="btn btn--primary">保存する</button>
+            <div id="brandOptionsResult" class="result" role="status" aria-live="polite">
+              <span id="brandOptionsSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+              <span id="brandOptionsResultText"></span>
+            </div>
+          </section>
+
+          <section class="card bento--span-6">
+            <div class="card__head">
+              <h2>ブランド別の転記先</h2>
+              <p class="muted">
+                「名義変更」の申請を登録すると、明細の備考欄から取り出した使用者名・ブランドをもとに、対応するスプレッドシートの中古車用タブ(登録日の年月から自動判定、例: "db_登録データ_中古_2026_10月")に、使用者名と一致する行を探して「ステータス」「登録予定日」「区分」を転記します(区分は常に「紙登録」)。ブランドごとに転記先スプレッドシートのURL(またはID)を、最大5件まで登録できます。行ごと空欄のまま保存すると、そのブランドは転記しない設定になります(全て空欄なら機能そのものがOFFになります)。備考欄がブランドコードで終わっていない場合や、一致する行が見つからない場合は、PDF発行自体は完了した上でエラー内容が画面に表示されます。
+              </p>
+            </div>
+
+            <div class="tableScroll">
+              <table id="externalSyncTable" class="staffMasterTable">
+                <thead>
+                  <tr>
+                    <th>ブランド</th>
+                    <th>転記先スプレッドシートのURL(またはID)</th>
+                    <th class="colDel"></th>
+                  </tr>
+                </thead>
+                <tbody id="externalSyncBody"></tbody>
+              </table>
+            </div>
+
+            <button type="button" id="btnAddExternalSyncRow" class="btn btn--ghost">＋ 行を追加(最大5件)</button>
+            <button type="button" id="btnSaveExternalSync" class="btn btn--primary">保存する</button>
+            <div id="externalSyncResult" class="result" role="status" aria-live="polite">
+              <span id="externalSyncSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+              <span id="externalSyncResultText"></span>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div class="settingsGroup">
+        <h3 class="settingsGroup__title">表示</h3>
+
+        <section class="card">
           <div class="card__head">
             <h2>テーマ</h2>
-            <p class="muted">画面の配色を選べます。「自動」を選ぶとお使いの端末の設定に従います。</p>
+            <p class="muted">画面の配色を12種類から選べます。選んだテーマはログイン中のGoogleアカウントに保存され、次回このアカウントで開いたときも同じ配色になります。</p>
           </div>
 
-          <div class="field">
-            <label>配色モード</label>
-            <div class="segmented" role="tablist" aria-label="テーマ設定">
-              <button type="button" class="segBtn" id="themeLight" role="tab" data-theme-value="light">ライト</button>
-              <button type="button" class="segBtn" id="themeDark" role="tab" data-theme-value="dark">ダーク</button>
-              <button type="button" class="segBtn" id="themeSystem" role="tab" data-theme-value="system">自動</button>
+          <div class="themeSwatches" role="tablist" aria-label="テーマ設定">
+            <button type="button" class="themeSwatch" id="themeMono" role="tab" data-theme-value="mono" style="--sw-bg:#FFFFFF; --sw-surface:#F4F4F5; --sw-ink:#1A1A1A; --sw-accent:#1A56DB;">
+              <span class="themeSwatch__preview"><span class="themeSwatch__previewHead"></span><span class="themeSwatch__previewLine"></span><span class="themeSwatch__previewLine themeSwatch__previewLine--short"></span><span class="themeSwatch__previewBtn"></span></span>
+              <span class="themeSwatch__label">モノクロ</span>
+            </button>
+            <button type="button" class="themeSwatch" id="themeSand" role="tab" data-theme-value="sand" style="--sw-bg:#FBF6EE; --sw-surface:#F5EDDD; --sw-ink:#3A2E1F; --sw-accent:#B5691E;">
+              <span class="themeSwatch__preview"><span class="themeSwatch__previewHead"></span><span class="themeSwatch__previewLine"></span><span class="themeSwatch__previewLine themeSwatch__previewLine--short"></span><span class="themeSwatch__previewBtn"></span></span>
+              <span class="themeSwatch__label">サンド</span>
+            </button>
+            <button type="button" class="themeSwatch" id="themeForest" role="tab" data-theme-value="forest" style="--sw-bg:#F3F7F2; --sw-surface:#E8F0E6; --sw-ink:#1E3324; --sw-accent:#2E7D4F;">
+              <span class="themeSwatch__preview"><span class="themeSwatch__previewHead"></span><span class="themeSwatch__previewLine"></span><span class="themeSwatch__previewLine themeSwatch__previewLine--short"></span><span class="themeSwatch__previewBtn"></span></span>
+              <span class="themeSwatch__label">フォレスト</span>
+            </button>
+            <button type="button" class="themeSwatch" id="themeRose" role="tab" data-theme-value="rose" style="--sw-bg:#FBF2F3; --sw-surface:#F5E3E6; --sw-ink:#3A1620; --sw-accent:#A63A52;">
+              <span class="themeSwatch__preview"><span class="themeSwatch__previewHead"></span><span class="themeSwatch__previewLine"></span><span class="themeSwatch__previewLine themeSwatch__previewLine--short"></span><span class="themeSwatch__previewBtn"></span></span>
+              <span class="themeSwatch__label">ローズ</span>
+            </button>
+            <button type="button" class="themeSwatch" id="themeSky" role="tab" data-theme-value="sky" style="--sw-bg:#F1F8FB; --sw-surface:#E3F1F7; --sw-ink:#0F2E3D; --sw-accent:#0E86B8;">
+              <span class="themeSwatch__preview"><span class="themeSwatch__previewHead"></span><span class="themeSwatch__previewLine"></span><span class="themeSwatch__previewLine themeSwatch__previewLine--short"></span><span class="themeSwatch__previewBtn"></span></span>
+              <span class="themeSwatch__label">スカイ</span>
+            </button>
+            <button type="button" class="themeSwatch" id="themeLavender" role="tab" data-theme-value="lavender" style="--sw-bg:#F8F5FB; --sw-surface:#EFE7F5; --sw-ink:#2E1F3D; --sw-accent:#7B4FA6;">
+              <span class="themeSwatch__preview"><span class="themeSwatch__previewHead"></span><span class="themeSwatch__previewLine"></span><span class="themeSwatch__previewLine themeSwatch__previewLine--short"></span><span class="themeSwatch__previewBtn"></span></span>
+              <span class="themeSwatch__label">ラベンダー</span>
+            </button>
+            <button type="button" class="themeSwatch" id="themeDark" role="tab" data-theme-value="dark" style="--sw-bg:#121214; --sw-surface:#1C1C1F; --sw-ink:#F2F2F3; --sw-accent:#5B8DF7;">
+              <span class="themeSwatch__preview"><span class="themeSwatch__previewHead"></span><span class="themeSwatch__previewLine"></span><span class="themeSwatch__previewLine themeSwatch__previewLine--short"></span><span class="themeSwatch__previewBtn"></span></span>
+              <span class="themeSwatch__label">ダーク</span>
+            </button>
+            <button type="button" class="themeSwatch" id="themeNavy" role="tab" data-theme-value="navy" style="--sw-bg:#0B1526; --sw-surface:#10203A; --sw-ink:#EAF1FC; --sw-accent:#5AA9FF;">
+              <span class="themeSwatch__preview"><span class="themeSwatch__previewHead"></span><span class="themeSwatch__previewLine"></span><span class="themeSwatch__previewLine themeSwatch__previewLine--short"></span><span class="themeSwatch__previewBtn"></span></span>
+              <span class="themeSwatch__label">ネイビー</span>
+            </button>
+            <button type="button" class="themeSwatch" id="themeAmber" role="tab" data-theme-value="amber" style="--sw-bg:#16130F; --sw-surface:#211C16; --sw-ink:#F5EDE1; --sw-accent:#D99A3F;">
+              <span class="themeSwatch__preview"><span class="themeSwatch__previewHead"></span><span class="themeSwatch__previewLine"></span><span class="themeSwatch__previewLine themeSwatch__previewLine--short"></span><span class="themeSwatch__previewBtn"></span></span>
+              <span class="themeSwatch__label">アンバー</span>
+            </button>
+            <button type="button" class="themeSwatch" id="themeTeal" role="tab" data-theme-value="teal" style="--sw-bg:#0A1817; --sw-surface:#10221F; --sw-ink:#E4F5F1; --sw-accent:#2DD4BF;">
+              <span class="themeSwatch__preview"><span class="themeSwatch__previewHead"></span><span class="themeSwatch__previewLine"></span><span class="themeSwatch__previewLine themeSwatch__previewLine--short"></span><span class="themeSwatch__previewBtn"></span></span>
+              <span class="themeSwatch__label">ティール</span>
+            </button>
+            <button type="button" class="themeSwatch" id="themeIndigo" role="tab" data-theme-value="indigo" style="--sw-bg:#12102A; --sw-surface:#191540; --sw-ink:#ECE9FB; --sw-accent:#8B7CF6;">
+              <span class="themeSwatch__preview"><span class="themeSwatch__previewHead"></span><span class="themeSwatch__previewLine"></span><span class="themeSwatch__previewLine themeSwatch__previewLine--short"></span><span class="themeSwatch__previewBtn"></span></span>
+              <span class="themeSwatch__label">インディゴ</span>
+            </button>
+            <button type="button" class="themeSwatch" id="themeCrimson" role="tab" data-theme-value="crimson" style="--sw-bg:#1A0E10; --sw-surface:#241417; --sw-ink:#F7E7E9; --sw-accent:#E0435B;">
+              <span class="themeSwatch__preview"><span class="themeSwatch__previewHead"></span><span class="themeSwatch__previewLine"></span><span class="themeSwatch__previewLine themeSwatch__previewLine--short"></span><span class="themeSwatch__previewBtn"></span></span>
+              <span class="themeSwatch__label">クリムゾン</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="card" id="cardImageSettings">
+          <div class="card__head">
+            <h2>画像設定</h2>
+            <p class="muted">
+              ヘッダーのロゴ・起動画面(ローディング画面)の画像を設定できます。Googleドライブに画像をアップロードし、共有設定を「リンクを知っている全員」に変更した上で、共有リンクのURL（例: https://drive.google.com/file/d/.../view?usp=... の形式）を貼り付けてください。空欄のまま保存すると、それぞれ表示しない状態に戻せます。
+            </p>
+          </div>
+
+          <div class="imageSettingsGrid">
+            <div class="imageSettingsGrid__item">
+              <div class="field">
+                <label for="logoUrlInput">ロゴ画像URL</label>
+                <input type="url" id="logoUrlInput" placeholder="https://..." autocomplete="off">
+              </div>
+
+              <div class="logoPreview" id="logoPreviewWrap">
+                <img id="logoPreviewImg" class="logoPreview__img is-hidden" alt="プレビュー" onerror="this.classList.add('is-hidden')">
+                <span class="muted" id="logoPreviewEmpty">プレビュー: 画像URLを入力すると表示されます</span>
+              </div>
+
+              <button type="button" id="btnSaveLogo" class="btn btn--primary">ロゴを保存する</button>
+              <div id="logoResult" class="result" role="status" aria-live="polite">
+                <span id="logoSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+                <span id="logoResultText"></span>
+              </div>
             </div>
-          </div>
-        </section>
 
-        <section class="card bento--span-12">
-          <div class="card__head">
-            <h2>ロゴ画像</h2>
-            <p class="muted">
-              ヘッダーに表示するロゴ画像のURLを設定できます。Googleドライブに画像をアップロードし、共有設定を「リンクを知っている全員」に変更した上で、共有リンクのURL（例: https://drive.google.com/file/d/.../view?usp=... の形式）をそのまま貼り付けてください。表示用の形式に自動で変換されます。空欄のまま保存すると、ロゴを表示しない状態に戻せます。
-            </p>
-          </div>
+            <div class="imageSettingsGrid__item">
+              <div class="field">
+                <label for="loadingImageUrlInput">起動画面の画像URL</label>
+                <input type="url" id="loadingImageUrlInput" placeholder="https://..." autocomplete="off">
+              </div>
 
-          <div class="field">
-            <label for="logoUrlInput">ロゴ画像URL</label>
-            <input type="url" id="logoUrlInput" placeholder="https://..." autocomplete="off">
-          </div>
+              <div class="logoPreview" id="loadingImagePreviewWrap">
+                <img id="loadingImagePreviewImg" class="logoPreview__img is-hidden" alt="プレビュー" onerror="this.classList.add('is-hidden')">
+                <span class="muted" id="loadingImagePreviewEmpty">プレビュー: 画像URLを入力すると表示されます</span>
+              </div>
 
-          <div class="logoPreview" id="logoPreviewWrap">
-            <img id="logoPreviewImg" class="logoPreview__img is-hidden" alt="プレビュー" onerror="this.classList.add('is-hidden')">
-            <span class="muted" id="logoPreviewEmpty">プレビュー: 画像URLを入力すると表示されます</span>
-          </div>
-
-          <button type="button" id="btnSaveLogo" class="btn btn--primary">ロゴを保存する</button>
-          <div id="logoResult" class="result" role="status" aria-live="polite">
-            <span id="logoSpinner" class="spinner is-hidden" aria-hidden="true"></span>
-            <span id="logoResultText"></span>
-          </div>
-        </section>
-
-        <section class="card bento--span-12">
-          <div class="card__head">
-            <h2>起動画面（ローディング画面）</h2>
-            <p class="muted">
-              アプリを開いたときに一瞬表示される画面に、お好きな画像を表示できます。Googleドライブに画像をアップロードし、共有設定を「リンクを知っている全員」に変更した上で、共有リンクのURL（例: https://drive.google.com/file/d/.../view?usp=... の形式）をそのまま貼り付けてください。表示用の形式に自動で変換されます。空欄のまま保存すると、画像を表示しない状態に戻せます。
-            </p>
-          </div>
-
-          <div class="field">
-            <label for="loadingImageUrlInput">起動画面の画像URL</label>
-            <input type="url" id="loadingImageUrlInput" placeholder="https://..." autocomplete="off">
-          </div>
-
-          <div class="logoPreview" id="loadingImagePreviewWrap">
-            <img id="loadingImagePreviewImg" class="logoPreview__img is-hidden" alt="プレビュー" onerror="this.classList.add('is-hidden')">
-            <span class="muted" id="loadingImagePreviewEmpty">プレビュー: 画像URLを入力すると表示されます</span>
-          </div>
-
-          <button type="button" id="btnSaveLoadingImage" class="btn btn--primary">この画像を保存する</button>
-          <div id="loadingImageResult" class="result" role="status" aria-live="polite">
-            <span id="loadingImageSpinner" class="spinner is-hidden" aria-hidden="true"></span>
-            <span id="loadingImageResultText"></span>
+              <button type="button" id="btnSaveLoadingImage" class="btn btn--primary">この画像を保存する</button>
+              <div id="loadingImageResult" class="result" role="status" aria-live="polite">
+                <span id="loadingImageSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+                <span id="loadingImageResultText"></span>
+              </div>
+            </div>
           </div>
         </section>
       </div>
+
     </div>
   </div>
 

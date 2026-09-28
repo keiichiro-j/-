@@ -360,16 +360,23 @@
     setResult_('処理中です。履歴に記録し、PDFを作成しています…', 'pending');
 
     google.script.run
-      .withSuccessHandler(function (pdfUrl) {
+      .withSuccessHandler(function (result) {
+        var pdfUrl = result.pdfUrl;
         isSubmitting_ = false;
         btn.disabled = false;
         setProcessing_(false);
         historyHeader_ = []; // 次に履歴確認画面を開いたとき、今回の登録を含めて再取得させる
         submissionToken_ = generateSubmissionToken_();
-        setResult_(
-          '完了しました。PDFを自動で開きます。<br>開かない場合は <a href="' + pdfUrl + '" target="_blank">こちら</a> をクリックしてください。',
-          'success'
-        );
+        var message =
+          '完了しました。PDFを自動で開きます。<br>開かない場合は <a href="' + pdfUrl + '" target="_blank">こちら</a> をクリックしてください。';
+        if (result.transcriptionSuccessCount) {
+          message += '<span class="result__note">顧客管理表(中古)に反映しました</span>';
+        }
+        if (result.transcriptionWarnings && result.transcriptionWarnings.length) {
+          message += '<span class="result__warning">他システムへの転記でエラーがありました(PDF発行・履歴記録は完了しています):<br>' +
+            result.transcriptionWarnings.map(escapeHtml_).join('<br>') + '</span>';
+        }
+        setResult_(message, 'success');
         document.getElementById('resultPdfPreviewFrame').src = buildPdfPreviewUrl_(pdfUrl);
         document.getElementById('resultPdfPreview').classList.remove('is-hidden');
         window.open(pdfUrl, '_blank');
@@ -400,6 +407,7 @@
     setResult_('', '');
     hidePdfPreview_(document.getElementById('resultPdfPreview'), document.getElementById('resultPdfPreviewFrame'));
     applyDefaultFormValues_();
+    applyManagerAutofill_();
   }
   document.getElementById('btnClear').addEventListener('click', resetForm);
 
@@ -418,7 +426,10 @@
     document.getElementById('mailSendDate').value = formatDateInput_(new Date());
     loadMailRecipients_();
     loadDefaultFormValues_();
-    loadAutoMailStatus_();
+    loadCurrentUserAccount_();
+    syncThemeFromServer_();
+    loadManagerForCurrentUser_();
+    loadAdminSettings_();
     document.querySelectorAll('.tableScroll').forEach(function (el) {
       updateScrollShadow_(el);
       el.addEventListener('scroll', function () { updateScrollShadow_(el); });
@@ -1025,28 +1036,411 @@
       .saveDefaultFormValues(values);
   });
 
-  // ---------- 設定画面: テーマ(ライト/ダーク/自動) ----------
+  // ---------- 設定画面: テーマ(全12色。Googleアカウントごとにサーバー側へ保存) ----------
+  // localStorageには「表示中の端末ですぐ反映するためのキャッシュ」として保存し、
+  // 実体はサーバー側(PropertiesService.getUserProperties、ログイン中のGoogleアカウントに
+  // 紐づく)に保存する。別の端末・ブラウザで開いたときも同じアカウントなら同じ配色になる。
 
-  var THEME_STORAGE_KEY_ = 'interimRegistrationThemePref';
+  var THEME_STORAGE_KEY_ = 'interimRegistrationThemePreference';
+  var THEME_BUTTON_IDS_ = [
+    'themeMono', 'themeSand', 'themeForest', 'themeRose', 'themeSky', 'themeLavender',
+    'themeDark', 'themeNavy', 'themeAmber', 'themeTeal', 'themeIndigo', 'themeCrimson'
+  ];
+  var THEME_DEFAULT_ = 'mono';
 
-  function applyTheme_(value) {
-    if (value === 'light' || value === 'dark') {
-      document.documentElement.setAttribute('data-theme', value);
-    } else {
-      document.documentElement.removeAttribute('data-theme');
-      value = 'system';
-    }
-    localStorage.setItem(THEME_STORAGE_KEY_, value);
-    document.querySelectorAll('#viewSettings .segmented .segBtn[data-theme-value]').forEach(function (btn) {
-      var active = btn.getAttribute('data-theme-value') === value;
-      btn.classList.toggle('is-active', active);
-      btn.setAttribute('aria-selected', active);
+  function applyTheme_(theme) {
+    var root = document.documentElement;
+    root.setAttribute('data-theme', theme);
+    THEME_BUTTON_IDS_.forEach(function (id) {
+      var btn = document.getElementById(id);
+      var isActive = btn.dataset.themeValue === theme;
+      btn.classList.toggle('is-active', isActive);
+      btn.setAttribute('aria-selected', isActive);
     });
   }
-  document.getElementById('themeLight').addEventListener('click', function () { applyTheme_('light'); });
-  document.getElementById('themeDark').addEventListener('click', function () { applyTheme_('dark'); });
-  document.getElementById('themeSystem').addEventListener('click', function () { applyTheme_('system'); });
-  applyTheme_(localStorage.getItem(THEME_STORAGE_KEY_) || 'system');
+
+  // クリック操作用: 即座に画面へ反映しつつ、端末キャッシュとサーバー(アカウント紐付け)の
+  // 両方へ保存する。
+  function setTheme_(theme) {
+    localStorage.setItem(THEME_STORAGE_KEY_, theme);
+    applyTheme_(theme);
+    google.script.run.saveThemePreference(theme); // 結果を待たずに反映させる(失敗しても表示は変わらない)
+  }
+
+  // ページ読み込み直後(window.onloadを待たず)に、端末キャッシュがあればまず即座に適用し
+  // ちらつきを抑える。その後、サーバー側の保存値(アカウントの正)を取得できたら
+  // 差分がある場合だけ上書きする(別の端末で最後に選んだテーマに揃える)。
+  function initTheme_() {
+    applyTheme_(localStorage.getItem(THEME_STORAGE_KEY_) || THEME_DEFAULT_);
+  }
+
+  function syncThemeFromServer_() {
+    google.script.run
+      .withSuccessHandler(function (theme) {
+        if (!theme || theme === localStorage.getItem(THEME_STORAGE_KEY_)) return;
+        localStorage.setItem(THEME_STORAGE_KEY_, theme);
+        applyTheme_(theme);
+      })
+      .getThemePreference();
+  }
+
+  THEME_BUTTON_IDS_.forEach(function (id) {
+    document.getElementById(id).addEventListener('click', function () {
+      setTheme_(document.getElementById(id).dataset.themeValue);
+    });
+  });
+  initTheme_(); // ページ読み込み直後(window.onloadを待たず)に適用し、ちらつきを抑える
+
+  // ---------- 申請フォーム: ログインユーザーに応じた担当者名の自動入力 ----------
+  // 担当者マスタ(下記の設定画面)にログイン中のGoogleアカウントが登録されていれば、
+  // その担当者名を「担当者名」欄に自動で入力する(「申請フォームの既定値」より優先する)。
+  // 一致しない場合は何もしない(既定値・手入力に任せる)。
+
+  var loginManagerName_ = '';
+
+  function applyManagerAutofill_() {
+    if (!loginManagerName_) return;
+    document.getElementById('manager').value = loginManagerName_;
+  }
+
+  // 画面上部にログイン中のGoogleアカウントを表示する(「誰としてログインしているか」を
+  // 一目でわかるようにするための軽い表示。取得できない場合は何も表示しない)。
+  // 担当者マスタに登録済みのアカウントであれば、担当者名も合わせて表示する。
+  var currentUserEmail_ = '';
+
+  function renderMastheadAccount_() {
+    var el = document.getElementById('mastheadAccount');
+    if (!currentUserEmail_) { el.classList.add('is-hidden'); return; }
+    document.getElementById('mastheadAccountEmail').textContent = currentUserEmail_;
+    var managerEl = document.getElementById('mastheadAccountManager');
+    var hasManagerName = loginManagerName_ && loginManagerName_ !== currentUserEmail_;
+    managerEl.textContent = hasManagerName ? loginManagerName_ : '';
+    managerEl.classList.toggle('is-hidden', !hasManagerName);
+    el.classList.remove('is-hidden');
+  }
+
+  function loadCurrentUserAccount_() {
+    google.script.run
+      .withSuccessHandler(function (email) {
+        currentUserEmail_ = email || '';
+        renderMastheadAccount_();
+      })
+      .getCurrentUserEmail();
+  }
+
+  function loadManagerForCurrentUser_() {
+    google.script.run
+      .withSuccessHandler(function (name) {
+        loginManagerName_ = name || '';
+        applyManagerAutofill_();
+        renderMastheadAccount_();
+      })
+      .getManagerForCurrentUser();
+  }
+
+  // ---------- 設定画面: 権限者(admin)判定によるテーマ以外の設定項目の表示制御 ----------
+  // 「設定」画面のテーマ以外の項目(メール・申請フォーム・他システム連携・画像設定)は、
+  // AuthService.gsに直接メールアドレスを登録した権限者でログインした場合のみ表示する
+  // (保存系APIもサーバー側で同様にチェックしているため、UIを非表示にするだけでなく
+  // 実際にも操作できない)。
+
+  function applyAdminVisibility_(isAdmin) {
+    ['settingsGroupMail', 'settingsGroupForm', 'settingsGroupExternal', 'cardImageSettings'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.toggle('is-hidden', !isAdmin);
+    });
+    var notice = document.getElementById('settingsAdminNotice');
+    if (notice) notice.classList.toggle('is-hidden', isAdmin);
+  }
+
+  function loadAdminSettings_() {
+    google.script.run
+      .withSuccessHandler(function (isAdmin) {
+        applyAdminVisibility_(!!isAdmin);
+        if (isAdmin) {
+          loadStaffMaster_();
+          loadBrandOptions_();
+          loadExternalSyncSheets_();
+          loadAutoMailStatus_();
+        }
+      })
+      .withFailureHandler(function () {
+        applyAdminVisibility_(false);
+      })
+      .isAuthorizedAdmin();
+  }
+
+  // ---------- 設定画面: 担当者マスタ(担当者名 <-> Googleアカウント) ----------
+
+  function createStaffRow_(name, email) {
+    var tr = document.createElement('tr');
+    tr.className = 'staffMasterRow';
+    tr.innerHTML =
+      '<td><input type="text" class="staff-name" autocomplete="off"></td>' +
+      '<td><input type="email" class="staff-email" placeholder="you@example.com" autocomplete="off"></td>' +
+      '<td><button type="button" class="btnRemoveStaffRow" title="この行を削除" aria-label="この行を削除">&times;</button></td>';
+    tr.querySelector('.staff-name').value = name || '';
+    tr.querySelector('.staff-email').value = email || '';
+    return tr;
+  }
+
+  function addStaffRow_(name, email) {
+    document.getElementById('staffMasterBody').appendChild(createStaffRow_(name, email));
+  }
+
+  document.getElementById('btnAddStaffRow').addEventListener('click', function () { addStaffRow_('', ''); });
+
+  document.getElementById('staffMasterBody').addEventListener('click', function (e) {
+    if (!e.target.classList.contains('btnRemoveStaffRow')) return;
+    var body = document.getElementById('staffMasterBody');
+    if (body.querySelectorAll('.staffMasterRow').length <= 1) {
+      e.target.closest('tr').querySelector('.staff-name').value = '';
+      e.target.closest('tr').querySelector('.staff-email').value = '';
+      return;
+    }
+    e.target.closest('tr').remove();
+  });
+
+  function collectStaffRows_() {
+    var rows = document.querySelectorAll('#staffMasterBody .staffMasterRow');
+    var list = [];
+    rows.forEach(function (row) {
+      var name = row.querySelector('.staff-name').value.trim();
+      var email = row.querySelector('.staff-email').value.trim();
+      if (name || email) list.push({ name: name, email: email });
+    });
+    return list;
+  }
+
+  function renderStaffMaster_(rows) {
+    var body = document.getElementById('staffMasterBody');
+    body.innerHTML = '';
+    (rows && rows.length ? rows : [{ name: '', email: '' }]).forEach(function (row) {
+      addStaffRow_(row.name, row.email);
+    });
+  }
+
+  function loadStaffMaster_() {
+    google.script.run
+      .withSuccessHandler(function (rows) { renderStaffMaster_(rows); })
+      .withFailureHandler(function () { renderStaffMaster_([]); })
+      .getStaffMaster();
+  }
+
+  function setStaffMasterResult_(text, kind) {
+    var el = document.getElementById('staffMasterResult');
+    el.className = 'result' + (kind ? ' -' + kind : '');
+    document.getElementById('staffMasterResultText').innerHTML = text;
+  }
+
+  function setStaffMasterProcessing_(on) {
+    document.getElementById('staffMasterSpinner').classList.toggle('is-hidden', !on);
+  }
+
+  document.getElementById('btnSaveStaffMaster').addEventListener('click', function () {
+    var rows = collectStaffRows_();
+    var btn = document.getElementById('btnSaveStaffMaster');
+    btn.disabled = true;
+    setStaffMasterProcessing_(true);
+    setStaffMasterResult_('保存しています…', 'pending');
+
+    google.script.run
+      .withSuccessHandler(function (saved) {
+        btn.disabled = false;
+        setStaffMasterProcessing_(false);
+        renderStaffMaster_(saved);
+        setStaffMasterResult_('保存しました（' + saved.length + '件）', 'success');
+      })
+      .withFailureHandler(function (error) {
+        btn.disabled = false;
+        setStaffMasterProcessing_(false);
+        setStaffMasterResult_('保存に失敗しました:\n' + error.message, 'error');
+      })
+      .saveStaffMaster(rows);
+  });
+
+  // ---------- 設定画面: ブランド設定 ----------
+
+  function createBrandRow_(value) {
+    var tr = document.createElement('tr');
+    tr.className = 'staffMasterRow';
+    tr.innerHTML =
+      '<td><input type="text" class="brand-value" autocomplete="off"></td>' +
+      '<td><button type="button" class="btnRemoveStaffRow" title="この行を削除" aria-label="この行を削除">&times;</button></td>';
+    tr.querySelector('.brand-value').value = value || '';
+    return tr;
+  }
+
+  function addBrandRow_(value) {
+    document.getElementById('brandOptionsBody').appendChild(createBrandRow_(value));
+  }
+
+  document.getElementById('btnAddBrandRow').addEventListener('click', function () { addBrandRow_(''); });
+
+  document.getElementById('brandOptionsBody').addEventListener('click', function (e) {
+    if (!e.target.classList.contains('btnRemoveStaffRow')) return;
+    var body = document.getElementById('brandOptionsBody');
+    if (body.querySelectorAll('.staffMasterRow').length <= 1) {
+      e.target.closest('tr').querySelector('.brand-value').value = '';
+      return;
+    }
+    e.target.closest('tr').remove();
+  });
+
+  function collectBrandRows_() {
+    var rows = document.querySelectorAll('#brandOptionsBody .staffMasterRow');
+    var list = [];
+    rows.forEach(function (row) {
+      var value = row.querySelector('.brand-value').value.trim();
+      if (value) list.push(value);
+    });
+    return list;
+  }
+
+  function renderBrandOptions_(brands) {
+    var body = document.getElementById('brandOptionsBody');
+    body.innerHTML = '';
+    (brands && brands.length ? brands : ['']).forEach(function (b) { addBrandRow_(b); });
+  }
+
+  function loadBrandOptions_() {
+    google.script.run
+      .withSuccessHandler(function (brands) { renderBrandOptions_(brands); })
+      .getBrandOptions();
+  }
+
+  function setBrandOptionsResult_(text, kind) {
+    var el = document.getElementById('brandOptionsResult');
+    el.className = 'result' + (kind ? ' -' + kind : '');
+    document.getElementById('brandOptionsResultText').innerHTML = text;
+  }
+
+  function setBrandOptionsProcessing_(on) {
+    document.getElementById('brandOptionsSpinner').classList.toggle('is-hidden', !on);
+  }
+
+  document.getElementById('btnSaveBrandOptions').addEventListener('click', function () {
+    var brands = collectBrandRows_();
+    var btn = document.getElementById('btnSaveBrandOptions');
+    btn.disabled = true;
+    setBrandOptionsProcessing_(true);
+    setBrandOptionsResult_('保存しています…', 'pending');
+
+    google.script.run
+      .withSuccessHandler(function (saved) {
+        btn.disabled = false;
+        setBrandOptionsProcessing_(false);
+        renderBrandOptions_(saved);
+        setBrandOptionsResult_('保存しました', 'success');
+      })
+      .withFailureHandler(function (error) {
+        btn.disabled = false;
+        setBrandOptionsProcessing_(false);
+        setBrandOptionsResult_('保存に失敗しました:\n' + error.message, 'error');
+      })
+      .saveBrandOptions(brands);
+  });
+
+  // ---------- 設定画面: 他システム(外部スプレッドシート)への連携(ブランド別・最大5件) ----------
+
+  var EXTERNAL_SYNC_MAX_ROWS_ = 5;
+
+  function createExternalSyncRow_(brand, sheetId) {
+    var tr = document.createElement('tr');
+    tr.className = 'externalSyncRow';
+    tr.innerHTML =
+      '<td><input type="text" class="ext-brand" placeholder="例: MB" autocomplete="off"></td>' +
+      '<td><input type="text" class="ext-sheetid" placeholder="https://docs.google.com/spreadsheets/d/..." autocomplete="off"></td>' +
+      '<td><button type="button" class="btnRemoveStaffRow" title="この行を削除" aria-label="この行を削除">&times;</button></td>';
+    tr.querySelector('.ext-brand').value = brand || '';
+    tr.querySelector('.ext-sheetid').value = sheetId || '';
+    return tr;
+  }
+
+  function updateAddExternalSyncRowButtonState_() {
+    var count = document.querySelectorAll('#externalSyncBody .externalSyncRow').length;
+    var btn = document.getElementById('btnAddExternalSyncRow');
+    btn.disabled = count >= EXTERNAL_SYNC_MAX_ROWS_;
+  }
+
+  function addExternalSyncRow_(brand, sheetId) {
+    if (document.querySelectorAll('#externalSyncBody .externalSyncRow').length >= EXTERNAL_SYNC_MAX_ROWS_) return;
+    document.getElementById('externalSyncBody').appendChild(createExternalSyncRow_(brand, sheetId));
+    updateAddExternalSyncRowButtonState_();
+  }
+
+  document.getElementById('btnAddExternalSyncRow').addEventListener('click', function () { addExternalSyncRow_('', ''); });
+
+  document.getElementById('externalSyncBody').addEventListener('click', function (e) {
+    if (!e.target.classList.contains('btnRemoveStaffRow')) return;
+    var body = document.getElementById('externalSyncBody');
+    if (body.querySelectorAll('.externalSyncRow').length <= 1) {
+      e.target.closest('tr').querySelector('.ext-brand').value = '';
+      e.target.closest('tr').querySelector('.ext-sheetid').value = '';
+      return;
+    }
+    e.target.closest('tr').remove();
+    updateAddExternalSyncRowButtonState_();
+  });
+
+  function collectExternalSyncRows_() {
+    var rows = document.querySelectorAll('#externalSyncBody .externalSyncRow');
+    var list = [];
+    rows.forEach(function (row) {
+      var brand = row.querySelector('.ext-brand').value.trim();
+      var sheetId = row.querySelector('.ext-sheetid').value.trim();
+      if (brand || sheetId) list.push({ brand: brand, sheetId: sheetId });
+    });
+    return list;
+  }
+
+  function renderExternalSyncRows_(rows) {
+    var body = document.getElementById('externalSyncBody');
+    body.innerHTML = '';
+    (rows && rows.length ? rows : [{ brand: '', sheetId: '' }]).forEach(function (row) {
+      body.appendChild(createExternalSyncRow_(row.brand, row.sheetId));
+    });
+    updateAddExternalSyncRowButtonState_();
+  }
+
+  function loadExternalSyncSheets_() {
+    google.script.run
+      .withSuccessHandler(function (rows) { renderExternalSyncRows_(rows); })
+      .withFailureHandler(function () { renderExternalSyncRows_([]); })
+      .getExternalSyncSheets();
+  }
+
+  function setExternalSyncResult_(text, kind) {
+    var el = document.getElementById('externalSyncResult');
+    el.className = 'result' + (kind ? ' -' + kind : '');
+    document.getElementById('externalSyncResultText').innerHTML = text;
+  }
+
+  function setExternalSyncProcessing_(on) {
+    document.getElementById('externalSyncSpinner').classList.toggle('is-hidden', !on);
+  }
+
+  document.getElementById('btnSaveExternalSync').addEventListener('click', function () {
+    var rows = collectExternalSyncRows_();
+    var btn = document.getElementById('btnSaveExternalSync');
+    btn.disabled = true;
+    setExternalSyncProcessing_(true);
+    setExternalSyncResult_('保存しています…', 'pending');
+
+    google.script.run
+      .withSuccessHandler(function (saved) {
+        btn.disabled = false;
+        setExternalSyncProcessing_(false);
+        renderExternalSyncRows_(saved);
+        setExternalSyncResult_(saved.length ? '保存しました(' + saved.length + '件)' : '保存しました(転記しない設定にしました)', 'success');
+      })
+      .withFailureHandler(function (error) {
+        btn.disabled = false;
+        setExternalSyncProcessing_(false);
+        setExternalSyncResult_('保存に失敗しました:\n' + error.message, 'error');
+      })
+      .saveExternalSyncSheets(rows);
+  });
 
   // ---------- 設定画面: ロゴ画像 ----------
 

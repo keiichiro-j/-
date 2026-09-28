@@ -2,110 +2,190 @@
   :root {
     color-scheme: light;
 
-    /* ---------- Design tokens: "Editorial Monochrome"(新車新規登録依頼書 発行システムと共通) ---------- */
-    --bg: #FFFFFF;
-    --surface: #FFFFFF;
-    --surface-alt: #F4F4F5;
-
-    --ink: #1A1A1A;
-    --ink-soft: #55565B;
-    --muted: #8B8C92;
-
-    --accent: #1A56DB;
-    --accent-dark: #123F9E;
-    --accent-soft: #EAF1FE;
-
-    --success: #22A06B;
-    --success-soft: #E7F6EF;
-    --warning: #B5790A;
-    --warning-soft: #FBF2DF;
-    --warning-ink: #7A5B12;
-    --shu: #D0342C;
-    --shu-soft: #FCEAEA;
-
-    --line: #E3E4E7;
-    --line-soft: #EFEFF1;
-
     --r-xs: 4px;
     --r-sm: 6px;
     --r-md: 8px;
     --r-lg: 10px;
     --r-pill: 999px;
 
+    /* ---------- タイポグラフィ・余白のスケール(サイズをここに集約し、ページ全体で統一する) ---------- */
+    --fs-2xs: 10.5px;  /* テーブル見出し・カレンダーの小バッジなど、最も小さい注記 */
+    --fs-xs: 11.5px;   /* フィールドラベル・バッジ・小さめの補足 */
+    --fs-sm: 12.5px;   /* muted本文・テーブルセル・ボタン(ghost/sm) */
+    --fs-base: 13.5px; /* 入力欄・通常の本文 */
+    --fs-md: 15px;     /* カード見出し */
+    --fs-lg: 18px;     /* 画面タイトル相当の強調 */
+    --fs-xl: 24px;     /* ページ最上部のh1 */
+
+    --sp-1: 4px;
+    --sp-2: 8px;
+    --sp-3: 12px;
+    --sp-4: 16px;
+    --sp-5: 20px;
+    --sp-6: 24px;
+    --sp-7: 32px;
+
     --ease: cubic-bezier(0.4, 0, 0.2, 1);
 
     --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
     --shadow-md: 0 4px 16px rgba(16, 24, 40, 0.08);
 
+    /* 「黒地に白文字」の強いコントラストのボタン・アクティブ状態用(ダークテーマでは白地に黒文字へ反転させる) */
     --solid-bg: #1A1A1A;
     --solid-bg-hover: #000000;
     --solid-ink: #FFFFFF;
-    --solid-ripple: rgba(255, 255, 255, 0.35);
   }
 
-  /* ---------- ダークテーマ(設定画面から切り替え。html/JavaScript.htmlのapplyTheme_参照) ---------- */
+  /* ---------- テーマ(全12色。設定画面から切り替え、Googleアカウントごとに保存される。
+     html/JavaScript.htmlのapplyTheme_/THEME_OPTIONS参照)----------
+     背景・文字色・アクセントすべてを含む独立した配色を12種類用意し、選ぶだけで雰囲気が
+     大きく変わるようにしている(アクセントカラーだけの差し替えにしない)。新車新規登録
+     依頼書 発行システムと共通のデザイントークン(色見本の値も含め)を使う。 */
 
-  :root[data-theme="dark"] {
+  :root {
+    /* mono(既定値のフォールバック) */
+    --bg: #FFFFFF; --surface: #FFFFFF; --surface-alt: #F4F4F5;
+    --ink: #1A1A1A; --ink-soft: #55565B; --muted: #8B8C92;
+    --accent: #1A56DB; --accent-dark: #123F9E; --accent-soft: #EAF1FE;
+    --line: #E3E4E7; --line-soft: #EFEFF1;
+    --success: #22A06B; --success-soft: #E7F6EF;
+    --warning: #B5790A; --warning-soft: #FBF2DF; --warning-ink: #7A5B12;
+    --shu: #D0342C; --shu-soft: #FCEAEA;
+    --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+    --shadow-md: 0 4px 16px rgba(16, 24, 40, 0.08);
+    --solid-bg: #1A1A1A; --solid-bg-hover: #000000; --solid-ink: #FFFFFF;
+  }
+
+  /* ---- 明るい配色系(6色)共通のsuccess/warning/shu ---- */
+  :root[data-theme="mono"], :root[data-theme="sand"],
+  :root[data-theme="forest"], :root[data-theme="rose"],
+  :root[data-theme="sky"], :root[data-theme="lavender"] {
+    color-scheme: light;
+    --success: #22A06B; --success-soft: #E7F6EF;
+    --warning: #B5790A; --warning-soft: #FBF2DF; --warning-ink: #7A5B12;
+    --shu: #D0342C; --shu-soft: #FCEAEA;
+    --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+    --shadow-md: 0 4px 16px rgba(16, 24, 40, 0.08);
+  }
+
+  /* ---- 暗い配色系(6色)共通のsuccess/warning/shu ---- */
+  :root[data-theme="dark"], :root[data-theme="navy"],
+  :root[data-theme="amber"], :root[data-theme="teal"],
+  :root[data-theme="indigo"], :root[data-theme="crimson"] {
     color-scheme: dark;
-    --bg: #121214;
-    --surface: #1C1C1F;
-    --surface-alt: #242427;
-    --ink: #F2F2F3;
-    --ink-soft: #B4B5BA;
-    --muted: #797A80;
-    --accent: #5B8DF7;
-    --accent-dark: #82ABFA;
-    --accent-soft: rgba(91, 141, 247, 0.18);
-    --success: #34C98C;
-    --success-soft: rgba(52, 201, 140, 0.16);
-    --warning: #E3AC4C;
-    --warning-soft: rgba(227, 172, 76, 0.16);
-    --warning-ink: #FFD98A;
-    --shu: #F17272;
-    --shu-soft: rgba(241, 114, 114, 0.16);
-    --line: #303034;
-    --line-soft: #28282B;
-
+    --success: #34C98C; --success-soft: rgba(52, 201, 140, 0.16);
+    --warning: #E3AC4C; --warning-soft: rgba(227, 172, 76, 0.16); --warning-ink: #FFD98A;
+    --shu: #F17272; --shu-soft: rgba(241, 114, 114, 0.16);
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
     --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
-
-    --solid-bg: #F2F2F3;
-    --solid-bg-hover: #FFFFFF;
-    --solid-ink: #121214;
-    --solid-ripple: rgba(0, 0, 0, 0.18);
   }
 
-  /* 「自動」選択時(data-theme属性なし)は端末のダークモード設定に従う */
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme]) {
-      color-scheme: dark;
-      --bg: #121214;
-      --surface: #1C1C1F;
-      --surface-alt: #242427;
-      --ink: #F2F2F3;
-      --ink-soft: #B4B5BA;
-      --muted: #797A80;
-      --accent: #5B8DF7;
-      --accent-dark: #82ABFA;
-      --accent-soft: rgba(91, 141, 247, 0.18);
-      --success: #34C98C;
-      --success-soft: rgba(52, 201, 140, 0.16);
-      --warning: #E3AC4C;
-      --warning-soft: rgba(227, 172, 76, 0.16);
-      --warning-ink: #FFD98A;
-      --shu: #F17272;
-      --shu-soft: rgba(241, 114, 114, 0.16);
-      --line: #303034;
-      --line-soft: #28282B;
+  /* 1) mono: 白地に黒文字・青アクセント(既定) */
+  :root[data-theme="mono"] {
+    --bg: #FFFFFF; --surface: #FFFFFF; --surface-alt: #F4F4F5;
+    --ink: #1A1A1A; --ink-soft: #55565B; --muted: #8B8C92;
+    --accent: #1A56DB; --accent-dark: #123F9E; --accent-soft: #EAF1FE;
+    --line: #E3E4E7; --line-soft: #EFEFF1;
+    --solid-bg: #1A1A1A; --solid-bg-hover: #000000; --solid-ink: #FFFFFF;
+  }
 
-      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-      --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
+  /* 2) sand: 生成り色の背景に焦げ茶インク・テラコッタのアクセント(温かみ) */
+  :root[data-theme="sand"] {
+    --bg: #FBF6EE; --surface: #FFFFFF; --surface-alt: #F5EDDD;
+    --ink: #3A2E1F; --ink-soft: #6B5A44; --muted: #9C8A6E;
+    --accent: #B5691E; --accent-dark: #8F5116; --accent-soft: #F6E4CE;
+    --line: #E8DCC4; --line-soft: #F0E6D2;
+    --solid-bg: #3A2E1F; --solid-bg-hover: #241B10; --solid-ink: #FBF6EE;
+  }
 
-      --solid-bg: #F2F2F3;
-      --solid-bg-hover: #FFFFFF;
-      --solid-ink: #121214;
-      --solid-ripple: rgba(0, 0, 0, 0.18);
-    }
+  /* 3) forest: 淡いグリーンの背景に深緑インク・グリーンのアクセント(自然・落ち着き) */
+  :root[data-theme="forest"] {
+    --bg: #F3F7F2; --surface: #FFFFFF; --surface-alt: #E8F0E6;
+    --ink: #1E3324; --ink-soft: #3F5A48; --muted: #7C9484;
+    --accent: #2E7D4F; --accent-dark: #1F5C39; --accent-soft: #DCEFE1;
+    --line: #D3E2D6; --line-soft: #E6EFE7;
+    --solid-bg: #1E3324; --solid-bg-hover: #12211A; --solid-ink: #F3F7F2;
+  }
+
+  /* 4) rose: 淡いローズの背景にワインレッドインク・ローズのアクセント(上品・華やか) */
+  :root[data-theme="rose"] {
+    --bg: #FBF2F3; --surface: #FFFFFF; --surface-alt: #F5E3E6;
+    --ink: #3A1620; --ink-soft: #6B3542; --muted: #9C7480;
+    --accent: #A63A52; --accent-dark: #7E2A3E; --accent-soft: #F3DCE1;
+    --line: #EBD3D8; --line-soft: #F2E1E4;
+    --solid-bg: #3A1620; --solid-bg-hover: #240D14; --solid-ink: #FBF2F3;
+  }
+
+  /* 5) dark: 黒地に白文字・青アクセント(既定のダーク) */
+  :root[data-theme="dark"] {
+    --bg: #121214; --surface: #1C1C1F; --surface-alt: #242427;
+    --ink: #F2F2F3; --ink-soft: #B4B5BA; --muted: #797A80;
+    --accent: #5B8DF7; --accent-dark: #82ABFA; --accent-soft: rgba(91, 141, 247, 0.18);
+    --line: #303034; --line-soft: #28282B;
+    --solid-bg: #F2F2F3; --solid-bg-hover: #FFFFFF; --solid-ink: #121214;
+  }
+
+  /* 6) navy: 濃紺の背景に水色アクセント(クール・端正) */
+  :root[data-theme="navy"] {
+    --bg: #0B1526; --surface: #10203A; --surface-alt: #16294A;
+    --ink: #EAF1FC; --ink-soft: #AFC2DE; --muted: #7890B3;
+    --accent: #5AA9FF; --accent-dark: #8AC4FF; --accent-soft: rgba(90, 169, 255, 0.20);
+    --line: #223A5E; --line-soft: #1B2E4C;
+    --solid-bg: #EAF1FC; --solid-bg-hover: #FFFFFF; --solid-ink: #0B1526;
+  }
+
+  /* 7) amber: 焦げ茶〜黒の背景に琥珀色アクセント(高級感・ショールーム) */
+  :root[data-theme="amber"] {
+    --bg: #16130F; --surface: #211C16; --surface-alt: #2A231C;
+    --ink: #F5EDE1; --ink-soft: #C9B8A0; --muted: #8F7D66;
+    --accent: #D99A3F; --accent-dark: #F0B25E; --accent-soft: rgba(217, 154, 63, 0.20);
+    --line: #3A3127; --line-soft: #2E271F;
+    --solid-bg: #F5EDE1; --solid-bg-hover: #FFFFFF; --solid-ink: #16130F;
+  }
+
+  /* 8) teal: 深緑がかった黒の背景にティールのアクセント(モダン・テック) */
+  :root[data-theme="teal"] {
+    --bg: #0A1817; --surface: #10221F; --surface-alt: #16302B;
+    --ink: #E4F5F1; --ink-soft: #A9CFC7; --muted: #6E9A90;
+    --accent: #2DD4BF; --accent-dark: #5EEADA; --accent-soft: rgba(45, 212, 191, 0.18);
+    --line: #1E3833; --line-soft: #172B27;
+    --solid-bg: #E4F5F1; --solid-bg-hover: #FFFFFF; --solid-ink: #0A1817;
+  }
+
+  /* 9) sky: 淡い水色の背景に紺のインク・青のアクセント(清潔感・爽やか) */
+  :root[data-theme="sky"] {
+    --bg: #F1F8FB; --surface: #FFFFFF; --surface-alt: #E3F1F7;
+    --ink: #0F2E3D; --ink-soft: #3A6577; --muted: #7FA3B3;
+    --accent: #0E86B8; --accent-dark: #0A6690; --accent-soft: #DCEFF6;
+    --line: #CFE6EE; --line-soft: #E5F2F6;
+    --solid-bg: #0F2E3D; --solid-bg-hover: #082029; --solid-ink: #F1F8FB;
+  }
+
+  /* 10) lavender: 淡い藤色の背景に紫インク・紫のアクセント(柔らか・クリエイティブ) */
+  :root[data-theme="lavender"] {
+    --bg: #F8F5FB; --surface: #FFFFFF; --surface-alt: #EFE7F5;
+    --ink: #2E1F3D; --ink-soft: #5B4A70; --muted: #9484A8;
+    --accent: #7B4FA6; --accent-dark: #5E3A80; --accent-soft: #EBE0F3;
+    --line: #E1D3EC; --line-soft: #EEE5F5;
+    --solid-bg: #2E1F3D; --solid-bg-hover: #1D1327; --solid-ink: #F8F5FB;
+  }
+
+  /* 11) indigo: 濃い藍色の背景に紫アクセント(モダン・上質) */
+  :root[data-theme="indigo"] {
+    --bg: #12102A; --surface: #191540; --surface-alt: #211B4F;
+    --ink: #ECE9FB; --ink-soft: #B6ADD9; --muted: #7C71A8;
+    --accent: #8B7CF6; --accent-dark: #A99BFF; --accent-soft: rgba(139, 124, 246, 0.20);
+    --line: #322A63; --line-soft: #251F4D;
+    --solid-bg: #ECE9FB; --solid-bg-hover: #FFFFFF; --solid-ink: #12102A;
+  }
+
+  /* 12) crimson: 黒に近い背景に深紅のアクセント(力強い・ドラマチック) */
+  :root[data-theme="crimson"] {
+    --bg: #1A0E10; --surface: #241417; --surface-alt: #2D181C;
+    --ink: #F7E7E9; --ink-soft: #CBA0A4; --muted: #8F6669;
+    --accent: #E0435B; --accent-dark: #EF6B80; --accent-soft: rgba(224, 67, 91, 0.20);
+    --line: #3D2226; --line-soft: #2F1A1D;
+    --solid-bg: #F7E7E9; --solid-bg-hover: #FFFFFF; --solid-ink: #1A0E10;
   }
 
   * { box-sizing: border-box; }
@@ -180,60 +260,78 @@
   @media (prefers-reduced-motion: reduce) {
     .loadingOverlay { transition: none; }
     .loadingOverlay__spinner { animation: none; }
+    .loadingOverlay__img { animation: none; opacity: 1; transform: none; filter: none; }
   }
 
-  /* ---------- masthead ---------- */
+  /* ---------- masthead(タイトル行+画面切り替えタブをまとめて1つの固定表示ブロックにする) ----------
+     下にスクロールしても常に画面上部から動かない(全ページ共通)。タブを含めてheader要素ごと
+     position: stickyにすることで、タブ側で個別にヘッダーの高さをJSから計算・同期する必要が
+     なくなり、ズレが起きない。 */
 
   .masthead {
     background: var(--surface);
-    border-bottom: 1px solid var(--line);
+    position: sticky;
+    top: 0;
+    z-index: 110;
+    margin-bottom: var(--sp-5);
   }
-  .masthead__inner { max-width: 1120px; margin: 0 auto; padding: 34px 24px; }
-  .masthead__row { display: flex; align-items: center; gap: 22px; }
-  .masthead__logo { flex: none; height: 48px; width: auto; max-width: 180px; object-fit: contain; border-radius: var(--r-xs); }
+  .masthead__inner { max-width: none; margin: 0; padding: var(--sp-5) var(--sp-7); border-bottom: 1px solid var(--line); }
+  .masthead__row { display: flex; align-items: center; gap: var(--sp-4); }
+  .masthead__logo { flex: none; height: 36px; width: auto; max-width: 160px; object-fit: contain; border-radius: var(--r-xs); }
   .masthead__text { flex: 1; min-width: 0; }
+  .masthead__account {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    font-size: var(--fs-xs);
+    color: var(--muted);
+    max-width: 260px;
+  }
+  .masthead__accountEmail, .masthead__accountManager {
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .masthead__accountManager { font-weight: 700; color: var(--ink-soft); }
+  .masthead__accountManager.is-hidden { display: none; }
   @media (max-width: 700px) {
-    .masthead__logo { height: 36px; max-width: 120px; }
+    .masthead__account { display: none; }
+    .masthead__logo { height: 30px; max-width: 120px; }
   }
 
   .eyebrow {
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    font-size: 11px;
+    font-size: var(--fs-xs);
     font-weight: 600;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--muted);
-    margin: 0 0 10px;
+    margin: 0 0 8px;
   }
   h1 {
-    font-size: clamp(19px, 4.6vw, 25px);
-    font-weight: 800;
+    font-size: clamp(20px, 3.2vw, var(--fs-xl));
+    font-weight: 700;
     color: var(--ink);
-    margin: 0 0 12px;
+    margin: 0;
     letter-spacing: -0.01em;
     overflow-wrap: break-word;
   }
-  h1::after {
-    content: "";
-    display: block;
-    width: 44px;
-    height: 3px;
-    background: var(--ink);
-    margin-top: 12px;
-  }
   .lead {
-    margin: 0;
+    margin: 8px 0 0;
     color: var(--ink-soft);
-    font-size: 13.5px;
+    font-size: var(--fs-sm);
     overflow-wrap: break-word;
   }
 
   /* ---------- layout ---------- */
 
   .page {
-    max-width: 1120px;
-    margin: 0 auto;
-    padding: 0 24px 88px;
+    max-width: none;
+    margin: 0;
+    padding: 0 var(--sp-7) 48px;
   }
 
   .is-hidden { display: none !important; }
@@ -241,21 +339,17 @@
   /* ---------- 常時アクティビティ表示バー ---------- */
 
   .statusBar {
-    position: sticky;
-    top: 10px;
-    z-index: 60;
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 8px 14px;
-    background: var(--surface);
-    border: 1px solid var(--line);
+    background: var(--surface-alt);
+    border: 1px solid var(--line-soft);
     border-radius: var(--r-pill);
     padding: 9px 10px 9px 18px;
-    margin: 20px 0;
-    font-size: 12px;
+    margin: var(--sp-5) 0;
+    font-size: var(--fs-sm);
     color: var(--ink-soft);
-    box-shadow: var(--shadow-sm);
     min-width: 0;
   }
   .statusBar__item { display: inline-flex; align-items: center; gap: 6px; overflow-wrap: anywhere; }
@@ -275,21 +369,23 @@
     100% { box-shadow: 0 0 0 0 rgba(34, 160, 107, 0); }
   }
   @media (max-width: 700px) {
-    .statusBar { font-size: 11px; padding: 8px 8px 8px 14px; }
+    .statusBar { font-size: var(--fs-2xs); padding: 8px 8px 8px 14px; }
   }
 
-  /* ---------- 画面切り替え(申請 / 履歴確認 / 送付書PDF / 設定) ---------- */
+  /* ---------- 画面切り替え(申請 / 履歴確認 / 送付書PDF / 設定) ----------
+     masthead(ヘッダー)の内側に置き、header要素ごとposition: stickyにすることで
+     タイトルとタブが常に隙間なく一体で固定表示されるようにしている。 */
 
   .viewSwitch {
     display: flex;
     flex-wrap: wrap;
-    border-bottom: 2px solid var(--ink);
+    border-bottom: 1px solid var(--line);
     gap: 2px;
-    margin-bottom: 24px;
+    padding: var(--sp-5) var(--sp-7) 0;
   }
   .viewSwitchBtn {
     font-family: inherit;
-    font-size: 13px;
+    font-size: var(--fs-sm);
     font-weight: 700;
     color: var(--ink-soft);
     background: transparent;
@@ -309,13 +405,27 @@
     .viewSwitchBtn { padding: 10px 14px; font-size: 12px; }
   }
 
+  /* ---------- 設定画面: グループ見出し(関連する設定カードをまとめる) ---------- */
+
+  .settingsAdminNotice { margin-bottom: var(--sp-5); }
+  .settingsGroup { margin-bottom: var(--sp-6); }
+  .settingsGroup:last-child { margin-bottom: 0; }
+  .settingsGroup__title {
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 var(--sp-4);
+  }
+
   /* ---------- ベントグリッド ---------- */
 
   .bento {
     display: grid;
     grid-template-columns: repeat(12, 1fr);
-    gap: 20px;
-    margin-bottom: 20px;
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-4);
   }
   .bento > .card { margin-bottom: 0; }
   .bento--span-12 { grid-column: span 12; }
@@ -326,47 +436,35 @@
     .bento > * { grid-column: span 12 !important; }
   }
 
-  /* ---------- カード ---------- */
+  /* ---------- カード(白地・細罫線。装飾を抑えたフラットなデザイン) ---------- */
 
   .card {
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--r-lg);
     box-shadow: var(--shadow-sm);
-    padding: 32px;
-    margin-bottom: 20px;
+    padding: var(--sp-6);
+    margin-bottom: var(--sp-4);
     position: relative;
     min-width: 0;
-    transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
-  }
-  .card:hover {
-    border-color: var(--muted);
-    box-shadow: var(--shadow-md);
   }
 
-  .card__head { margin-bottom: 22px; }
-  .card__head--split { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .card__head { margin-bottom: var(--sp-4); }
+  .card__head--split { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); }
   .card__head h2 {
-    display: inline-block;
-    font-size: 12.5px;
+    font-size: var(--fs-md);
     font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    margin: 0 0 8px;
-    padding-bottom: 8px;
+    margin: 0 0 4px;
     color: var(--ink);
-    border-bottom: 2px solid var(--ink);
   }
-  .muted { color: var(--ink-soft); font-size: 12px; margin: 0; overflow-wrap: break-word; }
+  .muted { color: var(--ink-soft); font-size: var(--fs-sm); margin: 0; overflow-wrap: break-word; }
 
   .badge {
     flex: none;
-    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    font-size: 11px;
+    font-size: var(--fs-xs);
     font-weight: 700;
-    color: var(--ink);
+    color: var(--ink-soft);
     background: var(--surface-alt);
-    border: 1px solid var(--line);
     padding: 4px 12px;
     border-radius: var(--r-pill);
     white-space: nowrap;
@@ -374,32 +472,30 @@
 
   /* ---------- アクティビティカード(申請画面のベントレイアウト右側) ---------- */
 
-  .activityCard { display: flex; flex-direction: column; gap: 16px; height: 100%; }
+  .activityCard { display: flex; flex-direction: column; gap: var(--sp-4); height: 100%; }
   .activityCard__row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-  .activityCard__label { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+  .activityCard__label { font-size: var(--fs-xs); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
   .activityCard__value { font-size: 28px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
-  .activityCard__latest { font-size: 12.5px; color: var(--ink-soft); line-height: 1.6; padding-top: 8px; border-top: 1px dashed var(--line); overflow-wrap: anywhere; }
-  .activityCard__foot { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--success); font-weight: 700; margin-top: auto; }
+  .activityCard__latest { font-size: var(--fs-sm); color: var(--ink-soft); line-height: 1.6; padding-top: 8px; border-top: 1px dashed var(--line); overflow-wrap: anywhere; }
+  .activityCard__foot { display: flex; align-items: center; gap: 6px; font-size: var(--fs-xs); color: var(--success); font-weight: 700; margin-top: auto; }
 
   .fieldRow {
     display: flex;
     flex-wrap: wrap;
-    gap: 16px;
-    margin-bottom: 4px;
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-1);
   }
   .field { flex: 1; min-width: 200px; }
   .field label {
     display: block;
-    font-size: 11px;
+    font-size: var(--fs-xs);
     font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 8px;
+    color: var(--ink-soft);
+    margin-bottom: var(--sp-2);
   }
-  .field .req { color: var(--shu); font-weight: 700; font-size: 10px; letter-spacing: 0; text-transform: none; }
+  .field .req { color: var(--shu); font-weight: 700; font-size: var(--fs-2xs); }
 
-  /* ---------- セグメントコントロール(書類種別・抹消区分選択) ---------- */
+  /* ---------- セグメントコントロール(書類種別・抹消区分選択など) ---------- */
 
   .segmented {
     display: inline-flex;
@@ -414,7 +510,7 @@
   .segBtn {
     flex: 1;
     font-family: inherit;
-    font-size: 12.5px;
+    font-size: var(--fs-sm);
     font-weight: 600;
     color: var(--ink-soft);
     background: transparent;
@@ -433,12 +529,89 @@
   }
   .segBtn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
 
+  /* ---------- テーマの色見本(設定画面)----------
+     単色の丸ではなく、そのテーマの実際の画面に近い小さなミニプレビュー(ヘッダー帯+本文+
+     アクセントの見出し線+ボタン)を表示し、選ぶ前に雰囲気が伝わるようにしている。
+     --sw-bg/--sw-surface/--sw-ink/--sw-accentは各ボタンにインラインで指定する。 */
+
+  .themeSwatches {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: var(--sp-3);
+  }
+  .themeSwatch {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+    font-family: inherit;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    cursor: pointer;
+    transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+  }
+  .themeSwatch:hover { border-color: var(--muted); }
+  .themeSwatch.is-active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  .themeSwatch:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+
+  .themeSwatch__preview {
+    position: relative;
+    height: 58px;
+    border-radius: var(--r-sm);
+    background: var(--sw-bg);
+    border: 1px solid rgba(127, 127, 127, 0.25);
+    overflow: hidden;
+  }
+  .themeSwatch__previewHead {
+    height: 14px;
+    background: var(--sw-surface);
+    border-bottom: 1px solid rgba(127, 127, 127, 0.18);
+  }
+  .themeSwatch__previewLine {
+    position: absolute;
+    left: 8px;
+    top: 24px;
+    width: 55%;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--sw-ink);
+    opacity: 0.7;
+  }
+  .themeSwatch__previewLine--short {
+    top: 34px;
+    width: 32%;
+    opacity: 0.4;
+  }
+  .themeSwatch__previewBtn {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    width: 34px;
+    height: 9px;
+    border-radius: var(--r-pill);
+    background: var(--sw-accent);
+  }
+
+  .themeSwatch__label { font-size: var(--fs-2xs); font-weight: 600; color: var(--ink-soft); text-align: center; }
+  .themeSwatch.is-active .themeSwatch__label { color: var(--ink); }
+
+  @media (max-width: 900px) {
+    /* 画面が狭くても2段組みにはせず、横スクロールで1列表示を保つ */
+    .themeSwatches {
+      display: flex;
+      overflow-x: auto;
+      padding-bottom: var(--sp-2);
+    }
+    .themeSwatch { flex: none; width: 92px; }
+  }
+
   /* ---------- 入力欄 ---------- */
 
   input, select {
     width: 100%;
     padding: 10px 12px;
-    font-size: 13.5px;
+    font-size: var(--fs-base);
     font-family: inherit;
     color: var(--ink);
     background: var(--surface);
@@ -457,13 +630,26 @@
     box-shadow: 0 0 0 3px var(--shu-soft);
   }
 
+  /* ブラウザが入力欄をログイン用ユーザー名欄と誤認識し、autocomplete="off"でも自動入力用の
+     白/黄色っぽい背景を独自に描画することがある。すべての入力欄で他の項目と背景色を揃えるため、
+     オートフィル時の背景色描画を透明(実質的に周囲と同じ背景色)で上書きする。 */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:autofill {
+    -webkit-text-fill-color: var(--ink);
+    -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+    box-shadow: 0 0 0 1000px var(--surface) inset;
+    transition: background-color 999999s ease-in-out 0s;
+  }
+
   /* ---------- 飛騨登録トグルボタン ---------- */
 
   .toggleBtn {
     width: 100%;
     padding: 10px 12px;
     font-family: inherit;
-    font-size: 13px;
+    font-size: var(--fs-base);
     font-weight: 700;
     border: 1px solid var(--line);
     border-radius: var(--r-sm);
@@ -521,7 +707,7 @@
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    font-size: 13px;
+    font-size: var(--fs-base);
     font-weight: 700;
     color: var(--muted);
   }
@@ -537,7 +723,7 @@
     display: flex;
     align-items: center;
     gap: 7px;
-    font-size: 12.5px;
+    font-size: var(--fs-sm);
     font-weight: 500;
     color: var(--ink-soft);
     cursor: pointer;
@@ -559,14 +745,14 @@
   th, td {
     padding: 10px 6px;
     text-align: center;
-    font-size: 12.5px;
+    font-size: var(--fs-sm);
     border-bottom: 1px solid var(--line-soft);
   }
   thead th {
     background: var(--surface-alt);
     color: var(--ink-soft);
     font-weight: 600;
-    font-size: 10px;
+    font-size: var(--fs-2xs);
     letter-spacing: 0.05em;
     text-transform: uppercase;
     white-space: pre-line;
@@ -579,7 +765,7 @@
   tbody tr:hover td { background: var(--surface-alt); }
   td input, td select {
     padding: 6px;
-    font-size: 12.5px;
+    font-size: var(--fs-sm);
     text-align: center;
     border: 1px solid transparent;
     border-radius: var(--r-xs);
@@ -609,7 +795,7 @@
   .filterGroup { display: flex; flex-direction: column; gap: 7px; }
   .filterGroup--grow { flex: 1; min-width: 180px; }
   .filterGroup__label {
-    font-size: 10.5px;
+    font-size: var(--fs-xs);
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -617,7 +803,7 @@
   }
   .filterGroup__row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .filterGroup__row input[type="date"] { width: 150px; max-width: 100%; background: var(--surface); }
-  .filterBar__sep { color: var(--muted); font-size: 12px; }
+  .filterBar__sep { color: var(--muted); font-size: var(--fs-sm); }
   .filterBar select { background: var(--surface); }
   .filterBar .filterCheck { padding-bottom: 11px; }
   .filterBar__submit { flex: none; padding: 10px 26px; }
@@ -642,7 +828,7 @@
   }
   .pdfLink:hover { text-decoration: underline; }
 
-  .btn--sm { padding: 6px 14px; font-size: 12px; }
+  .btn--sm { padding: 6px 14px; font-size: var(--fs-sm); }
 
   @media (max-width: 700px) {
     .filterBar { flex-direction: column; align-items: stretch; }
@@ -661,16 +847,34 @@
   }
   .btnRemoveRow:hover { color: var(--shu); }
 
+  /* ---------- 設定画面: 担当者マスタ・ブランド設定・他システム連携の一覧表 ---------- */
+
+  .staffMasterTable { min-width: 0; }
+  .staffMasterTable th:first-child, .staffMasterTable td:first-child { width: 40%; }
+  .staffMasterTable td input, .staffMasterTable td select { width: 100%; text-align: center; }
+  /* 他システム連携の表はブランド列を狭く、URL列を広く取る(3列構成のため40%指定を上書き) */
+  #externalSyncTable th:first-child, #externalSyncTable td:first-child { width: 140px; }
+  .btnRemoveStaffRow {
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-size: 16px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 4px;
+    transition: color 0.15s var(--ease);
+  }
+  .btnRemoveStaffRow:hover { color: var(--shu); }
+
   /* ---------- ボタン ---------- */
 
   .btn {
     position: relative;
     overflow: hidden;
     font-family: inherit;
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.01em;
-    padding: 11px 22px;
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    padding: 10px 18px;
     border-radius: var(--r-sm);
     cursor: pointer;
     transition: background-color 0.15s var(--ease), border-color 0.15s var(--ease), box-shadow 0.15s var(--ease), transform 0.1s var(--ease);
@@ -679,19 +883,19 @@
   .btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
   .btn--ghost {
     background: var(--surface);
-    border: 1px solid var(--ink);
+    border: 1px solid var(--line);
     color: var(--ink);
   }
-  .btn--ghost:hover { background: var(--surface-alt); }
+  .btn--ghost:hover { background: var(--surface-alt); border-color: var(--muted); }
 
   .btn--primary {
     background: var(--solid-bg);
     color: var(--solid-ink);
-    padding: 14px 24px;
-    font-size: 14px;
+    padding: 12px 22px;
+    font-size: var(--fs-base);
     font-weight: 700;
     border: 1px solid var(--solid-bg);
-    box-shadow: var(--shadow-sm);
+    box-shadow: none;
   }
   .btn--primary:hover { background: var(--solid-bg-hover); border-color: var(--solid-bg-hover); }
   .btn--primary:disabled {
@@ -710,7 +914,7 @@
     animation: rippleAnim 0.6s var(--ease);
     pointer-events: none;
   }
-  .btn--primary .ripple { background: var(--solid-ripple); }
+  .btn--primary .ripple { background: rgba(255, 255, 255, 0.35); }
   @keyframes rippleAnim {
     to { transform: scale(2.6); opacity: 0; }
   }
@@ -721,10 +925,10 @@
   .submitBar { margin-top: 4px; }
   .submitBar__row { display: flex; gap: 12px; }
   .submitBar__row .btn--primary { flex: 1; }
-  .submitBar__row .btn--ghost { flex: none; padding: 14px 24px; }
+  .submitBar__row .btn--ghost { flex: none; padding: 12px 22px; }
   .result {
-    margin-top: 16px;
-    font-size: 13px;
+    margin-top: var(--sp-4);
+    font-size: var(--fs-sm);
     text-align: center;
     overflow-wrap: anywhere;
   }
@@ -737,6 +941,32 @@
   .result.-success { color: var(--success); background: var(--success-soft); }
   .result.-error { color: var(--shu); background: var(--shu-soft); white-space: pre-line; }
   .result a { color: var(--accent); }
+
+  /* 他システム(外部スプレッドシート)への転記でエラーがあったときの注意書き
+     (PDF発行・履歴記録自体は成功しているため、成功メッセージの下に控えめに添える) */
+  .result__warning {
+    display: block;
+    margin-top: 10px;
+    padding: 8px 12px;
+    border-radius: var(--r-sm);
+    background: var(--warning-soft);
+    color: var(--warning-ink);
+    font-weight: 600;
+    text-align: left;
+    white-space: pre-line;
+  }
+
+  /* 他システム(外部スプレッドシート)への転記に成功したときの添え書き */
+  .result__note {
+    display: block;
+    margin-top: 10px;
+    padding: 8px 12px;
+    border-radius: var(--r-sm);
+    background: var(--success-soft);
+    color: var(--success);
+    font-weight: 600;
+    text-align: left;
+  }
 
   /* ---------- 処理中インジケーター ---------- */
 
@@ -804,6 +1034,27 @@
   .pdfRow__cancelled { color: var(--shu); font-weight: 700; }
   .pdfRow__actions { display: flex; flex-wrap: wrap; gap: 8px; flex: none; }
 
+  /* ---------- 設定画面: 画像設定(ロゴ・起動画面を1カードにまとめ、2カラムで表示) ---------- */
+
+  .imageSettingsGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--sp-6);
+  }
+  .imageSettingsGrid__item + .imageSettingsGrid__item {
+    border-left: 1px solid var(--line);
+    padding-left: var(--sp-6);
+  }
+  @media (max-width: 700px) {
+    .imageSettingsGrid { grid-template-columns: 1fr; gap: var(--sp-5); }
+    .imageSettingsGrid__item + .imageSettingsGrid__item {
+      border-left: none;
+      padding-left: 0;
+      border-top: 1px solid var(--line);
+      padding-top: var(--sp-5);
+    }
+  }
+
   /* ---------- 設定画面: ロゴ画像プレビュー ---------- */
 
   .logoPreview {
@@ -832,6 +1083,7 @@
 
   @media (max-width: 700px) {
     .masthead__inner { padding: 24px; }
+    .viewSwitch { padding: 0 16px 0; }
     .page { padding: 0 16px 64px; }
     .card { padding: 20px; }
     .submitBar__row { flex-direction: column-reverse; }
@@ -845,6 +1097,7 @@
 
   @media (max-width: 400px) {
     .masthead__inner { padding: 18px 16px; }
+    .viewSwitch { padding: 0 12px 0; }
     .page { padding: 0 12px 56px; }
     .card { padding: 16px; }
   }
