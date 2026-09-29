@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    body { font-family: 'Hiragino Sans', 'Noto Sans JP', sans-serif; font-size: 13px; color: #222; margin: 0; }
+    .layout { display: flex; flex-direction: column; }
+    .preview { background: #f1f3f4; }
+    .preview iframe { width: 100%; height: 360px; border: 0; display: block; }
+    .preview a { display: block; padding: 4px 8px; font-size: 12px; }
+    .form { padding: 8px 12px 90px; }
+    /* 大画面（ダイアログ）ではスキャン画像と読取結果を左右に並べる */
+    @media (min-width: 900px) {
+      .layout { flex-direction: row; height: 100vh; }
+      .preview { flex: 1.2; display: flex; flex-direction: column; }
+      .preview iframe { flex: 1; height: auto; }
+      .form { flex: 1; overflow-y: auto; }
+    }
+    .nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-size: 12px; color: #555; }
+    .nav button { padding: 2px 10px; }
+    .badges span { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 10px; background: #e8eaed; margin-right: 4px; }
+    .badges .low { background: #f4cccc; } .badges .mid { background: #fff2cc; } .badges .high { background: #d9ead3; }
+    .warn { background: #fef7e0; border-left: 3px solid #f9ab00; padding: 6px 8px; margin: 6px 0; font-size: 12px; white-space: pre-wrap; }
+    .note { background: #e8f0fe; border-left: 3px solid #1a73e8; padding: 6px 8px; margin: 6px 0; font-size: 12px; white-space: pre-wrap; }
+    .field { margin: 6px 0; padding: 4px 6px; border-radius: 4px; }
+    .field.flagged { background: #fff2cc; }
+    .field label { display: flex; justify-content: space-between; font-size: 12px; font-weight: bold; }
+    .field .flags { font-weight: normal; color: #b06000; font-size: 11px; }
+    .field .ai { font-size: 11px; color: #777; margin-top: 1px; }
+    .field .ai.changed { color: #1a73e8; }
+    input, select { width: 100%; box-sizing: border-box; padding: 5px; border: 1px solid #bbb; border-radius: 4px; font-size: 13px; }
+    h3 { font-size: 12px; color: #555; margin: 12px 0 2px; border-bottom: 1px solid #eee; }
+    .actions { position: fixed; bottom: 0; right: 0; left: 0; background: #fff; border-top: 1px solid #ddd; padding: 8px 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+    @media (min-width: 900px) { .actions { left: 55%; } }
+    button { padding: 7px 12px; border-radius: 4px; border: 1px solid #1a73e8; background: #fff; color: #1a73e8; font-size: 13px; cursor: pointer; }
+    button.primary { background: #1a73e8; color: #fff; }
+    button.danger { border-color: #d93025; color: #d93025; }
+    button:disabled { opacity: .5; cursor: default; }
+    #msg { font-size: 12px; margin: 4px 0; }
+    #msg.error { color: #a50e0e; }
+    .empty { padding: 24px 12px; color: #555; }
+  </style>
+</head>
+<body>
+  <div id="empty" class="empty" style="display:none">確認待ちの行はありません。<br><br><button onclick="transfer()">承認済みをマスタへ転記</button><div id="emptyMsg"></div></div>
+  <div class="layout" id="main" style="display:none">
+    <div class="preview">
+      <iframe id="preview" src="about:blank"></iframe>
+      <a id="fileLink" href="#" target="_blank">別タブでスキャン画像を開く</a>
+    </div>
+    <div class="form">
+      <div class="nav">
+        <button onclick="move(-1)">◀</button>
+        <span id="position"></span>
+        <button onclick="move(1)">▶</button>
+      </div>
+      <div class="badges" id="badges"></div>
+      <div id="warnings"></div>
+
+      <h3>紐付け</h3>
+      <div class="field">
+        <label for="targetSheet">登録先</label>
+        <select id="targetSheet"></select>
+      </div>
+      <div class="field">
+        <label for="targetOcn">対象OCN</label>
+        <input type="text" id="targetOcn">
+      </div>
+
+      <div id="fields"></div>
+      <div id="msg"></div>
+    </div>
+  </div>
+  <div class="actions" id="actions" style="display:none">
+    <button class="primary" id="approveBtn" onclick="save('approve')">承認して次へ</button>
+    <button onclick="save('save')">保存</button>
+    <button class="danger" onclick="reject()">却下</button>
+    <button onclick="transfer()">承認済みを転記</button>
+  </div>
+
+  <script>
+    var GROUPS = [
+      { title: '査定書（活字）', keys: ['carName', 'modelName', 'color', 'mileage', 'recycleFee', 'appraisalPrice'] },
+      { title: '車検証（活字）・突合', keys: ['chassisNumber', 'firstRegDate', 'inspectionExpiry', 'plateRegion', 'plateClass', 'plateKana', 'plateNumber', 'supplier', 'address'] },
+      { title: '注文書（手書き・確認必須）', keys: ['staff', 'category', 'tradeInPrice', 'tradeInAllowance', 'purchasePrice'] },
+      { title: '自動採番', keys: ['purchaseDate'] }
+    ];
+    var queue = [], pos = 0, current = null;
+
+    function el(id) { return document.getElementById(id); }
+    function call(fn) {
+      var args = Array.prototype.slice.call(arguments, 1);
+      return new Promise(function (resolve, reject) {
+        var runner = google.script.run.withSuccessHandler(resolve).withFailureHandler(reject);
+        runner[fn].apply(runner, args);
+      });
+    }
+    function escapeHtml(s) {
+      return String(s === null || s === undefined ? '' : s).replace(/[&<>"]/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+      });
+    }
+    function message(text, isError) {
+      el('msg').textContent = text || '';
+      el('msg').className = isError ? 'error' : '';
+    }
+
+    async function loadQueue(preferId) {
+      var res = await call('getReviewQueue');
+      queue = res.queue;
+      var id = preferId || res.activeId;
+      pos = 0;
+      queue.forEach(function (q, i) { if (q.id === id) pos = i; });
+      if (!queue.length) {
+        el('main').style.display = 'none';
+        el('actions').style.display = 'none';
+        el('empty').style.display = 'block';
+        return;
+      }
+      el('empty').style.display = 'none';
+      el('main').style.display = '';
+      el('actions').style.display = '';
+      await show(queue[pos].id);
+    }
+
+    async function show(id) {
+      message('読み込み中…');
+      current = await call('getReviewItem', id);
+      message('');
+      el('position').textContent = (pos + 1) + ' / ' + queue.length + '件（' + current.kind + '）';
+      if (el('preview').getAttribute('src') !== current.previewUrl) el('preview').src = current.previewUrl || 'about:blank';
+      el('fileLink').href = current.fileUrl || '#';
+
+      var conf = current.confidence === '低' ? 'low' : current.confidence === '中' ? 'mid' : 'high';
+      el('badges').innerHTML = '<span>' + escapeHtml(current.state) + '</span><span class="' + conf + '">信頼度 ' +
+        escapeHtml(current.confidence) + '</span><span>' + escapeHtml(current.docs) + '</span>';
+      el('warnings').innerHTML = (current.warnings ? '<div class="warn">' + escapeHtml(current.warnings) + '</div>' : '') +
+        (current.notes ? '<div class="note">' + escapeHtml(current.notes) + '</div>' : '');
+
+      el('targetSheet').innerHTML = '<option value="">（未選択）</option>' + current.masterSheets.map(function (s) {
+        return '<option' + (s === current.targetSheet ? ' selected' : '') + '>' + escapeHtml(s) + '</option>';
+      }).join('');
+      el('targetOcn').value = current.targetOcn;
+      el('targetOcn').readOnly = current.kind === '仮登録';
+
+      var byKey = {};
+      current.fields.forEach(function (f) { byKey[f.key] = f; });
+      var html = '';
+      GROUPS.forEach(function (g) {
+        var rows = g.keys.map(function (k) { return byKey[k]; }).filter(function (f) { return f; });
+        html += '<h3>' + escapeHtml(g.title) + '</h3>';
+        rows.forEach(function (f) { html += renderField(f); });
+      });
+      el('fields').innerHTML = html;
+      el('fields').querySelectorAll('[data-key]').forEach(function (input) {
+        input.addEventListener('input', function () { markChanged(input); });
+        input.addEventListener('change', function () { markChanged(input); });
+      });
+      var firstFlagged = el('fields').querySelector('.flagged input, .flagged select');
+      if (firstFlagged) firstFlagged.focus();
+    }
+
+    function renderField(f) {
+      var flagged = f.flags.length > 0;
+      var input;
+      if (f.options) {
+        input = '<select data-key="' + f.key + '"><option value=""></option>' + f.options.map(function (o) {
+          return '<option' + (o === f.value ? ' selected' : '') + '>' + escapeHtml(o) + '</option>';
+        }).join('') + '</select>';
+      } else {
+        var type = f.type === 'date' ? 'date' : 'text';
+        input = '<input type="' + type + '" data-key="' + f.key + '" value="' + escapeHtml(f.value) + '"' +
+          (f.type === 'number' ? ' inputmode="numeric"' : '') + '>';
+      }
+      var ai = f.aiValue !== f.value ? '<div class="ai changed" data-ai="' + f.key + '">AI読取値：' + escapeHtml(f.aiValue || '（空欄）') + '</div>'
+        : '<div class="ai" data-ai="' + f.key + '"></div>';
+      return '<div class="field' + (flagged ? ' flagged' : '') + '"><label>' + escapeHtml(f.label) +
+        '<span class="flags">' + escapeHtml(f.flags.join('・')) + '</span></label>' + input + ai + '</div>';
+    }
+
+    function markChanged(input) {
+      var key = input.getAttribute('data-key');
+      var f = current.fields.filter(function (x) { return x.key === key; })[0];
+      var aiEl = document.querySelector('[data-ai="' + key + '"]');
+      if (input.value !== f.aiValue) {
+        aiEl.className = 'ai changed';
+        aiEl.textContent = 'AI読取値：' + (f.aiValue || '（空欄）');
+      } else {
+        aiEl.className = 'ai';
+        aiEl.textContent = '';
+      }
+    }
+
+    function collect() {
+      var fields = {};
+      el('fields').querySelectorAll('[data-key]').forEach(function (input) { fields[input.getAttribute('data-key')] = input.value; });
+      return { fields: fields, targetSheet: el('targetSheet').value, targetOcn: el('targetOcn').value };
+    }
+
+    async function save(action) {
+      if (!current) return;
+      var buttons = document.querySelectorAll('.actions button');
+      buttons.forEach(function (b) { b.disabled = true; });
+      try {
+        message(action === 'approve' ? '承認しています…' : '保存しています…');
+        await call('saveReviewItem', current.id, collect(), action);
+        if (action === 'save') { message('保存しました'); await show(current.id); }
+        else {
+          var nextId = queue[pos + 1] ? queue[pos + 1].id : (queue[pos - 1] ? queue[pos - 1].id : null);
+          await loadQueue(nextId);
+        }
+      } catch (e) {
+        message(e.message, true);
+      } finally {
+        buttons.forEach(function (b) { b.disabled = false; });
+      }
+    }
+
+    function reject() {
+      if (confirm('この行を却下します（マスタには転記されません）。よろしいですか？')) save('reject');
+    }
+
+    async function move(delta) {
+      if (!queue.length) return;
+      pos = (pos + delta + queue.length) % queue.length;
+      await show(queue[pos].id);
+    }
+
+    async function transfer() {
+      if (!confirm('承認済みの行をマスタへ転記します。よろしいですか？')) return;
+      try {
+        var res = await call('transferApproved');
+        alert(res.message);
+        await loadQueue();
+      } catch (e) {
+        alert('エラー：' + e.message);
+      }
+    }
+
+    loadQueue().catch(function (e) {
+      el('empty').style.display = 'block';
+      el('emptyMsg').textContent = 'エラー：' + e.message;
+    });
+  </script>
+</body>
+</html>
