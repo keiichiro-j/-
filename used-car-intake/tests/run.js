@@ -237,7 +237,7 @@ console.log('== 表示形式（西暦・区切り・km）==');
 test('日付の列はすべて西暦 yyyy/MM/dd、初度登録は yyyy/MM（和暦の表示形式を上書き）', () => {
   assert.strictEqual(S.numberFormatFor(F('firstRegDate')), 'yyyy/MM');
   assert.strictEqual(S.numberFormatFor(F('inspectionRemain')), '0"日"');
-  assert.strictEqual(S.numberFormatFor(F('saleDate')), 'yyyy"年"MM"月"');
+  assert.strictEqual(S.numberFormatFor(F('saleDate')), 'yyyy/MM');
   ['purchaseDate', 'inspectionExpiry'].forEach((k) => assert.strictEqual(S.numberFormatFor(F(k)), 'yyyy/MM/dd', k));
   assert.ok(!/[ge]/.test(S.DATE_FORMAT)); // 和暦の書式記号（g・e）を含まない
 });
@@ -253,7 +253,7 @@ test('走行距離：数字だけ入れても、文字で入れても数値に�
   assert.strictEqual(S.normalizeCellValue(F('mileage'), '１２３４５', LISTS).value, 12345);
   assert.strictEqual(S.normalizeCellValue(F('mileage'), '12,345 km', LISTS).value, 12345);
 });
-test('売上日：年月だけ（2026年9月・R8.9・2026/9/15 → 月の1日）', () => {
+test('売上日：年月だけ、初度登録日と同じ yyyy/MM（2026年9月・R8.9・2026/9/15 → 月の1日）', () => {
   assert.strictEqual(ymd(S.normalizeCellValue(F('saleDate'), '2026年9月', LISTS).value), '2026/9/1');
   assert.strictEqual(ymd(S.normalizeCellValue(F('saleDate'), 'R8.9', LISTS).value), '2026/9/1');
   assert.strictEqual(ymd(S.normalizeCellValue(F('saleDate'), date(2026, 9, 15), LISTS).value), '2026/9/1');
@@ -359,6 +359,59 @@ test('一覧：列が無いシートは空欄で埋め、ステータス列が�
   assert.ok(f.indexOf('IF(\'輸入車マスタ\'!T2:T="","","")') !== -1);
   const noStatus = Object.assign({}, stdCols); delete noStatus.status;
   assert.strictEqual(S.buildDashboardListFormula({ '輸入車マスタ': noStatus }, ['書類待ち']), '="ステータスの列が見つかりません"');
+});
+
+console.log('== 計算式の設定（X〜AC列）==');
+const stdMap = S.resolveColumns(S.STANDARD_HEADERS.slice()).map;
+test('計算式を列の式にする（項目名・全角記号・別名）', () => {
+  const c = S.compileCalcExpression('tradeInLoss', '[下取充当額]-[下取価格]');
+  assert.deepStrictEqual(Array.from(c.refs), ['tradeInAllowance', 'tradeInPrice']);
+  S.FORMULA_DEFS.__t = c.def;
+  S.FIELD_BY_KEY.__t = { label: '下取損' };
+  const f = S.buildArrayFormula('__t', stdMap);
+  delete S.FORMULA_DEFS.__t; delete S.FIELD_BY_KEY.__t;
+  assert.strictEqual(f, '={"下取損";ARRAYFORMULA(IF((X2:X="")*(Z2:Z=""),,IFERROR(X2:X-Z2:Z,"")))}');
+  const c2 = S.compileCalcExpression('purchasePrice', '［査定価格］＋［リサイクル］×１．１');
+  assert.strictEqual(c2.def, 'IF(({appraisalPrice}="")*({recycleFee}=""),,IFERROR({appraisalPrice}+{recycleFee}*1.1,""))');
+  const c3 = S.compileCalcExpression('tradeInLoss', '([下取充当額]-[買取金額])/2');
+  assert.deepStrictEqual(Array.from(c3.refs), ['tradeInAllowance', 'purchasePrice']);
+});
+test('不正な式はわかる言葉で止める', () => {
+  const bad = (expr, re) => assert.throws(() => S.compileCalcExpression('tradeInLoss', expr), re);
+  bad('', /計算式を入力/);
+  bad('[走行距離]*2', /計算に使えない項目/);
+  bad('[下取損]+1', /自分自身/);
+  bad('[下取価格]+A1', /使えない文字/);
+  bad('100', /\[項目名\] を1つ以上/);
+  bad('([下取価格]+1', /かっこ/);
+  bad('[下取価格]+', /式の形/);
+  bad('SUM([下取価格])', /使えない文字/);
+});
+test('自動計算の列どうしの循環を検出', () => {
+  assert.throws(() => S.checkCalcCycles({ tradeInLoss: ['purchasePrice'], purchasePrice: ['tradeInLoss'] }), /循環/);
+  S.checkCalcCycles({ tradeInLoss: ['tradeInAllowance', 'tradeInPrice'], purchasePrice: ['appraisalPrice', 'tradeInLoss'] });
+});
+test('未設定のときは以前どおり（下取損・仕入価格は計算式の列、ほかは金額）', () => {
+  const props = {};
+  sandbox.PropertiesService = { getScriptProperties: () => ({ getProperty: (k) => props[k] || null }) };
+  S.applyCalcSettings_();
+  assert.strictEqual(F('tradeInLoss').type, 'formula');
+  assert.strictEqual(F('recycleFee').type, 'money');
+  assert.deepStrictEqual(Array.from(S.FORCED_FORMULA_KEYS), ['inspectionRemain']);
+  // 仕入価格を自動計算、下取損を手入力にした場合
+  props.CALC_purchasePrice = JSON.stringify({ mode: 'auto', expr: '[査定価格]-[下取価格]' });
+  props.CALC_tradeInLoss = JSON.stringify({ mode: 'manual', expr: '' });
+  S.applyCalcSettings_();
+  assert.strictEqual(F('purchasePrice').type, 'formula');
+  assert.strictEqual(F('tradeInLoss').type, 'money');
+  assert.deepStrictEqual(Array.from(S.FORCED_FORMULA_KEYS), ['inspectionRemain', 'purchasePrice']);
+  assert.strictEqual(S.normalizeCellValue(F('tradeInLoss'), '12,000円', LISTS).value, 12000); // 手入力の列は整形される
+  // 元に戻す
+  delete props.CALC_purchasePrice; delete props.CALC_tradeInLoss;
+  S.applyCalcSettings_();
+  assert.strictEqual(F('purchasePrice').type, 'formula');
+  assert.deepStrictEqual(Array.from(S.FORCED_FORMULA_KEYS), ['inspectionRemain']);
+  delete sandbox.PropertiesService;
 });
 
 console.log('');

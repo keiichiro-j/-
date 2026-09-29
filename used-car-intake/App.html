@@ -59,6 +59,7 @@
     <nav role="tablist">
       <button role="tab" data-tab="basic" aria-selected="true">基本設定</button>
       <button role="tab" data-tab="lists" aria-selected="false">プルダウン選択肢</button>
+      <button role="tab" data-tab="calc" aria-selected="false">計算式</button>
       <button role="tab" data-tab="cleanup" aria-selected="false">一括整形・列統一</button>
       <button role="tab" data-tab="logs" aria-selected="false">ログ</button>
     </nav>
@@ -110,7 +111,7 @@
         <p class="hint">
           車検満了日などの日付は、和暦（R5.6.1、令和5年6月1日）で入力しても西暦の日付に変わり、<code>2023/06/01</code> と表示します。<br>
           初度登録日は年月だけで、<code>2020/03</code> と表示します（R2.3、令和2年3月、2020/3 などで入力できます）。<br>
-          売上日も年月だけで、<code>2026年09月</code> と表示します。<br>
+          売上日も年月だけで、<code>2026/09</code> と表示します。<br>
           車検残は車検満了日から自動で計算し、残りの日数（例：<code>120日</code>）を表示します。満了日を迎えると「満了」と表示します。<br>
           走行距離は数字を入れると <code>12,345km</code>、金額は <code>1,234,000</code> と表示します（値は数値のままなので並べ替え・計算ができます）。<br>
           カタカナは半角カナ、英数字は半角に揃え、プルダウンの列は表記ゆれを選択肢に置き換えます。OCN は自動で採番します。<br>
@@ -142,6 +143,30 @@
     </section>
 
     <!-- 一括整形・列統一 -->
+    <section id="tab-calc" hidden>
+      <div class="card">
+        <h2>計算式（下取充当額〜仕入価格）</h2>
+        <p class="hint">
+          列ごとに「手入力」か「自動計算」を選びます。自動計算の式は <code>[項目名]</code> と数字、<code>+ - * / ( )</code> で書きます（例：<code>[下取充当額]-[下取価格]</code>）。
+          下の項目名を押すと、選んでいる式の欄に入ります。<br>
+          自動計算にすると、その列に入っている値は消えて計算結果になります（値が入っていたシートは先にバックアップを作ります）。
+          手入力に戻すと、その時点の計算結果を値として残します。「未設定」は今のシートのままにします。
+          参照する項目がすべて空欄の行は空欄、0で割るなどの計算できない行も空欄になります。
+        </p>
+        <div class="scroll" style="max-height:none">
+          <table>
+            <tr><th>列</th><th>項目</th><th>設定</th><th style="width:50%">計算式</th></tr>
+            <tbody id="calcRows"></tbody>
+          </table>
+        </div>
+        <div class="actions" id="calcNames"></div>
+        <div class="actions">
+          <button class="btn primary" id="saveCalcBtn" onclick="saveCalc()">保存して3シートに反映</button>
+          <span class="msg" id="calcMsg"></span>
+        </div>
+      </div>
+    </section>
+
     <section id="tab-cleanup" hidden>
       <p class="hint">まず「変更予定を確認（ドライラン）」で一覧を出し、内容を確かめてから実行します。実行前に対象シートのバックアップ（非表示シート）を自動で作ります。計算式の列（車検残・下取損・仕入価格）は対象外です。</p>
       <div class="actions" style="margin-bottom:12px">
@@ -205,7 +230,8 @@
     });
     function openTab(name) {
       document.querySelectorAll('nav button').forEach(function (b) { b.setAttribute('aria-selected', b.getAttribute('data-tab') === name ? 'true' : 'false'); });
-      ['basic', 'lists', 'cleanup', 'logs'].forEach(function (t) { el('tab-' + t).hidden = t !== name; });
+      ['basic', 'lists', 'calc', 'cleanup', 'logs'].forEach(function (t) { el('tab-' + t).hidden = t !== name; });
+      if (name === 'calc') loadCalc();
       if (name === 'logs') loadLogs();
     }
 
@@ -401,6 +427,60 @@
     }
 
     // ----- ログ -----
+    // ----- 計算式 -----
+    var calcItems = [], lastExprInput = null;
+    function loadCalc() {
+      return call('getCalcSettings').then(function (res) {
+        calcItems = res.items;
+        el('calcRows').innerHTML = calcItems.map(function (it, i) {
+          var status = it.mode ? '' : (it.hasFormula ? '（今は計算式）' : '（今は手入力）');
+          return '<tr><td>' + esc(it.letter) + '</td><td>' + esc(it.label) + '</td><td>' +
+            '<select id="calcMode_' + i + '" aria-label="' + esc(it.label) + 'の設定">' +
+            '<option value=""' + (it.mode === '' ? ' selected' : '') + '>未設定' + status + '</option>' +
+            '<option value="manual"' + (it.mode === 'manual' ? ' selected' : '') + '>手入力</option>' +
+            '<option value="auto"' + (it.mode === 'auto' ? ' selected' : '') + '>自動計算</option></select></td>' +
+            '<td><input type="text" id="calcExpr_' + i + '" value="' + esc(it.expr || it.defaultExpr) + '" placeholder="例：[下取充当額]-[下取価格]" aria-label="' + esc(it.label) + 'の計算式"></td></tr>';
+        }).join('');
+        calcItems.forEach(function (it, i) {
+          var mode = el('calcMode_' + i), expr = el('calcExpr_' + i);
+          var sync = function () { expr.disabled = mode.value !== 'auto'; };
+          mode.addEventListener('change', sync);
+          expr.addEventListener('focus', function () { lastExprInput = expr; });
+          sync();
+        });
+        el('calcNames').innerHTML = '<span class="hint" style="margin:0">項目名を入れる：</span>' + res.names.map(function (n) {
+          return '<button class="btn" type="button" data-name="' + esc(n) + '">[' + esc(n) + ']</button>';
+        }).join('');
+        el('calcNames').querySelectorAll('button[data-name]').forEach(function (b) {
+          b.addEventListener('mousedown', function (e) { e.preventDefault(); }); // 式の欄のカーソルを保つ
+          b.addEventListener('click', function () { insertName('[' + b.getAttribute('data-name') + ']'); });
+        });
+      }).catch(function (e) { msg('calcMsg', e.message, true); });
+    }
+    function insertName(text) {
+      var input = lastExprInput;
+      if (!input || input.disabled) { msg('calcMsg', '先に「自動計算」を選んだ列の計算式の欄を押してください', true); return; }
+      var start = input.selectionStart === null ? input.value.length : input.selectionStart;
+      var end = input.selectionEnd === null ? start : input.selectionEnd;
+      input.value = input.value.slice(0, start) + text + input.value.slice(end);
+      input.focus();
+      input.setSelectionRange(start + text.length, start + text.length);
+      msg('calcMsg', '');
+    }
+    async function saveCalc() {
+      var items = calcItems.map(function (it, i) {
+        return { key: it.key, mode: el('calcMode_' + i).value, expr: el('calcExpr_' + i).value };
+      });
+      el('saveCalcBtn').disabled = true;
+      msg('calcMsg', '保存して3シートに反映しています…');
+      try {
+        var res = await call('saveCalcSettings', items);
+        msg('calcMsg', res.message);
+        await loadCalc();
+      } catch (e) { msg('calcMsg', 'エラー：' + e.message, true); }
+      el('saveCalcBtn').disabled = false;
+    }
+
     function loadLogs() {
       call('getRecentLogs', 100).then(function (rows) {
         el('logs').innerHTML = rows.length

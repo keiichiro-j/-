@@ -53,7 +53,7 @@ var STATUS_TRANSFERRED = '名義変更済み';
  *  type : date | yearMonth（年月だけ。初度登録）| ocn | list | kana（半角カナ・半角英数）| address（英数字のみ半角）| chassis
  *         | mileage | money | plateClass | plateKana | plateNumber | link（自動）| formula（書き込まない）
  *  list : プルダウンの選択肢（設定アプリで管理する選択肢、または固定の選択肢）
- *  format : 列ごとの表示形式（型の既定と違う場合。売上日は「2026年09月」）
+ *  format : 列ごとの表示形式（型の既定と違う場合に指定）
  *  aliases : 既存シートの見出しの別表記（列の特定・販売済みシートの列統一に使う）
  */
 var FIELDS = [
@@ -77,7 +77,7 @@ var FIELDS = [
   { key: 'plateKana', label: '登録番号（ひらがな）', type: 'plateKana', aliases: ['ひらがな', '登録番号（かな）'] },
   { key: 'plateNumber', label: '登録番号（一連番号）', type: 'plateNumber', aliases: ['一連番号', '登録番号（番号）'] },
   { key: 'status', label: 'ステータス', type: 'list', list: 'status' },
-  { key: 'saleDate', label: '売上日', type: 'yearMonth', format: 'yyyy"年"MM"月"', aliases: ['販売日', '売上年月日', '売上年月'] },
+  { key: 'saleDate', label: '売上日', type: 'yearMonth', aliases: ['販売日', '売上年月日', '売上年月'] },
   { key: 'saleTo', label: '売上先', type: 'kana', aliases: ['販売先'] },
   { key: 'certLink', label: '車検証', type: 'link', aliases: ['車検証リンク'] },
   { key: 'tradeInAllowance', label: '下取充当額', type: 'money', aliases: ['充当額', '下取充当'] },
@@ -114,7 +114,10 @@ var NUMBER_FORMATS = {
   plateNumber: '@'
 };
 /** 計算式の列の表示形式（式の結果が数値のとき） */
-var FORMULA_FORMATS = { inspectionRemain: '0"日"', tradeInLoss: MONEY_FORMAT, purchasePrice: MONEY_FORMAT };
+var FORMULA_FORMATS = {
+  inspectionRemain: '0"日"', tradeInAllowance: MONEY_FORMAT, recycleFee: MONEY_FORMAT, tradeInPrice: MONEY_FORMAT,
+  appraisalPrice: MONEY_FORMAT, tradeInLoss: MONEY_FORMAT, purchasePrice: MONEY_FORMAT
+};
 
 /**
  * 計算式の列の定義。見出し行に ARRAYFORMULA を1つ置く方式で使う。
@@ -132,6 +135,17 @@ var FORMULA_DEFS = {
  * （車検残は車検満了日だけで決まるため、手入力の値は残さない）。
  */
 var FORCED_FORMULA_KEYS = ['inspectionRemain'];
+
+/**
+ * 設定アプリで計算式を設定できる列（X〜AC：下取充当額〜仕入価格）。
+ * 列ごとに「未設定（今のまま）／手入力／自動計算（式）」を選ぶ。式は [項目名] と + - * / ( ) 数字で書く。
+ *  - 自動計算：見出し行の ARRAYFORMULA にし、その列に入っていた値・式は置き換える
+ *  - 手入力：自動計算だった列は、その時点の計算結果を値として残して手入力の列に戻す
+ *  - 未設定：以前どおり（下取損・仕入価格は既存の式を使う。空の列にだけ既定の式を置く）
+ */
+var CALC_KEYS = ['tradeInAllowance', 'recycleFee', 'tradeInPrice', 'appraisalPrice', 'tradeInLoss', 'purchasePrice'];
+var CALC_DEFAULT_TYPES = { tradeInAllowance: 'money', recycleFee: 'money', tradeInPrice: 'money', appraisalPrice: 'money', tradeInLoss: 'formula', purchasePrice: 'formula' };
+var CALC_DEFAULT_DEFS = { tradeInLoss: FORMULA_DEFS.tradeInLoss, purchasePrice: null };
 
 /** 設定アプリで管理するプルダウンの選択肢 */
 var LIST_DEFS = [
@@ -812,6 +826,65 @@ function buildDashboardListFormula(colMaps, statuses) {
     ')),"該当する車両はありません")';
 }
 
+/** 計算式で使える項目名（[ ] の中）→ 列キー。見出し名と別表記（例：仕入価格・買取金額）を受け付ける */
+function calcItemKey(name) {
+  var n = normalizeHeader(name);
+  for (var i = 0; i < CALC_KEYS.length; i++) {
+    var f = FIELD_BY_KEY[CALC_KEYS[i]];
+    if (normalizeHeader(f.label) === n) return f.key;
+    if ((f.aliases || []).some(function (a) { return normalizeHeader(a) === n; })) return f.key;
+  }
+  return null;
+}
+
+/**
+ * 設定アプリの計算式（例：[下取充当額]-[下取価格]）を、列の式の定義（{キー} 形式）にする。
+ *  - 使えるのは [項目名]・数字・+ - * / ( )（全角・×・÷ も可）
+ *  - 参照する項目がすべて空欄の行は空欄、0で割るなどのエラーは空欄
+ * @return {{def:string, refs:Array<string>}}  不正な式は例外（日本語のメッセージ）
+ */
+function compileCalcExpression(key, expr) {
+  var text = String(expr || '').replace(/［/g, '[').replace(/］/g, ']');
+  if (!text.trim()) throw new Error(FIELD_BY_KEY[key].label + '：計算式を入力してください');
+  var refs = [];
+  var body = text.replace(/\[([^\]]+)\]/g, function (_, name) {
+    var ref = calcItemKey(name);
+    if (!ref) throw new Error(FIELD_BY_KEY[key].label + '：「' + name + '」は計算に使えない項目です（使える項目：' +
+      CALC_KEYS.map(function (k) { return FIELD_BY_KEY[k].label; }).join('・') + '）');
+    if (ref === key) throw new Error(FIELD_BY_KEY[key].label + '：自分自身の列は計算に使えません');
+    if (refs.indexOf(ref) === -1) refs.push(ref);
+    return '{' + ref + '}';
+  });
+  body = toHalfWidthAlnum(body).replace(/×/g, '*').replace(/÷/g, '/').replace(/\s+/g, '');
+  var bare = body.replace(/\{\w+\}/g, '0');
+  if (!/^[0-9+\-*\/().]+$/.test(bare)) throw new Error(FIELD_BY_KEY[key].label + '：使えない文字があります（[項目名]・数字・+ - * / ( ) だけが使えます）');
+  if (!refs.length) throw new Error(FIELD_BY_KEY[key].label + '：[項目名] を1つ以上使ってください');
+  var depth = 0;
+  for (var i = 0; i < bare.length; i++) {
+    if (bare[i] === '(') depth++;
+    if (bare[i] === ')' && --depth < 0) break;
+  }
+  if (depth !== 0) throw new Error(FIELD_BY_KEY[key].label + '：かっこの数が合っていません');
+  if (/[+\-*\/]$|^[*\/]|[+\-*\/]{2,}[*\/]|\(\)/.test(bare)) throw new Error(FIELD_BY_KEY[key].label + '：式の形が正しくありません');
+  var blank = refs.map(function (r) { return '({' + r + '}="")'; }).join('*');
+  return { def: 'IF(' + blank + ',,IFERROR(' + body + ',""))', refs: refs };
+}
+
+/** 自動計算の列どうしが循環していないか（例：下取損が仕入価格を使い、仕入価格が下取損を使う）。循環していれば例外 */
+function checkCalcCycles(refsByKey) {
+  var state = {};
+  function visit(k, path) {
+    if (state[k] === 2) return;
+    if (state[k] === 1) {
+      throw new Error('計算式が循環しています：' + path.concat(k).map(function (x) { return FIELD_BY_KEY[x].label; }).join(' → '));
+    }
+    state[k] = 1;
+    (refsByKey[k] || []).forEach(function (r) { if (refsByKey[r]) visit(r, path.concat(k)); });
+    state[k] = 2;
+  }
+  Object.keys(refsByKey).forEach(function (k) { visit(k, []); });
+}
+
 /**
  * 車検証リンクが入ったときの新しいステータス。
  * 名義変更前（空欄を含む）なら「名義変更済み」にし、名義変更済み・販売済みなどはそのまま（null）。
@@ -928,6 +1001,7 @@ var PROP = {
   FOLDER_CERT: 'FOLDER_CERT',
   CERT_LINK_HOURLY: 'CERT_LINK_HOURLY',
   OCN_LAST: 'OCN_LAST_ISSUED',
+  CALC: 'CALC_', // + 列キー（計算式の設定）
   LIST: 'LIST_' // + maker / color / staff / idCheck / region
 };
 
@@ -970,6 +1044,123 @@ function readLists_() {
 function writeList_(listName, entries) {
   var compact = entries.map(function (e) { return e.aliases && e.aliases.length ? { value: e.value, aliases: e.aliases } : { value: e.value }; });
   PropertiesService.getScriptProperties().setProperty(PROP.LIST + listName, JSON.stringify(compact));
+}
+
+// ----- 計算式（X〜AC列） -----
+
+/** 列ごとの計算の設定 {mode:'auto'|'manual'|'', expr} */
+function readCalcSettings_() {
+  var props = PropertiesService.getScriptProperties();
+  var out = {};
+  CALC_KEYS.forEach(function (k) {
+    var json = props.getProperty(PROP.CALC + k);
+    var v = null;
+    if (json) { try { v = JSON.parse(json); } catch (e) { v = null; } }
+    out[k] = v && (v.mode === 'auto' || v.mode === 'manual') ? v : { mode: '', expr: '' };
+  });
+  return out;
+}
+
+/**
+ * 計算の設定を、この実行中の列定義（FIELDS の type・FORMULA_DEFS・FORCED_FORMULA_KEYS）に反映する。
+ * 入力時の整形・書式・一括整形などの入口で呼ぶ。
+ */
+function applyCalcSettings_() {
+  var calc = readCalcSettings_();
+  CALC_KEYS.forEach(function (k) {
+    var f = FIELD_BY_KEY[k];
+    var setting = calc[k];
+    var forcedAt = FORCED_FORMULA_KEYS.indexOf(k);
+    if (forcedAt !== -1) FORCED_FORMULA_KEYS.splice(forcedAt, 1);
+    f.calcMode = setting.mode;
+    if (setting.mode === 'auto') {
+      f.type = 'formula';
+      FORMULA_DEFS[k] = compileCalcExpression(k, setting.expr).def;
+      FORCED_FORMULA_KEYS.push(k);
+    } else if (setting.mode === 'manual') {
+      f.type = 'money';
+      FORMULA_DEFS[k] = null;
+    } else {
+      f.type = CALC_DEFAULT_TYPES[k];
+      FORMULA_DEFS[k] = CALC_DEFAULT_DEFS[k] || null;
+    }
+  });
+  return calc;
+}
+
+/** 設定アプリ：計算式の設定を返す */
+function getCalcSettings() {
+  var calc = readCalcSettings_();
+  var ss = getSpreadsheet_();
+  var sheet = ss.getSheetByName(SHEET.IMPORT_MASTER) || ss.getSheetByName(SHEET.DOMESTIC_MASTER);
+  var cols = sheet ? getColumns_(sheet).map : {};
+  return {
+    items: CALC_KEYS.map(function (k) {
+      var f = FIELD_BY_KEY[k];
+      var hasFormula = false;
+      if (sheet && cols[k] !== undefined) hasFormula = !!sheet.getRange(1, cols[k] + 1).getFormula();
+      return {
+        key: k, label: f.label, letter: cols[k] === undefined ? '' : columnLetter(cols[k] + 1),
+        mode: calc[k].mode, expr: calc[k].expr || '', hasFormula: hasFormula,
+        defaultExpr: k === 'tradeInLoss' ? '[下取充当額]-[下取価格]' : ''
+      };
+    }),
+    names: CALC_KEYS.map(function (k) { return FIELD_BY_KEY[k].label; })
+  };
+}
+
+/**
+ * 設定アプリ：計算式の設定を保存し、3シートに反映する。
+ * 自動計算にする列に値が入っているシートは、先にバックアップ（非表示シート）を作る。
+ * @param {Array<{key:string, mode:string, expr:string}>} items
+ */
+function saveCalcSettings(items) {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) throw new Error('他の処理が実行中です');
+  try {
+    var refsByKey = {};
+    var clean = {};
+    (items || []).forEach(function (it) {
+      if (CALC_KEYS.indexOf(it.key) === -1) return;
+      var mode = it.mode === 'auto' || it.mode === 'manual' ? it.mode : '';
+      var expr = String(it.expr || '').trim();
+      if (mode === 'auto') refsByKey[it.key] = compileCalcExpression(it.key, expr).refs; // 不正な式はここで例外
+      clean[it.key] = { mode: mode, expr: expr };
+    });
+    checkCalcCycles(refsByKey);
+
+    var ss = getSpreadsheet_();
+    var before = readCalcSettings_();
+    var report = [];
+    // 新しく自動計算にする列に値が入っていれば、そのシートをバックアップ
+    VEHICLE_SHEETS.forEach(function (name) {
+      var sheet = ss.getSheetByName(name);
+      if (!sheet || sheet.getLastRow() < 2) return;
+      var cols = getColumns_(sheet).map;
+      var needs = Object.keys(clean).some(function (k) {
+        if (clean[k].mode !== 'auto' || cols[k] === undefined) return false;
+        if (before[k].mode === 'auto' && before[k].expr === clean[k].expr) return false;
+        if (sheet.getRange(1, cols[k] + 1).getFormula()) return false;
+        return sheet.getRange(2, cols[k] + 1, sheet.getLastRow() - 1, 1).getValues().some(function (r) { return !isBlank(r[0]); });
+      });
+      if (needs) report.push('バックアップ：' + makeBackupSheet_(ss, sheet) + '（非表示シート）');
+    });
+
+    var props = PropertiesService.getScriptProperties();
+    Object.keys(clean).forEach(function (k) {
+      if (clean[k].mode) props.setProperty(PROP.CALC + k, JSON.stringify(clean[k]));
+      else props.deleteProperty(PROP.CALC + k);
+    });
+    reapplyStandards_(ss, report);
+    var summary = CALC_KEYS.map(function (k) {
+      var c = clean[k] || { mode: '' };
+      return FIELD_BY_KEY[k].label + '＝' + (c.mode === 'auto' ? c.expr : (c.mode === 'manual' ? '手入力' : '未設定'));
+    }).join('、');
+    appendLog_('計算式の設定', '3シート', '', '', '', summary);
+    return { ok: true, message: '保存して3シートに反映しました。\n・' + report.filter(function (r) { return /計算|バックアップ|手入力/.test(r); }).join('\n・') };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /** 設定アプリ：現在の選択肢を「値: 別名,別名」の行テキストで返す */
@@ -1246,6 +1437,7 @@ function reapplyStandards() {
 }
 
 function reapplyStandards_(ss, report) {
+  applyCalcSettings_();
   var settings = getSettings_();
   var colMaps = {};
   VEHICLE_SHEETS.forEach(function (name) {
@@ -1331,7 +1523,7 @@ function applyFormulaColumns_(sheet, cols, report) {
     var lastRow = sheet.getLastRow();
 
     if (forced) {
-      if (!formula) { report.push(label + '参照する列（車検満了日）が無いため自動計算にできません'); return; }
+      if (!formula) { report.push(label + '参照する列が無いため自動計算にできません'); return; }
       if (header.getFormula() === formula) return;
       var cleared = 0;
       if (lastRow >= 2) {
@@ -1341,7 +1533,8 @@ function applyFormulaColumns_(sheet, cols, report) {
         body.clearContent();
       }
       header.setFormula(formula);
-      report.push(label + '車検満了日から自動で計算するようにしました' + (cleared ? '（入っていた値・式 ' + cleared + '件を置き換え）' : ''));
+      report.push(label + (f.key === 'inspectionRemain' ? '車検満了日から' : '計算式で') + '自動で計算するようにしました' +
+        (cleared ? '（入っていた値・式 ' + cleared + '件を置き換え）' : ''));
       return;
     }
 
@@ -1352,9 +1545,23 @@ function applyFormulaColumns_(sheet, cols, report) {
         return;
       }
     }
-    if (!formula) { report.push(label + '計算式が未確定のため設定していません'); return; }
+    if (!formula) { report.push(label + '計算式が未設定のため設定していません（設定アプリの「計算式」で設定できます）'); return; }
     header.setFormula(formula);
     report.push(label + '見出し行に計算式を設定しました');
+  });
+
+  // 手入力に切り替えた列：自動計算の結果を値として残し、見出しを文字に戻す
+  CALC_KEYS.forEach(function (k) {
+    var f = FIELD_BY_KEY[k];
+    var c = cols[k];
+    if (f.calcMode !== 'manual' || c === undefined) return;
+    var header = sheet.getRange(1, c + 1);
+    if (!header.getFormula()) return;
+    var lastRow = sheet.getLastRow();
+    var values = lastRow >= 2 ? sheet.getRange(2, c + 1, lastRow - 1, 1).getValues() : [];
+    header.setValue(f.label);
+    if (values.length) sheet.getRange(2, c + 1, values.length, 1).setValues(values);
+    report.push('「' + sheet.getName() + '」の' + f.label + '：手入力に切り替えました（計算結果は値として残しています）');
   });
 }
 
@@ -1396,26 +1603,28 @@ function applyVisuals_(sheet, cols) {
     var f = keyAt[c];
     bgs.push(f ? headerColorFor(f.key) : HEADER_OTHER_COLOR);
     fonts.push('#ffffff');
-    if (f && !notes[c]) notes[c] = headerNoteFor_(f);
+    if (f) notes[c] = headerNoteFor_(f);
   }
   header.setBackgrounds([bgs]).setFontColors([fonts]).setFontWeight('bold').setFontSize(10)
-    .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(false)
     .setBorder(null, null, true, null, null, null, '#263238', SpreadsheetApp.BorderStyle.SOLID_MEDIUM)
     .setNotes([notes]);
-  sheet.setRowHeight(1, 42);
+  sheet.setRowHeight(1, 32);
   sheet.setFrozenRows(1);
   if (cols.ocn !== undefined && cols.ocn < 4) sheet.setFrozenColumns(cols.ocn + 1);
 
   // 本文：文字サイズ・縦位置・列ごとの横位置と列幅、自動の列は灰色
-  sheet.getRange(2, 1, bodyRows, lastCol).setFontSize(10).setVerticalAlignment('middle');
+  sheet.getRange(2, 1, bodyRows, lastCol).setFontSize(10).setVerticalAlignment('middle').setWrap(false);
   Object.keys(keyAt).forEach(function (idx) {
     var f = keyAt[idx], col = Number(idx) + 1;
     var body = sheet.getRange(2, col, bodyRows, 1);
     body.setHorizontalAlignment(alignmentFor(f));
     if (f.type === 'ocn' || f.type === 'formula') body.setBackground(AUTO_CELL_BG).setFontColor('#37474f');
+    else if (CALC_KEYS.indexOf(f.key) !== -1) body.setBackground(null).setFontColor(null); // 手入力に戻した計算の列
     if (f.type === 'link') body.setFontColor('#0b57a4');
-    if (COLUMN_WIDTHS[f.key]) sheet.setColumnWidth(col, COLUMN_WIDTHS[f.key]);
   });
+  // 列幅：文字が収まる幅に自動で合わせる（標準の幅より狭くはしない）
+  fitColumnWidths_(sheet, 1, lastCol, keyAt);
 
   // 1行おきの色（このシステムが付けた帯だけでなく、既存の帯も付け直す）
   sheet.getBandings().forEach(function (b) { b.remove(); });
@@ -1442,7 +1651,25 @@ function headerNoteFor_(f) {
     kana: 'カタカナは半角カナ、英数字は半角に自動でそろえます'
   };
   if (f.key === 'inspectionRemain') return '車検満了日から自動計算（残り日数。満了日を迎えたら「満了」）';
+  if (CALC_KEYS.indexOf(f.key) !== -1 && f.calcMode === 'auto') {
+    var setting = readCalcSettings_()[f.key];
+    return '自動計算：' + setting.expr + '（設定アプリの「計算式」で変更できます）';
+  }
   return notes[f.type] || '';
+}
+
+/**
+ * 列幅を文字が収まる幅に自動で合わせる。見出しのフィルタボタンの分を足し、COLUMN_WIDTHS の幅より狭くはしない。
+ * @param {Object} keyAt 列番号（0始まり）→ 列定義（無ければ最小幅なし）
+ */
+function fitColumnWidths_(sheet, startCol, numCols, keyAt) {
+  sheet.autoResizeColumns(startCol, numCols);
+  for (var col = startCol; col < startCol + numCols; col++) {
+    var f = keyAt ? keyAt[col - 1] : null;
+    var min = f && COLUMN_WIDTHS[f.key] ? COLUMN_WIDTHS[f.key] : 60;
+    var width = sheet.getColumnWidth(col) + 24; // フィルタボタン・余白
+    sheet.setColumnWidth(col, Math.min(Math.max(width, min), 480));
+  }
 }
 
 function styleLogSheet_(sheet) {
@@ -1475,7 +1702,7 @@ function buildDashboard_(ss, allColMaps) {
   sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).setFontSize(10).setVerticalAlignment('middle');
 
   // タイトル
-  sheet.getRange('A1').setValue('ダッシュボード　名義変更前の車両').setFontSize(16).setFontWeight('bold').setFontColor('#1f2d33');
+  sheet.getRange('A1').setValue('ダッシュボード').setFontSize(16).setFontWeight('bold').setFontColor('#1f2d33');
   sheet.getRange('A2').setValue('輸入車マスタ・国産車マスタから自動で集計しています（入力するとすぐ反映）。このシートは直接編集しないでください。')
     .setFontColor('#5d6a64');
   sheet.setRowHeight(1, 34);
@@ -1490,7 +1717,7 @@ function buildDashboard_(ss, allColMaps) {
   cards.push({ label: '車検満了（在庫）', formula: buildExpiryCountFormula(colMaps, null), bg: '#fce8e6', fg: '#a50e0e' });
   cards.forEach(function (card, i) {
     var label = sheet.getRange(4, i + 1), value = sheet.getRange(5, i + 1);
-    label.setValue(card.label).setBackground(card.bg).setFontColor(card.fg).setFontWeight('bold').setHorizontalAlignment('center').setWrap(true);
+    label.setValue(card.label).setBackground(card.bg).setFontColor(card.fg).setFontWeight('bold').setHorizontalAlignment('center').setWrap(false);
     value.setFormula(card.formula).setBackground(card.bg).setFontColor(card.fg).setFontSize(22).setFontWeight('bold')
       .setHorizontalAlignment('center').setNumberFormat('0"台"');
     sheet.getRange(4, i + 1, 2, 1).setBorder(true, true, true, true, null, null, '#ffffff', SpreadsheetApp.BorderStyle.SOLID_THICK);
@@ -1510,6 +1737,10 @@ function buildDashboard_(ss, allColMaps) {
   var bodyRows = Math.max(sheet.getMaxRows() - listRow + 1, 1);
   var colWidths = [DASHBOARD_LIST_COLUMNS[0].width, 80].concat(DASHBOARD_LIST_COLUMNS.slice(1).map(function (c) { return c.width; }));
   colWidths.forEach(function (w, i) { sheet.setColumnWidth(i + 1, Math.max(w, 110)); });
+  sheet.getRange(listHeaderRow, 1, Math.max(sheet.getMaxRows() - listHeaderRow + 1, 1), headers.length).setWrap(false);
+  SpreadsheetApp.flush(); // 一覧の数式を計算してから幅を合わせる
+  sheet.autoResizeColumns(1, headers.length);
+  colWidths.forEach(function (w, i) { sheet.setColumnWidth(i + 1, Math.min(Math.max(sheet.getColumnWidth(i + 1) + 24, w, 110), 480)); });
   var colIndex = function (key) { return key === '__days' ? 2 : 2 + DASHBOARD_LIST_COLUMNS.map(function (c) { return c.key; }).indexOf(key); };
   sheet.getRange(listRow, colIndex('__days'), bodyRows, 1).setNumberFormat('0"日"').setHorizontalAlignment('right');
   ['purchaseDate', 'inspectionExpiry'].forEach(function (k) {
@@ -1583,6 +1814,7 @@ function onEdit(e) {
   var fieldAt = {};
   FIELDS.forEach(function (f) { if (cols[f.key] !== undefined) fieldAt[cols[f.key] + 1] = f; });
   var lists = readLists_();
+  try { applyCalcSettings_(); } catch (err) { /* 式の設定に誤りがあっても入力の整形は続ける */ }
   var values = range.getValues();
   var linkedRows = [];
 
@@ -1627,6 +1859,9 @@ function onEdit(e) {
 
   if (linkedRows.length) markTransferred_(sheet, cols, linkedRows);
 
+  // 入力した列は、文字が収まるように幅を自動で広げる（狭くはしない）
+  if (numCols <= 30) widenColumnsToFit_(sheet, startCol, numCols);
+
   if (MASTER_SHEETS.indexOf(name) !== -1 && cols.status !== undefined) {
     var sc = cols.status + 1;
     if (sc >= startCol && sc < startCol + numCols) {
@@ -1634,6 +1869,17 @@ function onEdit(e) {
       for (var sr = 0; sr < numRows; sr++) if (values[sr][sc - startCol] === STATUS_SOLD) soldRows.push(startRow + sr);
       if (soldRows.length) confirmAndMoveSold_(ss, sheet, soldRows, e.oldValue);
     }
+  }
+}
+
+/** 列幅を内容に合わせて広げる（入力時用。今の幅より狭くはしない） */
+function widenColumnsToFit_(sheet, startCol, numCols) {
+  var widths = [];
+  for (var i = 0; i < numCols; i++) widths.push(sheet.getColumnWidth(startCol + i));
+  sheet.autoResizeColumns(startCol, numCols);
+  for (var j = 0; j < numCols; j++) {
+    var fitted = Math.min(sheet.getColumnWidth(startCol + j) + 24, 480);
+    sheet.setColumnWidth(startCol + j, Math.max(widths[j], fitted));
   }
 }
 
@@ -1682,6 +1928,7 @@ function confirmAndMoveSold_(ss, sheet, rows, oldValue) {
 
 /** マスタの行を販売済みシートへ移動する（見出し名で列を対応づけるので列ずれしない） */
 function moveRowsToSold_(ss, sheet, rows) {
+  applyCalcSettings_();
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) throw new Error('他の処理が実行中です');
   try {
@@ -1842,6 +2089,7 @@ function cleanupExecute(replacements) {
 }
 
 function runCleanup_(ss, replacements, execute) {
+  applyCalcSettings_();
   var lists = readLists_();
   var out = { totalChanges: 0, byColumn: {}, samples: [], unfixable: [], unfixableTotal: 0, outOfList: {}, backups: [], added: [] };
   var toAdd = {};
@@ -1941,6 +2189,7 @@ function displayValue_(v) {
 
 /** 設定アプリ：販売済みシートの列統一の実行（バックアップを作ってから並べ替え） */
 function migrateSoldSheet() {
+  applyCalcSettings_();
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) throw new Error('他の処理が実行中です');
   try {
