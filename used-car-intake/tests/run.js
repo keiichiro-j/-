@@ -289,6 +289,72 @@ test('既定の選択肢は半角カナ済み・地域名は全国分', () => {
   assert.strictEqual(S.defaultListEntries('staff').length, 0);
 });
 
+console.log('== 見た目（プルダウンの色・見出し）==');
+test('プルダウンの色：ステータス7種・区分4種・色は実際の色、ほかの選択式は淡い色', () => {
+  const std = S.resolveColumns(S.STANDARD_HEADERS.slice()).map;
+  const rules = S.buildChipRules(std, ['黒', '白', '灰', '赤', '紺', '青', '緑', '黄', '茶', 'その他']);
+  const by = (col) => rules.filter((r) => r.columns[0] === col);
+  assert.strictEqual(by('T').length, 7);
+  assert.strictEqual(by('K').length, 4);
+  assert.strictEqual(by('J').length, 9); // 「その他」は色なし
+  const black = by('J').find((r) => r.formula.indexOf('"黒"') !== -1);
+  assert.strictEqual(black.color, '#262626');
+  assert.strictEqual(black.fg, '#ffffff');
+  assert.strictEqual(rules.find((r) => r.formula.indexOf('$T2="書類待ち"') !== -1).color, S.STATUS_COLORS['書類待ち'].bg);
+  ['C', 'L', 'O', 'P'].forEach((c) => assert.strictEqual(by(c).length, 1, c));
+  rules.forEach((r) => assert.ok(r.formula.indexOf(S.CF_MARKER) !== -1));
+});
+test('全ステータスに色がある・全列に見出しグループと列幅がある', () => {
+  S.STATUS_OPTIONS.forEach((st) => assert.ok(S.STATUS_COLORS[st], st));
+  S.CATEGORY_OPTIONS.forEach((c) => assert.ok(S.CATEGORY_COLORS[c], c));
+  S.FIELDS.forEach((f) => {
+    assert.notStrictEqual(S.headerColorFor(f.key), S.HEADER_OTHER_COLOR, f.key);
+    assert.ok(S.COLUMN_WIDTHS[f.key] > 0, f.key);
+  });
+  assert.strictEqual(S.headerColorFor('unknown'), S.HEADER_OTHER_COLOR);
+});
+test('列の横位置：数値は右、日付・選択肢は中央、文字は左', () => {
+  assert.strictEqual(S.alignmentFor(F('mileage')), 'right');
+  assert.strictEqual(S.alignmentFor(F('inspectionExpiry')), 'center');
+  assert.strictEqual(S.alignmentFor(F('status')), 'center');
+  assert.strictEqual(S.alignmentFor(F('supplier')), 'left');
+});
+
+console.log('== ダッシュボード ==');
+const stdCols = S.resolveColumns(S.STANDARD_HEADERS.slice()).map;
+const masters = { '輸入車マスタ': stdCols, '国産車マスタ': stdCols };
+test('名義変更前のステータスは4つ（名義変更済み・抹消登録済み・販売済みを除く）', () => {
+  assert.deepStrictEqual(Array.from(S.PRE_TRANSFER_STATUSES), ['書類待ち', '所有権解除済み', '車庫証明申請中', '名義変更中']);
+});
+test('ステータスごとの台数は2つのマスタの合計', () => {
+  assert.strictEqual(S.buildStatusCountFormula(masters, '書類待ち'),
+    "=COUNTIF('輸入車マスタ'!T2:T,\"書類待ち\")+COUNTIF('国産車マスタ'!T2:T,\"書類待ち\")");
+  assert.strictEqual(S.buildStockCountFormula(masters), "=COUNTA('輸入車マスタ'!B2:B)+COUNTA('国産車マスタ'!B2:B)");
+  assert.ok(S.buildExpiryCountFormula(masters, 30).indexOf('"<="&TODAY()+30') !== -1);
+  assert.ok(S.buildExpiryCountFormula(masters, null).indexOf('"<="&TODAY())') !== -1);
+});
+test('該当車両の一覧：2つのマスタを縦につなぎ、対象ステータスだけを流れ順→仕入が古い順', () => {
+  const f = S.buildDashboardListFormula(masters, S.PRE_TRANSFER_STATUSES);
+  assert.ok(f.indexOf("VSTACK(HSTACK('輸入車マスタ'!T2:T,'輸入車マスタ'!A2:A,'輸入車マスタ'!B2:B,IF('輸入車マスタ'!T2:T=\"\",\"\",\"輸入車\")") !== -1);
+  assert.ok(f.indexOf("HSTACK('国産車マスタ'!T2:T") !== -1);
+  assert.ok(f.indexOf('t,{"書類待ち";"所有権解除済み";"車庫証明申請中";"名義変更中"}') !== -1);
+  assert.ok(f.indexOf('SORT(f,MATCH(INDEX(f,,1),t,0),TRUE,INDEX(f,,2),TRUE)') !== -1);
+  assert.ok(f.indexOf('IF(ISNUMBER(INDEX(s,,2)),TODAY()-INDEX(s,,2),"")') !== -1);
+  assert.ok(f.indexOf('CHOOSECOLS(s,2,3,4,5,6,7,8,9,10,11)') !== -1);
+  assert.ok(/"該当する車両はありません"\)$/.test(f));
+  // 括弧の対応
+  let depth = 0;
+  for (const ch of f.replace(/"[^"]*"/g, '')) { if (ch === '(') depth++; if (ch === ')') depth--; assert.ok(depth >= 0); }
+  assert.strictEqual(depth, 0);
+});
+test('一覧：列が無いシートは空欄で埋め、ステータス列が無ければ対象外', () => {
+  const partial = Object.assign({}, stdCols); delete partial.staff;
+  const f = S.buildDashboardListFormula({ '輸入車マスタ': partial }, ['書類待ち']);
+  assert.ok(f.indexOf('IF(\'輸入車マスタ\'!T2:T="","","")') !== -1);
+  const noStatus = Object.assign({}, stdCols); delete noStatus.status;
+  assert.strictEqual(S.buildDashboardListFormula({ '輸入車マスタ': noStatus }, ['書類待ち']), '="ステータスの列が見つかりません"');
+});
+
 console.log('');
 console.log(`${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
