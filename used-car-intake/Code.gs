@@ -43,9 +43,10 @@ var SHEET = {
 var MASTER_SHEETS = [SHEET.IMPORT_MASTER, SHEET.DOMESTIC_MASTER];
 var VEHICLE_SHEETS = [SHEET.IMPORT_MASTER, SHEET.DOMESTIC_MASTER, SHEET.SOLD];
 
-var STATUS_OPTIONS = ['書類待ち', '所有権解除済み', '車庫証明申請中', '名義変更中', '名義変更済み', '抹消登録済み', '販売済み'];
+var STATUS_OPTIONS = ['書類待ち', '車庫証明申請中', '名義変更中', '名義変更済み', '販売済み'];
 var CATEGORY_OPTIONS = ['買取', '仕入', '下取', 'オークション'];
 var STATUS_SOLD = '販売済み';
+var STATUS_TRANSFERRED = '名義変更済み';
 
 /**
  * マスタ・販売済みの列定義（順序 = A〜AC列の標準配置）
@@ -189,14 +190,12 @@ var CF_MARKER = 'N("ucs")=0'; // このシステムが設定した条件付き�
 
 // ----- 見た目（色・列幅） -----
 
-/** ステータスの色（背景・文字）。流れに沿って 赤→橙→黄→青→緑→紫→灰 */
+/** ステータスの色（背景・文字）。流れに沿って 赤→黄→青→緑→灰 */
 var STATUS_COLORS = {
   '書類待ち': { bg: '#fce8e6', fg: '#a50e0e' },
-  '所有権解除済み': { bg: '#feefe3', fg: '#9a4a00' },
   '車庫証明申請中': { bg: '#fef7d6', fg: '#7a5c00' },
   '名義変更中': { bg: '#e3effd', fg: '#0b57a4' },
   '名義変更済み': { bg: '#e6f4ea', fg: '#137333' },
-  '抹消登録済み': { bg: '#efe7fb', fg: '#5b3aa8' },
   '販売済み': { bg: '#eceff1', fg: '#455a64' }
 };
 
@@ -244,8 +243,8 @@ var COLUMN_WIDTHS = {
   tradeInAllowance: 96, recycleFee: 84, tradeInPrice: 96, appraisalPrice: 96, tradeInLoss: 90, purchasePrice: 110
 };
 
-/** ダッシュボードで集計する「名義変更前（抹消登録前）」のステータス */
-var PRE_TRANSFER_STATUSES = ['書類待ち', '所有権解除済み', '車庫証明申請中', '名義変更中'];
+/** ダッシュボードで集計する「名義変更前」のステータス */
+var PRE_TRANSFER_STATUSES = ['書類待ち', '車庫証明申請中', '名義変更中'];
 
 /** ダッシュボードの一覧の列（key は車両シートの列。sheetLabel は輸入車／国産車） */
 var DASHBOARD_LIST_COLUMNS = [
@@ -786,7 +785,7 @@ function buildExpiryCountFormula(colMaps, days) {
 }
 
 /**
- * ダッシュボード：名義変更前（抹消登録前）の車両一覧。
+ * ダッシュボード：名義変更前の車両一覧。
  * 輸入車マスタ・国産車マスタを縦につなぎ、対象ステータスだけを「ステータスの流れ順 → 仕入が古い順」に並べる。
  * 2列目に仕入からの経過日数を入れる。数式なので入力するとすぐ反映される。
  */
@@ -811,6 +810,17 @@ function buildDashboardListFormula(colMaps, statuses) {
     's,SORT(f,MATCH(INDEX(f,,1),t,0),TRUE,INDEX(f,,' + dateIdx + '),TRUE),' +
     'HSTACK(INDEX(s,,1),IF(ISNUMBER(INDEX(s,,' + dateIdx + ')),TODAY()-INDEX(s,,' + dateIdx + '),""),CHOOSECOLS(s,' + rest.join(',') + '))' +
     ')),"該当する車両はありません")';
+}
+
+/**
+ * 車検証リンクが入ったときの新しいステータス。
+ * 名義変更前（空欄を含む）なら「名義変更済み」にし、名義変更済み・販売済みなどはそのまま（null）。
+ */
+function statusAfterCertLink(currentStatus) {
+  var s = isBlank(currentStatus) ? '' : String(currentStatus).trim();
+  if (s === STATUS_TRANSFERRED || s === STATUS_SOLD) return null;
+  if (s === '' || PRE_TRANSFER_STATUSES.indexOf(s) !== -1) return STATUS_TRANSFERRED;
+  return null; // 選択肢にない値は人が確認する
 }
 
 /** 選択肢の編集テキスト（1行1つ、「値: 別名,別名」）を解釈する */
@@ -1447,7 +1457,7 @@ function styleLogSheet_(sheet) {
 
 /**
  * ダッシュボードタブを作り直す（内容はすべて数式なので、マスタに入力するとすぐ反映される）。
- *  - 名義変更前（抹消登録前）のステータスごとの台数、合計、在庫台数、車検満了間近・満了の台数
+ *  - 名義変更前のステータスごとの台数、合計、在庫台数、車検満了間近・満了の台数
  *  - ステータス該当車両の一覧（ステータスの流れ順 → 仕入が古い順。仕入からの経過日数つき）
  */
 function buildDashboard_(ss, allColMaps) {
@@ -1465,7 +1475,7 @@ function buildDashboard_(ss, allColMaps) {
   sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).setFontSize(10).setVerticalAlignment('middle');
 
   // タイトル
-  sheet.getRange('A1').setValue('ダッシュボード　名義変更前（抹消登録前）の車両').setFontSize(16).setFontWeight('bold').setFontColor('#1f2d33');
+  sheet.getRange('A1').setValue('ダッシュボード　名義変更前の車両').setFontSize(16).setFontWeight('bold').setFontColor('#1f2d33');
   sheet.getRange('A2').setValue('輸入車マスタ・国産車マスタから自動で集計しています（入力するとすぐ反映）。このシートは直接編集しないでください。')
     .setFontColor('#5d6a64');
   sheet.setRowHeight(1, 34);
@@ -1474,7 +1484,7 @@ function buildDashboard_(ss, allColMaps) {
   var cards = PRE_TRANSFER_STATUSES.map(function (st) {
     return { label: st, formula: buildStatusCountFormula(colMaps, st), bg: STATUS_COLORS[st].bg, fg: STATUS_COLORS[st].fg };
   });
-  cards.push({ label: '名義変更前 合計', formula: '=SUM(A5:D5)', bg: '#263238', fg: '#ffffff' });
+  cards.push({ label: '名義変更前 合計', formula: '=SUM(A5:' + columnLetter(PRE_TRANSFER_STATUSES.length) + '5)', bg: '#263238', fg: '#ffffff' });
   cards.push({ label: '在庫台数', formula: buildStockCountFormula(colMaps), bg: '#eceff1', fg: '#263238' });
   cards.push({ label: '車検満了' + settings.expiryDays + '日以内', formula: buildExpiryCountFormula(colMaps, settings.expiryDays), bg: '#efe3f7', fg: '#5b3aa8' });
   cards.push({ label: '車検満了（在庫）', formula: buildExpiryCountFormula(colMaps, null), bg: '#fce8e6', fg: '#a50e0e' });
@@ -1574,6 +1584,7 @@ function onEdit(e) {
   FIELDS.forEach(function (f) { if (cols[f.key] !== undefined) fieldAt[cols[f.key] + 1] = f; });
   var lists = readLists_();
   var values = range.getValues();
+  var linkedRows = [];
 
   for (var c = 0; c < numCols; c++) {
     var field = fieldAt[startCol + c];
@@ -1588,7 +1599,20 @@ function onEdit(e) {
       }
       continue;
     }
-    if (field.type === 'link' || field.type === 'ocn') continue;
+    if (field.type === 'link') {
+      // 車検証リンクが貼られた行は、あとでステータスを「名義変更済み」にする。URL を貼った場合は「車検証ﾘﾝｸ」のリンクにする
+      for (var lr = 0; lr < numRows; lr++) {
+        var lv = values[lr][c];
+        if (isBlank(lv)) continue;
+        linkedRows.push(startRow + lr);
+        if (/^https?:\/\//i.test(String(lv).trim())) {
+          sheet.getRange(startRow + lr, startCol + c).setRichTextValue(SpreadsheetApp.newRichTextValue()
+            .setText(normalizeKanaText('車検証リンク')).setLinkUrl(String(lv).trim()).build());
+        }
+      }
+      continue;
+    }
+    if (field.type === 'ocn') continue;
     var changed = false;
     var column = [];
     for (var r = 0; r < numRows; r++) {
@@ -1600,6 +1624,8 @@ function onEdit(e) {
   }
 
   if (cols.ocn !== undefined) assignMissingOcns_(ss, sheet, cols, startRow, numRows);
+
+  if (linkedRows.length) markTransferred_(sheet, cols, linkedRows);
 
   if (MASTER_SHEETS.indexOf(name) !== -1 && cols.status !== undefined) {
     var sc = cols.status + 1;
@@ -1721,7 +1747,7 @@ function updateCertLinks() {
     if (!cur || (exact && !cur.exact) || (exact === cur.exact && f.getLastUpdated() > cur.file.getLastUpdated())) byOcn[n] = { file: f, exact: exact };
   }
   var ss = getSpreadsheet_();
-  var count = 0;
+  var count = 0, statusChanged = 0;
   var linkText = normalizeKanaText('車検証リンク');
   VEHICLE_SHEETS.forEach(function (name) {
     var sheet = ss.getSheetByName(name);
@@ -1731,6 +1757,7 @@ function updateCertLinks() {
     var n = sheet.getLastRow() - 1;
     var ocns = sheet.getRange(2, cols.ocn + 1, n, 1).getValues();
     var links = sheet.getRange(2, cols.certLink + 1, n, 1).getRichTextValues();
+    var linked = [];
     ocns.forEach(function (r, i) {
       var num = parseOcnNumber(r[0]);
       if (num === null || !byOcn[num]) return;
@@ -1738,11 +1765,33 @@ function updateCertLinks() {
       if (links[i][0] && links[i][0].getLinkUrl() === url) return;
       sheet.getRange(i + 2, cols.certLink + 1).setRichTextValue(
         SpreadsheetApp.newRichTextValue().setText(linkText).setLinkUrl(url).build());
+      linked.push(i + 2);
       count++;
     });
+    if (linked.length) statusChanged += markTransferred_(sheet, cols, linked);
   });
-  if (count) appendLog_('車検証リンク', '車検証保管フォルダ', '', '', count + '件', 'リンクを設定しました');
-  return { count: count, message: count + '件のリンクを設定しました。' };
+  if (count) appendLog_('車検証リンク', '車検証保管フォルダ', '', '', count + '件', 'リンクを設定しました（ステータスを名義変更済みにした行 ' + statusChanged + '件）');
+  return { count: count, message: count + '件のリンクを設定しました。' + (statusChanged ? 'ステータスを「名義変更済み」にした行：' + statusChanged + '件' : '') };
+}
+
+/**
+ * 車検証リンクが入った行のステータスを「名義変更済み」にする（名義変更前・空欄の行だけ。販売済みなどは変えない）。
+ * @return {number} 変更した行数
+ */
+function markTransferred_(sheet, cols, rows) {
+  if (cols.status === undefined) return 0;
+  var changed = 0;
+  rows.forEach(function (row) {
+    var cell = sheet.getRange(row, cols.status + 1);
+    var current = cell.getValue();
+    var next = statusAfterCertLink(current);
+    if (!next) return;
+    cell.setValue(next);
+    changed++;
+    var ocn = cols.ocn === undefined ? '' : sheet.getRange(row, cols.ocn + 1).getDisplayValue();
+    appendLog_('ステータス自動変更', ocn ? 'OCN ' + ocn : sheet.getName() + ' ' + row + '行目', 'ステータス', current, next, '車検証リンクが入ったため');
+  });
+  return changed;
 }
 
 // =====================================================================

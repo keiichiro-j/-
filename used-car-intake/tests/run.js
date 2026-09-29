@@ -290,11 +290,11 @@ test('既定の選択肢は半角カナ済み・地域名は全国分', () => {
 });
 
 console.log('== 見た目（プルダウンの色・見出し）==');
-test('プルダウンの色：ステータス7種・区分4種・色は実際の色、ほかの選択式は淡い色', () => {
+test('プルダウンの色：ステータス5種・区分4種・色は実際の色、ほかの選択式は淡い色', () => {
   const std = S.resolveColumns(S.STANDARD_HEADERS.slice()).map;
   const rules = S.buildChipRules(std, ['黒', '白', '灰', '赤', '紺', '青', '緑', '黄', '茶', 'その他']);
   const by = (col) => rules.filter((r) => r.columns[0] === col);
-  assert.strictEqual(by('T').length, 7);
+  assert.strictEqual(by('T').length, 5);
   assert.strictEqual(by('K').length, 4);
   assert.strictEqual(by('J').length, 9); // 「その他」は色なし
   const black = by('J').find((r) => r.formula.indexOf('"黒"') !== -1);
@@ -323,8 +323,14 @@ test('列の横位置：数値は右、日付・選択肢は中央、文字は�
 console.log('== ダッシュボード ==');
 const stdCols = S.resolveColumns(S.STANDARD_HEADERS.slice()).map;
 const masters = { '輸入車マスタ': stdCols, '国産車マスタ': stdCols };
-test('名義変更前のステータスは4つ（名義変更済み・抹消登録済み・販売済みを除く）', () => {
-  assert.deepStrictEqual(Array.from(S.PRE_TRANSFER_STATUSES), ['書類待ち', '所有権解除済み', '車庫証明申請中', '名義変更中']);
+test('ステータスは5つ、名義変更前は3つ（所有権解除済み・抹消登録済みは削除）', () => {
+  assert.deepStrictEqual(Array.from(S.STATUS_OPTIONS), ['書類待ち', '車庫証明申請中', '名義変更中', '名義変更済み', '販売済み']);
+  assert.deepStrictEqual(Array.from(S.PRE_TRANSFER_STATUSES), ['書類待ち', '車庫証明申請中', '名義変更中']);
+  assert.strictEqual(S.normalizeCellValue(F('status'), '抹消登録済み', LISTS).outOfList, true);
+});
+test('車検証リンクが入ったら名義変更済み（名義変更前・空欄だけ。販売済みなどは変えない）', () => {
+  ['書類待ち', '車庫証明申請中', '名義変更中', '', null].forEach((st) => assert.strictEqual(S.statusAfterCertLink(st), '名義変更済み', String(st)));
+  ['名義変更済み', '販売済み', '抹消登録済み'].forEach((st) => assert.strictEqual(S.statusAfterCertLink(st), null, st));
 });
 test('ステータスごとの台数は2つのマスタの合計', () => {
   assert.strictEqual(S.buildStatusCountFormula(masters, '書類待ち'),
@@ -337,7 +343,7 @@ test('該当車両の一覧：2つのマスタを縦につなぎ、対象ステ�
   const f = S.buildDashboardListFormula(masters, S.PRE_TRANSFER_STATUSES);
   assert.ok(f.indexOf("VSTACK(HSTACK('輸入車マスタ'!T2:T,'輸入車マスタ'!A2:A,'輸入車マスタ'!B2:B,IF('輸入車マスタ'!T2:T=\"\",\"\",\"輸入車\")") !== -1);
   assert.ok(f.indexOf("HSTACK('国産車マスタ'!T2:T") !== -1);
-  assert.ok(f.indexOf('t,{"書類待ち";"所有権解除済み";"車庫証明申請中";"名義変更中"}') !== -1);
+  assert.ok(f.indexOf('t,{"書類待ち";"車庫証明申請中";"名義変更中"}') !== -1);
   assert.ok(f.indexOf('SORT(f,MATCH(INDEX(f,,1),t,0),TRUE,INDEX(f,,2),TRUE)') !== -1);
   assert.ok(f.indexOf('IF(ISNUMBER(INDEX(s,,2)),TODAY()-INDEX(s,,2),"")') !== -1);
   assert.ok(f.indexOf('CHOOSECOLS(s,2,3,4,5,6,7,8,9,10,11)') !== -1);
