@@ -51,6 +51,7 @@ var STATUS_SOLD = '販売済み';
  *  type : date | yearMonth（年月だけ。初度登録）| ocn | list | kana（半角カナ・半角英数）| address（英数字のみ半角）| chassis
  *         | mileage | money | plateClass | plateKana | plateNumber | link（自動）| formula（書き込まない）
  *  list : プルダウンの選択肢（設定アプリで管理する選択肢、または固定の選択肢）
+ *  format : 列ごとの表示形式（型の既定と違う場合。売上日は「2026年09月」）
  *  aliases : 既存シートの見出しの別表記（列の特定・販売済みシートの列統一に使う）
  */
 var FIELDS = [
@@ -74,7 +75,7 @@ var FIELDS = [
   { key: 'plateKana', label: '登録番号（ひらがな）', type: 'plateKana', aliases: ['ひらがな', '登録番号（かな）'] },
   { key: 'plateNumber', label: '登録番号（一連番号）', type: 'plateNumber', aliases: ['一連番号', '登録番号（番号）'] },
   { key: 'status', label: 'ステータス', type: 'list', list: 'status' },
-  { key: 'saleDate', label: '売上日', type: 'date', aliases: ['販売日', '売上年月日'] },
+  { key: 'saleDate', label: '売上日', type: 'yearMonth', format: 'yyyy"年"MM"月"', aliases: ['販売日', '売上年月日', '売上年月'] },
   { key: 'saleTo', label: '売上先', type: 'kana', aliases: ['販売先'] },
   { key: 'certLink', label: '車検証', type: 'link', aliases: ['車検証リンク'] },
   { key: 'tradeInAllowance', label: '下取充当額', type: 'money', aliases: ['充当額', '下取充当'] },
@@ -111,15 +112,15 @@ var NUMBER_FORMATS = {
   plateNumber: '@'
 };
 /** 計算式の列の表示形式（式の結果が数値のとき） */
-var FORMULA_FORMATS = { inspectionRemain: '0"ヶ月"', tradeInLoss: MONEY_FORMAT, purchasePrice: MONEY_FORMAT };
+var FORMULA_FORMATS = { inspectionRemain: '0"日"', tradeInLoss: MONEY_FORMAT, purchasePrice: MONEY_FORMAT };
 
 /**
  * 計算式の列の定義。見出し行に ARRAYFORMULA を1つ置く方式で使う。
  * {キー} は該当列の「2行目以降の範囲」（例：G2:G）に置き換わる。null は式が未確定のため設定しない。
- *  - 車検残：車検満了日から今日までの残りの月数（満了日を過ぎていれば「切れ」）。毎日自動で更新される
+ *  - 車検残：車検満了日までの残りの日数（「120日」と表示）。満了日を迎えたら「満了」。毎日自動で更新される
  */
 var FORMULA_DEFS = {
-  inspectionRemain: 'IFERROR(IF({inspectionExpiry}="",,IF({inspectionExpiry}<TODAY(),"切れ",DATEDIF(TODAY(),{inspectionExpiry},"M"))),"")',
+  inspectionRemain: 'IFERROR(IF({inspectionExpiry}="",,IF({inspectionExpiry}<=TODAY(),"満了",{inspectionExpiry}-TODAY())),"")',
   tradeInLoss: 'IF(({tradeInAllowance}="")+({tradeInPrice}=""),,{tradeInAllowance}-{tradeInPrice})',
   purchasePrice: null
 };
@@ -480,6 +481,7 @@ function normalizeCellValue(field, value, lists) {
 
 /** 列の表示形式（無ければ null） */
 function numberFormatFor(field) {
+  if (field.format) return field.format;
   if (field.type === 'formula') return FORMULA_FORMATS[field.key] || null;
   return NUMBER_FORMATS[field.type] || null;
 }

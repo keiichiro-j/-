@@ -92,7 +92,7 @@ test('buildArrayFormula：車検残・下取損は見出し行の ARRAYFORMULA�
   const cols = S.resolveColumns(S.STANDARD_HEADERS.slice()).map;
   assert.strictEqual(S.buildArrayFormula('tradeInLoss', cols), '={"下取損";ARRAYFORMULA(IF((X2:X="")+(Z2:Z=""),,X2:X-Z2:Z))}');
   assert.strictEqual(S.buildArrayFormula('inspectionRemain', cols),
-    '={"車検残";ARRAYFORMULA(IFERROR(IF(G2:G="",,IF(G2:G<TODAY(),"切れ",DATEDIF(TODAY(),G2:G,"M"))),""))}');
+    '={"車検残";ARRAYFORMULA(IFERROR(IF(G2:G="",,IF(G2:G<=TODAY(),"満了",G2:G-TODAY())),""))}');
   assert.deepStrictEqual(Array.from(S.FORCED_FORMULA_KEYS), ['inspectionRemain']);
   assert.strictEqual(S.buildArrayFormula('purchasePrice', cols), null);
 });
@@ -236,8 +236,9 @@ test('車検証ファイル名から OCN', () => {
 console.log('== 表示形式（西暦・区切り・km）==');
 test('日付の列はすべて西暦 yyyy/MM/dd、初度登録は yyyy/MM（和暦の表示形式を上書き）', () => {
   assert.strictEqual(S.numberFormatFor(F('firstRegDate')), 'yyyy/MM');
-  assert.strictEqual(S.numberFormatFor(F('inspectionRemain')), '0"ヶ月"');
-  ['purchaseDate', 'inspectionExpiry', 'saleDate'].forEach((k) => assert.strictEqual(S.numberFormatFor(F(k)), 'yyyy/MM/dd', k));
+  assert.strictEqual(S.numberFormatFor(F('inspectionRemain')), '0"日"');
+  assert.strictEqual(S.numberFormatFor(F('saleDate')), 'yyyy"年"MM"月"');
+  ['purchaseDate', 'inspectionExpiry'].forEach((k) => assert.strictEqual(S.numberFormatFor(F(k)), 'yyyy/MM/dd', k));
   assert.ok(!/[ge]/.test(S.DATE_FORMAT)); // 和暦の書式記号（g・e）を含まない
 });
 test('走行距離は区切り＋km、金額は区切り、分類番号・一連番号・車台番号は文字列', () => {
@@ -251,6 +252,11 @@ test('走行距離：数字だけ入れても、文字で入れても数値に�
   assert.strictEqual(S.normalizeCellValue(F('mileage'), 12345, LISTS).value, 12345);
   assert.strictEqual(S.normalizeCellValue(F('mileage'), '１２３４５', LISTS).value, 12345);
   assert.strictEqual(S.normalizeCellValue(F('mileage'), '12,345 km', LISTS).value, 12345);
+});
+test('売上日：年月だけ（2026年9月・R8.9・2026/9/15 → 月の1日）', () => {
+  assert.strictEqual(ymd(S.normalizeCellValue(F('saleDate'), '2026年9月', LISTS).value), '2026/9/1');
+  assert.strictEqual(ymd(S.normalizeCellValue(F('saleDate'), 'R8.9', LISTS).value), '2026/9/1');
+  assert.strictEqual(ymd(S.normalizeCellValue(F('saleDate'), date(2026, 9, 15), LISTS).value), '2026/9/1');
 });
 test('車検満了日：和暦の文字 → 日付（西暦で表示される）', () => {
   assert.strictEqual(ymd(S.normalizeCellValue(F('inspectionExpiry'), 'R8.3.1', LISTS).value), '2026/3/1');
