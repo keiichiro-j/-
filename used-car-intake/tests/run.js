@@ -332,12 +332,19 @@ test('車検証リンクが入ったら名義変更済み（名義変更前・�
   ['書類待ち', '車庫証明申請中', '名義変更中', '', null].forEach((st) => assert.strictEqual(S.statusAfterCertLink(st), '名義変更済み', String(st)));
   ['名義変更済み', '販売済み', '抹消登録済み'].forEach((st) => assert.strictEqual(S.statusAfterCertLink(st), null, st));
 });
-test('ステータスごとの台数は2つのマスタの合計', () => {
-  assert.strictEqual(S.buildStatusCountFormula(masters, '書類待ち'),
-    "=COUNTIF('輸入車マスタ'!T2:T,\"書類待ち\")+COUNTIF('国産車マスタ'!T2:T,\"書類待ち\")");
-  assert.strictEqual(S.buildStockCountFormula(masters), "=COUNTA('輸入車マスタ'!B2:B)+COUNTA('国産車マスタ'!B2:B)");
-  assert.ok(S.buildExpiryCountFormula(masters, 30).indexOf('"<="&TODAY()+30') !== -1);
-  assert.ok(S.buildExpiryCountFormula(masters, null).indexOf('"<="&TODAY())') !== -1);
+test('COUNTIFS の合計：シートごと・条件の組ごとに数えて足す（列が無いシートは数えない）', () => {
+  assert.strictEqual(S.buildCountifsFormula(masters, [[['status', '"書類待ち"'], ['ocn', '"<>"']]]),
+    "=COUNTIFS('輸入車マスタ'!T2:T,\"書類待ち\",'輸入車マスタ'!B2:B,\"<>\")+COUNTIFS('国産車マスタ'!T2:T,\"書類待ち\",'国産車マスタ'!B2:B,\"<>\")");
+  const two = S.buildCountifsFormula({ '輸入車マスタ': stdCols }, [[['status', '"a"']], [['status', '"b"']]]);
+  assert.strictEqual(two, "=COUNTIFS('輸入車マスタ'!T2:T,\"a\")+COUNTIFS('輸入車マスタ'!T2:T,\"b\")");
+  const noStaff = Object.assign({}, stdCols); delete noStaff.staff;
+  assert.strictEqual(S.buildCountifsFormula({ '輸入車マスタ': noStaff }, [[['staff', '""']]]), '=0');
+  assert.strictEqual(S.buildCountifsFormula({}, [[['status', '"a"']]]), '=0');
+});
+test('車種別の在庫台数：2つのマスタの車種を集計し、多い順に上位だけ', () => {
+  const f = S.buildMakerRankingFormula(masters, 15);
+  assert.ok(f.indexOf("QUERY(VSTACK('輸入車マスタ'!C2:C,'国産車マスタ'!C2:C)") !== -1);
+  assert.ok(f.indexOf('order by count(Col1) desc limit 15') !== -1);
 });
 test('該当車両の一覧：2つのマスタを縦につなぎ、対象ステータスだけを流れ順→仕入が古い順', () => {
   const f = S.buildDashboardListFormula(masters, S.PRE_TRANSFER_STATUSES);
@@ -373,6 +380,13 @@ test('計算式を列の式にする（項目名・全角記号・別名）', ()
   assert.strictEqual(f, '={"下取損";ARRAYFORMULA(IF((X2:X="")*(Z2:Z=""),,IFERROR(X2:X-Z2:Z,"")))}');
   const c2 = S.compileCalcExpression('purchasePrice', '［査定価格］＋［リサイクル］×１．１');
   assert.strictEqual(c2.def, 'IF(({appraisalPrice}="")*({recycleFee}=""),,IFERROR({appraisalPrice}+{recycleFee}*1.1,""))');
+  const ex = S.compileCalcExpression('purchasePrice', '（[下取充当額]-[下取価格]）÷1.1×0.9');
+  assert.strictEqual(ex.def, 'IF(({tradeInAllowance}="")*({tradeInPrice}=""),,IFERROR(({tradeInAllowance}-{tradeInPrice})/1.1*0.9,""))');
+  assert.strictEqual(S.compileCalcExpression('purchasePrice', '切り捨て(（[下取充当額]-[下取価格]）÷1.1×0.9, 0)').def,
+    'IF(({tradeInAllowance}="")*({tradeInPrice}=""),,IFERROR(ROUNDDOWN(({tradeInAllowance}-{tradeInPrice})/1.1*0.9,0),""))');
+  assert.strictEqual(S.compileCalcExpression('purchasePrice', 'round([査定価格]*(1+10%), -3)').def,
+    'IF(({appraisalPrice}="")*({appraisalPrice}=""),,IFERROR(ROUND({appraisalPrice}*(1+(10/100)),-3),""))'.replace('({appraisalPrice}="")*({appraisalPrice}="")', '({appraisalPrice}="")'));
+  assert.ok(S.compileCalcExpression('purchasePrice', '四捨五入([査定価格]、-3)＋整数(絶対値([下取損]))').def.indexOf('ROUND({appraisalPrice},-3)+INT(ABS({tradeInLoss}))') !== -1);
   const c3 = S.compileCalcExpression('tradeInLoss', '([下取充当額]-[買取金額])/2');
   assert.deepStrictEqual(Array.from(c3.refs), ['tradeInAllowance', 'purchasePrice']);
 });
@@ -381,11 +395,14 @@ test('不正な式はわかる言葉で止める', () => {
   bad('', /計算式を入力/);
   bad('[走行距離]*2', /計算に使えない項目/);
   bad('[下取損]+1', /自分自身/);
-  bad('[下取価格]+A1', /使えない文字/);
+  bad('[下取価格]+A1', /使えない/);
   bad('100', /\[項目名\] を1つ以上/);
   bad('([下取価格]+1', /かっこ/);
   bad('[下取価格]+', /式の形/);
-  bad('SUM([下取価格])', /使えない文字/);
+  bad('SUM([下取価格])', /使えない関数/);
+  bad('四捨五入([下取価格], 0, 1)', /書き方/);
+  bad('[下取価格] 2', /式の形/);
+  bad('[下取価格]*)', /かっこ/);
 });
 test('自動計算の列どうしの循環を検出', () => {
   assert.throws(() => S.checkCalcCycles({ tradeInLoss: ['purchasePrice'], purchasePrice: ['tradeInLoss'] }), /循環/);
