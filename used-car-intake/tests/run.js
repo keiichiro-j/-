@@ -91,7 +91,9 @@ test('isStandardLayout', () => {
 test('buildArrayFormula：車検残・下取損は見出し行の ARRAYFORMULA、仕入価格は未確定で null', () => {
   const cols = S.resolveColumns(S.STANDARD_HEADERS.slice()).map;
   assert.strictEqual(S.buildArrayFormula('tradeInLoss', cols), '={"下取損";ARRAYFORMULA(IF((X2:X="")+(Z2:Z=""),,X2:X-Z2:Z))}');
-  assert.ok(/G2:G/.test(S.buildArrayFormula('inspectionRemain', cols)));
+  assert.strictEqual(S.buildArrayFormula('inspectionRemain', cols),
+    '={"車検残";ARRAYFORMULA(IFERROR(IF(G2:G="",,IF(G2:G<TODAY(),"切れ",DATEDIF(TODAY(),G2:G,"M"))),""))}');
+  assert.deepStrictEqual(Array.from(S.FORCED_FORMULA_KEYS), ['inspectionRemain']);
   assert.strictEqual(S.buildArrayFormula('purchasePrice', cols), null);
 });
 
@@ -141,7 +143,7 @@ test('走行距離・金額の「km」「円」「,」を外して数値化', ()
   assert.strictEqual(S.parseAmount('約100'), null);
 });
 test('normalizeCellValue：列の種類ごとの整形', () => {
-  assert.strictEqual(ymd(S.normalizeCellValue(F('firstRegDate'), 'R2.3.10', LISTS).value), '2020/3/10');
+  assert.strictEqual(ymd(S.normalizeCellValue(F('inspectionExpiry'), 'R2.3.10', LISTS).value), '2020/3/10');
   assert.strictEqual(S.normalizeCellValue(F('mileage'), '45,678km', LISTS).value, 45678);
   assert.strictEqual(S.normalizeCellValue(F('appraisalPrice'), '2,350,000円', LISTS).value, 2350000);
   assert.strictEqual(S.normalizeCellValue(F('ocn'), '００１２３', LISTS).value, 123);
@@ -158,7 +160,7 @@ test('normalizeCellValue：値が正しい書式なら changed=false', () => {
   assert.strictEqual(S.normalizeCellValue(F('modelName'), '', LISTS).changed, false);
 });
 test('normalizeCellValue：直せない値は error、計算式・リンクの列は触らない', () => {
-  assert.strictEqual(S.normalizeCellValue(F('firstRegDate'), '去年', LISTS).error, '日付として読めません');
+  assert.strictEqual(S.normalizeCellValue(F('inspectionExpiry'), '去年', LISTS).error, '日付として読めません');
   assert.strictEqual(S.normalizeCellValue(F('mileage'), '不明', LISTS).error, '数値として読めません');
   assert.strictEqual(S.normalizeCellValue(F('ocn'), 'NEW-8392', LISTS).error, 'OCNが数値ではありません');
   assert.strictEqual(S.normalizeCellValue(F('tradeInLoss'), '１００', LISTS).changed, false);
@@ -232,8 +234,10 @@ test('車検証ファイル名から OCN', () => {
 });
 
 console.log('== 表示形式（西暦・区切り・km）==');
-test('日付の列はすべて西暦 yyyy/MM/dd（和暦の表示形式を上書き）', () => {
-  ['purchaseDate', 'firstRegDate', 'inspectionExpiry', 'saleDate'].forEach((k) => assert.strictEqual(S.numberFormatFor(F(k)), 'yyyy/MM/dd', k));
+test('日付の列はすべて西暦 yyyy/MM/dd、初度登録は yyyy/MM（和暦の表示形式を上書き）', () => {
+  assert.strictEqual(S.numberFormatFor(F('firstRegDate')), 'yyyy/MM');
+  assert.strictEqual(S.numberFormatFor(F('inspectionRemain')), '0"ヶ月"');
+  ['purchaseDate', 'inspectionExpiry', 'saleDate'].forEach((k) => assert.strictEqual(S.numberFormatFor(F(k)), 'yyyy/MM/dd', k));
   assert.ok(!/[ge]/.test(S.DATE_FORMAT)); // 和暦の書式記号（g・e）を含まない
 });
 test('走行距離は区切り＋km、金額は区切り、分類番号・一連番号・車台番号は文字列', () => {
@@ -248,9 +252,20 @@ test('走行距離：数字だけ入れても、文字で入れても数値に�
   assert.strictEqual(S.normalizeCellValue(F('mileage'), '１２３４５', LISTS).value, 12345);
   assert.strictEqual(S.normalizeCellValue(F('mileage'), '12,345 km', LISTS).value, 12345);
 });
-test('初度登録日・車検満了日：和暦の文字 → 日付（西暦で表示される）', () => {
+test('車検満了日：和暦の文字 → 日付（西暦で表示される）', () => {
   assert.strictEqual(ymd(S.normalizeCellValue(F('inspectionExpiry'), 'R8.3.1', LISTS).value), '2026/3/1');
+});
+test('初度登録日：年月だけ（和暦・2020/3・202003 → 月の1日の日付。日付があっても1日にそろえる）', () => {
   assert.strictEqual(ymd(S.normalizeCellValue(F('firstRegDate'), '平成27年6月', LISTS).value), '2015/6/1');
+  assert.strictEqual(ymd(S.normalizeCellValue(F('firstRegDate'), 'R2.3', LISTS).value), '2020/3/1');
+  assert.strictEqual(ymd(S.normalizeCellValue(F('firstRegDate'), '2020/3', LISTS).value), '2020/3/1');
+  assert.strictEqual(ymd(S.normalizeCellValue(F('firstRegDate'), '202003', LISTS).value), '2020/3/1');
+  assert.strictEqual(ymd(S.normalizeCellValue(F('firstRegDate'), 202003, LISTS).value), '2020/3/1');
+  const withDay = S.normalizeCellValue(F('firstRegDate'), date(2020, 3, 15), LISTS);
+  assert.strictEqual(ymd(withDay.value), '2020/3/1');
+  assert.strictEqual(withDay.changed, true);
+  assert.strictEqual(S.normalizeCellValue(F('firstRegDate'), date(2020, 3, 1), LISTS).changed, false);
+  assert.strictEqual(S.normalizeCellValue(F('firstRegDate'), '去年', LISTS).error, '年月として読めません');
 });
 
 console.log('== プルダウン選択肢（設定アプリ）==');

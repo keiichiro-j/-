@@ -48,7 +48,7 @@ var STATUS_SOLD = '販売済み';
 
 /**
  * マスタ・販売済みの列定義（順序 = A〜AC列の標準配置）
- *  type : date | ocn | list | kana（半角カナ・半角英数）| address（英数字のみ半角）| chassis
+ *  type : date | yearMonth（年月だけ。初度登録）| ocn | list | kana（半角カナ・半角英数）| address（英数字のみ半角）| chassis
  *         | mileage | money | plateClass | plateKana | plateNumber | link（自動）| formula（書き込まない）
  *  list : プルダウンの選択肢（設定アプリで管理する選択肢、または固定の選択肢）
  *  aliases : 既存シートの見出しの別表記（列の特定・販売済みシートの列統一に使う）
@@ -59,7 +59,7 @@ var FIELDS = [
   { key: 'maker', label: '車種', type: 'list', list: 'maker', aliases: ['メーカー', '車名'] },
   { key: 'modelName', label: 'モデル名', type: 'kana', aliases: ['モデル', 'グレード'] },
   { key: 'chassisNumber', label: '車台番号', type: 'chassis', aliases: ['車体番号'] },
-  { key: 'firstRegDate', label: '初度登録日', type: 'date', aliases: ['初度登録', '初年度登録', '初度登録年月'] },
+  { key: 'firstRegDate', label: '初度登録日', type: 'yearMonth', aliases: ['初度登録', '初年度登録', '初度登録年月'] },
   { key: 'inspectionExpiry', label: '車検満了日', type: 'date', aliases: ['車検満了', '車検有効期限'] },
   { key: 'inspectionRemain', label: '車検残', type: 'formula' },
   { key: 'mileage', label: '走行距離', type: 'mileage', aliases: ['走行'] },
@@ -93,14 +93,16 @@ var FIELD_BY_KEY = (function () {
 var STANDARD_HEADERS = FIELDS.map(function (f) { return f.label; });
 
 /**
- * 列の表示形式。日付は西暦（和暦の表示形式が残っていても上書きする）、
+ * 列の表示形式。日付は西暦（和暦の表示形式が残っていても上書きする）、初度登録は西暦の年月（yyyy/MM）、
  * 走行距離は「12,345km」、金額は「1,234,000」と表示する（値は日付型・数値のまま）。
  */
 var DATE_FORMAT = 'yyyy/MM/dd';
+var YEAR_MONTH_FORMAT = 'yyyy/MM';
 var MILEAGE_FORMAT = '#,##0"km"';
 var MONEY_FORMAT = '#,##0';
 var NUMBER_FORMATS = {
   date: DATE_FORMAT,
+  yearMonth: YEAR_MONTH_FORMAT,
   ocn: '0',
   mileage: MILEAGE_FORMAT,
   money: MONEY_FORMAT,
@@ -112,15 +114,21 @@ var NUMBER_FORMATS = {
 var FORMULA_FORMATS = { inspectionRemain: '0"ヶ月"', tradeInLoss: MONEY_FORMAT, purchasePrice: MONEY_FORMAT };
 
 /**
- * 計算式の列の定義。見出し行に ARRAYFORMULA を1つ置く方式で使う（既存の式・値がある列は切り替えない）。
- * {キー} は該当列の「2行目以降の範囲」（例：G2:G）に置き換わる。
- * null は式が未確定のため設定しない。
+ * 計算式の列の定義。見出し行に ARRAYFORMULA を1つ置く方式で使う。
+ * {キー} は該当列の「2行目以降の範囲」（例：G2:G）に置き換わる。null は式が未確定のため設定しない。
+ *  - 車検残：車検満了日から今日までの残りの月数（満了日を過ぎていれば「切れ」）。毎日自動で更新される
  */
 var FORMULA_DEFS = {
-  inspectionRemain: 'IF({inspectionExpiry}="",,IF({inspectionExpiry}<TODAY(),0,DATEDIF(TODAY(),{inspectionExpiry},"M")))',
+  inspectionRemain: 'IFERROR(IF({inspectionExpiry}="",,IF({inspectionExpiry}<TODAY(),"切れ",DATEDIF(TODAY(),{inspectionExpiry},"M"))),"")',
   tradeInLoss: 'IF(({tradeInAllowance}="")+({tradeInPrice}=""),,{tradeInAllowance}-{tradeInPrice})',
   purchasePrice: null
 };
+
+/**
+ * 常に自動計算にする列。既存の値・行ごとの式があっても消して、見出し行の ARRAYFORMULA に置き換える
+ * （車検残は車検満了日だけで決まるため、手入力の値は残さない）。
+ */
+var FORCED_FORMULA_KEYS = ['inspectionRemain'];
 
 /** 設定アプリで管理するプルダウンの選択肢 */
 var LIST_DEFS = [
@@ -291,7 +299,7 @@ function normalizePlateNumber(v) {
 var ERA_BASE = { '令和': 2018, 'R': 2018, '平成': 1988, 'H': 1988, '昭和': 1925, 'S': 1925 };
 
 /**
- * 和暦・西暦の日付文字列を日付にする（R5.6.1、令和5年6月1日、2023/6/1、20230601 など）。
+ * 和暦・西暦の日付文字列を日付にする（R5.6.1、令和5年6月1日、2023/6/1、20230601、202306 など）。
  * 年月のみの表記は1日とする。解釈できなければ null。
  */
 function parseJapaneseDate(raw) {
@@ -307,6 +315,8 @@ function parseJapaneseDate(raw) {
     y = Number(m[1]); mo = Number(m[2]); d = m[3] ? Number(m[3]) : 1;
   } else if ((m = s.match(/^(\d{4})(\d{2})(\d{2})$/))) {
     y = Number(m[1]); mo = Number(m[2]); d = Number(m[3]);
+  } else if ((m = s.match(/^(\d{4})(\d{2})$/))) {
+    y = Number(m[1]); mo = Number(m[2]); d = 1;
   } else {
     return null;
   }
@@ -417,6 +427,11 @@ function normalizeCellValue(field, value, lists) {
       if (value instanceof Date) break;
       var d = parseJapaneseDate(typeof value === 'number' ? String(value) : value);
       if (d) out = d; else error = '日付として読めません';
+      break;
+    case 'yearMonth':
+      // 初度登録は年月だけ。日付が入っていても月の1日にそろえる
+      var ym = parseJapaneseDate(typeof value === 'number' ? String(value) : value);
+      if (ym) out = new Date(ym.getFullYear(), ym.getMonth(), 1); else error = '年月として読めません';
       break;
     case 'mileage':
     case 'money':
@@ -1055,7 +1070,7 @@ function applyValidations_(sheet, cols) {
     var c = cols[f.key];
     if (c === undefined) return;
     var range = sheet.getRange(2, c + 1, rows, 1);
-    if (f.type === 'date') {
+    if (f.type === 'date' || f.type === 'yearMonth') {
       range.setDataValidation(SpreadsheetApp.newDataValidation().requireDate().setAllowInvalid(true).build()); // カレンダーで選べる
     } else if (f.type === 'list') {
       var values = (lists[f.list] || []).map(function (e) { return e.value; });
@@ -1076,24 +1091,46 @@ function applyProtections_(sheet, cols) {
   }
 }
 
-/** 計算式の列：見出し行に ARRAYFORMULA（既存の式・値がある列は切り替えない） */
+/**
+ * 計算式の列：見出し行に ARRAYFORMULA を置く。
+ *  - 車検残（FORCED_FORMULA_KEYS）：常に自動計算。既存の値・式は消して置き換える
+ *  - それ以外：既存の式・値がある列は切り替えない（新しい行には上の行の式を引き継ぐ）
+ */
 function applyFormulaColumns_(sheet, cols, report) {
   FIELDS.filter(function (f) { return f.type === 'formula'; }).forEach(function (f) {
     var c = cols[f.key];
     if (c === undefined) return;
+    var label = '「' + sheet.getName() + '」の' + f.label + '：';
     var header = sheet.getRange(1, c + 1);
-    if (header.getFormula()) return;
+    var formula = buildArrayFormula(f.key, cols);
+    var forced = FORCED_FORMULA_KEYS.indexOf(f.key) !== -1;
     var lastRow = sheet.getLastRow();
+
+    if (forced) {
+      if (!formula) { report.push(label + '参照する列（車検満了日）が無いため自動計算にできません'); return; }
+      if (header.getFormula() === formula) return;
+      var cleared = 0;
+      if (lastRow >= 2) {
+        var body = sheet.getRange(2, c + 1, lastRow - 1, 1);
+        var vals = body.getValues(), fmls = body.getFormulas();
+        cleared = vals.filter(function (r, i) { return !isBlank(r[0]) || fmls[i][0]; }).length;
+        body.clearContent();
+      }
+      header.setFormula(formula);
+      report.push(label + '車検満了日から自動で計算するようにしました' + (cleared ? '（入っていた値・式 ' + cleared + '件を置き換え）' : ''));
+      return;
+    }
+
+    if (header.getFormula()) return;
     if (lastRow >= 2) {
       var range = sheet.getRange(2, c + 1, lastRow - 1, 1);
       if (range.getFormulas().some(function (r) { return r[0]; }) || range.getValues().some(function (r) { return !isBlank(r[0]); })) {
-        return; // 既存の式・値はそのまま（新しい行には上の行の式を引き継ぐ）
+        return;
       }
     }
-    var formula = buildArrayFormula(f.key, cols);
-    if (!formula) { report.push('「' + sheet.getName() + '」の' + f.label + '：計算式が未確定のため設定していません'); return; }
+    if (!formula) { report.push(label + '計算式が未確定のため設定していません'); return; }
     header.setFormula(formula);
-    report.push('「' + sheet.getName() + '」の' + f.label + '：見出し行に計算式を設定しました');
+    report.push(label + '見出し行に計算式を設定しました');
   });
 }
 
@@ -1170,7 +1207,14 @@ function onEdit(e) {
     var colRange = sheet.getRange(startRow, startCol + c, numRows, 1);
     var fmt = numberFormatFor(field);
     if (fmt) colRange.setNumberFormat(fmt);
-    if (field.type === 'formula' || field.type === 'link' || field.type === 'ocn') continue;
+    if (field.type === 'formula') {
+      // 車検残などの自動計算の列に値を入れる・貼り付けると計算が止まるため、入れた値は消す
+      if (FORCED_FORMULA_KEYS.indexOf(field.key) !== -1 && sheet.getRange(1, startCol + c).getFormula()) {
+        colRange.clearContent();
+      }
+      continue;
+    }
+    if (field.type === 'link' || field.type === 'ocn') continue;
     var changed = false;
     var column = [];
     for (var r = 0; r < numRows; r++) {
