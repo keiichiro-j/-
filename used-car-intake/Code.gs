@@ -228,6 +228,7 @@ function onOpen() {
     .addItem('取込待ちの確認（サイドバー）', 'showReviewSidebar')
     .addItem('取込待ちの確認（大画面）', 'showReviewDialog')
     .addItem('承認済みをマスタへ転記', 'transferApprovedFromMenu')
+    .addItem('エラーフォルダの書類を受付に戻す', 'restoreErrorFilesFromMenu')
     .addSeparator()
     .addItem('精度テストを実行', 'showAccuracyTest')
     .addItem('販売済みシートの列統一（移行ツール）', 'migrateSoldSheetFromMenu')
@@ -288,7 +289,9 @@ var PROP = {
   OCN_DIGITS: 'OCN_DIGITS',
   OCN_LAST: 'OCN_LAST_ISSUED',
   LOSS_THRESHOLD: 'TRADEIN_LOSS_THRESHOLD',
-  USE_DRIVE_OCR: 'USE_DRIVE_OCR'
+  USE_DRIVE_OCR: 'USE_DRIVE_OCR',
+  GEMINI_INTERVAL: 'GEMINI_MIN_INTERVAL_SEC',
+  GEMINI_LAST_CALL: 'GEMINI_LAST_CALL_MS'
 };
 
 var SETTING_DEFAULTS = {
@@ -297,7 +300,8 @@ var SETTING_DEFAULTS = {
   OCN_PREFIX: '',
   OCN_DIGITS: '0',
   TRADEIN_LOSS_THRESHOLD: '1000000',
-  USE_DRIVE_OCR: 'true'
+  USE_DRIVE_OCR: 'true',
+  GEMINI_MIN_INTERVAL_SEC: '7' // 無料枠（1分あたり約10回）に収まる間隔
 };
 
 function getSettings_() {
@@ -319,7 +323,8 @@ function getSettings_() {
     ocnPrefix: get(PROP.OCN_PREFIX),
     ocnDigits: Number(get(PROP.OCN_DIGITS)) || 0,
     lossThreshold: Number(get(PROP.LOSS_THRESHOLD)) || 0,
-    useDriveOcr: get(PROP.USE_DRIVE_OCR) !== 'false'
+    useDriveOcr: get(PROP.USE_DRIVE_OCR) !== 'false',
+    geminiIntervalSec: Math.max(0, Number(get(PROP.GEMINI_INTERVAL)) || 0)
   };
 }
 
@@ -1021,6 +1026,7 @@ function getSetupState() {
     ocnDigits: s.ocnDigits,
     lossThreshold: s.lossThreshold,
     useDriveOcr: s.useDriveOcr,
+    geminiIntervalSec: s.geminiIntervalSec,
     spreadsheetName: getSpreadsheet_().getName()
   };
 }
@@ -1055,6 +1061,7 @@ function runSetup(form) {
     values[PROP.OCN_DIGITS] = String(Number(form.ocnDigits) || 0);
     values[PROP.LOSS_THRESHOLD] = String(Number(form.lossThreshold) || 0);
     values[PROP.USE_DRIVE_OCR] = form.useDriveOcr === false ? 'false' : 'true';
+    if (form.geminiIntervalSec !== undefined && form.geminiIntervalSec !== '') values[PROP.GEMINI_INTERVAL] = String(Math.max(0, Number(form.geminiIntervalSec) || 0));
     if (!isBlank(form.geminiKey)) {
       values[PROP.GEMINI_KEY] = String(form.geminiKey).trim();
       report.push('Gemini APIキーをスクリプトプロパティに保存しました');
@@ -1381,7 +1388,8 @@ function scheduledImport() {
     var files = listInboxFiles_(settings);
     for (var i = 0; i < files.length; i++) {
       if (Date.now() - started > RUN_BUDGET_MS) break;
-      processInboxFileSafely_(files[i], settings);
+      var result = processInboxFileSafely_(files[i], settings);
+      if (result.quota) break; // 上限に達したら残りは次回の実行で取り込む
     }
   } finally {
     lock.releaseLock();
@@ -1431,10 +1439,35 @@ function processInboxFileSafely_(file, settings) {
     appendLog_('取込', name, result.kind, '', result.ocn || '', result.message);
     return { ok: true, message: name + '：' + result.message };
   } catch (e) {
+    if (e.quota) {
+      // 書類の問題ではないので受付フォルダに残し、上限が戻ったら再取込する
+      appendLog_('API上限', name, '取込', '', '', e.message);
+      return { ok: false, quota: true, message: name + '：' + e.message + '（書類は受付フォルダに残しています）' };
+    }
     try { file.moveTo(DriveApp.getFolderById(settings.folderError)); } catch (moveErr) { console.error(moveErr); }
     appendLog_('エラー', name, '取込', '', '', e.message);
     return { ok: false, message: name + '：エラー（' + e.message + '）→ エラーフォルダへ移動しました' };
   }
+}
+
+/** メニュー：エラーフォルダの書類を受付フォルダに戻す（API上限などで移された書類の再取込用） */
+function restoreErrorFilesFromMenu() {
+  var ui = SpreadsheetApp.getUi();
+  var settings = getSettings_();
+  requireSettings_(settings);
+  var it = DriveApp.getFolderById(settings.folderError).getFiles();
+  var files = [];
+  while (it.hasNext()) files.push(it.next());
+  if (!files.length) { ui.alert('エラーフォルダに書類はありません。'); return; }
+  var answer = ui.alert('エラーフォルダの書類を受付に戻す',
+    files.length + '件を受付フォルダに戻します。次の取込で再度読み取ります。よろしいですか？\n\n' +
+    files.slice(0, 10).map(function (f) { return '・' + f.getName(); }).join('\n') + (files.length > 10 ? '\n…ほか' + (files.length - 10) + '件' : ''),
+    ui.ButtonSet.YES_NO);
+  if (answer !== ui.Button.YES) return;
+  var inbox = DriveApp.getFolderById(settings.folderInbox);
+  files.forEach(function (f) { f.moveTo(inbox); });
+  appendLog_('再取込', 'エラーフォルダ', '', '', files.length + '件', '受付フォルダに戻しました');
+  ui.alert(files.length + '件を受付フォルダに戻しました。');
 }
 
 /**
@@ -1560,8 +1593,10 @@ function callGemini_(blob, settings) {
     headers: { 'x-goog-api-key': settings.geminiKey },
     payload: JSON.stringify(payload)
   };
-  var waits = [2000, 4000, 8000];
+  var serverErrorWaits = [2000, 4000, 8000];
+  var quotaRetries = 0;
   for (var attempt = 0; ; attempt++) {
+    waitForGeminiSlot_(settings);
     var res = UrlFetchApp.fetch(url, options);
     var code = res.getResponseCode();
     if (code === 200) {
@@ -1570,12 +1605,97 @@ function callGemini_(blob, settings) {
       var text = parts.map(function (p) { return p.text || ''; }).join('');
       return parseGeminiDocuments(text);
     }
-    if ((code === 429 || code >= 500) && attempt < waits.length) {
-      Utilities.sleep(waits[attempt]);
+    if (code === 429) {
+      var info = parseGeminiQuotaError(res.getContentText(), settings.geminiModel);
+      // 1分あたりの上限だけは、指示された待ち時間（60秒まで）を空けて2回まで再試行する
+      if (info.scope === 'minute' && quotaRetries < 2 && info.retryDelaySec <= 60) {
+        quotaRetries++;
+        Utilities.sleep((info.retryDelaySec + 2) * 1000);
+        continue;
+      }
+      var err = new Error(info.message);
+      err.quota = true;
+      err.scope = info.scope;
+      throw err;
+    }
+    if (code >= 500 && attempt < serverErrorWaits.length) {
+      Utilities.sleep(serverErrorWaits[attempt]);
       continue;
     }
     throw new Error('Gemini API エラー（HTTP ' + code + '）：' + res.getContentText().substring(0, 300));
   }
+}
+
+/** 前回の呼び出しから設定の間隔（秒）が空くまで待つ（手動取込・定期取込・精度テストで共通） */
+function waitForGeminiSlot_(settings) {
+  var intervalMs = (settings.geminiIntervalSec || 0) * 1000;
+  var props = PropertiesService.getScriptProperties();
+  if (intervalMs > 0) {
+    var last = Number(props.getProperty(PROP.GEMINI_LAST_CALL)) || 0;
+    var wait = last + intervalMs - Date.now();
+    if (wait > 0) Utilities.sleep(Math.min(wait, intervalMs));
+  }
+  props.setProperty(PROP.GEMINI_LAST_CALL, String(Date.now()));
+}
+
+/**
+ * Gemini の 429 応答を読み、上限の種類と日本語の説明を返す。
+ * @return {{scope:'minute'|'day'|'zero'|'unknown', retryDelaySec:number, limit:(number|null), metric:string, message:string}}
+ */
+function parseGeminiQuotaError(text, model) {
+  var body = {};
+  try { body = JSON.parse(text) || {}; } catch (e) { body = {}; }
+  var err = body.error || {};
+  var raw = String(err.message || text || '');
+  var details = err.details || [];
+  var retryDelaySec = 0, violations = [];
+  details.forEach(function (d) {
+    var type = String(d['@type'] || '');
+    if (/RetryInfo$/.test(type) && d.retryDelay) retryDelaySec = parseFloat(String(d.retryDelay)) || 0;
+    if (/QuotaFailure$/.test(type)) {
+      (d.violations || []).forEach(function (v) {
+        violations.push({
+          id: String(v.quotaId || '') + ' ' + String(v.quotaMetric || ''),
+          metric: String(v.quotaMetric || ''),
+          limit: (v.quotaValue === undefined || v.quotaValue === '') ? null : Number(v.quotaValue)
+        });
+      });
+    }
+  });
+  if (!retryDelaySec) {
+    var r = raw.match(/retry in ([\d.]+)s/i);
+    if (r) retryDelaySec = parseFloat(r[1]);
+  }
+  if (!violations.length) {
+    // details が無い応答は本文の「metric: … limit: …」から読む
+    var re = /metric:\s*([^\s,]+)[^\n]*?limit:\s*(\d+)/g, m;
+    while ((m = re.exec(raw))) violations.push({ id: m[1], metric: m[1], limit: Number(m[2]) });
+  }
+
+  // 複数の上限に同時に当たった場合は、回復に時間がかかる方を優先する
+  var pick = function (test) { return violations.filter(test)[0]; };
+  var hit = pick(function (v) { return v.limit === 0; });
+  var scope = hit ? 'zero' : 'unknown';
+  if (!hit) { hit = pick(function (v) { return /PerDay|per_day|daily/i.test(v.id); }); if (hit) scope = 'day'; }
+  if (!hit) { hit = pick(function (v) { return /PerMinute|per_minute/i.test(v.id); }); if (hit) scope = 'minute'; }
+  if (!hit && retryDelaySec > 0 && retryDelaySec <= 120) scope = 'minute';
+  hit = hit || violations[0] || { metric: '', limit: null };
+  var metric = hit.metric, limit = hit.limit;
+
+  var message;
+  if (scope === 'zero') {
+    message = 'Gemini APIの上限：このAPIキーのプロジェクトでは、モデル「' + model + '」の無料枠がありません（上限0）。' +
+      'Google AI Studio で課金（従量課金）を有効にするか、セットアップでモデルを「gemini-2.5-flash-lite」などに変更してください';
+  } else if (scope === 'day') {
+    message = 'Gemini APIの上限：モデル「' + model + '」の1日あたりの上限に達しました。上限は日本時間の16〜17時ごろに戻ります。' +
+      '件数が多い場合は課金を有効にしてください';
+  } else if (scope === 'minute') {
+    message = 'Gemini APIの上限：1分あたりの上限に達しました。少し待ってから再実行してください（セットアップの「Gemini呼び出し間隔」を長くすると起きにくくなります）';
+  } else {
+    message = 'Gemini APIの上限に達しました（詳細：' + raw.substring(0, 200) + '）';
+  }
+  if (metric) message += '［' + metric + (limit !== null ? '・上限' + limit : '') + '］';
+  return { scope: scope, retryDelaySec: retryDelaySec, limit: limit, metric: metric, message: message };
 }
 
 /** Gemini の応答テキスト（JSON）を書類の配列にする */
@@ -2154,6 +2274,7 @@ function runAccuracyTestFile(runId, fileId) {
   try {
     extraction = extractFromFile_(file, settings);
   } catch (e) {
+    if (e.quota) return { ok: false, quota: true, message: file.getName() + '：' + e.message }; // 採点に含めない
     appendAccuracyRows_(ss, [[runId, file.getName(), fileId, '', '', '(読取エラー)', '', e.message, '', '読取不可', '']]);
     return { ok: false, message: file.getName() + '：' + e.message };
   }

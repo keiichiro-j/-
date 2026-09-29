@@ -104,6 +104,10 @@
             var r = await call('importFileNow', files[i].id);
             if (r.ok) ok++;
             log(r.message, !r.ok && !r.skipped);
+            if (r.quota) {
+              progress(i, files.length, '中断：Gemini APIの上限に達しました。残り' + (files.length - i) + '件は受付フォルダに残っています（上限が戻れば定期取込または再実行で取り込みます）');
+              return;
+            }
           } catch (e) {
             log(files[i].name + '：' + e.message, true);
           }
@@ -130,6 +134,7 @@
           try {
             var r = await call('runAccuracyTestFile', start.runId, files[i].id);
             log(r.message, !r.ok);
+            if (r.quota) { log('Gemini APIの上限に達したため、ここまでの' + i + '件で集計します', true); files = files.slice(0, i); break; }
           } catch (e) {
             log(files[i].name + '：' + e.message, true);
           }

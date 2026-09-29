@@ -318,6 +318,43 @@ test('summarizeAccuracy：正答率・要確認の割合・見逃し誤り・判
   assert.ok(!byKey.address);
 });
 
+console.log('== Gemini API の上限エラー（429）==');
+const quotaBody = (violations, retry, message) => JSON.stringify({ error: { code: 429, status: 'RESOURCE_EXHAUSTED',
+  message: message || 'You exceeded your current quota, please check your plan and billing details.',
+  details: [{ '@type': 'type.googleapis.com/google.rpc.QuotaFailure', violations: violations }]
+    .concat(retry ? [{ '@type': 'type.googleapis.com/google.rpc.RetryInfo', retryDelay: retry }] : []) } });
+test('1分あたりの上限：待ち時間つき → minute', () => {
+  const r = S.parseGeminiQuotaError(quotaBody([{ quotaMetric: 'generativelanguage.googleapis.com/generate_content_free_tier_requests',
+    quotaId: 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', quotaValue: '10' }], '37s'), 'gemini-2.5-flash');
+  assert.strictEqual(r.scope, 'minute');
+  assert.strictEqual(r.retryDelaySec, 37);
+  assert.strictEqual(r.limit, 10);
+});
+test('1日あたりの上限は分の上限より優先 → day', () => {
+  const r = S.parseGeminiQuotaError(quotaBody([
+    { quotaMetric: 'm1', quotaId: 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', quotaValue: '10' },
+    { quotaMetric: 'm2', quotaId: 'GenerateRequestsPerDayPerProjectPerModel-FreeTier', quotaValue: '250' }], '20s'), 'gemini-2.5-flash');
+  assert.strictEqual(r.scope, 'day');
+  assert.ok(/1日あたり/.test(r.message));
+});
+test('無料枠なし（上限0）→ zero。課金かモデル変更を案内', () => {
+  const r = S.parseGeminiQuotaError(quotaBody([{ quotaMetric: 'generativelanguage.googleapis.com/generate_content_free_tier_input_token_count',
+    quotaId: 'GenerateContentInputTokensPerModelPerMinute-FreeTier', quotaValue: '0' }], '30s'), 'gemini-2.5-pro');
+  assert.strictEqual(r.scope, 'zero');
+  assert.ok(/無料枠がありません/.test(r.message) && /gemini-2\.5-pro/.test(r.message));
+});
+test('details が無い応答は本文から読む', () => {
+  const body = JSON.stringify({ error: { code: 429, message: 'You exceeded your current quota.\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-2.5-pro\nPlease retry in 12.3s.' } });
+  const r = S.parseGeminiQuotaError(body, 'gemini-2.5-pro');
+  assert.strictEqual(r.scope, 'zero');
+  assert.strictEqual(r.retryDelaySec, 12.3);
+});
+test('JSONでない応答でも落ちない', () => {
+  const r = S.parseGeminiQuotaError('Too Many Requests', 'gemini-2.5-flash');
+  assert.strictEqual(r.scope, 'unknown');
+  assert.ok(/上限/.test(r.message));
+});
+
 console.log('');
 console.log(`${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
