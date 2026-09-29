@@ -231,108 +231,41 @@ test('車検証ファイル名から OCN', () => {
   assert.strictEqual(S.ocnFromFileName('scan_001.pdf'), null);
 });
 
-console.log('== 自動読み取り（企画書 第6章）==');
-const f = (value, readable) => ({ value: value, readable: readable === undefined ? value !== null : readable });
-const appraisal = {
-  type: '査定書',
-  fields: {
-    maker: f('メルセデス・ベンツ'), model: f('Ｃ２００ アバンギャルド'), chassisNumber: f('WDD2050O42F123456'),
-    mileage: f('45,678km'), color: f('ポーラーホワイト'), colorBasic: f('白'),
-    plateRegion: f('品川'), plateClass: f('330'), plateKana: f('さ'), plateNumber: f('12-34'),
-    recycleFee: f('18,560円'), appraisalPrice: f('2,350,000円')
-  }
-};
-const cert = {
-  type: '車検証',
-  fields: {
-    chassisNumber: f('WDD2050042F123456'), firstRegDate: f('令和2年3月'), inspectionExpiry: f('令和8年3月1日'),
-    ownerName: f('ヤマダ タロウ'), ownerAddress: f('東京都港区芝浦１－２－３'),
-    plateRegion: f('品川'), plateClass: f('330'), plateKana: f('さ'), plateNumber: f('12-34'), certFormat: f('記録事項')
-  }
-};
-test('Gemini 応答の解釈（コードフェンス付き・値だけの項目）', () => {
-  const docs = S.parseGeminiDocuments('```json\n{"documents":[{"type":"査定書","fields":{"color":"白","mileage":{"value":null,"readable":false}}}]}\n```');
-  assert.strictEqual(docs[0].fields.color.value, '白');
-  assert.strictEqual(docs[0].fields.mileage.readable, false);
+console.log('== 表示形式（西暦・区切り・km）==');
+test('日付の列はすべて西暦 yyyy/MM/dd（和暦の表示形式を上書き）', () => {
+  ['purchaseDate', 'firstRegDate', 'inspectionExpiry', 'saleDate'].forEach((k) => assert.strictEqual(S.numberFormatFor(F(k)), 'yyyy/MM/dd', k));
+  assert.ok(!/[ge]/.test(S.DATE_FORMAT)); // 和暦の書式記号（g・e）を含まない
 });
-test('査定書：自動整形・車台番号の文字補正・メーカーと色の選択肢化', () => {
-  const r = S.buildReadRecord([appraisal], { lists: LISTS, today: TODAY, readCert: false });
-  assert.deepStrictEqual(Array.from(r.docTypes), ['査定書']);
-  assert.strictEqual(r.fields.maker.value, 'MB');
-  assert.strictEqual(r.fields.modelName.value, 'C200 ｱﾊﾞﾝｷﾞｬﾙﾄﾞ');
-  assert.strictEqual(r.fields.chassisNumber.value, 'WDD2050042F123456');
-  assert.ok(r.fields.chassisNumber.flags.some((x) => /補正/.test(x)));
-  assert.strictEqual(r.fields.mileage.value, 45678);
-  assert.strictEqual(r.fields.appraisalPrice.value, 2350000);
-  assert.strictEqual(r.fields.color.value, '白');
-  assert.strictEqual(r.fields.color.raw, 'ポーラーホワイト');
-  assert.strictEqual(r.fields.plateNumber.value, '1234');
-  assert.strictEqual(r.kind, 'import');
+test('走行距離は区切り＋km、金額は区切り、分類番号・一連番号・車台番号は文字列', () => {
+  assert.strictEqual(S.numberFormatFor(F('mileage')), '#,##0"km"');
+  ['tradeInAllowance', 'recycleFee', 'tradeInPrice', 'appraisalPrice'].forEach((k) => assert.strictEqual(S.numberFormatFor(F(k)), '#,##0', k));
+  ['chassisNumber', 'plateClass', 'plateNumber'].forEach((k) => assert.strictEqual(S.numberFormatFor(F(k)), '@', k));
+  assert.strictEqual(S.numberFormatFor(F('tradeInLoss')), '#,##0');
+  assert.strictEqual(S.numberFormatFor(F('modelName')), null);
 });
-test('読めない項目は空欄＋要確認（推測しない）', () => {
-  const a = plain(appraisal);
-  a.fields.recycleFee = { value: null, readable: false };
-  a.fields.model = { value: 'C2?0', readable: false };
-  const r = S.buildReadRecord([a], { lists: LISTS, today: TODAY, readCert: false });
-  assert.strictEqual(r.fields.recycleFee.value, '');
-  assert.deepStrictEqual(Array.from(r.fields.recycleFee.flags), ['読み取れませんでした']);
-  assert.ok(r.fields.modelName.flags.indexOf('一部読み取れない文字があります') !== -1);
+test('走行距離：数字だけ入れても、文字で入れても数値になる（表示は書式で 12,345km）', () => {
+  assert.strictEqual(S.normalizeCellValue(F('mileage'), 12345, LISTS).value, 12345);
+  assert.strictEqual(S.normalizeCellValue(F('mileage'), '１２３４５', LISTS).value, 12345);
+  assert.strictEqual(S.normalizeCellValue(F('mileage'), '12,345 km', LISTS).value, 12345);
 });
-test('注文書は読み取り対象外。車検証は設定で無効なら対象外', () => {
-  const order = S.buildReadRecord([{ type: '注文書', fields: {} }], { lists: LISTS, today: TODAY, readCert: true });
-  assert.ok(/注文書は直接入力/.test(order.skipped));
-  const off = S.buildReadRecord([cert], { lists: LISTS, today: TODAY, readCert: false });
-  assert.ok(/車検証の読み取りは設定で無効/.test(off.skipped));
-});
-test('車検証（有効時）：日付・所有者・住所を整形し、査定書との食い違いを要確認に', () => {
-  const c = plain(cert);
-  c.fields.plateNumber = f('56-78');
-  const r = S.buildReadRecord([appraisal, c], { lists: LISTS, today: TODAY, readCert: true });
-  assert.strictEqual(ymd(r.fields.firstRegDate.value), '2020/3/1');
-  assert.strictEqual(ymd(r.fields.inspectionExpiry.value), '2026/3/1');
-  assert.strictEqual(r.fields.supplier.value, 'ﾔﾏﾀﾞ ﾀﾛｳ');
-  assert.strictEqual(r.fields.address.value, '東京都港区芝浦1-2-3');
-  assert.strictEqual(r.fields.plateNumber.value, '5678');
-  assert.ok(r.fields.plateNumber.flags.some((x) => /査定書「12-34」と車検証で異なります/.test(x)));
-  assert.strictEqual(r.fields.plateRegion.flags.length, 0);
-});
-test('国産車の車台番号（ハイフンあり）を読み飛ばさず、連番の文字を数字に補正', () => {
-  const c = plain(cert);
-  c.fields.chassisNumber = f('ZVW30-12O4S67');
-  const r = S.buildReadRecord([c], { lists: LISTS, today: TODAY, readCert: true });
-  assert.strictEqual(r.fields.chassisNumber.value, 'ZVW30-1204567');
-  assert.strictEqual(r.kind, 'domestic');
-});
-test('日付の矛盾（初度登録日が未来）を要確認に', () => {
-  const c = plain(cert);
-  c.fields.firstRegDate = f('令和9年1月');
-  const r = S.buildReadRecord([c], { lists: LISTS, today: TODAY, readCert: true });
-  assert.ok(r.fields.firstRegDate.flags.indexOf('初度登録日が未来の日付です') !== -1);
-});
-test('既存行と一致したときは空欄の項目だけを埋める（入力済みと異なる値は残す）', () => {
-  const r = S.buildReadRecord([appraisal], { lists: LISTS, today: TODAY, readCert: false });
-  const existing = { chassisNumber: 'WDD2050042F123456', maker: 'MB', mileage: 40000, color: '', appraisalPrice: '' };
-  const plan = S.planRowFill(existing, r.fields);
-  assert.ok(plan.fill.indexOf('color') !== -1);
-  assert.ok(plan.fill.indexOf('appraisalPrice') !== -1);
-  assert.ok(plan.fill.indexOf('maker') === -1);
-  assert.deepStrictEqual(Array.from(plan.conflicts), ['mileage']);
+test('初度登録日・車検満了日：和暦の文字 → 日付（西暦で表示される）', () => {
+  assert.strictEqual(ymd(S.normalizeCellValue(F('inspectionExpiry'), 'R8.3.1', LISTS).value), '2026/3/1');
+  assert.strictEqual(ymd(S.normalizeCellValue(F('firstRegDate'), '平成27年6月', LISTS).value), '2015/6/1');
 });
 
-console.log('== Gemini API の上限エラー（429）==');
-const quotaBody = (violations, retry) => JSON.stringify({ error: { code: 429, message: 'You exceeded your current quota.',
-  details: [{ '@type': 'type.googleapis.com/google.rpc.QuotaFailure', violations: violations }]
-    .concat(retry ? [{ '@type': 'type.googleapis.com/google.rpc.RetryInfo', retryDelay: retry }] : []) } });
-test('1分あたり／1日あたり（優先）／無料枠なし', () => {
-  const minute = S.parseGeminiQuotaError(quotaBody([{ quotaMetric: 'm', quotaId: 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', quotaValue: '10' }], '37s'), 'gemini-2.5-flash');
-  assert.strictEqual(minute.scope, 'minute');
-  const day = S.parseGeminiQuotaError(quotaBody([
-    { quotaMetric: 'm1', quotaId: 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', quotaValue: '10' },
-    { quotaMetric: 'm2', quotaId: 'GenerateRequestsPerDayPerProjectPerModel-FreeTier', quotaValue: '250' }]), 'gemini-2.5-flash');
-  assert.strictEqual(day.scope, 'day');
-  const zero = S.parseGeminiQuotaError(JSON.stringify({ error: { message: 'Quota exceeded for metric: x, limit: 0, model: gemini-2.5-pro' } }), 'gemini-2.5-pro');
-  assert.strictEqual(zero.scope, 'zero');
-  assert.strictEqual(S.parseGeminiQuotaError('Too Many Requests', 'm').scope, 'unknown');
+console.log('== プルダウン選択肢（設定アプリ）==');
+test('parseListText：1行1つ、半角カナ化、重複・空行を除く、別名つき', () => {
+  const e = S.parseListText('MB: メルセデス,ベンツ\nポルシェ\n\nMB\n  VW : フォルクスワーゲン ', true);
+  assert.deepStrictEqual(plain(e), [
+    { value: 'MB', aliases: ['メルセデス', 'ベンツ'] }, { value: 'ﾎﾟﾙｼｪ', aliases: [] }, { value: 'VW', aliases: ['フォルクスワーゲン'] }]);
+  const noAlias = S.parseListText('運転免許証: 原本', false);
+  assert.strictEqual(noAlias[0].value, '運転免許証: 原本');
+});
+test('既定の選択肢は半角カナ済み・地域名は全国分', () => {
+  const makers = S.defaultListEntries('maker').map((e) => e.value);
+  assert.ok(makers.indexOf('ﾎﾟﾙｼｪ') !== -1 && makers.indexOf('MB') !== -1);
+  assert.strictEqual(S.defaultListEntries('region').length, S.PLATE_REGIONS.length);
+  assert.strictEqual(S.defaultListEntries('staff').length, 0);
 });
 
 console.log('');

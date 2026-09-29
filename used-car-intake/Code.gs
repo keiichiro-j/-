@@ -1,30 +1,28 @@
 /**
  * Code.gs
- * YANASE 中古車管理表 整備・読み取り改善（改訂版企画書 フェーズ1）
+ * YANASE 中古車管理表 整備（フェーズ1：シートの整備）
  *
  * AU・C7・MB の3社のスプレッドシートそれぞれに同じコードをコンテナバインドで入れ、
- * メニュー「★専用システム」→「初期セットアップ／設定変更」で会社ごとの設定を行う。
+ * 設定アプリ（メニュー「★専用システム」→「設定アプリを開く」、または Web アプリの URL）で会社ごとに設定する。
  *
- * 方針（企画書 第1章）
- *  - 入力の主役はスプレッドシートへの直接入力。書式の統一と入力補助で使いやすくする
- *  - 直接入力も自動読み取りも、同じ自動整形を通して書式を揃える（Gemini を使わない）
- *  - 自動読み取りは補助。Gemini は「1ファイル＝1回」まで、1日の上限つき
+ * 方針
+ *  - 入力はスプレッドシートへの直接入力。書式の統一と入力補助で使いやすくする
+ *  - 入力した値は確定した瞬間に正しい書式へ整える（西暦日付・半角カナ・数値＋区切り・km）
+ *  - プルダウンの選択肢はシートではなく設定アプリで管理する（スクリプトプロパティに保存）
  *  - 計算式の列（車検残・下取損・仕入価格）にはコードから書き込まない
- *  - Gemini APIキーはスクリプトプロパティに保存し、コードには書かない
+ *  - 書類の自動読み取り（Gemini）は今後の展望とし、このコードには含めない
  *
  * 構成
  *   1. 定数・列定義
  *   2. 正規化・入力チェック（純粋関数：tests/run.js で単体テスト）
- *   3. 自動読み取りの組立（純粋関数）
- *   4. メニュー・画面表示
- *   5. 設定（スクリプトプロパティ・設定シート）
- *   6. シート共通処理
- *   7. セットアップ（シート・書式・プルダウン・条件付き書式・トリガー）
- *   8. 入力時の自動整形（onEdit）・OCN採番・販売済みへの移動
- *   9. 自動読み取り（Gemini）
- *  10. 車検証リンク
- *  11. 既存データの一括整形・販売済みシートの列統一
- *  12. ログ
+ *   3. メニュー・設定アプリ
+ *   4. 設定（スクリプトプロパティ・プルダウンの選択肢）
+ *   5. シート共通処理
+ *   6. セットアップ（シート・書式・プルダウン・条件付き書式）
+ *   7. 入力時の自動整形（onEdit）・OCN採番・販売済みへの移動
+ *   8. 車検証リンク
+ *   9. 既存データの一括整形・販売済みシートの列統一
+ *  10. ログ
  */
 
 // =====================================================================
@@ -32,13 +30,14 @@
 // =====================================================================
 
 var MENU_NAME = '★専用システム';
+var APP_TITLE = '中古車管理表 設定アプリ';
 
 var SHEET = {
   IMPORT_MASTER: '輸入車マスタ',
   DOMESTIC_MASTER: '国産車マスタ',
   SOLD: '販売済み',
-  SETTINGS: '設定',
-  LOG: 'ログ'
+  LOG: 'ログ',
+  OLD_SETTINGS: '設定' // 以前の版の設定シート（選択肢をアプリへ移したあと削除する）
 };
 var MASTER_SHEETS = [SHEET.IMPORT_MASTER, SHEET.DOMESTIC_MASTER];
 var VEHICLE_SHEETS = [SHEET.IMPORT_MASTER, SHEET.DOMESTIC_MASTER, SHEET.SOLD];
@@ -46,13 +45,12 @@ var VEHICLE_SHEETS = [SHEET.IMPORT_MASTER, SHEET.DOMESTIC_MASTER, SHEET.SOLD];
 var STATUS_OPTIONS = ['書類待ち', '所有権解除済み', '車庫証明申請中', '名義変更中', '名義変更済み', '抹消登録済み', '販売済み'];
 var CATEGORY_OPTIONS = ['買取', '仕入', '下取', 'オークション'];
 var STATUS_SOLD = '販売済み';
-var DEFAULT_STATUS = '書類待ち';
 
 /**
- * マスタ・販売済みの列定義（順序 = A〜AC列の標準配置。企画書 第4章「列ごとの入力方式」）
+ * マスタ・販売済みの列定義（順序 = A〜AC列の標準配置）
  *  type : date | ocn | list | kana（半角カナ・半角英数）| address（英数字のみ半角）| chassis
  *         | mileage | money | plateClass | plateKana | plateNumber | link（自動）| formula（書き込まない）
- *  list : プルダウンの選択肢（設定シートまたは固定の選択肢）
+ *  list : プルダウンの選択肢（設定アプリで管理する選択肢、または固定の選択肢）
  *  aliases : 既存シートの見出しの別表記（列の特定・販売済みシートの列統一に使う）
  */
 var FIELDS = [
@@ -94,21 +92,29 @@ var FIELD_BY_KEY = (function () {
 })();
 var STANDARD_HEADERS = FIELDS.map(function (f) { return f.label; });
 
-/** 列の表示形式（企画書 第4章の「書式」） */
+/**
+ * 列の表示形式。日付は西暦（和暦の表示形式が残っていても上書きする）、
+ * 走行距離は「12,345km」、金額は「1,234,000」と表示する（値は日付型・数値のまま）。
+ */
+var DATE_FORMAT = 'yyyy/MM/dd';
+var MILEAGE_FORMAT = '#,##0"km"';
+var MONEY_FORMAT = '#,##0';
 var NUMBER_FORMATS = {
-  date: 'yyyy/MM/dd',
+  date: DATE_FORMAT,
   ocn: '0',
-  mileage: '#,##0"km"',
-  money: '#,##0',
+  mileage: MILEAGE_FORMAT,
+  money: MONEY_FORMAT,
   chassis: '@',
   plateClass: '@',
   plateNumber: '@'
 };
+/** 計算式の列の表示形式（式の結果が数値のとき） */
+var FORMULA_FORMATS = { inspectionRemain: '0"ヶ月"', tradeInLoss: MONEY_FORMAT, purchasePrice: MONEY_FORMAT };
 
 /**
  * 計算式の列の定義。見出し行に ARRAYFORMULA を1つ置く方式で使う（既存の式・値がある列は切り替えない）。
  * {キー} は該当列の「2行目以降の範囲」（例：G2:G）に置き換わる。
- * null は式が未確定（企画書 第11章の確認事項）のため設定しない。
+ * null は式が未確定のため設定しない。
  */
 var FORMULA_DEFS = {
   inspectionRemain: 'IF({inspectionExpiry}="",,IF({inspectionExpiry}<TODAY(),0,DATEDIF(TODAY(),{inspectionExpiry},"M")))',
@@ -116,16 +122,16 @@ var FORMULA_DEFS = {
   purchasePrice: null
 };
 
-/** 設定シートの列（プルダウンの選択肢。企画書 第4章） */
-var LIST_COLUMNS = [
-  { list: 'maker', label: 'メーカー', aliasLabel: 'メーカーの別名（読み取り・入力の変換用。カンマ区切り）' },
-  { list: 'color', label: '色', aliasLabel: '色の別名（読み取り・入力の変換用。カンマ区切り）' },
+/** 設定アプリで管理するプルダウンの選択肢 */
+var LIST_DEFS = [
+  { list: 'maker', label: 'メーカー', aliases: true },
+  { list: 'color', label: '色', aliases: true },
   { list: 'staff', label: '担当者' },
   { list: 'idCheck', label: '本人確認方法' },
   { list: 'region', label: '地域名' }
 ];
 
-/** 自動車登録番号標の地域名（設定シートの初期値） */
+/** 自動車登録番号標の地域名（選択肢の初期値） */
 var PLATE_REGIONS = [
   '札幌', '函館', '旭川', '室蘭', '苫小牧', '釧路', '知床', '帯広', '北見',
   '青森', '八戸', '弘前', '岩手', '盛岡', '平泉', '宮城', '仙台', '秋田', '山形', '庄内',
@@ -145,7 +151,7 @@ var PLATE_REGIONS = [
   '福岡', '北九州', '久留米', '筑豊', '佐賀', '長崎', '佐世保', '熊本', '大分', '宮崎', '鹿児島', '奄美', '沖縄'
 ];
 
-/** 設定シートの初期値（選択肢は企画書 第11章で確定するまでの案。カタカナは作成時に半角カナへ変換） */
+/** 選択肢の初期値（案。カタカナは保存時に半角カナへ変換） */
 var DEFAULT_LISTS = {
   maker: [
     ['MB', 'メルセデス,ベンツ,MERCEDES,BENZ,AMG'], ['VW', 'フォルクスワーゲン,VOLKSWAGEN,ワーゲン'], ['BMW', 'ビーエムダブリュー'],
@@ -169,16 +175,7 @@ var DEFAULT_LISTS = {
 };
 
 var LOG_HEADERS = ['日時', '区分', '対象', '項目', '変更前', '変更後', '内容', '実行者'];
-
-var AUTO_NOTE_PREFIX = '［自動読み取り';
-var COLOR_AUTO = '#e1f0fb';   // 自動読み取りで入れた値
-var COLOR_CHECK = '#fff2cc';  // 疑わしい値・読めなかった項目
 var CF_MARKER = 'N("ucs")=0'; // このシステムが設定した条件付き書式の目印（常に真）
-
-var DOC = { APPRAISAL: '査定書', CERT: '車検証', ORDER: '注文書', OTHER: 'その他' };
-var SUPPORTED_MIME_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
-var MAX_FILE_BYTES = 18 * 1024 * 1024;
-var RUN_BUDGET_MS = 4.5 * 60 * 1000;
 
 // =====================================================================
 // 2. 正規化・入力チェック（純粋関数）
@@ -274,32 +271,9 @@ function normalizeAddress(v) {
   return digitDashes(toHalfWidthAlnum(v)).replace(/ {2,}/g, ' ').trim();
 }
 
-/** 車台番号の入力整形：大文字化・半角化・空白除去。ハイフンは残す（国産車の形式） */
+/** 車台番号：大文字化・半角化・空白除去。ハイフンは残す（国産車の形式） */
 function normalizeChassisInput(v) {
   return toHalfWidthAlnum(v).toUpperCase().replace(/\s+/g, '').replace(/[ーｰ]/g, '-');
-}
-
-/**
- * 車台番号の文字補正（自動読み取り用。企画書 第6章）
- *  - 輸入車（17桁・ハイフンなし）：規格上 I・O・Q を使わないため 1・0・0 に補正
- *  - 国産車（型式部-連番）：ハイフン後の連番は数字のみとして補正（O→0、I→1 等）
- * @return {{value:string, kind:string, valid:boolean, corrected:boolean}}
- */
-function correctChassisNumber(raw) {
-  var s = normalizeChassisInput(raw);
-  if (!s) return { value: '', kind: 'unknown', valid: false, corrected: false };
-  if (s.indexOf('-') === -1 && s.length === 17 && /^[A-Z0-9]+$/.test(s)) {
-    var vin = s.replace(/I/g, '1').replace(/[OQ]/g, '0');
-    return { value: vin, kind: 'import', valid: /^[A-HJ-NPR-Z0-9]{17}$/.test(vin), corrected: vin !== s };
-  }
-  var m = s.match(/^([A-Z0-9]+)-([A-Z0-9|]+)$/);
-  if (m) {
-    var serial = m[2].replace(/[ODQ]/g, '0').replace(/[IL|]/g, '1').replace(/Z/g, '2')
-      .replace(/S/g, '5').replace(/B/g, '8').replace(/G/g, '6');
-    var value = m[1] + '-' + serial;
-    return { value: value, kind: 'domestic', valid: /^\d{4,8}$/.test(serial), corrected: value !== s };
-  }
-  return { value: s, kind: 'unknown', valid: false, corrected: false };
 }
 
 function normalizePlateClass(v) {
@@ -317,7 +291,7 @@ function normalizePlateNumber(v) {
 var ERA_BASE = { '令和': 2018, 'R': 2018, '平成': 1988, 'H': 1988, '昭和': 1925, 'S': 1925 };
 
 /**
- * 和暦・西暦の日付文字列を解釈する（R5.6.1、令和5年6月1日、2023/6/1、20230601 など）。
+ * 和暦・西暦の日付文字列を日付にする（R5.6.1、令和5年6月1日、2023/6/1、20230601 など）。
  * 年月のみの表記は1日とする。解釈できなければ null。
  */
 function parseJapaneseDate(raw) {
@@ -429,7 +403,7 @@ function sameCellValue(a, b) {
 }
 
 /**
- * 1セル分の自動整形（直接入力・自動読み取り・一括整形で共通。企画書 第5章）
+ * 1セル分の自動整形（入力時・一括整形で共通）
  * @param {{key:string,type:string,list?:string}} field
  * @param {*} value セルの値
  * @param {Object} lists 選択肢（readLists_ の戻り値）
@@ -489,14 +463,10 @@ function normalizeCellValue(field, value, lists) {
   return res;
 }
 
-/** 日付の矛盾チェック（初度登録日が未来、車検満了日が初度登録日以前） */
-function checkVehicleDates(firstReg, expiry, today) {
-  var problems = {};
-  if (firstReg instanceof Date && firstReg.getTime() > today.getTime()) problems.firstRegDate = '初度登録日が未来の日付です';
-  if (firstReg instanceof Date && expiry instanceof Date && expiry.getTime() <= firstReg.getTime()) {
-    problems.inspectionExpiry = '車検満了日が初度登録日以前です';
-  }
-  return problems;
+/** 列の表示形式（無ければ null） */
+function numberFormatFor(field) {
+  if (field.type === 'formula') return FORMULA_FORMATS[field.key] || null;
+  return NUMBER_FORMATS[field.type] || null;
 }
 
 // ----- OCN -----
@@ -516,6 +486,12 @@ function nextOcnNumber(existingOcns, lastIssued) {
     if (n !== null && n > max) max = n;
   });
   return max + 1;
+}
+
+/** 車検証ファイル名から OCN を取り出す（「12345.pdf」「12345_xxx.pdf」など） */
+function ocnFromFileName(name) {
+  var m = String(name).match(/^(\d+)(?:[_\-\s.(（]|$)/);
+  return m ? Number(m[1]) : null;
 }
 
 // ----- 列 -----
@@ -578,8 +554,7 @@ function buildArrayFormula(key, colMap) {
 }
 
 /**
- * 入力チェック用の条件付き書式（企画書 第5章「入力チェック」）を組み立てる。
- * 重複チェックは3シート横断（INDIRECT で他シートを参照）。
+ * 入力チェック用の条件付き書式を組み立てる。重複チェックは3シート横断（INDIRECT で他シートを参照）。
  * @param {string} sheetName 対象シート
  * @param {Object} colMaps シート名 → 列マップ（存在するシートのみ）
  * @param {number} expiryDays 車検満了が近いとみなす日数（0で無効）
@@ -634,287 +609,75 @@ function buildCheckRules(sheetName, colMaps, expiryDays) {
   return rules;
 }
 
-// =====================================================================
-// 3. 自動読み取りの組立（純粋関数）
-// =====================================================================
-
-/** Gemini の応答テキスト（JSON）を書類の配列にする */
-function parseGeminiDocuments(text) {
-  var s = String(text || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
-  var parsed;
-  try {
-    parsed = JSON.parse(s);
-  } catch (e) {
-    var m = s.match(/\{[\s\S]*\}/);
-    if (!m) throw new Error('Gemini の応答を解釈できませんでした');
-    parsed = JSON.parse(m[0]);
-  }
-  var docs = Array.isArray(parsed) ? parsed : (parsed.documents || []);
-  return docs.map(function (d) {
-    var fields = {};
-    Object.keys(d.fields || {}).forEach(function (k) {
-      var f = d.fields[k];
-      if (f === null || typeof f !== 'object') f = { value: f, readable: !isBlank(f) };
-      fields[k] = { value: isBlank(f.value) ? null : f.value, readable: f.readable !== false && !isBlank(f.value) };
-    });
-    return { type: String(d.type || DOC.OTHER).trim(), fields: fields };
+/** 選択肢の編集テキスト（1行1つ、「値: 別名,別名」）を解釈する */
+function parseListText(text, withAliases) {
+  var seen = {};
+  return String(text || '').split(/\r?\n/).map(function (line) {
+    var at = withAliases ? line.search(/[:：]/) : -1;
+    var head = at === -1 ? line : line.substring(0, at);
+    return { value: normalizeKanaText(head), aliases: at === -1 ? [] : splitAliases(line.substring(at + 1)) };
+  }).filter(function (e) {
+    if (!e.value || seen[e.value]) return false;
+    seen[e.value] = true;
+    return true;
   });
 }
 
-/** 比較用に値を正規化する（既存値との照合に使う） */
-function compareKey(key, value) {
-  if (isBlank(value)) return '';
-  var f = FIELD_BY_KEY[key];
-  var type = f ? f.type : 'kana';
-  if (type === 'date') {
-    var d = parseJapaneseDate(value);
-    return d ? d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate() : String(value);
-  }
-  if (type === 'mileage' || type === 'money') {
-    var n = type === 'mileage' ? parseMileage(value) : parseAmount(value);
-    return n === null ? String(value) : String(n);
-  }
-  if (type === 'chassis') return normalizeChassisInput(value).replace(/-/g, '');
-  if (type === 'plateNumber') return normalizePlateNumber(value).replace(/^0+(?=\d)/, '');
-  if (type === 'plateKana') return normalizePlateKana(value);
-  return listKey(value);
-}
-
-/**
- * 読み取り結果（書類ごと）から、マスタに書く1台分の値を組み立てる。
- * 値は直接入力と同じ自動整形を通し、疑わしい値・読めなかった項目には理由（flags）を付ける。
- *
- * @param {Array<{type:string, fields:Object}>} docs
- * @param {{lists:Object, today:Date, readCert:boolean}} opts
- * @return {{fields:Object, docTypes:Array<string>, kind:string, skipped?:string}}
- *   fields[key] = {value:*, flags:Array<string>, raw:string, source:string}
- */
-function buildReadRecord(docs, opts) {
-  var appraisal = null, cert = null, ignored = [];
-  (docs || []).forEach(function (d) {
-    if (d.type === DOC.APPRAISAL && !appraisal) appraisal = d;
-    else if (d.type === DOC.CERT && !cert) { if (opts.readCert) cert = d; else ignored.push(DOC.CERT); }
-    else if (d.type !== DOC.APPRAISAL && d.type !== DOC.CERT) ignored.push(d.type);
-  });
-  var record = { fields: {}, docTypes: [], kind: 'unknown', ignored: ignored };
-  if (!appraisal && !cert) {
-    record.skipped = ignored.length
-      ? '読み取り対象外の書類です（' + ignored.join('・') + '）。' +
-        (ignored.indexOf(DOC.CERT) !== -1 ? '車検証の読み取りは設定で無効になっています' : '注文書は直接入力してください')
-      : '書類の種類を判別できませんでした';
-    return record;
-  }
-  if (appraisal) record.docTypes.push(DOC.APPRAISAL);
-  if (cert) record.docTypes.push(DOC.CERT);
-
-  function put(key, doc, name) {
-    var f = doc.fields[name];
-    if (!f) return;
-    var entry = { value: '', flags: [], raw: isBlank(f.value) ? '' : String(f.value), source: doc.type };
-    if (isBlank(f.value)) {
-      entry.flags.push('読み取れませんでした');
-    } else {
-      if (!f.readable) entry.flags.push('一部読み取れない文字があります');
-      var res = normalizeCellValue(FIELD_BY_KEY[key], f.value, opts.lists);
-      entry.value = res.value;
-      if (res.error) { entry.flags.push(res.error); entry.value = entry.raw; }
-      if (res.outOfList) entry.flags.push('選択肢にない値です');
-    }
-    record.fields[key] = entry;
-  }
-  var PLATE_KEYS = ['plateRegion', 'plateClass', 'plateKana', 'plateNumber'];
-
-  if (appraisal) {
-    var af = appraisal.fields;
-    put('maker', appraisal, af.maker ? 'maker' : 'carName');
-    put('modelName', appraisal, 'model');
-    put('chassisNumber', appraisal, 'chassisNumber');
-    put('mileage', appraisal, 'mileage');
-    put('recycleFee', appraisal, 'recycleFee');
-    put('appraisalPrice', appraisal, 'appraisalPrice');
-    PLATE_KEYS.forEach(function (k) { put(k, appraisal, k); });
-    // 色：Gemini に10色の分類も返させ、元の色名はメモに残す
-    var basic = af.colorBasic && af.colorBasic.value, named = af.color && af.color.value;
-    if (!isBlank(basic) || !isBlank(named)) {
-      var entries = (opts.lists && opts.lists.color) || [];
-      var hit = matchListValue(basic, entries, true) || matchListValue(named, entries, true);
-      record.fields.color = {
-        value: hit || normalizeKanaText(named || basic),
-        flags: hit ? [] : ['選択肢にない値です'],
-        raw: String(named || basic), source: DOC.APPRAISAL
-      };
-    } else if (af.color) {
-      record.fields.color = { value: '', flags: ['読み取れませんでした'], raw: '', source: DOC.APPRAISAL };
-    }
-  }
-
-  if (cert) {
-    var fromAppraisal = {};
-    ['chassisNumber'].concat(PLATE_KEYS).forEach(function (k) { if (record.fields[k]) fromAppraisal[k] = record.fields[k]; });
-    put('chassisNumber', cert, 'chassisNumber');
-    put('firstRegDate', cert, 'firstRegDate');
-    put('inspectionExpiry', cert, 'inspectionExpiry');
-    put('supplier', cert, 'ownerName');
-    put('address', cert, 'ownerAddress');
-    PLATE_KEYS.forEach(function (k) { put(k, cert, k); });
-    // 書類間の突合：査定書と車検証で食い違えば車検証の値を採り、要確認にする
-    Object.keys(fromAppraisal).forEach(function (k) {
-      var a = fromAppraisal[k], c = record.fields[k];
-      if (!c || isBlank(c.value)) { record.fields[k] = a; return; }
-      if (!isBlank(a.value) && compareKey(k, a.value) !== compareKey(k, c.value)) {
-        c.flags.push('査定書「' + a.raw + '」と車検証で異なります');
-      }
-    });
-    var fmt = cert.fields.certFormat && cert.fields.certFormat.value;
-    if (fmt && String(fmt).indexOf('券面') !== -1) {
-      ['inspectionExpiry', 'address'].forEach(function (k) {
-        if (record.fields[k] && isBlank(record.fields[k].value)) record.fields[k].flags.push('電子車検証の券面には載りません（記録事項をスキャン）');
-      });
-    }
-  }
-
-  // 車台番号の文字補正
-  var ch = record.fields.chassisNumber;
-  if (ch && !isBlank(ch.value)) {
-    var fixed = correctChassisNumber(ch.value);
-    if (fixed.corrected) ch.flags.push('文字を補正しました（読取値：' + ch.raw + '）');
-    if (!fixed.valid) ch.flags.push('車台番号の形式が正しくありません');
-    ch.value = fixed.value;
-    record.kind = fixed.kind;
-  }
-  // 登録番号の形式
-  var pc = record.fields.plateClass, pn = record.fields.plateNumber, pk = record.fields.plateKana;
-  if (pc && pc.value && !/^[0-9][0-9A-Z]{0,2}$/.test(pc.value)) pc.flags.push('分類番号の形式が正しくありません');
-  if (pn && pn.value && !/^\d{1,4}$/.test(pn.value)) pn.flags.push('一連番号の形式が正しくありません');
-  if (pk && pk.value && !/^[ぁ-ゖ]$/.test(pk.value)) pk.flags.push('ひらがな1文字ではありません');
-  // 日付の矛盾
-  var problems = checkVehicleDates(
-    record.fields.firstRegDate && record.fields.firstRegDate.value,
-    record.fields.inspectionExpiry && record.fields.inspectionExpiry.value, opts.today);
-  Object.keys(problems).forEach(function (k) { record.fields[k].flags.push(problems[k]); });
-  return record;
-}
-
-/**
- * 既存行に読み取り結果を反映する計画（空欄の項目だけを埋める。企画書 第6章）
- * @param {Object} existing 既存行の値（キー → 値）
- * @param {Object} fields buildReadRecord の fields
- * @return {{fill:Array<string>, conflicts:Array<string>}}
- */
-function planRowFill(existing, fields) {
-  var fill = [], conflicts = [];
-  Object.keys(fields).forEach(function (k) {
-    var f = fields[k];
-    var type = FIELD_BY_KEY[k].type;
-    if (type === 'formula' || type === 'link') return;
-    if (isBlank(existing[k])) {
-      if (!isBlank(f.value) || f.flags.length) fill.push(k);
-    } else if (!isBlank(f.value) && compareKey(k, existing[k]) !== compareKey(k, f.value)) {
-      conflicts.push(k);
-    }
-  });
-  return { fill: fill, conflicts: conflicts };
-}
-
-/**
- * Gemini の 429 応答を読み、上限の種類と日本語の説明を返す。
- * @return {{scope:'minute'|'day'|'zero'|'unknown', retryDelaySec:number, message:string}}
- */
-function parseGeminiQuotaError(text, model) {
-  var body = {};
-  try { body = JSON.parse(text) || {}; } catch (e) { body = {}; }
-  var err = body.error || {};
-  var raw = String(err.message || text || '');
-  var retryDelaySec = 0, violations = [];
-  (err.details || []).forEach(function (d) {
-    var type = String(d['@type'] || '');
-    if (/RetryInfo$/.test(type) && d.retryDelay) retryDelaySec = parseFloat(String(d.retryDelay)) || 0;
-    if (/QuotaFailure$/.test(type)) {
-      (d.violations || []).forEach(function (v) {
-        violations.push({
-          id: String(v.quotaId || '') + ' ' + String(v.quotaMetric || ''),
-          metric: String(v.quotaMetric || ''),
-          limit: (v.quotaValue === undefined || v.quotaValue === '') ? null : Number(v.quotaValue)
-        });
-      });
-    }
-  });
-  if (!retryDelaySec) {
-    var r = raw.match(/retry in ([\d.]+)s/i);
-    if (r) retryDelaySec = parseFloat(r[1]);
-  }
-  if (!violations.length) {
-    var re = /metric:\s*([^\s,]+)[^\n]*?limit:\s*(\d+)/g, m;
-    while ((m = re.exec(raw))) violations.push({ id: m[1], metric: m[1], limit: Number(m[2]) });
-  }
-  // 複数の上限に同時に当たった場合は、回復に時間がかかる方を優先する
-  var pick = function (test) { return violations.filter(test)[0]; };
-  var hit = pick(function (v) { return v.limit === 0; });
-  var scope = hit ? 'zero' : 'unknown';
-  if (!hit) { hit = pick(function (v) { return /PerDay|per_day|daily/i.test(v.id); }); if (hit) scope = 'day'; }
-  if (!hit) { hit = pick(function (v) { return /PerMinute|per_minute/i.test(v.id); }); if (hit) scope = 'minute'; }
-  if (!hit && retryDelaySec > 0 && retryDelaySec <= 120) scope = 'minute';
-  hit = hit || violations[0] || { metric: '', limit: null };
-
-  var message;
-  if (scope === 'zero') {
-    message = 'Gemini APIの上限：このAPIキーのプロジェクトでは、モデル「' + model + '」の無料枠がありません（上限0）。課金を有効にするか、セットアップでモデルを変更してください';
-  } else if (scope === 'day') {
-    message = 'Gemini APIの上限：1日あたりの上限に達しました（日本時間の16〜17時ごろに回復）';
-  } else if (scope === 'minute') {
-    message = 'Gemini APIの上限：1分あたりの上限に達しました。次回の実行で続きを読み取ります';
-  } else {
-    message = 'Gemini APIの上限に達しました（' + raw.substring(0, 200) + '）';
-  }
-  if (hit.metric) message += '［' + hit.metric + (hit.limit !== null ? '・上限' + hit.limit : '') + '］';
-  return { scope: scope, retryDelaySec: retryDelaySec, message: message };
+function splitAliases(text) {
+  return String(text || '').split(/[,、，]/).map(function (a) { return a.trim(); }).filter(function (a) { return a; });
 }
 
 // =====================================================================
-// 4. メニュー・画面表示
+// 3. メニュー・設定アプリ
 // =====================================================================
 
 function onOpen() {
   SpreadsheetApp.getUi().createMenu(MENU_NAME)
-    .addItem('初期セットアップ／設定変更', 'showSetup')
-    .addItem('プルダウン選択肢の編集', 'showLists')
+    .addItem('設定アプリを開く', 'showApp')
     .addSeparator()
-    .addItem('受付フォルダの書類を今すぐ読み取り', 'readInboxFromMenu')
-    .addItem('車検証リンクを更新', 'updateCertLinksFromMenu')
-    .addItem('エラーフォルダの書類を受付に戻す', 'restoreErrorFilesFromMenu')
-    .addSeparator()
+    .addItem('書式・プルダウン・入力チェックを整え直す', 'reapplyStandardsFromMenu')
     .addItem('ステータスが販売済みの行を販売済みシートへ移動', 'moveSoldRowsFromMenu')
-    .addItem('既存データの一括整形・販売済みシートの列統一', 'showCleanup')
+    .addItem('車検証リンクを更新', 'updateCertLinksFromMenu')
     .addToUi();
 }
 
-function showSetup() {
-  SpreadsheetApp.getUi().showModalDialog(HtmlService.createHtmlOutputFromFile('Setup').setWidth(560).setHeight(720), '初期セットアップ／設定変更');
+/** 設定アプリ（スプレッドシート上のダイアログ） */
+function showApp() {
+  var html = HtmlService.createTemplateFromFile('App');
+  html.mode = 'dialog';
+  SpreadsheetApp.getUi().showModelessDialog(html.evaluate().setWidth(1000).setHeight(760), APP_TITLE);
 }
 
-function showLists() {
-  SpreadsheetApp.getUi().showModalDialog(HtmlService.createHtmlOutputFromFile('Lists').setWidth(760).setHeight(680), 'プルダウン選択肢の編集');
+/** 設定アプリ（Web アプリとして公開した場合の入口） */
+function doGet() {
+  var html = HtmlService.createTemplateFromFile('App');
+  html.mode = 'web';
+  return html.evaluate().setTitle(APP_TITLE).addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-function showCleanup() {
-  SpreadsheetApp.getUi().showModelessDialog(HtmlService.createHtmlOutputFromFile('Cleanup').setWidth(980).setHeight(740), '既存データの一括整形・列統一');
-}
-
-function readInboxFromMenu() {
-  var ui = SpreadsheetApp.getUi();
-  var result = readInbox_({ manual: true });
-  ui.alert('自動読み取り', result.message, ui.ButtonSet.OK);
+function reapplyStandardsFromMenu() {
+  var report = reapplyStandards();
+  SpreadsheetApp.getUi().alert('書式・プルダウン・入力チェック', report.join('\n'), SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
 function updateCertLinksFromMenu() {
   var ui = SpreadsheetApp.getUi();
-  var n = updateCertLinks_();
-  ui.alert('車検証リンクを更新', n + '件のリンクを設定しました。', ui.ButtonSet.OK);
+  var res = updateCertLinks();
+  ui.alert('車検証リンクを更新', res.message, ui.ButtonSet.OK);
 }
 
 function moveSoldRowsFromMenu() {
   var ui = SpreadsheetApp.getUi();
   var ss = getSpreadsheet_();
+  var targets = findSoldRows_(ss);
+  var total = targets.reduce(function (s, t) { return s + t.rows.length; }, 0);
+  if (!total) { ui.alert('ステータスが「販売済み」の行はありません。'); return; }
+  if (ui.alert('販売済みシートへ移動', total + '行を販売済みシートへ移動します。よろしいですか？', ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
+  targets.forEach(function (t) { moveRowsToSold_(ss, ss.getSheetByName(t.name), t.rows); });
+  ui.alert(total + '行を販売済みシートへ移動しました。');
+}
+
+function findSoldRows_(ss) {
   var targets = [];
   MASTER_SHEETS.forEach(function (name) {
     var sheet = ss.getSheetByName(name);
@@ -926,179 +689,127 @@ function moveSoldRowsFromMenu() {
       .forEach(function (r, i) { if (r[0] === STATUS_SOLD) rows.push(i + 2); });
     if (rows.length) targets.push({ name: name, rows: rows });
   });
-  var total = targets.reduce(function (s, t) { return s + t.rows.length; }, 0);
-  if (!total) { ui.alert('ステータスが「販売済み」の行はありません。'); return; }
-  if (ui.alert('販売済みシートへ移動', total + '行を販売済みシートへ移動します。よろしいですか？', ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
-  targets.forEach(function (t) { moveRowsToSold_(ss, ss.getSheetByName(t.name), t.rows); });
-  ui.alert(total + '行を販売済みシートへ移動しました。');
+  return targets;
 }
 
 // =====================================================================
-// 5. 設定（スクリプトプロパティ・設定シート）
+// 4. 設定（スクリプトプロパティ・プルダウンの選択肢）
 // =====================================================================
 
 var PROP = {
   COMPANY: 'COMPANY_NAME',
-  GEMINI_KEY: 'GEMINI_API_KEY',
-  GEMINI_MODEL: 'GEMINI_MODEL',
-  GEMINI_INTERVAL: 'GEMINI_MIN_INTERVAL_SEC',
-  GEMINI_LAST_CALL: 'GEMINI_LAST_CALL_MS',
-  DAILY_LIMIT: 'DAILY_READ_LIMIT',
-  DAILY_COUNT: 'DAILY_READ_COUNT_', // + yyyyMMdd
-  READ_CERT: 'READ_CERT',
-  UNKNOWN_TARGET: 'UNKNOWN_TARGET_SHEET',
   EXPIRY_DAYS: 'EXPIRY_WARNING_DAYS',
-  FOLDER_ROOT: 'FOLDER_ROOT',
-  FOLDER_INBOX: 'FOLDER_INBOX',
-  FOLDER_DONE: 'FOLDER_DONE',
-  FOLDER_ERROR: 'FOLDER_ERROR',
   FOLDER_CERT: 'FOLDER_CERT',
-  TRIGGER_MINUTES: 'TRIGGER_MINUTES',
-  OCN_LAST: 'OCN_LAST_ISSUED'
-};
-
-var SETTING_DEFAULTS = {
-  GEMINI_MODEL: 'gemini-2.5-flash',
-  GEMINI_MIN_INTERVAL_SEC: '7',
-  DAILY_READ_LIMIT: '20',
-  READ_CERT: 'false',
-  UNKNOWN_TARGET_SHEET: SHEET.IMPORT_MASTER,
-  EXPIRY_WARNING_DAYS: '30',
-  TRIGGER_MINUTES: '60'
+  CERT_LINK_HOURLY: 'CERT_LINK_HOURLY',
+  OCN_LAST: 'OCN_LAST_ISSUED',
+  LIST: 'LIST_' // + maker / color / staff / idCheck / region
 };
 
 function getSettings_() {
   var props = PropertiesService.getScriptProperties().getProperties();
-  function get(key) {
-    var v = props[key];
-    return (v === undefined || v === null || v === '') ? (SETTING_DEFAULTS[key] || '') : v;
-  }
   return {
-    company: get(PROP.COMPANY),
-    geminiKey: get(PROP.GEMINI_KEY),
-    geminiModel: get(PROP.GEMINI_MODEL),
-    geminiIntervalSec: Math.max(0, Number(get(PROP.GEMINI_INTERVAL)) || 0),
-    dailyLimit: Math.max(0, Number(get(PROP.DAILY_LIMIT)) || 0),
-    readCert: get(PROP.READ_CERT) === 'true',
-    unknownTarget: get(PROP.UNKNOWN_TARGET),
-    expiryDays: Math.max(0, Number(get(PROP.EXPIRY_DAYS)) || 0),
-    folderRoot: get(PROP.FOLDER_ROOT),
-    folderInbox: get(PROP.FOLDER_INBOX),
-    folderDone: get(PROP.FOLDER_DONE),
-    folderError: get(PROP.FOLDER_ERROR),
-    folderCert: get(PROP.FOLDER_CERT),
-    triggerMinutes: Number(get(PROP.TRIGGER_MINUTES)) || 0
+    company: props[PROP.COMPANY] || '',
+    expiryDays: props[PROP.EXPIRY_DAYS] === undefined ? 30 : Math.max(0, Number(props[PROP.EXPIRY_DAYS]) || 0),
+    folderCert: props[PROP.FOLDER_CERT] || '',
+    certLinkHourly: props[PROP.CERT_LINK_HOURLY] === 'true'
   };
 }
 
-function requireFolders_(settings) {
-  var missing = [];
-  if (!settings.folderInbox) missing.push('受付フォルダ');
-  if (!settings.folderDone) missing.push('処理済みフォルダ');
-  if (!settings.folderError) missing.push('エラーフォルダ');
-  if (!settings.folderCert) missing.push('車検証保管フォルダ');
-  if (missing.length) throw new Error('初期セットアップが完了していません（未設定：' + missing.join('、') + '）');
-}
-
-/** 設定シートの列配置（メーカー・別名・色・別名・担当者・本人確認方法・地域名） */
-function settingsLayout_() {
-  var pos = {}, headers = [], col = 0;
-  LIST_COLUMNS.forEach(function (c) {
-    pos[c.list] = { value: col };
-    headers.push(c.label);
-    col++;
-    if (c.aliasLabel) { pos[c.list].alias = col; headers.push(c.aliasLabel); col++; }
+/** 既定の選択肢（半角カナに変換済み） */
+function defaultListEntries(listName) {
+  return (DEFAULT_LISTS[listName] || []).map(function (e) {
+    return { value: normalizeKanaText(e[0]), aliases: splitAliases(e[1]) };
   });
-  return { pos: pos, headers: headers, width: col };
 }
 
 /**
- * 設定シートからプルダウンの選択肢を読む。
+ * プルダウンの選択肢を読む（設定アプリで保存したもの。未保存なら既定の選択肢）。
  * @return {Object} list名 → [{value, aliases}]（区分・ステータスは固定の選択肢）
  */
-function readLists_(ss) {
+function readLists_() {
+  var props = PropertiesService.getScriptProperties();
   var lists = {
     category: CATEGORY_OPTIONS.map(function (v) { return { value: v, aliases: [] }; }),
     status: STATUS_OPTIONS.map(function (v) { return { value: v, aliases: [] }; })
   };
-  LIST_COLUMNS.forEach(function (c) { lists[c.list] = []; });
-  var sheet = (ss || getSpreadsheet_()).getSheetByName(SHEET.SETTINGS);
-  if (!sheet || sheet.getLastRow() < 2) return lists;
-  var layout = settingsLayout_();
-  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, layout.width).getValues();
-  LIST_COLUMNS.forEach(function (c) {
-    var pos = layout.pos[c.list];
-    values.forEach(function (row) {
-      var v = row[pos.value];
-      if (isBlank(v)) return;
-      var aliases = pos.alias === undefined ? [] : splitAliases_(row[pos.alias]);
-      lists[c.list].push({ value: String(v).trim(), aliases: aliases });
-    });
+  LIST_DEFS.forEach(function (d) {
+    var json = props.getProperty(PROP.LIST + d.list);
+    var entries = null;
+    if (json) { try { entries = JSON.parse(json); } catch (e) { entries = null; } }
+    lists[d.list] = entries || defaultListEntries(d.list);
   });
   return lists;
 }
 
-function splitAliases_(text) {
-  return String(text || '').split(/[,、，]/).map(function (a) { return a.trim(); }).filter(function (a) { return a; });
+function writeList_(listName, entries) {
+  var compact = entries.map(function (e) { return e.aliases && e.aliases.length ? { value: e.value, aliases: e.aliases } : { value: e.value }; });
+  PropertiesService.getScriptProperties().setProperty(PROP.LIST + listName, JSON.stringify(compact));
 }
 
-/** 選択肢編集画面：現在の選択肢を「値: 別名,別名」の行テキストで返す */
+/** 設定アプリ：現在の選択肢を「値: 別名,別名」の行テキストで返す */
 function getListsForEdit() {
   var lists = readLists_();
   var out = {};
-  LIST_COLUMNS.forEach(function (c) {
-    out[c.list] = lists[c.list].map(function (e) {
-      return c.aliasLabel && e.aliases.length ? e.value + ': ' + e.aliases.join(',') : e.value;
+  LIST_DEFS.forEach(function (d) {
+    out[d.list] = lists[d.list].map(function (e) {
+      return d.aliases && e.aliases && e.aliases.length ? e.value + ': ' + e.aliases.join(',') : e.value;
     }).join('\n');
   });
-  return { lists: out, columns: LIST_COLUMNS, company: getSettings_().company };
+  return { lists: out, defs: LIST_DEFS };
 }
 
-/** 選択肢編集画面：保存（値のカタカナは半角カナに揃える。別名は変換用なので原文のまま） */
+/** 設定アプリ：選択肢を保存し、3シートのプルダウンに反映する */
 function saveLists(input) {
-  var ss = getSpreadsheet_();
-  var sheet = ensureSettingsSheet_(ss, []);
-  var layout = settingsLayout_();
-  var columns = {}, maxRows = 0;
-  LIST_COLUMNS.forEach(function (c) {
-    var seen = {};
-    var entries = String(input[c.list] || '').split(/\r?\n/).map(function (line) {
-      var at = line.search(/[:：]/);
-      var head = at === -1 ? line : line.substring(0, at);
-      return { value: normalizeKanaText(head), aliases: c.aliasLabel && at !== -1 ? splitAliases_(line.substring(at + 1)) : [] };
-    }).filter(function (e) {
-      if (!e.value || seen[e.value]) return false;
-      seen[e.value] = true;
-      return true;
-    });
-    columns[c.list] = entries;
-    maxRows = Math.max(maxRows, entries.length);
+  var counts = [];
+  LIST_DEFS.forEach(function (d) {
+    var entries = parseListText(input[d.list], !!d.aliases);
+    if (entries.length > 500) throw new Error(d.label + 'の選択肢は500件までです');
+    writeList_(d.list, entries);
+    counts.push(d.label + ' ' + entries.length + '件');
   });
-  var lastRow = Math.max(sheet.getLastRow(), 2);
-  sheet.getRange(2, 1, lastRow - 1, layout.width).clearContent();
-  if (maxRows) {
-    var grid = [];
-    for (var r = 0; r < maxRows; r++) {
-      var row = [];
-      for (var i = 0; i < layout.width; i++) row.push('');
-      LIST_COLUMNS.forEach(function (c) {
-        var e = columns[c.list][r];
-        if (!e) return;
-        row[layout.pos[c.list].value] = e.value;
-        if (layout.pos[c.list].alias !== undefined) row[layout.pos[c.list].alias] = e.aliases.join(',');
+  var ss = getSpreadsheet_();
+  VEHICLE_SHEETS.forEach(function (name) {
+    var sheet = ss.getSheetByName(name);
+    if (sheet) applyValidations_(sheet, getColumns_(sheet).map);
+  });
+  appendLog_('設定', '選択肢', '', '', '', counts.join('、'));
+  return { ok: true, message: '保存し、プルダウンに反映しました（' + counts.join('、') + '）' };
+}
+
+/**
+ * 以前の版の「設定」シートがあれば、その選択肢を設定アプリ（スクリプトプロパティ）へ移してシートを削除する。
+ * （選択肢だけのシートで、車両データは含まない。セットアップ時のバックアップにも残る）
+ */
+function migrateOldSettingsSheet_(ss, report) {
+  var sheet = ss.getSheetByName(SHEET.OLD_SETTINGS);
+  if (!sheet) return;
+  var props = PropertiesService.getScriptProperties();
+  var lastRow = sheet.getLastRow(), lastCol = sheet.getLastColumn();
+  if (lastRow >= 2 && lastCol >= 1) {
+    var headers = sheet.getRange(1, 1, 1, lastCol).getDisplayValues()[0];
+    var values = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    LIST_DEFS.forEach(function (d) {
+      if (props.getProperty(PROP.LIST + d.list)) return; // アプリで保存済みならそちらを優先
+      var col = headers.indexOf(d.label);
+      if (col === -1) return;
+      var aliasCol = d.aliases ? headers.findIndex(function (h) { return String(h).indexOf(d.label + 'の別名') === 0; }) : -1;
+      var seen = {};
+      var entries = [];
+      values.forEach(function (row) {
+        var v = normalizeKanaText(row[col]);
+        if (!v || seen[v]) return;
+        seen[v] = true;
+        entries.push({ value: v, aliases: aliasCol === -1 ? [] : splitAliases(row[aliasCol]) });
       });
-      grid.push(row);
-    }
-    ensureRows_(sheet, maxRows + 1);
-    sheet.getRange(2, 1, maxRows, layout.width).setValues(grid);
+      writeList_(d.list, entries);
+    });
   }
-  var counts = LIST_COLUMNS.map(function (c) { return c.label + ' ' + columns[c.list].length + '件'; }).join('、');
-  appendLog_('設定', '選択肢', '', '', '', counts);
-  return { ok: true, message: '保存しました（' + counts + '）' };
+  ss.deleteSheet(sheet);
+  report.push('「設定」シートの選択肢を設定アプリへ移し、シートを削除しました');
 }
 
 // =====================================================================
-// 6. シート共通処理
+// 5. シート共通処理
 // =====================================================================
 
 function getSpreadsheet_() {
@@ -1140,46 +851,23 @@ function timestamp_() {
   return Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMMdd_HHmm');
 }
 
-function todayJst_() {
-  var s = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd').split('/');
-  return new Date(Number(s[0]), Number(s[1]) - 1, Number(s[2]));
-}
-
-/** 3シートを読み、OCN・車台番号・登録番号で車両を引ける索引を作る */
-function buildVehicleIndex_(ss) {
-  var index = { byOcn: {}, byChassis: {}, byPlate: {}, ocns: [] };
+/** 3シートの OCN をすべて集める */
+function collectOcns_(ss) {
+  var ocns = [];
   VEHICLE_SHEETS.forEach(function (name) {
     var sheet = ss.getSheetByName(name);
     if (!sheet || sheet.getLastRow() < 2) return;
     var cols = getColumns_(sheet).map;
-    var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
-    values.forEach(function (row, i) {
-      var rec = { sheet: name, row: i + 2, values: {} };
-      FIELDS.forEach(function (f) { if (cols[f.key] !== undefined) rec.values[f.key] = row[cols[f.key]]; });
-      if (!isBlank(rec.values.ocn)) {
-        index.ocns.push(rec.values.ocn);
-        var n = parseOcnNumber(rec.values.ocn);
-        if (n !== null) index.byOcn[n] = rec;
-      }
-      var ck = compareKey('chassisNumber', rec.values.chassisNumber);
-      if (ck) index.byChassis[ck] = rec;
-      var pk = plateKey_(rec.values);
-      if (pk) index.byPlate[pk] = rec;
-    });
+    if (cols.ocn === undefined) return;
+    sheet.getRange(2, cols.ocn + 1, sheet.getLastRow() - 1, 1).getValues().forEach(function (r) { if (!isBlank(r[0])) ocns.push(r[0]); });
   });
-  return index;
-}
-
-function plateKey_(v) {
-  if (isBlank(v.plateNumber) || isBlank(v.plateRegion)) return '';
-  return [compareKey('plateRegion', v.plateRegion), compareKey('plateClass', v.plateClass),
-    compareKey('plateKana', v.plateKana), compareKey('plateNumber', v.plateNumber)].join('|');
+  return ocns;
 }
 
 /** 次のOCNを予約する（会社単位・輸入車／国産車共通の連番）。呼び出し側でロックを取る */
 function reserveOcn_(ss) {
   var props = PropertiesService.getScriptProperties();
-  var n = nextOcnNumber(buildVehicleIndex_(ss).ocns, props.getProperty(PROP.OCN_LAST));
+  var n = nextOcnNumber(collectOcns_(ss), props.getProperty(PROP.OCN_LAST));
   props.setProperty(PROP.OCN_LAST, String(n));
   return n;
 }
@@ -1203,24 +891,30 @@ function makeBackupSheet_(ss, sheet) {
 }
 
 // =====================================================================
-// 7. セットアップ
+// 6. セットアップ
 // =====================================================================
 
+/** 設定アプリ：現在の設定 */
 function getSetupState() {
   var s = getSettings_();
+  var ss = getSpreadsheet_();
   return {
-    company: s.company, hasGeminiKey: !!s.geminiKey, geminiModel: s.geminiModel,
-    geminiIntervalSec: s.geminiIntervalSec, dailyLimit: s.dailyLimit, readCert: s.readCert,
-    unknownTarget: s.unknownTarget, expiryDays: s.expiryDays,
-    folderRoot: s.folderRoot, folderInbox: s.folderInbox, folderDone: s.folderDone,
-    folderError: s.folderError, folderCert: s.folderCert, triggerMinutes: s.triggerMinutes,
-    masterSheets: MASTER_SHEETS, todayCount: getDailyCount_(),
-    spreadsheetName: getSpreadsheet_().getName()
+    company: s.company, expiryDays: s.expiryDays, folderCert: s.folderCert, certLinkHourly: s.certLinkHourly,
+    spreadsheetName: ss.getName(), spreadsheetUrl: ss.getUrl(),
+    sheets: VEHICLE_SHEETS.map(function (name) {
+      var sheet = ss.getSheetByName(name);
+      if (!sheet) return { name: name, exists: false };
+      var headers = getHeaders_(sheet);
+      var cols = resolveColumns(headers).map;
+      return { name: name, exists: true, standard: isStandardLayout(headers), rows: Math.max(lastDataRow_(sheet, cols) - 1, 0) };
+    }),
+    nextOcn: nextOcnNumber(collectOcns_(ss), PropertiesService.getScriptProperties().getProperty(PROP.OCN_LAST))
   };
 }
 
 /**
- * セットアップ。既存シート・既存データは上書きせず、不足分だけを追加する。
+ * 設定アプリ：セットアップ（設定の保存と、シートの整備）。
+ * 既存シート・既存データは上書きせず、不足分だけを追加する。
  * @return {{ok:boolean, report:Array<string>}}
  */
 function runSetup(form) {
@@ -1240,71 +934,29 @@ function runSetup(form) {
 
     var values = {};
     values[PROP.COMPANY] = String(form.company).trim();
-    values[PROP.GEMINI_MODEL] = String(form.geminiModel || SETTING_DEFAULTS.GEMINI_MODEL).trim();
-    values[PROP.GEMINI_INTERVAL] = String(Math.max(0, Number(form.geminiIntervalSec) || 0));
-    values[PROP.DAILY_LIMIT] = String(Math.max(0, Number(form.dailyLimit) || 0));
-    values[PROP.READ_CERT] = form.readCert ? 'true' : 'false';
-    values[PROP.UNKNOWN_TARGET] = MASTER_SHEETS.indexOf(form.unknownTarget) !== -1 ? form.unknownTarget : SHEET.IMPORT_MASTER;
     values[PROP.EXPIRY_DAYS] = String(Math.max(0, Number(form.expiryDays) || 0));
-    values[PROP.TRIGGER_MINUTES] = String(Number(form.triggerMinutes) || 0);
-    if (!isBlank(form.geminiKey)) {
-      values[PROP.GEMINI_KEY] = String(form.geminiKey).trim();
-      report.push('Gemini APIキーをスクリプトプロパティに保存しました');
-    }
+    values[PROP.CERT_LINK_HOURLY] = form.certLinkHourly ? 'true' : 'false';
+    var folderId = extractDriveId_(form.folderCert);
+    if (folderId) values[PROP.FOLDER_CERT] = DriveApp.getFolderById(folderId).getId(); // 存在確認
+    else props.deleteProperty(PROP.FOLDER_CERT);
     props.setProperties(values);
 
-    setupFolders_(form, report);
-    var settingsSheet = ensureSettingsSheet_(ss, report);
+    migrateOldSettingsSheet_(ss, report);
     VEHICLE_SHEETS.forEach(function (name) { ensureVehicleSheet_(ss, name, report); });
     ensureLogSheet_(ss);
-    applyAllSheetStandards_(ss, settingsSheet, report);
+    reapplyStandards_(ss, report);
 
     if (!props.getProperty(PROP.OCN_LAST)) {
-      var max = nextOcnNumber(buildVehicleIndex_(ss).ocns, 0) - 1;
+      var max = nextOcnNumber(collectOcns_(ss), 0) - 1;
       props.setProperty(PROP.OCN_LAST, String(max));
       report.push('OCNの採番を初期化しました（次の番号：' + (max + 1) + '）');
     }
-    setupTriggers_(Number(form.triggerMinutes) || 0, report);
+    setupTriggers_(values[PROP.CERT_LINK_HOURLY] === 'true' && !!folderId, report);
     appendLog_('セットアップ', ss.getName(), '', '', '', report.join(' / '));
     return { ok: true, report: report };
   } finally {
     lock.releaseLock();
   }
-}
-
-function setupFolders_(form, report) {
-  var props = PropertiesService.getScriptProperties();
-  var company = String(form.company).trim();
-  var defs = [
-    { prop: PROP.FOLDER_INBOX, input: form.folderInbox, name: '受付' },
-    { prop: PROP.FOLDER_DONE, input: form.folderDone, name: '処理済み' },
-    { prop: PROP.FOLDER_ERROR, input: form.folderError, name: 'エラー' },
-    { prop: PROP.FOLDER_CERT, input: form.folderCert, name: '車検証保管' }
-  ];
-  var root = null;
-  function getRoot() {
-    if (root) return root;
-    var rootId = extractDriveId_(form.folderRoot) || props.getProperty(PROP.FOLDER_ROOT);
-    if (rootId) {
-      root = DriveApp.getFolderById(rootId);
-    } else {
-      root = DriveApp.createFolder('中古車書類_' + company);
-      report.push('ドライブにフォルダを作成しました：' + root.getName());
-    }
-    props.setProperty(PROP.FOLDER_ROOT, root.getId());
-    return root;
-  }
-  defs.forEach(function (d) {
-    var id = extractDriveId_(d.input) || props.getProperty(d.prop);
-    if (id) {
-      props.setProperty(d.prop, DriveApp.getFolderById(id).getId()); // 存在確認（無ければ例外）
-      return;
-    }
-    var parent = getRoot();
-    var it = parent.getFoldersByName(d.name);
-    props.setProperty(d.prop, (it.hasNext() ? it.next() : parent.createFolder(d.name)).getId());
-    report.push('フォルダ「' + d.name + '」を設定しました');
-  });
 }
 
 /** フォルダURL・ID のどちらでも受け付ける */
@@ -1313,37 +965,6 @@ function extractDriveId_(input) {
   var s = String(input).trim();
   var m = s.match(/\/folders\/([A-Za-z0-9_-]+)/) || s.match(/[?&]id=([A-Za-z0-9_-]+)/) || s.match(/\/d\/([A-Za-z0-9_-]+)/);
   return m ? m[1] : s;
-}
-
-/** 設定シート（プルダウンの選択肢）。無ければ初期値で作成し、あれば触らない */
-function ensureSettingsSheet_(ss, report) {
-  var sheet = ss.getSheetByName(SHEET.SETTINGS);
-  if (sheet) return sheet;
-  var layout = settingsLayout_();
-  sheet = ss.insertSheet(SHEET.SETTINGS);
-  sheet.getRange(1, 1, 1, layout.width).setValues([layout.headers]).setFontWeight('bold').setBackground('#eef3f0');
-  sheet.setFrozenRows(1);
-  var maxRows = 0;
-  LIST_COLUMNS.forEach(function (c) { maxRows = Math.max(maxRows, DEFAULT_LISTS[c.list].length); });
-  if (maxRows) {
-    var grid = [];
-    for (var r = 0; r < maxRows; r++) {
-      var row = [];
-      for (var i = 0; i < layout.width; i++) row.push('');
-      LIST_COLUMNS.forEach(function (c) {
-        var e = DEFAULT_LISTS[c.list][r];
-        if (!e) return;
-        row[layout.pos[c.list].value] = normalizeKanaText(e[0]);
-        if (layout.pos[c.list].alias !== undefined) row[layout.pos[c.list].alias] = e[1] || '';
-      });
-      grid.push(row);
-    }
-    ensureRows_(sheet, maxRows + 1);
-    sheet.getRange(2, 1, maxRows, layout.width).setValues(grid);
-  }
-  sheet.getRange(1, 1).setNote('この列の内容が各シートのプルダウンになります。メニュー「プルダウン選択肢の編集」からも編集できます。');
-  report.push('シート「' + SHEET.SETTINGS + '」を作成しました（選択肢は案です。企画書 第11章で確定したら編集してください）');
-  return sheet;
 }
 
 function ensureVehicleSheet_(ss, name, report) {
@@ -1363,7 +984,7 @@ function ensureVehicleSheet_(ss, name, report) {
     return sheet;
   }
   if (name === SHEET.SOLD && !isStandardLayout(headers)) {
-    report.push('「' + name + '」の列配置が標準（A〜AC）と異なります。メニュー「既存データの一括整形・販売済みシートの列統一」で列統一を実行してください');
+    report.push('「' + name + '」の列配置が標準（A〜AC）と異なります。設定アプリの「一括整形・列統一」で列統一を実行してください');
     return sheet;
   }
   var res = resolveColumns(headers);
@@ -1371,9 +992,6 @@ function ensureVehicleSheet_(ss, name, report) {
     var labels = res.missing.map(function (k) { return FIELD_BY_KEY[k].label; });
     sheet.getRange(1, headers.length + 1, 1, labels.length).setValues([labels]).setFontWeight('bold');
     report.push('「' + name + '」に不足していた列を右端に追加しました：' + labels.join('、'));
-  }
-  if (!isStandardLayout(getHeaders_(sheet))) {
-    report.push('「' + name + '」の列順が標準（A〜AC）と異なります（見出し名で列を特定するので動作はします）');
   }
   return sheet;
 }
@@ -1387,8 +1005,21 @@ function ensureLogSheet_(ss) {
   return sheet;
 }
 
-/** 3シートに書式・プルダウン・保護・条件付き書式・計算式を設定する */
-function applyAllSheetStandards_(ss, settingsSheet, report) {
+/** 設定アプリ・メニュー：3シートの書式・プルダウン・入力チェックを整え直す（値は変えない） */
+function reapplyStandards() {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) throw new Error('他の処理が実行中です');
+  try {
+    var report = [];
+    reapplyStandards_(getSpreadsheet_(), report);
+    appendLog_('書式の再設定', '3シート', '', '', '', report.join(' / '));
+    return report;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function reapplyStandards_(ss, report) {
   var settings = getSettings_();
   var colMaps = {};
   VEHICLE_SHEETS.forEach(function (name) {
@@ -1397,47 +1028,56 @@ function applyAllSheetStandards_(ss, settingsSheet, report) {
   });
   Object.keys(colMaps).forEach(function (name) {
     var sheet = ss.getSheetByName(name);
-    applySheetStandards_(sheet, colMaps[name], settingsSheet || ss.getSheetByName(SHEET.SETTINGS), report);
+    var cols = colMaps[name];
+    applyFormats_(sheet, cols, 2, Math.max(sheet.getMaxRows() - 1, 1));
+    applyValidations_(sheet, cols);
+    applyProtections_(sheet, cols);
+    applyFormulaColumns_(sheet, cols, report);
     applyCheckRules_(sheet, buildCheckRules(name, colMaps, settings.expiryDays));
   });
-  report.push('日付・金額・走行距離の表示形式、プルダウン、入力チェックの色分けを設定しました');
+  report.push('日付を西暦（yyyy/MM/dd）、走行距離を「12,345km」、金額を「#,##0」で表示するよう設定しました');
+  report.push('プルダウン、入力チェックの色分け、見出し行・OCN列の保護を設定しました');
 }
 
-function applySheetStandards_(sheet, cols, settingsSheet, report) {
+/** 表示形式を列ごとに設定する（日付は西暦・走行距離は区切り＋km・金額は区切り） */
+function applyFormats_(sheet, cols, startRow, numRows) {
+  FIELDS.forEach(function (f) {
+    var fmt = numberFormatFor(f);
+    if (!fmt || cols[f.key] === undefined) return;
+    sheet.getRange(startRow, cols[f.key] + 1, numRows, 1).setNumberFormat(fmt);
+  });
+}
+
+function applyValidations_(sheet, cols) {
   var rows = Math.max(sheet.getMaxRows() - 1, 1);
-  var layout = settingsLayout_();
+  var lists = readLists_();
   FIELDS.forEach(function (f) {
     var c = cols[f.key];
     if (c === undefined) return;
     var range = sheet.getRange(2, c + 1, rows, 1);
-    if (NUMBER_FORMATS[f.type]) range.setNumberFormat(NUMBER_FORMATS[f.type]);
-    if (f.key === 'tradeInLoss' || f.key === 'purchasePrice') range.setNumberFormat('#,##0');
-    var rule = null;
     if (f.type === 'date') {
-      rule = SpreadsheetApp.newDataValidation().requireDate().setAllowInvalid(true).build(); // カレンダーで選べる
+      range.setDataValidation(SpreadsheetApp.newDataValidation().requireDate().setAllowInvalid(true).build()); // カレンダーで選べる
     } else if (f.type === 'list') {
+      var values = (lists[f.list] || []).map(function (e) { return e.value; });
       // 表記ゆれは入力時に自動で選択肢へ変換するため、入力自体は拒否しない（選択肢外は警告表示）
-      if (f.list === 'category') rule = SpreadsheetApp.newDataValidation().requireValueInList(CATEGORY_OPTIONS, true).setAllowInvalid(true).build();
-      else if (f.list === 'status') rule = SpreadsheetApp.newDataValidation().requireValueInList(STATUS_OPTIONS, true).setAllowInvalid(true).build();
-      else if (settingsSheet) {
-        var letter = columnLetter(layout.pos[f.list].value + 1);
-        rule = SpreadsheetApp.newDataValidation()
-          .requireValueInRange(settingsSheet.getRange(letter + '2:' + letter), true).setAllowInvalid(true).build();
-      }
+      if (values.length) range.setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(values, true).setAllowInvalid(true).build());
+      else range.clearDataValidations();
     }
-    if (rule) range.setDataValidation(rule);
   });
+}
 
-  // 見出し行と OCN 列の保護（警告表示のみ）
+function applyProtections_(sheet, cols) {
   var existing = sheet.getProtections(SpreadsheetApp.ProtectionType.RANGE).map(function (p) { return p.getDescription(); });
   if (existing.indexOf('見出し行の保護') === -1) {
     sheet.getRange(1, 1, 1, sheet.getMaxColumns()).protect().setDescription('見出し行の保護').setWarningOnly(true);
   }
   if (cols.ocn !== undefined && existing.indexOf('OCNの保護') === -1) {
-    sheet.getRange(2, cols.ocn + 1, rows, 1).protect().setDescription('OCNの保護').setWarningOnly(true);
+    sheet.getRange(2, cols.ocn + 1, Math.max(sheet.getMaxRows() - 1, 1), 1).protect().setDescription('OCNの保護').setWarningOnly(true);
   }
+}
 
-  // 計算式の列：見出し行に ARRAYFORMULA（既存の式・値がある列は切り替えない）
+/** 計算式の列：見出し行に ARRAYFORMULA（既存の式・値がある列は切り替えない） */
+function applyFormulaColumns_(sheet, cols, report) {
   FIELDS.filter(function (f) { return f.type === 'formula'; }).forEach(function (f) {
     var c = cols[f.key];
     if (c === undefined) return;
@@ -1450,11 +1090,10 @@ function applySheetStandards_(sheet, cols, settingsSheet, report) {
         return; // 既存の式・値はそのまま（新しい行には上の行の式を引き継ぐ）
       }
     }
-    var label = '「' + sheet.getName() + '」の' + f.label + '：';
     var formula = buildArrayFormula(f.key, cols);
-    if (!formula) { report.push(label + '計算式が未確定のため設定していません（企画書 第11章）'); return; }
+    if (!formula) { report.push('「' + sheet.getName() + '」の' + f.label + '：計算式が未確定のため設定していません'); return; }
     header.setFormula(formula);
-    report.push(label + '見出し行に ARRAYFORMULA を設定しました');
+    report.push('「' + sheet.getName() + '」の' + f.label + '：見出し行に計算式を設定しました');
   });
 }
 
@@ -1477,32 +1116,34 @@ function applyCheckRules_(sheet, defs) {
   sheet.setConditionalFormatRules(rules);
 }
 
-function setupTriggers_(minutes, report) {
-  var ss = getSpreadsheet_();
+/**
+ * トリガー：入力時の自動整形はシンプルトリガー onEdit（設定不要）で動く。
+ * 以前の版のトリガー（編集トリガー・自動読み取り）は削除し、車検証リンクの定期更新だけを任意で設定する。
+ */
+function setupTriggers_(certLinkHourly, report) {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     var h = t.getHandlerFunction();
-    if (h === 'scheduledRun' || h === 'handleEdit') ScriptApp.deleteTrigger(t);
+    if (h === 'handleEdit' || h === 'scheduledRun' || h === 'scheduledCertLinks') ScriptApp.deleteTrigger(t);
   });
-  ScriptApp.newTrigger('handleEdit').forSpreadsheet(ss).onEdit().create();
-  report.push('入力時の自動整形（編集トリガー）を設定しました');
-  if (!minutes) { report.push('自動読み取り・車検証リンクの定期実行：なし（メニューから手動）'); return; }
-  var builder = ScriptApp.newTrigger('scheduledRun').timeBased();
-  if (minutes >= 60) builder.everyHours(Math.max(1, Math.round(minutes / 60)));
-  else builder.everyMinutes([1, 5, 10, 15, 30].filter(function (m) { return m <= minutes; }).pop() || 5);
-  builder.create();
-  report.push('自動読み取り・車検証リンクの定期実行を設定しました（' + minutes + '分ごと）');
+  if (certLinkHourly) {
+    ScriptApp.newTrigger('scheduledCertLinks').timeBased().everyHours(1).create();
+    report.push('車検証リンクの定期更新（1時間ごと）を設定しました');
+  }
 }
 
 // =====================================================================
-// 8. 入力時の自動整形（onEdit）・OCN採番・販売済みへの移動
+// 7. 入力時の自動整形（onEdit）・OCN採番・販売済みへの移動
 // =====================================================================
 
 /**
- * 編集トリガー（セットアップで設定するインストール型トリガー）。
- * 確定した値を正しい書式に整え、OCNを採番し、ステータスが販売済みになった行を移動する。
+ * シンプルトリガー：セルの値を確定するたびに実行される（誰が入力しても動く）。
+ *  1) 値を正しい書式に整える（和暦→西暦日付、全角→半角、「12,345km」→ 12345 など）
+ *  2) 入力した列の表示形式を付け直す（貼り付けで和暦などの表示形式が持ち込まれても西暦・km表示に戻す）
+ *  3) OCN を採番する
+ *  4) ステータスが「販売済み」になった行を、確認のうえ販売済みシートへ移動する
  * 複数セルの貼り付けにも対応する。
  */
-function handleEdit(e) {
+function onEdit(e) {
   if (!e || !e.range) return;
   var sheet = e.range.getSheet();
   var name = sheet.getName();
@@ -1512,21 +1153,24 @@ function handleEdit(e) {
     if (range.getNumRows() === 1) return; // 見出し行
     range = range.offset(1, 0, range.getNumRows() - 1);
   }
-  if (range.getNumRows() > 2000) return; // 大量の貼り付けは一括整形で
+  if (range.getNumRows() > 2000) return; // 大量の貼り付けは設定アプリの一括整形で
   var startRow = range.getRow(), startCol = range.getColumn();
+  var numRows = range.getNumRows(), numCols = range.getNumColumns();
 
   var ss = sheet.getParent();
   var cols = getColumns_(sheet).map;
   var fieldAt = {};
   FIELDS.forEach(function (f) { if (cols[f.key] !== undefined) fieldAt[cols[f.key] + 1] = f; });
-  var lists = readLists_(ss);
+  var lists = readLists_();
   var values = range.getValues();
-  var numRows = values.length, numCols = values[0].length;
 
-  // 1) 自動整形（変わった列だけ書き戻す。計算式・リンク・OCN列は触らない）
   for (var c = 0; c < numCols; c++) {
     var field = fieldAt[startCol + c];
-    if (!field || field.type === 'formula' || field.type === 'link' || field.type === 'ocn') continue;
+    if (!field) continue;
+    var colRange = sheet.getRange(startRow, startCol + c, numRows, 1);
+    var fmt = numberFormatFor(field);
+    if (fmt) colRange.setNumberFormat(fmt);
+    if (field.type === 'formula' || field.type === 'link' || field.type === 'ocn') continue;
     var changed = false;
     var column = [];
     for (var r = 0; r < numRows; r++) {
@@ -1534,23 +1178,11 @@ function handleEdit(e) {
       column.push([res.value]);
       if (res.changed) { changed = true; values[r][c] = res.value; }
     }
-    if (changed) sheet.getRange(startRow, startCol + c, numRows, 1).setValues(column);
+    if (changed) colRange.setValues(column);
   }
 
-  // 2) 人が直した自動読み取りのセルは、色とメモを外す
-  var notes = range.getNotes();
-  for (var nr = 0; nr < numRows; nr++) {
-    for (var nc = 0; nc < numCols; nc++) {
-      if (String(notes[nr][nc]).indexOf(AUTO_NOTE_PREFIX) === 0) {
-        sheet.getRange(startRow + nr, startCol + nc).setNote(null).setBackground(null);
-      }
-    }
-  }
-
-  // 3) OCN の自動採番（車台番号・車種・モデル名のいずれかが入った行で、OCNが空欄なら）
   if (cols.ocn !== undefined) assignMissingOcns_(ss, sheet, cols, startRow, numRows);
 
-  // 4) ステータスが「販売済み」になった行は、確認のうえ販売済みシートへ移動
   if (MASTER_SHEETS.indexOf(name) !== -1 && cols.status !== undefined) {
     var sc = cols.status + 1;
     if (sc >= startCol && sc < startCol + numCols) {
@@ -1561,6 +1193,7 @@ function handleEdit(e) {
   }
 }
 
+/** OCN の自動採番（車台番号・車種・モデル名のいずれかが入った行で、OCNが空欄なら） */
 function assignMissingOcns_(ss, sheet, cols, startRow, numRows) {
   var keys = ['chassisNumber', 'maker', 'modelName'].filter(function (k) { return cols[k] !== undefined; });
   var rows = sheet.getRange(startRow, 1, numRows, sheet.getLastColumn()).getValues();
@@ -1571,11 +1204,11 @@ function assignMissingOcns_(ss, sheet, cols, startRow, numRows) {
   });
   if (!targets.length) return;
   var lock = LockService.getScriptLock();
-  if (!lock.tryLock(20000)) return;
+  if (!lock.tryLock(10000)) return;
   try {
     targets.forEach(function (row) {
       var cell = sheet.getRange(row, cols.ocn + 1);
-      if (isBlank(cell.getValue())) cell.setValue(reserveOcn_(ss));
+      if (isBlank(cell.getValue())) cell.setNumberFormat('0').setValue(reserveOcn_(ss));
     });
   } finally {
     lock.releaseLock();
@@ -1592,7 +1225,7 @@ function confirmAndMoveSold_(ss, sheet, rows, oldValue) {
       (ocns.length ? 'OCN ' + ocns.join('、') + ' の' : '') + rows.length + '行を販売済みシートへ移動します。よろしいですか？\n（「いいえ」の場合はステータスを元に戻します）',
       ui.ButtonSet.YES_NO);
   } catch (err) {
-    // 確認画面を出せない場合（トリガーの設定者以外の編集など）は移動せず、メニューからの移動を案内する
+    // 確認画面を出せない場合は移動せず、メニューからの移動を案内する
     sheet.getRange(rows[0], cols.status + 1).setNote('販売済みシートへの移動は、メニュー「' + MENU_NAME + '」→「ステータスが販売済みの行を販売済みシートへ移動」で行ってください');
     return;
   }
@@ -1618,6 +1251,7 @@ function moveRowsToSold_(ss, sheet, rows) {
       var dstRow = lastDataRow_(sold, dstCols) + 1;
       ensureRows_(sold, dstRow);
       copyRowFormulas_(sold, dstCols, dstRow);
+      applyFormats_(sold, dstCols, dstRow, 1);
       FIELDS.forEach(function (f) {
         if (f.type === 'formula' || srcCols[f.key] === undefined || dstCols[f.key] === undefined) return;
         var v = values[srcCols[f.key]];
@@ -1635,317 +1269,28 @@ function moveRowsToSold_(ss, sheet, rows) {
 }
 
 // =====================================================================
-// 9. 自動読み取り（Gemini：1ファイル＝1回まで）
+// 8. 車検証リンク（車検証保管フォルダのファイル名の OCN と行を突き合わせる）
 // =====================================================================
-
-/** 時間主導トリガー：自動読み取り → 車検証リンクの更新 */
-function scheduledRun() {
-  try {
-    readInbox_({ manual: false });
-  } catch (e) {
-    appendLog_('エラー', '定期実行', '自動読み取り', '', '', e.message);
-  }
-  try {
-    updateCertLinks_();
-  } catch (e2) {
-    appendLog_('エラー', '定期実行', '車検証リンク', '', '', e2.message);
-  }
-}
-
-function dailyCountKey_() {
-  return PROP.DAILY_COUNT + Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMMdd');
-}
-
-function getDailyCount_() {
-  return Number(PropertiesService.getScriptProperties().getProperty(dailyCountKey_())) || 0;
-}
-
-function addDailyCount_(delta) {
-  var props = PropertiesService.getScriptProperties();
-  var key = dailyCountKey_();
-  var n = Math.max(0, (Number(props.getProperty(key)) || 0) + delta);
-  props.setProperty(key, String(n));
-  Object.keys(props.getProperties()).forEach(function (k) {
-    if (k.indexOf(PROP.DAILY_COUNT) === 0 && k !== key) props.deleteProperty(k); // 前日以前のカウンタ
-  });
-  return n;
-}
 
 /**
- * 受付フォルダの書類を読み取る。1ファイルにつき Gemini は1回だけ呼び、
- * 1日の処理上限・回数制限エラーで止まったら、残りは受付フォルダに残して次回に回す。
+ * 以前の版のトリガー（編集トリガー handleEdit・自動読み取り scheduledRun）が残っていてもエラーにしないための空の関数。
+ * 設定アプリでセットアップを実行し直すと、古いトリガーは削除される。
  */
-function readInbox_(opts) {
-  var started = Date.now();
-  var settings = getSettings_();
-  requireFolders_(settings);
-  if (!settings.geminiKey) return { message: 'Gemini APIキーが未設定のため、自動読み取りは行いませんでした。' };
-  var lock = LockService.getScriptLock();
-  if (!lock.tryLock(opts.manual ? 30000 : 1000)) return { message: '他の処理が実行中です。しばらくしてから再実行してください。' };
-  var done = 0, failed = 0, stopReason = '';
-  var lines = [];
+function handleEdit() {}
+function scheduledRun() {}
+
+function scheduledCertLinks() {
   try {
-    var files = listInboxFiles_(settings);
-    for (var i = 0; i < files.length; i++) {
-      if (Date.now() - started > RUN_BUDGET_MS) { stopReason = '1回の実行時間の上限'; break; }
-      if (settings.dailyLimit && getDailyCount_() >= settings.dailyLimit) { stopReason = '1日の処理上限（' + settings.dailyLimit + '件）。残りは翌日に読み取ります'; break; }
-      var r = processInboxFile_(files[i], settings);
-      lines.push(r.message);
-      if (r.quota) { stopReason = r.message; break; }
-      if (r.ok) done++; else failed++;
-    }
-  } finally {
-    lock.releaseLock();
-  }
-  var remaining = listInboxFiles_(settings).length;
-  var summary = '読み取り ' + done + '件・エラー ' + failed + '件・受付フォルダの残り ' + remaining + '件・本日の読み取り ' +
-    getDailyCount_() + (settings.dailyLimit ? '／' + settings.dailyLimit : '') + '回' + (stopReason ? '（停止：' + stopReason + '）' : '');
-  if (done || failed || stopReason || opts.manual) appendLog_('自動読み取り', '受付フォルダ', '', '', '', summary);
-  return { message: summary + (lines.length ? '\n\n' + lines.join('\n') : '') };
-}
-
-function listInboxFiles_(settings) {
-  var it = DriveApp.getFolderById(settings.folderInbox).getFiles();
-  var files = [];
-  while (it.hasNext()) files.push(it.next());
-  files.sort(function (a, b) { return a.getDateCreated().getTime() - b.getDateCreated().getTime(); });
-  return files;
-}
-
-function processInboxFile_(file, settings) {
-  var name = file.getName();
-  try {
-    var blob = file.getBlob();
-    var mime = blob.getContentType();
-    if (SUPPORTED_MIME_TYPES.indexOf(mime) === -1) throw new Error('対応していないファイル形式です（' + mime + '）');
-    if (blob.getBytes().length > MAX_FILE_BYTES) throw new Error('ファイルが大きすぎます（18MBまで）');
-
-    addDailyCount_(1);
-    var docs;
-    try {
-      docs = callGemini_(blob, settings);
-    } catch (e) {
-      if (e.quota) addDailyCount_(-1); // 上限エラー・一時エラーは回数に含めない
-      throw e;
-    }
-    var ss = getSpreadsheet_();
-    var record = buildReadRecord(docs, { lists: readLists_(ss), today: todayJst_(), readCert: settings.readCert });
-    if (record.skipped) {
-      file.moveTo(DriveApp.getFolderById(settings.folderError));
-      appendLog_('読み取り対象外', name, '', '', '', record.skipped);
-      return { ok: false, message: name + '：' + record.skipped + ' → エラーフォルダへ' };
-    }
-    var result = writeReadRecord_(ss, settings, record, file);
-    appendLog_('自動読み取り', name, record.docTypes.join('・'), '', 'OCN ' + result.ocn, result.message);
-    return { ok: true, message: name + '：' + result.message };
+    updateCertLinks();
   } catch (e) {
-    if (e.quota) {
-      appendLog_('API上限', name, '', '', '', e.message);
-      return { ok: false, quota: true, message: e.message + '（' + name + ' は受付フォルダに残しています）' };
-    }
-    try { file.moveTo(DriveApp.getFolderById(settings.folderError)); } catch (moveErr) { console.error(moveErr); }
-    appendLog_('エラー', name, '自動読み取り', '', '', e.message);
-    return { ok: false, message: name + '：エラー（' + e.message + '）→ エラーフォルダへ' };
+    appendLog_('エラー', '定期実行', '車検証リンク', '', '', e.message);
   }
 }
 
-/**
- * 読み取り結果をマスタへ書く。
- *  - 車台番号（無ければ登録番号）が一致する既存行があれば、新しい行は作らず空欄の項目だけを埋める
- *  - 無ければ新しい行を追加し、OCN を採番する
- *  - 自動で入れたセルは水色＋メモ、疑わしい値・読めなかった項目は黄色＋メモ
- */
-function writeReadRecord_(ss, settings, record, file) {
-  var index = buildVehicleIndex_(ss);
-  var ck = compareKey('chassisNumber', record.fields.chassisNumber && record.fields.chassisNumber.value);
-  var plateVals = {};
-  ['plateRegion', 'plateClass', 'plateKana', 'plateNumber'].forEach(function (k) { plateVals[k] = record.fields[k] ? record.fields[k].value : ''; });
-  var pk = plateKey_(plateVals);
-  var target = (ck && index.byChassis[ck]) || (pk && index.byPlate[pk]) || null;
-  var stamp = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd');
-  var source = record.docTypes.join('・');
-  var sheet, cols, row, ocn, message;
-
-  if (target) {
-    sheet = ss.getSheetByName(target.sheet);
-    cols = getColumns_(sheet).map;
-    row = target.row;
-    ocn = target.values.ocn;
-    var plan = planRowFill(target.values, record.fields);
-    plan.fill.forEach(function (k) { writeMarkedCell_(sheet, cols, row, k, record.fields[k], stamp, source); });
-    plan.conflicts.forEach(function (k) {
-      if (cols[k] === undefined) return;
-      var cell = sheet.getRange(row, cols[k] + 1);
-      cell.setNote(AUTO_NOTE_PREFIX + '・要確認 ' + stamp + ' ' + source + '］読み取り値「' + displayValue_(record.fields[k].value) +
-        '」が入力済みの値と異なります（入力済みの値を残しています）');
-      if (k === 'chassisNumber' || k.indexOf('plate') === 0) cell.setBackground(COLOR_CHECK);
-    });
-    message = target.sheet + ' ' + row + '行目（OCN ' + ocn + '）の空欄 ' + plan.fill.length + '項目を埋めました' +
-      (plan.conflicts.length ? '・入力済みと異なる値 ' + plan.conflicts.length + '項目' : '');
-  } else {
-    var sheetName = record.kind === 'domestic' ? SHEET.DOMESTIC_MASTER : (record.kind === 'import' ? SHEET.IMPORT_MASTER : settings.unknownTarget);
-    sheet = ss.getSheetByName(sheetName);
-    if (!sheet) throw new Error('「' + sheetName + '」シートがありません。初期セットアップを実行してください');
-    cols = getColumns_(sheet).map;
-    var lock = LockService.getScriptLock();
-    if (!lock.tryLock(20000)) throw new Error('他の処理が実行中です');
-    try {
-      row = lastDataRow_(sheet, cols) + 1;
-      ensureRows_(sheet, row);
-      copyRowFormulas_(sheet, cols, row);
-      ocn = reserveOcn_(ss);
-      sheet.getRange(row, cols.ocn + 1).setValue(ocn);
-    } finally {
-      lock.releaseLock();
-    }
-    if (cols.purchaseDate !== undefined) sheet.getRange(row, cols.purchaseDate + 1).setValue(todayJst_());
-    if (cols.status !== undefined) sheet.getRange(row, cols.status + 1).setValue(DEFAULT_STATUS);
-    Object.keys(record.fields).forEach(function (k) { writeMarkedCell_(sheet, cols, row, k, record.fields[k], stamp, source); });
-    message = sheetName + ' ' + row + '行目に追加しました（OCN ' + ocn + '）' +
-      (record.kind === 'unknown' ? '。輸入車／国産車を判別できなかったため、登録先シートを確認してください' : '');
-  }
-
-  var flagged = Object.keys(record.fields).filter(function (k) { return record.fields[k].flags.length; });
-  if (flagged.length) message += '・要確認：' + flagged.map(function (k) { return FIELD_BY_KEY[k].label; }).join('、');
-
-  // ファイルの整理：車検証は OCN 名にして車検証保管へ（リンク付与）、査定書は処理済みへ
-  var ext = (file.getName().match(/\.[A-Za-z0-9]+$/) || ['.pdf'])[0];
-  if (record.docTypes.indexOf(DOC.CERT) !== -1) {
-    var folder = DriveApp.getFolderById(settings.folderCert);
-    file.setName(uniqueName_(folder, String(ocn), ext));
-    file.moveTo(folder);
-    setCertLink_(sheet, cols, row, file);
-  } else {
-    file.setName(ocn + '_' + file.getName());
-    file.moveTo(DriveApp.getFolderById(settings.folderDone));
-  }
-  return { ocn: ocn, message: message };
-}
-
-function writeMarkedCell_(sheet, cols, row, key, f, stamp, source) {
-  var field = FIELD_BY_KEY[key];
-  if (!field || field.type === 'formula' || field.type === 'link' || cols[key] === undefined) return;
-  var cell = sheet.getRange(row, cols[key] + 1);
-  if (cell.getFormula()) return;
-  if (!isBlank(f.value)) cell.setValue(f.value);
-  if (f.flags.length) {
-    cell.setBackground(COLOR_CHECK).setNote(AUTO_NOTE_PREFIX + '・要確認 ' + stamp + ' ' + source + '］' + f.flags.join('／') +
-      (f.raw && displayValue_(f.value) !== f.raw ? '（読取値：' + f.raw + '）' : ''));
-  } else if (!isBlank(f.value)) {
-    cell.setBackground(COLOR_AUTO).setNote(AUTO_NOTE_PREFIX + ' ' + stamp + ' ' + source + '］' +
-      (key === 'color' && f.raw && f.raw !== f.value ? '元の色名：' + f.raw : ''));
-  }
-}
-
-function displayValue_(v) {
-  if (v instanceof Date) return Utilities.formatDate(v, 'Asia/Tokyo', 'yyyy/MM/dd');
-  return isBlank(v) ? '' : String(v);
-}
-
-var GEMINI_PROMPT = [
-  'あなたは中古車販売店の書類読み取り担当です。添付ファイルの書類を判別し、記載内容を読み取ってJSONで返してください。',
-  '',
-  '## 書類の種類（type）',
-  '- "査定書"：査定書・査定表',
-  '- "車検証"：自動車検査証、または自動車検査証記録事項',
-  '- "注文書"：注文書（項目の読み取りは不要。type だけ返す）',
-  '- "その他"：上記以外',
-  '1つのファイルに複数の書類が含まれる場合は、書類ごとに documents の要素を分けてください。',
-  '',
-  '## 厳守事項',
-  '- 書類に書かれている文字をそのまま転記してください。推測・補完・計算は禁止です。',
-  '- 読めない・記載がない項目は value を null、readable を false にしてください。自信のない文字がある場合も readable を false にしてください。',
-  '- 車台番号にハイフンが含まれていても、それは車台番号です（国産車の例：ZVW30-1234567）。型式（例：DAA-ZVW30）とは別の欄です。必ず「車台番号」欄の値を返してください。',
-  '- 輸入車の車台番号は17桁の英数字です（例：WDD2130042A123456）。',
-  '- 日付・金額・走行距離は書類の表記のまま返してください。',
-  '- 登録番号（ナンバー）は地域名・分類番号・ひらがな・一連番号の4つに分けてください（例：品川 / 330 / さ / 12-34）。',
-  '',
-  '## 書類ごとの項目（fields のキー）',
-  '査定書: maker(メーカー名), model(車名・モデル名・グレード), chassisNumber(車台番号), mileage(走行距離), color(色名), colorBasic(色を 黒/白/灰/赤/紺/青/緑/黄/茶/その他 のいずれかに分類), plateRegion, plateClass, plateKana, plateNumber, recycleFee(リサイクル預託金), appraisalPrice(査定価格)',
-  '車検証: chassisNumber(車台番号), firstRegDate(初度登録年月), inspectionExpiry(有効期間の満了する日), ownerName(所有者の氏名又は名称), ownerAddress(所有者の住所), plateRegion, plateClass, plateKana, plateNumber, certFormat("券面" または "記録事項" または "従来型")',
-  '',
-  '## 出力形式（JSONのみ）',
-  '{"documents":[{"type":"査定書","fields":{"maker":{"value":"...","readable":true}}}]}'
-].join('\n');
-
-/** Gemini を1回だけ呼ぶ（再試行しない。回数制限・一時エラーは quota 付きの例外） */
-function callGemini_(blob, settings) {
-  waitForGeminiSlot_(settings);
-  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(settings.geminiModel) + ':generateContent';
-  var res = UrlFetchApp.fetch(url, {
-    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
-    headers: { 'x-goog-api-key': settings.geminiKey },
-    payload: JSON.stringify({
-      contents: [{ role: 'user', parts: [
-        { text: GEMINI_PROMPT },
-        { inline_data: { mime_type: blob.getContentType(), data: Utilities.base64Encode(blob.getBytes()) } }
-      ] }],
-      generationConfig: { temperature: 0, responseMimeType: 'application/json' }
-    })
-  });
-  var code = res.getResponseCode();
-  if (code === 200) {
-    var body = JSON.parse(res.getContentText());
-    var parts = (((body.candidates || [])[0] || {}).content || {}).parts || [];
-    return parseGeminiDocuments(parts.map(function (p) { return p.text || ''; }).join(''));
-  }
-  if (code === 429) {
-    var err = new Error(parseGeminiQuotaError(res.getContentText(), settings.geminiModel).message);
-    err.quota = true;
-    throw err;
-  }
-  if (code >= 500) {
-    var busy = new Error('Gemini API が一時的に応答できません（HTTP ' + code + '）。次回の実行で読み取ります');
-    busy.quota = true; // 書類の問題ではないので受付フォルダに残す
-    throw busy;
-  }
-  throw new Error('Gemini API エラー（HTTP ' + code + '）：' + res.getContentText().substring(0, 300));
-}
-
-/** 前回の呼び出しから設定の間隔（秒）が空くまで待つ（1分あたりの上限対策） */
-function waitForGeminiSlot_(settings) {
-  var intervalMs = (settings.geminiIntervalSec || 0) * 1000;
-  var props = PropertiesService.getScriptProperties();
-  if (intervalMs > 0) {
-    var wait = (Number(props.getProperty(PROP.GEMINI_LAST_CALL)) || 0) + intervalMs - Date.now();
-    if (wait > 0) Utilities.sleep(Math.min(wait, intervalMs));
-  }
-  props.setProperty(PROP.GEMINI_LAST_CALL, String(Date.now()));
-}
-
-function restoreErrorFilesFromMenu() {
-  var ui = SpreadsheetApp.getUi();
+/** 設定アプリ・メニュー：車検証保管フォルダの「OCN.pdf」などを行と突き合わせ、「車検証ﾘﾝｸ」を付ける */
+function updateCertLinks() {
   var settings = getSettings_();
-  requireFolders_(settings);
-  var it = DriveApp.getFolderById(settings.folderError).getFiles();
-  var files = [];
-  while (it.hasNext()) files.push(it.next());
-  if (!files.length) { ui.alert('エラーフォルダに書類はありません。'); return; }
-  var answer = ui.alert('エラーフォルダの書類を受付に戻す',
-    files.length + '件を受付フォルダに戻します。次の読み取りで再度処理します。よろしいですか？\n\n' +
-    files.slice(0, 10).map(function (f) { return '・' + f.getName(); }).join('\n') + (files.length > 10 ? '\n…ほか' + (files.length - 10) + '件' : ''),
-    ui.ButtonSet.YES_NO);
-  if (answer !== ui.Button.YES) return;
-  var inbox = DriveApp.getFolderById(settings.folderInbox);
-  files.forEach(function (f) { f.moveTo(inbox); });
-  appendLog_('再読み取り', 'エラーフォルダ', '', '', files.length + '件', '受付フォルダに戻しました');
-  ui.alert(files.length + '件を受付フォルダに戻しました。');
-}
-
-// =====================================================================
-// 10. 車検証リンク
-// =====================================================================
-
-/** ファイル名の先頭の OCN を取り出す（「12345.pdf」「12345_xxx.pdf」など） */
-function ocnFromFileName(name) {
-  var m = String(name).match(/^(\d+)(?:[_\-\s.(（]|$)/);
-  return m ? Number(m[1]) : null;
-}
-
-/** 車検証保管フォルダのファイル名（先頭の OCN）と行を突き合わせ、「車検証ﾘﾝｸ」を付ける */
-function updateCertLinks_() {
-  var settings = getSettings_();
-  requireFolders_(settings);
+  if (!settings.folderCert) return { count: 0, message: '車検証保管フォルダが未設定です。設定アプリの「基本設定」で設定してください。' };
   var byOcn = {};
   var it = DriveApp.getFolderById(settings.folderCert).getFiles();
   while (it.hasNext()) {
@@ -1959,6 +1304,7 @@ function updateCertLinks_() {
   }
   var ss = getSpreadsheet_();
   var count = 0;
+  var linkText = normalizeKanaText('車検証リンク');
   VEHICLE_SHEETS.forEach(function (name) {
     var sheet = ss.getSheetByName(name);
     if (!sheet || sheet.getLastRow() < 2) return;
@@ -1972,28 +1318,17 @@ function updateCertLinks_() {
       if (num === null || !byOcn[num]) return;
       var url = byOcn[num].file.getUrl();
       if (links[i][0] && links[i][0].getLinkUrl() === url) return;
-      setCertLink_(sheet, cols, i + 2, byOcn[num].file);
+      sheet.getRange(i + 2, cols.certLink + 1).setRichTextValue(
+        SpreadsheetApp.newRichTextValue().setText(linkText).setLinkUrl(url).build());
       count++;
     });
   });
   if (count) appendLog_('車検証リンク', '車検証保管フォルダ', '', '', count + '件', 'リンクを設定しました');
-  return count;
-}
-
-function setCertLink_(sheet, cols, row, file) {
-  if (cols.certLink === undefined) return;
-  sheet.getRange(row, cols.certLink + 1).setRichTextValue(
-    SpreadsheetApp.newRichTextValue().setText(normalizeKanaText('車検証リンク')).setLinkUrl(file.getUrl()).build());
-}
-
-function uniqueName_(folder, base, ext) {
-  var name = base + ext, n = 2;
-  while (folder.getFilesByName(name).hasNext()) name = base + '_' + (n++) + ext;
-  return name;
+  return { count: count, message: count + '件のリンクを設定しました。' };
 }
 
 // =====================================================================
-// 11. 既存データの一括整形・販売済みシートの列統一（企画書 第7章）
+// 9. 既存データの一括整形・販売済みシートの列統一
 // =====================================================================
 
 /** 列統一の計画（標準の各列 ← 現行のどの列か） */
@@ -2010,7 +1345,7 @@ function planSoldMigration_(headers) {
   };
 }
 
-/** 一括整形画面：ドライラン（変更予定の一覧）。シートには何も書き込まない */
+/** 設定アプリ：ドライラン（変更予定の一覧）。シートには何も書き込まない */
 function cleanupDryRun() {
   var ss = getSpreadsheet_();
   var sold = ss.getSheetByName(SHEET.SOLD);
@@ -2023,21 +1358,24 @@ function cleanupDryRun() {
 }
 
 /**
- * 一括整形画面：実行。変更のあるシートはバックアップを作ってから書き換える。
+ * 設定アプリ：一括整形の実行。変更のあるシートはバックアップを作ってから書き換え、最後に表示形式を整え直す。
  * @param {Object} replacements 列キー → {プルダウン外の値: 置き換え先 | '__KEEP__' | '__ADD__'}
  */
 function cleanupExecute(replacements) {
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) throw new Error('他の処理が実行中です');
   try {
-    return runCleanup_(getSpreadsheet_(), replacements || {}, true);
+    var ss = getSpreadsheet_();
+    var result = runCleanup_(ss, replacements || {}, true);
+    reapplyStandards_(ss, []);
+    return result;
   } finally {
     lock.releaseLock();
   }
 }
 
 function runCleanup_(ss, replacements, execute) {
-  var lists = readLists_(ss);
+  var lists = readLists_();
   var out = { totalChanges: 0, byColumn: {}, samples: [], unfixable: [], unfixableTotal: 0, outOfList: {}, backups: [], added: [] };
   var toAdd = {};
   VEHICLE_SHEETS.forEach(function (name) {
@@ -2104,8 +1442,9 @@ function runCleanup_(ss, replacements, execute) {
     var addedTotal = 0;
     Object.keys(toAdd).forEach(function (listName) {
       var values = Object.keys(toAdd[listName]);
-      if (!values.length || !LIST_COLUMNS.some(function (c) { return c.list === listName; })) return;
-      appendListValues_(ss, listName, values);
+      if (!values.length || !LIST_DEFS.some(function (d) { return d.list === listName; })) return;
+      var entries = readLists_()[listName].concat(values.map(function (v) { return { value: v, aliases: [] }; }));
+      writeList_(listName, entries);
       out.added.push(listName + '：' + values.join('、'));
       addedTotal += values.length;
     });
@@ -2124,21 +1463,16 @@ function runCleanup_(ss, replacements, execute) {
     .sort(function (a, b) { return b.count - a.count; });
   out.options = {};
   Object.keys(lists).forEach(function (k) { out.options[k] = lists[k].map(function (e) { return e.value; }); });
-  out.editableLists = LIST_COLUMNS.map(function (c) { return c.list; });
+  out.editableLists = LIST_DEFS.map(function (d) { return d.list; });
   return out;
 }
 
-function appendListValues_(ss, listName, values) {
-  var sheet = ensureSettingsSheet_(ss, []);
-  var col = settingsLayout_().pos[listName].value + 1;
-  var existing = sheet.getLastRow() >= 2 ? sheet.getRange(2, col, sheet.getLastRow() - 1, 1).getValues() : [];
-  var last = 1;
-  existing.forEach(function (r, i) { if (!isBlank(r[0])) last = i + 2; });
-  ensureRows_(sheet, last + values.length);
-  sheet.getRange(last + 1, col, values.length, 1).setValues(values.map(function (v) { return [v]; }));
+function displayValue_(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, 'Asia/Tokyo', 'yyyy/MM/dd');
+  return isBlank(v) ? '' : String(v);
 }
 
-/** 一括整形画面：販売済みシートの列統一の実行（バックアップを作ってから並べ替え） */
+/** 設定アプリ：販売済みシートの列統一の実行（バックアップを作ってから並べ替え） */
 function migrateSoldSheet() {
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) throw new Error('他の処理が実行中です');
@@ -2189,7 +1523,7 @@ function migrateSoldSheet() {
     }
     var report = ['バックアップ：' + backup + '（非表示シート）', out.length + '行を標準の列構成（A〜AC）へ並べ替えました'];
     if (res.unknown.length) report.push('標準にない列はAD列以降に残しました：' + res.unknown.map(function (u) { return u.label; }).join('、'));
-    applyAllSheetStandards_(ss, ss.getSheetByName(SHEET.SETTINGS), report);
+    reapplyStandards_(ss, report);
     appendLog_('列統一', SHEET.SOLD, '', headers.join(','), outHeaders.join(','), report.join(' / '));
     return { message: report.join('\n') };
   } finally {
@@ -2198,8 +1532,20 @@ function migrateSoldSheet() {
 }
 
 // =====================================================================
-// 12. ログ
+// 10. ログ
 // =====================================================================
+
+/** 設定アプリ：最近のログ（新しい順） */
+function getRecentLogs(limit) {
+  var sheet = getSpreadsheet_().getSheetByName(SHEET.LOG);
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  var n = Math.min(Number(limit) || 50, sheet.getLastRow() - 1);
+  var start = sheet.getLastRow() - n + 1;
+  return sheet.getRange(start, 1, n, LOG_HEADERS.length).getValues().reverse().map(function (r) {
+    return { at: r[0] instanceof Date ? Utilities.formatDate(r[0], 'Asia/Tokyo', 'yyyy/MM/dd HH:mm') : String(r[0]),
+      kind: String(r[1]), target: String(r[2]), item: String(r[3]), message: [r[4], r[5], r[6]].filter(function (x) { return !isBlank(x); }).join(' → ') };
+  });
+}
 
 function appendLog_(kind, target, item, before, after, message) {
   appendLogRows_([[kind, target, item, before, after, message]]);

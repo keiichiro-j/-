@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { --accent: #0f6b5a; --accent-soft: #e2efeb; --line: #dde2de; --muted: #5d6a64; --bg: #f5f6f4; --danger: #c5221f; }
+    * { box-sizing: border-box; }
+    body { font-family: 'Hiragino Sans', 'Noto Sans JP', sans-serif; font-size: 13px; color: #1d2421; margin: 0; background: var(--bg); }
+    header { background: #fff; border-bottom: 1px solid var(--line); padding: 12px 16px 0; }
+    header h1 { font-size: 16px; margin: 0; }
+    header .sub { font-size: 12px; color: var(--muted); margin: 2px 0 8px; }
+    nav { display: flex; gap: 2px; overflow-x: auto; }
+    nav button { all: unset; cursor: pointer; padding: 8px 14px; border-bottom: 3px solid transparent; color: var(--muted); white-space: nowrap; }
+    nav button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); font-weight: bold; }
+    nav button:focus-visible { outline: 2px solid var(--accent); }
+    main { padding: 16px 16px 80px; max-width: 1100px; margin: 0 auto; }
+    section[hidden] { display: none; }
+    .card { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin-bottom: 14px; }
+    .card h2 { font-size: 14px; margin: 0 0 8px; display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+    .card h2 .count { font-weight: normal; font-size: 12px; color: var(--muted); }
+    .hint { color: var(--muted); font-size: 12px; margin: 4px 0 8px; line-height: 1.6; }
+    label.field { display: block; margin: 10px 0 3px; font-weight: bold; }
+    input[type=text], input[type=number], textarea, select { width: 100%; padding: 6px 8px; border: 1px solid #b9c2bd; border-radius: 4px; font-size: 13px; font-family: inherit; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; } .row > div { flex: 1 1 220px; min-width: 0; }
+    .check { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+    button.btn { padding: 8px 14px; border-radius: 6px; border: 1px solid var(--accent); background: #fff; color: var(--accent); font-size: 13px; cursor: pointer; font-family: inherit; }
+    button.btn.primary { background: var(--accent); color: #fff; }
+    button.btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+    button.btn:disabled { opacity: .5; cursor: default; }
+    .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+    .msg { font-size: 12px; white-space: pre-wrap; }
+    .msg.error { color: var(--danger); }
+    .ok { color: #137333; }
+    .status-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+    .status-grid div { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+    .status-grid b { display: block; }
+    .pill { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); }
+    .pill.warn { background: #fce8b2; color: #7a4f01; }
+    .lists { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+    .lists label { font-weight: bold; display: flex; justify-content: space-between; }
+    .lists label span { font-weight: normal; color: var(--muted); font-size: 11px; }
+    .lists textarea { height: 260px; font-size: 12px; line-height: 1.5; }
+    .scroll { max-height: 260px; overflow: auto; border: 1px solid var(--line); border-radius: 4px; }
+    table { border-collapse: collapse; width: 100%; font-size: 12px; }
+    th, td { border-bottom: 1px solid #eee; padding: 4px 6px; text-align: left; vertical-align: top; }
+    th { background: #f1f3f4; position: sticky; top: 0; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    td.before { color: #a50e0e; } td.after { color: #137333; }
+    .empty { color: var(--muted); font-size: 12px; padding: 6px 0; }
+    code { background: #f1f3f4; padding: 0 4px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>中古車管理表 設定アプリ</h1>
+    <div class="sub" id="sheetName">読み込み中…</div>
+    <nav role="tablist">
+      <button role="tab" data-tab="basic" aria-selected="true">基本設定</button>
+      <button role="tab" data-tab="lists" aria-selected="false">プルダウン選択肢</button>
+      <button role="tab" data-tab="cleanup" aria-selected="false">一括整形・列統一</button>
+      <button role="tab" data-tab="logs" aria-selected="false">ログ</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- 基本設定 -->
+    <section id="tab-basic">
+      <div class="card">
+        <h2>シートの状態</h2>
+        <div class="status-grid" id="sheetStatus"></div>
+        <p class="hint" id="ocnInfo"></p>
+      </div>
+      <div class="card">
+        <h2>会社・表示</h2>
+        <div class="row">
+          <div>
+            <label class="field" for="company">会社名 <span class="hint">（AU・C7・MB など）</span></label>
+            <input type="text" id="company" list="companyList" placeholder="例：AU">
+            <datalist id="companyList"><option value="AU"><option value="C7"><option value="MB"></datalist>
+          </div>
+          <div>
+            <label class="field" for="expiryDays">車検満了が近い車両の強調（日前から）</label>
+            <input type="number" id="expiryDays" min="0" max="365">
+          </div>
+        </div>
+        <label class="field" for="folderCert">車検証保管フォルダ <span class="hint">（任意。ファイル名がOCNで始まる車検証に「車検証ﾘﾝｸ」を付けます）</span></label>
+        <input type="text" id="folderCert" placeholder="フォルダのURLまたはID">
+        <label class="check"><input type="checkbox" id="certLinkHourly"> 車検証リンクを1時間ごとに自動で更新する</label>
+        <label class="check"><input type="checkbox" id="backup" checked> 実行前にスプレッドシートのバックアップを作成する</label>
+        <div class="actions">
+          <button class="btn primary" id="setupBtn" onclick="runSetup()">保存してシートを整える（セットアップ）</button>
+          <button class="btn" id="reapplyBtn" onclick="reapply()">書式・プルダウンだけ整え直す</button>
+          <button class="btn" id="linkBtn" onclick="updateLinks()">車検証リンクを更新</button>
+        </div>
+        <div class="msg" id="basicMsg"></div>
+      </div>
+      <div class="card">
+        <h2>入力するとどうなるか</h2>
+        <p class="hint">
+          初度登録日・車検満了日などの日付は、和暦（R5.6.1、令和5年6月1日）で入力しても西暦の日付に変わり、<code>2023/06/01</code> と表示します。<br>
+          走行距離は数字を入れると <code>12,345km</code>、金額は <code>1,234,000</code> と表示します（値は数値のままなので並べ替え・計算ができます）。<br>
+          カタカナは半角カナ、英数字は半角に揃え、プルダウンの列は表記ゆれを選択肢に置き換えます。OCN は自動で採番します。
+        </p>
+      </div>
+    </section>
+
+    <!-- プルダウン選択肢 -->
+    <section id="tab-lists" hidden>
+      <div class="card">
+        <h2>プルダウン選択肢</h2>
+        <p class="hint">1行に1つずつ入力します。カタカナは保存時に半角カナへ揃えます。メーカーと色は「値: 別名,別名」の形で書くと、別名が入力されたときにその値へ置き換えます（例：<code>MB: メルセデス,ベンツ</code>）。保存すると3シートのプルダウンにすぐ反映します。区分とステータスは固定の選択肢です。</p>
+        <div class="lists" id="listsGrid"></div>
+        <div class="actions">
+          <button class="btn primary" id="saveListsBtn" onclick="saveLists()">保存してプルダウンに反映</button>
+          <span class="msg" id="listsMsg"></span>
+        </div>
+      </div>
+      <div class="card">
+        <h2>3社で同じ選択肢を使う</h2>
+        <p class="hint">「書き出す」で出た文字をコピーし、他社のスプレッドシートの設定アプリで貼り付けて「貼り付けた内容を反映」→「保存してプルダウンに反映」を押してください。</p>
+        <textarea id="shareText" style="height:80px;font-family:monospace" aria-label="選択肢の共有テキスト"></textarea>
+        <div class="actions">
+          <button class="btn" onclick="exportLists()">この会社の選択肢を書き出す</button>
+          <button class="btn" onclick="importLists()">貼り付けた内容を反映</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 一括整形・列統一 -->
+    <section id="tab-cleanup" hidden>
+      <p class="hint">まず「変更予定を確認（ドライラン）」で一覧を出し、内容を確かめてから実行します。実行前に対象シートのバックアップ（非表示シート）を自動で作ります。計算式の列（車検残・下取損・仕入価格）は対象外です。</p>
+      <div class="actions" style="margin-bottom:12px">
+        <button class="btn primary" id="dryBtn" onclick="dryRun()">変更予定を確認（ドライラン）</button>
+        <label class="check" style="margin:0"><input type="checkbox" id="agree" disabled> 内容を確認しました</label>
+        <button class="btn danger" id="execBtn" onclick="execute()" disabled>一括整形を実行</button>
+        <span class="msg" id="cleanupMsg"></span>
+      </div>
+      <div class="card"><h2>1. 販売済みシートの列統一</h2><div id="migration" class="empty">ドライランで確認します。</div></div>
+      <div class="card">
+        <h2>2. 書式の一括整形 <span class="count" id="changeCount"></span></h2>
+        <p class="hint">全角→半角カナ・英数、和暦→西暦の日付、文字列の走行距離・金額→数値、プルダウンの表記ゆれ→選択肢。最初の300件を表示します。実行後は全列の表示形式（西暦・km・区切り）も整え直します。</p>
+        <div id="byColumn"></div>
+        <div class="scroll" id="samples"><div class="empty">ドライランで確認します。</div></div>
+      </div>
+      <div class="card">
+        <h2>3. プルダウン外の値 <span class="count" id="outCount"></span></h2>
+        <p class="hint">置き換え先を選んでください。「そのまま」は変更しません。「選択肢に追加」はプルダウン選択肢に加えます。</p>
+        <div class="scroll" id="outOfList"><div class="empty">ドライランで確認します。</div></div>
+      </div>
+      <div class="card">
+        <h2>4. 修正できないセル <span class="count" id="unfixCount"></span></h2>
+        <p class="hint">自動では直せない値です（例：日付として読めない文字）。実行後はログにも記録します。手で修正してください。</p>
+        <div class="scroll" id="unfixable"><div class="empty">ドライランで確認します。</div></div>
+      </div>
+    </section>
+
+    <!-- ログ -->
+    <section id="tab-logs" hidden>
+      <div class="card">
+        <h2>最近のログ <button class="btn" onclick="loadLogs()">更新</button></h2>
+        <div class="scroll" style="max-height:520px" id="logs"><div class="empty">読み込み中…</div></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    var MODE = '<?= mode ?>';
+    var listDefs = [];
+    var last = null;
+
+    function el(id) { return document.getElementById(id); }
+    function esc(s) {
+      return String(s === null || s === undefined ? '' : s).replace(/[&<>"]/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+      });
+    }
+    function call(fn) {
+      var args = Array.prototype.slice.call(arguments, 1);
+      return new Promise(function (resolve, reject) {
+        var runner = google.script.run.withSuccessHandler(resolve).withFailureHandler(reject);
+        runner[fn].apply(runner, args);
+      });
+    }
+    function msg(id, text, isError) { el(id).textContent = text || ''; el(id).className = 'msg' + (isError ? ' error' : ''); }
+    function lineCount(text) { return text.split(/\r?\n/).filter(function (l) { return l.trim(); }).length; }
+
+    // ----- タブ -----
+    document.querySelectorAll('nav button').forEach(function (b) {
+      b.addEventListener('click', function () { openTab(b.getAttribute('data-tab')); });
+    });
+    function openTab(name) {
+      document.querySelectorAll('nav button').forEach(function (b) { b.setAttribute('aria-selected', b.getAttribute('data-tab') === name ? 'true' : 'false'); });
+      ['basic', 'lists', 'cleanup', 'logs'].forEach(function (t) { el('tab-' + t).hidden = t !== name; });
+      if (name === 'logs') loadLogs();
+    }
+
+    // ----- 基本設定 -----
+    function renderState(s) {
+      el('sheetName').textContent = '対象：' + s.spreadsheetName + (MODE === 'web' ? '' : '');
+      el('company').value = s.company;
+      el('expiryDays').value = s.expiryDays;
+      el('folderCert').value = s.folderCert;
+      el('certLinkHourly').checked = s.certLinkHourly;
+      el('sheetStatus').innerHTML = s.sheets.map(function (x) {
+        var pill = !x.exists ? '<span class="pill warn">未作成</span>' : (x.standard ? '<span class="pill">A〜AC 標準</span>' : '<span class="pill warn">列配置が標準と異なる</span>');
+        return '<div><b>' + esc(x.name) + '</b>' + pill + (x.exists ? ' <span class="hint">' + x.rows + '台</span>' : '') + '</div>';
+      }).join('');
+      el('ocnInfo').textContent = '次に採番される OCN：' + s.nextOcn;
+    }
+    function loadState() {
+      return call('getSetupState').then(renderState).catch(function (e) { msg('basicMsg', e.message, true); });
+    }
+    function setBusy(ids, on) { ids.forEach(function (id) { el(id).disabled = on; }); }
+
+    async function runSetup() {
+      var form = {
+        company: el('company').value, expiryDays: el('expiryDays').value, folderCert: el('folderCert').value,
+        certLinkHourly: el('certLinkHourly').checked, backup: el('backup').checked
+      };
+      if (!form.company) { msg('basicMsg', '会社名を入力してください', true); return; }
+      setBusy(['setupBtn', 'reapplyBtn', 'linkBtn'], true);
+      msg('basicMsg', '実行中です…（シート・書式・プルダウン・入力チェックを整えています）');
+      try {
+        var res = await call('runSetup', form);
+        msg('basicMsg', 'セットアップが完了しました。\n・' + res.report.join('\n・'));
+        await loadState();
+      } catch (e) { msg('basicMsg', 'エラー：' + e.message, true); }
+      setBusy(['setupBtn', 'reapplyBtn', 'linkBtn'], false);
+    }
+    async function reapply() {
+      setBusy(['setupBtn', 'reapplyBtn', 'linkBtn'], true);
+      msg('basicMsg', '書式・プルダウン・入力チェックを整え直しています…');
+      try { msg('basicMsg', '完了しました。\n・' + (await call('reapplyStandards')).join('\n・')); }
+      catch (e) { msg('basicMsg', 'エラー：' + e.message, true); }
+      setBusy(['setupBtn', 'reapplyBtn', 'linkBtn'], false);
+    }
+    async function updateLinks() {
+      setBusy(['setupBtn', 'reapplyBtn', 'linkBtn'], true);
+      msg('basicMsg', '車検証リンクを更新しています…');
+      try { msg('basicMsg', (await call('updateCertLinks')).message); }
+      catch (e) { msg('basicMsg', 'エラー：' + e.message, true); }
+      setBusy(['setupBtn', 'reapplyBtn', 'linkBtn'], false);
+    }
+
+    // ----- プルダウン選択肢 -----
+    function loadLists() {
+      return call('getListsForEdit').then(function (res) {
+        listDefs = res.defs;
+        el('listsGrid').innerHTML = listDefs.map(function (d) {
+          return '<div><label for="list_' + d.list + '">' + esc(d.label) + '<span id="count_' + d.list + '"></span></label>' +
+            '<textarea id="list_' + d.list + '" spellcheck="false"></textarea></div>';
+        }).join('');
+        listDefs.forEach(function (d) {
+          var ta = el('list_' + d.list);
+          ta.value = res.lists[d.list] || '';
+          var update = function () { el('count_' + d.list).textContent = lineCount(ta.value) + '件'; };
+          ta.addEventListener('input', update);
+          update();
+        });
+      }).catch(function (e) { msg('listsMsg', e.message, true); });
+    }
+    function collectLists() {
+      var data = {};
+      listDefs.forEach(function (d) { data[d.list] = el('list_' + d.list).value; });
+      return data;
+    }
+    async function saveLists() {
+      el('saveListsBtn').disabled = true;
+      msg('listsMsg', '保存しています…');
+      try { msg('listsMsg', (await call('saveLists', collectLists())).message); await loadLists(); }
+      catch (e) { msg('listsMsg', 'エラー：' + e.message, true); }
+      el('saveListsBtn').disabled = false;
+    }
+    function exportLists() {
+      el('shareText').value = JSON.stringify(collectLists());
+      el('shareText').select();
+      msg('listsMsg', '書き出しました。選択された文字をコピーしてください。');
+    }
+    function importLists() {
+      try {
+        var data = JSON.parse(el('shareText').value);
+        listDefs.forEach(function (d) {
+          if (typeof data[d.list] === 'string') { el('list_' + d.list).value = data[d.list]; el('list_' + d.list).dispatchEvent(new Event('input')); }
+        });
+        msg('listsMsg', '反映しました。内容を確認して「保存してプルダウンに反映」を押してください。');
+      } catch (e) {
+        msg('listsMsg', '貼り付けた内容を読み取れません。「この会社の選択肢を書き出す」で出た文字をそのまま貼り付けてください。', true);
+      }
+    }
+
+    // ----- 一括整形・列統一 -----
+    el('agree').addEventListener('change', function () { el('execBtn').disabled = !(last && el('agree').checked); });
+    function cleanupBusy(on) {
+      el('dryBtn').disabled = on;
+      el('execBtn').disabled = on || !(last && el('agree').checked);
+    }
+    async function dryRun() {
+      cleanupBusy(true);
+      msg('cleanupMsg', 'シートを確認しています…');
+      try {
+        last = await call('cleanupDryRun');
+        renderCleanup(last);
+        el('agree').disabled = false;
+        el('agree').checked = false;
+        msg('cleanupMsg', '変更予定を表示しました。内容を確認してください。');
+      } catch (e) { msg('cleanupMsg', 'エラー：' + e.message, true); }
+      cleanupBusy(false);
+    }
+    function renderCleanup(r) {
+      var m = r.migration;
+      if (!m) el('migration').innerHTML = '<div class="empty">販売済みシートがありません。</div>';
+      else if (!m.needed) el('migration').innerHTML = '<div class="ok">販売済みシートは標準の列構成（A〜AC）です。</div>';
+      else {
+        el('migration').innerHTML = '<p class="hint">次の対応で列を並べ替えます。一括整形より先に実行してください。</p>' +
+          '<div class="scroll"><table><tr><th>標準の列</th><th>現行の列</th></tr>' +
+          m.rows.map(function (x) { return '<tr><td>' + esc(x.to) + '</td><td>' + esc(x.from) + '</td></tr>'; }).join('') +
+          (m.extra.length ? '<tr><td>AD列以降に残す列</td><td>' + esc(m.extra.join('、')) + '</td></tr>' : '') +
+          '</table></div><div class="actions"><button class="btn" id="migrateBtn" onclick="migrate()">販売済みシートの列統一を実行</button></div>';
+      }
+      el('changeCount').textContent = r.totalChanges + '件';
+      el('byColumn').innerHTML = r.byColumn.length
+        ? '<p class="hint">' + r.byColumn.map(function (b) { return esc(b.column) + '：' + b.count + '件'; }).join('　') + '</p>' : '';
+      el('samples').innerHTML = r.samples.length
+        ? '<table><tr><th>シート</th><th>行</th><th>列</th><th>変更前</th><th>変更後</th></tr>' + r.samples.map(function (s) {
+            return '<tr><td>' + esc(s.sheet) + '</td><td class="num">' + s.row + '</td><td>' + esc(s.label) + '</td><td class="before">' +
+              esc(s.before) + '</td><td class="after">' + esc(s.after) + '</td></tr>';
+          }).join('') + '</table>'
+        : '<div class="empty ok">値を変更するセルはありません。</div>';
+      el('outCount').textContent = r.outOfList.length + '種類';
+      el('outOfList').innerHTML = r.outOfList.length
+        ? '<table><tr><th>列</th><th>現在の値</th><th>件数</th><th>置き換え先</th></tr>' + r.outOfList.map(function (o, i) {
+            var opts = '<option value="__KEEP__">そのまま</option>' +
+              (r.editableLists.indexOf(o.list) !== -1 ? '<option value="__ADD__">選択肢に追加</option>' : '') +
+              (r.options[o.list] || []).map(function (v) {
+                return '<option value="' + esc(v) + '"' + (v === o.suggestion ? ' selected' : '') + '>' + esc(v) + '</option>';
+              }).join('');
+            return '<tr><td>' + esc(o.label) + '</td><td>' + esc(o.value) + '</td><td class="num">' + o.count +
+              '</td><td><select data-i="' + i + '" aria-label="置き換え先">' + opts + '</select></td></tr>';
+          }).join('') + '</table>'
+        : '<div class="empty ok">選択肢にない値はありません。</div>';
+      el('unfixCount').textContent = r.unfixableTotal + '件';
+      el('unfixable').innerHTML = r.unfixable.length
+        ? '<table><tr><th>シート</th><th>行</th><th>列</th><th>値</th><th>理由</th></tr>' + r.unfixable.map(function (u) {
+            return '<tr><td>' + esc(u.sheet) + '</td><td class="num">' + u.row + '</td><td>' + esc(u.label) + '</td><td>' +
+              esc(u.value) + '</td><td>' + esc(u.reason) + '</td></tr>';
+          }).join('') + '</table>'
+        : '<div class="empty ok">ありません。</div>';
+    }
+    function replacements() {
+      var out = {};
+      document.querySelectorAll('#outOfList select').forEach(function (s) {
+        var o = last.outOfList[Number(s.getAttribute('data-i'))];
+        (out[o.key] = out[o.key] || {})[o.value] = s.value;
+      });
+      return out;
+    }
+    async function execute() {
+      if (!last || !el('agree').checked) return;
+      cleanupBusy(true);
+      msg('cleanupMsg', '一括整形を実行しています…（バックアップを作成してから書き換えます）');
+      try {
+        var res = await call('cleanupExecute', replacements());
+        last = await call('cleanupDryRun');
+        renderCleanup(last);
+        el('agree').checked = false;
+        msg('cleanupMsg', '完了：' + res.message);
+        loadLists();
+      } catch (e) { msg('cleanupMsg', 'エラー：' + e.message, true); }
+      cleanupBusy(false);
+    }
+    async function migrate() {
+      el('migrateBtn').disabled = true;
+      cleanupBusy(true);
+      msg('cleanupMsg', '販売済みシートの列を並べ替えています…（バックアップを作成してから実行します）');
+      try {
+        var res = await call('migrateSoldSheet');
+        last = await call('cleanupDryRun');
+        renderCleanup(last);
+        msg('cleanupMsg', res.message);
+        loadState();
+      } catch (e) {
+        msg('cleanupMsg', 'エラー：' + e.message, true);
+        if (el('migrateBtn')) el('migrateBtn').disabled = false;
+      }
+      cleanupBusy(false);
+    }
+
+    // ----- ログ -----
+    function loadLogs() {
+      call('getRecentLogs', 100).then(function (rows) {
+        el('logs').innerHTML = rows.length
+          ? '<table><tr><th>日時</th><th>区分</th><th>対象</th><th>項目</th><th>内容</th></tr>' + rows.map(function (r) {
+              return '<tr><td>' + esc(r.at) + '</td><td>' + esc(r.kind) + '</td><td>' + esc(r.target) + '</td><td>' + esc(r.item) + '</td><td>' + esc(r.message) + '</td></tr>';
+            }).join('') + '</table>'
+          : '<div class="empty">ログはまだありません。</div>';
+      }).catch(function (e) { el('logs').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+    }
+
+    loadState();
+    loadLists();
+  </script>
+</body>
+</html>
