@@ -71,7 +71,3 @@ node scripts/generate-icons.mjs
 npm run build
 npm run lint
 ```
-
-## プロンプト集
-
-Cursor Agent / アプリ内AI向けのコピペ用プロンプトは [`prompts/README.md`](./prompts/README.md) にまとめています。
