@@ -17,7 +17,20 @@ const S = sandbox;
 
 // サンドボックス内の Date（instanceof 判定をサンドボックス側と揃える）
 const date = (y, m, d) => vm.runInContext(`new Date(${y}, ${m - 1}, ${d})`, sandbox);
+const ymd = (d) => d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + d.getDate();
 const TODAY = date(2026, 9, 29);
+const plain = (x) => JSON.parse(JSON.stringify(x));
+
+// 設定シートの初期値から選択肢を組み立てる（readLists_ と同じ形）
+const LISTS = {
+  category: S.CATEGORY_OPTIONS.map((v) => ({ value: v, aliases: [] })),
+  status: S.STATUS_OPTIONS.map((v) => ({ value: v, aliases: [] }))
+};
+Object.keys(S.DEFAULT_LISTS).forEach((k) => {
+  LISTS[k] = S.DEFAULT_LISTS[k].map((e) => ({ value: S.normalizeKanaText(e[0]), aliases: (e[1] || '').split(',').filter((a) => a) }));
+});
+LISTS.staff = [{ value: '山田', aliases: [] }, { value: '佐藤', aliases: [] }];
+const F = (key) => S.FIELD_BY_KEY[key];
 
 let pass = 0;
 let fail = 0;
@@ -32,327 +45,294 @@ function test(name, fn) {
     console.error('       ' + e.message);
   }
 }
-const f = (value, extra) => Object.assign({ value: value, readable: value !== null, handwritten: false }, extra || {});
 
-console.log('== 列定義 ==');
-test('標準配置は A〜AC の29列で、AC列が仕入価格', () => {
+console.log('== 列定義（企画書 第4章）==');
+test('A〜AC の29列。企画書どおりの位置', () => {
   assert.strictEqual(S.FIELDS.length, 29);
-  assert.strictEqual(S.FIELDS[28].label, '仕入価格');
-  assert.strictEqual(S.columnLetter(29), 'AC');
+  const col = (label) => S.columnLetter(S.STANDARD_HEADERS.indexOf(label) + 1);
+  assert.strictEqual(col('仕入年月日'), 'A');
+  assert.strictEqual(col('OCN'), 'B');
+  assert.strictEqual(col('車種'), 'C');
+  assert.strictEqual(col('車台番号'), 'E');
+  assert.strictEqual(col('車検残'), 'H');
+  assert.strictEqual(col('走行距離'), 'I');
+  assert.strictEqual(col('色'), 'J');
+  assert.strictEqual(col('本人確認方法'), 'O');
+  assert.strictEqual(col('登録番号（地域）'), 'P');
+  assert.strictEqual(col('ステータス'), 'T');
+  assert.strictEqual(col('車検証'), 'W');
+  assert.strictEqual(col('下取充当額'), 'X');
+  assert.strictEqual(col('査定価格'), 'AA');
+  assert.strictEqual(col('下取損'), 'AB');
+  assert.strictEqual(col('仕入価格（買取金額）'), 'AC');
 });
-test('columnLetter', () => {
-  assert.strictEqual(S.columnLetter(1), 'A');
-  assert.strictEqual(S.columnLetter(26), 'Z');
-  assert.strictEqual(S.columnLetter(27), 'AA');
+test('計算式の列は車検残・下取損・仕入価格の3つ', () => {
+  assert.deepStrictEqual(Array.from(S.FIELDS.filter((f) => f.type === 'formula'), (f) => f.key), ['inspectionRemain', 'tradeInLoss', 'purchasePrice']);
 });
-test('resolveColumns：別表記・全角括弧の揺れ・順不同でも特定できる', () => {
-  const res = S.resolveColumns(['OCN', '仕入日', '車名', 'カラー', '担当者', '仕入区分', '登録番号(地域)', '備考']);
+test('resolveColumns：旧見出し・別表記・順不同・半角カナの見出しでも特定', () => {
+  const res = S.resolveColumns(['OCN', '仕入日', 'メーカー', 'カラー', '担当者', '仕入区分', '登録番号(地域)', '買取金額', '車検証ﾘﾝｸ', '備考']);
   assert.strictEqual(res.map.ocn, 0);
   assert.strictEqual(res.map.purchaseDate, 1);
-  assert.strictEqual(res.map.carName, 2);
+  assert.strictEqual(res.map.maker, 2);
   assert.strictEqual(res.map.color, 3);
   assert.strictEqual(res.map.staff, 4);
   assert.strictEqual(res.map.category, 5);
   assert.strictEqual(res.map.plateRegion, 6);
+  assert.strictEqual(res.map.purchasePrice, 7);
+  assert.strictEqual(res.map.certLink, 8);
   assert.deepStrictEqual(Array.from(res.unknown, (u) => u.label), ['備考']);
-  assert.ok(res.missing.indexOf('chassisNumber') !== -1);
 });
 test('isStandardLayout', () => {
   assert.strictEqual(S.isStandardLayout(S.STANDARD_HEADERS.slice()), true);
   const swapped = S.STANDARD_HEADERS.slice();
-  [swapped[0], swapped[1]] = [swapped[1], swapped[0]];
+  [swapped[3], swapped[4]] = [swapped[4], swapped[3]];
   assert.strictEqual(S.isStandardLayout(swapped), false);
 });
-test('buildArrayFormula：下取損は見出し行の ARRAYFORMULA（配列用の条件）', () => {
+test('buildArrayFormula：車検残・下取損は見出し行の ARRAYFORMULA、仕入価格は未確定で null', () => {
   const cols = S.resolveColumns(S.STANDARD_HEADERS.slice()).map;
-  const formula = S.buildArrayFormula('tradeInLoss', cols);
-  assert.strictEqual(formula, '={"下取損";ARRAYFORMULA(IF((W2:W="")+(V2:V=""),,W2:W-V2:V))}');
-  assert.ok(!/OR\(/.test(formula));
-});
-test('buildArrayFormula：式が未確定（買取金額）・参照先の列が無い場合は null', () => {
-  const cols = S.resolveColumns(S.STANDARD_HEADERS.slice()).map;
-  assert.strictEqual(S.buildArrayFormula('buyPrice', cols), null);
-  assert.strictEqual(S.buildArrayFormula('inspectionRemain', { inspectionRemain: 9 }), null);
-});
-test('取込待ちの見出しにマスタの手入力・計算式の列は含まれない', () => {
-  ['tradeInLoss', 'buyPrice', 'inspectionRemain', 'status', 'saleDate', 'saleTo'].forEach((k) => {
-    assert.strictEqual(S.STAGE_FIELD_KEYS.indexOf(k), -1, k);
-  });
+  assert.strictEqual(S.buildArrayFormula('tradeInLoss', cols), '={"下取損";ARRAYFORMULA(IF((X2:X="")+(Z2:Z=""),,X2:X-Z2:Z))}');
+  assert.ok(/G2:G/.test(S.buildArrayFormula('inspectionRemain', cols)));
+  assert.strictEqual(S.buildArrayFormula('purchasePrice', cols), null);
 });
 
-console.log('== 車台番号の補正 ==');
-test('国産車の車台番号（ハイフンあり）を読み飛ばさない', () => {
-  const r = S.normalizeChassisNumber('ZVW30-1234567');
-  assert.strictEqual(r.value, 'ZVW30-1234567');
-  assert.strictEqual(r.kind, 'domestic');
-  assert.strictEqual(r.valid, true);
-  assert.strictEqual(r.corrected, false);
+console.log('== 自動整形（企画書 第5章）==');
+test('全角カナ → 半角カナ（濁点・半濁点・長音・中点）', () => {
+  assert.strictEqual(S.toHalfKana('メルセデス・ベンツ'), 'ﾒﾙｾﾃﾞｽ･ﾍﾞﾝﾂ');
+  assert.strictEqual(S.toHalfKana('ポルシェ'), 'ﾎﾟﾙｼｪ');
+  assert.strictEqual(S.toHalfKana('ヴィッツ'), 'ｳﾞｨｯﾂ');
+  assert.strictEqual(S.toHalfKana('スーパー'), 'ｽｰﾊﾟｰ');
+  assert.strictEqual(S.toHalfKana('やなせ商事'), 'やなせ商事');
 });
-test('国産車：連番部の O・I・S を数字に補正、全角・長音ハイフンも統一', () => {
-  const r = S.normalizeChassisNumber('ＺＶＷ３０ー12O4S6I');
-  assert.strictEqual(r.value, 'ZVW30-1204561');
-  assert.strictEqual(r.corrected, true);
-  assert.strictEqual(r.valid, true);
+test('半角カナ → 全角カタカナ（登録番号のひらがな用）', () => {
+  assert.strictEqual(S.toFullKatakana('ﾎﾟﾙｼｪ'), 'ポルシェ');
+  assert.strictEqual(S.normalizePlateKana('ｻ'), 'さ');
+  assert.strictEqual(S.normalizePlateKana('ﾊﾟ'), 'ぱ');
+  assert.strictEqual(S.normalizePlateKana('ワ'), 'わ');
 });
-test('輸入車17桁：I・O・Q を 1・0・0 に補正', () => {
-  const r = S.normalizeChassisNumber('WDD2130O42A12345Q');
-  assert.strictEqual(r.value, 'WDD2130042A123450');
-  assert.strictEqual(r.kind, 'import');
-  assert.strictEqual(r.valid, true);
-  assert.strictEqual(r.corrected, true);
+test('KANA_FULL と KANA_HALF の対応数が一致', () => {
+  assert.strictEqual(S.KANA_FULL.length, S.KANA_HALF.length);
 });
-test('形式不明（桁不足）は invalid', () => {
-  const r = S.normalizeChassisNumber('WDD213');
-  assert.strictEqual(r.valid, false);
-  assert.strictEqual(r.kind, 'unknown');
+test('モデル名・仕入先：全角英数・カナを半角に、前後の空白を削除', () => {
+  assert.strictEqual(S.normalizeKanaText('　Ｃ２００　アバンギャルド　'), 'C200 ｱﾊﾞﾝｷﾞｬﾙﾄﾞ');
+  assert.strictEqual(S.normalizeKanaText('カブシキガイシャ　ヤナセ'), 'ｶﾌﾞｼｷｶﾞｲｼｬ ﾔﾅｾ');
 });
-
-console.log('== 登録番号 ==');
-test('正常な登録番号', () => {
-  const r = S.normalizePlate({ plateRegion: '品川', plateClass: '３３０', plateKana: 'サ', plateNumber: '12-34' });
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(r.values)), { plateRegion: '品川', plateClass: '330', plateKana: 'さ', plateNumber: '1234' });
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(r.flags)), {});
+test('住所：英数字だけ半角、番地の「ー」は「-」', () => {
+  assert.strictEqual(S.normalizeAddress('東京都港区芝浦１ー２ー３　ヤナセビル５Ｆ'), '東京都港区芝浦1-2-3 ヤナセビル5F');
 });
-test('地域名の1文字違いは補正して要確認', () => {
-  const r = S.normalizePlate({ plateRegion: '品用', plateClass: '300', plateKana: 'さ', plateNumber: '・・12' });
-  assert.strictEqual(r.values.plateRegion, '品川');
-  assert.strictEqual(r.values.plateNumber, '12');
-  assert.deepStrictEqual(Array.from(r.flags.plateRegion), ['地域名要確認']);
+test('車台番号：大文字化・半角化、ハイフンは残す（文字の補正はしない）', () => {
+  assert.strictEqual(S.normalizeChassisInput('ｚｖｗ３０ー１２３４５６７'), 'ZVW30-1234567');
+  assert.strictEqual(S.normalizeChassisInput('wdd 2050042f123456'), 'WDD2050042F123456');
 });
-test('分類番号4桁・ひらがな2文字・使われない「お」は形式不正', () => {
-  const r = S.normalizePlate({ plateRegion: '横浜', plateClass: '3300', plateKana: 'さい', plateNumber: '1234' });
-  assert.ok(r.flags.plateClass);
-  assert.ok(r.flags.plateKana);
-  const r2 = S.normalizePlate({ plateRegion: '横浜', plateClass: '300', plateKana: 'お', plateNumber: '1234' });
-  assert.ok(r2.flags.plateKana);
-});
-
-console.log('== 日付・金額 ==');
-test('和暦（令和・R表記・元年）と西暦', () => {
-  assert.strictEqual(S.formatDateYmd(S.parseJapaneseDate('令和5年4月1日').date), '2023-04-01');
-  assert.strictEqual(S.formatDateYmd(S.parseJapaneseDate('R5.4.1').date), '2023-04-01');
-  assert.strictEqual(S.formatDateYmd(S.parseJapaneseDate('令和元年5月').date), '2019-05-01');
-  assert.strictEqual(S.formatDateYmd(S.parseJapaneseDate('平成30年12月25日').date), '2018-12-25');
-  assert.strictEqual(S.formatDateYmd(S.parseJapaneseDate('２０２４/１/３１').date), '2024-01-31');
-});
-test('年月のみは dayKnown=false、存在しない日付は null', () => {
-  assert.strictEqual(S.parseJapaneseDate('令和2年3月').dayKnown, false);
+test('和暦・西暦 → 日付', () => {
+  assert.strictEqual(ymd(S.parseJapaneseDate('R5.6.1')), '2023/6/1');
+  assert.strictEqual(ymd(S.parseJapaneseDate('令和5年6月1日')), '2023/6/1');
+  assert.strictEqual(ymd(S.parseJapaneseDate('令和元年5月')), '2019/5/1');
+  assert.strictEqual(ymd(S.parseJapaneseDate('H30/12/25')), '2018/12/25');
+  assert.strictEqual(ymd(S.parseJapaneseDate('２０２４．１．３１')), '2024/1/31');
+  assert.strictEqual(ymd(S.parseJapaneseDate('20230401')), '2023/4/1');
   assert.strictEqual(S.parseJapaneseDate('2023/2/30'), null);
   assert.strictEqual(S.parseJapaneseDate('不明'), null);
 });
-test('日付の妥当性：初度登録日が未来・満了日が初度登録より前', () => {
-  const flags = S.checkVehicleDates(date(2027, 1, 1), date(2026, 1, 1), TODAY);
-  assert.ok(flags.firstRegDate.length === 1);
-  assert.ok(flags.inspectionExpiry.some((x) => /初度登録日より前/.test(x)));
-  const ok = S.checkVehicleDates(date(2020, 3, 1), date(2027, 3, 1), TODAY);
-  assert.strictEqual(ok.firstRegDate.length + ok.inspectionExpiry.length, 0);
-});
-test('金額・走行距離の解釈', () => {
+test('走行距離・金額の「km」「円」「,」を外して数値化', () => {
+  assert.strictEqual(S.parseMileage('12,345km'), 12345);
+  assert.strictEqual(S.parseMileage('１．２万ｋｍ'), 12000);
   assert.strictEqual(S.parseAmount('1,234,000円'), 1234000);
-  assert.strictEqual(S.parseAmount('¥１２３万'), 1230000);
-  assert.strictEqual(S.parseAmount('12.5万'), 125000);
-  assert.strictEqual(S.parseAmount('123万4000'), 1234000);
+  assert.strictEqual(S.parseAmount('¥123万'), 1230000);
   assert.strictEqual(S.parseAmount('約100'), null);
-  assert.strictEqual(S.parseMileage('45,678km'), 45678);
-  assert.strictEqual(S.parseMileage('1.2万km'), 12000);
 });
-test('区分の正規化', () => {
-  assert.strictEqual(S.normalizeCategory('下取り'), '下取');
-  assert.strictEqual(S.normalizeCategory('AA'), 'オークション');
-  assert.strictEqual(S.normalizeCategory('買取'), '買取');
-  assert.strictEqual(S.normalizeCategory('その他'), null);
+test('normalizeCellValue：列の種類ごとの整形', () => {
+  assert.strictEqual(ymd(S.normalizeCellValue(F('firstRegDate'), 'R2.3.10', LISTS).value), '2020/3/10');
+  assert.strictEqual(S.normalizeCellValue(F('mileage'), '45,678km', LISTS).value, 45678);
+  assert.strictEqual(S.normalizeCellValue(F('appraisalPrice'), '2,350,000円', LISTS).value, 2350000);
+  assert.strictEqual(S.normalizeCellValue(F('ocn'), '００１２３', LISTS).value, 123);
+  assert.strictEqual(S.normalizeCellValue(F('plateNumber'), '１２－３４', LISTS).value, '1234');
+  assert.strictEqual(S.normalizeCellValue(F('plateNumber'), '・・１２', LISTS).value, '12');
+  assert.strictEqual(S.normalizeCellValue(F('plateClass'), '３３０', LISTS).value, '330');
+  assert.strictEqual(S.normalizeCellValue(F('plateKana'), 'サ', LISTS).value, 'さ');
+  assert.strictEqual(S.normalizeCellValue(F('supplier'), 'ヤマダ　タロウ', LISTS).value, 'ﾔﾏﾀﾞ ﾀﾛｳ');
+});
+test('normalizeCellValue：値が正しい書式なら changed=false', () => {
+  assert.strictEqual(S.normalizeCellValue(F('mileage'), 45678, LISTS).changed, false);
+  assert.strictEqual(S.normalizeCellValue(F('firstRegDate'), date(2020, 3, 1), LISTS).changed, false);
+  assert.strictEqual(S.normalizeCellValue(F('modelName'), 'C200', LISTS).changed, false);
+  assert.strictEqual(S.normalizeCellValue(F('modelName'), '', LISTS).changed, false);
+});
+test('normalizeCellValue：直せない値は error、計算式・リンクの列は触らない', () => {
+  assert.strictEqual(S.normalizeCellValue(F('firstRegDate'), '去年', LISTS).error, '日付として読めません');
+  assert.strictEqual(S.normalizeCellValue(F('mileage'), '不明', LISTS).error, '数値として読めません');
+  assert.strictEqual(S.normalizeCellValue(F('ocn'), 'NEW-8392', LISTS).error, 'OCNが数値ではありません');
+  assert.strictEqual(S.normalizeCellValue(F('tradeInLoss'), '１００', LISTS).changed, false);
+  assert.strictEqual(S.normalizeCellValue(F('certLink'), '車検証リンク', LISTS).changed, false);
+});
+
+console.log('== プルダウン ==');
+test('メーカー：表記ゆれを選択肢へ（別名・部分一致・半角カナ）', () => {
+  assert.strictEqual(S.normalizeCellValue(F('maker'), 'メルセデス・ベンツ', LISTS).value, 'MB');
+  assert.strictEqual(S.normalizeCellValue(F('maker'), 'ポルシェ', LISTS).value, 'ﾎﾟﾙｼｪ');
+  assert.strictEqual(S.normalizeCellValue(F('maker'), 'ｂｍｗ', LISTS).value, 'BMW');
+  assert.strictEqual(S.normalizeCellValue(F('maker'), 'BMW MINI', LISTS).value, 'MINI'); // 最長一致
+  assert.strictEqual(S.normalizeCellValue(F('maker'), 'フォルクスワーゲン', LISTS).value, 'VW');
+});
+test('色：色名を10色へ（ダークブルー→紺、パールホワイト→白）', () => {
+  assert.strictEqual(S.normalizeCellValue(F('color'), 'ダークブルー', LISTS).value, '紺');
+  assert.strictEqual(S.normalizeCellValue(F('color'), 'ポーラーホワイト', LISTS).value, '白');
+  assert.strictEqual(S.normalizeCellValue(F('color'), 'シルバー', LISTS).value, '灰');
+});
+test('担当者・区分・ステータスは完全一致のみ。選択肢外は outOfList', () => {
+  assert.strictEqual(S.normalizeCellValue(F('staff'), '山田', LISTS).outOfList, undefined);
+  const r = S.normalizeCellValue(F('staff'), '山田太郎', LISTS);
+  assert.strictEqual(r.value, '山田太郎');
+  assert.strictEqual(r.outOfList, true);
+  assert.strictEqual(S.normalizeCellValue(F('category'), '下取', LISTS).outOfList, undefined);
+  assert.strictEqual(S.normalizeCellValue(F('status'), '名変中', LISTS).outOfList, true);
+});
+test('地域名：一覧と照合', () => {
+  assert.strictEqual(S.normalizeCellValue(F('plateRegion'), '品川', LISTS).outOfList, undefined);
+  assert.strictEqual(S.normalizeCellValue(F('plateRegion'), '品用', LISTS).outOfList, true);
+});
+test('suggestListValue：置き換え候補（よく似た選択肢）', () => {
+  assert.strictEqual(S.suggestListValue('品用', LISTS.region, false), '品川');
+  assert.strictEqual(S.suggestListValue('名変中', LISTS.status, false), '');
+  assert.strictEqual(S.suggestListValue('ﾍﾞﾝﾂ', LISTS.maker, true), 'MB');
+});
+
+console.log('== 入力チェック（条件付き書式）==');
+test('3シート横断の車台番号・登録番号の重複、形式違い、日付の矛盾、満了間近', () => {
+  const std = S.resolveColumns(S.STANDARD_HEADERS.slice()).map;
+  const maps = { '輸入車マスタ': std, '国産車マスタ': std, '販売済み': std };
+  const rules = S.buildCheckRules('輸入車マスタ', maps, 30);
+  const notes = rules.map((r) => r.note);
+  ['車台番号の重複（3シート横断）', '車台番号の形式違い', '登録番号4項目の重複', '分類番号の形式違い', '一連番号の形式違い',
+    '初度登録日が未来', '車検満了日が初度登録日以前', '車検満了が近い車両'].forEach((n) => assert.ok(notes.indexOf(n) !== -1, n));
+  const dup = rules[0].formula;
+  assert.ok(dup.indexOf('INDIRECT("\'国産車マスタ\'!E2:E")') !== -1);
+  assert.ok(dup.indexOf('INDIRECT("\'販売済み\'!E2:E")') !== -1);
+  rules.forEach((r) => assert.ok(r.formula.indexOf(S.CF_MARKER) !== -1));
+  // 販売済みシートには満了間近の強調を付けない
+  assert.ok(S.buildCheckRules('販売済み', maps, 30).every((r) => !r.wholeRow));
+});
+test('車台番号の形式規則は輸入車17桁・国産車（ハイフンあり）を正とする', () => {
+  const re = /^([A-HJ-NPR-Z0-9]{17}|[A-Z0-9]+-[0-9]{4,8})$/;
+  assert.ok(re.test('WDD2050042F123456'));
+  assert.ok(re.test('ZVW30-1234567'));
+  assert.ok(!re.test('WDD2050O42F123456'));
+  assert.ok(!re.test('ZVW30'));
 });
 
 console.log('== OCN ==');
-test('次のOCNは既存の最大値と発行済み最大値の大きい方 + 1（NEW-乱数は無視）', () => {
-  assert.strictEqual(S.nextOcnNumber(['120', '00121', 'NEW-8392'], '', 0), 122);
-  assert.strictEqual(S.nextOcnNumber(['120'], '', '130'), 131);
-  assert.strictEqual(S.nextOcnNumber(['AU-0005', 'AU-0007'], 'AU-', 0), 8);
+test('会社単位の連番（最大値と発行済み最大値の大きい方 + 1、NEW-乱数は無視）', () => {
+  assert.strictEqual(S.nextOcnNumber([120, '00121', 'NEW-8392'], 0), 122);
+  assert.strictEqual(S.nextOcnNumber([120], '130'), 131);
+  assert.strictEqual(S.nextOcnNumber([], 0), 1);
 });
-test('formatOcn・ocnKey（桁揃えの有無を同一視）', () => {
-  assert.strictEqual(S.formatOcn(8, 'AU-', 4), 'AU-0008');
-  assert.strictEqual(S.formatOcn(123, '', 0), '123');
-  assert.strictEqual(S.ocnKey('00123', ''), S.ocnKey(123, ''));
-});
-
-console.log('== Gemini 応答の解釈 ==');
-test('コードフェンス付きJSON・値だけの項目も受け付ける', () => {
-  const docs = S.parseGeminiDocuments('```json\n{"documents":[{"type":"査定書","fields":{"color":"白","mileage":{"value":null,"readable":false}}}]}\n```');
-  assert.strictEqual(docs.length, 1);
-  assert.strictEqual(docs[0].fields.color.value, '白');
-  assert.strictEqual(docs[0].fields.color.readable, true);
-  assert.strictEqual(docs[0].fields.mileage.readable, false);
+test('車検証ファイル名から OCN', () => {
+  assert.strictEqual(S.ocnFromFileName('12345.pdf'), 12345);
+  assert.strictEqual(S.ocnFromFileName('12345_自社名義.pdf'), 12345);
+  assert.strictEqual(S.ocnFromFileName('scan_001.pdf'), null);
 });
 
-console.log('== 取込レコードの組立 ==');
+console.log('== 自動読み取り（企画書 第6章）==');
+const f = (value, readable) => ({ value: value, readable: readable === undefined ? value !== null : readable });
 const appraisal = {
   type: '査定書',
   fields: {
-    carName: f('Cクラス'), modelName: f('C200 アバンギャルド'), color: f('ポーラーホワイト'),
-    mileage: f('45,678km'), recycleFee: f('18,560円'), appraisalPrice: f('2,350,000円'),
-    chassisNumber: f('WDD2050O42F123456'), plateRegion: f('品川'), plateClass: f('330'), plateKana: f('さ'), plateNumber: f('12-34')
+    maker: f('メルセデス・ベンツ'), model: f('Ｃ２００ アバンギャルド'), chassisNumber: f('WDD2050O42F123456'),
+    mileage: f('45,678km'), color: f('ポーラーホワイト'), colorBasic: f('白'),
+    plateRegion: f('品川'), plateClass: f('330'), plateKana: f('さ'), plateNumber: f('12-34'),
+    recycleFee: f('18,560円'), appraisalPrice: f('2,350,000円')
   }
 };
-const order = {
-  type: '注文書',
+const cert = {
+  type: '車検証',
   fields: {
-    staff: f('山田', { handwritten: true }), category: f('下取', { handwritten: true }),
-    tradeInPrice: f('2,000,000', { handwritten: true }), tradeInAllowance: f('2,300,000', { handwritten: true }),
-    purchasePrice: f('2,000,000', { handwritten: true })
+    chassisNumber: f('WDD2050042F123456'), firstRegDate: f('令和2年3月'), inspectionExpiry: f('令和8年3月1日'),
+    ownerName: f('ヤマダ タロウ'), ownerAddress: f('東京都港区芝浦１－２－３'),
+    plateRegion: f('品川'), plateClass: f('330'), plateKana: f('さ'), plateNumber: f('12-34'), certFormat: f('記録事項')
   }
 };
-const ocrText = 'Cクラス 走行 45,678 km リサイクル 18,560 査定価格 2,350,000 車台番号 WDD2050042F123456 品川 330 さ 12-34';
-
-test('注文書＋査定書 → 仮登録。活字は査定書から、補正済みの車台番号で輸入車マスタへ', () => {
-  const r = S.buildRecord([appraisal, order], { ocrText: ocrText, today: TODAY, lossThreshold: 1000000 });
-  assert.strictEqual(r.kind, '仮登録');
+test('Gemini 応答の解釈（コードフェンス付き・値だけの項目）', () => {
+  const docs = S.parseGeminiDocuments('```json\n{"documents":[{"type":"査定書","fields":{"color":"白","mileage":{"value":null,"readable":false}}}]}\n```');
+  assert.strictEqual(docs[0].fields.color.value, '白');
+  assert.strictEqual(docs[0].fields.mileage.readable, false);
+});
+test('査定書：自動整形・車台番号の文字補正・メーカーと色の選択肢化', () => {
+  const r = S.buildReadRecord([appraisal], { lists: LISTS, today: TODAY, readCert: false });
+  assert.deepStrictEqual(Array.from(r.docTypes), ['査定書']);
+  assert.strictEqual(r.fields.maker.value, 'MB');
+  assert.strictEqual(r.fields.modelName.value, 'C200 ｱﾊﾞﾝｷﾞｬﾙﾄﾞ');
   assert.strictEqual(r.fields.chassisNumber.value, 'WDD2050042F123456');
+  assert.ok(r.fields.chassisNumber.flags.some((x) => /補正/.test(x)));
   assert.strictEqual(r.fields.mileage.value, 45678);
   assert.strictEqual(r.fields.appraisalPrice.value, 2350000);
-  assert.strictEqual(r.targetSheet, '輸入車マスタ');
-  assert.ok(r.warnings.some((w) => /車台番号を補正/.test(w)));
-  assert.deepStrictEqual(Array.from(r.fields.appraisalPrice.flags), []);
+  assert.strictEqual(r.fields.color.value, '白');
+  assert.strictEqual(r.fields.color.raw, 'ポーラーホワイト');
+  assert.strictEqual(r.fields.plateNumber.value, '1234');
+  assert.strictEqual(r.kind, 'import');
 });
-test('手書き項目（担当・区分・金額）は必ず要確認', () => {
-  const r = S.buildRecord([appraisal, order], { ocrText: ocrText, today: TODAY, lossThreshold: 1000000 });
-  S.HANDWRITTEN_KEYS.forEach((k) => assert.ok(r.fields[k].flags.indexOf('手書き確認') !== -1, k));
-  assert.strictEqual(r.fields.category.value, '下取');
-  assert.notStrictEqual(r.confidence, '高');
+test('読めない項目は空欄＋要確認（推測しない）', () => {
+  const a = plain(appraisal);
+  a.fields.recycleFee = { value: null, readable: false };
+  a.fields.model = { value: 'C2?0', readable: false };
+  const r = S.buildReadRecord([a], { lists: LISTS, today: TODAY, readCert: false });
+  assert.strictEqual(r.fields.recycleFee.value, '');
+  assert.deepStrictEqual(Array.from(r.fields.recycleFee.flags), ['読み取れませんでした']);
+  assert.ok(r.fields.modelName.flags.indexOf('一部読み取れない文字があります') !== -1);
 });
-test('2エンジン照合：OCRテキストに無い金額は OCR不一致', () => {
-  const bad = JSON.parse(JSON.stringify(appraisal));
-  bad.fields.appraisalPrice.value = '2,850,000円';
-  const r = S.buildRecord([bad], { ocrText: ocrText, today: TODAY, lossThreshold: 0 });
-  assert.ok(r.fields.appraisalPrice.flags.indexOf('OCR不一致') !== -1);
-  assert.strictEqual(r.confidence, '低');
+test('注文書は読み取り対象外。車検証は設定で無効なら対象外', () => {
+  const order = S.buildReadRecord([{ type: '注文書', fields: {} }], { lists: LISTS, today: TODAY, readCert: true });
+  assert.ok(/注文書は直接入力/.test(order.skipped));
+  const off = S.buildReadRecord([cert], { lists: LISTS, today: TODAY, readCert: false });
+  assert.ok(/車検証の読み取りは設定で無効/.test(off.skipped));
 });
-test('読めない項目は空欄＋読取不可（推測しない）', () => {
-  const a = JSON.parse(JSON.stringify(appraisal));
-  a.fields.color = { value: null, readable: false };
-  const r = S.buildRecord([a], { ocrText: ocrText, today: TODAY, lossThreshold: 0 });
-  assert.strictEqual(r.fields.color.value, '');
-  assert.deepStrictEqual(Array.from(r.fields.color.flags), ['読取不可']);
+test('車検証（有効時）：日付・所有者・住所を整形し、査定書との食い違いを要確認に', () => {
+  const c = plain(cert);
+  c.fields.plateNumber = f('56-78');
+  const r = S.buildReadRecord([appraisal, c], { lists: LISTS, today: TODAY, readCert: true });
+  assert.strictEqual(ymd(r.fields.firstRegDate.value), '2020/3/1');
+  assert.strictEqual(ymd(r.fields.inspectionExpiry.value), '2026/3/1');
+  assert.strictEqual(r.fields.supplier.value, 'ﾔﾏﾀﾞ ﾀﾛｳ');
+  assert.strictEqual(r.fields.address.value, '東京都港区芝浦1-2-3');
+  assert.strictEqual(r.fields.plateNumber.value, '5678');
+  assert.ok(r.fields.plateNumber.flags.some((x) => /査定書「12-34」と車検証で異なります/.test(x)));
+  assert.strictEqual(r.fields.plateRegion.flags.length, 0);
 });
-test('書類間の突合：査定書と車検証の車台番号が違えば書類間不一致', () => {
-  const cert = {
-    type: '車検証',
-    fields: {
-      chassisNumber: f('WDD2050042F999999'), firstRegDate: f('令和2年3月'), inspectionExpiry: f('令和8年3月1日'),
-      plateRegion: f('品川'), plateClass: f('330'), plateKana: f('さ'), plateNumber: f('12-34'),
-      ownerName: f('株式会社ABCファイナンス'), ownerAddress: f('東京都港区1-2-3'), userName: f('山田太郎')
-    }
-  };
-  const r = S.buildRecord([appraisal, cert], { ocrText: null, today: TODAY, lossThreshold: 0 });
-  assert.ok(r.fields.chassisNumber.flags.indexOf('書類間不一致') !== -1);
-  assert.strictEqual(r.fields.chassisNumber.value, 'WDD2050042F999999'); // 車検証を優先
-  assert.strictEqual(r.fields.plateNumber.flags.indexOf('書類間不一致'), -1);
-  assert.ok(r.agreements >= 4);
-  assert.ok(r.warnings.some((w) => /所有権留保/.test(w)));
-  assert.ok(r.warnings.some((w) => /Drive OCR/.test(w)));
+test('国産車の車台番号（ハイフンあり）を読み飛ばさず、連番の文字を数字に補正', () => {
+  const c = plain(cert);
+  c.fields.chassisNumber = f('ZVW30-12O4S67');
+  const r = S.buildReadRecord([c], { lists: LISTS, today: TODAY, readCert: true });
+  assert.strictEqual(r.fields.chassisNumber.value, 'ZVW30-1204567');
+  assert.strictEqual(r.kind, 'domestic');
 });
-test('書類間の突合：登録番号の地域名（日本語）の食い違いも検出する', () => {
-  const cert = { type: '車検証', fields: { chassisNumber: f('WDD2050042F123456'), plateRegion: f('練馬'), plateClass: f('330'), plateKana: f('さ'), plateNumber: f('12-34') } };
-  const r = S.buildRecord([appraisal, cert], { ocrText: null, today: TODAY, lossThreshold: 0 });
-  assert.ok(r.fields.plateRegion.flags.indexOf('書類間不一致') !== -1);
-  assert.strictEqual(r.fields.plateKana.flags.indexOf('書類間不一致'), -1);
+test('日付の矛盾（初度登録日が未来）を要確認に', () => {
+  const c = plain(cert);
+  c.fields.firstRegDate = f('令和9年1月');
+  const r = S.buildReadRecord([c], { lists: LISTS, today: TODAY, readCert: true });
+  assert.ok(r.fields.firstRegDate.flags.indexOf('初度登録日が未来の日付です') !== -1);
 });
-test('車検証のみ → 本登録。国産車は国産車マスタ、日付はISO形式', () => {
-  const cert = {
-    type: '車検証',
-    fields: {
-      chassisNumber: f('ZVW30-1234567'), firstRegDate: f('平成27年6月'), inspectionExpiry: f('令和9年6月10日'),
-      plateRegion: f('横浜'), plateClass: f('500'), plateKana: f('あ'), plateNumber: f('56-78'),
-      ownerName: f('鈴木一郎'), ownerAddress: f('神奈川県横浜市中区1-1'), certFormat: f('券面')
-    }
-  };
-  const r = S.buildRecord([cert], { ocrText: null, today: TODAY, lossThreshold: 0 });
-  assert.strictEqual(r.kind, '本登録');
-  assert.strictEqual(r.targetSheet, '国産車マスタ');
-  assert.strictEqual(r.fields.firstRegDate.value, '2015-06-01');
-  assert.strictEqual(r.fields.inspectionExpiry.value, '2027-06-10');
-  assert.strictEqual(r.fields.supplier.value, '鈴木一郎');
-  assert.ok(r.warnings.some((w) => /券面/.test(w)));
-});
-test('下取損が極端な値なら警告', () => {
-  const o = JSON.parse(JSON.stringify(order));
-  o.fields.tradeInAllowance.value = '4,500,000';
-  const r = S.buildRecord([appraisal, o], { ocrText: ocrText, today: TODAY, lossThreshold: 1000000 });
-  assert.ok(r.fields.tradeInAllowance.flags.indexOf('下取損警告') !== -1);
-});
-test('書類を判別できなければエラー', () => {
-  const r = S.buildRecord([{ type: 'その他', fields: {} }], { ocrText: null, today: TODAY, lossThreshold: 0 });
-  assert.ok(r.error);
-});
-
-console.log('== 精度テストの採点 ==');
-test('judgeField：型ごとの比較（数値・日付・車台番号・登録番号）', () => {
-  assert.strictEqual(S.judgeField('mileage', 45678, '45,678'), '一致');
-  assert.strictEqual(S.judgeField('inspectionExpiry', '2027-06-10', date(2027, 6, 10)), '一致');
-  assert.strictEqual(S.judgeField('firstRegDate', '2015-06-01', date(2015, 6, 15)), '一致'); // 初度登録は年月で比較
-  assert.strictEqual(S.judgeField('chassisNumber', 'ZVW30-1234567', 'ZVW301234567'), '一致');
-  assert.strictEqual(S.judgeField('plateNumber', '1234', '12-34'), '一致');
-  assert.strictEqual(S.judgeField('plateNumber', '12', '・・12'), '一致');
-  assert.strictEqual(S.judgeField('color', '白', '黒'), '不一致');
-  assert.strictEqual(S.judgeField('color', '', '黒'), '読取不可');
-  assert.strictEqual(S.judgeField('color', '白', ''), '正解なし');
-});
-test('summarizeAccuracy：正答率・要確認の割合・見逃し誤り・判定', () => {
-  const details = [];
-  for (let i = 0; i < 49; i++) details.push({ key: 'chassisNumber', extracted: 'A', truth: 'A', result: '一致', flagged: false });
-  details.push({ key: 'chassisNumber', extracted: 'B', truth: 'A', result: '不一致', flagged: false });
-  details.push({ key: 'color', extracted: '白', truth: '黒', result: '不一致', flagged: true });
-  details.push({ key: 'color', extracted: '黒', truth: '黒', result: '一致', flagged: false });
-  details.push({ key: 'staff', extracted: '山田', truth: '山田', result: '一致', flagged: true });
-  details.push({ key: 'address', extracted: '', truth: '', result: '正解なし', flagged: false });
-  const rows = S.summarizeAccuracy(details, { staff: 3 });
-  const byKey = {};
-  rows.forEach((r) => { byKey[r.key] = r; });
-  assert.strictEqual(byKey.chassisNumber.rate, 0.98);
-  assert.strictEqual(byKey.chassisNumber.silentErrors, 1);
-  assert.ok(/自動反映/.test(byKey.chassisNumber.verdict));
-  assert.strictEqual(byKey.color.rate, 0.5);
-  assert.strictEqual(byKey.color.flaggedRate, 0.5);
-  assert.ok(/全件確認/.test(byKey.color.verdict));
-  assert.strictEqual(byKey.staff.kind, '手書き');
-  assert.strictEqual(byKey.staff.corrections, 3);
-  assert.ok(!byKey.address);
+test('既存行と一致したときは空欄の項目だけを埋める（入力済みと異なる値は残す）', () => {
+  const r = S.buildReadRecord([appraisal], { lists: LISTS, today: TODAY, readCert: false });
+  const existing = { chassisNumber: 'WDD2050042F123456', maker: 'MB', mileage: 40000, color: '', appraisalPrice: '' };
+  const plan = S.planRowFill(existing, r.fields);
+  assert.ok(plan.fill.indexOf('color') !== -1);
+  assert.ok(plan.fill.indexOf('appraisalPrice') !== -1);
+  assert.ok(plan.fill.indexOf('maker') === -1);
+  assert.deepStrictEqual(Array.from(plan.conflicts), ['mileage']);
 });
 
 console.log('== Gemini API の上限エラー（429）==');
-const quotaBody = (violations, retry, message) => JSON.stringify({ error: { code: 429, status: 'RESOURCE_EXHAUSTED',
-  message: message || 'You exceeded your current quota, please check your plan and billing details.',
+const quotaBody = (violations, retry) => JSON.stringify({ error: { code: 429, message: 'You exceeded your current quota.',
   details: [{ '@type': 'type.googleapis.com/google.rpc.QuotaFailure', violations: violations }]
     .concat(retry ? [{ '@type': 'type.googleapis.com/google.rpc.RetryInfo', retryDelay: retry }] : []) } });
-test('1分あたりの上限：待ち時間つき → minute', () => {
-  const r = S.parseGeminiQuotaError(quotaBody([{ quotaMetric: 'generativelanguage.googleapis.com/generate_content_free_tier_requests',
-    quotaId: 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', quotaValue: '10' }], '37s'), 'gemini-2.5-flash');
-  assert.strictEqual(r.scope, 'minute');
-  assert.strictEqual(r.retryDelaySec, 37);
-  assert.strictEqual(r.limit, 10);
-});
-test('1日あたりの上限は分の上限より優先 → day', () => {
-  const r = S.parseGeminiQuotaError(quotaBody([
+test('1分あたり／1日あたり（優先）／無料枠なし', () => {
+  const minute = S.parseGeminiQuotaError(quotaBody([{ quotaMetric: 'm', quotaId: 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', quotaValue: '10' }], '37s'), 'gemini-2.5-flash');
+  assert.strictEqual(minute.scope, 'minute');
+  const day = S.parseGeminiQuotaError(quotaBody([
     { quotaMetric: 'm1', quotaId: 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', quotaValue: '10' },
-    { quotaMetric: 'm2', quotaId: 'GenerateRequestsPerDayPerProjectPerModel-FreeTier', quotaValue: '250' }], '20s'), 'gemini-2.5-flash');
-  assert.strictEqual(r.scope, 'day');
-  assert.ok(/1日あたり/.test(r.message));
-});
-test('無料枠なし（上限0）→ zero。課金かモデル変更を案内', () => {
-  const r = S.parseGeminiQuotaError(quotaBody([{ quotaMetric: 'generativelanguage.googleapis.com/generate_content_free_tier_input_token_count',
-    quotaId: 'GenerateContentInputTokensPerModelPerMinute-FreeTier', quotaValue: '0' }], '30s'), 'gemini-2.5-pro');
-  assert.strictEqual(r.scope, 'zero');
-  assert.ok(/無料枠がありません/.test(r.message) && /gemini-2\.5-pro/.test(r.message));
-});
-test('details が無い応答は本文から読む', () => {
-  const body = JSON.stringify({ error: { code: 429, message: 'You exceeded your current quota.\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-2.5-pro\nPlease retry in 12.3s.' } });
-  const r = S.parseGeminiQuotaError(body, 'gemini-2.5-pro');
-  assert.strictEqual(r.scope, 'zero');
-  assert.strictEqual(r.retryDelaySec, 12.3);
-});
-test('JSONでない応答でも落ちない', () => {
-  const r = S.parseGeminiQuotaError('Too Many Requests', 'gemini-2.5-flash');
-  assert.strictEqual(r.scope, 'unknown');
-  assert.ok(/上限/.test(r.message));
+    { quotaMetric: 'm2', quotaId: 'GenerateRequestsPerDayPerProjectPerModel-FreeTier', quotaValue: '250' }]), 'gemini-2.5-flash');
+  assert.strictEqual(day.scope, 'day');
+  const zero = S.parseGeminiQuotaError(JSON.stringify({ error: { message: 'Quota exceeded for metric: x, limit: 0, model: gemini-2.5-pro' } }), 'gemini-2.5-pro');
+  assert.strictEqual(zero.scope, 'zero');
+  assert.strictEqual(S.parseGeminiQuotaError('Too Many Requests', 'm').scope, 'unknown');
 });
 
 console.log('');

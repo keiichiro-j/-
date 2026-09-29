@@ -9,7 +9,7 @@
     label { display: block; margin: 8px 0 2px; font-weight: bold; }
     .hint { color: #666; font-size: 11px; font-weight: normal; }
     input[type=text], input[type=password], input[type=number], select { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #bbb; border-radius: 4px; font-size: 13px; }
-    .row { display: flex; gap: 8px; } .row > div { flex: 1; }
+    .row { display: flex; gap: 8px; } .row > div { flex: 1; min-width: 0; }
     .check { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-weight: normal; }
     .actions { position: sticky; bottom: 0; background: #fff; padding: 12px 0 4px; display: flex; gap: 8px; }
     button { padding: 8px 16px; border-radius: 4px; border: 1px solid #1a73e8; background: #1a73e8; color: #fff; font-size: 13px; cursor: pointer; }
@@ -27,15 +27,20 @@
   <input type="text" id="company" list="companyList" placeholder="例：AU">
   <datalist id="companyList"><option value="AU"><option value="C7"><option value="MB"></datalist>
 
-  <h2>Gemini（読み取りAI）</h2>
+  <h2>自動読み取り（Gemini）</h2>
+  <div class="hint">読み取りは補助機能です。1ファイルにつき Gemini は1回だけ呼び、1日の上限を超えた分は翌日に回します。</div>
   <label for="geminiKey">APIキー <span class="hint" id="keyState"></span></label>
   <input type="password" id="geminiKey" autocomplete="off" placeholder="変更する場合のみ入力">
   <div class="hint">スクリプトプロパティに保存され、コードには書き込まれません。漏えいした旧キーは必ず再発行してください。</div>
-  <label for="geminiModel">モデル</label>
-  <input type="text" id="geminiModel" placeholder="gemini-2.5-flash">
-  <label for="geminiIntervalSec">Gemini呼び出し間隔（秒） <span class="hint">無料枠は1分あたり約10回まで。7秒以上を推奨（課金を有効にした場合は0でも可）</span></label>
-  <input type="number" id="geminiIntervalSec" min="0" max="60">
-  <label class="check"><input type="checkbox" id="useDriveOcr" checked> Googleドライブ標準のOCRとも照合する（2エンジン照合）</label>
+  <div class="row">
+    <div><label for="geminiModel">モデル</label><input type="text" id="geminiModel" placeholder="gemini-2.5-flash"></div>
+    <div><label for="dailyLimit">1日の処理上限（件） <span class="hint" id="todayCount"></span></label><input type="number" id="dailyLimit" min="0" max="1000"></div>
+  </div>
+  <div class="row">
+    <div><label for="geminiIntervalSec">呼び出し間隔（秒） <span class="hint">無料枠は7秒以上を推奨</span></label><input type="number" id="geminiIntervalSec" min="0" max="60"></div>
+    <div><label for="unknownTarget">輸入車／国産車を判別できない場合の登録先</label><select id="unknownTarget"></select></div>
+  </div>
+  <label class="check"><input type="checkbox" id="readCert"> 車検証も読み取る <span class="hint">（回数に余裕がある場合。無効の間は査定書だけを読み取ります）</span></label>
 
   <h2>ドライブのフォルダ</h2>
   <div class="hint">空欄のままにすると「中古車書類_会社名」フォルダの中に自動で作成します。既存のフォルダを使う場合はURLかIDを入力してください。</div>
@@ -47,25 +52,23 @@
   </div>
   <div class="row">
     <div><label for="folderError">エラー</label><input type="text" id="folderError"></div>
-    <div><label for="folderCert">車検証保管</label><input type="text" id="folderCert"></div>
+    <div><label for="folderCert">車検証保管 <span class="hint">（ファイル名がOCNならリンクを付与）</span></label><input type="text" id="folderCert"></div>
   </div>
 
-  <h2>取込・採番</h2>
-  <label for="triggerMinutes">定期取込の間隔</label>
-  <select id="triggerMinutes">
-    <option value="0">なし（手動取込のみ）</option>
-    <option value="5">5分ごと</option>
-    <option value="10">10分ごと</option>
-    <option value="15">15分ごと</option>
-    <option value="30">30分ごと</option>
-    <option value="60">1時間ごと</option>
-  </select>
+  <h2>定期実行・入力チェック</h2>
   <div class="row">
-    <div><label for="ocnPrefix">OCNの接頭辞 <span class="hint">（無ければ空欄）</span></label><input type="text" id="ocnPrefix"></div>
-    <div><label for="ocnDigits">OCNの桁数 <span class="hint">（0＝桁揃えなし）</span></label><input type="number" id="ocnDigits" min="0" max="10"></div>
+    <div>
+      <label for="triggerMinutes">自動読み取り・車検証リンクの定期実行</label>
+      <select id="triggerMinutes">
+        <option value="0">なし（メニューから手動）</option>
+        <option value="15">15分ごと</option>
+        <option value="30">30分ごと</option>
+        <option value="60">1時間ごと</option>
+        <option value="180">3時間ごと</option>
+      </select>
+    </div>
+    <div><label for="expiryDays">車検満了が近い車両の強調（日前から）</label><input type="number" id="expiryDays" min="0" max="365"></div>
   </div>
-  <label for="lossThreshold">下取損の警告しきい値（円） <span class="hint">これを超える下取損は要確認にします</span></label>
-  <input type="number" id="lossThreshold" min="0" step="10000">
 
   <label class="check"><input type="checkbox" id="backup" checked> 実行前にスプレッドシートのバックアップを作成する</label>
 
@@ -77,7 +80,7 @@
   </div>
 
   <script>
-    var FIELDS = ['company', 'geminiModel', 'folderRoot', 'folderInbox', 'folderDone', 'folderError', 'folderCert', 'triggerMinutes', 'ocnPrefix', 'ocnDigits', 'lossThreshold', 'geminiIntervalSec'];
+    var FIELDS = ['company', 'geminiModel', 'dailyLimit', 'geminiIntervalSec', 'folderRoot', 'folderInbox', 'folderDone', 'folderError', 'folderCert', 'triggerMinutes', 'expiryDays'];
 
     function el(id) { return document.getElementById(id); }
 
@@ -89,13 +92,18 @@
       r.scrollIntoView({ block: 'nearest' });
     }
 
-    google.script.run
-      .withSuccessHandler(function (s) {
-        FIELDS.forEach(function (k) { if (s[k] !== undefined && s[k] !== null) el(k).value = s[k]; });
-        el('useDriveOcr').checked = s.useDriveOcr;
-        el('keyState').textContent = s.hasGeminiKey ? '（設定済み）' : '（未設定）';
-        el('sheetName').textContent = '対象：' + s.spreadsheetName;
-      })
+    function load(s) {
+      FIELDS.forEach(function (k) { if (s[k] !== undefined && s[k] !== null) el(k).value = s[k]; });
+      el('readCert').checked = s.readCert;
+      el('unknownTarget').innerHTML = s.masterSheets.map(function (n) {
+        return '<option' + (n === s.unknownTarget ? ' selected' : '') + '>' + n + '</option>';
+      }).join('');
+      el('keyState').textContent = s.hasGeminiKey ? '（設定済み）' : '（未設定）';
+      el('todayCount').textContent = '本日 ' + s.todayCount + '件読み取り済み';
+      el('sheetName').textContent = '対象：' + s.spreadsheetName;
+    }
+
+    google.script.run.withSuccessHandler(load)
       .withFailureHandler(function (e) { showResult(e.message, true); })
       .getSetupState();
 
@@ -103,20 +111,18 @@
       var form = {};
       FIELDS.forEach(function (k) { form[k] = el(k).value; });
       form.geminiKey = el('geminiKey').value;
-      form.useDriveOcr = el('useDriveOcr').checked;
+      form.readCert = el('readCert').checked;
+      form.unknownTarget = el('unknownTarget').value;
       form.backup = el('backup').checked;
       if (!form.company) { showResult('会社名を入力してください', true); return; }
       el('run').disabled = true;
-      showResult('実行中です…（シート・フォルダ・トリガーを準備しています）');
+      showResult('実行中です…（シート・書式・プルダウン・フォルダ・トリガーを準備しています）');
       google.script.run
         .withSuccessHandler(function (res) {
           el('run').disabled = false;
           el('geminiKey').value = '';
           showResult('セットアップが完了しました。\n\n・' + res.report.join('\n・'));
-          google.script.run.withSuccessHandler(function (s) {
-            el('keyState').textContent = s.hasGeminiKey ? '（設定済み）' : '（未設定）';
-            ['folderInbox', 'folderDone', 'folderError', 'folderCert', 'folderRoot'].forEach(function (k) { el(k).value = s[k] || ''; });
-          }).getSetupState();
+          google.script.run.withSuccessHandler(load).getSetupState();
         })
         .withFailureHandler(function (e) {
           el('run').disabled = false;
