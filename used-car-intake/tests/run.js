@@ -431,6 +431,27 @@ test('未設定のときは以前どおり（下取損・仕入価格は計算�
   delete sandbox.PropertiesService;
 });
 
+console.log('== 車検証リンクの自動更新 ==');
+test('間隔の選択肢と時間主導トリガーの設定（最短1分）', () => {
+  assert.strictEqual(S.certLinkSchedule(0), null);
+  assert.strictEqual(S.certLinkSchedule(1).minutes, 1);
+  assert.strictEqual(S.certLinkSchedule(15).minutes, 15);
+  assert.strictEqual(S.certLinkSchedule(60).hours, 1);
+  assert.strictEqual(S.normalizeCertLinkMinutes('5'), 5);
+  assert.strictEqual(S.normalizeCertLinkMinutes(7), 0); // 選択肢にない間隔は「しない」
+});
+test('全件確認は新しいファイル・OCNの採番・1時間ごとのときだけ', () => {
+  const now = 10 * 60 * 60 * 1000;
+  assert.strictEqual(S.certLinkNeedsFullScan({ changedFiles: 1, pending: false, lastFullMs: now - 1000, nowMs: now }), true);
+  assert.strictEqual(S.certLinkNeedsFullScan({ changedFiles: 0, pending: true, lastFullMs: now - 1000, nowMs: now }), true);
+  assert.strictEqual(S.certLinkNeedsFullScan({ changedFiles: 0, pending: false, lastFullMs: now - 1000, nowMs: now }), false);
+  assert.strictEqual(S.certLinkNeedsFullScan({ changedFiles: 0, pending: false, lastFullMs: now - 61 * 60 * 1000, nowMs: now }), true);
+  assert.strictEqual(S.certLinkNeedsFullScan({ changedFiles: 0, pending: false, lastFullMs: 0, nowMs: now }), true);
+});
+test('Drive の検索条件用の日時', () => {
+  assert.strictEqual(S.driveQueryTime(Date.UTC(2026, 8, 30, 1, 2, 3, 456)), '2026-09-30T01:02:03Z');
+});
+
 console.log('');
 console.log(`${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

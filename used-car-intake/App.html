@@ -88,7 +88,9 @@
         </div>
         <label class="field" for="folderCert">車検証保管フォルダ <span class="hint">（任意。ファイル名がOCNで始まる車検証に「車検証ﾘﾝｸ」を付けます）</span></label>
         <input type="text" id="folderCert" placeholder="フォルダのURLまたはID">
-        <label class="check"><input type="checkbox" id="certLinkHourly"> 車検証リンクを1時間ごとに自動で更新する</label>
+        <label class="field" for="certLinkMinutes">車検証リンクの自動更新 <span class="hint">（フォルダに車検証を入れてから、リンクが付くまでの最大の待ち時間。最速は1分）</span></label>
+        <select id="certLinkMinutes"></select>
+        <p class="hint">自動更新にすると、スプレッドシートを開いたときにも更新します。OCN を採番・入力した行も、次の更新で確認します。</p>
         <label class="check"><input type="checkbox" id="backup" checked> 実行前にスプレッドシートのバックアップを作成する</label>
         <div class="actions">
           <button class="btn primary" id="setupBtn" onclick="runSetup()">保存してシートを整える（セットアップ）</button>
@@ -243,7 +245,9 @@
       el('company').value = s.company;
       el('expiryDays').value = s.expiryDays;
       el('folderCert').value = s.folderCert;
-      el('certLinkHourly').checked = s.certLinkHourly;
+      el('certLinkMinutes').innerHTML = s.certLinkChoices.map(function (c) {
+        return '<option value="' + c.minutes + '"' + (c.minutes === s.certLinkMinutes ? ' selected' : '') + '>' + esc(c.label) + '</option>';
+      }).join('');
       el('sheetStatus').innerHTML = s.sheets.map(function (x) {
         var pill = !x.exists ? '<span class="pill warn">未作成</span>' : (x.standard ? '<span class="pill">A〜AC 標準</span>' : '<span class="pill warn">列配置が標準と異なる</span>');
         return '<div><b>' + esc(x.name) + '</b>' + pill + (x.exists ? ' <span class="hint">' + x.rows + '台</span>' : '') + '</div>';
@@ -258,7 +262,7 @@
     async function runSetup() {
       var form = {
         company: el('company').value, expiryDays: el('expiryDays').value, folderCert: el('folderCert').value,
-        certLinkHourly: el('certLinkHourly').checked, backup: el('backup').checked
+        certLinkMinutes: el('certLinkMinutes').value, backup: el('backup').checked
       };
       if (!form.company) { msg('basicMsg', '会社名を入力してください', true); return; }
       setBusy(['setupBtn', 'reapplyBtn', 'linkBtn'], true);

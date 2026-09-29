@@ -952,6 +952,40 @@ function checkCalcCycles(refsByKey) {
   Object.keys(refsByKey).forEach(function (k) { visit(k, []); });
 }
 
+/** 車検証リンクの自動更新の間隔の選択肢（分）。Apps Script の時間主導トリガーの最短は1分 */
+var CERT_LINK_CHOICES = [
+  { minutes: 0, label: 'しない' }, { minutes: 1, label: '1分ごと（最速）' }, { minutes: 5, label: '5分ごと' },
+  { minutes: 10, label: '10分ごと' }, { minutes: 15, label: '15分ごと' }, { minutes: 30, label: '30分ごと' }, { minutes: 60, label: '1時間ごと' }
+];
+
+function normalizeCertLinkMinutes(v) {
+  var n = Number(v);
+  return CERT_LINK_CHOICES.some(function (c) { return c.minutes === n; }) ? n : 0;
+}
+
+/** 間隔（分）→ 時間主導トリガーの設定。0 は null */
+function certLinkSchedule(minutes) {
+  var n = normalizeCertLinkMinutes(minutes);
+  if (!n) return null;
+  var label = CERT_LINK_CHOICES.filter(function (c) { return c.minutes === n; })[0].label;
+  return n >= 60 ? { hours: n / 60, label: label } : { minutes: n, label: label };
+}
+
+/**
+ * 自動更新でシートを全件確認するか。
+ * フォルダに新しい・更新されたファイルがあるとき、OCN が採番・変更されたとき、前回の全件確認から1時間たったときに確認する。
+ * それ以外はフォルダを見るだけで終える（1分ごとの実行でも処理時間を使いすぎないため）。
+ */
+function certLinkNeedsFullScan(opts) {
+  if (opts.changedFiles > 0 || opts.pending) return true;
+  return !opts.lastFullMs || opts.nowMs - opts.lastFullMs >= 60 * 60 * 1000;
+}
+
+/** Drive の検索条件用の日時（RFC 3339、UTC） */
+function driveQueryTime(ms) {
+  return new Date(ms).toISOString().replace(/\.\d{3}Z$/, 'Z');
+}
+
 /**
  * 車検証リンクが入ったときの新しいステータス。
  * 名義変更前（空欄を含む）なら「名義変更済み」にし、名義変更済み・販売済みなどはそのまま（null）。
@@ -1066,7 +1100,11 @@ var PROP = {
   COMPANY: 'COMPANY_NAME',
   EXPIRY_DAYS: 'EXPIRY_WARNING_DAYS',
   FOLDER_CERT: 'FOLDER_CERT',
-  CERT_LINK_HOURLY: 'CERT_LINK_HOURLY',
+  CERT_LINK_HOURLY: 'CERT_LINK_HOURLY',   // 以前の版（1時間ごと）の設定
+  CERT_LINK_MINUTES: 'CERT_LINK_MINUTES', // 車検証リンクの自動更新の間隔（分。0＝しない）
+  CERT_LAST_CHECK: 'CERT_LINK_LAST_CHECK_MS',
+  CERT_LAST_FULL: 'CERT_LINK_LAST_FULL_MS',
+  CERT_PENDING: 'CERT_LINK_PENDING',       // OCN が採番・変更された（次の自動更新で全件を確認する）
   OCN_LAST: 'OCN_LAST_ISSUED',
   CALC: 'CALC_', // + 列キー（計算式の設定）
   LIST: 'LIST_' // + maker / color / staff / idCheck / region
@@ -1078,7 +1116,9 @@ function getSettings_() {
     company: props[PROP.COMPANY] || '',
     expiryDays: props[PROP.EXPIRY_DAYS] === undefined ? 30 : Math.max(0, Number(props[PROP.EXPIRY_DAYS]) || 0),
     folderCert: props[PROP.FOLDER_CERT] || '',
-    certLinkHourly: props[PROP.CERT_LINK_HOURLY] === 'true'
+    certLinkMinutes: props[PROP.CERT_LINK_MINUTES] !== undefined
+      ? normalizeCertLinkMinutes(props[PROP.CERT_LINK_MINUTES])
+      : (props[PROP.CERT_LINK_HOURLY] === 'true' ? 60 : 0)
   };
 }
 
@@ -1387,7 +1427,7 @@ function getSetupState() {
   var s = getSettings_();
   var ss = getSpreadsheet_();
   return {
-    company: s.company, expiryDays: s.expiryDays, folderCert: s.folderCert, certLinkHourly: s.certLinkHourly,
+    company: s.company, expiryDays: s.expiryDays, folderCert: s.folderCert, certLinkMinutes: s.certLinkMinutes, certLinkChoices: CERT_LINK_CHOICES,
     spreadsheetName: ss.getName(), spreadsheetUrl: ss.getUrl(),
     sheets: VEHICLE_SHEETS.map(function (name) {
       var sheet = ss.getSheetByName(name);
@@ -1423,7 +1463,8 @@ function runSetup(form) {
     var values = {};
     values[PROP.COMPANY] = String(form.company).trim();
     values[PROP.EXPIRY_DAYS] = String(Math.max(0, Number(form.expiryDays) || 0));
-    values[PROP.CERT_LINK_HOURLY] = form.certLinkHourly ? 'true' : 'false';
+    values[PROP.CERT_LINK_MINUTES] = String(normalizeCertLinkMinutes(form.certLinkMinutes));
+    props.deleteProperty(PROP.CERT_LINK_HOURLY);
     var folderId = extractDriveId_(form.folderCert);
     if (folderId) values[PROP.FOLDER_CERT] = DriveApp.getFolderById(folderId).getId(); // 存在確認
     else props.deleteProperty(PROP.FOLDER_CERT);
@@ -1439,7 +1480,7 @@ function runSetup(form) {
       props.setProperty(PROP.OCN_LAST, String(max));
       report.push('OCNの採番を初期化しました（次の番号：' + (max + 1) + '）');
     }
-    setupTriggers_(values[PROP.CERT_LINK_HOURLY] === 'true' && !!folderId, report);
+    setupTriggers_(folderId ? Number(values[PROP.CERT_LINK_MINUTES]) : 0, report);
     appendLog_('セットアップ', ss.getName(), '', '', '', report.join(' / '));
     return { ok: true, report: report };
   } finally {
@@ -1993,17 +2034,23 @@ function writeMakerRanking_(sheet, top, left, masters, limit) {
 
 /**
  * トリガー：入力時の自動整形はシンプルトリガー onEdit（設定不要）で動く。
- * 以前の版のトリガー（編集トリガー・自動読み取り）は削除し、車検証リンクの定期更新だけを任意で設定する。
+ * 以前の版のトリガー（編集トリガー・自動読み取り）は削除し、車検証リンクの自動更新を設定する。
+ *  - 時間主導：設定した間隔（最短1分）で車検証保管フォルダを確認
+ *  - スプレッドシートを開いたとき：すぐに確認
+ * @param {number} minutes 0 ならどちらも設定しない
  */
-function setupTriggers_(certLinkHourly, report) {
+function setupTriggers_(minutes, report) {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     var h = t.getHandlerFunction();
-    if (h === 'handleEdit' || h === 'scheduledRun' || h === 'scheduledCertLinks') ScriptApp.deleteTrigger(t);
+    if (h === 'handleEdit' || h === 'scheduledRun' || h === 'scheduledCertLinks' || h === 'certLinksOnOpen') ScriptApp.deleteTrigger(t);
   });
-  if (certLinkHourly) {
-    ScriptApp.newTrigger('scheduledCertLinks').timeBased().everyHours(1).create();
-    report.push('車検証リンクの定期更新（1時間ごと）を設定しました');
-  }
+  var schedule = certLinkSchedule(minutes);
+  if (!schedule) { report.push('車検証リンクの自動更新：しない（設定アプリ・メニューから手動で更新）'); return; }
+  var builder = ScriptApp.newTrigger('scheduledCertLinks').timeBased();
+  if (schedule.hours) builder.everyHours(schedule.hours); else builder.everyMinutes(schedule.minutes);
+  builder.create();
+  ScriptApp.newTrigger('certLinksOnOpen').forSpreadsheet(getSpreadsheet_()).onOpen().create();
+  report.push('車検証リンクの自動更新を設定しました（' + schedule.label + '・スプレッドシートを開いたときも更新）');
 }
 
 // =====================================================================
@@ -2078,7 +2125,12 @@ function onEdit(e) {
     if (changed) colRange.setValues(column);
   }
 
-  if (cols.ocn !== undefined) assignMissingOcns_(ss, sheet, cols, startRow, numRows);
+  if (cols.ocn !== undefined) {
+    var ocnAssigned = assignMissingOcns_(ss, sheet, cols, startRow, numRows);
+    var ocnEdited = cols.ocn + 1 >= startCol && cols.ocn + 1 < startCol + numCols;
+    // 次の車検証リンクの自動更新で全件を確認する（新しい OCN に合う車検証がフォルダにあればリンクを付ける）
+    if (ocnAssigned || ocnEdited) PropertiesService.getScriptProperties().setProperty(PROP.CERT_PENDING, 'true');
+  }
 
   if (linkedRows.length) markTransferred_(sheet, cols, linkedRows);
 
@@ -2106,7 +2158,7 @@ function widenColumnsToFit_(sheet, startCol, numCols) {
   }
 }
 
-/** OCN の自動採番（車台番号・車種・モデル名のいずれかが入った行で、OCNが空欄なら） */
+/** OCN の自動採番（車台番号・車種・モデル名のいずれかが入った行で、OCNが空欄なら）。採番した件数を返す */
 function assignMissingOcns_(ss, sheet, cols, startRow, numRows) {
   var keys = ['chassisNumber', 'maker', 'modelName'].filter(function (k) { return cols[k] !== undefined; });
   var rows = sheet.getRange(startRow, 1, numRows, sheet.getLastColumn()).getValues();
@@ -2115,17 +2167,19 @@ function assignMissingOcns_(ss, sheet, cols, startRow, numRows) {
     if (!isBlank(row[cols.ocn])) return;
     if (keys.some(function (k) { return !isBlank(row[cols[k]]); })) targets.push(startRow + i);
   });
-  if (!targets.length) return;
+  if (!targets.length) return 0;
   var lock = LockService.getScriptLock();
-  if (!lock.tryLock(10000)) return;
+  if (!lock.tryLock(10000)) return 0;
+  var assigned = 0;
   try {
     targets.forEach(function (row) {
       var cell = sheet.getRange(row, cols.ocn + 1);
-      if (isBlank(cell.getValue())) cell.setNumberFormat('0').setValue(reserveOcn_(ss));
+      if (isBlank(cell.getValue())) { cell.setNumberFormat('0').setValue(reserveOcn_(ss)); assigned++; }
     });
   } finally {
     lock.releaseLock();
   }
+  return assigned;
 }
 
 function confirmAndMoveSold_(ss, sheet, rows, oldValue) {
@@ -2193,11 +2247,49 @@ function moveRowsToSold_(ss, sheet, rows) {
 function handleEdit() {}
 function scheduledRun() {}
 
+/**
+ * 時間主導トリガー：車検証保管フォルダに新しいファイルがあれば、すぐにリンクを付ける。
+ * 新しいファイルが無く、OCN の採番・変更も無ければ、フォルダを見るだけで終える（全件確認は1時間に1回）。
+ */
 function scheduledCertLinks() {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(1000)) return; // 前回の実行中
   try {
+    var settings = getSettings_();
+    if (!settings.folderCert) return;
+    var props = PropertiesService.getScriptProperties();
+    var now = Date.now();
+    var lastCheck = Number(props.getProperty(PROP.CERT_LAST_CHECK)) || 0;
+    var changed = 0;
+    if (lastCheck) {
+      // 前回の確認より少し前からの追加・更新を探す（時計のずれ・アップロード中のファイル分の余裕）
+      var q = "'" + settings.folderCert + "' in parents and trashed = false and modifiedDate > '" + driveQueryTime(lastCheck - 2 * 60 * 1000) + "'";
+      var it = DriveApp.searchFiles(q);
+      while (it.hasNext() && !changed) { it.next(); changed++; }
+    } else {
+      changed = 1; // 初回は全件
+    }
+    var pending = props.getProperty(PROP.CERT_PENDING) === 'true';
+    props.setProperty(PROP.CERT_LAST_CHECK, String(now));
+    if (!certLinkNeedsFullScan({ changedFiles: changed, pending: pending, lastFullMs: Number(props.getProperty(PROP.CERT_LAST_FULL)) || 0, nowMs: now })) return;
+    props.deleteProperty(PROP.CERT_PENDING);
+    props.setProperty(PROP.CERT_LAST_FULL, String(now));
     updateCertLinks();
   } catch (e) {
     appendLog_('エラー', '定期実行', '車検証リンク', '', '', e.message);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** スプレッドシートを開いたとき（インストール型トリガー）：車検証リンクを更新する */
+function certLinksOnOpen() {
+  try {
+    if (!getSettings_().folderCert) return;
+    PropertiesService.getScriptProperties().setProperty(PROP.CERT_LAST_FULL, String(Date.now()));
+    updateCertLinks();
+  } catch (e) {
+    appendLog_('エラー', '開いたとき', '車検証リンク', '', '', e.message);
   }
 }
 
