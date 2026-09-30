@@ -260,6 +260,25 @@ var COLUMN_WIDTHS = {
 /** ダッシュボードで集計する「名義変更前」のステータス */
 var PRE_TRANSFER_STATUSES = ['書類待ち', '車庫証明申請中', '名義変更中'];
 
+/** ダッシュボードの列幅（一覧の12列）と、台数カードの位置 [開始列, 列数]（幅がほぼそろう組み合わせ） */
+var DASHBOARD_COLUMN_WIDTHS = [112, 76, 96, 76, 76, 96, 170, 170, 160, 84, 96, 96];
+var DASHBOARD_CARD_SPANS = [[1, 2], [3, 2], [5, 2], [7, 1], [8, 1]];
+
+/** ダッシュボードで台数を出すステータス（在庫の流れ順） */
+var DASHBOARD_STATUSES = ['書類待ち', '車庫証明申請中', '名義変更中', '名義変更済み'];
+
+/** ダッシュボードの配色（落ち着いた地に、ステータスごとの差し色） */
+var DASHBOARD_THEME = {
+  page: '#f6f7f9', ink: '#1f2a33', muted: '#6b7780', band: '#f7f9fb',
+  status: {
+    '書類待ち': { accent: '#d93a2b', tint: '#fdf0ee' },
+    '車庫証明申請中': { accent: '#c98500', tint: '#fdf6e3' },
+    '名義変更中': { accent: '#1f6fd1', tint: '#edf4fd' },
+    '名義変更済み': { accent: '#1e8a4c', tint: '#eaf6ef' },
+    '未入力': { accent: '#6b7780', tint: '#eef1f3' }
+  }
+};
+
 /** ダッシュボードの一覧の列（key は車両シートの列。sheetLabel は輸入車／国産車） */
 var DASHBOARD_LIST_COLUMNS = [
   { key: 'status', label: 'ステータス', width: 120 },
@@ -786,21 +805,12 @@ function buildCountifsFormula(colMaps, criteriaSets) {
   return parts.length ? '=' + parts.join('+') : '=0';
 }
 
-/** ダッシュボード：車種別の在庫台数（多い順・上位 limit 件）の QUERY */
-function buildMakerRankingFormula(colMaps, limit) {
-  var refs = Object.keys(colMaps).filter(function (n) { return colMaps[n].maker !== undefined; })
-    .map(function (n) { return columnRef(n, colMaps[n].maker); });
-  if (!refs.length) return '="車種の列が見つかりません"';
-  return '=IFERROR(QUERY(VSTACK(' + refs.join(',') + '),"select Col1, count(Col1) where Col1 is not null group by Col1 ' +
-    'order by count(Col1) desc limit ' + Number(limit) + ' label count(Col1) \'\'",0),"在庫がありません")';
-}
-
 /**
- * ダッシュボード：名義変更前の車両一覧。
- * 輸入車マスタ・国産車マスタを縦につなぎ、対象ステータスだけを「ステータスの流れ順 → 仕入が古い順」に並べる。
- * 2列目に仕入からの経過日数を入れる。数式なので入力するとすぐ反映される。
+ * ダッシュボード：車両の一覧（輸入車マスタ・国産車マスタ）。
+ * OCN が入っている行のうち、除外するステータス（名義変更済み・販売済み）以外を、
+ * ステータスの流れ順（order。空欄は「未入力」として最後）→ 仕入が古い順に並べる。2列目に仕入からの経過日数。
  */
-function buildDashboardListFormula(colMaps, statuses) {
+function buildDashboardListFormula(colMaps, order, excluded) {
   var blocks = Object.keys(colMaps).filter(function (n) { return colMaps[n].status !== undefined; }).map(function (n) {
     var cols = colMaps[n];
     var statusRef = columnRef(n, cols.status);
@@ -810,16 +820,18 @@ function buildDashboardListFormula(colMaps, statuses) {
     }).join(',') + ')';
   });
   if (!blocks.length) return '="ステータスの列が見つかりません"';
-  var targets = '{' + statuses.map(function (s) { return '"' + s + '"'; }).join(';') + '}';
-  var dateIdx = 1 + DASHBOARD_LIST_COLUMNS.map(function (c) { return c.key; }).indexOf('purchaseDate');
+  var arr = function (list) { return '{' + list.map(function (s) { return '"' + s + '"'; }).join(';') + '}'; };
+  var keyIdx = function (key) { return 1 + DASHBOARD_LIST_COLUMNS.map(function (c) { return c.key; }).indexOf(key); };
+  var dateIdx = keyIdx('purchaseDate'), ocnIdx = keyIdx('ocn');
   var rest = [];
   for (var i = 2; i <= DASHBOARD_LIST_COLUMNS.length; i++) rest.push(i);
   return '=IFERROR(ARRAYFORMULA(LET(' +
     'd,VSTACK(' + blocks.join(',') + '),' +
-    't,' + targets + ',' +
-    'f,FILTER(d,ISNUMBER(MATCH(INDEX(d,,1),t,0))),' +
-    's,SORT(f,MATCH(INDEX(f,,1),t,0),TRUE,INDEX(f,,' + dateIdx + '),TRUE),' +
-    'HSTACK(INDEX(s,,1),IF(ISNUMBER(INDEX(s,,' + dateIdx + ')),TODAY()-INDEX(s,,' + dateIdx + '),""),CHOOSECOLS(s,' + rest.join(',') + '))' +
+    't,' + arr(order) + ',' +
+    'x,' + arr(excluded || []) + ',' +
+    'f,FILTER(d,(INDEX(d,,' + ocnIdx + ')<>"")*ISNA(MATCH(INDEX(d,,1),x,0))),' +
+    's,SORT(f,IFERROR(MATCH(INDEX(f,,1),t,0),99),TRUE,INDEX(f,,' + dateIdx + '),TRUE),' +
+    'HSTACK(IF(INDEX(s,,1)="","未入力",INDEX(s,,1)),IF(ISNUMBER(INDEX(s,,' + dateIdx + ')),TODAY()-INDEX(s,,' + dateIdx + '),""),CHOOSECOLS(s,' + rest.join(',') + '))' +
     ')),"該当する車両はありません")';
 }
 
@@ -1796,240 +1808,125 @@ function styleLogSheet_(sheet) {
 
 /**
  * ダッシュボードタブを作り直す。内容はすべて数式なので、マスタに入力するとすぐ反映される。
- *  1. 台数の一覧（12項目）：名義変更前のステータス別・合計・名義変更済み・在庫（輸入／国産）・車検満了間近／満了・今月の仕入／売上
- *  2. 集計表（左右2列×3段）：ステータス別（輸入／国産）・担当者別（名義変更前）・経過日数・車検満了の見込み・区分別・車種別
- *  3. ステータス該当車両の一覧（ステータスの流れ順 → 仕入が古い順、経過日数つき）
+ *  1. ステータスごとの台数（在庫＝輸入車マスタ・国産車マスタ）：台数・在庫に占める割合と棒
+ *  2. 名義変更済み以外の車両の一覧（ステータスの流れ順 → 仕入が古い順、仕入からの経過日数つき）
  */
 function buildDashboard_(ss, allColMaps) {
   var masters = {};
   MASTER_SHEETS.forEach(function (n) { if (allColMaps[n]) masters[n] = allColMaps[n]; });
-  var only = function (name) { var o = {}; if (masters[name]) o[name] = masters[name]; return o; };
-  var imports = only(SHEET.IMPORT_MASTER), domestics = only(SHEET.DOMESTIC_MASTER);
-  var allVehicles = {};
-  VEHICLE_SHEETS.forEach(function (n) { if (allColMaps[n]) allVehicles[n] = allColMaps[n]; });
-  var sold = {}; if (allColMaps[SHEET.SOLD]) sold[SHEET.SOLD] = allColMaps[SHEET.SOLD];
-  var settings = getSettings_();
-  var lists = readLists_();
+  var T = DASHBOARD_THEME;
 
   var sheet = ss.getSheetByName(SHEET.DASHBOARD) || ss.insertSheet(SHEET.DASHBOARD, 0);
   sheet.getBandings().forEach(function (bd) { bd.remove(); });
   sheet.clear();
   sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).breakApart();
   sheet.setConditionalFormatRules([]);
+  sheet.setFrozenRows(0);
   var W = DASHBOARD_LIST_COLUMNS.length + 1; // 12列
-  if (sheet.getMaxColumns() < W) sheet.insertColumnsAfter(sheet.getMaxColumns(), W - sheet.getMaxColumns());
+  if (sheet.getMaxColumns() < W + 1) sheet.insertColumnsAfter(sheet.getMaxColumns(), W + 1 - sheet.getMaxColumns());
   sheet.setHiddenGridlines(true);
-  sheet.setTabColor('#c25e00');
-  sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).setFontSize(10).setVerticalAlignment('middle').setWrap(false);
+  sheet.setTabColor(T.ink);
+  var all = sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns());
+  all.setFontSize(10).setFontColor(T.ink).setVerticalAlignment('middle').setWrap(false).setBackground(T.page);
 
-  // タイトルと基準日
-  sheet.getRange('A1').setValue('ダッシュボード').setFontSize(16).setFontWeight('bold').setFontColor('#1f2d33');
-  sheet.getRange(1, W - 1).setValue('基準日').setFontColor('#5d6a64').setHorizontalAlignment('right');
-  sheet.getRange(1, W).setFormula('=TODAY()').setNumberFormat('yyyy/MM/dd（ddd）').setFontWeight('bold').setHorizontalAlignment('right');
-  sheet.setRowHeight(1, 34);
+  // 見出し：タイトルと基準日
+  sheet.setRowHeight(1, 14);
+  sheet.getRange(2, 1, 1, 6).merge().setValue('ダッシュボード').setFontSize(18).setFontWeight('bold').setFontColor(T.ink);
+  sheet.getRange(2, W - 2, 1, 3).merge().setFormula('="基準日　"&TEXT(TODAY(),"yyyy/mm/dd（ddd）")')
+    .setFontColor(T.muted).setHorizontalAlignment('right');
+  sheet.setRowHeight(2, 36);
+  sheet.setRowHeight(3, 10);
 
+  // 1. ステータスごとの台数（カード5枚。一覧の列幅に合わせ、どのカードもほぼ同じ幅になる列の組み合わせにする）
   var inStock = ['ocn', '"<>"'];
-  var monthStart = 'DATE(YEAR(TODAY()),MONTH(TODAY()),1)', nextMonth = 'EDATE(' + monthStart + ',1)';
-  var preSets = function (extra) { return PRE_TRANSFER_STATUSES.map(function (st) { return [['status', '"' + st + '"']].concat(extra || []); }); };
+  var totalFormula = buildCountifsFormula(masters, [[inStock]]).substring(1);
+  var cards = DASHBOARD_STATUSES.map(function (st) {
+    return { label: st, formula: buildCountifsFormula(masters, [[['status', '"' + st + '"'], inStock]]).substring(1), accent: T.status[st].accent, tint: T.status[st].tint };
+  });
+  cards.push({ label: '在庫 合計', formula: totalFormula, accent: T.ink, tint: '#eef1f3', total: true });
+  var cardTop = 4;
+  var spans = DASHBOARD_CARD_SPANS;
+  cards.forEach(function (c, i) {
+    var col = spans[i][0], n = spans[i][1];
+    sheet.getRange(cardTop, col, 1, n).merge().setBackground(c.accent);                                    // 色の帯
+    sheet.getRange(cardTop + 1, col, 1, n).merge().setValue(c.label).setBackground(c.tint)
+      .setFontColor(c.total ? T.ink : c.accent).setFontWeight('bold').setFontSize(10).setHorizontalAlignment('left');
+    sheet.getRange(cardTop + 2, col, 1, n).merge().setFormula('=' + c.formula).setBackground(c.tint)
+      .setFontColor(T.ink).setFontSize(30).setFontWeight('bold').setHorizontalAlignment('left').setNumberFormat('0"台"');
+    var share = c.total ? '1' : 'IFERROR((' + c.formula + ')/(' + totalFormula + '),0)';
+    sheet.getRange(cardTop + 3, col, 1, n).merge()
+      .setFormula('=SPARKLINE(' + share + ',{"charttype","bar";"max",1;"color1","' + c.accent + '";"empty","zero"})').setBackground(c.tint);
+    sheet.getRange(cardTop + 4, col, 1, n).merge()
+      .setFormula(c.total ? '="輸入車 "&(' + buildCountifsFormula(onlySheet_(masters, SHEET.IMPORT_MASTER), [[inStock]]).substring(1) + ')&"台 ／ 国産車 "&(' + buildCountifsFormula(onlySheet_(masters, SHEET.DOMESTIC_MASTER), [[inStock]]).substring(1) + ')&"台"'
+        : '="在庫の "&TEXT(' + share + ',"0%")')
+      .setBackground(c.tint).setFontColor(T.muted).setFontSize(9).setHorizontalAlignment('left');
+    sheet.getRange(cardTop, col, 5, n).setBorder(true, true, true, true, null, null, T.page, SpreadsheetApp.BorderStyle.SOLID_THICK);
+  });
+  sheet.setRowHeight(cardTop, 6);
+  sheet.setRowHeight(cardTop + 1, 26);
+  sheet.setRowHeight(cardTop + 2, 46);
+  sheet.setRowHeight(cardTop + 3, 14);
+  sheet.setRowHeight(cardTop + 4, 22);
+  sheet.setRowHeight(cardTop + 5, 18);
 
-  // 1. 台数の一覧
-  var tiles = PRE_TRANSFER_STATUSES.map(function (st) {
-    return { label: st, formula: buildCountifsFormula(masters, [[['status', '"' + st + '"']]]), bg: STATUS_COLORS[st].bg, fg: STATUS_COLORS[st].fg };
-  });
-  tiles.push({ label: '名義変更前 合計', formula: buildCountifsFormula(masters, preSets()), bg: '#263238', fg: '#ffffff' });
-  tiles.push({ label: STATUS_TRANSFERRED, formula: buildCountifsFormula(masters, [[['status', '"' + STATUS_TRANSFERRED + '"']]]), bg: STATUS_COLORS[STATUS_TRANSFERRED].bg, fg: STATUS_COLORS[STATUS_TRANSFERRED].fg });
-  tiles.push({ label: '在庫台数', formula: buildCountifsFormula(masters, [[inStock]]), bg: '#eceff1', fg: '#263238' });
-  tiles.push({ label: '　うち輸入車', formula: buildCountifsFormula(imports, [[inStock]]), bg: '#e8eef2', fg: '#1f4e5f' });
-  tiles.push({ label: '　うち国産車', formula: buildCountifsFormula(domestics, [[inStock]]), bg: '#e8f2ea', fg: '#2f6a3b' });
-  tiles.push({ label: '車検満了' + settings.expiryDays + '日以内', formula: buildCountifsFormula(masters, [[inStock, ['inspectionExpiry', '">"&TODAY()'], ['inspectionExpiry', '"<="&(TODAY()+' + settings.expiryDays + ')']]]), bg: '#efe3f7', fg: '#5b3aa8' });
-  tiles.push({ label: '車検満了（在庫）', formula: buildCountifsFormula(masters, [[inStock, ['inspectionExpiry', '"<="&TODAY()']]]), bg: '#fce8e6', fg: '#a50e0e' });
-  tiles.push({ label: '今月の仕入', formula: buildCountifsFormula(allVehicles, [[['purchaseDate', '">="&' + monthStart], ['purchaseDate', '"<"&' + nextMonth]]]), bg: '#e3effd', fg: '#0b57a4' });
-  tiles.push({ label: '今月の売上', formula: buildCountifsFormula(sold, [[['saleDate', '">="&' + monthStart], ['saleDate', '"<"&' + nextMonth]]]), bg: '#fef7d6', fg: '#7a5c00' });
-  tiles = tiles.slice(0, W);
-  tiles.forEach(function (t, i) {
-    sheet.getRange(3, i + 1).setValue(t.label).setBackground(t.bg).setFontColor(t.fg).setFontWeight('bold').setFontSize(9).setHorizontalAlignment('center');
-    sheet.getRange(4, i + 1).setFormula(t.formula).setBackground(t.bg).setFontColor(t.fg).setFontSize(20).setFontWeight('bold')
-      .setHorizontalAlignment('center').setNumberFormat('0"台"');
-    sheet.getRange(3, i + 1, 2, 1).setBorder(true, true, true, true, null, null, '#ffffff', SpreadsheetApp.BorderStyle.SOLID_THICK);
-  });
-  sheet.setRowHeight(3, 24);
-  sheet.setRowHeight(4, 44);
-
-  // 2. 集計表（左：A〜E、右：G〜L）
-  var L0 = 1, R0 = 7;
-  var row = 6;
-  var cnt = function (maps, sets) { return buildCountifsFormula(maps, sets); };
-  var sumOf = function (r, c1, c2) { return '=SUM(' + columnLetter(c1) + r + ':' + columnLetter(c2) + r + ')'; };
-
-  // 段1 左：ステータス別（在庫）
-  var stockStatuses = PRE_TRANSFER_STATUSES.concat([STATUS_TRANSFERRED]);
-  var leftRows = stockStatuses.map(function (st) {
-    var set = [[['status', '"' + st + '"'], inStock]];
-    return { label: st, style: STATUS_COLORS[st], values: [cnt(imports, set), cnt(domestics, set), null] };
-  });
-  leftRows.push({ label: '（ステータス未入力）', values: [cnt(imports, [[['status', '""'], inStock]]), cnt(domestics, [[['status', '""'], inStock]]), null] });
-  // 段1 右：担当者別（名義変更前）
-  var staffNames = (lists.staff || []).map(function (e) { return e.value; });
-  var rightRows = staffNames.map(function (name) {
-    return { label: name, values: PRE_TRANSFER_STATUSES.map(function (st) { return cnt(masters, [[['status', '"' + st + '"'], ['staff', '"' + name.replace(/"/g, '""') + '"']]]); }).concat([null]) };
-  });
-  rightRows.push({ label: '（担当未入力）', values: PRE_TRANSFER_STATUSES.map(function (st) { return cnt(masters, [[['status', '"' + st + '"'], ['staff', '""']]]); }).concat([null]) });
-  var h1 = Math.max(
-    writeDashTable_(sheet, row, L0, 'ステータス別（在庫）', ['ステータス', '輸入車', '国産車', '計'], leftRows, { total: true, bar: '#1f4e5f' }),
-    writeDashTable_(sheet, row, R0, '担当者別（名義変更前）', ['担当'].concat(PRE_TRANSFER_STATUSES).concat(['計']), rightRows, { total: true, bar: '#35527a', headStyles: PRE_TRANSFER_STATUSES.map(function (st) { return STATUS_COLORS[st]; }) }));
-  row += h1 + 1;
-
-  // 段2 左：経過日数（名義変更前・仕入から）
-  var ageBuckets = [
-    { label: '14日以内', crit: [['purchaseDate', '">="&(TODAY()-14)']] },
-    { label: '15〜30日', crit: [['purchaseDate', '">="&(TODAY()-30)'], ['purchaseDate', '"<="&(TODAY()-15)']] },
-    { label: '31〜60日', crit: [['purchaseDate', '">="&(TODAY()-60)'], ['purchaseDate', '"<="&(TODAY()-31)']], style: { bg: '#fef7d6', fg: '#7a5c00' } },
-    { label: '61日以上', crit: [['purchaseDate', '"<="&(TODAY()-61)']], style: { bg: '#fce8e6', fg: '#a50e0e' } },
-    { label: '（仕入日未入力）', crit: [['purchaseDate', '""']] }
-  ];
-  var ageRows = ageBuckets.map(function (bk) {
-    return { label: bk.label, style: bk.style, values: [cnt(imports, preSets(bk.crit)), cnt(domestics, preSets(bk.crit)), null] };
-  });
-  // 段2 右：車検満了の見込み（在庫）
-  var expBuckets = [
-    { label: '満了済み', crit: [['inspectionExpiry', '"<="&TODAY()']], style: { bg: '#fce8e6', fg: '#a50e0e' } },
-    { label: '30日以内', crit: [['inspectionExpiry', '">"&TODAY()'], ['inspectionExpiry', '"<="&(TODAY()+30)']], style: { bg: '#feefe3', fg: '#9a4a00' } },
-    { label: '31〜90日', crit: [['inspectionExpiry', '">"&(TODAY()+30)'], ['inspectionExpiry', '"<="&(TODAY()+90)']], style: { bg: '#fef7d6', fg: '#7a5c00' } },
-    { label: '91〜180日', crit: [['inspectionExpiry', '">"&(TODAY()+90)'], ['inspectionExpiry', '"<="&(TODAY()+180)']] },
-    { label: '181日以上', crit: [['inspectionExpiry', '">"&(TODAY()+180)']] },
-    { label: '（満了日未入力）', crit: [['inspectionExpiry', '""']] }
-  ];
-  var expRows = expBuckets.map(function (bk) {
-    var set = [[inStock].concat(bk.crit)];
-    return { label: bk.label, style: bk.style, values: [cnt(imports, set), cnt(domestics, set), null] };
-  });
-  var h2 = Math.max(
-    writeDashTable_(sheet, row, L0, '経過日数（名義変更前・仕入から）', ['経過日数', '輸入車', '国産車', '計'], ageRows, { total: true, bar: '#b35400' }),
-    writeDashTable_(sheet, row, R0, '車検満了の見込み（在庫）', ['車検満了まで', '輸入車', '国産車', '計', '割合'], expRows, { total: true, share: true, bar: '#5b3aa8' }));
-  row += h2 + 1;
-
-  // 段3 左：区分別（在庫）
-  var catRows = CATEGORY_OPTIONS.map(function (c) {
-    var set = [[['category', '"' + c + '"'], inStock]];
-    return { label: c, style: CATEGORY_COLORS[c], values: [cnt(imports, set), cnt(domestics, set), null] };
-  });
-  catRows.push({ label: '（区分未入力）', values: [cnt(imports, [[['category', '""'], inStock]]), cnt(domestics, [[['category', '""'], inStock]]), null] });
-  var h3left = writeDashTable_(sheet, row, L0, '区分別（在庫）', ['区分', '輸入車', '国産車', '計'], catRows, { total: true, bar: '#2f6a3b' });
-  // 段3 右：車種別 在庫台数（多い順・上位15）
-  var h3right = writeMakerRanking_(sheet, row, R0, masters, 15);
-  row += Math.max(h3left, h3right) + 1;
-
-  // 3. ステータス該当車両の一覧
-  var listTitleRow = row, listHeaderRow = row + 1, listRow = row + 2;
-  sheet.getRange(listTitleRow, 1, 1, W).merge().setValue('ステータス該当車両の一覧（名義変更前：ステータスの流れ順 → 仕入が古い順）')
-    .setBackground('#263238').setFontColor('#ffffff').setFontWeight('bold');
+  // 2. 名義変更済み以外の一覧
+  var titleRow = cardTop + 6, headerRow = titleRow + 1, listRow = titleRow + 2;
+  sheet.getRange(titleRow, 1, 1, 6).merge().setValue('名義変更済み以外の車両').setFontSize(13).setFontWeight('bold').setFontColor(T.ink);
+  sheet.getRange(titleRow, 7, 1, W - 6).merge()
+    .setFormula('=(' + buildCountifsFormula(masters, [[inStock]]).substring(1) + ')-(' +
+      buildCountifsFormula(masters, [[['status', '"' + STATUS_TRANSFERRED + '"'], inStock]]).substring(1) + ')&"台　ステータスの流れ順 → 仕入が古い順"')
+    .setFontColor(T.muted).setHorizontalAlignment('right');
+  sheet.setRowHeight(titleRow, 34);
   var headers = [DASHBOARD_LIST_COLUMNS[0].label, '経過日数'].concat(DASHBOARD_LIST_COLUMNS.slice(1).map(function (c) { return c.label; }));
-  sheet.getRange(listHeaderRow, 1, 1, headers.length).setValues([headers]).setBackground('#eceff1').setFontColor('#263238')
-    .setFontWeight('bold').setHorizontalAlignment('center');
-  sheet.getRange(listRow, 1).setFormula(buildDashboardListFormula(masters, PRE_TRANSFER_STATUSES));
+  sheet.getRange(headerRow, 1, 1, headers.length).setValues([headers]).setBackground(T.ink).setFontColor('#ffffff')
+    .setFontWeight('bold').setFontSize(9).setHorizontalAlignment('center');
+  sheet.setRowHeight(headerRow, 30);
+  sheet.getRange(listRow, 1).setFormula(buildDashboardListFormula(masters, DASHBOARD_STATUSES, [STATUS_TRANSFERRED, STATUS_SOLD]));
+
   var bodyRows = Math.max(sheet.getMaxRows() - listRow + 1, 1);
+  var body = sheet.getRange(listRow, 1, bodyRows, headers.length);
+  body.setBackground(null).setFontColor(T.ink);
+  body.applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false).setFirstRowColor('#ffffff').setSecondRowColor(T.band);
+  sheet.setRowHeights(listRow, Math.min(bodyRows, 500), 26);
   var colIndex = function (key) { return key === '__days' ? 2 : 2 + DASHBOARD_LIST_COLUMNS.map(function (c) { return c.key; }).indexOf(key); };
   sheet.getRange(listRow, colIndex('__days'), bodyRows, 1).setNumberFormat('0"日"').setHorizontalAlignment('right');
   ['purchaseDate', 'inspectionExpiry'].forEach(function (k) {
     sheet.getRange(listRow, colIndex(k), bodyRows, 1).setNumberFormat(DATE_FORMAT).setHorizontalAlignment('center');
   });
-  sheet.getRange(listRow, colIndex('ocn'), bodyRows, 1).setNumberFormat('0').setHorizontalAlignment('center');
-  sheet.getRange(listRow, 1, bodyRows, 1).setHorizontalAlignment('center');
-  sheet.getRange(listRow, 1, bodyRows, headers.length).applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false)
-    .setFirstRowColor(BAND_COLORS[0]).setSecondRowColor(BAND_COLORS[1]);
+  ['ocn', 'sheetLabel', 'maker', 'staff', 'category'].forEach(function (k) {
+    sheet.getRange(listRow, colIndex(k), bodyRows, 1).setHorizontalAlignment('center');
+  });
+  sheet.getRange(listRow, colIndex('ocn'), bodyRows, 1).setNumberFormat('0');
+  sheet.getRange(listRow, 1, bodyRows, 1).setHorizontalAlignment('center').setFontWeight('bold');
+  sheet.getRange(headerRow, 1, 1, headers.length).setBorder(null, null, true, null, null, null, T.ink, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
+  // 一覧の色：ステータスのチップ、経過日数（31日以上は橙、61日以上は赤）
   var rules = [];
   var statusRange = sheet.getRange(listRow, 1, bodyRows, 1), daysRange = sheet.getRange(listRow, 2, bodyRows, 1);
-  PRE_TRANSFER_STATUSES.forEach(function (st) {
-    rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(st).setBackground(STATUS_COLORS[st].bg)
-      .setFontColor(STATUS_COLORS[st].fg).setBold(true).setRanges([statusRange]).build());
+  DASHBOARD_STATUSES.concat(['未入力']).forEach(function (st) {
+    var c = T.status[st];
+    if (!c) return;
+    rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(st).setBackground(c.tint).setFontColor(c.accent).setRanges([statusRange]).build());
   });
-  rules.push(SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThanOrEqualTo(61).setFontColor('#c5221f').setBold(true).setRanges([daysRange]).build());
-  rules.push(SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThanOrEqualTo(31).setFontColor('#b35400').setBold(true).setRanges([daysRange]).build());
+  rules.push(SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThanOrEqualTo(61).setBackground('#fdecea').setFontColor('#c5221f').setBold(true).setRanges([daysRange]).build());
+  rules.push(SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThanOrEqualTo(31).setBackground('#fef3e2').setFontColor('#b35400').setBold(true).setRanges([daysRange]).build());
   sheet.setConditionalFormatRules(rules);
-  sheet.setFrozenRows(4);
+  sheet.setFrozenRows(headerRow);
 
-  // 列幅：一覧の内容に合わせ、集計表・台数の一覧が読める幅は確保する
-  var mins = [DASHBOARD_LIST_COLUMNS[0].width, 80].concat(DASHBOARD_LIST_COLUMNS.slice(1).map(function (c) { return c.width; }));
-  SpreadsheetApp.flush();
-  sheet.autoResizeColumns(1, W);
-  mins.forEach(function (w, i) { sheet.setColumnWidth(i + 1, Math.min(Math.max(sheet.getColumnWidth(i + 1) + 16, w, 104), 360)); });
+  // 列幅（固定）
+  var widths = DASHBOARD_COLUMN_WIDTHS;
+  widths.forEach(function (w, i) { sheet.setColumnWidth(i + 1, w); });
+  sheet.setColumnWidth(W + 1, 16);
 
   var existing = sheet.getProtections(SpreadsheetApp.ProtectionType.SHEET);
   if (!existing.length) sheet.protect().setDescription('ダッシュボード（自動集計）').setWarningOnly(true);
   return sheet;
 }
 
-/**
- * ダッシュボードの集計表を1つ書く。
- *  1行目：表題、2行目：見出し、3行目〜：各行（値は数式。null の列は左の値の合計）、合計行、右端に棒グラフ
- * @param {{total?:boolean, share?:boolean, bar?:string, headStyles?:Array}} opts share：「割合」列を計の右に置く
- * @return {number} 使った行数
- */
-function writeDashTable_(sheet, top, left, title, headers, rows, opts) {
-  opts = opts || {};
-  var nValues = headers.length - 1;              // 値の列数（計・割合を含む）
-  var sumCol = left + (opts.share ? nValues - 1 : nValues); // 「計」の列（1始まり）
-  var width = headers.length + 1;                 // ＋棒グラフ
-  var first = top + 2, last = first + rows.length - 1, totalRow = last + 1;
-
-  sheet.getRange(top, left, 1, width).merge().setValue(title).setBackground('#263238').setFontColor('#ffffff').setFontWeight('bold');
-  sheet.getRange(top + 1, left, 1, width).setValues([headers.concat([''])]).setBackground('#eceff1').setFontColor('#263238')
-    .setFontWeight('bold').setHorizontalAlignment('center');
-  (opts.headStyles || []).forEach(function (st, i) {
-    sheet.getRange(top + 1, left + 1 + i).setBackground(st.bg).setFontColor(st.fg);
-  });
-
-  rows.forEach(function (r, i) {
-    var rr = first + i;
-    var labelCell = sheet.getRange(rr, left).setValue(r.label).setFontWeight('bold');
-    if (r.style) labelCell.setBackground(r.style.bg).setFontColor(r.style.fg).setHorizontalAlignment('center');
-    r.values.forEach(function (f, j) {
-      var cell = sheet.getRange(rr, left + 1 + j);
-      if (f === null) cell.setFormula('=SUM(' + columnLetter(left + 1) + rr + ':' + columnLetter(left + j) + rr + ')').setFontWeight('bold');
-      else cell.setFormula(f);
-    });
-    if (opts.share) {
-      sheet.getRange(rr, sumCol + 1).setFormula('=IFERROR(' + columnLetter(sumCol) + rr + '/' + columnLetter(sumCol) + totalRow + ',0)').setNumberFormat('0%');
-    }
-    var sumRange = '$' + columnLetter(sumCol) + '$' + first + ':$' + columnLetter(sumCol) + '$' + last;
-    sheet.getRange(rr, left + headers.length).setFormula('=SPARKLINE(' + columnLetter(sumCol) + rr + ',{"charttype","bar";"max",MAX(1,' + sumRange + ');"color1","' + (opts.bar || '#1f4e5f') + '"})');
-  });
-  var body = sheet.getRange(first, left + 1, rows.length, nValues);
-  body.setNumberFormat('0').setHorizontalAlignment('right');
-  if (opts.share) sheet.getRange(first, sumCol + 1, rows.length + 1, 1).setNumberFormat('0%');
-
-  if (opts.total) {
-    sheet.getRange(totalRow, left).setValue('合計').setFontWeight('bold');
-    for (var c = left + 1; c <= sumCol; c++) {
-      sheet.getRange(totalRow, c).setFormula('=SUM(' + columnLetter(c) + first + ':' + columnLetter(c) + last + ')').setNumberFormat('0').setHorizontalAlignment('right');
-    }
-    if (opts.share) sheet.getRange(totalRow, sumCol + 1).setValue(1).setNumberFormat('0%').setHorizontalAlignment('right');
-    sheet.getRange(totalRow, left, 1, width).setFontWeight('bold').setBackground('#f5f7f8')
-      .setBorder(true, null, null, null, null, null, '#90a4ae', SpreadsheetApp.BorderStyle.SOLID);
-  }
-  var usedRows = 2 + rows.length + (opts.total ? 1 : 0);
-  sheet.getRange(top, left, usedRows, width).setBorder(true, true, true, true, null, null, '#cfd8dc', SpreadsheetApp.BorderStyle.SOLID);
-  return usedRows;
-}
-
-/** 車種別の在庫台数（多い順・上位 limit 件）。QUERY で並べ、右に文字の棒グラフを付ける */
-function writeMakerRanking_(sheet, top, left, masters, limit) {
-  var width = 6;
-  sheet.getRange(top, left, 1, width).merge().setValue('車種別 在庫台数（多い順・上位' + limit + '）')
-    .setBackground('#263238').setFontColor('#ffffff').setFontWeight('bold');
-  sheet.getRange(top + 1, left, 1, width).setValues([['車種', '台数', '', '', '', '']]).setBackground('#eceff1')
-    .setFontColor('#263238').setFontWeight('bold').setHorizontalAlignment('center');
-  var first = top + 2, last = first + limit - 1;
-  sheet.getRange(first, left).setFormula(buildMakerRankingFormula(masters, limit));
-  var countCol = columnLetter(left + 1);
-  var countRange = countCol + first + ':' + countCol + last;
-  sheet.getRange(first, left + 2).setFormula('=ARRAYFORMULA(IF(' + countRange + '="","",REPT("▇",ROUND(' + countRange + '/MAX(1,' + countRange + ')*24))))');
-  sheet.getRange(first, left + 2, limit, 1).setFontColor('#35527a');
-  sheet.getRange(first, left, limit, 1).setFontWeight('bold').setHorizontalAlignment('center');
-  sheet.getRange(first, left + 1, limit, 1).setNumberFormat('0"台"').setHorizontalAlignment('right');
-  sheet.getRange(top, left, 2 + limit, width).setBorder(true, true, true, true, null, null, '#cfd8dc', SpreadsheetApp.BorderStyle.SOLID);
-  return 2 + limit;
+function onlySheet_(colMaps, name) {
+  var o = {};
+  if (colMaps[name]) o[name] = colMaps[name];
+  return o;
 }
 
 /**
@@ -2134,8 +2031,6 @@ function onEdit(e) {
 
   if (linkedRows.length) markTransferred_(sheet, cols, linkedRows);
 
-  // 入力した列は、文字が収まるように幅を自動で広げる（狭くはしない）
-  if (numCols <= 30) widenColumnsToFit_(sheet, startCol, numCols);
 
   if (MASTER_SHEETS.indexOf(name) !== -1 && cols.status !== undefined) {
     var sc = cols.status + 1;
@@ -2144,17 +2039,6 @@ function onEdit(e) {
       for (var sr = 0; sr < numRows; sr++) if (values[sr][sc - startCol] === STATUS_SOLD) soldRows.push(startRow + sr);
       if (soldRows.length) confirmAndMoveSold_(ss, sheet, soldRows, e.oldValue);
     }
-  }
-}
-
-/** 列幅を内容に合わせて広げる（入力時用。今の幅より狭くはしない） */
-function widenColumnsToFit_(sheet, startCol, numCols) {
-  var widths = [];
-  for (var i = 0; i < numCols; i++) widths.push(sheet.getColumnWidth(startCol + i));
-  sheet.autoResizeColumns(startCol, numCols);
-  for (var j = 0; j < numCols; j++) {
-    var fitted = Math.min(sheet.getColumnWidth(startCol + j) + 24, 480);
-    sheet.setColumnWidth(startCol + j, Math.max(widths[j], fitted));
   }
 }
 

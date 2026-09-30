@@ -341,31 +341,39 @@ test('COUNTIFS の合計：シートごと・条件の組ごとに数えて足�
   assert.strictEqual(S.buildCountifsFormula({ '輸入車マスタ': noStaff }, [[['staff', '""']]]), '=0');
   assert.strictEqual(S.buildCountifsFormula({}, [[['status', '"a"']]]), '=0');
 });
-test('車種別の在庫台数：2つのマスタの車種を集計し、多い順に上位だけ', () => {
-  const f = S.buildMakerRankingFormula(masters, 15);
-  assert.ok(f.indexOf("QUERY(VSTACK('輸入車マスタ'!C2:C,'国産車マスタ'!C2:C)") !== -1);
-  assert.ok(f.indexOf('order by count(Col1) desc limit 15') !== -1);
-});
-test('該当車両の一覧：2つのマスタを縦につなぎ、対象ステータスだけを流れ順→仕入が古い順', () => {
-  const f = S.buildDashboardListFormula(masters, S.PRE_TRANSFER_STATUSES);
+test('一覧：2つのマスタを縦につなぎ、名義変更済み・販売済み以外を流れ順→仕入が古い順（空欄は未入力）', () => {
+  const f = S.buildDashboardListFormula(masters, S.DASHBOARD_STATUSES, ['名義変更済み', '販売済み']);
   assert.ok(f.indexOf("VSTACK(HSTACK('輸入車マスタ'!T2:T,'輸入車マスタ'!A2:A,'輸入車マスタ'!B2:B,IF('輸入車マスタ'!T2:T=\"\",\"\",\"輸入車\")") !== -1);
   assert.ok(f.indexOf("HSTACK('国産車マスタ'!T2:T") !== -1);
-  assert.ok(f.indexOf('t,{"書類待ち";"車庫証明申請中";"名義変更中"}') !== -1);
-  assert.ok(f.indexOf('SORT(f,MATCH(INDEX(f,,1),t,0),TRUE,INDEX(f,,2),TRUE)') !== -1);
+  assert.ok(f.indexOf('t,{"書類待ち";"車庫証明申請中";"名義変更中";"名義変更済み"}') !== -1);
+  assert.ok(f.indexOf('x,{"名義変更済み";"販売済み"}') !== -1);
+  assert.ok(f.indexOf('FILTER(d,(INDEX(d,,3)<>"")*ISNA(MATCH(INDEX(d,,1),x,0)))') !== -1); // OCN がある行・除外ステータス以外
+  assert.ok(f.indexOf('SORT(f,IFERROR(MATCH(INDEX(f,,1),t,0),99),TRUE,INDEX(f,,2),TRUE)') !== -1);
+  assert.ok(f.indexOf('IF(INDEX(s,,1)="","未入力",INDEX(s,,1))') !== -1);
   assert.ok(f.indexOf('IF(ISNUMBER(INDEX(s,,2)),TODAY()-INDEX(s,,2),"")') !== -1);
   assert.ok(f.indexOf('CHOOSECOLS(s,2,3,4,5,6,7,8,9,10,11)') !== -1);
   assert.ok(/"該当する車両はありません"\)$/.test(f));
-  // 括弧の対応
   let depth = 0;
   for (const ch of f.replace(/"[^"]*"/g, '')) { if (ch === '(') depth++; if (ch === ')') depth--; assert.ok(depth >= 0); }
   assert.strictEqual(depth, 0);
 });
 test('一覧：列が無いシートは空欄で埋め、ステータス列が無ければ対象外', () => {
   const partial = Object.assign({}, stdCols); delete partial.staff;
-  const f = S.buildDashboardListFormula({ '輸入車マスタ': partial }, ['書類待ち']);
+  const f = S.buildDashboardListFormula({ '輸入車マスタ': partial }, ['書類待ち'], []);
   assert.ok(f.indexOf('IF(\'輸入車マスタ\'!T2:T="","","")') !== -1);
   const noStatus = Object.assign({}, stdCols); delete noStatus.status;
-  assert.strictEqual(S.buildDashboardListFormula({ '輸入車マスタ': noStatus }, ['書類待ち']), '="ステータスの列が見つかりません"');
+  assert.strictEqual(S.buildDashboardListFormula({ '輸入車マスタ': noStatus }, ['書類待ち'], []), '="ステータスの列が見つかりません"');
+});
+test('ダッシュボードの配色：台数を出す4ステータスと未入力に色がある', () => {
+  assert.deepStrictEqual(Array.from(S.DASHBOARD_STATUSES), ['書類待ち', '車庫証明申請中', '名義変更中', '名義変更済み']);
+  S.DASHBOARD_STATUSES.concat(['未入力']).forEach((st) => assert.ok(S.DASHBOARD_THEME.status[st].accent, st));
+});
+
+test('台数カード5枚の幅がほぼそろう（差は20px以内）', () => {
+  const w = S.DASHBOARD_COLUMN_WIDTHS;
+  const widths = Array.from(S.DASHBOARD_CARD_SPANS, ([c, n]) => w.slice(c - 1, c - 1 + n).reduce((a, b) => a + b, 0));
+  assert.strictEqual(widths.length, S.DASHBOARD_STATUSES.length + 1);
+  assert.ok(Math.max(...widths) - Math.min(...widths) <= 20, widths.join(','));
 });
 
 console.log('== 計算式の設定（X〜AC列）==');
