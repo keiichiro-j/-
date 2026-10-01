@@ -38,6 +38,7 @@ var SHEET = {
   SOLD: '販売済み',
   LOG: 'ログ',
   DASHBOARD: 'ダッシュボード',
+  PURCHASE: '仕入集計',
   OLD_SETTINGS: '設定' // 以前の版の設定シート（選択肢をアプリへ移したあと削除する）
 };
 var MASTER_SHEETS = [SHEET.IMPORT_MASTER, SHEET.DOMESTIC_MASTER];
@@ -263,15 +264,11 @@ var PRE_TRANSFER_STATUSES = ['書類待ち', '車庫証明申請中', '名義変
 /** ダッシュボードの列幅（一覧の12列）と、台数カードの位置 [開始列, 列数]（幅がほぼそろう組み合わせ） */
 var DASHBOARD_COLUMN_WIDTHS = [112, 76, 96, 84, 90, 96, 170, 170, 160, 100, 110, 110];
 var DASHBOARD_CARD_SPANS = [[1, 2], [3, 2], [5, 2], [7, 1], [8, 1]];
-/** 月別の仕入：選んだ月の合計カード6枚の位置 */
-var DASHBOARD_MONTH_CARD_SPANS = [[1, 2], [3, 2], [5, 2], [7, 1], [8, 1], [9, 1]];
-
 /**
- * 月別の仕入で合計する金額の列（表の列の順）。
- * 販売済みを含む3シートの全車両を、仕入年月日の月で集計する。
+ * 仕入集計タブ：期間（開始日〜終了日）に仕入れた車両を、販売済みを含む3シートから集計する。
+ * カードで合計する項目（期間の合計と、前の同じ日数の期間の合計）
  */
-var MONTHLY_AMOUNT_KEYS = ['tradeInAllowance', 'recycleFee', 'tradeInPrice', 'appraisalPrice', 'tradeInLoss', 'purchasePrice'];
-var MONTHLY_CARDS = [
+var PURCHASE_CARDS = [
   { key: '__count', label: '仕入台数' },
   { key: 'purchasePrice', label: '仕入価格 合計' },
   { key: 'appraisalPrice', label: '査定価格 合計' },
@@ -279,9 +276,27 @@ var MONTHLY_CARDS = [
   { key: 'tradeInAllowance', label: '下取充当額 合計' },
   { key: 'tradeInLoss', label: '下取損 合計' }
 ];
-var MONTHLY_MONTHS = 12;
-/** 集計期間（開始日・終了日）のセルの位置（ダッシュボードを作り直しても選んだ日付を残す） */
-var DASHBOARD_PERIOD = { row: 10, startCol: 10, endCol: 12 };
+/** 仕入集計タブの一覧の列（sheetLabel は 輸入車／国産車／販売済み。money は合計行を出す列） */
+var PURCHASE_LIST_COLUMNS = [
+  { key: 'purchaseDate', label: '仕入年月日', width: 96 },
+  { key: 'ocn', label: 'OCN', width: 72 },
+  { key: 'sheetLabel', label: 'シート', width: 76 },
+  { key: 'status', label: 'ステータス', width: 120 },
+  { key: 'maker', label: '車種', width: 120 },
+  { key: 'modelName', label: 'モデル名', width: 168 },
+  { key: 'category', label: '区分', width: 76 },
+  { key: 'staff', label: '担当', width: 80 },
+  { key: 'supplier', label: '仕入先', width: 160 },
+  { key: 'appraisalPrice', label: '査定価格', width: 84, money: true },
+  { key: 'tradeInPrice', label: '下取価格', width: 84, money: true },
+  { key: 'tradeInAllowance', label: '下取充当額', width: 84, money: true },
+  { key: 'tradeInLoss', label: '下取損', width: 116, money: true },
+  { key: 'purchasePrice', label: '仕入価格', width: 124, money: true }
+];
+/** 仕入集計タブの合計カード6枚の位置 [開始列, 列数]（幅がほぼそろう組み合わせ） */
+var PURCHASE_CARD_SPANS = [[1, 3], [4, 2], [6, 2], [8, 2], [10, 3], [13, 2]];
+/** 集計期間（開始日・終了日）のセルの位置（タブを作り直しても選んだ日付を残す） */
+var PURCHASE_PERIOD = { row: 4, startCol: 4, endCol: 5 };
 var AMOUNT_FORMAT = '#,##0;-#,##0;"–"';     // 0 は「–」
 var COUNT_FORMAT = '0"台";-0"台";"–"';
 
@@ -868,11 +883,6 @@ function resolveDashboardPeriod(startValue, endValue, today) {
   return { start: new Date(today.getFullYear(), today.getMonth(), 1), end: new Date(today.getFullYear(), today.getMonth(), today.getDate()) };
 }
 
-/** 月（その月の1日の日付）の式・セルから、仕入年月日がその月に入る条件 */
-function monthCriteria(monthRef) {
-  return [['purchaseDate', '">="&' + monthRef], ['purchaseDate', '"<"&EDATE(' + monthRef + ',1)']];
-}
-
 /**
  * ダッシュボード：車両の一覧（輸入車マスタ・国産車マスタ）。
  * OCN が入っている行のうち、除外するステータス（名義変更済み・販売済み）以外を、
@@ -901,6 +911,28 @@ function buildDashboardListFormula(colMaps, order, excluded) {
     's,SORT(f,IFERROR(MATCH(INDEX(f,,1),t,0),99),TRUE,INDEX(f,,' + dateIdx + '),TRUE),' +
     'HSTACK(IF(INDEX(s,,1)="","未入力",INDEX(s,,1)),IF(ISNUMBER(INDEX(s,,' + dateIdx + ')),TODAY()-INDEX(s,,' + dateIdx + '),""),CHOOSECOLS(s,' + rest.join(',') + '))' +
     ')),"該当する車両はありません")';
+}
+
+/**
+ * 仕入集計タブ：期間に仕入れた車両の一覧（販売済みを含む3シート）。
+ * 仕入年月日が開始日〜終了日（両端を含む）の行を、仕入年月日 → OCN の順に並べる。列は PURCHASE_LIST_COLUMNS の順。
+ */
+function buildPeriodListFormula(colMaps, startRef, endRef) {
+  var blocks = Object.keys(colMaps).filter(function (n) { return colMaps[n].purchaseDate !== undefined; }).map(function (n) {
+    var cols = colMaps[n];
+    var dateRef = columnRef(n, cols.purchaseDate);
+    return 'HSTACK(' + PURCHASE_LIST_COLUMNS.map(function (c) {
+      if (c.key === 'sheetLabel') return 'IF(' + dateRef + '="","","' + (SHEET_LABELS[n] || n) + '")';
+      return cols[c.key] === undefined ? 'IF(' + dateRef + '="","","")' : columnRef(n, cols[c.key]);
+    }).join(',') + ')';
+  });
+  if (!blocks.length) return '="仕入年月日の列が見つかりません"';
+  return '=IFERROR(ARRAYFORMULA(LET(' +
+    'd,VSTACK(' + blocks.join(',') + '),' +
+    'k,INDEX(d,,1),' +
+    'f,FILTER(d,ISNUMBER(k)*(k>=' + startRef + ')*(k<=' + endRef + ')),' +
+    'SORT(f,1,TRUE,2,TRUE)' +
+    ')),"この期間に仕入れた車両はありません")';
 }
 
 /** 計算式で使える項目名（[ ] の中）→ 列キー。見出し名と別表記（例：仕入価格・買取金額）を受け付ける */
@@ -1103,6 +1135,7 @@ function onOpen() {
   SpreadsheetApp.getUi().createMenu(MENU_NAME)
     .addItem('設定アプリを開く', 'showApp')
     .addItem('ダッシュボードを開く', 'openDashboard')
+    .addItem('仕入集計を開く', 'openPurchaseSummary')
     .addSeparator()
     .addItem('書式・プルダウン・入力チェックを整え直す', 'reapplyStandardsFromMenu')
     .addItem('ステータスが販売済みの行を販売済みシートへ移動', 'moveSoldRowsFromMenu')
@@ -1133,6 +1166,19 @@ function openDashboard() {
     sheet = buildDashboard_(ss, colMaps);
   }
   ss.setActiveSheet(sheet);
+}
+
+function openPurchaseSummary() {
+  var ss = getSpreadsheet_();
+  var sheet = ss.getSheetByName(SHEET.PURCHASE);
+  if (!sheet) sheet = buildPurchaseSheet_(ss, vehicleColMaps_(ss));
+  ss.setActiveSheet(sheet);
+}
+
+function vehicleColMaps_(ss) {
+  var colMaps = {};
+  VEHICLE_SHEETS.forEach(function (name) { var s = ss.getSheetByName(name); if (s) colMaps[name] = getColumns_(s).map; });
+  return colMaps;
 }
 
 function reapplyStandardsFromMenu() {
@@ -1380,6 +1426,7 @@ function saveLists(input) {
     applyValidations_(sheet, colMaps[name]);
   });
   if (ss.getSheetByName(SHEET.DASHBOARD)) buildDashboard_(ss, colMaps); // 担当者別の行を作り直す
+  if (ss.getSheetByName(SHEET.PURCHASE)) buildPurchaseSheet_(ss, colMaps);
   appendLog_('設定', '選択肢', '', '', '', counts.join('、'));
   return { ok: true, message: '保存し、プルダウンに反映しました（' + counts.join('、') + '）' };
 }
@@ -1653,9 +1700,11 @@ function reapplyStandards_(ss, report) {
   var logSheet = ss.getSheetByName(SHEET.LOG);
   if (logSheet) styleLogSheet_(logSheet);
   buildDashboard_(ss, colMaps);
+  buildPurchaseSheet_(ss, colMaps);
   report.push('日付を西暦（yyyy/MM/dd）、走行距離を「12,345km」、金額を「#,##0」で表示するよう設定しました');
   report.push('プルダウンの値ごとの色分け、入力チェックの色分け、見出しのグループ色・1行おきの色・列幅を設定しました');
-  report.push('ダッシュボード（名義変更前のステータス別台数と該当車両の一覧）を更新しました');
+  report.push('ダッシュボード（ステータス別台数と名義変更済み以外の一覧）を更新しました');
+  report.push('仕入集計（選んだ期間の合計と、期間に仕入れた車両の一覧）を更新しました');
 }
 
 function colorListValues_() {
@@ -1885,9 +1934,6 @@ function buildDashboard_(ss, allColMaps) {
   var T = DASHBOARD_THEME;
 
   var sheet = ss.getSheetByName(SHEET.DASHBOARD) || ss.insertSheet(SHEET.DASHBOARD, 0);
-  var period = DASHBOARD_PERIOD;
-  var keptPeriod = resolveDashboardPeriod(sheet.getRange(period.row, period.startCol).getValue(),
-    sheet.getRange(period.row, period.endCol).getValue(), new Date());
   sheet.getBandings().forEach(function (bd) { bd.remove(); });
   sheet.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(function (p) { p.remove(); });
   sheet.clear();
@@ -1942,105 +1988,8 @@ function buildDashboard_(ss, allColMaps) {
   sheet.setRowHeight(cardTop + 4, 22);
   sheet.setRowHeight(cardTop + 5, 18);
 
-  // 2. 仕入の集計（販売済みを含む全車両・仕入年月日で集計）
-  var allVehicles = {};
-  VEHICLE_SHEETS.forEach(function (n) { if (allColMaps[n]) allVehicles[n] = allColMaps[n]; });
-  var monthTitle = period.row;
-  var startRef = '$' + columnLetter(period.startCol) + '$' + period.row;
-  var endRef = '$' + columnLetter(period.endCol) + '$' + period.row;
-  var prevRefs = previousPeriodRefs(startRef, endRef);
-  sheet.getRange(monthTitle, 1, 1, 3).merge().setValue('仕入の集計').setFontSize(13).setFontWeight('bold');
-  sheet.getRange(monthTitle, 4, 1, 5).merge()
-    .setFormula('=IF(OR(' + startRef + '="",' + endRef + '=""),"開始日と終了日を選んでください",IF(' + endRef + '<' + startRef + ',"⚠ 終了日が開始日より前です",' +
-      'TEXT(' + startRef + ',"yyyy/mm/dd")&" 〜 "&TEXT(' + endRef + ',"yyyy/mm/dd")&"（"&(' + endRef + '-' + startRef + '+1)&"日間）"))')
-    .setFontColor(T.month.accent).setFontWeight('bold');
-  sheet.getRange(monthTitle, period.startCol - 1).setValue('期間 ▸').setFontColor(T.muted).setHorizontalAlignment('right');
-  sheet.getRange(monthTitle, period.startCol + 1).setValue('〜').setFontColor(T.muted).setHorizontalAlignment('center');
-  [[period.startCol, keptPeriod.start, '開始日'], [period.endCol, keptPeriod.end, '終了日']].forEach(function (c) {
-    sheet.getRange(period.row, c[0]).setValue(c[1]).setNumberFormat('yyyy/MM/dd').setFontWeight('bold').setFontSize(11)
-      .setHorizontalAlignment('center').setBackground('#ffffff').setFontColor(T.ink)
-      .setBorder(true, true, true, true, null, null, T.ink, SpreadsheetApp.BorderStyle.SOLID)
-      .setDataValidation(SpreadsheetApp.newDataValidation().requireDate().setAllowInvalid(false)
-        .setHelpText(c[2] + '：ダブルクリックするとカレンダーが開きます。この日を含めて集計します').build());
-  });
-  sheet.setRowHeight(monthTitle, 34);
-
-  // 2-1. 期間の合計カード（前の同じ日数の期間と比べる）
-  var mTop = monthTitle + 1;
-  var periodValue = function (key, s0, e0) {
-    var crit = periodCriteria(s0, e0);
-    return (key === '__count' ? buildCountifsFormula(allVehicles, [crit]) : buildSumifsFormula(allVehicles, key, crit)).substring(1);
-  };
-  var monthValue = function (key, monthExpr) {
-    var crit = monthCriteria(monthExpr);
-    return (key === '__count' ? buildCountifsFormula(allVehicles, [crit]) : buildSumifsFormula(allVehicles, key, crit)).substring(1);
-  };
-  MONTHLY_CARDS.forEach(function (card, i) {
-    var col = DASHBOARD_MONTH_CARD_SPANS[i][0], n = DASHBOARD_MONTH_CARD_SPANS[i][1];
-    var isCount = card.key === '__count';
-    var fmt = isCount ? COUNT_FORMAT : '#,##0"円";-#,##0"円";"–"';
-    var accent = i === 0 ? T.ink : T.month.accent, tint = i === 0 ? '#eef1f3' : T.month.tint;
-    sheet.getRange(mTop, col, 1, n).merge().setBackground(accent);
-    sheet.getRange(mTop + 1, col, 1, n).merge().setValue('期間の' + card.label).setBackground(tint)
-      .setFontColor(accent).setFontWeight('bold').setFontSize(9).setHorizontalAlignment('left');
-    sheet.getRange(mTop + 2, col, 1, n).merge().setFormula('=' + periodValue(card.key, startRef, endRef)).setBackground(tint)
-      .setFontColor(T.ink).setFontSize(isCount ? 26 : 17).setFontWeight('bold').setHorizontalAlignment('left').setNumberFormat(fmt);
-    var prev = periodValue(card.key, prevRefs.start, prevRefs.end);
-    sheet.getRange(mTop + 3, col, 1, n).merge()
-      .setFormula('="前の同期間 "&TEXT(' + prev + ',"' + (isCount ? '0"台"' : '#,##0"円"').replace(/"/g, '""') + '")')
-      .setBackground(tint).setFontColor(T.muted).setFontSize(9).setHorizontalAlignment('left');
-    sheet.getRange(mTop, col, 4, n).setBorder(true, true, true, true, null, null, T.page, SpreadsheetApp.BorderStyle.SOLID_THICK);
-  });
-  sheet.setRowHeight(mTop, 6);
-  sheet.setRowHeight(mTop + 1, 24);
-  sheet.setRowHeight(mTop + 2, 40);
-  sheet.setRowHeight(mTop + 3, 22);
-  var selMonth = 'DATE(YEAR(' + endRef + '),MONTH(' + endRef + '),1)'; // 月別の表は終了日の月まで
-
-  // 2-2. 月別の表（終了日の月から過去12か月。新しい月が上。期間に重なる月に色）
-  var tHead = mTop + 5, tFirst = tHead + 1, tLast = tFirst + MONTHLY_MONTHS - 1, tTotal = tLast + 1;
-  var amountLabels = MONTHLY_AMOUNT_KEYS.map(function (k) { return FIELD_BY_KEY[k].label.replace('（買取金額）', ''); });
-  var tHeaders = ['月', '仕入台数', 'うち在庫中', 'うち販売済み'].concat(amountLabels).concat(['平均仕入価格', '仕入価格の推移']);
-  var tWidth = tHeaders.length;
-  sheet.getRange(tHead, 1, 1, tWidth).setValues([tHeaders]).setBackground(T.ink).setFontColor('#ffffff')
-    .setFontWeight('bold').setFontSize(9).setHorizontalAlignment('center');
-  sheet.setRowHeight(tHead, 28);
-  var soldOnly = onlySheet_(allColMaps, SHEET.SOLD);
-  var purchaseCol = 5 + MONTHLY_AMOUNT_KEYS.indexOf('purchasePrice');
-  var pL = columnLetter(purchaseCol);
-  var rows = [];
-  for (var mi = 0; mi < MONTHLY_MONTHS; mi++) {
-    var r = tFirst + mi, mref = '$A' + r;
-    rows.push(['=EDATE(' + selMonth + ',-' + mi + ')',
-      '=' + monthValue('__count', mref),
-      buildCountifsFormula(masters, [monthCriteria(mref)]),   // 在庫中（輸入車・国産車マスタ）
-      buildCountifsFormula(soldOnly, [monthCriteria(mref)])]  // 販売済み
-      .concat(MONTHLY_AMOUNT_KEYS.map(function (k) { return buildSumifsFormula(allVehicles, k, monthCriteria(mref)); }))
-      .concat(['=IFERROR(' + pL + r + '/B' + r + ',0)',
-        '=SPARKLINE(' + pL + r + ',{"charttype","bar";"max",MAX(1,$' + pL + '$' + tFirst + ':$' + pL + '$' + tLast + ');"color1","' + T.month.accent + '"})']));
-  }
-  sheet.getRange(tFirst, 1, MONTHLY_MONTHS, tWidth).setFormulas(rows);
-  var totalRow = ['12か月合計'];
-  for (var tc = 2; tc < purchaseCol + 1; tc++) totalRow.push('=SUM(' + columnLetter(tc) + tFirst + ':' + columnLetter(tc) + tLast + ')');
-  totalRow.push('=IFERROR(' + pL + tTotal + '/B' + tTotal + ',0)', '');
-  sheet.getRange(tTotal, 1, 1, tWidth).setValues([totalRow.map(function (v) { return v.charAt(0) === '=' ? '' : v; })]);
-  sheet.getRange(tTotal, 2, 1, tWidth - 2).setFormulas([totalRow.slice(1, tWidth - 1)]);
-
-  sheet.getRange(tFirst, 1, MONTHLY_MONTHS, 1).setNumberFormat('yyyy/MM').setHorizontalAlignment('center').setFontWeight('bold');
-  sheet.getRange(tFirst, 2, MONTHLY_MONTHS + 1, 3).setNumberFormat(COUNT_FORMAT).setHorizontalAlignment('right');
-  sheet.getRange(tFirst, 5, MONTHLY_MONTHS + 1, MONTHLY_AMOUNT_KEYS.length + 1).setNumberFormat(AMOUNT_FORMAT).setHorizontalAlignment('right');
-  sheet.getRange(tFirst, 1, MONTHLY_MONTHS, tWidth).setBackground('#ffffff');
-  for (var bi = 1; bi < MONTHLY_MONTHS; bi += 2) sheet.getRange(tFirst + bi, 1, 1, tWidth).setBackground(T.band);
-  var periodRule = SpreadsheetApp.newConditionalFormatRule()
-    .whenFormulaSatisfied('=AND($A' + tFirst + '<=' + endRef + ',EDATE($A' + tFirst + ',1)>' + startRef + ')')
-    .setBackground(T.month.tint).setBold(true).setRanges([sheet.getRange(tFirst, 1, MONTHLY_MONTHS, tWidth)]).build();
-  sheet.getRange(tTotal, 1, 1, tWidth).setFontWeight('bold').setBackground('#eef1f3')
-    .setBorder(true, null, null, null, null, null, T.ink, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
-  sheet.getRange(tTotal, 1).setHorizontalAlignment('center');
-  sheet.setRowHeights(tFirst, MONTHLY_MONTHS + 1, 24);
-
-  // 3. 名義変更済み以外の一覧
-  var titleRow = tTotal + 2, headerRow = titleRow + 1, listRow = titleRow + 2;
+  // 2. 名義変更済み以外の一覧
+  var titleRow = cardTop + 6, headerRow = titleRow + 1, listRow = titleRow + 2;
   sheet.getRange(titleRow, 1, 1, 6).merge().setValue('名義変更済み以外の車両').setFontSize(13).setFontWeight('bold').setFontColor(T.ink);
   sheet.getRange(titleRow, 7, 1, W - 6).merge()
     .setFormula('=(' + buildCountifsFormula(masters, [[inStock]]).substring(1) + ')-(' +
@@ -2080,7 +2029,7 @@ function buildDashboard_(ss, allColMaps) {
   });
   rules.push(SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThanOrEqualTo(61).setBackground('#fdecea').setFontColor('#c5221f').setBold(true).setRanges([daysRange]).build());
   rules.push(SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThanOrEqualTo(31).setBackground('#fef3e2').setFontColor('#b35400').setBold(true).setRanges([daysRange]).build());
-  sheet.setConditionalFormatRules([periodRule].concat(rules));
+  sheet.setConditionalFormatRules(rules);
   sheet.setFrozenRows(2); // タイトルだけ固定（下の表までスクロールできるように）
 
   // 列幅（固定）
@@ -2088,9 +2037,154 @@ function buildDashboard_(ss, allColMaps) {
   widths.forEach(function (w, i) { sheet.setColumnWidth(i + 1, w); });
   sheet.setColumnWidth(W + 1, 16);
 
+  // 保護（警告のみ）
+  sheet.protect().setDescription('ダッシュボード（自動集計）').setWarningOnly(true);
+  return sheet;
+}
+
+/**
+ * 仕入集計タブを作り直す。内容はすべて数式なので、入力するとすぐ反映される。
+ *  - 集計期間：開始日・終了日をカレンダーで選ぶ（作り直しても残す）
+ *  - 期間の合計カード：仕入台数・仕入価格・査定価格・下取価格・下取充当額・下取損（前の同じ日数の期間と比較）
+ *  - 期間に仕入れた車両の一覧（販売済みを含む3シート。仕入年月日順）と、その合計行
+ */
+function buildPurchaseSheet_(ss, allColMaps) {
+  var vehicles = {};
+  VEHICLE_SHEETS.forEach(function (n) { if (allColMaps[n]) vehicles[n] = allColMaps[n]; });
+  var T = DASHBOARD_THEME;
+  var P = PURCHASE_PERIOD;
+  var LC = PURCHASE_LIST_COLUMNS, W = LC.length;
+
+  var sheet = ss.getSheetByName(SHEET.PURCHASE);
+  if (!sheet) {
+    var dash = ss.getSheetByName(SHEET.DASHBOARD);
+    sheet = ss.insertSheet(SHEET.PURCHASE, dash ? dash.getIndex() : 0);
+  }
+  var kept = resolveDashboardPeriod(sheet.getRange(P.row, P.startCol).getValue(), sheet.getRange(P.row, P.endCol).getValue(), new Date());
+  sheet.getBandings().forEach(function (bd) { bd.remove(); });
+  sheet.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(function (p) { p.remove(); });
+  sheet.clear();
+  sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).clearDataValidations();
+  sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).breakApart();
+  sheet.setConditionalFormatRules([]);
+  sheet.setFrozenRows(0);
+  if (sheet.getMaxColumns() < W + 1) sheet.insertColumnsAfter(sheet.getMaxColumns(), W + 1 - sheet.getMaxColumns());
+  sheet.setHiddenGridlines(true);
+  sheet.setTabColor(T.month.accent);
+  sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns())
+    .setFontSize(10).setFontColor(T.ink).setVerticalAlignment('middle').setWrap(false).setBackground(T.page);
+
+  // 見出し：タイトルと基準日
+  sheet.setRowHeight(1, 14);
+  sheet.getRange(2, 1, 1, 6).merge().setValue('仕入集計').setFontSize(18).setFontWeight('bold');
+  sheet.getRange(2, W - 2, 1, 3).merge().setFormula('="基準日　"&TEXT(TODAY(),"yyyy/mm/dd（ddd）")')
+    .setFontColor(T.muted).setHorizontalAlignment('right');
+  sheet.setRowHeight(2, 36);
+
+  // 集計期間：開始日・終了日のセル（カレンダーで選ぶ）
+  var startRef = '$' + columnLetter(P.startCol) + '$' + P.row;
+  var endRef = '$' + columnLetter(P.endCol) + '$' + P.row;
+  sheet.getRange(P.row - 1, 1, 2, P.startCol - 1).merge().setValue('集計期間 ▸').setFontSize(13).setFontWeight('bold')
+    .setHorizontalAlignment('right').setVerticalAlignment('bottom');
+  [[P.startCol, kept.start, '開始日'], [P.endCol, kept.end, '終了日']].forEach(function (c) {
+    sheet.getRange(P.row - 1, c[0]).setValue(c[2]).setFontColor(T.muted).setFontSize(9).setHorizontalAlignment('center').setVerticalAlignment('bottom');
+    sheet.getRange(P.row, c[0]).setValue(c[1]).setNumberFormat('yyyy/MM/dd').setFontWeight('bold').setFontSize(12)
+      .setHorizontalAlignment('center').setBackground('#ffffff').setFontColor(T.ink)
+      .setBorder(true, true, true, true, null, null, T.month.accent, SpreadsheetApp.BorderStyle.SOLID_MEDIUM)
+      .setDataValidation(SpreadsheetApp.newDataValidation().requireDate().setAllowInvalid(false)
+        .setHelpText(c[2] + '：ダブルクリックするとカレンダーが開きます。この日を含めて集計します').build());
+  });
+  sheet.getRange(P.row, P.endCol + 1, 1, W - P.endCol).merge()
+    .setFormula('=IF(OR(' + startRef + '="",' + endRef + '=""),"　開始日と終了日を選んでください",IF(' + endRef + '<' + startRef + ',"　⚠ 終了日が開始日より前です",' +
+      '"　"&TEXT(' + startRef + ',"yyyy/mm/dd")&" 〜 "&TEXT(' + endRef + ',"yyyy/mm/dd")&"（"&(' + endRef + '-' + startRef + '+1)&"日間）"))')
+    .setFontColor(T.month.accent).setFontWeight('bold').setFontSize(11);
+  sheet.setRowHeight(P.row - 1, 18);
+  sheet.setRowHeight(P.row, 32);
+  sheet.setRowHeight(P.row + 1, 12);
+
+  // 期間の合計カード（前の同じ日数の期間と比べる）
+  var prevRefs = previousPeriodRefs(startRef, endRef);
+  var periodValue = function (key, s0, e0) {
+    var crit = periodCriteria(s0, e0);
+    return (key === '__count' ? buildCountifsFormula(vehicles, [crit]) : buildSumifsFormula(vehicles, key, crit)).substring(1);
+  };
+  var mTop = P.row + 2;
+  PURCHASE_CARDS.forEach(function (card, i) {
+    var col = PURCHASE_CARD_SPANS[i][0], n = PURCHASE_CARD_SPANS[i][1];
+    var isCount = card.key === '__count';
+    var accent = i === 0 ? T.ink : T.month.accent, tint = i === 0 ? '#eef1f3' : T.month.tint;
+    sheet.getRange(mTop, col, 1, n).merge().setBackground(accent);
+    sheet.getRange(mTop + 1, col, 1, n).merge().setValue(card.label).setBackground(tint)
+      .setFontColor(accent).setFontWeight('bold').setFontSize(9).setHorizontalAlignment('left');
+    sheet.getRange(mTop + 2, col, 1, n).merge().setFormula('=' + periodValue(card.key, startRef, endRef)).setBackground(tint)
+      .setFontColor(T.ink).setFontSize(isCount ? 26 : 17).setFontWeight('bold').setHorizontalAlignment('left')
+      .setNumberFormat(isCount ? COUNT_FORMAT : '#,##0"円";-#,##0"円";"–"');
+    sheet.getRange(mTop + 3, col, 1, n).merge()
+      .setFormula('="前の同期間 "&TEXT(' + periodValue(card.key, prevRefs.start, prevRefs.end) + ',"' + (isCount ? '0"台"' : '#,##0"円"').replace(/"/g, '""') + '")')
+      .setBackground(tint).setFontColor(T.muted).setFontSize(9).setHorizontalAlignment('left');
+    sheet.getRange(mTop, col, 4, n).setBorder(true, true, true, true, null, null, T.page, SpreadsheetApp.BorderStyle.SOLID_THICK);
+  });
+  sheet.setRowHeight(mTop, 6);
+  sheet.setRowHeight(mTop + 1, 24);
+  sheet.setRowHeight(mTop + 2, 40);
+  sheet.setRowHeight(mTop + 3, 22);
+  sheet.setRowHeight(mTop + 4, 18);
+
+  // 期間に仕入れた車両の一覧（見出し → 合計行 → 一覧）
+  var titleRow = mTop + 5, headerRow = titleRow + 1, totalRow = titleRow + 2, listRow = titleRow + 3;
+  var colOf = function (key) { return 1 + LC.map(function (c) { return c.key; }).indexOf(key); };
+  sheet.getRange(titleRow, 1, 1, 6).merge().setValue('期間に仕入れた車両').setFontSize(13).setFontWeight('bold');
+  sheet.getRange(titleRow, 7, 1, W - 6).merge()
+    .setFormula('=' + periodValue('__count', startRef, endRef) + '&"台　販売済みを含む・仕入年月日順"')
+    .setFontColor(T.muted).setHorizontalAlignment('right');
+  sheet.setRowHeight(titleRow, 34);
+  sheet.getRange(headerRow, 1, 1, W).setValues([LC.map(function (c) { return c.label; })]).setBackground(T.ink).setFontColor('#ffffff')
+    .setFontWeight('bold').setFontSize(9).setHorizontalAlignment('center');
+  sheet.setRowHeight(headerRow, 30);
+
+  var firstMoney = colOf('appraisalPrice');
+  var below = function (col) { var L = columnLetter(col); return L + listRow + ':' + L; };
+  sheet.getRange(totalRow, 1, 1, firstMoney - 1).merge()
+    .setFormula('="合計　"&COUNT(' + below(colOf('purchaseDate')) + ')&"台"').setHorizontalAlignment('left');
+  LC.forEach(function (c, i) {
+    if (c.money) sheet.getRange(totalRow, i + 1).setFormula('=SUM(' + below(i + 1) + ')').setNumberFormat(AMOUNT_FORMAT).setHorizontalAlignment('right');
+  });
+  sheet.getRange(totalRow, 1, 1, W).setFontWeight('bold').setBackground(T.month.tint).setFontColor(T.month.accent)
+    .setBorder(null, null, true, null, null, null, T.month.accent, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+  sheet.setRowHeight(totalRow, 28);
+  sheet.getRange(listRow, 1).setFormula(buildPeriodListFormula(vehicles, startRef, endRef));
+
+  var bodyRows = Math.max(sheet.getMaxRows() - listRow + 1, 1);
+  var body = sheet.getRange(listRow, 1, bodyRows, W);
+  body.setBackground(null).setFontColor(T.ink);
+  body.applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false).setFirstRowColor('#ffffff').setSecondRowColor(T.band);
+  sheet.setRowHeights(listRow, Math.min(bodyRows, 500), 26);
+  sheet.getRange(listRow, colOf('purchaseDate'), bodyRows, 1).setNumberFormat(DATE_FORMAT).setHorizontalAlignment('center').setFontWeight('bold');
+  sheet.getRange(listRow, colOf('ocn'), bodyRows, 1).setNumberFormat('0');
+  ['ocn', 'sheetLabel', 'status', 'maker', 'category', 'staff'].forEach(function (k) {
+    sheet.getRange(listRow, colOf(k), bodyRows, 1).setHorizontalAlignment('center');
+  });
+  LC.forEach(function (c, i) {
+    if (c.money) sheet.getRange(listRow, i + 1, bodyRows, 1).setNumberFormat(AMOUNT_FORMAT).setHorizontalAlignment('right');
+  });
+
+  // 色：ステータスのチップ、シート（販売済みは灰色）
+  var rules = [];
+  var statusRange = sheet.getRange(listRow, colOf('status'), bodyRows, 1);
+  Object.keys(T.status).forEach(function (st) {
+    rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(st).setBackground(T.status[st].tint).setFontColor(T.status[st].accent).setRanges([statusRange]).build());
+  });
+  rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(STATUS_SOLD).setBackground('#eceff1').setFontColor('#546e7a')
+    .setRanges([statusRange, sheet.getRange(listRow, colOf('sheetLabel'), bodyRows, 1)]).build());
+  sheet.setConditionalFormatRules(rules);
+  sheet.setFrozenRows(2);
+
+  LC.forEach(function (c, i) { sheet.setColumnWidth(i + 1, c.width); });
+  sheet.setColumnWidth(W + 1, 16);
+
   // 保護（警告のみ）。開始日・終了日のセルだけは自由に選べるようにする
-  var protection = sheet.protect().setDescription('ダッシュボード（自動集計）').setWarningOnly(true);
-  protection.setUnprotectedRanges([sheet.getRange(period.row, period.startCol), sheet.getRange(period.row, period.endCol)]);
+  var protection = sheet.protect().setDescription('仕入集計（自動集計）').setWarningOnly(true);
+  protection.setUnprotectedRanges([sheet.getRange(P.row, P.startCol), sheet.getRange(P.row, P.endCol)]);
   return sheet;
 }
 

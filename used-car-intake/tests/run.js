@@ -376,23 +376,40 @@ test('台数カード5枚の幅がほぼそろう（差は20px以内）', () => 
   assert.ok(Math.max(...widths) - Math.min(...widths) <= 20, widths.join(','));
 });
 
-test('月別の仕入：SUMIFS をシートごとに足す（金額の列・仕入年月日の列が無いシートは数えない）', () => {
+test('仕入集計：SUMIFS をシートごとに足す（金額の列・仕入年月日の列が無いシートは数えない）', () => {
   const all = { '輸入車マスタ': stdCols, '国産車マスタ': stdCols, '販売済み': stdCols };
-  const f = S.buildSumifsFormula(all, 'purchasePrice', S.monthCriteria('$A20'));
+  const f = S.buildSumifsFormula(all, 'purchasePrice', S.periodCriteria('$D$4', '$E$4'));
   assert.strictEqual(f.split('SUMIFS(').length - 1, 3);
-  assert.ok(f.indexOf("SUMIFS('販売済み'!AC2:AC,'販売済み'!A2:A,\">=\"&$A20,'販売済み'!A2:A,\"<\"&EDATE($A20,1))") !== -1);
+  assert.ok(f.indexOf("SUMIFS('販売済み'!AC2:AC,'販売済み'!A2:A,\">=\"&$D$4,'販売済み'!A2:A,\"<=\"&$E$4)") !== -1);
   const noPrice = Object.assign({}, stdCols); delete noPrice.purchasePrice;
-  assert.strictEqual(S.buildSumifsFormula({ '輸入車マスタ': noPrice }, 'purchasePrice', S.monthCriteria('$A20')), '=0');
-  assert.ok(S.buildCountifsFormula(all, [S.monthCriteria('X')]).indexOf("COUNTIFS('輸入車マスタ'!A2:A,\">=\"&X,'輸入車マスタ'!A2:A,\"<\"&EDATE(X,1))") !== -1);
+  assert.strictEqual(S.buildSumifsFormula({ '輸入車マスタ': noPrice }, 'purchasePrice', S.periodCriteria('X', 'Y')), '=0');
 });
-test('月別の仕入：合計カード6枚（台数と金額5つ）、表の金額は6列で仕入価格を含む', () => {
-  assert.strictEqual(S.MONTHLY_CARDS.length, S.DASHBOARD_MONTH_CARD_SPANS.length);
-  S.MONTHLY_CARDS.forEach((c) => assert.ok(c.key === '__count' || S.FIELD_BY_KEY[c.key], c.key));
-  assert.deepStrictEqual(Array.from(S.MONTHLY_AMOUNT_KEYS), ['tradeInAllowance', 'recycleFee', 'tradeInPrice', 'appraisalPrice', 'tradeInLoss', 'purchasePrice']);
-  assert.strictEqual(4 + S.MONTHLY_AMOUNT_KEYS.length + 2, S.DASHBOARD_COLUMN_WIDTHS.length); // 表は12列
-  const w = S.DASHBOARD_COLUMN_WIDTHS;
-  const widths = Array.from(S.DASHBOARD_MONTH_CARD_SPANS, ([c, n]) => w.slice(c - 1, c - 1 + n).reduce((a, b) => a + b, 0));
-  assert.ok(Math.max(...widths) - Math.min(...widths) <= 30, widths.join(','));
+test('仕入集計：合計カード6枚の幅がほぼそろう（差は20px以内）・項目は実在する列', () => {
+  assert.strictEqual(S.PURCHASE_CARDS.length, S.PURCHASE_CARD_SPANS.length);
+  S.PURCHASE_CARDS.forEach((c) => assert.ok(c.key === '__count' || S.FIELD_BY_KEY[c.key], c.key));
+  const w = S.PURCHASE_LIST_COLUMNS.map((c) => c.width);
+  const widths = Array.from(S.PURCHASE_CARD_SPANS, ([c, n]) => w.slice(c - 1, c - 1 + n).reduce((a, b) => a + b, 0));
+  const last = S.PURCHASE_CARD_SPANS[S.PURCHASE_CARD_SPANS.length - 1];
+  assert.strictEqual(last[0] + last[1] - 1, w.length); // カードの右端は一覧の右端
+  assert.ok(Math.max(...widths) - Math.min(...widths) <= 20, widths.join(','));
+  S.PURCHASE_LIST_COLUMNS.forEach((c) => assert.ok(c.key === 'sheetLabel' || S.FIELD_BY_KEY[c.key], c.key));
+  assert.strictEqual(S.PURCHASE_LIST_COLUMNS[0].key, 'purchaseDate'); // 1列目で期間を絞る
+  assert.strictEqual(S.PURCHASE_LIST_COLUMNS[1].key, 'ocn');
+});
+test('仕入集計：期間に仕入れた車両の一覧（販売済みを含む3シート・期間で絞り・日付順）', () => {
+  const all = { '輸入車マスタ': stdCols, '国産車マスタ': stdCols, '販売済み': stdCols };
+  const f = S.buildPeriodListFormula(all, '$D$4', '$E$4');
+  assert.strictEqual(f.split('HSTACK(').length - 1, 3);
+  assert.ok(f.indexOf('FILTER(d,ISNUMBER(k)*(k>=$D$4)*(k<=$E$4))') !== -1);
+  assert.ok(f.indexOf('SORT(f,1,TRUE,2,TRUE)') !== -1);
+  assert.ok(f.indexOf("IF('販売済み'!A2:A=\"\",\"\",\"販売済み\")") !== -1);
+  assert.ok(f.indexOf("IF('輸入車マスタ'!A2:A=\"\",\"\",\"輸入車\")") !== -1);
+  assert.ok(f.indexOf("'国産車マスタ'!AC2:AC") !== -1);
+  assert.ok(f.indexOf('"この期間に仕入れた車両はありません"') !== -1);
+  const noDate = Object.assign({}, stdCols); delete noDate.purchaseDate;
+  assert.strictEqual(S.buildPeriodListFormula({ '輸入車マスタ': noDate }, 'X', 'Y'), '="仕入年月日の列が見つかりません"');
+  const noModel = Object.assign({}, stdCols); delete noModel.modelName;
+  assert.ok(S.buildPeriodListFormula({ '輸入車マスタ': noModel }, 'X', 'Y').indexOf("IF('輸入車マスタ'!A2:A=\"\",\"\",\"\")") !== -1);
 });
 
 test('集計期間：開始日〜終了日（両端を含む）と、前の同じ日数の期間', () => {
