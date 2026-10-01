@@ -287,14 +287,15 @@ var PURCHASE_LIST_COLUMNS = [
   { key: 'category', label: '区分', width: 76 },
   { key: 'staff', label: '担当', width: 80 },
   { key: 'supplier', label: '仕入先', width: 160 },
-  { key: 'appraisalPrice', label: '査定価格', width: 84, money: true },
-  { key: 'tradeInPrice', label: '下取価格', width: 84, money: true },
   { key: 'tradeInAllowance', label: '下取充当額', width: 84, money: true },
-  { key: 'tradeInLoss', label: '下取損', width: 116, money: true },
-  { key: 'purchasePrice', label: '仕入価格', width: 124, money: true }
+  { key: 'recycleFee', label: 'リサイクル', width: 72, money: true },
+  { key: 'tradeInPrice', label: '下取価格', width: 84, money: true },
+  { key: 'appraisalPrice', label: '査定価格', width: 76, money: true },
+  { key: 'tradeInLoss', label: '下取損', width: 64, money: true },
+  { key: 'purchasePrice', label: '仕入価格（買取金額）', width: 120, money: true }
 ];
 /** 仕入集計タブの合計カード6枚の位置 [開始列, 列数]（幅がほぼそろう組み合わせ） */
-var PURCHASE_CARD_SPANS = [[1, 3], [4, 2], [6, 2], [8, 2], [10, 3], [13, 2]];
+var PURCHASE_CARD_SPANS = [[1, 3], [4, 2], [6, 2], [8, 2], [10, 3], [13, 3]];
 /** 集計期間（開始日・終了日）のセルの位置（タブを作り直しても選んだ日付を残す） */
 var PURCHASE_PERIOD = { row: 4, startCol: 4, endCol: 5 };
 var AMOUNT_FORMAT = '#,##0;-#,##0;"–"';     // 0 は「–」
@@ -2142,7 +2143,7 @@ function buildPurchaseSheet_(ss, allColMaps) {
     .setFontWeight('bold').setFontSize(9).setHorizontalAlignment('center');
   sheet.setRowHeight(headerRow, 30);
 
-  var firstMoney = colOf('appraisalPrice');
+  var firstMoney = 1 + LC.map(function (c) { return !!c.money; }).indexOf(true);
   var below = function (col) { var L = columnLetter(col); return L + listRow + ':' + L; };
   sheet.getRange(totalRow, 1, 1, firstMoney - 1).merge()
     .setFormula('="合計　"&COUNT(' + below(colOf('purchaseDate')) + ')&"台"').setHorizontalAlignment('left');

@@ -395,6 +395,10 @@ test('仕入集計：合計カード6枚の幅がほぼそろう（差は20px以
   S.PURCHASE_LIST_COLUMNS.forEach((c) => assert.ok(c.key === 'sheetLabel' || S.FIELD_BY_KEY[c.key], c.key));
   assert.strictEqual(S.PURCHASE_LIST_COLUMNS[0].key, 'purchaseDate'); // 1列目で期間を絞る
   assert.strictEqual(S.PURCHASE_LIST_COLUMNS[1].key, 'ocn');
+  assert.deepStrictEqual(Array.from(S.PURCHASE_LIST_COLUMNS.slice(9), (c) => c.key),
+    ['tradeInAllowance', 'recycleFee', 'tradeInPrice', 'appraisalPrice', 'tradeInLoss', 'purchasePrice']); // 仕入先より右
+  assert.strictEqual(S.PURCHASE_LIST_COLUMNS[8].key, 'supplier');
+  S.PURCHASE_LIST_COLUMNS.slice(9).forEach((c) => assert.ok(c.money, c.key));
 });
 test('仕入集計：期間に仕入れた車両の一覧（販売済みを含む3シート・期間で絞り・日付順）', () => {
   const all = { '輸入車マスタ': stdCols, '国産車マスタ': stdCols, '販売済み': stdCols };
