@@ -280,8 +280,8 @@ var MONTHLY_CARDS = [
   { key: 'tradeInLoss', label: '下取損 合計' }
 ];
 var MONTHLY_MONTHS = 12;
-/** 「表示する月」のセルの位置（ダッシュボードを作り直しても選んだ月を残す） */
-var DASHBOARD_MONTH_PICK = { row: 10, col: 12 };
+/** 集計期間（開始日・終了日）のセルの位置（ダッシュボードを作り直しても選んだ日付を残す） */
+var DASHBOARD_PERIOD = { row: 10, startCol: 10, endCol: 12 };
 var AMOUNT_FORMAT = '#,##0;-#,##0;"–"';     // 0 は「–」
 var COUNT_FORMAT = '0"台";-0"台";"–"';
 
@@ -839,6 +839,33 @@ function buildSumifsFormula(colMaps, sumKey, criteria) {
     parts.push('SUMIFS(' + columnRef(n, cols[sumKey]) + ',' + criteria.map(function (c) { return columnRef(n, cols[c[0]]) + ',' + c[1]; }).join(',') + ')');
   });
   return parts.length ? '=' + parts.join('+') : '=0';
+}
+
+/** 期間（開始日・終了日の式・セル。両端を含む）に仕入年月日が入る条件 */
+function periodCriteria(startRef, endRef) {
+  return [['purchaseDate', '">="&' + startRef], ['purchaseDate', '"<="&' + endRef]];
+}
+
+/**
+ * 比較に使う「前の同じ日数の期間」の開始日・終了日の式。
+ * 例：10/1〜10/31（31日間）→ 8/31〜9/30
+ */
+function previousPeriodRefs(startRef, endRef) {
+  return { start: '(' + startRef + '-(' + endRef + '-' + startRef + '+1))', end: '(' + startRef + '-1)' };
+}
+
+/**
+ * ダッシュボードを作り直すときに残す期間を決める。
+ * 以前の版の「表示する月」（終了日のセルに月が入っている）の場合は、その月の1日〜末日にする。
+ * どちらも日付でなければ、今月の1日〜今日。
+ */
+function resolveDashboardPeriod(startValue, endValue, today) {
+  var isDate = function (v) { return v instanceof Date && !isNaN(v.getTime()); };
+  if (isDate(startValue) && isDate(endValue)) return { start: startValue, end: endValue };
+  if (isDate(endValue)) {
+    return { start: new Date(endValue.getFullYear(), endValue.getMonth(), 1), end: new Date(endValue.getFullYear(), endValue.getMonth() + 1, 0) };
+  }
+  return { start: new Date(today.getFullYear(), today.getMonth(), 1), end: new Date(today.getFullYear(), today.getMonth(), today.getDate()) };
 }
 
 /** 月（その月の1日の日付）の式・セルから、仕入年月日がその月に入る条件 */
@@ -1858,8 +1885,9 @@ function buildDashboard_(ss, allColMaps) {
   var T = DASHBOARD_THEME;
 
   var sheet = ss.getSheetByName(SHEET.DASHBOARD) || ss.insertSheet(SHEET.DASHBOARD, 0);
-  var pickPos = DASHBOARD_MONTH_PICK;
-  var previousPick = sheet.getRange(pickPos.row, pickPos.col).getValue();
+  var period = DASHBOARD_PERIOD;
+  var keptPeriod = resolveDashboardPeriod(sheet.getRange(period.row, period.startCol).getValue(),
+    sheet.getRange(period.row, period.endCol).getValue(), new Date());
   sheet.getBandings().forEach(function (bd) { bd.remove(); });
   sheet.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(function (p) { p.remove(); });
   sheet.clear();
@@ -1914,26 +1942,35 @@ function buildDashboard_(ss, allColMaps) {
   sheet.setRowHeight(cardTop + 4, 22);
   sheet.setRowHeight(cardTop + 5, 18);
 
-  // 2. 月別の仕入（販売済みを含む全車両・仕入年月日の月で集計）
+  // 2. 仕入の集計（販売済みを含む全車両・仕入年月日で集計）
   var allVehicles = {};
   VEHICLE_SHEETS.forEach(function (n) { if (allColMaps[n]) allVehicles[n] = allColMaps[n]; });
-  var monthTitle = pickPos.row;
-  var pickRef = '$' + columnLetter(pickPos.col) + '$' + pickPos.row;
-  var selMonth = 'DATE(YEAR(' + pickRef + '),MONTH(' + pickRef + '),1)';
-  sheet.getRange(monthTitle, 1, 1, 6).merge().setValue('月別の仕入').setFontSize(13).setFontWeight('bold');
-  sheet.getRange(monthTitle, pickPos.col - 2, 1, 2).merge().setValue('表示する月 ▸').setFontColor(T.muted).setHorizontalAlignment('right');
-  var today = new Date();
-  var pick = previousPick instanceof Date ? previousPick : new Date(today.getFullYear(), today.getMonth(), 1);
-  sheet.getRange(pickPos.row, pickPos.col).setValue(pick).setNumberFormat('yyyy/MM').setFontWeight('bold').setFontSize(12)
-    .setHorizontalAlignment('center').setBackground('#ffffff').setFontColor(T.ink)
-    .setBorder(true, true, true, true, null, null, T.ink, SpreadsheetApp.BorderStyle.SOLID)
-    .setDataValidation(SpreadsheetApp.newDataValidation().requireDate().setAllowInvalid(false)
-      .setHelpText('カレンダーから月（どの日でも可）を選ぶと、その月の仕入を表示します').build());
+  var monthTitle = period.row;
+  var startRef = '$' + columnLetter(period.startCol) + '$' + period.row;
+  var endRef = '$' + columnLetter(period.endCol) + '$' + period.row;
+  var prevRefs = previousPeriodRefs(startRef, endRef);
+  sheet.getRange(monthTitle, 1, 1, 3).merge().setValue('仕入の集計').setFontSize(13).setFontWeight('bold');
+  sheet.getRange(monthTitle, 4, 1, 5).merge()
+    .setFormula('=IF(OR(' + startRef + '="",' + endRef + '=""),"開始日と終了日を選んでください",IF(' + endRef + '<' + startRef + ',"⚠ 終了日が開始日より前です",' +
+      'TEXT(' + startRef + ',"yyyy/mm/dd")&" 〜 "&TEXT(' + endRef + ',"yyyy/mm/dd")&"（"&(' + endRef + '-' + startRef + '+1)&"日間）"))')
+    .setFontColor(T.month.accent).setFontWeight('bold');
+  sheet.getRange(monthTitle, period.startCol - 1).setValue('期間 ▸').setFontColor(T.muted).setHorizontalAlignment('right');
+  sheet.getRange(monthTitle, period.startCol + 1).setValue('〜').setFontColor(T.muted).setHorizontalAlignment('center');
+  [[period.startCol, keptPeriod.start, '開始日'], [period.endCol, keptPeriod.end, '終了日']].forEach(function (c) {
+    sheet.getRange(period.row, c[0]).setValue(c[1]).setNumberFormat('yyyy/MM/dd').setFontWeight('bold').setFontSize(11)
+      .setHorizontalAlignment('center').setBackground('#ffffff').setFontColor(T.ink)
+      .setBorder(true, true, true, true, null, null, T.ink, SpreadsheetApp.BorderStyle.SOLID)
+      .setDataValidation(SpreadsheetApp.newDataValidation().requireDate().setAllowInvalid(false)
+        .setHelpText(c[2] + '：ダブルクリックするとカレンダーが開きます。この日を含めて集計します').build());
+  });
   sheet.setRowHeight(monthTitle, 34);
 
-  // 2-1. 選んだ月の合計カード（前月の数字つき）
+  // 2-1. 期間の合計カード（前の同じ日数の期間と比べる）
   var mTop = monthTitle + 1;
-  var prevMonth = 'EDATE(' + selMonth + ',-1)';
+  var periodValue = function (key, s0, e0) {
+    var crit = periodCriteria(s0, e0);
+    return (key === '__count' ? buildCountifsFormula(allVehicles, [crit]) : buildSumifsFormula(allVehicles, key, crit)).substring(1);
+  };
   var monthValue = function (key, monthExpr) {
     var crit = monthCriteria(monthExpr);
     return (key === '__count' ? buildCountifsFormula(allVehicles, [crit]) : buildSumifsFormula(allVehicles, key, crit)).substring(1);
@@ -1944,13 +1981,13 @@ function buildDashboard_(ss, allColMaps) {
     var fmt = isCount ? COUNT_FORMAT : '#,##0"円";-#,##0"円";"–"';
     var accent = i === 0 ? T.ink : T.month.accent, tint = i === 0 ? '#eef1f3' : T.month.tint;
     sheet.getRange(mTop, col, 1, n).merge().setBackground(accent);
-    sheet.getRange(mTop + 1, col, 1, n).merge().setFormula('=TEXT(' + selMonth + ',"yyyy/mm")&"　' + card.label + '"').setBackground(tint)
+    sheet.getRange(mTop + 1, col, 1, n).merge().setValue('期間の' + card.label).setBackground(tint)
       .setFontColor(accent).setFontWeight('bold').setFontSize(9).setHorizontalAlignment('left');
-    sheet.getRange(mTop + 2, col, 1, n).merge().setFormula('=' + monthValue(card.key, selMonth)).setBackground(tint)
+    sheet.getRange(mTop + 2, col, 1, n).merge().setFormula('=' + periodValue(card.key, startRef, endRef)).setBackground(tint)
       .setFontColor(T.ink).setFontSize(isCount ? 26 : 17).setFontWeight('bold').setHorizontalAlignment('left').setNumberFormat(fmt);
-    var prev = monthValue(card.key, prevMonth);
+    var prev = periodValue(card.key, prevRefs.start, prevRefs.end);
     sheet.getRange(mTop + 3, col, 1, n).merge()
-      .setFormula('="前月 "&TEXT(' + prev + ',"' + (isCount ? '0"台"' : '#,##0"円"').replace(/"/g, '""') + '")')
+      .setFormula('="前の同期間 "&TEXT(' + prev + ',"' + (isCount ? '0"台"' : '#,##0"円"').replace(/"/g, '""') + '")')
       .setBackground(tint).setFontColor(T.muted).setFontSize(9).setHorizontalAlignment('left');
     sheet.getRange(mTop, col, 4, n).setBorder(true, true, true, true, null, null, T.page, SpreadsheetApp.BorderStyle.SOLID_THICK);
   });
@@ -1958,8 +1995,9 @@ function buildDashboard_(ss, allColMaps) {
   sheet.setRowHeight(mTop + 1, 24);
   sheet.setRowHeight(mTop + 2, 40);
   sheet.setRowHeight(mTop + 3, 22);
+  var selMonth = 'DATE(YEAR(' + endRef + '),MONTH(' + endRef + '),1)'; // 月別の表は終了日の月まで
 
-  // 2-2. 月別の表（選んだ月から過去12か月。新しい月が上）
+  // 2-2. 月別の表（終了日の月から過去12か月。新しい月が上。期間に重なる月に色）
   var tHead = mTop + 5, tFirst = tHead + 1, tLast = tFirst + MONTHLY_MONTHS - 1, tTotal = tLast + 1;
   var amountLabels = MONTHLY_AMOUNT_KEYS.map(function (k) { return FIELD_BY_KEY[k].label.replace('（買取金額）', ''); });
   var tHeaders = ['月', '仕入台数', 'うち在庫中', 'うち販売済み'].concat(amountLabels).concat(['平均仕入価格', '仕入価格の推移']);
@@ -1993,7 +2031,9 @@ function buildDashboard_(ss, allColMaps) {
   sheet.getRange(tFirst, 5, MONTHLY_MONTHS + 1, MONTHLY_AMOUNT_KEYS.length + 1).setNumberFormat(AMOUNT_FORMAT).setHorizontalAlignment('right');
   sheet.getRange(tFirst, 1, MONTHLY_MONTHS, tWidth).setBackground('#ffffff');
   for (var bi = 1; bi < MONTHLY_MONTHS; bi += 2) sheet.getRange(tFirst + bi, 1, 1, tWidth).setBackground(T.band);
-  sheet.getRange(tFirst, 1, 1, tWidth).setBackground(T.month.tint).setFontWeight('bold'); // 選んだ月
+  var periodRule = SpreadsheetApp.newConditionalFormatRule()
+    .whenFormulaSatisfied('=AND($A' + tFirst + '<=' + endRef + ',EDATE($A' + tFirst + ',1)>' + startRef + ')')
+    .setBackground(T.month.tint).setBold(true).setRanges([sheet.getRange(tFirst, 1, MONTHLY_MONTHS, tWidth)]).build();
   sheet.getRange(tTotal, 1, 1, tWidth).setFontWeight('bold').setBackground('#eef1f3')
     .setBorder(true, null, null, null, null, null, T.ink, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
   sheet.getRange(tTotal, 1).setHorizontalAlignment('center');
@@ -2040,7 +2080,7 @@ function buildDashboard_(ss, allColMaps) {
   });
   rules.push(SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThanOrEqualTo(61).setBackground('#fdecea').setFontColor('#c5221f').setBold(true).setRanges([daysRange]).build());
   rules.push(SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThanOrEqualTo(31).setBackground('#fef3e2').setFontColor('#b35400').setBold(true).setRanges([daysRange]).build());
-  sheet.setConditionalFormatRules(rules);
+  sheet.setConditionalFormatRules([periodRule].concat(rules));
   sheet.setFrozenRows(2); // タイトルだけ固定（下の表までスクロールできるように）
 
   // 列幅（固定）
@@ -2048,9 +2088,9 @@ function buildDashboard_(ss, allColMaps) {
   widths.forEach(function (w, i) { sheet.setColumnWidth(i + 1, w); });
   sheet.setColumnWidth(W + 1, 16);
 
-  // 保護（警告のみ）。「表示する月」のセルだけは自由に選べるようにする
+  // 保護（警告のみ）。開始日・終了日のセルだけは自由に選べるようにする
   var protection = sheet.protect().setDescription('ダッシュボード（自動集計）').setWarningOnly(true);
-  protection.setUnprotectedRanges([sheet.getRange(pickPos.row, pickPos.col)]);
+  protection.setUnprotectedRanges([sheet.getRange(period.row, period.startCol), sheet.getRange(period.row, period.endCol)]);
   return sheet;
 }
 

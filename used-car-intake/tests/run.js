@@ -395,6 +395,30 @@ test('月別の仕入：合計カード6枚（台数と金額5つ）、表の金
   assert.ok(Math.max(...widths) - Math.min(...widths) <= 30, widths.join(','));
 });
 
+test('集計期間：開始日〜終了日（両端を含む）と、前の同じ日数の期間', () => {
+  assert.deepStrictEqual(plain(S.periodCriteria('$J$10', '$L$10')), [['purchaseDate', '">="&$J$10'], ['purchaseDate', '"<="&$L$10']]);
+  const p = S.previousPeriodRefs('$J$10', '$L$10');
+  assert.strictEqual(p.start, '($J$10-($L$10-$J$10+1))');
+  assert.strictEqual(p.end, '($J$10-1)');
+  // 10/1〜10/31（31日間）→ 8/31〜9/30 になることを日付で確認
+  const start = new Date(2026, 9, 1), end = new Date(2026, 9, 31), DAY = 86400000;
+  const days = Math.round((end - start) / DAY) + 1;
+  assert.strictEqual(ymd(new Date(start.getTime() - days * DAY)), '2026/8/31');
+  assert.strictEqual(ymd(new Date(start.getTime() - DAY)), '2026/9/30');
+});
+test('作り直すときの期間：選んだ日付を残す。以前の「表示する月」はその月の1日〜末日', () => {
+  const today = date(2026, 10, 15);
+  const kept = S.resolveDashboardPeriod(date(2026, 9, 5), date(2026, 9, 20), today);
+  assert.strictEqual(ymd(kept.start), '2026/9/5');
+  assert.strictEqual(ymd(kept.end), '2026/9/20');
+  const old = S.resolveDashboardPeriod('', date(2026, 2, 1), today);
+  assert.strictEqual(ymd(old.start), '2026/2/1');
+  assert.strictEqual(ymd(old.end), '2026/2/28');
+  const fresh = S.resolveDashboardPeriod('', '', today);
+  assert.strictEqual(ymd(fresh.start), '2026/10/1');
+  assert.strictEqual(ymd(fresh.end), '2026/10/15');
+});
+
 console.log('== 計算式の設定（X〜AC列）==');
 const stdMap = S.resolveColumns(S.STANDARD_HEADERS.slice()).map;
 test('計算式を列の式にする（項目名・全角記号・別名）', () => {
