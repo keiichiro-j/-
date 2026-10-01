@@ -376,6 +376,25 @@ test('台数カード5枚の幅がほぼそろう（差は20px以内）', () => 
   assert.ok(Math.max(...widths) - Math.min(...widths) <= 20, widths.join(','));
 });
 
+test('月別の仕入：SUMIFS をシートごとに足す（金額の列・仕入年月日の列が無いシートは数えない）', () => {
+  const all = { '輸入車マスタ': stdCols, '国産車マスタ': stdCols, '販売済み': stdCols };
+  const f = S.buildSumifsFormula(all, 'purchasePrice', S.monthCriteria('$A20'));
+  assert.strictEqual(f.split('SUMIFS(').length - 1, 3);
+  assert.ok(f.indexOf("SUMIFS('販売済み'!AC2:AC,'販売済み'!A2:A,\">=\"&$A20,'販売済み'!A2:A,\"<\"&EDATE($A20,1))") !== -1);
+  const noPrice = Object.assign({}, stdCols); delete noPrice.purchasePrice;
+  assert.strictEqual(S.buildSumifsFormula({ '輸入車マスタ': noPrice }, 'purchasePrice', S.monthCriteria('$A20')), '=0');
+  assert.ok(S.buildCountifsFormula(all, [S.monthCriteria('X')]).indexOf("COUNTIFS('輸入車マスタ'!A2:A,\">=\"&X,'輸入車マスタ'!A2:A,\"<\"&EDATE(X,1))") !== -1);
+});
+test('月別の仕入：合計カード6枚（台数と金額5つ）、表の金額は6列で仕入価格を含む', () => {
+  assert.strictEqual(S.MONTHLY_CARDS.length, S.DASHBOARD_MONTH_CARD_SPANS.length);
+  S.MONTHLY_CARDS.forEach((c) => assert.ok(c.key === '__count' || S.FIELD_BY_KEY[c.key], c.key));
+  assert.deepStrictEqual(Array.from(S.MONTHLY_AMOUNT_KEYS), ['tradeInAllowance', 'recycleFee', 'tradeInPrice', 'appraisalPrice', 'tradeInLoss', 'purchasePrice']);
+  assert.strictEqual(4 + S.MONTHLY_AMOUNT_KEYS.length + 2, S.DASHBOARD_COLUMN_WIDTHS.length); // 表は12列
+  const w = S.DASHBOARD_COLUMN_WIDTHS;
+  const widths = Array.from(S.DASHBOARD_MONTH_CARD_SPANS, ([c, n]) => w.slice(c - 1, c - 1 + n).reduce((a, b) => a + b, 0));
+  assert.ok(Math.max(...widths) - Math.min(...widths) <= 30, widths.join(','));
+});
+
 console.log('== 計算式の設定（X〜AC列）==');
 const stdMap = S.resolveColumns(S.STANDARD_HEADERS.slice()).map;
 test('計算式を列の式にする（項目名・全角記号・別名）', () => {
