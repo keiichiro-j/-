@@ -78,6 +78,9 @@ function appendHistoryRow_(ss, type, car, formData, submissionId, vehicleNo, tim
     car.shinsho,
     car.person,
     formData.hidaRegistration ? '対象' : '',
+    type === TYPE_GYOSEI ? (formData.gyoseiClass || '') : '',
+    type === TYPE_GYOSEI ? (formData.gyoseiLocation || '') : '',
+    type === TYPE_GYOSEI && isValidDateStr_(formData.sealDate) ? parseDateOnly_(formData.sealDate) : '',
     pdfUrl || '',
     SUBMISSION_STATUS_ACTIVE,
     ''

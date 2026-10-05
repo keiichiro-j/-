@@ -16,7 +16,7 @@ function validateFormData_(formData) {
     return errors;
   }
 
-  if (formData.type !== TYPE_OSS && formData.type !== TYPE_PAPER) {
+  if (formData.type !== TYPE_OSS && formData.type !== TYPE_PAPER && formData.type !== TYPE_GYOSEI) {
     errors.push('出力フォーマットの指定が不正です');
   }
   if (!isNonEmptyString_(formData.company)) {
@@ -26,22 +26,39 @@ function validateFormData_(formData) {
     errors.push('担当責任者を入力してください');
   }
   if (!isValidDateStr_(formData.sendDate)) {
-    errors.push('送付日を正しく入力してください');
+    errors.push(formData.type === TYPE_GYOSEI ? '依頼日を正しく入力してください' : '送付日を正しく入力してください');
   }
-  if (SEND_BATCH_OPTIONS.indexOf(formData.sendBatch) === -1) {
+  // 行政書士登録には「送付便」の概念が無い(テンプレートに印字欄が無く、複数便に分けて
+  // まとめ送付する運用も想定していない)ため、この種別だけ送付便の選択を必須にしない。
+  if (formData.type !== TYPE_GYOSEI && SEND_BATCH_OPTIONS.indexOf(formData.sendBatch) === -1) {
     errors.push('送付便を選択してください');
   }
-  if (formData.type === TYPE_PAPER && !isValidDateStr_(formData.regDateCommon)) {
-    errors.push('登録日（全体）を正しく入力してください（紙登録では必須です）');
+  if ((formData.type === TYPE_PAPER || formData.type === TYPE_GYOSEI) && !isValidDateStr_(formData.regDateCommon)) {
+    errors.push('登録日（全体）を正しく入力してください');
+  }
+
+  if (formData.type === TYPE_GYOSEI) {
+    if (GYOSEI_CLASS_OPTIONS.indexOf(formData.gyoseiClass) === -1) {
+      errors.push('依頼事項を選択してください');
+    }
+    if (!isNonEmptyString_(formData.gyoseiLocation)) {
+      errors.push('依頼拠点を入力してください');
+    }
+    if (formData.sealDate && !isValidDateStr_(formData.sealDate)) {
+      errors.push('封印取付日の形式が不正です');
+    }
   }
 
   var vehicles = Array.isArray(formData.vehicles) ? formData.vehicles : [];
   var active = getActiveVehicles_(vehicles);
 
   if (active.length === 0) {
-    errors.push('車両データを1台以上入力してください');
+    errors.push(formData.type === TYPE_GYOSEI ? '顧客名を入力してください' : '車両データを1台以上入力してください');
   }
-  if (active.length > MAX_VEHICLES) {
+  if (formData.type === TYPE_GYOSEI && active.length > 1) {
+    errors.push('行政書士登録は1件のみ入力してください（複数件登録する場合は申請を分けてください）');
+  }
+  if (formData.type !== TYPE_GYOSEI && active.length > MAX_VEHICLES) {
     errors.push('車両データは' + MAX_VEHICLES + '台以内で入力してください');
   }
 
@@ -54,6 +71,15 @@ function validateFormData_(formData) {
 
 function validateVehicle_(car, no, type) {
   var errors = [];
+
+  // 行政書士登録は車両テーブルを持たず、顧客名(使用者名)とブランドだけを扱う
+  // (車台番号・税額・各種チェック欄は対象外)。
+  if (type === TYPE_GYOSEI) {
+    if (car.brand && getBrandOptions_().indexOf(car.brand) === -1) {
+      errors.push('ブランドの指定が不正です');
+    }
+    return errors;
+  }
 
   if (!/^\d{4}$/.test(car.chassis || '')) {
     errors.push(no + '台目: 車台番号は数字4桁で入力してください');

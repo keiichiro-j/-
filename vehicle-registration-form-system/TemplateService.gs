@@ -12,7 +12,8 @@
  * @return {Sheet} 複製された一時シート
  */
 function duplicateTemplateSheet_(ss, type, submissionId) {
-  var templateName = (type === TYPE_OSS) ? SHEET_NAMES.OSS_TEMPLATE : SHEET_NAMES.PAPER_TEMPLATE;
+  var templateName = (type === TYPE_OSS) ? SHEET_NAMES.OSS_TEMPLATE :
+    (type === TYPE_GYOSEI) ? SHEET_NAMES.GYOSEI_TEMPLATE : SHEET_NAMES.PAPER_TEMPLATE;
   var templateSheet = ss.getSheetByName(templateName);
   if (!templateSheet) {
     throw new Error('指定されたテンプレートシートが見つかりません: ' + templateName);
@@ -23,6 +24,11 @@ function duplicateTemplateSheet_(ss, type, submissionId) {
 }
 
 function writeCommonFields_(sheet, type, formData) {
+  if (type === TYPE_GYOSEI) {
+    writeGyoseiCommonFields_(sheet, formData);
+    return;
+  }
+
   var cells = (type === TYPE_PAPER) ? COMMON_CELLS.PAPER : COMMON_CELLS.OSS;
 
   sheet.getRange(cells.company).setValue(formData.company);
@@ -46,6 +52,24 @@ function writeCommonFields_(sheet, type, formData) {
 }
 
 /**
+ * 行政書士依頼書は車両テーブル形式ではなく単票形式のため、共通項目(依頼日・依頼事項・
+ * 依頼拠点・担当者・登録日・封印取付日)をここでまとめて書き込む。顧客名(使用者名)は
+ * 単票内の唯一の「車両」データとして writeVehicleRows_ 側で書き込む。
+ */
+function writeGyoseiCommonFields_(sheet, formData) {
+  sheet.getRange(GYOSEI_CELLS.requestDate).setValue(formatMonthDay_(formData.sendDate));
+  sheet.getRange(GYOSEI_CELLS.gyoseiClass).setValue(formData.gyoseiClass || '');
+  sheet.getRange(GYOSEI_CELLS.branch).setValue(formData.gyoseiLocation || '');
+  sheet.getRange(GYOSEI_CELLS.manager).setValue(formData.manager);
+  if (isValidDateStr_(formData.regDateCommon)) {
+    sheet.getRange(GYOSEI_CELLS.regDate).setValue(formatMonthDay_(formData.regDateCommon));
+  }
+  if (isValidDateStr_(formData.sealDate)) {
+    sheet.getRange(GYOSEI_CELLS.sealDate).setValue(formatMonthDay_(formData.sealDate));
+  }
+}
+
+/**
  * "YYYY-MM-DD" を「M/D」形式の表示用文字列にする。不正/空なら空文字。
  */
 function formatMonthDay_(dateStr) {
@@ -55,6 +79,14 @@ function formatMonthDay_(dateStr) {
 }
 
 function writeVehicleRows_(sheet, type, vehicles) {
+  if (type === TYPE_GYOSEI) {
+    // 単票形式のため1件(先頭のみ)の顧客名だけをテンプレートの固定セルへ書き込む。
+    if (vehicles.length > 0) {
+      sheet.getRange(GYOSEI_CELLS.customerName).setValue(vehicles[0].userName || '');
+    }
+    return;
+  }
+
   var columns = (type === TYPE_OSS) ? VEHICLE_COLUMNS.OSS : VEHICLE_COLUMNS.PAPER;
   var row = VEHICLE_START_ROW;
 

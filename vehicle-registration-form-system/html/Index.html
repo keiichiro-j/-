@@ -67,6 +67,7 @@
               <div class="segmented" role="tablist" aria-label="出力フォーマット">
                 <button type="button" class="segBtn is-active" id="segOss" role="tab" aria-selected="true">OSS（電子申請）</button>
                 <button type="button" class="segBtn" id="segPaper" role="tab" aria-selected="false">紙（従来申請）</button>
+                <button type="button" class="segBtn" id="segGyosei" role="tab" aria-selected="false">行政書士</button>
               </div>
               <input type="hidden" id="type" value="OSS">
             </div>
@@ -84,10 +85,10 @@
 
           <div class="fieldRow">
             <div class="field">
-              <label for="sendDate">送付日 <span class="req">必須</span></label>
+              <label for="sendDate" id="sendDateLabel">送付日 <span class="req">必須</span></label>
               <input type="date" id="sendDate" required>
             </div>
-            <div class="field">
+            <div class="field" id="sendBatchField">
               <label for="sendBatch">送付便 <span class="req">必須</span></label>
               <select id="sendBatch" required>
                 <option value="">選択してください</option>
@@ -100,15 +101,31 @@
               <label for="regDateCommon">登録日（全体） <span class="req">必須</span></label>
               <input type="date" id="regDateCommon">
             </div>
-            <div class="field">
+            <div class="field" id="hidaToggleField">
               <label>&nbsp;</label>
               <button type="button" id="hidaToggle" class="toggleBtn" aria-pressed="false">飛騨登録：対象外</button>
+            </div>
+          </div>
+
+          <div class="fieldRow is-hidden" id="gyoseiExtraFields">
+            <div class="field">
+              <label for="gyoseiClass">依頼事項 <span class="req">必須</span></label>
+              <select id="gyoseiClass">
+                <option value="">選択してください</option>
+                <option value="車庫証明申請">車庫証明申請</option>
+                <option value="車庫証明申請から登録">車庫証明申請から登録</option>
+                <option value="登録（車庫証明別途依頼済）">登録（車庫証明別途依頼済）</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="gyoseiLocation">依頼拠点 <span class="req">必須</span></label>
+              <input type="text" id="gyoseiLocation" autocomplete="off">
             </div>
           </div>
         </section>
       </div>
 
-      <section class="card">
+      <section class="card" id="vehicleTableCard">
         <div class="card__head card__head--split">
           <div>
             <h2>車両データ</h2>
@@ -145,6 +162,30 @@
         <button type="button" id="btnAddRow" class="btn btn--ghost">＋ 行を追加</button>
         <datalist id="dl-usernames"></datalist>
         <datalist id="dl-persons"></datalist>
+      </section>
+
+      <section class="card is-hidden" id="gyoseiCard">
+        <div class="card__head">
+          <h2>行政書士 登録情報</h2>
+          <p class="muted">行政書士へ依頼する顧客・車両の情報を入力してください（1申請につき1件）。</p>
+        </div>
+
+        <div class="fieldRow">
+          <div class="field">
+            <label for="gyoseiCustomerName">顧客名 <span class="req">必須</span></label>
+            <input type="text" id="gyoseiCustomerName" list="dl-usernames" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="gyoseiBrand">ブランド</label>
+            <select id="gyoseiBrand">
+              <option value=""></option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="gyoseiSealDate">封印取付日</label>
+            <input type="date" id="gyoseiSealDate">
+          </div>
+        </div>
       </section>
 
       <div class="submitBar">

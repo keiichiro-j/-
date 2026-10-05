@@ -89,10 +89,11 @@
 
   document.getElementById('btnAddRow').addEventListener('click', addVehicleRow);
 
-  // OSSと紙で「登録日」の入力方法を切り替える
+  // OSS・紙・行政書士で「登録日」欄や車両テーブルの要否を切り替える
   function toggleRegDateMode() {
     var type = document.getElementById('type').value;
     var isOss = type === 'OSS';
+    var isGyosei = type === '行政書士';
 
     document.getElementById('commonRegDateField').style.display = isOss ? 'none' : '';
     document.getElementById('regDateCommon').required = !isOss;
@@ -101,20 +102,36 @@
       el.classList.toggle('is-hidden', !isOss);
     });
 
+    // 行政書士登録はテンプレートに印字欄が無い「送付便」「飛騨登録」を使わず、
+    // 代わりに「依頼事項」「依頼拠点」を入力する。車両テーブルの代わりに
+    // 専用カード(顧客名・ブランド・封印取付日)を使う単票形式。
+    document.getElementById('sendBatchField').classList.toggle('is-hidden', isGyosei);
+    document.getElementById('sendBatch').required = !isGyosei;
+    document.getElementById('hidaToggleField').classList.toggle('is-hidden', isGyosei);
+    document.getElementById('gyoseiExtraFields').classList.toggle('is-hidden', !isGyosei);
+    document.getElementById('sendDateLabel').innerHTML = isGyosei
+      ? '依頼日 <span class="req">必須</span>'
+      : '送付日 <span class="req">必須</span>';
+    document.getElementById('vehicleTableCard').classList.toggle('is-hidden', isGyosei);
+    document.getElementById('gyoseiCard').classList.toggle('is-hidden', !isGyosei);
+
     updateStickyOffsets_();
   }
 
-  // 出力フォーマットのセグメントボタン(OSS/紙)を切り替える
+  // 出力フォーマットのセグメントボタン(OSS/紙/行政書士)を切り替える
   function setType(value) {
     document.getElementById('type').value = value;
     document.getElementById('segOss').classList.toggle('is-active', value === 'OSS');
     document.getElementById('segOss').setAttribute('aria-selected', value === 'OSS');
     document.getElementById('segPaper').classList.toggle('is-active', value === '紙');
     document.getElementById('segPaper').setAttribute('aria-selected', value === '紙');
+    document.getElementById('segGyosei').classList.toggle('is-active', value === '行政書士');
+    document.getElementById('segGyosei').setAttribute('aria-selected', value === '行政書士');
     toggleRegDateMode();
   }
   document.getElementById('segOss').addEventListener('click', function () { setType('OSS'); });
   document.getElementById('segPaper').addEventListener('click', function () { setType('紙'); });
+  document.getElementById('segGyosei').addEventListener('click', function () { setType('行政書士'); });
 
   function populateSuggestions(data) {
     fillDatalist_('dl-companies', data.companies);
@@ -146,6 +163,22 @@
   }
   populateHistoryBrandOptions_();
 
+  // 行政書士登録カードの「ブランド」選択肢も、同じくBRAND_OPTIONS_から組み立てる
+  // (未選択を許容する任意項目のため、先頭の空欄はIndex.html側に用意済み)。
+  function populateGyoseiBrandOptions_() {
+    var select = document.getElementById('gyoseiBrand');
+    var current = select.value;
+    select.querySelectorAll('option[value]:not([value=""])').forEach(function (opt) { opt.remove(); });
+    (window.BRAND_OPTIONS_ || []).forEach(function (b) {
+      var opt = document.createElement('option');
+      opt.value = b;
+      opt.textContent = b;
+      select.appendChild(opt);
+    });
+    select.value = current;
+  }
+  populateGyoseiBrandOptions_();
+
   function collectVehicles_() {
     var rows = document.querySelectorAll('#vehicleTableBody .vehicleRow');
     var vehicles = [];
@@ -170,21 +203,48 @@
     return vehicles;
   }
 
+  // 行政書士登録は車両テーブルを持たない単票形式のため、専用カードの入力から
+  // 1件だけの「車両」データ(顧客名・ブランド)を組み立てる(サーバー側はOSS/紙と同じ
+  // vehicles配列として受け取る)。
+  function collectGyoseiVehicle_() {
+    var userName = document.getElementById('gyoseiCustomerName').value.trim();
+    if (userName === '') return [];
+    return [{
+      userName: userName,
+      brand: document.getElementById('gyoseiBrand').value
+    }];
+  }
+
   function clearInvalid_() {
     document.querySelectorAll('.is-invalid').forEach(function (el) { el.classList.remove('is-invalid'); });
   }
 
   function highlightRequired_() {
     var ok = true;
-    ['company', 'manager', 'sendDate', 'sendBatch'].forEach(function (id) {
+    var type = document.getElementById('type').value;
+    var isGyosei = type === '行政書士';
+
+    var requiredIds = isGyosei ? ['company', 'manager', 'sendDate'] : ['company', 'manager', 'sendDate', 'sendBatch'];
+    requiredIds.forEach(function (id) {
       var el = document.getElementById(id);
       if (!el.value.trim()) { el.classList.add('is-invalid'); ok = false; }
     });
+
     var regDateCommon = document.getElementById('regDateCommon');
-    if (document.getElementById('type').value === '紙' && !regDateCommon.value) {
+    if ((type === '紙' || isGyosei) && !regDateCommon.value) {
       regDateCommon.classList.add('is-invalid');
       ok = false;
     }
+
+    if (isGyosei) {
+      var gyoseiClass = document.getElementById('gyoseiClass');
+      if (!gyoseiClass.value) { gyoseiClass.classList.add('is-invalid'); ok = false; }
+      var gyoseiLocation = document.getElementById('gyoseiLocation');
+      if (!gyoseiLocation.value.trim()) { gyoseiLocation.classList.add('is-invalid'); ok = false; }
+      var gyoseiCustomerName = document.getElementById('gyoseiCustomerName');
+      if (!gyoseiCustomerName.value.trim()) { gyoseiCustomerName.classList.add('is-invalid'); ok = false; }
+    }
+
     return ok;
   }
 
@@ -252,17 +312,21 @@
     if (isSubmitting) return;
     clearInvalid_();
 
-    var vehicles = collectVehicles_();
+    var isGyosei = document.getElementById('type').value === '行政書士';
+    var vehicles = isGyosei ? collectGyoseiVehicle_() : collectVehicles_();
     var hasActiveVehicle = vehicles.some(function (v) { return v.userName !== ''; });
     var requiredOk = highlightRequired_();
-    var vehiclesOk = highlightVehicleErrors_(vehicles);
+    var vehiclesOk = isGyosei ? true : highlightVehicleErrors_(vehicles);
 
     if (!requiredOk) {
       setResult_('必須項目が未入力です（赤枠の項目を確認してください）', 'error');
       return;
     }
     if (!hasActiveVehicle) {
-      setResult_('車両データを1台以上入力してください（使用者名が必須です）', 'error');
+      setResult_(
+        isGyosei ? '顧客名を入力してください' : '車両データを1台以上入力してください（使用者名が必須です）',
+        'error'
+      );
       return;
     }
     if (!vehiclesOk) {
@@ -277,6 +341,9 @@
       sendDate: document.getElementById('sendDate').value,
       sendBatch: document.getElementById('sendBatch').value,
       regDateCommon: document.getElementById('regDateCommon').value,
+      gyoseiClass: document.getElementById('gyoseiClass').value,
+      gyoseiLocation: document.getElementById('gyoseiLocation').value.trim(),
+      sealDate: document.getElementById('gyoseiSealDate').value,
       hidaRegistration: hidaOn,
       submissionToken: submissionToken_,
       vehicles: vehicles
@@ -1300,6 +1367,7 @@
         BRAND_OPTIONS_ = brands || [];
         renderBrandOptions_(brands);
         populateHistoryBrandOptions_(); // 起動直後に埋め込んだ初期値から、最新の内容に更新し直す
+        populateGyoseiBrandOptions_();
       })
       .getBrandOptions();
   }
@@ -1328,6 +1396,7 @@
         BRAND_OPTIONS_ = saved;
         renderBrandOptions_(saved);
         populateHistoryBrandOptions_(); // ※既存の履歴確認画面の選択中の値はリセットされる
+        populateGyoseiBrandOptions_();
         setBrandOptionsResult_('保存しました', 'success');
       })
       .withFailureHandler(function (error) {

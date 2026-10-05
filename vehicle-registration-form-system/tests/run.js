@@ -204,6 +204,65 @@ test('送付便が第１〜第３便のいずれかならエラーなし', () =>
   });
 });
 
+console.log('== ValidationService: validateFormData_ (行政書士登録) ==');
+function gyoseiFormData(overrides) {
+  return baseFormData(Object.assign({
+    type: '行政書士',
+    sendBatch: '',
+    regDateCommon: '2026-08-20',
+    gyoseiClass: '車庫証明申請',
+    gyoseiLocation: '岐阜本店',
+    sealDate: '',
+    vehicles: [{ userName: '橋本美咲', brand: 'MB' }]
+  }, overrides || {}));
+}
+test('必須項目が揃っていればエラーなし(送付便は不要)', () => {
+  assert.strictEqual(sandbox.validateFormData_(gyoseiFormData()).length, 0);
+});
+test('送付便が空欄でもエラーにならない', () => {
+  const errors = sandbox.validateFormData_(gyoseiFormData({ sendBatch: '' }));
+  assert.ok(!errors.some((e) => e.includes('送付便')));
+});
+test('登録日（全体）が空ならエラー', () => {
+  const errors = sandbox.validateFormData_(gyoseiFormData({ regDateCommon: '' }));
+  assert.ok(errors.some((e) => e.includes('登録日（全体）')));
+});
+test('依頼事項が未選択ならエラー', () => {
+  const errors = sandbox.validateFormData_(gyoseiFormData({ gyoseiClass: '' }));
+  assert.ok(errors.some((e) => e.includes('依頼事項')));
+});
+test('依頼事項が選択肢外ならエラー', () => {
+  const errors = sandbox.validateFormData_(gyoseiFormData({ gyoseiClass: '存在しない依頼' }));
+  assert.ok(errors.some((e) => e.includes('依頼事項')));
+});
+test('依頼拠点が空ならエラー', () => {
+  const errors = sandbox.validateFormData_(gyoseiFormData({ gyoseiLocation: '' }));
+  assert.ok(errors.some((e) => e.includes('依頼拠点')));
+});
+test('顧客名(使用者名)が空ならエラー', () => {
+  const errors = sandbox.validateFormData_(gyoseiFormData({ vehicles: [{ userName: '' }] }));
+  assert.ok(errors.some((e) => e.includes('顧客名')));
+});
+test('顧客名が2件以上あるとエラー(1申請=1件)', () => {
+  const errors = sandbox.validateFormData_(gyoseiFormData({
+    vehicles: [{ userName: '橋本美咲' }, { userName: '山田花子' }]
+  }));
+  assert.ok(errors.some((e) => e.includes('1件のみ')));
+});
+test('封印取付日は空欄ならエラーにならない(任意項目)', () => {
+  assert.strictEqual(sandbox.validateFormData_(gyoseiFormData({ sealDate: '' })).length, 0);
+});
+test('封印取付日は入力されていれば形式を検証する', () => {
+  const errors = sandbox.validateFormData_(gyoseiFormData({ sealDate: '2026/08/20' }));
+  assert.ok(errors.some((e) => e.includes('封印取付日')));
+});
+test('車台番号・税額は検証しない(車両テーブルを使わないため)', () => {
+  const errors = sandbox.validateFormData_(gyoseiFormData({
+    vehicles: [{ userName: '橋本美咲', chassis: 'invalid', autoTax: '-1' }]
+  }));
+  assert.strictEqual(errors.length, 0);
+});
+
 console.log('== ValidationService: parseDateOnly_ / isValidDateStr_ ==');
 test('YYYY-MM-DDをローカル日付として解釈する（UTCシフトしない）', () => {
   const d = sandbox.parseDateOnly_('2026-08-07');
@@ -235,6 +294,12 @@ test('紙登録は共通登録日から年月タブ名を決める', () => {
     '2026-09'
   );
 });
+test('行政書士登録も共通登録日から年月タブ名を決める(紙登録と同じ扱い)', () => {
+  assert.strictEqual(
+    sandbox.resolveHistoryTabName_('行政書士', {}, '2026-09-01'),
+    '2026-09'
+  );
+});
 test('使用者名が空の行はアクティブな車両とみなさない', () => {
   const active = sandbox.getActiveVehicles_([
     { userName: '岐阜 太郎' }, { userName: '' }, { userName: '  ' }, { userName: '岐阜 花子' }
@@ -254,6 +319,94 @@ test('送信日時以外の日付セルはyyyy-MM-ddに整形される', () => {
 test('Date以外の値はそのまま返す', () => {
   assert.strictEqual(sandbox.formatHistoryCell_('依頼会社名', '岐阜ヤナセ株式会社'), '岐阜ヤナセ株式会社');
   assert.strictEqual(sandbox.formatHistoryCell_('自動車税', 12000), 12000);
+});
+
+console.log('== Constants: HISTORY_HEADER_ROW (行政書士登録の列追加) ==');
+test('行政書士登録の3列は「飛騨登録」の直後・「送付書PDF」の直前に挿入されている(既存タブの列インデックスを保つため)', () => {
+  const header = Array.from(sandbox.HISTORY_HEADER_ROW);
+  assert.strictEqual(header.indexOf('飛騨登録') + 1, header.indexOf('依頼事項'));
+  assert.strictEqual(header.indexOf('依頼事項') + 1, header.indexOf('依頼拠点'));
+  assert.strictEqual(header.indexOf('依頼拠点') + 1, header.indexOf('封印取付日'));
+  assert.strictEqual(header.indexOf('封印取付日') + 1, header.indexOf('送付書PDF'));
+  // 既存列(依頼会社名=3, 担当責任者=4, 使用者名=9, 担当者=21)のインデックスは変わらない
+  assert.strictEqual(header.indexOf('依頼会社名'), 3);
+  assert.strictEqual(header.indexOf('担当責任者'), 4);
+  assert.strictEqual(header.indexOf('使用者名'), 9);
+  assert.strictEqual(header.indexOf('担当者'), 21);
+});
+
+console.log('== HistoryService: appendHistoryRow_ (行政書士登録) ==');
+
+// insertSheet/appendRow/getRange().setValues()まで最小限サポートするミュータブルなフェイク
+// (他のHistoryServiceテストで使うmakeFakeSheet/makeFakeSpreadsheetは読み取り専用のため別に用意する)。
+function makeMutableFakeSpreadsheet() {
+  const sheetsByName = {};
+  return {
+    getSheetByName: (name) => sheetsByName[name] || null,
+    insertSheet: (name) => {
+      const rows = [];
+      const sheet = {
+        getRange: (r, c, numRows, numCols) => ({
+          setValues: (vals) => { rows[r - 1] = vals[0].slice(); },
+          getValues: () => [rows[r - 1] || []]
+        }),
+        appendRow: (row) => { rows.push(row.slice()); },
+        setFrozenRows: () => {},
+        _rows: rows
+      };
+      sheetsByName[name] = sheet;
+      return sheet;
+    }
+  };
+}
+
+test('依頼事項・依頼拠点・封印取付日の3列に値を書き込み、車両テーブル用の列は空欄のままにする', () => {
+  const ss = makeMutableFakeSpreadsheet();
+  const formData = {
+    company: '岐阜ヤナセ株式会社',
+    manager: '戸田 圭市朗',
+    sendDate: '2026-08-10',
+    sendBatch: '',
+    regDateCommon: '2026-08-20',
+    gyoseiClass: '車庫証明申請',
+    gyoseiLocation: '岐阜本店',
+    sealDate: '2026-08-25'
+  };
+  const car = { userName: '橋本美咲', brand: 'MB' };
+  const tabName = sandbox.appendHistoryRow_(ss, '行政書士', car, formData, 'uuid-1', 1, new Date(2026, 7, 10, 9, 0, 0), 'https://example.com/a.pdf');
+
+  assert.strictEqual(tabName, '2026-08');
+  const header = Array.from(sandbox.HISTORY_HEADER_ROW);
+  const row = ss.getSheetByName('2026-08')._rows[1];
+  assert.strictEqual(row[header.indexOf('種別')], '行政書士');
+  assert.strictEqual(row[header.indexOf('使用者名')], '橋本美咲');
+  assert.strictEqual(row[header.indexOf('ブランド')], 'MB');
+  assert.strictEqual(row[header.indexOf('依頼事項')], '車庫証明申請');
+  assert.strictEqual(row[header.indexOf('依頼拠点')], '岐阜本店');
+  assert.deepStrictEqual(row[header.indexOf('封印取付日')], sandbox.parseDateOnly_('2026-08-25'));
+  // 車両テーブル専用の列(車台番号など)は行政書士登録では使わないため空欄のまま
+  assert.strictEqual(row[header.indexOf('車台番号')], undefined);
+});
+test('封印取付日が未入力なら空文字のまま(エラーにしない)', () => {
+  const ss = makeMutableFakeSpreadsheet();
+  const formData = {
+    company: '岐阜ヤナセ株式会社', manager: '戸田 圭市朗', sendDate: '2026-08-10',
+    regDateCommon: '2026-08-20', gyoseiClass: '車庫証明申請', gyoseiLocation: '岐阜本店', sealDate: ''
+  };
+  sandbox.appendHistoryRow_(ss, '行政書士', { userName: '橋本美咲' }, formData, 'uuid-2', 1, new Date(), 'https://example.com/b.pdf');
+  const header = Array.from(sandbox.HISTORY_HEADER_ROW);
+  const row = ss.getSheetByName('2026-08')._rows[1];
+  assert.strictEqual(row[header.indexOf('封印取付日')], '');
+});
+test('OSS/紙では行政書士専用の3列は空欄のまま', () => {
+  const ss = makeMutableFakeSpreadsheet();
+  const formData = { company: '岐阜ヤナセ株式会社', manager: '戸田 圭市朗', sendDate: '2026-08-10', sendBatch: '第１便' };
+  sandbox.appendHistoryRow_(ss, 'OSS', { userName: '橋本美咲', indivRegDate: '2026-08-15' }, formData, 'uuid-3', 1, new Date(), '');
+  const header = Array.from(sandbox.HISTORY_HEADER_ROW);
+  const row = ss.getSheetByName('2026-08')._rows[1];
+  assert.strictEqual(row[header.indexOf('依頼事項')], '');
+  assert.strictEqual(row[header.indexOf('依頼拠点')], '');
+  assert.strictEqual(row[header.indexOf('封印取付日')], '');
 });
 
 console.log('== HistoryService: getHistoryEntriesByDateRange_ ==');
