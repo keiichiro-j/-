@@ -67,17 +67,18 @@ var PAPER_FIELD_LABELS = {
 
 /**
  * GASエディタの関数選択プルダウンからこれを選んで実行する(初回セットアップ用、1回だけでよい)。
- * 再実行すると両方のシートを作り直す(既存の内容は消える)ので、運用開始後は実行しないこと。
+ * 再実行すると3つとも作り直す(既存の内容は消える)ので、運用開始後は実行しないこと。
  */
 function setupTemplateSheets() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
 
   buildOssTemplateSheet_(getOrCreateSheetForSetup_(ss, SHEET_NAMES.OSS_TEMPLATE));
   buildPaperTemplateSheet_(getOrCreateSheetForSetup_(ss, SHEET_NAMES.PAPER_TEMPLATE));
+  buildGyoseiTemplateSheet_(getOrCreateSheetForSetup_(ss, SHEET_NAMES.GYOSEI_TEMPLATE));
 
   // 新規スプレッドシート作成時のデフォルト「シート1」が残っていれば削除する
   var defaultSheet = ss.getSheetByName('シート1');
-  if (defaultSheet && ss.getSheets().length > 2) {
+  if (defaultSheet && ss.getSheets().length > 3) {
     ss.deleteSheet(defaultSheet);
   }
 
@@ -120,6 +121,172 @@ function buildPaperTemplateSheet_(sheet) {
   buildTotalRow_(sheet, VEHICLE_COLUMNS.PAPER, maxCol, 5); // A:E(使用者名〜類別番号)を「合計」ラベルに使う
 
   finishSheetStyle_(sheet, maxCol);
+}
+
+/**
+ * 行政書士依頼書テンプレート。OSS/紙と異なり車両テーブル形式ではなく、
+ * 「依頼情報(ラベル+値のペアを8つ、1行に2つずつ)」「提出書類チェックリスト(8項目、
+ * 項目ごとにチェック欄+備考欄)」「備考欄」の3ブロックで構成する単票形式。
+ * セル位置は Constants.gs の GYOSEI_CELLS / GYOSEI_CHECKLIST_* と必ず一致させること。
+ */
+function buildGyoseiTemplateSheet_(sheet) {
+  var maxCol = 6; // A〜F
+  sheet.clear();
+
+  buildGyoseiBanner_(sheet, maxCol);
+  buildGyoseiFields_(sheet);
+  buildGyoseiChecklistTable_(sheet);
+  buildGyoseiRemarksBox_(sheet, maxCol);
+
+  sheet.getRange(1, 1, GYOSEI_REMARKS_END_ROW, maxCol).setFontFamily(FONT_FAMILY);
+  sheet.setColumnWidth(1, 110);
+  for (var col = 2; col <= maxCol; col++) {
+    sheet.setColumnWidth(col, 110);
+  }
+  sheet.setFrozenRows(1);
+  sheet.setHiddenGridlines(true);
+}
+
+/**
+ * タイトルバー(1行目)。OSS/紙と違い飛騨登録・種別の区分バッジは無いため、中央に
+ * タイトルを表示するだけのシンプルな構成にする。
+ */
+function buildGyoseiBanner_(sheet, maxCol) {
+  var titleRange = sheet.getRange(1, 1, 1, maxCol);
+  titleRange.merge();
+  titleRange.setValue('行政書士依頼書');
+  titleRange.setFontFamily(FONT_FAMILY);
+  titleRange.setFontSize(22);
+  titleRange.setFontWeight('bold');
+  titleRange.setFontColor(THEME.ink);
+  titleRange.setHorizontalAlignment('center');
+  titleRange.setVerticalAlignment('middle');
+  titleRange.setBorder(true, true, true, true, true, null, THEME.ink, SpreadsheetApp.BorderStyle.SOLID);
+  sheet.setRowHeight(1, 40);
+}
+
+/**
+ * 依頼情報の8項目を、1行に2項目ずつ(ラベル+値のペア)4行で配置する。
+ * Constants.gs の GYOSEI_CELLS(各項目の値欄の左上セル)と対応させること。
+ */
+function buildGyoseiFields_(sheet) {
+  buildInlineLabelValue_(sheet, 3, 1, 1, 2, '依頼日');
+  buildInlineLabelValue_(sheet, 3, 4, 1, 2, '依頼事項');
+  buildInlineLabelValue_(sheet, 4, 1, 1, 2, '依頼拠点');
+  buildInlineLabelValue_(sheet, 4, 4, 1, 2, '担当責任者');
+  buildInlineLabelValue_(sheet, 5, 1, 1, 2, '担当者');
+  buildInlineLabelValue_(sheet, 5, 4, 1, 2, '顧客名');
+  buildInlineLabelValue_(sheet, 6, 1, 1, 2, '登録日');
+  buildInlineLabelValue_(sheet, 6, 4, 1, 2, '封印取付日');
+
+  for (var row = 3; row <= 6; row++) {
+    sheet.setRowHeight(row, 28);
+  }
+  sheet.setRowHeight(7, 10); // 区切りの空白行
+}
+
+/**
+ * 提出書類チェックリスト。GYOSEI_CHECKLIST_ITEMS の並び順で1項目=1行のテーブルを作る。
+ * チェック欄(〇)・備考欄はどちらも空欄のまま用意し、TemplateService.gs が
+ * フォーム入力に応じて書き込む。
+ */
+function buildGyoseiChecklistTable_(sheet) {
+  var sectionRow = GYOSEI_CHECKLIST_HEADER_ROW - 1;
+  var sectionRange = sheet.getRange(sectionRow, 1, 1, 6);
+  sectionRange.merge();
+  sectionRange.setValue('提出書類チェックリスト');
+  sectionRange.setBackground(THEME.headerFill);
+  sectionRange.setFontFamily(FONT_FAMILY);
+  sectionRange.setFontWeight('bold');
+  sectionRange.setFontSize(12);
+  sectionRange.setFontColor(THEME.ink);
+  sectionRange.setHorizontalAlignment('left');
+  sectionRange.setVerticalAlignment('middle');
+  sheet.setRowHeight(sectionRow, 24);
+
+  var headerRow = GYOSEI_CHECKLIST_HEADER_ROW;
+  setChecklistHeaderCell_(sheet, headerRow, 1, 1, '項目');
+  setChecklistHeaderCell_(sheet, headerRow, GYOSEI_CHECKLIST_CHECK_COL, 1, 'チェック');
+  setChecklistHeaderCell_(sheet, headerRow, GYOSEI_CHECKLIST_REMARK_COL, 6 - GYOSEI_CHECKLIST_REMARK_COL + 1, '備考');
+  sheet.setRowHeight(headerRow, 22);
+
+  GYOSEI_CHECKLIST_ITEMS.forEach(function (item, i) {
+    var row = GYOSEI_CHECKLIST_START_ROW + i;
+
+    var labelCell = sheet.getRange(row, 1);
+    labelCell.setValue(item.label);
+    labelCell.setFontFamily(FONT_FAMILY);
+    labelCell.setFontSize(11);
+    labelCell.setFontColor(THEME.ink);
+    labelCell.setHorizontalAlignment('left');
+    labelCell.setVerticalAlignment('middle');
+
+    var checkRange = sheet.getRange(row, GYOSEI_CHECKLIST_CHECK_COL);
+    checkRange.setFontFamily(FONT_FAMILY);
+    checkRange.setFontSize(12);
+    checkRange.setFontWeight('bold');
+    checkRange.setHorizontalAlignment('center');
+    checkRange.setVerticalAlignment('middle');
+
+    var remarkRange = sheet.getRange(row, GYOSEI_CHECKLIST_REMARK_COL, 1, 6 - GYOSEI_CHECKLIST_REMARK_COL + 1);
+    remarkRange.merge();
+    remarkRange.setFontFamily(FONT_FAMILY);
+    remarkRange.setFontSize(10);
+    remarkRange.setHorizontalAlignment('left');
+    remarkRange.setVerticalAlignment('middle');
+
+    sheet.getRange(row, 1, 1, 6)
+      .setBorder(true, true, true, true, true, false, THEME.ink, SpreadsheetApp.BorderStyle.SOLID);
+    sheet.setRowHeight(row, 24);
+  });
+
+  var tableRows = 1 + GYOSEI_CHECKLIST_ITEMS.length; // 見出し行 + 項目数
+  sheet.getRange(headerRow, 1, tableRows, 6)
+    .setBorder(true, true, true, true, true, true, THEME.ink, SpreadsheetApp.BorderStyle.SOLID);
+}
+
+function setChecklistHeaderCell_(sheet, row, colStart, colSpan, text) {
+  var range = sheet.getRange(row, colStart, 1, colSpan);
+  if (colSpan > 1) range.merge();
+  range.setValue(text);
+  range.setBackground(THEME.headerFill);
+  range.setFontFamily(FONT_FAMILY);
+  range.setFontWeight('bold');
+  range.setFontSize(10);
+  range.setFontColor(THEME.ink);
+  range.setHorizontalAlignment('center');
+  range.setVerticalAlignment('middle');
+}
+
+// 備考欄見出し・本文の行番号(GYOSEI_CHECKLIST_START_ROWより後ろに続けて配置する)
+var GYOSEI_REMARKS_HEADER_ROW = GYOSEI_CHECKLIST_START_ROW + GYOSEI_CHECKLIST_ITEMS.length + 1;
+var GYOSEI_REMARKS_BOX_ROWS = 5;
+var GYOSEI_REMARKS_END_ROW = GYOSEI_REMARKS_HEADER_ROW + GYOSEI_REMARKS_BOX_ROWS;
+
+/**
+ * 備考欄/行政書士記入欄。TemplateService.gsからは書き込まず、PDF印刷後に
+ * 手書きで使うための空欄のまま用意する。
+ */
+function buildGyoseiRemarksBox_(sheet, maxCol) {
+  var headerRange = sheet.getRange(GYOSEI_REMARKS_HEADER_ROW, 1, 1, maxCol);
+  headerRange.merge();
+  headerRange.setValue('備考欄 / 行政書士記入欄');
+  headerRange.setBackground(THEME.headerFill);
+  headerRange.setFontFamily(FONT_FAMILY);
+  headerRange.setFontWeight('bold');
+  headerRange.setFontSize(12);
+  headerRange.setFontColor(THEME.ink);
+  headerRange.setHorizontalAlignment('left');
+  headerRange.setVerticalAlignment('middle');
+  sheet.setRowHeight(GYOSEI_REMARKS_HEADER_ROW, 24);
+
+  var boxRange = sheet.getRange(GYOSEI_REMARKS_HEADER_ROW + 1, 1, GYOSEI_REMARKS_BOX_ROWS, maxCol);
+  boxRange.merge();
+  boxRange.setVerticalAlignment('top');
+  boxRange.setBorder(true, true, true, true, true, true, THEME.ink, SpreadsheetApp.BorderStyle.SOLID);
+  for (var i = 0; i < GYOSEI_REMARKS_BOX_ROWS; i++) {
+    sheet.setRowHeight(GYOSEI_REMARKS_HEADER_ROW + 1 + i, 24);
+  }
 }
 
 function maxColumnOf_(columns) {

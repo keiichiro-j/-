@@ -23,6 +23,9 @@
     // ブランドの選択肢(設定画面で変更可能)はページ生成時に埋め込む。車両行の1行目を
     // 描画する時点(JavaScript.html内)で必要なため、google.script.runの往復を待たない。
     var BRAND_OPTIONS_ = <?!= brandOptionsJson ?>;
+    // 行政書士チェックリストの項目一覧(Constants.gs#GYOSEI_CHECKLIST_ITEMS)もページ生成時に
+    // 埋め込む。チェックリスト行の描画(JavaScript.html内)で必要なため。
+    var GYOSEI_CHECKLIST_ITEMS_ = <?!= gyoseiChecklistItemsJson ?>;
   </script>
 
   <div id="confettiLayer" class="confettiLayer" aria-hidden="true"></div>
@@ -185,6 +188,25 @@
             <label for="gyoseiSealDate">封印取付日</label>
             <input type="date" id="gyoseiSealDate">
           </div>
+        </div>
+        <div class="fieldRow">
+          <div class="field">
+            <label for="gyoseiSalesPerson">担当者 <span class="muted">(担当セールス)</span> <span class="req">必須</span></label>
+            <input type="text" id="gyoseiSalesPerson" list="dl-persons" autocomplete="off">
+          </div>
+        </div>
+
+        <div class="tableScroll">
+          <table id="gyoseiChecklistTable">
+            <thead>
+              <tr>
+                <th>提出書類</th>
+                <th class="colBrand">チェック</th>
+                <th>備考</th>
+              </tr>
+            </thead>
+            <tbody id="gyoseiChecklistBody"></tbody>
+          </table>
         </div>
       </section>
 

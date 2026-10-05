@@ -213,7 +213,7 @@ function gyoseiFormData(overrides) {
     gyoseiClass: '車庫証明申請',
     gyoseiLocation: '岐阜本店',
     sealDate: '',
-    vehicles: [{ userName: '橋本美咲', brand: 'MB' }]
+    vehicles: [{ userName: '橋本美咲', brand: 'MB', person: '担当A' }]
   }, overrides || {}));
 }
 test('必須項目が揃っていればエラーなし(送付便は不要)', () => {
@@ -258,9 +258,18 @@ test('封印取付日は入力されていれば形式を検証する', () => {
 });
 test('車台番号・税額は検証しない(車両テーブルを使わないため)', () => {
   const errors = sandbox.validateFormData_(gyoseiFormData({
-    vehicles: [{ userName: '橋本美咲', chassis: 'invalid', autoTax: '-1' }]
+    vehicles: [{ userName: '橋本美咲', person: '担当A', chassis: 'invalid', autoTax: '-1' }]
   }));
   assert.strictEqual(errors.length, 0);
+});
+test('担当者(担当セールス)が空ならエラー', () => {
+  const errors = sandbox.validateFormData_(gyoseiFormData({
+    vehicles: [{ userName: '橋本美咲', person: '' }]
+  }));
+  assert.ok(errors.some((e) => e.includes('担当者（担当セールス）')));
+});
+test('担当者(担当セールス)が入力されていればエラーなし', () => {
+  assert.strictEqual(sandbox.validateFormData_(gyoseiFormData()).length, 0);
 });
 
 console.log('== ValidationService: parseDateOnly_ / isValidDateStr_ ==');
@@ -658,6 +667,75 @@ test('ファイル名にタイムスタンプと種別・会社名を含む', ()
 test('会社名にファイル名として使えない文字が含まれていても安全化する', () => {
   const name = sandbox.buildPdfFileName_('紙', 'A/B:C', new Date(2026, 7, 7, 9, 30, 0));
   assert.ok(!/[\/:]/.test(name.replace('.pdf', '')));
+});
+
+console.log('== TemplateService: 行政書士テンプレートへの書き込み ==');
+// セル参照(A1形式または行列)への setValue 呼び出しをすべて記録するだけの最小限のフェイクシート。
+function makeCellCaptureSheet_() {
+  const cells = {};
+  return {
+    getRange: (a, b) => {
+      const key = (typeof a === 'number') ? (a + ',' + b) : a;
+      return {
+        setValue: (v) => { cells[key] = v; },
+        setBackground: () => {},
+        setFontColor: () => {}
+      };
+    },
+    _cells: cells
+  };
+}
+
+test('担当責任者(ログイン)・担当者(担当セールス)・顧客名をそれぞれ別セルに書き込む', () => {
+  const sheet = makeCellCaptureSheet_();
+  const formData = {
+    sendDate: '2026-08-10', gyoseiClass: '車庫証明申請', gyoseiLocation: '岐阜本店',
+    manager: '戸田 圭市朗', regDateCommon: '2026-08-20', sealDate: ''
+  };
+  sandbox.writeGyoseiCommonFields_(sheet, formData);
+  sandbox.writeVehicleRows_(sheet, '行政書士', [{ userName: '橋本美咲', person: '担当A' }]);
+
+  assert.strictEqual(sheet._cells[sandbox.GYOSEI_CELLS.manager], '戸田 圭市朗');
+  assert.strictEqual(sheet._cells[sandbox.GYOSEI_CELLS.salesPerson], '担当A');
+  assert.strictEqual(sheet._cells[sandbox.GYOSEI_CELLS.customerName], '橋本美咲');
+  // 担当責任者と担当者は別々のセルに書き込まれる(同一セルを上書きし合わない)
+  assert.notStrictEqual(sandbox.GYOSEI_CELLS.manager, sandbox.GYOSEI_CELLS.salesPerson);
+});
+
+test('チェックリストはチェック済みの項目だけ〇を書き込み、備考もあわせて書き込む', () => {
+  const sheet = makeCellCaptureSheet_();
+  const formData = {
+    sendDate: '2026-08-10', gyoseiClass: '車庫証明申請', gyoseiLocation: '岐阜本店',
+    manager: '戸田 圭市朗', regDateCommon: '', sealDate: '',
+    gyoseiChecklist: {
+      completionCert: { checked: true, remark: 'ディーラー発行分' },
+      powerOfAttorney: { checked: true, remark: '' }
+    }
+  };
+  sandbox.writeGyoseiCommonFields_(sheet, formData);
+
+  const checkRow0 = sandbox.GYOSEI_CHECKLIST_START_ROW + 0; // completionCert
+  const checkRow4 = sandbox.GYOSEI_CHECKLIST_START_ROW + 4; // powerOfAttorney
+  const checkRow1 = sandbox.GYOSEI_CHECKLIST_START_ROW + 1; // transferCert(未チェック)
+
+  assert.strictEqual(sheet._cells[checkRow0 + ',' + sandbox.GYOSEI_CHECKLIST_CHECK_COL], sandbox.CHECKBOX_MARK);
+  assert.strictEqual(sheet._cells[checkRow0 + ',' + sandbox.GYOSEI_CHECKLIST_REMARK_COL], 'ディーラー発行分');
+  assert.strictEqual(sheet._cells[checkRow4 + ',' + sandbox.GYOSEI_CHECKLIST_CHECK_COL], sandbox.CHECKBOX_MARK);
+  assert.strictEqual(sheet._cells[checkRow1 + ',' + sandbox.GYOSEI_CHECKLIST_CHECK_COL], '');
+  assert.strictEqual(sheet._cells[checkRow1 + ',' + sandbox.GYOSEI_CHECKLIST_REMARK_COL], '');
+});
+
+test('gyoseiChecklistが未指定でもエラーにならず全項目が空欄になる', () => {
+  const sheet = makeCellCaptureSheet_();
+  const formData = {
+    sendDate: '2026-08-10', gyoseiClass: '車庫証明申請', gyoseiLocation: '岐阜本店',
+    manager: '戸田 圭市朗', regDateCommon: '', sealDate: ''
+  };
+  sandbox.writeGyoseiCommonFields_(sheet, formData);
+  sandbox.GYOSEI_CHECKLIST_ITEMS.forEach((item, i) => {
+    const row = sandbox.GYOSEI_CHECKLIST_START_ROW + i;
+    assert.strictEqual(sheet._cells[row + ',' + sandbox.GYOSEI_CHECKLIST_CHECK_COL], '');
+  });
 });
 
 console.log('== EmailService: validateMailRecipients_ ==');

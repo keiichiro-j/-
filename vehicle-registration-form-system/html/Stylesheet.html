@@ -736,6 +736,14 @@
      選択後の文字+プルダウン矢印が見切れないよう最低幅を確保する */
   .v-hopeNum, .v-yobi, .v-honken, .v-shinsho { min-width: 58px; padding: 6px 20px 6px 8px; }
 
+  /* 行政書士チェックリスト(完成検査証/譲渡証明書/...)は項目数が少なく車両テーブルほど
+     横に広くならないため、共通tableルールのmin-width:1280pxを打ち消して自然幅にする。
+     備考欄は横いっぱいに広げて記入しやすくする。 */
+  #gyoseiChecklistTable { min-width: 0; }
+  #gyoseiChecklistTable th:first-child, #gyoseiChecklistTable td:first-child { text-align: left; min-width: 160px; }
+  #gyoseiChecklistTable td:last-child { text-align: left; }
+  #gyoseiChecklistTable .gc-remark { width: 100%; text-align: left; }
+
   /* 横スクロールできる余地がまだ右にあることを示す影(スマホでの見切れ対策) */
   .tableScroll { position: relative; }
   .tableScroll.has-overflow-right { box-shadow: inset -14px 0 10px -10px rgba(16, 24, 40, 0.14); }

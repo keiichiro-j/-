@@ -72,11 +72,14 @@ function validateFormData_(formData) {
 function validateVehicle_(car, no, type) {
   var errors = [];
 
-  // 行政書士登録は車両テーブルを持たず、顧客名(使用者名)とブランドだけを扱う
-  // (車台番号・税額・各種チェック欄は対象外)。
+  // 行政書士登録は車両テーブルを持たず、顧客名(使用者名)・ブランド・担当者(担当セールス)
+  // だけを扱う(車台番号・税額・各種チェック欄は対象外)。
   if (type === TYPE_GYOSEI) {
     if (car.brand && getBrandOptions_().indexOf(car.brand) === -1) {
       errors.push('ブランドの指定が不正です');
+    }
+    if (!isNonEmptyString_(car.person)) {
+      errors.push('担当者（担当セールス）を入力してください');
     }
     return errors;
   }

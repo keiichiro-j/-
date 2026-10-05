@@ -179,6 +179,43 @@
   }
   populateGyoseiBrandOptions_();
 
+  // 行政書士チェックリスト(完成検査証/譲渡証明書/...)の行を、ページ埋め込みの
+  // GYOSEI_CHECKLIST_ITEMS_(Constants.gs#GYOSEI_CHECKLIST_ITEMS)から組み立てる。
+  // チェック欄は車両テーブルの予備検/本検などと同じ「空欄/〇」のセレクトに揃える。
+  function renderGyoseiChecklist_() {
+    var tbody = document.getElementById('gyoseiChecklistBody');
+    if (!tbody || tbody.children.length) return;
+    (window.GYOSEI_CHECKLIST_ITEMS_ || []).forEach(function (item) {
+      var tr = document.createElement('tr');
+      tr.className = 'gyoseiChecklistRow';
+      tr.dataset.key = item.key;
+      tr.innerHTML =
+        '<td>' + escapeHtml_(item.label) + '</td>' +
+        '<td><select class="gc-checked"><option value=""></option><option value="〇">〇</option></select></td>' +
+        '<td><input type="text" class="gc-remark" autocomplete="off"></td>';
+      tbody.appendChild(tr);
+    });
+  }
+  renderGyoseiChecklist_();
+
+  function collectGyoseiChecklist_() {
+    var checklist = {};
+    document.querySelectorAll('#gyoseiChecklistBody .gyoseiChecklistRow').forEach(function (tr) {
+      checklist[tr.dataset.key] = {
+        checked: tr.querySelector('.gc-checked').value === '〇',
+        remark: tr.querySelector('.gc-remark').value.trim()
+      };
+    });
+    return checklist;
+  }
+
+  function resetGyoseiChecklist_() {
+    document.querySelectorAll('#gyoseiChecklistBody .gyoseiChecklistRow').forEach(function (tr) {
+      tr.querySelector('.gc-checked').value = '';
+      tr.querySelector('.gc-remark').value = '';
+    });
+  }
+
   function collectVehicles_() {
     var rows = document.querySelectorAll('#vehicleTableBody .vehicleRow');
     var vehicles = [];
@@ -211,7 +248,8 @@
     if (userName === '') return [];
     return [{
       userName: userName,
-      brand: document.getElementById('gyoseiBrand').value
+      brand: document.getElementById('gyoseiBrand').value,
+      person: document.getElementById('gyoseiSalesPerson').value.trim()
     }];
   }
 
@@ -243,6 +281,8 @@
       if (!gyoseiLocation.value.trim()) { gyoseiLocation.classList.add('is-invalid'); ok = false; }
       var gyoseiCustomerName = document.getElementById('gyoseiCustomerName');
       if (!gyoseiCustomerName.value.trim()) { gyoseiCustomerName.classList.add('is-invalid'); ok = false; }
+      var gyoseiSalesPerson = document.getElementById('gyoseiSalesPerson');
+      if (!gyoseiSalesPerson.value.trim()) { gyoseiSalesPerson.classList.add('is-invalid'); ok = false; }
     }
 
     return ok;
@@ -344,6 +384,7 @@
       gyoseiClass: document.getElementById('gyoseiClass').value,
       gyoseiLocation: document.getElementById('gyoseiLocation').value.trim(),
       sealDate: document.getElementById('gyoseiSealDate').value,
+      gyoseiChecklist: isGyosei ? collectGyoseiChecklist_() : {},
       hidaRegistration: hidaOn,
       submissionToken: submissionToken_,
       vehicles: vehicles

@@ -24,26 +24,50 @@ var HISTORY_PENDING_TAB_NAME = '登録日未定';
 var SHEET_NAMES = {
   OSS_TEMPLATE: '新車新規登録依頼書（書類送付書）OSS',
   PAPER_TEMPLATE: '新車新規登録依頼書（書類送付書）紙',
-  GYOSEI_TEMPLATE: '行政書士依頼書' // スプレッドシート側に既存のテンプレートをそのまま使う(SetupService.gsでは生成しない)
+  GYOSEI_TEMPLATE: '行政書士依頼書' // SetupService.gs#buildGyoseiTemplateSheet_ が自動生成する
 };
 
-// 行政書士依頼書テンプレートのセル位置(スプレッドシート実物に合わせた固定レイアウト)。
-// OSS/紙と異なり車両テーブル形式ではなく、1申請=1件(顧客名も1つ)の単票形式。
-// ※ テンプレート側に「担当者」欄が誤って2行重複していたため、1行削除して詰めた状態
-//   (依頼事項→依頼拠点→担当者→顧客名→登録日→封印取付日の6行)を前提にしている。
+// 行政書士依頼書テンプレートのセル位置。OSS/紙と異なり車両テーブル形式ではなく、
+// 1申請=1件(顧客名も1つ)の単票形式。SetupService.gs#buildGyoseiTemplateSheet_ の
+// レイアウトと必ず一致させること。
+//
+// 【担当責任者 と 担当者 の違い】
+//   担当責任者 = 申請フォームにログインしているアカウントの担当者(担当者マスタで紐付け。
+//               新車登録のOSS/紙と共通のフィールドをそのまま流用する)
+//   担当者     = 今回の案件を担当する営業(担当セールス)。行政書士登録でのみ入力する
+//               独立した項目で、担当責任者とは別人のことが多い。
 var GYOSEI_CELLS = {
-  requestDate: 'G2',  // 依頼日(=申請フォームの「送付日」を流用)
-  location: 'G3',     // 拠点情報(未使用。空欄のまま)
-  gyoseiClass: 'C6',  // 依頼事項
-  branch: 'C7',       // 依頼拠点
-  manager: 'C8',      // 担当者(=申請フォームの「担当責任者」を流用)
-  customerName: 'C9', // 顧客名
-  regDate: 'C10',     // 登録日
-  sealDate: 'C11'     // 封印取付日
+  requestDate: 'B3',   // 依頼日(=申請フォームの「送付日」を流用)
+  gyoseiClass: 'E3',   // 依頼事項
+  branch: 'B4',        // 依頼拠点
+  manager: 'E4',       // 担当責任者(ログインアカウントに紐づく。申請フォームの「担当責任者」を流用)
+  salesPerson: 'B5',   // 担当者(担当セールス)
+  customerName: 'E5',  // 顧客名
+  regDate: 'B6',       // 登録日
+  sealDate: 'E6'       // 封印取付日
 };
 
-// 行政書士依頼書の「依頼事項」の選択肢(テンプレート実物のデータ入力規則と一致させる)。
+// 行政書士依頼書の「依頼事項」の選択肢。
 var GYOSEI_CLASS_OPTIONS = ['車庫証明申請', '車庫証明申請から登録', '登録（車庫証明別途依頼済）'];
+
+// 提出書類チェックリスト(SetupService.gs#buildGyoseiChecklistTable_ が1項目=1行のテーブルを
+// 生成する)。各項目にチェック(〇)欄と備考欄を1つずつ持つ。key はフォームデータ
+// (formData.gyoseiChecklist)・履歴記録には使わない内部識別子。
+var GYOSEI_CHECKLIST_ITEMS = [
+  { key: 'completionCert', label: '完成検査証' },
+  { key: 'transferCert', label: '譲渡証明書' },
+  { key: 'sealCert', label: '印鑑証明証' },
+  { key: 'residentCert', label: '住民票' },
+  { key: 'powerOfAttorney', label: '委任状' },
+  { key: 'garageCert', label: '車庫証明書' },
+  { key: 'insuranceCert', label: '自賠責保険証明書' },
+  { key: 'plateReservation', label: '希望番号予約済証' }
+];
+var GYOSEI_CHECKLIST_HEADER_ROW = 9; // 項目/チェック/備考の見出し行
+var GYOSEI_CHECKLIST_START_ROW = 10; // 1項目目の行(以降1行につき1項目)
+var GYOSEI_CHECKLIST_CHECK_COL = 2;  // B列: チェック(〇)
+var GYOSEI_CHECKLIST_REMARK_COL = 3; // C列(〜F列を結合): 備考
+var CHECKBOX_MARK = '〇'; // チェックリストの「チェック済み」マーク
 
 // 共通項目のセル位置。ユーザー提供のサンプルデザイン(Numbersファイル)に合わせた
 // 「固定ラベル(左)+空欄の値欄(右)」方式。sendBatchには「第」を除いた数字部分だけを

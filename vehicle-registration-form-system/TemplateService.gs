@@ -67,6 +67,22 @@ function writeGyoseiCommonFields_(sheet, formData) {
   if (isValidDateStr_(formData.sealDate)) {
     sheet.getRange(GYOSEI_CELLS.sealDate).setValue(formatMonthDay_(formData.sealDate));
   }
+  writeGyoseiChecklist_(sheet, formData);
+}
+
+/**
+ * 提出書類チェックリスト(完成検査証/譲渡証明書/...)を1項目=1行で書き込む。
+ * formData.gyoseiChecklist は { <item.key>: { checked: boolean, remark: string } } の
+ * キー付きオブジェクト。未定義の項目は空欄のまま(チェック無し・備考無し)にする。
+ */
+function writeGyoseiChecklist_(sheet, formData) {
+  var checklist = formData.gyoseiChecklist || {};
+  GYOSEI_CHECKLIST_ITEMS.forEach(function (item, i) {
+    var row = GYOSEI_CHECKLIST_START_ROW + i;
+    var entry = checklist[item.key] || {};
+    sheet.getRange(row, GYOSEI_CHECKLIST_CHECK_COL).setValue(entry.checked ? CHECKBOX_MARK : '');
+    sheet.getRange(row, GYOSEI_CHECKLIST_REMARK_COL).setValue(entry.remark || '');
+  });
 }
 
 /**
@@ -80,9 +96,12 @@ function formatMonthDay_(dateStr) {
 
 function writeVehicleRows_(sheet, type, vehicles) {
   if (type === TYPE_GYOSEI) {
-    // 単票形式のため1件(先頭のみ)の顧客名だけをテンプレートの固定セルへ書き込む。
+    // 単票形式のため1件(先頭のみ)の顧客名・担当者(担当セールス)だけをテンプレートの
+    // 固定セルへ書き込む。担当責任者(ログインユーザー)は writeGyoseiCommonFields_ 側で
+    // 別途 GYOSEI_CELLS.manager に書き込み済み。
     if (vehicles.length > 0) {
       sheet.getRange(GYOSEI_CELLS.customerName).setValue(vehicles[0].userName || '');
+      sheet.getRange(GYOSEI_CELLS.salesPerson).setValue(vehicles[0].person || '');
     }
     return;
   }
