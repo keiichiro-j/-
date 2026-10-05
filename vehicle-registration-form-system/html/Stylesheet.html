@@ -597,6 +597,24 @@
     box-shadow: 0 0 0 3px var(--shu-soft);
   }
 
+  /* 基本情報・行政書士登録情報・検索条件などの通常フィールドのselect(送付便・依頼事項・
+     ブランド・履歴/PDF検索条件)は、ブラウザ標準のドロップダウン矢印(appearance)を消して
+     独自の矢印に置き換える。ネイティブ矢印はブラウザ・OSごとに内部の予約幅や行の高さの
+     計算が微妙に異なり、同じ行に並ぶ<input>と幅・高さがずれて見えることがあるため。
+     (車両テーブル内の小さな選択欄(.v-brand等)は対象外: 幅が小さく矢印の置き場がないため
+     従来通りネイティブ矢印のままにする。) */
+  .field select, .filterGroup select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='M4 6l4 4 4-4' fill='none' stroke='%236B7280' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 12px 12px;
+    padding-right: 34px;
+    cursor: pointer;
+  }
+
   /* ブラウザが「使用者名」等の欄をログイン用ユーザー名欄と誤認識し、autocomplete="off"でも
      自動入力用の白/黄色っぽい背景を独自に描画することがある。すべての入力欄で他の項目と
      背景色を揃えるため、オートフィル時の背景色描画を透明(実質的に周囲と同じ背景色)で
@@ -767,21 +785,10 @@
   }
 
   /* ---------- 独自の日付ピッカー ---------- */
-  .datePickerWrap { position: relative; display: inline-flex; align-items: stretch; width: 100%; }
-  .datePickerInput { flex: 1; min-width: 0; cursor: pointer; background: var(--surface); }
-  .datePickerIcon {
-    flex: none;
-    width: 34px;
-    margin-left: -1px;
-    border: 1px solid var(--line);
-    border-left: none;
-    border-radius: 0 var(--r-sm) var(--r-sm) 0;
-    background: var(--surface-alt);
-    font-size: 14px;
-    line-height: 1;
-    cursor: pointer;
-  }
-  .datePickerIcon:hover { background: var(--accent-soft); }
+  /* 入力欄自体をクリックするとカレンダーパネルが開く(別アイコンは置かず、
+     他の入力欄と見た目を揃える)。wrapはパネルを絶対配置するための基準点。 */
+  .datePickerWrap { position: relative; display: block; width: 100%; }
+  .datePickerInput { width: 100%; cursor: pointer; background: var(--surface); }
   td .datePickerWrap, .filterGroup__row .datePickerWrap { width: auto; }
   td .datePickerInput { width: 100%; }
 

@@ -46,13 +46,6 @@
     input.parentNode.insertBefore(wrap, input);
     wrap.appendChild(input);
 
-    var icon = document.createElement('button');
-    icon.type = 'button';
-    icon.className = 'datePickerIcon';
-    icon.setAttribute('aria-label', '日付を選択');
-    icon.textContent = '📅';
-    wrap.appendChild(icon);
-
     function setValue(iso) {
       input.value = iso;
       input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -129,7 +122,6 @@
       renderPanel(base.getFullYear(), base.getMonth());
     }
 
-    icon.addEventListener('click', function (e) { e.stopPropagation(); open(); });
     input.addEventListener('click', function (e) { e.stopPropagation(); open(); });
   }
 
