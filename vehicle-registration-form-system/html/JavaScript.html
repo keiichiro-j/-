@@ -6,6 +6,137 @@
   // サーバー側 Constants.gs の値と合わせる(クライアントは google.script.run を介さずこの値を直接使う)
   var SUBMISSION_STATUS_CANCELLED_ = '取消';
 
+  // ---------- 独自の日付ピッカー ----------
+  // Google Apps Scriptのweb appは常にGoogle側のiframeの中で動くため、ネイティブの
+  // <input type="date">はカレンダーを開いて日付をクリックしても値が入力欄に反映され
+  // ないことがある(フレーム境界をまたいだ座標計算が原因と見られる既知の制約)。
+  // この問題を避けるため、ネイティブのdate inputは使わず、テキスト入力+独自のカレンダー
+  // パネルに置き換える(値の形式は従来通り"YYYY-MM-DD"のまま)。
+  var datePickerPanel_ = null;
+
+  function closeDatePickerPanel_() {
+    if (datePickerPanel_) {
+      datePickerPanel_.remove();
+      datePickerPanel_ = null;
+    }
+  }
+  document.addEventListener('click', function (e) {
+    if (datePickerPanel_ && !e.target.closest('.datePickerWrap')) {
+      closeDatePickerPanel_();
+    }
+  });
+
+  function parseIsoDateClient_(s) {
+    var m = typeof s === 'string' && /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+    if (!m) return null;
+    var d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  function enhanceDateInput_(input) {
+    if (!input || input.dataset.dpEnhanced) return;
+    input.dataset.dpEnhanced = '1';
+    input.type = 'text';
+    input.readOnly = true;
+    input.placeholder = 'yyyy-mm-dd';
+    input.classList.add('datePickerInput');
+
+    var wrap = document.createElement('span');
+    wrap.className = 'datePickerWrap';
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+
+    var icon = document.createElement('button');
+    icon.type = 'button';
+    icon.className = 'datePickerIcon';
+    icon.setAttribute('aria-label', '日付を選択');
+    icon.textContent = '📅';
+    wrap.appendChild(icon);
+
+    function setValue(iso) {
+      input.value = iso;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      input.classList.remove('is-invalid');
+      closeDatePickerPanel_();
+    }
+
+    function renderPanel(y, m) {
+      closeDatePickerPanel_();
+      var panel = document.createElement('div');
+      panel.className = 'datePickerPanel';
+      panel.innerHTML =
+        '<div class="datePickerPanel__head">' +
+          '<button type="button" class="datePickerPanel__nav" data-dir="-1">‹</button>' +
+          '<span class="datePickerPanel__title">' + y + '年' + (m + 1) + '月</span>' +
+          '<button type="button" class="datePickerPanel__nav" data-dir="1">›</button>' +
+        '</div>' +
+        '<div class="datePickerPanel__weekdays">' +
+          ['日', '月', '火', '水', '木', '金', '土'].map(function (w) { return '<span>' + w + '</span>'; }).join('') +
+        '</div>' +
+        '<div class="datePickerPanel__grid"></div>' +
+        '<div class="datePickerPanel__foot">' +
+          '<button type="button" class="datePickerPanel__today">今日</button>' +
+          '<button type="button" class="datePickerPanel__clear">クリア</button>' +
+        '</div>';
+
+      var grid = panel.querySelector('.datePickerPanel__grid');
+      var firstOfMonth = new Date(y, m, 1);
+      var daysInMonth = new Date(y, m + 1, 0).getDate();
+      var startOffset = firstOfMonth.getDay();
+      for (var i = 0; i < startOffset; i++) grid.appendChild(document.createElement('span'));
+
+      var todayIso = formatDateInput_(new Date());
+      for (var d = 1; d <= daysInMonth; d++) {
+        var iso = formatDateInput_(new Date(y, m, d));
+        var cell = document.createElement('button');
+        cell.type = 'button';
+        cell.className = 'datePickerPanel__day';
+        cell.textContent = String(d);
+        if (iso === input.value) cell.classList.add('is-selected');
+        if (iso === todayIso) cell.classList.add('is-today');
+        cell.setAttribute('data-iso', iso);
+        cell.addEventListener('click', function () {
+          setValue(this.getAttribute('data-iso'));
+        });
+        grid.appendChild(cell);
+      }
+
+      panel.querySelectorAll('.datePickerPanel__nav').forEach(function (navBtn) {
+        navBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var dir = Number(navBtn.getAttribute('data-dir'));
+          var next = new Date(y, m + dir, 1);
+          renderPanel(next.getFullYear(), next.getMonth());
+        });
+      });
+      panel.querySelector('.datePickerPanel__today').addEventListener('click', function (e) {
+        e.stopPropagation();
+        setValue(formatDateInput_(new Date()));
+      });
+      panel.querySelector('.datePickerPanel__clear').addEventListener('click', function (e) {
+        e.stopPropagation();
+        setValue('');
+      });
+      panel.addEventListener('click', function (e) { e.stopPropagation(); });
+
+      wrap.appendChild(panel);
+      datePickerPanel_ = panel;
+    }
+
+    function open() {
+      var base = parseIsoDateClient_(input.value) || new Date();
+      renderPanel(base.getFullYear(), base.getMonth());
+    }
+
+    icon.addEventListener('click', function (e) { e.stopPropagation(); open(); });
+    input.addEventListener('click', function (e) { e.stopPropagation(); open(); });
+  }
+
+  function enhanceAllDateInputs_(root) {
+    (root || document).querySelectorAll('input[type="date"]').forEach(enhanceDateInput_);
+  }
+
   function createVehicleRow() {
     rowSeq++;
     var tr = document.createElement('tr');
@@ -62,7 +193,9 @@
   function addVehicleRow() {
     var body = document.getElementById('vehicleTableBody');
     if (body.querySelectorAll('.vehicleRow').length >= MAX_VEHICLES) return;
-    body.appendChild(createVehicleRow());
+    var row = createVehicleRow();
+    body.appendChild(row);
+    enhanceDateInput_(row.querySelector('.v-indivRegDate'));
     renumberRows();
     updateAddRowButtonState();
     // 新しく追加した行にも、現在の出力フォーマット(OSS/紙)に応じた登録日欄の表示状態を反映する
@@ -103,12 +236,12 @@
     });
 
     // 行政書士登録はテンプレートに印字欄が無い「送付便」「飛騨登録」を使わず、
-    // 代わりに「依頼事項」「依頼拠点」を入力する。車両テーブルの代わりに
-    // 専用カード(顧客名・ブランド・封印取付日)を使う単票形式。
+    // 代わりに「依頼事項」(依頼日・登録日と同じ行に表示)を入力する。依頼拠点・車両所在は
+    // 専用カード(顧客名・ブランド・封印取付日など)側に入力欄がある単票形式。
     document.getElementById('sendBatchField').classList.toggle('is-hidden', isGyosei);
     document.getElementById('sendBatch').required = !isGyosei;
     document.getElementById('hidaToggleField').classList.toggle('is-hidden', isGyosei);
-    document.getElementById('gyoseiExtraFields').classList.toggle('is-hidden', !isGyosei);
+    document.getElementById('gyoseiClassField').classList.toggle('is-hidden', !isGyosei);
     document.getElementById('sendDateLabel').innerHTML = isGyosei
       ? '依頼日 <span class="req">必須</span>'
       : '送付日 <span class="req">必須</span>';
@@ -181,7 +314,8 @@
 
   // 行政書士チェックリスト(完成検査証/譲渡証明書/...)の行を、ページ埋め込みの
   // GYOSEI_CHECKLIST_ITEMS_(Constants.gs#GYOSEI_CHECKLIST_ITEMS)から組み立てる。
-  // チェック欄は車両テーブルの予備検/本検などと同じ「空欄/〇」のセレクトに揃える。
+  // チェック欄は選択肢のあるセレクトだと分かりにくいため、クリックでON/OFFする
+  // 単純な✔ボタン1つだけにする(ON=チェック済み/OFF=未チェックの2値)。
   function renderGyoseiChecklist_() {
     var tbody = document.getElementById('gyoseiChecklistBody');
     if (!tbody || tbody.children.length) return;
@@ -191,9 +325,16 @@
       tr.dataset.key = item.key;
       tr.innerHTML =
         '<td>' + escapeHtml_(item.label) + '</td>' +
-        '<td><select class="gc-checked"><option value=""></option><option value="〇">〇</option></select></td>' +
+        '<td><button type="button" class="gc-checkBtn" aria-pressed="false" aria-label="' + escapeHtml_(item.label) + 'をチェック">✔</button></td>' +
         '<td><input type="text" class="gc-remark" autocomplete="off"></td>';
       tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll('.gc-checkBtn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var on = btn.getAttribute('aria-pressed') !== 'true';
+        btn.setAttribute('aria-pressed', String(on));
+        btn.classList.toggle('is-active', on);
+      });
     });
   }
   renderGyoseiChecklist_();
@@ -202,16 +343,19 @@
     var checklist = {};
     document.querySelectorAll('#gyoseiChecklistBody .gyoseiChecklistRow').forEach(function (tr) {
       checklist[tr.dataset.key] = {
-        checked: tr.querySelector('.gc-checked').value === '〇',
+        checked: tr.querySelector('.gc-checkBtn').getAttribute('aria-pressed') === 'true',
         remark: tr.querySelector('.gc-remark').value.trim()
       };
     });
     return checklist;
   }
 
+  // ✔ボタンはカスタム要素のためmainForm.reset()では戻らず、明示的にリセットする必要がある。
   function resetGyoseiChecklist_() {
     document.querySelectorAll('#gyoseiChecklistBody .gyoseiChecklistRow').forEach(function (tr) {
-      tr.querySelector('.gc-checked').value = '';
+      var btn = tr.querySelector('.gc-checkBtn');
+      btn.setAttribute('aria-pressed', 'false');
+      btn.classList.remove('is-active');
       tr.querySelector('.gc-remark').value = '';
     });
   }
@@ -384,6 +528,7 @@
       gyoseiClass: document.getElementById('gyoseiClass').value,
       gyoseiLocation: document.getElementById('gyoseiLocation').value.trim(),
       sealDate: document.getElementById('gyoseiSealDate').value,
+      gyoseiVehicleLocation: document.getElementById('gyoseiVehicleLocation').value.trim(),
       gyoseiChecklist: isGyosei ? collectGyoseiChecklist_() : {},
       hidaRegistration: hidaOn,
       submissionToken: submissionToken_,
@@ -461,6 +606,7 @@
     document.getElementById('mainForm').reset();
     setType('OSS');
     setHidaFlag_(false);
+    resetGyoseiChecklist_();
     document.getElementById('vehicleTableBody').innerHTML = '';
     for (var i = 0; i < INITIAL_VEHICLE_ROWS; i++) addVehicleRow();
     document.getElementById('sendDate').value = formatDateInput_(new Date());
@@ -1764,4 +1910,9 @@
     });
   });
   initTheme_(); // ページ読み込み直後(window.onloadを待たず)に適用し、ちらつきを抑える
+
+  // 静的に配置済みの<input type="date">(送付日・登録日・封印取付日・履歴/PDF検索範囲・
+  // メール送信日)を独自の日付ピッカーに置き換える。動的に追加される車両行の登録日欄は
+  // addVehicleRow() 側で個別に enhanceDateInput_ を呼ぶ。
+  enhanceAllDateInputs_(document);
 </script>

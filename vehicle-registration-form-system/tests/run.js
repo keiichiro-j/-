@@ -331,12 +331,13 @@ test('Date以外の値はそのまま返す', () => {
 });
 
 console.log('== Constants: HISTORY_HEADER_ROW (行政書士登録の列追加) ==');
-test('行政書士登録の3列は「飛騨登録」の直後・「送付書PDF」の直前に挿入されている(既存タブの列インデックスを保つため)', () => {
+test('行政書士登録の4列は「飛騨登録」の直後・「送付書PDF」の直前に挿入されている(既存タブの列インデックスを保つため)', () => {
   const header = Array.from(sandbox.HISTORY_HEADER_ROW);
   assert.strictEqual(header.indexOf('飛騨登録') + 1, header.indexOf('依頼事項'));
   assert.strictEqual(header.indexOf('依頼事項') + 1, header.indexOf('依頼拠点'));
   assert.strictEqual(header.indexOf('依頼拠点') + 1, header.indexOf('封印取付日'));
-  assert.strictEqual(header.indexOf('封印取付日') + 1, header.indexOf('送付書PDF'));
+  assert.strictEqual(header.indexOf('封印取付日') + 1, header.indexOf('車両所在'));
+  assert.strictEqual(header.indexOf('車両所在') + 1, header.indexOf('送付書PDF'));
   // 既存列(依頼会社名=3, 担当責任者=4, 使用者名=9, 担当者=21)のインデックスは変わらない
   assert.strictEqual(header.indexOf('依頼会社名'), 3);
   assert.strictEqual(header.indexOf('担当責任者'), 4);
@@ -369,7 +370,7 @@ function makeMutableFakeSpreadsheet() {
   };
 }
 
-test('依頼事項・依頼拠点・封印取付日の3列に値を書き込み、車両テーブル用の列は空欄のままにする', () => {
+test('依頼事項・依頼拠点・封印取付日・車両所在の4列に値を書き込み、車両テーブル用の列は空欄のままにする', () => {
   const ss = makeMutableFakeSpreadsheet();
   const formData = {
     company: '岐阜ヤナセ株式会社',
@@ -379,7 +380,8 @@ test('依頼事項・依頼拠点・封印取付日の3列に値を書き込み�
     regDateCommon: '2026-08-20',
     gyoseiClass: '車庫証明申請',
     gyoseiLocation: '岐阜本店',
-    sealDate: '2026-08-25'
+    sealDate: '2026-08-25',
+    gyoseiVehicleLocation: '本社駐車場'
   };
   const car = { userName: '橋本美咲', brand: 'MB' };
   const tabName = sandbox.appendHistoryRow_(ss, '行政書士', car, formData, 'uuid-1', 1, new Date(2026, 7, 10, 9, 0, 0), 'https://example.com/a.pdf');
@@ -393,6 +395,7 @@ test('依頼事項・依頼拠点・封印取付日の3列に値を書き込み�
   assert.strictEqual(row[header.indexOf('依頼事項')], '車庫証明申請');
   assert.strictEqual(row[header.indexOf('依頼拠点')], '岐阜本店');
   assert.deepStrictEqual(row[header.indexOf('封印取付日')], sandbox.parseDateOnly_('2026-08-25'));
+  assert.strictEqual(row[header.indexOf('車両所在')], '本社駐車場');
   // 車両テーブル専用の列(車台番号など)は行政書士登録では使わないため空欄のまま
   assert.strictEqual(row[header.indexOf('車台番号')], undefined);
 });
@@ -407,7 +410,7 @@ test('封印取付日が未入力なら空文字のまま(エラーにしない)
   const row = ss.getSheetByName('2026-08')._rows[1];
   assert.strictEqual(row[header.indexOf('封印取付日')], '');
 });
-test('OSS/紙では行政書士専用の3列は空欄のまま', () => {
+test('OSS/紙では行政書士専用の4列は空欄のまま', () => {
   const ss = makeMutableFakeSpreadsheet();
   const formData = { company: '岐阜ヤナセ株式会社', manager: '戸田 圭市朗', sendDate: '2026-08-10', sendBatch: '第１便' };
   sandbox.appendHistoryRow_(ss, 'OSS', { userName: '橋本美咲', indivRegDate: '2026-08-15' }, formData, 'uuid-3', 1, new Date(), '');
@@ -416,6 +419,7 @@ test('OSS/紙では行政書士専用の3列は空欄のまま', () => {
   assert.strictEqual(row[header.indexOf('依頼事項')], '');
   assert.strictEqual(row[header.indexOf('依頼拠点')], '');
   assert.strictEqual(row[header.indexOf('封印取付日')], '');
+  assert.strictEqual(row[header.indexOf('車両所在')], '');
 });
 
 console.log('== HistoryService: getHistoryEntriesByDateRange_ ==');
@@ -702,7 +706,17 @@ test('担当責任者(ログイン)・担当者(担当セールス)・顧客名�
   assert.notStrictEqual(sandbox.GYOSEI_CELLS.manager, sandbox.GYOSEI_CELLS.salesPerson);
 });
 
-test('チェックリストはチェック済みの項目だけ〇を書き込み、備考もあわせて書き込む', () => {
+test('車両所在をテンプレートのセルに書き込む', () => {
+  const sheet = makeCellCaptureSheet_();
+  const formData = {
+    sendDate: '2026-08-10', gyoseiClass: '車庫証明申請', gyoseiLocation: '岐阜本店',
+    manager: '戸田 圭市朗', regDateCommon: '', sealDate: '', gyoseiVehicleLocation: '本社駐車場'
+  };
+  sandbox.writeGyoseiCommonFields_(sheet, formData);
+  assert.strictEqual(sheet._cells[sandbox.GYOSEI_CELLS.vehicleLocation], '本社駐車場');
+});
+
+test('チェックリストはチェック済みの項目だけ✔を書き込み、備考もあわせて書き込む', () => {
   const sheet = makeCellCaptureSheet_();
   const formData = {
     sendDate: '2026-08-10', gyoseiClass: '車庫証明申請', gyoseiLocation: '岐阜本店',

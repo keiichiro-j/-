@@ -53,7 +53,7 @@ function writeCommonFields_(sheet, type, formData) {
 
 /**
  * 行政書士依頼書は車両テーブル形式ではなく単票形式のため、共通項目(依頼日・依頼事項・
- * 依頼拠点・担当者・登録日・封印取付日)をここでまとめて書き込む。顧客名(使用者名)は
+ * 依頼拠点・担当者・登録日・封印取付日・車両所在)をここでまとめて書き込む。顧客名(使用者名)は
  * 単票内の唯一の「車両」データとして writeVehicleRows_ 側で書き込む。
  */
 function writeGyoseiCommonFields_(sheet, formData) {
@@ -67,6 +67,7 @@ function writeGyoseiCommonFields_(sheet, formData) {
   if (isValidDateStr_(formData.sealDate)) {
     sheet.getRange(GYOSEI_CELLS.sealDate).setValue(formatMonthDay_(formData.sealDate));
   }
+  sheet.getRange(GYOSEI_CELLS.vehicleLocation).setValue(formData.gyoseiVehicleLocation || '');
   writeGyoseiChecklist_(sheet, formData);
 }
 

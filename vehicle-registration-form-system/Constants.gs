@@ -44,14 +44,15 @@ var GYOSEI_CELLS = {
   salesPerson: 'B5',   // 担当者(担当セールス)
   customerName: 'E5',  // 顧客名
   regDate: 'B6',       // 登録日
-  sealDate: 'E6'       // 封印取付日
+  sealDate: 'E6',      // 封印取付日
+  vehicleLocation: 'B7' // 車両所在
 };
 
 // 行政書士依頼書の「依頼事項」の選択肢。
 var GYOSEI_CLASS_OPTIONS = ['車庫証明申請', '車庫証明申請から登録', '登録（車庫証明別途依頼済）'];
 
 // 提出書類チェックリスト(SetupService.gs#buildGyoseiChecklistTable_ が1項目=1行のテーブルを
-// 生成する)。各項目にチェック(〇)欄と備考欄を1つずつ持つ。key はフォームデータ
+// 生成する)。各項目にチェック(✔)欄と備考欄を1つずつ持つ。key はフォームデータ
 // (formData.gyoseiChecklist)・履歴記録には使わない内部識別子。
 var GYOSEI_CHECKLIST_ITEMS = [
   { key: 'completionCert', label: '完成検査証' },
@@ -63,11 +64,11 @@ var GYOSEI_CHECKLIST_ITEMS = [
   { key: 'insuranceCert', label: '自賠責保険証明書' },
   { key: 'plateReservation', label: '希望番号予約済証' }
 ];
-var GYOSEI_CHECKLIST_HEADER_ROW = 9; // 項目/チェック/備考の見出し行
-var GYOSEI_CHECKLIST_START_ROW = 10; // 1項目目の行(以降1行につき1項目)
-var GYOSEI_CHECKLIST_CHECK_COL = 2;  // B列: チェック(〇)
+var GYOSEI_CHECKLIST_HEADER_ROW = 10; // 項目/チェック/備考の見出し行(車両所在の行が増えた分、1行繰り下げ)
+var GYOSEI_CHECKLIST_START_ROW = 11; // 1項目目の行(以降1行につき1項目)
+var GYOSEI_CHECKLIST_CHECK_COL = 2;  // B列: チェック(✔)
 var GYOSEI_CHECKLIST_REMARK_COL = 3; // C列(〜F列を結合): 備考
-var CHECKBOX_MARK = '〇'; // チェックリストの「チェック済み」マーク
+var CHECKBOX_MARK = '✔'; // チェックリストの「チェック済み」マーク
 
 // 共通項目のセル位置。ユーザー提供のサンプルデザイン(Numbersファイル)に合わせた
 // 「固定ラベル(左)+空欄の値欄(右)」方式。sendBatchには「第」を除いた数字部分だけを
@@ -175,7 +176,7 @@ var HISTORY_HEADER_ROW = [
   '登録日', '送付日', '送付便', '車両No.', '使用者名', 'ブランド', '車台番号',
   '型式', '類別番号', '自動車税', '環境性能割', '重量税',
   '希望ナンバー', '予備検登録車', '本検登録車', '身障者減免車', '担当者', '飛騨登録',
-  '依頼事項', '依頼拠点', '封印取付日',
+  '依頼事項', '依頼拠点', '封印取付日', '車両所在',
   '送付書PDF', '状態', '取消日時'
 ];
 

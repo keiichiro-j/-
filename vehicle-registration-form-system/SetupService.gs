@@ -178,16 +178,17 @@ function buildGyoseiFields_(sheet) {
   buildInlineLabelValue_(sheet, 5, 4, 1, 2, '顧客名');
   buildInlineLabelValue_(sheet, 6, 1, 1, 2, '登録日');
   buildInlineLabelValue_(sheet, 6, 4, 1, 2, '封印取付日');
+  buildInlineLabelValue_(sheet, 7, 1, 1, 5, '車両所在'); // 住所等が長くなりうるため値欄を広めに取る(B:F)
 
-  for (var row = 3; row <= 6; row++) {
+  for (var row = 3; row <= 7; row++) {
     sheet.setRowHeight(row, 28);
   }
-  sheet.setRowHeight(7, 10); // 区切りの空白行
+  sheet.setRowHeight(8, 10); // 区切りの空白行
 }
 
 /**
  * 提出書類チェックリスト。GYOSEI_CHECKLIST_ITEMS の並び順で1項目=1行のテーブルを作る。
- * チェック欄(〇)・備考欄はどちらも空欄のまま用意し、TemplateService.gs が
+ * チェック欄(✔)・備考欄はどちらも空欄のまま用意し、TemplateService.gs が
  * フォーム入力に応じて書き込む。
  */
 function buildGyoseiChecklistTable_(sheet) {

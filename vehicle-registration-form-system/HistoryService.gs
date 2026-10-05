@@ -81,6 +81,7 @@ function appendHistoryRow_(ss, type, car, formData, submissionId, vehicleNo, tim
     type === TYPE_GYOSEI ? (formData.gyoseiClass || '') : '',
     type === TYPE_GYOSEI ? (formData.gyoseiLocation || '') : '',
     type === TYPE_GYOSEI && isValidDateStr_(formData.sealDate) ? parseDateOnly_(formData.sealDate) : '',
+    type === TYPE_GYOSEI ? (formData.gyoseiVehicleLocation || '') : '',
     pdfUrl || '',
     SUBMISSION_STATUS_ACTIVE,
     ''
