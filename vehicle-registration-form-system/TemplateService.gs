@@ -52,6 +52,26 @@ function writeCommonFields_(sheet, type, formData) {
 }
 
 /**
+ * ChangeRequestService.gs#applyChangeRequest_ が、登録日・送付便を変更してPDFを
+ * 再発行するときだけ呼び出す。通常の新規発行(writeCommonFields_)からは呼ばれないため、
+ * 変更依頼でないPDFには一切影響しない。
+ * OSS/紙はbanner右端(Constants.gsのCOMMON_CELLS.*.changeRequestBadge)に飛騨登録と同様の
+ * バッジを表示する。行政書士は単票レイアウトで同種のバッジ欄が無いため、タイトル文字列に
+ * 直接「（変更依頼）」を付け足す。
+ */
+function writeChangeRequestBadge_(sheet, type) {
+  if (type === TYPE_GYOSEI) {
+    sheet.getRange(1, 1).setValue(DISPLAY_TITLE_GYOSEI + '（変更依頼）');
+    return;
+  }
+  var cells = (type === TYPE_PAPER) ? COMMON_CELLS.PAPER : COMMON_CELLS.OSS;
+  var badgeRange = sheet.getRange(cells.changeRequestBadge);
+  badgeRange.setValue(CHANGE_REQUEST_BADGE_LABEL);
+  badgeRange.setBackground(CHANGE_REQUEST_BADGE_COLOR.bg);
+  badgeRange.setFontColor(CHANGE_REQUEST_BADGE_COLOR.text);
+}
+
+/**
  * 行政書士依頼書は車両テーブル形式ではなく単票形式のため、共通項目(依頼日・依頼事項・
  * 依頼拠点・担当者・登録日・封印取付日・車両所在)をここでまとめて書き込む。顧客名(使用者名)は
  * 単票内の唯一の「車両」データとして writeVehicleRows_ 側で書き込む。

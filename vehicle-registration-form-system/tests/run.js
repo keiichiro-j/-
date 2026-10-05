@@ -110,7 +110,7 @@ const sandbox = {
 };
 vm.createContext(sandbox);
 
-const FILES = ['Constants.gs', 'ValidationService.gs', 'HistoryService.gs', 'TemplateService.gs', 'EmailService.gs', 'SettingsService.gs', 'BrandService.gs', 'CompanyService.gs', 'ExternalSyncService.gs', 'AuthService.gs'];
+const FILES = ['Constants.gs', 'ValidationService.gs', 'HistoryService.gs', 'TemplateService.gs', 'EmailService.gs', 'SettingsService.gs', 'BrandService.gs', 'CompanyService.gs', 'ExternalSyncService.gs', 'AuthService.gs', 'ChangeRequestService.gs'];
 FILES.forEach((file) => {
   const code = fs.readFileSync(path.join(ROOT, file), 'utf8');
   vm.runInContext(code, sandbox, { filename: file });
@@ -1414,6 +1414,173 @@ test('一致する行が全て確定済みの場合は、最初に見つかっ�
 
   const sheet = ss.getSheetByName('db_登録データ_2026_10月');
   assert.strictEqual(sheet._rows[1][1], '2026-10-02');
+});
+
+console.log('== ChangeRequestService: 履歴データの検索・特定・変換 ==');
+
+// 履歴タブ1枚分の最小フェイク(ヘッダー行+データ行の2次元配列をそのまま保持する)。
+// getRange/getValuesは複数行の読み書きに対応させる(getChangeRequestCandidates_・
+// findHistoryRowBySubmissionVehicle_は複数行まとめて読むため)。
+function makeHistorySheet_(initialRows) {
+  var data = [Array.from(sandbox.HISTORY_HEADER_ROW)].concat((initialRows || []).map((r) => r.slice()));
+  return {
+    _data: data,
+    getLastRow: () => data.length,
+    getRange: (r, c, numRows, numCols) => ({
+      getValues: () => {
+        var out = [];
+        var n = numRows || 1;
+        for (var i = 0; i < n; i++) {
+          var row = data[r - 1 + i] || [];
+          out.push(row.slice(c - 1, c - 1 + (numCols || row.length)));
+        }
+        return out;
+      },
+      setValues: (vals) => {
+        for (var i = 0; i < vals.length; i++) {
+          var rowIdx = r - 1 + i;
+          var existing = (data[rowIdx] || []).slice();
+          for (var j = 0; j < vals[i].length; j++) existing[c - 1 + j] = vals[i][j];
+          data[rowIdx] = existing;
+        }
+      }
+    }),
+    appendRow: (row) => { data.push(row.slice()); },
+    deleteRow: (r) => { data.splice(r - 1, 1); },
+    setFrozenRows: () => {}
+  };
+}
+
+function makeHistorySpreadsheet_(tabs) {
+  var sheets = {};
+  Object.keys(tabs).forEach((name) => { sheets[name] = makeHistorySheet_(tabs[name]); });
+  return {
+    getSheetByName: (name) => sheets[name] || null,
+    getSheets: () => Object.keys(sheets).map((name) => ({ getName: () => name })),
+    insertSheet: (name) => { var s = makeHistorySheet_([]); sheets[name] = s; return s; }
+  };
+}
+
+// HISTORY_HEADER_ROWの列名で指定した値だけを埋めた1行を作る(残りは空文字)。
+// 列の並び順を覚えなくてよく、ヘッダーが増減しても壊れにくい。
+function historyRow_(overrides) {
+  var header = Array.from(sandbox.HISTORY_HEADER_ROW);
+  var row = header.map(() => '');
+  Object.keys(overrides || {}).forEach((key) => {
+    var idx = header.indexOf(key);
+    if (idx === -1) throw new Error('unknown history column: ' + key);
+    row[idx] = overrides[key];
+  });
+  return row;
+}
+
+test('getChangeRequestCandidates_は車両1台=1行として返し、取消済みは除外する', () => {
+  const ss = makeHistorySpreadsheet_({
+    '2026-08': [
+      historyRow_({
+        submissionId: 'A', 種別: 'OSS', 依頼会社名: '岐阜ヤナセ株式会社', 担当責任者: '戸田 圭市朗',
+        登録日: '2026-08-10', 送付日: '2026-08-05', 送付便: '第１便', '車両No.': 1,
+        使用者名: '橋本美咲', ブランド: 'MB', 状態: '有効', 送付書PDF: 'https://example.com/a.pdf'
+      }),
+      historyRow_({
+        submissionId: 'B', 種別: 'OSS', 依頼会社名: '岐阜ヤナセ株式会社', 担当責任者: '戸田 圭市朗',
+        登録日: '2026-08-11', 送付日: '2026-08-05', 送付便: '第１便', '車両No.': 1,
+        使用者名: '取消太郎', ブランド: 'MB', 状態: '取消'
+      })
+    ]
+  });
+
+  const results = sandbox.getChangeRequestCandidates_(ss, '2026-08-01', '2026-08-31', '', '');
+  assert.strictEqual(results.length, 1);
+  assert.strictEqual(results[0].submissionId, 'A');
+  assert.strictEqual(results[0].userName, '橋本美咲');
+  assert.strictEqual(results[0].changeRequested, false);
+});
+
+test('getChangeRequestCandidates_は使用者名・送付便で絞り込める', () => {
+  const ss = makeHistorySpreadsheet_({
+    '2026-08': [
+      historyRow_({ submissionId: 'A', 種別: 'OSS', 送付日: '2026-08-05', 送付便: '第１便', '車両No.': 1, 使用者名: '橋本美咲', 状態: '有効' }),
+      historyRow_({ submissionId: 'B', 種別: 'OSS', 送付日: '2026-08-06', 送付便: '第２便', '車両No.': 1, 使用者名: '鈴木一郎', 状態: '有効' })
+    ]
+  });
+
+  assert.strictEqual(sandbox.getChangeRequestCandidates_(ss, '2026-08-01', '2026-08-31', '', '橋本').length, 1);
+  assert.strictEqual(sandbox.getChangeRequestCandidates_(ss, '2026-08-01', '2026-08-31', '第２便', '').length, 1);
+  assert.strictEqual(sandbox.getChangeRequestCandidates_(ss, '2026-08-01', '2026-08-31', '第２便', '')[0].submissionId, 'B');
+});
+
+test('getChangeRequestCandidates_は変更依頼済みの行をフラグで示す', () => {
+  const ss = makeHistorySpreadsheet_({
+    '2026-08': [
+      historyRow_({ submissionId: 'A', 種別: 'OSS', 送付日: '2026-08-05', '車両No.': 1, 使用者名: '橋本美咲', 状態: '有効', 変更依頼: sandbox.CHANGE_REQUEST_BADGE_LABEL })
+    ]
+  });
+  const results = sandbox.getChangeRequestCandidates_(ss, '2026-08-01', '2026-08-31', '', '');
+  assert.strictEqual(results[0].changeRequested, true);
+});
+
+test('findHistoryRowBySubmissionVehicle_は複数タブを横断して該当行を見つける', () => {
+  const ss = makeHistorySpreadsheet_({
+    '2026-08': [historyRow_({ submissionId: 'A', '車両No.': 1, 使用者名: '橋本美咲' })],
+    '2026-09': [historyRow_({ submissionId: 'B', '車両No.': 2, 使用者名: '鈴木一郎' })]
+  });
+
+  const found = sandbox.findHistoryRowBySubmissionVehicle_(ss, 'B', 2);
+  assert.strictEqual(found.tabName, '2026-09');
+  assert.strictEqual(found.rowIndex, 2);
+  assert.strictEqual(found.values[Array.from(sandbox.HISTORY_HEADER_ROW).indexOf('使用者名')], '鈴木一郎');
+});
+
+test('findHistoryRowBySubmissionVehicle_は見つからない場合nullを返す', () => {
+  const ss = makeHistorySpreadsheet_({ '2026-08': [historyRow_({ submissionId: 'A', '車両No.': 1 })] });
+  assert.strictEqual(sandbox.findHistoryRowBySubmissionVehicle_(ss, 'A', 99), null);
+  assert.strictEqual(sandbox.findHistoryRowBySubmissionVehicle_(ss, 'Z', 1), null);
+});
+
+test('dateCellToIsoStr_はDateを"YYYY-MM-DD"にし、Date以外は空文字にする', () => {
+  assert.strictEqual(sandbox.dateCellToIsoStr_(new Date(2026, 7, 7)), '2026-08-07');
+  assert.strictEqual(sandbox.dateCellToIsoStr_(''), '');
+  assert.strictEqual(sandbox.dateCellToIsoStr_(undefined), '');
+});
+
+test('buildCarFromHistoryRow_はOSSなら新しい登録日をindivRegDateとして持つ', () => {
+  const header = Array.from(sandbox.HISTORY_HEADER_ROW);
+  const row = historyRow_({ 使用者名: '橋本美咲', ブランド: 'MB', 車台番号: '1234', 担当者: '担当A' });
+  const car = sandbox.buildCarFromHistoryRow_(row, header, 'OSS', '2026-09-15');
+  assert.strictEqual(car.indivRegDate, '2026-09-15');
+  assert.strictEqual(car.userName, '橋本美咲');
+  assert.strictEqual(car.chassis, '1234');
+  assert.strictEqual(car.person, '担当A');
+});
+
+test('buildCarFromHistoryRow_は行政書士なら使用者名・ブランド・担当者だけを持つ', () => {
+  const header = Array.from(sandbox.HISTORY_HEADER_ROW);
+  const row = historyRow_({ 使用者名: '橋本美咲', ブランド: 'MB', 担当者: '担当A' });
+  const car = sandbox.buildCarFromHistoryRow_(row, header, '行政書士', '2026-09-15');
+  assert.strictEqual(car.indivRegDate, undefined);
+  assert.strictEqual(car.userName, '橋本美咲');
+  assert.strictEqual(car.person, '担当A');
+});
+
+test('buildFormDataFromHistoryRow_はOSS以外でのみregDateCommonに新しい登録日を入れる', () => {
+  const header = Array.from(sandbox.HISTORY_HEADER_ROW);
+  const row = historyRow_({ 依頼会社名: '岐阜ヤナセ株式会社', 担当責任者: '戸田 圭市朗', 送付日: new Date(2026, 7, 5), 飛騨登録: '対象' });
+
+  const ossFormData = sandbox.buildFormDataFromHistoryRow_(row, header, 'OSS', '2026-09-15', '');
+  assert.strictEqual(ossFormData.regDateCommon, '');
+  assert.strictEqual(ossFormData.sendDate, '2026-08-05');
+  assert.strictEqual(ossFormData.hidaRegistration, true);
+
+  const paperFormData = sandbox.buildFormDataFromHistoryRow_(row, header, '紙', '2026-09-15', '第２便');
+  assert.strictEqual(paperFormData.regDateCommon, '2026-09-15');
+  assert.strictEqual(paperFormData.sendBatch, '第２便');
+});
+
+test('buildChangeRequestPdfFileName_は「変更依頼」を含み、安全なファイル名にする', () => {
+  const name = sandbox.buildChangeRequestPdfFileName_('OSS', 'A/B:C', new Date(2026, 7, 7, 9, 30, 0));
+  assert.ok(name.indexOf('変更依頼') !== -1);
+  assert.ok(!/[\/:]/.test(name.replace('.pdf', '')));
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

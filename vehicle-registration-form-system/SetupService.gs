@@ -31,6 +31,7 @@ var THEME = {
 
 var FONT_FAMILY = 'Roboto';
 var DISPLAY_TITLE = '新車新規登録依頼書';
+var DISPLAY_TITLE_GYOSEI = '行政書士依頼書'; // TemplateService.gs#writeChangeRequestBadge_ でも参照する
 
 var OSS_FIELD_LABELS = {
   indivRegDate: '登録日',
@@ -154,7 +155,7 @@ function buildGyoseiTemplateSheet_(sheet) {
 function buildGyoseiBanner_(sheet, maxCol) {
   var titleRange = sheet.getRange(1, 1, 1, maxCol);
   titleRange.merge();
-  titleRange.setValue('行政書士依頼書');
+  titleRange.setValue(DISPLAY_TITLE_GYOSEI);
   titleRange.setFontFamily(FONT_FAMILY);
   titleRange.setFontSize(22);
   titleRange.setFontWeight('bold');
@@ -315,9 +316,12 @@ function ensureColumns_(sheet, minCols) {
 function setBanner_(sheet, maxCol, badgeText) {
   ensureColumns_(sheet, maxCol);
   var hidaBadgeWidth = 2;
+  var changeBadgeWidth = 2; // 変更依頼バッジ(通常は空欄。種別バッジのすぐ左に置く)
   var typeBadgeWidth = 2;
   var titleStart = hidaBadgeWidth + 1;
-  var titleEnd = maxCol - typeBadgeWidth;
+  var titleEnd = maxCol - typeBadgeWidth - changeBadgeWidth;
+  var changeBadgeStart = titleEnd + 1;
+  var typeBadgeStart = changeBadgeStart + changeBadgeWidth;
 
   var hidaBadgeRange = sheet.getRange(1, 1, 1, hidaBadgeWidth);
   hidaBadgeRange.merge();
@@ -337,7 +341,18 @@ function setBanner_(sheet, maxCol, badgeText) {
   titleRange.setHorizontalAlignment('center');
   titleRange.setVerticalAlignment('middle');
 
-  var typeBadgeRange = sheet.getRange(1, titleEnd + 1, 1, typeBadgeWidth);
+  // 変更依頼バッジ。Constants.gs の COMMON_CELLS.OSS/PAPER.changeRequestBadge と
+  // 必ず一致させること。通常は空欄のままで、ChangeRequestService.gs が登録日・送付便の
+  // 変更を反映したPDFを再発行するときだけ「変更依頼」と書き込み、目立つ色で塗る。
+  var changeBadgeRange = sheet.getRange(1, changeBadgeStart, 1, changeBadgeWidth);
+  changeBadgeRange.merge();
+  changeBadgeRange.setFontFamily(FONT_FAMILY);
+  changeBadgeRange.setFontWeight('bold');
+  changeBadgeRange.setFontSize(12);
+  changeBadgeRange.setHorizontalAlignment('center');
+  changeBadgeRange.setVerticalAlignment('middle');
+
+  var typeBadgeRange = sheet.getRange(1, typeBadgeStart, 1, typeBadgeWidth);
   typeBadgeRange.merge();
   typeBadgeRange.setValue(badgeText);
   typeBadgeRange.setBackground(THEME.badgeFill);
@@ -349,7 +364,8 @@ function setBanner_(sheet, maxCol, badgeText) {
   typeBadgeRange.setVerticalAlignment('middle');
 
   // バナー行だけを対象に枠線を引く(2行目以降の余白行には線を引かない)。
-  // verticalをtrueにして、飛騨バッジ/タイトル/種別バッジの3ブロックの境目にも線を入れる。
+  // verticalをtrueにして、飛騨バッジ/タイトル/変更依頼バッジ/種別バッジの4ブロックの
+  // 境目にも線を入れる。
   sheet.getRange(1, 1, 1, maxCol)
     .setBorder(true, true, true, true, true, null, THEME.ink, SpreadsheetApp.BorderStyle.SOLID);
 

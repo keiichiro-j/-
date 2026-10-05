@@ -50,6 +50,7 @@
       <button type="button" class="viewSwitchBtn" id="navHistory" role="tab" aria-selected="false">履歴確認</button>
       <button type="button" class="viewSwitchBtn" id="navCalendar" role="tab" aria-selected="false">カレンダー</button>
       <button type="button" class="viewSwitchBtn" id="navPdf" role="tab" aria-selected="false">送付書PDF</button>
+      <button type="button" class="viewSwitchBtn" id="navChangeRequest" role="tab" aria-selected="false">変更依頼</button>
       <button type="button" class="viewSwitchBtn" id="navSettings" role="tab" aria-selected="false">設定</button>
     </nav>
   </header>
@@ -383,6 +384,78 @@
         </div>
         <iframe id="pdfPreviewFrame" class="pdfPreviewFrame" title="PDFプレビュー"></iframe>
       </div>
+    </div>
+
+    <div id="viewChangeRequest" class="is-hidden">
+      <section class="card">
+        <div class="card__head card__head--split">
+          <div>
+            <h2>変更依頼</h2>
+            <p class="muted">発行済みの申請(車両1台ごと)を検索して、登録日・送付便だけを変更できます。保存するとPDFを再発行し、右上に「変更依頼」と表示されます。カレンダー・ブランド別の転記先スプレッドシートの登録日もあわせて更新されます。</p>
+          </div>
+          <span class="badge" id="changeRequestCountBadge">0 件</span>
+        </div>
+
+        <div class="filterBar">
+          <div class="filterGroup">
+            <label class="filterGroup__label">期間（送付日）</label>
+            <div class="filterGroup__row">
+              <input type="date" id="changeRequestFrom" aria-label="開始日">
+              <span class="filterBar__sep">〜</span>
+              <input type="date" id="changeRequestTo" aria-label="終了日">
+            </div>
+          </div>
+          <div class="filterGroup">
+            <label class="filterGroup__label" for="changeRequestSendBatch">送付便</label>
+            <select id="changeRequestSendBatch">
+              <option value="">すべて</option>
+              <option value="第１便">第１便</option>
+              <option value="第２便">第２便</option>
+              <option value="第３便">第３便</option>
+            </select>
+          </div>
+          <div class="filterGroup filterGroup--grow">
+            <label class="filterGroup__label" for="changeRequestSearch">使用者名で検索</label>
+            <input type="text" id="changeRequestSearch" autocomplete="off">
+          </div>
+          <button type="button" id="btnChangeRequestRefresh" class="btn btn--ghost filterBar__submit">検索</button>
+        </div>
+
+        <div id="changeRequestList" class="pdfList"></div>
+        <p class="muted historyEmptyMsg" id="changeRequestEmptyMsg">期間を指定して検索してください。</p>
+      </section>
+
+      <section class="card is-hidden" id="changeRequestEditCard">
+        <div class="card__head">
+          <h2>変更内容の入力</h2>
+          <p class="muted" id="changeRequestEditSummary"></p>
+        </div>
+
+        <div class="fieldRow">
+          <div class="field">
+            <label for="changeRequestNewRegDate">新しい登録日</label>
+            <input type="date" id="changeRequestNewRegDate">
+          </div>
+          <div class="field">
+            <label for="changeRequestNewSendBatch">新しい送付便</label>
+            <select id="changeRequestNewSendBatch">
+              <option value="">変更しない</option>
+              <option value="第１便">第１便</option>
+              <option value="第２便">第２便</option>
+              <option value="第３便">第３便</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="submitBar__row">
+          <button type="button" id="btnCancelChangeRequest" class="btn btn--ghost">キャンセル</button>
+          <button type="button" id="btnApplyChangeRequest" class="btn btn--primary">この内容で変更してPDFを再発行する</button>
+        </div>
+        <div id="changeRequestResult" class="result" role="status" aria-live="polite">
+          <span id="changeRequestSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+          <span id="changeRequestResultText"></span>
+        </div>
+      </section>
     </div>
 
     <div id="viewSettings" class="is-hidden">

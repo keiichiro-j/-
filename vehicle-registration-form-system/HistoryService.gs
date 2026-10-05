@@ -84,7 +84,8 @@ function appendHistoryRow_(ss, type, car, formData, submissionId, vehicleNo, tim
     type === TYPE_GYOSEI ? (formData.gyoseiVehicleLocation || '') : '',
     pdfUrl || '',
     SUBMISSION_STATUS_ACTIVE,
-    ''
+    '',
+    '' // 変更依頼(新規登録時は未変更のため空欄。ChangeRequestService.gs#applyChangeRequest_ が書き込む)
   ]);
 
   return tabName;

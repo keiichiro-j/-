@@ -649,6 +649,7 @@
     document.getElementById('sendDate').value = formatDateInput_(new Date());
     initHistoryDefaultRange_();
     initPdfDefaultRange_();
+    initChangeRequestDefaultRange_();
     document.getElementById('mailSendDate').value = formatDateInput_(new Date());
     loadMailRecipients_();
     loadCurrentUserAccount_();
@@ -750,6 +751,7 @@
     document.getElementById('viewHistory').classList.toggle('is-hidden', view !== 'history');
     document.getElementById('viewCalendar').classList.toggle('is-hidden', view !== 'calendar');
     document.getElementById('viewPdf').classList.toggle('is-hidden', view !== 'pdf');
+    document.getElementById('viewChangeRequest').classList.toggle('is-hidden', view !== 'changeRequest');
     document.getElementById('viewSettings').classList.toggle('is-hidden', view !== 'settings');
     document.getElementById('navForm').classList.toggle('is-active', view === 'form');
     document.getElementById('navForm').setAttribute('aria-selected', view === 'form');
@@ -759,6 +761,8 @@
     document.getElementById('navCalendar').setAttribute('aria-selected', view === 'calendar');
     document.getElementById('navPdf').classList.toggle('is-active', view === 'pdf');
     document.getElementById('navPdf').setAttribute('aria-selected', view === 'pdf');
+    document.getElementById('navChangeRequest').classList.toggle('is-active', view === 'changeRequest');
+    document.getElementById('navChangeRequest').setAttribute('aria-selected', view === 'changeRequest');
     document.getElementById('navSettings').classList.toggle('is-active', view === 'settings');
     document.getElementById('navSettings').setAttribute('aria-selected', view === 'settings');
     // 初回表示時、または新しい申請でデータが増えた後(historyHeader_をクリア済み)だけ取得し直す
@@ -770,6 +774,7 @@
   document.getElementById('navHistory').addEventListener('click', function () { setView_('history'); });
   document.getElementById('navCalendar').addEventListener('click', function () { setView_('calendar'); });
   document.getElementById('navPdf').addEventListener('click', function () { setView_('pdf'); });
+  document.getElementById('navChangeRequest').addEventListener('click', function () { setView_('changeRequest'); });
   document.getElementById('navSettings').addEventListener('click', function () { setView_('settings'); });
   document.getElementById('btnGoMailSettings').addEventListener('click', function () { setView_('settings'); });
   document.getElementById('btnHistoryRefresh').addEventListener('click', function () { loadHistoryData_(); });
@@ -1255,6 +1260,157 @@
     pane.classList.remove('is-hidden');
     pane.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
+
+  // ---------- 変更依頼画面 ----------
+  // 発行済みの申請(車両1台ごと)を検索し、登録日・送付便だけを変更してPDFを再発行する。
+  // 検索は送付書PDF画面と同じ条件(期間・送付便・使用者名)だが、結果は申請単位ではなく
+  // 車両1台=1行で返る(getChangeRequestCandidates)。
+
+  var changeRequestAllList_ = [];
+  var changeRequestSelected_ = null; // 編集パネルで選択中の候補(1件)
+
+  function initChangeRequestDefaultRange_() {
+    var now = new Date();
+    document.getElementById('changeRequestFrom').value = formatDateInput_(new Date(now.getFullYear(), now.getMonth(), 1));
+    document.getElementById('changeRequestTo').value = formatDateInput_(now);
+  }
+
+  function loadChangeRequestList_() {
+    var from = document.getElementById('changeRequestFrom').value;
+    var to = document.getElementById('changeRequestTo').value;
+    var sendBatch = document.getElementById('changeRequestSendBatch').value;
+    var keyword = document.getElementById('changeRequestSearch').value.trim();
+
+    var btn = document.getElementById('btnChangeRequestRefresh');
+    btn.disabled = true;
+
+    google.script.run
+      .withSuccessHandler(function (list) {
+        btn.disabled = false;
+        changeRequestAllList_ = list || [];
+        renderChangeRequestList_(changeRequestAllList_);
+      })
+      .withFailureHandler(function (error) {
+        btn.disabled = false;
+        changeRequestAllList_ = [];
+        renderChangeRequestList_([], '検索に失敗しました。');
+        alert('検索に失敗しました:\n' + error.message);
+      })
+      .getChangeRequestCandidates(from, to, sendBatch, keyword);
+  }
+  document.getElementById('btnChangeRequestRefresh').addEventListener('click', loadChangeRequestList_);
+
+  function renderChangeRequestList_(list, emptyMessage) {
+    var container = document.getElementById('changeRequestList');
+    container.innerHTML = '';
+    setCountBadge_(document.getElementById('changeRequestCountBadge'), list.length, ' 件');
+    document.getElementById('changeRequestEmptyMsg').textContent = emptyMessage || '該当する申請が見つかりませんでした。';
+    document.getElementById('changeRequestEmptyMsg').style.display = list.length === 0 ? '' : 'none';
+
+    list.forEach(function (item) {
+      var row = document.createElement('div');
+      row.className = 'pdfRow';
+
+      var main = document.createElement('div');
+      main.className = 'pdfRow__main';
+      var metaParts = [
+        escapeHtml_(item.type),
+        escapeHtml_(item.sendBatch || '(送付便なし)'),
+        '車両No.' + escapeHtml_(String(item.vehicleNo)),
+        escapeHtml_(item.manager)
+      ];
+      if (item.changeRequested) metaParts.push('<span class="pdfRow__cancelled">変更依頼済み</span>');
+      main.innerHTML =
+        '<span class="pdfRow__company">' + escapeHtml_(item.company) + '</span>' +
+        '<span class="pdfRow__meta">' + metaParts.join(' ・ ') + '</span>' +
+        '<span class="pdfRow__users">使用者名: ' + escapeHtml_(item.userName || '-') +
+        ' / 登録日: ' + escapeHtml_(item.regDate || '未定') + '</span>';
+      row.appendChild(main);
+
+      var actions = document.createElement('div');
+      actions.className = 'pdfRow__actions';
+      if (item.pdfUrl) {
+        var btnView = document.createElement('button');
+        btnView.type = 'button';
+        btnView.className = 'btn btn--ghost btn--sm';
+        btnView.textContent = 'プレビュー';
+        btnView.addEventListener('click', function () { openPdfPreview_(item.pdfUrl, item.company); });
+        actions.appendChild(btnView);
+      }
+      var btnEdit = document.createElement('button');
+      btnEdit.type = 'button';
+      btnEdit.className = 'btn btn--primary btn--sm';
+      btnEdit.textContent = 'この内容を変更する';
+      btnEdit.addEventListener('click', function () { openChangeRequestEdit_(item); });
+      actions.appendChild(btnEdit);
+
+      row.appendChild(actions);
+      container.appendChild(row);
+    });
+  }
+
+  function openChangeRequestEdit_(item) {
+    changeRequestSelected_ = item;
+    document.getElementById('changeRequestEditSummary').textContent =
+      item.company + ' / ' + item.type + ' / 使用者名: ' + (item.userName || '-') +
+      ' / 現在の登録日: ' + (item.regDate || '未定') + ' / 現在の送付便: ' + (item.sendBatch || '(なし)');
+    var regDateInput = document.getElementById('changeRequestNewRegDate');
+    regDateInput.value = item.regDate || '';
+    document.getElementById('changeRequestNewSendBatch').value = '';
+    setChangeRequestResult_('', '');
+    var card = document.getElementById('changeRequestEditCard');
+    card.classList.remove('is-hidden');
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function closeChangeRequestEdit_() {
+    changeRequestSelected_ = null;
+    document.getElementById('changeRequestEditCard').classList.add('is-hidden');
+  }
+  document.getElementById('btnCancelChangeRequest').addEventListener('click', closeChangeRequestEdit_);
+
+  function setChangeRequestResult_(text, kind) {
+    var el = document.getElementById('changeRequestResult');
+    el.className = 'result' + (kind ? ' -' + kind : '');
+    document.getElementById('changeRequestResultText').innerHTML = text;
+  }
+
+  function setChangeRequestProcessing_(on) {
+    document.getElementById('changeRequestSpinner').classList.toggle('is-hidden', !on);
+  }
+
+  document.getElementById('btnApplyChangeRequest').addEventListener('click', function () {
+    if (!changeRequestSelected_) return;
+    var newRegDate = document.getElementById('changeRequestNewRegDate').value;
+    var newSendBatch = document.getElementById('changeRequestNewSendBatch').value;
+
+    var btn = document.getElementById('btnApplyChangeRequest');
+    btn.disabled = true;
+    setChangeRequestProcessing_(true);
+    setChangeRequestResult_('変更内容を反映してPDFを再発行しています…', 'pending');
+
+    google.script.run
+      .withSuccessHandler(function (result) {
+        btn.disabled = false;
+        setChangeRequestProcessing_(false);
+        var message = '変更しました。PDFを再発行しました。<br>' +
+          '<a href="' + result.pdfUrl + '" target="_blank">新しいPDFを開く</a>';
+        if (result.syncWarning) {
+          message += '<span class="result__warning">他システムへの転記でエラーがありました(変更自体は完了しています):<br>' +
+            escapeHtml_(result.syncWarning) + '</span>';
+        }
+        setChangeRequestResult_(message, 'success');
+        // 編集パネルは閉じずに結果を表示したままにする(閉じると成功メッセージごと
+        // 見えなくなってしまうため)。一覧だけ最新状態に更新する。
+        loadChangeRequestList_();
+      })
+      .withFailureHandler(function (error) {
+        btn.disabled = false;
+        setChangeRequestProcessing_(false);
+        setChangeRequestResult_('変更に失敗しました:\n' + error.message, 'error');
+      })
+      .applyChangeRequest(changeRequestSelected_.submissionId, changeRequestSelected_.vehicleNo, newRegDate, newSendBatch);
+  });
 
   // ---------- 送付書PDF: メール送信 ----------
 

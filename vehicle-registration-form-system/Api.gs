@@ -52,6 +52,25 @@ function sendPdfsByEmail(sendDate, recipients) {
 }
 
 /**
+ * 「変更依頼」タブの検索用。車両1台=1行として、送付日の範囲(・送付便・使用者名)で
+ * 絞り込んだ履歴データを返す(取消済みは除く)。
+ */
+function getChangeRequestCandidates(fromDate, toDate, sendBatch, keyword) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  return getChangeRequestCandidates_(ss, fromDate, toDate, sendBatch, keyword);
+}
+
+/**
+ * 「変更依頼」タブの保存ボタン用。登録日・送付便を変更してPDFを再発行し、履歴
+ * (必要なら月タブの移動も)・ブランド別の転記先スプレッドシートの登録日を更新する。
+ * @return {{pdfUrl: string, tabName: string, syncWarning: string}}
+ */
+function applyChangeRequest(submissionId, vehicleNo, newRegDate, newSendBatch) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  return applyChangeRequest_(ss, submissionId, vehicleNo, newRegDate, newSendBatch);
+}
+
+/**
  * メール送信フォームの初期表示用。前回送信時に使った宛先を返す(入力の手間を減らすため)。
  * 「送付書PDF」画面のメール送信機能でも同じ宛先欄を使うため、権限者以外でも取得できる
  * 必要がある(宛先の変更・保存(saveMailRecipients)自体は権限者のみに制限している)。

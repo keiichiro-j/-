@@ -81,7 +81,8 @@ var COMMON_CELLS = {
     sendBatch: 'H3', // 「第」の値欄(数字のみ)。隣の固定「第」「便」と並べて「第１便」に見える
     company: 'L3',
     manager: 'L5',
-    hidaBadge: 'A1' // 飛騨登録バッジ(banner左上、通常は空欄)
+    hidaBadge: 'A1', // 飛騨登録バッジ(banner左上、通常は空欄)
+    changeRequestBadge: 'K1' // 変更依頼バッジ(banner右端寄り、種別バッジのすぐ左。通常は空欄)
   },
   PAPER: {
     sendDate: 'B3',
@@ -89,12 +90,17 @@ var COMMON_CELLS = {
     sendBatch: 'H3', // 「第」の値欄(数字のみ)。隣の固定「第」「便」と並べて「第１便」に見える
     company: 'L3',
     manager: 'L5',
-    hidaBadge: 'A1' // 飛騨登録バッジ(banner左上、通常は空欄)
+    hidaBadge: 'A1', // 飛騨登録バッジ(banner左上、通常は空欄)
+    changeRequestBadge: 'J1' // 変更依頼バッジ(banner右端寄り、種別バッジのすぐ左。通常は空欄)
   }
 };
 
 // 飛騨登録バッジの配色(通常は非表示。該当申請のときだけ目立つ色で塗る)
 var HIDA_BADGE_COLOR = { bg: '#F9AB00', text: '#202124' }; // Google Yellow
+
+// 変更依頼バッジの配色(通常は非表示。登録日・送付便を変更して再発行したPDFにだけ表示する)
+var CHANGE_REQUEST_BADGE_LABEL = '変更依頼';
+var CHANGE_REQUEST_BADGE_COLOR = { bg: '#D0342C', text: '#FFFFFF' }; // 朱色(警告色、飛騨登録の黄色と区別する)
 
 // 送付便の選択肢（ドロップダウン）
 var SEND_BATCH_OPTIONS = ['第１便', '第２便', '第３便'];
@@ -169,7 +175,7 @@ var TAX_LABELS = {
 var NUMERIC_FIELD_KEYS = ['autoTax', 'envTax', 'weightTax'];
 
 // 履歴タブ（月次）のヘッダー行。A〜Z の26列。
-// 「飛騨登録」「送付書PDF」「状態」「取消日時」は末尾に追記
+// 「飛騨登録」「送付書PDF」「状態」「取消日時」「変更依頼」は末尾に追記
 // (既存タブの列インデックスをずらさないため)。
 var HISTORY_HEADER_ROW = [
   '送信日時', 'submissionId', '種別', '依頼会社名', '担当責任者',
@@ -177,7 +183,7 @@ var HISTORY_HEADER_ROW = [
   '型式', '類別番号', '自動車税', '環境性能割', '重量税',
   '希望ナンバー', '予備検登録車', '本検登録車', '身障者減免車', '担当者', '飛騨登録',
   '依頼事項', '依頼拠点', '封印取付日', '車両所在',
-  '送付書PDF', '状態', '取消日時'
+  '送付書PDF', '状態', '取消日時', '変更依頼'
 ];
 
 // 履歴の「状態」列の値
