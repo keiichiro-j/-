@@ -959,10 +959,62 @@
       .getHistoryEntriesByDateRange(monthStart, monthEnd, false);
   }
 
+  // 担当責任者ごとにカレンダーの情報枠の色を変える。固定の色一覧ではなく、担当責任者名を
+  // ハッシュ化して色相(hue)を決めるため、担当責任者が何人いても追加設定なしに自動で
+  // 色分けできる(同じ名前なら常に同じ色になる)。ダーク系テーマでは彩度・明度を
+  // 暗め側に振って、どのテーマでも文字(--ink)とのコントラストを保つ。
+  var CALENDAR_DARK_THEMES_ = ['dark', 'navy', 'amber', 'teal', 'indigo', 'crimson'];
+  function isDarkTheme_() {
+    return CALENDAR_DARK_THEMES_.indexOf(document.documentElement.getAttribute('data-theme') || '') !== -1;
+  }
+  function hashString_(s) {
+    var h = 0;
+    for (var i = 0; i < s.length; i++) {
+      h = (h * 31 + s.charCodeAt(i)) | 0;
+    }
+    return Math.abs(h);
+  }
+  var managerColorCache_ = {};
+  function colorForManager_(name) {
+    if (!name) return null;
+    var cacheKey = name + '|' + (isDarkTheme_() ? 'dark' : 'light');
+    if (managerColorCache_[cacheKey]) return managerColorCache_[cacheKey];
+    var hue = hashString_(name) % 360;
+    var dark = isDarkTheme_();
+    var color = {
+      bg: 'hsl(' + hue + ', ' + (dark ? '30%' : '70%') + ', ' + (dark ? '20%' : '93%') + ')',
+      border: 'hsl(' + hue + ', ' + (dark ? '55%' : '55%') + ', ' + (dark ? '48%' : '55%') + ')'
+    };
+    managerColorCache_[cacheKey] = color;
+    return color;
+  }
+
+  // 現在表示中の月に登場する担当責任者の一覧を、色見本つきの凡例として描画する。
+  function renderManagerLegend_(managers) {
+    var el = document.getElementById('calendarManagerLegend');
+    if (!el) return;
+    el.innerHTML = '';
+    if (managers.length === 0) return;
+    var label = document.createElement('span');
+    label.className = 'calendarLegend__item';
+    label.textContent = '担当責任者:';
+    el.appendChild(label);
+    managers.forEach(function (name) {
+      var color = colorForManager_(name);
+      var chip = document.createElement('span');
+      chip.className = 'calLegendChip';
+      chip.style.setProperty('--mgr-bg', color.bg);
+      chip.style.setProperty('--mgr-border', color.border);
+      chip.textContent = name;
+      el.appendChild(chip);
+    });
+  }
+
   function renderCalendar_(header, rows) {
     var idx = {
       regDate: header.indexOf('登録日'),
       type: header.indexOf('種別'),
+      manager: header.indexOf('担当責任者'),
       userName: header.indexOf('使用者名'),
       brand: header.indexOf('ブランド'),
       person: header.indexOf('担当者'),
@@ -971,12 +1023,20 @@
     };
 
     var byDate = {};
+    var managerSeen = {};
+    var managers = [];
     rows.forEach(function (row) {
       var dateStr = row[idx.regDate];
       if (!dateStr) return;
+      var manager = row[idx.manager] || '';
+      if (manager && !managerSeen[manager]) {
+        managerSeen[manager] = true;
+        managers.push(manager);
+      }
       if (!byDate[dateStr]) byDate[dateStr] = [];
       byDate[dateStr].push({
         type: row[idx.type],
+        manager: manager,
         userName: row[idx.userName],
         brand: row[idx.brand],
         person: row[idx.person],
@@ -984,6 +1044,8 @@
         pdfUrl: row[idx.pdfUrl] || ''
       });
     });
+    managers.sort();
+    renderManagerLegend_(managers);
 
     var grid = document.getElementById('calendarGrid');
     grid.innerHTML = '';
@@ -1028,8 +1090,14 @@
             entryEl.target = '_blank';
             entryEl.rel = 'noopener';
           }
+          var mgrColor = colorForManager_(entry.manager);
+          if (mgrColor) {
+            entryEl.style.setProperty('--mgr-bg', mgrColor.bg);
+            entryEl.style.setProperty('--mgr-border', mgrColor.border);
+          }
           entryEl.title = (entry.type || '') + ' / ' + (entry.brand || 'ブランド未設定') +
-            ' / 使用者名: ' + (entry.userName || '-') + ' / 担当者: ' + (entry.person || '-') +
+            ' / 使用者名: ' + (entry.userName || '-') + ' / 担当責任者: ' + (entry.manager || '-') +
+            ' / 担当者: ' + (entry.person || '-') +
             (entry.cancelled ? '（取消済み）' : '') +
             (hasPdf ? ' — クリックで送付書PDFを開く' : '');
 

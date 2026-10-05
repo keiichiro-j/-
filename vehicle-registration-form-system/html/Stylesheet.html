@@ -1158,6 +1158,20 @@
   }
   .calendarLegend__item { display: inline-flex; align-items: center; gap: 6px; }
 
+  /* 担当責任者ごとの色の凡例(表示中の月に実際に登場する担当責任者だけを動的に表示する) */
+  .calendarLegend__managers { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; margin-top: 2px; }
+  .calLegendChip {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    padding: 2px 9px;
+    border-radius: var(--r-pill);
+    background: var(--mgr-bg, var(--surface-alt));
+    border: 1px solid var(--mgr-border, var(--line-soft));
+  }
+
   .calendarGrid {
     display: grid;
     grid-template-columns: repeat(7, minmax(128px, 1fr));
@@ -1209,8 +1223,10 @@
     line-height: 1.4;
     padding: 4px 6px;
     border-radius: var(--r-xs);
-    background: var(--surface-alt);
-    border: 1px solid var(--line-soft);
+    /* 担当責任者ごとの色(JavaScript.html#colorForManager_が--mgr-bg/--mgr-borderを設定する)。
+       未設定(担当責任者が空)のときは既定の配色のまま。 */
+    background: var(--mgr-bg, var(--surface-alt));
+    border: 1px solid var(--mgr-border, var(--line-soft));
     flex: none;
   }
   .calEntry.is-cancelled { opacity: 0.55; text-decoration: line-through; }

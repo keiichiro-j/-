@@ -49,7 +49,7 @@ var GYOSEI_CELLS = {
 };
 
 // 行政書士依頼書の「依頼事項」の選択肢。
-var GYOSEI_CLASS_OPTIONS = ['車庫証明申請', '車庫証明申請から登録', '登録（車庫証明別途依頼済）'];
+var GYOSEI_CLASS_OPTIONS = ['車庫証明申請から登録', '登録（車庫証明別途依頼済）'];
 
 // 提出書類チェックリスト(SetupService.gs#buildGyoseiChecklistTable_ が1項目=1行のテーブルを
 // 生成する)。各項目にチェック(✔)欄と備考欄を1つずつ持つ。key はフォームデータ

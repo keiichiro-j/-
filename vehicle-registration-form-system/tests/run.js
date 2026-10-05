@@ -210,7 +210,7 @@ function gyoseiFormData(overrides) {
     type: '行政書士',
     sendBatch: '',
     regDateCommon: '2026-08-20',
-    gyoseiClass: '車庫証明申請',
+    gyoseiClass: '車庫証明申請から登録',
     gyoseiLocation: '岐阜本店',
     sealDate: '',
     vehicles: [{ userName: '橋本美咲', brand: 'MB', person: '担当A' }]
@@ -378,7 +378,7 @@ test('依頼事項・依頼拠点・封印取付日・車両所在の4列に値�
     sendDate: '2026-08-10',
     sendBatch: '',
     regDateCommon: '2026-08-20',
-    gyoseiClass: '車庫証明申請',
+    gyoseiClass: '車庫証明申請から登録',
     gyoseiLocation: '岐阜本店',
     sealDate: '2026-08-25',
     gyoseiVehicleLocation: '本社駐車場'
@@ -392,7 +392,7 @@ test('依頼事項・依頼拠点・封印取付日・車両所在の4列に値�
   assert.strictEqual(row[header.indexOf('種別')], '行政書士');
   assert.strictEqual(row[header.indexOf('使用者名')], '橋本美咲');
   assert.strictEqual(row[header.indexOf('ブランド')], 'MB');
-  assert.strictEqual(row[header.indexOf('依頼事項')], '車庫証明申請');
+  assert.strictEqual(row[header.indexOf('依頼事項')], '車庫証明申請から登録');
   assert.strictEqual(row[header.indexOf('依頼拠点')], '岐阜本店');
   assert.deepStrictEqual(row[header.indexOf('封印取付日')], sandbox.parseDateOnly_('2026-08-25'));
   assert.strictEqual(row[header.indexOf('車両所在')], '本社駐車場');
@@ -403,7 +403,7 @@ test('封印取付日が未入力なら空文字のまま(エラーにしない)
   const ss = makeMutableFakeSpreadsheet();
   const formData = {
     company: '岐阜ヤナセ株式会社', manager: '戸田 圭市朗', sendDate: '2026-08-10',
-    regDateCommon: '2026-08-20', gyoseiClass: '車庫証明申請', gyoseiLocation: '岐阜本店', sealDate: ''
+    regDateCommon: '2026-08-20', gyoseiClass: '車庫証明申請から登録', gyoseiLocation: '岐阜本店', sealDate: ''
   };
   sandbox.appendHistoryRow_(ss, '行政書士', { userName: '橋本美咲' }, formData, 'uuid-2', 1, new Date(), 'https://example.com/b.pdf');
   const header = Array.from(sandbox.HISTORY_HEADER_ROW);
@@ -693,7 +693,7 @@ function makeCellCaptureSheet_() {
 test('担当責任者(ログイン)・担当者(担当セールス)・顧客名をそれぞれ別セルに書き込む', () => {
   const sheet = makeCellCaptureSheet_();
   const formData = {
-    sendDate: '2026-08-10', gyoseiClass: '車庫証明申請', gyoseiLocation: '岐阜本店',
+    sendDate: '2026-08-10', gyoseiClass: '車庫証明申請から登録', gyoseiLocation: '岐阜本店',
     manager: '戸田 圭市朗', regDateCommon: '2026-08-20', sealDate: ''
   };
   sandbox.writeGyoseiCommonFields_(sheet, formData);
@@ -709,7 +709,7 @@ test('担当責任者(ログイン)・担当者(担当セールス)・顧客名�
 test('車両所在をテンプレートのセルに書き込む', () => {
   const sheet = makeCellCaptureSheet_();
   const formData = {
-    sendDate: '2026-08-10', gyoseiClass: '車庫証明申請', gyoseiLocation: '岐阜本店',
+    sendDate: '2026-08-10', gyoseiClass: '車庫証明申請から登録', gyoseiLocation: '岐阜本店',
     manager: '戸田 圭市朗', regDateCommon: '', sealDate: '', gyoseiVehicleLocation: '本社駐車場'
   };
   sandbox.writeGyoseiCommonFields_(sheet, formData);
@@ -719,7 +719,7 @@ test('車両所在をテンプレートのセルに書き込む', () => {
 test('チェックリストはチェック済みの項目だけ✔を書き込み、備考もあわせて書き込む', () => {
   const sheet = makeCellCaptureSheet_();
   const formData = {
-    sendDate: '2026-08-10', gyoseiClass: '車庫証明申請', gyoseiLocation: '岐阜本店',
+    sendDate: '2026-08-10', gyoseiClass: '車庫証明申請から登録', gyoseiLocation: '岐阜本店',
     manager: '戸田 圭市朗', regDateCommon: '', sealDate: '',
     gyoseiChecklist: {
       completionCert: { checked: true, remark: 'ディーラー発行分' },
@@ -742,7 +742,7 @@ test('チェックリストはチェック済みの項目だけ✔を書き込�
 test('gyoseiChecklistが未指定でもエラーにならず全項目が空欄になる', () => {
   const sheet = makeCellCaptureSheet_();
   const formData = {
-    sendDate: '2026-08-10', gyoseiClass: '車庫証明申請', gyoseiLocation: '岐阜本店',
+    sendDate: '2026-08-10', gyoseiClass: '車庫証明申請から登録', gyoseiLocation: '岐阜本店',
     manager: '戸田 圭市朗', regDateCommon: '', sealDate: ''
   };
   sandbox.writeGyoseiCommonFields_(sheet, formData);
