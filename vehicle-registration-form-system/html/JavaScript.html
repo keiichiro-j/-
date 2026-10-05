@@ -1117,13 +1117,8 @@
           nameEl.className = 'calEntry__name';
           nameEl.textContent = entry.userName || '-';
           entryEl.appendChild(nameEl);
-
-          if (entry.person) {
-            var personEl = document.createElement('span');
-            personEl.className = 'calEntry__person';
-            personEl.textContent = '（' + entry.person + '）';
-            entryEl.appendChild(personEl);
-          }
+          // 担当者は情報枠の色(担当責任者ごとの色分け)で判別できるため、表示上は省略する
+          // (ホバー時のtitleツールチップには引き続き含めている)。
 
           listEl.appendChild(entryEl);
         });
