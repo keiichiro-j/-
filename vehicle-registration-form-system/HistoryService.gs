@@ -311,13 +311,13 @@ function getPdfsBySendDateRange_(ss, fromDate, toDate, sendBatch) {
 
 /**
  * 直近 SUGGESTION_MONTHS_BACK ヶ月分の履歴タブを横断して、
- * 依頼会社名・担当責任者・使用者名・担当者のサジェスト候補を収集する。
+ * 担当責任者・担当者のサジェスト候補を収集する。
+ * (依頼会社名は「依頼会社設定」で選べる固定の選択肢に、使用者名は予測候補を出さない
+ * 方針になったため、ここでは収集しない。)
  */
 function collectSuggestions_(ss) {
   var tabNames = getRecentHistoryTabNames_(ss, SUGGESTION_MONTHS_BACK);
-  var companies = {};
   var managers = {};
-  var userNames = {};
   var persons = {};
 
   tabNames.forEach(function (name) {
@@ -325,17 +325,13 @@ function collectSuggestions_(ss) {
     if (!sheet || sheet.getLastRow() < 2) return;
     var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, HISTORY_HEADER_ROW.length).getValues();
     values.forEach(function (row) {
-      if (row[3]) companies[row[3]] = true;
       if (row[4]) managers[row[4]] = true;
-      if (row[9]) userNames[row[9]] = true;
       if (row[21]) persons[row[21]] = true;
     });
   });
 
   return {
-    companies: Object.keys(companies),
     managers: Object.keys(managers),
-    userNames: Object.keys(userNames),
     persons: Object.keys(persons)
   };
 }

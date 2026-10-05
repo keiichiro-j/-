@@ -110,7 +110,7 @@ const sandbox = {
 };
 vm.createContext(sandbox);
 
-const FILES = ['Constants.gs', 'ValidationService.gs', 'HistoryService.gs', 'TemplateService.gs', 'EmailService.gs', 'SettingsService.gs', 'BrandService.gs', 'ExternalSyncService.gs', 'AuthService.gs'];
+const FILES = ['Constants.gs', 'ValidationService.gs', 'HistoryService.gs', 'TemplateService.gs', 'EmailService.gs', 'SettingsService.gs', 'BrandService.gs', 'CompanyService.gs', 'ExternalSyncService.gs', 'AuthService.gs'];
 FILES.forEach((file) => {
   const code = fs.readFileSync(path.join(ROOT, file), 'utf8');
   vm.runInContext(code, sandbox, { filename: file });
@@ -148,6 +148,10 @@ test('必須項目が揃っていればエラーなし', () => {
 });
 test('会社名が空ならエラー', () => {
   const errors = sandbox.validateFormData_(baseFormData({ company: '' }));
+  assert.ok(errors.some((e) => e.includes('依頼会社名')));
+});
+test('会社名が選択肢外ならエラー', () => {
+  const errors = sandbox.validateFormData_(baseFormData({ company: '存在しない会社' }));
   assert.ok(errors.some((e) => e.includes('依頼会社名')));
 });
 test('紙登録で登録日（全体）が空ならエラー', () => {
@@ -1118,6 +1122,26 @@ test('1件も残らない場合はエラーになり保存されない', () => {
   assert.deepStrictEqual(Array.from(sandbox.getBrandOptions_()), ['MB']); // 変更されない
 });
 
+console.log('== CompanyService: 依頼会社名の選択肢 ==');
+test('未設定なら初期値を返す', () => {
+  delete fakeScriptProperties[sandbox.COMPANY_OPTIONS_PROP_KEY];
+  assert.deepStrictEqual(Array.from(sandbox.getCompanyOptions_()), ['岐阜ヤナセ株式会社']);
+});
+test('保存した内容を取得できる(前後の空白除去・重複除去)', () => {
+  const saved = sandbox.saveCompanyOptions_([' 岐阜ヤナセ株式会社 ', '岐阜ヤナセ株式会社', ' 岐阜支店 ']);
+  assert.deepStrictEqual(Array.from(saved), ['岐阜ヤナセ株式会社', '岐阜支店']);
+  assert.deepStrictEqual(Array.from(sandbox.getCompanyOptions_()), ['岐阜ヤナセ株式会社', '岐阜支店']);
+});
+test('空の行は無視して保存できる', () => {
+  const saved = sandbox.saveCompanyOptions_(['岐阜ヤナセ株式会社', '', '  ']);
+  assert.deepStrictEqual(Array.from(saved), ['岐阜ヤナセ株式会社']);
+});
+test('1件も残らない場合はエラーになり保存されない', () => {
+  sandbox.saveCompanyOptions_(['岐阜ヤナセ株式会社']);
+  assert.throws(() => sandbox.saveCompanyOptions_(['', '  ']), /1つ以上登録/);
+  assert.deepStrictEqual(Array.from(sandbox.getCompanyOptions_()), ['岐阜ヤナセ株式会社']); // 変更されない
+});
+
 console.log('== ExternalSyncService: ブランド別の転記先スプレッドシートの設定 ==');
 
 // 画像で提供された実物シートのヘッダー(A:ステータス〜H:備考)に合わせたフェイクSpreadsheet。
@@ -1278,6 +1302,14 @@ test('末尾の敬称(様・殿)を無視する', () => {
 test('別人(文字自体が異なる名前)は同一視しない', () => {
   assert.notStrictEqual(sandbox.normalizeCustomerName_('山田優'), sandbox.normalizeCustomerName_('山田優作'));
   assert.notStrictEqual(sandbox.normalizeCustomerName_('山田太郎'), sandbox.normalizeCustomerName_('山田次郎'));
+});
+test('異体字(「高」と「髙」等)の表記ゆれを吸収する(他の文字が一致する場合に限る)', () => {
+  assert.strictEqual(sandbox.normalizeCustomerName_('髙橋太郎'), sandbox.normalizeCustomerName_('高橋太郎'));
+  assert.strictEqual(sandbox.normalizeCustomerName_('渡邊次郎'), sandbox.normalizeCustomerName_('渡辺次郎'));
+  assert.strictEqual(sandbox.normalizeCustomerName_('㈱髙橋'), sandbox.normalizeCustomerName_('高橋株式会社'));
+  // 異体字以外の部分(姓や名そのもの)が違えば、引き続き別人として区別する
+  assert.notStrictEqual(sandbox.normalizeCustomerName_('髙橋太郎'), sandbox.normalizeCustomerName_('高橋次郎'));
+  assert.notStrictEqual(sandbox.normalizeCustomerName_('髙田太郎'), sandbox.normalizeCustomerName_('高木太郎'));
 });
 
 console.log('== ExternalSyncService: 表記ゆれがあっても転記できる ==');

@@ -136,7 +136,7 @@
     tr.innerHTML =
       '<td class="cell-no"></td>' +
       '<td class="cell-regdate"><input type="date" class="v-indivRegDate"></td>' +
-      '<td class="cell-username"><input type="text" class="v-userName" list="dl-usernames" autocomplete="off"></td>' +
+      '<td class="cell-username"><input type="text" class="v-userName" autocomplete="off"></td>' +
       brandCell_() +
       '<td><input type="text" class="v-chassis" maxlength="4" inputmode="numeric" title="半角数字4桁で入力してください"></td>' +
       '<td><input type="text" class="v-model"></td>' +
@@ -259,9 +259,7 @@
   document.getElementById('segGyosei').addEventListener('click', function () { setType('行政書士'); });
 
   function populateSuggestions(data) {
-    fillDatalist_('dl-companies', data.companies);
     fillDatalist_('dl-managers', data.managers);
-    fillDatalist_('dl-usernames', data.userNames);
     fillDatalist_('dl-persons', data.persons);
   }
 
@@ -303,6 +301,22 @@
     select.value = current;
   }
   populateGyoseiBrandOptions_();
+
+  // 依頼会社名の選択肢は「設定」画面で変更できるため、ページ埋め込みのCOMPANY_OPTIONS_
+  // (Index.html参照)から組み立てる(先頭の「選択してください」はIndex.html側に用意済み)。
+  function populateCompanyOptions_() {
+    var select = document.getElementById('company');
+    var current = select.value;
+    select.querySelectorAll('option[value]:not([value=""])').forEach(function (opt) { opt.remove(); });
+    (window.COMPANY_OPTIONS_ || []).forEach(function (c) {
+      var opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = c;
+      select.appendChild(opt);
+    });
+    select.value = current;
+  }
+  populateCompanyOptions_();
 
   // 行政書士チェックリスト(完成検査証/譲渡証明書/...)の行を、ページ埋め込みの
   // GYOSEI_CHECKLIST_ITEMS_(Constants.gs#GYOSEI_CHECKLIST_ITEMS)から組み立てる。
@@ -1460,6 +1474,7 @@
         if (isAdmin) {
           loadStaffMaster_();
           loadBrandOptions_();
+          loadCompanyOptions_();
           loadExternalSyncSheets_();
           loadAutoMailStatus_();
         }
@@ -1647,6 +1662,94 @@
         setBrandOptionsResult_('保存に失敗しました:\n' + error.message, 'error');
       })
       .saveBrandOptions(brands);
+  });
+
+  // ---------- 設定画面: 依頼会社設定 ----------
+
+  function createCompanyRow_(value) {
+    var tr = document.createElement('tr');
+    tr.className = 'staffMasterRow';
+    tr.innerHTML =
+      '<td><input type="text" class="company-value" autocomplete="off"></td>' +
+      '<td><button type="button" class="btnRemoveStaffRow" title="この行を削除" aria-label="この行を削除">&times;</button></td>';
+    tr.querySelector('.company-value').value = value || '';
+    return tr;
+  }
+
+  function addCompanyRow_(value) {
+    document.getElementById('companyOptionsBody').appendChild(createCompanyRow_(value));
+  }
+
+  document.getElementById('btnAddCompanyRow').addEventListener('click', function () { addCompanyRow_(''); });
+
+  document.getElementById('companyOptionsBody').addEventListener('click', function (e) {
+    if (!e.target.classList.contains('btnRemoveStaffRow')) return;
+    var body = document.getElementById('companyOptionsBody');
+    if (body.querySelectorAll('.staffMasterRow').length <= 1) {
+      e.target.closest('tr').querySelector('.company-value').value = '';
+      return;
+    }
+    e.target.closest('tr').remove();
+  });
+
+  function collectCompanyRows_() {
+    var rows = document.querySelectorAll('#companyOptionsBody .staffMasterRow');
+    var list = [];
+    rows.forEach(function (row) {
+      var value = row.querySelector('.company-value').value.trim();
+      if (value) list.push(value);
+    });
+    return list;
+  }
+
+  function renderCompanyOptions_(companies) {
+    var body = document.getElementById('companyOptionsBody');
+    body.innerHTML = '';
+    (companies && companies.length ? companies : ['']).forEach(function (c) { addCompanyRow_(c); });
+  }
+
+  function loadCompanyOptions_() {
+    google.script.run
+      .withSuccessHandler(function (companies) {
+        COMPANY_OPTIONS_ = companies || [];
+        renderCompanyOptions_(companies);
+        populateCompanyOptions_(); // 起動直後に埋め込んだ初期値から、最新の内容に更新し直す
+      })
+      .getCompanyOptions();
+  }
+
+  function setCompanyOptionsResult_(text, kind) {
+    var el = document.getElementById('companyOptionsResult');
+    el.className = 'result' + (kind ? ' -' + kind : '');
+    document.getElementById('companyOptionsResultText').innerHTML = text;
+  }
+
+  function setCompanyOptionsProcessing_(on) {
+    document.getElementById('companyOptionsSpinner').classList.toggle('is-hidden', !on);
+  }
+
+  document.getElementById('btnSaveCompanyOptions').addEventListener('click', function () {
+    var companies = collectCompanyRows_();
+    var btn = document.getElementById('btnSaveCompanyOptions');
+    btn.disabled = true;
+    setCompanyOptionsProcessing_(true);
+    setCompanyOptionsResult_('保存しています…', 'pending');
+
+    google.script.run
+      .withSuccessHandler(function (saved) {
+        btn.disabled = false;
+        setCompanyOptionsProcessing_(false);
+        COMPANY_OPTIONS_ = saved;
+        renderCompanyOptions_(saved);
+        populateCompanyOptions_(); // ※申請フォームの選択中の値はリセットされる
+        setCompanyOptionsResult_('保存しました', 'success');
+      })
+      .withFailureHandler(function (error) {
+        btn.disabled = false;
+        setCompanyOptionsProcessing_(false);
+        setCompanyOptionsResult_('保存に失敗しました:\n' + error.message, 'error');
+      })
+      .saveCompanyOptions(companies);
   });
 
   // ---------- 設定画面: 他システム(外部スプレッドシート)への連携(ブランド別・最大5件) ----------

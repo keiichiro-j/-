@@ -10,6 +10,7 @@ function doGet() {
   // 特にブランドは車両データの1行目を描画する時点で必要になる)。
   template.loadingImageUrl = getLoadingImageUrl_();
   template.brandOptionsJson = JSON.stringify(getBrandOptions_());
+  template.companyOptionsJson = JSON.stringify(getCompanyOptions_());
   template.gyoseiChecklistItemsJson = JSON.stringify(GYOSEI_CHECKLIST_ITEMS);
   return template.evaluate()
     .setTitle('新車新規登録依頼書 発行システム')

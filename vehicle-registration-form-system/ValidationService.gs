@@ -21,6 +21,8 @@ function validateFormData_(formData) {
   }
   if (!isNonEmptyString_(formData.company)) {
     errors.push('依頼会社名を入力してください');
+  } else if (getCompanyOptions_().indexOf(formData.company) === -1) {
+    errors.push('依頼会社名の指定が不正です');
   }
   if (!isNonEmptyString_(formData.manager)) {
     errors.push('担当責任者を入力してください');

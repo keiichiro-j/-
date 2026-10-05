@@ -4,7 +4,7 @@
  */
 
 /**
- * 初期表示時に呼ばれる。会社名・担当者などのコンボボックス候補を返す。
+ * 初期表示時に呼ばれる。担当責任者・担当者のコンボボックス候補を返す。
  */
 function getSuggestions() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -224,6 +224,25 @@ function getBrandOptions() {
 function saveBrandOptions(brands) {
   assertAuthorizedAdmin_();
   return saveBrandOptions_(brands);
+}
+
+/**
+ * 「設定」画面の依頼会社設定表示用。申請フォームの依頼会社名ドロップダウンとしても使うため
+ * 権限者以外でも取得できる必要がある。
+ * @return {Array<string>}
+ */
+function getCompanyOptions() {
+  return getCompanyOptions_();
+}
+
+/**
+ * 「設定」画面の依頼会社設定保存ボタン用(権限者のみ)。
+ * @param {Array<string>} companies
+ * @return {Array<string>}
+ */
+function saveCompanyOptions(companies) {
+  assertAuthorizedAdmin_();
+  return saveCompanyOptions_(companies);
 }
 
 /**

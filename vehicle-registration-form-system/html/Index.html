@@ -23,6 +23,7 @@
     // ブランドの選択肢(設定画面で変更可能)はページ生成時に埋め込む。車両行の1行目を
     // 描画する時点(JavaScript.html内)で必要なため、google.script.runの往復を待たない。
     var BRAND_OPTIONS_ = <?!= brandOptionsJson ?>;
+    var COMPANY_OPTIONS_ = <?!= companyOptionsJson ?>;
     // 行政書士チェックリストの項目一覧(Constants.gs#GYOSEI_CHECKLIST_ITEMS)もページ生成時に
     // 埋め込む。チェックリスト行の描画(JavaScript.html内)で必要なため。
     var GYOSEI_CHECKLIST_ITEMS_ = <?!= gyoseiChecklistItemsJson ?>;
@@ -76,8 +77,9 @@
             </div>
             <div class="field">
               <label for="company">依頼会社名 <span class="req">必須</span></label>
-              <input type="text" id="company" list="dl-companies" autocomplete="off" required>
-              <datalist id="dl-companies"></datalist>
+              <select id="company" required>
+                <option value="">選択してください</option>
+              </select>
             </div>
             <div class="field">
               <label for="manager">担当責任者 <span class="req">必須</span></label>
@@ -155,7 +157,6 @@
         </div>
 
         <button type="button" id="btnAddRow" class="btn btn--ghost">＋ 行を追加</button>
-        <datalist id="dl-usernames"></datalist>
         <datalist id="dl-persons"></datalist>
       </section>
 
@@ -168,7 +169,7 @@
         <div class="fieldRow">
           <div class="field">
             <label for="gyoseiCustomerName">顧客名 <span class="req">必須</span></label>
-            <input type="text" id="gyoseiCustomerName" list="dl-usernames" autocomplete="off">
+            <input type="text" id="gyoseiCustomerName" autocomplete="off">
           </div>
           <div class="field">
             <label for="gyoseiBrand">ブランド</label>
@@ -438,7 +439,7 @@
       <div class="settingsGroup" id="settingsGroupForm">
         <h3 class="settingsGroup__title">申請フォーム</h3>
         <div class="bento">
-          <section class="card bento--span-6">
+          <section class="card bento--span-4">
             <div class="card__head">
               <h2>担当者マスタ</h2>
               <p class="muted">担当者名とGoogleアカウントを登録しておくと、そのアカウントでログインした人が「担当責任者」欄へ自動で入力されます。</p>
@@ -465,7 +466,7 @@
             </div>
           </section>
 
-          <section class="card bento--span-6">
+          <section class="card bento--span-4">
             <div class="card__head">
               <h2>ブランド設定</h2>
               <p class="muted">車両データの「ブランド」欄の選択肢です。申請フォーム・履歴確認・他システム連携で使われます。</p>
@@ -488,6 +489,32 @@
             <div id="brandOptionsResult" class="result" role="status" aria-live="polite">
               <span id="brandOptionsSpinner" class="spinner is-hidden" aria-hidden="true"></span>
               <span id="brandOptionsResultText"></span>
+            </div>
+          </section>
+
+          <section class="card bento--span-4">
+            <div class="card__head">
+              <h2>依頼会社設定</h2>
+              <p class="muted">申請フォームの「依頼会社名」欄の選択肢です。自由入力をやめてここで設定した会社名だけから選べるようにします。</p>
+            </div>
+
+            <div class="tableScroll">
+              <table id="companyOptionsTable" class="staffMasterTable">
+                <thead>
+                  <tr>
+                    <th>依頼会社名</th>
+                    <th class="colDel"></th>
+                  </tr>
+                </thead>
+                <tbody id="companyOptionsBody"></tbody>
+              </table>
+            </div>
+
+            <button type="button" id="btnAddCompanyRow" class="btn btn--ghost">＋ 行を追加</button>
+            <button type="button" id="btnSaveCompanyOptions" class="btn btn--primary">保存する</button>
+            <div id="companyOptionsResult" class="result" role="status" aria-live="polite">
+              <span id="companyOptionsSpinner" class="spinner is-hidden" aria-hidden="true"></span>
+              <span id="companyOptionsResultText"></span>
             </div>
           </section>
         </div>
