@@ -37,7 +37,7 @@ var OSS_FIELD_LABELS = {
   indivRegDate: '登録日',
   userName: '使用者名',
   brand: 'ブランド',
-  chassis: '車台番号\n(下4桁)',
+  chassis: '車台番号',
   model: '型式',
   classNum: '類別番号',
   autoTax: '自動車税',
@@ -53,7 +53,7 @@ var OSS_FIELD_LABELS = {
 var PAPER_FIELD_LABELS = {
   userName: '使用者名',
   brand: 'ブランド',
-  chassis: '車台番号\n(下4桁)',
+  chassis: '車台番号',
   model: '型式',
   classNum: '類別番号',
   autoTax: '自動車税',
@@ -498,7 +498,9 @@ function applyCommonRowHeights_(sheet) {
 
 /**
  * 車両データ欄(7行目)の見出しを、Constants.gs の列マッピング通りに配置する。
- * 2行のラベル(例:「車台番号」+「(下4桁)」)が印刷時に見切れないよう行高に余裕を持たせる。
+ * 折り返し表示はせず1行で収める(FIELD_WIDTHSは各見出しが1行のまま見切れない幅に
+ * 調整済み)。MAX_VEHICLESを15台に抑えて確保した余白を使い、見出し・データとも
+ * 印刷時になるべく大きな文字で表示されるようにしている。
  */
 function buildVehicleTableHeader_(sheet, columns, labels) {
   Object.keys(columns).forEach(function (key) {
@@ -509,12 +511,12 @@ function buildVehicleTableHeader_(sheet, columns, labels) {
     cell.setFontColor(THEME.ink);
     cell.setFontFamily(FONT_FAMILY);
     cell.setFontWeight('bold');
-    cell.setFontSize(10);
+    cell.setFontSize(11);
     cell.setHorizontalAlignment('center');
     cell.setVerticalAlignment('middle');
-    cell.setWrap(true);
+    cell.setWrap(false);
   });
-  sheet.setRowHeight(7, 40);
+  sheet.setRowHeight(7, 30);
 }
 
 /**
@@ -526,12 +528,13 @@ function applyVehicleDataStyle_(sheet, columns) {
   var range = sheet.getRange(VEHICLE_START_ROW, 1, MAX_VEHICLES, maxCol);
   range.setFontColor(THEME.ink);
   range.setFontFamily(FONT_FAMILY);
-  range.setFontSize(11);
+  range.setFontSize(12);
   range.setHorizontalAlignment('center');
   range.setVerticalAlignment('middle');
+  range.setWrap(false);
 
   for (var i = 0; i < MAX_VEHICLES; i++) {
-    sheet.setRowHeight(VEHICLE_START_ROW + i, 26);
+    sheet.setRowHeight(VEHICLE_START_ROW + i, 30);
   }
 }
 
@@ -578,7 +581,7 @@ function buildTotalRow_(sheet, columns, maxCol, labelSpan) {
   fillRange.setBackground(THEME.headerFill);
   fillRange.setFontFamily(FONT_FAMILY);
   fillRange.setFontWeight('bold');
-  fillRange.setFontSize(11);
+  fillRange.setFontSize(12);
   fillRange.setFontColor(THEME.ink);
 
   var labelRange = sheet.getRange(TOTAL_ROW, 1, 1, labelSpan);
@@ -598,7 +601,7 @@ function buildTotalRow_(sheet, columns, maxCol, labelSpan) {
       .setVerticalAlignment('middle');
   });
 
-  sheet.setRowHeight(TOTAL_ROW, 26);
+  sheet.setRowHeight(TOTAL_ROW, 30);
 }
 
 /**

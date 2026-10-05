@@ -154,9 +154,12 @@ function writeVehicleRows_(sheet, type, vehicles) {
 /**
  * 対象シートのみをA4横・グリッド線なしでPDF化してBlobを返す。
  * scale=4（Googleスプレッドシートの「ページに合わせて印刷」相当）を指定し、
- * 車両19台+合計行の内容でも縦横比を保ったまま自動縮小して必ず1ページに収める
- * （fitw=trueだけだと横幅のみ合わせるため、行数が多いと2ページ目に溢れていた）。
- * 余白も最小限にして、縮小率をできるだけ大きく保つ。
+ * 車両MAX_VEHICLES台+合計行の内容でも縦横比を保ったまま自動拡大・縮小して
+ * 必ず1ページに収める（fitw=trueだけだと横幅のみ合わせるため、行数が多いと
+ * 2ページ目に溢れていた）。余白は0にして、縮小率をできるだけ大きく保つ。
+ * 内容の縦横比が用紙とぴったり一致するとは限らない(どちらか一方の辺で
+ * 余りが出る)ため、horizontal_alignment/vertical_alignmentをcenterにして、
+ * 余った分は左右・上下どちらも中央に寄るようにする。
  */
 function exportSheetAsPdfBlob_(ss, sheet) {
   SpreadsheetApp.flush();
@@ -164,7 +167,8 @@ function exportSheetAsPdfBlob_(ss, sheet) {
   var url = 'https://docs.google.com/spreadsheets/d/' + ss.getId() + '/export' +
     '?exportFormat=pdf&format=pdf' +
     '&size=A4&portrait=false&scale=4' +
-    '&top_margin=0.2&bottom_margin=0.2&left_margin=0.2&right_margin=0.2' +
+    '&top_margin=0&bottom_margin=0&left_margin=0&right_margin=0' +
+    '&horizontal_alignment=CENTER&vertical_alignment=CENTER' +
     '&sheetnames=false&printtitle=false&pagenumbers=false' +
     '&gridlines=false&fzr=false&gid=' + sheet.getSheetId();
 

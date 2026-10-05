@@ -9,10 +9,11 @@ var TYPE_OSS = 'OSS';
 var TYPE_PAPER = '紙';
 var TYPE_GYOSEI = '行政書士';
 
-// 8〜26行目の19台分 + 27行目の合計行、という実物サンプルのレイアウトに合わせている。
-var MAX_VEHICLES = 19;
+// 8行目から MAX_VEHICLES 台分 + その直後の合計行、というレイアウト。
+// 印刷時に余白なく大きな文字で収まるよう15台に抑えている(以前は19台だった)。
+var MAX_VEHICLES = 15;
 var VEHICLE_START_ROW = 8;
-var TOTAL_ROW = 27; // 合計行(自動車税・環境性能割・重量税をSUMする)
+var TOTAL_ROW = VEHICLE_START_ROW + MAX_VEHICLES; // 合計行(自動車税・環境性能割・重量税をSUMする)
 
 // SPEC.md 8章「未確定事項」のうち、実装のために暫定で決めた値。
 // 運用が固まったら見直す。
@@ -147,22 +148,23 @@ var VEHICLE_COLUMNS = {
 };
 
 // 車両欄の列ごとの推奨幅(px)。SetupService.gs のテンプレート生成で使用する。
-// 印刷時の見切れを避けるため、2列分の見出しラベルが入る列は少し広めに取っている。
+// 見出しは折り返しなしの1行表示にしたため、「予備検登録車」等の6文字見出しが
+// 見切れない幅を確保している(以前はwrap=trueで2行に折り返していた)。
 var FIELD_WIDTHS = {
   indivRegDate: 62,
-  userName: 132,
-  brand: 56,
-  chassis: 76,
-  model: 102,
-  classNum: 104,
+  userName: 120,
+  brand: 60,
+  chassis: 68,
+  model: 95,
+  classNum: 100,
   autoTax: 72,
   envTax: 76,
   weightTax: 72,
-  hopeNum: 62,
-  yobi: 62,
-  honken: 62,
-  shinsho: 62,
-  person: 78
+  hopeNum: 72,
+  yobi: 76,
+  honken: 68,
+  shinsho: 76,
+  person: 70
 };
 
 var TAX_LABELS = {
