@@ -158,8 +158,11 @@ function writeVehicleRows_(sheet, type, vehicles) {
  * 必ず1ページに収める（fitw=trueだけだと横幅のみ合わせるため、行数が多いと
  * 2ページ目に溢れていた）。余白は0にして、縮小率をできるだけ大きく保つ。
  * 内容の縦横比が用紙とぴったり一致するとは限らない(どちらか一方の辺で
- * 余りが出る)ため、horizontal_alignment/vertical_alignmentをcenterにして、
- * 余った分は左右・上下どちらも中央に寄るようにする。
+ * 余りが出る)ため、horizontal_alignment/vertical_alignmentで、余った分が
+ * 左右・上下どちらも中央に寄るようにする。この2つのパラメータは値の語彙が違う
+ * (horizontalはLEFT/CENTER/RIGHT、verticalはTOP/MIDDLE/BOTTOM)ことに注意。
+ * verticalにCENTERを指定すると無効な値として無視され、既定(上寄せ)のままに
+ * なってしまうため、必ずMIDDLEを指定すること。
  */
 function exportSheetAsPdfBlob_(ss, sheet) {
   SpreadsheetApp.flush();
@@ -168,7 +171,7 @@ function exportSheetAsPdfBlob_(ss, sheet) {
     '?exportFormat=pdf&format=pdf' +
     '&size=A4&portrait=false&scale=4' +
     '&top_margin=0&bottom_margin=0&left_margin=0&right_margin=0' +
-    '&horizontal_alignment=CENTER&vertical_alignment=CENTER' +
+    '&horizontal_alignment=CENTER&vertical_alignment=MIDDLE' +
     '&sheetnames=false&printtitle=false&pagenumbers=false' +
     '&gridlines=false&fzr=false&gid=' + sheet.getSheetId();
 

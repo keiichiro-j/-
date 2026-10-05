@@ -531,7 +531,9 @@ function applyVehicleDataStyle_(sheet, columns) {
   range.setFontSize(12);
   range.setHorizontalAlignment('center');
   range.setVerticalAlignment('middle');
-  range.setWrap(false);
+  // 見出しと違い、入力される実データ(使用者名・型式など)は長さが読めないため、
+  // 列幅に収まらない場合は折り返して表示する(見切れて読めなくなるより優先する)。
+  range.setWrap(true);
 
   for (var i = 0; i < MAX_VEHICLES; i++) {
     sheet.setRowHeight(VEHICLE_START_ROW + i, 30);
