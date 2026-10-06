@@ -384,7 +384,7 @@ test('仕入集計：SUMIFS をシートごとに足す（金額の列・仕入�
   const noPrice = Object.assign({}, stdCols); delete noPrice.purchasePrice;
   assert.strictEqual(S.buildSumifsFormula({ '輸入車マスタ': noPrice }, 'purchasePrice', S.periodCriteria('X', 'Y')), '=0');
 });
-test('仕入集計：合計カード6枚の幅がほぼそろう（差は20px以内）・項目は実在する列', () => {
+test('仕入集計：合計カード7枚の幅がほぼそろう（差は20px以内）・項目は実在する列', () => {
   assert.strictEqual(S.PURCHASE_CARDS.length, S.PURCHASE_CARD_SPANS.length);
   S.PURCHASE_CARDS.forEach((c) => assert.ok(c.key === '__count' || S.FIELD_BY_KEY[c.key], c.key));
   const w = S.PURCHASE_LIST_COLUMNS.map((c) => c.width);
@@ -392,13 +392,13 @@ test('仕入集計：合計カード6枚の幅がほぼそろう（差は20px以
   const last = S.PURCHASE_CARD_SPANS[S.PURCHASE_CARD_SPANS.length - 1];
   assert.strictEqual(last[0] + last[1] - 1, w.length); // カードの右端は一覧の右端
   assert.ok(Math.max(...widths) - Math.min(...widths) <= 20, widths.join(','));
-  S.PURCHASE_LIST_COLUMNS.forEach((c) => assert.ok(c.key === 'sheetLabel' || S.FIELD_BY_KEY[c.key], c.key));
+  S.PURCHASE_LIST_COLUMNS.forEach((c) => assert.ok(c.key === 'sheetLabel' || c.key === 'plate' || S.FIELD_BY_KEY[c.key], c.key));
   assert.strictEqual(S.PURCHASE_LIST_COLUMNS[0].key, 'purchaseDate'); // 1列目で期間を絞る
   assert.strictEqual(S.PURCHASE_LIST_COLUMNS[1].key, 'ocn');
   assert.deepStrictEqual(Array.from(S.PURCHASE_LIST_COLUMNS.slice(9), (c) => c.key),
-    ['tradeInAllowance', 'recycleFee', 'tradeInPrice', 'appraisalPrice', 'tradeInLoss', 'purchasePrice']); // 仕入先より右
+    ['plate', 'tradeInAllowance', 'recycleFee', 'tradeInPrice', 'appraisalPrice', 'tradeInLoss', 'purchasePrice']); // 仕入先より右
   assert.strictEqual(S.PURCHASE_LIST_COLUMNS[8].key, 'supplier');
-  S.PURCHASE_LIST_COLUMNS.slice(9).forEach((c) => assert.ok(c.money, c.key));
+  S.PURCHASE_LIST_COLUMNS.slice(10).forEach((c) => assert.ok(c.money, c.key));
 });
 test('仕入集計：期間に仕入れた車両の一覧（販売済みを含む3シート・期間で絞り・日付順）', () => {
   const all = { '輸入車マスタ': stdCols, '国産車マスタ': stdCols, '販売済み': stdCols };
@@ -412,6 +412,9 @@ test('仕入集計：期間に仕入れた車両の一覧（販売済みを含�
   assert.ok(f.indexOf('"この期間に仕入れた車両はありません"') !== -1);
   const noDate = Object.assign({}, stdCols); delete noDate.purchaseDate;
   assert.strictEqual(S.buildPeriodListFormula({ '輸入車マスタ': noDate }, 'X', 'Y'), '="仕入年月日の列が見つかりません"');
+  const plate = "TRIM('輸入車マスタ'!" ;
+  const pr = (k) => { const L = S.columnLetter(stdCols[k] + 1); return "'輸入車マスタ'!" + L + '2:' + L; };
+  assert.ok(f.indexOf('TRIM(' + ['plateRegion', 'plateClass', 'plateKana', 'plateNumber'].map(pr).join('&" "&') + ')') !== -1, plate);
   const noModel = Object.assign({}, stdCols); delete noModel.modelName;
   assert.ok(S.buildPeriodListFormula({ '輸入車マスタ': noModel }, 'X', 'Y').indexOf("IF('輸入車マスタ'!A2:A=\"\",\"\",\"\")") !== -1);
 });

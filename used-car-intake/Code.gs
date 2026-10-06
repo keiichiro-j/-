@@ -274,9 +274,13 @@ var PURCHASE_CARDS = [
   { key: 'appraisalPrice', label: '査定価格 合計' },
   { key: 'tradeInPrice', label: '下取価格 合計' },
   { key: 'tradeInAllowance', label: '下取充当額 合計' },
+  { key: 'recycleFee', label: 'リサイクル 合計' },
   { key: 'tradeInLoss', label: '下取損 合計' }
 ];
-/** 仕入集計タブの一覧の列（sheetLabel は 輸入車／国産車／販売済み。money は合計行を出す列） */
+/**
+ * 仕入集計タブの一覧の列（sheetLabel は 輸入車／国産車／販売済み。
+ * plate は登録番号の4列（地域・分類番号・ひらがな・一連番号）をつなげた1列。money は合計行を出す列）
+ */
 var PURCHASE_LIST_COLUMNS = [
   { key: 'purchaseDate', label: '仕入年月日', width: 96 },
   { key: 'ocn', label: 'OCN', width: 72 },
@@ -287,15 +291,17 @@ var PURCHASE_LIST_COLUMNS = [
   { key: 'category', label: '区分', width: 76 },
   { key: 'staff', label: '担当', width: 80 },
   { key: 'supplier', label: '仕入先', width: 160 },
-  { key: 'tradeInAllowance', label: '下取充当額', width: 84, money: true },
+  { key: 'plate', label: '登録番号', width: 150 },
+  { key: 'tradeInAllowance', label: '下取充当額', width: 90, money: true },
   { key: 'recycleFee', label: 'リサイクル', width: 72, money: true },
   { key: 'tradeInPrice', label: '下取価格', width: 84, money: true },
-  { key: 'appraisalPrice', label: '査定価格', width: 76, money: true },
-  { key: 'tradeInLoss', label: '下取損', width: 64, money: true },
-  { key: 'purchasePrice', label: '仕入価格（買取金額）', width: 120, money: true }
+  { key: 'appraisalPrice', label: '査定価格', width: 84, money: true },
+  { key: 'tradeInLoss', label: '下取損', width: 100, money: true },
+  { key: 'purchasePrice', label: '仕入価格（買取金額）', width: 140, money: true }
 ];
-/** 仕入集計タブの合計カード6枚の位置 [開始列, 列数]（幅がほぼそろう組み合わせ） */
-var PURCHASE_CARD_SPANS = [[1, 3], [4, 2], [6, 2], [8, 2], [10, 3], [13, 3]];
+var PLATE_KEYS = ['plateRegion', 'plateClass', 'plateKana', 'plateNumber'];
+/** 仕入集計タブの合計カード7枚の位置 [開始列, 列数]（幅がほぼそろう組み合わせ） */
+var PURCHASE_CARD_SPANS = [[1, 3], [4, 2], [6, 2], [8, 2], [10, 2], [12, 3], [15, 2]];
 /** 集計期間（開始日・終了日）のセルの位置（タブを作り直しても選んだ日付を残す） */
 var PURCHASE_PERIOD = { row: 4, startCol: 4, endCol: 5 };
 var AMOUNT_FORMAT = '#,##0;-#,##0;"–"';     // 0 は「–」
@@ -924,6 +930,10 @@ function buildPeriodListFormula(colMaps, startRef, endRef) {
     var dateRef = columnRef(n, cols.purchaseDate);
     return 'HSTACK(' + PURCHASE_LIST_COLUMNS.map(function (c) {
       if (c.key === 'sheetLabel') return 'IF(' + dateRef + '="","","' + (SHEET_LABELS[n] || n) + '")';
+      if (c.key === 'plate') {
+        var parts = PLATE_KEYS.filter(function (k) { return cols[k] !== undefined; }).map(function (k) { return columnRef(n, cols[k]); });
+        return parts.length ? 'TRIM(' + parts.join('&" "&') + ')' : 'IF(' + dateRef + '="","","")';
+      }
       return cols[c.key] === undefined ? 'IF(' + dateRef + '="","","")' : columnRef(n, cols[c.key]);
     }).join(',') + ')';
   });
@@ -2162,7 +2172,7 @@ function buildPurchaseSheet_(ss, allColMaps) {
   sheet.setRowHeights(listRow, Math.min(bodyRows, 500), 26);
   sheet.getRange(listRow, colOf('purchaseDate'), bodyRows, 1).setNumberFormat(DATE_FORMAT).setHorizontalAlignment('center').setFontWeight('bold');
   sheet.getRange(listRow, colOf('ocn'), bodyRows, 1).setNumberFormat('0');
-  ['ocn', 'sheetLabel', 'status', 'maker', 'category', 'staff'].forEach(function (k) {
+  ['ocn', 'sheetLabel', 'status', 'maker', 'category', 'staff', 'plate'].forEach(function (k) {
     sheet.getRange(listRow, colOf(k), bodyRows, 1).setHorizontalAlignment('center');
   });
   LC.forEach(function (c, i) {
