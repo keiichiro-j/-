@@ -511,7 +511,7 @@ function buildVehicleTableHeader_(sheet, columns, labels) {
     cell.setFontColor(THEME.ink);
     cell.setFontFamily(FONT_FAMILY);
     cell.setFontWeight('bold');
-    cell.setFontSize(11);
+    cell.setFontSize(10);
     cell.setHorizontalAlignment('center');
     cell.setVerticalAlignment('middle');
     cell.setWrap(false);
@@ -528,7 +528,7 @@ function applyVehicleDataStyle_(sheet, columns) {
   var range = sheet.getRange(VEHICLE_START_ROW, 1, MAX_VEHICLES, maxCol);
   range.setFontColor(THEME.ink);
   range.setFontFamily(FONT_FAMILY);
-  range.setFontSize(12);
+  range.setFontSize(11);
   range.setHorizontalAlignment('center');
   range.setVerticalAlignment('middle');
   // 見出しと違い、入力される実データ(使用者名・型式など)は長さが読めないため、
@@ -583,7 +583,7 @@ function buildTotalRow_(sheet, columns, maxCol, labelSpan) {
   fillRange.setBackground(THEME.headerFill);
   fillRange.setFontFamily(FONT_FAMILY);
   fillRange.setFontWeight('bold');
-  fillRange.setFontSize(12);
+  fillRange.setFontSize(11);
   fillRange.setFontColor(THEME.ink);
 
   var labelRange = sheet.getRange(TOTAL_ROW, 1, 1, labelSpan);

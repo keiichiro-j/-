@@ -148,24 +148,27 @@ var VEHICLE_COLUMNS = {
 };
 
 // 車両欄の列ごとの推奨幅(px)。SetupService.gs のテンプレート生成で使用する。
-// 見出しは折り返しなしの1行表示にしているため、「予備検登録車」「環境性能割」等の
-// 5〜6文字の見出しが太字11ptでも見切れないよう、文字数に応じて十分な幅を確保している
-// (前回、文字数に対して幅が足りず見出しが読めなくなる問題があったため、余裕を持たせた)。
+// 見出しは折り返しなしの1行表示にしているため、「予備検登録車」「環境性能割」
+// 「身障者減免車」等の5〜6文字の見出しが太字10ptでも見切れない幅を確保している。
+// ただし列の合計幅はA4横1ページに収まる範囲に抑える必要があるため(広げすぎると
+// 用紙からはみ出して横に見切れる)、見出しがぎりぎり収まる程度の控えめな値に
+// とどめている(全体をむやみに広げず、MAX_VEHICLES削減で生まれた余白はscale=4の
+// 自動拡大に委ねる)。
 var FIELD_WIDTHS = {
-  indivRegDate: 70,
-  userName: 150,
-  brand: 90,
-  chassis: 88,
-  model: 115,
-  classNum: 100,
-  autoTax: 90,
-  envTax: 108,
-  weightTax: 80,
-  hopeNum: 126,
-  yobi: 126,
-  honken: 108,
-  shinsho: 126,
-  person: 90
+  indivRegDate: 62,
+  userName: 132,
+  brand: 64,
+  chassis: 64,
+  model: 95,
+  classNum: 95,
+  autoTax: 68,
+  envTax: 80,
+  weightTax: 62,
+  hopeNum: 92,
+  yobi: 92,
+  honken: 80,
+  shinsho: 92,
+  person: 70
 };
 
 var TAX_LABELS = {
