@@ -126,8 +126,9 @@ function buildPaperTemplateSheet_(sheet) {
 
 /**
  * 行政書士依頼書テンプレート。OSS/紙と異なり車両テーブル形式ではなく、
- * 「依頼情報(ラベル+値のペアを8つ、1行に2つずつ)」「提出書類チェックリスト(8項目、
- * 項目ごとにチェック欄+備考欄)」「備考欄」の3ブロックで構成する単票形式。
+ * 「タイトル行(担当責任者・依頼日)」「依頼情報(依頼事項+ラベル・値のペアを6つ、
+ * 業務フロー順)」「提出書類チェックリスト(8項目、項目ごとにチェック欄+備考欄)」
+ * 「行政書士への通達事項」の4ブロックで構成する単票形式。
  * セル位置は Constants.gs の GYOSEI_CELLS / GYOSEI_CHECKLIST_* と必ず一致させること。
  */
 function buildGyoseiTemplateSheet_(sheet) {
@@ -144,51 +145,61 @@ function buildGyoseiTemplateSheet_(sheet) {
   for (var col = 2; col <= maxCol; col++) {
     sheet.setColumnWidth(col, 110);
   }
-  sheet.setFrozenRows(1);
+  sheet.setFrozenRows(2);
   sheet.setHiddenGridlines(true);
 }
 
 /**
- * タイトルバー(1行目)。OSS/紙と違い飛騨登録・種別の区分バッジは無いため、中央に
- * タイトルを表示するだけのシンプルな構成にする。
+ * タイトル行(1〜2行目)。OSS/紙のバナー(左右に飛騨登録・種別バッジ)と同じ考え方で、
+ * 見出しだけで「誰が・いつ」依頼したものかが分かるよう、タイトル(A:C列、1〜2行目を
+ * 結合)の右(D:F列)に「担当責任者」「依頼日」を1行につき1項目ずつまとめて配置する
+ * (左右に分散させると見落としやすいため、1か所にまとめている)。
  */
 function buildGyoseiBanner_(sheet, maxCol) {
-  var titleRange = sheet.getRange(1, 1, 1, maxCol);
+  var titleCols = 3; // A〜C(タイトル)。D〜F(残り)を担当責任者・依頼日に使う。
+  var titleRange = sheet.getRange(1, 1, 2, titleCols);
   titleRange.merge();
   titleRange.setValue(DISPLAY_TITLE_GYOSEI);
   titleRange.setFontFamily(FONT_FAMILY);
-  titleRange.setFontSize(22);
+  titleRange.setFontSize(20);
   titleRange.setFontWeight('bold');
   titleRange.setFontColor(THEME.ink);
   titleRange.setHorizontalAlignment('center');
   titleRange.setVerticalAlignment('middle');
   titleRange.setBorder(true, true, true, true, true, null, THEME.ink, SpreadsheetApp.BorderStyle.SOLID);
-  sheet.setRowHeight(1, 40);
+
+  buildInlineLabelValue_(sheet, 1, titleCols + 1, 1, maxCol - titleCols - 1, '担当責任者');
+  buildInlineLabelValue_(sheet, 2, titleCols + 1, 1, maxCol - titleCols - 1, '依頼日');
+
+  sheet.setRowHeight(1, 24);
+  sheet.setRowHeight(2, 24);
 }
 
 /**
- * 依頼情報の9項目を配置する。「依頼事項」は他の項目より重要度が高いため、
- * 一番上に単独の行で大きめの文字で表示し(buildGyoseiHeroField_)、
- * 残り8項目は1行に2項目ずつ(ラベル+値のペア)のグリッドでまとめる。
- * Constants.gs の GYOSEI_CELLS(各項目の値欄の左上セル)と対応させること。
+ * 依頼情報を業務フローの順(重要度が高い順)に並べる。
+ *   3行目: 依頼事項(最重要・単独の大きな行、buildGyoseiHeroField_)
+ *   4行目: 顧客名・登録日(依頼事項の次に重要なので強調表示、buildGyoseiEmphasisField_)
+ *   5行目: 封印取付日・車両所在(現場作業で確認する情報)
+ *   6行目: 依頼拠点・担当者(社内の事務情報なので最後)
+ * 担当責任者・依頼日は buildGyoseiBanner_ でタイトル行にまとめて配置済みのため、
+ * ここには含まない。Constants.gs の GYOSEI_CELLS(各項目の値欄の左上セル)と
+ * 対応させること。
  */
 function buildGyoseiFields_(sheet) {
   buildGyoseiHeroField_(sheet, 3, '依頼事項');
 
-  buildInlineLabelValue_(sheet, 4, 1, 1, 2, '依頼日');
-  buildInlineLabelValue_(sheet, 4, 4, 1, 2, '依頼拠点');
-  buildInlineLabelValue_(sheet, 5, 1, 1, 2, '担当責任者');
-  buildInlineLabelValue_(sheet, 5, 4, 1, 2, '担当者');
-  buildInlineLabelValue_(sheet, 6, 1, 1, 2, '顧客名');
-  buildInlineLabelValue_(sheet, 6, 4, 1, 2, '登録日');
-  buildInlineLabelValue_(sheet, 7, 1, 1, 2, '封印取付日');
-  buildInlineLabelValue_(sheet, 8, 1, 1, 5, '車両所在'); // 住所等が長くなりうるため値欄を広めに取る(B:F)
+  buildGyoseiEmphasisField_(sheet, 4, 1, 1, 2, '顧客名');
+  buildGyoseiEmphasisField_(sheet, 4, 4, 1, 2, '登録日');
+  buildInlineLabelValue_(sheet, 5, 1, 1, 2, '封印取付日');
+  buildInlineLabelValue_(sheet, 5, 4, 1, 2, '車両所在');
+  buildInlineLabelValue_(sheet, 6, 1, 1, 2, '依頼拠点');
+  buildInlineLabelValue_(sheet, 6, 4, 1, 2, '担当者');
 
   sheet.setRowHeight(3, 36);
-  for (var row = 4; row <= 8; row++) {
-    sheet.setRowHeight(row, 28);
-  }
-  sheet.setRowHeight(9, 10); // 区切りの空白行
+  sheet.setRowHeight(4, 32);
+  sheet.setRowHeight(5, 28);
+  sheet.setRowHeight(6, 28);
+  sheet.setRowHeight(7, 10); // 区切りの空白行
 }
 
 /**
@@ -216,6 +227,37 @@ function buildGyoseiHeroField_(sheet, row, labelText) {
   valueRange.setVerticalAlignment('middle');
 
   sheet.getRange(row, 1, 1, 6)
+    .setBorder(true, true, true, true, true, false, THEME.ink, SpreadsheetApp.BorderStyle.SOLID);
+}
+
+/**
+ * 「顧客名」「登録日」専用。依頼事項(buildGyoseiHeroField_)ほどではないが、通常項目
+ * (buildInlineLabelValue_、値12pt・白背景)よりも大きく・目立つ色(GYOSEI_EMPHASIS_FILL)
+ * で表示し、依頼事項の次に重要な情報であることを示す。
+ */
+function buildGyoseiEmphasisField_(sheet, row, colStart, labelSpan, valueSpan, labelText) {
+  var labelRange = sheet.getRange(row, colStart, 1, labelSpan);
+  labelRange.merge();
+  labelRange.setValue(labelText);
+  labelRange.setBackground(GYOSEI_EMPHASIS_FILL);
+  labelRange.setFontFamily(FONT_FAMILY);
+  labelRange.setFontSize(11);
+  labelRange.setFontWeight('bold');
+  labelRange.setFontColor(THEME.ink);
+  labelRange.setHorizontalAlignment('center');
+  labelRange.setVerticalAlignment('middle');
+
+  var valueRange = sheet.getRange(row, colStart + labelSpan, 1, valueSpan);
+  valueRange.merge();
+  valueRange.setBackground(GYOSEI_EMPHASIS_FILL);
+  valueRange.setFontFamily(FONT_FAMILY);
+  valueRange.setFontSize(15);
+  valueRange.setFontWeight('bold');
+  valueRange.setFontColor(THEME.ink);
+  valueRange.setHorizontalAlignment('left');
+  valueRange.setVerticalAlignment('middle');
+
+  sheet.getRange(row, colStart, 1, labelSpan + valueSpan)
     .setBorder(true, true, true, true, true, false, THEME.ink, SpreadsheetApp.BorderStyle.SOLID);
 }
 
@@ -292,19 +334,19 @@ function setChecklistHeaderCell_(sheet, row, colStart, colSpan, text) {
   range.setVerticalAlignment('middle');
 }
 
-// 備考欄見出し・本文の行番号(GYOSEI_CHECKLIST_START_ROWより後ろに続けて配置する)
+// 行政書士への通達事項の見出し・本文の行番号(GYOSEI_CHECKLIST_START_ROWより後ろに続けて配置する)
 var GYOSEI_REMARKS_HEADER_ROW = GYOSEI_CHECKLIST_START_ROW + GYOSEI_CHECKLIST_ITEMS.length + 1;
 var GYOSEI_REMARKS_BOX_ROWS = 5;
 var GYOSEI_REMARKS_END_ROW = GYOSEI_REMARKS_HEADER_ROW + GYOSEI_REMARKS_BOX_ROWS;
 
 /**
- * 備考欄/行政書士記入欄。TemplateService.gsからは書き込まず、PDF印刷後に
- * 手書きで使うための空欄のまま用意する。
+ * 行政書士への通達事項。シートの一番最後に配置する。TemplateService.gsからは
+ * 書き込まず、PDF印刷後に手書きで使うための空欄のまま用意する。
  */
 function buildGyoseiRemarksBox_(sheet, maxCol) {
   var headerRange = sheet.getRange(GYOSEI_REMARKS_HEADER_ROW, 1, 1, maxCol);
   headerRange.merge();
-  headerRange.setValue('備考欄 / 行政書士記入欄');
+  headerRange.setValue('行政書士への通達事項');
   headerRange.setBackground(THEME.headerFill);
   headerRange.setFontFamily(FONT_FAMILY);
   headerRange.setFontWeight('bold');
