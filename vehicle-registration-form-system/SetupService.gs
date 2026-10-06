@@ -167,24 +167,56 @@ function buildGyoseiBanner_(sheet, maxCol) {
 }
 
 /**
- * 依頼情報の8項目を、1行に2項目ずつ(ラベル+値のペア)4行で配置する。
+ * 依頼情報の9項目を配置する。「依頼事項」は他の項目より重要度が高いため、
+ * 一番上に単独の行で大きめの文字で表示し(buildGyoseiHeroField_)、
+ * 残り8項目は1行に2項目ずつ(ラベル+値のペア)のグリッドでまとめる。
  * Constants.gs の GYOSEI_CELLS(各項目の値欄の左上セル)と対応させること。
  */
 function buildGyoseiFields_(sheet) {
-  buildInlineLabelValue_(sheet, 3, 1, 1, 2, '依頼日');
-  buildInlineLabelValue_(sheet, 3, 4, 1, 2, '依頼事項');
-  buildInlineLabelValue_(sheet, 4, 1, 1, 2, '依頼拠点');
-  buildInlineLabelValue_(sheet, 4, 4, 1, 2, '担当責任者');
-  buildInlineLabelValue_(sheet, 5, 1, 1, 2, '担当者');
-  buildInlineLabelValue_(sheet, 5, 4, 1, 2, '顧客名');
-  buildInlineLabelValue_(sheet, 6, 1, 1, 2, '登録日');
-  buildInlineLabelValue_(sheet, 6, 4, 1, 2, '封印取付日');
-  buildInlineLabelValue_(sheet, 7, 1, 1, 5, '車両所在'); // 住所等が長くなりうるため値欄を広めに取る(B:F)
+  buildGyoseiHeroField_(sheet, 3, '依頼事項');
 
-  for (var row = 3; row <= 7; row++) {
+  buildInlineLabelValue_(sheet, 4, 1, 1, 2, '依頼日');
+  buildInlineLabelValue_(sheet, 4, 4, 1, 2, '依頼拠点');
+  buildInlineLabelValue_(sheet, 5, 1, 1, 2, '担当責任者');
+  buildInlineLabelValue_(sheet, 5, 4, 1, 2, '担当者');
+  buildInlineLabelValue_(sheet, 6, 1, 1, 2, '顧客名');
+  buildInlineLabelValue_(sheet, 6, 4, 1, 2, '登録日');
+  buildInlineLabelValue_(sheet, 7, 1, 1, 2, '封印取付日');
+  buildInlineLabelValue_(sheet, 8, 1, 1, 5, '車両所在'); // 住所等が長くなりうるため値欄を広めに取る(B:F)
+
+  sheet.setRowHeight(3, 36);
+  for (var row = 4; row <= 8; row++) {
     sheet.setRowHeight(row, 28);
   }
-  sheet.setRowHeight(8, 10); // 区切りの空白行
+  sheet.setRowHeight(9, 10); // 区切りの空白行
+}
+
+/**
+ * 「依頼事項」専用。他の項目(buildInlineLabelValue_、値12pt)より一回り大きい
+ * 18ptの値欄を、ラベル(A列)+値(B:F列、結合)の1行で表示する。
+ */
+function buildGyoseiHeroField_(sheet, row, labelText) {
+  var labelRange = sheet.getRange(row, 1, 1, 1);
+  labelRange.setValue(labelText);
+  labelRange.setBackground(THEME.headerFill);
+  labelRange.setFontFamily(FONT_FAMILY);
+  labelRange.setFontSize(11);
+  labelRange.setFontWeight('bold');
+  labelRange.setFontColor(THEME.ink);
+  labelRange.setHorizontalAlignment('center');
+  labelRange.setVerticalAlignment('middle');
+
+  var valueRange = sheet.getRange(row, 2, 1, 5);
+  valueRange.merge();
+  valueRange.setFontFamily(FONT_FAMILY);
+  valueRange.setFontSize(18);
+  valueRange.setFontWeight('bold');
+  valueRange.setFontColor(THEME.ink);
+  valueRange.setHorizontalAlignment('left');
+  valueRange.setVerticalAlignment('middle');
+
+  sheet.getRange(row, 1, 1, 6)
+    .setBorder(true, true, true, true, true, false, THEME.ink, SpreadsheetApp.BorderStyle.SOLID);
 }
 
 /**

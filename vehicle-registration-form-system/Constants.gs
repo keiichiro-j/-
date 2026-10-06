@@ -38,15 +38,15 @@ var SHEET_NAMES = {
 //   担当者     = 今回の案件を担当する営業(担当セールス)。行政書士登録でのみ入力する
 //               独立した項目で、担当責任者とは別人のことが多い。
 var GYOSEI_CELLS = {
-  requestDate: 'B3',   // 依頼日(=申請フォームの「送付日」を流用)
-  gyoseiClass: 'E3',   // 依頼事項
-  branch: 'B4',        // 依頼拠点
-  manager: 'E4',       // 担当責任者(ログインアカウントに紐づく。申請フォームの「担当責任者」を流用)
-  salesPerson: 'B5',   // 担当者(担当セールス)
-  customerName: 'E5',  // 顧客名
-  regDate: 'B6',       // 登録日
-  sealDate: 'E6',      // 封印取付日
-  vehicleLocation: 'B7' // 車両所在
+  gyoseiClass: 'B3',   // 依頼事項(他の項目より重要度が高いため、一番上に大きめで表示する)
+  requestDate: 'B4',   // 依頼日(=申請フォームの「送付日」を流用)
+  branch: 'E4',        // 依頼拠点
+  manager: 'B5',       // 担当責任者(ログインアカウントに紐づく。申請フォームの「担当責任者」を流用)
+  salesPerson: 'E5',   // 担当者(担当セールス)
+  customerName: 'B6',  // 顧客名
+  regDate: 'E6',       // 登録日
+  sealDate: 'B7',      // 封印取付日
+  vehicleLocation: 'B8' // 車両所在
 };
 
 // 行政書士依頼書の「依頼事項」の選択肢。
@@ -65,8 +65,8 @@ var GYOSEI_CHECKLIST_ITEMS = [
   { key: 'insuranceCert', label: '自賠責保険証明書' },
   { key: 'plateReservation', label: '希望番号予約済証' }
 ];
-var GYOSEI_CHECKLIST_HEADER_ROW = 10; // 項目/チェック/備考の見出し行(車両所在の行が増えた分、1行繰り下げ)
-var GYOSEI_CHECKLIST_START_ROW = 11; // 1項目目の行(以降1行につき1項目)
+var GYOSEI_CHECKLIST_HEADER_ROW = 11; // 項目/チェック/備考の見出し行(依頼事項が独立行になった分、1行繰り下げ)
+var GYOSEI_CHECKLIST_START_ROW = 12; // 1項目目の行(以降1行につき1項目)
 var GYOSEI_CHECKLIST_CHECK_COL = 2;  // B列: チェック(✔)
 var GYOSEI_CHECKLIST_REMARK_COL = 3; // C列(〜F列を結合): 備考
 var CHECKBOX_MARK = '✔'; // チェックリストの「チェック済み」マーク
