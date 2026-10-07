@@ -216,21 +216,47 @@ test('3シート横断の車台番号・登録番号の重複、形式違い、�
   // 販売済みシートには満了間近の強調を付けない
   assert.ok(S.buildCheckRules('販売済み', maps, 30).every((r) => !r.wholeRow));
 });
-test('灰色にするのは実際に自動で入る列だけ（見出しに式がある列・フォルダ設定時の車検証リンク）', () => {
+test('灰色にするのは実際に自動で入る箇所だけ（車検残・フォルダ設定時の車検証リンクは列、計算の列は式のセルだけ）', () => {
   const std = S.resolveColumns(S.STANDARD_HEADERS.slice()).map;
   const keys = Array.from(S.autoColumnKeys(std, { inspectionRemain: true, purchasePrice: true }, true));
-  assert.deepStrictEqual(keys.slice().sort(), ['certLink', 'inspectionRemain', 'purchasePrice'].sort());
-  // 下取損が手入力（見出しに式が無い）なら灰色にしない。フォルダ未設定なら車検証リンクも灰色にしない
+  assert.deepStrictEqual(keys.slice().sort(), ['certLink', 'inspectionRemain'].sort()); // 計算の列は列全体にしない
   assert.deepStrictEqual(Array.from(S.autoColumnKeys(std, { inspectionRemain: true }, false)), ['inspectionRemain']);
-  const rules = S.buildAutoColumnRules(std, keys);
-  assert.strictEqual(rules.length, 1);
-  const cols = Array.from(rules[0].columns);
-  assert.strictEqual(cols.length, 3);
-  assert.ok(cols.indexOf(S.columnLetter(std.inspectionRemain + 1)) !== -1);
-  assert.ok(cols.indexOf(S.columnLetter(std.ocn + 1)) === -1);
-  assert.ok(rules[0].formula.indexOf(S.CF_MARKER) !== -1);
-  assert.strictEqual(rules[0].color, S.AUTO_CELL.bg);
-  assert.strictEqual(S.buildAutoColumnRules(std, []).length, 0);
+  const rules = S.buildAutoColumnRules(std, keys, ['tradeInLoss']);
+  assert.strictEqual(rules.length, 2);
+  const L = S.columnLetter(std.tradeInLoss + 1);
+  assert.deepStrictEqual(Array.from(rules[1].columns), [L]);
+  assert.ok(rules[1].formula.indexOf('ISFORMULA($' + L + '2)') !== -1);
+  assert.ok(rules.every((r) => r.formula.indexOf(S.CF_MARKER) !== -1 && r.color === S.AUTO_CELL.bg));
+  assert.strictEqual(S.buildAutoColumnRules(std, [], []).length, 0);
+});
+test('計算の列は行ごとの式（区分「仕入」の行を手入力にするため）', () => {
+  const std = S.resolveColumns(S.STANDARD_HEADERS.slice()).map;
+  const f = S.buildRowFormula('tradeInLoss', std, 7);
+  const X = S.columnLetter(std.tradeInAllowance + 1), Z = S.columnLetter(std.tradeInPrice + 1);
+  assert.strictEqual(f, '=IF((' + X + '7="")+(' + Z + '7=""),,' + X + '7-' + Z + '7)');
+  assert.strictEqual(S.buildRowFormula('purchasePrice', std, 7), null); // 式が未設定
+  assert.deepStrictEqual(Array.from(S.rowCalcKeys(std)), ['tradeInLoss']);
+  assert.strictEqual(S.CATEGORY_MANUAL_CALC, '仕入');
+  assert.ok(S.CATEGORY_OPTIONS.indexOf(S.CATEGORY_MANUAL_CALC) !== -1);
+});
+test('計算の列の各セル：仕入の行は手入力、それ以外は自動計算の式', () => {
+  const exp = '=X5-Z5';
+  const P = (o) => S.planCalcCell(Object.assign({ hasData: true, manualRow: false, mode: 'auto', formula: '', value: '', expected: exp }, o)).action;
+  // 仕入の行：このシステムの式は外す。手入力の値はそのまま。他の式は値にする
+  assert.strictEqual(P({ manualRow: true, formula: '=x5 - z5' }), 'clear');
+  assert.strictEqual(P({ manualRow: true, value: 120000 }), 'keep');
+  assert.strictEqual(P({ manualRow: true, formula: '=SUM(A1)', value: 3 }), 'toValue');
+  // それ以外の行：自動計算の列は式を置く（値・他の式は置き換え）。式が同じなら書き込まない
+  assert.strictEqual(P({}), 'set');
+  assert.strictEqual(P({ value: 5000 }), 'set');
+  assert.strictEqual(P({ formula: exp }), 'keep');
+  // 未設定（以前どおり）の列は空欄のセルにだけ置く
+  assert.strictEqual(P({ mode: '', value: 5000 }), 'keep');
+  assert.strictEqual(P({ mode: '', formula: '=OTHER()' }), 'keep');
+  assert.strictEqual(P({ mode: '' }), 'set');
+  // データの無い行：このシステムの式だけ外す
+  assert.strictEqual(P({ hasData: false }), 'keep');
+  assert.strictEqual(P({ hasData: false, formula: exp }), 'clear');
 });
 test('OCN は手入力：全角数字は半角の数値にそろえる', () => {
   assert.strictEqual(S.normalizeCellValue(F('ocn'), '１２３４５', {}).value, 12345);

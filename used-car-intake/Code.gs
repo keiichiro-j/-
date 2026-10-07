@@ -145,6 +145,11 @@ var FORCED_FORMULA_KEYS = ['inspectionRemain'];
  *  - 未設定：以前どおり（下取損・仕入価格は既存の式を使う。空の列にだけ既定の式を置く）
  */
 var CALC_KEYS = ['tradeInAllowance', 'recycleFee', 'tradeInPrice', 'appraisalPrice', 'tradeInLoss', 'purchasePrice'];
+/**
+ * 区分がこの値の行は、計算の列（下取充当額〜仕入価格）をすべて手入力にする（自動計算の式を置かない）。
+ * そのため計算の列は見出しの ARRAYFORMULA ではなく、行ごとの式で自動計算する。
+ */
+var CATEGORY_MANUAL_CALC = '仕入';
 var CALC_DEFAULT_TYPES = { tradeInAllowance: 'money', recycleFee: 'money', tradeInPrice: 'money', appraisalPrice: 'money', tradeInLoss: 'formula', purchasePrice: 'formula' };
 var CALC_DEFAULT_DEFS = { tradeInLoss: FORMULA_DEFS.tradeInLoss, purchasePrice: null };
 
@@ -724,6 +729,49 @@ function buildArrayFormula(key, colMap) {
   return ok ? '={"' + FIELD_BY_KEY[key].label.replace(/"/g, '""') + '";ARRAYFORMULA(' + expr + ')}' : null;
 }
 
+/** 行ごとの計算式（例：=IF((X5="")*(Z5=""),,IFERROR(X5-Z5,""))）。参照先の列が無い・式が未確定なら null */
+function buildRowFormula(key, colMap, row) {
+  var def = FORMULA_DEFS[key];
+  if (!def) return null;
+  var ok = true;
+  var expr = def.replace(/\{(\w+)\}/g, function (_, ref) {
+    if (colMap[ref] === undefined) { ok = false; return ''; }
+    return columnLetter(colMap[ref] + 1) + row;
+  });
+  return ok ? '=' + expr : null;
+}
+
+/** 行ごとの式で自動計算する列（計算の列のうち、自動計算の式があるもの） */
+function rowCalcKeys(colMap) {
+  return CALC_KEYS.filter(function (k) {
+    return colMap[k] !== undefined && FIELD_BY_KEY[k].type === 'formula' && buildRowFormula(k, colMap, 2) !== null;
+  });
+}
+
+/** 式の比較用（空白・大文字小文字の違いを無視） */
+function sameFormula(a, b) {
+  var n = function (x) { return String(x || '').replace(/\s+/g, '').toUpperCase(); };
+  return n(a) === n(b);
+}
+
+/**
+ * 計算の列の1セルをどうするか（純粋関数）。
+ *  - 区分が「仕入」の行：手入力。このシステムの式が入っていれば消す（他の式は値にする）
+ *  - それ以外の行：自動計算の式を置く。設定アプリで「自動計算」の列は値・他の式を置き換える。
+ *    「未設定」の列（以前どおり）は空欄のセルにだけ置く
+ *  - データの無い行：このシステムの式が入っていれば消す
+ * @return {{action:'keep'|'set'|'clear'|'toValue'}}
+ */
+function planCalcCell(opts) {
+  var has = !!opts.formula;
+  var ours = has && sameFormula(opts.formula, opts.expected);
+  if (!opts.hasData) return { action: ours ? 'clear' : 'keep' };
+  if (opts.manualRow) return { action: ours ? 'clear' : (has ? 'toValue' : 'keep') };
+  if (ours) return { action: 'keep' };
+  if (opts.mode === 'auto') return { action: 'set' };
+  return { action: !has && isBlank(opts.value) ? 'set' : 'keep' };
+}
+
 /**
  * 入力チェック用の条件付き書式を組み立てる。重複チェックは3シート横断（INDIRECT で他シートを参照）。
  * @param {string} sheetName 対象シート
@@ -824,29 +872,39 @@ function buildChipRules(colMap, colorValues) {
 }
 
 /**
- * 実際に自動で入る列のキー。
- *  - 見出し行に計算式（ARRAYFORMULA）が入っている列（車検残・自動計算にした金額の列）
+ * 常に自動で入る列のキー（列全体を灰色にする）。
+ *  - 見出し行に計算式（ARRAYFORMULA）が入っている列（車検残）
  *  - 車検証リンク（車検証保管フォルダが設定されているときだけ。未設定なら自動では入らない）
+ * 計算の列（下取充当額〜仕入価格）は行ごとの式なので、ここには含めず、式が入っているセルだけを灰色にする。
  * @param {Object} colMap 列マップ
  * @param {Object<string,boolean>} headerHasFormula 列キー → 見出しに式があるか
  * @param {boolean} certAuto 車検証リンクを自動で付けるか
  */
 function autoColumnKeys(colMap, headerHasFormula, certAuto) {
   return FIELDS.filter(function (f) {
-    if (colMap[f.key] === undefined) return false;
+    if (colMap[f.key] === undefined || CALC_KEYS.indexOf(f.key) !== -1) return false;
     if (f.key === 'certLink') return !!certAuto;
     return !!headerHasFormula[f.key];
   }).map(function (f) { return f.key; });
 }
 
 /**
- * 実際に自動で入る列の本文を灰色にする（条件付き書式。1行おきの色より上に見えるように）。
+ * 自動で入る箇所の本文を灰色にする（条件付き書式。1行おきの色より上に見えるように）。
+ *  - keys：列全体（車検残・車検証リンク）
+ *  - formulaKeys：式が入っているセルだけ（計算の列。区分「仕入」の行は手入力なので白のまま）
  * 入力チェック・プルダウンの色・車検満了間近の行の色より後に置く（それらが優先される）。
  */
-function buildAutoColumnRules(colMap, keys) {
+function buildAutoColumnRules(colMap, keys, formulaKeys) {
+  var rules = [];
   var letters = keys.filter(function (k) { return colMap[k] !== undefined; }).map(function (k) { return columnLetter(colMap[k] + 1); });
-  if (!letters.length) return [];
-  return [{ columns: letters, color: AUTO_CELL.bg, fg: AUTO_CELL.fg, note: '自動入力の列', formula: '=AND(' + CF_MARKER + ')' }];
+  if (letters.length) rules.push({ columns: letters, color: AUTO_CELL.bg, fg: AUTO_CELL.fg, note: '自動入力の列', formula: '=AND(' + CF_MARKER + ')' });
+  (formulaKeys || []).forEach(function (k) {
+    if (colMap[k] === undefined) return;
+    var L = columnLetter(colMap[k] + 1);
+    rules.push({ columns: [L], color: AUTO_CELL.bg, fg: AUTO_CELL.fg, note: '自動計算のセル：' + FIELD_BY_KEY[k].label,
+      formula: '=AND(' + CF_MARKER + ',ISFORMULA($' + L + '2))' });
+  });
+  return rules;
 }
 
 /** 見出しの色（列キー → グループの色）。自動の列は同じ色で、本文を灰色にして区別する */
@@ -1378,7 +1436,10 @@ function getCalcSettings() {
     items: CALC_KEYS.map(function (k) {
       var f = FIELD_BY_KEY[k];
       var hasFormula = false;
-      if (sheet && cols[k] !== undefined) hasFormula = !!sheet.getRange(1, cols[k] + 1).getFormula();
+      if (sheet && cols[k] !== undefined) {
+        var n = Math.max(Math.min(sheet.getLastRow(), 500), 1); // 見出しの ARRAYFORMULA（以前の版）か行ごとの式
+        hasFormula = sheet.getRange(1, cols[k] + 1, n, 1).getFormulas().some(function (r) { return r[0]; });
+      }
       return {
         key: k, label: f.label, letter: cols[k] === undefined ? '' : columnLetter(cols[k] + 1),
         mode: calc[k].mode, expr: calc[k].expr || '', hasFormula: hasFormula,
@@ -1569,7 +1630,7 @@ function collectOcns_(ss) {
 /** 行ごとに式を入れている既存シート向け：上の行の式を新しい行へ引き継ぐ */
 function copyRowFormulas_(sheet, cols, row) {
   if (row <= 2) return;
-  FIELDS.filter(function (f) { return f.type === 'formula' && cols[f.key] !== undefined; }).forEach(function (f) {
+  FIELDS.filter(function (f) { return f.type === 'formula' && cols[f.key] !== undefined && CALC_KEYS.indexOf(f.key) === -1; }).forEach(function (f) {
     var c = cols[f.key] + 1;
     if (sheet.getRange(1, c).getFormula()) return; // 見出しの ARRAYFORMULA 方式
     var above = sheet.getRange(row - 1, c);
@@ -1733,7 +1794,8 @@ function reapplyStandards_(ss, report) {
     var headerFormulas = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 1)).getFormulas()[0];
     Object.keys(cols).forEach(function (k) { headerHasFormula[k] = !!headerFormulas[cols[k]]; });
     var autoKeys = autoColumnKeys(cols, headerHasFormula, !!settings.folderCert);
-    applyCheckRules_(sheet, cellRules.concat(buildChipRules(cols, colorListValues_())).concat(rowRules).concat(buildAutoColumnRules(cols, autoKeys)));
+    var autoRules = buildAutoColumnRules(cols, autoKeys, rowCalcKeys(cols));
+    applyCheckRules_(sheet, cellRules.concat(buildChipRules(cols, colorListValues_())).concat(rowRules).concat(autoRules));
   });
   var logSheet = ss.getSheetByName(SHEET.LOG);
   if (logSheet) styleLogSheet_(logSheet);
@@ -1796,6 +1858,16 @@ function applyFormulaColumns_(sheet, cols, report) {
   FIELDS.filter(function (f) { return f.type === 'formula'; }).forEach(function (f) {
     var c = cols[f.key];
     if (c === undefined) return;
+    if (CALC_KEYS.indexOf(f.key) !== -1) {
+      // 計算の列：行ごとの式にする（区分「仕入」の行を手入力にするため）。以前の版の見出しの ARRAYFORMULA は外す
+      var head = sheet.getRange(1, c + 1);
+      if (head.getFormula()) {
+        head.setValue(f.label);
+        report.push('「' + sheet.getName() + '」の' + f.label + '：行ごとの計算式に切り替えました（区分「' + CATEGORY_MANUAL_CALC + '」の行は手入力）');
+      }
+      if (!buildRowFormula(f.key, cols, 2)) report.push('「' + sheet.getName() + '」の' + f.label + '：計算式が未設定か、参照する列が無いため設定していません');
+      return;
+    }
     var label = '「' + sheet.getName() + '」の' + f.label + '：';
     var header = sheet.getRange(1, c + 1);
     var formula = buildArrayFormula(f.key, cols);
@@ -1843,6 +1915,56 @@ function applyFormulaColumns_(sheet, cols, report) {
     if (values.length) sheet.getRange(2, c + 1, values.length, 1).setValues(values);
     report.push('「' + sheet.getName() + '」の' + f.label + '：手入力に切り替えました（計算結果は値として残しています）');
   });
+  // 手入力の列に残っている行ごとの式は、計算結果の値にする
+  CALC_KEYS.forEach(function (k) {
+    var c = cols[k];
+    if (FIELD_BY_KEY[k].calcMode !== 'manual' || c === undefined || sheet.getLastRow() < 2) return;
+    var range = sheet.getRange(2, c + 1, sheet.getLastRow() - 1, 1);
+    if (range.getFormulas().some(function (r) { return r[0]; })) range.setValues(range.getValues());
+  });
+  // 行ごとの計算式を全行に置く
+  var last = lastDataRow_(sheet, cols);
+  if (sheet.getLastRow() > last) last = sheet.getLastRow();
+  if (last >= 2) fillCalcRows_(sheet, cols, 2, last - 1);
+}
+
+/** 行にデータが入っているか（仕入年月日・OCN・車種・モデル名・車台番号・区分のどれか） */
+var ROW_DATA_KEYS = ['purchaseDate', 'ocn', 'maker', 'modelName', 'chassisNumber', 'category'];
+
+/**
+ * 計算の列に行ごとの式を置く・外す（planCalcCell の規則）。変わった列だけ書き込む。
+ * @return {number} 変更したセル数
+ */
+function fillCalcRows_(sheet, cols, startRow, numRows) {
+  var keys = rowCalcKeys(cols);
+  if (!keys.length || numRows < 1) return 0;
+  var lastCol = Math.max(sheet.getLastColumn(), 1);
+  var range = sheet.getRange(startRow, 1, numRows, lastCol);
+  var values = range.getValues(), formulas = range.getFormulas();
+  var dataKeys = ROW_DATA_KEYS.filter(function (k) { return cols[k] !== undefined; });
+  var changed = 0;
+  keys.forEach(function (k) {
+    var c = cols[k];
+    if (c >= lastCol) return;
+    var mode = FIELD_BY_KEY[k].calcMode;
+    var out = [], dirty = false;
+    for (var i = 0; i < numRows; i++) {
+      var row = startRow + i;
+      var expected = buildRowFormula(k, cols, row);
+      var plan = planCalcCell({
+        hasData: dataKeys.some(function (dk) { return !isBlank(values[i][cols[dk]]); }),
+        manualRow: cols.category !== undefined && String(values[i][cols.category]).trim() === CATEGORY_MANUAL_CALC,
+        mode: mode, formula: formulas[i][c], value: values[i][c], expected: expected
+      });
+      var cell = formulas[i][c] || values[i][c];
+      if (plan.action === 'set') { cell = expected; dirty = true; changed++; }
+      else if (plan.action === 'clear') { cell = ''; dirty = true; changed++; }
+      else if (plan.action === 'toValue') { cell = values[i][c]; dirty = true; changed++; }
+      out.push([cell]);
+    }
+    if (dirty) sheet.getRange(startRow, c + 1, numRows, 1).setValues(out);
+  });
+  return changed;
 }
 
 /** このシステムの条件付き書式だけを入れ替える（利用者が作った条件付き書式は残す） */
@@ -2294,7 +2416,10 @@ function onEdit(e) {
     var colRange = sheet.getRange(startRow, startCol + c, numRows, 1);
     var fmt = numberFormatFor(field);
     if (fmt) colRange.setNumberFormat(fmt);
-    if (field.type === 'formula') {
+    if (field.type === 'formula' && CALC_KEYS.indexOf(field.key) !== -1) {
+      // 計算の列（行ごとの式）：区分「仕入」の行などで手入力した値は金額として整える（式のセルは値が数値なので変わらない）
+      field = { key: field.key, label: field.label, type: 'money' };
+    } else if (field.type === 'formula') {
       // 車検残などの自動計算の列に値を入れる・貼り付けると計算が止まるため、入れた値は消す
       if (FORCED_FORMULA_KEYS.indexOf(field.key) !== -1 && sheet.getRange(1, startCol + c).getFormula()) {
         colRange.clearContent();
@@ -2328,6 +2453,9 @@ function onEdit(e) {
     // 次の車検証リンクの自動更新で全件を確認する（入力した OCN に合う車検証がフォルダにあればリンクを付ける）
     PropertiesService.getScriptProperties().setProperty(PROP.CERT_PENDING, 'true');
   }
+
+  // 計算の列：行ごとの式を置く（区分「仕入」の行は手入力にするため式を外す）
+  try { fillCalcRows_(sheet, cols, startRow, numRows); } catch (err) { /* 計算式の設定に誤りがあっても入力は止めない */ }
 
   if (linkedRows.length) markTransferred_(sheet, cols, linkedRows);
 
@@ -2376,18 +2504,22 @@ function moveRowsToSold_(ss, sheet, rows) {
     rows = rows.slice().sort(function (a, b) { return a - b; });
     rows.forEach(function (row) {
       var values = sheet.getRange(row, 1, 1, lastCol).getValues()[0];
+      var srcFormulas = sheet.getRange(row, 1, 1, lastCol).getFormulas()[0];
       var dstRow = lastDataRow_(sold, dstCols) + 1;
       ensureRows_(sold, dstRow);
       copyRowFormulas_(sold, dstCols, dstRow);
       applyFormats_(sold, dstCols, dstRow, 1);
       FIELDS.forEach(function (f) {
-        if (f.type === 'formula' || srcCols[f.key] === undefined || dstCols[f.key] === undefined) return;
+        if (srcCols[f.key] === undefined || dstCols[f.key] === undefined) return;
+        // 計算の列は手入力の値（区分「仕入」の行など）だけ移す。式の列は移動先で計算し直す
+        if (f.type === 'formula' && (CALC_KEYS.indexOf(f.key) === -1 || srcFormulas[srcCols[f.key]])) return;
         var v = values[srcCols[f.key]];
         if (isBlank(v)) return;
         var dst = sold.getRange(dstRow, dstCols[f.key] + 1);
         if (f.type === 'link') dst.setRichTextValue(sheet.getRange(row, srcCols[f.key] + 1).getRichTextValue());
         else dst.setValue(v);
       });
+      fillCalcRows_(sold, dstCols, dstRow, 1);
       appendLog_('販売済み移動', String(values[srcCols.ocn] || ''), sheet.getName() + ' ' + row + '行目', '', SHEET.SOLD + ' ' + dstRow + '行目', '');
     });
     for (var i = rows.length - 1; i >= 0; i--) sheet.deleteRow(rows[i]);
@@ -2581,6 +2713,8 @@ function runCleanup_(ss, replacements, execute) {
     var writes = [];
     FIELDS.forEach(function (f) {
       var c = cols[f.key];
+      // 計算の列（行ごとの式）は、手入力の値だけ金額として整える（式のセルは下で飛ばす）
+      if (f.type === 'formula' && CALC_KEYS.indexOf(f.key) !== -1) f = { key: f.key, label: f.label, type: 'money' };
       if (c === undefined || f.type === 'formula' || f.type === 'link') return; // 計算式の列は対象外
       var column = [], changedRows = [], hasFormula = false;
       for (var r = 0; r < numRows; r++) {
@@ -2686,7 +2820,7 @@ function migrateSoldSheet() {
     data.forEach(function (row, r) {
       if (row.every(function (v) { return isBlank(v); })) return;
       var newRow = FIELDS.map(function (f) {
-        if (f.type === 'formula' && FORMULA_DEFS[f.key]) return ''; // 見出しの ARRAYFORMULA で再計算
+        if (f.type === 'formula' && FORMULA_DEFS[f.key] && CALC_KEYS.indexOf(f.key) === -1) return ''; // 見出しの ARRAYFORMULA で再計算
         var src = res.map[f.key];
         return src === undefined ? '' : row[src];
       });
