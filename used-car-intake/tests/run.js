@@ -468,6 +468,45 @@ test('仕入集計：期間に仕入れた車両の一覧（販売済みを含�
   assert.ok(S.buildPeriodListFormula({ '輸入車マスタ': noModel }, 'X', 'Y').indexOf("IF('輸入車マスタ'!A2:A=\"\",\"\",\"\")") !== -1);
 });
 
+test('販売集計：合計カード7枚の幅がほぼそろう・1列目は売上日・列は実在する', () => {
+  assert.strictEqual(S.SALES_CARDS.length, S.SALES_CARD_SPANS.length);
+  assert.strictEqual(S.SALES_CARDS[0].label, '販売台数');
+  const w = S.SALES_LIST_COLUMNS.map((c) => c.width);
+  const widths = Array.from(S.SALES_CARD_SPANS, ([c, n]) => w.slice(c - 1, c - 1 + n).reduce((a, b) => a + b, 0));
+  const last = S.SALES_CARD_SPANS[S.SALES_CARD_SPANS.length - 1];
+  assert.strictEqual(last[0] + last[1] - 1, w.length);
+  assert.ok(Math.max(...widths) - Math.min(...widths) <= 20, widths.join(','));
+  assert.strictEqual(S.SALES_LIST_COLUMNS[0].key, 'saleDate');
+  assert.strictEqual(S.SALES_LIST_COLUMNS[1].key, 'ocn');
+  S.SALES_LIST_COLUMNS.forEach((c) => assert.ok(c.key === 'plate' || S.FIELD_BY_KEY[c.key], c.key));
+});
+test('販売集計：販売済みシートを売上日で絞り込む一覧と条件', () => {
+  const f = S.buildPeriodListFormula({ '販売済み': stdCols }, 'S0', 'E0', S.SALES_LIST_COLUMNS, 'この期間に販売した車両はありません');
+  const L = S.columnLetter(stdCols.saleDate + 1);
+  assert.strictEqual(f.split('HSTACK(').length - 1, 1);
+  assert.ok(f.indexOf("HSTACK('販売済み'!" + L + '2:' + L + ',') !== -1);
+  assert.ok(f.indexOf('FILTER(d,ISNUMBER(k)*(k>=S0)*(k<=E0))') !== -1);
+  assert.ok(f.indexOf('"この期間に販売した車両はありません"') !== -1);
+  assert.deepStrictEqual(plain(S.periodCriteria('S0', 'E0', 'saleDate')), [['saleDate', '">="&S0'], ['saleDate', '"<="&E0']]);
+  const noSale = Object.assign({}, stdCols); delete noSale.saleDate;
+  assert.strictEqual(S.buildPeriodListFormula({ '販売済み': noSale }, 'S', 'E', S.SALES_LIST_COLUMNS), '="売上日の列が見つかりません"');
+});
+test('月の期間：プルダウンの選択肢・残す月・前の同じ月数', () => {
+  const today = date(2026, 10, 7);
+  const opts = Array.from(S.monthOptions(null, today, 6));
+  assert.strictEqual(opts[0], '2027/04');
+  assert.strictEqual(opts[opts.length - 1], '2024/11'); // 2年分
+  assert.ok(opts.indexOf('2026/10') !== -1);
+  assert.strictEqual(Array.from(S.monthOptions(date(2019, 3, 15), today, 0)).pop(), '2019/03');
+  assert.deepStrictEqual(plain(S.resolveMonthPeriod('2026/7', '2026/09', today)), { start: '2026/07', end: '2026/09' });
+  assert.deepStrictEqual(plain(S.resolveMonthPeriod(date(2026, 5, 1), '', today)), { start: '2026/05', end: '2026/05' });
+  assert.deepStrictEqual(plain(S.resolveMonthPeriod('', 'abc', today)), { start: '2026/10', end: '2026/10' });
+  assert.strictEqual(S.monthStartExpr('$D$4'), 'IFERROR(DATEVALUE($D$4&"/01"),DATE(YEAR($D$4),MONTH($D$4),1))');
+  const p = S.previousMonthRefs('s', 'e');
+  assert.strictEqual(p.months, '((YEAR(e)-YEAR(s))*12+MONTH(e)-MONTH(s)+1)');
+  assert.strictEqual(p.start, 'EDATE(s,-' + p.months + ')');
+  assert.strictEqual(p.end, '(s-1)');
+});
 test('集計期間：開始日〜終了日（両端を含む）と、前の同じ日数の期間', () => {
   assert.deepStrictEqual(plain(S.periodCriteria('$J$10', '$L$10')), [['purchaseDate', '">="&$J$10'], ['purchaseDate', '"<="&$L$10']]);
   const p = S.previousPeriodRefs('$J$10', '$L$10');
