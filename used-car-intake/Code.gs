@@ -313,39 +313,17 @@ var PURCHASE_CARD_SPANS = [[1, 3], [4, 2], [6, 2], [8, 2], [10, 2], [12, 3], [15
 var PURCHASE_PERIOD = { row: 4, startCol: 4, endCol: 5 };
 
 /**
- * 販売集計タブ：販売済みシートの車両を、売上日（年月）の月で絞り込んで集計する。
- * 売上日は年月だけなので、期間は開始月〜終了月をプルダウンで選ぶ。
+ * 販売集計タブ：販売済みシートの車両を、仕入集計と同じ形で表示する（期間は開始日〜終了日）。
+ * 売上日は年月だけなので、選んだ期間に重なる月の売上日の車両を出す（例：10/15〜11/10 → 10月・11月の販売）。
+ * 列は仕入集計と同じ。仕入集計の「シート」「ステータス」（販売済みでは常に同じ）の位置に売上日・売上先を出す。
  */
-var SALES_CARDS = [
-  { key: '__count', label: '販売台数' },
-  { key: 'purchasePrice', label: '仕入価格 合計' },
-  { key: 'appraisalPrice', label: '査定価格 合計' },
-  { key: 'tradeInPrice', label: '下取価格 合計' },
-  { key: 'tradeInAllowance', label: '下取充当額 合計' },
-  { key: 'recycleFee', label: 'リサイクル 合計' },
-  { key: 'tradeInLoss', label: '下取損 合計' }
-];
-var SALES_LIST_COLUMNS = [
-  { key: 'saleDate', label: '売上日', width: 84 },
-  { key: 'ocn', label: 'OCN', width: 72 },
-  { key: 'maker', label: '車種', width: 96 },
-  { key: 'modelName', label: 'モデル名', width: 168 },
-  { key: 'category', label: '区分', width: 76 },
-  { key: 'saleTo', label: '売上先', width: 160 },
-  { key: 'staff', label: '担当', width: 80 },
-  { key: 'purchaseDate', label: '仕入年月日', width: 96 },
-  { key: 'supplier', label: '仕入先', width: 150 },
-  { key: 'plate', label: '登録番号', width: 150 },
-  { key: 'tradeInAllowance', label: '下取充当額', width: 90, money: true },
-  { key: 'recycleFee', label: 'リサイクル', width: 72, money: true },
-  { key: 'tradeInPrice', label: '下取価格', width: 84, money: true },
-  { key: 'appraisalPrice', label: '査定価格', width: 84, money: true },
-  { key: 'tradeInLoss', label: '下取損', width: 100, money: true },
-  { key: 'purchasePrice', label: '仕入価格（買取金額）', width: 140, money: true }
-];
-var SALES_CARD_SPANS = [[1, 3], [4, 2], [6, 2], [8, 2], [10, 2], [12, 3], [15, 2]];
-/** 月のプルダウン：今月から何か月先まで出すか（作り直すまでの間も選べるように） */
-var MONTH_OPTIONS_AHEAD = 6;
+var SALES_CARDS = PURCHASE_CARDS.map(function (c) { return c.key === '__count' ? { key: '__count', label: '販売台数' } : c; });
+var SALES_LIST_COLUMNS = PURCHASE_LIST_COLUMNS.map(function (c) {
+  if (c.key === 'sheetLabel') return { key: 'saleDate', label: '売上日', width: c.width };
+  if (c.key === 'status') return { key: 'saleTo', label: '売上先', width: c.width };
+  return c;
+});
+var SALES_CARD_SPANS = PURCHASE_CARD_SPANS;
 var AMOUNT_FORMAT = '#,##0;-#,##0;"–"';     // 0 は「–」
 var COUNT_FORMAT = '0"台";-0"台";"–"';
 
@@ -1001,47 +979,6 @@ function periodCriteria(startRef, endRef, dateKey) {
   return [[k, '">="&' + startRef], [k, '"<="&' + endRef]];
 }
 
-/** 年月の文字（2026/10）。月のプルダウンの値 */
-function monthKey(d) {
-  return d.getFullYear() + '/' + ('0' + (d.getMonth() + 1)).slice(-2);
-}
-
-/**
- * 月のセル（「2026/10」の文字。日付として入っていても可）→ その月の1日の式。
- * 空欄・読めない値はエラーになる（カードは IFERROR で 0 にする）
- */
-function monthStartExpr(ref) {
-  return 'IFERROR(DATEVALUE(' + ref + '&"/01"),DATE(YEAR(' + ref + '),MONTH(' + ref + '),1))';
-}
-
-/** 比較に使う「前の同じ月数の期間」。例：2026/10〜2026/12（3か月）→ 2026/07〜2026/09 */
-function previousMonthRefs(startExpr, endExpr) {
-  var n = '((YEAR(' + endExpr + ')-YEAR(' + startExpr + '))*12+MONTH(' + endExpr + ')-MONTH(' + startExpr + ')+1)';
-  return { start: 'EDATE(' + startExpr + ',-' + n + ')', end: '(' + startExpr + '-1)', months: n };
-}
-
-/** 作り直すときに残す月（2026/10 の形にそろえる）。読めなければ今月〜今月 */
-function resolveMonthPeriod(startValue, endValue, today) {
-  var norm = function (v) {
-    if (v instanceof Date && !isNaN(v.getTime())) return monthKey(v);
-    var m = String(v || '').trim().match(/^(\d{4})[\/\-.](\d{1,2})$/);
-    return m && Number(m[2]) >= 1 && Number(m[2]) <= 12 ? m[1] + '/' + ('0' + Number(m[2])).slice(-2) : null;
-  };
-  var s0 = norm(startValue), e0 = norm(endValue), cur = monthKey(today);
-  if (s0 && e0) return { start: s0, end: e0 };
-  return { start: s0 || e0 || cur, end: e0 || s0 || cur };
-}
-
-/** 月のプルダウンの選択肢（新しい月が上）。今月の数か月先から、最も古い売上日（無ければ2年前）まで。最大20年分 */
-function monthOptions(earliest, today, ahead) {
-  var top = new Date(today.getFullYear(), today.getMonth() + (ahead || 0), 1);
-  var floor = new Date(today.getFullYear(), today.getMonth() - 23, 1);
-  if (earliest instanceof Date && !isNaN(earliest.getTime()) && earliest < floor) floor = new Date(earliest.getFullYear(), earliest.getMonth(), 1);
-  var out = [];
-  for (var d = top; d >= floor && out.length < 240; d = new Date(d.getFullYear(), d.getMonth() - 1, 1)) out.push(monthKey(d));
-  return out;
-}
-
 /**
  * 比較に使う「前の同じ日数の期間」の開始日・終了日の式。
  * 例：10/1〜10/31（31日間）→ 8/31〜9/30
@@ -1096,12 +1033,14 @@ function buildDashboardListFormula(colMaps, order, excluded) {
 
 /**
  * 仕入集計・販売集計タブ：期間に入る車両の一覧。
- * 1列目の日付（仕入集計は仕入年月日、販売集計は売上日）が開始〜終了（両端を含む）の行を、
- * 1列目 → 2列目（OCN）の順に並べる。列は columns（既定は PURCHASE_LIST_COLUMNS）の順。
+ * 絞り込む日付の列（filterKey。既定は1列目＝仕入年月日。販売集計は売上日）が開始〜終了（両端を含む）の行を、
+ * その日付 → OCN の順に並べる。列は columns（既定は PURCHASE_LIST_COLUMNS）の順。
  */
-function buildPeriodListFormula(colMaps, startRef, endRef, columns, emptyMessage) {
+function buildPeriodListFormula(colMaps, startRef, endRef, columns, emptyMessage, filterKey) {
   var LC = columns || PURCHASE_LIST_COLUMNS;
-  var dateKey = LC[0].key;
+  var dateKey = filterKey || LC[0].key;
+  var keys = LC.map(function (c) { return c.key; });
+  var dateIdx = keys.indexOf(dateKey) + 1, ocnIdx = keys.indexOf('ocn') + 1;
   var blocks = Object.keys(colMaps).filter(function (n) { return colMaps[n][dateKey] !== undefined; }).map(function (n) {
     var cols = colMaps[n];
     var dateRef = columnRef(n, cols[dateKey]);
@@ -1117,9 +1056,9 @@ function buildPeriodListFormula(colMaps, startRef, endRef, columns, emptyMessage
   if (!blocks.length) return '="' + FIELD_BY_KEY[dateKey].label + 'の列が見つかりません"';
   return '=IFERROR(ARRAYFORMULA(LET(' +
     'd,VSTACK(' + blocks.join(',') + '),' +
-    'k,INDEX(d,,1),' +
+    'k,INDEX(d,,' + dateIdx + '),' +
     'f,FILTER(d,ISNUMBER(k)*(k>=' + startRef + ')*(k<=' + endRef + ')),' +
-    'SORT(f,1,TRUE,2,TRUE)' +
+    'SORT(f,' + dateIdx + ',TRUE,' + ocnIdx + ',TRUE)' +
     ')),"' + (emptyMessage || 'この期間に仕入れた車両はありません') + '")';
 }
 
@@ -1897,7 +1836,7 @@ function reapplyStandards_(ss, report) {
   report.push('プルダウンの値ごとの色分け、入力チェックの色分け、見出しのグループ色・1行おきの色・列幅を設定しました');
   report.push('ダッシュボード（ステータス別台数と名義変更済み以外の一覧）を更新しました');
   report.push('仕入集計（選んだ期間の合計と、期間に仕入れた車両の一覧）を更新しました');
-  report.push('販売集計（選んだ月の合計と、期間に販売した車両の一覧）を更新しました');
+  report.push('販売集計（選んだ期間の合計と、期間に販売した車両の一覧）を更新しました');
 }
 
 function colorListValues_() {
@@ -2300,14 +2239,14 @@ function buildDashboard_(ss, allColMaps) {
 function periodSheetConfigs_() {
   return {
     purchase: {
-      name: SHEET.PURCHASE, title: '仕入集計', after: SHEET.DASHBOARD, mode: 'date', sources: VEHICLE_SHEETS,
+      name: SHEET.PURCHASE, title: '仕入集計', after: SHEET.DASHBOARD, filterKey: 'purchaseDate', sources: VEHICLE_SHEETS,
       cards: PURCHASE_CARDS, columns: PURCHASE_LIST_COLUMNS, spans: PURCHASE_CARD_SPANS, theme: DASHBOARD_THEME.month,
       listTitle: '期間に仕入れた車両', listNote: '販売済みを含む・仕入年月日順', empty: 'この期間に仕入れた車両はありません'
     },
     sales: {
-      name: SHEET.SALES, title: '販売集計', after: SHEET.PURCHASE, mode: 'month', sources: [SHEET.SOLD],
+      name: SHEET.SALES, title: '販売集計', after: SHEET.PURCHASE, filterKey: 'saleDate', monthly: true, sources: [SHEET.SOLD],
       cards: SALES_CARDS, columns: SALES_LIST_COLUMNS, spans: SALES_CARD_SPANS, theme: DASHBOARD_THEME.sales,
-      listTitle: '期間に販売した車両', listNote: '販売済みシート・売上日順', empty: 'この期間に販売した車両はありません'
+      listTitle: '期間に販売した車両', listNote: '売上日（年月）が期間に重なる月・売上日順', empty: 'この期間に販売した車両はありません'
     }
   };
 }
@@ -2323,9 +2262,9 @@ function buildPurchaseSheet_(ss, allColMaps) {
 }
 
 /**
- * 販売集計タブを作り直す（販売済みシートを売上日の月で絞り込む）。
- *  - 集計期間：開始月・終了月をプルダウンで選ぶ（作り直しても残す）
- *  - 期間の合計カード：販売台数・金額の合計（前の同じ月数の期間と比較）
+ * 販売集計タブを作り直す（販売済みシートを、仕入集計と同じ形で売上日の期間で絞り込む）。
+ *  - 集計期間：開始日・終了日をカレンダーで選ぶ（作り直しても残す）。売上日は年月なので、期間に重なる月で判定
+ *  - 期間の合計カード：販売台数・金額の合計（前の同じ日数の期間と比較）
  *  - 期間に販売した車両の一覧（売上日順）と、その合計行
  */
 function buildSalesSheet_(ss, allColMaps) {
@@ -2339,7 +2278,7 @@ function buildPeriodSheet_(ss, allColMaps, cfg) {
   var T = DASHBOARD_THEME, A = cfg.theme;
   var P = PURCHASE_PERIOD;
   var LC = cfg.columns, W = LC.length;
-  var dateKey = LC[0].key, isMonth = cfg.mode === 'month';
+  var dateKey = cfg.filterKey;
 
   var sheet = ss.getSheetByName(cfg.name);
   if (!sheet) {
@@ -2348,8 +2287,7 @@ function buildPeriodSheet_(ss, allColMaps, cfg) {
   }
   var today = new Date();
   var startCell = sheet.getRange(P.row, P.startCol), endCell = sheet.getRange(P.row, P.endCol);
-  var kept = isMonth ? resolveMonthPeriod(startCell.getValue(), endCell.getValue(), today)
-    : resolveDashboardPeriod(startCell.getValue(), endCell.getValue(), today);
+  var kept = resolveDashboardPeriod(startCell.getValue(), endCell.getValue(), today);
   sheet.getBandings().forEach(function (bd) { bd.remove(); });
   sheet.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(function (p) { p.remove(); });
   sheet.clear();
@@ -2370,54 +2308,28 @@ function buildPeriodSheet_(ss, allColMaps, cfg) {
     .setFontColor(T.muted).setHorizontalAlignment('right');
   sheet.setRowHeight(2, 36);
 
-  // 集計期間：日付はカレンダー、月はプルダウン（2026/10 の形）で選ぶ
+  // 集計期間：開始日・終了日のセル（カレンダーで選ぶ）
   var startCellRef = '$' + columnLetter(P.startCol) + '$' + P.row;
   var endCellRef = '$' + columnLetter(P.endCol) + '$' + P.row;
-  var startRef, endRef, prevRefs, periodText, unit = isMonth ? '月' : '日';
-  if (isMonth) {
-    startRef = monthStartExpr(startCellRef);
-    endRef = 'EOMONTH(' + monthStartExpr(endCellRef) + ',0)';
-    prevRefs = previousMonthRefs(startRef, endRef);
-    periodText = 'TEXT(' + startRef + ',"yyyy/mm")&" 〜 "&TEXT(' + endRef + ',"yyyy/mm")&"（"&' + prevRefs.months + '&"か月）"';
-  } else {
-    startRef = startCellRef;
-    endRef = endCellRef;
-    prevRefs = previousPeriodRefs(startRef, endRef);
-    periodText = 'TEXT(' + startRef + ',"yyyy/mm/dd")&" 〜 "&TEXT(' + endRef + ',"yyyy/mm/dd")&"（"&(' + endRef + '-' + startRef + '+1)&"日間）"';
-  }
-  var options = null;
-  if (isMonth) {
-    var earliest = null;
-    Object.keys(vehicles).forEach(function (n) {
-      var src = ss.getSheetByName(n), c = vehicles[n][dateKey];
-      if (!src || c === undefined || src.getLastRow() < 2) return;
-      src.getRange(2, c + 1, src.getLastRow() - 1, 1).getValues().forEach(function (r) {
-        if (r[0] instanceof Date && (!earliest || r[0] < earliest)) earliest = r[0];
-      });
-    });
-    options = monthOptions(earliest, today, MONTH_OPTIONS_AHEAD);
-    [kept.start, kept.end].forEach(function (m) { if (options.indexOf(m) === -1) options.push(m); });
-  }
+  var prevCells = previousPeriodRefs(startCellRef, endCellRef);
+  // 年月だけの列（売上日）は、開始日をその月の1日にそろえて、期間に重なる月を含める
+  var monthOf = function (ref) { return cfg.monthly ? 'DATE(YEAR(' + ref + '),MONTH(' + ref + '),1)' : ref; };
+  var startRef = monthOf(startCellRef), endRef = endCellRef;
+  var prevRefs = { start: monthOf(prevCells.start), end: prevCells.end };
   sheet.getRange(P.row - 1, 1, 2, P.startCol - 1).merge().setValue('集計期間 ▸').setFontSize(13).setFontWeight('bold')
     .setHorizontalAlignment('right').setVerticalAlignment('bottom');
-  [[P.startCol, kept.start, '開始' + unit], [P.endCol, kept.end, '終了' + unit]].forEach(function (c) {
+  [[P.startCol, kept.start, '開始日'], [P.endCol, kept.end, '終了日']].forEach(function (c) {
     sheet.getRange(P.row - 1, c[0]).setValue(c[2]).setFontColor(T.muted).setFontSize(9).setHorizontalAlignment('center').setVerticalAlignment('bottom');
-    var cell = sheet.getRange(P.row, c[0]);
-    if (isMonth) {
-      cell.setNumberFormat('@').setValue(c[1])
-        .setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(options, true).setAllowInvalid(false)
-          .setHelpText(c[2] + '：プルダウンから年月を選びます。この月を含めて集計します').build());
-    } else {
-      cell.setValue(c[1]).setNumberFormat('yyyy/MM/dd')
-        .setDataValidation(SpreadsheetApp.newDataValidation().requireDate().setAllowInvalid(false)
-          .setHelpText(c[2] + '：ダブルクリックするとカレンダーが開きます。この日を含めて集計します').build());
-    }
-    cell.setFontWeight('bold').setFontSize(12).setHorizontalAlignment('center').setBackground('#ffffff').setFontColor(T.ink)
-      .setBorder(true, true, true, true, null, null, A.accent, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+    sheet.getRange(P.row, c[0]).setValue(c[1]).setNumberFormat('yyyy/MM/dd').setFontWeight('bold').setFontSize(12)
+      .setHorizontalAlignment('center').setBackground('#ffffff').setFontColor(T.ink)
+      .setBorder(true, true, true, true, null, null, A.accent, SpreadsheetApp.BorderStyle.SOLID_MEDIUM)
+      .setDataValidation(SpreadsheetApp.newDataValidation().requireDate().setAllowInvalid(false)
+        .setHelpText(c[2] + '：ダブルクリックするとカレンダーが開きます。この日を含めて集計します').build());
   });
   sheet.getRange(P.row, P.endCol + 1, 1, W - P.endCol).merge()
-    .setFormula('=IF(OR(' + startCellRef + '="",' + endCellRef + '=""),"　開始' + unit + 'と終了' + unit + 'を選んでください",IFERROR(IF(' + endRef + '<' + startRef + ',"　⚠ 終了' + unit + 'が開始' + unit + 'より前です",' +
-      '"　"&' + periodText + '),"　⚠ 期間を読み取れません"))')
+    .setFormula('=IF(OR(' + startCellRef + '="",' + endCellRef + '=""),"　開始日と終了日を選んでください",IF(' + endCellRef + '<' + startCellRef + ',"　⚠ 終了日が開始日より前です",' +
+      '"　"&TEXT(' + startCellRef + ',"yyyy/mm/dd")&" 〜 "&TEXT(' + endCellRef + ',"yyyy/mm/dd")&"（"&(' + endCellRef + '-' + startCellRef + '+1)&"日間）"' +
+      (cfg.monthly ? '&"　売上日は年月のため、期間に重なる月の販売を表示"' : '') + '))')
     .setFontColor(A.accent).setFontWeight('bold').setFontSize(11);
   sheet.setRowHeight(P.row - 1, 18);
   sheet.setRowHeight(P.row, 32);
@@ -2465,14 +2377,14 @@ function buildPeriodSheet_(ss, allColMaps, cfg) {
   var firstMoney = 1 + LC.map(function (c) { return !!c.money; }).indexOf(true);
   var below = function (col) { var L = columnLetter(col); return L + listRow + ':' + L; };
   sheet.getRange(totalRow, 1, 1, firstMoney - 1).merge()
-    .setFormula('="合計　"&COUNT(' + below(1) + ')&"台"').setHorizontalAlignment('left');
+    .setFormula('="合計　"&COUNT(' + below(colOf(dateKey)) + ')&"台"').setHorizontalAlignment('left');
   LC.forEach(function (c, i) {
     if (c.money) sheet.getRange(totalRow, i + 1).setFormula('=SUM(' + below(i + 1) + ')').setNumberFormat(AMOUNT_FORMAT).setHorizontalAlignment('right');
   });
   sheet.getRange(totalRow, 1, 1, W).setFontWeight('bold').setBackground(A.tint).setFontColor(A.accent)
     .setBorder(null, null, true, null, null, null, A.accent, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
   sheet.setRowHeight(totalRow, 28);
-  sheet.getRange(listRow, 1).setFormula(buildPeriodListFormula(vehicles, startRef, endRef, LC, cfg.empty));
+  sheet.getRange(listRow, 1).setFormula(buildPeriodListFormula(vehicles, startRef, endRef, LC, cfg.empty, dateKey));
 
   var bodyRows = Math.max(sheet.getMaxRows() - listRow + 1, 1);
   var body = sheet.getRange(listRow, 1, bodyRows, W);
@@ -2487,7 +2399,7 @@ function buildPeriodSheet_(ss, allColMaps, cfg) {
     else if (c.key === 'ocn') range.setNumberFormat('0').setHorizontalAlignment('center');
     else if (['sheetLabel', 'status', 'maker', 'category', 'staff', 'plate'].indexOf(c.key) !== -1) range.setHorizontalAlignment('center');
   });
-  sheet.getRange(listRow, 1, bodyRows, 1).setFontWeight('bold');
+  sheet.getRange(listRow, colOf(dateKey), bodyRows, 1).setFontWeight('bold');
 
   // 色：ステータスのチップ、シート（販売済みは灰色）、区分のチップ
   var rules = [];
