@@ -19,7 +19,7 @@
  *   4. 設定（スクリプトプロパティ・プルダウンの選択肢）
  *   5. シート共通処理
  *   6. セットアップ（シート・書式・プルダウン・条件付き書式）
- *   7. 入力時の自動整形（onEdit）・OCN採番・販売済みへの移動
+ *   7. 入力時の自動整形（onEdit）・販売済みへの移動
  *   8. 車検証リンク
  *   9. 既存データの一括整形・販売済みシートの列統一
  *  10. ログ
@@ -247,7 +247,8 @@ var HEADER_GROUPS = [
   { name: '金額', color: '#2f6a3b', keys: ['tradeInAllowance', 'recycleFee', 'tradeInPrice', 'appraisalPrice', 'tradeInLoss', 'purchasePrice'] }
 ];
 var HEADER_OTHER_COLOR = '#607d8b';   // 標準にない列
-var AUTO_CELL_BG = '#f1f4f6';        // 自動の列（OCN・計算式）の本文
+/** 自動入力の列（計算式・車検証リンク）：手入力の列と見分けやすい灰色。見出しも灰色にする */
+var AUTO_CELL = { bg: '#e2e6ea', fg: '#455a64', header: '#78909c' };
 var BAND_COLORS = ['#ffffff', '#f7f9fb'];
 
 /** 列幅（ピクセル） */
@@ -648,7 +649,7 @@ function parseOcnNumber(ocn) {
   return /^\d+$/.test(s) ? Number(s) : null;
 }
 
-/** 既存OCN（3シート）と発行済み最大値から次のOCNを決める（「NEW-乱数」等は無視） */
+/** 既存OCN（3シート）の最大値 + 1（手入力の目安として設定アプリに表示する。「NEW-乱数」等は無視） */
 function nextOcnNumber(existingOcns, lastIssued) {
   var max = Number(lastIssued) || 0;
   existingOcns.forEach(function (o) {
@@ -742,6 +743,16 @@ function buildCheckRules(sheetName, colMaps, expiryDays) {
     return 'INDIRECT("\'' + name + '\'!' + letter + '2:' + letter + '")';
   }
 
+  var B = L('ocn');
+  if (B) {
+    var ocnCounts = names.map(function (n) { var r = indirect(n, 'ocn'); return r ? 'COUNTIF(' + r + ',$' + B + '2)' : null; })
+      .filter(function (x) { return x; });
+    rules.push({ columns: [B], color: '#f4c7c3', note: 'OCNの重複（3シート横断）',
+      formula: '=AND(' + CF_MARKER + ',$' + B + '2<>"",(' + ocnCounts.join('+') + ')>1)' });
+    rules.push({ columns: [B], color: '#fce8b2', note: 'OCNが数字でない',
+      formula: '=AND(' + CF_MARKER + ',$' + B + '2<>"",NOT(ISNUMBER($' + B + '2)))' });
+  }
+
   var E = L('chassisNumber');
   if (E) {
     var counts = names.map(function (n) { var r = indirect(n, 'chassisNumber'); return r ? 'COUNTIF(' + r + ',$' + E + '2)' : null; })
@@ -810,6 +821,22 @@ function buildChipRules(colMap, colorValues) {
       formula: '=AND(' + CF_MARKER + ',$' + L + '2<>"")' });
   });
   return rules;
+}
+
+/** 自動入力の列か（計算式の列＝車検残・自動計算にした金額の列、車検証リンク） */
+function isAutoField(f) {
+  return f.type === 'formula' || f.type === 'link';
+}
+
+/**
+ * 自動入力の列を灰色にする（条件付き書式。1行おきの色より優先して見えるように）。
+ * 入力チェック・プルダウンの色・車検満了間近の行の色より後に置く（それらが優先される）。
+ */
+function buildAutoColumnRules(colMap) {
+  var letters = FIELDS.filter(function (f) { return isAutoField(f) && colMap[f.key] !== undefined; })
+    .map(function (f) { return columnLetter(colMap[f.key] + 1); });
+  if (!letters.length) return [];
+  return [{ columns: letters, color: AUTO_CELL.bg, fg: AUTO_CELL.fg, note: '自動入力の列', formula: '=AND(' + CF_MARKER + ')' }];
 }
 
 /** 見出しの色（列キー → グループの色）。自動の列は同じ色で、本文を灰色にして区別する */
@@ -1096,7 +1123,7 @@ function certLinkSchedule(minutes) {
 
 /**
  * 自動更新でシートを全件確認するか。
- * フォルダに新しい・更新されたファイルがあるとき、OCN が採番・変更されたとき、前回の全件確認から1時間たったときに確認する。
+ * フォルダに新しい・更新されたファイルがあるとき、OCN が入力・変更されたとき、前回の全件確認から1時間たったときに確認する。
  * それ以外はフォルダを見るだけで終える（1分ごとの実行でも処理時間を使いすぎないため）。
  */
 function certLinkNeedsFullScan(opts) {
@@ -1241,8 +1268,7 @@ var PROP = {
   CERT_LINK_MINUTES: 'CERT_LINK_MINUTES', // 車検証リンクの自動更新の間隔（分。0＝しない）
   CERT_LAST_CHECK: 'CERT_LINK_LAST_CHECK_MS',
   CERT_LAST_FULL: 'CERT_LINK_LAST_FULL_MS',
-  CERT_PENDING: 'CERT_LINK_PENDING',       // OCN が採番・変更された（次の自動更新で全件を確認する）
-  OCN_LAST: 'OCN_LAST_ISSUED',
+  CERT_PENDING: 'CERT_LINK_PENDING',       // OCN が入力・変更された（次の自動更新で全件を確認する）
   CALC: 'CALC_', // + 列キー（計算式の設定）
   LIST: 'LIST_' // + maker / color / staff / idCheck / region
 };
@@ -1530,14 +1556,6 @@ function collectOcns_(ss) {
   return ocns;
 }
 
-/** 次のOCNを予約する（会社単位・輸入車／国産車共通の連番）。呼び出し側でロックを取る */
-function reserveOcn_(ss) {
-  var props = PropertiesService.getScriptProperties();
-  var n = nextOcnNumber(collectOcns_(ss), props.getProperty(PROP.OCN_LAST));
-  props.setProperty(PROP.OCN_LAST, String(n));
-  return n;
-}
-
 /** 行ごとに式を入れている既存シート向け：上の行の式を新しい行へ引き継ぐ */
 function copyRowFormulas_(sheet, cols, row) {
   if (row <= 2) return;
@@ -1574,7 +1592,7 @@ function getSetupState() {
       var cols = resolveColumns(headers).map;
       return { name: name, exists: true, standard: isStandardLayout(headers), rows: Math.max(lastDataRow_(sheet, cols) - 1, 0) };
     }),
-    nextOcn: nextOcnNumber(collectOcns_(ss), PropertiesService.getScriptProperties().getProperty(PROP.OCN_LAST))
+    nextOcn: nextOcnNumber(collectOcns_(ss), 0) // 手入力の目安（3シートの最大の OCN + 1）
   };
 }
 
@@ -1613,11 +1631,6 @@ function runSetup(form) {
     ensureLogSheet_(ss);
     reapplyStandards_(ss, report);
 
-    if (!props.getProperty(PROP.OCN_LAST)) {
-      var max = nextOcnNumber(collectOcns_(ss), 0) - 1;
-      props.setProperty(PROP.OCN_LAST, String(max));
-      report.push('OCNの採番を初期化しました（次の番号：' + (max + 1) + '）');
-    }
     setupTriggers_(folderId ? Number(values[PROP.CERT_LINK_MINUTES]) : 0, report);
     appendLog_('セットアップ', ss.getName(), '', '', '', report.join(' / '));
     return { ok: true, report: report };
@@ -1706,7 +1719,7 @@ function reapplyStandards_(ss, report) {
     var checks = buildCheckRules(name, colMaps, settings.expiryDays);
     var rowRules = checks.filter(function (r) { return r.wholeRow; });
     var cellRules = checks.filter(function (r) { return !r.wholeRow; });
-    applyCheckRules_(sheet, cellRules.concat(buildChipRules(cols, colorListValues_())).concat(rowRules));
+    applyCheckRules_(sheet, cellRules.concat(buildChipRules(cols, colorListValues_())).concat(rowRules).concat(buildAutoColumnRules(cols)));
   });
   var logSheet = ss.getSheetByName(SHEET.LOG);
   if (logSheet) styleLogSheet_(logSheet);
@@ -1754,9 +1767,10 @@ function applyProtections_(sheet, cols) {
   if (existing.indexOf('見出し行の保護') === -1) {
     sheet.getRange(1, 1, 1, sheet.getMaxColumns()).protect().setDescription('見出し行の保護').setWarningOnly(true);
   }
-  if (cols.ocn !== undefined && existing.indexOf('OCNの保護') === -1) {
-    sheet.getRange(2, cols.ocn + 1, Math.max(sheet.getMaxRows() - 1, 1), 1).protect().setDescription('OCNの保護').setWarningOnly(true);
-  }
+  // OCN は手入力にしたため、以前の版の「OCNの保護」は外す
+  sheet.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function (p) {
+    if (p.getDescription() === 'OCNの保護') p.remove();
+  });
 }
 
 /**
@@ -1853,7 +1867,7 @@ function applyVisuals_(sheet, cols) {
   var bgs = [], fonts = [], notes = header.getNotes()[0];
   for (var c = 0; c < lastCol; c++) {
     var f = keyAt[c];
-    bgs.push(f ? headerColorFor(f.key) : HEADER_OTHER_COLOR);
+    bgs.push(f ? (isAutoField(f) ? AUTO_CELL.header : headerColorFor(f.key)) : HEADER_OTHER_COLOR);
     fonts.push('#ffffff');
     if (f) notes[c] = headerNoteFor_(f);
   }
@@ -1871,8 +1885,8 @@ function applyVisuals_(sheet, cols) {
     var f = keyAt[idx], col = Number(idx) + 1;
     var body = sheet.getRange(2, col, bodyRows, 1);
     body.setHorizontalAlignment(alignmentFor(f));
-    if (f.type === 'ocn' || f.type === 'formula') body.setBackground(AUTO_CELL_BG).setFontColor('#37474f');
-    else if (CALC_KEYS.indexOf(f.key) !== -1) body.setBackground(null).setFontColor(null); // 手入力に戻した計算の列
+    // 自動入力の列の灰色は条件付き書式で付ける（1行おきの色の上に出すため）。以前の版で付けた塗りは消す
+    if (f.type === 'ocn' || CALC_KEYS.indexOf(f.key) !== -1 || isAutoField(f)) body.setBackground(null).setFontColor(null);
     if (f.type === 'link') body.setFontColor('#0b57a4');
   });
   // 列幅：文字が収まる幅に自動で合わせる（標準の幅より狭くはしない）
@@ -1893,12 +1907,12 @@ function headerNoteFor_(f) {
   var notes = {
     date: '西暦の日付（yyyy/MM/dd）。R5.6.1・令和5年6月1日と入力しても西暦になります',
     yearMonth: '年月だけ。R2.3・2020/3 などで入力できます',
-    ocn: '自動で採番します（入力不要）',
+    ocn: '手入力（数字）。全角でも半角の数字にそろえます。3シートで重複すると赤、数字でないと黄色',
     mileage: '数字を入れると「12,345km」と表示します',
     money: '数字を入れると「1,234,000」と表示します',
     list: 'プルダウンから選びます（表記ゆれは自動で選択肢に置き換えます）',
-    formula: '自動計算（入力不要）',
-    link: '車検証保管フォルダのファイルに自動でリンクします',
+    formula: '自動計算（入力不要。灰色の列）',
+    link: '自動入力：車検証保管フォルダのファイルに自動でリンクします（URL を貼ることもできます）',
     chassis: '大文字・半角に自動でそろえます（ハイフンは残します）',
     kana: 'カタカナは半角カナ、英数字は半角に自動でそろえます'
   };
@@ -2227,15 +2241,14 @@ function setupTriggers_(minutes, report) {
 }
 
 // =====================================================================
-// 7. 入力時の自動整形（onEdit）・OCN採番・販売済みへの移動
+// 7. 入力時の自動整形（onEdit）・販売済みへの移動
 // =====================================================================
 
 /**
  * シンプルトリガー：セルの値を確定するたびに実行される（誰が入力しても動く）。
  *  1) 値を正しい書式に整える（和暦→西暦日付、全角→半角、「12,345km」→ 12345 など）
  *  2) 入力した列の表示形式を付け直す（貼り付けで和暦などの表示形式が持ち込まれても西暦・km表示に戻す）
- *  3) OCN を採番する
- *  4) ステータスが「販売済み」になった行を、確認のうえ販売済みシートへ移動する
+ *  3) ステータスが「販売済み」になった行を、確認のうえ販売済みシートへ移動する
  * 複数セルの貼り付けにも対応する。
  */
 function onEdit(e) {
@@ -2287,7 +2300,6 @@ function onEdit(e) {
       }
       continue;
     }
-    if (field.type === 'ocn') continue;
     var changed = false;
     var column = [];
     for (var r = 0; r < numRows; r++) {
@@ -2298,11 +2310,9 @@ function onEdit(e) {
     if (changed) colRange.setValues(column);
   }
 
-  if (cols.ocn !== undefined) {
-    var ocnAssigned = assignMissingOcns_(ss, sheet, cols, startRow, numRows);
-    var ocnEdited = cols.ocn + 1 >= startCol && cols.ocn + 1 < startCol + numCols;
-    // 次の車検証リンクの自動更新で全件を確認する（新しい OCN に合う車検証がフォルダにあればリンクを付ける）
-    if (ocnAssigned || ocnEdited) PropertiesService.getScriptProperties().setProperty(PROP.CERT_PENDING, 'true');
+  if (cols.ocn !== undefined && cols.ocn + 1 >= startCol && cols.ocn + 1 < startCol + numCols) {
+    // 次の車検証リンクの自動更新で全件を確認する（入力した OCN に合う車検証がフォルダにあればリンクを付ける）
+    PropertiesService.getScriptProperties().setProperty(PROP.CERT_PENDING, 'true');
   }
 
   if (linkedRows.length) markTransferred_(sheet, cols, linkedRows);
@@ -2316,30 +2326,6 @@ function onEdit(e) {
       if (soldRows.length) confirmAndMoveSold_(ss, sheet, soldRows, e.oldValue);
     }
   }
-}
-
-/** OCN の自動採番（車台番号・車種・モデル名のいずれかが入った行で、OCNが空欄なら）。採番した件数を返す */
-function assignMissingOcns_(ss, sheet, cols, startRow, numRows) {
-  var keys = ['chassisNumber', 'maker', 'modelName'].filter(function (k) { return cols[k] !== undefined; });
-  var rows = sheet.getRange(startRow, 1, numRows, sheet.getLastColumn()).getValues();
-  var targets = [];
-  rows.forEach(function (row, i) {
-    if (!isBlank(row[cols.ocn])) return;
-    if (keys.some(function (k) { return !isBlank(row[cols[k]]); })) targets.push(startRow + i);
-  });
-  if (!targets.length) return 0;
-  var lock = LockService.getScriptLock();
-  if (!lock.tryLock(10000)) return 0;
-  var assigned = 0;
-  try {
-    targets.forEach(function (row) {
-      var cell = sheet.getRange(row, cols.ocn + 1);
-      if (isBlank(cell.getValue())) { cell.setNumberFormat('0').setValue(reserveOcn_(ss)); assigned++; }
-    });
-  } finally {
-    lock.releaseLock();
-  }
-  return assigned;
 }
 
 function confirmAndMoveSold_(ss, sheet, rows, oldValue) {
@@ -2409,7 +2395,7 @@ function scheduledRun() {}
 
 /**
  * 時間主導トリガー：車検証保管フォルダに新しいファイルがあれば、すぐにリンクを付ける。
- * 新しいファイルが無く、OCN の採番・変更も無ければ、フォルダを見るだけで終える（全件確認は1時間に1回）。
+ * 新しいファイルが無く、OCN の入力・変更も無ければ、フォルダを見るだけで終える（全件確認は1時間に1回）。
  */
 function scheduledCertLinks() {
   var lock = LockService.getScriptLock();

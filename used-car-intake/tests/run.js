@@ -204,14 +204,31 @@ test('3シート横断の車台番号・登録番号の重複、形式違い、�
   const maps = { '輸入車マスタ': std, '国産車マスタ': std, '販売済み': std };
   const rules = S.buildCheckRules('輸入車マスタ', maps, 30);
   const notes = rules.map((r) => r.note);
-  ['車台番号の重複（3シート横断）', '車台番号の形式違い', '登録番号4項目の重複', '分類番号の形式違い', '一連番号の形式違い',
+  ['OCNの重複（3シート横断）', 'OCNが数字でない', '車台番号の重複（3シート横断）', '車台番号の形式違い', '登録番号4項目の重複', '分類番号の形式違い', '一連番号の形式違い',
     '初度登録日が未来', '車検満了日が初度登録日以前', '車検満了が近い車両'].forEach((n) => assert.ok(notes.indexOf(n) !== -1, n));
-  const dup = rules[0].formula;
+  const ocnDup = rules.find((r) => r.note === 'OCNの重複（3シート横断）').formula;
+  assert.ok(ocnDup.indexOf('COUNTIF(INDIRECT("\'販売済み\'!B2:B"),$B2)') !== -1, ocnDup);
+  assert.ok(ocnDup.indexOf(')>1)') !== -1);
+  const dup = rules.find((r) => r.note === '車台番号の重複（3シート横断）').formula;
   assert.ok(dup.indexOf('INDIRECT("\'国産車マスタ\'!E2:E")') !== -1);
   assert.ok(dup.indexOf('INDIRECT("\'販売済み\'!E2:E")') !== -1);
   rules.forEach((r) => assert.ok(r.formula.indexOf(S.CF_MARKER) !== -1));
   // 販売済みシートには満了間近の強調を付けない
   assert.ok(S.buildCheckRules('販売済み', maps, 30).every((r) => !r.wholeRow));
+});
+test('自動入力の列（車検残・自動計算の列・車検証リンク）は灰色。手入力の列（OCN など）は含めない', () => {
+  const std = S.resolveColumns(S.STANDARD_HEADERS.slice()).map;
+  const rules = S.buildAutoColumnRules(std);
+  assert.strictEqual(rules.length, 1);
+  const cols = Array.from(rules[0].columns);
+  ['inspectionRemain', 'certLink', 'tradeInLoss', 'purchasePrice'].forEach((k) => assert.ok(cols.indexOf(S.columnLetter(std[k] + 1)) !== -1, k));
+  ['ocn', 'purchaseDate', 'chassisNumber', 'status', 'appraisalPrice'].forEach((k) => assert.ok(cols.indexOf(S.columnLetter(std[k] + 1)) === -1, k));
+  assert.ok(rules[0].formula.indexOf(S.CF_MARKER) !== -1);
+  assert.strictEqual(rules[0].color, S.AUTO_CELL.bg);
+});
+test('OCN は手入力：全角数字は半角の数値にそろえる', () => {
+  assert.strictEqual(S.normalizeCellValue(F('ocn'), '１２３４５', {}).value, 12345);
+  assert.ok(S.normalizeCellValue(F('ocn'), 'ABC', {}).error);
 });
 test('車台番号の形式規則は輸入車17桁・国産車（ハイフンあり）を正とする', () => {
   const re = /^([A-HJ-NPR-Z0-9]{17}|[A-Z0-9]+-[0-9]{4,8})$/;

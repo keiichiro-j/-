@@ -90,7 +90,7 @@
         <input type="text" id="folderCert" placeholder="フォルダのURLまたはID">
         <label class="field" for="certLinkMinutes">車検証リンクの自動更新 <span class="hint">（フォルダに車検証を入れてから、リンクが付くまでの最大の待ち時間。最速は1分）</span></label>
         <select id="certLinkMinutes"></select>
-        <p class="hint">自動更新にすると、スプレッドシートを開いたときにも更新します。OCN を採番・入力した行も、次の更新で確認します。</p>
+        <p class="hint">自動更新にすると、スプレッドシートを開いたときにも更新します。OCN を入力した行も、次の更新で確認します。</p>
         <label class="check"><input type="checkbox" id="backup" checked> 実行前にスプレッドシートのバックアップを作成する</label>
         <div class="actions">
           <button class="btn primary" id="setupBtn" onclick="runSetup()">保存してシートを整える（セットアップ）</button>
@@ -103,7 +103,7 @@
         <h2>見た目とダッシュボード</h2>
         <p class="hint">
           プルダウンの列は選んだ値ごとに色が付きます（ステータスは流れに沿って 赤→黄→青→緑→灰、区分は4色、色の列は実際の色）。<br>
-          見出しは「車両・仕入・登録番号・状況／販売・金額」のまとまりごとに色分けし、自動の列（OCN・車検残・下取損・仕入価格）は灰色の地にしています。1行おきに色が付き、見出しのフィルタで絞り込めます。<br>
+          見出しは「車両・仕入・登録番号・状況／販売・金額」のまとまりごとに色分けし、自動入力の列（車検残・自動計算の金額の列・車検証リンク）は見出しも本文も灰色にして、手入力の列（白）と見分けられるようにしています。1行おきに色が付き、見出しのフィルタで絞り込めます。<br>
           「ダッシュボード」タブには、ステータスごとの台数（在庫に占める割合つき）と名義変更済み以外の車両の一覧を表示します。<br>
           「仕入集計」タブでは、開始日〜終了日をカレンダーで選ぶと、その期間の台数・金額の合計（前の同期間との比較つき）と、期間に仕入れた車両の一覧（販売済みを含む・合計行つき）を表示します。どちらも数式なので、入力するとすぐ反映されます。<br>
           列幅は「書式・プルダウンだけ整え直す」のときだけ文字に合わせて調整します。入力のたびには変わりません。<br>
@@ -118,7 +118,7 @@
           売上日も年月だけで、<code>2026/09</code> と表示します。<br>
           車検残は車検満了日から自動で計算し、残りの日数（例：<code>120日</code>）を表示します。満了日を迎えると「満了」と表示します。<br>
           走行距離は数字を入れると <code>12,345km</code>、金額は <code>1,234,000</code> と表示します（値は数値のままなので並べ替え・計算ができます）。<br>
-          カタカナは半角カナ、英数字は半角に揃え、プルダウンの列は表記ゆれを選択肢に置き換えます。OCN は自動で採番します。<br>
+          カタカナは半角カナ、英数字は半角に揃え、プルダウンの列は表記ゆれを選択肢に置き換えます。OCN は手入力です（全角の数字も半角にそろえます。3シートで重複すると赤）。<br>
           車検証の列にリンクが入ると（貼り付け・「車検証リンクを更新」のどちらでも）、ステータスを自動で「名義変更済み」にします（販売済みの行は変えません）。
         </p>
       </div>
@@ -254,7 +254,7 @@
         var pill = !x.exists ? '<span class="pill warn">未作成</span>' : (x.standard ? '<span class="pill">A〜AC 標準</span>' : '<span class="pill warn">列配置が標準と異なる</span>');
         return '<div><b>' + esc(x.name) + '</b>' + pill + (x.exists ? ' <span class="hint">' + x.rows + '台</span>' : '') + '</div>';
       }).join('');
-      el('ocnInfo').textContent = '次に採番される OCN：' + s.nextOcn;
+      el('ocnInfo').textContent = 'OCN は手入力です。次の番号の目安（3シートの最大 + 1）：' + s.nextOcn;
     }
     function loadState() {
       return call('getSetupState').then(renderState).catch(function (e) { msg('basicMsg', e.message, true); });
