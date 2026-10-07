@@ -216,15 +216,21 @@ test('3シート横断の車台番号・登録番号の重複、形式違い、�
   // 販売済みシートには満了間近の強調を付けない
   assert.ok(S.buildCheckRules('販売済み', maps, 30).every((r) => !r.wholeRow));
 });
-test('自動入力の列（車検残・自動計算の列・車検証リンク）は灰色。手入力の列（OCN など）は含めない', () => {
+test('灰色にするのは実際に自動で入る列だけ（見出しに式がある列・フォルダ設定時の車検証リンク）', () => {
   const std = S.resolveColumns(S.STANDARD_HEADERS.slice()).map;
-  const rules = S.buildAutoColumnRules(std);
+  const keys = Array.from(S.autoColumnKeys(std, { inspectionRemain: true, purchasePrice: true }, true));
+  assert.deepStrictEqual(keys.slice().sort(), ['certLink', 'inspectionRemain', 'purchasePrice'].sort());
+  // 下取損が手入力（見出しに式が無い）なら灰色にしない。フォルダ未設定なら車検証リンクも灰色にしない
+  assert.deepStrictEqual(Array.from(S.autoColumnKeys(std, { inspectionRemain: true }, false)), ['inspectionRemain']);
+  const rules = S.buildAutoColumnRules(std, keys);
   assert.strictEqual(rules.length, 1);
   const cols = Array.from(rules[0].columns);
-  ['inspectionRemain', 'certLink', 'tradeInLoss', 'purchasePrice'].forEach((k) => assert.ok(cols.indexOf(S.columnLetter(std[k] + 1)) !== -1, k));
-  ['ocn', 'purchaseDate', 'chassisNumber', 'status', 'appraisalPrice'].forEach((k) => assert.ok(cols.indexOf(S.columnLetter(std[k] + 1)) === -1, k));
+  assert.strictEqual(cols.length, 3);
+  assert.ok(cols.indexOf(S.columnLetter(std.inspectionRemain + 1)) !== -1);
+  assert.ok(cols.indexOf(S.columnLetter(std.ocn + 1)) === -1);
   assert.ok(rules[0].formula.indexOf(S.CF_MARKER) !== -1);
   assert.strictEqual(rules[0].color, S.AUTO_CELL.bg);
+  assert.strictEqual(S.buildAutoColumnRules(std, []).length, 0);
 });
 test('OCN は手入力：全角数字は半角の数値にそろえる', () => {
   assert.strictEqual(S.normalizeCellValue(F('ocn'), '１２３４５', {}).value, 12345);

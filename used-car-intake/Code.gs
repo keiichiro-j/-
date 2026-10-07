@@ -247,8 +247,8 @@ var HEADER_GROUPS = [
   { name: '金額', color: '#2f6a3b', keys: ['tradeInAllowance', 'recycleFee', 'tradeInPrice', 'appraisalPrice', 'tradeInLoss', 'purchasePrice'] }
 ];
 var HEADER_OTHER_COLOR = '#607d8b';   // 標準にない列
-/** 自動入力の列（計算式・車検証リンク）：手入力の列と見分けやすい灰色。見出しも灰色にする */
-var AUTO_CELL = { bg: '#e2e6ea', fg: '#455a64', header: '#78909c' };
+/** 実際に自動で入る列の本文の色（手入力の列と見分けるため。見出しの色はグループの色のまま） */
+var AUTO_CELL = { bg: '#e2e6ea', fg: '#455a64' };
 var BAND_COLORS = ['#ffffff', '#f7f9fb'];
 
 /** 列幅（ピクセル） */
@@ -823,18 +823,28 @@ function buildChipRules(colMap, colorValues) {
   return rules;
 }
 
-/** 自動入力の列か（計算式の列＝車検残・自動計算にした金額の列、車検証リンク） */
-function isAutoField(f) {
-  return f.type === 'formula' || f.type === 'link';
+/**
+ * 実際に自動で入る列のキー。
+ *  - 見出し行に計算式（ARRAYFORMULA）が入っている列（車検残・自動計算にした金額の列）
+ *  - 車検証リンク（車検証保管フォルダが設定されているときだけ。未設定なら自動では入らない）
+ * @param {Object} colMap 列マップ
+ * @param {Object<string,boolean>} headerHasFormula 列キー → 見出しに式があるか
+ * @param {boolean} certAuto 車検証リンクを自動で付けるか
+ */
+function autoColumnKeys(colMap, headerHasFormula, certAuto) {
+  return FIELDS.filter(function (f) {
+    if (colMap[f.key] === undefined) return false;
+    if (f.key === 'certLink') return !!certAuto;
+    return !!headerHasFormula[f.key];
+  }).map(function (f) { return f.key; });
 }
 
 /**
- * 自動入力の列を灰色にする（条件付き書式。1行おきの色より優先して見えるように）。
+ * 実際に自動で入る列の本文を灰色にする（条件付き書式。1行おきの色より上に見えるように）。
  * 入力チェック・プルダウンの色・車検満了間近の行の色より後に置く（それらが優先される）。
  */
-function buildAutoColumnRules(colMap) {
-  var letters = FIELDS.filter(function (f) { return isAutoField(f) && colMap[f.key] !== undefined; })
-    .map(function (f) { return columnLetter(colMap[f.key] + 1); });
+function buildAutoColumnRules(colMap, keys) {
+  var letters = keys.filter(function (k) { return colMap[k] !== undefined; }).map(function (k) { return columnLetter(colMap[k] + 1); });
   if (!letters.length) return [];
   return [{ columns: letters, color: AUTO_CELL.bg, fg: AUTO_CELL.fg, note: '自動入力の列', formula: '=AND(' + CF_MARKER + ')' }];
 }
@@ -1719,7 +1729,11 @@ function reapplyStandards_(ss, report) {
     var checks = buildCheckRules(name, colMaps, settings.expiryDays);
     var rowRules = checks.filter(function (r) { return r.wholeRow; });
     var cellRules = checks.filter(function (r) { return !r.wholeRow; });
-    applyCheckRules_(sheet, cellRules.concat(buildChipRules(cols, colorListValues_())).concat(rowRules).concat(buildAutoColumnRules(cols)));
+    var headerHasFormula = {};
+    var headerFormulas = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 1)).getFormulas()[0];
+    Object.keys(cols).forEach(function (k) { headerHasFormula[k] = !!headerFormulas[cols[k]]; });
+    var autoKeys = autoColumnKeys(cols, headerHasFormula, !!settings.folderCert);
+    applyCheckRules_(sheet, cellRules.concat(buildChipRules(cols, colorListValues_())).concat(rowRules).concat(buildAutoColumnRules(cols, autoKeys)));
   });
   var logSheet = ss.getSheetByName(SHEET.LOG);
   if (logSheet) styleLogSheet_(logSheet);
@@ -1867,7 +1881,7 @@ function applyVisuals_(sheet, cols) {
   var bgs = [], fonts = [], notes = header.getNotes()[0];
   for (var c = 0; c < lastCol; c++) {
     var f = keyAt[c];
-    bgs.push(f ? (isAutoField(f) ? AUTO_CELL.header : headerColorFor(f.key)) : HEADER_OTHER_COLOR);
+    bgs.push(f ? headerColorFor(f.key) : HEADER_OTHER_COLOR);
     fonts.push('#ffffff');
     if (f) notes[c] = headerNoteFor_(f);
   }
@@ -1886,7 +1900,7 @@ function applyVisuals_(sheet, cols) {
     var body = sheet.getRange(2, col, bodyRows, 1);
     body.setHorizontalAlignment(alignmentFor(f));
     // 自動入力の列の灰色は条件付き書式で付ける（1行おきの色の上に出すため）。以前の版で付けた塗りは消す
-    if (f.type === 'ocn' || CALC_KEYS.indexOf(f.key) !== -1 || isAutoField(f)) body.setBackground(null).setFontColor(null);
+    if (f.type === 'ocn' || f.type === 'formula' || f.type === 'link' || CALC_KEYS.indexOf(f.key) !== -1) body.setBackground(null).setFontColor(null);
     if (f.type === 'link') body.setFontColor('#0b57a4');
   });
   // 列幅：文字が収まる幅に自動で合わせる（標準の幅より狭くはしない）
