@@ -100,7 +100,7 @@ function checkRecord_(r, ctx) {
       add('dup', LEVEL.DUP, '同じ月に同じ登録番号があります',
         others.map(function (x) { return md_(x.regDate) + ' ' + (x.inputType === '手入力' ? '手入力' : '取込') + '分（' + x.id + '）'; }).join('、') +
         'と重複しています。' + (sameVin ? '車台番号も同じため、同じPDFの二重取込の可能性が高いです。' :
-          (ctx.useVin !== false ? '車台番号は異なります。' : '')));
+          (ctx.useVin !== false && r.vin && others.every(function (x) { return x.vin; }) ? '車台番号は異なります。' : '')));
     }
     var past = ((ctx.past || {})[key] || []).filter(function (x) { return x.regDate < r.regDate; });
     if (past.length) {

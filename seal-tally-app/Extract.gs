@@ -37,6 +37,7 @@ function normalizeSerial_(raw) {
   var s = String(raw || '').replace(/\s+/g, '').replace(new RegExp('[' + DOTS_ + '.]', 'g'), '・');
   s = s.replace(new RegExp('[' + HYPHENS_ + ']', 'g'), '-');
   if (/^\d{2}-\d{2}$/.test(s)) return s;
+  if (s.indexOf('-') >= 0) return s;   // 「2桁-2桁」でないハイフン入りはそのまま残し、形式チェックで警告にする
   var digits = s.replace(/[・-]/g, '');
   if (/^\d{4}$/.test(digits) && s.indexOf('・') < 0) return digits.slice(0, 2) + '-' + digits.slice(2);
   if (/^\d{1,3}$/.test(digits)) return new Array(4 - digits.length + 1).join('・') + digits;
@@ -222,9 +223,12 @@ function extractRegDate_(raw, opt) {
   var label = '登録年月日';
   var li = c.indexOf(label);
   if (li >= 0) {
-    var after = findDates_(c.slice(li + label.length, li + label.length + 120)).filter(function (x) {
-      return !opt.today || x.date <= opt.today;   // 有効期間の満了日など未来の日付は採らない
-    });
+    // ラベル直後の日付は未来でも採る（未来日はチェックで「誤りの疑い」にする）。
+    // ただし「有効期間の満了する日」のラベルより後は窓に含めない
+    var win = c.slice(li + label.length, li + label.length + 120);
+    var stop = win.indexOf('有効期間');
+    if (stop >= 0) win = win.slice(0, stop);
+    var after = findDates_(win);
     if (after.length) return { date: after[0].date, candidates: [after[0].date], via: 'label' };
   }
   var all = findDates_(c).map(function (x) { return x.date; });

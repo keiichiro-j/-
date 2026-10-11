@@ -103,8 +103,14 @@ test('ラベルなし：候補2つでも許容差内なら近い方', () => {
   eq(G.extractRegDate_('令和8年10月9日 令和8年10月6日', OPT).date, '2026-10-09');
 });
 test('空白が入った日付', () => eq(G.extractRegDate_('登 録 年 月 日 令 和 8 年 1 0 月 9 日', OPT).date, '2026-10-09'));
-test('ラベル直後でも未来の日付（満了日）は採らない', () => {
+test('ラベル直後の満了日は採らない', () => {
   eq(G.extractRegDate_('登録年月日/交付年月日 有効期間の満了する日 令和11年10月8日 令和8年10月9日', OPT).date, '2026-10-09');
+});
+test('ラベル直後の未来日は採って未来日チェックに任せる', () => {
+  eq(G.extractRegDate_('登録年月日/交付年月日 令和8年10月20日 備考 令和8年10月1日', OPT).date, '2026-10-20');
+});
+test('形式に合わないハイフン入り一連番号は変換しない', () => {
+  eq([G.normalizeSerial_('6-78'), G.normalizeSerial_('1213'), G.normalizeSerial_('7')], ['6-78', '12-13', '・・・7']);
 });
 test('和暦表示（平成・令和元年）', () => {
   eq([G.wareki_('2019-04-30'), G.wareki_('2019-05-01')], ['平成31年4月30日', '令和元年5月1日']);
@@ -133,6 +139,10 @@ test('同月の重複（車台番号同じ）', () => {
 test('同月の重複（車台番号違う）', () => {
   const l = run([rec({ id: 'F1' }), rec({ id: 'F2', vin: 'V-2' })]);
   assert.strictEqual(l[1].status, '重複'); assert.ok(/車台番号は異なります/.test(l[1].checks[0].msg));
+});
+test('車台番号が空の明細との重複で「車台番号は異なります」と言わない', () => {
+  const l = run([rec({ id: 'F1' }), rec({ id: 'F2', vin: '', inputType: '手入力' })]);
+  assert.ok(!/車台番号は異なります/.test(l[0].checks[0].msg));
 });
 test('片方を除外すれば重複は解消', () => {
   const l = run([rec({ id: 'F1' }), rec({ id: 'F2', excluded: true, excludeReason: 'x' })]);
