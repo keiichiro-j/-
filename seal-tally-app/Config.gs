@@ -170,6 +170,11 @@ function coerceSetting_(v) {
   return v;
 }
 
+/** 比較用の文字列（true と "TRUE" を同じとみなす） */
+function settingText_(v) {
+  return typeof v === 'boolean' ? (v ? 'TRUE' : 'FALSE') : String(v == null ? '' : v);
+}
+
 function getSetting_(key) { return getSettings_()[key]; }
 
 /** 設定をまとめて保存する。変更前後を返す */
@@ -183,7 +188,7 @@ function setSettings_(obj) {
     var v = obj[key];
     if (index[key] !== undefined) {
       var before = values[index[key]][1];
-      if (String(before) !== String(v)) {
+      if (settingText_(before) !== settingText_(v)) {
         changes.push({ key: key, before: before, after: v });
         values[index[key]][1] = v;
       }

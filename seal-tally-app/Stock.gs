@@ -121,3 +121,123 @@ function validateStockInput_(input, closedMonths) {
   if (input.date && closedMonths && closedMonths[String(input.date).slice(0, 7)]) errs.push('締め済みの月には登録できません');
   return errs;
 }
+
+/* ================= GAS 処理 ================= */
+
+/**
+ * 残数計算用の ctx を作る（startMonth/startCarry/closings/stock/records）。
+ * closings は締め済み（closed=TRUE）の行だけを {yyyy-MM: {A:{left}, ...}} にまとめる。
+ * @param {Object[]=} records 読み込み済みの明細
+ */
+function stockCtx_(records) {
+  var s = getSettings_();
+  var closings = {};
+  readAll_(SHEET.CLOSING).forEach(function (c) {
+    if (!c.closed || !c.month || !c.unit) return;
+    (closings[c.month] = closings[c.month] || {})[c.unit] = { left: c.left };
+  });
+  var carry = {};
+  UNITS.forEach(function (u) { carry[u] = Number(s['start.carry.' + u]) || 0; });
+  return {
+    startMonth: startMonth_(),
+    startCarry: carry,
+    closings: closings,
+    stock: readAll_(SHEET.STOCK),
+    records: records || readAll_(SHEET.RECORDS)
+  };
+}
+
+/**
+ * 受入・調整を登録する（ロックは呼び出し側で取る）。
+ * @param {{kind, date, unit, qty, memo}} input
+ * @return {Object} 追加した行
+ */
+function addStock_(input) {
+  input = input || {};
+  var clean = {
+    kind: String(input.kind || ''), date: String(input.date || '').trim(), unit: String(input.unit || ''),
+    qty: Number(input.qty), memo: String(input.memo || '').trim()
+  };
+  var errs = validateStockInput_(clean, closedMonths_());
+  if (!errs.length && !isYmdStr_(clean.date)) errs.push('日付を正しく入力してください');
+  if (!errs.length && clean.date.slice(0, 7) < startMonth_()) errs.push('稼働開始月より前の日付は登録できません');
+  if (errs.length) throw userError_(errs.join('\n'));
+  var rows = readAll_(SHEET.STOCK);
+  var row = {
+    id: nextStockId_(rows), kind: clean.kind, date: clean.date, unit: clean.unit, qty: clean.qty,
+    memo: clean.memo, canceled: false, by: actor_(), at: nowStr_()
+  };
+  appendRows_(SHEET.STOCK, [row]);
+  audit_(clean.kind + '登録', row.id, '', '', '',
+    UNIT_LABELS[clean.unit] + ' ' + clean.date + ' ' + (clean.kind === '調整' ? '−' : '+') + clean.qty + '個' +
+    (clean.memo ? '（' + clean.memo + '）' : ''));
+  return row;
+}
+
+/**
+ * 受入・調整の取消 ⇔ 取消の取り消し（ロックは呼び出し側で取る）。
+ * @return {Object} 更新後の行
+ */
+function toggleStock_(id) {
+  var rows = readAll_(SHEET.STOCK);
+  var row = null;
+  rows.forEach(function (x) { if (x.id === id) row = x; });
+  if (!row) throw userError_('その受入・調整の記録は見つかりません');
+  if (closedMonths_()[String(row.date).slice(0, 7)]) throw userError_('締め済みの月の受入・調整は変更できません');
+  var before = row.canceled;
+  row.canceled = !row.canceled;
+  updateRows_(SHEET.STOCK, [row]);
+  audit_(row.canceled ? row.kind + 'の取消' : '取消の取り消し', row.id, '取消', before, row.canceled,
+    UNIT_LABELS[row.unit] + ' ' + row.date + ' ' + row.qty + '個');
+  return row;
+}
+
+/** 集計単位の直近の受入日（取消を除く。無ければ空） */
+function lastReceiptDate_(stock, unit) {
+  var last = '';
+  activeStock_(stock, unit).forEach(function (x) {
+    if (x.kind !== '調整' && String(x.date) > last) last = String(x.date);
+  });
+  return last;
+}
+
+/**
+ * 残数通知の判定と送信。しきい値を下回った時点で1回だけ送り、
+ * 回復したら送信済みフラグ（notify.lowSent.*）を戻す。
+ * @param {Object[]=} records 読み込み済みの明細
+ */
+function checkLowStock_(records) {
+  var month = thisMonth_();
+  if (month < startMonth_()) return;
+  var s = getSettings_();
+  var ctx = stockCtx_(records);
+  var sum = stockSummary_(month, ctx);
+  var th = Number(s['notify.lowStock']);
+  if (isNaN(th)) th = 10;
+  var updates = {};
+  var toSend = [];
+  UNITS.forEach(function (u) {
+    var key = 'notify.lowSent.' + u;
+    var sent = isTrue_(s[key]);
+    var d = lowStockDecision_(sum[u].left, th, sent);
+    if (d.send) toSend.push(u);
+    else if (d.flag !== sent) updates[key] = d.flag ? 'TRUE' : 'FALSE';
+  });
+  if (toSend.length) {
+    var lines = toSend.map(function (u) {
+      var last = lastReceiptDate_(ctx.stock, u);
+      return '・' + UNIT_LABELS[u] + '：現在の残数 ' + sum[u].left + '個（直近の受入日：' +
+        (last ? wareki_(last) : 'なし') + '）';
+    });
+    var body = '封印の残数が ' + th + '個 を下回りました。\n\n' + lines.join('\n') +
+      '\n\n支局からの受入を手配してください。受入後はアプリの「受入・調整」で登録してください。' +
+      (s['app.url'] ? '\n\nアプリ：' + s['app.url'] : '');
+    try {
+      sendNotice_(notifyRecipients_(), '【' + APP_TITLE + '】封印の残数が少なくなっています', body);
+      toSend.forEach(function (u) { updates['notify.lowSent.' + u] = 'TRUE'; });
+    } catch (e) {
+      console.error('残数通知の送信に失敗しました: ' + e);
+    }
+  }
+  if (Object.keys(updates).length) setSettings_(updates);
+}
