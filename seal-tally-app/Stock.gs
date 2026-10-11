@@ -216,22 +216,29 @@ function checkLowStock_(records) {
   if (isNaN(th)) th = 10;
   var updates = {};
   var toSend = [];
+  // 今日時点の残数（今月の今日までの動き。今日より後の日付の受入・封印は含めない）
+  var today = todayStr_();
+  var nowLeft = {};
+  UNITS.forEach(function (u) {
+    nowLeft[u] = sum[u].carry;
+    sum[u].days.forEach(function (x) { if (x.date <= today) nowLeft[u] = x.balance; });
+  });
   UNITS.forEach(function (u) {
     var key = 'notify.lowSent.' + u;
     var sent = isTrue_(s[key]);
-    var d = lowStockDecision_(sum[u].left, th, sent);
+    var d = lowStockDecision_(nowLeft[u], th, sent);
     if (d.send) toSend.push(u);
     else if (d.flag !== sent) updates[key] = d.flag ? 'TRUE' : 'FALSE';
   });
   if (toSend.length) {
     var lines = toSend.map(function (u) {
       var last = lastReceiptDate_(ctx.stock, u);
-      return '・' + UNIT_LABELS[u] + '：現在の残数 ' + sum[u].left + '個（直近の受入日：' +
+      return '・' + UNIT_LABELS[u] + '：現在の残数 ' + nowLeft[u] + '個（直近の受入日：' +
         (last ? wareki_(last) : 'なし') + '）';
     });
     var body = '封印の残数が ' + th + '個 を下回りました。\n\n' + lines.join('\n') +
       '\n\n支局からの受入を手配してください。受入後はアプリの「受入・調整」で登録してください。' +
-      (s['app.url'] ? '\n\nアプリ：' + s['app.url'] : '');
+      (appUrl_() ? '\n\nアプリ：' + appUrl_() : '');
     try {
       sendNotice_(notifyRecipients_(), '【' + APP_TITLE + '】封印の残数が少なくなっています', body);
       toSend.forEach(function (u) { updates['notify.lowSent.' + u] = 'TRUE'; });

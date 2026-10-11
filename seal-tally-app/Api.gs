@@ -208,7 +208,13 @@ function buildPayload_(month, user) {
     review: review.map(function (r) { return toView_(r, closed); }),
     stock: stock,
     stockRows: stockRows,
-    closings: closed,
+    closings: (function () {
+      var out = {};
+      Object.keys(closed).forEach(function (m) {
+        out[m] = { closed: true, by: names[String(closed[m].by).toLowerCase()] || closed[m].by, at: closed[m].at };
+      });
+      return out;
+    })(),
     settings: {
       folders: folders,
       autoEnabled: s['auto.enabled'] !== false,
@@ -269,11 +275,23 @@ function validateRecordValues_(r) {
   if (r.brand && ['A', 'B'].indexOf(r.brand) < 0) errs.push('ブランドは A または B を選んでください');
   if (r.nc && ['新', '中'].indexOf(r.nc) < 0) errs.push('新中は「新」または「中」を選んでください');
   if (r.kana && r.kana.length !== 1) errs.push('ひらがなは1文字で入力してください');
-  if (r.cls && r.cls.length > 4) errs.push('分類番号は3桁以内で入力してください');
+  if (r.cls && r.cls.length > 3) errs.push('分類番号は3文字以内で入力してください');
   if (r.num && r.num.length > 6) errs.push('一連番号の形式が正しくありません（例：12-34、・・・1）');
   if (r.noSeal && !r.noSealReason) errs.push('封印なしの理由を入力してください');
   if (r.inputType === '手入力' && !r.manualReason) errs.push('手入力の理由を選んでください');
+  else if (r.inputType === '手入力' && MANUAL_REASONS.indexOf(r.manualReason) < 0) {
+    errs.push('手入力の理由は「' + MANUAL_REASONS.join('」「') + '」から選んでください');
+  }
   return errs;
+}
+
+/** 明細の必須項目（登録番号4項目・ブランド・新中）。除外・封印なしでも空にはできない */
+var REQUIRED_RECORD_FIELDS_ = { area: '地域名', cls: '分類番号', kana: 'ひらがな', num: '一連番号', brand: 'ブランド', nc: '新中' };
+
+/** 必須項目の不足を理由文にする（不足が無ければ空） */
+function missingFieldsMsg_(r, labels) {
+  var miss = Object.keys(labels).filter(function (k) { return !r[k]; }).map(function (k) { return labels[k]; });
+  return miss.length ? '次の項目を入力してください：' + miss.join('、') : '';
 }
 
 /**
@@ -330,6 +348,8 @@ function apiSaveRecord(id, patch, month) {
       Object.keys(r).forEach(function (k) { next[k] = r[k]; });
       Object.keys(v).forEach(function (k) { next[k] = v[k]; });
       if (!next.noSeal) next.noSealReason = '';
+      var miss = missingFieldsMsg_(next, REQUIRED_RECORD_FIELDS_);
+      if (miss) throw userError_(miss);
       var errs = validateRecordValues_(next);
       if (errs.length) throw userError_(errs.join('\n'));
       var entries = [];
@@ -411,9 +431,8 @@ function apiAddManual(input, month) {
   return withApi_(function () {
     var user = requireRole_(ROLE.EDITOR);
     var v = normalizeRecordInput_(input || {});
-    var labels = { area: '地域名', cls: '分類番号', kana: 'ひらがな', num: '一連番号', regDate: '封印した日', brand: 'ブランド', nc: '新中', manualReason: '手入力の理由' };
-    var missing = Object.keys(labels).filter(function (k) { return !v[k]; }).map(function (k) { return labels[k]; });
-    if (missing.length) throw userError_('次の項目を入力してください：' + missing.join('、'));
+    var miss = missingFieldsMsg_(v, { area: '地域名', cls: '分類番号', kana: 'ひらがな', num: '一連番号', regDate: '封印した日', brand: 'ブランド', nc: '新中', manualReason: '手入力の理由' });
+    if (miss) throw userError_(miss);
     v.inputType = '手入力';
     var errs = validateRecordValues_(v);
     if (errs.length) throw userError_(errs.join('\n'));
@@ -614,9 +633,14 @@ function apiSaveSettings(input, month) {
         updateRows_(SHEET.RECORDS, changed);
         regen = regen.concat(changed.map(monthOfRecord_));
       }
-      if (has(/^start\.carry\./) || has(/^output\.yearly$/)) {
-        for (var m = startMonth_(), g = 0; m <= thisMonth_() && g < 600; m = nextMonth_(m), g++) {
-          if (!closed[m] || has(/^output\.yearly$/)) regen.push(m);
+      if (has(/^start\.carry\./)) regen.push(startMonth_());
+      if (has(/^output\.yearly$/)) {
+        // ファイルの分け方が変わったので、締め済みの月も含めて全期間のシートを新しいファイルに作る
+        // （締め済みの月は締めたときと同じ管理データから作るので数字は変わらない）
+        var all = [];
+        for (var m = startMonth_(), g = 0; m <= thisMonth_() && g < 600; m = nextMonth_(m), g++) all.push(m);
+        try { regenerateReports_(all, { records: records, force: true, exact: true }); } catch (e) {
+          notes.push('帳票の再生成に失敗しました（' + e.message + '）');
         }
       }
       if (regen.length || has(/^notify\.lowStock$/) || has(/^start\.carry\./)) {
@@ -748,7 +772,7 @@ function apiSaveUsers(users, month) {
 function apiRunImportNow(month) {
   return withApi_(function () {
     var user = requireRole_(ROLE.EDITOR);
-    var r = importNow_();
+    var r = importNow_({ budgetMs: IMPORT_MANUAL_BUDGET_MS_ });
     if (r.busy) throw userError_('取込などの処理が実行中です。しばらくしてからもう一度お試しください');
     var result = { imported: r.imported, skipped: r.skipped, review: r.review, errors: r.errors, remaining: r.remaining };
     var msg = '取込 ' + r.imported + '件（うち要確認 ' + r.review + '件）・対象外 ' + r.skipped + '件' +

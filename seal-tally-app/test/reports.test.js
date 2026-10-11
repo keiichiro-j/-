@@ -89,4 +89,19 @@ module.exports = function (G, { test, eq, assert, run, rec }) {
     eq(g.values[9].slice(2, 6), ['', -1, 1, 74]);
     eq(g.values[g.values.length - 1].slice(0, 6), ['合計', '', 50, -1, 4, 74]);
   });
+  test('締めの可否：登録日のない未確定明細（候補にその月／候補なしで取込が翌月）も数える', () => {
+    const list = run([
+      rec({ id: 'P1', regDate: '', dateCandidates: ['2026-10-30', '2026-11-02'], importedAt: '2026-11-03 09:00' }),
+      rec({ id: 'P2', regDate: '', dateCandidates: [], importedAt: '2026-11-02 09:00' }),
+      rec({ id: 'P3', regDate: '', dateCandidates: ['2026-11-02'], importedAt: '2026-11-03 09:00' }),
+      rec({ id: 'P4', regDate: '', dateCandidates: [], importedAt: '2026-12-01 09:00' })
+    ]);
+    eq(G.blockingCounts_(list, '2026-10'), { dup: 0, pend: 0, warn: 0, total: 0 });
+    eq(G.closeBlockingCounts_(list, '2026-10'), { dup: 0, pend: 2, warn: 0, total: 2 });
+  });
+  test('帳票ファイル内のシート順：台数集計書・報告書はブランドA・ブランドB・愛知', () => {
+    const k = (n, d) => G.reportSheetOrderKey_(n, d).idx;
+    eq([k('10月_ブランドA', 'count'), k('10月_ブランドB', 'count'), k('10月_愛知', 'count')], [0, 1, 2]);
+    eq([k('10月_ブランドA新車', 'detail'), k('10月_愛知', 'detail')], [0, 4]);
+  });
 };

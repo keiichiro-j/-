@@ -49,8 +49,18 @@ function onOpen() {
     .addToUi();
 }
 
+/**
+ * 利用者のいる実行（google.script.run・エディタ・メニュー）では管理者だけに許す。
+ * トリガーからの実行（利用者のメールが取れない）はそのまま通す。
+ * 末尾に _ の無い関数は google.script.run からも呼べ、デプロイした管理者の権限で動くため、入口で必ず確認する。
+ */
+function guardEntry_() {
+  if (currentEmail_()) requireRole_(ROLE.ADMIN);
+}
+
 /** メニュー：今すぐ取込 */
 function menuImportNow() {
+  requireRole_(ROLE.ADMIN);
   var r = importNow_();
   var ui = SpreadsheetApp.getUi();
   if (r.busy) { ui.alert('別の処理が実行中です。しばらくしてからもう一度お試しください。'); return; }
@@ -60,6 +70,7 @@ function menuImportNow() {
 
 /** メニュー：今月の帳票を作り直す */
 function menuRegenerateReports() {
+  requireRole_(ROLE.ADMIN);
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try { regenerateReports_([thisMonth_()]); } finally { lock.releaseLock(); }
@@ -68,8 +79,8 @@ function menuRegenerateReports() {
 
 /** メニュー：Webアプリを開く */
 function menuOpenWebApp() {
-  var url = getSetting_('app.url');
-  if (!url) { try { url = ScriptApp.getService().getUrl(); } catch (e) { url = ''; } }
+  requireRole_(ROLE.ADMIN);
+  var url = appUrl_();
   if (!url) {
     SpreadsheetApp.getUi().alert('WebアプリのURLがありません。ウェブアプリとしてデプロイし、設定シートの app.url にURLを入れてください。');
     return;
@@ -83,12 +94,14 @@ function menuOpenWebApp() {
 
 /** メニュー：トリガーを設定し直す */
 function menuReinstallTriggers() {
+  requireRole_(ROLE.ADMIN);
   var msg = reinstallTriggers_();
   SpreadsheetApp.getUi().alert(msg);
 }
 
 /**
- * 初期セットアップ（何度実行してもよい）。
+ * 初期セットアップ（何度実行してもよい。2回目以降は管理者のみ）。
+ * setup・ウェブアプリのデプロイ・トリガーの設定は同じ管理者アカウントで行うこと（トリガーは実行者の権限で動くため）。
  * - 全シートを COLUMNS の見出しで作成、文字列書式にする
  * - 地域名マスタ・設定の初期値（既存の値は残す）
  * - 利用者シートに実行者を管理者で登録
@@ -97,6 +110,8 @@ function menuReinstallTriggers() {
  * - トリガーの作成
  */
 function setup() {
+  // 利用者シートが空の初回だけは実行者を管理者として登録して進める。2回目以降は管理者のみ
+  if (readAll_(SHEET.USERS).length) requireRole_(ROLE.ADMIN);
   var ss = getSs_();
   Object.keys(SHEET).forEach(function (k) {
     var name = SHEET[k];

@@ -38,6 +38,13 @@ function startMonth_() {
   return isMonthStr_(v) ? v : '2026-10';
 }
 
+/** WebアプリのURL（app.url が空ならデプロイのURL。取れなければ空） */
+function appUrl_() {
+  var url = String(getSetting_('app.url') || '').trim();
+  if (url) return url;
+  try { return String(ScriptApp.getService().getUrl() || ''); } catch (e) { return ''; }
+}
+
 /** 利用者に見せる理由文つきの例外を作る（Api の withApi_ がそのまま画面に返す） */
 function userError_(msg) {
   var e = new Error(msg);
@@ -298,7 +305,19 @@ function getHolidays_(fromYmd, toYmd) {
   return out;
 }
 
-/** カレンダーから1か月分の祝日を取る（説明が「祝日」のもの。節分などの行事は除く） */
+/** 祝日として扱うタイトル（「日本の祝日」カレンダーの節分・七夕などの行事は除く） */
+var HOLIDAY_NAMES_ = ['元日', '成人の日', '建国記念の日', '天皇誕生日', '春分の日', '昭和の日', '憲法記念日', 'みどりの日',
+  'こどもの日', '海の日', '山の日', '敬老の日', '秋分の日', 'スポーツの日', '文化の日', '勤労感謝の日', '振替休日', '国民の休日'];
+
+/** カレンダーのイベントが祝日か（説明欄が「祝日」または空で、タイトルが既知の祝日名を含むもの） */
+function isHolidayEvent_(title, desc) {
+  var d = String(desc || '').trim();
+  if (d && d.indexOf('祝日') < 0) return false;
+  var t = String(title || '');
+  return HOLIDAY_NAMES_.some(function (n) { return t.indexOf(n) >= 0; });
+}
+
+/** カレンダーから1か月分の祝日を取る */
 function fetchHolidaysOfMonth_(ym) {
   var cal = CalendarApp.getCalendarById(HOLIDAY_CALENDAR_ID);
   if (!cal) throw new Error('祝日カレンダーを開けません');
@@ -306,8 +325,7 @@ function fetchHolidaysOfMonth_(ym) {
   var events = cal.getEvents(new Date(p[0], p[1] - 1, 1), new Date(p[0], p[1], 1));
   var map = {};
   events.forEach(function (ev) {
-    var desc = String(ev.getDescription() || '');
-    if (desc && desc.indexOf('祝日') < 0) return;
+    if (!isHolidayEvent_(ev.getTitle(), ev.getDescription())) return;
     map[fmtDate_(ev.getStartTime(), 'yyyy-MM-dd')] = ev.getTitle();
   });
   return map;

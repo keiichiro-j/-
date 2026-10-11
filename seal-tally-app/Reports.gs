@@ -56,6 +56,27 @@ function blockingCounts_(records, month) {
   return b;
 }
 
+/**
+ * 締めの可否判定に使う件数。blockingCounts_ に加えて、登録日のない未確定明細のうち
+ * 登録日候補にその月が含まれるもの、または候補がなく取込日時がその月か翌月のものも数える。
+ */
+function closeBlockingCounts_(records, month) {
+  var b = blockingCounts_(records, month);
+  var next = nextMonth_(month);
+  records.forEach(function (r) {
+    if (r.regDate || !isBlocking_(r) || monthOfRecord_(r) === month) return;
+    var c = r.dateCandidates || [];
+    var hit = c.length ? c.some(function (d) { return String(d).slice(0, 7) === month; }) :
+      String(r.importedAt || '').slice(0, 7) === next;
+    if (!hit) return;
+    if (r.status === STATUS.DUP) b.dup++;
+    else if (r.status === STATUS.WARN) b.warn++;
+    else b.pend++;
+    b.total++;
+  });
+  return b;
+}
+
 /** 明細書のシート定義 [キー, 表示名, 集計単位, 新中] に明細が当てはまるか */
 function matchesDetailSheet_(r, def) {
   return r.unit === def[2] && (def[3] === '' || r.nc === def[3]);
@@ -151,7 +172,7 @@ function buildReportData_(month, records, stockCtx, holidays, closedFlag, opts) 
   return {
     month: month,
     closed: !!closedFlag,
-    blocking: blockingCounts_(records, month),
+    blocking: closeBlockingCounts_(records, month),
     files: {
       detail: reportFileName_('detail', month, yearly),
       count: reportFileName_('count', month, yearly),
@@ -265,7 +286,7 @@ function colNum_(c) {
 
 /* ================= GAS 処理 ================= */
 
-/** 帳票ファイルのIDを設定から読む（年ごとなら JSON {"2026":"id"}） */
+/** 帳票ファイルのIDを設定から読む（JSON {"2026":"年ごとのファイルID","all":"1ファイルのときのID"}。旧形式の単一IDは all） */
 function reportFileIdMap_(docKey) {
   var raw = String(getSetting_(DOC_TYPES[docKey].settingKey) || '').trim();
   if (!raw) return {};
@@ -291,16 +312,25 @@ function reportSpreadsheet_(docKey, month, yearly, create) {
     try { return SpreadsheetApp.openById(id); } catch (e) { console.warn('帳票ファイルを開けません: ' + id); }
   }
   if (!create) return null;
-  var ss = SpreadsheetApp.create(reportFileName_(docKey, month, yearly));
-  try { DriveApp.getFileById(ss.getId()).moveTo(rootFolder_()); } catch (e) { console.warn('帳票ファイルを移動できません: ' + e); }
-  var map = reportFileIdMap_(docKey);
-  var obj = {};
-  if (yearly === false) obj[DOC_TYPES[docKey].settingKey] = ss.getId();
-  else {
-    delete map.all;
-    map[String(month).slice(0, 4)] = ss.getId();
-    obj[DOC_TYPES[docKey].settingKey] = JSON.stringify(map);
+  var name = reportFileName_(docKey, month, yearly);
+  var root = rootFolder_();
+  var ss = null;
+  // 設定から ID が消えていても、同じ名前の帳票ファイルがあればそれを使う（同名ファイルを増やさない）
+  try {
+    var it = root.getFilesByName(name);
+    while (!ss && it.hasNext()) {
+      var f = it.next();
+      if (f.getMimeType() === MimeType.GOOGLE_SHEETS && !f.isTrashed()) ss = SpreadsheetApp.openById(f.getId());
+    }
+  } catch (e) { console.warn('同名の帳票ファイルを探せません: ' + e); }
+  if (!ss) {
+    ss = SpreadsheetApp.create(name);
+    try { DriveApp.getFileById(ss.getId()).moveTo(root); } catch (e) { console.warn('帳票ファイルを移動できません: ' + e); }
   }
+  var map = reportFileIdMap_(docKey);
+  map[yearly === false ? 'all' : String(month).slice(0, 4)] = ss.getId();
+  var obj = {};
+  obj[DOC_TYPES[docKey].settingKey] = JSON.stringify(map);
   setSettings_(obj);
   return ss;
 }
@@ -313,19 +343,19 @@ function protectReportSheet_(sh) {
   if (p.canDomainEdit()) p.setDomainEdit(false);
 }
 
-/** シート名から並び順のキーを作る（新しい月が左、同じ月はシート定義順） */
-function reportSheetOrderKey_(name) {
+/** シート名から並び順のキーを作る（新しい月が左、同じ月はその帳票のシート定義順） */
+function reportSheetOrderKey_(name, docKey) {
   var m = String(name).match(/^(?:(\d{4})年)?(\d{1,2})月_(.+)$/);
   if (!m) return null;
-  var labels = DETAIL_SHEETS.map(function (d) { return d[1]; }).concat(UNIT_SHEETS.map(function (d) { return d[1]; }));
+  var labels = (docKey === 'detail' ? DETAIL_SHEETS : UNIT_SHEETS).map(function (d) { return d[1]; });
   var idx = labels.indexOf(m[3]);
   return { ym: (m[1] || '0000') + '-' + pad2_(Number(m[2])), idx: idx < 0 ? 99 : idx };
 }
 
 /** 帳票ファイルのシートを「新しい月が左端」に並べ直す */
-function orderReportSheets_(ss) {
+function orderReportSheets_(ss, docKey) {
   var sheets = ss.getSheets();
-  var keyed = sheets.map(function (sh, i) { return { sh: sh, key: reportSheetOrderKey_(sh.getName()), i: i }; });
+  var keyed = sheets.map(function (sh, i) { return { sh: sh, key: reportSheetOrderKey_(sh.getName(), docKey), i: i }; });
   keyed.sort(function (a, b) {
     if (a.key && !b.key) return -1;
     if (!a.key && b.key) return 1;
@@ -391,17 +421,25 @@ function writeStandardSheet_(sh, docKey, sec, data) {
  * 1行に入りきらない登録番号（maxPerRow 超え）は、暫定で最後のセルを「ほかn件」にする（扱いはレイアウト受領時に決める）。
  */
 function fillTemplateSheet_(sh, docKey, sec, data, layout) {
-  var put = function (a1, v) { if (a1) sh.getRange(a1).setValue(v); };
-  var col = function (c, rows) {
-    if (!c || !layout.startRow) return;
-    sh.getRange(Number(layout.startRow), colNum_(c), rows.length, 1).setValues(rows.map(function (v) { return [v]; }));
+  // 文字列のセルは差し込む前に文字列書式にする（「10/19」などが日付に変換されないように）
+  var put = function (a1, v, text) {
+    if (!a1) return;
+    var r = sh.getRange(a1);
+    if (text) r.setNumberFormat('@');
+    r.setValue(v);
   };
-  put(layout.monthCell, monthLabelLong_(data.month));
-  put(layout.titleCell, sec.label);
-  put(layout.unitCell, UNIT_LABELS[sec.unit]);
+  var col = function (c, rows, text) {
+    if (!c || !layout.startRow) return;
+    var r = sh.getRange(Number(layout.startRow), colNum_(c), rows.length, 1);
+    if (text) r.setNumberFormat('@');
+    r.setValues(rows.map(function (v) { return [v]; }));
+  };
+  put(layout.monthCell, monthLabelLong_(data.month), true);
+  put(layout.titleCell, sec.label, true);
+  put(layout.unitCell, UNIT_LABELS[sec.unit], true);
   if (docKey === 'detail') {
-    col(layout.dateCol, sec.rows.map(function (r) { return reportDay_(r.date); }));
-    col(layout.dowCol, sec.rows.map(reportDow_));
+    col(layout.dateCol, sec.rows.map(function (r) { return reportDay_(r.date); }), true);
+    col(layout.dowCol, sec.rows.map(reportDow_), true);
     col(layout.countCol, sec.rows.map(function (r) { return r.count; }));
     if (layout.plateCol && layout.startRow) {
       var per = Number(layout.maxPerRow) || sec.maxCols;
@@ -410,13 +448,13 @@ function fillTemplateSheet_(sh, docKey, sec, data, layout) {
         if (r.plates.length > per) p[per - 1] = 'ほか' + (r.plates.length - per + 1) + '件';
         return padRow_(p, per);
       });
-      sh.getRange(Number(layout.startRow), colNum_(layout.plateCol), grid.length, per).setValues(grid);
+      sh.getRange(Number(layout.startRow), colNum_(layout.plateCol), grid.length, per).setNumberFormat('@').setValues(grid);
     }
     put(layout.totalCell, sec.total);
   } else if (docKey === 'count') {
     put(layout.carryCell, sec.carry);
-    col(layout.dateCol, sec.rows.map(function (r) { return reportDay_(r.date); }));
-    col(layout.dowCol, sec.rows.map(reportDow_));
+    col(layout.dateCol, sec.rows.map(function (r) { return reportDay_(r.date); }), true);
+    col(layout.dowCol, sec.rows.map(reportDow_), true);
     col(layout.receivedCol, sec.rows.map(function (r) { return r.received || ''; }));
     col(layout.adjustedCol, sec.rows.map(function (r) { return r.adjusted ? -r.adjusted : ''; }));
     col(layout.usedCol, sec.rows.map(function (r) { return r.used || ''; }));
@@ -437,12 +475,22 @@ function fillTemplateSheet_(sh, docKey, sec, data, layout) {
 }
 
 /**
+ * テンプレートのシート。帳票ファイル内の「テンプレート」、無ければ管理用スプレッドシートの
+ * 「テンプレート_明細書」「テンプレート_台数集計書」「テンプレート_報告書」。どちらも無ければ null。
+ */
+function templateSourceFor_(ss, docKey) {
+  var t = ss.getSheetByName(TEMPLATE_SHEET_NAME_);
+  if (t) return t;
+  try { return getSs_().getSheetByName(TEMPLATE_SHEET_NAME_ + '_' + DOC_TYPES[docKey].label); } catch (e) { return null; }
+}
+
+/**
  * 1つの帳票ファイルに、その月のシートを書く。
  * @param {boolean} create シートが無いときに作るか（その月に明細・受入がまだ無ければ作らない）
  */
 function writeReportDoc_(ss, docKey, data, create) {
   var layout = parseLayout_(getSetting_('layout.' + docKey));
-  var tpl = layout ? ss.getSheetByName(TEMPLATE_SHEET_NAME_) : null;
+  var tpl = layout ? templateSourceFor_(ss, docKey) : null;
   var inserted = false;
   data[docKey].forEach(function (sec) {
     var sh = ss.getSheetByName(sec.sheetName);
@@ -461,23 +509,44 @@ function writeReportDoc_(ss, docKey, data, create) {
   });
   if (inserted) {
     removeDefaultSheets_(ss);
-    orderReportSheets_(ss);
+    orderReportSheets_(ss, docKey);
   }
 }
 
 /**
+ * 帳票を作り直す月を決める。変更された月の繰越は翌月以降に響くので、変更月〜今月の未締めの月すべて。
+ * 締め済みの月は対象にしない（force のときだけ指定月そのものを含める）。
+ */
+function monthsToRegenerate_(months, closed, force) {
+  var start = startMonth_();
+  var now = thisMonth_();
+  var out = {};
+  uniq_(months || []).forEach(function (m) {
+    if (!isMonthStr_(m) || m < start) return;
+    if (force) out[m] = true;
+    for (var x = m, g = 0; g < 600 && (x <= now || x === m); x = nextMonth_(x), g++) {
+      if (!closed[x]) out[x] = true;
+    }
+  });
+  return Object.keys(out).sort();
+}
+
+/**
  * 指定した月の帳票（3ファイル・各月のシート）を作り直す。
+ * 指定月〜今月の未締めの月をまとめて作り直し、締め済みの月は作り直さない。
  * @param {string[]} months "yyyy-MM" の配列
- * @param {{records:Object[]}=} pre 読み込み済みの明細（同じ実行内で読み直さないため）
+ * @param {{records:Object[], force:boolean, exact:boolean}=} pre records：読み込み済みの明細、
+ *   force：締め済みでも指定月を作り直す（締めの直後）、exact：翌月以降に広げない
  */
 function regenerateReports_(months, pre) {
-  var start = startMonth_();
-  var list = uniq_(months || []).filter(function (m) { return isMonthStr_(m) && m >= start; }).sort();
+  pre = pre || {};
+  var closed = closedMonths_();
+  var list = pre.exact ? uniq_(months || []).filter(function (m) { return isMonthStr_(m) && m >= startMonth_() && (pre.force || !closed[m]); }).sort() :
+    monthsToRegenerate_(months, closed, pre.force);
   if (!list.length) return;
   var yearly = getSetting_('output.yearly') !== false;
-  var records = (pre && pre.records) || readAll_(SHEET.RECORDS);
+  var records = pre.records || readAll_(SHEET.RECORDS);
   var ctx = stockCtx_(records);
-  var closed = closedMonths_();
   list.forEach(function (month) {
     var hasData = records.some(function (r) { return monthOfRecord_(r) === month; }) ||
       ctx.stock.some(function (x) { return String(x.date).slice(0, 7) === month; });
@@ -509,6 +578,18 @@ function outputFilesFor_(month) {
   return out;
 }
 
+/** PDF書き出しの取得。429・5xx のときは 1秒・2秒・4秒 待って最大3回まで再試行する */
+function fetchWithRetry_(url, token) {
+  var res = null;
+  for (var i = 0; i <= 3; i++) {
+    if (i) Utilities.sleep(1000 * Math.pow(2, i - 1));
+    res = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + token }, muteHttpExceptions: true });
+    var code = res.getResponseCode();
+    if (code !== 429 && code < 500) return res;
+  }
+  return res;
+}
+
 /**
  * 提出用の出力：当月の帳票シートを1シート1つのPDFにして「提出用/yyyy-MM」フォルダへ保存する。
  * 要確認（重複・要確認・誤りの疑い）が残っている月は出力しない。
@@ -516,12 +597,14 @@ function outputFilesFor_(month) {
  */
 function exportSubmission_(month) {
   var records = readAll_(SHEET.RECORDS);
-  var b = blockingCounts_(records, month);
-  if (b.total) {
+  var isClosed = !!closedMonths_()[month];
+  var b = closeBlockingCounts_(records, month);
+  if (!isClosed && b.total) {
     throw userError_('確認が必要な明細が' + b.total + '件残っているため出力できません（重複 ' + b.dup + '・要確認 ' + b.pend +
       '・誤りの疑い ' + b.warn + '）。要確認タブで解消してください。');
   }
-  regenerateReports_([month], { records: records });
+  // 締め済みの月は締めたときのシートをそのままPDFにする（作り直さない）
+  if (!isClosed) regenerateReports_([month], { records: records, exact: true });
   var yearly = getSetting_('output.yearly') !== false;
   var data = reportDataFor_(month, records);
   var folders = ensureOutputFolders_();
@@ -536,7 +619,7 @@ function exportSubmission_(month) {
       if (!sh) return;
       var url = 'https://docs.google.com/spreadsheets/d/' + ss.getId() + '/export?format=pdf&gid=' + sh.getSheetId() +
         '&portrait=false&size=A4&fitw=true&gridlines=false&sheetnames=false&printtitle=false';
-      var res = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + token }, muteHttpExceptions: true });
+      var res = fetchWithRetry_(url, token);
       if (res.getResponseCode() !== 200) {
         throw userError_('PDFを作成できませんでした（' + sec.sheetName + '、コード ' + res.getResponseCode() + '）。少し待ってからもう一度お試しください。');
       }

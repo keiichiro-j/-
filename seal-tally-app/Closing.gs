@@ -23,15 +23,18 @@ function closedMonths_() {
  */
 function closeMonth_(month) {
   if (!isMonthStr_(month)) throw userError_('年月の指定が正しくありません');
-  if (month > thisMonth_()) throw userError_('まだ始まっていない月は締められません');
+  if (month >= thisMonth_()) throw userError_(monthLabelLong_(month) + 'はまだ終わっていないため締められません。翌月以降に締めてください');
   if (month < startMonth_()) throw userError_('稼働開始月より前の月は締められません');
-  if (closedMonths_()[month]) throw userError_(monthLabelLong_(month) + 'はすでに締め済みです');
+  var closedNow = closedMonths_();
+  if (closedNow[month]) throw userError_(monthLabelLong_(month) + 'はすでに締め済みです');
+  var prev = prevMonth_(month);
+  if (month > startMonth_() && !closedNow[prev]) throw userError_('先に' + monthLabelLong_(prev) + 'を締めてください');
 
   var records = readAll_(SHEET.RECORDS);
   // 締める前に最新の状態で判定し直す（日付が変わって未来日の警告が消える場合など）
   var changed = reevaluate_(records, [month], {});
   if (changed.length) updateRows_(SHEET.RECORDS, changed);
-  var blocking = blockingCounts_(records, month);
+  var blocking = closeBlockingCounts_(records, month);
   if (blocking.total) return { closed: false, blocking: blocking };
 
   var sum = stockSummary_(month, stockCtx_(records));
@@ -54,7 +57,7 @@ function closeMonth_(month) {
   updateRows_(SHEET.CLOSING, updates);
   appendRows_(SHEET.CLOSING, adds);
   audit_('締め', month, '', '', '', UNITS.map(function (u) { return UNIT_SHORT[u] + ' 月末残数 ' + sum[u].left; }).join('、'));
-  regenerateReports_([month], { records: records });
+  regenerateReports_([month], { records: records, force: true, exact: true });
   return { closed: true };
 }
 
@@ -64,11 +67,21 @@ function closeMonth_(month) {
 function reopenMonth_(month, reason) {
   reason = String(reason || '').trim();
   if (!reason) throw userError_('締め解除の理由を入力してください');
+  var closed = closedMonths_();
+  if (!closed[month]) throw userError_(monthLabelLong_(month) + 'は締められていません');
+  var later = Object.keys(closed).filter(function (m) { return m > month; }).sort();
+  if (later.length) throw userError_('先に' + monthLabelLong_(later[later.length - 1]) + 'の締めを解除してください');
   var rows = readAll_(SHEET.CLOSING).filter(function (c) { return c.month === month && c.closed; });
-  if (!rows.length) throw userError_(monthLabelLong_(month) + 'は締められていません');
   rows.forEach(function (c) { c.closed = false; });
   updateRows_(SHEET.CLOSING, rows);
   audit_('締め解除', month, '', '', '', reason);
+  // 締めている間に後から届いた明細（closedMonth チェック付き）もふつうの判定に戻す
+  var records = readAll_(SHEET.RECORDS);
+  var changed = reevaluate_(records, [month], {});
+  if (changed.length) updateRows_(SHEET.RECORDS, changed);
+  try { regenerateReports_([month], { records: records }); } catch (e) {
+    console.error('締め解除後の帳票の再生成に失敗しました: ' + (e && e.stack || e));
+  }
   return true;
 }
 
@@ -99,15 +112,16 @@ function sendNotice_(to, subject, body) {
  * notify.closeRemind が TRUE のとき、前月分の締めのお願い・要確認の残件数・アプリのURLを送る。
  */
 function runCloseReminder() {
+  guardEntry_();
   actorOverride_ = 'システム';
   try {
     if (getSetting_('notify.closeRemind') === false) return;
     var prev = prevMonth_(thisMonth_());
     if (prev < startMonth_() || closedMonths_()[prev]) return;
     var records = readAll_(SHEET.RECORDS);
-    var b = blockingCounts_(records, prev);
+    var b = closeBlockingCounts_(records, prev);
     var all = records.filter(isBlocking_).length;
-    var url = getSetting_('app.url');
+    var url = appUrl_();
     var body = monthLabelLong_(prev) + '分の締めをお願いします。\n\n' +
       '■ ' + monthLabelLong_(prev) + 'の確認が必要な明細：' + b.total + '件（重複 ' + b.dup + '・要確認 ' + b.pend +
       '・誤りの疑い ' + b.warn + '）\n' +

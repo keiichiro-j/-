@@ -312,7 +312,9 @@ function renderDocs(){
     h+='<div class="notice ok">'+ymLabel(m)+"は締め済みです"+(cl.by?"（"+esc(cl.by)+" "+esc(cl.at||"")+"）":"")+"。繰越の数字も確定しています。修正には管理者による締め解除が必要です。</div>"+
        (S.reopenMode?"":'<button class="btn danger admin" data-act="reopenStart"'+adminDis()+">締め解除</button>");
   }else{
-    h+='<button class="btn primary admin" data-act="closeMonth"'+adminDis()+">"+ymLabel(m)+"を締める</button>"+(isAdmin()?"":'<span class="adminonly">締めは管理者のみ</span>')+
+    const curMonth=m>=String(P().today||"").slice(0,7);
+    h+=(curMonth?'<button class="btn primary admin" data-act="closeMonth" disabled title="今月はまだ締められません">'+ymLabel(m)+'を締める</button><span class="muted" style="font-size:12px">'+ymLabel(m)+"はまだ終わっていないため締められません（翌月1日以降に締めます）</span>":
+        '<button class="btn primary admin" data-act="closeMonth"'+adminDis()+">"+ymLabel(m)+"を締める</button>"+(isAdmin()?"":'<span class="adminonly">締めは管理者のみ</span>'))+
        (bl.total?'<span class="muted" style="font-size:12px">確認が必要なデータ <b style="color:var(--err)">'+esc(bl.total)+"</b> 件</span>":"");
   }
   h+='<button class="btn" data-act="export">提出用に出力</button>'+(S.doc!=="report"?'<span class="muted" style="font-size:12px">「+数字」は未確定の件数です（確定後に反映）</span>':"")+"</div>";
@@ -736,6 +738,6 @@ document.addEventListener("keydown",e=>{
 
 /* ---------------- 起動 ---------------- */
 const v0=store.get("fuuin-view");if(v0&&TABS.some(t=>t[0]===v0))S.view=v0;
-boot();
+boot((m=>/^\d{4}-(0[1-9]|1[0-2])$/.test(m)?m:undefined)((document.body.dataset||{}).month||""));
 })();
 </script>
