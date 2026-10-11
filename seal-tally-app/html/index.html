@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>封印集計システム</title>
+<?!= include_('html/css') ?>
+</head>
+<body data-month="<?= initialMonth ?>">
+<div class="progress" id="progress" hidden></div>
+
+<header class="appbar">
+  <div class="wrap">
+    <div class="brand"><div class="mark">封</div><div><b>封印集計システム</b><small>自動車検査証記録事項から自動集計</small></div></div>
+    <div class="spacer"></div>
+    <span class="who" id="who"></span>
+  </div>
+  <div class="wrap"><nav class="tabs" role="tablist" id="tabs"></nav></div>
+</header>
+
+<main class="wrap">
+  <section class="view" id="v-home"><div class="loading"><span class="spin"></span>読み込み中…</div></section>
+  <section class="view" id="v-list" hidden></section>
+  <section class="view" id="v-review" hidden></section>
+  <section class="view" id="v-docs" hidden></section>
+  <section class="view" id="v-rcpt" hidden></section>
+  <section class="view" id="v-settings" hidden></section>
+</main>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" hidden aria-label="データの確認と修正"></aside>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<?!= include_('html/js') ?>
+</body>
+</html>

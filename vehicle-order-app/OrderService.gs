@@ -1,0 +1,59 @@
+/**
+ * OrderService.gs
+ * 受注機能
+ *
+ * 受注確定時、在庫リストから「受注リスト」へ自動移行する。
+ * Hold中の車両は、Holdを行った担当者のみ受注確定できる（canConfirmOrder_）。
+ * Holdが入っていない車両は誰でも受注確定できる。
+ * 受注確定時も、Hold登録時と同じ入力項目をすべて入力する必要がある
+ * （担当者はログイン中のGoogleアカウントから自動設定される。requireCurrentStaff_参照）。
+ */
+
+/**
+ * 受注を確定し、在庫リストの行を受注リストへ移行する。
+ * @param {string} commission
+ * @param {Object} info { salesLocation, leadNumber, registeredMonth, customer, tradeIn, oss, insurance, paymentMethod }
+ */
+function confirmOrder(commission, info) {
+  var currentStaff = requireCurrentStaff_();
+  info = Object.assign({}, info, { staff: currentStaff.name, staffEmail: currentStaff.email });
+  var inputCheck = validateRequiredInfo_(HOLD_ORDER_INPUT_COLUMNS, info);
+  if (!inputCheck.ok) throw new Error(inputCheck.reason);
+  info.leadNumber = normalizeLeadNumber_(info.leadNumber);
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var sheet = getInventorySheet_();
+    var rowNumber = findInventoryRowNumber_(sheet, commission);
+    if (!rowNumber) throw new Error('該当車両が見つかりません（コミッション: ' + commission + '）');
+    var vehicle = rowToObject_(
+      sheet.getRange(rowNumber, 1, 1, INVENTORY_COLUMNS.length).getValues()[0],
+      INVENTORY_COLUMNS,
+      rowNumber
+    );
+    var holds = getHoldsForCommission_(commission);
+    var check = canConfirmOrder_(vehicle, holds.first, currentStaff.email);
+    if (!check.ok) throw new Error(check.reason);
+
+    var order = { orderedAt: new Date().getTime() };
+    HOLD_ORDER_INPUT_COLUMNS.forEach(function (c) { order[c.key] = info[c.key]; });
+    order.staffEmail = info.staffEmail;
+    VEHICLE_COLUMNS.forEach(function (col) { order[col.key] = vehicle[col.key]; });
+
+    // Hold中だった場合、1st Holdは受注確定を行った本人（＝canConfirmOrder_により
+    // 1st Hold担当者のみ受注確定できる）が登録したものなので、そのカレンダーイベントは
+    // ここで削除できる。2nd Holdが同時に存在した場合、その担当者のイベントは別人の
+    // カレンダーにあるため、この実行コンテキストからは削除できない（CalendarService.gs参照）。
+    if (holds.first) deleteHoldCalendarEvent_(holds.first.calendarEventId);
+
+    appendOrder_(order);
+    deleteInventoryRow_(sheet, rowNumber);
+    deleteAllHoldRowsForCommission_(commission);
+    notifyOrderConfirmed(order);
+    appendAuditLog_(buildAuditLogEntry_('受注確定', commission, vehicle.model, currentStaff, '顧客: ' + info.customer, order.orderedAt));
+    return order;
+  } finally {
+    lock.releaseLock();
+  }
+}
