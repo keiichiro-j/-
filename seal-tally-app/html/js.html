@@ -1,0 +1,741 @@
+<script>
+(function(){
+"use strict";
+/* ============================================================
+ * 封印集計システム 画面スクリプト
+ * サーバーとのやりとりは docs/API.md に従う（google.script.run）
+ * ============================================================ */
+const $=s=>document.querySelector(s);
+const $$=s=>Array.from(document.querySelectorAll(s));
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const clone=o=>JSON.parse(JSON.stringify(o));
+
+/* 表示名（Config.gs と同じ） */
+const UNIT_KEYS=["A","B","AI"];
+const UNITS={A:"ブランドA（岐阜）",B:"ブランドB（岐阜）",AI:"ブランドA（愛知）"};
+const UNIT_SHORT={A:"ブランドA",B:"ブランドB",AI:"愛知"};
+const MANUAL_REASONS=["再封印","PDFが届いていない","その他"];
+const AREA_KINDS=["岐阜","愛知","対象外"];
+const AREA_KIND_LABEL={"岐阜":"岐阜県","愛知":"愛知県","対象外":"対象外の地域"};
+const ST={ok:"正常",err:"重複",warn:"誤りの疑い",pend:"要確認",ex:"除外",ns:"封印なし"};
+const BLOCKING=["err","pend","warn"];
+const DOCS={detail:"明細書",count:"台数集計書",report:"報告書"};
+const ROLE_DESC={"管理者":"管理者：締め・締め解除・設定","編集者":"編集者：確認・修正・受入"};
+const WD=["日","月","火","水","木","金","土"];
+const ADMIN="管理者";
+
+const dowOf=d=>new Date(d+"T00:00:00Z").getUTCDay();
+const md=d=>{if(!d)return "";const p=String(d).split("-");return (+p[1])+"/"+(+p[2])};
+const mdw=d=>md(d)+"（"+WD[dowOf(d)]+"）";
+const wareki=d=>{const p=String(d).split("-").map(Number);const y=p[0]-2018;return "令和"+(y===1?"元":y)+"年"+p[1]+"月"+p[2]+"日"};
+const mLabel=m=>(+String(m).slice(5,7))+"月";
+const ymLabel=m=>m?String(m).slice(0,4)+"年"+mLabel(m):"";
+const short=s=>String(s||"").slice(5); /* "yyyy-MM-dd HH:mm" → "MM-dd HH:mm" */
+
+/* ---------------- 状態 ---------------- */
+const S={
+  P:null, loadErr:"", busy:0, inflight:0,
+  view:"home", filter:"all", unit:"", q:"", day:"",
+  doc:"detail", sheet:"", report:null, reportKey:null, reportLoading:null, reportErr:"", docMsg:"", reopenMode:false,
+  fval:{}, fchk:{}, areasDraft:null, usersDraft:null,
+  open:null, d:null, form:{}, exMode:false, missing:[], dErr:""
+};
+const P=()=>S.P;
+const isAdmin=()=>!!(S.P&&S.P.user&&S.P.user.role===ADMIN);
+const isClosed=m=>!!(S.P&&S.P.closings&&S.P.closings[m]&&S.P.closings[m].closed);
+const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+
+/* ---------------- 通信 ---------------- */
+function call(fn){
+  const args=Array.prototype.slice.call(arguments,1);
+  return new Promise((resolve,reject)=>{
+    const run=window.google&&google.script&&google.script.run;
+    if(!run){reject(new Error("サーバーに接続できません（Apps Script の画面から開いてください）"));return}
+    run.withSuccessHandler(resolve).withFailureHandler(reject)[fn].apply(null,args);
+  });
+}
+function setProgress(){ $("#progress").hidden=S.inflight<=0; document.body.classList.toggle("busy",S.busy>0) }
+/**
+ * API を呼ぶ。ok:false は toast（opt.onError があればそちら）で理由を出し null を返す。
+ * opt.btn: 通信中に無効化するボタン / opt.lock:false: 読み込み系（二重送信の抑止対象外）
+ */
+async function api(fn,args,opt){
+  opt=opt||{};
+  const lock=opt.lock!==false;
+  if(lock&&S.busy){toast("処理中です。終わるまでお待ちください");return null}
+  if(lock)S.busy++;
+  S.inflight++; setProgress();
+  const btn=opt.btn; let label=null;
+  if(btn){btn.disabled=true;label=btn.innerHTML;btn.innerHTML='<span class="spin"></span>'+label}
+  try{
+    const res=await call.apply(null,[fn].concat(args||[]));
+    if(!res||typeof res!=="object")throw new Error("サーバーの応答が正しくありません");
+    if(!res.ok){
+      const msg=res.error||"処理できませんでした";
+      if(opt.onError)opt.onError(msg);else toast(msg,true);
+      return null;
+    }
+    if(res.message&&!opt.silent)toast(res.message);
+    return res.data||{};
+  }catch(e){
+    const msg="通信エラー："+((e&&e.message)||e);
+    if(opt.onError)opt.onError(msg);else toast(msg,true);
+    return null;
+  }finally{
+    if(lock)S.busy--;
+    S.inflight--; setProgress();
+    if(btn&&btn.isConnected&&label!==null){btn.disabled=false;btn.innerHTML=label}
+  }
+}
+/** 保存系の戻り値の payload で状態を置き換える */
+function applyPayload(p){
+  if(!p)return;
+  S.P=p;
+  S.reportKey=null; /* 帳票は次に開いたとき取り直す */
+}
+
+let tt;
+function toast(m,isErr){
+  const el=$("#toast");el.textContent=m;el.hidden=false;
+  el.style.background=isErr?"var(--err)":"";el.style.color=isErr?"#fff":"";
+  clearTimeout(tt);tt=setTimeout(()=>{el.hidden=true},isErr?6000:2800);
+}
+
+/* ---------------- 共通部品 ---------------- */
+const plateText=r=>[r.area,r.cls,r.kana,r.num].map(x=>x||"").join(" ");
+const plate=r=>{
+  if(!(r.area||r.cls||r.kana||r.num))return '<span class="plate bad"><span class="pt">登録番号</span><span class="pb">未読取</span></span>';
+  return '<span class="plate'+(r.statusCode==="err"?" bad":"")+'"><span class="pt">'+esc(r.area||"？")+" "+esc(r.cls||"？")+'</span><span class="pb"><i>'+esc(r.kana||"？")+"</i>"+esc(r.num||"？")+"</span></span>";
+};
+const pill=s=>'<span class="pill '+esc(s)+'">'+esc(ST[s]||s)+"</span>";
+const utag=u=>u&&UNITS[u]?'<span class="utag u-'+u+'">'+UNITS[u]+"</span>":'<span class="utag u-none">区分未定</span>';
+const ncTag=n=>n?'<span class="nc">'+(n==="新"?"新車":n==="中"?"中古車":esc(n))+"</span>":'<span class="nc muted">新中未定</span>';
+const isManual=r=>r&&r.inputType==="手入力";
+const manTag=r=>isManual(r)?' <span class="nc" style="color:var(--info);border-color:var(--info)">手入力</span>':"";
+const acked=(r,c)=>(r.acked||[]).indexOf(c)>=0;
+function firstIssue(r){
+  if(r.statusCode==="ex")return "除外："+esc(r.excludeReason||"");
+  if(r.statusCode==="ns")return "<b>封印の払い出しなし</b>（"+esc(r.noSealReason||"")+"）。台数に含めません";
+  const cs=r.checks||[];
+  const i=cs.find(x=>x.level!=="info"&&!(x.level==="warn"&&acked(r,x.code)));
+  if(i)return "<b>"+esc(i.title)+"</b>";
+  if(isManual(r))return "<b>手入力</b>："+esc(r.manualReason||"");
+  return cs.length?esc(cs[0].title):"—";
+}
+const adminDis=()=>isAdmin()?"":' disabled title="管理者のみ操作できます"';
+const monthOptions=sel=>(P().months||[]).map(m=>'<option value="'+esc(m)+'"'+(m===sel?" selected":"")+">"+ymLabel(m)+(isClosed(m)?"（締め済）":"")+"</option>").join("");
+function allAreas(){const a=P().areas||{};return [].concat(a["岐阜"]||[],a["愛知"]||[],a["対象外"]||[])}
+function areaKind(area){const a=P().areas||{};for(const k of AREA_KINDS){if((a[k]||[]).indexOf(area)>=0)return k}return null}
+/** 画面上の目安としての集計単位（確定はサーバー） */
+function unitGuess(brand,area){
+  if(!brand||!area)return {u:null,t:"ブランドと地域名から決まります"};
+  const k=areaKind(area);
+  if(!k)return {u:null,t:"地域名がマスタにないため要確認になります"};
+  if(k==="岐阜")return {u:brand==="B"?"B":"A",t:""};
+  if(k==="愛知")return brand==="A"?{u:"AI",t:""}:{u:null,t:"ブランドBの愛知ナンバーは対象外です（保存すると除外になります）"};
+  return {u:null,t:"集計対象外の地域名です（保存すると除外になります）"};
+}
+
+/* ---------------- タブ・全体 ---------------- */
+const TABS=[["home","ホーム"],["list","一覧・確認"],["review","要確認"],["docs","帳票"],["rcpt","受入・調整"],["settings","設定"]];
+function renderTabs(){
+  const n=S.P?(S.P.review||[]).length:0;
+  $("#tabs").innerHTML=TABS.map(([k,l])=>'<button class="tab" role="tab" data-view="'+k+'" aria-selected="'+(S.view===k)+'">'+l+(k==="review"&&n?'<span class="n">'+n+"</span>":"")+"</button>").join("");
+}
+function renderWho(){
+  const u=S.P&&S.P.user;
+  $("#who").innerHTML=u?"<b>"+esc(u.name||u.email)+"</b>（"+esc(u.role)+"）":"";
+}
+function go(v){S.view=v;store.set("fuuin-view",v);render();window.scrollTo(0,0)}
+function render(){
+  renderTabs();renderWho();
+  TABS.forEach(([k])=>{$("#v-"+k).hidden=S.view!==k});
+  const el=$("#v-"+S.view);
+  if(!S.P){
+    el.innerHTML=S.loadErr?'<div class="errbox"><b>データを読み込めませんでした</b><span>'+esc(S.loadErr)+'</span><button class="btn" data-act="reload">もう一度読み込む</button></div>':'<div class="loading"><span class="spin"></span>読み込み中…</div>';
+    return;
+  }
+  ({home:renderHome,list:renderList,review:renderReview,docs:renderDocs,rcpt:renderRcpt,settings:renderSettings})[S.view]();
+}
+async function boot(month){
+  S.loadErr="";render();
+  const d=await api("apiBootstrap",month?[month]:[],{lock:false,onError:msg=>{S.loadErr=msg}});
+  if(d){applyPayload(d)}
+  render();
+}
+async function loadMonth(m,btn){
+  if(!m||(S.P&&m===S.P.month))return;
+  const d=await api("apiBootstrap",[m],{btn});
+  if(d){applyPayload(d);S.day="";S.docMsg="";S.reopenMode=false}
+  render();
+}
+
+/* ---------------- ホーム ---------------- */
+function unitCards(){
+  const st=P().stock||{},th=P().settings.lowStock;
+  return '<div class="units">'+UNIT_KEYS.map(u=>{
+    const s=st[u]||{},neg=s.negativeDays||[],left=+s.left||0;
+    let msg;
+    if(left<0)msg='<span style="color:var(--err);font-weight:700">残数がマイナスです。受入の入力漏れがないか確認してください。</span>';
+    else if(neg.length)msg='<span style="color:var(--err);font-weight:700">残数がマイナスになる日があります（'+neg.map(md).join("、")+'）。受入の入力漏れの可能性があります。</span>';
+    else if(s.low)msg='<span style="color:var(--err);font-weight:700">残りが'+esc(th)+'個を切りました。利用者へメールで通知します。</span>';
+    else msg="";
+    const pend=s.pending?"未確定 "+s.pending+" 件は台数に含まれていません":"未確定のデータはありません";
+    return '<div class="ucard u-'+u+'"><div class="t"><b>'+UNITS[u]+'</b><span class="sub">前月繰越 <span class="num">'+esc(s.carry)+'</span>'+(s.adjusted?'・調整 <span class="num">−'+esc(s.adjusted)+"</span>":"")+'</span></div>'+
+      '<div class="ustats"><div><span>受入</span><strong>'+esc(s.received)+'</strong></div><div><span>封印台数</span><strong>'+esc(s.used)+'</strong></div><div><span>残数</span><strong class="'+(left<0||s.low||neg.length?"neg":"")+'">'+esc(s.left)+"</strong></div></div>"+
+      '<div class="sub">'+(msg?msg+"<br>":"")+pend+"</div></div>";
+  }).join("")+"</div>";
+}
+function renderHome(){
+  const p=P(),o=p.records||[],cnt=s=>o.filter(r=>r.statusCode===s).length,set=p.settings||{},is=p.importStatus||{};
+  const pendingPdf=is.pendingPdf&&typeof is.pendingPdf==="object"?Object.values(is.pendingPdf).reduce((a,b)=>a+(+b||0),0):(+is.pendingPdf||0);
+  const nc=is.nextClose;
+  const log=(p.recentLog||[]).map(l=>{
+    let body;
+    if(l.kind==="skip")body='<span class="pill skip">対象外</span> <span class="muted">'+esc(l.reason)+"のため記録しません</span>";
+    else if(l.kind==="error")body='<span class="pill err">エラー</span> <span style="color:var(--err)">'+esc(l.reason)+"</span>";
+    else body=(l.regDate?md(l.regDate):"日付未確定")+" "+utag(l.unit)+" "+pill(l.statusCode)+(l.recordId?' <button class="btn sm" data-open="'+esc(l.recordId)+'">開く</button>':"");
+    return '<li><time>'+esc(short(l.at))+"</time><span>"+esc(l.fileName)+" → "+body+"</span></li>";
+  }).join("");
+  $("#v-home").innerHTML=
+  '<div class="head"><h1>'+ymLabel(p.month)+'の状況</h1><p>'+md(p.today)+' 時点・'+(set.autoEnabled?"自動取込は"+esc(set.intervalMin)+"分ごと":"自動取込は停止中")+(isClosed(p.month)?"・締め済み":"")+'</p><span class="spacer"></span>'+
+   '<select class="field monthsel" id="monthSel" aria-label="表示する月">'+monthOptions(p.month)+"</select></div>"+
+  '<div class="kpis">'+
+   '<button class="kpi ok" data-jump="ok"><span class="l">'+(p.month===String(p.today).slice(0,7)?"今月":mLabel(p.month))+'の確定件数</span><span class="v">'+cnt("ok")+'</span><span class="s">帳票に反映済み</span></button>'+
+   '<button class="kpi err" data-jump="err"><span class="l">重複</span><span class="v">'+cnt("err")+'</span><span class="s">締めの前に解消が必要</span></button>'+
+   '<button class="kpi warn" data-jump="warn"><span class="l">誤りの疑い</span><span class="v">'+cnt("warn")+'</span><span class="s">確認して「問題なし」で解消</span></button>'+
+   '<button class="kpi pend" data-jump="pend"><span class="l">要確認（未確定）</span><span class="v">'+cnt("pend")+'</span><span class="s">日付・区分を選んで確定</span></button>'+
+  "</div>"+
+  '<h2 style="margin:4px 0 -6px">集計単位ごとの封印の残数</h2>'+unitCards()+
+  '<div class="grid2"><div class="panel"><h2>最近の取込</h2>'+(log?'<ul class="log">'+log+"</ul>":'<p class="muted" style="margin:0">取込の記録はまだありません。</p>')+"</div>"+
+  '<div class="panel"><h2>取込の状況</h2><dl class="meta"><dt>最終取込</dt><dd class="num">'+esc(is.lastRun||"—")+'</dd><dt>未処理のPDF</dt><dd>4フォルダで <span class="num">'+pendingPdf+'</span> 件</dd>'+
+   '<dt>次回の締め</dt><dd>'+(nc?md(nc)+"（"+mLabel(prevMonthOf(nc))+"分）":"—")+'</dd><dt>今月の対象外</dt><dd><span class="num">'+esc(is.skippedThisMonth||0)+'</span> 件（記録せずに対象外フォルダへ移動）</dd></dl>'+
+  '<p class="muted" style="font-size:12px;margin:12px 0 0">対象外にしたPDFは「対象外」フォルダへ移し、ログにも残すため、あとから確認できます。</p></div></div>';
+}
+function prevMonthOf(ymd){const p=String(ymd).split("-").map(Number);const d=new Date(Date.UTC(p[0],p[1]-2,1));return d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0")}
+
+/* ---------------- 一覧・確認 ---------------- */
+function listFiltered(){
+  const q=S.q.replace(/\s/g,""),qu=q.toUpperCase();
+  return (P().records||[]).filter(r=>
+    (S.filter==="all"||r.statusCode===S.filter)&&
+    (!S.unit||(S.unit==="none"?!r.unit:r.unit===S.unit))&&
+    (!S.day||r.regDate===S.day)&&
+    (!q||plateText(r).replace(/\s/g,"").indexOf(q)>=0||(r.vin&&String(r.vin).toUpperCase().replace(/\s/g,"").indexOf(qu)>=0))
+  ).sort((a,b)=>(a.regDate||"9").localeCompare(b.regDate||"9")||String(a.importedAt||"").localeCompare(String(b.importedAt||"")));
+}
+function renderList(){
+  const p=P(),o=p.records||[],cnt=s=>o.filter(r=>r.statusCode===s).length,f=listFiltered();
+  const days=Array.from(new Set(o.map(r=>r.regDate).filter(Boolean))).sort();
+  if(S.day&&days.indexOf(S.day)<0)S.day="";
+  const chips=[["all","すべて",o.length]].concat(["ok","err","warn","pend","ns","ex"].map(k=>[k,ST[k],cnt(k)]));
+  const locked=isClosed(p.month);
+  $("#v-list").innerHTML='<div class="head"><div><h1>一覧・確認</h1><p>行を選ぶと、記録事項PDFと抽出データを並べて確認・修正できます</p></div><span class="spacer"></span>'+
+  '<select class="field monthsel" id="monthSel" aria-label="表示する月">'+monthOptions(p.month)+"</select>"+
+  '<button class="btn primary" data-open="NEW"'+(locked?' disabled title="締め済みの月です"':"")+'>＋ 手入力で追加</button></div>'+
+  (locked?'<div class="notice ok">'+ymLabel(p.month)+"は締め済みです。修正するには管理者が締めを解除してください。</div>":"")+
+  '<div class="filters"><div class="chips">'+chips.map(([k,l,n])=>'<button class="chip" data-filter="'+k+'" aria-pressed="'+(S.filter===k)+'">'+l+'<span class="num">'+n+"</span></button>").join("")+"</div></div>"+
+  '<div class="filters"><select class="field" id="unitFilter" aria-label="集計単位で絞り込み"><option value="">集計単位：すべて</option>'+UNIT_KEYS.map(u=>'<option value="'+u+'"'+(S.unit===u?" selected":"")+">"+UNITS[u]+"</option>").join("")+'<option value="none"'+(S.unit==="none"?" selected":"")+">区分未定</option></select>"+
+  '<select class="field" id="dayFilter" aria-label="登録日で絞り込み"><option value="">登録日：すべて</option>'+days.map(d=>'<option value="'+esc(d)+'"'+(S.day===d?" selected":"")+">"+mdw(d)+"</option>").join("")+"</select>"+
+  '<input class="field search" id="q" type="search" placeholder="登録番号の一部で検索（例：岐阜、300、12-34。車台番号も可）" value="'+esc(S.q)+'"></div>'+
+  '<div class="tablewrap"><table class="list"><thead><tr><th>状態</th><th>登録日</th><th>登録番号</th><th>集計単位</th><th>新中</th><th>チェック結果</th><th>取込日時</th></tr></thead><tbody>'+
+  (f.length?f.map(r=>'<tr class="r-'+esc(r.statusCode)+'" data-open="'+esc(r.id)+'" tabindex="0"><td>'+pill(r.statusCode)+'</td><td class="num">'+(r.regDate?mdw(r.regDate):'<span style="color:var(--pend)">未確定</span>')+"</td><td>"+plate(r)+manTag(r)+"</td><td>"+utag(r.unit)+"</td><td>"+ncTag(r.nc)+'</td><td class="reason">'+firstIssue(r)+'</td><td class="num muted">'+esc(short(r.importedAt))+"</td></tr>").join(""):'<tr><td colspan="7" class="empty">条件に合うデータはありません</td></tr>')+
+  "</tbody></table></div>";
+}
+
+/* ---------------- 要確認 ---------------- */
+function renderReview(){
+  const groups=[["err","締めの前に必ず解消してください"],["pend","日付や集計区分を自動で決められなかったデータです"],["warn","確認して「問題なし」にすれば解消します"]];
+  const items=P().review||[];
+  let h='<div class="head"><h1>要確認</h1><p>上から順に処理すれば確認作業が完了します（全期間）</p></div>';
+  if(!items.length)h+='<div class="done">✓ 確認が必要なデータはありません。月次締めができます。</div>';
+  groups.forEach(([s,sub])=>{
+    const g=items.filter(r=>r.statusCode===s);if(!g.length)return;
+    h+='<div class="rgroup"><h2>'+pill(s)+'<span class="num">'+g.length+'件</span><span class="muted" style="font-weight:400;font-size:12px">'+sub+'</span></h2><div class="rcards">'+
+    g.map(r=>'<article class="rcard '+s+'"><div class="top">'+plate(r)+manTag(r)+'<span class="num muted">'+(r.regDate?wareki(r.regDate):"登録日 未確定")+(r.month&&r.month!==P().month?"（"+ymLabel(r.month)+"分）":"")+'</span></div><div class="inline">'+utag(r.unit)+ncTag(r.nc)+'</div><ul class="issues">'+
+      (r.checks||[]).map(i=>'<li class="'+esc(i.level)+(i.level==="warn"&&acked(r,i.code)?" acked":"")+'"><b>'+esc(i.title)+(i.level==="warn"&&acked(r,i.code)?"（確認済み）":"")+"</b>"+esc(i.msg)+"</li>").join("")+
+      '</ul><button class="btn primary sm" data-open="'+esc(r.id)+'">PDFを見て確認・修正</button></article>').join("")+"</div></div>";
+  });
+  $("#v-review").innerHTML=h;
+}
+
+/* ---------------- 帳票 ---------------- */
+async function ensureReport(force){
+  const m=P().month;
+  if(!force&&(S.reportKey===m||S.reportLoading===m))return;
+  S.reportLoading=m;S.reportErr="";
+  const d=await api("apiGetReport",[m],{lock:false,onError:msg=>{S.reportErr=msg}});
+  if(S.reportLoading!==m)return;
+  S.reportLoading=null;S.reportKey=m;
+  if(d)S.report=d;
+  if(S.view==="docs")renderDocs();
+}
+function rowCls(r){return r.dayType==="hol"?"ho":r.dayType==="sun"?"we":r.dayType==="sat"?"we sat":""}
+function dayCells(r){return '<td class="d"'+(r.holiday?' title="'+esc(r.holiday)+'"':"")+">"+md(r.date)+'</td><td class="w">'+esc(r.dow||WD[dowOf(r.date)])+"</td>"}
+function pendTd(val,pending,extra){return '<td class="c'+(extra||"")+(pending?' attn" title="未確定 '+esc(pending)+'件"':'"')+">"+val+(pending?"<sup>+"+esc(pending)+"</sup>":"")+"</td>"}
+function detailTable(sh){
+  const rows=sh.rows||[];
+  const cols=Math.max(5,+sh.maxCols||0,...rows.map(r=>(r.plates||[]).length));
+  return '<table class="cal"><thead><tr><th>日付</th><th>曜</th><th>件数</th>'+Array.from({length:cols},(_,i)=>"<th>"+(i+1)+"</th>").join("")+"</tr></thead><tbody>"+
+   rows.map(r=>'<tr class="'+rowCls(r)+'">'+dayCells(r)+pendTd(esc(r.count||0),r.pending)+Array.from({length:cols},(_,i)=>'<td class="p">'+esc((r.plates||[])[i]||"")+"</td>").join("")+"</tr>").join("")+
+   '</tbody><tfoot><tr><td colspan="2">合計</td><td class="c">'+esc(sh.total||0)+'</td><td colspan="'+cols+'"></td></tr></tfoot></table>';
+}
+function countTable(sh){
+  const rows=sh.rows||[],t=sh.totals||{};
+  return '<table class="cal cnt"><thead><tr><th>日付</th><th>曜</th><th>受入数</th><th>調整</th><th>封印台数</th><th>残数</th></tr></thead><tbody><tr class="carry"><td colspan="5">前月からの繰越</td><td class="c'+(sh.carry<0?" neg":"")+'">'+esc(sh.carry)+"</td></tr>"+
+   rows.map(r=>'<tr class="'+rowCls(r)+'">'+dayCells(r)+'<td class="c">'+(r.received?esc(r.received):"")+'</td><td class="c">'+(r.adjusted?"−"+esc(r.adjusted):"")+"</td>"+pendTd(r.used||r.pending?esc(r.used||0):"",r.pending)+'<td class="c'+(r.balance<0?" neg":"")+'">'+esc(r.balance)+"</td></tr>").join("")+
+   '</tbody><tfoot><tr><td colspan="2">合計</td><td class="c">'+esc(t.received||0)+'</td><td class="c">'+(t.adjusted?"−"+esc(t.adjusted):"0")+'</td><td class="c">'+esc(t.used||0)+'</td><td class="c'+(t.left<0?" neg":"")+'">'+esc(t.left)+"</td></tr></tfoot></table>";
+}
+function reportCards(list){
+  return '<div class="notice info">報告書のレイアウトは後日追加予定です。テンプレート登録後は、下の数字を指定のセルへ自動で差し込みます。</div><div class="report">'+
+   list.map(x=>'<div class="rp u-'+esc(x.unit)+'"><span class="utag u-'+esc(x.unit)+'">'+esc(UNITS[x.unit]||x.label)+'</span><span class="fileline">シート：<b>'+esc(x.sheetName)+'</b></span><dl><dt>前月からの繰越</dt><dd>'+esc(x.carry)+'</dd><dt>当月の受入数</dt><dd>'+esc(x.received)+'</dd><dt>調整（破損・返納）</dt><dd>'+(x.adjusted?"−"+esc(x.adjusted):"0")+'</dd><dt>当月の封印台数（新中共通）</dt><dd class="big">'+esc(x.used)+'</dd><dt>月末の残数（翌月へ繰越）</dt><dd class="big"'+(x.left<0?' style="color:var(--err)"':"")+">"+esc(x.left)+"</dd></dl></div>").join("")+"</div>";
+}
+function renderDocs(){
+  const p=P(),m=p.month,closed=isClosed(m),cl=(p.closings||{})[m]||{};
+  ensureReport();
+  const R=S.report&&S.report.month===m?S.report:null;
+  let h='<div class="head"><h1>帳票</h1><p>管理データから自動で作成する提出用シートです（直接編集はできません）</p></div>'+
+  '<div class="docbar"><div class="seg" role="group" aria-label="書類の種類">'+Object.keys(DOCS).map(k=>'<button data-doc="'+k+'" aria-pressed="'+(S.doc===k)+'">'+DOCS[k]+"</button>").join("")+"</div>"+
+  '<div class="seg" role="group" aria-label="対象月">'+(p.months||[]).map(k=>'<button data-month="'+esc(k)+'" aria-pressed="'+(m===k)+'">'+ymLabel(k)+(isClosed(k)?"（締め済）":"")+"</button>").join("")+"</div>"+
+  (S.reportLoading===m&&R?'<span class="muted" style="font-size:12px"><span class="spin" style="display:inline-block;width:12px;height:12px;border-width:2px;vertical-align:-1px"></span> 更新中…</span>':"")+"</div>";
+  if(!R){
+    h+=S.reportErr&&S.reportLoading!==m?'<div class="errbox"><b>帳票を読み込めませんでした</b><span>'+esc(S.reportErr)+'</span><button class="btn" data-act="reloadReport">もう一度読み込む</button></div>':'<div class="loading"><span class="spin"></span>帳票を読み込み中…</div>';
+    $("#v-docs").innerHTML=h;return;
+  }
+  const list=R[S.doc]||[];
+  if(!list.some(s=>s.key===S.sheet))S.sheet=list.length?list[0].key:"";
+  const cur=list.find(s=>s.key===S.sheet);
+  const bl=R.blocking||{total:0};
+  h+='<div class="fileline">ファイル：<b>'+esc((R.files||{})[S.doc]||"")+"</b>"+(S.doc!=="report"&&cur?"　シート：<b>"+esc(cur.sheetName)+"</b>":"")+"　（"+DOCS[S.doc]+"は1か月に"+list.length+"シート）</div>";
+  h+='<div class="lockbar">';
+  if(closed){
+    h+='<div class="notice ok">'+ymLabel(m)+"は締め済みです"+(cl.by?"（"+esc(cl.by)+" "+esc(cl.at||"")+"）":"")+"。繰越の数字も確定しています。修正には管理者による締め解除が必要です。</div>"+
+       (S.reopenMode?"":'<button class="btn danger admin" data-act="reopenStart"'+adminDis()+">締め解除</button>");
+  }else{
+    h+='<button class="btn primary admin" data-act="closeMonth"'+adminDis()+">"+ymLabel(m)+"を締める</button>"+(isAdmin()?"":'<span class="adminonly">締めは管理者のみ</span>')+
+       (bl.total?'<span class="muted" style="font-size:12px">確認が必要なデータ <b style="color:var(--err)">'+esc(bl.total)+"</b> 件</span>":"");
+  }
+  h+='<button class="btn" data-act="export">提出用に出力</button>'+(S.doc!=="report"?'<span class="muted" style="font-size:12px">「+数字」は未確定の件数です（確定後に反映）</span>':"")+"</div>";
+  if(S.reopenMode)h+='<div class="notice"><b>締め解除</b><input class="field" id="reopenReason" placeholder="解除する理由（必須。例：受入の入力漏れを修正するため）" style="flex:1;min-width:220px"><button class="btn danger" data-act="reopenDo">解除する</button><button class="btn" data-act="reopenCancel">やめる</button></div>';
+  h+='<div id="closeMsg">'+S.docMsg+"</div>";
+  if(S.doc==="report")h+=reportCards(list);
+  else{
+    const negs=S.doc==="count"&&cur&&(cur.rows||[]).some(r=>r.balance<0);
+    h+=(negs?'<div class="notice err">残数がマイナスになる日があります。受入の入力漏れの可能性があります。</div>':"")+
+    '<div><div class="sheettabs" role="tablist">'+list.map(s=>'<button class="stab u-'+esc(s.unit)+'" role="tab" data-sheet="'+esc(s.key)+'" aria-selected="'+(S.sheet===s.key)+'">'+esc(s.sheetName)+"</button>").join("")+'</div><div class="tablewrap" style="border-top-left-radius:0">'+
+    (cur?(S.doc==="detail"?detailTable(cur):countTable(cur)):'<div class="empty">シートがありません</div>')+"</div></div>";
+  }
+  $("#v-docs").innerHTML=h;
+}
+function blockingNotice(b){
+  return '<div class="notice">締められません。確認が必要なデータが '+esc(b.total)+" 件残っています（重複 "+esc(b.dup||0)+"・要確認 "+esc(b.pend||0)+"・誤りの疑い "+esc(b.warn||0)+'）。<button class="btn sm" data-view="review">要確認を開く</button></div>';
+}
+
+/* ---------------- 受入・調整 ---------------- */
+function renderRcpt(){
+  const p=P(),list=p.stockRows||[];
+  const keep=readRcptForm();
+  $("#v-rcpt").innerHTML='<div class="head"><h1>封印の受入・調整</h1><p>封印を受け取ったとき、破損や返納で減ったときだけ入力します。月末の残数は翌月へ自動で繰り越します</p></div>'+
+  unitCards()+
+  '<div class="rcpt-grid"><div class="panel"><h2>受入・調整を登録</h2><form class="form" id="rcptForm" novalidate>'+
+  '<div class="row"><label for="r-kind">種類</label><select class="field" id="r-kind"><option value="受入">受入（残数を増やす）</option><option value="調整"'+(keep&&keep.kind==="調整"?" selected":"")+'>調整：破損・書き損じ・返納（残数を減らす）</option></select></div>'+
+  '<div class="row"><label for="r-date">日付</label><input class="field num" id="r-date" type="date" value="'+esc(keep?keep.date:p.today)+'"></div>'+
+  '<div class="row"><label for="r-unit">集計単位</label><select class="field" id="r-unit">'+UNIT_KEYS.map(u=>'<option value="'+u+'"'+(keep&&keep.unit===u?" selected":"")+">"+UNITS[u]+"</option>").join("")+"</select></div>"+
+  '<div class="row"><label for="r-qty">個数</label><input class="field num" id="r-qty" type="number" min="1" step="1" inputmode="numeric" placeholder="例：50"></div>'+
+  '<div class="row"><label for="r-memo">メモ（調整のときは必須）</label><input class="field" id="r-memo" placeholder="例：取付時に破損"></div>'+
+  '<div id="rcptErr"></div><button class="btn primary" type="submit" data-api>登録</button></form></div>'+
+  '<div class="panel" style="padding:0;overflow:hidden"><div style="padding:16px 16px 0"><h2>受入・調整の記録</h2></div><div class="tablewrap" style="border:0;border-radius:0"><table class="cnt"><thead><tr><th>日付</th><th>種類</th><th>集計単位</th><th>個数</th><th>入力者</th><th>メモ</th><th></th></tr></thead><tbody>'+
+  (list.length?list.map(x=>{const adj=x.kind==="調整";return '<tr class="'+(x.canceled?"cancel":"")+'"><td class="num">'+esc(String(x.date).replace(/-/g,"/"))+"</td><td>"+(adj?'<span class="nc" style="color:var(--err);border-color:var(--err)">調整</span>':'<span class="nc">受入</span>')+"</td><td>"+utag(x.unit)+'</td><td class="num" style="font-weight:700">'+(adj?"−":"+")+esc(x.qty)+'</td><td class="muted">'+esc(x.by)+'</td><td class="muted">'+esc(x.memo||"—")+"</td><td>"+
+    (x.locked?'<span class="muted" style="font-size:11px">締め済</span>':'<button class="btn sm" data-rc="'+esc(x.id)+'">'+(x.canceled?"取消を戻す":"取り消す")+"</button>")+"</td></tr>"}).join(""):'<tr><td colspan="7" class="empty">記録はまだありません</td></tr>')+
+  "</tbody></table></div></div></div>";
+}
+function readRcptForm(){
+  if(!$("#r-kind"))return null;
+  return {kind:$("#r-kind").value,date:$("#r-date").value,unit:$("#r-unit").value};
+}
+
+/* ---------------- 設定 ---------------- */
+function folderVal(f){return S.fval[f.key]!=null?S.fval[f.key]:(f.url||f.id||"")}
+function folderSaved(f){return f.url||f.id||""}
+function folderState(f){
+  const v=folderVal(f).trim(),c=S.fchk[f.key];
+  if(c&&c.input===v)return c;
+  if(!v)return {ok:false,msg:"フォルダが未設定です。GoogleドライブのフォルダURLを貼り付けて「確認」を押してください。"};
+  if(v===folderSaved(f)){
+    if(f.ok)return {ok:true,msg:"✓ "+(f.name||"フォルダ")+"（未処理 "+(f.pending||0)+"件）"};
+    return {ok:false,msg:"フォルダを確認できません。URLと共有設定を確かめて「確認」を押してください。"};
+  }
+  return {ok:false,unchecked:true,msg:"未確認です。「確認」を押してフォルダを確かめてください。"};
+}
+const folderStatusHtml=f=>{const s=folderState(f);return '<div class="check '+(s.ok?"ok":"ng")+'">'+esc(s.msg)+"</div>"};
+function folderBox(f,i){
+  return '<div class="folder"><div class="ft"><b>'+esc(f.label)+'</b><span class="hint">'+(f.brand==="A"?"岐阜ナンバー → ブランドA（岐阜）／愛知ナンバー → ブランドA（愛知）":"岐阜ナンバー → ブランドB（岐阜）")+"</span></div>"+
+   '<div class="inline"><input class="field" id="fv-'+i+'" data-fidx="'+i+'" value="'+esc(folderVal(f))+'" placeholder="GoogleドライブのフォルダURLを貼り付け"'+adminDis()+'><button type="button" class="btn admin" data-chk="'+i+'"'+adminDis()+">確認</button></div>"+
+   '<div id="fst-'+i+'">'+folderStatusHtml(f)+"</div></div>";
+}
+function areasDraft(){if(!S.areasDraft)S.areasDraft=clone(P().areas||{"岐阜":[],"愛知":[],"対象外":[]});return S.areasDraft}
+function usersDraft(){if(!S.usersDraft)S.usersDraft=clone(P().users||[]);return S.usersDraft}
+function areasBlock(){
+  const a=areasDraft(),adm=isAdmin(),dirty=JSON.stringify(a)!==JSON.stringify(P().areas);
+  return '<div class="areas">'+AREA_KINDS.map((k,i)=>'<div><span class="lbl" style="font-size:12px;min-width:84px">'+AREA_KIND_LABEL[k]+"</span>"+
+    (a[k]||[]).map(n=>'<span class="tagx">'+esc(n)+(adm?'<button type="button" class="x" data-area-del="'+i+'" data-name="'+esc(n)+'" aria-label="'+esc(n)+'を削除">×</button>':"")+"</span>").join("")+
+    (adm?'<input class="field addarea" id="aa-'+i+'" data-area-input="'+i+'" placeholder="地域名を追加"><button type="button" class="btn sm" data-area-add="'+i+'">追加</button>':"")+"</div>").join("")+
+   "</div>"+(adm?'<div class="inline"><button type="button" class="btn sm admin" data-act="saveAreas">地域名マスタを保存</button>'+(dirty?'<span class="dirty">未保存の変更があります</span>':"")+"</div>":"");
+}
+function usersBlock(){
+  const adm=isAdmin();
+  if(!adm)return '<div class="users">'+(P().users||[]).map(u=>'<div class="user"><span><b>'+esc(u.name)+'</b><br><span class="muted num" style="font-size:11px">'+esc(u.email)+'</span></span><span class="muted" style="font-size:12px">'+esc(ROLE_DESC[u.role]||u.role)+"</span></div>").join("")+'</div><p class="adminonly" style="margin:8px 0 0">利用者の追加・変更は管理者のみ行えます。</p>';
+  const us=usersDraft(),dirty=JSON.stringify(us)!==JSON.stringify(P().users);
+  return '<div class="users">'+us.map((u,i)=>'<div class="user uedit"><span><b>'+esc(u.name)+'</b><br><span class="muted num" style="font-size:11px">'+esc(u.email)+'</span></span>'+
+    '<select class="field" data-urole="'+i+'" aria-label="役割">'+[ADMIN,"編集者"].map(r=>'<option'+(u.role===r?" selected":"")+">"+r+"</option>").join("")+'</select><button type="button" class="btn sm danger" data-udel="'+i+'" aria-label="削除">×</button></div>').join("")+"</div>"+
+    '<div class="uadd"><span class="lbl" style="font-size:12px;font-weight:700">利用者を追加</span><input class="field" id="nu-email" type="email" placeholder="メールアドレス"><div class="inline"><input class="field" id="nu-name" placeholder="名前"><select class="field" id="nu-role" style="flex:none"><option>編集者</option><option>'+ADMIN+'</option></select><button type="button" class="btn sm" data-act="addUser">追加</button></div></div>'+
+    '<div class="inline" style="margin-top:10px"><button type="button" class="btn sm primary" data-act="saveUsers">利用者を保存</button>'+(dirty?'<span class="dirty">未保存の変更があります</span>':"")+"</div>";
+}
+function renderSettings(){
+  const p=P(),s=p.settings||{},dis=adminDis(),adm=isAdmin(),of=p.outputFiles||{},sc=s.startCarry||{};
+  $("#v-settings").innerHTML='<div class="head"><h1>設定</h1><p>変更は保存すると次回の取込から反映されます</p></div>'+
+  (adm?"":'<div class="notice info">設定の変更は管理者のみ行えます。内容の確認と「今すぐ取込」はできます。</div>')+
+  '<div class="settings-grid"><div class="panel"><form class="form" id="setForm" novalidate>'+
+  '<div class="row"><span class="lbl">読み取り対象フォルダ</span>'+(s.folders||[]).map(folderBox).join("")+
+  '<span class="hint">ブランドと新車・中古車は、PDFが置かれたフォルダで決まります。処理済みのファイルはファイルIDで管理するため、フォルダを変えても二重取込はされません。</span></div>'+
+  '<div class="row"><span class="lbl">集計の対象と振り分け</span><div class="tablewrap"><table class="rule"><thead><tr><th>ブランド</th><th>岐阜県のナンバー</th><th>愛知県のナンバー</th><th>その他</th></tr></thead><tbody>'+
+   "<tr><td><b>ブランドA</b></td><td>"+utag("A")+"</td><td>"+utag("AI")+'</td><td class="muted">対象外</td></tr>'+
+   "<tr><td><b>ブランドB</b></td><td>"+utag("B")+'</td><td class="muted">対象外（委託なし）</td><td class="muted">対象外</td></tr></tbody></table></div>'+
+   '<span class="lbl" style="font-size:12px">地域名マスタ</span><div id="areasBox">'+areasBlock()+"</div>"+
+   '<span class="hint">どの一覧にもない地域名は、読み取り違いの可能性があるため対象外にせず「要確認」に回します。</span></div>'+
+  '<div class="row"><span class="lbl">通知</span><div class="inline"><span class="hint">封印の残数が</span><input class="field num" id="s-low" type="number" min="1" max="100" value="'+esc(s.lowStock)+'" style="flex:none;width:80px"'+dis+'><span class="hint">個を切ったら、メールで通知する</span></div>'+
+  '<label class="switch"><input type="checkbox" id="s-remind"'+(s.closeRemind?" checked":"")+dis+"> 毎月1日の朝に、先月分の締めと要確認の件数をメールで知らせる</label>"+
+  '<label class="f"><span>通知先（カンマ区切り。空なら利用者全員）</span><input class="field" id="s-to" value="'+esc(s.notifyTo)+'" placeholder="例：kanri@example.jp, tanto@example.jp"'+dis+"></label></div>"+
+  '<div class="row"><span class="lbl">使い始める月の繰越数（'+ymLabel(s.startMonth)+'の月初の残数）</span><div class="carrygrid">'+UNIT_KEYS.map(u=>'<label class="f"><span>'+UNITS[u]+'</span><input class="field num" type="number" min="0" step="1" id="s-carry-'+u+'" value="'+esc(sc[u]==null?0:sc[u])+'"'+dis+"></label>").join("")+'</div><span class="hint">2か月目以降は、前月の残数が自動で繰り越されます。</span></div>'+
+  '<div class="row"><span class="lbl">自動実行</span><label class="switch"><input type="checkbox" id="s-auto"'+(s.autoEnabled?" checked":"")+dis+"> 新しいPDFを自動で取り込む</label>"+
+  '<div class="inline"><label for="s-interval" class="hint" style="font-weight:400">実行間隔</label><select class="field" id="s-interval" style="flex:none"'+dis+">"+[5,10,15,30].map(v=>'<option value="'+v+'"'+(+s.intervalMin===v?" selected":"")+">"+v+"分ごと</option>").join("")+'</select><button type="button" class="btn sm" data-act="runNow">今すぐ取込</button></div></div>'+
+  '<div class="row"><label for="s-tol">日付の許容差</label><div class="inline"><input class="field num" id="s-tol" type="number" min="1" max="60" value="'+esc(s.tolDays)+'" style="flex:none;width:90px"'+dis+'><span class="hint">日を超えて、保存日と登録日が離れていたら「誤りの疑い」にする</span></div></div>'+
+  '<div class="row"><span class="lbl">その他</span><label class="switch"><input type="checkbox" id="s-vin"'+(s.useVin?" checked":"")+dis+"> 車台番号も取得して重複判定に使う（帳票には表示しません）</label>"+
+  '<label class="switch"><input type="checkbox" id="s-yearly"'+(s.yearly?" checked":"")+dis+"> 年が変わったら帳票ファイルを新しく作る</label></div>"+
+  '<div id="setErr"></div><div class="inline"><button class="btn primary admin" type="submit"'+dis+">設定を保存</button>"+(adm?"":'<span class="adminonly">設定の変更は管理者のみ</span>')+"</div></form></div>"+
+  '<div style="display:flex;flex-direction:column;gap:16px"><div class="panel"><h2>出力ファイル</h2><ul class="hist">'+Object.keys(DOCS).map(k=>{const f=of[k];return "<li><b>"+DOCS[k]+"</b><br>"+(f&&f.url?'<a class="linkx" href="'+esc(f.url)+'" target="_blank" rel="noopener">'+esc(f.name)+"</a>":'<span class="muted">未作成（最初の明細が登録されると作成されます）</span>')+"<br><span class=\"muted\">"+(k==="detail"?"毎月5シート（A新車・A中古車・B新車・B中古車・愛知）":"毎月3シート（ブランドA・ブランドB・愛知）")+"</span></li>"}).join("")+"</ul></div>"+
+  '<div class="panel"><h2>利用者と権限（Google Workspace）</h2><div id="usersBox">'+usersBlock()+"</div></div>"+
+  '<div class="panel"><h2>設定の変更履歴</h2>'+((p.settingsHistory||[]).length?'<ul class="hist">'+p.settingsHistory.map(h=>"<li><time>"+esc(h.at)+"</time>"+esc(h.by)+"："+esc(h.text)+"</li>").join("")+"</ul>":'<p class="muted" style="margin:0;font-size:12px">変更履歴はまだありません。</p>')+"</div></div></div>";
+}
+function intIn(id,min,max){const v=$(id).value.trim();if(!/^-?\d+$/.test(v))return null;const n=+v;return n<min||n>max?null:n}
+
+/* ---------------- 詳細ドロワー ---------------- */
+function showDrawer(){$("#scrim").hidden=false;$("#drawer").hidden=false;document.body.style.overflow="hidden"}
+function closeDrawer(){S.open=null;S.d=null;S.form={};S.exMode=false;S.missing=[];S.dErr="";$("#scrim").hidden=true;$("#drawer").hidden=true;$("#drawer").innerHTML="";document.body.style.overflow=""}
+const dHeadSimple=t=>'<div class="dhead"><button class="btn sm" data-act="dClose" aria-label="閉じる">✕ 閉じる</button><b>'+t+"</b></div>";
+async function openDrawer(id){
+  S.open=id;S.exMode=false;S.form={};S.missing=[];S.dErr="";
+  showDrawer();
+  if(id==="NEW"){
+    S.d={isNew:true,history:[],previewUrl:null,rec:{id:"NEW",inputType:"手入力",manualReason:"",regDate:P().today,brand:"",nc:"",area:"",cls:"",kana:"",num:"",checks:[],acked:[],locked:false}};
+    renderDrawer();setTimeout(()=>{const f=$("#e-area");f&&f.focus()},30);return;
+  }
+  S.d=null;
+  $("#drawer").innerHTML=dHeadSimple("読み込み中…")+'<div class="loading"><span class="spin"></span>データを読み込み中…</div>';
+  const d=await api("apiGetRecord",[id],{lock:false,onError:msg=>{if(S.open===id)$("#drawer").innerHTML=dHeadSimple("読み込めませんでした")+'<div style="padding:16px"><div class="errbox"><b>データを開けませんでした</b><span>'+esc(msg)+"</span></div></div>"}});
+  if(S.open!==id||!d)return;
+  S.d={rec:d.record,history:d.history||[],previewUrl:d.previewUrl||null};renderDrawer();
+}
+async function refreshDrawer(){
+  const id=S.open;if(!id||id==="NEW")return;
+  const d=await api("apiGetRecord",[id],{lock:false,silent:true,onError:()=>{}});
+  if(d&&S.open===id&&S.d){S.d.history=d.history||[];S.d.rec=d.record||S.d.rec;if(d.previewUrl!==undefined)S.d.previewUrl=d.previewUrl;renderDrawer()}
+}
+const FIELD_LABEL={area:"地域名",cls:"分類番号",kana:"ひらがな",num:"一連番号",regDate:"登録日",brand:"ブランド",nc:"新車・中古車",manualReason:"手入力の理由",noSealReason:"封印を払い出していない理由"};
+const CODE_FIELDS={area:["area"],cls:["cls"],kana:["kana"],num:["num"],date:["regDate"],closed:["regDate"],future:["regDate"],gap:["regDate"],brand:["brand","nc"],plate:["area","cls","kana","num"]};
+function fv(k){const r=S.d.rec;return Object.prototype.hasOwnProperty.call(S.form,k)?S.form[k]:(r[k]==null?"":r[k])}
+function renderDrawer(){
+  if(!S.d)return;
+  const r=S.d.rec,isNew=!!S.d.isNew,man=isManual(r),locked=!!r.locked,ro=locked?" disabled":"";
+  const badSet={};
+  (r.checks||[]).forEach(c=>{if(c.level!=="info"&&!(c.level==="warn"&&acked(r,c.code)))(CODE_FIELDS[c.code]||[]).forEach(f=>{badSet[f]=1})});
+  S.missing.forEach(f=>{badSet[f]=1});
+  const bad=k=>badSet[k]?" bad":"";
+  const cands=r.dateCandidates||[];
+  const regDate=fv("regDate");
+  const dateLabel=man?"封印した日":"登録日";
+  const dateField=cands.length&&!r.regDate?
+    '<select class="field'+bad("regDate")+'" id="e-regDate"'+ro+'><option value="">候補から選択してください</option>'+cands.map(d=>'<option value="'+esc(d)+'"'+(regDate===d?" selected":"")+">"+wareki(d)+"</option>").join("")+"</select>":
+    '<input class="field num'+bad("regDate")+'" id="e-regDate" type="date" value="'+esc(regDate)+'"'+ro+">";
+  const brand=fv("brand"),nc=fv("nc"),mr=fv("manualReason");
+  const mrOpts=MANUAL_REASONS.concat(mr&&MANUAL_REASONS.indexOf(mr)<0?[mr]:[]);
+  let left;
+  if(man){
+    left='<div class="panel" style="display:flex;flex-direction:column;gap:12px"><h2 style="margin:0">記録事項PDFなし（手入力）</h2><p class="muted" style="margin:0;font-size:13px">再封印など、記録事項PDFが出ない封印を登録します。入力した内容は帳票と台数に反映され、入力者と日時が履歴に残ります。</p>'+
+     '<label class="f"><span>手入力の理由（必須）</span><select class="field'+bad("manualReason")+'" id="e-manualReason"'+ro+'><option value="">選択してください</option>'+mrOpts.map(x=>'<option value="'+esc(x)+'"'+(mr===x?" selected":"")+">"+esc(x)+"</option>").join("")+"</select></label></div>";
+  }else if(S.d.previewUrl){
+    left='<div class="pdfbox"><div class="pdfbar"><b>記録事項PDF</b><span class="muted">'+esc(r.fileName)+'</span><span class="spacer"></span>'+(r.fileId?'<a href="https://drive.google.com/file/d/'+encodeURIComponent(r.fileId)+'/view" target="_blank" rel="noopener">新しいタブで開く</a>':"")+'</div><iframe class="pdfframe" src="'+esc(S.d.previewUrl)+'" title="記録事項PDFのプレビュー" allow="autoplay"></iframe></div>';
+  }else{
+    left='<div class="panel"><h2>記録事項PDF</h2><p class="muted" style="margin:0">PDFのプレビューを表示できません（ファイルが移動・削除された可能性があります）。</p></div>';
+  }
+  const ug=unitGuess(brand,fv("area"));
+  const checks=r.checks||[],hist=S.d.history||[];
+  let foot;
+  if(isNew)foot='<button class="btn primary" data-act="addManual" data-api>追加する</button><button class="btn" data-act="dClose">やめる</button>';
+  else if(S.exMode)foot='<div class="exbox"><input class="field" id="exReason" placeholder="除外する理由（例：二重取込のため）" style="flex:1;min-width:200px"><button class="btn danger" data-act="exDo" data-api>除外する</button><button class="btn" data-act="exCancel">やめる</button></div>';
+  else foot=(r.excluded?'<button class="btn" data-act="restore" data-api'+ro+'>除外を取り消す</button><span class="muted" style="font-size:12px">除外理由：'+esc(r.excludeReason)+"</span>":
+    '<button class="btn primary" data-act="saveRec" data-api'+ro+'>修正を保存</button><button class="btn danger" data-act="exStart"'+ro+">除外</button>")+'<span class="spacer"></span><span class="muted" style="font-size:12px">保存すると修正前・修正後・担当者・日時が履歴に残ります</span>';
+  $("#drawer").innerHTML='<div class="dhead"><button class="btn sm" data-act="dClose" aria-label="閉じる">✕ 閉じる</button><b>'+(isNew?"手入力で封印を追加":esc(r.fileName||(man?"（手入力・PDFなし）":r.id)))+"</b>"+(isNew?"":pill(r.statusCode)+manTag(r))+'<span class="spacer"></span>'+(isNew?"":'<span class="muted num" style="font-size:12px">'+(man?"入力 ":"取込 ")+esc(r.importedAt)+"</span>")+"</div>"+
+  '<div class="dbody"><div>'+left+'</div><div class="editor">'+
+  (locked?'<div class="notice">この月は締め済みのため修正できません。修正するには管理者が締めを解除してください。</div>':"")+
+  '<div id="dErr">'+(S.dErr?'<div class="notice err">'+esc(S.dErr)+"</div>":"")+"</div>"+
+  '<div class="panel"><h2>'+(man?"封印した車両":"抽出データ")+'</h2><div class="plategrid">'+
+   '<label class="f"><span>地域名'+(isNew?'<span class="req">*</span>':"")+'</span><input class="field'+bad("area")+'" id="e-area" list="areaList" value="'+esc(fv("area"))+'" placeholder="岐阜" autocomplete="off"'+ro+"></label>"+
+   '<label class="f"><span>分類番号'+(isNew?'<span class="req">*</span>':"")+'</span><input class="field'+bad("cls")+'" id="e-cls" value="'+esc(fv("cls"))+'" placeholder="303" autocomplete="off"'+ro+"></label>"+
+   '<label class="f"><span>ひらがな'+(isNew?'<span class="req">*</span>':"")+'</span><input class="field'+bad("kana")+'" id="e-kana" maxlength="1" value="'+esc(fv("kana"))+'" placeholder="に" autocomplete="off"'+ro+"></label>"+
+   '<label class="f"><span>一連番号'+(isNew?'<span class="req">*</span>':"")+'</span><input class="field'+bad("num")+'" id="e-num" value="'+esc(fv("num"))+'" placeholder="12-13" autocomplete="off"'+ro+"></label></div>"+
+   '<datalist id="areaList">'+allAreas().map(a=>'<option value="'+esc(a)+'">').join("")+"</datalist>"+
+   '<div class="plategrid" style="margin-top:10px;grid-template-columns:1fr 1fr 1fr"><label class="f"><span>'+dateLabel+(isNew?'<span class="req">*</span>':"")+"</span>"+dateField+"</label>"+
+   '<label class="f"><span>ブランド'+(isNew?'<span class="req">*</span>':"")+'</span><select class="field'+bad("brand")+'" id="e-brand"'+ro+">"+(brand?"":'<option value="">選択</option>')+'<option value="A"'+(brand==="A"?" selected":"")+'>ブランドA</option><option value="B"'+(brand==="B"?" selected":"")+">ブランドB</option></select></label>"+
+   '<label class="f"><span>新車・中古車'+(isNew?'<span class="req">*</span>':"")+'</span><select class="field'+bad("nc")+'" id="e-nc"'+ro+">"+(nc?"":'<option value="">選択</option>')+'<option value="新"'+(nc==="新"?" selected":"")+'>新車</option><option value="中"'+(nc==="中"?" selected":"")+">中古車</option></select></label></div>"+
+   '<div class="derived" style="margin-top:10px" id="e-unit">'+unitDerivedHtml(ug,r,isNew)+"</div>"+
+   (man||isNew?"":'<label class="switch" style="margin-top:12px"><input type="checkbox" id="e-noSeal"'+(fv("noSeal")?" checked":"")+ro+'> この車両には封印を払い出していない（台数に含めない）</label><input class="field'+bad("noSealReason")+'" id="e-noSealReason" style="margin-top:6px;width:100%" placeholder="理由（例：番号変更なしのため封印不要）" value="'+esc(fv("noSealReason"))+'"'+ro+">")+"</div>"+
+  (isNew?"":'<div class="panel"><h2>チェック結果</h2>'+(checks.length?'<ul class="issues">'+checks.map(i=>{const a=i.level==="warn"&&acked(r,i.code);return '<li class="'+esc(i.level)+(a?" acked":"")+'"><b>'+esc(i.title)+(a?"（問題なしとして確認済み）":"")+"</b>"+esc(i.msg)+
+    (i.level==="warn"&&!a&&!locked?'<div style="margin-top:6px"><button class="btn sm" data-ack="'+esc(i.code)+'" data-api>問題なしとして確認</button></div>':"")+"</li>"}).join("")+"</ul>":'<p class="muted" style="margin:0">問題は見つかりませんでした。</p>')+"</div>"+
+  '<div class="panel"><h2>修正履歴</h2>'+(hist.length?'<ul class="hist">'+hist.map(h=>"<li><time>"+esc(h.at)+"</time>"+esc(h.by)+"："+esc(h.text)+"</li>").join("")+"</ul>":'<p class="muted" style="margin:0;font-size:12px">修正はまだありません。'+(man?"":"自動取込のままのデータです。")+"</p>")+"</div>")+
+  "</div></div>"+
+  '<div class="dfoot">'+foot+"</div>";
+}
+function unitDerivedHtml(ug,r){
+  return "集計単位："+(ug.u?utag(ug.u):'<span class="utag u-none">区分未定</span>')+'<span class="muted">'+esc(ug.t||(isManual(r)?"ブランドと地域名から決まります":"ブランド・新中はフォルダ、県は地域名から決まります"))+"</span>";
+}
+function readDrawer(){
+  const g=k=>{const el=$("#e-"+k);if(!el)return undefined;return el.type==="checkbox"?el.checked:String(el.value||"").trim()};
+  const o={area:g("area"),cls:(g("cls")||"").toUpperCase(),kana:g("kana"),num:g("num"),regDate:g("regDate"),brand:g("brand"),nc:g("nc")};
+  const man=isManual(S.d.rec);
+  if(man)o.manualReason=g("manualReason")||"";
+  if(!man&&!S.d.isNew){o.noSeal=!!g("noSeal");o.noSealReason=g("noSealReason")||""}
+  return o;
+}
+function showDrawerErr(missing,msg){
+  S.missing=missing;S.dErr=msg;
+  $$("#drawer .field.bad").forEach(el=>el.classList.remove("bad"));
+  renderDrawer();
+  const first=missing.length&&$("#e-"+missing[0]);first&&first.focus();
+}
+function validateDrawer(o){
+  const miss=["area","cls","kana","num","regDate","brand","nc"].filter(k=>!o[k]);
+  if(o.manualReason!==undefined&&!o.manualReason)miss.push("manualReason");
+  if(o.noSeal&&!o.noSealReason)miss.push("noSealReason");
+  return miss;
+}
+async function saveRecord(btn){
+  const r=S.d.rec,o=readDrawer(),miss=validateDrawer(o);
+  if(miss.length)return showDrawerErr(miss,"入力が足りない項目があります："+miss.map(k=>FIELD_LABEL[k]+(k==="regDate"&&isManual(r)?"（封印した日）":"")).join("、"));
+  const norm=v=>v==null||v===false?"":String(v);
+  const changed=Object.keys(o).some(k=>norm(o[k])!==norm(r[k]));
+  if(!changed){S.dErr="";S.missing=[];renderDrawer();return toast("変更はありません")}
+  const patch={area:o.area,cls:o.cls,kana:o.kana,num:o.num,regDate:o.regDate,brand:o.brand,nc:o.nc,noSeal:!!o.noSeal,noSealReason:o.noSealReason||"",manualReason:o.manualReason!==undefined?o.manualReason:(r.manualReason||"")};
+  const d=await api("apiSaveRecord",[r.id,patch,P().month],{btn,onError:msg=>showDrawerErr([],msg)});
+  if(!d)return;
+  afterRecordOp(d,"修正を保存しました");
+}
+function afterRecordOp(d,msg){
+  applyPayload(d.payload);
+  if(S.d&&d.record){S.d.rec=d.record}
+  S.form={};S.missing=[];S.dErr="";S.exMode=false;
+  render();renderDrawer();
+  toast(msg+(d.record?"（"+(ST[d.record.statusCode]||d.record.status)+"）":""));
+  refreshDrawer();
+}
+async function addManual(btn){
+  const o=readDrawer(),miss=validateDrawer(o);
+  if(miss.length)return showDrawerErr(miss,"入力が足りない項目があります："+miss.map(k=>k==="regDate"?"封印した日":FIELD_LABEL[k]).join("、"));
+  const input={area:o.area,cls:o.cls,kana:o.kana,num:o.num,regDate:o.regDate,brand:o.brand,nc:o.nc,manualReason:o.manualReason};
+  const d=await api("apiAddManual",[input,P().month],{btn,onError:msg=>showDrawerErr([],msg)});
+  if(!d)return;
+  applyPayload(d.payload);closeDrawer();render();
+  const rec=d.record;
+  toast(rec&&rec.unit?"追加しました（"+UNITS[rec.unit]+"・"+(ST[rec.statusCode]||rec.status)+"）":"追加しましたが、集計単位を決められないため要確認に入りました");
+}
+
+/* ---------------- イベント ---------------- */
+document.addEventListener("click",async e=>{
+  const t=e.target.closest("[data-view],[data-filter],[data-open],[data-jump],[data-month],[data-doc],[data-sheet],[data-ack],[data-rc],[data-chk],[data-act],[data-area-del],[data-area-add],[data-udel],#scrim");
+  if(!t||t.disabled)return;
+  const d=t.dataset;
+  if(t.id==="scrim")return closeDrawer();
+  if(d.view)return go(d.view);
+  if(d.filter){S.filter=d.filter;return renderList()}
+  if(d.jump){S.filter=d.jump;S.day="";S.q="";S.unit="";return go("list")}
+  if(d.open){if(!S.P)return;return openDrawer(d.open)}
+  if(d.month)return loadMonth(d.month);
+  if(d.doc){S.doc=d.doc;S.docMsg="";return renderDocs()}
+  if(d.sheet){S.sheet=d.sheet;return renderDocs()}
+  if(d.ack){
+    const r=S.d.rec,res=await api("apiAckCheck",[r.id,d.ack,P().month],{btn:t});
+    if(res)afterRecordOp(res,"確認済みにしました");return;
+  }
+  if(d.rc){
+    const x=(P().stockRows||[]).find(y=>y.id===d.rc);
+    const res=await api("apiToggleStock",[d.rc,P().month],{btn:t});
+    if(res){applyPayload(res.payload);render();toast(x&&!x.canceled?"取り消しました。残数を再計算しました":"取消を戻しました")}
+    return;
+  }
+  if(d.chk!==undefined&&d.chk!==""&&t.matches("[data-chk]")){
+    const i=+d.chk,f=P().settings.folders[i],v=folderVal(f).trim();
+    if(!v){S.fchk[f.key]={ok:false,msg:"フォルダのURLを入力してください。",input:v};$("#fst-"+i).innerHTML=folderStatusHtml(f);return}
+    const res=await api("apiCheckFolder",[v],{btn:t,onError:msg=>{S.fchk[f.key]={ok:false,msg:msg,input:v}}});
+    if(res)S.fchk[f.key]={ok:true,msg:"✓ "+(res.name||"フォルダ")+"（未処理 "+(res.pending||0)+"件）",input:v};
+    const el=$("#fst-"+i);if(el)el.innerHTML=folderStatusHtml(f);
+    return;
+  }
+  if(d.areaDel!==undefined&&t.matches("[data-area-del]")){
+    const k=AREA_KINDS[+d.areaDel],a=areasDraft();a[k]=(a[k]||[]).filter(n=>n!==d.name);$("#areasBox").innerHTML=areasBlock();return;
+  }
+  if(d.areaAdd!==undefined&&t.matches("[data-area-add]"))return addArea(+d.areaAdd);
+  if(d.udel!==undefined&&t.matches("[data-udel]")){usersDraft().splice(+d.udel,1);$("#usersBox").innerHTML=usersBlock();return}
+  switch(d.act){
+    case "reload":return boot();
+    case "reloadReport":S.reportErr="";S.reportKey=null;renderDocs();return;
+    case "dClose":return closeDrawer();
+    case "saveRec":return saveRecord(t);
+    case "addManual":return addManual(t);
+    case "exStart":S.form=Object.assign(S.form,readDrawerRaw());S.exMode=true;renderDrawer();setTimeout(()=>{const x=$("#exReason");x&&x.focus()},20);return;
+    case "exCancel":S.exMode=false;return renderDrawer();
+    case "exDo":{
+      const why=$("#exReason").value.trim();
+      if(!why){$("#exReason").focus();$("#exReason").classList.add("bad");return toast("除外する理由を入力してください",true)}
+      const res=await api("apiExclude",[S.d.rec.id,why,P().month],{btn:t});
+      if(res)afterRecordOp(res,"除外しました。あとから取り消せます");return;
+    }
+    case "restore":{const res=await api("apiRestore",[S.d.rec.id,P().month],{btn:t});if(res)afterRecordOp(res,"除外を取り消しました");return}
+    case "closeMonth":{
+      const m=P().month;
+      const res=await api("apiCloseMonth",[m],{btn:t,onError:msg=>{S.docMsg='<div class="notice err">'+esc(msg)+"</div>";renderDocs()}});
+      if(!res)return;
+      if(res.closed){applyPayload(res.payload);S.docMsg='<div class="notice ok">'+ymLabel(m)+"を締めました。月末の残数が翌月の繰越として確定しました。</div>";render();toast(ymLabel(m)+"を締めました")}
+      else{S.docMsg=blockingNotice(res.blocking||{total:0});renderDocs()}
+      return;
+    }
+    case "reopenStart":S.reopenMode=true;renderDocs();setTimeout(()=>{const x=$("#reopenReason");x&&x.focus()},20);return;
+    case "reopenCancel":S.reopenMode=false;return renderDocs();
+    case "reopenDo":{
+      const why=$("#reopenReason").value.trim(),m=P().month;
+      if(!why){$("#reopenReason").focus();$("#reopenReason").classList.add("bad");return toast("締め解除の理由を入力してください",true)}
+      const res=await api("apiReopenMonth",[m,why],{btn:t});
+      if(res){applyPayload(res.payload);S.reopenMode=false;S.docMsg='<div class="notice info">'+ymLabel(m)+"の締めを解除しました（理由："+esc(why)+"）。修正後、もう一度締めてください。</div>";render();toast("締めを解除しました")}
+      return;
+    }
+    case "export":{
+      const m=P().month;
+      const res=await api("apiExportSubmission",[m],{btn:t,onError:msg=>{S.docMsg='<div class="notice err">'+esc(msg)+"</div>";renderDocs()}});
+      if(res){
+        S.docMsg='<div class="notice ok"><span>'+ymLabel(m)+"分の提出用ファイルを作成しました。"+(res.folderUrl?'<a href="'+esc(res.folderUrl)+'" target="_blank" rel="noopener">保存先フォルダを開く</a>':"")+"</span>"+
+          ((res.files||[]).length?"<ul>"+res.files.map(f=>'<li><a href="'+esc(f.url)+'" target="_blank" rel="noopener">'+esc(f.name)+"</a></li>").join("")+"</ul>":"")+"</div>";
+        renderDocs();toast("提出用に出力しました");
+      }
+      return;
+    }
+    case "runNow":{
+      const res=await api("apiRunImportNow",[P().month],{btn:t});
+      if(res){
+        applyPayload(res.payload);render();
+        const x=res.result||{};
+        toast(x.imported||x.skipped||x.errors?"取込を実行しました：記録 "+(x.imported||0)+"件・対象外 "+(x.skipped||0)+"件・要確認 "+(x.review||0)+"件・エラー "+(x.errors||0)+"件"+(x.remaining?"（残り "+x.remaining+"件は次回）":""):"取込を実行しました。新しいPDFはありません");
+      }
+      return;
+    }
+    case "saveAreas":{
+      const res=await api("apiSaveAreas",[areasDraft(),P().month],{btn:t});
+      if(res){applyPayload(res.payload);S.areasDraft=null;render();toast("地域名マスタを保存しました")}
+      return;
+    }
+    case "addUser":{
+      const email=$("#nu-email").value.trim(),name=$("#nu-name").value.trim(),role=$("#nu-role").value;
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){$("#nu-email").focus();return toast("メールアドレスを正しく入力してください",true)}
+      if(!name){$("#nu-name").focus();return toast("名前を入力してください",true)}
+      const us=usersDraft();
+      if(us.some(u=>String(u.email).toLowerCase()===email.toLowerCase()))return toast("このメールアドレスはすでに登録されています",true);
+      us.push({email,name,role});$("#usersBox").innerHTML=usersBlock();return;
+    }
+    case "saveUsers":{
+      const us=usersDraft();
+      if(!us.some(u=>u.role===ADMIN))return toast("管理者を最低1人残してください",true);
+      const res=await api("apiSaveUsers",[us,P().month],{btn:t});
+      if(res){applyPayload(res.payload);S.usersDraft=null;render();toast("利用者を保存しました")}
+      return;
+    }
+  }
+});
+function readDrawerRaw(){const o={};$$("#drawer [id^='e-']").forEach(el=>{const k=el.id.slice(2);if(k==="unit")return;o[k]=el.type==="checkbox"?el.checked:el.value});return o}
+function addArea(i){
+  const k=AREA_KINDS[i],inp=$("#aa-"+i),n=(inp.value||"").replace(/\s/g,"");
+  if(!n){inp.focus();return}
+  const a=areasDraft(),dupKind=AREA_KINDS.find(x=>(a[x]||[]).indexOf(n)>=0);
+  if(dupKind){toast("「"+n+"」はすでに「"+AREA_KIND_LABEL[dupKind]+"」にあります",true);inp.focus();return}
+  (a[k]=a[k]||[]).push(n);
+  $("#areasBox").innerHTML=areasBlock();const ni=$("#aa-"+i);ni&&ni.focus();
+}
+document.addEventListener("input",e=>{
+  const t=e.target;
+  if(t.id==="q"){S.q=t.value;const pos=t.selectionStart;renderList();const q=$("#q");q.focus();try{q.setSelectionRange(pos,pos)}catch(_){}return}
+  if(t.dataset.fidx!==undefined){const f=P().settings.folders[+t.dataset.fidx];S.fval[f.key]=t.value;$("#fst-"+t.dataset.fidx).innerHTML=folderStatusHtml(f);return}
+  if(S.d&&t.id&&t.id.indexOf("e-")===0){
+    const k=t.id.slice(2);S.form[k]=t.type==="checkbox"?t.checked:t.value;
+    if(t.classList.contains("bad")&&String(t.value).trim()){t.classList.remove("bad")}
+    if(k==="area"||k==="brand"){$("#e-unit").innerHTML=unitDerivedHtml(unitGuess(fv("brand"),fv("area")),S.d.rec,S.d.isNew)}
+  }
+});
+document.addEventListener("change",e=>{
+  const t=e.target;
+  if(t.id==="dayFilter"){S.day=t.value;return renderList()}
+  if(t.id==="unitFilter"){S.unit=t.value;return renderList()}
+  if(t.id==="monthSel"){return loadMonth(t.value)}
+  if(t.dataset.urole!==undefined){usersDraft()[+t.dataset.urole].role=t.value;$("#usersBox").innerHTML=usersBlock();return}
+  if(S.d&&t.id&&t.id.indexOf("e-")===0){
+    const k=t.id.slice(2);S.form[k]=t.type==="checkbox"?t.checked:t.value;
+    if(k==="brand"||k==="area")$("#e-unit").innerHTML=unitDerivedHtml(unitGuess(fv("brand"),fv("area")),S.d.rec,S.d.isNew);
+  }
+});
+document.addEventListener("submit",async e=>{
+  e.preventDefault();
+  const btn=e.submitter||e.target.querySelector("[type=submit]");
+  if(e.target.id==="rcptForm"){
+    const err=m=>{$("#rcptErr").innerHTML='<div class="notice err">'+esc(m)+"</div>";toast(m,true)};
+    $("#rcptErr").innerHTML="";
+    const kind=$("#r-kind").value,date=$("#r-date").value,unit=$("#r-unit").value,qs=$("#r-qty").value.trim(),memo=$("#r-memo").value.trim();
+    if(!date){$("#r-date").focus();return err("日付を入力してください")}
+    if(!/^\d+$/.test(qs)||+qs<1){$("#r-qty").focus();return err("個数を1以上の整数で入力してください")}
+    if(kind==="調整"&&!memo){$("#r-memo").focus();return err("調整の理由をメモに入力してください")}
+    if(isClosed(date.slice(0,7)))return err(ymLabel(date.slice(0,7))+"は締め済みのため登録できません");
+    const qty=+qs;
+    const res=await api("apiAddStock",[{kind,date,unit,qty,memo},P().month],{btn,onError:m=>err(m)});
+    if(res){applyPayload(res.payload);render();$("#r-qty").value="";$("#r-memo").value="";toast(UNITS[unit]+"に "+qty+" 個の"+(kind==="調整"?"調整（減）":"受入")+"を登録しました")}
+    return;
+  }
+  if(e.target.id==="setForm"){
+    if(!isAdmin())return toast("設定の変更は管理者のみ行えます",true);
+    const box=$("#setErr"),err=m=>{box.innerHTML='<div class="notice err">'+esc(m)+"</div>";toast(m,true)};
+    box.innerHTML="";
+    const s=P().settings,folders={},ng=[];
+    (s.folders||[]).forEach(f=>{const st=folderState(f);if(!st.ok)ng.push(f.label+(st.unchecked?"（未確認）":"（確認NG）"));folders[f.key]=folderVal(f).trim()});
+    if(ng.length)return err("読み取りフォルダを確認してから保存してください："+ng.join("、"));
+    const low=intIn("#s-low",1,1000),tol=intIn("#s-tol",1,60);
+    if(low===null){$("#s-low").focus();return err("残数の通知ラインは1以上の整数で入力してください")}
+    if(tol===null){$("#s-tol").focus();return err("日付の許容差は1〜60の整数で入力してください")}
+    const startCarry={};
+    for(const u of UNIT_KEYS){const v=intIn("#s-carry-"+u,0,100000);if(v===null){$("#s-carry-"+u).focus();return err(UNITS[u]+"の繰越数は0以上の整数で入力してください")}startCarry[u]=v}
+    const to=$("#s-to").value.trim();
+    if(to&&to.split(",").map(x=>x.trim()).filter(Boolean).some(x=>!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)))return err("通知先のメールアドレスの形式が正しくありません");
+    const input={folders,autoEnabled:$("#s-auto").checked,intervalMin:+$("#s-interval").value,tolDays:tol,useVin:$("#s-vin").checked,lowStock:low,closeRemind:$("#s-remind").checked,notifyTo:to,startCarry,yearly:$("#s-yearly").checked};
+    const res=await api("apiSaveSettings",[input,P().month],{btn,onError:m=>err(m)});
+    if(res){applyPayload(res.payload);S.fval={};S.fchk={};render();toast("設定を保存しました")}
+  }
+});
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&S.open){
+    if(S.exMode){S.exMode=false;renderDrawer();return}
+    return closeDrawer();
+  }
+  if(e.key==="Enter"&&e.target.dataset&&e.target.dataset.areaInput!==undefined){e.preventDefault();addArea(+e.target.dataset.areaInput);return}
+  if(e.key==="Enter"&&e.target.id==="exReason"){e.preventDefault();const b=$("[data-act=exDo]");b&&b.click();return}
+  if(e.key==="Enter"&&e.target.id==="reopenReason"){e.preventDefault();const b=$("[data-act=reopenDo]");b&&b.click();return}
+  if((e.key==="Enter"||e.key===" ")&&e.target.matches&&e.target.matches("tr[data-open]")){e.preventDefault();openDrawer(e.target.dataset.open)}
+});
+
+/* ---------------- 起動 ---------------- */
+const v0=store.get("fuuin-view");if(v0&&TABS.some(t=>t[0]===v0))S.view=v0;
+boot();
+})();
+</script>
