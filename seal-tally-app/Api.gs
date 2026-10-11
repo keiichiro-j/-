@@ -153,7 +153,8 @@ function buildPayload_(month, user) {
       carry: x.carry, received: x.received, adjusted: x.adjusted, used: x.used, left: x.left,
       negativeDays: x.negativeDays,
       pending: records.filter(function (r) { return r.unit === u && monthOfRecord_(r) === month && isBlocking_(r); }).length,
-      low: x.left < low
+      // 通知と同じ基準：今月は今日時点の残数、過去の月は月末の残数
+      low: (month === thisMonth_() ? balanceAsOf_(x, todayStr_()) : x.left) < low
     };
   });
   var stockRows = ctx.stock.slice().sort(function (a, b) {

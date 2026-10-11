@@ -100,6 +100,13 @@ function stockSummary_(month, ctx) {
   return out;
 }
 
+/** 今日時点の残数（その月の今日までの動き。今日より後の日付の受入・封印は含めない） */
+function balanceAsOf_(movement, today) {
+  var bal = movement.carry;
+  movement.days.forEach(function (x) { if (x.date <= today) bal = x.balance; });
+  return bal;
+}
+
 /**
  * 残数通知の判定。しきい値を下回った時点で1回だけ送り、回復したらフラグを戻す。
  * @return {{send:boolean, flag:boolean}}
@@ -219,10 +226,7 @@ function checkLowStock_(records) {
   // 今日時点の残数（今月の今日までの動き。今日より後の日付の受入・封印は含めない）
   var today = todayStr_();
   var nowLeft = {};
-  UNITS.forEach(function (u) {
-    nowLeft[u] = sum[u].carry;
-    sum[u].days.forEach(function (x) { if (x.date <= today) nowLeft[u] = x.balance; });
-  });
+  UNITS.forEach(function (u) { nowLeft[u] = balanceAsOf_(sum[u], today); });
   UNITS.forEach(function (u) {
     var key = 'notify.lowSent.' + u;
     var sent = isTrue_(s[key]);

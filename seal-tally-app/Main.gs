@@ -51,11 +51,20 @@ function onOpen() {
 
 /**
  * 利用者のいる実行（google.script.run・エディタ・メニュー）では管理者だけに許す。
- * トリガーからの実行（利用者のメールが取れない）はそのまま通す。
+ * トリガーからの実行（イベントに triggerUid がある、または利用者のメールが取れない）はそのまま通す。
  * 末尾に _ の無い関数は google.script.run からも呼べ、デプロイした管理者の権限で動くため、入口で必ず確認する。
+ * triggerUid は登録済みトリガーの ID と一致する場合のみ認める（google.script.run から偽の ID を渡しても通らない）。
  */
-function guardEntry_() {
+function guardEntry_(e) {
+  if (e && typeof e === 'object' && e.triggerUid && isOwnTrigger_(String(e.triggerUid))) return;
   if (currentEmail_()) requireRole_(ROLE.ADMIN);
+}
+
+/** このプロジェクトに登録済みのトリガーの ID か */
+function isOwnTrigger_(uid) {
+  try {
+    return ScriptApp.getProjectTriggers().some(function (t) { return String(t.getUniqueId()) === uid; });
+  } catch (err) { return false; }
 }
 
 /** メニュー：今すぐ取込 */

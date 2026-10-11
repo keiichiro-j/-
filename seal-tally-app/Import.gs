@@ -140,12 +140,14 @@ var IMPORT_MANUAL_BUDGET_MS_ = 2 * 60 * 1000;
 var IMPORT_POST_RESERVE_MS_ = 60 * 1000;
 /** 次回に回した帳票再生成の月（スクリプトプロパティ） */
 var PENDING_REPORTS_PROP_ = 'pendingReportMonths';
+/** 時間切れで飛ばした残数判定（スクリプトプロパティ） */
+var PENDING_LOWSTOCK_PROP_ = 'pendingLowStockCheck';
 /** フォルダエラー通知の送信記録（スクリプトプロパティ。同じ内容は1日1回） */
 var FOLDER_ERROR_PROP_ = 'folderErrorNotified';
 
 /** 時間主導トリガーの入口（利用者のいる実行では管理者のみ） */
-function runImport() {
-  guardEntry_();
+function runImport(e) {
+  guardEntry_(e);
   actorOverride_ = 'システム';
   try {
     var r = importNow_();
@@ -302,8 +304,17 @@ function importNow_(opt) {
         }
       }
     }
-    if (result.imported && Date.now() <= deadline) {
-      try { checkLowStock_(env.records); } catch (e) { console.error('残数通知の判定に失敗しました: ' + e); }
+    var props = PropertiesService.getScriptProperties();
+    var lowPending = props.getProperty(PENDING_LOWSTOCK_PROP_) === 'TRUE';
+    if (result.imported || lowPending) {
+      if (Date.now() <= deadline) {
+        try {
+          checkLowStock_(env.records);
+          if (lowPending) props.deleteProperty(PENDING_LOWSTOCK_PROP_);
+        } catch (e) { console.error('残数通知の判定に失敗しました: ' + e); }
+      } else {
+        props.setProperty(PENDING_LOWSTOCK_PROP_, 'TRUE');   // 時間切れ：次回の取込で判定する
+      }
     }
     clearFolderCache_();
     return result;

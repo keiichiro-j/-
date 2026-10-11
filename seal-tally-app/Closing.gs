@@ -111,8 +111,8 @@ function sendNotice_(to, subject, body) {
  * 締めのリマインド（毎月1日9時のトリガー入口）。
  * notify.closeRemind が TRUE のとき、前月分の締めのお願い・要確認の残件数・アプリのURLを送る。
  */
-function runCloseReminder() {
-  guardEntry_();
+function runCloseReminder(e) {
+  guardEntry_(e);
   actorOverride_ = 'システム';
   try {
     if (getSetting_('notify.closeRemind') === false) return;

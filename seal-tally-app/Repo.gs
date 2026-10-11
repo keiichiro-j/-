@@ -309,12 +309,16 @@ function getHolidays_(fromYmd, toYmd) {
 var HOLIDAY_NAMES_ = ['元日', '成人の日', '建国記念の日', '天皇誕生日', '春分の日', '昭和の日', '憲法記念日', 'みどりの日',
   'こどもの日', '海の日', '山の日', '敬老の日', '秋分の日', 'スポーツの日', '文化の日', '勤労感謝の日', '振替休日', '国民の休日'];
 
-/** カレンダーのイベントが祝日か（説明欄が「祝日」または空で、タイトルが既知の祝日名を含むもの） */
+/**
+ * カレンダーのイベントが祝日か。
+ * 説明欄に「祝日」があれば祝日（一度きりの祝日も含む）。説明欄が空なら、タイトルが既知の祝日名か「休日」を含むもの。
+ * 説明欄が「祝日」以外（節分・七夕などの行事）は除く。
+ */
 function isHolidayEvent_(title, desc) {
   var d = String(desc || '').trim();
-  if (d && d.indexOf('祝日') < 0) return false;
+  if (d) return d.indexOf('祝日') >= 0;
   var t = String(title || '');
-  return HOLIDAY_NAMES_.some(function (n) { return t.indexOf(n) >= 0; });
+  return t.indexOf('休日') >= 0 || HOLIDAY_NAMES_.some(function (n) { return t.indexOf(n) >= 0; });
 }
 
 /** カレンダーから1か月分の祝日を取る */
