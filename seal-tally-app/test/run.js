@@ -76,6 +76,12 @@ test('抽出: ラベルの後に別ラベルが並ぶ表形式', () => {
   eq(G.extractPlate_(t, AREAS).plate, { area: '岐阜', cls: '303', kana: 'に', num: '12-13' });
 });
 
+test('抽出: 「・・・1」がピリオド・三点リーダーで読まれた場合', () => {
+  eq(G.extractPlate_(sample('名古屋 500 あ ...1'), AREAS).plate.num, '・・・1');
+  eq(G.extractPlate_(sample('名古屋 500 あ …1'), AREAS).plate.num, '・・・1');
+  eq(G.extractPlate_(sample('名古屋 500 あ ‥12'), AREAS).plate.num, '・・12');
+});
+
 console.log('# 帳票表記');
 test('「・・・1」→「岐阜303に1」', () => assert.strictEqual(G.platePrint_({ area: '岐阜', cls: '303', kana: 'に', num: '・・・1' }), '岐阜303に1'));
 test('「12-13」→「岐阜303に1213」', () => assert.strictEqual(G.platePrint_({ area: '岐阜', cls: '303', kana: 'に', num: '12-13' }), '岐阜303に1213'));
@@ -97,6 +103,12 @@ test('ラベルなし：候補2つでも許容差内なら近い方', () => {
   eq(G.extractRegDate_('令和8年10月9日 令和8年10月6日', OPT).date, '2026-10-09');
 });
 test('空白が入った日付', () => eq(G.extractRegDate_('登 録 年 月 日 令 和 8 年 1 0 月 9 日', OPT).date, '2026-10-09'));
+test('ラベル直後でも未来の日付（満了日）は採らない', () => {
+  eq(G.extractRegDate_('登録年月日/交付年月日 有効期間の満了する日 令和11年10月8日 令和8年10月9日', OPT).date, '2026-10-09');
+});
+test('和暦表示（平成・令和元年）', () => {
+  eq([G.wareki_('2019-04-30'), G.wareki_('2019-05-01')], ['平成31年4月30日', '令和元年5月1日']);
+});
 test('車台番号', () => assert.strictEqual(G.extractVin_(sample('岐阜303に1213')), 'ZVW30-5123456'));
 
 console.log('# 振り分け');

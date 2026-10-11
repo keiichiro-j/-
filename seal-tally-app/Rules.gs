@@ -40,8 +40,9 @@ function dowOf_(ymd) { return new Date(ymd + 'T00:00:00Z').getUTCDay(); }
 /** "2026-10-09" → "令和8年10月9日" */
 function wareki_(ymd) {
   var p = String(ymd).split('-').map(Number);
-  var y = p[0] - 2018;
-  return '令和' + (y === 1 ? '元' : y) + '年' + p[1] + '月' + p[2] + '日';
+  var reiwa = String(ymd) >= '2019-05-01';
+  var y = p[0] - (reiwa ? 2018 : 1988);
+  return (reiwa ? '令和' : '平成') + (y === 1 ? '元' : y) + '年' + p[1] + '月' + p[2] + '日';
 }
 function md_(ymd) { var p = String(ymd).split('-').map(Number); return p[1] + '/' + p[2]; }
 

@@ -20,6 +20,10 @@ function normalizeText_(raw) {
   s = s.replace(new RegExp('[' + DOTS_ + ']', 'g'), '・');
   s = s.replace(new RegExp('(\\d)\\s*[' + HYPHENS_ + ']\\s*(?=\\d)', 'g'), '$1-');
   s = s.replace(/[　\t\r\f\v]/g, ' ');
+  // ひらがなの直後で数字の前にある「.」（「…」「‥」の NFKC 後を含む）は一連番号の「・」とみなす
+  s = s.replace(/([\u3041-\u3096]\s*)((?:[.・]\s*){1,3})(?=\d)/g, function (m, a, b) {
+    return a + b.replace(/\./g, '・');
+  });
   var compact = s.replace(/\s+/g, '');
   // 空白を除いたことで新たに数字の間に並んだハイフン類もそろえる
   compact = compact.replace(new RegExp('(\\d)[' + HYPHENS_ + '](?=\\d)', 'g'), '$1-');
@@ -218,7 +222,9 @@ function extractRegDate_(raw, opt) {
   var label = '登録年月日';
   var li = c.indexOf(label);
   if (li >= 0) {
-    var after = findDates_(c.slice(li + label.length, li + label.length + 120));
+    var after = findDates_(c.slice(li + label.length, li + label.length + 120)).filter(function (x) {
+      return !opt.today || x.date <= opt.today;   // 有効期間の満了日など未来の日付は採らない
+    });
     if (after.length) return { date: after[0].date, candidates: [after[0].date], via: 'label' };
   }
   var all = findDates_(c).map(function (x) { return x.date; });
