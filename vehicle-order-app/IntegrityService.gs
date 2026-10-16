@@ -36,6 +36,15 @@ function checkInventoryIntegrity_(vehicles) {
     if (!v.model || !String(v.model).trim()) {
       issues.push({ type: 'missingModel', commission: v.commission || '', message: 'コミッション「' + (v.commission || '(空欄)') + '」の行にモデル名がありません' });
     }
+    // Hold中なのにHoldリストに行が無い車両は、期限切れの自動解除・Hold解除・受注確定が
+    // いずれもできず止まってしまう。逆に在庫ありなのにHoldリストに行が残っている場合も、
+    // 次のHold登録で行が重複する原因になる。どちらもスプレッドシートの直接編集で起こりうる。
+    if (v.holdStatus === HOLD_STATUS.HOLD && !v.holdCreatedAt && !v.holdStaffEmail) {
+      issues.push({ type: 'holdWithoutHoldRow', commission: v.commission || '', message: 'コミッション「' + (v.commission || '(空欄)') + '」はHold中ですが、Holdリストに該当の行がありません（Holdステータスを available に戻してください）' });
+    }
+    if (v.holdStatus !== HOLD_STATUS.HOLD && (v.holdCreatedAt || v.holdStaffEmail || v.secondHoldCreatedAt || v.secondHoldStaffEmail)) {
+      issues.push({ type: 'holdRowWithoutHoldStatus', commission: v.commission || '', message: 'コミッション「' + (v.commission || '(空欄)') + '」は在庫ありですが、Holdリストに行が残っています（Holdリストの該当行を削除してください）' });
+    }
     if (validHoldStatuses.indexOf(v.holdStatus) === -1) {
       issues.push({ type: 'unknownHoldStatus', commission: v.commission || '', message: 'コミッション「' + (v.commission || '(空欄)') + '」のHoldステータス「' + v.holdStatus + '」は不明な値です' });
     }

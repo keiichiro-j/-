@@ -84,5 +84,6 @@ function onOpen() {
     .addItem('初期セットアップ（9タブを作成）', 'setupSpreadsheet_')
     .addItem('列構成・入力規則・列見出しのコメントを再設定', 'applySelectValidationsAndNotes_')
     .addItem('コミッション列を書式なしテキストに再設定', 'formatCommissionColumnsAsText_')
+    .addItem('Hold期限チェックのトリガーを設定', 'installHoldExpiryTrigger')
     .addToUi();
 }

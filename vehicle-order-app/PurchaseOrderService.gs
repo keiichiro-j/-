@@ -38,7 +38,17 @@ function listPurchaseOrders() {
  * 発注情報を新規登録する。
  * @param {Object} info { model, salesLocation, staff, customer, commission, leadNumber }
  */
+// 発注情報の登録・編集・削除はスプレッドシートへ直接行う運用で、アプリ画面からは呼ばない。
+// ただしトップレベル関数は google.script.run から直接呼べてしまうため、管理者以外の
+// 書き換えはサーバー側で拒否する（GASエディタから管理者が実行する用途は残す）。
+function requireAdminForPurchaseOrderWrite_() {
+  if (!isSystemAdmin_(Session.getActiveUser().getEmail())) {
+    throw new Error('発注情報の登録・編集・削除は管理者のみ行えます');
+  }
+}
+
 function addPurchaseOrder(info) {
+  requireAdminForPurchaseOrderWrite_();
   var check = validateRequiredInfo_(PURCHASE_ORDER_INPUT_COLUMNS, info);
   if (!check.ok) throw new Error(check.reason);
 
@@ -65,6 +75,7 @@ function addPurchaseOrder(info) {
  * @param {Object} info { model, salesLocation, staff, customer, commission, leadNumber }
  */
 function updatePurchaseOrder(id, info) {
+  requireAdminForPurchaseOrderWrite_();
   var check = validateRequiredInfo_(PURCHASE_ORDER_INPUT_COLUMNS, info);
   if (!check.ok) throw new Error(check.reason);
 
@@ -94,6 +105,7 @@ function updatePurchaseOrder(id, info) {
  * @param {string} id
  */
 function deletePurchaseOrder(id) {
+  requireAdminForPurchaseOrderWrite_();
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {

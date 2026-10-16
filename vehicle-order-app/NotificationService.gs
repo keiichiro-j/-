@@ -7,7 +7,7 @@
  * どちらか一方だけの設定でも動作する。sendChatNotification_参照）。
  */
 
-function notifyHoldRegistered(vehicle, isSecondHold) {
+function notifyHoldRegistered_(vehicle, isSecondHold) {
   var mailTo = getMailList_(scriptPropKey_('NOTIFY_HOLD_MAIL_TO')).join(',');
 
   var label = isSecondHold ? '2nd Hold' : 'Hold';
@@ -48,18 +48,17 @@ function notifyHoldRegistered(vehicle, isSecondHold) {
 
   var sent = false;
   if (mailTo) {
-    MailApp.sendEmail({
+    sent = sendMailSafely_({
       to: mailTo,
       subject: '【販売可能リスト】' + label + '登録のお知らせ',
       body: body
     });
-    sent = true;
   }
   if (sendChatNotification_('*【販売可能リスト】' + label + '登録のお知らせ*\n' + body)) sent = true;
   return sent;
 }
 
-function notifyOrderConfirmed(order, destination) {
+function notifyOrderConfirmed_(order, destination) {
   var mailTo = getMailList_(scriptPropKey_('NOTIFY_ORDER_MAIL_TO')).join(',');
   var listName = orderListNameForDestination_(destination || HOLD_TYPE.NORMAL);
 
@@ -83,12 +82,11 @@ function notifyOrderConfirmed(order, destination) {
 
   var sent = false;
   if (mailTo) {
-    MailApp.sendEmail({
+    sent = sendMailSafely_({
       to: mailTo,
       subject: '【販売可能リスト】受注確定のお知らせ',
       body: body
     });
-    sent = true;
   }
   if (sendChatNotification_('*【販売可能リスト】受注確定のお知らせ*\n' + body)) sent = true;
   return sent;
@@ -107,6 +105,22 @@ function notifyOrderConfirmed(order, destination) {
  * 必ずステータスコードを見て判定する。
  * メッセージはGoogle Chatの簡易Markdown（*太字*等）に対応させている。
  */
+/**
+ * メールを送る。送信数の上限超過・宛先の誤り等で失敗しても例外は投げず false を返す。
+ * 通知はHold登録・受注確定の「あと」に送るため、ここで例外を投げると、実際には
+ * 登録が完了しているのに画面にはエラーと表示され、担当者が再操作して「既にHold中」等の
+ * エラーになってしまう（変更履歴の appendAuditLog_ と同じ考え方）。
+ */
+function sendMailSafely_(message) {
+  try {
+    MailApp.sendEmail(message);
+    return true;
+  } catch (e) {
+    console.error('メール通知の送信に失敗しました: ' + (e && e.message ? e.message : e));
+    return false;
+  }
+}
+
 function sendChatNotification_(text) {
   var url = getScriptProp_(PropertiesService.getScriptProperties(), 'NOTIFY_CHAT_WEBHOOK_URL');
   if (!url) return false;
@@ -142,7 +156,7 @@ function notifySystemError_(context, error) {
   var to = getMailList_(scriptPropKey_('NOTIFY_ERROR_MAIL_TO')).join(',');
   if (!to) return false;
 
-  MailApp.sendEmail({
+  return sendMailSafely_({
     to: to,
     subject: '【販売可能リスト】エラー通知: ' + context,
     body: [
@@ -152,7 +166,6 @@ function notifySystemError_(context, error) {
       '発生日時: ' + formatDateTime_(new Date().getTime())
     ].join('\n')
   });
-  return true;
 }
 
 function formatDateTime_(epochMs) {

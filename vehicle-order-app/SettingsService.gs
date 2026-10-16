@@ -167,8 +167,20 @@ function saveRawSettings_(settings) {
 function saveSettings(settings) {
   var email = Session.getActiveUser().getEmail();
   var isAdmin = isSystemAdmin_(email);
-  var guarded = applySystemMasterGuard_(settings, getRawSettings_(), isAdmin);
-  saveRawSettings_(guarded);
+  if (!isAdmin) {
+    // 管理者以外が変更できるのはテーマ（アカウントごとの保存）だけ。以前は共通設定も
+    // 読み直した値で書き戻していたため、管理者が同時に担当者マスタ等を保存すると、
+    // その変更を古い値で上書きしてしまうことがあった。テーマ以外は一切書き込まない。
+    setCurrentUserThemeKey_(settings && settings.themeKey);
+    return redactSystemMasterSettings_(getRawSettings_(), false);
+  }
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    saveRawSettings_(applySystemMasterGuard_(settings, getRawSettings_(), isAdmin));
+  } finally {
+    lock.releaseLock();
+  }
   return redactSystemMasterSettings_(getRawSettings_(), isAdmin);
 }
 

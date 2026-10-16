@@ -285,7 +285,7 @@ function registerHold(commission, info, holdType) {
     updateInventoryVehicle_(sheet, rowNumber, { holdStatus: HOLD_STATUS.HOLD });
 
     var updated = findInventoryVehicleWithHolds_(commission);
-    notifyHoldRegistered(updated, false);
+    notifyHoldRegistered_(updated, false);
     var detail = holdType === HOLD_TYPE.NORMAL
       ? 'リード番号 ' + info.leadNumber
       : HOLD_TYPE_LABELS[holdType] + (holdType === HOLD_TYPE.OTHER_STORE
@@ -338,7 +338,7 @@ function registerSecondHold(commission, info) {
     createHoldRow_(record);
 
     var updated = findInventoryVehicleWithHolds_(commission);
-    notifyHoldRegistered(updated, true);
+    notifyHoldRegistered_(updated, true);
     appendAuditLog_(buildAuditLogEntry_('2nd Hold登録', commission, vehicle.model, currentStaff, 'リード番号 ' + info.leadNumber, new Date().getTime()));
     return updated;
   } finally {
@@ -470,7 +470,7 @@ function processExpiredHolds() {
         deleteHoldRow_(holdsSheet, firstRowNumber);
         // 通知の失敗（メール送信数の上限等）で、残りの車両の期限切れ処理まで止めない。
         try {
-          notifyHoldRegistered(findInventoryVehicleWithHolds_(vehicle.commission), false);
+          notifyHoldRegistered_(findInventoryVehicleWithHolds_(vehicle.commission), false);
         } catch (e) {
           console.error('Hold自動昇格の通知に失敗しました: ' + (e && e.message ? e.message : e));
         }

@@ -28,7 +28,7 @@ vm.createContext(sandbox);
 const FILES = [
   'Constants.gs', 'HoldService.gs', 'SearchService.gs', 'SheetService.gs', 'SettingsService.gs',
   'AuditLogService.gs', 'IntegrityService.gs', 'PurchaseOrderService.gs', 'PaidOptionService.gs',
-  'OrderService.gs'
+  'OrderService.gs', 'NotificationService.gs'
 ];
 
 FILES.forEach((file) => {
@@ -1262,7 +1262,7 @@ console.log('== IntegrityService: checkInventoryIntegrity_（在庫データの�
 test('問題のないデータは空配列を返す', () => {
   const vehicles = [
     { commission: 'C-001', model: 'A4', holdStatus: 'available' },
-    { commission: 'C-002', model: 'A6', holdStatus: 'hold' },
+    { commission: 'C-002', model: 'A6', holdStatus: 'hold', holdCreatedAt: 1000, holdStaffEmail: 'sato@example.com' },
     { commission: 'C-003', model: 'Q5', holdStatus: '' }
   ];
   assert.strictEqual(sandbox.checkInventoryIntegrity_(vehicles).length, 0);
@@ -1471,6 +1471,31 @@ test('起動画面の画像はフェードインし、閉じるときはゆっ�
   assert.ok(css.includes('.appLoading.is-leaving'));
   assert.ok(js.includes('APP_LOADING_FADE_MS_'));
   assert.ok(js.includes('is-leaving'));
+});
+
+console.log('== アプリ全体の見直しで直した点 ==');
+test('Hold中なのにHoldリストに行が無い車両・在庫ありなのにHold行が残る車両を警告する', () => {
+  const issues = sandbox.checkInventoryIntegrity_([
+    { commission: 'A', model: 'M', holdStatus: 'hold', holdCreatedAt: null, holdStaffEmail: null },
+    { commission: 'B', model: 'M', holdStatus: 'available', holdCreatedAt: 1000, holdStaffEmail: 'x@example.com' },
+    { commission: 'C', model: 'M', holdStatus: 'hold', holdCreatedAt: 1000, holdStaffEmail: 'x@example.com' },
+    { commission: 'D', model: 'M', holdStatus: 'available' }
+  ]);
+  const types = issues.map((i) => i.type + ':' + i.commission).sort();
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(types)), ['holdRowWithoutHoldStatus:B', 'holdWithoutHoldRow:A']);
+});
+test('通知関数はブラウザから直接呼べないよう非公開（末尾 _）になっている', () => {
+  assert.strictEqual(typeof sandbox.notifyHoldRegistered, 'undefined');
+  assert.strictEqual(typeof sandbox.notifyOrderConfirmed, 'undefined');
+  assert.strictEqual(typeof sandbox.notifyHoldRegistered_, 'function');
+  assert.strictEqual(typeof sandbox.notifyOrderConfirmed_, 'function');
+});
+test('発注情報の登録・編集・削除は管理者以外を拒否する', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'PurchaseOrderService.gs'), 'utf8');
+  ['addPurchaseOrder', 'updatePurchaseOrder', 'deletePurchaseOrder'].forEach((fn) => {
+    const body = src.slice(src.indexOf('function ' + fn + '('));
+    assert.ok(body.slice(0, body.indexOf('\n}')).includes('requireAdminForPurchaseOrderWrite_()'), fn);
+  });
 });
 
 console.log('== OrderService: 受注取消で在庫リストの元の位置へ戻す ==');

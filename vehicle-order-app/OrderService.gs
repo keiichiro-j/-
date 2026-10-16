@@ -81,7 +81,7 @@ function confirmOrder(commission, info) {
     appendOrderByDestination_(destination, order);
     deleteInventoryRow_(sheet, rowNumber);
     deleteAllHoldRowsForCommission_(commission);
-    notifyOrderConfirmed(order, destination);
+    notifyOrderConfirmed_(order, destination);
     appendAuditLog_(buildAuditLogEntry_(
       '受注確定',
       commission,

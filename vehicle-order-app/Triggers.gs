@@ -16,6 +16,20 @@ function setupTimeDrivenTriggers_() {
     .create();
 }
 
+/**
+ * Hold期限チェックのトリガーを設定し直す（管理者用）。スプレッドシートのメニュー
+ * 「販売可能リスト」→「Hold期限チェックのトリガーを設定」、またはGASエディタの
+ * 関数一覧から実行する。名前の末尾に _ が無い関数はブラウザからも呼び出せるため、
+ * 管理者以外の実行は拒否する。
+ */
+function installHoldExpiryTrigger() {
+  if (!isSystemAdmin_(Session.getActiveUser().getEmail())) {
+    throw new Error('トリガーの設定は管理者のみ行えます');
+  }
+  setupTimeDrivenTriggers_();
+  return 'Hold期限チェックのトリガー（5分ごと）を設定しました';
+}
+
 function deleteAllTriggers_() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     ScriptApp.deleteTrigger(t);

@@ -87,7 +87,9 @@
   // ===== google.script.run を Promise 化するヘルパー =====
   // サーバー側が応答しない場合にボタンやモーダルが固まって見えないよう、
   // 一定時間で必ずエラーとして解決させるタイムアウトを設ける。
-  var GAS_CALL_TIMEOUT_MS = 25000;
+  // サーバー側は排他ロックを最大30秒待つため、それより長く待ってから打ち切る
+  // （短いと、サーバーでは登録が完了しているのに画面だけエラーになることがある）。
+  var GAS_CALL_TIMEOUT_MS = 45000;
   // 同じ一覧のサーバー再取得が重ならないよう、進行中の Promise を共有する。
   var inventoryFetchPromise_ = null;
   var gclassFetchPromise_ = null;
@@ -105,7 +107,7 @@
       var timer = setTimeout(function () {
         if (settled) return;
         settled = true;
-        reject(new Error('サーバーからの応答がありません。通信環境をご確認のうえ、もう一度お試しください。'));
+        reject(new Error('サーバーからの応答がありません。処理が完了している場合もあるため、一覧で結果を確認してから、必要に応じてもう一度お試しください。'));
       }, GAS_CALL_TIMEOUT_MS);
 
       google.script.run
