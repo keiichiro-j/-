@@ -49,6 +49,13 @@ function api_getBootstrapData() {
 
 // ===== 在庫リスト一覧 =====
 function api_listInventory(filters, groupBy) {
+  // 期限を過ぎたHoldがあれば、一覧を返す前に解除・繰り上げしておく（正確さを優先）。
+  // 混雑で順番が取れなかった場合でも一覧の表示は止めない（次回の更新・トリガーで処理される）。
+  try {
+    expireHoldsIfNeeded_();
+  } catch (e) {
+    console.error('一覧取得時のHold期限切れ処理に失敗しました: ' + (e && e.message ? e.message : e));
+  }
   var vehicles = searchInventory(listInventory(), filters);
   return groupBy ? groupByField_(vehicles, groupBy) : [{ key: '', items: vehicles }];
 }

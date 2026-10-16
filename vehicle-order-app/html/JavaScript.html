@@ -95,7 +95,7 @@
   var gclassFetchPromise_ = null;
   // Holdの表示をなるべくリアルタイムに近づけるため、在庫だけ裏で取り直す。
   // 検索のたびに取るのではなく、一定間隔・画面復帰・Hold操作時に取る。
-  var INVENTORY_POLL_MS_ = 15000;
+  var INVENTORY_POLL_MS_ = 10000;
   var INVENTORY_STALE_MS_ = 3000;
   var inventoryFetchedAt_ = 0;
   var inventoryLiveRefreshStarted_ = false;
@@ -800,6 +800,7 @@
     if (tabName === 'home' || tabName === 'inventory' || tabName === 'mypage') {
       refreshInventoryIfStale_(INVENTORY_STALE_MS_, true);
     }
+    if (state.bootstrap) refreshListsForTab_(tabName, LIST_STALE_MS_);
   }
 
   function resetInventoryFilters_() {
@@ -1000,20 +1001,55 @@
     renderInventory();
   }
 
+  // 裏の自動更新で「中身が変わったか」を判定するための指紋。以前はHold関連の数項目
+  // だけを見ていたため、スプレッドシートで色・可能月・備考・有償OP・並び順などを
+  // 直しても、Holdに変化が無い限り画面に反映されなかった。全項目と並び順を比べる。
   function inventoryFingerprint_(items) {
-    return (items || []).map(function (v) {
-      return [
-        v.commission || '',
-        v.model || '',
-        v.holdStatus || '',
-        v.holdStaffEmail || '',
-        String(v.holdExpiresAt || ''),
-        v.secondHoldStaffEmail || '',
-        v.holdHoldType || '',
-        v.holdCustomer || ''
-      ].join('\t');
-    }).sort().join('\n');
+    try {
+      return JSON.stringify(items || []);
+    } catch (e) {
+      return String(Math.random());
+    }
   }
+
+  // 受注・発注・Gクラスの一覧も同じ考え方で比べる。
+  function listFingerprint_(items) { return inventoryFingerprint_(items); }
+
+  // 受注系・発注・Gクラスの一覧は、以前は起動時と自分の操作のあとにしか取り直さず、
+  // 他の担当者の受注確定やスプレッドシートの直接編集が画面に出なかった。
+  // 一定間隔と、その一覧のタブを開いたときに裏で取り直す（変化が無ければ描き直さない）。
+  var LIST_POLL_MS_ = 30000;
+  var LIST_STALE_MS_ = 5000;
+  var listFetchedAt_ = {};
+
+  function refreshListIfStale_(name, maxAgeMs) {
+    var fetchedAt = listFetchedAt_[name] || 0;
+    if (Date.now() - fetchedAt < maxAgeMs) return Promise.resolve();
+    if (name === 'purchaseOrders') return loadPurchaseOrders({ silent: true });
+    if (name === 'gclass') return refreshGClassFromServer_({ silent: true });
+    if (visibleOrderListKinds_().indexOf(name) !== -1) return refreshOrderListFromServer_(name, { silent: true });
+    return Promise.resolve();
+  }
+
+  function listsForTab_(tabName) {
+    if (tabName === 'mypage') return visibleOrderListKinds_().concat(['purchaseOrders', 'gclass']);
+    if (tabName === 'purchaseOrders' || tabName === 'gclass') return [tabName];
+    if (ORDER_LIST_KINDS_.indexOf(tabName) !== -1) return [tabName];
+    return [];
+  }
+
+  function refreshListsForTab_(tabName, maxAgeMs) {
+    listsForTab_(tabName).forEach(function (name) { refreshListIfStale_(name, maxAgeMs); });
+  }
+
+  setInterval(function () {
+    if (document.hidden || !state.bootstrap) return;
+    refreshListsForTab_(currentActiveTab_(), LIST_POLL_MS_);
+  }, LIST_POLL_MS_);
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && state.bootstrap) refreshListsForTab_(currentActiveTab_(), LIST_STALE_MS_);
+  });
+
 
   /**
    * 在庫の全件をサーバーから取り直す（起動・更新ボタン・Hold/受注/解除のあと、
@@ -2001,6 +2037,9 @@
     $('actionPaymentMethod').value = prefill.paymentMethod || '';
 
     openModal($('actionModal'));
+    // 開いた時点の最新状態で操作できるか確かめ直す（他の担当者が直前にHold・受注確定
+    // していた場合は、syncOpenActionModalWithLatest_ が理由を表示して送信を止める）。
+    refreshInventoryFromServer_({ silent: true });
     // 画面のキャッシュが古くても、Hold/受注の直前に在庫を取り直してボタン状態を合わせる。
     // 確定そのものはサーバーがシートを読み直して判定する（先に書き込めた人が優先）。
     refreshInventoryFromServer_({ silent: true });
@@ -2291,17 +2330,25 @@
     renderOrderList_(kind);
   }
 
-  function refreshOrderListFromServer_(kind) {
+  function refreshOrderListFromServer_(kind, opts) {
     var keys = orderListKeys_(kind);
+    var silent = !!(opts && opts.silent);
     if (ORDER_LIST_FETCH_PROMISES_[kind]) return ORDER_LIST_FETCH_PROMISES_[kind];
+    var before = state[keys.cache] ? listFingerprint_(state[keys.all]) : null;
     ORDER_LIST_FETCH_PROMISES_[kind] = gasRun(keys.api, {}, '').then(function (groups) {
-      state[keys.all] = flattenGroupedItems_(groups);
+      var next = flattenGroupedItems_(groups);
+      listFetchedAt_[kind] = Date.now();
+      // 裏の自動更新で中身が変わっていなければ描き直さない（スクロール位置を保つ）。
+      if (silent && before !== null && listFingerprint_(next) === before) return;
+      var scrollY = silent ? window.scrollY : null;
+      state[keys.all] = next;
       state[keys.cache] = true;
       populateOrderListStaffFilter_(kind);
       applyOrderListView_(kind);
       renderMyPageOrderKind_(kind);
+      if (scrollY != null) window.scrollTo(0, scrollY);
     }).catch(function (err) {
-      showToast(err.message, true);
+      if (!silent) showToast(err.message, true);
     }).then(function () {
       ORDER_LIST_FETCH_PROMISES_[kind] = null;
     });
@@ -2752,12 +2799,18 @@
   // 絞り込んで再利用するため、読み込み後は両方の再描画を呼ぶ。
   // カード・表とも受注リスト（orderCardHtml/orderRowCardHtml）と同じ「顧客名を
   // 主役にした見た目」に揃えている。
-  function loadPurchaseOrders() {
+  function loadPurchaseOrders(opts) {
+    var silent = !!(opts && opts.silent);
+    var before = state.purchaseOrders ? listFingerprint_(state.purchaseOrders) : null;
     return gasRun('api_listPurchaseOrders').then(function (items) {
+      listFetchedAt_.purchaseOrders = Date.now();
+      if (silent && before !== null && listFingerprint_(items || []) === before) return;
+      var scrollY = silent ? window.scrollY : null;
       state.purchaseOrders = items || [];
       renderPurchaseOrders_();
       renderMyPagePurchaseOrders_();
-    }).catch(function (err) { showToast(err.message, true); });
+      if (scrollY != null) window.scrollTo(0, scrollY);
+    }).catch(function (err) { if (!silent) showToast(err.message, true); });
   }
 
   function purchaseOrderMatchesKeyword_(po, keyword) {
@@ -2899,15 +2952,21 @@
     renderGClassList_();
   }
 
-  function refreshGClassFromServer_() {
+  function refreshGClassFromServer_(opts) {
+    var silent = !!(opts && opts.silent);
     if (gclassFetchPromise_) return gclassFetchPromise_;
+    var before = state.gclassCacheReady ? listFingerprint_(state.allGClassItems) : null;
     gclassFetchPromise_ = gasRun('api_listGClassReservations', {}).then(function (items) {
+      listFetchedAt_.gclass = Date.now();
+      if (silent && before !== null && listFingerprint_(items || []) === before) return;
+      var scrollY = silent ? window.scrollY : null;
       state.allGClassItems = items || [];
       state.gclassCacheReady = true;
       applyGClassView_();
       renderMyPageGClass_();
+      if (scrollY != null) window.scrollTo(0, scrollY);
     }).catch(function (err) {
-      showToast(err.message, true);
+      if (!silent) showToast(err.message, true);
     }).then(function () {
       gclassFetchPromise_ = null;
     });

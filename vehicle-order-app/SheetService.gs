@@ -13,6 +13,40 @@ function getSpreadsheet_() {
  * 既存のシートがある場合は不足列の挿入（syncSheetColumns_）と見出しメモの再設定を行う
  * （既存データは上書きしない。備考・発注のステアなど後から足した列を正しい位置へ入れる）。
  */
+/**
+ * 同時操作の順番待ち（スクリプトロック）を取る。30秒待っても順番が来なければ、
+ * 英語の「Lock timeout」ではなく分かりやすいメッセージでエラーにする。
+ */
+function acquireScriptLock_() {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) {
+    throw new Error('他の担当者の操作が混み合っています。少し時間をおいてから、もう一度お試しください。');
+  }
+  return lock;
+}
+
+/**
+ * ロックを解放する前に、スプレッドシートへの書き込みを確定させる（SpreadsheetApp.flush）。
+ * Apps Scriptは書き込みをまとめて後から反映することがあるため、確定前にロックを放すと、
+ * 直後に順番が来た別の担当者の処理が「書き込み前の古い状態」を読み、同じ車両に
+ * 二重にHoldできてしまう等の食い違いが起きうる。
+ */
+function releaseScriptLock_(lock) {
+  try {
+    SpreadsheetApp.flush();
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * コミッションの突き合わせ用に正規化する（純粋関数）。前後の空白の有無や、
+ * 数値セルと文字列の違いで別の車両扱いにならないよう、文字列化して前後の空白を除く。
+ */
+function normalizeCommission_(value) {
+  return String(value == null ? '' : value).trim();
+}
+
 // 1回の実行（API呼び出し・トリガー1回）の中で、同じシートの準備処理を繰り返さないための
 // キャッシュ。GASはグローバル変数を実行ごとに作り直すため、実行をまたいで古い値が残ることはない。
 var SHEET_CACHE_ = {};
@@ -324,7 +358,7 @@ function findRowByKey_(sheet, columns, keyField, keyValue) {
   var keyIndex1 = buildColIndex_(columns)[keyField] + 1;
   var keyValues = sheet.getRange(2, keyIndex1, lastRow - 1, 1).getValues();
   for (var i = 0; i < keyValues.length; i++) {
-    if (String(keyValues[i][0]) === String(keyValue)) {
+    if (normalizeCommission_(keyValues[i][0]) === normalizeCommission_(keyValue)) {
       return i + 2; // 実シート行番号
     }
   }
@@ -340,6 +374,18 @@ function listInventory() {
 
 function findInventoryRowNumber_(sheet, commission) {
   return findRowByKey_(sheet, INVENTORY_COLUMNS, 'commission', commission);
+}
+
+/**
+ * 在庫リストに同じコミッションの行が2行以上ある車両は、どちらの行をHold・受注確定の
+ * 対象にすべきか判断できないため、操作を止める。
+ */
+function assertUniqueInventoryCommission_(sheet, commission) {
+  var key = normalizeCommission_(commission);
+  var count = readInventoryCommissions_(sheet).filter(function (c) { return c === key; }).length;
+  if (count > 1) {
+    throw new Error('在庫リストにコミッション「' + commission + '」の行が複数あるため操作できません。スプレッドシートの重複行を整理してから、もう一度お試しください。');
+  }
 }
 
 function findInventoryVehicle(commission) {
@@ -411,7 +457,7 @@ function insertInventoryVehicleAt_(sheet, rowNumber, vehicle) {
  * 見つかりません」と誤ってエラーになる不具合の原因）。文字列化して比較する。
  */
 function holdMatchesCommission_(hold, commission) {
-  return String(hold.commission) === String(commission);
+  return normalizeCommission_(hold.commission) === normalizeCommission_(commission);
 }
 
 function listHoldsForCommission_(commission) {
@@ -427,8 +473,8 @@ function listHoldsForCommission_(commission) {
 function getHoldsForCommission_(commission) {
   var rows = listHoldsForCommission_(commission);
   return {
-    first: rows.find(function (h) { return h.rank === HOLD_RANK.FIRST; }) || null,
-    second: rows.find(function (h) { return h.rank === HOLD_RANK.SECOND; }) || null
+    first: rows.find(function (h) { return String(h.rank).trim() === HOLD_RANK.FIRST; }) || null,
+    second: rows.find(function (h) { return String(h.rank).trim() === HOLD_RANK.SECOND; }) || null
   };
 }
 
@@ -437,7 +483,7 @@ function findHoldRowNumber_(sheet, commission, rank) {
   if (lastRow < 2) return null;
   var values = sheet.getRange(2, 1, lastRow - 1, 2).getValues(); // commission, rank は先頭2列
   for (var i = 0; i < values.length; i++) {
-    if (String(values[i][0]) === String(commission) && values[i][1] === rank) {
+    if (normalizeCommission_(values[i][0]) === normalizeCommission_(commission) && String(values[i][1]).trim() === rank) {
       return i + 2;
     }
   }
@@ -484,7 +530,7 @@ function deleteAllHoldRowsForCommission_(commission) {
   if (lastRow < 2) return;
   var values = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
   for (var i = values.length - 1; i >= 0; i--) {
-    if (String(values[i][0]) === String(commission)) sheet.deleteRow(i + 2);
+    if (normalizeCommission_(values[i][0]) === normalizeCommission_(commission)) sheet.deleteRow(i + 2);
   }
 }
 

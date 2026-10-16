@@ -70,8 +70,7 @@ function lookupPaidOptionName_(code, master) {
  */
 function replacePaidOptionMaster_(list) {
   var normalized = normalizePaidOptionMaster_(list);
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
+  var lock = acquireScriptLock_();
   try {
     var sheet = getPaidOptionMasterSheet_();
     var lastRow = sheet.getLastRow();
@@ -86,6 +85,6 @@ function replacePaidOptionMaster_(list) {
     sheet.getRange(2, 1, rows.length, PAID_OPTION_MASTER_COLUMNS.length).setValues(rows);
     return normalized;
   } finally {
-    lock.releaseLock();
+    releaseScriptLock_(lock);
   }
 }

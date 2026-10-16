@@ -52,8 +52,7 @@ function addPurchaseOrder(info) {
   var check = validateRequiredInfo_(PURCHASE_ORDER_INPUT_COLUMNS, info);
   if (!check.ok) throw new Error(check.reason);
 
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
+  var lock = acquireScriptLock_();
   try {
     var sheet = getPurchaseOrderSheet_();
     var record = Object.assign({ id: Utilities.getUuid(), createdAt: new Date().getTime() }, buildPurchaseOrderRecord_(info));
@@ -65,7 +64,7 @@ function addPurchaseOrder(info) {
     sheet.getRange(newRow, 1, 1, PURCHASE_ORDER_COLUMNS.length).setValues([objectToRow_(record, PURCHASE_ORDER_COLUMNS)]);
     return record;
   } finally {
-    lock.releaseLock();
+    releaseScriptLock_(lock);
   }
 }
 
@@ -79,8 +78,7 @@ function updatePurchaseOrder(id, info) {
   var check = validateRequiredInfo_(PURCHASE_ORDER_INPUT_COLUMNS, info);
   if (!check.ok) throw new Error(check.reason);
 
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
+  var lock = acquireScriptLock_();
   try {
     var sheet = getPurchaseOrderSheet_();
     var rowNumber = findPurchaseOrderRowNumber_(sheet, id);
@@ -96,7 +94,7 @@ function updatePurchaseOrder(id, info) {
     sheet.getRange(rowNumber, 1, 1, PURCHASE_ORDER_COLUMNS.length).setValues([objectToRow_(merged, PURCHASE_ORDER_COLUMNS)]);
     return merged;
   } finally {
-    lock.releaseLock();
+    releaseScriptLock_(lock);
   }
 }
 
@@ -106,8 +104,7 @@ function updatePurchaseOrder(id, info) {
  */
 function deletePurchaseOrder(id) {
   requireAdminForPurchaseOrderWrite_();
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
+  var lock = acquireScriptLock_();
   try {
     var sheet = getPurchaseOrderSheet_();
     var rowNumber = findPurchaseOrderRowNumber_(sheet, id);
@@ -115,6 +112,6 @@ function deletePurchaseOrder(id) {
     sheet.deleteRow(rowNumber);
     return { id: id };
   } finally {
-    lock.releaseLock();
+    releaseScriptLock_(lock);
   }
 }

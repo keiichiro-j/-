@@ -174,12 +174,11 @@ function saveSettings(settings) {
     setCurrentUserThemeKey_(settings && settings.themeKey);
     return redactSystemMasterSettings_(getRawSettings_(), false);
   }
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
+  var lock = acquireScriptLock_();
   try {
     saveRawSettings_(applySystemMasterGuard_(settings, getRawSettings_(), isAdmin));
   } finally {
-    lock.releaseLock();
+    releaseScriptLock_(lock);
   }
   return redactSystemMasterSettings_(getRawSettings_(), isAdmin);
 }

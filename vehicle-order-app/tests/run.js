@@ -1473,6 +1473,40 @@ test('起動画面の画像はフェードインし、閉じるときはゆっ�
   assert.ok(js.includes('is-leaving'));
 });
 
+console.log('== HoldService: planHoldExpiry_（期限切れ・食い違ったHoldの処理内容） ==');
+{
+  const H = 72 * 3600 * 1000;
+  const now = 10 * H;
+  const v = (c, status) => ({ commission: c, model: 'M' + c, holdStatus: status });
+  const h = (c, rank, expiresAt) => ({ commission: c, rank, expiresAt });
+  const plan = (vehicles, holds) => JSON.parse(JSON.stringify(sandbox.planHoldExpiry_(vehicles, holds, now)))
+    .map((p) => p.commission + ':' + p.action);
+  test('期限切れの1st Holdのみ → 解放、2nd Holdあり → 繰り上げ、期限内・無期限 → 対象外', () => {
+    assert.deepStrictEqual(plan(
+      [v('A', 'hold'), v('B', 'hold'), v('C', 'hold'), v('D', 'hold')],
+      [h('A', '1st', now - 1), h('B', '1st', now - 1), h('B', '2nd', now + H), h('C', '1st', now + 1), h('D', '1st', null)]
+    ), ['A:release', 'B:promote']);
+  });
+  test('1st・2ndとも期限切れ → まとめて解放', () => {
+    assert.deepStrictEqual(plan([v('A', 'hold')], [h('A', '1st', now - 2 * H), h('A', '2nd', now - 1)]), ['A:release']);
+  });
+  test('Hold中なのにHoldリストに行が無い → 在庫ありに戻す', () => {
+    assert.deepStrictEqual(plan([v('A', 'hold')], []), ['A:releaseOrphan']);
+  });
+  test('1st Holdの行が無く2nd Holdだけ残っている → 2ndを1stに（期限切れなら解放）', () => {
+    assert.deepStrictEqual(plan([v('A', 'hold'), v('B', 'hold')], [h('A', '2nd', now + H), h('B', '2nd', now - 1)]), ['A:promoteOrphanSecond', 'B:release']);
+  });
+  test('在庫ありの車両は対象外（古いHold行が残っていても）', () => {
+    assert.deepStrictEqual(plan([v('A', 'available')], [h('A', '1st', now - 1)]), []);
+  });
+  test('在庫リストでコミッションが重複している車両は対象外（処理のくり返しを防ぐ）', () => {
+    assert.deepStrictEqual(plan([v('A', 'hold'), v('A', 'hold'), v('B', 'hold')], []), ['B:releaseOrphan']);
+  });
+  test('コミッションの前後の空白・数値セルの違いを吸収して突き合わせる', () => {
+    assert.deepStrictEqual(plan([v(' 583911111 ', 'hold')], [h(583911111, ' 1st ', now - 1)]), ['583911111:release']);
+  });
+}
+
 console.log('== アプリ全体の見直しで直した点 ==');
 test('Hold中なのにHoldリストに行が無い車両・在庫ありなのにHold行が残る車両を警告する', () => {
   const issues = sandbox.checkInventoryIntegrity_([

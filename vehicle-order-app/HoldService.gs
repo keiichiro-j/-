@@ -199,11 +199,12 @@ function attachHoldInfo_(vehicles) {
   var allHolds = readAllRows_(getHoldsSheet_(), HOLD_COLUMNS, 'commission');
   var byCommission = {};
   allHolds.forEach(function (h) {
-    byCommission[h.commission] = byCommission[h.commission] || {};
-    byCommission[h.commission][h.rank] = h;
+    var key = normalizeCommission_(h.commission);
+    byCommission[key] = byCommission[key] || {};
+    byCommission[key][String(h.rank == null ? '' : h.rank).trim()] = h;
   });
   vehicles.forEach(function (v) {
-    var holds = byCommission[v.commission] || {};
+    var holds = byCommission[normalizeCommission_(v.commission)] || {};
     applyHoldFieldsToVehicle_(v, holds[HOLD_RANK.FIRST], 'hold');
     applyHoldFieldsToVehicle_(v, holds[HOLD_RANK.SECOND], 'secondHold');
   });
@@ -258,10 +259,12 @@ function registerHold(commission, info, holdType) {
     info.paymentMethod = '';
   }
 
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
+  var lock = acquireScriptLock_();
   try {
+    // 期限を過ぎたHoldを先に片付けてから判定する（5分ごとのトリガーを待たない）。
+    processExpiredHoldsLocked_();
     var sheet = getInventorySheet_();
+    assertUniqueInventoryCommission_(sheet, commission);
     var rowNumber = findInventoryRowNumber_(sheet, commission);
     if (!rowNumber) throw new Error('該当車両が見つかりません（コミッション: ' + commission + '）');
     var vehicle = rowToObject_(
@@ -281,6 +284,9 @@ function registerHold(commission, info, holdType) {
     record.calendarEventId = holdType === HOLD_TYPE.NORMAL
       ? createHoldCalendarEvent_(commission, vehicle.model, expiresAt)
       : '';
+    // 在庫ありなのにHoldリストに古い行が残っている場合（シートの直接編集等）、
+    // 新しい1st Holdと行が重複しないよう先に消しておく。
+    deleteAllHoldRowsForCommission_(commission);
     createHoldRow_(record);
     updateInventoryVehicle_(sheet, rowNumber, { holdStatus: HOLD_STATUS.HOLD });
 
@@ -294,7 +300,7 @@ function registerHold(commission, info, holdType) {
     appendAuditLog_(buildAuditLogEntry_('Hold登録', commission, vehicle.model, currentStaff, detail, now));
     return updated;
   } finally {
-    lock.releaseLock();
+    releaseScriptLock_(lock);
   }
 }
 
@@ -310,10 +316,12 @@ function registerSecondHold(commission, info) {
   if (!inputCheck.ok) throw new Error(inputCheck.reason);
   info.leadNumber = normalizeLeadNumber_(info.leadNumber);
 
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
+  var lock = acquireScriptLock_();
   try {
+    // 期限を過ぎたHoldを先に片付けてから判定する（5分ごとのトリガーを待たない）。
+    processExpiredHoldsLocked_();
     var sheet = getInventorySheet_();
+    assertUniqueInventoryCommission_(sheet, commission);
     var rowNumber = findInventoryRowNumber_(sheet, commission);
     if (!rowNumber) throw new Error('該当車両が見つかりません（コミッション: ' + commission + '）');
     var vehicle = rowToObject_(
@@ -342,7 +350,7 @@ function registerSecondHold(commission, info) {
     appendAuditLog_(buildAuditLogEntry_('2nd Hold登録', commission, vehicle.model, currentStaff, 'リード番号 ' + info.leadNumber, new Date().getTime()));
     return updated;
   } finally {
-    lock.releaseLock();
+    releaseScriptLock_(lock);
   }
 }
 
@@ -354,7 +362,7 @@ function registerSecondHold(commission, info) {
  * 本人がHoldを解除できなくなることはない）。
  */
 function canCancelHold_(holdRow, staffEmail) {
-  if (!holdRow) return { ok: false, reason: '該当のHoldが見つかりません' };
+  if (!holdRow) return { ok: false, reason: '該当のHoldが見つかりません（期限切れで既に解除された可能性があります）' };
   if (!emailsMatch_(holdRow.staffEmail, staffEmail)) {
     return { ok: false, reason: 'Holdを行った担当者（' + holdRow.staff + '）のみ解除できます' };
   }
@@ -380,9 +388,9 @@ function decideCancelAction_(rank, hasSecondHold) {
  */
 function cancelHold(commission, rank) {
   var currentStaff = requireCurrentStaff_();
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
+  var lock = acquireScriptLock_();
   try {
+    processExpiredHoldsLocked_();
     var holds = getHoldsForCommission_(commission);
     var target = rank === HOLD_RANK.SECOND ? holds.second : holds.first;
     var check = canCancelHold_(target, currentStaff.email);
@@ -419,76 +427,138 @@ function cancelHold(commission, rank) {
     ));
     return findInventoryVehicleWithHolds_(commission);
   } finally {
-    lock.releaseLock();
+    releaseScriptLock_(lock);
   }
 }
 
 /**
- * 72時間経過したHoldを一括で処理する（時間主導トリガーから呼び出す）。
- * 2nd Holdがあれば昇格（rankを1stへ変更し、旧1st行を削除）、
- * なければHold行を削除して在庫を解放する。
+ * 72時間経過したHold（と、シートの直接編集などで食い違ったHold）の処理内容を決める（純粋関数）。
+ * @param {Array<Object>} vehicles 在庫リストの行
+ * @param {Array<Object>} holds Holdリストの行
+ * @param {number} now エポックミリ秒
+ * @return {Array<{commission:string, model:string, action:string, hadSecond:boolean}>}
+ *   action は次のいずれか（処理不要の車両は含まない）
+ *   - 'promote'             1st Holdの期限切れ。2nd Holdを1stへ繰り上げる
+ *   - 'release'             期限切れ（2nd Holdが無い、または2nd Holdの期限も過ぎている）。在庫ありに戻す
+ *   - 'promoteOrphanSecond' Hold中だが1st Holdの行が無く、2nd Holdだけ残っている。2ndを1stにする
+ *   - 'releaseOrphan'       Hold中だがHoldリストに行が1つも無い。在庫ありに戻す
+ */
+function planHoldExpiry_(vehicles, holds, now) {
+  var byCommission = {};
+  (holds || []).forEach(function (h) {
+    var key = normalizeCommission_(h.commission);
+    byCommission[key] = byCommission[key] || {};
+    byCommission[key][String(h.rank == null ? '' : h.rank).trim()] = h;
+  });
+  // 在庫リストで同じコミッションが複数行ある車両は、どの行を直すべきか判断できず、
+  // 処理しても片方の行が残って毎回同じ処理をくり返すため対象外にする
+  // （整合性チェックの「コミッション重複」の警告で、シート側の整理を促す）。
+  var countByCommission = {};
+  (vehicles || []).forEach(function (v) {
+    var key = normalizeCommission_(v.commission);
+    countByCommission[key] = (countByCommission[key] || 0) + 1;
+  });
+  var plan = [];
+  (vehicles || []).forEach(function (v) {
+    if (v.holdStatus !== HOLD_STATUS.HOLD) return;
+    if (countByCommission[normalizeCommission_(v.commission)] > 1) return;
+    var rows = byCommission[normalizeCommission_(v.commission)] || {};
+    var first = rows[HOLD_RANK.FIRST];
+    var second = rows[HOLD_RANK.SECOND];
+    var action;
+    if (!first) {
+      if (!second) action = 'releaseOrphan';
+      else action = (second.expiresAt && now >= second.expiresAt) ? 'release' : 'promoteOrphanSecond';
+    } else {
+      action = decideExpiryAction_({
+        holdStatus: v.holdStatus,
+        expiresAt: first.expiresAt,
+        hasSecondHold: !!second,
+        secondExpiresAt: second ? second.expiresAt : null
+      }, now);
+    }
+    if (action !== 'none') {
+      plan.push({ commission: normalizeCommission_(v.commission), model: v.model, action: action, hadSecond: !!second });
+    }
+  });
+  return plan;
+}
+
+/**
+ * 期限切れHoldの処理（時間主導トリガーから5分ごとに呼ばれる）。
  */
 function processExpiredHolds() {
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
+  var lock = acquireScriptLock_();
   try {
-    var invSheet = getInventorySheet_();
-    var holdsSheet = getHoldsSheet_();
-    var vehicles = readAllRows_(invSheet, INVENTORY_COLUMNS, 'commission')
-      .filter(function (v) { return v.holdStatus === HOLD_STATUS.HOLD; });
-    // Holdリストは最初に1回だけ読み、コミッションごとに振り分けておく
-    // （以前は車両1台ごとにシートを読み直しており、Hold中の台数が多いと遅くなっていた）。
-    var holdsByCommission = {};
-    readAllRows_(holdsSheet, HOLD_COLUMNS, 'commission').forEach(function (h) {
-      var key = String(h.commission);
-      holdsByCommission[key] = holdsByCommission[key] || {};
-      holdsByCommission[key][h.rank] = h;
-    });
-    var now = new Date().getTime();
-    var processed = [];
-
-    vehicles.forEach(function (vehicle) {
-      var holds = holdsByCommission[String(vehicle.commission)] || {};
-      var first = holds[HOLD_RANK.FIRST];
-      var second = holds[HOLD_RANK.SECOND];
-      if (!first) return;
-      var action = decideExpiryAction_(
-        {
-          holdStatus: vehicle.holdStatus,
-          expiresAt: first.expiresAt,
-          hasSecondHold: !!second,
-          secondExpiresAt: second ? second.expiresAt : null
-        },
-        now
-      );
-      if (action === 'none') return;
-
-      if (action === 'promote') {
-        var secondRowNumber = findHoldRowNumber_(holdsSheet, vehicle.commission, HOLD_RANK.SECOND);
-        var firstRowNumber = findHoldRowNumber_(holdsSheet, vehicle.commission, HOLD_RANK.FIRST);
-        updateHoldRow_(holdsSheet, secondRowNumber, { rank: HOLD_RANK.FIRST });
-        deleteHoldRow_(holdsSheet, firstRowNumber);
-        // 通知の失敗（メール送信数の上限等）で、残りの車両の期限切れ処理まで止めない。
-        try {
-          notifyHoldRegistered_(findInventoryVehicleWithHolds_(vehicle.commission), false);
-        } catch (e) {
-          console.error('Hold自動昇格の通知に失敗しました: ' + (e && e.message ? e.message : e));
-        }
-        appendAuditLog_(buildAuditLogEntry_('Hold自動昇格', vehicle.commission, vehicle.model, null, '2nd Holdが1st Holdへ繰り上がりました', now));
-      } else {
-        // 1st Holdのみ、または2nd Holdの期限まで過ぎている場合は、Hold行をすべて消して解放する。
-        deleteAllHoldRowsForCommission_(vehicle.commission);
-        var invRowNumber = findInventoryRowNumber_(invSheet, vehicle.commission);
-        updateInventoryVehicle_(invSheet, invRowNumber, { holdStatus: HOLD_STATUS.AVAILABLE });
-        appendAuditLog_(buildAuditLogEntry_('Hold自動解放', vehicle.commission, vehicle.model, null,
-          second ? '1st Hold・2nd Holdとも期限切れのため在庫ありに戻りました' : 'Hold期限切れのため在庫ありに戻りました', now));
-      }
-      processed.push({ commission: vehicle.commission, action: action });
-    });
-
-    return processed;
+    return processExpiredHoldsLocked_();
   } finally {
-    lock.releaseLock();
+    releaseScriptLock_(lock);
   }
+}
+
+/**
+ * 一覧の読み込み時に呼ぶ。読み取りだけで処理が必要か判定し、必要なときだけ順番待ち
+ * （ロック）を取って処理する。5分ごとのトリガーを待たず、期限を過ぎたHoldは
+ * 誰かが画面を開いた（または自動更新した）時点で解除される。
+ */
+function expireHoldsIfNeeded_() {
+  var plan = planHoldExpiry_(
+    readAllRows_(getInventorySheet_(), INVENTORY_COLUMNS, 'commission'),
+    readAllRows_(getHoldsSheet_(), HOLD_COLUMNS, 'commission'),
+    new Date().getTime()
+  );
+  if (!plan.length) return [];
+  var lock = acquireScriptLock_();
+  try {
+    return processExpiredHoldsLocked_();
+  } finally {
+    releaseScriptLock_(lock);
+  }
+}
+
+/**
+ * ロックを取った状態で呼ぶこと。最新のシートを読み直して処理内容を決め直す
+ * （ロック待ちの間に他の担当者の操作で状態が変わっていても、二重に処理しない）。
+ * Hold登録・2nd Hold登録・Hold解除・受注確定の各処理も、最初にこれを呼んでから
+ * 判定するため、期限を過ぎたHoldが残ったまま判定されることはない。
+ */
+function processExpiredHoldsLocked_() {
+  var invSheet = getInventorySheet_();
+  var holdsSheet = getHoldsSheet_();
+  var now = new Date().getTime();
+  var plan = planHoldExpiry_(
+    readAllRows_(invSheet, INVENTORY_COLUMNS, 'commission'),
+    readAllRows_(holdsSheet, HOLD_COLUMNS, 'commission'),
+    now
+  );
+
+  plan.forEach(function (item) {
+    var commission = item.commission;
+    if (item.action === 'promote' || item.action === 'promoteOrphanSecond') {
+      if (item.action === 'promote') {
+        deleteHoldRow_(holdsSheet, findHoldRowNumber_(holdsSheet, commission, HOLD_RANK.FIRST));
+      }
+      var secondRowNumber = findHoldRowNumber_(holdsSheet, commission, HOLD_RANK.SECOND);
+      if (secondRowNumber) updateHoldRow_(holdsSheet, secondRowNumber, { rank: HOLD_RANK.FIRST });
+      // 通知の失敗で、残りの車両の処理まで止めない。
+      try {
+        notifyHoldRegistered_(findInventoryVehicleWithHolds_(commission), false);
+      } catch (e) {
+        console.error('Hold自動昇格の通知に失敗しました: ' + (e && e.message ? e.message : e));
+      }
+      appendAuditLog_(buildAuditLogEntry_('Hold自動昇格', commission, item.model, null,
+        item.action === 'promote' ? '2nd Holdが1st Holdへ繰り上がりました' : '1st Holdの行が無かったため、2nd Holdを1st Holdにしました', now));
+    } else {
+      deleteAllHoldRowsForCommission_(commission);
+      var invRowNumber = findInventoryRowNumber_(invSheet, commission);
+      if (invRowNumber) updateInventoryVehicle_(invSheet, invRowNumber, { holdStatus: HOLD_STATUS.AVAILABLE });
+      var detail = item.action === 'releaseOrphan'
+        ? 'Hold中でしたがHoldリストに行が無かったため、在庫ありに戻しました'
+        : (item.hadSecond ? '1st Hold・2nd Holdとも期限切れのため在庫ありに戻りました' : 'Hold期限切れのため在庫ありに戻りました');
+      appendAuditLog_(buildAuditLogEntry_('Hold自動解放', commission, item.model, null, detail, now));
+    }
+  });
+
+  return plan.map(function (item) { return { commission: item.commission, action: item.action }; });
 }
 

@@ -47,10 +47,13 @@ function confirmOrder(commission, info) {
   if (!inputCheck.ok) throw new Error(inputCheck.reason);
   info.leadNumber = normalizeLeadNumber_(info.leadNumber);
 
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
+  var lock = acquireScriptLock_();
   try {
+    // 期限を過ぎたHoldを先に片付けてから判定する（期限切れのHold担当者しか
+    // 受注確定できない、といった食い違いを防ぐ）。
+    processExpiredHoldsLocked_();
     var sheet = getInventorySheet_();
+    assertUniqueInventoryCommission_(sheet, commission);
     var rowNumber = findInventoryRowNumber_(sheet, commission);
     if (!rowNumber) throw new Error('該当車両が見つかりません（コミッション: ' + commission + '）');
     var vehicle = rowToObject_(
@@ -92,7 +95,7 @@ function confirmOrder(commission, info) {
     ));
     return order;
   } finally {
-    lock.releaseLock();
+    releaseScriptLock_(lock);
   }
 }
 
@@ -156,8 +159,7 @@ function cancelOrder(kind, commission) {
   var staffMatch = findStaffByEmail_(getRawSettings_().staffList, email);
   var operator = { name: staffMatch ? staffMatch.name : email, email: email };
 
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
+  var lock = acquireScriptLock_();
   try {
     var orderSheet = getOrderSheetByKind_(kind);
     var orderRowNumber = findRowByKey_(orderSheet, ORDER_COLUMNS, 'commission', commission);
@@ -191,6 +193,6 @@ function cancelOrder(kind, commission) {
     ));
     return { commission: vehicle.commission, inventoryRowNumber: restoredRow };
   } finally {
-    lock.releaseLock();
+    releaseScriptLock_(lock);
   }
 }
