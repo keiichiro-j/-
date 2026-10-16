@@ -258,7 +258,22 @@ var ORDER_COLUMNS = VEHICLE_COLUMNS.concat(HOLD_ORDER_INPUT_COLUMNS).concat([
     note: '受注確定を行った担当者の内部識別用の列です。アプリからの操作でのみ設定されるため、通常は手動編集しないでください。'
   },
   { key: 'orderedAt', label: '受注確定日時', type: 'datetime', note: 'アプリが自動記録する値です。手動編集しないでください。' },
-  REMARKS_COLUMN
+  REMARKS_COLUMN,
+  // 受注取消（管理者のみ）で車両を在庫リストの「元あった位置」へ戻すための記録。
+  // 受注確定の時点で、在庫リストの行番号と、その上下の車両のコミッションを残す
+  // （decideInventoryRestoreRow_ 参照）。いずれもアプリが自動設定する。
+  {
+    key: 'inventoryRowNumber', label: '在庫の元の行番号', type: 'number',
+    note: '受注確定前に在庫リストで何行目にあったか（受注取消で元の位置へ戻すために使います）。アプリが自動記録する値です。手動編集しないでください。'
+  },
+  {
+    key: 'inventoryPrevCommission', label: '在庫の直前の車両', type: 'text',
+    note: '受注確定前に在庫リストで1つ上の行にあった車両のコミッションです（受注取消で元の位置へ戻すために使います）。アプリが自動記録する値です。手動編集しないでください。'
+  },
+  {
+    key: 'inventoryNextCommission', label: '在庫の直後の車両', type: 'text',
+    note: '受注確定前に在庫リストで1つ下の行にあった車両のコミッションです（受注取消で元の位置へ戻すために使います）。アプリが自動記録する値です。手動編集しないでください。'
+  }
 ]);
 
 /**

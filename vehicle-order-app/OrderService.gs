@@ -68,6 +68,8 @@ function confirmOrder(commission, info) {
     VEHICLE_COLUMNS.forEach(function (col) { order[col.key] = vehicle[col.key]; });
     // 備考は在庫・受注の末尾専用列（VEHICLE_COLUMNS外）。受注確定時に在庫から引き継ぐ。
     order.remarks = vehicle.remarks || '';
+    // 受注取消で在庫リストの元の位置へ戻せるよう、今の行番号と上下の車両を記録する。
+    Object.assign(order, buildInventoryPosition_(readInventoryCommissions_(sheet), rowNumber));
 
     // Hold中だった場合、1st Holdは受注確定を行った本人（＝canConfirmOrder_により
     // 1st Hold担当者のみ受注確定できる）が登録したものなので、そのカレンダーイベントは
@@ -89,6 +91,105 @@ function confirmOrder(commission, info) {
       order.orderedAt
     ));
     return order;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ===== 受注取消（管理者のみ） =====
+
+/**
+ * 在庫リストでの位置（行番号と上下の車両のコミッション）を記録用に組み立てる（純粋関数）。
+ * @param {Array<string>} commissions 在庫リストのコミッション列（先頭要素が2行目）
+ * @param {number} rowNumber 対象車両の実シート行番号
+ */
+function buildInventoryPosition_(commissions, rowNumber) {
+  var index = rowNumber - 2;
+  return {
+    inventoryRowNumber: rowNumber,
+    inventoryPrevCommission: index - 1 >= 0 ? (commissions[index - 1] || '') : '',
+    inventoryNextCommission: index + 1 < commissions.length ? (commissions[index + 1] || '') : ''
+  };
+}
+
+/**
+ * 受注取消で車両を戻す在庫リストの行番号を決める（純粋関数）。
+ * 受注確定後に在庫リストの行が増減していても「元あった位置」に戻せるよう、
+ * 行番号そのものより上下の車両を優先して使う。
+ *   1. 直前にあった車両が今も在庫リストにあれば、そのすぐ下
+ *   2. なければ、直後にあった車両のすぐ上
+ *   3. どちらもなければ、記録した行番号（最終行より後なら末尾）
+ *   4. 記録が無い（この機能より前に受注確定した）場合は末尾
+ * @param {{inventoryRowNumber:*, inventoryPrevCommission:*, inventoryNextCommission:*}} order
+ * @param {Array<string>} commissions 現在の在庫リストのコミッション列（先頭要素が2行目）
+ * @return {number} 差し込む実シート行番号（2〜commissions.length + 2）
+ */
+function decideInventoryRestoreRow_(order, commissions) {
+  var list = (commissions || []).map(function (c) { return String(c == null ? '' : c).trim(); });
+  var end = list.length + 2;
+  var prev = String(order.inventoryPrevCommission == null ? '' : order.inventoryPrevCommission).trim();
+  var next = String(order.inventoryNextCommission == null ? '' : order.inventoryNextCommission).trim();
+  if (prev) {
+    var p = list.indexOf(prev);
+    if (p !== -1) return p + 3;
+  }
+  if (next) {
+    var n = list.indexOf(next);
+    if (n !== -1) return n + 2;
+  }
+  var row = Number(order.inventoryRowNumber);
+  if (row >= 2 && isFinite(row)) return Math.min(Math.floor(row), end);
+  return end;
+}
+
+/**
+ * 受注を取り消し、車両を在庫リストの元の位置へ「在庫あり」で戻す（管理者のみ）。
+ * 受注系シートからは該当行を削除する。Hold情報は受注確定時に削除済みのため戻らない。
+ * @param {string} kind 'orders' / 'demoOrders' / 'otherStoreOrders'
+ * @param {string} commission
+ */
+function cancelOrder(kind, commission) {
+  var email = Session.getActiveUser().getEmail();
+  if (!isSystemAdmin_(email)) {
+    throw new Error('受注の取り消しは管理者のみ行えます');
+  }
+  var staffMatch = findStaffByEmail_(getRawSettings_().staffList, email);
+  var operator = { name: staffMatch ? staffMatch.name : email, email: email };
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var orderSheet = getOrderSheetByKind_(kind);
+    var orderRowNumber = findRowByKey_(orderSheet, ORDER_COLUMNS, 'commission', commission);
+    if (!orderRowNumber) throw new Error('該当の受注が見つかりません（コミッション: ' + commission + '）');
+    var order = rowToObject_(
+      orderSheet.getRange(orderRowNumber, 1, 1, ORDER_COLUMNS.length).getValues()[0],
+      ORDER_COLUMNS,
+      orderRowNumber
+    );
+
+    var invSheet = getInventorySheet_();
+    if (findInventoryRowNumber_(invSheet, commission)) {
+      throw new Error('在庫リストに同じコミッションの車両が既にあるため取り消せません（コミッション: ' + commission + '）');
+    }
+
+    var vehicle = { holdStatus: HOLD_STATUS.AVAILABLE, remarks: order.remarks || '' };
+    VEHICLE_COLUMNS.forEach(function (col) { vehicle[col.key] = order[col.key]; });
+    vehicle.commission = String(order.commission);
+
+    var targetRow = decideInventoryRestoreRow_(order, readInventoryCommissions_(invSheet));
+    var restoredRow = insertInventoryVehicleAt_(invSheet, targetRow, vehicle);
+    orderSheet.deleteRow(orderRowNumber);
+
+    appendAuditLog_(buildAuditLogEntry_(
+      '受注取消',
+      commission,
+      order.model,
+      operator,
+      '顧客: ' + (order.customer || '-') + ' / ' + orderListLabelByKind_(kind) + 'から在庫リスト' + restoredRow + '行目へ戻しました',
+      new Date().getTime()
+    ));
+    return { commission: vehicle.commission, inventoryRowNumber: restoredRow };
   } finally {
     lock.releaseLock();
   }

@@ -97,6 +97,11 @@ function api_listOrders(filters, groupBy) {
   return listOrdersApi_(listOrders, filters, groupBy);
 }
 
+// 受注取消（管理者のみ。権限確認は OrderService.gs の cancelOrder 自体で行う）
+function api_cancelOrder(kind, commission) {
+  return cancelOrder(kind, commission);
+}
+
 function api_listDemoOrders(filters, groupBy) {
   return listOrdersApi_(listDemoOrders, filters, groupBy);
 }

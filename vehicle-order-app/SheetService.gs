@@ -159,7 +159,9 @@ function orderSheetTextCols_() {
     orderColIndex1('commission'),
     orderColIndex1('registrableMonth'),
     orderColIndex1('registeredMonth'),
-    orderColIndex1('remarks')
+    orderColIndex1('remarks'),
+    orderColIndex1('inventoryPrevCommission'),
+    orderColIndex1('inventoryNextCommission')
   ];
 }
 
@@ -351,6 +353,31 @@ function deleteInventoryRow_(sheet, rowNumber) {
   sheet.deleteRow(rowNumber);
 }
 
+/**
+ * 在庫リストのコミッション列を、データ行の上から順に文字列の配列で返す
+ * （先頭要素が2行目）。受注確定時の位置記録・受注取消時の差し戻し位置の計算に使う。
+ */
+function readInventoryCommissions_(sheet) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  return sheet.getRange(2, inventoryColIndex1('commission'), lastRow - 1, 1).getValues()
+    .map(function (r) { return String(r[0] == null ? '' : r[0]).trim(); });
+}
+
+/**
+ * 在庫リストの指定行の位置へ車両を1行差し込む（rowNumber が最終行より後なら末尾に追加）。
+ * 既存の行は下へずれるだけで上書きしない。コミッションの先頭0が消えないよう、
+ * 書き込み前にその行のコミッション欄を「書式なしテキスト」にする。
+ */
+function insertInventoryVehicleAt_(sheet, rowNumber, vehicle) {
+  var lastRow = Math.max(sheet.getLastRow(), 1);
+  var target = Math.max(2, Math.min(rowNumber, lastRow + 1));
+  if (target <= lastRow) sheet.insertRowBefore(target);
+  sheet.getRange(target, inventoryColIndex1('commission'), 1, 1).setNumberFormat('@');
+  sheet.getRange(target, 1, 1, INVENTORY_COLUMNS.length).setValues([objectToRow_(vehicle, INVENTORY_COLUMNS)]);
+  return target;
+}
+
 // ===== Holdリスト =====
 
 /**
@@ -488,4 +515,21 @@ function appendDemoOrder_(order) {
 
 function appendOtherStoreOrder_(order) {
   return appendOrderToSheet_(getOtherStoreOrderSheet_(), order);
+}
+
+/**
+ * 受注系3リストの種類（画面のタブ名と同じ 'orders' / 'demoOrders' / 'otherStoreOrders'）
+ * から、対象のシートを返す。不明な値はエラー。
+ */
+function getOrderSheetByKind_(kind) {
+  if (kind === 'orders') return getOrderSheet_();
+  if (kind === 'demoOrders') return getDemoOrderSheet_();
+  if (kind === 'otherStoreOrders') return getOtherStoreOrderSheet_();
+  throw new Error('不明な受注リストです: ' + kind);
+}
+
+function orderListLabelByKind_(kind) {
+  if (kind === 'demoOrders') return SHEET_NAMES.DEMO_ORDERS;
+  if (kind === 'otherStoreOrders') return SHEET_NAMES.OTHER_STORE_ORDERS;
+  return SHEET_NAMES.ORDERS;
 }

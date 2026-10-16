@@ -1447,5 +1447,44 @@ test('起動画面の画像はフェードインし、閉じるときはゆっ�
   assert.ok(js.includes('is-leaving'));
 });
 
+console.log('== OrderService: 受注取消で在庫リストの元の位置へ戻す ==');
+test('受注確定時に、行番号と上下の車両のコミッションを記録する', () => {
+  const pos = sandbox.buildInventoryPosition_(['A', 'B', 'C'], 3); // B（3行目）
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(pos)), { inventoryRowNumber: 3, inventoryPrevCommission: 'A', inventoryNextCommission: 'C' });
+  const first = sandbox.buildInventoryPosition_(['A', 'B'], 2);
+  assert.strictEqual(first.inventoryPrevCommission, '');
+  assert.strictEqual(first.inventoryNextCommission, 'B');
+  const last = sandbox.buildInventoryPosition_(['A', 'B'], 3);
+  assert.strictEqual(last.inventoryPrevCommission, 'A');
+  assert.strictEqual(last.inventoryNextCommission, '');
+});
+test('受注確定前の並びのまま取り消すと、同じ行へ戻る', () => {
+  // A,B,C から B を受注 → 在庫は A,C。B は A のすぐ下（3行目）へ戻る
+  assert.strictEqual(sandbox.decideInventoryRestoreRow_({ inventoryRowNumber: 3, inventoryPrevCommission: 'A', inventoryNextCommission: 'C' }, ['A', 'C']), 3);
+});
+test('受注後に上の行が増減しても、直前の車両のすぐ下へ戻る', () => {
+  assert.strictEqual(sandbox.decideInventoryRestoreRow_({ inventoryRowNumber: 3, inventoryPrevCommission: 'A', inventoryNextCommission: 'C' }, ['X', 'Y', 'A', 'C']), 5);
+  assert.strictEqual(sandbox.decideInventoryRestoreRow_({ inventoryRowNumber: 5, inventoryPrevCommission: 'A', inventoryNextCommission: 'C' }, ['A', 'C']), 3);
+});
+test('直前の車両が無くなっていれば、直後の車両のすぐ上へ戻る', () => {
+  assert.strictEqual(sandbox.decideInventoryRestoreRow_({ inventoryRowNumber: 3, inventoryPrevCommission: 'A', inventoryNextCommission: 'C' }, ['X', 'C', 'D']), 3);
+});
+test('先頭の車両は先頭（2行目）へ戻る', () => {
+  assert.strictEqual(sandbox.decideInventoryRestoreRow_({ inventoryRowNumber: 2, inventoryPrevCommission: '', inventoryNextCommission: 'B' }, ['B', 'C']), 2);
+});
+test('上下とも無くなっていれば記録した行番号、範囲外や記録なしは末尾へ戻る', () => {
+  assert.strictEqual(sandbox.decideInventoryRestoreRow_({ inventoryRowNumber: 3, inventoryPrevCommission: 'A', inventoryNextCommission: 'C' }, ['X', 'Y', 'Z']), 3);
+  assert.strictEqual(sandbox.decideInventoryRestoreRow_({ inventoryRowNumber: 50, inventoryPrevCommission: 'A', inventoryNextCommission: '' }, ['X', 'Y']), 4);
+  assert.strictEqual(sandbox.decideInventoryRestoreRow_({}, ['X', 'Y']), 4);
+  assert.strictEqual(sandbox.decideInventoryRestoreRow_({}, []), 2);
+});
+test('数字のみのコミッションも文字列として突き合わせる', () => {
+  assert.strictEqual(sandbox.decideInventoryRestoreRow_({ inventoryPrevCommission: 583911111 }, ['0583911110', '583911111', '0583911112']), 4);
+});
+test('受注列の末尾に、元の位置の記録列がある（既存列の位置は変えない）', () => {
+  const labels = JSON.parse(JSON.stringify(sandbox.ORDER_COLUMNS.map((c) => c.label)));
+  assert.deepStrictEqual(labels.slice(-4), ['備考', '在庫の元の行番号', '在庫の直前の車両', '在庫の直後の車両']);
+});
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 if (fail > 0) process.exit(1);

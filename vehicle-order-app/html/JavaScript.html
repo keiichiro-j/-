@@ -2407,8 +2407,60 @@
     var order = findOrderByCommission_(commission);
     if (!order) return;
     $('orderDetailBody').innerHTML = orderDetailHtml_(order);
+    // 受注取消ボタンは管理者のみ（サーバー側の cancelOrder でも管理者以外は拒否する）。
+    var kind = findOrderKindByCommission_(commission);
+    var canCancel = isSystemAdmin_() && !!kind;
+    $('orderDetailFooter').classList.toggle('hidden', !canCancel);
+    cancelOrderState = canCancel ? { kind: kind, commission: String(order.commission) } : null;
     openModal($('orderDetailModal'));
   }
+
+  // 受注がどのリスト（受注／デモカー受注／他店受注）のものかを、全件キャッシュから探す。
+  function findOrderKindByCommission_(commission) {
+    var kinds = ['orders', 'demoOrders', 'otherStoreOrders'];
+    for (var i = 0; i < kinds.length; i++) {
+      var all = state[orderListKeys_(kinds[i]).all] || [];
+      if (all.some(function (o) { return commissionEquals_(o.commission, commission); })) return kinds[i];
+    }
+    return null;
+  }
+
+  // ===== 受注取消（管理者のみ） =====
+  // 取り消すと受注リストから削除し、車両を在庫リストの元あった位置へ「在庫あり」で戻す。
+  var cancelOrderState = null; // { kind, commission }
+
+  $('btnOpenCancelOrder').addEventListener('click', function () {
+    if (!cancelOrderState) return;
+    var order = findOrderByCommission_(cancelOrderState.commission);
+    $('cancelOrderModalDesc').textContent =
+      '顧客「' + ((order && order.customer) || '-') + '」の受注（' + ((order && order.model) || '-') +
+      '／コミッション ' + cancelOrderState.commission + '）を取り消し、車両を在庫リストの元の位置へ「在庫あり」で戻します。' +
+      'Holdの情報は戻りません。この操作は変更履歴に記録されます。';
+    $('cancelOrderStaffDisplay').innerHTML = staffDisplayHtml_();
+    $('cancelOrderModalError').classList.add('hidden');
+    closeModal($('orderDetailModal'));
+    openModal($('cancelOrderModal'));
+  });
+
+  $('btnCancelOrderSubmit').addEventListener('click', function () {
+    if (this.disabled || !cancelOrderState) return;
+    var btn = this;
+    var errEl = $('cancelOrderModalError');
+    errEl.classList.add('hidden');
+    setButtonBusy(btn, true, '取り消し中...');
+    gasRun('api_cancelOrder', cancelOrderState.kind, cancelOrderState.commission).then(function () {
+      setButtonBusy(btn, false);
+      closeModal($('cancelOrderModal'));
+      cancelOrderState = null;
+      showToast('受注を取り消し、在庫リストへ戻しました');
+      refreshInventoryFromServer_();
+      refreshAllOrderListsFromServer_();
+    }).catch(function (err) {
+      setButtonBusy(btn, false);
+      errEl.textContent = err.message;
+      errEl.classList.remove('hidden');
+    });
+  });
 
   // 受注リストの表示形式「表」: PCでは行幅いっぱいまで優先度の高い項目を並べ、
   // 入りきらない項目は隠して行タップの詳細モーダルで確認する（折り返して
