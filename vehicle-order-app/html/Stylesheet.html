@@ -485,6 +485,89 @@
     font-size: 12.5px;
     color: var(--primary-text);
   }
+
+  /* ===== 受注リストの月ごとジャンプバナー（下線タブ型） =====
+     グローバルナビと同じ「テキスト＋アクティブ時の下線」の見た目にそろえる。
+     色はすべてテーマ（着せ替え）の変数から取るため、テーマを変えると下線・
+     台数バッジの色も自動で切り替わる（applyTheme_ が --primary 系を上書きする）。
+     ツールバー（.toolbar）の中の最終行として全幅で並べ、ツールバーごと画面上部に固定する。 */
+  .monthNav {
+    flex: 1 1 100%;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+  .monthNav__rail {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    border-bottom: 1px solid var(--outline);
+  }
+  .monthNav__rail::-webkit-scrollbar { display: none; }
+  .monthNav__tab {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -1px;
+    padding: 8px 14px 9px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .02em;
+    color: var(--on-surface-variant);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color .15s ease, border-color .15s ease;
+  }
+  .monthNav__tab:hover { color: var(--on-surface); }
+  .monthNav__tab.is-active { color: var(--on-surface); border-bottom-color: var(--primary); }
+  .monthNav__count {
+    min-width: 22px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--primary-bg);
+    color: var(--primary-text);
+    font-size: 11.5px;
+    line-height: 18px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .monthNav__tab.is-active .monthNav__count { background: var(--primary); color: var(--on-primary); }
+  .monthNav__arrow {
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--outline);
+    background: var(--surface);
+    color: var(--on-surface);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .monthNav__arrow:hover { border-color: var(--primary); color: var(--primary-text); }
+  .monthNav__tab:focus-visible,
+  .monthNav__arrow:focus-visible {
+    outline: 2px solid var(--primary-text);
+    outline-offset: 2px;
+  }
+  /* タブレット・スマホ幅は指で横スライドするため矢印は出さない */
+  @media (max-width: 900px) {
+    .monthNav__arrow { display: none; }
+    .monthNav__tab { padding: 8px 12px 9px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .monthNav__tab { transition: none; }
+  }
   .toolbar__count { font-size: 13.5px; color: var(--on-surface-variant); font-weight: 600; white-space: nowrap; }
 
   /* ===== 表示形式切替（カード／表）・在庫リストのツールバーに置くセグメントコントロール ===== */

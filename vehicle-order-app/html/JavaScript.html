@@ -755,6 +755,9 @@
   // ようにするためのフラグ。
   function switchToTab_(tabName, opts) {
     opts = opts || {};
+    // 管理者限定のタブ（デモカー受注リスト・他店受注リスト）は、管理者以外には
+    // 開かせずホームへ戻す（戻る履歴等から辿られた場合も含む）。
+    if (isAdminOnlyTab_(tabName) && !isSystemAdmin_()) tabName = 'home';
     var current = currentActiveTab_();
     if (!opts.skipHistory && current && current !== tabName) {
       state.navHistory.push(current);
@@ -787,6 +790,9 @@
     // 非表示（display: none）だった間はツールバーの実測高さが0になっているため、
     // 表示状態に切り替わった直後に再計測してスペーサーの高さを補正する。
     syncFixedBars_();
+    // 受注リストの月ごとジャンプバナーは非表示の間に描画されることがあるため、
+    // 表示された時点で「いま見ている月」を選択状態にする。
+    updateOrderMonthNavActive_(tabName);
     // Hold台数・Holdボタンが出る画面へ切り替えたら、古いキャッシュのまま
     // 操作しないよう在庫を取り直す（直前に取っていればスキップ）。
     if (tabName === 'home' || tabName === 'inventory' || tabName === 'mypage') {
@@ -1883,6 +1889,28 @@
     return !!(state.bootstrap && state.bootstrap.isSystemAdmin);
   }
 
+  // 管理者ログイン時だけ表示するタブ。デモカーHOLD・他店HOLDを登録できるのは
+  // 管理者のみのため、その受注一覧も管理者だけに見せる（サーバー側でも
+  // SheetService.gs の requireAdminForRestrictedOrders_ が非管理者を拒否する）。
+  function isAdminOnlyTab_(tabName) {
+    return tabName === 'demoOrders' || tabName === 'otherStoreOrders';
+  }
+
+  /**
+   * class="adminOnly" の要素（サイドバー・上部タブの該当ボタン、マイページの
+   * デモカー受注・他店受注の欄）を、管理者のときだけ表示する。HTML側で最初から
+   * hidden にしてあるため、管理者以外の画面に一瞬だけ表示されることはない。
+   */
+  function applyAdminOnlyVisibility_() {
+    var isAdmin = isSystemAdmin_();
+    document.querySelectorAll('.adminOnly').forEach(function (el) {
+      el.classList.toggle('hidden', !isAdmin);
+    });
+    if (!isAdmin && isAdminOnlyTab_(currentActiveTab_())) {
+      switchToTab_('home', { skipHistory: true });
+    }
+  }
+
   function openActionModal(type, commission) {
     if (type === 'secondHold') {
       var holdVehicle = findVehicleByCommission(commission);
@@ -2290,8 +2318,12 @@
   function applyOrdersView_() { applyOrderListView_('orders'); }
   function refreshOrdersFromServer_() { return refreshOrderListFromServer_('orders'); }
   function loadOrders() { return loadOrderList_('orders'); }
+  // 管理者以外はデモカー受注・他店受注を読み込まない（サーバーも拒否するため）。
+  function visibleOrderListKinds_() {
+    return ORDER_LIST_KINDS_.filter(function (kind) { return !isAdminOnlyTab_(kind) || isSystemAdmin_(); });
+  }
   function refreshAllOrderListsFromServer_() {
-    return Promise.all(ORDER_LIST_KINDS_.map(refreshOrderListFromServer_));
+    return Promise.all(visibleOrderListKinds_().map(refreshOrderListFromServer_));
   }
 
   /**
@@ -2450,16 +2482,19 @@
     var totalItems = groups.reduce(function (n, g) { return n + g.items.length; }, 0);
     $(kind + 'Empty').classList.toggle('hidden', totalItems > 0);
     $(kind + 'TotalCount').textContent = '該当 ' + totalItems + ' 台';
-    container.innerHTML = groups.map(function (g) {
+    container.innerHTML = groups.map(function (g, i) {
       var heading = g.key
         ? '<h3 class="group__title">' + escapeHtml(g.key) + '<span class="group__count">' + g.items.length + '台</span></h3>'
         : '';
       var body = state[keys.view] === 'table'
         ? orderRowsHtml(g.items)
         : '<div class="orderList">' + g.items.map(orderCardHtml).join('') + '</div>';
-      return '<div class="group">' + heading + body + '</div>';
+      // 月ごとジャンプバナーの移動先として、グループごとに id を振る。
+      return '<div class="group" id="' + kind + 'Group-' + i + '">' + heading + body + '</div>';
     }).join('');
+    renderOrderMonthNav_(kind, groups);
     syncFixedBars_();
+    updateOrderMonthNavActive_(kind);
     if (state[keys.view] === 'table') scheduleFitOrderRowCards_();
   }
 
@@ -2527,6 +2562,120 @@
       }).join('');
     }
   }
+
+  // ===== 受注リストの月ごとジャンプバナー =====
+  // グループ表示が「登録月」のときだけ、ツールバー最終行に月ごとの下線タブを
+  // 横一列で並べる（#ordersMonthNav があるリストのみ。現状は受注リスト）。
+  // タブをタップすると、その月のグループ見出しへ瞬時にスクロールする。
+  // 手でスクロールしたときは、いま見ている月のタブが自動で選択状態になる。
+  var MONTH_NAV_GROUP_FIELDS_ = ['registeredMonth'];
+  var monthNavPinned_ = null; // タップ直後の選択を、スクロール判定で上書きしないための記録
+
+  function monthNavLabel_(key) {
+    var m = /^(\d{4})-(\d{2})$/.exec(String(key || ''));
+    if (!m) return String(key || '');
+    var label = m[1] + '年' + parseInt(m[2], 10) + '月';
+    return key === currentYearMonth_() ? label + '（今月）' : label;
+  }
+
+  function currentYearMonth_() {
+    var d = new Date();
+    return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2);
+  }
+
+  function renderOrderMonthNav_(kind, groups) {
+    var nav = $(kind + 'MonthNav');
+    var rail = $(kind + 'MonthNavRail');
+    if (!nav || !rail) return;
+    var groupBy = $(kind + 'GroupBy').value;
+    var show = MONTH_NAV_GROUP_FIELDS_.indexOf(groupBy) !== -1 && groups.length > 0 && !!groups[0].key;
+    nav.classList.toggle('hidden', !show);
+    if (!show) { rail.innerHTML = ''; return; }
+    rail.innerHTML = groups.map(function (g, i) {
+      return '<button type="button" class="monthNav__tab" role="tab" aria-selected="false" data-month-nav-index="' + i + '">' +
+        escapeHtml(monthNavLabel_(g.key)) +
+        '<span class="monthNav__count">' + g.items.length + '</span></button>';
+    }).join('');
+  }
+
+  function setOrderMonthNavActive_(kind, index) {
+    var rail = $(kind + 'MonthNavRail');
+    if (!rail) return;
+    var activeTab = null;
+    rail.querySelectorAll('[data-month-nav-index]').forEach(function (tab) {
+      var on = Number(tab.dataset.monthNavIndex) === index;
+      tab.classList.toggle('is-active', on);
+      tab.setAttribute('aria-selected', on ? 'true' : 'false');
+      if (on) activeTab = tab;
+    });
+    // 選択中のタブがバナーの見える範囲に来るよう、バナーだけを横に送る
+    // （scrollIntoView はページ全体も縦に動かしてしまうため使わない）。
+    if (activeTab) {
+      var left = activeTab.offsetLeft - (rail.clientWidth - activeTab.offsetWidth) / 2;
+      rail.scrollLeft = Math.max(0, left);
+    }
+  }
+
+  function orderMonthNavOffset_(kind) {
+    var toolbar = $(kind + 'Toolbar');
+    return toolbar ? toolbar.getBoundingClientRect().bottom + 12 : 0;
+  }
+
+  function jumpToOrderMonth_(kind, index) {
+    var target = $(kind + 'Group-' + index);
+    if (!target) return;
+    var top = window.pageYOffset + target.getBoundingClientRect().top - orderMonthNavOffset_(kind);
+    window.scrollTo(0, Math.max(0, top));
+    monthNavPinned_ = { kind: kind, index: index, y: window.pageYOffset };
+    setOrderMonthNavActive_(kind, index);
+  }
+
+  function updateOrderMonthNavActive_(kind) {
+    var nav = $(kind + 'MonthNav');
+    var view = $('view-' + kind);
+    if (!nav || nav.classList.contains('hidden') || !view || !view.classList.contains('is-active')) return;
+    // タップで移動した直後（ページ末尾で見出しが一番上まで来られない月を含む）は、
+    // 利用者が自分でスクロールするまでタップした月を選択状態のままにする。
+    if (monthNavPinned_ && monthNavPinned_.kind === kind && Math.abs(window.pageYOffset - monthNavPinned_.y) < 4) {
+      setOrderMonthNavActive_(kind, monthNavPinned_.index);
+      return;
+    }
+    monthNavPinned_ = null;
+    var line = orderMonthNavOffset_(kind) + 16;
+    var groupsEls = $(kind + 'Groups').children;
+    var active = 0;
+    for (var i = 0; i < groupsEls.length; i++) {
+      if (groupsEls[i].getBoundingClientRect().top <= line) active = i;
+      else break;
+    }
+    setOrderMonthNavActive_(kind, active);
+  }
+
+  ORDER_LIST_KINDS_.forEach(function (kind) {
+    var nav = $(kind + 'MonthNav');
+    if (!nav) return;
+    nav.addEventListener('click', function (e) {
+      var tab = e.target.closest('[data-month-nav-index]');
+      if (tab) { jumpToOrderMonth_(kind, Number(tab.dataset.monthNavIndex)); return; }
+      var arrow = e.target.closest('[data-month-nav-dir]');
+      if (arrow) {
+        var rail = $(kind + 'MonthNavRail');
+        rail.scrollLeft += Number(arrow.dataset.monthNavDir) * rail.clientWidth * 0.7;
+      }
+    });
+  });
+
+  var monthNavScrollQueued_ = false;
+  window.addEventListener('scroll', function () {
+    if (monthNavScrollQueued_) return;
+    monthNavScrollQueued_ = true;
+    var run = function () {
+      monthNavScrollQueued_ = false;
+      ORDER_LIST_KINDS_.forEach(updateOrderMonthNavActive_);
+    };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
+    else setTimeout(run, 16);
+  }, { passive: true });
 
   ORDER_LIST_KINDS_.forEach(function (kind) {
     bindOrderListViewToggle_(kind);
@@ -4438,12 +4587,11 @@
       fillOptions($('actionPaymentMethod'), bootstrap.paymentMethodOptions, true);
       renderSettings(bootstrap.settings);
       renderTopbarUser();
+      applyAdminOnlyVisibility_();
       checkIntegrity_();
       return Promise.all([
         refreshInventoryFromServer_(),
-        refreshOrdersFromServer_(),
-        refreshOrderListFromServer_('demoOrders'),
-        refreshOrderListFromServer_('otherStoreOrders'),
+        refreshAllOrderListsFromServer_(),
         loadPurchaseOrders(),
         refreshGClassFromServer_()
       ]);

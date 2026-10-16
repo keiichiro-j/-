@@ -450,11 +450,22 @@ function listOrders() {
   return listOrdersFromSheet_(getOrderSheet_());
 }
 
+// デモカー受注リスト・他店受注リストは管理者（SYSTEM_ADMIN_EMAILS）のみ閲覧できる。
+// 画面側でタブを隠すだけでなく、google.script.run から直接呼ばれても中身を
+// 返さないよう、一覧取得の関数自体で権限を確認する（getSettings と同じ考え方）。
+function requireAdminForRestrictedOrders_() {
+  if (!isSystemAdmin_(Session.getActiveUser().getEmail())) {
+    throw new Error('デモカー受注リスト・他店受注リストは管理者のみ閲覧できます');
+  }
+}
+
 function listDemoOrders() {
+  requireAdminForRestrictedOrders_();
   return listOrdersFromSheet_(getDemoOrderSheet_());
 }
 
 function listOtherStoreOrders() {
+  requireAdminForRestrictedOrders_();
   return listOrdersFromSheet_(getOtherStoreOrderSheet_());
 }
 

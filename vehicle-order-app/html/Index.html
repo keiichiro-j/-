@@ -145,10 +145,10 @@
         <button class="tabs__item sidebarNav__item" data-tab="orders" type="button">
           <svg class="icon"><use href="#icon-table"></use></svg><span>受注リスト</span>
         </button>
-        <button class="tabs__item sidebarNav__item" data-tab="demoOrders" type="button">
+        <button class="tabs__item sidebarNav__item adminOnly hidden" data-tab="demoOrders" type="button">
           <svg class="icon"><use href="#icon-table"></use></svg><span>デモカー受注リスト</span>
         </button>
-        <button class="tabs__item sidebarNav__item" data-tab="otherStoreOrders" type="button">
+        <button class="tabs__item sidebarNav__item adminOnly hidden" data-tab="otherStoreOrders" type="button">
           <svg class="icon"><use href="#icon-table"></use></svg><span>他店受注リスト</span>
         </button>
         <button class="tabs__item sidebarNav__item" data-tab="purchaseOrders" type="button">
@@ -202,8 +202,8 @@
         <button class="tabs__item is-active" data-tab="home">ホーム</button>
         <button class="tabs__item" data-tab="inventory">在庫リスト</button>
         <button class="tabs__item" data-tab="orders">受注リスト</button>
-        <button class="tabs__item" data-tab="demoOrders">デモカー受注リスト</button>
-        <button class="tabs__item" data-tab="otherStoreOrders">他店受注リスト</button>
+        <button class="tabs__item adminOnly hidden" data-tab="demoOrders">デモカー受注リスト</button>
+        <button class="tabs__item adminOnly hidden" data-tab="otherStoreOrders">他店受注リスト</button>
         <button class="tabs__item" data-tab="purchaseOrders">発注リスト</button>
         <button class="tabs__item" data-tab="gclass">Gクラス予約リスト</button>
         <button class="tabs__item" data-tab="mypage">マイページ</button>
@@ -333,6 +333,13 @@
           <button type="button" class="viewToggle__item" data-view="table" title="表表示" aria-label="表表示"><svg class="icon icon--inline"><use href="#icon-table"></use></svg></button>
         </div>
         <span class="toolbar__count" id="ordersTotalCount"></span>
+        <!-- 月ごとのジャンプバナー（グループ表示が「登録月」のときだけ表示）。
+             タップでその月のグループ見出しへ瞬時に移動する。renderOrderMonthNav_ 参照。 -->
+        <div class="monthNav hidden" id="ordersMonthNav">
+          <button type="button" class="monthNav__arrow" data-month-nav-dir="-1" aria-label="前の月を表示">&#8249;</button>
+          <div class="monthNav__rail" id="ordersMonthNavRail" role="tablist" aria-label="登録月へ移動"></div>
+          <button type="button" class="monthNav__arrow" data-month-nav-dir="1" aria-label="次の月を表示">&#8250;</button>
+        </div>
       </div>
       <div class="toolbarSpacer" id="ordersToolbarSpacer"></div>
       <div id="ordersGroups"></div>
@@ -493,7 +500,7 @@
             <p>受注した車両はありません</p>
           </div>
         </section>
-        <section class="myPageSection">
+        <section class="myPageSection adminOnly hidden">
           <h2 class="myPageSection__title">デモカー受注（<span id="myPageDemoOrderCount">0</span>台）</h2>
           <div id="myPageDemoOrderList"></div>
           <div class="emptyState hidden" id="myPageDemoOrderEmpty">
@@ -501,7 +508,7 @@
             <p>デモカー受注した車両はありません</p>
           </div>
         </section>
-        <section class="myPageSection">
+        <section class="myPageSection adminOnly hidden">
           <h2 class="myPageSection__title">他店受注（<span id="myPageOtherStoreOrderCount">0</span>台）</h2>
           <div id="myPageOtherStoreOrderList"></div>
           <div class="emptyState hidden" id="myPageOtherStoreOrderEmpty">
