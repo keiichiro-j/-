@@ -13,10 +13,26 @@ function getSpreadsheet_() {
  * 既存のシートがある場合は不足列の挿入（syncSheetColumns_）と見出しメモの再設定を行う
  * （既存データは上書きしない。備考・発注のステアなど後から足した列を正しい位置へ入れる）。
  */
+// 1回の実行（API呼び出し・トリガー1回）の中で、同じシートの準備処理を繰り返さないための
+// キャッシュ。GASはグローバル変数を実行ごとに作り直すため、実行をまたいで古い値が残ることはない。
+var SHEET_CACHE_ = {};
+
+/**
+ * 既存シートの見出し行が、列定義（columns）の見出しと先頭から順に一致しているか
+ * （純粋関数）。一致していれば、列の挿入・入力規則・見出しメモの再設定は不要。
+ */
+function headersMatchColumns_(headers, columns) {
+  var current = headers || [];
+  return (columns || []).every(function (c, i) {
+    return String(current[i] == null ? '' : current[i]).trim() === c.label;
+  });
+}
+
 function getOrCreateSheet_(sheetName, columns, textColumnIndexes1) {
   if (!sheetName) {
     throw new Error('シート名が空です。Constants.gs の SHEET_NAMES を最新版にしてください。');
   }
+  if (SHEET_CACHE_[sheetName]) return SHEET_CACHE_[sheetName];
   var ss = getSpreadsheet_();
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet) {
@@ -27,13 +43,18 @@ function getOrCreateSheet_(sheetName, columns, textColumnIndexes1) {
     applyTextColumnFormat_(sheet, textColumnIndexes1);
     applySelectValidations_(sheet, columns);
     applyHeaderNotes_(sheet, columns);
-  } else {
+  } else if (!headersMatchColumns_(sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 1)).getValues()[0], columns)) {
     // 既存シートは列の追加（備考・発注のステア等）と見出しメモをアプリの列定義に合わせる。
+    // 見出しが既に列定義どおりなら何もしない（以前は読み込みのたびに1000行以上への
+    // 書式・入力規則の設定と見出しメモの書き直しを行っており、Hold期限切れ処理など
+    // シートを何度も開く処理が大幅に遅くなっていた）。入力規則・見出しメモだけを
+    // 付け直したい場合は、メニュー「列構成・入力規則・列見出しのコメントを再設定」を使う。
     syncSheetColumns_(sheet, columns);
     applyTextColumnFormat_(sheet, textColumnIndexes1);
     applySelectValidations_(sheet, columns);
     applyHeaderNotes_(sheet, columns);
   }
+  SHEET_CACHE_[sheetName] = sheet;
   return sheet;
 }
 

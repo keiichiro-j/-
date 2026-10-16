@@ -252,6 +252,32 @@ test('Hold期限経過・2nd Holdありは昇格', () => {
   );
 });
 
+test('1st・2nd Holdとも期限切れ（期限切れ処理が止まっていた場合）は繰り上げずに解放', () => {
+  assert.strictEqual(
+    sandbox.decideExpiryAction_({ holdStatus: 'hold', expiresAt: 2000, hasSecondHold: true, secondExpiresAt: 2500 }, 3000),
+    'release'
+  );
+  assert.strictEqual(
+    sandbox.decideExpiryAction_({ holdStatus: 'hold', expiresAt: 2000, hasSecondHold: true, secondExpiresAt: 5000 }, 3000),
+    'promote'
+  );
+});
+test('Hold期限切れ処理のトリガーを作るための権限（script.scriptapp）がマニフェストにある', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'appsscript.json'), 'utf8'));
+  assert.ok(manifest.oauthScopes.includes('https://www.googleapis.com/auth/script.scriptapp'));
+});
+
+console.log('== SheetService: headersMatchColumns_（見出しが列定義どおりならシートの再設定を省く） ==');
+test('見出しが列定義どおりなら一致', () => {
+  const cols = [{ label: 'A' }, { label: 'B' }];
+  assert.strictEqual(sandbox.headersMatchColumns_(['A', ' B ', ''], cols), true);
+});
+test('列が足りない・順番が違う場合は不一致', () => {
+  const cols = [{ label: 'A' }, { label: 'B' }];
+  assert.strictEqual(sandbox.headersMatchColumns_(['A'], cols), false);
+  assert.strictEqual(sandbox.headersMatchColumns_(['B', 'A'], cols), false);
+});
+
 console.log('== HoldService: buildHoldRecord_ / attachHoldInfo_（2nd Holdは1st Hold終了時から起算） ==');
 test('buildHoldRecord_ が入力項目一式を1行分のレコードに詰める（担当者メールも含む）', () => {
   const record = sandbox.buildHoldRecord_('C-001', sandbox.HOLD_RANK.FIRST, fullInfo, 1000, 1000 + sandbox.HOLD_DURATION_MS);
