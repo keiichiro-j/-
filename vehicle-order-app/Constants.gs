@@ -62,6 +62,13 @@ var HOLD_TYPE_LABELS = {
 
 // ===== 選択肢 =====
 var STEERING_OPTIONS = ['R', 'L'];
+
+/**
+ * シートの入力規則（プルダウン）や既存値の形式を変えたら、この番号を1つ上げる。
+ * アプリを開いたときに保存済みの番号と違えば、全シートの入力規則・見出しメモを付け直し、
+ * ステア列の旧表記（右／左 等）を R／L に書き換える（applySheetRulesIfOutdated_）。
+ */
+var SHEET_RULES_VERSION = 2;
 /**
  * ステアの表示用（純粋関数）。スプレッドシートに残っている「右」「左」も
  * アプリ上は「R」「L」に揃える。空なら空文字。
@@ -110,7 +117,7 @@ var VEHICLE_COLUMNS = [
   { key: 'mp', label: 'MP', type: 'text', note: 'モデルイヤー（例: 2026）。空欄可。アプリのカードに常時表示されます。' },
   {
     key: 'steering', label: 'ステア', type: 'select', options: STEERING_OPTIONS,
-    note: '「R」または「L」を選択してください（旧「右」「左」もアプリでは R／L と表示します）。空欄可。車両詳細に表示されます。'
+    note: '「R」（右ハンドル）または「L」（左ハンドル）のみ入力できます。空欄可。車両詳細に表示されます。'
   },
   {
     key: 'exteriorColor', label: '外装', type: 'text',
@@ -335,7 +342,7 @@ var PURCHASE_ORDER_COLUMNS = [
   { key: 'mp', label: 'MP', type: 'text', note: 'モデルイヤー（例: 2026）。空欄可。アプリの発注カードに表示されます。' },
   {
     key: 'steering', label: 'ステア', type: 'select', options: STEERING_OPTIONS,
-    note: '「R」または「L」を選択してください（旧「右」「左」もアプリでは R／L と表示します）。空欄可。MPとカラーの間に表示されます。'
+    note: '「R」（右ハンドル）または「L」（左ハンドル）のみ入力できます。空欄可。MPとカラーの間に表示されます。'
   },
   { key: 'exteriorColor', label: '外装', type: 'text', note: 'ボディカラー。空欄可。' },
   { key: 'interiorColor', label: '内装', type: 'text', note: '内装色。空欄可。' }

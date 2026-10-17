@@ -66,11 +66,74 @@ function applySelectValidationsAndNotes_() {
     syncSheetColumns_(pair[0], pair[1]);
     applySelectValidations_(pair[0], pair[1]);
     applyHeaderNotes_(pair[0], pair[1]);
+    normalizeSteeringColumn_(pair[0], pair[1]);
   });
 
   var message = '在庫リスト・Holdリスト・受注リスト・デモカー受注リスト・他店受注リスト・発注リスト・Gクラス予約リスト・変更履歴・有償OPマスタの列構成・入力規則・列見出しの注意コメントをアプリに合わせて更新しました。';
   Logger.log(message);
   return message;
+}
+
+/**
+ * ステア列の値を「R」「L」にそろえる（右／左、right／left、小文字などを書き換える）。
+ * R・L・空欄以外の値はそのまま残す（入力規則によりシート上で赤い警告が付くので、手で直す）。
+ * @return {number} 書き換えたセルの数
+ */
+function normalizeSteeringColumn_(sheet, columns) {
+  var index = -1;
+  columns.forEach(function (c, i) { if (c.key === 'steering') index = i; });
+  if (index === -1) return 0;
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 0;
+  var range = sheet.getRange(2, index + 1, lastRow - 1, 1);
+  var values = range.getValues();
+  var changed = 0;
+  var next = values.map(function (row) {
+    var raw = row[0];
+    var formatted = formatSteering_(raw);
+    if (STEERING_OPTIONS.indexOf(formatted) !== -1 && formatted !== raw) {
+      changed++;
+      return [formatted];
+    }
+    return [raw];
+  });
+  if (changed) range.setValues(next);
+  return changed;
+}
+
+/**
+ * ステア列を持つ全シート（在庫・受注3種・発注・Gクラス予約）のステアを R／L にそろえる。
+ */
+function normalizeSteeringColumns_() {
+  return [
+    [getInventorySheet_(), INVENTORY_COLUMNS],
+    [getOrderSheet_(), ORDER_COLUMNS],
+    [getDemoOrderSheet_(), ORDER_COLUMNS],
+    [getOtherStoreOrderSheet_(), ORDER_COLUMNS],
+    [getPurchaseOrderSheet_(), PURCHASE_ORDER_COLUMNS],
+    [getGClassReservationSheet_(), GCLASS_COLUMNS]
+  ].reduce(function (sum, pair) { return sum + normalizeSteeringColumn_(pair[0], pair[1]); }, 0);
+}
+
+/**
+ * アプリを開いたとき（api_getBootstrapData）に呼ぶ。SHEET_RULES_VERSION が保存済みの番号と
+ * 違うときだけ、入力規則・見出しメモの付け直しとステア列の書き換えを1回行う。
+ * 失敗してもアプリの起動は止めない（次に開いたときに再度試す）。
+ */
+function applySheetRulesIfOutdated_() {
+  var props = PropertiesService.getScriptProperties();
+  var key = 'SHEET_RULES_VERSION';
+  if (String(props.getProperty(key) || '') === String(SHEET_RULES_VERSION)) return false;
+  var lock = acquireScriptLock_();
+  try {
+    if (String(props.getProperty(key) || '') === String(SHEET_RULES_VERSION)) return false;
+    applySelectValidationsAndNotes_();
+    normalizeSteeringColumns_();
+    props.setProperty(key, String(SHEET_RULES_VERSION));
+    return true;
+  } finally {
+    releaseScriptLock_(lock);
+  }
 }
 
 /**

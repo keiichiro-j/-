@@ -7,6 +7,12 @@
 
 // ===== 初期化 =====
 function api_getBootstrapData() {
+  // シートの入力規則・ステア表記（R／L）を最新の定義に合わせる（必要なときだけ1回）。
+  try {
+    applySheetRulesIfOutdated_();
+  } catch (e) {
+    console.error('シートの入力規則の更新に失敗しました: ' + (e && e.message ? e.message : e));
+  }
   var email = Session.getActiveUser().getEmail();
   var isAdmin = isSystemAdmin_(email);
   // 担当者名・拠点の自動判定は管理者かどうかに関わらず全員に必要なため、
