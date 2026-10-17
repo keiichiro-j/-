@@ -1270,6 +1270,20 @@
   function rowNum_(n) { return n < 10 ? '0' + n : String(n); }
 
   /**
+   * 横一列テーブル表示（在庫リスト・受注リスト・業販受注リスト・デモカーリスト・
+   * サービス代車リスト）共通のラッパー。rowListHtml_のテーブル版で、列見出し行
+   * （headerHtml）を常に先頭に1行だけ出す。1件も無いときは見出しごと何も
+   * 表示しない（既存の空状態メッセージ#xxxEmptyに任せる、rowListHtml_と同じ
+   * 考え方）。
+   */
+  function tableListHtml_(tableClass, headerHtml, items, renderRowFn) {
+    if (!items.length) return '';
+    return '<div class="tbl ' + tableClass + '">' + headerHtml + items.map(function (item, i) {
+      return renderRowFn(item, i + 1);
+    }).join('') + '</div>';
+  }
+
+  /**
    * 在庫リストの一覧行。見出し行は区分タグ・モデル名だけ、メタ情報行には
    * 年式・走行距離・登録番号・販売価格・MP（メーカーの定めた年式仕様）をまとめ、
    * 各項目を角丸タイル（rowMetaItemHtml_）で区切る（現場からの要望「価格も
@@ -1316,6 +1330,53 @@
       '<div class="rowItem__status">' + vehicleBadgesHtml_(v, false) + '</div>' +
       '<div class="rowItem__actions">' + cancelHoldBtnHtml + vehicleActionsHtml_(v) + '</div>' +
       '<div class="rowItem__chev">›</div>' +
+      '</div>';
+  }
+
+  /**
+   * 在庫リストタブの一覧行見出し（列見出し行）。1件＝1行で横一列に表示する
+   * テーブル表示用（vehicleTableRowHtml_と列を揃える。tbl--inventory、
+   * Stylesheet.html参照）。マイページの「Hold中の車両」（vehicleRowItemHtml_）は
+   * 従来のカード型のまま変更していないため、見出し行は持たない。
+   */
+  function inventoryTableHeaderHtml_() {
+    return '<div class="tblHead">' +
+      '<div></div><div>区分</div><div>モデル</div><div>年式</div><div>走行距離</div>' +
+      '<div>車検満了日</div><div>登録番号</div><div>現展示拠点</div><div>価格</div>' +
+      '<div>ステータス</div><div>操作</div><div></div>' +
+      '</div>';
+  }
+
+  /**
+   * 在庫リストタブの一覧行（横一列テーブル表示）。vehicleRowItemHtml_と違い、
+   * 1台分の情報をすべて1行に横並びで収める（現場からの要望「情報は横一列で
+   * 表示してほしい」）。各項目を枠で囲まず、列見出し行と縦の罫線・1行おきの
+   * 塗り分けだけで区切る（現場からの要望「各項目を一つずつ囲むのをやめたい」）。
+   * 「現展示拠点」も列として常に表示する（現場からの要望）。操作列は
+   * vehicleActionsHtml_が常に2つボタンを返すため（Hold中なら解除＋受注確定、
+   * 在庫ありならHOLD＋受注）、flex: 1（Stylesheet.html）で均等配分するだけで
+   * 常に同じ横幅に揃う。
+   */
+  function vehicleTableRowHtml_(v, num) {
+    var isHold = v.holdStatus === 'hold';
+    var isSpecialHold = isHold && !!(v.holdHoldType && v.holdHoldType !== 'normal');
+    var rowTone = isSpecialHold ? 'tblRow--holdSpecial' : (isHold ? 'tblRow--hold' : '');
+    var cancelHoldBtnHtml = isHold
+      ? '<button type="button" class="btn btn--danger" data-cancel-hold="' + escapeHtml(v.commission) + '">解除</button>'
+      : '';
+    return '<div class="tblRow ' + rowTone + '" data-commission="' + escapeHtml(v.commission) + '">' +
+      '<div class="tblCell tblCell--num">' + rowNum_(num) + '</div>' +
+      '<div class="tblCell"><span class="tag">' + escapeHtml(v.category || '-') + '</span></div>' +
+      '<div class="tblCell tblCell--strong" title="' + escapeHtml(v.model) + '">' + escapeHtml(v.model) + '</div>' +
+      '<div class="tblCell">' + escapeHtml(v.firstRegistrationDate || '-') + '</div>' +
+      '<div class="tblCell">' + escapeHtml(formatNumberUnit_(v.mileage, ' km') || '-') + '</div>' +
+      '<div class="tblCell">' + escapeHtml(v.inspectionExpiryDate || '-') + '</div>' +
+      '<div class="tblCell" title="' + escapeHtml(plateText_(v)) + '">' + escapeHtml(plateText_(v) || '-') + '</div>' +
+      '<div class="tblCell tblCell--strong">' + escapeHtml(v.currentDisplayLocation || '-') + '</div>' +
+      '<div class="tblCell">' + escapeHtml(formatNumberUnit_(v.salePrice, ' 円') || '-') + '</div>' +
+      '<div class="tblCell tblCell--status">' + vehicleBadgesHtml_(v, false) + '</div>' +
+      '<div class="tblCell tblCell--actions">' + cancelHoldBtnHtml + vehicleActionsHtml_(v) + '</div>' +
+      '<div class="tblCell tblCell--chev">›</div>' +
       '</div>';
   }
 
@@ -1380,28 +1441,35 @@
       : '<span class="badge badge--available"><span class="badge__dot"></span>在庫中</span>';
   }
 
-  function carTrackingRowItemHtml_(v, num) {
+  /**
+   * デモカーリスト・サービス代車リストタブの一覧行見出し。在庫リスト・受注リストと
+   * 同じ考え方の横一列テーブル表示（carTrackingTableRowHtml_と列を揃える。
+   * tbl--cartrack、Stylesheet.html参照。2つのリストはまったく同じ列構成）。
+   */
+  function carTrackingTableHeaderHtml_() {
+    return '<div class="tblHead">' +
+      '<div></div><div>区分</div><div>モデル</div><div>年式</div><div>走行距離</div>' +
+      '<div>登録番号</div><div>現展示拠点</div><div>ステータス</div><div></div>' +
+      '</div>';
+  }
+
+  /**
+   * デモカーリスト・サービス代車リストタブの一覧行（横一列テーブル表示）。
+   * 在庫リスト・受注リストと同じ固定幅の列構成に揃え、「現展示拠点」も列として
+   * 常に表示する。Hold・受注の操作は行わない閲覧専用の一覧のため操作列は無い。
+   */
+  function carTrackingTableRowHtml_(v, num) {
     var isSold = v.saleStatus === '販売済み';
-    return '<div class="rowItem' + (isSold ? ' rowItem--sold' : '') + '" data-ocn="' + escapeHtml(v.ocn) + '">' +
-      '<div class="rowItem__num">' + rowNum_(num) + '</div>' +
-      '<div class="rowItem__main">' +
-      '<div class="rowItem__head">' +
-      '<span class="tag">' + escapeHtml(v.category || '-') + '</span>' +
-      '<span class="rowItem__model" title="' + escapeHtml(v.model) + '">' + escapeHtml(v.model) + '</span>' +
-      '</div>' +
-      '<div class="rowItem__colorSub" title="' + escapeHtml((v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) + '">' +
-      escapeHtml((v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) + '</div>' +
-      '<div class="rowItem__meta">' +
-      rowMetaItemHtml_('年式', v.firstRegistrationDate) +
-      rowMetaItemHtml_('型式', v.modelCode) +
-      rowMetaItemHtml_('走行距離', formatNumberUnit_(v.mileage, ' km')) +
-      rowMetaItemHtml_('車検満了日', v.inspectionExpiryDate, inspectionExpiryTone_(v.inspectionExpiryDate)) +
-      rowMetaItemHtml_('登録番号', plateText_(v)) +
-      rowMetaItemHtml_('MP', v.mp) +
-      '</div>' +
-      '</div>' +
-      '<div class="rowItem__status">' + carTrackingBadgeHtml_(v) + '</div>' +
-      '<div class="rowItem__chev">›</div>' +
+    return '<div class="tblRow' + (isSold ? ' tblRow--sold' : '') + '" data-ocn="' + escapeHtml(v.ocn) + '">' +
+      '<div class="tblCell tblCell--num">' + rowNum_(num) + '</div>' +
+      '<div class="tblCell"><span class="tag">' + escapeHtml(v.category || '-') + '</span></div>' +
+      '<div class="tblCell tblCell--strong" title="' + escapeHtml(v.model) + '">' + escapeHtml(v.model) + '</div>' +
+      '<div class="tblCell">' + escapeHtml(v.firstRegistrationDate || '-') + '</div>' +
+      '<div class="tblCell">' + escapeHtml(formatNumberUnit_(v.mileage, ' km') || '-') + '</div>' +
+      '<div class="tblCell" title="' + escapeHtml(plateText_(v)) + '">' + escapeHtml(plateText_(v) || '-') + '</div>' +
+      '<div class="tblCell tblCell--strong">' + escapeHtml(v.currentDisplayLocation || '-') + '</div>' +
+      '<div class="tblCell tblCell--status">' + carTrackingBadgeHtml_(v) + '</div>' +
+      '<div class="tblCell tblCell--chev">›</div>' +
       '</div>';
   }
 
@@ -1563,13 +1631,15 @@
     // 該当台数は絞り込みサイドバー（条件検索）見出しの右にのみ表示する
     // （不具合修正: 以前はクイックナビ行の右側にも同じ情報を重複表示していた）。
     $('inventoryFilterCount').textContent = all.length ? '該当 ' + filtered.length + '台 ／ 全' + all.length + '台' : '';
-    container.innerHTML = rowListHtml_(filtered, vehicleRowItemHtml_);
+    container.innerHTML = tableListHtml_('tbl--inventory', inventoryTableHeaderHtml_(), filtered, vehicleTableRowHtml_);
     syncInventoryFilterClearVisibility_();
   }
 
   // 在庫リストの行タップ操作（Hold・受注・詳細）。マイページの
-  // 「Hold中の車両」一覧（#myPageHoldList）も同じ行（vehicleRowItemHtml_）を
-  // 再利用しているため、同じ処理を共有できるよう名前付き関数にしている。
+  // 「Hold中の車両」一覧（#myPageHoldList）は、横一列テーブル表示ではなく
+  // 従来のカード型一覧（vehicleRowItemHtml_）のまま据え置いているが、
+  // data-commission属性を見て操作対象を判定する処理自体は同じため、
+  // 引き続きこのハンドラを共有する（on('myPageHoldList', ...)参照）。
   /**
    * Hold・受注・受注確定・Hold解除ボタンのdata属性からコミッションを
    * 取り出す。コミッション列は任意入力（Constants.gsのVEHICLE_COLUMNS参照）の
@@ -1594,7 +1664,7 @@
     else if ('cancelHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.cancelHold))) openCancelHoldModal(commission); }
     else {
       // 一覧行タップ（ボタン・入力・ラベル以外の箇所）で車両情報の詳細モーダルを開く。
-      var tappable = target.closest('.rowItem[data-commission]');
+      var tappable = target.closest('[data-commission]');
       if (tappable && !target.closest('button, input, label')) {
         openInventoryDetailModal_(tappable.dataset.commission);
       }
@@ -2315,6 +2385,44 @@
   }
 
   /**
+   * 受注リストタブの一覧行見出し。在庫リストと同じ考え方の横一列テーブル表示
+   * （orderTableRowHtml_と列を揃える。tbl--order、Stylesheet.html参照）。
+   * マイページの「受注した車両」（orderRowItemHtml_）は従来のカード型のまま
+   * 変更していない。
+   */
+  function orderTableHeaderHtml_() {
+    return '<div class="tblHead">' +
+      '<div></div><div>区分</div><div>顧客</div><div>モデル</div><div>拠点</div><div>担当</div>' +
+      '<div>登録月</div><div>走行距離</div><div>登録番号</div><div>現展示拠点</div><div>金額</div><div></div>' +
+      '</div>';
+  }
+
+  /**
+   * 受注リストタブの一覧行（横一列テーブル表示）。現場からの要望「受注リストにも
+   * 区分を先頭に加えてほしい」「顧客からモデルまでの空きすぎを調整してほしい」
+   * を反映し、区分列を先頭に追加、各列は固定幅（Stylesheet.html）にして文字数に
+   * 合わない余白ができないようにしている。「拠点」列は販売拠点（salesLocation、
+   * 受注確定時の担当者本人の拠点）、「現展示拠点」列は車両そのものの現在の
+   * 展示拠点（currentDisplayLocation）で、別々の項目のため両方とも表示する。
+   */
+  function orderTableRowHtml_(o, num) {
+    return '<div class="tblRow" data-commission="' + escapeHtml(o.commission) + '">' +
+      '<div class="tblCell tblCell--num">' + rowNum_(num) + '</div>' +
+      '<div class="tblCell"><span class="tag">' + escapeHtml(o.category || '-') + '</span></div>' +
+      '<div class="tblCell tblCell--strong" title="' + escapeHtml(o.customer || '-') + '">' + escapeHtml(o.customer || '-') + '</div>' +
+      '<div class="tblCell" title="' + escapeHtml(o.model) + '">' + escapeHtml(o.model) + '</div>' +
+      '<div class="tblCell">' + escapeHtml(o.salesLocation || '-') + '</div>' +
+      '<div class="tblCell">' + escapeHtml(o.staff || '-') + '</div>' +
+      '<div class="tblCell">' + escapeHtml(o.registeredMonth || '-') + '</div>' +
+      '<div class="tblCell">' + escapeHtml(formatNumberUnit_(o.mileage, ' km') || '-') + '</div>' +
+      '<div class="tblCell" title="' + escapeHtml(plateText_(o)) + '">' + escapeHtml(plateText_(o) || '-') + '</div>' +
+      '<div class="tblCell tblCell--strong">' + escapeHtml(o.currentDisplayLocation || '-') + '</div>' +
+      '<div class="tblCell tblCell--strong">' + escapeHtml(formatNumberUnit_(o.salePrice, ' 円') || '-') + '</div>' +
+      '<div class="tblCell tblCell--chev">›</div>' +
+      '</div>';
+  }
+
+  /**
    * 受注情報の詳細ポップアップ。在庫リストの車両詳細モーダル（vehicleDetailHtml_）と
    * 同じ「概要／詳細スペック／受注状況」の3カラムレイアウトに統一する（現場からの
    * 要望「受注リストをタップした際も在庫リストのようなポップアップ形式にしてほしい」。
@@ -2398,7 +2506,7 @@
       var heading = g.key
         ? '<h3 class="group__title">' + escapeHtml(g.key) + '<span class="group__count">' + g.items.length + '台</span></h3>'
         : '';
-      return '<div class="group">' + heading + rowListHtml_(g.items, orderRowItemHtml_) + '</div>';
+      return '<div class="group">' + heading + tableListHtml_('tbl--order', orderTableHeaderHtml_(), g.items, orderTableRowHtml_) + '</div>';
     }).join('');
   }
 
@@ -2406,7 +2514,7 @@
     // 一覧行タップ（ボタン・入力以外の箇所）で、行に表示していない項目
     // （下取車・OSS・保険・支払方法・受注確定日時等）も確認できる詳細モーダルを
     // 開く（在庫リストのhandleInventoryListClick_と同じパターン）。
-    var tappable = e.target.closest('.rowItem[data-commission]');
+    var tappable = e.target.closest('[data-commission]');
     if (tappable && !e.target.closest('button, input, label')) {
       openOrderDetailModal_(tappable.dataset.commission);
     }
@@ -2443,29 +2551,37 @@
    * 業販受注リストの一覧行。通常の受注リストとほぼ同じだが、顧客の代わりに
    * 「販売先」を見出しに使い、リード番号は持たない（業販受注は収集しないため）。
    */
-  function wholesaleOrderRowItemHtml_(o, num) {
-    return '<div class="rowItem" data-commission="' + escapeHtml(o.commission) + '">' +
-      '<div class="rowItem__num">' + rowNum_(num) + '</div>' +
-      '<div class="rowItem__main">' +
-      '<div class="rowItem__head">' +
-      '<span class="rowItem__model" title="' + escapeHtml(o.salesStore || '-') + '">' + escapeHtml(o.salesStore || '-') + '</span>' +
-      '<span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span>' +
-      '</div>' +
-      // 不具合修正: orderRowItemHtml_と同じ理由（モデル名は他のメタタイルより
-      // 長くなりがちで、行内の余白が目立つ原因になっていた）で、見出し下の
-      // サブテキストとして独立させる。
-      '<div class="rowItem__colorSub" title="' + escapeHtml(o.model) + '">' + escapeHtml(o.model) + '</div>' +
-      '<div class="rowItem__meta">' +
-      rowMetaItemHtml_('担当', o.staff) +
-      rowMetaItemHtml_('登録月', o.registeredMonth) +
-      rowMetaItemHtml_('走行距離', formatNumberUnit_(o.mileage, ' km')) +
-      rowMetaItemHtml_('登録番号', plateText_(o)) +
-      rowMetaItemHtml_('MP', o.mp) +
-      '</div>' +
-      '<div class="rowItem__sub">コミッション ' + escapeHtml(o.commission) + '</div>' +
-      '</div>' +
-      '<div class="rowItem__price"><span class="rowItem__priceLabel">金額</span>' + escapeHtml(formatNumberUnit_(o.salePrice, ' 円') || '-') + '</div>' +
-      '<div class="rowItem__chev">›</div>' +
+  /**
+   * 業販受注リストタブの一覧行見出し。通常の受注リストと同じ列構成（区分・拠点列
+   * を含む）だが、顧客の代わりに「販売先」を使う（wholesaleOrderTableRowHtml_と
+   * 列を揃える。tbl--wholesale、Stylesheet.htmlはtbl--orderと同じ幅を共有）。
+   */
+  function wholesaleOrderTableHeaderHtml_() {
+    return '<div class="tblHead">' +
+      '<div></div><div>区分</div><div>販売先</div><div>モデル</div><div>拠点</div><div>担当</div>' +
+      '<div>登録月</div><div>走行距離</div><div>登録番号</div><div>現展示拠点</div><div>金額</div><div></div>' +
+      '</div>';
+  }
+
+  /**
+   * 業販受注リストタブの一覧行（横一列テーブル表示）。orderTableRowHtml_と同じ
+   * 考え方だが、業販受注はリード番号・下取車の有無等を持たず、顧客の代わりに
+   * 「販売先」（salesStore）を識別列として使う。
+   */
+  function wholesaleOrderTableRowHtml_(o, num) {
+    return '<div class="tblRow" data-commission="' + escapeHtml(o.commission) + '">' +
+      '<div class="tblCell tblCell--num">' + rowNum_(num) + '</div>' +
+      '<div class="tblCell"><span class="tag">' + escapeHtml(o.category || '-') + '</span></div>' +
+      '<div class="tblCell tblCell--strong" title="' + escapeHtml(o.salesStore || '-') + '">' + escapeHtml(o.salesStore || '-') + '</div>' +
+      '<div class="tblCell" title="' + escapeHtml(o.model) + '">' + escapeHtml(o.model) + '</div>' +
+      '<div class="tblCell">' + escapeHtml(o.salesLocation || '-') + '</div>' +
+      '<div class="tblCell">' + escapeHtml(o.staff || '-') + '</div>' +
+      '<div class="tblCell">' + escapeHtml(o.registeredMonth || '-') + '</div>' +
+      '<div class="tblCell">' + escapeHtml(formatNumberUnit_(o.mileage, ' km') || '-') + '</div>' +
+      '<div class="tblCell" title="' + escapeHtml(plateText_(o)) + '">' + escapeHtml(plateText_(o) || '-') + '</div>' +
+      '<div class="tblCell tblCell--strong">' + escapeHtml(o.currentDisplayLocation || '-') + '</div>' +
+      '<div class="tblCell tblCell--strong">' + escapeHtml(formatNumberUnit_(o.salePrice, ' 円') || '-') + '</div>' +
+      '<div class="tblCell tblCell--chev">›</div>' +
       '</div>';
   }
 
@@ -2544,12 +2660,12 @@
       var heading = g.key
         ? '<h3 class="group__title">' + escapeHtml(g.key) + '<span class="group__count">' + g.items.length + '台</span></h3>'
         : '';
-      return '<div class="group">' + heading + rowListHtml_(g.items, wholesaleOrderRowItemHtml_) + '</div>';
+      return '<div class="group">' + heading + tableListHtml_('tbl--wholesale', wholesaleOrderTableHeaderHtml_(), g.items, wholesaleOrderTableRowHtml_) + '</div>';
     }).join('');
   }
 
   on('wholesaleOrdersGroups','click', function (e) {
-    var tappable = e.target.closest('.rowItem[data-commission]');
+    var tappable = e.target.closest('[data-commission]');
     if (tappable && !e.target.closest('button, input, label')) {
       openWholesaleOrderDetailModal_(tappable.dataset.commission);
     }
@@ -2642,7 +2758,7 @@
       var items = state[opts.stateKey] || [];
       $(opts.emptyId).classList.toggle('hidden', items.length > 0);
       $(opts.countId).textContent = '該当 ' + items.length + ' 台';
-      $(opts.bodyId).innerHTML = rowListHtml_(items, carTrackingRowItemHtml_);
+      $(opts.bodyId).innerHTML = tableListHtml_('tbl--cartrack', carTrackingTableHeaderHtml_(), items, carTrackingTableRowHtml_);
     }
 
     function findByOcn(ocn) {
@@ -2657,7 +2773,7 @@
     }
 
     on(opts.bodyId, 'click', function (e) {
-      var tappable = e.target.closest('.rowItem[data-ocn]');
+      var tappable = e.target.closest('[data-ocn]');
       if (tappable) openDetail(tappable.dataset.ocn);
     });
     on(opts.keywordId, 'input', debounce(load, 250));
@@ -3692,7 +3808,7 @@
 
   on('myPageHoldList','click', handleInventoryListClick_);
   on('myPageOrderList','click', function (e) {
-    var rowEl = e.target.closest('.rowItem[data-commission]');
+    var rowEl = e.target.closest('[data-commission]');
     if (rowEl && !e.target.closest('button, input, label')) {
       openOrderDetailModal_(rowEl.dataset.commission);
     }

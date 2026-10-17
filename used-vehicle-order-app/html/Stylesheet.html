@@ -1048,6 +1048,96 @@
   .rowItem__actions { flex: 0 0 190px; display: flex; align-items: center; gap: 8px; min-width: 0; }
   .rowItem__chev { flex: 0 0 16px; color: var(--on-surface-variant); font-size: 15px; text-align: center; }
 
+  /* ===== 横一列テーブル表示（在庫リスト・受注リスト・業販受注リスト・
+     デモカーリスト・サービス代車リスト） =====
+     現場からの要望「情報は横一列で表示してほしい」「各項目を枠で囲むのを
+     やめてビジュアルを変更したい」を受け、1件＝1行にすべての項目を横並びで
+     収めるスプレッドシートに近いテーブル表示に刷新した（.rowItem系のカード型
+     一覧は、マイページの「Hold中の車両」「受注した車両」埋め込み一覧
+     （vehicleRowItemHtml_・orderRowItemHtml_）でのみ引き続き使用するため、
+     そのまま残している）。列見出し行（.tblHead）を一覧の先頭に固定し、各列の
+     意味を常に確認できるようにする。 */
+  .tbl {
+    background: var(--surface);
+    border: 1px solid var(--outline);
+    border-radius: var(--radius);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tblHead, .tblRow {
+    display: grid;
+    align-items: center;
+    column-gap: 10px;
+    padding: 0 16px;
+  }
+  .tblHead {
+    height: 36px;
+    background: var(--background);
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--on-surface-variant);
+    letter-spacing: .03em;
+    border-bottom: 1px solid var(--outline);
+    white-space: nowrap;
+  }
+  .tblRow {
+    height: 54px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--outline);
+    white-space: nowrap;
+  }
+  .tbl .tblRow:last-child { border-bottom: none; }
+  /* 1行おきの薄い塗り分けで、横に長い行でも視線を追いやすくする
+     （現場からの要望「見やすくしたい」）。 */
+  .tblRow:nth-child(even) { background: var(--background); }
+  .tblRow:hover { background: var(--primary-bg); }
+  .tblRow--hold { box-shadow: inset 3px 0 0 var(--warning); }
+  .tblRow--holdSpecial { box-shadow: inset 3px 0 0 var(--hold-special); }
+  .tblRow--sold { box-shadow: inset 3px 0 0 var(--on-surface-variant); }
+  .tblCell { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .tblCell--num { color: var(--on-surface-variant); font-variant-numeric: tabular-nums; }
+  .tblCell--strong { font-weight: 700; }
+  /* 不具合修正: ステータスはバッジの文字数（「在庫あり」「Hold中」「業販HOLD中」
+     「販売済み」）がそれぞれ異なり、バッジ自体の見た目の大きさが揃っていなかった
+     （現場からの指摘）。列幅いっぱいに広げて中央寄せにすることで、文言の長さに
+     関わらず同じ大きさの箱に見えるようにする。 */
+  .tblCell--status .badge { width: 100%; justify-content: center; box-sizing: border-box; }
+  /* 操作列はHold中（解除・受注確定）／在庫あり（HOLD・受注）のどちらも常に
+     ボタン2つになるため、flex: 1で均等配分するだけで常に同じ横幅に揃う
+     （現場からの指摘「解除ボタンもHOLD・受注と合わせたサイズに」）。 */
+  .tblCell--actions { display: flex; gap: 8px; overflow: visible; }
+  /* 不具合修正: vehicleActionsHtml_が返すHOLD／受注・受注確定ボタンは
+     .card__actions（詳細モーダルの大きいボタン向けスタイル、min-height:44px等）で
+     包まれているため、そのままだと一覧行には大きすぎる。.tbl .tblCell--actions …
+     のように3段階のクラス指定にして.card__actions .btn（2段階）より優先させ、
+     一覧行用のコンパクトなサイズに上書きする。.card__actions自体もflex: 1に
+     することで、隣に並ぶ「解除」ボタン（card__actionsの外側、tblCell--actionsの
+     直接の子）と対等に横幅を分け合い、ボタンが1つでも2つでも列幅いっぱいに
+     均等配分される（現場からの指摘「解除ボタンもHOLD・受注と合わせたサイズに」）。 */
+  .tbl .tblCell--actions .btn { flex: 1; padding: 6px 10px; font-size: 11.5px; min-width: 0; min-height: 0; letter-spacing: normal; text-align: center; }
+  .tbl .tblCell--actions .card__actions { flex: 1; margin: 0; padding: 0; flex-wrap: nowrap; }
+  .tblCell--chev { text-align: center; color: var(--on-surface-variant); }
+
+  /* 列幅: 区分・走行距離・登録番号・現展示拠点・ステータス等、複数の表で共通する
+     列は、間隔のリズムが揃って見えるようすべて同じ幅にしている（現場からの指摘
+     「受注リストとデモカーリストの項目の隙間を統一してほしい」）。顧客・モデル等の
+     識別列はfr（可変幅）ではなく実際の文字数に合わせた固定幅にし、値の右側に
+     不自然な空きができないようにしている（はみ出す場合はtblCellの省略記号＋
+     titleツールチップで対応）。 */
+  .tbl--inventory .tblHead, .tbl--inventory .tblRow {
+    grid-template-columns: 28px 68px 220px 76px 86px 86px 118px 92px 100px 100px 150px 16px;
+  }
+  .tbl--order .tblHead, .tbl--order .tblRow,
+  .tbl--wholesale .tblHead, .tbl--wholesale .tblRow {
+    /* 金額列は太字（tblCell--strong）で表示するため、同じ100pxでも細字の
+       在庫リスト「価格」列より横幅を必要とする。「円」が見切れないよう
+       114pxに広げている。 */
+    grid-template-columns: 28px 68px 110px 200px 80px 76px 70px 86px 118px 92px 128px 16px;
+  }
+  .tbl--cartrack .tblHead, .tbl--cartrack .tblRow {
+    grid-template-columns: 28px 68px 220px 76px 86px 118px 92px 100px 16px;
+  }
+
   /* ===== 車両情報カード（詳細モーダル・#inventoryDetailModal専用） =====
      一覧の行（.rowItem）とは別に、行タップで開く詳細ポップアップの中身だけに
      使う。長いモデル名・コミッション等でもポップアップ自体が横に広がらないよう
