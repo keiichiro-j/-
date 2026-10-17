@@ -1706,6 +1706,8 @@
     z-index: 25;
     background: var(--surface);
     padding: 10px 16px;
+    /* ホーム上部の囲み線はテーマ（着せ替え）の色に合わせる（--primary は applyTheme_ が上書き） */
+    border: 2px solid var(--primary);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
   }
@@ -1713,7 +1715,7 @@
     flex: none;
     padding: 8px 16px;
     border: 1px solid var(--outline);
-    border-radius: 999px;
+    border-radius: 3px; /* 権限者マークと同じ角ばった形（わずかに角を丸める） */
     background: var(--surface);
     color: var(--on-surface-variant);
     font-size: 13.5px;
@@ -2133,7 +2135,8 @@
       flex-direction: column;
       gap: 14px;
       background: var(--surface);
-      border: 1px solid var(--outline);
+      /* 囲み線はテーマ（着せ替え）の色に合わせる */
+      border: 2px solid var(--primary);
       border-radius: var(--radius);
       padding: 16px 18px;
       position: fixed;
@@ -2201,7 +2204,7 @@
       background: none;
       margin: 0;
       padding: 0;
-      border-bottom: none;
+      border: none;
       border-radius: 0;
       box-shadow: none;
       transform: none;
