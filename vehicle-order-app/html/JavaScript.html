@@ -881,6 +881,7 @@
     }
     document.querySelectorAll('.tabs__item').forEach(function (t) { t.classList.toggle('is-active', t.dataset.tab === tabName); });
     scrollActiveMainTabIntoView_();
+    syncBottomNav_(tabName);
     document.querySelectorAll('main.view').forEach(function (v) { v.classList.remove('is-active'); });
     $('view-' + tabName).classList.add('is-active');
     // ホームタブの間だけ、PCビューの共通トップバーを非表示にし（Stylesheet.html
@@ -933,6 +934,43 @@
   // 同じ.tabs__itemクラスを共有しているため、is-active状態の同期は
   // switchToTab_側の一括トグル（document.querySelectorAll('.tabs__item')）で
   // 自動的に行われる。
+  // ===== スマホ・タブレットの下部ナビと「その他」シート =====
+  function setMoreSheetOpen_(open) {
+    $('moreSheet').classList.toggle('is-open', open);
+    $('moreSheetBackdrop').classList.toggle('is-open', open);
+    $('btnBottomMore').setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  // 下部ナビ・その他シートの選択状態を、表示中のタブに合わせる（switchToTab_ から呼ぶ）。
+  function syncBottomNav_(tabName) {
+    var inMain = false;
+    document.querySelectorAll('[data-bottom-tab]').forEach(function (b) {
+      var on = b.dataset.bottomTab === tabName;
+      b.classList.toggle('is-active', on);
+      if (on) inMain = true;
+    });
+    $('btnBottomMore').classList.toggle('is-active', !inMain);
+    document.querySelectorAll('[data-more-tab]').forEach(function (b) {
+      b.classList.toggle('is-active', b.dataset.moreTab === tabName);
+    });
+  }
+
+  $('bottomNav').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-bottom-tab]');
+    if (btn) { setMoreSheetOpen_(false); switchToTab_(btn.dataset.bottomTab); return; }
+    if (e.target.closest('#btnBottomMore')) setMoreSheetOpen_(!$('moreSheet').classList.contains('is-open'));
+  });
+  $('moreSheet').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-more-tab]');
+    if (!btn) return;
+    setMoreSheetOpen_(false);
+    switchToTab_(btn.dataset.moreTab);
+  });
+  $('moreSheetBackdrop').addEventListener('click', function () { setMoreSheetOpen_(false); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && $('moreSheet').classList.contains('is-open')) setMoreSheetOpen_(false);
+  });
+
   document.getElementById('sidebarNav').addEventListener('click', function (e) {
     var btn = e.target.closest('[data-tab]');
     if (!btn) return;
@@ -3902,22 +3940,65 @@
    * 在庫データから動的に検出するため、在庫0台の型番はそもそも検出できない）。
    */
   function gradeCountsForEntry_(entry, allItems, allModelPhotos) {
+    // holdCount: そのうちHold中（すぐには売れない）の台数。ホームの在庫表示に内訳として出す。
     if (!entry.gradePrefix) {
-      var total = allItems.filter(function (v) { return v.model === entry.model; }).length;
-      return { total: total, byGrade: [] };
+      var matched = allItems.filter(function (v) { return v.model === entry.model; });
+      return {
+        total: matched.length,
+        holdCount: matched.filter(function (v) { return v.holdStatus === 'hold'; }).length,
+        byGrade: []
+      };
     }
     var counts = {};
     var order = [];
+    var holdCount = 0;
     allItems.forEach(function (v) {
       if (!matchesGradeRule_(v.model, entry, allModelPhotos)) return;
       if (!counts[v.model]) { counts[v.model] = 0; order.push(v.model); }
       counts[v.model]++;
+      if (v.holdStatus === 'hold') holdCount++;
     });
     order.sort();
     var byGrade = order.map(function (grade) { return { grade: grade, count: counts[grade] }; });
     var total = byGrade.reduce(function (sum, g) { return sum + g.count; }, 0);
-    return { total: total, byGrade: byGrade };
+    return { total: total, holdCount: holdCount, byGrade: byGrade };
   }
+
+  /**
+   * ホームのモデル全体の在庫表示。Hold中の台数があれば内訳を添える
+   * （例:「在庫5台（Hold中2）」）。すぐに売れる台数が在庫リストを開かずに分かるようにする。
+   */
+  function homeStockSummaryText_(result) {
+    var text = homeStockCountText_(result.total);
+    return result.total > 0 && result.holdCount > 0 ? text + '（Hold中' + result.holdCount + '）' : text;
+  }
+
+  // 写真が未登録・読み込めないときに表示する車のシルエット画像（外部ファイル不要のSVG）。
+  var MODEL_PHOTO_PLACEHOLDER_ = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 150">' +
+    '<rect width="240" height="150" fill="#e8ecf0"/>' +
+    '<path d="M28 100 L36 80 Q42 70 56 68 L90 64 L112 46 Q120 40 132 40 L166 40 Q178 40 186 48 L204 66 Q216 68 216 80 L216 100 Z" fill="#c4ccd5"/>' +
+    '<path d="M98 64 L116 50 Q122 46 130 46 L142 46 L142 64 Z M148 46 L164 46 Q172 46 178 52 L190 64 L148 64 Z" fill="#e8ecf0"/>' +
+    '<circle cx="70" cy="102" r="15" fill="#98a3af"/><circle cx="176" cy="102" r="15" fill="#98a3af"/>' +
+    '<circle cx="70" cy="102" r="6" fill="#e8ecf0"/><circle cx="176" cy="102" r="6" fill="#e8ecf0"/>' +
+    '<text x="120" y="135" font-size="12" text-anchor="middle" fill="#7b8794" font-family="sans-serif">NO IMAGE</text>' +
+    '</svg>'
+  );
+
+  function modelPhotoSrc_(url) {
+    return url ? escapeHtml(url) : MODEL_PHOTO_PLACEHOLDER_;
+  }
+
+  // ホーム・設定のモデル写真が読み込めなかった場合（リンク切れ・共有設定の誤り等）は、
+  // 壊れた画像の代わりにシルエット画像を出す（1回だけ差し替え、無限ループを防ぐ）。
+  document.addEventListener('error', function (e) {
+    var img = e.target;
+    if (!img || img.tagName !== 'IMG' || img.dataset.photoFallback) return;
+    if (!img.closest('.homeCard__photo, .homeRow__photo, .modelPhotoList__preview')) return;
+    img.dataset.photoFallback = '1';
+    img.classList.add('is-photoPlaceholder');
+    img.src = MODEL_PHOTO_PLACEHOLDER_;
+  }, true);
 
   /**
    * グレードが設定されているモデルは、行をクリックすると即座に在庫リストへ
@@ -3983,10 +4064,10 @@
       '<div class="homeRow__model">' + escapeHtml(p.model) + '</div>' +
       gradesTagHtml + backBtnHtml +
       '</div>' +
-      '<div class="homeRow__photo"><img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '"></div>' +
+      '<div class="homeRow__photo"><img src="' + modelPhotoSrc_(p.photoUrl) + '"' + (p.photoUrl ? '' : ' class="is-photoPlaceholder"') + ' alt="' + escapeHtml(p.model) + '"></div>' +
       '<div class="homeRow__footer">' +
       '<span class="badge badge--count' + (result.total === 0 ? ' badge--count--zero' : '') + '">' +
-      homeStockCountText_(result.total) + '</span>' +
+      homeStockSummaryText_(result) + '</span>' +
       chevronHtml +
       '</div>' +
       '</' + tag + '>';
@@ -4138,7 +4219,7 @@
     var hasGrades = result.byGrade.length > 0;
     var typeHtml = p.bodyType ? '<span class="homeCard__type">' + escapeHtml(p.bodyType) + '</span>' : '';
     var stockClass = 'badge badge--stock' + (result.total === 0 ? ' badge--stock--zero' : '');
-    var stockHtml = '<span class="' + stockClass + '">' + homeStockCountText_(result.total) + '</span>';
+    var stockHtml = '<span class="' + stockClass + '">' + homeStockSummaryText_(result) + '</span>';
     var gradeGridHtml = hasGrades
       ? '<div class="homeCard__gradeGrid">' +
         result.byGrade.map(function (g) {
@@ -4159,7 +4240,7 @@
     // キーボード操作（Enter/Spaceキー）は#homeGridへのkeydown委譲リスナーで
     // 別途対応する。
     var tileAttrs = hasGrades ? '' : ' role="button" tabindex="0"';
-    var photoInner = '<img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) + '">' + stockHtml;
+    var photoInner = '<img src="' + modelPhotoSrc_(p.photoUrl) + '"' + (p.photoUrl ? '' : ' class="is-photoPlaceholder"') + ' alt="' + escapeHtml(p.model) + '">' + stockHtml;
     var photoHtml = hasGrades
       ? '<button type="button" class="homeCard__photo homeCard__photo--allGrades" data-home-all-grades="true" aria-label="' +
         escapeHtml(p.model) + 'の全グレードを見る">' + photoInner +

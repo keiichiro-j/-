@@ -56,14 +56,16 @@
     --stock-zero-fg: #5f6b78;
     --stock-zero-bg: #e8ecf0;
     --stock-zero-bg-solid: #6b7785;
-    /* 受注系リストの販売拠点ごとの色（拠点の並び順＝SALES_LOCATION_OPTIONS の順に割り当てる） */
-    --loc-1: #1d6fb8; --loc-1-bg: #dbeafa;
-    --loc-2: #1f8a4c; --loc-2-bg: #dcf3e5;
-    --loc-3: #c2410c; --loc-3-bg: #fde6d8;
-    --loc-4: #7c3aed; --loc-4-bg: #ece3fd;
-    --loc-5: #be185d; --loc-5-bg: #fbe0ec;
-    --loc-6: #0e7490; --loc-6-bg: #d6f1f7;
-    --loc-7: #a16207; --loc-7-bg: #f8ecd2;
+    /* 受注系リストの販売拠点ごとの色（拠点の並び順＝SALES_LOCATION_OPTIONS の順に割り当てる）。
+       色の役割分担: Holdの状態はオレンジ（Hold中）・赤（2nd Holdまで）・紫（デモカー／他店HOLD）、
+       警告は赤、権限者は黄色。拠点色はこれらと混ざらないよう、青・緑・青緑・茶系から選ぶ。 */
+    --loc-1: #1d6fb8; --loc-1-bg: #dbeafa; /* 岐阜: 青 */
+    --loc-2: #1f8a4c; --loc-2-bg: #dcf3e5; /* 大垣: 緑 */
+    --loc-3: #0e7490; --loc-3-bg: #d6f1f7; /* 多治見: 青緑 */
+    --loc-4: #8a5a2b; --loc-4-bg: #f1e6da; /* 高山: 茶 */
+    --loc-5: #3d5a80; --loc-5-bg: #e1e8f1;
+    --loc-6: #5f7a1a; --loc-6-bg: #e9f0d8;
+    --loc-7: #2f6f6a; --loc-7-bg: #dcefed;
     --loc-8: #475569; --loc-8-bg: #e5e9ef;
     --admin-badge-fg: #3a2800;
     --hold-special-bg: rgba(124, 58, 237, .14);
@@ -125,7 +127,8 @@
   * { box-sizing: border-box; }
   html, body {
     margin: 0;
-    font-family: 'Barlow', 'Roboto', 'Helvetica Neue', Arial, 'Hiragino Sans', 'Yu Gothic', sans-serif;
+    /* 英数字は Barlow、日本語は Noto Sans JP（端末の標準書体に頼らず、どの端末でも同じ見た目にする） */
+    font-family: 'Barlow', 'Noto Sans JP', 'Hiragino Sans', 'Yu Gothic', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
     background: var(--background);
     color: var(--on-surface);
     -webkit-font-smoothing: antialiased;
@@ -340,7 +343,7 @@
   }
   .topbar__userName { display: block; font-weight: 500; }
   .topbar__userEmail { display: block; opacity: .8; font-size: 11.5px; }
-  .topbar__userWarn { display: block; color: var(--warning); background: rgba(242, 169, 60, .16); padding: 4px 10px; border-radius: 999px; font-size: 11.5px; }
+  .topbar__userWarn { display: block; color: var(--warning); background: rgba(242, 169, 60, .16); padding: 4px 10px; border-radius: 3px; font-size: 11.5px; }
 
   /* ===== 在庫データ整合性チェックの警告バナー（アプリ起動時、問題があれば表示） =====
      トップバーの子要素として置くことで、表示・非表示による高さの変化を
@@ -554,7 +557,7 @@
   .monthNav__count {
     min-width: 22px;
     padding: 0 6px;
-    border-radius: 999px;
+    border-radius: 3px;
     background: var(--primary-bg);
     color: var(--primary-text);
     font-size: 11.5px;
@@ -979,7 +982,7 @@
     font-weight: 700;
     letter-spacing: .01em;
     padding: 5px 12px;
-    border-radius: 999px;
+    border-radius: 3px; /* 角の丸みのルール: 印・バッジ 3px／カード・入力欄 8px（--radius）／主要ボタンだけ丸 */
     white-space: nowrap;
   }
   .badge__dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
@@ -1516,7 +1519,7 @@
     background: var(--warning-bg);
     color: var(--warning);
     padding: 2px 7px;
-    border-radius: 999px;
+    border-radius: 3px;
     margin-left: 4px;
   }
   .formField .input { width: 100%; }
@@ -1856,7 +1859,7 @@
     font-size: 11px;
     font-weight: 700;
     padding: 3px 10px;
-    border-radius: 999px;
+    border-radius: 3px;
     white-space: nowrap;
   }
   /* 「他のモデルを見る」ボタン: 押すと展開を解除し、他のモデルが並ぶ通常の
@@ -1955,7 +1958,7 @@
     align-items: center;
     gap: 7px;
     padding: 8px 14px;
-    border-radius: 999px;
+    border-radius: 3px;
     border: 1px solid var(--outline);
     background: var(--surface);
     color: var(--on-surface);
@@ -2357,7 +2360,7 @@
       font-size: 11px;
       font-weight: 600;
       padding: 3px 10px;
-      border-radius: 999px;
+      border-radius: 3px;
     }
     /* グレード別在庫数は、3列×2行（グレードが6件までは2行に収まる）で
        カード内に埋め込む（現場の要望「モデルカード内に配置するグレード
@@ -2877,7 +2880,7 @@
       background: var(--primary-bg);
       color: var(--primary-text);
       padding: 5px 12px;
-      border-radius: 999px;
+      border-radius: 3px;
       text-transform: none;
       letter-spacing: normal;
       font-size: 12px;
@@ -2954,6 +2957,114 @@
     .view.is-active { animation: none; }
     .celebParticle, .celebFlash, .celebShockwave, .celebEnergyCore { display: none; }
     .celebrationBanner { transition: none; }
+  }
+
+  /* 残り時間・台数などの数字は等幅にして、カウントダウン中に文字が揺れないようにする */
+  .holdTimer__text, .badge, .group__count, .toolbar__count, .monthNav__count,
+  .homeCard__gradeCount, .homeGradeTab__count, .orderCard__grid dd {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ===== 写真が無い・読み込めないときの代わりの画像 =====
+     JavaScript 側（MODEL_PHOTO_PLACEHOLDER_）で車のシルエット画像に差し替える。
+     元の写真と同じ枠に収まるよう、中央に合わせて全体を表示する。 */
+  img.is-photoPlaceholder { object-fit: contain; background: #e8ecf0; }
+
+  /* ===== スマホ・タブレットの下部ナビ =====
+     タブが9つあるため、上部で横にスクロールする形をやめ、よく使う4つ（ホーム・在庫・受注・
+     マイページ）と「その他」を画面下に固定する。残り（デモカー受注・他店受注・発注・
+     Gクラス予約・設定）は「その他」のシートから開く。PC幅（901px以上）では左サイドバーを使う。 */
+  .bottomNav, .moreSheet, .moreSheetBackdrop { display: none; }
+  @media (max-width: 900px) {
+    #mainTabs { display: none; }
+    #app { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+    .bottomNav {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 35;
+      background: var(--surface);
+      border-top: 1px solid var(--outline);
+      box-shadow: 0 -2px 10px rgba(16, 31, 51, .08);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    .bottomNav__item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      min-height: 60px;
+      padding: 6px 2px;
+      border: none;
+      background: none;
+      color: var(--on-surface-variant);
+      font: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      position: relative;
+    }
+    .bottomNav__item .icon { width: 22px; height: 22px; }
+    .bottomNav__item.is-active { color: var(--primary-text); }
+    .bottomNav__item.is-active::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 25%;
+      right: 25%;
+      height: 3px;
+      border-radius: 0 0 3px 3px;
+      background: var(--primary);
+    }
+    .bottomNav__item:focus-visible { outline: 2px solid var(--primary-text); outline-offset: -4px; }
+    .moreSheetBackdrop.is-open {
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: 36;
+      background: rgba(16, 31, 51, .35);
+    }
+    .moreSheet.is-open {
+      display: grid;
+      gap: 4px;
+      position: fixed;
+      left: 10px;
+      right: 10px;
+      bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+      z-index: 37;
+      background: var(--surface);
+      border: 1px solid var(--outline);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-elevated);
+      padding: 8px;
+    }
+    .moreSheet__item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 48px;
+      padding: 0 12px;
+      border: none;
+      border-radius: var(--radius);
+      background: none;
+      color: var(--on-surface);
+      font: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      text-align: left;
+      cursor: pointer;
+    }
+    .moreSheet__item.hidden { display: none; }
+    .moreSheet__item .icon { color: var(--on-surface-variant); }
+    .moreSheet__item.is-active { background: var(--primary-bg); color: var(--primary-text); }
+    .moreSheet__item.is-active .icon { color: var(--primary-text); }
+    .moreSheet__item:focus-visible { outline: 2px solid var(--primary-text); outline-offset: -2px; }
+    /* トースト通知は下部ナビに重ならない位置へ上げる */
+    .toast { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
   }
 
   /* 上部タブ（スマホ・タブレット）の選択していないタブは、opacity ではなく文字色を
