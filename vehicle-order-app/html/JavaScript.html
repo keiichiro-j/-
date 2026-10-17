@@ -755,6 +755,47 @@
   // 経由するすべての画面遷移で自動的に記録される。opts.skipHistoryは「戻る」
   // ボタン自身がswitchToTab_を呼ぶ際に、戻った先をさらに履歴に積んでしまわない
   // ようにするためのフラグ。
+  // ===== 検索バーを上部バナーに統合 =====
+  // 各タブの検索バー（id="<タブ>Toolbar"）を上部バナー最下段（#topbarToolbarSlot）へ移す。
+  // 要素そのものを移動するだけなので、検索欄・絞り込みのイベントはそのまま動く。
+  var DOCKED_TOOLBAR_TABS_ = {
+    inventoryToolbar: 'inventory',
+    ordersToolbar: 'orders',
+    demoOrdersToolbar: 'demoOrders',
+    otherStoreOrdersToolbar: 'otherStoreOrders',
+    purchaseOrdersToolbar: 'purchaseOrders',
+    gclassToolbar: 'gclass',
+    myPageToolbar: 'mypage'
+  };
+
+  function dockToolbarsIntoTopbar_() {
+    var slot = $('topbarToolbarSlot');
+    if (!slot) return;
+    Object.keys(DOCKED_TOOLBAR_TABS_).forEach(function (id) {
+      var toolbar = $(id);
+      if (!toolbar) return;
+      toolbar.dataset.tab = DOCKED_TOOLBAR_TABS_[id];
+      slot.appendChild(toolbar);
+    });
+  }
+
+  // 表示中のタブの検索バーだけを上部バナーに出す（検索バーの無いタブではバナーの最下段ごと隠す）。
+  function syncDockedToolbar_(tabName) {
+    var slot = $('topbarToolbarSlot');
+    if (!slot) return;
+    var any = false;
+    Array.prototype.forEach.call(slot.querySelectorAll('.toolbar'), function (toolbar) {
+      var on = toolbar.dataset.tab === tabName;
+      toolbar.classList.toggle('is-current', on);
+      if (on) any = true;
+    });
+    slot.classList.toggle('hidden', !any);
+    var topbar = $('topbar');
+    if (topbar) topbar.classList.toggle('has-toolbar', any);
+  }
+
+  dockToolbarsIntoTopbar_();
+
   function switchToTab_(tabName, opts) {
     opts = opts || {};
     // 管理者限定のタブ（デモカー受注リスト・他店受注リスト）は、管理者以外には
@@ -782,6 +823,7 @@
     // syncFixedBars_()が--topbar-hを自動的に0へ更新し、#appの上余白も連動して
     // 詰まる（手動での余白調整は不要）。
     document.body.classList.toggle('is-home-tab', tabName === 'home');
+    syncDockedToolbar_(tabName);
     // 全タブは同じ1つのdocument上でdisplay: none/blockを切り替えているだけの
     // ため、スクロール位置はタブをまたいで共有されてしまう（例: ホームで
     // スクロールした状態でモデルをクリックすると、在庫リストも同じスクロール
@@ -2718,8 +2760,11 @@
   }
 
   function orderMonthNavOffset_(kind) {
+    // 検索バーは上部バナーに統合したため、上部バナー全体の下端を基準にする。
+    var topbar = $('topbar');
     var toolbar = $(kind + 'Toolbar');
-    return toolbar ? toolbar.getBoundingClientRect().bottom + 12 : 0;
+    var bottom = Math.max(topbar ? topbar.getBoundingClientRect().bottom : 0, toolbar ? toolbar.getBoundingClientRect().bottom : 0);
+    return bottom + 12;
   }
 
   function jumpToOrderMonth_(kind, index) {

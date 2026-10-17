@@ -146,10 +146,10 @@
           <svg class="icon"><use href="#icon-table"></use></svg><span>受注リスト</span>
         </button>
         <button class="tabs__item sidebarNav__item adminOnly hidden" data-tab="demoOrders" type="button">
-          <svg class="icon"><use href="#icon-table"></use></svg><span>デモカー受注リスト</span>
+          <svg class="icon"><use href="#icon-table"></use></svg><span class="sidebarNav__label">デモカー受注リスト<span class="adminBadge">権限者</span></span>
         </button>
         <button class="tabs__item sidebarNav__item adminOnly hidden" data-tab="otherStoreOrders" type="button">
-          <svg class="icon"><use href="#icon-table"></use></svg><span>他店受注リスト</span>
+          <svg class="icon"><use href="#icon-table"></use></svg><span class="sidebarNav__label">他店受注リスト<span class="adminBadge">権限者</span></span>
         </button>
         <button class="tabs__item sidebarNav__item" data-tab="purchaseOrders" type="button">
           <svg class="icon"><use href="#icon-clipboard"></use></svg><span>発注リスト</span>
@@ -202,8 +202,8 @@
         <button class="tabs__item is-active" data-tab="home">ホーム</button>
         <button class="tabs__item" data-tab="inventory">在庫リスト</button>
         <button class="tabs__item" data-tab="orders">受注リスト</button>
-        <button class="tabs__item adminOnly hidden" data-tab="demoOrders">デモカー受注リスト</button>
-        <button class="tabs__item adminOnly hidden" data-tab="otherStoreOrders">他店受注リスト</button>
+        <button class="tabs__item adminOnly hidden" data-tab="demoOrders">デモカー受注リスト<span class="adminBadge">権限者</span></button>
+        <button class="tabs__item adminOnly hidden" data-tab="otherStoreOrders">他店受注リスト<span class="adminBadge">権限者</span></button>
         <button class="tabs__item" data-tab="purchaseOrders">発注リスト</button>
         <button class="tabs__item" data-tab="gclass">Gクラス予約リスト</button>
         <button class="tabs__item" data-tab="mypage">マイページ</button>
@@ -217,6 +217,9 @@
         <button type="button" class="integrityBanner__close" id="btnIntegrityClose" aria-label="閉じる">&times;</button>
       </div>
       <ul class="integrityBanner__list hidden" id="integrityBannerList"></ul>
+      <!-- 各タブの検索バー（.toolbar）は起動時にここへ移し、上部バナーと1つにまとめて表示する。
+           表示中のタブの検索バーだけを出す（dockToolbarsIntoTopbar_ / syncDockedToolbar_ 参照）。 -->
+      <div class="topbar__toolbarSlot hidden" id="topbarToolbarSlot"></div>
     </header>
 
     <!-- ホーム -->
@@ -501,7 +504,7 @@
           </div>
         </section>
         <section class="myPageSection adminOnly hidden">
-          <h2 class="myPageSection__title">デモカー受注（<span id="myPageDemoOrderCount">0</span>台）</h2>
+          <h2 class="myPageSection__title">デモカー受注（<span id="myPageDemoOrderCount">0</span>台）<span class="adminBadge">権限者</span></h2>
           <div id="myPageDemoOrderList"></div>
           <div class="emptyState hidden" id="myPageDemoOrderEmpty">
             <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>
@@ -509,7 +512,7 @@
           </div>
         </section>
         <section class="myPageSection adminOnly hidden">
-          <h2 class="myPageSection__title">他店受注（<span id="myPageOtherStoreOrderCount">0</span>台）</h2>
+          <h2 class="myPageSection__title">他店受注（<span id="myPageOtherStoreOrderCount">0</span>台）<span class="adminBadge">権限者</span></h2>
           <div id="myPageOtherStoreOrderList"></div>
           <div class="emptyState hidden" id="myPageOtherStoreOrderEmpty">
             <svg class="icon emptyState__icon"><use href="#icon-table"></use></svg>

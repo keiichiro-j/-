@@ -50,6 +50,9 @@
        のどれとも重ならない紫系にし、テーマ設定（着せ替え）の影響を受けない固定色にする
        （デモカーHOLD・他店HOLDである、という見分けやすさを最優先するため）。 */
     --hold-special: #6d28d9;
+    /* 権限者（管理者）限定の目印。濃いサイドバー・白地のどちらでも読める明るい琥珀色＋濃い文字 */
+    --admin-badge-bg: #f5c451;
+    --admin-badge-fg: #3a2800;
     --hold-special-bg: rgba(124, 58, 237, .14);
     /* 当月登録可能バッジ。テーマの --primary-bg / --primary-text と同じにすると
        拠点バッジやカード帯と同化して見えにくいため、テーマ非連動のティールにする
@@ -2923,5 +2926,67 @@
     .view.is-active { animation: none; }
     .celebParticle, .celebFlash, .celebShockwave, .celebEnergyCore { display: none; }
     .celebrationBanner { transition: none; }
+  }
+
+  /* ===== 検索バーを上部バナーに統合 =====
+     以前は各タブの検索バー（.toolbar）を上部バナーとは別の浮いたカードとして
+     固定表示していた。起動時に上部バナー（.topbar）の最下段（#topbarToolbarSlot）へ
+     移し、1本のバナーとして一緒に固定する。表示中のタブの検索バーだけを出す。
+     上部バナーの高さ（--topbar-h）に検索バーも含まれるため、各タブの
+     スペーサー（.toolbarSpacer）は不要になる。 */
+  .topbar__toolbarSlot {
+    background: var(--surface);
+    color: var(--on-surface);
+    border-top: 1px solid var(--outline);
+  }
+  .topbar .toolbar {
+    position: static;
+    top: auto;
+    left: auto;
+    right: auto;
+    transform: none;
+    width: auto;
+    max-width: none;
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+    padding: 10px 12px 12px;
+    display: none;
+  }
+  .topbar .toolbar.is-current { display: flex; }
+  .toolbarSpacer { display: none; }
+  @media (min-width: 901px) {
+    /* PCの上部バナーは白地のため、区切り線なしで見出し行の続きとして並べる */
+    .topbar__toolbarSlot { border-top: 0; }
+    .topbar .toolbar { padding: 0 32px 16px; }
+    .topbar.has-toolbar .topbar__brandRow { padding-bottom: 12px; }
+  }
+
+  /* 左メニュー（PC）は幅が狭く名前と目印が1行に収まらないため、目印を名前の下に置く */
+  .sidebarNav__label {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    min-width: 0;
+  }
+  .sidebarNav__label .adminBadge { margin-left: 0; }
+
+  /* デモカー受注リスト・他店受注リスト等、管理者（権限者）だけに表示される項目の目印 */
+  .adminBadge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--admin-badge-bg);
+    color: var(--admin-badge-fg);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    line-height: 1.5;
+    text-transform: none;
+    vertical-align: middle;
+    white-space: nowrap;
   }
 </style>
