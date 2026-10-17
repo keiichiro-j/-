@@ -2174,6 +2174,17 @@
     }
     submitBtn.disabled = !!staffMismatch;
 
+    // デモカーHOLD・他店HOLDの車両を受注確定するときは、販売拠点を割り振らないため
+    // 販売拠点の欄を出さない。他店HOLDはリード番号も無いため、その欄も出さない
+    // （サーバー側も OrderService.gs の orderInputColumnsFor_ で同じ項目を必須から外す）。
+    var specialHoldType = (type === 'order' || type === 'orderFromHold') && vehicle && vehicle.holdStatus === 'hold'
+      ? (vehicle.holdHoldType || 'normal') : 'normal';
+    state.action.excludedKeys = [];
+    if (specialHoldType === 'demo' || specialHoldType === 'otherStore') state.action.excludedKeys.push('salesLocation');
+    if (specialHoldType === 'otherStore') state.action.excludedKeys.push('leadNumber');
+    $('actionSalesLocationField').classList.toggle('hidden', state.action.excludedKeys.indexOf('salesLocation') !== -1);
+    $('actionLeadNumberField').classList.toggle('hidden', state.action.excludedKeys.indexOf('leadNumber') !== -1);
+
     $('actionSalesLocation').value = prefill.salesLocation || '';
     $('actionLeadNumber').value = prefill.leadNumber || '';
     $('actionRegisteredMonth').value = prefill.registeredMonth || currentYearMonth();
@@ -2329,8 +2340,10 @@
   function missingRequiredFieldLabels_(filterKeys) {
     var missing = [];
     var columns = (state.bootstrap && state.bootstrap.holdOrderInputColumns) || [];
+    var excluded = (state.action && state.action.excludedKeys) || [];
     columns.forEach(function (c) {
       if (!c.required || c.key === 'staff') return;
+      if (excluded.indexOf(c.key) !== -1) return; // デモカー・他店HOLDからの受注確定で出していない項目
       if (filterKeys && filterKeys.indexOf(c.key) === -1) return;
       var field = $(actionFieldId_(c.key));
       if (!field || !field.value || !String(field.value).trim()) missing.push(c.label);
@@ -2417,10 +2430,11 @@
       }
     }
 
+    var excludedKeys = action.excludedKeys || [];
     var info = {
-      salesLocation: $('actionSalesLocation').value.trim(),
+      salesLocation: excludedKeys.indexOf('salesLocation') !== -1 ? '' : $('actionSalesLocation').value.trim(),
       // リード番号は「L-」固定接頭辞＋数字（入力欄には数字のみを持たせている）
-      leadNumber: 'L-' + $('actionLeadNumber').value.trim().replace(/[^0-9]/g, ''),
+      leadNumber: excludedKeys.indexOf('leadNumber') !== -1 ? '' : 'L-' + $('actionLeadNumber').value.trim().replace(/[^0-9]/g, ''),
       registeredMonth: $('actionRegisteredMonth').value,
       customer: $('actionCustomer').value.trim(),
       tradeIn: $('actionTradeIn').value,
@@ -2558,7 +2572,7 @@
       '<div class="orderCard__staff">担当者: ' + escapeHtml(o.staff || '-') + '</div>' +
       '<div class="orderCard__vehicle">' + escapeHtml(o.model) + '</div></div>' +
       '<div class="card__badges">' +
-      '<span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span>' +
+      (o.salesLocation ? '<span class="badge badge--location">' + escapeHtml(o.salesLocation) + '</span>' : '') +
       '</div>' +
       '</div>' +
       '<button type="button" class="orderCard__detailLink" data-order-detail="' + escapeHtml(o.commission) + '">▸ 詳細を見る</button>' +
@@ -2589,7 +2603,7 @@
       '<div class="orderCard__staff">担当者: ' + escapeHtml(o.staff || '-') + '</div>' +
       '<div class="orderCard__vehicle">' + escapeHtml(o.model) + '</div></div>' +
       '<div class="card__badges">' +
-      '<span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span>' +
+      (o.salesLocation ? '<span class="badge badge--location">' + escapeHtml(o.salesLocation) + '</span>' : '') +
       '</div>' +
       '</div>' +
       orderDetailGridHtml_(o) +
@@ -2697,7 +2711,7 @@
       rowField_('担当者', o.staff) +
       rowField_('登録月', o.registeredMonth, 'rowCard__fit--low') +
       rowField_('VPC', o.vpc, 'rowCard__fit--low') +
-      '<div class="rowCard__status"><span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span></div>' +
+      '<div class="rowCard__status">' + (o.salesLocation ? '<span class="badge badge--location">' + escapeHtml(o.salesLocation) + '</span>' : '') + '</div>' +
       '</div>' +
       '</div>';
   }

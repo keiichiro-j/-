@@ -362,7 +362,8 @@
     <main class="view" id="view-demoOrders">
       <div class="toolbar" id="demoOrdersToolbar">
         <input type="search" id="demoOrdersKeyword" class="input input--search" placeholder="モデル、コミッション、カラー、担当者で検索">
-        <select id="demoOrdersLocationFilter" class="input">
+        <!-- デモカー・他店の受注は販売拠点を割り振らないため、拠点の絞り込みは出さない -->
+        <select id="demoOrdersLocationFilter" class="input hidden">
           <option value="">拠点：すべて</option>
           <option value="岐阜">岐阜</option>
           <option value="大垣">大垣</option>
@@ -395,7 +396,8 @@
     <main class="view" id="view-otherStoreOrders">
       <div class="toolbar" id="otherStoreOrdersToolbar">
         <input type="search" id="otherStoreOrdersKeyword" class="input input--search" placeholder="モデル、コミッション、カラー、担当者で検索">
-        <select id="otherStoreOrdersLocationFilter" class="input">
+        <!-- デモカー・他店の受注は販売拠点を割り振らないため、拠点の絞り込みは出さない -->
+        <select id="otherStoreOrdersLocationFilter" class="input hidden">
           <option value="">拠点：すべて</option>
           <option value="岐阜">岐阜</option>
           <option value="大垣">大垣</option>
@@ -793,7 +795,7 @@
                 <option value="高山"></option>
               </datalist>
             </div>
-            <div class="formField">
+            <div class="formField" id="actionLeadNumberField">
               <label>リード番号<span class="req">*</span></label>
               <div class="leadNumberField">
                 <span class="leadNumberField__prefix">L-</span>

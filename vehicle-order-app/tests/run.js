@@ -1532,6 +1532,24 @@ test('発注情報の登録・編集・削除は管理者以外を拒否する',
   });
 });
 
+console.log('== OrderService: orderInputColumnsFor_（受注先ごとの必須項目） ==');
+test('通常の受注は販売拠点・リード番号とも必須', () => {
+  const keys = JSON.parse(JSON.stringify(sandbox.orderInputColumnsFor_('normal').map((c) => c.key)));
+  assert.ok(keys.includes('salesLocation'));
+  assert.ok(keys.includes('leadNumber'));
+});
+test('デモカーの受注は販売拠点なし（リード番号は必須）', () => {
+  const keys = JSON.parse(JSON.stringify(sandbox.orderInputColumnsFor_('demo').map((c) => c.key)));
+  assert.ok(!keys.includes('salesLocation'));
+  assert.ok(keys.includes('leadNumber'));
+});
+test('他店の受注は販売拠点・リード番号ともなし', () => {
+  const keys = JSON.parse(JSON.stringify(sandbox.orderInputColumnsFor_('otherStore').map((c) => c.key)));
+  assert.ok(!keys.includes('salesLocation'));
+  assert.ok(!keys.includes('leadNumber'));
+  assert.ok(keys.includes('customer'));
+});
+
 console.log('== OrderService: 受注取消で在庫リストの元の位置へ戻す ==');
 test('受注確定時に、行番号と上下の車両のコミッションを記録する', () => {
   const pos = sandbox.buildInventoryPosition_(['A', 'B', 'C'], 3); // B（3行目）

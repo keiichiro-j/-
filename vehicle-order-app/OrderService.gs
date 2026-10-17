@@ -29,6 +29,18 @@ function orderListNameForDestination_(destination) {
   return SHEET_NAMES.ORDERS;
 }
 
+/**
+ * 受注確定で入力が必要な項目（純粋関数）。デモカー・他店の受注は販売拠点を割り振らないため
+ * 販売拠点を除き、他店の受注はリード番号も無いため除く。それ以外は全項目必須。
+ */
+function orderInputColumnsFor_(destination) {
+  return HOLD_ORDER_INPUT_COLUMNS.filter(function (c) {
+    if (c.key === 'salesLocation') return destination === HOLD_TYPE.NORMAL;
+    if (c.key === 'leadNumber') return destination !== HOLD_TYPE.OTHER_STORE;
+    return true;
+  });
+}
+
 function appendOrderByDestination_(destination, order) {
   if (destination === HOLD_TYPE.DEMO) return appendDemoOrder_(order);
   if (destination === HOLD_TYPE.OTHER_STORE) return appendOtherStoreOrder_(order);
@@ -43,9 +55,6 @@ function appendOrderByDestination_(destination, order) {
 function confirmOrder(commission, info) {
   var currentStaff = requireCurrentStaff_();
   info = Object.assign({}, info, { staff: currentStaff.name, staffEmail: currentStaff.email });
-  var inputCheck = validateRequiredInfo_(HOLD_ORDER_INPUT_COLUMNS, info);
-  if (!inputCheck.ok) throw new Error(inputCheck.reason);
-  info.leadNumber = normalizeLeadNumber_(info.leadNumber);
 
   var lock = acquireScriptLock_();
   try {
@@ -65,6 +74,14 @@ function confirmOrder(commission, info) {
     var check = canConfirmOrder_(vehicle, holds.first, currentStaff.email);
     if (!check.ok) throw new Error(check.reason);
 
+    // 入力項目の必須チェックは、受注先（通常／デモカー／他店）が決まってから行う
+    // （デモカー・他店は販売拠点なし、他店はリード番号もなし。orderInputColumnsFor_）。
+    var destination = orderDestinationFromHold_(holds.first);
+    var inputCheck = validateRequiredInfo_(orderInputColumnsFor_(destination), info);
+    if (!inputCheck.ok) throw new Error(inputCheck.reason);
+    if (destination !== HOLD_TYPE.NORMAL) info.salesLocation = '';
+    info.leadNumber = destination === HOLD_TYPE.OTHER_STORE ? '' : normalizeLeadNumber_(info.leadNumber);
+
     var order = { orderedAt: new Date().getTime() };
     HOLD_ORDER_INPUT_COLUMNS.forEach(function (c) { order[c.key] = info[c.key]; });
     order.staffEmail = info.staffEmail;
@@ -80,7 +97,6 @@ function confirmOrder(commission, info) {
     // カレンダーにあるため、この実行コンテキストからは削除できない（CalendarService.gs参照）。
     if (holds.first) deleteHoldCalendarEvent_(holds.first.calendarEventId);
 
-    var destination = orderDestinationFromHold_(holds.first);
     appendOrderByDestination_(destination, order);
     deleteInventoryRow_(sheet, rowNumber);
     deleteAllHoldRowsForCommission_(commission);
