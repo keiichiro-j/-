@@ -775,8 +775,58 @@
       var toolbar = $(id);
       if (!toolbar) return;
       toolbar.dataset.tab = DOCKED_TOOLBAR_TABS_[id];
+      addFilterToggle_(toolbar);
       slot.appendChild(toolbar);
     });
+  }
+
+  // スマホ・タブレット幅では、上部バナーが画面を占めすぎないよう、絞り込み（拠点・担当者・
+  // グループ表示・可能月・色など）を「絞り込み」ボタンの中にしまう。検索欄・表示切替・
+  // 月バナーは常に表示する。PC幅ではボタンを出さず、従来どおりすべて並べる（CSS 参照）。
+  function filterControlsOf_(toolbar) {
+    return Array.prototype.filter.call(toolbar.children, function (el) {
+      return (el.tagName === 'SELECT') || el.classList.contains('checkboxField');
+    });
+  }
+
+  function addFilterToggle_(toolbar) {
+    var controls = filterControlsOf_(toolbar);
+    if (!controls.length) return;
+    // 初期値（変更されていない状態）を覚えておき、変更された絞り込みの数をボタンに出す。
+    controls.forEach(function (el) {
+      var input = el.tagName === 'SELECT' ? el : el.querySelector('input');
+      if (!input) return;
+      input.dataset.filterDefault = input.type === 'checkbox' ? String(input.checked) : input.value;
+    });
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'toolbar__filterToggle';
+    btn.setAttribute('aria-expanded', 'false');
+    btn.textContent = '絞り込み';
+    var search = toolbar.querySelector('.input--search');
+    if (search && search.nextSibling) toolbar.insertBefore(btn, search.nextSibling);
+    else toolbar.appendChild(btn);
+    btn.addEventListener('click', function () {
+      var open = !toolbar.classList.contains('is-filters-open');
+      toolbar.classList.toggle('is-filters-open', open);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      syncFixedBars_();
+    });
+    toolbar.addEventListener('change', function () { updateFilterToggleLabel_(toolbar); });
+  }
+
+  function updateFilterToggleLabel_(toolbar) {
+    var btn = toolbar.querySelector('.toolbar__filterToggle');
+    if (!btn) return;
+    var active = 0;
+    filterControlsOf_(toolbar).forEach(function (el) {
+      var input = el.tagName === 'SELECT' ? el : el.querySelector('input');
+      if (!input || input.dataset.filterDefault == null) return;
+      var now = input.type === 'checkbox' ? String(input.checked) : input.value;
+      if (now !== input.dataset.filterDefault) active++;
+    });
+    btn.textContent = active ? '絞り込み（' + active + '）' : '絞り込み';
+    btn.classList.toggle('is-active', active > 0);
   }
 
   // 表示中のタブの検索バーだけを上部バナーに出す（検索バーの無いタブではバナーの最下段ごと隠す）。
@@ -787,7 +837,10 @@
     Array.prototype.forEach.call(slot.querySelectorAll('.toolbar'), function (toolbar) {
       var on = toolbar.dataset.tab === tabName;
       toolbar.classList.toggle('is-current', on);
-      if (on) any = true;
+      if (on) {
+        any = true;
+        updateFilterToggleLabel_(toolbar);
+      }
     });
     slot.classList.toggle('hidden', !any);
     var topbar = $('topbar');
@@ -795,6 +848,19 @@
   }
 
   dockToolbarsIntoTopbar_();
+
+  // スマホ・タブレットの上部タブ列は横にスクロールするため、選択中のタブが
+  // 見える位置（なるべく中央）までタブ列だけを横に送る（ページ全体は動かさない）。
+  function scrollActiveMainTabIntoView_() {
+    var nav = $('mainTabs');
+    if (!nav || nav.scrollWidth <= nav.clientWidth) return;
+    var active = nav.querySelector('.tabs__item.is-active');
+    if (!active) return;
+    var navRect = nav.getBoundingClientRect();
+    var tabRect = active.getBoundingClientRect();
+    nav.scrollLeft += (tabRect.left + tabRect.width / 2) - (navRect.left + navRect.width / 2);
+  }
+  window.addEventListener('resize', debounce(scrollActiveMainTabIntoView_, 150));
 
   function switchToTab_(tabName, opts) {
     opts = opts || {};
@@ -814,6 +880,7 @@
       resetInventoryFilters_();
     }
     document.querySelectorAll('.tabs__item').forEach(function (t) { t.classList.toggle('is-active', t.dataset.tab === tabName); });
+    scrollActiveMainTabIntoView_();
     document.querySelectorAll('main.view').forEach(function (v) { v.classList.remove('is-active'); });
     $('view-' + tabName).classList.add('is-active');
     // ホームタブの間だけ、PCビューの共通トップバーを非表示にし（Stylesheet.html
@@ -1021,7 +1088,7 @@
     var includeHold = $('inventoryIncludeHold').checked;
     var items = (state.allInventoryItems || []).filter(function (v) {
       if (!includeHold && v.holdStatus === 'hold') return false;
-      if (keyword && !matchesListKeyword_(v, keyword, ['model', 'commission', 'exteriorColor', 'remarks'])) return false;
+      if (keyword && !matchesListKeyword_(v, keyword, ['model', 'commission', 'exteriorColor', 'interiorColor', 'remarks'])) return false;
       if (state.homeGradeFilter && state.homeGradeFilter.length && state.homeGradeFilter.indexOf(v.model) === -1) return false;
       return true;
     });
@@ -2362,7 +2429,7 @@
     var salesLocation = $(kind + 'LocationFilter').value;
     var staff = $(kind + 'StaffFilter').value;
     var items = (state[keys.all] || []).filter(function (o) {
-      if (keyword && !matchesListKeyword_(o, keyword, ['model', 'commission', 'customer', 'staff', 'salesLocation'])) return false;
+      if (keyword && !matchesListKeyword_(o, keyword, ['model', 'commission', 'exteriorColor', 'interiorColor', 'staff', 'customer', 'salesLocation'])) return false;
       if (salesLocation && !fieldContainsInsensitive_(o.salesLocation, salesLocation)) return false;
       if (staff && String(o.staff || '').trim() !== String(staff).trim()) return false;
       return true;
@@ -2426,8 +2493,28 @@
    * だったため、開閉のたびにカードが伸び縮みし、他のカードとサイズが揃わなくなる
    * 不具合があった）。
    */
+  /**
+   * 販売拠点ごとの色（受注リスト・デモカー受注・他店受注・発注リスト）。拠点の並び順
+   * （設定の販売拠点 = bootstrap.salesLocationOptions）に沿って --loc-1〜8 を割り当てる。
+   * 一覧に無い拠点名は名前から決まる色、空欄は色を付けない（テーマ色のまま）。
+   * カードの左・上の帯と拠点バッジがこの色になる（Stylesheet.html の --loc-color 参照）。
+   */
+  function locationStyleAttr_(name) {
+    var key = String(name == null ? '' : name).trim();
+    if (!key) return '';
+    var opts = (state.bootstrap && state.bootstrap.salesLocationOptions) || [];
+    var idx = opts.indexOf(key);
+    if (idx === -1) {
+      var hash = 0;
+      for (var i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+      idx = opts.length + (hash % 8);
+    }
+    var n = (idx % 8) + 1;
+    return ' style="--loc-color: var(--loc-' + n + '); --loc-bg: var(--loc-' + n + '-bg)"';
+  }
+
   function orderCardHtml(o) {
-    return '<div class="orderCard">' +
+    return '<div class="orderCard"' + locationStyleAttr_(o.salesLocation) + '>' +
       '<div class="orderCard__top">' +
       '<div><div class="orderCard__model">' + escapeHtml(o.customer || '-') + '</div>' +
       '<div class="orderCard__staff">担当者: ' + escapeHtml(o.staff || '-') + '</div>' +
@@ -2458,7 +2545,7 @@
   }
 
   function orderDetailHtml_(o) {
-    return '<div class="orderCard">' +
+    return '<div class="orderCard"' + locationStyleAttr_(o.salesLocation) + '>' +
       '<div class="orderCard__top">' +
       '<div><div class="orderCard__model">' + escapeHtml(o.customer || '-') + '</div>' +
       '<div class="orderCard__staff">担当者: ' + escapeHtml(o.staff || '-') + '</div>' +
@@ -2558,7 +2645,7 @@
   // 2行になると縦余白が出るため nowrap）。項目順は顧客・モデル・リード番号・
   // MP・ステア・カラー・有償OP・担当者・登録月・VPC・販売拠点。
   function orderRowCardHtml(o) {
-    return '<div class="rowCard rowCard--order" data-commission="' + escapeHtml(o.commission) + '">' +
+    return '<div class="rowCard rowCard--order"' + locationStyleAttr_(o.salesLocation) + ' data-commission="' + escapeHtml(o.commission) + '">' +
       '<div class="rowCard__inner">' +
       '<div class="rowCard__field rowCard__id"><span class="rowCard__model">' + escapeHtml(o.customer || '-') + '</span>' +
       '<span class="rowCard__commission">' + escapeHtml(o.commission) + '</span></div>' +
@@ -2868,7 +2955,7 @@
    * （ラベル上・値下。未入力なら'-'）。登録日時も同じ形式。
    */
   function purchaseOrderCardHtml_(po) {
-    return '<div class="purchaseOrderCard">' +
+    return '<div class="purchaseOrderCard"' + locationStyleAttr_(po.salesLocation) + '>' +
       '<div class="purchaseOrderCard__top">' +
       '<div><div class="purchaseOrderCard__customer">' + escapeHtml(po.customer || '-') + '</div>' +
       '<div class="purchaseOrderCard__staff">担当者: ' + escapeHtml(po.staff || '-') + '</div>' +
@@ -2902,7 +2989,7 @@
    * の詳細モーダル（openPurchaseOrderDetailModal_）でのみ確認する。
    */
   function purchaseOrderRowCardHtml_(po) {
-    return '<div class="rowCard rowCard--purchaseOrder" data-purchase-order-id="' + escapeHtml(po.id) + '">' +
+    return '<div class="rowCard rowCard--purchaseOrder"' + locationStyleAttr_(po.salesLocation) + ' data-purchase-order-id="' + escapeHtml(po.id) + '">' +
       '<div class="rowCard__inner">' +
       '<div class="rowCard__field rowCard__id"><span class="rowCard__model">' + escapeHtml(po.customer || '-') + '</span>' +
       '<span class="rowCard__commission">' + escapeHtml(po.commission || '-') + '</span></div>' +
@@ -2992,7 +3079,7 @@
   function applyGClassView_() {
     var keyword = $('gclassKeyword').value;
     state.gclassItems = (state.allGClassItems || []).filter(function (v) {
-      return matchesListKeyword_(v, keyword, ['model', 'commission', 'leadNumber', 'customer', 'staff']);
+      return matchesListKeyword_(v, keyword, ['model', 'commission', 'exteriorColor', 'interiorColor', 'staff', 'leadNumber', 'customer']);
     });
     renderGClassList_();
   }
@@ -4227,15 +4314,15 @@
   }
 
   function myPageVehicleMatchesKeyword_(v, keyword) {
-    return matchesListKeyword_(v, keyword, ['model', 'commission', 'holdCustomer', 'secondHoldCustomer', 'exteriorColor', 'remarks']);
+    return matchesListKeyword_(v, keyword, ['model', 'commission', 'exteriorColor', 'interiorColor', 'holdStaff', 'secondHoldStaff', 'holdCustomer', 'secondHoldCustomer', 'remarks']);
   }
 
   function myPageOrderMatchesKeyword_(o, keyword) {
-    return matchesListKeyword_(o, keyword, ['model', 'commission', 'customer', 'leadNumber', 'salesLocation']);
+    return matchesListKeyword_(o, keyword, ['model', 'commission', 'exteriorColor', 'interiorColor', 'staff', 'customer', 'leadNumber', 'salesLocation']);
   }
 
   function myPageGClassMatchesKeyword_(v, keyword) {
-    return matchesListKeyword_(v, keyword, ['model', 'commission', 'customer', 'leadNumber', 'staff']);
+    return matchesListKeyword_(v, keyword, ['model', 'commission', 'exteriorColor', 'interiorColor', 'staff', 'customer', 'leadNumber']);
   }
 
   $('myPageKeyword').addEventListener('input', debounce(renderMyPageAll_, 200));

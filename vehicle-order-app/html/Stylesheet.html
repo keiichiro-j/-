@@ -52,6 +52,19 @@
     --hold-special: #6d28d9;
     /* 権限者（管理者）限定の目印。濃いサイドバー・白地のどちらでも読める明るい琥珀色＋濃い文字 */
     --admin-badge-bg: #f5c451;
+    /* 在庫0台の表示。異常ではない通常の状態のため、警告の赤ではなく落ち着いたグレーにする */
+    --stock-zero-fg: #5f6b78;
+    --stock-zero-bg: #e8ecf0;
+    --stock-zero-bg-solid: #6b7785;
+    /* 受注系リストの販売拠点ごとの色（拠点の並び順＝SALES_LOCATION_OPTIONS の順に割り当てる） */
+    --loc-1: #1d6fb8; --loc-1-bg: #dbeafa;
+    --loc-2: #1f8a4c; --loc-2-bg: #dcf3e5;
+    --loc-3: #c2410c; --loc-3-bg: #fde6d8;
+    --loc-4: #7c3aed; --loc-4-bg: #ece3fd;
+    --loc-5: #be185d; --loc-5-bg: #fbe0ec;
+    --loc-6: #0e7490; --loc-6-bg: #d6f1f7;
+    --loc-7: #a16207; --loc-7-bg: #f8ecd2;
+    --loc-8: #475569; --loc-8-bg: #e5e9ef;
     --admin-badge-fg: #3a2800;
     --hold-special-bg: rgba(124, 58, 237, .14);
     /* 当月登録可能バッジ。テーマの --primary-bg / --primary-text と同じにすると
@@ -290,11 +303,16 @@
      アクティブ時の下線」のミニマルな水平ナビにする。 */
   .tabs {
     display: flex;
-    justify-content: center;
+    /* justify-content: center だと、タブが画面幅に収まらないときに左端側が
+       スクロールしても見えなくなる（スマホで「ホーム」「在庫リスト」に戻れない）。
+       先頭・末尾の auto マージンで、収まるときだけ中央寄せにする。 */
+    justify-content: flex-start;
     gap: 32px;
     padding: 0 28px 14px;
     overflow-x: auto;
   }
+  .tabs > .tabs__item:first-child { margin-left: auto; }
+  .tabs > .tabs__item:last-child { margin-right: auto; }
   .tabs__item {
     background: transparent;
     border: none;
@@ -846,7 +864,7 @@
      JS（fitOrderRowCards_）が隠して行タップの詳細で確認する。 */
   .rowCard.rowCard--order {
     overflow: hidden;
-    border-left-color: var(--primary);
+    border-left-color: var(--loc-color, var(--primary)); /* 販売拠点ごとの色 */
   }
   .rowCard.rowCard--order > .rowCard__inner {
     flex-wrap: nowrap;
@@ -885,7 +903,7 @@
      セクションの両方。purchaseOrderRowCardHtml_のDOM出力順）。PCでは顧客〜拠点を
      行幅いっぱいに均等配置する。リード番号・登録日時は行タップの詳細モーダル
      （openPurchaseOrderDetailModal_）でのみ確認する。 */
-  .rowCard.rowCard--purchaseOrder { border-left-color: var(--primary); }
+  .rowCard.rowCard--purchaseOrder { border-left-color: var(--loc-color, var(--primary)); }
   .rowCard--purchaseOrder > .rowCard__inner {
     flex-wrap: nowrap;
     overflow: hidden;
@@ -976,7 +994,7 @@
     color: var(--this-month);
     font-weight: 700;
   }
-  .badge--location { background: var(--primary-bg); color: var(--primary-text); font-weight: 500; }
+  .badge--location { background: var(--loc-bg, var(--primary-bg)); color: var(--loc-color, var(--primary-text)); font-weight: 700; }
   .card__badges { display: flex; gap: 6px; flex-wrap: wrap; }
 
   /* 車両スペック・Hold詳細はカード内に表示せず、「詳細を見る」タップで画面中央の
@@ -1301,8 +1319,8 @@
     border: 1px solid var(--outline);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
-    border-top: 3px solid var(--primary);
-    border-left: 4px solid var(--primary);
+    border-top: 3px solid var(--loc-color, var(--primary)); /* 販売拠点ごとの色 */
+    border-left: 4px solid var(--loc-color, var(--primary));
     padding: 12px 12px 10px;
     display: flex;
     flex-direction: column;
@@ -1382,8 +1400,8 @@
     border: 1px solid var(--outline);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
-    border-top: 3px solid var(--primary);
-    border-left: 4px solid var(--primary);
+    border-top: 3px solid var(--loc-color, var(--primary)); /* 販売拠点ごとの色 */
+    border-left: 4px solid var(--loc-color, var(--primary));
     padding: 12px 12px 10px;
     display: flex;
     flex-direction: column;
@@ -1446,7 +1464,7 @@
     background: var(--warning-bg);
     color: var(--warning);
     padding: 3px 10px;
-    border-radius: 999px;
+    border-radius: 3px; /* 権限者マークと同じ角ばった形 */
   }
   .settingsCard {
     background: var(--surface);
@@ -1635,7 +1653,7 @@
      （photoUrlと同じ比率で伸縮させると、値が短いのに不自然に幅広くなってしまうため）。 */
   .modelPhotoList__row .input[data-photo-field="photoUrl"] { flex: 1 1 0; min-width: 110px; }
   .modelPhotoList__row .input[data-photo-field="gradePrefix"],
-  .modelPhotoList__row .input[data-photo-field="gradeMarker"] { flex: 0 0 96px; min-width: 70px; }
+  .modelPhotoList__row .input[data-photo-field="gradeMarker"] { flex: 0 0 230px; min-width: 200px; } /* 「先頭の文字列（例: CLA）」「対象の文字列（任意・例: T）」が切れずに読める幅 */
   .modelPhotoList__empty { font-size: 13px; color: var(--on-surface-variant); }
 
   /* ===== メール通知先（Hold時／受注確定時／システムエラー通知） =====
@@ -1878,7 +1896,7 @@
   /* 在庫0台のモデルは「在庫0台」ではなく「在庫がありません」と表示し
      （homeStockCountText_、JavaScript.html）、赤文字にして在庫が無いことが
      ひと目でわかるようにする（グレード別カウントの--zeroと同じ考え方）。 */
-  .homeRow__footer .badge--count--zero { color: var(--danger); }
+  .homeRow__footer .badge--count--zero { color: var(--stock-zero-fg); }
   .homeRow__footer .homeRow__chevron {
     display: inline;
     flex: none;
@@ -1950,7 +1968,7 @@
   .homeGradeTab__count { color: var(--on-surface-variant); font-weight: 500; font-variant-numeric: tabular-nums; }
   /* 在庫0台のグレードは、Hold中も無くまとまった在庫の当てがないことがひと目で
      わかるよう、件数を赤文字にする。 */
-  .homeGradeTab__count--zero { color: var(--danger); font-weight: 700; }
+  .homeGradeTab__count--zero { color: var(--stock-zero-fg); font-weight: 700; }
 
   /* ===== PC専用: 左サイドバーナビゲーション =====
      901px以上でのみ表示する（タブレット・スマホ幅では従来どおりtopbar内の
@@ -2314,7 +2332,7 @@
     /* 在庫0台のモデルは、テーマカラーではなく固定の警告色にし、在庫が無い
        ことがテーマ設定に関わらず常にひと目でわかるようにする
        （homeStockCountText_、他の在庫台数表示と同じ考え方）。 */
-    .badge--stock--zero { background: var(--danger); }
+    .badge--stock--zero { background: var(--stock-zero-bg-solid); color: #fff; }
     .homeCard__body { padding: 14px 16px 16px; }
     .homeCard__headRow {
       display: flex;
@@ -2373,7 +2391,7 @@
     .homeCard__gradeCount { font-size: 11.5px; font-variant-numeric: tabular-nums; }
     /* 在庫0台のグレードは、Hold中も無くまとまった在庫の当てがないことがひと目で
        わかるよう、件数を赤文字にする（.homeGradeTab__count--zeroと同じ考え方）。 */
-    .homeCard__gradeCount--zero { color: var(--danger); font-weight: 700; }
+    .homeCard__gradeCount--zero { color: var(--stock-zero-fg); font-weight: 700; }
   }
 
   /* ===== リード番号入力（「L-」固定接頭辞＋数字。Google×Tesla風の見出し扱いにする） ===== */
@@ -2864,7 +2882,7 @@
       letter-spacing: normal;
       font-size: 12px;
     }
-    .homeRow__footer .badge--count--zero { background: var(--danger-bg); color: var(--danger); }
+    .homeRow__footer .badge--count--zero { background: var(--stock-zero-bg); color: var(--stock-zero-fg); }
     .homeRow__footer .homeRow__chevron { color: var(--on-surface-variant); font-size: 13px; }
     .homeRow.is-expanded .homeRow__backBtn { display: none; }
     .homeGradeTabs {
@@ -2938,6 +2956,14 @@
     .celebrationBanner { transition: none; }
   }
 
+  /* 上部タブ（スマホ・タブレット）の選択していないタブは、opacity ではなく文字色を
+     薄くする（opacity だと中の「権限者」マークまで薄くなってしまうため）。 */
+  @supports (color: color-mix(in srgb, red, blue)) {
+    .tabs > .tabs__item { opacity: 1; color: color-mix(in srgb, var(--on-topbar) 60%, transparent); }
+    .tabs > .tabs__item:hover { opacity: 1; color: color-mix(in srgb, var(--on-topbar) 85%, transparent); }
+    .tabs > .tabs__item.is-active { color: var(--on-topbar); }
+  }
+
   /* ===== 検索バーを上部バナーに統合 =====
      以前は各タブの検索バー（.toolbar）を上部バナーとは別の浮いたカードとして
      固定表示していた。起動時に上部バナー（.topbar）の最下段（#topbarToolbarSlot）へ
@@ -2965,6 +2991,42 @@
     display: none;
   }
   .topbar .toolbar.is-current { display: flex; }
+  /* 在庫リスト以外の検索欄は、表示切替（カード／表）の手前まで横幅いっぱいに広げる */
+  .topbar .toolbar:not(#inventoryToolbar) > .toolbar__spacer { display: none; }
+  .topbar .toolbar:not(#inventoryToolbar) > .input--search { flex: 1 1 320px; }
+  .topbar .toolbar:not(#inventoryToolbar) > .viewToggle { margin-left: auto; }
+  /* 「絞り込み」ボタン（スマホ・タブレット幅のみ表示） */
+  .toolbar__filterToggle { display: none; }
+  @media (max-width: 900px) {
+    .topbar .toolbar > .input--search,
+    .topbar .toolbar:not(#inventoryToolbar) > .input--search { order: 0; flex: 1 1 0; min-width: 0; }
+    .topbar .toolbar > .toolbar__filterToggle {
+      order: 1;
+      display: inline-flex;
+      align-items: center;
+      flex: none;
+      height: 40px;
+      padding: 0 12px;
+      border: 1px solid var(--outline);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--on-surface);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .topbar .toolbar > .toolbar__filterToggle.is-active { border-color: var(--primary); color: var(--primary-text); }
+    .topbar .toolbar > .toolbar__filterToggle:focus-visible { outline: 2px solid var(--primary-text); outline-offset: 2px; }
+    .topbar .toolbar > .viewToggle { order: 2; margin-left: 0; }
+    .topbar .toolbar > select.input,
+    .topbar .toolbar > .checkboxField { order: 3; }
+    .topbar .toolbar:not(.is-filters-open) > select.input,
+    .topbar .toolbar:not(.is-filters-open) > .checkboxField { display: none; }
+    .topbar .toolbar > .toolbar__spacer { display: none; }
+    .topbar .toolbar > .toolbar__count { order: 4; flex: 1 1 100%; text-align: right; font-size: 12px; margin-top: -4px; }
+    .topbar .toolbar > .monthNav { order: 5; }
+  }
   .toolbarSpacer { display: none; }
   @media (min-width: 901px) {
     /* PCの上部バナーは白地のため、区切り線なしで見出し行の続きとして並べる */

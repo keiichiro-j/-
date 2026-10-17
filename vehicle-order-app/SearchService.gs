@@ -180,7 +180,7 @@ function registrableMonthGroupTitle_(key, thisMonth) {
 function searchOrders(orders, filters) {
   filters = filters || {};
   return orders.filter(function (o) {
-    if (filters.keyword && !matchesListKeyword_(o, filters.keyword, ['model', 'commission', 'customer', 'staff', 'salesLocation'])) return false;
+    if (filters.keyword && !matchesListKeyword_(o, filters.keyword, ['model', 'commission', 'exteriorColor', 'interiorColor', 'staff', 'customer', 'salesLocation'])) return false;
     if (filters.salesLocation && !fieldContains_(o.salesLocation, filters.salesLocation)) return false;
     if (filters.staff && String(o.staff || '').trim() !== String(filters.staff).trim()) return false;
     return true;
@@ -209,7 +209,7 @@ function normalizeOrdersRegisteredMonth_(orders) {
 function searchGClassReservations_(items, filters) {
   filters = filters || {};
   return items.filter(function (v) {
-    if (filters.keyword && !matchesListKeyword_(v, filters.keyword, ['model', 'commission', 'leadNumber', 'customer', 'staff'])) return false;
+    if (filters.keyword && !matchesListKeyword_(v, filters.keyword, ['model', 'commission', 'exteriorColor', 'interiorColor', 'staff', 'leadNumber', 'customer'])) return false;
     return true;
   });
 }
