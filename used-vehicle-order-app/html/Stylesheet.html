@@ -1067,8 +1067,8 @@
   .tblHead, .tblRow {
     display: grid;
     align-items: center;
-    column-gap: 10px;
-    padding: 0 16px;
+    column-gap: 7px;
+    padding: 0 9px;
   }
   .tblHead {
     height: 36px;
@@ -1105,7 +1105,7 @@
   /* 操作列はHold中（解除・受注確定）／在庫あり（HOLD・受注）のどちらも常に
      ボタン2つになるため、flex: 1で均等配分するだけで常に同じ横幅に揃う
      （現場からの指摘「解除ボタンもHOLD・受注と合わせたサイズに」）。 */
-  .tblCell--actions { display: flex; gap: 8px; overflow: visible; }
+  .tblCell--actions { display: flex; gap: 6px; overflow: visible; }
   /* 不具合修正: vehicleActionsHtml_が返すHOLD／受注・受注確定ボタンは
      .card__actions（詳細モーダルの大きいボタン向けスタイル、min-height:44px等）で
      包まれているため、そのままだと一覧行には大きすぎる。.tbl .tblCell--actions …
@@ -1114,7 +1114,7 @@
      することで、隣に並ぶ「解除」ボタン（card__actionsの外側、tblCell--actionsの
      直接の子）と対等に横幅を分け合い、ボタンが1つでも2つでも列幅いっぱいに
      均等配分される（現場からの指摘「解除ボタンもHOLD・受注と合わせたサイズに」）。 */
-  .tbl .tblCell--actions .btn { flex: 1; padding: 6px 10px; font-size: 11.5px; min-width: 0; min-height: 0; letter-spacing: normal; text-align: center; }
+  .tbl .tblCell--actions .btn { flex: 1; padding: 6px 7px; font-size: 11.5px; min-width: 0; min-height: 0; letter-spacing: normal; text-align: center; }
   .tbl .tblCell--actions .card__actions { flex: 1; margin: 0; padding: 0; flex-wrap: nowrap; }
   .tblCell--chev { text-align: center; color: var(--on-surface-variant); }
 
@@ -1124,18 +1124,24 @@
      識別列はfr（可変幅）ではなく実際の文字数に合わせた固定幅にし、値の右側に
      不自然な空きができないようにしている（はみ出す場合はtblCellの省略記号＋
      titleツールチップで対応）。 */
+  /* 不具合修正: モデル列は、実際の運用ではモデル名が「C20」「GLA20DM」のような
+     短い型番表記のため、長い車種説明文を想定した幅（220px）は不要に広すぎた
+     （現場からの指摘「モデル名はスペースを取りすぎている」）。また、一覧表自体の
+     横スクロールは完全に無くしてほしいという要望のため（「横スライドは無しに
+     してほしい」）、各列の幅は実際の文字列（モデル・年式・登録番号・金額等の
+     代表的な値）を実測したうえで、省略記号が出ない最小限の余裕だけを持たせた
+     値にしている。この結果、ノートPC幅（1366px前後）以上では横スクロールが
+     発生しない。なお、極端に長いモデル名・登録番号・販売先名がまれにあった
+     場合は、tblCellの省略記号＋titleツールチップで全文を確認できる。 */
   .tbl--inventory .tblHead, .tbl--inventory .tblRow {
-    grid-template-columns: 28px 68px 220px 76px 86px 86px 118px 92px 100px 100px 150px 16px;
+    grid-template-columns: 18px 68px 74px 72px 68px 72px 108px 66px 88px 88px 114px 13px;
   }
   .tbl--order .tblHead, .tbl--order .tblRow,
   .tbl--wholesale .tblHead, .tbl--wholesale .tblRow {
-    /* 金額列は太字（tblCell--strong）で表示するため、同じ100pxでも細字の
-       在庫リスト「価格」列より横幅を必要とする。「円」が見切れないよう
-       114pxに広げている。 */
-    grid-template-columns: 28px 68px 110px 200px 80px 76px 70px 86px 118px 92px 128px 16px;
+    grid-template-columns: 18px 68px 90px 74px 60px 64px 56px 68px 108px 70px 98px 13px;
   }
   .tbl--cartrack .tblHead, .tbl--cartrack .tblRow {
-    grid-template-columns: 28px 68px 220px 76px 86px 118px 92px 100px 16px;
+    grid-template-columns: 18px 68px 74px 72px 68px 108px 66px 88px 13px;
   }
 
   /* ===== 車両情報カード（詳細モーダル・#inventoryDetailModal専用） =====
