@@ -427,40 +427,108 @@
          車両は、これまでどおり在庫リストにも変わらず表示され続ける（このリストは
          追加の管理用ビュー）。在庫リストから受注確定された場合も一覧からは消えず、
          「販売済み」の表示に変わる。Hold・受注操作は行わない閲覧専用の一覧のため、
-         絞り込みサイドバーは持たず自由検索のみ（現場からの要望）。 -->
-    <main class="view" id="view-demoCarList">
-      <div class="commandbar">
-        <div class="searchrow">
-          <div class="searchbox">
-            <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
-            <input type="search" id="demoCarListKeyword" placeholder="モデル・ＯＣＮ・コミッション・登録番号で検索">
+         区分・掲載状況の絞り込みは持たないが、現場からの要望「それぞれのページに
+         適した条件検索を追加してほしい」を受け、在庫リストと同じカラー・初年度
+         登録日・価格帯・走行距離に加え、このリスト専用の販売状況（在庫中／
+         販売済み）を左の絞り込みサイドバーに持たせる（掲載状況は在庫リストにしか
+         無い概念のため、ここには置かない）。 -->
+    <main class="view view--list" id="view-demoCarList">
+      <div class="listBody">
+        <aside class="filterSidebar" aria-label="デモカーリストの絞り込み">
+          <div class="filterSidebar__head">
+            <p class="filterSidebar__title">条件検索</p>
+            <span class="filterSidebar__count" id="demoCarListTotalCount"></span>
+            <button type="button" class="filterSidebar__clearBtn hidden" id="btnDemoCarListFilterClear">クリア</button>
           </div>
-          <span class="filterSidebar__count" id="demoCarListTotalCount"></span>
+          <div class="filterSidebar__field">
+            <div class="searchbox">
+              <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
+              <input type="search" id="demoCarListKeyword" placeholder="モデル・ＯＣＮ・コミッション・登録番号で検索">
+            </div>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">カラー</label>
+            <select id="demoCarListColorFilter" class="input"><option value="">指定なし</option></select>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">初年度登録日</label>
+            <select id="demoCarListYearFilter" class="input"></select>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">価格帯</label>
+            <select id="demoCarListPriceFilter" class="input"></select>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">走行距離</label>
+            <select id="demoCarListMileageFilter" class="input"></select>
+          </div>
+          <hr class="filterSidebar__rule">
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">販売状況</label>
+            <div id="demoCarListStatusFilter">
+              <label class="filterCheck"><input type="checkbox" value="在庫中"> 在庫中</label>
+              <label class="filterCheck"><input type="checkbox" value="販売済み"> 販売済み</label>
+            </div>
+          </div>
+        </aside>
+        <div class="listBody__main">
+          <div id="demoCarListBody"></div>
+          <div class="emptyState hidden" id="demoCarListEmpty">
+            <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-grid"></use></svg></span>
+            <p>区分「デモカー」の車両はありません</p>
+          </div>
         </div>
-      </div>
-      <div id="demoCarListBody"></div>
-      <div class="emptyState hidden" id="demoCarListEmpty">
-        <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-grid"></use></svg></span>
-        <p>区分「デモカー」の車両はありません</p>
       </div>
     </main>
 
     <!-- サービス代車リスト: デモカーリストと同じ位置づけ（区分「サービス」の
-         車両が対象）。 -->
-    <main class="view" id="view-serviceCarList">
-      <div class="commandbar">
-        <div class="searchrow">
-          <div class="searchbox">
-            <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
-            <input type="search" id="serviceCarListKeyword" placeholder="モデル・ＯＣＮ・コミッション・登録番号で検索">
+         車両が対象）。絞り込みサイドバーの構成もデモカーリストと完全に同じ。 -->
+    <main class="view view--list" id="view-serviceCarList">
+      <div class="listBody">
+        <aside class="filterSidebar" aria-label="サービス代車リストの絞り込み">
+          <div class="filterSidebar__head">
+            <p class="filterSidebar__title">条件検索</p>
+            <span class="filterSidebar__count" id="serviceCarListTotalCount"></span>
+            <button type="button" class="filterSidebar__clearBtn hidden" id="btnServiceCarListFilterClear">クリア</button>
           </div>
-          <span class="filterSidebar__count" id="serviceCarListTotalCount"></span>
+          <div class="filterSidebar__field">
+            <div class="searchbox">
+              <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
+              <input type="search" id="serviceCarListKeyword" placeholder="モデル・ＯＣＮ・コミッション・登録番号で検索">
+            </div>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">カラー</label>
+            <select id="serviceCarListColorFilter" class="input"><option value="">指定なし</option></select>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">初年度登録日</label>
+            <select id="serviceCarListYearFilter" class="input"></select>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">価格帯</label>
+            <select id="serviceCarListPriceFilter" class="input"></select>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">走行距離</label>
+            <select id="serviceCarListMileageFilter" class="input"></select>
+          </div>
+          <hr class="filterSidebar__rule">
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">販売状況</label>
+            <div id="serviceCarListStatusFilter">
+              <label class="filterCheck"><input type="checkbox" value="在庫中"> 在庫中</label>
+              <label class="filterCheck"><input type="checkbox" value="販売済み"> 販売済み</label>
+            </div>
+          </div>
+        </aside>
+        <div class="listBody__main">
+          <div id="serviceCarListBody"></div>
+          <div class="emptyState hidden" id="serviceCarListEmpty">
+            <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-grid"></use></svg></span>
+            <p>区分「サービス」の車両はありません</p>
+          </div>
         </div>
-      </div>
-      <div id="serviceCarListBody"></div>
-      <div class="emptyState hidden" id="serviceCarListEmpty">
-        <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-grid"></use></svg></span>
-        <p>区分「サービス」の車両はありません</p>
       </div>
     </main>
 

@@ -692,8 +692,8 @@
       display: grid;
       /* minmax(0, 1fr)にする理由は.card__metaGrid等と同じ（1fr単独だと、内容が
          長い場合にトラック自体がその内容ぶんまで広がってしまうため）。 */
-      grid-template-columns: 260px minmax(0, 1fr);
-      gap: 24px;
+      grid-template-columns: 234px minmax(0, 1fr);
+      gap: 20px;
       padding: 20px 24px 24px;
       flex: 1 1 auto;
       min-height: 0;
@@ -820,8 +820,8 @@
   }
 
   /* ===== マイページ: ログイン中の担当者本人がHold中／受注した車両だけの一覧 =====
-     行自体は在庫リスト・受注リストと同じ.rowListをそのまま再利用する
-     （見た目・操作感を統一するため、専用のデザインは作らない）。 */
+     行自体は在庫リスト・受注リストと同じ横一列テーブル表示（.tbl）をそのまま
+     再利用する（見た目・操作感を統一するため、専用のデザインは作らない）。 */
   /* 不具合修正: 自由検索欄（.commandbar）のすぐ下に「Hold中の車両」の見出しが
      詰まって見えていたため、マイページ本体の先頭に上余白を設ける（現場からの
      要望）。 */
@@ -855,56 +855,6 @@
 
   .btn--small { padding: 6px 12px; font-size: 12.5px; }
 
-  /* ===== 番号付き一覧行（在庫リスト・受注リスト・業販受注リスト・マイページ共通） =====
-     カード／表の表示形式切り替えは廃止し、この1デザインに一本化する
-     （ROUND H フェーズ2）。行の左端の色付き罫線はHold状況（在庫リストのみ）を
-     表す。ラウンドFで確定した「文字を見切れさせない・行の高さは可変」の方針を
-     そのまま踏襲する。 */
-  .rowList { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--outline); border-radius: var(--radius); overflow: hidden; }
-  .rowItem {
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    padding: 16px 22px;
-    border-bottom: 1px solid var(--outline);
-    border-left: 3px solid transparent;
-    cursor: pointer;
-    transition: background-color .15s var(--ease);
-  }
-  .rowList > .rowItem:last-child { border-bottom: none; }
-  .rowItem:hover { background: var(--background); }
-  .rowItem:active { background: var(--primary-bg); }
-  .rowItem--hold { border-left-color: var(--warning); }
-  .rowItem--holdSpecial { border-left-color: var(--hold-special); }
-  /* デモカーリスト・サービス代車リスト専用（carTrackingRowItemHtml_、JavaScript.html参照）。
-     販売済みの行は、在庫あり・Hold中のような業務上のステータス色ではなく、
-     中立のグレーで「対象外になった」ことだけを示す。 */
-  .rowItem--sold { border-left-color: var(--on-surface-variant); }
-  .rowItem__num {
-    flex: 0 0 30px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--on-surface-variant);
-    font-variant-numeric: tabular-nums;
-  }
-  .rowItem__main { flex: 1 1 auto; min-width: 0; }
-  /* 状態バッジ・Hold要約は右側の専用列（.rowItem__status）に分離したため、
-     見出し行はタグ・モデル名だけになった。flex-wrap: nowrapにして、モデル名
-     だけが伸縮するflexアイテム（.rowItem__model、min-width: 0＋
-     text-overflow: ellipsis）になるようにし、モデル名が極端に長い車両だけ
-     見出し行が2行になって他の車両と行の高さが揃わない、という問題を避ける
-     （現場からの要望「車両によってカードサイズが変わらないように」）。 */
-  .rowItem__head { display: flex; align-items: center; gap: 9px; flex-wrap: nowrap; margin-bottom: 6px; min-width: 0; overflow: hidden; }
-  .rowItem__model {
-    font-size: 15.5px;
-    font-weight: 700;
-    letter-spacing: -.005em;
-    flex: 1 1 auto;
-    min-width: 40px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
   .tag {
     font-size: 11px;
     font-weight: 700;
@@ -916,147 +866,32 @@
     padding: 2px 7px;
     flex: none;
   }
-  /* 参照UI「THE STUDY」のモデル名の下にある仕様サブテキスト（HSE／ディーゼル／
-     4WD／AT等）と同じ位置に、外装色・内装色を表示する（現場からの要望
-     「モデル名の横に内外装の色を配置したい」）。全車両で必ず1行増えるだけ
-     なので、車両ごとに行の高さが変わることはない（現場からの要望
-     「車両によってカードサイズが変わらないように」は引き続き有効）。 */
-  .rowItem__colorSub {
-    font-size: 12px;
-    color: var(--on-surface-variant);
-    margin-bottom: 6px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  /* flex-wrap: nowrap＋overflow: hiddenにする理由は.rowItem__headと同じ
-     （車両（登録番号や日付の桁数等）によって内容の長さが変わり、ある車両だけ
-     このメタ行が2行に折り返って他の車両とカードサイズが揃わなくなっていた。
-     現場からの要望「車両によってカードサイズが変わらないように」）。 */
-  .rowItem__meta { font-size: 12.5px; color: var(--on-surface-variant); display: flex; align-items: stretch; flex-wrap: nowrap; overflow: hidden; gap: 8px; }
-  /* 不具合修正: 以前は縦罫線（rowItem__metaSep）だけの区切りで、項目の境目が
-     わかりにくかった。車両情報ポップアップ（card__metaGrid）と同じ「ラベルを
-     上、値を下に置いた角丸の四角タイル」に統一し、一覧行とポップアップの
-     見た目を揃える（現場からの要望「各項目を四角（角に若干の丸みあり）で
-     表示したい」。それぞれの項目の境目がタイルの枠線でひと目にわかる）。
-     flex: noneで縮めず、はみ出す分はコンテナのoverflow: hiddenで切り詰める
-     （車両ごとに行の高さが変わらないようにするため。従来の方針を踏襲）。 */
-  .rowItem__metaItem {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    flex: none;
-    white-space: nowrap;
-    border: 1px solid var(--outline);
-    border-radius: 8px;
-    padding: 3px 9px;
-    background: var(--surface);
-  }
-  .rowItem__metaItem dt {
-    margin: 0;
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-    color: var(--on-surface-variant);
-  }
-  .rowItem__metaItem dd {
-    margin: 0;
-    font-size: 12.5px;
-    font-weight: 600;
-    color: var(--on-surface);
-    font-variant-numeric: tabular-nums;
-  }
-  /* 車検満了日が近い項目を目立たせる色分け（現場からの要望）。一覧行のタイル
-     （.rowItem__metaItem）・ポップアップのタイル（.card__metaGrid > div）の
-     どちらでも使える共通の修飾クラス（inspectionExpiryTone_、JavaScript.html参照）。
-     is-warning＝満了日まで90日以内（黄）、is-danger＝30日以内・満了済み（赤）。 */
-  .rowItem__metaItem.is-warning,
+  /* 車検満了日が近い項目を目立たせる色分け（現場からの要望）。車両情報
+     ポップアップのタイル（.card__metaGrid > div）に使う共通の修飾クラス
+     （inspectionExpiryTone_、JavaScript.html参照）。is-warning＝満了日まで
+     90日以内（黄）、is-danger＝30日以内・満了済み（赤）。 */
   .card__metaGrid > div.is-warning {
     border-color: var(--warning);
     background: var(--warning-bg);
   }
-  .rowItem__metaItem.is-warning dt, .rowItem__metaItem.is-warning dd,
   .card__metaGrid > div.is-warning dt, .card__metaGrid > div.is-warning dd {
     color: var(--warning);
   }
-  .rowItem__metaItem.is-danger,
   .card__metaGrid > div.is-danger {
     border-color: var(--danger);
     background: var(--danger-bg);
   }
-  .rowItem__metaItem.is-danger dt, .rowItem__metaItem.is-danger dd,
   .card__metaGrid > div.is-danger dt, .card__metaGrid > div.is-danger dd {
     color: var(--danger);
   }
-  .rowItem__sub { font-size: 11px; color: var(--on-surface-variant); margin-top: 5px; font-variant-numeric: tabular-nums; }
-  /* ===== 状態列（.rowItem__status） =====
-     以前は見出し行（タグ・モデル名）に状態バッジを詰め込んでいたため、
-     モデル名が長い車両ほど圧迫されて見えていた。参照UI「THE STUDY」の
-     ステータス列のように、状態は常に同じ幅の専用列に分離した（現場からの
-     要望「Hold中の表示の仕方を根本から変えてほしい」）。Hold中も状態
-     バッジのみを表示し、顧客名・担当者・残り時間は出さない（現場からの
-     要望「HOLD状況はステータスのみで大丈夫、詳細情報にて担当者・顧客・
-     残り時間がわかるようにしてほしい」）。これらは元々詳細モーダル
-     （vehicleDetailHtml_のholdInfoBlockHtml_、full=true）に含まれている。 */
-  .rowItem__status {
-    flex: 0 0 168px;
-    display: flex;
-    align-items: center;
-    min-width: 0;
-  }
-  .rowItem__price {
-    flex: 0 0 auto;
-    min-width: 110px;
-    text-align: right;
-    font-size: 16.5px;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-  }
-  /* 登録番号・走行距離等は既にラベル付きだが、金額だけラベルが無く何の数字か
-     一目で分かりにくかったため、他の項目と同じく小さなラベルを添える
-     （現場からの要望）。金額自体の見た目（サイズ・太さ・右寄せ）は変えない。 */
-  .rowItem__priceLabel {
-    display: block;
-    font-size: 10.5px;
-    font-weight: 600;
-    color: var(--on-surface-variant);
-    letter-spacing: .03em;
-  }
-  /* .card__actions のボタン（.btn）は元々カード幅いっぱいに均等分割する
-     flex: 1レイアウト（カード内で1行を専有）を前提にしているため、一覧行の
-     ようにボタン列自体の幅が内容量ぶんしか無い（shrink-to-fit）場所に置くと、
-     flex: 1のままではボタンが潰れて文字が省略されてしまう。一覧行では
-     ボタンを内容量なりの自然な幅で並べるだけでよいため、flex: noneで
-     打ち消す。ボタン自体もmin-widthを揃え、「Hold／受注」（在庫あり車両）と
-     「解除／受注確定」（Hold中車両）とでラベルの文字数が違っても同じ幅になる
-     ようにする（現場からの要望「受注確定やホールドなども綺麗に並べて
-     ほしい」）。 */
-  .rowItem .card__actions { flex: 0 0 auto; margin: 0; }
-  .rowItem .card__actions .btn { flex: none; min-width: 82px; padding: 9px 12px; font-size: 12px; text-align: center; }
-  /* Hold解除ボタンは.card__actions（受注確定ボタン）とは別に、行の直接の
-     子要素として置く（vehicleRowItemHtml_参照）。同じ見た目・サイズに揃える。 */
-  .rowItem__cancelHoldBtn { flex: none; min-width: 82px; padding: 9px 12px; font-size: 12px; text-align: center; }
-  /* ===== 操作ボタン列（.rowItem__actions） =====
-     状態列（.rowItem__status）と同じく、常に同じ幅の専用列にする。以前は
-     解除ボタンの有無・ボタンの組み合わせによって操作ボタン列全体の幅が
-     車両ごとに変わり、その手前にあるモデル名（flex: 1で余った幅を埋める
-     .rowItem__main）の実際の幅も車両ごとに変わってしまっていた。これが、
-     状態バッジの開始位置が車両によってズレて見えていた原因（現場からの
-     指摘「ステータス列がバラバラ」）。操作ボタン列を固定幅にすることで、
-     状態列・操作ボタン列とも車両やHold状態に関わらず必ず同じ位置に揃う。 */
-  .rowItem__actions { flex: 0 0 190px; display: flex; align-items: center; gap: 8px; min-width: 0; }
-  .rowItem__chev { flex: 0 0 16px; color: var(--on-surface-variant); font-size: 15px; text-align: center; }
 
   /* ===== 横一列テーブル表示（在庫リスト・受注リスト・業販受注リスト・
-     デモカーリスト・サービス代車リスト） =====
+     デモカーリスト・サービス代車リスト・マイページ） =====
      現場からの要望「情報は横一列で表示してほしい」「各項目を枠で囲むのを
-     やめてビジュアルを変更したい」を受け、1件＝1行にすべての項目を横並びで
-     収めるスプレッドシートに近いテーブル表示に刷新した（.rowItem系のカード型
-     一覧は、マイページの「Hold中の車両」「受注した車両」埋め込み一覧
-     （vehicleRowItemHtml_・orderRowItemHtml_）でのみ引き続き使用するため、
-     そのまま残している）。列見出し行（.tblHead）を一覧の先頭に固定し、各列の
-     意味を常に確認できるようにする。 */
+     やめてビジュアルを変更したい」「マイページも受注リストと同様に表示して
+     ほしい」を受け、1件＝1行にすべての項目を横並びで収めるスプレッドシートに
+     近いテーブル表示に統一した。列見出し行（.tblHead）を一覧の先頭に固定し、
+     各列の意味を常に確認できるようにする。 */
   /* 不具合修正: 以前は.tbl自体にoverflow-x: autoを指定していたが、CSSの仕様上
      overflow-xを visible 以外にすると overflow-y も自動的に auto（または
      ブラウザによってはhidden相当）へ昇格し、.tbl自体が独立したスクロール
@@ -1162,24 +997,24 @@
   /* 不具合修正: 現場からの要望「在庫リストとデモカーリスト・サービス代車
      リストに表示される情報は統一してほしい（Hold等の機能は在庫リストにのみ）」
      「受注リストは統一した項目にプラスして顧客名と登録月を記載してほしい」を
-     受け、車両情報の列（区分・モデル・初年度登録日・走行距離・車検満了日・
-     登録番号・現展示拠点・価格）は4つの表すべてで共通の幅にしている。在庫
+     受け、車両情報の列（区分・モデル・外装色・内装色・初年度登録日・走行距離・
+     車検満了日・登録番号・現展示拠点・価格）は4つの表すべてで共通の幅にしている。在庫
      リストはその後ろにステータス・操作が続き、デモカーリスト・サービス代車
      リストはステータスのみ、受注リスト・業販受注リストは顧客名（販売先）・
      登録月が続く。 */
   .tbl--inventory .tblHead, .tbl--inventory .tblRow {
-    grid-template-columns: 18px 68px 74px 72px 68px 72px 108px 66px 88px 88px 114px 13px;
+    grid-template-columns: 16px 58px 74px 50px 50px 64px 60px 64px 84px 58px 74px 80px 114px 11px;
   }
   .tbl--order .tblHead, .tbl--order .tblRow,
   .tbl--wholesale .tblHead, .tbl--wholesale .tblRow {
-    grid-template-columns: 18px 68px 74px 72px 68px 72px 108px 66px 88px 90px 58px 13px;
+    grid-template-columns: 16px 58px 74px 50px 50px 64px 60px 64px 84px 58px 74px 86px 55px 11px;
   }
   .tbl--cartrack .tblHead, .tbl--cartrack .tblRow {
-    grid-template-columns: 18px 68px 74px 72px 68px 72px 108px 66px 88px 88px 13px;
+    grid-template-columns: 16px 58px 74px 50px 50px 64px 60px 64px 84px 58px 74px 80px 11px;
   }
 
   /* ===== 車両情報カード（詳細モーダル・#inventoryDetailModal専用） =====
-     一覧の行（.rowItem）とは別に、行タップで開く詳細ポップアップの中身だけに
+     一覧の行（.tblRow）とは別に、行タップで開く詳細ポップアップの中身だけに
      使う。長いモデル名・コミッション等でもポップアップ自体が横に広がらないよう
      min-width: 0で折り返し・省略記号を優先する。 */
   .card {
@@ -1206,7 +1041,7 @@
      専用の特別色にする（管理者権限を持つ担当者のみ登録できる。HOLD_TYPE参照）。 */
   .card--holdSpecial { border-left-color: var(--hold-special); }
   /* デモカーリスト・サービス代車リストの詳細モーダル（carTrackingDetailHtml_）用。
-     .rowItem--soldと同じ考え方で、販売済みは中立のグレーにする。 */
+     .tblRow--soldと同じ考え方で、販売済みは中立のグレーにする。 */
   .card--sold { border-left-color: var(--on-surface-variant); }
   /* 中古車サイトに掲載中の車両は、Hold状態の色（border-left-color）とは独立して
      背景色を変え、一覧上で一目で区別できるようにする（現場からの要望。
@@ -1290,7 +1125,7 @@
   }
   .card__metaGrid {
     display: grid;
-    /* minmax(0, 1fr)にする理由は.rowItemの折り返しと同じ（1fr単独だと、値が
+    /* minmax(0, 1fr)にする理由は.tblCellの折り返しと同じ（1fr単独だと、値が
        長い場合にトラック自体がその内容ぶんまで広がってしまい、下のdd（値）に
        指定したellipsisが効かず、カードの外へはみ出してしまう）。 */
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2207,41 +2042,6 @@
 
     .commandbar { padding: 12px 16px; }
     .quickRow { flex-wrap: wrap; row-gap: 8px; }
-
-    /* 番号付き一覧行も、タブレット・スマホ幅では列を維持したまま折り返す
-       （行の高さが案件ごとに伸び縮みしてもよい方針。ラウンドFの「文字を
-       見切れさせない」方針をそのまま踏襲する）。モデル名・メタ情報の
-       .rowItem__mainを1行ぶん占有させ、価格・操作ボタンはその下に回す。
-       チェブロン（›）は狭い画面では行全体タップの妨げになりやすいため隠す
-       （行タップ自体は引き続き有効）。 */
-    .rowItem { flex-wrap: wrap; gap: 10px 18px; }
-    .rowItem__main { flex: 1 1 100%; order: 1; }
-    .rowItem__num { order: 0; }
-    /* 状態列（.rowItem__status）は幅固定のPC用レイアウトをやめ、モデル名の
-       下に自分の行として折り返す。状態バッジ（在庫あり／Hold中／業販HOLD中の
-       いずれか）だけのため、幅は車両によらずほぼ一定で、操作ボタンと同じ
-       行に並べても車両ごとに高さがバラつく心配はない。 */
-    .rowItem__status { order: 2; flex: 0 1 auto; margin-left: 48px; }
-    .rowItem__price { order: 3; flex: 1 1 100%; margin-left: 48px; text-align: left; }
-    .rowItem__actions { order: 3; flex: 0 1 auto; margin-left: 48px; }
-    .rowItem__chev { display: none; }
-
-    /* 不具合修正: .rowItem__meta（年式・走行距離・登録番号・販売価格・MP等の
-       角丸タイル）は、PC幅では余裕をもって全項目が1行に収まる設計だが、
-       900px以下ではタイルの数によって末尾の項目（MP等）がoverflow: hiddenで
-       見えないまま切り詰められてしまっていた（現場からの要望「モバイルも
-       対応してほしい」）。車両ごとに行の高さが変わらないよう折り返しはさせない
-       方針は維持したまま、この幅だけ横スクロールを許可し、右端に薄いフェードを
-       常時つけて「まだ続きがある」ことが伝わるようにする（アプリ他所の
-       .scroller・.tabsと同じ「横スクロールできる行」の見せ方に揃えている）。 */
-    .rowItem__meta {
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-      mask-image: linear-gradient(to right, black calc(100% - 20px), transparent);
-      -webkit-mask-image: linear-gradient(to right, black calc(100% - 20px), transparent);
-    }
-    .rowItem__meta::-webkit-scrollbar { display: none; }
   }
 
   /* ===== スマートフォン ===== */
@@ -2259,8 +2059,6 @@
     main.view { padding: 10px; }
     .settingsCard, .settingsActions { padding: 18px 16px; }
     .card { padding: 16px 18px; }
-    .rowItem { padding: 14px 16px; }
-    .rowItem__status, .rowItem__price, .rowItem__actions { margin-left: 0; }
     /* スマホ幅は画面下端固定のボトムシートにする。左右・上のpaddingは0のまま、
        下方向だけキーボードの高さぶん動的に足す（上の.modalの基本ルール参照）。 */
     .modal { padding: 0 0 var(--app-keyboard-inset, 0px); align-items: flex-end; }
