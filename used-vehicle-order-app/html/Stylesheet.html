@@ -1159,15 +1159,23 @@
      値にしている。この結果、ノートPC幅（1366px前後）以上では横スクロールが
      発生しない。なお、極端に長いモデル名・登録番号・販売先名がまれにあった
      場合は、tblCellの省略記号＋titleツールチップで全文を確認できる。 */
+  /* 不具合修正: 現場からの要望「在庫リストとデモカーリスト・サービス代車
+     リストに表示される情報は統一してほしい（Hold等の機能は在庫リストにのみ）」
+     「受注リストは統一した項目にプラスして顧客名と登録月を記載してほしい」を
+     受け、車両情報の列（区分・モデル・初年度登録日・走行距離・車検満了日・
+     登録番号・現展示拠点・価格）は4つの表すべてで共通の幅にしている。在庫
+     リストはその後ろにステータス・操作が続き、デモカーリスト・サービス代車
+     リストはステータスのみ、受注リスト・業販受注リストは顧客名（販売先）・
+     登録月が続く。 */
   .tbl--inventory .tblHead, .tbl--inventory .tblRow {
     grid-template-columns: 18px 68px 74px 72px 68px 72px 108px 66px 88px 88px 114px 13px;
   }
   .tbl--order .tblHead, .tbl--order .tblRow,
   .tbl--wholesale .tblHead, .tbl--wholesale .tblRow {
-    grid-template-columns: 18px 68px 90px 74px 60px 64px 56px 68px 108px 70px 98px 13px;
+    grid-template-columns: 18px 68px 74px 72px 68px 72px 108px 66px 88px 90px 58px 13px;
   }
   .tbl--cartrack .tblHead, .tbl--cartrack .tblRow {
-    grid-template-columns: 18px 68px 74px 72px 68px 108px 66px 88px 13px;
+    grid-template-columns: 18px 68px 74px 72px 68px 72px 108px 66px 88px 88px 13px;
   }
 
   /* ===== 車両情報カード（詳細モーダル・#inventoryDetailModal専用） =====
