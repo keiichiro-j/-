@@ -788,8 +788,8 @@
     { value: '', label: '指定なし' },
     { value: 'priceAsc', label: '価格が安い順' },
     { value: 'priceDesc', label: '価格が高い順' },
-    { value: 'yearDesc', label: '年式が新しい順' },
-    { value: 'yearAsc', label: '年式が古い順' },
+    { value: 'yearDesc', label: '初年度登録日が新しい順' },
+    { value: 'yearAsc', label: '初年度登録日が古い順' },
     { value: 'mileageAsc', label: '走行距離が少ない順' }
   ];
 
@@ -1213,7 +1213,7 @@
       metaRow_('区分', v.category) +
       colorRowsHtml +
       metaRow_('販売価格', formatNumberUnit_(v.salePrice, ' 円')) +
-      metaRow_('年式', v.firstRegistrationDate) +
+      metaRow_('初年度登録日', v.firstRegistrationDate) +
       metaRow_('走行距離', formatNumberUnit_(v.mileage, ' km')) +
       metaRow_('登録番号', plateText_(v)) +
       metaRow_('MP', v.mp) +
@@ -1275,12 +1275,43 @@
    * （headerHtml）を常に先頭に1行だけ出す。1件も無いときは見出しごと何も
    * 表示しない（既存の空状態メッセージ#xxxEmptyに任せる、rowListHtml_と同じ
    * 考え方）。
+   * 不具合修正: 列見出し行（.tblHead）を固定表示する（現場からの要望「在庫
+   * リストの項目名は固定してほしい」）にあたり、データ行は列見出しとは別の
+   * ラッパー（.tblBody）にまとめている。理由: 画面幅が足りず表が横スクロール
+   * する場合（Stylesheet.html参照）、横スクロールの対象を.tblBody側だけに
+   * 限定することで、.tblHead自体は横スクロールのコンテナにならずに済み、
+   * position: stickyによる縦方向の固定が外側の一覧エリア（.listBody__main）
+   * を基準に正しく効くようになる（CSSの仕様上、同じ要素にoverflow-xとtop:0の
+   * stickyを両方効かせることはできないため）。.tblBodyが横スクロールした際は
+   * wireTableHeaderScrollSync_で.tblHead側の表示位置も追従させ、列見出しと
+   * データの横位置がずれないようにする。
    */
   function tableListHtml_(tableClass, headerHtml, items, renderRowFn) {
     if (!items.length) return '';
-    return '<div class="tbl ' + tableClass + '">' + headerHtml + items.map(function (item, i) {
-      return renderRowFn(item, i + 1);
-    }).join('') + '</div>';
+    return '<div class="tbl ' + tableClass + '">' + headerHtml +
+      '<div class="tblBody">' + items.map(function (item, i) {
+        return renderRowFn(item, i + 1);
+      }).join('') + '</div>' +
+      '</div>';
+  }
+
+  /**
+   * tableListHtml_で作った.tbl内の.tblBodyを横スクロールしたとき、.tblHead
+   * （列見出し行）の表示位置もその分ずらして追従させる。containerEl配下に
+   * 複数の.tbl（受注リスト・業販受注リストの月ごとグループ等）があっても
+   * まとめて配線する。各リストのrender関数で、innerHTML差し替え直後に毎回
+   * 呼び出す（差し替えるたびに要素が作り直されるため、都度配線し直す必要が
+   * ある）。
+   */
+  function wireTableHeaderScrollSync_(containerEl) {
+    containerEl.querySelectorAll('.tbl').forEach(function (tbl) {
+      var head = tbl.querySelector('.tblHead');
+      var body = tbl.querySelector('.tblBody');
+      if (!head || !body) return;
+      body.addEventListener('scroll', function () {
+        head.scrollLeft = body.scrollLeft;
+      });
+    });
   }
 
   /**
@@ -1318,7 +1349,7 @@
       '<div class="rowItem__colorSub" title="' + escapeHtml((v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) + '">' +
       escapeHtml((v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) + '</div>' +
       '<div class="rowItem__meta">' +
-      rowMetaItemHtml_('年式', v.firstRegistrationDate) +
+      rowMetaItemHtml_('初年度登録日', v.firstRegistrationDate) +
       rowMetaItemHtml_('型式', v.modelCode) +
       rowMetaItemHtml_('走行距離', formatNumberUnit_(v.mileage, ' km')) +
       rowMetaItemHtml_('車検満了日', v.inspectionExpiryDate, inspectionExpiryTone_(v.inspectionExpiryDate)) +
@@ -1341,7 +1372,7 @@
    */
   function inventoryTableHeaderHtml_() {
     return '<div class="tblHead">' +
-      '<div></div><div>区分</div><div>モデル</div><div>年式</div><div>走行距離</div>' +
+      '<div></div><div>区分</div><div>モデル</div><div>初年度登録日</div><div>走行距離</div>' +
       '<div>車検満了日</div><div>登録番号</div><div>現展示拠点</div><div>価格</div>' +
       '<div>ステータス</div><div>操作</div><div></div>' +
       '</div>';
@@ -1448,7 +1479,7 @@
    */
   function carTrackingTableHeaderHtml_() {
     return '<div class="tblHead">' +
-      '<div></div><div>区分</div><div>モデル</div><div>年式</div><div>走行距離</div>' +
+      '<div></div><div>区分</div><div>モデル</div><div>初年度登録日</div><div>走行距離</div>' +
       '<div>登録番号</div><div>現展示拠点</div><div>ステータス</div><div></div>' +
       '</div>';
   }
@@ -1632,6 +1663,7 @@
     // （不具合修正: 以前はクイックナビ行の右側にも同じ情報を重複表示していた）。
     $('inventoryFilterCount').textContent = all.length ? '該当 ' + filtered.length + '台 ／ 全' + all.length + '台' : '';
     container.innerHTML = tableListHtml_('tbl--inventory', inventoryTableHeaderHtml_(), filtered, vehicleTableRowHtml_);
+    wireTableHeaderScrollSync_(container);
     syncInventoryFilterClearVisibility_();
   }
 
@@ -2376,7 +2408,7 @@
       rowMetaItemHtml_('登録番号', plateText_(o)) +
       rowMetaItemHtml_('MP', o.mp) +
       '</div>' +
-      '<div class="rowItem__sub">コミッション ' + escapeHtml(o.commission) +
+      '<div class="rowItem__sub">ＯＣＮ ' + escapeHtml(o.ocn) +
       (o.leadNumber ? ' ・ リード番号 ' + escapeHtml(o.leadNumber) : '') + '</div>' +
       '</div>' +
       '<div class="rowItem__price"><span class="rowItem__priceLabel">金額</span>' + escapeHtml(formatNumberUnit_(o.salePrice, ' 円') || '-') + '</div>' +
@@ -2442,7 +2474,7 @@
       '</div>' +
       '<dl class="card__metaGrid card__metaGrid--quick">' +
       metaRow_('モデル', o.model) +
-      metaRow_('コミッション', o.commission) +
+      metaRow_('ＯＣＮ', o.ocn) +
       metaRow_('登録番号', plateText_(o)) +
       metaRow_('走行距離', formatNumberUnit_(o.mileage, ' km')) +
       metaRow_('販売価格', formatNumberUnit_(o.salePrice, ' 円')) +
@@ -2508,6 +2540,7 @@
         : '';
       return '<div class="group">' + heading + tableListHtml_('tbl--order', orderTableHeaderHtml_(), g.items, orderTableRowHtml_) + '</div>';
     }).join('');
+    wireTableHeaderScrollSync_(container);
   }
 
   on('ordersGroups','click', function (e) {
@@ -2604,7 +2637,7 @@
       '</div>' +
       '<dl class="card__metaGrid card__metaGrid--quick">' +
       metaRow_('モデル', o.model) +
-      metaRow_('コミッション', o.commission) +
+      metaRow_('ＯＣＮ', o.ocn) +
       metaRow_('登録番号', plateText_(o)) +
       metaRow_('走行距離', formatNumberUnit_(o.mileage, ' km')) +
       metaRow_('販売価格', formatNumberUnit_(o.salePrice, ' 円')) +
@@ -2662,6 +2695,7 @@
         : '';
       return '<div class="group">' + heading + tableListHtml_('tbl--wholesale', wholesaleOrderTableHeaderHtml_(), g.items, wholesaleOrderTableRowHtml_) + '</div>';
     }).join('');
+    wireTableHeaderScrollSync_(container);
   }
 
   on('wholesaleOrdersGroups','click', function (e) {
@@ -2759,6 +2793,7 @@
       $(opts.emptyId).classList.toggle('hidden', items.length > 0);
       $(opts.countId).textContent = '該当 ' + items.length + ' 台';
       $(opts.bodyId).innerHTML = tableListHtml_('tbl--cartrack', carTrackingTableHeaderHtml_(), items, carTrackingTableRowHtml_);
+      wireTableHeaderScrollSync_($(opts.bodyId));
     }
 
     function findByOcn(ocn) {

@@ -37,14 +37,28 @@
  */
 
 /**
+ * 半角カタカナ（例: "ﾃﾞﾓｶｰ"）を全角カタカナ（"デモカー"）に正規化する。
+ * 区分は自由記述のテキスト列のため、IME設定等により半角カタカナで入力されて
+ * いても全角と同じ区分として扱えるようにする（不具合修正: 現場からの指摘
+ * 「デモカー・サービスの区分が全角でしか反映されない」）。NFKC正規化
+ * （String.prototype.normalize、Apps ScriptのV8ランタイムで利用可）は、
+ * 半角カタカナ・半角濁点/半角長音記号を対応する全角カタカナへ変換する
+ * 標準的な仕組みで、全角の文字列に対しては何も変化させない（副作用なし）。
+ */
+function normalizeKatakanaWidth_(s) {
+  return (typeof s.normalize === 'function') ? s.normalize('NFKC') : s;
+}
+
+/**
  * 在庫リストの区分（category）の値と、対象区分（デモカー／サービス）を比較する。
  * 区分は自由記述のテキスト列のため、スプレッドシート側で前後に空白が入って
  * しまっていても正しく一致と判定できるよう、前後の空白を無視して比較する
  * （不具合修正: 空白が原因で「デモカー」と完全一致せず、区分デモカーの車両が
- * 一件もデモカーリストに反映されないという事象があったため）。
+ * 一件もデモカーリストに反映されないという事象があったため）。全角・半角の
+ * カタカナ表記の違いも区別せず同じ区分として扱う（normalizeKatakanaWidth_参照）。
  */
 function categoryMatchesCarTracking_(category, targetValue) {
-  return String(category || '').trim() === targetValue;
+  return normalizeKatakanaWidth_(String(category || '')).trim() === normalizeKatakanaWidth_(targetValue).trim();
 }
 
 /**

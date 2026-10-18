@@ -1057,13 +1057,22 @@
      （vehicleRowItemHtml_・orderRowItemHtml_）でのみ引き続き使用するため、
      そのまま残している）。列見出し行（.tblHead）を一覧の先頭に固定し、各列の
      意味を常に確認できるようにする。 */
+  /* 不具合修正: 以前は.tbl自体にoverflow-x: autoを指定していたが、CSSの仕様上
+     overflow-xを visible 以外にすると overflow-y も自動的に auto（または
+     ブラウザによってはhidden相当）へ昇格し、.tbl自体が独立したスクロール
+     コンテナになってしまう。その結果、列見出し（.tblHead）のposition: sticky
+     が「本来固定したい外側の一覧エリア（.listBody__main）」ではなく
+     「縦方向には実際には何もスクロールしない.tbl自身」を基準に効いてしまい、
+     列見出しの固定が機能していなかった（現場からの要望「在庫リストの項目名は
+     固定してほしい」）。横スクロールの対象をデータ行側のラッパー（.tblBody）
+     だけに切り出し、.tbl自体は何もスクロールさせないことで、.tblHeadの
+     stickyが外側の.listBody__mainを基準に正しく効くようにした。 */
   .tbl {
     background: var(--surface);
     border: 1px solid var(--outline);
     border-radius: var(--radius);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
   }
+  .tblBody { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .tblHead, .tblRow {
     display: grid;
     align-items: center;
@@ -1074,11 +1083,28 @@
     height: 36px;
     background: var(--background);
     font-size: 10.5px;
+    /* .tblBodyが横スクロールしたとき、列見出し自体は横スクロールバーを
+       持たせず、wireTableHeaderScrollSync_（JavaScript.html）がscrollLeftを
+       .tblBodyに追従させる形で見た目の横位置だけを合わせる。 */
+    overflow-x: hidden;
     font-weight: 700;
     color: var(--on-surface-variant);
     letter-spacing: .03em;
     border-bottom: 1px solid var(--outline);
     white-space: nowrap;
+  }
+  /* 不具合修正: 一覧の件数が多いと、下にスクロールした際に列見出し（区分・
+     モデル・現展示拠点等）が見えなくなり、各列が何を表しているか分からなく
+     なっていた（現場からの要望「在庫リストの項目名は固定してほしい」）。
+     PC・タブレット幅（.view--list .listBody__mainが縦スクロールの基準になる
+     901px以上、Stylesheet.html内の@media (min-width: 901px)参照）では、
+     列見出し行をその一覧の先頭にstickyで固定し、スクロール中も常に見える
+     ようにする。スマホ幅はヘッダー・コマンドバー自体もposition: stickyで
+     積み重なっており、同じ考え方で列見出しまで固定すると3段重ねの
+     オフセット計算が必要になり崩れやすいため、従来どおり通常のスクロールの
+     ままにしている。 */
+  @media (min-width: 901px) {
+    .tblHead { position: sticky; top: 0; z-index: 1; }
   }
   .tblRow {
     height: 54px;
