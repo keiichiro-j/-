@@ -1316,11 +1316,14 @@
   /**
    * 在庫リストタブ・マイページ「Hold中の車両」共通の一覧行見出し（列見出し行）。
    * 1件＝1行で横一列に表示するテーブル表示用（vehicleTableRowHtml_と列を揃える。
-   * tbl--inventory、Stylesheet.html参照）。
+   * tbl--inventory、Stylesheet.html参照）。外装色・内装色は一覧行には出さず、
+   * 行タップで開く詳細モーダル（vehicleDetailHtml_）側にまとめる（現場からの
+   * 要望「外装色・内装色は詳細に戻してほしい。他の項目は省略せず全文表示に
+   * してほしい」）。
    */
   function inventoryTableHeaderHtml_() {
     return '<div class="tblHead">' +
-      '<div></div><div>区分</div><div>モデル</div><div>外装色</div><div>内装色</div><div>初年度登録日</div><div>走行距離</div>' +
+      '<div></div><div>区分</div><div>モデル</div><div>初年度登録日</div><div>走行距離</div>' +
       '<div>車検満了日</div><div>登録番号</div><div>現展示拠点</div><div>価格</div>' +
       '<div>ステータス</div><div>操作</div><div></div>' +
       '</div>';
@@ -1348,8 +1351,6 @@
       '<div class="tblCell tblCell--num">' + rowNum_(num) + '</div>' +
       '<div class="tblCell"><span class="tag">' + escapeHtml(v.category || '-') + '</span></div>' +
       '<div class="tblCell tblCell--strong" title="' + escapeHtml(v.model) + '">' + escapeHtml(v.model) + '</div>' +
-      '<div class="tblCell" title="' + escapeHtml(v.exteriorColor) + '">' + escapeHtml(v.exteriorColor || '-') + '</div>' +
-      '<div class="tblCell" title="' + escapeHtml(v.interiorColor) + '">' + escapeHtml(v.interiorColor || '-') + '</div>' +
       '<div class="tblCell">' + escapeHtml(v.firstRegistrationDate || '-') + '</div>' +
       '<div class="tblCell">' + escapeHtml(formatNumberUnit_(v.mileage, ' km') || '-') + '</div>' +
       '<div class="tblCell">' + escapeHtml(v.inspectionExpiryDate || '-') + '</div>' +
@@ -1436,7 +1437,7 @@
    */
   function carTrackingTableHeaderHtml_() {
     return '<div class="tblHead">' +
-      '<div></div><div>区分</div><div>モデル</div><div>外装色</div><div>内装色</div><div>初年度登録日</div><div>走行距離</div>' +
+      '<div></div><div>区分</div><div>モデル</div><div>初年度登録日</div><div>走行距離</div>' +
       '<div>車検満了日</div><div>登録番号</div><div>現展示拠点</div><div>価格</div>' +
       '<div>ステータス</div><div></div>' +
       '</div>';
@@ -1453,8 +1454,6 @@
       '<div class="tblCell tblCell--num">' + rowNum_(num) + '</div>' +
       '<div class="tblCell"><span class="tag">' + escapeHtml(v.category || '-') + '</span></div>' +
       '<div class="tblCell tblCell--strong" title="' + escapeHtml(v.model) + '">' + escapeHtml(v.model) + '</div>' +
-      '<div class="tblCell" title="' + escapeHtml(v.exteriorColor) + '">' + escapeHtml(v.exteriorColor || '-') + '</div>' +
-      '<div class="tblCell" title="' + escapeHtml(v.interiorColor) + '">' + escapeHtml(v.interiorColor || '-') + '</div>' +
       '<div class="tblCell">' + escapeHtml(v.firstRegistrationDate || '-') + '</div>' +
       '<div class="tblCell">' + escapeHtml(formatNumberUnit_(v.mileage, ' km') || '-') + '</div>' +
       '<div class="tblCell">' + escapeHtml(v.inspectionExpiryDate || '-') + '</div>' +
@@ -2354,18 +2353,20 @@
    * 受注リストタブ・マイページ「受注した車両」共通の一覧行見出し。現場からの
    * 要望「在庫リスト・デモカーリスト・サービス代車リストと表示項目を統一して
    * ほしい」「受注リストは統一した項目にプラスして顧客名と登録月を記載して
-   * ほしい」を受け、車両情報の列（区分・モデル・外装色・内装色・初年度登録日・
-   * 走行距離・車検満了日・登録番号・現展示拠点・価格）は在庫リスト・デモカー
+   * ほしい」を受け、車両情報の列（区分・モデル・初年度登録日・走行距離・
+   * 車検満了日・登録番号・現展示拠点・価格）は在庫リスト・デモカー
    * リスト・サービス代車リストと完全に同じ並びにし、末尾に受注リスト固有の
    * 「顧客名」「登録月」を追加する（orderTableRowHtml_と列を揃える。tbl--order、
    * Stylesheet.html参照）。以前あった「拠点」（販売拠点）・「担当」は列からは
    * 外したが、行タップで開く詳細ポップアップ（orderDetailHtml_）では引き続き
-   * 確認できる。マイページの「受注した車両」も同じテーブル表示を使う
-   * （renderMyPageOrders_参照）。
+   * 確認できる。外装色・内装色も一覧行には出さず、詳細ポップアップにまとめる
+   * （現場からの要望「外装色・内装色は詳細に戻してほしい。他の項目は省略せず
+   * 全文表示にしてほしい」）。マイページの「受注した車両」も同じテーブル表示を
+   * 使う（renderMyPageOrders_参照）。
    */
   function orderTableHeaderHtml_() {
     return '<div class="tblHead">' +
-      '<div></div><div>区分</div><div>モデル</div><div>外装色</div><div>内装色</div><div>初年度登録日</div><div>走行距離</div>' +
+      '<div></div><div>区分</div><div>モデル</div><div>初年度登録日</div><div>走行距離</div>' +
       '<div>車検満了日</div><div>登録番号</div><div>現展示拠点</div><div>価格</div>' +
       '<div>顧客名</div><div>登録月</div><div></div>' +
       '</div>';
@@ -2379,8 +2380,6 @@
       '<div class="tblCell tblCell--num">' + rowNum_(num) + '</div>' +
       '<div class="tblCell"><span class="tag">' + escapeHtml(o.category || '-') + '</span></div>' +
       '<div class="tblCell tblCell--strong" title="' + escapeHtml(o.model) + '">' + escapeHtml(o.model) + '</div>' +
-      '<div class="tblCell" title="' + escapeHtml(o.exteriorColor) + '">' + escapeHtml(o.exteriorColor || '-') + '</div>' +
-      '<div class="tblCell" title="' + escapeHtml(o.interiorColor) + '">' + escapeHtml(o.interiorColor || '-') + '</div>' +
       '<div class="tblCell">' + escapeHtml(o.firstRegistrationDate || '-') + '</div>' +
       '<div class="tblCell">' + escapeHtml(formatNumberUnit_(o.mileage, ' km') || '-') + '</div>' +
       '<div class="tblCell">' + escapeHtml(o.inspectionExpiryDate || '-') + '</div>' +
@@ -2414,6 +2413,8 @@
       '<dl class="card__metaGrid card__metaGrid--quick">' +
       metaRow_('モデル', o.model) +
       metaRow_('ＯＣＮ', o.ocn) +
+      metaRowFull_('外装色', o.exteriorColor) +
+      metaRowFull_('内装色', o.interiorColor) +
       metaRow_('登録番号', plateText_(o)) +
       metaRow_('走行距離', formatNumberUnit_(o.mileage, ' km')) +
       metaRow_('販売価格', formatNumberUnit_(o.salePrice, ' 円')) +
@@ -2549,7 +2550,7 @@
    */
   function wholesaleOrderTableHeaderHtml_() {
     return '<div class="tblHead">' +
-      '<div></div><div>区分</div><div>モデル</div><div>外装色</div><div>内装色</div><div>初年度登録日</div><div>走行距離</div>' +
+      '<div></div><div>区分</div><div>モデル</div><div>初年度登録日</div><div>走行距離</div>' +
       '<div>車検満了日</div><div>登録番号</div><div>現展示拠点</div><div>価格</div>' +
       '<div>販売先</div><div>登録月</div><div></div>' +
       '</div>';
@@ -2565,8 +2566,6 @@
       '<div class="tblCell tblCell--num">' + rowNum_(num) + '</div>' +
       '<div class="tblCell"><span class="tag">' + escapeHtml(o.category || '-') + '</span></div>' +
       '<div class="tblCell tblCell--strong" title="' + escapeHtml(o.model) + '">' + escapeHtml(o.model) + '</div>' +
-      '<div class="tblCell" title="' + escapeHtml(o.exteriorColor) + '">' + escapeHtml(o.exteriorColor || '-') + '</div>' +
-      '<div class="tblCell" title="' + escapeHtml(o.interiorColor) + '">' + escapeHtml(o.interiorColor || '-') + '</div>' +
       '<div class="tblCell">' + escapeHtml(o.firstRegistrationDate || '-') + '</div>' +
       '<div class="tblCell">' + escapeHtml(formatNumberUnit_(o.mileage, ' km') || '-') + '</div>' +
       '<div class="tblCell">' + escapeHtml(o.inspectionExpiryDate || '-') + '</div>' +
@@ -2599,6 +2598,8 @@
       '<dl class="card__metaGrid card__metaGrid--quick">' +
       metaRow_('モデル', o.model) +
       metaRow_('ＯＣＮ', o.ocn) +
+      metaRowFull_('外装色', o.exteriorColor) +
+      metaRowFull_('内装色', o.interiorColor) +
       metaRow_('登録番号', plateText_(o)) +
       metaRow_('走行距離', formatNumberUnit_(o.mileage, ' km')) +
       metaRow_('販売価格', formatNumberUnit_(o.salePrice, ' 円')) +
