@@ -1001,12 +1001,18 @@
      ポップアップ（vehicleDetailHtml_・carTrackingDetailHtml_・orderDetailHtml_・
      wholesaleOrderDetailHtml_のmetaRowFull_）にまとめて全文表示する（現場からの
      要望「外装色・内装色は詳細に戻してほしい。他の項目は省略せず全文表示に
-     してほしい」）。外装色・内装色の2列ぶん空いた余白は、モデル・登録番号・
-     現展示拠点の可変幅列（minmax(最小幅, 1fr)）へ自動的に多く配分されるように
-     なり、左の絞り込みサイドバーを含むPC幅（1280px前後）でも以前より省略記号が
-     出にくくなっている。なお、極端に長いモデル名・登録番号・販売先名等がまれに
-     あった場合は、引き続きtblCellの省略記号＋titleツールチップで全文を確認
-     できる。 */
+     してほしい」）。
+     不具合修正: 画面の余白をモデル・登録番号・現展示拠点など一部の列だけに
+     minmax(最小幅, 1fr)で配分していたところ、その2〜3列だけが不自然に広がり、
+     列によって値のうしろの余白（次の項目との間隔）が大きくばらついて見えて
+     いた（現場からの指摘「各リストの情報と情報との間を均等にしてほしい」）。
+     バッジ・ボタン列（ステータス・操作・登録月）以外のすべての値の列を
+     minmax(最小幅, 1fr)にし、同じ1fr（均等な配分比率）にすることで、画面の
+     余白はどの列にも同じ量だけ均等に配分されるようにした。これにより、左の
+     絞り込みサイドバーを含むPC幅（1280px前後）でも省略記号は出ず、画面が
+     広いほど全体が均等に伸びる（一部の列だけが不自然に広がることはない）。
+     なお、極端に長いモデル名・登録番号・販売先名等がまれにあった場合は、
+     引き続きtblCellの省略記号＋titleツールチップで全文を確認できる。 */
   /* 不具合修正: 現場からの要望「在庫リストとデモカーリスト・サービス代車
      リストに表示される情報は統一してほしい（Hold等の機能は在庫リストにのみ）」
      「受注リストは統一した項目にプラスして顧客名と登録月を記載してほしい」を
@@ -1016,14 +1022,14 @@
      リストはステータスのみ、受注リスト・業販受注リストは顧客名（販売先）・
      登録月が続く。 */
   .tbl--inventory .tblHead, .tbl--inventory .tblRow {
-    grid-template-columns: 16px 64px minmax(84px, 1fr) 70px 64px 70px 144px minmax(80px, 1fr) 84px 86px 114px 11px;
+    grid-template-columns: 16px minmax(64px, 1fr) minmax(84px, 1fr) minmax(70px, 1fr) minmax(64px, 1fr) minmax(70px, 1fr) minmax(144px, 1fr) minmax(80px, 1fr) minmax(84px, 1fr) 86px 114px 11px;
   }
   .tbl--order .tblHead, .tbl--order .tblRow,
   .tbl--wholesale .tblHead, .tbl--wholesale .tblRow {
-    grid-template-columns: 16px 64px minmax(84px, 1fr) 70px 64px 70px 144px minmax(80px, 1fr) 84px 130px 55px 11px;
+    grid-template-columns: 16px minmax(64px, 1fr) minmax(84px, 1fr) minmax(70px, 1fr) minmax(64px, 1fr) minmax(70px, 1fr) minmax(144px, 1fr) minmax(80px, 1fr) minmax(84px, 1fr) minmax(130px, 1fr) 55px 11px;
   }
   .tbl--cartrack .tblHead, .tbl--cartrack .tblRow {
-    grid-template-columns: 16px 64px minmax(84px, 1fr) 70px 64px 70px 144px minmax(80px, 1fr) 84px 86px 11px;
+    grid-template-columns: 16px minmax(64px, 1fr) minmax(84px, 1fr) minmax(70px, 1fr) minmax(64px, 1fr) minmax(70px, 1fr) minmax(144px, 1fr) minmax(80px, 1fr) minmax(84px, 1fr) 86px 11px;
   }
 
   /* ===== 車両情報カード（詳細モーダル・#inventoryDetailModal専用） =====
