@@ -989,11 +989,18 @@
      短い型番表記のため、長い車種説明文を想定した幅（220px）は不要に広すぎた
      （現場からの指摘「モデル名はスペースを取りすぎている」）。また、一覧表自体の
      横スクロールは完全に無くしてほしいという要望のため（「横スライドは無しに
-     してほしい」）、各列の幅は実際の文字列（モデル・年式・登録番号・金額等の
-     代表的な値）を実測したうえで、省略記号が出ない最小限の余裕だけを持たせた
-     値にしている。この結果、ノートPC幅（1366px前後）以上では横スクロールが
-     発生しない。なお、極端に長いモデル名・登録番号・販売先名がまれにあった
-     場合は、tblCellの省略記号＋titleツールチップで全文を確認できる。 */
+     してほしい」）、日付・数値・バッジ・ボタン等、長さがほぼ一定の列は実際の
+     文字列を実測した固定px幅にしている。
+     不具合修正: 固定px幅だけで組んでいた際、画面の方が一覧表より広い場合に
+     余白が余ってしまい（現場からの指摘「一列の幅一杯を使って表示してほしい」）、
+     かつ文字量が変動しやすい列（モデル・外装色・内装色・登録番号・現展示拠点・
+     顧客名／販売先）は固定幅のままだと値によって省略記号が出やすかった。
+     これらの列だけminmax(最小幅, 1fr)にし、画面の余白を比例配分で自動的に
+     埋めるようにした。最小幅は実測した代表的な値がちょうど収まる幅のため、
+     左の絞り込みサイドバーを含むPC幅（1280px前後）でも横スクロールは発生せず、
+     画面が広いほど伸びた分だけ省略されずに見える値も増える。なお、極端に
+     長いモデル名・登録番号・色名等がまれにあった場合は、tblCellの省略記号＋
+     titleツールチップで全文を確認できる。 */
   /* 不具合修正: 現場からの要望「在庫リストとデモカーリスト・サービス代車
      リストに表示される情報は統一してほしい（Hold等の機能は在庫リストにのみ）」
      「受注リストは統一した項目にプラスして顧客名と登録月を記載してほしい」を
@@ -1003,14 +1010,14 @@
      リストはステータスのみ、受注リスト・業販受注リストは顧客名（販売先）・
      登録月が続く。 */
   .tbl--inventory .tblHead, .tbl--inventory .tblRow {
-    grid-template-columns: 16px 58px 74px 50px 50px 64px 60px 64px 84px 58px 74px 80px 114px 11px;
+    grid-template-columns: 16px 58px minmax(74px, 1fr) minmax(50px, 1fr) minmax(50px, 1fr) 64px 60px 64px minmax(84px, 1fr) minmax(58px, 1fr) 74px 80px 114px 11px;
   }
   .tbl--order .tblHead, .tbl--order .tblRow,
   .tbl--wholesale .tblHead, .tbl--wholesale .tblRow {
-    grid-template-columns: 16px 58px 74px 50px 50px 64px 60px 64px 84px 58px 74px 86px 55px 11px;
+    grid-template-columns: 16px 58px minmax(74px, 1fr) minmax(50px, 1fr) minmax(50px, 1fr) 64px 60px 64px minmax(84px, 1fr) minmax(58px, 1fr) 74px minmax(86px, 1fr) 55px 11px;
   }
   .tbl--cartrack .tblHead, .tbl--cartrack .tblRow {
-    grid-template-columns: 16px 58px 74px 50px 50px 64px 60px 64px 84px 58px 74px 80px 11px;
+    grid-template-columns: 16px 58px minmax(74px, 1fr) minmax(50px, 1fr) minmax(50px, 1fr) 64px 60px 64px minmax(84px, 1fr) minmax(58px, 1fr) 74px 80px 11px;
   }
 
   /* ===== 車両情報カード（詳細モーダル・#inventoryDetailModal専用） =====
