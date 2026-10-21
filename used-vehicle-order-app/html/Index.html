@@ -263,6 +263,11 @@
           </div>
           <hr class="filterSidebar__rule">
           <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">現展示拠点</label>
+            <div id="inventoryLocationFilter"></div>
+          </div>
+          <hr class="filterSidebar__rule">
+          <div class="filterSidebar__field">
             <label class="filterSidebar__groupLabel">掲載状況</label>
             <div id="inventoryListedFilter">
               <label class="filterCheck"><input type="checkbox" value="carsensor"> カーセンサー掲載中</label>
@@ -283,8 +288,12 @@
 
     <!-- 受注リスト: 在庫リストと同じ「絞り込みサイドバー（条件検索）＋番号付き一覧」の
          見た目に揃える。自由検索・グループ化・該当台数もサイドバーにまとめて置く
-         （現場からの要望）。フィルタ項目自体は既存のキーワード・拠点・担当者のみで、
-         サーバー側の検索・グループ表示（searchOrders・groupByField_）は変更していない。 -->
+         （現場からの要望）。キーワード・拠点（販売拠点）・担当者はサーバー側の検索・
+         グループ表示（searchOrders・groupByField_）をそのまま使う。末尾の「現展示拠点」
+         （車両が実際に展示されている拠点。販売拠点＝salesLocationとは別の値）だけは
+         在庫リストと同じチェック式の絞り込みで、取得済みの一覧をクライアント側だけで
+         絞り込み直す（現場からの要望「現展示拠点をチェック式で絞り込めるようにして
+         ほしい。全リストに反映してほしい」）。 -->
     <main class="view view--list" id="view-orders">
       <div class="listBody">
         <aside class="filterSidebar" aria-label="受注リストの絞り込み">
@@ -316,6 +325,11 @@
           <div class="filterSidebar__field">
             <label class="filterSidebar__groupLabel">担当者</label>
             <select id="ordersStaffFilter" class="input"></select>
+          </div>
+          <hr class="filterSidebar__rule">
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">現展示拠点</label>
+            <div id="ordersDisplayLocationFilter"></div>
           </div>
         </aside>
         <div class="listBody__main">
@@ -366,6 +380,11 @@
           <div class="filterSidebar__field">
             <label class="filterSidebar__groupLabel">販売先</label>
             <input type="text" id="wholesaleOrdersSalesStoreFilter" class="input" placeholder="販売先で絞り込み">
+          </div>
+          <hr class="filterSidebar__rule">
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">現展示拠点</label>
+            <div id="wholesaleOrdersDisplayLocationFilter"></div>
           </div>
         </aside>
         <div class="listBody__main">
@@ -464,6 +483,11 @@
           </div>
           <hr class="filterSidebar__rule">
           <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">現展示拠点</label>
+            <div id="demoCarListLocationFilter"></div>
+          </div>
+          <hr class="filterSidebar__rule">
+          <div class="filterSidebar__field">
             <label class="filterSidebar__groupLabel">販売状況</label>
             <div id="demoCarListStatusFilter">
               <label class="filterCheck"><input type="checkbox" value="在庫中"> 在庫中</label>
@@ -512,6 +536,11 @@
           <div class="filterSidebar__field">
             <label class="filterSidebar__groupLabel">走行距離</label>
             <select id="serviceCarListMileageFilter" class="input"></select>
+          </div>
+          <hr class="filterSidebar__rule">
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">現展示拠点</label>
+            <div id="serviceCarListLocationFilter"></div>
           </div>
           <hr class="filterSidebar__rule">
           <div class="filterSidebar__field">

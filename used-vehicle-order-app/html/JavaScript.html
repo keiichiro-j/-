@@ -33,10 +33,17 @@
     // inventoryBodyTypeFilterとしてここに持っていたが、現場からの要望「型検索は
     // 無くしてほしい」により廃止した（ホーム画面の型クイックナビ用の
     // homeBodyTypeFilterはそのまま残る）。
-    inventoryFilters: { category: [], listed: [], color: '', yearBucket: '', priceBucket: '', mileageBucket: '' },
+    inventoryFilters: { category: [], listed: [], location: [], color: '', yearBucket: '', priceBucket: '', mileageBucket: '' },
     inventorySort: '', // 並び替え（空文字は取得順のまま）
     ordersGroups: [],
     wholesaleOrdersGroups: [],
+    // 受注リスト・業販受注リストの「現展示拠点」絞り込み（チェック式）用の状態。
+    // キーワード・拠点（販売拠点）・担当者・販売先はこれまでどおりサーバー側で
+    // 絞り込むが、現展示拠点だけは在庫リストと同じく取得済みの一覧（groups）を
+    // クライアント側だけで絞り込み直す（現場からの要望「現展示拠点をチェック式で
+    // 絞り込めるようにしてほしい。全リストに反映してほしい」）。
+    ordersFilters: { currentDisplayLocation: [] },
+    wholesaleOrdersFilters: { currentDisplayLocation: [] },
     demoCarListItems: [], // デモカーリスト（区分「デモカー」）。グループ化は行わないフラットな一覧
     serviceCarListItems: [], // サービス代車リスト（区分「サービス」）。同上
     // デモカーリスト・サービス代車リストの絞り込みサイドバー用の状態。在庫
@@ -45,8 +52,8 @@
     // ようにする（区分・掲載状況は在庫リストのみに残すため持たない。現場からの
     // 要望「それぞれのページに適した条件検索を追加してほしい」「在庫リスト
     // 以外には掲載状況は不要」）。
-    demoCarListFilters: { color: '', yearBucket: '', priceBucket: '', mileageBucket: '', status: [] },
-    serviceCarListFilters: { color: '', yearBucket: '', priceBucket: '', mileageBucket: '', status: [] },
+    demoCarListFilters: { color: '', yearBucket: '', priceBucket: '', mileageBucket: '', status: [], location: [] },
+    serviceCarListFilters: { color: '', yearBucket: '', priceBucket: '', mileageBucket: '', status: [], location: [] },
     action: null, // { type: 'hold' | 'order' | 'orderFromHold', commission }
     staffList: [], // 設定タブで編集中の担当者マスタ（作業用コピー）
     modelBodyTypeRules: [], // 設定タブで編集中のボディタイプ紐付けルール（作業用コピー）
@@ -941,6 +948,7 @@
     var f = state.inventoryFilters;
     return items.filter(function (v) {
       if (f.category.length && f.category.indexOf(v.category || '') === -1) return false;
+      if (f.location.length && f.location.indexOf(v.currentDisplayLocation || '') === -1) return false;
       if (f.listed.length) {
         var keys = inventoryListedKeys_(v);
         if (!keys.some(function (k) { return f.listed.indexOf(k) !== -1; })) return false;
@@ -954,6 +962,39 @@
   }
 
   /**
+   * 絞り込みサイドバーの「区分」「現展示拠点」等、実データから動的に選択肢を
+   * 作るチェックボックス一覧（件数付き・ラベル昇順）のHTMLを組み立てる
+   * （純粋関数）。在庫リスト・受注リスト・業販受注リスト・デモカーリスト・
+   * サービス代車リストで共通して使う（現場からの要望「現展示拠点をチェック式で
+   * 絞り込めるようにしてほしい。全リストに反映してほしい」）。
+   */
+  function checkboxFilterOptionsHtml_(items, fieldKey, checkedValues) {
+    var counts = {};
+    items.forEach(function (item) {
+      var v = item[fieldKey] || '未設定';
+      counts[v] = (counts[v] || 0) + 1;
+    });
+    var values = Object.keys(counts).sort();
+    return values.map(function (v) {
+      var checked = checkedValues.indexOf(v) !== -1;
+      return '<label class="filterCheck"><input type="checkbox" value="' + escapeHtml(v) + '"' + (checked ? ' checked' : '') + '> ' +
+        escapeHtml(v) + '<span class="filterCheck__cnt">' + counts[v] + '</span></label>';
+    }).join('');
+  }
+
+  /**
+   * checkboxFilterOptionsHtml_で作ったチェックボックスの選択値（複数可）で
+   * 一覧を絞り込む（純粋関数）。何もチェックされていなければ絞り込まない。
+   * 受注リスト・業販受注リストの「現展示拠点」絞り込みで使う（在庫リスト・
+   * デモカーリスト・サービス代車リストは既存のapplyInventoryFilters_・
+   * applyCarTrackingFilters_に同じロジックを直接組み込み済み）。
+   */
+  function filterByCheckedValues_(items, fieldKey, checkedValues) {
+    if (!checkedValues.length) return items;
+    return items.filter(function (item) { return checkedValues.indexOf(item[fieldKey] || '') !== -1; });
+  }
+
+  /**
    * デモカーリスト・サービス代車リストの絞り込みサイドバー用（純粋関数）。
    * 在庫リストと同じカラー・初年度登録日・価格帯・走行距離に加え、このリスト
    * 専用の販売状況（saleStatus、在庫中／販売済み）で絞り込む。Hold・掲載状況の
@@ -962,6 +1003,7 @@
   function applyCarTrackingFilters_(items, f) {
     return items.filter(function (v) {
       if (f.status.length && f.status.indexOf(v.saleStatus || '') === -1) return false;
+      if (f.location.length && f.location.indexOf(v.currentDisplayLocation || '') === -1) return false;
       if (f.color && (v.exteriorColor || '') !== f.color) return false;
       if (f.yearBucket && yearBucketOf_(v) !== f.yearBucket) return false;
       if (f.priceBucket && priceBucketOf_(v) !== f.priceBucket) return false;
@@ -996,28 +1038,18 @@
   }
 
   /**
-   * 絞り込みサイドバーのうち、実データから動的に選択肢を作る「区分」（チェック
-   * ボックス・件数付き）を、在庫リスト取得のたびに作り直す。掲載状況・年式・
-   * 価格帯・走行距離は固定の選択肢のためIndex.html側に直接書いており、ここでは
-   * 触らない。モデル・ボディタイプの絞り込みはサイドバーから廃止した
-   * （モデルは上の自由検索、ボディタイプは.commandbarのクイックナビへ移動。
-   * 現場からの要望「サイドの絞り込みをシンプルにしてほしい」）。
+   * 絞り込みサイドバーのうち、実データから動的に選択肢を作る「区分」「現展示
+   * 拠点」（チェックボックス・件数付き）を、在庫リスト取得のたびに作り直す。
+   * 掲載状況・年式・価格帯・走行距離は固定の選択肢のためIndex.html側に直接
+   * 書いており、ここでは触らない。モデル・ボディタイプの絞り込みはサイドバー
+   * から廃止した（モデルは上の自由検索、ボディタイプは.commandbarのクイック
+   * ナビへ移動。現場からの要望「サイドの絞り込みをシンプルにしてほしい」）。
    */
   function renderInventoryFilterSidebar_() {
     var items = state.inventoryItems || [];
 
-    var categoryCounts = {};
-    items.forEach(function (v) {
-      var c = v.category || '未設定';
-      categoryCounts[c] = (categoryCounts[c] || 0) + 1;
-    });
-    var categories = Object.keys(categoryCounts).sort();
-    var checkedCategories = state.inventoryFilters.category;
-    $('inventoryCategoryFilter').innerHTML = categories.map(function (c) {
-      var checked = checkedCategories.indexOf(c) !== -1;
-      return '<label class="filterCheck"><input type="checkbox" value="' + escapeHtml(c) + '"' + (checked ? ' checked' : '') + '> ' +
-        escapeHtml(c) + '<span class="filterCheck__cnt">' + categoryCounts[c] + '</span></label>';
-    }).join('');
+    $('inventoryCategoryFilter').innerHTML = checkboxFilterOptionsHtml_(items, 'category', state.inventoryFilters.category);
+    $('inventoryLocationFilter').innerHTML = checkboxFilterOptionsHtml_(items, 'currentDisplayLocation', state.inventoryFilters.location);
 
     var colors = [];
     items.forEach(function (v) { if (v.exteriorColor && colors.indexOf(v.exteriorColor) === -1) colors.push(v.exteriorColor); });
@@ -1037,7 +1069,7 @@
   // （何か1つでも絞り込みが効いていれば表示する）。
   function syncInventoryFilterClearVisibility_() {
     var f = state.inventoryFilters;
-    var hasAny = !!f.color || f.category.length > 0 ||
+    var hasAny = !!f.color || f.category.length > 0 || f.location.length > 0 ||
       f.listed.length > 0 || !!f.yearBucket || !!f.priceBucket || !!f.mileageBucket;
     $('btnInventoryFilterClear').classList.toggle('hidden', !hasAny);
   }
@@ -1682,9 +1714,9 @@
 
   on('inventoryKeyword', 'input', debounce(loadInventory, 250));
 
-  // ----- 絞り込みサイドバーの各項目（区分・掲載状況・年式・価格帯・走行距離）は、
-  //       キーワードと異なりサーバーへ問い合わせず、既に取得済みの一覧
-  //       （state.inventoryItems）をクライアントだけで絞り込み直す
+  // ----- 絞り込みサイドバーの各項目（区分・現展示拠点・掲載状況・年式・価格帯・
+  //       走行距離）は、キーワードと異なりサーバーへ問い合わせず、既に取得済みの
+  //       一覧（state.inventoryItems）をクライアントだけで絞り込み直す
   //       （renderInventory参照。即座に反映されるため操作感が良い）。 -----
   function bindInventoryCheckboxFilter_(containerId, filterKey) {
     on(containerId, 'change', function (e) {
@@ -1696,6 +1728,7 @@
     });
   }
   bindInventoryCheckboxFilter_('inventoryCategoryFilter', 'category');
+  bindInventoryCheckboxFilter_('inventoryLocationFilter', 'location');
   bindInventoryCheckboxFilter_('inventoryListedFilter', 'listed');
 
   [['inventoryColorFilter', 'color'], ['inventoryYearFilter', 'yearBucket'], ['inventoryPriceFilter', 'priceBucket'], ['inventoryMileageFilter', 'mileageBucket']].forEach(function (pair) {
@@ -1711,11 +1744,11 @@
   });
 
   on('btnInventoryFilterClear', 'click', function () {
-    state.inventoryFilters = { category: [], listed: [], color: '', yearBucket: '', priceBucket: '', mileageBucket: '' };
+    state.inventoryFilters = { category: [], listed: [], location: [], color: '', yearBucket: '', priceBucket: '', mileageBucket: '' };
     state.inventorySort = '';
     $('inventoryKeyword').value = '';
     ['inventoryColorFilter', 'inventoryYearFilter', 'inventoryPriceFilter', 'inventoryMileageFilter', 'inventorySort'].forEach(function (id) { $(id).value = ''; });
-    document.querySelectorAll('#inventoryCategoryFilter input, #inventoryListedFilter input').forEach(function (el) { el.checked = false; });
+    document.querySelectorAll('#inventoryCategoryFilter input, #inventoryLocationFilter input, #inventoryListedFilter input').forEach(function (el) { el.checked = false; });
     loadInventory();
   });
 
@@ -2329,11 +2362,18 @@
     return el ? el.value : '';
   }
 
-  // 「クリア」の表示・非表示を、現在の拠点・担当者の選択状態に合わせて更新する。
+  // 「クリア」の表示・非表示を、現在の拠点・担当者・現展示拠点の選択状態に合わせて更新する。
   function syncOrdersFilterClearVisibility_() {
     var hasLocation = !!$('ordersLocationFilter').value;
     var hasStaff = !!$('ordersStaffFilter').value;
-    $('btnOrdersFilterClear').classList.toggle('hidden', !(hasLocation || hasStaff));
+    var hasDisplayLocation = state.ordersFilters.currentDisplayLocation.length > 0;
+    $('btnOrdersFilterClear').classList.toggle('hidden', !(hasLocation || hasStaff || hasDisplayLocation));
+  }
+  // 「現展示拠点」の絞り込みチェックボックスを、取得済みの全グループの車両から
+  // 動的に作り直す（在庫リストのrenderInventoryFilterSidebar_と同じ考え方）。
+  function renderOrdersLocationFilterSidebar_() {
+    var allItems = (state.ordersGroups || []).reduce(function (acc, g) { return acc.concat(g.items || []); }, []);
+    $('ordersDisplayLocationFilter').innerHTML = checkboxFilterOptionsHtml_(allItems, 'currentDisplayLocation', state.ordersFilters.currentDisplayLocation);
   }
   function loadOrders() {
     var filters = {
@@ -2345,6 +2385,7 @@
     syncOrdersFilterClearVisibility_();
     return gasRun('api_listOrders', filters, groupBy).then(function (groups) {
       state.ordersGroups = groups || [];
+      renderOrdersLocationFilterSidebar_();
       renderOrders();
     }).catch(function (err) { showToast(err.message, true); });
   }
@@ -2486,7 +2527,11 @@
 
   function renderOrders() {
     var container = $('ordersGroups');
-    var groups = state.ordersGroups || [];
+    var rawGroups = state.ordersGroups || [];
+    var locationFilter = state.ordersFilters.currentDisplayLocation;
+    var groups = rawGroups
+      .map(function (g) { return { key: g.key, items: filterByCheckedValues_(g.items, 'currentDisplayLocation', locationFilter) }; })
+      .filter(function (g) { return !g.key || g.items.length > 0; });
     var totalItems = groups.reduce(function (n, g) { return n + g.items.length; }, 0);
     $('ordersEmpty').classList.toggle('hidden', totalItems > 0);
     $('ordersTotalCount').textContent = '該当 ' + totalItems + ' 台';
@@ -2521,7 +2566,14 @@
   function syncWholesaleOrdersFilterClearVisibility_() {
     var hasLocation = !!$('wholesaleOrdersLocationFilter').value;
     var hasSalesStore = !!$('wholesaleOrdersSalesStoreFilter').value;
-    $('btnWholesaleOrdersFilterClear').classList.toggle('hidden', !(hasLocation || hasSalesStore));
+    var hasDisplayLocation = state.wholesaleOrdersFilters.currentDisplayLocation.length > 0;
+    $('btnWholesaleOrdersFilterClear').classList.toggle('hidden', !(hasLocation || hasSalesStore || hasDisplayLocation));
+  }
+  // 「現展示拠点」の絞り込みチェックボックスを、取得済みの全グループの車両から
+  // 動的に作り直す（renderOrdersLocationFilterSidebar_と同じ考え方）。
+  function renderWholesaleOrdersLocationFilterSidebar_() {
+    var allItems = (state.wholesaleOrdersGroups || []).reduce(function (acc, g) { return acc.concat(g.items || []); }, []);
+    $('wholesaleOrdersDisplayLocationFilter').innerHTML = checkboxFilterOptionsHtml_(allItems, 'currentDisplayLocation', state.wholesaleOrdersFilters.currentDisplayLocation);
   }
   function loadWholesaleOrders() {
     var filters = {
@@ -2533,6 +2585,7 @@
     syncWholesaleOrdersFilterClearVisibility_();
     return gasRun('api_listWholesaleOrders', filters, groupBy).then(function (groups) {
       state.wholesaleOrdersGroups = groups || [];
+      renderWholesaleOrdersLocationFilterSidebar_();
       renderWholesaleOrders();
     }).catch(function (err) { showToast(err.message, true); });
   }
@@ -2659,7 +2712,11 @@
 
   function renderWholesaleOrders() {
     var container = $('wholesaleOrdersGroups');
-    var groups = state.wholesaleOrdersGroups || [];
+    var rawGroups = state.wholesaleOrdersGroups || [];
+    var locationFilter = state.wholesaleOrdersFilters.currentDisplayLocation;
+    var groups = rawGroups
+      .map(function (g) { return { key: g.key, items: filterByCheckedValues_(g.items, 'currentDisplayLocation', locationFilter) }; })
+      .filter(function (g) { return !g.key || g.items.length > 0; });
     var totalItems = groups.reduce(function (n, g) { return n + g.items.length; }, 0);
     $('wholesaleOrdersEmpty').classList.toggle('hidden', totalItems > 0);
     $('wholesaleOrdersTotalCount').textContent = '該当 ' + totalItems + ' 台';
@@ -2718,6 +2775,13 @@
     on(id, 'change', loadOrders);
   });
   on('ordersGroupByFilter', 'change', loadOrders);
+  on('ordersDisplayLocationFilter', 'change', function (e) {
+    if (e.target.type !== 'checkbox') return;
+    state.ordersFilters.currentDisplayLocation = Array.prototype.slice.call($('ordersDisplayLocationFilter').querySelectorAll('input[type="checkbox"]:checked'))
+      .map(function (el) { return el.value; });
+    renderOrders();
+    syncOrdersFilterClearVisibility_();
+  });
 
   on('btnOrdersFilterClear', 'click', function () {
     $('ordersKeyword').value = '';
@@ -2725,6 +2789,8 @@
     $('ordersStaffFilter').value = '';
     var defaultGroupBy = document.querySelector('#ordersGroupByFilter input[value=""]');
     if (defaultGroupBy) defaultGroupBy.checked = true;
+    state.ordersFilters.currentDisplayLocation = [];
+    document.querySelectorAll('#ordersDisplayLocationFilter input').forEach(function (el) { el.checked = false; });
     loadOrders();
   });
 
@@ -2733,6 +2799,13 @@
     on(id, 'change', loadWholesaleOrders);
   });
   on('wholesaleOrdersGroupByFilter', 'change', loadWholesaleOrders);
+  on('wholesaleOrdersDisplayLocationFilter', 'change', function (e) {
+    if (e.target.type !== 'checkbox') return;
+    state.wholesaleOrdersFilters.currentDisplayLocation = Array.prototype.slice.call($('wholesaleOrdersDisplayLocationFilter').querySelectorAll('input[type="checkbox"]:checked'))
+      .map(function (el) { return el.value; });
+    renderWholesaleOrders();
+    syncWholesaleOrdersFilterClearVisibility_();
+  });
 
   on('btnWholesaleOrdersFilterClear', 'click', function () {
     $('wholesaleOrdersKeyword').value = '';
@@ -2740,6 +2813,8 @@
     $('wholesaleOrdersSalesStoreFilter').value = '';
     var defaultWholesaleGroupBy = document.querySelector('#wholesaleOrdersGroupByFilter input[value=""]');
     if (defaultWholesaleGroupBy) defaultWholesaleGroupBy.checked = true;
+    state.wholesaleOrdersFilters.currentDisplayLocation = [];
+    document.querySelectorAll('#wholesaleOrdersDisplayLocationFilter input').forEach(function (el) { el.checked = false; });
     loadWholesaleOrders();
   });
 
@@ -2784,12 +2859,13 @@
       fillStaticSelectOptions_(opts.yearFilterId, YEAR_BUCKET_OPTIONS, f.yearBucket);
       fillStaticSelectOptions_(opts.priceFilterId, PRICE_BUCKET_OPTIONS, f.priceBucket);
       fillStaticSelectOptions_(opts.mileageFilterId, MILEAGE_BUCKET_OPTIONS, f.mileageBucket);
+      $(opts.locationFilterId).innerHTML = checkboxFilterOptionsHtml_(items, 'currentDisplayLocation', f.location);
       syncClearVisibility();
     }
 
     function syncClearVisibility() {
       var f = state[opts.filtersKey];
-      var hasAny = !!f.color || !!f.yearBucket || !!f.priceBucket || !!f.mileageBucket || f.status.length > 0;
+      var hasAny = !!f.color || !!f.yearBucket || !!f.priceBucket || !!f.mileageBucket || f.status.length > 0 || f.location.length > 0;
       $(opts.clearBtnId).classList.toggle('hidden', !hasAny);
     }
 
@@ -2833,10 +2909,17 @@
       render();
       syncClearVisibility();
     });
+    on(opts.locationFilterId, 'change', function (e) {
+      if (e.target.type !== 'checkbox') return;
+      state[opts.filtersKey].location = Array.prototype.slice.call($(opts.locationFilterId).querySelectorAll('input[type="checkbox"]:checked'))
+        .map(function (el) { return el.value; });
+      render();
+      syncClearVisibility();
+    });
     on(opts.clearBtnId, 'click', function () {
-      state[opts.filtersKey] = { color: '', yearBucket: '', priceBucket: '', mileageBucket: '', status: [] };
+      state[opts.filtersKey] = { color: '', yearBucket: '', priceBucket: '', mileageBucket: '', status: [], location: [] };
       $(opts.keywordId).value = '';
-      document.querySelectorAll('#' + opts.statusFilterId + ' input').forEach(function (el) { el.checked = false; });
+      document.querySelectorAll('#' + opts.statusFilterId + ' input, #' + opts.locationFilterId + ' input').forEach(function (el) { el.checked = false; });
       load();
     });
 
@@ -2848,7 +2931,8 @@
     keywordId: 'demoCarListKeyword', countId: 'demoCarListTotalCount',
     colorFilterId: 'demoCarListColorFilter', yearFilterId: 'demoCarListYearFilter',
     priceFilterId: 'demoCarListPriceFilter', mileageFilterId: 'demoCarListMileageFilter',
-    statusFilterId: 'demoCarListStatusFilter', clearBtnId: 'btnDemoCarListFilterClear',
+    statusFilterId: 'demoCarListStatusFilter', locationFilterId: 'demoCarListLocationFilter',
+    clearBtnId: 'btnDemoCarListFilterClear',
     bodyId: 'demoCarListBody', emptyId: 'demoCarListEmpty',
     detailModalId: 'demoCarListDetailModal', detailBodyId: 'demoCarListDetailBody'
   });
@@ -2857,7 +2941,8 @@
     keywordId: 'serviceCarListKeyword', countId: 'serviceCarListTotalCount',
     colorFilterId: 'serviceCarListColorFilter', yearFilterId: 'serviceCarListYearFilter',
     priceFilterId: 'serviceCarListPriceFilter', mileageFilterId: 'serviceCarListMileageFilter',
-    statusFilterId: 'serviceCarListStatusFilter', clearBtnId: 'btnServiceCarListFilterClear',
+    statusFilterId: 'serviceCarListStatusFilter', locationFilterId: 'serviceCarListLocationFilter',
+    clearBtnId: 'btnServiceCarListFilterClear',
     bodyId: 'serviceCarListBody', emptyId: 'serviceCarListEmpty',
     detailModalId: 'serviceCarListDetailModal', detailBodyId: 'serviceCarListDetailBody'
   });
