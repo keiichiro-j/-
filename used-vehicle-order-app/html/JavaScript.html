@@ -59,6 +59,17 @@
     modelBodyTypeRules: [], // 設定タブで編集中のボディタイプ紐付けルール（作業用コピー）
     modelPhotos: [], // 設定タブで編集中の車両画像（作業用コピー）
     homeBodyTypeFilter: '', // ホーム画面の型クイックナビで選択中の型（空文字は「すべて」）
+    // ホーム画面の車両プール（在庫リスト＋デモカーリスト＋サービス代車リストの3シートを
+    // 束ねたもの。受注リストは対象外）。api_listHomeVehiclePool（Api.gs参照）で取得する。
+    // 不具合修正: 以前は区分「在庫」の在庫リストの車両だけを対象にしていたが、デモカー
+    // リスト・サービス代車リストが在庫リストの区分からの自動反映ではなく各シートへの
+    // 直接入力に変わったことに合わせ、この3シート全体を対象にする（現場からの要望）。
+    homeVehiclePool: [],
+    // ホーム画面左の絞り込みサイドバー用の状態。在庫リストの絞り込みサイドバーと同じ
+    // カラー・初年度登録日・価格帯・走行距離（区分・現展示拠点・掲載状況はホームには
+    // 設けない）。キーワード検索は#homeKeywordの値をその都度読む（他の絞り込みと同じ
+    // クライアント側絞り込みのため、別途状態に持つ必要が無い）。
+    homeFilters: { color: '', yearBucket: '', priceBucket: '', mileageBucket: '' },
     notifyHoldMailTo: [], // 設定タブで編集中のメール通知先（Hold時、作業用コピー）
     notifyOrderMailTo: [], // 設定タブで編集中のメール通知先（受注確定時、作業用コピー）
     notifyErrorMailTo: [], // 設定タブで編集中のメール通知先（システムエラー通知、作業用コピー）
@@ -1012,6 +1023,52 @@
     });
   }
 
+  /**
+   * ホーム画面左の絞り込みサイドバー用（純粋関数）。在庫リストと同じカラー・
+   * 初年度登録日・価格帯・走行距離で、3シート分の車両プール（在庫リスト＋
+   * デモカーリスト＋サービス代車リスト）を絞り込む。キーワードはモデル・
+   * コミッション・ＯＣＮ・車台番号下４桁・登録番号への部分一致
+   * （matchesAnyField_、マイページの自由検索と同じ考え方）。
+   */
+  function applyHomeFilters_(items, keyword) {
+    var f = state.homeFilters;
+    return items.filter(function (v) {
+      if (keyword && !matchesAnyField_([v.model, v.commission, v.ocn, v.chassisNumberLast4,
+        v.plateRegion, v.plateClass, v.plateKana, v.plateNumber], keyword)) return false;
+      if (f.color && (v.exteriorColor || '') !== f.color) return false;
+      if (f.yearBucket && yearBucketOf_(v) !== f.yearBucket) return false;
+      if (f.priceBucket && priceBucketOf_(v) !== f.priceBucket) return false;
+      if (f.mileageBucket && mileageBucketOf_(v) !== f.mileageBucket) return false;
+      return true;
+    });
+  }
+
+  /**
+   * ホーム画面の絞り込みサイドバーの「カラー」選択肢を、取得済みの車両プールから
+   * 動的に作り直す（在庫リストのrenderInventoryFilterSidebar_と同じ考え方。年式・
+   * 価格帯・走行距離は固定の選択肢のためIndex.html側に直接書いている）。
+   */
+  function renderHomeFilterSidebar_() {
+    var items = state.homeVehiclePool || [];
+    var colors = [];
+    items.forEach(function (v) { if (v.exteriorColor && colors.indexOf(v.exteriorColor) === -1) colors.push(v.exteriorColor); });
+    colors.sort();
+    var colorSelect = $('homeColorFilter');
+    var currentColor = state.homeFilters.color;
+    colorSelect.innerHTML = '<option value="">指定なし</option>' + colors.map(function (c) {
+      return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>';
+    }).join('');
+    colorSelect.value = colors.indexOf(currentColor) !== -1 ? currentColor : '';
+    if (colorSelect.value !== currentColor) state.homeFilters.color = colorSelect.value;
+    syncHomeFilterClearVisibility_();
+  }
+
+  function syncHomeFilterClearVisibility_() {
+    var f = state.homeFilters;
+    var hasAny = !!$('homeKeyword').value || !!f.color || !!f.yearBucket || !!f.priceBucket || !!f.mileageBucket;
+    $('btnHomeFilterClear').classList.toggle('hidden', !hasAny);
+  }
+
   function sortInventoryItems_(items) {
     var key = state.inventorySort;
     if (!key) return items;
@@ -1085,6 +1142,9 @@
   fillStaticSelectOptions_('inventoryPriceFilter', PRICE_BUCKET_OPTIONS, state.inventoryFilters.priceBucket);
   fillStaticSelectOptions_('inventoryMileageFilter', MILEAGE_BUCKET_OPTIONS, state.inventoryFilters.mileageBucket);
   fillStaticSelectOptions_('inventorySort', INVENTORY_SORT_OPTIONS, state.inventorySort);
+  fillStaticSelectOptions_('homeYearFilter', YEAR_BUCKET_OPTIONS, state.homeFilters.yearBucket);
+  fillStaticSelectOptions_('homePriceFilter', PRICE_BUCKET_OPTIONS, state.homeFilters.priceBucket);
+  fillStaticSelectOptions_('homeMileageFilter', MILEAGE_BUCKET_OPTIONS, state.homeFilters.mileageBucket);
 
   // dd（値）はカード・詳細モーダルどちらでも折り返さず省略記号にする方針
   // （.card__metaGrid dd、Stylesheet.html参照。折り返すとカードごとに高さが
@@ -1750,6 +1810,25 @@
     ['inventoryColorFilter', 'inventoryYearFilter', 'inventoryPriceFilter', 'inventoryMileageFilter', 'inventorySort'].forEach(function (id) { $(id).value = ''; });
     document.querySelectorAll('#inventoryCategoryFilter input, #inventoryLocationFilter input, #inventoryListedFilter input').forEach(function (el) { el.checked = false; });
     loadInventory();
+  });
+
+  // ----- ホーム画面の絞り込みサイドバー（在庫リストと同じ考え方。キーワードも
+  //       サーバーへ問い合わせず、取得済みのstate.homeVehiclePoolをクライアント
+  //       だけで絞り込み直す） -----
+  on('homeKeyword', 'input', debounce(renderHomeGallery_, 250));
+
+  [['homeColorFilter', 'color'], ['homeYearFilter', 'yearBucket'], ['homePriceFilter', 'priceBucket'], ['homeMileageFilter', 'mileageBucket']].forEach(function (pair) {
+    on(pair[0], 'change', function () {
+      state.homeFilters[pair[1]] = this.value;
+      renderHomeGallery_();
+    });
+  });
+
+  on('btnHomeFilterClear', 'click', function () {
+    state.homeFilters = { color: '', yearBucket: '', priceBucket: '', mileageBucket: '' };
+    $('homeKeyword').value = '';
+    ['homeColorFilter', 'homeYearFilter', 'homePriceFilter', 'homeMileageFilter'].forEach(function (id) { $(id).value = ''; });
+    renderHomeGallery_();
   });
 
   // ===== Hold / 受注 共通モーダル =====
@@ -3728,12 +3807,27 @@
     return gasRun('api_listInventory', { keyword: '', includeHold: true }).then(function (groups) {
       state.allInventoryItems = (groups && groups[0] && groups[0].items) || [];
       renderMyPageHolds_();
-      renderHomeGallery_();
     }).catch(function (err) {
       // 補助的な表示のためトースト等では知らせないが、原因調査ができるよう
       // コンソールには必ず残す（以前はここで完全にエラーを握りつぶしていたため、
       // マイページのHold中車両一覧が表示されない不具合の原因がまったく分からなかった）。
       console.error('[used-vehicle-order-app] 在庫全件の取得でエラーが発生しました:', err);
+    });
+  }
+
+  /**
+   * ホーム画面専用。在庫リスト＋デモカーリスト＋サービス代車リストの3シートを
+   * 束ねた車両プール（api_listHomeVehiclePool、Api.gs参照）を取得する。
+   * state.allInventoryItems（マイページ専用、在庫リストのみ）とは別に持つ
+   * （ホームは受注リストを除く3シート全体が対象のため）。
+   */
+  function loadHomeVehiclePool_() {
+    return gasRun('api_listHomeVehiclePool').then(function (items) {
+      state.homeVehiclePool = items || [];
+      renderHomeFilterSidebar_();
+      renderHomeGallery_();
+    }).catch(function (err) {
+      console.error('[used-vehicle-order-app] ホーム画面用の車両プール取得でエラーが発生しました:', err);
     });
   }
 
@@ -3856,22 +3950,26 @@
   function renderHomeGallery_() {
     var allModelPhotos = (state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.modelPhotos) || [];
     renderHomeTypeNav_();
-    // 不具合修正: 以前は区分に関係なく在庫リストの全車両（デモカー・サービス等も
-    // 含む）を集計していたため、ホームの在庫台数がデモカー・サービスの台数も
-    // 含んだ数になっていた（現場からの指摘「在庫区分に関係なく表示されている」）。
-    // 区分が「在庫」の車両だけに絞り込んでから集計・グレードチップ・未登録
-    // モデルの判定を行う（homeModelCardHtml_・unphotographedModelEntries_に
-    // 共通で効くよう、ここで一箇所だけ絞り込む）。
-    var allItems = (state.allInventoryItems || []).filter(function (v) { return v.category === '在庫'; });
-    var allEntries = allModelPhotos.concat(unphotographedModelEntries_(allItems, allModelPhotos));
+    // 不具合修正: 以前は在庫リストの区分「在庫」の車両だけを集計対象にしていたが、
+    // デモカーリスト・サービス代車リストが在庫リストの区分からの自動反映ではなく
+    // 各シートへの直接入力に変わったことに合わせ（CarTrackingService.gs参照）、
+    // 在庫リスト＋デモカーリスト＋サービス代車リストの3シート全体（受注リストは
+    // 対象外）を集計・絞り込みの対象にする（現場からの要望）。左の絞り込み
+    // サイドバー（カラー・初年度登録日・価格帯・走行距離・キーワード）も、この
+    // 3シート分の車両プールに対して適用する（applyHomeFilters_参照）。
+    var pool = applyHomeFilters_(state.homeVehiclePool || [], $('homeKeyword').value);
+    var allEntries = allModelPhotos.concat(unphotographedModelEntries_(pool, allModelPhotos));
     var entries = state.homeBodyTypeFilter
       ? allEntries.filter(function (p) { return p.bodyType === state.homeBodyTypeFilter; })
       : allEntries;
     $('homeEmpty').classList.toggle('hidden', allEntries.length > 0);
     $('homeTypeEmpty').classList.toggle('hidden', !(allEntries.length > 0 && entries.length === 0));
     $('homeGrid').innerHTML = entries
-      .map(function (p) { return homeModelCardHtml_(p, allItems, allModelPhotos); })
+      .map(function (p) { return homeModelCardHtml_(p, pool, allModelPhotos); })
       .join('');
+    var allCount = (state.homeVehiclePool || []).length;
+    $('homeFilterCount').textContent = allCount ? '該当 ' + pool.length + '台 ／ 全' + allCount + '台' : '';
+    syncHomeFilterClearVisibility_();
     renderHomeAnnouncement_((state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.homeAnnouncement) || '');
   }
 
@@ -4361,7 +4459,8 @@
     });
     return Promise.all([
       bootstrapPromise, loadInventory(), loadOrders(), loadWholesaleOrders(),
-      loadAllInventoryItems_(), loadMyPageOrders_(), loadDemoCarList(), loadServiceCarList()
+      loadAllInventoryItems_(), loadMyPageOrders_(), loadDemoCarList(), loadServiceCarList(),
+      loadHomeVehiclePool_()
     ]);
   }
 

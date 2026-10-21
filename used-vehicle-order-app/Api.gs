@@ -178,16 +178,33 @@ function api_listWholesaleOrders(filters, groupBy) {
 // （モデル・コミッション・ＯＣＮ・車台番号下４桁・登録番号への部分一致）。
 // includeHoldはデモカーリスト・サービス代車リストのデータにはholdStatusが
 // 無いため常に無視される（filters.includeHold === falseの分岐が素通りする）。
+// これらのシートはもう在庫リストの区分からの自動反映ではなく、各シートへの
+// 直接入力で内容が決まる（CarTrackingService.gs参照）。
 function api_listDemoCarList(filters) {
   var email = Session.getActiveUser().getEmail();
   if (!isSystemAdmin_(email)) return [];
-  return searchInventory(listCarTrackingList_(getDemoCarListSheet_(), DEMO_CAR_CATEGORY_VALUE), filters);
+  return searchInventory(listCarTrackingList_(getDemoCarListSheet_()), filters);
 }
 
 function api_listServiceCarList(filters) {
   var email = Session.getActiveUser().getEmail();
   if (!isSystemAdmin_(email)) return [];
-  return searchInventory(listCarTrackingList_(getServiceCarListSheet_(), SERVICE_CAR_CATEGORY_VALUE), filters);
+  return searchInventory(listCarTrackingList_(getServiceCarListSheet_()), filters);
+}
+
+/**
+ * ホーム画面の車両ギャラリー・絞り込み検索専用。在庫リスト＋デモカーリスト＋
+ * サービス代車リストの3シートを束ねた車両プールを返す（受注リスト・業販受注
+ * リストは対象外）。デモカーリスト・サービス代車リストのタブ自体（一覧・編集）は
+ * 管理者限定だが、ホーム画面は全担当者が使う画面であり、3シート全体から
+ * 車両を検索・一覧できるようにしてほしいという要望のため、このAPIに限り
+ * 管理者判定を行わない（車両の基本情報のみで、Hold状況や備考等の管理用
+ * 情報は含まない一覧用途のため）。
+ */
+function api_listHomeVehiclePool() {
+  return listInventory()
+    .concat(listCarTrackingList_(getDemoCarListSheet_()))
+    .concat(listCarTrackingList_(getServiceCarListSheet_()));
 }
 
 // ===== 設定機能（3.6） =====

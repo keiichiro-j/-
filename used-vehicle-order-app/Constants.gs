@@ -240,17 +240,8 @@ var INVENTORY_COLUMNS = VEHICLE_COLUMNS.concat([
 ]);
 
 /**
- * デモカーリスト／サービス代車リストで対象にする「区分」（VEHICLE_COLUMNSの
- * category列）の値。区分がこの値と完全一致する在庫リストの車両を、それぞれの
- * 専用シートへ反映する（CarTrackingService.gs参照）。
- */
-var DEMO_CAR_CATEGORY_VALUE = 'デモカー';
-var SERVICE_CAR_CATEGORY_VALUE = 'サービス';
-
-/**
- * デモカーリスト／サービス代車リストの「販売状況」列の値。在庫リストに
- * まだある間は在庫中、受注確定により在庫リストから除外されると販売済みに
- * なる（CarTrackingService.gs参照）。
+ * デモカーリスト／サービス代車リストの「販売状況」列の値。各シートへ直接
+ * 入力・編集する（CarTrackingService.gs参照）。
  */
 var CAR_TRACKING_STATUS = {
   IN_STOCK: '在庫中',
@@ -266,12 +257,12 @@ var CAR_TRACKING_STATUS = {
 var CAR_TRACKING_COLUMNS = VEHICLE_COLUMNS.concat([
   {
     key: 'mp', label: 'MP', type: 'text',
-    note: 'メーカーの定めた年式仕様です。在庫リストの値をアプリが自動反映します。手動編集しないでください。'
+    note: 'メーカーの定めた年式仕様です。'
   },
   {
     key: 'saleStatus', label: '販売状況', type: 'select', options: [CAR_TRACKING_STATUS.IN_STOCK, CAR_TRACKING_STATUS.SOLD],
-    note: 'アプリが自動更新する値です（在庫中＝在庫リストにまだある、販売済み＝在庫リストから' +
-      '受注確定により除外された）。手動編集しないでください。'
+    note: '在庫中／販売済みを手動で選択してください（このシートは在庫リストから自動反映' +
+      'されないため、販売状況の更新も手動で行う運用になります）。'
   }
 ]);
 

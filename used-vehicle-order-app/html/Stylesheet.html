@@ -501,20 +501,20 @@
     border-radius: 8px;
   }
 
-  /* 写真を小さくし、PC幅では横一列に4枚並ぶ固定4列グリッドにする（現場からの
-     要望）。タブレット・スマホ幅は列数を段階的に減らし、写真は小さくても
-     欠けずに見えるようauto-fillで自然に折り返す。 */
+  /* 画面幅に関わらず、常に横一列3枚の固定3列グリッドにする（現場からの要望
+     「ホームに表示する車両画像を一列3枚にして」）。列数自体は変えず、
+     余白・間隔だけ画面幅に応じて段階的に広げる。 */
   .homeGrid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    gap: 12px;
-    padding: 4px 24px 24px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    padding: 4px 12px 16px;
   }
   @media (min-width: 481px) {
-    .homeGrid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+    .homeGrid { gap: 14px; padding: 4px 20px 20px; }
   }
   @media (min-width: 901px) {
-    .homeGrid { grid-template-columns: repeat(4, 1fr); gap: 16px; padding: 16px 24px 24px; }
+    .homeGrid { gap: 16px; padding: 16px 24px 24px; }
   }
   .homeCard {
     background: var(--surface);

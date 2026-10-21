@@ -175,29 +175,65 @@
 
     <!-- ホーム: 以前あった「車両画像ギャラリー」を、現在のヘッダー・コマンドバー構成に
          合わせて再実装したもの。設定タブ（管理者限定）で登録した車両画像を、型
-         （ボディタイプ）クイックナビで絞り込みながらグリッドで並べる。写真・モデル名・
-         在庫台数をタップ・クリックなしでカードに表示し、カード（またはグレードチップ）を
-         タップすると、その画像の自動判定条件に一致する車両のキーワードで在庫リストへ
-         遷移する（handleHomeCardClick_、JavaScript.html参照。在庫リスト自体の絞り込み・
-         検索の仕組みは変更していない）。 -->
-    <main class="view is-active" id="view-home">
-      <!-- お知らせ・型クイックナビは、どちらも画面上部に固定表示したいため（現場からの
-           要望）、同じ.commandbar（position: sticky、Stylesheet.html参照）の中に
-           まとめて置く。お知らせ: 管理者が設定タブから入力した案内文
-           （例:「限定車在庫3台あり」）を全利用者向けに表示する
-           （renderHomeAnnouncement_、JavaScript.html参照）。未設定の場合は要素ごと非表示。 -->
+         （ボディタイプ）クイックナビ・左の絞り込みサイドバーで絞り込みながらグリッドで
+         並べる。写真・モデル名・在庫台数をタップ・クリックなしでカードに表示し、カード
+         （またはグレードチップ）をタップすると、その画像の自動判定条件に一致する車両の
+         キーワードで在庫リストへ遷移する（handleHomeCardClick_、JavaScript.html参照。
+         在庫リスト自体の絞り込み・検索の仕組みは変更していない）。
+         不具合修正: 以前は在庫リストの区分「在庫」の車両だけを集計対象にしていたが、
+         デモカーリスト・サービス代車リストが在庫リストの区分からの自動反映ではなく
+         各シートへの直接入力に変わったことに合わせ（CarTrackingService.gs参照）、
+         ホームの集計・絞り込み・画像タップからの検索は、在庫リスト＋デモカーリスト＋
+         サービス代車リストの3シートすべてを対象にする（受注リストは対象外、現場からの
+         要望）。左の絞り込みサイドバーは、在庫リストの主要な絞り込み項目
+         （カラー・初年度登録日・価格帯・走行距離）と同じ考え方で、この3シート分の
+         車両プールに対して絞り込む（区分・掲載状況はホームには設けない）。 -->
+    <main class="view view--list is-active" id="view-home">
       <div class="commandbar">
         <div class="homeAnnouncement hidden" id="homeAnnouncement"></div>
         <div class="scroller homeTypeNav" id="homeTypeNav" role="tablist" aria-label="型で絞り込み"></div>
       </div>
-      <div id="homeGrid" class="homeGrid"></div>
-      <div class="emptyState hidden" id="homeEmpty">
-        <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-home"></use></svg></span>
-        <p>車両画像が登録されていません。設定タブの「車両画像」から登録してください。</p>
-      </div>
-      <div class="emptyState hidden" id="homeTypeEmpty">
-        <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-home"></use></svg></span>
-        <p>この型に該当する車両画像がありません</p>
+      <div class="listBody">
+        <aside class="filterSidebar" aria-label="ホームの絞り込み">
+          <div class="filterSidebar__head">
+            <p class="filterSidebar__title">条件検索</p>
+            <span class="filterSidebar__count" id="homeFilterCount"></span>
+            <button type="button" class="filterSidebar__clearBtn hidden" id="btnHomeFilterClear">クリア</button>
+          </div>
+          <div class="filterSidebar__field">
+            <div class="searchbox">
+              <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
+              <input type="search" id="homeKeyword" placeholder="モデル・ＯＣＮ・コミッション・車台番号下４桁・登録番号で検索">
+            </div>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">カラー</label>
+            <select id="homeColorFilter" class="input"><option value="">指定なし</option></select>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">初年度登録日</label>
+            <select id="homeYearFilter" class="input"></select>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">価格帯</label>
+            <select id="homePriceFilter" class="input"></select>
+          </div>
+          <div class="filterSidebar__field">
+            <label class="filterSidebar__groupLabel">走行距離</label>
+            <select id="homeMileageFilter" class="input"></select>
+          </div>
+        </aside>
+        <div class="listBody__main">
+          <div id="homeGrid" class="homeGrid"></div>
+          <div class="emptyState hidden" id="homeEmpty">
+            <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-home"></use></svg></span>
+            <p>車両画像が登録されていません。設定タブの「車両画像」から登録してください。</p>
+          </div>
+          <div class="emptyState hidden" id="homeTypeEmpty">
+            <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-home"></use></svg></span>
+            <p>該当する車両画像がありません</p>
+          </div>
+        </div>
       </div>
     </main>
 

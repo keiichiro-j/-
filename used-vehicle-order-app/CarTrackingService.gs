@@ -2,137 +2,27 @@
  * CarTrackingService.gs
  * デモカーリスト／サービス代車リスト機能
  *
- * 在庫リストの区分（category）が「デモカー」「サービス」の車両を、在庫リストとは
- * 別の専用シート（デモカーリスト・サービス代車リスト）へ反映する。管理者権限を
- * 持つ担当者のみ閲覧できる（Api.gs参照）。在庫リストの区分デモカー・サービスの
- * 車両自体は、これまでどおり在庫リストにも変わらず表示され続ける（このシートは
- * 追加の管理用ビューであり、在庫リストからは何も除外しない）。
+ * デモカーリスト・サービス代車リストは、在庫リストとは完全に独立した専用シート。
+ * 以前は在庫リストの区分（category）が「デモカー」「サービス」の車両を自動的に
+ * 転記していたが、区分という自由記述のテキスト値をキーにした自動反映は廃止した
+ * （不具合修正: 区分の表記ゆれ・入力ミスで反映漏れが起きやすく、またどのシートに
+ * 載るかが区分の値だけで決まるため分かりにくいという指摘があった）。
  *
- * 反映のタイミングは4種類:
- *   1. 在庫リストの直接編集（新規行の追加・区分の変更・情報修正）: インストール型の
- *      onEditトリガー（Triggers.gsのtriggerInventoryEdited参照）が、在庫リストへの
- *      編集のたびにsyncAllCarTrackingLists_を呼び出し、その時点の在庫リストの内容へ
- *      自動同期する。誰が編集してもオーナー権限で確実に動くよう、簡易トリガーでは
- *      なくインストール型にしている。
- *   2. 5分おきの定期同期（Triggers.gsのtriggerCarTrackingPeriodicSync参照）:
- *      1のonEditトリガーが編集の種類・実行環境によっては発火しないケースが
- *      稀にあり得るため、5分おきに必ず同期し直す保険。onEditが機能しなくても、
- *      最大5分以内には確実に反映される。
- *   3. デモカーリスト／サービス代車リストをアプリで開いたとき: 一覧取得のたび
- *      （listCarTrackingList_）にも同期する。上記1・2が未設定・何らかの理由で
- *      取りこぼした場合のさらなる保険を兼ねる。
- *   4. 販売済みへの変更・在庫への復帰: 受注確定（在庫リストからの除外）・
- *      受注キャンセル（在庫リストへの復元）はアプリが完全に制御する操作のため、
- *      その瞬間に正確に反映できる。OrderService.gsのconfirmOrder・
- *      confirmWholesaleOrder・cancelOrder・cancelWholesaleOrderから
- *      markCarTrackingIfApplicable_を呼び出す。
+ * 現在は「スプレッドシートのどのタブに行を入力するか」がそのままアプリ側での
+ * 一覧の振り分けになる。担当者がデモカーリスト・サービス代車リストの各シートへ
+ * 直接、車両情報を手入力・編集する（CAR_TRACKING_COLUMNS、Constants.gs参照）。
+ * アプリは一覧表示のみを行い、内容の自動生成・自動更新は一切行わない。
  *
- * 既存の在庫（この機能を追加する前から在庫リストにあった車両）も、上記いずれかの
- * タイミングで自動的に反映される。今すぐ反映したい場合は、スプレッドシートの
- * メニュー「販売可能リスト」→「デモカーリスト・サービス代車リストを在庫リストの
- * 内容で更新」（SetupService.gsのsyncCarTrackingListsManually_）、または
- * 「デモカー/サービス代車リスト 自動反映の動作確認」（診断とあわせてその場で
- * 同期も行う、SetupService.gsのdiagnoseCarTrackingTriggers_）を実行するか、
- * 初期セットアップ（setupSpreadsheet_）を再実行する。
+ * 在庫リストの区分「デモカー」「サービス」の車両自体は、この変更の前後で
+ * 表示・Hold・受注のいずれも変わらず、これまでどおり在庫リストに表示され続ける
+ * （在庫リストとデモカーリスト・サービス代車リストは、同じ車両を指す行が
+ * 両方に存在してもよい、互いに独立したシートという位置づけ）。
  */
 
 /**
- * 半角カタカナ（例: "ﾃﾞﾓｶｰ"）を全角カタカナ（"デモカー"）に正規化する。
- * 区分は自由記述のテキスト列のため、IME設定等により半角カタカナで入力されて
- * いても全角と同じ区分として扱えるようにする（不具合修正: 現場からの指摘
- * 「デモカー・サービスの区分が全角でしか反映されない」）。NFKC正規化
- * （String.prototype.normalize、Apps ScriptのV8ランタイムで利用可）は、
- * 半角カタカナ・半角濁点/半角長音記号を対応する全角カタカナへ変換する
- * 標準的な仕組みで、全角の文字列に対しては何も変化させない（副作用なし）。
+ * デモカーリスト／サービス代車リストの一覧取得。シートの内容をそのまま返す
+ * （在庫リストとの自動同期は行わない）。
  */
-function normalizeKatakanaWidth_(s) {
-  return (typeof s.normalize === 'function') ? s.normalize('NFKC') : s;
-}
-
-/**
- * 在庫リストの区分（category）の値と、対象区分（デモカー／サービス）を比較する。
- * 区分は自由記述のテキスト列のため、スプレッドシート側で前後に空白が入って
- * しまっていても正しく一致と判定できるよう、前後の空白を無視して比較する
- * （不具合修正: 空白が原因で「デモカー」と完全一致せず、区分デモカーの車両が
- * 一件もデモカーリストに反映されないという事象があったため）。全角・半角の
- * カタカナ表記の違いも区別せず同じ区分として扱う（normalizeKatakanaWidth_参照）。
- */
-function categoryMatchesCarTracking_(category, targetValue) {
-  return normalizeKatakanaWidth_(String(category || '')).trim() === normalizeKatakanaWidth_(targetValue).trim();
-}
-
-/**
- * 区分の値から、対象のデモカーリスト／サービス代車リストのシートを返す
- * （対象外の区分の場合はnull）。
- */
-function carTrackingSheetForCategory_(category) {
-  if (categoryMatchesCarTracking_(category, DEMO_CAR_CATEGORY_VALUE)) return getDemoCarListSheet_();
-  if (categoryMatchesCarTracking_(category, SERVICE_CAR_CATEGORY_VALUE)) return getServiceCarListSheet_();
-  return null;
-}
-
-/**
- * 受注確定（販売済みへ）・受注キャンセル（在庫中へ）のタイミングで、対象車両の
- * 区分がデモカー／サービスであれば、専用シートの該当行へ販売状況を反映する。
- * 対象外の区分の車両（通常の在庫）には何もしない。
- * @param {Object} vehicle VEHICLE_COLUMNSのキー（category・ocn等）を持つ車両情報
- * @param {string} saleStatus CAR_TRACKING_STATUS.IN_STOCK または .SOLD
- */
-function markCarTrackingIfApplicable_(vehicle, saleStatus) {
-  var sheet = carTrackingSheetForCategory_(vehicle.category);
-  if (!sheet) return;
-  upsertCarTrackingRow_(sheet, vehicle, saleStatus);
-}
-
-/**
- * 現在の在庫リストのうち、指定区分の車両（＝在庫中のもの）を専用シートへ
- * 追加・最新情報へ更新する。販売済みへの変更はここでは行わない
- * （markCarTrackingIfApplicable_が受注確定の瞬間に正確に行うため、在庫リストに
- * 見当たらないからといってここで「販売済み」と推測することはしない。手動で
- * 在庫リストの行を削除した等の理由である可能性があり、誤って販売済みにして
- * しまうことを避ける）。
- */
-function syncCarTrackingFromInventory_(sheet, categoryValue) {
-  var liveVehicles = listInventory().filter(function (v) { return categoryMatchesCarTracking_(v.category, categoryValue); });
-  if (!liveVehicles.length) return;
-  // 不具合修正: 以前は車両1台ごとにupsertCarTrackingRow_を呼び出しており、対象車両が
-  // 多いとSheets APIの呼び出し回数が車両数に比例して増え、デモカーリスト・
-  // サービス代車リストの表示がタイムアウトする不具合の原因だった（SheetService.gsの
-  // upsertCarTrackingRows_参照）。まとめて1回のシート読み込み・書き込みで反映する。
-  upsertCarTrackingRows_(sheet, liveVehicles.map(function (v) {
-    return { vehicle: v, saleStatus: CAR_TRACKING_STATUS.IN_STOCK };
-  }));
-}
-
-/**
- * デモカーリスト／サービス代車リストの一覧取得。取得のたびに在庫リストの
- * 最新内容へ同期してから返す（syncCarTrackingFromInventory_参照）。
- */
-function listCarTrackingList_(sheet, categoryValue) {
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
-  try {
-    syncCarTrackingFromInventory_(sheet, categoryValue);
-  } finally {
-    lock.releaseLock();
-  }
+function listCarTrackingList_(sheet) {
   return listCarTracking_(sheet);
-}
-
-/**
- * デモカーリスト・サービス代車リスト双方を、現在の在庫リストの内容へ同期する。
- * 在庫リスト編集時のonEditトリガー（Triggers.gsのtriggerInventoryEdited）・
- * 初期セットアップ実行時（SetupService.gsのsetupSpreadsheet_）・手動同期メニュー
- * （SetupService.gsのsyncCarTrackingListsManually_）のいずれからも呼び出す
- * 共通処理。
- */
-function syncAllCarTrackingLists_() {
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
-  try {
-    syncCarTrackingFromInventory_(getDemoCarListSheet_(), DEMO_CAR_CATEGORY_VALUE);
-    syncCarTrackingFromInventory_(getServiceCarListSheet_(), SERVICE_CAR_CATEGORY_VALUE);
-  } finally {
-    lock.releaseLock();
-  }
 }

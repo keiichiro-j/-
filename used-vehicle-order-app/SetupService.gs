@@ -24,13 +24,13 @@
 
 /**
  * 在庫リスト・Holdリスト・受注リスト・業販受注リスト・変更履歴・デモカーリスト・
- * サービス代車リストを作成し、Hold期限チェック・在庫リスト編集時の自動反映
- * （デモカーリスト・サービス代車リスト向け）の各トリガーをセットアップする。
+ * サービス代車リストを作成し、Hold期限チェックのトリガーをセットアップする。
  * GASエディタから手動実行するか、スプレッドシートのメニュー「販売可能リスト」→
  * 「初期セットアップ」からも実行できる（onOpen参照）。
- * 既にデモカーリスト・サービス代車リストが存在する状態で再実行した場合も、
- * syncAllCarTrackingLists_により既存の在庫（区分デモカー・サービス）を
- * 直ちに反映し直す（何度実行しても安全）。
+ * デモカーリスト・サービス代車リストは在庫リストから自動反映されるものではなく、
+ * 各シートへ直接入力して使う独立したシート（CarTrackingService.gs参照）。
+ * 既に各タブが存在する状態で再実行しても、既存データはそのまま保持される
+ * （何度実行しても安全）。
  */
 function setupSpreadsheet_() {
   getInventorySheet_();
@@ -40,10 +40,6 @@ function setupSpreadsheet_() {
   getAuditLogSheet_();
   getDemoCarListSheet_();
   getServiceCarListSheet_();
-  // 既存の在庫（この機能追加より前から在庫リストにあった車両を含む）を、
-  // 区分デモカー・サービスで判断してデモカーリスト・サービス代車リストへ
-  // 直ちに反映する（CarTrackingService.gs参照）。
-  syncAllCarTrackingLists_();
   setupTimeDrivenTriggers_();
 
   var message = '在庫リスト・Holdリスト・受注リスト・業販受注リスト・変更履歴・デモカーリスト・' +
@@ -52,11 +48,9 @@ function setupSpreadsheet_() {
     'チェックボックス列（カーセンサー・グーネット等）、列見出しには入力形式の説明メモを' +
     '設定済みです（選択式の列は、Hold登録・受注確定が失敗する不具合の原因になるため、' +
     'あえてドロップダウンの入力規則は設定していません）。タブの色分け・ヘッダーの装飾・' +
-    '列幅の自動調整・1行おきの背景色も設定済みです。既存の在庫を区分で判断してデモカー' +
-    'リスト・サービス代車リストへ反映しました。今後は在庫リストを直接編集するたびに' +
-    '自動で反映され、万一その反映が働かない場合でも5分おきの定期同期で必ず反映されます' +
-    '（Hold期限チェック・在庫リスト編集時の自動反映・5分おきの定期同期、いずれの' +
-    'トリガーも設定済みです）。';
+    '列幅の自動調整・1行おきの背景色も設定済みです。デモカーリスト・サービス代車リストは' +
+    '在庫リストから自動で反映されるものではなく、各シートへ直接入力していただく運用です' +
+    '（Hold期限チェックのトリガーは設定済みです）。';
   Logger.log(message);
   return message;
 }
@@ -451,96 +445,28 @@ function compactMisplacedDataRows_() {
 }
 
 /**
- * デモカーリスト・サービス代車リストを、現在の在庫リストの内容（区分「デモカー」
- * 「サービス」）へ手動で同期し直す。通常は在庫リスト編集時のonEditトリガー
- * （Triggers.gsのtriggerInventoryEdited）・アプリでこれらのタブを開いた際
- * （Api.gsのapi_listDemoCarList・api_listServiceCarList）の両方で自動的に
- * 同期されるため、この項目を手動実行する必要は基本的に無いが、トリガーが
- * 未設定・何らかの理由で反映が遅れている場合の保険として用意する。
+ * デモカーリスト・サービス代車リストのデータ行を全て削除し、ヘッダー行のみの
+ * まっさらな状態に戻す一回限りのメンテナンス関数。
+ * 以前は在庫リストの区分「デモカー」「サービス」から自動反映する仕組みだったが、
+ * 今後は各シートへ直接入力していただく運用に変更したため、これまで自動反映で
+ * 入っていた行を一旦すべて削除してから、新しい運用を始めていただくためのもの。
+ * スプレッドシートのメニュー「販売可能リスト」→「デモカーリスト・サービス代車
+ * リストのデータ行を削除（運用変更時に一度だけ実行）」から実行する。
  */
-function syncCarTrackingListsManually_() {
-  syncAllCarTrackingLists_();
-  var message = 'デモカーリスト・サービス代車リストを、現在の在庫リストの内容（区分「デモカー」「サービス」）へ同期しました。';
+function clearCarTrackingListsManually_() {
+  var cleared = [];
+  [getDemoCarListSheet_(), getServiceCarListSheet_()].forEach(function (sheet) {
+    var lastRow = sheet.getLastRow();
+    if (lastRow >= 2) {
+      sheet.deleteRows(2, lastRow - 1);
+    }
+    cleared.push(sheet.getName());
+  });
+  var message = cleared.join('・') + 'のデータ行を削除し、ヘッダー行のみの状態に戻しました。' +
+    '今後は各シートへ直接、車両情報を入力してください。';
   Logger.log(message);
   try {
     SpreadsheetApp.getUi().alert(message);
-  } catch (e) {
-    // Apps Scriptエディタから直接実行した場合はUIが無いため、ここには来るが無視してよい。
-  }
-  return message;
-}
-
-/**
- * 「在庫リストを編集しても、デモカーリスト・サービス代車リストに自動で
- * 反映されない」という問い合わせ向けの診断関数（diagnoseInventoryData_と
- * 同じ位置づけ）。まずsyncAllCarTrackingLists_でその場で同期し直してから
- * （＝この関数を実行するだけで必ず最新の状態になる）、考えられる主な原因を
- * 機械的に切り分けて報告する:
- *   (1) 在庫リスト編集時の自動反映トリガー（triggerInventoryEdited）・
- *       5分おきの定期同期トリガー（triggerCarTrackingPeriodicSync、
- *       いずれもTriggers.gs参照）が実際には作成されていない。
- *   (2) デモカーリスト・サービス代車リストのシート自体が存在しない。
- *   (3) 同期し直した直後にもかかわらず、在庫リストの区分の件数と各シートの
- *       件数が食い違っている（区分の表記ゆれの可能性）。
- * スプレッドシートのメニュー「販売可能リスト」→「デモカー/サービス代車リスト
- * 自動反映の動作確認」から実行できる。
- */
-function diagnoseCarTrackingTriggers_() {
-  var lines = [];
-
-  syncAllCarTrackingLists_();
-  lines.push('在庫リストの現在の内容へ同期しました（この診断を実行するだけで、常に最新の状態になります）。');
-  lines.push('');
-
-  var triggers = ScriptApp.getProjectTriggers();
-  var editTrigger = triggers.find(function (t) {
-    return t.getHandlerFunction() === 'triggerInventoryEdited' && t.getEventType() === ScriptApp.EventType.ON_EDIT;
-  });
-  var periodicTrigger = triggers.find(function (t) {
-    return t.getHandlerFunction() === 'triggerCarTrackingPeriodicSync';
-  });
-  if (editTrigger) {
-    lines.push('✅ 在庫リスト編集時の自動反映トリガー（triggerInventoryEdited）は設定されています。');
-  } else {
-    lines.push('❌ 在庫リスト編集時の自動反映トリガーが見つかりません。');
-  }
-  if (periodicTrigger) {
-    lines.push('✅ 5分おきの定期同期トリガー（triggerCarTrackingPeriodicSync）は設定されています' +
-      '（編集時トリガーが何らかの理由で動かなくても、これにより最大5分以内には反映されます）。');
-  } else {
-    lines.push('❌ 5分おきの定期同期トリガーが見つかりません。');
-  }
-  if (!editTrigger || !periodicTrigger) {
-    lines.push('対処: 「初期セットアップ（7タブを作成）」を実行してください（既存データは変更されず、');
-    lines.push('トリガーのみ作り直されます）。それでも直らない場合は、Apps Scriptエディタ左側の');
-    lines.push('「トリガー」（時計アイコン）画面を開き、該当トリガーのエラーの有無を確認してください。');
-  }
-  lines.push('');
-
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  [
-    { categoryValue: DEMO_CAR_CATEGORY_VALUE, sheetName: SHEET_NAMES.DEMO_CAR_LIST },
-    { categoryValue: SERVICE_CAR_CATEGORY_VALUE, sheetName: SHEET_NAMES.SERVICE_CAR_LIST }
-  ].forEach(function (t) {
-    var sheet = ss.getSheetByName(t.sheetName);
-    if (!sheet) {
-      lines.push('❌ 「' + t.sheetName + '」タブが見つかりません。初期セットアップを実行してください。');
-      return;
-    }
-    var liveCount = listInventory().filter(function (v) { return categoryMatchesCarTracking_(v.category, t.categoryValue); }).length;
-    var trackedCount = listCarTracking_(sheet).length;
-    lines.push('✅ 「' + t.sheetName + '」タブが見つかりました。');
-    lines.push('　　在庫リストの区分「' + t.categoryValue + '」: ' + liveCount + '件 ／ ' + t.sheetName + 'に反映済み: ' + trackedCount + '件');
-    if (liveCount !== trackedCount) {
-      lines.push('　　⚠️ 同期し直した直後にもかかわらず件数が一致していません。区分の値が「' +
-        t.categoryValue + '」と完全一致しているか（全角半角の違いにご注意ください）、ご確認ください。');
-    }
-  });
-
-  var message = lines.join('\n');
-  Logger.log(message);
-  try {
-    SpreadsheetApp.getUi().alert('デモカー/サービス代車リスト 自動反映の診断結果', message, SpreadsheetApp.getUi().ButtonSet.OK);
   } catch (e) {
     // Apps Scriptエディタから直接実行した場合はUIが無いため、ここには来るが無視してよい。
   }
@@ -556,8 +482,7 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('販売可能リスト')
     .addItem('初期セットアップ（7タブを作成）', 'setupSpreadsheet_')
-    .addItem('デモカーリスト・サービス代車リストを在庫リストの内容で更新', 'syncCarTrackingListsManually_')
-    .addItem('デモカー/サービス代車リスト 自動反映の動作確認', 'diagnoseCarTrackingTriggers_')
+    .addItem('デモカーリスト・サービス代車リストのデータ行を削除（運用変更時に一度だけ実行）', 'clearCarTrackingListsManually_')
     .addItem('在庫データの読み込み状況を確認', 'diagnoseInventoryData_')
     .addItem('入力規則を解除し、説明メモ・タブの見た目を再設定', 'removeSelectValidationsAndRefreshNotes_')
     .addItem('ＯＣＮ・コミッション列を書式なしテキストに再設定', 'formatCommissionColumnsAsText_')
