@@ -3804,7 +3804,13 @@
   function renderHomeGallery_() {
     var allModelPhotos = (state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.modelPhotos) || [];
     renderHomeTypeNav_();
-    var allItems = state.allInventoryItems || [];
+    // 不具合修正: 以前は区分に関係なく在庫リストの全車両（デモカー・サービス等も
+    // 含む）を集計していたため、ホームの在庫台数がデモカー・サービスの台数も
+    // 含んだ数になっていた（現場からの指摘「在庫区分に関係なく表示されている」）。
+    // 区分が「在庫」の車両だけに絞り込んでから集計・グレードチップ・未登録
+    // モデルの判定を行う（homeModelCardHtml_・unphotographedModelEntries_に
+    // 共通で効くよう、ここで一箇所だけ絞り込む）。
+    var allItems = (state.allInventoryItems || []).filter(function (v) { return v.category === '在庫'; });
     var allEntries = allModelPhotos.concat(unphotographedModelEntries_(allItems, allModelPhotos));
     var entries = state.homeBodyTypeFilter
       ? allEntries.filter(function (p) { return p.bodyType === state.homeBodyTypeFilter; })
