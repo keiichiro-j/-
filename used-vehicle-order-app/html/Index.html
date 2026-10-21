@@ -180,42 +180,50 @@
          position: fixed＋JS実測スペーサー（syncFixedBars_）は使わない
          （固定の高さで十分なため）。 -->
     <header class="topbar" id="topbar">
-      <div class="topbar__brandRow">
-        <div class="topbar__left">
-          <button type="button" class="topbar__navBtn" id="btnNavBack" title="戻る" aria-label="1つ前の画面に戻る" disabled>
-            <svg class="icon"><use href="#icon-back"></use></svg>
-          </button>
-          <button type="button" class="topbar__navBtn topbar__navBtn--refresh" id="btnRefresh" title="更新" aria-label="最新の情報に更新">
-            <svg class="icon"><use href="#icon-refresh"></use></svg>
-          </button>
+      <!-- 不具合修正/現場からの要望「タイトルとタブとお知らせは一つのくくりとして、
+           その囲いをテーマに沿ったカラーが反映するようにしてほしい」を受け、
+           ブランド行（タイトル）とタブをテーマカラーの枠線で囲む1つのグループに
+           まとめる（.topbar__group、Stylesheet.html参照）。整合性バナーは
+           これまでどおり画面幅いっぱいに警告を出したいため、グループの外
+           （.topbarの兄弟要素）に置いたままにする。 -->
+      <div class="topbar__group">
+        <div class="topbar__brandRow">
+          <div class="topbar__left">
+            <button type="button" class="topbar__navBtn" id="btnNavBack" title="戻る" aria-label="1つ前の画面に戻る" disabled>
+              <svg class="icon"><use href="#icon-back"></use></svg>
+            </button>
+            <button type="button" class="topbar__navBtn topbar__navBtn--refresh" id="btnRefresh" title="更新" aria-label="最新の情報に更新">
+              <svg class="icon"><use href="#icon-refresh"></use></svg>
+            </button>
+          </div>
+          <div class="topbar__brand" id="topbarBrand" title="<?= currentAppTitle_() ?>">
+            <img id="topbarLogo" class="topbar__logo hidden" alt="ロゴ">
+            <svg class="topbar__markIcon" id="topbarMarkIcon" viewBox="0 0 256 256" fill="currentColor">
+              <path d="M240,104H229.2L201.42,41.5A16,16,0,0,0,186.8,32H69.2a16,16,0,0,0-14.62,9.5L26.8,104H16a8,8,0,0,0,0,16h8v80a16,16,0,0,0,16,16H64a16,16,0,0,0,16-16V184h96v16a16,16,0,0,0,16,16h24a16,16,0,0,0,16-16V120h8a8,8,0,0,0,0-16ZM69.2,48H186.8l24.89,56H44.31ZM64,200H40V184H64Zm128,0V184h24v16Zm24-32H40V120H216ZM56,144a8,8,0,0,1,8-8H80a8,8,0,0,1,0,16H64A8,8,0,0,1,56,144Zm112,0a8,8,0,0,1,8-8h16a8,8,0,0,1,0,16H176A8,8,0,0,1,168,144Z"/>
+            </svg>
+            <span class="topbar__brandText" id="topbarBrandText"><?= currentAppTitle_() ?></span>
+          </div>
+          <div class="topbar__user" id="topbarUser">?</div>
         </div>
-        <div class="topbar__brand" id="topbarBrand" title="<?= currentAppTitle_() ?>">
-          <img id="topbarLogo" class="topbar__logo hidden" alt="ロゴ">
-          <svg class="topbar__markIcon" id="topbarMarkIcon" viewBox="0 0 256 256" fill="currentColor">
-            <path d="M240,104H229.2L201.42,41.5A16,16,0,0,0,186.8,32H69.2a16,16,0,0,0-14.62,9.5L26.8,104H16a8,8,0,0,0,0,16h8v80a16,16,0,0,0,16,16H64a16,16,0,0,0,16-16V184h96v16a16,16,0,0,0,16,16h24a16,16,0,0,0,16-16V120h8a8,8,0,0,0,0-16ZM69.2,48H186.8l24.89,56H44.31ZM64,200H40V184H64Zm128,0V184h24v16Zm24-32H40V120H216ZM56,144a8,8,0,0,1,8-8H80a8,8,0,0,1,0,16H64A8,8,0,0,1,56,144Zm112,0a8,8,0,0,1,8-8h16a8,8,0,0,1,0,16H176A8,8,0,0,1,168,144Z"/>
-          </svg>
-          <span class="topbar__brandText" id="topbarBrandText"><?= currentAppTitle_() ?></span>
-        </div>
-        <div class="topbar__user" id="topbarUser">?</div>
+        <nav class="tabs" id="topbarTabs" role="tablist" aria-label="画面切替">
+          <button class="navBtn tabs__item is-active" data-tab="home" type="button">ホーム</button>
+          <button class="navBtn tabs__item" data-tab="inventory" type="button">在庫リスト</button>
+          <button class="navBtn tabs__item" data-tab="orders" type="button">受注リスト</button>
+          <!-- 業販受注リストは、管理者権限を持つ担当者にのみ表示する
+               （renderSettingsが.navBtn--adminOnlyクラスのhiddenを一括で切り替える、
+               JavaScript.html参照）。デモカーリスト・サービス代車リストは、以前は
+               同じ管理者限定だったが、現場からの要望「デモカー、サービス代車リストも
+               全員が見れるようにしてほしい」を受けて全担当者に公開した
+               （.navBtn--adminOnlyを付けない。閲覧専用の一覧でHold・受注確定等の
+               操作は無いため、全員に見せても支障が無い）。設定タブの直前に表示する
+               （現場からの要望）。 -->
+          <button class="navBtn tabs__item navBtn--adminOnly hidden" data-tab="wholesaleOrders" type="button">業販受注リスト</button>
+          <button class="navBtn tabs__item" data-tab="mypage" type="button">マイページ</button>
+          <button class="navBtn tabs__item" data-tab="demoCarList" type="button">デモカーリスト</button>
+          <button class="navBtn tabs__item" data-tab="serviceCarList" type="button">サービス代車リスト</button>
+          <button class="navBtn tabs__item" data-tab="settings" type="button">設定</button>
+        </nav>
       </div>
-      <nav class="tabs" id="topbarTabs" role="tablist" aria-label="画面切替">
-        <button class="navBtn tabs__item is-active" data-tab="home" type="button">ホーム</button>
-        <button class="navBtn tabs__item" data-tab="inventory" type="button">在庫リスト</button>
-        <button class="navBtn tabs__item" data-tab="orders" type="button">受注リスト</button>
-        <!-- 業販受注リストは、管理者権限を持つ担当者にのみ表示する
-             （renderSettingsが.navBtn--adminOnlyクラスのhiddenを一括で切り替える、
-             JavaScript.html参照）。デモカーリスト・サービス代車リストは、以前は
-             同じ管理者限定だったが、現場からの要望「デモカー、サービス代車リストも
-             全員が見れるようにしてほしい」を受けて全担当者に公開した
-             （.navBtn--adminOnlyを付けない。閲覧専用の一覧でHold・受注確定等の
-             操作は無いため、全員に見せても支障が無い）。設定タブの直前に表示する
-             （現場からの要望）。 -->
-        <button class="navBtn tabs__item navBtn--adminOnly hidden" data-tab="wholesaleOrders" type="button">業販受注リスト</button>
-        <button class="navBtn tabs__item" data-tab="mypage" type="button">マイページ</button>
-        <button class="navBtn tabs__item" data-tab="demoCarList" type="button">デモカーリスト</button>
-        <button class="navBtn tabs__item" data-tab="serviceCarList" type="button">サービス代車リスト</button>
-        <button class="navBtn tabs__item" data-tab="settings" type="button">設定</button>
-      </nav>
       <div class="integrityBanner hidden" id="integrityBanner">
         <svg class="icon icon--inline"><use href="#icon-alert"></use></svg>
         <span id="integrityBannerSummary"></span>
@@ -246,7 +254,6 @@
     <main class="view view--list is-active" id="view-home">
       <div class="commandbar">
         <div class="homeAnnouncement hidden" id="homeAnnouncement"></div>
-        <div class="scroller homeTypeNav" id="homeTypeNav" role="tablist" aria-label="型で絞り込み"></div>
       </div>
       <div class="listBody">
         <aside class="filterSidebar" aria-label="ホームの絞り込み">
@@ -275,6 +282,16 @@
             </div>
           </div>
           <div class="filterSidebar__rows" id="homeFilterRows">
+            <!-- 型クイックナビ（旧#homeTypeNav、以前はコマンドバーの横スクロール行
+                 だった）は、現場からの要望「型選択を絞り込み機能内に入れてほしい」を
+                 受け、他の項目と同じ行の形で絞り込みパネルの先頭に統合する
+                 （折り返し式に変更、.filterSidebar .homeTypeNav__item、
+                 Stylesheet.html参照。クリック時の挙動・renderHomeTypeNav_は
+                 変更していない）。 -->
+            <div class="filterSidebar__row" data-row="type">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-tag"></use></svg><span class="filterSidebar__rowLabel">タイプ</span></div>
+              <div class="homeTypeNav" id="homeTypeNav" role="tablist" aria-label="型で絞り込み"></div>
+            </div>
             <div class="filterSidebar__row" data-row="color">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-color"></use></svg><span class="filterSidebar__rowLabel">カラー</span></div>
               <select id="homeColorFilter" class="input"><option value="">指定なし</option></select>

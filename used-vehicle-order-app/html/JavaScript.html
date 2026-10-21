@@ -1070,6 +1070,17 @@
       if (!t.value.trim()) return;
       entries.push({ label: t.value.trim(), clear: function () { t.value = ''; dispatchChange_(t); } });
     });
+    // ホーム画面の型クイックナビ（絞り込みパネルに統合した#homeTypeNav、
+    // Index.html参照）はselect/ラジオ/チェックボックスではなくボタン群のため、
+    // 上の判定には掛からない。is-activeなボタンを個別に拾い、「すべて」
+    // （data-home-type=""）選択時はエントリを作らない。
+    rowEl.querySelectorAll('.homeTypeNav__item.is-active[data-home-type]').forEach(function (b) {
+      if (!b.dataset.homeType) return;
+      entries.push({
+        label: b.textContent.trim(),
+        clear: function () { state.homeBodyTypeFilter = ''; renderHomeGallery_(); }
+      });
+    });
     return entries;
   }
 
@@ -2071,6 +2082,9 @@
 
   on('btnHomeFilterClear', 'click', function () {
     state.homeFilters = { color: '', yearBucket: '', priceBucket: '', mileageBucket: '' };
+    // タイプ（型）も絞り込みパネルに統合した項目の1つのため、他の項目と
+    // 一緒にクリアする（現場からの要望「型選択を絞り込み機能内に入れてほしい」）。
+    state.homeBodyTypeFilter = '';
     $('homeKeyword').value = '';
     ['homeColorFilter', 'homeYearFilter', 'homePriceFilter', 'homeMileageFilter'].forEach(function (id) { $(id).value = ''; });
     renderHomeGallery_();
@@ -4779,10 +4793,6 @@
       // 全画面オーバーレイは出さない）。
       var loading = $('appLoading');
       if (loading) loading.classList.add('is-hidden');
-      // 型のクイックナビ（ホーム画面のみ。在庫リスト側は廃止済み）は
-      // reloadAll_内のrender*_で中身が入った後でないと横幅（scrollWidth）が
-      // 確定しないため、ここで初期化する。
-      initScrollFade_('homeTypeNav');
     });
   }
 

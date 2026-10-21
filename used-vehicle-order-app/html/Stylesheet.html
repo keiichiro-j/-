@@ -77,7 +77,7 @@
        高さも合わせて変える。ヘッダー下端のテーマ境界線（.topbarの
        border-bottom: 2px、現場からの要望「ヘッダーとリストの境界にもテーマを
        反映してほしい」）ぶんも含めた実際の高さに揃えている。 */
-    --topbar-h: 108px;
+    --topbar-h: 130px;
     /* コントロールパネル（.topbar）の背景色。JS実行前（テーマ適用前）の初期値で、
        以前の「コントロールパネル」時代と同じダークネイビー（<meta name="theme-color">とも
        合わせてある）。JS実行後は、選択中のテーマプリセットのprimaryDarkに
@@ -156,15 +156,27 @@
     position: sticky;
     top: 0;
     z-index: 15;
-    /* 不具合修正: ヘッダーと各リスト（コンテンツ側）の境界にもテーマを反映して
-     ほしいという要望を受け、下端に選択中のテーマのアクセント色（--primary）の
-     線を入れる。ヘッダー自体の背景は--topbar-bg（選択中のテーマのprimaryDark）
-     のため、同じ色（primary-dark）で線を引いても背景に溶けて見えなくなって
-     しまう。見える境界線にするには背景と異なる色が必要なため、タブの
-     アクティブ下線（.tabs__item.is-active）と同じ--primaryを使っている。 */
-    border-bottom: 2px solid var(--primary);
+    /* display: flow-rootで新しいブロック整形コンテキストを作る。これが無いと
+       直下の.topbar__groupが持つmargin-top/bottomが.topbarの外側（margin
+       collapsing）へ逃げてしまい、.topbarの実際の高さが--topbar-hの想定値より
+       縮んでしまう（コマンドバーのsticky offsetとズレて隙間が出る不具合の原因）。 */
+    display: flow-root;
     transition: box-shadow .2s var(--ease);
   }
+  /* 不具合修正/現場からの要望「タイトルとタブとお知らせは一つのくくりとして、
+     その囲いをテーマに沿ったカラーが反映するようにしてほしい」を受け、
+     ブランド行（タイトル）とタブを1つの囲いにまとめ、選択中のテーマの
+     アクセント色（--primary）の枠線で強調する（以前は.topbar自体の下端にだけ
+     2px線を引いていたが、この囲いの枠線に統合した）。--topbar-hは、この
+     margin・borderぶんを含めた実測値に更新している（下の@media (min-width: 901px)
+     も参照）。 */
+  .topbar__group {
+    margin: 10px 14px;
+    border: 2px solid var(--primary);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .topbar__group .topbar__brandRow { border-bottom: 1px solid var(--dark-ui-outline); }
   /* 不具合修正/現場からの要望「スクロール中のヘッダーに奥行きを持たせたい」:
      以前は固定ヘッダー（.topbar・.commandbar）が境界線のみでフラットだった。
      ページが実際にスクロールされて先頭でなくなったときだけ、ごく薄い影を
@@ -267,7 +279,7 @@
     /* ブランド行・タブ行のpaddingを広げる分、.commandbar側のsticky offset
        （top: var(--topbar-h)）もこの実測値に合わせて更新する（ズレると
        スクロール時に隙間または重なりが出る）。 */
-    :root { --topbar-h: 130px; }
+    :root { --topbar-h: 152px; }
     .topbar__brandRow { padding: 20px 32px; }
     .topbar__navBtn { width: 42px; height: 42px; }
     .topbar__logo { height: 30px; max-width: 160px; }
@@ -648,32 +660,31 @@
      さらにスクロールが必要になるのは煩わしいという現場からの指摘を受け、
      文字・余白を詰めて全項目が収まりやすい密度にしたうえで、サイドバーは
      内部スクロールさせず常に全項目を表示する（下のauto幅指定を参照）。 */
-  /* 不具合修正: 絞り込みサイドバーとヘッダー（コマンドバー）の間に隙間があり、
-     見た目が分離して見えていた（現場からの要望「左コントロールパネルとヘッダーを
-     くっつけてほしい」）。.listBodyの上paddingを無くし、代わりに一覧側
-     （.listBody__main）だけに上paddingを持たせることで、サイドバーだけが
-     コマンドバーの真下にぴったり接するようにする。 */
+  /* 絞り込みサイドバーが濃いテーマカラーの独立したパネルになったことに合わせ
+     （下の.filterSidebar参照）、サイドバー・一覧とも上下左右に均等な余白を
+     持たせる（以前はヘッダーに接するよう上paddingを持たなかったが、独立した
+     パネルとして見せるため標準的な余白に戻した）。 */
   .listBody {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 16px;
-    padding: 0 16px 16px;
+    padding: 16px;
     min-width: 0;
   }
-  .listBody__main { min-width: 0; padding-top: 14px; }
-  /* 不具合修正: 絞り込み機能のコントロールパネル（.filterSidebar）にもテーマを
-     反映してほしいという現場からの要望（左端だけの罫線ではなく「取り囲むように」
-     反映してほしい）を受け、パネル全体をテーマカラーの枠線で囲む。見出しも
-     --primary-text（テーマに応じた、背景とのコントラストを保った文字色）に揃える。
-     不具合修正: ヘッダーに接するようにしたことに合わせ（上記）、上辺は角を
-     丸めず・枠線も引かず、コマンドバーからそのまま続くパネルに見えるようにする
-     （現場からの要望「ビジュアルもよくしてほしい」。box-shadowでパネル自体の
-     立体感・奥行きも足す）。 */
+  .listBody__main { min-width: 0; }
+  /* 不具合修正/現場からの要望「絞り込み機能背景を濃いテーマカラーにしてほしい。
+     それに合わせて文字も読みやすくしてほしい」を受け、パネル全体の背景を
+     ヘッダーと同じ配色変数（--topbar-bg、選択中テーマのprimaryDark）にし、
+     内部の文字・入力欄も白系の配色に揃える（このブロック以降、filterSidebar
+     配下の各要素のダーク配色の上書きが続く）。囲い自体は四辺とも枠線・角丸を
+     持つ単独のパネルにする（以前はヘッダーに接するよう上辺だけ角丸なし・
+     枠線なしにしていたが、この囲い自体がテーマカラーの濃い背景を持つように
+     なったため、独立したパネルとして枠線・余白を四辺に持たせる方が見やすい）。 */
   .filterSidebar {
-    background: var(--surface);
+    background: var(--topbar-bg);
+    color: #fff;
     border: 2px solid var(--primary);
-    border-top: none;
-    border-radius: 0 0 var(--radius) var(--radius);
+    border-radius: var(--radius);
     box-shadow: var(--shadow);
     padding: 14px 14px;
     display: flex;
@@ -684,11 +695,11 @@
   /* 見出し（条件検索）・該当台数は左寄せでひとまとまりにし、クリアボタンだけを
      margin-left: autoで右端に離す（現場からの要望「該当台数は見出しの右に」）。 */
   .filterSidebar__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .filterSidebar__title { font-size: 13px; font-weight: 700; margin: 0; color: var(--primary-text); }
+  .filterSidebar__title { font-size: 13px; font-weight: 700; margin: 0; color: #fff; }
   .filterSidebar__count {
     font-size: 11px;
     font-weight: 700;
-    color: var(--on-surface-variant);
+    color: rgba(255, 255, 255, .7);
     font-variant-numeric: tabular-nums;
   }
   .filterSidebar__field { display: flex; flex-direction: column; gap: 6px; }
@@ -698,10 +709,35 @@
      一環）。font-sizeは.inputの16px基準（iOS Safariのフォーカス時自動ズーム
      回避のため）を変えず、paddingのみ調整する。 */
   .filterSidebar select.input { padding-top: 7px; padding-bottom: 7px; }
+  /* 濃い背景の上で読みやすいよう、入力欄・検索欄を半透明の白ベースに差し替える
+     （色自体はテーマの影響を受けない中立な配色。文字色は白で統一）。
+     不具合修正: background（ショートハンド）で指定すると、select.inputの
+     矢印アイコン用のbackground-repeat/background-positionまで初期値に
+     リセットされ、アイコンがタイル状に繰り返し表示されてしまう。
+     background-color（ロングハンド）のみを上書きする。 */
+  .filterSidebar .input,
+  .filterSidebar .searchbox {
+    background-color: rgba(255, 255, 255, .1);
+    border-color: rgba(255, 255, 255, .26);
+    color: #fff;
+  }
+  .filterSidebar .input::placeholder,
+  .filterSidebar .searchbox input::placeholder { color: rgba(255, 255, 255, .55); }
+  .filterSidebar .searchbox input { color: #fff; }
+  .filterSidebar .searchbox .icon--inline { color: rgba(255, 255, 255, .6); }
+  .filterSidebar .searchbox:focus-within { border-color: #fff; box-shadow: none; }
+  /* セレクトの矢印アイコンは色がdata URI内に直接埋め込まれているため
+     （.input select、本ファイル内で前方定義のコメント参照）、濃い背景でも
+     見える白い矢印のアイコンに差し替える。 */
+  .filterSidebar select.input {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='%23ffffff'%3E%3Cpath d='M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z'/%3E%3C/svg%3E");
+  }
+  .filterSidebar .filterCheck { color: rgba(255, 255, 255, .85); }
+  .filterSidebar .filterCheck__cnt { color: rgba(255, 255, 255, .55); }
   .filterSidebar__clearBtn {
     border: none;
     background: none;
-    color: var(--on-surface-variant);
+    color: rgba(255, 255, 255, .75);
     font-size: 12px;
     font-weight: 700;
     text-decoration: underline;
@@ -711,7 +747,7 @@
     flex: none;
     margin-left: auto;
   }
-  .filterSidebar__clearBtn:hover { color: var(--on-surface); }
+  .filterSidebar__clearBtn:hover { color: #fff; }
 
   /* ===== 絞り込みサイドバーの項目（1列に1項目・ライン区切り） =====
      現場からのデザイン案の選定を受けて適用した「改訂案1：ライン区切り」。
@@ -723,7 +759,7 @@
   .filterSidebar__rows { display: flex; flex-direction: column; }
   .filterSidebar__row {
     padding: 11px 2px;
-    border-bottom: 1px solid var(--outline);
+    border-bottom: 1px solid var(--dark-ui-outline);
     position: relative;
     min-width: 0;
   }
@@ -738,13 +774,24 @@
     background: var(--primary);
   }
   .filterSidebar__rowHead { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; }
-  .filterSidebar__rowIcon { width: 16px; height: 16px; flex: none; color: var(--on-surface-variant); }
-  .filterSidebar__rowLabel { font-size: 11.5px; font-weight: 700; color: var(--on-surface-variant); letter-spacing: .02em; }
+  .filterSidebar__rowIcon { width: 16px; height: 16px; flex: none; color: rgba(255, 255, 255, .7); }
+  .filterSidebar__rowLabel { font-size: 11.5px; font-weight: 700; color: rgba(255, 255, 255, .78); letter-spacing: .02em; }
   .filterSidebar__row.is-active .filterSidebar__rowIcon,
-  .filterSidebar__row.is-active .filterSidebar__rowLabel { color: var(--primary-text); }
+  .filterSidebar__row.is-active .filterSidebar__rowLabel { color: #fff; }
   /* グループ化・区分・掲載状況等、チェック/ラジオの一覧を持つ行は、見出しの
      gapぶん.filterCheckとの間隔がやや詰まって見えるため少しだけ広げる。 */
   .filterSidebar__row .filterCheck { padding: 3px 0; }
+
+  /* ホーム画面の型クイックナビ（現場からの要望で絞り込みパネル内に統合した
+     #homeTypeNav、Index.html参照）。以前は横スクロール専用の.scrollerクラスを
+     使っていたが、パネル幅に収まるよう折り返し式の行にする。 */
+  .filterSidebar .homeTypeNav { display: flex; flex-wrap: wrap; gap: 6px; }
+  .filterSidebar .homeTypeNav__item:not(.is-active) {
+    background: rgba(255, 255, 255, .08);
+    border-color: rgba(255, 255, 255, .28);
+    color: rgba(255, 255, 255, .82);
+  }
+  .filterSidebar .homeTypeNav__item:hover:not(.is-active) { border-color: #fff; color: #fff; }
 
   /* 絞り込み中サマリー（パネル上部のタグ一覧）。セレクト・ラジオ・チェック
      ボックス・テキスト入力いずれの絞り込みも、除去可能なタグとしてまとめて
@@ -759,11 +806,12 @@
   .filterSidebar__activeChip .label { overflow-wrap: anywhere; }
   .filterSidebar__activeChip .x { opacity: .85; font-size: 12px; line-height: 1; flex: none; }
   .filterSidebar__activeClearAll {
-    font-size: 11.5px; color: var(--on-surface-variant); text-decoration: underline;
+    font-size: 11.5px; color: rgba(255, 255, 255, .7); text-decoration: underline;
     text-underline-offset: 2px; cursor: pointer; background: none; border: none;
     font-family: inherit; padding: 0; white-space: nowrap;
   }
-  .filterSidebar__activeEmpty { font-size: 11.5px; color: var(--on-surface-variant); }
+  .filterSidebar__activeClearAll:hover { color: #fff; }
+  .filterSidebar__activeEmpty { font-size: 11.5px; color: rgba(255, 255, 255, .6); }
 
   /* ===== PC・タブレット幅: 在庫・受注・業販受注リストを「アプリシェル」化 =====
      コマンドバーの下（.listBody）を、ヘッダー・コマンドバーの高さぶんを差し引いた
@@ -794,12 +842,10 @@
     .view--list .listBody {
       display: grid;
       /* minmax(0, 1fr)にする理由は.card__metaGrid等と同じ（1fr単独だと、内容が
-         長い場合にトラック自体がその内容ぶんまで広がってしまうため）。
-         上paddingを持たないのは、サイドバーをコマンドバーに接させるため
-         （上の.listBody参照）。 */
+         長い場合にトラック自体がその内容ぶんまで広がってしまうため）。 */
       grid-template-columns: 234px minmax(0, 1fr);
       gap: 20px;
-      padding: 0 24px 24px;
+      padding: 20px 24px 24px;
       flex: 1 1 auto;
       min-height: 0;
     }
@@ -811,7 +857,7 @@
        justify-content: centerを与えることで、一覧エリアの残り高さいっぱいに
        広がった上でその中央に表示されるようにする（実データがある通常時は
        .emptyStateがhiddenのままなので影響しない）。 */
-    .view--list .listBody__main { height: 100%; overflow-y: auto; display: flex; flex-direction: column; padding-top: 20px; }
+    .view--list .listBody__main { height: 100%; overflow-y: auto; display: flex; flex-direction: column; }
     .view--list .listBody__main > .emptyState { flex: 1 0 auto; justify-content: center; min-height: 0; }
   }
 
