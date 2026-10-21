@@ -70,6 +70,10 @@
     // 設けない）。キーワード検索は#homeKeywordの値をその都度読む（他の絞り込みと同じ
     // クライアント側絞り込みのため、別途状態に持つ必要が無い）。
     homeFilters: { color: '', yearBucket: '', priceBucket: '', mileageBucket: '' },
+    // ホーム画面の「検索結果」一覧（#homeResultsSection）で、画像タップ（カード・
+    // グレードチップ）によりさらに絞り込み中の型番一覧（完全一致。空配列なら
+    // キーワード・絞り込みサイドバーの条件のみで一覧表示する）。
+    homeModelFilter: [],
     notifyHoldMailTo: [], // 設定タブで編集中のメール通知先（Hold時、作業用コピー）
     notifyOrderMailTo: [], // 設定タブで編集中のメール通知先（受注確定時、作業用コピー）
     notifyErrorMailTo: [], // 設定タブで編集中のメール通知先（システムエラー通知、作業用コピー）
@@ -1069,6 +1073,31 @@
     $('btnHomeFilterClear').classList.toggle('hidden', !hasAny);
   }
 
+  /**
+   * 画像タップ（カード・グレードチップ）で選んだ型番（state.homeModelFilter、
+   * 完全一致・複数可）で、検索結果一覧をさらに絞り込む（純粋関数）。何も
+   * タップしていない場合（空配列）は絞り込まない。
+   */
+  function applyHomeModelFilter_(items) {
+    if (!state.homeModelFilter.length) return items;
+    return items.filter(function (v) { return state.homeModelFilter.indexOf(v.model) !== -1; });
+  }
+
+  /**
+   * ホーム画面「検索結果」一覧（在庫リスト＋デモカーリスト＋サービス代車リストを
+   * 横断した個々の車両の一覧）。renderHomeGallery_から、サイドバー・キーワードで
+   * 絞り込んだ後のpoolを渡して呼ぶ。画像タップ中（state.homeModelFilter）は
+   * さらにその型番だけに絞り込み、「絞り込みを解除」ボタンを表示する。
+   */
+  function renderHomeResultsList_(pool) {
+    var filtered = applyHomeModelFilter_(pool);
+    $('homeResultsEmpty').classList.toggle('hidden', filtered.length > 0);
+    $('homeResultsCount').textContent = filtered.length ? '該当 ' + filtered.length + '台' : '';
+    $('homeResultsList').innerHTML = tableListHtml_('tbl--cartrack', homeResultsTableHeaderHtml_(), filtered, homeResultRowHtml_);
+    wireTableHeaderScrollSync_($('homeResultsList'));
+    $('btnHomeModelFilterClear').classList.toggle('hidden', !state.homeModelFilter.length);
+  }
+
   function sortInventoryItems_(items) {
     var key = state.inventorySort;
     if (!key) return items;
@@ -1582,6 +1611,64 @@
       '</div>';
   }
 
+  // ===== ホーム画面「検索結果」一覧（在庫リスト＋デモカーリスト＋サービス代車
+  //       リストを横断した個々の車両の一覧）の表示ヘルパー =====
+  // 列構成はcarTrackingTableHeaderHtml_・carTrackingTableRowHtml_と同じ
+  // （区分・モデル・初年度登録日・走行距離・車検満了日・登録番号・現展示拠点・価格・
+  // ステータス）。ステータス表示・行タップ時の挙動だけ、行が在庫リスト由来か
+  // デモカーリスト／サービス代車リスト由来かで分ける。在庫リストで取得した車両は
+  // holdStatus列を必ず持つが、デモカーリスト・サービス代車リスト（CAR_TRACKING_COLUMNS）
+  // にはholdStatus列が存在しないため、'holdStatus' in v で確実に判別できる
+  // （どちらのAPIもreadAllRows_がシートの列定義ぶんのキーだけを持つオブジェクトを
+  // 返すため、余分なキーが混在することはない）。
+  function homeResultIsFromInventory_(v) {
+    return 'holdStatus' in v;
+  }
+  function homeResultsTableHeaderHtml_() {
+    return '<div class="tblHead">' +
+      '<div></div><div>区分</div><div>モデル</div><div>初年度登録日</div><div>走行距離</div>' +
+      '<div>車検満了日</div><div>登録番号</div><div>現展示拠点</div><div>価格</div>' +
+      '<div>ステータス</div><div></div>' +
+      '</div>';
+  }
+  function homeResultRowHtml_(v, num) {
+    var fromInventory = homeResultIsFromInventory_(v);
+    var statusHtml = fromInventory ? vehicleBadgesHtml_(v, false) : carTrackingBadgeHtml_(v);
+    var rowTone = fromInventory && v.holdStatus === 'hold' ? 'tblRow--hold' : '';
+    return '<div class="tblRow ' + rowTone + '" data-ocn="' + escapeHtml(v.ocn) + '">' +
+      '<div class="tblCell tblCell--num">' + rowNum_(num) + '</div>' +
+      '<div class="tblCell"><span class="tag">' + escapeHtml(v.category || '-') + '</span></div>' +
+      '<div class="tblCell tblCell--strong" title="' + escapeHtml(v.model) + '">' + escapeHtml(v.model) + '</div>' +
+      '<div class="tblCell">' + escapeHtml(v.firstRegistrationDate || '-') + '</div>' +
+      '<div class="tblCell">' + escapeHtml(formatNumberUnit_(v.mileage, ' km') || '-') + '</div>' +
+      '<div class="tblCell">' + escapeHtml(v.inspectionExpiryDate || '-') + '</div>' +
+      '<div class="tblCell" title="' + escapeHtml(plateText_(v)) + '">' + escapeHtml(plateText_(v) || '-') + '</div>' +
+      '<div class="tblCell tblCell--strong">' + escapeHtml(v.currentDisplayLocation || '-') + '</div>' +
+      '<div class="tblCell">' + escapeHtml(formatNumberUnit_(v.salePrice, ' 円') || '-') + '</div>' +
+      '<div class="tblCell tblCell--status">' + statusHtml + '</div>' +
+      '<div class="tblCell tblCell--chev">›</div>' +
+      '</div>';
+  }
+
+  /**
+   * ホーム画面「検索結果」一覧の行タップ時の詳細表示。在庫リスト由来の車両は
+   * 既存のinventoryDetailModal（Hold・受注操作つき、state.inventoryItems /
+   * state.allInventoryItems内から同じＯＣＮで検索）をそのまま開き、ホームからでも
+   * Hold・受注確定ができるようにする。デモカーリスト・サービス代車リスト由来の
+   * 車両は、Hold・受注の概念が無い閲覧専用のため、専用のhomeResultDetailModalに
+   * carTrackingDetailHtml_を表示する。
+   */
+  function openHomeResultDetail_(ocn) {
+    var v = (state.homeVehiclePool || []).find(function (item) { return String(item.ocn) === String(ocn); });
+    if (!v) return;
+    if (homeResultIsFromInventory_(v)) {
+      openInventoryDetailModal_(ocn);
+      return;
+    }
+    $('homeResultDetailBody').innerHTML = carTrackingDetailHtml_(v);
+    openModal($('homeResultDetailModal'));
+  }
+
   // Hold詳細ブロックは、常に見えている要約行（顧客・担当者・タイマー）と、
   // 折りたたみ式の詳細（リード番号・登録月・下取車・OSS・保険）に分ける。
   /**
@@ -1826,9 +1913,22 @@
 
   on('btnHomeFilterClear', 'click', function () {
     state.homeFilters = { color: '', yearBucket: '', priceBucket: '', mileageBucket: '' };
+    state.homeModelFilter = [];
     $('homeKeyword').value = '';
     ['homeColorFilter', 'homeYearFilter', 'homePriceFilter', 'homeMileageFilter'].forEach(function (id) { $(id).value = ''; });
     renderHomeGallery_();
+  });
+
+  // 画像タップ（カード・グレードチップ）による検索結果の絞り込みだけを解除する
+  // （キーワード・絞り込みサイドバーの条件はそのまま残す）。
+  on('btnHomeModelFilterClear', 'click', function () {
+    state.homeModelFilter = [];
+    renderHomeGallery_();
+  });
+
+  on('homeResultsList', 'click', function (e) {
+    var tappable = e.target.closest('[data-ocn]');
+    if (tappable) openHomeResultDetail_(tappable.dataset.ocn);
   });
 
   // ===== Hold / 受注 共通モーダル =====
@@ -3971,6 +4071,7 @@
     var allCount = (state.homeVehiclePool || []).length;
     $('homeFilterCount').textContent = allCount ? '該当 ' + pool.length + '台 ／ 全' + allCount + '台' : '';
     syncHomeFilterClearVisibility_();
+    renderHomeResultsList_(pool);
     renderHomeAnnouncement_((state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.homeAnnouncement) || '');
   }
 
@@ -3988,30 +4089,34 @@
   }
 
   /**
-   * ホーム画面のカード（またはグレードチップ）クリック時、その車両画像の自動判定
-   * 条件に一致する車両のキーワードで在庫リストへ遷移する。在庫リストのキーワード
-   * 検索欄はサーバー側searchInventoryでモデル名の部分一致に対応済みのため、
-   * gradePrefix（クラス名）をそのままキーワードとして渡せば、そのクラスに属する
-   * すべての型番がまとめてヒットする。在庫リスト自体の絞り込み・検索の仕組みは
-   * 変更していない。
+   * ホーム画面のカード（またはグレードチップ）クリック時、state.homeModelFilterを
+   * その型番（複数可・完全一致）に更新し、「検索結果」一覧（#homeResultsSection、
+   * 在庫リスト＋デモカーリスト＋サービス代車リストを横断）をその型番だけに絞り込んで
+   * 表示する。不具合修正: 以前は在庫リストタブへ画面遷移していたため、在庫リスト
+   * シートの車両しか出てこなかった（現場からの指摘「画像検索も在庫、デモカー、
+   * サービス代車を横断して一覧表示してほしい」）。画面は移動せず、ホーム画面内の
+   * 検索結果一覧までスクロールする。
    */
-  function navigateHomeToInventory_(keyword) {
-    $('inventoryKeyword').value = keyword;
-    switchToTab_('inventory');
-    loadInventory();
+  function applyHomeModelTap_(models) {
+    state.homeModelFilter = models;
+    renderHomeGallery_();
+    var section = $('homeResultsSection');
+    if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   on('homeGrid', 'click', function (e) {
     var gradeBtn = e.target.closest('[data-home-grade]');
     if (gradeBtn) {
-      navigateHomeToInventory_(gradeBtn.dataset.homeGrade);
+      applyHomeModelTap_([gradeBtn.dataset.homeGrade]);
       return;
     }
     var modelEl = e.target.closest('[data-home-model]');
     if (modelEl) {
       var allModelPhotos = (state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.modelPhotos) || [];
       var entry = allModelPhotos.filter(function (p) { return p.model === modelEl.dataset.homeModel; })[0];
-      navigateHomeToInventory_(entry && entry.gradePrefix ? entry.gradePrefix : modelEl.dataset.homeModel);
+      var pool = applyHomeFilters_(state.homeVehiclePool || [], $('homeKeyword').value);
+      var models = entry ? matchedModelsForEntry_(entry, pool, allModelPhotos) : [modelEl.dataset.homeModel];
+      applyHomeModelTap_(models);
     }
   });
 

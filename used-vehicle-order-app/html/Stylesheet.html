@@ -516,6 +516,22 @@
   @media (min-width: 901px) {
     .homeGrid { gap: 16px; padding: 16px 24px 24px; }
   }
+
+  /* ホームの「検索結果」一覧（在庫リスト＋デモカーリスト＋サービス代車リストを
+     横断した個々の車両の一覧、#homeResultsSection）。見出し行は絞り込みサイドバー
+     の.filterSidebar__headと同じ考え方（左に見出し・件数、右端に絞り込み解除）。 */
+  .homeResultsSection { padding: 4px 12px 20px; }
+  @media (min-width: 481px) { .homeResultsSection { padding: 4px 20px 24px; } }
+  @media (min-width: 901px) { .homeResultsSection { padding: 8px 24px 24px; } }
+  .homeResultsSection__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 0; }
+  .homeResultsSection__title { font-size: 13px; font-weight: 700; margin: 0; color: var(--on-surface); }
+  .homeResultsSection__count {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--on-surface-variant);
+    font-variant-numeric: tabular-nums;
+  }
+
   .homeCard {
     background: var(--surface);
     border: 1px solid var(--outline);

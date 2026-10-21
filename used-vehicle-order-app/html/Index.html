@@ -180,18 +180,23 @@
     <!-- ホーム: 以前あった「車両画像ギャラリー」を、現在のヘッダー・コマンドバー構成に
          合わせて再実装したもの。設定タブ（管理者限定）で登録した車両画像を、型
          （ボディタイプ）クイックナビ・左の絞り込みサイドバーで絞り込みながらグリッドで
-         並べる。写真・モデル名・在庫台数をタップ・クリックなしでカードに表示し、カード
-         （またはグレードチップ）をタップすると、その画像の自動判定条件に一致する車両の
-         キーワードで在庫リストへ遷移する（handleHomeCardClick_、JavaScript.html参照。
-         在庫リスト自体の絞り込み・検索の仕組みは変更していない）。
+         並べる。写真・モデル名・在庫台数をタップ・クリックなしでカードに表示する。
          不具合修正: 以前は在庫リストの区分「在庫」の車両だけを集計対象にしていたが、
          デモカーリスト・サービス代車リストが在庫リストの区分からの自動反映ではなく
          各シートへの直接入力に変わったことに合わせ（CarTrackingService.gs参照）、
-         ホームの集計・絞り込み・画像タップからの検索は、在庫リスト＋デモカーリスト＋
-         サービス代車リストの3シートすべてを対象にする（受注リストは対象外、現場からの
-         要望）。左の絞り込みサイドバーは、在庫リストの主要な絞り込み項目
-         （カラー・初年度登録日・価格帯・走行距離）と同じ考え方で、この3シート分の
-         車両プールに対して絞り込む（区分・掲載状況はホームには設けない）。 -->
+         ホームの集計・絞り込みは、在庫リスト＋デモカーリスト＋サービス代車リストの
+         3シートすべてを対象にする（受注リストは対象外、現場からの要望）。左の
+         絞り込みサイドバーは、在庫リストの主要な絞り込み項目（カラー・初年度登録日・
+         価格帯・走行距離）と同じ考え方で、この3シート分の車両プールに対して絞り込む
+         （区分・掲載状況はホームには設けない）。
+         不具合修正: 以前はキーワード検索・画像タップ（カード／グレードチップ）の
+         いずれも在庫リストタブへ遷移するだけで、在庫リストシートの車両しか
+         出てこなかった（現場からの指摘「検索をする際は在庫車、デモカー、サービス
+         代車を横断して検索して一覧として表示してほしい。画像検索も同様」）。
+         画面遷移はやめ、ホーム画面内に「検索結果」一覧（#homeResultsSection）を
+         新設し、キーワード・絞り込みサイドバー・画像タップのいずれも、この一覧に
+         3シート横断の結果を一覧表示する（renderHomeResultsList_・
+         handleHomeCardClick_、JavaScript.html参照）。 -->
     <main class="view view--list is-active" id="view-home">
       <div class="commandbar">
         <div class="homeAnnouncement hidden" id="homeAnnouncement"></div>
@@ -237,6 +242,26 @@
             <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-home"></use></svg></span>
             <p>該当する車両画像がありません</p>
           </div>
+
+          <!-- 検索結果一覧: キーワード・絞り込みサイドバー・画像タップ（カード／
+               グレードチップ）のいずれでも、在庫リスト＋デモカーリスト＋サービス
+               代車リストの3シートを横断した個々の車両を一覧表示する（現場からの
+               要望。renderHomeResultsList_、JavaScript.html参照）。画像タップ時は
+               state.homeModelFilterでさらにその型番だけに絞り込み、その場合は
+               「絞り込みを解除」ボタンで元の検索結果（キーワード・サイドバー条件の
+               みの一覧）に戻せる。 -->
+          <section class="homeResultsSection" id="homeResultsSection" aria-label="検索結果">
+            <div class="homeResultsSection__head">
+              <p class="homeResultsSection__title">検索結果（在庫・デモカー・サービス代車）</p>
+              <span class="homeResultsSection__count" id="homeResultsCount"></span>
+              <button type="button" class="filterSidebar__clearBtn hidden" id="btnHomeModelFilterClear">絞り込みを解除</button>
+            </div>
+            <div id="homeResultsList"></div>
+            <div class="emptyState hidden" id="homeResultsEmpty">
+              <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-grid"></use></svg></span>
+              <p>該当する車両がありません</p>
+            </div>
+          </section>
         </div>
       </div>
     </main>
@@ -1057,6 +1082,22 @@
         <button class="btn--icon" data-close-modal>&times;</button>
       </div>
       <div class="modal__body" id="serviceCarListDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- ホーム画面の「検索結果」一覧（在庫リスト＋デモカーリスト＋サービス代車リストを
+       横断した車両一覧）で行タップした際の詳細モーダル。デモカーリスト・サービス
+       代車リスト由来の行（holdStatusを持たない）はdemoCarListDetailModalと同じ
+       閲覧専用表示（carTrackingDetailHtml_）。在庫リスト由来の行は、既存の
+       inventoryDetailModal（Hold・受注操作つき）をそのまま開く（openHomeResultDetail_、
+       JavaScript.html参照）ため、このモーダルは閲覧専用表示のときだけ使う。 -->
+  <div class="modal hidden" id="homeResultDetailModal">
+    <div class="modal__panel modal__panel--vehicle">
+      <div class="modal__header">
+        <h2>車両情報</h2>
+        <button class="btn--icon" data-close-modal>&times;</button>
+      </div>
+      <div class="modal__body" id="homeResultDetailBody"></div>
     </div>
   </div>
 
