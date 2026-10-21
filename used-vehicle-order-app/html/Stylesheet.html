@@ -461,6 +461,15 @@
   .homeTypeNav__item:hover { border-color: var(--primary); color: var(--on-surface); }
   .homeTypeNav__item:active { transform: scale(.96); }
   .homeTypeNav__item.is-active { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+  /* 件数つきのチップ内の数字部分（受注リストの月別件数ナビ等）。ラベルと
+     数字の区別がひと目でつくよう、少し薄い色・細めのウェイトにする。 */
+  .homeTypeNav__item__count { margin-left: 6px; font-weight: 600; opacity: .72; }
+  /* ===== 受注リストの月別件数ナビ（#ordersMonthNav） =====
+     一覧本体（#ordersGroups）の直前に置く横スクロールのチップ行。1件も
+     該当が無いとき（キーワード等で絞り込んだ結果0件等）は親の.scroller自体に
+     何も出力しない（renderOrdersMonthNav_参照）ため、margin-bottomは常時
+     指定しておいても余白が余ることはない。 */
+  #ordersMonthNav:not(:empty) { margin-bottom: 14px; }
 
   /* お知らせ（#homeAnnouncement）。管理者が設定タブから登録した案内文を、
      ホーム画面の一番上に目立たせて表示する（未設定時は要素ごとhidden）。型

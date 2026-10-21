@@ -333,6 +333,14 @@
           </div>
         </aside>
         <div class="listBody__main">
+          <!-- 月別件数ナビ: 受注リストの上部に横スクロールのチップ行で各月の受注台数を
+               表示し、タップするとその月のグループまで滑らかにスクロールする
+               （現場からの要望「受注リスト内上部に受注台数と月を表示する
+               （対象月までスクロール）ボタンを作成してほしい」。デザイン案から
+               「横スクロールのチップ行」を選択。renderOrdersMonthNav_参照）。
+               グループ化が「月ごと」以外のときにタップした場合は、自動で
+               「月ごと」に切り替えてから該当月までスクロールする。 -->
+          <div class="scroller" id="ordersMonthNav"></div>
           <div id="ordersGroups"></div>
           <div class="emptyState hidden" id="ordersEmpty">
             <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-table"></use></svg></span>

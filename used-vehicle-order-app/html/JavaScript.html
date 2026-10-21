@@ -2525,6 +2525,34 @@
     openModal($('orderDetailModal'));
   }
 
+  /**
+   * 受注リスト上部の月別件数ナビ（#ordersMonthNav）用のチップHTMLを組み立てる
+   * （純粋関数）。グループ化「月ごと」が使う受注確定月（orderedMonth。
+   * api_listOrders、Api.gs参照。受注確定日時orderedAtから「2026-08」形式で
+   * 算出される値で、現場が入力する「登録月」registeredMonthとは別の値）ごとの
+   * 件数を、groupByField_（SearchService.gs）と同じ昇順（未設定は末尾）で
+   * 並べる。グループ化が「月ごと」のときに画面に並ぶグループの順序と一致させる
+   * ことで、チップの並び＝実際にスクロールする方向になり、直感的に対応づけ
+   * られる（現場からの要望「受注リスト内上部に受注台数と月を表示する
+   * （対象月までスクロール）ボタンを作成してほしい」）。
+   */
+  function ordersMonthChipsHtml_(items) {
+    var counts = {};
+    items.forEach(function (o) {
+      var m = o.orderedMonth || '未設定';
+      counts[m] = (counts[m] || 0) + 1;
+    });
+    var months = Object.keys(counts).sort(function (a, b) {
+      if (a === '未設定') return 1;
+      if (b === '未設定') return -1;
+      return a < b ? -1 : a > b ? 1 : 0;
+    });
+    return months.map(function (m) {
+      return '<button type="button" class="homeTypeNav__item" data-month-chip="' + escapeHtml(m) + '">' +
+        escapeHtml(m) + '<span class="homeTypeNav__item__count">' + counts[m] + '台</span></button>';
+    }).join('');
+  }
+
   function renderOrders() {
     var container = $('ordersGroups');
     var rawGroups = state.ordersGroups || [];
@@ -2535,12 +2563,15 @@
     var totalItems = groups.reduce(function (n, g) { return n + g.items.length; }, 0);
     $('ordersEmpty').classList.toggle('hidden', totalItems > 0);
     $('ordersTotalCount').textContent = '該当 ' + totalItems + ' 台';
+    var isMonthGrouped = checkedRadioValue_('ordersGroupByFilter') === 'orderedMonth';
     container.innerHTML = groups.map(function (g) {
       var heading = g.key
         ? '<h3 class="group__title">' + escapeHtml(g.key) + '<span class="group__count">' + g.items.length + '台</span></h3>'
         : '';
-      return '<div class="group">' + heading + tableListHtml_('tbl--order', orderTableHeaderHtml_(), g.items, orderTableRowHtml_) + '</div>';
+      var monthAttr = isMonthGrouped && g.key ? ' data-month-group="' + escapeHtml(g.key) + '"' : '';
+      return '<div class="group"' + monthAttr + '>' + heading + tableListHtml_('tbl--order', orderTableHeaderHtml_(), g.items, orderTableRowHtml_) + '</div>';
     }).join('');
+    $('ordersMonthNav').innerHTML = ordersMonthChipsHtml_(groups.reduce(function (acc, g) { return acc.concat(g.items); }, []));
     wireTableHeaderScrollSync_(container);
   }
 
@@ -2553,6 +2584,27 @@
     if (tappable && !e.target.closest('button, input, label')) {
       openOrderDetailModal_(tappable.dataset.ocn);
     }
+  });
+
+  // 月別件数ナビ（#ordersMonthNav）のチップタップ: グループ化が「月ごと」で
+  // なければ自動で切り替えてから、その月のグループまで滑らかにスクロールする
+  // （現場からの要望「受注台数と月を表示する（対象月までスクロール）ボタンを
+  // 作成してほしい」）。
+  function scrollToOrdersMonthGroup_(month) {
+    var target = $('ordersGroups').querySelector('[data-month-group="' + CSS.escape(month) + '"]');
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  on('ordersMonthNav', 'click', function (e) {
+    var chip = e.target.closest('[data-month-chip]');
+    if (!chip) return;
+    var month = chip.dataset.monthChip;
+    if (checkedRadioValue_('ordersGroupByFilter') === 'orderedMonth') {
+      scrollToOrdersMonthGroup_(month);
+      return;
+    }
+    var monthRadio = document.querySelector('#ordersGroupByFilter input[value="orderedMonth"]');
+    if (monthRadio) monthRadio.checked = true;
+    loadOrders().then(function () { scrollToOrdersMonthGroup_(month); });
   });
 
   // ===== 業販受注リスト =====
