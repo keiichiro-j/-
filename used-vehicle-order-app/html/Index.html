@@ -91,8 +91,12 @@
        制御するため、他の絵文字・多色アイコンと混在しない）。 -->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
     <defs>
-      <symbol id="icon-drop" viewBox="0 0 24 24">
-        <path d="M12 3c0 0-6.2 7.1-6.2 11.3a6.2 6.2 0 0 0 12.4 0C18.2 10.1 12 3 12 3Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+      <!-- カラー用アイコン（不具合修正: 以前の水滴アイコンから、色の重なりを表す
+           3つの円に変更した。現場からの要望「カラーのアイコンを変更してほしい」）。 -->
+      <symbol id="icon-color" viewBox="0 0 24 24">
+        <circle cx="9.5" cy="9.5" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <circle cx="15" cy="9.5" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <circle cx="12.25" cy="15" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/>
       </symbol>
       <symbol id="icon-calendar" viewBox="0 0 24 24">
         <rect x="3.2" y="5" width="17.6" height="15.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/>
@@ -259,20 +263,20 @@
                項目見出しに添える。絞り込み中の項目は左にアクセント線が付き、
                サマリーのタグ（×で個別解除）がパネル上部に並ぶ。 -->
           <div class="filterSidebar__activeBar" id="homeActiveBar"></div>
-          <!-- 不具合修正: キーワードは入力中のライブ絞り込みではなく、「検索」ボタン
-               （またはEnterキー）を押したときだけ、文字列の完全一致で検索結果ページへ
-               遷移するようにした（現場からの要望「検索ボタンは文字列の完全一致のみの
-               検索にしてほしい」）。 -->
+          <!-- 不具合修正: キーワードは入力中のライブ絞り込みではなく、Enterキーを
+               押したときだけ、文字列の完全一致で検索結果ページへ遷移する
+               （現場からの要望「検索ボタンは文字列の完全一致のみの検索にしてほしい」
+               「コントロールパネルの検索ボタンを無くしてほしい」を受け、ボタンは
+               置かずEnterキーのみの操作にした。他のリストと同じ見た目の検索欄に揃う）。 -->
           <div class="filterSidebar__field">
             <div class="searchbox">
               <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
-              <input type="search" id="homeKeyword" placeholder="モデル・ＯＣＮ・コミッション・車台番号下４桁・登録番号で検索（完全一致）">
+              <input type="search" id="homeKeyword" placeholder="完全一致で検索">
             </div>
-            <button type="button" class="btn btn--primary" id="btnHomeSearch">検索</button>
           </div>
           <div class="filterSidebar__rows" id="homeFilterRows">
             <div class="filterSidebar__row" data-row="color">
-              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-drop"></use></svg><span class="filterSidebar__rowLabel">カラー</span></div>
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-color"></use></svg><span class="filterSidebar__rowLabel">カラー</span></div>
               <select id="homeColorFilter" class="input"><option value="">指定なし</option></select>
             </div>
             <div class="filterSidebar__row" data-row="year">
@@ -368,12 +372,12 @@
           <div class="filterSidebar__field">
             <div class="searchbox">
               <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
-              <input type="search" id="inventoryKeyword" placeholder="モデル・ＯＣＮ・コミッション・車台番号下４桁・登録番号で検索">
+              <input type="search" id="inventoryKeyword" placeholder="キーワード検索">
             </div>
           </div>
           <div class="filterSidebar__rows" id="inventoryFilterRows">
             <div class="filterSidebar__row" data-row="color">
-              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-drop"></use></svg><span class="filterSidebar__rowLabel">カラー</span></div>
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-color"></use></svg><span class="filterSidebar__rowLabel">カラー</span></div>
               <select id="inventoryColorFilter" class="input"><option value="">指定なし</option></select>
             </div>
             <div class="filterSidebar__row" data-row="year">
@@ -436,7 +440,7 @@
           <div class="filterSidebar__field">
             <div class="searchbox">
               <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
-              <input type="search" id="ordersKeyword" placeholder="モデル・コミッション・顧客名・担当・拠点で検索">
+              <input type="search" id="ordersKeyword" placeholder="キーワード検索">
             </div>
           </div>
           <div class="filterSidebar__rows" id="ordersFilterRows">
@@ -500,7 +504,7 @@
           <div class="filterSidebar__field">
             <div class="searchbox">
               <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
-              <input type="search" id="wholesaleOrdersKeyword" placeholder="モデル・コミッション・販売先・担当・拠点で検索">
+              <input type="search" id="wholesaleOrdersKeyword" placeholder="キーワード検索">
             </div>
           </div>
           <div class="filterSidebar__rows" id="wholesaleOrdersFilterRows">
@@ -550,7 +554,7 @@
         <div class="searchrow">
           <div class="searchbox">
             <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
-            <input type="search" id="myPageKeyword" placeholder="自由検索（モデル・コミッション・顧客・リード番号等）">
+            <input type="search" id="myPageKeyword" placeholder="キーワード検索">
           </div>
         </div>
       </div>
@@ -604,12 +608,12 @@
           <div class="filterSidebar__field">
             <div class="searchbox">
               <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
-              <input type="search" id="demoCarListKeyword" placeholder="モデル・ＯＣＮ・コミッション・登録番号で検索">
+              <input type="search" id="demoCarListKeyword" placeholder="キーワード検索">
             </div>
           </div>
           <div class="filterSidebar__rows" id="demoCarListFilterRows">
             <div class="filterSidebar__row" data-row="color">
-              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-drop"></use></svg><span class="filterSidebar__rowLabel">カラー</span></div>
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-color"></use></svg><span class="filterSidebar__rowLabel">カラー</span></div>
               <select id="demoCarListColorFilter" class="input"><option value="">指定なし</option></select>
             </div>
             <div class="filterSidebar__row" data-row="year">
@@ -661,12 +665,12 @@
           <div class="filterSidebar__field">
             <div class="searchbox">
               <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
-              <input type="search" id="serviceCarListKeyword" placeholder="モデル・ＯＣＮ・コミッション・登録番号で検索">
+              <input type="search" id="serviceCarListKeyword" placeholder="キーワード検索">
             </div>
           </div>
           <div class="filterSidebar__rows" id="serviceCarListFilterRows">
             <div class="filterSidebar__row" data-row="color">
-              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-drop"></use></svg><span class="filterSidebar__rowLabel">カラー</span></div>
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-color"></use></svg><span class="filterSidebar__rowLabel">カラー</span></div>
               <select id="serviceCarListColorFilter" class="input"><option value="">指定なし</option></select>
             </div>
             <div class="filterSidebar__row" data-row="year">

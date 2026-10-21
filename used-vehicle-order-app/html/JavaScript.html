@@ -1214,7 +1214,9 @@
     $('homeResultsEmpty').classList.toggle('hidden', filtered.length > 0);
     $('homeResultsCount').textContent = filtered.length ? '該当 ' + filtered.length + '台' : '';
     $('homeResultsSearchDesc').textContent = homeResultsSearchDescText_();
-    $('homeResultsList').innerHTML = tableListHtml_('tbl--cartrack', homeResultsTableHeaderHtml_(), filtered, homeResultRowHtml_);
+    // 操作列（Hold・受注等）を持つため、tbl--cartrackではなくtbl--inventoryと
+    // 同じ列幅構成（inventoryTableHeaderHtml_と同じ12列）を使う。
+    $('homeResultsList').innerHTML = tableListHtml_('tbl--inventory', homeResultsTableHeaderHtml_(), filtered, homeResultRowHtml_);
     wireTableHeaderScrollSync_($('homeResultsList'));
     $('btnHomeModelFilterClear').classList.toggle('hidden', !state.homeModelFilter.length && !state.homeResultsKeyword);
   }
@@ -1768,14 +1770,29 @@
     return '<div class="tblHead">' +
       '<div></div><div>区分</div><div>モデル</div><div>初年度登録日</div><div>走行距離</div>' +
       '<div>車検満了日</div><div>登録番号</div><div>現展示拠点</div><div>価格</div>' +
-      '<div>ステータス</div><div></div>' +
+      '<div>ステータス</div><div>操作</div><div></div>' +
       '</div>';
   }
+  /**
+   * 不具合修正: 以前はホームの検索結果一覧から行タップで詳細モーダルを開いた先で
+   * しかHold・受注確定ができなかった（現場からの要望「ホームの検索時もHOLD及び
+   * 受注ができるようにしてほしい」）。在庫リスト由来の車両（holdStatus列を持つ）は
+   * 在庫リストの一覧行（vehicleTableRowHtml_）と同じ操作列（Hold・受注・解除・
+   * 受注確定ボタン）をこの一覧の行に直接表示し、タップだけで操作できるようにする。
+   * デモカーリスト・サービス代車リスト由来の車両は、Hold・受注の概念が無い
+   * 閲覧専用のため操作列は空のまま（carTrackingTableRowHtml_と同じ）。
+   */
   function homeResultRowHtml_(v, num) {
     var fromInventory = homeResultIsFromInventory_(v);
     var statusHtml = fromInventory ? vehicleBadgesHtml_(v, false) : carTrackingBadgeHtml_(v);
-    var rowTone = fromInventory && v.holdStatus === 'hold' ? 'tblRow--hold' : '';
-    return '<div class="tblRow ' + rowTone + '" data-ocn="' + escapeHtml(v.ocn) + '">' +
+    var isHold = fromInventory && v.holdStatus === 'hold';
+    var isSpecialHold = isHold && !!(v.holdHoldType && v.holdHoldType !== 'normal');
+    var rowTone = isSpecialHold ? 'tblRow--holdSpecial' : (isHold ? 'tblRow--hold' : '');
+    var cancelHoldBtnHtml = isHold
+      ? '<button type="button" class="btn btn--danger" data-cancel-hold="' + escapeHtml(v.commission) + '">解除</button>'
+      : '';
+    var actionsHtml = fromInventory ? (cancelHoldBtnHtml + vehicleActionsHtml_(v)) : '';
+    return '<div class="tblRow ' + rowTone + '" data-commission="' + escapeHtml(v.commission || '') + '" data-ocn="' + escapeHtml(v.ocn) + '">' +
       '<div class="tblCell tblCell--num">' + rowNum_(num) + '</div>' +
       '<div class="tblCell"><span class="tag">' + escapeHtml(v.category || '-') + '</span></div>' +
       '<div class="tblCell tblCell--strong" title="' + escapeHtml(v.model) + '">' + escapeHtml(v.model) + '</div>' +
@@ -1786,6 +1803,7 @@
       '<div class="tblCell tblCell--strong">' + escapeHtml(v.currentDisplayLocation || '-') + '</div>' +
       '<div class="tblCell">' + escapeHtml(formatNumberUnit_(v.salePrice, ' 円') || '-') + '</div>' +
       '<div class="tblCell tblCell--status">' + statusHtml + '</div>' +
+      '<div class="tblCell tblCell--actions">' + actionsHtml + '</div>' +
       '<div class="tblCell tblCell--chev">›</div>' +
       '</div>';
   }
@@ -2059,15 +2077,15 @@
   });
 
   /**
-   * ホームの「検索」ボタン・Enterキー共通。キーワードを文字列の完全一致で
-   * 検索結果ページへ遷移する（現場からの要望「検索ボタンは文字列の完全一致のみの
-   * 検索にしてほしい」）。未入力の場合はホームの絞り込みサイドバー条件のみの
-   * 一覧を表示する。
+   * ホームのEnterキーでの検索（現場からの要望「コントロールパネルの検索ボタンを
+   * 無くしてほしい」によりボタンを廃止し、Enterキーのみの操作にした）。
+   * キーワードを文字列の完全一致で検索結果ページへ遷移する（現場からの要望
+   * 「検索ボタンは文字列の完全一致のみの検索にしてほしい」）。未入力の場合は
+   * ホームの絞り込みサイドバー条件のみの一覧を表示する。
    */
   function handleHomeSearch_() {
     goToHomeResultsPage_({ keyword: $('homeKeyword').value.trim(), models: [] });
   }
-  on('btnHomeSearch', 'click', handleHomeSearch_);
   on('homeKeyword', 'keydown', function (e) {
     if (e.key === 'Enter') handleHomeSearch_();
   });
@@ -2081,9 +2099,22 @@
     renderHomeResultsPage_();
   });
 
+  /**
+   * ホームの検索結果一覧の行クリック。在庫リスト由来の車両（operationsHtml_が
+   * Hold・受注・解除・受注確定ボタンを出している行）は、在庫リストの一覧
+   * （handleInventoryListClick_）と同じくボタンのdata属性をそのまま見て直接
+   * 操作できるようにする（現場からの要望「ホームの検索時もHOLD及び受注が
+   * できるようにしてほしい」）。それ以外の箇所のタップは詳細モーダルを開く。
+   */
   on('homeResultsList', 'click', function (e) {
-    var tappable = e.target.closest('[data-ocn]');
-    if (tappable) openHomeResultDetail_(tappable.dataset.ocn);
+    var target = e.target;
+    var commission;
+    if ('hold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.hold))) openActionModal('hold', commission); return; }
+    if ('order' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.order))) openActionModal('order', commission); return; }
+    if ('orderFromHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.orderFromHold))) openActionModal('orderFromHold', commission); return; }
+    if ('cancelHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.cancelHold))) openCancelHoldModal(commission); return; }
+    var tappable = target.closest('[data-ocn]');
+    if (tappable && !target.closest('button, input, label')) openHomeResultDetail_(tappable.dataset.ocn);
   });
 
   // ===== Hold / 受注 共通モーダル =====
@@ -2465,6 +2496,7 @@
       showToast('Holdを解除しました');
       loadInventory();
       loadAllInventoryItems_();
+      loadHomeVehiclePool_();
     }).catch(function (err) {
       setButtonBusy(btn, false);
       errEl.textContent = err.message;
@@ -2510,6 +2542,7 @@
       loadInventory();
       loadOrders();
       loadAllInventoryItems_();
+      loadHomeVehiclePool_();
     }).catch(function (err) {
       setButtonBusy(btn, false);
       errEl.textContent = err.message;
@@ -2556,6 +2589,7 @@
       loadInventory();
       loadWholesaleOrders();
       loadAllInventoryItems_();
+      loadHomeVehiclePool_();
     }).catch(function (err) {
       setButtonBusy(btn, false);
       errEl.textContent = err.message;
@@ -2603,6 +2637,10 @@
     showCelebration_(state.action.type);
     loadInventory();
     loadAllInventoryItems_();
+    // 不具合修正: ホームの検索結果ページからもHold・受注ができるようになったため
+    // （現場からの要望）、在庫リスト同様ここでも車両プールを取り直し、ホームの
+    // ギャラリー・検索結果ページのステータス表示を最新化する。
+    loadHomeVehiclePool_();
     if (ORDER_TYPES.indexOf(state.action.type) !== -1) loadOrders();
     if (state.action.type === 'orderFromHold' && state.action.holdType === 'wholesale') loadWholesaleOrders();
   }
@@ -4087,6 +4125,12 @@
       state.homeVehiclePool = items || [];
       renderHomeFilterSidebar_();
       renderHomeGallery_();
+      // 不具合修正: ホームの検索結果ページ（#view-homeResults）はrenderHomeGallery_
+      // とは別に描画するため、ここで呼ばないとホームからHold・受注操作をした直後も
+      // 検索結果ページ側のステータス表示が古いままになってしまう（現場からの要望
+      // 「ホームの検索時もHOLD及び受注ができるようにしてほしい」）。検索結果ページを
+      // 開いていないときに呼んでも、非表示のDOMを再構築するだけで副作用は無い。
+      renderHomeResultsPage_();
     }).catch(function (err) {
       console.error('[used-vehicle-order-app] ホーム画面用の車両プール取得でエラーが発生しました:', err);
     });

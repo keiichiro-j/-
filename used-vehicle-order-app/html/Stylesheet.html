@@ -648,22 +648,33 @@
      さらにスクロールが必要になるのは煩わしいという現場からの指摘を受け、
      文字・余白を詰めて全項目が収まりやすい密度にしたうえで、サイドバーは
      内部スクロールさせず常に全項目を表示する（下のauto幅指定を参照）。 */
+  /* 不具合修正: 絞り込みサイドバーとヘッダー（コマンドバー）の間に隙間があり、
+     見た目が分離して見えていた（現場からの要望「左コントロールパネルとヘッダーを
+     くっつけてほしい」）。.listBodyの上paddingを無くし、代わりに一覧側
+     （.listBody__main）だけに上paddingを持たせることで、サイドバーだけが
+     コマンドバーの真下にぴったり接するようにする。 */
   .listBody {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 16px;
-    padding: 14px 16px 16px;
+    padding: 0 16px 16px;
     min-width: 0;
   }
-  .listBody__main { min-width: 0; }
+  .listBody__main { min-width: 0; padding-top: 14px; }
   /* 不具合修正: 絞り込み機能のコントロールパネル（.filterSidebar）にもテーマを
      反映してほしいという現場からの要望（左端だけの罫線ではなく「取り囲むように」
      反映してほしい）を受け、パネル全体をテーマカラーの枠線で囲む。見出しも
-     --primary-text（テーマに応じた、背景とのコントラストを保った文字色）に揃える。 */
+     --primary-text（テーマに応じた、背景とのコントラストを保った文字色）に揃える。
+     不具合修正: ヘッダーに接するようにしたことに合わせ（上記）、上辺は角を
+     丸めず・枠線も引かず、コマンドバーからそのまま続くパネルに見えるようにする
+     （現場からの要望「ビジュアルもよくしてほしい」。box-shadowでパネル自体の
+     立体感・奥行きも足す）。 */
   .filterSidebar {
     background: var(--surface);
     border: 2px solid var(--primary);
-    border-radius: var(--radius);
+    border-top: none;
+    border-radius: 0 0 var(--radius) var(--radius);
+    box-shadow: var(--shadow);
     padding: 14px 14px;
     display: flex;
     flex-direction: column;
@@ -783,10 +794,12 @@
     .view--list .listBody {
       display: grid;
       /* minmax(0, 1fr)にする理由は.card__metaGrid等と同じ（1fr単独だと、内容が
-         長い場合にトラック自体がその内容ぶんまで広がってしまうため）。 */
+         長い場合にトラック自体がその内容ぶんまで広がってしまうため）。
+         上paddingを持たないのは、サイドバーをコマンドバーに接させるため
+         （上の.listBody参照）。 */
       grid-template-columns: 234px minmax(0, 1fr);
       gap: 20px;
-      padding: 20px 24px 24px;
+      padding: 0 24px 24px;
       flex: 1 1 auto;
       min-height: 0;
     }
@@ -798,7 +811,7 @@
        justify-content: centerを与えることで、一覧エリアの残り高さいっぱいに
        広がった上でその中央に表示されるようにする（実データがある通常時は
        .emptyStateがhiddenのままなので影響しない）。 */
-    .view--list .listBody__main { height: 100%; overflow-y: auto; display: flex; flex-direction: column; }
+    .view--list .listBody__main { height: 100%; overflow-y: auto; display: flex; flex-direction: column; padding-top: 20px; }
     .view--list .listBody__main > .emptyState { flex: 1 0 auto; justify-content: center; min-height: 0; }
   }
 
