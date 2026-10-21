@@ -246,7 +246,13 @@
     transition: opacity .15s var(--ease), border-color .15s var(--ease);
   }
   .tabs__item:hover { opacity: .85; }
-  .tabs__item.is-active { opacity: 1; border-bottom-color: #ffffff; }
+  /* 不具合修正: アクティブなタブの下線（区切り線）が固定の白（#ffffff）だったため、
+     設定タブでテーマ（配色）を切り替えても常に白のままで、テーマの効果が
+     及んでいなかった（現場からの指摘「ヘッダーと各リストへの区切り線をテーマに
+     応じてカラー変更してほしい」）。選択中のテーマのアクセント色（--primary、
+     ヘッダー背景のベースになるprimaryDarkより明るく、ヘッダー上でも視認できる）に
+     連動させる。 */
+  .tabs__item.is-active { opacity: 1; border-bottom-color: var(--primary); }
 
   @media (min-width: 901px) {
     /* ブランド行・タブ行のpaddingを広げる分、.commandbar側のsticky offset
@@ -1441,8 +1447,14 @@
      列の合計高さがずれてしまい、次のカードとの間隔だけ広がって不揃いに見える
      問題が残るため、確実に隙間が一定になる1列の縦積みに統一している
      （Google/Teslaの設定画面も同様に1列でカードを並べるスタイル）。 */
+  /* 不具合修正: 以前はここで760pxに狭く制限していたため、PC・タブレット幅では
+     画面中央に情報が寄って見え、左右に大きな余白が余っていた（現場からの指摘
+     「設定項目内の情報が真ん中に寄っている」）。main.view自体の上限
+     （1680px、Stylesheet.html内のmain.view参照）まではそのまま使えるように、
+     settingsWrap側の追加の上限は外す。カード内の個々の入力欄（.formField
+     .input）は、カード自体が広がっても1行の値が間延びして見えないよう、
+     別途max-widthを設けている（下記参照）。 */
   .settingsWrap {
-    max-width: 760px;
     margin: 0 auto;
   }
   .settingsGrid {
@@ -1525,10 +1537,14 @@
     background: var(--warning-bg);
     color: var(--warning);
     padding: 2px 7px;
-    border-radius: 6px;
+    border-radius: 3px;
     margin-left: 4px;
   }
-  .formField .input { width: 100%; }
+  /* カードの横幅いっぱいに広げても、1行で入力する短い値（タイトル・メール
+     アドレス等）の入力欄だけが間延びして見えないよう、入力欄自体には
+     ほどよい上限幅を設ける（settingsWrapの幅自体はmain.viewの上限まで
+     広げている。上のsettingsWrap参照）。 */
+  .formField .input { width: 100%; max-width: 560px; }
   .formField__hint { margin: 0; font-size: 12px; color: var(--on-surface-variant); }
   .formField.hidden { display: none; }
 
