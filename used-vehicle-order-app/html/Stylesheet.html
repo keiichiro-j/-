@@ -74,8 +74,10 @@
        （top: var(--topbar-h)）をJSでの実測無しに正しく重ねられる（以前の
        position: fixed＋JS実測スペーサー方式は使わない。Stylesheet.html内の
        .topbar・.commandbar参照）。901px以上はボタン・ロゴを一回り大きくする分、
-       高さも合わせて変える。 */
-    --topbar-h: 106px;
+       高さも合わせて変える。ヘッダー下端のテーマ境界線（.topbarの
+       border-bottom: 2px、現場からの要望「ヘッダーとリストの境界にもテーマを
+       反映してほしい」）ぶんも含めた実際の高さに揃えている。 */
+    --topbar-h: 108px;
     /* コントロールパネル（.topbar）の背景色。JS実行前（テーマ適用前）の初期値で、
        以前の「コントロールパネル」時代と同じダークネイビー（<meta name="theme-color">とも
        合わせてある）。JS実行後は、選択中のテーマプリセットのprimaryDarkに
@@ -154,6 +156,13 @@
     position: sticky;
     top: 0;
     z-index: 15;
+    /* 不具合修正: ヘッダーと各リスト（コンテンツ側）の境界にもテーマを反映して
+     ほしいという要望を受け、下端に選択中のテーマのアクセント色（--primary）の
+     線を入れる。ヘッダー自体の背景は--topbar-bg（選択中のテーマのprimaryDark）
+     のため、同じ色（primary-dark）で線を引いても背景に溶けて見えなくなって
+     しまう。見える境界線にするには背景と異なる色が必要なため、タブの
+     アクティブ下線（.tabs__item.is-active）と同じ--primaryを使っている。 */
+    border-bottom: 2px solid var(--primary);
     transition: box-shadow .2s var(--ease);
   }
   /* 不具合修正/現場からの要望「スクロール中のヘッダーに奥行きを持たせたい」:
@@ -258,7 +267,7 @@
     /* ブランド行・タブ行のpaddingを広げる分、.commandbar側のsticky offset
        （top: var(--topbar-h)）もこの実測値に合わせて更新する（ズレると
        スクロール時に隙間または重なりが出る）。 */
-    :root { --topbar-h: 128px; }
+    :root { --topbar-h: 130px; }
     .topbar__brandRow { padding: 20px 32px; }
     .topbar__navBtn { width: 42px; height: 42px; }
     .topbar__logo { height: 30px; max-width: 160px; }
