@@ -182,9 +182,12 @@
     <header class="topbar" id="topbar">
       <!-- 不具合修正/現場からの要望「タイトルとタブとお知らせは一つのくくりとして、
            その囲いをテーマに沿ったカラーが反映するようにしてほしい」を受け、
-           ブランド行（タイトル）とタブをテーマカラーの枠線で囲む1つのグループに
-           まとめる（.topbar__group、Stylesheet.html参照）。整合性バナーは
-           これまでどおり画面幅いっぱいに警告を出したいため、グループの外
+           ブランド行（タイトル）・タブ・お知らせ（#homeAnnouncement）をテーマカラーの
+           枠線で囲む1つのグループにまとめる（.topbar__group、Stylesheet.html参照）。
+           お知らせはホーム画面専用のため、ホームタブ選択中かつ内容が空でないときだけ
+           表示する（syncHomeAnnouncementVisibility_、JavaScript.html参照。これに伴い
+           --topbar-hは表示状態に応じてbody.has-announcementで切り替える）。整合性
+           バナーはこれまでどおり画面幅いっぱいに警告を出したいため、グループの外
            （.topbarの兄弟要素）に置いたままにする。 -->
       <div class="topbar__group">
         <div class="topbar__brandRow">
@@ -223,6 +226,7 @@
           <button class="navBtn tabs__item" data-tab="serviceCarList" type="button">サービス代車リスト</button>
           <button class="navBtn tabs__item" data-tab="settings" type="button">設定</button>
         </nav>
+        <div class="homeAnnouncement hidden" id="homeAnnouncement"></div>
       </div>
       <div class="integrityBanner hidden" id="integrityBanner">
         <svg class="icon icon--inline"><use href="#icon-alert"></use></svg>
@@ -252,9 +256,6 @@
          へ画面遷移して結果を一覧表示する（現場からの要望「モデル画像を選ぶと
          下に表示するのではなく専用のリストページに飛んでほしい」）。 -->
     <main class="view view--list is-active" id="view-home">
-      <div class="commandbar">
-        <div class="homeAnnouncement hidden" id="homeAnnouncement"></div>
-      </div>
       <div class="listBody">
         <aside class="filterSidebar" aria-label="ホームの絞り込み">
           <div class="filterSidebar__head">

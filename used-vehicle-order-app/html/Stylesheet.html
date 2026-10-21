@@ -77,7 +77,12 @@
        高さも合わせて変える。ヘッダー下端のテーマ境界線（.topbarの
        border-bottom: 2px、現場からの要望「ヘッダーとリストの境界にもテーマを
        反映してほしい」）ぶんも含めた実際の高さに揃えている。 */
-    --topbar-h: 130px;
+    --topbar-h: 140px;
+    /* お知らせ（#homeAnnouncement）が同じ囲いの中に表示されているとき
+       （body.has-announcement、syncHomeAnnouncementVisibility_・JavaScript.html参照）
+       は、その分だけ.topbarの実際の高さが伸びるため、--topbar-hもこの状態に
+       合わせて切り替える（コマンドバーのsticky offset・.view--listの高さ計算の
+       基準がズレないようにするため）。 */
     /* コントロールパネル（.topbar）の背景色。JS実行前（テーマ適用前）の初期値で、
        以前の「コントロールパネル」時代と同じダークネイビー（<meta name="theme-color">とも
        合わせてある）。JS実行後は、選択中のテーマプリセットのprimaryDarkに
@@ -100,6 +105,7 @@
     --ease: cubic-bezier(.4, 0, .2, 1);
     --ease-out: cubic-bezier(.16, 1, .3, 1);
   }
+  body.has-announcement { --topbar-h: 185px; }
 
   * { box-sizing: border-box; }
   /* 不具合修正: 以前は和文フォントを指定していなかったため、OS標準
@@ -175,8 +181,20 @@
     border: 2px solid var(--primary);
     border-radius: var(--radius);
     overflow: hidden;
+    /* 現場からの要望「お知らせと下枠との隙間を設けてほしい（わずかで良い）」を受け、
+       グループの最後の要素（タブ、またはお知らせ表示中はお知らせ）と下辺の枠線との
+       間にわずかな余白を持たせる。 */
+    padding-bottom: 8px;
   }
   .topbar__group .topbar__brandRow { border-bottom: 1px solid var(--dark-ui-outline); }
+  /* お知らせ（#homeAnnouncement）は、タイトル・タブと同じ囲いの中に収める
+     （現場からの要望「タイトルとタブとお知らせは一つのくくりとして」）。囲いの中では
+     独立した丸みのあるピルではなく、タブ行の下に続く帯として見せる。 */
+  .topbar__group .homeAnnouncement {
+    border-radius: 0;
+    border-top: 1px solid var(--dark-ui-outline);
+    margin-top: 10px;
+  }
   /* 不具合修正/現場からの要望「スクロール中のヘッダーに奥行きを持たせたい」:
      以前は固定ヘッダー（.topbar・.commandbar）が境界線のみでフラットだった。
      ページが実際にスクロールされて先頭でなくなったときだけ、ごく薄い影を
@@ -279,7 +297,8 @@
     /* ブランド行・タブ行のpaddingを広げる分、.commandbar側のsticky offset
        （top: var(--topbar-h)）もこの実測値に合わせて更新する（ズレると
        スクロール時に隙間または重なりが出る）。 */
-    :root { --topbar-h: 152px; }
+    :root { --topbar-h: 161px; }
+    body.has-announcement { --topbar-h: 206px; }
     .topbar__brandRow { padding: 20px 32px; }
     .topbar__navBtn { width: 42px; height: 42px; }
     .topbar__logo { height: 30px; max-width: 160px; }
@@ -375,16 +394,6 @@
      設定はカード状のUIのため、通常どおり左右の余白を持たせる）。 */
   main.view { max-width: 1680px; margin: 0 auto; padding: 16px; }
   main.view.view--list { max-width: none; margin: 0; padding: 0; }
-  /* 不具合修正: ホーム画面は#view-home自身に固定のsticky commandbarを
-     持つが、main.viewの上パディング（16px）ぶん、コマンドバーが本来の
-     固定位置（--topbar-hぴったり）より下にずれた位置から始まっていた。
-     スクロール開始直後にこの16px分だけ一瞬で追いつくため、ヘッダーが
-     画面のスクロールにつられて少し動くように見えていた（現場からの指摘）。
-     .view--listと同じくpaddingを0にし、コマンドバーを最初からtopbarの
-     直下（--topbar-h）に固定することで、スクロール量に関わらずヘッダーが
-     一切動かないようにする（内側の要素はcommandbar・homeGrid自身が
-     必要な余白を持っているため、外側のpaddingが無くても見た目は崩れない）。 */
-  main.view#view-home { max-width: none; margin: 0; padding: 0; }
   .view { display: none; }
   /* タブ切替時、瞬間的にコンテンツが入れ替わるだけだと素っ気ないため、
      切替後の画面にごく軽いフェードイン（+わずかな上方向スライド）を付ける。

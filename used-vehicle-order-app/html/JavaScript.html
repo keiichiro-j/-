@@ -647,6 +647,7 @@
     document.querySelectorAll('.navBtn').forEach(function (t) { t.classList.toggle('is-active', t.dataset.tab === tabName); });
     document.querySelectorAll('main.view').forEach(function (v) { v.classList.remove('is-active'); });
     $('view-' + tabName).classList.add('is-active');
+    syncHomeAnnouncementVisibility_();
     // 全タブは同じ1つのdocument上でdisplay: none/blockを切り替えているだけの
     // ため、スクロール位置はタブをまたいで共有されてしまう（例: 在庫リストで
     // スクロールした状態で他のタブへ移動すると、次のタブも同じスクロール
@@ -4304,7 +4305,24 @@
     var el = $('homeAnnouncement');
     var value = String(text || '').trim();
     el.textContent = value;
-    el.classList.toggle('hidden', !value);
+    el.dataset.text = value;
+    syncHomeAnnouncementVisibility_();
+  }
+
+  /**
+   * お知らせ（#homeAnnouncement）は、タイトル・タブと同じ囲い（.topbar__group、
+   * 全画面共通のヘッダー）の中に表示するが、内容自体はホーム画面専用のため、
+   * ホームタブを選んでいるときだけ表示する。表示・非表示に応じてbody.has-
+   * announcementを切り替え、--topbar-h（Stylesheet.html参照）もその分の高さを
+   * 含めた値に切り替わるようにする（switchToTab_・renderHomeAnnouncement_の
+   * 両方から呼ぶ）。
+   */
+  function syncHomeAnnouncementVisibility_() {
+    var el = $('homeAnnouncement');
+    var hasText = !!(el.dataset.text || '').trim();
+    var show = hasText && currentActiveTab_() === 'home';
+    el.classList.toggle('hidden', !show);
+    document.body.classList.toggle('has-announcement', show);
   }
 
   /**
