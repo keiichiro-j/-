@@ -653,9 +653,15 @@
     min-width: 0;
   }
   .listBody__main { min-width: 0; }
+  /* 不具合修正: 絞り込み機能のコントロールパネル（.filterSidebar）にもテーマを
+     反映してほしいという現場からの要望を受け、.card--themedと同じ考え方
+     （選択中のテーマカラー--primaryを装飾として使う、テーマを切り替えると
+     連動して変わる）で左端にテーマカラーの罫線を付け、見出しも--primary-text
+     （テーマに応じた、背景とのコントラストを保った文字色）に揃える。 */
   .filterSidebar {
     background: var(--surface);
     border: 1px solid var(--outline);
+    border-left: 4px solid var(--primary);
     border-radius: var(--radius);
     padding: 14px 14px;
     display: flex;
@@ -666,7 +672,7 @@
   /* 見出し（条件検索）・該当台数は左寄せでひとまとまりにし、クリアボタンだけを
      margin-left: autoで右端に離す（現場からの要望「該当台数は見出しの右に」）。 */
   .filterSidebar__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .filterSidebar__title { font-size: 13px; font-weight: 700; margin: 0; color: var(--on-surface); }
+  .filterSidebar__title { font-size: 13px; font-weight: 700; margin: 0; color: var(--primary-text); }
   .filterSidebar__count {
     font-size: 11px;
     font-weight: 700;
