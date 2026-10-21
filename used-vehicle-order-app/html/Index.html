@@ -153,14 +153,18 @@
         <button class="navBtn tabs__item is-active" data-tab="home" type="button">ホーム</button>
         <button class="navBtn tabs__item" data-tab="inventory" type="button">在庫リスト</button>
         <button class="navBtn tabs__item" data-tab="orders" type="button">受注リスト</button>
-        <!-- 業販受注リスト・デモカーリスト・サービス代車リストは、管理者権限を持つ
-             担当者にのみ表示する（renderSettingsが.navBtn--adminOnlyクラスの
-             hiddenを一括で切り替える、JavaScript.html参照）。デモカーリスト・
-             サービス代車リストは設定タブの直前に表示する（現場からの要望）。 -->
+        <!-- 業販受注リストは、管理者権限を持つ担当者にのみ表示する
+             （renderSettingsが.navBtn--adminOnlyクラスのhiddenを一括で切り替える、
+             JavaScript.html参照）。デモカーリスト・サービス代車リストは、以前は
+             同じ管理者限定だったが、現場からの要望「デモカー、サービス代車リストも
+             全員が見れるようにしてほしい」を受けて全担当者に公開した
+             （.navBtn--adminOnlyを付けない。閲覧専用の一覧でHold・受注確定等の
+             操作は無いため、全員に見せても支障が無い）。設定タブの直前に表示する
+             （現場からの要望）。 -->
         <button class="navBtn tabs__item navBtn--adminOnly hidden" data-tab="wholesaleOrders" type="button">業販受注リスト</button>
         <button class="navBtn tabs__item" data-tab="mypage" type="button">マイページ</button>
-        <button class="navBtn tabs__item navBtn--adminOnly hidden" data-tab="demoCarList" type="button">デモカーリスト</button>
-        <button class="navBtn tabs__item navBtn--adminOnly hidden" data-tab="serviceCarList" type="button">サービス代車リスト</button>
+        <button class="navBtn tabs__item" data-tab="demoCarList" type="button">デモカーリスト</button>
+        <button class="navBtn tabs__item" data-tab="serviceCarList" type="button">サービス代車リスト</button>
         <button class="navBtn tabs__item" data-tab="settings" type="button">設定</button>
       </nav>
       <div class="integrityBanner hidden" id="integrityBanner">
@@ -483,18 +487,19 @@
       </div>
     </main>
 
-    <!-- デモカーリスト: 在庫リストの区分「デモカー」の車両を、在庫リストとは別の
-         専用スプレッドシート（CarTrackingService.gs参照）で管理する一覧。管理者
-         権限を持つ担当者にのみ表示する（コントロールパネルの水平タブも
-         .navBtn--adminOnlyクラスで一括制御、JavaScript.html参照）。区分デモカーの
-         車両は、これまでどおり在庫リストにも変わらず表示され続ける（このリストは
-         追加の管理用ビュー）。在庫リストから受注確定された場合も一覧からは消えず、
-         「販売済み」の表示に変わる。Hold・受注操作は行わない閲覧専用の一覧のため、
-         区分・掲載状況の絞り込みは持たないが、現場からの要望「それぞれのページに
-         適した条件検索を追加してほしい」を受け、在庫リストと同じカラー・初年度
-         登録日・価格帯・走行距離に加え、このリスト専用の販売状況（在庫中／
-         販売済み）を左の絞り込みサイドバーに持たせる（掲載状況は在庫リストにしか
-         無い概念のため、ここには置かない）。 -->
+    <!-- デモカーリスト: 在庫リストとは別の専用スプレッドシート（デモカーリストタブ、
+         CarTrackingService.gs参照）に直接入力・編集する独立した一覧。以前は在庫
+         リストの区分「デモカー」からの自動反映だったが、現在は各シートへの直接
+         入力に変更している。かつては管理者権限を持つ担当者にのみ表示していたが、
+         現場からの要望「デモカー、サービス代車リストも全員が見れるようにして
+         ほしい」を受けて全担当者に公開した（コントロールパネルの水平タブも
+         .navBtn--adminOnlyクラスを外している、Index.html上部・JavaScript.html
+         参照）。Hold・受注操作は行わない閲覧専用の一覧のため、区分・掲載状況の
+         絞り込みは持たないが、現場からの要望「それぞれのページに適した条件検索を
+         追加してほしい」を受け、在庫リストと同じカラー・初年度登録日・価格帯・
+         走行距離に加え、このリスト専用の販売状況（在庫中／販売済み）を左の絞り込み
+         サイドバーに持たせる（掲載状況は在庫リストにしか無い概念のため、ここには
+         置かない）。 -->
     <main class="view view--list" id="view-demoCarList">
       <div class="listBody">
         <aside class="filterSidebar" aria-label="デモカーリストの絞り込み">

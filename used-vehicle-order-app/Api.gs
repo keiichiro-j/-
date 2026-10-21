@@ -171,9 +171,10 @@ function api_listWholesaleOrders(filters, groupBy) {
 }
 
 // ===== デモカーリスト／サービス代車リスト =====
-// コントロールパネルには管理者権限を持つ担当者にのみこのタブ自体を表示するが
-// （業販受注リストと同じ判定、JavaScript.html参照）、直接APIを呼ばれた場合の
-// 保険として、サーバー側でも非管理者には常に空配列を返す。
+// コントロールパネルのタブ自体は全担当者に表示する（以前は管理者限定だったが、
+// 現場からの要望「デモカー、サービス代車リストも全員が見れるようにしてほしい」
+// により公開した。Hold・受注確定等の操作が無い閲覧専用の一覧のため、全員に
+// 見せても支障が無い。Index.html・JavaScript.htmlの.navBtn--adminOnly参照）。
 // keyword検索は在庫リストと同じsearchInventory（SearchService.gs）を流用する
 // （モデル・コミッション・ＯＣＮ・車台番号下４桁・登録番号への部分一致）。
 // includeHoldはデモカーリスト・サービス代車リストのデータにはholdStatusが
@@ -181,25 +182,18 @@ function api_listWholesaleOrders(filters, groupBy) {
 // これらのシートはもう在庫リストの区分からの自動反映ではなく、各シートへの
 // 直接入力で内容が決まる（CarTrackingService.gs参照）。
 function api_listDemoCarList(filters) {
-  var email = Session.getActiveUser().getEmail();
-  if (!isSystemAdmin_(email)) return [];
   return searchInventory(listCarTrackingList_(getDemoCarListSheet_()), filters);
 }
 
 function api_listServiceCarList(filters) {
-  var email = Session.getActiveUser().getEmail();
-  if (!isSystemAdmin_(email)) return [];
   return searchInventory(listCarTrackingList_(getServiceCarListSheet_()), filters);
 }
 
 /**
  * ホーム画面の車両ギャラリー・絞り込み検索専用。在庫リスト＋デモカーリスト＋
  * サービス代車リストの3シートを束ねた車両プールを返す（受注リスト・業販受注
- * リストは対象外）。デモカーリスト・サービス代車リストのタブ自体（一覧・編集）は
- * 管理者限定だが、ホーム画面は全担当者が使う画面であり、3シート全体から
- * 車両を検索・一覧できるようにしてほしいという要望のため、このAPIに限り
- * 管理者判定を行わない（車両の基本情報のみで、Hold状況や備考等の管理用
- * 情報は含まない一覧用途のため）。
+ * リストは対象外）。api_listDemoCarList・api_listServiceCarListと同じく
+ * 管理者判定は行わない（全担当者が使う画面のため）。
  */
 function api_listHomeVehiclePool() {
   return listInventory()
