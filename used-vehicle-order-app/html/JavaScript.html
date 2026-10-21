@@ -1011,6 +1011,103 @@
     return items.filter(function (item) { return checkedValues.indexOf(item[fieldKey] || '') !== -1; });
   }
 
+  // ===== 絞り込みサイドバーの行表示・サマリー（全リスト共通） =====
+  // 現場からのデザイン案の選定を受けて適用した「改訂案1：ライン区切り」。
+  // 各リストの絞り込みサイドバーは、項目を.filterSidebar__row（1列に1項目）で
+  // 並べ、既存のセレクト・ラジオ・チェックボックス・テキスト入力はそのまま使う。
+  // syncFilterRowsAndSummary_を各リストのrender関数の末尾から呼ぶだけで、
+  // 行の強調表示（.is-active）と「絞り込み中」サマリー（.filterSidebar__activeBar）が
+  // 自動的に同期される。
+
+  /**
+   * 値を変更したあと、そのコントロールに元々登録済みの'change'ハンドラ
+   * （各リストの絞り込みロジック）をそのまま発火させる。'change'イベントは
+   * 既定でバブリングするため、チェックボックス個別ではなくコンテナ単位で
+   * 委譲登録しているハンドラ（区分・現展示拠点等）にも届く。
+   */
+  function dispatchChange_(el) {
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  /**
+   * チェックボックス／ラジオの表示ラベルを取得する（純粋関数に近いDOM読み取り）。
+   * 件数バッジ（.filterCheck__cnt）が付いていても、ラベル本文だけを取り出す。
+   */
+  function checkboxDisplayLabel_(input) {
+    var label = input.closest('label');
+    if (!label) return input.value;
+    var clone = label.cloneNode(true);
+    clone.querySelectorAll('input, .filterCheck__cnt').forEach(function (el) { el.remove(); });
+    return clone.textContent.trim();
+  }
+
+  /**
+   * 絞り込みサイドバーの行（.filterSidebar__row）1件分から、実際に効いている
+   * 絞り込み条件を集める。select・ラジオ・チェックボックス・テキスト入力の
+   * いずれにも対応する（在庫リストの区分・現展示拠点、受注リストのグループ化・
+   * 担当者、業販受注リストの販売先等、全リストの行で共通して使う）。
+   */
+  function filterRowActiveEntries_(rowEl) {
+    var entries = [];
+    rowEl.querySelectorAll('select').forEach(function (sel) {
+      if (!sel.value) return;
+      entries.push({ label: sel.options[sel.selectedIndex].text, clear: function () { sel.value = ''; dispatchChange_(sel); } });
+    });
+    rowEl.querySelectorAll('input[type="radio"]:checked').forEach(function (r) {
+      if (!r.value) return;
+      entries.push({
+        label: checkboxDisplayLabel_(r),
+        clear: function () {
+          var def = rowEl.querySelector('input[type="radio"][value=""]');
+          if (def) { def.checked = true; dispatchChange_(def); }
+        }
+      });
+    });
+    rowEl.querySelectorAll('input[type="checkbox"]:checked').forEach(function (c) {
+      entries.push({ label: checkboxDisplayLabel_(c), clear: function () { c.checked = false; dispatchChange_(c); } });
+    });
+    rowEl.querySelectorAll('input[type="text"], input[type="search"]').forEach(function (t) {
+      if (!t.value.trim()) return;
+      entries.push({ label: t.value.trim(), clear: function () { t.value = ''; dispatchChange_(t); } });
+    });
+    return entries;
+  }
+
+  /**
+   * 絞り込みサイドバー1枚分、行の強調表示（.is-active）と「絞り込み中」
+   * サマリー（.filterSidebar__activeBar）をまとめて同期する。各リストの
+   * 一覧再描画関数（renderInventory・renderOrders等）の末尾から呼ぶ。
+   * @param {string} rowsContainerId .filterSidebar__rowsを持つ要素のID
+   * @param {string} activeBarId .filterSidebar__activeBarのID
+   * @param {string} clearBtnId 「すべてクリア」から呼ぶ、既存の「クリア」ボタンのID
+   */
+  function syncFilterRowsAndSummary_(rowsContainerId, activeBarId, clearBtnId) {
+    var rowsContainer = $(rowsContainerId);
+    var bar = $(activeBarId);
+    if (!rowsContainer || !bar) return;
+    var allEntries = [];
+    rowsContainer.querySelectorAll('.filterSidebar__row').forEach(function (row) {
+      var entries = filterRowActiveEntries_(row);
+      row.classList.toggle('is-active', entries.length > 0);
+      allEntries = allEntries.concat(entries);
+    });
+    if (!allEntries.length) {
+      bar.innerHTML = '<span class="filterSidebar__activeEmpty">絞り込み条件はありません</span>';
+      return;
+    }
+    bar.innerHTML = allEntries.map(function (en, i) {
+      return '<button type="button" class="filterSidebar__activeChip" data-idx="' + i + '"><span class="label">' + escapeHtml(en.label) + '</span><span class="x">×</span></button>';
+    }).join('') + '<button type="button" class="filterSidebar__activeClearAll">すべてクリア</button>';
+    bar.querySelectorAll('.filterSidebar__activeChip').forEach(function (chip, i) {
+      chip.addEventListener('click', function () { allEntries[i].clear(); });
+    });
+    var clearAllBtn = bar.querySelector('.filterSidebar__activeClearAll');
+    if (clearAllBtn) clearAllBtn.addEventListener('click', function () {
+      var btn = $(clearBtnId);
+      if (btn) btn.click();
+    });
+  }
+
   /**
    * デモカーリスト・サービス代車リストの絞り込みサイドバー用（純粋関数）。
    * 在庫リストと同じカラー・初年度登録日・価格帯・走行距離に加え、このリスト
@@ -1848,6 +1945,7 @@
     container.innerHTML = tableListHtml_('tbl--inventory', inventoryTableHeaderHtml_(), filtered, vehicleTableRowHtml_);
     wireTableHeaderScrollSync_(container);
     syncInventoryFilterClearVisibility_();
+    syncFilterRowsAndSummary_('inventoryFilterRows', 'inventoryActiveBar', 'btnInventoryFilterClear');
   }
 
   // 在庫リストの行タップ操作（Hold・受注・詳細）。マイページの
@@ -2809,6 +2907,7 @@
     }).join('');
     $('ordersMonthNav').innerHTML = ordersMonthChipsHtml_(groups.reduce(function (acc, g) { return acc.concat(g.items); }, []));
     wireTableHeaderScrollSync_(container);
+    syncFilterRowsAndSummary_('ordersFilterRows', 'ordersActiveBar', 'btnOrdersFilterClear');
   }
 
   on('ordersGroups','click', function (e) {
@@ -3015,6 +3114,7 @@
       return '<div class="group">' + heading + tableListHtml_('tbl--wholesale', wholesaleOrderTableHeaderHtml_(), g.items, wholesaleOrderTableRowHtml_) + '</div>';
     }).join('');
     wireTableHeaderScrollSync_(container);
+    syncFilterRowsAndSummary_('wholesaleOrdersFilterRows', 'wholesaleOrdersActiveBar', 'btnWholesaleOrdersFilterClear');
   }
 
   on('wholesaleOrdersGroups','click', function (e) {
@@ -3165,6 +3265,7 @@
       $(opts.countId).textContent = all.length ? '該当 ' + filtered.length + '台 ／ 全' + all.length + '台' : '';
       $(opts.bodyId).innerHTML = tableListHtml_('tbl--cartrack', carTrackingTableHeaderHtml_(), filtered, carTrackingTableRowHtml_);
       wireTableHeaderScrollSync_($(opts.bodyId));
+      syncFilterRowsAndSummary_(opts.rowsId, opts.activeBarId, opts.clearBtnId);
     }
 
     function findByOcn(ocn) {
@@ -3222,6 +3323,7 @@
     priceFilterId: 'demoCarListPriceFilter', mileageFilterId: 'demoCarListMileageFilter',
     statusFilterId: 'demoCarListStatusFilter', locationFilterId: 'demoCarListLocationFilter',
     clearBtnId: 'btnDemoCarListFilterClear',
+    rowsId: 'demoCarListFilterRows', activeBarId: 'demoCarListActiveBar',
     bodyId: 'demoCarListBody', emptyId: 'demoCarListEmpty',
     detailModalId: 'demoCarListDetailModal', detailBodyId: 'demoCarListDetailBody'
   });
@@ -3232,6 +3334,7 @@
     priceFilterId: 'serviceCarListPriceFilter', mileageFilterId: 'serviceCarListMileageFilter',
     statusFilterId: 'serviceCarListStatusFilter', locationFilterId: 'serviceCarListLocationFilter',
     clearBtnId: 'btnServiceCarListFilterClear',
+    rowsId: 'serviceCarListFilterRows', activeBarId: 'serviceCarListActiveBar',
     bodyId: 'serviceCarListBody', emptyId: 'serviceCarListEmpty',
     detailModalId: 'serviceCarListDetailModal', detailBodyId: 'serviceCarListDetailBody'
   });
@@ -4129,6 +4232,7 @@
     var allCount = (state.homeVehiclePool || []).length;
     $('homeFilterCount').textContent = allCount ? '該当 ' + pool.length + '台 ／ 全' + allCount + '台' : '';
     syncHomeFilterClearVisibility_();
+    syncFilterRowsAndSummary_('homeFilterRows', 'homeActiveBar', 'btnHomeFilterClear');
     renderHomeAnnouncement_((state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.homeAnnouncement) || '');
   }
 

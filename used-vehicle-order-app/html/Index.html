@@ -82,6 +82,51 @@
     </defs>
   </svg>
 
+  <!-- 絞り込みサイドバーの各項目見出しに添える、モノトーンの線画アイコン一式
+       （現場からの要望「アイコンはモノトーンのものを使用してほしい」）。
+       上のPhosphorアイコン（塗りつぶしパス、fill: currentColorで色を制御）とは
+       別系統で、こちらは単純な図形（円・矩形・線・弧）のみで構成し、
+       stroke="currentColor"を要素に直接指定することで常に単色の線画になる
+       （.filterSidebar__rowIcon、Stylesheet.html参照。色はcolorプロパティで
+       制御するため、他の絵文字・多色アイコンと混在しない）。 -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="icon-drop" viewBox="0 0 24 24">
+        <path d="M12 3c0 0-6.2 7.1-6.2 11.3a6.2 6.2 0 0 0 12.4 0C18.2 10.1 12 3 12 3Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+      </symbol>
+      <symbol id="icon-calendar" viewBox="0 0 24 24">
+        <rect x="3.2" y="5" width="17.6" height="15.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+        <line x1="8" y1="2.8" x2="8" y2="7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        <line x1="16" y1="2.8" x2="16" y2="7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        <line x1="3.2" y1="10.2" x2="20.8" y2="10.2" stroke="currentColor" stroke-width="1.7"/>
+      </symbol>
+      <symbol id="icon-cash" viewBox="0 0 24 24">
+        <rect x="2.2" y="6" width="19.6" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+        <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.7"/>
+        <circle cx="5.6" cy="9.4" r="0.95" fill="currentColor" stroke="none"/>
+        <circle cx="18.4" cy="14.6" r="0.95" fill="currentColor" stroke="none"/>
+      </symbol>
+      <symbol id="icon-gauge" viewBox="0 0 24 24">
+        <path d="M4 16.5A8 8 0 0 1 20 16.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        <line x1="12" y1="16.5" x2="15.6" y2="11.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        <circle cx="12" cy="16.5" r="1.3" fill="currentColor" stroke="none"/>
+      </symbol>
+      <symbol id="icon-pin" viewBox="0 0 24 24">
+        <path d="M12 21s7-7.4 7-12a7 7 0 1 0-14 0c0 4.6 7 12 7 12Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+        <circle cx="12" cy="9" r="2.4" fill="none" stroke="currentColor" stroke-width="1.7"/>
+      </symbol>
+      <symbol id="icon-globe" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.7"/>
+        <ellipse cx="12" cy="12" rx="4" ry="9" fill="none" stroke="currentColor" stroke-width="1.7"/>
+        <line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="1.7"/>
+      </symbol>
+      <symbol id="icon-tag" viewBox="0 0 24 24">
+        <path d="M3 11.5V6a2 2 0 0 1 2-2h5.5L20 12.5 12.5 20 3 11.5Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+        <circle cx="8" cy="8" r="1.2" fill="currentColor" stroke="none"/>
+      </symbol>
+    </defs>
+  </svg>
+
   <!-- 起動直後、初回データ取得（reloadAll_）が終わるまで表示するローディング画面。
        以前は何も表示せず空白のまま数秒待たせていたため、JavaScript.htmlのinit()で
        初回のreloadAll_完了時にのみis-hiddenを付けてフェードアウトする
@@ -206,6 +251,14 @@
             <span class="filterSidebar__count" id="homeFilterCount"></span>
             <button type="button" class="filterSidebar__clearBtn hidden" id="btnHomeFilterClear">クリア</button>
           </div>
+          <!-- 絞り込み中サマリー・各項目の行表示は、現場からの要望で選定した
+               デザイン案「改訂案1：ライン区切り」を全リストの絞り込みサイドバーに
+               適用したもの（.filterSidebar__rows、syncFilterRowsAndSummary_、
+               JavaScript.html参照）。1列に1項目、セレクト・チェックボックスという
+               標準の選択式コントロールのみを使い、モノトーンの線画アイコンを
+               項目見出しに添える。絞り込み中の項目は左にアクセント線が付き、
+               サマリーのタグ（×で個別解除）がパネル上部に並ぶ。 -->
+          <div class="filterSidebar__activeBar" id="homeActiveBar"></div>
           <!-- 不具合修正: キーワードは入力中のライブ絞り込みではなく、「検索」ボタン
                （またはEnterキー）を押したときだけ、文字列の完全一致で検索結果ページへ
                遷移するようにした（現場からの要望「検索ボタンは文字列の完全一致のみの
@@ -217,21 +270,23 @@
             </div>
             <button type="button" class="btn btn--primary" id="btnHomeSearch">検索</button>
           </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">カラー</label>
-            <select id="homeColorFilter" class="input"><option value="">指定なし</option></select>
-          </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">初年度登録日</label>
-            <select id="homeYearFilter" class="input"></select>
-          </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">価格帯</label>
-            <select id="homePriceFilter" class="input"></select>
-          </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">走行距離</label>
-            <select id="homeMileageFilter" class="input"></select>
+          <div class="filterSidebar__rows" id="homeFilterRows">
+            <div class="filterSidebar__row" data-row="color">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-drop"></use></svg><span class="filterSidebar__rowLabel">カラー</span></div>
+              <select id="homeColorFilter" class="input"><option value="">指定なし</option></select>
+            </div>
+            <div class="filterSidebar__row" data-row="year">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-calendar"></use></svg><span class="filterSidebar__rowLabel">初年度登録日</span></div>
+              <select id="homeYearFilter" class="input"></select>
+            </div>
+            <div class="filterSidebar__row" data-row="price">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-cash"></use></svg><span class="filterSidebar__rowLabel">価格帯</span></div>
+              <select id="homePriceFilter" class="input"></select>
+            </div>
+            <div class="filterSidebar__row" data-row="mileage">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-gauge"></use></svg><span class="filterSidebar__rowLabel">走行距離</span></div>
+              <select id="homeMileageFilter" class="input"></select>
+            </div>
           </div>
         </aside>
         <div class="listBody__main">
@@ -309,45 +364,45 @@
             <span class="filterSidebar__count" id="inventoryFilterCount"></span>
             <button type="button" class="filterSidebar__clearBtn hidden" id="btnInventoryFilterClear">クリア</button>
           </div>
+          <div class="filterSidebar__activeBar" id="inventoryActiveBar"></div>
           <div class="filterSidebar__field">
             <div class="searchbox">
               <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
               <input type="search" id="inventoryKeyword" placeholder="モデル・ＯＣＮ・コミッション・車台番号下４桁・登録番号で検索">
             </div>
           </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">カラー</label>
-            <select id="inventoryColorFilter" class="input"><option value="">指定なし</option></select>
-          </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">初年度登録日</label>
-            <select id="inventoryYearFilter" class="input"></select>
-          </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">価格帯</label>
-            <select id="inventoryPriceFilter" class="input"></select>
-          </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">走行距離</label>
-            <select id="inventoryMileageFilter" class="input"></select>
-          </div>
-          <hr class="filterSidebar__rule">
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">区分</label>
-            <div id="inventoryCategoryFilter"></div>
-          </div>
-          <hr class="filterSidebar__rule">
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">現展示拠点</label>
-            <div id="inventoryLocationFilter"></div>
-          </div>
-          <hr class="filterSidebar__rule">
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">掲載状況</label>
-            <div id="inventoryListedFilter">
-              <label class="filterCheck"><input type="checkbox" value="carsensor"> カーセンサー掲載中</label>
-              <label class="filterCheck"><input type="checkbox" value="goonet"> グーネット掲載中</label>
-              <label class="filterCheck"><input type="checkbox" value="unlisted"> 未掲載</label>
+          <div class="filterSidebar__rows" id="inventoryFilterRows">
+            <div class="filterSidebar__row" data-row="color">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-drop"></use></svg><span class="filterSidebar__rowLabel">カラー</span></div>
+              <select id="inventoryColorFilter" class="input"><option value="">指定なし</option></select>
+            </div>
+            <div class="filterSidebar__row" data-row="year">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-calendar"></use></svg><span class="filterSidebar__rowLabel">初年度登録日</span></div>
+              <select id="inventoryYearFilter" class="input"></select>
+            </div>
+            <div class="filterSidebar__row" data-row="price">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-cash"></use></svg><span class="filterSidebar__rowLabel">価格帯</span></div>
+              <select id="inventoryPriceFilter" class="input"></select>
+            </div>
+            <div class="filterSidebar__row" data-row="mileage">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-gauge"></use></svg><span class="filterSidebar__rowLabel">走行距離</span></div>
+              <select id="inventoryMileageFilter" class="input"></select>
+            </div>
+            <div class="filterSidebar__row" data-row="category">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-tag"></use></svg><span class="filterSidebar__rowLabel">区分</span></div>
+              <div id="inventoryCategoryFilter"></div>
+            </div>
+            <div class="filterSidebar__row" data-row="location">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-pin"></use></svg><span class="filterSidebar__rowLabel">現展示拠点</span></div>
+              <div id="inventoryLocationFilter"></div>
+            </div>
+            <div class="filterSidebar__row" data-row="listed">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-globe"></use></svg><span class="filterSidebar__rowLabel">掲載状況</span></div>
+              <div id="inventoryListedFilter">
+                <label class="filterCheck"><input type="checkbox" value="carsensor"> カーセンサー掲載中</label>
+                <label class="filterCheck"><input type="checkbox" value="goonet"> グーネット掲載中</label>
+                <label class="filterCheck"><input type="checkbox" value="unlisted"> 未掲載</label>
+              </div>
             </div>
           </div>
         </aside>
@@ -377,34 +432,35 @@
             <span class="filterSidebar__count" id="ordersTotalCount"></span>
             <button type="button" class="filterSidebar__clearBtn hidden" id="btnOrdersFilterClear">クリア</button>
           </div>
+          <div class="filterSidebar__activeBar" id="ordersActiveBar"></div>
           <div class="filterSidebar__field">
             <div class="searchbox">
               <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
               <input type="search" id="ordersKeyword" placeholder="モデル・コミッション・顧客名・担当・拠点で検索">
             </div>
           </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">グループ化</label>
-            <div id="ordersGroupByFilter">
-              <label class="filterCheck"><input type="radio" name="ordersGroupBy" value="" checked> なし</label>
-              <label class="filterCheck"><input type="radio" name="ordersGroupBy" value="orderedMonth"> 月ごと</label>
-              <label class="filterCheck"><input type="radio" name="ordersGroupBy" value="salesLocation"> 販売拠点ごと</label>
-              <label class="filterCheck"><input type="radio" name="ordersGroupBy" value="model"> モデルごと</label>
+          <div class="filterSidebar__rows" id="ordersFilterRows">
+            <div class="filterSidebar__row" data-row="groupBy">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-grid"></use></svg><span class="filterSidebar__rowLabel">グループ化</span></div>
+              <div id="ordersGroupByFilter">
+                <label class="filterCheck"><input type="radio" name="ordersGroupBy" value="" checked> なし</label>
+                <label class="filterCheck"><input type="radio" name="ordersGroupBy" value="orderedMonth"> 月ごと</label>
+                <label class="filterCheck"><input type="radio" name="ordersGroupBy" value="salesLocation"> 販売拠点ごと</label>
+                <label class="filterCheck"><input type="radio" name="ordersGroupBy" value="model"> モデルごと</label>
+              </div>
             </div>
-          </div>
-          <hr class="filterSidebar__rule">
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">拠点</label>
-            <select id="ordersLocationFilter" class="input"><option value="">拠点：すべて</option></select>
-          </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">担当者</label>
-            <select id="ordersStaffFilter" class="input"></select>
-          </div>
-          <hr class="filterSidebar__rule">
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">現展示拠点</label>
-            <div id="ordersDisplayLocationFilter"></div>
+            <div class="filterSidebar__row" data-row="location">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-pin"></use></svg><span class="filterSidebar__rowLabel">拠点</span></div>
+              <select id="ordersLocationFilter" class="input"><option value="">拠点：すべて</option></select>
+            </div>
+            <div class="filterSidebar__row" data-row="staff">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-people"></use></svg><span class="filterSidebar__rowLabel">担当者</span></div>
+              <select id="ordersStaffFilter" class="input"></select>
+            </div>
+            <div class="filterSidebar__row" data-row="displayLocation">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-pin"></use></svg><span class="filterSidebar__rowLabel">現展示拠点</span></div>
+              <div id="ordersDisplayLocationFilter"></div>
+            </div>
           </div>
         </aside>
         <div class="listBody__main">
@@ -440,34 +496,35 @@
             <span class="filterSidebar__count" id="wholesaleOrdersTotalCount"></span>
             <button type="button" class="filterSidebar__clearBtn hidden" id="btnWholesaleOrdersFilterClear">クリア</button>
           </div>
+          <div class="filterSidebar__activeBar" id="wholesaleOrdersActiveBar"></div>
           <div class="filterSidebar__field">
             <div class="searchbox">
               <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
               <input type="search" id="wholesaleOrdersKeyword" placeholder="モデル・コミッション・販売先・担当・拠点で検索">
             </div>
           </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">グループ化</label>
-            <div id="wholesaleOrdersGroupByFilter">
-              <label class="filterCheck"><input type="radio" name="wholesaleOrdersGroupBy" value="" checked> なし</label>
-              <label class="filterCheck"><input type="radio" name="wholesaleOrdersGroupBy" value="orderedMonth"> 月ごと</label>
-              <label class="filterCheck"><input type="radio" name="wholesaleOrdersGroupBy" value="salesLocation"> 販売拠点ごと</label>
-              <label class="filterCheck"><input type="radio" name="wholesaleOrdersGroupBy" value="model"> モデルごと</label>
+          <div class="filterSidebar__rows" id="wholesaleOrdersFilterRows">
+            <div class="filterSidebar__row" data-row="groupBy">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-grid"></use></svg><span class="filterSidebar__rowLabel">グループ化</span></div>
+              <div id="wholesaleOrdersGroupByFilter">
+                <label class="filterCheck"><input type="radio" name="wholesaleOrdersGroupBy" value="" checked> なし</label>
+                <label class="filterCheck"><input type="radio" name="wholesaleOrdersGroupBy" value="orderedMonth"> 月ごと</label>
+                <label class="filterCheck"><input type="radio" name="wholesaleOrdersGroupBy" value="salesLocation"> 販売拠点ごと</label>
+                <label class="filterCheck"><input type="radio" name="wholesaleOrdersGroupBy" value="model"> モデルごと</label>
+              </div>
             </div>
-          </div>
-          <hr class="filterSidebar__rule">
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">拠点</label>
-            <select id="wholesaleOrdersLocationFilter" class="input"><option value="">拠点：すべて</option></select>
-          </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">販売先</label>
-            <input type="text" id="wholesaleOrdersSalesStoreFilter" class="input" placeholder="販売先で絞り込み">
-          </div>
-          <hr class="filterSidebar__rule">
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">現展示拠点</label>
-            <div id="wholesaleOrdersDisplayLocationFilter"></div>
+            <div class="filterSidebar__row" data-row="location">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-pin"></use></svg><span class="filterSidebar__rowLabel">拠点</span></div>
+              <select id="wholesaleOrdersLocationFilter" class="input"><option value="">拠点：すべて</option></select>
+            </div>
+            <div class="filterSidebar__row" data-row="salesStore">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-people"></use></svg><span class="filterSidebar__rowLabel">販売先</span></div>
+              <input type="text" id="wholesaleOrdersSalesStoreFilter" class="input" placeholder="販売先で絞り込み">
+            </div>
+            <div class="filterSidebar__row" data-row="displayLocation">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-pin"></use></svg><span class="filterSidebar__rowLabel">現展示拠点</span></div>
+              <div id="wholesaleOrdersDisplayLocationFilter"></div>
+            </div>
           </div>
         </aside>
         <div class="listBody__main">
@@ -543,39 +600,40 @@
             <span class="filterSidebar__count" id="demoCarListTotalCount"></span>
             <button type="button" class="filterSidebar__clearBtn hidden" id="btnDemoCarListFilterClear">クリア</button>
           </div>
+          <div class="filterSidebar__activeBar" id="demoCarListActiveBar"></div>
           <div class="filterSidebar__field">
             <div class="searchbox">
               <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
               <input type="search" id="demoCarListKeyword" placeholder="モデル・ＯＣＮ・コミッション・登録番号で検索">
             </div>
           </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">カラー</label>
-            <select id="demoCarListColorFilter" class="input"><option value="">指定なし</option></select>
-          </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">初年度登録日</label>
-            <select id="demoCarListYearFilter" class="input"></select>
-          </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">価格帯</label>
-            <select id="demoCarListPriceFilter" class="input"></select>
-          </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">走行距離</label>
-            <select id="demoCarListMileageFilter" class="input"></select>
-          </div>
-          <hr class="filterSidebar__rule">
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">現展示拠点</label>
-            <div id="demoCarListLocationFilter"></div>
-          </div>
-          <hr class="filterSidebar__rule">
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">販売状況</label>
-            <div id="demoCarListStatusFilter">
-              <label class="filterCheck"><input type="checkbox" value="在庫中"> 在庫中</label>
-              <label class="filterCheck"><input type="checkbox" value="販売済み"> 販売済み</label>
+          <div class="filterSidebar__rows" id="demoCarListFilterRows">
+            <div class="filterSidebar__row" data-row="color">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-drop"></use></svg><span class="filterSidebar__rowLabel">カラー</span></div>
+              <select id="demoCarListColorFilter" class="input"><option value="">指定なし</option></select>
+            </div>
+            <div class="filterSidebar__row" data-row="year">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-calendar"></use></svg><span class="filterSidebar__rowLabel">初年度登録日</span></div>
+              <select id="demoCarListYearFilter" class="input"></select>
+            </div>
+            <div class="filterSidebar__row" data-row="price">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-cash"></use></svg><span class="filterSidebar__rowLabel">価格帯</span></div>
+              <select id="demoCarListPriceFilter" class="input"></select>
+            </div>
+            <div class="filterSidebar__row" data-row="mileage">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-gauge"></use></svg><span class="filterSidebar__rowLabel">走行距離</span></div>
+              <select id="demoCarListMileageFilter" class="input"></select>
+            </div>
+            <div class="filterSidebar__row" data-row="location">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-pin"></use></svg><span class="filterSidebar__rowLabel">現展示拠点</span></div>
+              <div id="demoCarListLocationFilter"></div>
+            </div>
+            <div class="filterSidebar__row" data-row="status">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-tag"></use></svg><span class="filterSidebar__rowLabel">販売状況</span></div>
+              <div id="demoCarListStatusFilter">
+                <label class="filterCheck"><input type="checkbox" value="在庫中"> 在庫中</label>
+                <label class="filterCheck"><input type="checkbox" value="販売済み"> 販売済み</label>
+              </div>
             </div>
           </div>
         </aside>
@@ -599,39 +657,40 @@
             <span class="filterSidebar__count" id="serviceCarListTotalCount"></span>
             <button type="button" class="filterSidebar__clearBtn hidden" id="btnServiceCarListFilterClear">クリア</button>
           </div>
+          <div class="filterSidebar__activeBar" id="serviceCarListActiveBar"></div>
           <div class="filterSidebar__field">
             <div class="searchbox">
               <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
               <input type="search" id="serviceCarListKeyword" placeholder="モデル・ＯＣＮ・コミッション・登録番号で検索">
             </div>
           </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">カラー</label>
-            <select id="serviceCarListColorFilter" class="input"><option value="">指定なし</option></select>
-          </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">初年度登録日</label>
-            <select id="serviceCarListYearFilter" class="input"></select>
-          </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">価格帯</label>
-            <select id="serviceCarListPriceFilter" class="input"></select>
-          </div>
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">走行距離</label>
-            <select id="serviceCarListMileageFilter" class="input"></select>
-          </div>
-          <hr class="filterSidebar__rule">
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">現展示拠点</label>
-            <div id="serviceCarListLocationFilter"></div>
-          </div>
-          <hr class="filterSidebar__rule">
-          <div class="filterSidebar__field">
-            <label class="filterSidebar__groupLabel">販売状況</label>
-            <div id="serviceCarListStatusFilter">
-              <label class="filterCheck"><input type="checkbox" value="在庫中"> 在庫中</label>
-              <label class="filterCheck"><input type="checkbox" value="販売済み"> 販売済み</label>
+          <div class="filterSidebar__rows" id="serviceCarListFilterRows">
+            <div class="filterSidebar__row" data-row="color">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-drop"></use></svg><span class="filterSidebar__rowLabel">カラー</span></div>
+              <select id="serviceCarListColorFilter" class="input"><option value="">指定なし</option></select>
+            </div>
+            <div class="filterSidebar__row" data-row="year">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-calendar"></use></svg><span class="filterSidebar__rowLabel">初年度登録日</span></div>
+              <select id="serviceCarListYearFilter" class="input"></select>
+            </div>
+            <div class="filterSidebar__row" data-row="price">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-cash"></use></svg><span class="filterSidebar__rowLabel">価格帯</span></div>
+              <select id="serviceCarListPriceFilter" class="input"></select>
+            </div>
+            <div class="filterSidebar__row" data-row="mileage">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-gauge"></use></svg><span class="filterSidebar__rowLabel">走行距離</span></div>
+              <select id="serviceCarListMileageFilter" class="input"></select>
+            </div>
+            <div class="filterSidebar__row" data-row="location">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-pin"></use></svg><span class="filterSidebar__rowLabel">現展示拠点</span></div>
+              <div id="serviceCarListLocationFilter"></div>
+            </div>
+            <div class="filterSidebar__row" data-row="status">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-tag"></use></svg><span class="filterSidebar__rowLabel">販売状況</span></div>
+              <div id="serviceCarListStatusFilter">
+                <label class="filterCheck"><input type="checkbox" value="在庫中"> 在庫中</label>
+                <label class="filterCheck"><input type="checkbox" value="販売済み"> 販売済み</label>
+              </div>
             </div>
           </div>
         </aside>

@@ -680,15 +680,7 @@
     color: var(--on-surface-variant);
     font-variant-numeric: tabular-nums;
   }
-  .filterSidebar__rule { border: none; border-top: 1px solid var(--outline); margin: 0; }
   .filterSidebar__field { display: flex; flex-direction: column; gap: 6px; }
-  .filterSidebar__groupLabel {
-    font-size: 10px;
-    font-weight: 700;
-    color: var(--on-surface-variant);
-    letter-spacing: .04em;
-    text-transform: uppercase;
-  }
   .filterSidebar select.input,
   .filterSidebar .input { width: 100%; }
   /* セレクトの縦paddingだけを詰めて1項目あたりの高さを抑える（不具合修正の
@@ -709,6 +701,58 @@
     margin-left: auto;
   }
   .filterSidebar__clearBtn:hover { color: var(--on-surface); }
+
+  /* ===== 絞り込みサイドバーの項目（1列に1項目・ライン区切り） =====
+     現場からのデザイン案の選定を受けて適用した「改訂案1：ライン区切り」。
+     セレクト・チェックボックス・ラジオ・テキスト入力といった標準の選択式
+     コントロールはそのまま使い、行の並べ方・状態の見せ方だけを統一する
+     （全リストの絞り込みサイドバーに共通。syncFilterRowsAndSummary_、
+     JavaScript.html参照）。項目は常にパネル幅いっぱいの1列で表示し、
+     長い選択肢でも文字が見切れないようにする。 */
+  .filterSidebar__rows { display: flex; flex-direction: column; }
+  .filterSidebar__row {
+    padding: 11px 2px;
+    border-bottom: 1px solid var(--outline);
+    position: relative;
+    min-width: 0;
+  }
+  .filterSidebar__rows .filterSidebar__row:last-child { border-bottom: none; padding-bottom: 2px; }
+  .filterSidebar__row.is-active { padding-left: 12px; }
+  .filterSidebar__row.is-active::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 9px; bottom: 9px;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--primary);
+  }
+  .filterSidebar__rowHead { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; }
+  .filterSidebar__rowIcon { width: 16px; height: 16px; flex: none; color: var(--on-surface-variant); }
+  .filterSidebar__rowLabel { font-size: 11.5px; font-weight: 700; color: var(--on-surface-variant); letter-spacing: .02em; }
+  .filterSidebar__row.is-active .filterSidebar__rowIcon,
+  .filterSidebar__row.is-active .filterSidebar__rowLabel { color: var(--primary-text); }
+  /* グループ化・区分・掲載状況等、チェック/ラジオの一覧を持つ行は、見出しの
+     gapぶん.filterCheckとの間隔がやや詰まって見えるため少しだけ広げる。 */
+  .filterSidebar__row .filterCheck { padding: 3px 0; }
+
+  /* 絞り込み中サマリー（パネル上部のタグ一覧）。セレクト・ラジオ・チェック
+     ボックス・テキスト入力いずれの絞り込みも、除去可能なタグとしてまとめて
+     表示する（collectFilterRowEntries_、JavaScript.html参照）。 */
+  .filterSidebar__activeBar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .filterSidebar__activeChip {
+    display: inline-flex; align-items: center; gap: 5px; max-width: 100%;
+    background: var(--primary); color: var(--on-primary);
+    border-radius: 999px; padding: 4px 6px 4px 10px; font-size: 11.5px; font-weight: 600;
+    border: none; cursor: pointer; font-family: inherit;
+  }
+  .filterSidebar__activeChip .label { overflow-wrap: anywhere; }
+  .filterSidebar__activeChip .x { opacity: .85; font-size: 12px; line-height: 1; flex: none; }
+  .filterSidebar__activeClearAll {
+    font-size: 11.5px; color: var(--on-surface-variant); text-decoration: underline;
+    text-underline-offset: 2px; cursor: pointer; background: none; border: none;
+    font-family: inherit; padding: 0; white-space: nowrap;
+  }
+  .filterSidebar__activeEmpty { font-size: 11.5px; color: var(--on-surface-variant); }
 
   /* ===== PC・タブレット幅: 在庫・受注・業販受注リストを「アプリシェル」化 =====
      コマンドバーの下（.listBody）を、ヘッダー・コマンドバーの高さぶんを差し引いた
