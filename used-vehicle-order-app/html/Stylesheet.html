@@ -517,20 +517,23 @@
     .homeGrid { gap: 16px; padding: 16px 24px 24px; }
   }
 
-  /* ホームの「検索結果」一覧（在庫リスト＋デモカーリスト＋サービス代車リストを
-     横断した個々の車両の一覧、#homeResultsSection）。見出し行は絞り込みサイドバー
-     の.filterSidebar__headと同じ考え方（左に見出し・件数、右端に絞り込み解除）。 */
-  .homeResultsSection { padding: 4px 12px 20px; }
-  @media (min-width: 481px) { .homeResultsSection { padding: 4px 20px 24px; } }
-  @media (min-width: 901px) { .homeResultsSection { padding: 8px 24px 24px; } }
+  /* ホームの「検索結果」専用ページ（#view-homeResults。在庫リスト＋デモカーリスト＋
+     サービス代車リストを横断した個々の車両の一覧）。見出し行は絞り込みサイドバーの
+     .filterSidebar__headと同じ考え方（左に見出し・件数、右端に絞り込み解除）。
+     このページは絞り込みサイドバー（.filterSidebar）を持たないため、PC・タブレット幅
+     （@media (min-width: 901px)の.view--list .listBody、本ファイル内で前方定義）の
+     「サイドバー234px＋一覧」の2カラム指定を、このページに限り1カラムへ上書きする
+     （IDセレクタでクラス2つより詳細度を上げ、定義順に関わらず確実に上書きする）。 */
+  #view-homeResults .listBody { grid-template-columns: minmax(0, 1fr); }
   .homeResultsSection__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 0; }
-  .homeResultsSection__title { font-size: 13px; font-weight: 700; margin: 0; color: var(--on-surface); }
+  .homeResultsSection__title { font-size: 13px; font-weight: 700; margin: 0; color: var(--primary-text); }
   .homeResultsSection__count {
     font-size: 11px;
     font-weight: 700;
     color: var(--on-surface-variant);
     font-variant-numeric: tabular-nums;
   }
+  .homeResultsSection__desc { margin: 0 0 8px; font-size: 12px; color: var(--on-surface-variant); }
 
   .homeCard {
     background: var(--surface);
@@ -654,14 +657,12 @@
   }
   .listBody__main { min-width: 0; }
   /* 不具合修正: 絞り込み機能のコントロールパネル（.filterSidebar）にもテーマを
-     反映してほしいという現場からの要望を受け、.card--themedと同じ考え方
-     （選択中のテーマカラー--primaryを装飾として使う、テーマを切り替えると
-     連動して変わる）で左端にテーマカラーの罫線を付け、見出しも--primary-text
-     （テーマに応じた、背景とのコントラストを保った文字色）に揃える。 */
+     反映してほしいという現場からの要望（左端だけの罫線ではなく「取り囲むように」
+     反映してほしい）を受け、パネル全体をテーマカラーの枠線で囲む。見出しも
+     --primary-text（テーマに応じた、背景とのコントラストを保った文字色）に揃える。 */
   .filterSidebar {
     background: var(--surface);
-    border: 1px solid var(--outline);
-    border-left: 4px solid var(--primary);
+    border: 2px solid var(--primary);
     border-radius: var(--radius);
     padding: 14px 14px;
     display: flex;
@@ -974,7 +975,9 @@
     font-weight: 700;
     color: var(--on-surface-variant);
     letter-spacing: .03em;
-    border-bottom: 1px solid var(--outline);
+    /* 不具合修正: 他にもテーマを反映できる箇所として、各リストの列見出し行の
+       下線もテーマカラーにした（.topbarの下線と同じ考え方）。 */
+    border-bottom: 2px solid var(--primary);
     white-space: nowrap;
   }
   /* 不具合修正: 一覧の件数が多いと、下にスクロールした際に列見出し（区分・
@@ -1432,7 +1435,10 @@
   .emptyState__icon {
     width: 30px;
     height: 30px;
-    color: var(--outline);
+    /* 不具合修正: 他にもテーマを反映できる箇所として、空状態のアイコンも
+       テーマカラーにした（単調なグレーより、選択中のテーマに連動して
+       ブランドらしい見え方になる）。 */
+    color: var(--primary);
   }
 
 

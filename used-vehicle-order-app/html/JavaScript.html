@@ -67,12 +67,14 @@
     homeVehiclePool: [],
     // ホーム画面左の絞り込みサイドバー用の状態。在庫リストの絞り込みサイドバーと同じ
     // カラー・初年度登録日・価格帯・走行距離（区分・現展示拠点・掲載状況はホームには
-    // 設けない）。キーワード検索は#homeKeywordの値をその都度読む（他の絞り込みと同じ
-    // クライアント側絞り込みのため、別途状態に持つ必要が無い）。
+    // 設けない）。グリッド（モデルカード）には即時反映されるライブ絞り込み。
     homeFilters: { color: '', yearBucket: '', priceBucket: '', mileageBucket: '' },
-    // ホーム画面の「検索結果」一覧（#homeResultsSection）で、画像タップ（カード・
-    // グレードチップ）によりさらに絞り込み中の型番一覧（完全一致。空配列なら
-    // キーワード・絞り込みサイドバーの条件のみで一覧表示する）。
+    // ホームの検索結果ページ（#view-homeResults）用の検索条件。homeResultsKeywordは
+    // 「検索」ボタン・Enterキーで確定した完全一致キーワード、homeModelFilterは
+    // 画像タップ（カード・グレードチップ）で選んだ型番一覧（完全一致・複数可）。
+    // いずれも空ならホームの絞り込みサイドバーの条件のみで一覧表示する
+    // （goToHomeResultsPage_、JavaScript.html参照）。
+    homeResultsKeyword: '',
     homeModelFilter: [],
     notifyHoldMailTo: [], // 設定タブで編集中のメール通知先（Hold時、作業用コピー）
     notifyOrderMailTo: [], // 設定タブで編集中のメール通知先（受注確定時、作業用コピー）
@@ -1030,15 +1032,15 @@
   /**
    * ホーム画面左の絞り込みサイドバー用（純粋関数）。在庫リストと同じカラー・
    * 初年度登録日・価格帯・走行距離で、3シート分の車両プール（在庫リスト＋
-   * デモカーリスト＋サービス代車リスト）を絞り込む。キーワードはモデル・
-   * コミッション・ＯＣＮ・車台番号下４桁・登録番号への部分一致
-   * （matchesAnyField_、マイページの自由検索と同じ考え方）。
+   * デモカーリスト＋サービス代車リスト）を絞り込む。不具合修正: キーワードは
+   * ここでは扱わない（以前はここで部分一致のライブ絞り込みをしていたが、現場からの
+   * 要望「検索ボタンは文字列の完全一致のみの検索にしてほしい」を受け、キーワードは
+   * 「検索」ボタン押下時にhomeExactKeywordMatches_で完全一致検索し、専用の
+   * 検索結果ページへ遷移する形に変更したため）。
    */
-  function applyHomeFilters_(items, keyword) {
+  function applyHomeFilters_(items) {
     var f = state.homeFilters;
     return items.filter(function (v) {
-      if (keyword && !matchesAnyField_([v.model, v.commission, v.ocn, v.chassisNumberLast4,
-        v.plateRegion, v.plateClass, v.plateKana, v.plateNumber], keyword)) return false;
       if (f.color && (v.exteriorColor || '') !== f.color) return false;
       if (f.yearBucket && yearBucketOf_(v) !== f.yearBucket) return false;
       if (f.priceBucket && priceBucketOf_(v) !== f.priceBucket) return false;
@@ -1069,8 +1071,24 @@
 
   function syncHomeFilterClearVisibility_() {
     var f = state.homeFilters;
-    var hasAny = !!$('homeKeyword').value || !!f.color || !!f.yearBucket || !!f.priceBucket || !!f.mileageBucket;
+    var hasAny = !!f.color || !!f.yearBucket || !!f.priceBucket || !!f.mileageBucket;
     $('btnHomeFilterClear').classList.toggle('hidden', !hasAny);
+  }
+
+  /**
+   * ホームの「検索」ボタン（またはEnterキー）専用の、文字列の完全一致判定
+   * （純粋関数）。不具合修正: 以前はmatchesAnyField_（部分一致）を使っていたが、
+   * 現場からの要望「検索ボタンは文字列の完全一致のみの検索にしてほしい」を受けて
+   * 専用の完全一致判定に変更した。登録番号は各マスのいずれかに完全一致、または
+   * plateText_が組み立てる「地域 分類番号 かな 一連番号」形式の文字列全体への
+   * 完全一致にも対応する（どちらを入力されても検索できるようにするため）。
+   */
+  function homeExactKeywordMatches_(v, keyword) {
+    var kw = String(keyword || '').trim().toLowerCase();
+    if (!kw) return true;
+    var values = [v.model, v.commission, v.ocn, v.chassisNumberLast4,
+      v.plateRegion, v.plateClass, v.plateKana, v.plateNumber, plateText_(v)];
+    return values.some(function (val) { return String(val || '').toLowerCase() === kw; });
   }
 
   /**
@@ -1084,18 +1102,43 @@
   }
 
   /**
-   * ホーム画面「検索結果」一覧（在庫リスト＋デモカーリスト＋サービス代車リストを
-   * 横断した個々の車両の一覧）。renderHomeGallery_から、サイドバー・キーワードで
-   * 絞り込んだ後のpoolを渡して呼ぶ。画像タップ中（state.homeModelFilter）は
-   * さらにその型番だけに絞り込み、「絞り込みを解除」ボタンを表示する。
+   * ホームの「検索結果」専用ページ（#view-homeResults。在庫リスト＋デモカーリスト＋
+   * サービス代車リストを横断した個々の車両の一覧）。ホームの絞り込みサイドバー
+   * （カラー・初年度登録日・価格帯・走行距離）の条件をまず適用し、そのうえで
+   * state.homeResultsKeyword（完全一致キーワード、検索ボタンから）・
+   * state.homeModelFilter（画像タップで選んだ型番）があればさらに絞り込む。
    */
-  function renderHomeResultsList_(pool) {
+  function renderHomeResultsPage_() {
+    var pool = applyHomeFilters_(state.homeVehiclePool || []);
+    if (state.homeResultsKeyword) {
+      pool = pool.filter(function (v) { return homeExactKeywordMatches_(v, state.homeResultsKeyword); });
+    }
     var filtered = applyHomeModelFilter_(pool);
     $('homeResultsEmpty').classList.toggle('hidden', filtered.length > 0);
     $('homeResultsCount').textContent = filtered.length ? '該当 ' + filtered.length + '台' : '';
+    $('homeResultsSearchDesc').textContent = homeResultsSearchDescText_();
     $('homeResultsList').innerHTML = tableListHtml_('tbl--cartrack', homeResultsTableHeaderHtml_(), filtered, homeResultRowHtml_);
     wireTableHeaderScrollSync_($('homeResultsList'));
-    $('btnHomeModelFilterClear').classList.toggle('hidden', !state.homeModelFilter.length);
+    $('btnHomeModelFilterClear').classList.toggle('hidden', !state.homeModelFilter.length && !state.homeResultsKeyword);
+  }
+
+  /** 検索結果ページ上部に表示する、現在の検索条件の説明文（純粋関数）。 */
+  function homeResultsSearchDescText_() {
+    if (state.homeModelFilter.length) return '「' + state.homeModelFilter.join('」「') + '」の検索結果です。';
+    if (state.homeResultsKeyword) return '「' + state.homeResultsKeyword + '」の検索結果です（完全一致）。';
+    return 'ホームの絞り込み条件に一致する車両の一覧です。';
+  }
+
+  /**
+   * ホームの検索結果ページへ遷移する。キーワード検索（検索ボタン・Enterキー）・
+   * 画像タップ（カード・グレードチップ）のいずれもここを経由する。
+   * @param {Object} opts { keyword: string, models: Array<string> }
+   */
+  function goToHomeResultsPage_(opts) {
+    state.homeResultsKeyword = (opts && opts.keyword) || '';
+    state.homeModelFilter = (opts && opts.models) || [];
+    renderHomeResultsPage_();
+    switchToTab_('homeResults');
   }
 
   function sortInventoryItems_(items) {
@@ -1899,11 +1942,10 @@
     loadInventory();
   });
 
-  // ----- ホーム画面の絞り込みサイドバー（在庫リストと同じ考え方。キーワードも
-  //       サーバーへ問い合わせず、取得済みのstate.homeVehiclePoolをクライアント
-  //       だけで絞り込み直す） -----
-  on('homeKeyword', 'input', debounce(renderHomeGallery_, 250));
-
+  // ----- ホーム画面の絞り込みサイドバー（在庫リストと同じ考え方で、カラー・
+  //       初年度登録日・価格帯・走行距離はホームのモデルカードグリッドへ即時
+  //       反映する。キーワードはライブ絞り込みにせず、下の「検索」ボタン・
+  //       Enterキーで確定したときだけ検索結果ページへ遷移する） -----
   [['homeColorFilter', 'color'], ['homeYearFilter', 'yearBucket'], ['homePriceFilter', 'priceBucket'], ['homeMileageFilter', 'mileageBucket']].forEach(function (pair) {
     on(pair[0], 'change', function () {
       state.homeFilters[pair[1]] = this.value;
@@ -1913,17 +1955,32 @@
 
   on('btnHomeFilterClear', 'click', function () {
     state.homeFilters = { color: '', yearBucket: '', priceBucket: '', mileageBucket: '' };
-    state.homeModelFilter = [];
     $('homeKeyword').value = '';
     ['homeColorFilter', 'homeYearFilter', 'homePriceFilter', 'homeMileageFilter'].forEach(function (id) { $(id).value = ''; });
     renderHomeGallery_();
   });
 
-  // 画像タップ（カード・グレードチップ）による検索結果の絞り込みだけを解除する
-  // （キーワード・絞り込みサイドバーの条件はそのまま残す）。
+  /**
+   * ホームの「検索」ボタン・Enterキー共通。キーワードを文字列の完全一致で
+   * 検索結果ページへ遷移する（現場からの要望「検索ボタンは文字列の完全一致のみの
+   * 検索にしてほしい」）。未入力の場合はホームの絞り込みサイドバー条件のみの
+   * 一覧を表示する。
+   */
+  function handleHomeSearch_() {
+    goToHomeResultsPage_({ keyword: $('homeKeyword').value.trim(), models: [] });
+  }
+  on('btnHomeSearch', 'click', handleHomeSearch_);
+  on('homeKeyword', 'keydown', function (e) {
+    if (e.key === 'Enter') handleHomeSearch_();
+  });
+
+  // 検索結果ページ（#view-homeResults）側の操作。画像タップ（カード・グレード
+  // チップ）・キーワード検索の絞り込みを解除し、ホームの絞り込みサイドバー条件
+  // のみの一覧に戻す（ページ自体は移動しない）。
   on('btnHomeModelFilterClear', 'click', function () {
     state.homeModelFilter = [];
-    renderHomeGallery_();
+    state.homeResultsKeyword = '';
+    renderHomeResultsPage_();
   });
 
   on('homeResultsList', 'click', function (e) {
@@ -4056,9 +4113,10 @@
     // 各シートへの直接入力に変わったことに合わせ（CarTrackingService.gs参照）、
     // 在庫リスト＋デモカーリスト＋サービス代車リストの3シート全体（受注リストは
     // 対象外）を集計・絞り込みの対象にする（現場からの要望）。左の絞り込み
-    // サイドバー（カラー・初年度登録日・価格帯・走行距離・キーワード）も、この
-    // 3シート分の車両プールに対して適用する（applyHomeFilters_参照）。
-    var pool = applyHomeFilters_(state.homeVehiclePool || [], $('homeKeyword').value);
+    // サイドバー（カラー・初年度登録日・価格帯・走行距離）も、この3シート分の
+    // 車両プールに対して適用する（applyHomeFilters_参照。キーワードはここでは
+    // 扱わない。「検索」ボタンから専用の検索結果ページへ遷移する形に変更した）。
+    var pool = applyHomeFilters_(state.homeVehiclePool || []);
     var allEntries = allModelPhotos.concat(unphotographedModelEntries_(pool, allModelPhotos));
     var entries = state.homeBodyTypeFilter
       ? allEntries.filter(function (p) { return p.bodyType === state.homeBodyTypeFilter; })
@@ -4071,7 +4129,6 @@
     var allCount = (state.homeVehiclePool || []).length;
     $('homeFilterCount').textContent = allCount ? '該当 ' + pool.length + '台 ／ 全' + allCount + '台' : '';
     syncHomeFilterClearVisibility_();
-    renderHomeResultsList_(pool);
     renderHomeAnnouncement_((state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.homeAnnouncement) || '');
   }
 
@@ -4089,34 +4146,28 @@
   }
 
   /**
-   * ホーム画面のカード（またはグレードチップ）クリック時、state.homeModelFilterを
-   * その型番（複数可・完全一致）に更新し、「検索結果」一覧（#homeResultsSection、
-   * 在庫リスト＋デモカーリスト＋サービス代車リストを横断）をその型番だけに絞り込んで
-   * 表示する。不具合修正: 以前は在庫リストタブへ画面遷移していたため、在庫リスト
-   * シートの車両しか出てこなかった（現場からの指摘「画像検索も在庫、デモカー、
-   * サービス代車を横断して一覧表示してほしい」）。画面は移動せず、ホーム画面内の
-   * 検索結果一覧までスクロールする。
+   * ホーム画面のカード（またはグレードチップ）クリック時、専用の検索結果ページ
+   * （#view-homeResults、在庫リスト＋デモカーリスト＋サービス代車リストを横断）へ
+   * 遷移し、その型番（複数可・完全一致）だけに絞り込んで一覧表示する。不具合修正:
+   * 以前は在庫リストタブへ画面遷移していたため在庫リストシートの車両しか出てこ
+   * なかった問題（現場からの指摘「画像検索も在庫、デモカー、サービス代車を横断
+   * して一覧表示してほしい」）に続き、専用の一覧ページへ飛ぶようにした（現場からの
+   * 要望「モデル画像を選ぶと下に表示するのではなく専用のリストページに飛んで
+   * ほしい」。以前はホーム画面内の結果一覧までスクロールするだけだった）。
    */
-  function applyHomeModelTap_(models) {
-    state.homeModelFilter = models;
-    renderHomeGallery_();
-    var section = $('homeResultsSection');
-    if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
   on('homeGrid', 'click', function (e) {
     var gradeBtn = e.target.closest('[data-home-grade]');
     if (gradeBtn) {
-      applyHomeModelTap_([gradeBtn.dataset.homeGrade]);
+      goToHomeResultsPage_({ models: [gradeBtn.dataset.homeGrade] });
       return;
     }
     var modelEl = e.target.closest('[data-home-model]');
     if (modelEl) {
       var allModelPhotos = (state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.modelPhotos) || [];
       var entry = allModelPhotos.filter(function (p) { return p.model === modelEl.dataset.homeModel; })[0];
-      var pool = applyHomeFilters_(state.homeVehiclePool || [], $('homeKeyword').value);
+      var pool = applyHomeFilters_(state.homeVehiclePool || []);
       var models = entry ? matchedModelsForEntry_(entry, pool, allModelPhotos) : [modelEl.dataset.homeModel];
-      applyHomeModelTap_(models);
+      goToHomeResultsPage_({ models: models });
     }
   });
 

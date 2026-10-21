@@ -189,14 +189,11 @@
          絞り込みサイドバーは、在庫リストの主要な絞り込み項目（カラー・初年度登録日・
          価格帯・走行距離）と同じ考え方で、この3シート分の車両プールに対して絞り込む
          （区分・掲載状況はホームには設けない）。
-         不具合修正: 以前はキーワード検索・画像タップ（カード／グレードチップ）の
-         いずれも在庫リストタブへ遷移するだけで、在庫リストシートの車両しか
-         出てこなかった（現場からの指摘「検索をする際は在庫車、デモカー、サービス
-         代車を横断して検索して一覧として表示してほしい。画像検索も同様」）。
-         画面遷移はやめ、ホーム画面内に「検索結果」一覧（#homeResultsSection）を
-         新設し、キーワード・絞り込みサイドバー・画像タップのいずれも、この一覧に
-         3シート横断の結果を一覧表示する（renderHomeResultsList_・
-         handleHomeCardClick_、JavaScript.html参照）。 -->
+         不具合修正: キーワード検索は「検索」ボタン（またはEnterキー）を押したときだけ
+         実行する（入力中のライブ絞り込みはしない）。画像タップ（カード／グレード
+         チップ）・キーワード検索のいずれも、専用の「検索結果」ページ（#view-homeResults）
+         へ画面遷移して結果を一覧表示する（現場からの要望「モデル画像を選ぶと
+         下に表示するのではなく専用のリストページに飛んでほしい」）。 -->
     <main class="view view--list is-active" id="view-home">
       <div class="commandbar">
         <div class="homeAnnouncement hidden" id="homeAnnouncement"></div>
@@ -209,11 +206,16 @@
             <span class="filterSidebar__count" id="homeFilterCount"></span>
             <button type="button" class="filterSidebar__clearBtn hidden" id="btnHomeFilterClear">クリア</button>
           </div>
+          <!-- 不具合修正: キーワードは入力中のライブ絞り込みではなく、「検索」ボタン
+               （またはEnterキー）を押したときだけ、文字列の完全一致で検索結果ページへ
+               遷移するようにした（現場からの要望「検索ボタンは文字列の完全一致のみの
+               検索にしてほしい」）。 -->
           <div class="filterSidebar__field">
             <div class="searchbox">
               <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
-              <input type="search" id="homeKeyword" placeholder="モデル・ＯＣＮ・コミッション・車台番号下４桁・登録番号で検索">
+              <input type="search" id="homeKeyword" placeholder="モデル・ＯＣＮ・コミッション・車台番号下４桁・登録番号で検索（完全一致）">
             </div>
+            <button type="button" class="btn btn--primary" id="btnHomeSearch">検索</button>
           </div>
           <div class="filterSidebar__field">
             <label class="filterSidebar__groupLabel">カラー</label>
@@ -242,26 +244,34 @@
             <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-home"></use></svg></span>
             <p>該当する車両画像がありません</p>
           </div>
+        </div>
+      </div>
+    </main>
 
-          <!-- 検索結果一覧: キーワード・絞り込みサイドバー・画像タップ（カード／
-               グレードチップ）のいずれでも、在庫リスト＋デモカーリスト＋サービス
-               代車リストの3シートを横断した個々の車両を一覧表示する（現場からの
-               要望。renderHomeResultsList_、JavaScript.html参照）。画像タップ時は
-               state.homeModelFilterでさらにその型番だけに絞り込み、その場合は
-               「絞り込みを解除」ボタンで元の検索結果（キーワード・サイドバー条件の
-               みの一覧）に戻せる。 -->
-          <section class="homeResultsSection" id="homeResultsSection" aria-label="検索結果">
-            <div class="homeResultsSection__head">
-              <p class="homeResultsSection__title">検索結果（在庫・デモカー・サービス代車）</p>
-              <span class="homeResultsSection__count" id="homeResultsCount"></span>
-              <button type="button" class="filterSidebar__clearBtn hidden" id="btnHomeModelFilterClear">絞り込みを解除</button>
-            </div>
-            <div id="homeResultsList"></div>
-            <div class="emptyState hidden" id="homeResultsEmpty">
-              <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-grid"></use></svg></span>
-              <p>該当する車両がありません</p>
-            </div>
-          </section>
+    <!-- ホームの「検索結果」専用ページ: ホームのキーワード検索（完全一致）・画像タップ
+         （カード／グレードチップ）のいずれから遷移しても、在庫リスト＋デモカーリスト＋
+         サービス代車リストの3シートを横断した個々の車両を一覧表示する（受注リストは
+         対象外。現場からの要望「検索の際は在庫車、デモカー、サービス代車を横断して
+         一覧として表示してほしい。画像検索も同様」「モデル画像を選ぶと専用のリスト
+         ページに飛んでほしい」）。ホームの絞り込みサイドバー（カラー・初年度登録日・
+         価格帯・走行距離）の条件はそのまま引き継がれる。ナビには表示しない
+         （コントロールパネルの水平タブに専用ボタンは置かず、ホームからの遷移・
+         topbarの「戻る」ボタンのみで行き来する。switchToTab_はnavBtnの有無を問わず
+         動作するため、タブボタンが無くても通常の画面として機能する）。 -->
+    <main class="view view--list" id="view-homeResults">
+      <div class="listBody">
+        <div class="listBody__main">
+          <div class="homeResultsSection__head">
+            <p class="homeResultsSection__title">検索結果（在庫・デモカー・サービス代車）</p>
+            <span class="homeResultsSection__count" id="homeResultsCount"></span>
+            <button type="button" class="filterSidebar__clearBtn hidden" id="btnHomeModelFilterClear">絞り込みを解除</button>
+          </div>
+          <p class="homeResultsSection__desc" id="homeResultsSearchDesc"></p>
+          <div id="homeResultsList"></div>
+          <div class="emptyState hidden" id="homeResultsEmpty">
+            <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-grid"></use></svg></span>
+            <p>該当する車両がありません</p>
+          </div>
         </div>
       </div>
     </main>
