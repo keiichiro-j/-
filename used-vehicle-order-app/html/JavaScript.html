@@ -68,7 +68,7 @@
     // ホーム画面左の絞り込みサイドバー用の状態。在庫リストの絞り込みサイドバーと同じ
     // カラー・初年度登録日・価格帯・走行距離（区分・現展示拠点・掲載状況はホームには
     // 設けない）。グリッド（モデルカード）には即時反映されるライブ絞り込み。
-    homeFilters: { color: '', yearBucket: '', priceBucket: '', mileageBucket: '' },
+    homeFilters: { color: '', yearBucket: '', priceBucket: '', mileageBucket: '', category: [], location: [], listed: [], saleStatus: [] },
     // ホームの検索結果ページ（#view-homeResults）用の検索条件。homeResultsKeywordは
     // 「検索」ボタン・Enterキーで確定した完全一致キーワード、homeModelFilterは
     // 画像タップ（カード・グレードチップ）で選んだ型番一覧（完全一致・複数可）。
@@ -989,14 +989,21 @@
   function checkboxFilterOptionsHtml_(items, fieldKey, checkedValues) {
     var counts = {};
     items.forEach(function (item) {
-      var v = item[fieldKey] || '未設定';
+      // 不具合修正: 値（value属性）は空文字のまま集計し、表示ラベルだけ「未設定」に
+      // する。以前は空文字を表示用の文字列「未設定」にまとめて集計していたため、
+      // チェック時の絞り込み判定（applyInventoryFilters_等のv[fieldKey] || ''との
+      // 比較）と値がずれ、「未設定」をチェックしても何も絞り込まれない不具合が
+      // あった（ホームの「区分」はデモカー・サービス代車の車両がすべて未設定に
+      // 該当するため、この不具合が顕在化しやすい）。
+      var v = item[fieldKey] || '';
       counts[v] = (counts[v] || 0) + 1;
     });
     var values = Object.keys(counts).sort();
     return values.map(function (v) {
       var checked = checkedValues.indexOf(v) !== -1;
+      var label = v || '未設定';
       return '<label class="filterCheck"><input type="checkbox" value="' + escapeHtml(v) + '"' + (checked ? ' checked' : '') + '> ' +
-        escapeHtml(v) + '<span class="filterCheck__cnt">' + counts[v] + '</span></label>';
+        escapeHtml(label) + '<span class="filterCheck__cnt">' + counts[v] + '</span></label>';
     }).join('');
   }
 
@@ -1154,6 +1161,17 @@
       if (f.yearBucket && yearBucketOf_(v) !== f.yearBucket) return false;
       if (f.priceBucket && priceBucketOf_(v) !== f.priceBucket) return false;
       if (f.mileageBucket && mileageBucketOf_(v) !== f.mileageBucket) return false;
+      // 区分・掲載状況は在庫リストの車両（'holdStatus' in v）にしか無い概念、
+      // 販売状況はデモカー・サービス代車の車両にしか無い概念のため、チェックした
+      // 場合はその概念を持たない方の車両が自動的に対象外になる（applyInventoryFilters_・
+      // applyCarTrackingFilters_と同じ判定方法）。
+      if (f.category.length && f.category.indexOf(v.category || '') === -1) return false;
+      if (f.location.length && f.location.indexOf(v.currentDisplayLocation || '') === -1) return false;
+      if (f.listed.length) {
+        var keys = inventoryListedKeys_(v);
+        if (!keys.some(function (k) { return f.listed.indexOf(k) !== -1; })) return false;
+      }
+      if (f.saleStatus.length && f.saleStatus.indexOf(v.saleStatus || '') === -1) return false;
       return true;
     });
   }
@@ -1165,6 +1183,8 @@
    */
   function renderHomeFilterSidebar_() {
     var items = state.homeVehiclePool || [];
+    $('homeCategoryFilter').innerHTML = checkboxFilterOptionsHtml_(items, 'category', state.homeFilters.category);
+    $('homeLocationFilter').innerHTML = checkboxFilterOptionsHtml_(items, 'currentDisplayLocation', state.homeFilters.location);
     var colors = [];
     items.forEach(function (v) { if (v.exteriorColor && colors.indexOf(v.exteriorColor) === -1) colors.push(v.exteriorColor); });
     colors.sort();
@@ -1180,7 +1200,8 @@
 
   function syncHomeFilterClearVisibility_() {
     var f = state.homeFilters;
-    var hasAny = !!f.color || !!f.yearBucket || !!f.priceBucket || !!f.mileageBucket;
+    var hasAny = !!f.color || !!f.yearBucket || !!f.priceBucket || !!f.mileageBucket ||
+      f.category.length > 0 || f.location.length > 0 || f.listed.length > 0 || f.saleStatus.length > 0;
     $('btnHomeFilterClear').classList.toggle('hidden', !hasAny);
   }
 
@@ -2081,13 +2102,32 @@
     });
   });
 
+  // 区分・現展示拠点・掲載状況・販売状況（現場からの要望「ホーム絞り込み機能に
+  // 各リストで追加した機能を搭載してほしい（在庫保管位置など）」を受けて追加）。
+  // 在庫リストのbindInventoryCheckboxFilter_と同じ考え方で、チェック群1つに
+  // つき1つのハンドラをまとめて登録する。
+  function bindHomeCheckboxFilter_(containerId, filterKey) {
+    on(containerId, 'change', function (e) {
+      if (e.target.type !== 'checkbox') return;
+      var checked = Array.prototype.slice.call($(containerId).querySelectorAll('input[type="checkbox"]:checked'))
+        .map(function (el) { return el.value; });
+      state.homeFilters[filterKey] = checked;
+      renderHomeGallery_();
+    });
+  }
+  bindHomeCheckboxFilter_('homeCategoryFilter', 'category');
+  bindHomeCheckboxFilter_('homeLocationFilter', 'location');
+  bindHomeCheckboxFilter_('homeListedFilter', 'listed');
+  bindHomeCheckboxFilter_('homeSaleStatusFilter', 'saleStatus');
+
   on('btnHomeFilterClear', 'click', function () {
-    state.homeFilters = { color: '', yearBucket: '', priceBucket: '', mileageBucket: '' };
+    state.homeFilters = { color: '', yearBucket: '', priceBucket: '', mileageBucket: '', category: [], location: [], listed: [], saleStatus: [] };
     // タイプ（型）も絞り込みパネルに統合した項目の1つのため、他の項目と
     // 一緒にクリアする（現場からの要望「型選択を絞り込み機能内に入れてほしい」）。
     state.homeBodyTypeFilter = '';
     $('homeKeyword').value = '';
     ['homeColorFilter', 'homeYearFilter', 'homePriceFilter', 'homeMileageFilter'].forEach(function (id) { $(id).value = ''; });
+    document.querySelectorAll('#homeCategoryFilter input, #homeLocationFilter input, #homeListedFilter input, #homeSaleStatusFilter input').forEach(function (el) { el.checked = false; });
     renderHomeGallery_();
   });
 

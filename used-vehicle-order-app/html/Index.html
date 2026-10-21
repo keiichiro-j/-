@@ -309,6 +309,37 @@
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-gauge"></use></svg><span class="filterSidebar__rowLabel">走行距離</span></div>
               <select id="homeMileageFilter" class="input"></select>
             </div>
+            <!-- 現場からの要望「ホーム絞り込み機能に各リストで追加した機能を搭載して
+                 ほしい（在庫保管位置など）」を受け、集計元の3リスト（在庫・デモカー・
+                 サービス代車）に個別に追加されていた項目をホームにも統合する。
+                 区分・掲載状況は在庫リストの車両にしか無い概念、販売状況はデモカー・
+                 サービス代車の車両にしか無い概念のため、チェックした場合はその概念を
+                 持たない方の車両が自動的に対象外になる（在庫リストの
+                 applyInventoryFilters_・デモカーリスト等のapplyCarTrackingFilters_と
+                 同じ判定方法、applyHomeFilters_・JavaScript.html参照）。 -->
+            <div class="filterSidebar__row" data-row="category">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-tag"></use></svg><span class="filterSidebar__rowLabel">区分</span></div>
+              <div id="homeCategoryFilter"></div>
+            </div>
+            <div class="filterSidebar__row" data-row="location">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-pin"></use></svg><span class="filterSidebar__rowLabel">現展示拠点</span></div>
+              <div id="homeLocationFilter"></div>
+            </div>
+            <div class="filterSidebar__row" data-row="listed">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-globe"></use></svg><span class="filterSidebar__rowLabel">掲載状況</span></div>
+              <div id="homeListedFilter">
+                <label class="filterCheck"><input type="checkbox" value="carsensor"> カーセンサー掲載中</label>
+                <label class="filterCheck"><input type="checkbox" value="goonet"> グーネット掲載中</label>
+                <label class="filterCheck"><input type="checkbox" value="unlisted"> 未掲載</label>
+              </div>
+            </div>
+            <div class="filterSidebar__row" data-row="saleStatus">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-tag"></use></svg><span class="filterSidebar__rowLabel">販売状況（デモカー・サービス代車）</span></div>
+              <div id="homeSaleStatusFilter">
+                <label class="filterCheck"><input type="checkbox" value="在庫中"> 在庫中</label>
+                <label class="filterCheck"><input type="checkbox" value="販売済み"> 販売済み</label>
+              </div>
+            </div>
           </div>
         </aside>
         <div class="listBody__main">
