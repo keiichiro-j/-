@@ -219,10 +219,22 @@
   function initScrollFade_(id) {
     var el = $(id);
     if (!el) return;
+    // 不具合修正（ビジュアル担当チームからの指摘）: 縁のフェードだけでは
+    // 「まだ続きがある」ことに気づきにくいタブ行（#topbarTabs）向けに、
+    // 親の.tabs__wrapがあれば矢印表示用のクラスも同時に付け外しする
+    // （.tabs__moreHint、Stylesheet.html参照）。.tabs__wrapを持たない
+    // 他の.scrollerではこの部分は何もしない。
+    var wrap = el.closest('.tabs__wrap');
     function sync() {
       var max = el.scrollWidth - el.clientWidth;
-      el.style.setProperty('--fade-l', el.scrollLeft > 2 ? '24px' : '0px');
-      el.style.setProperty('--fade-r', el.scrollLeft < max - 2 ? '24px' : '0px');
+      var hasMoreLeft = el.scrollLeft > 2;
+      var hasMoreRight = el.scrollLeft < max - 2;
+      el.style.setProperty('--fade-l', hasMoreLeft ? '24px' : '0px');
+      el.style.setProperty('--fade-r', hasMoreRight ? '24px' : '0px');
+      if (wrap) {
+        wrap.classList.toggle('has-more-left', hasMoreLeft);
+        wrap.classList.toggle('has-more-right', hasMoreRight);
+      }
     }
     el.addEventListener('scroll', sync, { passive: true });
     window.addEventListener('resize', sync);
@@ -648,6 +660,7 @@
     document.querySelectorAll('main.view').forEach(function (v) { v.classList.remove('is-active'); });
     $('view-' + tabName).classList.add('is-active');
     syncHomeAnnouncementVisibility_();
+    resyncActiveTabTblBodyFades_();
     // 全タブは同じ1つのdocument上でdisplay: none/blockを切り替えているだけの
     // ため、スクロール位置はタブをまたいで共有されてしまう（例: 在庫リストで
     // スクロールした状態で他のタブへ移動すると、次のタブも同じスクロール
@@ -907,6 +920,23 @@
       return allItems.filter(function (v) { return v.model === entry.model; }).length;
     }
     return allItems.filter(function (v) { return matchesGradeRule_(v.model, entry, allModelPhotos); }).length;
+  }
+
+  /**
+   * 車両画像1件分（モデル・グレードまとめ）に一致する在庫の「販売価格」の
+   * 最低額を返す（純粋関数、価格未入力の車両は対象外）。ホームのカードに
+   * 価格の目安（最低価格〜）を表示するために使う（現場からの要望「ホームに
+   * も価格の目安が欲しい」。在庫リスト・受注リスト等は従来どおり1台ごとの
+   * 価格をそのまま列表示するため、ここはホーム専用）。1件も価格未入力なら
+   * nullを返す。
+   */
+  function minSalePriceForEntry_(entry, allItems, allModelPhotos) {
+    var matched = !entry.gradePrefix
+      ? allItems.filter(function (v) { return v.model === entry.model; })
+      : allItems.filter(function (v) { return matchesGradeRule_(v.model, entry, allModelPhotos); });
+    var prices = matched.map(function (v) { return Number(v.salePrice); }).filter(function (n) { return !isNaN(n) && n > 0; });
+    if (!prices.length) return null;
+    return Math.min.apply(null, prices);
   }
 
   /**
@@ -1254,6 +1284,18 @@
     }
     var filtered = applyHomeModelFilter_(pool);
     $('homeResultsEmpty').classList.toggle('hidden', filtered.length > 0);
+    // 不具合修正（UX・情報設計担当からの指摘）: キーワード検索は完全一致のため、
+    // 部分的に合っているだけでは0件になり「本当に在庫が無い」と誤解されやすい。
+    // キーワード検索で0件のときだけ、完全一致である旨を添えた文言に差し替える
+    // （画像タップ・絞り込み条件のみでの0件は従来どおりの文言のまま）。
+    if (filtered.length === 0) {
+      var emptyMsg = $('homeResultsEmpty').querySelector('p');
+      if (emptyMsg) {
+        emptyMsg.textContent = state.homeResultsKeyword
+          ? '「' + state.homeResultsKeyword + '」に完全一致する車両が見つかりませんでした。入力した文字列の一部だけが合っている場合はヒットしません。'
+          : '該当する車両がありません';
+      }
+    }
     $('homeResultsCount').textContent = filtered.length ? '該当 ' + filtered.length + '台' : '';
     $('homeResultsSearchDesc').textContent = homeResultsSearchDescText_();
     // 操作列（Hold・受注等）を持つため、tbl--cartrackではなくtbl--inventoryと
@@ -1607,6 +1649,19 @@
    * 呼び出す（差し替えるたびに要素が作り直されるため、都度配線し直す必要が
    * ある）。
    */
+  // 不具合修正（レスポンシブ・マルチデバイス担当からの指摘）: スマホ幅等で
+  // 表が横スクロール可能なとき、タブ行・検索チップ行（.scroller／.tabs）には
+  // 「続きがある」ことを示す縁のフェード（mask-image）が付いているのに、
+  // .tblBodyには無く、右側にまだ列が隠れていることに気づきにくかった。
+  // initScrollFade_（タブ行用）と同じmask-imageの仕組みを、.tblBodyにも
+  // そのまま適用する（--fade-l／--fade-rはStylesheet.htmlの.scroller,
+  // .tabsの定義を.tblBodyにも効かせているため、ここでは値の計算だけ行う）。
+  function syncTblBodyFade_(body) {
+    var max = body.scrollWidth - body.clientWidth;
+    body.style.setProperty('--fade-l', body.scrollLeft > 2 ? '16px' : '0px');
+    body.style.setProperty('--fade-r', body.scrollLeft < max - 2 ? '16px' : '0px');
+  }
+
   function wireTableHeaderScrollSync_(containerEl) {
     containerEl.querySelectorAll('.tbl').forEach(function (tbl) {
       var head = tbl.querySelector('.tblHead');
@@ -1615,7 +1670,29 @@
       body.addEventListener('scroll', function () {
         head.scrollLeft = body.scrollLeft;
       });
+      // 不具合修正: 一覧データは、そのタブを開く前（まだ非表示＝
+      // display: noneの状態）に先行して描画されていることがあり、その時点で
+      // scrollWidth／clientWidthを読んでもどちらも0になってしまうため、ここで
+      // 1回だけ同期しても実際にタブを開いたときには値が正しくないままだった。
+      // そのためタブが表示状態に切り替わるたび（switchToTab_参照）にも
+      // 再同期する。.tblBodyは絞り込み・並べ替えのたびに作り直される
+      // （本関数も都度呼び直す）ため、initScrollFade_と違いwindowのresizeには
+      // 登録しない（古い要素への参照がリスナーとして溜まり続けるのを避ける
+      // ため）。
+      body.addEventListener('scroll', function () { syncTblBodyFade_(body); }, { passive: true });
+      syncTblBodyFade_(body);
     });
+  }
+
+  /**
+   * 今アクティブなタブの中にある.tblBodyだけ、横スクロールのフェード
+   * （syncTblBodyFade_）を再同期する。タブは常に同じDOM上でdisplay: none/
+   * blockを切り替えているだけのため、非表示のうちに描画されたテーブルは
+   * scrollWidth等が0のまま--fade-rが正しく計算できていない。switchToTab_
+   * （タブ切替の直後）から呼び、表示された瞬間に正しい値へ直す。
+   */
+  function resyncActiveTabTblBodyFades_() {
+    document.querySelectorAll('main.view.is-active .tblBody').forEach(syncTblBodyFade_);
   }
 
   /**
@@ -3687,6 +3764,26 @@
    * 全プリセットのprimaryDark／primaryをそれぞれ並べたグラデーションにして
    * 「毎回変わる」ことを視覚的に示す。
    */
+  /* 不具合修正（ビジュアル担当チームからの指摘）: テーマ名（カタカナの複合語）は
+   * 空白を含まないため、幅が狭いとCSSの折り返し規則上どの文字の間でも改行されて
+   * しまい、「ブリリアントブ／ルー」のように単語の途中で不自然に割れることが
+   * あった。各名称の自然な意味の区切り（「ブリリアント｜ブルー」等）だけに
+   * <wbr>（改行してよい場所の候補）を入れ、末尾側をnowrapで囲むことで、折り返す
+   * ときは必ずこの区切りで割れるようにする（名称自体・ロジックで使うp.nameは
+   * 変更せず、表示専用のテーブルで変換する）。
+   */
+  var THEME_NAME_BREAK_SUFFIX = {
+    steel: 'ブルー', graphite: 'グレー', wine: 'レッド', green: 'グリーン',
+    amber: 'ゴールド', petrol: 'ブルー', mono: 'グレー', obsidian: 'ブラック',
+    cardinal: 'レッド', denim: 'ブルー'
+  };
+  function themeNameHtml_(p) {
+    var suffix = THEME_NAME_BREAK_SUFFIX[p.key];
+    if (!suffix || p.name.slice(-suffix.length) !== suffix) return escapeHtml(p.name);
+    var prefix = p.name.slice(0, p.name.length - suffix.length);
+    return escapeHtml(prefix) + '<wbr><span style="white-space:nowrap">' + escapeHtml(suffix) + '</span>';
+  }
+
   function renderThemePresets_() {
     var container = $('themePresetGrid');
     var current = state.themeKey || DEFAULT_THEME_KEY;
@@ -3697,7 +3794,7 @@
         '<span class="themePreset__previewBar" style="background:' + p.primaryDark + '"></span>' +
         '<span class="themePreset__previewBody"><span class="themePreset__previewBtn" style="background:' + p.primary + '"></span></span>' +
         '</span>' +
-        '<span class="themePreset__name">' + escapeHtml(p.name) + '</span>' +
+        '<span class="themePreset__name">' + themeNameHtml_(p) + '</span>' +
         '</button>';
     }).join('');
     var darkGradient = THEME_PRESETS.map(function (p) { return p.primaryDark; }).join(', ');
@@ -4331,6 +4428,16 @@
     var stockClass = 'badge homeCard__stock' + (total === 0 ? ' badge--stock--zero' : '');
     var stockHtml = '<span class="' + stockClass + '">' + homeStockCountText_(total) + '</span>';
 
+    // 不具合修正（ビジュアル担当チームからの指摘）: 在庫リスト・受注リストには
+    // 「価格」列が常設されているのに、ホームのカードだけ価格が一切分からず、
+    // 画面間で情報の一貫性に欠けていた。モデル（グレードまとめ）単位のカードの
+    // ため1台の確定額ではなく、一致する在庫の最低価格を「〜円から」の目安として
+    // 添える（価格未入力の車両しかない場合は表示しない）。
+    var minPrice = minSalePriceForEntry_(p, allItems, allModelPhotos);
+    var priceHtml = minPrice !== null
+      ? '<span class="homeCard__price">' + formatNumberUnit_(minPrice, ' 円〜') + '</span>'
+      : '';
+
     var gradeGridHtml = '';
     if (hasGrades) {
       gradeGridHtml = '<div class="homeCard__gradeGrid">' + grades.map(function (gradeModel) {
@@ -4381,6 +4488,7 @@
       photoHtml +
       '<div class="homeCard__body">' +
       '<div class="homeCard__headRow"><span class="homeCard__model">' + escapeHtml(p.model) + '</span>' + typeHtml + '</div>' +
+      priceHtml +
       gradeGridHtml +
       '</div>' +
       '</div>';

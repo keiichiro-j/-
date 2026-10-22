@@ -15,7 +15,18 @@
      調整されていたため、そのままでは白背景で読みにくくなるため）。各色の
      背景ウォッシュ（--success-bg 等）は元の明るい色調のまま、文字色
      （--success 等）だけを暗くすることで、淡い背景色＋読みやすい濃い文字の
-     組み合わせにしている。 */
+     組み合わせにしている。
+     不具合修正（アクセシビリティ担当からの指摘）: 上の調整は純白背景を基準に
+     行っていたが、実際にバッジ等が使うのは各色の背景ウォッシュ（--success-bg
+     等、白地より少し濃い）のため、実際の組み合わせではAA基準をわずかに
+     下回っていた（実測: success 4.17:1、warning 4.14:1、danger 3.91:1）。
+     ウォッシュ背景で実測しながらさらに暗く調整し直し、どの状態色も実際の
+     バッジでAAを上回るようにした（実測: success 5.95:1、warning 6.55:1、
+     danger 5.50:1）。
+     あわせて現場からの指摘「Hold中の警告色（--warning）が、カラハリゴールド
+     （amberテーマ、primary #a06a1f）とほぼ同じ金・茶系で見分けにくい」を受け、
+     --warningをより赤みの強い焦げ茶オレンジに寄せ、テーマのアクセント色と
+     紛れにくくしている。 */
   :root {
     /* --primary はボタン塗り・境界線・アクセント用（白文字とのコントラスト比
        ≒5.2:1を確保できる明度に調整済み）。リンクやアイコンなど、背景の上に
@@ -31,11 +42,11 @@
     --on-surface: #1f2933;
     --on-surface-variant: #6b7785;
     --outline: #d8e1e8;
-    --success: #188649;
+    --success: #0f6b38;
     --success-bg: rgba(61, 220, 132, .16);
-    --warning: #a5670b;
+    --warning: #9a3412;
     --warning-bg: rgba(242, 169, 60, .16);
-    --danger: #ec0000;
+    --danger: #b91c1c;
     --danger-bg: rgba(255, 107, 107, .16);
     --primary-bg: #dceaf7;
     /* 管理者権限を持つ担当者のみ登録できる業販HOLD専用の特別色。
@@ -309,8 +320,19 @@
      及んでいなかった（現場からの指摘「ヘッダーと各リストへの区切り線をテーマに
      応じてカラー変更してほしい」）。選択中のテーマのアクセント色（--primary、
      ヘッダー背景のベースになるprimaryDarkより明るく、ヘッダー上でも視認できる）に
-     連動させる。 */
-  .tabs__item.is-active { opacity: 1; border-bottom-color: var(--primary); }
+     連動させる。
+     不具合修正（アクセシビリティ担当からの指摘）: var(--primary)をそのまま下線に
+     使うと、primaryDark（ヘッダー背景）との組み合わせによっては非テキストの
+     UIコントラスト基準（3:1）を下回るテーマがあった（実測: mono 1.30:1、
+     obsidian 1.33:1、wine 1.32:1、amber 1.47:1等）。テーマカラーとの連動は
+     維持しつつ、白を50%混ぜて明るくすることで全テーマで3:1を上回るように
+     する（実測: 最も低いamberでも3.42:1、他は4:1以上を確保）。あわせて
+     文字の太さも上げ、色だけに頼らない手がかりにする。 */
+  .tabs__item.is-active {
+    opacity: 1;
+    font-weight: 700;
+    border-bottom-color: color-mix(in srgb, var(--primary) 50%, white 50%);
+  }
 
   @media (min-width: 901px) {
     /* ブランド行・タブ行のpaddingを広げる分、.commandbar側のsticky offset
@@ -494,12 +516,40 @@
      縁がフェードして見える（背景色ではなくmask-imageなので、テーマで背景色が
      変わっても常に正しく効く）。 */
   .scroller,
-  .tabs {
+  .tabs,
+  .tblBody {
     --fade-l: 0px;
     --fade-r: 0px;
     -webkit-mask-image: linear-gradient(to right, transparent, black var(--fade-l), black calc(100% - var(--fade-r)), transparent);
     mask-image: linear-gradient(to right, transparent, black var(--fade-l), black calc(100% - var(--fade-r)), transparent);
   }
+
+  /* 不具合修正（ビジュアル・UX・レスポンシブ各担当からの指摘）: 上のフェード
+     （mask-image）だけでは、特にスマホ幅のタブ行で「まだ右にタブがある」ことに
+     気づきにくく、マイページ以降のタブの存在が埋もれていた。フェードより強い
+     手がかりとして、スクロール可能な側にだけ矢印を重ねて表示する
+     （initScrollFade_がtabs__wrapに has-more-left／has-more-right を
+     付け外しする、JavaScript.html参照）。タブ本体へのクリックを奪わないよう
+     pointer-events: noneにし、押せるのは常にタブ自身だけにする。 */
+  .tabs__wrap { position: relative; }
+  .tabs__moreHint {
+    position: absolute;
+    top: 0;
+    bottom: 12px;
+    width: 28px;
+    display: flex;
+    align-items: center;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--on-topbar);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .15s var(--ease);
+  }
+  .tabs__moreHint--left { left: 0; justify-content: flex-start; padding-left: 4px; }
+  .tabs__moreHint--right { right: 0; justify-content: flex-end; padding-right: 4px; }
+  .tabs__wrap.has-more-left .tabs__moreHint--left,
+  .tabs__wrap.has-more-right .tabs__moreHint--right { opacity: .8; }
 
   /* ===== ホーム・在庫リストのクイックナビ（型／ボディタイプ） =====
      ホーム画面の型クイックナビ、在庫リストのボディタイプクイックナビが共通で
@@ -650,6 +700,11 @@
   .homeCard__headRow { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
   .homeCard__model { font-size: 13.5px; font-weight: 700; letter-spacing: -.01em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .homeCard__type { flex: none; font-size: 10px; font-weight: 600; color: var(--on-surface-variant); border: 1px solid var(--outline); border-radius: 3px; padding: 1px 7px; white-space: nowrap; }
+  /* 不具合修正（ビジュアル担当チームからの指摘）: 在庫リスト等にはある「価格」が
+     ホームのカードだけ無く、画面間の情報の一貫性に欠けていた。モデル単位の
+     最低価格の目安を、モデル名のすぐ下に添える（minSalePriceForEntry_、
+     JavaScript.html参照）。 */
+  .homeCard__price { font-size: 12.5px; font-weight: 700; color: var(--primary-text); }
   .homeCard__gradeGrid { display: flex; flex-wrap: wrap; gap: 5px; }
   .homeCard__gradeChip {
     appearance: none; border: 1px solid var(--outline); background: var(--background);
@@ -670,7 +725,10 @@
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
     overflow: hidden;
   }
-  .homeCard__gradeCount { font-size: 9.5px; color: var(--success); font-weight: 700; }
+  /* 不具合修正（ビジュアル担当チームからの指摘）: 9.5pxはアプリ内の最小文字
+     サイズ（10px）を下回っていたため、10.5pxに引き上げてタイポグラフィの
+     階層（10px〜）からはみ出さないようにする。 */
+  .homeCard__gradeCount { font-size: 10.5px; color: var(--success); font-weight: 700; }
   .homeCard__gradeCount--zero { color: var(--on-surface-variant); }
 
   /* 設定タブの車両画像リストのサムネイル（.staffList__summaryをそのまま再利用し、
@@ -725,10 +783,10 @@
     border: 2px solid var(--primary);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
-    padding: 12px 14px;
+    padding: 10px 14px;
     display: flex;
     flex-direction: column;
-    gap: 7px;
+    gap: 4px;
     min-width: 0;
   }
   /* 見出し（条件検索）・該当台数は左寄せでひとまとまりにし、クリアボタンだけを
@@ -747,7 +805,14 @@
   /* セレクトの縦paddingだけを詰めて1項目あたりの高さを抑える（不具合修正の
      一環）。font-sizeは.inputの16px基準（iOS Safariのフォーカス時自動ズーム
      回避のため）を変えず、paddingのみ調整する。 */
-  .filterSidebar select.input { padding-top: 7px; padding-bottom: 7px; }
+  /* 不具合修正（レスポンシブ・マルチデバイス担当からの指摘）: 在庫リストは
+     区分・現展示拠点・掲載状況が加わり項目数が他のリストより多く、この
+     余裕のある密度のままだとサイドバーがページの高さを超えてはみ出し、
+     ページ全体に不要な縦スクロールが付いていた（900px高さで最大167px）。
+     ホームで実測調整したのと同じ考え方で、全リスト共通のこの基本密度を
+     少し詰め、スマホ・タブレット幅（下の@media (max-width: 900px)）では
+     タップ領域確保のため戻す。 */
+  .filterSidebar select.input { padding-top: 4px; padding-bottom: 4px; }
   /* 濃い背景の上で読みやすいよう、入力欄・検索欄を半透明の白ベースに差し替える
      （色自体はテーマの影響を受けない中立な配色。文字色は白で統一）。
      不具合修正: background（ショートハンド）で指定すると、select.inputの
@@ -760,8 +825,13 @@
     border-color: rgba(255, 255, 255, .26);
     color: #fff;
   }
+  /* 不具合修正（アクセシビリティ担当からの指摘）: 55%の白は、プレースホルダーの
+     10px（現場からの要望で縮小済み）という小さな文字サイズと重なると、テーマに
+     よってはWCAG AA基準（4.5:1）を下回っていた（暖色系のamberテーマで実測
+     3.26:1）。75%まで上げることで、最も厳しいamberテーマでも4.6:1を確保できる
+     （他のテーマはさらに余裕がある）。文字サイズ自体は現場要望どおり維持する。 */
   .filterSidebar .input::placeholder,
-  .filterSidebar .searchbox input::placeholder { color: rgba(255, 255, 255, .55); }
+  .filterSidebar .searchbox input::placeholder { color: rgba(255, 255, 255, .75); }
   .filterSidebar .searchbox input { color: #fff; }
   .filterSidebar .searchbox .icon--inline { color: rgba(255, 255, 255, .6); }
   .filterSidebar .searchbox:focus-within { border-color: #fff; box-shadow: none; }
@@ -772,7 +842,7 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='%23ffffff'%3E%3Cpath d='M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z'/%3E%3C/svg%3E");
   }
   .filterSidebar .filterCheck { color: rgba(255, 255, 255, .85); }
-  .filterSidebar .filterCheck__cnt { color: rgba(255, 255, 255, .55); }
+  .filterSidebar .filterCheck__cnt { color: rgba(255, 255, 255, .75); }
   .filterSidebar__clearBtn {
     border: none;
     background: none;
@@ -796,8 +866,12 @@
      JavaScript.html参照）。項目は常にパネル幅いっぱいの1列で表示し、
      長い選択肢でも文字が見切れないようにする。 */
   .filterSidebar__rows { display: flex; flex-direction: column; }
+  /* 不具合修正（レスポンシブ・マルチデバイス担当からの指摘、在庫リストの
+     サイドバーのはみ出し対策の一環）: 上のselect.inputと同じ理由で、行の
+     上下paddingも詰める。スマホ・タブレット幅では下の@media (max-width:
+     900px)でタップ領域を確保する。 */
   .filterSidebar__row {
-    padding: 11px 2px;
+    padding: 6px 2px;
     border-bottom: 1px solid var(--dark-ui-outline);
     position: relative;
     min-width: 0;
@@ -820,6 +894,29 @@
   /* グループ化・区分・掲載状況等、チェック/ラジオの一覧を持つ行は、見出しの
      gapぶん.filterCheckとの間隔がやや詰まって見えるため少しだけ広げる。 */
   .filterSidebar__row .filterCheck { padding: 3px 0; }
+  /* 不具合修正（レスポンシブ・マルチデバイス担当からの指摘）: ホーム以外の
+     リスト（在庫リスト等）は、見出しとコントロールを別の行に積む古い並びの
+     ままだったため、特に項目数の多い在庫リストでサイドバーがページの高さを
+     超えてはみ出していた（900px高さで最大167px）。ホームで既に採用している
+     「見出しとコントロールを同じ行に並べる」形を、1行に収まるセレクトの行
+     （色・初年度登録日・価格帯・走行距離等）にも広げ、見出し専用の行を無くす。
+     チェックボックス一覧（区分・現展示拠点等）は項目数が可変で1行に収まら
+     ないため対象外とし、従来どおり見出し→一覧の縦積みのままにする
+     （:has()でselect.inputを直接持つ行だけに絞る）。 */
+  .filterSidebar__row:has(> select.input) {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .filterSidebar__row:has(> select.input) > .filterSidebar__rowHead {
+    margin-bottom: 0;
+    flex: none;
+    white-space: nowrap;
+  }
+  .filterSidebar__row:has(> select.input) > select.input {
+    flex: 1;
+    min-width: 0;
+  }
 
   /* 不具合修正/現場からの要望「左コントロールパネル内は固定のサイズで、
      スライドなしにしてほしい」を受け、ホームの絞り込みパネル（区分・現展示
@@ -827,7 +924,14 @@
      行間を詰めている。全項目をドロップダウン形式に統一した後、現場からの
      要望「各項目の隙間を広くしてほしい（画面スクロールしない程度に）」を
      受けて再度実測し、画面の高さを超えない範囲で可能な限り広げている。 */
-  #view-home .filterSidebar { gap: 2px; padding: 10px 14px; }
+  /* 不具合修正（レスポンシブ・マルチデバイス担当からの指摘）: 複数フィルターを
+     同時選択すると「絞り込み中サマリー」のチップが2行に折り返し、その分
+     パネルの中身が伸びる。低いビューポート（700px前後）ではこの伸びぶんを
+     吸収しきれず、最下段の行（販売状況）が画面からそのまま見切れて操作
+     できなくなっていた。普段は中身がきっちり収まる密度に実測調整済みのため
+     目に見えることは無いが、この想定外のケースに限っては内部スクロールで
+     救済する（常時表示される煩わしいスクロールバーにはならない）。 */
+  #view-home .filterSidebar { gap: 2px; padding: 10px 14px; overflow-y: auto; }
   #view-home .filterSidebar .searchbox { padding: 6px 12px; }
   /* 現場からの要望「条件検索と検索窓までの隙間を作ってほしい」を受け、
      見出し（条件検索・該当台数）と検索欄との間にだけ余白を追加する
@@ -865,11 +969,15 @@
      現場からの要望「管理情報の上にある線を消してほしい」を受け、見出し上の
      罫線（border-top）は廃止し、直前の行との間隔（上のflex: 1 1 autoによる
      伸びと、この見出し自身のmargin-top）だけで区切りを表す。 */
+  /* 不具合修正（アクセシビリティ担当からの指摘）: 55%の白は10.5pxという小さな
+     見出し文字と重なり、テーマによってはAA基準（4.5:1）を下回っていた
+     （amberテーマで実測3.25:1）。75%まで上げ、最も厳しいamberテーマでも
+     4.6:1を確保する。文字サイズ自体は現場要望どおり維持する。 */
   #view-home .filterSidebar__sectionLabel {
     font-size: 10.5px;
     font-weight: 700;
     letter-spacing: .04em;
-    color: rgba(255, 255, 255, .55);
+    color: rgba(255, 255, 255, .75);
     margin: 6px 2px 0;
   }
   /* 現場からの要望「条件検索（）の下にすぐ車両条件がきてしまっているので、
@@ -895,6 +1003,12 @@
        行・見出しが押し下げられるだけになり、見出しと直後の行の間隔は常に
        最小のまま保たれる。 */
     flex: 1 1 auto;
+    /* 不具合修正（レスポンシブ・マルチデバイス担当からの指摘）: 1400px級の
+       非常に高い画面では、伸びしろが大きすぎて項目間が80〜100px前後まで
+       間延びし、むしろ実装漏れのように見えてしまっていた。max-heightで
+       1行あたりの伸びに上限を設け、それを超える余りの高さはパネル下端の
+       余白として残すだけにする（スクロールは発生しない）。 */
+    max-height: 58px;
     align-items: flex-start;
     gap: 8px;
   }
@@ -934,6 +1048,18 @@
     max-height: 240px; overflow-y: auto;
   }
   .multiDropdown__panel .filterCheck { color: var(--on-surface); font-size: 12px; }
+
+  /* 不具合修正（ビジュアル担当チームのレスポンシブ・マルチデバイス担当からの
+     指摘）: 在庫リスト等の「区分」「現展示拠点」チェックボックス一覧
+     （checkboxFilterOptionsHtml_で生成、件数は実データの件数次第で増減する）
+     は、件数が多いとサイドバー本体（.filterSidebar、height: 100%だが
+     overflow指定なし）からはみ出し、ページ全体に不要な縦スクロールが付いて
+     しまっていた（在庫リストで最大300px超のはみ出しを確認）。サイドバー
+     自体に内部スクロールを付けると「サイドバーの中でさらにスクロールが
+     必要になるのは煩わしい」という以前の現場からの指摘と同じ問題を再発させて
+     しまうため、はみ出しの原因になっているチェックボックス一覧の部分だけに
+     最大高さ＋内部スクロールを持たせ、他の行（セレクト等）はそのままにする。 */
+  .filterCheckList { max-height: 168px; overflow-y: auto; padding-right: 2px; }
 
   /* 絞り込み中サマリー（パネル上部のタグ一覧）。セレクト・ラジオ・チェック
      ボックス・テキスト入力いずれの絞り込みも、除去可能なタグとしてまとめて
@@ -1008,7 +1134,16 @@
       flex: 1 1 auto;
       min-height: 0;
     }
-    .view--list .filterSidebar { height: 100%; }
+    /* 不具合修正（レスポンシブ・マルチデバイス担当からの指摘）: 在庫リスト等、
+       項目数の多いサイドバーは、上の密度調整で900px高さでは完全に収まる
+       ようになったが、700px前後のより低い画面では依然わずかにはみ出し、
+       ページ全体に不要な縦スクロールが付いてしまう。以前「サイドバーの中で
+       さらにスクロールが必要になるのは煩わしい」という指摘を受けて内部
+       スクロールを外した経緯があるが、それは常に中身がはみ出していた当時の
+       話で、今は通常の画面高さでは収まりきる密度になっている。普段は
+       発生しない安全策として、収まらない場合にだけ内部スクロールで救済する
+       （ページ全体が崩れるよりは、サイドバー内だけで完結する方が実害が小さい）。 */
+    .view--list .filterSidebar { height: 100%; overflow-y: auto; }
     /* 不具合修正: 「該当する受注がありません」等の空状態は、以前は単なる
        固定paddingのブロックとして一覧の先頭に置かれていたため、一覧エリアの
        高さ（画面いっぱい）に対して上に偏り、下に大きな空白だけが残っていた。
@@ -2399,6 +2534,23 @@
        サイドバーが画面いっぱいに広がり右側の余白が無いため、パネルが画面外に
        はみ出していた。この幅ではボタンの真下・全幅に開く向きに変える。 */
     .multiDropdown__panel { top: calc(100% + 4px); left: 0; right: 0; min-width: 0; }
+
+    /* 不具合修正（アクセシビリティ担当からの指摘）: ホームの絞り込み行・
+       ドロップダウンボタン・一覧の操作ボタン（HOLD／受注／解除／受注確定）は、
+       PC画面向けに詰めた密度（実測タップ領域25〜29px）のままタブレット・
+       スマホ幅でも使われており、推奨タップ領域（32〜40px）を下回っていた
+       （ホーム以外のリストも、在庫リストのはみ出し対策で同程度まで詰めた
+       ため同じ対象になる）。この幅ではPCの密度優先の調整を上書きし、
+       タップしやすい高さに戻す（PC幅の表示密度には影響しない）。 */
+    /* 不具合修正: ホーム専用の密度調整（#view-home .filterSidebar__row等、
+       CSS詳細度がID込みで高い）はメディアクエリの中でもそのまま勝ってしまう
+       ため、この幅での上書きも同じ#view-homeプレフィックス込みで指定する。 */
+    .filterSidebar__row,
+    #view-home .filterSidebar__row { padding: 9px 2px; }
+    .filterSidebar select.input,
+    #view-home .filterSidebar select.input { padding-top: 9px; padding-bottom: 9px; }
+    .multiDropdown__btn { padding-top: 9px; padding-bottom: 9px; }
+    .tbl .tblCell--actions .btn { padding: 10px 7px; min-height: 36px; }
   }
 
   /* ===== スマートフォン ===== */
