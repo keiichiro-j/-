@@ -1426,8 +1426,13 @@
     var s = String(value == null ? '' : value).trim().toUpperCase();
     return s === 'TRUE' || s === '1' || s === '○' || s === '◯' || s === '✓' || s === '✔';
   }
+  // 旧モデルではないカードにも同じ高さの空の帯（--empty）を入れておき、同じ一覧に旧モデルの
+  // 車両が1台でもあるときだけ表示する。カード表示で旧モデルと通常モデルのカードの高さがそろう
+  // （旧モデルが1台も無い一覧・詳細ポップアップでは空の帯を出さない。Stylesheet.html 参照）。
   function oldModelBandHtml_(item) {
-    return isOldModel_(item) ? '<div class="oldModelBand">旧モデル</div>' : '';
+    return isOldModel_(item)
+      ? '<div class="oldModelBand">旧モデル</div>'
+      : '<div class="oldModelBand oldModelBand--empty" aria-hidden="true">&nbsp;</div>';
   }
   function oldModelRowFlagHtml_(item) {
     // 縦書きの指定は端末・書体によって2列に折り返すことがあるため、1文字ずつ改行して縦に並べる

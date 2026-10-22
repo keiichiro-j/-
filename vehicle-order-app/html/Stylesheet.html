@@ -2968,7 +2968,13 @@
      （「完成検査切」の背景グレーと意味が混ざらないように）。 */
   .oldModelBand {
     margin: -12px -12px 0;
-    padding: 3px 12px;
+    padding: 0 12px;
+    /* 空の帯（--empty）と高さを完全にそろえるため、文字の高さに左右されない固定の高さにする */
+    height: 22px;
+    line-height: 22px;
+    overflow: hidden;
+    white-space: nowrap;
+    flex: none;
     background: var(--old-model-bg);
     color: var(--old-model-fg);
     font-size: 11.5px;
@@ -2976,6 +2982,9 @@
     letter-spacing: .12em;
     border-radius: 3px 3px 0 0;
   }
+  .oldModelBand--empty { background: transparent; color: transparent; }
+  main.view:not(:has(.oldModelBand:not(.oldModelBand--empty))) .oldModelBand--empty,
+  .modal .oldModelBand--empty { display: none; }
   .rowCard.is-oldModel {
     position: relative;
     overflow: hidden;
