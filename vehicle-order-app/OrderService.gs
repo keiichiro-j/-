@@ -86,6 +86,8 @@ function confirmOrder(commission, info) {
     HOLD_ORDER_INPUT_COLUMNS.forEach(function (c) { order[c.key] = info[c.key]; });
     order.staffEmail = info.staffEmail;
     VEHICLE_COLUMNS.forEach(function (col) { order[col.key] = vehicle[col.key]; });
+    // 旧モデルのチェックも受注リストへ引き継ぐ（チェックボックスなので TRUE／FALSE で書く）
+    order.isOldModel = isOldModelValue_(vehicle.isOldModel);
     // 備考は在庫・受注の末尾専用列（VEHICLE_COLUMNS外）。受注確定時に在庫から引き継ぐ。
     order.remarks = vehicle.remarks || '';
     // 受注取消で在庫リストの元の位置へ戻せるよう、今の行番号と上下の車両を記録する。
@@ -193,6 +195,7 @@ function cancelOrder(kind, commission) {
 
     var vehicle = { holdStatus: HOLD_STATUS.AVAILABLE, remarks: order.remarks || '' };
     VEHICLE_COLUMNS.forEach(function (col) { vehicle[col.key] = order[col.key]; });
+    vehicle.isOldModel = isOldModelValue_(order.isOldModel); // 旧モデルのチェックも在庫リストへ戻す
     vehicle.commission = String(order.commission);
 
     var targetRow = decideInventoryRestoreRow_(order, readInventoryCommissions_(invSheet));

@@ -121,6 +121,11 @@ function applyTextColumnFormat_(sheet, columnIndexes1) {
 function applySelectValidations_(sheet, columns) {
   var numRows = Math.max(sheet.getMaxRows() - 1, 1000);
   columns.forEach(function (col, i) {
+    if (col.type === 'checkbox') {
+      // 旧モデル列などのチェックボックス列（空欄は未チェックとして表示される）
+      sheet.getRange(2, i + 1, numRows, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireCheckbox().build());
+      return;
+    }
     if (col.type !== 'select' || !Array.isArray(col.options) || !col.options.length) return;
     var rule = SpreadsheetApp.newDataValidation()
       .requireValueInList(col.options, true)

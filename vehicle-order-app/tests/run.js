@@ -1550,6 +1550,19 @@ test('他店の受注は販売拠点・リード番号ともなし', () => {
   assert.ok(keys.includes('customer'));
 });
 
+console.log('== Constants: 旧モデル列 ==');
+test('旧モデル列は在庫リスト・受注リストの「モデル」のすぐ右にあり、発注・Gクラスには無い', () => {
+  const labels = (cols) => JSON.parse(JSON.stringify(cols.map((c) => c.label)));
+  assert.deepStrictEqual(labels(sandbox.INVENTORY_COLUMNS).slice(0, 2), ['モデル', '旧モデル']);
+  assert.deepStrictEqual(labels(sandbox.ORDER_COLUMNS).slice(0, 2), ['モデル', '旧モデル']);
+  assert.ok(!labels(sandbox.GCLASS_COLUMNS).includes('旧モデル'));
+  assert.ok(!labels(sandbox.PURCHASE_ORDER_COLUMNS).includes('旧モデル'));
+});
+test('チェックボックスのTRUEや手入力の「TRUE」「1」「○」「✓」を旧モデルと判定する', () => {
+  [true, 'TRUE', 'true', '1', '○', '✓'].forEach((v) => assert.strictEqual(sandbox.isOldModelValue_(v), true, String(v)));
+  [false, '', null, undefined, 'FALSE', '0'].forEach((v) => assert.strictEqual(sandbox.isOldModelValue_(v), false, String(v)));
+});
+
 console.log('== OrderService: 受注取消で在庫リストの元の位置へ戻す ==');
 test('受注確定時に、行番号と上下の車両のコミッションを記録する', () => {
   const pos = sandbox.buildInventoryPosition_(['A', 'B', 'C'], 3); // B（3行目）

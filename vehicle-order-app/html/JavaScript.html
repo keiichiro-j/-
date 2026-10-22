@@ -1416,9 +1416,31 @@
    * 1ST HOLD / 2ND HOLD（未登録も含めて常時2枠）・操作ボタンを表示する。
    * 車両スペック（ステア・有償OP等）やHoldの契約詳細は「詳細を見る」のモーダルへ。
    */
+  // ===== 旧モデルの表示 =====
+  // スプレッドシートの「旧モデル」列にチェックが入った車両（在庫リスト・受注リスト3種）に、
+  // カード表示では上辺の横帯、表表示では行の左端の縦帯で「旧モデル」と表示する。
+  // 判定は Constants.gs の isOldModelValue_ と同じ（チェックボックスの TRUE のほか「TRUE」「1」「○」「✓」）。
+  function isOldModel_(item) {
+    var value = item && item.isOldModel;
+    if (value === true) return true;
+    var s = String(value == null ? '' : value).trim().toUpperCase();
+    return s === 'TRUE' || s === '1' || s === '○' || s === '◯' || s === '✓' || s === '✔';
+  }
+  function oldModelBandHtml_(item) {
+    return isOldModel_(item) ? '<div class="oldModelBand">旧モデル</div>' : '';
+  }
+  function oldModelRowFlagHtml_(item) {
+    // 縦書きの指定は端末・書体によって2列に折り返すことがあるため、1文字ずつ改行して縦に並べる
+    return isOldModel_(item) ? '<div class="oldModelRowFlag" aria-label="旧モデル">旧<br>モ<br>デ<br>ル</div>' : '';
+  }
+  function oldModelRowClass_(item) {
+    return isOldModel_(item) ? ' is-oldModel' : '';
+  }
+
   function vehicleCardHtml(v) {
     var cardTone = vehicleCardTone_(v);
     return '<div class="card ' + cardTone + '">' +
+      oldModelBandHtml_(v) +
       vehicleTopHtml_(v) +
       vehicleQuickMetaHtml_(v) +
       '<button type="button" class="card__detailLink" data-detail="' + escapeHtml(v.commission) + '">▸ 詳細を見る</button>' +
@@ -1436,6 +1458,7 @@
   function vehicleDetailHtml_(v) {
     var cardTone = vehicleCardTone_(v);
     return '<div class="card ' + cardTone + '">' +
+      oldModelBandHtml_(v) +
       vehicleTopHtml_(v) +
       vehicleQuickMetaHtml_(v) +
       vehicleHoldSlotsHtml_(v, true) +
@@ -1543,7 +1566,8 @@
     // HOLD解除は状態列に置かない。1ST/2ND HOLD列の値と同じ行に「解除」を置き、
     // 未登録時は同じ幅のスペーサーを入れて高さを揃える。操作ボタンは常に2枠
     // （2ND HOLD未登録時はスペーサー）にして、HOLDの有無で行高さが変わらないようにする。
-    return '<div class="rowCard ' + rowTone + '" data-commission="' + escapeHtml(v.commission) + '">' +
+    return '<div class="rowCard ' + rowTone + oldModelRowClass_(v) + '" data-commission="' + escapeHtml(v.commission) + '">' +
+      oldModelRowFlagHtml_(v) +
       '<div class="rowCard__inner">' +
       '<div class="rowCard__status">' + statusBadge + '</div>' +
       '<div class="rowCard__field">' +
@@ -2567,6 +2591,7 @@
 
   function orderCardHtml(o) {
     return '<div class="orderCard"' + locationStyleAttr_(o.salesLocation) + '>' +
+      oldModelBandHtml_(o) +
       '<div class="orderCard__top">' +
       '<div><div class="orderCard__model">' + escapeHtml(o.customer || '-') + '</div>' +
       '<div class="orderCard__staff">担当者: ' + escapeHtml(o.staff || '-') + '</div>' +
@@ -2598,6 +2623,7 @@
 
   function orderDetailHtml_(o) {
     return '<div class="orderCard"' + locationStyleAttr_(o.salesLocation) + '>' +
+      oldModelBandHtml_(o) +
       '<div class="orderCard__top">' +
       '<div><div class="orderCard__model">' + escapeHtml(o.customer || '-') + '</div>' +
       '<div class="orderCard__staff">担当者: ' + escapeHtml(o.staff || '-') + '</div>' +
@@ -2697,7 +2723,8 @@
   // 2行になると縦余白が出るため nowrap）。項目順は顧客・モデル・リード番号・
   // MP・ステア・カラー・有償OP・担当者・登録月・VPC・販売拠点。
   function orderRowCardHtml(o) {
-    return '<div class="rowCard rowCard--order"' + locationStyleAttr_(o.salesLocation) + ' data-commission="' + escapeHtml(o.commission) + '">' +
+    return '<div class="rowCard rowCard--order' + oldModelRowClass_(o) + '"' + locationStyleAttr_(o.salesLocation) + ' data-commission="' + escapeHtml(o.commission) + '">' +
+      oldModelRowFlagHtml_(o) +
       '<div class="rowCard__inner">' +
       '<div class="rowCard__field rowCard__id"><span class="rowCard__model">' + escapeHtml(o.customer || '-') + '</span>' +
       '<span class="rowCard__commission">' + escapeHtml(o.commission) + '</span></div>' +

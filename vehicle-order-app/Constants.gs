@@ -68,7 +68,7 @@ var STEERING_OPTIONS = ['R', 'L'];
  * アプリを開いたときに保存済みの番号と違えば、全シートの入力規則・見出しメモを付け直し、
  * ステア列の旧表記（右／左 等）を R／L に書き換える（applySheetRulesIfOutdated_）。
  */
-var SHEET_RULES_VERSION = 2;
+var SHEET_RULES_VERSION = 3; // 3: 在庫・受注リストに旧モデル列（チェックボックス）を追加
 /**
  * ステアの表示用（純粋関数）。スプレッドシートに残っている「右」「左」も
  * アプリ上は「R」「L」に揃える。空なら空文字。
@@ -199,7 +199,30 @@ var REMARKS_COLUMN = {
  * 車両情報＋Holdステータス＋備考。備考は末尾に置き、既存シートの Holdステータス列が
  * ずれないようにする（syncSheetColumns_ が右端へ列を足す）。
  */
-var INVENTORY_COLUMNS = VEHICLE_COLUMNS.concat([
+/**
+ * 旧モデル列（チェックボックス）。在庫リストと受注リスト3種だけに置き、「モデル」のすぐ右に並べる
+ * （シートを直接編集する人がモデル名と並べて確認しやすいように）。発注リスト・Gクラス予約リストには置かない。
+ * チェックが入った車両はアプリの在庫カード・受注カードに「旧モデル」の帯を表示する。
+ */
+var OLD_MODEL_COLUMN = {
+  key: 'isOldModel', label: '旧モデル', type: 'checkbox',
+  note: '旧モデルの車両はチェックを入れてください（新モデルは空のまま）。アプリの在庫リスト・受注リストに「旧モデル」の帯が表示されます。受注確定・受注取消のときはアプリが自動で引き継ぎます。'
+};
+
+// 車両情報の列（モデルのすぐ右に旧モデル列を入れたもの）。在庫リスト・受注リスト3種で使う。
+var VEHICLE_COLUMNS_WITH_OLD_MODEL = VEHICLE_COLUMNS.slice(0, 1).concat([OLD_MODEL_COLUMN], VEHICLE_COLUMNS.slice(1));
+
+/**
+ * 旧モデルのチェックが入っているか（純粋関数）。チェックボックスの TRUE のほか、
+ * 手入力・貼り付けで入りうる「TRUE」「true」「1」「○」「✓」も旧モデルとして扱う。
+ */
+function isOldModelValue_(value) {
+  if (value === true) return true;
+  var s = String(value == null ? '' : value).trim().toUpperCase();
+  return s === 'TRUE' || s === '1' || s === '○' || s === '◯' || s === '✓' || s === '✔';
+}
+
+var INVENTORY_COLUMNS = VEHICLE_COLUMNS_WITH_OLD_MODEL.concat([
   {
     key: 'holdStatus', label: 'Holdステータス', type: 'select', options: [HOLD_STATUS.AVAILABLE, HOLD_STATUS.HOLD],
     note: 'アプリが自動更新する列です（available=在庫あり、hold=Hold中）。通常は手動編集しないでください。'
@@ -259,7 +282,7 @@ var HOLD_COLUMNS = [
 /**
  * 受注リスト列定義。車両情報＋Hold・受注共通入力項目（販売拠点を含む）＋受注確定日時。
  */
-var ORDER_COLUMNS = VEHICLE_COLUMNS.concat(HOLD_ORDER_INPUT_COLUMNS).concat([
+var ORDER_COLUMNS = VEHICLE_COLUMNS_WITH_OLD_MODEL.concat(HOLD_ORDER_INPUT_COLUMNS).concat([
   {
     key: 'staffEmail', label: '担当者メール', type: 'text',
     note: '受注確定を行った担当者の内部識別用の列です。アプリからの操作でのみ設定されるため、通常は手動編集しないでください。'

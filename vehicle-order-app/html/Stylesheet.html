@@ -54,6 +54,9 @@
     --admin-badge-bg: #f5c451;
     /* 在庫0台の表示。異常ではない通常の状態のため、警告の赤ではなく落ち着いたグレーにする */
     --stock-zero-fg: #5f6b78;
+    /* 旧モデルの帯（チャコール） */
+    --old-model-bg: #2b2f36;
+    --old-model-fg: #ffffff;
     --stock-zero-bg: #e8ecf0;
     --stock-zero-bg-solid: #6b7785;
     /* 受注系リストの販売拠点ごとの色（拠点の並び順＝SALES_LOCATION_OPTIONS の順に割り当てる）。
@@ -2957,6 +2960,44 @@
     .view.is-active { animation: none; }
     .celebParticle, .celebFlash, .celebShockwave, .celebEnergyCore { display: none; }
     .celebrationBanner { transition: none; }
+  }
+
+  /* ===== 旧モデルの表示 =====
+     カード表示: カードの上辺いっぱいの横帯（C-2の形）。表表示: 行の左端の縦帯（C-1の形）。
+     色はHoldの状態色・権限者の黄色・拠点色と重ならないチャコール。カードの背景色は変えない
+     （「完成検査切」の背景グレーと意味が混ざらないように）。 */
+  .oldModelBand {
+    margin: -12px -12px 0;
+    padding: 3px 12px;
+    background: var(--old-model-bg);
+    color: var(--old-model-fg);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    border-radius: 3px 3px 0 0;
+  }
+  .rowCard.is-oldModel {
+    position: relative;
+    overflow: hidden;
+  }
+  /* 旧モデルの車両が1台でもある一覧では、すべての行に縦帯ぶんの左余白を取り、
+     帯の有無で列の位置がずれないようにする */
+  main.view:has(.rowCard.is-oldModel) .rowCard { padding-left: 36px; }
+  .oldModelRowFlag {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--old-model-bg);
+    color: var(--old-model-fg);
+    text-align: center;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.1;
   }
 
   /* 残り時間・台数などの数字は等幅にして、カウントダウン中に文字が揺れないようにする */
