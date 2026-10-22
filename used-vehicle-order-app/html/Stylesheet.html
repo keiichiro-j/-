@@ -815,11 +815,34 @@
      行間を詰めている。全項目をドロップダウン形式に統一した後、現場からの
      要望「各項目の隙間を広くしてほしい（画面スクロールしない程度に）」を
      受けて再度実測し、画面の高さを超えない範囲で可能な限り広げている。 */
-  #view-home .filterSidebar { gap: 4px; padding: 10px 14px; }
+  #view-home .filterSidebar { gap: 2px; padding: 10px 14px; }
   #view-home .filterSidebar .searchbox { padding: 6px 12px; }
   #view-home .filterSidebar__activeBar { gap: 4px; }
-  #view-home .filterSidebar__row { padding: 5px 2px; }
-  #view-home .filterSidebar select.input { padding-top: 5px; padding-bottom: 5px; }
+  #view-home .filterSidebar__row { padding: 4px 2px; }
+  #view-home .filterSidebar select.input { padding-top: 4px; padding-bottom: 4px; }
+
+  /* 現場からの要望「絞り込みを大きく分けて見やすくしてほしい」を受け、車両
+     そのものの条件（タイプ〜走行距離）と、各リストから統合した管理情報
+     （区分〜販売状況）を見出しで分ける。行間の罫線（.filterSidebar__rowの
+     border-bottom）だけでは項目同士の区切りと見分けがつかないため、上に
+     余白と罫線を入れた見出し行にして「大きな区切り」として目立たせる。
+     幅を確保するため、ホームの行間隔（#view-home .filterSidebar__row等）を
+     わずかに詰め直し、見出し分の高さを吸収して画面スクロールが発生しない
+     範囲に収めている。 */
+  #view-home .filterSidebar__sectionLabel {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    color: rgba(255, 255, 255, .55);
+    margin: 2px 2px 0;
+    padding-top: 5px;
+    border-top: 1px solid rgba(255, 255, 255, .16);
+  }
+  #view-home .filterSidebar__sectionLabel--first {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+  }
 
   /* 不具合修正/現場からの要望「現在の形式（セレクト）で全て選択肢をドロップ
      形式にすれば綺麗に収まる」を受け、タイプ・区分・現展示拠点・掲載状況・
