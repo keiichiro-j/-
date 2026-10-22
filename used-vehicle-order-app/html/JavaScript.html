@@ -1008,6 +1008,29 @@
   }
 
   /**
+   * checkboxFilterOptionsHtml_のチップ（折り返し式のボタン群）版（純粋関数）。
+   * ホームの絞り込みパネルは項目数が多く（区分・現展示拠点・掲載状況・販売状況を
+   * 統合）、1列に1項目のチェックボックス表示では画面の高さに収まらず内部スクロールが
+   * 必要になってしまうため（現場からの要望「左コントロールパネル内は固定のサイズで、
+   * スライドなしにしてほしい」）、ホームの絞り込みパネルのみこちらを使う
+   * （bindHomeChipFilter_・renderHomeFilterSidebar_、本ファイル参照）。
+   */
+  function chipFilterOptionsHtml_(items, fieldKey, selectedValues) {
+    var counts = {};
+    items.forEach(function (item) {
+      var v = item[fieldKey] || '';
+      counts[v] = (counts[v] || 0) + 1;
+    });
+    var values = Object.keys(counts).sort();
+    return values.map(function (v) {
+      var active = selectedValues.indexOf(v) !== -1;
+      var label = v || '未設定';
+      return '<button type="button" class="filterChip' + (active ? ' is-active' : '') + '" data-value="' + escapeHtml(v) + '">' +
+        escapeHtml(label) + '<span class="filterChip__cnt">' + counts[v] + '</span></button>';
+    }).join('');
+  }
+
+  /**
    * checkboxFilterOptionsHtml_で作ったチェックボックスの選択値（複数可）で
    * 一覧を絞り込む（純粋関数）。何もチェックされていなければ絞り込まない。
    * 受注リスト・業販受注リストの「現展示拠点」絞り込みで使う（在庫リスト・
@@ -1089,6 +1112,14 @@
         clear: function () { state.homeBodyTypeFilter = ''; renderHomeGallery_(); }
       });
     });
+    // ホームの区分・現展示拠点・掲載状況・販売状況（chipFilterOptionsHtml_で
+    // 作るボタン群、Index.html参照）も、チェックボックス同様に拾う。選択解除は
+    // 同じボタンを再クリックするだけでよい（bindHomeChipFilter_参照）。
+    rowEl.querySelectorAll('.filterChip.is-active[data-value]').forEach(function (b) {
+      var clone = b.cloneNode(true);
+      clone.querySelectorAll('.filterChip__cnt').forEach(function (el) { el.remove(); });
+      entries.push({ label: clone.textContent.trim(), clear: function () { b.click(); } });
+    });
     return entries;
   }
 
@@ -1099,8 +1130,14 @@
    * @param {string} rowsContainerId .filterSidebar__rowsを持つ要素のID
    * @param {string} activeBarId .filterSidebar__activeBarのID
    * @param {string} clearBtnId 「すべてクリア」から呼ぶ、既存の「クリア」ボタンのID
+   * @param {boolean=} collapseWhenEmpty 絞り込み中の項目が無いとき、「絞り込み
+   *   条件はありません」の案内文を出す代わりにバー自体を非表示にする。ホームの
+   *   絞り込みパネルは項目数が多く、画面の高さに収める必要があるため使う
+   *   （現場からの要望「左コントロールパネル内は固定のサイズで、スライドなしに
+   *   してほしい」）。他のリストは項目数が少なく収まるため、これまでどおり
+   *   案内文を出す。
    */
-  function syncFilterRowsAndSummary_(rowsContainerId, activeBarId, clearBtnId) {
+  function syncFilterRowsAndSummary_(rowsContainerId, activeBarId, clearBtnId, collapseWhenEmpty) {
     var rowsContainer = $(rowsContainerId);
     var bar = $(activeBarId);
     if (!rowsContainer || !bar) return;
@@ -1111,9 +1148,16 @@
       allEntries = allEntries.concat(entries);
     });
     if (!allEntries.length) {
-      bar.innerHTML = '<span class="filterSidebar__activeEmpty">絞り込み条件はありません</span>';
+      if (collapseWhenEmpty) {
+        bar.innerHTML = '';
+        bar.classList.add('hidden');
+      } else {
+        bar.classList.remove('hidden');
+        bar.innerHTML = '<span class="filterSidebar__activeEmpty">絞り込み条件はありません</span>';
+      }
       return;
     }
+    bar.classList.remove('hidden');
     bar.innerHTML = allEntries.map(function (en, i) {
       return '<button type="button" class="filterSidebar__activeChip" data-idx="' + i + '"><span class="label">' + escapeHtml(en.label) + '</span><span class="x">×</span></button>';
     }).join('') + '<button type="button" class="filterSidebar__activeClearAll">すべてクリア</button>';
@@ -1183,8 +1227,8 @@
    */
   function renderHomeFilterSidebar_() {
     var items = state.homeVehiclePool || [];
-    $('homeCategoryFilter').innerHTML = checkboxFilterOptionsHtml_(items, 'category', state.homeFilters.category);
-    $('homeLocationFilter').innerHTML = checkboxFilterOptionsHtml_(items, 'currentDisplayLocation', state.homeFilters.location);
+    $('homeCategoryFilter').innerHTML = chipFilterOptionsHtml_(items, 'category', state.homeFilters.category);
+    $('homeLocationFilter').innerHTML = chipFilterOptionsHtml_(items, 'currentDisplayLocation', state.homeFilters.location);
     var colors = [];
     items.forEach(function (v) { if (v.exteriorColor && colors.indexOf(v.exteriorColor) === -1) colors.push(v.exteriorColor); });
     colors.sort();
@@ -2104,21 +2148,26 @@
 
   // 区分・現展示拠点・掲載状況・販売状況（現場からの要望「ホーム絞り込み機能に
   // 各リストで追加した機能を搭載してほしい（在庫保管位置など）」を受けて追加）。
-  // 在庫リストのbindInventoryCheckboxFilter_と同じ考え方で、チェック群1つに
-  // つき1つのハンドラをまとめて登録する。
-  function bindHomeCheckboxFilter_(containerId, filterKey) {
-    on(containerId, 'change', function (e) {
-      if (e.target.type !== 'checkbox') return;
-      var checked = Array.prototype.slice.call($(containerId).querySelectorAll('input[type="checkbox"]:checked'))
-        .map(function (el) { return el.value; });
-      state.homeFilters[filterKey] = checked;
+  // チェックボックスではなくチップ（ボタン）のため、クリックされたボタン自身の
+  // is-activeクラスを直接トグルし、その値をstate.homeFilters[filterKey]
+  // （複数選択の配列）に出し入れする（複数選択トグル式。単一選択の
+  // homeTypeNavクリックハンドラとは別の考え方）。
+  function bindHomeChipFilter_(containerId, filterKey) {
+    on(containerId, 'click', function (e) {
+      var btn = e.target.closest('.filterChip');
+      if (!btn) return;
+      var val = btn.dataset.value;
+      var arr = state.homeFilters[filterKey];
+      var idx = arr.indexOf(val);
+      if (idx === -1) { arr.push(val); btn.classList.add('is-active'); }
+      else { arr.splice(idx, 1); btn.classList.remove('is-active'); }
       renderHomeGallery_();
     });
   }
-  bindHomeCheckboxFilter_('homeCategoryFilter', 'category');
-  bindHomeCheckboxFilter_('homeLocationFilter', 'location');
-  bindHomeCheckboxFilter_('homeListedFilter', 'listed');
-  bindHomeCheckboxFilter_('homeSaleStatusFilter', 'saleStatus');
+  bindHomeChipFilter_('homeCategoryFilter', 'category');
+  bindHomeChipFilter_('homeLocationFilter', 'location');
+  bindHomeChipFilter_('homeListedFilter', 'listed');
+  bindHomeChipFilter_('homeSaleStatusFilter', 'saleStatus');
 
   on('btnHomeFilterClear', 'click', function () {
     state.homeFilters = { color: '', yearBucket: '', priceBucket: '', mileageBucket: '', category: [], location: [], listed: [], saleStatus: [] };
@@ -2127,7 +2176,7 @@
     state.homeBodyTypeFilter = '';
     $('homeKeyword').value = '';
     ['homeColorFilter', 'homeYearFilter', 'homePriceFilter', 'homeMileageFilter'].forEach(function (id) { $(id).value = ''; });
-    document.querySelectorAll('#homeCategoryFilter input, #homeLocationFilter input, #homeListedFilter input, #homeSaleStatusFilter input').forEach(function (el) { el.checked = false; });
+    document.querySelectorAll('#homeCategoryFilter .filterChip, #homeLocationFilter .filterChip, #homeListedFilter .filterChip, #homeSaleStatusFilter .filterChip').forEach(function (el) { el.classList.remove('is-active'); });
     renderHomeGallery_();
   });
 
@@ -4331,7 +4380,7 @@
     var allCount = (state.homeVehiclePool || []).length;
     $('homeFilterCount').textContent = allCount ? '該当 ' + pool.length + '台 ／ 全' + allCount + '台' : '';
     syncHomeFilterClearVisibility_();
-    syncFilterRowsAndSummary_('homeFilterRows', 'homeActiveBar', 'btnHomeFilterClear');
+    syncFilterRowsAndSummary_('homeFilterRows', 'homeActiveBar', 'btnHomeFilterClear', true);
     renderHomeAnnouncement_((state.bootstrap && state.bootstrap.settings && state.bootstrap.settings.homeAnnouncement) || '');
   }
 

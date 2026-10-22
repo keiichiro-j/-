@@ -181,6 +181,10 @@
     border: 2px solid var(--primary);
     border-radius: var(--radius);
     overflow: hidden;
+    /* 現場からの要望「中央上部のタイトル・タブ・お知らせを囲んだ枠が浮いて
+       見えるようにしてほしい」を受け、影を付けて背景から浮き上がって見える
+       ようにする。 */
+    box-shadow: var(--shadow-elevated);
     /* 現場からの要望「お知らせと下枠との隙間を設けてほしい（わずかで良い）」を受け、
        グループの最後の要素（タブ、またはお知らせ表示中はお知らせ）と下辺の枠線との
        間にわずかな余白を持たせる。 */
@@ -535,7 +539,11 @@
     .homeGrid { gap: 14px; padding: 4px 20px 20px; }
   }
   @media (min-width: 901px) {
-    .homeGrid { gap: 16px; padding: 16px 24px 24px; }
+    /* 不具合修正/現場からの要望「左コントロールパネルと車両カードの1番上の
+       高さを同じにしてほしい」を受け、上paddingを絞り込みパネル側の実際の
+       コンテンツ開始位置（.filterSidebarのborder 2px + padding、本ファイル内の
+       #view-home .filterSidebar参照）にそろえる。 */
+    .homeGrid { gap: 16px; padding: 11px 24px 24px; }
   }
 
   /* ホームの「検索結果」専用ページ（#view-homeResults。在庫リスト＋デモカーリスト＋
@@ -695,10 +703,10 @@
     border: 2px solid var(--primary);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
-    padding: 14px 14px;
+    padding: 12px 14px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 7px;
     min-width: 0;
   }
   /* 見出し（条件検索）・該当台数は左寄せでひとまとまりにし、クリアボタンだけを
@@ -791,6 +799,82 @@
      gapぶん.filterCheckとの間隔がやや詰まって見えるため少しだけ広げる。 */
   .filterSidebar__row .filterCheck { padding: 3px 0; }
 
+  /* 不具合修正/現場からの要望「左コントロールパネル内は固定のサイズで、
+     スライドなしにしてほしい」を受け、ホームの絞り込みパネル（区分・現展示
+     拠点・掲載状況・販売状況を統合して項目数が増えた）だけ、行の余白を詰め、
+     チェック項目を折り返し式の横並びにする（他のリストの絞り込みサイドバーは
+     項目数が少なく元のままで収まるため変更しない）。これにより画面の高さに
+     関わらず、パネル内で縦スクロールが発生しない密度にする。 */
+  #view-home .filterSidebar { gap: 3px; padding: 9px 14px; }
+  #view-home .filterSidebar .searchbox { padding: 7px 12px; }
+  /* 絞り込み中サマリー（複数選択時に複数行になり得る）も、他の項目と同じ理由で
+     コンパクトにする。 */
+  #view-home .filterSidebar__activeBar { gap: 4px; }
+  #view-home .filterSidebar__activeChip { padding: 2px 5px 2px 8px; font-size: 10.5px; }
+  #view-home .filterSidebar__row { padding: 4px 2px; }
+  #view-home .filterSidebar__rowHead { margin-bottom: 1px; }
+  #view-home .filterSidebar select.input { padding-top: 4px; padding-bottom: 4px; }
+  #view-home .filterSidebar .homeTypeNav__item { padding: 5px 9px; font-size: 10px; }
+
+  /* 区分・現展示拠点・掲載状況・販売状況は、チェックボックス＋ラベルの1行1項目
+     ではなく、折り返し式のチップ（ボタン）で表示する（chipFilterOptionsHtml_・
+     bindHomeChipFilter_、JavaScript.html参照）。短いラベルが多いため、
+     チェックボックス表示より縦の占有を大きく減らせる。
+     現展示拠点・掲載状況は、見出し（アイコン＋ラベル）を専用の行として独立
+     させず、チップと同じ行に並べて折り返すことで、見出しだけのために1行ぶんの
+     高さを使わないようにする。タイプ・区分・販売状況は項目数（または見出しの
+     文字数）の都合で、見出しを同じ行に混ぜるとかえって折り返しが増えて縦に
+     伸びてしまうため、見出しを独立した行のままにしている（実測して判断）。 */
+  #view-home [data-row="location"], #view-home [data-row="listed"] {
+    display: flex; flex-wrap: wrap; align-items: center; column-gap: 6px; row-gap: 5px;
+  }
+  #view-home [data-row="location"] .filterSidebar__rowHead,
+  #view-home [data-row="listed"] .filterSidebar__rowHead {
+    margin-bottom: 0;
+    flex: none;
+  }
+  /* カラー・初年度登録日・価格帯・走行距離は、セレクト1つだけの行のため折り返しの
+     心配が無い。見出しとセレクトを同じ行に並べ、見出し専用の行を無くす
+     （4行ぶん、縦の占有を大きく減らせる）。 */
+  #view-home [data-row="color"], #view-home [data-row="year"],
+  #view-home [data-row="price"], #view-home [data-row="mileage"] {
+    display: flex; align-items: center; gap: 8px;
+  }
+  #view-home [data-row="color"] .filterSidebar__rowHead,
+  #view-home [data-row="year"] .filterSidebar__rowHead,
+  #view-home [data-row="price"] .filterSidebar__rowHead,
+  #view-home [data-row="mileage"] .filterSidebar__rowHead {
+    margin-bottom: 0;
+    flex: none;
+    white-space: nowrap;
+  }
+  #view-home [data-row="color"] select.input, #view-home [data-row="year"] select.input,
+  #view-home [data-row="price"] select.input, #view-home [data-row="mileage"] select.input {
+    flex: 1;
+    min-width: 0;
+  }
+  /* チップのコンテナ自体はボックスとして扱わず（display: contents）、中の
+     チップだけを行見出しと同じflexコンテナの子として並べる（gap・折り返しは
+     親の.filterSidebar__row側で指定済みのため、ここでは不要）。 */
+  #homeLocationFilter, #homeListedFilter {
+    display: contents;
+  }
+  /* 区分・販売状況は見出しを独立した行のままにするため（上のコメント参照）、
+     チップ側だけで折り返す。 */
+  #homeCategoryFilter, #homeSaleStatusFilter {
+    display: flex; flex-wrap: wrap; gap: 5px;
+  }
+  .filterChip {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10.5px; font-weight: 700; padding: 4px 8px;
+    border-radius: 4px; border: 1px solid rgba(255, 255, 255, .28);
+    background: rgba(255, 255, 255, .08); color: rgba(255, 255, 255, .85);
+    cursor: pointer; font-family: inherit; white-space: nowrap;
+  }
+  .filterChip:hover { border-color: #fff; color: #fff; }
+  .filterChip.is-active { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .filterChip__cnt { opacity: .75; font-weight: 600; font-variant-numeric: tabular-nums; }
+
   /* ホーム画面の型クイックナビ（現場からの要望で絞り込みパネル内に統合した
      #homeTypeNav、Index.html参照）。以前は横スクロール専用の.scrollerクラスを
      使っていたが、パネル幅に収まるよう折り返し式の行にする。 */
@@ -851,8 +935,25 @@
     .view--list .listBody {
       display: grid;
       /* minmax(0, 1fr)にする理由は.card__metaGrid等と同じ（1fr単独だと、内容が
-         長い場合にトラック自体がその内容ぶんまで広がってしまうため）。 */
+         長い場合にトラック自体がその内容ぶんまで広がってしまうため）。行の高さも
+         同じ理由でminmax(0, 1fr)にする必要がある。grid-template-rowsを指定しない
+         （既定のauto）と、行の高さは中身（絞り込みパネルが縦に伸びると特に）に
+         応じて決まってしまい、下のheight: 100%（.listBody自身・子要素とも）が
+         正しく効かず、ページ全体が画面の高さを超えて伸びてしまう不具合があった。 */
       grid-template-columns: 234px minmax(0, 1fr);
+      /* 不具合修正: grid-template-rowsを指定しない（既定のauto）と、行の高さは
+         中身（絞り込みパネルが縦に伸びると特に）に応じて決まってしまい、
+         .listBody自身がflexから割り当てられた高さ（flex: 1 1 auto）を超えて
+         伸びてしまっていた（現場からの指摘「左コントロールパネル内は固定の
+         サイズで、スライドなしにしてほしい」）。minmax(0, 1fr)にすることで、
+         行の高さを.listBody自身の（flexが確定させる）高さぴったりに固定し、
+         子要素（.filterSidebar・.listBody__main）のheight: 100%がその高さに
+         正しく解決されるようにする（.listBody自身にはheight: 100%を指定しない
+         こと。在庫リストのように.commandbarと兄弟関係にあるビューでは、
+         height: 100%が.commandbarの占める分を無視してしまい、ページ全体が
+         画面の高さを超えて伸びる不具合が起きるため、flexの自然な割り当て
+         （flex: 1 1 auto + min-height: 0）だけに委ねる）。 */
+      grid-template-rows: minmax(0, 1fr);
       gap: 20px;
       padding: 20px 24px 24px;
       flex: 1 1 auto;

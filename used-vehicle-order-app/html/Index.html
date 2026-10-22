@@ -298,7 +298,10 @@
               <select id="homeColorFilter" class="input"><option value="">指定なし</option></select>
             </div>
             <div class="filterSidebar__row" data-row="year">
-              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-calendar"></use></svg><span class="filterSidebar__rowLabel">初年度登録日</span></div>
+              <!-- 見出しとセレクトを同じ行に並べる関係上（Stylesheet.html参照）、
+                   他のリストの「初年度登録日」より短い「年式」にして、セレクトの
+                   表示幅（「指定なし」等が見切れない幅）を確保する。 -->
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-calendar"></use></svg><span class="filterSidebar__rowLabel">年式</span></div>
               <select id="homeYearFilter" class="input"></select>
             </div>
             <div class="filterSidebar__row" data-row="price">
@@ -328,16 +331,16 @@
             <div class="filterSidebar__row" data-row="listed">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-globe"></use></svg><span class="filterSidebar__rowLabel">掲載状況</span></div>
               <div id="homeListedFilter">
-                <label class="filterCheck"><input type="checkbox" value="carsensor"> カーセンサー掲載中</label>
-                <label class="filterCheck"><input type="checkbox" value="goonet"> グーネット掲載中</label>
-                <label class="filterCheck"><input type="checkbox" value="unlisted"> 未掲載</label>
+                <button type="button" class="filterChip" data-value="carsensor">カーセンサー</button>
+                <button type="button" class="filterChip" data-value="goonet">グーネット</button>
+                <button type="button" class="filterChip" data-value="unlisted">未掲載</button>
               </div>
             </div>
             <div class="filterSidebar__row" data-row="saleStatus">
-              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-tag"></use></svg><span class="filterSidebar__rowLabel">販売状況（デモカー・サービス代車）</span></div>
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-tag"></use></svg><span class="filterSidebar__rowLabel">販売状況（デモ・代車）</span></div>
               <div id="homeSaleStatusFilter">
-                <label class="filterCheck"><input type="checkbox" value="在庫中"> 在庫中</label>
-                <label class="filterCheck"><input type="checkbox" value="販売済み"> 販売済み</label>
+                <button type="button" class="filterChip" data-value="在庫中">在庫中</button>
+                <button type="button" class="filterChip" data-value="販売済み">販売済み</button>
               </div>
             </div>
           </div>
