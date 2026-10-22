@@ -77,7 +77,7 @@
        高さも合わせて変える。ヘッダー下端のテーマ境界線（.topbarの
        border-bottom: 2px、現場からの要望「ヘッダーとリストの境界にもテーマを
        反映してほしい」）ぶんも含めた実際の高さに揃えている。 */
-    --topbar-h: 140px;
+    --topbar-h: 136px;
     /* お知らせ（#homeAnnouncement）が同じ囲いの中に表示されているとき
        （body.has-announcement、syncHomeAnnouncementVisibility_・JavaScript.html参照）
        は、その分だけ.topbarの実際の高さが伸びるため、--topbar-hもこの状態に
@@ -105,7 +105,7 @@
     --ease: cubic-bezier(.4, 0, .2, 1);
     --ease-out: cubic-bezier(.16, 1, .3, 1);
   }
-  body.has-announcement { --topbar-h: 185px; }
+  body.has-announcement { --topbar-h: 181px; }
 
   * { box-sizing: border-box; }
   /* 不具合修正: 以前は和文フォントを指定していなかったため、OS標準
@@ -178,12 +178,12 @@
      も参照）。 */
   .topbar__group {
     margin: 10px 14px;
-    border: 2px solid var(--primary);
+    /* 不具合修正/現場からの要望「ヘッダーの囲みの線を無くしてほしい」を受け、
+       枠線は無くし、影（box-shadow）だけで背景から浮き上がって見えるようにする
+       （以前は枠線＋影の両方だったが、線を無くしても浮いて見える効果は影単独
+       で十分に出る）。 */
     border-radius: var(--radius);
     overflow: hidden;
-    /* 現場からの要望「中央上部のタイトル・タブ・お知らせを囲んだ枠が浮いて
-       見えるようにしてほしい」を受け、影を付けて背景から浮き上がって見える
-       ようにする。 */
     box-shadow: var(--shadow-elevated);
     /* 現場からの要望「お知らせと下枠との隙間を設けてほしい（わずかで良い）」を受け、
        グループの最後の要素（タブ、またはお知らせ表示中はお知らせ）と下辺の枠線との
@@ -198,6 +198,16 @@
     border-radius: 0;
     border-top: 1px solid var(--dark-ui-outline);
     margin-top: 10px;
+    /* 不具合修正/現場からの要望「全体的にテーマに応じて視認性も考慮した文字色を
+       反映させてほしい」を受け修正。お知らせの背景色・文字色（--primary-bg・
+       --primary-text）は白い背景（.homeAnnouncementが元々置かれていた場所）に
+       対するコントラストを基準に調整された色のため、濃いテーマカラーの枠の中に
+       入れると、背景（--topbar-bg）と文字色が同系色になり読みにくいテーマが
+       あった（例: カラハリゴールド等の暖色系）。枠内の他の要素（絞り込みパネル等）
+       と同じく、塗りつぶしのprimary背景＋on-primary（白）文字の組み合わせに
+       することで、どのテーマでも読みやすさを確保する。 */
+    background: var(--primary);
+    color: var(--on-primary);
   }
   /* 不具合修正/現場からの要望「スクロール中のヘッダーに奥行きを持たせたい」:
      以前は固定ヘッダー（.topbar・.commandbar）が境界線のみでフラットだった。
@@ -301,8 +311,8 @@
     /* ブランド行・タブ行のpaddingを広げる分、.commandbar側のsticky offset
        （top: var(--topbar-h)）もこの実測値に合わせて更新する（ズレると
        スクロール時に隙間または重なりが出る）。 */
-    :root { --topbar-h: 161px; }
-    body.has-announcement { --topbar-h: 206px; }
+    :root { --topbar-h: 157px; }
+    body.has-announcement { --topbar-h: 202px; }
     .topbar__brandRow { padding: 20px 32px; }
     .topbar__navBtn { width: 42px; height: 42px; }
     .topbar__logo { height: 30px; max-width: 160px; }
@@ -801,19 +811,15 @@
 
   /* 不具合修正/現場からの要望「左コントロールパネル内は固定のサイズで、
      スライドなしにしてほしい」を受け、ホームの絞り込みパネル（区分・現展示
-     拠点・掲載状況・販売状況を統合して項目数が増えた）だけ、行の余白を詰め、
-     チェック項目を折り返し式の横並びにする（他のリストの絞り込みサイドバーは
-     項目数が少なく元のままで収まるため変更しない）。これにより画面の高さに
-     関わらず、パネル内で縦スクロールが発生しない密度にする。 */
-  #view-home .filterSidebar { gap: 3px; padding: 9px 14px; }
-  #view-home .filterSidebar .searchbox { padding: 7px 12px; }
-  /* 絞り込み中サマリー（複数選択時に複数行になり得る）も、他の項目と同じ理由で
-     コンパクトにする。 */
+     拠点・掲載状況・販売状況を統合して項目数が増えた）は、他のリストより
+     行間を詰めている。全項目をドロップダウン形式に統一した後、現場からの
+     要望「各項目の隙間を広くしてほしい（画面スクロールしない程度に）」を
+     受けて再度実測し、画面の高さを超えない範囲で可能な限り広げている。 */
+  #view-home .filterSidebar { gap: 4px; padding: 10px 14px; }
+  #view-home .filterSidebar .searchbox { padding: 6px 12px; }
   #view-home .filterSidebar__activeBar { gap: 4px; }
-  #view-home .filterSidebar__activeChip { padding: 2px 5px 2px 8px; font-size: 10.5px; }
-  #view-home .filterSidebar__row { padding: 4px 2px; }
-  #view-home .filterSidebar__rowHead { margin-bottom: 1px; }
-  #view-home .filterSidebar select.input { padding-top: 4px; padding-bottom: 4px; }
+  #view-home .filterSidebar__row { padding: 5px 2px; }
+  #view-home .filterSidebar select.input { padding-top: 5px; padding-bottom: 5px; }
 
   /* 不具合修正/現場からの要望「現在の形式（セレクト）で全て選択肢をドロップ
      形式にすれば綺麗に収まる」を受け、タイプ・区分・現展示拠点・掲載状況・
