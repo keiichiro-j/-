@@ -820,6 +820,21 @@
   #view-home .filterSidebar__activeBar { gap: 4px; }
   #view-home .filterSidebar__row { padding: 4px 2px; }
   #view-home .filterSidebar select.input { padding-top: 4px; padding-bottom: 4px; }
+  /* 現場からの要望「PC画面（縦）一杯を使いたいので、項目の隙間を大きくして
+     ほしい」を受け、画面が高くパネル下に余白が余るときは、その余白を項目同士
+     の隙間に配り直して画面の高さいっぱいまで広げる。.filterSidebar自体は
+     既に高さいっぱい（height: 100%、上の.view--list .filterSidebar参照）
+     だが、中の行は今まで詰めた分だけの高さしか使っていなかったため、
+     見出し・お知らせ検索欄を除いた行一覧（#homeFilterRows）だけを残り高さ
+     いっぱいに伸ばし（flex: 1 1 auto）、中の行・見出しラベルの間に
+     justify-content: space-betweenで余白を均等配分する。上の行間隔
+     （padding等）は画面が低いとき用の最小値としてそのまま残るため、
+     700px前後の低い画面でも今までどおりスクロールは発生しない。 */
+  #view-home .filterSidebar__rows {
+    flex: 1 1 auto;
+    min-height: 0;
+    justify-content: space-between;
+  }
 
   /* 現場からの要望「絞り込みを大きく分けて見やすくしてほしい」を受け、車両
      そのものの条件（タイプ〜走行距離）と、各リストから統合した管理情報
