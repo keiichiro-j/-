@@ -468,13 +468,14 @@
     border: none; outline: none; background: none; width: 100%;
     font-size: 16px; color: var(--on-surface);
   }
-  /* 現場からの要望「各検索欄に元より入っている文字（完全一致で...等）の
-     文字の大きさを小さくしてほしい」を受け、プレースホルダーの文字だけを
-     小さくする。入力欄自体のfont-size（16px、上記.searchbox input参照）は
-     iOSのフォーカス時自動ズーム回避のため変えられないが、::placeholderは
-     疑似要素として独立にfont-sizeを指定できるため、入力中の文字サイズに
-     影響させずに済む。 */
-  .searchbox input::placeholder { color: var(--on-surface-variant); font-size: 13px; }
+  /* 現場からの要望「各プレースホルダーの文字（ホームと全リスト）を10pxに
+     してほしい」を受け、プレースホルダーの文字だけを小さくする。入力欄自体の
+     font-size（16px、上記.searchbox input参照）はiOSのフォーカス時自動ズーム
+     回避のため変えられないが、::placeholderは疑似要素として独立に
+     font-sizeを指定できるため、入力中の文字サイズには影響させずに済む。
+     .searchbox（全リスト共通の検索欄コンポーネント）を対象にしているため、
+     ホームに限らずどのリストの検索欄にも反映される。 */
+  .searchbox input::placeholder { color: var(--on-surface-variant); font-size: 10px; }
 
   /* 検索・状態タブの行は、項目数が多い場合でも折り返さず横スクロールにする
      （スマホ幅でも縦に場所を取らないようにするため。スクロールバー自体は
@@ -828,52 +829,54 @@
      受けて再度実測し、画面の高さを超えない範囲で可能な限り広げている。 */
   #view-home .filterSidebar { gap: 2px; padding: 10px 14px; }
   #view-home .filterSidebar .searchbox { padding: 6px 12px; }
+  /* 現場からの要望「条件検索と検索窓までの隙間を作ってほしい」を受け、
+     見出し（条件検索・該当台数）と検索欄との間にだけ余白を追加する
+     （#view-home .filterSidebarの行間（gap）を広げると後続の行すべてに
+     影響してしまうため、検索欄側にmargin-topを個別に持たせる）。 */
+  #view-home .filterSidebar__field { margin-top: 10px; }
   #view-home .filterSidebar__activeBar { gap: 4px; }
   #view-home .filterSidebar__row { padding: 3px 2px; }
   #view-home .filterSidebar select.input { padding-top: 3px; padding-bottom: 3px; }
   /* 現場からの要望「PC画面（縦）一杯を使いたいので、項目の隙間を大きくして
-     ほしい」を受け、画面が高くパネル下に余白が余るときは、その余白を項目同士
-     の隙間に配り直して画面の高さいっぱいまで広げる。.filterSidebar自体は
-     既に高さいっぱい（height: 100%、上の.view--list .filterSidebar参照）
-     だが、中の行は今まで詰めた分だけの高さしか使っていなかったため、
-     見出し・お知らせ検索欄を除いた行一覧（#homeFilterRows）だけを残り高さ
-     いっぱいに伸ばし（flex: 1 1 auto）、中の行・見出しラベルの間に
-     justify-content: space-betweenで余白を均等配分する。上の行間隔
-     （padding等）は画面が低いとき用の最小値としてそのまま残るため、
-     700px前後の低い画面でも今までどおりスクロールは発生しない。 */
+     ほしい」を受け、画面が高くパネル下に余白が余るときは、その余白を項目の
+     隙間に回して画面の高さいっぱいまで広げる。
+     不具合修正: 以前はこれをjustify-content: space-betweenで実現していたが、
+     見出し（車両条件・管理情報）と行一覧全体の「隙間」をまとめて均等配分する
+     ため、見出し自体と直後の行（タイプ・区分）との間にも余白が入ってしまい、
+     見出しを「大きく分けて見やすく」した狙いに反して、どの行がどちらの
+     グループか分かりにくくなっていた（現場からの指摘「車両条件や管理条件の
+     文字を直後の検索窓に近づけてほしい」）。見出しは常に直後の行に密着させ、
+     余りの高さは各行自身の高さに配る方式に変更する：行
+     （.filterSidebar__row）だけをflex: 1 1 autoにして縦に伸ばし、行の中身
+     （アイコン・ラベル・コントロール）は伸びた行の上端に揃える
+     （align-items: flex-start、他リストで使うcenterから変更）ことで、余った
+     高さは常にその行の「下」に積み重なり、次の行（または次の見出し）が
+     押し下げられる形になる。見出し自身は伸びない（flex指定なし）ため、
+     直前の行が伸びたぶんだけ下に押し出されるだけで、直後の行とはぴったり
+     近いままになる。 */
   #view-home .filterSidebar__rows {
     flex: 1 1 auto;
     min-height: 0;
-    justify-content: space-between;
   }
 
   /* 現場からの要望「絞り込みを大きく分けて見やすくしてほしい」を受け、車両
      そのものの条件（タイプ〜走行距離）と、各リストから統合した管理情報
-     （区分〜販売状況）を見出しで分ける。行間の罫線（.filterSidebar__rowの
-     border-bottom）だけでは項目同士の区切りと見分けがつかないため、上に
-     余白と罫線を入れた見出し行にして「大きな区切り」として目立たせる。
-     幅を確保するため、ホームの行間隔（#view-home .filterSidebar__row等）を
-     わずかに詰め直し、見出し分の高さを吸収して画面スクロールが発生しない
-     範囲に収めている。 */
+     （区分〜販売状況）を見出しで分ける。
+     現場からの要望「管理情報の上にある線を消してほしい」を受け、見出し上の
+     罫線（border-top）は廃止し、直前の行との間隔（上のflex: 1 1 autoによる
+     伸びと、この見出し自身のmargin-top）だけで区切りを表す。 */
   #view-home .filterSidebar__sectionLabel {
     font-size: 10.5px;
     font-weight: 700;
     letter-spacing: .04em;
     color: rgba(255, 255, 255, .55);
-    margin: 2px 2px 0;
-    padding-top: 5px;
-    border-top: 1px solid rgba(255, 255, 255, .16);
+    margin: 6px 2px 0;
   }
   /* 現場からの要望「条件検索（）の下にすぐ車両条件がきてしまっているので、
-     隙間を再度調整してほしい」を受け、検索欄とこの先頭見出しの間にも
-     他の区切りと同じように余白を持たせる（以前はPC画面を縦いっぱいに使う
-     空き配分（justify-content: space-between、上記#view-home
-     .filterSidebar__rows参照）が先頭の見出しより前には及ばないため、検索欄に
-     ぴったりくっついて見えていた）。 */
+     隙間を再度調整してほしい」を受け、検索欄とこの先頭見出しの間にも余白を
+     持たせる。 */
   #view-home .filterSidebar__sectionLabel--first {
     margin-top: 8px;
-    padding-top: 0;
-    border-top: none;
   }
 
   /* 不具合修正/現場からの要望「現在の形式（セレクト）で全て選択肢をドロップ
@@ -884,7 +887,15 @@
      ことで、折り返しの心配が無くなり全9行をこの形に統一できる。 */
   #view-home .filterSidebar__row {
     display: flex;
-    align-items: center;
+    /* 現場からの要望「車両条件や管理条件の文字を直後の行（タイプ・区分）に
+       近づけてほしい」を受け、行自体は残り高さを埋めるためflex: 1 1 autoで
+       伸ばすが（上記#view-home .filterSidebar__rows参照）、中身（アイコン・
+       ラベル・コントロール）はalign-items: centerではなくflex-startで行の
+       上端に揃える。これにより伸びた分の余白は必ず行の「下」に積まれ、次の
+       行・見出しが押し下げられるだけになり、見出しと直後の行の間隔は常に
+       最小のまま保たれる。 */
+    flex: 1 1 auto;
+    align-items: flex-start;
     gap: 8px;
   }
   #view-home .filterSidebar__rowHead {
