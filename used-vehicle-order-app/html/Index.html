@@ -283,15 +283,19 @@
             </div>
           </div>
           <div class="filterSidebar__rows" id="homeFilterRows">
-            <!-- 型クイックナビ（旧#homeTypeNav、以前はコマンドバーの横スクロール行
-                 だった）は、現場からの要望「型選択を絞り込み機能内に入れてほしい」を
-                 受け、他の項目と同じ行の形で絞り込みパネルの先頭に統合する
-                 （折り返し式に変更、.filterSidebar .homeTypeNav__item、
-                 Stylesheet.html参照。クリック時の挙動・renderHomeTypeNav_は
-                 変更していない）。 -->
+            <!-- 現場からの要望「現在の形式（セレクト）で全て選択肢をドロップ形式に
+                 すれば綺麗に収まる」を受け、タイプ・区分・現展示拠点・掲載状況・
+                 販売状況もセレクトと同じ「閉じた状態は常に1行ぶん」の見た目に揃える。
+                 タイプは単一選択のため素の<select>にする（renderHomeTypeNav_、
+                 JavaScript.html参照）。区分・現展示拠点・掲載状況・販売状況は複数
+                 選択のため、<select multiple>ではなく、セレクトと同じ見た目のボタンを
+                 クリックすると中身（チェックボックス一覧）がポップオーバーで開く
+                 独自のドロップダウン（.multiDropdown、setupHomeMultiDropdown_・
+                 JavaScript.html参照）にする。ポップオーバーは浮き出し表示のため、
+                 いくつ選んでも行自体の高さは変わらない。 -->
             <div class="filterSidebar__row" data-row="type">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-tag"></use></svg><span class="filterSidebar__rowLabel">タイプ</span></div>
-              <div class="homeTypeNav" id="homeTypeNav" role="tablist" aria-label="型で絞り込み"></div>
+              <select id="homeTypeFilter" class="input"><option value="">すべて</option></select>
             </div>
             <div class="filterSidebar__row" data-row="color">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-color"></use></svg><span class="filterSidebar__rowLabel">カラー</span></div>
@@ -322,25 +326,34 @@
                  同じ判定方法、applyHomeFilters_・JavaScript.html参照）。 -->
             <div class="filterSidebar__row" data-row="category">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-tag"></use></svg><span class="filterSidebar__rowLabel">区分</span></div>
-              <div id="homeCategoryFilter"></div>
+              <div class="multiDropdown" id="homeCategoryFilter">
+                <button type="button" class="multiDropdown__btn">指定なし</button>
+                <div class="multiDropdown__panel hidden"></div>
+              </div>
             </div>
             <div class="filterSidebar__row" data-row="location">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-pin"></use></svg><span class="filterSidebar__rowLabel">現展示拠点</span></div>
-              <div id="homeLocationFilter"></div>
+              <div class="multiDropdown" id="homeLocationFilter">
+                <button type="button" class="multiDropdown__btn">指定なし</button>
+                <div class="multiDropdown__panel hidden"></div>
+              </div>
             </div>
             <div class="filterSidebar__row" data-row="listed">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-globe"></use></svg><span class="filterSidebar__rowLabel">掲載状況</span></div>
-              <div id="homeListedFilter">
-                <button type="button" class="filterChip" data-value="carsensor">カーセンサー</button>
-                <button type="button" class="filterChip" data-value="goonet">グーネット</button>
-                <button type="button" class="filterChip" data-value="unlisted">未掲載</button>
+              <div class="multiDropdown" id="homeListedFilter">
+                <button type="button" class="multiDropdown__btn">指定なし</button>
+                <div class="multiDropdown__panel hidden"></div>
               </div>
             </div>
             <div class="filterSidebar__row" data-row="saleStatus">
-              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-tag"></use></svg><span class="filterSidebar__rowLabel">販売状況（デモ・代車）</span></div>
-              <div id="homeSaleStatusFilter">
-                <button type="button" class="filterChip" data-value="在庫中">在庫中</button>
-                <button type="button" class="filterChip" data-value="販売済み">販売済み</button>
+              <!-- 見出しとコントロールを同じ行に並べる関係上（Stylesheet.html参照）、
+                   「販売状況（デモカー・サービス代車）」では長すぎてボタンの表示幅を
+                   圧迫するため「販売状況」のみにする。対象がデモカー・サービス代車の
+                   車両のみである旨は、本ファイル上部のコメントに残す。 -->
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-tag"></use></svg><span class="filterSidebar__rowLabel">販売状況</span></div>
+              <div class="multiDropdown" id="homeSaleStatusFilter">
+                <button type="button" class="multiDropdown__btn">指定なし</button>
+                <div class="multiDropdown__panel hidden"></div>
               </div>
             </div>
           </div>

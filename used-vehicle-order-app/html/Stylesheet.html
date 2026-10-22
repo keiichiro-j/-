@@ -814,77 +814,54 @@
   #view-home .filterSidebar__row { padding: 4px 2px; }
   #view-home .filterSidebar__rowHead { margin-bottom: 1px; }
   #view-home .filterSidebar select.input { padding-top: 4px; padding-bottom: 4px; }
-  #view-home .filterSidebar .homeTypeNav__item { padding: 5px 9px; font-size: 10px; }
 
-  /* 区分・現展示拠点・掲載状況・販売状況は、チェックボックス＋ラベルの1行1項目
-     ではなく、折り返し式のチップ（ボタン）で表示する（chipFilterOptionsHtml_・
-     bindHomeChipFilter_、JavaScript.html参照）。短いラベルが多いため、
-     チェックボックス表示より縦の占有を大きく減らせる。
-     現展示拠点・掲載状況は、見出し（アイコン＋ラベル）を専用の行として独立
-     させず、チップと同じ行に並べて折り返すことで、見出しだけのために1行ぶんの
-     高さを使わないようにする。タイプ・区分・販売状況は項目数（または見出しの
-     文字数）の都合で、見出しを同じ行に混ぜるとかえって折り返しが増えて縦に
-     伸びてしまうため、見出しを独立した行のままにしている（実測して判断）。 */
-  #view-home [data-row="location"], #view-home [data-row="listed"] {
-    display: flex; flex-wrap: wrap; align-items: center; column-gap: 6px; row-gap: 5px;
+  /* 不具合修正/現場からの要望「現在の形式（セレクト）で全て選択肢をドロップ
+     形式にすれば綺麗に収まる」を受け、タイプ・区分・現展示拠点・掲載状況・
+     販売状況も、カラー等と同じ「見出しとコントロールを同じ行に並べ、見出し
+     専用の行を無くす」形にする。すべての行がセレクト（または後述の
+     .multiDropdown、閉じているときはセレクトと同じ1行の見た目）になった
+     ことで、折り返しの心配が無くなり全9行をこの形に統一できる。 */
+  #view-home .filterSidebar__row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
-  #view-home [data-row="location"] .filterSidebar__rowHead,
-  #view-home [data-row="listed"] .filterSidebar__rowHead {
-    margin-bottom: 0;
-    flex: none;
-  }
-  /* カラー・初年度登録日・価格帯・走行距離は、セレクト1つだけの行のため折り返しの
-     心配が無い。見出しとセレクトを同じ行に並べ、見出し専用の行を無くす
-     （4行ぶん、縦の占有を大きく減らせる）。 */
-  #view-home [data-row="color"], #view-home [data-row="year"],
-  #view-home [data-row="price"], #view-home [data-row="mileage"] {
-    display: flex; align-items: center; gap: 8px;
-  }
-  #view-home [data-row="color"] .filterSidebar__rowHead,
-  #view-home [data-row="year"] .filterSidebar__rowHead,
-  #view-home [data-row="price"] .filterSidebar__rowHead,
-  #view-home [data-row="mileage"] .filterSidebar__rowHead {
+  #view-home .filterSidebar__rowHead {
     margin-bottom: 0;
     flex: none;
     white-space: nowrap;
   }
-  #view-home [data-row="color"] select.input, #view-home [data-row="year"] select.input,
-  #view-home [data-row="price"] select.input, #view-home [data-row="mileage"] select.input {
+  #view-home .filterSidebar__row select.input,
+  #view-home .filterSidebar__row .multiDropdown {
     flex: 1;
     min-width: 0;
   }
-  /* チップのコンテナ自体はボックスとして扱わず（display: contents）、中の
-     チップだけを行見出しと同じflexコンテナの子として並べる（gap・折り返しは
-     親の.filterSidebar__row側で指定済みのため、ここでは不要）。 */
-  #homeLocationFilter, #homeListedFilter {
-    display: contents;
-  }
-  /* 区分・販売状況は見出しを独立した行のままにするため（上のコメント参照）、
-     チップ側だけで折り返す。 */
-  #homeCategoryFilter, #homeSaleStatusFilter {
-    display: flex; flex-wrap: wrap; gap: 5px;
-  }
-  .filterChip {
-    display: inline-flex; align-items: center; gap: 5px;
-    font-size: 10.5px; font-weight: 700; padding: 4px 8px;
-    border-radius: 4px; border: 1px solid rgba(255, 255, 255, .28);
-    background: rgba(255, 255, 255, .08); color: rgba(255, 255, 255, .85);
-    cursor: pointer; font-family: inherit; white-space: nowrap;
-  }
-  .filterChip:hover { border-color: #fff; color: #fff; }
-  .filterChip.is-active { background: var(--primary); border-color: var(--primary); color: #fff; }
-  .filterChip__cnt { opacity: .75; font-weight: 600; font-variant-numeric: tabular-nums; }
 
-  /* ホーム画面の型クイックナビ（現場からの要望で絞り込みパネル内に統合した
-     #homeTypeNav、Index.html参照）。以前は横スクロール専用の.scrollerクラスを
-     使っていたが、パネル幅に収まるよう折り返し式の行にする。 */
-  .filterSidebar .homeTypeNav { display: flex; flex-wrap: wrap; gap: 6px; }
-  .filterSidebar .homeTypeNav__item:not(.is-active) {
-    background: rgba(255, 255, 255, .08);
-    border-color: rgba(255, 255, 255, .28);
-    color: rgba(255, 255, 255, .82);
+  /* 区分・現展示拠点・掲載状況・販売状況用の複数選択ドロップダウン
+     （setupHomeMultiDropdown_、JavaScript.html参照）。閉じているボタンは
+     セレクト（select.input）と同じ見た目にそろえ、中身（チェックボックス
+     一覧）は浮き出しのポップオーバーで開くため、いくつ選んでも行自体の
+     高さは変わらない。 */
+  .multiDropdown { position: relative; }
+  .multiDropdown__btn {
+    display: block; width: 100%; text-align: left; font-family: inherit;
+    border: 1px solid rgba(255, 255, 255, .26); border-radius: 8px; padding: 4px 24px 4px 8px;
+    background-color: rgba(255, 255, 255, .1); color: #fff; font-size: 11px; cursor: pointer;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='%23ffffff'%3E%3Cpath d='M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 8px center; background-size: 10px;
   }
-  .filterSidebar .homeTypeNav__item:hover:not(.is-active) { border-color: #fff; color: #fff; }
+  .multiDropdown__btn:hover { border-color: #fff; }
+  /* 不具合修正: ポップオーバーを行の真下に開く向きだと、他の行（特に密に
+     並んだすぐ下の行）に重なってクリックを奪ってしまっていた。パネルの右側
+     （一覧側の広いエリア）に開く向きにすることで、他の行と重ならないようにする。 */
+  .multiDropdown__panel {
+    position: absolute; top: -8px; left: calc(100% + 8px); min-width: 200px; z-index: 30;
+    background: var(--surface); color: var(--on-surface); border: 1px solid var(--outline);
+    border-radius: 8px; box-shadow: var(--shadow-elevated); padding: 8px 10px;
+    max-height: 240px; overflow-y: auto;
+  }
+  .multiDropdown__panel .filterCheck { color: var(--on-surface); font-size: 12px; }
 
   /* 絞り込み中サマリー（パネル上部のタグ一覧）。セレクト・ラジオ・チェック
      ボックス・テキスト入力いずれの絞り込みも、除去可能なタグとしてまとめて
@@ -2344,6 +2321,12 @@
 
     .commandbar { padding: 12px 16px; }
     .quickRow { flex-wrap: wrap; row-gap: 8px; }
+
+    /* 不具合修正: .multiDropdown__panelはPC・タブレット幅（絞り込みパネルの
+       右側に一覧の広いエリアがある前提）を右に開く向きにしていたが、この幅では
+       サイドバーが画面いっぱいに広がり右側の余白が無いため、パネルが画面外に
+       はみ出していた。この幅ではボタンの真下・全幅に開く向きに変える。 */
+    .multiDropdown__panel { top: calc(100% + 4px); left: 0; right: 0; min-width: 0; }
   }
 
   /* ===== スマートフォン ===== */

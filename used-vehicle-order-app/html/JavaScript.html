@@ -1008,29 +1008,6 @@
   }
 
   /**
-   * checkboxFilterOptionsHtml_のチップ（折り返し式のボタン群）版（純粋関数）。
-   * ホームの絞り込みパネルは項目数が多く（区分・現展示拠点・掲載状況・販売状況を
-   * 統合）、1列に1項目のチェックボックス表示では画面の高さに収まらず内部スクロールが
-   * 必要になってしまうため（現場からの要望「左コントロールパネル内は固定のサイズで、
-   * スライドなしにしてほしい」）、ホームの絞り込みパネルのみこちらを使う
-   * （bindHomeChipFilter_・renderHomeFilterSidebar_、本ファイル参照）。
-   */
-  function chipFilterOptionsHtml_(items, fieldKey, selectedValues) {
-    var counts = {};
-    items.forEach(function (item) {
-      var v = item[fieldKey] || '';
-      counts[v] = (counts[v] || 0) + 1;
-    });
-    var values = Object.keys(counts).sort();
-    return values.map(function (v) {
-      var active = selectedValues.indexOf(v) !== -1;
-      var label = v || '未設定';
-      return '<button type="button" class="filterChip' + (active ? ' is-active' : '') + '" data-value="' + escapeHtml(v) + '">' +
-        escapeHtml(label) + '<span class="filterChip__cnt">' + counts[v] + '</span></button>';
-    }).join('');
-  }
-
-  /**
    * checkboxFilterOptionsHtml_で作ったチェックボックスの選択値（複数可）で
    * 一覧を絞り込む（純粋関数）。何もチェックされていなければ絞り込まない。
    * 受注リスト・業販受注リストの「現展示拠点」絞り込みで使う（在庫リスト・
@@ -1101,25 +1078,11 @@
       if (!t.value.trim()) return;
       entries.push({ label: t.value.trim(), clear: function () { t.value = ''; dispatchChange_(t); } });
     });
-    // ホーム画面の型クイックナビ（絞り込みパネルに統合した#homeTypeNav、
-    // Index.html参照）はselect/ラジオ/チェックボックスではなくボタン群のため、
-    // 上の判定には掛からない。is-activeなボタンを個別に拾い、「すべて」
-    // （data-home-type=""）選択時はエントリを作らない。
-    rowEl.querySelectorAll('.homeTypeNav__item.is-active[data-home-type]').forEach(function (b) {
-      if (!b.dataset.homeType) return;
-      entries.push({
-        label: b.textContent.trim(),
-        clear: function () { state.homeBodyTypeFilter = ''; renderHomeGallery_(); }
-      });
-    });
-    // ホームの区分・現展示拠点・掲載状況・販売状況（chipFilterOptionsHtml_で
-    // 作るボタン群、Index.html参照）も、チェックボックス同様に拾う。選択解除は
-    // 同じボタンを再クリックするだけでよい（bindHomeChipFilter_参照）。
-    rowEl.querySelectorAll('.filterChip.is-active[data-value]').forEach(function (b) {
-      var clone = b.cloneNode(true);
-      clone.querySelectorAll('.filterChip__cnt').forEach(function (el) { el.remove(); });
-      entries.push({ label: clone.textContent.trim(), clear: function () { b.click(); } });
-    });
+    // ホームのタイプ・区分・現展示拠点・掲載状況・販売状況は、現場からの要望
+    // 「現在の形式（セレクト）で全て選択肢をドロップ形式にしてほしい」を受けて
+    // すべてselect／チェックボックス（.multiDropdown__panel内、折りたたまれていても
+    // DOM上は存在する）に統一したため、上のselect・チェックボックスの判定だけで
+    // 拾いきれる（専用の判定は不要）。
     return entries;
   }
 
@@ -1227,8 +1190,10 @@
    */
   function renderHomeFilterSidebar_() {
     var items = state.homeVehiclePool || [];
-    $('homeCategoryFilter').innerHTML = chipFilterOptionsHtml_(items, 'category', state.homeFilters.category);
-    $('homeLocationFilter').innerHTML = chipFilterOptionsHtml_(items, 'currentDisplayLocation', state.homeFilters.location);
+    // 区分・現展示拠点・掲載状況・販売状況（.multiDropdown）のボタンラベル・
+    // ポップオーバーの中身を、取得済みの車両プールに合わせて作り直す
+    // （setupHomeMultiDropdown_、本ファイル参照）。
+    syncAllHomeMultiDropdowns_();
     var colors = [];
     items.forEach(function (v) { if (v.exteriorColor && colors.indexOf(v.exteriorColor) === -1) colors.push(v.exteriorColor); });
     colors.sort();
@@ -2148,26 +2113,104 @@
 
   // 区分・現展示拠点・掲載状況・販売状況（現場からの要望「ホーム絞り込み機能に
   // 各リストで追加した機能を搭載してほしい（在庫保管位置など）」を受けて追加）。
-  // チェックボックスではなくチップ（ボタン）のため、クリックされたボタン自身の
-  // is-activeクラスを直接トグルし、その値をstate.homeFilters[filterKey]
-  // （複数選択の配列）に出し入れする（複数選択トグル式。単一選択の
-  // homeTypeNavクリックハンドラとは別の考え方）。
-  function bindHomeChipFilter_(containerId, filterKey) {
-    on(containerId, 'click', function (e) {
-      var btn = e.target.closest('.filterChip');
-      if (!btn) return;
-      var val = btn.dataset.value;
-      var arr = state.homeFilters[filterKey];
-      var idx = arr.indexOf(val);
-      if (idx === -1) { arr.push(val); btn.classList.add('is-active'); }
-      else { arr.splice(idx, 1); btn.classList.remove('is-active'); }
-      renderHomeGallery_();
-    });
+  // 複数選択のため<select multiple>ではなく、セレクトと同じ見た目のボタンを
+  // 押すとチェックボックス一覧がポップオーバーで開く独自のドロップダウンにする
+  // （現場からの要望「現在の形式（セレクト）で全て選択肢をドロップ形式に
+  // すれば綺麗に収まる」。閉じている間は行の高さがボタン1行ぶんで固定される
+  // ため、いくつ選んでもパネル全体の高さに影響しない）。
+  var homeMultiDropdowns_ = [];
+  function homeMultiDropdownLabel_(values, labelMap) {
+    if (!values.length) return '指定なし';
+    var first = labelMap ? (labelMap[values[0]] || values[0]) : (values[0] || '未設定');
+    return values.length === 1 ? first : (first + ' 他' + (values.length - 1) + '件');
   }
-  bindHomeChipFilter_('homeCategoryFilter', 'category');
-  bindHomeChipFilter_('homeLocationFilter', 'location');
-  bindHomeChipFilter_('homeListedFilter', 'listed');
-  bindHomeChipFilter_('homeSaleStatusFilter', 'saleStatus');
+  function closeAllHomeMultiDropdowns_() {
+    homeMultiDropdowns_.forEach(function (d) { d.panel.classList.add('hidden'); });
+  }
+  // ポップオーバーの外側をクリックしたら閉じる（一般的なドロップダウンの挙動）。
+  document.addEventListener('click', closeAllHomeMultiDropdowns_);
+
+  function setupHomeMultiDropdown_(containerId, filterKey, renderOptionsHtml, labelMap) {
+    var container = $(containerId);
+    var btn = container.querySelector('.multiDropdown__btn');
+    var panel = container.querySelector('.multiDropdown__panel');
+    function sync() {
+      btn.textContent = homeMultiDropdownLabel_(state.homeFilters[filterKey], labelMap);
+      panel.innerHTML = renderOptionsHtml();
+    }
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var willOpen = panel.classList.contains('hidden');
+      closeAllHomeMultiDropdowns_();
+      if (willOpen) { panel.innerHTML = renderOptionsHtml(); panel.classList.remove('hidden'); }
+    });
+    // ポップオーバー内のクリックがdocumentまでバブリングして自分自身を
+    // 閉じてしまわないようにする。
+    panel.addEventListener('click', function (e) { e.stopPropagation(); });
+    panel.addEventListener('change', function (e) {
+      if (e.target.type !== 'checkbox') return;
+      state.homeFilters[filterKey] = Array.prototype.slice.call(panel.querySelectorAll('input[type="checkbox"]:checked'))
+        .map(function (el) { return el.value; });
+      btn.textContent = homeMultiDropdownLabel_(state.homeFilters[filterKey], labelMap);
+      renderHomeGallery_();
+      // 不具合修正: ここでpanel.innerHTMLを作り直すと、絞り込み中サマリー
+      // （filterRowActiveEntries_）が個別解除ボタンのclear()内で参照している
+      // チェックボックス要素がDOMから切り離され、サマリー側の「×」をクリック
+      // しても絞り込みが解除されない不具合が起きていた（dispatchChange_が
+      // 発火はするが、切り離された要素からはdocumentまでバブリングしない
+      // ため）。件数（.filterCheck__cnt）はstate.homeVehiclePool全体から
+      // 算出しており、同じ項目内の選択状態では変わらないため、パネルを開いた
+      // とき（sync・ボタンクリック時）だけ作り直せば十分で、変更のたびに
+      // 作り直す必要は無い。
+    });
+    homeMultiDropdowns_.push({ panel: panel, sync: sync });
+    sync();
+  }
+
+  /** 掲載状況（カーセンサー／グーネット／未掲載）。在庫リストと同じ
+   * inventoryListedKeys_の判定を使う（デモカー・サービス代車の車両は
+   * listedCarsensor/listedGoonetを持たないため、常に「未掲載」に含まれる）。 */
+  function homeListedDropdownOptionsHtml_() {
+    var counts = { carsensor: 0, goonet: 0, unlisted: 0 };
+    (state.homeVehiclePool || []).forEach(function (v) {
+      inventoryListedKeys_(v).forEach(function (k) { counts[k] = (counts[k] || 0) + 1; });
+    });
+    var labels = { carsensor: 'カーセンサー掲載中', goonet: 'グーネット掲載中', unlisted: '未掲載' };
+    var checkedValues = state.homeFilters.listed;
+    return ['carsensor', 'goonet', 'unlisted'].map(function (k) {
+      var checked = checkedValues.indexOf(k) !== -1;
+      return '<label class="filterCheck"><input type="checkbox" value="' + k + '"' + (checked ? ' checked' : '') + '> ' +
+        labels[k] + '<span class="filterCheck__cnt">' + counts[k] + '</span></label>';
+    }).join('');
+  }
+  /** 販売状況（在庫中／販売済み）。デモカー・サービス代車の車両にしか無い
+   * saleStatusで判定する（在庫リストの車両は対象外になる）。 */
+  function homeSaleStatusDropdownOptionsHtml_() {
+    var counts = { '在庫中': 0, '販売済み': 0 };
+    (state.homeVehiclePool || []).forEach(function (v) {
+      if (Object.prototype.hasOwnProperty.call(counts, v.saleStatus)) counts[v.saleStatus]++;
+    });
+    var checkedValues = state.homeFilters.saleStatus;
+    return ['在庫中', '販売済み'].map(function (k) {
+      var checked = checkedValues.indexOf(k) !== -1;
+      return '<label class="filterCheck"><input type="checkbox" value="' + k + '"' + (checked ? ' checked' : '') + '> ' +
+        k + '<span class="filterCheck__cnt">' + counts[k] + '</span></label>';
+    }).join('');
+  }
+
+  setupHomeMultiDropdown_('homeCategoryFilter', 'category', function () {
+    return checkboxFilterOptionsHtml_(state.homeVehiclePool || [], 'category', state.homeFilters.category);
+  });
+  setupHomeMultiDropdown_('homeLocationFilter', 'location', function () {
+    return checkboxFilterOptionsHtml_(state.homeVehiclePool || [], 'currentDisplayLocation', state.homeFilters.location);
+  });
+  setupHomeMultiDropdown_('homeListedFilter', 'listed', homeListedDropdownOptionsHtml_,
+    { carsensor: 'カーセンサー掲載中', goonet: 'グーネット掲載中', unlisted: '未掲載' });
+  setupHomeMultiDropdown_('homeSaleStatusFilter', 'saleStatus', homeSaleStatusDropdownOptionsHtml_);
+
+  function syncAllHomeMultiDropdowns_() {
+    homeMultiDropdowns_.forEach(function (d) { d.sync(); });
+  }
 
   on('btnHomeFilterClear', 'click', function () {
     state.homeFilters = { color: '', yearBucket: '', priceBucket: '', mileageBucket: '', category: [], location: [], listed: [], saleStatus: [] };
@@ -2175,8 +2218,8 @@
     // 一緒にクリアする（現場からの要望「型選択を絞り込み機能内に入れてほしい」）。
     state.homeBodyTypeFilter = '';
     $('homeKeyword').value = '';
-    ['homeColorFilter', 'homeYearFilter', 'homePriceFilter', 'homeMileageFilter'].forEach(function (id) { $(id).value = ''; });
-    document.querySelectorAll('#homeCategoryFilter .filterChip, #homeLocationFilter .filterChip, #homeListedFilter .filterChip, #homeSaleStatusFilter .filterChip').forEach(function (el) { el.classList.remove('is-active'); });
+    ['homeTypeFilter', 'homeColorFilter', 'homeYearFilter', 'homePriceFilter', 'homeMileageFilter'].forEach(function (id) { $(id).value = ''; });
+    syncAllHomeMultiDropdowns_();
     renderHomeGallery_();
   });
 
@@ -4241,28 +4284,29 @@
   }
 
   /**
-   * ホーム画面上部の型クイックナビ（#homeTypeNav）。「すべて」＋設定タブの車両画像で
-   * 選べる型（MODEL_BODY_TYPE_OPTIONS、Constants.gs）を、登録状況に関わらず常に
-   * 同じ並びで表示する（型を1件も割り当てていない運用開始直後でも迷わないよう、
-   * 固定の選択肢にしている）。クリックするとstate.homeBodyTypeFilterを更新し、
-   * renderHomeGallery_を呼び直してカード一覧を絞り込む。
+   * ホーム画面の絞り込みパネルの「タイプ」（#homeTypeFilter）。「すべて」＋
+   * 設定タブの車両画像で選べる型（MODEL_BODY_TYPE_OPTIONS、Constants.gs）を、
+   * 登録状況に関わらず常に同じ並びで表示する（型を1件も割り当てていない運用
+   * 開始直後でも迷わないよう、固定の選択肢にしている）。現場からの要望
+   * 「現在の形式（セレクト）で全て選択肢をドロップ形式にしてほしい」を受け、
+   * 以前はボタン群（型クイックナビ）だったが、他の項目と同じ<select>にした
+   * （他のセレクト同様、変更するとstate.homeBodyTypeFilterを更新し、
+   * renderHomeGallery_を呼び直してカード一覧を絞り込む、on('homeTypeFilter',
+   * 'change', ...)参照）。
    */
   function renderHomeTypeNav_() {
     var options = (state.bootstrap && state.bootstrap.modelBodyTypeOptions) || [];
     var current = state.homeBodyTypeFilter;
-    var itemsHtml = '<button type="button" class="homeTypeNav__item' + (!current ? ' is-active' : '') +
-      '" data-home-type="">すべて</button>' +
-      options.map(function (t) {
-        return '<button type="button" class="homeTypeNav__item' + (current === t ? ' is-active' : '') +
-          '" data-home-type="' + escapeHtml(t) + '">' + escapeHtml(t) + '</button>';
-      }).join('');
-    $('homeTypeNav').innerHTML = itemsHtml;
+    var sel = $('homeTypeFilter');
+    sel.innerHTML = '<option value="">すべて</option>' + options.map(function (t) {
+      return '<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + '</option>';
+    }).join('');
+    sel.value = options.indexOf(current) !== -1 ? current : '';
+    if (sel.value !== current) state.homeBodyTypeFilter = sel.value;
   }
 
-  on('homeTypeNav', 'click', function (e) {
-    var btn = e.target.closest('[data-home-type]');
-    if (!btn) return;
-    state.homeBodyTypeFilter = btn.dataset.homeType || '';
+  on('homeTypeFilter', 'change', function () {
+    state.homeBodyTypeFilter = this.value;
     renderHomeGallery_();
   });
 
