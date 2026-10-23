@@ -45,6 +45,7 @@ function api_getBootstrapData() {
     isSystemAdmin: isAdmin,
     settings: redactSystemMasterSettings_(settings, isAdmin),
     currentUserEmail: email,
+    appVersion: APP_VERSION,
     // ログイン中のGoogleアカウントに対応する担当者名・登録拠点（未登録ならどちらもnull）。
     // Hold登録・2nd Hold登録・受注確定・Hold解除の担当者欄、および販売拠点欄の初期値は
     // これらを自動的に使う。

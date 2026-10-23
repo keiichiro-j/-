@@ -4960,6 +4960,8 @@
       renderSettings(bootstrap.settings);
       renderTopbarUser();
       applyAdminOnlyVisibility_();
+      // 設定画面の一番下にアプリのバージョンを出す（再デプロイが反映されたかの確認用）
+      $('settingsAppVersion').textContent = bootstrap.appVersion ? 'アプリのバージョン: ' + bootstrap.appVersion : '';
       checkIntegrity_();
       return Promise.all([
         refreshInventoryFromServer_(),

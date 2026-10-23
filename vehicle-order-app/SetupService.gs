@@ -126,6 +126,27 @@ function compactOrderSheets_() {
 }
 
 /**
+ * メニュー「受注リストの空き行を詰める」から実行する（管理者のみ）。結果をメッセージで表示する。
+ */
+function compactOrderSheetsFromMenu() {
+  if (!isSystemAdmin_(Session.getActiveUser().getEmail())) {
+    throw new Error('この操作は管理者のみ行えます');
+  }
+  var lock = acquireScriptLock_();
+  var moved;
+  try {
+    moved = compactOrderSheets_();
+  } finally {
+    releaseScriptLock_(lock);
+  }
+  var message = moved
+    ? '受注リストの空き行を詰めました（' + moved + '件の受注を上へ移動しました）。'
+    : '受注リストに詰める空き行はありませんでした。';
+  try { SpreadsheetApp.getUi().alert(message); } catch (e) {}
+  return message;
+}
+
+/**
  * アプリを開いたとき（api_getBootstrapData）に呼ぶ。SHEET_RULES_VERSION が保存済みの番号と
  * 違うときだけ、入力規則・見出しメモの付け直しとステア列の書き換えを1回行う。
  * 失敗してもアプリの起動は止めない（次に開いたときに再度試す）。
@@ -159,6 +180,6 @@ function onOpen() {
     .addItem('列構成・入力規則・列見出しのコメントを再設定', 'applySelectValidationsAndNotes_')
     .addItem('コミッション列を書式なしテキストに再設定', 'formatCommissionColumnsAsText_')
     .addItem('Hold期限チェックのトリガーを設定', 'installHoldExpiryTrigger')
-    .addItem('受注リストの空き行を詰める', 'compactOrderSheets_')
+    .addItem('受注リストの空き行を詰める', 'compactOrderSheetsFromMenu')
     .addToUi();
 }

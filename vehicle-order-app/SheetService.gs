@@ -440,9 +440,15 @@ function lastDataRowByKey_(sheet, keyColIndex1) {
   if (lastRow < 2) return 1;
   var values = sheet.getRange(2, keyColIndex1, lastRow - 1, 1).getValues();
   for (var i = values.length - 1; i >= 0; i--) {
-    if (String(values[i][0] == null ? '' : values[i][0]).trim() !== '') return i + 2;
+    if (isKeyCellFilled_(values[i][0])) return i + 2;
   }
   return 1;
+}
+
+// キー列のセルに値が入っているか。チェックボックスの TRUE／FALSE（列がずれていた場合など）は値として数えない。
+function isKeyCellFilled_(value) {
+  if (value === true || value === false) return false;
+  return String(value == null ? '' : value).trim() !== '';
 }
 
 /**
@@ -458,7 +464,7 @@ function compactRowsByKey_(sheet, columns, keyField) {
   var range = sheet.getRange(2, 1, lastRow - 1, width);
   var values = range.getValues();
   var keyIndex = buildColIndex_(columns)[keyField];
-  var isData = function (row) { return String(row[keyIndex] == null ? '' : row[keyIndex]).trim() !== ''; };
+  var isData = function (row) { return isKeyCellFilled_(row[keyIndex]); };
   var data = values.filter(isData);
   if (data.length === values.length) return 0; // 空き行なし
   var moved = 0;
@@ -612,6 +618,9 @@ function listOtherStoreOrders() {
 }
 
 function appendOrderToSheet_(sheet, order) {
+  // 以前の不具合で下の方（1000行目付近）に書き込まれた受注が残っていると、その次の行に
+  // 書き込まれてしまうため、書き込むたびに先に空き行を詰める（起動時の1回きりの処理に頼らない）。
+  compactRowsByKey_(sheet, ORDER_COLUMNS, 'commission');
   // 旧モデル列のチェックボックス（空でも FALSE が入る）があっても、上から順に詰めて書き込む
   var newRow = lastDataRowByKey_(sheet, orderColIndex1('commission')) + 1;
   // createHoldRow_と同様、appendRowだけに頼ると数字のみのコミッションの先頭0が
