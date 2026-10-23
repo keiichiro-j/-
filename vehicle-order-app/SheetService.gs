@@ -429,8 +429,50 @@ function deleteInventoryRow_(sheet, rowNumber) {
  * 在庫リストのコミッション列を、データ行の上から順に文字列の配列で返す
  * （先頭要素が2行目）。受注確定時の位置記録・受注取消時の差し戻し位置の計算に使う。
  */
-function readInventoryCommissions_(sheet) {
+/**
+ * キー列（コミッション等）に値が入っている最後の行番号（データが無ければ1＝見出し行）。
+ * 旧モデル列のようなチェックボックス列は、空の行にも FALSE（未チェック）が入るため
+ * getLastRow() が入力規則を付けた範囲の最後（1000行目付近）まで伸びてしまう。
+ * 新しい行の書き込み先はこの関数で決め、チェックボックスだけの行は空き行として扱う。
+ */
+function lastDataRowByKey_(sheet, keyColIndex1) {
   var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 1;
+  var values = sheet.getRange(2, keyColIndex1, lastRow - 1, 1).getValues();
+  for (var i = values.length - 1; i >= 0; i--) {
+    if (String(values[i][0] == null ? '' : values[i][0]).trim() !== '') return i + 2;
+  }
+  return 1;
+}
+
+/**
+ * キー列が空の行（チェックボックスだけの行など）を詰めて、データの行を上から順に並べ直す。
+ * 行どうしの順番は変えない。シートの右側に独自の列があっても行ごと一緒に動かす。
+ * 以前の不具合で受注リストの下の方（1000行目付近）に書き込まれた受注を上へ戻すために使う。
+ * @return {number} 移動した（詰めた）データ行の数。空き行が無ければ0
+ */
+function compactRowsByKey_(sheet, columns, keyField) {
+  var lastRow = lastDataRowByKey_(sheet, buildColIndex_(columns)[keyField] + 1);
+  if (lastRow < 3) return 0;
+  var width = Math.max(sheet.getLastColumn(), columns.length);
+  var range = sheet.getRange(2, 1, lastRow - 1, width);
+  var values = range.getValues();
+  var keyIndex = buildColIndex_(columns)[keyField];
+  var isData = function (row) { return String(row[keyIndex] == null ? '' : row[keyIndex]).trim() !== ''; };
+  var data = values.filter(isData);
+  if (data.length === values.length) return 0; // 空き行なし
+  var moved = 0;
+  values.forEach(function (row, i) { if (isData(row) && i >= data.length) moved++; });
+  var blank = [];
+  for (var c = 0; c < width; c++) blank.push(c < columns.length && columns[c].type === 'checkbox' ? false : '');
+  var out = data.slice();
+  while (out.length < values.length) out.push(blank.slice());
+  range.setValues(out);
+  return moved;
+}
+
+function readInventoryCommissions_(sheet) {
+  var lastRow = lastDataRowByKey_(sheet, inventoryColIndex1('commission'));
   if (lastRow < 2) return [];
   return sheet.getRange(2, inventoryColIndex1('commission'), lastRow - 1, 1).getValues()
     .map(function (r) { return String(r[0] == null ? '' : r[0]).trim(); });
@@ -442,7 +484,8 @@ function readInventoryCommissions_(sheet) {
  * 書き込み前にその行のコミッション欄を「書式なしテキスト」にする。
  */
 function insertInventoryVehicleAt_(sheet, rowNumber, vehicle) {
-  var lastRow = Math.max(sheet.getLastRow(), 1);
+  // チェックボックスだけが入った空き行は無視し、車両が入っている最後の行を基準にする
+  var lastRow = lastDataRowByKey_(sheet, inventoryColIndex1('commission'));
   var target = Math.max(2, Math.min(rowNumber, lastRow + 1));
   if (target <= lastRow) sheet.insertRowBefore(target);
   sheet.getRange(target, inventoryColIndex1('commission'), 1, 1).setNumberFormat('@');
@@ -569,7 +612,8 @@ function listOtherStoreOrders() {
 }
 
 function appendOrderToSheet_(sheet, order) {
-  var newRow = sheet.getLastRow() + 1;
+  // 旧モデル列のチェックボックス（空でも FALSE が入る）があっても、上から順に詰めて書き込む
+  var newRow = lastDataRowByKey_(sheet, orderColIndex1('commission')) + 1;
   // createHoldRow_と同様、appendRowだけに頼ると数字のみのコミッションの先頭0が
   // 消えることがあるため、書き込み直前に対象セルの書式を明示的に設定する。
   sheet.getRange(newRow, orderColIndex1('commission'), 1, 1).setNumberFormat('@');

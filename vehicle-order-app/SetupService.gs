@@ -116,6 +116,16 @@ function normalizeSteeringColumns_() {
 }
 
 /**
+ * 受注リスト3種の空き行を詰める（旧モデル列のチェックボックスのせいで下の方に書き込まれた受注を上へ戻す）。
+ * スプレッドシートのメニュー「受注リストの空き行を詰める」からも実行できる。
+ */
+function compactOrderSheets_() {
+  return [getOrderSheet_(), getDemoOrderSheet_(), getOtherStoreOrderSheet_()].reduce(function (sum, sheet) {
+    return sum + compactRowsByKey_(sheet, ORDER_COLUMNS, 'commission');
+  }, 0);
+}
+
+/**
  * アプリを開いたとき（api_getBootstrapData）に呼ぶ。SHEET_RULES_VERSION が保存済みの番号と
  * 違うときだけ、入力規則・見出しメモの付け直しとステア列の書き換えを1回行う。
  * 失敗してもアプリの起動は止めない（次に開いたときに再度試す）。
@@ -129,6 +139,7 @@ function applySheetRulesIfOutdated_() {
     if (String(props.getProperty(key) || '') === String(SHEET_RULES_VERSION)) return false;
     applySelectValidationsAndNotes_();
     normalizeSteeringColumns_();
+    compactOrderSheets_();
     props.setProperty(key, String(SHEET_RULES_VERSION));
     return true;
   } finally {
@@ -148,5 +159,6 @@ function onOpen() {
     .addItem('列構成・入力規則・列見出しのコメントを再設定', 'applySelectValidationsAndNotes_')
     .addItem('コミッション列を書式なしテキストに再設定', 'formatCommissionColumnsAsText_')
     .addItem('Hold期限チェックのトリガーを設定', 'installHoldExpiryTrigger')
+    .addItem('受注リストの空き行を詰める', 'compactOrderSheets_')
     .addToUi();
 }
