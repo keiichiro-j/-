@@ -119,20 +119,31 @@
   body.has-announcement { --topbar-h: 180px; }
 
   * { box-sizing: border-box; }
-  /* 不具合修正: 以前は和文フォントを指定していなかったため、OS標準
-     （Windowsは游ゴシック、Macはヒラギノ角ゴ）に任せることになり、太さ・
-     字幅がBarlowと噛み合わず閲覧環境によって印象が変わっていた。Noto Sans JP
-     （Index.htmlでGoogle Fontsから読み込み）を明示することで、和文まで含めて
-     どの端末でも同じ見た目に揃える（欧文はBarlowが優先され、和文グリフが
-     無い文字だけNoto Sans JPにフォールバックする）。 */
+  /* デザインリニューアル（ショールーム・ライト案）: 本文・UI文字は和文・欧文
+     とも Noto Sans JP（Index.htmlでGoogle Fontsから読み込み）に統一し、
+     OS標準フォントへのフォールバックに依存せず閲覧環境による印象のばらつきを
+     無くす（以前のBarlowは、和文と組み合わせたときの太さ・字幅の噛み合わせの
+     ために廃止）。ブランド名・見出し類だけ、ジオメトリックなディスプレイ体の
+     Outfitを.dispクラスで添える（本ファイル内の.disp定義参照）。 */
   html, body {
     margin: 0;
-    font-family: 'Barlow', 'Noto Sans JP', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Noto Sans JP', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
     background: var(--background);
     color: var(--on-surface);
     -webkit-font-smoothing: antialiased;
   }
   button { font-family: inherit; }
+  /* ブランド名・各セクション見出し（コントロールパネルのアプリ名、絞り込み
+     サイドバーの「条件検索」、マイページ・設定・各モーダルの見出し）に、
+     ジオメトリックなディスプレイ体Outfitを添える。和文グリフは無いため、
+     和文部分は自動的にNoto Sans JPにフォールバックする。 */
+  .disp,
+  .topbar__brandText,
+  .filterSidebar__title,
+  .homeResultsSection__title,
+  #app h2 {
+    font-family: 'Outfit', 'Noto Sans JP', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  }
   .hidden { display: none !important; }
   /* モーダル表示中は背景（在庫リスト・受注リスト等）がスクロールされないようにする
    （openModal/closeModal、JavaScript.html参照）。 */
