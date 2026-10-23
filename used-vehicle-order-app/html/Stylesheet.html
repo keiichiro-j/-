@@ -791,7 +791,10 @@
   .filterSidebar {
     background: var(--topbar-bg);
     color: #fff;
-    border: 2px solid var(--primary);
+    /* デザインリニューアル（ショールーム・ライト案）: テーマカラーの太い枠線は
+       廃止し、.topbar__group（本ファイル内で前方定義）と同じく影だけで背景から
+       浮かせるフラットな見た目にする。 */
+    border: none;
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     padding: 10px 14px;
@@ -800,14 +803,19 @@
     gap: 4px;
     min-width: 0;
   }
-  /* 見出し（条件検索）・該当台数は左寄せでひとまとまりにし、クリアボタンだけを
-     margin-left: autoで右端に離す（現場からの要望「該当台数は見出しの右に」）。 */
-  .filterSidebar__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .filterSidebar__title { font-size: 13px; font-weight: 700; margin: 0; color: #fff; }
+  /* 見出し（条件検索）と該当台数を左右に離し、ショールーム・ライト案と同じ
+     構成にする（現場からの要望「該当台数は見出しの右に」はjustify-content:
+     space-betweenでも引き続き満たされる）。クリアボタンがあるときはそちらを
+     margin-left: autoで最右端に出す。 */
+  .filterSidebar__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .filterSidebar__title { font-size: 11.5px; font-weight: 600; margin: 0; color: #fff; }
   .filterSidebar__count {
-    font-size: 11px;
-    font-weight: 700;
-    color: rgba(255, 255, 255, .7);
+    font-size: 9.5px;
+    font-weight: 600;
+    /* 不具合修正（アクセシビリティ担当からの指摘、以前の調整を踏襲）: 参考
+       デザインの薄さ（50%）のままだと暖色系テーマでWCAG AA基準を下回るため、
+       以前の調整と同じ75%を保つ。 */
+    color: rgba(255, 255, 255, .75);
     font-variant-numeric: tabular-nums;
   }
   .filterSidebar__field { display: flex; flex-direction: column; gap: 6px; }
@@ -852,6 +860,28 @@
   .filterSidebar select.input {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='%23ffffff'%3E%3Cpath d='M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z'/%3E%3C/svg%3E");
   }
+  /* デザインリニューアル（ショールーム・ライト案）: 絞り込み行（.filterSidebar__row
+     直下）のコントロールは、塗り＋枠のボックス型をやめ、下線だけのミニマルな
+     見た目にする（検索窓.searchboxはこの対象外。従来どおりボックス型のまま）。
+     行の高さ自体（padding-top/bottom、本ファイル内の前方定義）は変えないため、
+     在庫リストの絞り込みサイドバーがはみ出さないよう実測調整した既存の
+     高さバランスはそのまま保たれる。 */
+  .filterSidebar__row .input,
+  .filterSidebar__row select.input,
+  .filterSidebar__row .multiDropdown__btn {
+    background-color: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(255, 255, 255, .3);
+    border-radius: 0;
+    padding-left: 2px;
+  }
+  .filterSidebar__row .input:focus,
+  .filterSidebar__row select.input:focus {
+    outline: none;
+    border-bottom-color: #fff;
+  }
+  .filterSidebar__row .multiDropdown__btn:hover,
+  .filterSidebar__row .multiDropdown__btn:focus-visible { border-bottom-color: #fff; }
   .filterSidebar .filterCheck { color: rgba(255, 255, 255, .85); }
   .filterSidebar .filterCheck__cnt { color: rgba(255, 255, 255, .75); }
   .filterSidebar__clearBtn {
@@ -898,9 +928,18 @@
     background: var(--primary);
   }
   .filterSidebar__rowHead { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; }
-  .filterSidebar__rowIcon { width: 16px; height: 16px; flex: none; color: rgba(255, 255, 255, .7); }
-  .filterSidebar__rowLabel { font-size: 11.5px; font-weight: 700; color: rgba(255, 255, 255, .78); letter-spacing: .02em; }
-  .filterSidebar__row.is-active .filterSidebar__rowIcon,
+  /* デザインリニューアル（ショールーム・ライト案）: アイコンは使わず、ラベルの
+     小ささ・淡さだけで「補足情報」であることを示すミニマルな見た目にする。 */
+  .filterSidebar__rowIcon { display: none; }
+  .filterSidebar__rowLabel {
+    font-size: 9.5px;
+    font-weight: 600;
+    /* 不具合修正（アクセシビリティ担当からの指摘、以前の調整を踏襲）: 参考
+       デザインの薄さ（45%）のままだと暖色系テーマでWCAG AA基準を下回るため、
+       以前の調整と同じ75%を保つ。 */
+    color: rgba(255, 255, 255, .75);
+    letter-spacing: .04em;
+  }
   .filterSidebar__row.is-active .filterSidebar__rowLabel { color: #fff; }
   /* グループ化・区分・掲載状況等、チェック/ラジオの一覧を持つ行は、見出しの
      gapぶん.filterCheckとの間隔がやや詰まって見えるため少しだけ広げる。 */
