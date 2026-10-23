@@ -88,7 +88,7 @@
        高さも合わせて変える。ヘッダー下端のテーマ境界線（.topbarの
        border-bottom: 2px、現場からの要望「ヘッダーとリストの境界にもテーマを
        反映してほしい」）ぶんも含めた実際の高さに揃えている。 */
-    --topbar-h: 135px;
+    --topbar-h: 115px;
     /* お知らせ（#homeAnnouncement）が同じ囲いの中に表示されているとき
        （body.has-announcement、syncHomeAnnouncementVisibility_・JavaScript.html参照）
        は、その分だけ.topbarの実際の高さが伸びるため、--topbar-hもこの状態に
@@ -116,7 +116,7 @@
     --ease: cubic-bezier(.4, 0, .2, 1);
     --ease-out: cubic-bezier(.16, 1, .3, 1);
   }
-  body.has-announcement { --topbar-h: 180px; }
+  body.has-announcement { --topbar-h: 160px; }
 
   * { box-sizing: border-box; }
   /* デザインリニューアル（ショールーム・ライト案）: 本文・UI文字は和文・欧文
@@ -199,14 +199,13 @@
      margin・borderぶんを含めた実測値に更新している（下の@media (min-width: 901px)
      も参照）。 */
   .topbar__group {
-    margin: 10px 14px;
-    /* 不具合修正/現場からの要望「ヘッダーの囲みの線を無くしてほしい」を受け、
-       枠線は無くし、影（box-shadow）だけで背景から浮き上がって見えるようにする
-       （以前は枠線＋影の両方だったが、線を無くしても浮いて見える効果は影単独
-       で十分に出る）。 */
-    border-radius: var(--radius);
-    overflow: hidden;
-    box-shadow: var(--shadow-elevated);
+    /* デザインリニューアル: ヘッダーを絞り込みサイドバーと直接つなげてL字に
+       囲む構成にするため、以前の「浮いた丸角カード」（margin・border-radius・
+       box-shadow）は廃止し、ヘッダー全体を画面端いっぱいのフラットな帯にする
+       （.topbar自体が持つ背景色がそのまま端まで塗られる）。 */
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
     /* 現場からの要望「お知らせと下枠との隙間を設けてほしい（わずかで良い）」を受け、
        グループの最後の要素（タブ、またはお知らせ表示中はお知らせ）と下辺の枠線との
        間にわずかな余白を持たせる。 */
@@ -349,8 +348,8 @@
     /* ブランド行・タブ行のpaddingを広げる分、.commandbar側のsticky offset
        （top: var(--topbar-h)）もこの実測値に合わせて更新する（ズレると
        スクロール時に隙間または重なりが出る）。 */
-    :root { --topbar-h: 156px; }
-    body.has-announcement { --topbar-h: 201px; }
+    :root { --topbar-h: 136px; }
+    body.has-announcement { --topbar-h: 181px; }
     .topbar__brandRow { padding: 20px 32px; }
     .topbar__navBtn { width: 42px; height: 42px; }
     .topbar__logo { height: 30px; max-width: 160px; }
@@ -476,6 +475,27 @@
     transition: box-shadow .2s var(--ease);
   }
   body.is-scrolled .commandbar { box-shadow: 0 2px 10px rgba(16, 31, 51, .08); }
+  /* デザインリニューアル: 絞り込みサイドバーを持つ一覧（在庫リスト）では、
+     コマンドバー（並び替え等）も絞り込みサイドバーと同じ「絞り込みコントロール
+     パネル」の一部とみなし、ヘッダーより一段明るいテーマカラー（--primary、
+     サイドバーと同じ色）にして、ヘッダー（--topbar-bg）からサイドバーへ続く
+     L字の帯を途切れさせない。絞り込みサイドバーを持たないマイページの
+     コマンドバーは対象外（従来どおりの白背景のまま）。 */
+  .view--list .commandbar {
+    background: color-mix(in srgb, var(--primary) 30%, var(--primary-dark) 70%);
+    color: #fff;
+    border-bottom: none;
+  }
+  .view--list .commandbar .sortField { color: rgba(255, 255, 255, .85); }
+  .view--list .commandbar select.input {
+    background-color: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(255, 255, 255, .3);
+    border-radius: 0;
+    color: #fff;
+    padding-left: 2px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='%23ffffff'%3E%3Cpath d='M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z'/%3E%3C/svg%3E");
+  }
   .searchrow { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
   .searchbox {
     flex: 1 1 320px;
@@ -768,35 +788,44 @@
      さらにスクロールが必要になるのは煩わしいという現場からの指摘を受け、
      文字・余白を詰めて全項目が収まりやすい密度にしたうえで、サイドバーは
      内部スクロールさせず常に全項目を表示する（下のauto幅指定を参照）。 */
-  /* 絞り込みサイドバーが濃いテーマカラーの独立したパネルになったことに合わせ
-     （下の.filterSidebar参照）、サイドバー・一覧とも上下左右に均等な余白を
-     持たせる（以前はヘッダーに接するよう上paddingを持たなかったが、独立した
-     パネルとして見せるため標準的な余白に戻した）。 */
+  /* デザインリニューアル: 絞り込みサイドバーをヘッダーと直接つなげ、カードを
+     「L字」に囲む構成にする。上辺・左辺の余白はここでは持たせず（サイドバーを
+     ヘッダー・画面端に直接接着するため）、一覧側（.listBody__main、本ファイル内で
+     後方定義）に個別の上paddingを持たせることで、一覧の見た目の余白はこれまでと
+     変わらないまま、サイドバーだけがヘッダーに接するようにする。右・下の余白は
+     従来どおりここで持たせる。 */
   .listBody {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 16px;
-    padding: 16px;
+    padding: 0 16px 16px 0;
     min-width: 0;
   }
-  .listBody__main { min-width: 0; }
+  .listBody__main { min-width: 0; padding-top: 16px; }
+  /* 絞り込みサイドバーを持たない一覧（ホームの検索結果専用ページ等）は、
+     左に接着するサイドバー自体が無いため、一覧側に左の余白を個別に戻す。 */
+  #view-homeResults .listBody__main { padding-left: 16px; }
   /* 不具合修正/現場からの要望「絞り込み機能背景を濃いテーマカラーにしてほしい。
      それに合わせて文字も読みやすくしてほしい」を受け、パネル全体の背景を
-     ヘッダーと同じ配色変数（--topbar-bg、選択中テーマのprimaryDark）にし、
-     内部の文字・入力欄も白系の配色に揃える（このブロック以降、filterSidebar
-     配下の各要素のダーク配色の上書きが続く）。囲い自体は四辺とも枠線・角丸を
-     持つ単独のパネルにする（以前はヘッダーに接するよう上辺だけ角丸なし・
-     枠線なしにしていたが、この囲い自体がテーマカラーの濃い背景を持つように
-     なったため、独立したパネルとして枠線・余白を四辺に持たせる方が見やすい）。 */
+     テーマカラー（選択中テーマのprimary）にし、内部の文字・入力欄も白系の配色に
+     揃える（このブロック以降、filterSidebar配下の各要素のダーク配色の上書きが
+     続く）。
+     デザインリニューアル: ヘッダー（--topbar-bg、primaryDark）とサイドバー・
+     絞り込みコントロールバー（本ファイル内、.view--list .commandbar参照）の
+     トーンを変える現場からの要望を受け、サイドバーはヘッダーより一段明るい
+     色にする。ただしテーマのprimary（中間色）をそのまま使うと、暖色系の
+     テーマ（amber等）で白文字のコントラストがWCAG AA基準を割り込むため
+     （実測、本ファイル内のコメント参照）、primaryDarkに30%だけprimaryを
+     混ぜた中間トーンにし、見た目の違いを保ちながら基準を満たす（白文字側も
+     このトーンに合わせて不透明度を85%まで上げている。下の各要素参照）。
+     ヘッダーと直接つなげるため、枠線・角丸・影はすべて廃止しフラットな
+     パネルにする（以前の「浮いた丸角カード」は廃止）。 */
   .filterSidebar {
-    background: var(--topbar-bg);
+    background: color-mix(in srgb, var(--primary) 30%, var(--primary-dark) 70%);
     color: #fff;
-    /* デザインリニューアル（ショールーム・ライト案）: テーマカラーの太い枠線は
-       廃止し、.topbar__group（本ファイル内で前方定義）と同じく影だけで背景から
-       浮かせるフラットな見た目にする。 */
     border: none;
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
+    border-radius: 0;
+    box-shadow: none;
     padding: 10px 14px;
     display: flex;
     flex-direction: column;
@@ -812,10 +841,10 @@
   .filterSidebar__count {
     font-size: 9.5px;
     font-weight: 600;
-    /* 不具合修正（アクセシビリティ担当からの指摘、以前の調整を踏襲）: 参考
-       デザインの薄さ（50%）のままだと暖色系テーマでWCAG AA基準を下回るため、
-       以前の調整と同じ75%を保つ。 */
-    color: rgba(255, 255, 255, .75);
+    /* 不具合修正（アクセシビリティ担当からの指摘）: パネル背景をヘッダーより
+       明るいトーンにしたため（本ファイル内の.filterSidebar参照）、以前の75%
+       では暖色系テーマでWCAG AA基準を割り込む。85%まで上げて基準を満たす。 */
+    color: rgba(255, 255, 255, .85);
     font-variant-numeric: tabular-nums;
   }
   .filterSidebar__field { display: flex; flex-direction: column; gap: 6px; }
@@ -840,19 +869,18 @@
      background-color（ロングハンド）のみを上書きする。 */
   .filterSidebar .input,
   .filterSidebar .searchbox {
-    background-color: rgba(255, 255, 255, .1);
-    border-color: rgba(255, 255, 255, .26);
+    background-color: rgba(255, 255, 255, .14);
+    border-color: rgba(255, 255, 255, .34);
     color: #fff;
   }
-  /* 不具合修正（アクセシビリティ担当からの指摘）: 55%の白は、プレースホルダーの
-     10px（現場からの要望で縮小済み）という小さな文字サイズと重なると、テーマに
-     よってはWCAG AA基準（4.5:1）を下回っていた（暖色系のamberテーマで実測
-     3.26:1）。75%まで上げることで、最も厳しいamberテーマでも4.6:1を確保できる
-     （他のテーマはさらに余裕がある）。文字サイズ自体は現場要望どおり維持する。 */
+  /* 不具合修正（アクセシビリティ担当からの指摘）: パネル背景をヘッダーより
+     明るいトーンにしたため（本ファイル内の.filterSidebar参照）、以前の75%
+     では暖色系テーマでWCAG AA基準を割り込む。85%まで上げて基準を満たす
+     （文字サイズ自体は現場要望どおり維持する）。 */
   .filterSidebar .input::placeholder,
-  .filterSidebar .searchbox input::placeholder { color: rgba(255, 255, 255, .75); }
+  .filterSidebar .searchbox input::placeholder { color: rgba(255, 255, 255, .85); }
   .filterSidebar .searchbox input { color: #fff; }
-  .filterSidebar .searchbox .icon--inline { color: rgba(255, 255, 255, .6); }
+  .filterSidebar .searchbox .icon--inline { color: rgba(255, 255, 255, .75); }
   .filterSidebar .searchbox:focus-within { border-color: #fff; box-shadow: none; }
   /* セレクトの矢印アイコンは色がdata URI内に直接埋め込まれているため
      （.input select、本ファイル内で前方定義のコメント参照）、濃い背景でも
@@ -871,7 +899,7 @@
   .filterSidebar__row .multiDropdown__btn {
     background-color: transparent;
     border: none;
-    border-bottom: 1px solid rgba(255, 255, 255, .3);
+    border-bottom: 1px solid rgba(255, 255, 255, .4);
     border-radius: 0;
     padding-left: 2px;
   }
@@ -883,11 +911,11 @@
   .filterSidebar__row .multiDropdown__btn:hover,
   .filterSidebar__row .multiDropdown__btn:focus-visible { border-bottom-color: #fff; }
   .filterSidebar .filterCheck { color: rgba(255, 255, 255, .85); }
-  .filterSidebar .filterCheck__cnt { color: rgba(255, 255, 255, .75); }
+  .filterSidebar .filterCheck__cnt { color: rgba(255, 255, 255, .85); }
   .filterSidebar__clearBtn {
     border: none;
     background: none;
-    color: rgba(255, 255, 255, .75);
+    color: rgba(255, 255, 255, .85);
     font-size: 12px;
     font-weight: 700;
     text-decoration: underline;
@@ -934,10 +962,10 @@
   .filterSidebar__rowLabel {
     font-size: 9.5px;
     font-weight: 600;
-    /* 不具合修正（アクセシビリティ担当からの指摘、以前の調整を踏襲）: 参考
-       デザインの薄さ（45%）のままだと暖色系テーマでWCAG AA基準を下回るため、
-       以前の調整と同じ75%を保つ。 */
-    color: rgba(255, 255, 255, .75);
+    /* 不具合修正（アクセシビリティ担当からの指摘）: パネル背景をヘッダーより
+       明るいトーンにしたため（本ファイル内の.filterSidebar参照）、以前の75%
+       では暖色系テーマでWCAG AA基準を割り込む。85%まで上げて基準を満たす。 */
+    color: rgba(255, 255, 255, .85);
     letter-spacing: .04em;
   }
   .filterSidebar__row.is-active .filterSidebar__rowLabel { color: #fff; }
@@ -1027,7 +1055,7 @@
     font-size: 10.5px;
     font-weight: 700;
     letter-spacing: .04em;
-    color: rgba(255, 255, 255, .75);
+    color: rgba(255, 255, 255, .85);
     margin: 6px 2px 0;
   }
   /* 現場からの要望「条件検索（）の下にすぐ車両条件がきてしまっているので、
@@ -1124,12 +1152,15 @@
   .filterSidebar__activeChip .label { overflow-wrap: anywhere; }
   .filterSidebar__activeChip .x { opacity: .85; font-size: 12px; line-height: 1; flex: none; }
   .filterSidebar__activeClearAll {
-    font-size: 11.5px; color: rgba(255, 255, 255, .7); text-decoration: underline;
+    /* 不具合修正（アクセシビリティ担当からの指摘）: パネル背景をヘッダーより
+       明るいトーンにしたため、以前の70%では暖色系テーマでWCAG AA基準を
+       割り込む。85%まで上げて基準を満たす。 */
+    font-size: 11.5px; color: rgba(255, 255, 255, .85); text-decoration: underline;
     text-underline-offset: 2px; cursor: pointer; background: none; border: none;
     font-family: inherit; padding: 0; white-space: nowrap;
   }
   .filterSidebar__activeClearAll:hover { color: #fff; }
-  .filterSidebar__activeEmpty { font-size: 11.5px; color: rgba(255, 255, 255, .6); }
+  .filterSidebar__activeEmpty { font-size: 11.5px; color: rgba(255, 255, 255, .85); }
 
   /* ===== PC・タブレット幅: 在庫・受注・業販受注リストを「アプリシェル」化 =====
      コマンドバーの下（.listBody）を、ヘッダー・コマンドバーの高さぶんを差し引いた
@@ -1180,7 +1211,11 @@
          （flex: 1 1 auto + min-height: 0）だけに委ねる）。 */
       grid-template-rows: minmax(0, 1fr);
       gap: 20px;
-      padding: 20px 24px 24px;
+      /* デザインリニューアル: サイドバーをヘッダーに直接つなげるため、上・左の
+         余白はここでは持たせない（下の.view--list .listBody__mainに個別の
+         上paddingを持たせ、一覧側の見た目の余白はこれまでと変える）。右・下は
+         従来どおり。 */
+      padding: 0 24px 24px 0;
       flex: 1 1 auto;
       min-height: 0;
     }
@@ -1201,8 +1236,11 @@
        justify-content: centerを与えることで、一覧エリアの残り高さいっぱいに
        広がった上でその中央に表示されるようにする（実データがある通常時は
        .emptyStateがhiddenのままなので影響しない）。 */
-    .view--list .listBody__main { height: 100%; overflow-y: auto; display: flex; flex-direction: column; }
+    .view--list .listBody__main { height: 100%; overflow-y: auto; display: flex; flex-direction: column; padding-top: 20px; }
     .view--list .listBody__main > .emptyState { flex: 1 0 auto; justify-content: center; min-height: 0; }
+    /* 絞り込みサイドバーを持たない一覧（ホームの検索結果専用ページ）は、左に
+       接着するサイドバーが無いため、一覧側に左の余白を個別に戻す。 */
+    #view-homeResults .listBody__main { padding-left: 24px; }
   }
 
   .filterCheck { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--on-surface); cursor: pointer; padding: 2px 0; }
