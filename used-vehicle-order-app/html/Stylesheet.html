@@ -116,7 +116,7 @@
     --ease: cubic-bezier(.4, 0, .2, 1);
     --ease-out: cubic-bezier(.16, 1, .3, 1);
   }
-  body.has-announcement { --topbar-h: 188px; }
+  body.has-announcement { --topbar-h: 198px; }
 
   * { box-sizing: border-box; }
   /* デザインリニューアル（ショールーム・ライト案）: 本文・UI文字は和文・欧文
@@ -234,6 +234,11 @@
     background: var(--primary);
     color: var(--on-primary);
   }
+  /* 現場からの要望「お知らせがある際はタブとの隙間を設けてほしい」を受け、
+     お知らせが表示されているとき（.hiddenが付いていないとき）だけ、直後の
+     タブ行との間に隙間を追加する。お知らせが無い画面ではブランド行の直後に
+     タブが続くため、この隙間は不要（margin-topは効かない）。 */
+  .homeAnnouncement:not(.hidden) + .tabs__wrap { margin-top: 10px; }
   /* 不具合修正/現場からの要望「スクロール中のヘッダーに奥行きを持たせたい」:
      以前は固定ヘッダー（.topbar・.commandbar）が境界線のみでフラットだった。
      ページが実際にスクロールされて先頭でなくなったときだけ、ごく薄い影を
@@ -347,7 +352,7 @@
     /* ブランド行・タブ行のpaddingを広げる分、下に続く絞り込み機能・一覧の
        間隔の基準になる--topbar-hもこの実測値に合わせて更新する。 */
     :root { --topbar-h: 164px; }
-    body.has-announcement { --topbar-h: 209px; }
+    body.has-announcement { --topbar-h: 219px; }
     .topbar__brandRow { padding: 20px 32px; }
     .topbar__navBtn { width: 42px; height: 42px; }
     .topbar__logo { height: 30px; max-width: 160px; }
