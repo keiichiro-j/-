@@ -88,7 +88,7 @@
        高さも合わせて変える。ヘッダー下端のテーマ境界線（.topbarの
        border-bottom: 2px、現場からの要望「ヘッダーとリストの境界にもテーマを
        反映してほしい」）ぶんも含めた実際の高さに揃えている。 */
-    --topbar-h: 143px;
+    --topbar-h: 149px;
     /* お知らせ（#homeAnnouncement）が同じ囲いの中に表示されているとき
        （body.has-announcement、syncHomeAnnouncementVisibility_・JavaScript.html参照）
        は、その分だけ.topbarの実際の高さが伸びるため、--topbar-hもこの状態に
@@ -116,7 +116,7 @@
     --ease: cubic-bezier(.4, 0, .2, 1);
     --ease-out: cubic-bezier(.16, 1, .3, 1);
   }
-  body.has-announcement { --topbar-h: 198px; }
+  body.has-announcement { --topbar-h: 204px; }
 
   * { box-sizing: border-box; }
   /* デザインリニューアル（ショールーム・ライト案）: 本文・UI文字は和文・欧文
@@ -304,11 +304,27 @@
      （center揃えのオーバーフローはブラウザにより両端が均等に見切れる）。
      safe centerにすることで、はみ出す場合だけ自動的に先頭揃えにフォールバック
      させ、常に最初のタブから確実にスクロールで辿り着けるようにする。 */
-  .tabs {
+  /* 現場からの要望「タブがよりボタンとわかるようなデザインにしたい」を受け、
+     テキスト＋下線のミニマルなナビから、ピル型セグメントコントロール
+     （iOSのセグメントコントロールのように、1つの溝＝トラックの中に選択中の
+     タブだけ白いピルが乗る形式）に変更。トラック自体は内容幅に合わせて
+     中央配置し（.tabs__wrapがjustify-content:centerで中央寄せ）、画面幅より
+     トラックが広くなる場合だけトラック自身が横スクロールする
+     （max-width:100%でトラックの見た目上の幅を行の幅に収め、はみ出す中身は
+     トラック内部のoverflow-x:autoでスクロール。中央寄せの箱自体が画面外に
+     出ないため、以前のような「先頭タブが見切れて戻れない」問題も構造上起きない）。 */
+  .tabs__wrap {
     display: flex;
-    justify-content: safe center;
-    gap: 24px;
+    justify-content: center;
     padding: 0 20px 12px;
+  }
+  .tabs {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    background: rgba(255, 255, 255, .08);
+    border-radius: 10px;
+    max-width: 100%;
     overflow-x: auto;
     scrollbar-width: none;
   }
@@ -317,50 +333,42 @@
     flex: none;
     background: transparent;
     border: none;
-    border-bottom: 2px solid transparent;
+    border-radius: 7px;
     color: var(--on-topbar);
-    opacity: .62;
-    padding: 6px 1px;
+    opacity: .7;
+    padding: 7px 14px;
     font-size: 12.5px;
     font-weight: 600;
     letter-spacing: .06em;
     cursor: pointer;
     white-space: nowrap;
-    transition: opacity .15s var(--ease), border-color .15s var(--ease);
+    transition: opacity .15s var(--ease), background-color .15s var(--ease), color .15s var(--ease);
   }
-  .tabs__item:hover { opacity: .85; }
-  /* 不具合修正: アクティブなタブの下線（区切り線）が固定の白（#ffffff）だったため、
-     設定タブでテーマ（配色）を切り替えても常に白のままで、テーマの効果が
-     及んでいなかった（現場からの指摘「ヘッダーと各リストへの区切り線をテーマに
-     応じてカラー変更してほしい」）。選択中のテーマのアクセント色（--primary、
-     ヘッダー背景のベースになるprimaryDarkより明るく、ヘッダー上でも視認できる）に
-     連動させる。
-     不具合修正（アクセシビリティ担当からの指摘）: var(--primary)をそのまま下線に
-     使うと、primaryDark（ヘッダー背景）との組み合わせによっては非テキストの
-     UIコントラスト基準（3:1）を下回るテーマがあった（実測: mono 1.30:1、
-     obsidian 1.33:1、wine 1.32:1、amber 1.47:1等）。テーマカラーとの連動は
-     維持しつつ、白を50%混ぜて明るくすることで全テーマで3:1を上回るように
-     する（実測: 最も低いamberでも3.42:1、他は4:1以上を確保）。あわせて
-     文字の太さも上げ、色だけに頼らない手がかりにする。 */
+  .tabs__item:hover { opacity: .9; }
+  /* アクティブなタブは白いピル（塗りつぶし）で示す。文字色は選択中のテーマの
+     ヘッダー背景色（--topbar-bg、primaryDarkに連動）をそのまま使うことで、
+     どのテーマでも白背景に対して必ず十分なコントラストを確保する
+     （--topbar-bgは元々ヘッダーの濃い背景色のために選ばれた色のため）。 */
   .tabs__item.is-active {
     opacity: 1;
     font-weight: 700;
-    border-bottom-color: color-mix(in srgb, var(--primary) 50%, white 50%);
+    background: #fff;
+    color: var(--topbar-bg);
   }
 
   @media (min-width: 901px) {
     /* ブランド行・タブ行のpaddingを広げる分、下に続く絞り込み機能・一覧の
        間隔の基準になる--topbar-hもこの実測値に合わせて更新する。 */
-    :root { --topbar-h: 164px; }
-    body.has-announcement { --topbar-h: 219px; }
+    :root { --topbar-h: 172px; }
+    body.has-announcement { --topbar-h: 227px; }
     .topbar__brandRow { padding: 20px 32px; }
     .topbar__navBtn { width: 42px; height: 42px; }
     .topbar__logo { height: 30px; max-width: 160px; }
     .topbar__brandText { font-size: 16px; }
     .topbar__user { font-size: 13px; max-width: 220px; }
     .topbar__userEmail { display: block; font-size: 11.5px; }
-    .tabs { gap: 32px; padding: 0 32px 14px; }
-    .tabs__item { font-size: 13px; }
+    .tabs__wrap { padding: 0 32px 14px; }
+    .tabs__item { font-size: 13px; padding: 8px 16px; }
   }
 
   /* ===== 起動時ローディング画面 =====

@@ -747,6 +747,58 @@
     document.querySelectorAll('.modal:not(.hidden)').forEach(closeModal);
   });
 
+  // 複数選択のため<select multiple>ではなく、セレクトと同じ見た目のボタンを
+  // 押すとチェックボックス一覧がポップオーバーで開く独自のドロップダウンにする
+  // （現場からの要望「現在の形式（セレクト）で全て選択肢をドロップ形式に
+  // すれば綺麗に収まる」。閉じている間は行の高さがボタン1行ぶんで固定される
+  // ため、いくつ選んでもパネル全体の高さに影響しない）。各リスト（ホーム・
+  // 在庫・受注・業販受注・デモカー・サービス代車）のチェックボックス一覧
+  // すべてがこの仕組みを使うため、各リストの絞り込みサイドバー設定より前に
+  // 定義しておく必要がある。
+  var homeMultiDropdowns_ = [];
+  function homeMultiDropdownLabel_(values, labelMap) {
+    if (!values.length) return '';
+    var first = labelMap ? (labelMap[values[0]] || values[0]) : (values[0] || '未設定');
+    return values.length === 1 ? first : (first + ' 他' + (values.length - 1) + '件');
+  }
+  function closeAllHomeMultiDropdowns_() {
+    homeMultiDropdowns_.forEach(function (d) { d.panel.classList.add('hidden'); });
+  }
+  // ポップオーバーの外側をクリックしたら閉じる（一般的なドロップダウンの挙動）。
+  document.addEventListener('click', closeAllHomeMultiDropdowns_);
+
+  /**
+   * 現場からの要望「各リストの絞り込み機能もホームのように全てドロップ式の
+   * 選択方式にしてほしい」を受け、ホーム専用だったドロップダウン（開閉・外側
+   * クリックで閉じる）の仕組みを、他リスト（在庫・受注・業販受注・デモカー・
+   * サービス代車）のチェックボックス一覧にもそのまま使い回す。中身（チェック
+   * ボックス一覧）の組み立て・絞り込みロジック自体は変更しない。
+   * 開閉の登録だけをここで行い、同じhomeMultiDropdowns_配列・
+   * closeAllHomeMultiDropdowns_に加えることで、どのリストのドロップダウンも
+   * 1つだけが開いた状態を保つ（他リストのタブに切り替えればview自体が
+   * hiddenになるため、開いたまま持ち越される心配もない）。
+   */
+  function registerMultiDropdownToggle_(containerId) {
+    var container = $(containerId);
+    var btn = container.querySelector('.multiDropdown__btn');
+    var panel = container.querySelector('.multiDropdown__panel');
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var willOpen = panel.classList.contains('hidden');
+      closeAllHomeMultiDropdowns_();
+      if (willOpen) panel.classList.remove('hidden');
+    });
+    // ポップオーバー内のクリックがdocumentまでバブリングして自分自身を
+    // 閉じてしまわないようにする。
+    panel.addEventListener('click', function (e) { e.stopPropagation(); });
+    homeMultiDropdowns_.push({ panel: panel });
+  }
+  // ボタンの表示文字（選択中の件数に応じた要約）だけを更新する。中身
+  // （.multiDropdown__panel）は各リストの既存の描画処理がそのまま作る。
+  function syncMultiDropdownButton_(containerId, values, labelMap) {
+    $(containerId).querySelector('.multiDropdown__btn').textContent = homeMultiDropdownLabel_(values, labelMap);
+  }
+
   // ===== 在庫リスト =====
   // キーワード検索だけはこれまでどおりサーバー側（searchInventory）で絞り込む。
   // Hold中の車両を除外するかどうかは、以前は「Hold済みを含む」チェックボックス
@@ -784,6 +836,10 @@
     var m = String(v.firstRegistrationDate || '').match(/(\d{4})/);
     return m ? Number(m[1]) : null;
   }
+  // 掲載状況（カーセンサー／グーネット／未掲載）のドロップダウンボタン要約表示用
+  // ラベル。在庫リスト・ホームの両方で使う（値自体はinventoryListedKeys_・
+  // checkboxFilterOptionsHtml_が生成するcheckbox値と揃えてある）。
+  var INVENTORY_LISTED_LABELS = { carsensor: 'カーセンサー掲載中', goonet: 'グーネット掲載中', unlisted: '未掲載' };
   var YEAR_BUCKET_OPTIONS = [
     { value: '', label: '' },
     { value: 'recent', label: '2年以内' },
@@ -1360,8 +1416,11 @@
   function renderInventoryFilterSidebar_() {
     var items = state.inventoryItems || [];
 
-    $('inventoryCategoryFilter').innerHTML = checkboxFilterOptionsHtml_(items, 'category', state.inventoryFilters.category);
-    $('inventoryLocationFilter').innerHTML = checkboxFilterOptionsHtml_(items, 'currentDisplayLocation', state.inventoryFilters.location);
+    $('inventoryCategoryFilter').querySelector('.multiDropdown__panel').innerHTML = checkboxFilterOptionsHtml_(items, 'category', state.inventoryFilters.category);
+    syncMultiDropdownButton_('inventoryCategoryFilter', state.inventoryFilters.category);
+    $('inventoryLocationFilter').querySelector('.multiDropdown__panel').innerHTML = checkboxFilterOptionsHtml_(items, 'currentDisplayLocation', state.inventoryFilters.location);
+    syncMultiDropdownButton_('inventoryLocationFilter', state.inventoryFilters.location);
+    syncMultiDropdownButton_('inventoryListedFilter', state.inventoryFilters.listed, INVENTORY_LISTED_LABELS);
 
     var colors = [];
     items.forEach(function (v) { if (v.exteriorColor && colors.indexOf(v.exteriorColor) === -1) colors.push(v.exteriorColor); });
@@ -2143,18 +2202,20 @@
   //       走行距離）は、キーワードと異なりサーバーへ問い合わせず、既に取得済みの
   //       一覧（state.inventoryItems）をクライアントだけで絞り込み直す
   //       （renderInventory参照。即座に反映されるため操作感が良い）。 -----
-  function bindInventoryCheckboxFilter_(containerId, filterKey) {
+  function bindInventoryCheckboxFilter_(containerId, filterKey, labelMap) {
+    registerMultiDropdownToggle_(containerId);
     on(containerId, 'change', function (e) {
       if (e.target.type !== 'checkbox') return;
       var checked = Array.prototype.slice.call($(containerId).querySelectorAll('input[type="checkbox"]:checked'))
         .map(function (el) { return el.value; });
       state.inventoryFilters[filterKey] = checked;
+      syncMultiDropdownButton_(containerId, checked, labelMap);
       renderInventory();
     });
   }
   bindInventoryCheckboxFilter_('inventoryCategoryFilter', 'category');
   bindInventoryCheckboxFilter_('inventoryLocationFilter', 'location');
-  bindInventoryCheckboxFilter_('inventoryListedFilter', 'listed');
+  bindInventoryCheckboxFilter_('inventoryListedFilter', 'listed', INVENTORY_LISTED_LABELS);
 
   [['inventoryColorFilter', 'color'], ['inventoryYearFilter', 'yearBucket'], ['inventoryPriceFilter', 'priceBucket'], ['inventoryMileageFilter', 'mileageBucket']].forEach(function (pair) {
     on(pair[0], 'change', function () {
@@ -2174,6 +2235,8 @@
     $('inventoryKeyword').value = '';
     ['inventoryColorFilter', 'inventoryYearFilter', 'inventoryPriceFilter', 'inventoryMileageFilter', 'inventorySort'].forEach(function (id) { $(id).value = ''; });
     document.querySelectorAll('#inventoryCategoryFilter input, #inventoryLocationFilter input, #inventoryListedFilter input').forEach(function (el) { el.checked = false; });
+    ['inventoryCategoryFilter', 'inventoryLocationFilter'].forEach(function (id) { syncMultiDropdownButton_(id, []); });
+    syncMultiDropdownButton_('inventoryListedFilter', [], INVENTORY_LISTED_LABELS);
     loadInventory();
   });
 
@@ -2195,18 +2258,6 @@
   // （現場からの要望「現在の形式（セレクト）で全て選択肢をドロップ形式に
   // すれば綺麗に収まる」。閉じている間は行の高さがボタン1行ぶんで固定される
   // ため、いくつ選んでもパネル全体の高さに影響しない）。
-  var homeMultiDropdowns_ = [];
-  function homeMultiDropdownLabel_(values, labelMap) {
-    if (!values.length) return '';
-    var first = labelMap ? (labelMap[values[0]] || values[0]) : (values[0] || '未設定');
-    return values.length === 1 ? first : (first + ' 他' + (values.length - 1) + '件');
-  }
-  function closeAllHomeMultiDropdowns_() {
-    homeMultiDropdowns_.forEach(function (d) { d.panel.classList.add('hidden'); });
-  }
-  // ポップオーバーの外側をクリックしたら閉じる（一般的なドロップダウンの挙動）。
-  document.addEventListener('click', closeAllHomeMultiDropdowns_);
-
   function setupHomeMultiDropdown_(containerId, filterKey, renderOptionsHtml, labelMap) {
     var container = $(containerId);
     var btn = container.querySelector('.multiDropdown__btn');
@@ -2286,7 +2337,7 @@
   setupHomeMultiDropdown_('homeSaleStatusFilter', 'saleStatus', homeSaleStatusDropdownOptionsHtml_);
 
   function syncAllHomeMultiDropdowns_() {
-    homeMultiDropdowns_.forEach(function (d) { d.sync(); });
+    homeMultiDropdowns_.forEach(function (d) { if (d.sync) d.sync(); });
   }
 
   on('btnHomeFilterClear', 'click', function () {
@@ -2969,7 +3020,8 @@
   // 動的に作り直す（在庫リストのrenderInventoryFilterSidebar_と同じ考え方）。
   function renderOrdersLocationFilterSidebar_() {
     var allItems = (state.ordersGroups || []).reduce(function (acc, g) { return acc.concat(g.items || []); }, []);
-    $('ordersDisplayLocationFilter').innerHTML = checkboxFilterOptionsHtml_(allItems, 'currentDisplayLocation', state.ordersFilters.currentDisplayLocation);
+    $('ordersDisplayLocationFilter').querySelector('.multiDropdown__panel').innerHTML = checkboxFilterOptionsHtml_(allItems, 'currentDisplayLocation', state.ordersFilters.currentDisplayLocation);
+    syncMultiDropdownButton_('ordersDisplayLocationFilter', state.ordersFilters.currentDisplayLocation);
   }
   function loadOrders() {
     var filters = {
@@ -3222,7 +3274,8 @@
   // 動的に作り直す（renderOrdersLocationFilterSidebar_と同じ考え方）。
   function renderWholesaleOrdersLocationFilterSidebar_() {
     var allItems = (state.wholesaleOrdersGroups || []).reduce(function (acc, g) { return acc.concat(g.items || []); }, []);
-    $('wholesaleOrdersDisplayLocationFilter').innerHTML = checkboxFilterOptionsHtml_(allItems, 'currentDisplayLocation', state.wholesaleOrdersFilters.currentDisplayLocation);
+    $('wholesaleOrdersDisplayLocationFilter').querySelector('.multiDropdown__panel').innerHTML = checkboxFilterOptionsHtml_(allItems, 'currentDisplayLocation', state.wholesaleOrdersFilters.currentDisplayLocation);
+    syncMultiDropdownButton_('wholesaleOrdersDisplayLocationFilter', state.wholesaleOrdersFilters.currentDisplayLocation);
   }
   function loadWholesaleOrders() {
     var filters = {
@@ -3425,10 +3478,12 @@
     on(id, 'change', loadOrders);
   });
   on('ordersGroupByFilter', 'change', loadOrders);
+  registerMultiDropdownToggle_('ordersDisplayLocationFilter');
   on('ordersDisplayLocationFilter', 'change', function (e) {
     if (e.target.type !== 'checkbox') return;
     state.ordersFilters.currentDisplayLocation = Array.prototype.slice.call($('ordersDisplayLocationFilter').querySelectorAll('input[type="checkbox"]:checked'))
       .map(function (el) { return el.value; });
+    syncMultiDropdownButton_('ordersDisplayLocationFilter', state.ordersFilters.currentDisplayLocation);
     renderOrders();
     syncOrdersFilterClearVisibility_();
   });
@@ -3441,6 +3496,7 @@
     if (defaultGroupBy) defaultGroupBy.checked = true;
     state.ordersFilters.currentDisplayLocation = [];
     document.querySelectorAll('#ordersDisplayLocationFilter input').forEach(function (el) { el.checked = false; });
+    syncMultiDropdownButton_('ordersDisplayLocationFilter', []);
     loadOrders();
   });
 
@@ -3449,10 +3505,12 @@
     on(id, 'change', loadWholesaleOrders);
   });
   on('wholesaleOrdersGroupByFilter', 'change', loadWholesaleOrders);
+  registerMultiDropdownToggle_('wholesaleOrdersDisplayLocationFilter');
   on('wholesaleOrdersDisplayLocationFilter', 'change', function (e) {
     if (e.target.type !== 'checkbox') return;
     state.wholesaleOrdersFilters.currentDisplayLocation = Array.prototype.slice.call($('wholesaleOrdersDisplayLocationFilter').querySelectorAll('input[type="checkbox"]:checked'))
       .map(function (el) { return el.value; });
+    syncMultiDropdownButton_('wholesaleOrdersDisplayLocationFilter', state.wholesaleOrdersFilters.currentDisplayLocation);
     renderWholesaleOrders();
     syncWholesaleOrdersFilterClearVisibility_();
   });
@@ -3465,6 +3523,7 @@
     if (defaultWholesaleGroupBy) defaultWholesaleGroupBy.checked = true;
     state.wholesaleOrdersFilters.currentDisplayLocation = [];
     document.querySelectorAll('#wholesaleOrdersDisplayLocationFilter input').forEach(function (el) { el.checked = false; });
+    syncMultiDropdownButton_('wholesaleOrdersDisplayLocationFilter', []);
     loadWholesaleOrders();
   });
 
@@ -3510,7 +3569,9 @@
       fillStaticSelectOptions_(opts.yearFilterId, YEAR_BUCKET_OPTIONS, f.yearBucket);
       fillStaticSelectOptions_(opts.priceFilterId, PRICE_BUCKET_OPTIONS, f.priceBucket);
       fillStaticSelectOptions_(opts.mileageFilterId, MILEAGE_BUCKET_OPTIONS, f.mileageBucket);
-      $(opts.locationFilterId).innerHTML = checkboxFilterOptionsHtml_(items, 'currentDisplayLocation', f.location);
+      $(opts.locationFilterId).querySelector('.multiDropdown__panel').innerHTML = checkboxFilterOptionsHtml_(items, 'currentDisplayLocation', f.location);
+      syncMultiDropdownButton_(opts.locationFilterId, f.location);
+      syncMultiDropdownButton_(opts.statusFilterId, f.status);
       syncClearVisibility();
     }
 
@@ -3554,10 +3615,13 @@
         syncClearVisibility();
       });
     });
+    registerMultiDropdownToggle_(opts.statusFilterId);
+    registerMultiDropdownToggle_(opts.locationFilterId);
     on(opts.statusFilterId, 'change', function (e) {
       if (e.target.type !== 'checkbox') return;
       state[opts.filtersKey].status = Array.prototype.slice.call($(opts.statusFilterId).querySelectorAll('input[type="checkbox"]:checked'))
         .map(function (el) { return el.value; });
+      syncMultiDropdownButton_(opts.statusFilterId, state[opts.filtersKey].status);
       render();
       syncClearVisibility();
     });
@@ -3565,6 +3629,7 @@
       if (e.target.type !== 'checkbox') return;
       state[opts.filtersKey].location = Array.prototype.slice.call($(opts.locationFilterId).querySelectorAll('input[type="checkbox"]:checked'))
         .map(function (el) { return el.value; });
+      syncMultiDropdownButton_(opts.locationFilterId, state[opts.filtersKey].location);
       render();
       syncClearVisibility();
     });
@@ -3572,6 +3637,8 @@
       state[opts.filtersKey] = { color: '', yearBucket: '', priceBucket: '', mileageBucket: '', status: [], location: [] };
       $(opts.keywordId).value = '';
       document.querySelectorAll('#' + opts.statusFilterId + ' input, #' + opts.locationFilterId + ' input').forEach(function (el) { el.checked = false; });
+      syncMultiDropdownButton_(opts.statusFilterId, []);
+      syncMultiDropdownButton_(opts.locationFilterId, []);
       load();
     });
 

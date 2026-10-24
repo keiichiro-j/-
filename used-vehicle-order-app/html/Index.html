@@ -297,7 +297,7 @@
                    反応せずEnterで初めて検索されるという挙動が、見た目から
                    伝わりにくかった。プレースホルダー自体に操作方法を
                    明記する。 -->
-              <input type="search" id="homeKeyword" placeholder="完全一致・Enterで検索">
+              <input type="search" id="homeKeyword" placeholder="">
             </div>
           </div>
           <div class="filterSidebar__rows" id="homeFilterRows">
@@ -490,18 +490,27 @@
             </div>
             <div class="filterSidebar__row" data-row="category">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-tag"></use></svg><span class="filterSidebar__rowLabel">区分</span></div>
-              <div id="inventoryCategoryFilter" class="filterCheckList"></div>
+              <div id="inventoryCategoryFilter" class="multiDropdown">
+                <button type="button" class="multiDropdown__btn"></button>
+                <div class="multiDropdown__panel hidden"></div>
+              </div>
             </div>
             <div class="filterSidebar__row" data-row="location">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-pin"></use></svg><span class="filterSidebar__rowLabel">現展示拠点</span></div>
-              <div id="inventoryLocationFilter" class="filterCheckList"></div>
+              <div id="inventoryLocationFilter" class="multiDropdown">
+                <button type="button" class="multiDropdown__btn"></button>
+                <div class="multiDropdown__panel hidden"></div>
+              </div>
             </div>
             <div class="filterSidebar__row" data-row="listed">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-globe"></use></svg><span class="filterSidebar__rowLabel">掲載状況</span></div>
-              <div id="inventoryListedFilter">
-                <label class="filterCheck"><input type="checkbox" value="carsensor"> カーセンサー掲載中</label>
-                <label class="filterCheck"><input type="checkbox" value="goonet"> グーネット掲載中</label>
-                <label class="filterCheck"><input type="checkbox" value="unlisted"> 未掲載</label>
+              <div id="inventoryListedFilter" class="multiDropdown">
+                <button type="button" class="multiDropdown__btn"></button>
+                <div class="multiDropdown__panel hidden">
+                  <label class="filterCheck"><input type="checkbox" value="carsensor"> カーセンサー掲載中</label>
+                  <label class="filterCheck"><input type="checkbox" value="goonet"> グーネット掲載中</label>
+                  <label class="filterCheck"><input type="checkbox" value="unlisted"> 未掲載</label>
+                </div>
               </div>
             </div>
           </div>
@@ -559,7 +568,10 @@
             </div>
             <div class="filterSidebar__row" data-row="displayLocation">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-pin"></use></svg><span class="filterSidebar__rowLabel">現展示拠点</span></div>
-              <div id="ordersDisplayLocationFilter" class="filterCheckList"></div>
+              <div id="ordersDisplayLocationFilter" class="multiDropdown">
+                <button type="button" class="multiDropdown__btn"></button>
+                <div class="multiDropdown__panel hidden"></div>
+              </div>
             </div>
           </div>
         </aside>
@@ -623,7 +635,10 @@
             </div>
             <div class="filterSidebar__row" data-row="displayLocation">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-pin"></use></svg><span class="filterSidebar__rowLabel">現展示拠点</span></div>
-              <div id="wholesaleOrdersDisplayLocationFilter" class="filterCheckList"></div>
+              <div id="wholesaleOrdersDisplayLocationFilter" class="multiDropdown">
+                <button type="button" class="multiDropdown__btn"></button>
+                <div class="multiDropdown__panel hidden"></div>
+              </div>
             </div>
           </div>
         </aside>
@@ -726,13 +741,19 @@
             </div>
             <div class="filterSidebar__row" data-row="location">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-pin"></use></svg><span class="filterSidebar__rowLabel">現展示拠点</span></div>
-              <div id="demoCarListLocationFilter" class="filterCheckList"></div>
+              <div id="demoCarListLocationFilter" class="multiDropdown">
+                <button type="button" class="multiDropdown__btn"></button>
+                <div class="multiDropdown__panel hidden"></div>
+              </div>
             </div>
             <div class="filterSidebar__row" data-row="status">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-tag"></use></svg><span class="filterSidebar__rowLabel">販売状況</span></div>
-              <div id="demoCarListStatusFilter">
-                <label class="filterCheck"><input type="checkbox" value="在庫中"> 在庫中</label>
-                <label class="filterCheck"><input type="checkbox" value="販売済み"> 販売済み</label>
+              <div id="demoCarListStatusFilter" class="multiDropdown">
+                <button type="button" class="multiDropdown__btn"></button>
+                <div class="multiDropdown__panel hidden">
+                  <label class="filterCheck"><input type="checkbox" value="在庫中"> 在庫中</label>
+                  <label class="filterCheck"><input type="checkbox" value="販売済み"> 販売済み</label>
+                </div>
               </div>
             </div>
           </div>
@@ -783,13 +804,19 @@
             </div>
             <div class="filterSidebar__row" data-row="location">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-pin"></use></svg><span class="filterSidebar__rowLabel">現展示拠点</span></div>
-              <div id="serviceCarListLocationFilter" class="filterCheckList"></div>
+              <div id="serviceCarListLocationFilter" class="multiDropdown">
+                <button type="button" class="multiDropdown__btn"></button>
+                <div class="multiDropdown__panel hidden"></div>
+              </div>
             </div>
             <div class="filterSidebar__row" data-row="status">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-tag"></use></svg><span class="filterSidebar__rowLabel">販売状況</span></div>
-              <div id="serviceCarListStatusFilter">
-                <label class="filterCheck"><input type="checkbox" value="在庫中"> 在庫中</label>
-                <label class="filterCheck"><input type="checkbox" value="販売済み"> 販売済み</label>
+              <div id="serviceCarListStatusFilter" class="multiDropdown">
+                <button type="button" class="multiDropdown__btn"></button>
+                <div class="multiDropdown__panel hidden">
+                  <label class="filterCheck"><input type="checkbox" value="在庫中"> 在庫中</label>
+                  <label class="filterCheck"><input type="checkbox" value="販売済み"> 販売済み</label>
+                </div>
               </div>
             </div>
           </div>
