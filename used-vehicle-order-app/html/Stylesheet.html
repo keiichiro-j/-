@@ -37,11 +37,21 @@
     --primary-dark: #102a43;
     --primary-text: #2f6fae;
     --on-primary: #ffffff;
-    --surface: #ffffff;
-    --background: #f4f7fa;
+    /* 現場からの要望「テーマが及ぼす範囲を拡大してほしい（やりすぎな感じで
+       構わない）」を受け、以前はボタン・ヘッダー等の--primary系だけに限られて
+       いたテーマの効果を、ページ全体のトーンにまで広げる。--surface（カード・
+       入力欄の地色）・--background（ページ背景）を固定の白／薄灰色から、
+       選択中のテーマの--primaryをごく薄く混ぜたトーンに変更。color-mix()で
+       var(--primary)を直接参照しているため、JS側の追加対応なしにテーマを
+       切り替えるたびに自動で再計算される。混ぜる割合はごく少量（3〜8%）に
+       とどめ、白背景としての機能（可読性・.badge等の地色としての中立性）は
+       保ったまま、画面のどこにいてもうっすらテーマ色を感じられるようにする。 */
+    --surface: color-mix(in srgb, var(--primary) 4%, #ffffff);
+    --background: color-mix(in srgb, var(--primary) 8%, #f4f7fa);
     --on-surface: #1f2933;
     --on-surface-variant: #6b7785;
-    --outline: #d8e1e8;
+    /* 境界線もテーマ色寄りに（現場からの要望「テーマが及ぼす範囲を拡大」）。 */
+    --outline: color-mix(in srgb, var(--primary) 22%, #d8e1e8);
     --success: #0f6b38;
     --success-bg: rgba(61, 220, 132, .16);
     --warning: #9a3412;
@@ -61,14 +71,20 @@
        .card.is-listedルール参照。詳細モーダル専用）。ステータス色（成功の
        緑・警告のアンバー・業販HOLDの紫）と重ならないティール系にする。 */
     --listed-bg: rgba(20, 184, 166, .14);
+    /* 影の色も固定の濃紺グレーから、選択中のテーマの--primaryを混ぜた色に
+       変更する（現場からの要望「テーマが及ぼす範囲を拡大」）。まず--primaryを
+       元の濃紺（#101f33）に混ぜて色味だけを決め（--shadow-color、常に不透明）、
+       そのうえで各層ごとに必要な薄さだけtransparentへさらに混ぜることで、
+       元の影と同じ濃さ（9%・7%・12%・16%）を保ったまま色味だけテーマ寄りにする。 */
+    --shadow-color: color-mix(in srgb, var(--primary) 32%, #101f33);
     /* カード・バッジ等の通常時の影。近い光源による輪郭のはっきりした影
        （1層目）と、遠くから回り込む柔らかい影（2層目）を重ねることで、
        単層の影よりも自然な「紙が浮いている」奥行きを出す（現場からの要望
        「影の付け方に奥行きを持たせたい」）。 */
-    --shadow: 0 1px 2px rgba(16, 31, 51, .09), 0 4px 10px rgba(16, 31, 51, .07);
+    --shadow: 0 1px 2px color-mix(in srgb, var(--shadow-color) 9%, transparent), 0 4px 10px color-mix(in srgb, var(--shadow-color) 7%, transparent);
     /* ホバー時等、さらに持ち上がった状態の影。--shadowと同じ2層構成のまま、
        それぞれの層を強めている。 */
-    --shadow-elevated: 0 4px 10px rgba(16, 31, 51, .12), 0 16px 40px rgba(16, 31, 51, .16);
+    --shadow-elevated: 0 4px 10px color-mix(in srgb, var(--shadow-color) 12%, transparent), 0 16px 40px color-mix(in srgb, var(--shadow-color) 16%, transparent);
     /* 公式サイトはカードの角丸をあまり強調しないフラットな見た目のため、
        従来の14pxより控えめな角丸にして「エンジニアリングされた精密さ」を出す。 */
     --radius: 8px;
@@ -119,6 +135,29 @@
   body.has-announcement { --topbar-h: 204px; }
 
   * { box-sizing: border-box; }
+
+  /* 現場からの要望「テーマが及ぼす範囲を拡大してほしい」を受けた追加分。
+     スクロールバーの配色（対応ブラウザのみ。Firefoxはscrollbar-color、
+     Chrome/Edge/Safariは::-webkit-scrollbar系）と、テキスト選択時の
+     ハイライト色を、選択中のテーマの--primaryに連動させる。横スクロールを
+     フェードマスクで隠している.tabs・.scrollerは、display: noneでスクロール
+     バー自体を消す指定のほうがこのルールより詳細度が高く優先されるため、
+     この指定と競合しない。 */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--primary) 55%, white) transparent;
+  }
+  *::-webkit-scrollbar { width: 9px; height: 9px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--primary) 55%, white);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover { background: var(--primary); background-clip: padding-box; }
+  ::selection { background: color-mix(in srgb, var(--primary) 35%, white); }
+
   /* デザインリニューアル（ショールーム・ライト案）: 本文・UI文字は和文・欧文
      とも Noto Sans JP（Index.htmlでGoogle Fontsから読み込み）に統一し、
      OS標準フォントへのフォールバックに依存せず閲覧環境による印象のばらつきを
@@ -247,7 +286,7 @@
      （「アプリシェル」化されておりページ自体はスクロールしない構造、
      Stylesheet.html内の@media (min-width: 901px)ブロック参照）では
      window.scrollYが常に0のままのため、この影は付かない。 */
-  body.is-scrolled .topbar { box-shadow: 0 2px 10px rgba(16, 31, 51, .18); }
+  body.is-scrolled .topbar { box-shadow: 0 2px 10px color-mix(in srgb, var(--shadow-color) 18%, transparent); }
   .topbar__brandRow {
     position: relative;
     display: flex;
@@ -485,7 +524,7 @@
     gap: 12px;
     transition: box-shadow .2s var(--ease);
   }
-  body.is-scrolled .commandbar { box-shadow: 0 2px 10px rgba(16, 31, 51, .08); }
+  body.is-scrolled .commandbar { box-shadow: 0 2px 10px color-mix(in srgb, var(--shadow-color) 8%, transparent); }
   .searchrow { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
   .searchbox {
     flex: 1 1 320px;
@@ -1341,6 +1380,19 @@
   /* デモカーリスト・サービス代車リストの「販売済み」バッジ（carTrackingBadgeHtml_、
      JavaScript.html参照）。「在庫中」はbadge--availableをそのまま流用する。 */
   .badge--sold { background: rgba(31, 41, 51, .06); color: var(--on-surface-variant); }
+  /* 現場からの要望「テーマが及ぼす範囲を拡大してほしい」を受け、状態バッジ
+     （在庫あり・Hold中・業販HOLD中・販売済み）の左端に選択中のテーマカラーの
+     アクセント線を添える。状態の意味を表す地色・文字色（成功の緑・警告の
+     アンバー・業販HOLD専用の紫・売却済みのグレー）自体はそのまま維持し、
+     見分けやすさを壊さない（--hold-specialが「テーマ設定の影響を受けない
+     固定色」としている方針とも矛盾しない。アクセント線は地色とは別に足す
+     だけのため）。掲載状況・拠点等のバッジ（badge--listed・badge--location等）は
+     既に--primary-bg等で全体がテーマ連動しているため対象外。 */
+  .badge--available, .badge--hold, .badge--holdSpecial, .badge--sold {
+    border-left: 3px solid var(--primary);
+    border-radius: 2px 3px 3px 2px;
+    padding-left: 9px;
+  }
   /* 掲載バッジ（未掲載／片方のみ掲載／両方掲載）。ステータスバッジと並べて
      表示するため、行・カードの背景色（is-listed）と重ならないティール系にする
      （listedBadgeHtml_、JavaScript.html参照。未掲載の場合はバッジ自体を出さない）。 */

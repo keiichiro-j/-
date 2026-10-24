@@ -4010,6 +4010,14 @@
     // テーマのprimaryDarkに合わせる（現場からの要望で、テーマを切り替えると
     // ローディング画面の背景色も連動して変わるようにしている）。
     root.setProperty('--loading-bg', preset.primaryDark);
+    // 現場からの要望「テーマが及ぼす範囲を拡大してほしい」を受け、スマホの
+    // ブラウザ（Chrome・PWA状態含む）のアドレスバー・ステータスバー色
+    // （<meta name="theme-color">、Index.html参照）もヘッダーと同じ
+    // primaryDarkに同期させる。これまでは起動時の固定値（#0b1f33＝steel
+    // プリセット相当）のままで、テーマを切り替えてもスマホの画面最上部だけ
+    // 色が変わらなかった。
+    var themeColorMeta = document.querySelector('meta[name="theme-color"]');
+    if (themeColorMeta) themeColorMeta.setAttribute('content', preset.primaryDark);
   }
 
   function hexToRgb_(hex) {
