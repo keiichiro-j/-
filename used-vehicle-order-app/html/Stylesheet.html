@@ -88,7 +88,7 @@
        高さも合わせて変える。ヘッダー下端のテーマ境界線（.topbarの
        border-bottom: 2px、現場からの要望「ヘッダーとリストの境界にもテーマを
        反映してほしい」）ぶんも含めた実際の高さに揃えている。 */
-    --topbar-h: 100px;
+    --topbar-h: 143px;
     /* お知らせ（#homeAnnouncement）が同じ囲いの中に表示されているとき
        （body.has-announcement、syncHomeAnnouncementVisibility_・JavaScript.html参照）
        は、その分だけ.topbarの実際の高さが伸びるため、--topbar-hもこの状態に
@@ -116,7 +116,7 @@
     --ease: cubic-bezier(.4, 0, .2, 1);
     --ease-out: cubic-bezier(.16, 1, .3, 1);
   }
-  body.has-announcement { --topbar-h: 145px; }
+  body.has-announcement { --topbar-h: 188px; }
 
   * { box-sizing: border-box; }
   /* デザインリニューアル（ショールーム・ライト案）: 本文・UI文字は和文・欧文
@@ -175,11 +175,12 @@
   #app { display: block; }
 
   /* ===== コントロールパネル（.topbar） =====
-     デザインリニューアル: 「タイトル＋お知らせ」と「画面切替タブ＋絞り込み機能」を
-     別のまとまりとして区切りたいという要望を受け、.topbar自体はページ背景色の
-     ままにして、中に浮かぶ.topbar__group（タイトル＋お知らせ、丸角カード）だけが
-     テーマカラーを持つようにする。隙間（.topbarのpadding-bottom）の分だけ
-     ページ背景が見え、カードが物理的に浮いて見える。 */
+     配置の確認（添付の参考画像）どおり、タイトル・お知らせ・画面切替タブを
+     1枚の浮いた丸角カード（.topbar__group）にまとめる。.topbar自体はページ
+     背景色のままにして、中に浮かぶ.topbar__groupだけがテーマカラーを持つ。
+     隙間（.topbarのpadding-bottom）の分だけページ背景が見え、カードの下に
+     続く絞り込み機能・一覧（本ファイル内、.listBody参照）との間に物理的な
+     区切りができる。 */
   .topbar {
     background: var(--background);
     color: var(--on-topbar);
@@ -189,17 +190,16 @@
     /* display: flow-rootで新しいブロック整形コンテキストを作る。これが無いと
        直下の.topbar__groupが持つmargin-top/bottomが.topbarの外側（margin
        collapsing）へ逃げてしまい、.topbarの実際の高さが--topbar-hの想定値より
-       縮んでしまう（下の.tabsBandのsticky offsetとズレて隙間が出る不具合の原因）。 */
+       縮んでしまう（下に続く絞り込み機能・一覧との間隔がズレる不具合の原因）。 */
     display: flow-root;
-    /* タイトルカードと下のタブ帯（.tabsBand）との隙間（現場からの要望
-       「区切りは別で（隙間を空けて物理的に分ける）」）。 */
+    /* カードと下に続く絞り込み機能・一覧との隙間。 */
     padding-bottom: 14px;
     transition: box-shadow .2s var(--ease);
   }
-  /* 不具合修正/現場からの要望「タイトルとお知らせは一つのくくりとして、その囲いを
-     テーマに沿ったカラーが反映するようにしてほしい」を受け、ブランド行（タイトル）と
-     お知らせを1つの囲いにまとめ、選択中のテーマのprimaryDarkを背景にした浮いた
-     丸角カードにする（画面切替タブは.tabsBandへ分離済み、本ファイル内で後方定義）。 */
+  /* 不具合修正/現場からの要望「タイトルとタブとお知らせは一つのくくりとして、
+     その囲いをテーマに沿ったカラーが反映するようにしてほしい」を受け、
+     ブランド行（タイトル）・お知らせ・タブを1つの囲いにまとめ、選択中の
+     テーマのprimaryDarkを背景にした浮いた丸角カードにする。 */
   .topbar__group {
     background: var(--topbar-bg);
     margin: 14px 14px 0;
@@ -207,8 +207,7 @@
     overflow: hidden;
     box-shadow: var(--shadow-elevated);
     /* 現場からの要望「お知らせと下枠との隙間を設けてほしい（わずかで良い）」を受け、
-       グループの最後の要素（ブランド行、またはお知らせ表示中はお知らせ）と下辺との
-       間にわずかな余白を持たせる。 */
+       グループの最後の要素（タブ）と下辺との間にわずかな余白を持たせる。 */
     padding-bottom: 8px;
   }
   /* 不具合修正/現場からの要望「販売可能リストとタブとの間の線を消してほしい。
@@ -300,29 +299,11 @@
      （center揃えのオーバーフローはブラウザにより両端が均等に見切れる）。
      safe centerにすることで、はみ出す場合だけ自動的に先頭揃えにフォールバック
      させ、常に最初のタブから確実にスクロールで辿り着けるようにする。 */
-  /* ===== タブ帯（.tabsBand） =====
-     デザインリニューアル: 画面切替タブは「タイトル＋お知らせ」のカード（.topbar__group）
-     の外に出し、絞り込み機能（各viewの先頭、aside.filterSidebar参照）と同じ
-     トーン（primaryDarkにprimaryを30%混ぜた中間色）の帯にする。絞り込み機能を
-     持つ画面では、この帯の直下に絞り込み機能の帯が隙間なく続き、1つながりの
-     「操作エリア」に見える（絞り込み機能を持たない画面では、この帯の下に白い
-     本文が続く）。--topbar-hぶん下にposition: stickyで固定し、タイトルカードを
-     スクロールで隠れさせつつタブは常に手が届く位置に残す。 */
-  .tabsBand {
-    position: sticky;
-    top: var(--topbar-h);
-    z-index: 14;
-    background: color-mix(in srgb, var(--primary) 30%, var(--primary-dark) 70%);
-    margin: 0 14px;
-    border-radius: var(--radius) var(--radius) 0 0;
-    transition: box-shadow .2s var(--ease);
-  }
-  body.is-scrolled .tabsBand { box-shadow: 0 2px 10px rgba(16, 31, 51, .18); }
   .tabs {
     display: flex;
     justify-content: safe center;
     gap: 24px;
-    padding: 10px 20px 12px;
+    padding: 0 20px 12px;
     overflow-x: auto;
     scrollbar-width: none;
   }
@@ -363,18 +344,17 @@
   }
 
   @media (min-width: 901px) {
-    /* ブランド行のpaddingを広げる分、.tabsBand側のsticky offset（top: var(--topbar-h)）
-       もこの実測値に合わせて更新する（ズレるとスクロール時に隙間または重なりが
-       出る）。 */
-    :root { --topbar-h: 118px; }
-    body.has-announcement { --topbar-h: 163px; }
+    /* ブランド行・タブ行のpaddingを広げる分、下に続く絞り込み機能・一覧の
+       間隔の基準になる--topbar-hもこの実測値に合わせて更新する。 */
+    :root { --topbar-h: 164px; }
+    body.has-announcement { --topbar-h: 209px; }
     .topbar__brandRow { padding: 20px 32px; }
     .topbar__navBtn { width: 42px; height: 42px; }
     .topbar__logo { height: 30px; max-width: 160px; }
     .topbar__brandText { font-size: 16px; }
     .topbar__user { font-size: 13px; max-width: 220px; }
     .topbar__userEmail { display: block; font-size: 11.5px; }
-    .tabs { gap: 32px; padding: 10px 32px 14px; }
+    .tabs { gap: 32px; padding: 0 32px 14px; }
     .tabs__item { font-size: 13px; }
   }
 
@@ -493,33 +473,6 @@
     transition: box-shadow .2s var(--ease);
   }
   body.is-scrolled .commandbar { box-shadow: 0 2px 10px rgba(16, 31, 51, .08); }
-  /* デザインリニューアル: 絞り込みサイドバーを持つ一覧（在庫リスト）では、
-     コマンドバー（並び替え等）も絞り込みサイドバーと同じ「絞り込みコントロール
-     パネル」の一部とみなし、ヘッダーより一段明るいテーマカラー（--primary、
-     サイドバーと同じ色）にして、ヘッダー（--topbar-bg）からサイドバーへ続く
-     L字の帯を途切れさせない。絞り込みサイドバーを持たないマイページの
-     コマンドバーは対象外（従来どおりの白背景のまま）。 */
-  .view--list .commandbar {
-    /* デザインリニューアル: タブ帯（.tabsBand）・絞り込み機能（.filterSidebar）と
-       同じ横幅（margin 0 14px）にして隙間なく続け、1つながりの帯に見せる。
-       常時固定表示（position: sticky）はタブ帯だけに任せ、このバーは絞り込み
-       機能と同じく通常のページスクロールに戻す。 */
-    position: static;
-    background: color-mix(in srgb, var(--primary) 30%, var(--primary-dark) 70%);
-    color: #fff;
-    margin: 0 14px;
-    border-bottom: none;
-  }
-  .view--list .commandbar .sortField { color: rgba(255, 255, 255, .85); }
-  .view--list .commandbar select.input {
-    background-color: transparent;
-    border: none;
-    border-bottom: 1px solid rgba(255, 255, 255, .3);
-    border-radius: 0;
-    color: #fff;
-    padding-left: 2px;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='%23ffffff'%3E%3Cpath d='M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z'/%3E%3C/svg%3E");
-  }
   .searchrow { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
   .searchbox {
     flex: 1 1 320px;
@@ -787,81 +740,42 @@
   .staffList__summaryThumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
   /* ===== 絞り込み機能（在庫・受注・業販受注・デモカー・サービス代車・ホーム共通） =====
-     デザインリニューアル: 画面切替タブ（.tabsBand）の直下に隙間なく続く横表示の
-     帯にする（以前の左サイドバーから変更。項目・絞り込みロジック自体は変更
-     していない）。.tabsBandと同じトーン（primaryDarkにprimaryを30%混ぜた
-     中間色）・同じ横幅（margin 0 14px）にして1つながりの帯に見せ、下端だけ
-     角丸にする（上端は.tabsBandの角丸と繋がるため角丸なし）。項目数が多い
-     画面では折り返す（flex-wrap）。一覧本体（.listBody__main）はその下に
-     普通にページスクロールする1カラムとして続く（以前のPC/タブレット幅
-     「アプリシェル」固定レイアウトは、縦のサイドバーが無くなったことに伴い
-     廃止した）。 */
-  .listBody { min-width: 0; }
-  .listBody__main { min-width: 0; margin: 16px 14px; }
-  /* 不具合修正/現場からの要望「絞り込み機能背景を濃いテーマカラーにしてほしい。
-     それに合わせて文字も読みやすくしてほしい」を受け、帯全体の背景をテーマ
-     カラーにし、内部の文字・入力欄も白系の配色に揃える（このブロック以降、
-     filterSidebar配下の各要素のダーク配色の上書きが続く）。
-     デザインリニューアル: ヘッダー（--topbar-bg、primaryDark）とタブ・絞り込み
-     帯のトーンを変える現場からの要望を受け、この帯はヘッダーより一段明るい
-     色にする。ただしテーマのprimary（中間色）をそのまま使うと、暖色系の
-     テーマ（amber等）で白文字のコントラストがWCAG AA基準を割り込むため
-     （実測、本ファイル内のコメント参照）、primaryDarkに30%だけprimaryを
-     混ぜた中間トーンにし、見た目の違いを保ちながら基準を満たす（白文字側も
-     このトーンに合わせて不透明度を85%まで上げている。下の各要素参照）。 */
-  .filterSidebar {
-    background: color-mix(in srgb, var(--primary) 30%, var(--primary-dark) 70%);
-    color: #fff;
-    margin: 0 14px;
-    border-radius: 0 0 var(--radius) var(--radius);
-    padding: 14px 20px 16px;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    gap: 14px 20px;
+     配置の確認（添付の参考画像）どおり、PC・タブレット幅では左の細い縦カラム
+     （ラベル→値を積んだ静かな項目一覧）、右に一覧という2カラム構成に戻す
+     （横表示の帯だった配置を取りやめ）。色については別途検討のため、ここでは
+     ページと同じ配色（背景は塗らず、文字は通常の本文と同じ中立グレー）にする。
+     スマホ・タブレット幅（900px以下）では、これまでどおり絞り込み・一覧とも
+     ページ本文と一緒に縦スクロールする1カラムに戻る。 */
+  .listBody {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    padding: 16px;
     min-width: 0;
   }
-  /* 見出し（条件検索）と該当台数は、帯の先頭に置く「項目のひとつ」として扱う。 */
-  .filterSidebar__head { flex: none; display: flex; flex-direction: column; gap: 2px; margin-right: 4px; }
-  .filterSidebar__title { font-size: 11.5px; font-weight: 600; margin: 0; color: #fff; }
+  .listBody__main { min-width: 0; }
+  @media (min-width: 901px) {
+    .listBody { grid-template-columns: 200px minmax(0, 1fr); gap: 28px; padding: 24px; align-items: start; }
+  }
+  .filterSidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    color: var(--on-surface);
+  }
+  .filterSidebar__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .filterSidebar__title { font-size: 12.5px; font-weight: 700; margin: 0; color: var(--on-surface); }
   .filterSidebar__count {
-    font-size: 9.5px;
+    font-size: 10.5px;
     font-weight: 600;
-    /* 不具合修正（アクセシビリティ担当からの指摘）: パネル背景をヘッダーより
-       明るいトーンにしたため（本ファイル内の.filterSidebar参照）、以前の75%
-       では暖色系テーマでWCAG AA基準を割り込む。85%まで上げて基準を満たす。 */
-    color: rgba(255, 255, 255, .85);
+    color: var(--on-surface-variant);
     font-variant-numeric: tabular-nums;
   }
-  /* キーワード検索欄は、横並びの中でも押しつぶされないよう最小幅を確保しつつ
-     余った横幅を優先的に使う。 */
-  .filterSidebar__field { display: flex; flex-direction: column; gap: 4px; flex: 1 1 200px; min-width: 160px; }
+  .filterSidebar__field { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
   .filterSidebar select.input,
   .filterSidebar .input { width: 100%; }
   .filterSidebar select.input { padding-top: 4px; padding-bottom: 4px; }
-  /* 濃い背景の上で読みやすいよう、入力欄・検索欄を半透明の白ベースに差し替える
-     （色自体はテーマの影響を受けない中立な配色。文字色は白で統一）。
-     不具合修正: background（ショートハンド）で指定すると、select.inputの
-     矢印アイコン用のbackground-repeat/background-positionまで初期値に
-     リセットされ、アイコンがタイル状に繰り返し表示されてしまう。
-     background-color（ロングハンド）のみを上書きする。 */
-  .filterSidebar .input,
-  .filterSidebar .searchbox {
-    background-color: rgba(255, 255, 255, .14);
-    border-color: rgba(255, 255, 255, .34);
-    color: #fff;
-  }
-  .filterSidebar .input::placeholder,
-  .filterSidebar .searchbox input::placeholder { color: rgba(255, 255, 255, .85); }
-  .filterSidebar .searchbox input { color: #fff; }
-  .filterSidebar .searchbox .icon--inline { color: rgba(255, 255, 255, .75); }
-  .filterSidebar .searchbox:focus-within { border-color: #fff; box-shadow: none; }
-  /* セレクトの矢印アイコンは色がdata URI内に直接埋め込まれているため
-     （.input select、本ファイル内で前方定義のコメント参照）、濃い背景でも
-     見える白い矢印のアイコンに差し替える。 */
-  .filterSidebar select.input {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='%23ffffff'%3E%3Cpath d='M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z'/%3E%3C/svg%3E");
-  }
   /* デザインリニューアル: 絞り込み項目（.filterSidebar__row直下）のコントロールは、
      塗り＋枠のボックス型をやめ、下線だけのミニマルな見た目にする（検索窓
      .searchboxはこの対象外。従来どおりボックス型のまま）。 */
@@ -870,23 +784,21 @@
   .filterSidebar__row .multiDropdown__btn {
     background-color: transparent;
     border: none;
-    border-bottom: 1px solid rgba(255, 255, 255, .4);
+    border-bottom: 1px solid var(--outline);
     border-radius: 0;
     padding: 3px 16px 3px 2px;
   }
   .filterSidebar__row .input:focus,
   .filterSidebar__row select.input:focus {
     outline: none;
-    border-bottom-color: #fff;
+    border-bottom-color: var(--primary);
   }
   .filterSidebar__row .multiDropdown__btn:hover,
-  .filterSidebar__row .multiDropdown__btn:focus-visible { border-bottom-color: #fff; }
-  .filterSidebar .filterCheck { color: rgba(255, 255, 255, .85); }
-  .filterSidebar .filterCheck__cnt { color: rgba(255, 255, 255, .85); }
+  .filterSidebar__row .multiDropdown__btn:focus-visible { border-bottom-color: var(--primary); }
   .filterSidebar__clearBtn {
     border: none;
     background: none;
-    color: rgba(255, 255, 255, .85);
+    color: var(--on-surface-variant);
     font-size: 12px;
     font-weight: 700;
     text-decoration: underline;
@@ -894,60 +806,42 @@
     cursor: pointer;
     padding: 0;
     flex: none;
-    align-self: center;
     margin-left: auto;
   }
-  .filterSidebar__clearBtn:hover { color: #fff; }
+  .filterSidebar__clearBtn:hover { color: var(--on-surface); }
 
-  /* ===== 絞り込み項目（横1列、折り返し） =====
+  /* ===== 絞り込み項目（1列に1項目、ラベル→値の縦積み） =====
      セレクト・チェックボックス・ラジオ・テキスト入力といった標準の選択式
      コントロールはそのまま使い、各項目を「ラベル（小さく上）＋コントロール
-     （下、下線のみ）」の縦積み1組にして、帯の中に横一列に並べる
-     （syncFilterRowsAndSummary_、JavaScript.html参照）。帯の幅に収まらない
-     分は自動的に折り返す。 */
-  .filterSidebar__rows { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 20px; flex: 1 1 auto; }
-  .filterSidebar__row { display: flex; flex-direction: column; gap: 3px; min-width: 84px; }
-  .filterSidebar__row.is-active .filterSidebar__rowLabel { color: #fff; }
+     （下、下線のみ）」の組として縦1列に並べる
+     （syncFilterRowsAndSummary_、JavaScript.html参照）。 */
+  .filterSidebar__rows { display: flex; flex-direction: column; gap: 14px; margin-top: 10px; }
+  .filterSidebar__row { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .filterSidebar__row.is-active .filterSidebar__rowLabel { color: var(--on-surface); }
   .filterSidebar__row.is-active select.input,
-  .filterSidebar__row.is-active .multiDropdown__btn { border-bottom-color: #fff; }
+  .filterSidebar__row.is-active .multiDropdown__btn { border-bottom-color: var(--primary); }
   .filterSidebar__rowHead { display: flex; align-items: center; }
   /* デザインリニューアル（ショールーム・ライト案）: アイコンは使わず、ラベルの
      小ささ・淡さだけで「補足情報」であることを示すミニマルな見た目にする。 */
   .filterSidebar__rowIcon { display: none; }
   .filterSidebar__rowLabel {
-    font-size: 9px;
+    font-size: 9.5px;
     font-weight: 600;
-    /* 不具合修正（アクセシビリティ担当からの指摘）: パネル背景をヘッダーより
-       明るいトーンにしたため（本ファイル内の.filterSidebar参照）、以前の75%
-       では暖色系テーマでWCAG AA基準を割り込む。85%まで上げて基準を満たす。 */
-    color: rgba(255, 255, 255, .85);
+    color: var(--on-surface-variant);
     letter-spacing: .03em;
-    white-space: nowrap;
   }
-  .filterSidebar__row .filterCheck { padding: 2px 0; }
   .filterSidebar__row select.input,
-  .filterSidebar__row .multiDropdown { min-width: 92px; }
-  /* チェックボックス一覧（区分・現展示拠点・掲載状況等、checkboxFilterOptionsHtml_
-     で生成。項目数が実データ次第で増減する）は、他の項目のような狭い1列には
-     収まらないため、帯の横幅いっぱいを使う独立した行として折り返す
-     （:has()でチェックボックス一覧.filterCheckListを持つ行だけに絞る）。 */
-  .filterSidebar__row:has(.filterCheck) { flex-basis: 100%; min-width: 0; }
+  .filterSidebar__row .multiDropdown { min-width: 0; }
   /* 現場からの要望「絞り込みを大きく分けて見やすくしてほしい」を受け、車両
      そのものの条件（タイプ〜走行距離）と、各リストから統合した管理情報
-     （区分〜販売状況）を見出しで分ける（ホームのみ）。flex-basis: 100%で
-     帯の幅いっぱいを占める「見出し専用の項目」にすることで、折り返しを
-     使って視覚的なグループの区切りを作る。 */
+     （区分〜販売状況）を見出しで分ける（ホームのみ）。 */
   #view-home .filterSidebar__sectionLabel {
-    flex-basis: 100%;
     font-size: 9.5px;
     font-weight: 700;
     letter-spacing: .06em;
     text-transform: uppercase;
-    /* 不具合修正（アクセシビリティ担当からの指摘）: パネル背景をヘッダーより
-       明るいトーンにしたため、以前の75%では暖色系テーマでWCAG AA基準を
-       割り込む。85%まで上げて基準を満たす。 */
-    color: rgba(255, 255, 255, .85);
-    margin: 0;
+    color: var(--on-surface-variant);
+    margin: 4px 0 0;
   }
   #view-home .filterSidebar__sectionLabel--first { margin-top: 0; }
 
@@ -959,13 +853,12 @@
   .multiDropdown { position: relative; }
   .multiDropdown__btn {
     display: block; width: 100%; text-align: left; font-family: inherit;
-    border: 1px solid rgba(255, 255, 255, .26); border-radius: 8px; padding: 4px 24px 4px 8px;
-    background-color: rgba(255, 255, 255, .1); color: #fff; font-size: 11px; cursor: pointer;
+    border: 1px solid var(--outline); border-radius: 8px; padding: 4px 24px 4px 8px;
+    background-color: var(--surface); color: var(--on-surface); font-size: 11px; cursor: pointer;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='%23ffffff'%3E%3Cpath d='M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z'/%3E%3C/svg%3E");
     background-repeat: no-repeat; background-position: right 8px center; background-size: 10px;
   }
-  .multiDropdown__btn:hover { border-color: #fff; }
+  .multiDropdown__btn:hover { border-color: var(--primary); }
   /* 不具合修正: ポップオーバーを行の真下に開く向きだと、他の行（特に密に
      並んだすぐ下の行）に重なってクリックを奪ってしまっていた。パネルの右側
      （一覧側の広いエリア）に開く向きにすることで、他の行と重ならないようにする。 */
@@ -977,21 +870,18 @@
   }
   .multiDropdown__panel .filterCheck { color: var(--on-surface); font-size: 12px; }
 
-  /* デザインリニューアル: 絞り込み機能が横表示の帯になったことに合わせ、
-     チェックボックス一覧（区分・現展示拠点等、checkboxFilterOptionsHtml_で
-     生成）も縦積みではなく横に並べて折り返す。件数が多くても帯の横幅の中で
-     折り返すだけで、縦に際限なく伸びることはない（最大高さ＋内部スクロールは
-     不要になったため廃止）。 */
+  /* チェックボックス一覧（区分・現展示拠点等、checkboxFilterOptionsHtml_で生成。
+     件数は実データ次第で増減する）は縦1列の中で項目数が可変なため、内部で
+     折り返す横並びにして場所を節約する。グループ化（受注・業販受注リストの
+     月ごと／拠点ごと等）のように専用クラスを持たないチェック/ラジオの一覧も
+     同じ扱いにする。 */
   .filterCheckList,
-  /* グループ化（受注・業販受注リストの月ごと／拠点ごと等）のように、専用クラスを
-     持たないチェック/ラジオの一覧コンテナも同じ横並びにする。 */
-  .filterSidebar__row > div:has(> .filterCheck) { display: flex; flex-wrap: wrap; column-gap: 18px; row-gap: 4px; }
+  .filterSidebar__row > div:has(> .filterCheck) { display: flex; flex-wrap: wrap; column-gap: 14px; row-gap: 4px; }
 
-  /* 絞り込み中サマリー（帯の上部に伸びるタグ一覧）。セレクト・ラジオ・チェック
+  /* 絞り込み中サマリー（パネル上部のタグ一覧）。セレクト・ラジオ・チェック
      ボックス・テキスト入力いずれの絞り込みも、除去可能なタグとしてまとめて
-     表示する（collectFilterRowEntries_、JavaScript.html参照）。横表示の帯の
-     中では、他の項目と並べず常に専用の1行として表示する。 */
-  .filterSidebar__activeBar { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+     表示する（collectFilterRowEntries_、JavaScript.html参照）。 */
+  .filterSidebar__activeBar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; }
   .filterSidebar__activeChip {
     display: inline-flex; align-items: center; gap: 5px; max-width: 100%;
     background: var(--primary); color: var(--on-primary);
@@ -1001,23 +891,12 @@
   .filterSidebar__activeChip .label { overflow-wrap: anywhere; }
   .filterSidebar__activeChip .x { opacity: .85; font-size: 12px; line-height: 1; flex: none; }
   .filterSidebar__activeClearAll {
-    /* 不具合修正（アクセシビリティ担当からの指摘）: パネル背景をヘッダーより
-       明るいトーンにしたため、以前の70%では暖色系テーマでWCAG AA基準を
-       割り込む。85%まで上げて基準を満たす。 */
-    font-size: 11.5px; color: rgba(255, 255, 255, .85); text-decoration: underline;
+    font-size: 11.5px; color: var(--on-surface-variant); text-decoration: underline;
     text-underline-offset: 2px; cursor: pointer; background: none; border: none;
     font-family: inherit; padding: 0; white-space: nowrap;
   }
-  .filterSidebar__activeClearAll:hover { color: #fff; }
-  .filterSidebar__activeEmpty { font-size: 11.5px; color: rgba(255, 255, 255, .85); }
-
-  /* デザインリニューアル: 絞り込み機能が縦サイドバーから横表示の帯に変わった
-     ことに伴い、PC・タブレット幅専用だった「アプリシェル」固定レイアウト
-     （ヘッダー下の残り高さぴったりに固定し、一覧側だけが内部スクロールする
-     構造）は廃止した。縦のサイドバーが無くなり、一覧の高さをそれに合わせて
-     揃える必要が無くなったため、画面幅に関わらずページ全体が普通に縦
-     スクロールするシンプルな1カラム構成にする（タブ帯.tabsBandだけは
-     引き続きposition: stickyで画面上部に固定表示する）。 */
+  .filterSidebar__activeClearAll:hover { color: var(--on-surface); }
+  .filterSidebar__activeEmpty { font-size: 11.5px; color: var(--on-surface-variant); }
 
   .filterCheck { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--on-surface); cursor: pointer; padding: 2px 0; }
   /* 不具合修正: チェックボックスはaccent-colorでテーマカラーに揃えていたが、
