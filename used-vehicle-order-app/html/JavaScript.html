@@ -785,7 +785,7 @@
     return m ? Number(m[1]) : null;
   }
   var YEAR_BUCKET_OPTIONS = [
-    { value: '', label: '指定なし' },
+    { value: '', label: '' },
     { value: 'recent', label: '2年以内' },
     { value: 'mid', label: '3〜5年' },
     { value: 'old', label: '6〜10年' },
@@ -801,7 +801,7 @@
     return 'veryOld';
   }
   var PRICE_BUCKET_OPTIONS = [
-    { value: '', label: '指定なし' },
+    { value: '', label: '' },
     { value: 'p1', label: '300万円以下' },
     { value: 'p2', label: '300〜500万円' },
     { value: 'p3', label: '500〜800万円' },
@@ -816,7 +816,7 @@
     return 'p4';
   }
   var MILEAGE_BUCKET_OPTIONS = [
-    { value: '', label: '指定なし' },
+    { value: '', label: '' },
     { value: 'm1', label: '1万km以下' },
     { value: 'm2', label: '1〜3万km' },
     { value: 'm3', label: '3〜5万km' },
@@ -1229,7 +1229,7 @@
     colors.sort();
     var colorSelect = $('homeColorFilter');
     var currentColor = state.homeFilters.color;
-    colorSelect.innerHTML = '<option value="">指定なし</option>' + colors.map(function (c) {
+    colorSelect.innerHTML = '<option value=""></option>' + colors.map(function (c) {
       return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>';
     }).join('');
     colorSelect.value = colors.indexOf(currentColor) !== -1 ? currentColor : '';
@@ -1368,7 +1368,7 @@
     colors.sort();
     var colorSelect = $('inventoryColorFilter');
     var currentColor = state.inventoryFilters.color;
-    colorSelect.innerHTML = '<option value="">指定なし</option>' + colors.map(function (c) {
+    colorSelect.innerHTML = '<option value=""></option>' + colors.map(function (c) {
       return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>';
     }).join('');
     colorSelect.value = colors.indexOf(currentColor) !== -1 ? currentColor : '';
@@ -2197,7 +2197,7 @@
   // ため、いくつ選んでもパネル全体の高さに影響しない）。
   var homeMultiDropdowns_ = [];
   function homeMultiDropdownLabel_(values, labelMap) {
-    if (!values.length) return '指定なし';
+    if (!values.length) return '';
     var first = labelMap ? (labelMap[values[0]] || values[0]) : (values[0] || '未設定');
     return values.length === 1 ? first : (first + ' 他' + (values.length - 1) + '件');
   }
@@ -3393,7 +3393,7 @@
       .map(function (s) { return s.name; })
       .filter(function (n) { return n; });
     select.innerHTML = '';
-    select.appendChild(new Option('担当者：すべて', ''));
+    select.appendChild(new Option('', ''));
     names.forEach(function (n) { select.appendChild(new Option(n, n)); });
     if (names.indexOf(current) !== -1) select.value = current;
   }
@@ -3412,7 +3412,7 @@
       if (loc && locations.indexOf(loc) === -1) locations.push(loc);
     });
     select.innerHTML = '';
-    select.appendChild(new Option('拠点：すべて', ''));
+    select.appendChild(new Option('', ''));
     locations.forEach(function (loc) { select.appendChild(new Option(loc, loc)); });
     if (locations.indexOf(current) !== -1) select.value = current;
   }
@@ -3502,7 +3502,7 @@
       colors.sort();
       var colorSelect = $(opts.colorFilterId);
       var f = state[opts.filtersKey];
-      colorSelect.innerHTML = '<option value="">指定なし</option>' + colors.map(function (c) {
+      colorSelect.innerHTML = '<option value=""></option>' + colors.map(function (c) {
         return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>';
       }).join('');
       colorSelect.value = colors.indexOf(f.color) !== -1 ? f.color : '';
@@ -4395,7 +4395,7 @@
     var options = (state.bootstrap && state.bootstrap.modelBodyTypeOptions) || [];
     var current = state.homeBodyTypeFilter;
     var sel = $('homeTypeFilter');
-    sel.innerHTML = '<option value="">すべて</option>' + options.map(function (t) {
+    sel.innerHTML = '<option value=""></option>' + options.map(function (t) {
       return '<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + '</option>';
     }).join('');
     sel.value = options.indexOf(current) !== -1 ? current : '';
