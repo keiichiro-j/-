@@ -207,36 +207,6 @@
           </div>
           <div class="topbar__user" id="topbarUser">?</div>
         </div>
-        <!-- 不具合修正（ビジュアル担当チームからの指摘）: タブ行が横スクロール
-             可能なことを示す手がかりが、背景色と同化しがちな縁のフェード
-             （mask-image、initScrollFade_参照）だけに頼っていたため、特に
-             スマホ幅でまだ隠れているタブ（マイページ以降）に気づきにくかった。
-             右端にフェードより強い手がかりとして矢印（.tabs__moreHint）を重ね、
-             右方向にまだスクロールできるときだけ表示する
-             （initScrollFade_内でtabs__wrap--hasMoreRightを付け外しする）。
-             クリックを奪わないようpointer-events: noneにする。 -->
-        <div class="tabs__wrap">
-          <nav class="tabs" id="topbarTabs" role="tablist" aria-label="画面切替">
-            <button class="navBtn tabs__item is-active" data-tab="home" type="button">ホーム</button>
-            <button class="navBtn tabs__item" data-tab="inventory" type="button">在庫リスト</button>
-            <button class="navBtn tabs__item" data-tab="orders" type="button">受注リスト</button>
-            <!-- 業販受注リストは、管理者権限を持つ担当者にのみ表示する
-                 （renderSettingsが.navBtn--adminOnlyクラスのhiddenを一括で切り替える、
-                 JavaScript.html参照）。デモカーリスト・サービス代車リストは、以前は
-                 同じ管理者限定だったが、現場からの要望「デモカー、サービス代車リストも
-                 全員が見れるようにしてほしい」を受けて全担当者に公開した
-                 （.navBtn--adminOnlyを付けない。閲覧専用の一覧でHold・受注確定等の
-                 操作は無いため、全員に見せても支障が無い）。設定タブの直前に表示する
-                 （現場からの要望）。 -->
-            <button class="navBtn tabs__item navBtn--adminOnly hidden" data-tab="wholesaleOrders" type="button">業販受注リスト</button>
-            <button class="navBtn tabs__item" data-tab="mypage" type="button">マイページ</button>
-            <button class="navBtn tabs__item" data-tab="demoCarList" type="button">デモカーリスト</button>
-            <button class="navBtn tabs__item" data-tab="serviceCarList" type="button">サービス代車リスト</button>
-            <button class="navBtn tabs__item" data-tab="settings" type="button">設定</button>
-          </nav>
-          <span class="tabs__moreHint tabs__moreHint--left" aria-hidden="true">‹</span>
-          <span class="tabs__moreHint tabs__moreHint--right" aria-hidden="true">›</span>
-        </div>
         <div class="homeAnnouncement hidden" id="homeAnnouncement"></div>
       </div>
       <div class="integrityBanner hidden" id="integrityBanner">
@@ -248,6 +218,45 @@
       </div>
       <ul class="integrityBanner__list hidden" id="integrityBannerList"></ul>
     </header>
+
+    <!-- デザインリニューアル: 「タイトル＋お知らせ」（上のheader）と「画面切替タブ＋
+         絞り込み機能」を別のまとまりとして区切りたいという要望を受け、タブ行は
+         header（浮いた丸角カード）の外に出し、絞り込み機能（各viewの先頭、
+         aside.filterSidebar）と同じトーンの帯にまとめる。タブ行自体は
+         position: stickyで画面上部（header分の高さ）に固定し続ける
+         （--topbar-h、Stylesheet.html参照）。 -->
+    <nav class="tabsBand" id="tabsBand">
+      <!-- 不具合修正（ビジュアル担当チームからの指摘）: タブ行が横スクロール
+           可能なことを示す手がかりが、背景色と同化しがちな縁のフェード
+           （mask-image、initScrollFade_参照）だけに頼っていたため、特に
+           スマホ幅でまだ隠れているタブ（マイページ以降）に気づきにくかった。
+           右端にフェードより強い手がかりとして矢印（.tabs__moreHint）を重ね、
+           右方向にまだスクロールできるときだけ表示する
+           （initScrollFade_内でtabs__wrap--hasMoreRightを付け外しする）。
+           クリックを奪わないようpointer-events: noneにする。 -->
+      <div class="tabs__wrap">
+        <div class="tabs" id="topbarTabs" role="tablist" aria-label="画面切替">
+          <button class="navBtn tabs__item is-active" data-tab="home" type="button">ホーム</button>
+          <button class="navBtn tabs__item" data-tab="inventory" type="button">在庫リスト</button>
+          <button class="navBtn tabs__item" data-tab="orders" type="button">受注リスト</button>
+          <!-- 業販受注リストは、管理者権限を持つ担当者にのみ表示する
+               （renderSettingsが.navBtn--adminOnlyクラスのhiddenを一括で切り替える、
+               JavaScript.html参照）。デモカーリスト・サービス代車リストは、以前は
+               同じ管理者限定だったが、現場からの要望「デモカー、サービス代車リストも
+               全員が見れるようにしてほしい」を受けて全担当者に公開した
+               （.navBtn--adminOnlyを付けない。閲覧専用の一覧でHold・受注確定等の
+               操作は無いため、全員に見せても支障が無い）。設定タブの直前に表示する
+               （現場からの要望）。 -->
+          <button class="navBtn tabs__item navBtn--adminOnly hidden" data-tab="wholesaleOrders" type="button">業販受注リスト</button>
+          <button class="navBtn tabs__item" data-tab="mypage" type="button">マイページ</button>
+          <button class="navBtn tabs__item" data-tab="demoCarList" type="button">デモカーリスト</button>
+          <button class="navBtn tabs__item" data-tab="serviceCarList" type="button">サービス代車リスト</button>
+          <button class="navBtn tabs__item" data-tab="settings" type="button">設定</button>
+        </div>
+        <span class="tabs__moreHint tabs__moreHint--left" aria-hidden="true">‹</span>
+        <span class="tabs__moreHint tabs__moreHint--right" aria-hidden="true">›</span>
+      </div>
+    </nav>
 
     <!-- ホーム: 以前あった「車両画像ギャラリー」を、現在のヘッダー・コマンドバー構成に
          合わせて再実装したもの。設定タブ（管理者限定）で登録した車両画像を、型

@@ -88,7 +88,7 @@
        高さも合わせて変える。ヘッダー下端のテーマ境界線（.topbarの
        border-bottom: 2px、現場からの要望「ヘッダーとリストの境界にもテーマを
        反映してほしい」）ぶんも含めた実際の高さに揃えている。 */
-    --topbar-h: 115px;
+    --topbar-h: 100px;
     /* お知らせ（#homeAnnouncement）が同じ囲いの中に表示されているとき
        （body.has-announcement、syncHomeAnnouncementVisibility_・JavaScript.html参照）
        は、その分だけ.topbarの実際の高さが伸びるため、--topbar-hもこの状態に
@@ -116,7 +116,7 @@
     --ease: cubic-bezier(.4, 0, .2, 1);
     --ease-out: cubic-bezier(.16, 1, .3, 1);
   }
-  body.has-announcement { --topbar-h: 160px; }
+  body.has-announcement { --topbar-h: 145px; }
 
   * { box-sizing: border-box; }
   /* デザインリニューアル（ショールーム・ライト案）: 本文・UI文字は和文・欧文
@@ -175,11 +175,13 @@
   #app { display: block; }
 
   /* ===== コントロールパネル（.topbar） =====
-     背景色は選択中のテーマ（表示設定）に連動する（--topbar-bg、:root・
-     applyTheme参照）。ブランド行（戻る／更新ボタン・ロゴ＋アプリ名・担当者情報）と、
-     その下の水平タブ行の2段構成。 */
+     デザインリニューアル: 「タイトル＋お知らせ」と「画面切替タブ＋絞り込み機能」を
+     別のまとまりとして区切りたいという要望を受け、.topbar自体はページ背景色の
+     ままにして、中に浮かぶ.topbar__group（タイトル＋お知らせ、丸角カード）だけが
+     テーマカラーを持つようにする。隙間（.topbarのpadding-bottom）の分だけ
+     ページ背景が見え、カードが物理的に浮いて見える。 */
   .topbar {
-    background: var(--topbar-bg);
+    background: var(--background);
     color: var(--on-topbar);
     position: sticky;
     top: 0;
@@ -187,27 +189,25 @@
     /* display: flow-rootで新しいブロック整形コンテキストを作る。これが無いと
        直下の.topbar__groupが持つmargin-top/bottomが.topbarの外側（margin
        collapsing）へ逃げてしまい、.topbarの実際の高さが--topbar-hの想定値より
-       縮んでしまう（コマンドバーのsticky offsetとズレて隙間が出る不具合の原因）。 */
+       縮んでしまう（下の.tabsBandのsticky offsetとズレて隙間が出る不具合の原因）。 */
     display: flow-root;
+    /* タイトルカードと下のタブ帯（.tabsBand）との隙間（現場からの要望
+       「区切りは別で（隙間を空けて物理的に分ける）」）。 */
+    padding-bottom: 14px;
     transition: box-shadow .2s var(--ease);
   }
-  /* 不具合修正/現場からの要望「タイトルとタブとお知らせは一つのくくりとして、
-     その囲いをテーマに沿ったカラーが反映するようにしてほしい」を受け、
-     ブランド行（タイトル）とタブを1つの囲いにまとめ、選択中のテーマの
-     アクセント色（--primary）の枠線で強調する（以前は.topbar自体の下端にだけ
-     2px線を引いていたが、この囲いの枠線に統合した）。--topbar-hは、この
-     margin・borderぶんを含めた実測値に更新している（下の@media (min-width: 901px)
-     も参照）。 */
+  /* 不具合修正/現場からの要望「タイトルとお知らせは一つのくくりとして、その囲いを
+     テーマに沿ったカラーが反映するようにしてほしい」を受け、ブランド行（タイトル）と
+     お知らせを1つの囲いにまとめ、選択中のテーマのprimaryDarkを背景にした浮いた
+     丸角カードにする（画面切替タブは.tabsBandへ分離済み、本ファイル内で後方定義）。 */
   .topbar__group {
-    /* デザインリニューアル: ヘッダーを絞り込みサイドバーと直接つなげてL字に
-       囲む構成にするため、以前の「浮いた丸角カード」（margin・border-radius・
-       box-shadow）は廃止し、ヘッダー全体を画面端いっぱいのフラットな帯にする
-       （.topbar自体が持つ背景色がそのまま端まで塗られる）。 */
-    margin: 0;
-    border-radius: 0;
-    box-shadow: none;
+    background: var(--topbar-bg);
+    margin: 14px 14px 0;
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-elevated);
     /* 現場からの要望「お知らせと下枠との隙間を設けてほしい（わずかで良い）」を受け、
-       グループの最後の要素（タブ、またはお知らせ表示中はお知らせ）と下辺の枠線との
+       グループの最後の要素（ブランド行、またはお知らせ表示中はお知らせ）と下辺との
        間にわずかな余白を持たせる。 */
     padding-bottom: 8px;
   }
@@ -300,11 +300,29 @@
      （center揃えのオーバーフローはブラウザにより両端が均等に見切れる）。
      safe centerにすることで、はみ出す場合だけ自動的に先頭揃えにフォールバック
      させ、常に最初のタブから確実にスクロールで辿り着けるようにする。 */
+  /* ===== タブ帯（.tabsBand） =====
+     デザインリニューアル: 画面切替タブは「タイトル＋お知らせ」のカード（.topbar__group）
+     の外に出し、絞り込み機能（各viewの先頭、aside.filterSidebar参照）と同じ
+     トーン（primaryDarkにprimaryを30%混ぜた中間色）の帯にする。絞り込み機能を
+     持つ画面では、この帯の直下に絞り込み機能の帯が隙間なく続き、1つながりの
+     「操作エリア」に見える（絞り込み機能を持たない画面では、この帯の下に白い
+     本文が続く）。--topbar-hぶん下にposition: stickyで固定し、タイトルカードを
+     スクロールで隠れさせつつタブは常に手が届く位置に残す。 */
+  .tabsBand {
+    position: sticky;
+    top: var(--topbar-h);
+    z-index: 14;
+    background: color-mix(in srgb, var(--primary) 30%, var(--primary-dark) 70%);
+    margin: 0 14px;
+    border-radius: var(--radius) var(--radius) 0 0;
+    transition: box-shadow .2s var(--ease);
+  }
+  body.is-scrolled .tabsBand { box-shadow: 0 2px 10px rgba(16, 31, 51, .18); }
   .tabs {
     display: flex;
     justify-content: safe center;
     gap: 24px;
-    padding: 0 20px 12px;
+    padding: 10px 20px 12px;
     overflow-x: auto;
     scrollbar-width: none;
   }
@@ -345,18 +363,18 @@
   }
 
   @media (min-width: 901px) {
-    /* ブランド行・タブ行のpaddingを広げる分、.commandbar側のsticky offset
-       （top: var(--topbar-h)）もこの実測値に合わせて更新する（ズレると
-       スクロール時に隙間または重なりが出る）。 */
-    :root { --topbar-h: 136px; }
-    body.has-announcement { --topbar-h: 181px; }
+    /* ブランド行のpaddingを広げる分、.tabsBand側のsticky offset（top: var(--topbar-h)）
+       もこの実測値に合わせて更新する（ズレるとスクロール時に隙間または重なりが
+       出る）。 */
+    :root { --topbar-h: 118px; }
+    body.has-announcement { --topbar-h: 163px; }
     .topbar__brandRow { padding: 20px 32px; }
     .topbar__navBtn { width: 42px; height: 42px; }
     .topbar__logo { height: 30px; max-width: 160px; }
     .topbar__brandText { font-size: 16px; }
     .topbar__user { font-size: 13px; max-width: 220px; }
     .topbar__userEmail { display: block; font-size: 11.5px; }
-    .tabs { gap: 32px; padding: 0 32px 14px; }
+    .tabs { gap: 32px; padding: 10px 32px 14px; }
     .tabs__item { font-size: 13px; }
   }
 
@@ -482,8 +500,14 @@
      L字の帯を途切れさせない。絞り込みサイドバーを持たないマイページの
      コマンドバーは対象外（従来どおりの白背景のまま）。 */
   .view--list .commandbar {
+    /* デザインリニューアル: タブ帯（.tabsBand）・絞り込み機能（.filterSidebar）と
+       同じ横幅（margin 0 14px）にして隙間なく続け、1つながりの帯に見せる。
+       常時固定表示（position: sticky）はタブ帯だけに任せ、このバーは絞り込み
+       機能と同じく通常のページスクロールに戻す。 */
+    position: static;
     background: color-mix(in srgb, var(--primary) 30%, var(--primary-dark) 70%);
     color: #fff;
+    margin: 0 14px;
     border-bottom: none;
   }
   .view--list .commandbar .sortField { color: rgba(255, 255, 255, .85); }
@@ -642,21 +666,13 @@
     .homeGrid { gap: 14px; padding: 4px 20px 20px; }
   }
   @media (min-width: 901px) {
-    /* 不具合修正/現場からの要望「左コントロールパネルと車両カードの1番上の
-       高さを同じにしてほしい」を受け、上paddingを絞り込みパネル側の実際の
-       コンテンツ開始位置（.filterSidebarのborder 2px + padding、本ファイル内の
-       #view-home .filterSidebar参照）にそろえる。 */
     .homeGrid { gap: 16px; padding: 11px 24px 24px; }
   }
 
   /* ホームの「検索結果」専用ページ（#view-homeResults。在庫リスト＋デモカーリスト＋
-     サービス代車リストを横断した個々の車両の一覧）。見出し行は絞り込みサイドバーの
+     サービス代車リストを横断した個々の車両の一覧）。見出し行は絞り込み機能の
      .filterSidebar__headと同じ考え方（左に見出し・件数、右端に絞り込み解除）。
-     このページは絞り込みサイドバー（.filterSidebar）を持たないため、PC・タブレット幅
-     （@media (min-width: 901px)の.view--list .listBody、本ファイル内で前方定義）の
-     「サイドバー234px＋一覧」の2カラム指定を、このページに限り1カラムへ上書きする
-     （IDセレクタでクラス2つより詳細度を上げ、定義順に関わらず確実に上書きする）。 */
-  #view-homeResults .listBody { grid-template-columns: minmax(0, 1fr); }
+     このページは絞り込み機能（.filterSidebar）を持たない。 */
   .homeResultsSection__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 0; }
   .homeResultsSection__title { font-size: 13px; font-weight: 700; margin: 0; color: var(--primary-text); }
   .homeResultsSection__count {
@@ -770,73 +786,43 @@
   }
   .staffList__summaryThumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-  /* ===== 絞り込みサイドバー（在庫リスト・受注リスト・業販受注リスト共通） =====
-     タップで開くチップ＋ポップオーバー方式は廃止し、常時表示の左サイドバーに
-     戻した（現場の要望）。項目・絞り込みロジック自体は変更していない。
-     モバイル幅（下の@media (max-width: 900px)）ではサイドバー・一覧とも
-     ページ本文と一緒に普通に縦スクロールする1カラムのシンプルな配置にする。
-     PC・タブレット幅（下の@media (min-width: 901px)）では、サイドバーと一覧を
-     ヘッダー・コマンドバーの下に固定した「アプリシェル」レイアウトにし、
-     サイドバー自体は動かさず、一覧（.listBody__main）側だけが内部スクロールする
-     （不具合修正: 以前はposition: sticky＋手計算のtopオフセットでサイドバーを
-     浮かせていたが、コマンドバーの実際の高さとオフセットの数値がわずかに
-     ズレており、スクロール開始時にサイドバーが少し画面につられて動いて
-     見える不具合があった。「絞り込みバナーは固定にしてほしい」という現場からの
-     要望を受け、オフセット計算に頼らない構造に変更した）。
-     不具合修正: サイドバー自体も以前はheight: 100% + overflow-y: autoで
-     一覧側と同じく内部スクロールさせていたが、項目数の割にサイドバー内で
-     さらにスクロールが必要になるのは煩わしいという現場からの指摘を受け、
-     文字・余白を詰めて全項目が収まりやすい密度にしたうえで、サイドバーは
-     内部スクロールさせず常に全項目を表示する（下のauto幅指定を参照）。 */
-  /* デザインリニューアル: 絞り込みサイドバーをヘッダーと直接つなげ、カードを
-     「L字」に囲む構成にする。上辺・左辺の余白はここでは持たせず（サイドバーを
-     ヘッダー・画面端に直接接着するため）、一覧側（.listBody__main、本ファイル内で
-     後方定義）に個別の上paddingを持たせることで、一覧の見た目の余白はこれまでと
-     変わらないまま、サイドバーだけがヘッダーに接するようにする。右・下の余白は
-     従来どおりここで持たせる。 */
-  .listBody {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 16px;
-    padding: 0 16px 16px 0;
-    min-width: 0;
-  }
-  .listBody__main { min-width: 0; padding-top: 16px; }
-  /* 絞り込みサイドバーを持たない一覧（ホームの検索結果専用ページ等）は、
-     左に接着するサイドバー自体が無いため、一覧側に左の余白を個別に戻す。 */
-  #view-homeResults .listBody__main { padding-left: 16px; }
+  /* ===== 絞り込み機能（在庫・受注・業販受注・デモカー・サービス代車・ホーム共通） =====
+     デザインリニューアル: 画面切替タブ（.tabsBand）の直下に隙間なく続く横表示の
+     帯にする（以前の左サイドバーから変更。項目・絞り込みロジック自体は変更
+     していない）。.tabsBandと同じトーン（primaryDarkにprimaryを30%混ぜた
+     中間色）・同じ横幅（margin 0 14px）にして1つながりの帯に見せ、下端だけ
+     角丸にする（上端は.tabsBandの角丸と繋がるため角丸なし）。項目数が多い
+     画面では折り返す（flex-wrap）。一覧本体（.listBody__main）はその下に
+     普通にページスクロールする1カラムとして続く（以前のPC/タブレット幅
+     「アプリシェル」固定レイアウトは、縦のサイドバーが無くなったことに伴い
+     廃止した）。 */
+  .listBody { min-width: 0; }
+  .listBody__main { min-width: 0; margin: 16px 14px; }
   /* 不具合修正/現場からの要望「絞り込み機能背景を濃いテーマカラーにしてほしい。
-     それに合わせて文字も読みやすくしてほしい」を受け、パネル全体の背景を
-     テーマカラー（選択中テーマのprimary）にし、内部の文字・入力欄も白系の配色に
-     揃える（このブロック以降、filterSidebar配下の各要素のダーク配色の上書きが
-     続く）。
-     デザインリニューアル: ヘッダー（--topbar-bg、primaryDark）とサイドバー・
-     絞り込みコントロールバー（本ファイル内、.view--list .commandbar参照）の
-     トーンを変える現場からの要望を受け、サイドバーはヘッダーより一段明るい
+     それに合わせて文字も読みやすくしてほしい」を受け、帯全体の背景をテーマ
+     カラーにし、内部の文字・入力欄も白系の配色に揃える（このブロック以降、
+     filterSidebar配下の各要素のダーク配色の上書きが続く）。
+     デザインリニューアル: ヘッダー（--topbar-bg、primaryDark）とタブ・絞り込み
+     帯のトーンを変える現場からの要望を受け、この帯はヘッダーより一段明るい
      色にする。ただしテーマのprimary（中間色）をそのまま使うと、暖色系の
      テーマ（amber等）で白文字のコントラストがWCAG AA基準を割り込むため
      （実測、本ファイル内のコメント参照）、primaryDarkに30%だけprimaryを
      混ぜた中間トーンにし、見た目の違いを保ちながら基準を満たす（白文字側も
-     このトーンに合わせて不透明度を85%まで上げている。下の各要素参照）。
-     ヘッダーと直接つなげるため、枠線・角丸・影はすべて廃止しフラットな
-     パネルにする（以前の「浮いた丸角カード」は廃止）。 */
+     このトーンに合わせて不透明度を85%まで上げている。下の各要素参照）。 */
   .filterSidebar {
     background: color-mix(in srgb, var(--primary) 30%, var(--primary-dark) 70%);
     color: #fff;
-    border: none;
-    border-radius: 0;
-    box-shadow: none;
-    padding: 10px 14px;
+    margin: 0 14px;
+    border-radius: 0 0 var(--radius) var(--radius);
+    padding: 14px 20px 16px;
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 14px 20px;
     min-width: 0;
   }
-  /* 見出し（条件検索）と該当台数を左右に離し、ショールーム・ライト案と同じ
-     構成にする（現場からの要望「該当台数は見出しの右に」はjustify-content:
-     space-betweenでも引き続き満たされる）。クリアボタンがあるときはそちらを
-     margin-left: autoで最右端に出す。 */
-  .filterSidebar__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  /* 見出し（条件検索）と該当台数は、帯の先頭に置く「項目のひとつ」として扱う。 */
+  .filterSidebar__head { flex: none; display: flex; flex-direction: column; gap: 2px; margin-right: 4px; }
   .filterSidebar__title { font-size: 11.5px; font-weight: 600; margin: 0; color: #fff; }
   .filterSidebar__count {
     font-size: 9.5px;
@@ -847,19 +833,11 @@
     color: rgba(255, 255, 255, .85);
     font-variant-numeric: tabular-nums;
   }
-  .filterSidebar__field { display: flex; flex-direction: column; gap: 6px; }
+  /* キーワード検索欄は、横並びの中でも押しつぶされないよう最小幅を確保しつつ
+     余った横幅を優先的に使う。 */
+  .filterSidebar__field { display: flex; flex-direction: column; gap: 4px; flex: 1 1 200px; min-width: 160px; }
   .filterSidebar select.input,
   .filterSidebar .input { width: 100%; }
-  /* セレクトの縦paddingだけを詰めて1項目あたりの高さを抑える（不具合修正の
-     一環）。font-sizeは.inputの16px基準（iOS Safariのフォーカス時自動ズーム
-     回避のため）を変えず、paddingのみ調整する。 */
-  /* 不具合修正（レスポンシブ・マルチデバイス担当からの指摘）: 在庫リストは
-     区分・現展示拠点・掲載状況が加わり項目数が他のリストより多く、この
-     余裕のある密度のままだとサイドバーがページの高さを超えてはみ出し、
-     ページ全体に不要な縦スクロールが付いていた（900px高さで最大167px）。
-     ホームで実測調整したのと同じ考え方で、全リスト共通のこの基本密度を
-     少し詰め、スマホ・タブレット幅（下の@media (max-width: 900px)）では
-     タップ領域確保のため戻す。 */
   .filterSidebar select.input { padding-top: 4px; padding-bottom: 4px; }
   /* 濃い背景の上で読みやすいよう、入力欄・検索欄を半透明の白ベースに差し替える
      （色自体はテーマの影響を受けない中立な配色。文字色は白で統一）。
@@ -873,10 +851,6 @@
     border-color: rgba(255, 255, 255, .34);
     color: #fff;
   }
-  /* 不具合修正（アクセシビリティ担当からの指摘）: パネル背景をヘッダーより
-     明るいトーンにしたため（本ファイル内の.filterSidebar参照）、以前の75%
-     では暖色系テーマでWCAG AA基準を割り込む。85%まで上げて基準を満たす
-     （文字サイズ自体は現場要望どおり維持する）。 */
   .filterSidebar .input::placeholder,
   .filterSidebar .searchbox input::placeholder { color: rgba(255, 255, 255, .85); }
   .filterSidebar .searchbox input { color: #fff; }
@@ -888,12 +862,9 @@
   .filterSidebar select.input {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='%23ffffff'%3E%3Cpath d='M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z'/%3E%3C/svg%3E");
   }
-  /* デザインリニューアル（ショールーム・ライト案）: 絞り込み行（.filterSidebar__row
-     直下）のコントロールは、塗り＋枠のボックス型をやめ、下線だけのミニマルな
-     見た目にする（検索窓.searchboxはこの対象外。従来どおりボックス型のまま）。
-     行の高さ自体（padding-top/bottom、本ファイル内の前方定義）は変えないため、
-     在庫リストの絞り込みサイドバーがはみ出さないよう実測調整した既存の
-     高さバランスはそのまま保たれる。 */
+  /* デザインリニューアル: 絞り込み項目（.filterSidebar__row直下）のコントロールは、
+     塗り＋枠のボックス型をやめ、下線だけのミニマルな見た目にする（検索窓
+     .searchboxはこの対象外。従来どおりボックス型のまま）。 */
   .filterSidebar__row .input,
   .filterSidebar__row select.input,
   .filterSidebar__row .multiDropdown__btn {
@@ -901,7 +872,7 @@
     border: none;
     border-bottom: 1px solid rgba(255, 255, 255, .4);
     border-radius: 0;
-    padding-left: 2px;
+    padding: 3px 16px 3px 2px;
   }
   .filterSidebar__row .input:focus,
   .filterSidebar__row select.input:focus {
@@ -923,183 +894,62 @@
     cursor: pointer;
     padding: 0;
     flex: none;
+    align-self: center;
     margin-left: auto;
   }
   .filterSidebar__clearBtn:hover { color: #fff; }
 
-  /* ===== 絞り込みサイドバーの項目（1列に1項目・ライン区切り） =====
-     現場からのデザイン案の選定を受けて適用した「改訂案1：ライン区切り」。
+  /* ===== 絞り込み項目（横1列、折り返し） =====
      セレクト・チェックボックス・ラジオ・テキスト入力といった標準の選択式
-     コントロールはそのまま使い、行の並べ方・状態の見せ方だけを統一する
-     （全リストの絞り込みサイドバーに共通。syncFilterRowsAndSummary_、
-     JavaScript.html参照）。項目は常にパネル幅いっぱいの1列で表示し、
-     長い選択肢でも文字が見切れないようにする。 */
-  .filterSidebar__rows { display: flex; flex-direction: column; }
-  /* 不具合修正（レスポンシブ・マルチデバイス担当からの指摘、在庫リストの
-     サイドバーのはみ出し対策の一環）: 上のselect.inputと同じ理由で、行の
-     上下paddingも詰める。スマホ・タブレット幅では下の@media (max-width:
-     900px)でタップ領域を確保する。 */
-  .filterSidebar__row {
-    padding: 6px 2px;
-    border-bottom: 1px solid var(--dark-ui-outline);
-    position: relative;
-    min-width: 0;
-  }
-  .filterSidebar__rows .filterSidebar__row:last-child { border-bottom: none; padding-bottom: 2px; }
-  .filterSidebar__row.is-active { padding-left: 12px; }
-  .filterSidebar__row.is-active::before {
-    content: "";
-    position: absolute;
-    left: 0; top: 9px; bottom: 9px;
-    width: 3px;
-    border-radius: 2px;
-    background: var(--primary);
-  }
-  .filterSidebar__rowHead { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; }
+     コントロールはそのまま使い、各項目を「ラベル（小さく上）＋コントロール
+     （下、下線のみ）」の縦積み1組にして、帯の中に横一列に並べる
+     （syncFilterRowsAndSummary_、JavaScript.html参照）。帯の幅に収まらない
+     分は自動的に折り返す。 */
+  .filterSidebar__rows { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 20px; flex: 1 1 auto; }
+  .filterSidebar__row { display: flex; flex-direction: column; gap: 3px; min-width: 84px; }
+  .filterSidebar__row.is-active .filterSidebar__rowLabel { color: #fff; }
+  .filterSidebar__row.is-active select.input,
+  .filterSidebar__row.is-active .multiDropdown__btn { border-bottom-color: #fff; }
+  .filterSidebar__rowHead { display: flex; align-items: center; }
   /* デザインリニューアル（ショールーム・ライト案）: アイコンは使わず、ラベルの
      小ささ・淡さだけで「補足情報」であることを示すミニマルな見た目にする。 */
   .filterSidebar__rowIcon { display: none; }
   .filterSidebar__rowLabel {
-    font-size: 9.5px;
+    font-size: 9px;
     font-weight: 600;
     /* 不具合修正（アクセシビリティ担当からの指摘）: パネル背景をヘッダーより
        明るいトーンにしたため（本ファイル内の.filterSidebar参照）、以前の75%
        では暖色系テーマでWCAG AA基準を割り込む。85%まで上げて基準を満たす。 */
     color: rgba(255, 255, 255, .85);
-    letter-spacing: .04em;
-  }
-  .filterSidebar__row.is-active .filterSidebar__rowLabel { color: #fff; }
-  /* グループ化・区分・掲載状況等、チェック/ラジオの一覧を持つ行は、見出しの
-     gapぶん.filterCheckとの間隔がやや詰まって見えるため少しだけ広げる。 */
-  .filterSidebar__row .filterCheck { padding: 3px 0; }
-  /* 不具合修正（レスポンシブ・マルチデバイス担当からの指摘）: ホーム以外の
-     リスト（在庫リスト等）は、見出しとコントロールを別の行に積む古い並びの
-     ままだったため、特に項目数の多い在庫リストでサイドバーがページの高さを
-     超えてはみ出していた（900px高さで最大167px）。ホームで既に採用している
-     「見出しとコントロールを同じ行に並べる」形を、1行に収まるセレクトの行
-     （色・初年度登録日・価格帯・走行距離等）にも広げ、見出し専用の行を無くす。
-     チェックボックス一覧（区分・現展示拠点等）は項目数が可変で1行に収まら
-     ないため対象外とし、従来どおり見出し→一覧の縦積みのままにする
-     （:has()でselect.inputを直接持つ行だけに絞る）。 */
-  .filterSidebar__row:has(> select.input) {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .filterSidebar__row:has(> select.input) > .filterSidebar__rowHead {
-    margin-bottom: 0;
-    flex: none;
+    letter-spacing: .03em;
     white-space: nowrap;
   }
-  .filterSidebar__row:has(> select.input) > select.input {
-    flex: 1;
-    min-width: 0;
-  }
-
-  /* 不具合修正/現場からの要望「左コントロールパネル内は固定のサイズで、
-     スライドなしにしてほしい」を受け、ホームの絞り込みパネル（区分・現展示
-     拠点・掲載状況・販売状況を統合して項目数が増えた）は、他のリストより
-     行間を詰めている。全項目をドロップダウン形式に統一した後、現場からの
-     要望「各項目の隙間を広くしてほしい（画面スクロールしない程度に）」を
-     受けて再度実測し、画面の高さを超えない範囲で可能な限り広げている。 */
-  /* 不具合修正（レスポンシブ・マルチデバイス担当からの指摘）: 複数フィルターを
-     同時選択すると「絞り込み中サマリー」のチップが2行に折り返し、その分
-     パネルの中身が伸びる。低いビューポート（700px前後）ではこの伸びぶんを
-     吸収しきれず、最下段の行（販売状況）が画面からそのまま見切れて操作
-     できなくなっていた。普段は中身がきっちり収まる密度に実測調整済みのため
-     目に見えることは無いが、この想定外のケースに限っては内部スクロールで
-     救済する（常時表示される煩わしいスクロールバーにはならない）。 */
-  #view-home .filterSidebar { gap: 2px; padding: 10px 14px; overflow-y: auto; }
-  #view-home .filterSidebar .searchbox { padding: 6px 12px; }
-  /* 現場からの要望「条件検索と検索窓までの隙間を作ってほしい」を受け、
-     見出し（条件検索・該当台数）と検索欄との間にだけ余白を追加する
-     （#view-home .filterSidebarの行間（gap）を広げると後続の行すべてに
-     影響してしまうため、検索欄側にmargin-topを個別に持たせる）。 */
-  #view-home .filterSidebar__field { margin-top: 10px; }
-  #view-home .filterSidebar__activeBar { gap: 4px; }
-  #view-home .filterSidebar__row { padding: 3px 2px; }
-  #view-home .filterSidebar select.input { padding-top: 3px; padding-bottom: 3px; }
-  /* 現場からの要望「PC画面（縦）一杯を使いたいので、項目の隙間を大きくして
-     ほしい」を受け、画面が高くパネル下に余白が余るときは、その余白を項目の
-     隙間に回して画面の高さいっぱいまで広げる。
-     不具合修正: 以前はこれをjustify-content: space-betweenで実現していたが、
-     見出し（車両条件・管理情報）と行一覧全体の「隙間」をまとめて均等配分する
-     ため、見出し自体と直後の行（タイプ・区分）との間にも余白が入ってしまい、
-     見出しを「大きく分けて見やすく」した狙いに反して、どの行がどちらの
-     グループか分かりにくくなっていた（現場からの指摘「車両条件や管理条件の
-     文字を直後の検索窓に近づけてほしい」）。見出しは常に直後の行に密着させ、
-     余りの高さは各行自身の高さに配る方式に変更する：行
-     （.filterSidebar__row）だけをflex: 1 1 autoにして縦に伸ばし、行の中身
-     （アイコン・ラベル・コントロール）は伸びた行の上端に揃える
-     （align-items: flex-start、他リストで使うcenterから変更）ことで、余った
-     高さは常にその行の「下」に積み重なり、次の行（または次の見出し）が
-     押し下げられる形になる。見出し自身は伸びない（flex指定なし）ため、
-     直前の行が伸びたぶんだけ下に押し出されるだけで、直後の行とはぴったり
-     近いままになる。 */
-  #view-home .filterSidebar__rows {
-    flex: 1 1 auto;
-    min-height: 0;
-  }
-
+  .filterSidebar__row .filterCheck { padding: 2px 0; }
+  .filterSidebar__row select.input,
+  .filterSidebar__row .multiDropdown { min-width: 92px; }
+  /* チェックボックス一覧（区分・現展示拠点・掲載状況等、checkboxFilterOptionsHtml_
+     で生成。項目数が実データ次第で増減する）は、他の項目のような狭い1列には
+     収まらないため、帯の横幅いっぱいを使う独立した行として折り返す
+     （:has()でチェックボックス一覧.filterCheckListを持つ行だけに絞る）。 */
+  .filterSidebar__row:has(.filterCheck) { flex-basis: 100%; min-width: 0; }
   /* 現場からの要望「絞り込みを大きく分けて見やすくしてほしい」を受け、車両
      そのものの条件（タイプ〜走行距離）と、各リストから統合した管理情報
-     （区分〜販売状況）を見出しで分ける。
-     現場からの要望「管理情報の上にある線を消してほしい」を受け、見出し上の
-     罫線（border-top）は廃止し、直前の行との間隔（上のflex: 1 1 autoによる
-     伸びと、この見出し自身のmargin-top）だけで区切りを表す。 */
-  /* 不具合修正（アクセシビリティ担当からの指摘）: 55%の白は10.5pxという小さな
-     見出し文字と重なり、テーマによってはAA基準（4.5:1）を下回っていた
-     （amberテーマで実測3.25:1）。75%まで上げ、最も厳しいamberテーマでも
-     4.6:1を確保する。文字サイズ自体は現場要望どおり維持する。 */
+     （区分〜販売状況）を見出しで分ける（ホームのみ）。flex-basis: 100%で
+     帯の幅いっぱいを占める「見出し専用の項目」にすることで、折り返しを
+     使って視覚的なグループの区切りを作る。 */
   #view-home .filterSidebar__sectionLabel {
-    font-size: 10.5px;
+    flex-basis: 100%;
+    font-size: 9.5px;
     font-weight: 700;
-    letter-spacing: .04em;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    /* 不具合修正（アクセシビリティ担当からの指摘）: パネル背景をヘッダーより
+       明るいトーンにしたため、以前の75%では暖色系テーマでWCAG AA基準を
+       割り込む。85%まで上げて基準を満たす。 */
     color: rgba(255, 255, 255, .85);
-    margin: 6px 2px 0;
+    margin: 0;
   }
-  /* 現場からの要望「条件検索（）の下にすぐ車両条件がきてしまっているので、
-     隙間を再度調整してほしい」を受け、検索欄とこの先頭見出しの間にも余白を
-     持たせる。 */
-  #view-home .filterSidebar__sectionLabel--first {
-    margin-top: 8px;
-  }
-
-  /* 不具合修正/現場からの要望「現在の形式（セレクト）で全て選択肢をドロップ
-     形式にすれば綺麗に収まる」を受け、タイプ・区分・現展示拠点・掲載状況・
-     販売状況も、カラー等と同じ「見出しとコントロールを同じ行に並べ、見出し
-     専用の行を無くす」形にする。すべての行がセレクト（または後述の
-     .multiDropdown、閉じているときはセレクトと同じ1行の見た目）になった
-     ことで、折り返しの心配が無くなり全9行をこの形に統一できる。 */
-  #view-home .filterSidebar__row {
-    display: flex;
-    /* 現場からの要望「車両条件や管理条件の文字を直後の行（タイプ・区分）に
-       近づけてほしい」を受け、行自体は残り高さを埋めるためflex: 1 1 autoで
-       伸ばすが（上記#view-home .filterSidebar__rows参照）、中身（アイコン・
-       ラベル・コントロール）はalign-items: centerではなくflex-startで行の
-       上端に揃える。これにより伸びた分の余白は必ず行の「下」に積まれ、次の
-       行・見出しが押し下げられるだけになり、見出しと直後の行の間隔は常に
-       最小のまま保たれる。 */
-    flex: 1 1 auto;
-    /* 不具合修正（レスポンシブ・マルチデバイス担当からの指摘）: 1400px級の
-       非常に高い画面では、伸びしろが大きすぎて項目間が80〜100px前後まで
-       間延びし、むしろ実装漏れのように見えてしまっていた。max-heightで
-       1行あたりの伸びに上限を設け、それを超える余りの高さはパネル下端の
-       余白として残すだけにする（スクロールは発生しない）。 */
-    max-height: 58px;
-    align-items: flex-start;
-    gap: 8px;
-  }
-  #view-home .filterSidebar__rowHead {
-    margin-bottom: 0;
-    flex: none;
-    white-space: nowrap;
-  }
-  #view-home .filterSidebar__row select.input,
-  #view-home .filterSidebar__row .multiDropdown {
-    flex: 1;
-    min-width: 0;
-  }
+  #view-home .filterSidebar__sectionLabel--first { margin-top: 0; }
 
   /* 区分・現展示拠点・掲載状況・販売状況用の複数選択ドロップダウン
      （setupHomeMultiDropdown_、JavaScript.html参照）。閉じているボタンは
@@ -1127,22 +977,21 @@
   }
   .multiDropdown__panel .filterCheck { color: var(--on-surface); font-size: 12px; }
 
-  /* 不具合修正（ビジュアル担当チームのレスポンシブ・マルチデバイス担当からの
-     指摘）: 在庫リスト等の「区分」「現展示拠点」チェックボックス一覧
-     （checkboxFilterOptionsHtml_で生成、件数は実データの件数次第で増減する）
-     は、件数が多いとサイドバー本体（.filterSidebar、height: 100%だが
-     overflow指定なし）からはみ出し、ページ全体に不要な縦スクロールが付いて
-     しまっていた（在庫リストで最大300px超のはみ出しを確認）。サイドバー
-     自体に内部スクロールを付けると「サイドバーの中でさらにスクロールが
-     必要になるのは煩わしい」という以前の現場からの指摘と同じ問題を再発させて
-     しまうため、はみ出しの原因になっているチェックボックス一覧の部分だけに
-     最大高さ＋内部スクロールを持たせ、他の行（セレクト等）はそのままにする。 */
-  .filterCheckList { max-height: 168px; overflow-y: auto; padding-right: 2px; }
+  /* デザインリニューアル: 絞り込み機能が横表示の帯になったことに合わせ、
+     チェックボックス一覧（区分・現展示拠点等、checkboxFilterOptionsHtml_で
+     生成）も縦積みではなく横に並べて折り返す。件数が多くても帯の横幅の中で
+     折り返すだけで、縦に際限なく伸びることはない（最大高さ＋内部スクロールは
+     不要になったため廃止）。 */
+  .filterCheckList,
+  /* グループ化（受注・業販受注リストの月ごと／拠点ごと等）のように、専用クラスを
+     持たないチェック/ラジオの一覧コンテナも同じ横並びにする。 */
+  .filterSidebar__row > div:has(> .filterCheck) { display: flex; flex-wrap: wrap; column-gap: 18px; row-gap: 4px; }
 
-  /* 絞り込み中サマリー（パネル上部のタグ一覧）。セレクト・ラジオ・チェック
+  /* 絞り込み中サマリー（帯の上部に伸びるタグ一覧）。セレクト・ラジオ・チェック
      ボックス・テキスト入力いずれの絞り込みも、除去可能なタグとしてまとめて
-     表示する（collectFilterRowEntries_、JavaScript.html参照）。 */
-  .filterSidebar__activeBar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+     表示する（collectFilterRowEntries_、JavaScript.html参照）。横表示の帯の
+     中では、他の項目と並べず常に専用の1行として表示する。 */
+  .filterSidebar__activeBar { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
   .filterSidebar__activeChip {
     display: inline-flex; align-items: center; gap: 5px; max-width: 100%;
     background: var(--primary); color: var(--on-primary);
@@ -1162,86 +1011,13 @@
   .filterSidebar__activeClearAll:hover { color: #fff; }
   .filterSidebar__activeEmpty { font-size: 11.5px; color: rgba(255, 255, 255, .85); }
 
-  /* ===== PC・タブレット幅: 在庫・受注・業販受注リストを「アプリシェル」化 =====
-     コマンドバーの下（.listBody）を、ヘッダー・コマンドバーの高さぶんを差し引いた
-     残り全部の高さを持つ、それ自体はスクロールしないボックスにし、その中の
-     一覧（.listBody__main）側だけが独立して縦スクロールするようにする。
-     不具合修正: 以前はposition: sticky＋手計算のtopオフセットでサイドバーを
-     浮かせていたが、実際のコマンドバーの高さとズレて少し画面につられて動く
-     不具合があったため、オフセット計算に頼らないこの構造に変更した
-     （「絞り込みバナーは固定・一覧だけスクロール」という現場からの要望）。
-     900px以下（下の@media (max-width: 900px)参照）では、サイドバー・一覧とも
-     通常のページスクロールに戻す1カラム表示のまま。
-     不具合修正: サイドバー（.filterSidebar）は以前height: 100% +
-     overflow-y: autoで一覧側と同じく内部スクロールさせていたが、項目数の
-     割にサイドバーの中でさらにスクロールが必要になるのは煩わしいという
-     現場からの指摘を受け、文字・余白を詰めて内部スクロール無しに全項目が
-     収まる密度にした（上のfilterSidebar本体の指定参照）。その後「サイドバーの
-     枠は一覧と同じ高さ（画面いっぱい）にしてほしい」という要望を受け、
-     height: 100%で一覧（.listBody__main）と同じ高さまで伸ばしつつ、
-     overflow-y: autoは付けない（中身は既に収まる密度のため、スクロールバーは
-     出ない。枠だけが一覧の高さに揃う）。 */
-  @media (min-width: 901px) {
-    main.view.view--list.is-active {
-      display: flex;
-      flex-direction: column;
-      height: calc(100vh - var(--topbar-h));
-    }
-    .view--list .commandbar { position: static; flex: none; }
-    .view--list .listBody {
-      display: grid;
-      /* minmax(0, 1fr)にする理由は.card__metaGrid等と同じ（1fr単独だと、内容が
-         長い場合にトラック自体がその内容ぶんまで広がってしまうため）。行の高さも
-         同じ理由でminmax(0, 1fr)にする必要がある。grid-template-rowsを指定しない
-         （既定のauto）と、行の高さは中身（絞り込みパネルが縦に伸びると特に）に
-         応じて決まってしまい、下のheight: 100%（.listBody自身・子要素とも）が
-         正しく効かず、ページ全体が画面の高さを超えて伸びてしまう不具合があった。 */
-      grid-template-columns: 234px minmax(0, 1fr);
-      /* 不具合修正: grid-template-rowsを指定しない（既定のauto）と、行の高さは
-         中身（絞り込みパネルが縦に伸びると特に）に応じて決まってしまい、
-         .listBody自身がflexから割り当てられた高さ（flex: 1 1 auto）を超えて
-         伸びてしまっていた（現場からの指摘「左コントロールパネル内は固定の
-         サイズで、スライドなしにしてほしい」）。minmax(0, 1fr)にすることで、
-         行の高さを.listBody自身の（flexが確定させる）高さぴったりに固定し、
-         子要素（.filterSidebar・.listBody__main）のheight: 100%がその高さに
-         正しく解決されるようにする（.listBody自身にはheight: 100%を指定しない
-         こと。在庫リストのように.commandbarと兄弟関係にあるビューでは、
-         height: 100%が.commandbarの占める分を無視してしまい、ページ全体が
-         画面の高さを超えて伸びる不具合が起きるため、flexの自然な割り当て
-         （flex: 1 1 auto + min-height: 0）だけに委ねる）。 */
-      grid-template-rows: minmax(0, 1fr);
-      gap: 20px;
-      /* デザインリニューアル: サイドバーをヘッダーに直接つなげるため、上・左の
-         余白はここでは持たせない（下の.view--list .listBody__mainに個別の
-         上paddingを持たせ、一覧側の見た目の余白はこれまでと変える）。右・下は
-         従来どおり。 */
-      padding: 0 24px 24px 0;
-      flex: 1 1 auto;
-      min-height: 0;
-    }
-    /* 不具合修正（レスポンシブ・マルチデバイス担当からの指摘）: 在庫リスト等、
-       項目数の多いサイドバーは、上の密度調整で900px高さでは完全に収まる
-       ようになったが、700px前後のより低い画面では依然わずかにはみ出し、
-       ページ全体に不要な縦スクロールが付いてしまう。以前「サイドバーの中で
-       さらにスクロールが必要になるのは煩わしい」という指摘を受けて内部
-       スクロールを外した経緯があるが、それは常に中身がはみ出していた当時の
-       話で、今は通常の画面高さでは収まりきる密度になっている。普段は
-       発生しない安全策として、収まらない場合にだけ内部スクロールで救済する
-       （ページ全体が崩れるよりは、サイドバー内だけで完結する方が実害が小さい）。 */
-    .view--list .filterSidebar { height: 100%; overflow-y: auto; }
-    /* 不具合修正: 「該当する受注がありません」等の空状態は、以前は単なる
-       固定paddingのブロックとして一覧の先頭に置かれていたため、一覧エリアの
-       高さ（画面いっぱい）に対して上に偏り、下に大きな空白だけが残っていた。
-       listBody__mainをflex縦並びにし、空状態（.emptyState）側にflex: 1 +
-       justify-content: centerを与えることで、一覧エリアの残り高さいっぱいに
-       広がった上でその中央に表示されるようにする（実データがある通常時は
-       .emptyStateがhiddenのままなので影響しない）。 */
-    .view--list .listBody__main { height: 100%; overflow-y: auto; display: flex; flex-direction: column; padding-top: 20px; }
-    .view--list .listBody__main > .emptyState { flex: 1 0 auto; justify-content: center; min-height: 0; }
-    /* 絞り込みサイドバーを持たない一覧（ホームの検索結果専用ページ）は、左に
-       接着するサイドバーが無いため、一覧側に左の余白を個別に戻す。 */
-    #view-homeResults .listBody__main { padding-left: 24px; }
-  }
+  /* デザインリニューアル: 絞り込み機能が縦サイドバーから横表示の帯に変わった
+     ことに伴い、PC・タブレット幅専用だった「アプリシェル」固定レイアウト
+     （ヘッダー下の残り高さぴったりに固定し、一覧側だけが内部スクロールする
+     構造）は廃止した。縦のサイドバーが無くなり、一覧の高さをそれに合わせて
+     揃える必要が無くなったため、画面幅に関わらずページ全体が普通に縦
+     スクロールするシンプルな1カラム構成にする（タブ帯.tabsBandだけは
+     引き続きposition: stickyで画面上部に固定表示する）。 */
 
   .filterCheck { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--on-surface); cursor: pointer; padding: 2px 0; }
   /* 不具合修正: チェックボックスはaccent-colorでテーマカラーに揃えていたが、
