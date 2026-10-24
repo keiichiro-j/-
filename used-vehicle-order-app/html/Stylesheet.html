@@ -801,6 +801,16 @@
     border-radius: 0;
     padding: 3px 16px 3px 2px;
   }
+  /* 不具合修正: .multiDropdown__btnは何も選択されていないとボタンの文字が
+     空文字になり、selectと違って中身の行自体が無いため、下線（border-bottom）
+     だけが残ってボタンの存在がほぼ見えなくなっていた（select側は未選択でも
+     ブラウザ標準の高さを保つため問題にならない）。selectと同じ見た目の高さを
+     min-heightで確保し、空でも必ず下線つきのボックスとして見えるようにする。 */
+  .filterSidebar__row .multiDropdown__btn {
+    display: flex;
+    align-items: center;
+    min-height: 24px;
+  }
   .filterSidebar__row .input:focus,
   .filterSidebar__row select.input:focus {
     outline: none;
