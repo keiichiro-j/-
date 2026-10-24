@@ -34,7 +34,12 @@
     // 無くしてほしい」により廃止した（ホーム画面の型クイックナビ用の
     // homeBodyTypeFilterはそのまま残る）。
     inventoryFilters: { category: [], listed: [], location: [], color: '', yearBucket: '', priceBucket: '', mileageBucket: '' },
-    inventorySort: '', // 並び替え（空文字は取得順のまま）
+    // 列見出し（区分・モデル・価格等）タップでのソート状態。keyが空文字なら
+    // 取得順のまま（未ソート）。現場からの要望「それぞれの項目にソート機能を
+    // 設けて（対象の項目タップで変動）するようにしてほしい」を受け、専用の
+    // 「並び替え」ドロップダウンは廃止し、列見出し自体をタップして切り替える
+    // 方式に統一した（toggleTableSort_・sortTableItems_、JavaScript.html参照）。
+    inventorySortState: { key: '', dir: 'asc' },
     ordersGroups: [],
     wholesaleOrdersGroups: [],
     // 受注リスト・業販受注リストの「現展示拠点」絞り込み（チェック式）用の状態。
@@ -44,6 +49,8 @@
     // 絞り込めるようにしてほしい。全リストに反映してほしい」）。
     ordersFilters: { currentDisplayLocation: [] },
     wholesaleOrdersFilters: { currentDisplayLocation: [] },
+    ordersSortState: { key: '', dir: 'asc' },
+    wholesaleOrdersSortState: { key: '', dir: 'asc' },
     demoCarListItems: [], // デモカーリスト（区分「デモカー」）。グループ化は行わないフラットな一覧
     serviceCarListItems: [], // サービス代車リスト（区分「サービス」）。同上
     // デモカーリスト・サービス代車リストの絞り込みサイドバー用の状態。在庫
@@ -54,6 +61,8 @@
     // 以外には掲載状況は不要」）。
     demoCarListFilters: { color: '', yearBucket: '', priceBucket: '', mileageBucket: '', status: [], location: [] },
     serviceCarListFilters: { color: '', yearBucket: '', priceBucket: '', mileageBucket: '', status: [], location: [] },
+    demoCarListSortState: { key: '', dir: 'asc' },
+    serviceCarListSortState: { key: '', dir: 'asc' },
     action: null, // { type: 'hold' | 'order' | 'orderFromHold', commission }
     staffList: [], // 設定タブで編集中の担当者マスタ（作業用コピー）
     modelBodyTypeRules: [], // 設定タブで編集中のボディタイプ紐付けルール（作業用コピー）
@@ -76,13 +85,16 @@
     // （goToHomeResultsPage_、JavaScript.html参照）。
     homeResultsKeyword: '',
     homeModelFilter: [],
+    homeResultsSortState: { key: '', dir: 'asc' },
     notifyHoldMailTo: [], // 設定タブで編集中のメール通知先（Hold時、作業用コピー）
     notifyOrderMailTo: [], // 設定タブで編集中のメール通知先（受注確定時、作業用コピー）
     notifyErrorMailTo: [], // 設定タブで編集中のメール通知先（システムエラー通知、作業用コピー）
     themeKey: null, // 設定タブで選択中のテーマ（着せ替え）プリセットキー。サイドバーの色もこれとセットで決まる（THEME_PRESETSのsidebarColor参照）
     navHistory: [], // 「戻る」ボタン用の画面履歴（タブ名のスタック）
     allInventoryItems: [], // マイページ（Hold中の車両一覧）専用。ツールバーの検索条件に左右されない全件
-    allOrders: [] // マイページ集計専用（受注リストの検索・絞り込み条件に左右されない全件）
+    allOrders: [], // マイページ集計専用（受注リストの検索・絞り込み条件に左右されない全件）
+    myPageHoldSortState: { key: '', dir: 'asc' },
+    myPageOrderSortState: { key: '', dir: 'asc' }
   };
 
   /**
@@ -886,14 +898,6 @@
     if (m <= 50000) return 'm3';
     return 'm4';
   }
-  var INVENTORY_SORT_OPTIONS = [
-    { value: '', label: '指定なし' },
-    { value: 'priceAsc', label: '価格が安い順' },
-    { value: 'priceDesc', label: '価格が高い順' },
-    { value: 'yearDesc', label: '初年度登録日が新しい順' },
-    { value: 'yearAsc', label: '初年度登録日が古い順' },
-    { value: 'mileageAsc', label: '走行距離が少ない順' }
-  ];
 
   // モデル名（v.model）に含まれるキーワードから、設定タブ（管理者限定）で
   // 登録済みのボディタイプ紐付けルール（state.bootstrap.settings.
@@ -1356,7 +1360,8 @@
     $('homeResultsSearchDesc').textContent = homeResultsSearchDescText_();
     // 操作列（Hold・受注等）を持つため、tbl--cartrackではなくtbl--inventoryと
     // 同じ列幅構成（inventoryTableHeaderHtml_と同じ12列）を使う。
-    $('homeResultsList').innerHTML = tableListHtml_('tbl--inventory', homeResultsTableHeaderHtml_(), filtered, homeResultRowHtml_);
+    var sortedResults = sortTableItems_(filtered, INVENTORY_SORT_COLUMNS, state.homeResultsSortState);
+    $('homeResultsList').innerHTML = tableListHtml_('tbl--inventory', homeResultsTableHeaderHtml_(state.homeResultsSortState), sortedResults, homeResultRowHtml_);
     wireTableHeaderScrollSync_($('homeResultsList'));
     $('btnHomeModelFilterClear').classList.toggle('hidden', !state.homeModelFilter.length && !state.homeResultsKeyword);
   }
@@ -1380,30 +1385,6 @@
     switchToTab_('homeResults');
   }
 
-  function sortInventoryItems_(items) {
-    var key = state.inventorySort;
-    if (!key) return items;
-    function priceOf(v) { var n = Number(v.salePrice); return isNaN(n) ? null : n; }
-    function mileageOf(v) { var n = Number(v.mileage); return isNaN(n) ? null : n; }
-    function cmp(a, b, dir) {
-      if (a === null && b === null) return 0;
-      if (a === null) return 1;
-      if (b === null) return -1;
-      return dir === 'asc' ? a - b : b - a;
-    }
-    var sorted = items.slice();
-    sorted.sort(function (x, y) {
-      switch (key) {
-        case 'priceAsc': return cmp(priceOf(x), priceOf(y), 'asc');
-        case 'priceDesc': return cmp(priceOf(x), priceOf(y), 'desc');
-        case 'yearDesc': return cmp(inventoryYearOf_(x), inventoryYearOf_(y), 'desc');
-        case 'yearAsc': return cmp(inventoryYearOf_(x), inventoryYearOf_(y), 'asc');
-        case 'mileageAsc': return cmp(mileageOf(x), mileageOf(y), 'asc');
-        default: return 0;
-      }
-    });
-    return sorted;
-  }
 
   /**
    * 絞り込みサイドバーのうち、実データから動的に選択肢を作る「区分」「現展示
@@ -1455,7 +1436,6 @@
   fillStaticSelectOptions_('inventoryYearFilter', YEAR_BUCKET_OPTIONS, state.inventoryFilters.yearBucket);
   fillStaticSelectOptions_('inventoryPriceFilter', PRICE_BUCKET_OPTIONS, state.inventoryFilters.priceBucket);
   fillStaticSelectOptions_('inventoryMileageFilter', MILEAGE_BUCKET_OPTIONS, state.inventoryFilters.mileageBucket);
-  fillStaticSelectOptions_('inventorySort', INVENTORY_SORT_OPTIONS, state.inventorySort);
   fillStaticSelectOptions_('homeYearFilter', YEAR_BUCKET_OPTIONS, state.homeFilters.yearBucket);
   fillStaticSelectOptions_('homePriceFilter', PRICE_BUCKET_OPTIONS, state.homeFilters.priceBucket);
   fillStaticSelectOptions_('homeMileageFilter', MILEAGE_BUCKET_OPTIONS, state.homeFilters.mileageBucket);
@@ -1676,6 +1656,124 @@
   function rowNum_(n) { return n < 10 ? '0' + n : String(n); }
 
   /**
+   * 列見出しタップでのソート（現場からの要望「それぞれの項目（全リスト）に
+   * ソート機能を設けて（対象の項目タップで変動）するようにしてほしい」）。
+   * 在庫リストに以前あった専用の「並び替え」ドロップダウンはこれにより不要に
+   * なったため廃止し、他のリストと同じく列見出し自体をタップして切り替える
+   * 方式に統一した。各テーブルの列構成をcolumns配列（value取得関数＋型を
+   * 持つ）で定義し、同じ列見出しを再タップすると昇順⇔降順を切り替える
+   * （2状態のトグルのみで「指定なし」には戻らない。取得順に戻したい場合は
+   * 各リストの「クリア」ボタンで絞り込みと一緒にリセットする）。
+   */
+  function sortableTblHeadHtml_(columns, sortState) {
+    return '<div class="tblHead">' + columns.map(function (col) {
+      if (!col) return '<div></div>';
+      var active = !!sortState && sortState.key === col.key;
+      var icon = active ? (sortState.dir === 'desc' ? '▼' : '▲') : '';
+      return '<div class="tblHead__col' + (active ? ' is-sorted' : '') + '" data-sort-key="' + col.key + '">' +
+        escapeHtml(col.label) + '<span class="tblHead__sortIcon">' + icon + '</span></div>';
+    }).join('') + '</div>';
+  }
+
+  /** columnsの中からsortState.keyに一致する列を使ってitemsを並べ替える（純粋関数）。 */
+  function sortTableItems_(items, columns, sortState) {
+    if (!sortState || !sortState.key) return items;
+    var col = null;
+    for (var i = 0; i < columns.length; i++) {
+      if (columns[i] && columns[i].key === sortState.key) { col = columns[i]; break; }
+    }
+    if (!col) return items;
+    var dir = sortState.dir === 'desc' ? -1 : 1;
+    var sorted = items.slice();
+    sorted.sort(function (a, b) {
+      var av = col.get(a), bv = col.get(b);
+      var aEmpty = av === null || av === undefined || av === '';
+      var bEmpty = bv === null || bv === undefined || bv === '';
+      // 値が無い行は常に末尾へ（昇順・降順どちらでも変わらない。空欄が先頭に
+      // 来て目立ってしまうのを避けるため）。
+      if (aEmpty && bEmpty) return 0;
+      if (aEmpty) return 1;
+      if (bEmpty) return -1;
+      if (col.type === 'number') return (av - bv) * dir;
+      return String(av).localeCompare(String(bv), 'ja') * dir;
+    });
+    return sorted;
+  }
+
+  /** 列見出しタップ時の昇順⇔降順の切り替え（同じ列なら反転、違う列なら昇順から）。 */
+  function toggleTableSort_(sortState, key) {
+    if (sortState.key !== key) { sortState.key = key; sortState.dir = 'asc'; }
+    else { sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc'; }
+  }
+
+  /** 列見出し（.tblHead__col）のクリックを一覧コンテナに委譲し、ソート状態の切り替え＋再描画を行う。 */
+  function wireSortableTableHeader_(containerId, sortState, rerenderFn) {
+    on(containerId, 'click', function (e) {
+      var col = e.target.closest('.tblHead__col[data-sort-key]');
+      if (!col) return;
+      toggleTableSort_(sortState, col.dataset.sortKey);
+      rerenderFn();
+    });
+  }
+
+  /** 在庫リスト由来のステータス順位（0=在庫あり, 1=Hold中, 2=業販HOLD中）。 */
+  function inventoryStatusRank_(v) {
+    var s = inventoryStatusOf_(v);
+    return s === 'available' ? 0 : (s === 'hold' ? 1 : 2);
+  }
+  /** デモカーリスト・サービス代車リスト由来のステータス順位（0=在庫中, 1=販売済み）。 */
+  function carTrackingStatusRank_(v) {
+    return v.saleStatus === '販売済み' ? 1 : 0;
+  }
+  /**
+   * ホーム検索結果は在庫リスト由来・デモカー/サービス代車リスト由来の車両が
+   * 混在する（homeResultIsFromInventory_参照）ため、どちらの行かで使う順位を
+   * 振り分ける。デモカー/サービス代車由来は在庫リスト由来より後ろにまとまる
+   * よう3を足す。
+   */
+  function mixedVehicleStatusRank_(v) {
+    return ('holdStatus' in v) ? inventoryStatusRank_(v) : 3 + carTrackingStatusRank_(v);
+  }
+
+  // 区分・モデル・初年度登録日・走行距離・車検満了日・登録番号・現展示拠点・価格は
+  // 在庫リスト・受注リスト・業販受注リスト・デモカーリスト・サービス代車リスト・
+  // ホーム検索結果すべてに共通する列のため、列定義を1箇所にまとめて使い回す。
+  var VEHICLE_SORT_COLUMNS_ = [
+    { key: 'category', label: '区分', type: 'string', get: function (v) { return v.category || ''; } },
+    { key: 'model', label: 'モデル', type: 'string', get: function (v) { return v.model || ''; } },
+    { key: 'firstRegistrationDate', label: '初年度登録日', type: 'string', get: function (v) { return v.firstRegistrationDate || ''; } },
+    { key: 'mileage', label: '走行距離', type: 'number', get: function (v) { var n = Number(v.mileage); return isNaN(n) ? null : n; } },
+    { key: 'inspectionExpiryDate', label: '車検満了日', type: 'string', get: function (v) { return v.inspectionExpiryDate || ''; } },
+    { key: 'plate', label: '登録番号', type: 'string', get: function (v) { return plateText_(v); } },
+    { key: 'currentDisplayLocation', label: '現展示拠点', type: 'string', get: function (v) { return v.currentDisplayLocation || ''; } },
+    { key: 'salePrice', label: '価格', type: 'number', get: function (v) { var n = Number(v.salePrice); return isNaN(n) ? null : n; } }
+  ];
+  // 在庫リスト・マイページ「Hold中の車両」・ホーム検索結果（inventoryTableHeaderHtml_・
+  // homeResultsTableHeaderHtml_）共通の列構成（先頭の番号列・末尾の操作列／
+  // シェブロン列はソート対象外のためnull）。
+  var INVENTORY_SORT_COLUMNS = [null].concat(VEHICLE_SORT_COLUMNS_, [
+    { key: 'status', label: 'ステータス', type: 'number', get: mixedVehicleStatusRank_ },
+    null, null
+  ]);
+  // デモカーリスト・サービス代車リスト共通の列構成（操作列が無い分、在庫リストより1列少ない）。
+  var CARTRACK_SORT_COLUMNS = [null].concat(VEHICLE_SORT_COLUMNS_, [
+    { key: 'status', label: 'ステータス', type: 'number', get: carTrackingStatusRank_ },
+    null
+  ]);
+  // 受注リスト・マイページ「受注した車両」共通の列構成。
+  var ORDER_SORT_COLUMNS = [null].concat(VEHICLE_SORT_COLUMNS_, [
+    { key: 'customer', label: '顧客名', type: 'string', get: function (v) { return v.customer || ''; } },
+    { key: 'registeredMonth', label: '登録月', type: 'string', get: function (v) { return v.registeredMonth || ''; } },
+    null
+  ]);
+  // 業販受注リストの列構成（顧客名の代わりに販売先）。
+  var WHOLESALE_SORT_COLUMNS = [null].concat(VEHICLE_SORT_COLUMNS_, [
+    { key: 'salesStore', label: '販売先', type: 'string', get: function (v) { return v.salesStore || ''; } },
+    { key: 'registeredMonth', label: '登録月', type: 'string', get: function (v) { return v.registeredMonth || ''; } },
+    null
+  ]);
+
+  /**
    * 横一列テーブル表示（在庫リスト・受注リスト・業販受注リスト・デモカーリスト・
    * サービス代車リスト・マイページ）共通のラッパー。列見出し行（headerHtml）を
    * 常に先頭に1行だけ出す。1件も無いときは見出しごと何も表示しない（既存の
@@ -1762,12 +1860,8 @@
    * 要望「外装色・内装色は詳細に戻してほしい。他の項目は省略せず全文表示に
    * してほしい」）。
    */
-  function inventoryTableHeaderHtml_() {
-    return '<div class="tblHead">' +
-      '<div></div><div>区分</div><div>モデル</div><div>初年度登録日</div><div>走行距離</div>' +
-      '<div>車検満了日</div><div>登録番号</div><div>現展示拠点</div><div>価格</div>' +
-      '<div>ステータス</div><div>操作</div><div></div>' +
-      '</div>';
+  function inventoryTableHeaderHtml_(sortState) {
+    return sortableTblHeadHtml_(INVENTORY_SORT_COLUMNS, sortState);
   }
 
   /**
@@ -1876,12 +1970,8 @@
    * 在庫リストにのみ表示し、デモカーリスト・サービス代車リストは閲覧専用の
    * ため持たない）。2つのリストはまったく同じ列構成。
    */
-  function carTrackingTableHeaderHtml_() {
-    return '<div class="tblHead">' +
-      '<div></div><div>区分</div><div>モデル</div><div>初年度登録日</div><div>走行距離</div>' +
-      '<div>車検満了日</div><div>登録番号</div><div>現展示拠点</div><div>価格</div>' +
-      '<div>ステータス</div><div></div>' +
-      '</div>';
+  function carTrackingTableHeaderHtml_(sortState) {
+    return sortableTblHeadHtml_(CARTRACK_SORT_COLUMNS, sortState);
   }
 
   /**
@@ -1944,12 +2034,8 @@
   function homeResultIsFromInventory_(v) {
     return 'holdStatus' in v;
   }
-  function homeResultsTableHeaderHtml_() {
-    return '<div class="tblHead">' +
-      '<div></div><div>区分</div><div>モデル</div><div>初年度登録日</div><div>走行距離</div>' +
-      '<div>車検満了日</div><div>登録番号</div><div>現展示拠点</div><div>価格</div>' +
-      '<div>ステータス</div><div>操作</div><div></div>' +
-      '</div>';
+  function homeResultsTableHeaderHtml_(sortState) {
+    return sortableTblHeadHtml_(INVENTORY_SORT_COLUMNS, sortState);
   }
   /**
    * 不具合修正: 以前はホームの検索結果一覧から行タップで詳細モーダルを開いた先で
@@ -2133,12 +2219,13 @@
   function renderInventory() {
     var container = $('inventoryList');
     var all = state.inventoryItems || [];
-    var filtered = sortInventoryItems_(applyInventoryFilters_(all));
+    var filtered = applyInventoryFilters_(all);
     $('inventoryEmpty').classList.toggle('hidden', filtered.length > 0);
     // 該当台数は絞り込みサイドバー（条件検索）見出しの右にのみ表示する
     // （不具合修正: 以前はクイックナビ行の右側にも同じ情報を重複表示していた）。
     $('inventoryFilterCount').textContent = all.length ? '該当 ' + filtered.length + '台 ／ 全' + all.length + '台' : '';
-    container.innerHTML = tableListHtml_('tbl--inventory', inventoryTableHeaderHtml_(), filtered, vehicleTableRowHtml_);
+    var sorted = sortTableItems_(filtered, INVENTORY_SORT_COLUMNS, state.inventorySortState);
+    container.innerHTML = tableListHtml_('tbl--inventory', inventoryTableHeaderHtml_(state.inventorySortState), sorted, vehicleTableRowHtml_);
     wireTableHeaderScrollSync_(container);
     syncInventoryFilterClearVisibility_();
     syncFilterRowsAndSummary_('inventoryFilterRows', 'inventoryActiveBar', 'btnInventoryFilterClear');
@@ -2224,16 +2311,13 @@
     });
   });
 
-  on('inventorySort', 'change', function () {
-    state.inventorySort = this.value;
-    renderInventory();
-  });
+  wireSortableTableHeader_('inventoryList', state.inventorySortState, renderInventory);
 
   on('btnInventoryFilterClear', 'click', function () {
     state.inventoryFilters = { category: [], listed: [], location: [], color: '', yearBucket: '', priceBucket: '', mileageBucket: '' };
-    state.inventorySort = '';
+    state.inventorySortState = { key: '', dir: 'asc' };
     $('inventoryKeyword').value = '';
-    ['inventoryColorFilter', 'inventoryYearFilter', 'inventoryPriceFilter', 'inventoryMileageFilter', 'inventorySort'].forEach(function (id) { $(id).value = ''; });
+    ['inventoryColorFilter', 'inventoryYearFilter', 'inventoryPriceFilter', 'inventoryMileageFilter'].forEach(function (id) { $(id).value = ''; });
     document.querySelectorAll('#inventoryCategoryFilter input, #inventoryLocationFilter input, #inventoryListedFilter input').forEach(function (el) { el.checked = false; });
     ['inventoryCategoryFilter', 'inventoryLocationFilter'].forEach(function (id) { syncMultiDropdownButton_(id, []); });
     syncMultiDropdownButton_('inventoryListedFilter', [], INVENTORY_LISTED_LABELS);
@@ -2391,6 +2475,7 @@
     var tappable = target.closest('[data-ocn]');
     if (tappable && !target.closest('button, input, label')) openHomeResultDetail_(tappable.dataset.ocn);
   });
+  wireSortableTableHeader_('homeResultsList', state.homeResultsSortState, renderHomeResultsPage_);
 
   // ===== Hold / 受注 共通モーダル =====
   var ACTION_LABELS = {
@@ -3053,12 +3138,8 @@
    * 全文表示にしてほしい」）。マイページの「受注した車両」も同じテーブル表示を
    * 使う（renderMyPageOrders_参照）。
    */
-  function orderTableHeaderHtml_() {
-    return '<div class="tblHead">' +
-      '<div></div><div>区分</div><div>モデル</div><div>初年度登録日</div><div>走行距離</div>' +
-      '<div>車検満了日</div><div>登録番号</div><div>現展示拠点</div><div>価格</div>' +
-      '<div>顧客名</div><div>登録月</div><div></div>' +
-      '</div>';
+  function orderTableHeaderHtml_(sortState) {
+    return sortableTblHeadHtml_(ORDER_SORT_COLUMNS, sortState);
   }
 
   /**
@@ -3217,7 +3298,10 @@
         ? '<h3 class="group__title">' + escapeHtml(g.key) + '<span class="group__count">' + g.items.length + '台</span></h3>'
         : '';
       var monthAttr = isMonthGrouped && g.key ? ' data-month-group="' + escapeHtml(g.key) + '"' : '';
-      return '<div class="group"' + monthAttr + '>' + heading + tableListHtml_('tbl--order', orderTableHeaderHtml_(), g.items, orderTableRowHtml_) + '</div>';
+      // 列見出しタップでのソートはグループ内の並びにだけ反映する（グループ分け
+      // 自体は維持する。現場からの要望「それぞれの項目にソート機能を設けて」）。
+      var sortedItems = sortTableItems_(g.items, ORDER_SORT_COLUMNS, state.ordersSortState);
+      return '<div class="group"' + monthAttr + '>' + heading + tableListHtml_('tbl--order', orderTableHeaderHtml_(state.ordersSortState), sortedItems, orderTableRowHtml_) + '</div>';
     }).join('');
     $('ordersMonthNav').innerHTML = ordersMonthChipsHtml_(groups.reduce(function (acc, g) { return acc.concat(g.items); }, []));
     wireTableHeaderScrollSync_(container);
@@ -3234,6 +3318,7 @@
       openOrderDetailModal_(tappable.dataset.ocn);
     }
   });
+  wireSortableTableHeader_('ordersGroups', state.ordersSortState, renderOrders);
 
   // 月別件数ナビ（#ordersMonthNav）のチップタップ: グループ化が「月ごと」で
   // なければ自動で切り替えてから、その月のグループまで滑らかにスクロールする
@@ -3303,12 +3388,8 @@
    * 「登録月」を追加する（wholesaleOrderTableRowHtml_と列を揃える。
    * tbl--wholesale、Stylesheet.htmlはtbl--orderと同じ幅を共有）。
    */
-  function wholesaleOrderTableHeaderHtml_() {
-    return '<div class="tblHead">' +
-      '<div></div><div>区分</div><div>モデル</div><div>初年度登録日</div><div>走行距離</div>' +
-      '<div>車検満了日</div><div>登録番号</div><div>現展示拠点</div><div>価格</div>' +
-      '<div>販売先</div><div>登録月</div><div></div>' +
-      '</div>';
+  function wholesaleOrderTableHeaderHtml_(sortState) {
+    return sortableTblHeadHtml_(WHOLESALE_SORT_COLUMNS, sortState);
   }
 
   /**
@@ -3426,7 +3507,8 @@
       var heading = g.key
         ? '<h3 class="group__title">' + escapeHtml(g.key) + '<span class="group__count">' + g.items.length + '台</span></h3>'
         : '';
-      return '<div class="group">' + heading + tableListHtml_('tbl--wholesale', wholesaleOrderTableHeaderHtml_(), g.items, wholesaleOrderTableRowHtml_) + '</div>';
+      var sortedItems = sortTableItems_(g.items, WHOLESALE_SORT_COLUMNS, state.wholesaleOrdersSortState);
+      return '<div class="group">' + heading + tableListHtml_('tbl--wholesale', wholesaleOrderTableHeaderHtml_(state.wholesaleOrdersSortState), sortedItems, wholesaleOrderTableRowHtml_) + '</div>';
     }).join('');
     wireTableHeaderScrollSync_(container);
     syncFilterRowsAndSummary_('wholesaleOrdersFilterRows', 'wholesaleOrdersActiveBar', 'btnWholesaleOrdersFilterClear');
@@ -3438,6 +3520,7 @@
       openWholesaleOrderDetailModal_(tappable.dataset.ocn);
     }
   });
+  wireSortableTableHeader_('wholesaleOrdersGroups', state.wholesaleOrdersSortState, renderWholesaleOrders);
 
   function populateStaffFilter_(selectId) {
     var select = $(selectId);
@@ -3495,6 +3578,7 @@
     var defaultGroupBy = document.querySelector('#ordersGroupByFilter input[value=""]');
     if (defaultGroupBy) defaultGroupBy.checked = true;
     state.ordersFilters.currentDisplayLocation = [];
+    state.ordersSortState = { key: '', dir: 'asc' };
     document.querySelectorAll('#ordersDisplayLocationFilter input').forEach(function (el) { el.checked = false; });
     syncMultiDropdownButton_('ordersDisplayLocationFilter', []);
     loadOrders();
@@ -3522,6 +3606,7 @@
     var defaultWholesaleGroupBy = document.querySelector('#wholesaleOrdersGroupByFilter input[value=""]');
     if (defaultWholesaleGroupBy) defaultWholesaleGroupBy.checked = true;
     state.wholesaleOrdersFilters.currentDisplayLocation = [];
+    state.wholesaleOrdersSortState = { key: '', dir: 'asc' };
     document.querySelectorAll('#wholesaleOrdersDisplayLocationFilter input').forEach(function (el) { el.checked = false; });
     syncMultiDropdownButton_('wholesaleOrdersDisplayLocationFilter', []);
     loadWholesaleOrders();
@@ -3586,7 +3671,8 @@
       var filtered = applyCarTrackingFilters_(all, state[opts.filtersKey]);
       $(opts.emptyId).classList.toggle('hidden', filtered.length > 0);
       $(opts.countId).textContent = all.length ? '該当 ' + filtered.length + '台 ／ 全' + all.length + '台' : '';
-      $(opts.bodyId).innerHTML = tableListHtml_('tbl--cartrack', carTrackingTableHeaderHtml_(), filtered, carTrackingTableRowHtml_);
+      var sorted = sortTableItems_(filtered, CARTRACK_SORT_COLUMNS, state[opts.sortStateKey]);
+      $(opts.bodyId).innerHTML = tableListHtml_('tbl--cartrack', carTrackingTableHeaderHtml_(state[opts.sortStateKey]), sorted, carTrackingTableRowHtml_);
       wireTableHeaderScrollSync_($(opts.bodyId));
       syncFilterRowsAndSummary_(opts.rowsId, opts.activeBarId, opts.clearBtnId);
     }
@@ -3606,6 +3692,7 @@
       var tappable = e.target.closest('[data-ocn]');
       if (tappable) openDetail(tappable.dataset.ocn);
     });
+    wireSortableTableHeader_(opts.bodyId, state[opts.sortStateKey], render);
     on(opts.keywordId, 'input', debounce(load, 250));
 
     [[opts.colorFilterId, 'color'], [opts.yearFilterId, 'yearBucket'], [opts.priceFilterId, 'priceBucket'], [opts.mileageFilterId, 'mileageBucket']].forEach(function (pair) {
@@ -3635,6 +3722,7 @@
     });
     on(opts.clearBtnId, 'click', function () {
       state[opts.filtersKey] = { color: '', yearBucket: '', priceBucket: '', mileageBucket: '', status: [], location: [] };
+      state[opts.sortStateKey] = { key: '', dir: 'asc' };
       $(opts.keywordId).value = '';
       document.querySelectorAll('#' + opts.statusFilterId + ' input, #' + opts.locationFilterId + ' input').forEach(function (el) { el.checked = false; });
       syncMultiDropdownButton_(opts.statusFilterId, []);
@@ -3647,6 +3735,7 @@
 
   var demoCarListController_ = makeCarTrackingController_({
     apiFn: 'api_listDemoCarList', stateKey: 'demoCarListItems', filtersKey: 'demoCarListFilters',
+    sortStateKey: 'demoCarListSortState',
     keywordId: 'demoCarListKeyword', countId: 'demoCarListTotalCount',
     colorFilterId: 'demoCarListColorFilter', yearFilterId: 'demoCarListYearFilter',
     priceFilterId: 'demoCarListPriceFilter', mileageFilterId: 'demoCarListMileageFilter',
@@ -3658,6 +3747,7 @@
   });
   var serviceCarListController_ = makeCarTrackingController_({
     apiFn: 'api_listServiceCarList', stateKey: 'serviceCarListItems', filtersKey: 'serviceCarListFilters',
+    sortStateKey: 'serviceCarListSortState',
     keywordId: 'serviceCarListKeyword', countId: 'serviceCarListTotalCount',
     colorFilterId: 'serviceCarListColorFilter', yearFilterId: 'serviceCarListYearFilter',
     priceFilterId: 'serviceCarListPriceFilter', mileageFilterId: 'serviceCarListMileageFilter',
@@ -4734,7 +4824,8 @@
     $('myPageHoldCount').textContent = items.length;
     $('myPageHoldEmpty').classList.toggle('hidden', items.length > 0);
     var holdListEl = $('myPageHoldList');
-    holdListEl.innerHTML = tableListHtml_('tbl--inventory', inventoryTableHeaderHtml_(), items, vehicleTableRowHtml_);
+    var sortedHolds = sortTableItems_(items, INVENTORY_SORT_COLUMNS, state.myPageHoldSortState);
+    holdListEl.innerHTML = tableListHtml_('tbl--inventory', inventoryTableHeaderHtml_(state.myPageHoldSortState), sortedHolds, vehicleTableRowHtml_);
     wireTableHeaderScrollSync_(holdListEl);
   }
 
@@ -4752,7 +4843,8 @@
     $('myPageOrderCount').textContent = items.length;
     $('myPageOrderEmpty').classList.toggle('hidden', items.length > 0);
     var orderListEl = $('myPageOrderList');
-    orderListEl.innerHTML = tableListHtml_('tbl--order', orderTableHeaderHtml_(), items, orderTableRowHtml_);
+    var sortedOrders = sortTableItems_(items, ORDER_SORT_COLUMNS, state.myPageOrderSortState);
+    orderListEl.innerHTML = tableListHtml_('tbl--order', orderTableHeaderHtml_(state.myPageOrderSortState), sortedOrders, orderTableRowHtml_);
     wireTableHeaderScrollSync_(orderListEl);
   }
 
@@ -4766,12 +4858,14 @@
   }
 
   on('myPageHoldList','click', handleInventoryListClick_);
+  wireSortableTableHeader_('myPageHoldList', state.myPageHoldSortState, renderMyPageHolds_);
   on('myPageOrderList','click', function (e) {
     var rowEl = e.target.closest('[data-ocn]');
     if (rowEl && !e.target.closest('button, input, label')) {
       openOrderDetailModal_(rowEl.dataset.ocn);
     }
   });
+  wireSortableTableHeader_('myPageOrderList', state.myPageOrderSortState, renderMyPageOrders_);
 
   // スプレッドシート自体のタイトル（Googleドライブ上のファイル名）の変更は、
   // 他の設定項目（保存ボタンでまとめて保存、Script Propertiesへの書き込み）とは

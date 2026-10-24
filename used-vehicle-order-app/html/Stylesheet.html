@@ -930,16 +930,6 @@
   .filterCheck input[type="radio"] { width: 15px; height: 15px; margin: 0; accent-color: var(--primary); cursor: pointer; flex: none; }
   .filterCheck__cnt { margin-left: auto; font-size: 11px; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; }
 
-  /* ===== 在庫リストのクイック行（並び替え） =====
-     以前はここにボディタイプ（型）のクイックナビも並べていたが、現場からの
-     要望で在庫リストの型での絞り込みは廃止した（ホーム画面の型クイックナビ
-     .homeTypeNavはそのまま残っている）。並び替えだけになったため、
-     .quickRow--sortOnlyで右寄せにする。 */
-  .quickRow { display: flex; align-items: center; gap: 16px; }
-  .quickRow .scroller { flex: 1 1 auto; min-width: 0; }
-  .quickRow--sortOnly { justify-content: flex-end; }
-  .quickRow__right { display: flex; align-items: center; gap: 16px; flex: none; }
-
   .input {
     border: 1px solid var(--outline);
     border-radius: 8px;
@@ -1061,9 +1051,6 @@
     font-size: 12.5px;
     color: var(--primary-text);
   }
-  .sortField { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--on-surface-variant); white-space: nowrap; }
-  .sortField select { font-size: 13px; }
-
   .btn--small { padding: 6px 12px; font-size: 12.5px; }
 
   /* 一覧テーブルの区分タグも、角の丸みのルール（.badge参照）に合わせて
@@ -1143,6 +1130,21 @@
     border-bottom: 2px solid var(--primary);
     white-space: nowrap;
   }
+  /* 列見出しタップでのソート（現場からの要望「それぞれの項目（全リスト）に
+     ソート機能を設けて（対象の項目タップで変動）するようにしてほしい」）。
+     番号列・操作列・シェブロン列（data-sort-keyを持たない空のdiv）はクリック
+     しても何も起きない通常の見出しのまま、他の列だけタップできるようにする。 */
+  .tblHead__col {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .tblHead__col:hover { color: var(--on-surface); }
+  .tblHead__col.is-sorted { color: var(--on-surface); }
+  .tblHead__sortIcon { font-size: 8px; line-height: 1; }
   /* 不具合修正: 一覧の件数が多いと、下にスクロールした際に列見出し（区分・
      モデル・現展示拠点等）が見えなくなり、各列が何を表しているか分からなく
      なっていた（現場からの要望「在庫リストの項目名は固定してほしい」）。
@@ -2293,7 +2295,6 @@
     .purchaseOrderList { grid-template-columns: 1fr; }
 
     .commandbar { padding: 12px 16px; }
-    .quickRow { flex-wrap: wrap; row-gap: 8px; }
 
     /* 不具合修正: .multiDropdown__panelはPC・タブレット幅（絞り込みパネルの
        右側に一覧の広いエリアがある前提）を右に開く向きにしていたが、この幅では
