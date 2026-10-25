@@ -1451,10 +1451,30 @@
      持たせる。角丸は通常.tblHeadでは「上だけ」（直下に.tblBodyが続くことを
      前提にしたborder-radius: var(--radius) var(--radius) 0 0）だが、この
      カードは.tblBodyを持たない単体の箱なので4つ角とも丸める。 */
+  /* 不具合修正（現場からの要望「受注リスト、業販受注リストが項目と表に隙間が
+     あるのでなくして下さい。（在庫リストのように）」）: 見出しカードと直後の
+     最初のグループの間に隙間（margin-bottom）を設けていたが、在庫リスト等
+     （見出しと行が同じ.tbl内に収まり、隙間なく続く）と見た目が揃っていなかった。
+     隙間を無くし、見出しカードの下辺（.tblHead本来の下線、border-bottom:
+     2px solid var(--primary)、上の.tblHead定義参照）と直後の最初のグループの
+     上辺を直接つなげることで、見出し＋最初のグループがまるで1つの.tblのように
+     継ぎ目なく見えるようにする（2つ目以降のグループ同士は、これまでどおり
+     .group自身のmargin-bottomで区切る）。角丸・上辺の枠線は.tblHeadStandalone
+     側は上だけ（通常の.tblHeadと同じ）のまま、直後の最初のグループ側だけ
+     上辺の枠線を消して角丸も下だけにし、見出しの下線だけで区切られた1枚の
+     表に見せる。 */
   .tblHead.tblHeadStandalone {
-    border: 1px solid var(--outline);
-    border-radius: var(--radius);
-    margin-bottom: 14px;
+    border-left: 1px solid var(--outline);
+    border-right: 1px solid var(--outline);
+    border-top: 1px solid var(--outline);
+    margin-bottom: 0;
+  }
+  .tblHeadStandalone + .group .tblHeadless {
+    border-top: none;
+    border-radius: 0 0 var(--radius) var(--radius);
+  }
+  .tblHeadStandalone + .group .tblHeadless .tblBody {
+    border-radius: 0 0 var(--radius) var(--radius);
   }
   .tblHead, .tblRow {
     display: grid;
@@ -1516,9 +1536,19 @@
      固定してほしい。もちろん絞り込み機能やタブも固定」を受け、PC・タブレット
      幅では.topbar＋.filterSidebar（横一列バー）の2段が重なった状態が基準に
      なるため、topのオフセットも--topbar-hだけでなく--filterbar-hを足した
-     位置に変更する（.appRailと同じ考え方、:root参照）。 */
+     位置に変更する（.appRailと同じ考え方、:root参照）。
+     不具合修正（現場からの要望「在庫リストをスクロールすると項目が上の
+     絞り込みバーと接触してしまいます。一切動かないようにして下さい」）:
+     スクロールしていない状態では.listBody__mainのpadding（24px、本ファイル
+     内の@media (min-width: 901px) .listBody__main参照）ぶん列見出しと絞り込み
+     バーの間に隙間があるが、固定されたoffset（上記のtop）がぴったり絞り込み
+     バーの下端と同じ位置だったため、スクロールして列見出しが固定された瞬間に
+     その隙間が0になり、絞り込みバーと接触して見えていた（＝固定されている
+     はずの間隔が、スクロールの有無で変わってしまっていた）。topに同じ24pxを
+     足すことで、固定された状態でもスクロールしていない状態と同じ間隔を保ち、
+     間隔自体も含めて「動かない」ようにする。 */
   @media (min-width: 901px) {
-    .tblHead { position: sticky; top: calc(var(--topbar-h) + var(--filterbar-h)); z-index: 1; }
+    .tblHead { position: sticky; top: calc(var(--topbar-h) + var(--filterbar-h) + 24px); z-index: 1; }
   }
   .tblRow {
     height: 54px;

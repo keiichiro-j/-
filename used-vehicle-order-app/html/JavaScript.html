@@ -944,6 +944,15 @@
    * 一緒に打ち消されることがあるため、代わりに明示的にselect.focus()を呼び、
    * クリック後も矢印キーでの操作（ネイティブのselect自体のキーボード操作）を
    * 維持する。
+   * 不具合修正（現場からの要望「「カラー」等の絞り込みをしようとすると選択肢
+   * がすぐ消えて選択できません」）: ポップオーバーの開閉はmousedownで行って
+   * いたが、mousedownでのstopPropagationは後続のclickイベント（同じ一回の
+   * クリック操作でmousedown→mouseup→clickの順に別々に発火する）には効かない。
+   * そのため開いた直後に、同じクリックから発生したclickイベントがdocument
+   * まで届き、外側クリックで閉じる仕組み（closeAllHomeMultiDropdowns_、本
+   * ファイル前方参照）によって即座に閉じてしまっていた。clickイベント側にも
+   * stopPropagationを付け、開いた直後の同じクリックで閉じないようにする
+   * （中身の開閉自体はmousedown側のみで行い、clickでは行わない）。
    */
   function wireSelectFacePopover_(select) {
     var wrap = select.closest('.selectFace');
@@ -972,6 +981,7 @@
         positionMultiDropdownPanel_(wrap, panel);
       }
     });
+    select.addEventListener('click', function (e) { e.stopPropagation(); });
     panel.addEventListener('click', function (e) {
       e.stopPropagation();
       var label = e.target.closest('label.filterCheck');
