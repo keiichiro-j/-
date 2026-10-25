@@ -423,16 +423,22 @@
     <main class="view view--list" id="view-homeResults">
       <div class="listBody">
         <div class="listBody__main">
-          <div class="homeResultsSection__head">
-            <p class="homeResultsSection__title">検索結果（在庫・デモカー・サービス代車）</p>
-            <span class="homeResultsSection__count" id="homeResultsCount"></span>
-            <!-- 不具合修正（UX・情報設計担当からの指摘）: 検索結果ページからの
-                 戻り先がこの小さい下線リンクしか無く見落とされがちだったため、
-                 他の画面の操作ボタンと同じ見た目（.btn .btn--small）にして
-                 押せる場所だとひと目で分かるようにする。 -->
-            <button type="button" class="btn btn--small hidden" id="btnHomeModelFilterClear">絞り込みを解除</button>
+          <!-- 見出し行＋検索条件の説明文をまとめてPC・タブレット幅でposition:
+               stickyで固定する（現場からの要望「検索結果....の文面および
+               絞り込みを解除ボタン、項目が動いてしまうので固定して下さい」。
+               .homeResultsSection__sticky、Stylesheet.html参照）。 -->
+          <div class="homeResultsSection__sticky" id="homeResultsSticky">
+            <div class="homeResultsSection__head">
+              <p class="homeResultsSection__title">検索結果（在庫・デモカー・サービス代車）</p>
+              <span class="homeResultsSection__count" id="homeResultsCount"></span>
+              <!-- 不具合修正（UX・情報設計担当からの指摘）: 検索結果ページからの
+                   戻り先がこの小さい下線リンクしか無く見落とされがちだったため、
+                   他の画面の操作ボタンと同じ見た目（.btn .btn--small）にして
+                   押せる場所だとひと目で分かるようにする。 -->
+              <button type="button" class="btn btn--small hidden" id="btnHomeModelFilterClear">絞り込みを解除</button>
+            </div>
+            <p class="homeResultsSection__desc" id="homeResultsSearchDesc"></p>
           </div>
-          <p class="homeResultsSection__desc" id="homeResultsSearchDesc"></p>
           <div id="homeResultsList"></div>
           <div class="emptyState hidden" id="homeResultsEmpty">
             <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-grid"></use></svg></span>

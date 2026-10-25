@@ -675,6 +675,7 @@
     resyncActiveTabTblBodyFades_();
     syncTopbarHeightVar_();
     syncFilterbarHeightVar_();
+    syncHomeResultsHeadHeightVar_();
     // 全タブは同じ1つのdocument上でdisplay: none/blockを切り替えているだけの
     // ため、スクロール位置はタブをまたいで共有されてしまう（例: 在庫リストで
     // スクロールした状態で他のタブへ移動すると、次のタブも同じスクロール
@@ -2029,10 +2030,18 @@
    * stickyを両方効かせることはできないため）。.tblBodyが横スクロールした際は
    * wireTableHeaderScrollSync_で.tblHead側の表示位置も追従させ、列見出しと
    * データの横位置がずれないようにする。
+   * 不具合修正（現場からの要望「項目を通り抜けてスクロールされるので、項目の
+   * 中に座れていく感じで」）: 固定された列見出しの上に隙間を覆う帯（::before、
+   * Stylesheet.html参照）を重ねたいが、.tblHead自身にoverflow-x: hiddenが
+   * 付いているとCSSの仕様上overflow-yも自動的にauto（スクロールコンテナ化）へ
+   * 昇格し、.tblHead自身の外へはみ出す::beforeが見えなくなってしまう
+   * （.tbl・.tblBodyを分けたのと同じ理由の不具合）。そのため、headerHtml
+   * （.tblHead）をoverflowを持たない.tblHeadWrapでさらに包み、position:
+   * sticky・::beforeはそちらに付ける（Stylesheet.html参照）。
    */
   function tableListHtml_(tableClass, headerHtml, items, renderRowFn) {
     if (!items.length) return '';
-    return '<div class="tbl ' + tableClass + '">' + headerHtml +
+    return '<div class="tbl ' + tableClass + '"><div class="tblHeadWrap">' + headerHtml + '</div>' +
       '<div class="tblBody">' + items.map(function (item, i) {
         return renderRowFn(item, i + 1);
       }).join('') + '</div>' +
@@ -2131,6 +2140,36 @@
     if (typeof ResizeObserver === 'undefined') return;
     var observer = new ResizeObserver(function () { syncFilterbarHeightVar_(); });
     document.querySelectorAll('.filterSidebar').forEach(function (el) { observer.observe(el); });
+  }
+
+  /**
+   * syncFilterbarHeightVar_と同じ考え方。ホームの「検索結果」専用ページ
+   * （#view-homeResults、絞り込みサイドバーを持たないため--filterbar-hは常に0）
+   * の見出し行＋検索条件の説明文（.homeResultsSection__sticky、Stylesheet.html
+   * 参照）の実際の高さを--homeResultsHead-hに反映する。絞り込み解除ボタンの
+   * 表示・非表示や、検索条件の説明文の折り返しで高さが変わるため、都度実測
+   * する。一覧（#homeResultsList）側の列見出しは、この変数ぶんだけ余計に
+   * オフセットを足すことで、固定された.homeResultsSection__stickyの下に
+   * ちょうど並んで固定される（現場からの要望「検索結果....の文面および
+   * 絞り込みを解除ボタン、項目が動いてしまうので固定して下さい」）。
+   */
+  function syncHomeResultsHeadHeightVar_() {
+    var el = document.getElementById('homeResultsSticky');
+    var h = el ? Math.ceil(el.getBoundingClientRect().height) : 0;
+    document.documentElement.style.setProperty('--homeResultsHead-h', h + 'px');
+  }
+
+  /**
+   * #homeResultsStickyをResizeObserverで監視し、高さが変わるたび
+   * syncHomeResultsHeadHeightVar_を呼び直す（setupFilterbarHeightObserver_と
+   * 同じ考え方）。
+   */
+  function setupHomeResultsHeadHeightObserver_() {
+    if (typeof ResizeObserver === 'undefined') return;
+    var el = document.getElementById('homeResultsSticky');
+    if (!el) return;
+    var observer = new ResizeObserver(function () { syncHomeResultsHeadHeightVar_(); });
+    observer.observe(el);
   }
 
   /**
@@ -5573,6 +5612,8 @@
     setupTopbarHeightObserver_();
     syncFilterbarHeightVar_();
     setupFilterbarHeightObserver_();
+    syncHomeResultsHeadHeightVar_();
+    setupHomeResultsHeadHeightObserver_();
     reloadAll_().catch(function (err) { showToast(err.message, true); }).then(function () {
       // 起動時ローディング画面は初回の読み込み完了時のみフェードアウトする
       // （更新ボタンからの再読み込みは、ボタン自体の回転アイコンで十分なため

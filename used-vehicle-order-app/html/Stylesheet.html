@@ -115,6 +115,16 @@
        絞り込みバーの高さが変わるたびに呼ばれる）が実測してこの変数へ
        書き込み直す。ここでの値はJS実行前の初期表示専用のフォールバック。 */
     --filterbar-h: 0px;
+    /* ホームの「検索結果」専用ページ（#view-homeResults、絞り込みサイドバーを
+       持たないため--filterbar-hは常に0）専用。検索結果見出し＋件数＋絞り込み
+       解除ボタン＋検索条件の説明文をまとめた.homeResultsSection__stickyの
+       実際の高さ。--filterbar-hと同じ考え方で、中のテキスト量（絞り込み解除
+       ボタンの有無・説明文の折り返し）によって高さが変わるため、
+       syncHomeResultsHeadHeightVar_（JavaScript.html）が実測してこの変数へ
+       書き込み直す。一覧（#homeResultsList）側の列見出しのposition: sticky
+       オフセット計算に使う（現場からの要望「検索結果の文面および絞り込みを
+       解除ボタン、項目が動いてしまうので固定して下さい」）。 */
+    --homeResultsHead-h: 0px;
     /* お知らせ（#homeAnnouncement）が同じ囲いの中に表示されているとき
        （body.has-announcement、syncHomeAnnouncementVisibility_・JavaScript.html参照）
        は、その分だけ.topbarの実際の高さが伸びるため、--topbar-hもこの状態に
@@ -700,7 +710,34 @@
   /* ホームの「検索結果」専用ページ（#view-homeResults。在庫リスト＋デモカーリスト＋
      サービス代車リストを横断した個々の車両の一覧）。見出し行は絞り込み機能の
      .filterSidebar__headと同じ考え方（左に見出し・件数、右端に絞り込み解除）。
-     このページは絞り込み機能（.filterSidebar）を持たない。 */
+     このページは絞り込み機能（.filterSidebar）を持たない。
+     不具合修正（現場からの要望「検索結果....の文面および絞り込みを解除ボタン、
+     項目が動いてしまうので固定して下さい」）: 見出し行（.homeResultsSection__head）
+     と検索条件の説明文（.homeResultsSection__desc）をこの.homeResultsSection__sticky
+     でまとめて包み、他の一覧の.filterSidebarと同じようにPC・タブレット幅で
+     position: stickyで固定する（Index.html参照）。 */
+  .homeResultsSection__sticky { background: var(--background); }
+  @media (min-width: 901px) {
+    .homeResultsSection__sticky {
+      position: sticky;
+      top: calc(var(--topbar-h) + var(--filterbar-h) + 24px);
+      z-index: 2;
+    }
+    /* .tblHeadの::before（上記参照）と同じ考え方: スクロールしていない状態では
+       .listBody__mainのpaddingぶんの隙間があるが、固定offsetにも同じ24pxを
+       足しているため、固定された瞬間にその隙間へ実際の行の中身が透けて見えて
+       しまう（「項目を通り抜けてスクロールされる」）のを防ぐ。 */
+    .homeResultsSection__sticky::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: -24px;
+      height: 24px;
+      background: var(--background);
+      pointer-events: none;
+    }
+  }
   .homeResultsSection__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 0; }
   .homeResultsSection__title { font-size: 13px; font-weight: 700; margin: 0; color: var(--primary-text); }
   .homeResultsSection__count {
@@ -710,6 +747,21 @@
     font-variant-numeric: tabular-nums;
   }
   .homeResultsSection__desc { margin: 0 0 8px; font-size: 12px; color: var(--on-surface-variant); }
+  /* 上記.homeResultsSection__stickyが固定された分だけ、一覧（#homeResultsList）
+     自身の列見出し（.tblHeadWrap、上記の共通ルール参照）も、その下に重ならず
+     並んで固定されるよう、offsetに.homeResultsSection__stickyの実際の高さ
+     （--homeResultsHead-h、:root・JavaScript.html参照）を足す。両者の間の
+     隙間（.homeResultsSection__descのmargin-bottom、8px）も同じ考え方で
+     ::beforeで覆い、行の中身が透けないようにする。 */
+  @media (min-width: 901px) {
+    #view-homeResults .tblHeadWrap {
+      top: calc(var(--topbar-h) + var(--filterbar-h) + 24px + var(--homeResultsHead-h));
+    }
+    #view-homeResults .tblHeadWrap::before {
+      top: -8px;
+      height: 8px;
+    }
+  }
 
   .homeCard {
     background: var(--surface);
@@ -1495,9 +1547,38 @@
      その隙間が0になり、絞り込みバーと接触して見えていた（＝固定されている
      はずの間隔が、スクロールの有無で変わってしまっていた）。topに同じ24pxを
      足すことで、固定された状態でもスクロールしていない状態と同じ間隔を保ち、
-     間隔自体も含めて「動かない」ようにする。 */
+     間隔自体も含めて「動かない」ようにする。
+     不具合修正（現場からの要望「項目を通り抜けてスクロールされるので、項目の
+     中に座れていく感じでお願いします」）: 上記のtopに足した24pxは絞り込み
+     バーと列見出しの間の「空いた帯」であり、何も覆っていなかったため、
+     スクロール中その帯をちょうど実際のデータ行が通過するタイミングでは、
+     固定された列見出しの外（上の隙間）に行の中身がそのまま透けて見えてしまい、
+     「項目（列見出し）を通り抜けてスクロールされる」ように見えていた。この
+     隙間をvar(--background)と同じ色の帯（::before）で覆いたいが、.tblHead
+     自身にoverflow-x: hidden（上記参照、横スクロール位置合わせ用）が付いて
+     いるため、CSSの仕様上overflow-yが自動的にauto（スクロールコンテナ化）へ
+     昇格してしまい、.tblHead自身の外（top: -24px）へはみ出す::beforeが
+     見えなくなってしまう（.tbl・.tblBodyを分けたのと同じ理由の不具合）。
+     そのため、position: sticky・::beforeは.tblHeadそのものではなく、
+     overflowを一切持たない新しい外枠.tblHeadWrap（.tblHeadをそのまま包む、
+     tableListHtml_・JavaScript.html参照）に付け、.tblHead自身は中身（横
+     スクロール位置合わせ）の役割だけに専念させる。 */
   @media (min-width: 901px) {
-    .tblHead { position: sticky; top: calc(var(--topbar-h) + var(--filterbar-h) + 24px); z-index: 1; }
+    .tblHeadWrap {
+      position: sticky;
+      top: calc(var(--topbar-h) + var(--filterbar-h) + 24px);
+      z-index: 1;
+    }
+    .tblHeadWrap::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: -24px;
+      height: 24px;
+      background: var(--background);
+      pointer-events: none;
+    }
   }
   .tblRow {
     height: 54px;
