@@ -1425,6 +1425,37 @@
      起きない）。overflow-xはそのまま横スクロールに使うため、ショートハンド
      ではなくoverflow-yだけ個別に指定する。 */
   .tblBody { overflow-x: auto; overflow-y: hidden; border-radius: 0 0 var(--radius) var(--radius); -webkit-overflow-scrolling: touch; }
+  /* 現場からの要望「スクロールすると固定している項目が動くので完璧に固定して
+     ほしい」: 受注・業販受注リストは月・拠点・モデル等でグループ化され、
+     従来はグループ（.group）ごとに自分専用の.tbl（見出し行.tblHead＋
+     .tblBody）を持っていた。見出し行はグループ単位でstickyになっていたため、
+     あるグループの.tblが下にスクロールし切って次のグループに切り替わる瞬間、
+     固定されていた見出しが一旦外れて次のグループの見出しに置き換わる
+     （見出しが消えてまた現れる）動きが「項目（表ごと）動く」ように見えて
+     いた。これを無くすため、グループ化された一覧では見出し行を一覧全体で
+     1つだけ外（renderOrders/renderWholesaleOrders、JavaScript.html参照）に
+     切り出し、各グループの.tblは見出しを持たない行だけの箱
+     （tableBodyOnlyHtml_が生成、.tblHeadless）にする。見出しが無いぶん、
+     .tblBody自身の角を全て（上下とも）丸める。 */
+  .tblHeadless .tblBody { border-radius: var(--radius); }
+  /* 上記で外に切り出した「一覧全体で1つだけ」の見出し行（externalTableHeadHtml_
+     が生成）。不具合修正: 見出しを専用の小さな箱（.tbl等）で包むと、
+     position: stickyが効く「のりしろ」（固定され続けられる縦方向の範囲）が
+     CSSの仕様上その箱自身の高さぶんしか無くなり、箱の高さ=見出し自身の高さ
+     だと実質固定が効かない（スクロールにそのまま追従して流れて行ってしまう）
+     不具合があったため、.tblHead自身を全グループ分のデータ行を収める親
+     （#ordersGroups等）の直接の子にしている（Index.html・JavaScript.html
+     内のexternalTableHeadHtml_参照）。そのため見た目のカード化（枠・角丸・
+     下の間隔）も包む箱ではなく.tblHead自身に対して行う。個々のグループの
+     箱（.tblHeadless）とは別の独立したカードに見せるため、.tblと同じ枠を
+     持たせる。角丸は通常.tblHeadでは「上だけ」（直下に.tblBodyが続くことを
+     前提にしたborder-radius: var(--radius) var(--radius) 0 0）だが、この
+     カードは.tblBodyを持たない単体の箱なので4つ角とも丸める。 */
+  .tblHead.tblHeadStandalone {
+    border: 1px solid var(--outline);
+    border-radius: var(--radius);
+    margin-bottom: 14px;
+  }
   .tblHead, .tblRow {
     display: grid;
     align-items: center;

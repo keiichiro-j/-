@@ -901,12 +901,14 @@
 
   /**
    * カラー・初年度登録日・価格帯・走行距離等、ネイティブ<select>のまま使う
-   * 単一選択の項目向け。select自体のキーボード操作・OS標準ピッカーは
-   * そのまま維持しつつ、見た目だけ他の項目（.multiDropdown__btn）と揃った
-   * 「アイコン＋文字＋シェブロン」にする（.selectFace、Stylesheet.html参照。
-   * selectは透明にして上に重ね、クリック・操作自体はselect本体が受け続ける）。
-   * changeイベントのたびに呼び、未選択時は項目名、選択時は「項目名・選択肢の
-   * 文字」をselectFace__textに書き込む。
+   * 単一選択の項目向け。閉じた状態の見た目は以前から他の項目
+   * （.multiDropdown__btn）と揃った「アイコン＋文字＋シェブロン」（.selectFace、
+   * Stylesheet.html参照）だったが、開いたときの選択肢一覧はブラウザ標準の
+   * ピッカー（OSごとに見た目が異なる）のままで、区分等のカスタムポップオーバー
+   * と見た目が揃っていなかった（現場からの要望「絞り込み項目の表示の背景
+   * ビジュアルを全て「区分」等に統一して下さい」の一環、本ファイル後方の
+   * wireSelectFacePopover_参照）。changeイベントのたびに呼び、未選択時は
+   * 項目名、選択時は「項目名・選択肢の文字」をselectFace__textに書き込む。
    */
   function syncSelectFace_(selectId) {
     var select = $(selectId);
@@ -927,6 +929,65 @@
   /** ページ内のすべての.selectFaceを初期表示に合わせて同期する（起動時用）。 */
   function syncAllSelectFaces_() {
     document.querySelectorAll('.selectFace select').forEach(function (sel) { syncSelectFace_(sel.id); });
+  }
+
+  /**
+   * 現場からの要望「絞り込み項目の表示の背景ビジュアルを全て「区分」等に
+   * 統一して下さい」（質問への回答「選択候補の一覧のビジュアルの差のことです」）:
+   * .selectFace配下のネイティブ<select>は、閉じた状態の見た目こそ他の項目
+   * （.multiDropdown__btn）と揃えてあったが、開いたときの選択肢一覧はOS標準の
+   * ピッカーのままだった。値の読み書き・既存のchange監視・絞り込みロジックは
+   * 一切変更せず（select自体はそのまま裏に残し、値はselect.valueとして
+   * 保持し続ける）、開いたときの一覧の見た目だけを区分等と同じ
+   * .multiDropdown__panel（.filterCheck一覧）に差し替える。
+   * 不具合対策: mousedownでpreventDefaultするとブラウザ既定のフォーカス付与も
+   * 一緒に打ち消されることがあるため、代わりに明示的にselect.focus()を呼び、
+   * クリック後も矢印キーでの操作（ネイティブのselect自体のキーボード操作）を
+   * 維持する。
+   */
+  function wireSelectFacePopover_(select) {
+    var wrap = select.closest('.selectFace');
+    if (!wrap) return;
+    var panel = document.createElement('div');
+    panel.className = 'multiDropdown__panel hidden';
+    wrap.appendChild(panel);
+    function renderPanel() {
+      panel.innerHTML = Array.prototype.map.call(select.options, function (opt) {
+        var label = opt.text || '指定なし';
+        return '<label class="filterCheck"><input type="radio" name="' + escapeHtml(select.id) + '__face" value="' + escapeHtml(opt.value) + '"' +
+          (opt.value === select.value ? ' checked' : '') + '>' + escapeHtml(label) + '</label>';
+      }).join('');
+    }
+    select.addEventListener('mousedown', function (e) {
+      // ブラウザ標準のピッカーが開くのを止め、代わりに下のポップオーバーを
+      // 開閉する。
+      e.preventDefault();
+      select.focus();
+      e.stopPropagation();
+      var willOpen = panel.classList.contains('hidden');
+      closeAllHomeMultiDropdowns_();
+      if (willOpen) {
+        renderPanel();
+        panel.classList.remove('hidden');
+        positionMultiDropdownPanel_(wrap, panel);
+      }
+    });
+    panel.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var label = e.target.closest('label.filterCheck');
+      if (!label) return;
+      var input = label.querySelector('input');
+      if (!input) return;
+      panel.classList.add('hidden');
+      if (select.value === input.value) return;
+      select.value = input.value;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    homeMultiDropdowns_.push({ panel: panel });
+  }
+  /** ページ内のすべての.selectFaceにwireSelectFacePopover_を配線する（起動時用）。 */
+  function wireAllSelectFacePopovers_() {
+    document.querySelectorAll('.selectFace select').forEach(wireSelectFacePopover_);
   }
 
   // ===== 在庫リスト =====
@@ -1969,6 +2030,47 @@
   }
 
   /**
+   * 月・拠点・モデル等でグループ化された一覧（受注・業販受注リスト）専用。
+   * tableListHtml_と違い見出し行（.tblHead）を含めず、データ行（.tblBody）
+   * だけの箱を返す。グループごとに見出しを持たせると、グループの境目を
+   * スクロールで通過するたびに固定見出しが一旦外れて次グループの見出しに
+   * 置き換わる「表ごと動く」不具合（現場からの要望「スクロールすると固定
+   * している項目が動くので完璧に固定して下さい」）が起きるため、見出しは
+   * 一覧全体で1つだけexternalTableHeadHtml_で外に出し、各グループはこちらの
+   * データ行だけの箱にする（Stylesheet.htmlの.tblHeadless参照）。
+   */
+  function tableBodyOnlyHtml_(tableClass, items, renderRowFn) {
+    if (!items.length) return '';
+    return '<div class="tbl ' + tableClass + ' tblHeadless">' +
+      '<div class="tblBody">' + items.map(function (item, i) {
+        return renderRowFn(item, i + 1);
+      }).join('') + '</div>' +
+      '</div>';
+  }
+
+  /**
+   * tableBodyOnlyHtml_と対になる、一覧全体で1つだけの見出し行。グループが
+   * 1件も無い（該当データ無し）ときは見出しごと非表示にする（既存の空状態
+   * メッセージ#xxxEmptyに任せる）。
+   * 不具合修正: 見出し（.tblHead）を別の小さな箱（高さ=見出し自身の高さだけ）で
+   * 包むと、position: stickyが効く「のりしろ」（固定され続けられる範囲）が
+   * CSSの仕様上その包んだ箱の高さ分しか無くなり、箱の高さ=見出し自身の高さ
+   * だとのりしろが0になって実質固定されない（スクロールにそのまま追従して
+   * 流れて行ってしまう）不具合があった。そのため見出しを別の箱で包むのは
+   * やめ、全グループ分のデータ行を収める大きな親（#ordersGroups／
+   * #wholesaleOrdersGroups自身）の直接の子として見出し行を差し込む
+   * （renderOrders/renderWholesaleOrders参照）ことで、のりしろを
+   * 「全グループの合計の高さ」ぶん確保する。列の幅（グリッド）を揃える
+   * .tbl--order等のクラスも、見出しを包む専用の箱ではなくこの親コンテナ
+   * 自身に付ける（Index.html参照。子孫セレクターなので直接の親子関係で
+   * なくても効く）。
+   */
+  function externalTableHeadHtml_(headerHtml, hasItems) {
+    if (!hasItems) return '';
+    return headerHtml.replace('class="tblHead"', 'class="tblHead tblHeadStandalone"');
+  }
+
+  /**
    * tableListHtml_で作った.tbl内の.tblBodyを横スクロールしたとき、.tblHead
    * （列見出し行）の表示位置もその分ずらして追従させる。containerEl配下に
    * 複数の.tbl（受注リスト・業販受注リストの月ごとグループ等）があっても
@@ -1989,9 +2091,16 @@
     body.style.setProperty('--fade-r', body.scrollLeft < max - 2 ? '16px' : '0px');
   }
 
+  /**
+   * containerEl内に一覧全体で1つだけの見出し行（.tblHeadStandalone、
+   * externalTableHeadHtml_参照）があれば、配下の.tblBody（グループごとに
+   * 複数ある）がどれであっても、その1つの見出し行に追従させる。無ければ
+   * 従来通り各.tbl自身の.tblHeadに追従させる。
+   */
   function wireTableHeaderScrollSync_(containerEl) {
+    var sharedHead = containerEl.querySelector('.tblHeadStandalone');
     containerEl.querySelectorAll('.tbl').forEach(function (tbl) {
-      var head = tbl.querySelector('.tblHead');
+      var head = sharedHead || tbl.querySelector('.tblHead');
       var body = tbl.querySelector('.tblBody');
       if (!head || !body) return;
       body.addEventListener('scroll', function () {
@@ -3547,7 +3656,12 @@
     $('ordersEmpty').classList.toggle('hidden', totalItems > 0);
     $('ordersTotalCount').textContent = '該当 ' + totalItems + ' 台';
     var isMonthGrouped = checkedRadioValue_('ordersGroupByFilter') === 'orderedMonth';
-    container.innerHTML = groups.map(function (g) {
+    // 見出し行は一覧全体で1つだけ、#ordersGroups自身の最初の子として描画する
+    // （現場からの要望「スクロールすると固定している項目が動くので完璧に
+    // 固定して下さい」。externalTableHeadHtml_参照）。各グループは見出しを
+    // 持たない行だけの箱。
+    var headHtml = externalTableHeadHtml_(orderTableHeaderHtml_(state.ordersSortState), totalItems > 0);
+    container.innerHTML = headHtml + groups.map(function (g) {
       var heading = g.key
         ? '<h3 class="group__title">' + escapeHtml(g.key) + '<span class="group__count">' + g.items.length + '台</span></h3>'
         : '';
@@ -3555,7 +3669,7 @@
       // 列見出しタップでのソートはグループ内の並びにだけ反映する（グループ分け
       // 自体は維持する。現場からの要望「それぞれの項目にソート機能を設けて」）。
       var sortedItems = sortTableItems_(g.items, ORDER_SORT_COLUMNS, state.ordersSortState);
-      return '<div class="group"' + monthAttr + '>' + heading + tableListHtml_('tbl--order', orderTableHeaderHtml_(state.ordersSortState), sortedItems, orderTableRowHtml_) + '</div>';
+      return '<div class="group"' + monthAttr + '>' + heading + tableBodyOnlyHtml_('tbl--order', sortedItems, orderTableRowHtml_) + '</div>';
     }).join('');
     $('ordersMonthNav').innerHTML = ordersMonthChipsHtml_(groups.reduce(function (acc, g) { return acc.concat(g.items); }, []));
     wireTableHeaderScrollSync_(container);
@@ -3757,12 +3871,15 @@
     var totalItems = groups.reduce(function (n, g) { return n + g.items.length; }, 0);
     $('wholesaleOrdersEmpty').classList.toggle('hidden', totalItems > 0);
     $('wholesaleOrdersTotalCount').textContent = '該当 ' + totalItems + ' 台';
-    container.innerHTML = groups.map(function (g) {
+    // 見出し行は一覧全体で1つだけ、#wholesaleOrdersGroups自身の最初の子として
+    // 描画する（renderOrdersと同じ考え方、externalTableHeadHtml_参照）。
+    var headHtml = externalTableHeadHtml_(wholesaleOrderTableHeaderHtml_(state.wholesaleOrdersSortState), totalItems > 0);
+    container.innerHTML = headHtml + groups.map(function (g) {
       var heading = g.key
         ? '<h3 class="group__title">' + escapeHtml(g.key) + '<span class="group__count">' + g.items.length + '台</span></h3>'
         : '';
       var sortedItems = sortTableItems_(g.items, WHOLESALE_SORT_COLUMNS, state.wholesaleOrdersSortState);
-      return '<div class="group">' + heading + tableListHtml_('tbl--wholesale', wholesaleOrderTableHeaderHtml_(state.wholesaleOrdersSortState), sortedItems, wholesaleOrderTableRowHtml_) + '</div>';
+      return '<div class="group">' + heading + tableBodyOnlyHtml_('tbl--wholesale', sortedItems, wholesaleOrderTableRowHtml_) + '</div>';
     }).join('');
     wireTableHeaderScrollSync_(container);
     syncFilterRowsAndSummary_('wholesaleOrdersFilterRows', 'wholesaleOrdersActiveBar', 'btnWholesaleOrdersFilterClear');
@@ -5486,6 +5603,7 @@
   function init() {
     renderAppRail_();
     syncAllSelectFaces_();
+    wireAllSelectFacePopovers_();
     syncNavButtons_();
     initScrollFade_('topbarTabs');
     initScrollElevation_();
