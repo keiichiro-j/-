@@ -1103,7 +1103,15 @@
        上げることで、ファイル内の記述順に関係なく必ずこちらが優先されるように
        する。 */
     #app .filterSidebar__activeBar { display: none; }
-    .filterSidebar__field { flex: 1 1 140px; min-width: 140px; max-width: 320px; margin: 0 20px 0 0; }
+    /* 不具合修正（現場からの要望「キーワード検索の長さを調整して、全て
+       絞り込みをした際も右にスクロールしなくても表示するようにしてほしい」）:
+       以前はキーワード検索欄に余ったスペースを優先的に割り当てていた
+       （flex: 1 1 140px・max-width: 320px）ため、絞り込み項目側
+       （.filterSidebar__rows）の取り分が狭く、特にホーム（項目数が最多）で
+       すべての項目を選択すると横スクロールが必要になっていた。検索欄は
+       伸び縮みの優先度を下げ（flex-grow: 0）、幅の上限も縮める代わりに、
+       絞り込み項目側の上限（max-width）を広げる。 */
+    .filterSidebar__field { flex: 0 1 150px; min-width: 90px; max-width: 150px; margin: 0 14px 0 0; }
     .filterSidebar .searchbox { border: none; border-bottom: 1px solid var(--outline); border-radius: 0; padding: 5px 2px; background: transparent; }
     .filterSidebar .searchbox:focus-within { box-shadow: none; border-bottom-color: var(--primary); }
     .filterSidebar__rows {
@@ -1111,9 +1119,9 @@
       flex-direction: row;
       align-items: center;
       flex-wrap: nowrap;
-      gap: 18px;
+      gap: 14px;
       margin-top: 0;
-      max-width: 1100px;
+      max-width: 1320px;
       overflow-x: auto;
       scrollbar-width: none;
     }
@@ -1140,7 +1148,7 @@
     .filterSidebar__row select.input,
     .filterSidebar__row .multiDropdown__btn,
     .filterSidebar__row .selectFace {
-      padding: 3px 14px 3px 0;
+      padding: 3px 10px 3px 0;
       white-space: nowrap;
     }
     #view-home .filterSidebar__sectionLabel { display: none; }
@@ -1408,7 +1416,15 @@
     border: 1px solid var(--outline);
     border-radius: var(--radius);
   }
-  .tblBody { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  /* 不具合修正（現場からの要望「表の角（丸みを帯びた部分）が少し欠けている」）:
+     .tblHeadと同じ理由で、最終行（縞模様で背景色が付く場合がある）の四角い
+     背景が.tblの丸めた下側の角からはみ出すことがある。.tblBodyは.tblHead
+     （sticky）とは別の兄弟要素でありstickyの基準には影響しないため、
+     overflow-y: hiddenを付けても安全（.tblHead側のposition: stickyはこの
+     要素を経由していないため、別のスクロールコンテナ化による不具合は
+     起きない）。overflow-xはそのまま横スクロールに使うため、ショートハンド
+     ではなくoverflow-yだけ個別に指定する。 */
+  .tblBody { overflow-x: auto; overflow-y: hidden; border-radius: 0 0 var(--radius) var(--radius); -webkit-overflow-scrolling: touch; }
   .tblHead, .tblRow {
     display: grid;
     align-items: center;
@@ -1418,6 +1434,15 @@
   .tblHead {
     height: 36px;
     background: var(--background);
+    /* 不具合修正（現場からの要望「表の角（丸みを帯びた部分）が少し欠けている」）:
+       .tblはborder-radiusで角を丸めているが、overflow: hiddenは付けていない
+       （sticky化した.tblHead〔直後の@media参照〕の親にoverflow: hidden等を
+       付けると、position: stickyの基準がビューポートではなく.tbl自身に
+       変わってしまい、固定が効かなくなるため）。そのため、背景色が.tbl自身と
+       異なる.tblHead（var(--background)、行の縞模様と同じ色）の四角い背景が、
+       .tblの丸めた角からそのままはみ出して見えていた。.tblHead自身にも同じ
+       半径で角丸を付けることで、.tblの輪郭に沿わせる。 */
+    border-radius: var(--radius) var(--radius) 0 0;
     font-size: 10.5px;
     /* .tblBodyが横スクロールしたとき、列見出し自体は横スクロールバーを
        持たせず、wireTableHeaderScrollSync_（JavaScript.html）がscrollLeftを

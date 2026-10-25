@@ -914,7 +914,14 @@
     if (!wrap) return;
     var face = wrap.querySelector('.selectFace__text');
     var fieldLabel = wrap.dataset.fieldLabel || '';
-    var optionText = select.value ? select.options[select.selectedIndex].text : '';
+    // 不具合修正: 選択肢の文字（<option>のtext）には、withCount_（本ファイル
+    // 参照）が付けた対象台数「（N件）」がそのまま含まれている。選択前の一覧
+    // （ドロップダウンを開いた時点）では件数が選ぶ判断材料になるが、選択後の
+    // ボタン表示まで引き継ぐと「カラー・パールホワイト（1件）」のように文字が
+    // 余計に長くなり、絞り込みバーが1行に収まりにくくなる（現場からの要望
+    // 「全て絞り込みをした際も右にスクロールしなくても表示するようにして
+    // ほしい」）。ボタン表示では末尾の件数表記だけを取り除く。
+    var optionText = select.value ? select.options[select.selectedIndex].text.replace(/（\d+件）$/, '') : '';
     face.textContent = optionText ? (fieldLabel + '・' + optionText) : fieldLabel;
   }
   /** ページ内のすべての.selectFaceを初期表示に合わせて同期する（起動時用）。 */
@@ -2679,13 +2686,16 @@
     if (e.key === 'Enter') handleHomeSearch_();
   });
 
-  // 検索結果ページ（#view-homeResults）側の操作。画像タップ（カード・グレード
-  // チップ）・キーワード検索の絞り込みを解除し、ホームの絞り込みサイドバー条件
-  // のみの一覧に戻す（ページ自体は移動しない）。
+  // 検索結果ページ（#view-homeResults）側の操作。現場からの要望「ホームから
+  // モデルカードで一覧に移動した際に『絞り込みを解除』を押すとホーム画面に
+  // 戻るようにしてほしい」を受け、画像タップ（カード・グレードチップ）・
+  // キーワード検索の絞り込み条件をクリアした上で、ホーム画面（#view-home）へ
+  // 画面遷移する（以前はページ自体は移動せず、検索結果ページのまま絞り込み
+  // だけ解除していた）。
   on('btnHomeModelFilterClear', 'click', function () {
     state.homeModelFilter = [];
     state.homeResultsKeyword = '';
-    renderHomeResultsPage_();
+    switchToTab_('home');
   });
 
   /**
