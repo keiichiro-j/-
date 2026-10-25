@@ -619,16 +619,14 @@
                グループ化が「月ごと」以外のときにタップした場合は、自動で
                「月ごと」に切り替えてから該当月までスクロールする。 -->
           <div class="scroller" id="ordersMonthNav"></div>
-          <!-- 列見出し行（.tblHead）は一覧全体で1つだけ、この#ordersGroups自身の
-               最初の子として描画し、月ごとにグループ分けされた各表
-               （.group内）はデータ行だけにする（現場からの要望「スクロール
-               すると固定している項目が動くので完璧に固定して下さい」。
-               position: stickyが効く「のりしろ」を確保するため、見出しを
-               別の小さな箱で包まず、全グループ分のデータ行を収めるこの
-               コンテナ自身の直接の子にする必要がある。tbl--orderクラスは
-               列の幅（グリッド）を揃えるため（Stylesheet.html参照）。
-               renderOrders、JavaScript.html参照）。 -->
-          <div id="ordersGroups" class="tbl--order"></div>
+          <!-- 月・拠点・モデル等でグループ化された各表（.group、renderOrders参照）を
+               並べる。グループごとに自分専用の列見出し行（.tblHead）を持つ
+               （現場からの要望「グループ分けをした際はそれぞれの列の上部に項目を
+               つけてください。絞り込み内容（月）は項目の上に表示してください」）。
+               列見出しはグループ単位でposition: stickyになるため、スクロールで
+               グループの境目を通過する際に見出しが一瞬入れ替わる動きが出るが、
+               各グループに見出しを表示することを優先する。 -->
+          <div id="ordersGroups"></div>
           <div class="emptyState hidden" id="ordersEmpty">
             <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-table"></use></svg></span>
             <p>該当する受注がありません</p>
@@ -694,10 +692,10 @@
       <div class="listBody">
         <nav class="appRail" data-host-view="wholesaleOrders" aria-label="画面切替"></nav>
         <div class="listBody__main">
-          <!-- 列見出し行は一覧全体で1つだけ、この#wholesaleOrdersGroups自身の
-               最初の子として描画する（renderOrdersと同じ考え方。
+          <!-- グループ化された各表（.group）を並べる。renderOrdersと同じ考え方
+               （グループごとに自分専用の列見出し行を持つ）、
                renderWholesaleOrders、JavaScript.html参照）。 -->
-          <div id="wholesaleOrdersGroups" class="tbl--wholesale"></div>
+          <div id="wholesaleOrdersGroups"></div>
           <div class="emptyState hidden" id="wholesaleOrdersEmpty">
             <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-table"></use></svg></span>
             <p>該当する業販受注がありません</p>
