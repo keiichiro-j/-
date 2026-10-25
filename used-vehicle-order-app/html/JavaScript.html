@@ -1010,6 +1010,39 @@
     return 'm4';
   }
 
+  /**
+   * 現場からの要望「『タイプ』や『カラー』等にも『区分』等と同様に対象台数を
+   * 表示してほしい」を受けて追加。.multiDropdownのチェックボックス一覧
+   * （checkboxFilterOptionsHtml_、本ファイル参照）が各選択肢の件数を
+   * .filterCheck__cntバッジで表示しているのと同じ考え方を、ネイティブ
+   * <select>（.selectFace、カラー・初年度登録日・価格帯・走行距離・ホームの
+   * タイプ）の選択肢にも適用する。<option>はHTML要素を入れ子にできないため、
+   * バッジの代わりに文字列として「ラベル（N件）」を組み立てる。
+   */
+  function withCount_(label, count) {
+    return label + '（' + count + '件）';
+  }
+  /** 年式／価格帯／走行距離のバケット（yearBucketOf_等）ごとの該当台数を集計する。 */
+  function countByBucket_(items, bucketFn) {
+    var counts = {};
+    items.forEach(function (v) {
+      var b = bucketFn(v);
+      if (!b) return;
+      counts[b] = (counts[b] || 0) + 1;
+    });
+    return counts;
+  }
+  /** カラー等、車両の特定フィールドの値ごとの該当台数を集計する。 */
+  function countByField_(items, fieldKey) {
+    var counts = {};
+    items.forEach(function (v) {
+      var val = v[fieldKey];
+      if (!val) return;
+      counts[val] = (counts[val] || 0) + 1;
+    });
+    return counts;
+  }
+
   // モデル名（v.model）に含まれるキーワードから、設定タブ（管理者限定）で
   // 登録済みのボディタイプ紐付けルール（state.bootstrap.settings.
   // modelBodyTypeRules、大文字小文字を区別せず部分一致）に基づいて該当する
@@ -1025,6 +1058,21 @@
       }
     });
     return types;
+  }
+  /**
+   * ホームの「タイプ」絞り込み（#homeTypeFilter）向けに、型ごとの該当台数を
+   * 集計する（withCount_参照）。1台の車両が複数の型に一致することもあるため
+   * （modelBodyTypesOf_が複数件返す場合）、その場合は該当するすべての型の
+   * カウントに加算する。
+   */
+  function countByBodyType_(items) {
+    var counts = {};
+    items.forEach(function (v) {
+      modelBodyTypesOf_(v.model).forEach(function (t) {
+        counts[t] = (counts[t] || 0) + 1;
+      });
+    });
+    return counts;
   }
 
   /**
@@ -1395,16 +1443,18 @@
     // ポップオーバーの中身を、取得済みの車両プールに合わせて作り直す
     // （setupHomeMultiDropdown_、本ファイル参照）。
     syncAllHomeMultiDropdowns_();
-    var colors = [];
-    items.forEach(function (v) { if (v.exteriorColor && colors.indexOf(v.exteriorColor) === -1) colors.push(v.exteriorColor); });
-    colors.sort();
+    var colorCounts = countByField_(items, 'exteriorColor');
+    var colors = Object.keys(colorCounts).sort();
     var colorSelect = $('homeColorFilter');
     var currentColor = state.homeFilters.color;
     colorSelect.innerHTML = '<option value=""></option>' + colors.map(function (c) {
-      return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>';
+      return '<option value="' + escapeHtml(c) + '">' + escapeHtml(withCount_(c, colorCounts[c])) + '</option>';
     }).join('');
     colorSelect.value = colors.indexOf(currentColor) !== -1 ? currentColor : '';
     if (colorSelect.value !== currentColor) state.homeFilters.color = colorSelect.value;
+    fillStaticSelectOptions_('homeYearFilter', YEAR_BUCKET_OPTIONS, state.homeFilters.yearBucket, countByBucket_(items, yearBucketOf_));
+    fillStaticSelectOptions_('homePriceFilter', PRICE_BUCKET_OPTIONS, state.homeFilters.priceBucket, countByBucket_(items, priceBucketOf_));
+    fillStaticSelectOptions_('homeMileageFilter', MILEAGE_BUCKET_OPTIONS, state.homeFilters.mileageBucket, countByBucket_(items, mileageBucketOf_));
     syncHomeFilterClearVisibility_();
   }
 
@@ -1514,16 +1564,18 @@
     syncMultiDropdownButton_('inventoryLocationFilter', state.inventoryFilters.location);
     syncMultiDropdownButton_('inventoryListedFilter', state.inventoryFilters.listed, INVENTORY_LISTED_LABELS);
 
-    var colors = [];
-    items.forEach(function (v) { if (v.exteriorColor && colors.indexOf(v.exteriorColor) === -1) colors.push(v.exteriorColor); });
-    colors.sort();
+    var colorCounts = countByField_(items, 'exteriorColor');
+    var colors = Object.keys(colorCounts).sort();
     var colorSelect = $('inventoryColorFilter');
     var currentColor = state.inventoryFilters.color;
     colorSelect.innerHTML = '<option value=""></option>' + colors.map(function (c) {
-      return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>';
+      return '<option value="' + escapeHtml(c) + '">' + escapeHtml(withCount_(c, colorCounts[c])) + '</option>';
     }).join('');
     colorSelect.value = colors.indexOf(currentColor) !== -1 ? currentColor : '';
     if (colorSelect.value !== currentColor) state.inventoryFilters.color = colorSelect.value;
+    fillStaticSelectOptions_('inventoryYearFilter', YEAR_BUCKET_OPTIONS, state.inventoryFilters.yearBucket, countByBucket_(items, yearBucketOf_));
+    fillStaticSelectOptions_('inventoryPriceFilter', PRICE_BUCKET_OPTIONS, state.inventoryFilters.priceBucket, countByBucket_(items, priceBucketOf_));
+    fillStaticSelectOptions_('inventoryMileageFilter', MILEAGE_BUCKET_OPTIONS, state.inventoryFilters.mileageBucket, countByBucket_(items, mileageBucketOf_));
 
     syncInventoryFilterClearVisibility_();
   }
@@ -1537,19 +1589,19 @@
     $('btnInventoryFilterClear').classList.toggle('hidden', !hasAny);
   }
 
-  function fillStaticSelectOptions_(id, options, current) {
+  /**
+   * countsを渡すと各選択肢のラベル末尾に該当台数を付け足す（withCount_参照、
+   * 空文字の選択肢＝「指定なし」には付けない）。countsを渡さない呼び出しは
+   * 従来どおり件数無しのまま（現状、呼び出し元はすべて渡す）。
+   */
+  function fillStaticSelectOptions_(id, options, current, counts) {
     var select = $(id);
     select.innerHTML = options.map(function (o) {
-      return '<option value="' + escapeHtml(o.value) + '">' + escapeHtml(o.label) + '</option>';
+      var label = (counts && o.value) ? withCount_(o.label, counts[o.value] || 0) : o.label;
+      return '<option value="' + escapeHtml(o.value) + '">' + escapeHtml(label) + '</option>';
     }).join('');
     select.value = current || '';
   }
-  fillStaticSelectOptions_('inventoryYearFilter', YEAR_BUCKET_OPTIONS, state.inventoryFilters.yearBucket);
-  fillStaticSelectOptions_('inventoryPriceFilter', PRICE_BUCKET_OPTIONS, state.inventoryFilters.priceBucket);
-  fillStaticSelectOptions_('inventoryMileageFilter', MILEAGE_BUCKET_OPTIONS, state.inventoryFilters.mileageBucket);
-  fillStaticSelectOptions_('homeYearFilter', YEAR_BUCKET_OPTIONS, state.homeFilters.yearBucket);
-  fillStaticSelectOptions_('homePriceFilter', PRICE_BUCKET_OPTIONS, state.homeFilters.priceBucket);
-  fillStaticSelectOptions_('homeMileageFilter', MILEAGE_BUCKET_OPTIONS, state.homeFilters.mileageBucket);
 
   // dd（値）はカード・詳細モーダルどちらでも折り返さず省略記号にする方針
   // （.card__metaGrid dd、Stylesheet.html参照。折り返すとカードごとに高さが
@@ -3850,19 +3902,18 @@
 
     function renderFilterSidebar() {
       var items = state[opts.stateKey] || [];
-      var colors = [];
-      items.forEach(function (v) { if (v.exteriorColor && colors.indexOf(v.exteriorColor) === -1) colors.push(v.exteriorColor); });
-      colors.sort();
+      var colorCounts = countByField_(items, 'exteriorColor');
+      var colors = Object.keys(colorCounts).sort();
       var colorSelect = $(opts.colorFilterId);
       var f = state[opts.filtersKey];
       colorSelect.innerHTML = '<option value=""></option>' + colors.map(function (c) {
-        return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>';
+        return '<option value="' + escapeHtml(c) + '">' + escapeHtml(withCount_(c, colorCounts[c])) + '</option>';
       }).join('');
       colorSelect.value = colors.indexOf(f.color) !== -1 ? f.color : '';
       if (colorSelect.value !== f.color) f.color = colorSelect.value;
-      fillStaticSelectOptions_(opts.yearFilterId, YEAR_BUCKET_OPTIONS, f.yearBucket);
-      fillStaticSelectOptions_(opts.priceFilterId, PRICE_BUCKET_OPTIONS, f.priceBucket);
-      fillStaticSelectOptions_(opts.mileageFilterId, MILEAGE_BUCKET_OPTIONS, f.mileageBucket);
+      fillStaticSelectOptions_(opts.yearFilterId, YEAR_BUCKET_OPTIONS, f.yearBucket, countByBucket_(items, yearBucketOf_));
+      fillStaticSelectOptions_(opts.priceFilterId, PRICE_BUCKET_OPTIONS, f.priceBucket, countByBucket_(items, priceBucketOf_));
+      fillStaticSelectOptions_(opts.mileageFilterId, MILEAGE_BUCKET_OPTIONS, f.mileageBucket, countByBucket_(items, mileageBucketOf_));
       $(opts.locationFilterId).querySelector('.multiDropdown__panel').innerHTML = checkboxFilterOptionsHtml_(items, 'currentDisplayLocation', f.location);
       syncMultiDropdownButton_(opts.locationFilterId, f.location);
       syncMultiDropdownButton_(opts.statusFilterId, f.status);
@@ -4769,9 +4820,10 @@
   function renderHomeTypeNav_() {
     var options = (state.bootstrap && state.bootstrap.modelBodyTypeOptions) || [];
     var current = state.homeBodyTypeFilter;
+    var counts = countByBodyType_(state.homeVehiclePool || []);
     var sel = $('homeTypeFilter');
     sel.innerHTML = '<option value=""></option>' + options.map(function (t) {
-      return '<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + '</option>';
+      return '<option value="' + escapeHtml(t) + '">' + escapeHtml(withCount_(t, counts[t] || 0)) + '</option>';
     }).join('');
     sel.value = options.indexOf(current) !== -1 ? current : '';
     if (sel.value !== current) state.homeBodyTypeFilter = sel.value;

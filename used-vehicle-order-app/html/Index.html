@@ -292,11 +292,13 @@
           <div class="filterSidebar__field">
             <div class="searchbox">
               <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
-              <!-- 不具合修正（UX・情報設計担当からの指摘）: 入力しただけでは
-                   反応せずEnterで初めて検索されるという挙動が、見た目から
-                   伝わりにくかった。プレースホルダー自体に操作方法を
-                   明記する。 -->
-              <input type="search" id="homeKeyword" placeholder="">
+              <!-- 不具合修正（現場からの要望「ホームの検索欄に在庫リスト同様に
+                   『キーワードで検索』の文字を同じ色・同じサイズで表示して
+                   ほしい」）: 以前はプレースホルダーが空文字のままになっており、
+                   検索欄だと分かりにくかった。在庫リスト等と同じ文言
+                   「キーワード検索」にする（色・サイズは.searchbox input::
+                   placeholderで全リスト共通のため、文言を合わせるだけで揃う）。 -->
+              <input type="search" id="homeKeyword" placeholder="キーワード検索">
             </div>
           </div>
           <div class="filterSidebar__rows" id="homeFilterRows">
