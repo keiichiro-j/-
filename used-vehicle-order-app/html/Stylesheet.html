@@ -974,7 +974,17 @@
      .selectFace__chevはpointer-events: noneでクリックを奪わない）。
      文字（ラベル／ラベル・値）はsyncSelectFace_（JavaScript.html）が
      changeイベントのたびに書き換える。 */
-  .selectFace { position: relative; display: flex; align-items: center; }
+  /* 不具合修正（現場からの要望「区分等の選択式ドロップダウン
+     （.multiDropdown__btn）と文字の大きさを揃えてほしい（小さめに）」）:
+     .selectFace自身にはfont-sizeの指定が無く、ページ既定（ブラウザ標準の
+     16px、本ファイルのhtml, body参照）をそのまま継承していたため、
+     .multiDropdown__btn（font-size: 11px、本ファイル後方で定義）より
+     大きく表示されていた。.selectFaceにも同じ11pxを指定し、両者の見た目を
+     揃える（中の実体の<select class="input">自身はiOS Safariの自動ズーム
+     対策で16px基準のままにする必要があるため、.selectFace select.input
+     （本ファイル後方）側で別途16pxを維持する。opacity: 0で画面上は見えない
+     ため、サイズを変えても見た目には影響しない）。 */
+  .selectFace { position: relative; display: flex; align-items: center; font-size: 11px; }
   .selectFace__text { overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
   .selectFace__chev { font-size: 8px; opacity: .5; margin-left: 4px; pointer-events: none; flex: none; }
   .selectFace select.input {
@@ -1055,8 +1065,20 @@
     }
     /* 「条件検索」の文字・該当件数は横一列バーでは場所を取るため表示しない
        （件数は左の絞り込みサイドバー見出しの代わりに一覧側の見出し等へ、
-       という従来の方針のまま。クリアボタンだけは引き続き使えるよう残す）。 */
-    .filterSidebar__head { display: none; }
+       という従来の方針のまま）。現場からの要望「絞り込み機能の一番最後に
+       クリアボタンを設置してほしい」を受け、.filterSidebar__head自体は
+       非表示にせず、中のクリアボタンだけを残して各項目（.filterSidebar__rows）
+       の右隣・1行目の末尾に並べる（order: 1で検索欄・.filterSidebar__rows
+       〔ともにorder既定値の0〕の後ろ、2行目に回り込む絞り込み中サマリー
+       〔order: 3〕より前に置く）。 */
+    .filterSidebar__head {
+      display: flex;
+      order: 1;
+      flex: none;
+      width: auto;
+      margin-left: 10px;
+    }
+    .filterSidebar__title, .filterSidebar__count { display: none; }
     /* 不具合修正: .filterSidebarがflex-wrap: nowrap（既定値）のままだと、
        order: 3・flex-basis: 100%を付けても改行が起きず、絞り込み中サマリー
        （チップ一覧・「絞り込み条件はありません」の案内文）が1行目の右端に
@@ -1125,6 +1147,18 @@
     background-color: var(--surface); color: var(--on-surface); font-size: 11px; cursor: pointer;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     background-repeat: no-repeat; background-position: right 8px center; background-size: 10px;
+  }
+  /* 不具合修正（現場からの要望「区分等も走行距離のような選択式にしてほしい」）:
+     .multiDropdown__btnには.selectFace__chevにあたるシェブロン（▾）が無く、
+     ネイティブselect・.selectFaceの項目と見比べたとき「選択できる項目」だと
+     ひと目で分かりにくかった。同じ記号・同じ見た目（font-size: 8px、
+     opacity: .5、margin-left: 4px）の疑似要素を文字の直後に添え、見た目を
+     揃える。 */
+  .multiDropdown__btn::after {
+    content: "▾";
+    font-size: 8px;
+    opacity: .5;
+    margin-left: 4px;
   }
   .multiDropdown__btn:hover { border-color: var(--primary); }
   /* 不具合修正: ポップオーバーを行の真下に開く向きだと、他の行（特に密に

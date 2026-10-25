@@ -673,6 +673,7 @@
     $('view-' + tabName).classList.add('is-active');
     syncHomeAnnouncementVisibility_();
     resyncActiveTabTblBodyFades_();
+    syncTopbarHeightVar_();
     syncFilterbarHeightVar_();
     // 全タブは同じ1つのdocument上でdisplay: none/blockを切り替えているだけの
     // ため、スクロール位置はタブをまたいで共有されてしまう（例: 在庫リストで
@@ -1957,6 +1958,45 @@
     if (typeof ResizeObserver === 'undefined') return;
     var observer = new ResizeObserver(function () { syncFilterbarHeightVar_(); });
     document.querySelectorAll('.filterSidebar').forEach(function (el) { observer.observe(el); });
+  }
+
+  /**
+   * 不具合修正（現場からの要望「タイトルと絞り込み機能までの隙間を無くして
+   * ほしい」「受注リストの月ごとのボタンが半分しか見えない」）: --topbar-h
+   * （.topbar＝ロゴ・お知らせ・タブをまとめたヘッダーの高さ）は、以前は
+   * :root・body.has-announcementの決め打ちの数値（Stylesheet.html参照）
+   * だけに頼っていたが、実際の.topbarの高さ（お知らせの有無・文章量での
+   * 折り返し等で変わる）とズレると、それを基準にposition: stickyで位置を
+   * 決めている.filterSidebar・.appRail・.tblHeadがすべて本来より下に
+   * ずれて固定されてしまう。ズレた分だけ、.filterSidebarの実際のスクロール
+   * 開始位置（stickyでまだ貼り付いていない状態の自然な流し込み位置）が
+   * 見かけの固定位置より上に来てしまい、その後に続く内容（ホームのモデル
+   * 画像グリッド・受注リストの月別件数チップ行等）がその「本来の」位置から
+   * 描画されるため、固定された絞り込みバー・列見出しに隠れたり、重なって
+   * 見えたりする（タイトルと絞り込み機能の間に隙間が空いて見える現象も
+   * 同じ原因）。--filterbar-h（syncFilterbarHeightVar_、上記参照）と同じ
+   * 考え方で、.topbarの実際の高さを都度実測してCSS変数へ書き込む。
+   * body.has-announcement（Stylesheet.html）による上書きより必ず勝つよう、
+   * document.documentElementではなくdocument.body自身のインラインstyleに
+   * 書き込む（CSS変数はインラインstyleが最優先のため）。 */
+  function syncTopbarHeightVar_() {
+    var topbar = document.getElementById('topbar');
+    if (!topbar) return;
+    var h = Math.ceil(topbar.getBoundingClientRect().height);
+    if (h > 0) document.body.style.setProperty('--topbar-h', h + 'px');
+  }
+
+  /**
+   * .topbarをResizeObserverで監視し、高さが変わるたび（お知らせの表示・
+   * 非表示、文章の折り返し、ウィンドウ幅の変化等）syncTopbarHeightVar_を
+   * 呼び直す。
+   */
+  function setupTopbarHeightObserver_() {
+    if (typeof ResizeObserver === 'undefined') return;
+    var topbar = document.getElementById('topbar');
+    if (!topbar) return;
+    var observer = new ResizeObserver(function () { syncTopbarHeightVar_(); });
+    observer.observe(topbar);
   }
 
   /**
@@ -5363,6 +5403,8 @@
     syncNavButtons_();
     initScrollFade_('topbarTabs');
     initScrollElevation_();
+    syncTopbarHeightVar_();
+    setupTopbarHeightObserver_();
     syncFilterbarHeightVar_();
     setupFilterbarHeightObserver_();
     reloadAll_().catch(function (err) { showToast(err.message, true); }).then(function () {
