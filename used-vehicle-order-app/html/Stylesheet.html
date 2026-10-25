@@ -1079,19 +1079,26 @@
       margin-left: 10px;
     }
     .filterSidebar__title, .filterSidebar__count { display: none; }
-    /* 不具合修正: .filterSidebarがflex-wrap: nowrap（既定値）のままだと、
-       order: 3・flex-basis: 100%を付けても改行が起きず、絞り込み中サマリー
-       （チップ一覧・「絞り込み条件はありません」の案内文）が1行目の右端に
-       押し込まれてしまっていた。flex-wrap: wrapを付け、サマリーだけが
-       2行目に回り込むようにする（検索欄・各項目のボタン列は1行目のまま
-       収まる前提、現場からの要望「絞り込みをした際も1行で抑えたい」
-       「元から絞り込みされた場合のスペースを開けておくといい」参照）。 */
-    .filterSidebar__activeBar:not(:empty) {
-      order: 3;
-      flex-basis: 100%;
-      justify-content: center;
-      padding: 0 24px 10px;
-    }
+    /* 現場からの要望「ホームの絞り込み機能を在庫リストと同様にしてほしい。
+       絞り込みをしていない際も『絞り込み条件はありません』の文字を消して
+       ほしい。また、絞り込み時に絞り込み対象（チップ一覧）を表示するのを
+       やめてほしい」を受け、絞り込み中サマリー（.filterSidebar__activeBar、
+       「絞り込み条件はありません」の案内文・選択中のチップ一覧の両方）は
+       PC・タブレット幅の横一列バーでは表示しない。各項目のボタン自身が
+       未選択時はラベル、選択時は「ラベル・値」を表示する（syncMultiDropdownButton_・
+       syncSelectFace_、JavaScript.html参照）ため、同じ情報を二重に出さずに
+       済む。これにより絞り込みバーは常に1行（.filterSidebar__rowsの高さ）で
+       済むようになり、flex-wrapで2行目に回り込ませる仕組みも不要になった。
+       不具合修正: 単に.filterSidebar__activeBar { display: none; }だけでは、
+       本ファイル後方にある縦積みレイアウト用の素のルール
+       （.filterSidebar__activeBar { display: flex; ... }、全幅で有効）と
+       詳細度が同じセレクタどうしの「後に書かれた方が勝つ」規則により、後ろに
+       書かれた素のルールの方が後勝ちしてしまい、PC・タブレット幅でも
+       display: flexに戻って絞り込み時にチップ一覧が表示されてしまっていた。
+       #app（本ファイル冒頭で定義、画面全体を包む要素）を前に付けて詳細度を
+       上げることで、ファイル内の記述順に関係なく必ずこちらが優先されるように
+       する。 */
+    #app .filterSidebar__activeBar { display: none; }
     .filterSidebar__field { flex: 1 1 140px; min-width: 140px; max-width: 320px; margin: 0 20px 0 0; }
     .filterSidebar .searchbox { border: none; border-bottom: 1px solid var(--outline); border-radius: 0; padding: 5px 2px; background: transparent; }
     .filterSidebar .searchbox:focus-within { box-shadow: none; border-bottom-color: var(--primary); }
@@ -1207,6 +1214,17 @@
      チェックボックスと同じサイズ・色に揃える。 */
   .filterCheck input[type="checkbox"],
   .filterCheck input[type="radio"] { width: 15px; height: 15px; margin: 0; accent-color: var(--primary); cursor: pointer; flex: none; }
+  /* 現場からの要望「『区分』等（絞り込みのドロップダウン内の選択肢）の
+     ◻︎マーク（チェックボックス）を消して絞り込みの文字のみにしてほしい」を
+     受け、ポップオーバー（.multiDropdown__panel）内のチェックボックス・
+     ラジオボタンは見た目上は表示しない。<input>自体はdisplay: noneにしても
+     同じ<label>で包まれている文字をクリックすれば引き続きON/OFFできる
+     （ラベル→フォーム部品の関連付けはdisplay: noneの影響を受けないブラウザ
+     標準の挙動のため、クリック判定用のJSは不要）。選択中かどうかは
+     チェックボックスの代わりに文字自体の色・太さで示す。 */
+  .multiDropdown__panel .filterCheck input[type="checkbox"],
+  .multiDropdown__panel .filterCheck input[type="radio"] { display: none; }
+  .multiDropdown__panel .filterCheck:has(input:checked) { color: var(--primary); font-weight: 700; }
   .filterCheck__cnt { margin-left: auto; font-size: 11px; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; }
 
   .input {

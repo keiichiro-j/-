@@ -355,15 +355,19 @@
             <!-- 現場からの要望「ホーム絞り込み機能に各リストで追加した機能を搭載して
                  ほしい（在庫保管位置など）」を受け、集計元の3リスト（在庫・デモカー・
                  サービス代車）に個別に追加されていた項目をホームにも統合する。
-                 区分・掲載状況は在庫リストの車両にしか無い概念、販売状況はデモカー・
-                 サービス代車の車両にしか無い概念のため、チェックした場合はその概念を
-                 持たない方の車両が自動的に対象外になる（在庫リストの
-                 applyInventoryFilters_・デモカーリスト等のapplyCarTrackingFilters_と
-                 同じ判定方法、applyHomeFilters_・JavaScript.html参照）。
-                 現場からの要望「絞り込みを大きく分けて見やすくしてほしい」を受け、
-                 車両そのものの条件（タイプ〜走行距離）と、この統合分（区分〜
-                 販売状況）との間に見出し（.filterSidebar__sectionLabel）を挟み、
-                 ひとまとまりの長いリストに見えないようにする。 -->
+                 区分・掲載状況は在庫リストの車両にしか無い概念のため、チェックした
+                 場合はその概念を持たない方の車両（デモカー・サービス代車）が自動的に
+                 対象外になる（在庫リストのapplyInventoryFilters_と同じ判定方法、
+                 applyHomeFilters_・JavaScript.html参照）。現場からの要望「絞り込みを
+                 大きく分けて見やすくしてほしい」を受け、車両そのものの条件
+                 （タイプ〜走行距離）と、この統合分（区分・現展示拠点・掲載状況）との
+                 間に見出し（.filterSidebar__sectionLabel）を挟み、ひとまとまりの
+                 長いリストに見えないようにする。不具合修正: 販売状況（デモカー・
+                 サービス代車専用の在庫中／販売済み）は現場からの要望「ホームから
+                 販売状況の絞り込みを消してほしい」を受けて廃止した。state.homeFilters.
+                 saleStatus・applyHomeFilters_側のsaleStatus判定は、UIが無くなった
+                 ことで常に空配列（絞り込みなし扱い）のままになるため害は無いが、
+                 あえて削除はせず残してある。 -->
             <div class="filterSidebar__sectionLabel">管理情報</div>
             <div class="filterSidebar__row" data-row="category">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-tag"></use></svg><span class="filterSidebar__rowLabel">区分</span></div>
@@ -383,17 +387,6 @@
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-globe"></use></svg><span class="filterSidebar__rowLabel">掲載状況</span></div>
               <div class="multiDropdown" id="homeListedFilter" data-field-label="掲載状況">
                 <button type="button" class="multiDropdown__btn">掲載状況</button>
-                <div class="multiDropdown__panel hidden"></div>
-              </div>
-            </div>
-            <div class="filterSidebar__row" data-row="saleStatus">
-              <!-- 見出しとコントロールを同じ行に並べる関係上（Stylesheet.html参照）、
-                   「販売状況（デモカー・サービス代車）」では長すぎてボタンの表示幅を
-                   圧迫するため「販売状況」のみにする。対象がデモカー・サービス代車の
-                   車両のみである旨は、本ファイル上部のコメントに残す。 -->
-              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-tag"></use></svg><span class="filterSidebar__rowLabel">販売状況</span></div>
-              <div class="multiDropdown" id="homeSaleStatusFilter" data-field-label="販売状況">
-                <button type="button" class="multiDropdown__btn">販売状況</button>
                 <div class="multiDropdown__panel hidden"></div>
               </div>
             </div>

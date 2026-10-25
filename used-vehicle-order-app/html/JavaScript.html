@@ -815,6 +815,41 @@
   }
   // ポップオーバーの外側をクリックしたら閉じる（一般的なドロップダウンの挙動）。
   document.addEventListener('click', closeAllHomeMultiDropdowns_);
+
+  /**
+   * 不具合修正: ポップオーバー（.multiDropdown__panel）は元々position: absolute
+   * （ボタンの右側に開く、本ファイルのCSS参照）だったが、PC・タブレット幅の
+   * 横一列絞り込みバーでは、親の.filterSidebar__rowsが横スクロール用に
+   * overflow-x: autoを持っており、CSSの仕様上overflow-yも自動的にauto
+   * （＝縦方向も切り取り対象）へ昇格してしまう（.tbl・.tblHeadで以前あったのと
+   * 同じ不具合、本ファイル内の該当コメント参照）。そのため、ボタンの行の高さを
+   * はみ出す分のポップオーバーが見えない状態になっていた（枠線・背景まで
+   * 切り取られ、文字の一部だけが浮いて見える）。position: fixedに切り替え、
+   * 開くたびにボタンの画面上の実際の位置を基準に座標を計算し直すことで、
+   * 祖先のoverflow設定の影響を受けないようにする。画面右端に収まらない
+   * 場合はボタンの左側に開く。スマホ・タブレット幅（901px未満、縦積み
+   * レイアウト）ではこの問題が無いため、CSS側の位置指定（position: absolute）に
+   * そのまま任せ、インラインstyleは外す。
+   */
+  function positionMultiDropdownPanel_(btn, panel) {
+    if (!window.matchMedia('(min-width: 901px)').matches) {
+      panel.style.position = '';
+      panel.style.top = '';
+      panel.style.left = '';
+      panel.style.right = '';
+      return;
+    }
+    var r = btn.getBoundingClientRect();
+    panel.style.position = 'fixed';
+    panel.style.top = Math.max(8, r.top - 8) + 'px';
+    panel.style.left = (r.right + 8) + 'px';
+    panel.style.right = 'auto';
+    var panelRect = panel.getBoundingClientRect();
+    if (panelRect.right > window.innerWidth - 8) {
+      panel.style.left = 'auto';
+      panel.style.right = (window.innerWidth - r.left + 8) + 'px';
+    }
+  }
   // .selectFaceで包んだネイティブselectは、どの項目のどのidであっても
   // changeのたびに表示文字（syncSelectFace_）を更新する。既存の各change
   // ハンドラ（state更新・再描画）には一切手を加えず、表示だけを横取りして
@@ -842,7 +877,7 @@
       e.stopPropagation();
       var willOpen = panel.classList.contains('hidden');
       closeAllHomeMultiDropdowns_();
-      if (willOpen) panel.classList.remove('hidden');
+      if (willOpen) { panel.classList.remove('hidden'); positionMultiDropdownPanel_(btn, panel); }
     });
     // ポップオーバー内のクリックがdocumentまでバブリングして自分自身を
     // 閉じてしまわないようにする。
@@ -2508,7 +2543,11 @@
       e.stopPropagation();
       var willOpen = panel.classList.contains('hidden');
       closeAllHomeMultiDropdowns_();
-      if (willOpen) { panel.innerHTML = renderOptionsHtml(); panel.classList.remove('hidden'); }
+      if (willOpen) {
+        panel.innerHTML = renderOptionsHtml();
+        panel.classList.remove('hidden');
+        positionMultiDropdownPanel_(btn, panel);
+      }
     });
     // ポップオーバー内のクリックがdocumentまでバブリングして自分自身を
     // 閉じてしまわないようにする。
@@ -2549,20 +2588,6 @@
         labels[k] + '<span class="filterCheck__cnt">' + counts[k] + '</span></label>';
     }).join('');
   }
-  /** 販売状況（在庫中／販売済み）。デモカー・サービス代車の車両にしか無い
-   * saleStatusで判定する（在庫リストの車両は対象外になる）。 */
-  function homeSaleStatusDropdownOptionsHtml_() {
-    var counts = { '在庫中': 0, '販売済み': 0 };
-    (state.homeVehiclePool || []).forEach(function (v) {
-      if (Object.prototype.hasOwnProperty.call(counts, v.saleStatus)) counts[v.saleStatus]++;
-    });
-    var checkedValues = state.homeFilters.saleStatus;
-    return ['在庫中', '販売済み'].map(function (k) {
-      var checked = checkedValues.indexOf(k) !== -1;
-      return '<label class="filterCheck"><input type="checkbox" value="' + k + '"' + (checked ? ' checked' : '') + '> ' +
-        k + '<span class="filterCheck__cnt">' + counts[k] + '</span></label>';
-    }).join('');
-  }
 
   setupHomeMultiDropdown_('homeCategoryFilter', 'category', function () {
     return checkboxFilterOptionsHtml_(state.homeVehiclePool || [], 'category', state.homeFilters.category);
@@ -2572,7 +2597,6 @@
   });
   setupHomeMultiDropdown_('homeListedFilter', 'listed', homeListedDropdownOptionsHtml_,
     { carsensor: 'カーセンサー掲載中', goonet: 'グーネット掲載中', unlisted: '未掲載' });
-  setupHomeMultiDropdown_('homeSaleStatusFilter', 'saleStatus', homeSaleStatusDropdownOptionsHtml_);
 
   function syncAllHomeMultiDropdowns_() {
     homeMultiDropdowns_.forEach(function (d) { if (d.sync) d.sync(); });
