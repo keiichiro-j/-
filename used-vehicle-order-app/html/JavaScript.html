@@ -1714,9 +1714,14 @@
   }
 
   // metaRow_と異なり省略記号にせず、値を折り返してでも全文表示する
-  // （在庫リストの詳細モーダルの外装色・内装色専用、Stylesheet.htmlの
+  // （詳細モーダルの外装色・内装色専用だったが、Stylesheet.htmlの
   // .card__metaGrid dd.is-fullText参照。現場からの要望「在庫リストポップアップ
-  // 表示時のみカラーを全て表示してほしい」）。
+  // 表示時のみカラーを全て表示してほしい」）。不具合修正（現場からの要望
+  // 「文面が見切れている場面があるのでしっかりと表示されるようにして下さい」）:
+  // 登録番号（plateText_）・旧使用拠点・現名義も、ボックスの横幅次第では
+  // 標準的な長さの値ですら省略記号で切れてしまっていたため（特に登録番号は
+  // 短い識別情報でありホバーせず一目で確認できる必要がある）、同じ
+  // metaRowFull_に変更した（在庫・受注・業販受注リストの各詳細モーダル）。
   function metaRowFull_(label, value) {
     var text = value || '-';
     return '<div><dt>' + label + '</dt><dd class="is-fullText" title="' + escapeHtml(text) + '">' + escapeHtml(text) + '</dd></div>';
@@ -1855,7 +1860,7 @@
       metaRow_('販売価格', formatNumberUnit_(v.salePrice, ' 円')) +
       metaRow_('初年度登録日', v.firstRegistrationDate) +
       metaRow_('走行距離', formatNumberUnit_(v.mileage, ' km')) +
-      metaRow_('登録番号', plateText_(v)) +
+      metaRowFull_('登録番号', plateText_(v)) +
       metaRow_('MP', v.mp) +
       '</dl>';
   }
@@ -1867,17 +1872,22 @@
     // 同じ省略記号（ellipsis）表示だと全文を確認しづらい（現場からの要望）。
     // 以前はボタンを押した先の別ポップアップで全文を確認する形だったが、
     // noteBlockHtml_（上記）に統一し、このグリッドの下にそのまま全文表示する。
+    // 不具合修正（現場からの要望「文面が見切れている場面があるのでしっかりと
+    // 表示されるようにして下さい」）: 旧使用拠点・現名義は現場の入力次第で
+    // 長くなり得る自由記述項目（会社名等）だが、metaRow_（省略記号＋ホバーで
+    // 全文確認）のままだと一見で全文が見えず「見切れている」ように見えていた。
+    // 外装色・内装色と同じmetaRowFull_（折り返して全文表示）に変更する。
     return '<dl class="card__metaGrid">' +
       metaRow_('ステア', v.steering) +
       metaRow_('型式', v.modelCode) +
       metaRow_('車台番号下４桁', v.chassisNumberLast4) +
       metaRow_('車検満了日', v.inspectionExpiryDate, inspectionExpiryTone_(v.inspectionExpiryDate)) +
       metaRow_('ﾘｻｲｸﾙ料', formatNumberUnit_(v.recycleFee, ' 円')) +
-      metaRow_('旧使用拠点', v.previousLocation) +
+      metaRowFull_('旧使用拠点', v.previousLocation) +
       metaRow_('CCC入庫日', v.cccArrivalDate) +
       metaRow_('経過月', formatNumberUnit_(v.elapsedMonths, ' ヶ月')) +
       metaRow_('現展示拠点', v.currentDisplayLocation) +
-      metaRow_('現名義', v.currentOwnerName) +
+      metaRowFull_('現名義', v.currentOwnerName) +
       '</dl>' +
       noteBlockHtml_('オプション', v.option, 'オプションの登録はありません。');
   }
@@ -3557,7 +3567,7 @@
       metaRow_('ＯＣＮ', o.ocn) +
       metaRowFull_('外装色', o.exteriorColor) +
       metaRowFull_('内装色', o.interiorColor) +
-      metaRow_('登録番号', plateText_(o)) +
+      metaRowFull_('登録番号', plateText_(o)) +
       metaRow_('走行距離', formatNumberUnit_(o.mileage, ' km')) +
       metaRow_('販売価格', formatNumberUnit_(o.salePrice, ' 円')) +
       metaRow_('MP', o.mp) +
@@ -3808,7 +3818,7 @@
       metaRow_('ＯＣＮ', o.ocn) +
       metaRowFull_('外装色', o.exteriorColor) +
       metaRowFull_('内装色', o.interiorColor) +
-      metaRow_('登録番号', plateText_(o)) +
+      metaRowFull_('登録番号', plateText_(o)) +
       metaRow_('走行距離', formatNumberUnit_(o.mileage, ' km')) +
       metaRow_('販売価格', formatNumberUnit_(o.salePrice, ' 円')) +
       metaRow_('MP', o.mp) +

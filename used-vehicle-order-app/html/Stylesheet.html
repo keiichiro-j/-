@@ -1605,7 +1605,10 @@
   /* 操作列はHold中（解除・受注確定）／在庫あり（HOLD・受注）のどちらも常に
      ボタン2つになるため、flex: 1で均等配分するだけで常に同じ横幅に揃う
      （現場からの指摘「解除ボタンもHOLD・受注と合わせたサイズに」）。 */
-  .tblCell--actions { display: flex; gap: 6px; overflow: visible; }
+  /* 不具合修正（現場からの要望「行間を詰めてHOLDおよび受注が列に表示される
+     ようにして下さい」）: ボタン同士の間隔を詰め、ボタン自身の左右の余白も
+     減らすことで、固定幅の操作列によりゆとりを持たせる。 */
+  .tblCell--actions { display: flex; gap: 4px; overflow: visible; }
   /* 不具合修正: vehicleActionsHtml_が返すHOLD／受注・受注確定ボタンは
      .card__actions（詳細モーダルの大きいボタン向けスタイル、min-height:44px等）で
      包まれているため、そのままだと一覧行には大きすぎる。.tbl .tblCell--actions …
@@ -1614,7 +1617,7 @@
      することで、隣に並ぶ「解除」ボタン（card__actionsの外側、tblCell--actionsの
      直接の子）と対等に横幅を分け合い、ボタンが1つでも2つでも列幅いっぱいに
      均等配分される（現場からの指摘「解除ボタンもHOLD・受注と合わせたサイズに」）。 */
-  .tbl .tblCell--actions .btn { flex: 1; padding: 6px 7px; font-size: 11.5px; min-width: 0; min-height: 0; letter-spacing: normal; text-align: center; }
+  .tbl .tblCell--actions .btn { flex: 1; padding: 6px 4px; font-size: 11.5px; min-width: 0; min-height: 0; letter-spacing: normal; text-align: center; white-space: nowrap; }
   .tbl .tblCell--actions .card__actions { flex: 1; margin: 0; padding: 0; flex-wrap: nowrap; }
   .tblCell--chev { text-align: center; color: var(--on-surface-variant); }
 
@@ -1661,7 +1664,10 @@
      リストはステータスのみ、受注リスト・業販受注リストは顧客名（販売先）・
      登録月が続く。 */
   .tbl--inventory .tblHead, .tbl--inventory .tblRow {
-    grid-template-columns: 16px minmax(64px, 1fr) minmax(84px, 1fr) minmax(70px, 1fr) minmax(64px, 1fr) minmax(70px, 1fr) minmax(144px, 1fr) minmax(80px, 1fr) minmax(84px, 1fr) 86px 114px 11px;
+    /* 不具合修正（現場からの要望「行間を詰めてHOLDおよび受注が列に表示される
+       ようにして下さい」）: 操作列（HOLD・受注ボタン、末尾から2番目）に
+       余裕を持たせるため114px→124pxに広げた。 */
+    grid-template-columns: 16px minmax(64px, 1fr) minmax(84px, 1fr) minmax(70px, 1fr) minmax(64px, 1fr) minmax(70px, 1fr) minmax(144px, 1fr) minmax(80px, 1fr) minmax(84px, 1fr) 86px 124px 11px;
   }
   .tbl--order .tblHead, .tbl--order .tblRow,
   .tbl--wholesale .tblHead, .tbl--wholesale .tblRow {
