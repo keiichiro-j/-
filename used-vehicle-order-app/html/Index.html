@@ -270,8 +270,7 @@
          へ画面遷移して結果を一覧表示する（現場からの要望「モデル画像を選ぶと
          下に表示するのではなく専用のリストページに飛んでほしい」）。 -->
     <main class="view view--list is-active" id="view-home">
-      <div class="listBody">
-        <aside class="filterSidebar" aria-label="ホームの絞り込み">
+      <aside class="filterSidebar" aria-label="ホームの絞り込み">
           <div class="filterSidebar__head">
             <p class="filterSidebar__title">条件検索</p>
             <span class="filterSidebar__count" id="homeFilterCount"></span>
@@ -317,26 +316,41 @@
             <div class="filterSidebar__sectionLabel filterSidebar__sectionLabel--first">車両条件</div>
             <div class="filterSidebar__row" data-row="type">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-tag"></use></svg><span class="filterSidebar__rowLabel">タイプ</span></div>
-              <select id="homeTypeFilter" class="input"><option value=""></option></select>
+              <div class="selectFace" data-field-label="タイプ">
+                <span class="selectFace__text">タイプ</span><span class="selectFace__chev">▾</span>
+                <select id="homeTypeFilter" class="input"><option value=""></option></select>
+              </div>
             </div>
             <div class="filterSidebar__row" data-row="color">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-color"></use></svg><span class="filterSidebar__rowLabel">カラー</span></div>
-              <select id="homeColorFilter" class="input"><option value=""></option></select>
+              <div class="selectFace" data-field-label="カラー">
+                <span class="selectFace__text">カラー</span><span class="selectFace__chev">▾</span>
+                <select id="homeColorFilter" class="input"><option value=""></option></select>
+              </div>
             </div>
             <div class="filterSidebar__row" data-row="year">
               <!-- 見出しとセレクトを同じ行に並べる関係上（Stylesheet.html参照）、
                    他のリストの「初年度登録日」より短い「年式」にして、セレクトの
                    表示幅（「指定なし」等が見切れない幅）を確保する。 -->
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-calendar"></use></svg><span class="filterSidebar__rowLabel">年式</span></div>
-              <select id="homeYearFilter" class="input"></select>
+              <div class="selectFace" data-field-label="年式">
+                <span class="selectFace__text">年式</span><span class="selectFace__chev">▾</span>
+                <select id="homeYearFilter" class="input"></select>
+              </div>
             </div>
             <div class="filterSidebar__row" data-row="price">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-cash"></use></svg><span class="filterSidebar__rowLabel">価格帯</span></div>
-              <select id="homePriceFilter" class="input"></select>
+              <div class="selectFace" data-field-label="価格帯">
+                <span class="selectFace__text">価格帯</span><span class="selectFace__chev">▾</span>
+                <select id="homePriceFilter" class="input"></select>
+              </div>
             </div>
             <div class="filterSidebar__row" data-row="mileage">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-gauge"></use></svg><span class="filterSidebar__rowLabel">走行距離</span></div>
-              <select id="homeMileageFilter" class="input"></select>
+              <div class="selectFace" data-field-label="走行距離">
+                <span class="selectFace__text">走行距離</span><span class="selectFace__chev">▾</span>
+                <select id="homeMileageFilter" class="input"></select>
+              </div>
             </div>
             <!-- 現場からの要望「ホーム絞り込み機能に各リストで追加した機能を搭載して
                  ほしい（在庫保管位置など）」を受け、集計元の3リスト（在庫・デモカー・
@@ -353,22 +367,22 @@
             <div class="filterSidebar__sectionLabel">管理情報</div>
             <div class="filterSidebar__row" data-row="category">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-tag"></use></svg><span class="filterSidebar__rowLabel">区分</span></div>
-              <div class="multiDropdown" id="homeCategoryFilter">
-                <button type="button" class="multiDropdown__btn"></button>
+              <div class="multiDropdown" id="homeCategoryFilter" data-field-label="区分">
+                <button type="button" class="multiDropdown__btn">区分</button>
                 <div class="multiDropdown__panel hidden"></div>
               </div>
             </div>
             <div class="filterSidebar__row" data-row="location">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-pin"></use></svg><span class="filterSidebar__rowLabel">現展示拠点</span></div>
-              <div class="multiDropdown" id="homeLocationFilter">
-                <button type="button" class="multiDropdown__btn"></button>
+              <div class="multiDropdown" id="homeLocationFilter" data-field-label="現展示拠点">
+                <button type="button" class="multiDropdown__btn">現展示拠点</button>
                 <div class="multiDropdown__panel hidden"></div>
               </div>
             </div>
             <div class="filterSidebar__row" data-row="listed">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-globe"></use></svg><span class="filterSidebar__rowLabel">掲載状況</span></div>
-              <div class="multiDropdown" id="homeListedFilter">
-                <button type="button" class="multiDropdown__btn"></button>
+              <div class="multiDropdown" id="homeListedFilter" data-field-label="掲載状況">
+                <button type="button" class="multiDropdown__btn">掲載状況</button>
                 <div class="multiDropdown__panel hidden"></div>
               </div>
             </div>
@@ -378,13 +392,15 @@
                    圧迫するため「販売状況」のみにする。対象がデモカー・サービス代車の
                    車両のみである旨は、本ファイル上部のコメントに残す。 -->
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-tag"></use></svg><span class="filterSidebar__rowLabel">販売状況</span></div>
-              <div class="multiDropdown" id="homeSaleStatusFilter">
-                <button type="button" class="multiDropdown__btn"></button>
+              <div class="multiDropdown" id="homeSaleStatusFilter" data-field-label="販売状況">
+                <button type="button" class="multiDropdown__btn">販売状況</button>
                 <div class="multiDropdown__panel hidden"></div>
               </div>
             </div>
           </div>
         </aside>
+      <div class="listBody">
+        <nav class="appRail" data-host-view="home" aria-label="画面切替"></nav>
         <div class="listBody__main">
           <div id="homeGrid" class="homeGrid"></div>
           <div class="emptyState hidden" id="homeEmpty">
@@ -450,66 +466,85 @@
          他のリスト（受注リスト等）と同じく絞り込みサイドバー＋一覧の2カラムを
          タブ直下に配置する。 -->
     <main class="view view--list" id="view-inventory">
-      <!-- 絞り込み機能は左サイドの常時表示パネルにまとめる。項目自体・絞り込み
-           ロジック（applyInventoryFilters_、JavaScript.html）は変更していない。 -->
-      <div class="listBody">
-        <aside class="filterSidebar" aria-label="在庫リストの絞り込み">
-          <div class="filterSidebar__head">
-            <p class="filterSidebar__title">条件検索</p>
-            <span class="filterSidebar__count" id="inventoryFilterCount"></span>
-            <button type="button" class="filterSidebar__clearBtn hidden" id="btnInventoryFilterClear">クリア</button>
+      <!-- 現場からの要望「タブは画面左（絞り込み機能のある位置）に配置」「絞り込み
+           機能を一列で表示」を受け、絞り込みサイドバー（.filterSidebar）は
+           .listBodyの外に出し、PC・タブレット幅ではヘッダー直下・画面幅
+           いっぱいの横並びバーになる（Stylesheet.html参照）。.listBodyの
+           左カラムは、その絞り込みサイドバーに代わって縦タブメニュー
+           （.appRail、renderAppRail_がJavaScript.htmlで中身を描く）になる。
+           絞り込み項目自体・絞り込みロジック（applyInventoryFilters_、
+           JavaScript.html）は変更していない。 -->
+      <aside class="filterSidebar" aria-label="在庫リストの絞り込み">
+        <div class="filterSidebar__head">
+          <p class="filterSidebar__title">条件検索</p>
+          <span class="filterSidebar__count" id="inventoryFilterCount"></span>
+          <button type="button" class="filterSidebar__clearBtn hidden" id="btnInventoryFilterClear">クリア</button>
+        </div>
+        <div class="filterSidebar__activeBar" id="inventoryActiveBar"></div>
+        <div class="filterSidebar__field">
+          <div class="searchbox">
+            <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
+            <input type="search" id="inventoryKeyword" placeholder="キーワード検索">
           </div>
-          <div class="filterSidebar__activeBar" id="inventoryActiveBar"></div>
-          <div class="filterSidebar__field">
-            <div class="searchbox">
-              <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
-              <input type="search" id="inventoryKeyword" placeholder="キーワード検索">
-            </div>
-          </div>
-          <div class="filterSidebar__rows" id="inventoryFilterRows">
-            <div class="filterSidebar__row" data-row="color">
-              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-color"></use></svg><span class="filterSidebar__rowLabel">カラー</span></div>
+        </div>
+        <div class="filterSidebar__rows" id="inventoryFilterRows">
+          <div class="filterSidebar__row" data-row="color">
+            <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-color"></use></svg><span class="filterSidebar__rowLabel">カラー</span></div>
+            <div class="selectFace" data-field-label="カラー">
+              <span class="selectFace__text">カラー</span><span class="selectFace__chev">▾</span>
               <select id="inventoryColorFilter" class="input"><option value=""></option></select>
             </div>
-            <div class="filterSidebar__row" data-row="year">
-              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-calendar"></use></svg><span class="filterSidebar__rowLabel">初年度登録日</span></div>
+          </div>
+          <div class="filterSidebar__row" data-row="year">
+            <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-calendar"></use></svg><span class="filterSidebar__rowLabel">初年度登録日</span></div>
+            <div class="selectFace" data-field-label="初年度登録日">
+              <span class="selectFace__text">初年度登録日</span><span class="selectFace__chev">▾</span>
               <select id="inventoryYearFilter" class="input"></select>
             </div>
-            <div class="filterSidebar__row" data-row="price">
-              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-cash"></use></svg><span class="filterSidebar__rowLabel">価格帯</span></div>
+          </div>
+          <div class="filterSidebar__row" data-row="price">
+            <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-cash"></use></svg><span class="filterSidebar__rowLabel">価格帯</span></div>
+            <div class="selectFace" data-field-label="価格帯">
+              <span class="selectFace__text">価格帯</span><span class="selectFace__chev">▾</span>
               <select id="inventoryPriceFilter" class="input"></select>
             </div>
-            <div class="filterSidebar__row" data-row="mileage">
-              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-gauge"></use></svg><span class="filterSidebar__rowLabel">走行距離</span></div>
+          </div>
+          <div class="filterSidebar__row" data-row="mileage">
+            <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-gauge"></use></svg><span class="filterSidebar__rowLabel">走行距離</span></div>
+            <div class="selectFace" data-field-label="走行距離">
+              <span class="selectFace__text">走行距離</span><span class="selectFace__chev">▾</span>
               <select id="inventoryMileageFilter" class="input"></select>
             </div>
-            <div class="filterSidebar__row" data-row="category">
-              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-tag"></use></svg><span class="filterSidebar__rowLabel">区分</span></div>
-              <div id="inventoryCategoryFilter" class="multiDropdown">
-                <button type="button" class="multiDropdown__btn"></button>
-                <div class="multiDropdown__panel hidden"></div>
-              </div>
+          </div>
+          <div class="filterSidebar__row" data-row="category">
+            <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-tag"></use></svg><span class="filterSidebar__rowLabel">区分</span></div>
+            <div id="inventoryCategoryFilter" class="multiDropdown" data-field-label="区分">
+              <button type="button" class="multiDropdown__btn">区分</button>
+              <div class="multiDropdown__panel hidden"></div>
             </div>
-            <div class="filterSidebar__row" data-row="location">
-              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-pin"></use></svg><span class="filterSidebar__rowLabel">現展示拠点</span></div>
-              <div id="inventoryLocationFilter" class="multiDropdown">
-                <button type="button" class="multiDropdown__btn"></button>
-                <div class="multiDropdown__panel hidden"></div>
-              </div>
+          </div>
+          <div class="filterSidebar__row" data-row="location">
+            <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-pin"></use></svg><span class="filterSidebar__rowLabel">現展示拠点</span></div>
+            <div id="inventoryLocationFilter" class="multiDropdown" data-field-label="現展示拠点">
+              <button type="button" class="multiDropdown__btn">現展示拠点</button>
+              <div class="multiDropdown__panel hidden"></div>
             </div>
-            <div class="filterSidebar__row" data-row="listed">
-              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-globe"></use></svg><span class="filterSidebar__rowLabel">掲載状況</span></div>
-              <div id="inventoryListedFilter" class="multiDropdown">
-                <button type="button" class="multiDropdown__btn"></button>
-                <div class="multiDropdown__panel hidden">
-                  <label class="filterCheck"><input type="checkbox" value="carsensor"> カーセンサー掲載中</label>
-                  <label class="filterCheck"><input type="checkbox" value="goonet"> グーネット掲載中</label>
-                  <label class="filterCheck"><input type="checkbox" value="unlisted"> 未掲載</label>
-                </div>
+          </div>
+          <div class="filterSidebar__row" data-row="listed">
+            <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-globe"></use></svg><span class="filterSidebar__rowLabel">掲載状況</span></div>
+            <div id="inventoryListedFilter" class="multiDropdown" data-field-label="掲載状況">
+              <button type="button" class="multiDropdown__btn">掲載状況</button>
+              <div class="multiDropdown__panel hidden">
+                <label class="filterCheck"><input type="checkbox" value="carsensor"> カーセンサー掲載中</label>
+                <label class="filterCheck"><input type="checkbox" value="goonet"> グーネット掲載中</label>
+                <label class="filterCheck"><input type="checkbox" value="unlisted"> 未掲載</label>
               </div>
             </div>
           </div>
-        </aside>
+        </div>
+      </aside>
+      <div class="listBody">
+        <nav class="appRail" data-host-view="inventory" aria-label="画面切替"></nav>
         <div class="listBody__main">
           <div id="inventoryList"></div>
           <div class="emptyState hidden" id="inventoryEmpty">
@@ -529,8 +564,7 @@
          絞り込み直す（現場からの要望「現展示拠点をチェック式で絞り込めるようにして
          ほしい。全リストに反映してほしい」）。 -->
     <main class="view view--list" id="view-orders">
-      <div class="listBody">
-        <aside class="filterSidebar" aria-label="受注リストの絞り込み">
+      <aside class="filterSidebar" aria-label="受注リストの絞り込み">
           <div class="filterSidebar__head">
             <p class="filterSidebar__title">条件検索</p>
             <span class="filterSidebar__count" id="ordersTotalCount"></span>
@@ -546,30 +580,41 @@
           <div class="filterSidebar__rows" id="ordersFilterRows">
             <div class="filterSidebar__row" data-row="groupBy">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-grid"></use></svg><span class="filterSidebar__rowLabel">グループ化</span></div>
-              <div id="ordersGroupByFilter">
-                <label class="filterCheck"><input type="radio" name="ordersGroupBy" value="" checked> なし</label>
-                <label class="filterCheck"><input type="radio" name="ordersGroupBy" value="orderedMonth"> 月ごと</label>
-                <label class="filterCheck"><input type="radio" name="ordersGroupBy" value="salesLocation"> 販売拠点ごと</label>
-                <label class="filterCheck"><input type="radio" name="ordersGroupBy" value="model"> モデルごと</label>
+              <div id="ordersGroupByFilter" class="multiDropdown" data-field-label="グループ化">
+                <button type="button" class="multiDropdown__btn">グループ化</button>
+                <div class="multiDropdown__panel hidden">
+                  <label class="filterCheck"><input type="radio" name="ordersGroupBy" value="" checked> なし</label>
+                  <label class="filterCheck"><input type="radio" name="ordersGroupBy" value="orderedMonth"> 月ごと</label>
+                  <label class="filterCheck"><input type="radio" name="ordersGroupBy" value="salesLocation"> 販売拠点ごと</label>
+                  <label class="filterCheck"><input type="radio" name="ordersGroupBy" value="model"> モデルごと</label>
+                </div>
               </div>
             </div>
             <div class="filterSidebar__row" data-row="location">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-pin"></use></svg><span class="filterSidebar__rowLabel">拠点</span></div>
-              <select id="ordersLocationFilter" class="input"><option value=""></option></select>
+              <div class="selectFace" data-field-label="拠点">
+                <span class="selectFace__text">拠点</span><span class="selectFace__chev">▾</span>
+                <select id="ordersLocationFilter" class="input"><option value=""></option></select>
+              </div>
             </div>
             <div class="filterSidebar__row" data-row="staff">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-people"></use></svg><span class="filterSidebar__rowLabel">担当者</span></div>
-              <select id="ordersStaffFilter" class="input"></select>
+              <div class="selectFace" data-field-label="担当者">
+                <span class="selectFace__text">担当者</span><span class="selectFace__chev">▾</span>
+                <select id="ordersStaffFilter" class="input"></select>
+              </div>
             </div>
             <div class="filterSidebar__row" data-row="displayLocation">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-pin"></use></svg><span class="filterSidebar__rowLabel">現展示拠点</span></div>
-              <div id="ordersDisplayLocationFilter" class="multiDropdown">
-                <button type="button" class="multiDropdown__btn"></button>
+              <div id="ordersDisplayLocationFilter" class="multiDropdown" data-field-label="現展示拠点">
+                <button type="button" class="multiDropdown__btn">現展示拠点</button>
                 <div class="multiDropdown__panel hidden"></div>
               </div>
             </div>
           </div>
         </aside>
+      <div class="listBody">
+        <nav class="appRail" data-host-view="orders" aria-label="画面切替"></nav>
         <div class="listBody__main">
           <!-- 月別件数ナビ: 受注リストの上部に横スクロールのチップ行で各月の受注台数を
                表示し、タップするとその月のグループまで滑らかにスクロールする
@@ -596,8 +641,7 @@
          業販は担当者があらかじめ決まっている運用のため担当者の絞り込みは設けず、
          代わりに販売先での絞り込みを設ける（現場からの要望）。 -->
     <main class="view view--list" id="view-wholesaleOrders">
-      <div class="listBody">
-        <aside class="filterSidebar" aria-label="業販受注リストの絞り込み">
+      <aside class="filterSidebar" aria-label="業販受注リストの絞り込み">
           <div class="filterSidebar__head">
             <p class="filterSidebar__title">条件検索</p>
             <span class="filterSidebar__count" id="wholesaleOrdersTotalCount"></span>
@@ -613,30 +657,38 @@
           <div class="filterSidebar__rows" id="wholesaleOrdersFilterRows">
             <div class="filterSidebar__row" data-row="groupBy">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-grid"></use></svg><span class="filterSidebar__rowLabel">グループ化</span></div>
-              <div id="wholesaleOrdersGroupByFilter">
-                <label class="filterCheck"><input type="radio" name="wholesaleOrdersGroupBy" value="" checked> なし</label>
-                <label class="filterCheck"><input type="radio" name="wholesaleOrdersGroupBy" value="orderedMonth"> 月ごと</label>
-                <label class="filterCheck"><input type="radio" name="wholesaleOrdersGroupBy" value="salesLocation"> 販売拠点ごと</label>
-                <label class="filterCheck"><input type="radio" name="wholesaleOrdersGroupBy" value="model"> モデルごと</label>
+              <div id="wholesaleOrdersGroupByFilter" class="multiDropdown" data-field-label="グループ化">
+                <button type="button" class="multiDropdown__btn">グループ化</button>
+                <div class="multiDropdown__panel hidden">
+                  <label class="filterCheck"><input type="radio" name="wholesaleOrdersGroupBy" value="" checked> なし</label>
+                  <label class="filterCheck"><input type="radio" name="wholesaleOrdersGroupBy" value="orderedMonth"> 月ごと</label>
+                  <label class="filterCheck"><input type="radio" name="wholesaleOrdersGroupBy" value="salesLocation"> 販売拠点ごと</label>
+                  <label class="filterCheck"><input type="radio" name="wholesaleOrdersGroupBy" value="model"> モデルごと</label>
+                </div>
               </div>
             </div>
             <div class="filterSidebar__row" data-row="location">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-pin"></use></svg><span class="filterSidebar__rowLabel">拠点</span></div>
-              <select id="wholesaleOrdersLocationFilter" class="input"><option value=""></option></select>
+              <div class="selectFace" data-field-label="拠点">
+                <span class="selectFace__text">拠点</span><span class="selectFace__chev">▾</span>
+                <select id="wholesaleOrdersLocationFilter" class="input"><option value=""></option></select>
+              </div>
             </div>
             <div class="filterSidebar__row" data-row="salesStore">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-people"></use></svg><span class="filterSidebar__rowLabel">販売先</span></div>
-              <input type="text" id="wholesaleOrdersSalesStoreFilter" class="input" placeholder="販売先で絞り込み">
+              <input type="text" id="wholesaleOrdersSalesStoreFilter" class="input" placeholder="">
             </div>
             <div class="filterSidebar__row" data-row="displayLocation">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-pin"></use></svg><span class="filterSidebar__rowLabel">現展示拠点</span></div>
-              <div id="wholesaleOrdersDisplayLocationFilter" class="multiDropdown">
-                <button type="button" class="multiDropdown__btn"></button>
+              <div id="wholesaleOrdersDisplayLocationFilter" class="multiDropdown" data-field-label="現展示拠点">
+                <button type="button" class="multiDropdown__btn">現展示拠点</button>
                 <div class="multiDropdown__panel hidden"></div>
               </div>
             </div>
           </div>
         </aside>
+      <div class="listBody">
+        <nav class="appRail" data-host-view="wholesaleOrders" aria-label="画面切替"></nav>
         <div class="listBody__main">
           <div id="wholesaleOrdersGroups"></div>
           <div class="emptyState hidden" id="wholesaleOrdersEmpty">
@@ -655,37 +707,42 @@
          在庫リスト・受注リストと同じ番号付き一覧デザインに統一し（カード／表の
          切り替えは廃止）、自由検索欄だけをツールバーに持たせて、マイページ全体
          （2セクションとも）に一括で適用する（#myPageKeyword、renderMyPageAll_参照）。 -->
-    <main class="view" id="view-mypage">
-      <div class="commandbar">
-        <div class="searchrow">
-          <div class="searchbox">
-            <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
-            <input type="search" id="myPageKeyword" placeholder="キーワード検索">
+    <main class="view view--list" id="view-mypage">
+      <div class="listBody">
+        <nav class="appRail" data-host-view="mypage" aria-label="画面切替"></nav>
+        <div class="listBody__main">
+          <div class="commandbar">
+            <div class="searchrow">
+              <div class="searchbox">
+                <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
+                <input type="search" id="myPageKeyword" placeholder="キーワード検索">
+              </div>
+            </div>
+          </div>
+          <div class="emptyState hidden" id="myPageNoStaff">
+            <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-people"></use></svg></span>
+            <p>ご利用中のGoogleアカウントが担当者マスタに登録されていないため、マイページを表示できません。
+            設定タブの「担当者」にご自身のメールアドレスを登録してください。</p>
+          </div>
+          <div id="myPageContent">
+            <section class="myPageSection">
+              <h2 class="myPageSection__title">Hold中の車両（<span id="myPageHoldCount">0</span>台）</h2>
+              <div id="myPageHoldList"></div>
+              <div class="emptyState hidden" id="myPageHoldEmpty">
+                <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-lock"></use></svg></span>
+                <p>現在Hold中の車両はありません</p>
+              </div>
+            </section>
+            <section class="myPageSection">
+              <h2 class="myPageSection__title">受注した車両（<span id="myPageOrderCount">0</span>台）</h2>
+              <div id="myPageOrderList"></div>
+              <div class="emptyState hidden" id="myPageOrderEmpty">
+                <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-table"></use></svg></span>
+                <p>受注した車両はありません</p>
+              </div>
+            </section>
           </div>
         </div>
-      </div>
-      <div class="emptyState hidden" id="myPageNoStaff">
-        <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-people"></use></svg></span>
-        <p>ご利用中のGoogleアカウントが担当者マスタに登録されていないため、マイページを表示できません。
-        設定タブの「担当者」にご自身のメールアドレスを登録してください。</p>
-      </div>
-      <div id="myPageContent">
-        <section class="myPageSection">
-          <h2 class="myPageSection__title">Hold中の車両（<span id="myPageHoldCount">0</span>台）</h2>
-          <div id="myPageHoldList"></div>
-          <div class="emptyState hidden" id="myPageHoldEmpty">
-            <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-lock"></use></svg></span>
-            <p>現在Hold中の車両はありません</p>
-          </div>
-        </section>
-        <section class="myPageSection">
-          <h2 class="myPageSection__title">受注した車両（<span id="myPageOrderCount">0</span>台）</h2>
-          <div id="myPageOrderList"></div>
-          <div class="emptyState hidden" id="myPageOrderEmpty">
-            <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-table"></use></svg></span>
-            <p>受注した車両はありません</p>
-          </div>
-        </section>
       </div>
     </main>
 
@@ -703,8 +760,7 @@
          サイドバーに持たせる（掲載状況は在庫リストにしか無い概念のため、ここには
          置かない）。 -->
     <main class="view view--list" id="view-demoCarList">
-      <div class="listBody">
-        <aside class="filterSidebar" aria-label="デモカーリストの絞り込み">
+      <aside class="filterSidebar" aria-label="デモカーリストの絞り込み">
           <div class="filterSidebar__head">
             <p class="filterSidebar__title">条件検索</p>
             <span class="filterSidebar__count" id="demoCarListTotalCount"></span>
@@ -720,31 +776,43 @@
           <div class="filterSidebar__rows" id="demoCarListFilterRows">
             <div class="filterSidebar__row" data-row="color">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-color"></use></svg><span class="filterSidebar__rowLabel">カラー</span></div>
-              <select id="demoCarListColorFilter" class="input"><option value=""></option></select>
+              <div class="selectFace" data-field-label="カラー">
+                <span class="selectFace__text">カラー</span><span class="selectFace__chev">▾</span>
+                <select id="demoCarListColorFilter" class="input"><option value=""></option></select>
+              </div>
             </div>
             <div class="filterSidebar__row" data-row="year">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-calendar"></use></svg><span class="filterSidebar__rowLabel">初年度登録日</span></div>
-              <select id="demoCarListYearFilter" class="input"></select>
+              <div class="selectFace" data-field-label="初年度登録日">
+                <span class="selectFace__text">初年度登録日</span><span class="selectFace__chev">▾</span>
+                <select id="demoCarListYearFilter" class="input"></select>
+              </div>
             </div>
             <div class="filterSidebar__row" data-row="price">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-cash"></use></svg><span class="filterSidebar__rowLabel">価格帯</span></div>
-              <select id="demoCarListPriceFilter" class="input"></select>
+              <div class="selectFace" data-field-label="価格帯">
+                <span class="selectFace__text">価格帯</span><span class="selectFace__chev">▾</span>
+                <select id="demoCarListPriceFilter" class="input"></select>
+              </div>
             </div>
             <div class="filterSidebar__row" data-row="mileage">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-gauge"></use></svg><span class="filterSidebar__rowLabel">走行距離</span></div>
-              <select id="demoCarListMileageFilter" class="input"></select>
+              <div class="selectFace" data-field-label="走行距離">
+                <span class="selectFace__text">走行距離</span><span class="selectFace__chev">▾</span>
+                <select id="demoCarListMileageFilter" class="input"></select>
+              </div>
             </div>
             <div class="filterSidebar__row" data-row="location">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-pin"></use></svg><span class="filterSidebar__rowLabel">現展示拠点</span></div>
-              <div id="demoCarListLocationFilter" class="multiDropdown">
-                <button type="button" class="multiDropdown__btn"></button>
+              <div id="demoCarListLocationFilter" class="multiDropdown" data-field-label="現展示拠点">
+                <button type="button" class="multiDropdown__btn">現展示拠点</button>
                 <div class="multiDropdown__panel hidden"></div>
               </div>
             </div>
             <div class="filterSidebar__row" data-row="status">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-tag"></use></svg><span class="filterSidebar__rowLabel">販売状況</span></div>
-              <div id="demoCarListStatusFilter" class="multiDropdown">
-                <button type="button" class="multiDropdown__btn"></button>
+              <div id="demoCarListStatusFilter" class="multiDropdown" data-field-label="販売状況">
+                <button type="button" class="multiDropdown__btn">販売状況</button>
                 <div class="multiDropdown__panel hidden">
                   <label class="filterCheck"><input type="checkbox" value="在庫中"> 在庫中</label>
                   <label class="filterCheck"><input type="checkbox" value="販売済み"> 販売済み</label>
@@ -753,6 +821,8 @@
             </div>
           </div>
         </aside>
+      <div class="listBody">
+        <nav class="appRail" data-host-view="demoCarList" aria-label="画面切替"></nav>
         <div class="listBody__main">
           <div id="demoCarListBody"></div>
           <div class="emptyState hidden" id="demoCarListEmpty">
@@ -766,8 +836,7 @@
     <!-- サービス代車リスト: デモカーリストと同じ位置づけ（区分「サービス」の
          車両が対象）。絞り込みサイドバーの構成もデモカーリストと完全に同じ。 -->
     <main class="view view--list" id="view-serviceCarList">
-      <div class="listBody">
-        <aside class="filterSidebar" aria-label="サービス代車リストの絞り込み">
+      <aside class="filterSidebar" aria-label="サービス代車リストの絞り込み">
           <div class="filterSidebar__head">
             <p class="filterSidebar__title">条件検索</p>
             <span class="filterSidebar__count" id="serviceCarListTotalCount"></span>
@@ -783,31 +852,43 @@
           <div class="filterSidebar__rows" id="serviceCarListFilterRows">
             <div class="filterSidebar__row" data-row="color">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-color"></use></svg><span class="filterSidebar__rowLabel">カラー</span></div>
-              <select id="serviceCarListColorFilter" class="input"><option value=""></option></select>
+              <div class="selectFace" data-field-label="カラー">
+                <span class="selectFace__text">カラー</span><span class="selectFace__chev">▾</span>
+                <select id="serviceCarListColorFilter" class="input"><option value=""></option></select>
+              </div>
             </div>
             <div class="filterSidebar__row" data-row="year">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-calendar"></use></svg><span class="filterSidebar__rowLabel">初年度登録日</span></div>
-              <select id="serviceCarListYearFilter" class="input"></select>
+              <div class="selectFace" data-field-label="初年度登録日">
+                <span class="selectFace__text">初年度登録日</span><span class="selectFace__chev">▾</span>
+                <select id="serviceCarListYearFilter" class="input"></select>
+              </div>
             </div>
             <div class="filterSidebar__row" data-row="price">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-cash"></use></svg><span class="filterSidebar__rowLabel">価格帯</span></div>
-              <select id="serviceCarListPriceFilter" class="input"></select>
+              <div class="selectFace" data-field-label="価格帯">
+                <span class="selectFace__text">価格帯</span><span class="selectFace__chev">▾</span>
+                <select id="serviceCarListPriceFilter" class="input"></select>
+              </div>
             </div>
             <div class="filterSidebar__row" data-row="mileage">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-gauge"></use></svg><span class="filterSidebar__rowLabel">走行距離</span></div>
-              <select id="serviceCarListMileageFilter" class="input"></select>
+              <div class="selectFace" data-field-label="走行距離">
+                <span class="selectFace__text">走行距離</span><span class="selectFace__chev">▾</span>
+                <select id="serviceCarListMileageFilter" class="input"></select>
+              </div>
             </div>
             <div class="filterSidebar__row" data-row="location">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-pin"></use></svg><span class="filterSidebar__rowLabel">現展示拠点</span></div>
-              <div id="serviceCarListLocationFilter" class="multiDropdown">
-                <button type="button" class="multiDropdown__btn"></button>
+              <div id="serviceCarListLocationFilter" class="multiDropdown" data-field-label="現展示拠点">
+                <button type="button" class="multiDropdown__btn">現展示拠点</button>
                 <div class="multiDropdown__panel hidden"></div>
               </div>
             </div>
             <div class="filterSidebar__row" data-row="status">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-tag"></use></svg><span class="filterSidebar__rowLabel">販売状況</span></div>
-              <div id="serviceCarListStatusFilter" class="multiDropdown">
-                <button type="button" class="multiDropdown__btn"></button>
+              <div id="serviceCarListStatusFilter" class="multiDropdown" data-field-label="販売状況">
+                <button type="button" class="multiDropdown__btn">販売状況</button>
                 <div class="multiDropdown__panel hidden">
                   <label class="filterCheck"><input type="checkbox" value="在庫中"> 在庫中</label>
                   <label class="filterCheck"><input type="checkbox" value="販売済み"> 販売済み</label>
@@ -816,6 +897,8 @@
             </div>
           </div>
         </aside>
+      <div class="listBody">
+        <nav class="appRail" data-host-view="serviceCarList" aria-label="画面切替"></nav>
         <div class="listBody__main">
           <div id="serviceCarListBody"></div>
           <div class="emptyState hidden" id="serviceCarListEmpty">
@@ -827,7 +910,10 @@
     </main>
 
     <!-- 設定 -->
-    <main class="view" id="view-settings">
+    <main class="view view--list" id="view-settings">
+      <div class="listBody">
+        <nav class="appRail" data-host-view="settings" aria-label="画面切替"></nav>
+        <div class="listBody__main">
       <div class="settingsWrap">
         <div class="settingsGrid">
           <div class="settingsGroupTitle">テーマ</div>
@@ -1013,6 +1099,8 @@
         <div class="settingsActions">
           <div id="settingsError" class="modal__error"></div>
           <button class="btn btn--primary btn--block" id="btnSaveSettings">保存</button>
+        </div>
+      </div>
         </div>
       </div>
     </main>

@@ -673,6 +673,7 @@
     $('view-' + tabName).classList.add('is-active');
     syncHomeAnnouncementVisibility_();
     resyncActiveTabTblBodyFades_();
+    syncFilterbarHeightVar_();
     // 全タブは同じ1つのdocument上でdisplay: none/blockを切り替えているだけの
     // ため、スクロール位置はタブをまたいで共有されてしまう（例: 在庫リストで
     // スクロールした状態で他のタブへ移動すると、次のタブも同じスクロール
@@ -682,11 +683,46 @@
     window.scrollTo(0, 0);
   }
 
-  // コントロールパネル（.topbar）の水平タブ。以前のホームがあった頃の
-  // コントロールパネルと同じ、1本の水平ナビにまとめている（アイコンのみの
-  // 左レール・下タブバーは廃止）。
+  // コントロールパネル（.topbar）の水平タブ（スマホ幅用。PC・タブレット幅は
+  // 下のappRail縦メニューに置き換わる、Stylesheet.html参照）。
   on('topbarTabs', 'click', function (e) {
     var btn = e.target.closest('[data-tab]');
+    if (!btn) return;
+    switchToTab_(btn.dataset.tab);
+  });
+
+  // ===== 縦タブメニュー（.appRail、PC・タブレット幅専用） =====
+  // 現場からの要望「『ホーム』などのタブは画面左（絞り込み機能のある位置）に
+  // 配置してほしい」を受けて追加。各リストのlistBody先頭にある空の
+  // <nav class="appRail" data-host-view="...">に、起動時（init）で1回だけ
+  // 同じ8項目を描き込む。ボタンには既存の.navBtn（switchToTab_が
+  // data-tab一致で.is-activeを付け外しする対象、#topbarTabsのタブと共通）・
+  // 管理者限定タブを一括制御する.navBtn--adminOnlyを、ピルタブ
+  // （#topbarTabs内）とまったく同じ条件で付ける。これにより、表示・
+  // アクティブ状態の同期用に新しいロジックを増やす必要が無い
+  // （switchToTab_・renderSettingsSystemMaster_等、既存の
+  // document.querySelectorAll('.navBtn')系の処理がそのまま効く）。 */
+  var APP_RAIL_ITEMS_ = [
+    { tab: 'home', label: 'ホーム', icon: 'icon-home' },
+    { tab: 'inventory', label: '在庫リスト', icon: 'icon-grid' },
+    { tab: 'orders', label: '受注リスト', icon: 'icon-table' },
+    { tab: 'wholesaleOrders', label: '業販受注リスト', icon: 'icon-table', adminOnly: true },
+    { tab: 'mypage', label: 'マイページ', icon: 'icon-people' },
+    { tab: 'demoCarList', label: 'デモカーリスト', icon: 'icon-grid' },
+    { tab: 'serviceCarList', label: 'サービス代車リスト', icon: 'icon-grid' },
+    { tab: 'settings', label: '設定', icon: 'icon-tune' }
+  ];
+  function appRailItemHtml_(item) {
+    var cls = 'navBtn appRail__item' + (item.tab === 'home' ? ' is-active' : '') + (item.adminOnly ? ' navBtn--adminOnly hidden' : '');
+    return '<button type="button" class="' + cls + '" data-tab="' + item.tab + '">' +
+      '<svg><use href="#' + item.icon + '"></use></svg>' + escapeHtml(item.label) + '</button>';
+  }
+  function renderAppRail_() {
+    var html = APP_RAIL_ITEMS_.map(appRailItemHtml_).join('');
+    document.querySelectorAll('.appRail').forEach(function (nav) { nav.innerHTML = html; });
+  }
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('.appRail__item');
     if (!btn) return;
     switchToTab_(btn.dataset.tab);
   });
@@ -778,6 +814,13 @@
   }
   // ポップオーバーの外側をクリックしたら閉じる（一般的なドロップダウンの挙動）。
   document.addEventListener('click', closeAllHomeMultiDropdowns_);
+  // .selectFaceで包んだネイティブselectは、どの項目のどのidであっても
+  // changeのたびに表示文字（syncSelectFace_）を更新する。既存の各change
+  // ハンドラ（state更新・再描画）には一切手を加えず、表示だけを横取りして
+  // 追従させる（イベント委譲のため、後から追加される項目にも自動で効く）。
+  document.addEventListener('change', function (e) {
+    if (e.target.matches && e.target.matches('.selectFace select')) syncSelectFace_(e.target.id);
+  });
 
   /**
    * 現場からの要望「各リストの絞り込み機能もホームのように全てドロップ式の
@@ -805,10 +848,42 @@
     panel.addEventListener('click', function (e) { e.stopPropagation(); });
     homeMultiDropdowns_.push({ panel: panel });
   }
-  // ボタンの表示文字（選択中の件数に応じた要約）だけを更新する。中身
-  // （.multiDropdown__panel）は各リストの既存の描画処理がそのまま作る。
+  // ボタンの表示文字を更新する。中身（.multiDropdown__panel）は各リストの
+  // 既存の描画処理がそのまま作る。現場からの要望「絞られていない項目にも
+  // 下線を引いて絞り込みがされているとテーマカラーを反映するようにして
+  // ほしい」の一環として、絞り込みバー（PC・タブレット幅）では「条件検索」の
+  // 見出し文字を省いた代わりに、各ボタン自身が未選択時は項目名（例:
+  // 「カラー」）、選択時は「項目名・値」（例: 「カラー・パール 他2件」）を
+  // 表示するようにする。項目名はコンテナ自身のdata-field-label属性
+  // （Index.html側で各.multiDropdownに付与）から読む。
   function syncMultiDropdownButton_(containerId, values, labelMap) {
-    $(containerId).querySelector('.multiDropdown__btn').textContent = homeMultiDropdownLabel_(values, labelMap);
+    var container = $(containerId);
+    var summary = homeMultiDropdownLabel_(values, labelMap);
+    var fieldLabel = container.dataset.fieldLabel || '';
+    container.querySelector('.multiDropdown__btn').textContent = summary ? (fieldLabel + '・' + summary) : fieldLabel;
+  }
+
+  /**
+   * カラー・初年度登録日・価格帯・走行距離等、ネイティブ<select>のまま使う
+   * 単一選択の項目向け。select自体のキーボード操作・OS標準ピッカーは
+   * そのまま維持しつつ、見た目だけ他の項目（.multiDropdown__btn）と揃った
+   * 「アイコン＋文字＋シェブロン」にする（.selectFace、Stylesheet.html参照。
+   * selectは透明にして上に重ね、クリック・操作自体はselect本体が受け続ける）。
+   * changeイベントのたびに呼び、未選択時は項目名、選択時は「項目名・選択肢の
+   * 文字」をselectFace__textに書き込む。
+   */
+  function syncSelectFace_(selectId) {
+    var select = $(selectId);
+    var wrap = select.closest('.selectFace');
+    if (!wrap) return;
+    var face = wrap.querySelector('.selectFace__text');
+    var fieldLabel = wrap.dataset.fieldLabel || '';
+    var optionText = select.value ? select.options[select.selectedIndex].text : '';
+    face.textContent = optionText ? (fieldLabel + '・' + optionText) : fieldLabel;
+  }
+  /** ページ内のすべての.selectFaceを初期表示に合わせて同期する（起動時用）。 */
+  function syncAllSelectFaces_() {
+    document.querySelectorAll('.selectFace select').forEach(function (sel) { syncSelectFace_(sel.id); });
   }
 
   // ===== 在庫リスト =====
@@ -1853,6 +1928,38 @@
   }
 
   /**
+   * PC・タブレット幅の絞り込みバー（.filterSidebar、ヘッダー直下にposition:
+   * stickyで固定）の実際の高さを--filterbar-h（:root、Stylesheet.html参照）に
+   * 反映する。.appRail・.tblHeadはこの変数を使ってposition: stickyのtop
+   * オフセットを計算している（現場からの要望「絞り込み機能やタブは固定」）。
+   * 絞り込みバーの高さは固定値ではなく、絞り込み中サマリー（チップ一覧）が
+   * 1件も無いとき・複数件で折り返すときなどで実際に変わるため、CSS側に
+   * 決め打ちの数値を置かず、都度実測してCSS変数へ書き込む（タブ切替の
+   * たび・絞り込み内容が変わるたびにsetupFilterbarHeightObserver_の
+   * ResizeObserverから呼ばれる）。絞り込みバーを持たない画面（マイページ・
+   * 設定・ホームの検索結果ページ）では0にする。
+   */
+  function syncFilterbarHeightVar_() {
+    var activeView = document.querySelector('main.view.is-active');
+    var bar = activeView ? activeView.querySelector(':scope > .filterSidebar') : null;
+    var h = bar ? Math.ceil(bar.getBoundingClientRect().height) : 0;
+    document.documentElement.style.setProperty('--filterbar-h', h + 'px');
+  }
+
+  /**
+   * 各画面の.filterSidebarをResizeObserverで監視し、高さが変わるたび
+   * （絞り込み内容の変化・ウィンドウ幅の変化のいずれでも）
+   * syncFilterbarHeightVar_を呼び直す。非表示（display: none）のタブの
+   * 分も含め全.filterSidebarを対象にしておき、呼び出し側（switchToTab_）の
+   * 明示的な同期と合わせて、どちらのきっかけでも取りこぼさないようにする。
+   */
+  function setupFilterbarHeightObserver_() {
+    if (typeof ResizeObserver === 'undefined') return;
+    var observer = new ResizeObserver(function () { syncFilterbarHeightVar_(); });
+    document.querySelectorAll('.filterSidebar').forEach(function (el) { observer.observe(el); });
+  }
+
+  /**
    * 在庫リストタブ・マイページ「Hold中の車両」共通の一覧行見出し（列見出し行）。
    * 1件＝1行で横一列に表示するテーブル表示用（vehicleTableRowHtml_と列を揃える。
    * tbl--inventory、Stylesheet.html参照）。外装色・内装色は一覧行には出さず、
@@ -2317,7 +2424,7 @@
     state.inventoryFilters = { category: [], listed: [], location: [], color: '', yearBucket: '', priceBucket: '', mileageBucket: '' };
     state.inventorySortState = { key: '', dir: 'asc' };
     $('inventoryKeyword').value = '';
-    ['inventoryColorFilter', 'inventoryYearFilter', 'inventoryPriceFilter', 'inventoryMileageFilter'].forEach(function (id) { $(id).value = ''; });
+    ['inventoryColorFilter', 'inventoryYearFilter', 'inventoryPriceFilter', 'inventoryMileageFilter'].forEach(function (id) { $(id).value = ''; syncSelectFace_(id); });
     document.querySelectorAll('#inventoryCategoryFilter input, #inventoryLocationFilter input, #inventoryListedFilter input').forEach(function (el) { el.checked = false; });
     ['inventoryCategoryFilter', 'inventoryLocationFilter'].forEach(function (id) { syncMultiDropdownButton_(id, []); });
     syncMultiDropdownButton_('inventoryListedFilter', [], INVENTORY_LISTED_LABELS);
@@ -2347,7 +2454,14 @@
     var btn = container.querySelector('.multiDropdown__btn');
     var panel = container.querySelector('.multiDropdown__panel');
     function sync() {
-      btn.textContent = homeMultiDropdownLabel_(state.homeFilters[filterKey], labelMap);
+      // 不具合修正: 以前はbtn.textContent = homeMultiDropdownLabel_(...)で
+      // 直接書き換えており、未選択時は空文字（見出しの項目名はrowLabel側に
+      // 任せる前提だった）になっていた。PC・タブレット幅の横一列バーでは
+      // rowLabel自体を非表示にし、ボタン自身の文字（未選択時は項目名、選択時は
+      // 「項目名・値」）だけで表すようにしたため（Stylesheet.html参照）、他の
+      // リストと同じsyncMultiDropdownButton_（data-field-label属性を読む）を
+      // 使って揃える。
+      syncMultiDropdownButton_(containerId, state.homeFilters[filterKey], labelMap);
       panel.innerHTML = renderOptionsHtml();
     }
     btn.addEventListener('click', function (e) {
@@ -2363,7 +2477,7 @@
       if (e.target.type !== 'checkbox') return;
       state.homeFilters[filterKey] = Array.prototype.slice.call(panel.querySelectorAll('input[type="checkbox"]:checked'))
         .map(function (el) { return el.value; });
-      btn.textContent = homeMultiDropdownLabel_(state.homeFilters[filterKey], labelMap);
+      syncMultiDropdownButton_(containerId, state.homeFilters[filterKey], labelMap);
       renderHomeGallery_();
       // 不具合修正: ここでpanel.innerHTMLを作り直すと、絞り込み中サマリー
       // （filterRowActiveEntries_）が個別解除ボタンのclear()内で参照している
@@ -2430,7 +2544,7 @@
     // 一緒にクリアする（現場からの要望「型選択を絞り込み機能内に入れてほしい」）。
     state.homeBodyTypeFilter = '';
     $('homeKeyword').value = '';
-    ['homeTypeFilter', 'homeColorFilter', 'homeYearFilter', 'homePriceFilter', 'homeMileageFilter'].forEach(function (id) { $(id).value = ''; });
+    ['homeTypeFilter', 'homeColorFilter', 'homeYearFilter', 'homePriceFilter', 'homeMileageFilter'].forEach(function (id) { $(id).value = ''; syncSelectFace_(id); });
     syncAllHomeMultiDropdowns_();
     renderHomeGallery_();
   });
@@ -3094,6 +3208,20 @@
     return el ? el.value : '';
   }
 
+  /**
+   * ラジオボタン群（単一選択）をドロップ形式のボタンにしたもの（受注リスト・
+   * 業販受注リストの「グループ化」、現場からの要望「グループ化もドロップ形式に
+   * 変更してほしい」）のボタン表示文字を同期する。選択中の値が無い（＝
+   * 「なし」＝デフォルト値""が選ばれている）ときは項目名のみ、選択中は
+   * 「項目名・選択中のラベル」を表示する（他の項目と表記を揃える）。
+   */
+  function syncRadioDropdownButton_(containerId, fieldLabel) {
+    var container = $(containerId);
+    var checked = container.querySelector('input[type="radio"]:checked');
+    var label = checked && checked.value ? checkboxDisplayLabel_(checked) : '';
+    container.querySelector('.multiDropdown__btn').textContent = label ? (fieldLabel + '・' + label) : fieldLabel;
+  }
+
   // 「クリア」の表示・非表示を、現在の拠点・担当者・現展示拠点の選択状態に合わせて更新する。
   function syncOrdersFilterClearVisibility_() {
     var hasLocation = !!$('ordersLocationFilter').value;
@@ -3560,7 +3688,13 @@
     on(id, 'input', debounce(loadOrders, 250));
     on(id, 'change', loadOrders);
   });
-  on('ordersGroupByFilter', 'change', loadOrders);
+  registerMultiDropdownToggle_('ordersGroupByFilter');
+  syncRadioDropdownButton_('ordersGroupByFilter', 'グループ化');
+  on('ordersGroupByFilter', 'change', function (e) {
+    if (e.target.type !== 'radio') return;
+    syncRadioDropdownButton_('ordersGroupByFilter', 'グループ化');
+    loadOrders();
+  });
   registerMultiDropdownToggle_('ordersDisplayLocationFilter');
   on('ordersDisplayLocationFilter', 'change', function (e) {
     if (e.target.type !== 'checkbox') return;
@@ -3574,9 +3708,12 @@
   on('btnOrdersFilterClear', 'click', function () {
     $('ordersKeyword').value = '';
     $('ordersLocationFilter').value = '';
+    syncSelectFace_('ordersLocationFilter');
     $('ordersStaffFilter').value = '';
+    syncSelectFace_('ordersStaffFilter');
     var defaultGroupBy = document.querySelector('#ordersGroupByFilter input[value=""]');
     if (defaultGroupBy) defaultGroupBy.checked = true;
+    syncRadioDropdownButton_('ordersGroupByFilter', 'グループ化');
     state.ordersFilters.currentDisplayLocation = [];
     state.ordersSortState = { key: '', dir: 'asc' };
     document.querySelectorAll('#ordersDisplayLocationFilter input').forEach(function (el) { el.checked = false; });
@@ -3588,7 +3725,13 @@
     on(id, 'input', debounce(loadWholesaleOrders, 250));
     on(id, 'change', loadWholesaleOrders);
   });
-  on('wholesaleOrdersGroupByFilter', 'change', loadWholesaleOrders);
+  registerMultiDropdownToggle_('wholesaleOrdersGroupByFilter');
+  syncRadioDropdownButton_('wholesaleOrdersGroupByFilter', 'グループ化');
+  on('wholesaleOrdersGroupByFilter', 'change', function (e) {
+    if (e.target.type !== 'radio') return;
+    syncRadioDropdownButton_('wholesaleOrdersGroupByFilter', 'グループ化');
+    loadWholesaleOrders();
+  });
   registerMultiDropdownToggle_('wholesaleOrdersDisplayLocationFilter');
   on('wholesaleOrdersDisplayLocationFilter', 'change', function (e) {
     if (e.target.type !== 'checkbox') return;
@@ -3602,9 +3745,11 @@
   on('btnWholesaleOrdersFilterClear', 'click', function () {
     $('wholesaleOrdersKeyword').value = '';
     $('wholesaleOrdersLocationFilter').value = '';
+    syncSelectFace_('wholesaleOrdersLocationFilter');
     $('wholesaleOrdersSalesStoreFilter').value = '';
     var defaultWholesaleGroupBy = document.querySelector('#wholesaleOrdersGroupByFilter input[value=""]');
     if (defaultWholesaleGroupBy) defaultWholesaleGroupBy.checked = true;
+    syncRadioDropdownButton_('wholesaleOrdersGroupByFilter', 'グループ化');
     state.wholesaleOrdersFilters.currentDisplayLocation = [];
     state.wholesaleOrdersSortState = { key: '', dir: 'asc' };
     document.querySelectorAll('#wholesaleOrdersDisplayLocationFilter input').forEach(function (el) { el.checked = false; });
@@ -3724,6 +3869,7 @@
       state[opts.filtersKey] = { color: '', yearBucket: '', priceBucket: '', mileageBucket: '', status: [], location: [] };
       state[opts.sortStateKey] = { key: '', dir: 'asc' };
       $(opts.keywordId).value = '';
+      [opts.colorFilterId, opts.yearFilterId, opts.priceFilterId, opts.mileageFilterId].forEach(function (id) { $(id).value = ''; syncSelectFace_(id); });
       document.querySelectorAll('#' + opts.statusFilterId + ' input, #' + opts.locationFilterId + ' input').forEach(function (el) { el.checked = false; });
       syncMultiDropdownButton_(opts.statusFilterId, []);
       syncMultiDropdownButton_(opts.locationFilterId, []);
@@ -5212,9 +5358,13 @@
   }
 
   function init() {
+    renderAppRail_();
+    syncAllSelectFaces_();
     syncNavButtons_();
     initScrollFade_('topbarTabs');
     initScrollElevation_();
+    syncFilterbarHeightVar_();
+    setupFilterbarHeightObserver_();
     reloadAll_().catch(function (err) { showToast(err.message, true); }).then(function () {
       // 起動時ローディング画面は初回の読み込み完了時のみフェードアウトする
       // （更新ボタンからの再読み込みは、ボタン自体の回転アイコンで十分なため

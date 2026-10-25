@@ -105,6 +105,16 @@
        border-bottom: 2px、現場からの要望「ヘッダーとリストの境界にもテーマを
        反映してほしい」）ぶんも含めた実際の高さに揃えている。 */
     --topbar-h: 149px;
+    /* 絞り込みバー（.filterSidebar、PC・タブレット幅専用の横一列レイアウト）
+       自身の高さ。.appRail・.tblHeadのposition: stickyのtopオフセット計算に
+       使う（--topbar-hと同じ考え方）。スマホ・タブレット幅（901px未満）は
+       絞り込みバー自体がstickyにならない（通常の縦スクロールに戻る）ため0のまま。
+       --topbar-hと違い、こちらは固定値ではない。絞り込み中サマリー（チップ
+       一覧）の有無・件数によって絞り込みバー自身の高さが変わるため、
+       syncFilterbarHeightVar_（JavaScript.html、タブ切替のたび・ResizeObserverで
+       絞り込みバーの高さが変わるたびに呼ばれる）が実測してこの変数へ
+       書き込み直す。ここでの値はJS実行前の初期表示専用のフォールバック。 */
+    --filterbar-h: 0px;
     /* お知らせ（#homeAnnouncement）が同じ囲いの中に表示されているとき
        （body.has-announcement、syncHomeAnnouncementVisibility_・JavaScript.html参照）
        は、その分だけ.topbarの実際の高さが伸びるため、--topbar-hもこの状態に
@@ -397,8 +407,11 @@
 
   @media (min-width: 901px) {
     /* ブランド行・タブ行のpaddingを広げる分、下に続く絞り込み機能・一覧の
-       間隔の基準になる--topbar-hもこの実測値に合わせて更新する。 */
-    :root { --topbar-h: 172px; }
+       間隔の基準になる--topbar-hもこの実測値に合わせて更新する。
+       --filterbar-hはJS実行前の初期表示専用のフォールバック値（絞り込み
+       バーが1行だけの状態を想定した概算）で、JS実行後はsyncFilterbarHeightVar_
+       （JavaScript.html）が実測して上書きする（:root、本ファイル冒頭参照）。 */
+    :root { --topbar-h: 172px; --filterbar-h: 53px; }
     body.has-announcement { --topbar-h: 227px; }
     .topbar__brandRow { padding: 20px 32px; }
     .topbar__navBtn { width: 42px; height: 42px; }
@@ -408,6 +421,12 @@
     .topbar__userEmail { display: block; font-size: 11.5px; }
     .tabs__wrap { padding: 0 32px 14px; }
     .tabs__item { font-size: 13px; padding: 8px 16px; }
+    /* 現場からの要望「『ホーム』などのタブは画面左（絞り込み機能のある位置）に
+       配置してほしい」を受け、PC・タブレット幅ではヘッダー下の横並びピルタブを
+       隠し、.appRail（本ファイル内で後方定義、各リストのlistBody先頭に置く
+       縦メニュー）に置き換える。スマホ幅は縦メニューが入る余白が無いため、
+       これまでどおり横並びピルタブのままにする。 */
+    .tabs__wrap { display: none; }
   }
 
   /* ===== 起動時ローディング画面 =====
@@ -798,6 +817,13 @@
      ページと同じ配色（背景は塗らず、文字は通常の本文と同じ中立グレー）にする。
      スマホ・タブレット幅（900px以下）では、これまでどおり絞り込み・一覧とも
      ページ本文と一緒に縦スクロールする1カラムに戻る。 */
+  /* 現場からの要望「『ホーム』などのタブは画面左（絞り込み機能のある位置）に
+     配置してほしい」を受け、.listBodyの左カラムは絞り込みサイドバー
+     （.filterSidebar）ではなく縦タブメニュー（.appRail）になった。
+     .filterSidebar自体は.listBodyの外（直前）に移動し、ヘッダー直下で
+     画面幅いっぱいの横並びバーになる（現場からの要望「絞り込み機能全体を
+     中央配置として、ある程度の左右余白を残してほしい」「あまりのスペースは
+     キーワード検索に当てたい」も参照）。 */
   .listBody {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -807,7 +833,63 @@
   }
   .listBody__main { min-width: 0; }
   @media (min-width: 901px) {
-    .listBody { grid-template-columns: 200px minmax(0, 1fr); gap: 28px; padding: 24px; align-items: start; }
+    .listBody { grid-template-columns: 172px minmax(0, 1fr); gap: 0; padding: 0; align-items: start; }
+    .listBody__main { padding: 24px; }
+    /* ホームの「検索結果」専用ページ（#view-homeResults）のように.appRailを
+       持たない.listBodyでは、.listBody__mainが唯一の子要素になる。2カラム
+       グリッドのまま1つ目のカラム（172px）に収まってしまわないよう、
+       両カラムいっぱいに広げる。 */
+    .listBody__main:only-child { grid-column: 1 / -1; }
+  }
+
+  /* ===== 縦タブメニュー（.appRail、PC・タブレット幅専用） =====
+     renderAppRail_（JavaScript.html）が起動時に1回だけ、各リストが持つ
+     空の<nav class="appRail" data-host-view="...">に中身を描き込む（タブは
+     画面遷移で消えたり作り直されたりしないため、描画は1回で済む。アクティブ
+     表示はそのnavが属するリスト自身が常にアクティブなリストであることから、
+     描画時に固定で決まる）。クリックは.appRail__itemへの委譲
+     （on(document.body, 'click', ...)）でswitchToTab_を呼び、既存の
+     ピルタブ（#topbarTabs）とまったく同じ画面遷移ロジックを使い回す。
+     絞り込み機能・一覧の縦スクロールにも追従して常に見えるよう、
+     position: stickyで固定する（現場からの要望「絞り込み機能やタブは
+     固定」）。 */
+  .appRail {
+    display: none;
+  }
+  @media (min-width: 901px) {
+    .appRail {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      position: sticky;
+      top: calc(var(--topbar-h) + var(--filterbar-h));
+      max-height: calc(100vh - var(--topbar-h) - var(--filterbar-h));
+      overflow-y: auto;
+      scrollbar-width: none;
+      padding: 10px 10px 10px 0;
+    }
+    .appRail::-webkit-scrollbar { display: none; }
+  }
+  .appRail__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--on-surface-variant);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    white-space: nowrap;
+  }
+  .appRail__item svg { width: 17px; height: 17px; fill: currentColor; flex: none; }
+  .appRail__item:hover { background: var(--background); color: var(--on-surface); }
+  .appRail__item.is-active {
+    background: var(--primary-bg);
+    color: var(--primary-text);
   }
   .filterSidebar {
     display: flex;
@@ -833,7 +915,8 @@
      .searchboxはこの対象外。従来どおりボックス型のまま）。 */
   .filterSidebar__row .input,
   .filterSidebar__row select.input,
-  .filterSidebar__row .multiDropdown__btn {
+  .filterSidebar__row .multiDropdown__btn,
+  .filterSidebar__row .selectFace {
     background-color: transparent;
     border: none;
     border-bottom: 1px solid var(--outline);
@@ -845,7 +928,8 @@
      だけが残ってボタンの存在がほぼ見えなくなっていた（select側は未選択でも
      ブラウザ標準の高さを保つため問題にならない）。selectと同じ見た目の高さを
      min-heightで確保し、空でも必ず下線つきのボックスとして見えるようにする。 */
-  .filterSidebar__row .multiDropdown__btn {
+  .filterSidebar__row .multiDropdown__btn,
+  .filterSidebar__row .selectFace {
     display: flex;
     align-items: center;
     min-height: 24px;
@@ -853,10 +937,19 @@
   .filterSidebar__row .input:focus,
   .filterSidebar__row select.input:focus {
     outline: none;
-    border-bottom-color: var(--primary);
   }
+  /* 不具合修正（現場からの要望「絞られていない項目にも下線（キーワード検索と
+     同じカラー）を引いて絞り込みがされているとテーマカラーを反映するように
+     してほしい」）: .selectFaceで包んだ<select>は透明化して上に重ねている
+     （opacity: 0、下の.selectFace select.input参照）ため、下線をselect自身に
+     付けても見た目には一切反映されない。実際に見えている箱（.selectFace、
+     .multiDropdown__btn）の側に下線を持たせることで、未選択時はキーワード
+     検索と同じ色（var(--outline)）、選択中・フォーカス中はテーマカラー
+     （var(--primary)）の下線がどちらも正しく見えるようにする。 */
   .filterSidebar__row .multiDropdown__btn:hover,
-  .filterSidebar__row .multiDropdown__btn:focus-visible { border-bottom-color: var(--primary); }
+  .filterSidebar__row .multiDropdown__btn:focus-visible,
+  .filterSidebar__row .selectFace:hover,
+  .filterSidebar__row .selectFace:focus-within { border-bottom-color: var(--primary); }
   .filterSidebar__clearBtn {
     border: none;
     background: none;
@@ -872,6 +965,27 @@
   }
   .filterSidebar__clearBtn:hover { color: var(--on-surface); }
 
+  /* ===== selectFace（ネイティブselectの上に重ねる、アイコン付きの見た目） =====
+     セレクト自体（カラー・初年度登録日・価格帯・走行距離）はそのまま使い、
+     キーボード操作・OS標準のピッカーといったアクセシビリティ面はそのまま
+     維持しつつ、見た目だけ他の項目（.multiDropdown__btn）と揃った
+     「アイコン＋文字＋シェブロン」に差し替える。selectは透明にして上に重ね、
+     クリック・操作自体はselect本体が受け続ける（.selectFace__text／
+     .selectFace__chevはpointer-events: noneでクリックを奪わない）。
+     文字（ラベル／ラベル・値）はsyncSelectFace_（JavaScript.html）が
+     changeイベントのたびに書き換える。 */
+  .selectFace { position: relative; display: flex; align-items: center; }
+  .selectFace__text { overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+  .selectFace__chev { font-size: 8px; opacity: .5; margin-left: 4px; pointer-events: none; flex: none; }
+  .selectFace select.input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    border: none;
+    padding: 0;
+  }
+
   /* ===== 絞り込み項目（1列に1項目、ラベル→値の縦積み） =====
      セレクト・チェックボックス・ラジオ・テキスト入力といった標準の選択式
      コントロールはそのまま使い、各項目を「ラベル（小さく上）＋コントロール
@@ -881,7 +995,8 @@
   .filterSidebar__row { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
   .filterSidebar__row.is-active .filterSidebar__rowLabel { color: var(--on-surface); }
   .filterSidebar__row.is-active select.input,
-  .filterSidebar__row.is-active .multiDropdown__btn { border-bottom-color: var(--primary); }
+  .filterSidebar__row.is-active .multiDropdown__btn,
+  .filterSidebar__row.is-active .selectFace { border-bottom-color: var(--primary); }
   .filterSidebar__rowHead { display: flex; align-items: center; }
   /* デザインリニューアル（ショールーム・ライト案）: アイコンは使わず、ラベルの
      小ささ・淡さだけで「補足情報」であることを示すミニマルな見た目にする。 */
@@ -906,6 +1021,97 @@
     margin: 4px 0 0;
   }
   #view-home .filterSidebar__sectionLabel--first { margin-top: 0; }
+
+  /* ===== 絞り込みバー（PC・タブレット幅専用の横一列レイアウト） =====
+     現場からの要望「絞り込み機能を一列で表示してほしい」「全体を中央配置に
+     して左右に余白を残してほしい」「あまったスペースはキーワード検索に」を
+     受け、.filterSidebarはPC・タブレット幅ではヘッダー直下・画面幅いっぱいの
+     専用の行（.listBodyの外、本ファイルのHTML構造参照）になり、常時表示の
+     position: stickyで固定する（タブ・絞り込み機能ともスクロールで隠れない
+     ようにする、という要望のため）。「条件検索」の文字は省き、各項目は
+     アイコン＋（未選択時はラベル、選択時は「ラベル・値」）＋シェブロンの
+     1行ボタンにする。中身（.filterSidebar__rows）は最大幅を持たせて中央寄せ
+     にし、キーワード検索欄だけflex: 1で伸び縮みして余りを吸収する。
+     不具合修正: このブロックは当初、上の縦積みレイアウト（.filterSidebar__rows
+     等の素のルール）より前（ファイル上の位置として上）に書かれていたため、
+     詳細度が同じセレクタどうしの場合に働くCSSの「後に書かれた方が勝つ」
+     という規則により、PC・タブレット幅でも縦積みのルールの方が後勝ちして
+     しまい、絞り込みバーが1列にならず項目がバラバラに縦積みのまま表示されて
+     いた。縦積みレイアウトのルール（上記）より後ろに置くことで、PC・
+     タブレット幅ではこのメディアクエリ側が正しく後勝ちするようにする。 */
+  @media (min-width: 901px) {
+    .filterSidebar {
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0;
+      position: sticky;
+      top: var(--topbar-h);
+      z-index: 8;
+      background: var(--surface);
+      border-bottom: 1px solid var(--outline);
+      padding: 10px 24px;
+      justify-content: center;
+    }
+    /* 「条件検索」の文字・該当件数は横一列バーでは場所を取るため表示しない
+       （件数は左の絞り込みサイドバー見出しの代わりに一覧側の見出し等へ、
+       という従来の方針のまま。クリアボタンだけは引き続き使えるよう残す）。 */
+    .filterSidebar__head { display: none; }
+    /* 不具合修正: .filterSidebarがflex-wrap: nowrap（既定値）のままだと、
+       order: 3・flex-basis: 100%を付けても改行が起きず、絞り込み中サマリー
+       （チップ一覧・「絞り込み条件はありません」の案内文）が1行目の右端に
+       押し込まれてしまっていた。flex-wrap: wrapを付け、サマリーだけが
+       2行目に回り込むようにする（検索欄・各項目のボタン列は1行目のまま
+       収まる前提、現場からの要望「絞り込みをした際も1行で抑えたい」
+       「元から絞り込みされた場合のスペースを開けておくといい」参照）。 */
+    .filterSidebar__activeBar:not(:empty) {
+      order: 3;
+      flex-basis: 100%;
+      justify-content: center;
+      padding: 0 24px 10px;
+    }
+    .filterSidebar__field { flex: 1 1 140px; min-width: 140px; max-width: 320px; margin: 0 20px 0 0; }
+    .filterSidebar .searchbox { border: none; border-bottom: 1px solid var(--outline); border-radius: 0; padding: 5px 2px; background: transparent; }
+    .filterSidebar .searchbox:focus-within { box-shadow: none; border-bottom-color: var(--primary); }
+    .filterSidebar__rows {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      flex-wrap: nowrap;
+      gap: 18px;
+      margin-top: 0;
+      max-width: 1100px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .filterSidebar__rows::-webkit-scrollbar { display: none; }
+    .filterSidebar__row {
+      flex-direction: row;
+      align-items: center;
+      gap: 5px;
+      flex: none;
+      min-width: 0;
+      white-space: nowrap;
+    }
+    .filterSidebar__rowHead { gap: 5px; }
+    .filterSidebar__rowIcon { display: block; width: 13px; height: 13px; color: var(--on-surface-variant); flex: none; }
+    .filterSidebar__row.is-active .filterSidebar__rowIcon { color: var(--primary); }
+    /* ラベルは未選択時・選択時とも、ボタン／selectFaceの文字側（JS側で
+       「ラベル」または「ラベル・値」として描き込む）で表すため、別建ての
+       ラベル文字は重複させない。 */
+    .filterSidebar__rowLabel { display: none; }
+    .filterSidebar__row select.input,
+    .filterSidebar__row .multiDropdown,
+    .filterSidebar__row .selectFace { width: auto; min-width: 0; }
+    .filterSidebar__row .input,
+    .filterSidebar__row select.input,
+    .filterSidebar__row .multiDropdown__btn,
+    .filterSidebar__row .selectFace {
+      padding: 3px 14px 3px 0;
+      white-space: nowrap;
+    }
+    #view-home .filterSidebar__sectionLabel { display: none; }
+  }
 
   /* 区分・現展示拠点・掲載状況・販売状況用の複数選択ドロップダウン
      （setupHomeMultiDropdown_、JavaScript.html参照）。閉じているボタンは
@@ -1193,9 +1399,14 @@
      ようにする。スマホ幅はヘッダー・コマンドバー自体もposition: stickyで
      積み重なっており、同じ考え方で列見出しまで固定すると3段重ねの
      オフセット計算が必要になり崩れやすいため、従来どおり通常のスクロールの
-     ままにしている。 */
+     ままにしている。
+     現場からの要望「各リスト（表）は表のみスライドするようにして、項目は
+     固定してほしい。もちろん絞り込み機能やタブも固定」を受け、PC・タブレット
+     幅では.topbar＋.filterSidebar（横一列バー）の2段が重なった状態が基準に
+     なるため、topのオフセットも--topbar-hだけでなく--filterbar-hを足した
+     位置に変更する（.appRailと同じ考え方、:root参照）。 */
   @media (min-width: 901px) {
-    .tblHead { position: sticky; top: 0; z-index: 1; }
+    .tblHead { position: sticky; top: calc(var(--topbar-h) + var(--filterbar-h)); z-index: 1; }
   }
   .tblRow {
     height: 54px;
