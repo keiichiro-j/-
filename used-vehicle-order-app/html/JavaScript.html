@@ -59,8 +59,12 @@
     // ようにする（区分・掲載状況は在庫リストのみに残すため持たない。現場からの
     // 要望「それぞれのページに適した条件検索を追加してほしい」「在庫リスト
     // 以外には掲載状況は不要」）。
-    demoCarListFilters: { color: '', yearBucket: '', priceBucket: '', mileageBucket: '', status: [], location: [] },
-    serviceCarListFilters: { color: '', yearBucket: '', priceBucket: '', mileageBucket: '', status: [], location: [] },
+    // 不具合修正（現場からの要望「販売済み車両はリストに残したくない」）: 初期表示では
+    // 販売状況（saleStatus）が「在庫中」の車両だけに絞り込んでおく。「販売済み」の
+    // 車両を確認したい場合は、左の絞り込みサイドバー「販売状況」から手動でチェックを
+    // 入れれば引き続き見られる（データ自体は削除・移動しない）。
+    demoCarListFilters: { color: '', yearBucket: '', priceBucket: '', mileageBucket: '', status: ['在庫中'], location: [] },
+    serviceCarListFilters: { color: '', yearBucket: '', priceBucket: '', mileageBucket: '', status: ['在庫中'], location: [] },
     demoCarListSortState: { key: '', dir: 'asc' },
     serviceCarListSortState: { key: '', dir: 'asc' },
     action: null, // { type: 'hold' | 'order' | 'orderFromHold', commission }
@@ -4258,6 +4262,16 @@
     });
     registerMultiDropdownToggle_(opts.statusFilterId);
     registerMultiDropdownToggle_(opts.locationFilterId);
+    // 不具合修正（現場からの要望「販売済み車両はリストに残したくない」）:
+    // 「販売状況」のチェックボックス（在庫中／販売済み）はIndex.html側に静的に
+    // 書いてあり、常に未チェックの状態で描画される。初期状態のdemoCarListFilters・
+    // serviceCarListFilters（本ファイル前方のstate定義参照）が「在庫中」のみを
+    // 既定で絞り込むようになったため、チェックボックス自体の見た目もこの既定値に
+    // 合わせてチェック済みにしておく（見た目と実際の絞り込み条件がずれないように）。
+    document.querySelectorAll('#' + opts.statusFilterId + ' input[type="checkbox"]').forEach(function (cb) {
+      cb.checked = state[opts.filtersKey].status.indexOf(cb.value) !== -1;
+    });
+    syncMultiDropdownButton_(opts.statusFilterId, state[opts.filtersKey].status);
     on(opts.statusFilterId, 'change', function (e) {
       if (e.target.type !== 'checkbox') return;
       state[opts.filtersKey].status = Array.prototype.slice.call($(opts.statusFilterId).querySelectorAll('input[type="checkbox"]:checked'))
