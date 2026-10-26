@@ -926,13 +926,15 @@
     }
     .appRail::-webkit-scrollbar { display: none; }
   }
+  /* 不具合修正（現場からの要望「タブと絞り込み機能がPCビューで見ると小さい
+     ので文字を大きくしてください」）: 11.5px→13pxに拡大。 */
   .appRail__item {
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 10px 12px;
     border-radius: 8px;
-    font-size: 11.5px;
+    font-size: 13px;
     font-weight: 700;
     color: var(--on-surface-variant);
     background: transparent;
@@ -955,7 +957,7 @@
     color: var(--on-surface);
   }
   .filterSidebar__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-  .filterSidebar__title { font-size: 12.5px; font-weight: 700; margin: 0; color: var(--on-surface); }
+  .filterSidebar__title { font-size: 13.5px; font-weight: 700; margin: 0; color: var(--on-surface); }
   .filterSidebar__count {
     font-size: 10.5px;
     font-weight: 600;
@@ -1035,12 +1037,14 @@
      .selectFace自身にはfont-sizeの指定が無く、ページ既定（ブラウザ標準の
      16px、本ファイルのhtml, body参照）をそのまま継承していたため、
      .multiDropdown__btn（font-size: 11px、本ファイル後方で定義）より
-     大きく表示されていた。.selectFaceにも同じ11pxを指定し、両者の見た目を
+     大きく表示されていた。.selectFaceにも同じ大きさを指定し、両者の見た目を
      揃える（中の実体の<select class="input">自身はiOS Safariの自動ズーム
      対策で16px基準のままにする必要があるため、.selectFace select.input
      （本ファイル後方）側で別途16pxを維持する。opacity: 0で画面上は見えない
-     ため、サイズを変えても見た目には影響しない）。 */
-  .selectFace { position: relative; display: flex; align-items: center; font-size: 11px; }
+     ため、サイズを変えても見た目には影響しない）。不具合修正（現場からの
+     要望「タブと絞り込み機能がPCビューで見ると小さいので文字を大きくして
+     ください」）: 11px→12.5pxに拡大（.multiDropdown__btnと合わせて変更）。 */
+  .selectFace { position: relative; display: flex; align-items: center; font-size: 12.5px; }
   .selectFace__text { overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
   .selectFace__chev { font-size: 8px; opacity: .5; margin-left: 4px; pointer-events: none; flex: none; }
   .selectFace select.input {
@@ -1212,10 +1216,13 @@
      一覧）は浮き出しのポップオーバーで開くため、いくつ選んでも行自体の
      高さは変わらない。 */
   .multiDropdown { position: relative; }
+  /* 不具合修正（現場からの要望「タブと絞り込み機能がPCビューで見ると小さい
+     ので文字を大きくしてください」）: 11px→12.5pxに拡大（.selectFaceと
+     合わせて変更）。 */
   .multiDropdown__btn {
     display: block; width: 100%; text-align: left; font-family: inherit;
     border: 1px solid var(--outline); border-radius: 8px; padding: 4px 24px 4px 8px;
-    background-color: var(--surface); color: var(--on-surface); font-size: 11px; cursor: pointer;
+    background-color: var(--surface); color: var(--on-surface); font-size: 12.5px; cursor: pointer;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     background-repeat: no-repeat; background-position: right 8px center; background-size: 10px;
   }
@@ -1241,7 +1248,7 @@
     border-radius: 8px; box-shadow: var(--shadow-elevated); padding: 8px 10px;
     max-height: 240px; overflow-y: auto;
   }
-  .multiDropdown__panel .filterCheck { color: var(--on-surface); font-size: 12px; }
+  .multiDropdown__panel .filterCheck { color: var(--on-surface); font-size: 13px; }
 
   /* チェックボックス一覧（区分・現展示拠点等、checkboxFilterOptionsHtml_で生成。
      件数は実データ次第で増減する）は縦1列の中で項目数が可変なため、内部で
