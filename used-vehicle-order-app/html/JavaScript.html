@@ -1155,13 +1155,29 @@
   }
 
   /**
+   * モデル名の前後の余分な空白だけを吸収する正規化（純粋関数）。不具合修正
+   * （現場からの指摘「ホームからの在庫横断でHOLD・受注ボタンが出ない車両が
+   * ある」）: 在庫リストの「Model」列の値の前後に余分な空白が入っていると、
+   * 設定タブの車両画像マスタに登録したモデル名との完全一致判定
+   * （leadingAlphaPrefix_・modelCountForEntry_・matchedModelsForEntry_・
+   * minSalePriceForEntry_・unphotographedModelEntries_・applyHomeModelFilter_、
+   * いずれも本ファイル参照）がすべて不一致になり、該当車両がホームのカード
+   * 集計・画像タップでの絞り込み結果から漏れていた（在庫リスト自体の検索・
+   * 絞り込みは部分一致のため影響を受けず、見た目は正常に見えてしまっていた）。
+   * これらの比較の前に必ず通し、前後の空白差だけでは不一致にならないようにする。
+   */
+  function normalizedModelStr_(s) {
+    return String(s || '').trim();
+  }
+
+  /**
    * 型番（在庫リストのMODEL列の値。例:「C200」「C43T」「CLA18」「GLC2DC」）の
    * 先頭にあるアルファベットの連続部分だけを取り出す（純粋関数）。Mercedes系の
    * 型番は「クラス名（アルファベット）＋グレード番号（数字）＋任意のサフィックス」
    * という構成のため、これでクラス名部分（「C」「CLA」「GLC」等）を正確に切り出せる。
    */
   function leadingAlphaPrefix_(modelValue) {
-    var m = String(modelValue || '').match(/^[A-Za-z]+/);
+    var m = normalizedModelStr_(modelValue).match(/^[A-Za-z]+/);
     return m ? m[0] : '';
   }
 
@@ -1180,9 +1196,10 @@
    */
   function gradeRuleSpecificity_(modelValue, entry) {
     if (!entry.gradePrefix || !modelValue) return -1;
-    if (leadingAlphaPrefix_(modelValue).toLowerCase() !== entry.gradePrefix.toLowerCase()) return -1;
+    var normalized = normalizedModelStr_(modelValue);
+    if (leadingAlphaPrefix_(normalized).toLowerCase() !== entry.gradePrefix.toLowerCase()) return -1;
     if (entry.gradeMarker) {
-      var remainder = modelValue.slice(entry.gradePrefix.length);
+      var remainder = normalized.slice(entry.gradePrefix.length);
       if (remainder.toLowerCase().indexOf(entry.gradeMarker.toLowerCase()) === -1) return -1;
       return 10000 + entry.gradePrefix.length + entry.gradeMarker.length;
     }
@@ -1215,7 +1232,8 @@
    */
   function modelCountForEntry_(entry, allItems, allModelPhotos) {
     if (!entry.gradePrefix) {
-      return allItems.filter(function (v) { return v.model === entry.model; }).length;
+      var target = normalizedModelStr_(entry.model);
+      return allItems.filter(function (v) { return normalizedModelStr_(v.model) === target; }).length;
     }
     return allItems.filter(function (v) { return matchesGradeRule_(v.model, entry, allModelPhotos); }).length;
   }
@@ -1229,8 +1247,9 @@
    * nullを返す。
    */
   function minSalePriceForEntry_(entry, allItems, allModelPhotos) {
+    var target = normalizedModelStr_(entry.model);
     var matched = !entry.gradePrefix
-      ? allItems.filter(function (v) { return v.model === entry.model; })
+      ? allItems.filter(function (v) { return normalizedModelStr_(v.model) === target; })
       : allItems.filter(function (v) { return matchesGradeRule_(v.model, entry, allModelPhotos); });
     var prices = matched.map(function (v) { return Number(v.salePrice); }).filter(function (n) { return !isNaN(n) && n > 0; });
     if (!prices.length) return null;
@@ -1243,14 +1262,15 @@
    * 在庫リストへの絞り込みに使う。
    */
   function matchedModelsForEntry_(entry, allItems, allModelPhotos) {
-    if (!entry.gradePrefix) return [entry.model];
+    if (!entry.gradePrefix) return [normalizedModelStr_(entry.model)];
     var seen = {};
     var result = [];
     allItems.forEach(function (v) {
       if (!matchesGradeRule_(v.model, entry, allModelPhotos)) return;
-      if (seen[v.model]) return;
-      seen[v.model] = true;
-      result.push(v.model);
+      var model = normalizedModelStr_(v.model);
+      if (seen[model]) return;
+      seen[model] = true;
+      result.push(model);
     });
     return result;
   }
@@ -1268,13 +1288,13 @@
     var seen = {};
     var result = [];
     allItems.forEach(function (v) {
-      var model = v.model;
+      var model = normalizedModelStr_(v.model);
       if (!model || seen[model]) return;
       seen[model] = true;
       var covered = allModelPhotos.some(function (entry) {
         return entry.gradePrefix
           ? matchesGradeRule_(model, entry, allModelPhotos)
-          : entry.model === model;
+          : normalizedModelStr_(entry.model) === model;
       });
       if (covered) return;
       result.push({ model: model, photoUrl: '', gradePrefix: '', gradeMarker: '', bodyType: '' });
@@ -1567,7 +1587,8 @@
    */
   function applyHomeModelFilter_(items) {
     if (!state.homeModelFilter.length) return items;
-    return items.filter(function (v) { return state.homeModelFilter.indexOf(v.model) !== -1; });
+    var targets = state.homeModelFilter.map(normalizedModelStr_);
+    return items.filter(function (v) { return targets.indexOf(normalizedModelStr_(v.model)) !== -1; });
   }
 
   /**
@@ -5006,7 +5027,7 @@
     var gradeGridHtml = '';
     if (hasGrades) {
       gradeGridHtml = '<div class="homeCard__gradeGrid">' + grades.map(function (gradeModel) {
-        var count = allItems.filter(function (v) { return v.model === gradeModel; }).length;
+        var count = allItems.filter(function (v) { return normalizedModelStr_(v.model) === gradeModel; }).length;
         var zero = count === 0;
         return '<button type="button" class="homeCard__gradeChip"' +
           (zero ? ' disabled' : ' data-home-grade="' + escapeHtml(gradeModel) + '"') + '>' +
