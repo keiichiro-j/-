@@ -1487,8 +1487,8 @@
   .tblHead, .tblRow {
     display: grid;
     align-items: center;
-    column-gap: 7px;
-    padding: 0 9px;
+    column-gap: 5px;
+    padding: 0 7px;
   }
   .tblHead {
     height: 36px;
@@ -1616,26 +1616,6 @@
      ようにして下さい」）: ボタン同士の間隔を詰め、ボタン自身の左右の余白も
      減らすことで、固定幅の操作列によりゆとりを持たせる。 */
   .tblCell--actions { display: flex; gap: 4px; overflow: visible; }
-  /* 不具合修正（現場からの要望「ホームからの在庫横断でHOLD・受注ボタンが
-     表示されない」）: 列の合計幅が表の横幅を超えると.tblBody（overflow-x:
-     auto、本ファイル内の.tbl参照）が横スクロールになり、末尾側の操作列
-     （HOLD・受注ボタン）が画面外に隠れて、横スクロールしないと操作できない
-     状態になっていた。横スクロールバー自体が目立たず、ボタンが「無い」ように
-     見えてしまっていたと考えられる。操作列をposition: stickyで右端に固定し、
-     横スクロールの位置に関わらず常に操作できるようにする。縞模様・ホバーの
-     行の背景色をそのまま引き継ぐため、background: inheritで.tblRow自身の
-     背景色（:nth-child(even)・:hoverで変わる）を使う（透明なままだと、下に
-     隠れている他の列がスクロール時に透けて見えてしまうため）。 */
-  .tbl--inventory .tblCell--actions {
-    position: sticky;
-    right: 0;
-    background: inherit;
-    z-index: 1;
-    /* 横スクロールで他の列の上に重なって固定されるため、スプレッドシートの
-       「ウィンドウ枠の固定」のように意図的に手前へ浮いていると分かるよう、
-       左端にごく薄い影を付ける。 */
-    box-shadow: -6px 0 6px -4px color-mix(in srgb, var(--shadow-color) 20%, transparent);
-  }
   /* 不具合修正: vehicleActionsHtml_が返すHOLD／受注・受注確定ボタンは
      .card__actions（詳細モーダルの大きいボタン向けスタイル、min-height:44px等）で
      包まれているため、そのままだと一覧行には大きすぎる。.tbl .tblCell--actions …
@@ -1691,10 +1671,19 @@
      リストはステータスのみ、受注リスト・業販受注リストは顧客名（販売先）・
      登録月が続く。 */
   .tbl--inventory .tblHead, .tbl--inventory .tblRow {
-    /* 不具合修正（現場からの要望「行間を詰めてHOLDおよび受注が列に表示される
-       ようにして下さい」）: 操作列（HOLD・受注ボタン、末尾から2番目）に
-       余裕を持たせるため114px→124pxに広げた。 */
-    grid-template-columns: 16px minmax(64px, 1fr) minmax(84px, 1fr) minmax(70px, 1fr) minmax(64px, 1fr) minmax(70px, 1fr) minmax(144px, 1fr) minmax(80px, 1fr) minmax(84px, 1fr) 86px 124px 11px;
+    /* 不具合修正（現場からの要望「ホームからの在庫横断でHOLD・受注ボタンが
+       表示されない」「ボタンを右に固定するというより、ボタンも含む列を
+       スライドなしで表示してほしい」）: 操作列をposition: stickyで右端に
+       固定する対応は、スクロール位置によっては常にボタンへ届くものの、
+       sticky化したセルが新しい重なり文脈を持つため.tblRowのborder-bottomや
+       .tblの右側のborderの上に覆いかぶさってしまい、罫線が所々消えて
+       見える不具合を招いた（現場からの指摘「ところどころ線が消えたりして
+       ます」）。sticky化ではなく、各列の最小幅・列間隔・左右の余白
+       （本ファイル内の.tblHead, .tblRow参照）を実際に表示される値の長さに
+       合わせて詰め直し、操作列（HOLD・受注ボタン、末尾から2番目）を含む
+       行全体がそもそも表の横幅に収まるようにして、横スクロール自体を
+       無くした。 */
+    grid-template-columns: 16px minmax(56px, 1fr) minmax(76px, 1fr) minmax(64px, 1fr) minmax(60px, 1fr) minmax(64px, 1fr) minmax(126px, 1fr) minmax(70px, 1fr) minmax(76px, 1fr) 86px 124px 11px;
   }
   .tbl--order .tblHead, .tbl--order .tblRow,
   .tbl--wholesale .tblHead, .tbl--wholesale .tblRow {
