@@ -1678,12 +1678,17 @@
        sticky化したセルが新しい重なり文脈を持つため.tblRowのborder-bottomや
        .tblの右側のborderの上に覆いかぶさってしまい、罫線が所々消えて
        見える不具合を招いた（現場からの指摘「ところどころ線が消えたりして
-       ます」）。sticky化ではなく、各列の最小幅・列間隔・左右の余白
-       （本ファイル内の.tblHead, .tblRow参照）を実際に表示される値の長さに
-       合わせて詰め直し、操作列（HOLD・受注ボタン、末尾から2番目）を含む
-       行全体がそもそも表の横幅に収まるようにして、横スクロール自体を
-       無くした。 */
-    grid-template-columns: 16px minmax(56px, 1fr) minmax(76px, 1fr) minmax(64px, 1fr) minmax(60px, 1fr) minmax(64px, 1fr) minmax(126px, 1fr) minmax(70px, 1fr) minmax(76px, 1fr) 86px 124px 11px;
+       ます」）。sticky化ではなく、列間隔・左右の余白（本ファイル内の
+       .tblHead, .tblRowのcolumn-gap・padding参照）を詰め、操作列（HOLD・
+       受注ボタン、末尾から2番目）を含む行全体がそもそも表の横幅に収まる
+       ようにして、横スクロール自体を無くした。
+       不具合修正: 上記の対応時、各列の最小幅も合わせて詰めたところ、
+       「YYYY-MM-DD」形式の日付（初年度登録日・車検満了日）や8桁の価格等、
+       本来は常に一定の長さで表示されるはずの値まで省略記号で見切れてしまって
+       いた（現場からの指摘「文字の見切れがある」）。列の最小幅はtbl--order・
+       tbl--wholesale・tbl--cartrackと同じ、実測で安全な元の値に戻し、横幅の
+       詰めは列間隔・左右の余白だけで行う。 */
+    grid-template-columns: 16px minmax(64px, 1fr) minmax(84px, 1fr) minmax(70px, 1fr) minmax(64px, 1fr) minmax(70px, 1fr) minmax(144px, 1fr) minmax(80px, 1fr) minmax(84px, 1fr) 86px 124px 11px;
   }
   .tbl--order .tblHead, .tbl--order .tblRow,
   .tbl--wholesale .tblHead, .tbl--wholesale .tblRow {
