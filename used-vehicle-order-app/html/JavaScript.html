@@ -2000,18 +2000,28 @@
     var s = inventoryStatusOf_(v);
     return s === 'available' ? 0 : (s === 'hold' ? 1 : 2);
   }
-  /** デモカーリスト・サービス代車リスト由来のステータス順位（0=在庫中, 1=販売済み）。 */
+  /**
+   * デモカーリスト・サービス代車リスト由来のステータス順位（0=Hold中,
+   * 1=業販HOLD中, 2=在庫中, 3=販売済み）。不具合修正（現場からの要望「デモカー、
+   * サービス代車リストにも在庫リストと同じようにHOLD・受注機能をつけてほしい」）:
+   * 以前はHoldの概念が無く販売状況（saleStatus）だけで順位付けしていたが、
+   * holdStatusを持つようになったため、在庫リストと同じくHold状態を優先する。
+   */
   function carTrackingStatusRank_(v) {
-    return v.saleStatus === '販売済み' ? 1 : 0;
+    if (v.holdStatus === 'hold') return (v.holdHoldType && v.holdHoldType !== 'normal') ? 1 : 0;
+    return v.saleStatus === '販売済み' ? 3 : 2;
   }
   /**
    * ホーム検索結果は在庫リスト由来・デモカー/サービス代車リスト由来の車両が
    * 混在する（homeResultIsFromInventory_参照）ため、どちらの行かで使う順位を
    * 振り分ける。デモカー/サービス代車由来は在庫リスト由来より後ろにまとまる
-   * よう3を足す。
+   * よう3を足す。不具合修正: デモカーリスト・サービス代車リストもholdStatus列を
+   * 持つようになったため（CAR_TRACKING_COLUMNS参照）、以前の判定方法
+   * （'holdStatus' in v）ではどちらの由来か区別できなくなった。saleStatus列は
+   * 引き続き在庫リスト由来の車両には存在しないため、こちらで判定する。
    */
   function mixedVehicleStatusRank_(v) {
-    return ('holdStatus' in v) ? inventoryStatusRank_(v) : 3 + carTrackingStatusRank_(v);
+    return ('saleStatus' in v) ? 3 + carTrackingStatusRank_(v) : inventoryStatusRank_(v);
   }
 
   // 区分・モデル・初年度登録日・走行距離・車検満了日・登録番号・現展示拠点・価格は
@@ -2034,10 +2044,13 @@
     { key: 'status', label: 'ステータス', type: 'number', get: mixedVehicleStatusRank_ },
     null, null
   ]);
-  // デモカーリスト・サービス代車リスト共通の列構成（操作列が無い分、在庫リストより1列少ない）。
+  // デモカーリスト・サービス代車リスト共通の列構成（在庫リストと同じ列構成。
+  // 不具合修正（現場からの要望「デモカー、サービス代車リストにも在庫リストと
+  // 同じようにHOLD・受注機能をつけてほしい」）: 操作列を追加し、在庫リストと
+  // 同じ列数にした）。
   var CARTRACK_SORT_COLUMNS = [null].concat(VEHICLE_SORT_COLUMNS_, [
     { key: 'status', label: 'ステータス', type: 'number', get: carTrackingStatusRank_ },
-    null
+    null, null
   ]);
   // 受注リスト・マイページ「受注した車両」共通の列構成。
   var ORDER_SORT_COLUMNS = [null].concat(VEHICLE_SORT_COLUMNS_, [
@@ -2343,28 +2356,36 @@
   }
 
   // ===== デモカーリスト／サービス代車リスト共通の表示ヘルパー =====
-  // 在庫リストの区分「デモカー」「サービス」の車両を、在庫リストとは別の専用
-  // シートで管理する閲覧専用の一覧（CarTrackingService.gs参照）。Hold・受注の
-  // 概念を持たないため、行・詳細モーダルとも在庫リストの表示（vehicleTableRowHtml_・
-  // vehicleDetailHtml_）を土台にしつつ、状態バッジ・操作ボタンはこの一覧専用の
-  // ものに差し替える。デモカーリスト・サービス代車リストは列構成が同じ
-  // （CAR_TRACKING_COLUMNS）ため、行・詳細のHTML生成関数はどちらの一覧にも
-  // 共通で使う。
+  // 在庫リストとは別の専用シートで管理する一覧（CarTrackingService.gs参照）。
+  // 不具合修正（現場からの要望「デモカー、サービス代車リストにも在庫リストと
+  // 同じようにHOLD・受注機能をつけてほしい」）: 以前はHold・受注の概念を持たない
+  // 閲覧専用だったが、在庫リストと同じくholdStatus列（Constants.gsのCAR_TRACKING_COLUMNS
+  // 参照）を持つようになり、Hold登録・解除・受注確定ができる。行・詳細モーダルとも
+  // 在庫リストの表示（vehicleTableRowHtml_・vehicleDetailHtml_）に近い構成に
+  // している。デモカーリスト・サービス代車リストは列構成が同じ（CAR_TRACKING_COLUMNS）
+  // ため、行・詳細のHTML生成関数はどちらの一覧にも共通で使う。
   function carTrackingBadgeHtml_(v) {
+    var isHold = v.holdStatus === 'hold';
+    if (isHold) {
+      var isSpecialHold = !!(v.holdHoldType && v.holdHoldType !== 'normal');
+      return isSpecialHold
+        ? '<span class="badge badge--holdSpecial"><span class="badge__dot"></span>' + escapeHtml(holdTypeLabel_(v.holdHoldType)) + '中</span>'
+        : '<span class="badge badge--hold"><span class="badge__dot"></span>Hold中</span>';
+    }
     return v.saleStatus === '販売済み'
       ? '<span class="badge badge--sold"><span class="badge__dot"></span>販売済み</span>'
       : '<span class="badge badge--available"><span class="badge__dot"></span>在庫中</span>';
   }
 
   /**
-   * デモカーリスト・サービス代車リストタブの一覧行見出し。現場からの要望
-   * 「在庫リストとデモカーリスト・サービス代車リストに表示される情報は
-   * 統一してほしい」を受け、在庫リストの操作列（Hold・受注・解除・受注確定）
-   * 以外の項目（区分・モデル・初年度登録日・走行距離・車検満了日・登録番号・
-   * 現展示拠点・価格）をすべて同じ並びで表示する（carTrackingTableRowHtml_と
-   * 列を揃える。tbl--cartrack、Stylesheet.html参照。Hold等の操作機能は
-   * 在庫リストにのみ表示し、デモカーリスト・サービス代車リストは閲覧専用の
-   * ため持たない）。2つのリストはまったく同じ列構成。
+   * デモカーリスト・サービス代車リストタブの一覧行見出し。在庫リストと同じ
+   * 項目（区分・モデル・初年度登録日・走行距離・車検満了日・登録番号・
+   * 現展示拠点・価格・ステータス・操作）を同じ並びで表示する
+   * （carTrackingTableRowHtml_と列を揃える。tbl--inventory、Stylesheet.html
+   * 参照。不具合修正（現場からの要望「デモカー、サービス代車リストにも在庫
+   * リストと同じようにHOLD・受注機能をつけてほしい」）: 操作列を追加し、
+   * 在庫リストと同じ.tbl--inventoryの列幅をそのまま使う）。2つのリストは
+   * まったく同じ列構成。
    */
   function carTrackingTableHeaderHtml_(sortState) {
     return sortableTblHeadHtml_(CARTRACK_SORT_COLUMNS, sortState);
@@ -2372,12 +2393,21 @@
 
   /**
    * デモカーリスト・サービス代車リストタブの一覧行（横一列テーブル表示）。
-   * 在庫リストと同じ項目・同じ固定幅の列構成に揃える（操作列のみ無し。
-   * carTrackingTableHeaderHtml_参照）。
+   * 在庫リストの一覧行（vehicleTableRowHtml_）とほぼ同じ構成だが、Hold中・
+   * 業販HOLD中でもなく、かつ販売状況（saleStatus）が「販売済み」の車両は
+   * 操作列を空にする（アプリのHold・受注フローを経由せず、スプレッドシート上で
+   * 直接「販売済み」にした車両を誤って操作できないようにするため）。
    */
   function carTrackingTableRowHtml_(v, num) {
-    var isSold = v.saleStatus === '販売済み';
-    return '<div class="tblRow' + (isSold ? ' tblRow--sold' : '') + '" data-ocn="' + escapeHtml(v.ocn) + '">' +
+    var isHold = v.holdStatus === 'hold';
+    var isSpecialHold = isHold && !!(v.holdHoldType && v.holdHoldType !== 'normal');
+    var isSold = !isHold && v.saleStatus === '販売済み';
+    var rowTone = isSpecialHold ? 'tblRow--holdSpecial' : (isHold ? 'tblRow--hold' : (isSold ? 'tblRow--sold' : ''));
+    var cancelHoldBtnHtml = isHold
+      ? '<button type="button" class="btn btn--danger" data-cancel-hold="' + escapeHtml(v.commission) + '">解除</button>'
+      : '';
+    var actionsHtml = isSold ? '' : (cancelHoldBtnHtml + vehicleActionsHtml_(v));
+    return '<div class="tblRow ' + rowTone + '" data-commission="' + escapeHtml(v.commission || '') + '" data-ocn="' + escapeHtml(v.ocn) + '">' +
       '<div class="tblCell tblCell--num">' + rowNum_(num) + '</div>' +
       '<div class="tblCell"><span class="tag">' + escapeHtml(v.category || '-') + '</span></div>' +
       '<div class="tblCell tblCell--strong" title="' + escapeHtml(v.model) + '">' + escapeHtml(v.model) + '</div>' +
@@ -2388,13 +2418,38 @@
       '<div class="tblCell tblCell--strong">' + escapeHtml(v.currentDisplayLocation || '-') + '</div>' +
       '<div class="tblCell">' + escapeHtml(formatNumberUnit_(v.salePrice, ' 円') || '-') + '</div>' +
       '<div class="tblCell tblCell--status">' + carTrackingBadgeHtml_(v) + '</div>' +
+      '<div class="tblCell tblCell--actions">' + actionsHtml + '</div>' +
       '<div class="tblCell tblCell--chev">›</div>' +
       '</div>';
   }
 
+  /**
+   * デモカーリスト・サービス代車リストタブの詳細モーダル。在庫リストの詳細
+   * （vehicleDetailHtml_）とほぼ同じ構成で、Hold状況・操作ボタンも同じ
+   * holdInfoBlockHtml_・vehicleActionsHtml_を使う（不具合修正（現場からの
+   * 要望「デモカー、サービス代車リストにも在庫リストと同じようにHOLD・受注
+   * 機能をつけてほしい」））。販売状況（saleStatus）が「販売済み」の車両は
+   * 操作エリアの代わりにその旨を表示する。
+   */
   function carTrackingDetailHtml_(v) {
-    var isSold = v.saleStatus === '販売済み';
-    return '<div class="card ' + (isSold ? 'card--sold' : 'card--available') + '">' +
+    var isHold = v.holdStatus === 'hold';
+    var isSold = !isHold && v.saleStatus === '販売済み';
+    var cardTone = isSold ? 'card--sold' : vehicleCardTone_(v);
+
+    var holdInfoHtml;
+    if (isSold) {
+      holdInfoHtml = '<div class="card__holdArea card__holdArea--empty card__holdArea--full">' +
+        '<span class="card__holdArea__placeholder">この車両は販売済みです。</span>' +
+        '</div>';
+    } else if (isHold) {
+      holdInfoHtml = '<div class="card__holdArea card__holdArea--full">' + holdInfoBlockHtml_('HOLD', v, 'hold', true) + '</div>';
+    } else {
+      holdInfoHtml = '<div class="card__holdArea card__holdArea--empty card__holdArea--full">' +
+        '<span class="card__holdArea__placeholder">現在Hold登録なし</span>' +
+        '</div>';
+    }
+
+    return '<div class="card ' + cardTone + '">' +
       '<div class="card__detailCol card__detailCol--overview">' +
       '<div class="card__top">' +
       '<div class="card__topRow">' +
@@ -2410,9 +2465,8 @@
       noteBlockHtml_('備考', v.remarks, '備考はありません。') +
       '</div>' +
       '<div class="card__detailCol card__detailCol--hold">' +
-      '<div class="card__holdArea card__holdArea--empty card__holdArea--full">' +
-      '<span class="card__holdArea__placeholder">' + (isSold ? 'この車両は受注確定済み（販売済み）です。' : '在庫リストに在庫があります。') + '</span>' +
-      '</div>' +
+      holdInfoHtml +
+      (isSold ? '' : vehicleActionsHtml_(v)) +
       '</div>' +
       '</div>';
   }
@@ -2421,14 +2475,15 @@
   //       リストを横断した個々の車両の一覧）の表示ヘルパー =====
   // 列構成はcarTrackingTableHeaderHtml_・carTrackingTableRowHtml_と同じ
   // （区分・モデル・初年度登録日・走行距離・車検満了日・登録番号・現展示拠点・価格・
-  // ステータス）。ステータス表示・行タップ時の挙動だけ、行が在庫リスト由来か
-  // デモカーリスト／サービス代車リスト由来かで分ける。在庫リストで取得した車両は
-  // holdStatus列を必ず持つが、デモカーリスト・サービス代車リスト（CAR_TRACKING_COLUMNS）
-  // にはholdStatus列が存在しないため、'holdStatus' in v で確実に判別できる
-  // （どちらのAPIもreadAllRows_がシートの列定義ぶんのキーだけを持つオブジェクトを
-  // 返すため、余分なキーが混在することはない）。
+  // ステータス・操作）。不具合修正（現場からの要望「デモカー、サービス代車リストにも
+  // 在庫リストと同じようにHOLD・受注機能をつけてほしい」）: デモカーリスト・
+  // サービス代車リストもholdStatus列を持つようになった（CAR_TRACKING_COLUMNS参照）
+  // ため、Hold登録・解除・受注確定はすべての車両で共通に行える。一方、saleStatus列
+  // （販売中／販売済みの手動フラグ）は引き続き在庫リスト由来の車両には存在しない
+  // ため、「ステータスバッジにsaleStatusのフォールバックを使うかどうか」「販売済み
+  // なら操作列を空にするかどうか」の判定にのみ、'saleStatus' in v で由来を見分ける。
   function homeResultIsFromInventory_(v) {
-    return 'holdStatus' in v;
+    return !('saleStatus' in v);
   }
   function homeResultsTableHeaderHtml_(sortState) {
     return sortableTblHeadHtml_(INVENTORY_SORT_COLUMNS, sortState);
@@ -2436,22 +2491,24 @@
   /**
    * 不具合修正: 以前はホームの検索結果一覧から行タップで詳細モーダルを開いた先で
    * しかHold・受注確定ができなかった（現場からの要望「ホームの検索時もHOLD及び
-   * 受注ができるようにしてほしい」）。在庫リスト由来の車両（holdStatus列を持つ）は
-   * 在庫リストの一覧行（vehicleTableRowHtml_）と同じ操作列（Hold・受注・解除・
-   * 受注確定ボタン）をこの一覧の行に直接表示し、タップだけで操作できるようにする。
-   * デモカーリスト・サービス代車リスト由来の車両は、Hold・受注の概念が無い
-   * 閲覧専用のため操作列は空のまま（carTrackingTableRowHtml_と同じ）。
+   * 受注ができるようにしてほしい」）。在庫リスト由来の車両は在庫リストの一覧行
+   * （vehicleTableRowHtml_）と同じ操作列（Hold・受注・解除・受注確定ボタン）を
+   * この一覧の行に直接表示し、タップだけで操作できるようにする。デモカーリスト・
+   * サービス代車リスト由来の車両も同様にHold・受注ができるが、Hold中でもなく
+   * 販売状況（saleStatus）が「販売済み」の場合のみ操作列を空にする
+   * （carTrackingTableRowHtml_と同じ判定）。
    */
   function homeResultRowHtml_(v, num) {
     var fromInventory = homeResultIsFromInventory_(v);
     var statusHtml = fromInventory ? vehicleBadgesHtml_(v, false) : carTrackingBadgeHtml_(v);
-    var isHold = fromInventory && v.holdStatus === 'hold';
+    var isHold = v.holdStatus === 'hold';
     var isSpecialHold = isHold && !!(v.holdHoldType && v.holdHoldType !== 'normal');
-    var rowTone = isSpecialHold ? 'tblRow--holdSpecial' : (isHold ? 'tblRow--hold' : '');
+    var isSold = !fromInventory && !isHold && v.saleStatus === '販売済み';
+    var rowTone = isSpecialHold ? 'tblRow--holdSpecial' : (isHold ? 'tblRow--hold' : (isSold ? 'tblRow--sold' : ''));
     var cancelHoldBtnHtml = isHold
       ? '<button type="button" class="btn btn--danger" data-cancel-hold="' + escapeHtml(v.commission) + '">解除</button>'
       : '';
-    var actionsHtml = fromInventory ? (cancelHoldBtnHtml + vehicleActionsHtml_(v)) : '';
+    var actionsHtml = isSold ? '' : (cancelHoldBtnHtml + vehicleActionsHtml_(v));
     return '<div class="tblRow ' + rowTone + '" data-commission="' + escapeHtml(v.commission || '') + '" data-ocn="' + escapeHtml(v.ocn) + '">' +
       '<div class="tblCell tblCell--num">' + rowNum_(num) + '</div>' +
       '<div class="tblCell"><span class="tag">' + escapeHtml(v.category || '-') + '</span></div>' +
@@ -2473,8 +2530,11 @@
    * 既存のinventoryDetailModal（Hold・受注操作つき、state.inventoryItems /
    * state.allInventoryItems内から同じＯＣＮで検索）をそのまま開き、ホームからでも
    * Hold・受注確定ができるようにする。デモカーリスト・サービス代車リスト由来の
-   * 車両は、Hold・受注の概念が無い閲覧専用のため、専用のhomeResultDetailModalに
-   * carTrackingDetailHtml_を表示する。
+   * 車両は、専用のhomeResultDetailModalにcarTrackingDetailHtml_を表示する
+   * （不具合修正（現場からの要望「デモカー、サービス代車リストにも在庫リストと
+   * 同じようにHOLD・受注機能をつけてほしい」）: carTrackingDetailHtml_自体にも
+   * Hold・受注の操作ボタンを持たせたため、このモーダルからも操作できる。
+   * 直下のon('homeResultDetailModal', 'click', ...)参照）。
    */
   function openHomeResultDetail_(ocn) {
     var v = (state.homeVehiclePool || []).find(function (item) { return String(item.ocn) === String(ocn); });
@@ -2486,6 +2546,18 @@
     $('homeResultDetailBody').innerHTML = carTrackingDetailHtml_(v);
     openModal($('homeResultDetailModal'));
   }
+
+  // デモカーリスト・サービス代車リスト由来の車両の詳細モーダル（carTrackingDetailHtml_が
+  // 描画するHold・受注の操作ボタン）も、在庫リストの詳細モーダル（inventoryDetailModal）
+  // と同じ操作ができるようにする（on('inventoryDetailModal', 'click', ...)と同じパターン）。
+  on('homeResultDetailModal', 'click', function (e) {
+    var target = e.target;
+    var commission;
+    if ('hold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.hold))) { closeModal($('homeResultDetailModal')); openActionModal('hold', commission); } }
+    else if ('order' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.order))) { closeModal($('homeResultDetailModal')); openActionModal('order', commission); } }
+    else if ('orderFromHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.orderFromHold))) { closeModal($('homeResultDetailModal')); openActionModal('orderFromHold', commission); } }
+    else if ('cancelHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.cancelHold))) { closeModal($('homeResultDetailModal')); openCancelHoldModal(commission); } }
+  });
 
   // Hold詳細ブロックは、常に見えている要約行（顧客・担当者・タイマー）と、
   // 折りたたみ式の詳細（リード番号・登録月・下取車・OSS・保険）に分ける。
@@ -3183,7 +3255,15 @@
     // 在庫リストの検索・絞り込み条件で対象外になっていても（マイページ等、
     // 別画面のカードから操作した場合など）見つけられるよう、フィルタに
     // 左右されない全件キャッシュ（state.allInventoryItems）も探す。
-    return (state.allInventoryItems || []).find(function (v) { return commissionEquals_(v.commission, commission); }) || null;
+    found = (state.allInventoryItems || []).find(function (v) { return commissionEquals_(v.commission, commission); });
+    if (found) return found;
+    // 不具合修正（現場からの要望「デモカー、サービス代車リストにも在庫リストと
+    // 同じようにHOLD・受注機能をつけてほしい」）: デモカーリスト・サービス代車
+    // リスト由来の車両は在庫リストの一覧（state.inventoryItems・
+    // state.allInventoryItems）には載らないため、在庫・デモカー・サービス代車の
+    // 3シートを束ねたホーム用の車両プール（state.homeVehiclePool、
+    // loadHomeVehiclePool_参照）も探す。
+    return (state.homeVehiclePool || []).find(function (v) { return commissionEquals_(v.commission, commission); }) || null;
   }
 
   /**
@@ -3252,6 +3332,12 @@
       loadInventory();
       loadAllInventoryItems_();
       loadHomeVehiclePool_();
+      // 不具合修正（現場からの要望「デモカー、サービス代車リストにも在庫リストと
+      // 同じようにHOLD・受注機能をつけてほしい」）: Hold解除した車両がデモカー
+      // リスト・サービス代車リスト由来の場合、その一覧の表示も最新化する
+      // （在庫リスト由来の場合はここで空振りするだけで副作用は無い）。
+      loadDemoCarList();
+      loadServiceCarList();
     }).catch(function (err) {
       setButtonBusy(btn, false);
       errEl.textContent = err.message;
@@ -3275,7 +3361,7 @@
     cancelOrderState = { commission: commission };
     $('cancelOrderModalDesc').textContent =
       'この受注（顧客: ' + (order.customer || '-') + '・' + (order.model || '-') + '）を取り消し、' +
-      '在庫リストへ「在庫あり」の状態で戻します。受注確定時のHold情報（担当者・期限等）は復元されません。';
+      (order.sourceSheet || '在庫リスト') + 'へ「在庫あり」の状態で戻します。受注確定時のHold情報（担当者・期限等）は復元されません。';
     $('cancelOrderStaffDisplay').innerHTML = staffDisplayHtml_();
     $('cancelOrderModalError').classList.add('hidden');
     var submitBtn = $('btnCancelOrderSubmit');
@@ -3290,14 +3376,22 @@
     var errEl = $('cancelOrderModalError');
     errEl.classList.add('hidden');
     setButtonBusy(btn, true, 'キャンセル中...');
+    var order = findOrderByCommission_(cancelOrderState.commission);
+    var sourceLabel = (order && order.sourceSheet) || '在庫リスト';
     gasRun('api_cancelOrder', cancelOrderState.commission).then(function () {
       setButtonBusy(btn, false);
       closeModal($('cancelOrderModal'));
-      showToast('受注をキャンセルし、在庫リストへ戻しました');
+      showToast('受注をキャンセルし、' + sourceLabel + 'へ戻しました');
       loadInventory();
       loadOrders();
       loadAllInventoryItems_();
       loadHomeVehiclePool_();
+      // 不具合修正（現場からの要望「デモカー、サービス代車リストにも在庫リストと
+      // 同じようにHOLD・受注機能をつけてほしい」）: 受注キャンセルで車両が
+      // デモカーリスト・サービス代車リストへ戻る場合もあるため、その一覧の表示も
+      // 最新化する。
+      loadDemoCarList();
+      loadServiceCarList();
     }).catch(function (err) {
       setButtonBusy(btn, false);
       errEl.textContent = err.message;
@@ -3322,7 +3416,7 @@
     cancelWholesaleOrderState = { commission: commission };
     $('cancelWholesaleOrderModalDesc').textContent =
       'この業販受注（販売先: ' + (order.salesStore || '-') + '・' + (order.model || '-') + '）を取り消し、' +
-      '在庫リストへ「在庫あり」の状態で戻します。受注確定時のHold情報（担当者・期限等）は復元されません。';
+      (order.sourceSheet || '在庫リスト') + 'へ「在庫あり」の状態で戻します。受注確定時のHold情報（担当者・期限等）は復元されません。';
     $('cancelWholesaleOrderStaffDisplay').innerHTML = staffDisplayHtml_();
     $('cancelWholesaleOrderModalError').classList.add('hidden');
     var submitBtn = $('btnCancelWholesaleOrderSubmit');
@@ -3337,14 +3431,18 @@
     var errEl = $('cancelWholesaleOrderModalError');
     errEl.classList.add('hidden');
     setButtonBusy(btn, true, 'キャンセル中...');
+    var wholesaleOrder = findWholesaleOrderByCommission_(cancelWholesaleOrderState.commission);
+    var wholesaleSourceLabel = (wholesaleOrder && wholesaleOrder.sourceSheet) || '在庫リスト';
     gasRun('api_cancelWholesaleOrder', cancelWholesaleOrderState.commission).then(function () {
       setButtonBusy(btn, false);
       closeModal($('cancelWholesaleOrderModal'));
-      showToast('業販受注をキャンセルし、在庫リストへ戻しました');
+      showToast('業販受注をキャンセルし、' + wholesaleSourceLabel + 'へ戻しました');
       loadInventory();
       loadWholesaleOrders();
       loadAllInventoryItems_();
       loadHomeVehiclePool_();
+      loadDemoCarList();
+      loadServiceCarList();
     }).catch(function (err) {
       setButtonBusy(btn, false);
       errEl.textContent = err.message;
@@ -3396,6 +3494,12 @@
     // （現場からの要望）、在庫リスト同様ここでも車両プールを取り直し、ホームの
     // ギャラリー・検索結果ページのステータス表示を最新化する。
     loadHomeVehiclePool_();
+    // 不具合修正（現場からの要望「デモカー、サービス代車リストにも在庫リストと
+    // 同じようにHOLD・受注機能をつけてほしい」）: Hold登録・受注確定の対象が
+    // デモカーリスト・サービス代車リスト由来の場合もあるため、その一覧の表示も
+    // 最新化する（在庫リスト由来の場合はここで空振りするだけで副作用は無い）。
+    loadDemoCarList();
+    loadServiceCarList();
     if (ORDER_TYPES.indexOf(state.action.type) !== -1) loadOrders();
     if (state.action.type === 'orderFromHold' && state.action.holdType === 'wholesale') loadWholesaleOrders();
   }
@@ -4044,12 +4148,14 @@
   // 要望「デモカー、サービス代車リストも全員が見れるようにしてほしい」を受け、
   // 全担当者に公開した（.navBtn--adminOnlyクラスを外している、Index.html参照。
   // サーバー側api_listDemoCarList・api_listServiceCarListも管理者判定は行わない）。
-  // Hold・受注確定などの操作は行わない閲覧専用の一覧のため、
-  // 区分・掲載状況の絞り込みは持たないが、在庫リストと同じカラー・初年度登録日・
-  // 価格帯・走行距離に加え、このリスト専用の販売状況（在庫中／販売済み）を
-  // 左の絞り込みサイドバーに持たせる（現場からの要望「それぞれのページに
-  // 適した条件検索を追加してほしい」）。キーワード検索はサーバー側
-  // （searchCarTracking相当のapi_listDemoCarList・api_listServiceCarList）、
+  // 不具合修正（現場からの要望「デモカー、サービス代車リストにも在庫リストと
+  // 同じようにHOLD・受注機能をつけてほしい」）: 以前はHold・受注確定などの操作を
+  // 行わない閲覧専用の一覧だったが、在庫リストと同じくHold登録・解除・受注確定が
+  // できる（carTrackingTableRowHtml_・carTrackingDetailHtml_参照）。在庫リストと
+  // 同じカラー・初年度登録日・価格帯・走行距離に加え、このリスト専用の販売状況
+  // （在庫中／販売済み）を左の絞り込みサイドバーに持たせる（現場からの要望
+  // 「それぞれのページに適した条件検索を追加してほしい」）。キーワード検索は
+  // サーバー側（searchCarTracking相当のapi_listDemoCarList・api_listServiceCarList）、
   // それ以外のサイドバーの絞り込みは在庫リストと同じく取得済みの一覧を
   // クライアント側だけで絞り込み直す（applyCarTrackingFilters_参照）。
   // デモカーリスト・サービス代車リストはまったく同じ構造のため、
@@ -4097,7 +4203,10 @@
       $(opts.emptyId).classList.toggle('hidden', filtered.length > 0);
       $(opts.countId).textContent = all.length ? '該当 ' + filtered.length + '台 ／ 全' + all.length + '台' : '';
       var sorted = sortTableItems_(filtered, CARTRACK_SORT_COLUMNS, state[opts.sortStateKey]);
-      $(opts.bodyId).innerHTML = tableListHtml_('tbl--cartrack', carTrackingTableHeaderHtml_(state[opts.sortStateKey]), sorted, carTrackingTableRowHtml_);
+      // 不具合修正（現場からの要望「デモカー、サービス代車リストにも在庫リストと
+      // 同じようにHOLD・受注機能をつけてほしい」）: 操作列（HOLD・受注ボタン）を
+      // 含む在庫リストと同じ列幅（tbl--inventory、Stylesheet.html参照）を使う。
+      $(opts.bodyId).innerHTML = tableListHtml_('tbl--inventory', carTrackingTableHeaderHtml_(state[opts.sortStateKey]), sorted, carTrackingTableRowHtml_);
       wireTableHeaderScrollSync_($(opts.bodyId));
       syncFilterRowsAndSummary_(opts.rowsId, opts.activeBarId, opts.clearBtnId);
     }
@@ -4113,9 +4222,29 @@
       openModal($(opts.detailModalId));
     }
 
+    // 不具合修正（現場からの要望「デモカー、サービス代車リストにも在庫リストと
+    // 同じようにHOLD・受注機能をつけてほしい」）: 一覧行のHold・受注・解除・
+    // 受注確定ボタン（handleInventoryListClick_・on('homeResultsList', 'click', ...)
+    // と同じパターン）を、行タップでの詳細表示より先に処理する。
     on(opts.bodyId, 'click', function (e) {
-      var tappable = e.target.closest('[data-ocn]');
-      if (tappable) openDetail(tappable.dataset.ocn);
+      var target = e.target;
+      var commission;
+      if ('hold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.hold))) openActionModal('hold', commission); return; }
+      if ('order' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.order))) openActionModal('order', commission); return; }
+      if ('orderFromHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.orderFromHold))) openActionModal('orderFromHold', commission); return; }
+      if ('cancelHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.cancelHold))) openCancelHoldModal(commission); return; }
+      var tappable = target.closest('[data-ocn]');
+      if (tappable && !target.closest('button, input, label')) openDetail(tappable.dataset.ocn);
+    });
+    // 詳細モーダル（carTrackingDetailHtml_）内のHold・受注等のボタンも同様に扱う
+    // （on('inventoryDetailModal', 'click', ...)と同じパターン）。
+    on(opts.detailModalId, 'click', function (e) {
+      var target = e.target;
+      var commission;
+      if ('hold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.hold))) { closeModal($(opts.detailModalId)); openActionModal('hold', commission); } }
+      else if ('order' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.order))) { closeModal($(opts.detailModalId)); openActionModal('order', commission); } }
+      else if ('orderFromHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.orderFromHold))) { closeModal($(opts.detailModalId)); openActionModal('orderFromHold', commission); } }
+      else if ('cancelHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.cancelHold))) { closeModal($(opts.detailModalId)); openCancelHoldModal(commission); } }
     });
     wireSortableTableHeader_(opts.bodyId, state[opts.sortStateKey], render);
     on(opts.keywordId, 'input', debounce(load, 250));

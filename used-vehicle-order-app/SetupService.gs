@@ -158,6 +158,83 @@ function addMpColumnToVehicleSheets_() {
 }
 
 /**
+ * 既存のデモカーリスト・サービス代車リストに「Holdステータス」列（Constants.gsの
+ * CAR_TRACKING_COLUMNSの末尾に追加した、在庫リストと共通のHold状態列）が無い場合、
+ * ヘッダー行の末尾に追加する一回限りのメンテナンス関数（addRemarksColumnToInventory_と
+ * 同じ位置づけ）。現場からの要望「デモカー・サービス代車リストにも在庫リストと
+ * 同じようにHOLD・受注機能をつけてほしい」を受けて追加した列で、これを実行しないと
+ * 両リストでHOLD・受注ボタンを押してもholdStatus列が見つからずエラーになる。新規に
+ * セットアップしたスプレッドシート（setupSpreadsheet_）には最初から入っているため、
+ * この関数を実行する必要はない。既存データの位置はそのまま、各シートの末尾に列を
+ * 1つ追加するだけなので、途中の列がずれる心配はない。既に「Holdステータス」列が
+ * あるシートは何もしない（何度実行しても安全）。
+ */
+function addHoldStatusColumnToCarTrackingSheets_() {
+  var targets = [
+    { name: SHEET_NAMES.DEMO_CAR_LIST, sheet: getDemoCarListSheet_() },
+    { name: SHEET_NAMES.SERVICE_CAR_LIST, sheet: getServiceCarListSheet_() }
+  ];
+  var added = [];
+  var skipped = [];
+  targets.forEach(function (t) {
+    var col1 = CAR_TRACKING_COLUMNS.length; // 末尾の列（1-indexed）
+    var currentHeader = t.sheet.getLastColumn() >= col1
+      ? t.sheet.getRange(1, col1).getValue()
+      : '';
+    if (String(currentHeader).trim() === 'Holdステータス') {
+      skipped.push(t.name);
+      return;
+    }
+    t.sheet.getRange(1, col1).setValue('Holdステータス');
+    applyHeaderNotes_(t.sheet, CAR_TRACKING_COLUMNS);
+    applySheetDesign_(t.sheet, t.name, CAR_TRACKING_COLUMNS);
+    added.push(t.name);
+  });
+
+  var message = (added.length ? added.join('・') + 'の末尾に「Holdステータス」列を追加しました。' : '') +
+    (skipped.length ? (added.length ? ' ' : '') + skipped.join('・') + 'には既に「Holdステータス」列がありました。' : '');
+  Logger.log(message);
+  return message;
+}
+
+/**
+ * 既存の受注リスト・業販受注リストに「元シート」列（Constants.gsのORDER_COLUMNS／
+ * WHOLESALE_ORDER_COLUMNSの末尾に追加した、受注確定時点で車両があった元シート名を
+ * 記録する列）が無い場合、ヘッダー行の末尾に追加する一回限りのメンテナンス関数
+ * （addHoldStatusColumnToCarTrackingSheets_と同じく、デモカー・サービス代車リストへの
+ * HOLD・受注機能追加に伴う変更）。受注キャンセル時、どのシートへ車両を戻すかの判定に
+ * 使う（この列が無い既存の受注データは在庫リストへ戻る、従来どおりの挙動を維持する）。
+ * 既に「元シート」列があるシートは何もしない（何度実行しても安全）。
+ */
+function addSourceSheetColumnToOrderSheets_() {
+  var targets = [
+    { name: SHEET_NAMES.ORDERS, sheet: getOrderSheet_(), columns: ORDER_COLUMNS },
+    { name: SHEET_NAMES.WHOLESALE_ORDERS, sheet: getWholesaleOrderSheet_(), columns: WHOLESALE_ORDER_COLUMNS }
+  ];
+  var added = [];
+  var skipped = [];
+  targets.forEach(function (t) {
+    var col1 = t.columns.length; // 末尾の列（1-indexed）
+    var currentHeader = t.sheet.getLastColumn() >= col1
+      ? t.sheet.getRange(1, col1).getValue()
+      : '';
+    if (String(currentHeader).trim() === '元シート') {
+      skipped.push(t.name);
+      return;
+    }
+    t.sheet.getRange(1, col1).setValue('元シート');
+    applyHeaderNotes_(t.sheet, t.columns);
+    applySheetDesign_(t.sheet, t.name, t.columns);
+    added.push(t.name);
+  });
+
+  var message = (added.length ? added.join('・') + 'の末尾に「元シート」列を追加しました。' : '') +
+    (skipped.length ? (added.length ? ' ' : '') + skipped.join('・') + 'には既に「元シート」列がありました。' : '');
+  Logger.log(message);
+  return message;
+}
+
+/**
  * 既存のスプレッドシートの「掲載」列（あり／なしの選択式）を、「カーセンサー」
  * 「グーネット」の2列（チェックボックス）に分割する一回限りのメンテナンス関数
  * （addRemarksColumnToInventory_と同じ位置づけ）。「掲載」列を持つ在庫リスト・
@@ -395,7 +472,7 @@ function finishDiagnosis_(lines) {
 
 /**
  * 不具合修正: createHoldRow_・appendOrder_・appendWholesaleOrder_・
- * appendAuditLog_・createInventoryVehicle_は以前、書き込み先の行を
+ * appendAuditLog_・createVehicleInSource_は以前、書き込み先の行を
  * sheet.getLastRow() + 1 で決めていた。getLastRow()は値だけでなく
  * 「書式（背景色等）が設定されているだけのセル」も内容ありとみなすことがあり、
  * applySheetDesign_がシート新規作成時に1000行分の縞模様（バンディング）を
@@ -491,5 +568,7 @@ function onOpen() {
     .addItem('在庫・受注・業販受注リストに「MP」列を追加', 'addMpColumnToVehicleSheets_')
     .addItem('「掲載」列を「カーセンサー」「グーネット」の2列に分割', 'migrateListedColumnToCheckboxes_')
     .addItem('各リストの空行を削除し、データを画面上部に詰め直す', 'compactMisplacedDataRows_')
+    .addItem('デモカー・サービス代車リストに「Holdステータス」列を追加（HOLD・受注機能の有効化）', 'addHoldStatusColumnToCarTrackingSheets_')
+    .addItem('受注・業販受注リストに「元シート」列を追加（デモカー・サービス代車の受注キャンセル対応）', 'addSourceSheetColumnToOrderSheets_')
     .addToUi();
 }

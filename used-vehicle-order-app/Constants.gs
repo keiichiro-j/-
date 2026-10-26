@@ -4,12 +4,16 @@
  *
  * スプレッドシートは7タブ構成：
  *   在庫リスト … 車両情報＋Holdステータスのみ
- *   Holdリスト … Holdの入力項目・開始日時・期限（車両情報とは別テーブル）
- *   受注リスト … 受注確定時に転記される車両情報＋入力項目
- *   業販受注リスト … 業販HOLDから受注確定した車両情報＋入力項目
+ *   Holdリスト … Holdの入力項目・開始日時・期限（車両情報とは別テーブル。在庫リスト・
+ *     デモカーリスト・サービス代車リスト共通で使う。commissionで一意に特定する）
+ *   受注リスト … 受注確定時に転記される車両情報＋入力項目＋元シート名（sourceSheet）
+ *   業販受注リスト … 業販HOLDから受注確定した車両情報＋入力項目＋元シート名
  *   変更履歴 … 監査ログ
- *   デモカーリスト … 在庫リストの区分「デモカー」の車両を反映する管理者限定リスト
- *   サービス代車リスト … 在庫リストの区分「サービス」の車両を反映する管理者限定リスト
+ *   デモカーリスト … 在庫リストとは独立した、担当者が直接入力・編集する管理者限定
+ *     リスト（CarTrackingService.gs参照）。車両情報＋販売状況＋Holdステータスを持ち、
+ *     在庫リストと同じくHold登録・解除・受注確定ができる
+ *   サービス代車リスト … デモカーリストと同じ列構成・同じ位置づけの、サービス代車用
+ *     の管理者限定リスト
  */
 
 // ===== シート名 =====
@@ -250,9 +254,15 @@ var CAR_TRACKING_STATUS = {
 
 /**
  * デモカーリスト／サービス代車リスト列定義。車両情報（VEHICLE_COLUMNS）＋
- * 販売状況のみ（在庫リストと異なり、Holdステータス・備考・MPは持たない。
- * MPは在庫リストの詳細ポップアップと同じ並びに揃えるため保持する）。
+ * 販売状況＋Holdステータス（在庫リストと共通）を持つ。
  * 2つのシートは同じ列構成を共有する（区分の値が異なるだけ）。
+ * 不具合修正（現場からの要望「デモカー、サービス代車リストにも在庫リストと
+ * 同じようにHOLD・受注機能をつけてほしい」）: 以前はHoldステータスを持たず
+ * 閲覧専用だったが、在庫リストと同じくHold登録・解除・受注確定ができるよう
+ * holdStatus列を追加した（HoldService.gs・OrderService.gs参照。
+ * commission列で在庫リストと同じHoldリストを共有する）。既存のスプレッドシート
+ * には自動では追加されないため、SetupService.gsのaddHoldStatusColumnToCarTrackingSheets_
+ * を一度だけ実行する必要がある。
  */
 var CAR_TRACKING_COLUMNS = VEHICLE_COLUMNS.concat([
   {
@@ -261,8 +271,16 @@ var CAR_TRACKING_COLUMNS = VEHICLE_COLUMNS.concat([
   },
   {
     key: 'saleStatus', label: '販売状況', type: 'select', options: [CAR_TRACKING_STATUS.IN_STOCK, CAR_TRACKING_STATUS.SOLD],
-    note: '在庫中／販売済みを手動で選択してください（このシートは在庫リストから自動反映' +
-      'されないため、販売状況の更新も手動で行う運用になります）。'
+    note: '在庫中／販売済みを手動で選択してください（Hold中・受注確定時はアプリが自動で' +
+      '更新するholdStatus列が優先表示されます。それ以外はこの列を手動で更新する' +
+      '運用になります）。'
+  },
+  {
+    key: 'holdStatus', label: 'Holdステータス', type: 'select', options: [HOLD_STATUS.AVAILABLE, HOLD_STATUS.HOLD],
+    note: 'アプリがHold登録・解除・受注確定のたびに自動更新する値です（available＝在庫あり、' +
+      'hold＝Hold中）。手動編集しないでください。CAR_TRACKING_COLUMNSの末尾に追加した' +
+      '列のため、既存のスプレッドシートには自動では追加されません' +
+      '（SetupService.gsのaddHoldStatusColumnToCarTrackingSheets_参照）。'
   }
 ]);
 
@@ -324,16 +342,26 @@ var ORDER_COLUMNS = VEHICLE_COLUMNS.concat(HOLD_ORDER_INPUT_COLUMNS).concat([
   },
   { key: 'orderedAt', label: '受注確定日時', type: 'datetime', note: 'アプリが自動記録する値です。手動編集しないでください。' },
   {
-    key: 'inventoryRowNumber', label: '在庫リストの元の行番号', type: 'number',
-    note: '受注確定時点で在庫リストにあった行番号です。受注キャンセル（cancelOrder、' +
-      'OrderService.gs参照）で、できるだけ元の位置へ車両を復元するために使う内部用の' +
-      '値です。アプリが自動記録するため、手動編集しないでください。'
+    key: 'inventoryRowNumber', label: '元シートの行番号', type: 'number',
+    note: '受注確定時点で車両があった元のシート（在庫リスト・デモカーリスト・' +
+      'サービス代車リストのいずれか。隣の「元シート」列参照）の行番号です。受注キャンセル' +
+      '（cancelOrder、OrderService.gs参照）で、できるだけ元の位置へ車両を復元するために' +
+      '使う内部用の値です。アプリが自動記録するため、手動編集しないでください。'
   },
   {
     key: 'mp', label: 'MP', type: 'text',
     note: 'メーカーの定めた年式仕様を入力してください。ORDER_COLUMNSの末尾に追加した' +
       '列のため、既存のスプレッドシートには自動では追加されません' +
       '（SetupService.gsのaddMpColumnToVehicleSheets_参照）。'
+  },
+  {
+    key: 'sourceSheet', label: '元シート', type: 'text',
+    note: '受注確定時に車両があった元のシート名（在庫リスト／デモカーリスト／' +
+      'サービス代車リストのいずれか）です。受注キャンセル時、どのシートへ車両を戻す' +
+      'かの判定に使います（空欄の場合は在庫リストへ戻します。この列を追加する前の' +
+      '既存データとの互換のため）。アプリが自動記録するため、手動編集しないでください。' +
+      'ORDER_COLUMNSの末尾に追加した列のため、既存のスプレッドシートには自動では' +
+      '追加されません（SetupService.gsのaddSourceSheetColumnToOrderSheets_参照）。'
   }
 ]);
 
@@ -358,16 +386,27 @@ var WHOLESALE_ORDER_COLUMNS = VEHICLE_COLUMNS.concat([
   },
   { key: 'orderedAt', label: '受注確定日時', type: 'datetime', note: 'アプリが自動記録する値です。手動編集しないでください。' },
   {
-    key: 'inventoryRowNumber', label: '在庫リストの元の行番号', type: 'number',
-    note: '受注確定時点で在庫リストにあった行番号です。業販受注キャンセル（cancelWholesaleOrder、' +
-      'OrderService.gs参照）で、できるだけ元の位置へ車両を復元するために使う内部用の' +
-      '値です。アプリが自動記録するため、手動編集しないでください。'
+    key: 'inventoryRowNumber', label: '元シートの行番号', type: 'number',
+    note: '受注確定時点で車両があった元のシート（在庫リスト・デモカーリスト・' +
+      'サービス代車リストのいずれか。隣の「元シート」列参照）の行番号です。業販受注' +
+      'キャンセル（cancelWholesaleOrder、OrderService.gs参照）で、できるだけ元の位置へ' +
+      '車両を復元するために使う内部用の値です。アプリが自動記録するため、手動編集' +
+      'しないでください。'
   },
   {
     key: 'mp', label: 'MP', type: 'text',
     note: 'メーカーの定めた年式仕様を入力してください。WHOLESALE_ORDER_COLUMNSの末尾に' +
       '追加した列のため、既存のスプレッドシートには自動では追加されません' +
       '（SetupService.gsのaddMpColumnToVehicleSheets_参照）。'
+  },
+  {
+    key: 'sourceSheet', label: '元シート', type: 'text',
+    note: '受注確定時に車両があった元のシート名（在庫リスト／デモカーリスト／' +
+      'サービス代車リストのいずれか）です。業販受注キャンセル時、どのシートへ車両を' +
+      '戻すかの判定に使います（空欄の場合は在庫リストへ戻します。この列を追加する前の' +
+      '既存データとの互換のため）。アプリが自動記録するため、手動編集しないでください。' +
+      'WHOLESALE_ORDER_COLUMNSの末尾に追加した列のため、既存のスプレッドシートには' +
+      '自動では追加されません（SetupService.gsのaddSourceSheetColumnToOrderSheets_参照）。'
   }
 ]);
 

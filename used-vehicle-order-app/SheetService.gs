@@ -296,76 +296,6 @@ function listInventory() {
   return attachHoldInfo_(vehicles);
 }
 
-function findInventoryRowNumber_(sheet, commission) {
-  return findRowByKey_(sheet, INVENTORY_COLUMNS, 'commission', commission);
-}
-
-function findInventoryVehicle(commission) {
-  var sheet = getInventorySheet_();
-  var rowNumber = findInventoryRowNumber_(sheet, commission);
-  if (!rowNumber) return null;
-  return rowToObject_(
-    sheet.getRange(rowNumber, 1, 1, INVENTORY_COLUMNS.length).getValues()[0],
-    INVENTORY_COLUMNS,
-    rowNumber
-  );
-}
-
-/**
- * 在庫リストへ新しい行を追加する。通常の運用では在庫の追加はスプレッドシートへ
- * 直接行うが、受注キャンセル（cancelOrder、OrderService.gs参照）は受注リストから
- * 削除した行を在庫リストへ書き戻す必要があるため、アプリ側からの追加もこの関数で
- * 行う。
- * @param {Object} vehicle
- * @param {number} [preferredRowNumber] 1-indexed（ヘッダー込みの実シート行番号）。
- *   指定すると、末尾への追加ではなくその行の位置に挿入する（受注キャンセル時、
- *   受注確定前の元の位置へできるだけ近い位置に車両を復元するために使う。
- *   ORDER_COLUMNSのinventoryRowNumber参照）。現在のシートの範囲内（ヘッダー行より
- *   後ろ、かつ最終行以前）でなければ、従来どおり末尾への追加にフォールバックする
- *   （この列が無かった頃の受注データや、行の増減で位置がずれてしまった場合でも
- *   安全に動作する）。省略時は常に末尾に追加する。
- */
-function createInventoryVehicle_(vehicle, preferredRowNumber) {
-  var sheet = getInventorySheet_();
-  var lastRow = sheet.getLastRow();
-  var newRow;
-  if (preferredRowNumber && preferredRowNumber >= 2 && preferredRowNumber <= lastRow) {
-    sheet.insertRowBefore(preferredRowNumber);
-    newRow = preferredRowNumber;
-  } else {
-    // 不具合修正: 以前は lastRow + 1（getLastRow()由来）をそのまま使っており、
-    // nextAppendRow_と同じ理由（書式だけの行に惑わされる）で、末尾追加のはずが
-    // 画面のはるか下に書き込まれることがあった。
-    newRow = nextAppendRow_(sheet, inventoryColIndex1('ocn'));
-  }
-  // appendOrder_・createHoldRow_と同様、appendRowだけに頼ると数字のみのＯＣＮ・
-  // コミッションの先頭0が消えることがあるため、書き込み直前に対象セルの書式を
-  // 明示的に設定する。
-  sheet.getRange(newRow, inventoryColIndex1('ocn'), 1, 1).setNumberFormat('@');
-  sheet.getRange(newRow, inventoryColIndex1('commission'), 1, 1).setNumberFormat('@');
-  clearSelectValidationsForRow_(sheet, newRow, INVENTORY_COLUMNS);
-  sheet.getRange(newRow, 1, 1, INVENTORY_COLUMNS.length).setValues([objectToRow_(vehicle, INVENTORY_COLUMNS)]);
-  return vehicle;
-}
-
-function updateInventoryVehicle_(sheet, rowNumber, patch) {
-  var current = rowToObject_(
-    sheet.getRange(rowNumber, 1, 1, INVENTORY_COLUMNS.length).getValues()[0],
-    INVENTORY_COLUMNS,
-    rowNumber
-  );
-  var merged = Object.assign({}, current, patch, { commission: current.commission });
-  // Hold登録時など、この行全体を書き直すたびにコミッション欄の書式を明示的に
-  // 「書式なしテキスト」へ再設定してから書き込む。これを省くと、その行のコミッション
-  // セルがまだテキスト書式になっていない場合（列全体への一括書式設定を実行していない
-  // 既存シート等）、数字のみのコミッション（例: 0583911111）の先頭0が、Hold登録の
-  // たびに消えてしまう（createHoldRow_・appendOrder_と同じ対策をここにも適用する）。
-  sheet.getRange(rowNumber, inventoryColIndex1('commission'), 1, 1).setNumberFormat('@');
-  clearSelectValidationsForRow_(sheet, rowNumber, INVENTORY_COLUMNS);
-  sheet.getRange(rowNumber, 1, 1, INVENTORY_COLUMNS.length).setValues([objectToRow_(merged, INVENTORY_COLUMNS)]);
-  return merged;
-}
-
 function deleteInventoryRow_(sheet, rowNumber) {
   sheet.deleteRow(rowNumber);
 }
@@ -436,7 +366,7 @@ function updateHoldRow_(sheet, rowNumber, patch) {
     rowNumber
   );
   var merged = Object.assign({}, current, patch);
-  // updateInventoryVehicle_ と同様、行全体を書き直す前にコミッション欄の書式を
+  // updateVehicleSourceRow_ と同様、行全体を書き直す前にコミッション欄の書式を
   // 明示的にテキストへ再設定する（2nd Hold昇格・Hold解除時などにも先頭0を消さない）。
   sheet.getRange(rowNumber, holdColIndex1('commission'), 1, 1).setNumberFormat('@');
   clearSelectValidationsForRow_(sheet, rowNumber, HOLD_COLUMNS);
@@ -515,6 +445,108 @@ function deleteWholesaleOrderRow_(sheet, rowNumber) {
 function listCarTracking_(sheet) {
   // ＯＣＮで在庫の有無を判定する（他のシートと同じ考え方。コミッションは
   // 任意入力のためキー列には使わない）。
-  return readAllRows_(sheet, CAR_TRACKING_COLUMNS, 'ocn');
+  var vehicles = readAllRows_(sheet, CAR_TRACKING_COLUMNS, 'ocn');
+  // 不具合修正（現場からの要望「デモカー、サービス代車リストにも在庫リストと
+  // 同じようにHOLD・受注機能をつけてほしい」）: 在庫リスト（listInventory）と
+  // 同じくHoldリストの内容（commissionで突き合わせ）を合成する。Holdリストは
+  // 在庫・デモカー・サービス代車の3シート共通で、commissionが重複しない前提で
+  // 運用する（同じcommissionを複数シートの行で使い回さないこと）。
+  return attachHoldInfo_(vehicles);
+}
+
+/**
+ * コミッションから、その車両が在庫リスト・デモカーリスト・サービス代車リストの
+ * どのシートにあるかを横断的に探す（findVehicleSourceByCommission_、HoldService.gs・
+ * OrderService.gs参照）。各シートの取得関数（getter）と列定義の組を1箇所にまとめて
+ * おくことで、Hold登録・解除・受注確定・受注キャンセルのいずれも、対象車両が
+ * どのシートにあるかを気にせず共通のロジックで扱える。トップレベルのvarではなく
+ * 関数にしているのは、INVENTORY_COLUMNS・CAR_TRACKING_COLUMNS（Constants.gs）が
+ * 必ず読み込み済みの状態で評価されるようにするため（.gsファイル間の読み込み順に
+ * 依存させない）。
+ */
+function vehicleSources_() {
+  return [
+    { name: SHEET_NAMES.INVENTORY, getSheet: getInventorySheet_, columns: INVENTORY_COLUMNS },
+    { name: SHEET_NAMES.DEMO_CAR_LIST, getSheet: getDemoCarListSheet_, columns: CAR_TRACKING_COLUMNS },
+    { name: SHEET_NAMES.SERVICE_CAR_LIST, getSheet: getServiceCarListSheet_, columns: CAR_TRACKING_COLUMNS }
+  ];
+}
+
+/**
+ * 指定コミッションの車両を、在庫リスト→デモカーリスト→サービス代車リストの順で
+ * 探し、見つかったシートの情報をまとめて返す（見つからなければnull）。
+ * @return {{ sourceName: string, sheet: Sheet, columns: Array, rowNumber: number, vehicle: Object }|null}
+ */
+function findVehicleSourceByCommission_(commission) {
+  var sources = vehicleSources_();
+  for (var i = 0; i < sources.length; i++) {
+    var source = sources[i];
+    var sheet = source.getSheet();
+    var rowNumber = findRowByKey_(sheet, source.columns, 'commission', commission);
+    if (!rowNumber) continue;
+    var vehicle = rowToObject_(
+      sheet.getRange(rowNumber, 1, 1, source.columns.length).getValues()[0],
+      source.columns,
+      rowNumber
+    );
+    return { sourceName: source.name, sheet: sheet, columns: source.columns, rowNumber: rowNumber, vehicle: vehicle };
+  }
+  return null;
+}
+
+/**
+ * sourceSheet名（ORDER_COLUMNS／WHOLESALE_ORDER_COLUMNSのsourceSheet列の値）から、
+ * 対応するvehicleSources_の定義を返す。未知の値・空欄（この列を追加する前の
+ * 既存の受注データ）は在庫リストにフォールバックする（従来どおりの挙動を維持する）。
+ */
+function vehicleSourceByName_(sourceName) {
+  var sources = vehicleSources_();
+  var found = sources.filter(function (s) { return s.name === sourceName; })[0];
+  return found || sources[0];
+}
+
+/**
+ * 在庫リスト・デモカーリスト・サービス代車リスト、いずれの行も同じロジックで
+ * 更新できるよう、columnsを引数で受け取る汎用の行更新関数
+ * （registerHold・cancelHold・processExpiredHolds、HoldService.gs参照）。
+ */
+function updateVehicleSourceRow_(sheet, columns, rowNumber, patch) {
+  var current = rowToObject_(
+    sheet.getRange(rowNumber, 1, 1, columns.length).getValues()[0],
+    columns,
+    rowNumber
+  );
+  var merged = Object.assign({}, current, patch, { commission: current.commission });
+  var commissionCol1 = buildColIndex_(columns)['commission'] + 1;
+  sheet.getRange(rowNumber, commissionCol1, 1, 1).setNumberFormat('@');
+  clearSelectValidationsForRow_(sheet, rowNumber, columns);
+  sheet.getRange(rowNumber, 1, 1, columns.length).setValues([objectToRow_(merged, columns)]);
+  return merged;
+}
+
+/**
+ * sourceNameで指定したシート（在庫リスト・デモカーリスト・サービス代車リストの
+ * いずれか）へ、受注キャンセル時に元の位置へできるだけ近い位置で車両を復元する
+ * （cancelOrder・cancelWholesaleOrder、OrderService.gs参照）。
+ */
+function createVehicleInSource_(sourceName, vehicle, preferredRowNumber) {
+  var source = vehicleSourceByName_(sourceName);
+  var sheet = source.getSheet();
+  var columns = source.columns;
+  var commissionCol1 = buildColIndex_(columns)['commission'] + 1;
+  var ocnCol1 = buildColIndex_(columns)['ocn'] + 1;
+  var lastRow = sheet.getLastRow();
+  var newRow;
+  if (preferredRowNumber && preferredRowNumber >= 2 && preferredRowNumber <= lastRow) {
+    sheet.insertRowBefore(preferredRowNumber);
+    newRow = preferredRowNumber;
+  } else {
+    newRow = nextAppendRow_(sheet, ocnCol1);
+  }
+  sheet.getRange(newRow, ocnCol1, 1, 1).setNumberFormat('@');
+  sheet.getRange(newRow, commissionCol1, 1, 1).setNumberFormat('@');
+  clearSelectValidationsForRow_(sheet, newRow, columns);
+  sheet.getRange(newRow, 1, 1, columns.length).setValues([objectToRow_(vehicle, columns)]);
+  return vehicle;
 }
 

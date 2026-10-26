@@ -178,14 +178,23 @@ function applyHoldFieldsToVehicle_(vehicle, holdRow, prefix) {
   vehicle[prefix + 'SalesStore'] = holdRow ? holdRow.salesStore : null;
 }
 
-function findInventoryVehicleWithHolds_(commission) {
-  var vehicle = findInventoryVehicle(commission);
-  if (!vehicle) return null;
-  return attachHoldInfo_([vehicle])[0];
+/**
+ * 指定コミッションの車両に、現在のHold情報を合成して返す（見つからなければnull）。
+ * 在庫リスト・デモカーリスト・サービス代車リストいずれの車両も対象
+ * （findVehicleSourceByCommission_、SheetService.gs参照。不具合修正: 現場からの
+ * 要望「デモカー、サービス代車リストにも在庫リストと同じようにHOLD・受注機能を
+ * つけてほしい」を受け、在庫リスト専用だったfindInventoryVehicleWithHolds_を
+ * 置き換えた）。
+ */
+function findVehicleWithHolds_(commission) {
+  var resolved = findVehicleSourceByCommission_(commission);
+  if (!resolved) return null;
+  return attachHoldInfo_([resolved.vehicle])[0];
 }
 
 /**
- * Hold を登録する。
+ * Hold を登録する。在庫リスト・デモカーリスト・サービス代車リストいずれの車両も
+ * 対象（findVehicleSourceByCommission_、SheetService.gs参照）。
  * @param {string} commission
  * @param {Object} info { leadNumber, registeredMonth, staff, customer, tradeIn, oss, insurance, salesStore }
  * @param {string} [holdType] HOLD_TYPE.NORMAL(既定)/WHOLESALE。WHOLESALEは
@@ -217,14 +226,9 @@ function registerHold(commission, info, holdType) {
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
-    var sheet = getInventorySheet_();
-    var rowNumber = findInventoryRowNumber_(sheet, commission);
-    if (!rowNumber) throw new Error('該当車両が見つかりません（コミッション: ' + commission + '）');
-    var vehicle = rowToObject_(
-      sheet.getRange(rowNumber, 1, 1, INVENTORY_COLUMNS.length).getValues()[0],
-      INVENTORY_COLUMNS,
-      rowNumber
-    );
+    var resolved = findVehicleSourceByCommission_(commission);
+    if (!resolved) throw new Error('該当車両が見つかりません（コミッション: ' + commission + '）');
+    var vehicle = resolved.vehicle;
     var check = canRegisterHold_(vehicle);
     if (!check.ok) throw new Error(check.reason);
 
@@ -238,9 +242,9 @@ function registerHold(commission, info, holdType) {
       ? createHoldCalendarEvent_(commission, vehicle.model, expiresAt)
       : '';
     createHoldRow_(record);
-    updateInventoryVehicle_(sheet, rowNumber, { holdStatus: HOLD_STATUS.HOLD });
+    updateVehicleSourceRow_(resolved.sheet, resolved.columns, resolved.rowNumber, { holdStatus: HOLD_STATUS.HOLD });
 
-    var updated = findInventoryVehicleWithHolds_(commission);
+    var updated = findVehicleWithHolds_(commission);
     notifyHoldRegistered(updated);
     var detail = holdType === HOLD_TYPE.NORMAL
       ? 'リード番号 ' + info.leadNumber
@@ -282,22 +286,22 @@ function cancelHold(commission) {
     if (!check.ok) throw new Error(check.reason);
 
     var holdsSheet = getHoldsSheet_();
-    var vehicleBefore = findInventoryVehicle(commission);
+    var resolved = findVehicleSourceByCommission_(commission);
     // 解除するHold（target）は、解除操作を行った本人（canCancelHold_により本人のみ解除可）が
     // 登録したものなので、そのカレンダーイベントも本人の実行コンテキストから削除できる。
     deleteHoldCalendarEvent_(target.calendarEventId);
 
     var rowNumber = findHoldRowNumber_(holdsSheet, commission, HOLD_RANK.FIRST);
     deleteHoldRow_(holdsSheet, rowNumber);
-    var invSheet = getInventorySheet_();
-    var invRowNumber = findInventoryRowNumber_(invSheet, commission);
-    updateInventoryVehicle_(invSheet, invRowNumber, { holdStatus: HOLD_STATUS.AVAILABLE });
+    if (resolved) {
+      updateVehicleSourceRow_(resolved.sheet, resolved.columns, resolved.rowNumber, { holdStatus: HOLD_STATUS.AVAILABLE });
+    }
 
     appendAuditLog_(buildAuditLogEntry_(
-      'Hold解除', commission, vehicleBefore ? vehicleBefore.model : '', currentStaff,
+      'Hold解除', commission, resolved ? resolved.vehicle.model : '', currentStaff,
       'Holdを解除', new Date().getTime()
     ));
-    return findInventoryVehicleWithHolds_(commission);
+    return findVehicleWithHolds_(commission);
   } finally {
     lock.releaseLock();
   }
@@ -305,34 +309,39 @@ function cancelHold(commission) {
 
 /**
  * 72時間経過したHoldを一括で処理する（時間主導トリガーから呼び出す）。
- * Hold行を削除して在庫を解放する。
+ * Hold行を削除して在庫を解放する。在庫リスト・デモカーリスト・サービス代車リスト
+ * いずれのHold中車両も対象（不具合修正（現場からの要望「デモカー、サービス代車
+ * リストにも在庫リストと同じようにHOLD・受注機能をつけてほしい」））。
  */
 function processExpiredHolds() {
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
-    var invSheet = getInventorySheet_();
     var holdsSheet = getHoldsSheet_();
-    var vehicles = readAllRows_(invSheet, INVENTORY_COLUMNS, 'commission')
-      .filter(function (v) { return v.holdStatus === HOLD_STATUS.HOLD; });
     var now = new Date().getTime();
     var processed = [];
 
-    vehicles.forEach(function (vehicle) {
-      var holds = getHoldsForCommission_(vehicle.commission);
-      if (!holds.first) return;
-      var action = decideExpiryAction_(
-        { holdStatus: vehicle.holdStatus, expiresAt: holds.first.expiresAt },
-        now
-      );
-      if (action === 'none') return;
+    vehicleSources_().forEach(function (source) {
+      var sheet = source.getSheet();
+      var vehicles = readAllRows_(sheet, source.columns, 'commission')
+        .filter(function (v) { return v.holdStatus === HOLD_STATUS.HOLD; });
 
-      var rowNumber = findHoldRowNumber_(holdsSheet, vehicle.commission, HOLD_RANK.FIRST);
-      deleteHoldRow_(holdsSheet, rowNumber);
-      var invRowNumber = findInventoryRowNumber_(invSheet, vehicle.commission);
-      updateInventoryVehicle_(invSheet, invRowNumber, { holdStatus: HOLD_STATUS.AVAILABLE });
-      appendAuditLog_(buildAuditLogEntry_('Hold自動解放', vehicle.commission, vehicle.model, null, 'Hold期限切れのため在庫ありに戻りました', now));
-      processed.push({ commission: vehicle.commission, action: action });
+      vehicles.forEach(function (vehicle) {
+        var holds = getHoldsForCommission_(vehicle.commission);
+        if (!holds.first) return;
+        var action = decideExpiryAction_(
+          { holdStatus: vehicle.holdStatus, expiresAt: holds.first.expiresAt },
+          now
+        );
+        if (action === 'none') return;
+
+        var rowNumber = findHoldRowNumber_(holdsSheet, vehicle.commission, HOLD_RANK.FIRST);
+        deleteHoldRow_(holdsSheet, rowNumber);
+        var rowNumberInSource = findRowByKey_(sheet, source.columns, 'commission', vehicle.commission);
+        updateVehicleSourceRow_(sheet, source.columns, rowNumberInSource, { holdStatus: HOLD_STATUS.AVAILABLE });
+        appendAuditLog_(buildAuditLogEntry_('Hold自動解放', vehicle.commission, vehicle.model, null, 'Hold期限切れのため在庫ありに戻りました', now));
+        processed.push({ commission: vehicle.commission, action: action });
+      });
     });
 
     return processed;

@@ -10,7 +10,9 @@
  */
 
 /**
- * 受注を確定し、在庫リストの行を受注リストへ移行する。
+ * 受注を確定し、元のシート（在庫リスト・デモカーリスト・サービス代車リストの
+ * いずれか。不具合修正: 現場からの要望「デモカー、サービス代車リストにも在庫
+ * リストと同じようにHOLD・受注機能をつけてほしい」）の行を受注リストへ移行する。
  * @param {string} commission
  * @param {Object} info { salesLocation, leadNumber, registeredMonth, customer, tradeIn, oss, insurance, paymentMethod }
  */
@@ -24,14 +26,9 @@ function confirmOrder(commission, info) {
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
-    var sheet = getInventorySheet_();
-    var rowNumber = findInventoryRowNumber_(sheet, commission);
-    if (!rowNumber) throw new Error('該当車両が見つかりません（コミッション: ' + commission + '）');
-    var vehicle = rowToObject_(
-      sheet.getRange(rowNumber, 1, 1, INVENTORY_COLUMNS.length).getValues()[0],
-      INVENTORY_COLUMNS,
-      rowNumber
-    );
+    var resolved = findVehicleSourceByCommission_(commission);
+    if (!resolved) throw new Error('該当車両が見つかりません（コミッション: ' + commission + '）');
+    var vehicle = resolved.vehicle;
     var holds = getHoldsForCommission_(commission);
     var check = canConfirmOrder_(vehicle, holds.first, currentStaff.email);
     if (!check.ok) throw new Error(check.reason);
@@ -45,9 +42,10 @@ function confirmOrder(commission, info) {
     // 上のVEHICLE_COLUMNSのコピーでは引き継がれない。ここで明示的にコピーする
     // （不具合修正: 受注確定してもMPが受注リストのスプレッドシートに反映されなかった）。
     order.mp = vehicle.mp;
-    // 受注キャンセル（cancelOrder）で元の位置へ車両を復元できるよう、在庫リスト上の
-    // 行番号を控えておく（createInventoryVehicle_のpreferredRowNumber参照）。
-    order.inventoryRowNumber = rowNumber;
+    // 受注キャンセル（cancelOrder）で元の位置へ車両を復元できるよう、元シート上の
+    // 行番号とシート名を控えておく（createVehicleInSource_のpreferredRowNumber参照）。
+    order.inventoryRowNumber = resolved.rowNumber;
+    order.sourceSheet = resolved.sourceName;
 
     // Hold中だった場合、そのHoldは受注確定を行った本人（＝canConfirmOrder_により
     // Hold担当者のみ受注確定できる）が登録したものなので、そのカレンダーイベントは
@@ -55,7 +53,7 @@ function confirmOrder(commission, info) {
     if (holds.first) deleteHoldCalendarEvent_(holds.first.calendarEventId);
 
     appendOrder_(order);
-    deleteInventoryRow_(sheet, rowNumber);
+    deleteInventoryRow_(resolved.sheet, resolved.rowNumber);
     deleteAllHoldRowsForCommission_(commission);
     notifyOrderConfirmed(order);
     appendAuditLog_(buildAuditLogEntry_('受注確定', commission, vehicle.model, currentStaff, '顧客: ' + info.customer, order.orderedAt));
@@ -88,14 +86,9 @@ function confirmWholesaleOrder(commission, info) {
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
-    var sheet = getInventorySheet_();
-    var rowNumber = findInventoryRowNumber_(sheet, commission);
-    if (!rowNumber) throw new Error('該当車両が見つかりません（コミッション: ' + commission + '）');
-    var vehicle = rowToObject_(
-      sheet.getRange(rowNumber, 1, 1, INVENTORY_COLUMNS.length).getValues()[0],
-      INVENTORY_COLUMNS,
-      rowNumber
-    );
+    var resolved = findVehicleSourceByCommission_(commission);
+    if (!resolved) throw new Error('該当車両が見つかりません（コミッション: ' + commission + '）');
+    var vehicle = resolved.vehicle;
     var holds = getHoldsForCommission_(commission);
     if (!holds.first || (holds.first.holdType || HOLD_TYPE.NORMAL) !== HOLD_TYPE.WHOLESALE) {
       throw new Error('この車両には業販HOLDが掛かっていないため、業販受注確定できません');
@@ -118,15 +111,17 @@ function confirmWholesaleOrder(commission, info) {
     // 引き継がれない。ここで明示的にコピーする（不具合修正: confirmOrderと同じ問題）。
     order.mp = vehicle.mp;
     // 業販受注キャンセル（cancelWholesaleOrder）で元の位置へ車両を復元できるよう、
-    // 在庫リスト上の行番号を控えておく（createInventoryVehicle_のpreferredRowNumber参照）。
-    order.inventoryRowNumber = rowNumber;
+    // 元シート上の行番号とシート名を控えておく（createVehicleInSource_の
+    // preferredRowNumber参照）。
+    order.inventoryRowNumber = resolved.rowNumber;
+    order.sourceSheet = resolved.sourceName;
 
     // 業販HOLDはカレンダーイベントを作成しないため、calendarEventIdは常に空だが、
     // deleteHoldCalendarEvent_は空文字を渡しても何もしない（安全に呼べる）。
     deleteHoldCalendarEvent_(holds.first.calendarEventId);
 
     appendWholesaleOrder_(order);
-    deleteInventoryRow_(sheet, rowNumber);
+    deleteInventoryRow_(resolved.sheet, resolved.rowNumber);
     deleteAllHoldRowsForCommission_(commission);
     notifyWholesaleOrderConfirmed(order);
     appendAuditLog_(buildAuditLogEntry_(
@@ -151,12 +146,13 @@ function confirmWholesaleOrder(commission, info) {
  * 在庫の状態は、受注が入る前の「在庫あり（HOLD_STATUS.AVAILABLE）」に戻す。
  * 受注確定時に削除されたHold情報（担当者・期限等）は復元しない
  * （期限などの時間情報を含み、後から意味のある形で復元できないため）。
- * 在庫リスト上の位置は、受注確定時に控えておいた元の行番号（ORDER_COLUMNSの
- * inventoryRowNumber、confirmOrder参照）へできるだけ近い位置に復元する（末尾に
- * 追加されると、スプレッドシートを手作業で並べ替えている場合に元の並び順が
- * 崩れてしまうため）。この値が無い場合（この機能追加より前の受注データ）や、
- * 行の増減で元の位置が既に存在しない場合は、従来どおり末尾へ追加する
- * （createInventoryVehicle_参照）。
+ * 車両は、受注確定時の元のシート（ORDER_COLUMNSのsourceSheet。在庫リスト・
+ * デモカーリスト・サービス代車リストのいずれか。空欄＝この列を追加する前の
+ * 既存データは在庫リストへフォールバックする）の、控えておいた元の行番号
+ * （ORDER_COLUMNSのinventoryRowNumber、confirmOrder参照）へできるだけ近い位置に
+ * 復元する（末尾に追加されると、スプレッドシートを手作業で並べ替えている場合に
+ * 元の並び順が崩れてしまうため）。この値が無い場合や、行の増減で元の位置が
+ * 既に存在しない場合は、従来どおり末尾へ追加する（createVehicleInSource_参照）。
  * @param {string} commission
  */
 function cancelOrder(commission) {
@@ -180,18 +176,20 @@ function cancelOrder(commission) {
     var vehicle = { holdStatus: HOLD_STATUS.AVAILABLE };
     VEHICLE_COLUMNS.forEach(function (col) { vehicle[col.key] = order[col.key]; });
     // MPはVEHICLE_COLUMNSに含まれないため、上のコピーでは引き継がれない
-    // （confirmOrderのMP不具合修正と対になる箇所。受注キャンセルで在庫リストへ
+    // （confirmOrderのMP不具合修正と対になる箇所。受注キャンセルで元シートへ
     // 戻す際もMPを引き継ぐ）。
     vehicle.mp = order.mp;
-    // 受注確定時に控えておいた元の行番号へ、できるだけ近い位置に車両を復元する
-    // （createInventoryVehicle_参照。行の増減で位置がずれている・古い受注データで
-    // この値が無い場合は、従来どおり末尾へ追加される）。
-    createInventoryVehicle_(vehicle, order.inventoryRowNumber);
+    // 受注確定時に控えておいた元のシート（sourceSheet。この列を追加する前の
+    // 既存データは空欄のため在庫リストへフォールバックする）・元の行番号へ、
+    // できるだけ近い位置に車両を復元する（createVehicleInSource_参照。行の増減で
+    // 位置がずれている場合は、従来どおり末尾へ追加される）。
+    var sourceName = order.sourceSheet || SHEET_NAMES.INVENTORY;
+    createVehicleInSource_(sourceName, vehicle, order.inventoryRowNumber);
     deleteOrderRow_(orderSheet, rowNumber);
 
     appendAuditLog_(buildAuditLogEntry_(
       '受注キャンセル', commission, order.model, currentStaff,
-      '受注確定を取り消し、在庫リストへ戻しました（在庫あり）', new Date().getTime()
+      '受注確定を取り消し、' + sourceName + 'へ戻しました（在庫あり）', new Date().getTime()
     ));
     return vehicle;
   } finally {
@@ -200,11 +198,12 @@ function cancelOrder(commission) {
 }
 
 /**
- * 業販受注確定を取り消し、業販受注リストの行を在庫リストへ戻す（cancelOrderと
+ * 業販受注確定を取り消し、業販受注リストの行を元のシート（在庫リスト・
+ * デモカーリスト・サービス代車リストのいずれか）へ戻す（cancelOrderと
  * まったく同じ位置づけ・同じ制約の訂正機能。業販受注リスト専用のシート・列定義
  * （WHOLESALE_ORDER_COLUMNS）を使う点だけが異なる）。権限チェック（管理者限定・
  * 確定した担当者を問わない）・在庫の状態（HOLD_STATUS.AVAILABLEに戻す）・
- * 在庫リスト上の位置の復元方法（confirmWholesaleOrderが控えておいた
+ * 元の位置の復元方法（confirmWholesaleOrderが控えておいたsourceSheet・
  * inventoryRowNumberへできるだけ近い位置に復元し、無ければ末尾へ追加）は
  * cancelOrderと同様。
  * @param {string} commission
@@ -232,12 +231,13 @@ function cancelWholesaleOrder(commission) {
     // MPはVEHICLE_COLUMNSに含まれないため、上のコピーでは引き継がれない
     // （cancelOrderと同じ理由）。
     vehicle.mp = order.mp;
-    createInventoryVehicle_(vehicle, order.inventoryRowNumber);
+    var sourceName = order.sourceSheet || SHEET_NAMES.INVENTORY;
+    createVehicleInSource_(sourceName, vehicle, order.inventoryRowNumber);
     deleteWholesaleOrderRow_(orderSheet, rowNumber);
 
     appendAuditLog_(buildAuditLogEntry_(
       '業販受注キャンセル', commission, order.model, currentStaff,
-      '業販受注確定を取り消し、在庫リストへ戻しました（在庫あり）', new Date().getTime()
+      '業販受注確定を取り消し、' + sourceName + 'へ戻しました（在庫あり）', new Date().getTime()
     ));
     return vehicle;
   } finally {
