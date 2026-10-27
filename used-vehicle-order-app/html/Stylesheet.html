@@ -1396,8 +1396,19 @@
      要望）。 */
   #myPageContent { margin-top: 24px; }
   .myPageSection { margin-bottom: 32px; }
+  /* 不具合修正（現場からの指摘「見出しが半分消えている」）: このタイトルは
+     <h2>要素に直接付けており、line-heightを明示していなかった（既定の
+     normal任せ）。本体のフォントスタック（Outfit, Noto Sans JP, ...）は
+     先頭が欧文フォントで、日本語部分はNoto Sans JPへのフォールバックで
+     描画されるため、normal指定だと欧文フォント側の行送りを基準に行の高さが
+     計算され、字体の大きい日本語グリフの上側がその行の外にはみ出して
+     見切れてしまっていた。実機検証の結果、font-size 15px / font-weight 700の
+     組み合わせではline-heightが約24px未満だと太字の日本語グリフの上端が
+     見切れることを確認した（1.4倍=21pxでは不十分）。十分に余裕を持たせた
+     値を明示的に指定する。 */
   .myPageSection__title {
     font-size: 15px;
+    line-height: 28px;
     font-weight: 700;
     color: var(--on-surface);
     margin: 0 0 14px 2px;
@@ -1692,7 +1703,10 @@
   }
   .tbl--order .tblHead, .tbl--order .tblRow,
   .tbl--wholesale .tblHead, .tbl--wholesale .tblRow {
-    grid-template-columns: 16px minmax(64px, 1fr) minmax(84px, 1fr) minmax(70px, 1fr) minmax(64px, 1fr) minmax(70px, 1fr) minmax(144px, 1fr) minmax(80px, 1fr) minmax(84px, 1fr) minmax(130px, 1fr) 55px 11px;
+    /* 不具合修正（現場からの指摘「月が消えてしまっている」）: 登録月
+       （「2026-11」形式、7文字）の固定幅55pxは、実測では58px前後必要で
+       足りておらず、省略記号で見切れていた。70pxに広げる。 */
+    grid-template-columns: 16px minmax(64px, 1fr) minmax(84px, 1fr) minmax(70px, 1fr) minmax(64px, 1fr) minmax(70px, 1fr) minmax(144px, 1fr) minmax(80px, 1fr) minmax(84px, 1fr) minmax(130px, 1fr) 70px 11px;
   }
 
   /* ===== 車両情報カード（詳細モーダル・#inventoryDetailModal専用） =====
