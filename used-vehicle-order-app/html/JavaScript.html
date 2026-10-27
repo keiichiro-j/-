@@ -1500,7 +1500,13 @@
    */
   function applyCarTrackingFilters_(items, f) {
     return items.filter(function (v) {
-      if (f.status.length && f.status.indexOf(v.saleStatus || '') === -1) return false;
+      // 不具合修正（現場からの指摘「反映されるはずの車両が反映されない」）:
+      // 販売状況（saleStatus）が未入力（空欄）の行は、本来は在庫中として扱う
+      // べきだが、空欄のまま絞り込み条件（既定で「在庫中」のみ表示）と比較すると
+      // 一致せず、在庫あり車両まで一覧から消えてしまっていた。他のHold関連の
+      // 判定（canRegisterHold_等、HoldService.gs参照）と同じく、空欄は
+      // 「在庫中」扱いにしてから比較する。
+      if (f.status.length && f.status.indexOf(v.saleStatus || '在庫中') === -1) return false;
       if (f.location.length && f.location.indexOf(v.currentDisplayLocation || '') === -1) return false;
       if (f.color && (v.exteriorColor || '') !== f.color) return false;
       if (f.yearBucket && yearBucketOf_(v) !== f.yearBucket) return false;
