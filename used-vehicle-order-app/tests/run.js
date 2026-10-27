@@ -24,10 +24,10 @@ const sandbox = {
 vm.createContext(sandbox);
 
 // Constants.gs -> HoldService.gs / SearchService.gs / SheetService.gs / SettingsService.gs /
-// AuditLogService.gs / IntegrityService.gs の順で依存関係あり
+// AuditLogService.gs / IntegrityService.gs / CarTrackingService.gs の順で依存関係あり
 const FILES = [
   'Constants.gs', 'HoldService.gs', 'SearchService.gs', 'SheetService.gs', 'SettingsService.gs',
-  'AuditLogService.gs', 'IntegrityService.gs'
+  'AuditLogService.gs', 'IntegrityService.gs', 'CarTrackingService.gs'
 ];
 
 FILES.forEach((file) => {
@@ -922,6 +922,27 @@ test('複数の問題は種類ごとにすべて列挙される', () => {
   const types = [];
   for (let i = 0; i < issues.length; i++) types.push(issues[i].type);
   assert.strictEqual(types.sort().join(','), 'duplicateOcn,duplicatePlateNumber,missingModel,unknownHoldStatus');
+});
+
+console.log('== CarTrackingService: shouldMigrateSoldCarTrackingVehicle_（販売済みデモカー・サービス代車の受注リストへの自動移動対象判定） ==');
+test('販売済み・Hold中でない・コミッション入力済みなら対象', () => {
+  const v = { saleStatus: '販売済み', holdStatus: 'available', commission: 'C-001' };
+  assert.strictEqual(sandbox.shouldMigrateSoldCarTrackingVehicle_(v), true);
+});
+test('在庫中（販売済みでない）は対象外', () => {
+  const v = { saleStatus: '在庫中', holdStatus: 'available', commission: 'C-001' };
+  assert.strictEqual(sandbox.shouldMigrateSoldCarTrackingVehicle_(v), false);
+});
+test('Hold中は対象外（アプリの受注確定が別途、その場で受注リストへ移動するため）', () => {
+  const v = { saleStatus: '販売済み', holdStatus: 'hold', commission: 'C-001' };
+  assert.strictEqual(sandbox.shouldMigrateSoldCarTrackingVehicle_(v), false);
+});
+test('コミッション未入力は対象外（受注リストはcommissionをキー列にするため）', () => {
+  const v = { saleStatus: '販売済み', holdStatus: 'available', commission: '' };
+  assert.strictEqual(sandbox.shouldMigrateSoldCarTrackingVehicle_(v), false);
+});
+test('nullを渡してもエラーにならず対象外になる', () => {
+  assert.strictEqual(sandbox.shouldMigrateSoldCarTrackingVehicle_(null), false);
 });
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

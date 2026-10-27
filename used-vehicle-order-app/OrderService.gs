@@ -179,6 +179,15 @@ function cancelOrder(commission) {
     // （confirmOrderのMP不具合修正と対になる箇所。受注キャンセルで元シートへ
     // 戻す際もMPを引き継ぐ）。
     vehicle.mp = order.mp;
+    // 不具合修正: saleStatus（販売状況）もVEHICLE_COLUMNSに含まれない
+    // （CAR_TRACKING_COLUMNS固有の列）ため、デモカーリスト・サービス代車リストへ
+    // 戻すケースで空欄のまま書き込まれていた。空欄だと一覧の既定の絞り込み
+    // （現場からの要望「販売済み車両はリストに残したくない」で追加した「在庫中」
+    // 既定フィルタ、JavaScript.html参照）にも一致せず、復元したのに一覧に
+    // 出てこないように見えてしまう。在庫リスト（saleStatus列自体を持たないため
+    // 影響なし）・デモカーリスト・サービス代車リストのいずれへ戻す場合も、
+    // 明示的に「在庫中」にしておく。
+    vehicle.saleStatus = CAR_TRACKING_STATUS.IN_STOCK;
     // 受注確定時に控えておいた元のシート（sourceSheet。この列を追加する前の
     // 既存データは空欄のため在庫リストへフォールバックする）・元の行番号へ、
     // できるだけ近い位置に車両を復元する（createVehicleInSource_参照。行の増減で
@@ -231,6 +240,9 @@ function cancelWholesaleOrder(commission) {
     // MPはVEHICLE_COLUMNSに含まれないため、上のコピーでは引き継がれない
     // （cancelOrderと同じ理由）。
     vehicle.mp = order.mp;
+    // 不具合修正: saleStatusもVEHICLE_COLUMNSに含まれないため空欄のまま書き込まれて
+    // いた（cancelOrderと同じ理由・同じ修正）。
+    vehicle.saleStatus = CAR_TRACKING_STATUS.IN_STOCK;
     var sourceName = order.sourceSheet || SHEET_NAMES.INVENTORY;
     createVehicleInSource_(sourceName, vehicle, order.inventoryRowNumber);
     deleteWholesaleOrderRow_(orderSheet, rowNumber);

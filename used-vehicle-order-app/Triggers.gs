@@ -15,6 +15,11 @@ function setupTimeDrivenTriggers_() {
     .timeBased()
     .everyMinutes(5)
     .create();
+
+  ScriptApp.newTrigger('triggerSoldCarTrackingMigration')
+    .timeBased()
+    .everyMinutes(5)
+    .create();
 }
 
 function deleteAllTriggers_() {
@@ -41,5 +46,25 @@ function triggerHoldExpiryCheck() {
     processExpiredHolds();
   } catch (e2) {
     notifySystemError_('Hold期限切れ処理', e2);
+  }
+}
+
+/**
+ * migrateSoldCarTrackingToOrders_()も5分おきに繰り返し実行される冪等な処理
+ * （対象はコミッション単位で一意に特定し、移動済みの行は次回の走査対象から
+ * 自然に外れる）のため、triggerHoldExpiryCheckと同じ考え方で1回だけ即時
+ * リトライし、それでも失敗した場合は管理者へメール通知する。
+ */
+function triggerSoldCarTrackingMigration() {
+  try {
+    migrateSoldCarTrackingToOrders_();
+    return;
+  } catch (e) {
+    Utilities.sleep(2000);
+  }
+  try {
+    migrateSoldCarTrackingToOrders_();
+  } catch (e2) {
+    notifySystemError_('デモカー・サービス代車リストの販売済み自動移動', e2);
   }
 }
