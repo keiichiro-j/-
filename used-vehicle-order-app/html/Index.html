@@ -586,6 +586,7 @@
                 <div class="multiDropdown__panel hidden">
                   <label class="filterCheck"><input type="radio" name="ordersGroupBy" value="" checked> なし</label>
                   <label class="filterCheck"><input type="radio" name="ordersGroupBy" value="orderedMonth"> 月ごと</label>
+                  <label class="filterCheck"><input type="radio" name="ordersGroupBy" value="orderedDate"> 受注日ごと</label>
                   <label class="filterCheck"><input type="radio" name="ordersGroupBy" value="salesLocation"> 販売拠点ごと</label>
                   <label class="filterCheck"><input type="radio" name="ordersGroupBy" value="model"> モデルごと</label>
                 </div>
@@ -670,6 +671,7 @@
                 <div class="multiDropdown__panel hidden">
                   <label class="filterCheck"><input type="radio" name="wholesaleOrdersGroupBy" value="" checked> なし</label>
                   <label class="filterCheck"><input type="radio" name="wholesaleOrdersGroupBy" value="orderedMonth"> 月ごと</label>
+                  <label class="filterCheck"><input type="radio" name="wholesaleOrdersGroupBy" value="orderedDate"> 受注日ごと</label>
                   <label class="filterCheck"><input type="radio" name="wholesaleOrdersGroupBy" value="salesLocation"> 販売拠点ごと</label>
                   <label class="filterCheck"><input type="radio" name="wholesaleOrdersGroupBy" value="model"> モデルごと</label>
                 </div>
@@ -1097,8 +1099,12 @@
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>Hold・受注確定の演出</h2>
             <p class="settingsSection__desc">Hold登録・受注確定が完了したときに表示する「絵柄のアクション」を選べます（案内メッセージ自体は固定です）。</p>
             <div class="formField">
-              <label>Hold登録時</label>
+              <label>Hold登録時（1st Hold）</label>
               <select id="celebrationVariantHold" class="input"></select>
+            </div>
+            <div class="formField">
+              <label>2ND HOLD登録時</label>
+              <select id="celebrationVariantSecondHold" class="input"></select>
             </div>
             <div class="formField">
               <label>受注確定時</label>

@@ -1417,8 +1417,15 @@
 
   /* ===== グループ見出し ===== */
   .group { margin-bottom: 28px; }
+  /* 不具合修正（現場からの指摘「受注リストの月ごとの表示で年月が半分消えている」）:
+     myPageSection__titleと同じ原因(line-height未指定=normal)。この見出しは
+     「2026-09」等の数字部分と、子要素.group__count（太字の日本語「〇台」）が
+     同じ行に入るため、line-heightが足りないと行全体(数字部分も含めて)が
+     見切れる。実機検証の結果、両方の要素にline-height 24px以上を明示しないと
+     見切れることを確認した。 */
   .group__title {
     font-size: 13px;
+    line-height: 24px;
     font-weight: 700;
     letter-spacing: .04em;
     color: var(--on-surface-variant);
@@ -1426,6 +1433,7 @@
   }
   .group__count {
     margin-left: 8px;
+    line-height: 24px;
     font-weight: 600;
     font-size: 12.5px;
     color: var(--primary-text);
@@ -2734,6 +2742,58 @@
     65% { opacity: .45; }
     100% { transform: scale(11); opacity: 0; }
   }
+  /* 2nd Hold登録の演出: 画面中央で脈動する発光エネルギーコア（回転するリング
+     ＋脈動する光る球＋広がるリップル2つ）。「もう少し待ってください」という
+     文言に合わせ、力を蓄えているような期待感のある見た目にしている。
+     topを62%（画面中央よりやや下）にしているのは、.celebrationBanner（38%、
+     画面中央よりやや上）との重なりを避けるため。画面の垂直中央を挟んで上下
+     対称に振り分けることで、単体で見ても・組み合わせて見ても「画面中央」に
+     まとまって見えるようにしている。%指定のため、スマホ・PCなどビューの
+     サイズが変わっても自動的に追従する。 */
+  .celebEnergyCore {
+    position: fixed;
+    top: 62%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 311;
+    pointer-events: none;
+    width: 140px;
+    height: 140px;
+  }
+  .celebEnergyCore__orb {
+    position: absolute;
+    inset: 32px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 34% 30%, #fff, #7dd3fc 42%, #1a73e8 78%);
+    box-shadow: 0 0 44px 14px rgba(26, 115, 232, .6);
+    animation: celebOrbPulse 1.4s ease-in-out infinite;
+  }
+  @keyframes celebOrbPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.14); }
+  }
+  .celebEnergyCore__ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 3px solid transparent;
+    border-top-color: #1a73e8;
+    border-right-color: #7dd3fc;
+    animation: celebSpin 1.6s linear infinite;
+  }
+  @keyframes celebSpin { to { transform: rotate(360deg); } }
+  .celebEnergyCore__ripple {
+    position: absolute;
+    inset: 18px;
+    border-radius: 50%;
+    border: 2px solid rgba(26, 115, 232, .55);
+    animation: celebRipplePulse 1.8s ease-out infinite;
+  }
+  .celebEnergyCore__ripple--delay { animation-delay: .6s; }
+  @keyframes celebRipplePulse {
+    0% { transform: scale(.5); opacity: .8; }
+    100% { transform: scale(2.4); opacity: 0; }
+  }
   /* 案内メッセージのバナー。画面中央（やや上寄り）に
      大きめの文字で表示し、一定時間で自動的にフェードアウトする
      （showCelebrationBanner_参照）。top・max-widthともに%・vw基準のため、
@@ -2826,7 +2886,7 @@
     .card { transition: none; }
     .topbar__navBtn--refresh.is-spinning .icon { animation: none; }
     .view.is-active { animation: none; }
-    .celebParticle, .celebFlash, .celebShockwave { display: none; }
+    .celebParticle, .celebFlash, .celebShockwave, .celebEnergyCore { display: none; }
     .celebrationBanner { transition: none; }
     .modal, .modal .modal__panel, .toast { animation: none; }
   }

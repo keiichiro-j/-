@@ -128,6 +128,45 @@ test('該当のHold行がなければ解除できない', () => {
   const result = sandbox.canCancelHold_(null, 'sato@example.com');
   assert.strictEqual(result.ok, false);
 });
+test('decideCancelAction_: 2nd Holdが無ければ1st Holdの解除はrelease', () => {
+  assert.strictEqual(sandbox.decideCancelAction_(sandbox.HOLD_RANK.FIRST, false), 'release');
+});
+test('decideCancelAction_: 2nd Holdがあれば1st Holdの解除はpromote（繰り上げ）', () => {
+  assert.strictEqual(sandbox.decideCancelAction_(sandbox.HOLD_RANK.FIRST, true), 'promote');
+});
+test('decideCancelAction_: 2nd Hold自身の解除は常にremoveSecond（1st Holdには影響しない）', () => {
+  assert.strictEqual(sandbox.decideCancelAction_(sandbox.HOLD_RANK.SECOND, false), 'removeSecond');
+  assert.strictEqual(sandbox.decideCancelAction_(sandbox.HOLD_RANK.SECOND, true), 'removeSecond');
+});
+
+console.log('== HoldService: canRegisterSecondHold_（2nd Hold登録・3人目以降は不可、1st Holdと同じ担当者は不可） ==');
+test('Hold中で2nd Hold未登録・1st Holdと別担当者なら登録できる', () => {
+  const result = sandbox.canRegisterSecondHold_({ holdStatus: 'hold' }, false, 'sato@example.com', 'suzuki@example.com');
+  assert.strictEqual(result.ok, true);
+});
+test('Hold中でない車両には登録できない', () => {
+  const result = sandbox.canRegisterSecondHold_({ holdStatus: 'available' }, false, 'sato@example.com', 'suzuki@example.com');
+  assert.strictEqual(result.ok, false);
+  assert.ok(result.reason.includes('Hold中'));
+});
+test('すでに2nd Holdが登録済み（3人目）は登録できない', () => {
+  const result = sandbox.canRegisterSecondHold_({ holdStatus: 'hold' }, true, 'sato@example.com', 'suzuki@example.com');
+  assert.strictEqual(result.ok, false);
+  assert.ok(result.reason.includes('2nd Hold'));
+});
+test('1st Holdと同じ担当者（同一メールアドレス）は2nd Holdを登録できない', () => {
+  const result = sandbox.canRegisterSecondHold_({ holdStatus: 'hold' }, false, 'sato@example.com', 'sato@example.com');
+  assert.strictEqual(result.ok, false);
+  assert.ok(result.reason.includes('同じ担当者'));
+});
+test('1st Holdと同じ担当者かどうかは前後の空白・大文字小文字の違いを無視して判定する', () => {
+  const result = sandbox.canRegisterSecondHold_({ holdStatus: 'hold' }, false, ' Sato@Example.com ', 'sato@example.com');
+  assert.strictEqual(result.ok, false);
+});
+test('車両自体が見つからなければ登録できない', () => {
+  const result = sandbox.canRegisterSecondHold_(null, false, 'sato@example.com', 'suzuki@example.com');
+  assert.strictEqual(result.ok, false);
+});
 
 console.log('== HoldService: validateRequiredInfo_（全項目入力チェック） ==');
 const fullInfo = {
@@ -189,9 +228,13 @@ test('Hold期限前は対象外', () => {
   const now = 1000;
   assert.strictEqual(sandbox.decideExpiryAction_({ holdStatus: 'hold', expiresAt: 2000 }, now), 'none');
 });
-test('Hold期限経過は解放', () => {
+test('Hold期限経過・2nd Holdなしは解放', () => {
   const now = 3000;
-  assert.strictEqual(sandbox.decideExpiryAction_({ holdStatus: 'hold', expiresAt: 2000 }, now), 'release');
+  assert.strictEqual(sandbox.decideExpiryAction_({ holdStatus: 'hold', expiresAt: 2000, hasSecondHold: false }, now), 'release');
+});
+test('Hold期限経過・2nd Holdありは昇格（2ndが1stへ繰り上がる）', () => {
+  const now = 3000;
+  assert.strictEqual(sandbox.decideExpiryAction_({ holdStatus: 'hold', expiresAt: 2000, hasSecondHold: true }, now), 'promote');
 });
 
 console.log('== HoldService: buildHoldRecord_ / attachHoldInfo_ ==');
@@ -235,6 +278,20 @@ test('applyHoldFieldsToVehicle_ は業販HOLDのholdType・salesStoreも反映�
   sandbox.applyHoldFieldsToVehicle_(vehicle, wholesaleRow, 'hold');
   assert.strictEqual(vehicle.holdHoldType, 'wholesale');
   assert.strictEqual(vehicle.holdSalesStore, '横浜店');
+});
+test('applyHoldFieldsToVehicle_ はprefix=secondHoldでも同じ項目をsecondHold接頭辞で反映する', () => {
+  const vehicle = { commission: 'C-995' };
+  const holdRow = Object.assign({ createdAt: 1000, expiresAt: 2000 }, fullInfo);
+  sandbox.applyHoldFieldsToVehicle_(vehicle, holdRow, 'secondHold');
+  assert.strictEqual(vehicle.secondHoldStaff, '佐藤');
+  assert.strictEqual(vehicle.secondHoldStaffEmail, 'sato@example.com');
+  assert.strictEqual(vehicle.secondHoldExpiresAt, 2000);
+  assert.strictEqual(vehicle.holdStaff, undefined);
+});
+test('buildHoldRecord_ はrankにHOLD_RANK.SECONDを渡すと2nd Hold行が組み立てられる', () => {
+  const record = sandbox.buildHoldRecord_('C-002', sandbox.HOLD_RANK.SECOND, fullInfo, 1000, 1000 + sandbox.HOLD_DURATION_MS);
+  assert.strictEqual(record.rank, '2nd');
+  assert.strictEqual(record.commission, 'C-002');
 });
 
 console.log('== HoldService: normalizeHoldType_（業販HOLDは管理者権限を持つ担当者のみ） ==');

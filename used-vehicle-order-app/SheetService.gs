@@ -323,14 +323,13 @@ function listHoldsForCommission_(commission) {
 }
 
 /**
- * 指定コミッションの Hold行を { first } の形で返す（見つからなければ null）。
- * 2nd Holdは廃止済みのため、過去データにまれに残り得る2nd Hold行（rankが
- * HOLD_RANK.SECOND）は無視する。
+ * 指定コミッションの Hold行を { first, second } の形で返す（見つからなければ null）。
  */
 function getHoldsForCommission_(commission) {
   var rows = listHoldsForCommission_(commission);
   return {
-    first: rows.find(function (h) { return h.rank === HOLD_RANK.FIRST; }) || null
+    first: rows.find(function (h) { return h.rank === HOLD_RANK.FIRST; }) || null,
+    second: rows.find(function (h) { return h.rank === HOLD_RANK.SECOND; }) || null
   };
 }
 

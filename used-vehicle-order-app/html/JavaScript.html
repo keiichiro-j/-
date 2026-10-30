@@ -67,7 +67,7 @@
     serviceCarListFilters: { color: '', yearBucket: '', priceBucket: '', mileageBucket: '', status: ['在庫中'], location: [] },
     demoCarListSortState: { key: '', dir: 'asc' },
     serviceCarListSortState: { key: '', dir: 'asc' },
-    action: null, // { type: 'hold' | 'order' | 'orderFromHold', commission }
+    action: null, // { type: 'hold' | 'secondHold' | 'order' | 'orderFromHold', commission }
     staffList: [], // 設定タブで編集中の担当者マスタ（作業用コピー）
     modelBodyTypeRules: [], // 設定タブで編集中のボディタイプ紐付けルール（作業用コピー）
     modelPhotos: [], // 設定タブで編集中の車両画像（作業用コピー）
@@ -274,7 +274,7 @@
     }, 3200);
   }
 
-  // ===== Hold登録・受注確定 完了時の演出 =====
+  // ===== Hold登録・2nd Hold登録・受注確定 完了時の演出 =====
   // いずれも固定の案内メッセージ（バナー、5秒間表示）と、文言にふさわしい
   // 専用のド派手な演出をセットで表示する（現場からの要望）。絵文字は機種依存
   // で見た目の再現性が低いため使わず、色付きのCSS図形・発光・ウェーブ等の
@@ -283,28 +283,31 @@
   // 4種類ずつ用意しており、管理者は設定タブの「Hold・受注確定の演出」
   // カードから選べる（celebrationVariants、CELEBRATION_EFFECTS参照）。
   var CELEBRATION_MESSAGES = {
-    hold: ['HOLD しました！', '頑張ってください！', 'HOLD内容はマイページで確認できます'],
+    hold: ['1ST HOLD しました！', '頑張ってください！', 'HOLD内容はマイページで確認できます'],
+    secondHold: ['2ND HOLD しました！', 'もう少し待ってください', 'HOLD内容はマイページで確認できます'],
     order: ['おめでとうございます！', '受注内容はマイページで確認できます']
   };
 
   /**
-   * アクション（hold/order）×バリエーション（A〜D）ごとの演出関数
+   * アクション（hold/secondHold/order）×バリエーション（A〜D）ごとの演出関数
    * 一覧。ラベル（Constants.gsのCELEBRATION_VARIANT_LABELSと対応）:
-   *   hold:  A=エール（既定） B=応援フラッグ C=ガッツポーズ D=全力エール
-   *   order: A=紙吹雪＋風船（既定） B=花火 C=祝福シャワー D=祝賀フィナーレ
+   *   hold:       A=エール（既定） B=応援フラッグ C=ガッツポーズ D=全力エール
+   *   secondHold: A=砂時計（既定） B=コーヒーブレイク C=少々お待ちを D=大歓声で応援
+   *   order:      A=紙吹雪＋風船（既定） B=花火 C=祝福シャワー D=祝賀フィナーレ
    * いずれも同じCSS図形パーツ（spawnParticleBurst_・spawnParticleWave_・
-   * spawnShockwave_・triggerWideConfetti_等）の組み合わせ・
+   * spawnShockwave_・spawnEnergyCore_・triggerWideConfetti_等）の組み合わせ・
    * 発生位置・タイミングを変えることで演出ごとの個性を出しており、D は
    * どのアクションでも既存パーツを最も多く重ね掛けした最も派手な演出にしている。
    */
   var CELEBRATION_EFFECTS = {
     hold: { A: triggerHoldCelebrationA_, B: triggerHoldCelebrationB_, C: triggerHoldCelebrationC_, D: triggerHoldCelebrationD_ },
+    secondHold: { A: triggerSecondHoldCelebrationA_, B: triggerSecondHoldCelebrationB_, C: triggerSecondHoldCelebrationC_, D: triggerSecondHoldCelebrationD_ },
     order: { A: triggerOrderCelebrationA_, B: triggerOrderCelebrationB_, C: triggerOrderCelebrationC_, D: triggerOrderCelebrationD_ }
   };
 
   /**
-   * Hold登録・受注確定の完了直後に呼ぶ（finishActionSubmit_参照）。
-   * actionTypeは state.action.type（'hold' | 'order' | 'orderFromHold'）。
+   * Hold登録・2nd Hold登録・受注確定の完了直後に呼ぶ（finishActionSubmit_参照）。
+   * actionTypeは state.action.type（'hold' | 'secondHold' | 'order' | 'orderFromHold'）。
    * 'orderFromHold'（Hold中の車両の受注確定）も見た目上は'order'と同じ演出にする。
    * 演出は、設定タブ（管理者限定）で選んだバリエーション（state.bootstrap.settings.
    * celebrationVariants）に応じてCELEBRATION_EFFECTSから切り替える（未選択・
@@ -397,6 +400,47 @@
     spawnParticleWave_(shapes, 'rise', 40);
   }
 
+  // ----- 2nd Hold登録の演出（A=砂時計／B=コーヒーブレイク／C=少々お待ちを／D=大歓声で応援） -----
+
+  /**
+   * A（既定）: 砂時計。「もう少し待ってください」という文言に合わせ、
+   * 単純なローディングスピナーではなく、画面中央で脈動する発光エネルギー
+   * コア（回転するリング＋光る球＋広がるリップル、spawnEnergyCore_）が力を
+   * 蓄えているような、期待感のある演出にしている。
+   */
+  function triggerSecondHoldCelebrationA_() {
+    spawnEnergyCore_();
+    spawnParticleWave_(['star', 'circle'], 'rise', 18);
+  }
+
+  /**
+   * B: コーヒーブレイク。一息つくイメージで、エネルギーコアだけを静かに
+   * 表示し、火花の演出は付けない（A・Dより控えめで落ち着いた見た目にする）。
+   */
+  function triggerSecondHoldCelebrationB_() {
+    spawnEnergyCore_();
+  }
+
+  /**
+   * C: 少々お待ちを。エネルギーコアに、舞い上がる火花ではなく静かに舞い
+   * 落ちる火花を少数添えることで、「お待ちを」の落ち着いたトーンを出す。
+   */
+  function triggerSecondHoldCelebrationC_() {
+    spawnEnergyCore_();
+    spawnParticleWave_(['circle', 'square'], 'fall', 12);
+  }
+
+  /**
+   * D（最も派手な演出）: 大歓声で応援。エネルギーコアに衝撃波・中央バースト・
+   * 上昇する火花を重ね掛けし、既存パーツを最も多く使った演出にしている。
+   */
+  function triggerSecondHoldCelebrationD_() {
+    spawnEnergyCore_();
+    spawnShockwave_();
+    spawnParticleBurst_(['star', 'circle'], 30);
+    spawnParticleWave_(['star', 'circle', 'ribbon'], 'rise', 30);
+  }
+
   // ----- 受注確定の演出（A=紙吹雪＋風船／B=花火／C=祝福シャワー／D=祝賀フィナーレ） -----
 
   /**
@@ -486,6 +530,23 @@
     if (originTopVh !== undefined) el.style.top = originTopVh + 'vh';
     layer.appendChild(el);
     setTimeout(function () { el.remove(); }, 1200);
+  }
+
+  /**
+   * 画面中央で脈動する発光エネルギーコア（回転するリング＋光る球＋広がる
+   * リップル2つ）を生成する。2nd Hold「お待ちください」系の演出用。
+   */
+  function spawnEnergyCore_() {
+    var layer = $('celebrationLayer');
+    var wrap = document.createElement('div');
+    wrap.className = 'celebEnergyCore';
+    wrap.innerHTML =
+      '<div class="celebEnergyCore__ripple"></div>' +
+      '<div class="celebEnergyCore__ripple celebEnergyCore__ripple--delay"></div>' +
+      '<div class="celebEnergyCore__ring"></div>' +
+      '<div class="celebEnergyCore__orb"></div>';
+    layer.appendChild(wrap);
+    setTimeout(function () { wrap.remove(); }, 2600);
   }
 
   function randomCelebColor_() {
@@ -1821,6 +1882,12 @@
     return isVehicleListed_(v) ? tone + ' is-listed' : tone;
   }
 
+  // 2nd Holdが登録済みかどうか（attachHoldInfo_、HoldService.gs参照。2nd Holdは
+  // 常に通常のHoldのため、secondHoldCustomerの有無だけで判定できる）。
+  function hasSecondHold_(v) {
+    return v.holdStatus === 'hold' && !!v.secondHoldCustomer;
+  }
+
   /**
    * includeListed=falseで掲載バッジ（listedBadgeHtml_）を省く。一覧行
    * （vehicleTableRowHtml_）では、状態バッジに加えてHold要約（顧客名・タイマー）も
@@ -1834,12 +1901,18 @@
   function vehicleBadgesHtml_(v, includeListed) {
     var isHold = v.holdStatus === 'hold';
     var isSpecialHold = isHold && !!(v.holdHoldType && v.holdHoldType !== 'normal');
+    // 一覧行（includeListed===false、横一列テーブルのステータス列は幅が狭く、
+    // 「Hold中」自体でほぼ目一杯のため「（2nd有）」を付けると見切れる）では
+    // 付けず、詳細モーダル（includeListedを省略＝true、vehicleTopHtml_）でのみ
+    // 2nd Hold有無を表示する。一覧行での2nd Hold確認・登録は詳細モーダルから行う
+    // （vehicleActionsHtml_のcompact引数と同じ考え方）。
+    var secondHoldSuffix = (includeListed !== false && hasSecondHold_(v)) ? '（2nd有）' : '';
     var statusBadge;
     if (isSpecialHold) {
       statusBadge = '<span class="badge badge--holdSpecial"><span class="badge__dot"></span>' +
-        escapeHtml(holdTypeLabel_(v.holdHoldType)) + '中</span>';
+        escapeHtml(holdTypeLabel_(v.holdHoldType)) + '中' + secondHoldSuffix + '</span>';
     } else if (isHold) {
-      statusBadge = '<span class="badge badge--hold"><span class="badge__dot"></span>Hold中</span>';
+      statusBadge = '<span class="badge badge--hold"><span class="badge__dot"></span>Hold中' + secondHoldSuffix + '</span>';
     } else {
       statusBadge = '<span class="badge badge--available"><span class="badge__dot"></span>在庫あり</span>';
     }
@@ -1929,7 +2002,14 @@
       noteBlockHtml_('オプション', v.option, 'オプションの登録はありません。');
   }
 
-  function vehicleActionsHtml_(v) {
+  /**
+   * compact=true（一覧行、tblCell--actions）では、幅が限られる横一列テーブルに
+   * 解除・受注確定の2ボタンまでしか収まらないため、2ND HOLD登録ボタンは出さない
+   * （出すと3ボタン目があふれて横スライドが復活してしまう）。2ND HOLDの登録は
+   * 詳細モーダル（compact省略時のfalse、vehicleDetailHtml_・carTrackingDetailHtml_）
+   * からのみ行う。
+   */
+  function vehicleActionsHtml_(v, compact) {
     var isHold = v.holdStatus === 'hold';
     var html = '<div class="card__actions">';
     if (!isHold) {
@@ -1937,6 +2017,12 @@
       html += '<button class="btn btn--primary" data-order="' + escapeHtml(v.commission) + '">受注</button>';
     } else {
       html += '<button class="btn btn--primary" data-order-from-hold="' + escapeHtml(v.commission) + '">受注確定</button>';
+      // 2nd Holdは常に通常のHoldのみ（業販HOLD中、またはすでに2nd Holdが
+      // 登録済みの車両には出さない。canRegisterSecondHold_、HoldService.gs参照）。
+      var isWholesaleHold = !!(v.holdHoldType && v.holdHoldType !== 'normal');
+      if (!compact && !isWholesaleHold && !hasSecondHold_(v)) {
+        html += '<button class="btn" data-second-hold="' + escapeHtml(v.commission) + '">2ND HOLD</button>';
+      }
     }
     html += '</div>';
     return html;
@@ -2312,7 +2398,7 @@
       '<div class="tblCell tblCell--strong">' + escapeHtml(v.currentDisplayLocation || '-') + '</div>' +
       '<div class="tblCell">' + escapeHtml(formatNumberUnit_(v.salePrice, ' 円') || '-') + '</div>' +
       '<div class="tblCell tblCell--status">' + vehicleBadgesHtml_(v, false) + '</div>' +
-      '<div class="tblCell tblCell--actions">' + cancelHoldBtnHtml + vehicleActionsHtml_(v) + '</div>' +
+      '<div class="tblCell tblCell--actions">' + cancelHoldBtnHtml + vehicleActionsHtml_(v, true) + '</div>' +
       '<div class="tblCell tblCell--chev">›</div>' +
       '</div>';
   }
@@ -2329,15 +2415,27 @@
    * の3つのdivがそのままCSS Gridの列になる。スマホ幅（900px以下）では、この
    * 3つのdivは単純に上から順に縦積みされるだけなので、以前の縦長モーダルと
    * 同じ表示順のまま変わらない。 */
-  function vehicleDetailHtml_(v) {
+  /**
+   * Hold状況エリア（詳細モーダル用）のHTML。Hold中でなければ「現在Hold登録なし」の
+   * 空表示にし、Hold中なら1st Hold（常に表示）に加え、2nd Holdが登録済みなら
+   * その詳細ブロックも並べて表示する（holdInfoBlockHtml_参照）。
+   */
+  function holdAreaHtml_(v) {
     var isHold = v.holdStatus === 'hold';
-
-    var holdInfoHtml = isHold
-      ? '<div class="card__holdArea card__holdArea--full">' + holdInfoBlockHtml_('HOLD', v, 'hold', true) + '</div>'
-      : '<div class="card__holdArea card__holdArea--empty card__holdArea--full">' +
+    if (!isHold) {
+      return '<div class="card__holdArea card__holdArea--empty card__holdArea--full">' +
         '<span class="card__holdArea__placeholder">現在Hold登録なし</span>' +
         '</div>';
+    }
+    var blocksHtml = holdInfoBlockHtml_('1ST HOLD', v, 'hold', true);
+    if (hasSecondHold_(v)) {
+      blocksHtml += holdInfoBlockHtml_('2ND HOLD', v, 'secondHold', true);
+    }
+    return '<div class="card__holdArea card__holdArea--full">' + blocksHtml + '</div>';
+  }
 
+  function vehicleDetailHtml_(v) {
+    var holdInfoHtml = holdAreaHtml_(v);
     var cardTone = vehicleCardTone_(v);
     return '<div class="card ' + cardTone + '">' +
       '<div class="card__detailCol card__detailCol--overview">' +
@@ -2374,13 +2472,16 @@
   // 在庫リストの表示（vehicleTableRowHtml_・vehicleDetailHtml_）に近い構成に
   // している。デモカーリスト・サービス代車リストは列構成が同じ（CAR_TRACKING_COLUMNS）
   // ため、行・詳細のHTML生成関数はどちらの一覧にも共通で使う。
-  function carTrackingBadgeHtml_(v) {
+  function carTrackingBadgeHtml_(v, full) {
     var isHold = v.holdStatus === 'hold';
     if (isHold) {
       var isSpecialHold = !!(v.holdHoldType && v.holdHoldType !== 'normal');
+      // vehicleBadgesHtml_と同じ理由で、一覧行（full省略＝false）では
+      // 「（2nd有）」を付けない（横一列テーブルのステータス列は幅が狭く見切れる）。
+      var secondHoldSuffix = (full && hasSecondHold_(v)) ? '（2nd有）' : '';
       return isSpecialHold
-        ? '<span class="badge badge--holdSpecial"><span class="badge__dot"></span>' + escapeHtml(holdTypeLabel_(v.holdHoldType)) + '中</span>'
-        : '<span class="badge badge--hold"><span class="badge__dot"></span>Hold中</span>';
+        ? '<span class="badge badge--holdSpecial"><span class="badge__dot"></span>' + escapeHtml(holdTypeLabel_(v.holdHoldType)) + '中' + secondHoldSuffix + '</span>'
+        : '<span class="badge badge--hold"><span class="badge__dot"></span>Hold中' + secondHoldSuffix + '</span>';
     }
     return v.saleStatus === '販売済み'
       ? '<span class="badge badge--sold"><span class="badge__dot"></span>販売済み</span>'
@@ -2416,7 +2517,7 @@
     var cancelHoldBtnHtml = isHold
       ? '<button type="button" class="btn btn--danger" data-cancel-hold="' + escapeHtml(v.commission) + '">解除</button>'
       : '';
-    var actionsHtml = isSold ? '' : (cancelHoldBtnHtml + vehicleActionsHtml_(v));
+    var actionsHtml = isSold ? '' : (cancelHoldBtnHtml + vehicleActionsHtml_(v, true));
     return '<div class="tblRow ' + rowTone + '" data-commission="' + escapeHtml(v.commission || '') + '" data-ocn="' + escapeHtml(v.ocn) + '">' +
       '<div class="tblCell tblCell--num">' + rowNum_(num) + '</div>' +
       '<div class="tblCell"><span class="tag">' + escapeHtml(v.category || '-') + '</span></div>' +
@@ -2446,18 +2547,11 @@
     var isSold = !isHold && v.saleStatus === '販売済み';
     var cardTone = isSold ? 'card--sold' : vehicleCardTone_(v);
 
-    var holdInfoHtml;
-    if (isSold) {
-      holdInfoHtml = '<div class="card__holdArea card__holdArea--empty card__holdArea--full">' +
+    var holdInfoHtml = isSold
+      ? '<div class="card__holdArea card__holdArea--empty card__holdArea--full">' +
         '<span class="card__holdArea__placeholder">この車両は販売済みです。</span>' +
-        '</div>';
-    } else if (isHold) {
-      holdInfoHtml = '<div class="card__holdArea card__holdArea--full">' + holdInfoBlockHtml_('HOLD', v, 'hold', true) + '</div>';
-    } else {
-      holdInfoHtml = '<div class="card__holdArea card__holdArea--empty card__holdArea--full">' +
-        '<span class="card__holdArea__placeholder">現在Hold登録なし</span>' +
-        '</div>';
-    }
+        '</div>'
+      : holdAreaHtml_(v);
 
     return '<div class="card ' + cardTone + '">' +
       '<div class="card__detailCol card__detailCol--overview">' +
@@ -2466,7 +2560,7 @@
       '<div><div class="card__model">' + escapeHtml(v.model) + '</div>' +
       '<div class="card__commission">ＯＣＮ ' + escapeHtml(v.ocn || '-') + '</div></div>' +
       '</div>' +
-      '<div class="card__badges">' + carTrackingBadgeHtml_(v) + '</div>' +
+      '<div class="card__badges">' + carTrackingBadgeHtml_(v, true) + '</div>' +
       '</div>' +
       vehicleQuickMetaHtml_(v, true) +
       '</div>' +
@@ -2518,7 +2612,7 @@
     var cancelHoldBtnHtml = isHold
       ? '<button type="button" class="btn btn--danger" data-cancel-hold="' + escapeHtml(v.commission) + '">解除</button>'
       : '';
-    var actionsHtml = isSold ? '' : (cancelHoldBtnHtml + vehicleActionsHtml_(v));
+    var actionsHtml = isSold ? '' : (cancelHoldBtnHtml + vehicleActionsHtml_(v, true));
     return '<div class="tblRow ' + rowTone + '" data-commission="' + escapeHtml(v.commission || '') + '" data-ocn="' + escapeHtml(v.ocn) + '">' +
       '<div class="tblCell tblCell--num">' + rowNum_(num) + '</div>' +
       '<div class="tblCell"><span class="tag">' + escapeHtml(v.category || '-') + '</span></div>' +
@@ -2564,9 +2658,10 @@
     var target = e.target;
     var commission;
     if ('hold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.hold))) { closeModal($('homeResultDetailModal')); openActionModal('hold', commission); } }
+    else if ('secondHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.secondHold))) { closeModal($('homeResultDetailModal')); openActionModal('secondHold', commission); } }
     else if ('order' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.order))) { closeModal($('homeResultDetailModal')); openActionModal('order', commission); } }
     else if ('orderFromHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.orderFromHold))) { closeModal($('homeResultDetailModal')); openActionModal('orderFromHold', commission); } }
-    else if ('cancelHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.cancelHold))) { closeModal($('homeResultDetailModal')); openCancelHoldModal(commission); } }
+    else if ('cancelHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.cancelHold))) { closeModal($('homeResultDetailModal')); openCancelHoldModal(commission, target.dataset.cancelHoldRank); } }
   });
 
   // Hold詳細ブロックは、常に見えている要約行（顧客・担当者・タイマー）と、
@@ -2612,10 +2707,14 @@
         : '';
     }
 
+    // prefixが'secondHold'なら2nd Holdブロック。解除ボタンにもrank（'1st'/'2nd'、
+    // HoldService.gsのHOLD_RANKと同じ値）を持たせ、openCancelHoldModal側で
+    // 1st/2ndどちらを解除するか判定する。
+    var rank = prefix === 'secondHold' ? '2nd' : '1st';
     return '<div class="card__holdInfo card__holdInfo--hold' + (isSpecial ? ' card__holdInfo--special' : '') + '">' +
       '<div class="card__holdInfo__head">' +
       '<span class="card__holdInfo__label">' + label + (isSpecial ? '（' + escapeHtml(holdTypeLabel_(holdType)) + '）' : '') + '</span>' +
-      '<button class="card__holdInfo__cancel" type="button" data-cancel-hold="' + escapeHtml(v.commission) + '">解除</button>' +
+      '<button class="card__holdInfo__cancel" type="button" data-cancel-hold="' + escapeHtml(v.commission) + '" data-cancel-hold-rank="' + rank + '">解除</button>' +
       '</div>' +
       summaryHtml +
       holdTimerHtml_(createdAt, expiresAt) +
@@ -2733,9 +2832,10 @@
     var target = e.target;
     var commission;
     if ('hold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.hold))) openActionModal('hold', commission); }
+    else if ('secondHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.secondHold))) openActionModal('secondHold', commission); }
     else if ('order' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.order))) openActionModal('order', commission); }
     else if ('orderFromHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.orderFromHold))) openActionModal('orderFromHold', commission); }
-    else if ('cancelHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.cancelHold))) openCancelHoldModal(commission); }
+    else if ('cancelHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.cancelHold))) openCancelHoldModal(commission, target.dataset.cancelHoldRank); }
     else {
       // 一覧行タップ（ボタン・入力・ラベル以外の箇所）で車両情報の詳細モーダルを開く。
       // 不具合修正: コミッション（任意入力）ではなく、必須入力のＯＣＮで検索する
@@ -2756,9 +2856,10 @@
     var target = e.target;
     var commission;
     if ('hold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.hold))) { closeModal($('inventoryDetailModal')); openActionModal('hold', commission); } }
+    else if ('secondHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.secondHold))) { closeModal($('inventoryDetailModal')); openActionModal('secondHold', commission); } }
     else if ('order' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.order))) { closeModal($('inventoryDetailModal')); openActionModal('order', commission); } }
     else if ('orderFromHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.orderFromHold))) { closeModal($('inventoryDetailModal')); openActionModal('orderFromHold', commission); } }
-    else if ('cancelHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.cancelHold))) { closeModal($('inventoryDetailModal')); openCancelHoldModal(commission); } }
+    else if ('cancelHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.cancelHold))) { closeModal($('inventoryDetailModal')); openCancelHoldModal(commission, target.dataset.cancelHoldRank); } }
   });
 
   on('inventoryKeyword', 'input', debounce(loadInventory, 250));
@@ -2946,17 +3047,19 @@
     var target = e.target;
     var commission;
     if ('hold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.hold))) openActionModal('hold', commission); return; }
+    if ('secondHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.secondHold))) openActionModal('secondHold', commission); return; }
     if ('order' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.order))) openActionModal('order', commission); return; }
     if ('orderFromHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.orderFromHold))) openActionModal('orderFromHold', commission); return; }
-    if ('cancelHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.cancelHold))) openCancelHoldModal(commission); return; }
+    if ('cancelHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.cancelHold))) openCancelHoldModal(commission, target.dataset.cancelHoldRank); return; }
     var tappable = target.closest('[data-ocn]');
     if (tappable && !target.closest('button, input, label')) openHomeResultDetail_(tappable.dataset.ocn);
   });
   wireSortableTableHeader_('homeResultsList', state.homeResultsSortState, renderHomeResultsPage_);
 
-  // ===== Hold / 受注 共通モーダル =====
+  // ===== Hold / 2nd Hold / 受注 共通モーダル =====
   var ACTION_LABELS = {
     hold: { title: 'Hold登録', button: 'Holdする', busyLabel: 'Hold登録中...', tone: 'hold' },
+    secondHold: { title: '2ND HOLD登録', button: '2ND HOLDする', busyLabel: '2ND HOLD登録中...', tone: 'hold' },
     order: { title: '受注確定', button: '受注確定する', busyLabel: '受注確定中...', tone: 'order' },
     orderFromHold: { title: '受注確定', button: '受注確定する', busyLabel: '受注確定中...', tone: 'order' }
   };
@@ -3233,12 +3336,20 @@
     // ブロックする（最終判定はサーバー側 canConfirmOrder_ で行う。表示名ではなく
     // メールアドレスで比較する — emailsMatch_ 参照）。
     var staffMismatch = isOrderFromHold && vehicle.holdStaffEmail && !emailsMatch_(vehicle.holdStaffEmail, currentUserEmail_());
+    // 2nd Holdは、1st Holdと同じ担当者は登録できない（canRegisterSecondHold_、
+    // HoldService.gs参照）。こちらはorderFromHoldと逆で、「一致していたら」
+    // ブロックする。
+    var secondHoldSameStaff = type === 'secondHold' && vehicle && vehicle.holdStaffEmail && emailsMatch_(vehicle.holdStaffEmail, currentUserEmail_());
     if (staffMismatch) {
       var errEl = $('actionModalError');
       errEl.textContent = 'このHoldの担当者は「' + vehicle.holdStaff + '」です。ログイン中の担当者（' + currentStaff + '）では受注確定できません。';
       errEl.classList.remove('hidden');
+    } else if (secondHoldSameStaff) {
+      var secondErrEl = $('actionModalError');
+      secondErrEl.textContent = '1st Holdと同じ担当者は2nd Holdを登録できません。';
+      secondErrEl.classList.remove('hidden');
     }
-    submitBtn.disabled = !!staffMismatch;
+    submitBtn.disabled = !!(staffMismatch || secondHoldSameStaff);
 
     $('actionSalesLocation').value = prefill.salesLocation || '';
     $('actionLeadNumber').value = prefill.leadNumber || '';
@@ -3295,9 +3406,16 @@
   // ===== Hold解除 =====
   // 「解除しようとしているのは誰か」は、ログイン中のGoogleアカウントのメールアドレスと、
   // Hold登録時の担当者のメールアドレスが一致するかで判定する（表示名の比較ではない）。
-  var cancelHoldState = null; // { commission }
+  var cancelHoldState = null; // { commission, rank }
 
-  function openCancelHoldModal(commission) {
+  /**
+   * @param {string} commission
+   * @param {string} [rank] HOLD_RANK（HoldService.gs）と同じ値（'1st'/'2nd'）。
+   *   省略時は'1st'（1st Hold）を解除する。
+   */
+  function openCancelHoldModal(commission, rank) {
+    rank = rank || '1st';
+    var isSecond = rank === '2nd';
     var currentStaff = currentStaffName_();
     if (!currentStaff) {
       showToast('担当者マスタに登録されていないため操作できません。設定タブでご自身のメールアドレスを登録してください（' + (currentUserEmail_() || '不明') + '）', true);
@@ -3305,14 +3423,15 @@
     }
     var vehicle = findVehicleByCommission(commission);
     if (!vehicle) return;
-    var holdStaff = vehicle.holdStaff;
-    var holdStaffEmail = vehicle.holdStaffEmail;
-    var holdCustomer = vehicle.holdCustomer;
+    var prefix = isSecond ? 'secondHold' : 'hold';
+    var holdStaff = vehicle[prefix + 'Staff'];
+    var holdStaffEmail = vehicle[prefix + 'StaffEmail'];
+    var holdCustomer = vehicle[prefix + 'Customer'];
 
-    cancelHoldState = { commission: commission };
-    $('cancelHoldModalTitle').textContent = 'HOLDの解除';
+    cancelHoldState = { commission: commission, rank: rank };
+    $('cancelHoldModalTitle').textContent = (isSecond ? '2ND HOLD' : '1ST HOLD') + 'の解除';
     $('cancelHoldModalDesc').textContent =
-      'このHOLD（顧客: ' + (holdCustomer || '-') + '）を登録した担当者「' +
+      'この' + (isSecond ? '2ND HOLD' : '1ST HOLD') + '（顧客: ' + (holdCustomer || '-') + '）を登録した担当者「' +
       (holdStaff || '-') + '」のみ解除できます。';
     $('cancelHoldStaffDisplay').innerHTML = staffDisplayHtml_();
     $('cancelHoldModalError').classList.add('hidden');
@@ -3335,7 +3454,7 @@
     var errEl = $('cancelHoldModalError');
     errEl.classList.add('hidden');
     setButtonBusy(btn, true, '解除中...');
-    gasRun('api_cancelHold', cancelHoldState.commission).then(function () {
+    gasRun('api_cancelHold', cancelHoldState.commission, cancelHoldState.rank).then(function () {
       setButtonBusy(btn, false);
       closeModal($('cancelHoldModal'));
       showToast('Holdを解除しました');
@@ -3582,6 +3701,7 @@
     };
     var apiCall;
     if (action.type === 'hold') apiCall = gasRun('api_registerHold', action.commission, info, 'normal');
+    else if (action.type === 'secondHold') apiCall = gasRun('api_registerSecondHold', action.commission, info);
     else apiCall = gasRun('api_confirmOrder', action.commission, info);
 
     $('actionModalError').classList.add('hidden');
@@ -4240,9 +4360,10 @@
       var target = e.target;
       var commission;
       if ('hold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.hold))) openActionModal('hold', commission); return; }
+      if ('secondHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.secondHold))) openActionModal('secondHold', commission); return; }
       if ('order' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.order))) openActionModal('order', commission); return; }
       if ('orderFromHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.orderFromHold))) openActionModal('orderFromHold', commission); return; }
-      if ('cancelHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.cancelHold))) openCancelHoldModal(commission); return; }
+      if ('cancelHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.cancelHold))) openCancelHoldModal(commission, target.dataset.cancelHoldRank); return; }
       var tappable = target.closest('[data-ocn]');
       if (tappable && !target.closest('button, input, label')) openDetail(tappable.dataset.ocn);
     });
@@ -4252,9 +4373,10 @@
       var target = e.target;
       var commission;
       if ('hold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.hold))) { closeModal($(opts.detailModalId)); openActionModal('hold', commission); } }
+      else if ('secondHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.secondHold))) { closeModal($(opts.detailModalId)); openActionModal('secondHold', commission); } }
       else if ('order' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.order))) { closeModal($(opts.detailModalId)); openActionModal('order', commission); } }
       else if ('orderFromHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.orderFromHold))) { closeModal($(opts.detailModalId)); openActionModal('orderFromHold', commission); } }
-      else if ('cancelHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.cancelHold))) { closeModal($(opts.detailModalId)); openCancelHoldModal(commission); } }
+      else if ('cancelHold' in target.dataset) { if ((commission = requireActionCommission_(target.dataset.cancelHold))) { closeModal($(opts.detailModalId)); openCancelHoldModal(commission, target.dataset.cancelHoldRank); } }
     });
     wireSortableTableHeader_(opts.bodyId, state[opts.sortStateKey], render);
     on(opts.keywordId, 'input', debounce(load, 250));
@@ -4425,6 +4547,7 @@
     var current = celebrationVariants || {};
     [
       ['celebrationVariantHold', 'hold'],
+      ['celebrationVariantSecondHold', 'secondHold'],
       ['celebrationVariantOrder', 'order']
     ].forEach(function (pair) {
       var select = $(pair[0]);
@@ -5378,7 +5501,7 @@
   }
 
   function myPageVehicleMatchesKeyword_(v, keyword) {
-    return matchesAnyField_([v.model, v.commission, v.holdCustomer], keyword);
+    return matchesAnyField_([v.model, v.commission, v.holdCustomer, v.secondHoldCustomer], keyword);
   }
 
   function myPageOrderMatchesKeyword_(o, keyword) {
@@ -5402,7 +5525,9 @@
     var keyword = myPageKeyword_();
     var items = (state.allInventoryItems || []).filter(function (v) {
       if (v.holdStatus !== 'hold') return false;
-      if (!emailsMatch_(v.holdStaffEmail, email)) return false;
+      // 1st Hold担当者だけでなく、2nd Hold担当者としてマイページから見つけられる
+      // ようにする（自分が登録した2nd Holdが見えないと解除・確認ができなくなるため）。
+      if (!(emailsMatch_(v.holdStaffEmail, email) || emailsMatch_(v.secondHoldStaffEmail, email))) return false;
       return myPageVehicleMatchesKeyword_(v, keyword);
     });
     $('myPageHoldCount').textContent = items.length;
@@ -5644,6 +5769,7 @@
       homeAnnouncement: homeAnnouncement,
       celebrationVariants: {
         hold: $('celebrationVariantHold').value,
+        secondHold: $('celebrationVariantSecondHold').value,
         order: $('celebrationVariantOrder').value
       }
     };

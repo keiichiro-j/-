@@ -44,7 +44,7 @@ function api_getBootstrapData() {
     settings: redactSystemMasterSettings_(settings, isAdmin),
     currentUserEmail: email,
     // ログイン中のGoogleアカウントに対応する担当者名・登録拠点（未登録ならどちらもnull）。
-    // Hold登録・受注確定・Hold解除の担当者欄、および販売拠点欄の初期値は
+    // Hold登録・2nd Hold登録・受注確定・Hold解除の担当者欄、および販売拠点欄の初期値は
     // これらを自動的に使う。
     currentStaffName: staffMatch ? staffMatch.name : null,
     currentStaffLocation: staffMatch ? (staffMatch.location || '') : null
@@ -106,8 +106,12 @@ function api_registerHold(commission, info, holdType) {
   return registerHold(commission, info, holdType);
 }
 
-function api_cancelHold(commission) {
-  return cancelHold(commission);
+function api_registerSecondHold(commission, info) {
+  return registerSecondHold(commission, info);
+}
+
+function api_cancelHold(commission, rank) {
+  return cancelHold(commission, rank);
 }
 
 // ===== 受注機能 =====
@@ -124,13 +128,18 @@ function api_cancelOrder(commission) {
 }
 
 /**
- * 受注リスト一覧。受注確定日時（orderedAt）から「2026-08」形式の orderedMonth を
- * 付与し、月ごとのグループ表示・トータル台数の把握に使えるようにする。
+ * 受注リスト一覧。受注確定日時（orderedAt）から「2026-08」形式の orderedMonth と
+ * 「2026-08-15」形式の orderedDate を付与し、月ごと・受注日ごとのグループ表示・
+ * トータル台数の把握に使えるようにする（orderedDateは現場からの要望
+ * 「受注リストに受注日ごとに分ける機能も追加してほしい」で追加）。
  */
 function api_listOrders(filters, groupBy) {
   var orders = listOrders().map(function (o) {
     o.orderedMonth = o.orderedAt
       ? Utilities.formatDate(new Date(o.orderedAt), Session.getScriptTimeZone(), 'yyyy-MM')
+      : '';
+    o.orderedDate = o.orderedAt
+      ? Utilities.formatDate(new Date(o.orderedAt), Session.getScriptTimeZone(), 'yyyy-MM-dd')
       : '';
     return o;
   });
@@ -163,6 +172,9 @@ function api_listWholesaleOrders(filters, groupBy) {
   var orders = listWholesaleOrders().map(function (o) {
     o.orderedMonth = o.orderedAt
       ? Utilities.formatDate(new Date(o.orderedAt), Session.getScriptTimeZone(), 'yyyy-MM')
+      : '';
+    o.orderedDate = o.orderedAt
+      ? Utilities.formatDate(new Date(o.orderedAt), Session.getScriptTimeZone(), 'yyyy-MM-dd')
       : '';
     return o;
   });
