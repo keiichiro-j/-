@@ -1936,11 +1936,16 @@
      後に書くことで優先させる）。 */
   .card__holdInfo--special { border-left-color: var(--hold-special); background: var(--hold-special-bg); }
   .card__holdInfo--special .card__holdInfo__label { color: var(--hold-special); }
-  /* 顧客名・担当者名・拠点名は現場の入力次第で長くなり得るため、一覧カード
-     （.card__holdArea、高さ150px固定）向けには折り返さず1行に収めて超過分は
-     省略記号にする（折り返すと、固定高さの中で行数が増えるぶん縦スクロールが
-     必要になる場面が増えるため）。 */
-  .card__holdInfo__row { margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* 不具合修正（現場からの指摘「2nd Hold登録時に文字のかぶりが起こる」）: 以前は
+     固定高さ150pxの一覧カード（.card__holdArea、現在は使用していない。Hold状況は
+     常に.card__holdArea--full＝高さ自動の詳細モーダルで表示する）向けに、顧客名・
+     担当者名・拠点名が長い場合はnowrap＋省略記号で1行に収めていたが、その
+     レイアウト自体が現在は存在しない。901px未満の画面幅（@media (min-width: 901px)
+     の.modal__panel--vehicle専用の折り返し指定が効かない範囲）では省略記号止まりの
+     ままだったため、現場入力次第で長くなり得る顧客名・担当者名・拠点名（特に2nd
+     Hold登録後は1st/2nd二段表示になり、どちらも全文確認できる必要がある）が画面幅
+     によって見えなくなっていた。画面幅によらず常に折り返して全文表示する。 */
+  .card__holdInfo__row { margin-bottom: 6px; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: break-word; }
   .card__holdInfo__cancel {
     border: none;
     background: none;
@@ -2553,18 +2558,6 @@
     .modal__panel--vehicle .card__metaGrid dd { font-size: 15.5px; }
     .modal__panel--vehicle .card__model { font-size: 23px; }
     .modal__panel--vehicle .card__holdInfo { font-size: 14.5px; padding: 14px 16px; }
-    /* 不具合修正: 顧客名・担当者名・拠点名は、狭い一覧カード
-       （.card__holdArea、高さ150px固定）向けにnowrap＋省略記号にしていたが、
-       この横長ポップアップのHold列は幅に余裕があるため、省略せず全文表示する
-       （現場からの要望「HOLD情報は折り返しをせず見やすく」）。card__detailColに
-       overflow-y: autoを指定している都合上、nowrapのままoverflow: visibleに
-       しても水平方向は自動的にauto（＝右にはみ出た分が見えないままスクロール
-       扱いになる不具合）になってしまうため、white-space: normalに変更して
-       折り返しの可否自体をブラウザに委ねる。名前の文字数が列幅に収まる
-       通常のケースでは、そもそも折り返しが起きる幅ではないため実質1行のまま
-       表示され、極端に長い場合のみ折り返す（見えなくなるよりは折り返して
-       全文読めるほうを優先）。 */
-    .modal__panel--vehicle .card__holdInfo__row { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: break-word; }
   }
 
   /* 予約（Hold/受注）入力モーダルは2列グリッドにして、デスクトップでは
