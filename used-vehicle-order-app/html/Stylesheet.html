@@ -792,13 +792,14 @@
   .homeCard--clickable:hover { box-shadow: var(--shadow-elevated); transform: translateY(-2px); }
   .homeCard--clickable:active { transform: translateY(-2px) scale(.99); }
   /* 厳選された代表写真を「浮かせて」見せる演出（margin: 負の値で.homeCardの
-     枠上端からはみ出させる）。写真自体は角丸＋box-shadowで輪郭を描き、
-     どんな背景色の写真でも「浮いて」見えるようにする（以前のテーマカラーの
-     額縁borderは廃止）。 */
+     枠上端からはみ出させる）。不具合修正（現場からの要望「モデル写真の囲いを
+     消して下さい」）: 角丸＋box-shadowで写真の輪郭を描いていたが、これが
+     「写真を取り囲む枠」に見えてしまっていたため廃止し、枠の無い写真そのものが
+     浮いているだけの見た目にする（以前のテーマカラーの額縁borderは廃止済み）。 */
   .homeCard__photo {
     position: relative; margin: -28px auto 0; width: 84%;
     aspect-ratio: 4 / 3; background: var(--background);
-    overflow: hidden; border-radius: 14px; box-shadow: var(--shadow-elevated);
+    overflow: hidden;
   }
   .homeCard__photo img {
     width: 100%; height: 100%; object-fit: cover; display: block;
