@@ -5272,6 +5272,30 @@
   });
 
   /**
+   * グレードチップの表示ラベルを短縮する（純粋関数）。チップの親カードに既に
+   * モデル名（entry.model）が表示されているため、一致する在庫の型番
+   * （gradeModel、例:「GLC20 スポーツ」）のうちモデル名と重複する先頭部分を
+   * 取り除き、差分（例:「スポーツ」）だけを返す（デザイン改善案D案の
+   * 「3列→4列に変更したい、その際のグレード表示のおすすめは？」への回答を
+   * 実装）。表示名と型番の付け方が一致せずモデル名が前方一致しない場合は、
+   * 自動判定に使っているgradePrefix（型番側は必ずこれで始まる、
+   * gradeRuleSpecificity_参照）だけを取り除く。どちらも取り除けない・結果が
+   * 空になる場合は、安全側に倒して型番をそのまま返す。
+   */
+  function homeGradeShortLabel_(entry, gradeModel) {
+    var modelName = normalizedModelStr_(entry.model || '');
+    if (modelName && gradeModel.toLowerCase().indexOf(modelName.toLowerCase()) === 0) {
+      var byModel = gradeModel.slice(modelName.length).trim();
+      if (byModel) return byModel;
+    }
+    if (entry.gradePrefix && gradeModel.length > entry.gradePrefix.length) {
+      var byPrefix = gradeModel.slice(entry.gradePrefix.length).trim();
+      if (byPrefix) return byPrefix;
+    }
+    return gradeModel;
+  }
+
+  /**
    * ホーム画面カード1件分のHTML。写真・モデル名・在庫台数バッジをタップ・
    * クリックなしでカード自体に表示する。
    * グレード（gradePrefix・gradeMarker）で複数の型番をまとめて登録している場合は、
@@ -5302,17 +5326,38 @@
       ? '<span class="homeCard__price">' + formatNumberUnit_(minPrice, ' 円〜') + '</span>'
       : '';
 
+    // 不具合修正（デザイン改善案D案、現場からの要望「3列→4列に変更したい、
+    // その際のグレード表示のおすすめは？」）: カード幅が狭くなるにつれ、従来の
+    // 「モデル名+グレード名」（例:「GLC20 スポーツ」）という長いラベルの
+    // チップは1行に収まらず、グレード数ぶん行が増えてカードの高さがグリッドの
+    // 行ごとにバラつく問題が目立っていた。(1) モデル名はカード上部に既に
+    // あるため重複を避け、グレード名は差分（例:「スポーツ」）だけを
+    // homeGradeShortLabel_で表示する、(2) 在庫が多い順に並べる、(3) 上位2件＋
+    // 残数を示す非活性の「+N」チップに丸め、グレード数に関わらずカードの
+    // 高さを一定に保つ、という3点で対応する。+Nチップは絞り込み先が1つに
+    // 定まらないためタップ対象にしない（data-home-grade無し・disabled相当）。
+    var GRADE_CHIP_VISIBLE = 2;
     var gradeGridHtml = '';
     if (hasGrades) {
-      gradeGridHtml = '<div class="homeCard__gradeGrid">' + grades.map(function (gradeModel) {
+      var gradeEntries = grades.map(function (gradeModel) {
         var count = allItems.filter(function (v) { return normalizedModelStr_(v.model) === gradeModel; }).length;
-        var zero = count === 0;
+        return { gradeModel: gradeModel, count: count };
+      }).sort(function (a, b) { return b.count - a.count; });
+      var visibleGrades = gradeEntries.slice(0, GRADE_CHIP_VISIBLE);
+      var restCount = gradeEntries.length - visibleGrades.length;
+      var chipsHtml = visibleGrades.map(function (g) {
+        var zero = g.count === 0;
+        var shortLabel = homeGradeShortLabel_(p, g.gradeModel);
         return '<button type="button" class="homeCard__gradeChip"' +
-          (zero ? ' disabled' : ' data-home-grade="' + escapeHtml(gradeModel) + '"') + '>' +
-          '<span class="homeCard__gradeName">' + escapeHtml(gradeModel) + '</span>' +
-          '<span class="homeCard__gradeCount' + (zero ? ' homeCard__gradeCount--zero' : '') + '">' + count + '台</span>' +
+          (zero ? ' disabled' : ' data-home-grade="' + escapeHtml(g.gradeModel) + '"') + '>' +
+          '<span class="homeCard__gradeName">' + escapeHtml(shortLabel) + '</span>' +
+          '<span class="homeCard__gradeCount' + (zero ? ' homeCard__gradeCount--zero' : '') + '">' + g.count + '台</span>' +
           '</button>';
-      }).join('') + '</div>';
+      }).join('');
+      if (restCount > 0) {
+        chipsHtml += '<span class="homeCard__gradeChip homeCard__gradeChip--more">+' + restCount + '</span>';
+      }
+      gradeGridHtml = '<div class="homeCard__gradeGrid">' + chipsHtml + '</div>';
     }
 
     // 厳選された代表写真を「ふわっと」表示する演出（Stylesheet.htmlの
