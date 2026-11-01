@@ -5355,13 +5355,19 @@
         '<svg class="icon homeCard__photoMissingIcon"><use href="#icon-image"></use></svg>' +
         '<span class="homeCard__photoMissingLabel">写真未登録</span>' +
         '</div>';
-    var photoHtml = '<div class="homeCard__photo">' + photoInner + '</div>';
+
+    var typeHtml = p.bodyType ? '<span class="homeCard__type">' + escapeHtml(p.bodyType) + '</span>' : '';
+    // 不具合修正（現場からの要望「モデル名と型は写真の左上に表記して下さい」）:
+    // モデル名・型は情報パネルではなく、写真の左上角にラベルとして重ねる
+    // （在庫データ・価格・グレードは引き続き右の情報パネル側）。どんな色の
+    // 写真の上でも読めるよう、不透明な地色＋影の付いたラベルにする。
+    var modelTagHtml = '<div class="homeCard__modelTag"><span class="homeCard__model">' + escapeHtml(p.model) + '</span>' + typeHtml + '</div>';
+    var photoHtml = '<div class="homeCard__photo">' + photoInner + modelTagHtml + '</div>';
 
     var cardClickable = canNavigateAll;
     var cardClass = 'homeCard' + (cardClickable ? ' homeCard--clickable' : '');
     var cardAttrs = cardClickable ? ' role="button" tabindex="0" data-home-model="' + escapeHtml(p.model) + '"' : '';
 
-    var typeHtml = p.bodyType ? '<span class="homeCard__type">' + escapeHtml(p.bodyType) + '</span>' : '';
     // グレードを持たないモデルは、カード全体がタップ対象であることを矢印付きの
     // 案内で示す（現場からの要望）。
     var tapHintHtml = (!hasGrades && canNavigateAll)
@@ -5372,8 +5378,6 @@
       photoHtml +
       '<div class="homeCard__body">' +
       stockHtml +
-      '<span class="homeCard__model">' + escapeHtml(p.model) + '</span>' +
-      typeHtml +
       priceHtml +
       gradeListHtml +
       tapHintHtml +

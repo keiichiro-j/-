@@ -822,6 +822,21 @@
   }
   .homeCard__photoMissingIcon { width: 22px; height: 22px; opacity: .55; }
   .homeCard__photoMissingLabel { font-size: 10.5px; font-weight: 600; }
+  /* 不具合修正（現場からの要望「モデル名と型は写真の左上に表記して下さい」）:
+     モデル名・型を情報パネルから写真の左上角のラベルへ移動する。どんな色の
+     写真の上でも読めるよう、不透明な地色（var(--surface)）＋影を付ける
+     （在庫バッジと同じ考え方）。 */
+  .homeCard__modelTag {
+    position: absolute; top: 8px; left: 8px; right: 8px;
+    background: var(--surface); border-radius: 4px; padding: 4px 8px;
+    box-shadow: var(--shadow);
+  }
+  /* 不具合修正: <span>はインライン要素のため、text-overflow: ellipsisを
+     付けても実際の幅がないと省略記号が働かず、長いモデル名がラベルの枠から
+     そのままはみ出していた。display: blockにして親（homeCard__modelTag）の
+     幅いっぱいを実際の幅として持たせ、省略記号が機能するようにする。 */
+  .homeCard__model { display: block; min-width: 0; font-size: 12px; font-weight: 800; letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .homeCard__type { margin-top: 1px; font-size: 10px; font-weight: 600; color: var(--on-surface-variant); }
   .homeCard__stock {
     align-self: flex-start;
     background: var(--success-bg); color: var(--success);
@@ -830,24 +845,22 @@
     margin-bottom: 6px;
   }
   .homeCard__stock.badge--stock--zero { background: var(--outline); color: var(--on-surface-variant); }
-  /* 情報パネル（モデル名・価格・在庫データ）。写真の右側に並ぶ、写真とは
-     重ならない独立した領域。不具合修正（現場からの要望「グラデーションを
-     加えて下さい（写真との境目）」）: 写真の背景色（var(--background)）と
-     パネルの地色（var(--surface)）が単純に隣り合うと、継ぎ目が一本の硬い
-     線として見えてしまう。境目の左端だけ写真側の色からパネルの地色へ
-     なだらかにグラデーションさせ、縫い目をやわらげる。 */
+  /* 情報パネル（価格・在庫データ）。写真の右側に並ぶ、写真とは重ならない
+     独立した領域。不具合修正（現場からの要望「グラデーションを加えて下さい
+     （写真との境目）」）: 写真の背景色（var(--background)）とパネルの地色
+     （var(--surface)）が単純に隣り合うと、継ぎ目が一本の硬い線として見えて
+     しまう。境目の左端だけ写真側の色からパネルの地色へなだらかに
+     グラデーションさせ、縫い目をやわらげる。 */
   .homeCard__body {
     flex: 1; min-width: 0;
     padding: 12px 14px; display: flex; flex-direction: column; justify-content: center;
     background: linear-gradient(90deg, var(--background), var(--surface) 28px);
   }
-  .homeCard__model { min-width: 0; font-size: 14.5px; font-weight: 800; letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .homeCard__type { margin-top: 1px; font-size: 10.5px; font-weight: 600; color: var(--on-surface-variant); }
   /* 不具合修正（ビジュアル担当チームからの指摘）: 在庫リスト等にはある「価格」が
      ホームのカードだけ無く、画面間の情報の一貫性に欠けていた。モデル単位の
-     最低価格の目安を、モデル名のすぐ下に添える（minSalePriceForEntry_、
+     最低価格の目安を、在庫バッジのすぐ下に添える（minSalePriceForEntry_、
      JavaScript.html参照）。 */
-  .homeCard__price { margin-top: 4px; font-size: 14px; font-weight: 700; color: var(--primary-text); }
+  .homeCard__price { font-size: 14px; font-weight: 700; color: var(--primary-text); }
   /* グレード（gradePrefix・gradeMarker、homeModelCardHtml_参照）のミニリスト
      表記。名前・台数・矢印をそろえた行を1件ずつ表示する（現場からの要望「M案で
      グレードの表記の仕方のみ、他の方法を考えて下さい」への回答）。D案時代の
