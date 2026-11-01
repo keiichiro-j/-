@@ -822,21 +822,26 @@
   }
   .homeCard__photoMissingIcon { width: 22px; height: 22px; opacity: .55; }
   .homeCard__photoMissingLabel { font-size: 10.5px; font-weight: 600; }
-  /* 不具合修正（現場からの要望「モデル名と型は写真の左上に表記して下さい」）:
-     モデル名・型を情報パネルから写真の左上角のラベルへ移動する。どんな色の
-     写真の上でも読めるよう、不透明な地色（var(--surface)）＋影を付ける
-     （在庫バッジと同じ考え方）。 */
+  /* 不具合修正（現場からの要望「モデル名と型をもっと左上にして背景（文字の
+     背景）をなくして下さい」）: 地色付きのラベル（ピル型）をやめ、写真の
+     左上角ぎりぎりに文字だけを重ねる。背景が無い分どんな色の写真の上でも
+     読めるよう、文字に白のハロー（text-shadow）を付けて輪郭を出す。 */
   .homeCard__modelTag {
-    position: absolute; top: 8px; left: 8px; right: 8px;
-    background: var(--surface); border-radius: 4px; padding: 4px 8px;
-    box-shadow: var(--shadow);
+    position: absolute; top: 6px; left: 7px; right: 7px;
   }
   /* 不具合修正: <span>はインライン要素のため、text-overflow: ellipsisを
      付けても実際の幅がないと省略記号が働かず、長いモデル名がラベルの枠から
      そのままはみ出していた。display: blockにして親（homeCard__modelTag）の
      幅いっぱいを実際の幅として持たせ、省略記号が機能するようにする。 */
-  .homeCard__model { display: block; min-width: 0; font-size: 12px; font-weight: 800; letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .homeCard__type { margin-top: 1px; font-size: 10px; font-weight: 600; color: var(--on-surface-variant); }
+  .homeCard__model {
+    display: block; min-width: 0; font-size: 12px; font-weight: 800; letter-spacing: -.01em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    text-shadow: 0 0 4px var(--surface), 0 0 7px var(--surface), 0 1px 2px var(--surface);
+  }
+  .homeCard__type {
+    margin-top: 1px; font-size: 10px; font-weight: 700; color: var(--on-surface-variant);
+    text-shadow: 0 0 4px var(--surface), 0 0 7px var(--surface), 0 1px 2px var(--surface);
+  }
   .homeCard__stock {
     align-self: flex-start;
     background: var(--success-bg); color: var(--success);
