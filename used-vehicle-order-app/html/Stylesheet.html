@@ -775,6 +775,11 @@
      下にまで広がって重なり、情報の文字に写真が透けて見える「ゴースト」状態
      になってしまっていた。写真とパネルを重ねずに左右（フレックス）で並べる
      構成に変更し、はっきりと分離する。 */
+  /* 不具合修正（現場からの要望「最低限の高さを確保する」）: カードの高さは
+     グレード数（.homeCard__gradeList）の分だけ伸びる可変構成のため、
+     グレードを持たないモデルのカードが同じ行の中で極端に低く・詰まって
+     見えることがあった。min-heightで最低限の高さを確保しつつ、グレードが
+     多いモデルはそのまま下に伸びられるようにする。 */
   .homeCard {
     display: flex;
     align-items: stretch;
@@ -782,6 +787,7 @@
     overflow: hidden;
     background: var(--surface);
     box-shadow: var(--shadow);
+    min-height: 140px;
     transition: box-shadow .18s var(--ease), transform .18s var(--ease);
   }
   .homeCard--clickable { cursor: pointer; }
@@ -825,11 +831,15 @@
   }
   .homeCard__stock.badge--stock--zero { background: var(--outline); color: var(--on-surface-variant); }
   /* 情報パネル（モデル名・価格・在庫データ）。写真の右側に並ぶ、写真とは
-     重ならない独立した領域。 */
+     重ならない独立した領域。不具合修正（現場からの要望「グラデーションを
+     加えて下さい（写真との境目）」）: 写真の背景色（var(--background)）と
+     パネルの地色（var(--surface)）が単純に隣り合うと、継ぎ目が一本の硬い
+     線として見えてしまう。境目の左端だけ写真側の色からパネルの地色へ
+     なだらかにグラデーションさせ、縫い目をやわらげる。 */
   .homeCard__body {
     flex: 1; min-width: 0;
     padding: 12px 14px; display: flex; flex-direction: column; justify-content: center;
-    background: var(--surface);
+    background: linear-gradient(90deg, var(--background), var(--surface) 28px);
   }
   .homeCard__model { min-width: 0; font-size: 14.5px; font-weight: 800; letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .homeCard__type { margin-top: 1px; font-size: 10.5px; font-weight: 600; color: var(--on-surface-variant); }
