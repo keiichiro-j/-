@@ -5272,30 +5272,6 @@
   });
 
   /**
-   * グレードチップの表示ラベルを短縮する（純粋関数）。チップの親カードに既に
-   * モデル名（entry.model）が表示されているため、一致する在庫の型番
-   * （gradeModel、例:「GLC20 スポーツ」）のうちモデル名と重複する先頭部分を
-   * 取り除き、差分（例:「スポーツ」）だけを返す（デザイン改善案D案の
-   * 「3列→4列に変更したい、その際のグレード表示のおすすめは？」への回答を
-   * 実装）。表示名と型番の付け方が一致せずモデル名が前方一致しない場合は、
-   * 自動判定に使っているgradePrefix（型番側は必ずこれで始まる、
-   * gradeRuleSpecificity_参照）だけを取り除く。どちらも取り除けない・結果が
-   * 空になる場合は、安全側に倒して型番をそのまま返す。
-   */
-  function homeGradeShortLabel_(entry, gradeModel) {
-    var modelName = normalizedModelStr_(entry.model || '');
-    if (modelName && gradeModel.toLowerCase().indexOf(modelName.toLowerCase()) === 0) {
-      var byModel = gradeModel.slice(modelName.length).trim();
-      if (byModel) return byModel;
-    }
-    if (entry.gradePrefix && gradeModel.length > entry.gradePrefix.length) {
-      var byPrefix = gradeModel.slice(entry.gradePrefix.length).trim();
-      if (byPrefix) return byPrefix;
-    }
-    return gradeModel;
-  }
-
-  /**
    * ホーム画面カード1件分のHTML。写真・モデル名・在庫台数バッジをタップ・
    * クリックなしでカード自体に表示する。
    * グレード（gradePrefix・gradeMarker）で複数の型番をまとめて登録している場合は、
@@ -5333,10 +5309,16 @@
     // デザイン改善案（M案、ワイドバナー型）のグレード表記は「ミニリスト型」
     // （homeCard__gradeList）: 名前・台数・矢印をそろえた行を1件ずつ積む
     // （現場からの要望「M案でグレードの表記の仕方のみ、他の方法を考えて
-    // 下さい」への回答）。パネルの縦幅はカードの高さに応じて伸縮できるため、
-    // D案のチップ型で必要だった「上位2件＋残数」の丸めは不要になり、
-    // 全グレードをそのまま行として表示する。在庫が多い順に並べ、0台の
-    // グレードはタップ対象にしない（disabled・data-home-grade無し）。
+    // 下さい」への回答）。全グレードをそのまま行として表示する（上位N件に
+    // 丸めたりはしない）。在庫が多い順に並べ、0台のグレードはタップ対象に
+    // しない（disabled・data-home-grade無し）。
+    // 不具合修正（現場からの要望「最低8グレードは表示できるように」「グレード
+    // にはモデル名の頭文字も入れて」）: (1) 1列の縦積みだと8グレードもある
+    // モデルでカードが極端に縦長になっていたため、2列グリッドに変更し
+    // 高さを半分程度に抑える。(2) 以前はグレード名からモデル名・gradePrefix
+    // と重複する先頭部分（型番の頭文字、例:「C22DS」の「C」）を取り除いて
+    // いたが、型番の頭文字が無いと他のモデルのグレードと見分けがつかない
+    // ため、取り除かずに型番（gradeModel）をそのまま表示する。
     var gradeListHtml = '';
     if (hasGrades) {
       var gradeEntries = grades.map(function (gradeModel) {
@@ -5345,10 +5327,9 @@
       }).sort(function (a, b) { return b.count - a.count; });
       var rowsHtml = gradeEntries.map(function (g) {
         var zero = g.count === 0;
-        var shortLabel = homeGradeShortLabel_(p, g.gradeModel);
         return '<button type="button" class="homeCard__gradeRow"' +
           (zero ? ' disabled' : ' data-home-grade="' + escapeHtml(g.gradeModel) + '"') + '>' +
-          '<span class="homeCard__gradeRowName">' + escapeHtml(shortLabel) + '</span>' +
+          '<span class="homeCard__gradeRowName">' + escapeHtml(g.gradeModel) + '</span>' +
           '<span class="homeCard__gradeRowCount' + (zero ? ' homeCard__gradeRowCount--zero' : '') + '">' + g.count + '台</span>' +
           (zero ? '' : '<svg class="icon homeCard__gradeRowChev"><use href="#icon-back"></use></svg>') +
           '</button>';

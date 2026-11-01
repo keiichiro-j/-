@@ -849,14 +849,15 @@
      JavaScript.html参照）。 */
   .homeCard__price { margin-top: 4px; font-size: 14px; font-weight: 700; color: var(--primary-text); }
   /* グレード（gradePrefix・gradeMarker、homeModelCardHtml_参照）のミニリスト
-     表記。名前・台数・矢印をそろえた行を1件ずつ積む（現場からの要望「M案で
+     表記。名前・台数・矢印をそろえた行を1件ずつ表示する（現場からの要望「M案で
      グレードの表記の仕方のみ、他の方法を考えて下さい」への回答）。D案時代の
-     「上位2件＋残数チップ」の丸めは廃止し、全グレードを行として表示する
-     （パネルの縦幅はカードの高さに応じて伸縮できるため、チップ型のような
-     横幅の制約を受けない）。 */
-  .homeCard__gradeList { margin-top: 7px; }
+     「上位2件＋残数チップ」の丸めは廃止し、全グレードを行として表示する。
+     不具合修正（現場からの要望「最低8グレードは表示できるように」）: 1列の
+     縦積みのままだと、8グレードもあるモデルでカードが極端に縦長になって
+     しまうため、2列グリッドに変更して高さをおおよそ半分に抑える。 */
+  .homeCard__gradeList { margin-top: 7px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px 10px; }
   .homeCard__gradeRow {
-    width: 100%; display: flex; align-items: center; gap: 6px; padding: 3px 0;
+    width: 100%; min-width: 0; display: flex; align-items: center; gap: 5px; padding: 3px 0;
     border: none; background: transparent; font-family: inherit; text-align: left;
     color: var(--on-surface); cursor: pointer;
   }
