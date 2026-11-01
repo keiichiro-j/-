@@ -789,9 +789,15 @@
   .homeCard--clickable { cursor: pointer; }
   .homeCard--clickable:hover { box-shadow: var(--shadow-elevated); transform: translateY(-2px); }
   .homeCard--clickable:active { transform: translateY(-2px) scale(.99); }
+  /* 不具合修正（現場からの要望「画像のサイズを自動で調整するようにして
+     下さい」）: 登録された代表写真は、車体が片側に寄り反対側に余白が
+     含まれるタイプ（プレスリリース用の構図）のものがあり、object-fit:
+     coverだと余白ごと拡大・トリミングされて車体の端が欠けることがあった。
+     object-fit: containに変更し、トリミングせず写真全体をそのまま収める
+     （写真が収まりきらない余白部分は.homeCard__photoの背景色で埋める）。 */
   .homeCard__photo { position: absolute; inset: 0; background: var(--background); overflow: hidden; }
   .homeCard__photo img {
-    width: 100%; height: 100%; object-fit: cover; display: block;
+    width: 100%; height: 100%; object-fit: contain; display: block;
     opacity: 0; transition: opacity .35s var(--ease), transform .3s var(--ease);
   }
   .homeCard__photo img.is-loaded { opacity: 1; }
