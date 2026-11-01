@@ -768,34 +768,35 @@
     }
   }
 
-  /* デザイン改善案M案（ワイドバナー型）を採用。車両写真をカードいっぱいの
-     背景として敷き、その上に半透明のパネル（スマホ幅では下側、デスクトップ
-     幅では右側）を重ねて情報をまとめる構成（ユーザー提示のモックアップを
-     採用）。写真・パネルとも.homeCard自身に対してposition: absoluteで
-     重ねるため、.homeCardはoverflow: hiddenにして角丸からのはみ出しを防ぐ
-     （以前のD案「浮かせる」演出は廃止）。 */
+  /* デザイン改善案M案（ワイドバナー型）の派生。不具合修正（現場からの要望
+     「画像が左で右に情報と在庫データです」）: 当初は写真をカードいっぱいの
+     背景として敷き、その上に半透明パネルを重ねる構成だったが、object-fit:
+     containで写真をトリミングしない全体表示に変えた結果、写真がパネルの
+     下にまで広がって重なり、情報の文字に写真が透けて見える「ゴースト」状態
+     になってしまっていた。写真とパネルを重ねずに左右（フレックス）で並べる
+     構成に変更し、はっきりと分離する。 */
   .homeCard {
-    position: relative;
+    display: flex;
+    align-items: stretch;
     border-radius: var(--radius);
     overflow: hidden;
-    background: var(--background);
+    background: var(--surface);
     box-shadow: var(--shadow);
-    min-height: 300px;
     transition: box-shadow .18s var(--ease), transform .18s var(--ease);
-  }
-  @media (min-width: 481px) {
-    .homeCard { aspect-ratio: 16 / 9; min-height: 0; }
   }
   .homeCard--clickable { cursor: pointer; }
   .homeCard--clickable:hover { box-shadow: var(--shadow-elevated); transform: translateY(-2px); }
   .homeCard--clickable:active { transform: translateY(-2px) scale(.99); }
-  /* 不具合修正（現場からの要望「画像のサイズを自動で調整するようにして
-     下さい」）: 登録された代表写真は、車体が片側に寄り反対側に余白が
-     含まれるタイプ（プレスリリース用の構図）のものがあり、object-fit:
-     coverだと余白ごと拡大・トリミングされて車体の端が欠けることがあった。
-     object-fit: containに変更し、トリミングせず写真全体をそのまま収める
-     （写真が収まりきらない余白部分は.homeCard__photoの背景色で埋める）。 */
-  .homeCard__photo { position: absolute; inset: 0; background: var(--background); overflow: hidden; }
+  /* 不具合修正: 写真の幅を固定px（150px/220px）にしていたところ、タブレット幅
+     （481px〜900px、2列グリッド）ではカード自体の横幅がデスクトップ幅の3列
+     グリッドより狭いため、固定220pxの写真が情報パネルの大半を押しつぶし、
+     モデル名・グレード名が極端に省略される問題があった。列数が変わっても
+     写真:パネルの比率が一定に保たれるよう、固定pxではなくカード幅に対する
+     割合（40%）で写真の幅を決める。 */
+  .homeCard__photo {
+    position: relative; flex: 0 0 40%;
+    aspect-ratio: 4 / 3; background: var(--background); overflow: hidden;
+  }
   .homeCard__photo img {
     width: 100%; height: 100%; object-fit: contain; display: block;
     opacity: 0; transition: opacity .35s var(--ease), transform .3s var(--ease);
@@ -806,15 +807,14 @@
      JavaScript.html参照）用のプレースホルダー。「壊れた画像」に見えないよう、
      写真アイコン＋「写真未登録」の文字で意図的な未登録状態であることを伝える
      （現場からの要望：写真が用意できていないモデルもホームから漏れなく
-     見えるようにしたい）。不具合修正: カード全体を中央寄せで覆うと、半透明
-     パネルと重なって文字が読めなくなるため、パネルと重ならない左上角に
-     小さく固定表示する。 */
+     見えるようにしたい）。写真枠は右のパネルと重ならない独立した領域なので、
+     中央寄せで表示する。 */
   .homeCard__photoMissing {
-    position: absolute; top: 12px; left: 14px;
-    display: flex; align-items: center; gap: 6px;
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
     color: var(--on-surface-variant);
   }
-  .homeCard__photoMissingIcon { width: 18px; height: 18px; opacity: .55; }
+  .homeCard__photoMissingIcon { width: 22px; height: 22px; opacity: .55; }
   .homeCard__photoMissingLabel { font-size: 10.5px; font-weight: 600; }
   .homeCard__stock {
     align-self: flex-start;
@@ -824,22 +824,12 @@
     margin-bottom: 6px;
   }
   .homeCard__stock.badge--stock--zero { background: var(--outline); color: var(--on-surface-variant); }
-  /* 情報パネル。スマホ幅ではカード下側の全幅の帯、デスクトップ幅（481px〜）
-     では右側の帯に変わる（写真の見える領域が上/左に残る）。var(--surface)を
-     透明から徐々に不透明にするグラデーションで、下に敷いた写真との境界を
-     なじませる（テーマ切り替え時もvar(--surface)を参照しているぶん自動で
-     追従する）。 */
+  /* 情報パネル（モデル名・価格・在庫データ）。写真の右側に並ぶ、写真とは
+     重ならない独立した領域。 */
   .homeCard__body {
-    position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 74%;
+    flex: 1; min-width: 0;
     padding: 12px 14px; display: flex; flex-direction: column; justify-content: center;
-    min-width: 0;
-    background: linear-gradient(0deg, color-mix(in srgb, var(--surface) 0%, transparent) 0%, color-mix(in srgb, var(--surface) 90%, transparent) 38%, var(--surface) 72%);
-  }
-  @media (min-width: 481px) {
-    .homeCard__body {
-      left: auto; width: 60%; height: 100%;
-      background: linear-gradient(100deg, color-mix(in srgb, var(--surface) 0%, transparent) 0%, color-mix(in srgb, var(--surface) 88%, transparent) 24%, var(--surface) 46%);
-    }
+    background: var(--surface);
   }
   .homeCard__model { min-width: 0; font-size: 14.5px; font-weight: 800; letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .homeCard__type { margin-top: 1px; font-size: 10.5px; font-weight: 600; color: var(--on-surface-variant); }
