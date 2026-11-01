@@ -5299,14 +5299,18 @@
    * ホーム画面カード1件分のHTML。写真・モデル名・在庫台数バッジをタップ・
    * クリックなしでカード自体に表示する。
    * グレード（gradePrefix・gradeMarker）で複数の型番をまとめて登録している場合は、
-   * 型番ごとの在庫数を横並びのチップ（.homeCard__gradeGrid）で表示し、チップ単体を
+   * 型番ごとの在庫数をミニリストの行（.homeCard__gradeList）で表示し、行単体を
    * クリックするとその型番だけに絞り込んだ在庫リストへ遷移する（data-home-grade）。
-   * この場合、カード全体ではなく写真をクリックしたときに、そのモデルの全グレードへ
-   * 絞り込んだ在庫リストへ遷移する（data-home-model）。gradePrefix未設定（グレードと
-   * いう概念自体を使わない、1台ずつ個別登録したモデル）の場合は、チップの一覧を
-   * 出さず、従来どおりカード全体をクリック対象にする。対象の在庫が0台の場合は
-   * （在庫のないモデル・グレードを押しても在庫リストへ遷移してしまわないよう）
-   * クリック対象にしない。
+   * 不具合修正: 以前はこの場合、カード全体ではなく写真部分だけをクリック対象に
+   * していたが、M案（ワイドバナー型）では半透明パネルが写真の上に重なって
+   * 配置されるため、パネルの地の部分（グレード行以外）をクリックしても写真が
+   * 下に隠れていて反応しない「死角」ができてしまっていた。カード全体を
+   * クリック対象にし、グレード行のクリックはイベント委譲（on('homeGrid', ...)
+   * 参照）でグレード判定を先に行い早期returnすることでカード全体への遷移より
+   * 優先させる。gradePrefix未設定（グレードという概念自体を使わない、1台ずつ
+   * 個別登録したモデル）の場合も同様にカード全体をクリック対象にする。対象の
+   * 在庫が0台の場合は（在庫のないモデル・グレードを押しても在庫リストへ
+   * 遷移してしまわないよう）クリック対象にしない。
    */
   function homeModelCardHtml_(p, allItems, allModelPhotos) {
     var grades = matchedModelsForEntry_(p, allItems, allModelPhotos);
@@ -5326,42 +5330,34 @@
       ? '<span class="homeCard__price">' + formatNumberUnit_(minPrice, ' 円〜') + '</span>'
       : '';
 
-    // 不具合修正（デザイン改善案D案、現場からの要望「3列→4列に変更したい、
-    // その際のグレード表示のおすすめは？」）: カード幅が狭くなるにつれ、従来の
-    // 「モデル名+グレード名」（例:「GLC20 スポーツ」）という長いラベルの
-    // チップは1行に収まらず、グレード数ぶん行が増えてカードの高さがグリッドの
-    // 行ごとにバラつく問題が目立っていた。(1) モデル名はカード上部に既に
-    // あるため重複を避け、グレード名は差分（例:「スポーツ」）だけを
-    // homeGradeShortLabel_で表示する、(2) 在庫が多い順に並べる、(3) 上位2件＋
-    // 残数を示す非活性の「+N」チップに丸め、グレード数に関わらずカードの
-    // 高さを一定に保つ、という3点で対応する。+Nチップは絞り込み先が1つに
-    // 定まらないためタップ対象にしない（data-home-grade無し・disabled相当）。
-    var GRADE_CHIP_VISIBLE = 2;
-    var gradeGridHtml = '';
+    // デザイン改善案（M案、ワイドバナー型）のグレード表記は「ミニリスト型」
+    // （homeCard__gradeList）: 名前・台数・矢印をそろえた行を1件ずつ積む
+    // （現場からの要望「M案でグレードの表記の仕方のみ、他の方法を考えて
+    // 下さい」への回答）。パネルの縦幅はカードの高さに応じて伸縮できるため、
+    // D案のチップ型で必要だった「上位2件＋残数」の丸めは不要になり、
+    // 全グレードをそのまま行として表示する。在庫が多い順に並べ、0台の
+    // グレードはタップ対象にしない（disabled・data-home-grade無し）。
+    var gradeListHtml = '';
     if (hasGrades) {
       var gradeEntries = grades.map(function (gradeModel) {
         var count = allItems.filter(function (v) { return normalizedModelStr_(v.model) === gradeModel; }).length;
         return { gradeModel: gradeModel, count: count };
       }).sort(function (a, b) { return b.count - a.count; });
-      var visibleGrades = gradeEntries.slice(0, GRADE_CHIP_VISIBLE);
-      var restCount = gradeEntries.length - visibleGrades.length;
-      var chipsHtml = visibleGrades.map(function (g) {
+      var rowsHtml = gradeEntries.map(function (g) {
         var zero = g.count === 0;
         var shortLabel = homeGradeShortLabel_(p, g.gradeModel);
-        return '<button type="button" class="homeCard__gradeChip"' +
+        return '<button type="button" class="homeCard__gradeRow"' +
           (zero ? ' disabled' : ' data-home-grade="' + escapeHtml(g.gradeModel) + '"') + '>' +
-          '<span class="homeCard__gradeName">' + escapeHtml(shortLabel) + '</span>' +
-          '<span class="homeCard__gradeCount' + (zero ? ' homeCard__gradeCount--zero' : '') + '">' + g.count + '台</span>' +
+          '<span class="homeCard__gradeRowName">' + escapeHtml(shortLabel) + '</span>' +
+          '<span class="homeCard__gradeRowCount' + (zero ? ' homeCard__gradeRowCount--zero' : '') + '">' + g.count + '台</span>' +
+          (zero ? '' : '<svg class="icon homeCard__gradeRowChev"><use href="#icon-back"></use></svg>') +
           '</button>';
       }).join('');
-      if (restCount > 0) {
-        chipsHtml += '<span class="homeCard__gradeChip homeCard__gradeChip--more">+' + restCount + '</span>';
-      }
-      gradeGridHtml = '<div class="homeCard__gradeGrid">' + chipsHtml + '</div>';
+      gradeListHtml = '<div class="homeCard__gradeList">' + rowsHtml + '</div>';
     }
 
-    // 厳選された代表写真を「ふわっと」表示する演出（Stylesheet.htmlの
-    // .homeCard__photo img参照）。読み込み完了（またはURL誤り等での失敗）で
+    // 厳選された代表写真をカードいっぱいの背景として敷く演出（Stylesheet.html
+    // の.homeCard__photo img参照）。読み込み完了（またはURL誤り等での失敗）で
     // is-loadedを付け、キャッシュ済み・低速回線のどちらでも画像が消えたままに
     // ならないようにする。HTML属性内のためJS文字列リテラルの引用符（'）は
     // 文字実体参照（&#39;）で書く。
@@ -5369,36 +5365,37 @@
     // まだ登録されていないモデル）は、壊れた画像として見えてしまう<img>では
     // なく、専用のプレースホルダー（写真アイコン＋「写真未登録」）を出す
     // （現場からの要望：写真が無くても在庫があるモデルはホームから漏れなく
-    // 見えるようにしたい）。
+    // 見えるようにしたい）。在庫バッジ（stockHtml）は写真にではなく、下記の
+    // 半透明パネル側（homeCard__body）の先頭に置く。
     var photoInner = p.photoUrl
       ? '<img src="' + escapeHtml(p.photoUrl) + '" alt="' + escapeHtml(p.model) +
-        '" loading="lazy" onload="this.classList.add(&#39;is-loaded&#39;)" onerror="this.classList.add(&#39;is-loaded&#39;)">' + stockHtml
+        '" loading="lazy" onload="this.classList.add(&#39;is-loaded&#39;)" onerror="this.classList.add(&#39;is-loaded&#39;)">'
       : '<div class="homeCard__photoMissing">' +
         '<svg class="icon homeCard__photoMissingIcon"><use href="#icon-image"></use></svg>' +
         '<span class="homeCard__photoMissingLabel">写真未登録</span>' +
-        '</div>' + stockHtml;
-    var photoClass = 'homeCard__photo' + (p.photoUrl ? '' : ' homeCard__photo--empty');
-    var photoHtml;
-    if (hasGrades) {
-      photoHtml = canNavigateAll
-        ? '<div class="' + photoClass + ' homeCard__photo--clickable" role="button" tabindex="0" data-home-model="' + escapeHtml(p.model) + '">' + photoInner + '</div>'
-        : '<div class="' + photoClass + '">' + photoInner + '</div>';
-    } else {
-      photoHtml = '<div class="' + photoClass + '">' + photoInner + '</div>';
-    }
+        '</div>';
+    var photoHtml = '<div class="homeCard__photo">' + photoInner + '</div>';
 
-    var cardClickable = !hasGrades && canNavigateAll;
+    var cardClickable = canNavigateAll;
     var cardClass = 'homeCard' + (cardClickable ? ' homeCard--clickable' : '');
     var cardAttrs = cardClickable ? ' role="button" tabindex="0" data-home-model="' + escapeHtml(p.model) + '"' : '';
 
     var typeHtml = p.bodyType ? '<span class="homeCard__type">' + escapeHtml(p.bodyType) + '</span>' : '';
+    // グレードを持たないモデルは、カード全体がタップ対象であることを矢印付きの
+    // 案内で示す（現場からの要望）。
+    var tapHintHtml = (!hasGrades && canNavigateAll)
+      ? '<div class="homeCard__tapHint">在庫一覧を見る<svg class="icon"><use href="#icon-back"></use></svg></div>'
+      : '';
 
     return '<div class="' + cardClass + '"' + cardAttrs + '>' +
       photoHtml +
       '<div class="homeCard__body">' +
-      '<div class="homeCard__headRow"><span class="homeCard__model">' + escapeHtml(p.model) + '</span>' + typeHtml + '</div>' +
+      stockHtml +
+      '<span class="homeCard__model">' + escapeHtml(p.model) + '</span>' +
+      typeHtml +
       priceHtml +
-      gradeGridHtml +
+      gradeListHtml +
+      tapHintHtml +
       '</div>' +
       '</div>';
   }

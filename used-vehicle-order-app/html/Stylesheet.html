@@ -691,22 +691,22 @@
     border-radius: 8px;
   }
 
-  /* デザイン改善案D案（フローティング・ショーケース）の採用に伴い、画面幅に
-     関わらず常に3列だった固定グリッドをやめ、画面幅に応じて列数そのものを
-     段階的に増やす（2列→3列→4列）。各カードが上に写真を「浮かせる」演出
-     （margin-top、.homeCard参照）を使うため、行間（縦方向のgap）は横方向より
-     広めに取り、浮いた写真が前の行のカード本文と重ならないようにする。 */
+  /* デザイン改善案M案（ワイドバナー型）の採用に伴い、正方形グリッドをやめ、
+     横長（16:9）のバナーカードを1列（スマホ幅）〜2列（デスクトップ幅）で
+     並べる構成にする。カードの縦横比が大きく変わるため、グレード数が多い
+     モデルでもカードが縦に伸びすぎないよう、グレードは.homeCard__gradeList
+     （ミニリスト型、下記参照）で表示する。 */
   .homeGrid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 28px 10px;
+    grid-template-columns: repeat(1, 1fr);
+    gap: 16px;
     padding: 8px 12px 16px;
   }
   @media (min-width: 481px) {
-    .homeGrid { grid-template-columns: repeat(3, 1fr); gap: 30px 14px; padding: 10px 20px 20px; }
+    .homeGrid { gap: 18px; padding: 10px 20px 20px; }
   }
   @media (min-width: 901px) {
-    .homeGrid { grid-template-columns: repeat(4, 1fr); gap: 32px 16px; padding: 14px 24px 24px; }
+    .homeGrid { grid-template-columns: repeat(2, 1fr); gap: 20px; padding: 14px 24px 24px; }
   }
 
   /* ホームの「検索結果」専用ページ（#view-homeResults。在庫リスト＋デモカーリスト＋
@@ -765,108 +765,102 @@
     }
   }
 
-  /* デザイン改善案D案（フローティング・ショーケース）を採用。車両写真を
-     カードの枠から上にはみ出させて「浮かせ」、その下にモデル名を大きく
-     中央寄せで配置する構成（ユーザー提示の参考イメージを再現）。以前の
-     「テーマカラーの額縁で写真を囲む」ボックス型デザインから全面的に
-     置き換えたため、カード自体の枠線（border）・影で定義していた境界線は
-     廃止し、box-shadowのみでカードを定義する（写真が浮いて見える位置に
-     線が通って見える不具合を避けるため）。margin-topで写真の分だけ本文の
-     開始位置を下げ、写真側にその分の負のmarginを付けて上にはみ出させる
-     （カード自身はoverflow: hiddenにしない。はみ出た写真を隠してしまうため）。 */
+  /* デザイン改善案M案（ワイドバナー型）を採用。車両写真をカードいっぱいの
+     背景として敷き、その上に半透明のパネル（スマホ幅では下側、デスクトップ
+     幅では右側）を重ねて情報をまとめる構成（ユーザー提示のモックアップを
+     採用）。写真・パネルとも.homeCard自身に対してposition: absoluteで
+     重ねるため、.homeCardはoverflow: hiddenにして角丸からのはみ出しを防ぐ
+     （以前のD案「浮かせる」演出は廃止）。 */
   .homeCard {
     position: relative;
-    background: var(--surface);
     border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--background);
     box-shadow: var(--shadow);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-width: 0;
-    margin-top: 28px;
-    padding: 0 12px 16px;
-    text-align: center;
+    min-height: 300px;
     transition: box-shadow .18s var(--ease), transform .18s var(--ease);
+  }
+  @media (min-width: 481px) {
+    .homeCard { aspect-ratio: 16 / 9; min-height: 0; }
   }
   .homeCard--clickable { cursor: pointer; }
   .homeCard--clickable:hover { box-shadow: var(--shadow-elevated); transform: translateY(-2px); }
   .homeCard--clickable:active { transform: translateY(-2px) scale(.99); }
-  /* 厳選された代表写真を「浮かせて」見せる演出（margin: 負の値で.homeCardの
-     枠上端からはみ出させる）。不具合修正（現場からの要望「モデル写真の囲いを
-     消して下さい」）: 角丸＋box-shadowで写真の輪郭を描いていたが、これが
-     「写真を取り囲む枠」に見えてしまっていたため廃止し、枠の無い写真そのものが
-     浮いているだけの見た目にする（以前のテーマカラーの額縁borderは廃止済み）。 */
-  .homeCard__photo {
-    position: relative; margin: -28px auto 0; width: 84%;
-    aspect-ratio: 4 / 3; background: var(--background);
-    overflow: hidden;
-  }
+  .homeCard__photo { position: absolute; inset: 0; background: var(--background); overflow: hidden; }
   .homeCard__photo img {
     width: 100%; height: 100%; object-fit: cover; display: block;
     opacity: 0; transition: opacity .35s var(--ease), transform .3s var(--ease);
   }
   .homeCard__photo img.is-loaded { opacity: 1; }
-  .homeCard--clickable:hover .homeCard__photo img,
-  .homeCard__photo--clickable:hover img { transform: scale(1.045); }
-  .homeCard__photo--clickable { cursor: pointer; }
+  .homeCard--clickable:hover .homeCard__photo img { transform: scale(1.045); }
   /* 在庫はあるが代表写真がまだ登録されていないモデル（unphotographedModelEntries_、
      JavaScript.html参照）用のプレースホルダー。「壊れた画像」に見えないよう、
-     破線の輪郭＋写真アイコン＋「写真未登録」の文字で意図的な未登録状態で
-     あることを伝える（現場からの要望：写真が用意できていないモデルも
-     ホームから漏れなく見えるようにしたい）。 */
-  .homeCard__photo--empty { border: 2px dashed var(--outline); box-shadow: none; }
+     写真アイコン＋「写真未登録」の文字で意図的な未登録状態であることを伝える
+     （現場からの要望：写真が用意できていないモデルもホームから漏れなく
+     見えるようにしたい）。不具合修正: カード全体を中央寄せで覆うと、半透明
+     パネルと重なって文字が読めなくなるため、パネルと重ならない左上角に
+     小さく固定表示する。 */
   .homeCard__photoMissing {
-    position: absolute; inset: 0;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    position: absolute; top: 12px; left: 14px;
+    display: flex; align-items: center; gap: 6px;
     color: var(--on-surface-variant);
   }
-  .homeCard__photoMissingIcon { width: 28px; height: 28px; opacity: .55; }
-  .homeCard__photoMissingLabel { font-size: 11px; font-weight: 600; }
-  /* 不具合修正: 以前は半透明の--success-bg（緑系の薄い塗り）を背景にしていたため、
-     写真プレースホルダー（本番では車両写真）が緑系の色だとバッジの文字がほぼ
-     読めなくなっていた。背景色に写真の色を持ち込まない不透明な背景＋影に
-     変更し、どんな写真の上でも視認できるようにする。 */
+  .homeCard__photoMissingIcon { width: 18px; height: 18px; opacity: .55; }
+  .homeCard__photoMissingLabel { font-size: 10.5px; font-weight: 600; }
   .homeCard__stock {
-    position: absolute; top: 6px; right: 6px;
-    background: var(--surface); color: var(--success);
+    align-self: flex-start;
+    background: var(--success-bg); color: var(--success);
     font-size: 10px; font-weight: 700; padding: 3px 9px;
     border-radius: 999px;
-    box-shadow: var(--shadow);
+    margin-bottom: 6px;
   }
-  .homeCard__stock.badge--stock--zero { background: rgba(31, 41, 51, .82); color: var(--surface); box-shadow: var(--shadow); }
-  .homeCard__body { width: 100%; padding: 10px 0 0; display: flex; flex-direction: column; align-items: stretch; gap: 7px; min-width: 0; }
-  .homeCard__headRow { display: flex; flex-direction: column; align-items: stretch; gap: 2px; width: 100%; min-width: 0; }
-  .homeCard__model { min-width: 0; font-size: 14px; font-weight: 700; letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .homeCard__type { font-size: 10.5px; font-weight: 600; color: var(--on-surface-variant); }
+  .homeCard__stock.badge--stock--zero { background: var(--outline); color: var(--on-surface-variant); }
+  /* 情報パネル。スマホ幅ではカード下側の全幅の帯、デスクトップ幅（481px〜）
+     では右側の帯に変わる（写真の見える領域が上/左に残る）。var(--surface)を
+     透明から徐々に不透明にするグラデーションで、下に敷いた写真との境界を
+     なじませる（テーマ切り替え時もvar(--surface)を参照しているぶん自動で
+     追従する）。 */
+  .homeCard__body {
+    position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 74%;
+    padding: 12px 14px; display: flex; flex-direction: column; justify-content: center;
+    min-width: 0;
+    background: linear-gradient(0deg, color-mix(in srgb, var(--surface) 0%, transparent) 0%, color-mix(in srgb, var(--surface) 90%, transparent) 38%, var(--surface) 72%);
+  }
+  @media (min-width: 481px) {
+    .homeCard__body {
+      left: auto; width: 60%; height: 100%;
+      background: linear-gradient(100deg, color-mix(in srgb, var(--surface) 0%, transparent) 0%, color-mix(in srgb, var(--surface) 88%, transparent) 24%, var(--surface) 46%);
+    }
+  }
+  .homeCard__model { min-width: 0; font-size: 14.5px; font-weight: 800; letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .homeCard__type { margin-top: 1px; font-size: 10.5px; font-weight: 600; color: var(--on-surface-variant); }
   /* 不具合修正（ビジュアル担当チームからの指摘）: 在庫リスト等にはある「価格」が
      ホームのカードだけ無く、画面間の情報の一貫性に欠けていた。モデル単位の
      最低価格の目安を、モデル名のすぐ下に添える（minSalePriceForEntry_、
      JavaScript.html参照）。 */
-  .homeCard__price { font-size: 13.5px; font-weight: 700; color: var(--primary-text); }
-  .homeCard__gradeGrid { width: 100%; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
-  .homeCard__gradeChip {
-    appearance: none; border: 1.5px solid var(--outline); background: var(--surface);
-    border-radius: 999px; padding: 5px 10px; display: inline-flex; align-items: center; gap: 4px;
-    cursor: pointer; font-family: inherit; white-space: nowrap;
-    transition: border-color .15s var(--ease), transform .1s var(--ease);
+  .homeCard__price { margin-top: 4px; font-size: 14px; font-weight: 700; color: var(--primary-text); }
+  /* グレード（gradePrefix・gradeMarker、homeModelCardHtml_参照）のミニリスト
+     表記。名前・台数・矢印をそろえた行を1件ずつ積む（現場からの要望「M案で
+     グレードの表記の仕方のみ、他の方法を考えて下さい」への回答）。D案時代の
+     「上位2件＋残数チップ」の丸めは廃止し、全グレードを行として表示する
+     （パネルの縦幅はカードの高さに応じて伸縮できるため、チップ型のような
+     横幅の制約を受けない）。 */
+  .homeCard__gradeList { margin-top: 7px; }
+  .homeCard__gradeRow {
+    width: 100%; display: flex; align-items: center; gap: 6px; padding: 3px 0;
+    border: none; background: transparent; font-family: inherit; text-align: left;
+    color: var(--on-surface); cursor: pointer;
   }
-  .homeCard__gradeChip:hover { border-color: var(--primary); }
-  .homeCard__gradeChip:active:not(:disabled) { transform: scale(.96); }
-  .homeCard__gradeChip:disabled { opacity: .4; cursor: not-allowed; }
-  .homeCard__gradeName { font-size: 10.5px; font-weight: 700; color: var(--on-surface); }
-  /* 不具合修正（ビジュアル担当チームからの指摘）: 9.5pxはアプリ内の最小文字
-     サイズ（10px）を下回っていたため、10.5pxに引き上げてタイポグラフィの
-     階層（10px〜）からはみ出さないようにする。 */
-  .homeCard__gradeCount { font-size: 10.5px; color: var(--success); font-weight: 700; }
-  .homeCard__gradeCount--zero { color: var(--on-surface-variant); }
-  /* 3グレード以上ある場合の残数チップ（上位2件に丸めた残り、homeModelCardHtml_
-     参照）。タップ対象ではない（絞り込み先が1つに定まらないため）ため、
-     ポインターカーソルや枠線ホバーなど操作可能に見える見た目は出さない。 */
-  .homeCard__gradeChip--more {
-    cursor: default; background: var(--background); color: var(--on-surface-variant);
-    border-style: dashed;
-  }
-  .homeCard__gradeChip--more:hover { border-color: var(--outline); }
+  .homeCard__gradeRow:hover { text-decoration: underline; }
+  .homeCard__gradeRow:disabled { cursor: not-allowed; opacity: .55; text-decoration: none; }
+  .homeCard__gradeRowName { flex: 1; font-size: 11.5px; font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .homeCard__gradeRowCount { flex: none; font-size: 10.5px; font-weight: 800; color: var(--success); }
+  .homeCard__gradeRowCount--zero { color: var(--on-surface-variant); }
+  .homeCard__gradeRowChev { flex: none; width: 10px; height: 10px; color: var(--on-surface-variant); transform: rotate(180deg); }
+  /* グレードを持たないモデル（gradePrefix未設定）用の案内。カード全体が
+     クリック対象であることを矢印付きのテキストで示す（現場からの要望）。 */
+  .homeCard__tapHint { margin-top: 6px; display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: var(--primary-text); }
+  .homeCard__tapHint svg { width: 11px; height: 11px; transform: rotate(180deg); }
 
   /* 設定タブの車両画像リストのサムネイル（.staffList__summaryをそのまま再利用し、
      要約テキストの前に小さなサムネイルだけ追加する）。 */
@@ -1800,11 +1794,11 @@
      角を3pxだけ丸めた形にそろえる（現場からの要望）。カードと入力欄は角丸8px
      （--radius）、丸い形（フルピル／円）は主要なボタン・表示切替・進捗バーだけに
      限定する。
-     例外: ホームのデザイン改善案D案（フローティング・ショーケース、ユーザー
-     提示の参考イメージを再現）採用に伴い、在庫台数（homeCard__stock）・
-     グレード（homeCard__gradeChip）はこのルールから意図的に外し、参考
-     イメージどおりフルピル形にしている（homeCard__typeはバッジ自体を廃止し、
-     単なる文字ラベルに変更）。 */
+     例外: ホームのデザイン改善案（M案、ユーザー提示のモックアップを採用）
+     採用に伴い、在庫台数（homeCard__stock）はこのルールから意図的に外し、
+     参考イメージどおりフルピル形にしている（homeCard__typeはバッジ自体を
+     廃止し、単なる文字ラベルに変更。グレードはチップではなくミニリスト型
+     の行表示のため、角丸ルールの対象外）。 */
   .badge {
     display: inline-flex;
     align-items: center;
