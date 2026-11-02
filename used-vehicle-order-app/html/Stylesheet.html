@@ -698,18 +698,22 @@
      写真と半透明パネルの比率が間延びして見えていたため、デスクトップ幅を
      3列に変更して1枚あたりの横幅を抑える。カードの縦横比が大きく変わるため、
      グレード数が多いモデルでもカードが縦に伸びすぎないよう、グレードは
-     .homeCard__gradeList（ミニリスト型、下記参照）で表示する。 */
+     .homeCard__gradeList（ミニリスト型、下記参照）で表示する。
+     不具合修正（現場からの要望「それぞれのモデルのカード通しの隙間を
+     無くして下さい」）: 列間・行間のgapを0にし、各セルの区切りは
+     .homeCard側の交互配色（G2案「交互配色型」、下記参照）で表現する。
+     列数の変わる481px・901pxのブレークポイントは維持。 */
   .homeGrid {
     display: grid;
     grid-template-columns: repeat(1, 1fr);
-    gap: 16px;
+    gap: 0;
     padding: 8px 12px 16px;
   }
   @media (min-width: 481px) {
-    .homeGrid { grid-template-columns: repeat(2, 1fr); gap: 18px; padding: 10px 20px 20px; }
+    .homeGrid { grid-template-columns: repeat(2, 1fr); padding: 10px 20px 20px; }
   }
   @media (min-width: 901px) {
-    .homeGrid { grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 14px 24px 24px; }
+    .homeGrid { grid-template-columns: repeat(3, 1fr); padding: 14px 24px 24px; }
   }
 
   /* ホームの「検索結果」専用ページ（#view-homeResults。在庫リスト＋デモカーリスト＋
@@ -775,32 +779,44 @@
      下にまで広がって重なり、情報の文字に写真が透けて見える「ゴースト」状態
      になってしまっていた。写真とパネルを重ねずに左右（フレックス）で並べる
      構成に変更し、はっきりと分離する。 */
-  /* 不具合修正（現場からの要望「最低限の高さを確保する」）: カードの高さは
-     グレード数（.homeCard__gradeList）の分だけ伸びる可変構成のため、
-     グレードを持たないモデルのカードが同じ行の中で極端に低く・詰まって
-     見えることがあった。min-heightで最低限の高さを確保しつつ、グレードが
-     多いモデルはそのまま下に伸びられるようにする。 */
+  /* 不具合修正（現場からの要望「現在カードタイプになっていて隙間が
+     もったいなく感じます」「現在の表示のままカードタイプをやめて下さい」）:
+     個々のモデルを背景・枠・角丸・影で囲う「カードの箱」をやめ、写真は
+     小さく角丸するだけに留め、行全体の背景・影・固定の最低高さは廃止する。
+     区切りは罫線ではなく、列数ぶん（1列・2列・3列、.homeGrid参照）の
+     周期で交互に地色を敷く「G2案：交互配色型」を採用（現場からの要望
+     「それぞれのモデルのカード通しの隙間を無くして下さい」への回答）。
+     481px未満は1列なのでnth-child(odd)、481px以上は2列なのでnth-child(4n+1),
+     (4n+2)、901px以上は3列なのでnth-child(6n+1),(6n+2),(6n+3)が「1行おき」の
+     周期になる。 */
   .homeCard {
     display: flex;
     align-items: stretch;
-    border-radius: var(--radius);
-    overflow: hidden;
-    background: var(--surface);
-    box-shadow: var(--shadow);
-    min-height: 140px;
-    transition: box-shadow .18s var(--ease), transform .18s var(--ease);
+    padding: 14px 16px;
+  }
+  .homeCard:nth-child(odd) { background: var(--surface); }
+  @media (min-width: 481px) {
+    .homeCard:nth-child(4n+1), .homeCard:nth-child(4n+2) { background: var(--surface); }
+    .homeCard:nth-child(4n+3), .homeCard:nth-child(4n+4) { background: transparent; }
+  }
+  @media (min-width: 901px) {
+    .homeCard:nth-child(6n+1), .homeCard:nth-child(6n+2), .homeCard:nth-child(6n+3) { background: var(--surface); }
+    .homeCard:nth-child(6n+4), .homeCard:nth-child(6n+5), .homeCard:nth-child(6n+6) { background: transparent; }
   }
   .homeCard--clickable { cursor: pointer; }
-  .homeCard--clickable:hover { box-shadow: var(--shadow-elevated); transform: translateY(-2px); }
-  .homeCard--clickable:active { transform: translateY(-2px) scale(.99); }
+  /* カードの箱（box-shadow）による浮き上がりができなくなったため、タップ対象
+     であることのフィードバックは地色の上に薄く重ねる--primaryの色味のみで示す。 */
+  .homeCard--clickable:hover { box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--primary) 5%, transparent); }
+  .homeCard--clickable:active { box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--primary) 9%, transparent); }
   /* 不具合修正: 写真の幅を固定px（150px/220px）にしていたところ、タブレット幅
      （481px〜900px、2列グリッド）ではカード自体の横幅がデスクトップ幅の3列
      グリッドより狭いため、固定220pxの写真が情報パネルの大半を押しつぶし、
      モデル名・グレード名が極端に省略される問題があった。列数が変わっても
      写真:パネルの比率が一定に保たれるよう、固定pxではなくカード幅に対する
-     割合（40%）で写真の幅を決める。 */
+     割合（42%）で写真の幅を決める。カードの箱自体の角丸は廃止したため、
+     写真だけに小さな角丸を付ける。 */
   .homeCard__photo {
-    position: relative; flex: 0 0 40%;
+    position: relative; flex: 0 0 42%; border-radius: 6px;
     aspect-ratio: 4 / 3; background: var(--background); overflow: hidden;
   }
   .homeCard__photo img {
@@ -857,7 +873,7 @@
      しまう。境目の左端だけ写真側の色からパネルの地色へなだらかに
      グラデーションさせ、縫い目をやわらげる。 */
   .homeCard__body {
-    flex: 1; min-width: 0;
+    flex: 1; min-width: 0; border-radius: 0 6px 6px 0;
     padding: 12px 14px; display: flex; flex-direction: column; justify-content: center;
     background: linear-gradient(90deg, var(--background), var(--surface) 28px);
   }
