@@ -606,6 +606,26 @@
                 <select id="ordersStaffFilter" class="input"></select>
               </div>
             </div>
+            <!-- 不具合修正（現場からの要望「各絞り込み機能に受注月（登録月）とは別に
+                 受注日を追加して下さい」→「受注月です。受注リストおよびマイページに
+                 反映して下さい」）: 現場が入力する「登録月」registeredMonthとは別の、
+                 受注確定日時orderedAtから自動算出される「受注月」orderedMonth
+                 （グループ化「月ごと」と同じ値、ordersMonthChipsHtml_参照）で
+                 絞り込めるようにする。拠点・担当者と違い、受注月は管理者が登録する
+                 マスタデータが無く、実際に受注が存在する月だけを選択肢にしたいため、
+                 現展示拠点（.multiDropdown、下記参照）と同じ考え方で、選択肢は
+                 サーバーから取得済みのordersGroups（キーワード・拠点・担当者で絞り込み
+                 済みだが受注月自体では絞り込んでいない状態）から動的に作り、絞り込み
+                 自体もクライアント側で行う（populateOrdersMonthFilter_・renderOrders、
+                 JavaScript.html参照）。これにより月を選んでも選択肢自体が1件に
+                 収束してしまう問題を避けられる。 -->
+            <div class="filterSidebar__row" data-row="orderedMonth">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-calendar"></use></svg><span class="filterSidebar__rowLabel">受注月</span></div>
+              <div class="selectFace" data-field-label="受注月">
+                <span class="selectFace__text">受注月</span><span class="selectFace__chev">▾</span>
+                <select id="ordersMonthFilter" class="input"><option value=""></option></select>
+              </div>
+            </div>
             <div class="filterSidebar__row" data-row="displayLocation">
               <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-pin"></use></svg><span class="filterSidebar__rowLabel">現展示拠点</span></div>
               <div id="ordersDisplayLocationFilter" class="multiDropdown" data-field-label="現展示拠点">
@@ -719,19 +739,49 @@
          （#myPageNoStaff、JavaScript.htmlのrenderMyPageNoStaffState_参照）。
          在庫リスト・受注リストと同じ番号付き一覧デザインに統一し（カード／表の
          切り替えは廃止）、自由検索欄だけをツールバーに持たせて、マイページ全体
-         （2セクションとも）に一括で適用する（#myPageKeyword、renderMyPageAll_参照）。 -->
+         （2セクションとも）に一括で適用する（#myPageKeyword、renderMyPageAll_参照）。
+         不具合修正（現場からの要望「マイページの検索項目（絞り込み）も受注リストと
+         同様にして下さい」「受注月です。受注リストおよびマイページに反映して
+         下さい」）: 自由検索欄だけのcommandbarをやめ、受注リストと同じ
+         .filterSidebar（条件検索カード）に差し替える。現展示拠点はHold中の車両・
+         受注した車両の両方に適用し、受注月は受注した車両のみ（Hold中の車両には
+         受注月の概念が無いため）に適用する（renderMyPageAll_、JavaScript.html
+         参照）。マイページは元々全担当者ぶんではなく自分の案件だけのため、
+         受注リストにある担当者・拠点の絞り込みは設けない。 -->
     <main class="view view--list" id="view-mypage">
-      <div class="listBody">
-        <nav class="appRail" data-host-view="mypage" aria-label="画面切替"></nav>
-        <div class="listBody__main">
-          <div class="commandbar">
-            <div class="searchrow">
-              <div class="searchbox">
-                <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
-                <input type="search" id="myPageKeyword" placeholder="キーワード検索">
+      <aside class="filterSidebar" aria-label="マイページの絞り込み">
+          <div class="filterSidebar__head">
+            <p class="filterSidebar__title">条件検索</p>
+            <span class="filterSidebar__count" id="myPageTotalCount"></span>
+            <button type="button" class="filterSidebar__clearBtn hidden" id="btnMyPageFilterClear">クリア</button>
+          </div>
+          <div class="filterSidebar__activeBar" id="myPageActiveBar"></div>
+          <div class="filterSidebar__field">
+            <div class="searchbox">
+              <svg class="icon icon--inline"><use href="#icon-search"></use></svg>
+              <input type="search" id="myPageKeyword" placeholder="キーワード検索">
+            </div>
+          </div>
+          <div class="filterSidebar__rows" id="myPageFilterRows">
+            <div class="filterSidebar__row" data-row="orderedMonth">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-calendar"></use></svg><span class="filterSidebar__rowLabel">受注月</span></div>
+              <div class="selectFace" data-field-label="受注月">
+                <span class="selectFace__text">受注月</span><span class="selectFace__chev">▾</span>
+                <select id="myPageMonthFilter" class="input"><option value=""></option></select>
+              </div>
+            </div>
+            <div class="filterSidebar__row" data-row="displayLocation">
+              <div class="filterSidebar__rowHead"><svg class="filterSidebar__rowIcon"><use href="#icon-pin"></use></svg><span class="filterSidebar__rowLabel">現展示拠点</span></div>
+              <div id="myPageDisplayLocationFilter" class="multiDropdown" data-field-label="現展示拠点">
+                <button type="button" class="multiDropdown__btn">現展示拠点</button>
+                <div class="multiDropdown__panel hidden"></div>
               </div>
             </div>
           </div>
+        </aside>
+      <div class="listBody">
+        <nav class="appRail" data-host-view="mypage" aria-label="画面切替"></nav>
+        <div class="listBody__main">
           <div class="emptyState hidden" id="myPageNoStaff">
             <span class="emptyState__iconWrap"><svg class="icon emptyState__icon"><use href="#icon-people"></use></svg></span>
             <p>ご利用中のGoogleアカウントが担当者マスタに登録されていないため、マイページを表示できません。

@@ -47,8 +47,15 @@
     // 絞り込むが、現展示拠点だけは在庫リストと同じく取得済みの一覧（groups）を
     // クライアント側だけで絞り込み直す（現場からの要望「現展示拠点をチェック式で
     // 絞り込めるようにしてほしい。全リストに反映してほしい」）。
-    ordersFilters: { currentDisplayLocation: [] },
+    // currentMonth（受注月）も現展示拠点と同じ理由でクライアント側のみの絞り込み
+    // （拠点マスタの無いデータ駆動の選択肢のため、サーバー側の検索条件には含めない。
+    // 現場からの要望「受注月を絞り込み条件に追加」）。
+    ordersFilters: { currentDisplayLocation: [], currentMonth: '' },
     wholesaleOrdersFilters: { currentDisplayLocation: [] },
+    // マイページの現展示拠点・受注月も同じ理由でクライアント側のみの絞り込み
+    // （現場からの要望「マイページの検索項目（絞り込み）も受注リストと同様に
+    // して下さい」「受注月です。受注リストおよびマイページに反映して下さい」）。
+    myPageFilters: { currentDisplayLocation: [], currentMonth: '' },
     ordersSortState: { key: '', dir: 'asc' },
     wholesaleOrdersSortState: { key: '', dir: 'asc' },
     demoCarListItems: [], // デモカーリスト（区分「デモカー」）。グループ化は行わないフラットな一覧
@@ -3737,12 +3744,35 @@
     container.querySelector('.multiDropdown__btn').textContent = label ? (fieldLabel + '・' + label) : fieldLabel;
   }
 
-  // 「クリア」の表示・非表示を、現在の拠点・担当者・現展示拠点の選択状態に合わせて更新する。
+  // 「クリア」の表示・非表示を、現在の拠点・担当者・受注月・現展示拠点の選択状態に合わせて更新する。
   function syncOrdersFilterClearVisibility_() {
     var hasLocation = !!$('ordersLocationFilter').value;
     var hasStaff = !!$('ordersStaffFilter').value;
+    var hasMonth = !!state.ordersFilters.currentMonth;
     var hasDisplayLocation = state.ordersFilters.currentDisplayLocation.length > 0;
-    $('btnOrdersFilterClear').classList.toggle('hidden', !(hasLocation || hasStaff || hasDisplayLocation));
+    $('btnOrdersFilterClear').classList.toggle('hidden', !(hasLocation || hasStaff || hasMonth || hasDisplayLocation));
+  }
+  /**
+   * 「受注月」フィルタの選択肢を、取得済みの受注（現展示拠点自体では絞り込んで
+   * いない状態、.multiDropdown同様の考え方）から動的に作り直す。拠点・担当者と
+   * 違いマスタデータが無いため、実際に受注が存在する月だけを選択肢にする
+   * （ordersMonthChipsHtml_と同じ昇順・未設定は末尾）。受注リスト（ordersMonthFilter）・
+   * マイページ（myPageMonthFilter）の両方から共通で使う汎用関数。
+   */
+  function populateMonthSelect_(selectId, orderItems) {
+    var select = $(selectId);
+    var current = select.value;
+    var months = [];
+    orderItems.forEach(function (o) {
+      var m = o.orderedMonth || '';
+      if (m && months.indexOf(m) === -1) months.push(m);
+    });
+    months.sort(function (a, b) { return a < b ? -1 : a > b ? 1 : 0; });
+    select.innerHTML = '';
+    select.appendChild(new Option('', ''));
+    months.forEach(function (m) { select.appendChild(new Option(m, m)); });
+    if (months.indexOf(current) !== -1) select.value = current;
+    else if (current && !months.length) select.value = '';
   }
   // 「現展示拠点」の絞り込みチェックボックスを、取得済みの全グループの車両から
   // 動的に作り直す（在庫リストのrenderInventoryFilterSidebar_と同じ考え方）。
@@ -3750,6 +3780,7 @@
     var allItems = (state.ordersGroups || []).reduce(function (acc, g) { return acc.concat(g.items || []); }, []);
     $('ordersDisplayLocationFilter').querySelector('.multiDropdown__panel').innerHTML = checkboxFilterOptionsHtml_(allItems, 'currentDisplayLocation', state.ordersFilters.currentDisplayLocation);
     syncMultiDropdownButton_('ordersDisplayLocationFilter', state.ordersFilters.currentDisplayLocation);
+    populateMonthSelect_('ordersMonthFilter', allItems);
   }
   function loadOrders() {
     var filters = {
@@ -3929,8 +3960,13 @@
     var container = $('ordersGroups');
     var rawGroups = state.ordersGroups || [];
     var locationFilter = state.ordersFilters.currentDisplayLocation;
+    var monthFilter = state.ordersFilters.currentMonth;
     var groups = rawGroups
-      .map(function (g) { return { key: g.key, items: filterByCheckedValues_(g.items, 'currentDisplayLocation', locationFilter) }; })
+      .map(function (g) {
+        var items = filterByCheckedValues_(g.items, 'currentDisplayLocation', locationFilter);
+        if (monthFilter) items = items.filter(function (o) { return o.orderedMonth === monthFilter; });
+        return { key: g.key, items: items };
+      })
       .filter(function (g) { return !g.key || g.items.length > 0; });
     var totalItems = groups.reduce(function (n, g) { return n + g.items.length; }, 0);
     $('ordersEmpty').classList.toggle('hidden', totalItems > 0);
@@ -4219,6 +4255,14 @@
     renderOrders();
     syncOrdersFilterClearVisibility_();
   });
+  // 「受注月」は現展示拠点と同じくクライアント側のみの絞り込みのため、loadOrders
+  // （サーバー再取得）ではなくrenderOrders（再描画のみ）を呼ぶ。
+  on('ordersMonthFilter', 'change', function () {
+    state.ordersFilters.currentMonth = $('ordersMonthFilter').value;
+    syncSelectFace_('ordersMonthFilter');
+    renderOrders();
+    syncOrdersFilterClearVisibility_();
+  });
 
   on('btnOrdersFilterClear', 'click', function () {
     $('ordersKeyword').value = '';
@@ -4226,6 +4270,9 @@
     syncSelectFace_('ordersLocationFilter');
     $('ordersStaffFilter').value = '';
     syncSelectFace_('ordersStaffFilter');
+    $('ordersMonthFilter').value = '';
+    syncSelectFace_('ordersMonthFilter');
+    state.ordersFilters.currentMonth = '';
     var defaultGroupBy = document.querySelector('#ordersGroupByFilter input[value=""]');
     if (defaultGroupBy) defaultGroupBy.checked = true;
     syncRadioDropdownButton_('ordersGroupByFilter', 'グループ化');
@@ -5538,6 +5585,30 @@
   on('myPageKeyword','input', debounce(renderMyPageAll_, 200));
 
   /**
+   * キーワード・担当者（＝自分の案件）までで絞り込んだ、現展示拠点・受注月
+   * 自体では絞り込んでいないHold中の車両・受注した車両を返す（フィルタの
+   * 選択肢作り・一覧の最終絞り込みの両方から参照する共通の母集合）。
+   */
+  function myPageHoldItemsForKeyword_() {
+    var email = currentUserEmail_();
+    var keyword = myPageKeyword_();
+    return (state.allInventoryItems || []).filter(function (v) {
+      if (v.holdStatus !== 'hold') return false;
+      // 1st Hold担当者だけでなく、2nd Hold担当者としてマイページから見つけられる
+      // ようにする（自分が登録した2nd Holdが見えないと解除・確認ができなくなるため）。
+      if (!(emailsMatch_(v.holdStaffEmail, email) || emailsMatch_(v.secondHoldStaffEmail, email))) return false;
+      return myPageVehicleMatchesKeyword_(v, keyword);
+    });
+  }
+  function myPageOrderItemsForKeyword_() {
+    var email = currentUserEmail_();
+    var keyword = myPageKeyword_();
+    return (state.allOrders || []).filter(function (o) {
+      return emailsMatch_(o.staffEmail, email) && myPageOrderMatchesKeyword_(o, keyword);
+    });
+  }
+
+  /**
    * Hold中の車両は、在庫リストと同じ横一列テーブル表示（vehicleTableRowHtml_）を
    * 再利用する（現場からの要望「マイページも受注リストと同様に表示してほしい」）。
    * ボタン操作（openActionModal / openCancelHoldModal の各lookup）は
@@ -5545,43 +5616,66 @@
    * （state.allInventoryItems）へもフォールバックするようfindVehicleByCommission側で
    * 対応済みのため、マイページの行から操作しても在庫リスト側の絞り込み状態に
    * 関わらず正しく動作する。
+   * 不具合修正（現場からの要望「マイページの検索項目（絞り込み）も受注リストと
+   * 同様にして下さい」）: 現展示拠点（state.myPageFilters.currentDisplayLocation）
+   * での絞り込みを追加。受注月はHold中の車両に概念が無いため対象外。
    */
   function renderMyPageHolds_() {
     if (!renderMyPageNoStaffState_()) return;
-    var email = currentUserEmail_();
-    var keyword = myPageKeyword_();
-    var items = (state.allInventoryItems || []).filter(function (v) {
-      if (v.holdStatus !== 'hold') return false;
-      // 1st Hold担当者だけでなく、2nd Hold担当者としてマイページから見つけられる
-      // ようにする（自分が登録した2nd Holdが見えないと解除・確認ができなくなるため）。
-      if (!(emailsMatch_(v.holdStaffEmail, email) || emailsMatch_(v.secondHoldStaffEmail, email))) return false;
-      return myPageVehicleMatchesKeyword_(v, keyword);
-    });
+    var items = filterByCheckedValues_(myPageHoldItemsForKeyword_(), 'currentDisplayLocation', state.myPageFilters.currentDisplayLocation);
     $('myPageHoldCount').textContent = items.length;
     $('myPageHoldEmpty').classList.toggle('hidden', items.length > 0);
     var holdListEl = $('myPageHoldList');
     var sortedHolds = sortTableItems_(items, INVENTORY_SORT_COLUMNS, state.myPageHoldSortState);
     holdListEl.innerHTML = tableListHtml_('tbl--inventory', inventoryTableHeaderHtml_(state.myPageHoldSortState), sortedHolds, vehicleTableRowHtml_);
     wireTableHeaderScrollSync_(holdListEl);
+    syncMyPageFilterSidebar_();
   }
 
   /**
    * 受注した車両は、受注リストと同じ横一列テーブル表示（orderTableRowHtml_）を
    * 再利用する（現場からの要望「マイページも受注リストと同様に表示してほしい」）。
+   * 不具合修正（現場からの要望「受注月です。受注リストおよびマイページに反映して
+   * 下さい」）: 現展示拠点に加え、受注月（state.myPageFilters.currentMonth）での
+   * 絞り込みを追加。
    */
   function renderMyPageOrders_() {
     if (!renderMyPageNoStaffState_()) return;
-    var email = currentUserEmail_();
-    var keyword = myPageKeyword_();
-    var items = (state.allOrders || []).filter(function (o) {
-      return emailsMatch_(o.staffEmail, email) && myPageOrderMatchesKeyword_(o, keyword);
-    });
+    var items = filterByCheckedValues_(myPageOrderItemsForKeyword_(), 'currentDisplayLocation', state.myPageFilters.currentDisplayLocation);
+    if (state.myPageFilters.currentMonth) {
+      items = items.filter(function (o) { return o.orderedMonth === state.myPageFilters.currentMonth; });
+    }
     $('myPageOrderCount').textContent = items.length;
     $('myPageOrderEmpty').classList.toggle('hidden', items.length > 0);
     var orderListEl = $('myPageOrderList');
     var sortedOrders = sortTableItems_(items, ORDER_SORT_COLUMNS, state.myPageOrderSortState);
     orderListEl.innerHTML = tableListHtml_('tbl--order', orderTableHeaderHtml_(state.myPageOrderSortState), sortedOrders, orderTableRowHtml_);
     wireTableHeaderScrollSync_(orderListEl);
+    syncMyPageFilterSidebar_();
+  }
+
+  /**
+   * マイページの絞り込みサイドバーをまとめて最新化する: 「現展示拠点」「受注月」
+   * フィルタの選択肢を、現展示拠点・受注月自体では絞り込んでいないHold中の車両・
+   * 受注した車両から動的に作り直し（受注リストのrenderOrdersLocationFilterSidebar_
+   * と同じ考え方。拠点・担当者と違いマスタデータが無いため、実際に該当する値だけを
+   * 選択肢にする。現展示拠点は両セクション共通、受注月はHold中の車両に概念が無い
+   * ため受注した車両のみから作る）、合計件数・「クリア」表示・絞り込み中サマリーも
+   * 合わせて同期する。renderMyPageHolds_・renderMyPageOrders_の末尾から呼ぶため、
+   * 一覧の再描画を伴うあらゆる操作（検索・絞り込み変更・Hold解除後の再取得等）の
+   * たびに自動で最新化される。
+   */
+  function syncMyPageFilterSidebar_() {
+    var holdItems = myPageHoldItemsForKeyword_();
+    var orderItems = myPageOrderItemsForKeyword_();
+    $('myPageDisplayLocationFilter').querySelector('.multiDropdown__panel').innerHTML = checkboxFilterOptionsHtml_(holdItems.concat(orderItems), 'currentDisplayLocation', state.myPageFilters.currentDisplayLocation);
+    syncMultiDropdownButton_('myPageDisplayLocationFilter', state.myPageFilters.currentDisplayLocation);
+    populateMonthSelect_('myPageMonthFilter', orderItems);
+    $('myPageTotalCount').textContent = '該当 ' + ((Number($('myPageHoldCount').textContent) || 0) + (Number($('myPageOrderCount').textContent) || 0)) + ' 台';
+    var hasMonth = !!state.myPageFilters.currentMonth;
+    var hasDisplayLocation = state.myPageFilters.currentDisplayLocation.length > 0;
+    $('btnMyPageFilterClear').classList.toggle('hidden', !(hasMonth || hasDisplayLocation));
+    syncFilterRowsAndSummary_('myPageFilterRows', 'myPageActiveBar', 'btnMyPageFilterClear');
   }
 
   /**
@@ -5592,6 +5686,27 @@
     renderMyPageHolds_();
     renderMyPageOrders_();
   }
+  registerMultiDropdownToggle_('myPageDisplayLocationFilter');
+  on('myPageDisplayLocationFilter', 'change', function (e) {
+    if (e.target.type !== 'checkbox') return;
+    state.myPageFilters.currentDisplayLocation = Array.prototype.slice.call($('myPageDisplayLocationFilter').querySelectorAll('input[type="checkbox"]:checked'))
+      .map(function (el) { return el.value; });
+    renderMyPageAll_();
+  });
+  on('myPageMonthFilter', 'change', function () {
+    state.myPageFilters.currentMonth = $('myPageMonthFilter').value;
+    syncSelectFace_('myPageMonthFilter');
+    renderMyPageOrders_();
+  });
+  on('btnMyPageFilterClear', 'click', function () {
+    $('myPageKeyword').value = '';
+    $('myPageMonthFilter').value = '';
+    syncSelectFace_('myPageMonthFilter');
+    state.myPageFilters.currentMonth = '';
+    state.myPageFilters.currentDisplayLocation = [];
+    document.querySelectorAll('#myPageDisplayLocationFilter input').forEach(function (el) { el.checked = false; });
+    renderMyPageAll_();
+  });
 
   on('myPageHoldList','click', handleInventoryListClick_);
   wireSortableTableHeader_('myPageHoldList', state.myPageHoldSortState, renderMyPageHolds_);
