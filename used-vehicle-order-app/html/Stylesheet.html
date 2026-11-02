@@ -803,17 +803,23 @@
      割合（42%）で写真の幅を決める。カード自体がoverflow: hidden＋角丸なので、
      写真自体には個別の角丸を付けない。
      不具合修正（現場からの要望「６台以上増えた場合もモデル写真のサイズは
-     変更しないでください」）: 親.homeCardのalign-items: stretchのままだと、
-     グレード数が多いモデルで.homeCard__body（情報パネル）側が縦に伸びた分、
-     写真もその高さまで一緒に引き伸ばされてしまう。align-self: flex-startで
-     写真をこの引き伸ばし対象から外し、aspect-ratio通りの一定サイズを保つ
-     （グレードが増えた分は.homeCard__body側だけが下に伸びる）。 */
+     変更しないでください」）への対応として、一時的にalign-self: flex-start
+     で写真を.homeCard__bodyの高さに合わせて伸びないよう固定していたが、
+     その結果グレードの少ないモデルで写真の下に白い余白ができてしまって
+     いた（現場からの要望「全面に（画像下の白い部分にも）画像が反映される
+     ように調整して下さい」）。align-self: flex-startを撤去して写真エリアは
+     再び.homeCard__body側の高さいっぱいに伸びるようにし、代わりに下の
+     img側のobject-fitをcontain（全体を収めて余白が出る）からcover
+     （エリア全体を埋め、はみ出す分だけ上下をトリミング）に変更する。
+     coverなら写真の横幅（＝写真エリアの基準）に対する実際の写り方・
+     ズーム感は変わらないため、グレード数でエリアの高さが変わっても
+     「写真のサイズが変わって見える」問題は再発しない。 */
   .homeCard__photo {
-    position: relative; flex: 0 0 42%; align-self: flex-start;
+    position: relative; flex: 0 0 42%;
     aspect-ratio: 4 / 3; background: var(--background); overflow: hidden;
   }
   .homeCard__photo img {
-    width: 100%; height: 100%; object-fit: contain; display: block;
+    width: 100%; height: 100%; object-fit: cover; display: block;
     opacity: 0; transition: opacity .35s var(--ease), transform .3s var(--ease);
   }
   .homeCard__photo img.is-loaded { opacity: 1; }
