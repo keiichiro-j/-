@@ -699,24 +699,22 @@
      3列に変更して1枚あたりの横幅を抑える。カードの縦横比が大きく変わるため、
      グレード数が多いモデルでもカードが縦に伸びすぎないよう、グレードは
      .homeCard__gradeList（ミニリスト型、下記参照）で表示する。
-     不具合修正（現場からの要望「それぞれのモデルのカード通しの隙間を
-     無くして下さい」）: 列間・行間のgapを0にする。
-     不具合修正（現場からの要望「全行このような表示にしてカード周りに
-     細い線を引いて下さい」）: 交互配色（G2案）では同じ行の中で地色の
-     あるカード・無いカードが混在して見えてしまっていたため、全カード
-     共通の地色＋周囲の細い罫線（.homeCard、下記参照）に変更する。
+     不具合修正（現場からの要望「隙間を無くして下さい」→その後「やはり
+     カードタイプにして欲しいです」「隙間を分けて下さい」）: 一時的に
+     カードの箱をやめ隙間ゼロ・罫線区切りの表形式を試したが、最終的に
+     カードタイプ＋カード間の余白のある、この.homeGridのgap指定に戻す。
      列数の変わる481px・901pxのブレークポイントは維持。 */
   .homeGrid {
     display: grid;
     grid-template-columns: repeat(1, 1fr);
-    gap: 0;
+    gap: 16px;
     padding: 8px 12px 16px;
   }
   @media (min-width: 481px) {
-    .homeGrid { grid-template-columns: repeat(2, 1fr); padding: 10px 20px 20px; }
+    .homeGrid { grid-template-columns: repeat(2, 1fr); gap: 18px; padding: 10px 20px 20px; }
   }
   @media (min-width: 901px) {
-    .homeGrid { grid-template-columns: repeat(3, 1fr); padding: 14px 24px 24px; }
+    .homeGrid { grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 14px 24px 24px; }
   }
 
   /* ホームの「検索結果」専用ページ（#view-homeResults。在庫リスト＋デモカーリスト＋
@@ -782,40 +780,36 @@
      下にまで広がって重なり、情報の文字に写真が透けて見える「ゴースト」状態
      になってしまっていた。写真とパネルを重ねずに左右（フレックス）で並べる
      構成に変更し、はっきりと分離する。 */
-  /* 不具合修正（現場からの要望「現在カードタイプになっていて隙間が
-     もったいなく感じます」「現在の表示のままカードタイプをやめて下さい」）:
-     個々のモデルを角丸・影で囲う「カードの箱」をやめ、写真は小さく角丸する
-     だけに留め、行全体の影・固定の最低高さは廃止する。
-     不具合修正（現場からの要望「全行このような表示にしてカード周りに
-     細い線を引いて下さい」）: 当初は列数の周期で地色を交互に敷く「G2案：
-     交互配色型」を採用していたが、同じ行の中で地色のあるカード・無い
-     カードが混在して見えてしまっていた。全カード共通の地色にそろえ、
-     box-shadowでカード自身の内側いっぱいに細い罫線（1px）を描く
-     （gapを0にしたまま隣接カードの境界で罫線が重なり合い、border分の
-     レイアウト幅のズレも発生しない）。 */
+  /* 不具合修正（現場からの要望「やはりカードタイプにして欲しいです」）:
+     一時的に撤去していたカードの箱（角丸・影）を復活させる。 */
   .homeCard {
     display: flex;
     align-items: stretch;
-    padding: 14px 16px;
+    border-radius: var(--radius);
+    overflow: hidden;
     background: var(--surface);
-    box-shadow: inset 0 0 0 1px var(--outline);
+    box-shadow: var(--shadow);
+    min-height: 140px;
+    transition: box-shadow .18s var(--ease), transform .18s var(--ease);
   }
   .homeCard--clickable { cursor: pointer; }
-  /* カードの箱（浮き上がりの影）による強調ができなくなったため、タップ対象
-     であることのフィードバックは地色の上に薄く重ねる--primaryの色味のみで示す。
-     罫線（box-shadow）と重ね描きになるため、カンマ区切りで2つのbox-shadowを
-     同時に指定する。 */
-  .homeCard--clickable:hover { box-shadow: inset 0 0 0 1px var(--outline), inset 0 0 0 999px color-mix(in srgb, var(--primary) 5%, transparent); }
-  .homeCard--clickable:active { box-shadow: inset 0 0 0 1px var(--outline), inset 0 0 0 999px color-mix(in srgb, var(--primary) 9%, transparent); }
+  .homeCard--clickable:hover { box-shadow: var(--shadow-elevated); transform: translateY(-2px); }
+  .homeCard--clickable:active { transform: translateY(-2px) scale(.99); }
   /* 不具合修正: 写真の幅を固定px（150px/220px）にしていたところ、タブレット幅
      （481px〜900px、2列グリッド）ではカード自体の横幅がデスクトップ幅の3列
      グリッドより狭いため、固定220pxの写真が情報パネルの大半を押しつぶし、
      モデル名・グレード名が極端に省略される問題があった。列数が変わっても
      写真:パネルの比率が一定に保たれるよう、固定pxではなくカード幅に対する
-     割合（42%）で写真の幅を決める。カードの箱自体の角丸は廃止したため、
-     写真だけに小さな角丸を付ける。 */
+     割合（42%）で写真の幅を決める。カード自体がoverflow: hidden＋角丸なので、
+     写真自体には個別の角丸を付けない。
+     不具合修正（現場からの要望「６台以上増えた場合もモデル写真のサイズは
+     変更しないでください」）: 親.homeCardのalign-items: stretchのままだと、
+     グレード数が多いモデルで.homeCard__body（情報パネル）側が縦に伸びた分、
+     写真もその高さまで一緒に引き伸ばされてしまう。align-self: flex-startで
+     写真をこの引き伸ばし対象から外し、aspect-ratio通りの一定サイズを保つ
+     （グレードが増えた分は.homeCard__body側だけが下に伸びる）。 */
   .homeCard__photo {
-    position: relative; flex: 0 0 42%; border-radius: 6px;
+    position: relative; flex: 0 0 42%; align-self: flex-start;
     aspect-ratio: 4 / 3; background: var(--background); overflow: hidden;
   }
   .homeCard__photo img {
@@ -872,7 +866,7 @@
      しまう。境目の左端だけ写真側の色からパネルの地色へなだらかに
      グラデーションさせ、縫い目をやわらげる。 */
   .homeCard__body {
-    flex: 1; min-width: 0; border-radius: 0 6px 6px 0;
+    flex: 1; min-width: 0;
     padding: 12px 14px; display: flex; flex-direction: column; justify-content: center;
     background: linear-gradient(90deg, var(--background), var(--surface) 28px);
   }
