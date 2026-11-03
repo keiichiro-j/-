@@ -830,7 +830,7 @@
     }
     #view-homeResults .tblHeadWrap::before {
       top: -8px;
-      height: 8px;
+      height: calc(8px + var(--radius));
     }
   }
 
@@ -1746,23 +1746,42 @@
     top: var(--topbar-h);
     z-index: 1;
   }
-  /* 固定中（.is-stuck、syncStuckTableHeads_・JavaScript.html参照）は表の上端が
-     画面外に出ているため、列見出しの上側の角丸（.tblHead参照）の外側から
-     下を通過中の行が覗いて見える。固定中だけ角を直角にする。 */
-  .tblHeadWrap.is-stuck .tblHead { border-radius: 0; }
   /* 不具合修正（現場からの要望「各リストをスクロールすると項目の上の線が
-     消えてしまう。上の線は消えないようにして下さい」）: 列見出しの上の線は
-     表自身（.tbl）の上の罫線のため、固定中は表と一緒にスクロールして画面外へ
-     消えてしまっていた。固定中は列見出し自身の上端に同じ色の線を引き、表の
-     左右の罫線（列見出しの外側1px）とつながるよう左右にも1pxずつ広げる。 */
+     消えてしまう。上の線は消えないようにして下さい」「スクロールすると角の
+     カーブが無くなってしまう」）: 列見出しの上の線・角丸は表自身（.tbl）の
+     罫線・角丸のため、固定中（.is-stuck、syncStuckTableHeads_・JavaScript.html
+     参照）は表と一緒にスクロールして画面外へ消えてしまっていた。固定中は
+     スクロールしていない時と同じ見た目になるよう、
+       ・::after: 表の外枠と同じ位置（左右に1px外側）に、上辺＋左右の罫線を
+         同じ角丸（--radius）で引く。
+       ・::before: 角丸の外側（列見出しの四角い範囲のうち、カーブより外の
+         部分）から下を通過中の行が覗かないよう、ページの背景色で塗る
+         （PC・タブレット幅では下の@mediaで上方向の「通り抜け防止の帯」と
+         一体にする）。
+       ・.tblHead自身をその帯より手前（z-index: 1）に出し、帯が列見出しの
+         中身を覆わないようにする。 */
+  .tblHeadWrap.is-stuck .tblHead { position: relative; z-index: 1; }
+  .tblHeadWrap.is-stuck::before {
+    content: '';
+    position: absolute;
+    left: -1px;
+    right: -1px;
+    top: 0;
+    height: var(--radius);
+    background: var(--background);
+    pointer-events: none;
+  }
   .tblHeadWrap.is-stuck::after {
     content: '';
     position: absolute;
     left: -1px;
     right: -1px;
     top: 0;
-    height: 1px;
-    background: var(--outline);
+    bottom: 0;
+    border: 1px solid var(--outline);
+    border-bottom: none;
+    border-radius: var(--radius) var(--radius) 0 0;
+    z-index: 2;
     pointer-events: none;
   }
   @media (min-width: 901px) {
@@ -1786,7 +1805,8 @@
       left: -1px;
       right: -1px;
       top: -24px;
-      height: 24px;
+      /* 角丸の外側の塗り（上記、--radius分）もこの帯と一体にする。 */
+      height: calc(24px + var(--radius));
       background: var(--background);
       pointer-events: none;
     }
