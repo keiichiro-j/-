@@ -2322,6 +2322,26 @@
    * syncHomeResultsHeadHeightVar_を呼び直す（setupFilterbarHeightObserver_と
    * 同じ考え方）。
    */
+  /**
+   * 受注リストの月別件数ナビ（#ordersMonthNav）の実際の高さを
+   * --ordersMonthNav-h（:root、Stylesheet.html参照）へ書き込む。月別件数ナビは
+   * 現場からの要望「受注タブ内の月タブも固定にして下さい」でposition: sticky
+   * にしたため、その下に固定される受注リストの列見出し（.tblHeadWrap）の
+   * 固定位置・月グループへのスクロール位置の計算に使う。チップが折り返して
+   * 2段になる場合・0件で空になる場合があるため、実測で追従する。
+   */
+  function syncOrdersMonthNavHeightVar_() {
+    var el = document.getElementById('ordersMonthNav');
+    var h = el ? Math.ceil(el.getBoundingClientRect().height) : 0;
+    document.documentElement.style.setProperty('--ordersMonthNav-h', h + 'px');
+  }
+  function setupOrdersMonthNavHeightObserver_() {
+    if (typeof ResizeObserver === 'undefined') return;
+    var el = document.getElementById('ordersMonthNav');
+    if (!el) return;
+    new ResizeObserver(function () { syncOrdersMonthNavHeightVar_(); }).observe(el);
+  }
+
   function setupHomeResultsHeadHeightObserver_() {
     if (typeof ResizeObserver === 'undefined') return;
     var el = document.getElementById('homeResultsSticky');
@@ -6127,6 +6147,8 @@
     setupFilterbarHeightObserver_();
     syncHomeResultsHeadHeightVar_();
     setupHomeResultsHeadHeightObserver_();
+    syncOrdersMonthNavHeightVar_();
+    setupOrdersMonthNavHeightObserver_();
     reloadAll_().catch(function (err) { showToast(err.message, true); }).then(function () {
       // 起動時ローディング画面は初回の読み込み完了時のみフェードアウトする
       // （更新ボタンからの再読み込みは、ボタン自体の回転アイコンで十分なため

@@ -125,6 +125,9 @@
        オフセット計算に使う（現場からの要望「検索結果の文面および絞り込みを
        解除ボタン、項目が動いてしまうので固定して下さい」）。 */
     --homeResultsHead-h: 0px;
+    /* 受注リストの月別件数ナビ（#ordersMonthNav、固定表示）の実際の高さ。
+       syncOrdersMonthNavHeightVar_（JavaScript.html）が実測して書き込む。 */
+    --ordersMonthNav-h: 0px;
     /* お知らせ（#homeAnnouncement）が同じ囲いの中に表示されているとき
        （body.has-announcement、syncHomeAnnouncementVisibility_・JavaScript.html参照）
        は、その分だけ.topbarの実際の高さが伸びるため、--topbar-hもこの状態に
@@ -690,8 +693,49 @@
   #ordersMonthNav {
     flex-wrap: wrap;
     overflow-x: visible;
+    /* 折り返し表示のため横スクロールの縁フェード（.scrollerのmask-image）は
+       不要。mask-imageは自分の枠の外に描く::before（固定中の帯、下記参照）まで
+       切り取って見えなくしてしまうため外す。 */
+    -webkit-mask-image: none;
+    mask-image: none;
   }
-  #ordersMonthNav:not(:empty) { margin-bottom: 14px; }
+  /* 現場からの要望「受注タブ内の月タブも固定にして下さい」: 月別件数ナビを
+     position: stickyにし、スクロールしても絞り込みバー（スマホ・タブレット幅
+     ではヘッダー）の直下に残るようにする。下の余白はmargin（下を通過する
+     行が透けて見える）ではなく、自分の背景色で塗るpaddingにする。この下に
+     固定される受注リストの列見出しは、このナビの実際の高さ（--ordersMonthNav-h、
+     syncOrdersMonthNavHeightVar_・JavaScript.html参照）だけ下にずらす。 */
+  #ordersMonthNav:not(:empty) {
+    position: sticky;
+    top: var(--topbar-h);
+    z-index: 3;
+    padding-top: 10px;
+    padding-bottom: 14px;
+    background: var(--background);
+  }
+  #view-orders .tblHeadWrap { top: calc(var(--topbar-h) + var(--ordersMonthNav-h)); }
+  #view-orders [data-month-group] { scroll-margin-top: calc(var(--topbar-h) + var(--ordersMonthNav-h) + 8px); }
+  @media (min-width: 901px) {
+    #ordersMonthNav:not(:empty) {
+      top: calc(var(--topbar-h) + var(--filterbar-h) + 24px);
+      padding-top: 0;
+    }
+    /* 列見出しと同じ「通り抜け防止の帯」。月別件数ナビは常に一覧の先頭
+       （上には.listBody__mainの余白24pxしか無い）ため、固定中かどうかに
+       関わらず表示しても、上にある要素を塗りつぶすことはない。 */
+    #ordersMonthNav:not(:empty)::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: -24px;
+      height: 24px;
+      background: var(--background);
+      pointer-events: none;
+    }
+    #view-orders .tblHeadWrap { top: calc(var(--topbar-h) + var(--filterbar-h) + 24px + var(--ordersMonthNav-h)); }
+    #view-orders [data-month-group] { scroll-margin-top: calc(var(--topbar-h) + var(--filterbar-h) + 24px + var(--ordersMonthNav-h) + 8px); }
+  }
 
   /* お知らせ（#homeAnnouncement）。管理者が設定タブから登録した案内文を、
      ホーム画面の一番上に目立たせて表示する（未設定時は要素ごとhidden）。型
@@ -1706,6 +1750,21 @@
      画面外に出ているため、列見出しの上側の角丸（.tblHead参照）の外側から
      下を通過中の行が覗いて見える。固定中だけ角を直角にする。 */
   .tblHeadWrap.is-stuck .tblHead { border-radius: 0; }
+  /* 不具合修正（現場からの要望「各リストをスクロールすると項目の上の線が
+     消えてしまう。上の線は消えないようにして下さい」）: 列見出しの上の線は
+     表自身（.tbl）の上の罫線のため、固定中は表と一緒にスクロールして画面外へ
+     消えてしまっていた。固定中は列見出し自身の上端に同じ色の線を引き、表の
+     左右の罫線（列見出しの外側1px）とつながるよう左右にも1pxずつ広げる。 */
+  .tblHeadWrap.is-stuck::after {
+    content: '';
+    position: absolute;
+    left: -1px;
+    right: -1px;
+    top: 0;
+    height: 1px;
+    background: var(--outline);
+    pointer-events: none;
+  }
   @media (min-width: 901px) {
     .tblHeadWrap {
       top: calc(var(--topbar-h) + var(--filterbar-h) + 24px);
