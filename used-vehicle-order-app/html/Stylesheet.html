@@ -1702,15 +1702,30 @@
     top: var(--topbar-h);
     z-index: 1;
   }
+  /* 固定中（.is-stuck、syncStuckTableHeads_・JavaScript.html参照）は表の上端が
+     画面外に出ているため、列見出しの上側の角丸（.tblHead参照）の外側から
+     下を通過中の行が覗いて見える。固定中だけ角を直角にする。 */
+  .tblHeadWrap.is-stuck .tblHead { border-radius: 0; }
   @media (min-width: 901px) {
     .tblHeadWrap {
       top: calc(var(--topbar-h) + var(--filterbar-h) + 24px);
     }
-    .tblHeadWrap::before {
+    /* 不具合修正（現場からの要望「受注した車両（○台）の見出し・受注リストの
+       月別ボタンの下側が切れている」「表の左上の角が欠けている」）: この帯は
+       列見出しが固定（stuck）されている間だけ必要なものだが、以前はスクロール
+       していない状態でも常に表示されていたため、表のすぐ上にある要素（マイ
+       ページの「受注した車両」見出し・受注リストの月別件数ボタン等）の下側
+       24pxと、表自身の上の罫線・角丸を背景色で塗りつぶしていた。実際に固定
+       されている間だけ（.is-stuck、syncStuckTableHeads_・JavaScript.html参照）
+       表示する。 */
+    .tblHeadWrap.is-stuck::before {
       content: '';
       position: absolute;
-      left: 0;
-      right: 0;
+      /* 表自身の左右の罫線（.tblのborder、1px）は列見出しの外側にあるため、
+         帯をその分だけ左右に広げて覆う（覆わないと、固定中に帯の部分だけ
+         表の罫線が短い縦線として残って見える）。 */
+      left: -1px;
+      right: -1px;
       top: -24px;
       height: 24px;
       background: var(--background);

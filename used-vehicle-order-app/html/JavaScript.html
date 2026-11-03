@@ -2361,6 +2361,44 @@
    * 非表示、文章の折り返し、ウィンドウ幅の変化等）syncTopbarHeightVar_を
    * 呼び直す。
    */
+  /**
+   * 不具合修正（現場からの要望「受注した車両（○台）の見出し・月別ボタンの
+   * 下側が切れている」「表の左上の角が欠けている」）: PC・タブレット幅で
+   * 列見出し（.tblHeadWrap）の上に敷く「通り抜け防止の帯」（::before、
+   * Stylesheet.html参照）は、列見出しが実際に固定されている間だけ表示する
+   * よう、固定中の列見出しに.is-stuckを付け外しする。列見出しは固定されると
+   * 本来の位置（表の上端）から下へずれていくため、表の上端との差で判定できる
+   * （固定位置のtopの値を読む必要がない）。
+   */
+  var stuckSyncQueued_ = false;
+  function syncStuckTableHeads_() {
+    stuckSyncQueued_ = false;
+    var view = document.querySelector('.view.is-active');
+    if (!view) return;
+    view.querySelectorAll('.tblHeadWrap').forEach(function (wrap) {
+      var tbl = wrap.parentElement;
+      if (!tbl) return;
+      var stuck = wrap.getBoundingClientRect().top - tbl.getBoundingClientRect().top > 2;
+      wrap.classList.toggle('is-stuck', stuck);
+    });
+  }
+  function queueStuckTableHeadsSync_() {
+    if (stuckSyncQueued_) return;
+    stuckSyncQueued_ = true;
+    requestAnimationFrame(syncStuckTableHeads_);
+  }
+  function setupStuckTableHeads_() {
+    // スクロールの基準がウィンドウ以外の要素になる場合も拾えるよう、
+    // キャプチャ段階で全スクロールを監視する。
+    document.addEventListener('scroll', queueStuckTableHeadsSync_, { capture: true, passive: true });
+    window.addEventListener('resize', queueStuckTableHeadsSync_);
+    // 一覧の再描画・タブ切替（スクロールせずに表が差し替わる場合）にも追従する。
+    if (typeof MutationObserver !== 'undefined') {
+      new MutationObserver(queueStuckTableHeadsSync_).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+    }
+    queueStuckTableHeadsSync_();
+  }
+
   function setupTopbarHeightObserver_() {
     if (typeof ResizeObserver === 'undefined') return;
     var topbar = document.getElementById('topbar');
@@ -6084,6 +6122,7 @@
     initScrollElevation_();
     syncTopbarHeightVar_();
     setupTopbarHeightObserver_();
+    setupStuckTableHeads_();
     syncFilterbarHeightVar_();
     setupFilterbarHeightObserver_();
     syncHomeResultsHeadHeightVar_();
