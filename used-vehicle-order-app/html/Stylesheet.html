@@ -337,7 +337,11 @@
   .topbar__brand {
     position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
     display: flex; align-items: center; gap: 8px; white-space: nowrap;
-    max-width: calc(100% - 190px);
+    /* 不具合修正: 中央配置のため、左右それぞれに「左端の余白20px＋戻る・
+       更新ボタン（36px×2＋間隔8px）＋間隔」ぶん（約116px）を空ける必要が
+       あるが、以前は左右合計で190px（片側95px）しか空けておらず、幅の狭い
+       スマホ（320px前後）では車アイコンが更新ボタンの上に重なっていた。 */
+    max-width: calc(100% - 232px);
   }
   .topbar__logo { height: 26px; max-width: 140px; width: auto; object-fit: contain; flex: none; }
   .topbar__markIcon { width: 22px; height: 22px; flex: none; }
@@ -1008,6 +1012,44 @@
   .appRail__item.is-active {
     background: var(--primary-bg);
     color: var(--primary-text);
+  }
+  /* 不具合修正（現場からの要望「見切れている箇所がある」）: 左の縦タブメニュー
+     （.appRail、172px）＋一覧の左右余白（24px×2）を差し引くと、一覧表の
+     最小幅（在庫リストで約990px、.tbl--inventory参照）に届かない画面幅
+     （901px〜約1200px。ノートPCの表示倍率125%〔1366px→約1093px〕や
+     iPadの横向き〔1024px〜1180px〕が該当）では、表の右端にある
+     ステータス・HOLD／受注ボタンが横スクロールしないと見えず、半分
+     見切れて表示されていた。
+       ・1100px〜1279px: 縦タブメニューをアイコン＋小さな文字を縦に積んだ
+         細い形（72px）にし、一覧の左右余白も16pxに詰める。
+       ・901px〜1099px: 縦タブメニュー自体を隠し、スマホ・タブレット幅と
+         同じヘッダー内の横並びピルタブ（.tabs__wrap）に戻して、一覧に画面幅
+         いっぱいを使わせる（ヘッダーの高さが変わってもsyncTopbarHeightVar_
+         〔JavaScript.html〕が実測して--topbar-hへ反映するため、固定位置は
+         ずれない）。
+     上下の余白（24px）は列見出しの固定位置（.tblHeadWrapのtop・::before）の
+     計算に使われているため変えず、左右だけを詰める。 */
+  @media (min-width: 1100px) and (max-width: 1279px) {
+    .listBody { grid-template-columns: 72px minmax(0, 1fr); }
+    .listBody__main { padding-left: 16px; padding-right: 16px; }
+    .appRail { padding: 10px 6px 10px 0; }
+    .appRail__item {
+      flex-direction: column;
+      gap: 4px;
+      padding: 8px 2px;
+      font-size: 10px;
+      line-height: 1.25;
+      text-align: center;
+      white-space: normal;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+    }
+  }
+  @media (min-width: 901px) and (max-width: 1099px) {
+    .tabs__wrap { display: flex; }
+    .appRail { display: none; }
+    .listBody { grid-template-columns: minmax(0, 1fr); }
+    .listBody__main { padding-left: 16px; padding-right: 16px; }
   }
   .filterSidebar {
     display: flex;
@@ -1758,6 +1800,16 @@
      リストはその後ろにステータス・操作が続き、デモカーリスト・サービス代車
      リストはステータスのみ、受注リスト・業販受注リストは顧客名（販売先）・
      登録月が続く。 */
+  /* 不具合修正（現場からの要望「見切れている箇所がある」）: 実測で以下の値が
+     列の最小幅に収まらず、表が画面幅より狭く縮む場面（スマホ・タブレット幅、
+     PC幅でも左メニュー込みで余白が少ない場合）に省略記号で見切れていた。
+       ・区分バッジ「認定中古車」「一般中古車」（実測72px）→ 最小64px
+       ・走行距離「123,456 km」（6桁、実測74px）→ 最小64px
+       ・価格「12,345,000 円」（8桁、実測86px）→ 最小84px
+       ・日付「2026-12-31」（実測71px）→ 最小70px
+     これらを実測値＋余裕ぶん広げる。代わりに登録番号は「名古屋 300 な 1234」
+     （実測115px）、4文字の地域名でも128pxあれば収まるため、144px→128pxに
+     詰め、表全体の最小幅はほぼ据え置きにする。 */
   .tbl--inventory .tblHead, .tbl--inventory .tblRow {
     /* 不具合修正（現場からの要望「ホームからの在庫横断でHOLD・受注ボタンが
        表示されない」「ボタンを右に固定するというより、ボタンも含む列を
@@ -1776,14 +1828,14 @@
        いた（現場からの指摘「文字の見切れがある」）。列の最小幅はtbl--order・
        tbl--wholesale・tbl--cartrackと同じ、実測で安全な元の値に戻し、横幅の
        詰めは列間隔・左右の余白だけで行う。 */
-    grid-template-columns: 16px minmax(64px, 1fr) minmax(84px, 1fr) minmax(70px, 1fr) minmax(64px, 1fr) minmax(70px, 1fr) minmax(144px, 1fr) minmax(80px, 1fr) minmax(84px, 1fr) 86px 124px 11px;
+    grid-template-columns: 16px minmax(74px, 1fr) minmax(84px, 1fr) minmax(72px, 1fr) minmax(76px, 1fr) minmax(72px, 1fr) minmax(128px, 1fr) minmax(80px, 1fr) minmax(88px, 1fr) 86px 124px 11px;
   }
   .tbl--order .tblHead, .tbl--order .tblRow,
   .tbl--wholesale .tblHead, .tbl--wholesale .tblRow {
     /* 不具合修正（現場からの指摘「月が消えてしまっている」）: 登録月
        （「2026-11」形式、7文字）の固定幅55pxは、実測では58px前後必要で
        足りておらず、省略記号で見切れていた。70pxに広げる。 */
-    grid-template-columns: 16px minmax(64px, 1fr) minmax(84px, 1fr) minmax(70px, 1fr) minmax(64px, 1fr) minmax(70px, 1fr) minmax(144px, 1fr) minmax(80px, 1fr) minmax(84px, 1fr) minmax(130px, 1fr) 70px 11px;
+    grid-template-columns: 16px minmax(74px, 1fr) minmax(84px, 1fr) minmax(72px, 1fr) minmax(76px, 1fr) minmax(72px, 1fr) minmax(128px, 1fr) minmax(80px, 1fr) minmax(88px, 1fr) minmax(130px, 1fr) 70px 11px;
   }
 
   /* ===== 車両情報カード（詳細モーダル・#inventoryDetailModal専用） =====
@@ -2374,6 +2426,10 @@
     text-align: center; line-height: 1.3; min-height: 2.6em;
     display: flex; align-items: center; justify-content: center;
   }
+  /* 名称は<wbr>（themeNameHtml_、JavaScript.html参照）の位置でだけ折り返し、
+     カタカナの単語の途中では折り返さない。極端に狭い画面で1語がタイルに
+     収まらない場合だけ、はみ出す代わりに途中で折り返す。 */
+  .themePreset__nameText { word-break: keep-all; overflow-wrap: anywhere; }
   @media (max-width: 480px) {
     .themePresetGrid { grid-template-columns: repeat(3, 1fr); }
     .themePreset__name { font-size: 11px; }
@@ -2890,6 +2946,13 @@
   /* ===== タブレット ===== */
   @media (max-width: 900px) {
     main.view { padding: 14px; }
+    /* 不具合修正（現場からの要望「見切れている箇所がある」）: 一覧系の画面
+       （.view--list）はPC幅の横一列バーに合わせて左右の余白を0にしているが、
+       この幅では絞り込み（.filterSidebar）が縦積みのカードになり、余白を
+       持たないまま画面の左右端に貼り付いていた（キーワード検索欄の枠・
+       「該当○台」の文字が画面端で切れて見える）。直後の一覧（.listBody、
+       padding: 16px）と左右の位置を揃える。 */
+    main.view.view--list > .filterSidebar { padding: 16px 16px 0; }
     .settingsWrap { max-width: 100%; }
     .purchaseOrderList { grid-template-columns: 1fr; }
 

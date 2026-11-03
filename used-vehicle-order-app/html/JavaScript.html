@@ -23,6 +23,7 @@
 
   var state = {
     bootstrap: null,
+    inventoryTotalCount: 0, // キーワード検索で絞り込む前の在庫の総台数（loadInventory参照）
     inventoryItems: [], // キーワード検索のみサーバー側で絞り込み済みの一覧（区分・状態等はrenderInventory側でさらに絞り込む）
     // 在庫リストの絞り込み条件（区分・掲載状況・年式・価格帯・走行距離・カラー）。
     // いずれも既存のスプレッドシート列から算出するだけで、新規列の追加はしていない
@@ -789,7 +790,7 @@
   function appRailItemHtml_(item) {
     var cls = 'navBtn appRail__item' + (item.tab === 'home' ? ' is-active' : '') + (item.adminOnly ? ' navBtn--adminOnly hidden' : '');
     return '<button type="button" class="' + cls + '" data-tab="' + item.tab + '">' +
-      '<svg><use href="#' + item.icon + '"></use></svg>' + escapeHtml(item.label) + '</button>';
+      '<svg><use href="#' + item.icon + '"></use></svg><span class="appRail__label">' + escapeHtml(item.label) + '</span></button>';
   }
   function renderAppRail_() {
     var html = APP_RAIL_ITEMS_.map(appRailItemHtml_).join('');
@@ -1087,6 +1088,10 @@
     return gasRun('api_listInventory', filters).then(function (groups) {
       var items = (groups && groups[0] && groups[0].items) || [];
       state.inventoryItems = items;
+      // キーワードで絞り込む前の在庫の総台数（api_listInventory、Api.gs参照）。
+      // 旧バージョンのApi.gsが返さない場合は従来どおり一覧の件数で代用する。
+      var total = groups && groups[0] && groups[0].totalCount;
+      state.inventoryTotalCount = typeof total === 'number' ? total : items.length;
       renderInventoryFilterSidebar_();
       renderInventory();
     }).catch(function (err) { showToast(err.message, true); });
@@ -2807,7 +2812,8 @@
     $('inventoryEmpty').classList.toggle('hidden', filtered.length > 0);
     // 該当台数は絞り込みサイドバー（条件検索）見出しの右にのみ表示する
     // （不具合修正: 以前はクイックナビ行の右側にも同じ情報を重複表示していた）。
-    $('inventoryFilterCount').textContent = all.length ? '該当 ' + filtered.length + '台 ／ 全' + all.length + '台' : '';
+    var totalCount = Math.max(state.inventoryTotalCount || 0, all.length);
+    $('inventoryFilterCount').textContent = totalCount ? '該当 ' + filtered.length + '台 ／ 全' + totalCount + '台' : '';
     var sorted = sortTableItems_(filtered, INVENTORY_SORT_COLUMNS, state.inventorySortState);
     container.innerHTML = tableListHtml_('tbl--inventory', inventoryTableHeaderHtml_(state.inventorySortState), sorted, vehicleTableRowHtml_);
     wireTableHeaderScrollSync_(container);
@@ -4339,10 +4345,17 @@
   // makeCarTrackingController_で共通のロード・描画・絞り込み・行クリック処理を
   // まとめて生成する（区分の値・要素IDだけが異なる）。
   function makeCarTrackingController_(opts) {
+    var totalCount = 0;
     function load() {
       var filters = { keyword: $(opts.keywordId).value };
       return gasRun(opts.apiFn, filters).then(function (items) {
         state[opts.stateKey] = items || [];
+        // 不具合修正: キーワード検索はサーバー側で絞り込むため、届いた一覧の
+        // 件数をそのまま「全○台」に使うと、キーワード入力中は「該当4台 ／
+        // 全4台」のように総台数までキーワードで絞られた値になり、該当0台の
+        // ときは件数表示自体が消えていた。キーワード未入力で取得した時点の
+        // 件数を総台数として覚えておき、それを「全○台」に使う。
+        if (!String(filters.keyword || '').trim()) totalCount = state[opts.stateKey].length;
         renderFilterSidebar();
         render();
       }).catch(function (err) { showToast(err.message, true); });
@@ -4378,7 +4391,8 @@
       var all = state[opts.stateKey] || [];
       var filtered = applyCarTrackingFilters_(all, state[opts.filtersKey]);
       $(opts.emptyId).classList.toggle('hidden', filtered.length > 0);
-      $(opts.countId).textContent = all.length ? '該当 ' + filtered.length + '台 ／ 全' + all.length + '台' : '';
+      var total = Math.max(totalCount, all.length);
+      $(opts.countId).textContent = total ? '該当 ' + filtered.length + '台 ／ 全' + total + '台' : '';
       var sorted = sortTableItems_(filtered, CARTRACK_SORT_COLUMNS, state[opts.sortStateKey]);
       // 不具合修正（現場からの要望「デモカー、サービス代車リストにも在庫リストと
       // 同じようにHOLD・受注機能をつけてほしい」）: 操作列（HOLD・受注ボタン）を
@@ -4681,9 +4695,15 @@
   };
   function themeNameHtml_(p) {
     var suffix = THEME_NAME_BREAK_SUFFIX[p.key];
-    if (!suffix || p.name.slice(-suffix.length) !== suffix) return escapeHtml(p.name);
+    // 不具合修正: 外側の.themePreset__nameはdisplay: flexのため、以前のように
+    // テキストと<span>を直接並べると、それぞれが別々のflexアイテムとして横に
+    // 並べられ、狭い前半（テキスト側）が単語の途中で折り返されていた
+    // （「ブリリア／ント　ブルー」）。全体を1つの<span>（.themePreset__nameText）
+    // で包んで1つのアイテムにし、<wbr>の位置（「ブリリアント／ブルー」）で
+    // 折り返されるようにする。
+    if (!suffix || p.name.slice(-suffix.length) !== suffix) return '<span class="themePreset__nameText">' + escapeHtml(p.name) + '</span>';
     var prefix = p.name.slice(0, p.name.length - suffix.length);
-    return escapeHtml(prefix) + '<wbr><span style="white-space:nowrap">' + escapeHtml(suffix) + '</span>';
+    return '<span class="themePreset__nameText">' + escapeHtml(prefix) + '<wbr>' + escapeHtml(suffix) + '</span>';
   }
 
   function renderThemePresets_() {

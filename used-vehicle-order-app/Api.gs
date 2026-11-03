@@ -84,8 +84,16 @@ function api_renameSpreadsheet(newTitle) {
  */
 function api_listInventory(filters, groupBy) {
   triggerHoldExpiryCheck();
-  var vehicles = searchInventory(listInventory(), filters);
-  return groupBy ? groupByField_(vehicles, groupBy) : [{ key: '', items: vehicles }];
+  var all = listInventory();
+  var vehicles = searchInventory(all, filters);
+  var groups = groupBy ? groupByField_(vehicles, groupBy) : [{ key: '', items: vehicles }];
+  // 不具合修正: キーワード検索はサーバー側で絞り込むため、クライアントには
+  // 絞り込み後の一覧しか届かず、絞り込みサイドバーの「該当○台 ／ 全○台」の
+  // 「全」までキーワードで絞り込んだ後の台数になっていた（例: 33台中4台が
+  // 該当すると「該当4台 ／ 全4台」）。また該当0台のときは件数表示自体が
+  // 消えていた。絞り込み前の在庫の総台数を先頭グループに添えて返す。
+  if (groups.length) groups[0].totalCount = all.length;
+  return groups;
 }
 
 /**
