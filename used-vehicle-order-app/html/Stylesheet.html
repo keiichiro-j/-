@@ -1072,6 +1072,34 @@
     background: var(--primary-bg);
     color: var(--primary-text);
   }
+  /* 改善（現場からの要望「左のコントロールパネルの背景色をテーマによって変更
+     したい。文字とのコントラスト・ヘッダーの濃さを考慮」、A案）: 縦タブ
+     メニューの背景を、選択中のテーマのメイン色（--primary）を白に14%混ぜた
+     淡い色にする。テーマごとに色を手で決めず--primaryから自動で作るため、
+     ランダムを含む全テーマ・今後追加するテーマにもそのまま対応する。
+       ・濃さは「ヘッダー（--topbar-bg、最も濃い）＞左メニュー（14%）＞一覧の
+         背景（--background、8%）」の順になり、絞り込みバー（--surface、
+         今回は変更しない）を挟んでも段差が自然につながる。
+       ・文字は通常の本文色（--on-surface）にし、全11テーマでコントラスト比
+         11.5以上を確保。選択中の項目は白地＋テーマ色の文字（同4.6以上）＋
+         左端のテーマ色の線で示す。
+       ・背景が項目の高さで途切れないよう、メニュー自体を画面の下端まで
+         伸ばす（stickyで固定されたまま）。 */
+  @media (min-width: 901px) {
+    .appRail {
+      height: calc(100vh - var(--topbar-h) - var(--filterbar-h));
+      padding: 10px 8px;
+      background: color-mix(in srgb, var(--primary) 14%, #ffffff);
+      border-right: 1px solid var(--outline);
+    }
+    .appRail__item { color: var(--on-surface); }
+    .appRail__item:hover { background: color-mix(in srgb, var(--primary) 8%, #ffffff); color: var(--on-surface); }
+    .appRail__item.is-active {
+      background: #ffffff;
+      color: var(--primary-text);
+      box-shadow: inset 3px 0 0 var(--primary), 0 1px 2px color-mix(in srgb, var(--shadow-color) 10%, transparent);
+    }
+  }
   /* 不具合修正（現場からの要望「見切れている箇所がある」）: 左の縦タブメニュー
      （.appRail、172px）＋一覧の左右余白（24px×2）を差し引くと、一覧表の
      最小幅（在庫リストで約990px、.tbl--inventory参照）に届かない画面幅
@@ -1091,7 +1119,7 @@
   @media (min-width: 1100px) and (max-width: 1279px) {
     .listBody { grid-template-columns: 72px minmax(0, 1fr); }
     .listBody__main { padding-left: 16px; padding-right: 16px; }
-    .appRail { padding: 10px 6px 10px 0; }
+    .appRail { padding: 10px 4px; }
     .appRail__item {
       flex-direction: column;
       gap: 4px;
