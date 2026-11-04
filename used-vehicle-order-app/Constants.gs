@@ -125,7 +125,11 @@ var MODEL_PHOTO_URL_MAX_LENGTH = 1500;
 // ホーム画面の車両画像タイルは最大でも480px幅程度のため、高解像度ディスプレイ
 // （2倍相当）でも十分な解像度になるよう余裕を持たせている
 // （normalizeDriveImageUrl_、SettingsService.gs参照）。
-var MODEL_PHOTO_DISPLAY_WIDTH = 1000;
+// 改善（現場からの要望「アプリ読み込み時の写真の読み込みを速くしてほしい」）:
+// 1000→640。ホームのカードの写真枠は実測で最大でも幅約220px×高さ約170px
+// （画面幅1920px時）のため、高精細画面（2倍）・object-fit: coverでの切り抜きを
+// 考慮しても640pxで十分足りる。転送量はおよそ4割になる。
+var MODEL_PHOTO_DISPLAY_WIDTH = 640;
 
 // 車両画像設定全体（JSON化した状態）の最大文字数。最大MODEL_PHOTOS_MAX件分の
 // URLをまとめて1つのScript Propertyへ保存するため、1件あたりの上限だけでは

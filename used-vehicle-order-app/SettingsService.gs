@@ -178,6 +178,11 @@ function setCurrentUserThemeKey_(themeKey) {
 function normalizeDriveImageUrl_(value, displayWidth) {
   value = String(value || '').trim();
   if (!value) return '';
+  // 既にこの関数で変換済みのURL（lh3.googleusercontent.com/d/{ID}=w{幅}）も、
+  // 表示幅の設定（MODEL_PHOTO_DISPLAY_WIDTH等）を変えたときに保存し直さなくても
+  // 新しい幅で配信されるよう、ファイルIDを取り出して作り直す。
+  var lh3 = value.match(/^https:\/\/lh3\.googleusercontent\.com\/d\/([a-zA-Z0-9_-]+)(=[^?#\/]*)?$/);
+  if (lh3) return 'https://lh3.googleusercontent.com/d/' + lh3[1] + '=w' + displayWidth;
   var match = value.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || value.match(/[?&]id=([a-zA-Z0-9_-]+)/);
   var fileId = match ? match[1] : (/^[a-zA-Z0-9_-]+$/.test(value) ? value : '');
   if (!fileId) return value;
@@ -697,4 +702,33 @@ function applySystemMasterGuard_(incoming, current, isAdmin) {
     loadingImageUrl: current.loadingImageUrl,
     appTitle: current.appTitle
   };
+}
+
+/**
+ * 改善（現場からの要望「アプリ読み込み時の写真の読み込みを速くしてほしい」）:
+ * ホームの車両画像は、これまでアプリ起動後のサーバー通信（api_getBootstrapData、
+ * 数秒かかることがある）が終わって画面を描くまで読み込みが始まらなかった。
+ * Webアプリのページ自体を返す時点（doGet→Index.htmlのテンプレート）で、
+ * <link rel="preload" as="image">をHTMLの先頭に埋め込み、起動処理と並行して
+ * ブラウザに写真を先読みさせる。画像配信ドメインへの接続も先に確立しておく
+ * （preconnect）。画面に最初に並ぶ分（先頭HOME_PHOTO_PRELOAD_MAX件）だけに絞り、
+ * 他の通信を圧迫しないようにする。設定の読み出しに失敗しても画面表示は
+ * 妨げない（空文字を返す）。
+ */
+var HOME_PHOTO_PRELOAD_MAX = 12;
+function homePhotoPreloadTags_() {
+  try {
+    var urls = getModelPhotos_()
+      .map(function (p) { return p.photoUrl; })
+      .filter(function (u) { return /^https:\/\//.test(u || ''); })
+      .slice(0, HOME_PHOTO_PRELOAD_MAX);
+    if (!urls.length) return '';
+    var esc = function (str) {
+      return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    };
+    return '<link rel="preconnect" href="https://lh3.googleusercontent.com">' +
+      urls.map(function (u) { return '<link rel="preload" as="image" href="' + esc(u) + '">'; }).join('');
+  } catch (e) {
+    return '';
+  }
 }

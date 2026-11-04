@@ -552,6 +552,15 @@ test('Googleドライブの共有リンクは直接画像URLに変換される',
     'https://lh3.googleusercontent.com/d/1AbCdEfGhIjKlMnOpQrStUvWxYz1234567=w' + sandbox.MODEL_PHOTO_DISPLAY_WIDTH
   );
 });
+test('変換済みのURL（以前の表示幅=w1000）も、現在の表示幅で作り直される', () => {
+  const old = 'https://lh3.googleusercontent.com/d/1AbCdEfGhIjKlMnOpQrStUvWxYz1234567=w1000';
+  assert.strictEqual(
+    sandbox.normalizeDriveImageUrl_(old, sandbox.MODEL_PHOTO_DISPLAY_WIDTH),
+    'https://lh3.googleusercontent.com/d/1AbCdEfGhIjKlMnOpQrStUvWxYz1234567=w' + sandbox.MODEL_PHOTO_DISPLAY_WIDTH
+  );
+  // ドライブ以外の外部URLはそのまま
+  assert.strictEqual(sandbox.normalizeDriveImageUrl_('https://example.com/c.jpg', 640), 'https://example.com/c.jpg');
+});
 test('gradePrefix・gradeMarkerはトリムされ、gradePrefixが空ならgradeMarkerも空にそろえられる', () => {
   const list = sandbox.normalizeModelPhotos_([
     { model: 'Cクラス', photoUrl: 'https://example.com/c.jpg', gradePrefix: ' C ', gradeMarker: ' T ' },

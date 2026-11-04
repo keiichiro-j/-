@@ -871,11 +871,16 @@
     overflow: hidden;
     background: var(--surface);
     box-shadow: var(--shadow);
+    /* 改善（現場からの要望「モデルごとのカードの周りに縁線を設けてほしい。
+       テーマに合わせて連動」）: テーマのメイン色を混ぜた線にし、テーマを
+       切り替えると縁線の色も変わる。マウスを乗せたカードはテーマ色そのものの
+       線にして、押せることを示す。 */
+    border: 1px solid color-mix(in srgb, var(--primary) 32%, #d8e1e8);
     min-height: 140px;
     transition: box-shadow .18s var(--ease), transform .18s var(--ease);
   }
   .homeCard--clickable { cursor: pointer; }
-  .homeCard--clickable:hover { box-shadow: var(--shadow-elevated); transform: translateY(-2px); }
+  .homeCard--clickable:hover { box-shadow: var(--shadow-elevated); transform: translateY(-2px); border-color: var(--primary); }
   .homeCard--clickable:active { transform: translateY(-2px) scale(.99); }
   /* 不具合修正: 写真の幅を固定px（150px/220px）にしていたところ、タブレット幅
      （481px〜900px、2列グリッド）ではカード自体の横幅がデスクトップ幅の3列
@@ -918,6 +923,11 @@
     color: var(--on-surface-variant);
   }
   .homeCard__photoMissingIcon { width: 22px; height: 22px; opacity: .55; }
+  /* 写真の読み込みに失敗したとき（homeModelCardHtml_のonerror）だけ、<img>を隠して
+     「写真を読み込めません」の案内を出す。読み込めた場合は案内を出さない。 */
+  .homeCard__photo img.is-error { display: none; }
+  .homeCard__photoMissing--error { display: none; }
+  .homeCard__photo img.is-error ~ .homeCard__photoMissing--error { display: flex; }
   .homeCard__photoMissingLabel { font-size: 10.5px; font-weight: 600; }
   /* 不具合修正（現場からの要望「モデル名と型をもっと左上にして背景（文字の
      背景）をなくして下さい」）: 地色付きのラベル（ピル型）をやめ、写真の

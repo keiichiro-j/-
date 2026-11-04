@@ -28,6 +28,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="<?= currentAppTitle_() ?>">
   <link rel="apple-touch-icon" href="<?!= appleTouchIconDataUri_() ?>">
+  <!-- ホームの車両画像の先読み（homePhotoPreloadTags_、SettingsService.gs参照）。
+       起動時のサーバー通信と並行して写真を読み込み始める。 -->
+  <?!= homePhotoPreloadTags_() ?>
   <?!= include('html/Stylesheet'); ?>
 </head>
 <body>
