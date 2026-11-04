@@ -711,6 +711,7 @@
      常に全チップを表示する。 */
   #ordersMonthNav {
     flex-wrap: wrap;
+    align-items: center;
     overflow-x: visible;
     /* 折り返し表示のため横スクロールの縁フェード（.scrollerのmask-image）は
        不要。mask-imageは自分の枠の外に描く::before（固定中の帯、下記参照）まで
@@ -733,7 +734,9 @@
     background: var(--background);
   }
   #view-orders .tblHeadWrap { top: calc(var(--topbar-h) + var(--ordersMonthNav-h)); }
-  #view-orders [data-month-group] { scroll-margin-top: calc(var(--topbar-h) + var(--ordersMonthNav-h) + 8px); }
+  /* 登録月ボタンの先頭に置く小さな見出し（ordersMonthChipsHtml_参照）。絞り込みバーの
+     「受注月」（受注確定日時の月）と区別できるよう、何の月かを明示する。 */
+  .ordersMonthNav__label { font-size: 12px; font-weight: 700; color: var(--on-surface-variant); margin-right: 2px; }
   @media (min-width: 901px) {
     #ordersMonthNav:not(:empty) {
       top: calc(var(--topbar-h) + var(--filterbar-h) + 24px);
@@ -753,7 +756,6 @@
       pointer-events: none;
     }
     #view-orders .tblHeadWrap { top: calc(var(--topbar-h) + var(--filterbar-h) + 24px + var(--ordersMonthNav-h)); }
-    #view-orders [data-month-group] { scroll-margin-top: calc(var(--topbar-h) + var(--filterbar-h) + 24px + var(--ordersMonthNav-h) + 8px); }
   }
 
   /* お知らせ（#homeAnnouncement）。管理者が設定タブから登録した案内文を、

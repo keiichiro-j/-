@@ -51,7 +51,7 @@
     // currentMonth（受注月）も現展示拠点と同じ理由でクライアント側のみの絞り込み
     // （拠点マスタの無いデータ駆動の選択肢のため、サーバー側の検索条件には含めない。
     // 現場からの要望「受注月を絞り込み条件に追加」）。
-    ordersFilters: { currentDisplayLocation: [], currentMonth: '' },
+    ordersFilters: { currentDisplayLocation: [], currentMonth: '', registeredMonth: '' },
     wholesaleOrdersFilters: { currentDisplayLocation: [] },
     // マイページの現展示拠点・受注月も同じ理由でクライアント側のみの絞り込み
     // （現場からの要望「マイページの検索項目（絞り込み）も受注リストと同様に
@@ -2171,13 +2171,13 @@
   // 受注リスト・マイページ「受注した車両」共通の列構成。
   var ORDER_SORT_COLUMNS = [null].concat(VEHICLE_SORT_COLUMNS_, [
     { key: 'customer', label: '顧客名', type: 'string', get: function (v) { return v.customer || ''; } },
-    { key: 'registeredMonth', label: '登録月', type: 'string', get: function (v) { return v.registeredMonth || ''; } },
+    { key: 'registeredMonth', label: '登録月', type: 'string', get: function (v) { return v.registeredMonth ? registeredMonthKey_(v.registeredMonth) : ''; } },
     null
   ]);
   // 業販受注リストの列構成（顧客名の代わりに販売先）。
   var WHOLESALE_SORT_COLUMNS = [null].concat(VEHICLE_SORT_COLUMNS_, [
     { key: 'salesStore', label: '販売先', type: 'string', get: function (v) { return v.salesStore || ''; } },
-    { key: 'registeredMonth', label: '登録月', type: 'string', get: function (v) { return v.registeredMonth || ''; } },
+    { key: 'registeredMonth', label: '登録月', type: 'string', get: function (v) { return v.registeredMonth ? registeredMonthKey_(v.registeredMonth) : ''; } },
     null
   ]);
 
@@ -3828,7 +3828,8 @@
     var hasStaff = !!$('ordersStaffFilter').value;
     var hasMonth = !!state.ordersFilters.currentMonth;
     var hasDisplayLocation = state.ordersFilters.currentDisplayLocation.length > 0;
-    $('btnOrdersFilterClear').classList.toggle('hidden', !(hasLocation || hasStaff || hasMonth || hasDisplayLocation));
+    var hasRegisteredMonth = !!state.ordersFilters.registeredMonth;
+    $('btnOrdersFilterClear').classList.toggle('hidden', !(hasLocation || hasStaff || hasMonth || hasDisplayLocation || hasRegisteredMonth));
   }
   /**
    * 「受注月」フィルタの選択肢を、取得済みの受注（現展示拠点自体では絞り込んで
@@ -3909,7 +3910,7 @@
       '<div class="tblCell tblCell--strong">' + escapeHtml(o.currentDisplayLocation || '-') + '</div>' +
       '<div class="tblCell">' + escapeHtml(formatNumberUnit_(o.salePrice, ' 円') || '-') + '</div>' +
       '<div class="tblCell tblCell--strong" title="' + escapeHtml(o.customer || '-') + '">' + escapeHtml(o.customer || '-') + '</div>' +
-      '<div class="tblCell">' + escapeHtml(o.registeredMonth || '-') + '</div>' +
+      '<div class="tblCell">' + escapeHtml(registeredMonthDisplay_(o.registeredMonth)) + '</div>' +
       '<div class="tblCell tblCell--chev">›</div>' +
       '</div>';
   }
@@ -3957,7 +3958,7 @@
       '<div class="card__detailCol card__detailCol--hold">' +
       '<dl class="card__metaGrid">' +
       metaRow_('リード番号', o.leadNumber) +
-      metaRow_('登録月', o.registeredMonth) +
+      metaRow_('登録月', registeredMonthDisplay_(o.registeredMonth)) +
       metaRow_('下取車の有無', o.tradeIn) +
       metaRow_('OSS登録の可否', o.oss) +
       metaRow_('保険加入の有無', o.insurance) +
@@ -4019,19 +4020,44 @@
    * られる（現場からの要望「受注リスト内上部に受注台数と月を表示する
    * （対象月までスクロール）ボタンを作成してほしい」）。
    */
-  function ordersMonthChipsHtml_(items) {
+  /**
+   * 現場からの要望「月別ボタン（一覧の上）を登録月に変更してほしい」: 一覧の上の
+   * 月別件数ボタンは、受注確定日時から算出する受注月（絞り込みバーの「受注月」
+   * と重複していた）ではなく、Hold・受注確定時に入力する「登録月」
+   * （registeredMonth）ごとの台数を表示し、タップするとその登録月だけに
+   * 絞り込む（もう一度タップで解除）。登録月が空の受注は「未設定」にまとめる。
+   * スプレッドシート側で「2026-08」が日付として扱われ「2026-08-01」等になって
+   * いる場合や「2026/8」形式も、同じ「2026-08」として数える。
+   */
+  var ORDERS_REGISTERED_MONTH_UNSET_ = '未設定';
+  function registeredMonthKey_(value) {
+    var str = String(value == null ? '' : value).trim();
+    if (!str) return ORDERS_REGISTERED_MONTH_UNSET_;
+    var m = str.match(/^(\d{4})[-\/年.](\d{1,2})/);
+    return m ? m[1] + '-' + ('0' + m[2]).slice(-2) : str;
+  }
+  // 一覧・詳細の登録月の表示も、登録月ボタンと同じ「2026-08」形式に揃える
+  // （スプレッドシートで日付扱いになった「2026-08-01」や「2026/8」等の表記ゆれを
+  // 表示上で吸収する。空欄は従来どおり「-」）。
+  function registeredMonthDisplay_(value) {
+    var key = registeredMonthKey_(value);
+    return key === ORDERS_REGISTERED_MONTH_UNSET_ ? '-' : key;
+  }
+  function ordersMonthChipsHtml_(items, selected) {
     var counts = {};
     items.forEach(function (o) {
-      var m = o.orderedMonth || '未設定';
+      var m = registeredMonthKey_(o.registeredMonth);
       counts[m] = (counts[m] || 0) + 1;
     });
     var months = Object.keys(counts).sort(function (a, b) {
-      if (a === '未設定') return 1;
-      if (b === '未設定') return -1;
+      if (a === ORDERS_REGISTERED_MONTH_UNSET_) return 1;
+      if (b === ORDERS_REGISTERED_MONTH_UNSET_) return -1;
       return a < b ? -1 : a > b ? 1 : 0;
     });
-    return months.map(function (m) {
-      return '<button type="button" class="homeTypeNav__item" data-month-chip="' + escapeHtml(m) + '">' +
+    var label = months.length ? '<span class="ordersMonthNav__label">登録月</span>' : '';
+    return label + months.map(function (m) {
+      var active = m === selected;
+      return '<button type="button" class="homeTypeNav__item' + (active ? ' is-active' : '') + '" data-month-chip="' + escapeHtml(m) + '" aria-pressed="' + active + '">' +
         escapeHtml(m) + '<span class="homeTypeNav__item__count">' + counts[m] + '台</span></button>';
     }).join('');
   }
@@ -4046,23 +4072,36 @@
         var items = filterByCheckedValues_(g.items, 'currentDisplayLocation', locationFilter);
         if (monthFilter) items = items.filter(function (o) { return o.orderedMonth === monthFilter; });
         return { key: g.key, items: items };
+      });
+    // 登録月ボタンの台数は、登録月自体で絞り込む前の一覧から数える（選んでいない
+    // 月のボタンも台数付きで残し、別の月へ切り替えられるようにするため）。
+    var chipItems = groups.reduce(function (acc, g) { return acc.concat(g.items); }, []);
+    var registeredMonth = state.ordersFilters.registeredMonth;
+    if (registeredMonth && !chipItems.some(function (o) { return registeredMonthKey_(o.registeredMonth) === registeredMonth; })) {
+      // 他の絞り込みの変更で選択中の登録月が0台になった場合は、選択を解除する。
+      registeredMonth = state.ordersFilters.registeredMonth = '';
+    }
+    groups = groups
+      .map(function (g) {
+        var items = registeredMonth
+          ? g.items.filter(function (o) { return registeredMonthKey_(o.registeredMonth) === registeredMonth; })
+          : g.items;
+        return { key: g.key, items: items };
       })
       .filter(function (g) { return !g.key || g.items.length > 0; });
     var totalItems = groups.reduce(function (n, g) { return n + g.items.length; }, 0);
     $('ordersEmpty').classList.toggle('hidden', totalItems > 0);
     $('ordersTotalCount').textContent = '該当 ' + totalItems + ' 台';
-    var isMonthGrouped = checkedRadioValue_('ordersGroupByFilter') === 'orderedMonth';
     container.innerHTML = groups.map(function (g) {
       var heading = g.key
         ? '<h3 class="group__title">' + escapeHtml(g.key) + '<span class="group__count">' + g.items.length + '台</span></h3>'
         : '';
-      var monthAttr = isMonthGrouped && g.key ? ' data-month-group="' + escapeHtml(g.key) + '"' : '';
       // 列見出しタップでのソートはグループ内の並びにだけ反映する（グループ分け
       // 自体は維持する。現場からの要望「それぞれの項目にソート機能を設けて」）。
       var sortedItems = sortTableItems_(g.items, ORDER_SORT_COLUMNS, state.ordersSortState);
-      return '<div class="group"' + monthAttr + '>' + heading + tableListHtml_('tbl--order', orderTableHeaderHtml_(state.ordersSortState), sortedItems, orderTableRowHtml_) + '</div>';
+      return '<div class="group">' + heading + tableListHtml_('tbl--order', orderTableHeaderHtml_(state.ordersSortState), sortedItems, orderTableRowHtml_) + '</div>';
     }).join('');
-    $('ordersMonthNav').innerHTML = ordersMonthChipsHtml_(groups.reduce(function (acc, g) { return acc.concat(g.items); }, []));
+    $('ordersMonthNav').innerHTML = ordersMonthChipsHtml_(chipItems, registeredMonth);
     wireTableHeaderScrollSync_(container);
     syncFilterRowsAndSummary_('ordersFilterRows', 'ordersActiveBar', 'btnOrdersFilterClear');
   }
@@ -4079,25 +4118,16 @@
   });
   wireSortableTableHeader_('ordersGroups', state.ordersSortState, renderOrders);
 
-  // 月別件数ナビ（#ordersMonthNav）のチップタップ: グループ化が「月ごと」で
-  // なければ自動で切り替えてから、その月のグループまで滑らかにスクロールする
-  // （現場からの要望「受注台数と月を表示する（対象月までスクロール）ボタンを
-  // 作成してほしい」）。
-  function scrollToOrdersMonthGroup_(month) {
-    var target = $('ordersGroups').querySelector('[data-month-group="' + CSS.escape(month) + '"]');
-    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
+  // 登録月ボタン（#ordersMonthNav）のタップ: その登録月だけに絞り込む。選択中の
+  // ボタンをもう一度タップすると解除する（ordersMonthChipsHtml_参照）。
+  // 取得済みの一覧をクライアント側だけで絞り込むため、再描画のみ行う。
   on('ordersMonthNav', 'click', function (e) {
     var chip = e.target.closest('[data-month-chip]');
     if (!chip) return;
     var month = chip.dataset.monthChip;
-    if (checkedRadioValue_('ordersGroupByFilter') === 'orderedMonth') {
-      scrollToOrdersMonthGroup_(month);
-      return;
-    }
-    var monthRadio = document.querySelector('#ordersGroupByFilter input[value="orderedMonth"]');
-    if (monthRadio) monthRadio.checked = true;
-    loadOrders().then(function () { scrollToOrdersMonthGroup_(month); });
+    state.ordersFilters.registeredMonth = state.ordersFilters.registeredMonth === month ? '' : month;
+    renderOrders();
+    syncOrdersFilterClearVisibility_();
   });
 
   // ===== 業販受注リスト =====
@@ -4168,7 +4198,7 @@
       '<div class="tblCell tblCell--strong">' + escapeHtml(o.currentDisplayLocation || '-') + '</div>' +
       '<div class="tblCell">' + escapeHtml(formatNumberUnit_(o.salePrice, ' 円') || '-') + '</div>' +
       '<div class="tblCell tblCell--strong" title="' + escapeHtml(o.salesStore || '-') + '">' + escapeHtml(o.salesStore || '-') + '</div>' +
-      '<div class="tblCell">' + escapeHtml(o.registeredMonth || '-') + '</div>' +
+      '<div class="tblCell">' + escapeHtml(registeredMonthDisplay_(o.registeredMonth)) + '</div>' +
       '<div class="tblCell tblCell--chev">›</div>' +
       '</div>';
   }
@@ -4214,7 +4244,7 @@
       '</div>' +
       '<div class="card__detailCol card__detailCol--hold">' +
       '<dl class="card__metaGrid">' +
-      metaRow_('登録月', o.registeredMonth) +
+      metaRow_('登録月', registeredMonthDisplay_(o.registeredMonth)) +
       metaRow_('受注確定日時', formatDateTime(o.orderedAt)) +
       '</dl>' +
       (isSystemAdmin_()
@@ -4355,6 +4385,7 @@
     $('ordersMonthFilter').value = '';
     syncSelectFace_('ordersMonthFilter');
     state.ordersFilters.currentMonth = '';
+    state.ordersFilters.registeredMonth = '';
     var defaultGroupBy = document.querySelector('#ordersGroupByFilter input[value=""]');
     if (defaultGroupBy) defaultGroupBy.checked = true;
     syncRadioDropdownButton_('ordersGroupByFilter', 'グループ化');
