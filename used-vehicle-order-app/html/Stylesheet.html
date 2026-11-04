@@ -3671,4 +3671,41 @@
       box-shadow: 0 -8px 14px -10px color-mix(in srgb, var(--shadow-color) 30%, transparent);
     }
   }
+
+  /* ================================================================
+     ホームのカード: 写真と情報欄のバランス調整（並び・機能は従来どおり）
+     ================================================================ */
+  .homeCard { min-height: 150px; }
+  /* 写真は少し広く（42%→46%）、枠いっぱいに切り抜いて表示する。 */
+  .homeCard__photo { flex-basis: 46%; aspect-ratio: auto; min-height: 150px; }
+  /* 情報欄: 写真との境目のグラデーションをやめて白で統一し、上から順に
+     「在庫台数 → 価格 → グレード」を詰めて並べる（縦中央寄せで生じていた
+     上下の空白をなくす）。 */
+  .homeCard__body { background: var(--surface); padding: 14px 16px 12px; justify-content: flex-start; gap: 2px; }
+  /* 在庫台数は一覧・車両詳細と同じ「点＋文字」に。 */
+  .homeCard__stock { background: transparent; padding: 0; margin: 0 0 2px; color: var(--primary-text); font-size: 12px; display: inline-flex; align-items: center; gap: 6px; }
+  .homeCard__stock::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .homeCard__stock.badge--stock--zero { background: transparent; color: var(--on-surface-variant); }
+  .homeCard__price { font-size: 17px; font-weight: 800; color: var(--primary-dark); font-variant-numeric: tabular-nums; }
+  /* グレード: 2列で名前が「C200 A…」と切れていたため、1列の細線区切りにして
+     全文を表示する。 */
+  .homeCard__gradeList { display: flex; flex-direction: column; gap: 0; margin-top: 8px; border-top: 1px solid var(--outline); }
+  .homeCard__gradeRow { padding: 6px 2px; border-bottom: 1px solid var(--outline); gap: 8px; }
+  .homeCard__gradeRow:hover { background: var(--primary-bg); text-decoration: none; }
+  /* 長いグレード名は省略せず2行まで折り返す。 */
+  .homeCard__gradeRowName { font-size: 12.5px; white-space: normal; line-height: 1.35; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
+  /* PC幅: 情報欄が狭くなりすぎないよう、カード1枚の最小幅を360pxにして
+     列数を画面幅に合わせる（1440pxで3列、1280pxで2列、1920pxで4列）。 */
+  @media (min-width: 901px) {
+    .homeGrid { grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); }
+  }
+  .homeCard__gradeRowCount { font-size: 12px; color: var(--primary-dark); font-variant-numeric: tabular-nums; }
+  .homeCard__tapHint { margin-top: 8px; }
+  /* スマホ幅（480px以下・1列）では情報欄の幅を優先し、写真を38%にする。 */
+  @media (max-width: 480px) {
+    .homeCard__photo { flex-basis: 38%; }
+    .homeCard__body { padding: 12px 12px 10px; }
+  }
+  /* 写真左上のモデル名は少し大きく。 */
+  .homeCard__model { font-size: 13.5px; }
 </style>
