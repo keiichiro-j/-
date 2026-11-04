@@ -3642,6 +3642,14 @@
        伸び縮みさせる（Hold無しの車両で下に空白が残る／2nd Hold有りで中身が
        収まらない、の両方を解消）。画面の92%を超える場合だけ中でスクロールする。 */
     .modal__panel--vehicle:has(.vd) { height: auto; max-height: min(92vh, 940px); }
+    /* 現場からの要望「Hold情報（2nd Holdの有無に関わらず）を左側の車両情報と同じ
+       高さにしてほしい」: 左右の列の高さをそろえ（高い方に合わせる）、Hold状況の
+       枠を下端まで伸ばす。ボタンは枠の一番下に置く。左列はオプション・備考の欄を
+       伸ばして、右列が高い場合も下端をそろえる。 */
+    .vd__body { align-items: stretch; }
+    .vd__hold .card__actions { margin-top: auto; }
+    .vd__spec { display: flex; flex-direction: column; }
+    .vd__notes { flex: 1; }
   }
   /* スマホ・タブレット幅: 1列に積み、ボタンは画面下に固定する */
   @media (max-width: 900px) {
