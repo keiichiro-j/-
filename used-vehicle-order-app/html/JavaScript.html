@@ -962,20 +962,26 @@
   function positionMultiDropdownPanel_(btn, panel) {
     if (!window.matchMedia('(min-width: 901px)').matches) {
       panel.style.position = '';
+      panel.style.maxHeight = '';
       panel.style.top = '';
       panel.style.left = '';
       panel.style.right = '';
       return;
     }
+    // 改善（PCのUI洗い出し8）: 以前はボタンの右横に開いていたため、絞り込みバーの
+    // 右寄りの項目では一覧の上に横から大きく重なっていた。一般的なドロップダウンと
+    // 同じく、ボタンの真下に左端をそろえて開き、画面右端に収まらない場合はボタンの
+    // 右端にそろえる。高さは画面下端までに収める（はみ出す分は中でスクロール）。
     var r = btn.getBoundingClientRect();
     panel.style.position = 'fixed';
-    panel.style.top = Math.max(8, r.top - 8) + 'px';
-    panel.style.left = (r.right + 8) + 'px';
+    panel.style.top = (r.bottom + 6) + 'px';
+    panel.style.left = r.left + 'px';
     panel.style.right = 'auto';
+    panel.style.maxHeight = Math.max(160, Math.min(320, window.innerHeight - r.bottom - 20)) + 'px';
     var panelRect = panel.getBoundingClientRect();
     if (panelRect.right > window.innerWidth - 8) {
       panel.style.left = 'auto';
-      panel.style.right = (window.innerWidth - r.left + 8) + 'px';
+      panel.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
     }
   }
   // .selectFaceで包んだネイティブselectは、どの項目のどのidであっても
@@ -2547,8 +2553,11 @@
   function holdAreaHtml_(v) {
     var isHold = v.holdStatus === 'hold';
     if (!isHold) {
+      // 改善（PCのUI洗い出し6）: 「現在Hold登録なし」だけが右列の中央に浮いて
+      // いたため、上詰めの案内枠にし、HOLDで何ができるかを添える。
       return '<div class="card__holdArea card__holdArea--empty card__holdArea--full">' +
         '<span class="card__holdArea__placeholder">現在Hold登録なし</span>' +
+        '<span class="card__holdArea__hint">「HOLD」でこの車両を72時間確保できます（2nd Holdまで登録可）。</span>' +
         '</div>';
     }
     var blocksHtml = holdInfoBlockHtml_('1ST HOLD', v, 'hold', true);
@@ -2794,6 +2803,14 @@
    * full=false（表示形式「カード」のコンパクト版）ではリード番号等の詳細を省略し、
    * full=true（詳細モーダル・vehicleDetailHtml_）では折りたたまず常に表示する。
    */
+  // 改善（PCのUI洗い出し6）: Holdの契約内容は「リード番号 L-1 / 登録月 … / 下取車 …」と
+  // 1行に「/」で詰めていたため読みにくく、詳細モーダルの右列に大きな空白が
+  // 残っていた。見出しと値を2列の表に並べる。
+  function holdDetailGridHtml_(pairs) {
+    return '<dl class="card__holdInfo__grid">' + pairs.map(function (p) {
+      return '<div><dt>' + escapeHtml(p[0]) + '</dt><dd>' + escapeHtml(p[1] || '-') + '</dd></div>';
+    }).join('') + '</dl>';
+  }
   function holdInfoBlockHtml_(label, v, prefix, full) {
     var holdType = v[prefix + 'HoldType'] || 'normal';
     var isSpecial = holdType !== 'normal';
@@ -2814,20 +2831,12 @@
     var detailsHtml = '';
     if (holdType === 'wholesale') {
       summaryHtml = '<div class="card__holdInfo__row"><b>業販HOLD</b>（担当者 ' + escapeHtml(staff || '-') + '）</div>';
-      if (full) {
-        detailsHtml = '<div class="card__holdInfo__detailsBody card__holdInfo__detailsBody--flat">' +
-          '販売先 ' + escapeHtml(salesStore || '-') +
-          '</div>';
-      }
+      if (full) detailsHtml = holdDetailGridHtml_([['販売先', salesStore]]);
     } else {
       summaryHtml = '<div class="card__holdInfo__row"><b>' + escapeHtml(customer || '-') + '</b>（担当者 ' + escapeHtml(staff || '-') + '・' + escapeHtml(salesLocation || '-') + '）</div>';
       detailsHtml = full
-        ? '<div class="card__holdInfo__detailsBody card__holdInfo__detailsBody--flat">' +
-          'リード番号 ' + escapeHtml(leadNumber || '-') +
-          ' / 登録月 ' + escapeHtml(registeredMonth || '-') +
-          ' / 下取車 ' + escapeHtml(tradeIn || '-') + ' / OSS ' + escapeHtml(oss || '-') +
-          ' / 保険 ' + escapeHtml(insurance || '-') + ' / 支払方法 ' + escapeHtml(paymentMethod || '-') +
-          '</div>'
+        ? holdDetailGridHtml_([['リード番号', leadNumber], ['登録月', registeredMonth], ['下取車', tradeIn],
+            ['OSS', oss], ['保険', insurance], ['支払方法', paymentMethod]])
         : '';
     }
 
@@ -2841,7 +2850,7 @@
       '<button class="card__holdInfo__cancel" type="button" data-cancel-hold="' + escapeHtml(v.commission) + '" data-cancel-hold-rank="' + rank + '">解除</button>' +
       '</div>' +
       summaryHtml +
-      holdTimerHtml_(createdAt, expiresAt) +
+      holdTimerHtml_(createdAt, expiresAt, full ? 'holdTimer--lg' : '') +
       detailsHtml +
       '</div>';
   }

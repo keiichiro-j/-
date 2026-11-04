@@ -3459,4 +3459,64 @@
       box-shadow: 0 -8px 14px -10px color-mix(in srgb, var(--shadow-color) 30%, transparent);
     }
   }
+
+  /* ================================================================
+     PCのUI洗い出し（1・4・5・6・7・8）への対応
+     ================================================================ */
+  /* 1. ホーム: 1600px以上の広い画面では4列にし、カードが間延びしないようにする。 */
+  @media (min-width: 1600px) {
+    .homeGrid { grid-template-columns: repeat(4, 1fr); }
+  }
+
+  /* 4. 設定の保存欄（画面下に固定）は、PC幅では右下に小さくまとめ、設定の
+     内容を覆わないようにする。 */
+  @media (min-width: 901px) {
+    #view-settings .settingsActions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 14px;
+      flex-wrap: wrap;
+      width: fit-content;
+      max-width: 100%;
+      margin-left: auto;
+      padding: 10px 14px;
+    }
+    #view-settings .settingsActions .btn--block { width: auto; min-width: 180px; }
+    #view-settings .settingsActions__dirty { margin: 0; }
+    #view-settings .settingsActions #settingsError:empty { display: none; }
+  }
+
+  /* 5. 左の縦タブメニュー（一番下にログイン情報を表示）がある画面幅では、
+     ヘッダー右上の同じログイン情報は表示しない（二重表示の解消）。 */
+  @media (min-width: 1100px) {
+    .topbar__user { visibility: hidden; }
+  }
+
+  /* 6. 車両詳細のHold欄: 契約内容を見出し・値の2列の表にし、残り時間を大きく
+     表示する。Hold登録なしの案内は上詰めの枠にする。 */
+  .card__holdInfo__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; margin: 6px 0 0; }
+  .card__holdInfo__grid div { min-width: 0; }
+  .card__holdInfo__grid dt { font-size: 10.5px; font-weight: 700; color: var(--on-surface-variant); }
+  .card__holdInfo__grid dd { margin: 1px 0 0; font-size: 13px; font-weight: 700; color: var(--on-surface); overflow-wrap: anywhere; }
+  .holdTimer--lg .holdTimer__text { font-size: 15px; font-weight: 800; }
+  .holdTimer--lg .holdTimer__bar { height: 7px; }
+  .card__holdArea--empty.card__holdArea--full {
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 6px;
+    padding: 16px;
+    border: 1px dashed var(--outline);
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--surface) 70%, transparent);
+  }
+  .modal__panel--vehicle .card__holdArea--empty { flex: none; }
+  .card__holdArea--empty .card__holdArea__placeholder { opacity: 1; font-size: 14px; font-weight: 700; color: var(--on-surface); }
+  .card__holdArea__hint { font-size: 12px; color: var(--on-surface-variant); line-height: 1.6; }
+
+  /* 7. 並び替えできる列見出しは、マウスを乗せると「↕」を薄く表示して、
+     押せば並び替えられることを示す（並び替え中の列は従来どおり▲▼）。 */
+  .tblHead__col:not(.is-sorted) .tblHead__sortIcon::before { content: '↕'; opacity: 0; transition: opacity .15s var(--ease); }
+  .tblHead__col:not(.is-sorted):hover .tblHead__sortIcon::before { opacity: .55; }
+  .tblHead__col:hover { color: var(--primary-text); }
 </style>
