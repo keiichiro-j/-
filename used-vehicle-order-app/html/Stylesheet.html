@@ -935,7 +935,9 @@
   }
   .homeCard__stock {
     align-self: flex-start;
-    background: var(--success-bg); color: var(--success);
+    /* 現場からの要望「在庫台数等（現在グリーン）もテーマの影響を受けるように」:
+       テーマのメイン色の淡い地＋テーマの濃い色の文字（全11テーマでコントラスト比5.3以上）。 */
+    background: color-mix(in srgb, var(--primary) 16%, var(--surface)); color: var(--primary-dark);
     font-size: 10px; font-weight: 700; padding: 3px 9px;
     border-radius: 999px;
     margin-bottom: 6px;
@@ -973,7 +975,7 @@
   .homeCard__gradeRow:hover { text-decoration: underline; }
   .homeCard__gradeRow:disabled { cursor: not-allowed; opacity: .55; text-decoration: none; }
   .homeCard__gradeRowName { flex: 1; font-size: 11.5px; font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .homeCard__gradeRowCount { flex: none; font-size: 10.5px; font-weight: 800; color: var(--success); }
+  .homeCard__gradeRowCount { flex: none; font-size: 10.5px; font-weight: 800; color: var(--primary-dark); }
   .homeCard__gradeRowCount--zero { color: var(--on-surface-variant); }
   .homeCard__gradeRowChev { flex: none; width: 10px; height: 10px; color: var(--on-surface-variant); transform: rotate(180deg); }
   /* グレードを持たないモデル（gradePrefix未設定）用の案内。カード全体が
@@ -1012,11 +1014,12 @@
   }
   .listBody__main { min-width: 0; }
   @media (min-width: 901px) {
-    .listBody { grid-template-columns: 172px minmax(0, 1fr); gap: 0; padding: 0; align-items: start; }
+    /* 現場からの要望「コントロールパネルを少しだけ横に広げてほしい」: 172px→196px。 */
+    .listBody { grid-template-columns: 196px minmax(0, 1fr); gap: 0; padding: 0; align-items: start; }
     .listBody__main { padding: 24px; }
     /* ホームの「検索結果」専用ページ（#view-homeResults）のように.appRailを
        持たない.listBodyでは、.listBody__mainが唯一の子要素になる。2カラム
-       グリッドのまま1つ目のカラム（172px）に収まってしまわないよう、
+       グリッドのまま1つ目のカラム（196px）に収まってしまわないよう、
        両カラムいっぱいに広げる。 */
     .listBody__main:only-child { grid-column: 1 / -1; }
   }
@@ -1057,7 +1060,8 @@
     gap: 10px;
     padding: 10px 12px;
     border-radius: 8px;
-    font-size: 13px;
+    /* 縦タブメニューの幅拡大（196px）に合わせて13px→14pxに拡大。 */
+    font-size: 14px;
     font-weight: 700;
     color: var(--on-surface-variant);
     background: transparent;
@@ -1066,7 +1070,7 @@
     text-align: left;
     white-space: nowrap;
   }
-  .appRail__item svg { width: 17px; height: 17px; fill: currentColor; flex: none; }
+  .appRail__item svg { width: 18px; height: 18px; fill: currentColor; flex: none; }
   .appRail__item:hover { background: var(--background); color: var(--on-surface); }
   .appRail__item.is-active {
     background: var(--primary-bg);
@@ -1101,14 +1105,14 @@
     }
   }
   /* 不具合修正（現場からの要望「見切れている箇所がある」）: 左の縦タブメニュー
-     （.appRail、172px）＋一覧の左右余白（24px×2）を差し引くと、一覧表の
+     （.appRail、196px）＋一覧の左右余白（24px×2）を差し引くと、一覧表の
      最小幅（在庫リストで約990px、.tbl--inventory参照）に届かない画面幅
      （901px〜約1200px。ノートPCの表示倍率125%〔1366px→約1093px〕や
      iPadの横向き〔1024px〜1180px〕が該当）では、表の右端にある
      ステータス・HOLD／受注ボタンが横スクロールしないと見えず、半分
      見切れて表示されていた。
        ・1100px〜1279px: 縦タブメニューをアイコン＋小さな文字を縦に積んだ
-         細い形（72px）にし、一覧の左右余白も16pxに詰める。
+         細い形（76px）にし、一覧の左右余白も16pxに詰める。
        ・901px〜1099px: 縦タブメニュー自体を隠し、スマホ・タブレット幅と
          同じヘッダー内の横並びピルタブ（.tabs__wrap）に戻して、一覧に画面幅
          いっぱいを使わせる（ヘッダーの高さが変わってもsyncTopbarHeightVar_
@@ -1117,14 +1121,14 @@
      上下の余白（24px）は列見出しの固定位置（.tblHeadWrapのtop・::before）の
      計算に使われているため変えず、左右だけを詰める。 */
   @media (min-width: 1100px) and (max-width: 1279px) {
-    .listBody { grid-template-columns: 72px minmax(0, 1fr); }
+    .listBody { grid-template-columns: 76px minmax(0, 1fr); }
     .listBody__main { padding-left: 16px; padding-right: 16px; }
     .appRail { padding: 10px 4px; }
     .appRail__item {
       flex-direction: column;
       gap: 4px;
       padding: 8px 2px;
-      font-size: 10px;
+      font-size: 10.5px;
       line-height: 1.25;
       text-align: center;
       white-space: normal;
