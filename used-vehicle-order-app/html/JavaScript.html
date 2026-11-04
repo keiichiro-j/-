@@ -5688,7 +5688,11 @@
     // （在庫データ・価格・グレードは引き続き右の情報パネル側）。どんな色の
     // 写真の上でも読めるよう、不透明な地色＋影の付いたラベルにする。
     var modelTagHtml = '<div class="homeCard__modelTag"><span class="homeCard__model">' + escapeHtml(p.model) + '</span>' + typeHtml + '</div>';
-    var photoHtml = '<div class="homeCard__photo">' + photoInner + modelTagHtml + '</div>';
+    // 現場からの要望「写真全体が写るように」: 写真は切り抜かず全体を表示し
+    // （CSSのobject-fit: contain）、枠と縦横比が合わずにできる余白は、同じ写真を
+    // ぼかして敷いて埋める（白い帯を出さない）。ぼかし用の写真はCSS変数で渡す。
+    var photoBgStyle = p.photoUrl ? ' style="--photo-bg:url(&quot;' + escapeHtml(p.photoUrl).replace(/[()]/g, encodeURIComponent) + '&quot;)"' : '';
+    var photoHtml = '<div class="homeCard__photo' + (p.photoUrl ? ' has-photo' : '') + '"' + photoBgStyle + '>' + photoInner + modelTagHtml + '</div>';
 
     var cardClickable = canNavigateAll;
     var cardClass = 'homeCard' + (cardClickable ? ' homeCard--clickable' : '');

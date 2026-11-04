@@ -3766,4 +3766,18 @@
     .homeCard__body { padding: 12px 14px; }
     .homeCard__gradeWrap .homeCard__gradeList { column-gap: 12px; }
   }
+
+  /* ホームのカードの写真: 切り抜かずに全体を表示し、余白は同じ写真のぼかしで
+     埋める（homeModelCardHtml_のhas-photo・--photo-bg）。写真の枠はPC幅で
+     カードの45%に広げ、車が小さくなりすぎないようにする。 */
+  .homeCard__photo.has-photo::before {
+    content: ''; position: absolute; inset: -12px;
+    background: var(--photo-bg) center / cover no-repeat;
+    filter: blur(14px) saturate(1.1); opacity: .55; pointer-events: none;
+  }
+  .homeCard__photo img { position: relative; object-fit: contain; }
+  .homeCard--clickable:hover .homeCard__photo img { transform: scale(1.03); }
+  @media (min-width: 901px) {
+    .homeCard__photo { flex-basis: 45%; }
+  }
 </style>
