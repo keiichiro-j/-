@@ -1015,7 +1015,7 @@
   .listBody__main { min-width: 0; }
   @media (min-width: 901px) {
     /* 現場からの要望「コントロールパネルを少しだけ横に広げてほしい」: 172px→196px
-       （--rail-w、下の「ヘッダーにくっつける」ブロック参照）。 */
+       （--rail-w。画面幅1100〜1279pxの細い形では76px）。 */
     .listBody { grid-template-columns: var(--rail-w, 196px) minmax(0, 1fr); gap: 0; padding: 0; align-items: start; }
     .listBody__main { padding: 24px; }
     /* ホームの「検索結果」専用ページ（#view-homeResults）のように.appRailを
@@ -1078,33 +1078,31 @@
     color: var(--primary-text);
   }
   /* 改善（現場からの要望「左のコントロールパネルの背景色をテーマによって変更
-     したい。文字とのコントラスト・ヘッダーの濃さを考慮」、A案）: 縦タブ
-     メニューの背景を、選択中のテーマのメイン色（--primary）を白に14%混ぜた
-     淡い色にする。テーマごとに色を手で決めず--primaryから自動で作るため、
-     ランダムを含む全テーマ・今後追加するテーマにもそのまま対応する。
-       ・濃さは「ヘッダー（--topbar-bg、最も濃い）＞左メニュー（14%）＞一覧の
-         背景（--background、8%）」の順になり、絞り込みバー（--surface、
-         今回は変更しない）を挟んでも段差が自然につながる。
-       ・文字は通常の本文色（--on-surface）にし、全11テーマでコントラスト比
-         11.5以上を確保。選択中の項目は白地＋テーマ色の文字（同4.6以上）＋
-         左端のテーマ色の線で示す。
-       ・背景が項目の高さで途切れないよう、メニュー自体を画面の下端まで
-         伸ばす（stickyで固定されたまま）。 */
+     したい」「もう少し濃くして、文字が白色で見やすい程度に」）: 縦タブメニューの
+     背景を、選択中のテーマのメイン色（--primary）と濃い色（--primary-dark）の
+     中間色にし、文字・アイコンを白にする。テーマごとに色を手で決めず
+     --primary・--primary-darkから自動で作るため、ランダムを含む全テーマ・
+     今後追加するテーマにもそのまま対応する。
+       ・白文字とのコントラスト比は全11テーマで5.5以上（最も低いカラハリ
+         ゴールドで5.5）。
+       ・ヘッダー（--topbar-bg＝--primary-dark）より一段明るい色にして、
+         ヘッダーとの濃淡の順序を保つ。
+       ・選択中の項目は白地＋テーマの濃い色の文字（同6.7以上）で示す。
+       ・メニューは絞り込みバーの下から（絞り込みバーは突っ切らない）、
+         背景が項目の高さで途切れないよう画面の下端まで伸ばす（stickyで
+         固定されたまま）。 */
   @media (min-width: 901px) {
     .appRail {
       height: calc(100vh - var(--topbar-h) - var(--filterbar-h));
       padding: 10px 8px;
-      /* 現場からの要望「カラーは濃い方が好き」（③案）: 14%→28%。文字との
-         コントラスト比は全テーマで8以上を確保。 */
-      background: color-mix(in srgb, var(--primary) 28%, #ffffff);
-      border-right: 1px solid var(--outline);
+      background: color-mix(in srgb, var(--primary) 50%, var(--primary-dark));
     }
-    .appRail__item { color: var(--on-surface); }
-    .appRail__item:hover { background: color-mix(in srgb, var(--primary) 18%, #ffffff); color: var(--on-surface); }
+    .appRail__item { color: #ffffff; }
+    .appRail__item:hover { background: rgba(255, 255, 255, .12); color: #ffffff; }
     .appRail__item.is-active {
       background: #ffffff;
-      color: var(--primary-text);
-      box-shadow: inset 3px 0 0 var(--primary), 0 1px 2px color-mix(in srgb, var(--shadow-color) 10%, transparent);
+      color: var(--primary-dark);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .18);
     }
   }
   /* 不具合修正（現場からの要望「見切れている箇所がある」）: 左の縦タブメニュー
@@ -1123,30 +1121,6 @@
          ずれない）。
      上下の余白（24px）は列見出しの固定位置（.tblHeadWrapのtop・::before）の
      計算に使われているため変えず、左右だけを詰める。 */
-  /* 現場からの要望「絞り込み機能を突っ切ってヘッダーとくっつけてほしい」（③案）:
-     縦タブメニューを絞り込みバーの下からではなく、ヘッダーの真下から画面の
-     下端まで伸ばし、ヘッダーと左メニューをL字につなげる。メニュー自体は
-     position: fixedで画面左端に固定し、
-       ・.listBodyの1列目（--rail-w幅）はその分の空きとして残し、本文
-         （.listBody__main）は必ず2列目に置く。
-       ・絞り込みバー（.filterSidebar）は色・項目・固定のされ方は変えず、
-         左メニューの幅だけ左に余白を取る（メニューを持たないホームの
-         検索結果ページは対象外）。
-     縦タブメニューを表示しない画面幅（1099px以下）には影響しない。 */
-  @media (min-width: 1100px) {
-    :root { --rail-w: 196px; }
-    .appRail {
-      position: fixed;
-      top: var(--topbar-h);
-      left: 0;
-      width: var(--rail-w);
-      height: calc(100vh - var(--topbar-h));
-      max-height: none;
-      z-index: 8;
-    }
-    .listBody > .appRail ~ .listBody__main { grid-column: 2; }
-    main.view--list:has(> .listBody > .appRail) > .filterSidebar { margin-left: var(--rail-w); }
-  }
   @media (min-width: 1100px) and (max-width: 1279px) {
     :root { --rail-w: 76px; }
     .listBody__main { padding-left: 16px; padding-right: 16px; }
