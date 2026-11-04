@@ -1092,9 +1092,13 @@
     gap: 10px;
     padding: 10px 12px;
     border-radius: 8px;
-    /* 縦タブメニューの幅拡大（196px）に合わせて13px→14pxに拡大。 */
-    font-size: 14px;
-    font-weight: 700;
+    /* 縦タブメニューの幅拡大（196px）に合わせて13px→14pxに拡大したが、
+       現場からの要望「文字の大きさが若干気になるので微調整」を受け、13.5px・
+       やや細めの太さ（600）・わずかな字間に調整する（白文字の太字は実際より
+       大きく・詰まって見えやすいため）。 */
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: .02em;
     color: var(--on-surface-variant);
     background: transparent;
     border: none;
@@ -1128,13 +1132,60 @@
       padding: 10px 8px;
       background: color-mix(in srgb, var(--primary) 50%, var(--primary-dark));
     }
-    .appRail__item { color: #ffffff; }
-    .appRail__item:hover { background: rgba(255, 255, 255, .12); color: #ffffff; }
+    .appRail__item { color: #ffffff; gap: 8px; padding-left: 10px; padding-right: 10px; }
+    /* 通常幅のメニュー（196px）では、ラベルを1行に収める（バッジ付きの
+       「業販受注リスト」も1行に入るよう、アイコンとの間隔・左右の余白を少し
+       詰めている）。細い形（1100〜1279px）でだけ「リスト」の前で折り返す。 */
+    .appRail__label { white-space: nowrap; }
+    .appRail__label wbr { display: none; }
     .appRail__item.is-active {
       background: #ffffff;
       color: var(--primary-dark);
       box-shadow: 0 1px 3px rgba(0, 0, 0, .18);
     }
+    /* 管理者（権限者）限定のタブに付けるバッジ（appRailItemHtml_参照）。
+       現場からの要望で、丸みを抑えた（角丸3px）四角に近い形にする。濃い
+       メニューの上でも、選択中の白地の上でも読めるよう、明るい橙の地に
+       濃い茶の文字（コントラスト比7以上）にする。 */
+    .appRail__badge {
+      margin-left: auto;
+      flex: none;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: .02em;
+      line-height: 1;
+      padding: 3px 4px;
+      border-radius: 3px;
+      background: #ffd9a8;
+      color: #6b3206;
+    }
+    /* ログイン情報（renderRailUser_参照）。メニューの一番下に置く。 */
+    .appRail__user {
+      margin-top: auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 6px 4px;
+      border-top: 1px solid rgba(255, 255, 255, .2);
+      color: #ffffff;
+    }
+    .appRail__userAvatar {
+      flex: none;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: #ffffff;
+      color: var(--primary-dark);
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .appRail__userText { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+    .appRail__userName { font-size: 12.5px; font-weight: 700; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .appRail__userEmail { font-size: 10.5px; opacity: .8; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .appRail__userWarn { font-size: 11px; font-weight: 700; color: #ffd479; }
+    .appRail__badge--user { margin: 2px 0 0; }
   }
   /* 不具合修正（現場からの要望「見切れている箇所がある」）: 左の縦タブメニュー
      （.appRail、196px）＋一覧の左右余白（24px×2）を差し引くと、一覧表の
@@ -1161,12 +1212,21 @@
       gap: 4px;
       padding: 8px 2px;
       font-size: 10.5px;
+      letter-spacing: 0;
       line-height: 1.25;
       text-align: center;
       white-space: normal;
       word-break: keep-all;
       overflow-wrap: anywhere;
     }
+    .appRail__label { white-space: normal; }
+    .appRail__label wbr { display: inline; }
+    /* 細い形ではバッジはラベルの下に置き、ログイン情報は頭文字と名前だけにする。 */
+    .appRail__badge { margin-left: 0; font-size: 9px; padding: 2px 4px; }
+    .appRail__user { flex-direction: column; gap: 4px; padding: 10px 2px 4px; text-align: center; }
+    .appRail__userText { align-items: center; }
+    .appRail__userName { font-size: 10px; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
+    .appRail__userEmail { display: none; }
   }
   @media (min-width: 901px) and (max-width: 1099px) {
     .tabs__wrap { display: flex; }

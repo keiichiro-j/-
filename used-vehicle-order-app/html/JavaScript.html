@@ -736,6 +736,13 @@
   // ようにするためのフラグ。
   function switchToTab_(tabName, opts) {
     opts = opts || {};
+    // 現場からの要望「業販受注リストは権限者（管理者）がログインしている場合のみ
+    // 閲覧可能に」: 管理者限定のタブ（APP_RAIL_ITEMS_のadminOnly）は、メニューを
+    // 隠すだけでなく、画面の切替自体も管理者以外には行わない（「戻る」ボタンの
+    // 履歴など、メニュー以外の経路から開かれるのを防ぐ）。中身のデータは
+    // サーバー側（api_listWholesaleOrders）でも管理者以外には返さない。
+    var isAdminOnlyTab = APP_RAIL_ITEMS_.some(function (it) { return it.adminOnly && it.tab === tabName; });
+    if (isAdminOnlyTab && !isSystemAdmin_()) tabName = 'home';
     var current = currentActiveTab_();
     if (!opts.skipHistory && current && current !== tabName) {
       state.navHistory.push(current);
@@ -798,11 +805,36 @@
   function appRailItemHtml_(item) {
     var cls = 'navBtn appRail__item' + (item.tab === 'home' ? ' is-active' : '') + (item.adminOnly ? ' navBtn--adminOnly hidden' : '');
     return '<button type="button" class="' + cls + '" data-tab="' + item.tab + '">' +
-      '<svg><use href="#' + item.icon + '"></use></svg><span class="appRail__label">' + appRailLabelHtml_(item.label) + '</span></button>';
+      '<svg><use href="#' + item.icon + '"></use></svg><span class="appRail__label">' + appRailLabelHtml_(item.label) + '</span>' +
+      // 現場からの要望: 管理者（権限者）しか見られないタブには「管理者」バッジを付ける。
+      (item.adminOnly ? '<span class="appRail__badge">管理者</span>' : '') +
+      '</button>';
   }
   function renderAppRail_() {
-    var html = APP_RAIL_ITEMS_.map(appRailItemHtml_).join('');
+    // 現場からの要望「コントロールパネルの一番下にログイン情報を表示してほしい」:
+    // メニューの末尾にログイン中の担当者の欄を置く（中身はrenderRailUser_が描く）。
+    var html = APP_RAIL_ITEMS_.map(appRailItemHtml_).join('') + '<div class="appRail__user"></div>';
     document.querySelectorAll('.appRail').forEach(function (nav) { nav.innerHTML = html; });
+    renderRailUser_();
+  }
+  function renderRailUser_() {
+    // 起動時のデータ取得前は何も出さない（「取得できません」と誤表示しない）。
+    if (!state.bootstrap) return;
+    var name = currentStaffName_();
+    var email = currentUserEmail_();
+    var html;
+    if (name) {
+      html = '<span class="appRail__userAvatar" aria-hidden="true">' + escapeHtml(name.charAt(0)) + '</span>' +
+        '<span class="appRail__userText"><span class="appRail__userName">' + escapeHtml(name) + '</span>' +
+        '<span class="appRail__userEmail" title="' + escapeHtml(email) + '">' + escapeHtml(email) + '</span>' +
+        (isSystemAdmin_() ? '<span class="appRail__badge appRail__badge--user">管理者</span>' : '') + '</span>';
+    } else if (email) {
+      html = '<span class="appRail__userText"><span class="appRail__userWarn">担当者未登録</span>' +
+        '<span class="appRail__userEmail" title="' + escapeHtml(email) + '">' + escapeHtml(email) + '</span></span>';
+    } else {
+      html = '<span class="appRail__userText"><span class="appRail__userWarn">ログイン情報を取得できません</span></span>';
+    }
+    document.querySelectorAll('.appRail__user').forEach(function (el) { el.innerHTML = html; });
   }
   document.addEventListener('click', function (e) {
     var btn = e.target.closest('.appRail__item');
@@ -3207,6 +3239,7 @@
         'ログイン情報を取得できません</span>';
     }
     $('topbarUser').innerHTML = infoHtml;
+    renderRailUser_();
   }
 
   // ===== 在庫データ整合性チェック（アプリ起動時に1回だけ実行） =====
