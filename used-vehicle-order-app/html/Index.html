@@ -990,7 +990,7 @@
                THEME_PRESETSから毎回無作為に1つ選ぶ）」の計12種類から選べる。 -->
           <div class="settingsCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>表示設定</h2>
-            <p class="settingsSection__desc">アプリ全体の配色を、視覚的に確認済みの11種類（着せ替え）＋ランダム（ログインのたび変化）から選べます。</p>
+            <p class="settingsSection__desc">アプリ全体の配色を選びます。</p>
             <div class="themePresetGrid" id="themePresetGrid"></div>
           </div>
 
@@ -1014,7 +1014,7 @@
                なく、このカード専用の「変更する」ボタンで即座に反映する。 -->
           <div class="settingsCard hidden" id="systemMasterSpreadsheetTitleCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>スプレッドシートのタイトル</h2>
-            <p class="settingsSection__desc">このアプリにつながっているGoogleスプレッドシート自体の名前（Googleドライブ上のファイル名）です。他の設定とは別に、この項目だけ「変更する」ボタンですぐに反映されます（最大<span id="spreadsheetTitleMax"></span>文字）。</p>
+            <p class="settingsSection__desc">Googleドライブ上のファイル名です。「変更する」ですぐ反映されます（最大<span id="spreadsheetTitleMax"></span>文字）。</p>
             <div class="formField">
               <label>タイトル</label>
               <input type="text" id="settingsSpreadsheetTitle" class="input" placeholder="例: 販売可能リスト在庫管理（本社）">
@@ -1032,7 +1032,7 @@
                空欄にすると既定の「販売可能リスト」表記に戻る。 -->
           <div class="settingsCard hidden" id="systemMasterAppTitleCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>アプリタイトル</h2>
-            <p class="settingsSection__desc">ブラウザのタブ名、サイドバー・上部バーの見出しに表示するタイトルです（スプレッドシートファイル自体の名前は変更しません）。空欄にすると既定の「販売可能リスト」表記になります（最大<span id="appTitleMax"></span>文字）。</p>
+            <p class="settingsSection__desc">画面上部とブラウザのタブに表示する名前です。空欄で「販売可能リスト」（最大<span id="appTitleMax"></span>文字）。</p>
             <div class="formField">
               <label>タイトル</label>
               <input type="text" id="settingsAppTitle" class="input" placeholder="例: 販売可能リスト（本社）">
@@ -1049,11 +1049,11 @@
                normalizeLogoUrl_・normalizeLoadingImageUrl_、SettingsService.gs参照）。 -->
           <div class="settingsCard hidden" id="systemMasterLogoCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-image"></use></svg>ロゴ・ローディング画像</h2>
-            <p class="settingsSection__desc">画面上部に表示するロゴ、およびアプリを開いたときのローディング画面（読み込み中…）に表示する画像です。どちらもGoogleドライブにアップロードした画像の「ドライブID」（共有リンクの一部）、共有リンクそのもの、または画像の外部URLのいずれかを指定してください。</p>
+            <p class="settingsSection__desc">GoogleドライブのドライブID・共有リンク、または画像URLを指定します。</p>
             <div class="formField">
               <label>ロゴ画像：ドライブID または 画像URL</label>
               <input type="text" id="settingsLogoUrl" class="input" placeholder="例: 1AbCdEfGhIjKlMnOpQrStUvWxYz1234567 または https://...">
-              <p class="formField__hint">ドライブIDは、Googleドライブでファイルを右クリック→「リンクを取得」で得られる共有リンク（https://drive.google.com/file/d/【ここがドライブID】/view?usp=sharing）の【ここがドライブID】の部分です（最大<span id="logoUrlMax"></span>文字）。空欄にするとロゴなしになります。</p>
+              <p class="formField__hint">空欄でロゴなし（最大<span id="logoUrlMax"></span>文字）。</p>
               <div class="logoPreview" id="settingsLogoPreview">
                 <span class="logoPreview__placeholder">ロゴなし</span>
               </div>
@@ -1062,7 +1062,7 @@
             <div class="formField">
               <label>ローディング画像：ドライブID または 画像URL</label>
               <input type="text" id="settingsLoadingImageId" class="input" placeholder="例: 1AbCdEfGhIjKlMnOpQrStUvWxYz1234567 または https://...">
-              <p class="formField__hint">画像はうっすらと現れ、読み込み完了後はローディング画面ごとうっすらと消えます（最大<span id="loadingImageUrlMax"></span>文字）。空欄にすると画像なし（スピナーのみ）になります。</p>
+              <p class="formField__hint">空欄で画像なし（最大<span id="loadingImageUrlMax"></span>文字）。</p>
               <div class="logoPreview" id="settingsLoadingImagePreview">
                 <span class="logoPreview__placeholder">画像なし</span>
               </div>
@@ -1073,7 +1073,7 @@
 
           <div class="settingsCard hidden" id="systemMasterNotifyCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-mail"></use></svg>メール通知設定</h2>
-            <p class="settingsSection__desc">Hold登録・受注確定があったときに通知するメールアドレスです。複数指定する場合は「＋ 追加」で行を増やし、ドラッグハンドル（⠿）で並び替えできます。未設定の場合は通知をスキップします。</p>
+            <p class="settingsSection__desc">Hold登録・受注確定を通知するメールアドレスです。未設定なら通知しません。</p>
             <div class="formField">
               <label>Hold時（現在<span id="notifyHoldMailCount">0</span>件）</label>
               <div class="mailList" id="notifyHoldMailList" data-mail-field="notifyHoldMailTo"></div>
@@ -1088,18 +1088,18 @@
               <label>システムエラー通知先（現在<span id="notifyErrorMailCount">0</span>件）</label>
               <div class="mailList" id="notifyErrorMailList" data-mail-field="notifyErrorMailTo"></div>
               <button class="btn" id="btnAddErrorMail" data-mail-field="notifyErrorMailTo" type="button">＋ 宛先を追加</button>
-              <p class="formField__hint">Hold期限切れ処理が失敗し続けた場合など、システム側のエラーを知らせます。未設定の場合は通知しません。</p>
+              <p class="formField__hint">Hold期限切れ処理の失敗など、システムのエラーを通知します。</p>
             </div>
             <div class="formField">
               <label>Google Chat通知先（Webhook URL）</label>
               <input type="text" id="settingsChatWebhookUrl" class="input" placeholder="https://chat.googleapis.com/v1/spaces/.../messages?key=...">
-              <p class="formField__hint">Google Chatのスペースで「Webhookを管理」から発行したURLを貼り付けると、Hold登録・受注確定のたびに同じ内容をそのスペースへ通知します（メール通知先とは別に、どちらか一方だけの設定でも動作します）。未設定の場合はGoogle Chatへの通知をスキップします。</p>
+              <p class="formField__hint">Chatスペースの「Webhookを管理」で発行したURLです。メールと同じ内容を通知します。</p>
             </div>
           </div>
 
           <div class="settingsCard hidden" id="systemMasterStaffCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-people"></use></svg>担当者</h2>
-            <p class="settingsSection__desc">拠点・名前・Googleアカウントのメールアドレスを登録してください（最大<span id="staffListMax"></span>人・現在<span id="staffListCount">0</span>人登録中）。ログイン中のアカウントに応じて、Hold登録・受注確定時の担当者・販売拠点が自動入力されます。ドラッグハンドル（⠿）で表示順を並び替えできます。各行は折りたたまれています。タップして開くと入力欄が表示されます。</p>
+            <p class="settingsSection__desc">アプリを使う人を登録します。担当者・販売拠点が自動入力されます（最大<span id="staffListMax"></span>人・現在<span id="staffListCount">0</span>人）。</p>
             <div class="staffList" id="staffList"></div>
             <button class="btn" id="btnAddStaff" type="button">＋ 担当者を追加</button>
           </div>
@@ -1111,7 +1111,7 @@
                並び順自体は絞り込みに影響しないためドラッグ並び替えは無し）。 -->
           <div class="settingsCard hidden" id="systemMasterBodyTypeCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>ボディタイプの紐付け</h2>
-            <p class="settingsSection__desc">モデル名に含まれるキーワードとボディタイプを紐付けると、在庫リストの絞り込みサイドバーで型ごとに検索できます（例: キーワード「GLC」→SUV）。1台のモデルが複数のキーワードに一致してもかまいません（最大<span id="modelBodyTypeRulesMax"></span>件・現在<span id="modelBodyTypeRulesCount">0</span>件登録中）。</p>
+            <p class="settingsSection__desc">モデル名のキーワードに型を紐付けます（例: 「GLC」→SUV。最大<span id="modelBodyTypeRulesMax"></span>件・現在<span id="modelBodyTypeRulesCount">0</span>件）。</p>
             <div class="mailList" id="modelBodyTypeRuleList"></div>
             <button class="btn" id="btnAddModelBodyTypeRule" type="button">＋ ルールを追加</button>
           </div>
@@ -1124,7 +1124,7 @@
                行にし、普段は写真サムネイル・モデル名・条件の要約だけを表示する。 -->
           <div class="settingsCard hidden" id="systemMasterModelPhotoCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-image"></use></svg>車両画像</h2>
-            <p class="settingsSection__desc">ホーム画面のギャラリーに表示する車両画像です（最大<span id="modelPhotosMax"></span>件・現在<span id="modelPhotosCount">0</span>件登録中）。画像はGoogleドライブにアップロードした画像の「ドライブID」（共有リンクの一部）、共有リンクそのもの、または外部URLのいずれかを指定してください。「先頭の文字列」「含む文字列」を設定すると、在庫リストのMODEL列（型番）から自動的に該当車両を拾って在庫台数を表示します（例: 先頭の文字列「C」＋含む文字列「T」→「C18T」「C63T」等をまとめて1枚の写真で管理）。空欄のままなら「モデル表示名」を在庫リストのMODEL列と直接照合します。</p>
+            <p class="settingsSection__desc">ホーム画面に表示する車両画像です（最大<span id="modelPhotosMax"></span>件・現在<span id="modelPhotosCount">0</span>件）。「先頭の文字列」「含む文字列」で複数のMODELを1枚にまとめられます（例: 「C」＋「T」→C18T・C63T）。</p>
             <div class="staffList" id="modelPhotoList"></div>
             <button class="btn" id="btnAddModelPhoto" type="button">＋ 車両画像を追加</button>
           </div>
@@ -1134,7 +1134,7 @@
                JavaScript.html参照。空欄にすると表示しない。 -->
           <div class="settingsCard hidden" id="systemMasterAnnouncementCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-alert"></use></svg>お知らせ</h2>
-            <p class="settingsSection__desc">ホーム画面の上部に全利用者向けに表示する案内文です（最大<span id="homeAnnouncementMax"></span>文字）。空欄にすると表示しません。</p>
+            <p class="settingsSection__desc">ホーム上部に表示する案内文です。空欄で非表示（最大<span id="homeAnnouncementMax"></span>文字）。</p>
             <div class="formField">
               <label>お知らせ文言</label>
               <input type="text" id="settingsHomeAnnouncement" class="input" placeholder="例: 限定車在庫3台あり">
@@ -1147,7 +1147,7 @@
                （showCelebration_・CELEBRATION_EFFECTS、JavaScript.html参照）。 -->
           <div class="settingsCard hidden" id="systemMasterCelebrationCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>Hold・受注確定の演出</h2>
-            <p class="settingsSection__desc">Hold登録・受注確定が完了したときに表示する「絵柄のアクション」を選べます（案内メッセージ自体は固定です）。</p>
+            <p class="settingsSection__desc">Hold登録・受注確定の完了時に表示する演出を選びます。</p>
             <div class="formField">
               <label>Hold登録時（1st Hold）</label>
               <select id="celebrationVariantHold" class="input"></select>
