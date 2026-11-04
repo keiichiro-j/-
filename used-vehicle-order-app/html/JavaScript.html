@@ -5595,7 +5595,6 @@
     loadedHomePhotoUrls_[img.getAttribute('src')] = true;
   }
   window.markHomePhotoLoaded_ = markHomePhotoLoaded_;
-  var HOME_GRADE_VISIBLE_ = 4;
   function homeModelCardHtml_(p, allItems, allModelPhotos, index) {
     var grades = matchedModelsForEntry_(p, allItems, allModelPhotos);
     var total = modelCountForEntry_(p, allItems, allModelPhotos);
@@ -5637,19 +5636,20 @@
         var zero = g.count === 0;
         return '<button type="button" class="homeCard__gradeRow"' +
           (zero ? ' disabled' : ' data-home-grade="' + escapeHtml(g.gradeModel) + '"') + '>' +
-          '<span class="homeCard__gradeRowName">' + escapeHtml(g.gradeModel) + '</span>' +
+          '<span class="homeCard__gradeRowName" title="' + escapeHtml(g.gradeModel) + '">' + escapeHtml(g.gradeModel) + '</span>' +
           '<span class="homeCard__gradeRowCount' + (zero ? ' homeCard__gradeRowCount--zero' : '') + '">' + g.count + '台</span>' +
           (zero ? '' : '<svg class="icon homeCard__gradeRowChev"><use href="#icon-back"></use></svg>') +
           '</button>';
       }).join('');
-      // 改善（現場からの要望「8グレードあった場合の表示」）: グレードが多いと
-      // カードが縦に長くなり、写真が細長く切り抜かれて車が見えなくなるうえ、
-      // 同じ行の他のカードまで同じ高さに伸びて空白ができていた。最初の
-      // HOME_GRADE_VISIBLE_件（在庫の多い順）だけ表示し、残りは「他n件を表示」で
-      // その場で開く（すべてのグレードへ従来どおり移動できる）。
-      var hiddenCount = Math.max(0, gradeEntries.length - HOME_GRADE_VISIBLE_);
-      gradeListHtml = '<div class="homeCard__gradeList' + (hiddenCount ? ' is-collapsible' : '') + '">' + rowsHtml + '</div>' +
-        (hiddenCount ? '<button type="button" class="homeCard__gradeMore" data-more="他' + hiddenCount + 'グレードを表示">他' + hiddenCount + 'グレードを表示</button>' : '');
+      // 現場からの要望「2列×3行（6グレード）を基本に、それより多い場合はグレード
+      // 部分だけ下にスクロールできるように。スクロールできることが分かるように」:
+      // グレード欄の高さを3行分に固定し、7件以上は欄の中だけスクロールさせる。
+      // 下にまだ続きがある間は、下端のフェードと「スクロールで他n件」を出す。
+      var moreCount = Math.max(0, gradeEntries.length - 6);
+      gradeListHtml = '<div class="homeCard__gradeWrap' + (moreCount ? ' has-more' : '') + '">' +
+        '<div class="homeCard__gradeList">' + rowsHtml + '</div>' +
+        (moreCount ? '<span class="homeCard__gradeHint" aria-hidden="true">スクロールで他' + moreCount + '件 ↓</span>' : '') +
+        '</div>';
     }
 
     // 厳選された代表写真をカードいっぱいの背景として敷く演出（Stylesheet.html
@@ -5793,14 +5793,15 @@
    * 要望「モデル画像を選ぶと下に表示するのではなく専用のリストページに飛んで
    * ほしい」。以前はホーム画面内の結果一覧までスクロールするだけだった）。
    */
+  // グレード欄のスクロール位置に応じて、下端のフェードと「スクロールで他n件」を
+  // 消す（一番下まで見たら消える）。scrollは泡立たないため捕捉段階で拾う。
+  document.addEventListener('scroll', function (e) {
+    var list = e.target && e.target.classList && e.target.classList.contains('homeCard__gradeList') ? e.target : null;
+    if (!list) return;
+    var atEnd = list.scrollTop + list.clientHeight >= list.scrollHeight - 2;
+    list.parentNode.classList.toggle('is-end', atEnd);
+  }, true);
   on('homeGrid', 'click', function (e) {
-    var moreBtn = e.target.closest('.homeCard__gradeMore');
-    if (moreBtn) {
-      var card = moreBtn.closest('.homeCard');
-      var open = card.classList.toggle('is-gradesOpen');
-      moreBtn.textContent = open ? '閉じる' : moreBtn.dataset.more;
-      return;
-    }
     var gradeBtn = e.target.closest('[data-home-grade]');
     if (gradeBtn) {
       goToHomeResultsPage_({ models: [gradeBtn.dataset.homeGrade] });
