@@ -545,7 +545,7 @@
   /* 設定タブの見出しだけの帯（Index.html参照）。絞り込みバーと同じ見た目・
      高さで、縦タブメニューの位置を他の画面と揃える。スマホ・タブレット幅では
      絞り込みバー自体が縦積みのカードになり、メニューも無いため表示しない。 */
-  .filterSidebar--pageTitle { display: none; }
+  #app .filterSidebar--pageTitle { display: none; }
   @media (min-width: 901px) {
     #app .filterSidebar--pageTitle { display: flex; min-height: 52px; justify-content: center; }
   }
@@ -3264,5 +3264,199 @@
     .celebParticle, .celebFlash, .celebShockwave, .celebEnergyCore { display: none; }
     .celebrationBanner { transition: none; }
     .modal, .modal .modal__panel, .toast { animation: none; }
+  }
+
+  /* ================================================================
+     UIの洗い出し（1〜10）への対応。既存のルールより後ろに置き、後勝ちで
+     上書きする。
+     ================================================================ */
+
+  /* 3. 一覧の読み込み中バー（body.is-loading-data、gasRun・JavaScript.html参照）。
+     ヘッダーの下端を細い帯が左右に流れる。 */
+  .topbar::after {
+    content: '';
+    position: absolute;
+    left: -40%;
+    bottom: 0;
+    width: 40%;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s var(--ease);
+  }
+  body.is-loading-data .topbar::after { opacity: 1; animation: listLoadingBar 1.1s ease-in-out infinite; }
+  @keyframes listLoadingBar { from { left: -40%; } to { left: 100%; } }
+  @media (prefers-reduced-motion: reduce) {
+    body.is-loading-data .topbar::after { animation: none; left: 0; width: 100%; opacity: .6; }
+  }
+
+  /* 4. 設定の保存欄を画面下に固定し、未保存の変更があるときは知らせる。 */
+  #view-settings .settingsActions {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    transition: border-color .2s var(--ease), box-shadow .2s var(--ease);
+  }
+  .settingsActions__dirty { display: none; margin: 0 0 10px; font-size: 12.5px; font-weight: 700; color: var(--warning); }
+  .settingsActions.is-dirty { border-color: var(--warning); box-shadow: 0 -6px 18px color-mix(in srgb, var(--shadow-color) 14%, transparent); }
+  .settingsActions.is-dirty .settingsActions__dirty { display: block; }
+
+  /* 6. ホームのカードのモデル名は省略せず2行まで表示する（スマホでも全文が
+     読めるように）。 */
+  .homeCard__model {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow-wrap: anywhere;
+  }
+
+  /* 7. 「在庫あり」バッジもテーマ連動にする（Hold中のオレンジ・業販HOLDの紫とは
+     引き続き区別できる）。 */
+  .badge--available { background: color-mix(in srgb, var(--primary) 16%, var(--surface)); color: var(--primary-dark); }
+  .card--available { border-left-color: var(--primary); }
+
+  /* 8. スマホ・タブレット幅のタブ（ヘッダー内）とログイン情報にも管理者バッジ
+     （縦タブメニューの.appRail__badgeと同じ見た目）。 */
+  .tabs__badge {
+    display: inline-block;
+    margin-left: 6px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    line-height: 1;
+    padding: 3px 4px;
+    border-radius: 3px;
+    background: #ffd9a8;
+    color: #6b3206;
+    vertical-align: 1px;
+  }
+
+  /* 9. 幅の狭いスマホ（360px以下）でテーマ名が単語の途中で折り返さないよう、
+     文字を少し小さく・タイルの左右の余白を詰める。 */
+  @media (max-width: 360px) {
+    .themePreset { padding-left: 4px; padding-right: 4px; }
+    .themePreset__name { font-size: 10px; letter-spacing: -.02em; }
+  }
+
+  /* 1・2・5・10. スマホ・タブレット幅（900px以下） */
+  .filterSidebar__toggle { display: none; }
+  @media (max-width: 900px) {
+    /* 1. 絞り込みは「絞り込み」ボタンで開閉（setupFilterToggles_）。開くまでは
+       項目を隠し、一覧がすぐ見えるようにする。各項目の上の見出しは、選択欄
+       自体に「タイプ」「タイプ・SUV」のように表示されて重複するため隠す。 */
+    main.view > .filterSidebar .filterSidebar__toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-basis: 100%;
+      margin-top: 8px;
+      padding: 10px 14px;
+      border: 1px solid var(--outline);
+      border-radius: 10px;
+      background: var(--surface);
+      color: var(--on-surface);
+      font: inherit;
+      font-size: 13.5px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .filterSidebar__toggle.has-active { border-color: var(--primary); }
+    .filterSidebar__toggleCount { font-size: 11.5px; color: var(--primary-text); }
+    .filterSidebar__toggleChev { margin-left: auto; color: var(--on-surface-variant); transition: transform .2s var(--ease); }
+    .filterSidebar.is-open .filterSidebar__toggleChev { transform: rotate(180deg); }
+    main.view > .filterSidebar:not(.is-open) .filterSidebar__rows { display: none; }
+    main.view > .filterSidebar .filterSidebar__rowHead { display: none; }
+
+    /* 10. 登録月ボタンは折り返さず横スクロールの1行にし、固定表示の高さを抑える。 */
+    #ordersMonthNav:not(:empty) { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+    #ordersMonthNav::-webkit-scrollbar { display: none; }
+    #ordersMonthNav > * { flex: none; }
+
+    /* 2. 一覧は表ではなく1台＝1枚のカードにする（行のHTMLはPCと同じ12マスの
+       並びのまま、CSSだけで配置し直す。ボタンも画面内に収まる）。列見出しは
+       カードでは不要のため隠す。 */
+    .tbl .tblHeadWrap { display: none; }
+    .tbl .tblBody { overflow: visible; -webkit-mask-image: none; mask-image: none; }
+    .tbl .tblRow,
+    .tbl--inventory .tblRow,
+    .tbl--order .tblRow,
+    .tbl--wholesale .tblRow {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-areas:
+        "cat cat price price"
+        "model model model model"
+        "reg mile insp insp"
+        "plate plate loc loc"
+        "c10 c10 c11 c11";
+      height: auto;
+      padding: 12px 14px;
+      gap: 6px 10px;
+      white-space: normal;
+      align-items: start;
+    }
+    .tbl--inventory .tblRow {
+      grid-template-areas:
+        "cat cat price price"
+        "model model model model"
+        "reg mile insp insp"
+        "plate plate loc loc"
+        "c10 c10 c10 c10"
+        "c11 c11 c11 c11";
+    }
+    .tbl .tblRow > :nth-child(1),
+    .tbl .tblRow > :nth-child(12) { display: none; }
+    .tbl .tblRow > :nth-child(2) { grid-area: cat; }
+    .tbl .tblRow > :nth-child(3) { grid-area: model; font-size: 15px; white-space: normal; overflow-wrap: anywhere; }
+    .tbl .tblRow > :nth-child(4) { grid-area: reg; }
+    .tbl .tblRow > :nth-child(5) { grid-area: mile; }
+    .tbl .tblRow > :nth-child(6) { grid-area: insp; }
+    .tbl .tblRow > :nth-child(7) { grid-area: plate; }
+    .tbl .tblRow > :nth-child(8) { grid-area: loc; }
+    .tbl .tblRow > :nth-child(9) { grid-area: price; text-align: right; font-weight: 800; font-size: 15px; }
+    .tbl .tblRow > :nth-child(10) { grid-area: c10; }
+    .tbl .tblRow > :nth-child(11) { grid-area: c11; }
+    .tbl .tblRow > :nth-child(n+4):nth-child(-n+8)::before,
+    .tbl--order .tblRow > :nth-child(10)::before,
+    .tbl--order .tblRow > :nth-child(11)::before,
+    .tbl--wholesale .tblRow > :nth-child(10)::before,
+    .tbl--wholesale .tblRow > :nth-child(11)::before {
+      display: block;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--on-surface-variant);
+      letter-spacing: .04em;
+    }
+    .tbl .tblRow > :nth-child(4)::before { content: '初年度登録'; }
+    .tbl .tblRow > :nth-child(5)::before { content: '走行距離'; }
+    .tbl .tblRow > :nth-child(6)::before { content: '車検満了'; }
+    .tbl .tblRow > :nth-child(7)::before { content: '登録番号'; }
+    .tbl .tblRow > :nth-child(8)::before { content: '現展示拠点'; }
+    .tbl--order .tblRow > :nth-child(10)::before { content: '顧客'; }
+    .tbl--wholesale .tblRow > :nth-child(10)::before { content: '販売先'; }
+    .tbl--order .tblRow > :nth-child(11)::before,
+    .tbl--wholesale .tblRow > :nth-child(11)::before { content: '登録月'; }
+    .tbl .tblCell--status .badge { width: auto; }
+    .tbl .tblCell--actions:empty { display: none; }
+
+    /* 5. 車両詳細のHOLD・受注ボタンは、詳細の内容が長くても画面下に固定して
+       常に押せるようにする。 */
+    /* 固定（sticky）は直近の親の範囲内でしか効かないため、スマホ幅では単に
+       縦に積んでいるだけの列の枠（.card__detailCol）を無くし、ボタンの親を
+       カード全体にする（カード自体の見た目は変わらない）。 */
+    #inventoryDetailBody .card__detailCol { display: contents; }
+    #inventoryDetailBody .card__actions {
+      position: sticky;
+      /* 詳細の外枠（.modal__body）の下の余白16pxぶん下げ、画面の最下端に付ける。 */
+      bottom: -16px;
+      z-index: 2;
+      margin: 0 -4px;
+      padding: 10px 4px;
+      background: var(--surface);
+      box-shadow: 0 -8px 14px -10px color-mix(in srgb, var(--shadow-color) 30%, transparent);
+    }
   }
 </style>

@@ -150,13 +150,25 @@
   // 一定時間で必ずエラーとして解決させるタイムアウトを設ける。
   var GAS_CALL_TIMEOUT_MS = 25000;
 
+  // 改善（UIの洗い出し3）: 一覧を取り直している間（キーワード検索・更新等で
+  // 1〜3秒かかる）、画面に何の変化もなく「反応しない」ように見えていた。一覧の
+  // 取得（api_list〜）が1件でも通信中の間は、ヘッダーの下端に細い読み込みバーを
+  // 出す（body.is-loading-data、Stylesheet.html参照）。
+  var pendingListCalls_ = 0;
+  function trackListCall_(fnName, delta) {
+    if (!/^api_list/.test(fnName)) return;
+    pendingListCalls_ = Math.max(0, pendingListCalls_ + delta);
+    document.body.classList.toggle('is-loading-data', pendingListCalls_ > 0);
+  }
   function gasRun(fnName) {
     var args = Array.prototype.slice.call(arguments, 1);
+    trackListCall_(fnName, 1);
     return new Promise(function (resolve, reject) {
       var settled = false;
       var timer = setTimeout(function () {
         if (settled) return;
         settled = true;
+        trackListCall_(fnName, -1);
         reject(new Error('サーバーからの応答がありません。通信環境をご確認のうえ、もう一度お試しください。'));
       }, GAS_CALL_TIMEOUT_MS);
 
@@ -164,12 +176,14 @@
         .withSuccessHandler(function (result) {
           if (settled) return;
           settled = true;
+          trackListCall_(fnName, -1);
           clearTimeout(timer);
           resolve(result);
         })
         .withFailureHandler(function (err) {
           if (settled) return;
           settled = true;
+          trackListCall_(fnName, -1);
           clearTimeout(timer);
           // すべてのサーバー呼び出しがこの1箇所を通るため、ここで日本語化しておけば
           // 呼び出し元（.catch(err => showToast(err.message))等）は何も意識せずに
@@ -3223,7 +3237,8 @@
     var email = currentUserEmail_();
     var infoHtml;
     if (name) {
-      infoHtml = '<span class="topbar__userName">' + escapeHtml(name) + '</span>' +
+      infoHtml = '<span class="topbar__userName">' + escapeHtml(name) +
+        (isSystemAdmin_() ? '<span class="tabs__badge tabs__badge--user">管理者</span>' : '') + '</span>' +
         '<span class="topbar__userEmail">' + escapeHtml(email) + '</span>';
     } else if (email) {
       // メールアドレスは取得できているが、担当者マスタに未登録の場合。
@@ -6112,6 +6127,7 @@
       renderSettings(bootstrap.settings);
       renderTopbarUser();
       renderHomeGallery_();
+      setSettingsDirty_(false);
       showToast('設定を保存しました');
     }).catch(function (err) {
       setButtonBusy(btn, false);
@@ -6240,7 +6256,65 @@
     ]);
   }
 
+  // 改善（UIの洗い出し4）: 設定タブで何か変更したら「未保存の変更があります」を
+  // 画面下に固定した保存欄に出す（保存に成功したら消す）。スプレッドシートの
+  // タイトル（専用の「変更する」ボタンで即時反映）は対象外。
+  function setSettingsDirty_(dirty) {
+    var actions = document.querySelector('#view-settings .settingsActions');
+    if (actions) actions.classList.toggle('is-dirty', !!dirty);
+  }
+  function setupSettingsDirtyTracking_() {
+    var grid = document.querySelector('#view-settings .settingsGrid');
+    if (!grid) return;
+    var mark = function (e) {
+      if (e.target.closest('#settingsSpreadsheetTitle, #btnRenameSpreadsheet')) return;
+      // クリックは、値が変わる操作（テーマの選択・行の追加・削除）だけを対象にする
+      // （各行の開閉など、値が変わらない操作では「未保存」にしない）。
+      if (e.type === 'click' && !e.target.closest('[data-theme-key], [id^="btnAdd"], [data-remove-staff], [data-remove-mail], [data-remove-rule], [data-remove-photo]')) return;
+      setSettingsDirty_(true);
+    };
+    grid.addEventListener('input', mark);
+    grid.addEventListener('change', mark);
+    grid.addEventListener('click', mark);
+    grid.addEventListener('dragend', function () { setSettingsDirty_(true); }); // 行の並び替え
+  }
+
+  // 改善（UIの洗い出し1）: スマホ・タブレット幅（900px以下）では絞り込みの各項目が
+  // 縦に並んで最初の1画面を占領し、一覧が見えなかった。各画面の条件検索に
+  // 「絞り込み」ボタンを付け、項目は押したときだけ開く（キーワード検索・選択中の
+  // 条件チップは常に表示）。ボタンには選択中の項目数を表示する。PC幅では
+  // ボタン自体を表示せず、従来どおり常に横一列で表示する（Stylesheet.html参照）。
+  function setupFilterToggles_() {
+    document.querySelectorAll('main.view > .filterSidebar').forEach(function (bar) {
+      var rows = bar.querySelector('.filterSidebar__rows');
+      var head = bar.querySelector('.filterSidebar__head');
+      if (!rows || !head || head.querySelector('.filterSidebar__toggle')) return;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'filterSidebar__toggle';
+      btn.setAttribute('aria-expanded', 'false');
+      btn.innerHTML = '<span>絞り込み</span><span class="filterSidebar__toggleCount"></span><span class="filterSidebar__toggleChev">▾</span>';
+      head.appendChild(btn);
+      btn.addEventListener('click', function () {
+        var open = !bar.classList.contains('is-open');
+        bar.classList.toggle('is-open', open);
+        btn.setAttribute('aria-expanded', String(open));
+      });
+      var sync = function () {
+        var n = rows.querySelectorAll('.filterSidebar__row.is-active').length;
+        btn.querySelector('.filterSidebar__toggleCount').textContent = n ? n + '件選択中' : '';
+        btn.classList.toggle('has-active', n > 0);
+      };
+      if (typeof MutationObserver !== 'undefined') {
+        new MutationObserver(sync).observe(rows, { subtree: true, attributes: true, attributeFilter: ['class'] });
+      }
+      sync();
+    });
+  }
+
   function init() {
+    setupSettingsDirtyTracking_();
+    setupFilterToggles_();
     renderAppRail_();
     syncAllSelectFaces_();
     wireAllSelectFacePopovers_();
