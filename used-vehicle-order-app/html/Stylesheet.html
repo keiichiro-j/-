@@ -3568,4 +3568,99 @@
      列見出し10.5px→11px）。 */
   .searchbox input::placeholder { font-size: 12px; }
   .tblHead { font-size: 11px; }
+
+  /* ================================================================
+     車両詳細（ポップアップ）の新レイアウト（vehicleDetailV2Html_、JavaScript.html参照）
+     ================================================================ */
+  .vd { display: flex; flex-direction: column; gap: 16px; color: var(--on-surface); }
+  .vd__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; padding-bottom: 14px; border-bottom: 1px solid var(--outline); }
+  .vd__title { min-width: 0; }
+  .vd__eyebrow { font-size: 11.5px; font-weight: 700; color: var(--on-surface-variant); letter-spacing: .04em; }
+  .vd__model { margin: 2px 0 8px; font-size: 24px; font-weight: 800; line-height: 1.25; overflow-wrap: anywhere; }
+  .vd__badges { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .vd__price { flex: none; text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+  .vd__price span { font-size: 11px; font-weight: 700; color: var(--on-surface-variant); }
+  .vd__price b { font-size: 28px; font-weight: 800; color: var(--primary-dark); line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .vd__price b small { font-size: 14px; margin-left: 2px; }
+  .vd__price em { font-style: normal; font-size: 11.5px; color: var(--on-surface-variant); }
+  /* よく見る6項目の帯 */
+  .vd__facts {
+    display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
+    border: 1px solid var(--outline); border-radius: var(--radius);
+    background: color-mix(in srgb, var(--primary) 4%, var(--surface));
+  }
+  .vd__fact { padding: 10px 14px; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .vd__fact + .vd__fact { border-left: 1px solid var(--outline); }
+  .vd__fact span { font-size: 10.5px; font-weight: 700; color: var(--on-surface-variant); }
+  .vd__fact b { font-size: 14px; font-weight: 700; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+  .vd__fact.is-warning b { color: #c2410c; }
+  .vd__fact.is-danger b { color: var(--danger); }
+  /* 本体（左: 車両情報、右: Hold状況） */
+  .vd__body { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr); gap: 20px; align-items: start; }
+  .vd__secTitle { margin: 0 0 8px; font-size: 11px; font-weight: 800; letter-spacing: .12em; color: var(--on-surface-variant); }
+  .vd__dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 18px; margin: 0; }
+  .vd__dl > div { padding: 9px 0; border-bottom: 1px solid var(--outline); min-width: 0; }
+  .vd__dl dt, .vd__slotGrid dt { font-size: 10.5px; font-weight: 700; color: var(--on-surface-variant); }
+  .vd__dl dd { margin: 2px 0 0; font-size: 13.5px; font-weight: 700; overflow-wrap: anywhere; }
+  .vd__notes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+  .vd__notes .card__noteBlock { margin: 0; }
+  /* Hold状況: 1st・2ndの枠を縦に並べ、ボタンを一番下に置く（高さは中身に合わせる） */
+  .vd__hold {
+    display: flex; flex-direction: column; gap: 10px;
+    padding: 14px; border: 1px solid var(--outline); border-radius: var(--radius);
+    background: color-mix(in srgb, var(--primary) 5%, var(--surface));
+  }
+  .vd__hold .vd__secTitle { margin-bottom: 0; }
+  .vd__slot {
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 12px 14px; border: 1px solid var(--outline); border-radius: var(--radius-sm);
+    background: var(--surface);
+  }
+  .vd__slot--filled { border-left: 3px solid #f59e0b; }
+  .vd__slot--second { border-left-color: #fbbf72; }
+  .vd__slot--empty { border-style: dashed; background: transparent; }
+  .vd__slot--empty b { font-size: 14px; }
+  .vd__slot--empty > span:not(.vd__slotLabel) { font-size: 12px; color: var(--on-surface-variant); line-height: 1.6; }
+  .vd__slot--queue .btn { align-self: flex-start; margin-top: 2px; }
+  .vd__slotHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .vd__slotLabel { font-size: 10.5px; font-weight: 800; letter-spacing: .1em; color: #c2410c; }
+  .vd__slot--empty .vd__slotLabel { color: var(--on-surface-variant); }
+  .vd__slotCancel { border: none; background: none; padding: 2px 4px; color: var(--danger); font: inherit; font-size: 12px; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+  .vd__slotWho { display: flex; flex-direction: column; gap: 1px; }
+  .vd__slotWho b { font-size: 15px; font-weight: 800; overflow-wrap: anywhere; }
+  .vd__slotWho span { font-size: 12px; color: var(--on-surface-variant); }
+  .vd__slotPeriod { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  .vd__slotPeriod span { color: var(--on-surface-variant); font-weight: 700; font-size: 11px; align-self: center; }
+  .vd__slotGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 10px; margin: 2px 0 0; padding-top: 8px; border-top: 1px solid var(--outline); }
+  .vd__slotGrid div { min-width: 0; }
+  .vd__slotGrid dd { margin: 1px 0 0; font-size: 12.5px; font-weight: 700; overflow-wrap: anywhere; }
+  .vd__hold .card__actions { margin: 2px 0 0; padding: 0; }
+  /* PC幅: 旧レイアウト用にポップアップ本体のスクロールを止めていたのを、新レイアウトでは戻す */
+  @media (min-width: 901px) {
+    .modal__panel--vehicle .modal__body:has(> .vd) { overflow-y: auto; }
+    /* 旧レイアウト用の固定の高さ（min(82vh, 700px)）をやめ、中身の量に合わせて
+       伸び縮みさせる（Hold無しの車両で下に空白が残る／2nd Hold有りで中身が
+       収まらない、の両方を解消）。画面の92%を超える場合だけ中でスクロールする。 */
+    .modal__panel--vehicle:has(.vd) { height: auto; max-height: min(92vh, 940px); }
+  }
+  /* スマホ・タブレット幅: 1列に積み、ボタンは画面下に固定する */
+  @media (max-width: 900px) {
+    .vd__head { flex-direction: column; gap: 10px; }
+    .vd__price { align-items: flex-start; text-align: left; }
+    .vd__facts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .vd__fact:nth-child(4) { border-left: none; }
+    .vd__fact:nth-child(n+4) { border-top: 1px solid var(--outline); }
+    .vd__body { display: flex; flex-direction: column; gap: 16px; }
+    .vd__dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .vd__notes { grid-template-columns: 1fr; }
+    /* 固定（sticky）は親の範囲内でしか効かないため、本体・Hold状況の枠を外して
+       ボタンの親をポップアップの中身全体（.vd）にする。 */
+    .vd__body, .vd__hold { display: contents; }
+    .vd .card__actions {
+      position: sticky; bottom: -16px; z-index: 2;
+      margin: 0 -4px; padding: 10px 4px;
+      background: var(--surface);
+      box-shadow: 0 -8px 14px -10px color-mix(in srgb, var(--shadow-color) 30%, transparent);
+    }
+  }
 </style>

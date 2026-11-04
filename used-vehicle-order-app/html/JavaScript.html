@@ -903,6 +903,9 @@
     clearTimeout(modal._closeTimer);
     modal.classList.remove('is-closing');
     modal.classList.remove('hidden');
+    // 開くたびに中身を先頭から表示する（前に開いた別の車両のスクロール位置を
+    // 引き継がないように）。
+    modal.querySelectorAll('.modal__body').forEach(function (b) { b.scrollTop = 0; });
     openModalCount++;
     document.body.classList.add('modal-open');
   }
@@ -2567,23 +2570,109 @@
     return '<div class="card__holdArea card__holdArea--full">' + blocksHtml + '</div>';
   }
 
-  function vehicleDetailHtml_(v) {
-    var holdInfoHtml = holdAreaHtml_(v);
-    var cardTone = vehicleCardTone_(v);
-    return '<div class="card ' + cardTone + '">' +
-      '<div class="card__detailCol card__detailCol--overview">' +
-      vehicleTopHtml_(v) +
-      vehicleQuickMetaHtml_(v, true) +
+  // ===== 車両詳細（ポップアップ）のレイアウト =====
+  // 改善（現場からの要望「車両詳細をより綺麗に・ビジュアルよく。Holdの下などの
+  // 無駄な空欄が多い。2nd Holdも考慮したデザインに」）:
+  //   ・上部に「モデル名・区分・ＯＣＮ・状態」と「販売価格」の見出しを置き、その下に
+  //     よく見る6項目（初年度登録・走行距離・車検満了・登録番号・現展示拠点・
+  //     経過月）を1行の帯にまとめる。
+  //   ・左に残りの車両情報（見出しと値の表）とオプション・備考、右に「Hold状況」を
+  //     置く。Hold状況は「1st Hold」「2nd Hold」の2つの枠を縦に並べ、空いている枠は
+  //     「空き」として何ができるかを示す（2nd Holdの枠からそのまま登録できる）。
+  //     2nd Holdの枠には、開始（＝1st Holdの期限）〜期限の期間を表示する。
+  //   ・ボタンは右列の一番下にまとめる（右列の高さは中身に合わせ、余白を作らない）。
+  //   ・掲載状況で背景色を変えるのをやめ、白に統一する（掲載状況はバッジで示す）。
+  // 在庫リスト（vehicleDetailHtml_）とデモカー・サービス代車・ホームの検索結果
+  // （carTrackingDetailHtml_）の両方で使う。
+  function vdFactHtml_(label, value, tone) {
+    return '<div class="vd__fact' + (tone ? ' ' + tone : '') + '"><span>' + escapeHtml(label) + '</span><b>' + escapeHtml(value || '-') + '</b></div>';
+  }
+  function vdRowHtml_(label, value, wide) {
+    return '<div' + (wide ? ' class="is-wide"' : '') + '><dt>' + escapeHtml(label) + '</dt><dd>' + escapeHtml(value || '-') + '</dd></div>';
+  }
+  function vdHoldSlotHtml_(v, rank) {
+    var prefix = rank === '2nd' ? 'secondHold' : 'hold';
+    var holdType = v[prefix + 'HoldType'] || 'normal';
+    var isWholesale = holdType !== 'normal';
+    var createdAt = v[prefix + 'CreatedAt'];
+    var expiresAt = v[prefix + 'ExpiresAt'];
+    var label = rank === '2nd' ? '2nd Hold' : (isWholesale ? holdTypeLabel_(holdType) : '1st Hold');
+    var head = '<div class="vd__slotHead"><span class="vd__slotLabel">' + escapeHtml(label) + '</span>' +
+      '<button class="vd__slotCancel" type="button" data-cancel-hold="' + escapeHtml(v.commission) + '" data-cancel-hold-rank="' + rank + '">解除</button></div>';
+    if (isWholesale) {
+      return '<div class="vd__slot vd__slot--filled vd__slot--wholesale">' + head +
+        '<div class="vd__slotWho"><b>' + escapeHtml(v[prefix + 'SalesStore'] || '販売先未入力') + '</b><span>担当 ' + escapeHtml(v[prefix + 'Staff'] || '-') + '</span></div>' +
+        holdTimerHtml_(createdAt, expiresAt, 'holdTimer--lg') +
+        '</div>';
+    }
+    var timeHtml = rank === '2nd'
+      ? '<div class="vd__slotPeriod"><span>開始</span><b>' + escapeHtml(formatDateTime(createdAt)) + '</b><span>期限</span><b>' + escapeHtml(formatDateTime(expiresAt)) + '</b></div>'
+      : holdTimerHtml_(createdAt, expiresAt, 'holdTimer--lg');
+    return '<div class="vd__slot vd__slot--filled' + (rank === '2nd' ? ' vd__slot--second' : '') + '">' + head +
+      '<div class="vd__slotWho"><b>' + escapeHtml(v[prefix + 'Customer'] || '-') + '</b><span>担当 ' + escapeHtml(v[prefix + 'Staff'] || '-') + '・' + escapeHtml(v[prefix + 'SalesLocation'] || '-') + '</span></div>' +
+      timeHtml +
+      // 2nd Holdは「待機中」の枠のため、詳細はリード番号・登録月だけにして枠を
+      // コンパクトに保つ（残りの契約内容は繰り上がって1st Holdになった時点で表示）。
+      '<dl class="vd__slotGrid">' +
+      vdRowHtml_('リード番号', v[prefix + 'LeadNumber']) + vdRowHtml_('登録月', v[prefix + 'RegisteredMonth']) +
+      (rank === '2nd' ? '' :
+        vdRowHtml_('下取車', v[prefix + 'TradeIn']) + vdRowHtml_('OSS', v[prefix + 'Oss']) +
+        vdRowHtml_('保険', v[prefix + 'Insurance']) + vdRowHtml_('支払方法', v[prefix + 'PaymentMethod'])) +
+      '</dl></div>';
+  }
+  function vdHoldPanelHtml_(v, isSold) {
+    var isHold = v.holdStatus === 'hold';
+    var isWholesale = isHold && !!(v.holdHoldType && v.holdHoldType !== 'normal');
+    var slots;
+    if (isSold) {
+      slots = '<div class="vd__slot vd__slot--empty"><b>販売済み</b><span>この車両は販売済みです。</span></div>';
+    } else if (!isHold) {
+      slots = '<div class="vd__slot vd__slot--empty"><span class="vd__slotLabel">1st Hold</span><b>空き</b>' +
+        '<span>「HOLD」でこの車両を72時間確保できます。</span></div>';
+    } else {
+      slots = vdHoldSlotHtml_(v, '1st');
+      if (hasSecondHold_(v)) {
+        slots += vdHoldSlotHtml_(v, '2nd');
+      } else if (!isWholesale) {
+        slots += '<div class="vd__slot vd__slot--empty vd__slot--queue"><span class="vd__slotLabel">2nd Hold</span><b>空き</b>' +
+          '<span>1st Holdの期限（' + escapeHtml(formatDateTime(v.holdExpiresAt)) + '）から72時間確保できます。</span>' +
+          '<button class="btn" type="button" data-second-hold="' + escapeHtml(v.commission) + '">2nd Holdを登録</button></div>';
+      }
+    }
+    return '<aside class="vd__hold"><h4 class="vd__secTitle">Hold状況</h4>' + slots +
+      (isSold ? '' : vehicleActionsHtml_(v, true)) + '</aside>';
+  }
+  function vehicleDetailV2Html_(v, badgesHtml, isSold) {
+    return '<div class="vd">' +
+      '<header class="vd__head"><div class="vd__title">' +
+      '<div class="vd__eyebrow">' + escapeHtml(v.category || '-') + '　ＯＣＮ ' + escapeHtml(v.ocn || '-') + '</div>' +
+      '<h3 class="vd__model">' + escapeHtml(v.model) + '</h3>' +
+      '<div class="vd__badges">' + badgesHtml + '</div></div>' +
+      '<div class="vd__price"><span>販売価格</span><b>' + escapeHtml(formatNumberUnit_(v.salePrice, '') || '-') + '<small>円</small></b>' +
+      '<em>ﾘｻｲｸﾙ料 ' + escapeHtml(formatNumberUnit_(v.recycleFee, ' 円') || '-') + '</em></div></header>' +
+      '<div class="vd__facts">' +
+      vdFactHtml_('初年度登録', v.firstRegistrationDate) +
+      vdFactHtml_('走行距離', formatNumberUnit_(v.mileage, ' km')) +
+      vdFactHtml_('車検満了', v.inspectionExpiryDate, inspectionExpiryTone_(v.inspectionExpiryDate)) +
+      vdFactHtml_('登録番号', plateText_(v)) +
+      vdFactHtml_('現展示拠点', v.currentDisplayLocation) +
+      vdFactHtml_('経過月', formatNumberUnit_(v.elapsedMonths, ' ヶ月')) +
       '</div>' +
-      '<div class="card__detailCol card__detailCol--spec">' +
-      vehicleSpecFieldsHtml_(v) +
+      '<div class="vd__body"><section class="vd__spec"><h4 class="vd__secTitle">車両情報</h4><dl class="vd__dl">' +
+      vdRowHtml_('外装色', v.exteriorColor) + vdRowHtml_('内装色', v.interiorColor) + vdRowHtml_('ステア', v.steering) +
+      vdRowHtml_('型式', v.modelCode) + vdRowHtml_('車台番号下４桁', v.chassisNumberLast4) + vdRowHtml_('MP', v.mp) +
+      vdRowHtml_('CCC入庫日', v.cccArrivalDate) + vdRowHtml_('旧使用拠点', v.previousLocation) + vdRowHtml_('現名義', v.currentOwnerName) +
+      '</dl>' +
+      '<div class="vd__notes">' +
+      noteBlockHtml_('オプション', v.option, 'オプションの登録はありません。') +
       noteBlockHtml_('備考', v.remarks, '備考はありません。') +
-      '</div>' +
-      '<div class="card__detailCol card__detailCol--hold">' +
-      holdInfoHtml +
-      vehicleActionsHtml_(v) +
-      '</div>' +
-      '</div>';
+      '</div></section>' +
+      vdHoldPanelHtml_(v, isSold) +
+      '</div></div>';
+  }
+
+  function vehicleDetailHtml_(v) {
+    return vehicleDetailV2Html_(v, vehicleBadgesHtml_(v), false);
   }
 
   /** 一覧行タップ・チェブロンタップのどちらでも、車両情報すべてを画面中央の
@@ -2678,34 +2767,7 @@
   function carTrackingDetailHtml_(v) {
     var isHold = v.holdStatus === 'hold';
     var isSold = !isHold && v.saleStatus === '販売済み';
-    var cardTone = isSold ? 'card--sold' : vehicleCardTone_(v);
-
-    var holdInfoHtml = isSold
-      ? '<div class="card__holdArea card__holdArea--empty card__holdArea--full">' +
-        '<span class="card__holdArea__placeholder">この車両は販売済みです。</span>' +
-        '</div>'
-      : holdAreaHtml_(v);
-
-    return '<div class="card ' + cardTone + '">' +
-      '<div class="card__detailCol card__detailCol--overview">' +
-      '<div class="card__top">' +
-      '<div class="card__topRow">' +
-      '<div><div class="card__model">' + escapeHtml(v.model) + '</div>' +
-      '<div class="card__commission">ＯＣＮ ' + escapeHtml(v.ocn || '-') + '</div></div>' +
-      '</div>' +
-      '<div class="card__badges">' + carTrackingBadgeHtml_(v, true) + '</div>' +
-      '</div>' +
-      vehicleQuickMetaHtml_(v, true) +
-      '</div>' +
-      '<div class="card__detailCol card__detailCol--spec">' +
-      vehicleSpecFieldsHtml_(v) +
-      noteBlockHtml_('備考', v.remarks, '備考はありません。') +
-      '</div>' +
-      '<div class="card__detailCol card__detailCol--hold">' +
-      holdInfoHtml +
-      (isSold ? '' : vehicleActionsHtml_(v)) +
-      '</div>' +
-      '</div>';
+    return vehicleDetailV2Html_(v, carTrackingBadgeHtml_(v, true), isSold);
   }
 
   // ===== ホーム画面「検索結果」一覧（在庫リスト＋デモカーリスト＋サービス代車
