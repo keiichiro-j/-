@@ -915,6 +915,13 @@
     display: block; min-width: 0; font-size: 12px; font-weight: 800; letter-spacing: -.01em;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     text-shadow: 0 0 4px var(--surface), 0 0 7px var(--surface), 0 1px 2px var(--surface);
+    /* 不具合修正（現場からの要望「モデル名の『g』などが少し消えてしまう」）:
+       省略記号のためのoverflow: hiddenは文字の箱の外を切り取るため、行の高さを
+       詰めた（.homeCard__modelTagのline-height: 1.25）結果、g・y・p等の下に
+       はみ出す部分が切れていた。箱の下側にだけ余白（padding-bottom）を足して
+       切り取られないようにし、同じ分を負のmarginで打ち消して、型との間隔は
+       詰めたまま変えない。 */
+    padding-bottom: 3px; margin-bottom: -3px;
   }
   /* 不具合修正（現場からの要望「型をモデル名に近づけてほしい。型の文字を
      若干小さくしてほしい。写真とかぶってしまう」）: 型はインライン要素の
