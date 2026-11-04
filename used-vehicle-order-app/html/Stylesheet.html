@@ -904,6 +904,8 @@
      読めるよう、文字に白のハロー（text-shadow）を付けて輪郭を出す。 */
   .homeCard__modelTag {
     position: absolute; top: 6px; left: 7px; right: 7px;
+    /* 行の高さを文字に合わせて詰める（型との間隔・写真へのかぶりを小さくする）。 */
+    line-height: 1.25;
   }
   /* 不具合修正: <span>はインライン要素のため、text-overflow: ellipsisを
      付けても実際の幅がないと省略記号が働かず、長いモデル名がラベルの枠から
@@ -914,8 +916,14 @@
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     text-shadow: 0 0 4px var(--surface), 0 0 7px var(--surface), 0 1px 2px var(--surface);
   }
+  /* 不具合修正（現場からの要望「型をモデル名に近づけてほしい。型の文字を
+     若干小さくしてほしい。写真とかぶってしまう」）: 型はインライン要素の
+     ため、親（.homeCard__modelTag）の標準の行の高さで1行ぶんの箱が作られ、
+     モデル名との間に約7pxの隙間が空いていた（margin-topもインライン要素には
+     効かない）。display: blockにして行の高さを文字に合わせ、モデル名の
+     すぐ下に寄せる。文字も10px→9pxに小さくし、写真にかぶる範囲を減らす。 */
   .homeCard__type {
-    margin-top: 1px; font-size: 10px; font-weight: 700; color: var(--on-surface-variant);
+    display: block; margin-top: 0; font-size: 9px; line-height: 1.2; font-weight: 700; color: var(--on-surface-variant);
     text-shadow: 0 0 4px var(--surface), 0 0 7px var(--surface), 0 1px 2px var(--surface);
   }
   .homeCard__stock {
