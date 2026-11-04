@@ -5595,6 +5595,7 @@
     loadedHomePhotoUrls_[img.getAttribute('src')] = true;
   }
   window.markHomePhotoLoaded_ = markHomePhotoLoaded_;
+  var HOME_GRADE_VISIBLE_ = 4;
   function homeModelCardHtml_(p, allItems, allModelPhotos, index) {
     var grades = matchedModelsForEntry_(p, allItems, allModelPhotos);
     var total = modelCountForEntry_(p, allItems, allModelPhotos);
@@ -5641,7 +5642,14 @@
           (zero ? '' : '<svg class="icon homeCard__gradeRowChev"><use href="#icon-back"></use></svg>') +
           '</button>';
       }).join('');
-      gradeListHtml = '<div class="homeCard__gradeList">' + rowsHtml + '</div>';
+      // 改善（現場からの要望「8グレードあった場合の表示」）: グレードが多いと
+      // カードが縦に長くなり、写真が細長く切り抜かれて車が見えなくなるうえ、
+      // 同じ行の他のカードまで同じ高さに伸びて空白ができていた。最初の
+      // HOME_GRADE_VISIBLE_件（在庫の多い順）だけ表示し、残りは「他n件を表示」で
+      // その場で開く（すべてのグレードへ従来どおり移動できる）。
+      var hiddenCount = Math.max(0, gradeEntries.length - HOME_GRADE_VISIBLE_);
+      gradeListHtml = '<div class="homeCard__gradeList' + (hiddenCount ? ' is-collapsible' : '') + '">' + rowsHtml + '</div>' +
+        (hiddenCount ? '<button type="button" class="homeCard__gradeMore" data-more="他' + hiddenCount + 'グレードを表示">他' + hiddenCount + 'グレードを表示</button>' : '');
     }
 
     // 厳選された代表写真をカードいっぱいの背景として敷く演出（Stylesheet.html
@@ -5786,6 +5794,13 @@
    * ほしい」。以前はホーム画面内の結果一覧までスクロールするだけだった）。
    */
   on('homeGrid', 'click', function (e) {
+    var moreBtn = e.target.closest('.homeCard__gradeMore');
+    if (moreBtn) {
+      var card = moreBtn.closest('.homeCard');
+      var open = card.classList.toggle('is-gradesOpen');
+      moreBtn.textContent = open ? '閉じる' : moreBtn.dataset.more;
+      return;
+    }
     var gradeBtn = e.target.closest('[data-home-grade]');
     if (gradeBtn) {
       goToHomeResultsPage_({ models: [gradeBtn.dataset.homeGrade] });

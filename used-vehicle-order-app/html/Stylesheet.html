@@ -3708,4 +3708,17 @@
   }
   /* 写真左上のモデル名は少し大きく。 */
   .homeCard__model { font-size: 13.5px; }
+
+  /* グレードが多いカード（homeModelCardHtml_）: 5件目以降は「他n件を表示」で開く。
+     開いたカードだけが縦に伸び、同じ行の他のカードは伸ばさない。写真は
+     カードの上部（標準の高さ）に固定し、細長く切り抜かれないようにする。 */
+  .homeGrid { align-items: start; }
+  .homeCard__gradeList.is-collapsible > .homeCard__gradeRow:nth-child(n+5) { display: none; }
+  .homeCard.is-gradesOpen .homeCard__gradeList.is-collapsible > .homeCard__gradeRow { display: flex; }
+  .homeCard__gradeMore {
+    align-self: flex-start; margin-top: 6px; padding: 2px 0; border: none; background: none;
+    font: inherit; font-size: 12px; font-weight: 700; color: var(--primary-text); cursor: pointer;
+  }
+  .homeCard__gradeMore:hover { text-decoration: underline; }
+  .homeCard.is-gradesOpen .homeCard__photo { align-self: flex-start; height: 190px; }
 </style>
