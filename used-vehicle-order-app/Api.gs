@@ -8,6 +8,9 @@
 // ===== 初期化 =====
 function api_getBootstrapData() {
   var email = Session.getActiveUser().getEmail();
+  // 2nd Holdから繰り上がった本人のカレンダー予定を、本人の権限で正しい期限に
+  // 作り直す（syncMyStaleHoldCalendarEvents_、CalendarService.gs参照）。
+  try { syncMyStaleHoldCalendarEvents_(); } catch (e) { /* 表示を優先し、次回また試す */ }
   var isAdmin = isSystemAdmin_(email);
   // 担当者名・拠点の自動判定は管理者かどうかに関わらず全員に必要なため、
   // 必ず（画面には出さない）実データのstaffListを使って判定してから
@@ -84,6 +87,7 @@ function api_renameSpreadsheet(newTitle) {
  */
 function api_listInventory(filters, groupBy) {
   triggerHoldExpiryCheck();
+  try { syncMyStaleHoldCalendarEvents_(); } catch (e) { /* 表示を優先し、次回また試す */ }
   var all = listInventory();
   var vehicles = searchInventory(all, filters);
   var groups = groupBy ? groupByField_(vehicles, groupBy) : [{ key: '', items: vehicles }];

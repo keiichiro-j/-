@@ -42,6 +42,8 @@ function confirmOrder(commission, info) {
     // 上のVEHICLE_COLUMNSのコピーでは引き継がれない。ここで明示的にコピーする
     // （不具合修正: 受注確定してもMPが受注リストのスプレッドシートに反映されなかった）。
     order.mp = vehicle.mp;
+    // 在庫リストの備考を引き継ぐ（デモカー・サービス代車リストは備考列を持たないため空欄）。
+    order.remarks = vehicle.remarks || '';
     // 受注キャンセル（cancelOrder）で元の位置へ車両を復元できるよう、元シート上の
     // 行番号とシート名を控えておく（createVehicleInSource_のpreferredRowNumber参照）。
     order.inventoryRowNumber = resolved.rowNumber;
@@ -110,6 +112,8 @@ function confirmWholesaleOrder(commission, info) {
     // それぞれの末尾に個別に追加した項目のため、上のVEHICLE_COLUMNSのコピーでは
     // 引き継がれない。ここで明示的にコピーする（不具合修正: confirmOrderと同じ問題）。
     order.mp = vehicle.mp;
+    // 在庫リストの備考を引き継ぐ（デモカー・サービス代車リストは備考列を持たないため空欄）。
+    order.remarks = vehicle.remarks || '';
     // 業販受注キャンセル（cancelWholesaleOrder）で元の位置へ車両を復元できるよう、
     // 元シート上の行番号とシート名を控えておく（createVehicleInSource_の
     // preferredRowNumber参照）。
@@ -179,6 +183,8 @@ function cancelOrder(commission) {
     // （confirmOrderのMP不具合修正と対になる箇所。受注キャンセルで元シートへ
     // 戻す際もMPを引き継ぐ）。
     vehicle.mp = order.mp;
+    // 受注確定時に引き継いだ備考を元のシートへ戻す（備考列の無いシートでは無視される）。
+    vehicle.remarks = order.remarks || '';
     // 不具合修正: saleStatus（販売状況）もVEHICLE_COLUMNSに含まれない
     // （CAR_TRACKING_COLUMNS固有の列）ため、デモカーリスト・サービス代車リストへ
     // 戻すケースで空欄のまま書き込まれていた。空欄だと一覧の既定の絞り込み
@@ -240,6 +246,8 @@ function cancelWholesaleOrder(commission) {
     // MPはVEHICLE_COLUMNSに含まれないため、上のコピーでは引き継がれない
     // （cancelOrderと同じ理由）。
     vehicle.mp = order.mp;
+    // 受注確定時に引き継いだ備考を元のシートへ戻す（備考列の無いシートでは無視される）。
+    vehicle.remarks = order.remarks || '';
     // 不具合修正: saleStatusもVEHICLE_COLUMNSに含まれないため空欄のまま書き込まれて
     // いた（cancelOrderと同じ理由・同じ修正）。
     vehicle.saleStatus = CAR_TRACKING_STATUS.IN_STOCK;

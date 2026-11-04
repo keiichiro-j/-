@@ -372,6 +372,15 @@ var ORDER_COLUMNS = VEHICLE_COLUMNS.concat(HOLD_ORDER_INPUT_COLUMNS).concat([
       '既存データとの互換のため）。アプリが自動記録するため、手動編集しないでください。' +
       'ORDER_COLUMNSの末尾に追加した列のため、既存のスプレッドシートには自動では' +
       '追加されません（SetupService.gsのaddSourceSheetColumnToOrderSheets_参照）。'
+  },
+  // 改善（現場からの要望「受注キャンセル時も備考は残したい」）: 在庫リストの
+  // 備考を受注確定時にそのまま引き継ぎ、受注キャンセルで元のシートへ戻す際にも
+  // 復元できるよう、受注リスト側にも備考列を持つ。既存のシートとの互換性のため
+  // 必ず末尾に置く（ensureTrailingColumnHeaders_、SheetService.gs参照。見出しが
+  // 無い既存シートには自動で見出しを補う）。
+  {
+    key: 'remarks', label: '備考', type: 'text',
+    note: '在庫リストの備考を受注確定時に引き継いだものです。受注キャンセルで在庫リスト等へ戻す際にも、この内容が備考として復元されます。'
   }
 ]);
 
@@ -417,6 +426,15 @@ var WHOLESALE_ORDER_COLUMNS = VEHICLE_COLUMNS.concat([
       '既存データとの互換のため）。アプリが自動記録するため、手動編集しないでください。' +
       'WHOLESALE_ORDER_COLUMNSの末尾に追加した列のため、既存のスプレッドシートには' +
       '自動では追加されません（SetupService.gsのaddSourceSheetColumnToOrderSheets_参照）。'
+  },
+  // 改善（現場からの要望「受注キャンセル時も備考は残したい」）: 在庫リストの
+  // 備考を受注確定時にそのまま引き継ぎ、受注キャンセルで元のシートへ戻す際にも
+  // 復元できるよう、受注リスト側にも備考列を持つ。既存のシートとの互換性のため
+  // 必ず末尾に置く（ensureTrailingColumnHeaders_、SheetService.gs参照。見出しが
+  // 無い既存シートには自動で見出しを補う）。
+  {
+    key: 'remarks', label: '備考', type: 'text',
+    note: '在庫リストの備考を受注確定時に引き継いだものです。受注キャンセルで在庫リスト等へ戻す際にも、この内容が備考として復元されます。'
   }
 ]);
 

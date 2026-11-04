@@ -1792,6 +1792,15 @@
     z-index: 2;
     pointer-events: none;
   }
+  /* 不具合修正（スマホ・タブレット幅）: 列見出しをヘッダー（.topbar）の
+     真下ぴったりに固定していたため、スクロール中にヘッダーが落とす影
+     （body.is-scrolled .topbar）に列見出しの上の線・角丸が重なって見えにくく
+     なっていた。PC幅（24px）と同じ考え方で、ヘッダーとの間に影の分の隙間
+     （10px）を空けて固定し、その隙間は下の::beforeの帯で背景色に塗る。 */
+  @media (max-width: 900px) {
+    .tblHeadWrap { top: calc(var(--topbar-h) + 10px); }
+    .tblHeadWrap.is-stuck::before { top: -10px; height: calc(10px + var(--radius)); }
+  }
   @media (min-width: 901px) {
     .tblHeadWrap {
       top: calc(var(--topbar-h) + var(--filterbar-h) + 24px);

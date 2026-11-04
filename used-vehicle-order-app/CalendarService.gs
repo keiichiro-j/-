@@ -54,6 +54,7 @@ function createHoldCalendarEvent_(commission, model, expiresAt) {
  * @param {string} eventId
  */
 function deleteHoldCalendarEvent_(eventId) {
+  eventId = stripStaleCalendarMark_(eventId);
   if (!eventId) return;
   try {
     var event = CalendarApp.getDefaultCalendar().getEventById(eventId);
@@ -61,4 +62,68 @@ function deleteHoldCalendarEvent_(eventId) {
   } catch (e) {
     // カレンダー操作の失敗は無視する（本体の処理を優先する）。
   }
+}
+
+/**
+ * 不具合修正（2nd Holdの担当者のカレンダーが実際より遅い期限のまま残る）:
+ * 1st Holdを手動で解除して2nd Holdが繰り上がると、期限は「解除した時点から
+ * 72時間」に付け直されるが、2nd Holdのカレンダーイベントは2nd Holdを登録した
+ * 担当者本人のカレンダーにあり、解除を行った別の担当者（1st Hold側）の権限
+ * では書き換えられない（CalendarApp.getDefaultCalendarは実行中のユーザー
+ * 自身のカレンダーしか扱えない）。そのため、繰り上げ時はHoldリストの
+ * カレンダーイベントID欄に「要更新」の印（STALE_CALENDAR_MARK_）を付けておき、
+ * その担当者本人が次にアプリを開いた・更新したときに
+ * （syncMyStaleHoldCalendarEvents_、Api.gs参照）、本人の権限で古い予定を
+ * 削除して正しい期限の予定を作り直す。
+ */
+var STALE_CALENDAR_MARK_ = 'STALE:';
+
+function markCalendarEventStale_(eventId) {
+  return STALE_CALENDAR_MARK_ + stripStaleCalendarMark_(eventId);
+}
+
+function isCalendarEventStale_(eventId) {
+  return String(eventId || '').indexOf(STALE_CALENDAR_MARK_) === 0;
+}
+
+function stripStaleCalendarMark_(eventId) {
+  var id = String(eventId || '');
+  return isCalendarEventStale_(id) ? id.slice(STALE_CALENDAR_MARK_.length) : id;
+}
+
+/**
+ * ログイン中の担当者本人のHoldのうち、カレンダーの予定が「要更新」になって
+ * いるもの（上記参照）を、本人の権限で作り直す。アプリの起動時・在庫リストの
+ * 更新時に呼ばれる。失敗してもアプリ本体の表示は妨げない（次回また試す）。
+ */
+function syncMyStaleHoldCalendarEvents_() {
+  var email = Session.getActiveUser().getEmail();
+  if (!email) return 0;
+  var holdsSheet = getHoldsSheet_();
+  var mine = readAllRows_(holdsSheet, HOLD_COLUMNS, 'commission').filter(function (h) {
+    return isCalendarEventStale_(h.calendarEventId) && emailsMatch_(h.staffEmail, email);
+  });
+  if (!mine.length) return 0;
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return 0;
+  var fixed = 0;
+  try {
+    mine.forEach(function (h) {
+      // ロック取得までの間に解除・受注確定・繰り上げ等で行が変わっている
+      // 可能性があるため、行を探し直してから書き換える。
+      var rowNumber = findHoldRowNumber_(holdsSheet, h.commission, h.rank);
+      if (!rowNumber) return;
+      deleteHoldCalendarEvent_(h.calendarEventId);
+      var newId = '';
+      if (h.expiresAt) {
+        var resolved = findVehicleSourceByCommission_(h.commission);
+        newId = createHoldCalendarEvent_(h.commission, resolved ? resolved.vehicle.model : '', h.expiresAt);
+      }
+      updateHoldRow_(holdsSheet, rowNumber, { calendarEventId: newId });
+      fixed++;
+    });
+  } finally {
+    lock.releaseLock();
+  }
+  return fixed;
 }

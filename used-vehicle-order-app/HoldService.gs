@@ -376,8 +376,16 @@ function cancelHold(commission, rank) {
       var secondRowNumber = findHoldRowNumber_(holdsSheet, commission, HOLD_RANK.SECOND);
       var firstRowNumber = findHoldRowNumber_(holdsSheet, commission, HOLD_RANK.FIRST);
       var now = new Date().getTime();
-      updateHoldRow_(holdsSheet, secondRowNumber, { rank: HOLD_RANK.FIRST, createdAt: now, expiresAt: now + HOLD_DURATION_MS });
+      // 2nd Holdの担当者のカレンダー予定は、元の（遅い）期限のままになるため
+      // 「要更新」の印を付け、本人が次にアプリを開いたときに作り直す
+      // （syncMyStaleHoldCalendarEvents_、CalendarService.gs参照）。あわせて、
+      // 期限が早まったことを本人へすぐメールで知らせる。
+      updateHoldRow_(holdsSheet, secondRowNumber, {
+        rank: HOLD_RANK.FIRST, createdAt: now, expiresAt: now + HOLD_DURATION_MS,
+        calendarEventId: markCalendarEventStale_(holds.second.calendarEventId)
+      });
       deleteHoldRow_(holdsSheet, firstRowNumber);
+      notifySecondHoldPromoted_(holds.second, commission, resolved ? resolved.vehicle.model : '', now + HOLD_DURATION_MS);
     } else if (action === 'release') {
       var onlyRowNumber = findHoldRowNumber_(holdsSheet, commission, HOLD_RANK.FIRST);
       deleteHoldRow_(holdsSheet, onlyRowNumber);

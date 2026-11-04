@@ -787,10 +787,18 @@
     { tab: 'serviceCarList', label: 'サービス代車リスト', icon: 'icon-grid' },
     { tab: 'settings', label: '設定', icon: 'icon-tune' }
   ];
+  // 不具合修正: 画面幅1100〜1279pxの細い縦タブメニュー（Stylesheet.html参照）では
+  // ラベルが2行に折り返されるが、「業販受注リス／ト」のように単語の途中で
+  // 折り返されていた。末尾の「リスト」の直前を折り返し位置（<wbr>）にし、
+  // 「業販受注／リスト」「サービス代車／リスト」のように区切りの良い位置で
+  // 折り返す（CSS側のword-break: keep-allにより、それ以外の位置では折り返さない）。
+  function appRailLabelHtml_(label) {
+    return escapeHtml(label).replace(/リスト$/, '<wbr>リスト');
+  }
   function appRailItemHtml_(item) {
     var cls = 'navBtn appRail__item' + (item.tab === 'home' ? ' is-active' : '') + (item.adminOnly ? ' navBtn--adminOnly hidden' : '');
     return '<button type="button" class="' + cls + '" data-tab="' + item.tab + '">' +
-      '<svg><use href="#' + item.icon + '"></use></svg><span class="appRail__label">' + escapeHtml(item.label) + '</span></button>';
+      '<svg><use href="#' + item.icon + '"></use></svg><span class="appRail__label">' + appRailLabelHtml_(item.label) + '</span></button>';
   }
   function renderAppRail_() {
     var html = APP_RAIL_ITEMS_.map(appRailItemHtml_).join('');
@@ -3261,6 +3269,12 @@
     $('actionStepWholesale').classList.toggle('hidden', !showWholesale);
     $('actionStepWholesaleOrder').classList.toggle('hidden', !showWholesaleOrder);
 
+    // 不具合修正: 「＊は必須項目です」の注記が、入力欄の無いHold種別選択画面や、
+    // 必須項目の無い業販HOLDの簡易フォーム（販売先は未入力でも登録できる）にも
+    // 表示されていた。必須項目のある画面でだけ表示する。
+    var requiredNote = $('actionRequiredNote');
+    if (requiredNote) requiredNote.classList.toggle('hidden', !(showStep1 || showStep2 || showWholesaleOrder));
+
     var isNormalSteps = showStep1 || showStep2;
     $('actionStepFill').closest('.modal__stepBar').classList.toggle('hidden', !isNormalSteps);
     if (isNormalSteps) {
@@ -3937,6 +3951,8 @@
       metaRow_('車検満了日', o.inspectionExpiryDate, inspectionExpiryTone_(o.inspectionExpiryDate)) +
       '</dl>' +
       noteBlockHtml_('オプション', o.option, 'オプションの登録はありません。') +
+      // 在庫リストから引き継いだ備考（受注キャンセル時もこの内容で在庫へ戻る）。
+      noteBlockHtml_('備考', o.remarks, '備考はありません。') +
       '</div>' +
       '<div class="card__detailCol card__detailCol--hold">' +
       '<dl class="card__metaGrid">' +
@@ -4193,6 +4209,8 @@
       metaRow_('車検満了日', o.inspectionExpiryDate, inspectionExpiryTone_(o.inspectionExpiryDate)) +
       '</dl>' +
       noteBlockHtml_('オプション', o.option, 'オプションの登録はありません。') +
+      // 在庫リストから引き継いだ備考（受注キャンセル時もこの内容で在庫へ戻る）。
+      noteBlockHtml_('備考', o.remarks, '備考はありません。') +
       '</div>' +
       '<div class="card__detailCol card__detailCol--hold">' +
       '<dl class="card__metaGrid">' +

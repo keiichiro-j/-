@@ -191,3 +191,37 @@ function formatDateTime_(epochMs) {
   if (!epochMs) return '-';
   return Utilities.formatDate(new Date(epochMs), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
 }
+
+/**
+ * 1st Holdの手動解除で2nd Holdが1st Holdへ繰り上がったことを、2nd Holdを
+ * 登録していた担当者本人へメールで知らせる。繰り上げ時はHold期限が「解除した
+ * 時点から72時間」に付け直され、2nd Hold登録時の予定より早まるため、本人が
+ * 気づかないまま期限切れになることを防ぐ（カレンダーの予定は本人が次にアプリを
+ * 開いたときに自動で作り直される。syncMyStaleHoldCalendarEvents_参照）。
+ * 送信に失敗してもHold解除の処理自体は止めない。
+ */
+function notifySecondHoldPromoted_(secondHold, commission, model, newExpiresAt) {
+  if (!secondHold || !secondHold.staffEmail) return false;
+  try {
+    MailApp.sendEmail({
+      to: secondHold.staffEmail,
+      subject: '【販売可能リスト】2nd Holdが1st Holdに繰り上がりました（期限: ' + formatDateTime_(newExpiresAt) + '）',
+      body: [
+        (secondHold.staff || '') + ' 様',
+        '',
+        '1st Holdが解除されたため、あなたの2nd Holdが1st Holdに繰り上がりました。',
+        'Hold期限は「解除された時点から72時間」に変わり、2nd Hold登録時の予定より早まっています。',
+        '',
+        'コミッション: ' + commission,
+        'モデル: ' + (model || '-'),
+        '顧客: ' + (secondHold.customer || '-'),
+        '新しいHold期限: ' + formatDateTime_(newExpiresAt),
+        '',
+        'Googleカレンダーの「Hold期限」の予定は、次に販売可能リストを開いたとき（または更新したとき）に新しい期限へ自動で直ります。'
+      ].join('\n')
+    });
+    return true;
+  } catch (e) {
+    return false;
+  }
+}

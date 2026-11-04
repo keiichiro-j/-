@@ -164,11 +164,41 @@ function getHoldsSheet_() {
 }
 
 function getOrderSheet_() {
-  return getOrCreateSheet_(SHEET_NAMES.ORDERS, ORDER_COLUMNS, [orderColIndex1('ocn'), orderColIndex1('commission')]);
+  var sheet = getOrCreateSheet_(SHEET_NAMES.ORDERS, ORDER_COLUMNS, [orderColIndex1('ocn'), orderColIndex1('commission')]);
+  ensureTrailingColumnHeaders_(sheet, ORDER_COLUMNS);
+  return sheet;
 }
 
 function getWholesaleOrderSheet_() {
-  return getOrCreateSheet_(SHEET_NAMES.WHOLESALE_ORDERS, WHOLESALE_ORDER_COLUMNS, [wholesaleOrderColIndex1('ocn'), wholesaleOrderColIndex1('commission')]);
+  var sheet = getOrCreateSheet_(SHEET_NAMES.WHOLESALE_ORDERS, WHOLESALE_ORDER_COLUMNS, [wholesaleOrderColIndex1('ocn'), wholesaleOrderColIndex1('commission')]);
+  ensureTrailingColumnHeaders_(sheet, WHOLESALE_ORDER_COLUMNS);
+  return sheet;
+}
+
+/**
+ * 列定義の末尾に後から追加した列（受注リスト・業販受注リストの「備考」等）を、
+ * 既存のシートにも自動で用意する。メニューからの手動の列追加を実行し忘れても
+ * アプリが壊れないよう、シートを取得するたびに確認する（1回の実行につき
+ * シートごとに1度だけ確認する）。
+ *   ・シートの列数そのものが足りない場合は、末尾に列を挿入する（足りないまま
+ *     getRangeで読み書きするとエラーになるため）。
+ *   ・見出し行の末尾側で空欄になっている列見出しに、列定義のラベル・説明メモを
+ *     書き込む（既存の見出しは上書きしない）。
+ */
+var ensuredTrailingHeaders_ = {};
+function ensureTrailingColumnHeaders_(sheet, columns) {
+  var name = sheet.getName();
+  if (ensuredTrailingHeaders_[name]) return;
+  ensuredTrailingHeaders_[name] = true;
+  var n = columns.length;
+  var maxCols = sheet.getMaxColumns();
+  if (maxCols < n) sheet.insertColumnsAfter(maxCols, n - maxCols);
+  var header = sheet.getRange(1, 1, 1, n).getValues()[0];
+  for (var i = n - 1; i >= 0; i--) {
+    if (String(header[i]).trim() !== '') break;
+    sheet.getRange(1, i + 1).setValue(columns[i].label);
+    if (columns[i].note) sheet.getRange(1, i + 1).setNote(columns[i].note);
+  }
 }
 
 function getDemoCarListSheet_() {

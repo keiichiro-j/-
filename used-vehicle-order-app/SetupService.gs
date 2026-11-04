@@ -99,7 +99,10 @@ function migrateSteeringToRL_() {
  */
 function addRemarksColumnToInventory_() {
   var sheet = getInventorySheet_();
-  var remarksCol1 = INVENTORY_COLUMNS.length; // 末尾の列（1-indexed）
+  // 不具合修正: 以前は「末尾の列」（INVENTORY_COLUMNS.length）を備考列としていたが、
+  // 備考の後ろにMP列が追加されたため、末尾はMP列になっていた（この関数を実行すると
+  // MP列の見出しを「備考」で上書きしてしまう）。列定義から備考列の位置を求める。
+  var remarksCol1 = INVENTORY_COL_INDEX['remarks'] + 1;
   var currentHeader = sheet.getLastColumn() >= remarksCol1
     ? sheet.getRange(1, remarksCol1).getValue()
     : '';
@@ -113,7 +116,7 @@ function addRemarksColumnToInventory_() {
   applyHeaderNotes_(sheet, INVENTORY_COLUMNS);
   applySheetDesign_(sheet, SHEET_NAMES.INVENTORY, INVENTORY_COLUMNS);
 
-  var message = '在庫リストの末尾（' + remarksCol1 + '列目）に「備考」列を追加しました。';
+  var message = '在庫リストの' + remarksCol1 + '列目に「備考」列を追加しました。';
   Logger.log(message);
   return message;
 }
@@ -137,7 +140,9 @@ function addMpColumnToVehicleSheets_() {
   var added = [];
   var skipped = [];
   targets.forEach(function (t) {
-    var mpCol1 = t.columns.length; // 末尾の列（1-indexed）
+    // 不具合修正: 受注リスト・業販受注リストではMP列の後ろに元シート・備考列が
+    // 追加されたため、「末尾の列」ではなく列定義からMP列の位置を求める。
+    var mpCol1 = buildColIndex_(t.columns)['mp'] + 1;
     var currentHeader = t.sheet.getLastColumn() >= mpCol1
       ? t.sheet.getRange(1, mpCol1).getValue()
       : '';
@@ -177,7 +182,7 @@ function addHoldStatusColumnToCarTrackingSheets_() {
   var added = [];
   var skipped = [];
   targets.forEach(function (t) {
-    var col1 = CAR_TRACKING_COLUMNS.length; // 末尾の列（1-indexed）
+    var col1 = CAR_TRACKING_COL_INDEX['holdStatus'] + 1; // 列定義から位置を求める（後から列が追加されてもずれない）
     var currentHeader = t.sheet.getLastColumn() >= col1
       ? t.sheet.getRange(1, col1).getValue()
       : '';
@@ -214,7 +219,9 @@ function addSourceSheetColumnToOrderSheets_() {
   var added = [];
   var skipped = [];
   targets.forEach(function (t) {
-    var col1 = t.columns.length; // 末尾の列（1-indexed）
+    // 不具合修正: 元シート列の後ろに備考列が追加されたため、「末尾の列」ではなく
+    // 列定義から元シート列の位置を求める。
+    var col1 = buildColIndex_(t.columns)['sourceSheet'] + 1;
     var currentHeader = t.sheet.getLastColumn() >= col1
       ? t.sheet.getRange(1, col1).getValue()
       : '';
@@ -228,7 +235,7 @@ function addSourceSheetColumnToOrderSheets_() {
     added.push(t.name);
   });
 
-  var message = (added.length ? added.join('・') + 'の末尾に「元シート」列を追加しました。' : '') +
+  var message = (added.length ? added.join('・') + 'に「元シート」列を追加しました。' : '') +
     (skipped.length ? (added.length ? ' ' : '') + skipped.join('・') + 'には既に「元シート」列がありました。' : '');
   Logger.log(message);
   return message;
