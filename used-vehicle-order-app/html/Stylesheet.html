@@ -541,7 +541,26 @@
      display: noneからの復帰にtransitionは効かないため、animationを使う
      （animationは要素が描画された瞬間から再生されるため、display: none明けでも
      機能する）。 */
-  .view.is-active { display: block; animation: viewFadeIn .24s var(--ease-out); }
+  .view.is-active { display: block; }
+  /* 設定タブの見出しだけの帯（Index.html参照）。絞り込みバーと同じ見た目・
+     高さで、縦タブメニューの位置を他の画面と揃える。スマホ・タブレット幅では
+     絞り込みバー自体が縦積みのカードになり、メニューも無いため表示しない。 */
+  .filterSidebar--pageTitle { display: none; }
+  @media (min-width: 901px) {
+    #app .filterSidebar--pageTitle { display: flex; min-height: 52px; justify-content: center; }
+  }
+  .filterSidebar__pageTitle { margin: 0; font-size: 14px; font-weight: 700; color: var(--on-surface); letter-spacing: .04em; }
+  /* 不具合修正（現場からの要望「コントロールパネルからタブを選んだ際に、
+     コントロールパネルも一瞬消える（光る）のをやめて、常に固定で表示されて
+     いるようにしてほしい」）: 縦タブメニュー（.appRail）は各画面がそれぞれ
+     自分の中に持っているため、以前のように画面全体（.view）にフェードインを
+     付けると、タブを切り替えるたびにメニューごと透明から現れ直し、一瞬消えて
+     光ったように見えていた。フェードインは画面ごとに中身が変わる部分
+     （絞り込みバー・一覧などの本文）だけに付け、メニューは切替の瞬間から
+     そのまま表示する（どの画面のメニューも同じ位置・同じ見た目のため、
+     固定されたまま動かないように見える）。 */
+  .view.is-active > .filterSidebar,
+  .view.is-active .listBody__main { animation: viewFadeIn .24s var(--ease-out); }
   @keyframes viewFadeIn {
     from { opacity: 0; transform: translateY(6px); }
     to { opacity: 1; transform: translateY(0); }
@@ -3168,7 +3187,8 @@
     .confettiLayer::before { transition: none; }
     .card { transition: none; }
     .topbar__navBtn--refresh.is-spinning .icon { animation: none; }
-    .view.is-active { animation: none; }
+    .view.is-active > .filterSidebar,
+    .view.is-active .listBody__main { animation: none; }
     .celebParticle, .celebFlash, .celebShockwave, .celebEnergyCore { display: none; }
     .celebrationBanner { transition: none; }
     .modal, .modal .modal__panel, .toast { animation: none; }

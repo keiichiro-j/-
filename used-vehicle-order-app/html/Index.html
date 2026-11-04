@@ -974,6 +974,14 @@
 
     <!-- 設定 -->
     <main class="view view--list" id="view-settings">
+      <!-- 設定タブには絞り込み機能が無いが、他の画面と同じ高さの帯を置いて
+           「設定」の見出しを表示する（PC・タブレット幅のみ）。これが無いと、
+           設定タブに切り替えたときだけ縦タブメニューが絞り込みバーの高さ分
+           上にずれて動いてしまう（現場からの要望「コントロールパネルは常に
+           固定で表示されているように」）。 -->
+      <aside class="filterSidebar filterSidebar--pageTitle" aria-label="設定">
+        <p class="filterSidebar__pageTitle">設定</p>
+      </aside>
       <div class="listBody">
         <nav class="appRail" data-host-view="settings" aria-label="画面切替"></nav>
         <div class="listBody__main">
