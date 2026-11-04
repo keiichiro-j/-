@@ -3714,12 +3714,24 @@
      「スクロールで他n件 ↓」を表示する（一番下まで見ると消える）。
      カード同士の間隔は20px→14pxに詰める。 */
   .homeGrid { align-items: stretch; gap: 14px; padding: 10px 16px 18px; }
+  /* 現場からの要望「グレード名は基本C20S・A20DBのような略称のため、PCでは1行
+     3枚以上を基本に」: PC幅（901px以上）は3枚、1600px以上は4枚。 */
   @media (min-width: 901px) {
-    /* 2列のグレード名が詰まりすぎないよう、カード最小幅を420pxにする
-       （1280・1440pxで2列、1920pxで3列）。 */
-    .homeGrid { grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 14px; padding: 12px 20px 20px; }
+    .homeGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; padding: 12px 20px 20px; }
   }
-  .homeCard__photo { flex-basis: 42%; }
+  @media (min-width: 1600px) {
+    .homeGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
+  /* 現場からの要望「カードの大きさをグレード数で変えない。2列×6グレードを基準に」:
+     グレード欄は件数に関わらず常に3行分＋「スクロールで他n件」の行の高さを確保し、
+     グレードを持たないカードも同じ高さにそろえる。 */
+  .homeCard__gradeWrap { height: 112px; flex: none; }
+  .homeCard__gradeWrap .homeCard__gradeList { height: 90px; align-content: start; }
+  .homeCard__body { min-height: 196px; }
+  @media (min-width: 481px) {
+    .homeCard { height: 196px; }
+  }
+  .homeCard__photo { flex-basis: 40%; }
   .homeCard__gradeWrap { position: relative; margin-top: 8px; }
   .homeCard__gradeWrap .homeCard__gradeList {
     display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 30px;
@@ -3743,7 +3755,7 @@
   .homeCard__gradeWrap .homeCard__gradeRowName { font-size: 12px; }
   .homeCard__gradeWrap .homeCard__gradeRowChev { display: none; }
   @media (min-width: 901px) {
-    .homeCard__photo { flex-basis: 38%; }
+    .homeCard__photo { flex-basis: 38%; min-height: 0; }
   }
   /* スマホ幅（480px以下）: 写真を上・情報を下の縦並びにし、情報欄に全幅を使う
      （横並びのままでは2列のグレード名がほとんど読めないため）。 */
