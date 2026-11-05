@@ -79,6 +79,7 @@
     staffList: [], // 設定タブで編集中の担当者マスタ（作業用コピー）
     modelBodyTypeRules: [], // 設定タブで編集中のボディタイプ紐付けルール（作業用コピー）
     modelPhotos: [], // 設定タブで編集中の車両画像（作業用コピー）
+    homeSort: '', // ホームのカードの並び替え（''=登録順 / stock / price / name）
     homeBodyTypeFilter: '', // ホーム画面の型クイックナビで選択中の型（空文字は「すべて」）
     // ホーム画面の車両プール（在庫リスト＋デモカーリスト＋サービス代車リストの3シートを
     // 束ねたもの。受注リストは対象外）。api_listHomeVehiclePool（Api.gs参照）で取得する。
@@ -5493,15 +5494,19 @@
   function renderHomeTypeNav_() {
     var options = (state.bootstrap && state.bootstrap.modelBodyTypeOptions) || [];
     var current = state.homeBodyTypeFilter;
-    var counts = countByBodyType_(state.homeVehiclePool || []);
     var sel = $('homeTypeFilter');
     sel.innerHTML = '<option value=""></option>' + options.map(function (t) {
-      return '<option value="' + escapeHtml(t) + '">' + escapeHtml(withCount_(t, counts[t] || 0)) + '</option>';
+      // 現場からの要望「ホームのボディタイプの絞り込みに台数を表示しないで」
+      return '<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + '</option>';
     }).join('');
     sel.value = options.indexOf(current) !== -1 ? current : '';
     if (sel.value !== current) state.homeBodyTypeFilter = sel.value;
   }
 
+  on('homeSort', 'change', function () {
+    state.homeSort = this.value;
+    renderHomeGallery_();
+  });
   on('homeTypeFilter', 'change', function () {
     state.homeBodyTypeFilter = this.value;
     renderHomeGallery_();
@@ -5696,6 +5701,30 @@
       : allEntries;
     $('homeEmpty').classList.toggle('hidden', allEntries.length > 0);
     $('homeTypeEmpty').classList.toggle('hidden', !(allEntries.length > 0 && entries.length === 0));
+    // 現場からの要望（PCで台数の合計・並び替え）: カードの上に「nモデル・在庫n台」と
+    // 並び替え（登録順・在庫が多い順・価格が安い順・名前順）を表示する。
+    var sortKey = state.homeSort || '';
+    if (sortKey) {
+      var meta = entries.map(function (p, idx) {
+        var price = minSalePriceForEntry_(p, pool, allModelPhotos);
+        return { p: p, idx: idx, count: modelCountForEntry_(p, pool, allModelPhotos), price: price === null ? Infinity : price };
+      });
+      meta.sort(function (a, b) {
+        if (sortKey === 'stock') return (b.count - a.count) || (a.idx - b.idx);
+        if (sortKey === 'price') return (a.price - b.price) || (a.idx - b.idx);
+        if (sortKey === 'name') return String(a.p.model).localeCompare(String(b.p.model), 'ja') || (a.idx - b.idx);
+        return a.idx - b.idx;
+      });
+      entries = meta.map(function (m) { return m.p; });
+    }
+    var stockTotal = entries.reduce(function (n, p) { return n + modelCountForEntry_(p, pool, allModelPhotos); }, 0);
+    var summary = $('homeSummary');
+    if (summary) {
+      summary.classList.toggle('hidden', entries.length === 0);
+      summary.querySelector('.homeSummary__text').innerHTML =
+        '<b>' + entries.length + '</b>モデル<span class="homeSummary__sep">・</span>在庫<b>' + stockTotal + '</b>台';
+      $('homeSort').value = sortKey;
+    }
     $('homeGrid').innerHTML = entries
       .map(function (p, i) { return homeModelCardHtml_(p, pool, allModelPhotos, i); })
       .join('');

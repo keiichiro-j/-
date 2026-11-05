@@ -3886,4 +3886,33 @@
     .topbar__brand { max-width: calc(100% - 204px); }
     .topbar__user .tabs__badge--user { display: none; }
   }
+
+  /* 5. 写真の上のモデル名: 写真の上端を薄く暗くするグラデーションを敷き、白文字で
+     読みやすくする（明るい写真・白い車でも背景に溶けない）。 */
+  .homeCard__photo::before {
+    content: ''; position: absolute; left: 0; right: 0; top: 0; height: 58%; z-index: 1;
+    background: linear-gradient(to bottom, rgba(10, 20, 30, .55), transparent);
+    pointer-events: none; display: block;
+  }
+  .homeCard__photo.has-photo::before { display: block; filter: none; opacity: 1; inset: 0 0 auto 0; background: linear-gradient(to bottom, rgba(10, 20, 30, .55), transparent); }
+  .homeCard__photo:not(.has-photo)::before { display: none; }
+  .homeCard__modelTag { z-index: 2; top: 8px; left: 10px; right: 10px; }
+  .homeCard__photo.has-photo .homeCard__model { color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, .45); }
+
+  /* 8. ボディタイプは小さなバッジにして目に入りやすくする。 */
+  .homeCard__type {
+    display: inline-block; margin-top: 4px; padding: 2px 7px; border-radius: 4px;
+    font-size: 10px; font-weight: 700; letter-spacing: .06em; line-height: 1.4;
+    background: rgba(255, 255, 255, .9); color: var(--primary-dark); text-shadow: none;
+  }
+
+  /* 6. カード一覧の上の「nモデル・在庫n台」と並び替え */
+  .homeSummary { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 8px 20px 0; }
+  .homeSummary.hidden { display: none; }
+  .homeSummary__text { font-size: 13px; color: var(--on-surface-variant); }
+  .homeSummary__text b { font-size: 16px; color: var(--on-surface); margin: 0 2px; font-variant-numeric: tabular-nums; }
+  .homeSummary__sep { margin: 0 6px; }
+  .homeSummary__sort { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: var(--on-surface-variant); }
+  .homeSummary__sort select.input { width: auto; min-width: 150px; padding: 5px 10px; font-size: 13px; }
+  @media (max-width: 480px) { .homeSummary { padding: 6px 12px 0; } }
 </style>
