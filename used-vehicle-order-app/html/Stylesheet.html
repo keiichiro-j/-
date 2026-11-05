@@ -3938,4 +3938,16 @@
   .homeCard { box-shadow: none; }
   .homeCard--clickable:hover { transform: none; box-shadow: none; border-color: var(--primary); }
   .homeCard--clickable:active { transform: none; }
+  /* 背景透過（PNG等）の写真: 透明部分は明るい面のまま見せ、上の暗いグラデーションは
+     敷かず、モデル名・ボディタイプを濃い文字で表示する（applyHomePhotoBandColor_が
+     写真の四辺が透明かを調べて is-transparent を付ける）。車が文字にかぶらないよう
+     写真は少し下に寄せる。 */
+  .homeCard__photo.is-transparent {
+    background: linear-gradient(to bottom, color-mix(in srgb, var(--primary) 4%, var(--surface)) 0%, color-mix(in srgb, var(--primary) 16%, var(--surface)) 100%);
+  }
+  .homeCard__photo.has-photo.is-transparent::before { display: none; }
+  .homeCard__photo.has-photo.is-transparent .homeCard__model { color: var(--on-surface); text-shadow: none; }
+  .homeCard__photo.is-transparent .homeCard__type { color: var(--primary-text); text-shadow: none; }
+  .homeCard__photo.is-transparent img { object-position: center 70%; transform: scale(1); top: 6%; filter: drop-shadow(0 6px 6px rgba(0, 0, 0, .22)); }
+  .homeCard--clickable:hover .homeCard__photo.is-transparent img { transform: scale(1.04); }
 </style>

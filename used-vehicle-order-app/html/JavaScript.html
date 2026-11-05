@@ -5553,7 +5553,12 @@
     var url = img.getAttribute('src');
     var frame = img.parentNode;
     if (!url || !frame) return;
-    var paint = function (bg) { if (bg) frame.style.background = bg; };
+    // 背景透過（PNG等）の写真は帯色を塗らず、明るい面＋濃い文字の表示に切り替える
+    // （透明部分の色を平均すると黒になり、黒い車が背景に溶けて見えなくなるため）。
+    var paint = function (bg) {
+      if (bg === 'transparent') { frame.classList.add('is-transparent'); frame.style.background = ''; }
+      else if (bg) { frame.classList.remove('is-transparent'); frame.style.background = bg; }
+    };
     if (url in homePhotoBandCache_) { paint(homePhotoBandCache_[url]); return; }
     homePhotoBandCache_[url] = '';
     var probe = new Image();
@@ -5562,6 +5567,23 @@
       try {
         var w = probe.naturalWidth, h = probe.naturalHeight;
         if (!w || !h) return;
+        var t = document.createElement('canvas'); t.width = 16; t.height = 16;
+        var tctx = t.getContext('2d');
+        tctx.drawImage(probe, 0, 0, 16, 16);
+        var td = tctx.getImageData(0, 0, 16, 16).data, edgeA = 0, edgeN = 0;
+        for (var py = 0; py < 16; py++) for (var px = 0; px < 16; px++) {
+          if (px > 0 && px < 15 && py > 0 && py < 15) continue;
+          edgeA += td[(py * 16 + px) * 4 + 3]; edgeN++;
+        }
+        if (edgeA / edgeN < 230) {
+          homePhotoBandCache_[url] = 'transparent';
+          document.querySelectorAll('.homeCard__photo img').forEach(function (el) {
+            if (el.getAttribute('src') === url && el.parentNode) {
+              el.parentNode.classList.add('is-transparent'); el.parentNode.style.background = '';
+            }
+          });
+          return;
+        }
         var c = document.createElement('canvas'); c.width = 4; c.height = 32;
         var ctx = c.getContext('2d');
         ctx.drawImage(probe, 0, 0, Math.max(1, Math.round(w * 0.01)), h, 0, 0, 4, 32);
