@@ -3852,4 +3852,35 @@
 
   /* 業販受注リストの「販売先」入力欄の案内文を、キーワード検索欄と同じ大きさに。 */
   .filterSidebar__row input.input::placeholder { font-size: 12px; color: var(--on-surface-variant); }
+
+  /* 現場からの要望「ホームの画像を少しアップで」: 写真全体を収める表示（contain）
+     から、枠いっぱいに少し寄せた表示（cover＋わずかな拡大）にする。左右の無地の
+     帯もなくなる。車体が中央に来るよう、やや下寄りを基準に切り抜く。 */
+  .homeCard__photo img { object-fit: cover; object-position: center 60%; transform: scale(1.06); }
+  .homeCard--clickable:hover .homeCard__photo img { transform: scale(1.1); }
+
+  /* 現場からの要望「タイトルとロゴをアプリに合わせて大きく」 */
+  .topbar__brand { gap: 10px; }
+  .topbar__brandText { font-size: 16px; }
+  .topbar__markIcon { width: 26px; height: 26px; }
+  .topbar__logo { height: 32px; max-width: 170px; }
+  @media (min-width: 901px) {
+    .topbar__brandText { font-size: 21px; letter-spacing: .1em; }
+    .topbar__markIcon { width: 32px; height: 32px; }
+    .topbar__logo { height: 42px; max-width: 240px; }
+  }
+  /* スマホ幅はヘッダーの左右に戻る・更新ボタンと氏名があるため、タイトルが
+     収まる範囲で大きくする（幅の狭い端末では車アイコンを省く）。 */
+  @media (max-width: 480px) {
+    .topbar__brandText { font-size: 15px; letter-spacing: .04em; }
+    .topbar__markIcon { width: 22px; height: 22px; }
+    .topbar__brand { gap: 6px; }
+  }
+  @media (max-width: 380px) {
+    .topbar__markIcon { display: none; }
+    .topbar__brandText { font-size: 12.5px; letter-spacing: 0; }
+    /* 幅の狭い端末では、右上の管理者バッジを省いてタイトルの幅を確保する。 */
+    .topbar__brand { max-width: calc(100% - 204px); }
+    .topbar__user .tabs__badge--user { display: none; }
+  }
 </style>
