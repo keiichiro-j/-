@@ -3719,9 +3719,7 @@
   @media (min-width: 901px) {
     .homeGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; padding: 12px 20px 20px; }
   }
-  @media (min-width: 1600px) {
-    .homeGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  }
+
   /* 現場からの要望「カードの大きさをグレード数で変えない。2列×6グレードを基準に」:
      グレード欄は件数に関わらず常に3行分＋「スクロールで他n件」の行の高さを確保し、
      グレードを持たないカードも同じ高さにそろえる。 */
@@ -3779,5 +3777,32 @@
   .homeCard--clickable:hover .homeCard__photo img { transform: scale(1.03); }
   @media (min-width: 901px) {
     .homeCard__photo { flex-basis: 45%; }
+  }
+
+  /* 現場からの要望「PCは横3列でグレード名の『…』を防ぐ。カードサイズも調整。
+     画像の余白のぼやけは無しに」:
+       ・カードを「写真が上・情報が下」の縦型にし、情報欄にカードの全幅を使う
+         （2列のグレード名に十分な幅を確保）。PC幅は常に1行3枚。
+       ・写真の枠は横長（16:9）で固定し、写真全体を表示する。ぼかしの背景は
+         やめ、縦横比が合わない場合の余白は無地の背景色にする。
+       ・カードの高さは写真の枠＋情報欄（2列×3行のグレード欄）で全カード共通。 */
+  .homeCard__photo.has-photo::before { display: none; }
+  .homeCard { flex-direction: column; height: auto; min-height: 0; }
+  .homeCard__photo {
+    flex: none; width: 100%; height: auto; min-height: 0; aspect-ratio: 16 / 9;
+    background: color-mix(in srgb, var(--primary) 6%, var(--surface));
+  }
+  .homeCard__photo img { object-fit: contain; }
+  /* 情報欄は「在庫台数＋価格＋グレード欄（3行＋スクロール案内）」の高さで固定し、
+     グレードの無いカードも同じ高さにそろえる。 */
+  .homeCard__body { flex: 1; min-height: 0; padding: 12px 16px 12px; }
+  .homeCard__body { flex: none; height: 184px; }
+  .homeGrid { align-items: stretch; }
+  @media (min-width: 901px) {
+    .homeGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .homeCard__photo { flex-basis: auto; }
+  }
+  @media (max-width: 480px) {
+    .homeCard__photo { height: auto; }
   }
 </style>
