@@ -3836,4 +3836,20 @@
   }
   .homeCard--clickable .homeCard__photo[data-hover]:hover::after { opacity: 1; }
   @media (hover: none) { .homeCard__photo[data-hover]::after { display: none; } }
+
+  /* 受注・業販受注の詳細（vdOrderPanelHtml_）: 受注確定の枠はテーマ色の線にする。 */
+  .vd__slot--order { border-left-color: var(--primary); }
+  .vd__slot--order .vd__slotLabel { color: var(--primary-text); }
+  .vd__slotDate { font-size: 12px; font-weight: 700; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; }
+  .vd__hold .card__actions .btn--danger { flex: 1; }
+
+  /* 不具合修正（現場からの要望「アプリを開く際に画面がガタガタする」）: 読み込みの
+     途中で縦のスクロールバーが現れると画面の幅がその分（約10〜17px）狭くなり、
+     全体が左右にずれていた。スクロールバーの場所を最初から確保し、横方向の
+     はみ出しによる横スクロールバーも出さない。 */
+  html { overflow-y: scroll; scrollbar-gutter: stable; }
+  body { overflow-x: clip; }
+
+  /* 業販受注リストの「販売先」入力欄の案内文を、キーワード検索欄と同じ大きさに。 */
+  .filterSidebar__row input.input::placeholder { font-size: 12px; color: var(--on-surface-variant); }
 </style>

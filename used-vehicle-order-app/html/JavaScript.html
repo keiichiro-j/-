@@ -2643,6 +2643,11 @@
       (isSold ? '' : vehicleActionsHtml_(v, true)) + '</aside>';
   }
   function vehicleDetailV2Html_(v, badgesHtml, isSold) {
+    return vdLayoutHtml_(v, badgesHtml, vdHoldPanelHtml_(v, isSold));
+  }
+  // 車両詳細の共通レイアウト（見出し・主要6項目の帯・車両情報・右の枠）。右の枠
+  // （asideHtml）は、在庫系はHold状況、受注・業販受注リストは受注内容を渡す。
+  function vdLayoutHtml_(v, badgesHtml, asideHtml) {
     return '<div class="vd">' +
       '<header class="vd__head"><div class="vd__title">' +
       '<div class="vd__eyebrow">' + escapeHtml(v.category || '-') + '　ＯＣＮ ' + escapeHtml(v.ocn || '-') + '</div>' +
@@ -2667,7 +2672,7 @@
       noteBlockHtml_('オプション', v.option, 'オプションの登録はありません。') +
       noteBlockHtml_('備考', v.remarks, '備考はありません。') +
       '</div></section>' +
-      vdHoldPanelHtml_(v, isSold) +
+      asideHtml +
       '</div></div>';
   }
 
@@ -4042,53 +4047,27 @@
    * 横長3カラム表示になる。Index.html参照）。「受注キャンセル」は、誤って受注確定
    * してしまった場合等に受注を取り消し、在庫リストへ戻す管理者限定の訂正機能。
    */
+  // 改善（現場からの要望「受注リストの形式も在庫リストのようなデザインに」）:
+  // 受注・業販受注リストの詳細も、在庫リストの車両詳細と同じレイアウト
+  // （vdLayoutHtml_）にし、右の枠に受注内容（顧客／販売先・担当・受注確定日時・
+  // 契約内容）とキャンセルボタン（管理者のみ）を置く。
+  function vdOrderPanelHtml_(title, whoName, whoSub, rows, cancelBtnHtml, orderedAt) {
+    return '<aside class="vd__hold"><h4 class="vd__secTitle">' + escapeHtml(title) + '</h4>' +
+      '<div class="vd__slot vd__slot--filled vd__slot--order">' +
+      '<div class="vd__slotHead"><span class="vd__slotLabel">受注確定</span><span class="vd__slotDate">' + escapeHtml(formatDateTime(orderedAt)) + '</span></div>' +
+      '<div class="vd__slotWho"><b>' + escapeHtml(whoName || '-') + '</b><span>' + escapeHtml(whoSub) + '</span></div>' +
+      '<dl class="vd__slotGrid">' + rows.map(function (r) { return vdRowHtml_(r[0], r[1]); }).join('') + '</dl>' +
+      '</div>' +
+      (cancelBtnHtml ? '<div class="card__actions">' + cancelBtnHtml + '</div>' : '') +
+      '</aside>';
+  }
   function orderDetailHtml_(o) {
-    return '<div class="card">' +
-      '<div class="card__detailCol card__detailCol--overview">' +
-      '<div class="card__top">' +
-      '<div class="card__topRow">' +
-      '<div><div class="card__model">' + escapeHtml(o.customer || '-') + '</div>' +
-      '<div class="card__commission">担当者 ' + escapeHtml(o.staff || '-') + '</div></div>' +
-      '</div>' +
-      '<div class="card__badges"><span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span></div>' +
-      '</div>' +
-      '<dl class="card__metaGrid card__metaGrid--quick">' +
-      metaRow_('モデル', o.model) +
-      metaRow_('ＯＣＮ', o.ocn) +
-      metaRowFull_('外装色', o.exteriorColor) +
-      metaRowFull_('内装色', o.interiorColor) +
-      metaRowFull_('登録番号', plateText_(o)) +
-      metaRow_('走行距離', formatNumberUnit_(o.mileage, ' km')) +
-      metaRow_('販売価格', formatNumberUnit_(o.salePrice, ' 円')) +
-      metaRow_('MP', o.mp) +
-      '</dl>' +
-      '</div>' +
-      '<div class="card__detailCol card__detailCol--spec">' +
-      '<dl class="card__metaGrid">' +
-      metaRow_('区分', o.category) +
-      metaRow_('型式', o.modelCode) +
-      metaRow_('車台番号下４桁', o.chassisNumberLast4) +
-      metaRow_('車検満了日', o.inspectionExpiryDate, inspectionExpiryTone_(o.inspectionExpiryDate)) +
-      '</dl>' +
-      noteBlockHtml_('オプション', o.option, 'オプションの登録はありません。') +
-      // 在庫リストから引き継いだ備考（受注キャンセル時もこの内容で在庫へ戻る）。
-      noteBlockHtml_('備考', o.remarks, '備考はありません。') +
-      '</div>' +
-      '<div class="card__detailCol card__detailCol--hold">' +
-      '<dl class="card__metaGrid">' +
-      metaRow_('リード番号', o.leadNumber) +
-      metaRow_('登録月', registeredMonthDisplay_(o.registeredMonth)) +
-      metaRow_('下取車の有無', o.tradeIn) +
-      metaRow_('OSS登録の可否', o.oss) +
-      metaRow_('保険加入の有無', o.insurance) +
-      metaRow_('支払方法', o.paymentMethod) +
-      metaRow_('受注確定日時', formatDateTime(o.orderedAt)) +
-      '</dl>' +
-      (isSystemAdmin_()
-        ? '<div class="card__actions"><button type="button" class="btn btn--danger" data-order-cancel="' + escapeHtml(o.commission) + '">受注キャンセル</button></div>'
-        : '') +
-      '</div>' +
-      '</div>';
+    var badges = '<span class="badge badge--sold"><span class="badge__dot"></span>受注済み</span>';
+    var panel = vdOrderPanelHtml_('受注内容', o.customer, '担当 ' + (o.staff || '-') + '・' + (o.salesLocation || '-'), [
+      ['リード番号', o.leadNumber], ['登録月', registeredMonthDisplay_(o.registeredMonth)], ['下取車', o.tradeIn],
+      ['OSS', o.oss], ['保険', o.insurance], ['支払方法', o.paymentMethod]
+    ], isSystemAdmin_() ? '<button type="button" class="btn btn--danger" data-order-cancel="' + escapeHtml(o.commission) + '">受注キャンセル</button>' : '', o.orderedAt);
+    return vdLayoutHtml_(o, badges, panel);
   }
 
   function findOrderByCommission_(commission) {
@@ -4330,47 +4309,11 @@
    * 登録月・受注確定日時のみになる。
    */
   function wholesaleOrderDetailHtml_(o) {
-    return '<div class="card">' +
-      '<div class="card__detailCol card__detailCol--overview">' +
-      '<div class="card__top">' +
-      '<div class="card__topRow">' +
-      '<div><div class="card__model">' + escapeHtml(o.salesStore || '-') + '</div>' +
-      '<div class="card__commission">担当者 ' + escapeHtml(o.staff || '-') + '</div></div>' +
-      '</div>' +
-      '<div class="card__badges"><span class="badge badge--location">' + escapeHtml(o.salesLocation || '-') + '</span></div>' +
-      '</div>' +
-      '<dl class="card__metaGrid card__metaGrid--quick">' +
-      metaRow_('モデル', o.model) +
-      metaRow_('ＯＣＮ', o.ocn) +
-      metaRowFull_('外装色', o.exteriorColor) +
-      metaRowFull_('内装色', o.interiorColor) +
-      metaRowFull_('登録番号', plateText_(o)) +
-      metaRow_('走行距離', formatNumberUnit_(o.mileage, ' km')) +
-      metaRow_('販売価格', formatNumberUnit_(o.salePrice, ' 円')) +
-      metaRow_('MP', o.mp) +
-      '</dl>' +
-      '</div>' +
-      '<div class="card__detailCol card__detailCol--spec">' +
-      '<dl class="card__metaGrid">' +
-      metaRow_('区分', o.category) +
-      metaRow_('型式', o.modelCode) +
-      metaRow_('車台番号下４桁', o.chassisNumberLast4) +
-      metaRow_('車検満了日', o.inspectionExpiryDate, inspectionExpiryTone_(o.inspectionExpiryDate)) +
-      '</dl>' +
-      noteBlockHtml_('オプション', o.option, 'オプションの登録はありません。') +
-      // 在庫リストから引き継いだ備考（受注キャンセル時もこの内容で在庫へ戻る）。
-      noteBlockHtml_('備考', o.remarks, '備考はありません。') +
-      '</div>' +
-      '<div class="card__detailCol card__detailCol--hold">' +
-      '<dl class="card__metaGrid">' +
-      metaRow_('登録月', registeredMonthDisplay_(o.registeredMonth)) +
-      metaRow_('受注確定日時', formatDateTime(o.orderedAt)) +
-      '</dl>' +
-      (isSystemAdmin_()
-        ? '<div class="card__actions"><button type="button" class="btn btn--danger" data-wholesale-order-cancel="' + escapeHtml(o.commission) + '">業販受注キャンセル</button></div>'
-        : '') +
-      '</div>' +
-      '</div>';
+    var badges = '<span class="badge badge--sold"><span class="badge__dot"></span>業販受注済み</span>';
+    var panel = vdOrderPanelHtml_('業販受注内容', o.salesStore, '担当 ' + (o.staff || '-') + '・' + (o.salesLocation || '-'), [
+      ['登録月', registeredMonthDisplay_(o.registeredMonth)]
+    ], isSystemAdmin_() ? '<button type="button" class="btn btn--danger" data-wholesale-order-cancel="' + escapeHtml(o.commission) + '">業販受注キャンセル</button>' : '', o.orderedAt);
+    return vdLayoutHtml_(o, badges, panel);
   }
 
   function findWholesaleOrderByCommission_(commission) {
