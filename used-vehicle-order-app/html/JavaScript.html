@@ -5645,7 +5645,8 @@
       // 部分だけ下にスクロールできるように。スクロールできることが分かるように」:
       // グレード欄の高さを3行分に固定し、7件以上は欄の中だけスクロールさせる。
       // 下にまだ続きがある間は、下端のフェードと「スクロールで他n件」を出す。
-      var moreCount = Math.max(0, gradeEntries.length - 6);
+      // （その後の要望で、スクロールなしで見える数を2列×4行＝8グレードに拡大）
+      var moreCount = Math.max(0, gradeEntries.length - 8);
       gradeListHtml = '<div class="homeCard__gradeWrap' + (moreCount ? ' has-more' : '') + '">' +
         '<div class="homeCard__gradeList">' + rowsHtml + '</div>' +
         (moreCount ? '<span class="homeCard__gradeHint" aria-hidden="true">スクロールで他' + moreCount + '件 ↓</span>' : '') +
@@ -5692,7 +5693,12 @@
     // （CSSのobject-fit: contain）、枠と縦横比が合わずにできる余白は、同じ写真を
     // ぼかして敷いて埋める（白い帯を出さない）。ぼかし用の写真はCSS変数で渡す。
     var photoBgStyle = p.photoUrl ? ' style="--photo-bg:url(&quot;' + escapeHtml(p.photoUrl).replace(/[()]/g, encodeURIComponent) + '&quot;)"' : '';
-    var photoHtml = '<div class="homeCard__photo' + (p.photoUrl ? ' has-photo' : '') + '"' + photoBgStyle + '>' + photoInner + modelTagHtml + '</div>';
+    // 現場からの要望「画像にカーソルを乗せると『全グレードの在庫を見る』と表示」:
+    // カード全体（写真を含む）を押すとそのモデルの全グレードの在庫一覧へ移る
+    // 既存の動きを、写真の上の案内で分かるようにする（CSSの::after）。
+    var photoHoverText = canNavigateAll ? (hasGrades ? '全グレードの在庫を見る' : '在庫一覧を見る') : '';
+    var photoHtml = '<div class="homeCard__photo' + (p.photoUrl ? ' has-photo' : '') + '"' + photoBgStyle +
+      (photoHoverText ? ' data-hover="' + photoHoverText + '"' : '') + '>' + photoInner + modelTagHtml + '</div>';
 
     var cardClickable = canNavigateAll;
     var cardClass = 'homeCard' + (cardClickable ? ' homeCard--clickable' : '');

@@ -3796,7 +3796,7 @@
   /* 情報欄は「在庫台数＋価格＋グレード欄（3行＋スクロール案内）」の高さで固定し、
      グレードの無いカードも同じ高さにそろえる。 */
   .homeCard__body { flex: 1; min-height: 0; padding: 12px 16px 12px; }
-  .homeCard__body { flex: none; height: 184px; }
+  .homeCard__body { flex: none; }
   .homeGrid { align-items: stretch; }
   @media (min-width: 901px) {
     .homeGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
@@ -3805,4 +3805,35 @@
   @media (max-width: 480px) {
     .homeCard__photo { height: auto; }
   }
+
+  /* 現場からの要望「カードを全体的に縦に短く。写真の範囲を縦に短くし、グレードは
+     スクロールなしで8グレード見えるように。写真にカーソルで『全グレードの在庫を
+     見る』」:
+       ・写真の枠を16:9→2.6:1に低くする。
+       ・在庫台数と価格を1行にまとめる。
+       ・グレード欄は2列×4行（8グレード）・行の高さ26pxで、9件以上だけ欄内スクロール。
+       ・カーソルを乗せると写真を少し暗くして案内を表示する（data-hover）。 */
+  .homeCard__photo { aspect-ratio: 2.6 / 1; }
+  .homeCard__body {
+    height: auto; display: grid; grid-template-columns: auto 1fr; align-items: baseline;
+    column-gap: 12px; row-gap: 0; padding: 10px 14px 10px;
+  }
+  .homeCard__body > .homeCard__stock { grid-column: 1; margin: 0; }
+  .homeCard__body > .homeCard__price { grid-column: 2; justify-self: end; font-size: 16px; }
+  .homeCard__body > .homeCard__gradeWrap, .homeCard__body > .homeCard__tapHint { grid-column: 1 / -1; }
+  .homeCard__gradeWrap { height: 122px; margin-top: 8px; }
+  .homeCard__gradeWrap .homeCard__gradeList { grid-auto-rows: 26px; height: 104px; max-height: 104px; }
+  .homeCard__gradeWrap .homeCard__gradeRow { height: 26px; }
+  .homeCard__gradeHint { height: 18px; padding-top: 3px; }
+  .homeCard__gradeWrap.has-more::after { bottom: 18px; }
+  .homeCard__body:not(:has(.homeCard__gradeWrap)) { min-height: 174px; align-content: start; }
+  .homeCard__photo[data-hover]::after {
+    content: attr(data-hover) '  →'; position: absolute; inset: 0; z-index: 2;
+    display: flex; align-items: center; justify-content: center;
+    background: color-mix(in srgb, var(--primary-dark) 55%, transparent);
+    color: #fff; font-size: 14px; font-weight: 800; letter-spacing: .04em;
+    opacity: 0; transition: opacity .18s var(--ease); pointer-events: none;
+  }
+  .homeCard--clickable .homeCard__photo[data-hover]:hover::after { opacity: 1; }
+  @media (hover: none) { .homeCard__photo[data-hover]::after { display: none; } }
 </style>
