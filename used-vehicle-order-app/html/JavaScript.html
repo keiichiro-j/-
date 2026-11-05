@@ -909,6 +909,9 @@
     modal.querySelectorAll('.modal__body').forEach(function (b) { b.scrollTop = 0; });
     openModalCount++;
     document.body.classList.add('modal-open');
+    // 画面のスクロールはhtml要素が担っている（Stylesheet.htmlの overflow-y: scroll）
+    // ため、bodyだけでなくhtmlにも付けて背景のスクロールを止める。
+    document.documentElement.classList.add('modal-open');
   }
   function closeModal(modal) {
     if (modal.classList.contains('hidden')) return; // 既に閉じている
@@ -918,7 +921,10 @@
       modal.classList.add('hidden');
     }, MODAL_CLOSE_ANIM_MS);
     openModalCount = Math.max(0, openModalCount - 1);
-    if (openModalCount === 0) document.body.classList.remove('modal-open');
+    if (openModalCount === 0) {
+      document.body.classList.remove('modal-open');
+      document.documentElement.classList.remove('modal-open');
+    }
   }
   // Escapeキーで開いているモーダルを閉じる（×ボタン・背景クリックと同じ操作感を
   // キーボードでも提供する）。同時に複数開くことは無い想定だが、念のため開いている

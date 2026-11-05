@@ -3859,8 +3859,8 @@
   /* （その後「写真が見切れる。以前より少し大きい程度に」との要望で、枠いっぱいの
      切り抜き表示をやめ、写真全体を収める表示を1.12倍にした程度に戻す。上下は
      わずかに（各6%ほど）切れるが、車体が切れることはない。） */
-  .homeCard__photo img { object-fit: contain; object-position: center; transform: scale(1.12); }
-  .homeCard--clickable:hover .homeCard__photo img { transform: scale(1.16); }
+  .homeCard__photo img { object-fit: contain; object-position: center; transform: scale(1.2); }
+  .homeCard--clickable:hover .homeCard__photo img { transform: scale(1.24); }
 
   /* 現場からの要望「タイトルとロゴをアプリに合わせて大きく」 */
   .topbar__brand { gap: 10px; }
@@ -3948,6 +3948,11 @@
   .homeCard__photo.has-photo.is-transparent::before { display: none; }
   .homeCard__photo.has-photo.is-transparent .homeCard__model { color: var(--on-surface); text-shadow: none; }
   .homeCard__photo.is-transparent .homeCard__type { color: var(--primary-text); text-shadow: none; }
-  .homeCard__photo.is-transparent img { object-position: center 70%; transform: scale(1); top: 6%; filter: drop-shadow(0 6px 6px rgba(0, 0, 0, .22)); }
-  .homeCard--clickable:hover .homeCard__photo.is-transparent img { transform: scale(1.04); }
+  .homeCard__photo.is-transparent img { object-position: center 70%; transform: scale(1.1); top: 5%; filter: drop-shadow(0 6px 6px rgba(0, 0, 0, .22)); }
+  .homeCard--clickable:hover .homeCard__photo.is-transparent img { transform: scale(1.14); }
+  /* 詳細のポップアップ表示中は背景（各リスト）をスクロールさせない。画面のスクロールは
+     html要素が担うため、htmlごと止める（scrollbar-gutterで幅は変わらない）。
+     ポップアップ内のスクロールが端まで行っても背景へ伝わらないようにする。 */
+  html.modal-open, html.modal-open body { overflow: hidden; }
+  .modal, .modal__body { overscroll-behavior: contain; }
 </style>
