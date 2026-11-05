@@ -3915,4 +3915,27 @@
   .homeSummary__sort { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: var(--on-surface-variant); }
   .homeSummary__sort select.input { width: auto; min-width: 150px; padding: 5px 10px; font-size: 13px; }
   @media (max-width: 480px) { .homeSummary { padding: 6px 12px 0; } }
+
+  /* ================================================================
+     ホームの見た目を他のリストと統一（1・2・3）
+     ================================================================ */
+  /* 1. カード一覧に独自の余白を付けず、在庫リスト等の表と左端・上端をそろえる。 */
+  .homeGrid { padding: 0; }
+  .homeSummary { padding: 0 0 12px; }
+  @media (min-width: 901px) { .homeGrid { padding: 0; } }
+  @media (max-width: 480px) { .homeGrid { padding: 0; } .homeSummary { padding: 0 0 10px; } }
+  /* 2. ボディタイプは他の画面と同じ「点＋文字」で表示する（写真の上なので白）。 */
+  .homeCard__type {
+    background: transparent; color: #fff; padding: 0; border-radius: 0;
+    display: inline-flex; align-items: center; gap: 5px;
+    letter-spacing: .1em; text-transform: uppercase; font-size: 10px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .4);
+  }
+  .homeCard__type::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .homeCard__photo:not(.has-photo) .homeCard__type { color: var(--primary-text); text-shadow: none; }
+  /* 3. カードは影を付けず縁線だけの平らな質感にし、表と合わせる。カーソルを
+     乗せたときは浮き上がらせず、縁線をテーマ色にする。 */
+  .homeCard { box-shadow: none; }
+  .homeCard--clickable:hover { transform: none; box-shadow: none; border-color: var(--primary); }
+  .homeCard--clickable:active { transform: none; }
 </style>
