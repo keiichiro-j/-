@@ -3856,8 +3856,11 @@
   /* 現場からの要望「ホームの画像を少しアップで」: 写真全体を収める表示（contain）
      から、枠いっぱいに少し寄せた表示（cover＋わずかな拡大）にする。左右の無地の
      帯もなくなる。車体が中央に来るよう、やや下寄りを基準に切り抜く。 */
-  .homeCard__photo img { object-fit: cover; object-position: center 60%; transform: scale(1.06); }
-  .homeCard--clickable:hover .homeCard__photo img { transform: scale(1.1); }
+  /* （その後「写真が見切れる。以前より少し大きい程度に」との要望で、枠いっぱいの
+     切り抜き表示をやめ、写真全体を収める表示を1.12倍にした程度に戻す。上下は
+     わずかに（各6%ほど）切れるが、車体が切れることはない。） */
+  .homeCard__photo img { object-fit: contain; object-position: center; transform: scale(1.12); }
+  .homeCard--clickable:hover .homeCard__photo img { transform: scale(1.16); }
 
   /* 現場からの要望「タイトルとロゴをアプリに合わせて大きく」 */
   .topbar__brand { gap: 10px; }
