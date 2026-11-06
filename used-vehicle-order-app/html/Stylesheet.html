@@ -3966,4 +3966,20 @@
     grid-template-columns: 26px minmax(74px, 1fr) minmax(84px, 1fr) minmax(72px, 1fr) minmax(76px, 1fr) minmax(72px, 1fr) minmax(128px, 1fr) minmax(80px, 1fr) minmax(88px, 1fr) minmax(130px, 1fr) 70px 11px;
   }
   .tblCell--num { overflow: visible; text-overflow: clip; }
+  /* ホームの台数: 「在庫〇台 デモカー〇台 サービス代車〇台」の内訳表示。
+     価格と同じ行に収まらない幅では、内訳の途中で折り返す。 */
+  .homeCard__body { grid-template-columns: minmax(0, 1fr) auto; }
+  /* 1行目に「在庫〇台」（右に価格）、2行目にカードの全幅で「デモカー〇台・
+     サービス代車〇台」を小さく並べ、全カードで同じ高さにそろえる。 */
+  .homeCard__stock.homeStock { display: contents; }
+  .homeCard__stock.homeStock::before { display: none; }
+  .homeCard__stock.homeStock > .homeStock__item { grid-column: 1; grid-row: 1; display: inline-flex; align-items: center; gap: 6px; color: var(--primary-text); font-size: 12px; font-weight: 700; }
+  .homeCard__stock.homeStock > .homeStock__item::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+  .homeCard__body > .homeCard__price { grid-row: 1; align-self: center; }
+  .homeStock__sub { grid-column: 1 / -1; grid-row: 2; display: flex; flex-wrap: wrap; gap: 0 4px; margin: 1px 0 0 14px; font-size: 11px; font-weight: 700; color: var(--on-surface-variant); }
+  .homeStock__sub > :nth-child(2)::before { content: '・'; margin-right: 4px; }
+  .homeStock__item { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .homeStock__item.is-zero { opacity: .65; }
+  .homeStock--summary { display: inline-flex; flex-wrap: wrap; gap: 0 12px; }
+  .homeStock--summary .homeStock__item.is-zero { opacity: .8; }
 </style>

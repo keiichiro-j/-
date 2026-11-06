@@ -220,9 +220,14 @@ function api_listServiceCarList(filters) {
  * 管理者判定は行わない（全担当者が使う画面のため）。
  */
 function api_listHomeVehiclePool() {
-  return listInventory()
-    .concat(listCarTrackingList_(getDemoCarListSheet_()))
-    .concat(listCarTrackingList_(getServiceCarListSheet_()));
+  // ホームのカードで「在庫〇台 デモカー〇台 サービス代車〇台」と内訳を出すため、
+  // どのシート由来の車両かをlistSourceとして添える（シートには書き込まない）。
+  var tag = function (source) {
+    return function (v) { v.listSource = source; return v; };
+  };
+  return listInventory().map(tag('inventory'))
+    .concat(listCarTrackingList_(getDemoCarListSheet_()).map(tag('demo')))
+    .concat(listCarTrackingList_(getServiceCarListSheet_()).map(tag('service')));
 }
 
 // ===== 設定機能（3.6） =====
