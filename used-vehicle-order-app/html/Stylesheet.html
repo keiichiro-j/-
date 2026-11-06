@@ -3955,4 +3955,15 @@
      ポップアップ内のスクロールが端まで行っても背景へ伝わらないようにする。 */
   html.modal-open, html.modal-open body { overflow: hidden; }
   .modal, .modal__body { overscroll-behavior: contain; }
+  /* 一覧の番号列（区分の左）: 16px固定では2桁（01〜99）しか入らず、100台目以降が
+     「1…」と見切れていた。3桁（最大999）が収まる幅に広げる。他の列の最小幅は
+     そのまま（表全体の最小幅が10pxほど増えるだけ）。 */
+  .tbl--inventory .tblHead, .tbl--inventory .tblRow {
+    grid-template-columns: 26px minmax(74px, 1fr) minmax(84px, 1fr) minmax(72px, 1fr) minmax(76px, 1fr) minmax(72px, 1fr) minmax(128px, 1fr) minmax(80px, 1fr) minmax(88px, 1fr) 86px 124px 11px;
+  }
+  .tbl--order .tblHead, .tbl--order .tblRow,
+  .tbl--wholesale .tblHead, .tbl--wholesale .tblRow {
+    grid-template-columns: 26px minmax(74px, 1fr) minmax(84px, 1fr) minmax(72px, 1fr) minmax(76px, 1fr) minmax(72px, 1fr) minmax(128px, 1fr) minmax(80px, 1fr) minmax(88px, 1fr) minmax(130px, 1fr) 70px 11px;
+  }
+  .tblCell--num { overflow: visible; text-overflow: clip; }
 </style>
