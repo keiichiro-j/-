@@ -166,8 +166,8 @@
   // 4種類ずつ用意しており、管理者は設定タブの「Hold・受注確定の演出」
   // カードから選べる（celebrationVariants、CELEBRATION_EFFECTS参照）。
   var CELEBRATION_MESSAGES = {
-    hold: ['1ST HOLD しました！', '頑張ってください！', 'HOLD内容はマイページで確認できます'],
-    secondHold: ['2ND HOLD しました！', 'もう少し待ってください', 'HOLD内容はマイページで確認できます'],
+    hold: ['1st Hold しました！', '頑張ってください！', 'Hold内容はマイページで確認できます'],
+    secondHold: ['2nd Hold しました！', 'もう少し待ってください', 'Hold内容はマイページで確認できます'],
     order: ['おめでとうございます！', '受注内容はマイページで確認できます']
   };
 
@@ -229,7 +229,7 @@
   /**
    * A（既定）: エール。中央での閃光→発光する衝撃波（2回）→画面下の左右2箇所
    * から打ち上がるバースト→立ち上る火花の余韻、という4段構成にすることで、
-   * 「1ST HOLDしました！頑張ってください！」という景気の良い文言にふさわしい
+   * 「1st Holdしました！頑張ってください！」という景気の良い文言にふさわしい
    * 打ち上げ花火のような演出にしている。
    */
   function triggerHoldCelebrationA_() {
@@ -1402,7 +1402,7 @@
       html += '<button class="btn btn--primary" data-order="' + escapeHtml(v.commission) + '">受注</button>';
     } else {
       if (!v.secondHoldCustomer && !isIndefiniteHoldType_(v)) {
-        html += '<button class="btn" data-second-hold="' + escapeHtml(v.commission) + '">2ND HOLD</button>';
+        html += '<button class="btn" data-second-hold="' + escapeHtml(v.commission) + '">2nd Hold</button>';
       } else {
         html += '<span class="card__actionSpacer" aria-hidden="true"></span>';
       }
@@ -1414,7 +1414,7 @@
 
   /**
    * 表示形式「カード」用。モデル・コミッション・ステータス・MP・カラー・
-   * 1ST HOLD / 2ND HOLD（未登録も含めて常時2枠）・操作ボタンを表示する。
+   * 1st Hold / 2nd Hold（未登録も含めて常時2枠）・操作ボタンを表示する。
    * 車両スペック（ステア・有償OP等）やHoldの契約詳細は「詳細を見る」のモーダルへ。
    */
   // ===== 旧モデルの表示 =====
@@ -1457,7 +1457,7 @@
 
   /**
    * 「詳細を見る」タップ・表示形式「表」の行タップで開く、画面中央のモーダル
-   * （#inventoryDetailModal）用のフル版。2ND HOLD／受注をすぐ押せるよう
+   * （#inventoryDetailModal）用のフル版。2nd Hold／受注をすぐ押せるよう
    * 操作ボタンを先に出し、車両スペックとHoldの契約詳細（リード番号等）は
    * 折りたたみ（既定は閉じる）にしてスクロール無しで全体が見えるようにする。
    */
@@ -1546,7 +1546,7 @@
     if (isHold) {
       actions = (hasSecondHold || isIndefiniteHoldType_(v)
         ? '<span class="rowCard__actionSpacer" aria-hidden="true"></span>'
-        : '<button class="btn btn--small" data-second-hold="' + escapeHtml(v.commission) + '">2ND HOLD</button>') +
+        : '<button class="btn btn--small" data-second-hold="' + escapeHtml(v.commission) + '">2nd Hold</button>') +
         '<button class="btn btn--small btn--primary" data-order-from-hold="' + escapeHtml(v.commission) + '">受注</button>';
     } else {
       actions = '<button class="btn btn--small" data-hold="' + escapeHtml(v.commission) + '">Hold</button>' +
@@ -1569,9 +1569,9 @@
     // それ以外の項目（入港予定日・可能月・VPC等）は行に含めない。
     // 行に含めない項目も含め、車両情報をすべて省略せず見たい場合は、行（ボタン以外の
     // 箇所）をタップすると開く詳細モーダルで確認できる。
-    // HOLD解除は状態列に置かない。1ST/2ND HOLD列の値と同じ行に「解除」を置き、
+    // HOLD解除は状態列に置かない。1ST/2nd Hold列の値と同じ行に「解除」を置き、
     // 未登録時は同じ幅のスペーサーを入れて高さを揃える。操作ボタンは常に2枠
-    // （2ND HOLD未登録時はスペーサー）にして、HOLDの有無で行高さが変わらないようにする。
+    // （2nd Hold未登録時はスペーサー）にして、HOLDの有無で行高さが変わらないようにする。
     return '<div class="rowCard ' + rowTone + oldModelRowClass_(v) + '" data-commission="' + escapeHtml(v.commission) + '">' +
       oldModelRowFlagHtml_(v) +
       '<div class="rowCard__inner">' +
@@ -1626,7 +1626,7 @@
       '</div>';
   }
 
-  // 1ST HOLD と 2ND HOLD は、登録の有無に関わらず常に2枠出す。
+  // 1st Hold と 2nd Hold は、登録の有無に関わらず常に2枠出す。
   // 以前は未登録を「現在Hold登録なし」の1枠にまとめ、2nd があるときだけ横並び
   // 固定高さ（150px）にしていたため、2nd の顧客名・タイマーが枠内スクロールに
   // 隠れることがあった。縦2枠・高さ自動にして、両方を省略せず見せる。
@@ -1655,9 +1655,19 @@
     var isHold = v.holdStatus === 'hold';
     var hasSecondHold = isHold && !!v.secondHoldCustomer;
     var compact = !full;
+    // カード一覧でHoldが1件も無い車両は、空の2枠を並べず細い1行にまとめる
+    // （空枠が大きく場所を取り、1画面に見える台数が少なくなっていたため）。
+    // ボタン行はカード下端に寄せている（.card__actionsのmargin-top: auto）ため、
+    // 同じ行のHold中カードと並んでもボタンの位置はそろう。
+    if (compact && !isHold) {
+      return '<div class="card__holdArea card__holdArea--vacant">' +
+        '<span class="card__holdVacant card__holdVacant--first"><span class="card__holdVacant__label">1st Hold</span>未登録</span>' +
+        '<span class="card__holdVacant card__holdVacant--second"><span class="card__holdVacant__label">2nd Hold</span>未登録</span>' +
+        '</div>';
+    }
     return '<div class="card__holdArea' + (full ? ' card__holdArea--full' : ' card__holdArea--compact') + '">' +
-      (isHold ? holdInfoBlockHtml_('1ST HOLD', v, 'hold', 'first', full) : holdSlotEmptyHtml_('1ST HOLD', 'first', compact)) +
-      (hasSecondHold ? holdInfoBlockHtml_('2ND HOLD', v, 'secondHold', 'second', full) : holdSlotEmptyHtml_('2ND HOLD', 'second', compact)) +
+      (isHold ? holdInfoBlockHtml_('1st Hold', v, 'hold', 'first', full) : holdSlotEmptyHtml_('1st Hold', 'first', compact)) +
+      (hasSecondHold ? holdInfoBlockHtml_('2nd Hold', v, 'secondHold', 'second', full) : holdSlotEmptyHtml_('2nd Hold', 'second', compact)) +
       '</div>';
   }
 
@@ -1686,8 +1696,8 @@
     var secondValue = hasSecondHold
       ? escapeHtml(v.secondHoldCustomer || '-') + '（' + escapeHtml(v.secondHoldStaff || '-') + '・' + escapeHtml(v.secondHoldSalesLocation || '-') + '）'
       : '未登録';
-    return rowHoldFieldHtml_('1ST HOLD', firstValue, !isHold, 'rowCard__field--holdFirst', rowHoldCancelHtml_(v.commission, '1st', isHold)) +
-      rowHoldFieldHtml_('2ND HOLD', secondValue, !hasSecondHold, 'rowCard__field--holdSecond', rowHoldCancelHtml_(v.commission, '2nd', hasSecondHold));
+    return rowHoldFieldHtml_('1st Hold', firstValue, !isHold, 'rowCard__field--holdFirst', rowHoldCancelHtml_(v.commission, '1st', isHold)) +
+      rowHoldFieldHtml_('2nd Hold', secondValue, !hasSecondHold, 'rowCard__field--holdSecond', rowHoldCancelHtml_(v.commission, '2nd', hasSecondHold));
   }
 
   // Hold詳細ブロックは、常に見えている要約行（顧客・担当者・タイマー）と、
@@ -1698,6 +1708,16 @@
    * full=true（詳細モーダル）では要約・タイマーに加え、契約詳細を折りたたみ
    * （既定は閉じる）で置く。
    */
+  /**
+   * Hold枠の担当者行。以前は「顧客（担当者 ◯◯・拠点）」を1行に詰めていたため、
+   * 枠の幅が狭いと肝心の担当者名・拠点名が「…」で切れていた。顧客名の下の
+   * 2行目に分けて表示する。
+   */
+  function holdStaffRowHtml_(staff, salesLocation) {
+    return '<div class="card__holdInfo__row card__holdInfo__row--staff">担当 ' + escapeHtml(staff || '-') +
+      (salesLocation ? '・' + escapeHtml(salesLocation) : '') + '</div>';
+  }
+
   function holdInfoBlockHtml_(label, v, prefix, rank, full) {
     var holdType = v[prefix + 'HoldType'] || 'normal';
     var isSpecial = holdType !== 'normal';
@@ -1718,13 +1738,16 @@
     var summaryHtml;
     var detailsBody = '';
     if (holdType === 'demo') {
-      summaryHtml = '<div class="card__holdInfo__row"><b>デモカーHOLD</b>（担当者 ' + escapeHtml(staff || '-') + '）</div>';
+      summaryHtml = '<div class="card__holdInfo__row"><b>デモカーHOLD</b></div>' +
+        holdStaffRowHtml_(staff, '');
       detailsBody = 'リード番号 ' + escapeHtml(leadNumber || '-') + ' / 登録月 ' + escapeHtml(registeredMonth || '-');
     } else if (holdType === 'otherStore') {
-      summaryHtml = '<div class="card__holdInfo__row"><b>他店HOLD</b>（担当者 ' + escapeHtml(staff || '-') + '）</div>';
+      summaryHtml = '<div class="card__holdInfo__row"><b>他店HOLD</b></div>' +
+        holdStaffRowHtml_(staff, '');
       detailsBody = '販売店 ' + escapeHtml(salesStore || '-');
     } else {
-      summaryHtml = '<div class="card__holdInfo__row"><b>' + escapeHtml(customer || '-') + '</b>（担当者 ' + escapeHtml(staff || '-') + '・' + escapeHtml(salesLocation || '-') + '）</div>';
+      summaryHtml = '<div class="card__holdInfo__row"><b>' + escapeHtml(customer || '-') + '</b></div>' +
+        holdStaffRowHtml_(staff, salesLocation || '-');
       detailsBody = 'リード番号 ' + escapeHtml(leadNumber || '-') +
         ' / 登録月 ' + escapeHtml(registeredMonth || '-') +
         ' / 下取車 ' + escapeHtml(tradeIn || '-') + ' / OSS ' + escapeHtml(oss || '-') +
@@ -1826,7 +1849,7 @@
         if (text) {
           text.textContent = compact
             ? '開始待ち ' + formatDuration_(createdAt - now)
-            : '1ST HOLD終了後に開始（あと ' + formatDuration_(createdAt - now) + '）';
+            : '1st Hold終了後に開始（あと ' + formatDuration_(createdAt - now) + '）';
         }
         return;
       }
@@ -1925,7 +1948,7 @@
   // ===== Hold / 2nd Hold / 受注 共通モーダル =====
   var ACTION_LABELS = {
     hold: { title: 'Hold登録', button: 'Holdする', busyLabel: 'Hold登録中...', tone: 'hold' },
-    secondHold: { title: '2ND HOLD登録', button: '2ND HOLDする', busyLabel: '登録中...', tone: 'hold' },
+    secondHold: { title: '2nd Hold登録', button: '2nd Holdする', busyLabel: '登録中...', tone: 'hold' },
     order: { title: '受注確定', button: '受注確定する', busyLabel: '受注確定中...', tone: 'order' },
     orderFromHold: { title: '受注確定', button: '受注確定する', busyLabel: '受注確定中...', tone: 'order' }
   };
@@ -2131,7 +2154,7 @@
     if (type === 'secondHold') {
       var holdVehicle = findVehicleByCommission(commission);
       if (isIndefiniteHoldType_(holdVehicle)) {
-        showToast('デモカーHOLD・他店HOLDには2ND HOLDを登録できません', true);
+        showToast('デモカーHOLD・他店HOLDには2nd Holdを登録できません', true);
         return;
       }
     }
@@ -2255,13 +2278,13 @@
       }
     } else if (type === 'secondHold') {
       if (vehicle.holdStatus !== 'hold') {
-        blockReason = 'Hold状態が変わったため、2ND HOLDを登録できません。';
+        blockReason = 'Hold状態が変わったため、2nd Holdを登録できません。';
       } else if (vehicle.secondHoldCustomer || isIndefiniteHoldType_(vehicle)) {
         blockReason = vehicle.secondHoldCustomer
           ? '2nd Holdまで登録済みのため、これ以上のHoldはできません'
-          : 'デモカーHOLD・他店HOLDには2ND HOLDを登録できません';
+          : 'デモカーHOLD・他店HOLDには2nd Holdを登録できません';
       } else if (vehicle.holdStaffEmail && emailsMatch_(vehicle.holdStaffEmail, currentUserEmail_())) {
-        blockReason = '1ST HOLDと同じ担当者は2ND HOLDを登録できません';
+        blockReason = '1st Holdと同じ担当者は2nd Holdを登録できません';
       }
     } else if (type === 'order' || type === 'orderFromHold') {
       if (type === 'orderFromHold' && vehicle.holdStatus !== 'hold') {
@@ -2325,9 +2348,9 @@
     var holdCustomer = vehicle[prefix + 'Customer'];
 
     cancelHoldState = { commission: commission, rank: rank };
-    $('cancelHoldModalTitle').textContent = (rank === '2nd' ? '2ND HOLD' : '1ST HOLD') + 'の解除';
+    $('cancelHoldModalTitle').textContent = (rank === '2nd' ? '2nd Hold' : '1st Hold') + 'の解除';
     $('cancelHoldModalDesc').textContent =
-      'この' + (rank === '2nd' ? '2ND HOLD' : '1ST HOLD') + '（顧客: ' + (holdCustomer || '-') + '）を登録した担当者「' +
+      'この' + (rank === '2nd' ? '2nd Hold' : '1st Hold') + '（顧客: ' + (holdCustomer || '-') + '）を登録した担当者「' +
       (holdStaff || '-') + '」のみ解除できます。';
     $('cancelHoldStaffDisplay').innerHTML = staffDisplayHtml_();
     $('cancelHoldModalError').classList.add('hidden');
@@ -2455,7 +2478,7 @@
       var vehicleForCheck = findVehicleByCommission(action.commission);
       if (vehicleForCheck && vehicleForCheck.holdStaffEmail && emailsMatch_(vehicleForCheck.holdStaffEmail, currentUserEmail_())) {
         var staffErrEl = $('actionModalError');
-        staffErrEl.textContent = '1ST HOLDと同じ担当者（' + vehicleForCheck.holdStaff + '）は2ND HOLDを登録できません';
+        staffErrEl.textContent = '1st Holdと同じ担当者（' + vehicleForCheck.holdStaff + '）は2nd Holdを登録できません';
         staffErrEl.classList.remove('hidden');
         return;
       }
@@ -3501,10 +3524,10 @@
     root.setProperty('--primary-text', preset.primaryText);
     var rgb = hexToRgb_(preset.primary);
     root.setProperty('--primary-bg', rgb ? 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',.18)' : preset.primary);
-    // ホーム画面のカード背景（--card-bg、PCビューのみ・Stylesheet.html参照）は、
-    // --primary-bgよりさらに薄く（6%）テーマカラーを帯びさせ、ページ背景・
-    // 写真プレースホルダーのどちらとも見分けがつく程度に留める。
-    root.setProperty('--card-bg', rgb ? 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',.06)' : preset.primary);
+    // カード背景（--card-bg）はテーマに関わらず白で固定する。以前はテーマカラーを
+    // 6%だけ帯びた半透明色にしていたが、ページ背景（#F4F7FA）とほぼ同じ色になり
+    // カードの境目がぼやけて見えていたため、配色ルール（カードは#FFFFFF）に合わせた。
+    root.setProperty('--card-bg', '#ffffff');
     applySidebarColor_(preset.sidebarColor);
     var loading = $('appLoading');
     if (loading) loading.style.background = preset.sidebarColor;

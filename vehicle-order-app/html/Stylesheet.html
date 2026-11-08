@@ -44,7 +44,7 @@
        のapplyThemeが、選択中のテーマのprimaryから毎回computeし直す。初期表示・
        JS実行前の目安値としてDEFAULT_THEME_KEY「steel」のprimary #2f6faeを
        6%の濃さで混ぜた値をここに置いている）。 */
-    --card-bg: rgba(47, 111, 174, .06);
+    --card-bg: #ffffff;
     /* 管理者権限を持つ担当者のみ登録できるデモカーHOLD・他店HOLD専用の特別色。
        通常のHold（--warning・アンバー）・2nd Hold（--danger・レッド／--primary・ブルー）
        のどれとも重ならない紫系にし、テーマ設定（着せ替え）の影響を受けない固定色にする
@@ -283,6 +283,8 @@
   }
   .topbar__navBtn:hover { background: var(--sidebar-hover-bg); }
   .topbar__navBtn:disabled { opacity: .3; cursor: default; }
+  /* 戻る先が無いとき（ホーム等）は、押せない薄いボタンを残さず隠す */
+  #btnNavBack:disabled, #btnNavBackHome:disabled { display: none; }
   .topbar__navBtn:disabled:hover { background: transparent; }
   /* 「更新」ボタンは「戻る」ボタンと見た目を統一し（同じアウトライン円形）、
      読み込み中はアイコンを回転させることだけでフィードバックする。 */
@@ -448,7 +450,6 @@
     font-size: 13px;
     font-weight: 600;
     letter-spacing: .06em;
-    text-transform: uppercase;
     cursor: pointer;
     transition: background-color .15s ease, border-color .15s ease;
   }
@@ -655,7 +656,6 @@
     background: var(--card-bg);
     border: 1px solid var(--outline);
     border-left: 4px solid transparent;
-    border-top: 3px solid var(--primary);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     padding: 10px 14px;
@@ -720,6 +720,35 @@
   .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(8) { flex: 1 1 140px; min-width: 0; } /* 1ST HOLD */
   .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(9) { flex: 1 1 140px; min-width: 0; } /* 2ND HOLD */
   .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > *:nth-child(10) { flex: 1 1 160px; min-width: 0; } /* 操作ボタン */
+  /* PC幅の在庫の表表示は、全行で同じ列幅のグリッドにする。以前は各列をflexで並べて
+     いたため、VPC等の内容幅が行ごとに違うと残り幅の配分が変わり、MP・ステア・カラー・
+     Holdの位置が行ごとに左右へずれて縦にそろっていなかった。モデル名にも幅を多めに
+     割り当て、「C 200 Ava…」のように途中で切れにくくする。列の順序は
+     vehicleRowCardHtml（JavaScript.html）の出力順と一致させること。 */
+  @media (min-width: 901px) {
+    .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner {
+      display: grid;
+      grid-template-columns:
+        120px                     /* ステータス */
+        minmax(130px, 1.3fr)      /* モデル＋コミッション */
+        4.5ch                     /* MP */
+        3.5em                     /* ステア */
+        minmax(0, 1.2fr)          /* カラー */
+        minmax(0, .9fr)           /* 有償OP */
+        minmax(0, 1fr)            /* VPC */
+        minmax(0, 1.3fr)          /* 1st Hold */
+        minmax(0, 1.3fr)          /* 2nd Hold */
+        148px;                    /* 操作ボタン */
+      column-gap: 10px;
+    }
+    /* 列がそろうので「解除」の位置合わせ用の空白は不要（Hold列の値に幅を回す） */
+    .rowCard__cancelSpacer { display: none; }
+    .rowCard__cancelLink { width: auto; padding-left: 4px; }
+    /* 操作ボタンは右寄せのため、2nd Holdボタンが無い行の位置合わせ用の空白も不要 */
+    .rowCard__actionSpacer { display: none; }
+    .rowCard__actions .btn { flex: none; white-space: nowrap; }
+    .rowCard:not(.rowCard--order):not(.rowCard--gclass):not(.rowCard--purchaseOrder) > .rowCard__inner > .rowCard__status { align-items: flex-start; }
+  }
   .rowCard__field--hold {
     min-width: 0;
     overflow: hidden;
@@ -814,7 +843,7 @@
      行の高さ（line-height）がブラウザの自動計算でわずかに変わってしまい、
      値の上下位置が項目によって数px揃わなくなっていた（現場からの指摘で判明）。
      line-heightを明示的に固定することで、どちらの書体でも同じ高さになる。 */
-  .rowCard__label { font-size: 9.5px; line-height: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--on-surface-variant); white-space: nowrap; }
+  .rowCard__label { font-size: 9.5px; line-height: 12px; font-weight: 700; letter-spacing: .06em; color: var(--on-surface-variant); white-space: nowrap; }
   .rowCard__value {
     font-size: 13.5px; line-height: 17px; font-weight: 600; color: var(--on-surface);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -940,7 +969,6 @@
     border: 1px solid var(--outline);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
-    border-top: 3px solid var(--primary);
     border-left: 4px solid transparent;
     padding: 12px 12px 10px;
     display: flex;
@@ -1074,9 +1102,10 @@
     flex-direction: row;
     align-items: stretch;
     gap: 6px;
-    height: 92px;
-    min-height: 92px;
-    max-height: 92px;
+    /* 顧客名・担当者（2行に分けて表示）・残り時間が切れずに収まる高さ */
+    height: 116px;
+    min-height: 116px;
+    max-height: 116px;
     overflow: hidden;
     flex: none;
   }
@@ -1120,7 +1149,6 @@
     font-size: 11px;
     font-weight: 700;
     letter-spacing: .02em;
-    text-transform: uppercase;
   }
   .card__holdInfo--first { border-left-color: var(--warning); }
   .card__holdInfo--first .card__holdInfo__label { color: var(--warning); }
@@ -1162,7 +1190,10 @@
     flex: none;
     min-height: 18px;
   }
-  .card__holdInfo--compact .card__holdInfo__label { white-space: nowrap; }
+  /* 「1st Hold（デモカーHOLD）」のように長いラベルでも「解除」が枠外に押し出されないよう、
+     ラベル側を省略して縮める */
+  .card__holdInfo--compact .card__holdInfo__label { white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .card__holdInfo--compact .card__holdInfo__cancel { flex: none; }
   .card__holdInfo--compact .card__holdInfo__row {
     margin: 0;
     min-width: 0;
@@ -1172,6 +1203,37 @@
     flex: none;
     min-height: 16px;
   }
+  .card__holdInfo__row--staff {
+    font-size: 12px;
+    color: var(--on-surface-variant);
+  }
+  /* Holdが1件も無い車両の、細い1行の「未登録」表示（vehicleHoldSlotsHtml_参照） */
+  .card__holdArea--vacant {
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+    flex: none;
+  }
+  .card__holdVacant {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 7px 10px;
+    border: 1px dashed var(--outline);
+    border-left: 3px solid var(--warning);
+    border-radius: 8px;
+    background: var(--surface);
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--on-surface-variant);
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .card__holdVacant--second { border-left-color: var(--primary); }
+  .card__holdVacant__label { font-size: 11px; font-weight: 700; color: var(--warning); }
+  .card__holdVacant--second .card__holdVacant__label { color: var(--primary-text); }
   .card__holdInfo--compact .holdTimer {
     min-width: 0;
     overflow: hidden;
@@ -1319,15 +1381,14 @@
        カードがある場合にグリッド自体がコンテナ幅を超えてしまうため）。 */
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 12px;
-    align-items: start;
+    align-items: stretch; /* 同じ行のカードの高さをそろえる */
   }
   .orderCard {
     background: var(--card-bg);
     border: 1px solid var(--outline);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
-    border-top: 3px solid var(--loc-color, var(--primary)); /* 販売拠点ごとの色 */
-    border-left: 4px solid var(--loc-color, var(--primary));
+    border-left: 4px solid var(--loc-color, var(--primary)); /* 販売拠点ごとの色（左辺の1本だけ） */
     padding: 12px 12px 10px;
     display: flex;
     flex-direction: column;
@@ -1341,8 +1402,11 @@
     border-right-color: var(--primary);
     border-bottom-color: var(--primary);
   }
-  .orderCard__top { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 10px; }
-  .orderCard__top .card__badges { margin-left: auto; }
+  /* 拠点バッジは名前の長さに関わらず常に右上に固定する（折り返して下の段に落ちると
+     カードごとに高さがばらつくため）。 */
+  .orderCard__top { display: flex; flex-wrap: nowrap; align-items: flex-start; gap: 8px 10px; }
+  .orderCard__top > :first-child { flex: 1 1 auto; min-width: 0; }
+  .orderCard__top .card__badges { margin-left: auto; flex: none; flex-wrap: nowrap; }
   .orderCard__top .card__badges .badge { margin-left: 0; }
   .orderCard__model { font-size: 16px; font-weight: 700; letter-spacing: -.005em; line-height: 1.25; }
   .orderCard__staff { font-size: 13.5px; font-weight: 600; color: var(--on-surface-variant); margin-top: 3px; }
@@ -1360,7 +1424,7 @@
      対象案件を判断できる（以前はカード内の折りたたみだったが、開閉のたびに
      カードが伸び縮みしていたため。card__detailLinkと同じパターン）。 */
   .orderCard__detailLink {
-    margin: 0;
+    margin: auto 0 0; /* カードの高さがそろっても「詳細を見る」は常に下端に置く */
     width: 100%;
     padding: 12px 0 0;
     border: none;
@@ -1407,8 +1471,7 @@
     border: 1px solid var(--outline);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
-    border-top: 3px solid var(--loc-color, var(--primary)); /* 販売拠点ごとの色 */
-    border-left: 4px solid var(--loc-color, var(--primary));
+    border-left: 4px solid var(--loc-color, var(--primary)); /* 販売拠点ごとの色（左辺の1本だけ） */
     padding: 12px 12px 10px;
     display: flex;
     flex-direction: column;
@@ -1422,8 +1485,9 @@
     border-right-color: var(--primary);
     border-bottom-color: var(--primary);
   }
-  .purchaseOrderCard__top { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 10px; }
-  .purchaseOrderCard__top .badge { margin-left: auto; }
+  .purchaseOrderCard__top { display: flex; flex-wrap: nowrap; align-items: flex-start; gap: 8px 10px; }
+  .purchaseOrderCard__top > :first-child { flex: 1 1 auto; min-width: 0; }
+  .purchaseOrderCard__top .badge { margin-left: auto; flex: none; }
   .purchaseOrderCard__customer { font-size: 16px; font-weight: 700; letter-spacing: -.005em; line-height: 1.25; }
   .purchaseOrderCard__staff { font-size: 13.5px; font-weight: 600; color: var(--on-surface-variant); margin-top: 3px; }
   .purchaseOrderCard__vehicle { font-size: 14px; font-weight: 600; color: var(--on-surface); margin-top: 4px; }
@@ -1499,7 +1563,7 @@
     color: var(--on-surface-variant);
     margin: 0 0 14px;
     line-height: 1.6;
-    max-width: 90ch; /* 横幅いっぱいにしても説明文の1行が長くなりすぎないようにする */
+    max-width: 120ch; /* カードの右半分が空きすぎず、かつ1行が長くなりすぎない幅 */
   }
   .settingsCard .formField + .formField { margin-top: 14px; }
   .settingsActions {
@@ -1987,7 +2051,7 @@
   .sidebar { display: none; }
 
   @media (min-width: 901px) {
-    :root { --sidebar-w: 232px; }
+    :root { --sidebar-w: 248px; }
 
     #app { padding-left: var(--sidebar-w); overflow-x: hidden; }
     html, body { overflow-x: hidden; }
@@ -2274,7 +2338,6 @@
       width: 100%;
       background: var(--surface);
       border: 1px solid var(--outline);
-      border-top: 3px solid var(--primary);
       border-radius: var(--radius);
       overflow: hidden;
       text-align: left;
@@ -2933,7 +2996,7 @@
     .toolbar { padding: 10px; width: calc(100% - 20px); }
     .toolbar .input, .toolbar .checkboxField { flex: 1 1 auto; }
     .homeTypeNav { padding: 10px; width: calc(100% - 20px); }
-    .cardGrid { grid-template-columns: 1fr; gap: 12px; }
+    .cardGrid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
     .homeRow { gap: 12px; }
     .homeRow__photo { width: 60px; height: 60px; }
     .homeRow__footer { gap: 8px; }
@@ -2984,7 +3047,7 @@
     letter-spacing: .12em;
     border-radius: 3px 3px 0 0;
   }
-  .orderCard__vpc { margin-left: 8px; font-size: 12px; font-weight: 600; color: var(--on-surface-variant); }
+  .orderCard__vpc { margin-left: 8px; font-size: 12px; font-weight: 600; color: var(--on-surface-variant); white-space: nowrap; display: inline-block; }
   .settingsVersion { grid-column: 1 / -1; margin: 0; text-align: center; font-size: 12px; color: var(--on-surface-variant); }
   .oldModelBand--empty { background: transparent; color: transparent; }
   main.view:not(:has(.oldModelBand:not(.oldModelBand--empty))) .oldModelBand--empty,
@@ -3163,8 +3226,11 @@
   /* 「絞り込み」ボタン（スマホ・タブレット幅のみ表示） */
   .toolbar__filterToggle { display: none; }
   @media (max-width: 900px) {
+    /* 検索欄は1段目に横幅いっぱいで置き、「絞り込み」・表示切替・件数は2段目に並べる
+       （以前は1段目に全部並べていたため、検索欄の文字が「モデル、コミッショ」で切れ、
+       在庫タブでは右端の表示切替が画面外にはみ出していた）。 */
     .topbar .toolbar > .input--search,
-    .topbar .toolbar:not(#inventoryToolbar) > .input--search { order: 0; flex: 1 1 0; min-width: 0; }
+    .topbar .toolbar:not(#inventoryToolbar) > .input--search { order: 0; flex: 1 1 100%; min-width: 0; }
     .topbar .toolbar > .toolbar__filterToggle {
       order: 1;
       display: inline-flex;
@@ -3189,7 +3255,9 @@
     .topbar .toolbar:not(.is-filters-open) > select.input,
     .topbar .toolbar:not(.is-filters-open) > .checkboxField { display: none; }
     .topbar .toolbar > .toolbar__spacer { display: none; }
-    .topbar .toolbar > .toolbar__count { order: 4; flex: 1 1 100%; text-align: right; font-size: 12px; margin-top: -4px; }
+    .topbar .toolbar > .toolbar__count { order: 2; flex: 1 1 auto; text-align: right; font-size: 12px; }
+    .topbar .toolbar > select.input,
+    .topbar .toolbar > .checkboxField { order: 4; }
     .topbar .toolbar > .monthNav { order: 5; }
   }
   .toolbarSpacer { display: none; }
@@ -3200,17 +3268,23 @@
     .topbar.has-toolbar .topbar__brandRow { padding-bottom: 12px; }
   }
 
-  /* 左メニュー（PC）は幅が狭く名前と目印が1行に収まらないため、目印を名前の下に置く */
+  /* 左メニュー（PC）の権限者の目印は名前の右に横並びにする。以前は名前の下に置いていたため、
+     デモカー受注リスト・他店受注リストの項目だけ背が高くなり、メニューの間隔が不ぞろいだった。 */
   .sidebarNav__label {
     display: inline-flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 3px;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
     min-width: 0;
+    white-space: nowrap;
   }
-  .sidebarNav__label .adminBadge { margin-left: 0; }
+  .sidebarNav__label .adminBadge { margin-left: 0; flex: none; }
 
   /* デモカー受注リスト・他店受注リスト等、管理者（権限者）だけに表示される項目の目印 */
+  /* 設定のファイル選択ボタン（実際の<input type="file">は見えないように重ねる） */
+  .fileButton { position: relative; display: inline-flex; align-items: center; overflow: hidden; }
+  .fileButton__input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  .fileButton:focus-within { outline: 2px solid var(--primary-text); outline-offset: 2px; }
   .adminBadge {
     display: inline-block;
     margin-left: 6px;

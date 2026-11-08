@@ -594,7 +594,8 @@
                   <span class="logoPreview__placeholder">ロゴなし</span>
                 </div>
                 <div class="logoField__controls">
-                  <input type="file" id="settingsLogoFile" accept="image/*">
+                  <!-- ブラウザ標準のファイル選択（英語表記の「Choose File」）は隠し、アプリのボタンと同じ見た目の「画像を選択」にする -->
+                  <label class="btn btn--small fileButton"><input type="file" id="settingsLogoFile" class="fileButton__input" accept="image/*">画像を選択</label>
                   <button class="btn btn--text" type="button" id="btnClearLogo">ロゴを削除</button>
                 </div>
               </div>
@@ -625,13 +626,13 @@
           </section>
           <section class="settingsCard hidden" id="systemMasterCelebrationCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-tune"></use></svg>Hold・受注確定の演出</h2>
-            <p class="settingsSection__desc">Hold登録・2ND HOLD登録・受注確定が完了したときに表示する「絵柄のアクション」を選べます（案内メッセージ自体は固定です）。</p>
+            <p class="settingsSection__desc">Hold登録・2nd Hold登録・受注確定が完了したときに表示する「絵柄のアクション」を選べます（案内メッセージ自体は固定です）。</p>
             <div class="formField">
               <label>Hold登録時</label>
               <select id="celebrationVariantHold" class="input"></select>
             </div>
             <div class="formField">
-              <label>2ND HOLD登録時</label>
+              <label>2nd Hold登録時</label>
               <select id="celebrationVariantSecondHold" class="input"></select>
             </div>
             <div class="formField">
@@ -675,7 +676,7 @@
 
           <section class="settingsCard settingsCard--wide hidden" id="systemMasterStaffCard">
             <h2 class="settingsSection__title"><svg class="icon"><use href="#icon-people"></use></svg>担当者</h2>
-            <p class="settingsSection__desc">拠点・名前・Googleアカウントのメールアドレスを登録してください（最大<span id="staffListMax"></span>人・現在<span id="staffListCount">0</span>人登録中）。Hold登録・2ND HOLD登録・受注確定・Hold解除の「担当者」は、ログイン中のGoogleアカウントのメールアドレスからここで自動的に判定されるため、操作のたびに担当者を選ぶ必要はありません。拠点名も同様に、Hold登録・受注確定の「販売拠点」欄へ自動的に入力されます（編集可）。ドラッグハンドル（⠿）で表示順を並び替えできます。</p>
+            <p class="settingsSection__desc">拠点・名前・Googleアカウントのメールアドレスを登録してください（最大<span id="staffListMax"></span>人・現在<span id="staffListCount">0</span>人登録中）。Hold登録・2nd Hold登録・受注確定・Hold解除の「担当者」は、ログイン中のGoogleアカウントのメールアドレスからここで自動的に判定されるため、操作のたびに担当者を選ぶ必要はありません。拠点名も同様に、Hold登録・受注確定の「販売拠点」欄へ自動的に入力されます（編集可）。ドラッグハンドル（⠿）で表示順を並び替えできます。</p>
             <div class="staffList" id="staffList"></div>
             <button class="btn" id="btnAddStaff" type="button">＋ 担当者を追加</button>
           </section>
