@@ -73,7 +73,20 @@ function api_listInventory(filters, groupBy) {
  * （在庫の追加・編集はスプレッドシートへ直接行う運用のため、手作業のミスを早期発見する）。
  */
 function api_checkInventoryIntegrity() {
-  return checkInventoryIntegrity_(listInventory());
+  var issues = checkInventoryIntegrity_(listInventory());
+  // 在庫リスト・受注リスト3種の見出しの並びも確認する（列がずれていると別の項目を読み書きしてしまうため）
+  [
+    [SHEET_NAMES.INVENTORY, getInventorySheet_(), INVENTORY_COLUMNS],
+    [SHEET_NAMES.ORDERS, getOrderSheet_(), ORDER_COLUMNS],
+    [SHEET_NAMES.DEMO_ORDERS, getDemoOrderSheet_(), ORDER_COLUMNS],
+    [SHEET_NAMES.OTHER_STORE_ORDERS, getOtherStoreOrderSheet_(), ORDER_COLUMNS]
+  ].forEach(function (t) {
+    try {
+      var headers = t[1].getRange(1, 1, 1, Math.max(t[1].getLastColumn(), t[2].length)).getValues()[0];
+      issues = issues.concat(checkHeaderOrder_(t[0], headers, t[2]));
+    } catch (e) {}
+  });
+  return issues;
 }
 
 // ===== Hold機能 =====

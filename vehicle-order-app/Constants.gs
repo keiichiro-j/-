@@ -69,7 +69,7 @@ var STEERING_OPTIONS = ['R', 'L'];
  * ステア列の旧表記（右／左 等）を R／L に書き換える（applySheetRulesIfOutdated_）。
  */
 // アプリのバージョン（設定画面の一番下に表示する）。再デプロイが反映されたかどうかの確認に使う。
-var APP_VERSION = '2026-10-23.2';
+var APP_VERSION = '2026-11-08.1';
 
 var SHEET_RULES_VERSION = 4; // 3: 在庫・受注リストに旧モデル列（チェックボックス）を追加 / 4: 受注リストの空き行を詰める
 /**

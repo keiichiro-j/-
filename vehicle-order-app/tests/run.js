@@ -1550,6 +1550,19 @@ test('他店の受注は販売拠点・リード番号ともなし', () => {
   assert.ok(keys.includes('customer'));
 });
 
+console.log('== IntegrityService: checkHeaderOrder_（シートの見出しの並び） ==');
+test('見出しがアプリの列定義どおりなら問題なし', () => {
+  const cols = [{ label: 'モデル' }, { label: '旧モデル' }, { label: 'MP' }];
+  assert.strictEqual(sandbox.checkHeaderOrder_('在庫リスト', ['モデル', '旧モデル', 'MP'], cols).length, 0);
+});
+test('列がずれていれば、列の記号と想定の見出しを示して警告する', () => {
+  const cols = [{ label: 'モデル' }, { label: '旧モデル' }, { label: 'MP' }];
+  const issues = sandbox.checkHeaderOrder_('在庫リスト', ['モデル', 'MP', ''], cols);
+  assert.strictEqual(issues.length, 2);
+  assert.ok(issues[0].message.includes('B列'));
+  assert.ok(issues[0].message.includes('「旧モデル」'));
+});
+
 console.log('== Constants: 旧モデル列 ==');
 test('旧モデル列は在庫リスト・受注リストの「モデル」のすぐ右にあり、発注・Gクラスには無い', () => {
   const labels = (cols) => JSON.parse(JSON.stringify(cols.map((c) => c.label)));

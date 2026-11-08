@@ -15,6 +15,35 @@
  * @param {Array<Object>} vehicles
  * @return {Array<{type: string, commission: string, message: string}>}
  */
+/**
+ * シートの見出し行がアプリの列定義と同じ並びか（純粋関数）。アプリは列を左から何番目かで
+ * 読み書きするため、列の並びが違うと別の項目を読み書きしてしまう。違う列を最大3件まで返す。
+ * @param {string} sheetName 表示用のシート名
+ * @param {Array<*>} headers シートの1行目
+ * @param {Array<{label:string}>} columns 列定義
+ */
+function checkHeaderOrder_(sheetName, headers, columns) {
+  var letters = function (i) {
+    var s = '';
+    i += 1;
+    while (i > 0) { var m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); }
+    return s;
+  };
+  var issues = [];
+  columns.forEach(function (c, i) {
+    var actual = String((headers || [])[i] == null ? '' : headers[i]).trim();
+    if (actual !== c.label && issues.length < 3) {
+      issues.push({
+        type: 'headerMismatch',
+        commission: '',
+        message: sheetName + 'の' + letters(i) + '列の見出しが「' + (actual || '（空欄）') + '」になっています（アプリの想定は「' + c.label +
+          '」）。列の並びがずれていると別の項目を読み書きしてしまうため、列の順番をご確認ください'
+      });
+    }
+  });
+  return issues;
+}
+
 function checkInventoryIntegrity_(vehicles) {
   vehicles = vehicles || [];
   var issues = [];

@@ -1378,6 +1378,7 @@
     return '<dl class="card__metaGrid card__metaGrid--quick">' +
       metaRow_('MP', v.mp) +
       metaRow_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
+      metaRow_('VPC', v.vpc) +
       '</dl>';
   }
 
@@ -1584,6 +1585,7 @@
       rowField_('カラー', (v.exteriorColor || '-') + ' / ' + (v.interiorColor || '-')) +
       '<div class="rowCard__field rowCard__field--center"><span class="rowCard__label">有償OP</span>' +
       '<span class="rowCard__value">' + paidOptionsHtml_(v) + '</span></div>' +
+      rowField_('VPC', v.vpc) +
       rowHoldFieldsHtml_(v) +
       '<div class="rowCard__actions">' + actions + '</div>' +
       '</div>' +
@@ -2600,7 +2602,8 @@
       '<div class="orderCard__top">' +
       '<div><div class="orderCard__model">' + escapeHtml(o.customer || '-') + '</div>' +
       '<div class="orderCard__staff">担当者: ' + escapeHtml(o.staff || '-') + '</div>' +
-      '<div class="orderCard__vehicle">' + escapeHtml(o.model) + '</div></div>' +
+      '<div class="orderCard__vehicle">' + escapeHtml(o.model) +
+      (o.vpc ? '<span class="orderCard__vpc">VPC ' + escapeHtml(o.vpc) + '</span>' : '') + '</div></div>' +
       '<div class="card__badges">' +
       (o.salesLocation ? '<span class="badge badge--location">' + escapeHtml(o.salesLocation) + '</span>' : '') +
       '</div>' +
@@ -2632,7 +2635,8 @@
       '<div class="orderCard__top">' +
       '<div><div class="orderCard__model">' + escapeHtml(o.customer || '-') + '</div>' +
       '<div class="orderCard__staff">担当者: ' + escapeHtml(o.staff || '-') + '</div>' +
-      '<div class="orderCard__vehicle">' + escapeHtml(o.model) + '</div></div>' +
+      '<div class="orderCard__vehicle">' + escapeHtml(o.model) +
+      (o.vpc ? '<span class="orderCard__vpc">VPC ' + escapeHtml(o.vpc) + '</span>' : '') + '</div></div>' +
       '<div class="card__badges">' +
       (o.salesLocation ? '<span class="badge badge--location">' + escapeHtml(o.salesLocation) + '</span>' : '') +
       '</div>' +
