@@ -34,6 +34,20 @@ export function buildProps(world, scene, quality) {
   leaf.count = broad.length; cone.count = con.length;
   for (const im of [trunk, leaf, cone]) { im.castShadow = !!quality.shadow; scene.add(im); }
 
+  // 岩（急斜面と川原）
+  const rocks = [];
+  for (let r = 0; r < MAP_H; r++) for (let c = 0; c < MAP_W; c++) {
+    const t = world.tiles[idx(c, r)]; if (t !== T.FOREST && t !== T.GRASS) continue;
+    const x = c * TILE + 2, z = r * TILE + 2;
+    const sl = Math.abs(groundH(x + 2, z) - groundH(x - 2, z)) + Math.abs(groundH(x, z + 2) - groundH(x, z - 2));
+    if (sl > 2.6 && rng() < 0.5 * quality.treeDensity * quality.treeDensity) rocks.push({ x: x + (rng() - 0.5) * 3, z: z + (rng() - 0.5) * 3, s: 0.6 + rng() * 1.6, h: rng() });
+  }
+  if (rocks.length) {
+    const rock = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), new THREE.MeshLambertMaterial({ color: 0x86827a }), rocks.length);
+    rocks.forEach((k, i) => { q.setFromEuler(new THREE.Euler(k.h * 3, k.h * 7, k.h * 2)); s.set(k.s * 1.3, k.s * 0.7, k.s); p.set(k.x, groundH(k.x, k.z) + k.s * 0.2, k.z); m.compose(p, q, s); rock.setMatrixAt(i, m); });
+    scene.add(rock);
+  }
+
   // 街灯
   const lamps = [];
   for (let r = 0; r < MAP_H; r++) for (let c = 0; c < MAP_W; c++) {

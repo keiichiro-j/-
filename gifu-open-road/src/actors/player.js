@@ -35,7 +35,7 @@ export function setOutfit(G, P, i) {
 
 export function damagePlayer(G, P, dmg, fromX, fromZ, kind) {
   if (P.dead || G.godMode) return;
-  if (P.inCar && kind !== 'explosion') { G.vehicles.damage(P.car, dmg * 0.6); if (Math.random() < 0.15) P.hp -= dmg * 0.3; }
+  if (P.inCar && kind !== 'explosion') { G.vehicles.damage(P.car, dmg * 0.6); if (Math.random() < 0.4) { const ab = Math.min(P.armor, dmg * 0.35); P.armor -= ab; P.hp -= dmg * 0.5 - ab; } }
   else {
     const ab = Math.min(P.armor, dmg * 0.7); P.armor -= ab; P.hp -= dmg - ab;
   }

@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { genWorld, T, idx, signalState, findPath, nearestNode, isWalkable, solidAt, H_ROADS, V_ROADS, DRIVEWAY } from '../../src/world/mapgen.js';
-import { sampleH, groundH, mtnH } from '../../src/world/terrain.js';
+import { sampleH, groundH, mtnH, initTerrain } from '../../src/world/terrain.js';
 import { makeVehicle, stepVehicle, collideVehicles } from '../../src/vehicles/physics.js';
 import { VEHICLES } from '../../src/vehicles/vehicle.js';
 import { idmAccel } from '../../src/vehicles/traffic.js';
@@ -15,6 +15,7 @@ import { newMoney, pay, onBusted, onWasted } from '../../src/systems/economy.js'
 import { TILE, MAP_W, MAP_H, HEIGHTS } from '../../src/core/config.js';
 
 const world = genWorld(19500);
+initTerrain(world);
 
 test('地図：140×100タイルで同じシードなら同じ街', () => {
   assert.equal(world.tiles.length, MAP_W * MAP_H);
@@ -49,6 +50,13 @@ test('信号：同じ交差点の縦横が同時に青にならない', () => {
 test('横断歩道は歩ける', () => {
   let n = 0; for (let i = 0; i < world.cw.length; i++) if (world.cw[i] >= 0) { n++; assert.ok(isWalkable(world, i % MAP_W, Math.floor(i / MAP_W))); }
   assert.ok(n > 50);
+});
+
+test('地形：里山は起伏があり、道路と田んぼは平ら', () => {
+  let maxHill = 0;
+  for (let r = 20; r < 90; r++) for (let c = 0; c < 9; c++) maxHill = Math.max(maxHill, groundH(c * TILE + 2, r * TILE + 2));
+  assert.ok(maxHill > 6, '里山の高さ ' + maxHill);
+  for (let i = 0; i < world.tiles.length; i++) if ((world.tiles[i] === T.ROAD && world.dist[i] !== 3) || world.tiles[i] === T.FIELD) { const c = i % MAP_W, r = Math.floor(i / MAP_W); assert.ok(Math.abs(groundH(c * TILE + 2, r * TILE + 2)) < 0.6, `(${c},${r}) ${groundH(c * TILE + 2, r * TILE + 2)}`); }
 });
 
 test('地形：金華山の頂上は約58mで平ら、川底は低い、橋は水面より上', () => {
@@ -194,4 +202,50 @@ test('歩行：歩幅は速度とともに伸び、足こすりしない（1周�
   }
   const p = pose(newPose(), { speed: 1.3, phase: Math.PI / 2, state: 'walk' });
   assert.ok(p.thL < 0 && p.thR > 0, '左右の脚が逆');
+});
+
+import { PROPERTIES, applyMods, dealerPrice, DEALER_STOCK, CAR_MODS, nextModPrice, robberyAmount, ROBBERIES } from '../../src/systems/property.js';
+
+test('操作性：高速でハンドルを切りっぱなしにしてもスピンしない', () => {
+  const v = makeVehicle(VEHICLES.coupe, 0, 0, 0); v.vf = 30;
+  let maxSlip = 0;
+  for (let i = 0; i < 120; i++) { stepVehicle(v, { throttle: 1, brake: 0, steer: 1 }, 1 / 60, flat); maxSlip = Math.max(maxSlip, Math.abs(v.vl)); }
+  assert.ok(maxSlip < 2.5, '横滑り ' + maxSlip.toFixed(2));
+  assert.ok(Math.abs(v.yawRate) < 1.2, 'ヨー ' + v.yawRate.toFixed(2));
+});
+
+test('操作性：ハンドルを離すとまっすぐに戻る', () => {
+  const v = makeVehicle(VEHICLES.sedan, 0, 0, 0); v.vf = 20;
+  for (let i = 0; i < 30; i++) stepVehicle(v, { throttle: 0.5, brake: 0, steer: 1 }, 1 / 60, flat);
+  for (let i = 0; i < 60; i++) stepVehicle(v, { throttle: 0.5, brake: 0, steer: 0 }, 1 / 60, flat);
+  assert.ok(Math.abs(v.yawRate) < 0.05 && Math.abs(v.steer) < 0.01);
+});
+
+test('カスタム：エンジンとタイヤで性能が上がり、元の表は変わらない', () => {
+  const base = VEHICLES.sedan;
+  const m = applyMods(base, { engine: 3, tires: 2, armor: 2, brakes: 1 });
+  assert.ok(m.accel > base.accel * 1.3 && m.grip > base.grip && m.armorK < 1 && m.brakeK > 1);
+  assert.equal(VEHICLES.sedan.accel, base.accel);
+  assert.equal(nextModPrice({ engine: 3 }, 'engine'), null);
+  assert.equal(nextModPrice({}, 'turbo'), CAR_MODS.find(x => x.id === 'turbo').levels[1]);
+});
+
+test('ブレーキの改造で止まる距離が短くなる', () => {
+  const run = (spec) => { const v = makeVehicle(spec, 0, 0, 0); v.vf = 25; let d = 0; for (let i = 0; i < 600 && v.vf > 0.7; i++) { const z = v.z; stepVehicle(v, { throttle: 0, brake: 1, steer: 0 }, 1 / 60, flat); d += v.z - z; } return d; };
+  assert.ok(run(applyMods(VEHICLES.sedan, { brakes: 3 })) < run(VEHICLES.sedan) * 0.75);
+});
+
+test('車屋と不動産：価格がつき、最初の家は無料で1軒だけ', () => {
+  for (const id of DEALER_STOCK) assert.ok(dealerPrice(id) >= 20000);
+  assert.ok(dealerPrice('super') > dealerPrice('kei') * 10);
+  assert.equal(PROPERTIES.filter(p => p.start).length, 1);
+  assert.ok(PROPERTIES.every(p => p.slots >= 2));
+  const world2 = genWorld(19500);
+  for (const p of PROPERTIES) assert.ok(world2.lm['prop_' + p.id], p.id);
+  for (const k of ['dealer', 'tuner', 'realty', 'jewelry']) assert.ok(world2.lm[k], k);
+});
+
+test('強盗：店ごとの金額の範囲と★', () => {
+  for (const k in ROBBERIES) { const [a, b] = ROBBERIES[k].amount; assert.ok(robberyAmount(k, 0) >= a && robberyAmount(k, 1) <= b); }
+  assert.equal(ROBBERIES.bank.stars, 'bank');
 });

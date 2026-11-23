@@ -7,7 +7,7 @@ export function defaultSave() {
     v: SAVE_VERSION, created: Date.now(), playSec: 0,
     money: { cash: ECON.startCash, bank: ECON.startBank, stolen: 0 },
     weapons: [{ id: 'fist', ammo: 0, clip: 0 }, { id: 'pistol', ammo: 36, clip: 12 }], stored: [],
-    missions: { done: {}, best: {} }, outfit: 0, hour: 9.5, explored: [], ownedCars: [], pos: null,
+    missions: { done: {}, best: {} }, outfit: 0, hour: 9.5, explored: [], ownedCars: [], ownedProps: ['nagara'], homeId: 'nagara', pos: null,
     stats: { taxiFares: 0, taxiEarned: 0, crimes: 0, maxStars: 0, wantedSurvival: 0 },
   };
 }

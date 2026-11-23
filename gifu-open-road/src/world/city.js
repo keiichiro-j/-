@@ -186,28 +186,40 @@ export function buildCity(world, scene) {
 
 // 施設の看板（文字のスプライト）
 export function buildSigns(world, scene) {
+  const draw = (sp, text, color) => {
+    const cv = sp.userData.cv, g = cv.getContext('2d');
+    g.clearRect(0, 0, 256, 64);
+    g.fillStyle = color; g.beginPath(); g.roundRect ? g.roundRect(2, 2, 252, 60, 12) : g.rect(2, 2, 252, 60); g.fill();
+    g.fillStyle = '#fff'; g.font = `bold ${text.length > 9 ? 22 : 30}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(text, 128, 34);
+    sp.material.map.needsUpdate = true;
+  };
   const make = (text, color) => {
     const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64;
-    const g = cv.getContext('2d');
-    g.fillStyle = color; g.beginPath(); g.roundRect ? g.roundRect(2, 2, 252, 60, 12) : g.rect(2, 2, 252, 60); g.fill();
-    g.fillStyle = '#fff'; g.font = 'bold 30px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText(text, 128, 34);
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthWrite: false }));
+    sp.userData.cv = cv; draw(sp, text, color);
     sp.scale.set(4.4, 1.1, 1);
     return sp;
   };
   const list = [
     ['gunshop', '#b83a2e'], ['police', '#2f5fae'], ['hospital', '#3c9c6a'], ['clothes', '#b0569a'], ['conbini', '#e08a1e'],
-    ['conbini2', '#e08a1e'], ['bank', '#24715e'], ['paint', '#6b4bb0'], ['gas', '#d0402a'], ['gas2', '#d0402a'], ['home', '#4a7a3a'],
-    ['garage', '#666'], ['ryokan', '#8a5a3a'], ['florist', '#d06a8a'], ['farm', '#7a8a2a'], ['museum', '#6a5a4a'],
+    ['conbini2', '#e08a1e'], ['bank', '#24715e'], ['paint', '#6b4bb0'], ['gas', '#d0402a'], ['gas2', '#d0402a'],
+    ['ryokan', '#8a5a3a'], ['florist', '#d06a8a'], ['farm', '#7a8a2a'], ['museum', '#6a5a4a'],
+    ['jewelry', '#a0802a'], ['dealer', '#2a6ab0'], ['tuner', '#c0402a'], ['realty', '#3a8a6a'],
   ];
-  const sprites = [];
+  const sprites = {};
   for (const [k, col] of list) {
     const p = world.lm[k]; if (!p) continue;
     const sp = make(p.label, col);
     sp.position.set(p.x, groundH(p.x, p.z) + 7.5, p.z);
-    scene.add(sp); sprites.push(sp);
+    scene.add(sp); sprites[k] = sp;
   }
   const st = make('岐阜駅', '#1f4e8c'); st.scale.set(10, 2.5, 1); st.position.set(world.lm.station.x, 17, world.lm.station.z + 2); scene.add(st);
-  return sprites;
+  // 物件の看板（売物件／自宅）
+  const props = {};
+  for (const k in world.lm) if (k.startsWith('prop_')) {
+    const p = world.lm[k]; const sp = make(p.label, '#556');
+    sp.position.set(p.x, groundH(p.x, p.z) + 6.2, p.z); scene.add(sp); props[k.slice(5)] = sp;
+  }
+  return { sprites, setProp(id, text, color) { if (props[id]) draw(props[id], text, color); } };
 }

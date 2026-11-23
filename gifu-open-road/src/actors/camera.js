@@ -17,11 +17,17 @@ export function createCam(G, camera) {
     if (P.inCar) {
       const car = P.car.phys, spec = P.car.spec;
       // 一定時間視点を動かさなければ車の後ろへ戻る
-      if (C.idleLook > 1.2) { const back = car.vf < -1 ? car.heading + Math.PI : car.heading; C.yaw += angDiff(C.yaw, back) * Math.min(1, dt * 2.5); C.pitch += (0.2 - C.pitch) * Math.min(1, dt * 2); }
+      if (C.idleLook > 0.7) {
+        // 進行方向（横滑り中は速度の向き）の少し内側を見る
+        const vx = Math.sin(car.heading) * car.vf + Math.cos(car.heading) * car.vl, vz = Math.cos(car.heading) * car.vf - Math.sin(car.heading) * car.vl;
+        let back = Math.hypot(vx, vz) > 3 ? Math.atan2(vx, vz) : car.heading;
+        if (car.vf < -1) back = car.heading + Math.PI;
+        C.yaw += angDiff(C.yaw, back + car.yawRate * 0.12) * Math.min(1, dt * 4); C.pitch += (0.2 - C.pitch) * Math.min(1, dt * 2);
+      }
       dist = [CAMERA.driveDist + spec.len * 0.4, CAMERA.driveDist * 1.6 + spec.len * 0.4, 0.01][C.view];
       ty = car.y + spec.hgt + (C.view === 2 ? -0.25 : 1.2);
       if (C.view === 2) { tx = car.x + Math.sin(car.heading) * 0.3 - Math.cos(car.heading) * 0.35; tz = car.z + Math.cos(car.heading) * 0.3 + Math.sin(car.heading) * 0.35; }
-      fov = CAMERA.fov + Math.min(14, Math.abs(car.vf) * 0.25);
+      fov = CAMERA.fov + Math.min(10, Math.abs(car.vf) * 0.16);
     } else if (aiming) {
       dist = CAMERA.aimDist; side = 0.65; fov = scope ? CAMERA.scopeFov : CAMERA.aimFov; ty = P.y + 1.6;
       if (scope) { dist = 0.01; side = 0; }

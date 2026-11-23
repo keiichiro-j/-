@@ -115,14 +115,38 @@ export function createPolice(ctx) {
 
   function driveUnit(u, dt, P, stars, cfg) {
     const e = u.ent, p = e.phys;
+    if (u.deployed) { const c = e.control; c.throttle = 0; c.brake = 1; c.steer = 0; c.handbrake = true; return; }
+    // 動けなくなった車：見えない距離なら最寄りの道路に戻す
+    u.chkT = (u.chkT || 0) + dt;
+    if (u.chkT > 4) {
+      u.chkT = 0;
+      const moved = u.lastPos ? Math.hypot(p.x - u.lastPos[0], p.z - u.lastPos[1]) : 99;
+      u.lastPos = [p.x, p.z];
+      u.stuckChecks = moved < 4 ? (u.stuckChecks || 0) + 1 : 0;
+      if (u.stuckChecks >= 2 && Math.hypot(P.x - p.x, P.z - p.z) > 45) {
+        const { edges, nodes } = world.graph;
+        let best = null, bd = 1e9;
+        edges.forEach((ed, ei) => { const a = nodes[ed.a], b = nodes[ed.b]; const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2; const d = Math.hypot(mx - p.x, mz - p.z); if (d < bd && ed.len > 16) { bd = d; best = ei; } });
+        if (best != null) {
+          const ed = edges[best];
+          const dir = ((P.x - nodes[ed.a].x) * ed.dx + (P.z - nodes[ed.a].z) * ed.dz) > 0 ? 1 : -1;
+          const [x, z] = ctx.vehicles.lanePos(best, dir, 8, 0);
+          p.x = x; p.z = z; p.heading = Math.atan2(ed.dx * dir, ed.dz * dir); p.vf = p.vl = 0; p.yawRate = 0;
+          u.path = null; u.reverseT = 0; u.stuck = 0; u.stuckChecks = 0;
+        }
+      }
+    }
     const tgt = P;
     const knows = ctx.wanted.status === 'seen' || ctx.wanted.status === 'lost';
     let goal;
     if (knows) goal = { x: tgt.x, z: tgt.z };
     else {
       const s = ctx.wanted.search;
-      if (!u.wander || Math.hypot(u.wander.x - p.x, u.wander.z - p.z) < 15 || u.wanderT <= 0) {
-        const a = Math.random() * 6.28, r = Math.random() * (s ? s.r : 60);
+      // まずは通報のあった場所（捜索エリアの中心）へ。着いたらエリアの中を探す
+      if (s && !u.reachedScene && Math.hypot(s.x - p.x, s.z - p.z) < 30) u.reachedScene = true;
+      if (s && !u.reachedScene) { u.wander = { x: s.x, z: s.z }; u.wanderT = 99; }
+      else if (!u.wander || Math.hypot(u.wander.x - p.x, u.wander.z - p.z) < 15 || u.wanderT <= 0) {
+        const a = Math.random() * 6.28, r = Math.random() * (s ? s.r * 0.6 : 60);
         u.wander = { x: (s ? s.x : tgt.x) + Math.cos(a) * r, z: (s ? s.z : tgt.z) + Math.sin(a) * r }; u.wanderT = 25;
       }
       u.wanderT -= dt;
@@ -136,7 +160,13 @@ export function createPolice(ctx) {
       u.repath -= dt;
       if (!u.path || u.repath <= 0) {
         const a = nearestNode(world.graph, p.x, p.z), b = nearestNode(world.graph, goal.x, goal.z);
-        u.path = findPath(world.graph, a, b) || [b]; u.pi = 0; u.repath = 3;
+        u.path = findPath(world.graph, a, b) || [b]; u.pi = 0; u.repath = 4;
+        // 最初の交差点が後ろにあるなら飛ばす（引き返さない）
+        if (u.path.length >= 2) {
+          const n0 = world.graph.nodes[u.path[0]], n1 = world.graph.nodes[u.path[1]];
+          const seg = Math.hypot(n1.x - n0.x, n1.z - n0.z);
+          if (Math.hypot(n1.x - p.x, n1.z - p.z) < seg + 2) u.pi = 1;
+        }
       }
       let n = world.graph.nodes[u.path[Math.min(u.pi, u.path.length - 1)]];
       if (Math.hypot(n.x - p.x, n.z - p.z) < 9 && u.pi < u.path.length - 1) { u.pi++; n = world.graph.nodes[u.path[u.pi]]; }
@@ -153,6 +183,13 @@ export function createPolice(ctx) {
       const sp = p.vf;
       const close = Math.hypot(P.x - p.x, P.z - p.z);
       let targetSpeed = Math.abs(da) > 1.2 ? 7 : Math.abs(da) > 0.5 ? 14 : 30;
+      // 交差点で曲がる前に減速（曲がりきれずに建物へ突っ込まない）
+      if (u.path && u.pi < u.path.length - 1) {
+        const n0 = world.graph.nodes[u.path[u.pi]], n1 = world.graph.nodes[u.path[u.pi + 1]];
+        const dn = Math.hypot(n0.x - p.x, n0.z - p.z);
+        const turn = Math.abs(angDiff(Math.atan2(n0.x - p.x, n0.z - p.z), Math.atan2(n1.x - n0.x, n1.z - n0.z)));
+        if (turn > 0.5 && dn < 10 + sp * sp / 12) targetSpeed = Math.min(targetSpeed, 9);
+      }
       if (knows && close < 14 && !P.inCar) targetSpeed = Math.min(targetSpeed, close > 7 ? 5 : 0);
       if (knows && close < 22 && P.inCar && !cfg.ram) targetSpeed = Math.min(targetSpeed, Math.max(6, P.speed));
       if (knows && P.inCar && cfg.ram && close < 30) targetSpeed = Math.max(targetSpeed, P.speed + 4);
@@ -162,39 +199,64 @@ export function createPolice(ctx) {
       if (Math.abs(da) > 2.4 && sp < 4) { c.brake = 1; c.throttle = 0; c.steer = -Math.sign(da); }
       if (c.throttle > 0.5 && Math.abs(sp) < 0.8) { u.stuck += dt; if (u.stuck > 1.4) { u.reverseT = 1.3; u.stuck = 0; } } else u.stuck = 0;
     }
-    // 徒歩の主人公の近くで停車して警官を降ろす
-    const close = Math.hypot(P.x - p.x, P.z - p.z);
-    if (!P.inCar && knows && close < 26 && Math.abs(p.vf) < 3 && !u.deployed) {
-      u.deployed = true;
-      const n = Math.min(2, cfg.foot - officers.length);
-      for (let k = 0; k < n; k++) { const s = k ? 1 : -1; const o = makeOfficer(p.x + Math.cos(p.heading) * 1.6 * s, p.z - Math.sin(p.heading) * 1.6 * s); if (o) { o.homeCar = e; u.officers.push(o); } }
+    // ★3以上：走りながら窓から撃つ
+    if (stars >= 3 && knows && !u.deployed) {
+      const dd = Math.hypot(P.x - p.x, P.z - p.z);
+      u.shootCd = (u.shootCd ?? 1.5) - dt;
+      if (dd < 28 && u.shootCd <= 0 && ctx.crowd.lineOfSight(p.x, p.z, P.x, P.z, 1.4)) {
+        u.shootCd = 0.8 + Math.random() * 0.9;
+        ctx.copShoot({ x: p.x, y: p.y, z: p.z, heading: Math.atan2(P.x - p.x, P.z - p.z) }, P, dd + 6);
+      }
     }
+    // 主人公の近くで止まったら警官が降りる（徒歩でも車でも。★2以上は降りて撃つ）
+    const close2 = Math.hypot(P.x - p.x, P.z - p.z);
+    const pSlow = !P.inCar || P.speed < 7;
+    if (knows && !u.deployed && close2 < (P.inCar ? 22 : 26) && pSlow && Math.abs(p.vf) < 4 && (stars >= 2 || !P.inCar)) {
+      u.deployed = true; u.deployT = 0;
+      const n = Math.min(2, Math.max(0, 8 - officers.length));
+      for (let k = 0; k < n; k++) {
+        const side = k ? 1 : -1;
+        const o = makeOfficer(p.x + Math.cos(p.heading) * 1.7 * side, p.z - Math.sin(p.heading) * 1.7 * side);
+        if (o) { o.homeCar = e; o.unit = u; u.officers.push(o); o.coverT = 0.6 + Math.random() * 0.6; }
+      }
+    }
+    if (u.deployed) { c.throttle = 0; c.brake = 1; c.steer = 0; c.handbrake = true; e.driver = u.officers.some(o => !o.hidden && o.alive) ? null : 'cop'; }
   }
 
   function officerAI(a, dt, P, stars, cfg) {
     if (!a.alive) return;
     if (a.state === 'knocked' || a.state === 'down' || a.state === 'getup') return;
     const dx = P.x - a.x, dz = P.z - a.z, d = Math.hypot(dx, dz);
-    const knows = ctx.wanted.status === 'seen' || ctx.wanted.status === 'lost';
-    const hostile = cfg.shoot && (ctx.playerHostile() || P.inCar && stars >= 3);
+    const knows = ctx.wanted.status === 'seen' || ctx.wanted.status === 'lost' || d < 30;
+    const shoot = stars >= 2 || ctx.playerHostile();
+    const car = a.homeCar && !a.homeCar.wreck && ctx.vehicles.cars.includes(a.homeCar) ? a.homeCar : null;
     let want = 0, tx = a.x, tz = a.z;
     a.poseState = 'walk';
-    if (knows || d < 25) {
-      if (hostile && d < 35 && ctx.crowd.lineOfSight(a.x, a.z, P.x, P.z, 1.5)) {
-        // 拳銃で応戦（距離を取って撃つ）
-        a.poseState = 'aim'; a.heading = Math.atan2(dx, dz);
-        if (d > 18) { want = a.copSpeed * 0.6; tx = P.x; tz = P.z; a.poseState = 'walk'; }
+    a.coverT = (a.coverT || 0) - dt;
+    // 主人公が車で走り去ったら、乗ってきたパトカーに戻って追跡を続ける
+    const fleeing = P.inCar && P.speed > 9 && d > 18;
+    if ((fleeing || (!knows && d > 60)) && car) {
+      tx = car.phys.x; tz = car.phys.z; want = a.copSpeed;
+      if (Math.hypot(tx - a.x, tz - a.z) < 2.6) { a.hidden = true; }
+    } else if (knows) {
+      const los = d < 45 && ctx.crowd.lineOfSight(a.x, a.z, P.x, P.z, 1.5);
+      if (shoot && los && a.coverT <= 0) {
+        // 構えて撃つ。距離を詰めすぎず、近ければ横に回り込む
+        a.poseState = 'aim'; a.heading = Math.atan2(dx, dz); a.aimPitch = 0;
+        if (d > 24) { want = a.copSpeed * 0.7; tx = P.x; tz = P.z; a.poseState = 'walk'; }
+        else if (d < 6) { want = 1.6; tx = a.x - dz / d * 3; tz = a.z + dx / d * 3; }
         a.shootCd -= dt;
-        if (a.shootCd <= 0 && d < 30) { a.shootCd = 0.7 + Math.random() * 0.8; ctx.copShoot(a, P, d); }
-      } else if (!P.inCar) {
+        if (a.shootCd <= 0 && d < 40 && a.poseState === 'aim') { a.shootCd = 0.55 + Math.random() * 0.7; ctx.copShoot(a, P, d); }
+      } else if (!shoot && !P.inCar) {
+        // ★1：追いかけて拘束
         tx = P.x; tz = P.z; want = d > 1.2 ? a.copSpeed : 0;
         if (d < 1.4 && !P.arrest) ctx.tryArrest(a);
-      } else if (a.homeCar && !a.homeCar.wreck) {
-        tx = a.homeCar.phys.x; tz = a.homeCar.phys.z; want = a.copSpeed;
-        if (Math.hypot(tx - a.x, tz - a.z) < 2.5) { a.hidden = true; }
-      } else { tx = P.x; tz = P.z; want = a.copSpeed * 0.8; }
+      } else if (!los) { tx = P.x; tz = P.z; want = a.copSpeed * 0.85; }
+      else if (P.inCar && !shoot) {
+        // ★1で車内：近づいて降りるよう警告
+        tx = P.x; tz = P.z; want = d > 4 ? a.copSpeed * 0.6 : 0;
+      }
     } else {
-      // 捜索エリアを歩いて探す
       const s = ctx.wanted.search;
       if (!a.wander || Math.hypot(a.wander[0] - a.x, a.wander[1] - a.z) < 3) a.wander = s ? [s.x + (Math.random() - 0.5) * 40, s.z + (Math.random() - 0.5) * 40] : [a.x, a.z];
       tx = a.wander[0]; tz = a.wander[1]; want = 2;
@@ -234,11 +296,15 @@ export function createPolice(ctx) {
       driveUnit(u, dt, P, stars, cfg);
       if (Math.hypot(u.ent.phys.x - P.x, u.ent.phys.z - P.z) > 320) { ctx.vehicles.removeVehicle(u.ent); units.splice(i, 1); }
     }
-    // 乗ったまま追跡する警官は再び車に戻ったら車に乗る
+    // 降りた警官が全員車に戻ったら（または倒れたら）再出発
     for (const u of units) {
-      if (u.deployed && P.inCar && u.officers.every(o => o.hidden || !o.alive)) {
-        for (const o of u.officers) if (o.hidden) { ctx.crowd.remove(o); officers.splice(officers.indexOf(o), 1); }
-        u.officers = []; u.deployed = false;
+      if (!u.deployed) continue;
+      u.deployT = (u.deployT || 0) + dt;
+      const out = u.officers.filter(o => o.alive && !o.hidden && ctx.crowd.agents.includes(o));
+      if (u.deployT > 1.5 && out.length === 0) {
+        for (const o of u.officers) if (o.hidden && ctx.crowd.agents.includes(o)) { ctx.crowd.remove(o); const i = officers.indexOf(o); if (i >= 0) officers.splice(i, 1); }
+        u.officers = []; u.deployed = false; u.ent.driver = 'cop'; u.path = null;
+        if (!u.officers.length && u.deployT > 1.5 && out.length === 0 && u.ent.phys.hp <= 0) u.ent.driver = null;
       }
     }
     for (let i = officers.length - 1; i >= 0; i--) {

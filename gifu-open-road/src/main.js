@@ -5,7 +5,7 @@ import { emit, on } from './core/events.js';
 import { createInput } from './core/input.js';
 import { defaultSave, saveSlot, loadSlot, loadSettings, saveSettings, anonId } from './core/save.js';
 import { genWorld, districtAt, solidAt, isWalkable, T, idx, DRIVEWAY, MOUNTAIN } from './world/mapgen.js';
-import { buildGround, sampleH } from './world/terrain.js';
+import { buildGround, sampleH, initTerrain } from './world/terrain.js';
 import { buildCity, buildSigns } from './world/city.js';
 import { buildProps } from './world/props.js';
 import { buildSky } from './world/sky.js';
@@ -15,6 +15,8 @@ import { createAudio } from './fx/audio.js';
 import { createVehicles } from './vehicles/traffic.js';
 import { vehicleGeometry } from './vehicles/models.js';
 import { VEHICLES } from './vehicles/vehicle.js';
+import { PROPERTIES, applyMods, ROBBERIES, robberyAmount } from './systems/property.js';
+import { pay } from './systems/economy.js';
 import { createCrowd } from './actors/crowd.js';
 import { createPlayer, updatePlayer, tryEnter, exitCar, damagePlayer, setOutfit } from './actors/player.js';
 import { createCam } from './actors/camera.js';
@@ -54,7 +56,7 @@ export async function boot() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, quality.pixelRatio));
   renderer.setSize(window.innerWidth, window.innerHeight);
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.3, 1200);
+  const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.3, 4000);
   G.renderer = renderer; G.scene = scene;
   window.addEventListener('resize', () => { renderer.setSize(window.innerWidth, window.innerHeight); camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); checkOrientation(); });
   initGeom();
@@ -62,11 +64,12 @@ export async function boot() {
   setLoad('街を生成しています…');
   await tick();
   const world = genWorld(SEED); G.world = world;
+  initTerrain(world);
   const ground = buildGround(world, renderer); scene.add(ground.group);
   setLoad('建物を建てています…'); await tick();
-  const city = buildCity(world, scene); buildSigns(world, scene);
+  const city = buildCity(world, scene); const signs = buildSigns(world, scene);
   const props = buildProps(world, scene, quality);
-  const sky = buildSky(scene, renderer, quality); G.sky = sky;
+  const sky = buildSky(scene, renderer, quality, ground.ranges); G.sky = sky;
   initParticles(scene);
   G.fx = { spawn: spawnParticle };
 
@@ -126,7 +129,8 @@ export async function boot() {
   const hud = createHUD(G, hudCanvas, ground.canvas); G.hud = hud;
   const menus = createMenus(G, root); G.menus = menus;
   const touch = createTouch(G, root, input); touch.show(mobile);
-  G.mapIcons = [['gunshop', '#ff5a4a'], ['police', '#4a7aff'], ['hospital', '#5ad08a'], ['clothes', '#e07ad0'], ['conbini', '#ffb04a'], ['conbini2', '#ffb04a'], ['bank', '#3ad0a0'], ['paint', '#a07aff'], ['gas', '#ff7a3a'], ['gas2', '#ff7a3a'], ['home', '#ffffff'], ['garage', '#bbbbbb'], ['ropewayBase', '#ff4a4a']];
+  const BASE_ICONS = [['gunshop', '#ff5a4a'], ['police', '#4a7aff'], ['hospital', '#5ad08a'], ['clothes', '#e07ad0'], ['conbini', '#ffb04a'], ['conbini2', '#ffb04a'], ['bank', '#3ad0a0'], ['paint', '#a07aff'], ['gas', '#ff7a3a'], ['gas2', '#ff7a3a'], ['jewelry', '#ffe07a'], ['dealer', '#4ab0ff'], ['tuner', '#ff4a8a'], ['realty', '#5ad0b0'], ['ropewayBase', '#ff4a4a']];
+  G.mapIcons = BASE_ICONS;
 
   // ---------- 場所の解決 ----------
   const lastDw = DRIVEWAY[DRIVEWAY.length - 1];
@@ -135,6 +139,7 @@ export async function boot() {
   G.resolve = (k) => {
     if (typeof k === 'object') return k;
     if (k === 'castleGate') return castleGate;
+    if (k === 'home') return world.lm['prop_' + (G.save.homeId || 'nagara')];
     if (k === 'driveStart') return { x: DRIVEWAY[0][0] * TILE, z: DRIVEWAY[0][1] * TILE };
     if (k === 'driveway') return drivePts;
     return world.lm[k] || null;
@@ -224,15 +229,99 @@ export async function boot() {
   // ---------- 店・強盗・睡眠・車 ----------
   G.nearCarFor = () => P.inCar ? P.car : vehicles.nearest(P.x, P.z, 7, (c) => !c.wreck && (c.owned || c.mode === 'parked'));
   G.repaint = (car, color) => {
-    car.color = color; const info = vehicleGeometry(car.spec, color); car.mesh.geometry = info.geo; car.info = info; car.phys.hp = 100; car.phys.flatTires = 0;
+    car.color = color; if (car.record) car.record.color = color; const info = vehicleGeometry(car.spec, color); car.mesh.geometry = info.geo; car.info = info; car.phys.hp = 100; car.phys.flatTires = 0;
     if (wanted.stars && wanted.status !== 'seen') { if (wanted.stars <= 3) { G.clearWanted(); hud.toast('塗り替えで警察の目をごまかした！', 3, '#a0ffa0'); } else { wanted.heat.known = { ...(wanted.heat.known || {}), carColor: -1 }; hud.toast('塗り替えた（★が多すぎて完全にはまけない）'); } }
     else hud.toast('塗り替えた');
     audio.cash();
   };
-  G.spawnOwnedCar = (c) => { const g = world.lm.garage; const car = G.park(c.model, g.x + 3, g.z, Math.PI / 2, { color: c.color, owned: true }); car.owned = true; hud.toast(`${car.spec.name}を出した`); };
-  G.sleep = () => { fade(() => { G.clock += 8; P.hp = 100; G.saveGame(1); hud.toast('よく眠った（スロット1に保存）'); }); };
+  G.sleep = (propId) => { fade(() => { G.clock += 8; P.hp = 100; G.saveGame(1); hud.toast('よく眠った（スロット1に保存）'); }); };
+  G.post = (user, text) => post(user, text, null, null);
+
+  // ---------- 自分の車（所有の記録） ----------
+  let recSeq = 1;
+  G.cars = {
+    own(ent) {
+      if (ent.record) return ent.record;
+      const rec = { id: 'c' + Date.now().toString(36) + (recSeq++), model: ent.modelId, color: ent.color, mods: ent.mods || {}, loc: 'out' };
+      G.save.ownedCars.push(rec); ent.owned = true; ent.record = rec; ent.mods = rec.mods;
+      return rec;
+    },
+    applyMods(ent) { ent.spec = applyMods(VEHICLES[ent.modelId], ent.mods || {}); ent.phys.spec = ent.spec; if (ent.record) ent.record.mods = ent.mods; },
+    spawn(rec, x, z, h = 0) {
+      const ent = park(rec.model, x, z, h, { color: rec.color, owned: true });
+      ent.record = rec; ent.owned = true; ent.mods = rec.mods || {}; rec.loc = 'out'; G.cars.applyMods(ent);
+      return ent;
+    },
+    buy(model, color) {
+      const d = world.lm.dealer;
+      const ent = park(model, d.x + 4, d.z + 4, 0, { color });
+      G.cars.own(ent);
+      hud.big('納車', `${ent.spec.name}を店の前に用意した`, 3, '#9dffa0');
+      post('gifu_cars', `新車の${ent.spec.name}が納車されていくのを見た`, d.x, d.z);
+    },
+  };
+
+  // ---------- 不動産 ----------
+  G.realty = {
+    owned: (id) => G.save.ownedProps.includes(id),
+    home: () => G.save.homeId,
+    buy(id) {
+      const pr = PROPERTIES.find(x => x.id === id); if (!pr || G.realty.owned(id)) return true;
+      if (!pay(G.money, pr.price)) { hud.toast('お金が足りない（口座の残高も使えます）'); return false; }
+      G.save.ownedProps.push(id); audio.cash(); hud.big('購入', `${pr.name}を手に入れた`, 3, '#9dffa0');
+      post('gifu_estate', `${pr.name}が売れたらしい`, null, null); updatePropSigns(); G.saveGame(0); return true;
+    },
+    setHome(id) { G.save.homeId = id; updatePropSigns(); hud.toast(`${PROPERTIES.find(x => x.id === id).name}を自宅に登録した`); },
+    stored: (id) => G.save.ownedCars.filter(r => r.loc === id),
+    store(id) {
+      const car = P.car, pr = PROPERTIES.find(x => x.id === id);
+      if (!car) return;
+      if (car.spec.police || car.modelId === 'ambulance' || car.modelId === 'armored') { hud.toast('緊急車両はしまえない'); return; }
+      if (G.realty.stored(id).length >= pr.slots) { hud.toast(`ガレージがいっぱい（${pr.slots}台）`); return; }
+      if (wanted.stars) { hud.toast('手配中はガレージに入れない'); return; }
+      const rec = G.cars.own(car);
+      rec.loc = id; rec.color = car.color; rec.mods = car.mods || {};
+      exitCar(G, P, true); vehicles.removeVehicle(car);
+      audio.pickup(); hud.toast(`${car.spec.name}をガレージにしまった（${G.realty.stored(id).length}/${pr.slots}）`);
+    },
+    retrieve(id, i) {
+      const rec = G.realty.stored(id)[i]; if (!rec) return;
+      const lp = world.lm['prop_' + id];
+      const ent = G.cars.spawn(rec, lp.x + 3, lp.z + 3, 0);
+      hud.toast(`${ent.spec.name}を出した`);
+    },
+  };
+  function updatePropSigns() {
+    for (const pr of PROPERTIES) {
+      const own = G.realty.owned(pr.id), home = G.realty.home() === pr.id;
+      signs.setProp(pr.id, own ? (home ? '自宅：' + pr.name : pr.name) : `売物件 ${yen(pr.price)}`, own ? (home ? '#2f7a3a' : '#3a5a8a') : '#a0473a');
+    }
+    G.mapIcons = BASE_ICONS.concat(PROPERTIES.map(pr => ['prop_' + pr.id, G.realty.home() === pr.id ? '#ffffff' : G.realty.owned(pr.id) ? '#9fd0ff' : '#c88a6a']));
+  }
+
+  // ---------- 強盗（店員を脅してレジ・金庫の金を奪う） ----------
+  const ROB_SHOPS = { conbini: 'conbini', conbini2: 'conbini', gas: 'gas', gas2: 'gas', jewelry: 'jewelry', bank: 'bank' };
+  const clerks = {};
+  function spawnClerk(key) {
+    const p = world.lm[key]; if (!p) return;
+    const a = crowd.makeAgent(p.x + 0.8, p.z + 0.8, { role: 'clerk', ctrl: 'ext', cTop: key === 'bank' ? 0x2a3a5a : key === 'jewelry' ? 0x1a1a1a : 0x3a8a5a, cBottom: 0x2a2a30 });
+    if (a) { a.state = 'idle'; a.heading = Math.random() * 6; clerks[key] = a; a.bornT = G.time; }
+  }
+  G.robbedAt = {};
   G.robbery = null;
-  G.startRobbery = () => { G.robbery = { t: 6, x: P.x, z: P.z, alarmT: 2 }; hud.toast('レジの金を袋に詰めろ…その場を離れるな！', 3, '#ffb0a0'); G.crime('robbery', P.x, P.z, { radius: 15 }); P.hostileT = 10; };
+  G.startRobbery = (kind) => {
+    let key = null, bd = 8;
+    for (const k in ROB_SHOPS) if (ROB_SHOPS[k] === kind && world.lm[k]) { const d = Math.hypot(world.lm[k].x - P.x, world.lm[k].z - P.z); if (d < bd) { bd = d; key = k; } }
+    if (!key) return;
+    if (G.robbedAt[key] && G.time - G.robbedAt[key] < 300) { hud.toast('さっき襲ったばかりだ。レジは空っぽ'); return; }
+    const R = ROBBERIES[kind];
+    const clerk = clerks[key] && clerks[key].alive ? clerks[key] : null;
+    if (clerk) { clerk.state = 'handsup'; }
+    G.robbery = { kind, key, t: R.sec, dur: R.sec, x: P.x, z: P.z, alarmT: 3, clerk };
+    hud.big('強盗', kind === 'bank' ? '金庫を開けさせろ！ 銃を構えていれば警報は押されない' : '金を袋に詰めさせろ！ 銃を構えていれば警報は押されない', 2.5, '#ff9a6a');
+    G.crime(R.stars, P.x, P.z, { radius: 18 });
+    P.hostileT = 12;
+  };
 
   // ---------- タクシー業務 ----------
   const walkTiles = []; for (let r = 0; r < MAP_H; r++) for (let c = 0; c < MAP_W; c++) if (world.tiles[idx(c, r)] === T.WALK) walkTiles.push([c, r]);
@@ -271,13 +360,19 @@ export async function boot() {
   // ---------- セーブ／ロード ----------
   G.saveGame = (slot) => {
     const s = G.save;
+    s.ownedCars = s.ownedCars.filter(r => r.loc !== 'gone');
     Object.assign(s, { money: { ...G.money }, weapons: combat.inv.weapons.map(w => ({ ...w })), stored: (combat.inv.stored || []).map(w => ({ ...w })), missions: { done: { ...missions.done }, best: { ...missions.best } }, outfit: P.outfit, hour: G.hour(), explored: Array.from(G.explored), pos: { x: P.x, z: P.z } });
     saveSlot(slot, s);
     G.server.submitScore({ id: anonId(), name: 'プレイヤー' + anonId().slice(0, 4), score: G.money.cash + G.money.bank, extra: `任務${Object.values(missions.done).reduce((a, b) => a + b, 0)}` }).catch(() => {});
   };
   G.loadGame = (slot) => {
     const s = loadSlot(slot); if (!s) return;
+    for (const c of vehicles.cars.slice()) if (c.owned) vehicles.removeVehicle(c);
     G.save = s; Object.assign(G.money, s.money); combat.load(s.weapons); combat.inv.stored = s.stored || [];
+    s.ownedProps = s.ownedProps || ['nagara']; s.homeId = s.homeId || 'nagara';
+    // 外に出していた車は自宅のガレージに戻す（古い形式の記録にも場所を付ける）
+    s.ownedCars = (s.ownedCars || []).map((r, i) => ({ id: r.id || 'old' + i, model: r.model, color: r.color, mods: r.mods || {}, loc: !r.loc || r.loc === 'out' ? s.homeId : r.loc }));
+    updatePropSigns();
     Object.assign(missions, { active: null, done: { ...s.missions.done }, best: { ...s.missions.best } });
     setOutfit(G, P, s.outfit || 0); G.clock = s.hour || DAY.startHour; s.explored && s.explored.forEach((v, i) => { G.explored[i] = v; });
     G.clearWanted();
@@ -312,10 +407,14 @@ export async function boot() {
   const park = (model, x, z, h, opts) => { const [px, pz, ph] = freeSpot(x, z, model, h); return vehicles.addVehicle(model, px, pz, ph, 'parked', opts || {}); };
   G.park = park;
   // 自宅前に自分の車、駅前にタクシー、ガレージ前にスポーツカー
-  park('kei', home.x + 3, home.z + 3, Math.PI / 2, { owned: true, color: 0x4a7aaa });
+  G.save.ownedCars = []; G.save.ownedProps = ['nagara']; G.save.homeId = 'nagara';
+  G.cars.own(park('kei', home.x + 3, home.z + 3, Math.PI / 2, { color: 0x4a7aaa }));
+  // 車屋の展示車
+  for (const [m, dx] of [['super', -6], ['coupe', 0], ['suv', 6]]) { const e = park(m, world.lm.dealer.x + dx, world.lm.dealer.z + 6, Math.PI / 2); e.mission = true; }
+  for (const k in ROB_SHOPS) spawnClerk(k);
+  updatePropSigns();
   park('taxi', world.lm.taxi.x, world.lm.taxi.z, Math.PI / 2); park('taxi', world.lm.taxi.x - 7, world.lm.taxi.z, Math.PI / 2);
   park('coupe', world.lm.garage.x + 4, world.lm.garage.z + 3, 0);
-  G.save.ownedCars = [{ model: 'kei', color: 0x4a7aaa }];
 
   // ---------- 向き・ベンチマーク ----------
   function checkOrientation() { const portrait = mobile && window.innerHeight > window.innerWidth; rotateEl.style.display = portrait ? 'flex' : 'none'; G.portrait = portrait; }
@@ -379,7 +478,7 @@ export async function boot() {
     const seen = police.update(dt, G.time, pinfo);
     // システム
     const curW = combat.weapon();
-    updateWanted(wanted, dt, { policeSees: seen.sees, seeRate: seen.seeRate, x: P.x, z: P.z, features: { outfit: P.outfit, mask: P.mask, weapon: combat.aiming ? curW.id : null, car: P.inCar ? P.car.id : null, carColor: P.inCar ? P.car.color : null } });
+    updateWanted(wanted, dt, { policeSees: seen.sees, seeRate: seen.seeRate * (P.inCar && P.car.spec.tint ? 0.65 : 1), x: P.x, z: P.z, features: { outfit: P.outfit, mask: P.mask, weapon: combat.aiming ? curW.id : null, car: P.inCar ? P.car.id : null, carColor: P.inCar ? P.car.color : null } });
     if (wanted.stars) G.save.stats.wantedSurvival += dt;
     updateProjectiles(G, dt);
     updateMissions(dt);
@@ -387,6 +486,8 @@ export async function boot() {
     updateRobbery(dt);
     updateRopeway(dt, cmd);
     if (G.deadT) { G.deadT -= rdt; if (G.deadT <= 0) { G.deadT = 0; respawn(); } }
+    // 自分の車が大破・水没したら記録から消す
+    for (const c of vehicles.cars) if (c.record && (c.wreck || (c.phys.inWater && c.phys.y < -1)) && c.record.loc !== 'gone') { c.record.loc = 'gone'; hud.toast(`自分の${c.spec.name}を失った`, 3, '#ffb0a0'); }
     // 燃料切れ
     if (P.inCar && P.car.phys.fuel <= 0 && !G.fuelWarn) { G.fuelWarn = true; hud.toast('燃料切れ！ ガソリンスタンドへ'); } else if (P.inCar && P.car.phys.fuel > 0) G.fuelWarn = false;
     // 探索した地図
@@ -411,13 +512,33 @@ export async function boot() {
     G.hint = null;
     if (P.dead || P.inCar && !P.car) return;
     const near = (p, r) => p && Math.hypot(p.x - P.x, p.z - P.z) < r;
-    const shops = [['gunshop', 'ガンショップ'], ['clothes', '服屋'], ['conbini', 'コンビニ'], ['conbini2', 'コンビニ'], ['bank', '銀行（ATM）'], ['hospital', '病院'], ['police', '警察署'], ['home', '自宅'], ['garage', 'ガレージ'], ['gas', 'ガソリンスタンド'], ['gas2', 'ガソリンスタンド'], ['paint', '塗装工房']];
+    const shops = [['gunshop', 'ガンショップ'], ['clothes', '服屋'], ['conbini', 'コンビニ'], ['conbini2', 'コンビニ'], ['bank', '銀行'], ['hospital', '病院'], ['police', '警察署'], ['gas', 'ガソリンスタンド'], ['gas2', 'ガソリンスタンド'], ['paint', '塗装工房'], ['jewelry', '宝飾店'], ['dealer', '車屋'], ['tuner', 'カスタムショップ'], ['realty', '不動産屋']];
+    const drive = ['gas', 'gas2', 'paint', 'tuner'];
     const key = mobile ? '「調べる」' : 'E';
+    if (G.robbery) return;
+    // 銃を構えて店員を脅す
+    if (!P.inCar && combat.aiming) for (const k in ROB_SHOPS) {
+      if (near(world.lm[k], 4.5)) { G.hint = `${key}：強盗する（${ROBBERIES[ROB_SHOPS[k]].name}）`; if (cmd.interact) G.startRobbery(ROB_SHOPS[k]); return; }
+    }
     for (const [k, label] of shops) {
-      const r = ['gas', 'gas2', 'paint', 'garage'].includes(k) ? 9 : 3.5;
-      if (near(world.lm[k], r) && (!P.inCar || ['gas', 'gas2', 'paint', 'garage'].includes(k))) {
+      const r = drive.includes(k) ? 9 : 3.5;
+      if (near(world.lm[k], r) && (!P.inCar || drive.includes(k))) {
         G.hint = `${key}：${label}`;
         if (cmd.interact) menus.shop(k.replace(/2$/, ''));
+        return;
+      }
+    }
+    for (const pr of PROPERTIES) {
+      const lp = world.lm['prop_' + pr.id]; if (!lp) continue;
+      const own = G.realty.owned(pr.id);
+      if (P.inCar && own && near(lp, 10)) {
+        G.hint = `${key}：車をガレージにしまう（${G.realty.stored(pr.id).length}/${pr.slots}台）`;
+        if (cmd.interact) G.realty.store(pr.id);
+        return;
+      }
+      if (!P.inCar && near(lp, 3.5)) {
+        G.hint = `${key}：${pr.name}${own ? (G.realty.home() === pr.id ? '（自宅）' : '（所有）') : `（売物件 ${yen(pr.price)}）`}`;
+        if (cmd.interact) menus.shop('prop:' + pr.id);
         return;
       }
     }
@@ -465,12 +586,27 @@ export async function boot() {
   }
 
   function updateRobbery(dt) {
+    // 店員の復帰
+    for (const k in ROB_SHOPS) { const c = clerks[k]; if (!c || !crowd.agents.includes(c)) { if (!G.clerkT || G.time - G.clerkT > 60) spawnClerk(k); continue; } if (!c.alive && c.state === 'down' && c.stateT <= 0) { crowd.remove(c); delete clerks[k]; G.clerkT = G.time; } }
+    if (G.lateAlarm) { G.lateAlarm.t -= dt; if (G.lateAlarm.t <= 0) { G.report(G.lateAlarm.stars, G.lateAlarm.x, G.lateAlarm.z, 'alarm'); audio.alarm(); G.lateAlarm = null; } }
     const R = G.robbery; if (!R) return;
-    R.t -= dt; R.alarmT -= dt;
-    if (R.alarmT <= 0 && !R.alarmed) { R.alarmed = true; G.report('robbery', R.x, R.z, 'alarm'); audio.alarm(); }
-    if (Math.hypot(P.x - R.x, P.z - R.z) > 6 || P.dead) { G.robbery = null; hud.toast('強盗を中断した'); return; }
-    G.hint = `袋に詰めている… ${Math.ceil(R.t)}`;
-    if (R.t <= 0) { const amt = Math.round(20000 + Math.random() * 60000); earn(G.money, amt); audio.cash(); hud.big('強盗成功', `${yen(amt)} を奪った。逃げろ！`, 3, '#ffd34a'); G.robbery = null; post('gifu_news', `${district(P.x, P.z)}のコンビニで強盗事件`, P.x, P.z); }
+    const R0 = ROBBERIES[R.kind];
+    R.t -= dt;
+    // 銃を構え続けている間は、店員は警報ボタンを押せない
+    const threatening = combat.aiming || P.hostileT > 10.5;
+    if (!threatening) R.alarmT -= dt;
+    if (R.alarmT <= 0 && !R.alarmed) { R.alarmed = true; G.report(R0.stars, R.x, R.z, 'alarm'); audio.alarm(); hud.toast('店員が警報ボタンを押した！', 3, '#ff8a7a'); }
+    if (Math.hypot(P.x - R.x, P.z - R.z) > 7 || P.dead) { G.robbery = null; if (R.clerk) R.clerk.state = 'idle'; hud.toast('強盗を中断した'); return; }
+    G.hint = `${R.kind === 'bank' ? '金庫から' : 'レジから'}金を詰めさせている… ${Math.ceil(R.t)}秒${threatening ? '' : '（銃を構えろ！）'}`;
+    if (R.t <= 0) {
+      const amt = robberyAmount(R.kind);
+      earn(G.money, amt); audio.cash(); G.robbedAt[R.key] = G.time;
+      hud.big('強盗成功', `${yen(amt)} を奪った。逃げろ！`, 3, '#ffd34a');
+      if (!R.alarmed) G.lateAlarm = { t: 4, stars: R0.stars, x: R.x, z: R.z };
+      if (R.clerk) { R.clerk.state = 'cower'; }
+      post('gifu_news', `${district(P.x, P.z)}の${R0.name}で強盗事件。犯人は逃走中`, P.x, P.z);
+      G.robbery = null;
+    }
   }
 
   function render(rdt, dt) {

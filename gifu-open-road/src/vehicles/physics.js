@@ -32,7 +32,7 @@ export function stepVehicle(v, input, dt, env) {
       v.vf += f * dt;
     }
     if (brake > 0) {
-      if (v.vf > 0.6) v.vf -= 11 * brake * Math.min(1, grip) * dt;
+      if (v.vf > 0.6) v.vf -= 11 * (s.brakeK || 1) * brake * Math.min(1, grip) * dt;
       else v.vf = Math.max(-s.vmax * 0.3, v.vf - s.accel * 0.7 * brake * dt); // バック
     }
     if (input.handbrake) v.vf -= Math.sign(v.vf) * Math.min(Math.abs(v.vf), 5 * dt);
@@ -46,28 +46,29 @@ export function stepVehicle(v, input, dt, env) {
     v.pitch += (Math.atan2(hf - hb, L) - v.pitch) * Math.min(1, dt * 10);
   }
 
-  // ハンドル（速度が上がるほど切れ角を減らす）
+  // ハンドル：切るときはゆっくり、戻すときは速く（キーボードでも扱いやすく）
   const steerTarget = clamp(input.steer, -1, 1);
-  v.steer += clamp(steerTarget - v.steer, -dt * 4, dt * 4);
-  const maxSteer = 0.62 / (1 + Math.abs(v.vf) / 22);
+  const back = Math.abs(steerTarget) < Math.abs(v.steer) || Math.sign(steerTarget) !== Math.sign(v.steer);
+  const rate = (back ? 7 : 3.2) / (1 + Math.abs(v.vf) / 40);
+  v.steer += clamp(steerTarget - v.steer, -dt * rate, dt * rate);
+  // 速度が上がるほど切れ角を減らす
+  const maxSteer = 0.62 / (1 + Math.abs(v.vf) / 13);
   let targetYaw = v.vf * Math.tan(v.steer * maxSteer) / L;
-  // グリップ限界（横加速度 = v*yaw）
-  const latMax = grip * PHYS.gravity * 1.05;
+  // グリップ限界（横加速度 = v*yaw）を超えないように曲がる量を抑える（アンダー寄りで安定）
+  const latMax = grip * PHYS.gravity * 1.1;
   const latNeed = Math.abs(v.vf * targetYaw);
-  if (latNeed > latMax && s.drive === 'FF') targetYaw *= latMax / latNeed; // アンダーステア
-  // 後輪の滑り（FRのパワーオーバー、サイドブレーキ）
+  if (latNeed > latMax) targetYaw *= latMax / latNeed;
+  // 後輪の滑りはサイドブレーキの時だけ（FRは全開＋大きく切った時に少し）
   let rearSlip = 0;
   if (input.handbrake && Math.abs(v.vf) > 4) rearSlip = 0.9;
-  if (s.drive === 'FR' && throttle > 0.8 && Math.abs(v.vf) < s.vmax * 0.55 && Math.abs(v.steer) > 0.3) rearSlip = Math.max(rearSlip, 0.45 * (s.accel / 7));
-  if (latNeed > latMax * 1.15) rearSlip = Math.max(rearSlip, 0.3);
+  else if (s.drive === 'FR' && throttle > 0.9 && Math.abs(v.vf) > 6 && Math.abs(v.vf) < s.vmax * 0.45 && Math.abs(v.steer) > 0.75) rearSlip = 0.22 * (s.accel / 7);
   if (v.grounded) {
-    const yawResp = Math.min(1, dt * (rearSlip ? 4 : 9) * Math.min(1.2, grip));
+    const yawResp = Math.min(1, dt * (rearSlip ? 4 : 11) * Math.min(1.2, grip));
     v.yawRate += (targetYaw - v.yawRate) * yawResp;
-    if (rearSlip) v.yawRate += v.steer * rearSlip * Math.sign(v.vf) * 1.6 * dt;
-    // 横滑りの減衰
-    const latDecay = grip * PHYS.gravity * dt * (1 - rearSlip * 0.8);
+    if (rearSlip) v.yawRate += v.steer * rearSlip * Math.sign(v.vf) * 1.4 * dt;
+    // 横滑りの減衰（安定化アシスト：滑りを早く収める）
+    const latDecay = grip * PHYS.gravity * dt * (rearSlip ? 1 - rearSlip * 0.8 : 1.6);
     v.vl -= clamp(v.vl, -latDecay, latDecay);
-    // 曲がったぶんの横速度（慣性）
     v.vl += -v.yawRate * v.vf * dt * rearSlip * 0.6;
   } else {
     v.yawRate *= 0.99;
@@ -113,7 +114,7 @@ export function stepVehicle(v, input, dt, env) {
   if (v.inWater) { v.vf *= 0.9; v.vl *= 0.9; }
 
   // 姿勢（ロール）
-  const rollT = clamp(-v.yawRate * v.vf * 0.012 - v.vl * 0.02, -0.12, 0.12);
+  const rollT = clamp(-v.yawRate * v.vf * 0.012 - v.vl * 0.02, -0.12, 0.12) * (s.rollK ?? 1);
   v.roll += (rollT - v.roll) * Math.min(1, dt * 6);
 
   // エンジン回転と変速（5段）

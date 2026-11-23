@@ -7,6 +7,7 @@ import { listSlots } from '../core/save.js';
 import { KEY_LABELS, DEFAULT_KEYS } from '../core/input.js';
 import { QUALITY, ECON } from '../core/config.js';
 import { VEHICLES } from '../vehicles/vehicle.js';
+import { PROPERTIES, DEALER_STOCK, dealerPrice, CAR_MODS, NEON_COLORS, PAINT_COLORS, PAINT_PRICE, REGISTER_PRICE, modLevel, nextModPrice } from '../systems/property.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -28,7 +29,7 @@ export function createMenus(G, root) {
   }
   function close() { layer.style.display = 'none'; layer.innerHTML = ''; const was = M.open; M.open = null; if (M.onClose) { const f = M.onClose; M.onClose = null; f(was); } }
   const btn = (label, act, cls = '') => `<button class="btn ${cls}" data-act="${act}">${label}</button>`;
-  function bind(p, handlers) { p.addEventListener('click', (e) => { const t = e.target.closest('[data-act]'); if (!t) return; const h = handlers[t.dataset.act]; if (h) { G.audio && G.audio.click(); h(t); } }); }
+  function bind(p, handlers) { p.addEventListener('click', (e) => { const t = e.target.closest('[data-act]'); if (!t || t.dataset.act === 'close') return; const h = handlers[t.dataset.act]; if (h) { G.audio && G.audio.click(); h(t); } }); }
 
   // ---------- タイトル ----------
   function title(onNew, onLoad) {
@@ -130,8 +131,10 @@ export function createMenus(G, root) {
       <tr><td>その他</td><td>↑ スマホ、M 地図、Esc 一時停止</td></tr></table>
       <h4>スマホ（横向き）</h4>
       <p>左半分：触った位置が中心のスティック（運転中は倒した方向へ走る）。右半分：スライドで視点。ボタンは場面に合わせて入れ替わります。武器アイコン：タップで次の武器、長押しでウェポンホイール。</p>
+      <h4>お店・強盗・家・車</h4>
+      <p>コンビニ・ガソリンスタンド・宝飾店・銀行は、銃を構えたまま E で強盗できます。銃を構え続けていれば店員は警報を押せませんが、逃げたあとに通報されます。車屋で車を買い、不動産屋か物件の前で家を買えます。買った家は「自宅に登録」でき、車で敷地に入って E を押すとガレージにしまえます。カスタムショップ（車に乗ったまま）でエンジン・ターボ・ブレーキ・タイヤ・サスペンション・装甲・スモークガラス・ネオン・塗装を変えられます。</p>
       <h4>手配のしくみ</h4>
-      <p>犯行を誰かに見られ、通報されて初めて手配されます。電話している人を止めれば通報されません。★の表示：白＝視認中、点滅＝見失った直後、中空き＝犯人未特定、赤＝捜索中。捜索エリア（地図の赤い円）の外で一定時間見つからなければ解除。着替え・車の乗り換え・塗装工房で特定されにくくなります。</p>
+      <p>犯行を誰かに見られ、通報されて初めて手配されます。★1の警官は捕まえに来ます。★2以上はパトカーから降りて撃ってきて、★3以上は走りながらも撃ちます。電話している人を止めれば通報されません。★の表示：白＝視認中、点滅＝見失った直後、中空き＝犯人未特定、赤＝捜索中。捜索エリア（地図の赤い円）の外で一定時間見つからなければ解除。着替え・車の乗り換え・塗装工房で特定されにくくなります。</p>
       </div>${btn('戻る', 'back', 'primary')}`, { name: 'help' });
     bind(p, { back });
   }
@@ -190,7 +193,12 @@ export function createMenus(G, root) {
     }
     if (kind === 'gas') {
       const car = G.nearCarFor ? G.nearCarFor() : null;
-      if (!car) { panel('ガソリンスタンド', head + '<p>車に乗ったまま来てください。</p>', { name: 'shop' }); return; }
+      if (!car) {
+        const w = G.combat.weapon(); const arm = w.kind === 'gun' || w.kind === 'proj';
+        const p = panel('ガソリンスタンド', head + '<p>給油と修理は車に乗ったまま来てください。</p>' + (arm ? `<hr><div class="item"><span>売店のレジを奪う（★★★・1.5万〜4.5万円）</span>${btn('強盗する', 'rob', 'danger')}</div>` : ''), { name: 'shop' });
+        bind(p, { rob: () => { close(); G.startRobbery('gas'); } });
+        return;
+      }
       const need = Math.round((1 - car.phys.fuel) * 40 * ECON.fuelPrice / 4);
       const p = panel('ガソリンスタンド', head + `<p>${esc(car.spec.name)}　燃料 ${Math.round(car.phys.fuel * 100)}%　損傷 ${Math.round(100 - car.phys.hp)}%</p>
         <div class="row">${btn(`満タン ${yen(need)}`, 'fuel')}${btn(`修理 ${yen(ECON.repairPrice)}`, 'repair')}</div>`, { name: 'shop' });
@@ -205,14 +213,28 @@ export function createMenus(G, root) {
       const h = {}; cols.forEach(c => { h['c' + c] = () => { if (car.spec.police) { G.hud.toast('パトカーは塗れない'); return; } if (pay(m, ECON.paintPrice)) { G.repaint(car, c); close(); } else G.hud.toast('お金が足りない'); }; });
       bind(p, h); return;
     }
+    const armed = () => { const w = G.combat.weapon(); return w.kind === 'gun' || w.kind === 'proj'; };
+    const robRow = (key, label) => armed() ? `<hr><div class="item"><span>${label}</span>${btn('強盗する', 'rob', 'danger')}</div>` : `<p class="note">銃を構えて店員を脅すと強盗できる。</p>`;
     if (kind === 'conbini') {
-      const armed = G.combat.weapon().kind === 'gun';
-      const p = panel('コンビニ', head + `<div class="item"><span>おにぎりとお茶（体力回復）</span>${btn(yen(400), 'food')}</div><div class="item"><span>栄養ドリンク（フォーカス回復）</span>${btn(yen(300), 'drink')}</div>
-        ${armed ? `<hr><div class="item"><span>レジの金を奪う（★★★）</span>${btn('強盗する', 'rob', 'danger')}</div>` : ''}`, { name: 'shop' });
-      bind(p, { food: () => { if (pay(m, 400)) { P.hp = Math.min(100, P.hp + 40); G.audio.cash(); } shop('conbini'); }, drink: () => { if (pay(m, 300)) { P.focus = 100; G.audio.cash(); } shop('conbini'); }, rob: () => { close(); G.startRobbery(); } });
+      const items = [['onigiri', 'おにぎりとお茶（体力＋40）', 400], ['bento', '弁当（体力＋80）', 900], ['drink', '栄養ドリンク（フォーカス満タン）', 300], ['kit', '救急セット（体力満タン）', 2500]];
+      const p = panel('コンビニ', head + items.map(([id, n, pr]) => `<div class="item"><span>${n}</span>${btn(yen(pr), id)}</div>`).join('') + robRow('conbini', 'レジの金を奪う（★★★・2万〜6万円）'), { name: 'shop' });
+      const eat = (pr, f) => () => { if (pay(m, pr)) { f(); G.audio.cash(); } else G.hud.toast('お金が足りない'); shop('conbini'); };
+      bind(p, { onigiri: eat(400, () => { P.hp = Math.min(100, P.hp + 40); }), bento: eat(900, () => { P.hp = Math.min(100, P.hp + 80); }), drink: eat(300, () => { P.focus = 100; }), kit: eat(2500, () => { P.hp = 100; }), rob: () => { close(); G.startRobbery('conbini'); } });
       return;
     }
-    if (kind === 'bank') return bankApp('銀行（ATM）');
+    if (kind === 'jewelry') {
+      const p = panel('宝飾店', head + `<div class="item"><span>腕時計（ギフグラムで自慢できる）</span>${btn(yen(150000), 'watch')}</div>` + robRow('jewelry', 'ショーケースを空にする（★★★・8万〜25万円）'), { name: 'shop' });
+      bind(p, { watch: () => { if (pay(m, 150000)) { G.audio.cash(); G.hud.toast('高級腕時計を買った'); G.post && G.post('you', '新しい腕時計を買った。柳ケ瀬で見かけたら声かけて'); } else G.hud.toast('お金が足りない'); shop('jewelry'); }, rob: () => { close(); G.startRobbery('jewelry'); } });
+      return;
+    }
+    if (kind === 'bank') {
+      if (armed()) {
+        const p = panel('銀行', head + `<div class="row">${btn('ATMを使う', 'atm', 'primary')}</div>` + robRow('bank', '金庫を開けさせる（★★★★・30万〜100万円、15秒）'), { name: 'shop' });
+        bind(p, { atm: () => bankApp('銀行（ATM）'), rob: () => { close(); G.startRobbery('bank'); } });
+        return;
+      }
+      return bankApp('銀行（ATM）');
+    }
     if (kind === 'hospital') {
       const p = panel('病院', head + `<div class="item"><span>治療（体力全回復）</span>${btn(yen(2000), 'heal')}</div>`, { name: 'shop' });
       bind(p, { heal: () => { if (pay(m, 2000)) { P.hp = 100; G.audio.cash(); close(); } else G.hud.toast('お金が足りない'); } }); return;
@@ -222,22 +244,79 @@ export function createMenus(G, root) {
       const p = panel('警察署', head + `<p>${can ? '★1までなら罰金で済ませられる。' : G.wanted.stars ? '手配が重すぎる。逃げるしかない。' : '特に用はない。'}</p>${can ? btn(`罰金を払う ${yen(5000)}`, 'fine') : ''}`, { name: 'shop' });
       bind(p, { fine: () => { if (pay(m, 5000)) { G.clearWanted(); close(); G.hud.toast('罰金を払った'); } } }); return;
     }
-    if (kind === 'home') {
-      const stored = G.combat.inv.stored || [];
-      const p = panel('自宅（セーフハウス）', head + `<div class="row">${btn('寝る（8時間・セーブ）', 'sleep', 'primary')}</div>
-        <h4>保管している武器</h4>${stored.length ? stored.map((w, i) => `<div class="item"><span>${esc(weaponName(WEAPON_BY_ID[w.id], G.settings.mild))}</span>${btn('持ち出す', 'take' + i)}</div>`).join('') : '<p class="note">なし</p>'}`, { name: 'shop' });
-      const h = { sleep: () => { if (G.wanted.stars) { G.hud.toast('手配中は眠れない'); return; } close(); G.sleep(); } };
-      stored.forEach((w, i) => { h['take' + i] = () => { stored.splice(i, 1); G.combat.give(w.id, w.ammo + w.clip); shop('home'); }; });
-      bind(p, h); return;
+    // ---------- 車屋 ----------
+    if (kind === 'dealer') {
+      const rows = DEALER_STOCK.map(id => { const v = VEHICLES[id]; return `<div class="item"><span>${esc(v.name)}</span><small>${esc(v.cls)}・${v.drive}・最高${Math.round(v.vmax * 3.6)}km/h</small>${btn(yen(dealerPrice(id)), 'car:' + id)}</div>`; }).join('');
+      const p = panel('車屋', head + `<p class="note">買った車は店の前に出します。物件のガレージにしまえます（色とパーツはカスタムショップで）。</p>` + rows, { name: 'shop', cls: 'wide' });
+      bind(p, new Proxy({}, { get: (_, act) => () => {
+        const id = act.slice(4); const v = VEHICLES[id]; if (!v) return;
+        const pick = v.colors[Math.floor(Math.random() * v.colors.length)];
+        if (!pay(m, dealerPrice(id))) { G.hud.toast('お金が足りない'); return; }
+        G.audio.cash(); close(); G.cars.buy(id, pick);
+      } }));
+      return;
     }
-    if (kind === 'garage') {
-      const car = G.nearCarFor ? G.nearCarFor() : null;
-      const owned = G.save.ownedCars || [];
-      const p = panel('ガレージ', head + (car && !car.owned ? `<div class="item"><span>${esc(car.spec.name)}を登録して自分の車にする</span>${btn(yen(ECON.registerPrice), 'reg')}</div>` : '') +
-        `<h4>所有車（最大8台）</h4>${owned.length ? owned.map((c, i) => `<div class="item"><span class="sw" style="background:#${c.color.toString(16).padStart(6, '0')}"></span><span>${esc(VEHICLES[c.model].name)}</span>${btn('出す', 'out' + i)}</div>`).join('') : '<p class="note">なし</p>'}`, { name: 'shop' });
-      const h = { reg: () => { if (car.spec.police) { G.hud.toast('緊急車両は登録できない'); return; } if (owned.length >= 8) { G.hud.toast('ガレージがいっぱい'); return; } if (pay(m, ECON.registerPrice)) { car.owned = true; owned.push({ model: car.modelId, color: car.color }); G.save.ownedCars = owned; G.audio.cash(); G.hud.toast('登録した！'); shop('garage'); } } };
-      owned.forEach((c, i) => { h['out' + i] = () => { close(); G.spawnOwnedCar(c); }; });
-      bind(p, h); return;
+    // ---------- カスタムショップ ----------
+    if (kind === 'tuner') {
+      const car = P.inCar ? P.car : null;
+      if (!car) { panel('カスタムショップ', head + '<p>改造する車に乗ったまま入ってください。</p>', { name: 'shop' }); return; }
+      if (car.spec.police || car.modelId === 'ambulance' || car.modelId === 'armored') { panel('カスタムショップ', head + '<p>緊急車両はお断りだ。</p>', { name: 'shop' }); return; }
+      if (!car.owned) {
+        const p = panel('カスタムショップ', head + `<p>${esc(car.spec.name)}は登録されていない（盗難車？）。改造するには登録が必要だ。</p><div class="row">${btn(`登録する ${yen(REGISTER_PRICE)}`, 'reg', 'primary')}</div>`, { name: 'shop' });
+        bind(p, { reg: () => { if (pay(m, REGISTER_PRICE)) { G.cars.own(car); G.audio.cash(); G.hud.toast('登録した。もう自分の車だ'); shop('tuner'); } else G.hud.toast('お金が足りない'); } });
+        return;
+      }
+      const mods = car.mods || (car.mods = {});
+      const rows = CAR_MODS.map(md => {
+        const lv = modLevel(mods, md.id), max = md.levels.length - 1, price = nextModPrice(mods, md.id);
+        return `<div class="item"><span>${md.name}　<b>${'●'.repeat(lv)}${'○'.repeat(max - lv)}</b></span><small>${md.desc}</small>${price != null ? btn(yen(price), 'mod:' + md.id) : '<em>最大</em>'}</div>`;
+      }).join('');
+      const neon = mods.neon ? `<h4>ネオンの色</h4><div class="swatches">${NEON_COLORS.map(c => `<button class="sw big" data-act="neon:${c}" style="background:#${c.toString(16).padStart(6, '0')}"></button>`).join('')}</div>` : '';
+      const p = panel(`カスタムショップ — ${car.spec.name}`, head + rows + `<h4>塗装（${yen(PAINT_PRICE)}・修理込み）</h4><div class="swatches">${PAINT_COLORS.map(c => `<button class="sw big" data-act="paint:${c}" style="background:#${c.toString(16).padStart(6, '0')}"></button>`).join('')}</div>` + neon +
+        `<div class="row">${btn(`修理 ${yen(ECON.repairPrice)}`, 'repair')}</div>`, { name: 'shop', cls: 'wide' });
+      bind(p, new Proxy({}, { get: (_, act) => () => {
+        const [a, v] = act.split(':');
+        if (a === 'mod') { const pr = nextModPrice(mods, v); if (pr != null && pay(m, pr)) { mods[v] = modLevel(mods, v) + 1; if (v === 'neon' && !mods.neonColor) mods.neonColor = NEON_COLORS[0]; G.cars.applyMods(car); G.audio.cash(); G.hud.toast('取り付けた'); } else G.hud.toast('お金が足りない'); }
+        else if (a === 'paint') { if (pay(m, PAINT_PRICE)) G.repaint(car, +v); else G.hud.toast('お金が足りない'); }
+        else if (a === 'neon') { mods.neonColor = +v; G.cars.applyMods(car); }
+        else if (a === 'repair') { if (pay(m, ECON.repairPrice)) { car.phys.hp = 100; car.phys.flatTires = 0; car.explodeT = -1; G.audio.cash(); } else G.hud.toast('お金が足りない'); }
+        shop('tuner');
+      } }));
+      return;
+    }
+    // ---------- 不動産屋 ----------
+    if (kind === 'realty') {
+      const rows = PROPERTIES.map(pr => { const own = G.realty.owned(pr.id); return `<div class="item"><span>${esc(pr.name)}${G.realty.home() === pr.id ? '（自宅）' : ''}</span><small>${esc(pr.kind)}・ガレージ${pr.slots}台・${esc(pr.note)}</small>${own ? '<em>所有</em>' : btn(yen(pr.price), 'buy:' + pr.id)}${btn('地図に印', 'map:' + pr.id)}</div>`; }).join('');
+      const p = panel('不動産屋', head + rows + `<p class="note">物件の前で E を押しても買えます。買った物件は「自宅に登録」でき、ガレージに車をしまえます。</p>`, { name: 'shop', cls: 'wide' });
+      bind(p, new Proxy({}, { get: (_, act) => () => {
+        const [a, id] = act.split(':');
+        if (a === 'map') { const pos = G.world.lm['prop_' + id]; G.waypoint = { x: pos.x, z: pos.z }; G.hud.toast('地図に印をつけた'); close(); return; }
+        if (a === 'buy') { if (G.realty.buy(id)) shop('realty'); }
+      } }));
+      return;
+    }
+    // ---------- 物件 ----------
+    if (kind.startsWith('prop:')) {
+      const id = kind.slice(5), pr = PROPERTIES.find(x => x.id === id);
+      if (!G.realty.owned(id)) {
+        const p = panel(pr.name, head + `<p class="lead">${esc(pr.kind)}　ガレージ${pr.slots}台<br>${esc(pr.note)}</p><div class="row">${btn(`購入する ${yen(pr.price)}`, 'buy', 'primary')}</div>`, { name: 'shop' });
+        bind(p, { buy: () => { if (G.realty.buy(id)) shop(kind); } });
+        return;
+      }
+      const isHome = G.realty.home() === id;
+      const stored = G.realty.stored(id);
+      const wstore = G.combat.inv.stored || [];
+      const p = panel(`${pr.name}${isHome ? '（自宅）' : ''}`, head + `<div class="row">${btn('寝る（8時間・セーブ）', 'sleep', 'primary')}${isHome ? '' : btn('自宅に登録', 'home')}</div>
+        <h4>ガレージ（${stored.length}/${pr.slots}台）</h4>${stored.length ? stored.map((r, i) => `<div class="item"><span class="sw" style="background:#${r.color.toString(16).padStart(6, '0')}"></span><span>${esc(VEHICLES[r.model].name)}</span><small>${Object.entries(r.mods || {}).filter(([k, v]) => v && k !== 'neonColor').map(([k, v]) => (CAR_MODS.find(c => c.id === k) || {}).name + v).join(' ')}</small>${btn('出す', 'out:' + i)}</div>`).join('') : '<p class="note">空き。車で敷地に入って E でしまえます。</p>'}
+        <h4>保管している武器</h4>${wstore.length ? wstore.map((w, i) => `<div class="item"><span>${esc(weaponName(WEAPON_BY_ID[w.id], G.settings.mild))}</span>${btn('持ち出す', 'take:' + i)}</div>`).join('') : '<p class="note">なし</p>'}`, { name: 'shop' });
+      bind(p, new Proxy({}, { get: (_, act) => () => {
+        const [a, i] = act.split(':');
+        if (a === 'sleep') { if (G.wanted.stars) { G.hud.toast('手配中は眠れない'); return; } close(); G.sleep(id); }
+        else if (a === 'home') { G.realty.setHome(id); shop(kind); }
+        else if (a === 'out') { close(); G.realty.retrieve(id, +i); }
+        else if (a === 'take') { const w = wstore.splice(+i, 1)[0]; G.combat.give(w.id, w.ammo + w.clip); shop(kind); }
+      } }));
+      return;
     }
     panel(kind, '<p>準備中</p>', { name: 'shop' });
   }

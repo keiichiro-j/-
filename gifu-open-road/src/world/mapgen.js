@@ -1,6 +1,7 @@
 // タイル地図の生成。three.jsに依存しない純粋なロジック（単体テスト対象）。
 import { TILE, MAP_W, MAP_H, HEIGHTS } from '../core/config.js';
 import { mulberry32 } from '../core/rng.js';
+import { PROPERTIES } from '../systems/property.js';
 
 export const T = {
   GRASS: 0, ROAD: 1, WALK: 2, BLDG: 3, WATER: 4, PARK: 5, FIELD: 6, FOREST: 7,
@@ -93,6 +94,9 @@ export function genWorld(seed = 1) {
     else if (d === 3) t = T.FOREST;
     else if (d === 7) t = T.PARK;
     else if (d === 6) t = T.FIELD;
+    // 里山：田園の西の端と、長良の東西は丘陵の雑木林
+    const sato = (d === 6 && c < 10) || (d === 5 && (c < 40 || c > 92) && r < RIVER.r0 - 1);
+    if (sato) t = ((c * 7 + r * 13) % 5 === 0) ? T.GRASS : T.FOREST;
     tiles[idx(c, r)] = t;
   }
   // 河畔の土手は公園
@@ -181,6 +185,7 @@ export function genWorld(seed = 1) {
     const i = idx(c, r), t = tiles[i], d = dist[i];
     if (used[i]) return false;
     if (t === T.LOT) return false;
+    if (d === 5 && (c < 40 || c > 92)) return false;
     return t === T.GRASS && (d === 0 || d === 1 || d === 2 || d === 5 || d === 8);
   };
   const styleFor = (d) => d === 0 ? 'office' : d === 1 ? 'tower' : d === 2 ? 'shop' : d === 5 ? 'house' : 'house';
@@ -214,11 +219,17 @@ export function genWorld(seed = 1) {
   }
 
   // 施設（建物の前の歩道に入口）
-  const placeShop = (name, label, c, r) => {
-    // (c,r) 付近の歩道タイルを探す
-    for (let rad = 0; rad < 8; rad++) for (let dr = -rad; dr <= rad; dr++) for (let dc = -rad; dc <= rad; dc++) {
+  const placeShop = (name, label, c, r, any = false) => {
+    // (c,r) 付近の歩道タイル（any なら道路沿いの空き地）を探す
+    const okTile = (cc, rr) => {
+      const t = tiles[idx(cc, rr)];
+      if (t === T.WALK) return true;
+      if (!any || (t !== T.GRASS && t !== T.FIELD)) return false;
+      return [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => inMap(cc + a, rr + b) && tiles[idx(cc + a, rr + b)] === T.ROAD);
+    };
+    for (let rad = 0; rad < 10; rad++) for (let dr = -rad; dr <= rad; dr++) for (let dc = -rad; dc <= rad; dc++) {
       const cc = c + dc, rr = r + dr;
-      if (inMap(cc, rr) && tiles[idx(cc, rr)] === T.WALK) {
+      if (inMap(cc, rr) && okTile(cc, rr)) {
         lm[name] = { x: (cc + 0.5) * TILE, z: (rr + 0.5) * TILE, label };
         return;
       }
@@ -240,6 +251,11 @@ export function genWorld(seed = 1) {
   placeShop('florist', '花屋', 70, 54);
   placeShop('farm', '農家', 24, 58);
   placeShop('museum', '博物館', 100, 56);
+  placeShop('jewelry', '宝飾店', 62, 42);
+  placeShop('dealer', '車屋', 112, 76);
+  placeShop('tuner', 'カスタムショップ', 92, 58);
+  placeShop('realty', '不動産屋', 72, 72);
+  for (const p of PROPERTIES) placeShop('prop_' + p.id, p.name, p.near[0], p.near[1], !!p.any);
   if (!lm.farm) lm.farm = { x: 24 * TILE, z: 58 * TILE, label: '農家' };
   lm.gasStations = [lm.gas, lm.gas2].filter(Boolean);
   lm.conbinis = [lm.conbini, lm.conbini2].filter(Boolean);

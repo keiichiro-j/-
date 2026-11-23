@@ -46,8 +46,9 @@ await run('pc', { viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 }
   await page.keyboard.press('KeyF'); await wait(page, 300);
   const inCar = await page.evaluate(() => __G.player.inCar);
   check('Fで車に乗れる', inCar);
-  await page.keyboard.down('KeyW'); await waitGame(page, 3);
-  const sp = await page.evaluate(() => Math.abs(__G.player.car.phys.vf) * 3.6);
+  await page.evaluate(() => { window.__vmax = 0; const f = () => { if (__G.player.car) window.__vmax = Math.max(window.__vmax, Math.abs(__G.player.car.phys.vf) * 3.6); requestAnimationFrame(f); }; f(); });
+  await page.keyboard.down('KeyW'); await waitGame(page, 4);
+  const sp = await page.evaluate(() => window.__vmax);
   await page.keyboard.down('KeyA'); await wait(page, 800); await page.keyboard.up('KeyA'); await page.keyboard.up('KeyW');
   check('アクセルで加速する', sp > 15, sp.toFixed(1) + 'km/h');
   await page.screenshot({ path: shots + 'pc-drive.png' });
@@ -98,6 +99,61 @@ await run('pc', { viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 }
   await page.click('text=引き受ける'); await wait(page, 1500);
   const ms = await page.evaluate(() => __G.missions.active && { step: __G.missions.active.step, id: __G.missions.active.def.id });
   check('ミッションを始めて1段目を達成', ms && ms.step === 1, JSON.stringify(ms));
+  // ---- 車屋・不動産・ガレージ・カスタム・強盗・警察の降車と発砲 ----
+  await page.evaluate(() => { __G.menus.close(); __G.missions.active = null; __G.money.bank = 5000000; });
+  const tp = (k, dx = 0, dz = 0) => page.evaluate(([k, dx, dz]) => { const lm = __G.world.lm[k]; const P = __G.player; P.x = lm.x + dx; P.z = lm.z + dz; P.agent.x = P.x; P.agent.z = P.z; }, [k, dx, dz]);
+  await tp('dealer'); await wait(page, 400); await page.keyboard.press('KeyE'); await wait(page, 300);
+  const nCars0 = await page.evaluate(() => __G.save.ownedCars.length);
+  await page.click('[data-act="car:coupe"]'); await wait(page, 300);
+  check('車屋で車を買える', await page.evaluate((n) => __G.save.ownedCars.length === n + 1 && __G.vehicles.cars.some(c => c.record && c.modelId === 'coupe'), nCars0));
+  await page.screenshot({ path: shots + 'pc-dealer.png' });
+  await tp('prop_yanagase'); await wait(page, 400); await page.keyboard.press('KeyE'); await wait(page, 300);
+  await page.click('[data-act="buy"]'); await wait(page, 300);
+  check('物件を買える', await page.evaluate(() => __G.realty.owned('yanagase')));
+  await page.click('[data-act="home"]'); await wait(page, 300);
+  check('自宅に登録できる', await page.evaluate(() => __G.realty.home() === 'yanagase'));
+  await page.evaluate(() => __G.menus.close());
+  // 買った車に乗ってカスタムショップへ
+  await page.evaluate(() => { const c = __G.vehicles.cars.find(c => c.record && c.modelId === 'coupe'); const t = __G.world.lm.tuner; c.phys.x = t.x + 3; c.phys.z = t.z + 3; c.phys.vf = 0; __G.player.x = c.phys.x + 1.5; __G.player.z = c.phys.z; });
+  await wait(page, 300); await page.keyboard.press('KeyF'); await wait(page, 300);
+  await page.keyboard.press('KeyE'); await wait(page, 300);
+  await page.screenshot({ path: shots + 'pc-tuner.png' });
+  const acc0 = await page.evaluate(() => __G.player.car && __G.player.car.spec.accel);
+  await page.click('[data-act="mod:engine"]'); await wait(page, 300);
+  await page.click('[data-act="mod:neon"]'); await wait(page, 300);
+  const acc1 = await page.evaluate(() => __G.player.car.spec.accel);
+  check('カスタムショップでエンジンを強化', acc1 > acc0, `${acc0} → ${acc1}`);
+  await page.evaluate(() => __G.menus.close());
+  // ガレージにしまって、出す
+  await page.evaluate(() => { const c = __G.player.car; const lp = __G.world.lm.prop_yanagase; c.phys.x = lp.x + 2; c.phys.z = lp.z + 2; });
+  await wait(page, 300); await page.keyboard.press('KeyE'); await wait(page, 300);
+  check('物件のガレージに車をしまえる', await page.evaluate(() => !__G.player.inCar && __G.realty.stored('yanagase').length === 1));
+  await tp('prop_yanagase'); await wait(page, 300); await page.keyboard.press('KeyE'); await wait(page, 300);
+  await page.screenshot({ path: shots + 'pc-property.png' });
+  await page.click('[data-act="out:0"]'); await wait(page, 400);
+  check('ガレージから車を出すと改造が残っている', await page.evaluate(() => { const c = __G.vehicles.cars.find(c => c.record && c.modelId === 'coupe'); return !!c && c.mods.engine === 1 && c.mods.neon === 1; }));
+  // コンビニ強盗
+  await page.evaluate(() => { __G.combat.give('pistol', 60); const i = __G.combat.inv.weapons.findIndex(w => w.id === 'pistol'); __G.combat.select(i); __G.clearWanted(); });
+  const cash0 = await page.evaluate(() => __G.money.cash);
+  await tp('conbini', 1.5, 0); await wait(page, 300);
+  await page.mouse.down({ button: 'right' }); await wait(page, 400);
+  await page.keyboard.press('KeyE'); await wait(page, 300);
+  check('銃を構えて E で強盗が始まる', await page.evaluate(() => !!__G.robbery));
+  await waitGame(page, 7);
+  await page.mouse.up({ button: 'right' });
+  const rob = await page.evaluate((c0) => ({ gain: __G.money.cash - c0 }), cash0);
+  check('強盗で現金を奪える', rob.gain >= 20000, JSON.stringify(rob));
+  const t0r = await page.evaluate(() => __G.time);
+  await page.waitForFunction((t0) => __G.wanted.stars >= 3 || __G.time > t0 + 20, t0r, { timeout: 300000, polling: 250 });
+  check('強盗のあと手配★3', await page.evaluate(() => __G.wanted.stars >= 3), await page.evaluate(() => JSON.stringify({ stars: __G.wanted.stars, late: __G.lateAlarm, rob: !!__G.robbery, dead: __G.player.dead })));
+  // 警察が降りて撃ってくる（その場で待つ）
+  await page.evaluate(() => { __G.godMode = true; __G.wanted.status = 'seen'; __G.wanted.detect = 1; });
+  let pol2 = null;
+  for (let k = 0; k < 8; k++) { await waitGame(page, 4); pol2 = await page.evaluate(() => ({ off: __G.police.officers.filter(o => !o.hidden && o.alive).length, aiming: __G.police.officers.filter(o => o.poseState === 'aim').length, units: __G.police.units.length })); if (pol2.aiming > 0) break; }
+  await page.screenshot({ path: shots + 'pc-police-shoot.png' });
+  check('警官がパトカーから降りて銃を構える', pol2.off > 0 && pol2.aiming > 0, JSON.stringify(pol2));
+  await page.evaluate(() => { __G.godMode = false; __G.clearWanted(); });
+
   // 性能の目安
   const perf = await page.evaluate(() => ({ fps: __G.fps.toFixed(1), calls: __G.renderer.info.render.calls, tris: __G.renderer.info.render.triangles }));
   check('描画統計', true, JSON.stringify(perf));

@@ -32,11 +32,11 @@ export function createVehicles(ctx) {
     water: (x, z) => isWater(world, x, z),
   };
   const MAXL = 80;
-  const lights = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffffff }), MAXL * 6);
+  const lights = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffffff }), MAXL * 7);
   lights.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   lights.frustumCulled = false;
   const _c = new THREE.Color();
-  for (let i = 0; i < MAXL * 6; i++) lights.setColorAt(i, _c.set(0xffffff));
+  for (let i = 0; i < MAXL * 7; i++) lights.setColorAt(i, _c.set(0xffffff));
   scene.add(lights);
 
   function endNodeOf(ai) { const e = edges[ai.e]; return ai.dir > 0 ? e.b : e.a; }
@@ -216,6 +216,7 @@ export function createVehicles(ctx) {
 
   function damage(ent, amount, source) {
     if (ent.wreck) return;
+    amount *= ent.spec.armorK ?? 1;
     ent.phys.hp = Math.max(0, ent.phys.hp - amount);
     if (ent.phys.hp <= 0 && ent.explodeT < 0 && !ent.phys.inWater) ent.explodeT = 5;
     if (ent.mode === 'lane') { ent.mode = 'free'; ent.freeT = 0; }
@@ -295,7 +296,7 @@ export function createVehicles(ctx) {
       m.visible = d < 280;
       m.position.set(p.x, p.y, p.z);
       m.rotation.set(-p.pitch, p.heading, -p.roll);
-      if (!m.visible || li > MAXL * 6 - 6) continue;
+      if (!m.visible || li > MAXL * 7 - 7) continue;
       m.updateMatrix();
       const { lightY, lightX } = c.info, L = c.spec.len / 2;
       const put = (x, y, z, sx, sy, sz, col) => { _l.makeScale(sx, sy, sz); _l.setPosition(x, y, z); _m.multiplyMatrices(m.matrix, _l); lights.setMatrixAt(li, _m); lights.setColorAt(li, col); li++; };
@@ -307,6 +308,10 @@ export function createVehicles(ctx) {
       if (!c.wreck && (night > 0.3 || brk)) {
         _cs.setRGB(brk ? 1 : 0.7, 0.05, 0.03);
         put(lightX * 1.1, lightY + 0.03, -L - 0.04, 0.34, 0.16, 0.06, _cs); put(-lightX * 1.1, lightY + 0.03, -L - 0.04, 0.34, 0.16, 0.06, _cs);
+      }
+      if (c.mods && c.mods.neon && !c.wreck && night > 0.15) {
+        _cs.set(c.mods.neonColor || 0x3ad0ff);
+        put(0, 0.1, 0, c.spec.wid * 0.92, 0.03, c.spec.len * 0.86, _cs);
       }
       if (c.spec.police && !c.wreck) {
         const on = c.siren; const ph = Math.floor(t * 6) % 2;

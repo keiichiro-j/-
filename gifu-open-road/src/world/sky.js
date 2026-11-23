@@ -17,7 +17,7 @@ export const WEATHERS = [
 ];
 const NEXT = { clear: [['clear', 5], ['cloudy', 3], ['fog', 1]], cloudy: [['clear', 3], ['cloudy', 2], ['rain', 3]], rain: [['cloudy', 3], ['rain', 2], ['storm', 1]], storm: [['rain', 3]], fog: [['clear', 3], ['cloudy', 1]] };
 
-export function buildSky(scene, renderer, quality) {
+export function buildSky(scene, renderer, quality, ranges) {
   scene.background = SKY.day.clone();
   scene.fog = new THREE.Fog(FOG.day.clone(), 60, quality.fogFar);
   const hemi = new THREE.HemisphereLight(0xdfefff, 0x5a6a48, 0.65);
@@ -99,6 +99,12 @@ export function buildSky(scene, renderer, quality) {
       if (w.id === 'storm' && Math.random() < dt * 0.08) state.flash = 0.9;
     }
     water.material.color.setHex(0x3f7f9a).lerp(C(0x0a1a26), state.night * 0.8);
+    // 遠景の山並み：空気遠近法（空の色に溶ける）
+    if (ranges) {
+      ranges.children[0].material.color.copy(fog).lerp(C(0x2a3a3a), 0.38 * (1 - w.fog * 0.3));
+      ranges.children[1].material.color.copy(fog).lerp(sky, 0.4).lerp(C(0x3a4a5a), 0.18);
+      ranges.position.set(cx - WORLD_W / 2, 0, cz - WORLD_H / 2);
+    }
   }
   return { state, update, sun, hemi, setWeather: (id) => { state.weather = WEATHERS.find(w => w.id === id) || WEATHERS[0]; } };
 }
