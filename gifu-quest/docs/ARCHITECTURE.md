@@ -12,9 +12,9 @@
 | 役割 | ファイル |
 |---|---|
 | ディレクター／リードプログラマ | src/main.js, game.js, core/{config,input,timestep,rng,events}.js, gfx/{renderer,atlas,camera,tilemap,particles}.js, world/{level,collision,tiles,world,levels}.js, actors/{entity,player,abilities,projectiles}.js, systems/pickups.js, scenes/{boot,stage}.js, build.mjs, tests/ |
-| アート | src/art/{heroes,enemies,props,tiles,backdrops}.js |
+| アート | src/art/{heroes,props,tiles,backdrops}.js |
 | レベルデザイン | levels/stage1〜6.json, tools/level-editor.html, tools/levelgen/, src/world/validate.js |
-| 敵・仕掛け | src/actors/enemyTypes.js, src/world/{platforms,liquids,triggers}.js |
+| 敵・仕掛け | src/actors/enemyTypes.js, src/art/enemies.js（敵と仕掛けの絵も担当）, src/world/{platforms,liquids,triggers}.js |
 | ボス | src/bosses/*.js, src/art/bosses.js |
 | FX・サウンド | src/systems/{env,weather,timeOfDay}.js, src/gfx/{lighting,postfx}.js, src/core/audio.js |
 | UI・画面 | src/scenes/{title,opening,select,worldmap,results,gameover,ending,settings}.js, src/ui/{hud,touch,menus,text}.js, src/systems/dialogue.js, src/core/save.js |
@@ -135,3 +135,40 @@ w.events.emit/on（'enemyDefeated','stomp','coin','bossStart','bossDefeated','st
 - gameover params: `{ stage, char }`
 - settings params: `{ back: 'title'|'worldmap'|'stage-resume' }`
 セーブ：`save.data`（src/core/save.js。形式は defaultSave()）、`save.write()`
+
+## 敵の配置名（レベル担当と敵担当の共通語）
+`{ "type": "<動き>", "kind": "<見た目>", "x": .., "y": .. }`。動きは設計書6章の8種類。
+
+| ステージ | kind（動き） |
+|---|---|
+| 1 金華山 | uribo（walker）, karasu（flyer）, iga（spiky）, saru（thrower）, inoshishi（charger） |
+| 2 長良川 | sawagani（walker）, kajika（hopper）, tonbo（flyer）, ayu（popper） |
+| 3 郡上八幡 | chochin（flyer：提灯おばけ）, uchiwa（hopper：踊りうちわ）, geta（thrower：下駄投げ）, kappa（shielder） |
+| 4 飛騨高山 | karakuri（shielder：からくり小僧）, tako（flyer：凧）, hanabi（thrower：花火師）, shishi（charger：獅子舞） |
+| 5 白川郷 | yukidama（walker）, yukiusagi（hopper）, koritoge（spiky）, yukigumo（flyer：つららを落とす） |
+| 6 奥飛騨 | hinotama（popper）, yogangaeru（hopper）, komori（flyer）, iwanage（thrower）, hibashira（popper：火柱）, kamoshika（charger） |
+
+共通オプション：`range`（巡回の幅・タイル）, `face`（-1/1）, `amp`（flyer の上下幅・タイル）, `period`（popper の周期・秒）, `dir`（"h"|"v"：flyer の巡回方向）
+
+## 仕掛けの配置名（敵担当が実装、レベル担当が置く）
+| type | spec | 内容 |
+|---|---|---|
+| movingPlatform | w（タイル）, dx, dy（往復の距離・タイル）, speed（タイル/秒）, kind（wood/stone/cloud/ice） | 往復する床 |
+| fallingPlatform | w, kind（wood/rock） | 乗って0.5秒で落ちる。3秒で復活（崩れる岩の足場） |
+| gondola | x2, y2（終点タイル）, speed | ロープウェイ。乗ると動き出し、終点で止まる。ケーブルも描く |
+| boat | w, x2（終点）, speed | 鵜飼船。乗ると川を下る（自動スクロール区間）。篝火の明かり付き |
+| festivalFloat | w, x2, speed | 祭り屋台。乗って進む大きな床 |
+| rhythmPlatform | w, beat（0/1）, bpm | 郡上踊りの太鼓に合わせて出たり消えたり（予告で点滅） |
+| waterLevel | id, x0, x1, yLow, yHigh, start（"low"/"high"） | 水位が変わる水域（タイル単位） |
+| waterSwitch | target（waterLevel の id） | 叩く・踏むと水位が切り替わる |
+| risingLava | x0, x1, y（開始の高さ）, speed（タイル/秒）, trigger（主人公がこの x を越えたら開始）, stopY | せり上がる溶岩 |
+| steamVent | power, period | 温泉の湯気で上に押し上げる |
+| icicle | — | 下に来ると揺れて落ちる |
+| windZone | x0, x1, force, period | 吹雪の横風（予告の雪煙あり） |
+| lightningZone | x0, x1 | 落雷（予告マーク→落雷）。ステージ3・6 |
+| tightrope | w | 提灯の綱渡り（たわむ通り抜け足場） |
+| bouncer | power | 跳ね台（太鼓・傘など） |
+
+## 背景の小物（decor）
+`{ "type": "decor", "sprite": "prop_toro", "x": .., "y": .., "z": -5, "light": { "r": 110, "color": "#ffbf6a" } }`
+アート担当が用意する prop：toro（石灯籠）, pine, cedar, bamboo, rock, bush, grass, machiya（町家）, gassho（合掌造り）, castle_wall, torii_small（小さな鳥居ではなく木の門：gate）, chochin（提灯）, kagaribi（篝火）, onsen（湯けむりの湯船）, snowman, fence, bridge_rail, noren, yatai_stall（朝市の屋台）, lamp（街灯）
