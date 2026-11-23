@@ -6,6 +6,8 @@ import path from 'node:path';
 const root = path.dirname(new URL(import.meta.url).pathname);
 const watch = process.argv.includes('--watch');
 const dev = process.argv.includes('--dev');
+const oi = process.argv.indexOf('--out');
+const OUT = oi > 0 ? process.argv[oi + 1] : 'dist';
 
 const levelsPlugin = {
   name: 'gq-levels',
@@ -61,11 +63,11 @@ async function build() {
   const js = r.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
   const a = assetsScript();
   const html = HTML(js, a.js);
-  fs.mkdirSync(path.join(root, 'dist'), { recursive: true });
-  fs.writeFileSync(path.join(root, 'dist/index.html'), html);
-  for (const f of ['Code.gs', 'appsscript.json']) if (fs.existsSync(path.join(root, 'gas', f))) fs.copyFileSync(path.join(root, 'gas', f), path.join(root, 'dist', f));
+  fs.mkdirSync(path.join(root, OUT), { recursive: true });
+  fs.writeFileSync(path.join(root, OUT, 'index.html'), html);
+  for (const f of ['Code.gs', 'appsscript.json']) if (fs.existsSync(path.join(root, 'gas', f))) fs.copyFileSync(path.join(root, 'gas', f), path.join(root, OUT, f));
   const kb = (n) => (n / 1024).toFixed(0) + 'KB';
-  console.log(`built dist/index.html ${kb(html.length)} (js ${kb(js.length)}, png ${kb(a.bytes)}) in ${Date.now() - t0}ms`);
+  console.log(`built ${OUT}/index.html ${kb(html.length)} (js ${kb(js.length)}, png ${kb(a.bytes)}) in ${Date.now() - t0}ms`);
   return r;
 }
 

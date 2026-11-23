@@ -5,7 +5,9 @@ const { chromium } = require('playwright');
 import path from 'node:path';
 import fs from 'node:fs';
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
-const file = 'file://' + path.join(root, 'dist/index.html');
+const di = process.argv.indexOf('--dist');
+const DIST = di > 0 ? process.argv[di + 1] : 'dist';
+const file = 'file://' + path.join(root, DIST, 'index.html');
 const shots = process.argv.includes('--shots');
 const only = process.argv.find((a) => a.startsWith('--stage='))?.slice(8);
 
@@ -19,7 +21,7 @@ async function check(name, url, fn, viewport = { width: 1280, height: 720 }) {
   await page.goto(url);
   await page.waitForFunction(() => window.__GQ__ && window.__GQ__.game.sceneName && window.__GQ__.game.sceneName !== 'boot', null, { timeout: 15000 }).catch(() => errors.push('boot timeout'));
   try { await fn(page); } catch (e) { errors.push(String(e.message || e)); }
-  if (shots) { fs.mkdirSync(path.join(root, 'screenshots'), { recursive: true }); await page.screenshot({ path: path.join(root, 'screenshots', name + '.png') }); }
+  if (shots) { fs.mkdirSync(path.join(root, 'screenshots'), { recursive: true }); await page.screenshot({ path: path.join(root, 'screenshots', (DIST === 'dist' ? '' : DIST + '-') + name + '.png') }); }
   if (errors.length) { failed++; console.log(`✗ ${name}\n  ` + errors.slice(0, 5).join('\n  ')); } else console.log(`✓ ${name}`);
   await page.close();
 }

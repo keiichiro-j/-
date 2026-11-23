@@ -113,3 +113,19 @@ class Goal extends Entity {
   draw(ctx) { drawSprite(ctx, 'item_orb_1', 0, this.cx, this.y + this.h); }
 }
 registerEntity('goal', Goal);
+
+// 背景の小物（当たり判定なし）。spec: sprite, z(既定-5), flip, scale, light: { r, color }, sway
+class Decor extends Entity {
+  constructor(w, s) {
+    super(w, s);
+    this.placeAt(s, 36, 36);
+    this.z = s.z ?? -5; this.persistent = false; this.drawPad = 200;
+    this.sprite = s.sprite || 'prop_toro';
+  }
+  draw(ctx, a) {
+    const s = this.spec;
+    drawSprite(ctx, this.sprite, ((this.world.time * (s.fps || 6)) | 0), this.cx, this.y + this.h + (s.dy || 0) * TILE, { flip: !!s.flip, sx: s.scale || 1, sy: s.scale || 1, rot: s.sway ? Math.sin(this.world.time * 1.5 + this.x) * s.sway : 0 });
+    if (s.light) this.world.lights.push({ x: this.cx + (s.light.dx || 0), y: this.y + this.h - (s.light.dy ?? 40), r: s.light.r || 110, color: s.light.color || '#ffbf6a', a: 1, flicker: s.light.flicker ?? 0.08 });
+  }
+}
+registerEntity('decor', Decor);

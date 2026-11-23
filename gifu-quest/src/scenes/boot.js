@@ -14,7 +14,9 @@ export const bootScene = {
     if (this.done) {
       const q = new URLSearchParams(location.search);
       const st = q.get('stage');
-      if (st != null) game.go('stage', { stage: /^\d+$/.test(st) ? Number(st) : st, char: q.get('char') || 'leaf' }, 'none');
+      if (q.get('gallery')) game.go('gallery', { filter: q.get('gallery') }, 'none');
+      else if (q.get('scene')) game.go(q.get('scene'), {}, 'none');
+      else if (st != null) game.go('stage', { stage: /^\d+$/.test(st) ? Number(st) : st, char: q.get('char') || 'leaf' }, 'none');
       else game.go('title', {}, 'fade', { dur: 0.6 });
       this.done = false;
     }

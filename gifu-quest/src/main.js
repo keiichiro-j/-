@@ -24,6 +24,7 @@ import { resultsScene } from './scenes/results.js';
 import { gameoverScene } from './scenes/gameover.js';
 import { endingScene } from './scenes/ending.js';
 import { settingsScene } from './scenes/settings.js';
+import { galleryScene } from './scenes/gallery.js';
 
 function start() {
   const canvas = document.getElementById('game');
@@ -43,6 +44,7 @@ function start() {
   game.register('gameover', gameoverScene);
   game.register('ending', endingScene);
   game.register('settings', settingsScene);
+  game.register('gallery', galleryScene);
   const loop = createLoop({ update: (dt) => game.update(dt), render: (a) => game.render(a) });
   game.loop = loop;
   game.go('boot', {}, 'none');
