@@ -1,0 +1,19 @@
+{
+  "name": "gifu-open-road",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "GIFU OPEN ROAD 3D — GASで配信するローポリ3Dオープンワールド",
+  "scripts": {
+    "build": "node build.mjs",
+    "build:inline": "node build.mjs --inline-three",
+    "dev": "node build.mjs --dev --inline-three",
+    "test": "node --test tests/unit/*.test.mjs",
+    "smoke": "node build.mjs --inline-three && node tests/smoke.mjs",
+    "deploy": "node build.mjs && clasp push"
+  },
+  "devDependencies": {
+    "esbuild": "0.20.2",
+    "three": "0.128.0"
+  }
+}
