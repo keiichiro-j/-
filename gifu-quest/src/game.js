@@ -35,7 +35,14 @@ export const game = {
     }
     if (this.scene && this.scene.update) this.scene.update(dt);
   },
-  render(alpha) {
+  // 画質「自動」：中価格帯スマホで50fpsを下回り続けたら低画質へ
+  autoQuality(dt) {
+    if (!RUNTIME.autoQuality || !this.loop || RUNTIME.quality === 'low' || this.sceneName !== 'stage') { this._slow = 0; return; }
+    if (this.loop.stats.fps < 48) this._slow = (this._slow || 0) + dt; else this._slow = Math.max(0, (this._slow || 0) - dt * 0.5);
+    if (this._slow > 3) { RUNTIME.quality = 'low'; renderer.resize(); this._slow = 0; }
+  },
+  render(alpha, dt = 1 / 60) {
+    this.autoQuality(dt);
     const ctx = renderer.begin();
     const vw = renderer.viewW, vh = renderer.viewH;
     if (this.scene && this.scene.draw) this.scene.draw(ctx, alpha, vw, vh);

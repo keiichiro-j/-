@@ -45,7 +45,7 @@ function start() {
   game.register('ending', endingScene);
   game.register('settings', settingsScene);
   game.register('gallery', galleryScene);
-  const loop = createLoop({ update: (dt) => game.update(dt), render: (a) => game.render(a) });
+  const loop = createLoop({ update: (dt) => game.update(dt), render: (a, dt) => game.render(a, dt) });
   game.loop = loop;
   game.go('boot', {}, 'none');
   loop.start();

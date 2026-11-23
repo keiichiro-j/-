@@ -184,7 +184,11 @@ export class Player {
       if (this.has('breakBricks') && isBreakable(t)) w.breakTile(tx, ty);
       else w.bumpTile(tx, ty);
     };
+    // 横風（吹雪）。進む向きによって速くなる・遅くなる
+    const wind = (w.env && w.env.wind) || 0;
+    this.vx += wind;
     moveBody(w.level, this, dt, { platforms: w.platforms, onCeil });
+    if (!(this.wallL || this.wallR)) this.vx -= wind;
     if (this.wallL || this.wallR) { if (this.dashT > 0) { this.dashT = 0; } this.vx = 0; }
 
     // 着地

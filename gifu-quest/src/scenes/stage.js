@@ -15,6 +15,8 @@ import { drawDialogue, updateDialogue } from '../systems/dialogue.js';
 export const stageScene = {
   world: null, params: null, paused: false, intro: 0,
   enter(params) {
+    // 設定画面などから戻る時は世界をそのまま再開する
+    if (params.resume && this.world) { this.paused = false; touch.show('play'); audio.bgm(this.world.data.bgm || `stage${this.params.stage}`); return; }
     this.params = params;
     const data = LEVELS[params.stage];
     if (!data) throw new Error('level not found ' + params.stage);
@@ -27,7 +29,7 @@ export const stageScene = {
     audio.bgm(data.bgm || `stage${params.stage}`);
     events.emit('stageEnter', { stage: params.stage });
   },
-  exit() { touch.hide(); audio.stopBgm(); this.world = null; },
+  exit() { touch.hide(); },
   update(dt) {
     const W = this.world;
     if (!W) return;
