@@ -1,4 +1,5 @@
 import { game } from '../game.js';
+import { drawHeroDressed } from '../art/heroGear.js';
 import { input } from '../core/input.js';
 import { save } from '../core/save.js';
 import { audio } from '../core/audio.js';
@@ -81,7 +82,7 @@ export const selectScene = {
     ctx.fillStyle = COL.shuDark; ctx.beginPath(); ctx.ellipse(lx, ly, 110, 18, 0, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = COL.kin; ctx.lineWidth = 2; ctx.stroke();
     const k = this.swap, s = 3.6 * (0.85 + 0.15 * k);
-    drawSprite(ctx, `hero_${id}_idle`, (t * 6) | 0, lx, ly + 2, { sx: s, sy: s, alpha: k });
+    drawHeroDressed(ctx, id, 'idle', (t * 6) | 0, lx, ly + 2, { sx: s, sy: s, alpha: k, weaponId: save.data.equipped && save.data.weapons[save.data.equipped] ? save.data.equipped : null, time: t });
     // ---- 右：能力（和紙） ----
     const px = vw * 0.5, py = 64, pw = Math.min(520, vw - px - 30), ph = 336;
     drawWashi(ctx, px, py, pw, ph);

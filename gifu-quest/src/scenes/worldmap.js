@@ -1,4 +1,5 @@
 import { game } from '../game.js';
+import { drawHeroDressed } from '../art/heroGear.js';
 import { canFree } from '../systems/gacha.js';
 import { input } from '../core/input.js';
 import { save } from '../core/save.js';
@@ -222,7 +223,7 @@ export const worldmapScene = {
     const iA = ORDER.indexOf(this.from), iB = ORDER.indexOf(this.sel);
     const A = this.nodes[iA], B = this.nodes[iB], k = this.walk, e = k * k * (3 - 2 * k);
     const hx = A.x + (B.x - A.x) * e, hy = A.y + (B.y - A.y) * e - Math.sin(e * Math.PI) * 16;
-    drawSprite(ctx, `hero_${this.params.char || d.lastChar || 'leaf'}_${k < 1 ? 'walk' : 'idle'}`, (t * 8) | 0, hx, hy - 10, { sx: 0.9, sy: 0.9, flip: B.x < A.x && k < 1 });
+    drawHeroDressed(ctx, this.params.char || d.lastChar || 'leaf', k < 1 ? 'walk' : 'idle', (t * 8) | 0, hx, hy - 10, { sx: 0.9, sy: 0.9, flip: B.x < A.x && k < 1, weaponId: save.data.equipped && save.data.weapons[save.data.equipped] ? save.data.equipped : null, time: t });
     // 見出し
     drawText(ctx, '岐阜の地図', 26, 30, { size: 26, color: COL.kinLight, stroke: COL.sumi, strokeW: 5, align: 'left', baseline: 'middle', serif: true });
     const cnt = save.saruboboCount();
@@ -282,7 +283,7 @@ export const worldmapScene = {
     drawText(ctx, d.cleared.includes(n) ? '済' : '―', x + w - 24, y + 234, ST.val);
     // 遊ぶキャラ
     const cid = this.params.char || d.lastChar || 'leaf';
-    drawSprite(ctx, `hero_${cid}_idle`, (t * 6) | 0, x + 60, y + 340, { sx: 1.3, sy: 1.3 });
+    drawHeroDressed(ctx, cid, 'idle', (t * 6) | 0, x + 60, y + 340, { sx: 1.3, sy: 1.3, weaponId: save.data.equipped && save.data.weapons[save.data.equipped] ? save.data.equipped : null, time: t });
     drawText(ctx, 'この仲間で出発', x + 110, y + 312, ST.area);
     // 出発ボタン
     const G = this.goRect; G.x = x + 100; G.y = y + h - 76; G.w = w - 124; G.h = 50;

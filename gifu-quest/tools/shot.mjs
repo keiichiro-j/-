@@ -14,6 +14,7 @@ const q = new URLSearchParams();
 if (arg('stage')) { q.set('stage', arg('stage')); q.set('char', arg('char', 'leaf')); }
 if (flag('gallery')) q.set('gallery', arg('filter', '1'));
 if (arg('scene')) q.set('scene', arg('scene'));
+for (const k of ['wpn', 'f', 'zoom']) if (arg(k)) q.set(k, arg(k));
 const url = 'file://' + path.join(root, dist, 'index.html') + '?' + q;
 const mobile = flag('mobile');
 const browser = await chromium.launch();

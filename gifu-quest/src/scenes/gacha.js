@@ -4,6 +4,7 @@ import { save } from '../core/save.js';
 import { audio } from '../core/audio.js';
 import { touch } from '../ui/touch.js';
 import { drawSprite } from '../gfx/atlas.js';
+import { drawHeroDressed } from '../art/heroGear.js';
 import { drawText, drawWashi, drawTag, drawPatternBg, drawWrapped, roundRect, COL } from '../ui/text.js';
 import { pull, canFree, WEAPONS, RARITIES, COST, PITY, MAX_LEVEL, weaponById, rarityInfo, weaponEffects, describeEffects } from '../systems/gacha.js';
 import CHARS from '../data/characters.json';
@@ -305,6 +306,10 @@ export const gachaScene = {
     const eq = d.equipped === w.id;
     drawTag(ctx, er.x, er.y, er.w, er.h, true, false, 0.5 + 0.5 * Math.sin(t * 4));
     drawText(ctx, eq ? '外す' : '装備する', er.x + er.w / 2, er.y + er.h / 2 + 1, ST.btnA);
+    // 試着：今のキャラがこの武器を持った姿
+    const hx = x + dw - 40, hy = py + ph - 16;
+    ctx.fillStyle = 'rgba(90,60,40,0.18)'; ctx.beginPath(); ctx.ellipse(hx, hy, 26, 6, 0, 0, Math.PI * 2); ctx.fill();
+    drawHeroDressed(ctx, ch, 'idle', (t * 5) | 0, hx, hy, { sx: 1.5, sy: 1.5, flip: true, weaponId: w.id, time: t });
   },
   // 演出：回る → 玉が出る → カードがめくれる
   drawAnim(ctx, vw, vh, t) {

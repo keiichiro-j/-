@@ -726,7 +726,7 @@ function drawFx(ctx, Q, C, front) {
   }
 }
 
-function drawHero(ctx, id, Q) {
+function drawHero(ctx, id, Q, bare = false) {
   const C = P[id], Dr = DRAW[id];
   const fl = legJoints(C, pt(0, 0), Q.fl), bl = legJoints(C, pt(0, 0), Q.bl);
   const footH = 2.4;
@@ -764,7 +764,7 @@ function drawHero(ctx, id, Q) {
     else drawCormorant(ctx, aF.hand.x + 1, aF.hand.y - 3, 0.6, Q.bird === 2 ? -0.6 : 0.6);
   }
   Dr.arm(ctx, C, shF, aF.elbow, aF.hand, false);
-  Dr.hold && Dr.hold(ctx, C, aF.hand, Q);
+  if (!bare) Dr.hold && Dr.hold(ctx, C, aF.hand, Q);
   drawFx(ctx, Q, C, true);
   ctx.restore();
 }
@@ -772,6 +772,36 @@ function drawHero(ctx, id, Q) {
 export function heroPose(id, anim, f) {
   const o = OVR[id] && OVR[id][anim];
   return (o || BASE[anim] || BASE.idle)(f);
+}
+
+// 武器を装備した時に重ねて描くための、コマごとの位置（64×64の絵の中の座標）。
+// hand: 手前の手, ang: 持った武器の向き（ラジアン。+x 方向が刃先）, neck: 首, t: 胴の傾き
+const ANCH = new Map();
+export function heroAnchor(id, anim, f) {
+  const key = id + '|' + anim + '|' + f;
+  let a = ANCH.get(key);
+  if (a) return a;
+  const C = P[id] || P.leaf, Q = heroPose(id, anim, f);
+  const fl = legJoints(C, pt(0, 0), Q.fl), bl = legJoints(C, pt(0, 0), Q.bl);
+  const hy = Q.g ? GROUND - 2.4 - Math.max(fl.ankle.y, bl.ankle.y) + Q.y : GROUND - 2.4 - C.L1 - C.L2 + 1 + Q.y;
+  const hx = CX + Q.x, t = Q.t * D;
+  const up = (L) => pt(hx + Math.sin(t) * L, hy - Math.cos(t) * L);
+  const neck = up(C.th), shF = up(C.th - 2.6);
+  const arm = armJoints(C, shF, Q.fa, t);
+  const fore = Math.atan2(arm.hand.y - arm.elbow.y, arm.hand.x - arm.elbow.x);
+  // 刀の角度 w があるコマはその向き、無いコマは前腕から少し前へ起こした向き
+  let ang = Q.w !== undefined ? -Q.w * D + Math.PI / 2 : fore - 1.05;
+  // 全体の回転と伸び縮み（drawHero と同じ順）
+  const rot = (Q.rot || 0) * D, ry = hy - C.th * 0.6;
+  const tf = (p) => {
+    let x = p.x, y = p.y;
+    if (rot) { const dx = x - hx, dy = y - ry; x = hx + dx * Math.cos(rot) - dy * Math.sin(rot); y = ry + dx * Math.sin(rot) + dy * Math.cos(rot); }
+    return pt(CX + (x - CX) * Q.sx, GROUND + (y - GROUND) * Q.sy);
+  };
+  ang += rot;
+  a = { hand: tf(arm.hand), neck: tf(neck), hip: tf(pt(hx, hy)), ang, t: t + rot, air: !Q.g };
+  ANCH.set(key, a);
+  return a;
 }
 
 export function defineHeroes() {
@@ -782,6 +812,13 @@ export function defineHeroes() {
         w: 64, h: 64, frames: A.frames, ox: 32, oy: 54,
         draw(ctx, f) { drawHero(ctx, id, heroPose(id, anim, f)); },
       });
+      // 自前の刀を持つコマがあるキャラは、武器を装備した時用に「素手」の絵も作る
+      if (DRAW[id] && DRAW[id].hold && Array.from({ length: A.frames }, (_, f) => heroPose(id, anim, f)).some((q) => q.w !== undefined)) {
+        defineSprite(`hero_${id}_${anim}_bare`, {
+          w: 64, h: 64, frames: A.frames, ox: 32, oy: 54,
+          draw(ctx, f) { drawHero(ctx, id, heroPose(id, anim, f), true); },
+        });
+      }
     }
   }
 }

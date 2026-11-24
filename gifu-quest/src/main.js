@@ -25,7 +25,7 @@ import { resultsScene } from './scenes/results.js';
 import { gameoverScene } from './scenes/gameover.js';
 import { endingScene } from './scenes/ending.js';
 import { settingsScene } from './scenes/settings.js';
-import { galleryScene } from './scenes/gallery.js';
+import { galleryScene, dressupScene } from './scenes/gallery.js';
 import { zukanScene } from './scenes/zukan.js';
 import { gachaScene } from './scenes/gacha.js';
 
@@ -48,6 +48,7 @@ function start() {
   game.register('ending', endingScene);
   game.register('settings', settingsScene);
   game.register('gallery', galleryScene);
+  game.register('dressup', dressupScene);
   game.register('zukan', zukanScene);
   game.register('gacha', gachaScene);
   const loop = createLoop({ update: (dt) => game.update(dt), render: (a, dt) => game.render(a, dt) });

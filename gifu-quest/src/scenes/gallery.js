@@ -19,3 +19,23 @@ export const galleryScene = {
     }
   },
 };
+
+// 開発用：?scene=dressup&wpn=w27 で、全キャラ×全アニメに武器を持たせて並べる（装いの確認用）
+import { drawHeroDressed } from '../art/heroGear.js';
+import { HERO_ANIMS } from '../actors/player.js';
+export const dressupScene = {
+  enter() { this.t = 0; const q = new URLSearchParams(location.search); this.w = q.get('wpn') || 'w27'; this.zoom = +(q.get('zoom') || 1.4); this.frame = q.get('f'); },
+  update(dt) { this.t += dt; },
+  draw(ctx, a, vw, vh) {
+    ctx.fillStyle = '#7a8a9a'; ctx.fillRect(0, 0, vw, vh);
+    const ids = ['leaf', 'minamo', 'gen', 'haku', 'sarubobo'], anims = Object.keys(HERO_ANIMS);
+    const cw = Math.min(62, (vw - 20) / anims.length), rh = (vh - 20) / ids.length, z = Math.min(this.zoom, cw / 40);
+    ctx.font = '9px sans-serif'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+    ids.forEach((id, r) => anims.forEach((an, c) => {
+      const x = 10 + c * cw + cw / 2, y = 10 + r * rh + rh * 0.78;
+      const f = this.frame != null ? +this.frame : (this.t * HERO_ANIMS[an].fps) | 0;
+      drawHeroDressed(ctx, id, an, f, x, y, { sx: z, sy: z, weaponId: this.w === 'none' ? null : this.w, time: this.t, vx: an === 'run' ? 300 : 0 });
+      if (r === 0) ctx.fillText(an, x, 9);
+    }));
+  },
+};

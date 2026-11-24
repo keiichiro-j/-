@@ -1,4 +1,5 @@
 import { game } from '../game.js';
+import { drawHeroDressed } from '../art/heroGear.js';
 import { input } from '../core/input.js';
 import { save } from '../core/save.js';
 import { audio } from '../core/audio.js';
@@ -85,7 +86,7 @@ export const resultsScene = {
     // 主人公（勝利ポーズ）と宝珠
     const hx = vw * 0.25, hy = 410;
     ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(hx, hy, 90, 16, 0, 0, Math.PI * 2); ctx.fill();
-    drawSprite(ctx, `hero_${this.char}_win`, (t * 6) | 0, hx, hy, { sx: 3.2, sy: 3.2 });
+    drawHeroDressed(ctx, this.char, 'win', (t * 6) | 0, hx, hy, { sx: 3.2, sy: 3.2, weaponId: save.data.equipped && save.data.weapons[save.data.equipped] ? save.data.equipped : null, time: t });
     if (this.meta.orb && p.stage >= 1 && p.stage <= 6) drawOrb(ctx, hx + 90, 220 + Math.sin(t * 2) * 6, 16, this.meta.orb, 1);
     // 和紙の表
     const px = vw * 0.47, py = 120, pw = Math.min(520, vw - px - 40), ph = 300;

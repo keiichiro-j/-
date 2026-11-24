@@ -7,6 +7,7 @@ import { ABILITIES } from './abilities.js';
 import CHARS from '../data/characters.json';
 import { weaponEffects, weaponById } from '../systems/gacha.js';
 import { WaveShot } from './projectiles.js';
+import { drawHeroDressed, heroSpriteName } from '../art/heroGear.js';
 
 // 主人公（設計書 4章・5章）。アニメ名は docs/ARCHITECTURE.md の HERO_ANIMS
 export const HERO_ANIMS = {
@@ -308,17 +309,18 @@ export class Player {
 
   draw(ctx, alpha) {
     const x = this.px + (this.x - this.px) * alpha, y = this.py + (this.y - this.py) * alpha;
-    const name = `hero_${this.id}_${this.anim}`;
+    const name = heroSpriteName(this.id, this.anim, this.weaponId);
     // 残像
     for (const t of this.trail) {
-      drawSprite(ctx, `hero_${this.id}_${t.anim}`, t.frame, t.x + this.w / 2, t.y + this.h, { flip: t.face < 0, alpha: t.life * 1.6 * 0.5 });
+      drawSprite(ctx, heroSpriteName(this.id, t.anim, this.weaponId), t.frame, t.x + this.w / 2, t.y + this.h, { flip: t.face < 0, alpha: t.life * 1.6 * 0.5 });
     }
     // 足元の影
     ctx.fillStyle = 'rgba(0,0,0,0.22)';
     ctx.beginPath(); ctx.ellipse(x + this.w / 2, this.shadowY ?? (y + this.h), 13 * (this.onGround ? 1 : 0.7), 4, 0, 0, 6.2832); ctx.fill();
     if (this.invuln > 0 && !this.dead && ((this.invuln * 16) | 0) % 2 === 0) return;
     const fx = x + this.w / 2, fy = y + this.h;   // スプライトの基準点(oy=54)が足元。当たり箱の下端に合わせる
-    drawSprite(ctx, hasSprite(name) ? name : `hero_${this.id}_idle`, this.frame || 0, fx, fy, { flip: this.face < 0, sx: this.sx, sy: this.sy });
+    // 装備した武器があれば、手に武器・首に武器の色の布を重ねる（art/heroGear.js）
+    drawHeroDressed(ctx, this.id, hasSprite(`hero_${this.id}_${this.anim}`) ? this.anim : 'idle', this.frame || 0, fx, fy, { flip: this.face < 0, sx: this.sx, sy: this.sy, weaponId: this.weaponId, time: this.world.time, vx: this.vx });
     if (this.star > 0) {
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = 0.35 + 0.25 * Math.sin(this.world.time * 30);

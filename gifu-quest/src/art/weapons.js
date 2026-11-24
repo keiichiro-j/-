@@ -106,6 +106,16 @@ export function drawWeaponIcon(ctx, w) {
   ctx.restore();
 }
 
+// 手に持った時の絵（weaponheld_<id>）：刃先が +x。基準点＝握る位置。キャラの手の位置に重ねて描く
+// GRIP：その形で手が来る x（各 DRAW の原点からの距離）
+const GRIP = { katana: -6, tanto: -5, naginata: -14, spear: -12, hammer: -12, axe: -12, sickle: -7, fan: -6, umbrella: -12, torch: -12, staff: -13, baton: -11, spade: -12 };
+const HW = 72, HH = 56, HX = 28;
 export function defineWeaponArt() {
-  for (const w of W.weapons) defineSprite(`weapon_${w.id}`, { w: S, h: S, ox: S / 2, oy: S / 2, draw: (ctx) => drawWeaponIcon(ctx, w) });
+  for (const w of W.weapons) {
+    defineSprite(`weapon_${w.id}`, { w: S, h: S, ox: S / 2, oy: S / 2, draw: (ctx) => drawWeaponIcon(ctx, w) });
+    defineSprite(`weaponheld_${w.id}`, {
+      w: HW, h: HH, ox: HX + (GRIP[w.kind] ?? -6), oy: HH / 2,
+      draw: (ctx) => { ctx.save(); ctx.translate(HX, HH / 2); (DRAW[w.kind] || DRAW.katana)(ctx, w.color); ctx.restore(); },
+    });
+  }
 }
