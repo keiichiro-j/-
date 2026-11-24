@@ -44,6 +44,7 @@ class WaterLevel extends Entity {
   }
   draw(ctx, a) { drawWater(ctx, this.world, this.q, this.world.camera); }
 }
+registerEntity('waterLevel', WaterLevel);
 function drawWater(ctx, w, q, cam) {
   const x0 = Math.max(q.x0, cam.x - 20), x1 = Math.min(q.x1, cam.x + cam.vw + 20);
   if (x1 <= x0) return;
@@ -108,9 +109,8 @@ class WaterGate extends Entity {
   toggle() { this.open = !this.open; this.apply(); this.world.sfx('break', { vol: 0.4 }); this.world.camera.shake(3, 0.3); }
   apply() {
     const L = this.world.level, tx = this.spec.x;
-    for (let i = 0; i < this.th; i++) L.set(tx, this.spec.y - i, this.open ? T.EMPTY : T.FAKE);
-    // 閉じている間：FAKE は通り抜けられるので当たりは見えない固い板（WOOD）にする
-    if (!this.open) for (let i = 0; i < this.th; i++) L.grid[(this.spec.y - i) * L.w + tx] = T.WOOD;
+    // 閉じている間はそのタイルを固い板（WOOD）にする。絵は門のスプライトで上から描く
+    for (let i = 0; i < this.th; i++) L.set(tx, this.spec.y - i, this.open ? T.EMPTY : T.WOOD);
   }
   update(dt) { this.lift += ((this.open ? 1 : 0) - this.lift) * Math.min(1, dt * 4); }
   draw(ctx, a) {

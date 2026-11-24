@@ -29,6 +29,8 @@ export const selectScene = {
   enter(params) {
     this.params = params || {};
     const d = save.data;
+    // さるぼぼ全18個で隠しキャラ解放（結果画面でも解放するが、念のため）
+    if (save.saruboboCount() >= 18 && !d.unlocked.includes('sarubobo') && CHARS.sarubobo) { d.unlocked.push('sarubobo'); save.write(); }
     this.ids = Object.keys(CHARS).filter((id) => !CHARS[id].hidden || d.unlocked.includes(id));
     this.sel = Math.max(0, this.ids.indexOf(d.lastChar));
     this.cards = this.ids.map(() => ({ x: 0, y: 0, w: 0, h: 0 }));

@@ -33,7 +33,7 @@ function stageState(n) {
   const d = save.data;
   const has = !!LEVELS[n];
   if (n === 0) return { visible: has, open: has, has };
-  if (n === 7) { const v = save.saruboboCount() >= 18; return { visible: v, open: v && has, has }; }
+  if (n === 7) { const v = save.saruboboCount() >= 18; return { visible: v, open: v, has }; }   // レベルが無ければ「準備中」
   const open = n === 1 || d.cleared.includes(n - 1);
   return { visible: true, open, has };
 }

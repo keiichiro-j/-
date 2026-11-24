@@ -58,7 +58,7 @@ function drawFace(ctx, id, cx, cy, r, t) {
   g.addColorStop(0, '#f8efd8'); g.addColorStop(1, '#c9b48a');
   ctx.fillStyle = g; ctx.fill();
   ctx.clip();
-  drawSprite(ctx, `hero_${id}_idle`, (t * 6) | 0, cx, cy + r * 1.75, { sx: 1.55, sy: 1.55 });
+  drawSprite(ctx, `hero_${id}_idle`, (t * 6) | 0, cx, cy + r * 2.35, { sx: 2.0, sy: 2.0 });
   ctx.restore();
 }
 export { drawFace };
@@ -159,7 +159,7 @@ export function drawHud(ctx, W, vw, vh, scene) {
   // ---- 上中央：コイン・さるぼぼ・時間 ----
   const pw = 400, px = vw / 2 - pw / 2, py = 12, ph = 44;
   woodPanel(ctx, px, py, pw, ph);
-  drawSprite(ctx, 'item_coin', (now * 10) | 0, px + 30, py + ph / 2 + 12, { sx: 0.9, sy: 0.9 });
+  drawSprite(ctx, 'item_coin', 0, px + 30, py + ph / 2 + 12, { sx: 0.9, sy: 0.9 });
   drawText(ctx, '×' + W.stats.coins, px + 46, py + ph / 2 + 1, S.coin);
   const prev = W.collectedSarubobo;
   for (let i = 0; i < 3; i++) {

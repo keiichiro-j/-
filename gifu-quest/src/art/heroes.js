@@ -162,6 +162,9 @@ const OVR = {
     ][f],
   },
   sarubobo: {
+    // お守り人形らしく、手を左右に広げて立つ
+    idle: (f) => { const b = [0, 1, 2, 1][f]; return { ...BASE.idle(f), fa: [38 + b * 2, 8], ba: [-38 - b * 2, 8] }; },
+    walk: (f) => ({ ...BASE.walk(f), fa: [30 - 20 * sin(f, 8), 10], ba: [-30 + 20 * sin(f, 8), 10] }),
     win: (f) => [
       N({ t: 10, fl: [30, 60], bl: [-24, 56], fa: [20, 40], ba: [-20, 40] }),
       N({ g: false, y: -6, fl: [28, 10], bl: [-28, 10], fa: [110, 0], ba: [-110, 0] }),
@@ -462,8 +465,6 @@ const DRAW = {
       ctx.quadraticCurveTo(-r * 0.4, -r * 0.62, r * 0.95, -r * 0.45); ctx.closePath();
       fs(ctx, lin(ctx, r, -r * 1.2, -r, -r * 0.2, [0, '#4a64a6', 0.5, C.navy, 1, C.navyD]), C.navyO, 1.1);
       line(ctx, -r * 0.5, -r * 0.98, -r * 1.35, -r * 1.2, rgba('#9ab8f0', 0.6), 0.6);
-      // あごひも（白）
-      line(ctx, -r * 0.35, -r * 0.5, -r * 0.05, r * 0.92, rgba(C.white, 0.95), 0.9);
     },
   },
 
@@ -532,8 +533,8 @@ const DRAW = {
       for (let x = -r; x < r; x += 2.2) { ctx.beginPath(); ctx.moveTo(x, -r * 0.62 + 0.2); ctx.lineTo(x + 1.4, -r * 0.62 + 3); ctx.stroke(); }
       // 結び目と垂れ
       ell(ctx, -r * 1.05, -r * 0.48, 1.8, 1.8); fs(ctx, C.band, '#5a5040', 0.8);
-      poly(ctx, [-r * 1.1, -r * 0.5, -r * 1.7, -r * 1.05, -r * 1.45, -r * 0.4]); fs(ctx, C.band, '#5a5040', 0.8);
-      poly(ctx, [-r * 1.1, -r * 0.4, -r * 1.75, -r * 0.1, -r * 1.3, -r * 0.2]); fs(ctx, '#e8e0cc', '#5a5040', 0.8);
+      ctx.beginPath(); ctx.moveTo(-r * 1.1, -r * 0.55); ctx.quadraticCurveTo(-r * 1.6, -r * 0.5, -r * 1.75, -r * 0.05); ctx.lineTo(-r * 1.45, -r * 0.05); ctx.quadraticCurveTo(-r * 1.4, -r * 0.35, -r * 1.05, -r * 0.4); ctx.closePath(); fs(ctx, C.band, '#5a5040', 0.8);
+      ctx.beginPath(); ctx.moveTo(-r * 1.08, -r * 0.42); ctx.quadraticCurveTo(-r * 1.35, -r * 0.1, -r * 1.3, r * 0.3); ctx.lineTo(-r * 1.05, r * 0.22); ctx.quadraticCurveTo(-r * 1.1, -r * 0.1, -r * 0.95, -r * 0.35); ctx.closePath(); fs(ctx, '#e8e0cc', '#5a5040', 0.8);
       ctx.restore();
     },
     hold(ctx, C, h, Q) {
@@ -657,10 +658,10 @@ const DRAW = {
       // 黒い頭巾（とがった角が2つ）
       ctx.beginPath();
       ctx.moveTo(r * 1.08, -r * 0.05);
-      ctx.quadraticCurveTo(r * 1.3, -r * 0.9, r * 0.95, -r * 1.35);
+      ctx.quadraticCurveTo(r * 1.25, -r * 0.8, r * 0.95, -r * 1.2);
       ctx.lineTo(r * 0.55, -r * 0.95);
       ctx.quadraticCurveTo(-r * 0.1, -r * 1.18, -r * 0.6, -r * 0.92);
-      ctx.lineTo(-r * 1.1, -r * 1.3);
+      ctx.lineTo(-r * 1.0, -r * 1.18);
       ctx.quadraticCurveTo(-r * 1.35, -r * 0.5, -r * 1.05, r * 0.3);
       ctx.quadraticCurveTo(-r * 0.6, r * 0.6, -r * 0.4, r * 0.2);
       ctx.quadraticCurveTo(-r * 0.3, -r * 0.55, r * 0.2, -r * 0.62);

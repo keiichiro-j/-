@@ -180,25 +180,28 @@ export function validateLevel(data, opts = {}) {
   const platformCols = new Set();
   for (const e of ents) {
     if (!PLATFORM_TYPES.includes(e.type) || !Number.isFinite(e.x)) continue;
+    // 置き方（src/world/platforms.js）：x＝床の左端のタイル、y＝床の上面がくる行 → 立つマスは y-1
+    // 跳ね台・湯気は足元中央がタイル (x,y)（他のエンティティと同じ）→ 立つマスは y
     const w = e.w || (e.type === 'gondola' ? 3 : e.type === 'boat' ? 4 : e.type === 'festivalFloat' ? 5 : 2);
-    let x2 = e.x, y2 = e.y;
-    if (e.type === 'movingPlatform') { x2 = e.x + (e.dx || 0); y2 = e.y + (e.dy || 0); }
-    if (e.type === 'gondola') { x2 = e.x2; y2 = e.y2; }
-    if (e.type === 'boat' || e.type === 'festivalFloat') { x2 = e.x2; y2 = e.y2 ?? e.y; }
-    const lift = R.liftTiles[e.type];
+    const lift = e.type === 'bouncer' ? Math.round(5 * (e.power ?? 1)) : e.type === 'steamVent' ? Math.round((e.h ?? 5) * Math.min(1.4, e.power ?? 1)) : R.liftTiles[e.type];
     let prev = null;
     if (lift) {
       for (let k = 0; k <= lift; k++) { const n = addVirtual(e.x, e.y - k); if (n >= 0) { if (prev != null) rideLinks.push([prev, n]); prev = n; } platformCols.add(e.x); }
       continue;
     }
-    const steps = Math.max(Math.abs(x2 - e.x), Math.abs(y2 - e.y), 1);
-    const left = Math.round(0.5 - w / 2);
+    if (e.type === 'lantern') continue;
+    const sy = e.y - 1;
+    let x2 = e.x, y2 = sy;
+    if (e.type === 'movingPlatform') { x2 = e.x + (e.dx || 0); y2 = sy + (e.dy || 0); if (!e.dx && !e.dy) x2 = e.x + 4; }
+    if (e.type === 'gondola') { x2 = e.x2 ?? e.x + 10; y2 = (e.y2 ?? e.y - 4) - 1; }
+    if (e.type === 'boat' || e.type === 'festivalFloat') { x2 = e.x2 ?? e.x + 20; }
+    const steps = Math.max(Math.abs(x2 - e.x), Math.abs(y2 - sy), 1);
     for (let s = 0; s <= steps; s++) {
-      const cx = Math.round(e.x + (x2 - e.x) * s / steps), cy = Math.round(e.y + (y2 - e.y) * s / steps);
+      const cx = Math.round(e.x + (x2 - e.x) * s / steps), cy = Math.round(sy + (y2 - sy) * s / steps);
       let rowPrev = null;
       for (let i = 0; i < w; i++) {
-        const n = addVirtual(cx + left + i, cy);
-        platformCols.add(cx + left + i);
+        const n = addVirtual(cx + i, cy);
+        platformCols.add(cx + i);
         if (n < 0) continue;
         if (rowPrev != null) rideLinks.push([rowPrev, n]);
         if (prev != null) rideLinks.push([prev, n]);
@@ -330,7 +333,9 @@ export function validateLevel(data, opts = {}) {
       const s0 = surf(x), s1 = surf(x + 1);
       if (s0 < 0 || s1 < 0) continue;
       const rise = s0 - s1;
-      if (rise > R.maxStep && !reached(x + 1, s1) && !platformCols.has(x + 1) && !platformCols.has(x)) {
+      // 道が行き止まりになっている所だけ（崖の手前までは来られるのに、その先の列に一つも届かない）
+      const blocked = reached(x, s0) && ![1, 2, 3].some((d) => { for (let y = 0; y < H; y++) if (reached(x + d, y)) return true; return false; });
+      if (rise > R.maxStep && blocked && !(open(x + 1, s0) && open(x + 1, s0 - 1)) && !reached(x + 1, s1) && !platformCols.has(x + 1) && !platformCols.has(x)) {
         err(`段差 ${rise} タイル（x=${x}→${x + 1}, y=${s0}→${s1}）が登れない`);
       }
     }

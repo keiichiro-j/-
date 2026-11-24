@@ -88,7 +88,7 @@ export function drawGifuDusk(ctx, vw, vh, t, opt = {}) {
 }
 
 const LOGO_SUB = { size: 26, color: COL.kinLight, stroke: COL.sumi, strokeW: 5, align: 'center', baseline: 'middle', serif: true, shadow: true };
-const NOTE = { size: 13, color: COL.kinari, stroke: COL.sumi, strokeW: 3, align: 'center', baseline: 'middle', alpha: 0.92 };
+const NOTE = { size: 14, color: COL.kinari, stroke: COL.sumi, strokeW: 3, align: 'center', baseline: 'middle', alpha: 0.92 };
 const HINT = { size: 14, color: COL.kinari, stroke: COL.sumi, strokeW: 3, align: 'center', baseline: 'middle', alpha: 0.8 };
 const VER = { size: 11, color: COL.kinari, stroke: COL.sumi, strokeW: 2, align: 'right', baseline: 'middle', alpha: 0.6 };
 

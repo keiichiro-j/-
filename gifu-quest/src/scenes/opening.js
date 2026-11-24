@@ -5,7 +5,7 @@ import { audio } from '../core/audio.js';
 import { touch } from '../ui/touch.js';
 import { drawSprite } from '../gfx/atlas.js';
 import { drawText, drawWrapped, textLength, drawOrb, ORB_COLORS, roundRect, drawMomiji, COL } from '../ui/text.js';
-import { drawCastleHill, drawLeaves } from './title.js';
+import { drawCastleHill } from './title.js';
 // オープニング（設計書 3章・9章）：紙芝居風（絵＋文字）。いつでも飛ばせる。2回目以降は自動で飛ばす。担当：UI
 
 // ---- 絵の部品 ----
@@ -232,6 +232,5 @@ export const openingScene = {
   },
   draw(ctx, a, vw, vh) {
     this.show.draw(ctx, vw, vh);
-    drawLeaves(ctx, vw, vh, this.show.t + this.show.i * 7, 0.35);
   },
 };

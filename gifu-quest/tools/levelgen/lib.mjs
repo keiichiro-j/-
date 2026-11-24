@@ -55,7 +55,8 @@ export class Stage {
   slideL(x, top, n, under = this.fillCh) { for (let i = 0; i < n; i++) { this.set(x - i, top + i, '<'); for (let y = top + i + 1; y < top + n; y++) this.set(x - i, y, under); } return this; }
 
   // ---- コイン ----
-  coin(x, y) { if (this.get(x, y) === '.') this.set(x, y, 'o'); return this; }
+  // 隠し部屋の中（H）は 'o' にすると穴が見えてしまうので、コインのエンティティにする
+  coin(x, y) { const c = this.get(x, y); if (c === '.') this.set(x, y, 'o'); else if (c === 'H') this.ent('coin', x, y); return this; }
   coins(x0, x1, y) { for (let x = x0; x <= x1; x++) this.coin(x, y); return this; }
   coinCol(x, y0, y1) { for (let y = y0; y <= y1; y++) this.coin(x, y); return this; }
   // 跳ぶ軌道の放物線：(x0,y0) から (x1,y1) へ、頂点は高い方の端より h 上
@@ -79,16 +80,18 @@ export class Stage {
   sign(id, x, y, title, text) { return this.ent('sign', x, y, { id, title, text }); }
   enemy(type, kind, x, y, props = {}) { return this.ent(type, x, y, { kind, ...props }); }
   decor(sprite, x, y, props = {}) { return this.ent('decor', x, y, { sprite, z: -5, ...props }); }
-  // 隠し部屋：外枠を固いタイルで作り、中を空ける。入口は呼ぶ側で H などにする
+  // 隠し部屋：外枠を固いタイルで作り、中を H（見た目は壁・通り抜けられる）で埋める。
+  // 外からは地面にしか見えず、入ると H がうすくなって中が見える（World.drawFake）。
+  // 入口は呼ぶ側で外枠の一部を H にする。中の足場は固いタイルで（'-' だと外から見えてしまう）
   room(x0, y0, x1, y1, wall = this.fillCh) {
     this.rect(x0, y0, x1, y1, wall);
-    this.clear(x0 + 1, y0 + 1, x1 - 1, y1 - 1);
+    this.rect(x0 + 1, y0 + 1, x1 - 1, y1 - 1, 'H');
     this.ent('cameraZone', x0, y0, { w: x1 - x0 + 1, h: y1 - y0 + 1 });
     return this;
   }
   // ボス部屋（右端、幅30）。x0 列は入口の壁（床の上3マスが入口）、x1 列は奥の壁。床は平ら
   // spec は src/bosses/arena.js：x0,x1 は壁の列（含む）、y1 は床の一番下の行
-  arena(boss, f, { wall = 'S', floor = this.ch, fill = this.fillCh, headroom = 12, gateWall = true } = {}) {
+  arena(boss, f, { wall = 'S', floor = this.ch, fill = this.fillCh, headroom = 13, gateWall = true } = {}) {
     const x0 = this.W - 30, x1 = this.W - 1, y0 = Math.max(0, f - headroom);
     const y1 = Math.min(this.H - 1, y0 + 14);   // 画面固定の範囲がちょうど15行になるように
     this.clear(x0, 0, x1, f - 1);
