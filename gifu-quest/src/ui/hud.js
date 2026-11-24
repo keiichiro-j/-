@@ -131,7 +131,9 @@ function woodPanel(ctx, x, y, w, h) {
 export function drawHud(ctx, W, vw, vh, scene) {
   const p = W.player;
   const now = performance.now() / 1000;
-  const dt = lastNow ? Math.min(0.1, now - lastNow) : 0; lastNow = now;
+  // 一時停止中・看板を読んでいる間は、得点ポップ・一時表示・ボスのHPバーの動きも止める
+  const frozen = !!(scene && (scene.paused || W.dialogue));
+  const dt = lastNow && !frozen ? Math.min(0.1, now - lastNow) : 0; lastNow = now;
   const t = W.time;
   ctx.save();
   // ---- 左上：顔・技ゲージ・ハート ----
@@ -241,7 +243,7 @@ export function drawHud(ctx, W, vw, vh, scene) {
   S.toast.alpha = 1;
 
   // ---- ステージ開始：ステージ名と天気 ----
-  if (scene && scene.intro > 0) drawIntro(ctx, W, vw, vh, scene, now);
+  if (scene && scene.intro > 0 && !scene.paused) drawIntro(ctx, W, vw, vh, scene, now);   // 一時停止中はメニューと重なるので出さない
   ctx.restore();
 }
 

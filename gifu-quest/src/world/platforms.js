@@ -96,6 +96,7 @@ class Rider extends PlatformBase {
     this.state = 'wait';
     this.idle = 0;
     this.speedPx = (s.speed ?? 2) * TILE;
+    this.misses = 0; this.missed = false;
   }
   setRoute(x2, y2) {
     this.sx0 = this.home.x; this.sy0 = this.home.y;
@@ -108,6 +109,15 @@ class Rider extends PlatformBase {
     this.t += dt;
     const p = this.world.player;
     const on = this.riding();
+    // ミスで中間地点に戻った：主人公が始点側にいれば、すぐ始点に戻しておく（終点まで行って帰ってくるのを待たせない）
+    const w = this.world;
+    if (w.stats.misses !== this.misses) { this.misses = w.stats.misses; this.missed = true; }
+    let warp = false;
+    if (this.missed && w.state === 'play') {
+      this.missed = false;
+      const ds = Math.abs(p.cx - (this.sx0 + this.w / 2)), de = Math.abs(p.cx - (this.sx1 + this.w / 2));
+      if (!on && ds < de && this.u > 0) { this.u = 0; this.state = 'wait'; this.idle = 0; warp = true; }
+    }
     if (this.state === 'wait' && on) { this.state = 'go'; this.onStart && this.onStart(); }
     if (this.state === 'go') {
       // 動き出しと止まりぎわはゆっくり
@@ -126,6 +136,7 @@ class Rider extends PlatformBase {
     }
     this.x = this.sx0 + (this.sx1 - this.sx0) * this.u;
     this.y = this.sy0 + (this.sy1 - this.sy0) * this.u + (this.bob ? this.bob() : 0);
+    if (warp) { this.px = this.x; this.py = this.y; }
   }
 }
 

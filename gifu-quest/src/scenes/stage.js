@@ -10,6 +10,7 @@ import { drawHud } from '../ui/hud.js';
 import { touch } from '../ui/touch.js';
 import { pauseMenu } from '../ui/menus.js';
 import { drawDialogue, updateDialogue } from '../systems/dialogue.js';
+import { weaponById } from '../systems/gacha.js';
 
 // ステージ（プレイ中の画面）。params: { stage: 1..6 | 'test', char, checkpoint }
 export const stageScene = {
@@ -20,7 +21,10 @@ export const stageScene = {
     this.params = params;
     const data = LEVELS[params.stage];
     if (!data) throw new Error('level not found ' + params.stage);
-    const W = new World(data, params.char || save.data.lastChar || 'leaf', { checkpoint: params.checkpoint, viewW: renderer.viewW, viewH: renderer.viewH, weapon: save.data.equipped && save.data.weapons[save.data.equipped] ? { id: save.data.equipped, lv: save.data.weapons[save.data.equipped].lv } : null });
+    // 装備中の武器（持っていない・データに無い id は装備なし扱い。無いと主人公の作成で止まる）
+    const eq = save.data.equipped, own = eq && save.data.weapons[eq];
+    const weapon = own && weaponById(eq) ? { id: eq, lv: own.lv } : null;
+    const W = new World(data, params.char || save.data.lastChar || 'leaf', { checkpoint: params.checkpoint, viewW: renderer.viewW, viewH: renderer.viewH, weapon });
     W.collectedSarubobo = save.data.sarubobo[params.stage] || [false, false, false];
     this.world = W;
     this.paused = false;
@@ -34,8 +38,9 @@ export const stageScene = {
     const W = this.world;
     if (!W) return;
     if (this.paused) { const r = pauseMenu.update(dt); if (r) this.onPause(r); return; }
-    if (W.dialogue) { if (updateDialogue(W, dt)) W.dialogue = null; return; }
+    // 一時停止は看板を読んでいる間も効く（看板は開いたまま。続けるとそのまま読める）
     if (input.pressed.pause && W.state === 'play') { this.paused = true; pauseMenu.open(); audio.sfx('pause'); return; }
+    if (W.dialogue) { if (updateDialogue(W, dt)) W.dialogue = null; return; }
     if (this.intro > 0) this.intro -= dt;
     W.update(dt);
     if (W.result === 'clear') this.finish();

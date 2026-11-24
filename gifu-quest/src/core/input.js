@@ -89,7 +89,7 @@ class Input {
       this.pressed[b] = (h && !this.prev[b]) || (latched && !this.prev[b]);
       this.released[b] = !h && this.prev[b];
       this.held[b] = h || latched;   // 一瞬のタップも1ステップは押されたことにする
-      this.prev[b] = h;
+      this.prev[b] = this.held[b];   // そのタップは次のステップで「離した」になる（溜め・長押しが残らない）
       this.latch[b] = false;
       if (this.pressed[b]) this.anyPressed = true;
     }

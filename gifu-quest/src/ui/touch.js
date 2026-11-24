@@ -1,6 +1,6 @@
 import { input } from '../core/input.js';
 import { renderer } from '../gfx/renderer.js';
-import { save } from '../core/save.js';
+import { save, DEFAULT_TOUCH_LAYOUT } from '../core/save.js';
 import { font, COL } from './text.js';
 // スマホのタッチ操作（設計書 5章・9章）。担当：UI
 // 左下：左右パッド（指を置いたままスライドで向きを切替、下にスライドでしゃがむ）
@@ -8,12 +8,7 @@ import { font, COL } from './text.js';
 // メニュー画面ではタップ位置を各画面へ渡す：touch.tap() → {x,y}（論理座標）または null。マウスのクリックも同じ扱い
 // 位置と大きさは save.data.settings.touchLayout（{pad|jump|attack|pause: {x,y,s}}、x,y は画面に対する割合の中心位置、s は倍率）
 
-export const DEFAULT_TOUCH_LAYOUT = {
-  pad: { x: 0.165, y: 0.8, s: 1 },
-  jump: { x: 0.905, y: 0.78, s: 1 },
-  attack: { x: 0.77, y: 0.86, s: 1 },
-  pause: { x: 0.955, y: 0.08, s: 1 },
-};
+export { DEFAULT_TOUCH_LAYOUT };
 const BASE = { padW: 250, padH: 132, jump: 62, attack: 44, pause: 26 };
 const ROLE_KEYS = ['pad', 'jump', 'attack', 'pause'];
 const VIRT = ['left', 'right', 'down', 'jump', 'attack', 'pause'];

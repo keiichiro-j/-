@@ -93,7 +93,11 @@ export function bakeSync(name) { const d = defs.get(name); if (d) bakeOne(d); }
 export function drawSprite(ctx, name, frame, x, y, opts) {
   let s = sprites.get(name);
   if (!s) { if (defs.has(name)) { bakeOne(defs.get(name)); s = sprites.get(name); } }
-  if (!s) { ctx.fillStyle = '#f0f'; ctx.fillRect(x - 8, y - 16, 16, 16); return; }
+  if (!s) {
+    // 未登録：マゼンタの四角（見つけやすい）。名前は一度だけ警告し、missingSprites() で一覧できる
+    if (!missing.has(name)) { missing.add(name); console.warn('drawSprite: unknown sprite', name); }
+    ctx.fillStyle = '#f0f'; ctx.fillRect(x - 8, y - 16, 16, 16); return;
+  }
   const fr = s.frames[((frame | 0) % s.frames.length + s.frames.length) % s.frames.length];
   const flip = opts && opts.flip, sx = (opts && opts.sx) || 1, sy = (opts && opts.sy) || 1;
   const rot = (opts && opts.rot) || 0, alpha = opts && opts.alpha !== undefined ? opts.alpha : 1;
@@ -109,5 +113,7 @@ export function drawSprite(ctx, name, frame, x, y, opts) {
   ctx.drawImage(fr.img, fr.sx, fr.sy, fr.sw, fr.sh, -s.ox, -s.oy, s.w, s.h);
   ctx.restore();
 }
+const missing = new Set();
+export function missingSprites() { return [...missing]; }
 export function spriteNames() { return [...defs.keys()]; }
 export function atlasPages() { return pages; }

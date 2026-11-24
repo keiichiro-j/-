@@ -75,8 +75,10 @@ export class World {
   hitstop(t) { this.hitstopT = Math.max(this.hitstopT, t); }
   slowmo(scale, dur) { this.timeScale = scale; this.slowT = dur; }
   addCoins(n, x, y) {
+    const before = this.stats.coins;
     this.stats.coins += n;
-    if (this.stats.coins % 100 === 0) { this.player.heal(1); this.sfx('heart'); }
+    // 100枚ごとにハート1つ（コイン2倍で 99→101 と飛んでも数える）
+    if (Math.floor(this.stats.coins / 100) > Math.floor(before / 100)) { this.player.heal(1); this.sfx('heart'); }
     events.emit('coin', { n, total: this.stats.coins });
   }
   collectSarubobo(i) { this.stats.sarubobo[i] = true; events.emit('sarubobo', { index: i }); }
@@ -122,12 +124,14 @@ export class World {
     }
     return false;
   }
+  // 戻り値: クリアになったら true。同じフレームでミス・ダウンしていたらクリアにしない（ダウンのまま勝ちポーズになるのを防ぐ）
   stageClear() {
-    if (this.state === 'clear') return;
+    if (this.state !== 'play') return false;
     this.state = 'clear'; this.stateT = 0;
     this.player.winning = true;
     this.sfx('clear');
     events.emit('stageClear', {});
+    return true;
   }
   playerMiss(kind) {
     if (this.state !== 'play') return;
@@ -153,7 +157,8 @@ export class World {
     p.guardLeft = p.wfx.guard;
     const cp = this.checkpoint ? this.checkpoint.spec : this.startPos;
     p.x = cp.x * TILE + TILE / 2 - p.w / 2; p.y = (cp.y + 1) * TILE - p.h; p.px = p.x; p.py = p.y;
-    p.vx = p.vy = 0; p.frozen = false; p.invuln = 1.5; p.onGround = false; p.dashT = 0;
+    p.resetMotion();   // ミスした時の速度・ダッシュ・溜め・水中・乗っていた床・無敵（牛串）などを持ち越さない
+    p.frozen = false; p.invuln = 1.5;
     this.camera.snapTo(p.cx, p.y + p.h);
     if (this.boss && this.boss.reset) this.boss.reset();
     events.emit('respawn', {});
@@ -165,7 +170,7 @@ export class World {
   update(dt) {
     this.tick++;
     if (this.dialogue) { this.dialogue.t += dt; return; }   // 看板を読んでいる間は止める
-    if (this.hitstopT > 0) { this.hitstopT -= dt; this.particles.update(dt * 0.2); return; }
+    if (this.hitstopT > 0) { this.hitstopT -= dt; this.particles.update(dt * 0.2); this.player.holdInputs(); return; }
     if (this.slowT > 0) { this.slowT -= dt; if (this.slowT <= 0) this.timeScale = 1; }
     dt *= this.timeScale;
     this.time += dt;

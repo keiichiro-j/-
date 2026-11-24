@@ -23,6 +23,7 @@ class BossArena extends Entity {
     this.state = 'wait';   // wait | intro | fight | done
     this.gate = [];        // 閉じたタイル [tx, ty, 元のタイル]
     this.introT = 0;
+    this.misses = w.stats.misses; this.missDuringIntro = false;
     this.boss = null;
     // 床の高さ：中央の列を上から見て、最初の固いタイル
     const L = w.level, mid = (this.tx0 + this.tx1) >> 1;
@@ -37,6 +38,7 @@ class BossArena extends Entity {
     if (!C) console.warn('unknown boss', s.boss);
     else this.boss = w.spawn(new C(w, this.geo));
   }
+  contains(p) { return p.cx > this.x && p.cx < this.x + this.w && p.y < this.y + this.h && p.y + p.h > this.y; }
   // 入口（x0 列）と奥（x1 列）の空いている所を壁でふさぐ
   closeGate() {
     const L = this.world.level;
@@ -74,6 +76,14 @@ class BossArena extends Entity {
   update(dt) {
     const w = this.world, p = w.player;
     if (!this.boss) return;
+    // 登場演出の間のミス：World.respawn は world.boss（戦闘開始で決まる）しか戻さないので、ここで戻す
+    if (w.stats.misses !== this.misses) {
+      this.misses = w.stats.misses;
+      if (this.state === 'intro') this.missDuringIntro = true;
+    }
+    if (this.missDuringIntro && w.state === 'play') { this.missDuringIntro = false; if (this.state === 'intro') this.boss.reset(); }
+    // 撃破後にアリーナの外へ出た（ミスで中間地点へ戻ったなど）：カメラの固定を外す
+    if (this.state === 'done' && w.camera.lock && w.camera.lock.x === this.x && !this.contains(p)) w.unlockCamera();
     if (this.state === 'wait') {
       if (w.state === 'play' && p.cx > (this.tx0 + 2) * TILE && p.cx < (this.tx1 + 1) * TILE && p.y < (this.ty1 + 1) * TILE && p.y + p.h > this.ty0 * TILE) {
         this.state = 'intro'; this.introT = 0; this.frozeP = false;

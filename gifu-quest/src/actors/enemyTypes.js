@@ -607,8 +607,12 @@ class Shielder extends Enemy {
   // 前から来た攻撃（上からではないもの）を防ぐ
   shielded(source, rect) {
     if (source === this.world.player && source.star > 0) return false;
-    const sx = rect ? rect.x + rect.w / 2 : source.cx;
-    const fromFront = (sx - this.cx) * this.face > -4;
+    // どちらから来た攻撃か：一閃は主人公の位置、飛ぶ弾は進む向きで決める
+    // （以前は当たり箱の中心で見ていたので、背後のすぐ近くからの一閃が「正面」扱いで防がれていた）
+    let fromFront;
+    if (source && source.p && source.p.cx !== undefined) fromFront = (source.p.cx - this.cx) * this.face > -4;
+    else if (source && source.vx) fromFront = source.vx * this.face < 0;
+    else { const sx = rect ? rect.x + rect.w / 2 : source.cx; fromFront = (sx - this.cx) * this.face > -4; }
     const fromAbove = rect && rect.y + rect.h < this.y + 12;
     if (fromFront && !fromAbove) { this.block = 0.25; this.sx = 0.9; return true; }
     return false;

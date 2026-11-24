@@ -86,7 +86,11 @@ export class Boss extends Entity {
   }
   // 主人公がミスして中間地点に戻った時（World.respawn から）。HP全快・初期位置に戻し、アリーナを開け直す
   reset() {
+    // 撃破演出の途中でミスした時は、倒したことを取り消さない（宝珠はそのまま出る）。カメラの固定だけ外す
+    if (this.dying) { this.world.unlockCamera(); return; }
     this.hardReset();
+    // 残った手下（からくり人形・分身）と弾を消す（再挑戦の登場演出中に当たらないように）
+    for (const e of this.world.entities) if (e.alive && (e.bossMinion || e.bossHazard || e instanceof Bullet) && overlap(e, this.arena.entity || this)) e.alive = false;
     if (this.world.boss === this) this.world.boss = null;
     if (this.arena.entity) this.arena.entity.rearm();
   }
@@ -98,7 +102,7 @@ export class Boss extends Entity {
   cleanupOwned() { for (const e of this.owned) e.alive = false; this.owned.length = 0; }
   // 出した弾を消す（撃破時）
   clearShots() {
-    for (const e of this.world.entities) if (e.alive && (e.hazard || e.bossMinion)) { this.world.particles.hit(e.cx, e.cy, '#fff'); e.alive = false; }
+    for (const e of this.world.entities) if (e.alive && (e instanceof Bullet || e.bossMinion || e.bossHazard)) { this.world.particles.hit(e.cx, e.cy, '#fff'); e.alive = false; }
   }
   waitTime() { return (this.P.wait ?? 1) * (this.easy ? EASY_WAIT : 1); }
   nextMove() {

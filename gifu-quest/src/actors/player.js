@@ -1,6 +1,6 @@
 import { PHYS, TILE, HITBOX, statsToPhysics, RUNTIME } from '../core/config.js';
 import { input } from '../core/input.js';
-import { moveBody, overlapsTile } from '../world/collision.js';
+import { moveBody, overlapsTile, carryBody, findGround } from '../world/collision.js';
 import { T, isWater, isLava, isSlippery, isSlide, isOneWay, isBreakable } from '../world/tiles.js';
 import { drawSprite, hasSprite } from '../gfx/atlas.js';
 import { ABILITIES } from './abilities.js';
@@ -17,6 +17,8 @@ export const HERO_ANIMS = {
   hurt: { frames: 2, fps: 10 }, win: { frames: 4, fps: 6 }, fidget: { frames: 6, fps: 6 },
   swim: { frames: 4, fps: 8 }, glide: { frames: 2, fps: 6 }, dash: { frames: 3, fps: 18 }, slide: { frames: 1, fps: 1 },
 };
+
+const TIMERS = ['coyote', 'buffer', 'invuln', 'star', 'techCd', 'controlLock', 'dropTimer', 'landT'];
 
 export class Player {
   constructor(world, charId, x, y) {
@@ -48,7 +50,7 @@ export class Player {
     this.techCd = 0; this.techMax = this.def.techCooldown * (1 - this.wfx.cd); this.attackHeld = 0; this.charge = 0;
     this.airJumps = 0; this.dashT = 0; this.dashUsed = false; this.controlLock = 0;
     this.wallSliding = 0; this.gliding = false; this.inWater = false; this.crouch = false;
-    this.dropTimer = 0;
+    this.dropTimer = 0; this.pendAttack = false; this.pendRelease = false;
     this.anim = 'idle'; this.animT = 0; this.attackAnim = 0;
     this.sx = 1; this.sy = 1;      // 伸び縮み
     this.idleT = 0;
@@ -73,9 +75,10 @@ export class Player {
     if (this.winning) { this.vx *= 0.9; this.physics(dt, 0, false); this.updateAnim(dt); return; }
 
     // 乗っている動く床の移動を引き継ぐ
-    if (this.platform && this.platform.alive !== false) { this.x += this.platform.dx || 0; this.y += this.platform.dy || 0; }
+    // 壁・天井は越えない（越える分は床から置いていかれる）
+    if (this.platform && this.platform.alive !== false) carryBody(w.level, this, this.platform.dx || 0, this.platform.dy || 0);
 
-    for (const k of ['coyote', 'buffer', 'invuln', 'star', 'techCd', 'controlLock', 'dropTimer', 'landT']) if (this[k] > 0) this[k] -= dt;
+    for (const k of TIMERS) if (this[k] > 0) this[k] -= dt;
 
     let dir = (I.held.right ? 1 : 0) - (I.held.left ? 1 : 0);
     if (this.controlLock > 0) dir = 0;
@@ -83,13 +86,17 @@ export class Player {
 
     // 技（押しっぱなしでダッシュ）
     if (I.held.attack) this.attackHeld += dt; else this.attackHeld = 0;
-    if (I.pressed.attack && this.techCd <= 0) {
+    // ヒットストップ中に押した・離したボタン（holdInputs）もここで拾う
+    const atkPressed = I.pressed.attack || this.pendAttack, atkReleased = I.released.attack || this.pendRelease;
+    this.pendAttack = this.pendRelease = false;
+    if (atkPressed && this.techCd <= 0) {
       this.ability.tech(this, w, false);
       // 刃の波（からくり刀など）：技が出た時に一緒に飛ばす
       if (this.wfx.wave && this.techCd > 0) w.spawn(new WaveShot(w, this));
     }
     if (I.held.attack) this.charge += dt;
-    if (I.released.attack) { if (this.charge >= 0.6 && this.ability.charged) this.ability.charged(this, w); this.charge = 0; }
+    if (atkReleased) { if (this.charge >= 0.6 && this.ability.charged) this.ability.charged(this, w); this.charge = 0; }
+    else if (!I.held.attack) this.charge = 0;   // 離したのを取りこぼしても溜めを残さない
     const dashing = this.attackHeld > 0.18 && dir !== 0;
 
     // ジャンプ入力
@@ -164,6 +171,41 @@ export class Player {
     this.updateAnim(dt);
   }
 
+  // 足元から d ドット以内に着地できる所があるか
+  groundWithin(d) {
+    const r = this._probe || (this._probe = { x: 0, y: 0, w: 0, h: 0, vy: 0, dropTimer: 0 });
+    r.x = this.x; r.w = this.w; r.h = this.h; r.vy = this.vy; r.dropTimer = this.dropTimer;
+    const o = this._probeOpts || (this._probeOpts = { platforms: null });
+    o.platforms = this.world.platforms;
+    for (let s = Math.min(8, d); ; s = Math.min(d, s + 8)) {   // findGround は足元の1行しか見ないので少しずつ下げて調べる
+      r.y = this.y + s;
+      if (findGround(this.world.level, r, this.y + this.h, s + 1, o)) return true;
+      if (s >= d) return false;
+    }
+  }
+
+  // ミスして中間地点に戻る時：動きの状態を全部はじめに戻す（World.respawn から）
+  resetMotion() {
+    this.vx = this.vy = 0; this.onGround = false; this.platform = null; this.groundTile = 0; this.onSlope = false;
+    this.wallL = this.wallR = false; this.hitCeil = false;
+    this.coyote = 0; this.buffer = 0; this.star = 0; this.controlLock = 0; this.dropTimer = 0; this.landT = 0; this.landVy = 0;
+    this.dashT = 0; this.dashUsed = false; this.airJumps = 0; this.attackHeld = 0; this.charge = 0; this.attackAnim = 0;
+    this.pendAttack = this.pendRelease = false;
+    this.wallSliding = 0; this.gliding = false; this.inWater = false; this.crouch = false;
+    this.sliding = false; this.slideKeep = 0; this.braking = 0; this.hurtT = 0; this.jumpHeldFromJump = false;
+    this.sx = this.sy = 1; this.trail.length = 0; this.onGroundSinceStomp = true;
+    this.prevBottom = this.y + this.h;
+  }
+
+  // 世界が止まっている間（ヒットストップ）の入力を取っておく。止まった瞬間の押下が消えないように
+  holdInputs() {
+    if (this.dead || this.frozen) return;
+    const I = input;
+    if (I.pressed.jump) this.buffer = PHYS.jumpBuffer;
+    if (I.pressed.attack) this.pendAttack = true;
+    if (I.released.attack) this.pendRelease = true;
+  }
+
   jump(mul) {
     const w = this.world;
     this.vy = -this.stats.jump * mul;
@@ -193,7 +235,8 @@ export class Player {
 
     // ミナモ：滑空
     this.gliding = false;
-    if (this.has('glide') && !this.onGround && !this.inWater && this.vy > 0 && I.held.jump && this.buffer <= 0) {
+    // 空中でジャンプを押した直後（先行入力の0.13秒）も、すぐ下に着地できる地面がなければすぐ滑空する
+    if (this.has('glide') && !this.onGround && !this.inWater && this.vy > 0 && I.held.jump && (this.buffer <= 0 || !this.groundWithin(this.vy * this.buffer + 4))) {
       this.vy = Math.min(this.vy, PHYS.glideFall); this.gliding = true;
     }
     // リーフ：壁に張り付く

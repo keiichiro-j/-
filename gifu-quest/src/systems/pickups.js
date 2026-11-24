@@ -98,7 +98,8 @@ class Orb extends Entity {
     this.world.lights.push({ x: this.cx, y: this.cy, r: 140, color: '#bfe8ff', a: 1 });
     if (this.world.tick % 5 === 0) this.world.particles.spawn({ x: this.cx + (Math.random() - 0.5) * 30, y: this.cy + (Math.random() - 0.5) * 30, vy: -40, life: 0.8, size: 3, size1: 0, color: '#e6f7ff', shape: 'star', add: true, front: true });
   }
-  onTouch(p) { this.alive = false; this.world.stageClear(); this.world.particles.explosion(this.cx, this.cy, 0.6); }
+  // ミスと同じフレームに触れた時はクリアにならないので、宝珠を残す（中間地点から戻って取り直せる）
+  onTouch(p) { if (!this.world.stageClear()) return; this.alive = false; this.world.particles.explosion(this.cx, this.cy, 0.6); }
   draw(ctx, a) { drawSprite(ctx, `item_orb_${this.world.data.id || 1}`, (this.world.time * 8) | 0, this.cx, this.iy(a) + this.h + Math.sin(this.world.time * 3) * 4); }
 }
 registerEntity('orb', Orb);
@@ -119,7 +120,7 @@ registerEntity('cameraZone', CameraZone);
 // ゴール（ボスのいない練習ステージ用）：触れるとクリア
 class Goal extends Entity {
   constructor(w, s) { super(w, s); this.pickup = true; this.placeAt(s, 36, 72); }
-  onTouch(p) { this.alive = false; this.world.stageClear(); }
+  onTouch(p) { if (this.world.stageClear()) this.alive = false; }
   draw(ctx) { drawSprite(ctx, 'item_orb_1', 0, this.cx, this.y + this.h); }
 }
 registerEntity('goal', Goal);

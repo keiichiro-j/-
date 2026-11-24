@@ -61,17 +61,18 @@ class Clone extends Entity {
   }
   hurtRect() { const r = this._hr; r.x = this.fx - 30; r.y = this.fy - 140; r.w = 60; r.h = 136; return r; }
   place(x, y) { this.fx = x; this.fy = y; this.x = x - this.w / 2; this.y = y - this.h; }
+  // 消えるのは次の更新で（当たった瞬間に alive=false にすると World が「倒した敵」に数えてしまう。分身は敵の数に入れない）
   poof() {
-    if (!this.alive) return;
-    this.alive = false;
+    if (!this.alive || this.poofed) return;
+    this.poofed = true; this.enemy = false;
     const w = this.world;
     w.particles.burst(this.fx, this.fy - 70, 18, { speed: 160, life: 0.6, size: 14, size1: 2, color: 'rgba(220,220,255,0.8)', drag: 3 });
     w.sfx('defeat');
   }
   onStomp() { this.poof(); }
   damage() { this.poof(); return true; }
-  update(dt) { this.t += dt; }
-  draw(ctx) { this.owner.drawDancer(ctx, this.fx, this.fy, this.face, this.owner.cloneAnim(), 0.82, this.t); }
+  update(dt) { this.t += dt; if (this.poofed) this.alive = false; }
+  draw(ctx) { if (this.poofed) return; this.owner.drawDancer(ctx, this.fx, this.fy, this.face, this.owner.cloneAnim(), 0.82, this.t); }
 }
 
 class Dancer extends Boss {
@@ -99,7 +100,7 @@ class Dancer extends Boss {
   sync() { this.x = this.fx - this.w / 2; this.y = this.fy - this.h; this.handX = this.fx + this.face * 30; }
   cloneAnim() { return this.pose; }
   cancelMove() { this.segState.fill(0); this.beat = -1; this.killClones(); }
-  killClones() { for (const c of this.clones) if (c.alive) c.poof(); }
+  killClones() { for (const c of this.clones) c.poof(); }
   facePlayer() { this.face = this.world.player.cx < this.fx ? -1 : 1; }
   onEnter(s, m) {
     const A = this.arena;
@@ -123,11 +124,11 @@ class Dancer extends Boss {
       case 'phase': this.pose = 'angry'; this.killClones(); break;
     }
   }
-  clonesOut() { return this.clones[0].alive || this.clones[1].alive; }
+  clonesOut() { return this.clones.some((c) => c.alive && !c.poofed); }
   spawnClones() {
     const w = this.world;
     for (const c of this.clones) {
-      c.alive = true; c.place(this.fx, this.fy); c.face = this.face;
+      c.alive = true; c.poofed = false; c.enemy = true; c.place(this.fx, this.fy); c.face = this.face;
       if (!w.entities.includes(c)) w.spawn(c);
     }
     w.particles.burst(this.fx, this.fy - 70, 24, { speed: 220, life: 0.7, size: 16, size1: 2, color: 'rgba(230,220,255,0.85)', drag: 3 });
@@ -170,7 +171,7 @@ class Dancer extends Boss {
     const y = this.lowFan ? A.floorY - 24 : A.floorY - 96;
     this.facePlayer();
     w.spawn(new FanShot(w, this, this.fx + this.face * 30, y, this.face, this.spd));
-    for (const c of this.clones) if (c.alive) { c.face = p.cx < c.fx ? -1 : 1; w.spawn(new FanShot(w, { arena: A, handX: c.fx }, c.fx + c.face * 30, y, c.face, this.spd)); }
+    for (const c of this.clones) if (c.alive && !c.poofed) { c.face = p.cx < c.fx ? -1 : 1; w.spawn(new FanShot(w, { arena: A, handX: c.fx }, c.fx + c.face * 30, y, c.face, this.spd)); }
     w.sfx('slash');
   }
   lightPattern(i) {
@@ -188,7 +189,7 @@ class Dancer extends Boss {
       if (this.moveName === 'hop' || this.moveName === 'clones') {
         const k = Math.min(1, this.st / this.dur);
         this.fx = lerp(this.ox, this.tx, ease(k)); this.fy = A.floorY - Math.sin(k * Math.PI) * 150;
-        for (const c of this.clones) if (c.alive) c.place(lerp(c.ox, c.tx, ease(k)), this.fy);
+        for (const c of this.clones) if (c.alive && !c.poofed) c.place(lerp(c.ox, c.tx, ease(k)), this.fy);
         if (k >= 1) {
           this.fy = A.floorY; w.particles.dust(this.fx, A.floorY, 0, 6); w.sfx('land');
           if (this.moveName === 'clones') { this.throwFans(); this.pose = 'throw'; }

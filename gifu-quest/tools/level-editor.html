@@ -290,6 +290,8 @@ function validateLevel(data, opts = {}) {
     if (sy < H) { seen[id(st.x, sy)] = 1; queue.push(id(st.x, sy)); }
     else err('start の下に立てる場所がない');
   }
+  // 到達の探索（seen/from/queue に書く）。隠し部屋から出られるかの検査でも使う
+  const explore = (seen, from, queue) => {
   const visit = (n, p) => { if (!seen[n]) { seen[n] = 1; from[n] = p; queue.push(n); } };
   for (let qi = 0; qi < queue.length; qi++) {
     const n = queue[qi];
@@ -327,12 +329,14 @@ function validateLevel(data, opts = {}) {
       }
     }
   }
+  };
+  explore(seen, from, queue);
   stats.reached = queue.length;
   const reached = (x, y) => x >= 0 && x < W && y >= 0 && y < H && seen[id(x, y)];
   // アイテムに手が届くか：近くの到達マスから3マス以内に頭上が空いている
-  const touchable = (ex, ey) => {
+  const touchable = (ex, ey, reach = 1) => {
     ex = Math.round(ex); ey = Math.round(ey);
-    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= R.maxStep + 1; dy++) {
+    for (let dx = -reach; dx <= reach; dx++) for (let dy = -1; dy <= R.maxStep + 1; dy++) {
       const x = ex + dx, y = ey + dy;
       if (reached(x, y) && colOpen(x, ey, y)) return true;
     }
@@ -354,6 +358,27 @@ function validateLevel(data, opts = {}) {
     for (const t of ['goal']) for (const e of of(t)) if (!touchable(e.x, e.y)) err(`${t} @${e.x},${e.y} に届かない`);
     for (const t of ['sarubobo', 'checkpoint', 'skewer', 'sign']) {
       for (const e of of(t)) if (!touchable(e.x, e.y)) err(`${t}${e.index != null ? ' ' + e.index : ''} @${e.x},${e.y} にゲンで届かない`);
+    }
+    // コイン：壁に埋まっていないか・ゲンで手が届くか（穴の上の弧は跳んでいる途中で取るので横3列まで見る。能力向けの道のコインもあるので警告）
+    const badCoins = [];
+    rows.forEach((r, y) => { for (let x = 0; x < r.length; x++) if (r[x] === 'o' && !touchable(x, y, 3)) badCoins.push(`${x},${y}`); });
+    for (const e of of('coin')) if (isSolidCh(at(Math.floor(e.x), Math.floor(e.y))) || !touchable(e.x, e.y, 3)) badCoins.push(`${e.x},${e.y}`);
+    stats.unreachableCoins = badCoins.length;
+    if (badCoins.length) warn(`ゲンで届かないコイン ${badCoins.length} 枚（${badCoins.slice(0, 8).join(' ')}${badCoins.length > 8 ? ' …' : ''}）`);
+    // 隠し部屋：中のさるぼぼの所から、ボス部屋（なければ右端）へ戻れるか（入ったら出られない部屋がないか）
+    for (const z of of('cameraZone')) {
+      for (const sb of of('sarubobo')) {
+        if (!(sb.x >= z.x && sb.x < z.x + z.w && sb.y >= z.y && sb.y < z.y + z.h)) continue;
+        let s0 = -1;
+        for (let dy = -1; dy <= R.maxStep + 1 && s0 < 0; dy++) for (let dx = -1; dx <= 1; dx++) { const x = Math.round(sb.x) + dx, y = Math.round(sb.y) + dy; if (reached(x, y)) { s0 = id(x, y); break; } }
+        if (s0 < 0) continue;   // 届かないことは上で別に出る
+        const seen2 = new Uint8Array(N), q2 = [s0]; seen2[s0] = 1;
+        explore(seen2, new Int32Array(N).fill(-1), q2);
+        const goalX = A ? A.x0 + 1 : W - 3;
+        let out = false;
+        for (let i = 0; i < N && !out; i++) if (seen2[i] && i % W >= goalX) out = true;
+        if (!out) err(`隠し部屋（cameraZone @${z.x},${z.y}）のさるぼぼ ${sb.index} の所から先へ戻れない（入ったら出られない）`);
+      }
     }
   }
 

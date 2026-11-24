@@ -26,7 +26,7 @@ const WIND = { calm: 1.4, warn: 0.8, gust: 1.6, force: 115 };
 
 class Snowball extends Entity {
   constructor(w, x, floorY, dir, spd, arena) {
-    super(w, { type: 'snowball' });
+    super(w, { type: 'snowball' }); this.bossHazard = true;
     this.hazard = true; this.persistent = true; this.z = 5; this.touchDamage = 1;
     this.r = BALL_R0; this.fx = x; this.floorY = floorY; this.dir = dir; this.spd = spd; this.arena = arena; this.rot = 0;
     this.sync(); this.px = this.x; this.py = this.y;
@@ -59,7 +59,7 @@ class Snowball extends Entity {
 
 class Icicle extends Entity {
   constructor(w, x, top, floorY, delay) {
-    super(w, { type: 'icicle' });
+    super(w, { type: 'icicle' }); this.bossHazard = true;
     this.hazard = true; this.cancelable = true; this.persistent = true; this.z = 5; this.touchDamage = 1;
     this.w = 20; this.h = 56; this.x = this.px = x - 10; this.y = this.py = top; this.floorY = floorY; this.delay = delay; this.vy = 0;
   }
