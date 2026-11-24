@@ -60,7 +60,11 @@ export class Camera {
     this.y = Math.max(B.y, Math.min(this.y, B.y + B.h - this.vh));
   }
   // 補間した描画位置
+  // 補間した描画位置（毎フレーム新しいオブジェクトを作らないよう使い回す）
   view(alpha) {
-    return { x: Math.round((this.px + (this.x - this.px) * alpha + this.ox) * 2) / 2, y: Math.round((this.py + (this.y - this.py) * alpha + this.oy) * 2) / 2 };
+    const v = this._view || (this._view = { x: 0, y: 0 });
+    v.x = Math.round((this.px + (this.x - this.px) * alpha + this.ox) * 2) / 2;
+    v.y = Math.round((this.py + (this.y - this.py) * alpha + this.oy) * 2) / 2;
+    return v;
   }
 }

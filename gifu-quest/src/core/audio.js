@@ -2,6 +2,7 @@
 // 初期は無音。RUNTIME.sound が true のときだけ鳴らす。
 // API: audio.unlock() / audio.sfx(name, opts) / audio.bgm(name) / audio.stopBgm() / audio.setVolumes()
 // - unlock()：画面に触れた・キーを押したときに呼ぶ（main.js）。AudioContext を作り、スマホの再生制限を解く
+//   （最初の呼び出しで pointerup / touchend / click にも自分を登録する。スマホは指を離した瞬間しか再生を許さないため）
 // - bgm(name)：今の曲名を覚えておく。音がオフのとき・unlock 前でも、オンになった瞬間にその曲から始まる
 // - 設定画面で RUNTIME.sound / sfxVol / bgmVol を書き換えると、内部の見張り（約25msごと）が自動で反映する
 // BGM は短い旋律をデータ（SONGS）で持ち、先読みスケジューラで繰り返す。ステージごとに和風の五音音階を使う。
@@ -336,6 +337,19 @@ export function playSfx(ac, out, name, opts, t) {
   return f(new Synth(ac, out, t), opts || {});
 }
 
+// 出口の音量の整え方（実行時と単体テストで同じものを使う）：コンプレッサー → リミッター → 出力。
+// 爆発やボス撃破など大きな音が重なっても割れない（|振幅|<=1）ように、最後に強いリミッターを置く。
+export function makeMasterChain(ac, dest = ac.destination) {
+  const comp = ac.createDynamicsCompressor();
+  comp.threshold.value = -10; comp.knee.value = 8; comp.ratio.value = 4;
+  comp.attack.value = 0.003; comp.release.value = 0.2;
+  const lim = ac.createDynamicsCompressor();
+  lim.threshold.value = -3; lim.knee.value = 0; lim.ratio.value = 20;
+  lim.attack.value = 0.001; lim.release.value = 0.1;
+  comp.connect(lim); lim.connect(dest);
+  return comp;
+}
+
 // ---- 実行時 ----
 const LOOKAHEAD = 0.15;
 export const audio = {
@@ -344,7 +358,9 @@ export const audio = {
   playing: null,      // 実際に鳴らしている曲 { name, gain, step, next, data }
   timer: null,
   last: {},           // 効果音の連打よけ
-  wasOn: false,
+  wasOn: null,        // 前回の見張りで鳴らしてよかったか（null＝まだ見ていない）
+  gestured: false,    // 操作の中で一度 resume できたか
+  _susp: null,
   unlock() {
     // 触った・押した瞬間に呼ばれる。音がオフでも文脈だけ作っておく（オンにした瞬間に鳴らせるように）
     if (typeof window === 'undefined') return;
@@ -353,19 +369,24 @@ export const audio = {
       if (!AC) return;
       try { this.ctx = new AC(); } catch { this.ctx = null; return; }
       const ac = this.ctx;
-      this.master = ac.createDynamicsCompressor();
-      this.master.threshold.value = -10; this.master.knee.value = 8; this.master.ratio.value = 4;
-      this.master.attack.value = 0.003; this.master.release.value = 0.2;
-      this.master.connect(ac.destination);
+      this.master = makeMasterChain(ac);
       this.sfxBus = ac.createGain(); this.sfxBus.connect(this.master);
       this.bgmBus = ac.createGain(); this.bgmBus.connect(this.master);
-      // iOS の再生制限を解く：触った瞬間に無音を1つ鳴らす
-      try { const b = ac.createBuffer(1, 1, 22050); const s = ac.createBufferSource(); s.buffer = b; s.connect(ac.destination); s.start(0); } catch { /* 無視 */ }
       this.setVolumes();
       this.timer = setInterval(() => this.tick(), 25);
       if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => this.tick());
+      // スマホのタッチでは pointerdown は「ユーザーの操作」に数えられず（仕様上、指を離した pointerup / touchend / click が数えられる）、
+      // その中で resume() しても再生が許されない。指を離したときにも unlock を呼ぶ
+      const again = () => this.unlock();
+      for (const ev of ['pointerup', 'touchend', 'click']) window.addEventListener(ev, again, { passive: true });
     }
-    if (RUNTIME.sound && this.ctx.state !== 'running' && !(typeof document !== 'undefined' && document.hidden)) this.ctx.resume().catch(() => {});
+    // 音がオフでも、最初の1回は操作の中で resume して再生の制限を解いておく（すぐ tick が止める）。
+    // 設定で「入」にするのは指を離した後の描画フレームなので、その時点では操作の中ではなく、ここで解いておかないと鳴らない
+    if ((RUNTIME.sound || !this.gestured) && this.ctx.state !== 'running' && !(typeof document !== 'undefined' && document.hidden)) {
+      this.ctx.resume().then(() => { this.gestured = true; }, () => {});
+      // 古い iOS の再生制限を解く：操作の中で無音を1つ鳴らす
+      try { const ac = this.ctx, b = ac.createBuffer(1, 1, 22050), s = ac.createBufferSource(); s.buffer = b; s.connect(ac.destination); s.start(0); } catch { /* 無視 */ }
+    }
     this.tick();
   },
   setVolumes() {
@@ -383,9 +404,15 @@ export const audio = {
     if (on !== this.wasOn) {
       this.wasOn = on;
       if (on) { if (ac.state !== 'running') ac.resume().catch(() => {}); }
-      else { this.stopPlaying(0.15); setTimeout(() => { if (!this.wasOn && this.ctx) this.ctx.suspend().catch(() => {}); }, 250); }
+      else this.stopPlaying(0.15);
     }
-    if (!on) return;
+    if (!on) {
+      // 鳴らさない間は止めておく（画面を隠した時・音オフ。作っただけで動き続けないように）
+      if (ac.state === 'running' && !this._susp) {
+        this._susp = setTimeout(() => { this._susp = null; if (!this.wasOn && this.ctx && this.ctx.state === 'running') this.ctx.suspend().catch(() => {}); }, 300);
+      }
+      return;
+    }
     if ((RUNTIME.sfxVol ?? 0.8) * 1000 + (RUNTIME.bgmVol ?? 0.6) !== this._vol) this.setVolumes();
     // 覚えている曲がまだ鳴っていなければ始める
     if (this.cur && (!this.playing || this.playing.name !== this.cur) && !this._ended) this.startPlaying(this.cur);

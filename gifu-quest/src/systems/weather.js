@@ -48,6 +48,17 @@ function isMobile() {
   try { return typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches; } catch { return false; }
 }
 const smooth = (t) => t * t * (3 - 2 * t);
+// 色の文字列を値が変わったときだけ作る（毎フレームの文字列生成を避ける）
+function rgbaCache() {
+  let key = -1, str = '';
+  return (r, g, b, a) => {
+    r = r < 0 ? 0 : r > 255 ? 255 : r | 0; g = g < 0 ? 0 : g > 255 ? 255 : g | 0; b = b < 0 ? 0 : b > 255 ? 255 : b | 0;
+    const ai = Math.round(Math.max(0, Math.min(1, a)) * 100);
+    const k = ((r * 256 + g) * 256 + b) * 101 + ai;
+    if (k !== key) { key = k; str = `rgba(${r},${g},${b},${ai / 100})`; }
+    return str;
+  };
+}
 
 // ---- 焼き付けておく画像（起動時に一度だけ作る） ----
 let IMG = null;
@@ -119,6 +130,7 @@ export function createWeather(world, levelData) {
   // 稲妻の形（画面座標の折れ線）
   const bolt = new Float32Array(2 * 14); let boltN = 0;
 
+  const cCover = rgbaCache(), cRain0 = rgbaCache(), cRain1 = rgbaCache(), cFlake = rgbaCache();
   let vw = 1200, vh = 540;
   let lastCamX = null, lastCamY = 0;
 
@@ -350,7 +362,7 @@ export function createWeather(world, levelData) {
         if (this.coverAmt > 0.02 && surfN) {
           // 積もった雪：上面に白い帽子
           const hgt = 2 + this.coverAmt * 5;
-          ctx.fillStyle = `rgba(${Math.round(244 * bright)},${Math.round(248 * bright)},${Math.round(255 * bright)},${(0.35 + this.coverAmt * 0.6).toFixed(2)})`;
+          ctx.fillStyle = cCover(Math.round(244 * bright), Math.round(248 * bright), Math.round(255 * bright), 0.35 + this.coverAmt * 0.6);
           ctx.beginPath();
           for (let i = 0; i < surfN; i++) {
             const x = surf[i * 3], y = surf[i * 3 + 1], w = surf[i * 3 + 2];
@@ -369,11 +381,17 @@ export function createWeather(world, levelData) {
           ctx.stroke();
           // 波紋
           ctx.lineWidth = 1.2;
-          for (let i = 0; i < QN; i++) {
-            const t = rip.t[i]; if (t > 0.6) continue;
-            const k = t / 0.6;
-            ctx.globalAlpha = (1 - k) * 0.7 * cur.wet;
-            ctx.beginPath(); ctx.ellipse(rip.x[i], rip.y[i] + 1, rip.r[i] * (0.3 + k), rip.r[i] * (0.3 + k) * 0.28, 0, 0, 6.2832); ctx.stroke();
+          // 濃さを3段にまとめ、段ごとに1本のパスで描く（1個ずつ stroke すると重い）
+          for (let b = 0; b < 3; b++) {
+            let any = false;
+            ctx.beginPath();
+            for (let i = 0; i < QN; i++) {
+              const t = rip.t[i]; if (t > 0.6) continue;
+              const k = t / 0.6; if (((k * 3) | 0) !== b) continue;
+              const rx = rip.r[i] * (0.3 + k), x = rip.x[i], y = rip.y[i] + 1;
+              ctx.moveTo(x + rx, y); ctx.ellipse(x, y, rx, rx * 0.28, 0, 0, 6.2832); any = true;
+            }
+            if (any) { ctx.globalAlpha = (1 - (b + 0.5) / 3) * 0.7 * cur.wet; ctx.stroke(); }
           }
           ctx.globalAlpha = 1;
         }
@@ -395,9 +413,9 @@ export function createWeather(world, levelData) {
       if (nRain > 0) {
         const rvx = -cur.slant * 1100 + this.wind * 1.2;
         const lb = Math.round(200 * bright + 30);
-        ctx.lineCap = 'round';
+        // 1〜1.6ドットの線なので端は丸めない（丸い端は300本だと目に見えて重い）
         for (let layer = 0; layer < 2; layer++) {
-          ctx.strokeStyle = layer ? `rgba(${lb},${lb + 12},${Math.min(255, lb + 30)},0.55)` : `rgba(${lb - 20},${lb - 6},${lb + 10},0.32)`;
+          ctx.strokeStyle = layer ? cRain1(lb, lb + 12, lb + 30, 0.55) : cRain0(lb - 20, lb - 6, lb + 10, 0.32);
           ctx.lineWidth = layer ? 1.6 : 1;
           ctx.beginPath();
           for (let i = 0; i < nRain; i++) {
@@ -408,7 +426,6 @@ export function createWeather(world, levelData) {
           }
           ctx.stroke();
         }
-        ctx.lineCap = 'butt';
       }
 
       // ---- 雪・火山灰 ----
@@ -416,7 +433,7 @@ export function createWeather(world, levelData) {
       const nSnow = Math.round(SN * cap * flakes);
       if (nSnow > 0) {
         const ashy = cur.ash > cur.snow;
-        const c = ashy ? `rgba(${Math.round(150 * bright + 40)},${Math.round(140 * bright + 36)},${Math.round(136 * bright + 34)},0.8)` : `rgba(${Math.round(250 * bright)},${Math.round(252 * bright)},255,0.9)`;
+        const c = ashy ? cFlake(Math.round(150 * bright + 40), Math.round(140 * bright + 36), Math.round(136 * bright + 34), 0.8) : cFlake(Math.round(250 * bright), Math.round(252 * bright), 255, 0.9);
         ctx.fillStyle = c;
         // 小さい粒は四角でまとめて
         ctx.beginPath();

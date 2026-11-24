@@ -31,6 +31,17 @@ function images() {
   return IMG;
 }
 
+// かすみの色：昼 #dfe4ea → 夜 #5a6478 を夜の度合いで混ぜる（0.5 で急に変わらないように）。文字列は変わったときだけ作る
+let hazeKey = -1, hazeStr = '#dfe4ea';
+function hazeColor(n) {
+  const k = Math.round(Math.max(0, Math.min(1, n)) * 32);
+  if (k !== hazeKey) {
+    hazeKey = k; const t = k / 32;
+    hazeStr = `rgb(${Math.round(223 + (90 - 223) * t)},${Math.round(228 + (100 - 228) * t)},${Math.round(234 + (120 - 234) * t)})`;
+  }
+  return hazeStr;
+}
+
 export function drawPostFx(ctx, env, vw, vh) {
   if (!env) return;
   const low = RUNTIME.quality === 'low';
@@ -43,9 +54,12 @@ export function drawPostFx(ctx, env, vw, vh) {
   const fog = env.fog || 0;
   if (fog > 0.01) {
     const night = env.nightness || 0;
-    const haze = fog * (low || fog <= 0.25 ? 0.3 : 0.16) * (1 - night * 0.6);
-    ctx.globalAlpha = haze; ctx.fillStyle = night > 0.5 ? '#5a6478' : '#dfe4ea'; ctx.fillRect(0, 0, vw, vh);
-    if (!low && fog > 0.25) {   // 薄い霧（吹雪・火山灰）はかすみだけ。帯は濃い霧のとき
+    // 薄い霧（吹雪・火山灰）はかすみだけ。帯は濃い霧のとき。天気が混ざる途中で急に帯が出たり
+    // かすみが濃さを変えたりしないよう、霧 0.2〜0.4 の間で帯の重みを 0→1 に少しずつ上げる（以前は 0.25 で段差があった）
+    const band = low ? 0 : Math.max(0, Math.min(1, (fog - 0.2) / 0.2));
+    const haze = fog * (0.3 - 0.14 * band) * (1 - night * 0.6);
+    ctx.globalAlpha = haze; ctx.fillStyle = hazeColor(night); ctx.fillRect(0, 0, vw, vh);
+    if (band > 0.01) {
       const img = images();
       const t = env.time || 0, cx = env.camX || 0;
       // 3本の帯：奥ほど遅く、手前ほど速く・大きく
@@ -55,7 +69,7 @@ export function drawPostFx(ctx, env, vw, vh) {
         const y = vh * (0.28 + k * 0.22) - h * 0.5 + Math.sin(t * 0.2 + k * 2) * 10;
         let x = -((cx * (0.4 + k * 0.45) + t * (12 + k * 14) + k * 300) % w);
         if (x > 0) x -= w;
-        ctx.globalAlpha = fog * (0.55 + k * 0.15) * (1 - night * 0.55);
+        ctx.globalAlpha = band * fog * (0.55 + k * 0.15) * (1 - night * 0.55);
         for (; x < vw; x += w) ctx.drawImage(img.fog, x, y, w, h);
       }
     }

@@ -123,7 +123,9 @@ export const save = {
 };
 export function applySettings(s) {
   RUNTIME.sound = !!s.sound; RUNTIME.sfxVol = s.sfxVol; RUNTIME.bgmVol = s.bgmVol;
-  RUNTIME.quality = s.quality === 'auto' ? 'high' : s.quality; RUNTIME.autoQuality = s.quality === 'auto';
+  // 画質「自動」で一度低画質に落ちていれば、設定を開き直しても高に戻さない
+  const autoLowered = s.quality === 'auto' && RUNTIME.autoQuality && RUNTIME.quality === 'low';
+  RUNTIME.quality = s.quality === 'auto' ? (autoLowered ? 'low' : 'high') : s.quality; RUNTIME.autoQuality = s.quality === 'auto';
   RUNTIME.shake = s.shake; RUNTIME.difficulty = s.difficulty;
   // キー設定
   input.keymap = s.keymap ? { ...structuredClone(DEFAULT_KEYS), ...structuredClone(s.keymap) } : structuredClone(DEFAULT_KEYS);

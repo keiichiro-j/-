@@ -23,6 +23,10 @@ const levelsPlugin = {
   },
 };
 
+// <script> の中に置く文字列を安全にする：`</script` で途中で閉じてしまうのを防ぐ（JS の文字列・正規表現の中なら \/ は / と同じ）。
+// `<!--` と `<script` はコードの中（a<!--b など）にもあり得て機械的に書き換えられないので、下の検査で警告だけ出す
+function safeScript(js) { return js.replace(/<\/(script)/gi, '<\\/$1'); }
+
 function assetsScript() {
   const dir = path.join(root, 'assets');
   if (!fs.existsSync(dir)) return { js: '', bytes: 0 };
@@ -37,7 +41,7 @@ function assetsScript() {
     bytes += buf.length;
     out[name] = { ...JSON.parse(fs.readFileSync(jf, 'utf8')), png: 'data:image/png;base64,' + buf.toString('base64') };
   }
-  return { js: Object.keys(out).length ? `window.__GQ_ASSETS__=${JSON.stringify(out)};` : '', bytes };
+  return { js: Object.keys(out).length ? safeScript(`window.__GQ_ASSETS__=${JSON.stringify(out)};`) : '', bytes };
 }
 
 const artifact = process.argv.includes('--artifact');
@@ -70,14 +74,23 @@ async function build() {
     minify: !dev, sourcemap: dev ? 'inline' : false, target: ['es2020'], plugins: [levelsPlugin], loader: { '.json': 'json' },
     metafile: true, logLevel: 'warning',
   });
-  const js = r.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
+  const js = safeScript(r.outputFiles[0].text);
   const a = assetsScript();
   const html = artifact ? ARTIFACT_HTML(js, a.js) : HTML(js, a.js);
   fs.mkdirSync(path.join(root, OUT), { recursive: true });
   fs.writeFileSync(path.join(root, OUT, 'index.html'), html);
   for (const f of ['Code.gs', 'appsscript.json']) if (fs.existsSync(path.join(root, 'gas', f))) fs.copyFileSync(path.join(root, 'gas', f), path.join(root, OUT, f));
   const kb = (n) => (n / 1024).toFixed(0) + 'KB';
-  console.log(`built ${OUT}/index.html ${kb(html.length)} (js ${kb(js.length)}, png ${kb(a.bytes)}) in ${Date.now() - t0}ms`);
+  const bytes = Buffer.byteLength(html, 'utf8');
+  console.log(`built ${OUT}/index.html ${kb(bytes)} (js ${kb(Buffer.byteLength(js, 'utf8'))}, png ${kb(a.bytes)}) in ${Date.now() - t0}ms`);
+  // GAS の HtmlService で問題になる書き方を確かめる（外部への通信なし・スクリプトの途中で閉じない）
+  const body = js + a.js;
+  const bad = [];
+  if (/<\/script/i.test(body)) bad.push('</script が残っている');
+  if (/<!--/.test(body) && /<script/i.test(body)) bad.push('<!-- と <script がある（HTML がスクリプトの終わりを読み違えるおそれ）');
+  if (/\b(?:https?:)?\/\/[a-z0-9.-]+\.[a-z]{2,}\//i.test(body.replace(/http:\/\/www\.w3\.org\/[^"'\s]*/g, ''))) bad.push('外部URLらしき文字列がある（外部への通信は使わない）');
+  if (/<\?/.test(html)) bad.push('<? がある（createTemplateFromFile に変えるとテンプレートとして解釈される）');
+  for (const m of bad) console.warn('警告: ' + m);
   return r;
 }
 

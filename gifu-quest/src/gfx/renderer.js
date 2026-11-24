@@ -10,6 +10,11 @@ export const renderer = {
     this.resize();
     window.addEventListener('resize', () => this.resize());
     window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 200));
+    // GAS の HtmlService では iframe の中で動くので、キーボードを受けられるようキャンバスにフォーカスを置く
+    // （読み込み時に試し、触った・クリックしたときにも置き直す）
+    const focus = () => { try { if (document.activeElement !== canvas) canvas.focus({ preventScroll: true }); } catch { /* 無視 */ } };
+    focus();
+    canvas.addEventListener('pointerdown', focus);
   },
   resize() {
     const ww = window.innerWidth, wh = window.innerHeight;

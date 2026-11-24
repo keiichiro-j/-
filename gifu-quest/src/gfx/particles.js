@@ -12,7 +12,9 @@ export class Particles {
     this.count = 0;
   }
   cap() { return RUNTIME.quality === 'low' ? this.max >> 1 : this.max; }
-  spawn(o) {
+  spawn(o) { return this.emit(o, o.x, o.y, o.vx || 0, o.vy || 0, o.life || 0.5, o.rot || 0, o.vr || 0); }
+  // spawn の中身。位置・速さ・寿命・回転を引数で上書きできる（burst が粒ごとに {...o} を作らないように）
+  emit(o, x, y, vx, vy, life, rot, vr) {
     if (this.count >= this.cap()) return null;
     for (let n = 0; n < this.max; n++) {
       const i = (this.cursor + n) % this.max;
@@ -20,10 +22,10 @@ export class Particles {
       if (!q.alive) {
         this.cursor = (i + 1) % this.max;
         q.alive = true; this.count++;
-        q.x = o.x; q.y = o.y; q.vx = o.vx || 0; q.vy = o.vy || 0;
-        q.life = q.max = o.life || 0.5; q.size = o.size || 3; q.size1 = o.size1 ?? q.size;
+        q.x = x; q.y = y; q.vx = vx; q.vy = vy;
+        q.life = q.max = life; q.size = o.size || 3; q.size1 = o.size1 ?? q.size;
         q.color = o.color || '#fff'; q.grav = o.grav || 0; q.drag = o.drag || 0;
-        q.shape = SHAPES[o.shape || 'circle']; q.rot = o.rot || 0; q.vr = o.vr || 0;
+        q.shape = SHAPES[o.shape || 'circle']; q.rot = rot; q.vr = vr;
         q.front = !!o.front; q.add = !!o.add; q.alpha = o.alpha ?? 1;
         return q;
       }
@@ -35,7 +37,9 @@ export class Particles {
     for (let i = 0; i < n; i++) {
       const a = (o.angle ?? -Math.PI / 2) + (rng.next() - 0.5) * (o.spread ?? Math.PI * 2);
       const sp = (o.speed ?? 120) * (0.4 + rng.next() * 0.8);
-      this.spawn({ ...o, x: x + (rng.next() - 0.5) * (o.jitter || 0), y: y + (rng.next() - 0.5) * (o.jitter || 0), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: (o.life || 0.5) * (0.6 + rng.next() * 0.6), rot: rng.next() * 6, vr: (rng.next() - 0.5) * (o.vr || 0) });
+      const jx = (rng.next() - 0.5) * (o.jitter || 0), jy = (rng.next() - 0.5) * (o.jitter || 0);
+      const life = (o.life || 0.5) * (0.6 + rng.next() * 0.6), rot = rng.next() * 6, vr = (rng.next() - 0.5) * (o.vr || 0);
+      if (!this.emit(o, x + jx, y + jy, Math.cos(a) * sp, Math.sin(a) * sp, life, rot, vr)) return;   // 上限に達したら残りは出さない
     }
   }
   dust(x, y, dir = 0, n = 6) { this.burst(x, y, n, { angle: dir ? (dir > 0 ? -Math.PI * 0.85 : -Math.PI * 0.15) : -Math.PI / 2, spread: dir ? 0.9 : 2.6, speed: 90, life: 0.45, size: 5, size1: 1, color: 'rgba(210,190,160,0.8)', drag: 3, grav: -40 }); }

@@ -485,7 +485,7 @@ export function createBackdrop(theme, levelData = {}) {
   for (const t of tods) sets[t] = bakeSet(theme, t);
   const levelH = (levelData.tiles ? levelData.tiles.length : 15) * 36;
   let cur = sets[tods[0] || 'day'] || (sets.day = bakeSet(theme, 'day')), prev = null, fadeT = 1, lastTime = null, over = -1;
-  let gradKey = '', grad = null, ashT = levelData.weathers && levelData.weathers[0] === 'ash' ? 1 : 0;
+  let gradTop = '', gradBot = '', gradH = 0, grad = null, ashT = levelData.weathers && levelData.weathers[0] === 'ash' ? 1 : 0;
   const SKY = skyArt();
 
   function layer(ctx, L, camX, camY, vw, vh, time, alpha) {
@@ -493,7 +493,7 @@ export function createBackdrop(theme, levelData = {}) {
     const dy = Math.max(-80, levelH - vh - camY);
     const by = vh * L.anchor + dy * L.yPar;
     const top = by - L.h;
-    if (top > vh) return;
+    if (top > vh || alpha < 0.004) return;
     if (alpha !== 1) ctx.globalAlpha = alpha;
     for (let x = -off; x < vw; x += L.w) ctx.drawImage(L.c, x, top, L.w, L.h);
     if (L.base && by < vh) { ctx.fillStyle = L.base; ctx.fillRect(0, by - 1, vw, vh - by + 1); }
@@ -506,16 +506,20 @@ export function createBackdrop(theme, levelData = {}) {
       if (o > 0) layer(ctx, S.clouds[1][i], camX, camY, vw, vh, time, a * o);
     }
     const fog = env.fog || 0;
-    S.layers.forEach((L, i) => {
-      layer(ctx, L, camX, camY, vw, vh, time, a);
+    for (let i = 0; i < S.layers.length; i++) {   // forEach や配列リテラルは毎フレームの生成になるので使わない
+      layer(ctx, S.layers[i], camX, camY, vw, vh, time, a);
       if (i === 0 && ashT > 0.01) {
         // 遠くの噴煙（火山灰の天気）
         const px = ((((900 - camX * 0.12) % W) + W) % W) - 150;
-        for (const x of [px, px - W]) if (x > -320 && x < vw) { ctx.globalAlpha = a * ashT; ctx.drawImage(SKY.plume, x, vh * 0.8 - 360 + Math.max(-80, levelH - vh - camY) * 0.06, 320, 340); ctx.globalAlpha = 1; }
+        const py = vh * 0.8 - 360 + Math.max(-80, levelH - vh - camY) * 0.06;
+        ctx.globalAlpha = a * ashT;
+        if (px > -320 && px < vw) ctx.drawImage(SKY.plume, px, py, 320, 340);
+        if (px - W > -320 && px - W < vw) ctx.drawImage(SKY.plume, px - W, py, 320, 340);
+        ctx.globalAlpha = 1;
       }
       // 霧：遠い層ほどかすむ
-      if (fog > 0 && i < 2) { ctx.globalAlpha = a * fog * (i === 0 ? 0.6 : 0.32); ctx.fillStyle = env.sky.bottom; ctx.fillRect(0, 0, vw, vh); ctx.globalAlpha = 1; }
-    });
+      if (fog > 0.004 && i < 2) { ctx.globalAlpha = a * fog * (i === 0 ? 0.6 : 0.32); ctx.fillStyle = env.sky.bottom; ctx.fillRect(0, 0, vw, vh); ctx.globalAlpha = 1; }
+    }
   }
   function drawSky(ctx, vw, vh, env, tod) {
     const o = over;
@@ -544,9 +548,11 @@ export function createBackdrop(theme, levelData = {}) {
       if (fadeT < 1) { fadeT = Math.min(1, fadeT + dt / 3); if (fadeT >= 1) prev = null; }
       const ot = OVERCAST.has(env.weather) ? 1 : 0;
       if (over < 0) over = ot; else over += (ot - over) * Math.min(1, dt * 0.4);
+      // 指数で近づくだけだと 0/1 に届かず、晴れと曇りの雲を両方ずっと描き続けてしまう（重い）。近づいたら合わせる
+      if (Math.abs(ot - over) < 0.004) over = ot;
       // 空
-      const key = env.sky.top + env.sky.bottom + vh;
-      if (key !== gradKey) { gradKey = key; grad = ctx.createLinearGradient(0, 0, 0, vh); grad.addColorStop(0, env.sky.top); grad.addColorStop(1, env.sky.bottom); }
+      // 色の文字列は env が値の変わったときだけ作るので、同じ文字列かどうかで比べる（毎フレームの文字列連結をしない）
+      if (env.sky.top !== gradTop || env.sky.bottom !== gradBot || vh !== gradH || !grad) { gradTop = env.sky.top; gradBot = env.sky.bottom; gradH = vh; grad = ctx.createLinearGradient(0, 0, 0, vh); grad.addColorStop(0, env.sky.top); grad.addColorStop(1, env.sky.bottom); }
       ctx.fillStyle = grad; ctx.fillRect(0, 0, vw, vh);
       const ashW = env.weather === 'ash' ? 1 : 0;
       ashT += (ashW - ashT) * Math.min(1, dt * 0.4);

@@ -59,6 +59,23 @@ describe.skipIf(!chromium)('audio の書き出し（OfflineAudioContext）', () 
     }
   }, 60000);
 
+  it('大きな効果音が重なっても、出口（makeMasterChain）で割れない', async () => {
+    const res = await page.evaluate(async () => {
+      const sr = 22050, ac = new OfflineAudioContext(1, sr * 3, sr);
+      const m = GQA.makeMasterChain(ac);
+      const bgm = ac.createGain(); bgm.gain.value = 0.6; bgm.connect(m);
+      const p = GQA.songData('boss'); for (let s = 0, t = 0.02; t < 2.5; s++, t += p.stepDur) GQA.playStep(ac, bgm, 'boss', s, t);
+      // 名前が違えば連打よけが効かないので、爆発・ボス撃破・被弾などを 40ms おきに重ねる
+      const names = ['explosion', 'bossDefeat', 'thunder', 'hurt', 'shootBig', 'break'];
+      for (let i = 0; i < 36; i++) GQA.playSfx(ac, m, names[i % names.length], {}, 0.05 + i * 0.04);
+      const d = (await ac.startRendering()).getChannelData(0);
+      let peak = 0; for (let i = 0; i < d.length; i++) peak = Math.max(peak, Math.abs(d[i]));
+      return peak;
+    });
+    expect(res).toBeGreaterThan(0.1);
+    expect(res).toBeLessThanOrEqual(1);
+  }, 60000);
+
   it('BGM：すべての曲が鳴り、割れない（音量最大）', async () => {
     const res = await page.evaluate(async () => {
       const out = {};
