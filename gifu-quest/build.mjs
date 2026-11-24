@@ -40,6 +40,16 @@ function assetsScript() {
   return { js: Object.keys(out).length ? `window.__GQ_ASSETS__=${JSON.stringify(out)};` : '', bytes };
 }
 
+const artifact = process.argv.includes('--artifact');
+// claude.ai アーティファクト用：外側の doctype/head/body は公開時に付くので、中身だけを書く
+const ARTIFACT_HTML = (js, assets) => `<title>ぎふクエスト</title>
+<style>:root{color-scheme:dark}html,body{height:100%;margin:0;background:#120c10;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+canvas{position:absolute;display:block;outline:none}
+#rotate{display:none;position:fixed;inset:0;background:#120c10;color:#e8dccb;font:bold 20px sans-serif;align-items:center;justify-content:center;text-align:center;z-index:5;padding:0 16px}
+@media (orientation:portrait) and (max-width:820px){#rotate{display:flex}}</style>
+<canvas id="game" tabindex="0"></canvas><div id="rotate">スマホを横向きにしてください</div>
+<script>${assets}</script>
+<script>${js}</script>`;
 const HTML = (js, assets) => `<!doctype html>
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
@@ -62,7 +72,7 @@ async function build() {
   });
   const js = r.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
   const a = assetsScript();
-  const html = HTML(js, a.js);
+  const html = artifact ? ARTIFACT_HTML(js, a.js) : HTML(js, a.js);
   fs.mkdirSync(path.join(root, OUT), { recursive: true });
   fs.writeFileSync(path.join(root, OUT, 'index.html'), html);
   for (const f of ['Code.gs', 'appsscript.json']) if (fs.existsSync(path.join(root, 'gas', f))) fs.copyFileSync(path.join(root, 'gas', f), path.join(root, OUT, f));

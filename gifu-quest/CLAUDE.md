@@ -17,6 +17,6 @@
 - フェーズの終わりに、PCとスマホ幅の画面写真を screenshots/ に保存する（`node tests/e2e/smoke.mjs --shots`）
 
 ## コマンド
-- `npm run build` … dist/index.html を作る（`--dev` でソースマップ付き）
+- `npm run build` … dist/index.html を作る（`--dev` でソースマップ付き、`--out dist-artifact --artifact` で claude.ai アーティファクト用）
 - `npm test` … 単体テスト＋全ステージ自動プレイ
 - ブラウザで `dist/index.html?stage=1&char=gen` を開くとステージ1から直接始まる。F1 で当たり判定表示と物理パラメータ調整
