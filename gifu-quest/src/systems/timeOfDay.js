@@ -7,8 +7,8 @@
 export const TIME_PRESETS = {
   day:      { top: [92, 164, 236],  bottom: [214, 236, 250], darkness: 0,    tint: [255, 250, 235, 0],    lightCol: [14, 18, 40],  playerR: 0 },
   dusk:     { top: [70, 76, 142],   bottom: [255, 168, 104], darkness: 0.18, tint: [255, 132, 60, 0.13],  lightCol: [40, 20, 46],  playerR: 140 },
-  night:    { top: [8, 14, 40],     bottom: [34, 50, 96],    darkness: 0.74, tint: [40, 70, 160, 0.10],   lightCol: [6, 10, 30],   playerR: 120 },
-  festival: { top: [20, 12, 48],    bottom: [118, 52, 84],   darkness: 0.58, tint: [255, 120, 80, 0.07],  lightCol: [24, 8, 30],   playerR: 130 },
+  night:    { top: [8, 14, 40],     bottom: [34, 50, 96],    darkness: 0.52, tint: [40, 70, 160, 0.10],   lightCol: [6, 10, 30],   playerR: 150 },
+  festival: { top: [20, 12, 48],    bottom: [118, 52, 84],   darkness: 0.42, tint: [255, 120, 80, 0.07],  lightCol: [24, 8, 30],   playerR: 150 },
 };
 export const TIME_NAMES = Object.keys(TIME_PRESETS);
 
@@ -45,7 +45,7 @@ export function createTimeOfDay(levelData) {
         mixArr(out.top, a.top, b.top, t); mixArr(out.bottom, a.bottom, b.bottom, t);
         mixArr(out.tint, a.tint, b.tint, t); mixArr(out.lightCol, a.lightCol, b.lightCol, t);
         out.darkness = a.darkness; out.playerR = a.playerR || 120;
-        out.nightness = Math.min(1, a.darkness / 0.6);
+        out.nightness = Math.min(1, a.darkness / 0.45);
         return;
       }
       if (flow) {
@@ -64,7 +64,7 @@ export function createTimeOfDay(levelData) {
       mixArr(out.tint, a.tint, b.tint, t); mixArr(out.lightCol, a.lightCol, b.lightCol, t);
       out.darkness = lerp(a.darkness, b.darkness, t);
       out.playerR = lerp(a.playerR || 120, b.playerR || 120, t);
-      out.nightness = Math.min(1, out.darkness / 0.6);
+      out.nightness = Math.min(1, out.darkness / 0.45);
     },
   };
   tod.update(0, 0);

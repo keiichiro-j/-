@@ -148,30 +148,46 @@ w.events.emit/on（'enemyDefeated','stomp','coin','bossStart','bossDefeated','st
 | 5 白川郷 | yukidama（walker）, yukiusagi（hopper）, koritoge（spiky）, yukigumo（flyer：つららを落とす） |
 | 6 奥飛騨 | hinotama（popper）, yogangaeru（hopper）, komori（flyer）, iwanage（thrower）, hibashira（popper：火柱）, kamoshika（charger） |
 
-共通オプション：`range`（巡回の幅・タイル）, `face`（-1/1）, `amp`（flyer の上下幅・タイル）, `period`（popper の周期・秒）, `dir`（"h"|"v"：flyer の巡回方向）
+共通オプション：`face`（-1/1。既定 -1＝左向き）, `range`（巡回の幅・タイル。walker/spiky/charger/shielder は家からこの距離で折り返す、flyer は巡回の全幅。既定 flyer 3〜6）, `hp`
+- 置き方：足元中央をタイル (x,y) の底辺中央に（flyer はその高さを中心に上下）。popper は **水面（`~`）・溶岩の表面（`L`）のタイル** に置く（waterLevel・risingLava の上では表面の高さに自動で合わせる）
+- walker：`speed`（タイル/秒）。壁で折り返し、崖から落ちる ／ spiky：`speed`。崖で折り返す。踏めない（技・ダッシュ・無敵で倒す）
+- hopper：`jump`（跳ぶ初速 ドット/秒）。待つ→しゃがむ予告0.24秒→主人公の方へ跳ぶ（見つける距離7〜8タイル、画面内のときだけ）
+- flyer：`dir`（"h"|"v"）, `amp`（上下の幅・タイル）, `speed`（タイル/秒）。yukigumo は真下に来ると0.6秒震えてからつららを落とす
+- thrower：`ammo`（iga/geta/hanabi/yukidama/iwa/ougi。既定は kind ごと）, `cd`（間隔・秒）, `windup`（腕を振り上げる予告・秒。既定0.5〜0.65）。画面内で9タイル以内のときだけ投げる
+- popper：`period`（秒）, `height`（跳ぶ高さ・タイル）。出る0.75秒前に泡・火の粉の予告。kind=hibashira は火柱（0.9秒の予告→1秒立つ。踏めない・倒せない）
+- charger：`speed`（普段の速さ）, `windup`（溜め・秒）。7〜8タイル以内・同じ高さで見つけると「！」と足かきの溜め→突進。壁にぶつかると目を回す（隙）。HP2
+- shielder：`speed`。正面からの弾・ダッシュを防ぐ。上から踏める・後ろから技が当たる。後ろに回られると0.8秒で振り向く。HP2
+- HP は基本1（charger・shielder は2）。倒されるとひっくり返って落ちる／踏まれるとつぶれて消える
 
 ## 仕掛けの配置名（敵担当が実装、レベル担当が置く）
+**床の置き方**：movingPlatform / fallingPlatform / gondola / boat / festivalFloat / rhythmPlatform / tightrope の x,y は「床の左端のタイル」と「床の上面がくる行」（上面＝タイル y の上端）。他の仕掛けは特記なければ足元中央をタイル (x,y) に。
+
 | type | spec | 内容 |
 |---|---|---|
-| movingPlatform | w（タイル）, dx, dy（往復の距離・タイル）, speed（タイル/秒）, kind（wood/stone/cloud/ice） | 往復する床 |
-| fallingPlatform | w, kind（wood/rock） | 乗って0.5秒で落ちる。3秒で復活（崩れる岩の足場） |
-| gondola | x2, y2（終点タイル）, speed | ロープウェイ。乗ると動き出し、終点で止まる。ケーブルも描く |
-| boat | w, x2（終点）, speed | 鵜飼船。乗ると川を下る（自動スクロール区間）。篝火の明かり付き |
-| festivalFloat | w, x2, speed | 祭り屋台。乗って進む大きな床 |
-| rhythmPlatform | w, beat（0/1）, bpm | 郡上踊りの太鼓に合わせて出たり消えたり（予告で点滅） |
-| waterLevel | id, x0, x1, yLow, yHigh, start（"low"/"high"） | 水位が変わる水域（タイル単位） |
-| waterSwitch | target（waterLevel の id） | 叩く・踏むと水位が切り替わる |
-| risingLava | x0, x1, y（開始の高さ）, speed（タイル/秒）, trigger（主人公がこの x を越えたら開始）, stopY | せり上がる溶岩 |
-| steamVent | power, period | 温泉の湯気で上に押し上げる |
-| icicle | — | 下に来ると揺れて落ちる |
-| windZone | x0, x1, force, period | 吹雪の横風（予告の雪煙あり） |
-| lightningZone | x0, x1 | 落雷（予告マーク→落雷）。ステージ3・6 |
-| tightrope | w | 提灯の綱渡り（たわむ通り抜け足場） |
-| bouncer | power | 跳ね台（太鼓・傘など） |
+| movingPlatform | w（タイル, 既定3）, dx, dy（往復の距離・タイル）, speed（タイル/秒, 既定2）, kind（wood/stone/cloud/ice）, phase（0..1） | 往復する床（端でゆっくり折り返す） |
+| fallingPlatform | w（既定2）, kind（wood/rock）, delay（既定0.5） | 乗って0.5秒揺れて落ちる。3秒後、主人公が重なっていなければ元の場所に復活 |
+| gondola | x2, y2（終点の床の左端タイル・上面の行）, speed（既定2） | ロープウェイ（床は3タイル。ケーブルは床の78ドット上）。乗ると動き出し、終点で止まる。乗らずに主人公が始点側へ戻ると（ミス後など）始点へ帰る |
+| boat | w（既定5）, x2（終点の左端タイル）, speed（既定2.2） | 鵜飼船。y は水面（`~`）の行。乗ると川を下り、降りても終点まで進む。舳先に篝火（光る）。帰り方は gondola と同じ |
+| festivalFloat | w（既定4）, x2, speed（既定1.8） | 祭り屋台。乗って進む大きな床（屋根と提灯は主人公の後ろに描く。提灯が光る） |
+| rhythmPlatform | w（既定2）, beat（0/1）, bpm（既定100）, beats（切り替えまでの拍。既定4） | 太鼓に合わせて beat 0 と 1 が交互に出る。消える1拍前から点滅、消えている間はうすい輪郭、出る1拍前に輪郭が濃くなる |
+| waterLevel | id, x0, x1, yLow, yHigh（水面の行）, start（"low"/"high"）, speed（タイル/秒, 既定0.8） | 水位が変わる水域。範囲のタイルは空（`.`）にしておく。水面より下が泳げる水（world.liquids） |
+| waterSwitch | target（waterLevel の id） | 踏む・技で叩くと水位と、同じ target の水門が切り替わる（水位が動いている間は無効） |
+| waterGate | target, h（高さ・タイル, 既定3）, open | 水門。x,y は門のいちばん下のタイル。閉じている間そのタイルが固くなる（WOOD に書き換え）。スイッチで開閉 |
+| risingLava | x0, x1, y（開始の表面の行）, speed（タイル/秒, 既定0.55）, trigger（主人公の x がこのタイルを越えたら開始）, stopY | せり上がる溶岩。主人公から画面の3/4以上離れると速くなる。ミスで中間地点に戻ると始めの高さに戻る |
+| steamVent | power（既定1）, period（秒, 既定3, 0で出っぱなし）, h（届く高さ・タイル, 既定5）, phase | 温泉の湯気で上に押し上げる（周期の前半55%）。出る0.6秒前に小さく噴く |
+| icicle | delay（既定0.6） | x,y は天井のすぐ下のタイル（上端から吊り下がる）。真下に来ると揺れて落ちる。5秒でまた生える。ゲンの一閃で割れる |
+| windZone | x0, x1, force（ドット/秒。負で左向き, 既定 -150）, period（既定4）, phase | 吹雪の横風（周期の前半に吹く）。吹く0.8秒前に足元の雪煙で予告。壁は越えない |
+| lightningZone | x0, x1, interval（秒, 既定4）, weather（例 "thunder"。指定するとその天気の時だけ） | ゾーン内の主人公の足元に予告の印（1秒点滅）→ 落雷（1ダメージ）。ステージ3・6 |
+| tightrope | w（既定6） | 提灯の綱渡り（たわむ通り抜け足場）。両端に柱、綱から提灯がさがって光る |
+| bouncer | power（既定1で約5タイル。ジャンプ押しっぱなしでさらに高く）, kind（taiko/kasa） | 跳ね台（太鼓・和傘） |
+| autoScroll | x0, x1（タイル）, speed（タイル/秒, 既定2） | 主人公が x0 を越えると画面が一定速度で右へ進む。左端に押されて壁に挟まるとミス |
+| lantern | color（red/white） | 吊り下げ提灯（揺れる・夜に光る）。x,y は吊り下げ点のタイル（上端） |
+
+仕掛けと敵の絵の名前：`enemy_<kind>_<anim>`, `enemy_shot_<ammo>`, `enemy_mark_alert/star`, `gim_*`（src/art/enemies.js）
 
 ## 背景の小物（decor）
 `{ "type": "decor", "sprite": "prop_toro", "x": .., "y": .., "z": -5, "light": { "r": 110, "color": "#ffbf6a" } }`
-アート担当が用意する prop：toro（石灯籠）, pine, cedar, bamboo, rock, bush, grass, machiya（町家）, gassho（合掌造り）, castle_wall, torii_small（小さな鳥居ではなく木の門：gate）, chochin（提灯）, kagaribi（篝火）, onsen（湯けむりの湯船）, snowman, fence, bridge_rail, noren, yatai_stall（朝市の屋台）, lamp（街灯）
+アート担当が用意する prop（prop_torii_small は prop_gate と同じ絵）：toro（石灯籠）, pine, cedar, bamboo, rock, bush, grass, machiya（町家）, gassho（合掌造り）, castle_wall, torii_small（小さな鳥居ではなく木の門：gate）, chochin（提灯）, kagaribi（篝火）, onsen（湯けむりの湯船）, snowman, fence, bridge_rail, noren, yatai_stall（朝市の屋台）, lamp（街灯）
 
 ## UI の追加の約束（UI担当）
 - タッチ：`touch.tap()`（0.3秒以内のタップを1回だけ返す {x,y}）、`touch.peekTap()`、`touch.clearTap()`、`touch.pointer`（ドラッグ用）、`touch.show('play'|'menu')`。PC のマウスクリックも同じ扱い

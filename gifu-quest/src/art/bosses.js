@@ -616,10 +616,93 @@ function defineYukioni() {
   }, 15, 4);
 }
 
+// =====================================================================
+// 6. 乗鞍の火竜（奥飛騨）：朱色のうろこの龍。金の角、炎のたてがみ、長いひげ。首は節で動かす
+// =====================================================================
+const DR = { sc: ['#ffb070', '#e0502a', '#7a1a10'], belly: ['#fff0b0', '#f8c860', '#b07a20'], horn: ['#fff6c8', '#e8c050', '#8a6010'], mane: ['#fff27a', '#ff9a2a', '#d0301a'] };
+function flameTuft(ctx, x, y, s, rot, ph) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+  paint(ctx, (c) => { c.moveTo(-8 * s, 0); c.quadraticCurveTo(-10 * s, -18 * s, Math.sin(ph) * 4 * s, -34 * s); c.quadraticCurveTo(4 * s, -16 * s, 10 * s, -22 * s); c.quadraticCurveTo(12 * s, -8 * s, 8 * s, 0); c.closePath(); }, lin(ctx, 0, -34 * s, 0, 0, DR.mane), 1.8, '#7a1a08');
+  ctx.restore();
+}
+// 頭（右向き）。基準：首のつけね (40, 70)。open: 口の開き, mode: 目
+function drHead(ctx, open, mode, ph) {
+  const x = 40, y = 86;
+  // たてがみ（後ろ）
+  for (let i = 0; i < 5; i++) flameTuft(ctx, x + 6 + i * 12, y - 26 + i * 2, 1.1 - i * 0.08, -0.9 + i * 0.1, ph + i);
+  // 角（鹿の角のように枝分かれ）
+  const horn = (hx, hy, k) => {
+    paint(ctx, (c) => { c.moveTo(hx, hy); c.quadraticCurveTo(hx - 20 * k, hy - 30 * k, hx - 46 * k, hy - 44 * k); c.lineTo(hx - 40 * k, hy - 36 * k); c.quadraticCurveTo(hx - 30 * k, hy - 36 * k, hx - 26 * k, hy - 52 * k); c.lineTo(hx - 20 * k, hy - 34 * k); c.quadraticCurveTo(hx - 8 * k, hy - 22 * k, hx + 10, hy); c.closePath(); }, lin(ctx, 0, hy - 52 * k, 0, hy, DR.horn), 2);
+  };
+  horn(x + 44, y - 30, 0.9); horn(x + 58, y - 34, 1.0);
+  // 下あご
+  ctx.save(); ctx.translate(x + 50, y + 8); ctx.rotate(open * 0.5);
+  paint(ctx, (c) => { c.moveTo(-10, -4); c.quadraticCurveTo(40, 0, 78, -2); c.quadraticCurveTo(80, 10, 66, 14); c.quadraticCurveTo(20, 18, -10, 10); c.closePath(); }, lin(ctx, 0, -4, 0, 18, DR.belly), 2.4);
+  if (open > 0.15) { ctx.fillStyle = '#fff'; for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.moveTo(20 + i * 11, -1); ctx.lineTo(24 + i * 11, -9); ctx.lineTo(28 + i * 11, -1); ctx.fill(); } }
+  ctx.restore();
+  // 口の中（炎の光）
+  if (open > 0.15) { ctx.save(); ctx.translate(x + 50, y + 6); paint(ctx, (c) => { c.moveTo(-6, 0); c.lineTo(80, -6 - open * 4); c.lineTo(80, 10 + open * 30); c.closePath(); }, rad(ctx, 30, 6, 2, 70, ['#fff6c0', '#ffa030', '#a01808']), 0); ctx.restore(); }
+  // 上あご・頭
+  ctx.save(); ctx.translate(x + 50, y + 4); ctx.rotate(-open * 0.18);
+  paint(ctx, (c) => { c.moveTo(-40, -36); c.quadraticCurveTo(0, -46, 30, -26); c.quadraticCurveTo(70, -22, 92, -12); c.quadraticCurveTo(100, -4, 90, 4); c.quadraticCurveTo(40, 8, -16, 6); c.quadraticCurveTo(-46, 0, -40, -36); c.closePath(); }, rad(ctx, 10, -20, 6, 90, DR.sc, -30, -10), 2.6);
+  // うろこの模様
+  ctx.strokeStyle = 'rgba(110,20,10,0.4)'; ctx.lineWidth = 1.4;
+  for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.arc(-24 + i * 12, -14 + (i % 2) * 6, 6, 0.2, Math.PI - 0.2); ctx.stroke(); }
+  // 鼻の穴と鼻先
+  ctx.fillStyle = OL; ctx.beginPath(); ctx.ellipse(86, -6, 3, 2, 0.3, 0, TAU); ctx.fill();
+  shine(ctx, 50, -24, 16, 4, 0.4);
+  if (open > 0.15) { ctx.fillStyle = '#fff'; for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.moveTo(26 + i * 12, 5); ctx.lineTo(30 + i * 12, 13); ctx.lineTo(34 + i * 12, 5); ctx.fill(); } }
+  // 目（眉の出っぱり）
+  eye(ctx, 18, -24, 10, mode, 0.5, '#3a1a08');
+  paint(ctx, (c) => { c.moveTo(2, -36); c.quadraticCurveTo(18, mode === 'angry' ? -34 : -42, 34, -34); c.lineTo(30, -30); c.quadraticCurveTo(18, -36, 4, -31); c.closePath(); }, DR.sc[2], 1.4);
+  ctx.restore();
+  // ひげ
+  ctx.strokeStyle = '#fff0a0'; ctx.lineWidth = 2.6; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x + 130, y - 4); ctx.bezierCurveTo(x + 150, y - 20 + Math.sin(ph) * 6, x + 160, y + 10, x + 170, y - 6 + Math.sin(ph + 1) * 8); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x + 126, y + 2); ctx.bezierCurveTo(x + 140, y + 24, x + 150, y + 6 + Math.sin(ph + 2) * 6, x + 162, y + 26); ctx.stroke();
+  // 頬のたてがみ
+  flameTuft(ctx, x + 20, y + 12, 1.0, -2.2, ph + 3);
+  ball(ctx, x + 12, y + 2, 26, 26, DR.sc[0], DR.sc[1], DR.sc[2], 2.4);
+  paint(ctx, ell(x + 18, y + 14, 14, 10), lin(ctx, 0, y + 4, 0, y + 24, DR.belly), 1.6);
+  if (mode === 'glow' || mode === 'angry') glowDot(ctx, x + 90, y + 6, 40, 'rgba(255,170,40,0.6)');
+}
+function defineDragon() {
+  const N = 'boss_dragon_';
+  const W = 230, H = 170, OX = 40, OY = 86;
+  def(N + 'idle', W, H, 2, (ctx, f) => drHead(ctx, 0.05, 'normal', f * Math.PI), OX, OY);
+  def(N + 'tell', W, H, 2, (ctx, f) => drHead(ctx, 0.12 + f * 0.05, 'glow', f * Math.PI), OX, OY);
+  def(N + 'open', W, H, 2, (ctx, f) => drHead(ctx, 0.75 + f * 0.1, 'angry', f * Math.PI), OX, OY);
+  def(N + 'rest', W, H, 2, (ctx, f) => { drHead(ctx, 0.25, 'dizzy', f * Math.PI); for (let i = 0; i < 3; i++) ball(ctx, 190 + i * 10, 56 - i * 14 - f * 4, 6 + i * 2, 5 + i * 2, 'rgba(160,150,150,0.8)', 'rgba(110,100,100,0.6)', 'rgba(70,60,60,0.4)', 0); stars(ctx, 110, 22, 22, 3, f); }, OX, OY);
+  def(N + 'hurt', W, H, 1, (ctx) => drHead(ctx, 0.4, 'hurt', 1), OX, OY);
+  def(N + 'angry', W, H, 2, (ctx, f) => { drHead(ctx, 0.9, 'angry', f * Math.PI); angerMark(ctx, 70, 18, 18); }, OX, OY);
+  // 首の節（うろこの輪）
+  def(N + 'seg', 72, 72, 1, (ctx) => {
+    ball(ctx, 36, 36, 32, 32, DR.sc[0], DR.sc[1], DR.sc[2], 2.6);
+    paint(ctx, (c) => { c.ellipse(36, 50, 22, 14, 0, 0, Math.PI); c.closePath(); }, lin(ctx, 0, 40, 0, 64, DR.belly), 0);
+    ctx.strokeStyle = 'rgba(110,20,10,0.45)'; ctx.lineWidth = 1.6;
+    for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.arc(18 + i * 12, 22 + (i % 2) * 6, 7, 0.2, Math.PI - 0.2); ctx.stroke(); }
+    flameTuft(ctx, 36, 8, 0.8, 0, 0);
+  }, 36, 36);
+  def(N + 'fireball', 40, 40, 3, (ctx, f) => {
+    glowDot(ctx, 20, 20, 20, 'rgba(255,140,40,0.9)');
+    paint(ctx, (c) => { c.arc(20, 20, 11, 0, TAU); }, rad(ctx, 18, 18, 1, 13, ['#fffbe0', '#ffd040', '#ff5a1a']), 1.6, '#8a1a08');
+    for (let i = 0; i < 5; i++) { const a = f * 0.7 + i * TAU / 5; flameTuft(ctx, 20 + Math.cos(a) * 9, 20 + Math.sin(a) * 9, 0.4, a + Math.PI / 2, i); }
+  }, 20, 20);
+  // 岩の足場（崩れる）
+  def(N + 'rock', 116, 44, 2, (ctx, f) => {
+    paint(ctx, (c) => { c.moveTo(4, 10); c.lineTo(20, 2); c.lineTo(70, 0); c.lineTo(110, 6); c.lineTo(112, 22); c.lineTo(90, 40); c.lineTo(30, 42); c.lineTo(6, 28); c.closePath(); }, lin(ctx, 0, 0, 0, 44, ['#8a7a78', '#5a4a4a', '#2a2020']), 2.4);
+    paint(ctx, (c) => { c.moveTo(6, 10); c.lineTo(20, 4); c.lineTo(70, 2); c.lineTo(108, 7); c.lineTo(104, 12); c.lineTo(8, 14); c.closePath(); }, 'rgba(200,190,180,0.6)', 0);
+    ctx.strokeStyle = f ? '#ff8a2a' : 'rgba(30,20,20,0.6)'; ctx.lineWidth = f ? 2.4 : 1.6;
+    ctx.beginPath(); ctx.moveTo(40, 14); ctx.lineTo(48, 26); ctx.lineTo(42, 38); ctx.moveTo(78, 12); ctx.lineTo(72, 24); ctx.lineTo(80, 36); ctx.stroke();
+    if (f) glowDot(ctx, 60, 26, 30, 'rgba(255,120,40,0.6)');
+  }, 58, 2);
+}
+
 export function defineBossArt() {
   defineMusasabi();
   defineSalamander();
   defineDancer();
   defineYatai();
   defineYukioni();
+  defineDragon();
 }

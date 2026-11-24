@@ -25,6 +25,7 @@ export const PHASE_TIME = 1.25;     // 段階変化の演出の長さ
 export const HURT_TIME = 0.45;      // ひるみ
 export const MAX_HIT = 3;           // 1回の攻撃の最大ダメージ（飛騨牛串の99など）
 export const EASY_HP = 0.7, EASY_WAIT = 1.3;
+export const PHASE_MARKS = [2 / 3, 1 / 3];   // 段階2・段階3に上がるHPの割合
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 export { clamp };
@@ -43,6 +44,7 @@ export class Boss extends Entity {
     this.boss = true; this.enemy = false; this.stompable = true; this.stompFromTopOnly = true;
     this.persistent = true; this.z = 4; this.drawPad = 320;
     this.name = def.name; this.title = def.title;
+    this.phaseMarks = PHASE_MARKS;          // HUD のHPバーの目盛り（HPに対する割合）。段階は HP がこの割合以下で上がる
     this.touchDamage = 1;
     this.weak = rect();                     // 弱点（hurtRect）
     this.bodies = [rect(), rect(), rect(), rect()];  // 触れると被弾する本体の箱
@@ -168,7 +170,7 @@ export class Boss extends Entity {
     w.camera.shake(6, 0.25);
     w.particles.burst(this.weak.x + this.weak.w / 2, this.weak.y + this.weak.h / 2, 10, { speed: 260, life: 0.45, size: 6, size1: 0, color: '#fff6c0', shape: 'star', drag: 3, front: true, vr: 10 });
     if (this.hp <= 0) { this.startDying(); return true; }
-    const np = this.hp <= this.maxHp / 3 + 1e-6 ? 3 : this.hp <= this.maxHp * 2 / 3 + 1e-6 ? 2 : 1;
+    const np = this.hp <= this.maxHp * PHASE_MARKS[1] + 1e-6 ? 3 : this.hp <= this.maxHp * PHASE_MARKS[0] + 1e-6 ? 2 : 1;
     if (np > this.phase) this.startPhase(np);
     else { this.cancelMove(); this.enter('hurt'); }
     return true;

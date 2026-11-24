@@ -48,7 +48,9 @@ export function validateLevel(data, opts = {}) {
   const practice = opts.practice ?? (data.id === 0);
 
   // ---- 形式 ----
-  rows.forEach((r, y) => { if (r.length !== W) err(`行 ${y} の長さ ${r.length}（他は ${W}）`); });
+  const lenCount = new Map(); rows.forEach((r) => lenCount.set(r.length, (lenCount.get(r.length) || 0) + 1));
+  const usual = [...lenCount].sort((a, b) => b[1] - a[1])[0]?.[0] ?? W;
+  rows.forEach((r, y) => { if (r.length !== usual) err(`行 ${y} の長さ ${r.length}（他は ${usual}）`); });
   const badCh = new Map();
   rows.forEach((r, y) => [...r].forEach((c, x) => { if (!KNOWN_CH.includes(c) && !badCh.has(c)) badCh.set(c, `${x},${y}`); }));
   for (const [c, at] of badCh) err(`未知の文字 '${c}'（${at} など）`);
@@ -296,7 +298,9 @@ export function validateLevel(data, opts = {}) {
   }
 
   // ---- 穴（落ちると即ミス）：幅と着地点 ----
-  const pitCol = (x) => { const c = at(x, H - 1); return !isSolidCh(c) && !isSlopeCh(c) && !isWaterCh(c); };
+  // 落ちるとミスの列：一番下が空いている、または溶岩の表面より上に立てる所がない
+  const lavaCol = (x) => { let top = -1; for (let y = 0; y < H; y++) if (isLavaCh(at(x, y))) { top = y; break; } if (top < 0) return false; for (let y = 0; y < top; y++) if (kind[id(x, y)] === 1) return false; return true; };
+  const pitCol = (x) => { const c = at(x, H - 1); return (!isSolidCh(c) && !isSlopeCh(c) && !isWaterCh(c)) || lavaCol(x); };
   const supportCol = (x) => { if (platformCols.has(x)) return true; for (let y = 1; y < H - 1; y++) if (kind[id(x, y)] === 1 || kind[id(x, y)] === 2) return true; return false; };
   const pits = [];
   for (let x = 0; x < W; x++) {

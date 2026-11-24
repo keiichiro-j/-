@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ぎふクエスト レベルエディタ</title>
+<!-- tools/levelgen/editor-template.html から node tools/levelgen/build-all.mjs で作る（validate.js を埋め込む）。直接編集しない -->
+<style>
+:root{--bg:#1b1620;--panel:#262030;--ink:#eee3d2;--dim:#a99c8c;--acc:#e0a040;--bad:#ff6a5a;--ok:#7ad07a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.4 system-ui,sans-serif;display:grid;grid-template-columns:260px 1fr;grid-template-rows:auto 1fr auto;height:100vh}
+header{grid-column:1/3;display:flex;gap:8px;align-items:center;padding:6px 10px;background:var(--panel);flex-wrap:wrap}
+header h1{font-size:15px;margin:0 12px 0 0}
+button,select,input,textarea{font:inherit;color:var(--ink);background:#342b3e;border:1px solid #4d4058;border-radius:4px;padding:3px 8px}
+button:hover{border-color:var(--acc)}
+button.on{background:var(--acc);color:#1b1620}
+aside{overflow:auto;padding:8px;background:#211b29;border-right:1px solid #3a3044}
+aside h2{font-size:12px;color:var(--dim);margin:10px 0 4px;font-weight:600}
+.pal{display:flex;flex-wrap:wrap;gap:3px}
+.pal button{min-width:34px;padding:3px 5px}
+.pal button .sw{display:inline-block;width:10px;height:10px;margin-right:3px;vertical-align:-1px;border:1px solid #0006}
+#wrap{overflow:auto;position:relative}
+canvas{display:block;image-rendering:pixelated;cursor:crosshair}
+footer{grid-column:1/3;max-height:30vh;overflow:auto;background:var(--panel);padding:6px 10px;border-top:1px solid #3a3044}
+footer .e{color:var(--bad)} footer .w{color:#e8c070} footer .o{color:var(--ok)}
+label{display:block;margin:3px 0}
+textarea{width:100%;height:70px;font:11px monospace}
+#props input{width:100%}
+#hover{color:var(--dim);margin-left:auto}
+</style></head>
+<body>
+<header>
+  <h1>ぎふクエスト レベルエディタ</h1>
+  <button id="bNew">新規</button>
+  <label style="display:inline">読み込み <input type="file" id="fOpen" accept=".json"></label>
+  <button id="bCheck">検査</button>
+  <button id="bSave">保存（検査してダウンロード）</button>
+  <label style="display:inline"><input type="checkbox" id="cReach"> ゲンの到達範囲</label>
+  <label style="display:inline">拡大 <select id="sZoom"><option>8</option><option>12</option><option selected>16</option><option>24</option></select></label>
+  <button id="bUndo">元に戻す</button>
+  <span id="hover"></span>
+</header>
+<aside>
+  <h2>タイル（左ドラッグで塗る）</h2><div class="pal" id="palT"></div>
+  <h2>エンティティ（左クリックで置く／右クリックで消す）</h2><div class="pal" id="palE"></div>
+  <div id="props"></div>
+  <h2>選んでいるエンティティ</h2>
+  <textarea id="selJson" placeholder="エンティティをクリックすると JSON が出ます"></textarea>
+  <button id="bApply">この JSON を反映</button>
+  <h2>ステージ情報（id, name, theme, timeOfDay, timeFlow, weathers, bgm, areas）</h2>
+  <textarea id="meta" style="height:160px"></textarea>
+  <button id="bMeta">ステージ情報を反映</button>
+</aside>
+<div id="wrap"><canvas id="cv"></canvas></div>
+<footer id="out">「検査」で設計書6章のルール（ゲンで越えられる穴・段差、必須要素、到達できるか など）を調べます。</footer>
+<script>
+/*__VALIDATE_JS__*/
+
+// ---------------- エディタ ----------------
+const TILE_COL = { '.': null, '#': '#7a5a3a', 'S': '#8d8a80', 'R': '#4a4f5a', 'W': '#9a6b3c', 'N': '#eef4fa', 'I': '#9fd8f0', 'B': '#b0603e', '%': '#6e6a62', '-': '#c9a36a', '/': '#7a5a3a', '\\': '#7a5a3a', 'a': '#7a5a3a', 'b': '#7a5a3a', 'c': '#7a5a3a', 'd': '#7a5a3a', '>': '#8a6a3a', '<': '#8a6a3a', '^': '#d0d0d8', '~': '#5aa0e0', 'w': '#2f6aa8', 'L': '#ff8030', 'l': '#c03a10', 'H': '#a0587a', 'o': null };
+const TILE_NAME = { '.': '空', '#': '地面', 'S': '石垣', 'R': '屋根瓦', 'W': '木', 'N': '雪', 'I': '氷', 'B': 'レンガ', '%': 'ひび', '-': '足場', '/': '坂/', '\\': '坂\\', 'a': 'a', 'b': 'b', 'c': 'c', 'd': 'd', '>': '屋根>', '<': '屋根<', '^': 'トゲ', '~': '水面', 'w': '水', 'L': '溶岩面', 'l': '溶岩', 'H': '隠し', 'o': 'コイン' };
+const ENT_COL = { start: '#3f3', coin: '#fd3', sarubobo: '#f33', skewer: '#f80', heart: '#f6a', checkpoint: '#3cf', sign: '#c96', decor: '#6a6', cameraZone: '#a0f', bossArena: '#f0f' };
+const ENT_TEMPLATES = {
+  start: {}, sarubobo: { index: 0 }, skewer: {}, heart: {}, checkpoint: { index: 0 },
+  sign: { id: 'sign', title: '題名', text: '事実に基づく60〜90字程度の説明文。' },
+  walker: { kind: 'uribo', range: 3 }, spiky: { kind: 'iga', range: 2 }, hopper: { kind: 'kajika' }, flyer: { kind: 'karasu', amp: 1, range: 3 },
+  thrower: { kind: 'saru', face: -1 }, popper: { kind: 'ayu', period: 2.5 }, charger: { kind: 'inoshishi', face: -1 }, shielder: { kind: 'kappa', face: -1 },
+  movingPlatform: { w: 2, dx: 4, dy: 0, speed: 2, kind: 'wood' }, fallingPlatform: { w: 2, kind: 'rock' }, gondola: { x2: 10, y2: 4, speed: 2 },
+  boat: { w: 4, x2: 30, speed: 2.2 }, festivalFloat: { w: 5, x2: 20, speed: 1.8 }, rhythmPlatform: { w: 3, beat: 0, bpm: 100 }, tightrope: { w: 6 },
+  steamVent: { power: 1, period: 3, h: 5 }, bouncer: { power: 1, kind: 'taiko' }, icicle: {}, waterSwitch: { target: 'canal1' },
+  decor: { sprite: 'prop_toro', z: -5 }, cameraZone: { w: 10, h: 6 },
+};
+// 置いた位置からの相対で持つもの（gondola の終点など）
+const REL = { gondola: ['x2', 'y2'], boat: ['x2'], festivalFloat: ['x2'] };
+let L = null, tool = { kind: 'tile', ch: '#' }, zoom = 16, sel = null, undo = [], reach = null;
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const $ = (id) => document.getElementById(id);
+
+function blank(w = 280, h = 18) {
+  const tiles = []; for (let y = 0; y < h; y++) tiles.push((y >= h - 4 ? '#' : '.').repeat(w));
+  return { id: 1, name: '新しいステージ', theme: 'kinka', timeOfDay: 'day', weathers: ['sunny'], bgm: 'stage1',
+    areas: [{ name: '導入', x0: 0, x1: 70 }, { name: '展開', x0: 70, x1: 140 }, { name: '山場', x0: 140, x1: 220 }, { name: 'ボス', x0: 220, x1: w }],
+    tiles, entities: [{ type: 'start', x: 3, y: h - 5 }] };
+}
+function load(d) { L = d; L.grid = d.tiles.map((r) => r.split('')); sel = null; reach = null; undo = []; syncMeta(); draw(); }
+function toJSON() { const o = {}; for (const k of Object.keys(L)) if (k !== 'grid') o[k] = L[k]; o.tiles = L.grid.map((r) => r.join('')); return o; }
+function syncMeta() { const m = {}; for (const k of ['id', 'name', 'theme', 'timeOfDay', 'timeFlow', 'weathers', 'bgm', 'areas']) if (L[k] !== undefined) m[k] = L[k]; $('meta').value = JSON.stringify(m, null, 1); }
+function snapshot() { undo.push(JSON.stringify(toJSON())); if (undo.length > 50) undo.shift(); }
+
+function draw() {
+  if (!L) return;
+  const H = L.grid.length, W = L.grid[0].length, z = zoom;
+  cv.width = W * z; cv.height = H * z;
+  ctx.fillStyle = '#2a3550'; ctx.fillRect(0, 0, cv.width, cv.height);
+  // エリア
+  (L.areas || []).forEach((a, i) => { ctx.fillStyle = i % 2 ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.06)'; ctx.fillRect(a.x0 * z, 0, (a.x1 - a.x0) * z, cv.height); ctx.fillStyle = '#ffffff60'; ctx.font = `${Math.max(10, z * 0.7)}px sans-serif`; ctx.fillText(a.name + (a.tall ? '（縦）' : ''), a.x0 * z + 4, z); });
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const c = L.grid[y][x];
+    if (reach && reach[y * W + x]) { ctx.fillStyle = 'rgba(120,255,120,0.18)'; ctx.fillRect(x * z, y * z, z, z); }
+    const col = TILE_COL[c];
+    if (c === 'o') { ctx.fillStyle = '#fd3'; ctx.beginPath(); ctx.arc(x * z + z / 2, y * z + z / 2, z * 0.25, 0, 7); ctx.fill(); continue; }
+    if (!col) continue;
+    ctx.fillStyle = col;
+    if ('/\\ab cd><'.includes(c) && c !== ' ') {
+      ctx.beginPath();
+      const X = x * z, Y = y * z;
+      const hgt = { '/': [0, 1], '<': [0, 1], '\\': [1, 0], '>': [1, 0], a: [0, .5], b: [.5, 1], c: [1, .5], d: [.5, 0] }[c];
+      ctx.moveTo(X, Y + z); ctx.lineTo(X, Y + z - hgt[0] * z); ctx.lineTo(X + z, Y + z - hgt[1] * z); ctx.lineTo(X + z, Y + z); ctx.fill();
+    } else if (c === '-') ctx.fillRect(x * z, y * z, z, Math.max(2, z / 4));
+    else if (c === '^') { ctx.beginPath(); ctx.moveTo(x * z, y * z + z); ctx.lineTo(x * z + z / 2, y * z + z * 0.3); ctx.lineTo(x * z + z, y * z + z); ctx.fill(); }
+    else { ctx.fillRect(x * z, y * z, z, z); if (c === 'H') { ctx.strokeStyle = '#fff8'; ctx.strokeRect(x * z + 1, y * z + 1, z - 2, z - 2); } }
+  }
+  // 到達の道
+  if (reach && reach.path) { ctx.strokeStyle = '#7f7'; ctx.lineWidth = 2; ctx.beginPath(); reach.path.forEach(([x, y], i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, x * z + z / 2, y * z + z / 2)); ctx.stroke(); }
+  // エンティティ
+  ctx.font = `${Math.max(9, z * 0.6)}px sans-serif`;
+  for (const e of L.entities) {
+    if (e.type === 'bossArena') { ctx.strokeStyle = '#f0f'; ctx.lineWidth = 2; ctx.strokeRect(e.x0 * z, e.y0 * z, (e.x1 - e.x0 + 1) * z, (e.y1 - e.y0 + 1) * z); ctx.fillStyle = '#f0f'; ctx.fillText('BOSS ' + e.boss, e.x0 * z + 4, e.y0 * z + z); continue; }
+    if (e.type === 'cameraZone') { ctx.strokeStyle = '#a0f'; ctx.setLineDash([4, 3]); ctx.strokeRect(e.x * z, e.y * z, e.w * z, e.h * z); ctx.setLineDash([]); continue; }
+    if (['waterLevel', 'risingLava', 'windZone', 'lightningZone', 'autoScroll'].includes(e.type)) {
+      const col = { waterLevel: '#4af', risingLava: '#f62', windZone: '#cdf', lightningZone: '#ff4', autoScroll: '#fa0' }[e.type];
+      ctx.strokeStyle = col; ctx.lineWidth = 1; const y = e.yHigh ?? e.y ?? 1; ctx.strokeRect(e.x0 * z, y * z, (e.x1 - e.x0) * z, ((e.yLow ?? y + 2) - y + 1) * z); ctx.fillStyle = col; ctx.fillText(e.type + (e.id ? ' ' + e.id : ''), e.x0 * z + 2, y * z - 2); continue;
+    }
+    if (!Number.isFinite(e.x)) continue;
+    const isPlat = PLATFORM_TYPES.includes(e.type) && !['steamVent', 'bouncer'].includes(e.type);
+    if (isPlat) {
+      const w = e.w || (e.type === 'gondola' ? 3 : 2);
+      ctx.fillStyle = '#0ff8'; ctx.fillRect(e.x * z, e.y * z, w * z, z / 3);
+      let x2 = e.x2 ?? (e.x + (e.dx || 0)), y2 = e.y2 ?? (e.y + (e.dy || 0));
+      if (e.type === 'boat' || e.type === 'festivalFloat') y2 = e.y;
+      ctx.strokeStyle = '#0ff8'; ctx.setLineDash([3, 3]); ctx.strokeRect(x2 * z, y2 * z, w * z, z / 3); ctx.beginPath(); ctx.moveTo(e.x * z, e.y * z); ctx.lineTo(x2 * z, y2 * z); ctx.stroke(); ctx.setLineDash([]);
+    }
+    const col = ENT_COL[e.type] || (ENEMY_TYPES.includes(e.type) ? '#f55' : '#0ff');
+    ctx.fillStyle = col; ctx.globalAlpha = e === sel ? 1 : 0.85;
+    ctx.fillRect(e.x * z + z * 0.15, e.y * z + z * 0.15, z * 0.7, z * 0.7);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#000'; const lab = { start: 'S', sarubobo: '猿' + e.index, checkpoint: 'C' + e.index, sign: '札', skewer: '串', heart: '♥', decor: '飾' }[e.type] || (e.kind || e.type).slice(0, 2);
+    if (z >= 12) ctx.fillText(lab, e.x * z + 2, e.y * z + z * 0.75);
+    if (e === sel) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(e.x * z, e.y * z, z, z); }
+  }
+}
+
+// パレット
+for (const [ch, name] of Object.entries(TILE_NAME)) {
+  const b = document.createElement('button'); b.innerHTML = `<span class="sw" style="background:${TILE_COL[ch] || (ch === 'o' ? '#fd3' : 'transparent')}"></span>${name}`; b.title = `'${ch}'`;
+  b.onclick = () => { tool = { kind: 'tile', ch }; mark(b); }; $('palT').append(b);
+  if (ch === '#') b.classList.add('on');
+}
+for (const t of Object.keys(ENT_TEMPLATES)) {
+  const b = document.createElement('button'); b.textContent = t; b.onclick = () => { tool = { kind: 'ent', type: t }; mark(b); }; $('palE').append(b);
+}
+function mark(b) { document.querySelectorAll('.pal button').forEach((x) => x.classList.remove('on')); b.classList.add('on'); }
+
+const cell = (ev) => { const r = cv.getBoundingClientRect(); return [Math.floor((ev.clientX - r.left) / zoom), Math.floor((ev.clientY - r.top) / zoom)]; };
+const entAt = (x, y) => [...L.entities].reverse().find((e) => Number.isFinite(e.x) && e.x === x && e.y === y && e.type !== 'cameraZone');
+let painting = false;
+cv.addEventListener('contextmenu', (ev) => ev.preventDefault());
+cv.addEventListener('mousedown', (ev) => {
+  if (!L) return;
+  const [x, y] = cell(ev);
+  if (ev.button === 2) { const e = entAt(x, y); if (e) { snapshot(); L.entities.splice(L.entities.indexOf(e), 1); sel = null; draw(); } return; }
+  const hit = entAt(x, y);
+  if (hit && (tool.kind !== 'ent' || ev.shiftKey)) { sel = hit; $('selJson').value = JSON.stringify(hit); draw(); return; }
+  snapshot();
+  if (tool.kind === 'tile') { painting = true; paint(x, y); }
+  else {
+    const e = { type: tool.type, x, y, ...JSON.parse(JSON.stringify(ENT_TEMPLATES[tool.type])) };
+    for (const k of REL[tool.type] || []) e[k] = (k[0] === 'x' ? x : y) + e[k] * (k[0] === 'y' ? -1 : 1);
+    if (tool.type === 'sarubobo' || tool.type === 'checkpoint') { const used = L.entities.filter((o) => o.type === tool.type).map((o) => o.index); let i = 0; while (used.includes(i)) i++; e.index = i; }
+    if (tool.type === 'start') L.entities = L.entities.filter((o) => o.type !== 'start');
+    L.entities.push(e); sel = e; $('selJson').value = JSON.stringify(e); draw();
+  }
+});
+cv.addEventListener('mousemove', (ev) => {
+  if (!L) return;
+  const [x, y] = cell(ev);
+  const c = L.grid[y] && L.grid[y][x];
+  $('hover').textContent = `x=${x} y=${y} '${c ?? ''}'` + ((L.areas || []).filter((a) => x >= a.x0 && x < a.x1).map((a) => ' ' + a.name).join(''));
+  if (painting) paint(x, y);
+});
+addEventListener('mouseup', () => { painting = false; });
+function paint(x, y) { if (L.grid[y] && L.grid[y][x] !== undefined && L.grid[y][x] !== tool.ch) { L.grid[y][x] = tool.ch; reach = null; draw(); } }
+
+function check() {
+  const r = validateLevel(toJSON());
+  const o = $('out'); o.innerHTML = '';
+  const add = (cls, t) => { const d = document.createElement('div'); d.className = cls; d.textContent = t; o.append(d); };
+  add(r.errors.length ? 'e' : 'o', r.errors.length ? `エラー ${r.errors.length} 件` : `エラーなし（${r.stats.w}×${r.stats.h}、敵 ${r.stats.enemies}、コイン ${r.stats.coins}）`);
+  r.errors.forEach((e) => add('e', '✗ ' + e)); r.warnings.forEach((w) => add('w', '△ ' + w));
+  if ($('cReach').checked) { reach = r.stats.reachedMask; reach.path = r.stats.path; } else reach = null;
+  draw();
+  return r;
+}
+$('bCheck').onclick = check;
+$('cReach').onchange = check;
+$('bSave').onclick = () => {
+  const r = check();
+  if (r.errors.length && !confirm(`エラーが ${r.errors.length} 件あります。それでも保存しますか？`)) return;
+  const d = toJSON();
+  const txt = '{\n' + Object.keys(d).map((k) => {
+    const v = d[k];
+    if (k === 'tiles') return ` "tiles": [\n${v.map((r) => '  ' + JSON.stringify(r)).join(',\n')}\n ]`;
+    if (k === 'entities' || k === 'areas') return ` "${k}": [\n${v.map((e) => '  ' + JSON.stringify(e)).join(',\n')}\n ]`;
+    return ` ${JSON.stringify(k)}: ${JSON.stringify(v)}`;
+  }).join(',\n') + '\n}\n';
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], { type: 'application/json' })); a.download = `stage${d.id}.json`; a.click();
+};
+$('fOpen').onchange = (ev) => { const f = ev.target.files[0]; if (!f) return; f.text().then((t) => { load(JSON.parse(t)); check(); }); };
+$('bNew').onclick = () => { const w = +prompt('幅（タイル）', '280') || 280, h = +prompt('高さ（行）', '18') || 18; load(blank(w, h)); };
+$('sZoom').onchange = (ev) => { zoom = +ev.target.value; draw(); };
+$('bUndo').onclick = () => { const s = undo.pop(); if (s) { const keep = undo; load(JSON.parse(s)); undo = keep; } };
+addEventListener('keydown', (ev) => { if ((ev.ctrlKey || ev.metaKey) && ev.key === 'z') { ev.preventDefault(); $('bUndo').onclick(); } if (ev.key === 'Delete' && sel) { snapshot(); L.entities.splice(L.entities.indexOf(sel), 1); sel = null; draw(); } });
+$('bApply').onclick = () => { if (!sel) return; try { const v = JSON.parse($('selJson').value); snapshot(); for (const k of Object.keys(sel)) delete sel[k]; Object.assign(sel, v); draw(); } catch (e) { alert('JSON が正しくありません: ' + e.message); } };
+$('bMeta').onclick = () => { try { const v = JSON.parse($('meta').value); snapshot(); Object.assign(L, v); draw(); } catch (e) { alert('JSON が正しくありません: ' + e.message); } };
+load(blank());
+</script>
+</body></html>

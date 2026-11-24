@@ -59,6 +59,8 @@ export class Entity {
   // 戻り値: 当たったら true
   damage(dmg, source) {
     if (this.invuln > 0 || !this.alive) return false;
+    // 通常の敵は整数ダメージ（パワーの倍率で小数になっても攻撃回数が増えないように）。ボスは倍率どおり
+    if (!this.boss) dmg = Math.max(1, Math.round(dmg));
     this.hp -= dmg;
     this.flash = 0.12;
     if (this.hp <= 0) this.die(source);
