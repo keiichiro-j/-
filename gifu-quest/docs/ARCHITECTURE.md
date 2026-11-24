@@ -31,7 +31,7 @@ drawSprite(ctx, name, frame, x, y, { flip, sx, sy, rot, alpha })   // (x,y) が�
 ### スプライト名の約束
 | 名前 | 大きさ・基準点 | コマ |
 |---|---|---|
-| `hero_<id>_<anim>` id: leaf, minamo, gen, haku, sarubobo | 64×64, ox=32, oy=54（足元が下端から10ドット上） | HERO_ANIMS（下表） |
+| `hero_<id>_<anim>` id: leaf, minamo, gen, haku, sarubobo | 64×64, ox=32, oy=54（基準点が足元。当たり箱の下端に描く） | HERO_ANIMS（下表） |
 | `enemy_<kind>_<anim>` | 自由。基準点は足元中央 | 自由（敵担当と相談。下の敵一覧） |
 | `boss_<name>_<anim>` | 自由 | ボス担当 |
 | `item_coin` 20×24, `item_sarubobo` 28×32, `item_skewer` 30×30, `item_heart` 24×24, `item_orb_<stage>` 36×36 | 足元中央 | coin は8コマ回転, orb は8コマ |
