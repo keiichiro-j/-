@@ -26,6 +26,7 @@ export function defaultSave() {
     seenOpening: false,
     seenEnding: false,
     seenSigns: [],                     // 読んだ看板の id（図鑑）
+    seenHints: {},                     // 見終わった操作の案内（ステージ1の吹き出し）
     defeated: [],                      // 倒した敵の種類（図鑑）
     noMissBoss: {},                    // ノーミスで倒したボス
     weapons: {},                       // 持っている武器 { w01: { lv: 1 }, ... }（福引き）
@@ -118,6 +119,7 @@ export function migrate(d) {
   } else S.keymap = null;
   // さるぼぼ全18個そろっているのに解放されていない古いセーブ
   if (countSarubobo(out.sarubobo) >= 18 && CHARS.sarubobo && !out.unlocked.includes('sarubobo')) out.unlocked.push('sarubobo');
+  out.seenHints = obj(out.seenHints);
   out.version = SAVE_VERSION;
   delete out.clear; delete out.best;
   return out;

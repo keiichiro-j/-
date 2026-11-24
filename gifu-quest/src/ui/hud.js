@@ -313,7 +313,7 @@ export function drawHud(ctx, W, vw, vh, scene) {
     ctx.fillStyle = COL.kinLight;
     for (const m of marks) { const mx = bx + bw * (typeof m === 'number' && m <= 1 ? m : (m / b.maxHp)); ctx.fillRect(mx - 1, by + 20, 2, 20); }
     // 段階が変わった：バーの下に「怒った！」の札
-    if (phaseT > 0) {
+    if (phaseT > 0 && !b.dying) {
       const k = Math.min(1, (1.2 - phaseT) / 0.15) * Math.min(1, phaseT / 0.3);
       S.phase.alpha = k * bossShown;
       drawText(ctx, PHASE_TEXT[Math.min(PHASE_TEXT.length - 1, b.phase)] || '', vw / 2, by + 56 + (1 - k) * 8, S.phase);
@@ -346,12 +346,29 @@ export function drawHud(ctx, W, vw, vh, scene) {
   const low = p.hearts === 1 && p.maxHearts > 1 && W.state === 'play' ? 0.16 + 0.1 * Math.sin(now * 5) : 0;
   const va = Math.max(hurtFlash * 0.6, low);
   if (va > 0.01) {
+    // 1/4 の大きさの画像に1回だけ焼いて、引き伸ばして重ねる（全画面の放射グラデーションを毎フレーム塗ると重い）
     if (!VIG || vigW !== vw || vigH !== vh) {
       vigW = vw; vigH = vh;
-      VIG = ctx.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.42, vw / 2, vh / 2, Math.hypot(vw, vh) * 0.55);
-      VIG.addColorStop(0, 'rgba(200,20,10,0)'); VIG.addColorStop(0.6, 'rgba(200,20,10,0.45)'); VIG.addColorStop(1, 'rgba(160,0,0,0.95)');
+      const w = Math.ceil(vw / 4), h = Math.ceil(vh / 4);
+      VIG = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h) : Object.assign(document.createElement('canvas'), { width: w, height: h });
+      // ふちからの距離で濃さを決める（帯の内側はちょうど透明になるので、帯だけ描けばよい）
+      const c = VIG.getContext('2d'), img = c.createImageData(w, h), D = img.data;
+      const bw = Math.ceil(w * 0.2), bh = Math.ceil(h * 0.24);
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const ex = Math.max(0, 1 - Math.min(x, w - 1 - x) / bw), ey = Math.max(0, 1 - Math.min(y, h - 1 - y) / bh);
+        const k = Math.min(1, Math.hypot(ex, ey)), a = k * k * (0.55 + 0.4 * k), i = (y * w + x) * 4;
+        D[i] = 190 - 40 * k; D[i + 1] = 16; D[i + 2] = 8; D[i + 3] = a * 255;
+      }
+      c.putImageData(img, 0, 0);
     }
-    ctx.globalAlpha = va; ctx.fillStyle = VIG; ctx.fillRect(0, 0, vw, vh); ctx.globalAlpha = 1;
+    // 真ん中は透明なので、ふちの4本の帯だけ描く（塗る面積を約1/3に）
+    const w4 = VIG.width, h4 = VIG.height, bx = Math.ceil(w4 * 0.2), by = Math.ceil(h4 * 0.24), BX = bx * vw / w4, BY = by * vh / h4;
+    ctx.globalAlpha = va;
+    ctx.drawImage(VIG, 0, 0, w4, by, 0, 0, vw, BY);
+    ctx.drawImage(VIG, 0, h4 - by, w4, by, 0, vh - BY, vw, BY);
+    ctx.drawImage(VIG, 0, by, bx, h4 - by * 2, 0, BY, BX, vh - BY * 2);
+    ctx.drawImage(VIG, w4 - bx, by, bx, h4 - by * 2, vw - BX, BY, BX, vh - BY * 2);
+    ctx.globalAlpha = 1;
   }
   // ---- 一時表示 ----
   let ty = 120;

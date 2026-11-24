@@ -155,7 +155,7 @@ export const touch = {
     ctx.fillStyle = st.down ? COL.kin : 'rgba(243,234,215,0.75)';
     ctx.beginPath(); ctx.moveTo(P.cx - 12 * P.s, P.cy + 24 * P.s); ctx.lineTo(P.cx + 12 * P.s, P.cy + 24 * P.s); ctx.lineTo(P.cx, P.cy + 38 * P.s); ctx.closePath(); ctx.fill();
     // 上（看板を読む）の目印：小さめ
-    ctx.fillStyle = st.up ? COL.kin : 'rgba(243,234,215,0.5)';
+    ctx.fillStyle = st.up ? COL.kin : 'rgba(243,234,215,0.7)';
     ctx.beginPath(); ctx.moveTo(P.cx - 9 * P.s, P.cy - 36 * P.s); ctx.lineTo(P.cx + 9 * P.s, P.cy - 36 * P.s); ctx.lineTo(P.cx, P.cy - 47 * P.s); ctx.closePath(); ctx.fill();
     // 丸ボタン
     this._round(ctx, B.jump, st.jump, sel === 'jump', 'ジャンプ');

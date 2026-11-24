@@ -216,3 +216,8 @@ w.events.emit/on（'enemyDefeated','stomp','coin','bossStart','bossDefeated','st
 - stage.js の finish が `progress.stageCleared(...)` を呼ぶ。通知は `toast.draw(ctx, vw, vh, y?, left?)` を各画面の draw の最後に
 - 腕試しは levels/stage91〜96.json を順に使う（World の opts.hearts でハートを引き継ぐ）。**アリーナのファイル名を変えるときは src/data/bossrush.json も**
 - テスト用：`window.__GQ__.progress`, `window.__GQ__.toast`
+
+## 手触り・案内（品質向上）
+- エンティティ `hint`：spec { id: move|jump|attack|dash|drop|sign, range, dy, lift }。その場所に来ると操作の吹き出しを出す（PCはキー設定どおりのキー名、スマホはボタンの絵）。見終わると save.data.seenHints[id]=true で次から出ない
+- タッチのパッドを上へスライドすると ↑（看板を読む）
+- heroAnchor(id, anim, f) は hand, neck, hip, head, hr, ang, t, air を返す。武器の向きは顔にかからない角度を holdFor（art/heroGear.js）が選ぶ

@@ -20,7 +20,7 @@ function shapePts(kind) {
 // 持ち方：元の角度で武器が顔にかかるコマ（勝利ポーズで腕を上げた時など）は、顔から離れる向きへ回す。
 // どう回してもかかる時は体の後ろに描く。コマと武器の形ごとに1回だけ計算して覚えておく
 const HOLD = new Map();
-function holdFor(id, anim, f, P, kind, ws) {
+export function holdFor(id, anim, f, P, kind, ws) {
   const key = id + '|' + anim + '|' + f + '|' + kind;
   let h = HOLD.get(key);
   if (h) return h;
