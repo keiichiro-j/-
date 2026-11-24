@@ -42,7 +42,8 @@ events.on('checkpoint', () => hudToast('中間地点　ハート全回復'));
 events.on('stageEnter', () => { for (const p of POPS) p.on = false; for (const t of TOASTS) t.on = false; bossShown = 0; trail = 1; });
 // 図鑑：倒した敵の種類を記録（保存はステージ終了時）
 events.on('enemyDefeated', (e) => {
-  const k = e.kind || e.type;
+  // 図鑑に載るのは kind を持つ敵だけ（ボスの手下や分身は数えない）
+  const k = e.kind;
   if (!k) return;
   const d = save.data.defeated;
   if (!d.includes(k)) d.push(k);
