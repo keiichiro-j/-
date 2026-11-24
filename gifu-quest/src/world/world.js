@@ -16,7 +16,7 @@ import { createEnv } from '../systems/env.js';
 import { Lighting } from '../gfx/lighting.js';
 import { drawPostFx } from '../gfx/postfx.js';
 
-const LIGHT_PAD = 120;
+const LIGHT_PAD = 0;
 // ステージ1つ分の実行時の世界。シーン（scenes/stage.js）が持つ。API は docs/ARCHITECTURE.md
 export class World {
   constructor(levelData, charId, opts = {}) {
