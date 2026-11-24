@@ -21,7 +21,7 @@ const S = {
 };
 
 // ---- 一時表示（NEW・さるぼぼ取得など）と得点ポップ（使い回しの配列） ----
-const POPS = []; for (let i = 0; i < 16; i++) POPS.push({ on: false, x: 0, y: 0, t: 0, text: '' });
+const POPS = []; for (let i = 0; i < 16; i++) POPS.push({ on: false, x: 0, y: 0, t: 0, text: '', sub: '', lvl: 0 });
 const TOASTS = []; for (let i = 0; i < 4; i++) TOASTS.push({ on: false, t: 0, text: '', life: 1.8 });
 const POP_TEXT = ['', '+1', '+2', '+4', '+8'];
 let lastNow = 0;
@@ -29,17 +29,30 @@ export function hudToast(text, life = 1.8) {
   let tt = TOASTS.find((q) => !q.on) || TOASTS[0];
   tt.on = true; tt.t = 0; tt.text = text; tt.life = life;
 }
-function pop(x, y, text) {
+function pop(x, y, text, lvl = 0, sub = '') {
   const p = POPS.find((q) => !q.on) || POPS[0];
-  p.on = true; p.x = x; p.y = y; p.t = 0; p.text = text;
+  p.on = true; p.x = x; p.y = y; p.t = 0; p.text = text; p.lvl = lvl; p.sub = sub;
 }
+// 得点ポップ：連続踏みつけは「×2」「×4」…を大きく、段階ごとに色を強く（金→橙→朱→虹）
+const MULT_TEXT = ['', '+1', '×2', '×4', '×8'];
+const CHAIN_SUB = ['', '', '2連続！', '3連続！', '4連続！'];
+let lastStompAt = -1;
 events.on('stomp', (e) => {
   const lvl = Math.min(4, Math.round(Math.log2(e.points || 1)) + 1);
-  pop(e.x, e.y - 10, e.chain >= 2 ? `${e.chain}連続 ${POP_TEXT[lvl]}` : POP_TEXT[lvl]);
+  lastStompAt = performance.now();
+  pop(e.x, e.y - 14, MULT_TEXT[lvl], lvl, e.chain >= 2 ? (e.chain <= 4 ? CHAIN_SUB[e.chain] : `${e.chain}連続！`) : '');
 });
+// 技・体当たりで倒した時も「+1」（踏みつけと同じ瞬間なら重ねない）
+events.on('enemyDefeated', (e) => { if (e.x != null && performance.now() - lastStompAt > 120) pop(e.x, e.y - 18, '+1', 1); });
+// コインの数字が跳ねる・被弾の赤いふち
+let coinBump = 0, hurtFlash = 0, lastHearts = -1, heartShake = 0;
+const HEART_FX = []; for (let i = 0; i < 12; i++) HEART_FX.push({ t: -1, kind: 0 });   // kind 1=減った 2=増えた
+events.on('coin', () => { coinBump = 1; });
+events.on('playerHurt', () => { hurtFlash = 1; });
 events.on('sarubobo', (e) => hudToast(`さるぼぼ ${(e.index ?? 0) + 1}つ目！`));
 events.on('checkpoint', () => hudToast('中間地点　ハート全回復'));
-events.on('stageEnter', () => { for (const p of POPS) p.on = false; for (const t of TOASTS) t.on = false; bossShown = 0; trail = 1; });
+events.on('stageEnter', () => { for (const p of POPS) p.on = false; for (const t of TOASTS) t.on = false; bossShown = 0; trail = 1; trailWait = 0; bossHitT = 0; lastBossHp = -1; lastPhase = 0; phaseT = 0; coinBump = 0; hurtFlash = 0; lastHearts = -1; heartShake = 0; for (const h of HEART_FX) h.t = -1; });
+events.on('bossDefeated', (e) => { const b = e && e.boss; hudToast(b && b.name ? `${b.name}を たおした！` : 'たおした！', 2.2); });
 // 図鑑：倒した敵の種類を記録（保存はステージ終了時）
 events.on('enemyDefeated', (e) => {
   // 図鑑に載るのは kind を持つ敵だけ（ボスの手下や分身は数えない）
@@ -49,17 +62,21 @@ events.on('enemyDefeated', (e) => {
   if (!d.includes(k)) d.push(k);
 });
 
-let bossShown = 0, trail = 1;
+let bossShown = 0, trail = 1, trailWait = 0, bossHitT = 0, lastBossHp = -1, lastPhase = 0, phaseT = 0;
 
 // 顔アイコン（hero_<id>_idle の頭を丸く切り抜く）
+// グラデーションは原点・大きさ1で1回だけ作り、平行移動と拡大で使い回す（毎フレーム作らない）
+let FACE_G = null;
+const FACE_O = { sx: 2.0, sy: 2.0 };
 function drawFace(ctx, id, cx, cy, r, t) {
+  if (!FACE_G) { FACE_G = ctx.createRadialGradient(0, -0.4, 0.07, 0, 0, 1); FACE_G.addColorStop(0, '#f8efd8'); FACE_G.addColorStop(1, '#c9b48a'); }
   ctx.save();
-  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  const g = ctx.createRadialGradient(cx, cy - r * 0.4, 2, cx, cy, r);
-  g.addColorStop(0, '#f8efd8'); g.addColorStop(1, '#c9b48a');
-  ctx.fillStyle = g; ctx.fill();
+  ctx.translate(cx, cy); ctx.scale(r, r);
+  ctx.beginPath(); ctx.arc(0, 0, 1, 0, Math.PI * 2);
+  ctx.fillStyle = FACE_G; ctx.fill();
   ctx.clip();
-  drawSprite(ctx, `hero_${id}_idle`, (t * 6) | 0, cx, cy + r * 2.35, { sx: 2.0, sy: 2.0 });
+  ctx.scale(1 / r, 1 / r); ctx.translate(-cx, -cy);   // 切り抜きはそのまま、座標だけ元に戻す
+  drawSprite(ctx, `hero_${id}_idle`, (t * 6) | 0, cx, cy + r * 2.35, FACE_O);
   ctx.restore();
 }
 export { drawFace };
@@ -74,17 +91,25 @@ function heartPath(ctx, x, y, s) {
   ctx.bezierCurveTo(x + s * 0.55, y - s * 0.15, x, y - s * 0.1, x, y + s * 0.35);
   ctx.closePath();
 }
-export function drawHeart(ctx, x, y, s, full, beat = 0) {
+// 塗りのグラデーションは大きさごとに1回だけ作る（ハートの左上を原点にした座標）
+const HEART_G = new Map();
+function heartGrad(ctx, s) {
+  let g = HEART_G.get(s);
+  if (!g) { g = ctx.createLinearGradient(0, 0, 0, s); g.addColorStop(0, '#ff6b5a'); g.addColorStop(1, '#b8241a'); HEART_G.set(s, g); }
+  return g;
+}
+// beat: 拡大の量、flash: 白く光らせる量（0..1）、alpha: 薄さ
+export function drawHeart(ctx, x, y, s, full, beat = 0, flash = 0, alpha = 1) {
   const k = 1 + beat;
-  ctx.save(); ctx.translate(x, y + s * 0.4); ctx.scale(k, k); ctx.translate(-x, -y - s * 0.4);
-  heartPath(ctx, x, y, s);
+  ctx.save(); ctx.translate(x, y + s * 0.4); ctx.scale(k, k); ctx.translate(0, -s * 0.4);
+  if (alpha !== 1) ctx.globalAlpha *= alpha;
+  heartPath(ctx, 0, 0, s);
   ctx.lineWidth = 3; ctx.strokeStyle = COL.sumi; ctx.stroke();
   if (full) {
-    const g = ctx.createLinearGradient(0, y, 0, y + s);
-    g.addColorStop(0, '#ff6b5a'); g.addColorStop(1, '#b8241a');
-    ctx.fillStyle = g; ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.ellipse(x - s * 0.25, y + s * 0.2, s * 0.1, s * 0.07, -0.6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = heartGrad(ctx, s); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.ellipse(-s * 0.25, s * 0.2, s * 0.1, s * 0.07, -0.6, 0, Math.PI * 2); ctx.fill();
   } else { ctx.fillStyle = 'rgba(40,30,30,0.6)'; ctx.fill(); }
+  if (flash > 0) { ctx.globalAlpha *= flash; ctx.fillStyle = '#ffffff'; heartPath(ctx, 0, 0, s); ctx.fill(); }
   ctx.restore();
 }
 
