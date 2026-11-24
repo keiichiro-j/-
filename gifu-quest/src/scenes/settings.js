@@ -80,7 +80,8 @@ export const settingsScene = {
   activate(row) {
     if (row.type === 'back') return this.back();
     if (row.type === 'opt') return this.stepOpt(row, 1);
-    if (row.key === 'layout') { this.mode = 'layout'; this.L = structuredClone(this.S.touchLayout || DEFAULT_TOUCH_LAYOUT); this.part = 0; audio.sfx('confirm'); }
+    // 配置の編集へ。項目を押した指（マウス）がまだ下りていても、それで部品をつかまないように wasDown を今の状態にする
+    if (row.key === 'layout') { this.mode = 'layout'; this.L = structuredClone(this.S.touchLayout || DEFAULT_TOUCH_LAYOUT); this.part = 0; this.dragging = null; this.wasDown = touch.pointer.down; audio.sfx('confirm'); }
     if (row.key === 'keys') { this.mode = 'keys'; this.ksel = 0; audio.sfx('confirm'); }
   },
   update(dt) {

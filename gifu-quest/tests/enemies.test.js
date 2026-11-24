@@ -95,6 +95,32 @@ describe('敵の動き', () => {
     expect(e.shielded({}, back)).toBe(false);
     expect(e.hp).toBe(2);
   });
+  it('盾：背後のすぐ近くからの一閃・後ろへ飛ぶ弾は防がない（向きは主人公の位置・弾の進む向きで決める）', () => {
+    const w = fakeWorld(rows);
+    const e = make(w, { type: 'shielder', kind: 'kappa', x: 7, y: 2, face: -1 });
+    // 主人公は背後（右）すぐ近くで左を向いて一閃：当たり箱の中心は盾の前に出る
+    const slash = { p: { cx: e.cx + 20 }, x: e.cx + 26 - 76, y: e.y - 10, w: 76, h: 60 };
+    expect(e.shielded(slash, slash)).toBe(false);
+    const slashFront = { p: { cx: e.cx - 20 }, x: e.cx - 26, y: e.y - 10, w: 76, h: 60 };
+    expect(e.shielded(slashFront, slashFront)).toBe(true);
+    const shotFromBack = { vx: -640, x: e.cx - 10, y: e.y + 10, w: 20, h: 14 };
+    expect(e.shielded(shotFromBack, shotFromBack)).toBe(false);
+    const shotFromFront = { vx: 640, x: e.cx - 10, y: e.y + 10, w: 20, h: 14 };
+    expect(e.shielded(shotFromFront, shotFromFront)).toBe(true);
+  });
+  it('鵜飼船：途中でミスして始点側に戻されたら、すぐ始点に戻る', () => {
+    const w = fakeWorld(['................................................', '................................................', '................................................', '################################################']);
+    const b = make(w, { type: 'boat', x: 2, y: 2, w: 3, x2: 40, speed: 2 });
+    Object.assign(w.player, { platform: b, onGround: true, cx: b.cx });
+    step(w, b, 4);
+    expect(b.state).toBe('go');
+    expect(b.u).toBeGreaterThan(0.1);
+    Object.assign(w.player, { platform: null, onGround: false, cx: 1 * TILE });
+    w.stats.misses++;
+    step(w, b, 0.1);
+    expect(b.state).toBe('wait');
+    expect(b.x).toBeCloseTo(2 * TILE, 0);
+  });
   it('動く床：往復して元の位置に戻る', () => {
     const w = fakeWorld(rows);
     const e = make(w, { type: 'movingPlatform', x: 2, y: 1, w: 2, dx: 4, speed: 2 });

@@ -64,4 +64,19 @@ describe('gacha', () => {
     expect(weaponEffects('w28', 5, 'minamo').cd).toBeLessThanOrEqual(0.5);
     expect(weaponEffects('w22', 5, 'haku').jmp).toBeLessThanOrEqual(0.1);
   });
+  it('天井は50回目ちょうど（画面の「あと N回」と一致）', () => {
+    const d = fresh(1e9), low = () => 0.01;
+    for (let i = 1; i < PITY; i++) {
+      expect(PITY - d.gacha.pity).toBe(PITY - i + 1);   // 画面表示：あと何回で確定
+      expect(pull(d, 'single', low).results[0].rarity).toBe(1);
+    }
+    expect(PITY - d.gacha.pity).toBe(1);
+    expect(pull(d, 'single', low).results[0].rarity).toBe(4);
+    expect(d.gacha.pity).toBe(0);
+  });
+  it('コインがちょうど足りれば引けて0枚になる', () => {
+    const a = fresh(COST.single); expect(pull(a, 'single', () => 0.5).ok).toBe(true); expect(a.coins).toBe(0);
+    const b = fresh(COST.ten); expect(pull(b, 'ten', () => 0.5).ok).toBe(true); expect(b.coins).toBeGreaterThanOrEqual(0);
+    expect(pull(fresh(COST.single - 1), 'single').ok).toBe(false);
+  });
 });

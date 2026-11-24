@@ -233,7 +233,7 @@ registerEntity('spiky', SpikyEnemy);
 
 // ---- 跳ねる：主人公に向かって跳ぶ（着地→待ち→しゃがむ予告→跳ぶ）----
 class Hopper extends Enemy {
-  constructor(w, s) { super(w, s, 'hopper'); this.state = 'idle'; this.timer = 0.6 + ((s.x * 7) % 5) * 0.12; this.dir = this.face; }
+  constructor(w, s) { super(w, s, 'hopper'); this.anim = 'idle'; this.state = 'idle'; this.timer = 0.6 + ((s.x * 7) % 5) * 0.12; this.dir = this.face; }
   update(dt) {
     this.t += dt;
     const w = this.world, p = w.player, K = this.K;
@@ -328,6 +328,7 @@ registerEntity('flyer', Flyer);
 class Thrower extends Enemy {
   constructor(w, s) {
     super(w, s, 'thrower');
+    this.anim = 'idle';   // 投げるに walk の絵はない（最初の更新の前に描かれると未登録の絵になっていた）
     this.state = 'idle'; this.cd = 1.0 + ((s.x * 3) % 7) * 0.1;
     this.ammo = AMMO[s.ammo] ? s.ammo : this.K.ammo;
     this.timer = 0;

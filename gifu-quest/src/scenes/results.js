@@ -21,7 +21,7 @@ const ST = {
   sub: { size: 14, color: '#7a5a3a', align: 'right', baseline: 'middle' },
   stamp: { size: 22, color: '#fff4e0', align: 'center', baseline: 'middle', serif: true },
   toast: { size: 22, color: '#fff8e6', stroke: COL.shuDark, strokeW: 5, align: 'center', baseline: 'middle', shadow: true },
-  gold: { size: 15, color: COL.kinDark, align: 'left', baseline: 'middle' },
+  goldR: { size: 15, color: COL.kinDark, align: 'right', baseline: 'middle' },
 };
 const DEMO = { stage: 1, stats: { coins: 48, sarubobo: [true, false, true], hits: 2, misses: 1, time: 263.4, enemies: 12 }, newBest: true, prevBest: 280.2 };
 const ROW_T = [0.5, 1.3, 2.0, 2.7];   // 各行の出る時刻
@@ -99,7 +99,8 @@ export const resultsScene = {
       drawText(ctx, fmtTime(this.count(s.time, 0)), vx, rowY(0), ST.val);
       if (t > ROW_T[0] + 0.8) {
         if (p.newBest && p.stage !== 'test') this.stamp(ctx, vx - 180, rowY(0) - 2, t - ROW_T[0] - 0.8, 'NEW');
-        if (s.time <= this.target) { ctx.fillStyle = COL.kin; star(ctx, rx + 140, rowY(0), 10); drawText(ctx, '目標達成', rx + 154, rowY(0), ST.gold); }
+        // 目標達成の印はタイムの下の段に（幅の狭い画面で NEW の判子と重ならない）
+        if (s.time <= this.target) { ctx.fillStyle = COL.kin; star(ctx, vx - 70, rowY(0) + 24, 8); drawText(ctx, '目標達成', vx, rowY(0) + 24, ST.goldR); }
         else drawText(ctx, '目標 ' + fmtTime(this.target), vx, rowY(0) + 24, ST.sub);
       }
       line(ctx, rx, vx, rowY(0) + 34);

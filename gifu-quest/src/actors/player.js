@@ -34,14 +34,15 @@ export class Player {
     this.onGround = false;
     // 装備した武器（福引き）の効果。docs/gacha.md
     const wp = world.weapon;
-    this.weaponId = wp ? wp.id : null;
+    // データに無い id（古いセーブなど）は装備なし扱い
+    this.weaponId = wp && weaponById(wp.id) ? wp.id : null;
     this.wfx = weaponEffects(this.weaponId, wp ? wp.lv : 1, charId);
     const F = this.wfx;
     this.stats.power *= 1 + F.atk;
     this.stats.walk *= 1 + F.spd; this.stats.dash *= 1 + F.spd;
     this.stats.jump *= 1 + F.jmp;
     this.guardLeft = F.guard;
-    this.weaponColor = this.weaponId ? weaponById(this.weaponId).color : null;
+    this.weaponColor = weaponById(this.weaponId)?.color ?? null;
     // 難易度「やさしい」：ハート+1
     const bonus = (RUNTIME.difficulty === 'easy' ? 1 : 0) + F.heart;
     this.hearts = this.stats.hearts + bonus;

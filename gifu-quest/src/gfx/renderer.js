@@ -18,18 +18,26 @@ export const renderer = {
     this.viewW = Math.round(Math.min(VIEW_W_MAX, Math.max(VIEW_W_MIN, VIEW_H * aspect)));
     this.scale = Math.min(ww / this.viewW, wh / this.viewH);
     this.dpr = Math.min(window.devicePixelRatio || 1, RUNTIME.quality === 'low' ? 1 : 2);
-    const cssW = Math.floor(this.viewW * this.scale), cssH = Math.floor(this.viewH * this.scale);
+    // 実ピクセルの大きさを整数にし、CSSの大きさはそれを dpr で割った値にする（1.25倍などの画面で全体がぼやけないように）。
+    // 論理1ドットあたりの実ピクセル（pixel）は、キャンバスの横幅にぴったり合わせる
     const c = this.canvas;
+    const bw = Math.max(1, Math.floor(this.viewW * this.scale * this.dpr));
+    this.pixel = bw / this.viewW;
+    const bh = Math.max(1, Math.round(this.viewH * this.pixel));
+    if (c.width !== bw) c.width = bw;
+    if (c.height !== bh) c.height = bh;
+    const cssW = bw / this.dpr, cssH = bh / this.dpr;
+    // 左上も実ピクセルの格子にそろえる
+    const left = Math.round((ww - cssW) / 2 * this.dpr) / this.dpr, top = Math.round((wh - cssH) / 2 * this.dpr) / this.dpr;
     c.style.width = cssW + 'px';
     c.style.height = cssH + 'px';
-    c.style.left = Math.floor((ww - cssW) / 2) + 'px';
-    c.style.top = Math.floor((wh - cssH) / 2) + 'px';
-    c.width = Math.floor(cssW * this.dpr);
-    c.height = Math.floor(cssH * this.dpr);
-    this.offX = (ww - cssW) / 2; this.offY = (wh - cssH) / 2;
-    this.pixel = this.scale * this.dpr;  // 論理1ドットあたりの実ピクセル
+    c.style.left = left + 'px';
+    c.style.top = top + 'px';
+    this.offX = left; this.offY = top;
+    // 'high' は縮小・拡大のたびに重いフィルタがかかり、絵の多い場面で1フレーム数〜十数ms 遅くなる（計測）。
+    // アトラスは2倍で焼いてあるので、通常の補間で十分きれい
     this.ctx.imageSmoothingEnabled = true;
-    this.ctx.imageSmoothingQuality = 'high';
+    this.ctx.imageSmoothingQuality = 'low';
     for (const fn of this.onResize) fn(this);
   },
   onResize: [],

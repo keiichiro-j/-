@@ -1,3 +1,4 @@
+import CHARS from '../data/characters.json';
 import { game } from '../game.js';
 import { bakeAll } from '../gfx/atlas.js';
 import { save } from '../core/save.js';
@@ -16,7 +17,7 @@ export const bootScene = {
       const st = q.get('stage');
       if (q.get('gallery')) game.go('gallery', { filter: q.get('gallery') }, 'none');
       else if (q.get('scene')) game.go(q.get('scene'), {}, 'none');
-      else if (st != null) game.go('stage', { stage: /^\d+$/.test(st) ? Number(st) : st, char: q.get('char') || 'leaf' }, 'none');
+      else if (st != null) game.go('stage', { stage: /^\d+$/.test(st) ? Number(st) : st, char: CHARS[q.get('char')] ? q.get('char') : 'leaf' }, 'none');   // 存在しないキャラ名はリーフに
       else game.go('title', {}, 'fade', { dur: 0.6 });
       this.done = false;
     }

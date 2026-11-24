@@ -6,6 +6,7 @@ import { isSolid, isSlope, isOneWay, slopeHeight } from './tiles.js';
 // opts.platforms: [{ x, y, w, h, dx, dy, oneWay }] 動く床（上からだけ乗れる）
 // opts.onCeil(tx, ty) 頭をぶつけたタイル
 const SUB = 8;
+const PUSH_MAX = 8;   // 横の押し戻しはこの深さまで（それより深いのは前から重なっていたもの）
 const EPS = 0.001;
 
 export function moveBody(level, b, dt, opts = {}) {
@@ -90,17 +91,17 @@ function resolveX(level, b, dx, wasGround) {
   const top = b.y + 1;
   const bottom = Math.max(top, b.y + b.h - 1 - margin);
   const ty0 = Math.floor(top / TILE), ty1 = Math.floor(bottom / TILE);
-  // この小さな一歩で新しく入った列だけを壁として見る（すでに重なっていた列で押し戻すと、
-  // 体が逆向きに1マス近く瞬間移動して天井に埋まる）
+  // 深く重なっているタイル（頭が天井に少し入った時の横の列など）では押し戻さない。
+  // 押し戻すと体が逆向きに1マス近く瞬間移動して天井に埋まる
   if (dx > 0) {
     const tx = Math.floor((b.x + b.w - EPS) / TILE);
-    if (tx === Math.floor((b.x - dx + b.w - EPS) / TILE)) return false;
+    if (b.x + b.w - tx * TILE > dx + PUSH_MAX) return false;
     for (let ty = ty0; ty <= ty1; ty++) {
       if (isSolid(level.get(tx, ty))) { b.x = tx * TILE - b.w; b.wallR = true; return true; }
     }
   } else {
     const tx = Math.floor(b.x / TILE);
-    if (tx === Math.floor((b.x - dx) / TILE)) return false;
+    if ((tx + 1) * TILE - b.x > -dx + PUSH_MAX) return false;
     for (let ty = ty0; ty <= ty1; ty++) {
       if (isSolid(level.get(tx, ty))) { b.x = (tx + 1) * TILE; b.wallL = true; return true; }
     }

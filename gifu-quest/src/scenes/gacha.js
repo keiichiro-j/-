@@ -34,6 +34,7 @@ const ST = {
   rate: { size: 18, color: COL.sumi, align: 'left', baseline: 'middle' },
   back: { size: 16, color: COL.kinari, stroke: COL.woodDark, strokeW: 3, align: 'center', baseline: 'middle' },
 };
+const NOTE_ST = { size: 14, color: COL.sumi, align: 'left', baseline: 'top' };
 const stars = (r) => '★'.repeat(r);
 const R = () => ({ x: 0, y: 0, w: 0, h: 0 });
 const inR = (r, p) => r.w > 0 && p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
@@ -240,18 +241,20 @@ export const gachaScene = {
       drawTag(ctx, r.x, r.y, r.w, r.h, on, dis[i], on ? 0.5 + 0.5 * Math.sin(t * 5) : 0);
       drawText(ctx, labels[i][0], r.x + r.w / 2, r.y + (i === 3 ? r.h / 2 + 1 : 20), on ? ST.btnA : ST.btn);
       if (i < 3) drawText(ctx, labels[i][1], r.x + r.w / 2, r.y + 40, ST.sub);
-      if (i === 0 && free) { ctx.fillStyle = COL.shu; ctx.beginPath(); ctx.arc(r.x + r.w - 10, r.y + 10, 7, 0, 7); ctx.fill(); }
+      // 赤い点（朱の札の上でも見えるよう白い縁）
+      if (i === 0 && free) { ctx.fillStyle = COL.shu; ctx.beginPath(); ctx.arc(r.x + r.w - 10, r.y + 10, 7, 0, 7); ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = '#fff'; ctx.stroke(); }
     }
+    // 1行に2つ並べると「あと 41回で確定」と「集めた武器 12 / 30」が重なるので行を分ける
     const iy = 126 + 4 * 66 - 6;
     drawText(ctx, `極まで あと ${PITY - d.gacha.pity}回で確定`, px + 26, iy, ST.info);
-    const owned = Object.keys(d.weapons).length;
-    drawText(ctx, `集めた武器 ${owned} / ${WEAPONS.length}`, px + panelW - 26, iy, ST.infoR);
+    const owned = WEAPONS.filter((w) => d.weapons[w.id]).length;   // データに無い id は数えない
+    drawText(ctx, `集めた武器 ${owned} / ${WEAPONS.length}`, px + 26, iy + 24, { ...ST.info, color: COL.shuDark });
     const eq = d.equipped && weaponById(d.equipped);
-    drawText(ctx, eq ? `装備中：${eq.name}` : '装備中：なし', px + 26, iy + 24, ST.info);
+    drawText(ctx, eq ? `装備中：${eq.name}` : '装備中：なし', px + 26, iy + 48, ST.info);
   },
   drawRates(ctx, vw, vh) {
     ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 0, vw, vh);
-    const w = 520, h = 340, x = vw / 2 - w / 2, y = vh / 2 - h / 2;
+    const w = Math.min(620, vw - 40), h = 340, x = vw / 2 - w / 2, y = vh / 2 - h / 2;   // 注意書きがはみ出さない幅
     drawWashi(ctx, x, y, w, h, { r: 12 });
     drawText(ctx, '出る割合', vw / 2, y + 34, { ...ST.name, align: 'center' });
     RARITIES.forEach((r, i) => {
@@ -261,7 +264,8 @@ export const gachaScene = {
       drawText(ctx, `${(r.rate * 100).toFixed(0)}%　（${n}種・1種あたり ${(r.rate / n * 100).toFixed(2)}%）`, x + w - 30, yy, { ...ST.rate, align: 'right', size: 15 });
     });
     const notes = [`10回引くと、特上以上が少なくとも1つ出ます。`, `${PITY}回のうちに極が出なければ、${PITY}回目は極になります。`, `同じ武器はレベルが上がります（最大Lv${MAX_LEVEL}）。最大のあとはコインに替わります。`];
-    notes.forEach((s, i) => drawText(ctx, s, x + 30, y + 248 + i * 24, { ...ST.info, size: 14 }));
+    let ny = y + 234;
+    for (const s of notes) ny += drawWrapped(ctx, s, x + 30, ny, w - 60, NOTE_ST, 21);   // 長い文は折り返す（枠からはみ出さない）
   },
   drawBag(ctx, vw, vh, t, d) {
     const px = 24, py = 108, gw = Math.min(560, vw * 0.52), ph = vh - py - 60;

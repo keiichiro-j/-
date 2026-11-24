@@ -71,6 +71,16 @@ for (const st of STAGES) {
       log.push('to phase2+miss ' + JSON.stringify(r1));
       if (r1.err) throw new Error(r1.err);
       if (!r1.afterMiss || r1.afterMiss.hp !== r1.afterMiss.max || r1.afterMiss.arena !== 'wait' || r1.afterMiss.boss || r1.afterMiss.lock) throw new Error('reset failed ' + JSON.stringify(r1.afterMiss));
+      // 登場演出の途中でミス → アリーナが開き直る（以前は入口が閉じたまま・カメラ固定のままで、外に戻されると詰んだ）
+      const ri = await page.evaluate(() => {
+        const T = window.__T, W = T.W, A = T.arena(), p = W.player;
+        T.enter(); T.step(30);
+        const s0 = A.state;
+        p.frozen = false; W.playerMiss('pit'); T.step(200);
+        return { s0, arena: A.state, gate: A.gate.length, lock: !!W.camera.lock, boss: A.boss.state, frozen: p.frozen };
+      });
+      log.push('intro+miss ' + JSON.stringify(ri));
+      if (ri.s0 !== 'intro' || ri.arena !== 'wait' || ri.gate || ri.lock || ri.boss !== 'dormant' || ri.frozen) throw new Error('intro miss reset failed ' + JSON.stringify(ri));
       // 2回目：段階ごとに画面写真を撮りながら撃破まで
       for (const ph of [2, 3, 0]) {
         const r = await page.evaluate((ph) => {
@@ -83,13 +93,17 @@ for (const st of STAGES) {
             T.step(1); t += 1 / 120;
             if (ph && b.phase >= ph) { T.step(240); break; }   // 段階が上がった後を少し見る
           }
+          // 撃破演出の途中でミスしても、倒したことは取り消されない（宝珠が出て、カメラの固定が外れる）
+          let missDying = null;
+          if (!ph && b.dying) { p.frozen = false; p.invuln = 0; W.playerMiss('pit'); T.step(200); missDying = { hp: b.hp, dormant: b.state === 'dormant', lock: !!W.camera.lock }; }
           if (!ph) T.step(3 * 120);
           window.__GQ__.game.render(1);
-          return { t: +t.toFixed(1), hits, phase: b.phase, alive: b.alive, state: b.state, orb: W.entities.some((e) => e.type === 'orb' && e.alive), ws: W.state, ents: W.entities.filter((e)=>e.alive).map((e)=>e.type).join(','), gate: A.state };
+          return { t: +t.toFixed(1), hits, phase: b.phase, alive: b.alive, state: b.state, orb: W.entities.some((e) => e.type === 'orb' && e.alive), ws: W.state, ents: W.entities.filter((e)=>e.alive).map((e)=>e.type).join(','), gate: A.state, missDying, lock: !!W.camera.lock };
         }, ph);
         log.push(`run${ph || 'end'} ` + JSON.stringify(r));
         if (shots) await page.screenshot({ path: path.join(root, 'screenshots', `boss-test-${st}-${ch}-${ph ? 'p' + ph : 'end'}.png`) });
         if (!ph && (r.alive || (!r.orb && r.ws !== 'clear'))) throw new Error('boss not defeated or no orb');
+        if (!ph && (!r.missDying || r.missDying.dormant || r.lock || r.gate !== 'done')) throw new Error('miss during defeat undid the win ' + JSON.stringify(r.missDying) + ' lock ' + r.lock);
       }
       // 宝珠を取ってクリア
       const clear = await page.evaluate(() => {

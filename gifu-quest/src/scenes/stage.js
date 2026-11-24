@@ -40,8 +40,8 @@ export const stageScene = {
     if (this.paused) { const r = pauseMenu.update(dt); if (r) this.onPause(r); return; }
     // 一時停止は看板を読んでいる間も効く（看板は開いたまま。続けるとそのまま読める）
     if (input.pressed.pause && W.state === 'play') { this.paused = true; pauseMenu.open(); audio.sfx('pause'); return; }
+    if (this.intro > 0) this.intro -= dt;   // ステージ名の帯は看板を読んでいる間も消えていく（巻物の後ろに残らない）
     if (W.dialogue) { if (updateDialogue(W, dt)) W.dialogue = null; return; }
-    if (this.intro > 0) this.intro -= dt;
     W.update(dt);
     if (W.result === 'clear') this.finish();
     else if (W.result === 'gameover') game.go('gameover', { stage: this.params.stage, char: W.charId }, 'fade', { dur: 0.8 });
@@ -76,8 +76,8 @@ export const stageScene = {
     if (!W) return;
     W.draw(ctx, this.paused || W.dialogue ? 1 : alpha, vw, vh);
     drawHud(ctx, W, vw, vh, this);
+    touch.draw(ctx, vw, vh);   // タッチボタンは看板の巻物より下に（文字に重ならない）
     if (W.dialogue) drawDialogue(ctx, W, vw, vh);
     if (this.paused) pauseMenu.draw(ctx, vw, vh);
-    touch.draw(ctx, vw, vh);
   },
 };
