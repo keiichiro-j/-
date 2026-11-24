@@ -179,7 +179,8 @@ function validateLevel(data, opts = {}) {
     const si = sbs.map((c) => c.index).sort();
     if (si.join() !== '0,1,2') err(`sarubobo の index が ${JSON.stringify(si)}（0,1,2）`);
     if (sks.length !== 1) err(`skewer（飛騨牛串）が ${sks.length} 個（1個）`);
-    if (arenas.length !== 1) err(`bossArena が ${arenas.length} 個（1個）`);
+    // うらステージなどボスのいないステージは goal（最後に置く宝珠）で代わりにしてよい
+    if (arenas.length !== 1 && !(arenas.length === 0 && of('goal').length === 1)) err(`bossArena が ${arenas.length} 個（1個。ボスのいないステージは goal 1個）`);
     areas.forEach((a, i) => {
       const s = signs.filter((g) => g.x >= a.x0 && g.x < a.x1);
       if (!s.length && i < areas.length - 1) err(`エリア「${a.name}」に看板 sign がない`);

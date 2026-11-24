@@ -196,3 +196,9 @@ w.events.emit/on（'enemyDefeated','stomp','coin','bossStart','bossDefeated','st
 - HUD が使うイベント：'stomp', 'sarubobo', 'checkpoint', 'stageEnter', 'enemyDefeated'（{ kind } を含めると図鑑に記録される）
 - ボスは `phaseMarks`（HPに対する割合の配列、例 [0.66, 0.33]）を持つと HP バーの目盛りがその位置になる
 - 難易度「やさしい」：主人公のハート+1、ボスの HP×0.7・待ち時間×1.3
+
+## ボス（ボス担当）
+- 置き方：`{ "type":"bossArena", "x0":.., "x1":.., "y0":.., "y1":.., "boss":"musasabi|salamander|dancer|yatai|yukioni|dragon" }`。幅30タイル・高さ15行。下2行は平らな固い床。x0 列が入口の壁（空いたマスが入口）、x1 列が奥の壁。主人公の中心が x0+2 列を越えると開始。中間地点はアリーナより手前
+- Boss が持つもの：`name`, `title`, `hp`, `maxHp`, `phase`, `phaseMarks`（[2/3, 1/3]）, `reset()`。1回のダメージは最大3
+- スプライト名 `boss_<name>_<anim>`：右向き・基準点は足元中央（弾・首の節などは中心）
+- 川・溶岩・木・岩・いかだはボスが自分で作る。調整用の数値は各ボスファイル先頭の表

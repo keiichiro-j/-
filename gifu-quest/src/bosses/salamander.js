@@ -247,7 +247,7 @@ class Salamander extends Boss {
     switch (this.pose) {
       case 'puff': this.sprite(ctx, N + 'puff', (this.t * 10) | 0, this.fx, wy + 44, flip); break;
       case 'spit': this.sprite(ctx, N + 'spit', 0, this.fx, wy + 44, flip); break;
-      case 'angry': this.sprite(ctx, N + 'angry', (this.t * 10) | 0, this.fx, (this.state === 'intro' || this.fy >= this.surfY - 4 ? wy + 70 : this.fy), flip); break;
+      case 'angry': this.sprite(ctx, N + 'angry', (this.t * 10) | 0, this.fx, (this.state === 'intro' || this.fy >= this.surfY - 4 ? wy + 34 : this.fy), flip); break;
       case 'bite': this.sprite(ctx, N + 'bite', (this.t * 10) | 0, this.fx, this.fy, flip, 1, 1, this.state === 'recover' ? (flip ? -0.5 : 0.5) : 0); break;
       case 'rest': this.sprite(ctx, N + 'rest', (this.t * 7) | 0, this.fx, this.fy, flip); break;
       case 'hurt': this.sprite(ctx, N + 'hurt', 0, this.fx, this.fy, flip); break;

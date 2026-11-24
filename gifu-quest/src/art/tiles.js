@@ -626,8 +626,19 @@ function drawSlope(ctx, P, t, tx, ty, level, theme) {
 }
 
 // ---------------------------------------------------------------- 入口
+// 隠し部屋の入口（FAKE）は、いちばん近い本物の固いタイルと同じ見た目にする（外から見分けがつかないように）
+function fakeLooksLike(tx, ty, level) {
+  for (let r = 1; r <= 8; r++) {
+    for (const [dx, dy] of [[-r, 0], [r, 0], [0, -r], [0, r]]) {
+      const n = level.get(tx + dx, ty + dy);
+      if (n !== T.FAKE && isSolid(n)) return n;
+    }
+  }
+  return T.GROUND;
+}
 export function drawTile(ctx, t, tx, ty, level, theme) {
   const P = THEMES[theme] || THEMES.kinka;
+  if (t === T.FAKE) { const look = fakeLooksLike(tx, ty, level); if (look !== T.GROUND) t = look; }
   if (isSlope(t)) { drawSlope(ctx, P, t, tx, ty, level, theme); return; }
   switch (t) {
     case T.GROUND: case T.FAKE: drawGround(ctx, P, tx, ty, level, P.top); return;
