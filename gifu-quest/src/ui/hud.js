@@ -15,7 +15,8 @@ const S = {
   introName: { size: 46, color: '#fff8e8', stroke: COL.sumi, strokeW: 8, align: 'center', baseline: 'middle', shadow: true, serif: true },
   introSub: { size: 22, color: COL.kinLight, stroke: COL.sumi, strokeW: 5, align: 'center', baseline: 'middle' },
   introNo: { size: 20, color: COL.kinari, stroke: COL.sumi, strokeW: 4, align: 'center', baseline: 'middle' },
-  pop: { size: 22, color: COL.kinLight, stroke: COL.shuDark, strokeW: 5, align: 'center', baseline: 'middle', alpha: 1 },
+  coinHot: { size: 22, color: '#ffe680', stroke: COL.shuDark, strokeW: 4, align: 'left', baseline: 'middle', alpha: 1 },
+  phase: { size: 20, color: '#ffd0c0', stroke: COL.shuDark, strokeW: 5, align: 'center', baseline: 'middle', serif: true, alpha: 1 },
   toast: { size: 26, color: '#fff8e8', stroke: COL.shuDark, strokeW: 6, align: 'center', baseline: 'middle', shadow: true, alpha: 1 },
   key: { size: 12, color: COL.kinari, stroke: COL.sumi, strokeW: 3, align: 'center', baseline: 'middle' },
 };
@@ -23,7 +24,6 @@ const S = {
 // ---- 一時表示（NEW・さるぼぼ取得など）と得点ポップ（使い回しの配列） ----
 const POPS = []; for (let i = 0; i < 16; i++) POPS.push({ on: false, x: 0, y: 0, t: 0, text: '', sub: '', lvl: 0 });
 const TOASTS = []; for (let i = 0; i < 4; i++) TOASTS.push({ on: false, t: 0, text: '', life: 1.8 });
-const POP_TEXT = ['', '+1', '+2', '+4', '+8'];
 let lastNow = 0;
 export function hudToast(text, life = 1.8) {
   let tt = TOASTS.find((q) => !q.on) || TOASTS[0];
@@ -36,14 +36,20 @@ function pop(x, y, text, lvl = 0, sub = '') {
 // 得点ポップ：連続踏みつけは「×2」「×4」…を大きく、段階ごとに色を強く（金→橙→朱→虹）
 const MULT_TEXT = ['', '+1', '×2', '×4', '×8'];
 const CHAIN_SUB = ['', '', '2連続！', '3連続！', '4連続！'];
-let lastStompAt = -1;
+let defeatPop = null, defeatAt = -1;
 events.on('stomp', (e) => {
   const lvl = Math.min(4, Math.round(Math.log2(e.points || 1)) + 1);
-  lastStompAt = performance.now();
+  // 踏んで倒した時は、直前の「倒した」のポップをこの表示に置き換える（重ねない）
+  if (defeatPop && defeatPop.on && performance.now() - defeatAt < 30) defeatPop.on = false;
+  defeatPop = null;
   pop(e.x, e.y - 14, MULT_TEXT[lvl], lvl, e.chain >= 2 ? (e.chain <= 4 ? CHAIN_SUB[e.chain] : `${e.chain}連続！`) : '');
 });
-// 技・体当たりで倒した時も「+1」（踏みつけと同じ瞬間なら重ねない）
-events.on('enemyDefeated', (e) => { if (e.x != null && performance.now() - lastStompAt > 120) pop(e.x, e.y - 18, '+1', 1); });
+// 技・体当たりで倒した時も「+1」
+events.on('enemyDefeated', (e) => {
+  if (e.x == null) return;
+  pop(e.x, e.y - 18, '+1', 1);
+  defeatPop = POPS.find((q) => q.on && q.t === 0 && q.x === e.x) || null; defeatAt = performance.now();
+});
 // コインの数字が跳ねる・被弾の赤いふち
 let coinBump = 0, hurtFlash = 0, lastHearts = -1, heartShake = 0;
 const HEART_FX = []; for (let i = 0; i < 12; i++) HEART_FX.push({ t: -1, kind: 0 });   // kind 1=減った 2=増えた
@@ -62,6 +68,19 @@ events.on('enemyDefeated', (e) => {
   if (!d.includes(k)) d.push(k);
 });
 
+// 使い回しの描画オプション・グラデーション・文字列（毎フレーム作らない）
+const O_WPN = { sx: 0.55, sy: 0.55 }, O_COIN = { sx: 0.9, sy: 0.9 }, O_SARU = { sx: 0.82, sy: 0.82 }, O_SARU_GHOST = { sx: 0.82, sy: 0.82, alpha: 0.3 };
+const DEFAULT_MARKS = [2 / 3, 1 / 3];
+const PHASE_TEXT = ['', '', '― 怒った！ ―', '― 本気だ！ ―'];
+const RAINBOW = ['#ff8a8a', '#ffd36a', '#a8f07a', '#7ad8ff', '#d49aff'];
+const POP_ST = [null,
+  { size: 22, color: COL.kinLight, stroke: COL.sumi, strokeW: 5, align: 'center', baseline: 'middle', alpha: 1 },
+  { size: 30, color: '#ffe07a', stroke: COL.shuDark, strokeW: 6, align: 'center', baseline: 'middle', alpha: 1, shadow: true },
+  { size: 34, color: '#ffb04a', stroke: COL.shuDark, strokeW: 6, align: 'center', baseline: 'middle', alpha: 1, shadow: true },
+  { size: 38, color: '#ff7a5a', stroke: COL.sumi, strokeW: 7, align: 'center', baseline: 'middle', alpha: 1, shadow: true }];
+const POP_SUB = { size: 15, color: '#fff8e8', stroke: COL.sumi, strokeW: 4, align: 'center', baseline: 'middle', alpha: 1 };
+let BOSS_G = null, VIG = null, vigW = 0, vigH = 0;
+let coinShown = -1, coinStr = '×0', timeShown = -1, timeStr = '';
 let bossShown = 0, trail = 1, trailWait = 0, bossHitT = 0, lastBossHp = -1, lastPhase = 0, phaseT = 0;
 
 // 顔アイコン（hero_<id>_idle の頭を丸く切り抜く）
@@ -180,37 +199,75 @@ export function drawHud(ctx, W, vw, vh, scene) {
     const wx = fx + fr - 2, wy = fy + fr - 4;
     ctx.fillStyle = 'rgba(26,18,14,0.75)'; ctx.beginPath(); ctx.arc(wx, wy, 15, 0, Math.PI * 2); ctx.fill();
     ctx.lineWidth = 2; ctx.strokeStyle = p.weaponColor || COL.kin; ctx.stroke();
-    drawSprite(ctx, `weapon_${p.weaponId}`, 0, wx, wy, { sx: 0.55, sy: 0.55 });
+    drawSprite(ctx, `weapon_${p.weaponId}`, 0, wx, wy, O_WPN);
     if (p.guardLeft > 0) { ctx.fillStyle = 'rgba(160,220,255,0.95)'; for (let i = 0; i < p.guardLeft; i++) { ctx.beginPath(); ctx.arc(wx + 18 + i * 9, wy + 8, 3.5, 0, Math.PI * 2); ctx.fill(); } }
   }
-  // ハート
+  // ハート：減った時は白く光って震え、ふくらんで消える。増えた時はぽんと弾む
   const hs = 26;
+  if (lastHearts >= 0 && p.hearts !== lastHearts) {
+    const lo = Math.min(p.hearts, lastHearts), hi = Math.max(p.hearts, lastHearts);
+    for (let i = lo; i < hi && i < HEART_FX.length; i++) { HEART_FX[i].t = 0; HEART_FX[i].kind = p.hearts < lastHearts ? 1 : 2; }
+    if (p.hearts < lastHearts) heartShake = 0.3;
+  }
+  lastHearts = p.hearts;
+  if (heartShake > 0) heartShake = Math.max(0, heartShake - dt);
+  const shx = heartShake > 0 ? Math.sin(now * 70) * 4 * (heartShake / 0.3) : 0;
   for (let i = 0; i < p.maxHearts; i++) {
     const full = i < p.hearts;
-    const beat = full && i === p.hearts - 1 && p.hearts <= 1 ? 0.12 * Math.max(0, Math.sin(now * 8)) : 0;
-    drawHeart(ctx, 104 + i * (hs + 6), 20, hs, full, beat);
+    const hx = 104 + i * (hs + 6) + shx;
+    let beat = full && i === p.hearts - 1 && p.hearts <= 1 ? 0.12 * Math.max(0, Math.sin(now * 8)) : 0;
+    const F = i < HEART_FX.length ? HEART_FX[i] : null;
+    if (F && F.t >= 0) {
+      F.t += dt;
+      if (F.kind === 2) {   // 増えた：弾む（0.4秒）
+        const k = Math.min(1, F.t / 0.4);
+        beat += Math.sin(k * Math.PI) * 0.45 * (1 - k * 0.5);
+        drawHeart(ctx, hx, 20, hs, full, beat, (1 - k) * 0.8);
+        if (k >= 1) F.t = -1;
+        continue;
+      }
+      // 減った：空のハートの上に、白く光った満タンのハートがふくらみながら消える（0.5秒）
+      const k = Math.min(1, F.t / 0.5);
+      drawHeart(ctx, hx, 20, hs, false, 0);
+      drawHeart(ctx, hx, 20 - k * 6, hs, true, k * 0.6, k < 0.25 ? 1 : 1 - k, 1 - k);
+      if (k >= 1) F.t = -1;
+      continue;
+    }
+    drawHeart(ctx, hx, 20, hs, full, beat);
   }
   if (p.star > 0) { ctx.fillStyle = COL.kin; ctx.globalAlpha = 0.6 + 0.4 * Math.sin(now * 12); ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'left'; ctx.fillText('無敵', 104, 66); ctx.globalAlpha = 1; }
 
   // ---- 上中央：コイン・さるぼぼ・時間 ----
   const pw = 400, px = vw / 2 - pw / 2, py = 12, ph = 44;
   woodPanel(ctx, px, py, pw, ph);
-  drawSprite(ctx, 'item_coin', 0, px + 30, py + ph / 2 + 12, { sx: 0.9, sy: 0.9 });
-  drawText(ctx, '×' + W.stats.coins, px + 46, py + ph / 2 + 1, S.coin);
+  // コイン：取るたびに数字が跳ねて金色に光る
+  coinBump = Math.max(0, coinBump - dt * 4);
+  const cb = coinBump * coinBump;
+  O_COIN.sx = O_COIN.sy = 0.9 * (1 + cb * 0.25);
+  drawSprite(ctx, 'item_coin', coinBump > 0 ? ((1 - coinBump) * 7.99) | 0 : 0, px + 30, py + ph / 2 + 12 + cb * 2, O_COIN);
+  if (W.stats.coins !== coinShown) { coinShown = W.stats.coins; coinStr = '×' + coinShown; }
+  if (cb > 0.01) {
+    ctx.save(); ctx.translate(px + 46, py + ph / 2 + 1 - cb * 5); ctx.scale(1 + cb * 0.3, 1 + cb * 0.3);
+    S.coinHot.alpha = 1; drawText(ctx, coinStr, 0, 0, S.coin);
+    S.coinHot.alpha = cb; drawText(ctx, coinStr, 0, 0, S.coinHot);
+    ctx.restore();
+  } else drawText(ctx, coinStr, px + 46, py + ph / 2 + 1, S.coin);
   const prev = W.collectedSarubobo;
   for (let i = 0; i < 3; i++) {
     const sx = px + 168 + i * 38, sy = py + ph / 2;
     ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.strokeStyle = 'rgba(243,234,215,0.6)'; ctx.lineWidth = 1.5;
     roundRect(ctx, sx - 15, sy - 17, 30, 34, 8); ctx.fill(); ctx.stroke();
-    if (W.stats.sarubobo[i]) drawSprite(ctx, 'item_sarubobo', 0, sx, sy + 14, { sx: 0.82, sy: 0.82 });
-    else if (prev && prev[i]) drawSprite(ctx, 'item_sarubobo', 0, sx, sy + 14, { sx: 0.82, sy: 0.82, alpha: 0.3 });
+    if (W.stats.sarubobo[i]) drawSprite(ctx, 'item_sarubobo', 0, sx, sy + 14, O_SARU);
+    else if (prev && prev[i]) drawSprite(ctx, 'item_sarubobo', 0, sx, sy + 14, O_SARU_GHOST);
   }
   // 時計
   const tx = px + 284;
   ctx.strokeStyle = COL.kinari; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(tx, py + ph / 2, 9, 0, Math.PI * 2); ctx.stroke();
   const a = W.stats.time * Math.PI / 30;
   ctx.beginPath(); ctx.moveTo(tx, py + ph / 2); ctx.lineTo(tx + Math.sin(a) * 6, py + ph / 2 - Math.cos(a) * 6); ctx.stroke();
-  drawText(ctx, fmtTime(W.stats.time), tx + 16, py + ph / 2 + 1, S.time);
+  const tt = (W.stats.time * 10) | 0;
+  if (tt !== timeShown) { timeShown = tt; timeStr = fmtTime(W.stats.time); }
+  drawText(ctx, timeStr, tx + 16, py + ph / 2 + 1, S.time);
 
   // ---- 右上：一時停止・天気 ----
   const wx = vw - (touch.enabled ? 110 : 116), wy = 42;
@@ -229,32 +286,73 @@ export function drawHud(ctx, W, vw, vh, scene) {
   if (b && b.maxHp > 0) {
     bossShown = Math.min(1, bossShown + dt * 3);
     const frac = Math.max(0, b.hp / b.maxHp);
-    if (trail < frac) trail = frac; else trail = Math.max(frac, trail - dt * 0.4);
-    const bw = Math.min(520, vw - 360), bx = vw / 2 - bw / 2, by = 74 - (1 - bossShown) * 40;
+    // 当たった瞬間：バーが白く光って揺れる。減った分（白い帯）は少し待ってから素早く追いつく
+    if (lastBossHp >= 0 && b.hp < lastBossHp) { bossHitT = 0.35; trailWait = 0.45; }
+    lastBossHp = b.hp;
+    if (b.phase && lastPhase && b.phase > lastPhase) phaseT = 1.2;   // 段階が変わった
+    lastPhase = b.phase || 0;
+    bossHitT = Math.max(0, bossHitT - dt); phaseT = Math.max(0, phaseT - dt);
+    if (trail < frac) trail = frac;
+    else if (trailWait > 0) trailWait -= dt;
+    else trail = Math.max(frac, trail - dt * (0.15 + (trail - frac) * 3));
+    const bw = Math.min(520, vw - 360), shk = bossHitT > 0 ? Math.sin(now * 80) * 3 * (bossHitT / 0.35) : 0;
+    const bx = vw / 2 - bw / 2 + shk, by = 74 - (1 - bossShown) * 40;
     ctx.globalAlpha = bossShown;
     drawText(ctx, b.name || 'ボス', vw / 2, by + 6, S.boss);
     roundRect(ctx, bx - 4, by + 20, bw + 8, 20, 10); ctx.fillStyle = 'rgba(20,12,10,0.8)'; ctx.fill();
-    ctx.strokeStyle = COL.kin; ctx.lineWidth = 2; ctx.stroke();
+    ctx.strokeStyle = phaseT > 0 && ((phaseT * 8) | 0) % 2 === 0 ? '#ffffff' : COL.kin; ctx.lineWidth = 2; ctx.stroke();
     ctx.fillStyle = '#f3ead7'; ctx.fillRect(bx, by + 24, bw * trail, 12);
-    const g = ctx.createLinearGradient(0, by + 24, 0, by + 36); g.addColorStop(0, '#ff7a5a'); g.addColorStop(1, COL.shuDark);
-    ctx.fillStyle = g; ctx.fillRect(bx, by + 24, bw * frac, 12);
+    if (!BOSS_G) { BOSS_G = ctx.createLinearGradient(0, 0, 0, 12); BOSS_G.addColorStop(0, '#ff7a5a'); BOSS_G.addColorStop(1, COL.shuDark); }
+    ctx.save(); ctx.translate(bx, by + 24); ctx.fillStyle = BOSS_G; ctx.fillRect(0, 0, bw * frac, 12);
+    ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.fillRect(0, 1, bw * frac, 3);   // つや
+    if (bossHitT > 0) { ctx.globalAlpha = bossShown * (bossHitT / 0.35) * 0.85; ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, bw * frac, 12); }
+    ctx.restore();
+    ctx.globalAlpha = bossShown;
     // 段階の区切り（目盛り）
-    const marks = b.phaseMarks || b.phases || [2 / 3, 1 / 3];
+    const marks = b.phaseMarks || b.phases || DEFAULT_MARKS;
     ctx.fillStyle = COL.kinLight;
     for (const m of marks) { const mx = bx + bw * (typeof m === 'number' && m <= 1 ? m : (m / b.maxHp)); ctx.fillRect(mx - 1, by + 20, 2, 20); }
+    // 段階が変わった：バーの下に「怒った！」の札
+    if (phaseT > 0) {
+      const k = Math.min(1, (1.2 - phaseT) / 0.15) * Math.min(1, phaseT / 0.3);
+      S.phase.alpha = k * bossShown;
+      drawText(ctx, PHASE_TEXT[Math.min(PHASE_TEXT.length - 1, b.phase)] || '', vw / 2, by + 56 + (1 - k) * 8, S.phase);
+      S.phase.alpha = 1;
+    }
     ctx.globalAlpha = 1;
-  } else { bossShown = 0; trail = 1; }
+  } else { bossShown = 0; trail = 1; lastBossHp = -1; lastPhase = 0; phaseT = 0; bossHitT = 0; }
 
   // ---- 得点ポップ（ワールド座標→画面） ----
   const cam = W.camera;
   for (const q of POPS) {
     if (!q.on) continue;
     q.t += dt;
-    if (q.t > 0.9) { q.on = false; continue; }
-    S.pop.alpha = q.t < 0.6 ? 1 : 1 - (q.t - 0.6) / 0.3;
-    drawText(ctx, q.text, q.x - cam.x, q.y - cam.y - q.t * 50, S.pop);
+    const life = q.lvl >= 2 ? 1.1 : 0.8;
+    if (q.t > life) { q.on = false; continue; }
+    // ぽんと大きく出て（0.12秒）、すっと上がって止まり、最後に薄れる
+    const st = POP_ST[q.lvl] || POP_ST[1];
+    const kIn = Math.min(1, q.t / 0.12), rise = 1 - Math.pow(1 - Math.min(1, q.t / 0.5), 3);
+    const sc = kIn < 1 ? 0.6 + kIn * 0.9 : 1.5 - Math.min(1, (q.t - 0.12) / 0.12) * 0.5;
+    st.alpha = q.t < life - 0.25 ? 1 : (life - q.t) / 0.25;
+    const sx = q.x - cam.x, sy = q.y - cam.y - rise * (q.lvl >= 2 ? 46 : 34);
+    ctx.save(); ctx.translate(sx, sy); ctx.scale(sc, sc);
+    if (q.lvl >= 4) st.color = RAINBOW[((q.t * 14) | 0) % RAINBOW.length];
+    drawText(ctx, q.text, 0, 0, st);
+    if (q.sub) { POP_SUB.alpha = st.alpha; drawText(ctx, q.sub, 0, st.size * 0.82, POP_SUB); }
+    ctx.restore();
   }
-  S.pop.alpha = 1;
+  // ---- 被弾の赤いふち・ハート残り1の脈打つふち ----
+  hurtFlash = Math.max(0, hurtFlash - dt * 2.2);
+  const low = p.hearts === 1 && p.maxHearts > 1 && W.state === 'play' ? 0.16 + 0.1 * Math.sin(now * 5) : 0;
+  const va = Math.max(hurtFlash * 0.6, low);
+  if (va > 0.01) {
+    if (!VIG || vigW !== vw || vigH !== vh) {
+      vigW = vw; vigH = vh;
+      VIG = ctx.createRadialGradient(vw / 2, vh / 2, Math.min(vw, vh) * 0.42, vw / 2, vh / 2, Math.hypot(vw, vh) * 0.55);
+      VIG.addColorStop(0, 'rgba(200,20,10,0)'); VIG.addColorStop(0.6, 'rgba(200,20,10,0.45)'); VIG.addColorStop(1, 'rgba(160,0,0,0.95)');
+    }
+    ctx.globalAlpha = va; ctx.fillStyle = VIG; ctx.fillRect(0, 0, vw, vh); ctx.globalAlpha = 1;
+  }
   // ---- 一時表示 ----
   let ty = 120;
   for (const q of TOASTS) {
@@ -282,9 +380,11 @@ function drawIntro(ctx, W, vw, vh, scene, now) {
   ctx.save();
   ctx.globalAlpha = k;
   const bh = 150, by = vh * 0.36 - bh / 2;
-  const g = ctx.createLinearGradient(0, 0, vw, 0);
-  g.addColorStop(0, 'rgba(18,35,59,0)'); g.addColorStop(0.2, 'rgba(18,35,59,0.82)'); g.addColorStop(0.8, 'rgba(18,35,59,0.82)'); g.addColorStop(1, 'rgba(18,35,59,0)');
-  ctx.fillStyle = g; ctx.fillRect(0, by, vw, bh);
+  if (!INTRO_G || introW !== vw) {
+    introW = vw; INTRO_G = ctx.createLinearGradient(0, 0, vw, 0);
+    INTRO_G.addColorStop(0, 'rgba(18,35,59,0)'); INTRO_G.addColorStop(0.2, 'rgba(18,35,59,0.82)'); INTRO_G.addColorStop(0.8, 'rgba(18,35,59,0.82)'); INTRO_G.addColorStop(1, 'rgba(18,35,59,0)');
+  }
+  ctx.fillStyle = INTRO_G; ctx.fillRect(0, by, vw, bh);
   ctx.fillStyle = COL.kin; ctx.fillRect(vw * 0.15, by + 4, vw * 0.7, 2); ctx.fillRect(vw * 0.15, by + bh - 6, vw * 0.7, 2);
   const slide = (1 - Math.min(1, e / 0.35)) * 40;
   drawText(ctx, typeof st === 'number' && st > 0 && st <= 7 ? (st === 7 ? 'うらステージ' : `第${'一二三四五六'[st - 1]}の地`) : 'れんしゅう', vw / 2 - slide, by + 30, S.introNo);
@@ -295,4 +395,5 @@ function drawIntro(ctx, W, vw, vh, scene, now) {
   drawText(ctx, (tn ? tn + '・' : '') + wn, vw / 2 - 44, by + 121, INTRO_W);
   ctx.restore();
 }
+let INTRO_G = null, introW = 0;
 const INTRO_W = { size: 22, color: COL.kinLight, stroke: COL.sumi, strokeW: 5, align: 'left', baseline: 'middle' };

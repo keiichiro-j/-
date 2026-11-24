@@ -117,6 +117,7 @@ export const worldmapScene = {
       else if (input.pressed.confirm || input.pressed.jump) this.button(BTNS[this.btnSel].key);
     }
   },
+  btnLabels() { return BTNS.map((b) => b.label); },   // テスト用
   say(m) { this.msg = m; this.msgT = 2; },
   button(k, tab) {
     audio.sfx('confirm');

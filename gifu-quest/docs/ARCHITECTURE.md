@@ -17,6 +17,7 @@
 | 敵・仕掛け | src/actors/enemyTypes.js, src/art/enemies.js（敵と仕掛けの絵も担当）, src/world/{platforms,liquids,triggers}.js |
 | ボス | src/bosses/*.js, src/art/bosses.js |
 | FX・サウンド | src/systems/{env,weather,timeOfDay}.js, src/gfx/{lighting,postfx}.js, src/core/audio.js |
+| やり込み（称号・お題・腕試し） | src/systems/{achievements,missions}.js, src/scenes/{records,bossrush}.js, src/ui/toast.js, src/data/{achievements,missions,bossrush}.json, docs/content.md |
 | UI・画面 | src/scenes/{title,opening,select,worldmap,results,gameover,ending,settings}.js, src/ui/{hud,touch,menus,text}.js, src/systems/dialogue.js, src/core/save.js |
 
 ## 絵：アトラス（src/gfx/atlas.js）
@@ -131,11 +132,12 @@ w.events.emit/on（'enemyDefeated','stomp','coin','bossStart','bossDefeated','st
 `audio.bgm(name)`：title, map, stage1〜6, boss, clear, ending, gameover。`audio.stopBgm()`。RUNTIME.sound が false なら鳴らさない
 
 ## 画面（src/game.js）
-`game.go(name, params, kind='iris'|'wipe'|'fade'|'none')`。画面：boot, title, opening, select, worldmap, stage, results, gameover, ending, settings
+`game.go(name, params, kind='iris'|'wipe'|'fade'|'none')`。画面：boot, title, opening, select, worldmap, stage, results, gameover, ending, settings, records, bossrush
 - stage params: `{ stage, char, checkpoint }`
 - results params: `{ stage, char, stats{coins,sarubobo[3],hits,misses,time,enemies}, newBest, prevBest }`
 - gameover params: `{ stage, char }`
 - settings params: `{ back: 'title'|'worldmap'|'stage-resume' }`
+- records params: `{ back, tab: 0|1|2 }`（称号・毎日のお題・腕試し）。bossrush params: `{ char }`
 セーブ：`save.data`（src/core/save.js。形式は defaultSave()）、`save.write()`
 
 ## 敵の配置名（レベル担当と敵担当の共通語）
@@ -207,3 +209,10 @@ w.events.emit/on（'enemyDefeated','stomp','coin','bossStart','bossDefeated','st
 
 ## 福引き蔵（武器ガチャ）
 仕様は docs/gacha.md。画面 `gacha`（params: { back }）。World は opts.weapon（{ id, lv }）を受け取り、主人公は `p.weaponId`, `p.wfx`（weaponEffects の結果）, `p.guardLeft`, `p.weaponColor` を持つ。スプライト `weapon_<id>`（48×48、中心基準）
+
+## やり込み（称号・毎日のお題・腕試し）
+仕様は docs/content.md。セーブ v4（records, achievements, missions, bossRush。noMissBoss を記録）。
+- 判定はイベント（'coin','enemyDefeated','stomp','bossStart','bossDefeated','stageEnter'）と save.data だけを読む。world・player は書き換えない。**イベントの名前・中身（coin の n、stomp の chain、bossStart/bossDefeated の boss）を変えるときは src/systems/achievements.js も直す**
+- stage.js の finish が `progress.stageCleared(...)` を呼ぶ。通知は `toast.draw(ctx, vw, vh, y?, left?)` を各画面の draw の最後に
+- 腕試しは levels/stage91〜96.json を順に使う（World の opts.hearts でハートを引き継ぐ）。**アリーナのファイル名を変えるときは src/data/bossrush.json も**
+- テスト用：`window.__GQ__.progress`, `window.__GQ__.toast`

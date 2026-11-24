@@ -204,7 +204,7 @@ export const bossrushScene = {
   },
   drawDone(ctx, vw, vh) {
     const R = this.run, k = Math.min(1, this.phaseT / 0.4);
-    ctx.fillStyle = `rgba(12,8,10,${0.6 * k})`; ctx.fillRect(0, 0, vw, vh);
+    ctx.fillStyle = `rgba(12,8,10,${0.8 * k})`; ctx.fillRect(0, 0, vw, vh);
     ctx.globalAlpha = k;
     drawText(ctx, '六番勝負　勝ちぬき！', vw / 2, 52, ST.head);
     this.drawOrbs(ctx, vw / 2, 104, 6);

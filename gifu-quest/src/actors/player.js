@@ -265,7 +265,8 @@ export class Player {
     if (this.onGround && !wasGround) {
       const impact = Math.min(1, this.landVy / PHYS.maxFall);
       this.sx = 1 + 0.3 * impact; this.sy = 1 - 0.28 * impact;
-      if (impact > 0.35) { w.particles.dust(this.cx, this.y + this.h, 0, Math.round(4 + impact * 6)); w.sfx('land'); }
+      if (impact > 0.35) { w.particles.landDust(this.cx, this.y + this.h, impact); w.sfx('land'); }
+      else if (impact > 0.18) w.particles.landDust(this.cx, this.y + this.h, impact * 0.6);
       this.landT = 0.08;
     }
     this.landVy = this.vy > 0 ? this.vy : this.landVy;
@@ -356,20 +357,46 @@ export class Player {
     const name = heroSpriteName(this.id, this.anim, this.weaponId);
     // 残像
     for (const t of this.trail) {
-      drawSprite(ctx, heroSpriteName(this.id, t.anim, this.weaponId), t.frame, t.x + this.w / 2, t.y + this.h, { flip: t.face < 0, alpha: t.life * 1.6 * 0.5 });
+      const o = this._trailO || (this._trailO = { flip: false, alpha: 1 });
+      o.flip = t.face < 0; o.alpha = t.life * 1.6 * 0.5;
+      drawSprite(ctx, heroSpriteName(this.id, t.anim, this.weaponId), t.frame, t.x + this.w / 2, t.y + this.h, o);
     }
     // 足元の影
     ctx.fillStyle = 'rgba(0,0,0,0.22)';
     ctx.beginPath(); ctx.ellipse(x + this.w / 2, this.shadowY ?? (y + this.h), 13 * (this.onGround ? 1 : 0.7), 4, 0, 0, 6.2832); ctx.fill();
-    if (this.invuln > 0 && !this.dead && ((this.invuln * 16) | 0) % 2 === 0) return;
     const fx = x + this.w / 2, fy = y + this.h;   // スプライトの基準点(oy=54)が足元。当たり箱の下端に合わせる
-    // 装備した武器があれば、手に武器・首に武器の色の布を重ねる（art/heroGear.js）
-    drawHeroDressed(ctx, this.id, hasSprite(`hero_${this.id}_${this.anim}`) ? this.anim : 'idle', this.frame || 0, fx, fy, { flip: this.face < 0, sx: this.sx, sy: this.sy, weaponId: this.weaponId, time: this.world.time, vx: this.vx });
+    const T = this.world.time;
+    // 無敵（飛騨牛串）：金色の後光が脈打ち、色が金→朱→若葉…とゆっくり巡る。切れる2秒前から速く点滅して知らせる
     if (this.star > 0) {
+      const ending = this.star < 2, hue = STAR_COLORS[((T * 6) | 0) % STAR_COLORS.length];
+      const pulse = ending ? (((T * 10) | 0) % 2 ? 0.2 : 0.8) : 0.7 + 0.2 * Math.sin(T * 8);
+      if (!STAR_G) { STAR_G = ctx.createRadialGradient(0, 0, 0, 0, 0, 1); STAR_G.addColorStop(0, 'rgba(255,240,170,0.9)'); STAR_G.addColorStop(0.5, 'rgba(255,200,80,0.45)'); STAR_G.addColorStop(1, 'rgba(255,170,40,0)'); }
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = pulse;
+      ctx.translate(fx, fy - 24); ctx.scale(40, 46); ctx.fillStyle = STAR_G; ctx.beginPath(); ctx.arc(0, 0, 1, 0, 6.2832); ctx.fill();
+      ctx.restore();
+      const SL = this._starL || (this._starL = { x: 0, y: 0, r: 110, color: '#ffe08a', a: 0.9 }); SL.x = fx; SL.y = fy - 24; this.world.lights.push(SL);   // 夜は周りを照らす
+      const o = this._starO || (this._starO = { flip: false, sx: 1, sy: 1, alpha: 1 });
+      o.flip = this.face < 0; o.sx = this.sx * 1.06; o.sy = this.sy * 1.06; o.alpha = 1;
+      this._starHue = hue;
+    }
+    // 被弾後の無敵：消えずに半透明で点滅（どこにいるか見失わない）
+    const blink = this.invuln > 0 && !this.dead && ((this.invuln * 16) | 0) % 2 === 0;
+    // 装備した武器があれば、手に武器・首に武器の色の布を重ねる（art/heroGear.js）
+    const d = this._drawO || (this._drawO = { flip: false, sx: 1, sy: 1, alpha: 1, weaponId: null, time: 0, vx: 0 });
+    d.flip = this.face < 0; d.sx = this.sx; d.sy = this.sy; d.alpha = blink ? 0.3 : 1; d.weaponId = this.weaponId; d.time = T; d.vx = this.vx;
+    drawHeroDressed(ctx, this.id, hasSprite(`hero_${this.id}_${this.anim}`) ? this.anim : 'idle', this.frame || 0, fx, fy, d);
+    if (this.star > 0) {
+      // 体の上に色を重ねる（明るく足すだけで、絵は見える）
       ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = 0.35 + 0.25 * Math.sin(this.world.time * 30);
-      drawSprite(ctx, hasSprite(name) ? name : `hero_${this.id}_idle`, this.frame || 0, fx, fy, { flip: this.face < 0, sx: this.sx * 1.08, sy: this.sy * 1.08 });
+      ctx.globalAlpha = this.star < 2 && ((T * 10) | 0) % 2 ? 0.1 : 0.3 + 0.1 * Math.sin(T * 12);
+      drawSprite(ctx, hasSprite(name) ? name : `hero_${this.id}_idle`, this.frame || 0, fx, fy, this._starO);
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+      // 色つきのきらめき（描画の時刻で間引く）
+      if (this.world.tick % 6 === 0 && this._sparkTick !== this.world.tick) {
+        this._sparkTick = this.world.tick;
+        SPARK_O.color = this._starHue;
+        this.world.particles.emit(SPARK_O, fx + (Math.random() - 0.5) * 30, fy - 10 - Math.random() * 40, 0, -40, 0.5, 0, 6);
+      }
     }
     // 溜め表示
     if (this.charge > 0.25 && this.ability.charged) {
@@ -381,4 +408,7 @@ export class Player {
   }
 }
 
+const STAR_COLORS = ['#ffe27a', '#ffb070', '#ff8aa0', '#b8f080', '#8ae0ff'];
+let STAR_G = null;
+const SPARK_O = { size: 4, size1: 0, color: '#ffe27a', shape: 'star', front: true, add: true };
 function approach(v, target, d) { return v < target ? Math.min(v + d, target) : Math.max(v - d, target); }

@@ -113,15 +113,24 @@ const ST = (n) => Math.pow(2, n / 12);
 export const SFX = {
   jump(S) { S.tone({ type: 'triangle', f0: 300, f1: 660, vol: 0.32, d: 0.13 }); S.tone({ type: 'sine', f0: 620, f1: 1240, vol: 0.08, d: 0.08 }); return 0.15; },
   land(S) { S.noise({ vol: 0.28, d: 0.07, filter: 'lowpass', ff: 520 }); S.tone({ type: 'sine', f0: 140, f1: 60, vol: 0.22, d: 0.08 }); return 0.1; },
-  coin(S) { S.bell(1760, 0.2, 0.22); S.bell(2217, 0.2, 0.38, 0.055); return 0.45; },
+  // コイン：きらっとした頭（高い雑音）＋二つの鈴。続けて取ると律音階で少しずつ上がる（o.streak 0..7）
+  coin(S, o) {
+    const k = Math.min(7, Math.max(0, (o && o.streak) || 0)), up = ST([0, 2, 5, 7, 9, 12, 14, 17][k]);
+    S.noise({ vol: 0.07, d: 0.025, filter: 'highpass', ff: 7000 });
+    S.bell(1568 * up, 0.19, 0.2); S.bell(2349 * up, 0.2, 0.4, 0.05);
+    return 0.45;
+  },
+  // 踏みつけ：「ぽすっ」と低い手応え＋はじく音。連続で踏むたびに律音階で上がり、3連続からは鈴が重なる
   stomp(S, o) {
     const c = Math.min(8, Math.max(1, (o && o.chain) || 1));
-    const f = 330 * ST((c - 1) * 2);   // 連続で踏むたびに一音ずつ上がる
-    S.tone({ type: 'triangle', f0: f * 1.6, f1: f, vol: 0.34, d: 0.11 });
-    S.tone({ type: 'square', f0: f * 0.5, f1: f * 0.25, vol: 0.08, d: 0.07, filter: 'lowpass', ff: 1200 });
-    S.noise({ vol: 0.16, d: 0.04, ff: 1400, q: 1.5 });
-    if (c >= 3) S.bell(f * 3, 0.06 + c * 0.01, 0.2, 0.04);
-    return 0.2;
+    const f = 330 * ST([0, 2, 5, 7, 9, 12, 14, 17][c - 1]);
+    S.tone({ type: 'sine', f0: 190, f1: 62, vol: 0.4, a: 0.002, d: 0.09 });             // 体に響く低い音
+    S.tone({ type: 'triangle', f0: f * 1.7, f1: f, glide: 0.05, vol: 0.3, d: 0.12 });
+    S.tone({ type: 'square', f0: f * 0.5, f1: f * 0.25, vol: 0.07, d: 0.07, filter: 'lowpass', ff: 1200 });
+    S.noise({ vol: 0.2, d: 0.035, filter: 'lowpass', ff: 1800 });
+    if (c >= 2) S.koto(f * 2, 0.08 + c * 0.01, 0.22, 0.05);
+    if (c >= 3) S.bell(f * 3, 0.06 + c * 0.01, 0.25, 0.08);
+    return 0.3;
   },
   hurt(S) { S.tone({ type: 'square', f0: 460, f1: 150, vol: 0.16, d: 0.24, filter: 'lowpass', ff: 1800 }); S.tone({ type: 'triangle', f0: 230, f1: 90, vol: 0.24, d: 0.22 }); S.noise({ vol: 0.14, d: 0.1, ff: 900 }); return 0.26; },
   miss(S) { [659, 554, 440, 330].forEach((f, i) => S.tone({ type: 'triangle', f0: f, f1: f * 0.94, vol: 0.26, d: 0.12, at: i * 0.1 })); return 0.55; },
@@ -137,7 +146,14 @@ export const SFX = {
   shootBig(S) { S.tone({ type: 'sawtooth', f0: 420, f1: 90, vol: 0.2, d: 0.32, filter: 'lowpass', ff: 2200, ff1: 400 }); S.noise({ vol: 0.22, d: 0.22, filter: 'lowpass', ff: 1800, ff1: 300 }); return 0.35; },
   // 鵜（う）の鳴き声ふうの短い二声
   bird(S) { S.tone({ type: 'square', f0: 760, f1: 1100, vol: 0.2, d: 0.06, filter: 'bandpass', ff: 1400, q: 2 }); S.tone({ type: 'square', f0: 900, f1: 640, vol: 0.2, d: 0.08, at: 0.08, filter: 'bandpass', ff: 1200, q: 2 }); S.noise({ vol: 0.1, d: 0.1, ff: 2600, ff1: 1800, q: 2 }); return 0.18; },
-  slash(S) { S.noise({ vol: 0.34, a: 0.01, d: 0.15, filter: 'highpass', ff: 6000, ff1: 1400 }); S.tone({ type: 'sine', f0: 1300, f1: 380, vol: 0.1, d: 0.1 }); return 0.17; },
+  // 技（ひと振り）：空気を切る「ひゅっ」（帯域を下げながら）＋短い芯の音
+  slash(S) {
+    S.noise({ vol: 0.36, a: 0.012, d: 0.14, filter: 'bandpass', ff: 5200, ff1: 1100, q: 1.4 });
+    S.noise({ vol: 0.12, a: 0.004, d: 0.05, filter: 'highpass', ff: 7000 });
+    S.tone({ type: 'sine', f0: 1500, f1: 420, vol: 0.09, d: 0.1 });
+    S.tone({ type: 'triangle', f0: 260, f1: 140, vol: 0.12, d: 0.06, at: 0.02 });
+    return 0.17;
+  },
   dash(S) { S.noise({ vol: 0.55, a: 0.02, d: 0.2, ff: 700, ff1: 2600, q: 2 }); return 0.23; },
   break(S) { S.noise({ vol: 0.42, d: 0.26, filter: 'lowpass', ff: 1800, ff1: 300 }); S.tone({ type: 'square', f0: 150, f1: 55, vol: 0.12, d: 0.12, filter: 'lowpass', ff: 700 }); S.noise({ vol: 0.18, d: 0.03, at: 0.07, ff: 3000 }); S.noise({ vol: 0.14, d: 0.03, at: 0.13, ff: 2400 }); return 0.3; },
   bump(S) { S.tone({ type: 'sine', f0: 190, f1: 85, vol: 0.42, d: 0.09 }); S.noise({ vol: 0.16, d: 0.05, filter: 'lowpass', ff: 380 }); return 0.1; },
@@ -170,11 +186,16 @@ export const SFX = {
     return 1.6;
   },
   bossPhase(S) { SFX.clang(S); S.noise({ vol: 0.2, a: 0.3, d: 0.15, ff: 400, ff1: 3000, q: 3 }); S.taiko(0.7, 0.42, 90); return 0.8; },
+  // ボス撃破：大きな一撃（爆発＋大太鼓）→ スローの間に下りる旋律 → 鐘と、上へ抜ける笛で「勝った」
   bossDefeat(S) {
     SFX.explosion(S);
+    S.taiko(0.3, 0.06, 70);
     const r = 60, sc = SCALES.ritsu;
     [4, 3, 2, 1, 0].forEach((k, i) => S.tone({ type: 'triangle', f0: mtof(r + 12 + sc[k]), vol: 0.14, d: 0.2, at: 0.5 + i * 0.1 }));
+    S.taiko(0.55, 1.0, 110); S.taiko(0.6, 1.05, 90);
     S.bell(mtof(r + 24), 0.16, 1.5, 1.05);
+    S.tone({ type: 'triangle', f0: mtof(r + 19), f1: mtof(r + 24), glide: 0.25, vol: 0.12, a: 0.03, hold: 0.25, d: 0.6, vib: 0.01, at: 1.1 });
+    S.noise({ vol: 0.06, a: 0.5, d: 0.4, filter: 'highpass', ff: 6000, at: 0.6 });
     return 2.6;
   },
   // 金属に当たる音（盾・からくり）
@@ -425,12 +446,19 @@ export const audio = {
       P.step++; P.next += P.data.stepDur;
     }
   },
+  // 曲の切り替え：前の曲を薄くしながら、新しい曲をすっと立ち上げる（ぶつ切り・二重鳴りにしない）。
+  // ジングル（繰り返さない曲：クリアなど）は前の曲を素早く切って、頭からはっきり聞かせる
   startPlaying(name) {
     const data = songData(name);
-    this.stopPlaying(0.4);
+    const jingle = data && !data.loop;
+    this.stopPlaying(jingle ? 0.12 : 0.45);
     if (!data || !this.ctx) return;
-    const g = this.ctx.createGain(); g.gain.value = 1; g.connect(this.bgmBus);
-    this.playing = { name, gain: g, step: 0, next: this.ctx.currentTime + 0.08, data };
+    const t = this.ctx.currentTime, start = t + (jingle ? 0.1 : 0.15);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(jingle ? 1 : 0.0001, t);
+    if (!jingle) g.gain.linearRampToValueAtTime(1, start + 0.35);
+    g.connect(this.bgmBus);
+    this.playing = { name, gain: g, step: 0, next: start, data };
   },
   stopPlaying(fade = 0.4) {
     const P = this.playing; if (!P || !this.ctx) { this.playing = null; return; }
@@ -444,6 +472,11 @@ export const audio = {
     if (!SFX[name]) return;
     const now = this.ctx.currentTime;
     if (now - (this.last[name] || -1) < 0.035) return;   // 同じ音の連打で割れないように
+    // コインは続けて取ると音が上がる（0.4秒以内に次を取ると1段上）
+    if (name === 'coin' && !(opts && opts.streak != null)) {
+      this.coinStreak = now - (this.last.coin || -1) < 0.4 ? Math.min(7, (this.coinStreak || 0) + 1) : 0;
+      const o = this._coinO || (this._coinO = { streak: 0 }); o.streak = this.coinStreak; opts = o;
+    }
     this.last[name] = now;
     try { playSfx(this.ctx, this.sfxBus, name, opts, now + 0.005); } catch { /* 無視 */ }
   },

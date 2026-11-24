@@ -16,6 +16,7 @@ import { createEnv } from '../systems/env.js';
 import { Lighting } from '../gfx/lighting.js';
 import { drawPostFx } from '../gfx/postfx.js';
 
+const LIGHT_PAD = 120;
 // ステージ1つ分の実行時の世界。シーン（scenes/stage.js）が持つ。API は docs/ARCHITECTURE.md
 export class World {
   constructor(levelData, charId, opts = {}) {
@@ -268,19 +269,27 @@ export class World {
     ctx.save();
     ctx.translate(-cam.x, -cam.y);
     this.lights.length = 0;
+    // 暗い時は、画面のすぐ外のエンティティの灯り（半径〜170）も膜に穴を開けるので、余白を広げる
+    // （以前は余白80で、大きい灯りが画面の端で急に現れていた）
+    // 灯りを出さないと分かったエンティティ（e._lit === false）は、広げた余白では描かない（暗い場面の描画を増やさない）
+    const dark = this.env.darkness > 0, lp = dark ? LIGHT_PAD : 0;
     const x0 = cam.x - 80, x1 = cam.x + vw + 80, y0 = cam.y - 80, y1 = cam.y + vh + 80;
     // 後ろのエンティティ（z<0：背景の小物など）
     const list = this._drawList || (this._drawList = []);
     list.length = 0;
-    for (const e of this.entities) if (e.alive && e.x + e.w > x0 - (e.drawPad || 0) && e.x < x1 + (e.drawPad || 0) && e.y + e.h > y0 - (e.drawPad || 0) && e.y < y1 + (e.drawPad || 0)) list.push(e);
+    for (const e of this.entities) {
+      if (!e.alive) continue;
+      const pad = (e.drawPad || 0) + (e._lit === false ? 0 : lp);
+      if (e.x + e.w > x0 - pad && e.x < x1 + pad && e.y + e.h > y0 - pad && e.y < y1 + pad) list.push(e);
+    }
     list.sort((a, b) => a.z - b.z);
     let i = 0;
-    for (; i < list.length && list[i].z < 0; i++) list[i].draw(ctx, alpha);
+    for (; i < list.length && list[i].z < 0; i++) this.drawEnt(list[i], ctx, alpha, dark);
     this.tilemap.draw(ctx, cam.x, cam.y, vw, vh);
     this.particles.draw(ctx, false);
-    for (; i < list.length && list[i].z < 10; i++) list[i].draw(ctx, alpha);
+    for (; i < list.length && list[i].z < 10; i++) this.drawEnt(list[i], ctx, alpha, dark);
     this.player.draw(ctx, alpha);
-    for (; i < list.length; i++) list[i].draw(ctx, alpha);
+    for (; i < list.length; i++) this.drawEnt(list[i], ctx, alpha, dark);
     this.drawFake(ctx, cam, vw, vh);
     this.particles.draw(ctx, true);
     if (RUNTIME.debug) this.drawDebug(ctx);
@@ -289,6 +298,25 @@ export class World {
     this.env.drawFront(ctx, cam, vw, vh);
     this.lighting.draw(ctx, this, cam, vw, vh);
     drawPostFx(ctx, this.env, vw, vh);
+    this.drawCinema(ctx, vw, vh);
+  }
+  // ボスの撃破・ダウンのスローの間は、上下に黒い帯（映画のような間）を出して「時間がゆっくり」を見せる
+  drawCinema(ctx, vw, vh) {
+    const want = this.slowT > 0 && this.timeScale < 0.5 ? 1 : 0;
+    const now = this.time;
+    const dt = this._cineT == null ? 0 : Math.min(0.1, Math.max(0, now - this._cineT) / Math.max(0.05, this.timeScale));
+    this._cineT = now;
+    this.cine = (this.cine || 0) + (want - (this.cine || 0)) * Math.min(1, dt * (want ? 14 : 5));
+    if (this.cine < 0.01) return;
+    const h = Math.round(vh * 0.075 * this.cine);
+    ctx.fillStyle = '#0c0808'; ctx.fillRect(0, 0, vw, h); ctx.fillRect(0, vh - h, vw, h);
+  }
+  // 暗い時は、描いた時に灯りを出したかを覚える（出さないものは画面の外の余白で描かない）
+  drawEnt(e, ctx, alpha, dark) {
+    if (!dark) { e.draw(ctx, alpha); return; }
+    const n = this.lights.length;
+    e.draw(ctx, alpha);
+    if (this.lights.length > n) e._lit = true; else if (e._lit === undefined) e._lit = false;
   }
   drawFake(ctx, cam, vw, vh) {
     if (!this.fakeTiles.length) return;

@@ -7,6 +7,7 @@ import { save } from '../core/save.js';
 import { touch } from '../ui/touch.js';
 import { drawText, roundRect, font, COL } from '../ui/text.js';
 
+const O_GHOST = { alpha: 0.45 }, O_BEAT = { sx: 1 };
 // アイテム・中間地点・看板・宝珠（設計書 6章「各ステージに必ず入れるもの」）
 class Coin extends Entity {
   constructor(w, s) { super(w, s); this.pickup = true; this.placeAt(s, 20, 24); this.y -= 6; this.phase = (s.x * 0.37 + s.y * 0.11) % 1; this.z = 1; }
@@ -42,7 +43,7 @@ class Sarubobo extends Entity {
   }
   draw(ctx, a) {
     const y = this.y + this.h + Math.sin(this.world.time * 2.4) * 3;
-    drawSprite(ctx, 'item_sarubobo', 0, this.cx, y, { alpha: this.got ? 0.45 : 1 });
+    drawSprite(ctx, 'item_sarubobo', 0, this.cx, y, this.got ? O_GHOST : null);
   }
 }
 registerEntity('sarubobo', Sarubobo);
@@ -58,7 +59,7 @@ registerEntity('skewer', Skewer);
 class Heart extends Entity {
   constructor(w, s) { super(w, s); this.pickup = true; this.placeAt(s, 24, 24); this.z = 2; }
   onTouch(p) { this.alive = false; p.heal(1); this.world.sfx('heart'); this.world.particles.burst(this.cx, this.cy, 10, { speed: 140, life: 0.5, size: 5, size1: 0, color: '#ff7fa0', front: true }); }
-  draw(ctx, a) { drawSprite(ctx, 'item_heart', 0, this.cx, this.y + this.h + Math.sin(this.world.time * 4) * 2, { sx: 1 + Math.sin(this.world.time * 8) * 0.06 }); }
+  draw(ctx, a) { O_BEAT.sx = 1 + Math.sin(this.world.time * 8) * 0.06; drawSprite(ctx, 'item_heart', 0, this.cx, this.y + this.h + Math.sin(this.world.time * 4) * 2, O_BEAT); }
 }
 registerEntity('heart', Heart);
 
@@ -75,8 +76,8 @@ class Checkpoint extends Entity {
   }
   update(dt) { if (this.on && this.raise < 1) this.raise = Math.min(1, this.raise + dt * 2.5); }
   draw(ctx, a) {
-    drawSprite(ctx, 'prop_checkpoint', this.on ? 1 : 0, this.cx, this.y + this.h, { sy: 1 });
-    if (this.on) this.world.lights.push({ x: this.cx, y: this.y + 8, r: 90, color: '#ffcf7a', a: 0.9 });
+    drawSprite(ctx, 'prop_checkpoint', this.on ? 1 : 0, this.cx, this.y + this.h);
+    if (this.on) { const L = this.light || (this.light = { x: 0, y: 0, r: 90, color: '#ffcf7a', a: 0.9 }); L.x = this.cx; L.y = this.y + 8; this.world.lights.push(L); }
   }
 }
 registerEntity('checkpoint', Checkpoint);
@@ -98,7 +99,7 @@ class Orb extends Entity {
   constructor(w, s) { super(w, s); this.pickup = true; this.placeAt(s, 36, 36); this.vy = s.drop ? -520 : 0; this.persistent = true; this.z = 6; this.onGround = false; }
   update(dt) {
     if (this.spec.drop && !this.onGround) { this.vy = Math.min(this.vy + 1400 * dt, 700); moveBody(this.world.level, this, dt, { platforms: this.world.platforms }); }
-    this.world.lights.push({ x: this.cx, y: this.cy, r: 140, color: '#bfe8ff', a: 1 });
+    const L = this.light || (this.light = { x: 0, y: 0, r: 140, color: '#bfe8ff', a: 1 }); L.x = this.cx; L.y = this.cy; this.world.lights.push(L);
     if (this.world.tick % 5 === 0) this.world.particles.spawn({ x: this.cx + (Math.random() - 0.5) * 30, y: this.cy + (Math.random() - 0.5) * 30, vy: -40, life: 0.8, size: 3, size1: 0, color: '#e6f7ff', shape: 'star', add: true, front: true });
   }
   // ミスと同じフレームに触れた時はクリアにならないので、宝珠を残す（中間地点から戻って取り直せる）
@@ -135,11 +136,18 @@ class Decor extends Entity {
     this.placeAt(s, 36, 36);
     this.z = s.z ?? -5; this.persistent = false; this.drawPad = 200;
     this.sprite = s.sprite || 'prop_toro';
+    // 描画のオプションと灯りは1回だけ作って使い回す（以前は毎フレーム新しいオブジェクトを作っていた）
+    this.opt = { flip: !!s.flip, sx: s.scale || 1, sy: s.scale || 1, rot: 0 };
+    this.fps = s.fps || 6; this.baseY = (s.dy || 0) * TILE;
+    const L = s.light;
+    this.light = L ? { x: 0, y: 0, r: L.r || 110, color: L.color || '#ffbf6a', a: 1, flicker: L.flicker ?? 0.08 } : null;
+    if (L) { this.lightDx = L.dx || 0; this.lightDy = L.dy ?? 40; this.drawPad = Math.max(this.drawPad, this.light.r); }
   }
   draw(ctx, a) {
-    const s = this.spec;
-    drawSprite(ctx, this.sprite, ((this.world.time * (s.fps || 6)) | 0), this.cx, this.y + this.h + (s.dy || 0) * TILE, { flip: !!s.flip, sx: s.scale || 1, sy: s.scale || 1, rot: s.sway ? Math.sin(this.world.time * 1.5 + this.x) * s.sway : 0 });
-    if (s.light) this.world.lights.push({ x: this.cx + (s.light.dx || 0), y: this.y + this.h - (s.light.dy ?? 40), r: s.light.r || 110, color: s.light.color || '#ffbf6a', a: 1, flicker: s.light.flicker ?? 0.08 });
+    const s = this.spec, t = this.world.time;
+    if (s.sway) this.opt.rot = Math.sin(t * 1.5 + this.x) * s.sway;
+    drawSprite(ctx, this.sprite, (t * this.fps) | 0, this.cx, this.y + this.h + this.baseY, this.opt);
+    if (this.light) { const L = this.light; L.x = this.cx + this.lightDx; L.y = this.y + this.h - this.lightDy; this.world.lights.push(L); }
   }
 }
 registerEntity('decor', Decor);

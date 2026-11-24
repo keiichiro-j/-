@@ -1,6 +1,7 @@
 import { LIMITS, RUNTIME } from '../core/config.js';
 import { rng } from '../core/rng.js';
 // パーティクル（最大800個、低画質は半分）。配列は使い回し、毎フレームの生成をしない。
+const LAND_O = { size: 7, size1: 2, color: 'rgba(214,196,164,0.75)', drag: 4.5, grav: -30 };
 const SHAPES = { circle: 0, square: 1, star: 2, leaf: 3, spark: 4, ring: 5 };
 
 export class Particles {
@@ -43,6 +44,15 @@ export class Particles {
     }
   }
   dust(x, y, dir = 0, n = 6) { this.burst(x, y, n, { angle: dir ? (dir > 0 ? -Math.PI * 0.85 : -Math.PI * 0.15) : -Math.PI / 2, spread: dir ? 0.9 : 2.6, speed: 90, life: 0.45, size: 5, size1: 1, color: 'rgba(210,190,160,0.8)', drag: 3, grav: -40 }); }
+  // 着地の土ぼこり：地面に沿って左右へ広がる低い煙（強く落ちるほど大きく遠くへ）
+  landDust(x, y, k = 1) {
+    const n = Math.round(3 + k * 5);
+    LAND_O.size = 4 + k * 4;
+    for (let i = 0; i < n; i++) {
+      const side = i & 1 ? 1 : -1, sp = (60 + rng.next() * 140) * (0.5 + k * 0.7);
+      if (!this.emit(LAND_O, x + side * (4 + rng.next() * 8), y - 2, side * sp, -10 - rng.next() * 30 * k, 0.35 + rng.next() * 0.25, 0, 0)) return;
+    }
+  }
   stomp(x, y) {
     this.burst(x, y, 8, { speed: 260, life: 0.4, size: 7, size1: 0, color: '#ffe56b', shape: 'star', drag: 4, vr: 12, front: true });
     this.spawn({ x, y, life: 0.25, size: 6, size1: 40, color: 'rgba(255,255,255,0.9)', shape: 'ring', front: true });
