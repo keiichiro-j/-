@@ -18,7 +18,7 @@ open dist/index.html   # ブラウザで開くだけで遊べる
 操作：←→ 移動 / ↓ しゃがむ / Z・Space ジャンプ / X・Shift 技（押しっぱなしでダッシュ）/ Esc 一時停止。ゲームパッド・スマホ横向きのタッチにも対応。
 
 ## GAS へ配置
-`dist/` の `index.html`・`Code.gs`・`appsscript.json` を Apps Script プロジェクトへ（clasp なら `cd dist && clasp push`）。ウェブアプリとしてデプロイする。
+`dist/` の `index.html`・`Code.gs`・`appsscript.json` を Apps Script プロジェクトへ（clasp なら `cd dist && clasp push`）。ウェブアプリとしてデプロイする（実行ユーザー：自分、アクセス：全員。Googleアカウントなしで遊べる）。
 
 ## テスト
 `npm test` … vitest（当たり判定・物理・レベル検査）＋ヘッドレス Chrome で全ステージを自動プレイしてコンソールエラー0件を確認
