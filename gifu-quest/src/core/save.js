@@ -4,7 +4,7 @@ import { input, DEFAULT_KEYS } from './input.js';
 import CHARS from '../data/characters.json';
 import WEAPONS from '../data/weapons.json';
 export const SAVE_KEY = 'gq2_save';
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 // タッチボタンの初期配置（x,y は画面に対する割合の中心位置、s は倍率）。ui/touch.js と設定画面も使う
 export const DEFAULT_TOUCH_LAYOUT = {
   pad: { x: 0.165, y: 0.8, s: 1 },
@@ -31,10 +31,18 @@ export function defaultSave() {
     weapons: {},                       // 持っている武器 { w01: { lv: 1 }, ... }（福引き）
     equipped: null,                    // 装備中の武器の id
     gacha: { lastFree: '', pity: 0, total: 0 },   // 無料の日付・天井までの回数・累計
+    // v4：称号・毎日のお題・腕試し（docs/content.md）
+    records: defaultRecords(),         // 累計の記録（称号の判定に使う）
+    achievements: {},                  // 得た称号 { id: '2026-11-24' }
+    missions: { date: '', list: [], gachaBase: 0 },   // 今日のお題 list: [{ id, p, done, char? }]
+    bossRush: { best: 0, noMiss: false, clears: 0, tries: 0, most: 0 },   // 腕試し：ベスト（秒・0は記録なし）・ノーミス達成・クリア回数・挑戦回数・最多撃破
     settings: { sound: false, sfxVol: 0.8, bgmVol: 0.6, quality: 'auto', shake: true, difficulty: 'normal', touchLayout: null, keymap: null },
   };
 }
 
+export function defaultRecords() {
+  return { coins: 0, enemies: 0, stomps: 0, bestChain: 0, clears: 0, noMissClears: 0, bosses: 0, missionsDone: 0, charClears: {} };
+}
 const arr = (v) => (Array.isArray(v) ? v : []);
 const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
 const num = (v, lo, hi, def) => { const n = typeof v === 'string' && v.trim() !== '' ? +v : v; return typeof n === 'number' && Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : def; };
@@ -58,6 +66,8 @@ export function migrate(d) {
   if (v < 2) v = 2;
   // v2 → v3：武器と福引き（既定値で埋まる）
   if (v < 3) v = 3;
+  // v3 → v4：称号・お題・腕試し。累計のクリア回数は、クリア済みのステージ数から始める
+  if (v < 4) { if (!d.records) d.records = { clears: arr(d.cleared ?? d.clear).length }; v = 4; }
   const out = { ...base, ...d, settings: { ...base.settings, ...obj(d.settings) } };
   // 形の検査（壊れたデータでも止まらない。おかしな値は既定値に戻す）
   out.cleared = [...new Set(arr(out.cleared).map(stageNo).filter((n) => n != null))];
@@ -77,6 +87,20 @@ export function migrate(d) {
   if (!out.weapons[out.equipped]) out.equipped = null;
   const g = obj(out.gacha);
   out.gacha = { lastFree: typeof g.lastFree === 'string' ? g.lastFree : '', pity: Math.max(0, Math.min(WEAPONS.pity - 1, g.pity | 0)), total: Math.max(0, g.total | 0) };
+  // 称号・お題・腕試し（v4）
+  const R0 = defaultRecords(), rec = obj(out.records); out.records = {};
+  for (const k of Object.keys(R0)) if (k !== 'charClears') out.records[k] = Math.floor(num(rec[k], 0, 1e9, 0));
+  const cc = obj(rec.charClears); out.records.charClears = {};
+  for (const k of Object.keys(cc)) if (CHARS[k]) out.records.charClears[k] = Math.floor(num(cc[k], 0, 1e9, 0));
+  const ac = obj(out.achievements); out.achievements = {};
+  for (const k of Object.keys(ac)) if (typeof k === 'string' && ac[k]) out.achievements[k] = typeof ac[k] === 'string' ? ac[k] : '?';
+  const ms = obj(out.missions);
+  out.missions = { date: typeof ms.date === 'string' ? ms.date : '', gachaBase: Math.floor(num(ms.gachaBase, 0, 1e9, 0)),
+    list: arr(ms.list).filter((m) => m && typeof m.id === 'string').slice(0, 5).map((m) => ({ id: m.id, p: Math.floor(num(m.p, 0, 1e9, 0)), done: !!m.done, ...(CHARS[m.char] ? { char: m.char } : {}) })) };
+  const br = obj(out.bossRush);
+  out.bossRush = { best: num(br.best, 0, 1e7, 0), noMiss: !!br.noMiss, clears: Math.floor(num(br.clears, 0, 1e9, 0)), tries: Math.floor(num(br.tries, 0, 1e9, 0)), most: Math.floor(num(br.most, 0, 6, 0)) };
+  const nb = obj(out.noMissBoss); out.noMissBoss = {};
+  for (const k of Object.keys(nb)) if (nb[k]) out.noMissBoss[k] = true;
   // 設定
   const S = out.settings, B = base.settings;
   S.sound = typeof S.sound === 'boolean' ? S.sound : B.sound; S.shake = typeof S.shake === 'boolean' ? S.shake : B.shake;

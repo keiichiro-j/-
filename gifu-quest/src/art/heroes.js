@@ -799,7 +799,10 @@ export function heroAnchor(id, anim, f) {
     return pt(CX + (x - CX) * Q.sx, GROUND + (y - GROUND) * Q.sy);
   };
   ang += rot;
-  a = { hand: tf(arm.hand), neck: tf(neck), hip: tf(pt(hx, hy)), ang, t: t + rot, air: !Q.g };
+  // 頭の中心（drawHero と同じ式）。武器が顔に重ならない向きを選ぶのに使う（art/heroGear.js）
+  const ha = t * 0.6 + Q.h * D;
+  const head = pt(neck.x + Math.sin(ha) * (C.hr * 0.82) + Math.cos(ha) * 0.8, neck.y - Math.cos(ha) * (C.hr * 0.82) + Math.sin(ha) * 0.8);
+  a = { hand: tf(arm.hand), neck: tf(neck), hip: tf(pt(hx, hy)), head: tf(head), hr: C.hr * Math.max(Q.sx, Q.sy), ang, t: t + rot, air: !Q.g };
   ANCH.set(key, a);
   return a;
 }

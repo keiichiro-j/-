@@ -16,6 +16,13 @@ export function build() {
   b.sign('kinka', 7, 39, '金華山', '金華山は岐阜市の長良川のほとりにそびえる標高329メートルの山。山頂に岐阜城の天守が建ち、ふもとの岐阜公園から登山道がのびている。');
   D('pine', 1, 39); D('toro', 5, 39); D('torii_small', 12, 39); D('bush', 14, 39, { z: 2 });
   b.arc(9, 39, 13, 39, 1);                         // 最初の小さなジャンプ
+  // はじめて遊ぶ人への案内（吹き出し。一度見たら次からは出ない）。src/systems/pickups.js の hint
+  b.ent('hint', 3, 39, { id: 'move', range: 2.4 });
+  b.ent('hint', 7, 39, { id: 'sign', range: 1.2 });
+  b.ent('hint', 11, 39, { id: 'jump', range: 1.8 });
+  b.ent('hint', 22, 37, { id: 'attack', range: 2 });
+  b.ent('hint', 32, 35, { id: 'dash', range: 2.4 });
+  b.ent('hint', 49, 31, { id: 'drop', range: 1.6, dy: 0.5 });
   b.up22(2);                                       // 16-19  → f38（ゆるい坂）
   b.coins(16, 19, 36);
   b.flat(8);                                       // 20-27

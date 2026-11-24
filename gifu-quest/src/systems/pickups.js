@@ -3,6 +3,9 @@ import { TILE } from '../core/config.js';
 import { drawSprite } from '../gfx/atlas.js';
 import { input } from '../core/input.js';
 import { moveBody } from '../world/collision.js';
+import { save } from '../core/save.js';
+import { touch } from '../ui/touch.js';
+import { drawText, roundRect, font, COL } from '../ui/text.js';
 
 // アイテム・中間地点・看板・宝珠（設計書 6章「各ステージに必ず入れるもの」）
 class Coin extends Entity {
@@ -140,3 +143,141 @@ class Decor extends Entity {
   }
 }
 registerEntity('decor', Decor);
+
+// ---- はじめて遊ぶ人への案内（吹き出し）----
+// spec: id（move|jump|attack|dash|drop|sign）, range（左右の幅・タイル。既定2.5）, dy（上下の幅・タイル。既定3）
+// その場所に来ると、上に短い吹き出しを出す（PC はキー名、スマホはボタンの絵）。一度見たら save.data.seenHints[id] に記録し、次からは出さない
+// （save.js の defaultSave には無いキー。無くても動くように読む）
+const HINT_KEY_NAME = { ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓', Space: 'Space', ShiftLeft: 'Shift', ShiftRight: 'Shift', Enter: 'Enter' };
+const hintKey = (act) => { const c = (input.keymap[act] || [])[0] || '?'; return HINT_KEY_NAME[c] || c.replace(/^Key/, '').replace(/^Digit/, ''); };
+// 行ごとの部品：文字列はそのまま、{k:'jump'} はキー（スマホは対応するボタンの絵）
+const HINTS = {
+  move: [[{ k: 'left' }, { k: 'right' }, 'で歩く']],
+  jump: [[{ k: 'jump' }, 'でジャンプ'], ['ながおしで高く跳ぶ']],
+  attack: [[{ k: 'attack' }, 'で技'], ['上からふんでも倒せる']],
+  dash: [[{ k: 'attack' }, 'を押したまま', { k: 'lr' }], ['でダッシュ']],
+  drop: [[{ k: 'down' }, '＋', { k: 'jump' }, 'で足場から降りる']],
+  sign: [[{ k: 'up' }, 'で看板を読む']],
+};
+const HINT_TXT = { size: 19, color: COL.kinari, align: 'left', baseline: 'middle' };
+const HINT_KEY = { size: 17, color: COL.sumi, align: 'center', baseline: 'middle' };
+const HINT_BTN = { size: 12, color: COL.kinari, align: 'center', baseline: 'middle' };
+let keyboardUsed = false;
+if (typeof window !== 'undefined') window.addEventListener('keydown', () => { keyboardUsed = true; }, { passive: true });
+// スマホの操作か（タッチで遊んでいる・キーボードを使っていない）
+export function touchControls() {
+  if (input.lastDevice === 'touch') return true;
+  return !!(touch.enabled && !keyboardUsed && input.lastDevice !== 'pad');
+}
+function seenHints() { const d = save.data; const s = d.seenHints; return s && typeof s === 'object' && !Array.isArray(s) ? s : null; }
+
+class Hint extends Entity {
+  constructor(w, s) {
+    super(w, s); this.placeAt(s, 36, 36); this.z = 30; this.drawPad = 160;
+    this.id = s.id || 'move'; this.lines = HINTS[this.id] || HINTS.move;
+    const S = seenHints();
+    this.done = !!(S && S[this.id]);
+    this.show = 0;       // 0..1（出る・消えるの動き）
+    this.shownT = 0;     // 出ていた時間
+    this.lay = null; this.layTouch = null; this.layMap = null;
+  }
+  update(dt) {
+    if (this.done && this.show <= 0) return;
+    const p = this.world.player, W = this.world;
+    const rx = (this.spec.range ?? 2.5) * TILE, ry = (this.spec.dy ?? 3) * TILE;
+    const foot = p.y + p.h, base = this.y + this.h;
+    let near = !this.done && W.state === 'play' && W.time > 2.1 && !p.dead && Math.abs(p.cx - this.cx) < rx && Math.abs(foot - base) <= ry;
+    if (near && this.id === 'sign' && W.stats.signs.length) { near = false; this.markSeen(); }
+    this.show = Math.max(0, Math.min(1, this.show + (near ? dt * 5 : -dt * 3.5)));
+    if (this.show >= 1) this.shownT += dt;
+    // 1.5秒見せたら「見た」。今いる間は出したまま、離れたら消えて二度と出ない
+    if (!near && this.shownT > 1.5) this.markSeen();
+  }
+  markSeen() {
+    if (this.done) return;
+    this.done = true;
+    const d = save.data;
+    if (!seenHints()) d.seenHints = {};
+    d.seenHints[this.id] = true;
+    save.write();
+  }
+  // 部品の位置を計算（出始めと、操作の種類・キー設定が変わった時だけ。毎フレーム作らない）
+  layout(ctx, isTouch) {
+    if (this.lay && this.layTouch === isTouch && this.layMap === input.keymap) return this.lay;
+    const items = [], lineW = [], LH = 34;
+    for (const line of this.lines) {
+      let x = 0; const row = [];
+      for (const part of line) {
+        if (typeof part === 'string') { ctx.font = font(HINT_TXT.size); const w = ctx.measureText(part).width; row.push({ t: 'txt', s: part, x, w }); x += w + 4; continue; }
+        if (isTouch) {
+          const kind = { left: 'padL', right: 'padR', lr: 'padLR', up: 'padU', down: 'padD', jump: 'btnJ', attack: 'btnA' }[part.k];
+          if (part.k === 'right' && row.length && row[row.length - 1].kind === 'padL') { row[row.length - 1].kind = 'padLR'; continue; }   // ←→ はパッド1つの絵
+          const w = kind.startsWith('pad') ? 46 : kind === 'btnJ' ? 58 : 28;
+          row.push({ t: 'ico', kind, x, w }); x += w + 6;
+        } else {
+          const s = part.k === 'lr' ? hintKey('left') + hintKey('right') : hintKey(part.k);
+          ctx.font = font(HINT_KEY.size); const w = Math.max(28, ctx.measureText(s).width + 14);
+          row.push({ t: 'key', s, x, w }); x += w + 5;
+        }
+      }
+      lineW.push(x - 4); items.push(row);
+    }
+    const W = Math.max(...lineW) + 28, H = this.lines.length * LH + 14;
+    this.lay = { items, lineW, W, H, LH }; this.layTouch = isTouch; this.layMap = input.keymap;
+    return this.lay;
+  }
+  draw(ctx, a) {
+    if (this.show <= 0) return;
+    const isTouch = touchControls();
+    const L = this.layout(ctx, isTouch);
+    const e = this.show, k = e < 1 ? 1 + 0.12 * Math.sin(e * Math.PI) : 1;   // ぽんと出る
+    const bob = Math.sin(this.world.time * 2.4) * 2;
+    const cx = this.cx, by = this.y + this.h - (this.spec.lift ?? 82) + bob;   // 吹き出しの下端
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, e * 1.4);
+    ctx.translate(cx, by); ctx.scale(k * (0.85 + 0.15 * e), k * (0.85 + 0.15 * e));
+    const x0 = -L.W / 2, y0 = -L.H;
+    // 枠（墨の地に金の縁）としっぽ
+    ctx.fillStyle = 'rgba(29,24,22,0.86)'; ctx.strokeStyle = COL.kin; ctx.lineWidth = 2;
+    roundRect(ctx, x0, y0, L.W, L.H, 12); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-9, -1); ctx.lineTo(0, 12); ctx.lineTo(9, -1); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(0, 12); ctx.lineTo(9, 0); ctx.stroke();
+    for (let r = 0; r < L.items.length; r++) {
+      const row = L.items[r], lx = -L.lineW[r] / 2, ly = y0 + 7 + L.LH * r + L.LH / 2;
+      for (const it of row) {
+        const x = lx + it.x;
+        if (it.t === 'txt') drawText(ctx, it.s, x, ly + 1, HINT_TXT);
+        else if (it.t === 'key') {
+          ctx.fillStyle = '#6b5a44'; roundRect(ctx, x, ly - 12, it.w, 27, 6); ctx.fill();
+          ctx.fillStyle = COL.kinari; roundRect(ctx, x, ly - 14, it.w, 25, 6); ctx.fill();
+          drawText(ctx, it.s, x + it.w / 2, ly - 1, HINT_KEY);
+        } else drawHintIcon(ctx, it.kind, x + it.w / 2, ly, this.world.time);
+      }
+    }
+    ctx.restore();
+  }
+}
+registerEntity('hint', Hint);
+
+// スマホのボタンの小さな絵（ui/touch.js の見た目に合わせる）
+function drawHintIcon(ctx, kind, x, y, t) {
+  ctx.lineWidth = 2; ctx.strokeStyle = COL.kinari;
+  if (kind.startsWith('pad')) {
+    ctx.fillStyle = 'rgba(243,234,215,0.18)'; roundRect(ctx, x - 23, y - 14, 46, 28, 12); ctx.fill(); ctx.stroke();
+    const on = ((t * 2) | 0) % 2 === 0;
+    const tri = (tx, ty, dx, dy, lit) => {
+      ctx.fillStyle = lit ? COL.kin : 'rgba(243,234,215,0.85)'; ctx.beginPath();
+      ctx.moveTo(tx + dx * 7, ty + dy * 7); ctx.lineTo(tx - dx * 4 + dy * 6, ty - dy * 4 + dx * 6); ctx.lineTo(tx - dx * 4 - dy * 6, ty - dy * 4 - dx * 6); ctx.closePath(); ctx.fill();
+    };
+    tri(x - 12, y, -1, 0, kind === 'padL' || (kind === 'padLR' && on));
+    tri(x + 12, y, 1, 0, kind === 'padR' || (kind === 'padLR' && !on));
+    if (kind === 'padU') tri(x, y - 4, 0, -1, true);
+    if (kind === 'padD') tri(x, y + 4, 0, 1, true);
+    return;
+  }
+  ctx.fillStyle = COL.shu; ctx.beginPath();
+  if (kind === 'btnJ') roundRect(ctx, x - 29, y - 14, 58, 28, 14); else ctx.arc(x, y, 14, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+  drawText(ctx, kind === 'btnJ' ? 'ジャンプ' : '技', x, y + 1, kind === 'btnJ' ? HINT_BTN : HINT_BTN_A);
+}
+const HINT_BTN_A = { size: 16, color: COL.kinari, align: 'center', baseline: 'middle' };

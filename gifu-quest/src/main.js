@@ -28,6 +28,12 @@ import { settingsScene } from './scenes/settings.js';
 import { galleryScene, dressupScene } from './scenes/gallery.js';
 import { zukanScene } from './scenes/zukan.js';
 import { gachaScene } from './scenes/gacha.js';
+import { recordsScene } from './scenes/records.js';
+import { bossrushScene } from './scenes/bossrush.js';
+import { progress } from './systems/achievements.js';
+import { events } from './core/events.js';
+import { toast } from './ui/toast.js';
+import { LEVELS } from './world/levels.js';
 
 function start() {
   const canvas = document.getElementById('game');
@@ -51,11 +57,17 @@ function start() {
   game.register('dressup', dressupScene);
   game.register('zukan', zukanScene);
   game.register('gacha', gachaScene);
+  game.register('records', recordsScene);
+  game.register('bossrush', bossrushScene);
+  // 称号・お題：イベントにつなぐ（名物看板の id はステージ1〜7から）
+  const signIds = [];
+  for (let n = 1; n <= 7; n++) for (const e of (LEVELS[n] && LEVELS[n].entities) || []) if (e.type === 'sign') { const id = e.id || e.title; if (id && !signIds.includes(id)) signIds.push(id); }
+  progress.install({ events, save, toast, signIds });
   const loop = createLoop({ update: (dt) => game.update(dt), render: (a, dt) => game.render(a, dt) });
   game.loop = loop;
   game.go('boot', {}, 'none');
   loop.start();
-  window.__GQ__ = { game, loop, input };   // 自動テスト用
+  window.__GQ__ = { game, loop, input, progress, toast };   // 自動テスト用
   window.__GQ_SAVE__ = save;
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();

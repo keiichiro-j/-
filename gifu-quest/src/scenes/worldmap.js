@@ -1,19 +1,24 @@
 import { game } from '../game.js';
 import { drawHeroDressed } from '../art/heroGear.js';
 import { canFree } from '../systems/gacha.js';
+import { progress } from '../systems/achievements.js';
+import { doneCount } from '../systems/missions.js';
+import { toast } from '../ui/toast.js';
 import { input } from '../core/input.js';
 import { save } from '../core/save.js';
 import { audio } from '../core/audio.js';
 import { touch } from '../ui/touch.js';
 import { drawSprite } from '../gfx/atlas.js';
 import { LEVELS } from '../world/levels.js';
-import { drawText, drawWashi, drawTag, drawOrb, roundRect, fmtTime, COL } from '../ui/text.js';
+import { drawText, drawWashi, drawTag, drawOrb, roundRect, fmtTime, font, COL } from '../ui/text.js';
 import META from '../data/stages.json';
 // ワールドマップ（設計書 3章・9章）。架空の岐阜の地図。担当：UI
 // params: { stage?: 最後に遊んだステージ（そこにカーソルを置く）}
 
 const ORDER = [0, 1, 2, 3, 4, 5, 6, 7];
-const BTNS = [{ key: 'gacha', label: '福引き' }, { key: 'char', label: 'キャラ変更' }, { key: 'zukan', label: '図鑑' }, { key: 'settings', label: '設定' }, { key: 'title', label: 'タイトル' }];
+// short：幅が足りない時の短い名前。rush（腕試し）はエンディングを見た後だけ出る
+const ALL_BTNS = [{ key: 'gacha', label: '福引き' }, { key: 'char', label: 'キャラ変更', short: 'キャラ' }, { key: 'zukan', label: '図鑑' }, { key: 'records', label: '記録' }, { key: 'rush', label: '腕試し' }, { key: 'settings', label: '設定' }, { key: 'title', label: 'タイトル' }];
+let BTNS = ALL_BTNS.filter((b) => b.key !== 'rush');
 const ST = {
   name: { size: 24, color: COL.sumi, align: 'left', baseline: 'middle', serif: true },
   area: { size: 14, color: COL.shuDark, align: 'left', baseline: 'middle' },
@@ -43,13 +48,19 @@ function stageState(n) {
 export const worldmapScene = {
   t: 0, sel: 1, focus: 'map', btnSel: 0, walk: 1, from: 1,
   nodes: ORDER.map(() => ({ x: 0, y: 0, r: 0 })),
-  btnRects: BTNS.map(() => ({ x: 0, y: 0, w: 0, h: 0 })),
+  btnRects: ALL_BTNS.map(() => ({ x: 0, y: 0, w: 0, h: 0 })),
+  missionRect: { x: 0, y: 0, w: 0, h: 0 },
   goRect: { x: 0, y: 0, w: 0, h: 0 },
   msg: '', msgT: 0,
   enter(params) {
     this.params = params || {};
     this.t = 0; this.focus = 'map'; this.walk = 1; this.msgT = 0;
     const d = save.data;
+    BTNS = ALL_BTNS.filter((b) => b.key !== 'rush' || d.seenEnding);
+    if (this.btnSel >= BTNS.length) this.btnSel = 0;
+    // 称号・お題：日付の入れ替え、福引きのお題、保存された状態から得られる称号（福引き・エンディングの後など）
+    progress.check();
+    save.write();
     let s = this.params.stage ?? d.lastStage ?? 1;
     if (typeof s !== 'number' || !stageState(s).visible) s = 1;
     // まだ遊んでいない次のステージがあれば、そこへ
@@ -83,6 +94,7 @@ export const worldmapScene = {
       const inR = (r) => tp.x >= r.x && tp.x <= r.x + r.w && tp.y >= r.y && tp.y <= r.y + r.h;
       for (let i = 0; i < BTNS.length; i++) if (inR(this.btnRects[i])) { this.btnSel = i; return this.button(BTNS[i].key); }
       if (inR(this.goRect)) return this.enterStage();
+      if (inR(this.missionRect)) { this.btnSel = BTNS.findIndex((b) => b.key === 'records'); return this.button('records', 1); }
       for (let i = 0; i < ORDER.length; i++) {
         const n = ORDER[i], N = this.nodes[i], st = stageState(n);
         if (!st.visible || Math.hypot(tp.x - N.x, tp.y - N.y) > N.r + 14) continue;
@@ -106,8 +118,10 @@ export const worldmapScene = {
     }
   },
   say(m) { this.msg = m; this.msgT = 2; },
-  button(k) {
+  button(k, tab) {
     audio.sfx('confirm');
+    if (k === 'records') return game.go('records', { back: 'worldmap', tab: tab ?? 0 }, 'wipe');
+    if (k === 'rush') return game.go('records', { back: 'worldmap', tab: 2 }, 'wipe');
     if (k === 'gacha') game.go('gacha', { back: 'worldmap' }, 'wipe');
     else if (k === 'char') game.go('select', { back: 'worldmap' }, 'wipe');
     else if (k === 'zukan') { if (game.scenes.zukan) game.go('zukan', { back: 'worldmap' }, 'wipe'); else this.say('図鑑は準備中です'); }
@@ -240,10 +254,13 @@ export const worldmapScene = {
       const r = this.btnRects[i]; r.w = bw; r.h = bh; r.x = bx1 - (BTNS.length - i) * (bw + 6) + 6; r.y = 12;
       const on = this.focus === 'btn' && this.btnSel === i;
       drawTag(ctx, r.x, r.y, r.w, r.h, on, false, on ? 0.5 + 0.5 * Math.sin(t * 5) : 0);
-      drawText(ctx, BTNS[i].label, r.x + r.w / 2, r.y + r.h / 2 + 1, on ? ST.btnA : ST.btn);
+      const lb = this.fitLabel(ctx, BTNS[i], r.w - 10);
+      drawText(ctx, lb.text, r.x + r.w / 2, r.y + r.h / 2 + 1, on ? lb.stA : lb.st);
       // 今日の無料の福引きが残っていれば赤い点
       if (BTNS[i].key === 'gacha' && canFree(d)) { ctx.fillStyle = COL.shu; ctx.beginPath(); ctx.arc(r.x + r.w - 6, r.y + 6, 6, 0, 7); ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = '#fff'; ctx.stroke(); }
     }
+    // 今日のお題（小さな表示。タップで記録画面のお題へ）
+    this.drawMissions(ctx, mx + 216, my + 12, d, t);
     // ---- 右：ステージの情報 ----
     this.drawInfo(ctx, vw - panelW - 16, 12, panelW, vh - 24, t);
     if (this.msgT > 0) {
@@ -252,6 +269,33 @@ export const worldmapScene = {
       drawText(ctx, this.msg, mx + mw / 2, vh - 59, ST.hint);
       ctx.globalAlpha = 1;
     }
+    toast.draw(ctx, vw, vh, 62, true);   // 称号・お題の通知（地図の左上。右のパネルと重ならない）
+  },
+  // ボタンの文字を幅に合わせる（15→12px。入らなければ短い名前）。結果はボタンごとに覚える
+  fitLabel(ctx, b, maxW) {
+    if (b._fit && b._fitW === maxW) return b._fit;
+    let text = b.label, size = 15;
+    const wOf = (str, sz) => { ctx.font = font(sz); return ctx.measureText(str).width; };
+    while (size > 12 && wOf(text, size) > maxW) size--;
+    if (wOf(text, size) > maxW && b.short) { text = b.short; size = 15; while (size > 12 && wOf(text, size) > maxW) size--; }
+    b._fitW = maxW;
+    b._fit = { text, st: { ...ST.btn, size }, stA: { ...ST.btnA, size } };
+    return b._fit;
+  },
+  drawMissions(ctx, x, y, d, t) {
+    const list = d.missions.list, n = list.length, done = doneCount(d);
+    const R = this.missionRect; R.x = x; R.y = y; R.w = 70 + n * 22 + 8; R.h = 32;
+    if (!n) { R.w = 0; return; }
+    roundRect(ctx, R.x, R.y, R.w, R.h, 16); ctx.fillStyle = 'rgba(26,18,14,0.72)'; ctx.fill();
+    drawText(ctx, 'お題', x + 14, y + 17, ST.hint_l);
+    for (let i = 0; i < n; i++) {
+      const cx = x + 64 + i * 22 + 8, cy = y + 16, ok = list[i].done;
+      ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+      ctx.fillStyle = ok ? COL.shu : 'rgba(243,234,215,0.18)'; ctx.fill();
+      ctx.lineWidth = 1.5; ctx.strokeStyle = ok ? COL.kinLight : 'rgba(243,234,215,0.6)'; ctx.stroke();
+      if (ok) { ctx.strokeStyle = '#fff8e6'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx - 4, cy); ctx.lineTo(cx - 1, cy + 3); ctx.lineTo(cx + 4, cy - 3); ctx.stroke(); }
+    }
+    if (done === n && n) { ctx.fillStyle = COL.kin; this.star(ctx, R.x + R.w - 4, R.y + 4, 6); }
   },
   star(ctx, x, y, r) {
     ctx.beginPath();

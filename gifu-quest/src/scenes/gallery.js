@@ -24,11 +24,17 @@ export const galleryScene = {
 import { drawHeroDressed } from '../art/heroGear.js';
 import { HERO_ANIMS } from '../actors/player.js';
 export const dressupScene = {
-  enter() { this.t = 0; const q = new URLSearchParams(location.search); this.w = q.get('wpn') || 'w27'; this.zoom = +(q.get('zoom') || 1.4); this.frame = q.get('f'); },
+  enter() { this.t = 0; const q = new URLSearchParams(location.search); this.w = q.get('wpn') || 'w27'; this.zoom = +(q.get('zoom') || 1.4); this.frame = q.get('f'); this.anim = q.get('anim'); },
   update(dt) { this.t += dt; },
   draw(ctx, a, vw, vh) {
     ctx.fillStyle = '#7a8a9a'; ctx.fillRect(0, 0, vw, vh);
     const ids = ['leaf', 'minamo', 'gen', 'haku', 'sarubobo'], anims = Object.keys(HERO_ANIMS);
+    // ?anim=win：そのアニメの全コマを大きく並べる（顔と武器の重なりを見る）
+    if (this.anim && HERO_ANIMS[this.anim]) {
+      const n = HERO_ANIMS[this.anim].frames, cw = (vw - 20) / n, rh = (vh - 20) / ids.length, z = Math.min(rh / 52, cw / 60);
+      ids.forEach((id, r) => { for (let f = 0; f < n; f++) drawHeroDressed(ctx, id, this.anim, f, 10 + cw * (f + 0.5), 10 + r * rh + rh * 0.86, { sx: z, sy: z, weaponId: this.w === 'none' ? null : this.w, time: this.t }); });
+      return;
+    }
     const cw = Math.min(62, (vw - 20) / anims.length), rh = (vh - 20) / ids.length, z = Math.min(this.zoom, cw / 40);
     ctx.font = '9px sans-serif'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
     ids.forEach((id, r) => anims.forEach((an, c) => {

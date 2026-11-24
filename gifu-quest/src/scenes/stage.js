@@ -11,6 +11,9 @@ import { touch } from '../ui/touch.js';
 import { pauseMenu } from '../ui/menus.js';
 import { drawDialogue, updateDialogue } from '../systems/dialogue.js';
 import { weaponById } from '../systems/gacha.js';
+import { progress } from '../systems/achievements.js';
+import { toast } from '../ui/toast.js';
+import META from '../data/stages.json';
 
 // ステージ（プレイ中の画面）。params: { stage: 1..6 | 'test', char, checkpoint }
 export const stageScene = {
@@ -67,6 +70,8 @@ export const stageScene = {
       d.coins += W.stats.coins;
       for (const s of W.stats.signs) if (!d.seenSigns.includes(s)) d.seenSigns.push(s);
       d.lastChar = W.charId;
+      // 称号・お題（累計の記録とお題を進め、得た称号の通知を積む。保存もここで）
+      progress.stageCleared({ stage: st, char: W.charId, stats: W.stats, target: META.stages[key] ? META.stages[key].target : null });
       save.write();
     }
     game.go('results', { stage: st, char: W.charId, stats: W.stats, newBest, prevBest }, 'iris', { cx: renderer.viewW / 2, cy: renderer.viewH / 2 });
@@ -79,5 +84,6 @@ export const stageScene = {
     touch.draw(ctx, vw, vh);   // タッチボタンは看板の巻物より下に（文字に重ならない）
     if (W.dialogue) drawDialogue(ctx, W, vw, vh);
     if (this.paused) pauseMenu.draw(ctx, vw, vh);
+    else toast.draw(ctx, vw, vh);   // 称号・お題の通知（一時停止中はメニューと重ねない）
   },
 };

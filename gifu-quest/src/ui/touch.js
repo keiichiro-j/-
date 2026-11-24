@@ -11,12 +11,12 @@ import { font, COL } from './text.js';
 export { DEFAULT_TOUCH_LAYOUT };
 const BASE = { padW: 250, padH: 132, jump: 62, attack: 44, pause: 26 };
 const ROLE_KEYS = ['pad', 'jump', 'attack', 'pause'];
-const VIRT = ['left', 'right', 'down', 'jump', 'attack', 'pause'];
+const VIRT = ['left', 'right', 'up', 'down', 'jump', 'attack', 'pause'];
 
 export const touch = {
   mode: null, enabled: false, active: false,
   roles: new Map(),          // touch.identifier → 'pad'|'jump'|'attack'|'pause'
-  state: { left: false, right: false, down: false, jump: false, attack: false, pause: false },
+  state: { left: false, right: false, up: false, down: false, jump: false, attack: false, pause: false },
   pointer: { down: false, x: 0, y: 0, sx: 0, sy: 0, moved: false, mouse: false, id: null },
   _tap: { x: 0, y: 0, t: -1 },
   _B: { pad: { x: 0, y: 0, w: 0, h: 0, cx: 0, cy: 0, s: 1 }, jump: { x: 0, y: 0, r: 0 }, attack: { x: 0, y: 0, r: 0 }, pause: { x: 0, y: 0, r: 0 } },
@@ -117,6 +117,7 @@ export const touch = {
           const P = B.pad, dz = 14 * P.s;
           if (p.x < P.cx - dz) st.left = true; else if (p.x > P.cx + dz) st.right = true;
           if (p.y > P.cy + 26 * P.s) st.down = true;
+          else if (p.y < P.cy - 34 * P.s) st.up = true;   // 上にスライド：看板を読む
         } else st[role] = true;
       }
     }
@@ -142,7 +143,7 @@ export const touch = {
     ctx.lineWidth = 3;
     // パッド
     const P = B.pad;
-    const padOn = st.left || st.right || st.down;
+    const padOn = st.left || st.right || st.down || st.up;
     ctx.globalAlpha = padOn ? 0.62 : 0.34;
     ctx.fillStyle = COL.sumi; ctx.strokeStyle = sel === 'pad' ? COL.kin : COL.kinari;
     ctx.beginPath(); ctx.roundRect(P.x, P.y, P.w, P.h, P.h * 0.45); ctx.fill(); ctx.stroke();
@@ -153,6 +154,9 @@ export const touch = {
     // しゃがむ（下）の目印
     ctx.fillStyle = st.down ? COL.kin : 'rgba(243,234,215,0.75)';
     ctx.beginPath(); ctx.moveTo(P.cx - 12 * P.s, P.cy + 24 * P.s); ctx.lineTo(P.cx + 12 * P.s, P.cy + 24 * P.s); ctx.lineTo(P.cx, P.cy + 38 * P.s); ctx.closePath(); ctx.fill();
+    // 上（看板を読む）の目印：小さめ
+    ctx.fillStyle = st.up ? COL.kin : 'rgba(243,234,215,0.5)';
+    ctx.beginPath(); ctx.moveTo(P.cx - 9 * P.s, P.cy - 36 * P.s); ctx.lineTo(P.cx + 9 * P.s, P.cy - 36 * P.s); ctx.lineTo(P.cx, P.cy - 47 * P.s); ctx.closePath(); ctx.fill();
     // 丸ボタン
     this._round(ctx, B.jump, st.jump, sel === 'jump', 'ジャンプ');
     this._round(ctx, B.attack, st.attack, sel === 'attack', '技');

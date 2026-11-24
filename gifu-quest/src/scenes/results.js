@@ -11,6 +11,7 @@ import { drawText, drawWashi, drawPatternBg, roundRect, fmtTime, drawOrb, COL } 
 import { drawLeaves } from './title.js';
 import META from '../data/stages.json';
 import CHARS from '../data/characters.json';
+import { toast } from '../ui/toast.js';
 // 結果画面（設計書 9章）：クリア時間・コイン・さるぼぼ・ミス。自己ベストで「NEW」。数字はカウントアップ。担当：UI
 // params: { stage, char, stats{coins,sarubobo[3],hits,misses,time,enemies}, newBest, prevBest }
 const ST = {
@@ -134,6 +135,7 @@ export const resultsScene = {
       this.list.layout(px + pw / 2, vh - 70, 180, 48, 20).draw(ctx);
       ctx.globalAlpha = 1;
     }
+    toast.draw(ctx, vw, vh, vh - 72, true);   // 称号・お題の通知（左下。右の表と重ならない）
   },
   // 朱の判子（押される動き）
   stamp(ctx, x, y, e, txt) {
