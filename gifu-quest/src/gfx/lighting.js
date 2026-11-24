@@ -88,8 +88,9 @@ export class Lighting {
       ctx.globalCompositeOperation = 'lighter';
       for (let i = 0; i < lights.length; i++) {
         const L = lights[i];
-        if (!L.color || L.x < x0 || L.x > x1 || L.y < y0 || L.y > y1) continue;
+        if (!L.color) continue;
         const r = L.r * flick(L, t) * 0.85;
+        if (L.x + r < cam.x || L.x - r > cam.x + vw || L.y + r < cam.y || L.y - r > cam.y + vh) continue;
         ctx.globalAlpha = Math.min(1, (L.a ?? 1) * dark * 0.42);
         ctx.drawImage(glow(L.color), L.x - cam.x - r, L.y - cam.y - r, r * 2, r * 2);
       }

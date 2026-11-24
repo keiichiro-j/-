@@ -7,7 +7,7 @@
 import { TILE, RUNTIME } from '../core/config.js';
 import { makeRng } from '../core/rng.js';
 import { makeCanvas } from '../gfx/renderer.js';
-import { T, isSolid, isOneWay } from '../world/tiles.js';
+import { T, isSolid, isOneWay, isSlope } from '../world/tiles.js';
 
 // ---- 調整用の数値 ----
 export const WEATHER_TUNE = {
@@ -33,7 +33,7 @@ export const WEATHERS = {
   thunder:  { rain: 1, dim: 0.27, wet: 1, thunder: 1, skyMix: 0.88, skyTop: [46, 50, 70], skyBottom: [104, 110, 132], tint: [60, 70, 170, 0.15], slant: 0.3 },
   fog:      { fog: 0.85, dim: 0.05, skyMix: 0.75, skyTop: [184, 192, 200], skyBottom: [222, 226, 228], tint: [225, 228, 232, 0.08] },
   snow:     { snow: 0.65, dim: 0.05, cover: 1, skyMix: 0.65, skyTop: [168, 182, 206], skyBottom: [226, 232, 242], tint: [200, 216, 255, 0.07] },
-  blizzard: { snow: 1, dim: 0.12, cover: 1, gust: 1, edge: 1, fog: 0.3, skyMix: 0.9, skyTop: [190, 200, 214], skyBottom: [236, 240, 246], tint: [225, 235, 255, 0.12] },
+  blizzard: { snow: 1, dim: 0.12, cover: 1, gust: 1, edge: 1, fog: 0.2, skyMix: 0.9, skyTop: [190, 200, 214], skyBottom: [236, 240, 246], tint: [225, 235, 255, 0.12] },
   ash:      { ash: 1, dim: 0.10, fog: 0.15, skyMix: 0.8, skyTop: [70, 28, 30], skyBottom: [196, 92, 52], tint: [210, 90, 50, 0.10] },
 };
 for (const k in WEATHERS) WEATHERS[k] = { ...BASE, ...WEATHERS[k] };
@@ -315,7 +315,7 @@ export function createWeather(world, levelData) {
           const t = L.get(tx, ty);
           if (!(isSolid(t) || isOneWay(t)) || t === T.FAKE) continue;
           const up = L.get(tx, ty - 1);
-          if (isSolid(up) || isOneWay(up) || up === T.WATER || up === T.WATER_TOP || up === T.LAVA || up === T.LAVA_TOP || up === T.FAKE) continue;
+          if (isSolid(up) || isOneWay(up) || isSlope(up) || up === T.WATER || up === T.WATER_TOP || up === T.LAVA || up === T.LAVA_TOP || up === T.FAKE) continue;
           if (surfN >= SURF_MAX) break;
           surf[surfN * 3] = tx * TILE; surf[surfN * 3 + 1] = ty * TILE; surf[surfN * 3 + 2] = TILE; surfN++;
         }
@@ -333,14 +333,12 @@ export function createWeather(world, levelData) {
       // 光の筋（晴れ・昼）
       const rayA = cur.rays * (1 - env.darkness * 1.6) * (1 - cur.fog);
       if (rayA > 0.02 && !low) {
-        ctx.globalCompositeOperation = 'lighter';
-        const sway = Math.sin(this.time * 0.35) * 0.25 + 0.75;
-        ctx.globalAlpha = rayA * 0.55 * sway;
-        const ox = -((cam.x * 0.05) % (vw * 0.6));
-        ctx.drawImage(img.rays, ox - vw * 0.1, -20, vw * 0.9, vh * 0.95);
-        ctx.globalAlpha = rayA * 0.4 * (1.5 - sway);
-        ctx.drawImage(img.rays, ox + vw * 0.55, -20, vw * 0.8, vh * 0.9);
-        ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+        // 1枚だけ、上の方に通常合成で薄く（加算は重いので使わない）
+        const sway = Math.sin(this.time * 0.35) * 0.2 + 0.8;
+        ctx.globalAlpha = rayA * 0.6 * sway;
+        const ox = -((cam.x * 0.05) % (vw * 0.3));
+        ctx.drawImage(img.rays, ox - vw * 0.05, -20, vw * 1.4, vh * 0.8);
+        ctx.globalAlpha = 1;
       }
 
       // ---- ワールド座標のもの：積雪・濡れた地面・波紋・足跡 ----

@@ -135,9 +135,9 @@ export const SFX = {
   shoot(S) { S.tone({ type: 'triangle', f0: 950, f1: 320, vol: 0.24, d: 0.1 }); S.noise({ vol: 0.08, d: 0.05, filter: 'highpass', ff: 3000 }); return 0.12; },
   shootBig(S) { S.tone({ type: 'sawtooth', f0: 420, f1: 90, vol: 0.2, d: 0.32, filter: 'lowpass', ff: 2200, ff1: 400 }); S.noise({ vol: 0.22, d: 0.22, filter: 'lowpass', ff: 1800, ff1: 300 }); return 0.35; },
   // 鵜（う）の鳴き声ふうの短い二声
-  bird(S) { S.tone({ type: 'square', f0: 760, f1: 1100, vol: 0.09, d: 0.06, filter: 'bandpass', ff: 1400, q: 2 }); S.tone({ type: 'square', f0: 900, f1: 640, vol: 0.09, d: 0.08, at: 0.08, filter: 'bandpass', ff: 1200, q: 2 }); S.noise({ vol: 0.1, d: 0.1, ff: 2600, ff1: 1800, q: 2 }); return 0.18; },
+  bird(S) { S.tone({ type: 'square', f0: 760, f1: 1100, vol: 0.2, d: 0.06, filter: 'bandpass', ff: 1400, q: 2 }); S.tone({ type: 'square', f0: 900, f1: 640, vol: 0.2, d: 0.08, at: 0.08, filter: 'bandpass', ff: 1200, q: 2 }); S.noise({ vol: 0.1, d: 0.1, ff: 2600, ff1: 1800, q: 2 }); return 0.18; },
   slash(S) { S.noise({ vol: 0.34, a: 0.01, d: 0.15, filter: 'highpass', ff: 6000, ff1: 1400 }); S.tone({ type: 'sine', f0: 1300, f1: 380, vol: 0.1, d: 0.1 }); return 0.17; },
-  dash(S) { S.noise({ vol: 0.3, a: 0.02, d: 0.2, ff: 700, ff1: 2600, q: 2 }); return 0.23; },
+  dash(S) { S.noise({ vol: 0.55, a: 0.02, d: 0.2, ff: 700, ff1: 2600, q: 2 }); return 0.23; },
   break(S) { S.noise({ vol: 0.42, d: 0.26, filter: 'lowpass', ff: 1800, ff1: 300 }); S.tone({ type: 'square', f0: 150, f1: 55, vol: 0.12, d: 0.12, filter: 'lowpass', ff: 700 }); S.noise({ vol: 0.18, d: 0.03, at: 0.07, ff: 3000 }); S.noise({ vol: 0.14, d: 0.03, at: 0.13, ff: 2400 }); return 0.3; },
   bump(S) { S.tone({ type: 'sine', f0: 190, f1: 85, vol: 0.42, d: 0.09 }); S.noise({ vol: 0.16, d: 0.05, filter: 'lowpass', ff: 380 }); return 0.1; },
   splash(S) { S.noise({ vol: 0.36, a: 0.005, d: 0.32, ff: 1300, ff1: 380, q: 0.8 }); S.noise({ vol: 0.12, d: 0.16, filter: 'highpass', ff: 3500 }); S.tone({ type: 'sine', f0: 500, f1: 900, vol: 0.06, d: 0.06, at: 0.12 }); return 0.36; },

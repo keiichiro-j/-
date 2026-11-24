@@ -43,9 +43,9 @@ export function drawPostFx(ctx, env, vw, vh) {
   const fog = env.fog || 0;
   if (fog > 0.01) {
     const night = env.nightness || 0;
-    const haze = fog * (low ? 0.3 : 0.16) * (1 - night * 0.6);
+    const haze = fog * (low || fog <= 0.25 ? 0.3 : 0.16) * (1 - night * 0.6);
     ctx.globalAlpha = haze; ctx.fillStyle = night > 0.5 ? '#5a6478' : '#dfe4ea'; ctx.fillRect(0, 0, vw, vh);
-    if (!low) {
+    if (!low && fog > 0.25) {   // 薄い霧（吹雪・火山灰）はかすみだけ。帯は濃い霧のとき
       const img = images();
       const t = env.time || 0, cx = env.camX || 0;
       // 3本の帯：奥ほど遅く、手前ほど速く・大きく
