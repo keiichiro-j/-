@@ -35,10 +35,15 @@ for (const id of stages) {
       await page.waitForFunction(() => window.__GQ__.game.sceneName === 'stage', null, { timeout: 8000 });
       // 右へ走りながらジャンプし続ける
       await page.keyboard.down('ArrowRight');
-      for (let i = 0; i < 12; i++) { await page.keyboard.down('KeyZ'); await page.waitForTimeout(220); await page.keyboard.up('KeyZ'); await page.keyboard.press('KeyX'); await page.waitForTimeout(80); }
+      let maxX = 0;
+      for (let i = 0; i < 12; i++) {
+        await page.keyboard.down('KeyZ'); await page.waitForTimeout(220); await page.keyboard.up('KeyZ'); await page.keyboard.press('KeyX'); await page.waitForTimeout(80);
+        maxX = Math.max(maxX, await page.evaluate(() => { const w = window.__GQ__.game.scene.world; return w ? w.player.x : 0; }));
+      }
       await page.keyboard.up('ArrowRight');
-      const st = await page.evaluate(() => { const s = window.__GQ__.game.scene; const w = s.world; return w ? { x: w.player.x, fps: window.__GQ__.loop.stats.fps } : null; });
-      if (st && st.x < 200 && window) throw new Error('player did not move: ' + JSON.stringify(st));
+      // 落ちて中間地点に戻ることもあるので、いちばん進んだ位置で判定する
+      const st = await page.evaluate((mx) => { const w = window.__GQ__.game.scene.world; return w ? { x: mx, fps: window.__GQ__.loop.stats.fps } : null; }, maxX);
+      if (st && st.x < 200) throw new Error('player did not move: ' + JSON.stringify(st));
     });
     if (ch !== 'leaf' && !process.argv.includes('--all-chars')) break;
   }
