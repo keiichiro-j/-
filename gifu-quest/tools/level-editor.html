@@ -160,6 +160,11 @@ function validateLevel(data, opts = {}) {
     if (e.type === 'gondola' && (e.x2 == null || e.y2 == null)) err(`${name}: gondola に x2,y2 がない`);
     if ((e.type === 'boat' || e.type === 'festivalFloat') && e.x2 == null) err(`${name}: ${e.type} に x2 がない`);
     if (ENEMY_TYPES.includes(e.type) && !e.kind) warn(`${name}: kind がない`);
+    if (e.type === 'popper') {
+      const c = at(e.x, e.y);
+      const inRegion = ents.some((q) => (q.type === 'waterLevel' || q.type === 'risingLava') && e.x >= q.x0 && e.x < q.x1);
+      if (c !== '~' && c !== 'L' && !inRegion) warn(`${name}: popper は水面 ~ か溶岩の表面 L のタイルに置く`);
+    }
   }
 
   // ---- 必須要素 ----
@@ -238,7 +243,7 @@ function validateLevel(data, opts = {}) {
     if (!PLATFORM_TYPES.includes(e.type) || !Number.isFinite(e.x)) continue;
     // 置き方（src/world/platforms.js）：x＝床の左端のタイル、y＝床の上面がくる行 → 立つマスは y-1
     // 跳ね台・湯気は足元中央がタイル (x,y)（他のエンティティと同じ）→ 立つマスは y
-    const w = e.w || (e.type === 'gondola' ? 3 : e.type === 'boat' ? 4 : e.type === 'festivalFloat' ? 5 : 2);
+    const w = e.w || ({ gondola: 3, boat: 5, festivalFloat: 4, movingPlatform: 3, tightrope: 6 }[e.type] ?? 2);
     const lift = e.type === 'bouncer' ? Math.round(5 * (e.power ?? 1)) : e.type === 'steamVent' ? Math.round((e.h ?? 5) * Math.min(1.4, e.power ?? 1)) : R.liftTiles[e.type];
     let prev = null;
     if (lift) {
