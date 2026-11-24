@@ -27,8 +27,10 @@ export class Player {
     this.vx = 0; this.vy = 0;
     this.face = 1;
     this.onGround = false;
-    this.hearts = this.stats.hearts;
-    this.maxHearts = this.stats.hearts;
+    // 難易度「やさしい」：ハート+1
+    const bonus = RUNTIME.difficulty === 'easy' ? 1 : 0;
+    this.hearts = this.stats.hearts + bonus;
+    this.maxHearts = this.stats.hearts + bonus;
     this.coyote = 0; this.buffer = 0; this.invuln = 0; this.star = 0;
     this.techCd = 0; this.techMax = this.def.techCooldown; this.attackHeld = 0; this.charge = 0;
     this.airJumps = 0; this.dashT = 0; this.dashUsed = false; this.controlLock = 0;

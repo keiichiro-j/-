@@ -79,9 +79,11 @@ class WaterSwitch extends Entity {
   onStomp(p) { this.hit(); }
   damage(dmg, source) { return this.hit(); }
   hit() {
-    if (this.cool > 0) return false;
-    this.cool = 0.6; this.state ^= 1; this.flash = 0.15;
     const w = this.world;
+    if (this.cool > 0) return false;
+    // 水位が動いている間は切り替えない（踏み続けて行ったり来たりしないように）
+    for (const e of w.entities) if (e.alive && e.spec && e.spec.id === this.spec.target && e.moving) return false;
+    this.cool = 1.0; this.state ^= 1; this.flash = 0.15;
     w.sfx('bump');
     w.particles.burst(this.cx, this.y + 6, 6, { speed: 140, life: 0.4, size: 4, size1: 0, color: '#ffe56b', shape: 'star', drag: 3, front: true });
     for (const e of w.entities) if (e.alive && e.spec && e.spec.id === this.spec.target && e.toggle) e.toggle();

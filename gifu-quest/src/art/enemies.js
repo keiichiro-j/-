@@ -252,10 +252,15 @@ function drawBiped(ctx, W, H, o, anim, f, n) {
   o.body(ctx, cx, bodyT - pose.bob, bodyB - pose.bob * 0.4, pose);
   const hx = cx + 1 + (pose.lean || 0), hy = bodyT - (o.headR || 13) + 5 - pose.bob;
   if (anim === 'windup' && pose.item && o.item) {   // 振り上げた手に持つ物（頭の後ろ）
-    const [ex, ey] = arm(ctx, cx + 3, sh, pose.armF, 10, o.arm, o.hand);
+    // 腕を頭の後ろへ振り上げる（ひじから先を上へ）
     o.head(ctx, hx, hy, pose);
-    o.item(ctx, ex - 1, ey - 4, f);
-    if (f === 1) star(ctx, ex - 8, ey - 10, 3.5, '#fff6a8');
+    const ex = cx - 4 - f * 2, ey = sh - 6;
+    const tx = ex - 5 - f, ty = ey - 13 - f;
+    limb(ctx, cx + 3, sh, ex, ey, o.arm, 4.2);
+    limb(ctx, ex, ey, tx, ty, o.arm, 4.2);
+    o.item(ctx, tx - 2, ty - 6, f);
+    ell(ctx, tx, ty, 2.8, 2.8, o.hand || o.arm, { lw: 1.3 });
+    if (f === 1) star(ctx, tx - 9, ty - 12, 3.5, '#fff6a8');
     return;
   }
   o.head(ctx, hx, hy, pose);
@@ -760,7 +765,8 @@ export function defineEnemies() {
   // ---- 投げる・盾（二本足）----
   for (const [kind, o] of Object.entries(BIPEDS)) {
     const anims = o.shield ? { walk: 6, block: 1, hurt: 1 } : { idle: 4, windup: 2, throw: 2, hurt: 1 };
-    enemy(kind, o.W, o.H, anims, (ctx, a, f, n) => drawBiped(ctx, o.W, o.H, o, a, f, n));
+    const H = o.shield ? o.H : o.H + 12;   // 振り上げた物が切れないよう上に余白
+    enemy(kind, o.W, H, anims, (ctx, a, f, n) => drawBiped(ctx, o.W, H, o, a, f, n));
   }
   // ---- 飛び出す ----
   enemy('ayu', 46, 26, { jump: 4, hurt: 1 }, drawAyu, { ox: 23, oy: 13 });
@@ -832,7 +838,7 @@ export function defineEnemies() {
     const col = '#5a3a24';
     if (f === 0) poly(ctx, [6, 0, 36, 0, 36, 26, 14, 26, 2, 8], col, { lw: 2 });
     else if (f === 1) poly(ctx, [0, 0, 36, 0, 36, 26, 0, 26], col, { lw: 2, ol: false });
-    else poly(ctx, [0, 0, 26, 0, 36, -8, 34, 6, 22, 26, 0, 26], col, { lw: 2 });
+    else poly(ctx, [0, 0, 26, 0, 35, 0, 33, 8, 22, 26, 0, 26], col, { lw: 2 });
     ctx.strokeStyle = OL; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(f === 0 ? 4 : 0, 1); ctx.lineTo(f === 2 ? 30 : 36, 1); ctx.moveTo(f === 0 ? 14 : 0, 25); ctx.lineTo(f === 2 ? 22 : 36, 25); ctx.stroke();
     ctx.fillStyle = '#8a5a34'; ctx.fillRect(f === 0 ? 6 : 0, 2, f === 2 ? 28 : 36 - (f === 0 ? 6 : 0), 4);
     line(ctx, f === 0 ? 8 : 0, 13, f === 2 ? 30 : 36, 13, dk(col, 0.35), 1.2);

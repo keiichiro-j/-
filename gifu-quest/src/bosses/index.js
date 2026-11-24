@@ -2,4 +2,5 @@
 import './musasabi.js';
 import './salamander.js';
 import './dancer.js';
+import './yatai.js';
 import './arena.js';

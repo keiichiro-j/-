@@ -70,7 +70,7 @@ export class Entity {
     const w = this.world;
     w.particles.hit(this.cx, this.cy);
     w.particles.burst(this.cx, this.cy, 8, { speed: 180, life: 0.5, size: 6, size1: 0, color: '#fff', drag: 3 });
-    w.events.emit('enemyDefeated', { type: this.type, x: this.cx, y: this.cy });
+    w.events.emit('enemyDefeated', { type: this.type, kind: this.kind ?? this.spec.kind, x: this.cx, y: this.cy });
   }
   remove() { this.alive = false; }
 }

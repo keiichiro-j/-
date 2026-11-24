@@ -172,3 +172,11 @@ w.events.emit/on（'enemyDefeated','stomp','coin','bossStart','bossDefeated','st
 ## 背景の小物（decor）
 `{ "type": "decor", "sprite": "prop_toro", "x": .., "y": .., "z": -5, "light": { "r": 110, "color": "#ffbf6a" } }`
 アート担当が用意する prop：toro（石灯籠）, pine, cedar, bamboo, rock, bush, grass, machiya（町家）, gassho（合掌造り）, castle_wall, torii_small（小さな鳥居ではなく木の門：gate）, chochin（提灯）, kagaribi（篝火）, onsen（湯けむりの湯船）, snowman, fence, bridge_rail, noren, yatai_stall（朝市の屋台）, lamp（街灯）
+
+## UI の追加の約束（UI担当）
+- タッチ：`touch.tap()`（0.3秒以内のタップを1回だけ返す {x,y}）、`touch.peekTap()`、`touch.clearTap()`、`touch.pointer`（ドラッグ用）、`touch.show('play'|'menu')`。PC のマウスクリックも同じ扱い
+- セーブ形式 v2：`lastStage`, `seenEnding` を追加。`save.saruboboCount()`
+- src/data/stages.json：UI 用のステージ名・地図上の位置・目標タイム（秒）・天気名・敵の和名
+- HUD が使うイベント：'stomp', 'sarubobo', 'checkpoint', 'stageEnter', 'enemyDefeated'（{ kind } を含めると図鑑に記録される）
+- ボスは `phaseMarks`（HPに対する割合の配列、例 [0.66, 0.33]）を持つと HP バーの目盛りがその位置になる
+- 難易度「やさしい」：主人公のハート+1、ボスの HP×0.7・待ち時間×1.3

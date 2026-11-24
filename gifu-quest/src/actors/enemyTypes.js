@@ -136,7 +136,7 @@ export class Enemy extends Entity {
     this.hp = this.maxHp = spec.hp ?? this.K.hp ?? 1;
     this.face = spec.face ?? -1;
     this.anim = 'walk'; this.animT = 0; this.fps = 8;
-    this.sx = 1; this.sy = 1; this.foot = 0;
+    this.sx = 1; this.sy = 1; this.foot = 0; this.stun = 0;
     this.onGround = false;
     this._hr = { x: 0, y: 0, w: 0, h: 0 };
     this.spr = {};

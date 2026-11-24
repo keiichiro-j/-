@@ -25,6 +25,7 @@ import { gameoverScene } from './scenes/gameover.js';
 import { endingScene } from './scenes/ending.js';
 import { settingsScene } from './scenes/settings.js';
 import { galleryScene } from './scenes/gallery.js';
+import { zukanScene } from './scenes/zukan.js';
 
 function start() {
   const canvas = document.getElementById('game');
@@ -45,6 +46,7 @@ function start() {
   game.register('ending', endingScene);
   game.register('settings', settingsScene);
   game.register('gallery', galleryScene);
+  game.register('zukan', zukanScene);
   const loop = createLoop({ update: (dt) => game.update(dt), render: (a, dt) => game.render(a, dt) });
   game.loop = loop;
   game.go('boot', {}, 'none');

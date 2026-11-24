@@ -13,7 +13,7 @@ const THEMES = {
     pebble: '#9a8a76', stone: '#9a968a', stoneD: '#5e5a50', wood: '#a8743e', brick: '#a8583a', strata: true, roots: true,
   },
   nagara: { // 長良川：河原の石と砂
-    soilL: '#c8b08a', soilD: '#6a5a44', out: '#3a2e1e', top: 'sand', grass: '#7cbc4a', grassL: '#b4e07a', grassD: '#3e7a2c',
+    soilL: '#a8906c', soilD: '#4a3e30', out: '#2e2416', top: 'sand', grass: '#7cbc4a', grassL: '#b4e07a', grassD: '#3e7a2c',
     pebble: '#a8a6a0', stone: '#a8a69c', stoneD: '#686860', wood: '#a8784a', brick: '#a8603e', pebbles: true,
   },
   gujo: { // 郡上八幡：石畳と石垣・水路

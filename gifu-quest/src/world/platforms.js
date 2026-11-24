@@ -174,6 +174,7 @@ class Boat extends Rider {
   constructor(w, s) {
     super(w, s, 5, 'boat');
     this.setRoute((s.x2 ?? s.x + 30) * TILE, this.home.y);
+    this.z = 1;   // 水のタイルより手前
     this.speedPx = (s.speed ?? 2.2) * TILE;
   }
   bob() { return Math.sin(this.t * 2.2) * 2.5; }

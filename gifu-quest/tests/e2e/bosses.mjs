@@ -52,10 +52,10 @@ for (const st of STAGES) {
         if (A.state !== 'fight' || W.boss !== A.boss) return { err: 'fight did not start: ' + A.state };
         const b = A.boss, p = W.player;
         const phases = new Set([b.phase]); const states = new Set();
-        let t = 0, hits = 0;
+        let t = 0, hits = 0; window.__lastHit = -9;
         while (t < 400 && b.alive && !b.dying) {
           p.invuln = 5; p.hearts = p.maxHearts; p.frozen = true;
-          if (b.canHit() && b.invuln <= 0 && b.state !== 'hurt') { if (b.damage(1, p)) hits++; }
+          if (b.canHit() && b.invuln <= 0 && b.state !== 'hurt' && t - (window.__lastHit || -9) > 2.5) { if (b.damage(1, p)) { hits++; window.__lastHit = t; } }
           T.step(1); t += 1 / 120; states.add(b.state); phases.add(b.phase);
           if (untilPhase && b.phase >= untilPhase) break;
         }
@@ -76,10 +76,10 @@ for (const st of STAGES) {
         const r = await page.evaluate((ph) => {
           const T = window.__T, W = T.W, A = T.arena();
           if (A.state === 'wait') { T.enter(); T.step(30); T.step(2.2 * 120); }
-          const b = A.boss, p = W.player; let t = 0, hits = 0;
+          const b = A.boss, p = W.player; let t = 0, hits = 0; window.__lastHit = -9;
           while (t < 400 && b.alive && !b.dying) {
             p.invuln = 5; p.hearts = p.maxHearts; p.frozen = true;
-            if (b.canHit() && b.invuln <= 0 && b.state !== 'hurt') { if (b.damage(1, p)) hits++; }
+            if (b.canHit() && b.invuln <= 0 && b.state !== 'hurt' && t - (window.__lastHit || -9) > 2.5) { if (b.damage(1, p)) { hits++; window.__lastHit = t; } }
             T.step(1); t += 1 / 120;
             if (ph && b.phase >= ph) { T.step(240); break; }   // 段階が上がった後を少し見る
           }
