@@ -20,7 +20,7 @@ export const stageScene = {
     this.params = params;
     const data = LEVELS[params.stage];
     if (!data) throw new Error('level not found ' + params.stage);
-    const W = new World(data, params.char || save.data.lastChar || 'leaf', { checkpoint: params.checkpoint, viewW: renderer.viewW, viewH: renderer.viewH });
+    const W = new World(data, params.char || save.data.lastChar || 'leaf', { checkpoint: params.checkpoint, viewW: renderer.viewW, viewH: renderer.viewH, weapon: save.data.equipped && save.data.weapons[save.data.equipped] ? { id: save.data.equipped, lv: save.data.weapons[save.data.equipped].lv } : null });
     W.collectedSarubobo = save.data.sarubobo[params.stage] || [false, false, false];
     this.world = W;
     this.paused = false;

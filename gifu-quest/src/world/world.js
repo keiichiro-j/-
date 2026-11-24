@@ -24,6 +24,8 @@ export class World {
     this.data = levelData;
     this.theme = levelData.theme || 'kinka';
     this.charId = charId;
+    this.weapon = opts.weapon || null;   // { id, lv }（福引きの武器）
+    this._regenBase = 0;
     this.time = 0; this.tick = 0;
     this.timeScale = 1; this.slowT = 0; this.hitstopT = 0;
     this.entities = []; this.platforms = []; this.lights = []; this.liquids = [];
@@ -81,6 +83,7 @@ export class World {
   setCheckpoint(cp) {
     this.checkpoint = cp;
     this.player.hearts = this.player.maxHearts;   // 中間地点でハートを回復
+    this.player.guardLeft = this.player.wfx.guard;  // 武器の守りも戻る
     events.emit('checkpoint', { index: cp.spec.index });
   }
   breakTile(tx, ty) {
@@ -147,6 +150,7 @@ export class World {
   }
   respawn() {
     const p = this.player;
+    p.guardLeft = p.wfx.guard;
     const cp = this.checkpoint ? this.checkpoint.spec : this.startPos;
     p.x = cp.x * TILE + TILE / 2 - p.w / 2; p.y = (cp.y + 1) * TILE - p.h; p.px = p.x; p.py = p.y;
     p.vx = p.vy = 0; p.frozen = false; p.invuln = 1.5; p.onGround = false; p.dashT = 0;
@@ -188,6 +192,9 @@ export class World {
     }
     // 4. ぶつかり
     if (this.state === 'play') this.interact();
+    // 武器の効果：決まった数の敵を倒すごとにハート回復
+    const rg = p.wfx.regen;
+    if (rg && this.stats.enemies - this._regenBase >= rg) { this._regenBase += rg; if (p.hearts < p.maxHearts) { p.heal(1); this.sfx('heart'); this.particles.burst(p.cx, p.y, 8, { speed: 120, life: 0.5, size: 5, size1: 0, color: '#ff7fa0', front: true }); } }
     // 5. 片付け
     if (this.tick % 30 === 0 || this.entities.length > 400) {
       this.entities = this.entities.filter((e) => e.alive);
@@ -224,7 +231,7 @@ export class World {
       // 踏みつけ：落下中で、前のフレームの足元が敵の上端＋12より上
       const stompOk = e.stompable && p.vy > 0 && p.prevBottom <= er.y + PHYS.stompMargin + (e.vy < 0 ? -e.vy / 120 : 0);
       if (stompOk) {
-        const dmg = p.has('heavyStomp') ? 2 : 1;
+        const dmg = (p.has('heavyStomp') ? 2 : 1) + (p.wfx ? p.wfx.stomp : 0);
         p.y = er.y - p.h;
         const hold = input.held.jump;
         p.vy = -(hold ? PHYS.stompBounceHold : PHYS.stompBounceRelease);

@@ -7,9 +7,19 @@ import { moveBody } from '../world/collision.js';
 // アイテム・中間地点・看板・宝珠（設計書 6章「各ステージに必ず入れるもの」）
 class Coin extends Entity {
   constructor(w, s) { super(w, s); this.pickup = true; this.placeAt(s, 20, 24); this.y -= 6; this.phase = (s.x * 0.37 + s.y * 0.11) % 1; this.z = 1; }
+  // 武器の効果：コイン吸い寄せ
+  update(dt) {
+    const p = this.world.player, r = p.wfx ? p.wfx.magnet : 0;
+    if (!r || p.dead) return;
+    const dx = p.cx - this.cx, dy = p.cy - this.cy, d2 = dx * dx + dy * dy;
+    if (d2 < r * r) { const d = Math.sqrt(d2) || 1, sp = 520 * dt; this.x += dx / d * Math.min(d, sp); this.y += dy / d * Math.min(d, sp); }
+  }
   onTouch(p) {
     this.alive = false;
-    this.world.addCoins(1, this.cx, this.cy);
+    // 武器の効果：ときどきコイン2倍
+    const twice = p.wfx && p.wfx.coinx && Math.random() < p.wfx.coinx;
+    this.world.addCoins(twice ? 2 : 1, this.cx, this.cy);
+    if (twice) this.world.particles.coin(this.cx, this.cy - 10);
     this.world.particles.coin(this.cx, this.cy);
     this.world.sfx('coin');
   }
@@ -37,7 +47,7 @@ registerEntity('sarubobo', Sarubobo);
 // 飛騨牛串：無敵アイテム
 class Skewer extends Entity {
   constructor(w, s) { super(w, s); this.pickup = true; this.placeAt(s, 30, 30); this.z = 2; }
-  onTouch(p) { this.alive = false; p.star = 8; this.world.sfx('star'); this.world.events.emit('star', { t: 8 }); this.world.particles.burst(this.cx, this.cy, 20, { speed: 260, life: 0.6, size: 5, size1: 0, color: '#ffd76a', shape: 'star', front: true, add: true }); }
+  onTouch(p) { this.alive = false; const t = 8 + (p.wfx ? p.wfx.star : 0); p.star = t; this.world.sfx('star'); this.world.events.emit('star', { t }); this.world.particles.burst(this.cx, this.cy, 20, { speed: 260, life: 0.6, size: 5, size1: 0, color: '#ffd76a', shape: 'star', front: true, add: true }); }
   draw(ctx, a) { drawSprite(ctx, 'item_skewer', (this.world.time * 6) | 0, this.cx, this.y + this.h + Math.sin(this.world.time * 4) * 3); }
 }
 registerEntity('skewer', Skewer);

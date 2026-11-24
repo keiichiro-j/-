@@ -1,4 +1,5 @@
 import { game } from '../game.js';
+import { canFree } from '../systems/gacha.js';
 import { input } from '../core/input.js';
 import { save } from '../core/save.js';
 import { audio } from '../core/audio.js';
@@ -11,7 +12,7 @@ import META from '../data/stages.json';
 // params: { stage?: 最後に遊んだステージ（そこにカーソルを置く）}
 
 const ORDER = [0, 1, 2, 3, 4, 5, 6, 7];
-const BTNS = [{ key: 'char', label: 'キャラ変更' }, { key: 'zukan', label: '図鑑' }, { key: 'settings', label: '設定' }, { key: 'title', label: 'タイトル' }];
+const BTNS = [{ key: 'gacha', label: '福引き' }, { key: 'char', label: 'キャラ変更' }, { key: 'zukan', label: '図鑑' }, { key: 'settings', label: '設定' }, { key: 'title', label: 'タイトル' }];
 const ST = {
   name: { size: 24, color: COL.sumi, align: 'left', baseline: 'middle', serif: true },
   area: { size: 14, color: COL.shuDark, align: 'left', baseline: 'middle' },
@@ -106,7 +107,8 @@ export const worldmapScene = {
   say(m) { this.msg = m; this.msgT = 2; },
   button(k) {
     audio.sfx('confirm');
-    if (k === 'char') game.go('select', { back: 'worldmap' }, 'wipe');
+    if (k === 'gacha') game.go('gacha', { back: 'worldmap' }, 'wipe');
+    else if (k === 'char') game.go('select', { back: 'worldmap' }, 'wipe');
     else if (k === 'zukan') { if (game.scenes.zukan) game.go('zukan', { back: 'worldmap' }, 'wipe'); else this.say('図鑑は準備中です'); }
     else if (k === 'settings') game.go('settings', { back: 'worldmap' }, 'wipe');
     else if (k === 'title') game.go('title', {}, 'wipe');
@@ -224,17 +226,22 @@ export const worldmapScene = {
     // 見出し
     drawText(ctx, '岐阜の地図', 26, 30, { size: 26, color: COL.kinLight, stroke: COL.sumi, strokeW: 5, align: 'left', baseline: 'middle', serif: true });
     const cnt = save.saruboboCount();
-    drawSprite(ctx, 'item_sarubobo', 0, 190, 44, { sx: 0.7, sy: 0.7 });
-    drawText(ctx, `${cnt} / 18`, 206, 31, ST.hint_l || (ST.hint_l = { size: 17, color: COL.kinari, stroke: COL.sumi, strokeW: 3, align: 'left', baseline: 'middle' }));
-    drawOrb(ctx, 300, 31, 7, COL.kin, 0.4);
-    drawText(ctx, `宝珠 ${d.cleared.filter((n) => n >= 1 && n <= 6).length} / 6`, 314, 31, ST.hint_l);
+    // さるぼぼ・宝珠の数（地図の左上に重ねる。上の段はボタンに使う）
+    roundRect(ctx, mx + 12, my + 12, 196, 32, 16); ctx.fillStyle = 'rgba(26,18,14,0.72)'; ctx.fill();
+    drawSprite(ctx, 'item_sarubobo', 0, mx + 32, my + 42, { sx: 0.6, sy: 0.6 });
+    drawText(ctx, `${cnt} / 18`, mx + 46, my + 29, ST.hint_l || (ST.hint_l = { size: 16, color: COL.kinari, stroke: COL.sumi, strokeW: 3, align: 'left', baseline: 'middle' }));
+    drawOrb(ctx, mx + 118, my + 28, 7, COL.kin, 0.4);
+    drawText(ctx, `宝珠 ${d.cleared.filter((n) => n >= 1 && n <= 6).length} / 6`, mx + 130, my + 29, ST.hint_l);
     // ボタン（上）
-    const bw = 104, bh = 34;
+    // ボタン：見出しの右から地図の右端までに収める
+    const bh = 34, bx0 = 160, bx1 = vw - panelW - 28, bw = Math.min(104, (bx1 - bx0) / BTNS.length - 6);
     for (let i = 0; i < BTNS.length; i++) {
-      const r = this.btnRects[i]; r.w = bw; r.h = bh; r.x = vw - panelW - 28 - (BTNS.length - i) * (bw + 8) + 8; r.y = 12;
+      const r = this.btnRects[i]; r.w = bw; r.h = bh; r.x = bx1 - (BTNS.length - i) * (bw + 6) + 6; r.y = 12;
       const on = this.focus === 'btn' && this.btnSel === i;
       drawTag(ctx, r.x, r.y, r.w, r.h, on, false, on ? 0.5 + 0.5 * Math.sin(t * 5) : 0);
       drawText(ctx, BTNS[i].label, r.x + r.w / 2, r.y + r.h / 2 + 1, on ? ST.btnA : ST.btn);
+      // 今日の無料の福引きが残っていれば赤い点
+      if (BTNS[i].key === 'gacha' && canFree(d)) { ctx.fillStyle = COL.shu; ctx.beginPath(); ctx.arc(r.x + r.w - 6, r.y + 6, 6, 0, 7); ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = '#fff'; ctx.stroke(); }
     }
     // ---- 右：ステージの情報 ----
     this.drawInfo(ctx, vw - panelW - 16, 12, panelW, vh - 24, t);

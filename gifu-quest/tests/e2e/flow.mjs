@@ -71,7 +71,7 @@ const toClient = (page, x, y) => page.evaluate(([x, y]) => { const c = document.
     const sv = await page.evaluate(() => JSON.parse(localStorage.getItem('gq2_save')));
     log(sv.cleared.includes(st) && sv.bestTime[String(st)] > 0, `クリアとベストタイムが保存される（cleared=${JSON.stringify(sv.cleared)}）`);
     await step('マップ↑メニュー→図鑑（または準備中）', async () => {
-      await press(page, 'ArrowUp'); await press(page, 'ArrowRight'); await press(page, 'Enter');
+      await press(page, 'ArrowUp'); await press(page, 'ArrowRight'); await press(page, 'ArrowRight'); await press(page, 'Enter');   // 福引き・キャラ変更・図鑑…の3つめ
       await page.waitForTimeout(700);
       const s = await scene(page);
       if (s === 'zukan') { await waitScene(page, 'zukan'); await press(page, 'ArrowRight'); await press(page, 'ArrowRight'); await press(page, 'Escape'); await waitScene(page, 'worldmap'); }

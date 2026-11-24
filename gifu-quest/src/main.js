@@ -5,6 +5,7 @@ import { game } from './game.js';
 import { audio } from './core/audio.js';
 import { defineAllArt } from './art/index.js';
 import { touch } from './ui/touch.js';
+import { save } from './core/save.js';
 import './ui/debug.js';
 // エンティティ登録（import するだけで registerEntity される）
 import './systems/pickups.js';
@@ -26,6 +27,7 @@ import { endingScene } from './scenes/ending.js';
 import { settingsScene } from './scenes/settings.js';
 import { galleryScene } from './scenes/gallery.js';
 import { zukanScene } from './scenes/zukan.js';
+import { gachaScene } from './scenes/gacha.js';
 
 function start() {
   const canvas = document.getElementById('game');
@@ -47,10 +49,12 @@ function start() {
   game.register('settings', settingsScene);
   game.register('gallery', galleryScene);
   game.register('zukan', zukanScene);
+  game.register('gacha', gachaScene);
   const loop = createLoop({ update: (dt) => game.update(dt), render: (a, dt) => game.render(a, dt) });
   game.loop = loop;
   game.go('boot', {}, 'none');
   loop.start();
   window.__GQ__ = { game, loop, input };   // 自動テスト用
+  window.__GQ_SAVE__ = save;
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();

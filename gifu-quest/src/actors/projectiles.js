@@ -9,7 +9,9 @@ export class LeafShot extends Entity {
   constructor(w, p, big) {
     super(w, { type: 'leafShot' });
     this.friendly = true; this.big = big;
-    this.w = big ? 34 : 20; this.h = big ? 26 : 14;
+    const sz = 1 + (p.wfx ? p.wfx.big : 0);
+    this.w = (big ? 34 : 20) * sz; this.h = (big ? 26 : 14) * sz; this.sz = sz;
+    this.pierce = !!(p.wfx && p.wfx.pierce);
     this.face = p.face;
     this.x = p.cx + p.face * 14 - this.w / 2; this.y = p.y + 16 - this.h / 2;
     this.px = this.x; this.py = this.y;
@@ -24,11 +26,11 @@ export class LeafShot extends Entity {
     this.x += this.vx * dt;
     this.y += Math.sin(this.t * 18) * (this.big ? 0.6 : 0.9);
     const w = this.world;
-    if (hitEnemies(w, this, this.dmg, this, { once: this.once }) && !this.big) { this.remove(); return; }
+    if (hitEnemies(w, this, this.dmg, this, { once: this.once }) && !this.big && !this.pierce) { this.remove(); return; }
     if (isSolid(w.level.at(this.cx, this.cy)) || this.life <= 0) { w.particles.leaves(this.cx, this.cy, 4); this.remove(); }
   }
   blocked() { if (!this.big) this.remove(); }
-  draw(ctx, a) { drawSprite(ctx, this.big ? 'fx_leaf_big' : 'fx_leaf', (this.t * 20) | 0, this.ix(a) + this.w / 2, this.iy(a) + this.h / 2, { flip: this.face < 0 }); }
+  draw(ctx, a) { drawSprite(ctx, this.big ? 'fx_leaf_big' : 'fx_leaf', (this.t * 20) | 0, this.ix(a) + this.w / 2, this.iy(a) + this.h / 2, { flip: this.face < 0, sx: this.sz, sy: this.sz }); }
 }
 
 export class UkaiBird extends Entity {
@@ -38,13 +40,14 @@ export class UkaiBird extends Entity {
     this.x = p.cx - 13; this.y = p.y + 6; this.px = this.x; this.py = this.y;
     this.vx = p.face * 380; this.vy = -60;
     this.dmg = 1 * p.stats.power; this.life = 1.6; this.persistent = true;
+    this.pierce = !!(p.wfx && p.wfx.pierce); this.once = new Set();
   }
   update(dt) {
     const w = this.world;
     this.t += dt; this.life -= dt;
     // 近くの敵を追いかける
     let best = null, bd = 380 * 380;
-    for (const e of w.entities) if (e.enemy && e.alive) { const d = (e.cx - this.cx) ** 2 + (e.cy - this.cy) ** 2; if (d < bd && (e.cx - this.cx) * this.face > -40) { bd = d; best = e; } }
+    for (const e of w.entities) if (e.enemy && e.alive && !(this.once && this.once.has(e))) { const d = (e.cx - this.cx) ** 2 + (e.cy - this.cy) ** 2; if (d < bd && (e.cx - this.cx) * this.face > -40) { bd = d; best = e; } }
     if (best && this.t > 0.08) {
       const a = Math.atan2(best.cy - this.cy, best.cx - this.cx);
       this.vx += Math.cos(a) * 2600 * dt; this.vy += Math.sin(a) * 2600 * dt;
@@ -53,7 +56,8 @@ export class UkaiBird extends Entity {
     } else { this.vy += Math.sin(this.t * 9) * 20; }
     this.face = this.vx >= 0 ? 1 : -1;
     this.x += this.vx * dt; this.y += this.vy * dt;
-    if (hitEnemies(w, this, this.dmg, this)) { w.particles.burst(this.cx, this.cy, 6, { speed: 120, life: 0.5, size: 4, size1: 0, color: '#222', shape: 'leaf', grav: 200 }); this.remove(); return; }
+    if (this.pierce) { hitEnemies(w, this, this.dmg, this, { once: this.once }); }
+    else if (hitEnemies(w, this, this.dmg, this)) { w.particles.burst(this.cx, this.cy, 6, { speed: 120, life: 0.5, size: 4, size1: 0, color: '#222', shape: 'leaf', grav: 200 }); this.remove(); return; }
     if (this.life <= 0 || isSolid(w.level.at(this.cx, this.cy))) { w.particles.burst(this.cx, this.cy, 5, { speed: 90, life: 0.5, size: 4, size1: 0, color: '#333', shape: 'leaf', grav: 200 }); this.remove(); }
   }
   blocked() { this.remove(); }
@@ -64,7 +68,8 @@ export class Slash extends Entity {
   constructor(w, p) {
     super(w, { type: 'slash' });
     this.friendly = true; this.p = p; this.face = p.face;
-    this.w = 76; this.h = 60; this.life = 0.16; this.persistent = true;
+    this.sz = 1 + (p.wfx ? p.wfx.big : 0);
+    this.w = 76 * this.sz; this.h = 60 * this.sz; this.life = 0.16; this.persistent = true;
     this.dmg = 2 * p.stats.power; this.once = new Set();
     this.place();
   }
@@ -76,7 +81,32 @@ export class Slash extends Entity {
     if (this.t < 0.02 + 1 / 120 && breakTilesIn(w, this) > 0) w.camera.shake(4, 0.15);
     if (this.life <= 0) this.remove();
   }
-  draw(ctx, a) { drawSprite(ctx, 'fx_slash', Math.min(3, (this.t / 0.16 * 4) | 0), this.p.cx + this.face * 26, this.p.y + this.p.h / 2 - 4, { flip: this.face < 0 }); }
+  draw(ctx, a) { drawSprite(ctx, 'fx_slash', Math.min(3, (this.t / 0.16 * 4) | 0), this.p.cx + this.face * 26 * this.sz, this.p.y + this.p.h / 2 - 4, { flip: this.face < 0, sx: this.sz, sy: this.sz }); }
+}
+
+// 刃の波（武器の効果 wave）：技と一緒に前へ飛ぶ三日月。敵を貫く
+export class WaveShot extends Entity {
+  constructor(w, p) {
+    super(w, { type: 'waveShot' });
+    this.friendly = true; this.face = p.face; this.persistent = true;
+    this.w = 30; this.h = 46; this.color = p.weaponColor || '#ffe08a';
+    this.x = p.cx + p.face * 10 - this.w / 2; this.y = p.y - 2; this.px = this.x; this.py = this.y;
+    this.vx = p.face * 560; this.dmg = 1 * p.stats.power; this.life = 0.5; this.once = new Set();
+  }
+  update(dt) {
+    this.t += dt; this.life -= dt; this.x += this.vx * dt;
+    hitEnemies(this.world, this, this.dmg, this, { once: this.once });
+    if (this.life <= 0 || isSolid(this.world.level.at(this.cx, this.cy))) this.remove();
+  }
+  draw(ctx, a) {
+    const x = this.ix(a) + this.w / 2, y = this.iy(a) + this.h / 2, f = this.face, k = Math.min(1, this.life * 4);
+    ctx.save(); ctx.globalAlpha = k; ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = this.color; ctx.lineWidth = 5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(x - f * 10, y, 22, f > 0 ? -1.1 : Math.PI - 1.1 + 2.2 - 2.2, f > 0 ? 1.1 : Math.PI + 1.1); ctx.stroke();
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x - f * 10, y, 22, f > 0 ? -0.9 : Math.PI - 0.9, f > 0 ? 0.9 : Math.PI + 0.9); ctx.stroke();
+    ctx.restore();
+  }
 }
 
 // ---- 敵・ボスの弾（敵担当・ボス担当が使う汎用クラス） ----

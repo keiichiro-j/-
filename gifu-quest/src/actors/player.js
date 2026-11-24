@@ -5,6 +5,8 @@ import { T, isWater, isLava, isSlippery, isSlide, isOneWay, isBreakable } from '
 import { drawSprite, hasSprite } from '../gfx/atlas.js';
 import { ABILITIES } from './abilities.js';
 import CHARS from '../data/characters.json';
+import { weaponEffects, weaponById } from '../systems/gacha.js';
+import { WaveShot } from './projectiles.js';
 
 // 主人公（設計書 4章・5章）。アニメ名は docs/ARCHITECTURE.md の HERO_ANIMS
 export const HERO_ANIMS = {
@@ -27,12 +29,22 @@ export class Player {
     this.vx = 0; this.vy = 0;
     this.face = 1;
     this.onGround = false;
+    // 装備した武器（福引き）の効果。docs/gacha.md
+    const wp = world.weapon;
+    this.weaponId = wp ? wp.id : null;
+    this.wfx = weaponEffects(this.weaponId, wp ? wp.lv : 1, charId);
+    const F = this.wfx;
+    this.stats.power *= 1 + F.atk;
+    this.stats.walk *= 1 + F.spd; this.stats.dash *= 1 + F.spd;
+    this.stats.jump *= 1 + F.jmp;
+    this.guardLeft = F.guard;
+    this.weaponColor = this.weaponId ? weaponById(this.weaponId).color : null;
     // 難易度「やさしい」：ハート+1
-    const bonus = RUNTIME.difficulty === 'easy' ? 1 : 0;
+    const bonus = (RUNTIME.difficulty === 'easy' ? 1 : 0) + F.heart;
     this.hearts = this.stats.hearts + bonus;
     this.maxHearts = this.stats.hearts + bonus;
     this.coyote = 0; this.buffer = 0; this.invuln = 0; this.star = 0;
-    this.techCd = 0; this.techMax = this.def.techCooldown; this.attackHeld = 0; this.charge = 0;
+    this.techCd = 0; this.techMax = this.def.techCooldown * (1 - this.wfx.cd); this.attackHeld = 0; this.charge = 0;
     this.airJumps = 0; this.dashT = 0; this.dashUsed = false; this.controlLock = 0;
     this.wallSliding = 0; this.gliding = false; this.inWater = false; this.crouch = false;
     this.dropTimer = 0;
@@ -70,7 +82,11 @@ export class Player {
 
     // 技（押しっぱなしでダッシュ）
     if (I.held.attack) this.attackHeld += dt; else this.attackHeld = 0;
-    if (I.pressed.attack && this.techCd <= 0) { this.ability.tech(this, w, false); }
+    if (I.pressed.attack && this.techCd <= 0) {
+      this.ability.tech(this, w, false);
+      // 刃の波（からくり刀など）：技が出た時に一緒に飛ばす
+      if (this.wfx.wave && this.techCd > 0) w.spawn(new WaveShot(w, this));
+    }
     if (I.held.attack) this.charge += dt;
     if (I.released.attack) { if (this.charge >= 0.6 && this.ability.charged) this.ability.charged(this, w); this.charge = 0; }
     const dashing = this.attackHeld > 0.18 && dir !== 0;
@@ -235,6 +251,16 @@ export class Player {
   hurt(source, dmg = 1) {
     if (this.isInvincible()) return false;
     const w = this.world;
+    // 守り（武器）：中間地点ごとに決まった回数だけ攻撃を防ぐ
+    if (this.guardLeft > 0) {
+      this.guardLeft--;
+      this.invuln = 1.0;
+      w.particles.spawn({ x: this.cx, y: this.cy, life: 0.4, size: 14, size1: 46, color: 'rgba(160,220,255,0.9)', shape: 'ring', front: true });
+      w.particles.hit(this.cx, this.cy, '#bfe8ff');
+      w.sfx('clang');
+      w.events.emit('guard', { left: this.guardLeft });
+      return false;
+    }
     this.hearts -= dmg;
     w.stats.hits++;
     w.events.emit('playerHurt', { hearts: this.hearts });

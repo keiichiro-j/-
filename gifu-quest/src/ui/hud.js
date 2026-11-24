@@ -147,6 +147,14 @@ export function drawHud(ctx, W, vw, vh, scene) {
   ctx.lineCap = 'butt';
   // 溜め（リーフの溜め押しなど）
   if (p.charge > 0) { ctx.strokeStyle = COL.shu; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(fx, fy, fr + 1, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, p.charge)); ctx.stroke(); }
+  // 装備中の武器（福引き）と、守りの残り
+  if (p.weaponId) {
+    const wx = fx + fr - 2, wy = fy + fr - 4;
+    ctx.fillStyle = 'rgba(26,18,14,0.75)'; ctx.beginPath(); ctx.arc(wx, wy, 15, 0, Math.PI * 2); ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = p.weaponColor || COL.kin; ctx.stroke();
+    drawSprite(ctx, `weapon_${p.weaponId}`, 0, wx, wy, { sx: 0.55, sy: 0.55 });
+    if (p.guardLeft > 0) { ctx.fillStyle = 'rgba(160,220,255,0.95)'; for (let i = 0; i < p.guardLeft; i++) { ctx.beginPath(); ctx.arc(wx + 18 + i * 9, wy + 8, 3.5, 0, Math.PI * 2); ctx.fill(); } }
+  }
   // ハート
   const hs = 26;
   for (let i = 0; i < p.maxHearts; i++) {

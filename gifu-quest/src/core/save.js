@@ -2,7 +2,7 @@
 import { RUNTIME } from './config.js';
 import { input, DEFAULT_KEYS } from './input.js';
 export const SAVE_KEY = 'gq2_save';
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export function defaultSave() {
   return {
@@ -19,6 +19,9 @@ export function defaultSave() {
     seenSigns: [],                     // 読んだ看板の id（図鑑）
     defeated: [],                      // 倒した敵の種類（図鑑）
     noMissBoss: {},                    // ノーミスで倒したボス
+    weapons: {},                       // 持っている武器 { w01: { lv: 1 }, ... }（福引き）
+    equipped: null,                    // 装備中の武器の id
+    gacha: { lastFree: '', pity: 0, total: 0 },   // 無料の日付・天井までの回数・累計
     settings: { sound: false, sfxVol: 0.8, bgmVol: 0.6, quality: 'auto', shake: true, difficulty: 'normal', touchLayout: null, keymap: null },
   };
 }
@@ -38,6 +41,8 @@ export function migrate(d) {
   }
   // v1 → v2：lastStage・seenEnding を追加（既定値で埋まる）
   if (v < 2) v = 2;
+  // v2 → v3：武器と福引き（既定値で埋まる）
+  if (v < 3) v = 3;
   const out = { ...base, ...d, settings: { ...base.settings, ...obj(d.settings) } };
   // 形の検査（壊れたデータでも止まらない）
   out.cleared = arr(out.cleared).filter((n) => typeof n === 'number');
@@ -47,6 +52,11 @@ export function migrate(d) {
   out.coins = Math.max(0, +out.coins || 0);
   out.unlocked = arr(out.unlocked); for (const c of base.unlocked) if (!out.unlocked.includes(c)) out.unlocked.push(c);
   out.seenSigns = arr(out.seenSigns); out.defeated = arr(out.defeated); out.noMissBoss = obj(out.noMissBoss);
+  out.weapons = obj(out.weapons);
+  for (const k of Object.keys(out.weapons)) { const lv = Math.max(1, Math.min(5, (obj(out.weapons[k]).lv | 0) || 1)); out.weapons[k] = { lv }; }
+  if (out.equipped && !out.weapons[out.equipped]) out.equipped = null;
+  const g = obj(out.gacha);
+  out.gacha = { lastFree: typeof g.lastFree === 'string' ? g.lastFree : '', pity: Math.max(0, g.pity | 0), total: Math.max(0, g.total | 0) };
   out.version = SAVE_VERSION;
   delete out.clear; delete out.best;
   return out;
