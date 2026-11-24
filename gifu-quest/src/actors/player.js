@@ -86,6 +86,7 @@ export class Player {
 
     if (this.buffer > 0) {
       if (this.coyote > 0 && !this.inWater) this.jump(1);
+      else if (this.inWater && this.atWaterSurface(w)) { this.jump(1); }   // 水面からは普通に跳べる（レベル検査の前提：水面から3段まで上がれる）
       else if (this.inWater) { this.vy = -PHYS.swimImpulse * (this.has('swim') ? 1.35 : 1); this.buffer = 0; w.particles.burst(this.cx, this.y + 10, 4, { speed: 40, life: 0.6, size: 3, size1: 1, color: 'rgba(220,240,255,0.8)', grav: -120 }); w.sfx('swim'); }
       else if (this.wallSliding > 0 && this.has('wallKick')) {
         this.vy = -this.stats.jump * 0.98; this.vx = -this.wallDir * PHYS.wallKickVX; this.face = -this.wallDir;
@@ -104,7 +105,12 @@ export class Player {
     const slippery = this.onGround && isSlippery(this.groundTile) && !this.has('noSlip');
     if (slippery) { accel *= PHYS.iceFriction * 2.2; decel *= PHYS.iceFriction; }
     if (this.onGround && w.env && w.env.wet) decel *= PHYS.rainFriction;
-    if (this.dashT > 0) { /* 雪けむりダッシュ中は速度固定 */ }
+    // 合掌造りの屋根（滑り台）に乗っている：通常の加減速（止まろうとする力）を使わず、勝手に滑り下りる（下で処理）
+    const onSlide = this.onGround && isSlide(this.groundTile) && this.dashT <= 0;
+    if (onSlide) this.slideKeep = 0.12; else if (this.slideKeep > 0) this.slideKeep -= dt;
+    // 屋根の継ぎ目（一瞬だけ平らな所）で勢いが落ちないよう、滑り終わりの直後は減速しない（逆に押した時を除く）
+    const keepSlide = !onSlide && this.slideKeep > 0 && this.onGround && dir * this.vx >= 0;
+    if (this.dashT > 0 || onSlide || keepSlide) { /* 雪けむりダッシュ中は速度固定 */ if (onSlide && dir) this.face = dir; }
     else if (dir) {
       if (this.vx * dir < 0) {
         accel *= PHYS.turnMul;
@@ -119,9 +125,10 @@ export class Player {
     if (this.braking > 0) this.braking -= dt;
 
     // 合掌造りの屋根（滑り台）：勝手に滑り下りる
-    if (this.onGround && isSlide(this.groundTile)) {
+    if (onSlide) {
+      // 滑る向きに押すと少し速く、逆に押すと少し遅く（止まれはしない）
       const sd = this.groundTile === T.ROOF_SLIDE_R ? 1 : -1;
-      this.vx = approach(this.vx, sd * S.dash * 1.15, 1400 * dt);
+      this.vx = approach(this.vx, sd * S.dash * 1.15 + dir * S.walk * 0.25, 1400 * dt);
       this.sliding = true;
     } else this.sliding = false;
 
@@ -216,6 +223,13 @@ export class Player {
     // 伸び縮みを戻す
     const k = 1 - Math.exp(-14 * dt);
     this.sx += (1 - this.sx) * k; this.sy += (1 - this.sy) * k;
+  }
+
+  // 水面に浮いている（頭の少し上が水でない）。水中で上が空いている時の「泳ぐ」と区別する
+  atWaterSurface(w) {
+    const r = this._surfRect || (this._surfRect = { x: 0, y: 0, w: 0, h: 8 });
+    r.x = this.x; r.y = this.y - 14; r.w = this.w;
+    return this.vy > -120 && !overlapsTile(w.level, r, isWater, 3) && !w.inLiquid?.(r, 'water');
   }
 
   hurt(source, dmg = 1) {

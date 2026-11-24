@@ -40,7 +40,8 @@ export class Stage {
   lava(n, depth = 2) { return this.pool(n, depth, 'l', 'L'); }
   step(dy) { this.f += dy; return this; }                // 段差（負で上へ）
   to(f) { this.f = f; return this; }
-  up45(n) { for (let i = 0; i < n; i++) { const x = this.x + i; this.column(x, this.f - i, '/'); } this.x += n; this.f -= n; return this; }
+  // 45度の上り坂。'/' は行 f-1-i に置く（QA：以前は f-i で、坂の手前がへこみ・坂の上に1段の壁ができていた）
+  up45(n) { for (let i = 0; i < n; i++) { const x = this.x + i; this.column(x, this.f - 1 - i, '/'); } this.x += n; this.f -= n; return this; }
   down45(n) { for (let i = 0; i < n; i++) { const x = this.x + i; this.column(x, this.f + i, '\\'); } this.x += n; this.f += n; return this; }
   up22(n) {
     for (let i = 0; i < n; i++) { const x = this.x + i * 2; this.column(x, this.f - 1 - i, 'a'); this.column(x + 1, this.f - 1 - i, 'b'); }

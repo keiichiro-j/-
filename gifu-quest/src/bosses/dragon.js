@@ -203,6 +203,8 @@ class Dragon extends Boss {
     const f = this.face, hx = this.hx, hy = this.hy;
     const x0 = f > 0 ? hx - 10 : hx - 150;
     if (this.head === 'rest' || this.state === 'hurt') { setRect(this.weak, x0 + 10, hy - 46, 140, 40); return; }
+    // 溶岩からせり上がる途中（予告の泡が見えている間）は、岸に立つ主人公を下からはね上げない（QA：予告なしの被弾になっていた）
+    if (this.state === 'tell' && this.st < this.tellT / 1.4) return;
     setRect(this.bodies[0], x0, hy - 34, 160, 66);
     setRect(this.bodies[1], hx - 26, hy + 30, 52, Math.max(0, this.surf - hy - 30));
     this.nBodies = 2;

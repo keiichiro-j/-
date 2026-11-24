@@ -118,6 +118,8 @@ w.events.emit/on（'enemyDefeated','stomp','coin','bossStart','bossDefeated','st
 
 ## 主人公（src/actors/player.js）
 `p.x,y,w(24),h(44),vx,vy,face,onGround,hearts,maxHearts,star,dashT,inWater,stats{walk,dash,jump,power}`、`p.hurt(source, dmg)`、`p.heal(n)`、`p.has('wallKick'|'glide'|'swim'|'heavyStomp'|'breakBricks'|'doubleJump'|'noSlip')`
+- 水：水中でジャンプ＝泳ぐ（上へ小さく押す）。**水面に浮いている時（頭の少し上が水でない）のジャンプは普通のジャンプ**（`p.atWaterSurface(w)`）。レベル検査の「水面から3段まで上がれる」に合わせた（QA で追加）
+- 滑り台（`>` `<`）：乗っている間は通常の加減速を使わず、ダッシュ×1.15 へ向けて滑り下りる（押す向きで ±歩き×0.25）。屋根の継ぎ目の一瞬の平地で勢いを落とさない（`slideKeep` 0.12秒）
 
 ## 環境（src/systems/env.js）
 `createEnv(world, levelData)` が返すオブジェクト：`update(dt)`, `drawFront(ctx, cam, vw, vh)`（雨・雪など画面の手前）, `wet`（雨で滑る）, `wind`（横風 ドット/秒。主人公の速度に足される）, `darkness`(0..1), `flash`(稲光 0..1), `sky{top,bottom}`, `tint`, `weather`, `timeOfDay`, `fog`(0..1)

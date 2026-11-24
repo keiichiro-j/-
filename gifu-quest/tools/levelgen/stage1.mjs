@@ -22,7 +22,7 @@ export function build() {
   b.enemy('walker', 'uribo', 25, 37, { range: 3 });
   D('cedar', 21, 37); D('grass', 27, 37);
   b.up45(2);                                       // 28-29 → f36（急な坂）
-  b.coin(28, 36).coin(29, 35);
+  b.coin(28, 35).coin(29, 34);
   b.flat(6);                                       // 30-35
   b.gap(2);                                        // 36-37 最初の穴（2マス）
   b.arc(34, 35, 39, 35, 2);
@@ -50,7 +50,7 @@ export function build() {
   b.sign('ropeway', 76, 31, '金華山ロープウェー', 'ふもとの岐阜公園と山頂近くを結ぶロープウェーがあり、数分で山の上へ行ける。窓からは長良川と岐阜の町並みが見わたせる。');
   b.flat(3);                                       // 76-78
   b.up45(3);                                       // 79-81 → f29
-  b.coin(79, 31).coin(80, 30).coin(81, 29);
+  b.coin(79, 30).coin(80, 29).coin(81, 28);
   b.flat(8);                                       // 82-89
   b.enemy('spiky', 'iga', 86, 28, { range: 3 });
   b.coins(84, 88, 25);
@@ -64,7 +64,8 @@ export function build() {
   b.up22(3);                                       // 108-113 → f28
   b.coins(108, 113, 25);
   b.flat(6);                                       // 114-119 ゴンドラ乗り場
-  b.enemy('flyer', 'karasu', 128, 21, { amp: 2, range: 3 });
+  // カラスはゴンドラの客の頭より上（QA：以前は乗っている高さを飛び、当たると谷へ落とされて1面には厳しかった）。コインを取りに跳ぶと狙われる
+  b.enemy('flyer', 'karasu', 130, 17, { amp: 1, range: 3 });
   D('toro', 115, 27);
   // 谷を渡るゴンドラ（落ちるとミス）
   b.ent('gondola', 120, 28, { x2: 133, y2: 22, speed: 2.4 });
