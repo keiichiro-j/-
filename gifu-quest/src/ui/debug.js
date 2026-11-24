@@ -13,7 +13,7 @@ export function toggleDebugPanel() {
     const inp = document.createElement('input');
     inp.type = 'number'; inp.value = PHYS[k]; inp.step = 'any'; inp.style.width = '80px';
     inp.addEventListener('input', () => { const v = parseFloat(inp.value); if (!isNaN(v)) PHYS[k] = v; });
-    inp.addEventListener('keydown', (e) => e.stopPropagation());
+    inp.addEventListener('keydown', (e) => { if (e.code !== 'F1') e.stopPropagation(); });   // F1 は入力欄からでもパネルを閉じられるように
     row.appendChild(inp); panel.appendChild(row);
   }
   document.body.appendChild(panel);

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Level } from '../src/world/level.js';
-import { moveBody } from '../src/world/collision.js';
+import { moveBody, carryBody } from '../src/world/collision.js';
 import { TILE, STEP } from '../src/core/config.js';
 
 const mk = (rows) => new Level({ id: 't', name: 't', tiles: rows });
@@ -60,5 +60,49 @@ describe('collision', () => {
     let hit = false;
     for (let i = 0; i < 60; i++) { b.vy += 1320 * STEP; moveBody(lv, b, STEP); if (b.hitCeil) hit = true; }
     expect(hit).toBe(false);
+  });
+
+  // ---- デバッグで直したもの ----
+  const embedded = (lv, b) => { for (let ty = Math.floor((b.y + 1) / TILE); ty <= Math.floor((b.y + b.h - 1) / TILE); ty++) for (let tx = Math.floor((b.x + 1) / TILE); tx <= Math.floor((b.x + b.w - 1) / TILE); tx++) if ([1, 2].includes(lv.get(tx, ty))) return true; return false; };
+  it('moving-platform carry stops at walls and ceilings', () => {
+    const lv = mk(['..........', '..#.......', '..........', '..........', '.....#....', '.....#....', '##########']);
+    const b = body(4, 6); b.x = 5 * TILE - b.w - 2;
+    for (let i = 0; i < 20; i++) carryBody(lv, b, 3, 0);
+    expect(b.x + b.w).toBeLessThanOrEqual(5 * TILE + 0.01);
+    const c = body(2, 4); c.y = 2 * TILE + 4;
+    for (let i = 0; i < 20; i++) carryBody(lv, c, 0, -3);
+    expect(c.y).toBeGreaterThanOrEqual(2 * TILE - 0.01);
+  });
+  it('walking up a slope into a low tunnel does not push the head into the ceiling', () => {
+    for (const rows of [
+      ['....................', '....BBBB............', '....................', '..ab####............', '####################'],
+      ['....................', '....BBBB............', '....................', '.../####............', '####################'],
+    ]) {
+      const lv = mk(rows);
+      const b = body(0, 4);
+      run(lv, b, 0.2);
+      let bad = 0;
+      run(lv, b, 2, (b) => { b.vx = 330; if (embedded(lv, b)) bad++; });
+      expect(bad).toBe(0);
+    }
+  });
+  it('a head slightly inside a ceiling is not teleported sideways, and is not pushed through the floor', () => {
+    const lv = mk(['..........', '..........', '...BB.....', '..........', '##########']);
+    const b = body(3, 4); b.x = 3 * TILE + 30; b.y = 3 * TILE - 0.5;   // 頭が天井に0.5ドット入っている
+    const x0 = b.x;
+    b.vx = 60; b.vy = 0; b.onGround = true;
+    moveBody(lv, b, STEP);
+    expect(Math.abs(b.x - x0)).toBeLessThan(2);
+    // ジャンプで頭をぶつけても床を抜けない
+    b.vy = -600; b.onGround = false;
+    for (let i = 0; i < 60; i++) { b.vy = Math.min(b.vy + 2550 * STEP, 860); moveBody(lv, b, STEP); }
+    expect(b.y + b.h).toBeLessThanOrEqual(4 * TILE + 0.01);
+  });
+  it('does not land on a moving platform when that would put the head inside the ceiling', () => {
+    const lv = mk(['..........', '####......', '..........', '..........', '..........', '##########']);
+    const plat = { x: 0, y: 2 * TILE + 30, w: 3 * TILE, h: 18, dx: 0, dy: -1, oneWay: true };
+    const b = body(1, 3); b.y = plat.y - b.h; b.onGround = true;
+    moveBody(lv, b, STEP, { platforms: [plat] });
+    expect(b.onGround).toBe(false);
   });
 });
