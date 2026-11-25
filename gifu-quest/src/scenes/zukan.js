@@ -31,7 +31,7 @@ const ENEMY_ANIMS = ['walk', 'idle', 'fly', 'jump'];
 
 function allSigns() {
   const out = [];
-  for (let n = 1; n <= 7; n++) {
+  for (let n = 1; n <= 8; n++) {
     const L = LEVELS[n]; if (!L) continue;
     for (const e of L.entities || []) if (e.type === 'sign') out.push({ id: e.id || e.title, title: e.title || '', text: e.text || '', stage: n });
   }

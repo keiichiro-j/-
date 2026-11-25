@@ -56,7 +56,7 @@ for (const st of STAGES) {
         while (t < 400 && b.alive && !b.dying) {
           p.invuln = 5; p.hearts = p.maxHearts; p.frozen = true;
           const tg = b.activeTarget ? b.activeTarget() : b;   // 大シーサーの段階3は、動いている方（阿・吽）を叩く
-          if (!tg.shielded(p, tg.hurtRect()) && b.invuln <= 0 && b.state !== 'hurt' && t - (window.__lastHit || -9) > 2.5) { if (tg.damage(1, p)) { hits++; window.__lastHit = t; } }
+          if ((b.activeTarget ? !tg.shielded(p, tg.hurtRect()) : b.canHit()) && b.invuln <= 0 && b.state !== 'hurt' && t - (window.__lastHit || -9) > 2.5) { if (tg.damage(1, p)) { hits++; window.__lastHit = t; } }
           T.step(1); t += 1 / 120; states.add(b.state); phases.add(b.phase);
           if (untilPhase && b.phase >= untilPhase) break;
         }
@@ -92,7 +92,7 @@ for (const st of STAGES) {
           while (t < 400 && b.alive && !b.dying) {
             p.invuln = 5; p.hearts = p.maxHearts; p.frozen = true;
             const tg = b.activeTarget ? b.activeTarget() : b;   // 大シーサーの段階3は、動いている方（阿・吽）を叩く
-            if (!tg.shielded(p, tg.hurtRect()) && b.invuln <= 0 && b.state !== 'hurt' && t - (window.__lastHit || -9) > 2.5) { if (tg.damage(1, p)) { hits++; window.__lastHit = t; if (b.H && b.phase >= 3) acts.add(b.act); } }
+            if ((b.activeTarget ? !tg.shielded(p, tg.hurtRect()) : b.canHit()) && b.invuln <= 0 && b.state !== 'hurt' && t - (window.__lastHit || -9) > 2.5) { if (tg.damage(1, p)) { hits++; window.__lastHit = t; if (b.H && b.phase >= 3) acts.add(b.act); } }
             T.step(1); t += 1 / 120;
             if (ph && b.phase >= ph) { T.step(240); break; }   // 段階が上がった後を少し見る
           }

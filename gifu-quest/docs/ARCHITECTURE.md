@@ -97,7 +97,7 @@ HERO_ANIMS（src/actors/player.js）：idle4, walk8, run8, brake1, jumpUp2, apex
 | cameraZone | リード | x,y,w,h（タイル）。中にいる間カメラ固定（隠し部屋） |
 | walker / spiky / hopper / flyer / thrower / popper / charger / shielder | 敵・仕掛け | kind（見た目：例 "uribo"）, range など。設計書6章「敵の種類」 |
 | movingPlatform, gondola, boat, fallingPlatform, rhythmPlatform, festivalFloat, steamVent, icicle, windZone, waterGate, waterSwitch, risingLava, lantern, autoScroll | 敵・仕掛け | ARCHITECTURE「仕掛け」を敵担当が追記 |
-| bossArena | ボス | x0,x1,y0,y1（タイル）, boss: musasabi/salamander/dancer/yatai/yukioni/dragon |
+| bossArena | ボス | x0,x1,y0,y1（タイル）, boss: musasabi/salamander/dancer/yatai/yukioni/dragon/shisa |
 | decor | アート | sprite: prop_xxx。背景の小物（当たり判定なし） |
 
 ## World（src/world/world.js）— エンティティから使えるもの
@@ -204,12 +204,19 @@ w.events.emit/on（'enemyDefeated','stomp','coin','bossStart','bossDefeated','st
 - HUD が使うイベント：'stomp', 'sarubobo', 'checkpoint', 'stageEnter', 'enemyDefeated'（{ kind } を含めると図鑑に記録される）
 - ボスは `phaseMarks`（HPに対する割合の配列、例 [0.66, 0.33]）を持つと HP バーの目盛りがその位置になる
 - 難易度「やさしい」：主人公のハート+1、ボスの HP×0.7・待ち時間×1.3
+- 特別ステージ8（沖縄）：ステージ1〜6をすべてクリア（save.data.cleared）で地図の右下に「南の島・沖縄」の差し込み地図（stages.json の 8 の map は差し込み地図の中の位置）と航路が出る。はじめて出た時に「南の島への航路がひらけた！」（見たことは `save.data.seenHints.route8`）。地図の順番 ORDER は 0〜8。クリアは cleared に入り、結果画面からはマップへ（エンディングは6面だけ）
+  - **セーブの検査（src/core/save.js の MAX_STAGE=7）が 8 を消すので、8 に上げること**（cleared・bestTime・sarubobo・lastStage）。称号「ニライカナイの勇者」の判定用に records.noMissStages（{ステージ: true}）を書くが、migrate が records の知らない項目を捨てるので、残すなら defaultRecords にも足す（称号を得た後は achievements に残るので判定には困らない）
 
 ## ボス（ボス担当）
 - 置き方：`{ "type":"bossArena", "x0":.., "x1":.., "y0":.., "y1":.., "boss":"musasabi|salamander|dancer|yatai|yukioni|dragon" }`。幅30タイル・高さ15行。下2行は平らな固い床。x0 列が入口の壁（空いたマスが入口）、x1 列が奥の壁。主人公の中心が x0+2 列を越えると開始。中間地点はアリーナより手前
 - Boss が持つもの：`name`, `title`, `hp`, `maxHp`, `phase`, `phaseMarks`（[2/3, 1/3]）, `reset()`。1回のダメージは最大3
 - スプライト名 `boss_<name>_<anim>`：右向き・基準点は足元中央（弾・首の節などは中心）
 - 川・溶岩・木・岩・いかだはボスが自分で作る。調整用の数値は各ボスファイル先頭の表
+- 8. 大シーサー（src/bosses/shisa.js, boss: 'shisa'。特別ステージ8・試験用 levels/stage98.json）HP16。アリーナの両端に赤瓦の屋根（BossPlatform：主人公も乗れる通り抜け足場、幅4タイル・床から3.25タイル）を自分で置く。出番前は屋根の上の石の像
+  - 段階1（吽の顔）屋根から飛び降り（着地点の影が主人公を追い、跳んだら止まる。屋根の下には降りない）→ 一息（隙）／突進（足かき）→ 壁で目を回して屋根の外まで転がる（隙）
+  - 段階2（阿の顔）咆哮の衝撃波（床をはう・跳んでよける）→ 息切れ（隙）／尻尾で赤瓦を3枚（落ちる所に影。ゲンの一閃で消せる）
+  - 段階3 阿（右の屋根）と吽（左の屋根）に分かれて交互に攻撃。残りHPを2体で分け、先に倒した方は石に戻る。吽の当たりは手下の窓口 `shisaUn`（bossMinion）が受け、本体の hp を減らす。`boss.activeTarget()` が今動いている方（テスト用）
+  - スプライト：`boss_shisa_<a|un>_<idle|tell|jump|run|rest|tired|hurt|angry|tail|stone>`, `boss_shisa_a_roar`, `boss_shisa_kawara`, `boss_shisa_roof`, `boss_shisa_wave`
 
 ## 福引き蔵（武器ガチャ）
 仕様は docs/gacha.md。画面 `gacha`（params: { back }）。World は opts.weapon（{ id, lv }）を受け取り、主人公は `p.weaponId`, `p.wfx`（weaponEffects の結果）, `p.guardLeft`, `p.weaponColor` を持つ。スプライト `weapon_<id>`（48×48、中心基準）

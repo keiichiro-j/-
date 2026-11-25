@@ -8,7 +8,7 @@
 |---|---|
 | ステージ1回 | 約110枚 |
 | 毎日のお題（1日3つ） | 1つ60〜120枚。1日最大 約360枚（福引き3回分ほど） |
-| 称号（一度きり・33個） | 50〜300枚。全部で約5000枚 |
+| 称号（一度きり・35個） | 50〜300枚。全部で約5200枚 |
 | 腕試し（1回6〜8分） | 勝ちぬき150・ノーミス+100・ベスト更新+50 |
 
 ## 1. 称号（src/data/achievements.json）
@@ -21,6 +21,8 @@
 | orb6 | 六つの宝珠 | 宝珠を6つ全部 | 200 |
 | ending | 物語の結び | エンディングを見る | 150 |
 | ura | 天空の宝殿 | うらステージをクリア | 300 |
+| south_orb | 南の宝珠 | 特別ステージ8（沖縄・ニライカナイの島）をクリア | 300 |
+| nirai_hero | ニライカナイの勇者 | ステージ8をミスも被弾もなしでクリア | 300 |
 | sarubobo6 / sarubobo18 | さるぼぼ集め／名人 | さるぼぼ6個／18個 | 50 / 200 |
 | coins1000 / coins5000 | 小判長者／大判長者 | コインを累計1000／5000枚拾う | 100 / 200 |
 | enemy100 / enemy300 | 腕自慢／百戦錬磨 | 敵を累計100／300体 | 80 / 150 |
@@ -40,13 +42,13 @@
 | rush_clear | 六番勝負 | 腕試しを勝ちぬく | 200 |
 | rush_nomiss | 天下無双 | 腕試しをノーミスで | 300 |
 
-条件の種類（cond.type）：mainCleared(n), stageCleared(stage), seenEnding, sarubobo(n), rec(key,n：records の累計), noMissBoss(n), charClear(char), weaponRarity(r), weaponCount(n), gachaTotal(n), signsAll, defeatedAll, targets(n), rushClear, rushNoMiss。新しい種類は src/systems/achievements.js の progressOf に足す。
+条件の種類（cond.type）：mainCleared(n), stageCleared(stage), stageNoMiss(stage：そのステージをノーミスでクリア。recordClear が records.noMissStages に書く), seenEnding, sarubobo(n), rec(key,n：records の累計), noMissBoss(n), charClear(char), weaponRarity(r), weaponCount(n), gachaTotal(n), signsAll, defeatedAll, targets(n), rushClear, rushNoMiss。新しい種類は src/systems/achievements.js の progressOf に足す。
 
 ## 2. 毎日のお題（src/data/missions.json）
 - 1日3つ。端末の日付（src/systems/gacha.js の today()、福引きの無料と同じ）から決まり、0時に入れ替わる。同じ日は誰でも同じお題。違う group から選ぶ
 - 種類：敵を20/40体倒す、コインを80/150枚拾う、ステージを1/2回クリア、ノーミスでクリア、指定キャラ（リーフ・ミナモ・ゲン・ハクのどれか）でクリア、福引きを引く（無料でもよい）、15回踏みつける、3体続けて踏む、ボスを1体倒す、目標タイム内にクリア
 - 達成で「お題達成」の通知とコイン。マップの左上に「お題 ○○○」（済んだら朱の丸）。タップで記録画面のお題タブ
-- 「クリア」は練習（0）と試験用ステージ（90〜）を数えない。拾ったコインは、途中でやめたステージの分も数える
+- 「クリア」は練習（0）と試験用ステージ（90〜）を数えない（特別ステージ8は数える）。拾ったコインは、途中でやめたステージの分も数える
 - 福引きは福引き蔵の画面がイベントを出さないため、`gacha.total − その日の始まりの total` で判定（マップ・記録画面に入った時）
 
 ## 3. 腕試し（ボス連戦。画面 `bossrush`、params: `{ char }`、src/data/bossrush.json）
@@ -64,3 +66,7 @@
 - 通知：`toast.push(kind, name, reward)` / `toast.draw(ctx, vw, vh, y?, left?)`。stage・results・worldmap・records・bossrush が描く
 - セーブ v4：records { coins, enemies, stomps, bestChain, clears, noMissClears, bosses, missionsDone, charClears{} }, achievements { id: 日付 }, missions { date, list[{id,p,done,char?}], gachaBase }, bossRush { best, noMiss, clears, tries, most }。noMissBoss { bossId: true } を書くようにした。v3 からは既定値（clears はクリア済みの数から）
 - 通しテスト：tests/e2e/content.mjs（`--shots` で screenshots/content-*.png）
+
+## 4. 特別ステージ8（沖縄）について
+- 敵図鑑（stages.json の enemies）にステージ8の敵7種を足したので、「敵図鑑の完成」はステージ8の敵も倒す必要がある
+- 腕試し（ボス連戦）には大シーサーを入れない（6体のまま）

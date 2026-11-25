@@ -67,7 +67,7 @@ class RoarWave extends Entity {
 class KawaraShot extends BossShot {
   constructor(w, x, y, tx, ty) {
     const T = TILE_FLIGHT;
-    super(w, x, y, { sprite: 'boss_shisa_kawara', w: 26, h: 16, vx: (tx - x) / T, vy: (ty - y - 0.5 * TILE_GRAV * T * T) / T, grav: TILE_GRAV, life: 2.4, spin: 10, cancelable: true });
+    super(w, x, y, { sprite: 'boss_shisa_kawara', w: 26, h: 16, vx: (tx - x) / T, vy: (ty - y - 0.5 * TILE_GRAV * T * T) / T, grav: TILE_GRAV, life: 2.4, spin: 10, cancelable: true, scale: 1.3 });
     this.bossHazard = true;
     this.tx = tx; this.ty = ty;
   }

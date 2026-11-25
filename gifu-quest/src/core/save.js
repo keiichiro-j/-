@@ -42,14 +42,14 @@ export function defaultSave() {
 }
 
 export function defaultRecords() {
-  return { coins: 0, enemies: 0, stomps: 0, bestChain: 0, clears: 0, noMissClears: 0, bosses: 0, missionsDone: 0, charClears: {} };
+  return { coins: 0, enemies: 0, stomps: 0, bestChain: 0, clears: 0, noMissClears: 0, bosses: 0, missionsDone: 0, charClears: {}, noMissStages: {} };
 }
 const arr = (v) => (Array.isArray(v) ? v : []);
 const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
 const num = (v, lo, hi, def) => { const n = typeof v === 'string' && v.trim() !== '' ? +v : v; return typeof n === 'number' && Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : def; };
 const oneOf = (v, list, def) => (list.includes(v) ? v : def);
 const stageNo = (v) => { const n = typeof v === 'string' && /^\d+$/.test(v) ? +v : v; return Number.isInteger(n) && n >= 0 && n <= MAX_STAGE ? n : null; };
-const MAX_STAGE = 7;                 // 0=れんしゅう, 1〜6, 7=うらステージ
+const MAX_STAGE = 8;                 // 0=れんしゅう, 1〜6, 7=うらステージ, 8=沖縄（全クリア後の特別ステージ）
 const WEAPON_IDS = new Set(WEAPONS.weapons.map((w) => w.id));
 const LAYOUT_KEYS = ['pad', 'jump', 'attack', 'pause'];
 // 古い版のデータを新しい形に変換する（版ごとに順に上げる）
@@ -90,7 +90,9 @@ export function migrate(d) {
   out.gacha = { lastFree: typeof g.lastFree === 'string' ? g.lastFree : '', pity: Math.max(0, Math.min(WEAPONS.pity - 1, g.pity | 0)), total: Math.max(0, g.total | 0) };
   // 称号・お題・腕試し（v4）
   const R0 = defaultRecords(), rec = obj(out.records); out.records = {};
-  for (const k of Object.keys(R0)) if (k !== 'charClears') out.records[k] = Math.floor(num(rec[k], 0, 1e9, 0));
+  for (const k of Object.keys(R0)) if (k !== 'charClears' && k !== 'noMissStages') out.records[k] = Math.floor(num(rec[k], 0, 1e9, 0));
+  const nm = obj(rec.noMissStages); out.records.noMissStages = {};
+  for (const k of Object.keys(nm)) if (stageNo(k) != null && nm[k]) out.records.noMissStages[k] = true;   // ステージごとのノーミスクリア
   const cc = obj(rec.charClears); out.records.charClears = {};
   for (const k of Object.keys(cc)) if (CHARS[k]) out.records.charClears[k] = Math.floor(num(cc[k], 0, 1e9, 0));
   const ac = obj(out.achievements); out.achievements = {};

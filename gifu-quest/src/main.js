@@ -61,7 +61,7 @@ function start() {
   game.register('bossrush', bossrushScene);
   // 称号・お題：イベントにつなぐ（名物看板の id はステージ1〜7から）
   const signIds = [];
-  for (let n = 1; n <= 7; n++) for (const e of (LEVELS[n] && LEVELS[n].entities) || []) if (e.type === 'sign') { const id = e.id || e.title; if (id && !signIds.includes(id)) signIds.push(id); }
+  for (let n = 1; n <= 8; n++) for (const e of (LEVELS[n] && LEVELS[n].entities) || []) if (e.type === 'sign') { const id = e.id || e.title; if (id && !signIds.includes(id)) signIds.push(id); }
   progress.install({ events, save, toast, signIds });
   const loop = createLoop({ update: (dt) => game.update(dt), render: (a, dt) => game.render(a, dt) });
   game.loop = loop;
