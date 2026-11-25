@@ -18,14 +18,18 @@ export const KINDS = {
   uribo: { motion: 'walker', w: 32, h: 24, speed: 55 },
   sawagani: { motion: 'walker', w: 32, h: 20, speed: 45 },
   yukidama: { motion: 'walker', w: 28, h: 28, speed: 42 },
+  habu: { motion: 'walker', w: 40, h: 16, speed: 62 },          // ステージ8：地をはうハブ（低くて速い）
+  kometsuki: { motion: 'walker', w: 24, h: 18, speed: 50 },     // ステージ8：干潟の小さな青いカニ（ミナミコメツキガニ風）
   // トゲ（踏めない。技でのみ倒せる）
   iga: { motion: 'spiky', w: 28, h: 26, speed: 34 },
   koritoge: { motion: 'spiky', w: 28, h: 26, speed: 30 },
+  uni: { motion: 'spiky', w: 28, h: 24, speed: 18 },            // ステージ8：海の底をゆっくり歩くウニ
   // 跳ねる（主人公に向かって跳ぶ）。jump: 跳ぶ初速, hop: 横の速さ, wait: 着地後の待ち（秒）, sight: 見つける距離（タイル）
   kajika: { motion: 'hopper', w: 28, h: 22, jump: 560, hop: 150, wait: 1.1, sight: 7 },
   uchiwa: { motion: 'hopper', w: 26, h: 34, jump: 520, hop: 120, wait: 1.0, sight: 7, flutter: 0.5 },
   yukiusagi: { motion: 'hopper', w: 24, h: 26, jump: 470, hop: 185, wait: 0.55, sight: 8 },
   yogangaeru: { motion: 'hopper', w: 30, h: 24, jump: 660, hop: 160, wait: 1.3, sight: 7, light: '#ff8a3a' },
+  kijimuna: { motion: 'hopper', w: 24, h: 36, jump: 590, hop: 175, wait: 0.75, sight: 8 },   // ステージ8：赤い髪の木の精（いたずらに跳ぶ）
   // 飛ぶ（波のように上下しながら巡回）。amp: 上下の幅（タイル）, freq: 上下の速さ
   karasu: { motion: 'flyer', w: 30, h: 22, speed: 70, amp: 0.6, freq: 2.6, range: 5 },
   tonbo: { motion: 'flyer', w: 32, h: 16, speed: 95, amp: 0.45, freq: 4.0, range: 6 },
@@ -33,6 +37,7 @@ export const KINDS = {
   tako: { motion: 'flyer', w: 32, h: 36, speed: 55, amp: 0.9, freq: 1.5, range: 5 },
   yukigumo: { motion: 'flyer', w: 42, h: 22, speed: 48, amp: 0.25, freq: 1.4, range: 5, icicle: true },
   komori: { motion: 'flyer', w: 30, h: 18, speed: 90, amp: 1.0, freq: 3.2, range: 6 },
+  kanmuri: { motion: 'flyer', w: 38, h: 24, speed: 78, amp: 0.7, freq: 2.1, range: 6 },   // ステージ8：南の鷲（カンムリワシ風）
   // 投げる（放物線。投げる前に腕を振り上げる予告 windup 秒）。ammo: 弾, cd: 間隔, sight: 投げ始める距離（タイル）
   saru: { motion: 'thrower', w: 26, h: 34, ammo: 'iga', cd: 2.0, windup: 0.5, sight: 9 },
   geta: { motion: 'thrower', w: 24, h: 36, ammo: 'geta', cd: 2.2, windup: 0.5, sight: 9 },
@@ -42,6 +47,7 @@ export const KINDS = {
   ayu: { motion: 'popper', w: 16, h: 26, height: 3.5, period: 2.6, liquid: 'water' },
   hinotama: { motion: 'popper', w: 22, h: 24, height: 4, period: 2.8, liquid: 'lava', light: '#ff9a3a' },
   hibashira: { motion: 'popper', w: 26, h: 36, height: 4, period: 3.2, liquid: 'lava', pillar: true, light: '#ff7a2a' },
+  hirimon: { motion: 'popper', w: 18, h: 26, height: 4, period: 2.6, liquid: 'water' },    // ステージ8：海から跳ねる魚（胸びれを広げたトビウオ風）
   // 突進（見つけると一瞬溜めてから突進）。walk: 普段の速さ, run: 突進の速さ, windup: 溜め
   inoshishi: { motion: 'charger', w: 42, h: 30, hp: 2, walk: 40, run: 340, windup: 0.55, sight: 7 },
   shishi: { motion: 'charger', w: 44, h: 34, hp: 2, walk: 35, run: 320, windup: 0.6, sight: 7 },
@@ -49,6 +55,7 @@ export const KINDS = {
   // 盾（正面からの弾を防ぐ。上からのみ踏める）
   kappa: { motion: 'shielder', w: 26, h: 36, hp: 2, speed: 38 },
   karakuri: { motion: 'shielder', w: 26, h: 38, hp: 2, speed: 32 },
+  yashigani: { motion: 'shielder', w: 34, h: 28, hp: 2, speed: 30 },   // ステージ8：ヤシガニ（大きなはさみで正面を防ぐ）
 };
 const DEFAULT_KIND = { walker: 'uribo', spiky: 'iga', hopper: 'kajika', flyer: 'karasu', thrower: 'saru', popper: 'ayu', charger: 'inoshishi', shielder: 'kappa' };
 
@@ -463,7 +470,7 @@ class Popper extends Enemy {
     }
     if (this.state !== 'up') return;
     const rot = Math.max(-1, Math.min(1, this.vy / 500)) * 1.35;
-    this.drawBody(ctx, a, 'jump', this.kind === 'ayu' ? { rot: this.face > 0 ? rot : -rot } : null);
+    this.drawBody(ctx, a, 'jump', this.kind === 'ayu' || this.kind === 'hirimon' ? { rot: this.face > 0 ? rot : -rot } : null);
   }
 }
 

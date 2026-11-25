@@ -1,5 +1,5 @@
 import { makeCanvas } from '../gfx/renderer.js';
-import { rng, mix, shade, rgba, ell, poly, fs, lin, rad, glow, flame } from './props.js';
+import { rng, mix, shade, rgba, ell, poly, fs, lin, rad, glow, flame, sparkle } from './props.js';
 // 背景の多重スクロール（担当：アート）。createBackdrop(theme, levelData) → { draw, drawFront }
 // 設計書2章「描画の層」：空(0) → 雲3層(0.03〜0.1) → 遠景(0.12) → 中景(0.3, 0.5) …… 前景(1.3)
 // 各層は createBackdrop のときに「横に繰り返せる画像」へ焼き付け、毎フレームは drawImage だけ。
@@ -161,6 +161,157 @@ function steam(ctx, x, y, h, a, R) {
     ctx.fillStyle = rad(ctx, cx, cy, 0, r, [0, rgba('#ffffff', a * (1 - u * 0.75)), 1, rgba('#ffffff', 0)]);
     ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
   }
+}
+
+// ------------------------------------------------------------------ 沖縄（ステージ8）の絵柄
+/** 入道雲：下の平らな底から、もくもくと高く積み上がる雲の柱（影 → 明るい面 → ふちの光） */
+function cumulonimbus(ctx, cx, base, w, h, cols, rimC, seed) {
+  const R = rng(seed), puffs = [];
+  for (let k = 0; k <= 16; k++) {
+    const t = k / 16, y = base - t * h;
+    const width = w * (0.55 + 0.25 * Math.sin(t * 2.4) + (t > 0.82 ? (t - 0.82) * 2.2 : 0));
+    const n = 2 + ((width / 26) | 0);
+    for (let j = 0; j < n; j++) {
+      const px = cx + (R() - 0.5) * width + Math.sin(t * 3) * w * 0.08, pr = (16 + R() * 18) * (w / 150) * (1 - t * 0.25);
+      puffs.push([px, y, pr]);
+    }
+  }
+  const [lit, sh] = cols, deep = shade(sh, -0.18);
+  const tOf = (y) => Math.min(1, Math.max(0, (base - y) / h));
+  for (const [x, y, r] of puffs) wrap(x, r, (xx) => { ell(ctx, xx + r * 0.18, y + r * 0.2, r, r * 0.92); ctx.fillStyle = mix(deep, sh, tOf(y)); ctx.fill(); });
+  for (const [x, y, r] of puffs) wrap(x, r, (xx) => { ell(ctx, xx - r * 0.16, y - r * 0.14, r * 0.78, r * 0.72); ctx.fillStyle = mix(mix(sh, lit, 0.55), lit, tOf(y)); ctx.fill(); });
+  for (const [x, y, r] of puffs) wrap(x, r, (xx) => { ell(ctx, xx - r * 0.3, y - r * 0.32, r * 0.42, r * 0.32); ctx.fillStyle = rimC; ctx.fill(); });
+  // 平らな底の影
+  wrap(cx, w, (xx) => { ctx.fillStyle = lin(ctx, 0, base - 26, 0, base + 10, [0, rgba(sh, 0), 1, rgba(sh, 0.95)]); ell(ctx, xx, base + 2, w * 0.62, 16); ctx.fill(); });
+}
+/** 赤瓦の家（遠景・中景）。寄棟の赤い屋根に白い漆喰の筋、棟の真ん中にシーサーの点 */
+function ryukyuHouse(ctx, x, yb, w, h, C, T, R, wall) {
+  const lit = T.lit && R() < 0.75;
+  wrap(x + w / 2, w + 10, (xx0) => {
+    const xx = xx0 - w / 2;
+    ctx.fillStyle = C('#5a3e2a'); ctx.fillRect(xx + w * 0.07, yb - h * 0.5, w * 0.86, h * 0.5);
+    ctx.fillStyle = lit ? rgba('#ffcf7a', 0.95) : C('#b0946a');
+    const nd = Math.max(2, Math.round(w / 14));
+    for (let i = 0; i < nd; i++) ctx.fillRect(xx + w * 0.1 + i * (w * 0.8 / nd) + 0.8, yb - h * 0.42, w * 0.8 / nd - 1.6, h * 0.36);
+    if (lit) glow(ctx, xx + w / 2, yb - h * 0.25, w * 0.6, '#ffb060', 0.2 * T.lit);
+    // 寄棟の屋根
+    const rt = yb - h * 0.5 - h * 0.62, re = yb - h * 0.46;
+    poly(ctx, [xx - w * 0.05, re, xx + w * 0.3, rt, xx + w * 0.7, rt, xx + w * 1.05, re]);
+    ctx.fillStyle = lin(ctx, 0, rt, 0, re, [0, C('#d8693e'), 1, C('#a83c24')]); ctx.fill();
+    ctx.strokeStyle = C('#f4eee2'); ctx.lineWidth = Math.max(0.5, w / 90);
+    ctx.beginPath();
+    for (let u = 0.08; u < 0.95; u += 0.11) { ctx.moveTo(xx + w * (0.3 + 0.4 * u), rt + 0.5); ctx.lineTo(xx + w * (-0.05 + 1.1 * u), re - 0.5); }
+    ctx.stroke();
+    ctx.lineWidth = Math.max(0.8, w / 50);
+    ctx.beginPath(); ctx.moveTo(xx + w * 0.3, rt); ctx.lineTo(xx + w * 0.7, rt); ctx.moveTo(xx + w * 0.3, rt); ctx.lineTo(xx - w * 0.05, re); ctx.moveTo(xx + w * 0.7, rt); ctx.lineTo(xx + w * 1.05, re); ctx.stroke();
+    ell(ctx, xx + w / 2, rt - h * 0.06, Math.max(1, w * 0.035), Math.max(1, h * 0.07)); ctx.fillStyle = C('#c87040'); ctx.fill();
+    // 石垣の塀（低い）
+    if (wall) {
+      ctx.fillStyle = C('#d8d0b6'); ctx.fillRect(xx - w * 0.2, yb - h * 0.28, w * 1.4, h * 0.28);
+      ctx.strokeStyle = C('#a09878'); ctx.lineWidth = 0.6;
+      for (let gx = xx - w * 0.2; gx < xx + w * 1.2; gx += 5 + R() * 4) { ctx.beginPath(); ctx.moveTo(gx, yb - h * 0.28); ctx.lineTo(gx + 1, yb); ctx.stroke(); }
+      ctx.fillStyle = rgba('#ffffff', 0.25); ctx.fillRect(xx - w * 0.2, yb - h * 0.28, w * 1.4, 1);
+    }
+  });
+}
+/** フクギ：まっすぐで背の高い、濃い緑の防風林の木 */
+function fukugi(ctx, x, yb, h, C, R, hz = 0) {
+  const w = h * 0.26;
+  wrap(x, w * 2, (xx) => {
+    ctx.fillStyle = C('#3a2a1c', hz); ctx.fillRect(xx - 1, yb - h * 0.25, 2, h * 0.25);
+    for (let k = 0; k < 5; k++) {
+      const y = yb - h * 0.25 - k * h * 0.16, rw = w * (1 - k * 0.12);
+      ell(ctx, xx + (R() - 0.5) * 2, y - h * 0.08, rw, h * 0.13); ctx.fillStyle = C(k % 2 ? '#2e6a38' : '#25583a', hz); ctx.fill();
+      ell(ctx, xx - rw * 0.3, y - h * 0.12, rw * 0.45, h * 0.06); ctx.fillStyle = C('#4a8a4e', hz); ctx.fill();
+    }
+  });
+}
+/** 首里の王城を思わせる高台の城：曲線の石垣と、朱塗りの正殿（二重の赤瓦屋根・唐破風） */
+function seiden(ctx, x, y, s, C, T) {
+  wrap(x, 110 * s, (xx) => {
+    // 石垣（曲線を描く2段）
+    for (const [hw, hh, dy] of [[100, 18, 0], [70, 16, -16]]) {
+      ctx.beginPath(); ctx.moveTo(xx - hw * s, y + dy * s);
+      ctx.bezierCurveTo(xx - hw * 0.8 * s, y + (dy - hh * 1.2) * s, xx - hw * 0.45 * s, y + (dy - hh) * s, xx - hw * 0.2 * s, y + (dy - hh * 1.15) * s);
+      ctx.lineTo(xx + hw * 0.2 * s, y + (dy - hh * 1.15) * s);
+      ctx.bezierCurveTo(xx + hw * 0.45 * s, y + (dy - hh) * s, xx + hw * 0.8 * s, y + (dy - hh * 1.2) * s, xx + hw * s, y + dy * s);
+      ctx.closePath(); ctx.fillStyle = lin(ctx, 0, y + (dy - hh) * s, 0, y + dy * s, [0, C('#ece4cc'), 1, C('#b0a68a')]); ctx.fill();
+      ctx.strokeStyle = C('#8a8068'); ctx.lineWidth = 0.6;
+      for (let gy = 1; gy < 3; gy++) { ctx.beginPath(); ctx.moveTo(xx - hw * 0.9 * s, y + (dy - gy * 5) * s); ctx.lineTo(xx + hw * 0.9 * s, y + (dy - gy * 5) * s); ctx.stroke(); }
+    }
+    // 門（アーチ）
+    ctx.fillStyle = C('#3a2a22'); ctx.beginPath(); ctx.moveTo(xx - 48 * s, y); ctx.lineTo(xx - 48 * s, y - 8 * s); ctx.arc(xx - 44 * s, y - 8 * s, 4 * s, Math.PI, 0); ctx.lineTo(xx - 40 * s, y); ctx.closePath(); ctx.fill();
+    poly(ctx, [xx - 52 * s, y - 14 * s, xx - 44 * s, y - 19 * s, xx - 36 * s, y - 14 * s]); ctx.fillStyle = C('#c8503a'); ctx.fill();
+    // 正殿
+    const by = y - 34 * s, hw = 34 * s;
+    ctx.fillStyle = C('#c8302a'); ctx.fillRect(xx - hw, by - 16 * s, hw * 2, 16 * s);
+    ctx.fillStyle = T.lit ? rgba('#ffd080', 0.9) : C('#7a1a16');
+    for (let i = -3; i <= 3; i++) ctx.fillRect(xx + i * 9 * s - 3 * s, by - 12 * s, 6 * s, 8 * s);
+    ctx.fillStyle = C('#e8b840'); ctx.fillRect(xx - hw, by - 16 * s, hw * 2, 1.2 * s); ctx.fillRect(xx - hw, by - 2 * s, hw * 2, 1.2 * s);
+    if (T.lit) glow(ctx, xx, by - 8 * s, 50 * s, '#ffb060', 0.25 * T.lit);
+    // 屋根（下の屋根 → 中の壁 → 上の屋根）
+    const roofC = C('#d0603a'), plaster = C('#f2ece0');
+    const roof = (yy, w2, h2) => {
+      ctx.beginPath(); ctx.moveTo(xx - w2 - 6 * s, yy); ctx.quadraticCurveTo(xx - w2 * 0.6, yy - h2 * 0.35, xx - w2 * 0.55, yy - h2); ctx.lineTo(xx + w2 * 0.55, yy - h2); ctx.quadraticCurveTo(xx + w2 * 0.6, yy - h2 * 0.35, xx + w2 + 6 * s, yy); ctx.closePath();
+      ctx.fillStyle = roofC; ctx.fill();
+      ctx.strokeStyle = plaster; ctx.lineWidth = 0.7 * s; ctx.beginPath();
+      for (let u = -0.85; u <= 0.86; u += 0.17) { ctx.moveTo(xx + u * w2 * 0.55, yy - h2 + 0.5); ctx.lineTo(xx + u * (w2 + 4 * s), yy - 0.5); }
+      ctx.stroke();
+      ctx.lineWidth = 1.4 * s; ctx.beginPath(); ctx.moveTo(xx - w2 * 0.55, yy - h2); ctx.lineTo(xx + w2 * 0.55, yy - h2); ctx.stroke();
+      // 棟の両端の飾り（金の竜頭を思わせる）
+      ctx.fillStyle = C('#f0c040'); ell(ctx, xx - w2 * 0.55, yy - h2 - 1.5 * s, 1.6 * s, 2.4 * s); ctx.fill(); ell(ctx, xx + w2 * 0.55, yy - h2 - 1.5 * s, 1.6 * s, 2.4 * s); ctx.fill();
+    };
+    roof(by - 15 * s, hw + 4 * s, 9 * s);
+    ctx.fillStyle = C('#b8282a'); ctx.fillRect(xx - hw * 0.7, by - 30 * s, hw * 1.4, 7 * s);
+    ctx.fillStyle = T.lit ? rgba('#ffd080', 0.85) : C('#6a1612');
+    for (let i = -2; i <= 2; i++) ctx.fillRect(xx + i * 8 * s - 2 * s, by - 28.5 * s, 4 * s, 4 * s);
+    roof(by - 29 * s, hw * 0.78, 10 * s);
+    // 唐破風（正面の曲がった破風）
+    ctx.beginPath(); ctx.moveTo(xx - 12 * s, by - 14 * s); ctx.bezierCurveTo(xx - 8 * s, by - 16 * s, xx - 5 * s, by - 24 * s, xx, by - 24 * s); ctx.bezierCurveTo(xx + 5 * s, by - 24 * s, xx + 8 * s, by - 16 * s, xx + 12 * s, by - 14 * s); ctx.closePath();
+    ctx.fillStyle = roofC; ctx.fill(); ctx.strokeStyle = C('#f0c040'); ctx.lineWidth = 0.9 * s; ctx.stroke();
+  });
+}
+/** さとうきび畑の帯（細い葉の茂みと、銀色の穂） */
+function caneField(ctx, x0, x1, yb, h, C, R, hz) {
+  ctx.fillStyle = C('#3e6a2a', hz); ctx.fillRect(x0, yb - h * 0.45, x1 - x0, h * 0.45 + 2);
+  for (let x = x0; x < x1; x += 2.2) {
+    const hh = h * (0.7 + R() * 0.45), lean = (R() - 0.5) * 10;
+    ctx.strokeStyle = C(R() < 0.5 ? '#5a9a3a' : '#7ab04a', hz); ctx.lineWidth = 1.3;
+    ctx.beginPath(); ctx.moveTo(x, yb); ctx.quadraticCurveTo(x + lean * 0.3, yb - hh * 0.7, x + lean, yb - hh); ctx.stroke();
+    if (R() < 0.12) { ctx.strokeStyle = C('#ece6e0', hz); ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(x + lean, yb - hh); ctx.lineTo(x + lean + 1, yb - hh - 6); ctx.stroke(); }
+  }
+}
+/** ヤシ（背景用のシルエットに近い形） */
+function bgPalm(ctx, x, yb, h, C, R, hz) {
+  wrap(x, h, (xx) => {
+    const tx = xx + h * 0.18, ty = yb - h;
+    ctx.strokeStyle = C('#6a5038', hz); ctx.lineWidth = Math.max(1.5, h * 0.05);
+    ctx.beginPath(); ctx.moveTo(xx, yb); ctx.quadraticCurveTo(xx + h * 0.02, yb - h * 0.6, tx, ty); ctx.stroke();
+    for (let k = 0; k < 8; k++) {
+      const a = Math.PI + (k / 7) * Math.PI, L = h * (0.38 + R() * 0.12);
+      const ex = tx + Math.cos(a) * L, ey = ty + Math.sin(a) * L * 0.35 + L * 0.35;
+      ctx.strokeStyle = C(k % 2 ? '#3e7a32' : '#2e6a2a', hz); ctx.lineWidth = Math.max(1.4, h * 0.045);
+      ctx.beginPath(); ctx.moveTo(tx, ty); ctx.quadraticCurveTo(tx + Math.cos(a) * L * 0.6, ty - L * 0.3, ex, ey); ctx.stroke();
+    }
+  });
+}
+/** 空の色を濃くする重ね絵（環境の空のグラデーションの上に重ねる） */
+function skyOverlay(stops) {
+  const L = canvas(4, 256, 1);
+  L.ctx.fillStyle = lin(L.ctx, 0, 0, 0, 256, stops); L.ctx.fillRect(0, 0, 4, 256);
+  return L.c;
+}
+/** 海のきらめき（太陽・月の下にだけ光の道ができる） */
+function glitterArt(col) {
+  const L = canvas(280, 140, 1), ctx = L.ctx, R = rng(9);
+  for (let i = 0; i < 520; i++) {
+    const v = R(), y = v * v * 136 + 2, spread = 10 + y * 0.95;
+    const x = 140 + (R() + R() + R() - 1.5) * spread * 0.9, l = 2 + y * 0.12 + R() * 6;
+    ctx.fillStyle = rgba(col, (0.35 + R() * 0.6) * (1 - y / 150));
+    ctx.fillRect(x - l / 2, y, l, y < 30 ? 0.8 : 1.3);
+  }
+  for (let i = 0; i < 14; i++) { const y = R() * 70 + 4; sparkle(ctx, 140 + (R() - 0.5) * (14 + y), y, 2 + R() * 2.5, '#ffffff', 0.9); }
+  return L.c;
 }
 
 // ------------------------------------------------------------------ テーマごとの層
@@ -366,6 +517,95 @@ const THEMES = {
     },
     front: { col: '#1a1418', kind: 'rock' },
   },
+  okinawa: {
+    // 沖縄・ニライカナイの島：濃い青空と入道雲、水平線とエメラルドの海、赤瓦の集落・フクギ・さとうきび畑・高台の城
+    farH: 400, horizon: 270, farBase: '#58d4c4',
+    sky: {
+      day: [0, rgba('#0230a0', 0.9), 0.3, rgba('#0c58c8', 0.6), 0.5, rgba('#2a80e0', 0.25), 0.6, rgba('#58a8f0', 0.05), 0.7, rgba('#58a8f0', 0)],
+      dusk: [0, rgba('#180f48', 0.55), 0.3, rgba('#3e2470', 0.24), 0.46, rgba('#ff7a48', 0), 0.56, rgba('#ff8a4a', 0.32), 0.66, rgba('#ffb070', 0)],
+    },
+    glitter: { day: '#ffffff', dusk: '#ffc070', night: '#c8d8ff' },
+    tower(ctx, H, C, T) {
+      const lit = T.cloud[0], sh = mix(T.cloud[1], T.haze, 0.25), rim = mix(T.cloud[0], '#ffffff', T.lit ? 0.2 : 0.7);
+      cumulonimbus(ctx, 330, H - 4, 170, 236, [lit, sh], rim, 201);
+      cumulonimbus(ctx, 1070, H - 4, 120, 160, [lit, sh], rim, 202);
+      cumulonimbus(ctx, 1440, H - 4, 76, 100, [mix(lit, T.haze, 0.2), mix(sh, T.haze, 0.2)], rim, 203);
+    },
+    far(ctx, H, C, T, R) {
+      const HZ = H - 130, dusk = T === TOD.dusk;
+      // 遠くの島影
+      for (const [cx, w, h, k] of [[170, 120, 14, 0.6], [610, 70, 9, 1.3], [900, 210, 24, 0.7], [1370, 90, 12, 1.2]]) {
+        wrap(cx, w, (xx) => {
+          ctx.beginPath(); ctx.moveTo(xx - w, HZ + 1);
+          for (let u = -1; u <= 1.001; u += 0.05) ctx.lineTo(xx + u * w, HZ - h * Math.pow(Math.cos((u * Math.PI) / 2), k) * (1 + 0.12 * Math.sin(u * 11 + cx)));
+          ctx.lineTo(xx + w, HZ + 1); ctx.closePath();
+          ctx.fillStyle = C('#6f94b4', 0.5); ctx.fill();
+        });
+      }
+      // 海：水平線の濃い青 → 手前のエメラルド
+      ctx.fillStyle = lin(ctx, 0, HZ, 0, H, [0, C('#164c98', 0.18), 0.28, C('#1a70b6', 0.08), 0.55, C('#1ea2c6', 0.04), 0.78, C('#36c6c0', 0.02), 1, C('#58d4c4', 0.02)]);
+      ctx.fillRect(0, HZ, W, H - HZ);
+      if (dusk) { ctx.fillStyle = lin(ctx, 0, HZ, 0, HZ + 80, [0, rgba('#ff9050', 0.5), 1, rgba('#ff9050', 0)]); ctx.fillRect(0, HZ, W, 80); }
+      // うねりの光（遠いほど細く短い）
+      for (let i = 0; i < 320; i++) {
+        const v = R(), y = HZ + 2 + v * v * (H - HZ - 4), x = R() * W, l = 3 + (y - HZ) * 0.22 + R() * 7;
+        ctx.fillStyle = rgba(dusk ? '#ffd0a0' : '#ffffff', 0.1 + R() * 0.32);
+        ctx.fillRect(x, y, l, y - HZ < 30 ? 0.7 : 1.1);
+      }
+      // サンゴ礁の縁の白波と、その内側の明るいエメラルド
+      const reefY = HZ + 60;
+      ctx.fillStyle = lin(ctx, 0, reefY, 0, H, [0, rgba(C('#7ae8d4', 0.02), 0.15), 0.4, rgba(C('#7ae8d4', 0.02), 0.45), 1, rgba(C('#a8f2dc', 0.02), 0.6)]);
+      ctx.fillRect(0, reefY, W, H - reefY);
+      for (let x = 0; x < W; x += 2.5) {
+        if (Math.sin(x * 0.0117) + Math.sin(x * 0.0377) < -0.7) continue;
+        const y = reefY + Math.sin(x * 0.02) * 2.5 + Math.sin(x * 0.0057) * 3;
+        ctx.fillStyle = rgba('#ffffff', 0.45 + R() * 0.45); ctx.fillRect(x, y - R(), 3, 1.2 + R() * 1.4);
+      }
+      ctx.fillStyle = rgba('#ffffff', dusk ? 0.35 : 0.55); ctx.fillRect(0, HZ, W, 1);
+    },
+    mid1(ctx, H, C, T, R) {
+      const B = (x) => bump(980, 300, 120, 1.5)(x) + bump(310, 190, 38, 2)(x) + bump(1420, 160, 26, 2)(x);
+      const f = profile([[8, 3, 0.4], [5, 9, 1.8]], H - 62, B);
+      // 低いところは白い浜が見える
+      fillProfile(ctx, (x) => f(x) - 3.5 * (1 - Math.min(1, B(x) / 14)), H, C('#f6eed6', 0.25));
+      fillProfile(ctx, f, H, lin(ctx, 0, H - 170, 0, H, [0, C('#5a9a56', 0.28), 1, C('#3e7a46', 0.24)]));
+      treeBlobs(ctx, f, 8, C, { color: C('#3e7e48', 0.27), seed: 81, step: 7 });
+      // 斜面の森のかたまりと畑
+      for (let i = 0; i < 70; i++) {
+        const x = R() * W, y = f(x) + 12 + R() * (H - f(x) - 12), rr = 5 + R() * 7;
+        if (R() < 0.3) { ctx.fillStyle = C(R() < 0.5 ? '#7aa858' : '#8ab860', 0.27); ell(ctx, x, y, rr * 2.4, rr * 0.7); ctx.fill(); continue; }
+        wrap(x, rr, (xx) => { ell(ctx, xx, y, rr, rr * 0.8); ctx.fillStyle = C('#3a7444', 0.27); ctx.fill(); ell(ctx, xx - rr * 0.3, y - rr * 0.3, rr * 0.5, rr * 0.35); ctx.fillStyle = C('#5a9a5a', 0.27); ctx.fill(); });
+      }
+      for (let x = 20; x < W; x += 24 + R() * 30) {
+        if (Math.abs(x - 980) < 170) continue;
+        if (R() < 0.3) fukugi(ctx, x - 6, f(x) + 10, 24 + R() * 8, (c, h) => C(c, 0.26), R);
+        ryukyuHouse(ctx, x, f(x) + 10, 15 + R() * 8, 9 + R() * 3, (c) => C(c, 0.26), T, R, false);
+      }
+      seiden(ctx, 980, f(980) + 18, 0.82, (c) => C(c, 0.2), T);
+    },
+    mid2(ctx, H, C, T, R) {
+      const f = profile([[8, 4, 1.2], [5, 11, 0.3]], H - 58);
+      fillProfile(ctx, f, H, lin(ctx, 0, H - 70, 0, H, [0, C('#6a9a44', 0.05), 1, C('#4a7a34', 0.04)]));
+      let x = 0, k = 0;
+      while (x < W - 40) {
+        const x1 = Math.min(W, x + 150 + R() * 150);
+        if (k++ % 2 === 0) caneField(ctx, x + 6, x1 - 6, f(x) + 18, 38 + R() * 12, C, R, 0.05);
+        else {
+          for (let hx = x + 16; hx < x1 - 50; hx += 70 + R() * 30) {
+            fukugi(ctx, hx - 10, f(hx) + 16, 64 + R() * 22, (c) => C(c, 0.05), R);
+            fukugi(ctx, hx + 58, f(hx) + 16, 56 + R() * 20, (c) => C(c, 0.05), R);
+            ryukyuHouse(ctx, hx, f(hx) + 22, 46 + R() * 14, 26 + R() * 6, (c) => C(c, 0.05), T, R, true);
+          }
+        }
+        x = x1;
+      }
+      for (let i = 0; i < 6; i++) { const px = R() * W; bgPalm(ctx, px, f(px) + 22, 56 + R() * 34, C, R, 0.05); }
+      // 赤土の道
+      ctx.fillStyle = C('#b86440', 0.05); ctx.fillRect(0, H - 12, W, 12);
+      ctx.fillStyle = C('#d8885a', 0.05); ctx.fillRect(0, H - 12, W, 1.5);
+    },
+    front: { col: '#1c3a26', kind: 'adan' },
+  },
 };
 function snowcap(ctx, f, snowY, col, colD) {
   ctx.beginPath();
@@ -412,6 +652,27 @@ function front(L, spec, C) {
         for (let k = 0; k < 8; k++) { const x = x0 + (R() - 0.5) * spread * 2; ctx.strokeStyle = C('#6a5a40', 0); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x, h - 10); ctx.lineTo(x + (R() - 0.5) * 8, h - 30 - R() * 26); ctx.stroke(); }
         return;
       }
+      if (spec.kind === 'adan') {
+        // アダンの葉のかたまりと浜の草
+        for (let k = 0; k < n; k++) {
+          const x = x0 + (R() - 0.5) * spread * 2, hh = 20 + R() * 34, lean = (R() - 0.5) * 26;
+          ctx.beginPath(); ctx.moveTo(x - 3, h); ctx.quadraticCurveTo(x + lean * 0.3, h - hh * 0.6, x + lean, h - hh); ctx.quadraticCurveTo(x + lean * 0.3 + 2, h - hh * 0.5, x + 3, h); ctx.closePath();
+          ctx.fillStyle = mix(col, '#000000', R() * 0.3); ctx.fill();
+        }
+        if (R() < 0.8) {
+          const ax = x0 + (R() - 0.5) * spread, ay = h - 40 - R() * 22;
+          for (const [rx, sx] of [[-14, -1], [-6, -0.3], [6, 0.3], [14, 1]]) { ctx.strokeStyle = mix(col, '#000000', 0.2); ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(ax + rx, h); ctx.quadraticCurveTo(ax + rx * 0.5, h - 14, ax + sx * 2, ay + 18); ctx.stroke(); }
+          ctx.fillStyle = mix(col, '#000000', 0.15); ctx.fillRect(ax - 2, ay, 4, 20);
+          for (let k = 0; k < 14; k++) {
+            const a = -Math.PI / 2 + (k / 13 - 0.5) * 3.4, L = 28 + R() * 18;
+            const ex = ax + Math.cos(a) * L, ey = ay + Math.sin(a) * L * 0.6 + Math.abs(Math.cos(a)) * L * 0.45;
+            ctx.beginPath(); ctx.moveTo(ax - 2, ay); ctx.quadraticCurveTo(ax + Math.cos(a) * L * 0.55, ay + Math.sin(a) * L * 0.55 - 6, ex, ey); ctx.quadraticCurveTo(ax + Math.cos(a) * L * 0.5, ay + Math.sin(a) * L * 0.5 - 2, ax + 2, ay);
+            ctx.fillStyle = mix(col, '#000000', R() * 0.35); ctx.fill();
+          }
+        }
+        ell(ctx, x0, h + 4, spread * 1.1, 16); ctx.fillStyle = col; ctx.fill();
+        return;
+      }
       if (spec.kind === 'rock') {
         for (let k = 0; k < 3; k++) { const x = x0 + (R() - 0.5) * spread * 1.5, w = 20 + R() * 30; poly(ctx, [x - w, h, x - w * 0.5, h - w * 1.1, x + w * 0.3, h - w * 0.9, x + w, h]); ctx.fillStyle = mix(col, '#3a2e34', R() * 0.5); ctx.fill(); }
         ctx.strokeStyle = 'rgba(255,110,40,0.6)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(x0 - 10, h - 12); ctx.lineTo(x0, h - 20); ctx.lineTo(x0 + 12, h - 14); ctx.stroke();
@@ -451,7 +712,15 @@ function bakeSet(theme, tod) {
       set.clouds[o].push({ c: L.c, w: W, h: 170, speed: sp, anchor: an, yPar: 0.02, drift });
     });
   }
-  mk('far', 320, 1, 0.12, 0.8, 0.06, TH.far, C('#3e4a5a', 0.45));
+  if (TH.tower) {
+    // 入道雲（遠景の後ろ。曇り・雨では薄れる）
+    const L = canvas(W, 300, 1);
+    TH.tower(L.ctx, 300, C, T, R);
+    set.tower = { c: L.c, w: W, h: 300, speed: 0.07, anchor: 0.6, yPar: 0.06, drift: 0 };
+  }
+  mk('far', TH.farH || 320, 1, 0.12, 0.8, 0.06, TH.far, TH.farBase ? C(TH.farBase, 0.02) : C('#3e4a5a', 0.45));
+  if (TH.sky && TH.sky[tod]) set.skyTint = skyOverlay(TH.sky[tod]);
+  if (TH.glitter && TH.glitter[tod]) { set.glitter = glitterArt(TH.glitter[tod]); set.horizon = TH.horizon; }
   mk('mid1', 280, 1.25, 0.3, 0.9, 0.15, TH.mid1, null);
   mk('mid2', 260, 1.5, 0.5, 1.02, 0.25, TH.mid2, null);
   // 前景
@@ -501,6 +770,7 @@ export function createBackdrop(theme, levelData = {}) {
   }
   function drawSet(ctx, S, camX, camY, vw, vh, env, time, a) {
     const o = over;
+    if (S.tower && o < 1) layer(ctx, S.tower, camX, camY, vw, vh, time, a * (1 - o));
     for (let i = 0; i < 3; i++) {
       if (o < 1) layer(ctx, S.clouds[0][i], camX, camY, vw, vh, time, a * (1 - o));
       if (o > 0) layer(ctx, S.clouds[1][i], camX, camY, vw, vh, time, a * o);
@@ -515,6 +785,15 @@ export function createBackdrop(theme, levelData = {}) {
         ctx.globalAlpha = a * ashT;
         if (px > -320 && px < vw) ctx.drawImage(SKY.plume, px, py, 320, 340);
         if (px - W > -320 && px - W < vw) ctx.drawImage(SKY.plume, px - W, py, 320, 340);
+        ctx.globalAlpha = 1;
+      }
+      if (i === 0 && S.glitter && o < 1) {
+        // 海のきらめき：太陽（夕方は沈む太陽、夜は月）の真下の水平線から手前へ。画面に固定（空の太陽と同じ位置）
+        const L = S.layers[0];
+        const hy = vh * L.anchor + Math.max(-80, levelH - vh - camY) * L.yPar - L.h + S.horizon;
+        const gx = S.tod === 'dusk' ? vw * 0.3 : S.tod === 'day' ? vw * 0.8 : vw * 0.82;
+        ctx.globalAlpha = a * (1 - o) * (S.tod === 'day' ? 0.8 : 1);
+        ctx.drawImage(S.glitter, gx - 140, hy, 280, 140);
         ctx.globalAlpha = 1;
       }
       // 霧：遠い層ほどかすむ
@@ -554,6 +833,13 @@ export function createBackdrop(theme, levelData = {}) {
       // 色の文字列は env が値の変わったときだけ作るので、同じ文字列かどうかで比べる（毎フレームの文字列連結をしない）
       if (env.sky.top !== gradTop || env.sky.bottom !== gradBot || vh !== gradH || !grad) { gradTop = env.sky.top; gradBot = env.sky.bottom; gradH = vh; grad = ctx.createLinearGradient(0, 0, 0, vh); grad.addColorStop(0, env.sky.top); grad.addColorStop(1, env.sky.bottom); }
       ctx.fillStyle = grad; ctx.fillRect(0, 0, vw, vh);
+      // テーマの空の色（沖縄の濃い青空など）。曇り・雨では消える
+      if (over < 1 && (cur.skyTint || (prev && prev.skyTint))) {
+        const ca = (1 - over) * (prev ? fadeT : 1);
+        if (cur.skyTint && ca > 0.004) { ctx.globalAlpha = ca; ctx.drawImage(cur.skyTint, 0, 0, vw, vh); }
+        if (prev && prev.skyTint) { ctx.globalAlpha = (1 - over) * (1 - fadeT); ctx.drawImage(prev.skyTint, 0, 0, vw, vh); }
+        ctx.globalAlpha = 1;
+      }
       const ashW = env.weather === 'ash' ? 1 : 0;
       ashT += (ashW - ashT) * Math.min(1, dt * 0.4);
       drawSky(ctx, vw, vh, env, cur.tod);

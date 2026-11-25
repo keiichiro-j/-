@@ -708,6 +708,239 @@ function drawHinotama(ctx, anim, f, n) {
   mouth(ctx, cx + 1, H - 11, 3, hurt ? 'o' : 'frown');
 }
 
+// ========== ステージ8 沖縄（ニライカナイの島）==========
+// ハブ：地をはう蛇。体は波打つ太い線（輪郭→色→模様の順に重ねる）
+function drawHabu(ctx, anim, f, n) {
+  const p = P(f, n), hurt = anim === 'hurt';
+  const W = 58, H = 26, base = H - 7;
+  const N = 9, x0 = 5, x1 = 40;
+  const pt = (i) => { const t = i / (N - 1), x = x0 + (x1 - x0) * t; return [x, base + Math.sin(t * 5.2 - p.ph) * 3.2 * (0.35 + t * 0.65) * (hurt ? 0.3 : 1)]; };
+  const wid = (i) => 3 + (i / (N - 1)) * 6.5;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  for (const pass of [0, 1, 2]) {
+    for (let i = 0; i < N - 1; i++) {
+      const [ax, ay] = pt(i), [bx, by] = pt(i + 1);
+      ctx.strokeStyle = pass === 0 ? OL : pass === 1 ? '#b89a4a' : '#e8d89a';
+      ctx.lineWidth = pass === 0 ? wid(i) + 3 : pass === 1 ? wid(i) : wid(i) * 0.35;
+      ctx.beginPath(); ctx.moveTo(ax, ay + (pass === 2 ? wid(i) * 0.28 : 0)); ctx.lineTo(bx, by + (pass === 2 ? wid(i) * 0.28 : 0)); ctx.stroke();
+    }
+  }
+  // 背中のまだら模様
+  for (let i = 1; i < N - 1; i += 1) {
+    const [x, y] = pt(i), r = wid(i) * 0.32;
+    ctx.fillStyle = '#5a4424'; ctx.beginPath(); ctx.ellipse(x, y - wid(i) * 0.18, r * 1.4, r, 0, 0, TAU); ctx.fill();
+    dot(ctx, x - r * 0.4, y - wid(i) * 0.3, r * 0.35, 'rgba(255,240,200,0.5)');
+  }
+  // 頭（三角っぽい丸）
+  const [hx0, hy0] = pt(N - 1);
+  const hx = hx0 + 6, hy = hy0 - 3 - (anim === 'walk' ? p.bob : 0);
+  poly(ctx, [hx - 8, hy - 6, hx + 4, hy - 9, hx + 12, hy - 3, hx + 11, hy + 4, hx - 1, hy + 7, hx - 9, hy + 3], '#c8aa58', { lw: 1.8, smooth: true });
+  ctx.fillStyle = '#5a4424'; ctx.beginPath(); ctx.ellipse(hx - 2, hy - 5, 4.5, 2, 0, 0, TAU); ctx.fill();
+  eye(ctx, hx + 4, hy - 2, 2.8, { hurt, white: true, angry: !hurt });
+  if (!hurt) blush(ctx, hx + 6, hy + 3, 1.8);
+  // 舌（ちろちろ）
+  if (!hurt && (f % 3) !== 1) { const L = f % 3 === 0 ? 6 : 4; line(ctx, hx + 10, hy + 2, hx + 10 + L, hy + 2, '#e8405a', 1.4); line(ctx, hx + 10 + L, hy + 2, hx + 13 + L, hy, '#e8405a', 1.1); line(ctx, hx + 10 + L, hy + 2, hx + 13 + L, hy + 4, '#e8405a', 1.1); }
+  if (hurt) mouth(ctx, hx + 6, hy + 3, 3, 'o');
+}
+
+// ミナミコメツキガニ風：干潟を前へ歩く小さな青い丸いカニ
+function drawKometsuki(ctx, anim, f, n) {
+  const p = P(f, n), hurt = anim === 'hurt';
+  const W = 34, H = 26, cx = W / 2, by = H - 10 - p.bob * 1.2;
+  for (let i = 0; i < 3; i++) {
+    const a = Math.sin(p.ph + i * 2.1) * 2.2;
+    limb(ctx, cx - 4 - i * 2, by + 3, cx - 9 - i * 3 + a, H - 2, '#5a7ab8', 1.8);
+    limb(ctx, cx + 4 + i * 2, by + 3, cx + 9 + i * 3 - a, H - 2, '#6a8ac8', 1.8);
+  }
+  // 小さなはさみ（白い）
+  for (const s of [-1, 1]) { limb(ctx, cx + s * 6, by + 1, cx + s * 10, by - 2 + p.s * s, '#e8eef8', 1.8); ell(ctx, cx + s * 10.5, by - 3 + p.s * s, 2.8, 2.4, '#f4f6fa', { lw: 1.2 }); }
+  ell(ctx, cx, by, 10, 8.5, '#7aa8e8');
+  ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.beginPath(); ctx.ellipse(cx - 3, by - 3.5, 4, 2.2, -0.3, 0, TAU); ctx.fill();
+  for (const s of [-1, 1]) { line(ctx, cx + s * 3, by - 6, cx + s * 4, by - 10, OL, 1.6); ell(ctx, cx + s * 4, by - 11, 2.8, 2.8, '#fff', { lw: 1.1, flat: true }); eye(ctx, cx + s * 4 + 0.4, by - 11, 1.5, { hurt }); }
+  if (!hurt) { blush(ctx, cx - 6, by + 2, 1.8); blush(ctx, cx + 6, by + 2, 1.8); }
+  mouth(ctx, cx, by + 2.5, 2.6, hurt ? 'o' : 'smile');
+}
+
+// ウニ（ガンガゼ風）：長くて細いトゲ。海の底をのそのそ
+function drawUni(ctx, anim, f, n) {
+  const p = P(f, n), hurt = anim === 'hurt';
+  const W = 44, H = 36, cx = W / 2, by = H - 12 - p.bob * 0.8;
+  for (const s of [-1, 1]) ell(ctx, cx + s * 6 + s * p.s * 2, H - 3, 4, 2.6, '#3a2448', { lw: 1.2 });
+  const spikes = 16, rot = p.ph * 0.08;
+  for (let i = 0; i < spikes; i++) {
+    const a = rot + Math.PI + (i / (spikes - 1)) * Math.PI;   // 上半分だけ長いトゲ
+    const L = 18 + ((i * 7) % 3) * 2 + Math.sin(p.ph + i) * 1.2;
+    limb(ctx, cx + Math.cos(a) * 8, by + Math.sin(a) * 7, cx + Math.cos(a) * L, by + Math.sin(a) * (L - 2), i % 2 ? '#4a2a62' : '#6a3a8a', 1.4);
+  }
+  ell(ctx, cx, by, 12, 10, '#5a3478');
+  // 青い点（目のような模様）
+  for (let i = 0; i < 5; i++) dot(ctx, cx - 8 + i * 4, by + 4 + Math.abs(i - 2) * -1, 1.1, '#7ad8ff');
+  eye(ctx, cx + 5, by - 2, 2.4, { hurt, white: true, angry: true }); eye(ctx, cx - 2, by - 2, 2.1, { hurt, white: true, angry: true });
+  mouth(ctx, cx + 2, by + 4.5, 3, hurt ? 'o' : 'frown');
+}
+
+// ヤシガニ：大きなはさみ（右＝前）で正面を防ぐ。歩き6コマ・防ぐ・やられ
+function drawYashigani(ctx, anim, f, n) {
+  const p = P(f, n), hurt = anim === 'hurt', block = anim === 'block';
+  const W = 56, H = 40, cx = 24, by = H - 14 - (anim === 'walk' ? p.bob * 1.5 : 0);
+  const C = '#c8502e', CB = '#7a4a8a';
+  // 足（4対：奥→手前）
+  for (let i = 0; i < 4; i++) {
+    const a = Math.sin(p.ph + i * 1.6) * (anim === 'walk' ? 3 : 0.5);
+    limb(ctx, cx - 6 + i * 4, by + 4, cx - 14 + i * 5 + a, H - 2, dk(C, 0.25), 2.6);
+  }
+  // 丸めたしっぽ（腹）
+  ell(ctx, cx - 14, by + 1, 8, 7, CB, { lw: 1.8 });
+  for (let i = 0; i < 3; i++) line(ctx, cx - 19 + i * 4, by - 4, cx - 18 + i * 4, by + 6, dk(CB, 0.35), 1.1);
+  // こうら
+  poly(ctx, [cx - 10, by + 5, cx - 9, by - 7, cx, by - 12, cx + 10, by - 9, cx + 13, by + 2, cx + 6, by + 7], C, { lw: 2, smooth: true });
+  ctx.fillStyle = 'rgba(255,230,190,0.35)'; ctx.beginPath(); ctx.ellipse(cx - 1, by - 7, 6, 2.4, -0.2, 0, TAU); ctx.fill();
+  line(ctx, cx - 5, by - 1, cx + 7, by - 3, dk(C, 0.35), 1.2);
+  // 目（つの）と長いひげ
+  line(ctx, cx + 9, by - 9, cx + 22, by - 20 + p.s * 2, '#e88a5a', 1.1);
+  line(ctx, cx + 7, by - 10, cx + 16, by - 22 - p.s * 2, '#e88a5a', 1.1);
+  for (const [ex, er] of [[cx + 9, 2.6], [cx + 3, 2.3]]) { line(ctx, ex, by - 9, ex + 1, by - 14, OL, 1.8); ell(ctx, ex + 1, by - 15, er + 0.8, er + 0.8, '#fff', { lw: 1.2, flat: true }); eye(ctx, ex + 1.4, by - 15, er * 0.7, { hurt, angry: !hurt }); }
+  if (!hurt) blush(ctx, cx + 10, by - 2, 2);
+  // 大きなはさみ（前）：block で高くかかげる
+  const raise = block ? 1 : hurt ? -0.5 : 0.15 + p.s * 0.08;
+  const sx = cx + 16, sy = by - 2 - raise * 8;
+  limb(ctx, cx + 9, by + 1, sx - 3, sy + 4, dk(C, 0.1), 4);
+  ell(ctx, sx + 3, sy, 9, 11, block ? lt(C, 0.15) : C, { lw: 2, rot: 0.2 });
+  poly(ctx, [sx + 6, sy - 8, sx + 15, sy - 13 - (block ? 3 : f % 2 * 2), sx + 11, sy - 4], lt(C, 0.1), { lw: 1.6 });
+  ctx.fillStyle = 'rgba(255,240,210,0.45)'; ctx.beginPath(); ctx.ellipse(sx + 1, sy - 4, 3, 5, 0.2, 0, TAU); ctx.fill();
+  dot(ctx, sx + 5, sy + 4, 1.2, dk(C, 0.4)); dot(ctx, sx + 1, sy + 6, 1, dk(C, 0.4));
+  if (block) star(ctx, sx + 14, sy - 16, 3.2, '#ffffff');
+}
+
+// 南の鷲（カンムリワシ風）：茶色の翼に白い点、黄色い顔、後ろ頭の冠羽
+function drawKanmuri(ctx, anim, f, n) {
+  const p = P(f, n), hurt = anim === 'hurt';
+  const W = 62, H = 46, cx = 28, cy = H - 18 + p.s * 1.5;
+  const flap = hurt ? 0 : Math.sin(p.ph);
+  const WING = '#7a5434';
+  // 奥の翼
+  poly(ctx, [cx - 2, cy - 4, cx - 12, cy - 8 - flap * 14, cx - 26, cy - 4 - flap * 10, cx - 9, cy + 4], dk(WING, 0.2), { lw: 1.6 });
+  // 尾（しま）
+  poly(ctx, [cx - 10, cy + 1, cx - 22, cy + 2, cx - 21, cy + 8, cx - 9, cy + 6], '#5a3c26', { lw: 1.5 });
+  line(ctx, cx - 19, cy + 2, cx - 19, cy + 7, '#e8dcc0', 1.4);
+  ell(ctx, cx, cy, 13, 10.5, '#8a6040');
+  ctx.fillStyle = 'rgba(255,240,210,0.7)'; for (let i = 0; i < 5; i++) dot(ctx, cx - 6 + i * 3, cy + 3 + (i % 2) * 2, 1.2, 'rgba(255,240,210,0.8)');
+  // 頭と冠羽
+  poly(ctx, [cx + 2, cy - 12, cx - 8, cy - 15 + flap, cx - 6, cy - 10, cx - 11, cy - 10 + flap, cx + 2, cy - 6], '#3a2a1e', { lw: 1.3 });
+  ell(ctx, cx + 9, cy - 7, 9, 8, '#6a4a30');
+  ell(ctx, cx + 12, cy - 7, 4.5, 4, '#f2cc3a', { lw: 1.2 });   // 黄色い顔
+  poly(ctx, [cx + 15, cy - 8, cx + 23, cy - 5, cx + 18, cy - 2, cx + 15, cy - 4], '#3a3a44', { lw: 1.3 });   // くちばし
+  ell(ctx, cx + 15.5, cy - 7, 2, 1.8, '#f2cc3a', { lw: 0.8, flat: true });
+  eye(ctx, cx + 12, cy - 8, 2.2, { hurt, angry: !hurt });
+  // 手前の翼（白い点）
+  poly(ctx, [cx - 3, cy - 2, cx + 3, cy - 9 - flap * 17, cx - 16, cy - 8 - flap * 15, cx - 11, cy + 4], WING, { lw: 1.6 });
+  ctx.fillStyle = 'rgba(255,246,220,0.85)';
+  for (let i = 0; i < 4; i++) { const t = (i + 1) / 5; dot(ctx, cx - 3 - t * 9, cy - 2 - t * (7 + flap * 14), 1.1, 'rgba(255,246,220,0.9)'); }
+  line(ctx, cx + 1, cy + 9, cx + 1, cy + 14, '#f2cc3a', 1.8); line(ctx, cx + 5, cy + 9, cx + 5, cy + 14, '#f2cc3a', 1.8);
+}
+
+// 海から跳ねる魚：胸びれを翼のように広げる（トビウオ風）。基準は中心
+function drawHirimon(ctx, anim, f, n) {
+  const W = 52, H = 30, cx = 25, cy = H / 2;
+  const hurt = anim === 'hurt';
+  const fl = hurt ? 0 : Math.sin(f / n * TAU);
+  // 奥の胸びれ
+  ctx.globalAlpha = 0.75;
+  poly(ctx, [cx + 2, cy - 2, cx - 10, cy - 13 - fl * 3, cx - 18, cy - 9 - fl * 2, cx - 4, cy], '#8ad0f0', { lw: 1.3 });
+  ctx.globalAlpha = 1;
+  // 尾びれ（下が長い）
+  poly(ctx, [cx - 14, cy, cx - 24, cy - 6 + fl, cx - 20, cy + 1, cx - 25, cy + 9 + fl], '#3a7ab8', { lw: 1.4 });
+  ctx.beginPath(); ctx.ellipse(cx, cy, 16, 6.5, 0, 0, TAU);
+  const g = ctx.createLinearGradient(0, cy - 7, 0, cy + 7); g.addColorStop(0, '#2a5aa0'); g.addColorStop(0.45, '#5aa0d8'); g.addColorStop(0.6, '#d8ecf8'); g.addColorStop(1, '#ffffff');
+  ctx.fillStyle = g; ctx.fill(); stroke(ctx, { lw: 2 });
+  ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fillRect(cx - 8, cy - 4, 12, 1.4);
+  eye(ctx, cx + 10, cy - 1.5, 2.1, { hurt, white: true });
+  mouth(ctx, cx + 14, cy + 2, 2, hurt ? 'o' : 'smile');
+  // 手前の胸びれ（大きく広げる）
+  ctx.globalAlpha = 0.9;
+  poly(ctx, [cx + 3, cy + 1, cx - 6, cy - 16 - fl * 5, cx - 19, cy - 12 - fl * 4, cx - 3, cy + 2], '#a8e4ff', { lw: 1.5 });
+  ctx.globalAlpha = 1;
+  for (let i = 0; i < 3; i++) line(ctx, cx + 1, cy, cx - 6 - i * 4, cy - 13 - fl * 4 + i * 1.5, 'rgba(60,120,180,0.6)', 0.9);
+}
+
+// キジムナー：ガジュマルに住むという赤い髪の木の精。葉っぱの腰みのでいたずらに跳ぶ
+function drawKijimuna(ctx, anim, f, n) {
+  const W = 42, H = 50, cx = W / 2 - 1;
+  const hurt = anim === 'hurt', crouch = anim === 'crouch', jump = anim === 'jump', fall = anim === 'fall', idle = anim === 'idle';
+  const sq = crouch ? 0.82 : jump ? 1.06 : 1;
+  const legL = crouch ? 4 : jump ? 9 : 7;
+  const bodyB = H - legL - 2, bodyT = bodyB - 13 * sq;
+  const sway = idle ? (f % 2 ? 1 : -1) : 0;
+  const SK = '#b8784a';
+  // 足
+  if (jump) { limb(ctx, cx - 3, bodyB, cx - 7, H - 4, dk(SK, 0.15), 3.4); limb(ctx, cx + 3, bodyB, cx + 6, H - 6, SK, 3.4); }
+  else { limb(ctx, cx - 3, bodyB, cx - 4, H - 2, dk(SK, 0.15), 3.4); limb(ctx, cx + 3, bodyB, cx + 4, H - 2, SK, 3.4); }
+  // 腕
+  const up = jump ? -1 : fall ? 0.6 : 0.2;
+  limb(ctx, cx - 6, bodyT + 3, cx - 12, bodyT + 3 - up * 8, dk(SK, 0.1), 3);
+  // 体と葉っぱの腰みの
+  ell(ctx, cx, (bodyT + bodyB) / 2, 7, (bodyB - bodyT) / 2 + 1, SK);
+  for (let i = 0; i < 5; i++) poly(ctx, [cx - 9 + i * 4, bodyB - 5, cx - 7 + i * 4, bodyB + 4 + (i % 2) * 2, cx - 5 + i * 4, bodyB - 5], i % 2 ? '#4a9a3a' : '#5ab04a', { lw: 1 });
+  limb(ctx, cx + 6, bodyT + 3, cx + 12, bodyT + 3 - up * 8, SK, 3);
+  // 頭：大きな赤いぼさぼさ髪
+  const hx = cx + 1, hy = bodyT - 10 * sq;
+  const hair = '#d8402a';
+  for (let i = 0; i < 9; i++) {
+    const a = Math.PI * 0.9 + i / 8 * Math.PI * 1.2, r = 15 + (i % 2) * 3;
+    poly(ctx, [hx + Math.cos(a - 0.3) * 9, hy + Math.sin(a - 0.3) * 9, hx + Math.cos(a) * r + sway, hy + Math.sin(a) * r - (jump ? 2 : 0), hx + Math.cos(a + 0.3) * 9, hy + Math.sin(a + 0.3) * 9], i % 2 ? hair : lt(hair, 0.12), { lw: 1.3 });
+  }
+  ell(ctx, hx, hy, 12, 11, hair);
+  ell(ctx, hx + 2, hy + 3, 8.5, 7.5, '#d89a6a', { lw: 1.4 });   // 顔
+  // 前髪
+  poly(ctx, [hx - 8, hy - 1, hx - 4, hy - 8, hx, hy - 3, hx + 4, hy - 8, hx + 9, hy - 2, hx + 8, hy - 9, hx - 7, hy - 9], hair, { lw: 1.2 });
+  eye(ctx, hx + 5, hy + 2, 2.3, { hurt, closed: idle && f === 1 });
+  eye(ctx, hx - 1, hy + 2, 2.0, { hurt, closed: idle && f === 1 });
+  if (!hurt) blush(ctx, hx + 8, hy + 6, 2);
+  // いたずらっぽい口（にやり）
+  if (hurt) mouth(ctx, hx + 2, hy + 7, 3, 'o');
+  else { ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(hx - 1, hy + 6.5); ctx.quadraticCurveTo(hx + 3, hy + 9.5, hx + 6, hy + 5.5); ctx.stroke(); }
+}
+
+// 跳ね台：シャコ貝（0=ふつう 1=へこんだ）・サンゴの台
+function drawBouncerShell(ctx, f) {
+  const top = f ? 15 : 9;
+  // 下の殻
+  ctx.beginPath(); ctx.moveTo(4, 30); ctx.quadraticCurveTo(28, 44, 52, 30); ctx.lineTo(50, 26); ctx.lineTo(6, 26); ctx.closePath();
+  shade(ctx, '#e8dcc8', 28, 32, 24); ctx.fill(); stroke(ctx, { lw: 2 });
+  // 青い身（シャコ貝のふち）
+  ctx.beginPath(); ctx.moveTo(7, 27); for (let i = 0; i <= 8; i++) ctx.lineTo(7 + i * 5.25, 27 - (i % 2 ? 4 : 1) - (f ? 0 : 1)); ctx.lineTo(49, 28); ctx.closePath();
+  shade(ctx, '#3aa8c8', 28, 25, 22); ctx.fill(); stroke(ctx, { lw: 1.4 });
+  dot(ctx, 18, 24, 1.3, '#9af0ff'); dot(ctx, 30, 23, 1.3, '#9af0ff'); dot(ctx, 40, 24, 1.3, '#9af0ff');
+  // 上の殻（波形の筋）
+  ctx.beginPath(); ctx.moveTo(4, 26); for (let i = 0; i <= 6; i++) { const x = 4 + i * 8; ctx.quadraticCurveTo(x - 4, top - 3 + (i % 2) * 2, x, top + 1 + Math.abs(i - 3) * (f ? 1 : 2.4)); }
+  ctx.lineTo(52, 26); ctx.closePath();
+  shade(ctx, '#f4ecdc', 28, top + 8, 24); ctx.fill(); stroke(ctx, { lw: 2 });
+  ctx.strokeStyle = 'rgba(160,120,90,0.55)'; ctx.lineWidth = 1;
+  for (let i = 1; i < 6; i++) { ctx.beginPath(); ctx.moveTo(4 + i * 8, top + 2 + Math.abs(i - 3) * (f ? 1 : 2.4)); ctx.lineTo(28 + (i - 3) * 5, 25); ctx.stroke(); }
+  ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.beginPath(); ctx.ellipse(18, top + 6, 6, 2, -0.2, 0, TAU); ctx.fill();
+}
+function drawBouncerCoral(ctx, f) {
+  const top = f ? 15 : 8;
+  // 根もとの岩
+  poly(ctx, [4, 40, 8, 30, 18, 27, 40, 27, 50, 31, 54, 40], '#c8b89a', { lw: 2 });
+  // 枝サンゴ（ピンク）
+  const br = [[12, 28, 7, top + 8], [20, 28, 17, top + 1], [28, 28, 28, top - 2], [36, 28, 39, top + 1], [44, 28, 49, top + 8]];
+  for (const [x0, y0, x1, y1] of br) limb(ctx, x0, y0, x1, y1, '#f07a8a', 4);
+  for (const [, , x1, y1] of br) { ell(ctx, x1, y1, 3.6, 3.4, '#ff9aa8', { lw: 1.3 }); dot(ctx, x1 - 1, y1 - 1, 1.1, '#ffe0e6'); }
+  // 上の平らなテーブル（乗る所）
+  ctx.beginPath(); ctx.ellipse(28, top + 4, 22, f ? 3.5 : 5, 0, 0, TAU); shade(ctx, '#f8a0b0', 28, top + 4, 22); ctx.fill(); stroke(ctx, { lw: 2 });
+  ctx.fillStyle = 'rgba(255,255,255,0.55)'; for (let i = 0; i < 6; i++) dot(ctx, 12 + i * 6.5, top + 3 + (i % 2), 1.1, 'rgba(255,255,255,0.7)');
+  dot(ctx, 30, 33, 1.6, '#8a7a60'); dot(ctx, 16, 35, 1.2, '#8a7a60');
+}
+
+// 潮の満ち引きの泡（tide の予告）：基準は中心
+function drawFoam(ctx, f) {
+  const r = [4, 5, 3.2, 4.5][f];
+  ell(ctx, 9, 9, r + 2, r, 'rgba(255,255,255,0.9)', { lw: 1, ol: 'rgba(120,180,220,0.7)', flat: true });
+  ell(ctx, 4 + f, 10, 2.4, 1.8, 'rgba(255,255,255,0.85)', { lw: 0.8, ol: 'rgba(120,180,220,0.6)', flat: true });
+  ell(ctx, 14 - f * 0.5, 8, 2, 1.6, 'rgba(255,255,255,0.85)', { lw: 0.8, ol: 'rgba(120,180,220,0.6)', flat: true });
+}
+
 function drawMark(name, w, h, fn) { defineSprite(name, { w, h, draw: fn }); }
 
 // ========== 仕掛けの絵 ==========
@@ -771,6 +1004,14 @@ export function defineEnemies() {
   // ---- 飛び出す ----
   enemy('ayu', 46, 26, { jump: 4, hurt: 1 }, drawAyu, { ox: 23, oy: 13 });
   enemy('hinotama', 36, 42, { jump: 4, hurt: 1 }, drawHinotama);
+  // ---- ステージ8 沖縄 ----
+  enemy('habu', 58, 26, { walk: 6, hurt: 1 }, drawHabu);
+  enemy('kometsuki', 34, 26, { walk: 6, hurt: 1 }, drawKometsuki);
+  enemy('uni', 44, 36, { walk: 4, hurt: 1 }, drawUni);
+  enemy('yashigani', 56, 40, { walk: 6, block: 1, hurt: 1 }, drawYashigani);
+  enemy('kanmuri', 62, 46, { fly: 4, hurt: 1 }, drawKanmuri);
+  enemy('hirimon', 52, 30, { jump: 4, hurt: 1 }, drawHirimon, { ox: 26, oy: 15 });
+  enemy('kijimuna', 42, 50, { idle: 2, crouch: 1, jump: 1, fall: 1, hurt: 1 }, drawKijimuna);
   defineSprite('enemy_hibashira_body', { w: 40, h: 34, frames: 4, draw(ctx, f) {
     const g = ctx.createLinearGradient(0, 0, 40, 0); g.addColorStop(0, 'rgba(232,64,26,0)'); g.addColorStop(0.2, '#e8401a'); g.addColorStop(0.5, '#ffcf6a'); g.addColorStop(0.8, '#e8401a'); g.addColorStop(1, 'rgba(232,64,26,0)');
     ctx.fillStyle = g; ctx.fillRect(4, 0, 32, 34);
@@ -907,6 +1148,10 @@ export function defineEnemies() {
     ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1; for (let i = 1; i < 6; i++) { ctx.beginPath(); ctx.moveTo(30, top + 3); ctx.lineTo(4 + i * 8.6, top + 14); ctx.stroke(); }
     dot(ctx, 30, top + 2, 2.2, '#2a2228');
   } });
+  defineSprite('gim_bouncer_shell', { w: 56, h: 40, frames: 2, draw: (ctx, f) => drawBouncerShell(ctx, f) });
+  defineSprite('gim_bouncer_coral', { w: 56, h: 40, frames: 2, draw: (ctx, f) => drawBouncerCoral(ctx, f) });
+  // 潮の満ち引きの泡（中心基準・4コマ）
+  defineSprite('gim_foam', { w: 18, h: 16, frames: 4, ox: 9, oy: 9, draw: (ctx, f) => drawFoam(ctx, f) });
   // 水門のスイッチ（0=下 1=上）、水門の板と枠
   defineSprite('gim_switch', { w: 40, h: 40, frames: 2, draw(ctx, f) {
     poly(ctx, [6, 26, 34, 26, 36, 40, 4, 40], '#7a6a5a', { lw: 2 });

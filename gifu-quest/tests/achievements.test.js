@@ -49,6 +49,33 @@ describe('判定', () => {
   });
 });
 
+describe('特別ステージ8（沖縄）', () => {
+  it('クリアで「南の宝珠」、ミスも被弾もなしなら「ニライカナイの勇者」。6面クリアの数には入らない', () => {
+    const d = defaultSave();
+    d.cleared = [1, 2, 3, 4, 5, 6];
+    checkAchievements(d, {}, now);
+    expect(d.achievements.south_orb).toBeFalsy();
+    // 1回目：被弾ありでクリア
+    d.cleared.push(8);
+    recordClear(d, { stage: 8, char: 'leaf', stats: { hits: 1, misses: 0, time: 400 }, target: 420 }, now);
+    let got = checkAchievements(d, {}, now).map((a) => a.id);
+    expect(got).toContain('south_orb');
+    expect(got).not.toContain('nirai_hero');
+    expect(d.records.clears).toBe(1);
+    expect(progressOf(ACHIEVEMENTS.find((a) => a.id === 'orb6'), d)).toMatchObject({ cur: 6, max: 6 });
+    // 2回目：ノーミス
+    recordClear(d, { stage: 8, char: 'leaf', stats: { hits: 0, misses: 0, time: 390 }, target: 420 }, now);
+    const c0 = d.coins;   // （お題の報酬は recordClear で入る）
+    got = checkAchievements(d, {}, now).map((a) => a.id);
+    expect(got).toContain('nirai_hero');   // （「無傷の旅」「早駆け」も一緒に得る）
+    expect(d.coins - c0).toBe(got.reduce((s, id) => s + ACHIEVEMENTS.find((a) => a.id === id).reward, 0));
+    // 他のステージのノーミスでは得ない
+    const e = defaultSave();
+    recordClear(e, { stage: 7, char: 'leaf', stats: { hits: 0, misses: 0, time: 300 }, target: 420 }, now);
+    expect(checkAchievements(e, {}, now).map((a) => a.id)).not.toContain('nirai_hero');
+  });
+});
+
 describe('イベントにつなぐ', () => {
   it('敵・コイン・踏みつけ・ボスのノーミスを数え、称号の通知とコイン', () => {
     events.clear();

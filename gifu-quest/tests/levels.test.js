@@ -5,8 +5,8 @@ import path from 'node:path';
 import { validateLevel } from '../src/world/validate.js';
 
 const dir = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../levels');
-// 本編のステージ（stage1〜6、あればうらステージ7）。stage0 は練習、stage9x はボス担当の試験用
-const files = fs.readdirSync(dir).filter((f) => /^stage[1-7]\.json$/.test(f)).sort();
+// 本編のステージ（stage1〜6、あればうらステージ7・特別ステージ8 沖縄）。stage0 は練習、stage9x はボス担当の試験用
+const files = fs.readdirSync(dir).filter((f) => /^stage[1-8]\.json$/.test(f)).sort();
 const load = (f) => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
 
 describe('levels', () => {
@@ -75,6 +75,23 @@ describe('validateLevel', () => {
     expect(all).toMatch(/未知の文字 'Q'/);
     expect(all).toMatch(/行 1 の長さ/);
     expect(all).toMatch(/壁に埋まっている/);
+  });
+  it('ステージ8：潮（tide）を外すと防波堤・サンゴ礁の壁を越えられない', () => {
+    if (!files.includes('stage8.json')) return;
+    const d = load('stage8.json');
+    expect(validateLevel(d).errors).toEqual([]);
+    d.entities = d.entities.filter((e) => e.type !== 'tide');
+    const r = validateLevel(d);
+    expect(r.errors.some((e) => e.includes('ボス部屋に届かない'))).toBe(true);
+  });
+  it('ステージ8：潮の形式（満ち潮が引き潮より上・周期8秒以上）を検査する', () => {
+    if (!files.includes('stage8.json')) return;
+    const d = load('stage8.json');
+    const t = d.entities.find((e) => e.type === 'tide');
+    t.period = 3; [t.yLow, t.yHigh] = [t.yHigh, t.yLow];
+    const all = validateLevel(d).errors.join('\n');
+    expect(all).toMatch(/period 3 秒は短すぎる/);
+    expect(all).toMatch(/yHigh < yLow/);
   });
   it('ゴンドラを外すと谷を渡れない', () => {
     const d = base();

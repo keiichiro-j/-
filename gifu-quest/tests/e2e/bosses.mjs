@@ -1,4 +1,4 @@
-// ボスの自動対戦テスト（担当：ボス）。テスト用アリーナ levels/stage91〜96.json を使う
+// ボスの自動対戦テスト（担当：ボス）。テスト用アリーナ levels/stage91〜96.json と stage98.json（大シーサー）を使う
 //   node tests/e2e/bosses.mjs [--dist dist] [--boss 91] [--shots]
 // 各ボス：登場演出 → 隙のたびに world.boss.damage → 段階1→2→3 → 撃破 → 宝珠 → 取ってクリア。
 // 途中で主人公のミス（Boss.reset → アリーナの開け直し → 再登場）も確かめる。コンソールエラー0件。
@@ -13,7 +13,7 @@ const DIST = arg('dist', 'dist');
 const shots = process.argv.includes('--shots');
 const only = arg('boss');
 const file = 'file://' + path.join(root, DIST, 'index.html');
-const STAGES = [91, 92, 93, 94, 95, 96].filter((s) => !only || String(s) === only);
+const STAGES = [91, 92, 93, 94, 95, 96, 98].filter((s) => !only || String(s) === only);
 
 const browser = await chromium.launch();
 let failed = 0;
@@ -55,7 +55,8 @@ for (const st of STAGES) {
         let t = 0, hits = 0; window.__lastHit = -9;
         while (t < 400 && b.alive && !b.dying) {
           p.invuln = 5; p.hearts = p.maxHearts; p.frozen = true;
-          if (b.canHit() && b.invuln <= 0 && b.state !== 'hurt' && t - (window.__lastHit || -9) > 2.5) { if (b.damage(1, p)) { hits++; window.__lastHit = t; } }
+          const tg = b.activeTarget ? b.activeTarget() : b;   // 大シーサーの段階3は、動いている方（阿・吽）を叩く
+          if (!tg.shielded(p, tg.hurtRect()) && b.invuln <= 0 && b.state !== 'hurt' && t - (window.__lastHit || -9) > 2.5) { if (tg.damage(1, p)) { hits++; window.__lastHit = t; } }
           T.step(1); t += 1 / 120; states.add(b.state); phases.add(b.phase);
           if (untilPhase && b.phase >= untilPhase) break;
         }
@@ -87,9 +88,11 @@ for (const st of STAGES) {
           const T = window.__T, W = T.W, A = T.arena();
           if (A.state === 'wait') { T.enter(); T.step(30); T.step(2.2 * 120); }
           const b = A.boss, p = W.player; let t = 0, hits = 0; window.__lastHit = -9;
+          const acts = window.__acts || (window.__acts = new Set());   // 大シーサー：段階3で叩いた方（0 阿・1 吽）
           while (t < 400 && b.alive && !b.dying) {
             p.invuln = 5; p.hearts = p.maxHearts; p.frozen = true;
-            if (b.canHit() && b.invuln <= 0 && b.state !== 'hurt' && t - (window.__lastHit || -9) > 2.5) { if (b.damage(1, p)) { hits++; window.__lastHit = t; } }
+            const tg = b.activeTarget ? b.activeTarget() : b;   // 大シーサーの段階3は、動いている方（阿・吽）を叩く
+            if (!tg.shielded(p, tg.hurtRect()) && b.invuln <= 0 && b.state !== 'hurt' && t - (window.__lastHit || -9) > 2.5) { if (tg.damage(1, p)) { hits++; window.__lastHit = t; if (b.H && b.phase >= 3) acts.add(b.act); } }
             T.step(1); t += 1 / 120;
             if (ph && b.phase >= ph) { T.step(240); break; }   // 段階が上がった後を少し見る
           }
@@ -98,11 +101,12 @@ for (const st of STAGES) {
           if (!ph && b.dying) { p.frozen = false; p.invuln = 0; W.playerMiss('pit'); T.step(200); missDying = { hp: b.hp, dormant: b.state === 'dormant', lock: !!W.camera.lock }; }
           if (!ph) T.step(3 * 120);
           window.__GQ__.game.render(1);
-          return { t: +t.toFixed(1), hits, phase: b.phase, alive: b.alive, state: b.state, orb: W.entities.some((e) => e.type === 'orb' && e.alive), ws: W.state, ents: W.entities.filter((e)=>e.alive).map((e)=>e.type).join(','), gate: A.state, missDying, lock: !!W.camera.lock };
+          return { t: +t.toFixed(1), hits, phase: b.phase, alive: b.alive, state: b.state, ...(b.H ? { split: { acts: [...acts].sort().join(','), stone: b.H.map((h) => h.stone).join(','), un: b.H[1].vis } } : {}), orb: W.entities.some((e) => e.type === 'orb' && e.alive), ws: W.state, ents: W.entities.filter((e)=>e.alive).map((e)=>e.type).join(','), gate: A.state, missDying, lock: !!W.camera.lock };
         }, ph);
         log.push(`run${ph || 'end'} ` + JSON.stringify(r));
         if (shots) await page.screenshot({ path: path.join(root, 'screenshots', `boss-test-${st}-${ch}-${ph ? 'p' + ph : 'end'}.png`) });
         if (!ph && (r.alive || (!r.orb && r.ws !== 'clear'))) throw new Error('boss not defeated or no orb');
+        if (!ph && r.split && (r.split.acts !== '0,1' || !r.split.un || !r.split.stone.includes('true'))) throw new Error('shisa: 阿と吽の両方を倒していない ' + JSON.stringify(r.split));
         if (!ph && (!r.missDying || r.missDying.dormant || r.lock || r.gate !== 'done')) throw new Error('miss during defeat undid the win ' + JSON.stringify(r.missDying) + ' lock ' + r.lock);
       }
       // 宝珠を取ってクリア

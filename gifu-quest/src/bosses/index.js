@@ -5,4 +5,5 @@ import './dancer.js';
 import './yatai.js';
 import './yukioni.js';
 import './dragon.js';
+import './shisa.js';
 import './arena.js';

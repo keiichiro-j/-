@@ -1,4 +1,4 @@
-// levels/stage1〜7.json を組み立てて書き出し、検査結果を表示する。
+// levels/stage1〜8.json を組み立てて書き出し、検査結果を表示する。
 //   node tools/levelgen/build-all.mjs            全部
 //   node tools/levelgen/build-all.mjs 3 --map    ステージ3だけ、地図も表示
 // あわせて tools/level-editor.html（validate.js を埋め込んだ単体HTML）も作り直す。
@@ -11,7 +11,7 @@ const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../.
 const args = process.argv.slice(2);
 const only = args.filter((a) => /^\d+$/.test(a)).map(Number);
 const showMap = args.includes('--map');
-const ids = [1, 2, 3, 4, 5, 6, 7].filter((i) => !only.length || only.includes(i));
+const ids = [1, 2, 3, 4, 5, 6, 7, 8].filter((i) => !only.length || only.includes(i));
 
 let bad = 0;
 for (const id of ids) {

@@ -5,7 +5,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import * as esbuild from 'esbuild';
-import { SFX_NAMES, BGM_NAMES, songData } from '../src/core/audio.js';
+import { SFX_NAMES, BGM_NAMES, SCALES, songData } from '../src/core/audio.js';
 
 const require = createRequire(import.meta.url);
 let chromium = null;
@@ -16,7 +16,14 @@ describe('audio のデータ', () => {
   it('ARCHITECTURE の効果音・BGM がすべてある', () => {
     const sfx = 'jump land coin stomp hurt miss down hit defeat shoot shootBig bird slash dash break bump splash swim checkpoint sarubobo star heart sign pause select confirm cancel clear bossIntro bossPhase bossDefeat clang thunder explosion'.split(' ');
     for (const n of sfx) expect(SFX_NAMES).toContain(n);
-    for (const n of ['title', 'map', 'stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stage6', 'boss', 'clear', 'ending', 'gameover']) expect(BGM_NAMES).toContain(n);
+    for (const n of ['title', 'map', 'stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stage6', 'stage8', 'boss', 'clear', 'ending', 'gameover']) expect(BGM_NAMES).toContain(n);
+  });
+  it('琉球音階（ド・ミ・ファ・ソ・シ）があり、stage8 だけが使う', () => {
+    expect(SCALES.ryukyu).toEqual([0, 4, 5, 7, 11]);
+    expect(songData('stage8').song.scale).toBe('ryukyu');
+    for (const n of BGM_NAMES) if (n !== 'stage8') expect(songData(n).song.scale, n).not.toBe('ryukyu');
+    // 8小節（8分音符で64コマ）
+    expect(songData('stage8').length).toBe(64);
   });
   it('各曲のパートの長さがそろっている', () => {
     for (const n of BGM_NAMES) {

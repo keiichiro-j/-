@@ -80,7 +80,7 @@ HERO_ANIMS（src/actors/player.js）：idle4, walk8, run8, brake1, jumpUp2, apex
 }
 ```
 - エンティティの x,y はタイル単位。**足元中央がタイル (x,y) の底辺中央**になるように置く（`Entity.placeAt`）
-- テーマ：kinka（金華山）, nagara（長良川）, gujo（郡上八幡）, takayama（飛騨高山）, shirakawa（白川郷）, okuhida（奥飛騨・乗鞍）
+- テーマ：kinka（金華山）, nagara（長良川）, gujo（郡上八幡）, takayama（飛騨高山）, shirakawa（白川郷）, okuhida（奥飛騨・乗鞍）, okinawa（沖縄・ニライカナイの島。全クリア後の特別ステージ8：上端は白い砂浜・中は赤土、S＝琉球石灰岩、R＝赤瓦と漆喰、W＝流木、-＝竹、^＝ウニ、水はエメラルドの半透明。背景は濃い青空・入道雲・海のきらめき・赤瓦の集落と高台の城）
 
 ### エンティティの種類（type）
 | type | 担当 | spec の項目 |
@@ -129,7 +129,7 @@ w.events.emit/on（'enemyDefeated','stomp','coin','bossStart','bossDefeated','st
 
 ## サウンド（src/core/audio.js）
 `audio.sfx(name, opts)`：jump, land, coin, stomp({chain}), hurt, miss, down, hit, defeat, shoot, shootBig, bird, slash, dash, break, bump, splash, swim, checkpoint, sarubobo, star, heart, sign, pause, select, confirm, cancel, clear, bossIntro, bossPhase, bossDefeat, clang, thunder, explosion
-`audio.bgm(name)`：title, map, stage1〜6, boss, clear, ending, gameover。`audio.stopBgm()`。RUNTIME.sound が false なら鳴らさない
+`audio.bgm(name)`：title, map, stage1〜6, stage8（沖縄・琉球音階）, opening, boss, clear, ending, gameover。楽器に yubi（指笛）。`audio.stopBgm()`。RUNTIME.sound が false なら鳴らさない
 
 ## 画面（src/game.js）
 `game.go(name, params, kind='iris'|'wipe'|'fade'|'none')`。画面：boot, title, opening, select, worldmap, stage, results, gameover, ending, settings, records, bossrush
@@ -151,6 +151,7 @@ w.events.emit/on（'enemyDefeated','stomp','coin','bossStart','bossDefeated','st
 | 4 飛騨高山 | karakuri（shielder：からくり小僧）, tako（flyer：凧）, hanabi（thrower：花火師）, shishi（charger：獅子舞） |
 | 5 白川郷 | yukidama（walker）, yukiusagi（hopper）, koritoge（spiky）, yukigumo（flyer：つららを落とす） |
 | 6 奥飛騨 | hinotama（popper）, yogangaeru（hopper）, komori（flyer）, iwanage（thrower）, hibashira（popper：火柱）, kamoshika（charger） |
+| 8 沖縄（特別） | habu（walker：ハブ）, kometsuki（walker：干潟の青いカニ）, uni（spiky：ウニ）, yashigani（shielder：ヤシガニ。はさみで正面を防ぐ）, kanmuri（flyer：南の鷲）, hirimon（popper：海から跳ねる魚）, kijimuna（hopper：赤い髪の木の精キジムナー） |
 
 共通オプション：`face`（-1/1。既定 -1＝左向き）, `range`（巡回の幅・タイル。walker/spiky/charger/shielder は家からこの距離で折り返す、flyer は巡回の全幅。既定 flyer 3〜6）, `hp`
 - 置き方：足元中央をタイル (x,y) の底辺中央に（flyer はその高さを中心に上下）。popper は **水面（`~`）・溶岩の表面（`L`）のタイル** に置く（waterLevel・risingLava の上では表面の高さに自動で合わせる）
@@ -184,6 +185,8 @@ w.events.emit/on（'enemyDefeated','stomp','coin','bossStart','bossDefeated','st
 | lightningZone | x0, x1, interval（秒, 既定4）, weather（例 "thunder"。指定するとその天気の時だけ） | ゾーン内の主人公の足元に予告の印（1秒点滅）→ 落雷（1ダメージ）。ステージ3・6 |
 | tightrope | w（既定6） | 提灯の綱渡り（たわむ通り抜け足場）。両端に柱、綱から提灯がさがって光る |
 | bouncer | power（既定1で約5タイル。ジャンプ押しっぱなしでさらに高く）, kind（taiko/kasa） | 跳ね台（太鼓・和傘） |
+| bouncer（ステージ8） | kind（shell/coral） | シャコ貝・サンゴの跳ね台。絵は gim_bouncer_shell / gim_bouncer_coral（platforms.js が kind をそのまま絵の名前に使うまでは太鼓の絵になる） |
+| tide | x0, x1, yLow, yHigh（水面の行）, period（1周の秒, 既定12, 8以上）, phase（0..1）, bottom（水の底の行。干潟は床の行にすると引き潮で水を描かない） | 潮の満ち引き（ステージ8）。waterLevel と同じ水域を一定の周期で上下させる：引き潮35%→満ちる15%→満ち潮35%→引く15%。満ちる2.5秒前から波打ち際（水域の両端と水面）の泡（gim_foam）が増える予告。スイッチでは動かない。範囲のタイルは空（.）。検査は最高水位まで泳げるとみなす |
 | autoScroll | x0, x1（タイル）, speed（タイル/秒, 既定2） | 主人公が x0 を越えると画面が一定速度で右へ進む。左端に押されて壁に挟まるとミス |
 | lantern | color（red/white） | 吊り下げ提灯（揺れる・夜に光る）。x,y は吊り下げ点のタイル（上端） |
 
@@ -192,6 +195,7 @@ w.events.emit/on（'enemyDefeated','stomp','coin','bossStart','bossDefeated','st
 ## 背景の小物（decor）
 `{ "type": "decor", "sprite": "prop_toro", "x": .., "y": .., "z": -5, "light": { "r": 110, "color": "#ffbf6a" } }`
 アート担当が用意する prop（prop_torii_small は prop_gate と同じ絵）：toro（石灯籠）, pine, cedar, bamboo, rock, bush, grass, machiya（町家）, gassho（合掌造り）, castle_wall, torii_small（小さな鳥居ではなく木の門：gate）, chochin（提灯）, kagaribi（篝火）, onsen（湯けむりの湯船）, snowman, fence, bridge_rail, noren, yatai_stall（朝市の屋台）, lamp（街灯）
+沖縄（okinawa）の prop：shisa（門のシーサー2体：阿と吽, 70×46）, shisa_a / shisa_un（屋根や塀の上の1体, 30×42）, hibiscus（ハイビスカスの茂み）, palm（ヤシ, 100×152）, adan（アダン）, sugarcane（さとうきび）, redroof（赤瓦の平屋。屋根にシーサー, 160×110）, ishigantou（「石敢當」の石）, sanshin_stand（三線を立てた台）, coral（サンゴ。水の中に置くとよい）。宝珠 item_orb_8（南の宝珠：さんご色）
 
 ## UI の追加の約束（UI担当）
 - タッチ：`touch.tap()`（0.3秒以内のタップを1回だけ返す {x,y}）、`touch.peekTap()`、`touch.clearTap()`、`touch.pointer`（ドラッグ用）、`touch.show('play'|'menu')`。PC のマウスクリックも同じ扱い

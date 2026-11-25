@@ -32,6 +32,10 @@ const THEMES = {
     soilL: '#5a5058', soilD: '#1e1a20', out: '#0c0a0e', top: 'ash', grass: '#8a8a4a', grassL: '#b8b070', grassD: '#4e4a24',
     pebble: '#6a6068', stone: '#6a6470', stoneD: '#38343c', wood: '#5a3a26', brick: '#6a3428', embers: true,
   },
+  okinawa: { // 沖縄・ニライカナイの島：白い砂浜と赤土、琉球石灰岩の石垣、赤瓦、流木と竹
+    soilL: '#c4653e', soilD: '#5e2414', out: '#3a160c', top: 'beach', grass: '#5cb04a', grassL: '#9ade6a', grassD: '#2e6a2a',
+    pebble: '#eee4cc', stone: '#e6dec4', stoneD: '#9a8e70', wood: '#c4a882', brick: '#c0644a', strata: true, coral: true,
+  },
 };
 const SNOW = '#f4f8fd', SNOWD = '#b8cce4', SNOWO = '#6a84a8';
 
@@ -79,7 +83,7 @@ function groundFill(ctx, P, tx, ty, dep, level) {
     ctx.stroke();
   }
   // 小石・砂粒
-  const n = P.pebbles ? 6 : 3;
+  const n = P.pebbles ? 6 : P.coral ? 2 : 3;
   for (let i = 0; i < n; i++) {
     const x = 4 + r() * 28, y = 5 + r() * 27, w = 1.5 + r() * (P.pebbles ? 3.2 : 2.2), h = w * (0.55 + r() * 0.25);
     ell(ctx, x, y, w, h, r() * 0.6 - 0.3);
@@ -90,6 +94,17 @@ function groundFill(ctx, P, tx, ty, dep, level) {
   for (let i = 0; i < 8; i++) ctx.fillRect(r() * 34, r() * 34, 1, 1);
   ctx.fillStyle = rgba(P.soilD, 0.5);
   for (let i = 0; i < 8; i++) ctx.fillRect(r() * 34, r() * 34, 1.2, 1.2);
+  if (P.coral) {
+    // 赤土のまだら（明るい土）と、土にまじったサンゴのかけら
+    for (let i = 0; i < 2; i++) { ell(ctx, 4 + r() * 28, 6 + r() * 24, 3 + r() * 4, 1.6 + r() * 1.6, r()); ctx.fillStyle = rgba('#e08a58', 0.35); ctx.fill(); }
+    if (r() < 0.3) {
+      // サンゴのかけら（白くて穴のある小石）
+      const x = 6 + r() * 24, y = 8 + r() * 22, w = 2.2 + r() * 1.8;
+      ctx.beginPath(); for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2, rr = w * (0.75 + r() * 0.35); k ? ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr * 0.7) : ctx.moveTo(x + rr, y); } ctx.closePath();
+      fs(ctx, lin(ctx, 0, y - w, 0, y + w, [0, '#fbf4e4', 1, '#cbb898']), rgba(P.out, 0.6), 0.6);
+      ctx.fillStyle = 'rgba(130,110,84,0.7)'; ctx.fillRect(x - 0.8, y - 0.4, 0.8, 0.8); ctx.fillRect(x + 0.8, y + 0.4, 0.7, 0.7);
+    }
+  }
   if (P.embers && r() < 0.5) {
     // 溶岩のひび（赤く光る）
     const x = 6 + r() * 20, y = 10 + r() * 18;
@@ -141,6 +156,8 @@ function topCap(ctx, P, tx, ty, kind, open) {
       ctx.fillStyle = '#e8a020'; ctx.fillRect(x - 0.5, -3.5, 1, 1);
     }
     line(ctx, 0, 0.4, S, 0.4, rgba(kind === 'grass' ? P.grassL : '#ffffff', 0.6), 0.8);
+  } else if (kind === 'beach') {
+    beachCap(ctx, P, tx, ty, r);
   } else if (kind === 'snow') {
     snowCap(ctx, tx, ty, r, open);
   } else if (kind === 'cobble') {
@@ -167,6 +184,60 @@ function topCap(ctx, P, tx, ty, kind, open) {
     }
     ctx.fillStyle = 'rgba(80,120,50,0.8)'; for (let i = 0; i < 4; i++) { ell(ctx, r() * 36, 7.6, 1.6, 0.8); ctx.fill(); }
   }
+}
+/** 白い砂浜（沖縄）：波に洗われた筋・砂粒・貝殻・浜の草 */
+function beachCap(ctx, P, tx, ty, r) {
+  const gx = tx * S;
+  const bot = (x) => { const g2 = gx + x; return 11 + Math.sin(g2 / 6.3) * 1.4 + Math.sin(g2 / 2.3) * 0.5 + (hash(g2 / 3 | 0, ty, 7) < 0.16 ? 2.6 : 0); };
+  ctx.beginPath(); ctx.moveTo(0, 1);
+  for (let x = 0; x <= S; x += 4) ctx.lineTo(x, -0.8 - Math.abs(Math.sin((gx + x) / 13)) * 1.1);
+  ctx.lineTo(S, 1);
+  for (let x = S; x >= 0; x -= 3) ctx.lineTo(x, bot(x));
+  ctx.closePath();
+  fs(ctx, lin(ctx, 0, -2, 0, 14, [0, '#ffffff', 0.4, '#fbf5e4', 0.8, '#f0e4c4', 1, '#ddc99c']), null);
+  // 砂の下の縁（波打つ線だけ。タイルの境目に縦線を引かない）
+  ctx.beginPath(); for (let x = 0; x <= S; x += 3) { const y = bot(x); x ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+  ctx.strokeStyle = rgba('#9a7a52', 0.75); ctx.lineWidth = 0.9; ctx.stroke();
+  // 砂が赤土にこぼれた粒
+  for (let i = 0; i < 4; i++) { const x = r() * 35; ell(ctx, x, bot(x) + 1.5 + r() * 3, 0.8 + r() * 0.6, 0.6); ctx.fillStyle = 'rgba(250,240,215,0.85)'; ctx.fill(); }
+  // 波に洗われた跡：うすい青緑の筋と、その上の白い泡の線（世界座標で続く）
+  for (let k = 0; k < 2; k++) {
+    const yb = 2.6 + k * 3.4;
+    ctx.beginPath();
+    for (let x = 0; x <= S; x += 1.5) { const g2 = gx + x; const y = yb + Math.sin(g2 / (6.5 + k * 2.3) + k * 2) * 0.9 + Math.sin(g2 / 2.7 + ty) * 0.35; x ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+    ctx.strokeStyle = k ? 'rgba(150,186,176,0.4)' : 'rgba(120,190,190,0.45)'; ctx.lineWidth = 0.8; ctx.stroke();
+    ctx.save(); ctx.translate(0, -0.8); ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 0.6; ctx.stroke(); ctx.restore();
+  }
+  // 砂粒（明るい粒と影の粒）・星の砂
+  for (let i = 0; i < 22; i++) { ctx.fillStyle = r() < 0.55 ? 'rgba(196,172,128,0.75)' : 'rgba(255,255,255,0.95)'; ctx.fillRect(r() * 35, 0.5 + r() * 9.5, 0.9, 0.9); }
+  if (r() < 0.4) sparkle(ctx, 3 + r() * 30, 1 + r() * 6, 1.4, '#ffffff', 0.9);
+  // 貝殻（扇の二枚貝・巻き貝）
+  const n = r() < 0.55 ? 1 : 0;
+  for (let i = 0; i < n + (r() < 0.2 ? 1 : 0); i++) {
+    const x = 5 + r() * 26, y = 3.5 + r() * 4, kind = r();
+    if (kind < 0.5) {
+      const col = r() < 0.5 ? '#f6b8b0' : '#f8e4c8';
+      ctx.save(); ctx.translate(x, y); ctx.rotate((r() - 0.5) * 0.8);
+      ctx.beginPath(); ctx.moveTo(0, 1.6); ctx.arc(0, 1.6, 3.4, Math.PI * 1.08, Math.PI * 1.92); ctx.closePath();
+      fs(ctx, lin(ctx, 0, -2, 0, 2, [0, '#ffffff', 1, col]), shade(col, -0.45), 0.6);
+      ctx.strokeStyle = rgba(shade(col, -0.35), 0.8); ctx.lineWidth = 0.4;
+      for (let k = -2; k <= 2; k++) { ctx.beginPath(); ctx.moveTo(0, 1.4); ctx.lineTo(k * 1.3, -1.2 + Math.abs(k) * 0.35); ctx.stroke(); }
+      ctx.restore();
+    } else {
+      ctx.save(); ctx.translate(x, y); ctx.rotate(-0.5 + r());
+      ell(ctx, 0, 0, 2.8, 1.5); fs(ctx, lin(ctx, -3, 0, 3, 0, [0, '#fbf0dc', 1, '#d8b088']), '#7a5a3a', 0.6);
+      ctx.strokeStyle = '#a0704a'; ctx.lineWidth = 0.45;
+      for (const k of [-1.2, 0, 1.2]) { ctx.beginPath(); ctx.moveTo(k, -1.3); ctx.lineTo(k + 0.6, 1.3); ctx.stroke(); }
+      ctx.restore();
+    }
+  }
+  // 浜の草（ときどき：丸い葉とうす桃色の花）
+  if (r() < 0.16) {
+    const x = 6 + r() * 24;
+    for (const [dx, dy] of [[-2.4, -1], [2.2, -1.6], [0, -3]]) { ell(ctx, x + dx, dy, 1.8, 1.4); fs(ctx, P.grass, P.grassD, 0.5); }
+    if (r() < 0.6) { ell(ctx, x + 1, -4.4, 1.6, 1.6); fs(ctx, '#f8b8d8', '#a05078', 0.5); ctx.fillStyle = '#fff0a0'; ctx.fillRect(x + 0.6, -4.8, 0.8, 0.8); }
+  }
+  line(ctx, 0, -0.2, S, -0.2, 'rgba(255,255,255,0.7)', 0.8);
 }
 function snowCap(ctx, tx, ty, r, open) {
   const gx = tx * S;
@@ -216,7 +287,8 @@ function clipRounded(ctx, open, rr) {
 
 function drawGround(ctx, P, tx, ty, level, themeTop) {
   const open = openSides(level, tx, ty);
-  const capOk = open.u && !(open.n.u === T.WATER || open.n.u === T.WATER_TOP || open.n.u === T.LAVA || open.n.u === T.LAVA_TOP);
+  // 水の底は草や雪をのせない（砂浜は水の底でも白い砂）
+  const capOk = open.u && !(open.n.u === T.LAVA || open.n.u === T.LAVA_TOP) && (themeTop === 'beach' || !(open.n.u === T.WATER || open.n.u === T.WATER_TOP));
   const rr = [7, 7, 5, 5];
   ctx.save(); clipRounded(ctx, open, rr);
   groundFill(ctx, P, tx, ty, depth(level, tx, ty), level);
@@ -253,14 +325,14 @@ function drawStone(ctx, P, tx, ty, level, theme) {
   const open = openSides(level, tx, ty, (t) => t === T.STONE || solidish(t));
   const base = P.stone;
   ctx.save(); clipRounded(ctx, open, [3, 3, 2, 2]);
-  ctx.fillStyle = shade(P.stoneD, -0.4); ctx.fillRect(0, 0, S, S);
+  ctx.fillStyle = theme === 'okinawa' ? '#6e6450' : shade(P.stoneD, -0.4); ctx.fillRect(0, 0, S, S);
   const RH = 12;
   for (let k = 0; k < 3; k++) {
     const row = ty * 3 + k, y = k * RH;
     stonesInRow(y, tx * S, tx * S + S, row, (a, b, c) => {
       const x = a - tx * S, w = b - a;
       const v = (hash(c, row, 8) - 0.5) * 0.28;
-      const col = shade(base, v);
+      const col = theme === 'okinawa' ? mix(shade(base, v), hash(c, row, 9) < 0.5 ? '#d8cfae' : '#c8c8c0', 0.35) : shade(base, v);
       rrect(ctx, x + 0.7, y + 0.7, w - 1.4, RH - 1.4, 2.6);
       fs(ctx, lin(ctx, x, y, x + w * 0.4, y + RH, [0, shade(col, 0.22), 0.5, col, 1, shade(col, -0.25)]), shade(P.stoneD, -0.5), 0.8);
       // 面の欠けと苔
@@ -269,6 +341,7 @@ function drawStone(ctx, P, tx, ty, level, theme) {
       ctx.fillStyle = rgba(P.stoneD, 0.5); for (let i = 0; i < 3; i++) ctx.fillRect(x + 2 + r() * (w - 4), y + 3 + r() * 6, 1, 1);
       if ((theme === 'kinka' || theme === 'gujo') && r() < 0.25) { ctx.fillStyle = 'rgba(90,140,60,0.75)'; ell(ctx, x + 2 + r() * (w - 4), y + RH - 2, 2.4, 1.1); ctx.fill(); }
       if (theme === 'shirakawa' && r() < 0.3) { ctx.fillStyle = 'rgba(255,255,255,0.85)'; ell(ctx, x + w / 2, y + 1.5, w * 0.3, 1); ctx.fill(); }
+      if (theme === 'okinawa') limestonePores(ctx, x, y, w, RH, r);
     });
   }
   sideShade(ctx, open);
@@ -280,8 +353,63 @@ function drawStone(ctx, P, tx, ty, level, theme) {
   }
 }
 
+/** 琉球石灰岩：サンゴがもとの石なので、小さな穴（くぼみ）と黒ずんだ地衣類のしみが多い */
+function limestonePores(ctx, x, y, w, h, r) {
+  const n = 3 + ((r() * 4) | 0);
+  for (let i = 0; i < n; i++) {
+    const px = x + 2.2 + r() * (w - 4.4), py = y + 2.6 + r() * (h - 5), pr = 0.5 + r() * (r() < 0.25 ? 1.5 : 0.8);
+    ell(ctx, px, py, pr * 1.2, pr); ctx.fillStyle = 'rgba(96,84,62,0.75)'; ctx.fill();
+    ctx.fillStyle = 'rgba(255,252,240,0.7)'; ctx.fillRect(px - pr * 0.6, py + pr * 0.7, pr * 1.4, 0.6);
+  }
+  if (r() < 0.35) { ell(ctx, x + 2 + r() * (w - 4), y + 3 + r() * (h - 6), 1.8 + r() * 1.6, 1 + r() * 0.8); ctx.fillStyle = 'rgba(70,74,66,0.22)'; ctx.fill(); }
+}
+
 // ---------------------------------------------------------------- 屋根瓦
+/** 沖縄の赤瓦：丸瓦の両わきと重なりを白い漆喰で固めた屋根 */
+function drawRoofRyukyu(ctx, P, tx, ty, level) {
+  const open = openSides(level, tx, ty, (t) => t === T.ROOF || solidish(t));
+  const C = '#c8502e', CD = '#7a2414', CO = '#4a140a', PL = '#f6f1e6', PLD = '#c9c0ae';
+  ctx.save(); clipRounded(ctx, open, [2, 2, 0, 0]);
+  ctx.fillStyle = lin(ctx, 0, 0, 0, S, [0, shade(C, -0.05), 1, shade(C, -0.28)]); ctx.fillRect(0, 0, S, S);
+  const RH = 9, CW = 9;
+  for (let k = 0; k < 4; k++) {
+    const y = k * RH, row = ty * 4 + k;
+    // 平瓦（女瓦）の重なり：段ごとに少し色を変える
+    for (let c = 0; c < 4; c++) { const v = (hash(tx * 4 + c, row, 141) - 0.5) * 0.16; ctx.fillStyle = shade(C, v - 0.04); ctx.fillRect(c * CW, y, CW, RH); }
+    ctx.fillStyle = 'rgba(60,10,4,0.3)'; ctx.fillRect(0, y + RH - 1.4, S, 1.4);
+    for (let c = 0; c < 4; c++) {
+      const x = c * CW + 4.5;
+      // 漆喰の目地（丸瓦の両わき）
+      ctx.fillStyle = lin(ctx, x - 4, 0, x + 4, 0, [0, PLD, 0.3, '#ffffff', 0.7, PL, 1, PLD]); ctx.fillRect(x - 3.9, y, 7.8, RH);
+      // 丸瓦（男瓦）
+      rrect(ctx, x - 2.5, y - 1, 5, RH + 0.4, 2.4);
+      fs(ctx, lin(ctx, x - 2.5, 0, x + 2.5, 0, [0, shade(C, 0.32), 0.45, shade(C, 0.06), 1, CD]), CO, 0.6);
+      ctx.fillStyle = 'rgba(255,230,200,0.45)'; ctx.fillRect(x - 1.5, y + 0.4, 0.8, RH - 3);
+      // 丸瓦の重なり（上の瓦の端の影）
+      ctx.fillStyle = 'rgba(70,14,6,0.45)'; ctx.fillRect(x - 2.3, y + RH - 1.6, 4.6, 1);
+    }
+  }
+  // 漆喰の雨じみ
+  if (hash(tx, ty, 142) < 0.3) { ctx.fillStyle = 'rgba(80,60,50,0.18)'; ell(ctx, hash(tx, ty, 143) * 28 + 4, 20, 3, 6); ctx.fill(); }
+  ctx.restore();
+  if (open.u) {
+    // 棟：漆喰で白く塗り固めた太い棟
+    rrect(ctx, -0.5, -3, S + 1, 6.6, 2.6);
+    fs(ctx, lin(ctx, 0, -3, 0, 3.6, [0, '#ffffff', 0.5, PL, 1, PLD]), '#6a5e50', 1);
+    ctx.fillStyle = rgba(C, 0.85); ctx.fillRect(0, 1.6, S, 1.2);
+    ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.fillRect(0, -2, S, 0.8);
+  }
+  if (open.d) {
+    for (let c = 0; c < 4; c++) {
+      const x = c * 9 + 4.5;
+      ell(ctx, x, S - 1.6, 3.1, 2.6); fs(ctx, PL, PLD, 0.6);
+      ell(ctx, x, S - 1.6, 2.1, 1.8); fs(ctx, rad(ctx, x - 0.6, S - 2.4, 0.3, 2.6, [0, shade(C, 0.3), 1, CD]), CO, 0.6);
+    }
+  }
+  tileOutline(ctx, P, { ...open, d: false }, [2, 2, 0, 0], CO);
+}
 function drawRoof(ctx, P, tx, ty, level, theme) {
+  if (theme === 'okinawa') { drawRoofRyukyu(ctx, P, tx, ty, level); return; }
   const open = openSides(level, tx, ty, (t) => t === T.ROOF || solidish(t));
   const C = theme === 'shirakawa' ? '#4a4e58' : '#525a68', CD = '#262a32', CO = '#121418';
   ctx.save(); clipRounded(ctx, open, [2, 2, 0, 0]);
@@ -315,7 +443,61 @@ function drawRoof(ctx, P, tx, ty, level, theme) {
 }
 
 // ---------------------------------------------------------------- 木の床・板
+/** 流木の並び：長い丸太になるよう、継ぎ目はまばら（世界座標で決まる） */
+function logsInRow(gx0, gx1, rowIdx, cb) {
+  const CW = 9, c0 = Math.floor(gx0 / CW) - 14, c1 = Math.ceil(gx1 / CW) + 14;
+  const joint = (c) => hash(c, rowIdx, 155) < 0.13 || ((c + rowIdx * 3) % 11 === 0);
+  let start = null;
+  for (let c = c0; c <= c1; c++) {
+    if (!joint(c)) continue;
+    if (start !== null) { const a = start * CW + 1, b = c * CW; if (b > gx0 && a < gx1) cb(a, b, start); }
+    start = c;
+  }
+}
+/** 流木を積んだ床（沖縄）：日に焼けて銀色になった丸太。継ぎ目は世界座標で続く */
+function drawDriftwood(ctx, P, tx, ty, level) {
+  const open = openSides(level, tx, ty, (t) => t === T.WOOD || solidish(t));
+  const W = P.wood, WO = '#3e3428';
+  ctx.save(); clipRounded(ctx, open, [4, 4, 3, 3]);
+  ctx.fillStyle = '#4a4034'; ctx.fillRect(0, 0, S, S);
+  const RH = 12;
+  for (let k = 0; k < 3; k++) {
+    const row = ty * 3 + k, y = k * RH;
+    logsInRow(tx * S, tx * S + S, row, (a, b, c) => {
+      const x = a - tx * S, w = b - a;
+      const v = (hash(c, row, 151) - 0.5) * 0.22, col = shade(W, v), bend = (hash(c, row, 152) - 0.5) * 1.6;
+      rrect(ctx, x + 0.4, y + 0.7 + bend * 0.3, w - 0.8, RH - 1.4, 5.2);
+      fs(ctx, lin(ctx, 0, y, 0, y + RH, [0, shade(col, 0.38), 0.35, shade(col, 0.08), 1, shade(col, -0.42)]), WO, 0.8);
+      // 木目（長くうねる筋）と、日に焼けて割れたひび
+      ctx.strokeStyle = rgba(shade(W, -0.5), 0.6); ctx.lineWidth = 0.55;
+      for (const yy of [3.2, 5.6, 8.2]) { ctx.beginPath(); ctx.moveTo(x + 3, y + yy + bend * 0.2); ctx.bezierCurveTo(x + w * 0.3, y + yy - 1.2 + bend, x + w * 0.65, y + yy + 1.2, x + w - 3, y + yy - bend * 0.3); ctx.stroke(); }
+      const r = rng(c * 13 + row * 71);
+      for (let i = 0; i < Math.max(1, w / 30); i++) { const kx = x + 5 + r() * Math.max(1, w - 10), ky = y + 3.5 + r() * 5; line(ctx, kx, ky, kx + 4 + r() * 6, ky + (r() - 0.5) * 1.5, rgba(WO, 0.65), 0.7); }
+      if (r() < 0.6) { const kx = x + 6 + r() * Math.max(1, w - 12), ky = y + 4 + r() * 4; ell(ctx, kx, ky, 2.2, 1.4); fs(ctx, shade(W, -0.3), rgba(WO, 0.8), 0.5); ell(ctx, kx, ky, 0.9, 0.5); ctx.fillStyle = WO; ctx.fill(); }
+      ctx.fillStyle = 'rgba(255,255,250,0.4)'; ctx.fillRect(x + 4, y + 1.7 + bend * 0.3, Math.max(1, w - 9), 0.8);
+      // 木口（年輪）は丸太の左の端だけ
+      if (x > -3) {
+        ell(ctx, x + 2.6, y + RH / 2 + bend * 0.15, 2.4, RH / 2 - 1.2); fs(ctx, lin(ctx, 0, y, 0, y + RH, [0, '#efe4c8', 1, '#b09a74']), WO, 0.6);
+        ctx.strokeStyle = 'rgba(110,90,60,0.6)'; ctx.lineWidth = 0.4; ell(ctx, x + 2.6, y + RH / 2 + bend * 0.15, 1.2, 2.4); ctx.stroke();
+      }
+    });
+  }
+  // ヤシの繊維の縄で縛ったところ
+  const gx0 = tx * S;
+  for (let gx = Math.ceil(gx0 / 54) * 54 + 20; gx < gx0 + S + 4; gx += 54) {
+    if (gx - gx0 < -3) continue;
+    const x = gx - gx0;
+    ctx.fillStyle = '#8a6a3c'; ctx.fillRect(x - 1.6, 0, 3.2, S);
+    ctx.strokeStyle = '#4a3418'; ctx.lineWidth = 0.6;
+    for (let y = 1; y < S; y += 2.2) { ctx.beginPath(); ctx.moveTo(x - 1.6, y); ctx.lineTo(x + 1.6, y + 1.2); ctx.stroke(); }
+  }
+  sideShade(ctx, open);
+  ctx.restore();
+  tileOutline(ctx, P, open, [4, 4, 3, 3], WO);
+  if (open.u) line(ctx, 3, 0.9, S - 3, 0.9, 'rgba(255,255,245,0.6)', 0.8);
+}
 function drawWood(ctx, P, tx, ty, level, theme) {
+  if (theme === 'okinawa') { drawDriftwood(ctx, P, tx, ty, level); return; }
   const open = openSides(level, tx, ty, (t) => t === T.WOOD || solidish(t));
   const W = P.wood, WO = shade(W, -0.65);
   ctx.save(); clipRounded(ctx, open, [2, 2, 2, 2]);
@@ -445,7 +627,39 @@ function drawCrack(ctx, P, tx, ty, level) {
 }
 
 // ---------------------------------------------------------------- 通り抜け足場
+/** 竹を2本並べて縛った足場（沖縄） */
+function drawBambooOneway(ctx, P, tx, ty, level) {
+  const n = nb(level, tx, ty);
+  const endL = n.l !== T.ONEWAY, endR = n.r !== T.ONEWAY;
+  const BO = '#4a3c14', gx = tx * S;
+  // 支え（端だけ：流木の脚）
+  for (const [on, x, s] of [[endL, 6, 1], [endR, S - 6, -1]]) {
+    if (!on) continue;
+    line(ctx, x, 8, x + s * 6, 22, '#3e3428', 3.4); line(ctx, x, 8, x + s * 6, 22, '#a89a7e', 2);
+  }
+  const x0 = endL ? 1.5 : -1, x1 = endR ? S - 1.5 : S + 1;
+  for (const [y, h, off] of [[0.4, 5, 0], [5, 5, 15]]) {
+    rrect(ctx, x0, y, x1 - x0, h, [endL ? 2.4 : 0, endR ? 2.4 : 0, endR ? 2.4 : 0, endL ? 2.4 : 0]);
+    fs(ctx, lin(ctx, 0, y, 0, y + h, [0, '#f4e8a8', 0.35, '#d4bc68', 1, '#8a7430']), BO, 0.8);
+    ctx.fillStyle = 'rgba(255,255,230,0.55)'; ctx.fillRect(x0 + 1, y + 0.9, x1 - x0 - 2, 0.7);
+    // 節（世界座標で30ドットごと）
+    for (let g = Math.ceil((gx - off) / 30) * 30 + off; g < gx + S; g += 30) {
+      const x = g - gx; if (x < x0 + 1 || x > x1 - 1) continue;
+      line(ctx, x, y + 0.5, x, y + h - 0.5, '#6a5a20', 1.1); line(ctx, x + 1, y + 0.8, x + 1, y + h - 0.8, 'rgba(255,250,210,0.6)', 0.5);
+    }
+    // 切り口
+    if (endL) { ell(ctx, x0 + 1.2, y + h / 2, 1.2, h / 2 - 0.4); fs(ctx, '#e8d890', BO, 0.5); ell(ctx, x0 + 1.2, y + h / 2, 0.5, h / 2 - 1.4); ctx.fillStyle = '#5a4a18'; ctx.fill(); }
+    if (endR) { ell(ctx, x1 - 1.2, y + h / 2, 1.2, h / 2 - 0.4); fs(ctx, '#e8d890', BO, 0.5); ell(ctx, x1 - 1.2, y + h / 2, 0.5, h / 2 - 1.4); ctx.fillStyle = '#5a4a18'; ctx.fill(); }
+  }
+  // 縄
+  for (const [on, x] of [[endL, 5], [endR, S - 7], [hash(tx, ty, 161) < 0.4, 17]]) {
+    if (!on) continue;
+    ctx.fillStyle = '#9a7a44'; ctx.fillRect(x, 0, 2.4, 10.4);
+    ctx.strokeStyle = '#4a3418'; ctx.lineWidth = 0.6; for (let y = 1.5; y < 10; y += 2) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 2.4, y + 1); ctx.stroke(); }
+  }
+}
 function drawOneway(ctx, P, tx, ty, level, theme) {
+  if (theme === 'okinawa') { drawBambooOneway(ctx, P, tx, ty, level); return; }
   const n = nb(level, tx, ty);
   const W = theme === 'takayama' ? '#a84a30' : P.wood, WO = shade(W, -0.65);
   const endL = n.l !== T.ONEWAY, endR = n.r !== T.ONEWAY;
@@ -485,6 +699,30 @@ function drawSpike(ctx, P, tx, ty, level, theme) {
       fs(ctx, lin(ctx, x - 5, 0, x + 5, 0, [0, '#ffffff', 0.4, '#b8e4ff', 1, '#5a98d0']), '#2a5a8a', 1);
       line(ctx, x - 1.5, S - 3, x - 0.4, S - h + 5, 'rgba(255,255,255,0.9)', 0.8);
     }
+  } else if (theme === 'okinawa') {
+    // ウニ（白い砂の上に、長いトゲの黒紫のウニが2つ）
+    ctx.beginPath(); ctx.moveTo(0, S); ctx.lineTo(0, S - 3); ctx.quadraticCurveTo(S / 2, S - 7, S, S - 3); ctx.lineTo(S, S); ctx.closePath();
+    fs(ctx, lin(ctx, 0, S - 7, 0, S, [0, '#fffaf0', 1, '#e0cfa4']), '#a88e62', 0.8);
+    for (let i = 0; i < 2; i++) {
+      const cx = 9 + i * 18 + (hash(tx * 2 + i, ty, 75) - 0.5) * 3, cy = S - 8, rr = 6.6;
+      const r = rng(tx * 7 + i * 3 + ty * 131);
+      // 奥のトゲ → 本体 → 手前のトゲ
+      for (let pass = 0; pass < 2; pass++) {
+        for (let k = 0; k < 15; k++) {
+          const a = Math.PI * (1.04 + k / 14 * 0.92) + (r() - 0.5) * 0.1 + (pass ? 0.11 : 0);
+          const L = rr + 8 + r() * 9 * (1 - Math.abs(Math.cos(a)) * 0.45);
+          const bx = cx + Math.cos(a) * rr * 0.7, by = cy + Math.sin(a) * rr * 0.6;
+          const nx = -Math.sin(a) * 0.9, ny = Math.cos(a) * 0.9;
+          poly(ctx, [bx + nx, by + ny, cx + Math.cos(a) * L, cy + Math.sin(a) * L, bx - nx, by - ny]);
+          ctx.fillStyle = pass ? '#3a2050' : '#1a0e26'; ctx.fill();
+          if (pass && r() < 0.5) line(ctx, bx, by, cx + Math.cos(a) * L * 0.85, cy + Math.sin(a) * L * 0.85, 'rgba(170,140,230,0.55)', 0.4);
+        }
+        if (!pass) { ell(ctx, cx, cy, rr, rr * 0.82); fs(ctx, rad(ctx, cx - 2, cy - 3, 0.5, rr + 1, [0, '#7a5a9a', 0.5, '#3a2050', 1, '#140a1e']), '#0a0510', 0.9); }
+      }
+      ctx.fillStyle = 'rgba(220,200,255,0.75)'; ell(ctx, cx - 2.2, cy - 3, 1.6, 0.9, -0.4); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,0.2)'; ell(ctx, cx + 1, S - 1.6, rr + 1, 1.3); ctx.fill();
+    }
+    return;
   } else if (theme === 'okuhida') {
     // 黒曜石の結晶
     for (let i = 0; i < 4; i++) {
@@ -510,7 +748,7 @@ function drawSpike(ctx, P, tx, ty, level, theme) {
 
 // ---------------------------------------------------------------- 水・溶岩（半透明・静止画）
 function drawWater(ctx, P, tx, ty, level, theme, top) {
-  const deep = theme === 'gujo' ? ['rgba(90,200,200,0.42)', 'rgba(30,120,150,0.58)'] : theme === 'okuhida' ? ['rgba(150,210,200,0.5)', 'rgba(70,150,150,0.62)'] : ['rgba(80,170,230,0.45)', 'rgba(30,90,170,0.62)'];
+  const deep = theme === 'okinawa' ? ['rgba(110,236,214,0.34)', 'rgba(18,128,190,0.56)'] : theme === 'gujo' ? ['rgba(90,200,200,0.42)', 'rgba(30,120,150,0.58)'] : theme === 'okuhida' ? ['rgba(150,210,200,0.5)', 'rgba(70,150,150,0.62)'] : ['rgba(80,170,230,0.45)', 'rgba(30,90,170,0.62)'];
   const y0 = top ? 6 : 0;
   const dep = Math.min(4, depth2(level, tx, ty));
   ctx.fillStyle = lin(ctx, 0, y0, 0, S, [0, dep ? deep[1] : deep[0], 1, deep[1]]);
@@ -522,6 +760,17 @@ function drawWater(ctx, P, tx, ty, level, theme, top) {
     const yy = y0 + 10 + k * 12;
     ctx.beginPath(); for (let x = 0; x <= S; x += 3) { const y = yy + Math.sin((gx + x) / 6 + ty * 2 + k) * 2; x ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke();
   }
+  if (theme === 'okinawa') {
+    // 透明な海：網目の光（コースティクス）と、細かい泡
+    ctx.strokeStyle = 'rgba(230,255,250,0.22)'; ctx.lineWidth = 0.8;
+    for (let k = 0; k < 3; k++) {
+      ctx.beginPath();
+      for (let x = 0; x <= S; x += 2) { const y = y0 + 4 + k * 10 + Math.sin((gx + x) / 4.2 + k * 1.7 + ty) * 2.4 + Math.sin((gx + x) / 1.9 + k) * 0.8; x ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+      ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    for (let i = 0; i < 2; i++) { ell(ctx, hash(tx, ty * 3 + i, 171) * 34, y0 + 6 + hash(ty, tx + i, 172) * (S - y0 - 8), 0.8, 0.8); ctx.fill(); }
+  }
   if (top) {
     ctx.beginPath(); ctx.moveTo(0, S);
     for (let x = 0; x <= S; x += 2) ctx.lineTo(x, y0 + Math.sin((gx + x) / 5.5) * 1.3);
@@ -531,6 +780,7 @@ function drawWater(ctx, P, tx, ty, level, theme, top) {
     ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1.4; ctx.stroke();
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
     for (let i = 0; i < 3; i++) { const x = hash(tx, i, 81) * 34; ctx.fillRect(x, y0 + 3 + hash(tx, i, 82) * 4, 3 + hash(i, tx) * 4, 0.9); }
+    if (theme === 'okinawa') sparkle(ctx, 6 + hash(tx, ty, 173) * 24, y0 - 0.5, 2.2, '#ffffff', 0.9);
   }
 }
 function depth2(level, tx, ty) { let d = 0; while (d < 4) { const t = level.get(tx, ty - d - 1); if (t !== T.WATER && t !== T.WATER_TOP && t !== T.LAVA && t !== T.LAVA_TOP) break; d++; } return d; }
@@ -602,6 +852,9 @@ function drawSlope(ctx, P, t, tx, ty, level, theme) {
     band(7, SNOW); band(2, '#ffffff', -2.5); band(1.2, SNOWD, 6.2);
   } else if (top === 'grass') {
     band(6, P.grass); band(2, P.grassL, 0); band(1.4, P.grassD, 5.5);
+  } else if (top === 'beach') {
+    band(9, '#f2e8cc'); band(3, '#fffcf2', 0); band(1.2, '#d2be92', 8);
+    band(0.7, 'rgba(120,190,190,0.45)', 3.4); band(0.6, 'rgba(255,255,255,0.9)', 2.7);
   } else if (top === 'sand') {
     band(7, '#d8c8a0'); band(1.6, '#ece0c0', 0); band(1, '#a8946a', 6.4);
   } else if (top === 'cobble' || top === 'curb') {
@@ -613,8 +866,19 @@ function drawSlope(ctx, P, t, tx, ty, level, theme) {
   }
   ctx.restore();
   // 輪郭（斜面の線）
-  ctx.strokeStyle = top === 'snow' ? SNOWO : P.out; ctx.lineWidth = 1.4;
+  ctx.strokeStyle = top === 'snow' ? SNOWO : top === 'beach' ? '#8a7450' : P.out; ctx.lineWidth = 1.4;
   ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.stroke();
+  if (top === 'beach') {
+    const r = rng(tx * 19 + ty * 7);
+    for (let i = 0; i < 10; i++) { const u = r(), d = 1 + r() * 6; ctx.fillStyle = r() < 0.5 ? 'rgba(190,168,128,0.8)' : '#ffffff'; ctx.fillRect(p0[0] + dx * u - nx * d, p0[1] + dy * u - ny * d, 0.9, 0.9); }
+    if (r() < 0.45) {
+      const u = 0.2 + r() * 0.6, x = p0[0] + dx * u - nx * 4, y = p0[1] + dy * u - ny * 4, col = r() < 0.5 ? '#f6b8b0' : '#f8e4c8';
+      ctx.save(); ctx.translate(x, y); ctx.rotate(Math.atan2(dy, dx));
+      ctx.beginPath(); ctx.moveTo(0, 1.4); ctx.arc(0, 1.4, 3, Math.PI * 1.08, Math.PI * 1.92); ctx.closePath();
+      fs(ctx, lin(ctx, 0, -2, 0, 2, [0, '#ffffff', 1, col]), shade(col, -0.45), 0.6);
+      ctx.restore();
+    }
+  }
   if (top === 'grass') {
     const r = rng(tx * 17 + ty * 5);
     for (let i = 0; i < 5; i++) {

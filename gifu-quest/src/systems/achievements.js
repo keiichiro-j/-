@@ -25,6 +25,8 @@ export function progressOf(a, d, ctx = {}) {
   switch (c.type) {
     case 'mainCleared': return { cur: d.cleared.filter((s) => s >= 1 && s <= 6).length, max: n };
     case 'stageCleared': return { cur: d.cleared.includes(c.stage) ? 1 : 0, max: 1 };
+    // そのステージをミスも被弾もなしでクリア（recordClear が records.noMissStages に記録。得た後は称号そのものが記録）
+    case 'stageNoMiss': return { cur: d.achievements[a.id] || (d.records.noMissStages && d.records.noMissStages[c.stage]) ? 1 : 0, max: 1 };
     case 'seenEnding': return { cur: d.seenEnding ? 1 : 0, max: 1 };
     case 'sarubobo': return { cur: saruboboCount(d), max: n };
     case 'rec': return { cur: d.records[c.key] || 0, max: n };
@@ -65,12 +67,12 @@ export const gotCount = (d) => ACHIEVEMENTS.filter((a) => d.achievements[a.id]).
  */
 export function recordClear(d, info, now = new Date(), out = []) {
   const st = info.stage;
-  if (typeof st !== 'number' || st < 1 || st > 7) return out;
+  if (typeof st !== 'number' || st < 1 || st > 8) return out;   // 1〜6・うら7・特別ステージ8（沖縄）
   const R = d.records, s = info.stats || {};
   const noMiss = (s.hits || 0) + (s.misses || 0) === 0;
   R.clears++;
   R.charClears[info.char] = (R.charClears[info.char] || 0) + 1;
-  if (noMiss) R.noMissClears++;
+  if (noMiss) { R.noMissClears++; (R.noMissStages || (R.noMissStages = {}))[st] = true; }
   addMission(d, 'clears', 1, {}, now, out);
   addMission(d, 'charClears', 1, { char: info.char }, now, out);
   if (noMiss) addMission(d, 'noMissClears', 1, {}, now, out);

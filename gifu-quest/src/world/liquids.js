@@ -45,10 +45,11 @@ class WaterLevel extends Entity {
   draw(ctx, a) { drawWater(ctx, this.world, this.q, this.world.camera); }
 }
 registerEntity('waterLevel', WaterLevel);
-function drawWater(ctx, w, q, cam) {
+// floorY：水の底（ドット。省略でレベルの下端）。潮の干潟は床の上だけに水を描く
+function drawWater(ctx, w, q, cam, floorY) {
   const x0 = Math.max(q.x0, cam.x - 20), x1 = Math.min(q.x1, cam.x + cam.vw + 20);
   if (x1 <= x0) return;
-  const bottom = Math.min(w.level.pxH, cam.y + cam.vh + 20);
+  const bottom = Math.min(floorY ?? w.level.pxH, cam.y + cam.vh + 20);
   if (q.y > bottom) return;
   const t = w.time * 2.2;
   ctx.fillStyle = 'rgba(46,118,190,0.42)';
@@ -188,3 +189,76 @@ function surfacePathBack(ctx, x0, x1, y, t, amp, freq) {
   ctx.lineTo(x0, y + Math.sin(x0 * freq + t) * amp);
 }
 registerEntity('risingLava', RisingLava);
+
+// ---- 潮の満ち引き：x0, x1, yLow, yHigh（水面の行・タイル）, period（1周の秒。既定12）, phase（0..1。既定0）, bottom（水の底の行。干潟なら床の行）----
+// waterLevel と同じ水域を、一定の周期で上下させる（ステージ8）。1周は「引き潮で止まる35%→満ちる15%→満ち潮で止まる35%→引く15%」。
+// 満ちる前の warn 秒（既定2.5秒）は、波打ち際（水域の両端と水面）の泡がだんだん増える予告。範囲のタイルは空（.）にしておく
+export const TIDE = { lowHold: 0.35, rise: 0.15, highHold: 0.35, warn: 2.5 };
+class Tide extends WaterLevel {
+  constructor(w, s) {
+    super(w, s);
+    this.period = Math.max(4, s.period ?? 12);
+    this.phase = s.phase ?? 0;
+    this.bottomY = s.bottom != null ? s.bottom * TILE : null;
+    this.warnK = 0; this.level = 0; this.wasRising = false;
+    this.q.y = this.yLow; this.y = this.yLow;
+  }
+  toggle() {}   // スイッチでは動かない
+  // 周期の中の位置 → 水位（0=引き潮 1=満ち潮）と予告の強さ（0..1）
+  static levelAt(u, period) {
+    const A = TIDE.lowHold, B = A + TIDE.rise, C = B + TIDE.highHold, D = C + TIDE.rise;
+    const sm = (t) => t * t * (3 - 2 * t);
+    let level, warn = 0;
+    if (u < A) { level = 0; const left = (A - u) * period; if (left < TIDE.warn) warn = 1 - left / TIDE.warn; }
+    else if (u < B) { level = sm((u - A) / TIDE.rise); warn = 1 - level; }
+    else if (u < C) level = 1;
+    else if (u < D) level = 1 - sm((u - C) / TIDE.rise);
+    else level = 0;
+    return { level, warn };
+  }
+  update(dt) {
+    const w = this.world, q = this.q;
+    const u = (((w.time / this.period + this.phase) % 1) + 1) % 1;
+    const r = Tide.levelAt(u, this.period);
+    this.level = r.level; this.warnK = r.warn;
+    q.y = this.yLow + (this.yHigh - this.yLow) * r.level;
+    this.moving = r.level > 0 && r.level < 1 ? 1 : 0;
+    this.y = q.y; this.h = Math.max(1, w.level.pxH - q.y);
+    const rising = this.moving && r.warn > 0;
+    if (rising && !this.wasRising && this.near(200)) w.sfx('splash', { vol: 0.35 });
+    this.wasRising = rising;
+    // 予告：波打ち際の泡。満ちる直前ほど多い（画面の近くだけ）
+    if (!this.near(80)) return;
+    const every = r.warn > 0 ? Math.max(2, Math.round(14 - r.warn * 12)) : 24;
+    if (w.tick % every === 0) {
+      const edge = (w.tick / every) & 1;
+      const ex = edge ? q.x1 - 10 - Math.random() * 30 : q.x0 + 10 + Math.random() * 30;
+      w.particles.spawn({ x: ex, y: q.y - 2, vx: (edge ? -1 : 1) * (20 + 40 * r.warn), vy: -20 - Math.random() * 30, life: 0.6 + 0.4 * r.warn, size: 3 + 3 * r.warn, size1: 6 + 4 * r.warn, color: 'rgba(245,252,255,0.9)', shape: 'ring', front: true });
+      if (r.warn > 0.3) {
+        const cam = w.camera, x = Math.max(q.x0, cam.x) + Math.random() * Math.max(1, Math.min(q.x1, cam.x + cam.vw) - Math.max(q.x0, cam.x));
+        w.particles.spawn({ x, y: q.y - 1, vx: 0, vy: -15, life: 0.5, size: 2, size1: 5, color: 'rgba(235,248,255,0.85)', shape: 'ring', front: true });
+      }
+    }
+  }
+  near(m) { const c = this.world.camera, q = this.q; return q.x1 > c.x - m && q.x0 < c.x + c.vw + m; }
+  draw(ctx, a) {
+    const w = this.world, q = this.q, cam = w.camera;
+    const dry = this.bottomY != null && q.y >= this.bottomY - 2;
+    if (!dry) drawWater(ctx, w, q, cam, this.bottomY);
+    // 波打ち際の泡の帯（予告が強いほど濃く、満ち潮の間はうすく）
+    const k = Math.max(this.warnK, dry ? 0.15 : 0.3);
+    const x0 = Math.max(q.x0, cam.x - 20), x1 = Math.min(q.x1, cam.x + cam.vw + 20);
+    if (x1 <= x0) return;
+    const fy = dry ? this.bottomY - 3 : q.y - 1;
+    const o = this._fo || (this._fo = { alpha: 1 });
+    for (const [ex, dir] of [[q.x0, 1], [q.x1, -1]]) {
+      if (ex < x0 - 40 || ex > x1 + 40) continue;
+      const nb = 2 + Math.round(k * 5);
+      for (let i = 0; i < nb; i++) {
+        o.alpha = Math.min(1, k * 1.2) * (1 - i / (nb + 1));
+        drawSprite(ctx, 'gim_foam', (i + (w.tick >> 4)) & 3, ex + dir * (8 + i * 11 + Math.sin(w.time * 3 + i) * 3), fy + Math.sin(w.time * 4 + i * 1.7) * 1.5, o);
+      }
+    }
+  }
+}
+registerEntity('tide', Tide);

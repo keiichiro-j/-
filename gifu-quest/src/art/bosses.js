@@ -698,6 +698,188 @@ function defineDragon() {
   }, 58, 2);
 }
 
+
+// =====================================================================
+// 8. 大シーサー（沖縄・ニライカナイの島）：赤瓦色の獅子。しっくい白の口元・うず巻きのたてがみ・金の眉とつめ
+//    阿（口を開けた方・mouth 'a'）と吽（閉じた方・'un'）。予告で目が光り、たてがみが逆立つ（bristle）
+// =====================================================================
+const SH = { body: ['#ffa070', '#d65a2e', '#74220e'], dark: ['#e07a4a', '#a8401e', '#561808'], mane: ['#ee6a3a', '#b83c1a', '#5c1606'], plaster: ['#ffffff', '#f7eee2', '#cdbba6'], gold: ['#fff6b0', '#f2c440', '#9a6a10'], nose: ['#e05a3a', '#9a2a14', '#4a0c04'] };
+const SH_STONE = { body: ['#e2e0d8', '#a8a6a0', '#56544e'], dark: ['#c8c6c0', '#8a8882', '#44423e'], mane: ['#d0cec6', '#94928c', '#4a4844'], plaster: ['#f2f2ee', '#d8d8d2', '#9a9a94'], gold: ['#e8e6dc', '#b8b6ac', '#6a6860'], nose: ['#b0aea8', '#7a7872', '#3a3834'] };
+// うず巻き（金のすじ）
+function swirl(ctx, x, y, r, turns, color, lw, dir = 1) {
+  ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.lineCap = 'round';
+  ctx.beginPath();
+  const n = 22;
+  for (let i = 0; i <= n; i++) { const u = i / n, a = dir * u * turns * TAU, rr = r * (1 - u * 0.85); const px = x + Math.cos(a) * rr, py = y + Math.sin(a) * rr; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+  ctx.stroke();
+}
+// たてがみのひと房（うず巻き）。bristle で外へ尖る
+function shCurl(ctx, P, x, y, r, ang, bristle) {
+  if (bristle > 0.05) {
+    const L = r * (1.2 + bristle * 1.1);
+    paint(ctx, (c) => { c.moveTo(x + Math.cos(ang - 0.5) * r * 0.8, y + Math.sin(ang - 0.5) * r * 0.8); c.lineTo(x + Math.cos(ang) * (r + L), y + Math.sin(ang) * (r + L)); c.lineTo(x + Math.cos(ang + 0.5) * r * 0.8, y + Math.sin(ang + 0.5) * r * 0.8); c.closePath(); }, lin(ctx, x, y, x + Math.cos(ang) * (r + L), y + Math.sin(ang) * (r + L), [P.mane[1], P.gold[1]]), 2);
+  }
+  ball(ctx, x, y, r, r * 0.92, P.mane[0], P.mane[1], P.mane[2], 2.2);
+  swirl(ctx, x, y, r * 0.72, 1.3, P.gold[1], Math.max(1.6, r * 0.16), ang > Math.PI / 2 ? -1 : 1);
+}
+// 足（柱＋丸い足先と金のつめ）。kx：前後の振り
+function shLeg(ctx, P, x, top, y, kx, far) {
+  const c = far ? P.dark : P.body;
+  const fx = x + kx;
+  paint(ctx, (cc) => { cc.moveTo(x - 15, top); cc.quadraticCurveTo(x - 17 + kx * 0.4, (top + y) / 2, fx - 14, y - 10); cc.lineTo(fx + 14, y - 10); cc.quadraticCurveTo(x + 17 + kx * 0.4, (top + y) / 2, x + 15, top); cc.closePath(); }, lin(ctx, x - 16, 0, x + 16, 0, [c[0], c[1], c[2]]), 2.4);
+  ball(ctx, fx + 4, y - 9, 19, 11, far ? P.dark[0] : P.plaster[0], far ? P.dark[1] : P.plaster[1], far ? P.dark[2] : P.plaster[2], 2.2);
+  ctx.fillStyle = P.gold[1]; ctx.strokeStyle = OL; ctx.lineWidth = 1.2;
+  for (let i = 0; i < 3; i++) { const cx = fx + 10 + i * 6 - 4; ctx.beginPath(); ctx.moveTo(cx - 3, y - 4); ctx.lineTo(cx, y + 1); ctx.lineTo(cx + 3, y - 4); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+}
+// 頭（右向き）。o: { mouth 'a'|'un'|'wide', eyes, bristle, tilt }
+function shHead(ctx, P, hx, hy, o) {
+  const br = o.bristle || 0;
+  ctx.save(); ctx.translate(hx, hy); ctx.rotate(o.tilt || 0);
+  // 後ろのたてがみ（輪）
+  for (let i = 0; i < 9; i++) { const a = Math.PI * (0.45 + i * 0.16), d = 46 + br * 6; shCurl(ctx, P, Math.cos(a) * d - 6, Math.sin(a) * d * 0.95, 15 + (i % 2) * 3, a, br); }
+  // 耳
+  ball(ctx, -18, -40, 12, 10, P.body[0], P.body[1], P.body[2], 2.2);
+  ctx.fillStyle = 'rgba(255,170,150,0.8)'; ctx.beginPath(); ctx.ellipse(-16, -40, 5, 4, 0, 0, TAU); ctx.fill();
+  // 顔
+  ball(ctx, 4, -2, 46, 42, P.body[0], P.body[1], P.body[2], 2.8);
+  // 口（下あご）
+  const m = o.mouth || 'un';
+  if (m !== 'un') {
+    const op = m === 'wide' ? 1 : 0.62;
+    paint(ctx, (c) => { c.moveTo(6, 18); c.quadraticCurveTo(30, 30 + op * 34, 56, 22); c.lineTo(58, 14); c.closePath(); }, rad(ctx, 34, 26, 2, 34, ['#8a1a24', '#5a0a14', '#2a0408']), 2.4);
+    // 舌
+    paint(ctx, ell(30, 22 + op * 18, 13, 6 + op * 3), lin(ctx, 0, 14 + op * 18, 0, 30 + op * 18, ['#ff9aa8', '#e0506a']), 1.4);
+    // 下の歯・きば
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = OL; ctx.lineWidth = 1.2;
+    for (let i = 0; i < 4; i++) { const tx = 16 + i * 10; ctx.beginPath(); ctx.moveTo(tx - 3, 28 + op * 26 - Math.abs(i - 1.5) * 4); ctx.lineTo(tx, 20 + op * 24 - Math.abs(i - 1.5) * 4); ctx.lineTo(tx + 3, 28 + op * 26 - Math.abs(i - 1.5) * 4); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+    // あごのしっくい
+    paint(ctx, (c) => { c.moveTo(4, 24 + op * 22); c.quadraticCurveTo(30, 44 + op * 30, 58, 26 + op * 14); c.quadraticCurveTo(40, 34 + op * 26, 4, 24 + op * 22); c.closePath(); }, P.plaster[1], 1.8);
+  }
+  // 口元のしっくい（鼻の下のふくらみ）
+  paint(ctx, ell(30, 12, 28, 17), rad(ctx, 30, 8, 2, 30, P.plaster), 2.2);
+  if (m === 'un') {
+    // 閉じた口：一文字＋上向きのきば
+    ctx.strokeStyle = OL; ctx.lineWidth = 2.6; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(6, 24); ctx.quadraticCurveTo(30, 34, 56, 22); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.lineWidth = 1.4;
+    for (const tx of [16, 46]) { ctx.beginPath(); ctx.moveTo(tx - 4, 28); ctx.lineTo(tx, 17); ctx.lineTo(tx + 4, 28); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+    paint(ctx, (c) => { c.moveTo(8, 27); c.quadraticCurveTo(30, 44, 54, 26); c.quadraticCurveTo(30, 36, 8, 27); c.closePath(); }, P.plaster[1], 1.6);
+  } else {
+    // 上の歯
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = OL; ctx.lineWidth = 1.2;
+    for (let i = 0; i < 5; i++) { const tx = 12 + i * 10; ctx.beginPath(); ctx.moveTo(tx - 4, 22); ctx.lineTo(tx, 30 + (i === 0 || i === 4 ? 6 : 0)); ctx.lineTo(tx + 4, 22); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+  }
+  // 鼻
+  ball(ctx, 46, 2, 12, 10, P.nose[0], P.nose[1], P.nose[2], 2.2);
+  shine(ctx, 42, -2, 4, 2.4, 0.7);
+  // 目と金の眉（うず巻き）
+  const em = o.eyes || 'normal';
+  eye(ctx, 6, -14, 12, em, 0.45); eye(ctx, 32, -16, 11, em, 0.45);
+  const browY = em === 'angry' ? -26 : -32;
+  for (const [bx, s] of [[2, 1.0], [30, 0.9]]) {
+    paint(ctx, (c) => { c.moveTo(bx - 12 * s, browY + 6); c.quadraticCurveTo(bx, browY - 6 * s, bx + 14 * s, browY + (em === 'angry' ? 8 : 2)); c.lineTo(bx + 12 * s, browY + (em === 'angry' ? 12 : 6)); c.quadraticCurveTo(bx, browY, bx - 10 * s, browY + 10); c.closePath(); }, lin(ctx, 0, browY - 6, 0, browY + 10, P.gold), 1.6);
+    swirl(ctx, bx - 12 * s, browY + 4, 5 * s, 1, P.gold[2], 1.6, -1);
+  }
+  // ほっぺ
+  if (P === SH) { blush(ctx, -10, 8, 10); }
+  // 頬とあごのたてがみ（前）
+  for (let i = 0; i < 3; i++) { const a = Math.PI * (0.62 + i * 0.13); shCurl(ctx, P, Math.cos(a) * 44 - 4, Math.sin(a) * 42 + 4, 12, a, br * 0.7); }
+  // 額の宝珠（南の宝珠の力）
+  if (P === SH) { ball(ctx, 14, -38, 6, 6, '#ffd0e0', '#ff7aa8', '#a8285a', 1.6); glowDot(ctx, 14, -38, 12 + br * 8, 'rgba(255,140,190,0.6)'); }
+  ctx.restore();
+}
+// 全身（右向き、足元 (x,y)）。o: { crouch, run(-1..1), mouth, eyes, bristle, tail(0..1), lie, jump, stone }
+function shBody(ctx, x, y, o) {
+  const P = o.stone ? SH_STONE : SH;
+  const cr = o.crouch || 0, br = o.bristle || 0, lie = o.lie || 0;
+  const bx = x - 20, by = y - 64 + cr * 18 + lie * 26;
+  const hx = x + 40 + cr * 18 + lie * 12, hy = y - 112 + cr * 44 + lie * 52;
+  const rk = o.run || 0, jk = o.jump || 0;
+  // しっぽ（炎のようなうず巻き）
+  const ta = o.tail ?? 0.3;
+  const tx = bx - 60, ty = by - 14;
+  const ex = tx - 30 + ta * 24, ey = ty - 34 - ta * 46;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = OL; ctx.lineWidth = 17; ctx.beginPath(); ctx.moveTo(tx + 10, ty); ctx.quadraticCurveTo(tx - 34, ty + 4, ex, ey); ctx.stroke();
+  ctx.strokeStyle = P.body[1]; ctx.lineWidth = 12; ctx.beginPath(); ctx.moveTo(tx + 10, ty); ctx.quadraticCurveTo(tx - 34, ty + 4, ex, ey); ctx.stroke();
+  for (let i = 0; i < 3; i++) shCurl(ctx, P, ex + Math.cos(i * 2.1 + ta) * 12, ey + Math.sin(i * 2.1 + ta) * 10 - 6, 13 - i, -Math.PI / 2 - 0.6 + i * 0.6, br);
+  // 奥の足
+  const legTop = by + 12;
+  if (lie < 0.5) {
+    shLeg(ctx, P, bx - 30, legTop, y, -rk * 16 - jk * 14, true);
+    shLeg(ctx, P, bx + 58, legTop - 4, y, rk * 16 + jk * 18, true);
+  }
+  // 胴
+  ball(ctx, bx, by, 70, 42 - cr * 4, P.body[0], P.body[1], P.body[2], 2.8);
+  paint(ctx, ell(bx + 14, by + 18, 48, 18), rad(ctx, bx + 14, by + 14, 2, 50, P.plaster), 0);
+  // 胴のうず巻き模様（金）と背中のたてがみ
+  swirl(ctx, bx - 30, by - 2, 16, 1.5, P.gold[1], 3);
+  swirl(ctx, bx - 30, by - 2, 16, 1.5, 'rgba(60,10,0,0.25)', 1);
+  for (let i = 0; i < 4; i++) shCurl(ctx, P, bx - 40 + i * 22, by - 36 + Math.abs(i - 1.5) * 3, 11, -Math.PI / 2, br * 0.8);
+  shine(ctx, bx - 8, by - 26, 22, 6, 0.3);
+  // 手前の足
+  if (lie < 0.5) {
+    shLeg(ctx, P, bx - 44, legTop + 4, y, rk * 18 - jk * 18, false);
+    shLeg(ctx, P, bx + 44, legTop, y, -rk * 18 + jk * 22, false);
+  } else {
+    // 伏せ：前足をそろえて前へ
+    for (const [px, k] of [[x + 50, 1], [x + 70, 0]]) ball(ctx, px, y - 10, 22, 11, k ? P.plaster[0] : P.dark[0], k ? P.plaster[1] : P.dark[1], k ? P.plaster[2] : P.dark[2], 2.2);
+    ball(ctx, bx - 40, y - 14, 24, 14, P.body[0], P.body[1], P.body[2], 2.2);
+  }
+  shHead(ctx, P, hx, hy, o);
+  if (o.stone) {
+    // ひび
+    ctx.strokeStyle = 'rgba(40,40,40,0.55)'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(hx - 10, hy - 30); ctx.lineTo(hx - 2, hy - 12); ctx.lineTo(hx - 12, hy + 4); ctx.moveTo(bx + 10, by - 30); ctx.lineTo(bx + 18, by - 10); ctx.lineTo(bx + 8, by + 8); ctx.stroke();
+  }
+}
+function defineShisa() {
+  const N = 'boss_shisa_';
+  const W = 250, H = 236, X = 128, Y = 232;
+  for (const m of ['a', 'un']) {
+    const n = N + m + '_';
+    def(n + 'idle', W, H, 2, (ctx, f) => shBody(ctx, X, Y, { mouth: m, crouch: f * 0.05, tail: 0.3 + f * 0.1 }));
+    def(n + 'tell', W, H, 2, (ctx, f) => { shBody(ctx, X, Y, { mouth: m, crouch: 0.45, eyes: 'glow', bristle: 0.8 + f * 0.2, tail: 0.9 }); });
+    def(n + 'jump', W, H, 1, (ctx) => shBody(ctx, X, Y, { mouth: m === 'un' ? 'un' : 'wide', crouch: -0.1, jump: 1, eyes: 'angry', bristle: 0.6, tail: 1 }));
+    def(n + 'run', W, H, 2, (ctx, f) => shBody(ctx, X, Y, { mouth: m, crouch: 1, run: f ? 1 : -1, eyes: 'angry', bristle: 0.7, tail: 0.1 }));
+    def(n + 'rest', W, H, 2, (ctx, f) => { shBody(ctx, X, Y, { mouth: m, lie: 1, eyes: 'dizzy', tail: 0 }); stars(ctx, X + 52, Y - 112, 30, 3, f * 1.2); });
+    def(n + 'tired', W, H, 2, (ctx, f) => { shBody(ctx, X, Y, { mouth: 'a', lie: 1, crouch: f * 0.04, eyes: 'closed', tail: 0.1 }); sweat(ctx, X + 96, Y - 96, 8); for (let i = 0; i < 2; i++) ball(ctx, X + 112 + i * 10 + f * 3, Y - 58 - i * 8, 6 + i * 2, 5 + i * 2, 'rgba(255,255,255,0.9)', 'rgba(240,240,240,0.7)', 'rgba(210,210,210,0.5)', 0); });
+    def(n + 'hurt', W, H, 1, (ctx) => { shBody(ctx, X, Y, { mouth: 'a', crouch: 0.3, eyes: 'hurt', bristle: 0.3, tail: 0.6 }); sweat(ctx, X + 100, Y - 168, 8); });
+    def(n + 'angry', W, H, 2, (ctx, f) => { shBody(ctx, X, Y, { mouth: m === 'un' ? 'un' : 'wide', crouch: f * 0.08, eyes: 'angry', bristle: 1, tail: 1 }); angerMark(ctx, X + 30, Y - 184, 20); });
+    def(n + 'tail', W, H, 2, (ctx, f) => shBody(ctx, X, Y, { mouth: m, crouch: 0.2, eyes: f ? 'angry' : 'glow', bristle: f ? 0.5 : 1, tail: f ? -0.2 : 1.3 }));
+    def(n + 'stone', W, H, 1, (ctx) => shBody(ctx, X, Y, { mouth: m, stone: true, eyes: 'closed', tail: 0.4 }));
+  }
+  def(N + 'a_roar', W, H, 2, (ctx, f) => shBody(ctx, X, Y, { mouth: 'wide', crouch: 0.15 + f * 0.05, eyes: 'angry', bristle: 1, tail: 1.1 }));
+  // 赤瓦（尻尾で飛ばす）
+  def(N + 'kawara', 34, 20, 1, (ctx) => {
+    paint(ctx, (c) => { c.moveTo(3, 14); c.quadraticCurveTo(17, -2, 31, 14); c.lineTo(28, 18); c.quadraticCurveTo(17, 6, 6, 18); c.closePath(); }, lin(ctx, 0, 2, 0, 18, ['#ff9a6a', '#d0502a', '#7a200e']), 1.8);
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(6, 16); ctx.quadraticCurveTo(17, 4, 28, 16); ctx.stroke();
+  }, 17, 10);
+  // 赤瓦の屋根（アリーナの両端。しっくいの目地と、てっぺんの白い棟）
+  def(N + 'roof', 160, 150, 1, (ctx) => {
+    // 柱と壁（しっくいの白）
+    paint(ctx, (c) => c.rect(22, 44, 116, 104), lin(ctx, 0, 44, 0, 148, ['#f6efe2', '#e4d6c0', '#bfae94']), 2.4);
+    ctx.fillStyle = '#5a3a24'; for (const px of [22, 70, 122]) { ctx.fillRect(px, 44, 16, 104); ctx.strokeStyle = OL; ctx.lineWidth = 2; ctx.strokeRect(px, 44, 16, 104); }
+    ctx.fillStyle = 'rgba(40,20,10,0.35)'; ctx.fillRect(38, 58, 32, 40); ctx.fillRect(86, 58, 36, 40);
+    // 屋根（赤瓦）
+    paint(ctx, (c) => { c.moveTo(0, 50); c.lineTo(26, 6); c.lineTo(134, 6); c.lineTo(160, 50); c.closePath(); }, lin(ctx, 0, 6, 0, 50, ['#ff8a5a', '#d04a24', '#8a2410']), 2.6);
+    ctx.strokeStyle = 'rgba(255,248,236,0.9)'; ctx.lineWidth = 2.2;
+    for (let i = 1; i < 4; i++) { const yy = 6 + i * 11; ctx.beginPath(); ctx.moveTo(26 - i * 6.5, yy); ctx.lineTo(134 + i * 6.5, yy); ctx.stroke(); }
+    ctx.strokeStyle = 'rgba(110,20,0,0.45)'; ctx.lineWidth = 1.4;
+    for (let i = 0; i < 12; i++) { ctx.beginPath(); ctx.moveTo(24 + i * 10, 7); ctx.lineTo(10 + i * 12.2, 49); ctx.stroke(); }
+    paint(ctx, (c) => c.rect(22, 0, 116, 9), '#fbf6ec', 2);
+  }, 80, 6);
+  // 咆哮の衝撃波（地をはう波）
+  def(N + 'wave', 70, 56, 3, (ctx, f) => {
+    for (let k = 0; k < 3; k++) {
+      ctx.strokeStyle = `rgba(255,${200 - k * 40},${150 - k * 30},${0.9 - k * 0.25})`; ctx.lineWidth = 6 - k * 1.5;
+      ctx.beginPath(); ctx.ellipse(20 + k * 10 + f * 3, 52, 20 + k * 6, 44 - k * 8, 0, -Math.PI / 2, Math.PI / 2 * 0.05); ctx.stroke();
+    }
+    glowDot(ctx, 30, 46, 28, 'rgba(255,170,120,0.7)');
+    paint(ctx, (c) => { c.moveTo(2, 56); c.quadraticCurveTo(36, 10 + f * 4, 50, 30); c.quadraticCurveTo(60, 44, 68, 56); c.closePath(); }, lin(ctx, 0, 10, 0, 56, ['rgba(255,250,230,0.95)', 'rgba(255,170,120,0.85)', 'rgba(220,90,60,0.6)']), 2, 'rgba(120,30,10,0.7)');
+  }, 35, 56);
+}
+
 export function defineBossArt() {
   defineMusasabi();
   defineSalamander();
@@ -705,4 +887,5 @@ export function defineBossArt() {
   defineYatai();
   defineYukioni();
   defineDragon();
+  defineShisa();
 }

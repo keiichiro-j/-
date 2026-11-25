@@ -78,15 +78,15 @@ const isLavaCh = (c) => c === 'L' || c === 'l';
 const isOpenCh = (c) => !isSolidCh(c) && !isLavaCh(c) && c !== '^';
 const isFloorCh = (c) => isSolidCh(c) || isSlopeCh(c) || c === '-';
 
-const THEMES = ['kinka', 'nagara', 'gujo', 'takayama', 'shirakawa', 'okuhida'];
+const THEMES = ['kinka', 'nagara', 'gujo', 'takayama', 'shirakawa', 'okuhida', 'okinawa'];
 const TIMES = ['day', 'dusk', 'night', 'festival'];
 const WEATHERS = ['sunny', 'cloudy', 'rain', 'shower', 'storm', 'thunder', 'fog', 'snow', 'blizzard', 'ash'];
-const BOSSES = ['musasabi', 'salamander', 'dancer', 'yatai', 'yukioni', 'dragon'];
+const BOSSES = ['musasabi', 'salamander', 'dancer', 'yatai', 'yukioni', 'dragon', 'shisa'];
 const ENEMY_TYPES = ['walker', 'spiky', 'hopper', 'flyer', 'thrower', 'popper', 'charger', 'shielder'];
 // 床として乗れる仕掛け（近くにあれば穴・段差を許可し、到達の探索でも足場として扱う）
 const PLATFORM_TYPES = ['movingPlatform', 'gondola', 'boat', 'fallingPlatform', 'rhythmPlatform', 'festivalFloat', 'tightrope', 'steamVent', 'bouncer', 'lantern'];
 // 範囲で置くもの（x,y 一点ではない）
-const REGION_TYPES = ['cameraZone', 'bossArena', 'waterLevel', 'risingLava', 'windZone', 'lightningZone', 'autoScroll'];
+const REGION_TYPES = ['cameraZone', 'bossArena', 'waterLevel', 'tide', 'risingLava', 'windZone', 'lightningZone', 'autoScroll'];
 // 壁に埋まっていてはいけないもの
 const POINT_TYPES = ['start', 'coin', 'sarubobo', 'skewer', 'heart', 'checkpoint', 'sign', 'goal', 'waterSwitch', ...ENEMY_TYPES];
 
@@ -152,6 +152,13 @@ function validateLevel(data, opts = {}) {
     if (REGION_TYPES.includes(e.type)) {
       const x0 = e.x0 ?? e.x, x1 = e.x1 ?? e.x;
       if (!(x0 >= 0 && x1 <= W)) err(`${e.type} が範囲外 x0=${x0} x1=${x1}`);
+      // 潮：満ち潮の水面は引き潮より上（行が小さい）。周期が短すぎると予告（泡）を見てから動けない
+      if (e.type === 'tide') {
+        if (!(Number.isFinite(e.yLow) && Number.isFinite(e.yHigh) && e.yHigh < e.yLow && e.yHigh >= 0 && e.yLow < H)) err(`tide @${x0}: yLow,yHigh が不正（yHigh < yLow）`);
+        if (!(x1 > x0)) err(`tide の x0,x1 が不正`);
+        if (e.period != null && !(e.period >= 8)) err(`tide @${x0}: period ${e.period} 秒は短すぎる（8秒以上）`);
+        if (e.bottom != null && !(e.bottom >= e.yLow)) err(`tide @${x0}: bottom は yLow 以下の行に`);
+      }
       continue;
     }
     if (!(Number.isFinite(e.x) && Number.isFinite(e.y))) { err(`${name}: 座標がない`); continue; }
@@ -162,7 +169,7 @@ function validateLevel(data, opts = {}) {
     if (ENEMY_TYPES.includes(e.type) && !e.kind) warn(`${name}: kind がない`);
     if (e.type === 'popper') {
       const c = at(e.x, e.y);
-      const inRegion = ents.some((q) => (q.type === 'waterLevel' || q.type === 'risingLava') && e.x >= q.x0 && e.x < q.x1);
+      const inRegion = ents.some((q) => (q.type === 'waterLevel' || q.type === 'tide' || q.type === 'risingLava') && e.x >= q.x0 && e.x < q.x1);
       if (c !== '~' && c !== 'L' && !inRegion) warn(`${name}: popper は水面 ~ か溶岩の表面 L のタイルに置く`);
     }
   }
@@ -232,8 +239,8 @@ function validateLevel(data, opts = {}) {
     if (!isOpenCh(c) || !isOpenCh(at(x, y - 1))) continue;
     if (isFloorCh(at(x, y + 1)) || isSlopeCh(c)) kind[id(x, y)] = 1;
   }
-  // 水位が変わる水域は最高水位まで泳げる
-  for (const e of of('waterLevel')) {
+  // 水位が変わる水域（潮の満ち引きも）は最高水位まで泳げる
+  for (const e of [...of('waterLevel'), ...of('tide')]) {
     const top = Math.min(e.yLow ?? H, e.yHigh ?? H);
     for (let x = Math.max(0, e.x0); x < Math.min(W, e.x1); x++) for (let y = top; y < H && !isSolidCh(at(x, y)); y++) if (isOpenCh(at(x, y))) kind[id(x, y)] = kind[id(x, y)] || 2;
   }
@@ -431,7 +438,7 @@ function validateLevel(data, opts = {}) {
   }
 
   // ---- 敵の種類 ----
-  const kinds = { 1: ['uribo', 'karasu', 'iga', 'saru', 'inoshishi'], 2: ['sawagani', 'kajika', 'tonbo', 'ayu'], 3: ['chochin', 'uchiwa', 'geta', 'kappa'], 4: ['karakuri', 'tako', 'hanabi', 'shishi'], 5: ['yukidama', 'yukiusagi', 'koritoge', 'yukigumo'], 6: ['hinotama', 'yogangaeru', 'komori', 'iwanage', 'hibashira', 'kamoshika'] };
+  const kinds = { 8: ['habu', 'kometsuki', 'uni', 'yashigani', 'kanmuri', 'hirimon', 'kijimuna'], 1: ['uribo', 'karasu', 'iga', 'saru', 'inoshishi'], 2: ['sawagani', 'kajika', 'tonbo', 'ayu'], 3: ['chochin', 'uchiwa', 'geta', 'kappa'], 4: ['karakuri', 'tako', 'hanabi', 'shishi'], 5: ['yukidama', 'yukiusagi', 'koritoge', 'yukigumo'], 6: ['hinotama', 'yogangaeru', 'komori', 'iwanage', 'hibashira', 'kamoshika'] };
   const allowed = kinds[data.id];
   if (allowed) for (const e of ents) if (ENEMY_TYPES.includes(e.type) && e.kind && !allowed.includes(e.kind)) warn(`${e.type}(${e.kind}) @${e.x},${e.y} はこのステージの敵の見た目ではない`);
   stats.enemies = ents.filter((e) => ENEMY_TYPES.includes(e.type)).length;

@@ -48,7 +48,7 @@ describe('敵の種類', () => {
     }
     for (const n of ['enemy_yukigumo_warn', 'enemy_hibashira_body', 'enemy_hibashira_top', 'enemy_shot_iga', 'enemy_shot_geta', 'enemy_shot_hanabi', 'enemy_shot_yukidama', 'enemy_shot_iwa', 'enemy_shot_ougi', 'enemy_shot_tsurara',
       'gim_plat_wood', 'gim_plat_stone', 'gim_plat_cloud', 'gim_plat_ice', 'gim_plat_rock', 'gim_plat_rhythm', 'gim_gondola', 'gim_boat', 'gim_kagaribi', 'gim_float_base', 'gim_float_roof', 'gim_wheel',
-      'gim_chochin', 'gim_post', 'gim_bouncer_taiko', 'gim_bouncer_kasa', 'gim_switch', 'gim_gate', 'gim_gate_frame', 'gim_vent', 'gim_icicle', 'gim_bolt_mark', 'gim_ropeway_tower']) expect(defined.has(n), n).toBe(true);
+      'gim_chochin', 'gim_post', 'gim_bouncer_taiko', 'gim_bouncer_kasa', 'gim_bouncer_shell', 'gim_bouncer_coral', 'gim_foam', 'gim_switch', 'gim_gate', 'gim_gate_frame', 'gim_vent', 'gim_icicle', 'gim_bolt_mark', 'gim_ropeway_tower']) expect(defined.has(n), n).toBe(true);
   });
 });
 
@@ -136,5 +136,26 @@ describe('敵の動き', () => {
     s.damage(1, {});
     step(w, q, 4);
     expect(w.liquids[0].y).toBeLessThan(y0 - TILE);
+  });
+  it('潮の満ち引き：一定の周期で上下し、満ちる前に泡の予告が強くなる。スイッチでは動かない', () => {
+    const w = fakeWorld(rows);
+    const q = make(w, { type: 'tide', x0: 1, x1: 14, yLow: 2, yHigh: 0, period: 10, phase: 0 });
+    const low = 2 * TILE + 8, high = 0 * TILE + 8;
+    let minY = 1e9, maxY = -1e9, warned = false, warnBeforeRise = false;
+    for (let i = 0; i < 20 / STEP; i++) {
+      w.time += STEP; w.tick++; q.update(STEP);
+      const y = w.liquids[0].y; minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+      if (q.warnK > 0.5 && y === low) warned = true;
+      if (warned && y < low) warnBeforeRise = true;
+    }
+    expect(minY).toBeCloseTo(high, 0);
+    expect(maxY).toBeCloseTo(low, 0);
+    expect(warnBeforeRise).toBe(true);
+    // 周期どおり：同じ時刻なら同じ水位
+    w.time = 3; q.update(STEP); const a = w.liquids[0].y;
+    w.time = 13; q.update(STEP); expect(w.liquids[0].y).toBeCloseTo(a, 5);
+    // 満ち潮で止まっている間（周期の 50〜85%）は満ち潮
+    w.time = 7; q.update(STEP); expect(w.liquids[0].y).toBeCloseTo(high, 0);
+    q.toggle(); w.time = 7; q.update(STEP); expect(w.liquids[0].y).toBeCloseTo(high, 0);
   });
 });

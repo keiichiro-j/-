@@ -216,6 +216,7 @@ const ORB = [
   ['#fffbe0', '#f2c440', '#94650c'], ['#e0ffc8', '#52c24e', '#1a5e26'], ['#d8f0ff', '#3c8eea', '#10347e'],
   ['#d8fff6', '#2ec2b0', '#0b5258'], ['#ffe4f6', '#c454d4', '#4c1470'], ['#ffffff', '#a6d8ff', '#3e6ea8'],
   ['#ffe8c8', '#ff5a2a', '#7e140c'], ['#fffaf0', '#ffc8ec', '#6a4ac8'],
+  ['#fff0f6', '#ff7aa8', '#8a1a48'],   // 8：南の宝珠（さんご色）
 ];
 function drawOrb(ctx, f, cols) {
   const [hi, mid, dk] = cols;
@@ -790,12 +791,362 @@ function drawLamp(ctx) {
   ell(ctx, 12, 3, 1.6, 1.6); fs(ctx, '#3a3c40', '#0a0b0c', 0.6);
 }
 
+// ---------------------------------------------------------------- 沖縄の小物（ステージ8）
+/** シーサー（正面向き）。(cx, by) は台座の下端の中央。open: 口を開けた阿形／閉じた吽形 */
+export function drawShisa(ctx, cx, by, s = 1, open = true) {
+  ctx.save(); ctx.translate(cx, by); ctx.scale(s, s);
+  const B = '#d4793c', BL = '#f0a868', BD = '#8a3e1a', O = '#4a1e0a';
+  // 台座（漆喰の白い台）
+  rrect(ctx, -13, -6, 26, 6, 1.5); fs(ctx, lin(ctx, 0, -6, 0, 0, [0, '#f4f0e6', 1, '#b8b0a0']), '#5a5248', 1);
+  // しっぽ（後ろで炎のように巻き上がる）
+  ctx.beginPath(); ctx.moveTo(6, -10); ctx.bezierCurveTo(16, -12, 17, -22, 12, -27); ctx.bezierCurveTo(14, -22, 11, -18, 7, -16); ctx.closePath();
+  fs(ctx, lin(ctx, 0, -27, 0, -10, [0, BL, 1, BD]), O, 0.9);
+  ctx.strokeStyle = rgba(O, 0.6); ctx.lineWidth = 0.6; ctx.beginPath(); ctx.arc(13, -23, 2, 0, Math.PI * 1.5); ctx.stroke();
+  // 胴と前足
+  poly(ctx, [-9, -6, 9, -6, 7.5, -19, -7.5, -19]); fs(ctx, lin(ctx, -9, 0, 9, 0, [0, BL, 0.5, B, 1, BD]), O, 1);
+  for (const x of [-5, 5]) {
+    rrect(ctx, x - 2.6, -17, 5.2, 11.5, 2); fs(ctx, lin(ctx, x - 2.6, 0, x + 2.6, 0, [0, BL, 1, BD]), O, 0.9);
+    ell(ctx, x, -6.5, 3.4, 1.8); fs(ctx, B, O, 0.8);
+    line(ctx, x - 1, -7.6, x - 1, -5.6, O, 0.5); line(ctx, x + 1, -7.6, x + 1, -5.6, O, 0.5);
+  }
+  // たてがみ（巻き毛の輪）
+  for (let k = 0; k < 11; k++) {
+    const a = Math.PI * (0.9 + k / 10 * 1.2), x = Math.cos(a) * 12.5, y = -25 + Math.sin(a) * 11.5;
+    ell(ctx, x, y, 3.6, 3.4); fs(ctx, lin(ctx, 0, y - 3, 0, y + 3, [0, BL, 1, B]), O, 0.8);
+    ctx.strokeStyle = rgba(O, 0.7); ctx.lineWidth = 0.6; ctx.beginPath(); ctx.arc(x, y, 1.5, a, a + 4.2); ctx.stroke();
+  }
+  for (const sx of [-1, 1]) { ell(ctx, sx * 12, -16.5, 3.2, 3.6); fs(ctx, B, O, 0.8); ctx.strokeStyle = rgba(O, 0.7); ctx.lineWidth = 0.6; ctx.beginPath(); ctx.arc(sx * 12, -16.5, 1.4, 0, 4.4); ctx.stroke(); }
+  // 頭
+  ell(ctx, 0, -24, 10, 9); fs(ctx, rad(ctx, -3, -28, 1, 12, [0, '#ffc890', 0.5, B, 1, BD]), O, 1.1);
+  // 耳
+  for (const sx of [-1, 1]) { ell(ctx, sx * 9.5, -31, 2.6, 2, sx * 0.5); fs(ctx, B, O, 0.8); }
+  // 太いまゆ（巻き）
+  for (const sx of [-1, 1]) {
+    ctx.beginPath(); ctx.moveTo(sx * 1.2, -28.5); ctx.quadraticCurveTo(sx * 5, -33, sx * 8.5, -29.5); ctx.quadraticCurveTo(sx * 7.5, -31.5, sx * 5, -30.2); ctx.quadraticCurveTo(sx * 3, -29.6, sx * 1.2, -28.5);
+    fs(ctx, BD, O, 0.7);
+  }
+  // 大きな目
+  for (const sx of [-1, 1]) {
+    ell(ctx, sx * 4.4, -26.2, 3.1, 2.8); fs(ctx, '#fffaf0', O, 0.9);
+    ell(ctx, sx * 4.0, -26, 1.6, 1.7); ctx.fillStyle = '#1a0e06'; ctx.fill();
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(sx * 4.0 - 1, -27.2, 0.9, 0.9);
+  }
+  // 鼻
+  ell(ctx, 0, -22.4, 4.2, 2.2); fs(ctx, lin(ctx, 0, -24.6, 0, -20.2, [0, '#e08a4a', 1, BD]), O, 0.9);
+  ell(ctx, -1.7, -22, 0.9, 0.6); ctx.fillStyle = O; ctx.fill(); ell(ctx, 1.7, -22, 0.9, 0.6); ctx.fill();
+  if (open) {
+    // 阿：大きく開けた口（歯と舌）
+    ell(ctx, 0, -17.6, 6.6, 3.6); fs(ctx, '#7a1410', O, 1);
+    ell(ctx, 0, -16.4, 3.6, 1.8); ctx.fillStyle = '#e8606a'; ctx.fill();
+    ctx.fillStyle = '#fffaf0';
+    for (let k = -2; k <= 2; k++) ctx.fillRect(k * 2.2 - 0.8, -21, 1.6, 1.6);
+    for (const sx of [-1, 1]) { poly(ctx, [sx * 5.4, -14.6, sx * 4.4, -17.6, sx * 3.4, -14.6]); ctx.fill(); poly(ctx, [sx * 5.4, -20.6, sx * 4.6, -18, sx * 3.6, -20.6]); ctx.fill(); }
+  } else {
+    // 吽：閉じた口と、上向きの牙
+    ctx.beginPath(); ctx.moveTo(-6.6, -18.6); ctx.quadraticCurveTo(-3, -16.6, 0, -18); ctx.quadraticCurveTo(3, -16.6, 6.6, -18.6);
+    ctx.strokeStyle = O; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.fillStyle = '#fffaf0';
+    for (const sx of [-1, 1]) { poly(ctx, [sx * 4.6, -17.4, sx * 3.8, -20.4, sx * 3, -17.4]); fs(ctx, '#fffaf0', O, 0.5); }
+    ctx.beginPath(); ctx.ellipse(0, -16.8, 5.4, 2.2, 0, 0, Math.PI); ctx.strokeStyle = rgba(O, 0.5); ctx.lineWidth = 0.6; ctx.stroke();
+  }
+  // つや（焼き物の光）
+  ctx.fillStyle = 'rgba(255,240,215,0.5)'; ell(ctx, -5.5, -29.5, 2.4, 1.1, -0.4); ctx.fill();
+  ctx.restore();
+}
+function drawShisaPair(ctx) {
+  drawShisa(ctx, 16, 46, 1, true);
+  drawShisa(ctx, 54, 46, 1, false);
+}
+
+/** ハイビスカスの花（5枚の花びら・長いしべ） */
+function hibiscusFlower(ctx, x, y, r, rot, col) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+  for (let k = 0; k < 5; k++) {
+    const a = k * Math.PI * 2 / 5;
+    ctx.save(); ctx.rotate(a);
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.bezierCurveTo(-r * 0.75, -r * 0.35, -r * 0.7, -r * 1.05, 0, -r); ctx.bezierCurveTo(r * 0.7, -r * 1.05, r * 0.75, -r * 0.35, 0, 0);
+    fs(ctx, lin(ctx, 0, -r, 0, 0, [0, shade(col, 0.25), 0.7, col, 1, shade(col, -0.35)]), shade(col, -0.55), 0.6);
+    ctx.restore();
+  }
+  ell(ctx, 0, 0, r * 0.28, r * 0.28); ctx.fillStyle = shade(col, -0.55); ctx.fill();
+  line(ctx, 0, 0, r * 0.95, -r * 0.55, '#ffe0a0', 0.9);
+  ctx.fillStyle = '#ffd040'; for (let k = 0; k < 4; k++) { ell(ctx, r * (0.7 + k * 0.08), -r * (0.38 + k * 0.05), 0.7, 0.7); ctx.fill(); }
+  ctx.restore();
+}
+function drawHibiscus(ctx) {
+  ctx.fillStyle = 'rgba(0,0,0,0.2)'; ell(ctx, 30, 39, 26, 2); ctx.fill();
+  foliageBlob(ctx, 16, 28, 14, 11, '#2e7a34', 81); foliageBlob(ctx, 44, 28, 14, 11, '#2e7a34', 82); foliageBlob(ctx, 30, 20, 17, 14, '#358a3a', 83);
+  // 光沢のある葉（ぎざぎざの縁の葉）
+  const r = rng(84);
+  for (let i = 0; i < 12; i++) {
+    const x = 6 + r() * 48, y = 10 + r() * 26;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(r() * 6.28);
+    leafShape(ctx, 4, 2.4); fs(ctx, r() < 0.5 ? '#3e9a42' : '#5ab84e', '#164a1a', 0.6);
+    line(ctx, -3.5, 0, 3.5, 0, 'rgba(220,255,200,0.6)', 0.4);
+    ctx.restore();
+  }
+  for (const [x, y, rr, c] of [[14, 22, 6, '#e8202e'], [33, 12, 7, '#f02a3a'], [47, 24, 6, '#e8202e'], [26, 29, 5, '#ff6a3a'], [42, 9, 4.5, '#f02a3a']]) hibiscusFlower(ctx, x, y, rr, r() * 6.28, c);
+  // つぼみ
+  for (const [x, y] of [[8, 14], [52, 16]]) { ell(ctx, x, y, 1.6, 3, 0.4); fs(ctx, '#d81a2a', '#5a0a0e', 0.5); }
+}
+
+/** ヤシ（ココヤシ）。幹は節の輪、葉は羽のように垂れる */
+function palmFrond(ctx, x0, y0, ang, len, seed, back = false) {
+  const r = rng(seed);
+  // 葉軸：上へ伸びてから弓なりに垂れる
+  const cx = x0 + Math.cos(ang) * len * 0.55, cy = y0 + Math.sin(ang) * len * 0.55 - len * 0.18;
+  const ex = x0 + Math.cos(ang) * len, ey = y0 + Math.sin(ang) * len * 0.25 + len * 0.42;
+  const pt = (t) => [(1 - t) * (1 - t) * x0 + 2 * (1 - t) * t * cx + t * t * ex, (1 - t) * (1 - t) * y0 + 2 * (1 - t) * t * cy + t * t * ey];
+  const dark = back ? '#24561e' : '#2e6e26', light = back ? '#4e8a36' : '#8ccc52';
+  for (let i = 1; i <= 20; i++) {
+    const t = i / 20, [x, y] = pt(t), [x2, y2] = pt(Math.min(1, t + 0.05));
+    const dx = x2 - x, dy = y2 - y, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
+    const ll = (1 - t * 0.55) * 14 * (0.85 + r() * 0.3);
+    // 小葉は葉軸から前へ、下へ垂れる（左右2枚）
+    for (const sd of [-1, 1]) {
+      const nx = -uy * sd, ny = ux * sd;
+      const tx = x + ux * ll * 0.55 + nx * ll * 0.35, ty = y + uy * ll * 0.55 + Math.abs(ny) * ll * 0.2 + ll * 0.65;
+      const mx = x + ux * ll * 0.3 + nx * ll * 0.4, my = y + uy * ll * 0.3 + ny * ll * 0.4;
+      ctx.beginPath(); ctx.moveTo(x - ux * 1.2, y - uy * 1.2); ctx.quadraticCurveTo(mx, my - 1.2, tx, ty); ctx.quadraticCurveTo(mx + ux * 1.5, my + 0.8, x + ux * 1.2, y + uy * 1.2); ctx.closePath();
+      ctx.fillStyle = mix(dark, light, 0.25 + r() * 0.6 - (sd > 0 ? 0.15 : 0)); ctx.fill();
+    }
+  }
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo(cx, cy, ex, ey);
+  ctx.strokeStyle = back ? '#1e3a12' : '#2a4a18'; ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.stroke();
+  ctx.strokeStyle = back ? '#6a8a40' : '#b8d878'; ctx.lineWidth = 0.8; ctx.stroke();
+}
+function drawPalm(ctx) {
+  ctx.fillStyle = 'rgba(0,0,0,0.2)'; ell(ctx, 36, 149, 14, 2); ctx.fill();
+  // 幹（右へゆるく反る）
+  const tr = (t) => [36 + Math.pow(t, 1.6) * 16, 150 - t * 108];
+  ctx.beginPath();
+  for (let i = 0; i <= 20; i++) { const [x, y] = tr(i / 20); const w = 5.2 - i / 20 * 1.8; i ? ctx.lineTo(x - w, y) : ctx.moveTo(x - w, y); }
+  for (let i = 20; i >= 0; i--) { const [x, y] = tr(i / 20); const w = 5.2 - i / 20 * 1.8; ctx.lineTo(x + w, y); }
+  ctx.closePath(); fs(ctx, lin(ctx, 34, 0, 48, 0, [0, '#b89a74', 0.5, '#8a6a48', 1, '#4e3a26']), '#2a1e12', 1.1);
+  for (let i = 1; i < 20; i++) { const [x, y] = tr(i / 20); const w = 5.2 - i / 20 * 1.8; ctx.beginPath(); ctx.moveTo(x - w, y); ctx.quadraticCurveTo(x, y + 1.8, x + w, y - 0.4); ctx.strokeStyle = 'rgba(40,26,14,0.7)'; ctx.lineWidth = 0.8; ctx.stroke(); }
+  const [hx, hy] = tr(1);
+  // 奥の葉 → 実 → 手前の葉
+  palmFrond(ctx, hx, hy, -2.75, 48, 1, true); palmFrond(ctx, hx, hy, -0.35, 48, 2, true); palmFrond(ctx, hx, hy, -1.75, 34, 3, true); palmFrond(ctx, hx, hy, -1.25, 36, 8, true);
+  for (const [x, y] of [[hx - 4, hy + 4], [hx + 3, hy + 5], [hx - 0.5, hy + 8]]) { ell(ctx, x, y, 3.6, 3.8); fs(ctx, rad(ctx, x - 1, y - 1.5, 0.5, 4.5, [0, '#a8a040', 1, '#4e5a18']), '#2a2a0a', 0.8); }
+  palmFrond(ctx, hx, hy, -3.1, 47, 4); palmFrond(ctx, hx, hy, -0.05, 47, 5); palmFrond(ctx, hx, hy, -2.35, 44, 6); palmFrond(ctx, hx, hy, -0.75, 44, 7); palmFrond(ctx, hx, hy, -1.55, 28, 9);
+  ell(ctx, hx, hy, 4, 3); fs(ctx, '#6a5a2a', '#2a1e0a', 0.8);
+}
+
+/** アダン：タコの足のような支柱根、らせんに並ぶ剣のような葉、パイナップルのような実 */
+function adanRosette(ctx, x, y, s, seed) {
+  const r = rng(seed);
+  for (let i = 0; i < 13; i++) {
+    const a = -Math.PI / 2 + (i / 12 - 0.5) * 3.6 + (r() - 0.5) * 0.2, L = (20 + r() * 10) * s;
+    const ex = x + Math.cos(a) * L, ey = y + Math.sin(a) * L * 0.7 + Math.abs(Math.cos(a)) * L * 0.35;
+    const mx = x + Math.cos(a) * L * 0.55, my = y + Math.sin(a) * L * 0.55 - 3 * s;
+    const nx = -Math.sin(a) * 2 * s, ny = Math.cos(a) * 2 * s;
+    ctx.beginPath(); ctx.moveTo(x + nx, y + ny); ctx.quadraticCurveTo(mx + nx, my + ny, ex, ey); ctx.quadraticCurveTo(mx - nx, my - ny, x - nx, y - ny); ctx.closePath();
+    fs(ctx, lin(ctx, x, y - L, x, y + L * 0.4, [0, '#7ab84a', 0.5, '#3e8a34', 1, '#24561e']), '#173a14', 0.7);
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(mx, my, ex, ey); ctx.strokeStyle = 'rgba(210,240,170,0.5)'; ctx.lineWidth = 0.5; ctx.stroke();
+  }
+}
+function drawAdan(ctx) {
+  ctx.fillStyle = 'rgba(0,0,0,0.2)'; ell(ctx, 45, 99, 30, 2.5); ctx.fill();
+  const BR = '#7a6248', BO = '#2e2214';
+  // 支柱根
+  for (const [x0, x1] of [[24, 40], [32, 42], [44, 46], [58, 50], [66, 52], [38, 44]]) {
+    ctx.beginPath(); ctx.moveTo(x0 - 1.6, 100); ctx.quadraticCurveTo((x0 + x1) / 2 - 3, 84, x1 - 1.6, 70); ctx.lineTo(x1 + 1.6, 70); ctx.quadraticCurveTo((x0 + x1) / 2 + 3, 84, x0 + 1.6, 100); ctx.closePath();
+    fs(ctx, lin(ctx, 0, 70, 0, 100, [0, '#9a8060', 1, '#5a4430']), BO, 0.8);
+    for (let y = 76; y < 98; y += 5) { const t = (y - 70) / 30, x = x1 + (x0 - x1) * t; line(ctx, x - 1.4, y, x + 1.4, y + 0.6, 'rgba(40,26,14,0.6)', 0.6); }
+  }
+  // 幹と枝
+  ctx.beginPath(); ctx.moveTo(41, 74); ctx.quadraticCurveTo(38, 56, 26, 42); ctx.lineTo(31, 40); ctx.quadraticCurveTo(44, 52, 47, 62); ctx.quadraticCurveTo(52, 50, 64, 36); ctx.lineTo(68, 39); ctx.quadraticCurveTo(56, 54, 51, 74); ctx.closePath();
+  fs(ctx, lin(ctx, 30, 0, 64, 0, [0, '#a08868', 0.5, BR, 1, '#4a3a28']), BO, 1);
+  for (let y = 46; y < 74; y += 4.5) line(ctx, 40 + (74 - y) * -0.2, y, 46 + (74 - y) * -0.1, y + 1, 'rgba(40,26,14,0.55)', 0.6);
+  // 実（パイナップルのような集合果）
+  const fx = 50, fy = 50;
+  line(ctx, fx - 2, fy - 12, fx, fy - 7, '#3a2a14', 1.4);
+  ell(ctx, fx, fy, 7.4, 9); fs(ctx, rad(ctx, fx - 2, fy - 3, 1, 10, [0, '#ffd04a', 0.55, '#f08a1e', 1, '#b04a10']), '#5a2408', 1);
+  ctx.save(); ell(ctx, fx, fy, 7.4, 9); ctx.clip();
+  ctx.strokeStyle = 'rgba(120,50,10,0.6)'; ctx.lineWidth = 0.6;
+  for (let k = -3; k <= 3; k++) { ctx.beginPath(); ctx.moveTo(fx - 9, fy + k * 4 - 5); ctx.lineTo(fx + 9, fy + k * 4 + 5); ctx.stroke(); ctx.beginPath(); ctx.moveTo(fx - 9, fy + k * 4 + 5); ctx.lineTo(fx + 9, fy + k * 4 - 5); ctx.stroke(); }
+  ctx.restore();
+  ctx.fillStyle = 'rgba(255,250,200,0.55)'; ell(ctx, fx - 3, fy - 4, 1.8, 2.6, -0.3); ctx.fill();
+  // 葉のかたまり
+  adanRosette(ctx, 28, 40, 1, 91); adanRosette(ctx, 66, 36, 1.05, 92); adanRosette(ctx, 46, 30, 0.8, 93);
+}
+
+/** さとうきび：節のある茎、細長い葉、銀色の穂 */
+function drawSugarcane(ctx) {
+  const r = rng(101);
+  ctx.fillStyle = 'rgba(0,0,0,0.2)'; ell(ctx, 30, 109, 24, 2); ctx.fill();
+  const stalks = [];
+  for (let i = 0; i < 7; i++) stalks.push([9 + i * 7 + (r() - 0.5) * 3, 30 + r() * 34, (r() - 0.5) * 0.16]);
+  const tip = (x, top, lean, y) => x + Math.sin(lean) * (110 - y);
+  // 葉：茎の上のほうから長く出て、弓なりに垂れる
+  const leaves = (back) => {
+    for (const [x, top, lean] of stalks) {
+      for (let k = 0; k < (back ? 3 : 4); k++) {
+        const y = top + 4 + k * (back ? 12 : 8) + r() * 4, side = (k + (back ? 1 : 0)) % 2 ? -1 : 1, L = 22 + r() * 16;
+        const sx = tip(x, top, lean, y);
+        ctx.beginPath(); ctx.moveTo(sx, y); ctx.quadraticCurveTo(sx + side * L * 0.5, y - 16 - r() * 6, sx + side * L, y + 2 + r() * 12);
+        ctx.quadraticCurveTo(sx + side * L * 0.5, y - 12, sx, y + 2.4); ctx.closePath();
+        ctx.fillStyle = back ? mix('#2e5a22', '#4a7a30', r()) : mix('#5a9a38', '#b4d468', r()); ctx.fill();
+        if (!back) { ctx.beginPath(); ctx.moveTo(sx, y + 1); ctx.quadraticCurveTo(sx + side * L * 0.5, y - 14, sx + side * L, y + 4); ctx.strokeStyle = 'rgba(240,255,210,0.35)'; ctx.lineWidth = 0.4; ctx.stroke(); }
+      }
+    }
+  };
+  leaves(true);
+  for (const [x, top, lean] of stalks) {
+    ctx.save(); ctx.translate(x, 110); ctx.rotate(lean);
+    rrect(ctx, -2.2, top - 110, 4.4, 110 - top, 1.6); fs(ctx, lin(ctx, -2.2, 0, 2.2, 0, [0, '#d8c890', 0.35, '#a89a58', 0.75, '#7a5a5a', 1, '#4a3040']), '#2a1e1a', 0.8);
+    for (let y = -5; y > top - 104; y -= 8 + r() * 3) { line(ctx, -2.5, y, 2.5, y, '#4a2e3a', 1.1); line(ctx, -2, y - 1.2, 2, y - 1.2, 'rgba(255,250,230,0.55)', 0.5); ell(ctx, 0.6, y - 2.2, 0.8, 0.6); ctx.fillStyle = 'rgba(90,60,40,0.6)'; ctx.fill(); }
+    // 白い粉（ろう）
+    ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(-1.6, top - 110, 1.2, 110 - top);
+    ctx.restore();
+  }
+  leaves(false);
+  // 穂（冬に咲く銀色の穂：扇のように広がる）
+  for (const [x, top, lean] of stalks.filter((_, i) => i % 2 === 0)) {
+    const sx = tip(x, top, lean, top);
+    line(ctx, sx, top + 2, sx + 1, top - 10, '#9a9a7a', 1);
+    for (let k = 0; k < 9; k++) {
+      const a = -Math.PI / 2 + (k / 8 - 0.5) * 1.2, L = 8 + r() * 5;
+      ctx.beginPath(); ctx.moveTo(sx + 1, top - 8); ctx.quadraticCurveTo(sx + 1 + Math.cos(a) * L * 0.5, top - 8 + Math.sin(a) * L * 0.6, sx + 1 + Math.cos(a) * L, top - 8 + Math.sin(a) * L + 2);
+      ctx.strokeStyle = rgba(mix('#fffaf0', '#c8b8d0', r()), 0.9); ctx.lineWidth = 1.6; ctx.lineCap = 'round'; ctx.stroke();
+    }
+  }
+}
+
+/** 赤瓦の平屋（寄棟の屋根に白い漆喰、棟の真ん中にシーサー） */
+function drawRedroof(ctx) {
+  const WD = '#6a4a30', WO = '#2a1a0e';
+  ctx.fillStyle = 'rgba(0,0,0,0.22)'; ell(ctx, 80, 109, 74, 2.5); ctx.fill();
+  // 石の基壇
+  rrect(ctx, 10, 100, 140, 10, 1.5); fs(ctx, lin(ctx, 0, 100, 0, 110, [0, '#e8e0c8', 1, '#a8a088']), '#5a5040', 1);
+  for (let x = 14; x < 148; x += 11) line(ctx, x, 100.5, x + 1, 109.5, 'rgba(90,80,64,0.6)', 0.6);
+  // 壁と戸（雨端：軒下の縁側と柱）
+  ctx.fillStyle = lin(ctx, 0, 62, 0, 100, [0, '#5a3e28', 1, '#3e2a1a']); ctx.fillRect(18, 64, 124, 36);
+  for (let i = 0; i < 6; i++) {
+    const x = 22 + i * 19.6;
+    rrect(ctx, x, 68, 17, 30, 0.5); fs(ctx, lin(ctx, 0, 68, 0, 98, [0, '#c8a878', 1, '#8a6a44']), WO, 0.8);
+    ctx.strokeStyle = 'rgba(60,36,18,0.6)'; ctx.lineWidth = 0.6;
+    for (let y = 74; y < 98; y += 6) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 17, y); ctx.stroke(); }
+    ctx.beginPath(); ctx.moveTo(x + 8.5, 68); ctx.lineTo(x + 8.5, 98); ctx.stroke();
+  }
+  rrect(ctx, 12, 97, 136, 4, 1); fs(ctx, lin(ctx, 0, 97, 0, 101, [0, '#a88a64', 1, '#6a5038']), WO, 0.8);
+  for (const x of [14, 46, 78, 110, 142]) { rrect(ctx, x - 2, 58, 4, 41, 1); fs(ctx, lin(ctx, x - 2, 0, x + 2, 0, [0, '#8a6a48', 1, '#3e2a18']), WO, 0.8); }
+  // 寄棟の赤瓦屋根
+  const roof = () => { ctx.beginPath(); ctx.moveTo(2, 62); ctx.lineTo(44, 26); ctx.lineTo(116, 26); ctx.lineTo(158, 62); ctx.quadraticCurveTo(80, 66, 2, 62); ctx.closePath(); };
+  roof(); fs(ctx, lin(ctx, 0, 26, 0, 64, [0, '#d86a42', 1, '#a83a22']), '#4a140a', 1.3);
+  ctx.save(); roof(); ctx.clip();
+  // 丸瓦の列と、その両わきの漆喰（下に向かって広がる）
+  for (let i = -1; i <= 28; i++) {
+    const u = i / 26, xt = 44 + u * 72, xb = 2 + u * 156;
+    ctx.beginPath(); ctx.moveTo(xt - 1.4, 26); ctx.lineTo(xb - 2.4, 64); ctx.lineTo(xb + 2.4, 64); ctx.lineTo(xt + 1.4, 26); ctx.closePath();
+    ctx.fillStyle = '#f2ede2'; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(xt - 0.8, 26); ctx.lineTo(xb - 1.5, 64); ctx.lineTo(xb + 1.5, 64); ctx.lineTo(xt + 0.8, 26); ctx.closePath();
+    ctx.fillStyle = lin(ctx, xb - 1.5, 0, xb + 1.5, 0, [0, '#f08a5a', 1, '#9a3218']); ctx.fill();
+  }
+  // 段の重なり
+  for (let y = 31; y < 62; y += 5.5) { ctx.fillStyle = 'rgba(70,14,6,0.32)'; ctx.fillRect(0, y, 160, 1.2); ctx.fillStyle = 'rgba(255,250,240,0.55)'; ctx.fillRect(0, y + 1.2, 160, 0.6); }
+  // 雨じみ
+  ctx.fillStyle = 'rgba(60,40,30,0.15)'; ell(ctx, 50, 48, 10, 12); ctx.fill(); ell(ctx, 120, 52, 8, 10); ctx.fill();
+  ctx.restore();
+  // 隅棟（白い漆喰）と軒先
+  for (const [x0, x1] of [[44, 3], [116, 157]]) { line(ctx, x0, 26, x1, 61.5, '#5a4e44', 4.4); line(ctx, x0, 26, x1, 61.5, '#f6f2e8', 3); }
+  ctx.beginPath(); ctx.moveTo(2, 62); ctx.quadraticCurveTo(80, 66, 158, 62); ctx.strokeStyle = '#f4efe4'; ctx.lineWidth = 2.6; ctx.stroke();
+  ctx.strokeStyle = '#4a140a'; ctx.lineWidth = 0.8; ctx.stroke();
+  // 大棟
+  rrect(ctx, 40, 21.5, 80, 6, 3); fs(ctx, lin(ctx, 0, 21.5, 0, 27.5, [0, '#ffffff', 1, '#cfc6b4']), '#5a4e44', 1);
+  ctx.fillStyle = '#c8502e'; ctx.fillRect(42, 24.6, 76, 1.1);
+  // 屋根のシーサー
+  drawShisa(ctx, 80, 25, 0.55, true);
+}
+
+/** 石敢當（魔よけの石。字が刻まれている） */
+function drawIshigantou(ctx) {
+  ctx.fillStyle = 'rgba(0,0,0,0.22)'; ell(ctx, 15, 47, 13, 1.8); ctx.fill();
+  poly(ctx, [5, 47, 25, 47, 24, 6, 15, 2.5, 6, 6]);
+  fs(ctx, lin(ctx, 5, 0, 25, 0, [0, '#e8e2cc', 0.5, '#cfc6aa', 1, '#8a826a']), '#3a362c', 1.2);
+  // 石灰岩の穴としみ
+  const r = rng(111);
+  for (let i = 0; i < 14; i++) { const x = 7 + r() * 16, y = 6 + r() * 38, pr = 0.4 + r() * 0.9; ell(ctx, x, y, pr * 1.2, pr); ctx.fillStyle = 'rgba(96,84,62,0.6)'; ctx.fill(); }
+  ctx.fillStyle = 'rgba(70,90,60,0.35)'; ell(ctx, 9, 43, 4, 2); ctx.fill(); ell(ctx, 22, 41, 3, 1.6); ctx.fill();
+  // 刻まれた字（彫りの影と、下の縁の光）
+  ctx.font = `bold 9px 'Hiragino Mincho ProN','Yu Mincho','Noto Serif CJK JP','Noto Serif JP','IPAMincho','IPAGothic',serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ['石', '敢', '當'].forEach((ch, i) => {
+    const y = 13 + i * 10.5;
+    ctx.fillStyle = 'rgba(255,255,240,0.65)'; ctx.fillText(ch, 15.5, y + 0.7);
+    ctx.fillStyle = '#3a3226'; ctx.fillText(ch, 15, y);
+  });
+  ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.fillRect(6.5, 7, 1, 38);
+}
+
+/** 三線を立てた台（漆塗りの台・蛇皮の胴・黒い棹・カラクイ） */
+function drawSanshinStand(ctx) {
+  ctx.fillStyle = 'rgba(0,0,0,0.22)'; ell(ctx, 15, 59, 13, 1.6); ctx.fill();
+  // 台（朱塗り）
+  rrect(ctx, 3, 50, 24, 4, 1); fs(ctx, lin(ctx, 0, 50, 0, 54, [0, '#d8402e', 1, '#7a1a10']), '#3a0a06', 0.9);
+  for (const x of [5, 23]) { rrect(ctx, x - 1, 53, 3, 7, 0.8); fs(ctx, '#8a1e14', '#3a0a06', 0.7); }
+  rrect(ctx, 20, 28, 3, 23, 1); fs(ctx, lin(ctx, 20, 0, 23, 0, [0, '#d8402e', 1, '#7a1a10']), '#3a0a06', 0.8);
+  // 棹（黒い漆）
+  rrect(ctx, 13.6, 4, 2.8, 36, 1); fs(ctx, lin(ctx, 13.6, 0, 16.4, 0, [0, '#4a4a52', 0.4, '#1a1a1e', 1, '#000000']), '#000', 0.6);
+  // 天（反った頭）
+  ctx.beginPath(); ctx.moveTo(13.6, 5); ctx.quadraticCurveTo(13, 1, 16.5, 0.5); ctx.lineTo(16.6, 4); ctx.closePath(); fs(ctx, '#1a1a1e', '#000', 0.6);
+  // カラクイ（糸巻き）
+  for (const [y, s] of [[7, -1], [10, 1], [13, -1]]) { rrect(ctx, s < 0 ? 9 : 16, y - 0.9, 5, 1.8, 0.8); fs(ctx, '#2a1a10', '#000', 0.5); ell(ctx, s < 0 ? 9 : 21, y, 1.1, 1.3); fs(ctx, '#e8d8b0', '#4a3a20', 0.4); }
+  // 胴（蛇皮）
+  rrect(ctx, 6.5, 38, 17, 14, 3.5); fs(ctx, '#2a2218', '#000', 1);
+  rrect(ctx, 7.8, 39.2, 14.4, 11.6, 3); fs(ctx, lin(ctx, 0, 39, 0, 51, [0, '#e8dcb8', 1, '#a8987a']), null);
+  ctx.save(); rrect(ctx, 7.8, 39.2, 14.4, 11.6, 3); ctx.clip();
+  ctx.fillStyle = 'rgba(60,46,26,0.55)';
+  for (let y = 39; y < 52; y += 2.6) for (let x = 7 + ((y / 2.6) % 2) * 1.6; x < 23; x += 3.2) { ell(ctx, x, y, 1.2, 0.9); ctx.fill(); }
+  ctx.fillStyle = 'rgba(40,30,16,0.55)'; ell(ctx, 12, 44, 2.4, 1.8); ctx.fill(); ell(ctx, 19, 47.5, 2, 1.6); ctx.fill();
+  ctx.restore();
+  // 胴巻き（ティーガー：赤い布）
+  rrect(ctx, 6, 47, 18, 3.4, 1); fs(ctx, lin(ctx, 0, 47, 0, 50.4, [0, '#e04a5a', 1, '#8a1a2a']), '#3a0810', 0.6);
+  ctx.fillStyle = '#f0c040'; for (let x = 8; x < 23; x += 3) ctx.fillRect(x, 48.2, 1.2, 1);
+  // 駒と弦
+  rrect(ctx, 12.5, 41.5, 5, 1.4, 0.4); fs(ctx, '#f0e8d0', '#5a4a30', 0.4);
+  ctx.strokeStyle = 'rgba(255,250,230,0.85)'; ctx.lineWidth = 0.35;
+  for (const dx of [-0.8, 0, 0.8]) { ctx.beginPath(); ctx.moveTo(15 + dx * 0.5, 6); ctx.lineTo(15 + dx, 46); ctx.stroke(); }
+}
+
+/** サンゴ（枝サンゴ・テーブルサンゴ・ノウサンゴ）と小さな魚 */
+function drawCoral(ctx) {
+  ctx.fillStyle = 'rgba(0,0,0,0.18)'; ell(ctx, 25, 35, 23, 1.8); ctx.fill();
+  // ノウサンゴ（丸い）
+  ell(ctx, 40, 30, 9, 6.5); fs(ctx, rad(ctx, 37, 27, 1, 10, [0, '#f8e4a0', 1, '#c89a48']), '#6a4a18', 0.9);
+  ctx.save(); ell(ctx, 40, 30, 9, 6.5); ctx.clip(); ctx.strokeStyle = 'rgba(120,80,30,0.6)'; ctx.lineWidth = 0.6;
+  for (let k = 0; k < 6; k++) { ctx.beginPath(); for (let x = 30; x <= 50; x += 1) { const y = 24 + k * 2.2 + Math.sin(x * 0.9 + k * 1.3) * 0.8; x > 30 ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke(); }
+  ctx.restore();
+  // 枝サンゴ（さんご色）
+  const br = (x, y, a, L, w, d, r) => {
+    const ex = x + Math.cos(a) * L, ey = y + Math.sin(a) * L;
+    line(ctx, x, y, ex, ey, '#8a2a40', w + 1.4); line(ctx, x, y, ex, ey, '#ff7aa8', w);
+    if (d > 0) { br(ex, ey, a - 0.45 - r() * 0.2, L * 0.72, w * 0.78, d - 1, r); br(ex, ey, a + 0.4 + r() * 0.2, L * 0.72, w * 0.78, d - 1, r); }
+    else { ell(ctx, ex, ey, w * 0.6, w * 0.6); ctx.fillStyle = '#ffd0e0'; ctx.fill(); }
+  };
+  const r = rng(121);
+  br(18, 35, -Math.PI / 2 - 0.15, 9, 3.4, 3, r); br(12, 35, -Math.PI / 2 - 0.7, 7, 2.6, 2, r);
+  ctx.strokeStyle = 'rgba(255,230,240,0.55)'; ctx.lineWidth = 0.6;
+  // テーブルサンゴ（左奥）
+  rrect(ctx, 1, 22, 13, 2.6, 1.3); fs(ctx, lin(ctx, 0, 22, 0, 25, [0, '#c8e0a0', 1, '#6a9a5a']), '#2a4a2a', 0.7);
+  line(ctx, 7.5, 24.5, 7.5, 35, '#4a6a3a', 2);
+  // 海藻
+  ctx.strokeStyle = '#3a9a5a'; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(30, 35); ctx.quadraticCurveTo(27, 28, 30, 22); ctx.quadraticCurveTo(33, 17, 30, 12); ctx.stroke();
+  // 小さな青い魚（ルリスズメダイ）
+  for (const [x, y] of [[34, 12], [42, 17]]) {
+    ell(ctx, x, y, 2.6, 1.4); fs(ctx, '#3ab0ff', '#0a3a7a', 0.5);
+    poly(ctx, [x + 2.2, y, x + 4.2, y - 1.4, x + 4.2, y + 1.4]); fs(ctx, '#3ab0ff', '#0a3a7a', 0.5);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(x - 1.8, y - 0.6, 0.7, 0.7);
+  }
+}
+
 export function defineProps() {
   defineSprite('item_coin', { w: 20, h: 24, frames: 8, draw: drawCoin });
   defineSprite('item_sarubobo', { w: 28, h: 32, draw: (ctx) => { glow(ctx, 14, 17, 14, '#ffb0a0', 0.45); drawSaruboboDoll(ctx, 14, 17, 1); } });
   defineSprite('item_skewer', { w: 30, h: 30, frames: 4, draw: drawSkewer });
   defineSprite('item_heart', { w: 24, h: 24, draw: drawHeart });
-  for (let i = 0; i <= 7; i++) defineSprite(`item_orb_${i}`, { w: 36, h: 36, frames: 8, draw: (ctx, f) => drawOrb(ctx, f, ORB[i]) });
+  for (let i = 0; i < ORB.length; i++) defineSprite(`item_orb_${i}`, { w: 36, h: 36, frames: 8, draw: (ctx, f) => drawOrb(ctx, f, ORB[i]) });
   defineSprite('prop_checkpoint', { w: 30, h: 72, frames: 2, draw: drawCheckpoint });
   defineSprite('prop_sign', { w: 40, h: 44, draw: drawSign });
   defineSprite('ui_up_hint', { w: 20, h: 20, frames: 2, ox: 10, oy: 20, draw: drawUpHint });
@@ -828,4 +1179,16 @@ export function defineProps() {
   P('prop_noren', 60, 44, drawNoren);
   P('prop_yatai_stall', 110, 84, drawYatai);
   P('prop_lamp', 24, 84, drawLamp);
+  // 沖縄（ステージ8）
+  P('prop_shisa', 70, 46, drawShisaPair);
+  P('prop_shisa_a', 30, 42, (ctx) => drawShisa(ctx, 15, 42, 1, true));
+  P('prop_shisa_un', 30, 42, (ctx) => drawShisa(ctx, 15, 42, 1, false));
+  P('prop_hibiscus', 60, 40, drawHibiscus);
+  P('prop_palm', 100, 152, drawPalm);
+  P('prop_adan', 90, 100, drawAdan);
+  P('prop_sugarcane', 60, 110, drawSugarcane);
+  P('prop_redroof', 160, 110, drawRedroof);
+  P('prop_ishigantou', 30, 48, drawIshigantou);
+  P('prop_sanshin_stand', 30, 60, drawSanshinStand);
+  P('prop_coral', 64, 46, (ctx) => { ctx.scale(1.28, 1.28); drawCoral(ctx); });
 }

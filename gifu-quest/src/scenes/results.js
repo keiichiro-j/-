@@ -14,6 +14,7 @@ import CHARS from '../data/characters.json';
 import { toast } from '../ui/toast.js';
 // 結果画面（設計書 9章）：クリア時間・コイン・さるぼぼ・ミス。自己ベストで「NEW」。数字はカウントアップ。担当：UI
 // params: { stage, char, stats{coins,sarubobo[3],hits,misses,time,enemies}, newBest, prevBest }
+// 特別ステージ8（沖縄）はうら7と同じく「マップへ」（エンディングは6面だけ）。南の宝珠を光らせる
 const ST = {
   head: { size: 40, color: COL.kinLight, stroke: COL.sumi, strokeW: 7, align: 'center', baseline: 'middle', serif: true, shadow: true },
   stage: { size: 20, color: COL.kinari, stroke: COL.sumi, strokeW: 4, align: 'center', baseline: 'middle' },
@@ -88,7 +89,7 @@ export const resultsScene = {
     const hx = vw * 0.25, hy = 410;
     ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(hx, hy, 90, 16, 0, 0, Math.PI * 2); ctx.fill();
     drawHeroDressed(ctx, this.char, 'win', (t * 6) | 0, hx, hy, { sx: 3.2, sy: 3.2, weaponId: save.data.equipped && save.data.weapons[save.data.equipped] ? save.data.equipped : null, time: t });
-    if (this.meta.orb && p.stage >= 1 && p.stage <= 6) drawOrb(ctx, hx + 90, 220 + Math.sin(t * 2) * 6, 16, this.meta.orb, 1);
+    if (this.meta.orb && ((p.stage >= 1 && p.stage <= 6) || p.stage === 8)) drawOrb(ctx, hx + 90, 220 + Math.sin(t * 2) * 6, 16, this.meta.orb, 1);
     // 和紙の表
     const px = vw * 0.47, py = 120, pw = Math.min(520, vw - px - 40), ph = 300;
     drawWashi(ctx, px, py, pw, ph);
