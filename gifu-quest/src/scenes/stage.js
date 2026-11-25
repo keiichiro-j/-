@@ -3,6 +3,7 @@ import { World } from '../world/world.js';
 import { renderer } from '../gfx/renderer.js';
 import { input } from '../core/input.js';
 import { save } from '../core/save.js';
+import { cloud } from '../core/cloud.js';
 import { audio } from '../core/audio.js';
 import { events } from '../core/events.js';
 import { LEVELS } from '../world/levels.js';
@@ -73,6 +74,8 @@ export const stageScene = {
       // 称号・お題（累計の記録とお題を進め、得た称号の通知を積む。保存もここで）
       progress.stageCleared({ stage: st, char: W.charId, stats: W.stats, target: META.stages[key] ? META.stages[key].target : null });
       save.write();
+      // Google とつながっていれば、作った人のスプレッドシートにクリアを記録（ランキング用）
+      cloud.recordClear({ stage: st, time: W.stats.time, char: W.charId, misses: W.stats.misses + W.stats.hits, coins: W.stats.coins, weapon: W.weapon ? W.weapon.id : '' });
     }
     game.go('results', { stage: st, char: W.charId, stats: W.stats, newBest, prevBest }, 'iris', { cx: renderer.viewW / 2, cy: renderer.viewH / 2 });
   },

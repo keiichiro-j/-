@@ -2,13 +2,15 @@ import CHARS from '../data/characters.json';
 import { game } from '../game.js';
 import { bakeAll } from '../gfx/atlas.js';
 import { save } from '../core/save.js';
+import { cloud } from '../core/cloud.js';
 // 起動：絵の事前描画を分割して裏で行い、終わったらタイトルへ（タイトル表示まで2秒以内）
 export const bootScene = {
   progress: 0, done: false,
   enter(params) {
     this.progress = 0; this.done = false; this.t = 0;
     save.load();
-    bakeAll((p) => { this.progress = p; }, 12).then(() => { this.done = true; });
+    // 絵の焼き付けと、Google とのセーブ合わせを同時に（GAS の外ではすぐ終わる）
+    Promise.all([bakeAll((p) => { this.progress = p; }, 12), cloud.init(save)]).then(() => { this.done = true; });
   },
   update(dt) {
     this.t += dt;
@@ -28,5 +30,6 @@ export const bootScene = {
     ctx.fillStyle = '#e8b04a'; ctx.fillRect(vw / 2 - 150, vh / 2 + 40, 300 * this.progress, 6);
     ctx.fillStyle = '#e8dccb'; ctx.font = 'bold 28px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText('ぎふクエスト', vw / 2, vh / 2 - 10);
+    if (cloud.status === 'connecting') { ctx.font = '15px sans-serif'; ctx.fillStyle = 'rgba(232,220,203,0.7)'; ctx.fillText('Google とつないでいます…', vw / 2, vh / 2 + 72); }
   },
 };

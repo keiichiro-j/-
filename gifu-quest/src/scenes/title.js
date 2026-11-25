@@ -1,4 +1,6 @@
 import { game } from '../game.js';
+import { cloud } from '../core/cloud.js';
+import { nameInput } from '../ui/nameInput.js';
 import { input } from '../core/input.js';
 import { save } from '../core/save.js';
 import { audio } from '../core/audio.js';
@@ -104,11 +106,27 @@ export const titleScene = {
     this.confirm.open = false;
     touch.show('menu');
     audio.bgm('title');
+    this.cloudRect = { x: 0, y: 0, w: 0, h: 0 };
+    // Google でログインしていて名前がまだなら、ランキングに出す名前を聞く（1回だけ）
+    if (cloud.signedIn && !cloud.nickname && !cloud._asked) { cloud._asked = true; setTimeout(() => this.askName(), 900); }
+  },
+  askName() {
+    nameInput.open({
+      title: 'ランキングに出す名前',
+      note: 'Google アカウントでつながりました。記録は作った人のスプレッドシートに保存され、ランキングには ここで決めた名前だけが出ます（本名でなくてかまいません・10文字まで）。',
+      value: cloud.nickname,
+      onDone: (v) => cloud.setNickname(v),
+    });
   },
   exit() { touch.hide(); },
   update(dt) {
     this.t += dt;
+    if (nameInput.isOpen) { touch.clearTap(); return; }
     if (this.t < 0.5) { touch.clearTap(); return; }
+    // 左下の「Google：名前」を押すと名前を変えられる
+    const tp0 = touch.peekTap && touch.peekTap();
+    const C = this.cloudRect;
+    if (tp0 && cloud.signedIn && tp0.x >= C.x && tp0.x <= C.x + C.w && tp0.y >= C.y && tp0.y <= C.y + C.h) { touch.clearTap(); this.askName(); return; }
     if (this.confirm.open) { if (this.confirm.update(dt) === 'yes') this.startNew(); return; }
     const r = this.list.update(dt, { noBack: true });
     if (r === 'new') { if (save.hasProgress()) this.confirm.show(); else this.startNew(); }
@@ -162,6 +180,14 @@ export const titleScene = {
     ctx.fillStyle = 'rgba(18,10,14,0.55)'; ctx.fillRect(0, vh - 30, vw, 30);
     drawText(ctx, 'この作品はフィクションです。実在の地名・名物を題材にしていますが、地図・人物・団体は架空です。', vw / 2, vh - 15, NOTE);
     drawText(ctx, save.storageOk ? 'ver 0.1' : 'ver 0.1（この端末では保存できません）', vw - 10, vh - 40, VER);
+    // Google とのつながり
+    if (cloud.available) {
+      const label = cloud.status === 'connecting' ? 'Google とつないでいます…'
+        : cloud.signedIn ? `● Google：${cloud.nickname || '名前を決めてください'}${cloud.status === 'error' ? '（つながりにくい）' : ''}　✎`
+        : 'Google にログインしていません（この端末に保存）';
+      const C = this.cloudRect; C.x = 8; C.y = vh - 54; C.w = 380; C.h = 22;
+      drawText(ctx, label, 12, vh - 42, { ...VER, align: 'left', color: cloud.signedIn && cloud.status !== 'error' ? '#bfe8a0' : VER.color });
+    }
     this.confirm.draw(ctx, vw, vh);
   },
 };

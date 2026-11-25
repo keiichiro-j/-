@@ -122,6 +122,7 @@ export function migrate(d) {
   // さるぼぼ全18個そろっているのに解放されていない古いセーブ
   if (countSarubobo(out.sarubobo) >= 18 && CHARS.sarubobo && !out.unlocked.includes('sarubobo')) out.unlocked.push('sarubobo');
   out.seenHints = obj(out.seenHints);
+  out.savedAt = Number.isFinite(+d.savedAt) && +d.savedAt > 0 ? +d.savedAt : 0;   // 最後に保存した時刻（Google アカウントのセーブと比べる）
   out.version = SAVE_VERSION;
   delete out.clear; delete out.best;
   return out;
@@ -141,9 +142,19 @@ export const save = {
     applySettings(data.settings);
     return data;
   },
+  // 端末に保存し、Google とつながっていれば少し後にそちらにも送る（onWrite は core/cloud.js が入れる）
   write() {
+    this.data.savedAt = Date.now();
+    const ok = this.writeLocalOnly();
+    if (this.onWrite) this.onWrite();
+    return ok;
+  },
+  writeLocalOnly() {
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(this.data)); storageOk = true; return true; } catch { storageOk = false; return false; }
   },
+  // 別の端末（Google アカウント）のセーブに入れ替える
+  replace(d) { data = migrate(d); applySettings(data.settings); this.writeLocalOnly(); },
+  onWrite: null,
   // 進行だけ消す（設定と、オープニングを見たかどうかは残す）
   reset() { const s = data ? data.settings : null, op = data ? data.seenOpening : false; data = defaultSave(); if (s) data.settings = s; data.seenOpening = op; this.write(); applySettings(data.settings); },
   hasProgress() { const d = this.data; return d.cleared.length > 0 || d.seenOpening; },

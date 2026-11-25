@@ -22,3 +22,6 @@ open dist/index.html   # ブラウザで開くだけで遊べる
 
 ## テスト
 `npm test` … vitest（当たり判定・物理・レベル検査）＋ヘッドレス Chrome で全ステージを自動プレイしてコンソールエラー0件を確認
+
+## Google ログインと記録
+GAS で公開すると、遊ぶ人を Google アカウントで見分けて、本人のセーブを Google アカウントに保存し、作った人のスプレッドシートに記録を残す（番付はニックネームだけ）。作り方は [docs/cloud.md](docs/cloud.md)

@@ -79,7 +79,7 @@ async function build() {
   const html = artifact ? ARTIFACT_HTML(js, a.js) : HTML(js, a.js);
   fs.mkdirSync(path.join(root, OUT), { recursive: true });
   fs.writeFileSync(path.join(root, OUT, 'index.html'), html);
-  for (const f of ['Code.gs', 'appsscript.json']) if (fs.existsSync(path.join(root, 'gas', f))) fs.copyFileSync(path.join(root, 'gas', f), path.join(root, OUT, f));
+  for (const f of ['Code.gs', 'appsscript.json', 'Recorder.gs', 'recorder.appsscript.json']) if (fs.existsSync(path.join(root, 'gas', f))) fs.copyFileSync(path.join(root, 'gas', f), path.join(root, OUT, f));
   const kb = (n) => (n / 1024).toFixed(0) + 'KB';
   const bytes = Buffer.byteLength(html, 'utf8');
   console.log(`built ${OUT}/index.html ${kb(bytes)} (js ${kb(Buffer.byteLength(js, 'utf8'))}, png ${kb(a.bytes)}) in ${Date.now() - t0}ms`);

@@ -10,11 +10,12 @@ import { toast } from '../ui/toast.js';
 import { ACHIEVEMENTS, progressOf, gotCount, progress } from '../systems/achievements.js';
 import { missionDef, missionText, secondsToReset, doneCount } from '../systems/missions.js';
 import META from '../data/stages.json';
+import { cloud } from '../core/cloud.js';
 import RUSH from '../data/bossrush.json';
 import CHARS from '../data/characters.json';
 // 記録（称号・毎日のお題・腕試し）。仕様は docs/content.md。見た目は図鑑（zukan.js）に合わせる
 // params: { back?: 'worldmap'|'title', tab?: 0|1|2 }
-const TABS = [['titles', '称号'], ['missions', '毎日のお題'], ['rush', '腕試し']];
+const TABS = [['titles', '称号'], ['missions', '毎日のお題'], ['rush', '腕試し'], ['rank', '番付']];
 const ST = {
   title: { size: 30, color: COL.kinLight, stroke: COL.sumi, strokeW: 6, align: 'center', baseline: 'middle', serif: true, shadow: true },
   tab: { size: 18, color: COL.kinari, stroke: COL.woodDark, strokeW: 3, align: 'center', baseline: 'middle' },
@@ -61,7 +62,17 @@ export const recordsScene = {
     audio.bgm('map');
   },
   exit() { touch.hide(); },
-  setTab(i) { if (i === this.tab) return; this.tab = i; this.sel = 0; this.scroll = 0; audio.sfx('select'); },
+  setTab(i) { if (i === this.tab) return; this.tab = i; this.sel = 0; this.scroll = 0; audio.sfx('select'); if (i === 3) this.loadRank(); },
+  // ---- 番付（ランキング）：Google でつながっている時だけ。ステージごとの上位10人（ニックネームとタイム）----
+  rankStages() { const d = save.data, all6 = [1, 2, 3, 4, 5, 6].every((n) => d.cleared.includes(n)); return [1, 2, 3, 4, 5, 6, 7, 8].filter((n) => n <= 6 || (n === 7 && save.saruboboCount() >= 18) || (n === 8 && all6)); },
+  loadRank() {
+    this.rankCache = this.rankCache || {};
+    const list = this.rankStages(); if (this.rankSel == null || !list.includes(this.rankSel)) this.rankSel = list[0];
+    const st = this.rankSel;
+    if (!cloud.recorder || (this.rankCache[st] && this.rankCache[st].state !== 'error')) return;
+    this.rankCache[st] = { state: 'loading' };
+    cloud.ranking(st).then((r) => { this.rankCache[st] = r && r.ok ? { state: 'ok', ...r } : { state: 'error' }; });
+  },
   get rushOpen() { return save.data.seenEnding; },
   update(dt) {
     this.t += dt;
@@ -74,6 +85,11 @@ export const recordsScene = {
       if (input.pressed.up) { this.sel = Math.max(0, this.sel - COLS); audio.sfx('select'); }
     }
     if (this.tab === 2 && (input.pressed.confirm || input.pressed.jump)) return this.startRush();
+    if (this.tab === 3) {
+      const L = this.rankStages(), i = L.indexOf(this.rankSel);
+      if (input.pressed.down && i < L.length - 1) { this.rankSel = L[i + 1]; audio.sfx('select'); this.loadRank(); }
+      if (input.pressed.up && i > 0) { this.rankSel = L[i - 1]; audio.sfx('select'); this.loadRank(); }
+    }
     const tp = touch.tap();
     if (tp) {
       if (inR(this.backRect, tp)) return this.back();
@@ -84,6 +100,7 @@ export const recordsScene = {
         for (let i = 0; i < n; i++) if (inR(this.cells[i], tp)) { this.sel = i; audio.sfx('select'); }
       }
       if (this.tab === 2 && inR(this.goRect, tp)) return this.startRush();
+      if (this.tab === 3 && this.rankRects) for (const [st, R] of this.rankRects) if (inR(R, tp)) { this.rankSel = st; audio.sfx('select'); this.loadRank(); }
     }
     if (input.pressed.back || input.pressed.pause) this.back();
   },
@@ -109,7 +126,7 @@ export const recordsScene = {
     drawSprite(ctx, 'item_coin', (t * 8) | 0, vw - 130, 44, { sx: 0.9, sy: 0.9 });
     drawText(ctx, String(d.coins), vw - 30, 33, ST.coin);
     for (let i = 0; i < TABS.length; i++) {
-      const r = this.tabRects[i]; r.w = 150; r.h = 40; r.x = vw / 2 - 240 + i * 165; r.y = 58;
+      const r = this.tabRects[i]; r.w = 140; r.h = 40; r.x = vw / 2 - (TABS.length * 152 - 12) / 2 + i * 152; r.y = 58;
       drawTag(ctx, r.x, r.y, r.w, r.h, i === this.tab, i === 2 && !this.rushOpen);
       drawText(ctx, TABS[i][1], r.x + r.w / 2, r.y + r.h / 2 + 1, i === this.tab ? ST.tabA : ST.tab);
     }
@@ -121,7 +138,8 @@ export const recordsScene = {
     this.upRect.w = this.downRect.w = this.goRect.w = 0;
     if (this.tab === 0) this.drawTitles(ctx, px, py, pw, ph, d, t);
     else if (this.tab === 1) this.drawMissions(ctx, px, py, pw, ph, d, t);
-    else this.drawRush(ctx, px, py, pw, ph, d, t);
+    else if (this.tab === 2) this.drawRush(ctx, px, py, pw, ph, d, t);
+    else this.drawRank(ctx, px, py, pw, ph, d, t);
     const bk = this.backRect; bk.w = 110; bk.h = 38; bk.x = 24; bk.y = vh - 46;
     drawTag(ctx, bk.x, bk.y, bk.w, bk.h, false, false);
     drawText(ctx, 'もどる', bk.x + bk.w / 2, bk.y + bk.h / 2 + 1, ST.back);
@@ -132,9 +150,46 @@ export const recordsScene = {
       drawTag(ctx, u.x, u.y, u.w, u.h, false, !canUp); drawText(ctx, '▲', u.x + u.w / 2, u.y + u.h / 2 + 1, ST.back);
       drawTag(ctx, dn.x, dn.y, dn.w, dn.h, false, !canDn); drawText(ctx, '▼', dn.x + dn.w / 2, dn.y + dn.h / 2 + 1, ST.back);
     }
-    const hint = touch.enabled ? 'タブ・項目をタップ' : this.tab === 0 ? '←→ タブ　↑↓ 選ぶ　X もどる' : this.tab === 2 ? '←→ タブ　Z 挑む　X もどる' : '←→ タブ　X もどる';
+    const hint = touch.enabled ? 'タブ・項目をタップ' : this.tab === 0 ? '←→ タブ　↑↓ 選ぶ　X もどる' : this.tab === 2 ? '←→ タブ　Z 挑む　X もどる' : this.tab === 3 ? '←→ タブ　↑↓ ステージ　X もどる' : '←→ タブ　X もどる';
     drawText(ctx, hint, vw / 2, vh - 26, ST.hint);
     toast.draw(ctx, vw, vh, 8, true);
+  },
+
+  drawRank(ctx, px, py, pw, ph, d, t) {
+    const RS = { size: 16, color: COL.sumi, align: 'left', baseline: 'middle' };
+    if (!cloud.available || !cloud.signedIn || !cloud.recorder) {
+      const msg = !cloud.available ? '番付は、Google Apps Script で公開したゲームを Google アカウントで遊ぶと参加できます。'
+        : !cloud.signedIn ? 'Google にログインしていないため、番付に参加できません。' : '作った人の記録係（スプレッドシート）がまだつながっていません。';
+      drawText(ctx, msg, px + pw / 2, py + ph / 2, { ...RS, align: 'center', color: '#5a3a2a' });
+      return;
+    }
+    if (this.rankSel == null) this.loadRank();
+    // 左：ステージの一覧
+    const L = this.rankStages(); this.rankRects = [];
+    L.forEach((st, i) => {
+      const R = { x: px + 18, y: py + 18 + i * 36, w: 200, h: 30 }; this.rankRects.push([st, R]);
+      const on = st === this.rankSel;
+      roundRect(ctx, R.x, R.y, R.w, R.h, 8); ctx.fillStyle = on ? 'rgba(208,69,47,0.18)' : 'rgba(90,60,40,0.07)'; ctx.fill();
+      if (on) { ctx.strokeStyle = COL.shu; ctx.lineWidth = 2; ctx.stroke(); }
+      drawText(ctx, (META.stages[st] && META.stages[st].short) || String(st), R.x + 12, R.y + R.h / 2 + 1, on ? { ...RS, color: COL.shuDark } : RS);
+    });
+    // 右：上位10人
+    const x = px + 250, w = pw - 270, c = (this.rankCache || {})[this.rankSel];
+    drawText(ctx, `${(META.stages[this.rankSel] && META.stages[this.rankSel].name) || ''}　番付`, x, py + 32, { size: 20, color: COL.shuDark, align: 'left', baseline: 'middle', serif: true });
+    if (!c || c.state === 'loading') { drawText(ctx, '読みこみ中…', x, py + 80, RS); return; }
+    if (c.state === 'error') { drawText(ctx, '読みこめませんでした', x, py + 80, RS); return; }
+    if (!c.list.length) { drawText(ctx, 'まだ誰もクリアしていません。一番乗りをめざそう！', x, py + 80, RS); return; }
+    c.list.forEach((r, i) => {
+      const y = py + 70 + i * 26;
+      if (r.me) { ctx.fillStyle = 'rgba(224,180,72,0.28)'; ctx.fillRect(x - 6, y - 12, w, 24); }
+      const medal = ['#e0b448', '#b8c0c8', '#c88a4a'][i];
+      if (medal) { ctx.fillStyle = medal; ctx.beginPath(); ctx.arc(x + 10, y, 9, 0, Math.PI * 2); ctx.fill(); }
+      drawText(ctx, String(r.rank), x + 10, y + 1, { ...RS, align: 'center', size: 14 });
+      drawText(ctx, r.nickname + (r.me ? '（あなた）' : ''), x + 34, y + 1, RS);
+      drawText(ctx, fmtTime(r.time), x + w - 16, y + 1, { ...RS, align: 'right' });
+    });
+    const me = c.me;
+    drawText(ctx, me ? `あなたは ${me.rank} 位（${c.total}人中）　ベスト ${fmtTime(me.time)}` : `まだ記録がありません（${c.total}人が参加中）`, x, py + ph - 24, { ...RS, color: COL.shuDark });
   },
 
   // ---- 称号 ----
