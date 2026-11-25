@@ -337,7 +337,7 @@ class Bouncer extends Entity {
     this.placeAt(s, 44, 22);
     this.pickup = true; this.kind = s.kind || 'taiko'; this.squish = 0; this.z = 1;
     this.power = s.power ?? 1;
-    this.sprName = 'gim_bouncer_' + (this.kind === 'kasa' ? 'kasa' : 'taiko');
+    this.sprName = 'gim_bouncer_' + (['kasa', 'shell', 'coral'].includes(this.kind) ? this.kind : 'taiko');
   }
   onTouch(p) {
     if (p.vy < 0 || p.prevBottom > this.y + 12) return;
@@ -348,7 +348,7 @@ class Bouncer extends Entity {
     p.sx = 0.75; p.sy = 1.3;
     this.squish = 1;
     w.sfx('jump', { pitch: 1.5 });
-    w.particles.burst(this.cx, this.y, 8, { speed: 160, life: 0.4, size: 5, size1: 0, color: this.kind === 'taiko' ? '#ffe56b' : '#ff9ab0', shape: 'star', drag: 3, front: true });
+    w.particles.burst(this.cx, this.y, 8, { speed: 160, life: 0.4, size: 5, size1: 0, color: ({ taiko: '#ffe56b', kasa: '#ff9ab0', shell: '#fff0d8', coral: '#ff8a7a' })[this.kind] || '#ffe56b', shape: 'star', drag: 3, front: true });
     w.particles.spawn({ x: this.cx, y: this.y + 4, life: 0.3, size: 8, size1: 50, color: 'rgba(255,255,255,0.8)', shape: 'ring', front: true });
   }
   update(dt) { this.squish = Math.max(0, this.squish - dt * 5); }

@@ -1,3 +1,4 @@
+import { makeCanvas } from '../gfx/renderer.js';
 import { Entity, registerEntity } from '../actors/entity.js';
 import { TILE } from '../core/config.js';
 import { drawSprite } from '../gfx/atlas.js';
@@ -289,3 +290,39 @@ function drawHintIcon(ctx, kind, x, y, t) {
   drawText(ctx, kind === 'btnJ' ? 'ジャンプ' : '技', x, y + 1, kind === 'btnJ' ? HINT_BTN : HINT_BTN_A);
 }
 const HINT_BTN_A = { size: 16, color: COL.kinari, align: 'center', baseline: 'middle' };
+
+// 洞窟の奥の岩肌（地形の後ろに描く背景）。spec: x, y, w, h（タイル。左上から）、tone（'limestone' | 'dark'）
+// 天井で囲まれた鍾乳洞などで、空が見えないようにする。描く絵は起動時に1枚に焼く
+class CaveWall extends Entity {
+  constructor(w, s) {
+    super(w, s);
+    this.x = s.x * TILE; this.y = s.y * TILE; this.w = s.w * TILE; this.h = s.h * TILE;
+    this.px = this.x; this.py = this.y; this.z = -9; this.drawPad = 0;
+  }
+  bake() {
+    const W = this.w, H = this.h, c = makeCanvas(W, H), x = c.getContext('2d');
+    const lime = this.spec.tone !== 'dark';
+    const g = x.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, lime ? '#3a3630' : '#1e1a18'); g.addColorStop(0.5, lime ? '#4a453c' : '#2a2420'); g.addColorStop(1, lime ? '#2c2a26' : '#141010');
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+    // 石灰岩の穴と筋
+    for (let i = 0; i < W * H / 900; i++) {
+      const px = (Math.sin(i * 91.7) * 0.5 + 0.5) * W, py = (Math.sin(i * 37.3 + 1) * 0.5 + 0.5) * H, r = 1.5 + (Math.sin(i * 13.1) * 0.5 + 0.5) * 5;
+      x.fillStyle = `rgba(0,0,0,${0.18 + (i % 3) * 0.06})`; x.beginPath(); x.ellipse(px, py, r * 1.4, r, 0, 0, Math.PI * 2); x.fill();
+      x.fillStyle = 'rgba(255,240,210,0.05)'; x.beginPath(); x.ellipse(px - 1, py - 1, r * 0.8, r * 0.5, 0, 0, Math.PI * 2); x.fill();
+    }
+    // 奥のつらら石と石筍のかげ
+    x.fillStyle = 'rgba(0,0,0,0.28)';
+    for (let i = 0; i < W / 40; i++) {
+      const px = i * 40 + (Math.sin(i * 5.1) * 0.5 + 0.5) * 24, l = 20 + (Math.sin(i * 2.3) * 0.5 + 0.5) * 60;
+      x.beginPath(); x.moveTo(px - 7, 0); x.lineTo(px, l); x.lineTo(px + 7, 0); x.fill();
+      x.beginPath(); x.moveTo(px + 14, H); x.lineTo(px + 20, H - l * 0.6); x.lineTo(px + 26, H); x.fill();
+    }
+    // 上ほど暗く（天井のかげ）、入口と出口の近くは少し明るく
+    const v = x.createLinearGradient(0, 0, 0, H); v.addColorStop(0, 'rgba(0,0,0,0.45)'); v.addColorStop(0.6, 'rgba(0,0,0,0)'); x.fillStyle = v; x.fillRect(0, 0, W, H);
+    const s = x.createLinearGradient(0, 0, W, 0); s.addColorStop(0, 'rgba(120,180,200,0.12)'); s.addColorStop(0.15, 'rgba(0,0,0,0)'); s.addColorStop(0.85, 'rgba(0,0,0,0)'); s.addColorStop(1, 'rgba(120,180,200,0.12)'); x.fillStyle = s; x.fillRect(0, 0, W, H);
+    this.img = c;
+  }
+  draw(ctx) { if (!this.img) this.bake(); ctx.drawImage(this.img, this.x, this.y); }
+}
+registerEntity('caveWall', CaveWall);

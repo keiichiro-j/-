@@ -16,8 +16,13 @@ import CHARS from '../data/characters.json';
 import { weaponById, rarityInfo } from '../systems/gacha.js';
 // ワールドマップ（設計書 3章・9章）。架空の岐阜の地図。担当：UI
 // params: { stage?: 最後に遊んだステージ（そこにカーソルを置く）}
+// 特別ステージ8（沖縄）：ステージ1〜6をすべてクリアすると、地図の右下に「南の島・沖縄」の差し込み地図が出て、岐阜から点線の航路でつながる。
+//   はじめて出た時（マップに入った時）に「南の島への航路がひらけた！」の演出（見たことは save.data.seenHints.route8 に覚える）
 
-const ORDER = [0, 1, 2, 3, 4, 5, 6, 7];
+const ORDER = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+const SOUTH = 8;                      // 特別ステージ（差し込み地図の中）
+const REVEAL_TIME = 3.2;              // 航路がひらける演出の長さ（秒）
+const ROUTE_N = 28;                   // 航路の点線を描く点の数
 // short：幅が足りない時の短い名前。rush（腕試し）はエンディングを見た後だけ出る
 const ALL_BTNS = [{ key: 'gacha', label: '福引き' }, { key: 'char', label: 'キャラ変更', short: 'キャラ' }, { key: 'zukan', label: '図鑑' }, { key: 'records', label: '記録' }, { key: 'rush', label: '腕試し' }, { key: 'settings', label: '設定' }, { key: 'title', label: 'タイトル' }];
 let BTNS = ALL_BTNS.filter((b) => b.key !== 'rush');
@@ -38,6 +43,10 @@ const ST = {
   new: { size: 13, color: COL.kinLight, stroke: COL.shuDark, strokeW: 3, align: 'center', baseline: 'middle' },
 };
 
+// 差し込み地図の島の形（0..1。x,y の順）
+const MAIN_ISLAND = [0.3, 0.86, 0.36, 0.7, 0.46, 0.6, 0.52, 0.46, 0.62, 0.36, 0.7, 0.26, 0.8, 0.16, 0.88, 0.14, 0.86, 0.24, 0.76, 0.34, 0.7, 0.46, 0.62, 0.6, 0.52, 0.7, 0.42, 0.8, 0.36, 0.9];
+const SMALL_ISLE_A = [0.12, 0.7, 0.18, 0.64, 0.23, 0.7, 0.18, 0.76];
+const SMALL_ISLE_B = [0.86, 0.72, 0.92, 0.68, 0.95, 0.75, 0.89, 0.8];
 // 情報パネルの景色の帯（ステージの空と山の色）
 const BANNERS = {
   0: { sky: ['#bfe0ff', '#eaf6ff'], hills: ['#9ac08a', '#6a9a5a'] },
@@ -48,13 +57,17 @@ const BANNERS = {
   5: { sky: ['#a8b8cc', '#eef2f8'], hills: ['#e8eef6', '#c4d0de'], snow: true },
   6: { sky: ['#1a0a14', '#6a1a10'], hills: ['#3a1a1a', '#1a0a0a'], peak: 0.62, stars: true },
   7: { sky: ['#2a2a6a', '#8a7ac8'], hills: ['#4a3a7a', '#2a1a4a'], stars: true },
+  8: { sky: ['#2a9ae8', '#c8f2ff'], hills: ['#4aa86a', '#2a7a4a'], sea: ['#3ad8d8', '#0a78b8'] },   // 南国の空と海
 };
+// 特別ステージ8が出る条件：ステージ1〜6をすべてクリア
+export function southOpen(d) { for (let n = 1; n <= 6; n++) if (!d.cleared.includes(n)) return false; return true; }
 
 function stageState(n) {
   const d = save.data;
   const has = !!LEVELS[n];
   if (n === 0) return { visible: has, open: has, has };
   if (n === 7) { const v = save.saruboboCount() >= 18; return { visible: v, open: v, has }; }   // レベルが無ければ「準備中」
+  if (n === SOUTH) { const v = southOpen(d); return { visible: v, open: v, has }; }
   const open = n === 1 || d.cleared.includes(n - 1);
   return { visible: true, open, has };
 }
@@ -64,6 +77,7 @@ export const worldmapScene = {
   nodes: ORDER.map(() => ({ x: 0, y: 0, r: 0 })),
   btnRects: ALL_BTNS.map(() => ({ x: 0, y: 0, w: 0, h: 0 })),
   missionRect: { x: 0, y: 0, w: 0, h: 0 },
+  inset: { x: 0, y: 0, w: 0, h: 0 }, route: new Float32Array(ROUTE_N * 2), reveal: -1,
   goRect: { x: 0, y: 0, w: 0, h: 0 },
   msg: '', msgT: 0,
   enter(params) {
@@ -80,6 +94,12 @@ export const worldmapScene = {
     // まだ遊んでいない次のステージがあれば、そこへ
     if (this.params.stage != null) { const nx = s + 1; if (nx <= 6 && stageState(nx).open && !d.cleared.includes(nx) && d.cleared.includes(s)) s = nx; }
     this.sel = this.from = s;
+    // 南の島への航路がひらけた（はじめて条件を満たしてマップに来た時）
+    this.reveal = -1;
+    if (southOpen(d) && !(d.seenHints && d.seenHints.route8) && !d.cleared.includes(SOUTH)) {
+      this.reveal = 0;
+      d.seenHints = d.seenHints || {}; d.seenHints.route8 = true; save.write();
+    }
     touch.show('menu');
     audio.bgm('map');
   },
@@ -102,6 +122,7 @@ export const worldmapScene = {
   },
   update(dt) {
     this.t += dt; this.walk = Math.min(1, this.walk + dt * 3.2); this.msgT = Math.max(0, this.msgT - dt);
+    if (this.reveal >= 0) { this.updateReveal(dt); return; }
     if (this.t < 0.25) { touch.clearTap(); return; }
     const tp = touch.tap();
     if (tp) {
@@ -132,6 +153,19 @@ export const worldmapScene = {
     }
   },
   btnLabels() { return BTNS.map((b) => b.label); },   // テスト用
+  // 航路がひらける演出。0.5秒後から決定・タップで飛ばせる。終わるとカーソルが南の島へ
+  updateReveal(dt) {
+    const r0 = this.reveal;
+    this.reveal += dt;
+    if (r0 === 0) audio.sfx('star');
+    if (r0 < 1.15 && this.reveal >= 1.15) audio.sfx('clear');
+    if (this.reveal <= 0.5) { touch.clearTap(); return; }
+    const skip = input.pressed.confirm || input.pressed.jump || touch.tap();
+    if (this.reveal >= REVEAL_TIME || skip) {
+      this.reveal = -1; touch.clearTap();
+      if (stageState(SOUTH).has && this.sel !== SOUTH) { this.from = this.sel; this.sel = SOUTH; this.walk = 0; audio.sfx('select'); }
+    }
+  },
   say(m) { this.msg = m; this.msgT = 2; },
   button(k, tab) {
     audio.sfx('confirm');
@@ -198,10 +232,10 @@ export const worldmapScene = {
     ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x + w * 0.3, y + h * 0.3); ctx.bezierCurveTo(x + w * 0.38, y + h * 0.45, x + w * 0.44, y + h * 0.55, x + w * 0.5, y + h * 0.6); ctx.stroke();
     ctx.lineCap = 'butt';
     drawText(ctx, '飛　騨', x + w * 0.28, y + h * 0.36, ST.region);
-    drawText(ctx, '美　濃', x + w * 0.72, y + h * 0.82, ST.region);
+    drawText(ctx, '美　濃', x + w * (this.inset.w > 0 ? 0.6 : 0.72), y + h * 0.82, ST.region);   // 差し込み地図が出たら左へ
     ctx.restore();
-    // 方位
-    const ox = x + w - 40, oy = y + h - 44;
+    // 方位（南の島の差し込み地図が出ている時は、その上へ）
+    const ox = x + w - 40, oy = this.inset.w > 0 ? this.inset.y - 34 : y + h - 44;
     ctx.strokeStyle = 'rgba(90,60,40,0.7)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(ox, oy, 16, 0, Math.PI * 2); ctx.stroke();
     ctx.fillStyle = COL.shu; ctx.beginPath(); ctx.moveTo(ox, oy - 15); ctx.lineTo(ox - 5, oy); ctx.lineTo(ox + 5, oy); ctx.closePath(); ctx.fill();
     drawText(ctx, '北', ox, oy - 26, ST.area_c || (ST.area_c = { ...ST.area, align: 'center' }));
@@ -212,14 +246,22 @@ export const worldmapScene = {
     const PAD = 14, TOP = 58;
     const panelW = Math.round(Math.min(320, Math.max(280, vw * 0.27)));
     const mx = PAD, my = TOP, mw = vw - panelW - PAD * 3, mh = vh - TOP - PAD;
+    this.layoutInset(mx, my, mw, mh);
     this.drawMap(ctx, mx, my, mw, mh, t);
     // 位置
     for (let i = 0; i < ORDER.length; i++) { const m = META.stages[ORDER[i]], N = this.nodes[i]; N.x = mx + 20 + (mw - 40) * m.map[0]; N.y = my + 20 + (mh - 40) * m.map[1]; N.r = ORDER[i] === 0 ? 16 : 22; }
+    // 南の島：差し込み地図の中の位置
+    const southOn = stageState(SOUTH).visible, I = this.inset;
+    if (southOn) {
+      const NS = this.nodes[ORDER.indexOf(SOUTH)], ms = META.stages[SOUTH];
+      NS.x = I.x + I.w * ms.map[0]; NS.y = I.y + I.h * ms.map[1]; NS.r = 20;
+    }
     // 道（点線）
     ctx.save();
     ctx.lineCap = 'round';
     for (let i = 1; i < ORDER.length; i++) {
       const n = ORDER[i], A = this.nodes[i - 1], B = this.nodes[i];
+      if (n === SOUTH) continue;   // 南の島へは航路（下で描く）
       const sa = stageState(ORDER[i - 1]), sb = stageState(n);
       if (!sa.visible || !sb.visible) continue;
       const open = sb.open;
@@ -231,18 +273,21 @@ export const worldmapScene = {
       ctx.quadraticCurveTo(mxp, myp, B.x, B.y); ctx.stroke();
     }
     ctx.restore();
+    // 南の島：航路と差し込み地図（演出の間は少しずつ出る）
+    if (southOn) this.drawSouth(ctx, mx, my, mw, mh, t);
     // ノード
     for (let i = 0; i < ORDER.length; i++) {
       const n = ORDER[i], N = this.nodes[i], st = stageState(n);
       if (!st.visible) continue;
+      if (n === SOUTH && this.reveal >= 0 && this.reveal < 1.5) continue;   // 演出：差し込み地図が出てから
       const m = META.stages[n], cleared = d.cleared.includes(n), on = n === this.sel;
       ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(N.x, N.y + N.r * 0.8, N.r * 1.1, N.r * 0.35, 0, 0, Math.PI * 2); ctx.fill();
       if (on) { ctx.strokeStyle = `rgba(246,220,138,${0.6 + 0.4 * Math.sin(t * 5)})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(N.x, N.y, N.r + 7, 0, Math.PI * 2); ctx.stroke(); }
       ctx.beginPath(); ctx.arc(N.x, N.y, N.r, 0, Math.PI * 2);
-      ctx.fillStyle = !st.open ? '#8a8378' : cleared ? COL.shu : n === 7 ? '#5a3a8a' : COL.ai; ctx.fill();
+      ctx.fillStyle = !st.open ? '#8a8378' : cleared ? COL.shu : n === 7 ? '#5a3a8a' : n === SOUTH ? '#0e7a8a' : COL.ai; ctx.fill();
       ctx.lineWidth = 3; ctx.strokeStyle = cleared ? COL.kin : COL.kinari; ctx.stroke();
       if (cleared && m.orb) drawOrb(ctx, N.x, N.y, N.r * 0.45, m.orb, 0.6);
-      else drawText(ctx, n === 0 ? '練' : n === 7 ? '裏' : !st.open ? '・' : String(n), N.x, N.y + 1, ST.nodeNo);
+      else drawText(ctx, n === 0 ? '練' : n === 7 ? '裏' : n === SOUTH ? '南' : !st.open ? '・' : String(n), N.x, N.y + 1, ST.nodeNo);
       drawText(ctx, m.short, N.x, N.y + N.r + 14, ST.node);
       // 目標タイム達成の金の印
       const bt = d.bestTime[String(n)];
@@ -280,6 +325,7 @@ export const worldmapScene = {
     this.drawMissions(ctx, mx + 216, my + 12, d, t);
     // ---- 右：ステージの情報 ----
     this.drawInfo(ctx, vw - panelW - PAD, TOP, panelW, vh - TOP - PAD, t);
+    if (this.reveal >= 0) this.drawRevealMsg(ctx, mx, my, mw, mh, this.reveal);
     if (this.msgT > 0) {
       ctx.globalAlpha = Math.min(1, this.msgT * 2);
       roundRect(ctx, mx + mw / 2 - 200, vh - 80, 400, 40, 20); ctx.fillStyle = 'rgba(20,14,12,0.85)'; ctx.fill();
@@ -324,7 +370,7 @@ export const worldmapScene = {
     const L = 20, R = x + w - L;          // 内側の左右の余白
     drawWashi(ctx, x, y, w, h);
     // 見出し
-    drawText(ctx, n === 0 ? 'れんしゅう' : n === 7 ? 'うらステージ' : `第${'一二三四五六'[n - 1]}の地　${m.area}`, x + L, y + 26, ST.area);
+    drawText(ctx, n === 0 ? 'れんしゅう' : n === 7 ? 'うらステージ' : n === SOUTH ? `特別ステージ　${m.area}` : `第${'一二三四五六'[n - 1]}の地　${m.area}`, x + L, y + 26, ST.area);
     const nm = (LEVELS[n] && LEVELS[n].name) || m.name;
     drawText(ctx, nm, x + L, y + 52, nm.length > 9 ? ST.nameS || (ST.nameS = { ...ST.name, size: 19 }) : ST.name);
     // 景色の帯（ステージの雰囲気。クリアすると宝珠が光る）
@@ -372,13 +418,125 @@ export const worldmapScene = {
     } else { roundRect(ctx, G.x, G.y, G.w, G.h, 12); ctx.fillStyle = 'rgba(90,60,40,0.1)'; ctx.fill(); drawText(ctx, st.open ? '準備中' : 'まだ進めない', G.x + G.w / 2, G.y + G.h / 2, ST.wait); }
     drawText(ctx, touch.enabled ? '場所をタップ・もう一度で出発' : '←→ 移動　Z 出発　↑ メニュー', x + w / 2, y + h - 12, ST.hintD || (ST.hintD = { size: 12, color: '#5a3a2a', align: 'center', baseline: 'middle' }));
   },
+  // 南の島の差し込み地図の場所（地図の右下の隅。幅960〜1200で地図の他の印と重ならない大きさ）
+  layoutInset(mx, my, mw, mh) {
+    const I = this.inset;
+    if (!stageState(SOUTH).visible) { I.w = 0; I.h = 0; return; }
+    I.w = Math.round(Math.min(210, Math.max(150, mw * 0.25)));
+    I.h = Math.round(Math.min(116, Math.max(96, mh * 0.21)));
+    I.x = mx + mw - I.w - 12; I.y = my + mh - I.h - 12;
+  },
+  // 岐阜の南の岸から差し込み地図まで航路（点線）。点は this.route に入れておく（毎フレーム配列を作らない）
+  routePoints(mx, my, mw, mh) {
+    const I = this.inset, P = this.route;
+    const sx = mx + mw * 0.52, sy = my + mh * 0.94, ex = I.x + 6, ey = I.y + I.h * 0.58;
+    const cx = (sx + ex) / 2, cy = Math.max(sy, ey) + 26;
+    for (let i = 0; i < ROUTE_N; i++) { const u = i / (ROUTE_N - 1), iu = 1 - u; P[i * 2] = iu * iu * sx + 2 * iu * u * cx + u * u * ex; P[i * 2 + 1] = iu * iu * sy + 2 * iu * u * cy + u * u * ey; }
+  },
+  drawSouth(ctx, mx, my, mw, mh, t) {
+    const I = this.inset, P = this.route, d = save.data, rv = this.reveal;
+    this.routePoints(mx, my, mw, mh);
+    // 航路（演出の間は伸びていく）
+    const k = rv >= 0 ? Math.min(1, rv / 1.1) : 1;
+    const last = Math.max(1, Math.round((ROUTE_N - 1) * k));
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 7;
+    ctx.beginPath(); ctx.moveTo(P[0], P[1]); for (let i = 1; i <= last; i++) ctx.lineTo(P[i * 2], P[i * 2 + 1]); ctx.stroke();
+    ctx.strokeStyle = 'rgba(20,110,170,0.9)'; ctx.lineWidth = 4; ctx.setLineDash([2, 9]); ctx.lineDashOffset = -t * 12;
+    ctx.beginPath(); ctx.moveTo(P[0], P[1]); for (let i = 1; i <= last; i++) ctx.lineTo(P[i * 2], P[i * 2 + 1]); ctx.stroke();
+    ctx.setLineDash([]);
+    // 港の印（岐阜の側）
+    ctx.fillStyle = '#6a4a2a'; ctx.fillRect(P[0] - 9, P[1] - 3, 18, 6); ctx.strokeStyle = '#3a2412'; ctx.lineWidth = 1.5; ctx.strokeRect(P[0] - 9, P[1] - 3, 18, 6);
+    // 進む小舟（演出の間は航路の先頭）
+    const u = rv >= 0 ? k : (t * 0.12) % 1, bi = Math.min(ROUTE_N - 2, Math.floor(u * (ROUTE_N - 1))), bf = u * (ROUTE_N - 1) - bi;
+    const bx = P[bi * 2] + (P[bi * 2 + 2] - P[bi * 2]) * bf, by = P[bi * 2 + 1] + (P[bi * 2 + 3] - P[bi * 2 + 1]) * bf + Math.sin(t * 4) * 1.5;
+    if (rv < 0 || k < 1) this.drawBoat(ctx, bx, by);
+    ctx.restore();
+    // 差し込み地図（演出：ふわっと大きくなって出る）
+    const ki = rv >= 0 ? Math.min(1, Math.max(0, (rv - 0.9) / 0.5)) : 1;
+    if (ki <= 0) return;
+    ctx.save();
+    const sc = 0.6 + 0.4 * (1 - (1 - ki) * (1 - ki)) + (rv >= 0 && rv < 1.8 ? Math.sin(Math.min(1, (rv - 0.9) / 0.9) * Math.PI) * 0.06 : 0);
+    ctx.globalAlpha = ki;
+    ctx.translate(I.x + I.w / 2, I.y + I.h / 2); ctx.scale(sc, sc); ctx.translate(-(I.x + I.w / 2), -(I.y + I.h / 2));
+    // 枠（木の額）と海
+    ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 4;
+    roundRect(ctx, I.x - 4, I.y - 4, I.w + 8, I.h + 8, 9); ctx.fillStyle = '#5a3a22'; ctx.fill();
+    ctx.shadowColor = 'rgba(0,0,0,0)';
+    ctx.save();
+    roundRect(ctx, I.x, I.y, I.w, I.h, 6); ctx.clip();
+    const g = ctx.createLinearGradient(0, I.y, 0, I.y + I.h); g.addColorStop(0, '#5ad0e8'); g.addColorStop(1, '#1a7ab8');
+    ctx.fillStyle = g; ctx.fillRect(I.x, I.y, I.w, I.h);
+    // 波のすじ
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = 1.4;
+    for (let i = 0; i < 7; i++) {
+      const wx = I.x + ((i * 47 + t * 10) % (I.w + 30)) - 15, wy = I.y + 14 + ((i * 29) % (I.h - 20));
+      ctx.beginPath(); ctx.arc(wx, wy, 5, Math.PI * 1.1, Math.PI * 1.9); ctx.arc(wx + 9, wy, 5, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+    }
+    // 島（細長い本島と小さな島。砂浜のふち）
+    const isl = (pts, sand, green) => {
+      for (const [col, grow] of [[sand, 3], [green, 0]]) {
+        ctx.beginPath();
+        for (let i = 0; i < pts.length; i += 2) { const px = I.x + I.w * pts[i], py = I.y + I.h * pts[i + 1]; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+        ctx.closePath(); ctx.fillStyle = col; ctx.fill();
+        if (grow) { ctx.lineWidth = grow * 2; ctx.strokeStyle = col; ctx.lineJoin = 'round'; ctx.stroke(); }
+      }
+    };
+    isl(MAIN_ISLAND, '#f4e2a8', '#6ab86a');
+    isl(SMALL_ISLE_A, '#f4e2a8', '#7ac47a');
+    isl(SMALL_ISLE_B, '#f4e2a8', '#7ac47a');
+    // 赤い宝珠の印（島の北）
+    const ox = I.x + I.w * 0.79, oy = I.y + I.h * 0.24;
+    drawOrb(ctx, ox, oy, 5.5, d.cleared.includes(SOUTH) ? META.stages[SOUTH].orb : '#ff3a5a', 0.6 + 0.4 * Math.sin(t * 3));
+    ctx.restore();
+    roundRect(ctx, I.x, I.y, I.w, I.h, 6); ctx.strokeStyle = 'rgba(246,220,138,0.9)'; ctx.lineWidth = 1.5; ctx.stroke();
+    // 見出し（左上。主人公のコマ・宝珠の印と重ならない幅）
+    drawText(ctx, '南の島・沖縄', I.x + 7, I.y + 12, ST.inset || (ST.inset = { size: 11, color: '#fff8e6', stroke: '#0a3a5a', strokeW: 3, align: 'left', baseline: 'middle', serif: true }));
+    ctx.restore();
+  },
+  drawBoat(ctx, x, y) {
+    ctx.fillStyle = '#8a5a2a'; ctx.strokeStyle = '#3a2412'; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(x - 9, y - 2); ctx.lineTo(x + 9, y - 2); ctx.lineTo(x + 6, y + 3); ctx.lineTo(x - 6, y + 3); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#fff8e6'; ctx.beginPath(); ctx.moveTo(x - 1, y - 3); ctx.lineTo(x - 1, y - 15); ctx.lineTo(x + 8, y - 4); ctx.closePath(); ctx.fill(); ctx.stroke();
+  },
+  // 「南の島への航路がひらけた！」（地図の真ん中に帯）
+  drawRevealMsg(ctx, mx, my, mw, mh, rv) {
+    const k = Math.min(1, rv / 0.35) * Math.min(1, Math.max(0, (REVEAL_TIME - rv) / 0.4));
+    if (k <= 0) return;
+    const cx = mx + mw / 2, cy = my + mh * 0.44, bw = Math.min(mw - 40, 560), bh = 84;
+    ctx.save();
+    ctx.globalAlpha = k;
+    const g = ctx.createLinearGradient(cx - bw / 2, 0, cx + bw / 2, 0);
+    g.addColorStop(0, 'rgba(10,40,70,0)'); g.addColorStop(0.15, 'rgba(10,40,70,0.88)'); g.addColorStop(0.85, 'rgba(10,40,70,0.88)'); g.addColorStop(1, 'rgba(10,40,70,0)');
+    ctx.fillStyle = g; ctx.fillRect(cx - bw / 2, cy - bh / 2, bw, bh);
+    ctx.fillStyle = COL.kin; ctx.fillRect(cx - bw * 0.35, cy - bh / 2 + 4, bw * 0.7, 2); ctx.fillRect(cx - bw * 0.35, cy + bh / 2 - 6, bw * 0.7, 2);
+    const sl = (1 - Math.min(1, rv / 0.35)) * 40;
+    drawText(ctx, '南の島への航路がひらけた！', cx + sl, cy - 6, ST.reveal || (ST.reveal = { size: 30, color: '#fff8e6', stroke: '#0a2a4a', strokeW: 6, align: 'center', baseline: 'middle', serif: true, shadow: true }));
+    drawText(ctx, '特別ステージ「沖縄・ニライカナイの島」', cx - sl, cy + 26, ST.reveal2 || (ST.reveal2 = { size: 15, color: COL.kinLight, stroke: '#0a2a4a', strokeW: 3, align: 'center', baseline: 'middle' }));
+    ctx.restore();
+  },
+  // 景色の帯（南の島）：空・海・島・きらめき
+  drawSeaBanner(ctx, x, y, w, h, P, t) {
+    const sy = y + h * 0.58;
+    const g = ctx.createLinearGradient(0, sy, 0, y + h); g.addColorStop(0, P.sea[0]); g.addColorStop(1, P.sea[1]);
+    ctx.fillStyle = g; ctx.fillRect(x, sy, w, y + h - sy);
+    // 島（奥）
+    ctx.fillStyle = P.hills[1]; ctx.beginPath(); ctx.moveTo(x + w * 0.08, sy); ctx.quadraticCurveTo(x + w * 0.22, sy - h * 0.2, x + w * 0.4, sy); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = P.hills[0]; ctx.beginPath(); ctx.moveTo(x + w * 0.5, sy); ctx.quadraticCurveTo(x + w * 0.62, sy - h * 0.12, x + w * 0.78, sy); ctx.closePath(); ctx.fill();
+    // 白い波ときらめき
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    for (let i = 0; i < 12; i++) { const wx = x + ((i * 41.3 + t * 9) % w), wy = sy + 6 + ((i * 13.7) % (h * 0.36)); ctx.fillRect(wx, wy, 6 + (i % 3) * 3, 1.5); }
+    ctx.fillStyle = '#fff6d0'; ctx.beginPath(); ctx.arc(x + w * 0.2, y + h * 0.24, 9, 0, Math.PI * 2); ctx.fill();
+  },
   // 景色の帯：ステージごとの空と山の色、宝珠
   drawBanner(ctx, x, y, w, h, n, t, cleared) {
     const P = BANNERS[n] || BANNERS[1], m = META.stages[n];
     ctx.save(); roundRect(ctx, x, y, w, h, 10); ctx.clip();
     const g = ctx.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, P.sky[0]); g.addColorStop(1, P.sky[1]); ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
     if (P.stars) { ctx.fillStyle = 'rgba(255,255,240,0.8)'; for (let i = 0; i < 18; i++) ctx.fillRect(x + ((i * 53.7) % w), y + ((i * 31.3) % (h * 0.5)), 1.5, 1.5); }
-    P.hills.forEach((c, k) => {
+    if (P.sea) this.drawSeaBanner(ctx, x, y, w, h, P, t);
+    else P.hills.forEach((c, k) => {
       ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(x, y + h);
       for (let i = 0; i <= 24; i++) { const u = i / 24; ctx.lineTo(x + u * w, y + h * (0.55 + k * 0.17) - Math.sin(u * (5 + k * 3) + n * 1.7 + k) * h * (0.14 - k * 0.04) - (k === 0 && P.peak ? Math.max(0, 1 - Math.abs(u - P.peak) * 6) * h * 0.25 : 0)); }
       ctx.lineTo(x + w, y + h); ctx.closePath(); ctx.fill();

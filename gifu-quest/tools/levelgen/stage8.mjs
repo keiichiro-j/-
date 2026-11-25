@@ -55,7 +55,7 @@ export function build() {
   b.flat(31);                                      // 92-122
   b.rect(92, 16, 93, 17, 'S');                     // 石垣の段（上は行16）
   b.rect(95, 15, 100, 17, 'W').row(95, 100, 14, 'R');   // 家A（屋根は行14）
-  D('shisa', 97, 13, { z: -2 });
+  D('shisa_a', 97, 13, { z: -2 });
   b.enemy('walker', 'habu', 102, 17, { range: 1 });
   D('ishigantou', 103, 17);
   b.rect(104, 14, 110, 17, 'W').row(104, 110, 13, 'R'); // 家B（屋根は行13）
@@ -89,34 +89,35 @@ export function build() {
   b.to(18).flat(6);                                // 152-157 浜
   b.sign('sango', 154, 17, 'サンゴ礁', 'サンゴ礁は、サンゴなどの生き物が長い年月をかけてつくった石灰質の地形。沖縄の島々のまわりに広がり、多くの魚のすみかになっている。');
   // サンゴの海：満ち潮のときだけサンゴ礁の壁（上は行13）を越えられる。引き潮の間は浅瀬で待つ
-  b.to(22).flat(44);                               // 158-201 海の底
+  b.to(21).flat(44);                               // 158-201 海の底
   tide(158, 202, 18, 12, 14, 0.85);
-  b.rect(168, 13, 170, 21, 'S');                   // サンゴ礁の壁1
-  b.rect(184, 13, 186, 21, 'S');                   // サンゴ礁の壁2
-  b.rect(176, 19, 178, 21, 'S');                   // 浅瀬の台（引き潮で立って待てる）
+  b.rect(168, 13, 170, 20, 'S');                   // サンゴ礁の壁1
+  b.rect(184, 13, 186, 20, 'S');                   // サンゴ礁の壁2
+  b.rect(176, 19, 178, 20, 'S');                   // 浅瀬の台（引き潮で立って待てる）
   b.ent('bouncer', 185, 12, { kind: 'coral', power: 1 });
   b.coinCol(185, 6, 9);
   b.enemy('popper', 'hirimon', 163, 18, { period: 2.6 });
   b.enemy('popper', 'hirimon', 180, 18, { period: 2.2 });
   b.enemy('popper', 'hirimon', 195, 18, { period: 2.4 });
-  b.enemy('spiky', 'uni', 174, 21, { range: 1 });
-  b.enemy('spiky', 'uni', 192, 21, { range: 2 });
+  b.enemy('spiky', 'uni', 174, 20, { range: 1 });
+  b.enemy('spiky', 'uni', 192, 20, { range: 2 });
   b.enemy('flyer', 'kanmuri', 178, 8, { amp: 1, range: 5 });
-  b.coins(160, 166, 20).coins(171, 175, 15).coins(187, 199, 14);
-  for (const x of [161, 165, 173, 181, 190, 197]) D('coral', x, 21, { z: -4 });
+  b.coins(160, 166, 19).coins(171, 175, 15).coins(187, 199, 14);
+  for (const x of [161, 165, 173, 181, 190, 197]) D('coral', x, 20, { z: -4 });
   b.to(18).flat(5);                                // 202-206 浜
   D('palm', 204, 17);
   // 鍾乳洞（天井は琉球石灰岩）：天井の下の水路を潜って進む
   b.flat(4);                                       // 207-210
   b.sign('sekkai', 209, 17, '琉球石灰岩', '沖縄の石垣に使われる琉球石灰岩は、大昔のサンゴ礁などからできた石。雨水にとけやすいため、島の地下には鍾乳洞が多い。');
-  b.to(23).flat(17);                               // 211-227 水路の底
-  for (let x = 211; x <= 227; x++) { b.set(x, 18, '~'); for (let y = 19; y <= 22; y++) b.set(x, y, 'w'); }
+  b.to(21).flat(17);                               // 211-227 水路の底
+  for (let x = 211; x <= 227; x++) { b.set(x, 18, '~'); for (let y = 19; y <= 20; y++) b.set(x, y, 'w'); }
   b.rect(214, 6, 224, 18, 'S');                    // 水路の上の岩（天井までつながる。潜ってくぐる）
-  b.coinCol(212, 19, 21); b.coins(215, 223, 21);
+  b.coinCol(212, 19, 20); b.coins(215, 223, 20);
   b.enemy('popper', 'hirimon', 212, 18, { period: 2.6 });
   b.enemy('popper', 'hirimon', 226, 18, { period: 2.3 });
   b.to(18).flat(8);                                // 228-235 洞の奥
   b.rect(206, 0, 236, 5, 'S');                     // 洞の天井
+  b.ent('caveWall', 206, 6, { w: 31, h: 16 });    // 洞の奥の岩肌（天井の内側に空が見えないように）
   for (const x of [208, 211, 226, 229]) b.set(x, 6, 'S');   // つらら石
   b.rect(236, 0, 236, 12, 'S');                    // 洞の右の壁（下は出口）
   // さるぼぼ2：洞の天井のくぼみ。ハクは二段ジャンプで・リーフは右の壁をけって・ミナモは滑空で楽に。
@@ -145,11 +146,24 @@ export function build() {
   b.checkpoint(1, 256, 17);
   b.sign('shuri', 260, 17, '首里城', '首里城は琉球王国の王城。2000年に、首里城跡が「琉球王国のグスク及び関連遺産群」の一つとして世界遺産に登録された。');
   b.sign('eisa', 265, 17, 'エイサー', 'エイサーは旧盆に踊られる沖縄の伝統芸能。太鼓を打ち鳴らし、三線や歌に合わせて若者たちが地域をねり歩く。');
-  D('redroof', 262, 17, { z: -7 }); D('sanshin_stand', 258, 17); D('shisa', 267, 17); D('hibiscus', 263, 17);
+  D('redroof', 262, 17, { z: -7 }); D('sanshin_stand', 258, 17); D('shisa', 267, 17);   // 門の阿吽一対 D('hibiscus', 263, 17);
   b.coins(258, 266, 14);
   b.arena('shisa', 18, { wall: 'S' });
-  D('shisa', 272, 17, { z: -6 }); D('palm', 284, 17, { z: -7 }); D('shisa', 296, 17, { z: -6 });
+  D('shisa_a', 272, 17, { z: -6 }); D('palm', 284, 17, { z: -7 }); D('shisa_un', 296, 17, { z: -6 });
 
   b.area('導入', 0, 75).area('展開', 75, 150).area('山場', 150, 254).area('ボス', 254, 300);
+  // 背景の中景（さとうきび畑・集落・城）が見えるよう、全体を2行下げて地面を下から4行にする（下の2行を捨て、上に2行足す）。
+  // 上の座標は「床の行18・高さ24」で書いてあり、深い所（入り江・港・海・水路の底）は行21までにしてある
+  return lower(b, 2);
+}
+
+function lower(b, n) {
+  // 足した上の行は元のいちばん上の行と同じ（洞の天井・ボス部屋の奥の壁が上まで続くように）
+  b.g = [...Array.from({ length: n }, () => b.g[0].map((ch) => (ch === 'S' || ch === '#' ? ch : '.'))), ...b.g.slice(0, b.H - n)];
+  for (const e of b.entities) {
+    if (Number.isFinite(e.y) && e.type !== 'tide') e.y += n;
+    for (const k of ['yLow', 'yHigh', 'bottom', 'y0', 'y1']) if (Number.isFinite(e[k])) e[k] += n;
+  }
+  b.f += n;
   return b;
 }

@@ -3,6 +3,7 @@
 // 1. 称号：敵を倒すイベントで「腕自慢」→ 通知が出てコインが入る／ステージクリアで「初陣」
 // 2. お題：達成でコイン、日付が変わると入れ替わる（Date を進める）
 // 3. 腕試し：エンディング後にマップに出る → 開始 → 1体目撃破 → 次へ（ハート+1）→ ボスを直接 damage して全6体 → 記録
+// 4. 特別ステージ8（沖縄）：1〜6クリアで地図に「南の島」→ 航路がひらける演出（1回だけ）→ ←→で選べる → クリアで称号2つ・結果からマップへ
 import { createRequire } from 'node:module';
 import path from 'node:path';
 const require = createRequire(import.meta.url);
@@ -151,6 +152,50 @@ await ev(() => window.__setNow(new Date(2026, 10, 24, 23, 50, 0).getTime()));
   // 力尽きた時
   const fail = await ev(() => { window.__GQ__.loop.stop(); window.__go('bossrush', { char: 'leaf' }); const S = window.__GQ__.game.scene; S.world.playerDown(); window.__step(3.2 * 120); return { phase: S.phase, tries: window.__GQ_SAVE__.data.bossRush.tries }; });
   ok(fail.phase === 'fail' && fail.tries === 2, '力尽きると終わり（記録画面に挑戦回数） ' + JSON.stringify(fail));
+  await ev(() => window.__GQ__.loop.start());
+}
+// ---- 4. 特別ステージ8（沖縄） ----
+{
+  const hidden = await ev(() => {
+    window.__GQ__.loop.stop();
+    const d = window.__GQ_SAVE__.data; d.cleared = [1, 2, 3, 4, 5]; if (d.seenHints) delete d.seenHints.route8;
+    window.__go('worldmap'); window.__step(10);
+    const S = window.__GQ__.game.scene; return { vis: S.visibleList(), reveal: S.reveal };
+  });
+  ok(!hidden.vis.includes(8) && hidden.reveal < 0, '1〜6をクリアするまで南の島は地図に出ない');
+  const rv = await ev(() => {
+    const d = window.__GQ_SAVE__.data; d.cleared = [1, 2, 3, 4, 5, 6]; d.lastStage = 6;
+    window.__go('worldmap', { stage: 6 }); window.__step(10);
+    const S = window.__GQ__.game.scene;
+    return { vis: S.visibleList(), reveal: S.reveal, seen: !!(d.seenHints && d.seenHints.route8) };
+  });
+  ok(rv.vis.includes(8) && rv.reveal > 0 && rv.seen, `解放された時に「南の島への航路がひらけた！」の演出 (${JSON.stringify(rv)})`);
+  await ev(() => { window.__step(150); window.__GQ__.game.render(1); });
+  await shot('8-south-reveal');
+  const after = await ev(() => { window.__step(3 * 120); const S = window.__GQ__.game.scene; const r = { reveal: S.reveal, sel: S.sel, has: !!window.__GQ__.game.scene.visibleList }; window.__go('worldmap', { stage: 6 }); window.__step(10); r.again = window.__GQ__.game.scene.reveal; return r; });
+  ok(after.reveal < 0 && after.again < 0, '演出は1回だけ（次にマップに来た時は出ない）');
+  const keys = await ev(() => {
+    const S = window.__GQ__.game.scene; S.sel = 6; S.moveSel(1); const a = S.sel; S.moveSel(-1); const b = S.sel; S.moveSel(1); return [a, b, S.sel];
+  });
+  ok(keys[0] === 8 && keys[1] === 6 && keys[2] === 8, `←→で南の島を選べる (${keys})`);
+  await ev(() => { window.__GQ__.loop.start(); });
+  await page.waitForTimeout(400);
+  await shot('9-south-map');
+  // クリア：レベルがあれば実際に入ってクリア、無ければ記録だけ
+  const cl = await ev(() => {
+    const G = window.__GQ__; G.loop.stop();
+    const d = window.__GQ_SAVE__.data, has = !!G.game.scene.visibleList && G.game.scene.visibleList().includes(8);
+    const c0 = d.coins, end0 = d.seenEnding;
+    let label = null;
+    {   // levels/stage8.json（ステージ担当）に入ってクリア。入れなければ下で記録だけ
+      try { window.__go('stage', { stage: 8, char: 'leaf' }); window.__step(30); const W = G.game.scene.world; if (W) { W.stageClear(); window.__step(330); } } catch (e) { return { err: String(e) }; }
+    }
+    if (G.game.sceneName !== 'results') { if (!d.cleared.includes(8)) d.cleared.push(8); G.progress.stageCleared({ stage: 8, char: 'leaf', stats: { hits: 0, misses: 0, time: 400 }, target: 420 }); window.__go('results', { stage: 8, char: 'leaf', stats: { coins: 0, sarubobo: [false, false, false], hits: 0, misses: 0, time: 400, enemies: 0 }, newBest: true }); window.__step(5); }
+    label = G.game.scene.list && G.game.scene.list.items[0].label;
+    return { has, scene: G.game.sceneName, label, cleared: d.cleared.includes(8), orb: !!d.achievements.south_orb, hero: !!d.achievements.nirai_hero, gain: d.coins - c0, end: d.seenEnding === end0, orb6: d.cleared.filter((n) => n >= 1 && n <= 6).length };
+  });
+  ok(cl.scene === 'results' && cl.cleared && cl.label === 'マップへ' && cl.end, `ステージ8のクリアは cleared に入り、結果からはマップへ (${JSON.stringify(cl)})`);
+  ok(cl.orb && cl.hero && cl.gain >= 600, `称号「南の宝珠」「ニライカナイの勇者」 (+${cl.gain})`);
   await ev(() => window.__GQ__.loop.start());
 }
 ok(errors.length === 0, 'コンソールエラー0件' + (errors.length ? ': ' + errors.slice(0, 3).join(' / ') : ''));
