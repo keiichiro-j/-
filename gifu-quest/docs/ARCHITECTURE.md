@@ -221,3 +221,7 @@ w.events.emit/on（'enemyDefeated','stomp','coin','bossStart','bossDefeated','st
 - エンティティ `hint`：spec { id: move|jump|attack|dash|drop|sign, range, dy, lift }。その場所に来ると操作の吹き出しを出す（PCはキー設定どおりのキー名、スマホはボタンの絵）。見終わると save.data.seenHints[id]=true で次から出ない
 - タッチのパッドを上へスライドすると ↑（看板を読む）
 - heroAnchor(id, anim, f) は hand, neck, hip, head, hr, ang, t, air を返す。武器の向きは顔にかからない角度を holdFor（art/heroGear.js）が選ぶ
+
+## オープニング（映画風）
+src/scenes/openingCine.js（画面名 'opening'）。約81秒・7場面（墨／宝珠の城と四季／火竜の目覚め／嵐と散る宝珠／乱れる里／四人／旅立ちと題字）。場面は SHOTS の表（長さ d・字幕 subs・効果音 cues・draw）。山並み・地図・和紙・題字・フィルムの粒・ビネットは起動時に焼き付け。Esc／「とばす」で飛ばす、Z・タップで次の場面へ。BGM は 'opening'。開発用：`?scene=opening&ot=秒` でその時刻から再生
+紙芝居の部品（Kamishibai, P）は src/scenes/opening.js に残り、エンディングが使う

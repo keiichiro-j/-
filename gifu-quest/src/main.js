@@ -17,7 +17,7 @@ import './bosses/index.js';
 // 画面
 import { bootScene } from './scenes/boot.js';
 import { titleScene } from './scenes/title.js';
-import { openingScene } from './scenes/opening.js';
+import { openingScene } from './scenes/openingCine.js';   // 映画風のオープニング（紙芝居の部品は ending が opening.js から使う）
 import { selectScene } from './scenes/select.js';
 import { worldmapScene } from './scenes/worldmap.js';
 import { stageScene } from './scenes/stage.js';
