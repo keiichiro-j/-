@@ -12,6 +12,8 @@ import { drawSprite } from '../gfx/atlas.js';
 import { LEVELS } from '../world/levels.js';
 import { drawText, drawWashi, drawTag, drawOrb, roundRect, fmtTime, font, COL } from '../ui/text.js';
 import META from '../data/stages.json';
+import CHARS from '../data/characters.json';
+import { weaponById, rarityInfo } from '../systems/gacha.js';
 // ワールドマップ（設計書 3章・9章）。架空の岐阜の地図。担当：UI
 // params: { stage?: 最後に遊んだステージ（そこにカーソルを置く）}
 
@@ -34,6 +36,18 @@ const ST = {
   mapTitle: { size: 22, color: COL.sumi, align: 'left', baseline: 'middle', serif: true },
   region: { size: 18, color: 'rgba(90,60,40,0.45)', align: 'center', baseline: 'middle', serif: true },
   new: { size: 13, color: COL.kinLight, stroke: COL.shuDark, strokeW: 3, align: 'center', baseline: 'middle' },
+};
+
+// 情報パネルの景色の帯（ステージの空と山の色）
+const BANNERS = {
+  0: { sky: ['#bfe0ff', '#eaf6ff'], hills: ['#9ac08a', '#6a9a5a'] },
+  1: { sky: ['#7ab8f0', '#e8f4ff'], hills: ['#8a9ab0', '#4a7a3a'], peak: 0.5 },
+  2: { sky: ['#5a4a8a', '#ff9a6a'], hills: ['#4a3a5a', '#2a3a5a'], lights: true },
+  3: { sky: ['#8ac8e8', '#e0f2ff'], hills: ['#7a9a8a', '#3a6a4a'] },
+  4: { sky: ['#2a1a4a', '#8a3a5a'], hills: ['#3a2a40', '#1e1428'], stars: true, lights: true },
+  5: { sky: ['#a8b8cc', '#eef2f8'], hills: ['#e8eef6', '#c4d0de'], snow: true },
+  6: { sky: ['#1a0a14', '#6a1a10'], hills: ['#3a1a1a', '#1a0a0a'], peak: 0.62, stars: true },
+  7: { sky: ['#2a2a6a', '#8a7ac8'], hills: ['#4a3a7a', '#2a1a4a'], stars: true },
 };
 
 function stageState(n) {
@@ -195,8 +209,9 @@ export const worldmapScene = {
   draw(ctx, a, vw, vh) {
     const t = this.t, d = save.data;
     ctx.fillStyle = '#2a1e1a'; ctx.fillRect(0, 0, vw, vh);
-    const panelW = 300;
-    const mx = 16, my = 58, mw = vw - panelW - 44, mh = vh - my - 30;
+    const PAD = 14, TOP = 58;
+    const panelW = Math.round(Math.min(320, Math.max(280, vw * 0.27)));
+    const mx = PAD, my = TOP, mw = vw - panelW - PAD * 3, mh = vh - TOP - PAD;
     this.drawMap(ctx, mx, my, mw, mh, t);
     // 位置
     for (let i = 0; i < ORDER.length; i++) { const m = META.stages[ORDER[i]], N = this.nodes[i]; N.x = mx + 20 + (mw - 40) * m.map[0]; N.y = my + 20 + (mh - 40) * m.map[1]; N.r = ORDER[i] === 0 ? 16 : 22; }
@@ -240,7 +255,7 @@ export const worldmapScene = {
     const hx = A.x + (B.x - A.x) * e, hy = A.y + (B.y - A.y) * e - Math.sin(e * Math.PI) * 16;
     drawHeroDressed(ctx, this.params.char || d.lastChar || 'leaf', k < 1 ? 'walk' : 'idle', (t * 8) | 0, hx, hy - 10, { sx: 0.9, sy: 0.9, flip: B.x < A.x && k < 1, weaponId: save.data.equipped && save.data.weapons[save.data.equipped] ? save.data.equipped : null, time: t });
     // 見出し
-    drawText(ctx, '岐阜の地図', 26, 30, { size: 26, color: COL.kinLight, stroke: COL.sumi, strokeW: 5, align: 'left', baseline: 'middle', serif: true });
+    drawText(ctx, '岐阜の地図', PAD + 6, 30, { size: 26, color: COL.kinLight, stroke: COL.sumi, strokeW: 5, align: 'left', baseline: 'middle', serif: true });
     const cnt = save.saruboboCount();
     // さるぼぼ・宝珠の数（地図の左上に重ねる。上の段はボタンに使う）
     roundRect(ctx, mx + 12, my + 12, 196, 32, 16); ctx.fillStyle = 'rgba(26,18,14,0.72)'; ctx.fill();
@@ -250,9 +265,10 @@ export const worldmapScene = {
     drawText(ctx, `宝珠 ${d.cleared.filter((n) => n >= 1 && n <= 6).length} / 6`, mx + 130, my + 29, ST.hint_l);
     // ボタン（上）
     // ボタン：見出しの右から地図の右端までに収める
-    const bh = 34, bx0 = 160, bx1 = vw - panelW - 28, bw = Math.min(104, (bx1 - bx0) / BTNS.length - 6);
+    // ボタン：見出しの右から画面の右端まで、同じ幅で等間隔に（右端はパネルの右端にそろえる）
+    const bh = 36, gap = 8, bx0 = 178, bx1 = vw - PAD, bw = Math.min(118, (bx1 - bx0 - gap * (BTNS.length - 1)) / BTNS.length);
     for (let i = 0; i < BTNS.length; i++) {
-      const r = this.btnRects[i]; r.w = bw; r.h = bh; r.x = bx1 - (BTNS.length - i) * (bw + 6) + 6; r.y = 12;
+      const r = this.btnRects[i]; r.w = bw; r.h = bh; r.x = bx1 - (BTNS.length - i) * bw - (BTNS.length - 1 - i) * gap; r.y = 11;
       const on = this.focus === 'btn' && this.btnSel === i;
       drawTag(ctx, r.x, r.y, r.w, r.h, on, false, on ? 0.5 + 0.5 * Math.sin(t * 5) : 0);
       const lb = this.fitLabel(ctx, BTNS[i], r.w - 10);
@@ -263,14 +279,14 @@ export const worldmapScene = {
     // 今日のお題（小さな表示。タップで記録画面のお題へ）
     this.drawMissions(ctx, mx + 216, my + 12, d, t);
     // ---- 右：ステージの情報 ----
-    this.drawInfo(ctx, vw - panelW - 16, 12, panelW, vh - 24, t);
+    this.drawInfo(ctx, vw - panelW - PAD, TOP, panelW, vh - TOP - PAD, t);
     if (this.msgT > 0) {
       ctx.globalAlpha = Math.min(1, this.msgT * 2);
       roundRect(ctx, mx + mw / 2 - 200, vh - 80, 400, 40, 20); ctx.fillStyle = 'rgba(20,14,12,0.85)'; ctx.fill();
       drawText(ctx, this.msg, mx + mw / 2, vh - 59, ST.hint);
       ctx.globalAlpha = 1;
     }
-    toast.draw(ctx, vw, vh, 62, true);   // 称号・お題の通知（地図の左上。右のパネルと重ならない）
+    toast.draw(ctx, vw, vh, my + 52, true);   // 称号・お題の通知（地図の左上。右のパネルと重ならない）
   },
   // ボタンの文字を幅に合わせる（15→12px。入らなければ短い名前）。結果はボタンごとに覚える
   fitLabel(ctx, b, maxW) {
@@ -305,37 +321,73 @@ export const worldmapScene = {
   },
   drawInfo(ctx, x, y, w, h, t) {
     const d = save.data, n = this.sel, m = META.stages[n], st = stageState(n), key = String(n);
+    const L = 20, R = x + w - L;          // 内側の左右の余白
     drawWashi(ctx, x, y, w, h);
-    drawText(ctx, n === 0 ? 'れんしゅう' : n === 7 ? 'うらステージ' : `第${'一二三四五六'[n - 1]}の地　${m.area}`, x + 24, y + 34, ST.area);
-    drawText(ctx, (LEVELS[n] && LEVELS[n].name) || m.name, x + 24, y + 64, n === 7 || ((LEVELS[n] && LEVELS[n].name) || m.name).length > 9 ? ST.nameS || (ST.nameS = { ...ST.name, size: 19 }) : ST.name);
-    ctx.fillStyle = 'rgba(142,42,28,0.4)'; ctx.fillRect(x + 22, y + 86, w - 44, 1.5);
-    // さるぼぼ（3つの枠）
-    drawText(ctx, 'さるぼぼ', x + 24, y + 116, ST.label);
+    // 見出し
+    drawText(ctx, n === 0 ? 'れんしゅう' : n === 7 ? 'うらステージ' : `第${'一二三四五六'[n - 1]}の地　${m.area}`, x + L, y + 26, ST.area);
+    const nm = (LEVELS[n] && LEVELS[n].name) || m.name;
+    drawText(ctx, nm, x + L, y + 52, nm.length > 9 ? ST.nameS || (ST.nameS = { ...ST.name, size: 19 }) : ST.name);
+    // 景色の帯（ステージの雰囲気。クリアすると宝珠が光る）
+    const by = y + 72, bh = 78;
+    this.drawBanner(ctx, x + L, by, w - L * 2, bh, n, t, d.cleared.includes(n));
+    // 記録の行（等間隔・区切り線）
+    const rows = [['さるぼぼ', null], ['ベストタイム', fmtTime(d.bestTime[key])], ['目標タイム', fmtTime(m.target)], ['クリア', d.cleared.includes(n) ? '済' : '―']];
+    const ry0 = by + bh + 26, rstep = 30;
+    rows.forEach(([lab, val], i) => {
+      const ry = ry0 + i * rstep;
+      drawText(ctx, lab, x + L, ry, ST.label);
+      if (val != null) drawText(ctx, val, R, ry, ST.val);
+      if (i < rows.length - 1) { ctx.fillStyle = 'rgba(90,60,40,0.14)'; ctx.fillRect(x + L, ry + rstep / 2, w - L * 2, 1); }
+    });
     const sb = d.sarubobo[key] || [false, false, false];
     for (let i = 0; i < 3; i++) {
-      const sx = x + w - 130 + i * 38, sy = y + 116;
-      roundRect(ctx, sx - 15, sy - 17, 30, 34, 7); ctx.fillStyle = 'rgba(90,60,40,0.15)'; ctx.fill(); ctx.strokeStyle = 'rgba(90,60,40,0.4)'; ctx.lineWidth = 1; ctx.stroke();
-      if (sb[i]) drawSprite(ctx, 'item_sarubobo', 0, sx, sy + 14, { sx: 0.8, sy: 0.8 });
+      const sx = R - 12 - (2 - i) * 32, sy = ry0;
+      roundRect(ctx, sx - 13, sy - 14, 26, 28, 6); ctx.fillStyle = 'rgba(90,60,40,0.13)'; ctx.fill(); ctx.strokeStyle = 'rgba(90,60,40,0.35)'; ctx.lineWidth = 1; ctx.stroke();
+      if (sb[i]) drawSprite(ctx, 'item_sarubobo', 0, sx, sy + 12, { sx: 0.7, sy: 0.7 });
     }
-    // タイム
     const bt = d.bestTime[key];
-    drawText(ctx, 'ベストタイム', x + 24, y + 160, ST.label);
-    drawText(ctx, fmtTime(bt), x + w - 24, y + 160, ST.val);
-    drawText(ctx, '目標タイム', x + 24, y + 192, ST.label);
-    drawText(ctx, fmtTime(m.target), x + w - 24, y + 192, ST.val);
-    if (bt != null && bt <= m.target) { ctx.fillStyle = COL.kin; this.star(ctx, x + w - 112, y + 192, 9); drawText(ctx, '達成', x + w - 130, y + 214, ST.label); }
-    drawText(ctx, 'クリア', x + 24, y + 234, ST.label);
-    drawText(ctx, d.cleared.includes(n) ? '済' : '―', x + w - 24, y + 234, ST.val);
-    // 遊ぶキャラ
-    const cid = this.params.char || d.lastChar || 'leaf';
-    drawHeroDressed(ctx, cid, 'idle', (t * 6) | 0, x + 60, y + 340, { sx: 1.3, sy: 1.3, weaponId: save.data.equipped && save.data.weapons[save.data.equipped] ? save.data.equipped : null, time: t });
-    drawText(ctx, 'この仲間で出発', x + 110, y + 312, ST.area);
-    // 出発ボタン
-    const G = this.goRect; G.x = x + 100; G.y = y + h - 76; G.w = w - 124; G.h = 50;
+    if (bt != null && bt <= m.target) { ctx.fillStyle = COL.kin; this.star(ctx, R - 92, ry0 + rstep * 2, 8); }
+    // 仲間の札（キャラと装備）
+    const cy = ry0 + rstep * 3 + 22, ch = 84, cid = this.params.char || d.lastChar || 'leaf', C = CHARS[cid] || CHARS.leaf;
+    const wid = d.equipped && d.weapons[d.equipped] && weaponById(d.equipped) ? d.equipped : null;
+    roundRect(ctx, x + L, cy, w - L * 2, ch, 10); ctx.fillStyle = 'rgba(90,60,40,0.1)'; ctx.fill(); ctx.strokeStyle = 'rgba(142,42,28,0.35)'; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.save(); roundRect(ctx, x + L, cy, w - L * 2, ch, 10); ctx.clip();
+    ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.beginPath(); ctx.ellipse(x + L + 46, cy + ch - 12, 26, 5, 0, 0, Math.PI * 2); ctx.fill();
+    drawHeroDressed(ctx, cid, 'idle', (t * 6) | 0, x + L + 46, cy + ch - 12, { sx: 1.2, sy: 1.2, weaponId: wid, time: t });
+    ctx.restore();
+    const tx = x + L + 92;
+    drawText(ctx, 'この仲間で出発', tx, cy + 16, ST.areaS || (ST.areaS = { ...ST.area, size: 12 }));
+    drawText(ctx, C.name, tx, cy + 38, ST.cname || (ST.cname = { size: 20, color: COL.sumi, align: 'left', baseline: 'middle', serif: true }));
+    if (wid) {
+      const W = weaponById(wid);
+      drawSprite(ctx, `weapon_${wid}`, 0, tx + 10, cy + 64, { sx: 0.45, sy: 0.45 });
+      drawText(ctx, W.name, tx + 24, cy + 64, ST.wname || (ST.wname = { size: 13, color: '#5a3a2a', align: 'left', baseline: 'middle' }));
+      ctx.fillStyle = rarityInfo(W.rarity).color; ctx.beginPath(); ctx.arc(R - 14, cy + 64, 4, 0, Math.PI * 2); ctx.fill();
+    } else drawText(ctx, '武器なし（福引き蔵で手に入る）', tx, cy + 64, ST.wname || (ST.wname = { size: 13, color: '#5a3a2a', align: 'left', baseline: 'middle' }));
+    // 出発ボタン（横いっぱい）
+    const G = this.goRect; G.x = x + L; G.w = w - L * 2; G.h = 50; G.y = y + h - 74;
     if (st.open && st.has) {
       drawTag(ctx, G.x, G.y, G.w, G.h, this.focus === 'map', false, 0.5 + 0.5 * Math.sin(t * 4));
       drawText(ctx, '出発！', G.x + G.w / 2, G.y + G.h / 2 + 1, ST.go);
-    } else drawText(ctx, st.open ? '準備中' : 'まだ進めない', G.x + G.w / 2, G.y + G.h / 2, ST.wait);
+    } else { roundRect(ctx, G.x, G.y, G.w, G.h, 12); ctx.fillStyle = 'rgba(90,60,40,0.1)'; ctx.fill(); drawText(ctx, st.open ? '準備中' : 'まだ進めない', G.x + G.w / 2, G.y + G.h / 2, ST.wait); }
     drawText(ctx, touch.enabled ? '場所をタップ・もう一度で出発' : '←→ 移動　Z 出発　↑ メニュー', x + w / 2, y + h - 12, ST.hintD || (ST.hintD = { size: 12, color: '#5a3a2a', align: 'center', baseline: 'middle' }));
+  },
+  // 景色の帯：ステージごとの空と山の色、宝珠
+  drawBanner(ctx, x, y, w, h, n, t, cleared) {
+    const P = BANNERS[n] || BANNERS[1], m = META.stages[n];
+    ctx.save(); roundRect(ctx, x, y, w, h, 10); ctx.clip();
+    const g = ctx.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, P.sky[0]); g.addColorStop(1, P.sky[1]); ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+    if (P.stars) { ctx.fillStyle = 'rgba(255,255,240,0.8)'; for (let i = 0; i < 18; i++) ctx.fillRect(x + ((i * 53.7) % w), y + ((i * 31.3) % (h * 0.5)), 1.5, 1.5); }
+    P.hills.forEach((c, k) => {
+      ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(x, y + h);
+      for (let i = 0; i <= 24; i++) { const u = i / 24; ctx.lineTo(x + u * w, y + h * (0.55 + k * 0.17) - Math.sin(u * (5 + k * 3) + n * 1.7 + k) * h * (0.14 - k * 0.04) - (k === 0 && P.peak ? Math.max(0, 1 - Math.abs(u - P.peak) * 6) * h * 0.25 : 0)); }
+      ctx.lineTo(x + w, y + h); ctx.closePath(); ctx.fill();
+    });
+    if (P.snow) { ctx.fillStyle = 'rgba(255,255,255,0.85)'; for (let i = 0; i < 26; i++) { ctx.beginPath(); ctx.arc(x + ((i * 47.1 + t * 8) % w), y + ((i * 23.7 + t * 14) % h), 1.4, 0, Math.PI * 2); ctx.fill(); } }
+    if (P.lights) for (let i = 0; i < 6; i++) { const lx = x + w * (0.15 + i * 0.14), ly = y + h * 0.74; ctx.fillStyle = 'rgba(255,190,90,0.9)'; ctx.beginPath(); ctx.arc(lx, ly, 2.6, 0, Math.PI * 2); ctx.fill(); }
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(90,60,40,0.45)'; ctx.lineWidth = 1.5; roundRect(ctx, x, y, w, h, 10); ctx.stroke();
+    if (m.orb) drawOrb(ctx, x + w - 24, y + 22, 10, cleared ? m.orb : '#8a8378', cleared ? 1 : 0);
+    if (m.boss) drawText(ctx, `ボス：${m.boss}`, x + 10, y + h - 12, ST.boss || (ST.boss = { size: 12, color: '#fff8e6', stroke: 'rgba(20,12,8,0.8)', strokeW: 3, align: 'left', baseline: 'middle' }));
   },
 };

@@ -11,6 +11,7 @@ import { Camera } from '../gfx/camera.js';
 import { Particles } from '../gfx/particles.js';
 import { TileMap } from '../gfx/tilemap.js';
 import { drawTile } from '../art/tiles.js';
+import { makeCanvas } from '../gfx/renderer.js';
 import { createBackdrop } from '../art/backdrops.js';
 import { createEnv } from '../systems/env.js';
 import { Lighting } from '../gfx/lighting.js';
@@ -286,6 +287,7 @@ export class World {
     let i = 0;
     for (; i < list.length && list[i].z < 0; i++) this.drawEnt(list[i], ctx, alpha, dark);
     this.tilemap.draw(ctx, cam.x, cam.y, vw, vh);
+    this.drawFakeBack(ctx, cam, vw, vh);
     this.particles.draw(ctx, false);
     for (; i < list.length && list[i].z < 10; i++) this.drawEnt(list[i], ctx, alpha, dark);
     this.player.draw(ctx, alpha);
@@ -318,19 +320,65 @@ export class World {
     e.draw(ctx, alpha);
     if (this.lights.length > n) e._lit = true; else if (e._lit === undefined) e._lit = false;
   }
-  drawFake(ctx, cam, vw, vh) {
+  // ---- 隠し部屋（偽の壁 H）----
+  // つながった偽の壁ごとに「壁の見た目」と「中の洞窟」の2枚を起動時に焼く。
+  // 洞窟は地形の後ろ（敵・アイテムより奥）に、壁はいちばん手前に描き、主人公が中にいる間だけ壁が透ける
+  bakeFake() {
+    this.fakeRooms = [];
     if (!this.fakeTiles.length) return;
-    const p = this.player;
-    const ptx = Math.floor(p.cx / TILE), pty = Math.floor(p.cy / TILE);
-    let inside = false;
-    for (const [tx, ty] of this.fakeTiles) if (Math.abs(tx - ptx) <= 1 && Math.abs(ty - pty) <= 1) { inside = true; break; }
-    this.fakeAlpha = this.fakeAlpha ?? 1;
-    this.fakeAlpha += ((inside ? 0.25 : 1) - this.fakeAlpha) * 0.15;
-    ctx.globalAlpha = this.fakeAlpha;
-    for (const [tx, ty] of this.fakeTiles) {
-      const x = tx * TILE, y = ty * TILE;
-      if (x + TILE < cam.x || x > cam.x + vw || y + TILE < cam.y || y > cam.y + vh) continue;
-      ctx.save(); ctx.translate(x, y); drawTile(ctx, T.FAKE, tx, ty, this.level, this.theme); ctx.restore();
+    const key = (x, y) => x * 4096 + y, set = new Set(this.fakeTiles.map(([x, y]) => key(x, y))), seen = new Set();
+    const S = 2;   // 2倍で焼く（高DPIでもぼやけにくい）
+    for (const [sx, sy] of this.fakeTiles) {
+      if (seen.has(key(sx, sy))) continue;
+      const tiles = [], stack = [[sx, sy]]; seen.add(key(sx, sy));
+      while (stack.length) {
+        const [x, y] = stack.pop(); tiles.push([x, y]);
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const k = key(x + dx, y + dy); if (set.has(k) && !seen.has(k)) { seen.add(k); stack.push([x + dx, y + dy]); } }
+      }
+      let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
+      for (const [x, y] of tiles) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+      const w = (x1 - x0 + 1) * TILE, h = (y1 - y0 + 1) * TILE;
+      const wall = makeCanvas(w * S, h * S), cave = makeCanvas(w * S, h * S);
+      const wc = wall.getContext('2d'); wc.scale(S, S);
+      for (const [x, y] of tiles) { wc.save(); wc.translate((x - x0) * TILE, (y - y0) * TILE); drawTile(wc, T.FAKE, x, y, this.level, this.theme); wc.restore(); }
+      const cc = cave.getContext('2d');
+      cc.drawImage(wall, 0, 0);
+      cc.globalCompositeOperation = 'source-atop';
+      cc.fillStyle = 'rgba(16,10,8,0.72)'; cc.fillRect(0, 0, cave.width, cave.height);   // 奥の土壁（暗く）
+      cc.scale(S, S);
+      // 縁の内側に影（部屋のくぼみに見せる）
+      for (const [x, y] of tiles) {
+        const lx = (x - x0) * TILE, ly = (y - y0) * TILE;
+        cc.fillStyle = 'rgba(0,0,0,0.35)';
+        if (!set.has(key(x, y - 1))) cc.fillRect(lx, ly, TILE, 8);
+        if (!set.has(key(x - 1, y))) cc.fillRect(lx, ly, 6, TILE);
+        if (!set.has(key(x + 1, y))) cc.fillRect(lx + TILE - 6, ly, 6, TILE);
+      }
+      this.fakeRooms.push({ set: new Set(tiles.map(([x, y]) => key(x, y))), x: x0 * TILE, y: y0 * TILE, w, h, wall, cave, alpha: 1, found: false });
+    }
+  }
+  fakeInside(room) {
+    const p = this.player, tx0 = Math.floor((p.x + 2) / TILE), tx1 = Math.floor((p.x + p.w - 2) / TILE), ty0 = Math.floor((p.y + 2) / TILE), ty1 = Math.floor((p.y + p.h - 2) / TILE);
+    for (let y = ty0; y <= ty1; y++) for (let x = tx0; x <= tx1; x++) if (room.set.has(x * 4096 + y)) return true;
+    return false;
+  }
+  drawFakeBack(ctx, cam, vw, vh) {
+    if (!this.fakeRooms) this.bakeFake();
+    for (const r of this.fakeRooms) {
+      if (r.x + r.w < cam.x || r.x > cam.x + vw || r.y + r.h < cam.y || r.y > cam.y + vh) continue;
+      ctx.drawImage(r.cave, r.x, r.y, r.w, r.h);
+    }
+  }
+  drawFake(ctx, cam, vw, vh) {
+    if (!this.fakeRooms) this.bakeFake();
+    for (const r of this.fakeRooms) {
+      const inside = this.fakeInside(r);
+      if (inside && !r.found) { r.found = true; this.sfx('star'); this.events.emit('secretFound', {}); }
+      r.alpha += ((inside ? 0 : 1) - r.alpha) * 0.18;
+      if (r.alpha < 0.01) continue;
+      if (r.x + r.w < cam.x || r.x > cam.x + vw || r.y + r.h < cam.y || r.y > cam.y + vh) continue;
+      ctx.globalAlpha = r.alpha;
+      ctx.drawImage(r.wall, r.x, r.y, r.w, r.h);
     }
     ctx.globalAlpha = 1;
   }

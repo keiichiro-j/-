@@ -1,6 +1,7 @@
 import { TILE } from '../core/config.js';
 import { makeCanvas } from './renderer.js';
 import { drawTile } from '../art/tiles.js';
+import { T } from '../world/tiles.js';
 // タイルを16×16のチャンク単位で画像に焼き付け、変化したチャンクだけ描き直す（設計書 2章「性能の予算」）
 // - チャンクは画面の実ピクセルと同じ解像度（論理1ドット＝ctx の拡大率）で焼き、実ピクセルの格子にそろえて
 //   拡大縮小なしで貼る（拡大して貼ると、ぼやける上にスマホ・高DPIで1フレーム十数ms かかっていた）
@@ -32,7 +33,7 @@ export class TileMap {
     for (let ty = cy * CH; ty < (cy + 1) * CH && ty < L.h; ty++) {
       for (let tx = cx * CH; tx < (cx + 1) * CH && tx < L.w; tx++) {
         const t = L.get(tx, ty);
-        if (!t) continue;
+        if (!t || t === T.FAKE) continue;   // 隠し部屋の偽の壁は World が別に描く（中に入ると透ける）
         ctx.save();
         ctx.translate((tx - cx * CH) * TILE, (ty - cy * CH) * TILE);
         drawTile(ctx, t, tx, ty, L, this.theme);

@@ -26,6 +26,8 @@ const eIO = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 const sine = (t) => 0.5 - 0.5 * Math.cos(Math.PI * clamp(t));
 const hash = (i) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 const HEROES = ['leaf', 'minamo', 'gen', 'haku'];
+// 四人の見せ場の色：背景（キャラの色）と、名前の下の筆の色（明るい色のキャラは濃い色の筆にして文字を読みやすく）
+const CARD = { leaf: { bg: '#5fae4a', brush: '#3d7a2c' }, minamo: { bg: '#3f7fd0', brush: '#24508e' }, gen: { bg: '#c0503a', brush: '#8a2a1a' }, haku: { bg: '#cfe0f2', brush: '#2a5a8e' } };
 
 // ---------------------------------------------------------------- 焼き付ける素材
 const BAKE = {};
@@ -586,7 +588,7 @@ const SHOTS = [
     subs: [],
     draw(ctx, t, vw, vh) {
       const i = Math.min(3, Math.floor(t / 3.1)), lt = t - i * 3.1, id = HEROES[i], C = CHARS[id];
-      const col = C.color, side = i % 2 ? -1 : 1;
+      const col = CARD[id].bg, brushCol = CARD[id].brush, side = i % 2 ? -1 : 1;
       // 背景：斜めに割った2色と、流れる集中線
       ctx.fillStyle = '#120c10'; ctx.fillRect(0, 0, vw, vh);
       const k = eOut(inv(0, 0.35, lt));
@@ -597,7 +599,7 @@ const SHOTS = [
       ctx.restore();
       // 墨の大きな一刷け（名前の下地）
       const bx = side > 0 ? vw * 0.46 : vw * 0.06, by = vh * 0.5;
-      ctx.save(); ctx.globalAlpha = 0.88; brushStroke(ctx, bx, by, vw * 0.48, vh * 0.3, inv(0.15, 0.6, lt), col, i * 31); ctx.restore();   // キャラの色の一刷け
+      ctx.save(); ctx.globalAlpha = 0.88; brushStroke(ctx, bx, by, vw * 0.48, vh * 0.3, inv(0.15, 0.6, lt), brushCol, i * 31); ctx.restore();   // キャラの色の一刷け
       // 主人公：走りこんで構える
       const hk = eOut(inv(0.1, 0.55, lt)), hxp = side > 0 ? lerp(-vw * 0.1, vw * 0.25, hk) : lerp(vw * 1.1, vw * 0.75, hk);
       glow(ctx, hxp, vh * 0.62, vh * 0.45, 'rgba(255,255,230,0.25)', 1);
@@ -607,9 +609,9 @@ const SHOTS = [
       // 名前・肩書き・技
       const tk = eOut(inv(0.4, 0.8, lt)), nx = side > 0 ? vw * 0.5 : vw * 0.1;
       ctx.save(); ctx.globalAlpha = tk; ctx.translate((1 - tk) * 60 * side, 0);
-      drawText(ctx, C.title, nx, vh * 0.36, { size: 22, color: '#f3ead7', align: 'left', baseline: 'middle', serif: true });
+      drawText(ctx, C.title, nx, vh * 0.36, { size: 22, color: '#fff8e6', stroke: '#140a08', strokeW: 5, align: 'left', baseline: 'middle', serif: true });
       drawText(ctx, C.name, nx, vh * 0.5, { size: 86, color: '#fff8e6', stroke: '#140a08', strokeW: 10, align: 'left', baseline: 'middle', serif: true, shadow: true });
-      drawText(ctx, `技：${C.tech}　／　${C.skill}`, nx, vh * 0.64, { size: 18, color: COL.kinLight, align: 'left', baseline: 'middle' });
+      drawText(ctx, `技：${C.tech}　／　${C.skill}`, nx, vh * 0.64, { size: 18, color: COL.kinLight, stroke: '#140a08', strokeW: 4, align: 'left', baseline: 'middle' });
       ctx.restore();
       seal(ctx, side > 0 ? vw * 0.9 : vw * 0.43, vh * 0.2, 58, C.name[0], tk);
       // 切りかえの一閃

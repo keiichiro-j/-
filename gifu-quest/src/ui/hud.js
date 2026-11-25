@@ -57,6 +57,7 @@ events.on('coin', () => { coinBump = 1; });
 events.on('playerHurt', () => { hurtFlash = 1; });
 events.on('sarubobo', (e) => hudToast(`さるぼぼ ${(e.index ?? 0) + 1}つ目！`));
 events.on('checkpoint', () => hudToast('中間地点　ハート全回復'));
+events.on('secretFound', () => hudToast('隠し部屋を見つけた！', 1.8));
 events.on('stageEnter', () => { for (const p of POPS) p.on = false; for (const t of TOASTS) t.on = false; bossShown = 0; trail = 1; trailWait = 0; bossHitT = 0; lastBossHp = -1; lastPhase = 0; phaseT = 0; coinBump = 0; hurtFlash = 0; lastHearts = -1; heartShake = 0; for (const h of HEART_FX) h.t = -1; });
 events.on('bossDefeated', (e) => { const b = e && e.boss; hudToast(b && b.name ? `${b.name}を たおした！` : 'たおした！', 2.2); });
 // 図鑑：倒した敵の種類を記録（保存はステージ終了時）
